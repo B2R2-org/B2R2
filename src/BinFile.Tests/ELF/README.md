@@ -1,0 +1,2 @@
+- ELF Binary source : http://ftp.gnu.org/gnu/coreutils/coreutils-8.29.tar.xz
+- MIPS Binary : https://packages.debian.org/stretch/coreutils

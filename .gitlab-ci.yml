@@ -1,0 +1,32 @@
+image: microsoft/dotnet:latest
+
+stages:
+    - build
+    - evaltest
+
+build:
+    stage: build
+    script:
+        - dotnet restore
+        - dotnet test
+        - dotnet test -c Release
+        - dotnet pack -p:PackageVersion=0.0.0-test -c Release -o `pwd`/build/
+    artifacts:
+        paths:
+            - build/
+        expire_in: 1 day
+    tags:
+        - b2r2
+
+evaltest:
+    stage: evaltest
+    script:
+        - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@softsec.kaist.ac.kr:8888/B2R2/evaltest
+        - dotnet nuget locals all --clear
+        - |
+            dotnet run -c Release --project evaltest/B2R2.TestDriver -- \
+            $TRACE_URL $CI_COMMIT_REF_NAME $CI_COMMIT_SHA "$GITLAB_USER_NAME"
+    dependencies:
+        - build
+    tags:
+        - b2r2

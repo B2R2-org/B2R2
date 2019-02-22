@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Symbol.fs" />
+    <Compile Include="LowUIR.Types.fs" />
+    <Compile Include="LowUIR.fs" />
+    <Compile Include="LowUIR.AST.fsi" />
+    <Compile Include="LowUIR.AST.fs" />
+    <Compile Include="LowUIR.Eval.fs" />
+    <Compile Include="Utils.fs" />
+    <Compile Include="PrettyPrint.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Core\B2R2.Core.fsproj" />
+  </ItemGroup>
+
+</Project>

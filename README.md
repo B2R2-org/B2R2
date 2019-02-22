@@ -1,3 +1,5 @@
+![alt text](https://b2r2.org//images/b2r2-2d.png)
+
 B2R2
 ====
 
@@ -7,17 +9,8 @@ B2R2 has been named after [R2-D2](https://en.wikipedia.org/wiki/R2-D2), a famous
 fictional robot appeared in the Star Wars. In fact, B2R2's original name was
 *B2-R2*, but we decided to use the name *B2R2* instead, because .NET does not
 allow dash (-) characters in identifiers (or namespaces). The name essentially
-represents "binary" or "two". Note that "binary" itself means "two" states
-anyways. "B" and "2" mean "binary", and "R" means *reversing*.
-
-N.B.
-----
-
-This is a prerelease of B2R2. We currently only open the [Nuget
-access](https://www.nuget.org/packages/B2R2.FrontEnd/) for our front-end. We
-will make our source code fully public before the [NDSS
-BAR](https://www.ndss-symposium.org/ndss2019/cfp-bar-2019/) workshop begins!
-
+represents "binary" or "two": "binary" itself means "two" states anyways. "B"
+and "2" mean "binary", and "R" indicates *reversing*.
 
 B2R2?
 -----
@@ -44,27 +37,26 @@ B2R2?
    language. Theoretically, you can use B2R2 APIs with any [CLI supported
    languages](https://en.wikipedia.org/wiki/List_of_CLI_languages).
 
+Features?
+---------
+
+Currently, our focus is on the front-end of binary analysis, which includes
+binary parser, lifter, and optimizer. B2R2 natively supports parallel lifting,
+which is a new technique we introduced in 2019 NDSS Bar. Please refer to our
+[paper](#citation) for more details about the technique as well as our design
+decisions. We also have our own back-end tools such as symbolic executor, but we
+are *not* planning to open-source them yet. Nevertheless, B2R2 includes several
+useful middle-end or back-end features such as ROP chain compilation, CFG
+building, and automatic graph drawing, and etc. B2R2 also comes with a simple
+command-line utility that we call [`BinExplorer`](src/Utilities/BinExplorer),
+which can help explore such features using a simple command line interface.
+
 Dependencies?
 -------------
 
-B2R2 itself does *not* rely on any external libraries. But, one of our utilities
-leverages [Gui.cs](https://github.com/migueldeicaza/gui.cs/) to represent
-command-line interfaces in a platform-independent manner. Gui.cs internally uses
-the *libcurses* library on &ast;nix system, which is indeed a default library in
-most Linux distros or in macOS. So, you really don't need to install any other
-libraries in order to build B2R2!
-
-Why Reinventing the Wheel?
---------------------------
-
-There are many other great tools available, but we wanted to build a
-*functional-first* binary analysis platform that is painless to install and runs
-on any platform without any hassle. B2R2 is in its *infancy* stage, but we
-believe it provides a rich set of library functions for binary analysis. It also
-has a strong front-end that is easily adaptable and extendible! Currently it
-reliably supports x86 and x86-64, meaning that we have heavily tested them; and
-it partially supports ARMv7 (and Thumb), ARMv8, MIPS32, and MIPS64, meaning that
-they work, but we haven't tested them thoughly yet.
+B2R2 itself does *not* rely on any external libraries. So, you really don't need
+to install any other libraries in order to build B2R2! Just install .NET core,
+and that's all.
 
 Example
 -------
@@ -123,6 +115,33 @@ Building B2R2 is fun and easy. All you need to do is to install .NET Core SDK
 
 For your information, please visit the official web site of F# to get more tips
 about installing the development environment for F#: http://fsharp.org/.
+
+Why Reinventing the Wheel?
+--------------------------
+
+There are many other great tools available, but we wanted to build a
+*functional-first* binary analysis platform that is painless to install and runs
+on any platform without any hassle. B2R2 is in its *infancy* stage, but we
+believe it provides a rich set of library functions for binary analysis. It also
+has a strong front-end that is easily adaptable and extendible! Currently it
+reliably supports x86 and x86-64, meaning that we have heavily tested them; and
+it partially supports ARMv7 (and Thumb), ARMv8, MIPS32, and MIPS64, meaning that
+they work, but we haven't tested them thorougly yet.
+
+
+Features to be Added?
+---------------------
+
+Below is a list of features that we plan to add in the future: the list is
+totally incomplete. Some of them are work in progress, but we look forward your
+contributions! Feel free to write a PR (Pull Requst) while making sure that you
+have read our [contribution guideline](CONTRIBUTING.md).
+
+- Implement CFG recovery algorithms.
+- Implement function boundary identification algorithms.
+- Implement assembler for currently supported ISAs using a parser combinator.
+- Support for floating point operations.
+- Support for more architectures such as PPC.
 
 Credits
 -------

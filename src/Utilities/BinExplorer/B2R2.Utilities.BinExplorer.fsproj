@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Protocol.fs" />
+    <Compile Include="HTTPServer.fs" />
+    <Compile Include="CmdTypes.fs" />
+    <Compile Include="BinInfo.fs" />
+    <Compile Include="Credits.fs" />
+    <Compile Include="List.fs" />
+    <Compile Include="Search.fs" />
+    <Compile Include="HexDump.fs" />
+    <Compile Include="Print.fs" />
+    <Compile Include="Disasm.fs" />
+    <Compile Include="ROP.fs" />
+    <Compile Include="Help.fs" />
+    <Compile Include="CmdSpec.fs" />
+    <Compile Include="CLI.fs" />
+    <Compile Include="Main.fs" />
+    <None Include="WebUI\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\FrontEnd\Core\B2R2.FrontEnd.Core.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\Library\B2R2.FrontEnd.Library.fsproj" />
+    <ProjectReference Include="..\..\BinGraph\B2R2.BinGraph.fsproj" />
+    <ProjectReference Include="..\..\ROP\B2R2.ROP.fsproj" />
+    <ProjectReference Include="..\..\Visualization\B2R2.Visualization.fsproj" />
+    <ProjectReference Include="..\Core\B2R2.Utilities.Core.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="B2R2.FsReadLine" Version="0.1.1" />
+  </ItemGroup>
+
+</Project>

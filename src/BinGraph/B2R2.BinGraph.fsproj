@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Graph.fs" />
+    <Compile Include="RangedDiGraph.fsi" />
+    <Compile Include="RangedDiGraph.fs" />
+    <Compile Include="SimpleDiGraph.fsi" />
+    <Compile Include="SimpleDiGraph.fs" />
+    <Compile Include="Dominator.fsi" />
+    <Compile Include="Dominator.fs" />
+    <Compile Include="DisasHeuristic.fs" />
+    <Compile Include="CFGBuilder.fs" />
+    <Compile Include="Boundary.fs" />
+    <Compile Include="CFG.fs" />
+    <Compile Include="BinEssence.fs" />
+    <Compile Include="Algorithms.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Core\B2R2.Core.fsproj" />
+    <ProjectReference Include="..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\FrontEnd\Core\B2R2.FrontEnd.Core.fsproj" />
+    <ProjectReference Include="..\FrontEnd\Intel\B2R2.FrontEnd.Intel.fsproj" />
+    <ProjectReference Include="..\FrontEnd\ARM32\B2R2.FrontEnd.ARM32.fsproj" />
+    <ProjectReference Include="..\FrontEnd\ARM64\B2R2.FrontEnd.ARM64.fsproj" />
+    <ProjectReference Include="..\FrontEnd\MIPS\B2R2.FrontEnd.MIPS.fsproj" />
+    <ProjectReference Include="..\FrontEnd\Library\B2R2.FrontEnd.Library.fsproj" />
+    <ProjectReference Include="..\FrontEnd\Optimizer\B2R2.FrontEnd.Optimizer.fsproj" />
+  </ItemGroup>
+
+</Project>

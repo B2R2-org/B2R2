@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="MIPSTypes.fs" />
+    <Compile Include="MIPSRegisterSet.fs" />
+    <Compile Include="MIPSRegExprs.fs" />
+    <Compile Include="MIPSUtils.fs" />
+    <Compile Include="MIPSHelper.fs" />
+    <Compile Include="MIPSDisasm.fs" />
+    <Compile Include="MIPSLifter.fs" />
+    <Compile Include="MIPSInstruction.fs" />
+    <Compile Include="MIPSParser.fsi" />
+    <Compile Include="MIPSParser.fs" />
+    <Compile Include="MIPS.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
+    <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\..\BinFile\B2R2.BinFile.fsproj" />
+    <ProjectReference Include="..\Core\B2R2.FrontEnd.Core.fsproj" />
+  </ItemGroup>
+
+</Project>

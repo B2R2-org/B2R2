@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="FileTypes.fs" />
+    <Compile Include="FileInfo.fs" />
+    <Compile Include="FileHelper.fs" />
+    <Compile Include="RawBinary.fs" />
+    <Compile Include="ELFHelper.fs" />
+    <Compile Include="ELF.fs" />
+    <Compile Include="MachHelper.fs" />
+    <Compile Include="Mach.fs" />
+    <Compile Include="PDB.fs" />
+    <Compile Include="PEHelper.fs" />
+    <Compile Include="PE.fs" />
+    <Compile Include="FormatDetector.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Core\B2R2.Core.fsproj" />
+  </ItemGroup>
+
+</Project>

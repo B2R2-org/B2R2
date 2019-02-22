@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="ARM64Exceptions.fs" />
+    <Compile Include="ARM64Types.fs" />
+    <Compile Include="ARM64RegisterSet.fs" />
+    <Compile Include="ARM64RegExprs.fs" />
+    <Compile Include="ARM64Utils.fs" />
+    <Compile Include="ARM64OperandHelper.fs" />
+    <Compile Include="ARM64Disasm.fs" />
+    <Compile Include="ARM64Lifter.fs" />
+    <Compile Include="ARM64Instruction.fs" />
+    <Compile Include="ARM64Parser.fsi" />
+    <Compile Include="ARM64Parser.fs" />
+    <Compile Include="ARM64.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
+    <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\..\BinFile\B2R2.BinFile.fsproj" />
+    <ProjectReference Include="..\Core\B2R2.FrontEnd.Core.fsproj" />
+  </ItemGroup>
+
+</Project>

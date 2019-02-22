@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <Product>B2R2</Product>
+    <Authors>SoftSec Lab. @ KAIST</Authors>
+    <Company>SoftSec Lab. @ KAIST</Company>
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <VersionSuffix>$(VersionSuffix)</VersionSuffix>
+    <Description>B2R2: the Next-Generation Reversing Platform</Description>
+    <Copyright>Copyright (c) SoftSec Lab. @ KAIST, since 2016</Copyright>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+</Project>
