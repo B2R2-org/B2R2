@@ -1,5 +1,9 @@
 ![alt text](https://b2r2.org//images/b2r2-2d.png)
 
+[![Build Status](https://travis-ci.com/B2R2-org/B2R2.svg?branch=master)](https://travis-ci.com/B2R2-org/B2R2)
+![](https://img.shields.io/github/license/B2R2-org/B2R2.svg?style=flat)
+[![](https://img.shields.io/nuget/vpre/B2R2.FrontEnd.svg?style=flat)](https://www.nuget.org/packages/B2R2.FrontEnd)
+
 B2R2
 ====
 
@@ -78,7 +82,7 @@ Let's try to use B2R2 APIs.
 1. Add our nuget package *B2R2.FrontEnd* to the project:
 
     ```
-    $ dotnet add package B2R2.FrontEnd --version 0.1.0-alpha
+    $ dotnet add package B2R2.FrontEnd --version 0.1.0
     ```
 
 1. Modify the `Program.fs` file with your favorite editor as follows:
