@@ -62,6 +62,11 @@ B2R2 itself does *not* rely on any external libraries. So, you really don't need
 to install any other libraries in order to build B2R2! Just install .NET core,
 and that's all.
 
+API Documentation
+-----------------
+
+We currently use docfx to generate our documentation: https://b2r2.org/APIDoc/
+
 Example
 -------
 
