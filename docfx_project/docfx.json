@@ -59,8 +59,15 @@
       }
     ],
     "dest": ".",
-    "globalMetadataFiles": [],
-    "fileMetadataFiles": [],
+    "globalMetadata": {
+      "_appTitle": "B2R2 API",
+      "_disableNavbar": "true",
+      "_gitContribute": {
+        "repo": "https://github.com/B2R2-org/B2R2",
+        "branch": "master",
+        "apiSpecFolder": "docs-ref-overwrite"
+      }
+    },
     "template": [
       "statictoc"
     ],

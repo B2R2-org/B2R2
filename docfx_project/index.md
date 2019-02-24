@@ -1,4 +1,10 @@
-# This is the **HOMEPAGE**.
-Refer to [Markdown](http://daringfireball.net/projects/markdown/) for how to write markdown files.
-## Quick Start Notes:
-1. Add images to the *images* folder if the file is referencing an image.
+# API Documentation for **B2R2**.
+
+Visit our [API Documentation](api/index.md) page to start with.
+
+## B2R2
+
+B2R2 is a collection of useful algorithms, functions, and tools for **binary
+analysis**, written purely in F# (in .NET lingo, it is purely managed code). For
+further information about our project, visit our main repository:
+https://github.com/B2R2-org/B2R2.
