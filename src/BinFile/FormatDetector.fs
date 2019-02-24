@@ -53,8 +53,8 @@ let private checkMach reader offset =
   else None
 
 /// <summary>
-/// Given a binary file, identify file format and return a tuple of (<see
-/// cref="B2R2.FileFormat"/> , and <see cref="B2R2.ISA"/>).
+/// Given a binary file, identify file format and return a tuple of
+/// (B2R2.FileFormat and B2R2.ISA).
 /// </summary>
 [<CompiledName("Detect")>]
 let detect file =

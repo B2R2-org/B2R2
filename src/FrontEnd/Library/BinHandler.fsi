@@ -84,7 +84,6 @@ with
   ///   Return the ASCII string at the addr from the given BinHandler.
   /// </summary>
   /// <param name="addr">The address.</param>
-  /// possible.</param>
   /// <returns>
   ///   Return the corresponding ASCII string.
   /// </returns>

@@ -27,6 +27,10 @@
 all:
 	@dotnet build /p:DefineConstants=DEBUG
 
+doc:
+	@docfx metadata docfx_project/docfx.json
+	@docfx build docfx_project/docfx.json -o docs
+
 release:
 	@dotnet build -c Release
 
@@ -41,4 +45,4 @@ clean:
 	@dotnet clean -c Debug
 	@dotnet clean -c Release
 
-.PHONY: all release test publish clean
+.PHONY: all doc release test publish clean
