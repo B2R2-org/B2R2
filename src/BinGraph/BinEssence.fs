@@ -45,7 +45,7 @@ type BinEssence =
   }
 with
   static member Init _verbose hdl =
-    let builder, funcs = CFG.construct hdl None
+    let builder, funcs = CFGUtils.construct hdl None
     (* Currently no other choice *)
     { BinHandler = hdl; CFGBuilder = builder ; Functions = funcs }
 
@@ -64,10 +64,10 @@ with
         if func.Name = name then Some func else None)
 
   static member DisasmVertexToDOT v =
-    "\"" + CFG.disasmVertexToString v + "\""
+    "\"" + CFGUtils.disasmVertexToString v + "\""
 
   static member IrVertexToDOT v =
-    "\"" + CFG.irVertexToString v + "\""
+    "\"" + CFGUtils.irVertexToString v + "\""
 
   static member EdgeToDOT (Edge e) = // FIXME
     sprintf "%A" e

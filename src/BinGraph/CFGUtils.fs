@@ -25,7 +25,7 @@
   SOFTWARE.
 *)
 
-module B2R2.BinGraph.CFG
+module B2R2.BinGraph.CFGUtils
 
 open B2R2
 open B2R2.BinFile

@@ -159,9 +159,10 @@ let dumpJsonFiles jsonDir ess =
       let encoding = System.Text.Encoding.UTF8
       let hdl = ess.BinHandler
       let disasmJson =
-        CFG.disasmCFGToJson hdl func.DisasmCFG func.Entry |> encoding.GetBytes
+        CFGUtils.disasmCFGToJson hdl func.DisasmCFG func.Entry
+        |> encoding.GetBytes
       let irJson =
-        CFG.irCFGToJson hdl func.IRCFG func.Entry |> encoding.GetBytes
+        CFGUtils.irCFGToJson hdl func.IRCFG func.Entry |> encoding.GetBytes
       System.IO.File.WriteAllBytes(disasmJsonPath, disasmJson)
       System.IO.File.WriteAllBytes(irJsonPath, irJson)
     ) <| List.ofSeq ess.Functions.Values

@@ -17,7 +17,7 @@
     <Compile Include="DisasHeuristic.fs" />
     <Compile Include="CFGBuilder.fs" />
     <Compile Include="Boundary.fs" />
-    <Compile Include="CFG.fs" />
+    <Compile Include="CFGUtils.fs" />
     <Compile Include="BinEssence.fs" />
     <Compile Include="Algorithms.fs" />
   </ItemGroup>
