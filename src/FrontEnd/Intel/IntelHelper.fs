@@ -67,6 +67,7 @@ let segRegToBase = function
   | _ -> failwith "Unhandled segment."
 
 let inline hasREXW rexPref = rexPref &&& REXPrefix.REXW = REXPrefix.REXW
+let inline hasREXR rexPref = rexPref &&& REXPrefix.REXR = REXPrefix.REXR
 let inline hasAddrSz prefs = (prefs &&& Prefix.PrxADDRSIZE) <> Prefix.PrxNone
 let inline hasOprSz prefs = (prefs &&& Prefix.PrxOPSIZE) <> Prefix.PrxNone
 let inline hasREPZ prefs = (prefs &&& Prefix.PrxREPZ) <> Prefix.PrxNone

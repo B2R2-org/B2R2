@@ -471,8 +471,8 @@ let inline getSize64 prefs rexPref sizeCond =
     else struct (64<rt>, 64<rt>)
   else
     if hasOprSz prefs then
-      if hasAddrSz prefs then struct (16<rt>, 32<rt>)
-      else struct (16<rt>, 64<rt>)
+      if hasAddrSz prefs then struct (getOprSize 16<rt> sizeCond, 32<rt>)
+      else struct (getOprSize 16<rt> sizeCond, 64<rt>)
     else
       if hasAddrSz prefs then
         struct (getOprSize 32<rt> sizeCond, 32<rt>)
@@ -1299,7 +1299,7 @@ let private pTwoByteOp t reader pos byte =
   | 0x1Auy -> parseBND t SzDef32 opNor0F1A dsNor0F1A, pos
   | 0x1Buy -> parseBND t SzDef32 opNor0F1B dsNor0F1B, pos
   | 0x1Fuy -> parseOp t Opcode.NOP SzDef32 E0v, pos
-  | 0x20uy -> parseOp t Opcode.MOV SzDef32 RdCd, pos
+  | 0x20uy -> parseOp t Opcode.MOV Sz64 RdCd, pos
   | 0x21uy -> parseOp t Opcode.MOV SzDef32 RdDd, pos
   | 0x22uy -> parseOp t Opcode.MOV SzDef32 CdRd, pos
   | 0x23uy -> parseOp t Opcode.MOV SzDef32 DdRd, pos
@@ -2136,6 +2136,8 @@ let parseWithModRM insInfo wordSz reader pos modRM mode =
   | OprMode.G | OprMode.V | OprMode.VZ ->
     parseReg (getReg modRM) insInfo.InsSize.RegSize RGrpAttr.ARegBits insInfo
              pos
+  | OprMode.C when insInfo.Opcode = Opcode.MOV && hasREXR insInfo.REXPrefix ->
+    struct (parseControlReg 0x808, pos) (* CR8 *)
   | OprMode.C -> struct (parseControlReg (getReg modRM), pos)
   | OprMode.D -> struct (parseDebugReg (getReg modRM), pos)
   | OprMode.H -> struct (parseXMMReg insInfo, pos)

@@ -353,6 +353,8 @@ type Register =
   | CR3 = 0x803
   /// Control registers.
   | CR4 = 0x804
+  /// Control registers.
+  | CR8 = 0x808
   /// Debug registers.
   | DR0 = 0x900
   /// Debug registers.

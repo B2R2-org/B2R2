@@ -3,6 +3,7 @@
 
   Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
           DongYeop Oh <oh51dy@kaist.ac.kr>
+          Seung Il Jung <sijung@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -183,6 +184,7 @@ let regToStr = function
   | R.CR2 -> "cr2"
   | R.CR3 -> "cr3"
   | R.CR4 -> "cr4"
+  | R.CR8 -> "cr8"
   | R.DR0 -> "dr0"
   | R.DR1 -> "dr1"
   | R.DR2 -> "dr2"
