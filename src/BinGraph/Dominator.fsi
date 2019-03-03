@@ -2,6 +2,7 @@
   B2R2 - the Next-Generation Reversing Platform
 
   Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
+          Soomin Kim <soomink@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -26,17 +27,65 @@
 
 module B2R2.BinGraph.Dominator
 
+open System.Collections.Generic
+
+type DomInfo<'V when 'V :> VertexData> =
+  {
+    /// Vertex ID -> DFNum
+    DFNumMap      : Dictionary<VertexID, int>
+    /// DFNum -> Vertex
+    Vertex        : Vertex<'V> []
+    /// DFNum -> DFNum in the ancestor chain s.t. DFNum of its Semi is minimal.
+    Label         : int []
+    /// DFNum -> DFNum of the parent node (zero if not exists).
+    Parent        : int []
+    /// DFNum -> DFNum of the child node (zero if not exists).
+    Child         : int []
+    /// DFNum -> DFNum of an ancestor.
+    Ancestor      : int []
+    /// DFNum -> DFNum of a semidominator.
+    Semi          : int []
+    /// DFNum -> set of DFNums (vertices that share the same sdom).
+    Bucket        : Set<int> []
+    /// DFNum -> Size
+    Size          : int []
+    /// DFNum -> DFNum of an immediate dominator.
+    IDom          : int []
+    /// Length of the arrays.
+    MaxLength     : int
+  }
+
+type DominatorContext<'V, 'E when 'V :> VertexData> =
+  {
+    ForwardGraph : DiGraph<'V, 'E>
+    ForwardDomInfo : DomInfo<'V>
+    BackwardGraph : DiGraph<'V, 'E>
+    BackwardDomInfo : DomInfo<'V>
+  }
+
+/// Initialize dominator context for a given graph (g).
+val initDominatorContext : DiGraph<'V, 'E> -> DominatorContext<'V, 'E>
+
 /// Return immediate dominator of the given node (v) in the graph (g).
-val idom : DiGraph<'V, 'E> -> Vertex<'V> -> Vertex<'V> option
+val idom :
+  DominatorContext<'V, 'E> -> Vertex<'V> -> Vertex<'V> option
 
 /// Return immediate post-dominator of the given node (v) in the graph (g).
-val ipdom : DiGraph<'V, 'E> -> Vertex<'V> -> Vertex<'V> option
+val ipdom :
+  DominatorContext<'V, 'E> -> Vertex<'V> -> Vertex<'V> option
 
 /// Return a list of dominators of the given node (v) in the graph (g).
-val doms : DiGraph<'V, 'E> -> Vertex<'V> -> Vertex<'V> list
+val doms :
+  DominatorContext<'V, 'E> -> Vertex<'V> -> Vertex<'V> list
 
 /// Return a list of post-dominators of the given node (v) in the graph (g).
-val pdoms : DiGraph<'V, 'E> -> Vertex<'V> -> Vertex<'V> list
+val pdoms :
+  DominatorContext<'V, 'E> -> Vertex<'V> -> Vertex<'V> list
 
 /// Return the dominance frontier of a given node (v) in the graph (g).
-val frontier : DiGraph<'V, 'E> -> Vertex<'V> -> Vertex<'V> list
+val frontier :
+  DominatorContext<'V, 'E> -> Vertex<'V> -> Vertex<'V> list
+
+/// Return the dominator tree and its root of the graph
+val dominatorTree :
+  DominatorContext<'V, 'E> -> Map<Vertex<'V>, Vertex<'V> list> * Vertex<'V>
