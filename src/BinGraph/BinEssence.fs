@@ -45,8 +45,11 @@ type BinEssence =
   }
 with
   static member Init _verbose hdl =
-    let builder, funcs = CFGUtils.construct hdl None
     (* Currently no other choice *)
+    let builder, funcs = CFGUtils.construct hdl None
+    for KeyValue(_, func) in funcs do
+      SSA.transform hdl func.IRCFG func.SSACFG
+    done
     { BinHandler = hdl; CFGBuilder = builder ; Functions = funcs }
 
   static member FindFuncByEntry entry ess =
