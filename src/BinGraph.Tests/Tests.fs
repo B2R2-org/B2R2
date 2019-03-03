@@ -41,6 +41,7 @@ type TestClass () =
   let _ = g.AddEdge n4 n5 (Edge 6)
   let _ = g.AddEdge n5 n2 (Edge 7)
   let _ = g.SetRoot n1
+  let ctxt = Dominator.initDominatorContext g
 
   (* Graph example from Tiger book. *)
   let g2 = RangedDiGraph ()
@@ -57,6 +58,7 @@ type TestClass () =
   let _ = g2.AddEdge n4 n6 (Edge 5)
   let _ = g2.AddEdge n6 n4 (Edge 6)
   let _ = g2.SetRoot n1
+  let ctxt2 = Dominator.initDominatorContext g2
 
   (* Arbitrary graph example *)
   let g3 = RangedDiGraph ()
@@ -71,6 +73,7 @@ type TestClass () =
   let _ = g3.AddEdge n3 n4 (Edge 4)
   let _ = g3.AddEdge n3 n5 (Edge 5)
   let _ = g3.SetRoot n1
+  let ctxt3 = Dominator.initDominatorContext g3
 
   (* Graph example from Tiger book (Fig. 19.5) *)
   let g4 = RangedDiGraph ()
@@ -108,6 +111,7 @@ type TestClass () =
   let _ = g4.AddEdge n11 n12 (Edge 19)
   let _ = g4.AddEdge n12 n13 (Edge 20)
   let _ = g4.SetRoot n1
+  let ctxt4 = Dominator.initDominatorContext g4
 
   let edgeValue (Edge d) : int = d
 
@@ -154,68 +158,68 @@ type TestClass () =
 
   [<TestMethod>]
   member __.``Dominator Test 1``() =
-    let v = Dominator.idom g <| g.FindVertexByData v1
+    let v = Dominator.idom ctxt <| g.FindVertexByData v1
     Assert.IsTrue (v.IsNone)
-    let v = Dominator.idom g <| g.FindVertexByData v2
+    let v = Dominator.idom ctxt <| g.FindVertexByData v2
     Assert.AreEqual (1, getVertexVal v)
-    let v = Dominator.idom g <| g.FindVertexByData v3
+    let v = Dominator.idom ctxt <| g.FindVertexByData v3
     Assert.AreEqual (2, getVertexVal v)
-    let v = Dominator.idom g <| g.FindVertexByData v4
+    let v = Dominator.idom ctxt <| g.FindVertexByData v4
     Assert.AreEqual (2, getVertexVal v)
-    let v = Dominator.idom g <| g.FindVertexByData v5
+    let v = Dominator.idom ctxt <| g.FindVertexByData v5
     Assert.AreEqual (2, getVertexVal v)
-    let v = Dominator.idom g <| g.FindVertexByData v6
+    let v = Dominator.idom ctxt <| g.FindVertexByData v6
     Assert.AreEqual (2, getVertexVal v)
 
   [<TestMethod>]
   member __.``Dominator Test 2``() =
-    let v = Dominator.idom g2 <| g2.FindVertexByData v1
+    let v = Dominator.idom ctxt2 <| g2.FindVertexByData v1
     Assert.IsTrue (v.IsNone)
-    let v = Dominator.idom g2 <| g2.FindVertexByData v2
+    let v = Dominator.idom ctxt2 <| g2.FindVertexByData v2
     Assert.AreEqual (1, getVertexVal v)
-    let v = Dominator.idom g2 <| g2.FindVertexByData v3
+    let v = Dominator.idom ctxt2 <| g2.FindVertexByData v3
     Assert.AreEqual (1, getVertexVal v)
-    let v = Dominator.idom g2 <| g2.FindVertexByData v4
+    let v = Dominator.idom ctxt2 <| g2.FindVertexByData v4
     Assert.AreEqual (3, getVertexVal v)
-    let v = Dominator.idom g2 <| g2.FindVertexByData v5
+    let v = Dominator.idom ctxt2 <| g2.FindVertexByData v5
     Assert.AreEqual (4, getVertexVal v)
-    let v = Dominator.idom g2 <| g2.FindVertexByData v6
+    let v = Dominator.idom ctxt2 <| g2.FindVertexByData v6
     Assert.AreEqual (4, getVertexVal v)
 
   [<TestMethod>]
   member __.``Post-Dominator Test``() =
-    let v = Dominator.ipdom g <| g.FindVertexByData v1
+    let v = Dominator.ipdom ctxt <| g.FindVertexByData v1
     Assert.AreEqual (2, getVertexVal v)
-    let v = Dominator.ipdom g <| g.FindVertexByData v2
+    let v = Dominator.ipdom ctxt <| g.FindVertexByData v2
     Assert.AreEqual (6, getVertexVal v)
-    let v = Dominator.ipdom g <| g.FindVertexByData v3
+    let v = Dominator.ipdom ctxt <| g.FindVertexByData v3
     Assert.AreEqual (5, getVertexVal v)
-    let v = Dominator.ipdom g <| g.FindVertexByData v4
+    let v = Dominator.ipdom ctxt <| g.FindVertexByData v4
     Assert.AreEqual (5, getVertexVal v)
-    let v = Dominator.ipdom g <| g.FindVertexByData v5
+    let v = Dominator.ipdom ctxt <| g.FindVertexByData v5
     Assert.AreEqual (2, getVertexVal v)
-    let v = Dominator.ipdom g <| g.FindVertexByData v6
+    let v = Dominator.ipdom ctxt <| g.FindVertexByData v6
     Assert.IsTrue (v.IsNone)
 
   [<TestMethod>]
   member __.``Post-Dominator Test 2``() =
-    let v = Dominator.ipdom g3 <| g3.FindVertexByData v1
+    let v = Dominator.ipdom ctxt3 <| g3.FindVertexByData v1
     Assert.IsTrue (v.IsNone)
-    let v = Dominator.ipdom g3 <| g3.FindVertexByData v2
+    let v = Dominator.ipdom ctxt3 <| g3.FindVertexByData v2
     Assert.AreEqual (4, getVertexVal v)
-    let v = Dominator.ipdom g3 <| g3.FindVertexByData v3
+    let v = Dominator.ipdom ctxt3 <| g3.FindVertexByData v3
     Assert.IsTrue (v.IsNone)
-    let v = Dominator.ipdom g3 <| g3.FindVertexByData v4
+    let v = Dominator.ipdom ctxt3 <| g3.FindVertexByData v4
     Assert.IsTrue (v.IsNone)
-    let v = Dominator.ipdom g3 <| g3.FindVertexByData v5
+    let v = Dominator.ipdom ctxt3 <| g3.FindVertexByData v5
     Assert.IsTrue (v.IsNone)
 
   [<TestMethod>]
   member __.``Dominance Frontier Test``() =
-    let df = Dominator.frontier g4 <| g4.FindVertexByData v5 |> List.toArray
+    let df = Dominator.frontier ctxt4 <| g4.FindVertexByData v5 |> List.toArray
     let df = df |> Array.map (fun v -> v.VData.Val) |> Array.sort
     CollectionAssert.AreEqual (df, [|4; 5; 12; 13|])
-    let df = Dominator.frontier g4 <| g4.FindVertexByData v9 |> List.toArray
+    let df = Dominator.frontier ctxt4 <| g4.FindVertexByData v9 |> List.toArray
     let df = df |> Array.map (fun v -> v.VData.Val) |> Array.sort
     CollectionAssert.AreEqual (df, [|12|])
 
@@ -237,15 +241,16 @@ type TestClass () =
     g.AddEdge n5 n6 (Edge 7)
     g.AddEdge n6 n1 (Edge 8) // Back edge to the root node.
     g.SetRoot n1
-    let v = Dominator.idom g <| g.FindVertexByData v1
+    let ctxt = Dominator.initDominatorContext g
+    let v = Dominator.idom ctxt <| g.FindVertexByData v1
     Assert.IsTrue (v.IsNone)
-    let v = Dominator.idom g <| g.FindVertexByData v2
+    let v = Dominator.idom ctxt <| g.FindVertexByData v2
     Assert.AreEqual (1, getVertexVal v)
-    let v = Dominator.idom g <| g.FindVertexByData v3
+    let v = Dominator.idom ctxt <| g.FindVertexByData v3
     Assert.AreEqual (1, getVertexVal v)
-    let v = Dominator.idom g <| g.FindVertexByData v4
+    let v = Dominator.idom ctxt <| g.FindVertexByData v4
     Assert.AreEqual (1, getVertexVal v)
-    let v = Dominator.idom g <| g.FindVertexByData v5
+    let v = Dominator.idom ctxt <| g.FindVertexByData v5
     Assert.AreEqual (3, getVertexVal v)
-    let v = Dominator.idom g <| g.FindVertexByData v6
+    let v = Dominator.idom ctxt <| g.FindVertexByData v6
     Assert.AreEqual (1, getVertexVal v)
