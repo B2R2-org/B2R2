@@ -8,7 +8,7 @@
 
   <ItemGroup>
     <Compile Include="Symbol.fs" />
-    <Compile Include="LowUIR.Types.fs" />
+    <Compile Include="Types.fs" />
     <Compile Include="LowUIR.fs" />
     <Compile Include="LowUIR.AST.fsi" />
     <Compile Include="LowUIR.AST.fs" />

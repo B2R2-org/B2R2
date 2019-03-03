@@ -25,7 +25,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinIR.LowUIR
+namespace B2R2.BinIR
 
 /// Raised when an illegal AST type is used. This should never be raised in
 /// normal situation.
