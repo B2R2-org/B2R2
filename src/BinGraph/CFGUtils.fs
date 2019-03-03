@@ -289,12 +289,17 @@ let buildCFGs hdl (builder: CFGBuilder) (funcs: Funcs) =
 
 /// This is our primary API
 let construct hdl = function
-  | Some _ -> failwith "Not Implemented" // TODO
+  | Some entryAddrs ->
+    let builder = CFGBuilder ()
+    let funcs = Funcs ()
+    (builder, funcs)
+    ||> Boundary.identifyWithEntries hdl entryAddrs
+    ||> buildCFGs hdl
   | None ->
     let builder = CFGBuilder ()
     let funcs = Funcs ()
     (builder, funcs)
-    ||> Boundary.identifyBoundaries hdl None
+    ||> Boundary.identify hdl
     ||> buildCFGs hdl
 
 /// Stringify functions
