@@ -49,3 +49,11 @@ type TestClass () =
                  0x68uy; 0x65uy; 0x6cuy; 0x6cuy; 0x6fuy; |]
     let str= ByteArray.extractCString arr 0
     Assert.AreEqual ("hello", str)
+
+  [<TestMethod>]
+  member __.``Pattern Matching Test`` () =
+    let buf = "hellotexthellotexthellotexthellopencilfsharptesttext"B
+    let pattern = "text"B
+    let offset = uint64 0
+    let indexList = ByteArray.findIdxs offset pattern buf
+    Assert.AreEqual([48ul; 23ul; 14ul; 5ul], indexList)

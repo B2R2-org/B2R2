@@ -45,33 +45,66 @@ let extractCString bytes offset =
     | b -> loop (char b |> acc.Append) (offset + 1)
   if bytes.Length = 0 then "" else loop (StringBuilder()) offset
 
-(* TODO: Implement Boyer-Moore algorithm to make this faster. *)
-let findIdxs offset (pattern: byte []) (buf: byte []) =
-  let bLen = Array.length buf
-  let pEnd = Array.length pattern - 1
-  let rec helper bPos pPos ret =
-    if bPos < bLen then
-      if buf.[bPos] = pattern.[pPos] then
-        if pPos = pEnd then
-          helper (bPos + 1) 0 ((offset + uint64 (bPos - pEnd)) :: ret)
-        else
-          helper (bPos + 1) (pPos + 1) ret
-      else
-        helper (bPos + 1) 0 ret
-    else ret
-  helper 0 0 []
+let makeDelta1 pattern patlen =
+  let delta1 = Array.create 256 patlen
+  let iter i x = if i < patlen - 1 then delta1.[int x] <- patlen - 1 - i
+  Array.iteri iter pattern
+  delta1
 
-let tryFindIdx offset (pattern: byte []) (buf: byte []) =
-  let bLen = Array.length buf
-  let pEnd = Array.length pattern - 1
-  let rec helper bPos pPos =
-    if bPos < bLen then
-      if buf.[bPos] = pattern.[pPos] then
-        if pPos = pEnd then (uint64 (bPos - pEnd)) + offset |> Some
-        else helper (bPos + 1) (pPos + 1)
-      else helper (bPos + 1 - pPos) 0
-    else None
-  helper 0 0
+let rec isPrefix (pattern: byte []) patlen pos i ret =
+  if (i < patlen - pos) || ret = false then
+    if pattern.[i] <> pattern.[pos + i] then
+      isPrefix pattern patlen pos 0 false
+    else isPrefix pattern patlen pos (i + 1) ret
+  else ret
+
+let rec getSuffixLength (pattern: byte []) patlen pos i =
+  if pattern.[pos - i] = pattern.[patlen - 1 - i] && i < pos then
+    getSuffixLength pattern patlen pos (i + 1)
+  else i
+
+let rec makeDelta2Loop1 pattern patlen p lastPrefixIndex (delta2: int []) =
+  if p >= 0 then
+    if isPrefix pattern patlen (p + 1) 0 true then
+      delta2.[p] <- patlen
+      makeDelta2Loop1 pattern patlen (p - 1) (p + 1) delta2
+    else
+      delta2.[p] <- lastPrefixIndex + (patlen - 1 - p)
+      makeDelta2Loop1 pattern patlen (p - 1) lastPrefixIndex delta2
+  else delta2
+
+let rec makeDelta2Loop2 pattern patlen p (delta2: int []) =
+  if p < patlen - 1 then
+    let sfxlen = getSuffixLength pattern patlen p 0
+    if pattern.[p - sfxlen] <> pattern.[patlen - 1 - sfxlen] then
+      delta2.[patlen - 1 - sfxlen] <- patlen - 1 - p + sfxlen
+    makeDelta2Loop2 pattern patlen (p + 1) delta2
+  else delta2
+
+let makeDelta2 pattern patlen =
+  Array.zeroCreate patlen
+  |> makeDelta2Loop1 pattern patlen (patlen - 1) (patlen - 1)
+  |> makeDelta2Loop2 pattern patlen 0
+
+let rec getMatch (pattern: byte []) (buf: byte []) (i, j) =
+  if j >= 0 && (buf.[i] = pattern.[j]) then getMatch pattern buf (i - 1, j - 1)
+  else i, j
+
+let bmSearch pattern buf =
+  let buflen = Array.length buf
+  let patlen = Array.length pattern
+  let delta1 = makeDelta1 pattern patlen
+  let delta2 = makeDelta2 pattern patlen
+  let rec matchPattern i ret =
+    if i < buflen then
+      let i, j = getMatch pattern buf (i, patlen - 1)
+      if j < 0 then matchPattern (i + patlen + 1) (uint64 (i + 1) :: ret)
+      else matchPattern (i + (max delta1.[int buf.[i]] delta2.[j])) ret
+    else ret
+  matchPattern (patlen - 1) []
+
+let findIdxs offset pattern buf =
+  bmSearch pattern buf |> List.map (fun x -> x + offset)
 
 let toUInt32Arr (src: byte []) =
   let srcLen = Array.length src
