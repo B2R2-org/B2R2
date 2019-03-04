@@ -38,5 +38,9 @@ val extractCString : byte [] -> int -> string
 /// starts from the offset.
 val findIdxs : offset: uint64 -> pattern: byte [] -> buf: byte [] -> uint64 list
 
+/// Find a matching byte position. If there is no match, this function will
+/// return None.
+val tryFindIdx : uint64 -> byte [] -> byte [] -> uint64 option
+
 /// Convert a byte array into a uint32 array.
 val toUInt32Arr : byte [] -> uint32 []

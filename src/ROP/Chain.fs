@@ -177,10 +177,8 @@ module ROPHandle =
   let private findBytes hdl bytes =
     let chooser (seg: Segment) =
       let min = seg.Address
-      let tryFinder =
-        BinHandler.ReadBytes (hdl.BinHdl, min, int seg.Size)
-        |> ByteArray.findIdxs min bytes
-      if tryFinder = [] then None else Some (tryFinder.[0])
+      BinHandler.ReadBytes (hdl.BinHdl, min, int seg.Size)
+      |> ByteArray.tryFindIdx min bytes
     (getFileInfo hdl).GetSegments Permission.Readable
     |> Seq.tryPick chooser
 

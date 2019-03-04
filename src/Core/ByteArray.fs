@@ -51,60 +51,73 @@ let makeDelta1 pattern patlen =
   Array.iteri iter pattern
   delta1
 
-let rec isPrefix (pattern: byte []) patlen pos i ret =
-  if (i < patlen - pos) || ret = false then
-    if pattern.[i] <> pattern.[pos + i] then
-      isPrefix pattern patlen pos 0 false
-    else isPrefix pattern patlen pos (i + 1) ret
-  else ret
+let isPrefix (pattern: byte []) patlen pos =
+  let slen = patlen - pos
+  let rec loop idx =
+    if idx < slen && pattern.[idx] = pattern.[pos + idx] then loop (idx + 1)
+    else idx
+  loop 0 = slen
 
-let rec getSuffixLength (pattern: byte []) patlen pos i =
-  if pattern.[pos - i] = pattern.[patlen - 1 - i] && i < pos then
-    getSuffixLength pattern patlen pos (i + 1)
-  else i
+let getSuffixLength (pattern: byte []) patlen pos =
+  let rec loop idx =
+    if idx < pos && pattern.[pos - idx] = pattern.[patlen - 1 - idx] then
+      loop (idx + 1)
+    else idx
+  loop 0
 
-let rec makeDelta2Loop1 pattern patlen p lastPrefixIndex (delta2: int []) =
-  if p >= 0 then
-    if isPrefix pattern patlen (p + 1) 0 true then
-      delta2.[p] <- patlen
-      makeDelta2Loop1 pattern patlen (p - 1) (p + 1) delta2
-    else
-      delta2.[p] <- lastPrefixIndex + (patlen - 1 - p)
-      makeDelta2Loop1 pattern patlen (p - 1) lastPrefixIndex delta2
-  else delta2
+let makeDelta2 (pattern: byte []) patlen =
+  let delta2 = Array.zeroCreate patlen
+  let mutable idx = patlen - 1
+  let mutable last = patlen - 1
+  while idx >= 0 do
+    if isPrefix pattern patlen (idx + 1) then last <- idx + 1
+    delta2.[idx] <- last + patlen - 1 - idx
+    idx <- idx - 1
+  idx <- 0
+  while idx < patlen - 1 do
+    let slen = getSuffixLength pattern patlen idx
+    if pattern.[idx - slen] <> pattern.[patlen - 1 - slen] then
+      delta2.[patlen - 1 - slen] <- patlen - 1 - idx + slen
+    idx <- idx + 1
+  delta2
 
-let rec makeDelta2Loop2 pattern patlen p (delta2: int []) =
-  if p < patlen - 1 then
-    let sfxlen = getSuffixLength pattern patlen p 0
-    if pattern.[p - sfxlen] <> pattern.[patlen - 1 - sfxlen] then
-      delta2.[patlen - 1 - sfxlen] <- patlen - 1 - p + sfxlen
-    makeDelta2Loop2 pattern patlen (p + 1) delta2
-  else delta2
-
-let makeDelta2 pattern patlen =
-  Array.zeroCreate patlen
-  |> makeDelta2Loop1 pattern patlen (patlen - 1) (patlen - 1)
-  |> makeDelta2Loop2 pattern patlen 0
-
-let rec getMatch (pattern: byte []) (buf: byte []) (i, j) =
-  if j >= 0 && (buf.[i] = pattern.[j]) then getMatch pattern buf (i - 1, j - 1)
-  else i, j
+let rec getMatch (pattern: byte []) (buf: byte []) struct (i, j) =
+  if j >= 0 && buf.[i] = pattern.[j] then
+    getMatch pattern buf struct (i - 1, j - 1)
+  else struct (i, j)
 
 let bmSearch pattern buf =
   let buflen = Array.length buf
   let patlen = Array.length pattern
   let delta1 = makeDelta1 pattern patlen
   let delta2 = makeDelta2 pattern patlen
-  let rec matchPattern i ret =
+  let rec searchOne i =
     if i < buflen then
-      let i, j = getMatch pattern buf (i, patlen - 1)
-      if j < 0 then matchPattern (i + patlen + 1) (uint64 (i + 1) :: ret)
-      else matchPattern (i + (max delta1.[int buf.[i]] delta2.[j])) ret
-    else ret
-  matchPattern (patlen - 1) []
+      let struct (i, j) = getMatch pattern buf struct (i, patlen - 1)
+      if j < 0 then Some (i + 1)
+      else searchOne (i + (max delta1.[int buf.[i]] delta2.[j]))
+    else None
+  let rec searchAll idx ret =
+    match searchOne idx with
+    | Some j -> searchAll (j + patlen) (j :: ret)
+    | None -> ret
+  searchAll (patlen - 1) []
 
 let findIdxs offset pattern buf =
-  bmSearch pattern buf |> List.map (fun x -> x + offset)
+  bmSearch pattern buf |> List.map (fun x -> (uint64 x) + offset)
+
+let tryFindIdx offset pattern buf =
+  let buflen = Array.length buf
+  let patlen = Array.length pattern
+  let delta1 = makeDelta1 pattern patlen
+  let delta2 = makeDelta2 pattern patlen
+  let rec searchOne i =
+    if i < buflen then
+      let struct (i, j) = getMatch pattern buf struct (i, patlen - 1)
+      if j < 0 then Some ((uint64 i) + offset)
+      else searchOne (i + (max delta1.[int buf.[i]] delta2.[j]))
+    else None
+  searchOne (patlen - 1)
 
 let toUInt32Arr (src: byte []) =
   let srcLen = Array.length src
