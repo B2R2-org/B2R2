@@ -212,6 +212,17 @@ type internal RegExprs (wordSize) =
     var (WordSize.toRegType wordSize) (Register.toRegID Register.GSBase) "GSBase"
   member val SSBase =
     var (WordSize.toRegType wordSize) (Register.toRegID Register.SSBase) "SSBase"
+  (* Control regs *)
+  member val CR0 =
+    var (WordSize.toRegType wordSize) (Register.toRegID Register.CR0) "CR0"
+  member val CR2 =
+    var (WordSize.toRegType wordSize) (Register.toRegID Register.CR2) "CR2"
+  member val CR3 =
+    var (WordSize.toRegType wordSize) (Register.toRegID Register.CR3) "CR3"
+  member val CR4 =
+    var (WordSize.toRegType wordSize) (Register.toRegID Register.CR4) "CR4"
+  member val CR8 =
+    var (WordSize.toRegType wordSize) (Register.toRegID Register.CR8) "CR8"
   (* EFLAGS *)
   member val OF = var 1<rt> (Register.toRegID Register.OF) "OF" with get
   member val DF = var 1<rt> (Register.toRegID Register.DF) "DF" with get
@@ -612,6 +623,11 @@ type internal RegExprs (wordSize) =
     | R.FSBase -> __.FSBase
     | R.GSBase -> __.GSBase
     | R.SSBase -> __.SSBase
+    | R.CR0 -> __.CR0
+    | R.CR2 -> __.CR2
+    | R.CR3 -> __.CR3
+    | R.CR4 -> __.CR4
+    | R.CR8 -> assert64Bit wordSize; __.CR8
     | R.OF -> __.OF
     | R.DF -> __.DF
     | R.IF -> __.IF
