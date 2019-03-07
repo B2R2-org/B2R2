@@ -119,6 +119,17 @@ let inline private numOfAddrSz (ins: InsInfo) (ctxt: TranslationContext) n =
 let inline private sIdx ins ctxt (r, s) =
   (getRegVar ctxt r) .* (numOfAddrSz ins ctxt (int64 s))
 
+let getInstrPtr ctxt = getRegVar ctxt (if is64bit ctxt then R.RIP else R.EIP)
+let getStackPtr ctxt = getRegVar ctxt (if is64bit ctxt then R.RSP else R.ESP)
+let getBasePtr ctxt = getRegVar ctxt (if is64bit ctxt then R.RBP else R.EBP)
+let getRegOfSize ctxt oprSize (regGrp: Register []) =
+  getRegVar ctxt <| match oprSize with
+                    | 8<rt> -> regGrp.[0]
+                    | 16<rt> -> regGrp.[1]
+                    | 32<rt> -> regGrp.[2]
+                    | 64<rt> -> regGrp.[3]
+                    | _ -> raise InvalidOperandSizeException
+
 let transMem ins insAddr insLen ctxt b index (disp: Disp option) oprSize =
   match b, index, disp with
   | None, None, Some d ->
@@ -151,11 +162,14 @@ let transMem ins insAddr insLen ctxt b index (disp: Disp option) oprSize =
     |> ldMem ins ctxt oprSize
   | _, _, _ -> raise InvalidOperandException
 
-let transDirAddr wordSize (addr: Addr) = function
+let transDirAddr insAddr insLen (ctxt: TranslationContext) =
+  let wordSize = ctxt.WordBitSize
+  function
   | Absolute (_, addr, _) -> numU64 addr wordSize
   | Relative (offset) -> let offset = numI64 offset wordSize |> sExt wordSize
-                         let addr = numU64 addr wordSize
-                         offset .+ addr
+                         let addr = numU64 (insAddr + (uint64 insLen)) wordSize
+                         let pc = getInstrPtr ctxt
+                         pc .+ (offset .+ addr)
 
 let inline private tmpVars2 t = tmpVar t, tmpVar t
 let inline private tmpVars3 t = tmpVar t, tmpVar t, tmpVar t
@@ -234,7 +248,7 @@ let transOprToExpr ins insAddr insLen ctxt = function
     transMem ins insAddr insLen ctxt b index disp oprSize
   | OprImm imm -> getOperationSize ins |> BitVector.ofInt64 imm |> num
   | OprDirAddr jumpTarget ->
-    transDirAddr ctxt.WordBitSize insAddr jumpTarget
+    transDirAddr insAddr insLen ctxt jumpTarget
 
 let getMemExpr128 expr =
   match expr with
@@ -334,17 +348,6 @@ let transThreeOprs ins insAddr insLen ctxt (o1, o2, o3) =
 let castNum newType = function
   | Num num -> Num <| BitVector.cast num newType
   | _ -> raise InvalidOperandException
-
-let getInstrPtr ctxt = getRegVar ctxt (if is64bit ctxt then R.RIP else R.EIP)
-let getStackPtr ctxt = getRegVar ctxt (if is64bit ctxt then R.RSP else R.ESP)
-let getBasePtr ctxt = getRegVar ctxt (if is64bit ctxt then R.RBP else R.EBP)
-let getRegOfSize ctxt oprSize (regGrp: Register []) =
-  getRegVar ctxt <| match oprSize with
-                    | 8<rt> -> regGrp.[0]
-                    | 16<rt> -> regGrp.[1]
-                    | 32<rt> -> regGrp.[2]
-                    | 64<rt> -> regGrp.[3]
-                    | _ -> raise InvalidOperandSizeException
 
 let getFstOperand = function
   | OneOperand o -> o
@@ -1216,8 +1219,8 @@ let call ins insAddr insLen ctxt isFar =
     let oprSize = getOperationSize ins
     startMark insAddr insLen builder
     builder <! (target := getOneOpr ins |> transOneOpr ins insAddr insLen ctxt)
-    let r = (bvOfBaseAddr insAddr ctxt .+ bvOfInstrLen insLen ctxt)
-    auxPush oprSize ctxt r builder
+    let retAddr = pc .+ bvOfInstrLen insLen ctxt
+    auxPush oprSize ctxt retAddr builder
     builder <! (InterJmp (pc, target))
     endMark insAddr insLen builder
   | true -> sideEffects insAddr insLen UnsupportedFAR
