@@ -305,13 +305,15 @@ let identifyIRBoundary hdl (builder: CFGBuilder) funcs =
   let builder = findIRLeaders hdl builder <| builder.GetDisasmLeaders ()
   builder, funcs
 
-let identifyBoundaries hdl boundary builder funcs =
-  match boundary with
-  /// We already have basic boundary info -> we need another analyses
-  | Some _ -> failwith "Not Implemented"
-  | None ->
-    (builder, funcs)
-    ||> getInitialEntries hdl
-    ||> findEntriesByPattern hdl
-    ||> identifyDisasmBoundary hdl
-    ||> identifyIRBoundary hdl
+let identify hdl builder funcs =
+  (builder, funcs)
+  ||> getInitialEntries hdl
+  ||> findEntriesByPattern hdl
+  ||> identifyDisasmBoundary hdl
+  ||> identifyIRBoundary hdl
+
+let identifyWithEntries hdl entries builder funcs =
+  List.iter (initFunction hdl funcs) entries
+  (builder, funcs)
+  ||> identifyDisasmBoundary hdl
+  ||> identifyIRBoundary hdl
