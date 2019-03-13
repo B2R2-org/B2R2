@@ -1,84 +1,85 @@
 (*
-  B2R2 - the Next-Generation Reversing Platform
+    B2R2 - the Next-Generation Reversing Platform
 
-  Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
+    Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
 
-  Copyright (c) SoftSec Lab. @ KAIST, since 2016
+    Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
-  Permission is hereby granted, free of charge, to any person obtaining a copy
-  of this software and associated documentation files (the "Software"), to deal
-  in the Software without restriction, including without limitation the rights
-  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-  copies of the Software, and to permit persons to whom the Software is
-  furnished to do so, subject to the following conditions:
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
 
-  The above copyright notice and this permission notice shall be included in all
-  copies or substantial portions of the Software.
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
 
-  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-  SOFTWARE.
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
 *)
 
 namespace B2R2.Utilities.BinExplorer
 
 type CmdHelp () =
-  inherit Cmd ()
+    inherit Cmd ()
 
-  let generalHelpStr = """
+    let generalHelpStr = """
 [*] Current B2R2 commands (type 'help <command>' for more info):
-  """
+    """
 
-  let generalHelp cmdMap =
-    [| yield generalHelpStr
-       for KeyValue(name, cmd) in cmdMap.CmdMap do
-         if cmd.CmdName = name then yield "- " + name + ": " + cmd.CmdDescr
-         else ()
+    let generalHelp cmdMap = [| 
+        yield generalHelpStr
+        for KeyValue(name, cmd) in cmdMap.CmdMap do
+            if cmd.CmdName = name then yield "- " + name + ": " + cmd.CmdDescr                
     |]
 
-  let specificHelp cmd cmdMap =
-    match Map.tryFind cmd cmdMap.CmdMap with
-    | None -> Cmd.warnUnknown cmd
-    | Some cmd ->
-      [| yield "[*] Usage of the command (" + cmd.CmdName + ")\n"
-         if cmd.CmdHelp.Length > 0 then yield cmd.CmdHelp else () |]
+    let specificHelp cmd cmdMap =
+        match Map.tryFind cmd cmdMap.CmdMap with
+        | None -> Cmd.warnUnknown cmd
+        | Some cmd ->
+            [| 
+                yield "[*] Usage of the command (" + cmd.CmdName + ")\n"
+                if cmd.CmdHelp.Length > 0 then yield cmd.CmdHelp else () 
+            |]
 
-  override __.CmdName = "help"
+    override __.CmdName = "help"
 
-  override __.CmdAlias = []
+    override __.CmdAlias = []
 
-  override __.CmdDescr = "Show the usage."
+    override __.CmdDescr = "Show the usage."
 
-  override __.CmdHelp =
-    "Usage: help [cmd]\n\n\
-     If the optional argument [cmd] presents, the specific usage of the\n\
-     command will show. For example, type `help bininfo` to see the usage of\n\
-     the command `bininfo`."
+    override __.CmdHelp =
+        "Usage: help [cmd]\n\n\
+          If the optional argument [cmd] presents, the specific usage of the\n\
+          command will show. For example, type `help bininfo` to see the usage of\n\
+          the command `bininfo`."
 
-  override __.SubCommands =
-    []
+    override __.SubCommands =
+        []
 
-  override __.CallBack cmdMap _ args =
-    match args with
-    | [] -> generalHelp cmdMap
-    | cmd :: _ -> specificHelp cmd cmdMap
+    override __.CallBack cmdMap _ args =
+        match args with
+        | [] -> generalHelp cmdMap
+        | cmd :: _ -> specificHelp cmd cmdMap
 
 
 type CmdExit () =
-  inherit Cmd ()
+    inherit Cmd ()
 
-  override __.CmdName = "exit"
+    override __.CmdName = "exit"
 
-  override __.CmdAlias = [ "quit"; "q" ]
+    override __.CmdAlias = [ "quit"; "q" ]
 
-  override __.CmdDescr = "Exit B2R2."
+    override __.CmdDescr = "Exit B2R2."
 
-  override __.CmdHelp = "Usage: exit"
+    override __.CmdHelp = "Usage: exit"
 
-  override __.SubCommands = []
+    override __.SubCommands = []
 
-  override __.CallBack _ _ _ = [||]
+    override __.CallBack _ _ _ = [||]

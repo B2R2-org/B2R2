@@ -1,28 +1,28 @@
 (*
-  B2R2 - the Next-Generation Reversing Platform
+    B2R2 - the Next-Generation Reversing Platform
 
-  Author: Seung Il Jung <sijung@kaist.ac.kr>
-          DongYeop Oh <oh51dy@kaist.ac.kr>
+    Author: Seung Il Jung <sijung@kaist.ac.kr>
+                    DongYeop Oh <oh51dy@kaist.ac.kr>
 
-  Copyright (c) SoftSec Lab. @ KAIST, since 2016
+    Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
-  Permission is hereby granted, free of charge, to any person obtaining a copy
-  of this software and associated documentation files (the "Software"), to deal
-  in the Software without restriction, including without limitation the rights
-  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-  copies of the Software, and to permit persons to whom the Software is
-  furnished to do so, subject to the following conditions:
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
 
-  The above copyright notice and this permission notice shall be included in all
-  copies or substantial portions of the Software.
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
 
-  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-  SOFTWARE.
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
 *)
 
 module internal B2R2.FrontEnd.MIPS.Helper
@@ -41,79 +41,79 @@ let isMIPS32R6 arch = arch = Arch.MIPS32R6
 let isMIPS64R6 arch = arch = Arch.MIPS64R6
 
 let getRegister = function
-  | 0x0uy -> R.R0
-  | 0x1uy -> R.R1
-  | 0x2uy -> R.R2
-  | 0x3uy -> R.R3
-  | 0x4uy -> R.R4
-  | 0x5uy -> R.R5
-  | 0x6uy -> R.R6
-  | 0x7uy -> R.R7
-  | 0x8uy -> R.R8
-  | 0x9uy -> R.R9
-  | 0xAuy -> R.R10
-  | 0xBuy -> R.R11
-  | 0xCuy -> R.R12
-  | 0xDuy -> R.R13
-  | 0xEuy -> R.R14
-  | 0xFuy -> R.R15
-  | 0x10uy -> R.R16
-  | 0x11uy -> R.R17
-  | 0x12uy -> R.R18
-  | 0x13uy -> R.R19
-  | 0x14uy -> R.R20
-  | 0x15uy -> R.R21
-  | 0x16uy -> R.R22
-  | 0x17uy -> R.R23
-  | 0x18uy -> R.R24
-  | 0x19uy -> R.R25
-  | 0x1Auy -> R.R26
-  | 0x1Buy -> R.R27
-  | 0x1Cuy -> R.R28
-  | 0x1Duy -> R.R29
-  | 0x1Euy -> R.R30
-  | 0x1Fuy -> R.R31
-  | _ -> raise InvalidRegisterException
+    | 0x0uy -> R.R0
+    | 0x1uy -> R.R1
+    | 0x2uy -> R.R2
+    | 0x3uy -> R.R3
+    | 0x4uy -> R.R4
+    | 0x5uy -> R.R5
+    | 0x6uy -> R.R6
+    | 0x7uy -> R.R7
+    | 0x8uy -> R.R8
+    | 0x9uy -> R.R9
+    | 0xAuy -> R.R10
+    | 0xBuy -> R.R11
+    | 0xCuy -> R.R12
+    | 0xDuy -> R.R13
+    | 0xEuy -> R.R14
+    | 0xFuy -> R.R15
+    | 0x10uy -> R.R16
+    | 0x11uy -> R.R17
+    | 0x12uy -> R.R18
+    | 0x13uy -> R.R19
+    | 0x14uy -> R.R20
+    | 0x15uy -> R.R21
+    | 0x16uy -> R.R22
+    | 0x17uy -> R.R23
+    | 0x18uy -> R.R24
+    | 0x19uy -> R.R25
+    | 0x1Auy -> R.R26
+    | 0x1Buy -> R.R27
+    | 0x1Cuy -> R.R28
+    | 0x1Duy -> R.R29
+    | 0x1Euy -> R.R30
+    | 0x1Fuy -> R.R31
+    | _ -> raise InvalidRegisterException
 
 let getFRegister = function
-  | 0x0uy -> R.F0
-  | 0x1uy -> R.F1
-  | 0x2uy -> R.F2
-  | 0x3uy -> R.F3
-  | 0x4uy -> R.F4
-  | 0x5uy -> R.F5
-  | 0x6uy -> R.F6
-  | 0x7uy -> R.F7
-  | 0x8uy -> R.F8
-  | 0x9uy -> R.F9
-  | 0xAuy -> R.F10
-  | 0xBuy -> R.F11
-  | 0xCuy -> R.F12
-  | 0xDuy -> R.F13
-  | 0xEuy -> R.F14
-  | 0xFuy -> R.F15
-  | 0x10uy -> R.F16
-  | 0x11uy -> R.F17
-  | 0x12uy -> R.F18
-  | 0x13uy -> R.F19
-  | 0x14uy -> R.F20
-  | 0x15uy -> R.F21
-  | 0x16uy -> R.F22
-  | 0x17uy -> R.F23
-  | 0x18uy -> R.F24
-  | 0x19uy -> R.F25
-  | 0x1Auy -> R.F26
-  | 0x1Buy -> R.F27
-  | 0x1Cuy -> R.F28
-  | 0x1Duy -> R.F29
-  | 0x1Euy -> R.F30
-  | 0x1Fuy -> R.F31
-  | _ -> raise InvalidRegisterException
+    | 0x0uy -> R.F0
+    | 0x1uy -> R.F1
+    | 0x2uy -> R.F2
+    | 0x3uy -> R.F3
+    | 0x4uy -> R.F4
+    | 0x5uy -> R.F5
+    | 0x6uy -> R.F6
+    | 0x7uy -> R.F7
+    | 0x8uy -> R.F8
+    | 0x9uy -> R.F9
+    | 0xAuy -> R.F10
+    | 0xBuy -> R.F11
+    | 0xCuy -> R.F12
+    | 0xDuy -> R.F13
+    | 0xEuy -> R.F14
+    | 0xFuy -> R.F15
+    | 0x10uy -> R.F16
+    | 0x11uy -> R.F17
+    | 0x12uy -> R.F18
+    | 0x13uy -> R.F19
+    | 0x14uy -> R.F20
+    | 0x15uy -> R.F21
+    | 0x16uy -> R.F22
+    | 0x17uy -> R.F23
+    | 0x18uy -> R.F24
+    | 0x19uy -> R.F25
+    | 0x1Auy -> R.F26
+    | 0x1Buy -> R.F27
+    | 0x1Cuy -> R.F28
+    | 0x1Duy -> R.F29
+    | 0x1Euy -> R.F30
+    | 0x1Fuy -> R.F31
+    | _ -> raise InvalidRegisterException
 
 let gprLen = function
-  | Arch.MIPS32R2 | Arch.MIPS32R6 -> 32
-  | Arch.MIPS64R2 | Arch.MIPS64R6 -> 64
-  | _ -> failwith "Not Implemented."
+    | Arch.MIPS32R2 | Arch.MIPS32R6 -> 32
+    | Arch.MIPS64R2 | Arch.MIPS64R6 -> 64
+    | _ -> failwith "Not Implemented."
 
 let num16 b = extract b 15u 0u
 let getRegFrom2521 b = getRegister (extract b 25u 21u |> byte)
@@ -138,39 +138,39 @@ let sa b = extract b 10u 6u |> uint64 |> ShiftAmount
 let bp b = extract b 7u 6u |> uint64 |> Immediate
 
 let rel16 b =
-  let off = num16 b |> uint64 <<< 2 |> signExtend 18 64 |> int64
-  off + 4L |> Relative |> Address
+    let off = num16 b |> uint64 <<< 2 |> signExtend 18 64 |> int64
+    off + 4L |> Relative |> Address
 let imm16 b = num16 b  |> uint64 |> Immediate
 let imm16SignExt b = num16 b |> uint64 |> signExtend 16 64 |> Immediate
 let memBaseOff b accLength =
-  let offset = num16 b |> uint64 |> signExtend 16 64 |> int64
-  Memory (getRegFrom2521 b, offset, accLength)
+    let offset = num16 b |> uint64 |> signExtend 16 64 |> int64
+    Memory (getRegFrom2521 b, offset, accLength)
 
 let posSize b =
-  let msb = extract b 15u 11u
-  let lsb = extract b 10u 6u
-  lsb |> uint64 |> Immediate, msb + 1u - lsb |> uint64 |> Immediate
+    let msb = extract b 15u 11u
+    let lsb = extract b 10u 6u
+    lsb |> uint64 |> Immediate, msb + 1u - lsb |> uint64 |> Immediate
 let posSize2 b =
-  let msbd = extract b 15u 11u
-  let lsb = extract b 10u 6u
-  lsb |> uint64 |> Immediate, msbd + 1u |> uint64 |> Immediate
+    let msbd = extract b 15u 11u
+    let lsb = extract b 10u 6u
+    lsb |> uint64 |> Immediate, msbd + 1u |> uint64 |> Immediate
 let posSize3 b =
-  let msbminus32 = extract b 15u 11u
-  let lsb = extract b 10u 6u
-  lsb |> uint64 |> Immediate, msbminus32 + 33u - lsb |> uint64 |> Immediate
+    let msbminus32 = extract b 15u 11u
+    let lsb = extract b 10u 6u
+    lsb |> uint64 |> Immediate, msbminus32 + 33u - lsb |> uint64 |> Immediate
 let posSize4 b =
-  let msbminus32 = extract b 15u 11u
-  let lsbminus32 = extract b 10u 6u
-  let pos = lsbminus32 + 32u
-  pos |> uint64 |> Immediate, msbminus32 + 33u - pos |> uint64 |> Immediate
+    let msbminus32 = extract b 15u 11u
+    let lsbminus32 = extract b 10u 6u
+    let pos = lsbminus32 + 32u
+    pos |> uint64 |> Immediate, msbminus32 + 33u - pos |> uint64 |> Immediate
 let posSize5 b =
-  let msbdminus32 = extract b 15u 11u
-  let lsb = extract b 10u 6u
-  lsb |> uint64 |> Immediate, msbdminus32 + 33u |> uint64 |> Immediate
+    let msbdminus32 = extract b 15u 11u
+    let lsb = extract b 10u 6u
+    lsb |> uint64 |> Immediate, msbdminus32 + 33u |> uint64 |> Immediate
 let posSize6 b =
-  let msbd = extract b 15u 11u
-  let lsbminus32 = extract b 10u 6u
-  lsbminus32 + 32u |> uint64 |> Immediate, msbd + 1u |> uint64 |> Immediate
+    let msbd = extract b 15u 11u
+    let lsbminus32 = extract b 10u 6u
+    lsbminus32 + 32u |> uint64 |> Immediate, msbd + 1u |> uint64 |> Immediate
 
 let getRel16 b = OneOperand (rel16 b)
 let getRs b = OneOperand (rs b)
@@ -197,9 +197,9 @@ let getRtRsPosSize5 b = let p, s = posSize5 b in FourOperands (rt b, rs b, p, s)
 let getRtRsPosSize6 b = let p, s = posSize6 b in FourOperands (rt b, rs b, p, s)
 let getRtFs b = TwoOperands (rt b, fs b)
 let getCcOff b =
-  match extract b 20u 18u with
-  | 0u -> OneOperand (rel16 b)
-  | a -> TwoOperands (a |> uint64 |> Immediate, rel16 b)
+    match extract b 20u 18u with
+    | 0u -> OneOperand (rel16 b)
+    | a -> TwoOperands (a |> uint64 |> Immediate, rel16 b)
 let getFsFt b = TwoOperands (fs b, ft b)
 let getFdFs b = TwoOperands (fd b, fs b)
 let getCcFsFt b = ThreeOperands (cc b, fs b, ft b)

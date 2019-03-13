@@ -1,28 +1,28 @@
 (*
-  B2R2 - the Next-Generation Reversing Platform
+    B2R2 - the Next-Generation Reversing Platform
 
-  Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
-          Seung Il Jung <sijung@kaist.ac.kr>
+    Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
+                    Seung Il Jung <sijung@kaist.ac.kr>
 
-  Copyright (c) SoftSec Lab. @ KAIST, since 2016
+    Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
-  Permission is hereby granted, free of charge, to any person obtaining a copy
-  of this software and associated documentation files (the "Software"), to deal
-  in the Software without restriction, including without limitation the rights
-  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-  copies of the Software, and to permit persons to whom the Software is
-  furnished to do so, subject to the following conditions:
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
 
-  The above copyright notice and this permission notice shall be included in all
-  copies or substantial portions of the Software.
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
 
-  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-  SOFTWARE.
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
 *)
 
 module internal B2R2.FrontEnd.Intel.Constants
@@ -631,266 +631,266 @@ let [<Literal>] opVex0F3A0B = 0x2a202a202a202a2L
 let [<Literal>] opEmpty = 0x2a202a202a202a2L
 
 let inline RegIb r =
-  let reg: int64 = LanguagePrimitives.EnumToValue r |> int64
-  (3L <<< 12 ||| reg) <<< 48 ||| (_Ib <<< 32)
+    let reg: int64 = LanguagePrimitives.EnumToValue r |> int64
+    (3L <<< 12 ||| reg) <<< 48 ||| (_Ib <<< 32)
 
 let getOprMode oprDesc =
-  match oprDesc &&& 0x3fL with
-  | 0x1L -> OprMode.A
-  | 0x2L -> OprMode.BndR
-  | 0x3L -> OprMode.BndM
-  | 0x4L -> OprMode.C
-  | 0x5L -> OprMode.D
-  | 0x6L -> OprMode.E
-  | 0x7L -> OprMode.G
-  | 0x8L -> OprMode.H
-  | 0x9L -> OprMode.I
-  | 0xaL -> OprMode.SI
-  | 0xbL -> OprMode.J
-  | 0xcL -> OprMode.M
-  | 0xdL -> OprMode.MZ
-  | 0xeL -> OprMode.N
-  | 0xfL -> OprMode.O
-  | 0x10L-> OprMode.P
-  | 0x11L -> OprMode.Q
-  | 0x12L -> OprMode.R
-  | 0x13L -> OprMode.S
-  | 0x14L -> OprMode.U
-  | 0x15L -> OprMode.V
-  | 0x16L -> OprMode.VZ
-  | 0x17L -> OprMode.W
-  | 0x18L -> OprMode.WZ
-  | 0x19L -> OprMode.X
-  | 0x1aL -> OprMode.Y
-  | 0x1bL -> OprMode.E0
-  | _ -> failwith "Invalid opr mode"
+    match oprDesc &&& 0x3fL with
+    | 0x1L -> OprMode.A
+    | 0x2L -> OprMode.BndR
+    | 0x3L -> OprMode.BndM
+    | 0x4L -> OprMode.C
+    | 0x5L -> OprMode.D
+    | 0x6L -> OprMode.E
+    | 0x7L -> OprMode.G
+    | 0x8L -> OprMode.H
+    | 0x9L -> OprMode.I
+    | 0xaL -> OprMode.SI
+    | 0xbL -> OprMode.J
+    | 0xcL -> OprMode.M
+    | 0xdL -> OprMode.MZ
+    | 0xeL -> OprMode.N
+    | 0xfL -> OprMode.O
+    | 0x10L-> OprMode.P
+    | 0x11L -> OprMode.Q
+    | 0x12L -> OprMode.R
+    | 0x13L -> OprMode.S
+    | 0x14L -> OprMode.U
+    | 0x15L -> OprMode.V
+    | 0x16L -> OprMode.VZ
+    | 0x17L -> OprMode.W
+    | 0x18L -> OprMode.WZ
+    | 0x19L -> OprMode.X
+    | 0x1aL -> OprMode.Y
+    | 0x1bL -> OprMode.E0
+    | _ -> failwith "Invalid opr mode"
 
 let getOprSizeKnd oprDesc =
-  match oprDesc &&& 0xfc0L with
-  | 0x40L -> OprSize.A
-  | 0x80L -> OprSize.B
-  | 0xc0L -> OprSize.Bnd
-  | 0x100L -> OprSize.D
-  | 0x140L -> OprSize.DB
-  | 0x180L -> OprSize.DQ
-  | 0x1c0L -> OprSize.DQD
-  | 0x200L -> OprSize.DQQ
-  | 0x240L -> OprSize.DW
-  | 0x280L -> OprSize.P
-  | 0x2c0L -> OprSize.PD
-  | 0x300L -> OprSize.PI
-  | 0x340L -> OprSize.PS
-  | 0x380L -> OprSize.PSQ
-  | 0x3c0L -> OprSize.Q
-  | 0x400L -> OprSize.QQ
-  | 0x440L -> OprSize.S
-  | 0x480L -> OprSize.SD
-  | 0x4c0L -> OprSize.SDQ
-  | 0x500L -> OprSize.SS
-  | 0x540L -> OprSize.SSD
-  | 0x580L -> OprSize.SSQ
-  | 0x5c0L -> OprSize.V
-  | 0x600L -> OprSize.W
-  | 0x640L -> OprSize.X
-  | 0x680L -> OprSize.XZ
-  | 0x6c0L -> OprSize.Y
-  | 0x700L -> OprSize.Z
-  | _ -> failwith "Invalid opr size"
+    match oprDesc &&& 0xfc0L with
+    | 0x40L -> OprSize.A
+    | 0x80L -> OprSize.B
+    | 0xc0L -> OprSize.Bnd
+    | 0x100L -> OprSize.D
+    | 0x140L -> OprSize.DB
+    | 0x180L -> OprSize.DQ
+    | 0x1c0L -> OprSize.DQD
+    | 0x200L -> OprSize.DQQ
+    | 0x240L -> OprSize.DW
+    | 0x280L -> OprSize.P
+    | 0x2c0L -> OprSize.PD
+    | 0x300L -> OprSize.PI
+    | 0x340L -> OprSize.PS
+    | 0x380L -> OprSize.PSQ
+    | 0x3c0L -> OprSize.Q
+    | 0x400L -> OprSize.QQ
+    | 0x440L -> OprSize.S
+    | 0x480L -> OprSize.SD
+    | 0x4c0L -> OprSize.SDQ
+    | 0x500L -> OprSize.SS
+    | 0x540L -> OprSize.SSD
+    | 0x580L -> OprSize.SSQ
+    | 0x5c0L -> OprSize.V
+    | 0x600L -> OprSize.W
+    | 0x640L -> OprSize.X
+    | 0x680L -> OprSize.XZ
+    | 0x6c0L -> OprSize.Y
+    | 0x700L -> OprSize.Z
+    | _ -> failwith "Invalid opr size"
 
 let getRGrpAttr oprDesc =
-  match oprDesc &&& 0x7L with
-  | 0x0L -> RGrpAttr.ANone
-  | 0x1L -> RGrpAttr.AMod11
-  | 0x2L -> RGrpAttr.ARegInOpREX
-  | 0x4L -> RGrpAttr.ARegInOpNoREX
-  | 0x8L -> RGrpAttr.ARegBits
-  | 0x10L -> RGrpAttr.ABaseRM
-  | 0x20L -> RGrpAttr.ASIBIdx
-  | 0x40L -> RGrpAttr.ASIBBase
-  | _ -> failwith "Invalid reg grp attr"
+    match oprDesc &&& 0x7L with
+    | 0x0L -> RGrpAttr.ANone
+    | 0x1L -> RGrpAttr.AMod11
+    | 0x2L -> RGrpAttr.ARegInOpREX
+    | 0x4L -> RGrpAttr.ARegInOpNoREX
+    | 0x8L -> RGrpAttr.ARegBits
+    | 0x10L -> RGrpAttr.ABaseRM
+    | 0x20L -> RGrpAttr.ASIBIdx
+    | 0x40L -> RGrpAttr.ASIBBase
+    | _ -> failwith "Invalid reg grp attr"
 
 let getRegister oprDesc =
-  match oprDesc &&& 0xfffL with (* Extract low 12 bits to get the register. *)
-  | 0x0L -> R.RAX
-  | 0x1L -> R.RBX
-  | 0x2L -> R.RCX
-  | 0x3L -> R.RDX
-  | 0x4L -> R.RSP
-  | 0x5L -> R.RBP
-  | 0x6L -> R.RSI
-  | 0x7L -> R.RDI
-  | 0x8L -> R.EAX
-  | 0x9L -> R.EBX
-  | 0xAL -> R.ECX
-  | 0xBL -> R.EDX
-  | 0xCL -> R.ESP
-  | 0xDL -> R.EBP
-  | 0xEL -> R.ESI
-  | 0xFL -> R.EDI
-  | 0x10L -> R.AX
-  | 0x11L -> R.BX
-  | 0x12L -> R.CX
-  | 0x13L -> R.DX
-  | 0x14L -> R.SP
-  | 0x15L -> R.BP
-  | 0x16L -> R.SI
-  | 0x17L -> R.DI
-  | 0x18L -> R.AL
-  | 0x19L -> R.BL
-  | 0x1AL -> R.CL
-  | 0x1BL -> R.DL
-  | 0x1CL -> R.AH
-  | 0x1DL -> R.BH
-  | 0x1EL -> R.CH
-  | 0x1FL -> R.DH
-  | 0x20L -> R.R8
-  | 0x21L -> R.R9
-  | 0x22L -> R.R10
-  | 0x23L -> R.R11
-  | 0x24L -> R.R12
-  | 0x25L -> R.R13
-  | 0x26L -> R.R14
-  | 0x27L -> R.R15
-  | 0x28L -> R.R8D
-  | 0x29L -> R.R9D
-  | 0x2AL -> R.R10D
-  | 0x2BL -> R.R11D
-  | 0x2CL -> R.R12D
-  | 0x2DL -> R.R13D
-  | 0x2EL -> R.R14D
-  | 0x2FL -> R.R15D
-  | 0x30L -> R.R8W
-  | 0x31L -> R.R9W
-  | 0x32L -> R.R10W
-  | 0x33L -> R.R11W
-  | 0x34L -> R.R12W
-  | 0x35L -> R.R13W
-  | 0x36L -> R.R14W
-  | 0x37L -> R.R15W
-  | 0x38L -> R.R8L
-  | 0x39L -> R.R9L
-  | 0x3AL -> R.R10L
-  | 0x3BL -> R.R11L
-  | 0x3CL -> R.R12L
-  | 0x3DL -> R.R13L
-  | 0x3EL -> R.R14L
-  | 0x3FL -> R.R15L
-  | 0x40L -> R.SPL
-  | 0x41L -> R.BPL
-  | 0x42L -> R.SIL
-  | 0x43L -> R.DIL
-  | 0x44L -> R.EIP
-  | 0x45L -> R.RIP
-  | 0x100L -> R.ST0
-  | 0x101L -> R.ST1
-  | 0x102L -> R.ST2
-  | 0x103L -> R.ST3
-  | 0x104L -> R.ST4
-  | 0x105L -> R.ST5
-  | 0x106L -> R.ST6
-  | 0x107L -> R.ST7
-  | 0x200L -> R.MM0
-  | 0x201L -> R.MM1
-  | 0x202L -> R.MM2
-  | 0x203L -> R.MM3
-  | 0x204L -> R.MM4
-  | 0x205L -> R.MM5
-  | 0x206L -> R.MM6
-  | 0x207L -> R.MM7
-  | 0x30FL -> R.XMM0
-  | 0x30EL -> R.XMM1
-  | 0x30DL -> R.XMM2
-  | 0x30CL -> R.XMM3
-  | 0x30BL -> R.XMM4
-  | 0x30AL -> R.XMM5
-  | 0x309L -> R.XMM6
-  | 0x308L -> R.XMM7
-  | 0x307L -> R.XMM8
-  | 0x306L -> R.XMM9
-  | 0x305L -> R.XMM10
-  | 0x304L -> R.XMM11
-  | 0x303L -> R.XMM12
-  | 0x302L -> R.XMM13
-  | 0x301L -> R.XMM14
-  | 0x300L -> R.XMM15
-  | 0x40FL -> R.YMM0
-  | 0x40EL -> R.YMM1
-  | 0x40DL -> R.YMM2
-  | 0x40CL -> R.YMM3
-  | 0x40BL -> R.YMM4
-  | 0x40AL -> R.YMM5
-  | 0x409L -> R.YMM6
-  | 0x408L -> R.YMM7
-  | 0x407L -> R.YMM8
-  | 0x406L -> R.YMM9
-  | 0x405L -> R.YMM10
-  | 0x404L -> R.YMM11
-  | 0x403L -> R.YMM12
-  | 0x402L -> R.YMM13
-  | 0x401L -> R.YMM14
-  | 0x400L -> R.YMM15
-  | 0x50FL -> R.ZMM0
-  | 0x50EL -> R.ZMM1
-  | 0x50DL -> R.ZMM2
-  | 0x50CL -> R.ZMM3
-  | 0x50BL -> R.ZMM4
-  | 0x50AL -> R.ZMM5
-  | 0x509L -> R.ZMM6
-  | 0x508L -> R.ZMM7
-  | 0x507L -> R.ZMM8
-  | 0x506L -> R.ZMM9
-  | 0x505L -> R.ZMM10
-  | 0x504L -> R.ZMM11
-  | 0x503L -> R.ZMM12
-  | 0x502L -> R.ZMM13
-  | 0x501L -> R.ZMM14
-  | 0x500L -> R.ZMM15
-  | 0x600L -> R.ES
-  | 0x601L -> R.CS
-  | 0x602L -> R.SS
-  | 0x603L -> R.DS
-  | 0x604L -> R.FS
-  | 0x605L -> R.GS
-  | 0x700L -> R.ESBase
-  | 0x701L -> R.CSBase
-  | 0x702L -> R.SSBase
-  | 0x703L -> R.DSBase
-  | 0x704L -> R.FSBase
-  | 0x705L -> R.GSBase
-  | 0x800L -> R.CR0
-  | 0x802L -> R.CR2
-  | 0x803L -> R.CR3
-  | 0x804L -> R.CR4
-  | 0x900L -> R.DR0
-  | 0x901L -> R.DR1
-  | 0x902L -> R.DR2
-  | 0x903L -> R.DR3
-  | 0x906L -> R.DR6
-  | 0x907L -> R.DR7
-  | 0xA00L -> R.BND0
-  | 0xA01L -> R.BND1
-  | 0xA02L -> R.BND2
-  | 0xA03L -> R.BND3
-  | 0xB00L -> R.OF
-  | 0xB01L -> R.DF
-  | 0xB02L -> R.IF
-  | 0xB03L -> R.TF
-  | 0xB04L -> R.SF
-  | 0xB05L -> R.ZF
-  | 0xB06L -> R.AF
-  | 0xB07L -> R.PF
-  | 0xB08L -> R.CF
-  | 0xC00L -> R.FCW
-  | 0xC01L -> R.FSW
-  | 0xC02L -> R.FTW
-  | 0xC03L -> R.FOP
-  | 0xC04L -> R.FIP
-  | 0xC05L -> R.FCS
-  | 0xC06L -> R.FDP
-  | 0xC07L -> R.FDS
-  | 0xC08L -> R.MXCSR
-  | 0xC09L -> R.MXCSRMASK
-  | 0xD00L -> R.UnknownReg
-  | _ -> failwith "Invalid register"
+    match oprDesc &&& 0xfffL with (* Extract low 12 bits to get the register. *)
+    | 0x0L -> R.RAX
+    | 0x1L -> R.RBX
+    | 0x2L -> R.RCX
+    | 0x3L -> R.RDX
+    | 0x4L -> R.RSP
+    | 0x5L -> R.RBP
+    | 0x6L -> R.RSI
+    | 0x7L -> R.RDI
+    | 0x8L -> R.EAX
+    | 0x9L -> R.EBX
+    | 0xAL -> R.ECX
+    | 0xBL -> R.EDX
+    | 0xCL -> R.ESP
+    | 0xDL -> R.EBP
+    | 0xEL -> R.ESI
+    | 0xFL -> R.EDI
+    | 0x10L -> R.AX
+    | 0x11L -> R.BX
+    | 0x12L -> R.CX
+    | 0x13L -> R.DX
+    | 0x14L -> R.SP
+    | 0x15L -> R.BP
+    | 0x16L -> R.SI
+    | 0x17L -> R.DI
+    | 0x18L -> R.AL
+    | 0x19L -> R.BL
+    | 0x1AL -> R.CL
+    | 0x1BL -> R.DL
+    | 0x1CL -> R.AH
+    | 0x1DL -> R.BH
+    | 0x1EL -> R.CH
+    | 0x1FL -> R.DH
+    | 0x20L -> R.R8
+    | 0x21L -> R.R9
+    | 0x22L -> R.R10
+    | 0x23L -> R.R11
+    | 0x24L -> R.R12
+    | 0x25L -> R.R13
+    | 0x26L -> R.R14
+    | 0x27L -> R.R15
+    | 0x28L -> R.R8D
+    | 0x29L -> R.R9D
+    | 0x2AL -> R.R10D
+    | 0x2BL -> R.R11D
+    | 0x2CL -> R.R12D
+    | 0x2DL -> R.R13D
+    | 0x2EL -> R.R14D
+    | 0x2FL -> R.R15D
+    | 0x30L -> R.R8W
+    | 0x31L -> R.R9W
+    | 0x32L -> R.R10W
+    | 0x33L -> R.R11W
+    | 0x34L -> R.R12W
+    | 0x35L -> R.R13W
+    | 0x36L -> R.R14W
+    | 0x37L -> R.R15W
+    | 0x38L -> R.R8L
+    | 0x39L -> R.R9L
+    | 0x3AL -> R.R10L
+    | 0x3BL -> R.R11L
+    | 0x3CL -> R.R12L
+    | 0x3DL -> R.R13L
+    | 0x3EL -> R.R14L
+    | 0x3FL -> R.R15L
+    | 0x40L -> R.SPL
+    | 0x41L -> R.BPL
+    | 0x42L -> R.SIL
+    | 0x43L -> R.DIL
+    | 0x44L -> R.EIP
+    | 0x45L -> R.RIP
+    | 0x100L -> R.ST0
+    | 0x101L -> R.ST1
+    | 0x102L -> R.ST2
+    | 0x103L -> R.ST3
+    | 0x104L -> R.ST4
+    | 0x105L -> R.ST5
+    | 0x106L -> R.ST6
+    | 0x107L -> R.ST7
+    | 0x200L -> R.MM0
+    | 0x201L -> R.MM1
+    | 0x202L -> R.MM2
+    | 0x203L -> R.MM3
+    | 0x204L -> R.MM4
+    | 0x205L -> R.MM5
+    | 0x206L -> R.MM6
+    | 0x207L -> R.MM7
+    | 0x30FL -> R.XMM0
+    | 0x30EL -> R.XMM1
+    | 0x30DL -> R.XMM2
+    | 0x30CL -> R.XMM3
+    | 0x30BL -> R.XMM4
+    | 0x30AL -> R.XMM5
+    | 0x309L -> R.XMM6
+    | 0x308L -> R.XMM7
+    | 0x307L -> R.XMM8
+    | 0x306L -> R.XMM9
+    | 0x305L -> R.XMM10
+    | 0x304L -> R.XMM11
+    | 0x303L -> R.XMM12
+    | 0x302L -> R.XMM13
+    | 0x301L -> R.XMM14
+    | 0x300L -> R.XMM15
+    | 0x40FL -> R.YMM0
+    | 0x40EL -> R.YMM1
+    | 0x40DL -> R.YMM2
+    | 0x40CL -> R.YMM3
+    | 0x40BL -> R.YMM4
+    | 0x40AL -> R.YMM5
+    | 0x409L -> R.YMM6
+    | 0x408L -> R.YMM7
+    | 0x407L -> R.YMM8
+    | 0x406L -> R.YMM9
+    | 0x405L -> R.YMM10
+    | 0x404L -> R.YMM11
+    | 0x403L -> R.YMM12
+    | 0x402L -> R.YMM13
+    | 0x401L -> R.YMM14
+    | 0x400L -> R.YMM15
+    | 0x50FL -> R.ZMM0
+    | 0x50EL -> R.ZMM1
+    | 0x50DL -> R.ZMM2
+    | 0x50CL -> R.ZMM3
+    | 0x50BL -> R.ZMM4
+    | 0x50AL -> R.ZMM5
+    | 0x509L -> R.ZMM6
+    | 0x508L -> R.ZMM7
+    | 0x507L -> R.ZMM8
+    | 0x506L -> R.ZMM9
+    | 0x505L -> R.ZMM10
+    | 0x504L -> R.ZMM11
+    | 0x503L -> R.ZMM12
+    | 0x502L -> R.ZMM13
+    | 0x501L -> R.ZMM14
+    | 0x500L -> R.ZMM15
+    | 0x600L -> R.ES
+    | 0x601L -> R.CS
+    | 0x602L -> R.SS
+    | 0x603L -> R.DS
+    | 0x604L -> R.FS
+    | 0x605L -> R.GS
+    | 0x700L -> R.ESBase
+    | 0x701L -> R.CSBase
+    | 0x702L -> R.SSBase
+    | 0x703L -> R.DSBase
+    | 0x704L -> R.FSBase
+    | 0x705L -> R.GSBase
+    | 0x800L -> R.CR0
+    | 0x802L -> R.CR2
+    | 0x803L -> R.CR3
+    | 0x804L -> R.CR4
+    | 0x900L -> R.DR0
+    | 0x901L -> R.DR1
+    | 0x902L -> R.DR2
+    | 0x903L -> R.DR3
+    | 0x906L -> R.DR6
+    | 0x907L -> R.DR7
+    | 0xA00L -> R.BND0
+    | 0xA01L -> R.BND1
+    | 0xA02L -> R.BND2
+    | 0xA03L -> R.BND3
+    | 0xB00L -> R.OF
+    | 0xB01L -> R.DF
+    | 0xB02L -> R.IF
+    | 0xB03L -> R.TF
+    | 0xB04L -> R.SF
+    | 0xB05L -> R.ZF
+    | 0xB06L -> R.AF
+    | 0xB07L -> R.PF
+    | 0xB08L -> R.CF
+    | 0xC00L -> R.FCW
+    | 0xC01L -> R.FSW
+    | 0xC02L -> R.FTW
+    | 0xC03L -> R.FOP
+    | 0xC04L -> R.FIP
+    | 0xC05L -> R.FCS
+    | 0xC06L -> R.FDP
+    | 0xC07L -> R.FDS
+    | 0xC08L -> R.MXCSR
+    | 0xC09L -> R.MXCSRMASK
+    | 0xD00L -> R.UnknownReg
+    | _ -> failwith "Invalid register"
 
 // vim: set tw=80 sts=2 sw=2:

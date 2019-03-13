@@ -1,28 +1,28 @@
 (*
-  B2R2 - the Next-Generation Reversing Platform
+    B2R2 - the Next-Generation Reversing Platform
 
-  Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
-          Minkyu Jung <hestati@kaist.ac.kr>
+    Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
+                    Minkyu Jung <hestati@kaist.ac.kr>
 
-  Copyright (c) SoftSec Lab. @ KAIST, since 2016
+    Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
-  Permission is hereby granted, free of charge, to any person obtaining a copy
-  of this software and associated documentation files (the "Software"), to deal
-  in the Software without restriction, including without limitation the rights
-  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-  copies of the Software, and to permit persons to whom the Software is
-  furnished to do so, subject to the following conditions:
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
 
-  The above copyright notice and this permission notice shall be included in all
-  copies or substantial portions of the Software.
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
 
-  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-  SOFTWARE.
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
 *)
 
 namespace B2R2
@@ -30,22 +30,22 @@ namespace B2R2
 /// B2R2 represents the word size of a CPU with WordSize, which can be either
 /// 32- or 64-bit.
 type WordSize =
-  | Bit32 = 32
-  | Bit64 = 64
+    | Bit32 = 32
+    | Bit64 = 64
 
 /// A helper module for the WordSize type.
 module WordSize =
 
-  let bitTypeOfString = function
-    | "32"  -> WordSize.Bit32
-    | "64"  -> WordSize.Bit64
-    | _ -> failwith "Unknown WordSize."
+    let bitTypeOfString = function
+        | "32"  -> WordSize.Bit32
+        | "64"  -> WordSize.Bit64
+        | _ -> failwith "Unknown WordSize."
 
-  /// Transform a word size into a byte length.
-  let toByteWidth (wordSize: WordSize) = int32 wordSize / 8
+    /// Transform a word size into a byte length.
+    let toByteWidth (wordSize: WordSize) = int32 wordSize / 8
 
-  /// Transform a word size into a RegType.
-  let toRegType = function
-    | WordSize.Bit32 -> 32<rt>
-    | WordSize.Bit64 -> 64<rt>
-    | _ -> failwith "Unknown WordSize."
+    /// Transform a word size into a RegType.
+    let toRegType = function
+        | WordSize.Bit32 -> 32<rt>
+        | WordSize.Bit64 -> 64<rt>
+        | _ -> failwith "Unknown WordSize."
