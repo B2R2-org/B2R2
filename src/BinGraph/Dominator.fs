@@ -158,7 +158,7 @@ let rec computeDomOrDelay ctxt parent =
 /// Temporarily connect entry dummy node and real entry nodes.
 let connect (g: DiGraph<_, _>) =
   let root = g.GetRoot ()
-  if root.GetID () = 0 then root (* We already have added a dummy node. *)
+  if root.GetID () = 0 then root
   else
     let dummyEntry = Vertex<_> ()
     dummyEntry.Succs <- [root]
@@ -190,21 +190,76 @@ let initDominator (g: DiGraph<_, _>) =
   done
   ctxt
 
-let preparePostDomAnalysis (g: DiGraph<'V, 'E>) =
-  match g.Unreachables with
-  | [] -> (* No exit nodes found: make an arbitrary node as a root. *)
-    g.FoldVertex (fun _ v -> Some v) None |> Option.iter (fun v -> g.SetRoot v)
-  | [v] -> g.SetRoot v
-  | vertices ->
-    let dummy = Vertex<'V> ()
-    dummy.Succs <- vertices
-    vertices |> List.iter (fun v -> v.Preds <- dummy :: v.Preds)
-    g.SetRoot dummy
-  g
+let topologicalOrder (visited, stack, orderMap, cnt) v =
+  let rec checkStack visited (stack: Vertex<_> list) orderMap cnt =
+    match stack with
+    | [] -> stack, orderMap, cnt
+    | v :: stack ->
+      if List.exists (fun s -> Set.contains s visited |> not) v.Succs then
+        v :: stack, orderMap, cnt
+      else
+        let orderMap = Map.add v cnt orderMap
+        checkStack visited stack orderMap (cnt - 1)
+  let visited = Set.add v visited
+  let stack, orderMap, cnt = checkStack visited (v :: stack) orderMap cnt
+  visited, stack, orderMap, cnt
+
+let updateReachMap bg exits reachMap =
+  let rec loop reachMap = function
+    | [] -> reachMap
+    | (v: Vertex<_>) :: vs ->
+      let reachMap = Map.add (v.GetID ()) true reachMap
+      let vs =
+        List.fold (fun acc (w: Vertex<_>) ->
+          if Map.find (w.GetID ()) reachMap then acc else w :: acc) vs v.Succs
+      loop reachMap vs
+  List.filter (fun (v: Vertex<_>) -> not (Map.find (v.GetID ()) reachMap)) exits
+  |> loop reachMap
+
+let rec calculateExits (fg: DiGraph<_, _>) (bg: DiGraph<_, _>) reachMap exits =
+  if Map.forall (fun _ b -> b) reachMap then exits
+  else
+    let reachMap = updateReachMap bg exits reachMap
+    let exits =
+      fg.FoldVertex (fun acc (v: Vertex<_>) ->
+        if List.length v.Succs = 0 && not <| Map.find (v.GetID ()) reachMap then
+          bg.FindVertexByID (v.GetID ()) :: acc
+        else acc) exits
+    calculateExits fg bg reachMap exits
+
+let preparePostDomAnalysis (fg: DiGraph<_, _>) (bg: DiGraph<_, _>) =
+  // Remove backedges from forward graph
+  let size = fg.Size () - 1
+  let _, _, order, _ =
+    fg.FoldVertexDFS topologicalOrder (Set.empty, [], Map.empty, size)
+  let backEdges =
+    fg.FoldEdge (fun acc (src: Vertex<_>) (dst: Vertex<_>) ->
+      if src.GetID () = dst.GetID () then
+        let edge = fg.FindEdge src dst
+        fg.RemoveEdge src dst
+        (src, dst, edge) :: acc
+      else acc) []
+    |> fg.FoldEdge (fun acc (src: Vertex<_>) (dst: Vertex<_>) ->
+      if Map.find src order > Map.find dst order then
+        let edge = fg.FindEdge src dst
+        fg.RemoveEdge src dst
+        (src, dst, edge) :: acc
+      else acc)
+  let reachMap =
+    bg.FoldVertex (fun acc (v: Vertex<_>) ->
+      Map.add (v.GetID ()) false acc) Map.empty
+  let exits = calculateExits fg bg reachMap bg.Unreachables
+  // Restore backedges to backward graph
+  List.iter (fun (src, dst, edge) -> fg.AddEdge src dst edge) backEdges
+  let dummy = Vertex<'V> ()
+  dummy.Succs <- exits
+  List.iter (fun (v: Vertex<_>) -> v.Preds <- dummy :: v.Preds) exits
+  bg.SetRoot dummy
+  bg
 
 let initDominatorContext g =
   let forward = initDominator g
-  let g' = g.Reverse () |> preparePostDomAnalysis
+  let g' = g.Reverse () |> preparePostDomAnalysis g
   let backward = initDominator g'
   {
     ForwardGraph = g
