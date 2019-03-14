@@ -38,12 +38,11 @@ let ofHexString (s: string) =
                                        NumberStyles.AllowHexSpecifier))
   |> Array.ofSeq
 
-let extractCString bytes offset =
-  let rec loop (acc: StringBuilder) offset =
-    match Array.get bytes offset with
-    | 0uy -> acc.ToString ()
-    | b -> loop (char b |> acc.Append) (offset + 1)
-  if bytes.Length = 0 then "" else loop (StringBuilder()) offset
+let extractCString (bytes: byte[]) offset =
+  let mutable i = 0
+  while bytes.[offset + i] <> 0uy do
+    i <- i + 1
+  string (Array.sub bytes offset i)
 
 let makeDelta1 pattern patlen =
   let delta1 = Array.create 256 patlen
