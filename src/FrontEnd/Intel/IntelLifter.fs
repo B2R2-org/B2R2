@@ -929,6 +929,17 @@ let fillZeroHigh128 ctxt dst builder =
   builder <! (dstC := n0)
   builder <! (dstD := n0)
 
+let fillZeroHigh256 ctxt dst builder =
+  let dst = r256to512 dst
+  let dstE, dstF, dstG, dstH =
+    getPseudoRegVar ctxt dst 3, getPseudoRegVar ctxt dst 4,
+    getPseudoRegVar ctxt dst 5, getPseudoRegVar ctxt dst 6
+  let n0 = num0 64<rt>
+  builder <! (dstE := n0)
+  builder <! (dstF := n0)
+  builder <! (dstG := n0)
+  builder <! (dstH := n0)
+
 let fillZeroFromVLToMaxVL ctxt dst vl maxVl builder =
   let n0 = num0 64<rt>
   match maxVl, vl with
@@ -3961,6 +3972,49 @@ let vpshufb ins insAddr insLen ctxt =
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
+let vpshufd ins insAddr insLen ctxt =
+  let dst, src, ord = getThreeOprs ins
+  let ord = transOprToExpr ins insAddr insLen ctxt ord
+  let oprSize = getOperationSize ins
+  let cnt = RegType.toBitWidth oprSize / 32
+  let builder = new StmtBuilder (2 * cnt)
+  let tmps = Array.init cnt (fun _ -> tmpVar 32<rt>)
+  let n32 = numI32 32 oprSize
+  let mask2 = numI32 3 32<rt> (* 2-bit mask *)
+  let tSrc = tmpVar oprSize
+  let tDst = tmpVar oprSize
+  let shuffleDword src =
+    for i in 1 .. cnt do
+      let order =
+        ((extractLow 32<rt> ord) >> (numI32 ((i - 1) * 2) 32<rt>)) .& mask2
+      let order' = zExt oprSize order
+      builder <! (tmps.[i - 1] := extractLow 32<rt> (src >> (order' .* n32)))
+    done
+  startMark insAddr insLen builder
+  match oprSize with
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+    let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
+    builder <! (tSrc := concat srcB srcA)
+    shuffleDword tSrc
+    builder <! (tDst := concatExprs tmps)
+    builder <! (dstA := extract tDst 64<rt> 0)
+    builder <! (dstB := extract tDst 64<rt> 64)
+    fillZeroHigh128 ctxt dst builder
+  | 256<rt> ->
+    let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
+    let srcD, srcC, srcB, srcA = transOprToExpr256 ins insAddr insLen ctxt src
+    builder <! (tSrc := concat (concat srcD srcC) (concat srcB srcA))
+    shuffleDword tSrc
+    builder <! (tDst := concatExprs tmps)
+    builder <! (dstA := extract tDst 64<rt> 0)
+    builder <! (dstB := extract tDst 64<rt> 64)
+    builder <! (dstC := extract tDst 64<rt> 128)
+    builder <! (dstD := extract tDst 64<rt> 192)
+    fillZeroHigh256 ctxt dst builder
+  | _ -> raise InvalidOperandSizeException
+  endMark insAddr insLen builder
+
 let shiftVDQ ins insAddr insLen ctxt shift =
   let builder = new StmtBuilder (8)
   let dst, src, cnt = getThreeOprs ins
@@ -4403,6 +4457,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.VPMOVMSKB -> pmovmskb ins insAddr insLen ctxt
   | Opcode.VPOR -> vpor ins insAddr insLen ctxt
   | Opcode.VPSHUFB -> vpshufb ins insAddr insLen ctxt
+  | Opcode.VPSHUFD -> vpshufd ins insAddr insLen ctxt
   | Opcode.VPSLLDQ -> vpslldq ins insAddr insLen ctxt
   | Opcode.VPSRLDQ -> vpsrldq ins insAddr insLen ctxt
   | Opcode.VPSUBB -> vpsubb ins insAddr insLen ctxt
