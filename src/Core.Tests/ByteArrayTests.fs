@@ -56,4 +56,4 @@ type TestClass () =
     let pattern = "text"B
     let offset = uint64 0
     let indexList = ByteArray.findIdxs offset pattern buf
-    Assert.AreEqual([48ul; 23ul; 14ul; 5ul], indexList)
+    Assert.AreEqual([48UL; 23UL; 14UL; 5UL], indexList)
