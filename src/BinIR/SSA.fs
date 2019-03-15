@@ -29,7 +29,6 @@ namespace B2R2.BinIR.SSA
 
 open B2R2
 open B2R2.BinIR
-open B2R2.Utils
 
 /// Type representing destination of assignment.
 type Destination =

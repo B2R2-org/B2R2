@@ -24,7 +24,7 @@
   SOFTWARE.
 *)
 
-module B2R2.BinGraph.SSA
+module B2R2.BinGraph.SSAGraph
 
 open B2R2
 open B2R2.FrontEnd
