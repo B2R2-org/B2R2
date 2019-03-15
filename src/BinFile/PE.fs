@@ -78,6 +78,8 @@ type PEFileInfo (bytes, path, ?rawpdb) =
 
   override __.GetDynamicSymbols () = getAllDynamicSymbols pe |> Array.toSeq
 
+  override __.GetRelocationSymbols () = Utils.futureFeature ()
+
   override __.GetSections () = getAllSections pe
 
   override __.GetSections (addr) = getSectionsByAddr pe addr

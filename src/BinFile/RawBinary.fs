@@ -88,6 +88,8 @@ type RawFileInfo (bytes: byte [], baseAddr) =
 
   override __.GetLinkageTableEntries () = Seq.empty
 
+  override __.GetRelocationSymbols () = Seq.empty
+
   override __.IsValidAddr (addr) =
     addr >= baseAddr && addr < (baseAddr + uint64 bytes.LongLength)
 

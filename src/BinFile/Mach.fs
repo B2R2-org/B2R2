@@ -77,6 +77,8 @@ type MachFileInfo (bytes, path) =
 
   override __.GetDynamicSymbols () = getAllDynamicSymbols mach |> Array.toSeq
 
+  override __.GetRelocationSymbols () = Utils.futureFeature ()
+
   override __.GetSections () = getAllSections mach
 
   override __.GetSections (addr) = getSectionsByAddr mach addr

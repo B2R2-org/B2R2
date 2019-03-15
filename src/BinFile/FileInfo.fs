@@ -161,6 +161,9 @@ type FileInfo () =
   /// </returns>
   abstract member GetLinkageTableEntries: unit -> seq<LinkageTableEntry>
 
+  /// <summary> todo </summary>
+  abstract member GetRelocationSymbols: unit -> seq<Symbol>
+
   /// <summary>
   ///   Return a list of all the segments from the binary.
   /// </summary>
