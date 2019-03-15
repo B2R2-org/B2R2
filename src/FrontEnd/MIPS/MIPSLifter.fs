@@ -28,6 +28,7 @@
 module internal B2R2.FrontEnd.MIPS.Lifter
 
 open B2R2
+open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST
 open B2R2.FrontEnd

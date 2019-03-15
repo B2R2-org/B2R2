@@ -32,6 +32,7 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 
 module Lifter =
   open B2R2
+  open B2R2.BinIR
   open B2R2.BinIR.LowUIR
 
   [<TestClass>]

@@ -2,6 +2,7 @@
   B2R2 - the Next-Generation Reversing Platform
 
   Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
+          Soomin Kim <soomink@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -29,7 +30,7 @@ module B2R2.BinGraph.Dominator
 open B2R2.Utils
 open System.Collections.Generic
 
-type DominatorContext<'V when 'V :> VertexData> =
+type DomInfo<'V when 'V :> VertexData> =
   {
     /// Vertex ID -> DFNum
     DFNumMap      : Dictionary<VertexID, int>
@@ -53,6 +54,14 @@ type DominatorContext<'V when 'V :> VertexData> =
     IDom          : int []
     /// Length of the arrays.
     MaxLength     : int
+  }
+
+type DominatorContext<'V, 'E when 'V :> VertexData> =
+  {
+    ForwardGraph : DiGraph<'V, 'E>
+    ForwardDomInfo : DomInfo<'V>
+    BackwardGraph : DiGraph<'V, 'E>
+    BackwardDomInfo : DomInfo<'V>
   }
 
 let initContext (g: DiGraph<_, _>) =
@@ -149,7 +158,7 @@ let rec computeDomOrDelay ctxt parent =
 /// Temporarily connect entry dummy node and real entry nodes.
 let connect (g: DiGraph<_, _>) =
   let root = g.GetRoot ()
-  if root.GetID () = 0 then root (* We already have added a dummy node. *)
+  if root.GetID () = 0 then root
   else
     let dummyEntry = Vertex<_> ()
     dummyEntry.Succs <- [root]
@@ -181,51 +190,118 @@ let initDominator (g: DiGraph<_, _>) =
   done
   ctxt
 
+let topologicalOrder (visited, stack, orderMap, cnt) v =
+  let rec checkStack visited (stack: Vertex<_> list) orderMap cnt =
+    match stack with
+    | [] -> stack, orderMap, cnt
+    | v :: stack ->
+      if List.exists (fun s -> Set.contains s visited |> not) v.Succs then
+        v :: stack, orderMap, cnt
+      else
+        let orderMap = Map.add v cnt orderMap
+        checkStack visited stack orderMap (cnt - 1)
+  let visited = Set.add v visited
+  let stack, orderMap, cnt = checkStack visited (v :: stack) orderMap cnt
+  visited, stack, orderMap, cnt
+
+let updateReachMap bg exits reachMap =
+  let rec loop reachMap = function
+    | [] -> reachMap
+    | (v: Vertex<_>) :: vs ->
+      let reachMap = Map.add (v.GetID ()) true reachMap
+      let vs =
+        List.fold (fun acc (w: Vertex<_>) ->
+          if Map.find (w.GetID ()) reachMap then acc else w :: acc) vs v.Succs
+      loop reachMap vs
+  List.filter (fun (v: Vertex<_>) -> not (Map.find (v.GetID ()) reachMap)) exits
+  |> loop reachMap
+
+let rec calculateExits (fg: DiGraph<_, _>) (bg: DiGraph<_, _>) reachMap exits =
+  if Map.forall (fun _ b -> b) reachMap then exits
+  else
+    let reachMap = updateReachMap bg exits reachMap
+    let exits =
+      fg.FoldVertex (fun acc (v: Vertex<_>) ->
+        if List.length v.Succs = 0 && not <| Map.find (v.GetID ()) reachMap then
+          bg.FindVertexByID (v.GetID ()) :: acc
+        else acc) exits
+    calculateExits fg bg reachMap exits
+
+let preparePostDomAnalysis (fg: DiGraph<_, _>) (bg: DiGraph<_, _>) =
+  // Remove backedges from forward graph
+  let size = fg.Size () - 1
+  let _, _, order, _ =
+    fg.FoldVertexDFS topologicalOrder (Set.empty, [], Map.empty, size)
+  let backEdges =
+    fg.FoldEdge (fun acc (src: Vertex<_>) (dst: Vertex<_>) ->
+      if src.GetID () = dst.GetID () then
+        let edge = fg.FindEdge src dst
+        fg.RemoveEdge src dst
+        (src, dst, edge) :: acc
+      else acc) []
+    |> fg.FoldEdge (fun acc (src: Vertex<_>) (dst: Vertex<_>) ->
+      if Map.find src order > Map.find dst order then
+        let edge = fg.FindEdge src dst
+        fg.RemoveEdge src dst
+        (src, dst, edge) :: acc
+      else acc)
+  let reachMap =
+    bg.FoldVertex (fun acc (v: Vertex<_>) ->
+      Map.add (v.GetID ()) false acc) Map.empty
+  let exits = calculateExits fg bg reachMap bg.Unreachables
+  // Restore backedges to backward graph
+  List.iter (fun (src, dst, edge) -> fg.AddEdge src dst edge) backEdges
+  let dummy = Vertex<'V> ()
+  dummy.Succs <- exits
+  List.iter (fun (v: Vertex<_>) -> v.Preds <- dummy :: v.Preds) exits
+  bg.SetRoot dummy
+  bg
+
+let initDominatorContext g =
+  let forward = initDominator g
+  let g' = g.Reverse () |> preparePostDomAnalysis g
+  let backward = initDominator g'
+  {
+    ForwardGraph = g
+    ForwardDomInfo = forward
+    BackwardGraph = g'
+    BackwardDomInfo = backward
+  }
+
 let checkVertexInGraph (g: DiGraph<'V, 'E>) (v: Vertex<'V>) =
   let v' = g.FindVertex v
   if v === v' then ()
   else raise VertexNotFoundException
 
-let private idomAux g v =
-  let ctxt = initDominator g
+let private idomAux ctxt g v =
   let id = ctxt.IDom.[dfnum ctxt v]
   if id > 1 then Some ctxt.Vertex.[id] else None
 
-let idom g v =
+let idom ctxt v =
+  let g = ctxt.ForwardGraph
   checkVertexInGraph g v
-  idomAux g v
+  idomAux ctxt.ForwardDomInfo g v
 
-let preparePostDomAnalysis (g: DiGraph<'V, 'E>) =
-  match g.Unreachables with
-  | [] -> (* No exit nodes found: make an arbitrary node as a root. *)
-    g.FoldVertex (fun _ v -> Some v) None |> Option.iter (fun v -> g.SetRoot v)
-  | [v] -> g.SetRoot v
-  | vertices ->
-    let dummy = Vertex<'V> ()
-    dummy.Succs <- vertices
-    vertices |> List.iter (fun v -> v.Preds <- dummy :: v.Preds)
-    g.SetRoot dummy
-  g
-
-let ipdom (g: DiGraph<'V, 'E>) (v: Vertex<'V>) =
-  let g' = g.Reverse () |> preparePostDomAnalysis
+let ipdom ctxt v =
+  let g' = ctxt.BackwardGraph
   let v = g'.FindVertex v
-  idomAux g' v
+  idomAux ctxt.BackwardDomInfo g' v
 
 let rec domsAux acc v ctxt =
   let id = ctxt.IDom.[dfnum ctxt v]
   if id > 0 then domsAux (ctxt.Vertex.[id] :: acc) ctxt.Vertex.[id] ctxt
   else List.rev acc
 
-let doms (g: DiGraph<'V, 'E>) (v: Vertex<'V>) =
+let doms ctxt v =
+  let g = ctxt.ForwardGraph
   checkVertexInGraph g v
-  initDominator g |> domsAux [] v
+  domsAux [] v ctxt.ForwardDomInfo
 
-let pdoms (g: DiGraph<'V, 'E>) v =
-  let g' = g.Reverse () |> preparePostDomAnalysis
-  initDominator g' |> domsAux [] v
+let pdoms ctxt v =
+  let g' = ctxt.BackwardGraph
+  domsAux [] v ctxt.BackwardDomInfo
 
-let computeDomTree (g: DiGraph<'V, 'E>) entry ctxt =
+let computeDomTree (g: DiGraph<'V, 'E>) ctxt =
   let domTree = Array.create ctxt.MaxLength []
   g.IterVertexDFS (fun v ->
     let idom = ctxt.IDom.[dfnum ctxt v]
@@ -240,16 +316,20 @@ let rec computeFrontierLocal s ctxt (parent: Vertex<_>) = function
     computeFrontierLocal s ctxt parent rest
   | [] -> s
 
-let rec computeDF (frontiers: Vertex<_> list []) g ctxt (r: Vertex<'V>) =
+let rec computeDF
+    (domTree: Vertex<_> list [])
+    (frontiers: Vertex<_> list [])
+    g
+    ctxt
+    (r: Vertex<'V>) =
   let mutable s = Set.empty
   for succ in r.Succs do
     let succID = dfnum ctxt succ
     let d = ctxt.Vertex.[ctxt.IDom.[succID]]
     if d.GetID () <> r.GetID () then s <- Set.add succID s
   done
-  let domTree = computeDomTree g r ctxt
   for child in domTree.[dfnum ctxt r] do
-    computeDF frontiers g ctxt child
+    computeDF domTree frontiers g ctxt child
     for node in frontiers.[dfnum ctxt child] do
       let doms = domsAux [] node ctxt
       let dominate = doms |> List.exists (fun d -> d.GetID () = r.GetID ())
@@ -258,12 +338,26 @@ let rec computeDF (frontiers: Vertex<_> list []) g ctxt (r: Vertex<'V>) =
   done
   frontiers.[dfnum ctxt r] <- Set.fold (fun df n -> ctxt.Vertex.[n] :: df) [] s
 
-let frontier (g: DiGraph<'V, 'E>) v =
+let frontier ctxt v =
+  let g = ctxt.ForwardGraph
   checkVertexInGraph g v
   let root = g.GetRoot ()
-  let ctxt = initDominator g
+  let ctxt = ctxt.ForwardDomInfo
   let frontiers = Array.create ctxt.MaxLength []
-  computeDF frontiers g ctxt root
+  let domTree = computeDomTree g ctxt
+  computeDF domTree frontiers g ctxt root
   frontiers.[dfnum ctxt v]
+
+let dominatorTree ctxt =
+  let g = ctxt.ForwardGraph
+  let ctxt = ctxt.ForwardDomInfo
+  let tree = computeDomTree g ctxt
+  let tree = Array.sub tree 2 (Array.length tree - 2) // Remove a dummy node
+  let root = ctxt.Vertex.[2]
+  let tree =
+    Array.mapi (fun dfNum vs -> dfNum, vs) tree
+    |> Array.fold (fun tree (dfNum, vs) ->
+        Map.add ctxt.Vertex.[dfNum + 2] vs tree) Map.empty
+  tree, root
 
 // vim: set tw=80 sts=2 sw=2:

@@ -27,6 +27,7 @@
 module B2R2.ROP.Simplify
 
 open B2R2
+open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
 let inline negNum x = BitVector.neg x |> Num

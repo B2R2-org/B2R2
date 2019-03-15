@@ -30,6 +30,7 @@ module B2R2.BinGraph.CFGUtils
 open B2R2
 open B2R2.BinFile
 open B2R2.FrontEnd
+open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open System.Text
 

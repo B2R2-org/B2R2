@@ -18,6 +18,7 @@
     <Compile Include="CFGBuilder.fs" />
     <Compile Include="Boundary.fs" />
     <Compile Include="CFGUtils.fs" />
+    <Compile Include="SSAGraph.fs" />
     <Compile Include="BinEssence.fs" />
     <Compile Include="Algorithms.fs" />
   </ItemGroup>

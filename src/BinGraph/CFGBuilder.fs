@@ -66,6 +66,15 @@ type IRBBL (ppoint, lastPpoint, stmts, last) =
   /// Do we need to resolve the successor(s) of this basic block?
   member val ToResolve = false with get, set
 
+type SSABBL (stmts, last) =
+  inherit VertexData (VertexData.genID ())
+
+  member __.Stmts: SSA.Stmt list = stmts
+
+  member __.LastStmt: SSA.Stmt = last
+
+  member val ToResolve = false with get, set
+
 type CFGEdge =
   | JmpEdge
   | CJmpTrueEdge
@@ -81,20 +90,20 @@ type IRVertex = Vertex<IRBBL>
 
 type IRCFG = SimpleDiGraph<IRBBL, CFGEdge>
 
-type Function (entry, name) =
-  let disasmCFG = DisasmCFG ()
-  let irCFG = IRCFG ()
-  let mutable ssaCFG = IRCFG ()
+type SSAVertex = Vertex<SSABBL>
 
+type SSACFG = SimpleDiGraph<SSABBL, CFGEdge>
+
+type Function (entry, name) =
   member val Entry : Addr = entry
 
   member val Name : string = name
 
-  member __.DisasmCFG with get () = disasmCFG
+  member val DisasmCFG = DisasmCFG ()
 
-  member __.IRCFG with get () = irCFG
+  member val IRCFG = IRCFG ()
 
-  member __.SSACFG with get () = ssaCFG and set (v) = ssaCFG <- v
+  member val SSACFG = SSACFG ()
 
 type Funcs = Dictionary<Addr, Function>
 

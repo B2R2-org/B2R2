@@ -32,6 +32,7 @@ module B2R2.BinGraph.Boundary
 open B2R2
 open B2R2.BinFile
 open B2R2.FrontEnd
+open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
 let initFunction hdl (funcs: Funcs) entry =
