@@ -104,7 +104,7 @@ module internal DeadCodeEliminator =
           let ei1 = AST.getExprInfo e1
           let ei2 = AST.getExprInfo e2
           loop (idx - 1) len (updateUse2 ei1 ei2 drc)
-        | InterJmp (_, e) ->
+        | InterJmp (_, e, _) ->
           let ei = AST.getExprInfo e
           loop (idx - 1) len (updateUse ei drc)
         | InterCJmp (e, _, e1, e2) ->
@@ -180,9 +180,9 @@ module internal ConstantFolder =
             let e2' = if nT2 then e2' else e2
             stmts.[idx] <- Store (endian, e1', e2')
           loop (idx + 1) cpc
-        | InterJmp (pc, e) ->
+        | InterJmp (pc, e, t) ->
           let (needTrans, e') = ExprWalker.Replace (cpc, e)
-          if needTrans then stmts.[idx] <- InterJmp (pc, e')
+          if needTrans then stmts.[idx] <- InterJmp (pc, e', t)
           loop (idx + 1) cpc
         | InterCJmp (e, pc, e1, e2) ->
           let (nT, e') = ExprWalker.Replace (cpc, e)
@@ -193,8 +193,9 @@ module internal ConstantFolder =
             let e1' = if nT1 then e1' else e1
             let e2' = if nT2 then e2' else e2
             stmts.[idx] <- match e' with
-                           | Num (n) when BitVector.isOne n -> InterJmp (pc, e1')
-                           | Num (n) -> InterJmp (pc, e2')
+                           | Num (n) when BitVector.isOne n ->
+                             InterJmp (pc, e1', InterJmpInfo.Base)
+                           | Num (n) -> InterJmp (pc, e2', InterJmpInfo.Base)
                            | _ -> InterCJmp (e', pc, e1', e2')
           loop (idx + 1) cpc
         (* Need Barrier: Flush whole context *)

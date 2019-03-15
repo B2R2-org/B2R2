@@ -853,7 +853,7 @@ let strRepeat (ctxt: TranslationContext) body cond insAddr insLen builder =
   body ()
   builder <! (cx := cx .- num1 ctxt.WordBitSize)
   match cond with
-  | None -> builder <! (InterJmp (pc, cinstAddr))
+  | None -> builder <! (InterJmp (pc, cinstAddr, InterJmpInfo.Base))
   | Some cond ->
     builder <! (CJmp (cx == n0, Name lblExit, Name lblNext))
     builder <! (LMark lblNext)
@@ -862,7 +862,7 @@ let strRepeat (ctxt: TranslationContext) body cond insAddr insLen builder =
   (* We consider each individual loop from a REP-prefixed instruction as an
      independent basic block, because it is more intuitive and matches with
      the definition of basic block from text books. *)
-  builder <! (InterJmp (pc, ninstAddr))
+  builder <! (InterJmp (pc, ninstAddr, InterJmpInfo.Base))
 
 (* FIXME: To replace dstAssign *)
 let r128to256 = function
@@ -1229,7 +1229,7 @@ let call ins insAddr insLen ctxt isFar =
     builder <! (target := getOneOpr ins |> transOneOpr ins insAddr insLen ctxt)
     let r = (bvOfBaseAddr insAddr ctxt .+ bvOfInstrLen insLen ctxt)
     auxPush oprSize ctxt r builder
-    builder <! (InterJmp (pc, target))
+    builder <! (InterJmp (pc, target, InterJmpInfo.IsCall))
     endMark insAddr insLen builder
   | true -> sideEffects insAddr insLen UnsupportedFAR
 
@@ -1711,7 +1711,7 @@ let jmp ins insAddr insLen ctxt =
   let opr = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
   let pc = getInstrPtr ctxt
   startMark insAddr insLen builder
-  builder <! (InterJmp (pc, opr))
+  builder <! (InterJmp (pc, opr, InterJmpInfo.Base))
   endMark insAddr insLen builder
 
 let lddqu ins insAddr insLen ctxt =
@@ -3062,12 +3062,12 @@ let ret ins insAddr insLen ctxt isFar isImm =
     startMark insAddr insLen builder
     auxPop oprSize ctxt t builder
     builder <! (sp := sp .+ (zExt oprSize src))
-    builder <! (InterJmp (pc, t))
+    builder <! (InterJmp (pc, t, InterJmpInfo.IsRet))
     endMark insAddr insLen builder
   | false, false ->
     startMark insAddr insLen builder
     auxPop oprSize ctxt t builder
-    builder <! (InterJmp (pc, t))
+    builder <! (InterJmp (pc, t, InterJmpInfo.IsRet))
     endMark insAddr insLen builder
   | true, true
   | true, false -> sideEffects insAddr insLen UnsupportedFAR

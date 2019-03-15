@@ -216,7 +216,7 @@ let getIRSuccessors hdl (builder: CFGBuilder) (bbl: IRBBL) =
     let addr, _ = bbl.LastStmt.Ppoint
     let fPpoint = builder.FindPPointByLabel addr fSymbol
     [ Some (fPpoint, CJmpFalseEdge) ]
-  | InterJmp (_, Num bv) ->
+  | InterJmp (_, Num bv, _) ->
     let addr = BitVector.toUInt64 bv
     if isExecutable hdl addr then [ Some ((addr, 0), JmpEdge) ] else []
   | InterCJmp (_, _, Num tBv, Num fBv) ->

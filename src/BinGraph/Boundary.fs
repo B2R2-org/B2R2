@@ -214,7 +214,7 @@ let rec scanIRLeaders hdl (builder: CFGBuilder) boundary = function
     builder.AddIRLeader ppoint
     builder.UpdateLiftableOfIRLeader ppoint
     scanIRLeaders hdl builder boundary stmts
-  | (((addr, idx) as ppoint), (InterJmp (_, Num bv) as stmt)) :: stmts ->
+  | (((addr, idx) as ppoint), (InterJmp (_, Num bv, _) as stmt)) :: stmts ->
     builder.AddStmt ppoint stmt
     let newPpoint = BitVector.toUInt64 bv, 0
     if isInnerLeader boundary newPpoint then

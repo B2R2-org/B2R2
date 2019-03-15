@@ -563,7 +563,7 @@ let branchWritePC ctxt result =
   let resultClear2Bit = maskAndOR result (num0 32<rt>) 32<rt> 2
   let resultClear1Bit = maskAndOR result (num0 32<rt>) 32<rt> 1
   let newPC = ite (isInstrSetARM ctxt) resultClear2Bit resultClear1Bit
-  InterJmp (getPC ctxt, newPC)
+  InterJmp (getPC ctxt, newPC, InterJmpInfo.Base) // FIXME
 
 /// Write value to R.PC, with interworking, on page A2-47.
 /// function : BXWritePC()
@@ -580,13 +580,15 @@ let bxWritePC ctxt result (builder: StmtBuilder) =
   builder <! (CJmp (cond1, Name lblL0, Name lblL1))
   builder <! (LMark lblL0)
   selectThumbInstrSet ctxt builder
-  builder <! (InterJmp (pc, maskAndOR result num0 32<rt> 1))
+  // FIXME
+  builder <! (InterJmp (pc, maskAndOR result num0 32<rt> 1, InterJmpInfo.Base))
   builder <! (Jmp (Name lblEnd))
   builder <! (LMark lblL1)
   builder <! (CJmp (cond2, Name lblL2, Name lblL3))
   builder <! (LMark lblL2)
   selectARMInstrSet ctxt builder
-  builder <! (InterJmp (pc, result))
+  // FIXME
+  builder <! (InterJmp (pc, result, InterJmpInfo.Base))
   builder <! (Jmp (Name lblEnd))
   builder <! (LMark lblL3)
   builder <! (SideEffect UndefinedInstr)  //FIXME  (use UNPREDICTABLE)
