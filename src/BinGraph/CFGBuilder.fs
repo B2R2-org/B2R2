@@ -36,10 +36,6 @@ open System.Collections.Generic
 
 type PPoint = Addr * int
 
-type Statement(ppoint, stmtIR) =
-  member __.Ppoint : PPoint = ppoint
-  member __.StmtIR : Stmt = stmtIR
-
 type DisassemblyBBL (range: AddrRange, instrs, last) =
   inherit RangedVertexData (range)
 
@@ -52,17 +48,20 @@ type DisassemblyBBL (range: AddrRange, instrs, last) =
   /// Do we need to resolve the successor(s) of this basic block?
   member val ToResolve = false with get, set
 
-type IRBBL (ppoint, stmts, last) =
+type IRBBL (ppoint, lastPpoint, stmts, last) =
   inherit VertexData (VertexData.genID ())
 
   /// This block's starting program point
   member __.Ppoint: PPoint = ppoint
 
   /// List of all the statements in this block.
-  member __.Stmts: Statement list = stmts
+  member __.Stmts: Stmt list = stmts
 
   /// The last statement of this block (to access it efficiently).
-  member __.LastStmt: Statement = last
+  member __.LastStmt: Stmt = last
+
+  /// Program point of the last statement.
+  member __.LastPpoint: PPoint = lastPpoint
 
   /// Do we need to resolve the successor(s) of this basic block?
   member val ToResolve = false with get, set

@@ -84,13 +84,13 @@ let rec buildIRBBLAux (builder: CFGBuilder) sPpoint leaders ppoint stmts =
     else
       let last = List.head stmts
       let stmts = List.rev stmts
-      Ok <| IRBBL (sPpoint, stmts, last)
+      Ok <| IRBBL (sPpoint, ppoint, stmts, last)
   elif ppoint > List.head leaders then
     buildIRBBLAux builder sPpoint (List.tail leaders) ppoint stmts
   else
-    let stmtIR = builder.GetStmt ppoint
-    let nextPpoint = getNextPpoint ppoint stmtIR
-    let stmts = Statement (ppoint, stmtIR) :: stmts
+    let stmt = builder.GetStmt ppoint
+    let nextPpoint = getNextPpoint ppoint stmt
+    let stmts = stmt :: stmts
     buildIRBBLAux builder sPpoint leaders nextPpoint stmts
 
 let rec buildIRBBLs hdl (builder: CFGBuilder) bbls = function
@@ -198,22 +198,22 @@ let rec buildDisasmCFGs hdl builder (funcs: Funcs) funcset bbls = function
   | [] -> builder
 
 let getIRSuccessors hdl (builder: CFGBuilder) (bbl: IRBBL) =
-  match bbl.LastStmt.StmtIR with
+  match bbl.LastStmt with
   | Jmp (Name symbol) ->
-    let addr, _ = bbl.LastStmt.Ppoint
+    let addr, _ = bbl.LastPpoint
     let ppoint = builder.FindPPointByLabel addr symbol
     [ Some (ppoint, JmpEdge) ]
   | CJmp (_, Name tSymbol, Name fSymbol) ->
-    let addr, _ = bbl.LastStmt.Ppoint
+    let addr, _ = bbl.LastPpoint
     let tPpoint = builder.FindPPointByLabel addr tSymbol
     let fPpoint = builder.FindPPointByLabel addr fSymbol
     [ Some (tPpoint, CJmpTrueEdge) ; Some (fPpoint, CJmpFalseEdge) ]
   | CJmp (_, Name tSymbol, _) ->
-    let addr, _ = bbl.LastStmt.Ppoint
+    let addr, _ = bbl.LastPpoint
     let tPpoint = builder.FindPPointByLabel addr tSymbol
     [ Some (tPpoint, CJmpTrueEdge) ]
   | CJmp (_, _, Name fSymbol) ->
-    let addr, _ = bbl.LastStmt.Ppoint
+    let addr, _ = bbl.LastPpoint
     let fPpoint = builder.FindPPointByLabel addr fSymbol
     [ Some (fPpoint, CJmpFalseEdge) ]
   | InterJmp (_, Num bv, _) ->
@@ -228,7 +228,7 @@ let getIRSuccessors hdl (builder: CFGBuilder) (bbl: IRBBL) =
     else edges
   | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ -> [ None ]
   | SideEffect Halt -> []
-  | _stmt -> [ Some (bbl.LastStmt.Ppoint, JmpEdge) ]
+  | _stmt -> [ Some (bbl.LastPpoint, JmpEdge) ]
 
 let addIRLeader
     hdl (builder: CFGBuilder) funcset bbls (cfg: IRCFG) entry leader = function
@@ -342,12 +342,11 @@ let private irToJson hdl (sb: StringBuilder) stmt =
   sb.Append("        {\"stmt\: \"").Append(s).Append("\"}")
 
 let private stmtsToJson hdl stmts sb =
-  let rec irLoop sb (stmts: Statement list) =
-    match stmts with
+  let rec irLoop sb = function
     | [] -> sb
-    | [stmt] -> irToJson hdl sb stmt.StmtIR
+    | [stmt] -> irToJson hdl sb stmt
     | stmt :: stmts ->
-      irLoop ((irToJson hdl sb stmt.StmtIR).Append(",\n")) stmts
+      irLoop ((irToJson hdl sb stmt).Append(",\n")) stmts
   irLoop sb stmts
 
 let private irVertexToJson (sb: StringBuilder, hdl, cnt) (v: IRVertex) =
