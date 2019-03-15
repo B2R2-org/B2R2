@@ -559,11 +559,11 @@ let selectInstrSet ctxt builder = function
 
 /// Write value to R.PC, without interworking, on page A2-47.
 /// function : BranchWritePC()
-let branchWritePC ctxt result =
+let branchWritePC ctxt result jmpInfo =
   let resultClear2Bit = maskAndOR result (num0 32<rt>) 32<rt> 2
   let resultClear1Bit = maskAndOR result (num0 32<rt>) 32<rt> 1
   let newPC = ite (isInstrSetARM ctxt) resultClear2Bit resultClear1Bit
-  InterJmp (getPC ctxt, newPC)
+  InterJmp (getPC ctxt, newPC, jmpInfo) // FIXME
 
 /// Write value to R.PC, with interworking, on page A2-47.
 /// function : BXWritePC()
@@ -580,13 +580,15 @@ let bxWritePC ctxt result (builder: StmtBuilder) =
   builder <! (CJmp (cond1, Name lblL0, Name lblL1))
   builder <! (LMark lblL0)
   selectThumbInstrSet ctxt builder
-  builder <! (InterJmp (pc, maskAndOR result num0 32<rt> 1))
+  // FIXME
+  builder <! (InterJmp (pc, maskAndOR result num0 32<rt> 1, InterJmpInfo.Base))
   builder <! (Jmp (Name lblEnd))
   builder <! (LMark lblL1)
   builder <! (CJmp (cond2, Name lblL2, Name lblL3))
   builder <! (LMark lblL2)
   selectARMInstrSet ctxt builder
-  builder <! (InterJmp (pc, result))
+  // FIXME
+  builder <! (InterJmp (pc, result, InterJmpInfo.Base))
   builder <! (Jmp (Name lblEnd))
   builder <! (LMark lblL3)
   builder <! (SideEffect UndefinedInstr)  //FIXME  (use UNPREDICTABLE)
@@ -604,12 +606,12 @@ let writePC ctxt result (builder: StmtBuilder) =
   bxWritePC ctxt result builder
   builder <! (Jmp (Name lblEnd))
   builder <! (LMark lblL1)
-  builder <! (branchWritePC ctxt result)
+  builder <! (branchWritePC ctxt result InterJmpInfo.Base)
   builder <! (LMark lblEnd)
 
 /// Write value to R.PC, with interworking (without it before ARMv5T),
 /// on page A2-47. function : LoadWritePC()
-let loadWritePC ctxt result = branchWritePC ctxt result
+let loadWritePC ctxt result = branchWritePC ctxt result InterJmpInfo.Base
 
 /// Position of rightmost 1 in a bitstring, on page AppxP-2653.
 /// function : LowestSetBit()
@@ -1100,7 +1102,7 @@ let bl insInfo ctxt =
     builder <! (lr := addr .- (num <| BitVector.ofInt32 4 32<rt>))
   else builder <! (lr := maskAndOR addr (num1 32<rt>) 32<rt> 1)
   selectInstrSet ctxt builder targetMode
-  builder <! (branchWritePC ctxt e)
+  builder <! (branchWritePC ctxt e InterJmpInfo.IsCall)
   endMark insInfo lblCondFail isCondPass builder
 
 let branchWithLink insInfo ctxt =
@@ -1203,7 +1205,7 @@ let subsPCLRThumb insInfo ctxt =
   builder <! (SideEffect UndefinedInstr)  //FIXME  (use UNPREDICTABLE)
   builder <! (Jmp (Name lblEnd))
   builder <! (LMark lblL3)
-  builder <! (branchWritePC ctxt result)
+  builder <! (branchWritePC ctxt result InterJmpInfo.IsRet)
   builder <! (LMark lblEnd)
   endMark insInfo lblCondFail isCondPass builder
 
@@ -1278,7 +1280,7 @@ let subsAndRelatedInstr insInfo ctxt =
   builder <! (Jmp (Name lblEnd))
   builder <! (LMark lblL5)
   builder <! (result := parseResultOfSUBAndRela insInfo ctxt)
-  builder <! (branchWritePC ctxt result)
+  builder <! (branchWritePC ctxt result InterJmpInfo.IsRet)
   builder <! (LMark lblEnd)
   endMark insInfo lblCondFail isCondPass builder
 
@@ -2060,7 +2062,7 @@ let b insInfo ctxt =
   let e = parseOprOfB insInfo
   let isCondPass = isCondPassed insInfo.Condition
   startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
-  builder <! (branchWritePC ctxt e)
+  builder <! (branchWritePC ctxt e InterJmpInfo.Base)
   endMark insInfo lblCondFail isCondPass builder
 
 let bx insInfo ctxt =
@@ -2421,7 +2423,7 @@ let cbz nonZero insInfo ctxt =
   startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
   builder <! (CJmp (cond, Name lblL0, Name lblL1))
   builder <! (LMark lblL0)
-  builder <! (branchWritePC ctxt pc)
+  builder <! (branchWritePC ctxt pc InterJmpInfo.Base)
   builder <! (LMark lblL1)
   endMark insInfo lblCondFail isCondPass builder
 
@@ -2444,7 +2446,7 @@ let tableBranch insInfo ctxt =
   let result = pc .+ ((num <| BitVector.ofInt32 2 32<rt>) .* halfwords)
   let isCondPass = isCondPassed insInfo.Condition
   startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
-  builder <! (branchWritePC ctxt result)
+  builder <! (branchWritePC ctxt result InterJmpInfo.Base)
   endMark insInfo lblCondFail isCondPass builder
 
 let parseOprOfBFC insInfo ctxt =

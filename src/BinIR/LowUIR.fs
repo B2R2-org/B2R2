@@ -33,6 +33,12 @@ open B2R2.BinIR
 open B2R2.Utils
 open System
 
+type [<System.Flags>] InterJmpInfo =
+  | Base = 0
+  | IsCall = 1
+  | IsRet = 2
+  | IsExit = 4
+
 [<Struct>]
 type ConsInfo = {
   Tag  : int64
@@ -238,7 +244,7 @@ type Stmt =
     /// This is an unconditional jump instruction to another instruction. This
     /// is an inter-instruction jump unlike Jmp statement. The first argument
     /// represents the program counter, and the second is the target address.
-  | InterJmp of Expr * Expr
+  | InterJmp of Expr * Expr * InterJmpInfo
 
     /// This is a conditional jump instruction to another instruction. The first
     /// argument specifies a jump condition, and the second argument represents
@@ -388,7 +394,7 @@ module Pp =
     | Jmp exp ->
       sb.Append ("Jmp ") |> ignore
       _expToString exp sb
-    | InterJmp (pc, exp) ->
+    | InterJmp (pc, exp, _) ->
       _expToString pc sb
       sb.Append (" := ") |> ignore
       _expToString exp sb

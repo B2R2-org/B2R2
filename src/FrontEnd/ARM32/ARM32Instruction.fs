@@ -76,7 +76,7 @@ type ARM32Instruction (addr, numBytes, insInfo) =
     | Opcode.BL | Opcode.BLX -> true
     | _ -> false
 
-  override __.IsRET () =
+  override __.IsRET () = // This is wrong
     match __.Info.Opcode, __.Info.Operands with
     | Opcode.POP, OneOperand (Register R.PC) -> true
     | _ -> false

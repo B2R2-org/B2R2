@@ -437,7 +437,7 @@ module AST =
     | Jmp (a) -> typeCheckExpr a
     | CJmp (cond, e1, e2) ->
       typeCheckExpr cond && typeCheckExpr e1 && typeCheckExpr e2
-    | InterJmp (pc, addr) -> typeCheckExpr pc && typeCheckExpr addr
+    | InterJmp (pc, addr, _) -> typeCheckExpr pc && typeCheckExpr addr
     | InterCJmp (cond, pc, a1, a2) ->
       typeCheckExpr cond && typeCheckExpr pc
       && typeCheckExpr a1 && typeCheckExpr a2

@@ -28,7 +28,6 @@
 namespace B2R2.FrontEnd.Intel
 
 open B2R2
-open System.Net
 
 /// The internal representation for an Intel instruction used by our
 /// disassembler and lifter.

@@ -246,7 +246,7 @@ let b insInfo ctxt =
   let offset = getOneOpr insInfo |> transOneOpr insInfo ctxt
   let pc = getRegVar ctxt R.PC
   startMark insInfo builder
-  builder <! (InterJmp (pc, offset))
+  builder <! (InterJmp (pc, offset, InterJmpInfo.Base))
   endMark insInfo builder
 
 let bal insInfo ctxt =
@@ -255,7 +255,7 @@ let bal insInfo ctxt =
   let pc = getRegVar ctxt R.PC
   startMark insInfo builder
   builder <! (getRegVar ctxt R.R31 := pc .+ numI32 8 ctxt.WordBitSize)
-  builder <! (InterJmp (pc, offset))
+  builder <! (InterJmp (pc, offset, InterJmpInfo.IsCall))
   endMark insInfo builder
 
 let beq insInfo ctxt =
@@ -696,7 +696,7 @@ let jalr insInfo ctxt =
   let r = bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
   startMark insInfo builder
   builder <! (rd := r)
-  builder <! (InterJmp (pc, rs))
+  builder <! (InterJmp (pc, rs, InterJmpInfo.IsCall))
   endMark insInfo builder
 
 let jr insInfo ctxt =
@@ -704,7 +704,7 @@ let jr insInfo ctxt =
   let rs = getOneOpr insInfo |> transOneOpr insInfo ctxt
   let pc = getRegVar ctxt R.PC
   startMark insInfo builder
-  builder <! (InterJmp (pc, rs))
+  builder <! (InterJmp (pc, rs, InterJmpInfo.Base))
   endMark insInfo builder
 
 let load insInfo ctxt =

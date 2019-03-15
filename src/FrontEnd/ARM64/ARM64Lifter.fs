@@ -674,8 +674,8 @@ type BranchType =
 // Set program counter to a new address, which may include a tag in the top
 // eight bits, with a branch reason hint for possible use by hardware fetching
 // the next instruction.
-let branchTo ins ctxt target brType (builder: StmtBuilder) =
-  builder <! (InterJmp (getPC ctxt, target)) // FIXME: BranchAddr function
+let branchTo ins ctxt target brType i (builder: StmtBuilder) =
+  builder <! (InterJmp (getPC ctxt, target, i)) // FIXME: BranchAddr function
 
 // shared/functions/system/ConditionHolds
 // ConditionHolds()
@@ -856,7 +856,7 @@ let b ins ctxt addr =
   let label = transOneOpr ins ctxt addr
   let pc = getPC ctxt
   startMark ins addr builder
-  builder <! (InterJmp (pc, pc .+ label))
+  builder <! (InterJmp (pc, pc .+ label, InterJmpInfo.Base))
   endMark ins addr builder
 
 let bCond ins ctxt addr cond =
@@ -894,7 +894,8 @@ let bl ins ctxt addr =
   let pc = getPC ctxt
   startMark ins addr builder
   builder <! (getRegVar ctxt R.X30 := pc .+ numI64 4L ins.OprSize)
-  builder <! (InterJmp (pc, pc .+ label)) // FIXME: BranchTo (BType_CALL)
+  // FIXME: BranchTo (BType_CALL)
+  builder <! (InterJmp (pc, pc .+ label, InterJmpInfo.IsCall))
   endMark ins addr builder
 
 let blr ins ctxt addr =
@@ -903,14 +904,16 @@ let blr ins ctxt addr =
   let pc = getPC ctxt
   startMark ins addr builder
   builder <! (getRegVar ctxt R.X30 := pc .+ numI64 4L ins.OprSize)
-  builder <! (InterJmp (pc, src)) // FIXME: BranchTo (BranchType_CALL)
+  // FIXME: BranchTo (BranchType_CALL)
+  builder <! (InterJmp (pc, src, InterJmpInfo.IsCall))
   endMark ins addr builder
 
 let br ins ctxt addr =
   let builder = new StmtBuilder (4)
   let dst = transOneOpr ins ctxt addr
   startMark ins addr builder
-  builder <! (InterJmp (getPC ctxt, dst)) // FIXME: BranchTo (BType_JMP)
+  // FIXME: BranchTo (BType_JMP)
+  builder <! (InterJmp (getPC ctxt, dst, InterJmpInfo.Base))
   endMark ins addr builder
 
 let cbnz ins ctxt addr =
@@ -1194,7 +1197,7 @@ let ret ins ctxt addr =
   let target = tmpVar 64<rt>
   startMark ins addr builder
   builder <! (target := src)
-  branchTo ins ctxt target BrTypeRET builder
+  branchTo ins ctxt target BrTypeRET InterJmpInfo.IsRet builder
   endMark ins addr builder
 
 let sbc ins ctxt addr =

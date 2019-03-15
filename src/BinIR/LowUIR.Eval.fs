@@ -216,7 +216,7 @@ let evalStmt st cb = function
   | Store (endian, addr, v) -> evalStore st cb endian addr v |> nextStmt
   | Jmp target -> evalJmp st target
   | CJmp (cond, t1, t2) -> evalCJmp st cond t1 t2
-  | InterJmp (pc, target) -> evalPut st pc target |> endBlock
+  | InterJmp (pc, target, _) -> evalPut st pc target |> endBlock
   | InterCJmp (cond, pc, t1, t2) -> evalInterCJmp st cond pc t1 t2 |> endBlock
   | SideEffect eff -> cb.SideEffectCallBack eff st |> nextStmt |> endBlock
 
