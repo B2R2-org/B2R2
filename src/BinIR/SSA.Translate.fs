@@ -96,7 +96,7 @@ let rec translateStmt defaultRegType addr acc = function
     let jmp = IntraCJmp (expr, label1, label2)
     let acc = Jmp jmp :: acc
     translateStmt defaultRegType addr acc stmts
-  | LowUIR.InterJmp (pc, expr) :: stmts ->
+  | LowUIR.InterJmp (pc, expr, _) :: stmts ->
     let pc = translateDest pc
     let expr = translateExpr expr
     let jmp = InterJmp (pc, expr)
