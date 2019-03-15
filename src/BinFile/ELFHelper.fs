@@ -1252,6 +1252,12 @@ let getLinkageTableEntries elf =
   |> List.sortBy (fun entry -> entry.TrampolineAddress)
   |> List.toSeq
 
+let getRelocSymbols elf =
+  elf.SymInfo.RelocInfo.RelocByName
+  |> Map.toSeq
+  |> Seq.map (fun (_, i) -> { i.RelELFSymbol with Addr = i.RelOffset }
+                            |> elfSymbolToSymbol TargetKind.DynamicSymbol)
+
 let initELF bytes =
   let reader = BinReader.Init (bytes, Endian.Little)
   if isELFHeader reader startOffset then ()

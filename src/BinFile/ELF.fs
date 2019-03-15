@@ -100,6 +100,9 @@ type ELFFileInfo (bytes, path) =
   override __.GetLinkageTableEntries () =
     getLinkageTableEntries elf
 
+  override __.GetRelocationSymbols () =
+    getRelocSymbols elf
+
   override __.IsValidAddr addr = isValid addr elf.LoadableSegments
 
 // vim: set tw=80 sts=2 sw=2:
