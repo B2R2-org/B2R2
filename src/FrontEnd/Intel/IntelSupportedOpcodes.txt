@@ -1,675 +1,1352 @@
+/// ASCII Adjust After Addition.
 AAA
+/// ASCII Adjust AX Before Division.
 AAD
+/// ASCII Adjust AX After Multiply.
 AAM
+/// ASCII Adjust AL After Subtraction.
 AAS
+/// Add with Carry.
 ADC
+/// Add.
 ADD
+/// Add Packed Double-Precision Floating-Point Values.
 ADDPD
+/// Add Packed Single-Precision Floating-Point Values.
 ADDPS
+/// Add Scalar Double-Precision Floating-Point Values.
 ADDSD
+/// Add Scalar Single-Precision Floating-Point Values.
 ADDSS
+/// Logical AND.
 AND
+/// Bitwise Logical AND of Packed Double-Precision Floating-Point Values.
 ANDNPD
+/// Bitwise Logical AND of Packed Single-Precision Floating-Point Values.
 ANDNPS
+/// Bitwise Logical AND NOT of Packed Double-Precision Floating-Point Values.
 ANDPD
+/// Bitwise Logical AND NOT of Packed Single-Precision Floating-Point Values.
 ANDPS
+/// Adjust RPL Field of Segment Selector.
 ARPL
+/// Move Bounds.
 BNDMOV
+/// Check Array Index Against Bounds.
 BOUND
+/// Bit Scan Forward.
 BSF
+/// Bit Scan Reverse.
 BSR
+/// Byte Swap.
 BSWAP
+/// Bit Test.
 BT
+/// Bit Test and Complement.
 BTC
+/// Bit Test and Reset.
 BTR
+/// Bit Test and Set.
 BTS
+/// Far call.
 CALLFar (* Far call *)
+/// Near call.
 CALLNear (* Near call *)
+/// Convert Byte to Word.
 CBW
+/// Convert Doubleword to Quadword.
 CDQ
+/// Convert Doubleword to Quadword.
 CDQE
+/// Clear AC Flag in EFLAGS Register.
 CLAC
+/// Clear Carry Flag.
 CLC
+/// Clear Direction Flag.
 CLD
+/// Flush Cache Line.
 CLFLUSH
+/// Clear Interrupt Flag.
 CLI
+/// Clear Task-Switched Flag in CR0.
 CLTS
+/// Complement Carry Flag.
 CMC
+/// Conditional Move (Move if above (CF=0 and ZF=0)).
 CMOVA
+/// Conditional Move (Move if above or equal (CF=0)).
 CMOVAE
+/// Conditional Move (Move if below (CF=1)).
 CMOVB
+/// Conditional Move (Move if below or equal (CF=1 or ZF=1)).
 CMOVBE
+/// Conditional Move (Move if greater (ZF=0 and SF=OF)).
 CMOVG
+/// Conditional Move (Move if less (SF¡Á OF)).
 CMOVL
+/// Conditional Move (Move if less or equal (ZF=1 or SF¡Á OF)).
 CMOVLE
+/// Conditional Move (Move if greater or equal (SF=OF)).
 CMOVGE
+/// Conditional Move (Move if not overflow (OF=0)).
 CMOVNO
+/// Conditional Move (Move if not parity (PF=0)).
 CMOVNP
+/// Conditional Move (Move if not sign (SF=0)).
 CMOVNS
+/// Conditional Move (Move if not zero (ZF=0)).
 CMOVNZ
+/// Conditional Move (Move if overflow (OF=1)).
 CMOVO
+/// Conditional Move (Move if parity (PF=1)).
 CMOVP
+/// Conditional Move (Move if sign (SF=1)).
 CMOVS
+/// Conditional Move (Move if zero (ZF=1)).
 CMOVZ
+/// Compare Two Operands.
 CMP
+/// Compare String Operands (byte).
 CMPSB
+/// Compare String Operands (word).
 CMPSW
+/// Compare String Operands (dword).
 CMPSD
+/// Compare String Operands (quadword).
 CMPSQ
+/// Compare and Exchange Bytes.
 CMPXCH8B
+/// Compare and Exchange.
 CMPXCHG
+/// Compare and Exchange Bytes.
 CMPXCHG16B
+/// Compare Scalar Ordered Double-Precision FP Values and Set EFLAGS.
 COMISD
+/// Compare Scalar Ordered Single-Precision FP Values and Set EFLAGS.
 COMISS
+/// CPU Identification.
 CPUID
+/// Convert Quadword to Octaword.
 CQO
+/// Accumulate CRC32 Value.
 CRC32
+/// Convert Packed Dword Integers to Packed Double-Precision FP Values.
 CVTDQ2PD
+/// Convert Packed Dword Integers to Packed Single-Precision FP Values.
 CVTDQ2PS
+/// Convert Packed Double-Precision FP Values to Packed Dword Integers.
 CVTPD2DQ
+/// Convert Packed Double-Precision FP Values to Packed Dword Integers.
 CVTPD2PI
+/// Convert Packed Double-Precision FP Values to Packed Single-Precision FP.
 CVTPD2PS
+/// Convert Packed Dword Integers to Packed Double-Precision FP Values.
 CVTPI2PD
+/// Convert Packed Dword Integers to Packed Single-Precision FP Values.
 CVTPI2PS
+/// Convert Packed Single-Precision FP Values to Packed Dword Integers.
 CVTPS2DQ
+/// Convert Packed Single-Precision FP Values to Packed Double-Precision FP.
 CVTPS2PD
+/// Convert Packed Single-Precision FP Values to Packed Dword Integers.
 CVTPS2PI
+/// Convert Scalar Double-Precision FP Value to Integer.
 CVTSD2SI
+/// Convert Scalar Double-Precision FP Value to Scalar Single-Precision FP.
 CVTSD2SS
+/// Convert Dword Integer to Scalar Double-Precision FP Value.
 CVTSI2SD
+/// Convert Dword Integer to Scalar Single-Precision FP Value.
 CVTSI2SS
+/// Convert Scalar Single-Precision FP Value to Scalar Double-Precision FP.
 CVTSS2SD
+/// Convert Scalar Single-Precision FP Value to Dword Integer.
 CVTSS2SI
+/// Convert with Truncation Packed Double-Precision FP Values to Packed Dword.
 CVTTPD2DQ
+/// Convert with Truncation Packed Double-Precision FP Values to Packed Dword.
 CVTTPD2PI
+/// Convert with Truncation Packed Single-Precision FP Values to Packed Dword.
 CVTTPS2DQ
+/// Convert with Truncation Packed Single-Precision FP Values to Packed Dword.
 CVTTPS2PI
+/// Convert with Truncation Scalar Double-Precision FP Value to Signed.
 CVTTSD2SI
+/// Convert with Truncation Scalar Single-Precision FP Value to Dword Integer.
 CVTTSS2SI
+/// Convert Word to Doubleword.
 CWD
+/// Convert Word to Doubleword.
 CWDE
+/// Decimal Adjust AL after Addition.
 DAA
+/// Decimal Adjust AL after Subtraction.
 DAS
+/// Decrement by 1.
 DEC
+/// Unsigned Divide.
 DIV
+/// Divide Packed Double-Precision Floating-Point Values.
 DIVPD
+/// Divide Packed Single-Precision Floating-Point Values.
 DIVPS
+/// Divide Scalar Double-Precision Floating-Point Values.
 DIVSD
+/// Divide Scalar Single-Precision Floating-Point Values.
 DIVSS
+/// Make Stack Frame for Procedure Parameters.
 ENTER
+/// Compute 2x-1.
 F2XM1
+/// Absolute Value.
 FABS
+/// Add.
 FADD
+/// Add and pop the register stack.
 FADDP
+/// Load Binary Coded Decimal.
 FBLD
+/// Store BCD Integer and Pop.
 FBSTP
+/// Change Sign.
 FCHS
+/// Clear Exceptions.
 FCLEX
+/// Floating-Point Conditional Move (if below (CF=1)).
 FCMOVB
+/// Floating-Point Conditional Move (if below or equal (CF=1 or ZF=1)).
 FCMOVBE
+/// Floating-Point Conditional Move (if equal (ZF=1)).
 FCMOVE
+/// Floating-Point Conditional Move (if not below (CF=0)).
 FCMOVNB
+/// Floating-Point Conditional Move (if not below or equal (CF=0 and ZF=0)).
 FCMOVNBE
+/// Floating-Point Conditional Move (if not equal (ZF=0)).
 FCMOVNE
+/// Floating-Point Conditional Move (if not unordered (PF=0)).
 FCMOVNU
+/// Floating-Point Conditional Move (if unordered (PF=1)).
 FCMOVU
+/// Compare Floating Point Values.
 FCOM
+/// Compare Floating Point Values and Set EFLAGS.
 FCOMI
+/// Compare Floating Point Values and Set EFLAGS.
 FCOMIP
+/// Compare Floating Point Values and pop register stack.
 FCOMP
+/// Compare Floating Point Values and pop register stack twice.
 FCOMPP
+/// Cosine.
 FCOS
+/// Decrement Stack-Top Pointer.
 FDECSTP
+/// Divide.
 FDIV
+/// Divide and pop the register stack.
 FDIVP
+/// Reverse Divide.
 FDIVR
+/// Reverse Divide and pop the register stack.
 FDIVRP
+/// Free Floating-Point Register.
 FFREE
+/// Add.
 FIADD
+/// Load Integer.
 FILD
+/// Multiply.
 FIMUL
+/// Increment Stack-Top Pointer.
 FINCSTP
+/// Initialize Floating-Point Unit.
 FINIT
+/// Compare Integer.
 FICOM
+/// Compare Integer and pop the register stack.
 FICOMP
+/// Store Integer.
 FIST
+/// Store Integer and pop the register stack.
 FISTP
+/// Store Integer with Truncation.
 FISTTP
+/// Subtract.
 FISUB
+/// Reverse Subtract.
 FISUBR
+/// Divide
 FIDIV
+/// Reverse Divide.
 FIDIVR
+/// Load Floating Point Value.
 FLD
+/// Load Constant (Push +1.0 onto the FPU register stack).
 FLD1
+/// Load x87 FPU Control Word.
 FLDCW
+/// Load x87 FPU Environment.
 FLDENV
+/// Load Constant (Push log210 onto the FPU register stack).
 FLDL2T
+/// Load Constant (Push log2e onto the FPU register stack).
 FLDL2E
+/// Load Constant (Push Pi onto the FPU register stack).
 FLDPI
+/// Load Constant (Push log102 onto the FPU register stack).
 FLDLG2
+/// Load Constant (Push loge2 onto the FPU register stack).
 FLDLN2
+/// Load Constant (Push +0.0 onto the FPU register stack).
 FLDZ
+/// No Operation.
 FNOP
+/// Multiply.
 FMUL
+/// Multiply and pop the register stack.
 FMULP
+/// Partial Arctangent.
 FPATAN
+/// Partial Remainder.
 FPREM
+/// Partial Remainder.
 FPREM1
+/// Partial Tangent.
 FPTAN
+/// Round to Integer.
 FRNDINT
+/// Restore x87 FPU State.
 FRSTOR
+/// Store x87 FPU State.
 FSAVE
+/// Scale.
 FSCALE
+/// Sine.
 FSIN
+/// Sine and Cosine.
 FSINCOS
+/// Square Root.
 FSQRT
+/// Store Floating Point Value.
 FST
+/// Store x87 FPU Control Word.
 FSTCW
+/// Store x87 FPU Environment.
 FSTENV
+/// Store Floating Point Value.
 FSTP
+/// Store x87 FPU Status Word.
 FSTSW
+/// Subtract.
 FSUB
+/// Subtract and pop register stack.
 FSUBP
+/// Reverse Subtract.
 FSUBR
+/// Reverse Subtract and pop register stack.
 FSUBRP
+/// TEST.
 FTST
+/// Unordered Compare Floating Point Values.
 FUCOM
+/// Compare Floating Point Values and Set EFLAGS.
 FUCOMI
+/// Compare Floating Point Values and Set EFLAGS and pop register stack.
 FUCOMIP
+/// Unordered Compare Floating Point Values.
 FUCOMP
+/// Unordered Compare Floating Point Values.
 FUCOMPP
+/// Examine ModR/M.
 FXAM
+/// Exchange Register Contents.
 FXCH
+/// Extract Exponent and Significand.
 FXTRACT
+/// compute y * log2x.
 FYL2X
+/// compute y * log2(x+1).
 FYL2XP1
+/// Restore x87 FPU, MMX, XMM, and MXCSR State.
 FXRSTOR
+/// Restore x87 FPU, MMX, XMM, and MXCSR State.
 FXRSTOR64
+/// Save x87 FPU, MMX Technology, and SSE State.
 FXSAVE
+/// Save x87 FPU, MMX Technology, and SSE State.
 FXSAVE64
+/// GETSEC.
 GETSEC
+/// Halt.
 HLT
+/// Signed Divide.
 IDIV
+/// Signed Multiply.
 IMUL
+/// Input from Port.
 IN
+/// Increment by 1.
 INC
+/// Input from Port to String.
 INS
+/// Input from Port to String (byte).
 INSB
+/// Input from Port to String (doubleword).
 INSD
+/// Input from Port to String (word).
 INSW
+/// Call to Interrupt (Interrupt vector specified by immediate byte).
 INT
+/// Call to Interrupt (Interrupt 3?trap to debugger).
 INT3
+/// Call to Interrupt (InteInterrupt 4?if overflow flag is 1).
 INTO
+/// Invalidate Internal Caches.
 INVD
+/// Invalidate TLB Entries.
 INVLPG
+/// Interrupt return (16-bit operand size).
 IRETW
+/// Interrupt return (32-bit operand size).
 IRETD
+/// Interrupt return (64-bit operand size).
 IRETQ
+/// Jump if Condition Is Met (Jump short if above, CF=0 and ZF=0).
 JA
+/// Jump if Condition Is Met (Jump short if below, CF=1).
 JB
+/// Jump if Condition Is Met (Jump short if below or equal, CF=1 or ZF).
 JBE
+/// Jump if Condition Is Met (Jump short if CX register is 0).
 JCXZ
+/// Jump if Condition Is Met (Jump short if ECX register is 0).
 JECXZ
+/// Jump if Condition Is Met (Jump short if greater, ZF=0 and SF=OF).
 JG
+/// Jump if Condition Is Met (Jump short if less, SF¡Á OF).
 JL
+/// Jump if Condition Is Met (Jump short if less or equal, ZF=1 or SF¡Á OF).
 JLE
+/// Far jmp.
 JMPFar (* Far jmp *)
+/// Near jmp.
 JMPNear (* Near jmp *)
+/// Jump if Condition Is Met (Jump near if not below, CF=0).
 JNB
+/// Jump if Condition Is Met (Jump near if not less, SF=OF).
 JNL
+/// Jump if Condition Is Met (Jump near if not overflow, OF=0).
 JNO
+/// Jump if Condition Is Met (Jump near if not parity, PF=0).
 JNP
+/// Jump if Condition Is Met (Jump near if not sign, SF=0).
 JNS
+/// Jump if Condition Is Met (Jump near if not zero, ZF=0).
 JNZ
+/// Jump if Condition Is Met (Jump near if overflow, OF=1).
 JO
+/// Jump if Condition Is Met (Jump near if parity, PF=1).
 JP
+/// Jump if Condition Is Met (Jump short if RCX register is 0).
 JRCXZ
+/// Jump if Condition Is Met (Jump short if sign, SF=1).
 JS
+/// Jump if Condition Is Met (Jump short if zero, ZF
 JZ
+/// Load Status Flags into AH Register.
 LAHF
+/// Load Access Rights Byte.
 LAR
+/// Load Unaligned Integer 128 Bits.
 LDDQU
+/// Load MXCSR Register.
 LDMXCSR
+/// Load Far Pointer (DS).
 LDS
+/// Load Effective Address.
 LEA
+/// High Level Procedure Exit.
 LEAVE
+/// Load Far Pointer (ES).
 LES
+/// Load Fence.
 LFENCE
+/// Load Far Pointer (FS).
 LFS
+/// Load GlobalDescriptor Table Register.
 LGDT
+/// Load Far Pointer (GS).
 LGS
+/// Load Interrupt Descriptor Table Register.
 LIDT
+/// Load Local Descriptor Table Register.
 LLDT
+/// Load Machine Status Word.
 LMSW
+/// Load String (byte).
 LODSB
+/// Load String (word).
 LODSW
+/// Load String (doubleword).
 LODSD
+/// Load String (quadword).
 LODSQ
+/// Loop According to ECX Counter (count ¡Á 0).
 LOOP
+/// Loop According to ECX Counter (count ¡Á 0 and ZF
 LOOPE
+/// Loop According to ECX Counter (count ¡Á 0 and ZF
 LOOPNE
+/// Load Segment Limit.
 LSL
+/// Load Far Pointer (SS).
 LSS
+/// Load Task Register.
 LTR
+/// the Number of Leading Zero Bits.
 LZCNT
+/// Return Maximum Packed Single-Precision Floating-Point Values.
 MAXPS
+/// Return Maximum Packed Double-Precision Floating-Point Values.
 MAXPD
+/// Return Maximum Scalar Double-Precision Floating-Point Values.
 MAXSD
+/// Return Maximum Scalar Single-Precision Floating-Point Values.
 MAXSS
+/// Memory Fence.
 MFENCE
+/// Return Minimum Packed Double-Precision Floating-Point Values.
 MINPD
+/// Return Minimum Packed Single-Precision Floating-Point Values.
 MINPS
+/// Return Minimum Scalar Double-Precision Floating-Point Values.
 MINSD
+/// Return Minimum Scalar Single-Precision Floating-Point Values.
 MINSS
+/// Set Up Monitor Address.
 MONITOR
+/// MOV.
 MOV
+/// Move Aligned Packed Double-Precision Floating-Point Values.
 MOVAPD
+/// Move Aligned Packed Single-Precision Floating-Point Values.
 MOVAPS
+/// Move Data After Swapping Bytes.
 MOVBE
+/// Move Doubleword.
 MOVD
+/// Move One Double-FP and Duplicate.
 MOVDDUP
+/// Move Quadword from XMM to MMX Technology Register.
 MOVDQ2Q
+/// Move Aligned Double Quadword.
 MOVDQA
+/// Move Unaligned Double Quadword.
 MOVDQU
+/// Move Packed Single-Precision Floating-Point Values High to Low.
 MOVHLPS
+/// Move High Packed Double-Precision Floating-Point Value.
 MOVHPD
+/// Move High Packed Single-Precision Floating-Point Values.
 MOVHPS
+/// Move Packed Single-Precision Floating-Point Values Low to High.
 MOVLHPS
+/// Move Low Packed Double-Precision Floating-Point Value.
 MOVLPD
+/// Move Low Packed Single-Precision Floating-Point Values.
 MOVLPS
+/// Extract Packed Double-Precision Floating-Point Sign Mask.
 MOVMSKPD
+/// Extract Packed Single-Precision Floating-Point Sign Mask.
 MOVMSKPS
+/// Load Double Quadword Non-Temporal Aligned Hint
 MOVNTDQ
+/// Store Doubleword Using Non-Temporal Hint.
 MOVNTI
+/// Store Packed Double-Precision FP Values Using Non-Temporal Hint.
 MOVNTPD
+/// Store Packed Single-Precision FP Values Using Non-Temporal Hint.
 MOVNTPS
+/// Store of Quadword Using Non-Temporal Hint.
 MOVNTQ
+/// Move Quadword.
 MOVQ
+/// Move Quadword from MMX Technology to XMM Register.
 MOVQ2DQ
+/// Move Data from String to String (byte).
 MOVSB
+/// Move Data from String to String (doubleword).
 MOVSD
+/// Move Packed Single-FP High and Duplicate.
 MOVSHDUP
+/// Move Packed Single-FP Low and Duplicate.
 MOVSLDUP
+/// Move Scalar Single-Precision Floating-Point Values.
 MOVSS
+/// Move Data from String to String (word).
 MOVSW
+/// Move Data from String to String (quadword).
 MOVSQ
+/// Move with Sign-Extension.
 MOVSX
+/// Move with Sign-Extension (doubleword to quadword).
 MOVSXD
+/// Move Unaligned Packed Double-Precision Floating-Point Values.
 MOVUPD
+/// Move Unaligned Packed Single-Precision Floating-Point Values.
 MOVUPS
+/// Move with Zero-Extend.
 MOVZX
+/// Unsigned Multiply.
 MUL
+/// Multiply Packed Double-Precision Floating-Point Values.
 MULPD
+/// Multiply Packed Single-Precision Floating-Point Values.
 MULPS
+/// Multiply Scalar Double-Precision Floating-Point Values.
 MULSD
+/// Multiply Scalar Single-Precision Floating-Point Values.
 MULSS
+/// Monitor Wait.
 MWAIT
+/// Two's Complement Negation.
 NEG
+/// No Operation.
 NOP
+/// One's Complement Negation.
 NOT
+/// Logical Inclusive OR.
 OR
+/// Bitwise Logical OR of Double-Precision Floating-Point Values.
 ORPD
+/// Bitwise Logical OR of Single-Precision Floating-Point Values.
 ORPS
+/// Output to Port.
 OUT
+/// Output String to Port.
 OUTS
+/// Output String to Port (byte).
 OUTSB
+/// Output String to Port (doubleword).
 OUTSD
+/// Output String to Port (word).
 OUTSW
+/// Pack with Signed Saturation.
 PACKSSDW
+/// Pack with Signed Saturation.
 PACKSSWB
+/// Pack with Unsigned Saturation.
 PACKUSWB
+/// Add Packed byte Integers.
 PADDB
+/// Add Packed Doubleword Integers.
 PADDD
+/// Add Packed Quadword Integers.
 PADDQ
+/// Add Packed Signed Integers with Signed Saturation (byte).
 PADDSB
+/// Add Packed Signed Integers with Signed Saturation (word).
 PADDSW
+/// Add Packed Unsigned Integers with Unsigned Saturation (byte).
 PADDUSB
+/// Add Packed Unsigned Integers with Unsigned Saturation (word).
 PADDUSW
+/// Add Packed word Integers.
 PADDW
+/// Packed Align Right.
 PALIGNR
+/// Logical AND.
 PAND
+/// Logical AND NOT.
 PANDN
+/// Average Packed Integers (byte).
 PAVGB
+/// Average Packed Integers (word).
 PAVGW
+/// Spin Loop Hint.
 PAUSE
+/// Compare Packed Data for Equal (byte).
 PCMPEQB
+/// Compare Packed Data for Equal (doubleword).
 PCMPEQD
+/// Compare Packed Data for Equal (quadword).
 PCMPEQQ
+/// Packed Compare Explicit Length Strings, Return Index.
 PCMPESTRI
+/// Packed Compare Explicit Length Strings, Return Mask.
 PCMPESTRM
+/// Compare Packed Signed Integers for Greater Than (byte).
 PCMPGTB
+/// Compare Packed Signed Integers for Greater Than (doubleword).
 PCMPGTD
+/// Compare Packed Signed Integers for Greater Than (word).
 PCMPGTW
+/// Packed Compare Implicit Length Strings, Return Index.
 PCMPISTRI
+/// Packed Compare Implicit Length Strings, Return Mask.
 PCMPISTRM
+/// Extract Word.
 PEXTRW
+/// Insert Byte.
 PINSRB
+/// Insert Word.
 PINSRW
+/// Multiply and Add Packed Integers.
 PMADDWD
+/// Maximum of Packed Signed Word Integers.
 PMAXSW
+/// Maximum of Packed Unsigned Byte Integers.
 PMAXUB
+/// Minimum of Packed Signed Word Integers.
 PMINSW
+/// Minimum of Packed Unsigned Byte Integers.
 PMINUB
+/// Minimum of Packed Dword Integers.
 PMINUD
+/// Minimum of Packed Signed Byte Integers.
 PMINSB
+/// Move Byte Mask.
 PMOVMSKB
+/// Multiply Packed Unsigned Integers and Store High Result.
 PMULHUW
+/// Multiply Packed Signed Integers and Store High Result.
 PMULHW
+/// Multiply Packed Signed Integers and Store Low Result.
 PMULLW
+/// Multiply Packed Unsigned Doubleword Integers.
 PMULUDQ
+/// Pop a Value from the Stack.
 POP
+/// Pop All General-Purpose Registers (word).
 POPA
+/// Pop All General-Purpose Registers (doubleword).
 POPAD
+/// Return the Count of Number of Bits Set to 1.
 POPCNT
+/// Pop Stack into EFLAGS Register (lower 16bits EFLAGS).
 POPF
+/// Pop Stack into EFLAGS Register (EFLAGS).
 POPFD
+/// Pop Stack into EFLAGS Register (RFLAGS).
 POPFQ
+/// Bitwise Logical OR.
 POR
+/// Prefetch Data Into Caches (using NTA hint).
 PREFETCHNTA
+/// Prefetch Data Into Caches (using T0 hint).
 PREFETCHT0
+/// Prefetch Data Into Caches (using T1 hint).
 PREFETCHT1
+/// Prefetch Data Into Caches (using T2 hint).
 PREFETCHT2
+/// Prefetch Data into Caches in Anticipation of a Write.
 PREFETCHW
+/// Prefetch Vector Data Into Caches with Intent to Write and T1 Hint.
 PREFETCHWT1
+/// Compute Sum of Absolute Differences.
 PSADBW
+/// Packed Shuffle Bytes.
 PSHUFB
+/// Shuffle Packed Doublewords.
 PSHUFD
+/// Shuffle Packed High Words.
 PSHUFHW
+/// Shuffle Packed Low Words.
 PSHUFLW
+/// Shuffle Packed Words.
 PSHUFW
+/// Shift Packed Data Left Logical (doubleword).
 PSLLD
+/// Shift Double Quadword Left Logical.
 PSLLDQ
+/// Shift Packed Data Left Logical (quadword).
 PSLLQ
+/// Shift Packed Data Left Logical (word).
 PSLLW
+/// Shift Packed Data Right Arithmetic (doubleword).
 PSRAD
+/// Shift Packed Data Right Arithmetic (word).
 PSRAW
+/// Shift Packed Data Right Logical (doubleword).
 PSRLD
+/// Shift Double Quadword Right Logical.
 PSRLDQ
+/// Shift Packed Data Right Logical (quadword).
 PSRLQ
+/// Shift Packed Data Right Logical (word).
 PSRLW
+/// Subtract Packed Integers (byte).
 PSUBB
+/// Subtract Packed Integers (doubleword).
 PSUBD
+/// Subtract Packed Integers (quadword).
 PSUBQ
+/// Subtract Packed Signed Integers with Signed Saturation (byte).
 PSUBSB
+/// Subtract Packed Signed Integers with Signed Saturation (word).
 PSUBSW
+/// Subtract Packed Unsigned Integers with Unsigned Saturation (byte).
 PSUBUSB
+/// Subtract Packed Unsigned Integers with Unsigned Saturation (word).
 PSUBUSW
+/// Subtract Packed Integers (word).
 PSUBW
+/// Logical Compare.
 PTEST
+/// Unpack High Data.
 PUNPCKHBW
+/// Unpack High Data.
 PUNPCKHDQ
+/// Unpack High Data.
 PUNPCKHQDQ
+/// Unpack High Data.
 PUNPCKHWD
+/// Unpack Low Data.
 PUNPCKLBW
+/// Unpack Low Data.
 PUNPCKLDQ
+/// Unpack Low Data.
 PUNPCKLQDQ
+/// Unpack Low Data.
 PUNPCKLWD
+/// Push Word, Doubleword or Quadword Onto the Stack.
 PUSH
+/// Push All General-Purpose Registers (word).
 PUSHA
+/// Push All General-Purpose Registers (doubleword).
 PUSHAD
+/// Push EFLAGS Register onto the Stack (16bits of EFLAGS).
 PUSHF
+/// Push EFLAGS Register onto the Stack (EFLAGS).
 PUSHFD
+/// Push EFLAGS Register onto the Stack (RFLAGS).
 PUSHFQ
+/// Logical Exclusive OR.
 PXOR
+/// Rotate x bits (CF, r/m(x)) left once.
 RCL
+/// Rotate x bits (CF, r/m(x)) right once.
 RCR
+/// Read FS Segment Base.
 RDFSBASE
+/// Read GS Segment Base.
 RDGSBASE
+/// Read from Model Specific Register.
 RDMSR
+/// Read Protection Key Rights for User Pages.
 RDPKRU
+/// Read Performance-Monitoring Counters.
 RDPMC
+/// Read Random Number.
 RDRAND
+/// Read Random SEED.
 RDSEED
+/// Read Time-Stamp Counter.
 RDTSC
+/// Read Time-Stamp Counter and Processor ID.
 RDTSCP
+/// Near return.
 RETNear    (* Near return *)
+/// Near return w/ immediate .
 RETNearImm (* Near return w/ immediate *)
+/// Far return.
 RETFar     (* Far return *)
+/// Far return w/ immediate.
 RETFarImm  (* Far return w/ immediate *)
+/// Rotate x bits r/m(x) left once..
 ROL
+/// Rotate x bits r/m(x) right once.
 ROR
+/// Round Scalar Double Precision Floating-Point Values.
 ROUNDSD
+/// Resume from System Management Mode.
 RSM
+/// Store AH into Flags.
 SAHF
+/// Shift.
 SAR
+/// Integer Subtraction with Borrow.
 SBB
+/// Scan String (byte).
 SCASB
+/// Scan String (word).
 SCASW
+/// Scan String (doubleword).
 SCASD
+/// Scan String (quadword).
 SCASQ
+/// Set byte if above (CF=0 and ZF=0).
 SETA
+/// Set byte if below (CF=1).
 SETB
+/// Set byte if below or equal (CF=1 or ZF=1).
 SETBE
+/// Set byte if greater (ZF=0 and SF=OF)..
 SETG
+/// Set byte if less (SF¡Á OF).
 SETL
+/// Set byte if less or equal (ZF=1 or SF¡Á OF).
 SETLE
+/// Set byte if not below (CF=0).
 SETNB
+/// Set byte if not less (SF=OF).
 SETNL
+/// Set byte if not overflow (OF=0).
 SETNO
+/// Set byte if not parity (PF=0).
 SETNP
+/// Set byte if not sign (SF=0).
 SETNS
+/// Set byte if not zero (ZF=0).
 SETNZ
+/// Set byte if overflow (OF=1).
 SETO
+/// Set byte if parity (PF=1).
 SETP
+/// Set byte if sign (SF=1).
 SETS
+/// Set byte if sign (ZF=1).
 SETZ
+/// Store Fence.
 SFENCE
+/// Store Global Descriptor Table Register.
 SGDT
+/// Shift.
 SHL
+/// Double Precision Shift Left.
 SHLD
+/// Shift.
 SHR
+/// Double Precision Shift Right.
 SHRD
+/// Shuffle Packed Double-Precision Floating-Point Values.
 SHUFPD
+/// Shuffle Packed Single-Precision Floating-Point Values.
 SHUFPS
+/// Store Interrupt Descriptor Table Register.
 SIDT
+/// Store Local Descriptor Table Register.
 SLDT
+/// Store Machine Status Word.
 SMSW
+/// Set AC Flag in EFLAGS Register.
 STAC
+/// Set Carry Flag.
 STC
+/// Set Direction Flag.
 STD
+/// Set Interrupt Flag.
 STI
+/// Store MXCSR Register State.
 STMXCSR
+/// Store String (store AL).
 STOSB
+/// Store String (store AX).
 STOSW
+/// Store String (store EAX).
 STOSD
+/// Store String (store RAX).
 STOSQ
+/// Store Task Register.
 STR
+/// Subtract.
 SUB
+/// Subtract Packed Double-Precision Floating-Point Values.
 SUBPD
+/// Subtract Packed Single-Precision Floating-Point Values.
 SUBPS
+/// Subtract Scalar Double-Precision Floating-Point Values.
 SUBSD
+/// Subtract Scalar Single-Precision Floating-Point Values.
 SUBSS
+/// Swap GS Base Register.
 SWAPGS
+/// Fast System Call.
 SYSCALL
+/// Fast System Call.
 SYSENTER
+/// Fast Return from Fast System Call.
 SYSEXIT
+/// Return From Fast System Call.
 SYSRET
+/// Logical Compare.
 TEST
+/// Count the Number of Trailing Zero Bits.
 TZCNT
+/// Unordered Compare Scalar Double-Precision FP Values and Set EFLAGS.
 UCOMISD
+/// Unordered Compare Scalar Single-Precision FPValues and Set EFLAGS.
 UCOMISS
+/// Undefined Instruction (Raise invalid opcode exception).
 UD2
+/// Unpack and Interleave High Packed Double-Precision Floating-Point Values.
 UNPCKHPD
+/// Unpack and Interleave High Packed Single-Precision Floating-Point Values.
 UNPCKHPS
+/// Unpack and Interleave Low Packed Double-Precision Floating-Point Values.
 UNPCKLPD
+/// Unpack and Interleave Low Packed Single-Precision Floating-Point Values.
 UNPCKLPS
+/// Add Packed Double-Precision Floating-Point Values.
 VADDPD
+/// Add Packed Double-Precision Floating-Point Values.
 VADDPS
+/// Add Scalar Double-Precision Floating-Point Values.
 VADDSD
+/// Add Scalar Single-Precision Floating-Point Values.
 VADDSS
+/// Bitwise Logical AND of Packed Double-Precision Floating-Point Values.
 VANDNPD
+/// Bitwise Logical AND of Packed Single-Precision Floating-Point Values.
 VANDNPS
+/// Bitwise Logical AND NOT of Packed Double-Precision Floating-Point Values.
 VANDPD
+/// Bitwise Logical AND NOT of Packed Single-Precision Floating-Point Values.
 VANDPS
+/// Broadcast 128 bits of int data in mem to low and high 128-bits in ymm1.
+VBROADCASTI128
+/// Broadcast Floating-Point Data.
 VBROADCASTSS
+/// Compare Scalar Ordered Double-Precision FP Values and Set EFLAGS.
 VCOMISD
+/// Compare Scalar Ordered Single-Precision FP Values and Set EFLAGS.
 VCOMISS
+/// Convert Scalar Double-Precision FP Value to Integer.
 VCVTSD2SI
+/// Convert Dword Integer to Scalar Double-Precision FP Value.
 VCVTSI2SD
+/// Convert Dword Integer to Scalar Single-Precision FP Value.
 VCVTSI2SS
+/// Convert Scalar Single-Precision FP Value to Dword Integer.
 VCVTSS2SI
+/// Convert with Truncation Scalar Double-Precision FP Value to Signed.
 VCVTTSD2SI
+/// Convert with Truncation Scalar Single-Precision FP Value to Dword Integer.
 VCVTTSS2SI
+/// Divide Packed Double-Precision Floating-Point Values.
 VDIVPD
+/// Divide Packed Single-Precision Floating-Point Values.
 VDIVPS
+/// Divide Scalar Double-Precision Floating-Point Values.
 VDIVSD
+/// Divide Scalar Single-Precision Floating-Point Values.
 VDIVSS
+/// Verify a Segment for Reading.
 VERR
+/// Verify a Segment for Writing.
 VERW
+/// Insert Packed Integer Values.
 VINSERTI128
+/// Load Unaligned Integer 128 Bits.
 VLDDQU
+/// Call to VM Monitor.
 VMCALL
+/// Clear Virtual-Machine Control Structure.
 VMCLEAR
+/// Invoke VM function.
 VMFUNC
+/// Launch Virtual Machine.
 VMLAUNCH
+/// Move Aligned Packed Double-Precision Floating-Point Values.
 VMOVAPD
+/// Move Aligned Packed Single-Precision Floating-Point Values.
 VMOVAPS
+/// Move Doubleword.
 VMOVD
+/// Move One Double-FP and Duplicate.
 VMOVDDUP
+/// Move Aligned Double Quadword.
 VMOVDQA
+/// Move Aligned Double Quadword.
 VMOVDQA32
+/// Move Aligned Double Quadword.
 VMOVDQA64
+/// Move Unaligned Double Quadword.
 VMOVDQU
+/// Move Unaligned Double Quadword.
 VMOVDQU32
+/// Move Unaligned Double Quadword.
 VMOVDQU64
+/// Move Packed Single-Precision Floating-Point Values High to Low.
 VMOVHLPS
+/// Move High Packed Double-Precision Floating-Point Value.
 VMOVHPD
+/// Move High Packed Single-Precision Floating-Point Values.
 VMOVHPS
+/// Move Packed Single-Precision Floating-Point Values Low to High.
 VMOVLHPS
+/// Move Low Packed Double-Precision Floating-Point Value.
 VMOVLPD
+/// Move Low Packed Single-Precision Floating-Point Values.
 VMOVLPS
+/// Extract Packed Double-Precision Floating-Point Sign Mask.
 VMOVMSKPD
+/// Extract Packed Single-Precision Floating-Point Sign Mask.
 VMOVMSKPS
+/// Load Double Quadword Non-Temporal Aligned Hint.
 VMOVNTDQ
+/// Store Packed Double-Precision FP Values Using Non-Temporal Hint.
 VMOVNTPD
+/// Store Packed Single-Precision FP Values Using Non-Temporal Hint.
 VMOVNTPS
+/// Move Quadword.
 VMOVQ
+/// Move Data from String to String (doubleword)..
 VMOVSD
+/// Move Packed Single-FP High and Duplicate.
 VMOVSHDUP
+/// Move Packed Single-FP Low and Duplicate.
 VMOVSLDUP
+/// Move Scalar Single-Precision Floating-Point Values.
 VMOVSS
+/// Move Unaligned Packed Double-Precision Floating-Point Values.
 VMOVUPD
+/// Move Unaligned Packed Single-Precision Floating-Point Values.
 VMOVUPS
+/// Load Pointer to Virtual-Machine Control Structure.
 VMPTRLD
+/// Store Pointer to Virtual-Machine Control Structure.
 VMPTRST
+/// Resume Virtual Machine.
 VMRESUME
+/// Multiply Packed Double-Precision Floating-Point Values.
 VMULPD
+/// Multiply Packed Single-Precision Floating-Point Values.
 VMULPS
+/// Multiply Scalar Double-Precision Floating-Point Values.
 VMULSD
+/// Multiply Scalar Single-Precision Floating-Point Values.
 VMULSS
+/// Leave VMX Operation.
 VMXOFF
+/// Enter VMX Operation.
 VMXON
+/// Bitwise Logical OR of Double-Precision Floating-Point Values.
 VORPD
+/// Bitwise Logical OR of Single-Precision Floating-Point Values.
 VORPS
+/// Pack with Signed Saturation.
 VPACKSSDW
+/// Pack with Signed Saturation.
 VPACKSSWB
+/// Pack with Unsigned Saturation.
 VPACKUSWB
+/// Add Packed byte Integers.
 VPADDB
+/// Add Packed Doubleword Integers.
 VPADDD
+/// Add Packed Quadword Integers.
 VPADDQ
+/// Add Packed Signed Integers with Signed Saturation (byte).
 VPADDSB
+/// Add Packed Signed Integers with Signed Saturation (word).
 VPADDSW
+/// Add Packed Unsigned Integers with Unsigned Saturation (byte).
 VPADDUSB
+/// Add Packed Unsigned Integers with Unsigned Saturation (word).
 VPADDUSW
+/// Add Packed word Integers.
 VPADDW
+/// Packed Align Right.
 VPALIGNR
+/// Logical AND.
 VPAND
+/// Logical AND NOT.
 VPANDN
+/// Average Packed Integers (byte).
 VPAVGB
+/// Average Packed Integers (word).
 VPAVGW
+/// Broadcast Integer Data.
 VPBROADCASTB
+/// Compare Packed Data for Equal (byte).
 VPCMPEQB
+/// Compare Packed Data for Equal (doubleword).
 VPCMPEQD
+/// Compare Packed Data for Equal (quadword).
 VPCMPEQQ
+/// Packed Compare Explicit Length Strings, Return Index.
 VPCMPESTRI
+/// Packed Compare Explicit Length Strings, Return Mask.
 VPCMPESTRM
+/// Compare Packed Signed Integers for Greater Than (byte).
 VPCMPGTB
+/// Compare Packed Signed Integers for Greater Than (doubleword).
 VPCMPGTD
+/// Compare Packed Signed Integers for Greater Than (word).
 VPCMPGTW
+/// Packed Compare Implicit Length Strings, Return Index.
 VPCMPISTRI
+/// Packed Compare Implicit Length Strings, Return Mask.
 VPCMPISTRM
+/// Extract Word.
 VPEXTRW
+/// Insert Byte.
 VPINSRB
+/// Insert Word.
 VPINSRW
+/// Multiply and Add Packed Integers.
 VPMADDWD
+/// Maximum of Packed Signed Word Integers.
 VPMAXSW
+/// Maximum of Packed Unsigned Byte Integers.
 VPMAXUB
+/// Minimum of Packed Signed Word Integers.
 VPMINSW
+/// Minimum of Packed Unsigned Byte Integers.
 VPMINUB
+/// Minimum of Packed Dword Integers.
 VPMINUD
+/// Move Byte Mask.
 VPMOVMSKB
+/// Multiply Packed Unsigned Integers and Store High Result.
 VPMULHUW
+/// Multiply Packed Signed Integers and Store High Result.
 VPMULHW
+/// Multiply Packed Signed Integers and Store Low Result.
 VPMULLW
+/// Multiply Packed Unsigned Doubleword Integers.
 VPMULUDQ
+/// Bitwise Logical OR.
 VPOR
+/// Compute Sum of Absolute Differences.
 VPSADBW
+/// Packed Shuffle Bytes.
 VPSHUFB
+/// Shuffle Packed Doublewords.
 VPSHUFD
+/// Shuffle Packed High Words.
 VPSHUFHW
+/// Shuffle Packed Low Words.
 VPSHUFLW
+/// Shift Packed Data Left Logical (doubleword).
 VPSLLD
+/// Shift Double Quadword Left Logical.
 VPSLLDQ
+/// Shift Packed Data Left Logical (quadword).
 VPSLLQ
+/// Shift Packed Data Left Logical (word).
 VPSLLW
+/// Shift Packed Data Right Arithmetic (doubleword).
 VPSRAD
+/// Shift Packed Data Right Arithmetic (word).
 VPSRAW
+/// Shift Packed Data Right Logical (doubleword).
 VPSRLD
+/// Shift Double Quadword Right Logical.
 VPSRLDQ
+/// Shift Packed Data Right Logical (quadword).
 VPSRLQ
+/// Shift Packed Data Right Logical (word).
 VPSRLW
+/// Subtract Packed Integers (byte).
 VPSUBB
+/// Subtract Packed Integers (doubleword).
 VPSUBD
+/// Subtract Packed Integers (quadword).
 VPSUBQ
+/// Subtract Packed Signed Integers with Signed Saturation (byte).
 VPSUBSB
+/// Subtract Packed Signed Integers with Signed Saturation (word).
 VPSUBSW
+/// Subtract Packed Unsigned Integers with Unsigned Saturation (byte).
 VPSUBUSB
+/// Subtract Packed Unsigned Integers with Unsigned Saturation (word).
 VPSUBUSW
+/// Subtract Packed Integers (word).
 VPSUBW
+/// Logical Compare.
 VPTEST
+/// Unpack High Data.
 VPUNPCKHBW
+/// Unpack High Data.
 VPUNPCKHDQ
+/// Unpack High Data.
 VPUNPCKHQDQ
+/// Unpack High Data.
 VPUNPCKHWD
+/// Unpack Low Data.
 VPUNPCKLBW
+/// Unpack Low Data.
 VPUNPCKLDQ
+/// Unpack Low Data.
 VPUNPCKLQDQ
+/// Unpack Low Data.
 VPUNPCKLWD
+/// Logical Exclusive OR.
 VPXOR
+/// Shuffle Packed Double-Precision Floating-Point Values.
 VSHUFPD
+/// Shuffle Packed Single-Precision Floating-Point Values.
 VSHUFPS
+/// Subtract Packed Double-Precision Floating-Point Values.
 VSUBPD
+/// Subtract Packed Single-Precision Floating-Point Values.
 VSUBPS
+/// Subtract Scalar Double-Precision Floating-Point Values.
 VSUBSD
+/// Subtract Scalar Single-Precision Floating-Point Values.
 VSUBSS
+/// Unordered Compare Scalar Double-Precision FP Values and Set EFLAGS.
 VUCOMISD
+/// Unordered Compare Scalar Single-Precision FPValues and Set EFLAGS.
 VUCOMISS
+/// Unpack and Interleave High Packed Double-Precision Floating-Point Values.
 VUNPCKHPD
+/// Unpack and Interleave High Packed Single-Precision Floating-Point Values.
 VUNPCKHPS
+/// Unpack and Interleave Low Packed Double-Precision Floating-Point Values.
 VUNPCKLPD
+/// Unpack and Interleave Low Packed Single-Precision Floating-Point Values.
 VUNPCKLPS
+/// Bitwise Logical XOR for Double-Precision Floating-Point Values.
 VXORPD
+/// Bitwise Logical XOR for Single-Precision Floating-Point Values.
 VXORPS
+/// Zero Upper Bits of YMM Registers.
 VZEROUPPER
+/// Wait.
 WAIT
+/// Write Back and Invalidate Cache.
 WBINVD
+/// Write FS Segment Base.
 WRFSBASE
+/// Write GS Segment Base.
 WRGSBASE
+/// Write to Model Specific Register.
 WRMSR
+/// Write Data to User Page Key Register.
 WRPKRU
+/// Transactional Abort.
 XABORT
+/// Exchange and Add.
 XADD
+/// Transactional Begin.
 XBEGIN
+/// Exchange Register/Memory with Register.
 XCHG
+/// Transactional End.
 XEND
+/// Value of Extended Control Register.
 XGETBV
+/// Table Look-up Translation.
 XLATB
+/// Logical Exclusive OR.
 XOR
+/// Bitwise Logical XOR for Double-Precision Floating-Point Values.
 XORPD
+/// Bitwise Logical XOR for Single-Precision Floating-Point Values.
 XORPS
+/// Restore Processor Extended States.
 XRSTOR
+/// Save Processor Extended States.
 XSAVE
+/// Save Processor Extended States Optimized.
 XSAVEOPT
+/// Set Extended Control Register.
 XSETBV
+/// Test If In Transactional Execution.
 XTEST
+/// Invalid Opcode.
 InvalOP

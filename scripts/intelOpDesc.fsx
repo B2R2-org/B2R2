@@ -1,10 +1,13 @@
 #!/usr/bin/env fsharpi
-#load "../src/B2R2.Core/RegisterID.fs"
+#load "../src/Core/TypeExtensions.fs"
+#load "../src/Core/RegType.fs"
+#load "../src/Core/RegisterID.fs"
 #load "../src/FrontEnd/Intel/IntelRegister.fs"
 (*
   B2R2 - the Next-Generation Reversing Platform
 
   Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
+          Seung Il Jung <sijung@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -464,6 +467,7 @@ let VdqWdqq = [| _Vdq; _Wdqq |]
 let VpdWpd = [| _Vpd; _Wpd |]
 let VpsHpsWpsIb = [| _Vps; _Hps; _Wps; _Ib |]
 let VpsWps = [| _Vps; _Wps |]
+let VqqMdq = [| _Vqq; _Mdq |]
 let VsdWsd = [| _Vsd; _Wsd |]
 let VsdWsdq = [| _Vsd; _Wsdq |]
 let VssWss = [| _Vss; _Wss |]
@@ -593,7 +597,7 @@ let registers =
     R.GSBase; R.CR0; R.CR2; R.CR3; R.CR4; R.DR0; R.DR1; R.DR2; R.DR3; R.DR6;
     R.DR7; R.BND0; R.BND1; R.BND2; R.BND3; R.OF; R.DF; R.IF; R.TF; R.SF; R.ZF;
     R.AF; R.PF; R.CF; R.FCW; R.FSW; R.FTW; R.FOP; R.FIP; R.FCS; R.FDP; R.FDS;
-    R.MXCSR; R.MXCSR_MASK
+    R.MXCSR; R.MXCSRMASK
   |]
 
 let regGrps = [| RegGrp.RG0; RegGrp.RG1; RegGrp.RG2; RegGrp.RG3;
@@ -794,6 +798,7 @@ let descs =
     ("VpdWpd", [| _Vpd; _Wpd |])
     ("VpsHpsWpsIb", [| _Vps; _Hps; _Wps; _Ib |])
     ("VpsWps", [| _Vps; _Wps |])
+    ("VqqMdq", [| _Vqq; _Mdq |])
     ("VsdWsd", [| _Vsd; _Wsd |])
     ("VsdWsdq", [| _Vsd; _Wsdq |])
     ("VssWss", [| _Vss; _Wss |])

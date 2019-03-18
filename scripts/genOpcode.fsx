@@ -28,13 +28,15 @@
 open System.Text.RegularExpressions
 
 let split line =
-  let r = new Regex("([a-zA-Z0-9]+)\s*(\(\*.+\*\))?")
+  let r = new Regex("(\/\/\/ .+)?([a-zA-Z0-9]+)?\s*(\(\*.+\*\))?")
   let m = r.Match (line)
-  m.Groups.[1].ToString(), m.Groups.[2].ToString()
+  m.Groups.[1].ToString(), m.Groups.[2].ToString(), m.Groups.[3].ToString()
 
-let print idx (opcode, comment) =
-  if String.length comment > 0 then printfn "  | %s = %d %s" opcode idx comment
-  else printfn "  | %s = %d" opcode idx
+let print idx (desc, op, comment) =
+  let idx = (idx - 1) / 2
+  if String.length desc > 0 then printfn "  %s" desc
+  else if String.length comment > 0 then printfn "  | %s = %d %s" op idx comment
+  else printfn "  | %s = %d" op idx
 
 let conv file =
   System.IO.File.ReadLines (file)

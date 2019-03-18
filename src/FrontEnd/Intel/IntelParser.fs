@@ -264,6 +264,8 @@ let private dsVex0F3829   = [| 0L; VxHxWx; 0L; 0L |]
 let private dsNor0F3838   = [| 0L; VdqWdq; 0L; 0L |]
 let private dsNor0F383B   = [| 0L; VdqWdq; 0L; 0L |]
 let private dsVex0F383B   = [| 0L; VxHxWx; 0L; 0L |]
+let private dsNor0F385A   = [| 0L; 0L; 0L; 0L |]
+let private dsVex0F385A   = [| 0L; VqqMdq; 0L; 0L |]
 let private dsNor0F3878   = [| 0L; 0L; 0L; 0L |]
 let private dsVex0F3878   = [| 0L; VxWx; 0L; 0L |]
 let private dsNor0F38F0   = [| GyMy; GwMw; 0L; GvEb; GdEb |]
@@ -1235,6 +1237,8 @@ let private parseThreeByteOp1 t (reader: BinReader) pos =
   | 0x38uy -> parseNonVEX t SzDef32 opNor0F3838 dsNor0F3838, pos + 1
   | 0x3Buy -> parseVEX t SzDef32 opNor0F383B opVex0F383B
                                  dsNor0F383B dsVex0F383B, pos + 1
+  | 0x5Auy -> parseVEX t SzDef32 opNor0F385A opVex0F385A
+                                 dsNor0F385A dsVex0F385A, pos + 1
   | 0x78uy -> parseVEX t SzDef32 opNor0F3878 opVex0F3878
                                  dsNor0F3878 dsVex0F3878, pos + 1
   | 0xF0uy -> parseNonVEX t SzDef32 opNor0F38F0 dsNor0F38F0, pos + 1

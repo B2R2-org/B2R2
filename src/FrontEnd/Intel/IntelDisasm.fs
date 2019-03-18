@@ -712,6 +712,7 @@ let opCodeToString = function
   | Opcode.VADDSS -> "vaddss"
   | Opcode.VANDPD -> "vandpd"
   | Opcode.VANDPS -> "vandps"
+  | Opcode.VBROADCASTI128 -> "vbroadcasti128"
   | Opcode.VBROADCASTSS -> "vbroadcastss"
   | Opcode.VCOMISD -> "vcomisd"
   | Opcode.VCOMISS -> "vcomiss"
