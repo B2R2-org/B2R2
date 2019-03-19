@@ -15,9 +15,14 @@
     <Compile Include="MIPSDisasm.fs" />
     <Compile Include="MIPSLifter.fs" />
     <Compile Include="MIPSInstruction.fs" />
+    <Compile Include="MIPSAsmParser.fs" />
     <Compile Include="MIPSParser.fsi" />
     <Compile Include="MIPSParser.fs" />
     <Compile Include="MIPS.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FParsec" Version="1.0.3" />
   </ItemGroup>
 
   <ItemGroup>
