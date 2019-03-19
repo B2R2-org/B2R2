@@ -56,7 +56,7 @@ let preg: Parser<_> =
 let reg: Parser<_> = preg |>> Register
 let regAddr: Parser<_> = betweenParen preg
 
-let paddr: Parser<_> = opt pimm .>>. regAddr
+let paddr: Parser<_> = opt (pimm .>> whitespace) .>>. regAddr
 let addr: Parser<_> = paddr |>> Address
 
 let operand: Parser<_> = addr <|> reg <|> imm <|> label
