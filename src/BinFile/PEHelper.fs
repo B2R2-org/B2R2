@@ -276,7 +276,9 @@ type ImageBaseRelocation = {
 
 type ImageSections = {
   SecByNum       : ImageSectionHeader []
+  /// Offset -> Section
   SecAddrMap     : ARMap<ImageSectionHeader>
+  /// Virtual address -> Section
   SecBindAddrMap : ARMap<ImageSectionHeader>
   SecNameMap     : Map<string, ImageSectionHeader>
 }
@@ -715,7 +717,7 @@ let getRawAddr vAddr isecs =
   | Some sec -> Some <| (uint64 sec.PointerToRawData) + vAddr - sec.VirtualAddr
   | None -> None
 
-let getAddr pHdr idx iSecHdr =
+let getOffset pHdr idx iSecHdr =
   let dataDir = pHdr.ImageNTHdrs.DataDirectoryArray.[ idx ]
   getRawAddr dataDir.VirtualAddr iSecHdr
 
@@ -729,7 +731,7 @@ let getImageImportDescriptors reader pos =
   loop [] pos |> List.rev |> List.toArray
 
 let parseImageImportDescriptor reader pHdr iSecHdr =
-  let ilmpDesOffset = getAddr pHdr (int DataDirType.Import) iSecHdr.SecAddrMap
+  let ilmpDesOffset = getOffset pHdr (int DataDirType.Import) iSecHdr.SecAddrMap
   match ilmpDesOffset with
   | Some o -> getImageImportDescriptors reader (Convert.ToInt32 o)
   | None -> Array.empty
@@ -921,7 +923,7 @@ let getAllSections pe =
   |> Array.toSeq
 
 let getSectionsByAddr pe addr =
-  match ARMap.tryFindByAddr addr pe.ImageSecHdrs.SecAddrMap with
+  match ARMap.tryFindByAddr addr pe.ImageSecHdrs.SecBindAddrMap with
   | Some s -> Seq.singleton (peSectionToSection pe s)
   | None -> Seq.empty
 
