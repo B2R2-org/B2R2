@@ -26,10 +26,9 @@
 
 module B2R2.Assembler.MIPS.Parser
 
-open System
-
 open B2R2.FrontEnd.MIPS
 open FParsec
+open System
 
 type UserState = unit
 type Parser<'t> = Parser<'t, UserState>
@@ -41,11 +40,16 @@ type Operand =
   | Register of string
 
 type Statement =
-  | Instruction of (string * Operand list)
+  | Instruction of string * Operand list
   | Label of string
 
 module private Rules =
-  let isWhitespace c = [' '; '\t'; '\f'] |> List.contains c
+  let registerNames =
+    [| "zero"; "at"; "v0"; "v1"; "a0"; "a1"; "a2"; "a3"; "t0"; "t1"; "t2"; "t3";
+       "t4"; "t5"; "t6"; "t7"; "s0"; "s1"; "s2"; "s3"; "s4"; "s5"; "s6"; "s7";
+       "t8"; "t9"; "k0"; "k1"; "gp"; "sp"; "s8"; "fp"; "ra"; |]
+    
+  let isWhitespace c = [ ' '; '\t'; '\f' ] |> List.contains c
   let whitespace: Parser<_> = manySatisfy isWhitespace
   let whitespace1: Parser<_> = many1Satisfy isWhitespace
   let terminator: Parser<_> = pchar ';' <|> newline
@@ -75,9 +79,10 @@ module private Rules =
   let pimm: Parser<_> = numberLiteral numberFormat "number" |>> string
   let imm: Parser<_> = pimm |>> Immediate
 
-  // TODO: Support other names (e.g., $at, $v0, ...)
+  // TODO: Support numeric names (e.g., $1, $2, ...)
   let preg: Parser<_> =
     (Enum.GetNames typeof<Register>)
+    |> Array.append registerNames
     |> Array.map (fun x -> optional (pchar '$') >>. pstringCI x)
     |> choice
   let reg: Parser<_> = preg |>> Register
@@ -87,7 +92,6 @@ module private Rules =
   let addr: Parser<_> = paddr |>> Address
 
   let operand: Parser<_> = addr <|> reg <|> imm <|> label
-  // TODO: Limit to 3 operands
   let operands: Parser<_> = sepBy operand operandSeps
   let instruction: Parser<_> =
     opcode .>>. (whitespace >>. operands) |>> Instruction
