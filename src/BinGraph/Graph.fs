@@ -80,6 +80,9 @@ type Vertex<'V when 'V :> VertexData> (?v: 'V) =
     | Some v -> v.ID
     | None -> 0
 
+  /// Check whether vertex is dummy node.
+  member __.IsDummy () = Option.isNone v
+
   /// List of predecessors.
   member val Preds: Vertex<'V> list = [] with get, set
 
@@ -96,6 +99,11 @@ type Vertex<'V when 'V :> VertexData> (?v: 'V) =
     | _ -> false
 
   override __.GetHashCode () = __.GetID ()
+
+  override __.ToString () =
+    match v with
+    | Some v -> sprintf "Vertex<%s>" <| v.ToString ()
+    | None -> "DummyVertex"
 
   // Each vertex has a unique ID, so ID can be used for comparison.
   interface System.IComparable with
