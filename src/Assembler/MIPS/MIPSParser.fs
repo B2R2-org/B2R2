@@ -61,7 +61,7 @@ module private Rules =
 
   let opcode: Parser<_> =
     (Enum.GetNames typeof<Opcode>)
-    |> Array.map (fun x -> pstringCI x)
+    |> Array.map pstringCI
     |> choice
 
   let label: Parser<_> = pid |>> Operand.Label
@@ -89,7 +89,8 @@ module private Rules =
   let operand: Parser<_> = addr <|> reg <|> imm <|> label
   // TODO: Limit to 3 operands
   let operands: Parser<_> = sepBy operand operandSeps
-  let instruction: Parser<_> = opcode .>>. (whitespace >>. operands) |>> Instruction
+  let instruction: Parser<_> =
+    opcode .>>. (whitespace >>. operands) |>> Instruction
   let statement: Parser<_> = (instruction <|> labelDef) |> skipWhitespaces
   let statements: Parser<_> = sepEndBy statement terminator .>> eof
 
