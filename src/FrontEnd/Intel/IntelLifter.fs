@@ -4237,12 +4237,18 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.COMISS -> sideEffects insAddr insLen UnsupportedFP
   | Opcode.CPUID -> sideEffects insAddr insLen ProcessorID
   | Opcode.CRC32 -> nop insAddr insLen
-  | Opcode.CVTSD2SS -> sideEffects insAddr insLen UnsupportedFP
-  | Opcode.CVTSI2SD -> sideEffects insAddr insLen UnsupportedFP
-  | Opcode.CVTSI2SS -> sideEffects insAddr insLen UnsupportedFP
-  | Opcode.CVTSS2SD -> sideEffects insAddr insLen UnsupportedFP
-  | Opcode.CVTTSD2SI -> sideEffects insAddr insLen UnsupportedFP
-  | Opcode.CVTTSS2SI -> sideEffects insAddr insLen UnsupportedFP
+  (* 5.5.1.6 SSE Conversion Instructions *)
+  | Opcode.CVTPI2PS | Opcode.CVTSI2SS | Opcode.CVTPS2PI | Opcode.CVTTPS2PI
+  | Opcode.CVTSS2SI | Opcode.CVTTSS2SI ->
+    sideEffects insAddr insLen UnsupportedFP
+  (* 5.6.1.6 SSE2 Conversion Instructions *)
+  | Opcode.CVTPD2PI | Opcode.CVTTPD2PI | Opcode.CVTPI2PD | Opcode.CVTPD2DQ
+  | Opcode.CVTTPD2DQ | Opcode.CVTDQ2PD | Opcode.CVTPS2PD | Opcode.CVTPD2PS
+  | Opcode.CVTSS2SD | Opcode.CVTSD2SS | Opcode.CVTSD2SI | Opcode.CVTTSD2SI
+  | Opcode.CVTSI2SD  -> sideEffects insAddr insLen UnsupportedFP
+  (* 5.6.2 SSE2 Packed Single-Precision Floating-Point Instructions *)
+  | Opcode.CVTDQ2PS | Opcode.CVTPS2DQ | Opcode.CVTTPS2DQ ->
+    sideEffects insAddr insLen UnsupportedFP
   | Opcode.CWD | Opcode.CDQ | Opcode.CQO -> convWDQ ins insAddr insLen ctxt
   | Opcode.DEC -> dec ins insAddr insLen ctxt
   | Opcode.DIV | Opcode.IDIV -> div ins insAddr insLen ctxt
