@@ -4148,6 +4148,20 @@ let vzeroupper ins insAddr insLen ctxt =
     builder <! (getPseudoRegVar ctxt R.YMM15 4 := n0)
   endMark insAddr insLen builder
 
+let wrfsbase ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (4)
+  let src = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
+  startMark insAddr insLen builder
+  builder <! (getRegVar ctxt R.FSBase := zExt ctxt.WordBitSize src)
+  endMark insAddr insLen builder
+
+let wrgsbase ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (4)
+  let src = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
+  startMark insAddr insLen builder
+  builder <! (getRegVar ctxt R.GSBase := zExt ctxt.WordBitSize src)
+  endMark insAddr insLen builder
+
 let wrpkru ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
   let errExp = unDef 1<rt> "#GP(0) error"
@@ -4471,6 +4485,8 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.VPTEST -> vptest ins insAddr insLen ctxt
   | Opcode.VPXOR -> vpxor ins insAddr insLen ctxt
   | Opcode.VZEROUPPER -> vzeroupper ins insAddr insLen ctxt
+  | Opcode.WRFSBASE -> wrfsbase ins insAddr insLen ctxt
+  | Opcode.WRGSBASE -> wrgsbase ins insAddr insLen ctxt
   | Opcode.WRPKRU -> wrpkru ins insAddr insLen ctxt
   | Opcode.XADD -> xadd ins insAddr insLen ctxt
   | Opcode.XBEGIN -> sideEffects insAddr insLen XBegin
