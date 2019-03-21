@@ -333,8 +333,8 @@ let private isRegMode = function
   | _ -> false
 
 let inline private isRegOpr oprDesc =
-  if oprDesc >= 0x3000L then true
-  elif oprDesc < 0x2000L then false
+  if oprDesc < 0x2000L then false
+  elif oprDesc >= 0x3000L then true
   else getModeFld oprDesc |> isRegMode
 
 let private getOperationSize regSize oprSize opCode oprDescs =
@@ -345,9 +345,7 @@ let private getOperationSize regSize oprSize opCode oprDescs =
   | Opcode.OUTSB | Opcode.SCASB -> 8<rt>
   | Opcode.OUTSW -> 16<rt>
   | Opcode.OUTSD -> 32<rt>
-  | _ -> if oprDescs = 0L then oprSize
-         else if isRegOpr (getFstDesc oprDescs) then regSize
-         else oprSize
+  | _ -> if isRegOpr (getFstDesc oprDescs) then regSize else oprSize
 
 let inline private selectREX vexInfo rexPref =
   match vexInfo with
