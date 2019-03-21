@@ -4489,12 +4489,13 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.WRGSBASE -> wrgsbase ins insAddr insLen ctxt
   | Opcode.WRPKRU -> wrpkru ins insAddr insLen ctxt
   | Opcode.XADD -> xadd ins insAddr insLen ctxt
-  | Opcode.XBEGIN -> sideEffects insAddr insLen XBegin
+  | Opcode.XBEGIN -> sideEffects insAddr insLen UnsupportedExtension
   | Opcode.XCHG -> xchg ins insAddr insLen ctxt
-  | Opcode.XGETBV -> sideEffects insAddr insLen XGetBV
+  | Opcode.XGETBV -> sideEffects insAddr insLen UnsupportedExtension
   | Opcode.XOR -> xor ins insAddr insLen ctxt
   | Opcode.XORPD -> sideEffects insAddr insLen UnsupportedFP
   | Opcode.XORPS -> sideEffects insAddr insLen UnsupportedFP
+  | Opcode.XSAVEOPT -> sideEffects insAddr insLen UnsupportedExtension
   (* FIXME *)
   | Opcode.CLI | Opcode.COMISD | Opcode.ENTER | Opcode.MAXSD
   | Opcode.MINSD | Opcode.MINSS | Opcode.MOVUPD | Opcode.PSUBQ

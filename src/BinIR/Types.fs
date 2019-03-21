@@ -129,10 +129,8 @@ type SideEffect =
   | UnsupportedPrivInstr
     /// Unsupported FAR branching.
   | UnsupportedFAR
-    /// XGETBV on x86.
-  | XGetBV
-    /// XBEGIN on x86.
-  | XBegin
+    /// Unsupported processor extension
+  | UnsupportedExtension
 
 type StartPos = int
 
