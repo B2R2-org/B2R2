@@ -48,7 +48,7 @@ module private Rules =
     [| "zero"; "at"; "v0"; "v1"; "a0"; "a1"; "a2"; "a3"; "t0"; "t1"; "t2"; "t3";
        "t4"; "t5"; "t6"; "t7"; "s0"; "s1"; "s2"; "s3"; "s4"; "s5"; "s6"; "s7";
        "t8"; "t9"; "k0"; "k1"; "gp"; "sp"; "s8"; "fp"; "ra"; |]
-    
+
   let isWhitespace c = [ ' '; '\t'; '\f' ] |> List.contains c
   let whitespace: Parser<_> = manySatisfy isWhitespace
   let whitespace1: Parser<_> = many1Satisfy isWhitespace
@@ -70,21 +70,26 @@ module private Rules =
 
   let label: Parser<_> = pid |>> Operand.Label
 
-  // TODO: Support +, - operators
   let numberFormat =
     NumberLiteralOptions.AllowBinary
     ||| NumberLiteralOptions.AllowOctal
     ||| NumberLiteralOptions.AllowHexadecimal
     ||| NumberLiteralOptions.AllowMinusSign
   let pimm: Parser<_> = numberLiteral numberFormat "number" |>> string
-  let imm: Parser<_> = pimm |>> Immediate
+  let operators: Parser<_> = pchar '+' <|> pchar '-'
+  let immWithOperators: Parser<_> =
+    pipe3 pimm (skipWhitespaces operators) pimm
+      (fun a b c -> sprintf "%s%c%s" a b c)
+  let imm: Parser<_> = immWithOperators <|> pimm |>> Immediate
 
-  // TODO: Support numeric names (e.g., $1, $2, ...)
+  let numericRegisters: Parser<_> = pchar '$' >>. pimm
   let preg: Parser<_> =
     (Enum.GetNames typeof<Register>)
     |> Array.append registerNames
     |> Array.map (fun x -> optional (pchar '$') >>. pstringCI x)
     |> choice
+    <|> numericRegisters
+
   let reg: Parser<_> = preg |>> Register
   let regAddr: Parser<_> = betweenParen preg
 
