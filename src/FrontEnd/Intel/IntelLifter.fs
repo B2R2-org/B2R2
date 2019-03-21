@@ -1839,7 +1839,7 @@ let mov ins insAddr insLen ctxt =
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   startMark insAddr insLen builder
-  builder <! (dstAssign oprSize dst src)
+  builder <! (dstAssign oprSize dst (zExt oprSize src))
   endMark insAddr insLen builder
 
 let movAligned ins insAddr insLen ctxt =
