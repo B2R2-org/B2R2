@@ -4239,6 +4239,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.CALLFar -> call ins insAddr insLen ctxt true
   | Opcode.CBW | Opcode.CWDE | Opcode.CDQE -> convBWQ ins insAddr insLen ctxt
   | Opcode.CLD -> cld ins insAddr insLen ctxt
+  | Opcode.CLFLUSH -> nop insAddr insLen
   | Opcode.CMOVO | Opcode.CMOVNO | Opcode.CMOVB | Opcode.CMOVAE
   | Opcode.CMOVZ | Opcode.CMOVNZ | Opcode.CMOVBE | Opcode.CMOVA
   | Opcode.CMOVS  | Opcode.CMOVNS | Opcode.CMOVP | Opcode.CMOVNP
