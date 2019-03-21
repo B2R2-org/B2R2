@@ -125,6 +125,8 @@ type SideEffect =
   | UndefinedInstr
     /// Unsupported floating point operations.
   | UnsupportedFP
+    /// Unsupported privileged instructions.
+  | UnsupportedPrivInstr
     /// Unsupported FAR branching.
   | UnsupportedFAR
     /// XGETBV on x86.

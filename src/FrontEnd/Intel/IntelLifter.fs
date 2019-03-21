@@ -4480,8 +4480,8 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.XORPD -> sideEffects insAddr insLen UnsupportedFP
   | Opcode.XORPS -> sideEffects insAddr insLen UnsupportedFP
   (* FIXME *)
-  | Opcode.CLI | Opcode.COMISD | Opcode.ENTER | Opcode.IN | Opcode.MAXSD
-  | Opcode.MINSD | Opcode.MINSS | Opcode.MOVUPD | Opcode.OUT | Opcode.PSUBQ
+  | Opcode.CLI | Opcode.COMISD | Opcode.ENTER | Opcode.MAXSD
+  | Opcode.MINSD | Opcode.MINSS | Opcode.MOVUPD | Opcode.PSUBQ
   | Opcode.PREFETCHNTA | Opcode.PREFETCHT0  | Opcode.PREFETCHT1 | Opcode.RDRAND
   | Opcode.PREFETCHW | Opcode.PREFETCHT2  | Opcode.PSRLQ | Opcode.SHUFPS
   | Opcode.STI | Opcode.XLATB | Opcode.CVTSD2SI | Opcode.RDTSCP | Opcode.SIDT
@@ -4492,7 +4492,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.VPADDQ | Opcode.VPUNPCKHQDQ | Opcode.VPMULUDQ | Opcode.VPSRLQ
   | Opcode.VPSLLQ | Opcode.VPUNPCKLQDQ | Opcode.CMPXCHG16B | Opcode.PMINSW
   | Opcode.INVLPG | Opcode.XTEST | Opcode.VMOVAPS | Opcode.XRSTOR | Opcode.XSAVE
-  | Opcode.MOVHLPS | Opcode.IRETD | Opcode.SLDT | Opcode.RDPMC | Opcode.PSRAD
+  | Opcode.MOVHLPS | Opcode.SLDT | Opcode.RDPMC | Opcode.PSRAD
   | Opcode.PINSRB | Opcode.VMOVDQU64 | Opcode.SHUFPD
   | Opcode.MULPS | Opcode.UNPCKLPS | Opcode.UNPCKHPS | Opcode.PMULLW
   | Opcode.PADDW | Opcode.PADDUSB | Opcode.LES | Opcode.PMULHUW
@@ -4507,10 +4507,13 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.INVD | Opcode.AAA | Opcode.DAA | Opcode.LDS | Opcode.DAS | Opcode.LDS
   | Opcode.MOVDQ2Q | Opcode.VANDPD | Opcode.MOVLHPS | Opcode.STR | Opcode.LTR
   | Opcode.SMSW | Opcode.CVTPS2PD | Opcode.CVTPD2PS | Opcode.UNPCKLPD
-  | Opcode.MINPD | Opcode.MAXPD | Opcode.MULPD | Opcode.LLDT | Opcode.LGDT
-  | Opcode.VERW | Opcode.IRETW | Opcode.RSM | Opcode.LAR | Opcode.RDMSR
+  | Opcode.MINPD | Opcode.MAXPD | Opcode.MULPD
+  | Opcode.VERW | Opcode.RSM | Opcode.LAR | Opcode.RDMSR
   | Opcode.LGS | Opcode.LFS | Opcode.LSS | Opcode.BTC ->
     sideEffects insAddr insLen UnsupportedFP
+  | Opcode.IN  | Opcode.OUT | Opcode.IRETD | Opcode.IRETQ | Opcode.IRETW
+  | Opcode.LSL | Opcode.LLDT | Opcode.LGDT ->
+    sideEffects insAddr insLen UnsupportedPrivInstr
   | o -> printfn "%A" o; raise <| NotImplementedIRException (Disasm.opCodeToString o)
   |> fun builder -> builder.ToStmts ()
 
