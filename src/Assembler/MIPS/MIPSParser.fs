@@ -26,22 +26,14 @@
 
 module B2R2.Assembler.MIPS.Parser
 
+open B2R2.Assembler.MIPS
 open B2R2.FrontEnd.MIPS
 open FParsec
 open System
 
 type UserState = unit
 type Parser<'t> = Parser<'t, UserState>
-
-type Operand =
-  | Address of string option * string
-  | Immediate of string
-  | Label of string
-  | Register of string
-
-type Statement =
-  | Instruction of string * Operand list
-  | Label of string
+type Operand = B2R2.Assembler.MIPS.Operand
 
 module private Rules =
   let registerNames =
@@ -80,7 +72,7 @@ module private Rules =
   let immWithOperators: Parser<_> =
     pipe3 pimm (skipWhitespaces operators) pimm
       (fun a b c -> sprintf "%s%c%s" a b c)
-  let imm: Parser<_> = immWithOperators <|> pimm |>> Immediate
+  let imm: Parser<_> = immWithOperators <|> pimm |>> Operand.Immediate
 
   let numericRegisters: Parser<_> = pchar '$' >>. pimm
   let preg: Parser<_> =
@@ -90,16 +82,16 @@ module private Rules =
     |> choice
     <|> numericRegisters
 
-  let reg: Parser<_> = preg |>> Register
+  let reg: Parser<_> = preg |>> Operand.Register
   let regAddr: Parser<_> = betweenParen preg
 
   let paddr: Parser<_> = opt (pimm .>> whitespace) .>>. regAddr
-  let addr: Parser<_> = paddr |>> Address
+  let addr: Parser<_> = paddr |>> Operand.Address
 
   let operand: Parser<_> = addr <|> reg <|> imm <|> label
   let operands: Parser<_> = sepBy operand operandSeps
   let instruction: Parser<_> =
-    opcode .>>. (whitespace >>. operands) |>> Instruction
+    opcode .>>. (whitespace >>. operands) |>> Statement.Instruction
   let statement: Parser<_> = (instruction <|> labelDef) |> skipWhitespaces
   let statements: Parser<_> = sepEndBy statement terminator .>> eof
 
