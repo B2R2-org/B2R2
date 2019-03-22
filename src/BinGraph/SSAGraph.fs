@@ -368,10 +368,9 @@ let buildCFG g ctxt =
   let vMap = Map.map (genVMap g) ctxt.SSAMap
   Map.iter (addEdges vMap g) ctxt.SuccMap
 
-let transform (hdl: BinHandler) irCFG ssaCFG =
-  let regType =
-    hdl.FileInfo.WordSize |> WordSize.toByteWidth |> RegType.fromByteWidth
+let transform regType irCFG ssaCFG =
   let ctxt = initContext regType irCFG
   let ctxt = placePhis ctxt
   let ctxt = renameVars regType ctxt
   buildCFG ssaCFG ctxt
+  ssaCFG

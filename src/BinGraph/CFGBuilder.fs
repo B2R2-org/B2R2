@@ -34,76 +34,19 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open System.Collections.Generic
 
-type PPoint = Addr * int
+type Function (entry, name, regType) =
+  let irCFG = IRCFG ()
+  let ssaCFG = lazy (SSAGraph.transform regType irCFG (SSACFG ()))
 
-type DisassemblyBBL (range: AddrRange, instrs, last) =
-  inherit RangedVertexData (range)
-
-  /// List of all the instructions in this block.
-  member __.Instrs: Instruction list = instrs
-
-  /// The last instruction of this block (to access it efficiently).
-  member __.LastInstr: Instruction = last
-
-  /// Do we need to resolve the successor(s) of this basic block?
-  member val ToResolve = false with get, set
-
-type IRBBL (ppoint, lastPpoint, stmts, last) =
-  inherit VertexData (VertexData.genID ())
-
-  /// This block's starting program point
-  member __.Ppoint: PPoint = ppoint
-
-  /// List of all the statements in this block.
-  member __.Stmts: Stmt list = stmts
-
-  /// The last statement of this block (to access it efficiently).
-  member __.LastStmt: Stmt = last
-
-  /// Program point of the last statement.
-  member __.LastPpoint: PPoint = lastPpoint
-
-  /// Do we need to resolve the successor(s) of this basic block?
-  member val ToResolve = false with get, set
-
-type SSABBL (stmts, last) =
-  inherit VertexData (VertexData.genID ())
-
-  member __.Stmts: SSA.Stmt list = stmts
-
-  member __.LastStmt: SSA.Stmt = last
-
-  member val ToResolve = false with get, set
-
-type CFGEdge =
-  | JmpEdge
-  | CJmpTrueEdge
-  | CJmpFalseEdge
-
-type CFG<'a when 'a :> VertexData> = DiGraph<'a, CFGEdge>
-
-type DisasmVertex = Vertex<DisassemblyBBL>
-
-type DisasmCFG = RangedDiGraph<DisassemblyBBL, CFGEdge>
-
-type IRVertex = Vertex<IRBBL>
-
-type IRCFG = SimpleDiGraph<IRBBL, CFGEdge>
-
-type SSAVertex = Vertex<SSABBL>
-
-type SSACFG = SimpleDiGraph<SSABBL, CFGEdge>
-
-type Function (entry, name) =
   member val Entry : Addr = entry
 
   member val Name : string = name
 
   member val DisasmCFG = DisasmCFG ()
 
-  member val IRCFG = IRCFG ()
+  member __.IRCFG with get () = irCFG
 
-  member val SSACFG = SSACFG ()
+  member __.SSACFG with get () = ssaCFG.Force ()
 
 type Funcs = Dictionary<Addr, Function>
 

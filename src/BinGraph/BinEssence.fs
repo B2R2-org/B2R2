@@ -47,9 +47,6 @@ with
   static member Init _verbose hdl =
     (* Currently no other choice *)
     let builder, funcs = CFGUtils.construct hdl None
-    let ssabuild (KeyValue (_, f: Function)) =
-      SSAGraph.transform hdl f.IRCFG f.SSACFG
-    funcs |> Seq.iter ssabuild
     { BinHandler = hdl; CFGBuilder = builder ; Functions = funcs }
 
   static member FindFuncByEntry entry ess =

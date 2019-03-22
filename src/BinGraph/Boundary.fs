@@ -40,8 +40,11 @@ let initFunction hdl (funcs: Funcs) entry =
   if found then ()
   else
     let found, name = hdl.FileInfo.TryFindFunctionSymbolName entry
-    if found then funcs.[entry] <- Function (entry, name)
-    else funcs.[entry] <- Function (entry, "func_" + entry.ToString("X"))
+    let regType =
+      hdl.FileInfo.WordSize |> WordSize.toByteWidth |> RegType.fromByteWidth
+    if found then funcs.[entry] <- Function (entry, name, regType)
+    else
+      funcs.[entry] <- Function (entry, "func_" + entry.ToString("X"), regType)
 
 /// Entry point is meant to be starting addresses of functions. Since this is
 /// not enough to grep all entry points, we'll collect more entry points by
