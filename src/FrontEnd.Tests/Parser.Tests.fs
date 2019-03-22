@@ -86,6 +86,13 @@ module Intel =
 
       test32 Opcode.DIV (OneOperand (OprReg R.ECX)) 2ul [| 0xf7uy; 0xf1uy |]
 
+    /// 5.1.3 Decimal Arithmetic Instructions
+    [<TestMethod>]
+    member __.``Decimal Arithmetic Parse Test`` () =
+      test32 Opcode.AAA NoOperand 1ul [| 0x37uy |]
+
+      test32 Opcode.AAS NoOperand 1ul [| 0x3Fuy |]
+
     /// 5.1.4 Logical Instructions
     [<TestMethod>]
     member __.``Intel Logical Parse Test`` () =
@@ -126,12 +133,35 @@ module Intel =
     member __.``Intel Control Transfer Parse Test`` () =
       test32 Opcode.JMPNear (OneOperand (OprReg R.ESP)) 2ul [| 0xffuy; 0xe4uy |]
 
+      test32 Opcode.JMPFar
+             (OneOperand (OprDirAddr (Absolute (0x90s, 0x78563412UL, 32<rt>))))
+             7ul
+             [| 0xeauy; 0x12uy; 0x34uy; 0x56uy; 0x78uy; 0x90uy; 0x00uy |]
+
       test Prefix.PrxGS (Some R.GS) WordSize.Bit32
            Opcode.CALLNear
            (OneOperand (OprMem (None, None, Some 16L, 32<rt>))) 7ul
            [| 0x65uy; 0xffuy; 0x15uy; 0x10uy; 0x00uy; 0x00uy; 0x00uy |]
 
+      test32 Opcode.CALLFar
+             (OneOperand (OprDirAddr (Absolute (0x10s, 0x32547698UL, 32<rt>))))
+             7ul
+             [| 0x9auy; 0x98uy; 0x76uy; 0x54uy; 0x32uy; 0x10uy; 0x00uy |]
+
       test32 Opcode.INT (OneOperand (OprImm 1L)) 2ul [| 0xcduy; 0x01uy |]
+
+    /// 5.1.12 Segment Register Instructions
+    [<TestMethod>]
+    member __.``Segment Register Parse Test`` () =
+      test32 Opcode.LES
+             (TwoOperands (OprReg R.ECX,
+                           OprMem (Some R.EDI, None, None, 48<rt>))) 2ul
+             [| 0xc4uy; 0x0fuy |]
+
+      test32 Opcode.LDS
+             (TwoOperands (OprReg R.EDX,
+                           OprMem (Some R.ECX, None, None, 48<rt>))) 2ul
+             [| 0xc5uy; 0x11uy |]
 
   /// 5.2 X87 FPU INSTRUCTIONS
   [<TestClass>]
@@ -227,6 +257,36 @@ module Intel =
                            OprReg R.BND0)) 9ul
              [| 0x66uy; 0x0fuy; 0x1buy; 0x84uy; 0x24uy;
                 0x00uy; 0x02uy; 0x00uy; 0x00uy |]
+
+  /// Exception Test
+  [<TestClass>]
+  type ExceptionTestClass () =
+    [<TestMethod>]
+    [<ExpectedException(typedefof<Intel.Helper.ParsingFailureException>)>]
+    member __.``Size cond ParsingFailure Test`` () =
+      test64 Opcode.AAA NoOperand 1ul [| 0x37uy |]
+
+      test64 Opcode.AAS NoOperand 1ul [| 0x3Fuy |]
+
+      test64 Opcode.JMPFar
+             (OneOperand (OprDirAddr (Absolute (0x90s, 0x78563412UL, 32<rt>))))
+             7ul
+             [| 0xeauy; 0x12uy; 0x34uy; 0x56uy; 0x78uy; 0x90uy; 0x00uy |]
+
+      test64 Opcode.CALLFar
+             (OneOperand (OprDirAddr (Absolute (0x10s, 0x32547698UL, 32<rt>))))
+             7ul
+             [| 0x9auy; 0x98uy; 0x76uy; 0x54uy; 0x32uy; 0x10uy; 0x00uy |]
+
+      test64 Opcode.LES
+             (TwoOperands (OprReg R.ECX,
+                           OprMem (Some R.EDI, None, None, 48<rt>))) 2ul
+             [| 0xc4uy; 0x0fuy |]
+
+      test64 Opcode.LDS
+             (TwoOperands (OprReg R.EDX,
+                           OprMem (Some R.ECX, None, None, 48<rt>))) 2ul
+             [| 0xc5uy; 0x11uy |]
 
   /// IR Test
   [<TestClass>]

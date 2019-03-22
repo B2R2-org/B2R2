@@ -34,20 +34,8 @@ open B2R2
 /// indicates a non-recoverable parsing failure.
 exception ParsingFailureException
 
-#if DEBUG
-/// Check the fundamental constraints.
-let inline basicValidityCheck wordSize sizeCond =
-  if not (sizeCond = SzInv64 && wordSize = WordSize.Bit64) then ()
-  else raise ParsingFailureException
-  if not (sizeCond = SzOnly64 && wordSize = WordSize.Bit32) then ()
-  else raise ParsingFailureException
-#endif
-
 /// Create a new instruction descriptor.
 let newTemporaryIns opcode operands preInfo insSize =
-#if DEBUG
-  basicValidityCheck preInfo.TWordSize insSize.SizeCond
-#endif
   {
     Prefixes = preInfo.TPrefixes
     REXPrefix = preInfo.TREXPrefix
@@ -73,6 +61,12 @@ let inline hasOprSz prefs = (prefs &&& Prefix.PrxOPSIZE) <> Prefix.PrxNone
 let inline hasREPZ prefs = (prefs &&& Prefix.PrxREPZ) <> Prefix.PrxNone
 let inline hasREPNZ prefs = (prefs &&& Prefix.PrxREPNZ) <> Prefix.PrxNone
 let inline hasLock prefs = (prefs &&& Prefix.PrxLOCK) <> Prefix.PrxNone
+
+let inline ensure32 t =
+  if WordSize.is64 t.TWordSize then raise ParsingFailureException else ()
+
+let inline ensure64 t =
+  if WordSize.is32 t.TWordSize then raise ParsingFailureException else ()
 
 /// Filter out segment-related prefixes.
 let clearSegMask : Prefix = LanguagePrimitives.EnumOfValue 0xFE07

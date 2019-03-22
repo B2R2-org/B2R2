@@ -498,7 +498,7 @@ let private processOpDescExn oprDescs = function
   | Opcode.CMPSB | Opcode.CMPSW | Opcode.CMPSD | Opcode.CMPSQ -> 0L
   | _ -> oprDescs
 
-let parseOp t opCode szCond oprDescs =
+let parseOp (t: TemporaryInfo) opCode szCond oprDescs =
   let insSize = newInsSize t szCond opCode oprDescs
   let oprDescs = processOpDescExn oprDescs opCode
   Some (struct (newTemporaryIns opCode NoOperand t insSize, oprDescs))
@@ -954,7 +954,7 @@ let getOpAndOprKindByOpGrp6 b regBits =
   | _, 0b101 -> Opcode.VERW, Ew, SzDef32
   | _ -> raise ParsingFailureException
 
-let parseOpAndOprKindByOpGrp7 pos b regBits =
+let parseOpAndOprKindByOpGrp7 t pos b regBits =
   let notMemory = function
     | 0b000, 0b001 -> (Opcode.VMCALL, 0L, SzDef32), pos + 1
     | 0b000, 0b010 -> (Opcode.VMLAUNCH, 0L, SzDef32), pos + 1
@@ -973,7 +973,7 @@ let parseOpAndOprKindByOpGrp7 pos b regBits =
     | 0b101, 0b110 -> (Opcode.RDPKRU, 0L, SzDef32), pos + 1
     | 0b101, 0b111 -> (Opcode.WRPKRU, 0L, SzDef32), pos + 1
     | 0b110, _     -> (Opcode.LMSW, Ew, SzDef32), pos
-    | 0b111, 0b000 -> (Opcode.SWAPGS, 0L, SzOnly64), pos + 1
+    | 0b111, 0b000 -> ensure32 t; (Opcode.SWAPGS, 0L, SzOnly64), pos + 1
     | 0b111, 0b001 -> (Opcode.RDTSCP, 0L, SzDef32), pos + 1
     | _ -> raise ParsingFailureException
   if modIsMemory b then (grp7Op.[regBits], grp7Desc.[regBits], SzDef32), pos
@@ -1070,7 +1070,7 @@ let parseOpAndOprKindByGrp t reader pos b oprDescs oprGrp =
   let r = getReg b
   match oprGrp with
   | OpGroup.G1 -> (grp1Op.[r], oprDescs, SzDef32), pos
-  | OpGroup.G1Inv64 -> (grp1Op.[r], oprDescs, SzInv64), pos
+  | OpGroup.G1Inv64 -> ensure32 t; (grp1Op.[r], oprDescs, SzInv64), pos
   | OpGroup.G1A -> (grp1aOp.[r], oprDescs, SzDef64), pos
   | OpGroup.G2 when r = 0b110 -> raise ParsingFailureException
   | OpGroup.G2 -> (grp2Op.[r], oprDescs, SzDef32), pos
@@ -1079,7 +1079,7 @@ let parseOpAndOprKindByGrp t reader pos b oprDescs oprGrp =
   | OpGroup.G4 -> (grp4Op.[r], Eb, SzDef32), pos
   | OpGroup.G5 -> (grp5Op.[r], grp5Desc.[r], grp5SCnd.[r]), pos
   | OpGroup.G6 -> getOpAndOprKindByOpGrp6 b r, pos
-  | OpGroup.G7 -> parseOpAndOprKindByOpGrp7 pos b r
+  | OpGroup.G7 -> parseOpAndOprKindByOpGrp7 t pos b r
   | OpGroup.G8 -> (grp8Op.[r], oprDescs, SzDef32), pos
   | OpGroup.G9 -> getOpAndPorKindByOpGrp9 t b r, pos
   | OpGroup.G11A ->
@@ -1271,9 +1271,9 @@ let private pTwoByteOp t reader pos byte =
   match byte with
   | 0x02uy -> parseOp t Opcode.LAR SzDef32 GvEw, pos
   | 0x03uy -> parseOp t Opcode.LSL SzDef32 GvEw, pos
-  | 0x05uy -> parseOp t Opcode.SYSCALL SzOnly64 0L, pos
+  | 0x05uy -> ensure64 t; parseOp t Opcode.SYSCALL SzOnly64 0L, pos
   | 0x06uy -> parseOp t Opcode.CLTS SzDef32 0L, pos
-  | 0x07uy -> parseOp t Opcode.SYSRET SzOnly64 0L, pos
+  | 0x07uy -> ensure64 t; parseOp t Opcode.SYSRET SzOnly64 0L, pos
   | 0x08uy -> parseOp t Opcode.INVD SzDef32 0L, pos
   | 0x09uy -> parseOp t Opcode.WBINVD SzDef32 0L, pos
   | 0x0Buy -> parseOp t Opcode.UD2 SzDef32 0L, pos
@@ -1544,75 +1544,75 @@ let private pOneByteOpcode t reader pos = function
   | 0x03uy -> parseOp t Opcode.ADD SzDef32 GvEv, pos
   | 0x04uy -> parseOp t Opcode.ADD SzDef32 ALIb, pos
   | 0x05uy -> parseOp t Opcode.ADD SzDef32 RGvSIz, pos
-  | 0x06uy -> parseOp t Opcode.PUSH SzInv64 ORES, pos
-  | 0x07uy -> parseOp t Opcode.POP SzInv64 ORES, pos
+  | 0x06uy -> ensure32 t; parseOp t Opcode.PUSH SzInv64 ORES, pos
+  | 0x07uy -> ensure32 t; parseOp t Opcode.POP SzInv64 ORES, pos
   | 0x08uy -> parseOp t Opcode.OR SzDef32 EbGb, pos
   | 0x09uy -> parseOp t Opcode.OR SzDef32 EvGv, pos
   | 0x0Auy -> parseOp t Opcode.OR SzDef32 GbEb, pos
   | 0x0Buy -> parseOp t Opcode.OR SzDef32 GvEv, pos
   | 0x0Cuy -> parseOp t Opcode.OR SzDef32 ALIb, pos
   | 0x0Duy -> parseOp t Opcode.OR SzDef32 RGvSIz, pos
-  | 0x0Euy -> parseOp t Opcode.PUSH SzInv64 ORCS, pos
+  | 0x0Euy -> ensure32 t; parseOp t Opcode.PUSH SzInv64 ORCS, pos
   | 0x10uy -> parseOp t Opcode.ADC SzDef32 EbGb, pos
   | 0x11uy -> parseOp t Opcode.ADC SzDef32 EvGv, pos
   | 0x12uy -> parseOp t Opcode.ADC SzDef32 GbEb, pos
   | 0x13uy -> parseOp t Opcode.ADC SzDef32 GvEv, pos
   | 0x14uy -> parseOp t Opcode.ADC SzDef32 ALIb, pos
   | 0x15uy -> parseOp t Opcode.ADC SzDef32 RGvSIz, pos
-  | 0x16uy -> parseOp t Opcode.PUSH SzInv64 ORSS, pos
-  | 0x17uy -> parseOp t Opcode.POP SzInv64 ORSS, pos
+  | 0x16uy -> ensure32 t; parseOp t Opcode.PUSH SzInv64 ORSS, pos
+  | 0x17uy -> ensure32 t; parseOp t Opcode.POP SzInv64 ORSS, pos
   | 0x18uy -> parseOp t Opcode.SBB SzDef32 EbGb, pos
   | 0x19uy -> parseOp t Opcode.SBB SzDef32 EvGv, pos
   | 0x1Auy -> parseOp t Opcode.SBB SzDef32 GbEb, pos
   | 0x1Buy -> parseOp t Opcode.SBB SzDef32 GvEv, pos
   | 0x1Cuy -> parseOp t Opcode.SBB SzDef32 ALIb, pos
   | 0x1Duy -> parseOp t Opcode.SBB SzDef32 RGvSIz, pos
-  | 0x1Euy -> parseOp t Opcode.PUSH SzInv64 ORDS, pos
-  | 0x1Fuy -> parseOp t Opcode.POP SzInv64 ORDS, pos
+  | 0x1Euy -> ensure32 t; parseOp t Opcode.PUSH SzInv64 ORDS, pos
+  | 0x1Fuy -> ensure32 t; parseOp t Opcode.POP SzInv64 ORDS, pos
   | 0x20uy -> parseOp t Opcode.AND SzDef32 EbGb, pos
   | 0x21uy -> parseOp t Opcode.AND SzDef32 EvGv, pos
   | 0x22uy -> parseOp t Opcode.AND SzDef32 GbEb, pos
   | 0x23uy -> parseOp t Opcode.AND SzDef32 GvEv, pos
   | 0x24uy -> parseOp t Opcode.AND SzDef32 ALIb, pos
   | 0x25uy -> parseOp t Opcode.AND SzDef32 RGvSIz, pos
-  | 0x27uy -> parseOp t Opcode.DAA SzInv64 0L, pos
+  | 0x27uy -> ensure32 t; parseOp t Opcode.DAA SzInv64 0L, pos
   | 0x28uy -> parseOp t Opcode.SUB SzDef32 EbGb, pos
   | 0x29uy -> parseOp t Opcode.SUB SzDef32 EvGv, pos
   | 0x2Auy -> parseOp t Opcode.SUB SzDef32 GbEb, pos
   | 0x2Buy -> parseOp t Opcode.SUB SzDef32 GvEv, pos
   | 0x2Cuy -> parseOp t Opcode.SUB SzDef32 ALIb, pos
   | 0x2Duy -> parseOp t Opcode.SUB SzDef32 RGvSIz, pos
-  | 0x2Fuy -> parseOp t Opcode.DAS SzInv64 0L, pos
+  | 0x2Fuy -> ensure32 t; parseOp t Opcode.DAS SzInv64 0L, pos
   | 0x30uy -> parseOp t Opcode.XOR SzDef32 EbGb, pos
   | 0x31uy -> parseOp t Opcode.XOR SzDef32 EvGv, pos
   | 0x32uy -> parseOp t Opcode.XOR SzDef32 GbEb, pos
   | 0x33uy -> parseOp t Opcode.XOR SzDef32 GvEv, pos
   | 0x34uy -> parseOp t Opcode.XOR SzDef32 ALIb, pos
   | 0x35uy -> parseOp t Opcode.XOR SzDef32 RGvSIz, pos
-  | 0x37uy -> parseOp t Opcode.AAA SzInv64 0L, pos
+  | 0x37uy -> ensure32 t; parseOp t Opcode.AAA SzInv64 0L, pos
   | 0x38uy -> parseOp t Opcode.CMP SzDef32 EbGb, pos
   | 0x39uy -> parseOp t Opcode.CMP SzDef32 EvGv, pos
   | 0x3Auy -> parseOp t Opcode.CMP SzDef32 GbEb, pos
   | 0x3Buy -> parseOp t Opcode.CMP SzDef32 GvEv, pos
   | 0x3Cuy -> parseOp t Opcode.CMP SzDef32 ALIb, pos
   | 0x3Duy -> parseOp t Opcode.CMP SzDef32 RGvSIz, pos
-  | 0x3Fuy -> parseOp t Opcode.AAS SzInv64 0L, pos
-  | 0x40uy -> parseOp t Opcode.INC SzInv64 GzG0F, pos
-  | 0x41uy -> parseOp t Opcode.INC SzInv64 GzG1F, pos
-  | 0x42uy -> parseOp t Opcode.INC SzInv64 GzG2F, pos
-  | 0x43uy -> parseOp t Opcode.INC SzInv64 GzG3F, pos
-  | 0x44uy -> parseOp t Opcode.INC SzInv64 GzG4F, pos
-  | 0x45uy -> parseOp t Opcode.INC SzInv64 GzG5F, pos
-  | 0x46uy -> parseOp t Opcode.INC SzInv64 GzG6F, pos
-  | 0x47uy -> parseOp t Opcode.INC SzInv64 GzG7F, pos
-  | 0x48uy -> parseOp t Opcode.DEC SzInv64 GzG0F, pos
-  | 0x49uy -> parseOp t Opcode.DEC SzInv64 GzG1F, pos
-  | 0x4Auy -> parseOp t Opcode.DEC SzInv64 GzG2F, pos
-  | 0x4Buy -> parseOp t Opcode.DEC SzInv64 GzG3F, pos
-  | 0x4Cuy -> parseOp t Opcode.DEC SzInv64 GzG4F, pos
-  | 0x4Duy -> parseOp t Opcode.DEC SzInv64 GzG5F, pos
-  | 0x4Euy -> parseOp t Opcode.DEC SzInv64 GzG6F, pos
-  | 0x4Fuy -> parseOp t Opcode.DEC SzInv64 GzG7F, pos
+  | 0x3Fuy -> ensure32 t; parseOp t Opcode.AAS SzInv64 0L, pos
+  | 0x40uy -> ensure32 t; parseOp t Opcode.INC SzInv64 GzG0F, pos
+  | 0x41uy -> ensure32 t; parseOp t Opcode.INC SzInv64 GzG1F, pos
+  | 0x42uy -> ensure32 t; parseOp t Opcode.INC SzInv64 GzG2F, pos
+  | 0x43uy -> ensure32 t; parseOp t Opcode.INC SzInv64 GzG3F, pos
+  | 0x44uy -> ensure32 t; parseOp t Opcode.INC SzInv64 GzG4F, pos
+  | 0x45uy -> ensure32 t; parseOp t Opcode.INC SzInv64 GzG5F, pos
+  | 0x46uy -> ensure32 t; parseOp t Opcode.INC SzInv64 GzG6F, pos
+  | 0x47uy -> ensure32 t; parseOp t Opcode.INC SzInv64 GzG7F, pos
+  | 0x48uy -> ensure32 t; parseOp t Opcode.DEC SzInv64 GzG0F, pos
+  | 0x49uy -> ensure32 t; parseOp t Opcode.DEC SzInv64 GzG1F, pos
+  | 0x4Auy -> ensure32 t; parseOp t Opcode.DEC SzInv64 GzG2F, pos
+  | 0x4Buy -> ensure32 t; parseOp t Opcode.DEC SzInv64 GzG3F, pos
+  | 0x4Cuy -> ensure32 t; parseOp t Opcode.DEC SzInv64 GzG4F, pos
+  | 0x4Duy -> ensure32 t; parseOp t Opcode.DEC SzInv64 GzG5F, pos
+  | 0x4Euy -> ensure32 t; parseOp t Opcode.DEC SzInv64 GzG6F, pos
+  | 0x4Fuy -> ensure32 t; parseOp t Opcode.DEC SzInv64 GzG7F, pos
   | 0x50uy -> parseOp t Opcode.PUSH SzDef64 GvG0T, pos
   | 0x51uy -> parseOp t Opcode.PUSH SzDef64 GvG1T, pos
   | 0x52uy -> parseOp t Opcode.PUSH SzDef64 GvG2T, pos
@@ -1630,12 +1630,14 @@ let private pOneByteOpcode t reader pos = function
   | 0x5Euy -> parseOp t Opcode.POP SzDef64 GvG6T, pos
   | 0x5Fuy -> parseOp t Opcode.POP SzDef64 GvG7T, pos
   | 0x60uy ->
+    ensure32 t
     if hasOprSz t.TPrefixes then parseOp t Opcode.PUSHA SzInv64 0L, pos
     else parseOp t Opcode.PUSHAD SzInv64 0L, pos
   | 0x61uy ->
+    ensure32 t
     if hasOprSz t.TPrefixes then parseOp t Opcode.POPA SzInv64 0L, pos
     else parseOp t Opcode.POPAD SzInv64 0L, pos
-  | 0x62uy -> parseOp t Opcode.BOUND SzInv64 GvMa, pos
+  | 0x62uy -> ensure32 t; parseOp t Opcode.BOUND SzInv64 GvMa, pos
   | 0x63uy ->
     if is64bit t && not (hasREXW t.TREXPrefix) then
       raise ParsingFailureException
@@ -1699,7 +1701,7 @@ let private pOneByteOpcode t reader pos = function
     if hasOprSz t.TPrefixes then parseOp t Opcode.CWD SzDef32 0L, pos
     elif hasREXW t.TREXPrefix then parseOp t Opcode.CQO SzDef32 0L, pos
     else parseOp t Opcode.CDQ SzDef32 0L, pos
-  | 0x9Auy -> parseOp t Opcode.CALLFar SzInv64 Ap, pos
+  | 0x9Auy -> ensure32 t; parseOp t Opcode.CALLFar SzInv64 Ap, pos
   | 0x9Buy -> parseOp t Opcode.WAIT SzDef32 0L, pos
   | 0x9Cuy ->
     if is64bitWithOprSz t then parseOp t Opcode.PUSHF SzDef64 0L, pos
@@ -1762,21 +1764,21 @@ let private pOneByteOpcode t reader pos = function
   | 0xBFuy -> parseOp t Opcode.MOV SzDef32 GvG7TIv, pos
   | 0xC2uy -> parseOp t Opcode.RETNearImm Sz64 Iw, pos
   | 0xC3uy -> parseOp t Opcode.RETNear Sz64 0L, pos
-  | 0xC4uy -> parseOp t Opcode.LES SzInv64 GzMp, pos
-  | 0xC5uy -> parseOp t Opcode.LDS SzInv64 GzMp, pos
+  | 0xC4uy -> ensure32 t; parseOp t Opcode.LES SzInv64 GzMp, pos
+  | 0xC5uy -> ensure32 t; parseOp t Opcode.LDS SzInv64 GzMp, pos
   | 0xC8uy -> parseOp t Opcode.ENTER SzDef32 IwIb, pos
   | 0xC9uy -> parseOp t Opcode.LEAVE SzDef64 0L, pos
   | 0xCAuy -> parseOp t Opcode.RETFarImm SzDef32 Iw, pos
   | 0xCBuy -> parseOp t Opcode.RETFar SzDef32 0L, pos
   | 0xCCuy -> parseOp t Opcode.INT3 SzDef32 0L, pos
   | 0xCDuy -> parseOp t Opcode.INT SzDef32 Ib, pos
-  | 0xCEuy -> parseOp t Opcode.INTO SzInv64 0L, pos
+  | 0xCEuy -> ensure32 t; parseOp t Opcode.INTO SzInv64 0L, pos
   | 0xCFuy ->
     if hasOprSz t.TPrefixes then parseOp t Opcode.IRETW SzDef32 0L, pos
     elif hasREXW t.TREXPrefix then parseOp t Opcode.IRETQ SzDef32 0L, pos
     else parseOp t Opcode.IRETD SzDef32 0L, pos
-  | 0xD4uy -> parseAAx t reader pos Opcode.AAM SzInv64
-  | 0xD5uy -> parseAAx t reader pos Opcode.AAD SzInv64
+  | 0xD4uy -> ensure32 t; parseAAx t reader pos Opcode.AAM SzInv64
+  | 0xD5uy -> ensure32 t; parseAAx t reader pos Opcode.AAD SzInv64
   | 0xD7uy -> parseOp t Opcode.XLATB SzDef32 0L, pos
   | 0xD8uy -> parseESCOp t reader pos 0xD8uy getD8OpWithin00toBF getD8OverBF
   | 0xD9uy -> parseESCOp t reader pos 0xD9uy getD9OpWithin00toBF getD9OverBF
@@ -1800,7 +1802,7 @@ let private pOneByteOpcode t reader pos = function
   | 0xE7uy -> parseOp t Opcode.OUT SzDef32 IbGvG0F, pos
   | 0xE8uy -> parseOp t Opcode.CALLNear Sz64 Jz, pos
   | 0xE9uy -> parseOp t Opcode.JMPNear Sz64 Jz, pos
-  | 0xEAuy -> parseOp t Opcode.JMPFar SzInv64 Ap, pos
+  | 0xEAuy -> ensure32 t; parseOp t Opcode.JMPFar SzInv64 Ap, pos
   | 0xEBuy -> parseOp t Opcode.JMPNear Sz64 Jb, pos
   | 0xECuy -> parseOp t Opcode.IN SzDef32 ALDX, pos
   | 0xEDuy -> parseOp t Opcode.IN SzDef32 RGvDX, pos
