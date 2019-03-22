@@ -87,7 +87,7 @@ Let's try to use B2R2 APIs.
 1. Add our nuget package *B2R2.FrontEnd* to the project:
 
     ```
-    $ dotnet add package B2R2.FrontEnd --version 0.1.0
+    $ dotnet add package B2R2.FrontEnd
     ```
 
 1. Modify the `Program.fs` file with your favorite editor as follows:
