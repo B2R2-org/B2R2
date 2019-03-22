@@ -4330,6 +4330,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.ANDPS -> andps ins insAddr insLen ctxt
   | Opcode.ARPL -> arpl ins insAddr insLen ctxt
   | Opcode.BNDMOV -> bndmov ins insAddr insLen ctxt
+  | Opcode.BOUND -> nop insAddr insLen
   | Opcode.BSF -> bsf ins insAddr insLen ctxt
   | Opcode.BSR -> bsr ins insAddr insLen ctxt
   | Opcode.BSWAP -> bswap ins insAddr insLen ctxt
@@ -4351,7 +4352,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.CMPSB | Opcode.CMPSW | Opcode.CMPSD | Opcode.CMPSQ ->
     cmps ins insAddr insLen ctxt
   | Opcode.CMPXCHG -> cmpxchg ins insAddr insLen ctxt
-  | Opcode.COMISS -> sideEffects insAddr insLen UnsupportedFP
+  | Opcode.COMISS | Opcode.COMISD -> sideEffects insAddr insLen UnsupportedFP
   | Opcode.CPUID -> sideEffects insAddr insLen ProcessorID
   | Opcode.CRC32 -> nop insAddr insLen
   (* 5.5.1.6 SSE Conversion Instructions *)
@@ -4448,8 +4449,11 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
     lods ins insAddr insLen ctxt
   | Opcode.LOOPNE -> loopne ins insAddr insLen ctxt
   | Opcode.LZCNT -> lzcnt ins insAddr insLen ctxt
-  | Opcode.MAXSS -> sideEffects insAddr insLen UnsupportedFP
+  | Opcode.LDS | Opcode.LES | Opcode.LFS | Opcode.LGS | Opcode.LSS ->
+    sideEffects insAddr insLen UnsupportedFAR
+  | Opcode.MAXSD | Opcode.MAXSS -> sideEffects insAddr insLen UnsupportedFP
   | Opcode.MFENCE -> sideEffects insAddr insLen Fence
+  | Opcode.MINSD | Opcode.MINSS -> sideEffects insAddr insLen UnsupportedFP
   | Opcode.MOV -> mov ins insAddr insLen ctxt
   | Opcode.MOVAPD | Opcode.MOVAPS -> movAligned ins insAddr insLen ctxt
   | Opcode.MOVD -> movd ins insAddr insLen ctxt
@@ -4501,6 +4505,9 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.POPCNT -> popcnt ins insAddr insLen ctxt
   | Opcode.POPF | Opcode.POPFD | Opcode.POPFQ -> popf ins insAddr insLen ctxt
   | Opcode.POR -> por ins insAddr insLen ctxt
+  | Opcode.PREFETCHNTA
+  | Opcode.PREFETCHT0 | Opcode.PREFETCHT1
+  | Opcode.PREFETCHW | Opcode.PREFETCHT2 -> nop insAddr insLen
   | Opcode.PSHUFB -> pshufb ins insAddr insLen ctxt
   | Opcode.PSHUFD -> pshufd ins insAddr insLen ctxt
   | Opcode.PSHUFHW -> pshufhw ins insAddr insLen ctxt
@@ -4533,6 +4540,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.ROL -> rol ins insAddr insLen ctxt
   | Opcode.ROR -> ror ins insAddr insLen ctxt
   | Opcode.ROUNDSD -> sideEffects insAddr insLen UnsupportedFP
+  | Opcode.RDMSR | Opcode.RSM -> sideEffects insAddr insLen UnsupportedExtension
   | Opcode.SAHF -> sahf ins insAddr insLen ctxt
   | Opcode.SAR | Opcode.SHR | Opcode.SHL -> shift ins insAddr insLen ctxt
   | Opcode.SBB -> sbb ins insAddr insLen ctxt
@@ -4595,48 +4603,65 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.WRFSBASE -> wrfsbase ins insAddr insLen ctxt
   | Opcode.WRGSBASE -> wrgsbase ins insAddr insLen ctxt
   | Opcode.WRPKRU -> wrpkru ins insAddr insLen ctxt
+  | Opcode.XABORT -> sideEffects insAddr insLen UnsupportedExtension
   | Opcode.XADD -> xadd ins insAddr insLen ctxt
   | Opcode.XBEGIN -> sideEffects insAddr insLen UnsupportedExtension
   | Opcode.XCHG -> xchg ins insAddr insLen ctxt
+  | Opcode.XEND -> sideEffects insAddr insLen UnsupportedExtension
   | Opcode.XGETBV -> sideEffects insAddr insLen UnsupportedExtension
   | Opcode.XOR -> xor ins insAddr insLen ctxt
   | Opcode.XORPD -> sideEffects insAddr insLen UnsupportedFP
   | Opcode.XORPS -> sideEffects insAddr insLen UnsupportedFP
-  | Opcode.XSAVEOPT -> sideEffects insAddr insLen UnsupportedExtension
+  | Opcode.XRSTOR | Opcode.XSAVE | Opcode.XSAVEOPT ->
+    sideEffects insAddr insLen UnsupportedExtension
+  | Opcode.XTEST -> sideEffects insAddr insLen UnsupportedExtension
   (* FIXME *)
-  | Opcode.COMISD | Opcode.ENTER | Opcode.MAXSD
-  | Opcode.MINSD | Opcode.MINSS | Opcode.MOVUPD | Opcode.PSUBQ
-  | Opcode.PREFETCHNTA | Opcode.PREFETCHT0  | Opcode.PREFETCHT1 | Opcode.RDRAND
-  | Opcode.PREFETCHW | Opcode.PREFETCHT2  | Opcode.PSRLQ | Opcode.SHUFPS
-  | Opcode.STI | Opcode.XLATB | Opcode.CVTSD2SI | Opcode.RDTSCP | Opcode.SIDT
-  | Opcode.SGDT | Opcode.PSUBUSB | Opcode.PADDB | Opcode.CMC
-  | Opcode.PMULUDQ | Opcode.XEND | Opcode.XABORT | Opcode.PSUBD | Opcode.LOOPE
-  | Opcode.LOOP | Opcode.RCL | Opcode.ADDPS | Opcode.FISTTP | Opcode.CVTTPS2PI
+  | Opcode.AAM | Opcode.AAD
+  | Opcode.DAA | Opcode.DAS
+  | Opcode.BTR
+  | Opcode.BTC
+  | Opcode.ENTER
+  | Opcode.LOOPE
+  | Opcode.LOOP
+  | Opcode.RDRAND
+  | Opcode.MOVUPD
+  | Opcode.PINSRB
+  | Opcode.CMPXCHG16B
+  | Opcode.RCL
+  | Opcode.PSUBQ
+  | Opcode.PSRLQ
+  | Opcode.VMOVDQU64
+  | Opcode.SHUFPS
+  | Opcode.SHUFPD
+  | Opcode.STI | Opcode.XLATB | Opcode.CVTSD2SI | Opcode.RDTSCP
+  | Opcode.PSUBUSB | Opcode.PADDB | Opcode.CMC
+  | Opcode.PMULUDQ | Opcode.PSUBD
+  | Opcode.ADDPS | Opcode.FISTTP | Opcode.CVTTPS2PI
   | Opcode.PSHUFLW | Opcode.PSRLD | Opcode.DIVPD | Opcode.PSHUFW
   | Opcode.VPADDQ | Opcode.VPUNPCKHQDQ | Opcode.VPMULUDQ | Opcode.VPSRLQ
-  | Opcode.VPSLLQ | Opcode.VPUNPCKLQDQ | Opcode.CMPXCHG16B | Opcode.PMINSW
-  | Opcode.INVLPG | Opcode.XTEST | Opcode.VMOVAPS | Opcode.XRSTOR | Opcode.XSAVE
-  | Opcode.MOVHLPS | Opcode.SLDT | Opcode.RDPMC | Opcode.PSRAD
-  | Opcode.PINSRB | Opcode.VMOVDQU64 | Opcode.SHUFPD
+  | Opcode.VPSLLQ | Opcode.VPUNPCKLQDQ
+  | Opcode.PMINSW
+  | Opcode.VMOVAPS
+  | Opcode.MOVHLPS | Opcode.RDPMC | Opcode.PSRAD
   | Opcode.MULPS | Opcode.UNPCKLPS | Opcode.UNPCKHPS | Opcode.PMULLW
-  | Opcode.PADDW | Opcode.PADDUSB | Opcode.LES | Opcode.PMULHUW
+  | Opcode.PADDW | Opcode.PADDUSB | Opcode.PMULHUW
   | Opcode.PMULHW | Opcode.PSUBW | Opcode.PADDSW | Opcode.PACKSSWB
-  | Opcode.PSADBW | Opcode.PAVGB | Opcode.PMAXSW | Opcode.PMADDWD | Opcode.INTO
-  | Opcode.PACKSSDW | Opcode.AAM | Opcode.BOUND | Opcode.AAD | Opcode.MOVNTPS
+  | Opcode.PSADBW | Opcode.PAVGB | Opcode.PMAXSW | Opcode.PMADDWD
+  | Opcode.PACKSSDW | Opcode.MOVNTPS
   | Opcode.MOVNTQ | Opcode.DIVPS | Opcode.LMSW | Opcode.PSRLW | Opcode.PAVGW
   | Opcode.PADDSB | Opcode.PSUBSW | Opcode.PADDSB | Opcode.VMPTRLD
   | Opcode.PSRAW | Opcode.LMSW | Opcode.PSUBUSW | Opcode.PSUBSB | Opcode.PSLLW
   | Opcode.SUBPS | Opcode.PADDUSW | Opcode.MINPS | Opcode.MAXPS
-  | Opcode.CVTPS2PI | Opcode.CVTSS2SI | Opcode.CVTPS2DQ | Opcode.BTR
-  | Opcode.INVD | Opcode.DAA | Opcode.LDS | Opcode.DAS | Opcode.LDS
-  | Opcode.MOVDQ2Q | Opcode.VANDPD | Opcode.MOVLHPS | Opcode.STR | Opcode.LTR
+  | Opcode.CVTPS2PI | Opcode.CVTSS2SI | Opcode.CVTPS2DQ
+  | Opcode.MOVDQ2Q | Opcode.VANDPD | Opcode.MOVLHPS
   | Opcode.SMSW | Opcode.CVTPS2PD | Opcode.CVTPD2PS | Opcode.UNPCKLPD
-  | Opcode.MINPD | Opcode.MAXPD | Opcode.MULPD
-  | Opcode.VERW | Opcode.RSM | Opcode.LAR | Opcode.RDMSR
-  | Opcode.LGS | Opcode.LFS | Opcode.LSS | Opcode.BTC ->
+  | Opcode.MINPD | Opcode.MAXPD | Opcode.MULPD ->
     sideEffects insAddr insLen UnsupportedFP
-  | Opcode.IN  | Opcode.OUT | Opcode.IRETD | Opcode.IRETQ | Opcode.IRETW
-  | Opcode.LSL | Opcode.LLDT | Opcode.LGDT ->
+  | Opcode.IN | Opcode.INTO | Opcode.INVD | Opcode.INVLPG | Opcode.OUT
+  | Opcode.IRETD | Opcode.IRETQ | Opcode.IRETW
+  | Opcode.LAR | Opcode.LTR | Opcode.STR | Opcode.SIDT
+  | Opcode.LSL | Opcode.LGDT | Opcode.LLDT | Opcode.SGDT | Opcode.SLDT
+  | Opcode.VERR | Opcode.VERW ->
     sideEffects insAddr insLen UnsupportedPrivInstr
   | o -> printfn "%A" o; raise <| NotImplementedIRException (Disasm.opCodeToString o)
   |> fun builder -> builder.ToStmts ()
