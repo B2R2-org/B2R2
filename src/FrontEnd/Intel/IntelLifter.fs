@@ -1274,16 +1274,10 @@ let convBWQ ins insAddr insLen ctxt =
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
-let clc insAddr insLen ctxt =
+let clearFlag insAddr insLen ctxt flagReg =
   let builder = new StmtBuilder (4)
   startMark insAddr insLen builder
-  builder <! (getRegVar ctxt R.CF := b0)
-  endMark insAddr insLen builder
-
-let cld insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
-  startMark insAddr insLen builder
-  builder <! (getRegVar ctxt R.DF := b0)
+  builder <! (getRegVar ctxt flagReg := b0)
   endMark insAddr insLen builder
 
 let cmovcc ins insAddr insLen ctxt =
@@ -4344,8 +4338,9 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.CALLNear -> call ins insAddr insLen ctxt false
   | Opcode.CALLFar -> call ins insAddr insLen ctxt true
   | Opcode.CBW | Opcode.CWDE | Opcode.CDQE -> convBWQ ins insAddr insLen ctxt
-  | Opcode.CLC -> clc insAddr insLen ctxt
-  | Opcode.CLD -> cld insAddr insLen ctxt
+  | Opcode.CLC -> clearFlag insAddr insLen ctxt R.CF
+  | Opcode.CLD -> clearFlag insAddr insLen ctxt R.DF
+  | Opcode.CLI -> clearFlag insAddr insLen ctxt R.IF
   | Opcode.CLFLUSH -> nop insAddr insLen
   | Opcode.CMOVO | Opcode.CMOVNO | Opcode.CMOVB | Opcode.CMOVAE
   | Opcode.CMOVZ | Opcode.CMOVNZ | Opcode.CMOVBE | Opcode.CMOVA
@@ -4609,7 +4604,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.XORPS -> sideEffects insAddr insLen UnsupportedFP
   | Opcode.XSAVEOPT -> sideEffects insAddr insLen UnsupportedExtension
   (* FIXME *)
-  | Opcode.CLI | Opcode.COMISD | Opcode.ENTER | Opcode.MAXSD
+  | Opcode.COMISD | Opcode.ENTER | Opcode.MAXSD
   | Opcode.MINSD | Opcode.MINSS | Opcode.MOVUPD | Opcode.PSUBQ
   | Opcode.PREFETCHNTA | Opcode.PREFETCHT0  | Opcode.PREFETCHT1 | Opcode.RDRAND
   | Opcode.PREFETCHW | Opcode.PREFETCHT2  | Opcode.PSRLQ | Opcode.SHUFPS
