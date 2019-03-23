@@ -1,5 +1,6 @@
 ![alt text](https://b2r2.org//images/b2r2-2d.png)
 
+[![Build status](https://ci.appveyor.com/api/projects/status/0c0tcxh813ev8w6i?svg=true)](https://ci.appveyor.com/project/sangkilc/b2r2)
 [![Build Status](https://travis-ci.com/B2R2-org/B2R2.svg?branch=master)](https://travis-ci.com/B2R2-org/B2R2)
 ![](https://img.shields.io/github/license/B2R2-org/B2R2.svg?style=flat)
 [![](https://img.shields.io/nuget/vpre/B2R2.FrontEnd.svg?style=flat)](https://www.nuget.org/packages/B2R2.FrontEnd)
