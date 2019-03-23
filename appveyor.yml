@@ -1,0 +1,14 @@
+version: '1.0.{build}'
+image: Visual Studio 2017
+branches:
+  only:
+  - master
+before_build:
+  # Display .NET Core version
+  - cmd: dotnet --version
+build_script:
+  - cmd: dotnet build
+clone_depth: 1
+test_script:
+  - cmd: dotnet test
+deploy: off
