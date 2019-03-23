@@ -52,7 +52,7 @@ let initFunction hdl (funcs: Funcs) entry =
 let getInitialEntries hdl (builder: CFGBuilder) funcs =
   let fi = hdl.FileInfo
   fi.GetFunctionAddresses () |> Seq.iter (initFunction hdl funcs)
-  initFunction hdl funcs fi.EntryPoint
+  if fi.EntryPoint <> 0UL then initFunction hdl funcs fi.EntryPoint else ()
   if fi.TextStartAddr = fi.EntryPoint then ()
   else initFunction hdl funcs fi.TextStartAddr
   builder, funcs

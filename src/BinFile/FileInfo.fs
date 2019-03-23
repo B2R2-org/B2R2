@@ -66,7 +66,8 @@ type FileInfo () =
 
   /// <summary>
   ///   The entry point of this binary (the start address that this binary runs
-  ///   at).
+  ///   at). Note that some binaries (e.g., PE DLL files) do not have a specific
+  ///   entry point, and EntryPoint will return zero in such a case.
   /// </summary>
   abstract EntryPoint: Addr
 

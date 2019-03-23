@@ -42,8 +42,9 @@ type PEFileInfo (bytes, path, ?rawpdb) =
   override __.FilePath = path
 
   override __.EntryPoint =
-    pe.PEHdr.ImageNTHdrs.ImageOptionalHdr.AddressOfEntryPoint
-    + pe.PEHdr.ImageNTHdrs.ImageOptionalHdr.ImageBase |> uint64
+    let entry = pe.PEHdr.ImageNTHdrs.ImageOptionalHdr.AddressOfEntryPoint
+    if entry = 0UL then 0UL
+    else entry + pe.PEHdr.ImageNTHdrs.ImageOptionalHdr.ImageBase |> uint64
 
   override __.IsStripped = false
 
