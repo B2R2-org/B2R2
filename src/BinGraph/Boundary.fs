@@ -53,8 +53,6 @@ let getInitialEntries hdl (builder: CFGBuilder) funcs =
   let fi = hdl.FileInfo
   fi.GetFunctionAddresses () |> Seq.iter (initFunction hdl funcs)
   if fi.EntryPoint <> 0UL then initFunction hdl funcs fi.EntryPoint else ()
-  if fi.TextStartAddr = fi.EntryPoint then ()
-  else initFunction hdl funcs fi.TextStartAddr
   builder, funcs
 
 /// TODO: This will be a heuristic to find function entries by prologue idioms
