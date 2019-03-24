@@ -254,3 +254,19 @@ type TestClass () =
     let e1 = BitVector.ofInt32 13453 32<rt>
     Assert.AreEqual (BitVector.toString <| BitVector.extract e1 16<rt> 4,
                      "0x348:I16")
+
+  [<TestMethod>]
+  member __.``Infix Operator``() =
+    let e1 = BitVector.ofInt32 4 64<rt>
+    let e2 = BitVector.ofInt32 20 64<rt>
+    Assert.AreEqual (e1 + e2, BitVector.ofInt32 24 64<rt>)
+    Assert.AreEqual (e1 - e2, BitVector.ofInt32 -16 64<rt>)
+    Assert.AreEqual (e1 * e2, BitVector.ofInt32 80 64<rt>)
+    Assert.AreEqual (e1 &&& e2, BitVector.ofInt32 4 64<rt>)
+    Assert.AreEqual (e1 ||| e2, BitVector.ofInt32 20 64<rt>)
+    Assert.AreEqual (e1 ^^^ e2, BitVector.ofInt32 16 64<rt>)
+    Assert.AreEqual (e1 / e2, BitVector.zero 64<rt>)
+    Assert.AreEqual (e2 / e1, BitVector.ofInt32 5 64<rt>)
+    Assert.AreEqual (e1 % e2, BitVector.ofInt32 4 64<rt>)
+    Assert.AreEqual (e2 % e1, BitVector.zero 64<rt>)
+    Assert.AreEqual (-e1, BitVector.ofInt32 -4 64<rt>)

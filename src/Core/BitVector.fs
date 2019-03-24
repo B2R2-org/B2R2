@@ -85,29 +85,59 @@ type BitVector =
       let n = bigint.op_BitwiseAnd (bigop (n1, n2), RegType.getMask v.Length)
       { v with BigNum = n }
 
-  static member (+) (v: BitVector, b : uint64) =
+  static member (+) (v: BitVector, b: uint64) =
     BitVector.BOp v b (+) (bigint.Add)
 
-  static member (-) (v: BitVector, b : uint64) =
+  static member (-) (v: BitVector, b: uint64) =
     BitVector.BOp v b (-) (bigint.Subtract)
 
-  static member (*) (v: BitVector, b : uint64) =
+  static member (*) (v: BitVector, b: uint64) =
     BitVector.BOp v b (*) (bigint.Multiply)
 
-  static member (&&&) (v: BitVector, b : uint64) =
+  static member (&&&) (v: BitVector, b: uint64) =
     BitVector.BOp v b (&&&) (bigint.op_BitwiseAnd)
 
-  static member (|||) (v: BitVector, b : uint64) =
+  static member (|||) (v: BitVector, b: uint64) =
     BitVector.BOp v b (|||) (bigint.op_BitwiseOr)
 
-  static member (^^^) (v: BitVector, b : uint64) =
+  static member (^^^) (v: BitVector, b: uint64) =
     BitVector.BOp v b (^^^) (bigint.op_BitwiseOr)
 
-  static member (/) (v: BitVector, b : uint64) =
+  static member (/) (v: BitVector, b: uint64) =
     BitVector.BOp v b (/) (bigint.Divide)
 
-  static member (%) (v: BitVector, b : uint64) =
+  static member (%) (v: BitVector, b: uint64) =
     BitVector.BOp v b (%) (bigint.op_Modulus)
+
+  static member (+) (v1: BitVector, v2: BitVector) =
+    BitVector.add v1 v2
+
+  static member (-) (v1: BitVector, v2: BitVector) =
+    BitVector.sub v1 v2
+
+  static member (*) (v1: BitVector, v2: BitVector) =
+    BitVector.mul v1 v2
+
+  static member (&&&) (v1: BitVector, v2: BitVector) =
+    BitVector.band v1 v2
+
+  static member (|||) (v1: BitVector, v2: BitVector) =
+    BitVector.bor v1 v2
+
+  static member (^^^) (v1: BitVector, v2: BitVector) =
+    BitVector.bxor v1 v2
+
+  static member (~~~) (v: BitVector) =
+    BitVector.bnot v
+
+  static member (/) (v1: BitVector, v2: BitVector) =
+    BitVector.div v1 v2
+
+  static member (%) (v1: BitVector, v2: BitVector) =
+    BitVector.modulo v1 v2
+
+  static member (~-) (v: BitVector) =
+    BitVector.neg v
 
   [<CompiledName("OfUInt64")>]
   static member ofUInt64 (i: uint64) typ =
@@ -524,28 +554,47 @@ type BitVector =
   static member abs bv =
     if BitVector.isPositive bv then bv else BitVector.neg bv
 
-  static member maxNum8 = BitVector.ofUInt64 255UL 8<rt>
-  static member maxNum16 = BitVector.ofUInt64 65535UL 16<rt>
-  static member maxNum32 = BitVector.ofUInt64 4294967295UL 32<rt>
-  static member maxNum64 = BitVector.ofUInt64 18446744073709551615UL 64<rt>
+  [<CompiledName("Min")>]
+  static member min bv1 bv2 =
+    if BitVector.lt bv1 bv2 = BitVector.T then bv1
+    else bv2
 
-  static member midNum8 =  bigint 0x80UL
-  static member midNum16 = bigint 0x8000UL
-  static member midNum32 = bigint 0x80000000UL
-  static member midNum64 = bigint 0x8000000000000000UL
+  [<CompiledName("Max")>]
+  static member max bv1 bv2 =
+    if BitVector.gt bv1 bv2 = BitVector.T then bv1
+    else bv2
 
-  static member midNum rt =
+  static member maxNum8 = BitVector.ofUInt64 0xFFUL 8<rt>
+  static member maxNum16 = BitVector.ofUInt64 0xFFFFUL 16<rt>
+  static member maxNum32 = BitVector.ofUInt64 0xFFFFFFFFUL 32<rt>
+  static member maxNum64 = BitVector.ofUInt64 0xFFFFFFFFFFFFFFFFUL 64<rt>
+
+  static member midNum8 =  BitVector.ofUInt64 0x80UL 8<rt>
+  static member midNum16 = BitVector.ofUInt64 0x8000UL 16<rt>
+  static member midNum32 = BitVector.ofUInt64 0x80000000UL 32<rt>
+  static member midNum64 = BitVector.ofUInt64 0x8000000000000000UL 64<rt>
+
+  [<CompiledName("SignedMax")>]
+  static member signedMax rt =
+    match rt with
+    | 8<rt> -> BitVector.midNum8 - 1UL
+    | 16<rt> -> BitVector.midNum16 - 1UL
+    | 32<rt> -> BitVector.midNum32 - 1UL
+    | 64<rt> -> BitVector.midNum64 - 1UL
+    | _ -> failwith "Invalid type for signed max num"
+
+  [<CompiledName("SignedMin")>]
+  static member signedMin rt =
     match rt with
     | 8<rt> -> BitVector.midNum8
     | 16<rt> -> BitVector.midNum16
     | 32<rt> -> BitVector.midNum32
     | 64<rt> -> BitVector.midNum64
-    | _ -> failwith "Invalid type for mid num"
+    | _ -> failwith "Invalid type for signed min num"
 
   [<CompiledName("IsSignedMin")>]
   static member isSignedMin bv =
-    let v = BitVector.getValue bv
-    BitVector.midNum bv.Length = v
+    BitVector.signedMin bv.Length = bv
 
   [<CompiledName("IsZero")>]
   static member isZero bv =
@@ -556,6 +605,14 @@ type BitVector =
   static member isOne bv =
     if bv.Length <= 64<rt> then bv.Num = 1UL
     else bv.BigNum = 1I
+
+  [<CompiledName("IsFalse")>]
+  static member isFalse bv =
+    bv = BitVector.F
+
+  [<CompiledName("IsTrue")>]
+  static member isTrue bv =
+    bv = BitVector.T
 
   [<CompiledName("IsNum")>]
   static member isNum bv n =
