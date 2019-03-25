@@ -903,12 +903,6 @@ let private parseESCOp t (reader: BinReader) pos escFlag getOpIn getOpOut =
     let insSize = newInsSize t SzDef32 opCode Mz
     Some (struct (newTemporaryIns opCode oprs t insSize, 0L)), pos + 1
 
-let private parseAAx t (reader: BinReader) pos opcode sizeCond =
-  let getDesc = function
-    | 0x0Auy -> 0L
-    | _ -> Ib
-  reader.PeekByte pos |> getDesc |> parseOp t opcode sizeCond, pos + 1
-
 // Group Opcodes
 let grp1Op   = [| Opcode.ADD; Opcode.OR; Opcode.ADC; Opcode.SBB;
                   Opcode.AND; Opcode.SUB; Opcode.XOR; Opcode.CMP |]
@@ -1777,8 +1771,8 @@ let private pOneByteOpcode t reader pos = function
     if hasOprSz t.TPrefixes then parseOp t Opcode.IRETW SzDef32 0L, pos
     elif hasREXW t.TREXPrefix then parseOp t Opcode.IRETQ SzDef32 0L, pos
     else parseOp t Opcode.IRETD SzDef32 0L, pos
-  | 0xD4uy -> ensure32 t; parseAAx t reader pos Opcode.AAM SzInv64
-  | 0xD5uy -> ensure32 t; parseAAx t reader pos Opcode.AAD SzInv64
+  | 0xD4uy -> ensure32 t; parseOp t Opcode.AAM SzInv64 Ib, pos
+  | 0xD5uy -> ensure32 t; parseOp t Opcode.AAD SzInv64 Ib, pos
   | 0xD7uy -> parseOp t Opcode.XLATB SzDef32 0L, pos
   | 0xD8uy -> parseESCOp t reader pos 0xD8uy getD8OpWithin00toBF getD8OverBF
   | 0xD9uy -> parseESCOp t reader pos 0xD9uy getD9OpWithin00toBF getD9OverBF
