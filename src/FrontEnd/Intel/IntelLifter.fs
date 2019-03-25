@@ -994,6 +994,42 @@ let aaa ins insAddr insLen ctxt =
     builder <! (getRegVar ctxt R.PF := undefPF)
   endMark insAddr insLen builder
 
+let aad ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (8)
+  let imm8 =
+    getOneOpr ins |> transOneOpr ins insAddr insLen ctxt |>  extractLow 8<rt>
+  let oprSize = getOperationSize ins
+  let al = getRegVar ctxt R.AL
+  let ah = getRegVar ctxt R.AH
+  startMark insAddr insLen builder
+  if oprSize = 64<rt> then ()
+  else
+    builder <! (al := (al .+ (ah .* imm8)) .& (numI32 0xff 8<rt>))
+    builder <! (ah := num0 8<rt>)
+    enumSZPFlags ctxt al 8<rt> builder
+    builder <! (getRegVar ctxt R.OF := undefOF)
+    builder <! (getRegVar ctxt R.AF := undefAF)
+    builder <! (getRegVar ctxt R.CF := undefCF)
+  endMark insAddr insLen builder
+
+let aam ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (8)
+  let imm8 =
+    getOneOpr ins |> transOneOpr ins insAddr insLen ctxt |>  extractLow 8<rt>
+  let oprSize = getOperationSize ins
+  let al = getRegVar ctxt R.AL
+  let ah = getRegVar ctxt R.AH
+  startMark insAddr insLen builder
+  if oprSize = 64<rt> then ()
+  else
+    builder <! (ah := al ./ imm8)
+    builder <! (al := al .% imm8)
+    enumSZPFlags ctxt al 8<rt> builder
+    builder <! (getRegVar ctxt R.OF := undefOF)
+    builder <! (getRegVar ctxt R.AF := undefAF)
+    builder <! (getRegVar ctxt R.CF := undefCF)
+  endMark insAddr insLen builder
+
 let aas ins insAddr insLen ctxt =
   let builder = new StmtBuilder (14)
   let oprSize = getOperationSize ins
@@ -1280,6 +1316,18 @@ let clearFlag insAddr insLen ctxt flagReg =
   builder <! (getRegVar ctxt flagReg := b0)
   endMark insAddr insLen builder
 
+let cmc ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (8)
+  let cf = getRegVar ctxt R.CF
+  startMark insAddr insLen builder
+  builder <! (cf := not cf)
+  builder <! (getRegVar ctxt R.OF := undefOF)
+  builder <! (getRegVar ctxt R.AF := undefAF)
+  builder <! (getRegVar ctxt R.SF := undefSF)
+  builder <! (getRegVar ctxt R.ZF := undefZF)
+  builder <! (getRegVar ctxt R.PF := undefPF)
+  endMark insAddr insLen builder
+
 let cmovcc ins insAddr insLen ctxt =
   let builder = new StmtBuilder (4)
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
@@ -1352,6 +1400,42 @@ let cmpxchg ins insAddr insLen ctxt =
   builder <! (getRegVar ctxt R.CF := lt (acc .+ t) acc)
   endMark insAddr insLen builder
 
+let compareExchangeBytes ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (8)
+  let dst = getOneOpr ins
+  let oprSize = getOperationSize ins
+  let zf = getRegVar ctxt R.ZF
+  let cond = tmpVar 1<rt>
+  startMark insAddr insLen builder
+  match oprSize with
+  | 64<rt> ->
+    let dst = transOneOpr ins insAddr insLen ctxt dst
+    let edx = getRegOfSize ctxt 32<rt> GrpEDX
+    let eax = getRegOfSize ctxt 32<rt> GrpEAX
+    let ecx = getRegOfSize ctxt 32<rt> GrpECX
+    let ebx = getRegOfSize ctxt 32<rt> GrpEBX
+    let t = tmpVar oprSize
+    builder <! (t := dst)
+    builder <! (cond := concat edx eax == t)
+    builder <! (zf := cond)
+    builder <! (eax := ite cond eax (extract t 32<rt> 0))
+    builder <! (edx := ite cond edx (extract t 32<rt> 32))
+    builder <! (dst := ite cond (concat ecx ebx) t)
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+    let rdx = getRegOfSize ctxt 64<rt> GrpEDX
+    let rax = getRegOfSize ctxt 64<rt> GrpEAX
+    let rcx = getRegOfSize ctxt 64<rt> GrpECX
+    let rbx = getRegOfSize ctxt 64<rt> GrpEBX
+    builder <! (cond := (dstB == rdx) .& (dstA == rax))
+    builder <! (zf := cond)
+    builder <! (rax := ite cond rax dstA)
+    builder <! (rdx := ite cond rdx dstB)
+    builder <! (dstA := ite cond rbx dstA)
+    builder <! (dstB := ite cond rcx dstB)
+  | _ -> raise InvalidOperandSizeException
+  endMark insAddr insLen builder
+
 let convWDQ ins insAddr insLen (ctxt: TranslationContext) =
   let builder = new StmtBuilder (8)
   let oprSize = getOperationSize ins
@@ -1379,6 +1463,70 @@ let convWDQ ins insAddr insLen (ctxt: TranslationContext) =
     builder <! (rdx := extractHigh 64<rt> t)
     builder <! (rax := extractLow 64<rt> t)
   | _, _ -> raise InvalidOperandSizeException
+  endMark insAddr insLen builder
+
+let daa ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (16)
+  let oprSize = getOperationSize ins
+  let al = getRegVar ctxt R.AL
+  let cf = getRegVar ctxt R.CF
+  let af = getRegVar ctxt R.AF
+  let oldAl = tmpVar 8<rt>
+  let oldCf = tmpVar 1<rt>
+  let alAnd0f = al .& numI32 0x0f 8<rt>
+  let subCond1 = gt alAnd0f (numI32 9 8<rt>)
+  let subCond2 = af == b1
+  let cond1 = tmpVar 1<rt>
+  let subCond3 = gt oldAl (numI32 0x99 8<rt>)
+  let subCond4 = oldCf == b1
+  let cond2 = tmpVar 1<rt>
+  startMark insAddr insLen builder
+  if oprSize = 64<rt> then ()
+  else
+    builder <! (oldAl := al)
+    builder <! (oldCf := cf)
+    builder <! (cf := b0)
+    builder <! (cond1 := subCond1 .| subCond2)
+    builder <! (al := ite cond1 (al .+ numI32 6 8<rt>) al)
+    builder <! (cf := ite cond1 oldCf cf)
+    builder <! (af := cond1)
+    builder <! (cond2 := subCond3 .| subCond4)
+    builder <! (al := ite cond2 (al .+ numI32 0x60 8<rt>) al)
+    builder <! (cf := cond2)
+    enumSZPFlags ctxt al 8<rt> builder
+    builder <! (getRegVar ctxt R.OF := undefOF)
+  endMark insAddr insLen builder
+
+let das ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (16)
+  let oprSize = getOperationSize ins
+  let al = getRegVar ctxt R.AL
+  let cf = getRegVar ctxt R.CF
+  let af = getRegVar ctxt R.AF
+  let oldAl = tmpVar 8<rt>
+  let oldCf = tmpVar 1<rt>
+  let alAnd0f = al .& numI32 0x0f 8<rt>
+  let subCond1 = gt alAnd0f (numI32 9 8<rt>)
+  let subCond2 = af == b1
+  let cond1 = tmpVar 1<rt>
+  let subCond3 = gt oldAl (numI32 0x99 8<rt>)
+  let subCond4 = oldCf == b1
+  let cond2 = tmpVar 1<rt>
+  startMark insAddr insLen builder
+  if oprSize = 64<rt> then ()
+  else
+    builder <! (oldAl := al)
+    builder <! (oldCf := cf)
+    builder <! (cf := b0)
+    builder <! (cond1 := subCond1 .| subCond2)
+    builder <! (al := ite cond1 (al .- numI32 6 8<rt>) al)
+    builder <! (cf := ite cond1 oldCf cf)
+    builder <! (af := cond1)
+    builder <! (cond2 := subCond3 .| subCond4)
+    builder <! (al := ite cond2 (al .- numI32 0x60 8<rt>) al)
+    builder <! (cf := cond2)
+    enumSZPFlags ctxt al 8<rt> builder
+    builder <! (getRegVar ctxt R.OF := undefOF)
   endMark insAddr insLen builder
 
 let dec ins insAddr insLen ctxt =
@@ -2448,6 +2596,24 @@ let pextrw ins insAddr insLen ctxt =
   | _ -> raise InvalidOperandException
   endMark insAddr insLen builder
 
+let pinsrb ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (8)
+  let dst, src, count = getThreeOprs ins
+  let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+  let src, count = transTwoOprs ins insAddr insLen ctxt (src, count)
+  let oprSize = getOperationSize ins
+  let sel, mask, temp, tDst = tmpVars4 oprSize
+  let sel8 = sel .* numI32 8 oprSize
+  startMark insAddr insLen builder
+  builder <! (sel := count .& numI32 0xf oprSize)
+  builder <! (mask := (numI32 0x0ff oprSize) << sel8)
+  builder <! (temp := (zExt oprSize (extract src 8<rt> 0) << sel8) .& mask)
+  builder <! (tDst := concat dstB dstA)
+  builder <! (tDst := (tDst .& (AST.not mask)) .| temp)
+  builder <! (dstA := extractLow 64<rt> tDst)
+  builder <! (dstB := extractHigh 64<rt> tDst)
+  endMark insAddr insLen builder
+
 let pinsrw ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
   let dst, src, count = getThreeOprs ins
@@ -2787,15 +2953,20 @@ let shiftDQ ins insAddr insLen ctxt shift =
 let pslldq ins insAddr insLen ctxt = shiftDQ ins insAddr insLen ctxt (<<)
 let psrldq ins insAddr insLen ctxt = shiftDQ ins insAddr insLen ctxt (>>)
 
-let logicalLeftShiftQwords oprSize src cntSrc builder =
+let logicalShiftQwords oprSize src cntSrc builder shift =
   let cntSrc = zExt oprSize cntSrc
   let tCnt = int oprSize / 64
   let tmps = Array.init tCnt (fun _ -> tmpVar (oprSize / tCnt))
   for i in 0 .. tCnt - 1 do
-    let t = zExt oprSize ((src >> numI32 (i * 32) oprSize) << cntSrc)
+    let t = zExt oprSize (shift (src >> numI32 (i * 32) oprSize) cntSrc)
     builder <! (tmps.[i] := t)
   done
   ite (gt cntSrc (numU32 63u oprSize)) (num0 oprSize) (concatExprs tmps)
+
+let logicalLeftShiftQwords oprSize dst cnt builder =
+  logicalShiftQwords oprSize dst cnt builder (<<)
+let logicalRightShiftQwords oprSize dst cnt builder =
+  logicalShiftQwords oprSize dst cnt builder (>>)
 
 let psllq ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
@@ -2817,6 +2988,26 @@ let psllq ins insAddr insLen ctxt =
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
+let psrlq ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (8)
+  let dst, cnt = getTwoOprs ins
+  let oprSize = getOperationSize ins
+  startMark insAddr insLen builder
+  match oprSize with
+  | 64<rt> ->
+    let dst, cnt = transTwoOprs ins insAddr insLen ctxt (dst, cnt)
+    builder <! (dst := logicalRightShiftQwords 64<rt> dst cnt builder)
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+    let cnt =
+      match cnt with
+      | OprImm _ -> transOprToExpr ins insAddr insLen ctxt cnt |> castNum 64<rt>
+      | _ -> transOprToExpr128 ins insAddr insLen ctxt cnt |> snd
+    builder <! (dstA := logicalRightShiftQwords 64<rt> dstA cnt builder)
+    builder <! (dstB := logicalRightShiftQwords 64<rt> dstB cnt builder)
+  | _ -> raise InvalidOperandSizeException
+  endMark insAddr insLen builder
+
 let psubb ins insAddr insLen ctxt =
   let builder = new StmtBuilder (32)
   let dst, src = getTwoOprs ins
@@ -2834,6 +3025,23 @@ let psubb ins insAddr insLen ctxt =
     let concatedExprB = getPsubbExpr dstB srcB 64<rt> builder
     builder <! (dstA := concatedExprA)
     builder <! (dstB := concatedExprB)
+  | _ -> raise InvalidOperandSizeException
+  endMark insAddr insLen builder
+
+let psubq ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (8)
+  let dst, src = getTwoOprs ins
+  let oprSize = getOperationSize ins
+  startMark insAddr insLen builder
+  match oprSize with
+  | 64<rt> ->
+    let dst, src = transTwoOprs ins insAddr insLen ctxt (dst, src)
+    builder <! (dst := dst .- src)
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+    let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
+    builder <! (dstA := dstA .- srcA)
+    builder <! (dstB := dstB .- srcB)
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
@@ -4318,6 +4526,8 @@ let xor ins insAddr insLen ctxt =
 let translate (ins: InsInfo) insAddr insLen ctxt =
   match ins.Opcode with
   | Opcode.AAA -> aaa ins insAddr insLen ctxt
+  | Opcode.AAD -> aad ins insAddr insLen ctxt
+  | Opcode.AAM -> aam ins insAddr insLen ctxt
   | Opcode.AAS -> aas ins insAddr insLen ctxt
   | Opcode.ADC -> adc ins insAddr insLen ctxt
   | Opcode.ADD -> add ins insAddr insLen ctxt
@@ -4343,6 +4553,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.CLD -> clearFlag insAddr insLen ctxt R.DF
   | Opcode.CLI -> clearFlag insAddr insLen ctxt R.IF
   | Opcode.CLFLUSH -> nop insAddr insLen
+  | Opcode.CMC -> cmc ins insAddr insLen ctxt
   | Opcode.CMOVO | Opcode.CMOVNO | Opcode.CMOVB | Opcode.CMOVAE
   | Opcode.CMOVZ | Opcode.CMOVNZ | Opcode.CMOVBE | Opcode.CMOVA
   | Opcode.CMOVS  | Opcode.CMOVNS | Opcode.CMOVP | Opcode.CMOVNP
@@ -4352,6 +4563,8 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.CMPSB | Opcode.CMPSW | Opcode.CMPSD | Opcode.CMPSQ ->
     cmps ins insAddr insLen ctxt
   | Opcode.CMPXCHG -> cmpxchg ins insAddr insLen ctxt
+  | Opcode.CMPXCHG8B | Opcode.CMPXCHG16B ->
+    compareExchangeBytes ins insAddr insLen ctxt
   | Opcode.COMISS | Opcode.COMISD -> sideEffects insAddr insLen UnsupportedFP
   | Opcode.CPUID -> sideEffects insAddr insLen ProcessorID
   | Opcode.CRC32 -> nop insAddr insLen
@@ -4368,6 +4581,8 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.CVTDQ2PS | Opcode.CVTPS2DQ | Opcode.CVTTPS2DQ ->
     sideEffects insAddr insLen UnsupportedFP
   | Opcode.CWD | Opcode.CDQ | Opcode.CQO -> convWDQ ins insAddr insLen ctxt
+  | Opcode.DAA -> daa ins insAddr insLen ctxt
+  | Opcode.DAS -> das ins insAddr insLen ctxt
   | Opcode.DEC -> dec ins insAddr insLen ctxt
   | Opcode.DIV | Opcode.IDIV -> div ins insAddr insLen ctxt
   | Opcode.DIVSD -> sideEffects insAddr insLen UnsupportedFP
@@ -4494,6 +4709,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.PCMPESTRI | Opcode.PCMPESTRM | Opcode.PCMPISTRI | Opcode.PCMPISTRM ->
     pcmpstr ins insAddr insLen ctxt
   | Opcode.PEXTRW -> pextrw ins insAddr insLen ctxt
+  | Opcode.PINSRB -> pinsrb ins insAddr insLen ctxt
   | Opcode.PINSRW -> pinsrw ins insAddr insLen ctxt
   | Opcode.PMAXUB | Opcode.PMINSB | Opcode.PMINUB ->
     minMaxPacked ins insAddr insLen ctxt
@@ -4515,7 +4731,9 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.PSLLDQ -> pslldq ins insAddr insLen ctxt
   | Opcode.PSLLQ -> psllq ins insAddr insLen ctxt
   | Opcode.PSRLDQ -> psrldq ins insAddr insLen ctxt
+  | Opcode.PSRLQ -> psrlq ins insAddr insLen ctxt
   | Opcode.PSUBB -> psubb ins insAddr insLen ctxt
+  | Opcode.PSUBQ -> psubq ins insAddr insLen ctxt
   | Opcode.PTEST -> ptest ins insAddr insLen ctxt
   | Opcode.PUNPCKHBW -> punpckhbw ins insAddr insLen ctxt
   | Opcode.PUNPCKHDQ -> punpckhdq ins insAddr insLen ctxt
@@ -4616,8 +4834,6 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
     sideEffects insAddr insLen UnsupportedExtension
   | Opcode.XTEST -> sideEffects insAddr insLen UnsupportedExtension
   (* FIXME *)
-  | Opcode.AAM | Opcode.AAD
-  | Opcode.DAA | Opcode.DAS
   | Opcode.BTR
   | Opcode.BTC
   | Opcode.ENTER
@@ -4625,16 +4841,12 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.LOOP
   | Opcode.RDRAND
   | Opcode.MOVUPD
-  | Opcode.PINSRB
-  | Opcode.CMPXCHG16B
   | Opcode.RCL
-  | Opcode.PSUBQ
-  | Opcode.PSRLQ
   | Opcode.VMOVDQU64
   | Opcode.SHUFPS
   | Opcode.SHUFPD
   | Opcode.STI | Opcode.XLATB | Opcode.CVTSD2SI | Opcode.RDTSCP
-  | Opcode.PSUBUSB | Opcode.PADDB | Opcode.CMC
+  | Opcode.PSUBUSB | Opcode.PADDB
   | Opcode.PMULUDQ | Opcode.PSUBD
   | Opcode.ADDPS | Opcode.FISTTP | Opcode.CVTTPS2PI
   | Opcode.PSHUFLW | Opcode.PSRLD | Opcode.DIVPD | Opcode.PSHUFW
