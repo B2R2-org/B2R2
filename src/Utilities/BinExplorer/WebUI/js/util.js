@@ -1,6 +1,6 @@
 var tabTitle = $("#tab_title"),
   tabContent = $("#tab_content"),
-  tabTemplate = `<li class='tab active' value={label}><a href=#{href}>{label}</a><span class="glyphicon glyphicon-remove-circle close-tab"></span></li>`,
+  tabTemplate = "<li class='tab active' value={label}><a href=#{href}>{label}</a><span class='glyphicon glyphicon-remove-circle close-tab'></span></li>",
   tabCounter = 0;
 
 // var graphContainer = $("#id_graphContainer")
@@ -59,7 +59,7 @@ function setTabName(name) {
   let tabId = "id_tabs-" + tabCounter;
   let tab = $("#id_tabContainer li.active");
   tab.attr("value", name);
-  let newTab = $(`<a href=#{href}>{label}<span class="glyphicon glyphicon-remove-circle close-tab"></span></a>`.replace('{href}', tabId).replace("{label}", name))
+  let newTab = $('<a href=#{href}>{label}<span class="glyphicon glyphicon-remove-circle close-tab"></span></a>'.replace('{href}', tabId).replace("{label}", name))
   tab.empty().append(newTab);
 }
 

@@ -20,7 +20,7 @@ html, body {
   margin-bottom: 0 !important; }
 
 #id_tabContainer {
-  overflow: scroll;
+  overflow: auto;
   width: 100%;
   height: 40px !important;
   margin-top: -10px !important;
@@ -69,7 +69,6 @@ html, body {
   width: 350px;
   height: 100%;
   background: black;
-  overflow-y: scroll;
   position: relative; }
   #id_FunctionsListWrapper #id_funcFilter {
     all: unset;
@@ -86,7 +85,7 @@ html, body {
   #id_FunctionsListWrapper #id_FunctionsList {
     margin-top: 45px;
     height: 100%;
-    overflow-y: scroll; }
+    overflow-y: auto;}
     #id_FunctionsListWrapper #id_FunctionsList #funcSelector {
       all: unset; }
       #id_FunctionsListWrapper #id_FunctionsList #funcSelector li {
