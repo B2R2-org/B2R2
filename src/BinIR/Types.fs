@@ -105,31 +105,31 @@ type CastKind =
 
 /// Side effect kinds.
 type SideEffect =
-    /// CPU clock access, e.g., RDTSC on x86.
+  /// CPU clock access, e.g., RDTSC on x86.
   | ClockCounter
-    /// Memory fence operations, e.g., LFENCE/MFENCE/SFENCE on x86.
+  /// Memory fence operations, e.g., LFENCE/MFENCE/SFENCE on x86.
   | Fence
-    /// Process halt, e.g., HLT on x86.
+  /// Process halt, e.g., HLT on x86.
   | Halt
-    /// Interrupt, e.g., INT on x86.
+  /// Interrupt, e.g., INT on x86.
   | Interrupt of int
-    /// Locking, e.g., LOCK prefix on x86.
+  /// Locking, e.g., LOCK prefix on x86.
   | Lock
-    /// Give a hint about a spin-wait loop, e.g., PAUSE on x86.
+  /// Give a hint about a spin-wait loop, e.g., PAUSE on x86.
   | Pause
-    /// Access CPU details, e.g., CPUID on x86.
+  /// Access CPU details, e.g., CPUID on x86.
   | ProcessorID
-    /// System call.
+  /// System call.
   | SysCall
-    /// Explicitly undefined instruction, e.g., UD2 on x86.
+  /// Explicitly undefined instruction, e.g., UD2 on x86.
   | UndefinedInstr
-    /// Unsupported floating point operations.
+  /// Unsupported floating point operations.
   | UnsupportedFP
-    /// Unsupported privileged instructions.
+  /// Unsupported privileged instructions.
   | UnsupportedPrivInstr
-    /// Unsupported FAR branching.
+  /// Unsupported FAR branching.
   | UnsupportedFAR
-    /// Unsupported processor extension
+  /// Unsupported processor extension
   | UnsupportedExtension
 
 type StartPos = int

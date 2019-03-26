@@ -305,6 +305,21 @@ module Pp =
     | CastKind.ZeroExt -> "zext"
     | _ -> raise IllegalASTTypeException
 
+  let sideEffectToString = function
+    | ClockCounter -> "CLK"
+    | Fence -> "Fence"
+    | Halt -> "Halt"
+    | Interrupt (n) -> "Int " + n.ToString ()
+    | Lock -> "Lock"
+    | Pause -> "Pause"
+    | ProcessorID -> "PID"
+    | SysCall -> "SysCall"
+    | UndefinedInstr -> "Undef"
+    | UnsupportedFP -> "FP"
+    | UnsupportedPrivInstr -> "PrivInstr"
+    | UnsupportedFAR -> "FAR"
+    | UnsupportedExtension -> "CPU extension"
+
   let rec private _expToString expr (sb: StringBuilder) =
     match expr with
     | Num n -> sb.Append (BitVector.toString n) |> ignore
@@ -418,7 +433,8 @@ module Pp =
       _expToString t sb
       sb.Append (" else ") |> ignore
       _expToString f sb
-    | SideEffect eff -> sb.Append (sprintf "SideEffect(%A)" eff) |> ignore
+    | SideEffect eff ->
+      sb.Append ("SideEffect " + sideEffectToString eff) |> ignore
 
   let expToString expr =
     let sb = new StringBuilder ()
