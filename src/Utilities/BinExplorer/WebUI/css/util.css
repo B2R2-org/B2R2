@@ -1,0 +1,162 @@
+html, body {
+  height: 100vh;
+  width: 100vw;
+  background: #282a36;}
+
+#id_MainContainer {
+  width: 100%;
+  height: 100%;
+  background: #282a36;
+  display: flex; }
+  #id_MainContainer #id_GraphShow {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #282a36; }
+  #id_MainContainer .graph-container {
+    width: 100%; }
+
+.navbar {
+  margin-bottom: 0 !important; }
+
+#id_tabContainer {
+  overflow: scroll;
+  width: 100%;
+  height: 40px !important;
+  margin-top: -10px !important;
+  background: #282a36;
+  padding-top: 5px;
+  padding-bottom: 0px;
+  padding-left: 5px;
+  padding-right: 5px;
+  margin: 0;
+  border: 0; }
+  #id_tabContainer ul {
+    all: unset;
+    width: 100%;
+    height: 100%;
+    list-style-type: none;
+    display: flex; }
+    #id_tabContainer ul li.tab {
+      position: relative;
+      border: 1px solid black;
+      border-top-right-radius: 3px;
+      border-top-left-radius: 3px;
+      background: #6272a4;
+      margin: 0 2px;
+      width: 200px;
+      display: flex;
+      align-items: center; }
+      #id_tabContainer ul li.tab a {
+        all: unset;
+        display: flex;
+        align-items: center;
+        font-size: 15px;
+        color: white;
+        display: block;
+        padding: 5px 10px; }
+      #id_tabContainer ul li.tab.active {
+        background: #44475a;
+        border-bottom: none; }
+      #id_tabContainer ul li.tab span {
+        position: absolute;
+        font-size: 17px;
+        color: white;
+        right: 5px;
+        top: 10px; }
+
+#id_FunctionsListWrapper {
+  width: 350px;
+  height: 100%;
+  background: black;
+  overflow-y: scroll;
+  position: relative; }
+  #id_FunctionsListWrapper #id_funcFilter {
+    all: unset;
+    background: none;
+    border: none;
+    position: fixed;
+    width: 250px;
+    border-bottom: 1px solid white;
+    color: white;
+    padding: 5px 10px;
+    height: 35px;
+    padding: 5px 10px;
+    border-radius: 3px; }
+  #id_FunctionsListWrapper #id_FunctionsList {
+    margin-top: 45px;
+    height: 100%;
+    overflow-y: scroll; }
+    #id_FunctionsListWrapper #id_FunctionsList #funcSelector {
+      all: unset; }
+      #id_FunctionsListWrapper #id_FunctionsList #funcSelector li {
+        all: unset;
+        margin-left: 10px;
+        cursor: pointer;
+        height: 30px;
+        display: flex;
+        flex-direction: column;
+        color: white;
+        padding: 5px;
+        font-size: 15px;
+        display: flex;
+        justify-content: center; }
+        #id_FunctionsListWrapper #id_FunctionsList #funcSelector li.active {
+          color: #50fa7b; }
+        #id_FunctionsListWrapper #id_FunctionsList #funcSelector li.clicked {
+          background: #50fa7b;
+          color: black; }
+
+#id_graphContainer {
+  margin-left: 8px;
+  width: 100%;
+  height: 100%; }
+
+.box {
+  background: #44475a; }
+
+.min-box {
+  border: 1px solid #ccc; }
+
+.cfgCJmpTrueEdgeArrow {
+  fill: #50fa7b; }
+
+.cfgCJmpFalseEdgeArrow {
+  fill: #ff5555; }
+
+.cfgCJmpFalseEdgeBlur:hover {
+  filter: url(#cfgBlur);
+  stroke: #ff5555; }
+
+.cfgCJmpTrueEdge {
+  stroke: #50fa7b; }
+
+.cfgCJmpTrueEdgeBlur:hover {
+  filter: url(#cfgBlur);
+  stroke: #50fa7b; }
+
+.cfgDisasmComment {
+  fill: #6272a4; }
+
+.navbar-inverse .navbar-nav > li > a {
+  color: white; }
+
+.wordHighlight {
+  fill: #ff5555;
+  font-weight: bold; }
+
+.nodeHighlight {
+  fill: lightgoldenrodyellow; }
+
+.cfgJmpEdge {
+  stroke: #ffb86c; }
+
+.cfgJmpEdgeArrow {
+  fill: #ffb86c; }
+
+.cfgJmpEdgeBlur:hover {
+  filter: url(#cfgBlur);
+  stroke: #ffb86c; }
+
+.cfgCJmpFalseEdge {
+  stroke: #ff5555; }

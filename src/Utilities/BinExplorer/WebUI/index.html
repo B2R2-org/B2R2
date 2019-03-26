@@ -1,143 +1,116 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>B2R2</title>
 
-    <link href="css/bootstrap.min.css" rel="stylesheet" />
-    <link href="css/b2r2.css" rel="stylesheet" />
-  </head>
-  <body>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <nav class="navbar navbar-inverse navbar-fixed-top">
-      <div class="navbar-header">
-        <a class="navbar-brand">B2R2</a>
-        <button type="button" class="navbar-toggle"
-                data-toggle="collapse" data-target=".navbar-collapse">
-          <span class="icon-bar"></span>
-          <span class="icon-bar"></span>
-          <span class="icon-bar"></span>
-        </button>
-      </div>
-      <div class="navbar-collapse collapse">
+  <link rel="icon" href="/favicon.ico">
+  <title>B2R2</title>
+
+  <link href="css/bootstrap.min.css" rel="stylesheet" />
+  <link href="css/b2r2.css" rel="stylesheet" />
+  <link href="css/util.css" rel="stylesheet" />
+
+</head>
+<script>
+  var currentTab = -1;
+</script>
+
+<body>
+
+  <nav class="navbar navbar-inverse navbar-fixed-top">
+    <div class="navbar-header">
+      <a class="navbar-brand">B2R2</a>
+      <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+    </div>
+    <div class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li class="active" id="uiTitle">
+          <a href="#"><var id="binInfo">Offline</var></a>
+        </li>
+        <li>
+          <a href="#"><var id="uiFuncName"></var></a>
+        </li>
+      </ul>
+      <div class="navbar-header navbar-right">
+        <form class="navbar-form navbar-left">
+          <button type="button" class="btn btn-default text-center" style="width: 40px" id="btn-refresh">
+            <span id="icon-refresh" style="padding: 0" class="glyphicon glyphicon-refresh"></span>
+          </button>
+        </form>
         <ul class="nav navbar-nav">
-          <li class="active" id="uiTitle">
-            <a href="#"><var id="binInfo">Offline</var></a>
-          </li>
-          <li>
-            <a href="#"><var id="uiFuncName"></var></a>
+          <li class="dropdown">
+            <a class="dropdown-toggle" data-toggle="dropdown" href="#">
+              <span class="glyphicon glyphicon-wrench"></span>&nbsp; &nbsp;
+            </a>
+            <ul class="dropdown-menu">
+              <li id="menuCopyCFG">
+                <a href="#" data-toggle="modal" data-target="#modalCopyCFG">Copy the CFG to clipboard</a>
+              </li>
+              <li>
+                <a href="#" data-toggle="modal" data-target="#modalAbout">About</a>
+              </li>
+            </ul>
           </li>
         </ul>
-        <div class="navbar-header navbar-right">
-          <form class="navbar-form navbar-left">
-            <button type="button" class="btn btn-default text-center"
-                    style="width: 40px" id="btn-refresh">
-              <span id="icon-refresh" style="padding: 0"
-                    class="glyphicon glyphicon-refresh"></span>
-            </button>
-          </form>
-          <ul class="nav navbar-nav">
-            <li class="dropdown">
-              <a class="dropdown-toggle" data-toggle="dropdown" href="#">
-                <span class="glyphicon glyphicon-wrench"></span>&nbsp; &nbsp;
-              </a>
-              <ul class="dropdown-menu">
-                <li id="menuCopyCFG">
-                  <a href="#" data-toggle="modal"
-                     data-target="#modalCopyCFG">Copy the CFG to clipboard</a>
-                </li>
-                <li>
-                  <a href="#" data-toggle="modal"
-                     data-target="#modalAbout">About</a>
-                </li>
-              </ul>
-            </li>
-          </ul>
-        </div>
       </div>
-    </nav>
-
-    <input id="cfgFile" type="file" name="" style="display: none;" />
-
-    <div id="modalCopyCFG" class="modal fade" role="dialog">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <button type="button" class="close"
-                    data-dismiss="modal">&times;</button>
-            <h4 class="modal-title">Copy the CFG (in JSON) to clipboard</h4>
-          </div>
-          <div class="modal-body">
-            <pre class="pre-xy-scrollable"><code id="codeCopyCFG"></code></pre>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-default" id="btnCopyCFG">
-              <span class="glyphicon glyphicon-paperclip"></span> Copy
-            </button>
-            <button type="button" class="btn btn-default"
-                    data-dismiss="modal">Close</button>
-          </div>
+    </div>
+  </nav>
+  <div id="modalCopyCFG" class="modal fade" role="dialog">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+          <h4 class="modal-title">Copy the CFG (in JSON) to clipboard</h4>
+        </div>
+        <div class="modal-body">
+          <pre class="pre-xy-scrollable"><code id="codeCopyCFG"></code></pre>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" id="btnCopyCFG">
+            <span class="glyphicon glyphicon-paperclip"></span> Copy
+          </button>
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
         </div>
       </div>
     </div>
-
-    <div id="modalAbout" class="modal fade" role="dialog">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <button type="button" class="close"
-                    data-dismiss="modal">&times;</button>
-            <h4 class="modal-title">About B2R2</h4>
-          </div>
-          <div class="modal-body">
-            B2R2 is a binary analysis platform developed in
-            <a href="https://softsec.kaist.ac.kr/">SoftSec Lab.</a>, KAIST.
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-default"
-                    data-dismiss="modal">Close</button>
-          </div>
-        </div>
+  </div>
+  <input id="cfgFile" type="file" name="" style="display: none;" />
+  <div id="id_MainContainer" class="main-container" class="ui-widget-content">
+    <div id="id_FunctionsListWrapper">
+      <input id="id_funcFilter" placeholder="Function filter" />
+      <div id="id_FunctionsList">
+        <ul id="funcSelector"></ul>
       </div>
     </div>
-
-    <div class="container-fluid">
-
-      <div class="row" id="uiHeader">
-        <div class="col-md-2">
-          <span class="valign glyphicon glyphicon-list"
-                aria-hidden="true"></span>
-          <span class="valign lead">Functions</span>
-        </div>
-        <div class="col-md-10">
-          <span class="valign glyphicon glyphicon-th" aria-hidden="true"></span>
-          <span class="valign lead">CFG</span>
-        </div>
+    <div class="graph-container">
+      <div id="id_tabContainer">
+        <ul></ul>
       </div>
-
-      <div class="row">
-        <div class="col-md-2">
-          <div id="funcs">
-            <select class="form-control" id="funcSelector" size="2"></select>
-          </div>
-        </div>
-        <div class="col-md-10" id="cfgDiv">
+      <div id="id_graphContainer">
+        <div id="cfgDiv">
           <svg id="cfg" class="box"></svg>
         </div>
       </div>
-
+      <div id="minimapDiv">
+        <svg id="minimap" class="box min-box"></svg>
+      </div>
     </div>
+  </div>
 
-    <div id="minimapDiv">
-      <svg id="minimap" class="box"></svg>
-    </div>
 
-    <script src="js/jquery.min.js"></script>
-    <script src="js/bootstrap.min.js"></script>
-    <script src="js/d3.min.js"></script>
-    <script src="js/b2r2.js"></script>
-  </body>
+  <script src="js/d3.min.js"></script>
+  <script src="js/b2r2.js"></script>
+  <script src="js/jquery.min.js"></script>
+  <script src="js/bootstrap.min.js"></script>
+  <script src="js/util.js"></script>
+</body>
+
 </html>
 <!-- vim: set sts=2 sw=2: -->

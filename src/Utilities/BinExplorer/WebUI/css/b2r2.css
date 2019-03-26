@@ -13,21 +13,12 @@
   stroke-width: 0.1;
 }
 
-#funcSelector {
-  height: 90vh;
-  overflow: auto;
-}
-
 .glyphicon {
   padding-right: 5px;
 }
 
 .valign {
   vertical-align: middle;
-}
-
-.box {
-  border: 1px solid #ccc;
 }
 
 body,html {
@@ -52,55 +43,6 @@ body {
   filter: url(#cfgBlur);
 }
 
-.nodeHighlight {
-    fill: lightgoldenrodyellow;
-}
-
-.cfgJmpEdge {
-  stroke: black;
-}
-
-.cfgJmpEdgeArrow { fill: black; }
-
-.cfgJmpEdgeBlur:hover {
-  filter: url(#cfgBlur);
-  stroke: black;
-}
-
-.cfgCJmpFalseEdge {
-  stroke: #bb0000;
-}
-
-.cfgCJmpFalseEdgeArrow { fill: #bb0000; }
-
-.cfgCJmpFalseEdgeBlur:hover {
-  filter: url(#cfgBlur);
-  stroke: #bb0000;
-}
-
-.cfgCJmpTrueEdge {
-  stroke: #009400;
-}
-
-.cfgCJmpTrueEdgeArrow { fill: #009400; }
-
-.cfgCJmpTrueEdgeBlur:hover {
-  filter: url(#cfgBlur);
-  stroke: #009400;
-}
-
-.cfgDisasmComment {
-  fill: #006400;
-}
-
-.navbar-inverse .navbar-nav>li>a {
-  color: white;
-}
-
-.wordHighlight {
-  fill: red;
-  font-weight: bold;
-}
 
 @font-face {
   font-family: 'Inconsolata';

@@ -26,7 +26,7 @@
 */
 
 // Set the bottom margin of the entire UI
-var bottomMargin = 30;
+var bottomMargin = 10;
 
 // Set the right margin of the entire UI
 var rightMargin = 10;
@@ -46,8 +46,7 @@ var edgeThickness = 3;
 // The duration time for zooming when both nodes and edges are double clicked.
 var focusMovementDuration = 750;
 
-function initMarker(defs, id)
-{
+function initMarker(defs, id) {
     defs.append("marker")
         .attr("id", id).attr("class", id)
         .attr("markerWidth", 3)
@@ -61,8 +60,7 @@ function initMarker(defs, id)
         .attr("d", "M 0,0 m -5,-5 L 5,0 L -5,5 Z");
 }
 
-function initSVG()
-{
+function initSVG() {
     // Clear up the existing elements.
     $("#cfg").empty();
     $("#minimap").empty();
@@ -94,8 +92,7 @@ function initSVG()
     d3.select("svg#minimap").append("g").attr("id", "minimapStage");
 }
 
-function copyToClipboard(str)
-{
+function copyToClipboard(str) {
     let aux = document.createElement("textarea");
     aux.value = str;
     document.body.appendChild(aux);
@@ -104,25 +101,23 @@ function copyToClipboard(str)
     document.body.removeChild(aux);
 }
 
-function initEvents(cfg)
-{
-    $(function(){
-        $("#menuCopyCFG").click(function(e) {
+function initEvents(cfg) {
+    $(function () {
+        $("#menuCopyCFG").click(function (e) {
             e.preventDefault();
             let mymodal = $("#codeCopyCFG");
             mymodal.text(JSON.stringify(cfg, null, " "));
         });
     })
 
-    $(function(){
-        $("#btnCopyCFG").click(function(e) {
+    $(function () {
+        $("#btnCopyCFG").click(function (e) {
             copyToClipboard($("#codeCopyCFG").text());
         });
     })
 }
 
-function appendDisasmFragment(txt, cls, fragment, isOpcode)
-{
+function appendDisasmFragment(txt, cls, fragment, isOpcode) {
     let t = txt.append("tspan")
         .text(fragment).attr("class", cls).attr("xml:space", "preserve");
 
@@ -130,22 +125,20 @@ function appendDisasmFragment(txt, cls, fragment, isOpcode)
     else t.attr("dx", "0px");
 }
 
-function strRepeat(str, num)
-{
+function strRepeat(str, num) {
     if (num < 0) return "";
     else if (num === 1) return str;
     else return str + strRepeat(str, num - 1);
 }
 
-function drawNode(v)
-{
+function drawNode(v) {
     let g = d3.select("g#cfgGrp").append("g");
 
     let rect = g.append("rect")
         .attr("class", "cfgNode")
         .attr("fill", "white")
         .attr("stroke", "black")
-        .attr("stroke-width", nodeBorderThickness);
+        .attr("stroke-width", nodeBorderThickness)
 
     // Additional layer for bluring.
     let rectBlur = g.append("rect")
@@ -196,17 +189,16 @@ function drawNode(v)
         .attr("width", v.Width * minimapRatio)
         .attr("height", v.Height * minimapRatio)
         .attr("transform",
-              "translate(" + v.Pos.X * minimapRatio +
-              ", " + v.Pos.Y * minimapRatio + ")");
+            "translate(" + v.Pos.X * minimapRatio +
+            ", " + v.Pos.Y * minimapRatio + ")");
 }
 
-function drawNodes(g)
-{
+function drawNodes(g) {
     for (let i = 0; i < g.Nodes.length; i++) {
         drawNode(g.Nodes[i]);
     }
 
-    let r   = document.getElementById("cfgGrp").getBBox(),
+    let r = document.getElementById("cfgGrp").getBBox(),
         obj = {
             width: r.width,
             height: r.height
@@ -215,8 +207,7 @@ function drawNodes(g)
     return obj;
 }
 
-function drawEdge(e)
-{
+function drawEdge(e) {
     let lineFunction = d3.line()
         .x(function (d) { return d.X; })
         .y(function (d) { return d.Y; });
@@ -255,27 +246,24 @@ function drawEdge(e)
     if (e.IsBackEdge) m.attr("stroke-dasharray", "2, 2");
 }
 
-function drawEdges(g)
-{
+function drawEdges(g) {
     for (let i = 0; i < g.Edges.length; i++) {
         drawEdge(g.Edges[i]);
     }
 }
 
-function centerAlign(dims, shiftX, reductionRate)
-{
+function centerAlign(dims, shiftX, reductionRate) {
     let leftPadding = (dims.cfgVPDim.width) / 2 / reductionRate;
 
     d3.select("g#cfgGrp").attr("transform",
-                               "translate(" + leftPadding  + ", 0)");
+        "translate(" + leftPadding + ", 0)");
 
     d3.select("g#minimapStage")
         .attr("transform",
-              "translate (" + shiftX + ", 0) scale (" + reductionRate + ")");
+            "translate (" + shiftX + ", 0) scale (" + reductionRate + ")");
 }
 
-function setMinimap(dims)
-{
+function setMinimap(dims) {
     let newWidth = dims.minimapVPDim.width;
     let newHeight = dims.minimapVPDim.height;
 
@@ -293,8 +281,7 @@ function setMinimap(dims)
     return newWidth / 2;
 }
 
-function drawMinimapViewPort(dims)
-{
+function drawMinimapViewPort(dims) {
     d3.select("svg#minimap")
         .append("rect")
         .attr("id", "minimapVP")
@@ -303,15 +290,13 @@ function drawMinimapViewPort(dims)
         .attr("fill", "transparent");
 }
 
-function drawCFG(dims, cfg)
-{
+function drawCFG(dims, cfg) {
     $("#icon-refresh").addClass("rotating"); // Start the animation.
     // This is to make sure that the rotation animation is running first.
     setTimeout(function () { drawCFGAux(dims, cfg); }, 5);
 }
 
-function drawCFGAux(dims, cfg)
-{
+function drawCFGAux(dims, cfg) {
     let extraRatio = 0.9, // Give a little bit more space.
         stageDim = null,
         shiftX = 0.0,
@@ -325,7 +310,7 @@ function drawCFGAux(dims, cfg)
 
     reductionRate =
         Math.min(dims.cfgVPDim.width / stageDim.width,
-                 dims.cfgVPDim.height / stageDim.height) * extraRatio;
+            dims.cfgVPDim.height / stageDim.height) * extraRatio;
 
     // If the entire CFG is smaller than the cfgVP, then simply use the rate 1.
     // In other words, the maximum reductionRate is one.
@@ -338,8 +323,7 @@ function drawCFGAux(dims, cfg)
     $("#icon-refresh").removeClass("rotating"); // Stop the animation.
 }
 
-function registerEvents(reductionRate, dims, g)
-{
+function registerEvents(reductionRate, dims, g) {
     let zoom = null;
     let translateWidthRatio = null;
     let translateHeightRatio = null;
@@ -362,7 +346,7 @@ function registerEvents(reductionRate, dims, g)
 
     function getEdgePts(edge) {
         return edge.split(/M|L/)
-                   .filter(function (el) { return el.length != 0; });
+            .filter(function (el) { return el.length != 0; });
     }
 
     function convertvMapPtToVPCoordinate(dx, dy) {
@@ -399,7 +383,7 @@ function registerEvents(reductionRate, dims, g)
         cfg.transition()
             .duration(focusMovementDuration * accelerationRate)
             .call(zoom.transform,
-            d3.zoomIdentity.translate(newX, newY).scale(transK));
+                d3.zoomIdentity.translate(newX, newY).scale(transK));
     }
 
     function getMousePos() {
@@ -487,17 +471,17 @@ function registerEvents(reductionRate, dims, g)
         offsetX = (dims.minimapVPDim.width * minimapK) / 2;
         offsetY = (dims.minimapVPDim.height * minimapK) / 2;
         minimapVP.attr("transform",
-                       "translate(" + minimapX + ","
-                                    + minimapY + ") scale(" + minimapK + ")");
+            "translate(" + minimapX + ","
+            + minimapY + ") scale(" + minimapK + ")");
 
         transX = - minimapX / translateWidthRatio;
         transY = - minimapY / translateHeightRatio;
         cfgStage.attr("transform",
-                      "translate(" + transX + ","
-                                   + transY + ") scale(" + transK + ")");
+            "translate(" + transX + ","
+            + transY + ") scale(" + transK + ")");
 
         zoom.transform(cfg,
-                       d3.zoomIdentity.translate(transX, transY).scale(transK));
+            d3.zoomIdentity.translate(transX, transY).scale(transK));
     }
 
     function dragStart() {
@@ -518,13 +502,13 @@ function registerEvents(reductionRate, dims, g)
         transY = - minimapY / translateHeightRatio;
 
         minimapVP.attr("transform",
-                       "translate(" + minimapX + ","
-                                    + minimapY + ") scale(" + minimapK + ")");
+            "translate(" + minimapX + ","
+            + minimapY + ") scale(" + minimapK + ")");
         cfgStage.attr("transform",
-                      "translate(" + transX + ","
-                                   + transY + ") scale(" + transK + ")");
+            "translate(" + transX + ","
+            + transY + ") scale(" + transK + ")");
         zoom.transform(cfg,
-                       d3.zoomIdentity.translate(transX, transY).scale(transK));
+            d3.zoomIdentity.translate(transX, transY).scale(transK));
     }
 
     function dragEnd() {
@@ -568,9 +552,9 @@ function registerEvents(reductionRate, dims, g)
         transY = (- transY) * translateHeightRatio;
 
         minimapVP.attr("transform",
-                       "translate(" + transX + ","
-                                    + transY + ") scale(" + minimapK + ")")
-             .attr("style", "stroke-width:" + (1.5 / (minimapK)) + "px");
+            "translate(" + transX + ","
+            + transY + ") scale(" + minimapK + ")")
+            .attr("style", "stroke-width:" + (1.5 / (minimapK)) + "px");
     }
 
     zoom = d3.zoom().scaleExtent([reductionRate, 20]).on("zoom", zoomed);
@@ -578,23 +562,29 @@ function registerEvents(reductionRate, dims, g)
     cfg.call(zoom).call(zoom.transform, transform).on("dblclick.zoom", null);
 }
 
-function drawFunctions(funcs)
-{
+function drawFunctions(funcs) {
     $.each(funcs, function (_, addr) {
-        $("#funcSelector").append($('<option>', {
+        $("#funcSelector").append($('<li>', {
             value: addr,
             text: addr
         }));
     });
 }
 
-function drawBinInfo(str)
-{
-    $("#binInfo").text(function(_, _) { return str; });
+function filterFunctions() {
+    $("#id_funcFilter").on("keyup", function () {
+        var value = $(this).val().toLowerCase();
+        $("#funcSelector li").each(function (e, i) {
+            $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+        });
+    });
 }
 
-function query(name, arguments, callback)
-{
+function drawBinInfo(str) {
+    $("#binInfo").text(function (_, _) { return str; });
+}
+
+function query(name, arguments, callback) {
     let req = new XMLHttpRequest();
     let q = encodeURIComponent(name);
     let args = encodeURIComponent(arguments);
@@ -603,12 +593,11 @@ function query(name, arguments, callback)
             callback(JSON.parse(this.responseText));
         }
     }
-    req.open("GET", "/ajax/?q=" + q + "&args=" + args, true);
+    req.open("GET", "/ajax/?q=" + q + "&args=" + args, false);
     req.send();
 }
 
-function registerRefreshEvents(dims, json)
-{
+function registerRefreshEvents(dims, json) {
     $("#btn-refresh").click(function () {
         drawCFG(dims, json);
     });
@@ -616,8 +605,7 @@ function registerRefreshEvents(dims, json)
 
 // Offline mode renders a single function only. Inter-function analysis is not
 // supported in offline mode.
-function runOffline(dims)
-{
+function runOffline(dims) {
     fileInput = document.getElementById("cfgFile");
     $("#uiTitle").click(function () { fileInput.click(); });
     fileInput.addEventListener("change", function () {
@@ -642,27 +630,110 @@ function isEmpty(obj) {
 }
 
 // Run in online mode (this is the default).
-function runOnline(dims)
-{
-    $("#funcSelector").change(function () {
+function runOnline(dims) {
+    function singleClickOnFunctionItem(e) {
+        let self = this;
+        let functionName = $(this).attr('value');
+        let tabsLength = $("#id_tabContainer li").length;
+        if (tabsLength === 0) {
+            addTab(functionName, dims);
+        } else if (checkDuplicateTab(functionName)) {
+            activateTabbyElement($(self), dims)
+        } else {
+            setTabName(functionName)
+        }
         query("cfg",
-              $("#funcSelector option:selected").text(),
-              function (json) {
-                  if (!isEmpty(json)) {
-                      $("#uiFuncName").text(function (_, _) {
-                          return $("#funcSelector option:selected").text();
-                      });
-                      drawCFG(dims, json);
-                      registerRefreshEvents(dims, json);
-                  }
-              });
+            $(this).attr('value'),
+            function (json) {
+                if (!isEmpty(json)) {
+                    $("#uiFuncName").text(function (_, _) {
+                        return $(self).attr('value');
+                    });
+                    drawCFG(dims, json);
+                    registerRefreshEvents(dims, json);
+                }
+            });
+    }
+
+    function doubleClickOnFunctionItem(e) {
+        let self = this;
+        let functionName = $(self).attr('value');
+        if (checkDuplicateTab(functionName)) {
+            activateTabbyElement($(self), dims)
+        } else {
+            addTab(functionName, dims);
+        }
+        query("cfg",
+            $(this).attr('value'),
+            function (json) {
+                if (!isEmpty(json)) {
+                    $("#uiFuncName").text(function (_, _) {
+                        return $(self).attr('value');
+                    });
+                    drawCFG(dims, json);
+                    registerRefreshEvents(dims, json);
+                }
+            });
+    }
+    $(document).on('click', "#funcSelector li", function (e) {
+        $("#funcSelector li.clicked").each(function () {
+            $(this).removeClass("clicked")
+        });
+        var self = this;
+        $(self).addClass("clicked");
+        setTimeout(function () {
+            deactivateFunctionItem();
+            var dblclick = parseInt($(self).data('double'), 10);
+            if (dblclick > 0) {
+                $(self).data('double', dblclick - 1);
+            } else {
+                singleClickOnFunctionItem.call(self, e);
+            }
+            activateFunctionItem();
+
+        }, 300);
+    }).on('dblclick', "#funcSelector li", function (e) {
+        $(this).data('double', 2);
+        doubleClickOnFunctionItem.call(this, e);
     });
+
+    $(document).on('click', "#id_tabContainer .tab", function (e) {
+        activateTabbyElement($(this), dims);
+    })
+
+    $(document).on('click', '.close-tab', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        closeTab($(this))
+        $(this).closest('li').remove();
+        deactivateFunctionItem();
+        activateFunctionItem();
+        let tabs = $("#id_tabContainer li");
+        if (tabs.length <= 0) {
+            d3.select("g#cfgStage").remove();
+            d3.select("g#minimapStage").remove();
+            d3.select("#minimap rect").remove();
+        } else {
+            let lastTab = $("#id_tabContainer li:last");
+            query("cfg",
+                lastTab.attr('value'),
+                function (json) {
+                    if (!isEmpty(json)) {
+                        $("#uiFuncName").text(function (_, _) {
+                            return lastTab.attr('value');
+                        });
+                        drawCFG(dims, json);
+                        registerRefreshEvents(dims, json);
+                        lastTab.addClass("active")
+                    }
+                });
+        }
+    })
     query("functions", "", drawFunctions);
     query("bininfo", "", drawBinInfo);
 }
 
-function reloadUI()
-{
+function reloadUI() {
     let minimapMarginRight =
         parseInt($("#cfgDiv").css("padding-right"))
         + parseInt($("#cfgDiv").css("margin-right"));
@@ -671,10 +742,10 @@ function reloadUI()
         width: document.getElementById("cfgDiv").getBoundingClientRect().width
             - parseInt($("#cfgDiv").css("padding-right"))
             - rightMargin,
-        height: $(window).height() - bottomMargin
-            - document.getElementById("uiTitle").getBoundingClientRect().height
-            - document.getElementById("uiHeader").getBoundingClientRect().height
-    };
+        height: document.getElementById("id_MainContainer").getBoundingClientRect().height
+            - document.getElementById("id_tabContainer").getBoundingClientRect().height
+            - bottomMargin
+    }
 
     let minimapVPDim = {
         width: cfgVPDim.width * minimapRatio,
@@ -686,32 +757,29 @@ function reloadUI()
 
     d3.select("svg#cfg")
         .attr("width", cfgVPDim.width)
-        .attr("height", cfgVPDim.height);
+        .attr("height", cfgVPDim.height)
 
     d3.select("svg#minimap")
         .attr("width", minimapVPDim.width)
         .attr("height", minimapVPDim.height);
 
-    $("#funcSelector")
-        .attr("style", "height: " + cfgVPDim.height + "px");
-
     return { cfgVPDim: cfgVPDim, minimapVPDim: minimapVPDim };
 }
 
-function main()
-{
+function main() {
     let dims = reloadUI();
-    $(window).resize(function() { reloadUI(); });
-
+    $(window).resize(function () { reloadUI(); });
+    filterFunctions();
     if (window.location.protocol == "file:")
         return runOffline(dims);
-    else
+    else {
         return runOnline(dims);
+    }
 }
 
 if (typeof window === 'undefined') { // For Node.js
     module.exports.initSVG = initSVG;
     module.exports.initEvents = initEvents;
 } else {
-    window.addEventListener('load', function() { main(); }, false);
+    window.addEventListener('load', function () { main(); }, false);
 }
