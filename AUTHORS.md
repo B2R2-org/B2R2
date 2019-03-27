@@ -14,6 +14,7 @@ B2R2 would not have been possible without the help of contributors. Below is a
 list of contributors in alphabetic order.
 
 - TA Thanh Dinh
+- Subin Jeong
 - Doyeon Kim
 - Minsu Lee
 - DongYeop Oh
