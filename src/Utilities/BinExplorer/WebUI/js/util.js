@@ -1,23 +1,43 @@
 var tabTitle = $("#tab_title"),
   tabContent = $("#tab_content"),
-  tabTemplate = "<li class='tab active' value={label}><a href=#{href}>{label}</a><span class='glyphicon glyphicon-remove-circle close-tab'></span></li>",
-  tabCounter = 0;
+  tabTemplate = `<li class='tab active' counter={number} value={label}><a href=#{href}>{label}</a><span class="glyphicon glyphicon-remove-circle close-tab"></span></li>`,
+  g_tabCounter = -1;
 
-// var graphContainer = $("#id_graphContainer")
-// $("#id_FunctionsList").resizable({
-//   handles: 'e'
-// });
-
-function addTab(functionName) {
+function addTab($self, functionName, dims) {
+  g_tabCounter++;
   deactivatedTab()
   let tabContainer = $("#id_tabContainer");
-
-  let tabId = "id_tabs-" + tabCounter;
+  let tabId = "id_tabs-" + g_tabCounter;
   let label = functionName,
-    li = $(tabTemplate.replace('{href}', tabId).replace(/\{label\}/g, label));
-  tabContainer.find('ul').append(li)
-  tabCounter++;
+    li = $(tabTemplate.replace('{href}', tabId).replace(/\{label\}/g, label).replace("{number}", g_tabCounter));
+  tabContainer.find('ul').append(li);
+  addGraphDiv(dims);
+  query("cfg",
+    $self.attr('value'),
+    function (json) {
+      if (!isEmpty(json)) {
+        $("#uiFuncName").text(function (_, _) {
+          return $self.attr('value');
+        });
+        drawCFG(dims, json);
+      }
+    });
 }
+
+function addGraphDiv(dims) {
+  let graphDivTemplate = `<div id='cfgDiv-{number}'><svg id="cfg-{number}" class="box"></svg></div>`.replace(/\{number\}/g, g_tabCounter);
+  let miniMapTemplate = ` <svg id="minimap-{number}" class="box min-box"></svg>`.replace(/\{number\}/g, g_tabCounter);
+  $("#id_graphContainer").append(graphDivTemplate);
+  $("#minimapDiv").append(miniMapTemplate);
+  d3.select("svg#cfg-" + g_tabCounter)
+    .attr("width", dims.cfgVPDim.width)
+    .attr("height", dims.cfgVPDim.height)
+
+  d3.select("svg#minimap" + g_tabCounter)
+    .attr("width", dims.minimapVPDim.width)
+    .attr("height", dims.minimapVPDim.height);
+}
+
 function closeTab($el) {
   $el.closest('li').remove();
 }
@@ -34,42 +54,65 @@ function checkDuplicateTab(functionName) {
 function deactivatedTab() {
   let tabs = $("#id_tabContainer li");
   tabs.each(function () {
-    tabs.removeClass("active")
-  })
+    $(this).removeClass("active")
+  });
+  let cfgs = $("#id_graphContainer div")
+  cfgs.each(function () {
+    $(this).hide()
+  });
+  let minimaps = $("#minimapDiv > svg");
+  minimaps.each(function () {
+    $(this).hide();
+  });
 }
 
-function activateTabbyElement($el, dims) {
+function activateTabbyElement($el) {
+  deactivatedTab();
+  let tabNumber = $el.find('a').attr('href').split("-").slice(-1)[0];
   let functionName = $el.attr('value');
-  deactivatedTab()
-  $("#id_tabContainer [value='" + functionName + "']").addClass("active")
+  $("#id_tabContainer [value='" + functionName + "']").addClass("active");
+  $("#cfgDiv-" + tabNumber).show();
+  $("#minimap-" + tabNumber).show();
+  $("#uiFuncName").text(function (_, _) {
+    return functionName;
+  });
+}
+
+function activateTabbyName($el) {
+  deactivatedTab();
+  let functionName = $el.attr('value');
+  let tab = $("#id_tabContainer [value='" + functionName + "']");
+  let tabNumber = tab.find('a').attr('href').split("-").slice(-1)[0];
+  tab.addClass("active");
+  $("#cfgDiv-" + tabNumber).show();
+  $("#minimap-" + tabNumber).show();
+  $("#uiFuncName").text(function (_, _) {
+    return functionName;
+  });
+}
+
+function replaceTab($self, name, dims) {
+  let tabId = "id_tabs-" + g_tabCounter;
+  let tab = $("#id_tabContainer li.active");
+  tab.attr("value", name);
+  let newTab = $(`<a href=#{href}>{label}<span class="glyphicon glyphicon-remove-circle close-tab"></span></a>`.replace('{href}', tabId).replace("{label}", name))
+  tab.empty().append(newTab);
   query("cfg",
-    functionName,
+    $self.attr('value'),
     function (json) {
       if (!isEmpty(json)) {
         $("#uiFuncName").text(function (_, _) {
-          return functionName;
+          return $(self).attr('value');
         });
         drawCFG(dims, json);
-        registerRefreshEvents(dims, json);
       }
     });
 }
 
-function setTabName(name) {
-  let tabId = "id_tabs-" + tabCounter;
-  let tab = $("#id_tabContainer li.active");
-  tab.attr("value", name);
-  let newTab = $('<a href=#{href}>{label}<span class="glyphicon glyphicon-remove-circle close-tab"></span></a>'.replace('{href}', tabId).replace("{label}", name))
-  tab.empty().append(newTab);
-}
-
-function deactivateFunctionItem() {
+function activateOpenFunction() {
   $("#funcSelector li.active").each(function () {
     $(this).removeClass("active")
   });
-}
-
-function activateFunctionItem() {
   $("#id_tabContainer li").each(function () {
     let tabFunctionName = $(this).attr("value")
     $("#funcSelector li[value='" + tabFunctionName + "']").each(function () {

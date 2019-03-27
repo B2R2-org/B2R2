@@ -1,7 +1,7 @@
 html, body {
   height: 100vh;
   width: 100vw;
-  background: #282a36;}
+  background: #282a36; }
 
 #id_MainContainer {
   width: 100%;
@@ -75,17 +75,15 @@ html, body {
     background: none;
     border: none;
     position: fixed;
-    width: 250px;
     border-bottom: 1px solid white;
     color: white;
-    padding: 5px 10px;
-    height: 35px;
-    padding: 5px 10px;
-    border-radius: 3px; }
+    padding: 5px;
+    padding-left: 10px;
+    height: 35px; }
   #id_FunctionsListWrapper #id_FunctionsList {
     margin-top: 45px;
     height: 100%;
-    overflow-y: auto;}
+    overflow-y: auto; }
     #id_FunctionsListWrapper #id_FunctionsList #funcSelector {
       all: unset; }
       #id_FunctionsListWrapper #id_FunctionsList #funcSelector li {
@@ -159,3 +157,11 @@ html, body {
 
 .cfgCJmpFalseEdge {
   stroke: #ff5555; }
+
+#minimapDiv {
+  border-radius: 5px; }
+  #minimapDiv #id_minimapHandler {
+    background: #f8f8f2;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+    border: 1px solid black; }
