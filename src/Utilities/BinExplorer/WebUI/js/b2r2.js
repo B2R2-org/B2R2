@@ -615,7 +615,7 @@ function query(name, arguments, callback) {
       callback(JSON.parse(this.responseText));
     }
   }
-  req.open("GET", "/ajax/?q=" + q + "&args=" + args, false);
+  req.open("GET", "/ajax/?q=" + q + "&args=" + args, true);
   req.send();
 }
 
