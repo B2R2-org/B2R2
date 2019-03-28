@@ -618,7 +618,7 @@ function drawBinInfo(str) {
   $("#binInfo").text(function (_, _) { return str; });
 }
 
-function query(name, arguments, callback) {
+function query(arguments, callback) {
   function serialize(arguments) {
     var params = [];
     for (var arg in arguments)
@@ -628,21 +628,22 @@ function query(name, arguments, callback) {
     return params.join("&");
   }
   let req = new XMLHttpRequest();
-  let q = encodeURIComponent(name);
   let params = serialize(arguments);
   req.onreadystatechange = function () {
     if (this.readyState == 4 && this.status == 200) {
       callback(JSON.parse(this.responseText));
     }
   }
-  req.open("GET", "/ajax/?q=" + q + "&args=" + args, true);
+  req.open("GET", "/ajax/?" + params, true);
   req.send();
 }
 
 function registerRefreshEvents(dims) {
   $("#btn-refresh").click(function () {
-    query("cfg",
-      { "args": $("#uiFuncName").text(), "type": $("#id_tabContainer li.active").attr("text-type") },
+    query({
+      "q": "cfg-disasm",
+      "args": $("#uiFuncName").text()
+    },
       function (json) {
         if (!isEmpty(json)) {
           $("#uiFuncName").text(function (_, _) {
@@ -745,11 +746,13 @@ function runOnline(dims) {
     }
     $(this).closest('li').remove();
   });
-  $(document).on("click", "#id_dissem-to-ir", function () {
+  $(document).on("click", "#id_disasm-to-ir", function () {
     let $self = $(this);
     var funcName = $("#id_tabContainer li.active").attr("value");
-    query("cfg",
-      { "args": funcName, "type": "ir" },
+    query({
+      "q": "cfg-ir",
+      "args": funcName
+    },
       function (json) {
         if (!isEmpty(json)) {
           $("#uiFuncName").text(function (_, _) {
@@ -757,16 +760,18 @@ function runOnline(dims) {
           });
           drawCFG(dims, json);
           $self.removeClass("show");
-          $("#id_ir-to-dissem").addClass("show");
+          $("#id_ir-to-disasm").addClass("show");
           $("#id_tabContainer li.active").attr("text-type", "ir");
         }
       });
   });
-  $(document).on("click", "#id_ir-to-dissem", function () {
+  $(document).on("click", "#id_ir-to-disasm", function () {
     let $self = $(this);
     var funcName = $("#id_tabContainer li.active").attr("value");
-    query("cfg",
-      { "args": funcName, "type": "dissem" },
+    query({
+      "q": "cfg-disasm",
+      "args": funcName
+    },
       function (json) {
         if (!isEmpty(json)) {
           $("#uiFuncName").text(function (_, _) {
@@ -774,13 +779,13 @@ function runOnline(dims) {
           });
           drawCFG(dims, json);
           $self.removeClass("show");
-          $("#id_dissem-to-ir").addClass("show");
-          $("#id_tabContainer li.active").attr("text-type", "dissem");
+          $("#id_disasm-to-ir").addClass("show");
+          $("#id_tabContainer li.active").attr("text-type", "disasm");
         }
       });
   });
-  query("functions", {}, drawFunctions);
-  query("bininfo", {}, drawBinInfo);
+  query({ "q": "functions" }, drawFunctions);
+  query({ "q": "bininfo" }, drawBinInfo);
 }
 
 function reloadUI() {

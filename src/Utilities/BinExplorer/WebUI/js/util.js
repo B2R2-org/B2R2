@@ -8,13 +8,15 @@ function addTab($self, functionName, dims) {
   deactivatedTab()
   let tabContainer = $("#id_tabContainer");
   let tabId = "id_tabs-" + g_tabCounter;
-  let textType = "dissem";
+  let textType = "disasm";
   let label = functionName,
     li = $(tabTemplate.replace('{href}', tabId).replace(/\{label\}/g, label).replace("{number}", g_tabCounter).replace("{type}", textType));
   tabContainer.find('ul').append(li);
   addGraphDiv(dims);
-  query("cfg",
-    { "args": $self.attr('value') },
+  query({
+    "q": "cfg-disasm",
+    "args": $self.attr('value')
+  },
     function (json) {
       if (!isEmpty(json)) {
         $("#uiFuncName").text(function (_, _) {
@@ -78,12 +80,12 @@ function activateTabbyElement($el) {
   $("#uiFuncName").text(function (_, _) {
     return functionName;
   });
-  if (textType === "dissem") {
-    $("#id_dissem-to-ir").addClass("show");
-    $("#id_ir-to-dissem").removeClass("show");
+  if (textType === "disasm") {
+    $("#id_disasm-to-ir").addClass("show");
+    $("#id_ir-to-disasm").removeClass("show");
   } else if (textType === "ir") {
-    $("#id_ir-to-dissem").addClass("show");
-    $("#id_dissem-to-ir").removeClass("show");
+    $("#id_ir-to-disasm").addClass("show");
+    $("#id_disasm-to-ir").removeClass("show");
   } else {
 
   }
@@ -108,8 +110,10 @@ function replaceTab($self, name, dims) {
   tab.attr("value", name);
   let newTab = $("<a href=#{href}>{label}<span class='glyphicon glyphicon-remove-circle close-tab'></span></a>".replace('{href}', tabId).replace("{label}", name))
   tab.empty().append(newTab);
-  query("cfg",
-    { "args": $self.attr('value') },
+  query({
+    "q": "cfg-disasm",
+    "args": $self.attr('value')
+  },
     function (json) {
       if (!isEmpty(json)) {
         $("#uiFuncName").text(function (_, _) {
