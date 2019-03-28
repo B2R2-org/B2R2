@@ -29,14 +29,14 @@ module B2R2.BinFile.FormatDetector
 
 open System.IO
 open B2R2
-open B2R2.BinFile.FileHelper
 
 let private checkELF reader offset =
-  if ELF.isELFHeader reader offset then
-    let cls = ELF.readClass reader offset
-    let e = ELF.readEndianness reader offset
+  if ELF.Header.isELF reader offset then
+    let cls = ELF.Header.readClass reader offset
+    let e = ELF.Header.readEndianness reader offset
     let reader = BinReader.RenewReader reader e
-    Some (FileFormat.ELFBinary, ISA.Init (ELF.readArch reader cls offset) e)
+    Some (FileFormat.ELFBinary,
+          ISA.Init (ELF.Header.readArch reader cls offset) e)
   else None
 
 let private checkPE reader offset =
@@ -64,9 +64,9 @@ let detect file =
   f.Read (bytes, 0, maxBytes) |> ignore
   let reader = BinReader.Init (bytes)
   Monads.OrElse.orElse {
-    yield! checkELF reader startOffset
-    yield! checkPE reader startOffset
-    yield! checkMach reader startOffset
+    yield! checkELF reader ELF.Helper.startOffset
+    yield! checkPE reader PE.startOffset
+    yield! checkMach reader Mach.startOffset
     yield! Some (FileFormat.RawBinary, ISA.Init (Arch.IntelX86) Endian.Little)
   } |> Option.get
 

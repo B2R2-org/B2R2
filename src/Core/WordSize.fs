@@ -33,6 +33,9 @@ type WordSize =
   | Bit32 = 32
   | Bit64 = 64
 
+/// This exception is raised when an invalid WordSize is encountered.
+exception InvalidWordSizeException
+
 /// A helper module for the WordSize type.
 module WordSize =
 

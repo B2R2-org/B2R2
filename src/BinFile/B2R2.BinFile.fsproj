@@ -11,6 +11,11 @@
     <Compile Include="FileInfo.fs" />
     <Compile Include="FileHelper.fs" />
     <Compile Include="RawBinary.fs" />
+    <Compile Include="ELFTypes.fs" />
+    <Compile Include="ELFHeader.fs" />
+    <Compile Include="ELFSection.fs" />
+    <Compile Include="ELFSymbol.fs" />
+    <Compile Include="ELFRelocs.fs" />
     <Compile Include="ELFHelper.fs" />
     <Compile Include="ELF.fs" />
     <Compile Include="MachHelper.fs" />

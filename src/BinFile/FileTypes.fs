@@ -34,6 +34,9 @@ exception InvalidAddrReadException
 /// Raised when an unexpected file format is detected.
 exception FileFormatMismatchException
 
+/// Raised when an invalid file type is encountered.
+exception InvalidFileTypeException
+
 /// Kinds of a symbol.
 type SymbolKind =
   /// The symbol type is not specified.

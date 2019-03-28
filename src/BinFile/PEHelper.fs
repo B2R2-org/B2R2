@@ -32,17 +32,8 @@ open B2R2.Monads.Maybe
 open B2R2.BinFile.PDB
 open B2R2.BinFile.FileHelper
 
-let secINIT = ".init"
-let secPLT = ".plt"
-let secTEXT = ".text"
-let secFINI = ".fini"
-
-let secStrings = [
-  secINIT
-  secPLT
-  secTEXT
-  secFINI
-]
+/// The start offset for parsing ELF files.
+let [<Literal>] startOffset = 0
 
 type Machine =
   | IFMachineI386
@@ -857,6 +848,12 @@ let tryFindFunctionSymbolName pe pdb addr =
   match findSymFromPDB addr pdb with
   | None -> findSymFromPE addr pe
   | name -> name
+
+let parsePDB pdbBytes =
+  let reader = BinReader.Init (pdbBytes)
+  if isPDBHeader reader startOffset then ()
+  else raise FileFormatMismatchException
+  parse reader startOffset
 
 let initPDB (execpath: string) rawpdb =
   match rawpdb with

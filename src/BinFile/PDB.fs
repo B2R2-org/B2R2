@@ -28,7 +28,6 @@ module internal B2R2.BinFile.PDB
 
 open System
 open B2R2
-open B2R2.BinFile.FileHelper
 
 type SuperBlock = {
   BlockSize         : uint32
@@ -71,7 +70,6 @@ type PDBSymbols = {
 }
 
 type PDBSymNumMap = Map<int, Sym>
-
 
 let StreamDBI = 3u
 
@@ -235,9 +233,3 @@ let parse reader offset =
   let symStream = genStream reader symblocks superBlock.BlockSize
   let symReader = BinReader.Init (symStream)
   parseSym symReader symStreamSize
-
-let parsePDB pdbBytes =
-  let reader = BinReader.Init (pdbBytes)
-  if isPDBHeader reader startOffset then ()
-  else raise FileFormatMismatchException
-  parse reader startOffset

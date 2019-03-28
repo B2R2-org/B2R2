@@ -31,6 +31,9 @@ open B2R2
 open B2R2.Monads.Maybe
 open B2R2.BinFile.FileHelper
 
+/// The start offset for parsing ELF files.
+let [<Literal>] startOffset = 0
+
 let secMachHeader = "__mach_header"
 let secLoadCmds = "__load_commands"
 let secTEXT = "__text"

@@ -50,8 +50,12 @@ type BinReader (bytes: byte []) =
   /// Peek byte array of size n at the given offset.
   member __.PeekBytes (n, o) = Array.sub bytes o n
 
+  /// Peek byte array of size n at the given offset.
+  member __.PeekBytes (n: uint64, o: uint64) =
+    __.PeekBytes (System.Convert.ToInt32 n, System.Convert.ToInt32 o)
+
   /// Peek a character array of size n at the given offset.
-  member __.PeekChars (n, o) = __.PeekBytes (n, o) |> Array.map char
+  member __.PeekChars (n: int, o: int) = __.PeekBytes (n, o) |> Array.map char
 
   /// Peek an int16 value at the given offset.
   abstract member PeekInt16: o: int -> int16
@@ -80,7 +84,7 @@ type BinReader (bytes: byte []) =
 
   /// Read a byte array of size n at the given offset. This function, unlike
   /// PeekBytes, will return the next offset.
-  member __.ReadBytes (n, o) = struct (__.PeekBytes (n, o), o + n)
+  member __.ReadBytes (n: int, o: int) = struct (__.PeekBytes (n, o), o + n)
 
   /// Read a byte at the given offset. This function, unlike PeekByte, will
   /// return the next offset.

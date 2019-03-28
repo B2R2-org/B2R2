@@ -28,6 +28,7 @@ namespace B2R2.BinFile
 
 open B2R2
 open B2R2.BinFile.ELF
+open B2R2.BinFile.ELF.Helper
 
 /// <summary>
 ///   This class represents an ELF binary file.
@@ -44,19 +45,20 @@ type ELFFileInfo (bytes, path) =
   override __.EntryPoint = elf.ELFHdr.EntryPoint
 
   override __.IsStripped =
-    not (Map.containsKey ".symtab" elf.Sections.SecByName)
+    not (Map.containsKey ".symtab" elf.SecInfo.SecByName)
 
   override __.FileType =
     match elf.ELFHdr.ELFFileType with
-    | Executable -> FileType.ExecutableFile
-    | SharedObject -> FileType.LibFile
-    | Core -> FileType.CoreFile
+    | ELFFileType.Executable -> FileType.ExecutableFile
+    | ELFFileType.SharedObject -> FileType.LibFile
+    | ELFFileType.Core -> FileType.CoreFile
     | _ -> FileType.UnknownFile
 
   override __.WordSize = elf.ELFHdr.Class
 
   override __.NXEnabled =
-    match List.tryFind (fun e -> e.PHType = PHTGNUStack) elf.Segments with
+    let predicate e = e.PHType = ProgramHeaderType.PHTGNUStack
+    match List.tryFind predicate elf.Segments with
     | Some s -> s.PHFlags &&& 0x1 <> 0
     | _ -> false
 
