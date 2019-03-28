@@ -624,7 +624,7 @@ let calculateOffset offset oprSize =
               offset .& numU32 31u 64<rt>
   | _ -> raise InvalidOperandSizeException
 
-let bitTest ins bitBase bitOffset oprSize =
+let bit ins bitBase bitOffset oprSize =
   match bitBase with
   | Load (e, t, expr, _, _) ->
     let effAddrSz = getEffAddrSz ins
@@ -635,18 +635,25 @@ let bitTest ins bitBase bitOffset oprSize =
          then extractLow 1<rt> (bitBase >> maskOffset bitOffset oprSize)
          else raise InvalidExprException
 
-let setBit ins bitBase bitOffset oprSize =
+let getMask oprSize =
+  match oprSize with
+  | 16<rt> -> numI64 0xffL oprSize
+  | 32<rt> -> numI64 0xffffffffL oprSize
+  | 64<rt> -> numI64 0xffffffffffffffffL oprSize
+  | _ -> raise InvalidOperandSizeException
+
+let setBit ins bitBase bitOffset oprSize setValue =
   match bitBase with
   | Load (e, t, expr, _, _) ->
     let effAddrSz = getEffAddrSz ins
     let addrOffset, bitOffset = calculateOffset bitOffset oprSize
     let addrOffset = zExt effAddrSz addrOffset
-    let mask = numU32 1u oprSize << bitOffset
+    let mask = setValue << bitOffset
     let loadMem = AST.load e t (expr .+ addrOffset)
-    loadMem := loadMem .| mask
+    loadMem := (loadMem .& (getMask oprSize .- mask)) .| mask
   | _ -> if isVar bitBase
-         then let mask = numU32 1u oprSize << maskOffset bitOffset oprSize
-              bitBase := bitBase .| mask
+         then let mask = setValue << maskOffset bitOffset oprSize
+              bitBase := (bitBase .& (getMask oprSize .- mask)) .| mask
          else raise InvalidExprException
 
 let rec subPackedByte opFn s1 s2 (tDstArr: Expr []) oprSz sepSz idx sz builder =
@@ -1257,28 +1264,36 @@ let bswap ins insAddr insLen ctxt =
 
 let bt ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
-  let bitBase, bitOffset = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
+  let bitBase, bitOffset =
+    getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   startMark insAddr insLen builder
-  builder <! (getRegVar ctxt R.CF := bitTest ins bitBase bitOffset oprSize)
+  builder <! (getRegVar ctxt R.CF := bit ins bitBase bitOffset oprSize)
   builder <! (getRegVar ctxt R.OF := undefOF)
-  builder <! (getRegVar ctxt R.AF := undefAF)
   builder <! (getRegVar ctxt R.SF := undefSF)
+  builder <! (getRegVar ctxt R.AF := undefAF)
   builder <! (getRegVar ctxt R.PF := undefPF)
   endMark insAddr insLen builder
 
-let bts ins insAddr insLen ctxt =
+let bitTest ins insAddr insLen ctxt setValue =
   let builder = new StmtBuilder (8)
-  let bitBase, bitOffset = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
+  let bitBase, bitOffset =
+    getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
+  let setValue = zExt oprSize setValue
   startMark insAddr insLen builder
-  builder <! (getRegVar ctxt R.CF := bitTest ins bitBase bitOffset oprSize)
-  builder <! (setBit ins bitBase bitOffset oprSize)
+  builder <! (getRegVar ctxt R.CF := bit ins bitBase bitOffset oprSize)
+  builder <! (setBit ins bitBase bitOffset oprSize setValue)
   builder <! (getRegVar ctxt R.OF := undefOF)
   builder <! (getRegVar ctxt R.SF := undefSF)
   builder <! (getRegVar ctxt R.AF := undefAF)
   builder <! (getRegVar ctxt R.PF := undefPF)
   endMark insAddr insLen builder
+
+let btc ins insAddr insLen ctxt =
+  bitTest ins insAddr insLen ctxt (getRegVar ctxt R.CF |> not)
+let btr ins insAddr insLen ctxt = bitTest ins insAddr insLen ctxt b0
+let bts ins insAddr insLen ctxt = bitTest ins insAddr insLen ctxt b1
 
 let call ins insAddr insLen ctxt isFar =
   let builder = new StmtBuilder (4)
@@ -1590,6 +1605,42 @@ let div ins insAddr insLen ctxt =
     builder <! (dstAssign oprSize r (extractLow oprSize remainder))
   | _ -> raise InvalidOperandSizeException
   allEFLAGSUndefined ctxt builder
+  endMark insAddr insLen builder
+
+let enter ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (16)
+  let imm16, imm8 = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
+  let oSz = getOperationSize ins
+  let allocSize, nestingLevel, cnt = tmpVars3 oSz
+  let frameTemp, addrSize = tmpVars2 ctxt.WordBitSize
+  let bp = getBasePtr ctxt
+  let sp = getStackPtr ctxt
+  let lblLoop = lblSymbol "Loop"
+  let lblCont = lblSymbol "Continue"
+  let lblLevelCheck = lblSymbol "NestingLevelCheck"
+  let lblLv1 = lblSymbol "NestingLevel1"
+  let getAddrSize bitSize =
+    if bitSize = 64<rt> then numI32 8 bitSize else numI32 4 bitSize
+  startMark insAddr insLen builder
+  builder <! (allocSize := imm16)
+  builder <! (nestingLevel := imm8 .% (numI32 32 oSz))
+  auxPush ctxt.WordBitSize ctxt bp builder
+  builder <! (frameTemp := sp)
+  builder <! (addrSize := getAddrSize ctxt.WordBitSize)
+  builder <! (CJmp (nestingLevel == num0 oSz, Name lblCont, Name lblLevelCheck))
+  builder <! (LMark lblLevelCheck)
+  builder <! (cnt := nestingLevel .- num1 oSz)
+  builder <! (CJmp (gt nestingLevel (num1 oSz), Name lblLoop, Name lblLv1))
+  builder <! (LMark lblLoop)
+  builder <! (bp := bp .- addrSize)
+  auxPush ctxt.WordBitSize ctxt (loadLE ctxt.WordBitSize bp) builder
+  builder <! (cnt := cnt .- num1 oSz)
+  builder <! (CJmp (cnt == num0 oSz, Name lblCont, Name lblLoop))
+  builder <! (LMark lblLv1)
+  auxPush ctxt.WordBitSize ctxt frameTemp builder
+  builder <! (LMark lblCont)
+  builder <! (bp := frameTemp)
+  builder <! (sp := sp .- zExt ctxt.WordBitSize allocSize)
   endMark insAddr insLen builder
 
 let updateAddrByOffset addr offset =
@@ -1948,14 +1999,15 @@ let ldmxcsr ins insAddr insLen ctxt =
   builder <! (getRegVar ctxt R.MXCSR := src)
   endMark insAddr insLen builder
 
-let loopne ins insAddr insLen ctxt =
+let loop ins insAddr insLen ctxt =
   let builder = new StmtBuilder (16)
   let dst = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
   let addrSize = getEffAddrSz ins
   let oprSize = getOperationSize ins
-  let count, cntSize = if addrSize = 32<rt> then getRegVar ctxt R.ECX, 32<rt>
-                       elif addrSize = 64<rt> then getRegVar ctxt R.RCX, 64<rt>
-                       else getRegVar ctxt R.CX, 16<rt>
+  let count, cntSize =
+    if addrSize = 32<rt> then getRegVar ctxt R.ECX, 32<rt>
+    elif addrSize = 64<rt> then getRegVar ctxt R.RCX, 64<rt>
+    else getRegVar ctxt R.CX, 16<rt>
   let zf = getRegVar ctxt R.ZF
   let ip = if oprSize = 64<rt> then getRegVar ctxt R.RIP
            else getRegVar ctxt R.EIP
@@ -1967,8 +2019,13 @@ let loopne ins insAddr insLen ctxt =
   builder <! (tcnt := count)
   builder <! (LMark lblLoop)
   builder <! (tcnt := tcnt .- num1 cntSize)
-  let bCond = ite ((zf == b0) .& (tcnt != num0 cntSize)) b1 b0
-  builder <! (CJmp (bCond, Name lblCont, Name lblEnd))
+  let branchCond =
+    match ins.Opcode with
+    | Opcode.LOOP -> tcnt != num0 cntSize
+    | Opcode.LOOPE -> (zf == b1) .& (tcnt != num0 cntSize)
+    | Opcode.LOOPNE -> (zf == b0) .& (tcnt != num0 cntSize)
+    | _ -> raise InvalidOpcodeException
+  builder <! (CJmp (branchCond, Name lblCont, Name lblEnd))
   builder <! (LMark lblCont)
   if oprSize = 16<rt> then
     builder <! (ip := ip .+ (ip .& numI32 0xFFFF 32<rt>))
@@ -3508,17 +3565,15 @@ let stmxcsr ins insAddr insLen ctxt =
   builder <! (dst := getRegVar ctxt R.MXCSR)
   endMark insAddr insLen builder
 
-let stc insAddr insLen ctxt =
+let setFlag insAddr insLen ctxt flag =
   let builder = new StmtBuilder (4)
   startMark insAddr insLen builder
-  builder <! (getRegVar ctxt R.CF := b1)
+  builder <! (getRegVar ctxt flag := b1)
   endMark insAddr insLen builder
 
-let std insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
-  startMark insAddr insLen builder
-  builder <! (getRegVar ctxt R.DF := b1)
-  endMark insAddr insLen builder
+let stc insAddr insLen ctxt = setFlag insAddr insLen ctxt R.CF
+let std insAddr insLen ctxt = setFlag insAddr insLen ctxt R.DF
+let sti insAddr insLen ctxt = setFlag insAddr insLen ctxt R.IF
 
 let stos ins insAddr insLen ctxt =
   let builder = new StmtBuilder (16)
@@ -4546,6 +4601,8 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.BSR -> bsr ins insAddr insLen ctxt
   | Opcode.BSWAP -> bswap ins insAddr insLen ctxt
   | Opcode.BT -> bt ins insAddr insLen ctxt
+  | Opcode.BTC -> btc ins insAddr insLen ctxt
+  | Opcode.BTR -> btr ins insAddr insLen ctxt
   | Opcode.BTS -> bts ins insAddr insLen ctxt
   | Opcode.CALLNear -> call ins insAddr insLen ctxt false
   | Opcode.CALLFar -> call ins insAddr insLen ctxt true
@@ -4590,6 +4647,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.DIVPS -> sideEffects insAddr insLen UnsupportedFP
   | Opcode.DIVSD -> sideEffects insAddr insLen UnsupportedFP
   | Opcode.DIVSS -> sideEffects insAddr insLen UnsupportedFP
+  | Opcode.ENTER -> enter ins insAddr insLen ctxt
   | Opcode.FADD -> sideEffects insAddr insLen UnsupportedFP
   | Opcode.FADDP -> sideEffects insAddr insLen UnsupportedFP
   (* 5.2.1 x87 FPU Data Transfer Instructions *)
@@ -4665,7 +4723,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.LFENCE -> sideEffects insAddr insLen Fence
   | Opcode.LODSB | Opcode.LODSW | Opcode.LODSD | Opcode.LODSQ ->
     lods ins insAddr insLen ctxt
-  | Opcode.LOOPNE -> loopne ins insAddr insLen ctxt
+  | Opcode.LOOP | Opcode.LOOPE | Opcode.LOOPNE -> loop ins insAddr insLen ctxt
   | Opcode.LZCNT -> lzcnt ins insAddr insLen ctxt
   | Opcode.LDS | Opcode.LES | Opcode.LFS | Opcode.LGS | Opcode.LSS ->
     sideEffects insAddr insLen UnsupportedFAR
@@ -4790,6 +4848,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.SHUFPS -> sideEffects insAddr insLen UnsupportedFP
   | Opcode.STC -> stc insAddr insLen ctxt
   | Opcode.STD -> std insAddr insLen ctxt
+  | Opcode.STI -> sti insAddr insLen ctxt
   | Opcode.STMXCSR -> stmxcsr ins insAddr insLen ctxt
   | Opcode.STOSB | Opcode.STOSW | Opcode.STOSD | Opcode.STOSQ ->
     stos ins insAddr insLen ctxt
@@ -4857,13 +4916,8 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
     sideEffects insAddr insLen UnsupportedExtension
   | Opcode.XTEST -> sideEffects insAddr insLen UnsupportedExtension
   (* FIXME *)
-  | Opcode.BTC
-  | Opcode.BTR
-  | Opcode.ENTER
   | Opcode.FISTTP
   | Opcode.LMSW
-  | Opcode.LOOP
-  | Opcode.LOOPE
   | Opcode.PACKSSDW
   | Opcode.PACKSSWB
   | Opcode.PADDB
@@ -4897,7 +4951,6 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.RDPMC
   | Opcode.RDTSCP
   | Opcode.SMSW
-  | Opcode.STI
   | Opcode.VMOVDQU64 // EVEX
   | Opcode.VPADDQ
   | Opcode.VPMULUDQ
