@@ -3,6 +3,12 @@ html, body {
   width: 100vw;
   background: #282a36; }
 
+.changeTextType {
+  display: none;
+  width: 80px; }
+  .changeTextType.show {
+    display: inline !important; }
+
 #id_MainContainer {
   width: 100%;
   height: 100%;
@@ -83,10 +89,17 @@ html, body {
     box-sizing: border-box;
     width: 100%;
     color: white;
+<<<<<<< HEAD
     padding: 5px;
     padding-left: 10px;
     height: 35px; 
     margin: 5px 0; }
+=======
+    padding: 5px 10px;
+    height: 35px;
+    padding: 5px 10px;
+    border-radius: 3px; }
+>>>>>>> 89d63a0... [WebUI] Add a toggle switch between IR and Disasm
   #id_FunctionsListWrapper #id_FunctionsList {
     height: 100%;
     overflow-y: auto; }
@@ -163,11 +176,3 @@ html, body {
 
 .cfgCJmpFalseEdge {
   stroke: #ff5555; }
-
-#minimapDiv {
-  border-radius: 5px; }
-  #minimapDiv #id_minimapHandler {
-    background: #f8f8f2;
-    border-top-left-radius: 5px;
-    border-top-right-radius: 5px;
-    border: 1px solid black; }

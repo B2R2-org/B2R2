@@ -61,19 +61,20 @@ function initMarker(defs, id) {
 }
 
 function initSVG() {
+  let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
   // Clear up the existing elements.
-  $("#cfg-" + g_tabCounter).empty();
-  $("#minimap-" + g_tabCounter).empty();
+  $("#cfg-" + currentTabNumber).empty();
+  $("#minimap-" + currentTabNumber).empty();
   // Create a top layer for drawing a CFG on the main window.
-  d3.select("svg#cfg-" + g_tabCounter).append("g").attr("id", "cfgStage-" + g_tabCounter)
+  d3.select("svg#cfg-" + currentTabNumber).append("g").attr("id", "cfgStage-" + currentTabNumber)
     .attr("transform", "scale (1)");
 
   // Create the main group for a CFG. This is to easily maintain the
   // coordinates of the main graph.
-  d3.select("g#cfgStage-" + g_tabCounter).append("g").attr("id", "cfgGrp" + g_tabCounter);
+  d3.select("g#cfgStage-" + currentTabNumber).append("g").attr("id", "cfgGrp" + currentTabNumber);
 
   // Several definitions to use to draw a CFG.
-  let defs = d3.select("g#cfgGrp" + g_tabCounter).append("defs");
+  let defs = d3.select("g#cfgGrp" + currentTabNumber).append("defs");
   initMarker(defs, "cfgJmpEdgeArrow");
   initMarker(defs, "cfgCJmpTrueEdgeArrow");
   initMarker(defs, "cfgCJmpFalseEdgeArrow");
@@ -83,12 +84,12 @@ function initSVG() {
     .append("feGaussianBlur").attr("stdDeviation", 2);
 
   // First draw an empty background for minimap.
-  d3.select("svg#minimap-" + g_tabCounter)
+  d3.select("svg#minimap-" + currentTabNumber)
     .append("rect").attr("width", "100%").attr("height", "100%")
     .attr("fill", "white");
 
   // Create a top layer for drawing a CFG on the minimap.
-  d3.select("svg#minimap-" + g_tabCounter).append("g").attr("id", "minimapStage-" + g_tabCounter);
+  d3.select("svg#minimap-" + currentTabNumber).append("g").attr("id", "minimapStage-" + currentTabNumber);
 }
 
 function copyToClipboard(str) {
@@ -131,7 +132,8 @@ function strRepeat(str, num) {
 }
 
 function drawNode(v) {
-  let g = d3.select("g#cfgGrp" + g_tabCounter).append("g");
+  let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
+  let g = d3.select("g#cfgGrp" + currentTabNumber).append("g");
 
   let rect = g.append("rect")
     .attr("class", "cfgNode")
@@ -180,7 +182,7 @@ function drawNode(v) {
 
   g.attr("transform", "translate (" + v.Pos.X + "," + v.Pos.Y + ")");
 
-  d3.select("g#minimapStage-" + g_tabCounter).append("rect")
+  d3.select("g#minimapStage-" + currentTabNumber).append("rect")
     .attr("class", "minimapRects")
     .attr("rx", "1").attr("ry", "1")
     .attr("fill", "white").attr("fill-opacity", "0.25")
@@ -193,11 +195,13 @@ function drawNode(v) {
 }
 
 function drawNodes(g) {
+  let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
+
   for (let i = 0; i < g.Nodes.length; i++) {
     drawNode(g.Nodes[i]);
   }
 
-  let r = document.getElementById("cfgGrp" + g_tabCounter).getBBox(),
+  let r = document.getElementById("cfgGrp" + currentTabNumber).getBBox(),
     obj = {
       width: r.width,
       height: r.height
@@ -207,6 +211,8 @@ function drawNodes(g) {
 }
 
 function drawEdge(e) {
+  let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
+
   let lineFunction = d3.line()
     .x(function (d) { return d.X; })
     .y(function (d) { return d.Y; });
@@ -214,14 +220,14 @@ function drawEdge(e) {
   lineFunction.curve(d3.curveMonotoneY);
 
   // Additional line for bluring.
-  d3.select("g#cfgGrp" + g_tabCounter).insert("path", ":first-child")
+  d3.select("g#cfgGrp" + currentTabNumber).insert("path", ":first-child")
     .attr("class", "cfg" + e.Type + "Blur" + " cfgEdgeBlur")
     .attr("d", lineFunction(e.Points))
     .attr("stroke", "transparent")
     .attr("stroke-width", edgeThickness)
     .attr("fill", "none");
 
-  let p = d3.select("g#cfgGrp" + g_tabCounter).insert("path", ":first-child")
+  let p = d3.select("g#cfgGrp" + currentTabNumber).insert("path", ":first-child")
     .attr("class", "cfg" + e.Type)
     .attr("d", lineFunction(e.Points))
     .attr("stroke-width", edgeThickness)
@@ -229,14 +235,14 @@ function drawEdge(e) {
 
   if (e.IsBackEdge) p.attr("stroke-dasharray", "4, 4");
 
-  p.attr("marker-end", "url(#cfg-" + g_tabCounter + e.Type + "Arrow)");
+  p.attr("marker-end", "url(#cfg" + e.Type + "Arrow)");
 
   let miniLineFunction = d3.line()
     .x(function (d) { return d.X * minimapRatio; })
     .y(function (d) { return d.Y * minimapRatio; })
     .curve(d3.curveLinear);
 
-  let m = d3.select("g#minimapStage-" + g_tabCounter).insert("path", ":first-child")
+  let m = d3.select("g#minimapStage-" + currentTabNumber).insert("path", ":first-child")
     .attr("d", miniLineFunction(e.Points))
     .attr("stroke", "black")
     .attr("stroke-width", 0.5)
@@ -252,38 +258,44 @@ function drawEdges(g) {
 }
 
 function centerAlign(dims, shiftX, reductionRate) {
+  let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
+
   let leftPadding = (dims.cfgVPDim.width) / 2 / reductionRate;
 
-  d3.select("g#cfgGrp" + g_tabCounter).attr("transform",
+  d3.select("g#cfgGrp" + currentTabNumber).attr("transform",
     "translate(" + leftPadding + ", 0)");
 
-  d3.select("g#minimapStage-" + g_tabCounter)
+  d3.select("g#minimapStage-" + currentTabNumber)
     .attr("transform",
       "translate (" + shiftX + ", 0) scale (" + reductionRate + ")");
 }
 
 function setMinimap(dims) {
+  let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
+
   let newWidth = dims.minimapVPDim.width;
   let newHeight = dims.minimapVPDim.height;
 
   // set minimap size based on the graph size.
-  d3.select("svg#minimap-" + g_tabCounter)
+  d3.select("svg#minimap-" + currentTabNumber)
     .attr("width", newWidth + "px").attr("height", newHeight + "px");
 
   // set size of the minimap nodes.
   let nodeSize = Math.ceil(Math.log(newWidth / 1000) / Math.log(2));
   if (nodeSize <= 0) nodeSize = 1;
 
-  let nodes = d3.select("g#minimapStage-" + g_tabCounter).selectAll(".minimapRects");
+  let nodes = d3.select("g#minimapStage-" + currentTabNumber).selectAll(".minimapRects");
   nodes.attr("style", "outline: " + nodeSize + "px" + " solid black;");
 
   return newWidth / 2;
 }
 
 function drawMinimapViewPort(dims) {
-  d3.select("svg#minimap-" + g_tabCounter)
+  let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
+
+  d3.select("svg#minimap-" + currentTabNumber)
     .append("rect")
-    .attr("id", "minimapVP-" + g_tabCounter)
+    .attr("id", "minimapVP-" + currentTabNumber)
     .attr("width", (dims.minimapVPDim.width - 2) + "px")
     .attr("height", (dims.minimapVPDim.height - 2) + "px")
     .attr("fill", "transparent")
@@ -336,13 +348,13 @@ function registerEvents(reductionRate, dims, g) {
   let transY = 0;
   let transK = 1 / reductionRate;
   let minimapBound =
-    document.getElementById("minimapStage-" + g_tabCounter).getBoundingClientRect();
+    document.getElementById("minimapStage-" + currentTabNumber).getBoundingClientRect();
 
-  let cfg = d3.select("svg#cfg-" + g_tabCounter);
-  let cfgStage = d3.select("g#cfgStage-" + g_tabCounter);
-  let minimap = d3.select("svg#minimap-" + g_tabCounter);
-  let minimapVP = d3.select("rect#minimapVP-" + g_tabCounter);
-  let minimapHandler = d3.select("rect#id_minimapHandler-" + g_tabCounter);
+  let cfg = d3.select("svg#cfg-" + currentTabNumber);
+  let cfgStage = d3.select("g#cfgStage-" + currentTabNumber);
+  let minimap = d3.select("svg#minimap-" + currentTabNumber);
+  let minimapVP = d3.select("rect#minimapVP-" + currentTabNumber);
+  let minimapHandler = d3.select("rect#id_minimapHandler-" + currentTabNumber);
   let nodes = cfgStage.selectAll(".cfgNodeBlur");
   let edges = cfgStage.selectAll(".cfgEdgeBlur");
   let texts = cfgStage.selectAll(".cfgDisasmText");
@@ -607,9 +619,17 @@ function drawBinInfo(str) {
 }
 
 function query(name, arguments, callback) {
+  function serialize(arguments) {
+    var params = [];
+    for (var arg in arguments)
+      if (arguments.hasOwnProperty(arg)) {
+        params.push(encodeURIComponent(arg) + "=" + encodeURIComponent(arguments[arg]));
+      }
+    return params.join("&");
+  }
   let req = new XMLHttpRequest();
   let q = encodeURIComponent(name);
-  let args = encodeURIComponent(arguments);
+  let params = serialize(arguments);
   req.onreadystatechange = function () {
     if (this.readyState == 4 && this.status == 200) {
       callback(JSON.parse(this.responseText));
@@ -622,7 +642,7 @@ function query(name, arguments, callback) {
 function registerRefreshEvents(dims) {
   $("#btn-refresh").click(function () {
     query("cfg",
-      $("#uiFuncName").text(),
+      { "args": $("#uiFuncName").text(), "type": $("#id_tabContainer li.active").attr("text-type") },
       function (json) {
         if (!isEmpty(json)) {
           $("#uiFuncName").text(function (_, _) {
@@ -715,8 +735,8 @@ function runOnline(dims) {
     activateOpenFunction();
     let tabs = $("#id_tabContainer li");
     if (tabs.length <= 0) {
-      d3.select("g#cfgStage-" + g_tabCounter).remove();
-      d3.select("g#minimapStage-" + g_tabCounter).remove();
+      d3.select("g#cfgStage-" + currentTabNumber).remove();
+      d3.select("g#minimapStage-" + currentTabNumber).remove();
       d3.select("#minimap rect").remove();
     } else {
       if ($(this).closest('li').hasClass("active")) {
@@ -724,10 +744,43 @@ function runOnline(dims) {
       }
     }
     $(this).closest('li').remove();
-  })
-  query("functions", "", drawFunctions);
-  query("bininfo", "", drawBinInfo);
-
+  });
+  $(document).on("click", "#id_dissem-to-ir", function () {
+    let $self = $(this);
+    var funcName = $("#id_tabContainer li.active").attr("value");
+    query("cfg",
+      { "args": funcName, "type": "ir" },
+      function (json) {
+        if (!isEmpty(json)) {
+          $("#uiFuncName").text(function (_, _) {
+            return $(this).attr('value');
+          });
+          drawCFG(dims, json);
+          $self.removeClass("show");
+          $("#id_ir-to-dissem").addClass("show");
+          $("#id_tabContainer li.active").attr("text-type", "ir");
+        }
+      });
+  });
+  $(document).on("click", "#id_ir-to-dissem", function () {
+    let $self = $(this);
+    var funcName = $("#id_tabContainer li.active").attr("value");
+    query("cfg",
+      { "args": funcName, "type": "dissem" },
+      function (json) {
+        if (!isEmpty(json)) {
+          $("#uiFuncName").text(function (_, _) {
+            return $(this).attr('value');
+          });
+          drawCFG(dims, json);
+          $self.removeClass("show");
+          $("#id_dissem-to-ir").addClass("show");
+          $("#id_tabContainer li.active").attr("text-type", "dissem");
+        }
+      });
+  });
+  query("functions", {}, drawFunctions);
+  query("bininfo", {}, drawBinInfo);
 }
 
 function reloadUI() {
