@@ -119,12 +119,14 @@ type FileInfo () =
   abstract member GetStaticSymbols: unit -> seq<Symbol>
 
   /// <summary>
-  ///   Return a list of all the dynamic symbols from the binary.
+  ///   Return a list of all the dynamic symbols from the binary. The argument
+  ///   indicates whether to return only internally defined symbols (i.e.,
+  ///   disregard external symbols).
   /// </summary>
   /// <returns>
   ///   A sequence of dynamic symbols.
   /// </returns>
-  abstract member GetDynamicSymbols: unit -> seq<Symbol>
+  abstract member GetDynamicSymbols: ?defined: bool -> seq<Symbol>
 
   /// <summary>
   ///   Return a list of all the sections from the binary.
@@ -225,7 +227,7 @@ type FileInfo () =
   ///   A sequence of function addresses.
   /// </returns>
   member __.GetFunctionAddresses () =
-    __.GetStaticSymbols ()
+    Seq.append (__.GetStaticSymbols ()) (__.GetDynamicSymbols (true))
     |> Seq.filter (fun s -> s.Kind = SymbolKind.FunctionType)
     |> Seq.map (fun s -> s.Address)
 

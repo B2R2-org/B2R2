@@ -30,7 +30,6 @@ open System
 open B2R2
 open B2R2.Monads.Maybe
 open B2R2.BinFile
-open B2R2.BinFile.FileHelper
 
 let [<Literal>] secPLT = ".plt"
 let [<Literal>] secTEXT = ".text"
@@ -54,148 +53,6 @@ let elfVersionToLibName version =
   match version with
   | Some version -> version.VerName
   | None -> ""
-
-/// PHTTLS segment contains only SHFTLS sections, PHTPhdr no sections at all.
-/// TLS sections is contained only in PHTTLS, PHTGNURelro and PHTLoad.
-let checkSHFTLS pHdr sec =
-  let checkTLS = Section.hasSHFTLS sec.SecFlags
-  let checkPtypeWithoutTLS = function
-    | ProgramHeaderType.PHTTLS | ProgramHeaderType.PHTPhdr -> false
-    | _ -> true
-  let checkPtypeWithinTLS = function
-    | ProgramHeaderType.PHTTLS
-    | ProgramHeaderType.PHTGNURelro
-    | ProgramHeaderType.PHTLoad -> true
-    | _ -> false
-  let chkCaseOfwithoutSHFTLS = not checkTLS && checkPtypeWithoutTLS pHdr.PHType
-  let chkCaseOfWithinSHFTLS = checkTLS && checkPtypeWithinTLS pHdr.PHType
-  chkCaseOfWithinSHFTLS || chkCaseOfwithoutSHFTLS
-
-/// PHTLoad, PHTDynamic, PHTGNUEHFrame, PHTGNURelro and PHTGNUStack segment
-/// contain only SHFAlloc sections.
-let checkSHFAlloc pHdr sec =
-  let checkPtype = function
-    | ProgramHeaderType.PHTLoad
-    | ProgramHeaderType.PHTDynamic
-    | ProgramHeaderType.PHTGNUEHFrame
-    | ProgramHeaderType.PHTGNURelro
-    | ProgramHeaderType.PHTGNUStack -> true
-    | _ -> false
-  (Section.hasSHFAlloc sec.SecFlags |> not && checkPtype pHdr.PHType) |> not
-
-let checkSecOffset isNoBits secSize pHdr sec =
-  let pToSOffset = sec.SecOffset - pHdr.PHOffset
-  isNoBits || (sec.SecOffset >= pHdr.PHOffset
-  && pToSOffset < pHdr.PHFileSize
-  && pToSOffset + secSize <= pHdr.PHFileSize)
-
-let checkVMA secSize pHdr sec =
-  let progToSec = sec.SecAddr - pHdr.PHAddr
-  (* Check if the section is in the range of the VMA (program header) *)
-  let inRange = sec.SecAddr >= pHdr.PHAddr
-                && progToSec < pHdr.PHMemSize
-                && progToSec + secSize <= pHdr.PHMemSize
-  (Section.hasSHFAlloc sec.SecFlags |> not) || inRange
-
-let checkDynamicProc isNoBits pHdr sec =
-  let pToSOffset = sec.SecOffset - pHdr.PHOffset
-  let checkOff = sec.SecOffset > pHdr.PHOffset && pToSOffset < pHdr.PHFileSize
-  let checkALLOC = Section.hasSHFAlloc sec.SecFlags |> not
-  let progToSec = sec.SecAddr - pHdr.PHAddr
-  let checkMem = sec.SecAddr > pHdr.PHAddr && progToSec < pHdr.PHMemSize
-  let checkDynSize = (isNoBits || checkOff) && (checkALLOC || checkMem)
-  let checkSizeZero = sec.SecSize <> 0UL || pHdr.PHMemSize = 0UL
-  pHdr.PHType <> ProgramHeaderType.PHTDynamic
-  || checkSizeZero
-  || checkDynSize
-
-let isTbss isNoBits pHdr sec =
-  Section.hasSHFTLS sec.SecFlags
-  && isNoBits
-  && pHdr.PHType <> ProgramHeaderType.PHTTLS
-
-/// Check if a section can be included in the program header, i.e., loaded in
-/// memory when executed. The logic here is derived from OBJDUMP code.
-let isSecInPHdr pHdr sec =
-  let isNoBits = sec.SecType = SectionType.SHTNoBits
-  let isTbss = isTbss isNoBits pHdr sec
-  let secSize = if isTbss then 0UL else sec.SecEntrySize
-  checkSHFTLS pHdr sec
-  && checkSHFAlloc pHdr sec
-  && checkSecOffset isNoBits secSize pHdr sec
-  && checkVMA secSize pHdr sec
-  && checkDynamicProc isNoBits pHdr sec
-  && not isTbss
-
-let gatherLoadlabeSecNums pHdr secs =
-  let foldSHdr acc sec =
-    let lb = pHdr.PHOffset
-    let ub = lb + pHdr.PHFileSize
-    if sec.SecOffset >= lb && sec.SecOffset < ub then sec.SecNum :: acc else acc
-  ARMap.fold (fun acc _ s -> foldSHdr acc s) [] secs.SecByAddr
-
-let readPHdrType (reader: BinReader) offset: ProgramHeaderType =
-  reader.PeekUInt32 offset |> LanguagePrimitives.EnumOfValue
-
-let readPHdrFlags (reader: BinReader) cls offset =
-  let pHdrPHdrFlagsOffset = if cls = WordSize.Bit32 then 24 else 4
-  offset + pHdrPHdrFlagsOffset |> reader.PeekInt32
-
-let readPHdrOffset (reader: BinReader) cls offset =
-  let offsetOfPHdrOffset = if cls = WordSize.Bit32 then 4 else 8
-  offset + offsetOfPHdrOffset |> peekUIntOfType reader cls
-
-let readPHdrAddr (reader: BinReader) cls offset =
-  let pHdrAddrOffset = if cls = WordSize.Bit32 then 8 else 16
-  offset + pHdrAddrOffset |> peekUIntOfType reader cls
-
-let readPHdrPhyAddr (reader: BinReader) cls offset =
-  let pHdrPhyAddrOffset = if cls = WordSize.Bit32 then 12 else 24
-  offset + pHdrPhyAddrOffset |> peekUIntOfType reader cls
-
-let readPHdrFileSize (reader: BinReader) cls offset =
-  let pHdrPHdrFileSizeOffset = if cls = WordSize.Bit32 then 16 else 32
-  offset + pHdrPHdrFileSizeOffset |> peekUIntOfType reader cls
-
-let readPHdrMemSize (reader: BinReader) cls offset =
-  let pHdrPHdrMemSizeOffset = if cls = WordSize.Bit32 then 20 else 40
-  offset + pHdrPHdrMemSizeOffset |> peekUIntOfType reader cls
-
-let readPHdrAlign (reader: BinReader) cls offset =
-  let pHdrPHdrAlignOffset = if cls = WordSize.Bit32 then 28 else 48
-  offset + pHdrPHdrAlignOffset |> peekUIntOfType reader cls
-
-let parseProgHeader cls (reader: BinReader) offset =
-  {
-    PHType = readPHdrType reader offset
-    PHFlags = readPHdrFlags reader cls offset
-    PHOffset = readPHdrOffset reader cls offset
-    PHAddr = readPHdrAddr reader cls offset
-    PHPhyAddr = readPHdrPhyAddr reader cls offset
-    PHFileSize = readPHdrFileSize reader cls offset
-    PHMemSize = readPHdrMemSize reader cls offset
-    PHAlignment = readPHdrAlign reader cls offset
-  }
-
-let nextPHdrOffset cls offset =
-  offset + if cls = WordSize.Bit32 then 32 else 56
-
-/// Parse and associate program headers with section headers to return the list
-/// of segments.
-let parseProgHeaders eHdr reader =
-  let rec parseLoop pNum acc offset =
-    if pNum = 0us then List.rev acc
-    else
-      let phdr = parseProgHeader eHdr.Class reader offset
-      parseLoop (pNum - 1us) (phdr :: acc) (nextPHdrOffset eHdr.Class offset)
-  Convert.ToInt32 eHdr.PHdrTblOffset
-  |> parseLoop eHdr.PHdrNum []
-
-let computeLoadableSecNums secs segs =
-  let loop set seg =
-    gatherLoadlabeSecNums seg secs
-    |> List.fold (fun set n -> Set.add n set) set
-  segs |> List.fold loop Set.empty
 
 let pltFirstSkipBytes = function
 | Arch.IntelX86
@@ -250,15 +107,14 @@ let parsePLTELFSymbols arch sections (reloc: RelocInfo) reader =
     pltEndAddr
   )
 
-let hasPLT secs = Map.containsKey secPLT secs.SecByName
+let private hasPLT secs = Map.containsKey secPLT secs.SecByName
 
-let parseELF offset reader =
+let private parseELF offset reader =
   let eHdr = Header.parse reader offset
   let secs = Section.parse eHdr reader
-  let segs = parseProgHeaders eHdr reader // FIXME
-  let loadableSegs =
-    segs |> List.filter (fun seg -> seg.PHType = ProgramHeaderType.PHTLoad)
-  let loadableSecNums = computeLoadableSecNums secs loadableSegs
+  let proghdrs = ProgHeader.parse eHdr reader
+  let loadableSegs = ProgHeader.getLoadableProgHeaders proghdrs
+  let loadableSecNums = ProgHeader.getLoadableSecNums secs loadableSegs
   let symbs = Symbol.parse eHdr secs reader
   let reloc = Relocs.parse eHdr secs symbs.DynSymArr reader
   let struct (plt, pltStart, pltEnd) =
@@ -266,7 +122,7 @@ let parseELF offset reader =
     else struct (ARMap.empty, 0UL, 0UL)
   {
     ELFHdr = eHdr
-    Segments = segs
+    ProgHeaders = proghdrs
     LoadableSegments = loadableSegs
     LoadableSecNums = loadableSecNums
     SecInfo = secs
@@ -277,6 +133,14 @@ let parseELF offset reader =
     PLTEnd = pltEnd
   }
 
+let initELF bytes =
+  let reader = BinReader.Init (bytes, Endian.Little)
+  if Header.isELF reader startOffset then ()
+  else raise FileFormatMismatchException
+  Header.readEndianness reader startOffset
+  |> BinReader.RenewReader reader
+  |> parseELF startOffset
+
 let elfSymbolToSymbol target (symb: ELFSymbol) =
   {
     Address = symb.Addr
@@ -285,14 +149,6 @@ let elfSymbolToSymbol target (symb: ELFSymbol) =
     Target = target
     LibraryName = elfVersionToLibName symb.VerInfo
   }
-
-let getAllStaticSymbols elf =
-  elf.SymInfo.StaticSymArr
-  |> Array.map (elfSymbolToSymbol TargetKind.StaticSymbol)
-
-let getAllDynamicSymbols elf =
-  elf.SymInfo.DynSymArr
-  |> Array.map (elfSymbolToSymbol TargetKind.DynamicSymbol)
 
 let secFlagToSectionKind flag entrySize =
   if flag &&& SectionFlag.SHFExecInstr = SectionFlag.SHFExecInstr then
@@ -310,63 +166,6 @@ let elfSectionToSection (sec: ELFSection) =
     Size = sec.SecSize
     Name = sec.SecName
   }
-
-let getAllSections elf =
-  elf.SecInfo.SecByNum
-  |> Array.map (elfSectionToSection)
-  |> Array.toSeq
-
-let getSectionsByAddr elf addr =
-  match ARMap.tryFindByAddr addr elf.SecInfo.SecByAddr with
-  | Some s -> Seq.singleton (elfSectionToSection s)
-  | None -> Seq.empty
-
-let getSectionsByName elf name =
-  match Map.tryFind name elf.SecInfo.SecByName with
-  | Some s -> Seq.singleton (elfSectionToSection s)
-  | None -> Seq.empty
-
-let progHdrToSegment phdr =
-  {
-    Address = phdr.PHAddr
-    Size = phdr.PHFileSize
-    Permission = phdr.PHFlags |> LanguagePrimitives.EnumOfValue
-  }
-
-let getAllSegments elf =
-  elf.LoadableSegments
-  |> List.map progHdrToSegment
-  |> List.toSeq
-
-let getLinkageTableEntries elf =
-  let create pltAddr (symb: ELFSymbol) =
-    {
-      FuncName = symb.SymName
-      LibraryName = elfVersionToLibName symb.VerInfo
-      TrampolineAddress = pltAddr
-      TableAddress = symb.Addr
-    }
-  elf.PLT
-  |> ARMap.fold (fun acc addrRange s -> create addrRange.Min s :: acc) []
-  |> List.sortBy (fun entry -> entry.TrampolineAddress)
-  |> List.toSeq
-
-let getRelocSymbols elf =
-  elf.RelocInfo.RelocByName
-  |> Map.toSeq
-  |> Seq.map (fun (_, i) -> { i.RelSymbol with Addr = i.RelOffset }
-                            |> elfSymbolToSymbol TargetKind.DynamicSymbol)
-
-let initELF bytes =
-  let reader = BinReader.Init (bytes, Endian.Little)
-  if Header.isELF reader startOffset then ()
-  else raise FileFormatMismatchException
-  Header.readEndianness reader startOffset
-  |> BinReader.RenewReader reader
-  |> parseELF startOffset
-
-let getTextSectionStartAddr elf =
-  (Map.find secTEXT elf.SecInfo.SecByName).SecAddr
 
 let rec isValid addr = function
   | seg :: tl ->

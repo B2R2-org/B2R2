@@ -57,13 +57,13 @@ type ELFFileInfo (bytes, path) =
   override __.WordSize = elf.ELFHdr.Class
 
   override __.NXEnabled =
-    let predicate e = e.PHType = ProgramHeaderType.PHTGNUStack
-    match List.tryFind predicate elf.Segments with
-    | Some s -> s.PHFlags &&& 0x1 <> 0
+    let predicate e = e.PHType = ProgramHeaderType.PTGNUStack
+    match List.tryFind predicate elf.ProgHeaders with
+    | Some s -> s.PHFlags &&& Permission.Executable = Permission.Executable
     | _ -> false
 
   override __.TextStartAddr =
-    getTextSectionStartAddr elf
+    (Map.find secTEXT elf.SecInfo.SecByName).SecAddr
 
   override __.TranslateAddress addr =
     translateAddr addr elf.LoadableSegments
@@ -79,32 +79,65 @@ type ELFFileInfo (bytes, path) =
     | None -> 0UL
 
   override __.GetSymbols () =
-    let s = getAllStaticSymbols elf
-    let d = getAllDynamicSymbols elf
-    Array.append s d |> Array.toSeq
+    let s = __.GetStaticSymbols ()
+    let d = __.GetDynamicSymbols ()
+    Seq.append s d
 
-  override __.GetStaticSymbols () = getAllStaticSymbols elf |> Array.toSeq
+  override __.GetStaticSymbols () =
+    elf.SymInfo.StaticSymArr
+    |> Array.map (elfSymbolToSymbol TargetKind.StaticSymbol)
+    |> Array.toSeq
 
-  override __.GetDynamicSymbols () = getAllDynamicSymbols elf |> Array.toSeq
+  override __.GetDynamicSymbols (?defined: bool) =
+    let onlyDef = defaultArg defined false
+    let alwaysTrue = fun _ -> true
+    let filter =
+      if onlyDef then (fun s -> s.SecHeaderIndex <> SHNUndef) else alwaysTrue
+    elf.SymInfo.DynSymArr
+    |> Array.filter filter
+    |> Array.map (elfSymbolToSymbol TargetKind.DynamicSymbol)
+    |> Array.toSeq
 
   override __.GetSections () =
-    getAllSections elf
+    elf.SecInfo.SecByNum
+    |> Array.map (elfSectionToSection)
+    |> Array.toSeq
 
   override __.GetSections (addr) =
-    getSectionsByAddr elf addr
+    match ARMap.tryFindByAddr addr elf.SecInfo.SecByAddr with
+    | Some s -> Seq.singleton (elfSectionToSection s)
+    | None -> Seq.empty
 
   override __.GetSectionsByName (name) =
-    getSectionsByName elf name
+    match Map.tryFind name elf.SecInfo.SecByName with
+    | Some s -> Seq.singleton (elfSectionToSection s)
+    | None -> Seq.empty
 
   override __.GetSegments () =
-    getAllSegments elf
+    elf.LoadableSegments
+    |> List.map ProgHeader.toSegment
+    |> List.toSeq
 
   override __.GetLinkageTableEntries () =
-    getLinkageTableEntries elf
+    let create pltAddr (symb: ELFSymbol) =
+      { FuncName = symb.SymName
+        LibraryName = elfVersionToLibName symb.VerInfo
+        TrampolineAddress = pltAddr
+        TableAddress = symb.Addr }
+    elf.PLT
+    |> ARMap.fold (fun acc addrRange s -> create addrRange.Min s :: acc) []
+    |> List.sortBy (fun entry -> entry.TrampolineAddress)
+    |> List.toSeq
 
   override __.GetRelocationSymbols () =
-    getRelocSymbols elf
+    let translate (_, reloc) =
+      { reloc.RelSymbol with Addr = reloc.RelOffset }
+      |> elfSymbolToSymbol TargetKind.DynamicSymbol
+    elf.RelocInfo.RelocByName
+    |> Map.toSeq
+    |> Seq.map translate
 
-  override __.IsValidAddr addr = isValid addr elf.LoadableSegments
+  override __.IsValidAddr addr =
+    isValid addr elf.LoadableSegments
 
 // vim: set tw=80 sts=2 sw=2:

@@ -26,8 +26,9 @@
 
 namespace B2R2.BinFile.ELF
 
-open B2R2
 open System
+open B2R2
+open B2R2.BinFile
 
 /// File type.
 type ELFFileType =
@@ -622,24 +623,53 @@ type ELFSymbolInfo = {
 /// how to interpret the array element's information. A segment is also known as
 /// a 'program header'.
 type ProgramHeaderType =
-  | PHTNull = 0x00u
-  | PHTLoad = 0x01u
-  | PHTDynamic = 0x02u
-  | PHTInterp = 0x03u
-  | PHTNote = 0x04u
-  | PHTShLib = 0x05u
-  | PHTPhdr = 0x06u
-  | PHTTLS = 0x07u
-  | PHTLoOS = 0x60000000u
-  | PHTHiOS = 0x6fffffffu
-  | PHTLoProc = 0x70000000u
-  | PHTARMExIdx = 0x70000001u
-  | PHTMIPSABIFlags = 0x70000003u
-  | PHTHiProc = 0x7fffffffu
-  | PHTGNUEHFrame = 0x6474e550u
-  | PHTGNUStack = 0x6474e551u
-  | PHTGNURelro = 0x6474e552u
-  | PHTPAXFlags = 0x65041580u
+  /// This program header is not used.
+  | PTNull = 0x00u
+  /// This is a loadable segment.
+  | PTLoad = 0x01u
+  /// This segment contains dynamic linking information.
+  | PTDynamic = 0x02u
+  /// This segment contains the location and size of a null-terminated path name
+  /// to invoke an interpreter. This segment type is meaningful only for
+  /// executable files, but not for shared objects. This segment may not occur
+  /// more than once in a file. If it is present, it must precede any loadable
+  /// segment entry.
+  | PTInterp = 0x03u
+  /// This segment contains the location and size of auxiliary information.
+  | PTNote = 0x04u
+  /// This segment type is reserved but has unspecified semantics.
+  | PTShLib = 0x05u
+  /// This segment specifies the location and size of the program header table
+  /// itself, It may occur only if the program header table is part of the
+  /// memory image of the program. If it is present, it must precede any
+  /// loadable segment entry.
+  | PTPhdr = 0x06u
+  /// This segment contains the Thread-Local Storage template.
+  | PTTLS = 0x07u
+  /// The lower bound of OS-specific program header type.
+  | PTLoOS = 0x60000000u
+  /// The upper bound of OS-specific program header type.
+  | PTHiOS = 0x6fffffffu
+  /// The lower bound of processor-specific program header type.
+  | PTLoProc = 0x70000000u
+  /// The exception unwind table (PT_ARM_EXIDX).
+  | PTARMExIdx = 0x70000001u
+  /// MIPS ABI flags (PT_MIPS_ABIFLAGS).
+  | PTMIPSABIFlags = 0x70000003u
+  /// The upper bound of processor-specific program header type.
+  | PTHiProc = 0x7fffffffu
+  /// This segment specifies the location and size of the exception handling
+  /// information as defined by the .eh_frame_hdr section.
+  | PTGNUEHFrame = 0x6474e550u
+  /// This segment specifies the permissions on the segment containing the stack
+  /// and is used to indicate weather the stack should be executable. The
+  /// absence of this header indicates that the stack will be executable.
+  | PTGNUStack = 0x6474e551u
+  /// This segment specifies the location and size of a segment which may be
+  /// made read-only after relocations have been processed.
+  | PTGNURelro = 0x6474e552u
+  /// This segment contains PAX flags.
+  | PTPAXFlags = 0x65041580u
 
 /// An executable or shared object file's program header table is an array of
 /// structures, each of which describes a segment or the other information a
@@ -648,13 +678,26 @@ type ProgramHeaderType =
 /// shared object files. A file specifies its own program header size with
 /// the ELF header's members.
 type ProgramHeader = {
+  /// Program header type.
   PHType       : ProgramHeaderType
-  PHFlags      : int
+  /// Flags relevant to the segment.
+  PHFlags      : Permission
+  /// An offset from the beginning of the file at which the first byte of the
+  /// segment resides in memory.
   PHOffset     : uint64
+  /// The virtual address at which the first byte of the segment resides in
+  /// memory.
   PHAddr       : Addr
+  /// The physical address of the segment. This is reserved for systems using
+  /// physical addresses.
   PHPhyAddr    : Addr
+  /// The number of bytes in the file image of the segment.
   PHFileSize   : uint64
+  /// The number of bytes in the memory image of the segment. This can be
+  /// greater than PHFileSize as some sections (w/ SHTNoBits type) occupy
+  /// nothing in the binary file, but can be mapped in the segment at runtime.
   PHMemSize    : uint64
+  /// The value to which the segments are aligned in memory and in the file.
   PHAlignment  : uint64
 }
 
@@ -662,7 +705,7 @@ type ELF = {
   /// ELF header.
   ELFHdr            : ELFHeader
   /// Segment information.
-  Segments          : ProgramHeader list
+  ProgHeaders       : ProgramHeader list
   /// Loadable segments.
   LoadableSegments  : ProgramHeader list
   /// Loadable section numbers.

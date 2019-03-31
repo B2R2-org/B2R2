@@ -77,7 +77,8 @@ type PEFileInfo (bytes, path, ?rawpdb) =
 
   override __.GetStaticSymbols () = getAllStaticSymbols pdb |> Array.toSeq
 
-  override __.GetDynamicSymbols () = getAllDynamicSymbols pe |> Array.toSeq
+  override __.GetDynamicSymbols (?defined) =
+    getAllDynamicSymbols pe |> Array.toSeq
 
   override __.GetRelocationSymbols () = Utils.futureFeature ()
 

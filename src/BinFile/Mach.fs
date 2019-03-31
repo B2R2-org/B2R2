@@ -75,7 +75,8 @@ type MachFileInfo (bytes, path) =
 
   override __.GetStaticSymbols () = getAllStaticSymbols mach |> Array.toSeq
 
-  override __.GetDynamicSymbols () = getAllDynamicSymbols mach |> Array.toSeq
+  override __.GetDynamicSymbols (?defined) =
+    getAllDynamicSymbols mach |> Array.toSeq
 
   override __.GetRelocationSymbols () = Utils.futureFeature ()
 

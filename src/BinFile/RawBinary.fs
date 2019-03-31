@@ -59,7 +59,7 @@ type RawFileInfo (bytes: byte [], baseAddr) =
 
   override __.GetStaticSymbols () = Seq.empty
 
-  override __.GetDynamicSymbols () = Seq.empty
+  override __.GetDynamicSymbols (?defined) = Seq.empty
 
   override __.GetSections () =
     Seq.singleton {
