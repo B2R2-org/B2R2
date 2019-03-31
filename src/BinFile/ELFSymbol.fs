@@ -103,9 +103,9 @@ let parseSymb secs verSymSec strTab verTbl cls (reader: BinReader) symIdx pos =
   let ndx =  readHeader16 reader cls pos 14 6 |> int
   let secIdx = SectionHeaderIdx.IndexFromInt ndx
   let verInfo = verSymSec >>= parseVersData reader symIdx >>= retrieveVer verTbl
-  printfn "%s => %A"
-    (ByteArray.extractCString strTab (Convert.ToInt32 nameIdx))
-    verInfo
+  // printfn "%s => %A"
+  //   (ByteArray.extractCString strTab (Convert.ToInt32 nameIdx))
+  //   verInfo
   {
     Addr = readSymAddr reader cls pos
     SymName = ByteArray.extractCString strTab (Convert.ToInt32 nameIdx)

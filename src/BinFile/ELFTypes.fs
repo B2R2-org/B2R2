@@ -363,13 +363,224 @@ type ELFSymbol = {
   VerInfo        : SymVerInfo option
 }
 
+/// Relocation type for x86.
+type RelocationX86 =
+  /// x86: no relocation.
+  | Reloc386None = 0UL
+  /// x86: direct 32-bit (S + A).
+  | Reloc38632 = 1UL
+  /// x86: PC-relative 32-bit (S + A - P).
+  | Reloc386PC32 = 2UL
+  /// x86: 32-bit GOT entry (G + A).
+  | Reloc386GOT32 = 3UL
+  /// x86: 32-bit PLT entry (L + A - P).
+  | Reloc386PLT32 = 4UL
+  /// x86: copy symbol at runtime.
+  | Reloc386Copy = 5UL
+  /// x86: create GOT entry (S).
+  | Reloc386GlobData = 6UL
+  /// x86: create PLT entry (S).
+  | Reloc386JmpSlot = 7UL
+  /// x86: adjust by program base (S + A).
+  | Reloc386Relative = 8UL
+  /// x86: 32-bit offset to GOT (S + A - GOT).
+  | Reloc386GOTOffset = 9UL
+  /// x86: pc-relative offset to GOT (GOT + A - P).
+  | Reloc386GOTPC = 10UL
+  /// x86: (L + A).
+  | Reloc38632PLT = 11UL
+
+/// Relocation type for x86-64.
+type RelocationX64 =
+  /// x86-64: no relocation.
+  | RelocX64None = 0UL
+  /// x86-64: direct 64-bit.
+  | RelocX6464 = 1UL
+  /// x86-64: PC-relative 32-bit.
+  | RelocX64PC32 = 2UL
+  /// x86-64: 32-bit GOT entry.
+  | RelocX64GOT32 = 3UL
+  /// x86-64: 32-bit PLT entry.
+  | RelocX64PLT32 = 4UL
+  /// x86-64: copy symbol at runtime.
+  | RelocX64Copy = 5UL
+  /// x86-64: create GOT entry.
+  | RelocX64GlobData = 6UL
+  /// x86-64: create PLT entry.
+  | RelocX64JmpSlot = 7UL
+  /// x86-64: adjust by program base.
+  | RelocX64Relative = 8UL
+  /// x86-64: 32-bit signed PC-relative offset to GOT.
+  | RelocX64GOTPCREL = 9UL
+  /// x86-64: direct 32-bit zero extended.
+  | RelocX6432 = 10UL
+  /// x86-64: direct 32-bit sign extended.
+  | RelocX6432S = 11UL
+  /// x86-64: direct 16-bit zero extended.
+  | RelocX6416 = 12UL
+  /// x86-64: 16-bit sign extended PC relative.
+  | RelocX64PC16 = 13UL
+  /// x86-64: direct 8-bit sign extended.
+  | RelocX648 = 14UL
+  /// x86-64: 8-bit sign extended PC relative.
+  | RelocX64PC8 = 15UL
+  /// x86-64: PC-relative 64 bit.
+  | RelocX64PC64 = 24UL
+  /// x86-64: 64-bit offset to GOT.
+  | RelocX64GOTOFF64 = 25UL
+  /// x86-64: 32-bit signed PC-relative offset to GOT.
+  | RelocX64GOTPC32 = 26UL
+  /// x86-64: 64-bit GOT entry offset.
+  | RelocX64GOT64 = 27UL
+  /// x86-64: 64-bit PC-relative offset to GOT entry.
+  | RelocX64GOTPCREL64 = 28UL
+  /// x86-64: 64-bit PC relative offset to GOT.
+  | RelocX64GOTPC64 = 29UL
+  /// x86-64: 64-bit GOT entry offset requiring PLT.
+  | RelocX64GOTPLT64 = 30UL
+  /// x86-64: 64-bit GOT relative offset to PLT entry.
+  | RelocX64PLTOFF64 = 31UL
+  /// x86-64: size of symbol plus 32-bit addend.
+  | RelocX64Size32 = 32UL
+  /// x86-64: size of symbol plus 64-bit addend.
+  | RelocX64Size64 = 33UL
+  /// x86-64: adjust indirectly by program base.
+  | RelocX64IRelative = 37UL
+
+/// Relocation type for ARMv7.
+type RelocationARMv7 =
+  /// ARM: no reloc.
+  | RelocARMNone = 0UL
+  /// ARM: PC-relative 26-bit branch.
+  | RelocARMPC24 = 1UL
+  /// ARM: direct 32 bit.
+  | RelocARMABS32 = 2UL
+  /// ARM: PC-relative 32 bit.
+  | RelocARMREL32 = 3UL
+  /// ARM: PC-relative LDR.
+  | RelocARMPC13 = 4UL
+  /// ARM: direct 16 bit.
+  | RelocARMABS16 = 5UL
+  /// ARM: direct 12 bit.
+  | RelocARMABS12 = 6UL
+  /// ARM: direct 8 bit.
+  | RelocARMABS8 = 8UL
+  /// ARM: copy symbol at runtime.
+  | RelocARMCopy = 20UL
+  /// ARM: create GOT entry.
+  | RelocARMGlobData = 21UL
+  /// ARM: create PLT entry.
+  | RelocARMJmpSlot = 22UL
+  /// ARM: adjust by program base.
+  | RelocARMRelative = 23UL
+  /// ARM: 32-bit offset to GOT.
+  | RelocARMGOTOffset = 24UL
+  /// ARM: 32-bit PC-relative offset to GOT.
+  | RelocARMGOTPC = 25UL
+  /// ARM: 32-bit GOT entry.
+  | RelocARMGOT32 = 26UL
+  /// ARM: 32-bit PLT address.
+  | RelocARMPLT32 = 27UL
+
+/// Relocation type for ARMv8.
+type RelocationARMv8 =
+  /// AARCH64: no reloc.
+  | RelocAARCH64None = 0UL
+  /// AARCH64: direct 64 bit.
+  | RelocAARCH64ABS64 = 257UL
+  /// AARCH64: direct 32 bit.
+  | RelocAARCH64ABS32 = 258UL
+  /// AARCH64: direct 16 bit.
+  | RelocAARCH64ABS16 = 259UL
+  /// AARCH64: PC-relative 64 bit.
+  | RelocAARCH64PREL64 = 260UL
+  /// AARCH64: PC-relative 32 bit.
+  | RelocAARCH64PREL32 = 261UL
+  /// AARCH64: PC-relative 16 bit.
+  | RelocAARCH64PREL16 = 262UL
+  /// AARCH64: GOT-relative 64 bit.
+  | RelocAARCH64GOTREL64 = 307UL
+  /// AARCH64: GOT-relative 32 bit.
+  | RelocAARCH64GOTREL32 = 308UL
+  /// AARCH64: copy symbol at runtime.
+  | RelocAARCH64Copy = 1024UL
+  /// AARCH64: create GOT entry.
+  | RelocAARCH64GlobData = 1025UL
+  /// AARCH64: create PLT entry.
+  | RelocAARCH64JmpSlot = 1026UL
+
+/// Relocation type for MIPS.
+type RelocationMIPS =
+  /// MIPS: no reloc.
+  | RelocMIPSNone = 0UL
+  /// MIPS: direct 16 bit.
+  | RelocMIPS16 = 1UL
+  /// MIPS: direct 32 bit.
+  | RelocMIPS32 = 2UL
+  /// MIPS: PC-relative 32 bit.
+  | RelocMIPSREL32 = 3UL
+  /// MIPS: direct 26 bit shifted.
+  | RelocMIPS26 = 4UL
+  /// MIPS: high 16 bit.
+  | RelocMIPSHigh16 = 5UL
+  /// MIPS: low 16 bit.
+  | RelocMIPSLow16 = 6UL
+  /// MIPS: GP-relative 16 bit.
+  | RelocMIPSGPREL16 = 7UL
+  /// MIPS: 16-bit literal entry.
+  | RelocMIPSLiteral = 8UL
+  /// MIPS: 16-bit GOT entry.
+  | RelocMIPSGOT16 = 9UL
+  /// MIPS: PC-relative 16 bit.
+  | RelocMIPSPC16 = 10UL
+  /// MIPS: 16-bit GOT entry for function.
+  | RelocMIPSCall16 = 11UL
+  /// MIPS: GP-relative 32 bit.
+  | RelocMIPSGPREL32 = 12UL
+
+/// Relocation type.
+type RelocationType =
+  | RelocationX86 of RelocationX86
+  | RelocationX64 of RelocationX64
+  | RelocationARMv7 of RelocationARMv7
+  | RelocationARMv8 of RelocationARMv8
+  | RelocationMIPS of RelocationMIPS
+with
+  static member FromNum arch n =
+    match arch with
+    | Architecture.IntelX86 ->
+      RelocationX86 <| LanguagePrimitives.EnumOfValue n
+    | Architecture.IntelX64 ->
+      RelocationX64 <| LanguagePrimitives.EnumOfValue n
+    | Architecture.ARMv7 ->
+      RelocationARMv7 <| LanguagePrimitives.EnumOfValue n
+    | Architecture.AARCH32
+    | Architecture.AARCH64 ->
+      RelocationARMv8 <| LanguagePrimitives.EnumOfValue n
+    | Architecture.MIPS1
+    | Architecture.MIPS2
+    | Architecture.MIPS3
+    | Architecture.MIPS4
+    | Architecture.MIPS5
+    | Architecture.MIPS32
+    | Architecture.MIPS32R2
+    | Architecture.MIPS32R6
+    | Architecture.MIPS64
+    | Architecture.MIPS64R2
+    | Architecture.MIPS64R6 ->
+      RelocationMIPS <| LanguagePrimitives.EnumOfValue n
+    | _ -> invalidArg "Architecture" "Unsupported architecture for relocation."
+
 /// Relocation entry.
 type RelocationEntry = {
   /// The location at which to apply the relocation action.
   RelOffset   : uint64
-  RelSecName  : string // FIXME: KILL THIS!
   /// Relocation symbol.
   RelSymbol   : ELFSymbol
+  /// Relocation type.
+  RelType     : RelocationType
+  /// A constant addend used to compute the value to be stored into the
+  /// relocatable field.
   RelAddend   : uint64
 }
 

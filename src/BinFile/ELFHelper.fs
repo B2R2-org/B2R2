@@ -235,8 +235,11 @@ let parsePLTELFSymbols arch sections (reloc: RelocInfo) reader =
   let pltStartAddr = plt.SecAddr + pltFirstSkipBytes arch
   let pltEndAddr = plt.SecAddr + plt.SecSize
   let folder (map, sAddr) _ (rel: RelocationEntry) =
-    match rel.RelSecName with
-    | ".rel.plt" | ".rela.plt" ->
+    match rel.RelType with
+    | RelocationX86 RelocationX86.Reloc386JmpSlot
+    | RelocationX64 RelocationX64.RelocX64JmpSlot
+    | RelocationARMv7 RelocationARMv7.RelocARMJmpSlot
+    | RelocationARMv8 RelocationARMv8.RelocAARCH64JmpSlot ->
       let nextStartAddr = sAddr + findPltSize sAddr plt reader arch
       let addrRange = AddrRange (sAddr, nextStartAddr)
       ARMap.add addrRange rel.RelSymbol map, nextStartAddr
