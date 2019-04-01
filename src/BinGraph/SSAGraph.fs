@@ -52,7 +52,7 @@ type SSAContext =
     PredMap : Map<VertexID, VertexID []>
     SuccMap : Map<VertexID, (VertexID * CFGEdge) list>
     DFMap : Map<VertexID, VertexID list>
-    SSAMap : Map<VertexID, Stmt list>
+    SSAMap : Map<VertexID, IRBBL * (Stmt list)>
     DomTree : Map<VertexID, VertexID list> * int
   }
 
@@ -84,7 +84,7 @@ let getGraphInfo domCtxt (irCFG: IRCFG) ssaCtxt (v: Vertex<_>) =
 let translateIR regType ctxt (v: Vertex<IRBBL>) =
   let vData = v.VData
   let stmts = Translate.translateStmt regType (fst vData.Ppoint) [] vData.Stmts
-  let ssaMap = Map.add vData.ID stmts ctxt.SSAMap
+  let ssaMap = Map.add vData.ID (vData, stmts) ctxt.SSAMap
   { ctxt with SSAMap = ssaMap }
 
 let initContext regType (irCFG: IRCFG) =
@@ -171,12 +171,12 @@ let findPhiSites dfMap defs def defSites =
 
 let insertPhiAux predMap def ssaMap id =
   let numPreds = Map.find id predMap |> Array.length
-  let stmts = Map.find id ssaMap
+  let irbbl, stmts = Map.find id ssaMap
   let stmts =
     if numPreds > 1 then
       Phi (defKindToDest def, Array.zeroCreate numPreds) :: stmts
     else stmts
-  Map.add id stmts ssaMap
+  Map.add id (irbbl, stmts) ssaMap
 
 let insertPhi predMap ssaMap def phiSites =
   Set.fold (insertPhiAux predMap def) ssaMap phiSites
@@ -184,7 +184,7 @@ let insertPhi predMap ssaMap def phiSites =
 let placePhis ctxt =
   let ssaMap = ctxt.SSAMap
   let defs =
-    Map.map (fun _ stmts -> List.fold collectDefs Set.empty stmts) ssaMap
+    Map.map (fun _ (_, stmts) -> List.fold collectDefs Set.empty stmts) ssaMap
   let defSites = Map.fold collectDefSites Map.empty defs
   let phiSites = Map.map (findPhiSites ctxt.DFMap defs) defSites
   let ssaMap = Map.fold (insertPhi ctxt.PredMap) ssaMap phiSites
@@ -192,7 +192,8 @@ let placePhis ctxt =
 
 let initializeRenaming regType ssaMap =
   let defs =
-    Map.fold (fun d _ stmts -> List.fold collectVars d stmts) Set.empty ssaMap
+    Map.fold (fun d _ (_, stmts) ->
+      List.fold collectVars d stmts) Set.empty ssaMap
     |> Set.add Mem |> Set.add (PC regType)
   let counts = Set.fold (fun count def -> Map.add def 0 count) Map.empty defs
   let stacks = Set.fold (fun stack def -> Map.add def [0] stack) Map.empty defs
@@ -310,15 +311,15 @@ let renamePhiAux stacks preds parent = function
 
 let renamePhi stacks predMap parent ssaMap n =
   let preds = Map.find n predMap
-  let stmts = Map.find n ssaMap
+  let irbbl, stmts = Map.find n ssaMap
   List.iter (renamePhiAux stacks preds parent) stmts
-  Map.add n stmts ssaMap
+  Map.add n (irbbl, stmts) ssaMap
 
 let rec rename tree predMap succMap aOrig (ssaMap, counts, stacks) n =
-  let stmts = Map.find n ssaMap
+  let irbbl, stmts = Map.find n ssaMap
   let stmts, counts, stacks =
     List.fold renameStmt ([], counts, stacks) stmts
-  let ssaMap = Map.add n (List.rev stmts) ssaMap
+  let ssaMap = Map.add n (irbbl, (List.rev stmts)) ssaMap
   let ssaMap =
     List.fold (renamePhi stacks predMap n) ssaMap (Map.find n succMap)
   let children = Map.find n tree
@@ -334,7 +335,7 @@ let renameVars regType ctxt =
   let ssaMap = ctxt.SSAMap
   let counts, stacks = initializeRenaming regType ssaMap
   let defs =
-    Map.map (fun _ stmts -> List.fold collectDefs Set.empty stmts) ssaMap
+    Map.map (fun _ (_, stmts) -> List.fold collectDefs Set.empty stmts) ssaMap
   let tree, root = ctxt.DomTree
   let ssaMap = ctxt.SSAMap
   let succMap = Map.map (fun _ succs -> List.map fst succs) ctxt.SuccMap
@@ -351,8 +352,8 @@ let toResolve = function
   | Jmp (InterCJmp _) -> true
   | _ -> false
 
-let genVMap (g: SSACFG) n stmts =
-  let ssaBBL = SSABBL (stmts, List.head <| List.rev stmts)
+let genVMap (g: SSACFG) n (irbbl, stmts) =
+  let ssaBBL = SSABBL (irbbl, stmts, List.head <| List.rev stmts)
   if toResolve ssaBBL.LastStmt then ssaBBL.ToResolve <- true
   g.AddVertex ssaBBL
 
@@ -368,9 +369,16 @@ let buildCFG g ctxt =
   let vMap = Map.map (genVMap g) ctxt.SSAMap
   Map.iter (addEdges vMap g) ctxt.SuccMap
 
+let setRoot (irCFG: IRCFG) (ssaCFG: SSACFG) =
+  let irRoot = irCFG.GetRoot ()
+  let irRootBBL = irRoot.VData
+  ssaCFG.IterVertex (fun v ->
+    if v.VData.IRBBL = irRootBBL then ssaCFG.SetRoot v)
+
 let transform regType irCFG ssaCFG =
   let ctxt = initContext regType irCFG
   let ctxt = placePhis ctxt
   let ctxt = renameVars regType ctxt
   buildCFG ssaCFG ctxt
+  setRoot irCFG ssaCFG
   ssaCFG
