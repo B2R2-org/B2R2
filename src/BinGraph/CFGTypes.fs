@@ -64,8 +64,10 @@ type IRBBL (ppoint, lastPpoint, stmts, last) =
   /// Do we need to resolve the successor(s) of this basic block?
   member val ToResolve = false with get, set
 
-type SSABBL (stmts, last) =
+type SSABBL (irbbl, stmts, last) =
   inherit VertexData (VertexData.genID ())
+
+  member __.IRBBL: IRBBL = irbbl
 
   member __.Stmts: SSA.Stmt list = stmts
 
