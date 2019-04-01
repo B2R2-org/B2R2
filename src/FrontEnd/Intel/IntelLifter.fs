@@ -422,7 +422,7 @@ let cmpQword cmp t src1 src2 oprSize = packCmp cmp t src1 src2 oprSize 64
 
 let getCmpPackedFn = function
   | Opcode.PCMPEQB | Opcode.VPCMPEQB -> cmpBytes (==)
-  | Opcode.PCMPEQD -> cmpDword (==)
+  | Opcode.PCMPEQD | Opcode.VPCMPEQD -> cmpDword (==)
   | Opcode.PCMPGTB | Opcode.VPCMPGTB -> cmpBytes sgt
   | Opcode.PCMPGTD -> cmpDword sgt
   | Opcode.PCMPGTW -> cmpWords sgt
@@ -974,8 +974,49 @@ let fillZeroFromVLToMaxVL ctxt dst vl maxVl builder =
     builder <! (dstH := n0)
   | _ -> failwith "Invalid MAX Vector Length"
 
-/// A module for all x86-IR translation functions
+let saturateSignedWordToSignedByte expr =
+  let checkMin = slt expr (numI32 -128 16<rt>)
+  let checkMax = sgt expr (numI32 127 16<rt>)
+  let minNum = numI32 -128 8<rt>
+  let maxNum = numI32 127 8<rt>
+  ite checkMin minNum (ite checkMax maxNum (extractLow 8<rt> expr))
 
+let saturateSignedDwordToSignedWord expr =
+  let checkMin = slt expr (numI32 -32768 32<rt>)
+  let checkMax = sgt expr (numI32 32767 32<rt>)
+  let minNum = numI32 -32768 16<rt>
+  let maxNum = numI32 32767 16<rt>
+  ite checkMin minNum (ite checkMax maxNum (extractLow 16<rt> expr))
+
+let saturateToSignedByte expr =
+  let checkMin = slt expr (numI32 -128 8<rt>)
+  let checkMax = sgt expr (numI32 127 8<rt>)
+  let minNum = numI32 -128 8<rt>
+  let maxNum = numI32 127 8<rt>
+  ite checkMin minNum (ite checkMax maxNum expr)
+
+let saturateToSignedWord expr =
+  let checkMin = slt expr (numI32 -32768 16<rt>)
+  let checkMax = sgt expr (numI32 32767 16<rt>)
+  let minNum = numI32 -32768 16<rt>
+  let maxNum = numI32 32767 16<rt>
+  ite checkMin minNum (ite checkMax maxNum expr)
+
+let saturateToUnignedByte expr =
+  let checkMin = lt expr (numU32 0u 8<rt>)
+  let checkMax = gt expr (numU32 0xffu 8<rt>)
+  let minNum = numU32 0u 8<rt>
+  let maxNum = numU32 0xffu 8<rt>
+  ite checkMin minNum (ite checkMax maxNum expr)
+
+let saturateToUnsignedWord expr =
+  let checkMin = lt expr (numU32 0u 16<rt>)
+  let checkMax = gt expr (numU32 0xffffu 16<rt>)
+  let minNum = numU32 0u 16<rt>
+  let maxNum = numU32 0xffu 16<rt>
+  ite checkMin minNum (ite checkMax maxNum expr)
+
+/// A module for all x86-IR translation functions
 let aaa ins insAddr insLen ctxt =
   let builder = new StmtBuilder (16)
   let oprSize = getOperationSize ins
@@ -2340,6 +2381,58 @@ let outs ins insAddr insLen ctxt =
   else body ()
   endMark insAddr insLen builder
 
+let sWordToSByte dst src builder =
+  let tmps = Array.init 8 (fun _ -> tmpVar 8<rt>)
+  for i in 0 .. 8 - 1 do
+    if i < 4 then let src = extract dst 16<rt> (i * 16)
+                  builder <! (tmps.[i] := saturateSignedWordToSignedByte src)
+    else let src = extract src 16<rt> ((i - 4) * 16)
+         builder <! (tmps.[i] := saturateSignedWordToSignedByte src)
+  done
+  builder <! (dst := concatExprs tmps)
+
+let sDwordToSWord dst src builder =
+  let tmps = Array.init 4 (fun _ -> tmpVar 16<rt>)
+  for i in 0 .. 4 - 1 do
+    if i < 2 then let src = extract dst 32<rt> (i * 32)
+                  builder <! (tmps.[i] := saturateSignedDwordToSignedWord src)
+    else let src = extract src 32<rt> ((i - 2) * 32)
+         builder <! (tmps.[i] := saturateSignedDwordToSignedWord src)
+  done
+  builder <! (dst := concatExprs tmps)
+
+let packssdw ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (16)
+  let dst, src = getTwoOprs ins
+  let oprSize = getOperationSize ins
+  match oprSize with
+  | 64<rt> ->
+    let dst, src = transTwoOprs ins insAddr insLen ctxt (dst, src)
+    sWordToSByte dst src builder
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+    let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
+    sWordToSByte dstA srcA builder
+    sWordToSByte dstB srcB builder
+  | _ -> raise InvalidOperandSizeException
+  endMark insAddr insLen builder
+
+let packsswb ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (16)
+  let dst, src = getTwoOprs ins
+  let oprSize = getOperationSize ins
+  match oprSize with
+  | 64<rt> ->
+      let dst, src = transTwoOprs ins insAddr insLen ctxt (dst, src)
+      sDwordToSWord dst src builder
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+    let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
+    sDwordToSWord dstA srcA builder
+    sDwordToSWord dstB srcB builder
+  | _ -> raise InvalidOperandSizeException
+  endMark insAddr insLen builder
+
 let packuswbLoop builder dst src1 src2 =
   let convert src =
     let src = extractLow 16<rt> src
@@ -2382,6 +2475,24 @@ let addPacked dst src oprSize packSz builder =
     builder <! (tmps.[i] := d .+ s) done
   builder <! (dstAssign oprSize dst (concatExprs tmps))
 
+let paddb ins insAddr insLen ctxt =
+  let oprSize = getOperationSize ins
+  if oprSize = 64<rt> then
+    let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
+    let builder = new StmtBuilder (4)
+    startMark insAddr insLen builder
+    addPacked dst src oprSize 8<rt> builder
+    endMark insAddr insLen builder
+  else
+    let dst, src = getTwoOprs ins
+    let dst1, dst2 = transOprToExpr128 ins insAddr insLen ctxt dst
+    let src1, src2 = transOprToExpr128 ins insAddr insLen ctxt src
+    let builder = new StmtBuilder (8)
+    startMark insAddr insLen builder
+    addPacked dst1 src1 (oprSize / 2) 8<rt> builder
+    addPacked dst2 src2 (oprSize / 2) 8<rt> builder
+    endMark insAddr insLen builder
+
 let paddd ins insAddr insLen ctxt =
   let oprSize = getOperationSize ins
   if oprSize = 64<rt> then
@@ -2416,6 +2527,116 @@ let paddq ins insAddr insLen ctxt =
     startMark insAddr insLen builder
     addPacked dst1 src1 (oprSize / 2) 64<rt> builder
     addPacked dst2 src2 (oprSize / 2) 64<rt> builder
+    endMark insAddr insLen builder
+
+let addPackedSignedIntegers dst src oprSize packSz builder =
+  let saturateFn =
+    if packSz = 8<rt> then saturateToSignedByte else saturateToSignedWord
+  let packNum = RegType.toBitWidth packSz
+  let cnt = RegType.toBitWidth oprSize / packNum
+  let tmps = Array.init cnt (fun _ -> tmpVar packSz)
+  for i in 0 .. cnt - 1 do
+    let dst = extract dst packSz (i * packNum)
+    let src = extract src packSz (i * packNum)
+    builder <! (tmps.[i] := saturateFn (dst .+ src)) done
+  builder <! (dst := concatExprs tmps)
+
+let paddsb ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (16)
+  let dst, src = getTwoOprs ins
+  let oprSize = getOperationSize ins
+  if oprSize = 64<rt> then
+    let dst, src = transTwoOprs ins insAddr insLen ctxt (dst, src)
+    startMark insAddr insLen builder
+    addPackedSignedIntegers dst src oprSize 8<rt> builder
+    endMark insAddr insLen builder
+  else
+    let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+    let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
+    startMark insAddr insLen builder
+    addPackedSignedIntegers dstA srcA (oprSize / 2) 8<rt> builder
+    addPackedSignedIntegers dstB srcB (oprSize / 2) 8<rt> builder
+    endMark insAddr insLen builder
+
+let paddsw ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (16)
+  let dst, src = getTwoOprs ins
+  let oprSize = getOperationSize ins
+  if oprSize = 64<rt> then
+    let dst, src = transTwoOprs ins insAddr insLen ctxt (dst, src)
+    startMark insAddr insLen builder
+    addPackedSignedIntegers dst src oprSize 8<rt> builder
+    endMark insAddr insLen builder
+  else
+    let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+    let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
+    startMark insAddr insLen builder
+    addPackedSignedIntegers dstA srcA (oprSize / 2) 8<rt> builder
+    addPackedSignedIntegers dstB srcB (oprSize / 2) 8<rt> builder
+    endMark insAddr insLen builder
+
+let addPackedUnsignedIntegers dst src oprSize packSz builder =
+  let saturateFn =
+    if packSz = 8<rt> then saturateToSignedByte else saturateToSignedWord
+  let packNum = RegType.toBitWidth packSz
+  let cnt = RegType.toBitWidth oprSize / packNum
+  let tmps = Array.init cnt (fun _ -> tmpVar packSz)
+  for i in 0 .. cnt - 1 do
+    let dst = extract dst packSz (i * packNum)
+    let src = extract src packSz (i * packNum)
+    builder <! (tmps.[i] := saturateFn (dst .+ src)) done
+  builder <! (dst := concatExprs tmps)
+
+let paddusb ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (16)
+  let dst, src = getTwoOprs ins
+  let oprSize = getOperationSize ins
+  if oprSize = 64<rt> then
+    let dst, src = transTwoOprs ins insAddr insLen ctxt (dst, src)
+    startMark insAddr insLen builder
+    addPackedUnsignedIntegers dst src oprSize 8<rt> builder
+    endMark insAddr insLen builder
+  else
+    let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+    let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
+    startMark insAddr insLen builder
+    addPackedUnsignedIntegers dstA srcA (oprSize / 2) 8<rt> builder
+    addPackedUnsignedIntegers dstB srcB (oprSize / 2) 8<rt> builder
+    endMark insAddr insLen builder
+
+let paddusw ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (16)
+  let dst, src = getTwoOprs ins
+  let oprSize = getOperationSize ins
+  if oprSize = 64<rt> then
+    let dst, src = transTwoOprs ins insAddr insLen ctxt (dst, src)
+    startMark insAddr insLen builder
+    addPackedSignedIntegers dst src oprSize 16<rt> builder
+    endMark insAddr insLen builder
+  else
+    let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+    let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
+    startMark insAddr insLen builder
+    addPackedSignedIntegers dstA srcA (oprSize / 2) 16<rt> builder
+    addPackedSignedIntegers dstB srcB (oprSize / 2) 16<rt> builder
+    endMark insAddr insLen builder
+
+let paddw ins insAddr insLen ctxt =
+  let oprSize = getOperationSize ins
+  if oprSize = 64<rt> then
+    let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
+    let builder = new StmtBuilder (4)
+    startMark insAddr insLen builder
+    addPacked dst src oprSize 16<rt> builder
+    endMark insAddr insLen builder
+  else
+    let dst, src = getTwoOprs ins
+    let dst1, dst2 = transOprToExpr128 ins insAddr insLen ctxt dst
+    let src1, src2 = transOprToExpr128 ins insAddr insLen ctxt src
+    let builder = new StmtBuilder (8)
+    startMark insAddr insLen builder
+    addPacked dst1 src1 (oprSize / 2) 16<rt> builder
+    addPacked dst2 src2 (oprSize / 2) 16<rt> builder
     endMark insAddr insLen builder
 
 let palignr ins insAddr insLen ctxt =
@@ -2475,6 +2696,50 @@ let pandn ins insAddr insLen ctxt =
     let src1, src2 = transOprToExpr128 ins insAddr insLen ctxt src
     builder <! (dst1 := AST.not dst1 .& src1)
     builder <! (dst2 := AST.not dst2 .& src2)
+  | _ -> raise InvalidOperandSizeException
+  endMark insAddr insLen builder
+
+let averagePackedIntegers dst src oprSize packSz builder =
+  let packNum = RegType.toBitWidth packSz
+  let cnt = RegType.toBitWidth oprSize / packNum
+  let tmps = Array.init cnt (fun _ -> tmpVar packSz)
+  for i in 0 .. cnt - 1 do
+    let dst = extract dst packSz (i * packNum)
+    let src = extract src packSz (i * packNum)
+    builder <! (tmps.[i] := (dst .+ src .+ num1 packSz) >> num1 packSz) done
+  builder <! (dst := concatExprs tmps)
+
+let pavgb ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (16)
+  let dst, src = getTwoOprs ins
+  let oprSize = getOperationSize ins
+  startMark insAddr insLen builder
+  match oprSize with
+  | 64<rt> ->
+    let dst, src = transTwoOprs ins insAddr insLen ctxt (dst, src)
+    averagePackedIntegers dst src oprSize 8<rt> builder
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+    let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
+    averagePackedIntegers dstA srcA (oprSize / 2) 8<rt> builder
+    averagePackedIntegers dstB srcB (oprSize / 2) 8<rt> builder
+  | _ -> raise InvalidOperandSizeException
+  endMark insAddr insLen builder
+
+let pavgw ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (16)
+  let dst, src = getTwoOprs ins
+  let oprSize = getOperationSize ins
+  startMark insAddr insLen builder
+  match oprSize with
+  | 64<rt> ->
+    let dst, src = transTwoOprs ins insAddr insLen ctxt (dst, src)
+    averagePackedIntegers dst src oprSize 16<rt> builder
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+    let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
+    averagePackedIntegers dstA srcA (oprSize / 2) 16<rt> builder
+    averagePackedIntegers dstB srcB (oprSize / 2) 16<rt> builder
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
@@ -2708,6 +2973,64 @@ let pinsrw ins insAddr insLen ctxt =
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
+let mulAndAddPackedInt dst src oprSize packSz builder =
+  let packNum = RegType.toBitWidth packSz
+  let cnt = RegType.toBitWidth oprSize / packNum / 2
+  let tmps = Array.init cnt (fun _ -> tmpVar (packSz * 2))
+  let getExtendOpr opr i = extract opr packSz (i * packNum) |> sExt (packSz * 2)
+  for i in 0 .. cnt - 1 do
+    let dst1 = getExtendOpr dst (i * 2)
+    let src1 = getExtendOpr src (i * 2)
+    let dst2 = getExtendOpr dst (i * 2 + 1)
+    let src2 = getExtendOpr src (i * 2 + 1)
+    builder <! (tmps.[i] := (dst1 .* src1) .+ (dst2 .* src2)) done
+  builder <! (dst := concatExprs tmps)
+
+let pmaddwd ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (16)
+  let dst, src = getTwoOprs ins
+  let oprSize = getOperationSize ins
+  startMark insAddr insLen builder
+  match oprSize with
+  | 64<rt> ->
+    let dst, src = transTwoOprs ins insAddr insLen ctxt (dst, src)
+    mulAndAddPackedInt dst src oprSize 16<rt> builder
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+    let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
+    mulAndAddPackedInt dstA srcA (oprSize / 2) 16<rt> builder
+    mulAndAddPackedInt dstB srcB (oprSize / 2) 16<rt> builder
+  | _ -> raise InvalidOperandSizeException
+  endMark insAddr insLen builder
+
+let minMaxPackedSigned dst src oprSize packSz cmp builder =
+  let packNum = RegType.toBitWidth packSz
+  let cnt = RegType.toBitWidth oprSize / packNum
+  let tmps = Array.init cnt (fun _ -> tmpVar packSz)
+  for i in 0 .. cnt - 1 do
+    let dst = extract dst packSz (i * packNum)
+    let src = extract src packSz (i * packNum)
+    builder <! (tmps.[i] := ite (cmp dst src) dst src)
+  done
+  builder <! (dst := concatExprs tmps)
+
+let pmaxsw ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (16)
+  let dst, src = getTwoOprs ins
+  let oprSize = getOperationSize ins
+  startMark insAddr insLen builder
+  match oprSize with
+  | 64<rt> ->
+    let dst, src = transTwoOprs ins insAddr insLen ctxt (dst, src)
+    minMaxPackedSigned dst src oprSize 16<rt> sgt builder
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+    let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
+    minMaxPackedSigned dstA srcA (oprSize / 2) 16<rt> sgt builder
+    minMaxPackedSigned dstB srcB (oprSize / 2) 16<rt> sgt builder
+  | _ -> raise InvalidOperandSizeException
+  endMark insAddr insLen builder
+
 let minMaxPacked ins insAddr insLen ctxt = // REORDER : PMAXUB/PMINSB/UB
   let builder = new StmtBuilder (64)
   let dst, src = getTwoOprs ins
@@ -2726,6 +3049,23 @@ let minMaxPacked ins insAddr insLen ctxt = // REORDER : PMAXUB/PMINSB/UB
     let concatedExpr2 = cmpFn PackSelect dst2 src2 64<rt> builder
     builder <! (dst1 := concatedExpr1)
     builder <! (dst2 := concatedExpr2)
+  | _ -> raise InvalidOperandSizeException
+  endMark insAddr insLen builder
+
+let pminsw ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (16)
+  let dst, src = getTwoOprs ins
+  let oprSize = getOperationSize ins
+  startMark insAddr insLen builder
+  match oprSize with
+  | 64<rt> ->
+    let dst, src = transTwoOprs ins insAddr insLen ctxt (dst, src)
+    minMaxPackedSigned dst src oprSize 16<rt> slt builder
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+    let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
+    minMaxPackedSigned dstA srcA (oprSize / 2) 16<rt> slt builder
+    minMaxPackedSigned dstB srcB (oprSize / 2) 16<rt> slt builder
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
@@ -4769,13 +5109,23 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.OR -> logOr ins insAddr insLen ctxt
   | Opcode.ORPD | Opcode.ORPS -> sideEffects insAddr insLen UnsupportedFP
   | Opcode.OUTSB | Opcode.OUTSW | Opcode.OUTSD -> outs ins insAddr insLen ctxt
+  | Opcode.PACKSSDW -> packssdw ins insAddr insLen ctxt
+  | Opcode.PACKSSWB -> packsswb ins insAddr insLen ctxt
   | Opcode.PACKUSWB -> packuswb ins insAddr insLen ctxt
+  | Opcode.PADDB -> paddb ins insAddr insLen ctxt
   | Opcode.PADDD -> paddd ins insAddr insLen ctxt
   | Opcode.PADDQ -> paddq ins insAddr insLen ctxt
+  | Opcode.PADDSB -> paddsb ins insAddr insLen ctxt
+  | Opcode.PADDSW -> paddsw ins insAddr insLen ctxt
+  | Opcode.PADDUSB -> paddusb ins insAddr insLen ctxt
+  | Opcode.PADDUSW -> paddusw ins insAddr insLen ctxt
+  | Opcode.PADDW -> paddw ins insAddr insLen ctxt
   | Opcode.PALIGNR -> palignr ins insAddr insLen ctxt
   | Opcode.PAND -> pand ins insAddr insLen ctxt
   | Opcode.PANDN -> pandn ins insAddr insLen ctxt
   | Opcode.PAUSE -> sideEffects insAddr insLen Pause
+  | Opcode.PAVGB -> pavgb ins insAddr insLen ctxt
+  | Opcode.PAVGW -> pavgw ins insAddr insLen ctxt
   | Opcode.PCMPEQB | Opcode.PCMPEQD | Opcode.PCMPGTB
   | Opcode.PCMPGTD | Opcode.PCMPGTW -> pcmp ins insAddr insLen ctxt
   | Opcode.PCMPESTRI | Opcode.PCMPESTRM | Opcode.PCMPISTRI | Opcode.PCMPISTRM ->
@@ -4783,8 +5133,11 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.PEXTRW -> pextrw ins insAddr insLen ctxt
   | Opcode.PINSRB -> pinsrb ins insAddr insLen ctxt
   | Opcode.PINSRW -> pinsrw ins insAddr insLen ctxt
+  | Opcode.PMADDWD -> pmaddwd ins insAddr insLen ctxt
+  | Opcode.PMAXSW -> pmaxsw ins insAddr insLen ctxt
   | Opcode.PMAXUB | Opcode.PMINSB | Opcode.PMINUB ->
     minMaxPacked ins insAddr insLen ctxt
+  | Opcode.PMINSW -> pminsw ins insAddr insLen ctxt
   | Opcode.PMINUD -> pminud ins insAddr insLen ctxt
   | Opcode.PMOVMSKB -> pmovmskb ins insAddr insLen ctxt
   | Opcode.POP -> pop ins insAddr insLen ctxt
@@ -4886,7 +5239,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.VPAND -> vpand ins insAddr insLen ctxt
   | Opcode.VPANDN -> vpandn ins insAddr insLen ctxt
   | Opcode.VPBROADCASTB -> vpbroadcastb ins insAddr insLen ctxt
-  | Opcode.VPCMPEQB | Opcode.VPCMPEQQ | Opcode.VPCMPGTB ->
+  | Opcode.VPCMPEQB | Opcode.VPCMPEQD | Opcode.VPCMPEQQ | Opcode.VPCMPGTB ->
     vpcmp ins insAddr insLen ctxt
   | Opcode.VPCMPESTRI | Opcode.VPCMPESTRM | Opcode.VPCMPISTRI
   | Opcode.VPCMPISTRM -> pcmpstr ins insAddr insLen ctxt
@@ -4919,19 +5272,6 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
     sideEffects insAddr insLen UnsupportedExtension
   | Opcode.XTEST -> sideEffects insAddr insLen UnsupportedExtension
   (* FIXME *)
-  | Opcode.PACKSSDW
-  | Opcode.PACKSSWB
-  | Opcode.PADDB
-  | Opcode.PADDSB
-  | Opcode.PADDSW
-  | Opcode.PADDUSB
-  | Opcode.PADDUSW
-  | Opcode.PADDW
-  | Opcode.PAVGB
-  | Opcode.PAVGW
-  | Opcode.PMADDWD
-  | Opcode.PMAXSW
-  | Opcode.PMINSW
   | Opcode.PMULHUW
   | Opcode.PMULHW
   | Opcode.PMULLW
