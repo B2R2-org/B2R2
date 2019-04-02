@@ -41,6 +41,7 @@ let private pltThumbStubBytes = [| 0x78uy; 0x47uy; 0xc0uy; 0x46uy |]
 
 let elfTypeToSymbKind ndx = function
   | SymbolType.STTObject -> SymbolKind.ObjectType
+  | SymbolType.STTGNUIFunc
   | SymbolType.STTFunc ->
     if ndx = SHNUndef then SymbolKind.NoType
     elif ndx = SHNCommon then SymbolKind.ExternFunctionType

@@ -259,6 +259,10 @@ type SymbolType =
   | STTCommon = 0x05uy
   /// The symbol specifies a Thread-Local Storage entity.
   | STTTLS = 0x06uy
+  /// A symbol with type STT_GNU_IFUNC is a function, but the symbol does not
+  /// provide the address of the function as usual. Instead, the symbol provides
+  /// the address of a function which returns a pointer to the actual function.
+  | STTGNUIFunc = 0x0auy
   /// The lower bound of OS-specific symbol type.
   | STTLoOS = 0x0auy
   /// The upper bound of OS-specific binding type.
