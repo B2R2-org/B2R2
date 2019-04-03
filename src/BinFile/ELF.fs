@@ -84,7 +84,8 @@ type ELFFileInfo (bytes, path) =
     Seq.append s d
 
   override __.GetStaticSymbols () =
-    elf.SymInfo.StaticSymArr
+    let secNumbers = elf.SecInfo.StaticSymSecNums
+    Symbol.getMergedSymbolTbl secNumbers elf.SymInfo.SecNumToSymbTbls
     |> Array.map (elfSymbolToSymbol TargetKind.StaticSymbol)
     |> Array.toSeq
 
@@ -93,7 +94,8 @@ type ELFFileInfo (bytes, path) =
     let alwaysTrue = fun _ -> true
     let filter =
       if onlyDef then (fun s -> s.SecHeaderIndex <> SHNUndef) else alwaysTrue
-    elf.SymInfo.DynSymArr
+    let secNumbers = elf.SecInfo.DynSymSecNums
+    Symbol.getMergedSymbolTbl secNumbers elf.SymInfo.SecNumToSymbTbls
     |> Array.filter filter
     |> Array.map (elfSymbolToSymbol TargetKind.DynamicSymbol)
     |> Array.toSeq

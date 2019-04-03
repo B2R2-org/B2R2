@@ -80,27 +80,56 @@ let secHasValidAddr sec =
   && not <| hasSHFTLS sec.SecFlags
   && secEndAddr > sec.SecAddr
 
+let addSecToAddrMap sec map =
+  if secHasValidAddr sec then
+    let endAddr = sec.SecAddr + sec.SecSize
+    ARMap.addRange sec.SecAddr endAddr sec map
+  else map
+
+let accSymbTabNum lst predicate sec =
+  if predicate sec.SecType then sec.SecNum :: lst else lst
+
+let isStatic t = t = SectionType.SHTSymTab
+
+let isDynamic t = t = SectionType.SHTDynSym
+
+let updateVerSec predicate sec =
+  if predicate sec.SecType then Some sec else None
+
+let isVerSym t = t = SectionType.SHTGNUVerSym
+
+let isVerNeed t = t = SectionType.SHTGNUVerNeed
+
+let isVerDef t = t = SectionType.SHTGNUVerDef
+
 let parse eHdr reader =
   let nameContents = parseSectionNameContents eHdr reader
-  let rec parseLoop secByAddr secByType secByName secByNum sIdx offset =
+  let rec parseLoop secByNum info sIdx offset =
     if int eHdr.SHdrNum = sIdx then
-      {
-        SecByAddr = secByAddr
-        SecByType = secByType
-        SecByName = secByName
-        SecByNum = List.rev secByNum |> Array.ofList
-      }
+      { info with SecByNum = List.rev secByNum |> Array.ofList }
     else
       let sec = parseSection sIdx nameContents eHdr.Class reader offset
-      let secByAddr =
-        if secHasValidAddr sec then
-          let endAddr = sec.SecAddr + sec.SecSize
-          ARMap.addRange sec.SecAddr endAddr sec secByAddr
-        else secByAddr
-      let secByType = Map.add sec.SecType sec secByType
-      let secByName = Map.add sec.SecName sec secByName
-      let secByNum = sec :: secByNum
       let nextOffset = nextSecOffset eHdr.Class offset
-      parseLoop secByAddr secByType secByName secByNum (sIdx + 1) nextOffset
+      let nextInfo =
+        { info with
+            SecByAddr = addSecToAddrMap sec info.SecByAddr
+            SecByName = Map.add sec.SecName sec info.SecByName
+            StaticSymSecNums = accSymbTabNum info.StaticSymSecNums isStatic sec
+            DynSymSecNums = accSymbTabNum info.DynSymSecNums isDynamic sec
+            VerSymSec = updateVerSec isVerSym sec
+            VerNeedSec = updateVerSec isVerNeed sec
+            VerDefSec = updateVerSec isVerDef sec }
+      parseLoop (sec :: secByNum) nextInfo (sIdx + 1) nextOffset
+  let emptyInfo =
+    {
+      SecByAddr = ARMap.empty
+      SecByName = Map.empty
+      SecByNum = [||]
+      StaticSymSecNums = []
+      DynSymSecNums = []
+      VerSymSec = None
+      VerNeedSec = None
+      VerDefSec = None
+    }
   Convert.ToInt32 eHdr.SHdrTblOffset
-  |> parseLoop ARMap.empty Map.empty Map.empty [] 0
+  |> parseLoop [] emptyInfo 0

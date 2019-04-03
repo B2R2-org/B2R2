@@ -66,15 +66,13 @@ let parseDefinedVersionTable tbl (reader: BinReader) strTab = function
     Convert.ToInt32 sec.SecOffset |> loopSec tbl
 
 let parseVersionTable secs (reader: BinReader) =
-  match Map.tryFind SectionType.SHTDynSym secs.SecByType with
-  | None -> Map.empty
-  | Some symTblSec ->
-    let ss = secs.SecByNum.[Convert.ToInt32 symTblSec.SecLink]
-    let strTab = reader.PeekBytes (ss.SecSize, ss.SecOffset)
-    let verNeedSec = Map.tryFind SectionType.SHTGNUVerNeed secs.SecByType
-    let verDefSec = Map.tryFind SectionType.SHTGNUVerDef secs.SecByType
-    let tbl = parseNeededVersionTable Map.empty reader strTab verNeedSec
-    parseDefinedVersionTable tbl reader strTab verDefSec
+  secs.DynSymSecNums
+  |> List.fold (fun tbl n ->
+       let symTblSec = secs.SecByNum.[n]
+       let ss = secs.SecByNum.[Convert.ToInt32 symTblSec.SecLink]
+       let strTab = reader.PeekBytes (ss.SecSize, ss.SecOffset)
+       let tbl = parseNeededVersionTable tbl reader strTab secs.VerDefSec
+       parseDefinedVersionTable tbl reader strTab secs.VerDefSec) Map.empty
 
 let parseVersData (reader: BinReader) symIdx verSymSec =
   let pos = verSymSec.SecOffset + (symIdx * 2UL) |> Convert.ToInt32
@@ -126,7 +124,7 @@ let nextSymOffset cls offset =
 let parseSymbols cls secs (reader: BinReader) verTbl acc symTblSec =
   let ss = secs.SecByNum.[Convert.ToInt32 symTblSec.SecLink] (* Get the sec. *)
   let stbl = reader.PeekBytes (ss.SecSize, ss.SecOffset) (* Get the str table *)
-  let verSymSec = getVerSymSection symTblSec secs.SecByType
+  let verSymSec = secs.VerSymSec
   let sNum = symTblSec.SecSize / (if cls = WordSize.Bit32 then 16UL else 24UL)
   let rec loop count acc offset =
     if count = sNum then List.rev acc
@@ -162,24 +160,33 @@ let computeRangeSet map =
   |> Seq.windowed 2
   |> Seq.fold folder ARMap.empty
 
+// FIXME: clean up required.
 let getChunks (symTbl: ELFSymbol []) (dynSym: ELFSymbol []) =
   let targetMap = if symTbl.Length = 0 then dynSym else symTbl
   let chunkMap, mappingSymbs =
     Array.fold insertAddrChunkMap (Map.empty, Map.empty) targetMap
   struct (computeRangeSet chunkMap, computeRangeSet mappingSymbs)
 
+let getMergedSymbolTbl numbers symTbls =
+  numbers
+  |> List.fold (fun acc n -> Array.append (Map.find n symTbls) acc) [||]
+
 let parse eHdr secs reader =
   let cls = eHdr.Class
   let verTbl = parseVersionTable secs reader
-  let getSymSec typ = Map.tryFind typ secs.SecByType
-  let getSym sec = Option.fold (parseSymbols cls secs reader verTbl) [] sec
-  let symTblByNum = getSymSec SectionType.SHTSymTab |> getSym |> Array.ofList
-  let dynSymTblByNum = getSymSec SectionType.SHTDynSym |> getSym |> Array.ofList
-  let struct (symChunks, mappingSymbs) = getChunks symTblByNum dynSymTblByNum
+  let symTabNumbers = List.append secs.StaticSymSecNums secs.DynSymSecNums
+  let getSymTables sec =
+    List.fold (fun map (n, symTblSec) ->
+      let symbols = parseSymbols cls secs reader verTbl [] symTblSec
+      Map.add n (Array.ofList symbols) map) Map.empty sec
+  let symTbls =
+    List.map (fun n -> n, secs.SecByNum.[n]) symTabNumbers |> getSymTables
+  let staticSymArr = getMergedSymbolTbl secs.StaticSymSecNums symTbls
+  let dynamicSymArr = getMergedSymbolTbl secs.DynSymSecNums symTbls
+  let struct (symChunks, mappingSymbs) = getChunks staticSymArr dynamicSymArr
   {
     VersionTable = verTbl
-    DynSymArr = dynSymTblByNum
-    StaticSymArr = symTblByNum
+    SecNumToSymbTbls = symTbls
     SymChunks = symChunks
     MappingELFSymbols = mappingSymbs
   }

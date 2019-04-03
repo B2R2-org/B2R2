@@ -48,12 +48,12 @@ let readInfoWithArch reader eHdr offset =
 let inline getRelocSIdx eHdr i =
   if eHdr.Class = WordSize.Bit32 then i >>> 8 else i >>> 32
 
-let parseRelocELFSymbol hasAdd eHdr typMask (dSym: ELFSymbol []) reader pos =
+let parseRelocELFSymbol hasAdd eHdr typMask (symTbl: ELFSymbol []) reader pos =
   let info = readInfoWithArch reader eHdr pos
   {
     RelOffset = peekUIntOfType reader eHdr.Class pos
     RelType = typMask &&& info |> RelocationType.FromNum eHdr.MachineType
-    RelSymbol = dSym.[(getRelocSIdx eHdr info |> Convert.ToInt32)]
+    RelSymbol = symTbl.[(getRelocSIdx eHdr info |> Convert.ToInt32)]
     RelAddend = if hasAdd then readHeader64 reader eHdr.Class pos 8 16 else 0UL
   }
 
@@ -67,13 +67,14 @@ let accumulateRelocInfo relInfo rel =
     RelocByName = Map.add rel.RelSymbol.SymName rel relInfo.RelocByName
   }
 
-let parseRelocSection eHdr reader sec dynSym relInfo =
+let parseRelocSection eHdr reader sec symbInfo relInfo =
   let hasAdd = sec.SecType = SectionType.SHTRela (* Has addend? *)
   let typMask = if eHdr.Class = WordSize.Bit32 then 0xFFUL else 0xFFFFFFFFUL
   let rec parseLoop rNum relInfo offset =
     if rNum = 0UL then relInfo
     else
-      let rel = parseRelocELFSymbol hasAdd eHdr typMask dynSym reader offset
+      let symTbl = symbInfo.SecNumToSymbTbls.[int sec.SecLink]
+      let rel = parseRelocELFSymbol hasAdd eHdr typMask symTbl reader offset
       let nextOffset = nextRelOffset hasAdd eHdr.Class offset
       parseLoop (rNum - 1UL) (accumulateRelocInfo relInfo rel) nextOffset
   let entrySize =
@@ -83,13 +84,13 @@ let parseRelocSection eHdr reader sec dynSym relInfo =
   Convert.ToInt32 sec.SecOffset
   |> parseLoop numEntries relInfo
 
-let parse eHdr secs (dynSym: ELFSymbol []) reader =
+let parse eHdr secInfo symbInfo reader =
   let folder acc sec =
     match sec.SecType with
     | SectionType.SHTRel
     | SectionType.SHTRela ->
-      if sec.SecSize = 0UL || dynSym.Length = 0 then acc
-      else parseRelocSection eHdr reader sec dynSym acc
+      if sec.SecSize = 0UL then acc
+      else parseRelocSection eHdr reader sec symbInfo acc
     | _ -> acc
   let emptyRelInfo = { RelocByAddr = Map.empty; RelocByName = Map.empty }
-  Array.fold folder emptyRelInfo secs.SecByNum
+  Array.fold folder emptyRelInfo secInfo.SecByNum

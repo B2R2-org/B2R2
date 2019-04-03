@@ -117,7 +117,7 @@ let private parseELF offset reader =
   let loadableSegs = ProgHeader.getLoadableProgHeaders proghdrs
   let loadableSecNums = ProgHeader.getLoadableSecNums secs loadableSegs
   let symbs = Symbol.parse eHdr secs reader
-  let reloc = Relocs.parse eHdr secs symbs.DynSymArr reader
+  let reloc = Relocs.parse eHdr secs symbs reader
   let struct (plt, pltStart, pltEnd) =
     if hasPLT secs then parsePLTELFSymbols eHdr.MachineType secs reloc reader
     else struct (ARMap.empty, 0UL, 0UL)

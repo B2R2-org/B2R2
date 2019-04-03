@@ -184,41 +184,53 @@ type SectionFlag =
 /// ELF Section
 type ELFSection = {
   /// Unique section number.
-  SecNum        : int
+  SecNum: int
   /// The name of the section.
-  SecName       : string
+  SecName: string
   /// Categorizes the section's contents and semantics.
-  SecType       : SectionType
+  SecType: SectionType
   /// Misc. attributes about the section.
-  SecFlags      : SectionFlag
+  SecFlags: SectionFlag
   /// The address at which the section's first byte should reside. If this
   /// section will not appear in the process memory, this value is 0.
-  SecAddr       : Addr
+  SecAddr: Addr
   /// Byte offset from the beginning of the file to the first byte in the
   /// section.
-  SecOffset     : uint64
+  SecOffset: uint64
   /// The section's size in bytes.
-  SecSize       : uint64
+  SecSize: uint64
   /// A section header table index link. The interpretation of this field
   /// depends on the section type.
-  SecLink       : uint32
+  SecLink: uint32
   /// Extra information. The interpretation of this info depends on the section
   /// type.
-  SecInfo       : uint32
+  SecInfo: uint32
   /// Some sections have address alignment constraints.
-  SecAlignment  : uint64
+  SecAlignment: uint64
   /// Some sections hold a table of fixed-size entries, such as a symbol
   /// table. For such a section, this member gives the size in bytes of each
   /// entry.
-  SecEntrySize  : uint64
+  SecEntrySize: uint64
 }
 
 /// Section information.
 type SectionInfo = {
-  SecByAddr     : ARMap<ELFSection>
-  SecByType     : Map<SectionType, ELFSection>
-  SecByName     : Map<string, ELFSection>
-  SecByNum      : ELFSection []
+  /// Section by address.
+  SecByAddr: ARMap<ELFSection>
+  /// Section by name.
+  SecByName: Map<string, ELFSection>
+  /// Section by its number.
+  SecByNum: ELFSection []
+  /// Static symbol section numbers.
+  StaticSymSecNums: int list
+  /// Dynamic symbol section numbers.
+  DynSymSecNums: int list
+  /// GNU version symbol section.
+  VerSymSec: ELFSection option
+  /// GNU version need section.
+  VerNeedSec: ELFSection option
+  /// GNU version definition section.
+  VerDefSec: ELFSection option
 }
 
 /// A symbol's binding determines the linkage visibility and behavior.
@@ -610,11 +622,8 @@ type SymChunk =
 type ELFSymbolInfo = {
   /// Linux-specific symbol version table containing versions required to link.
   VersionTable       : Map<uint16, string>
-  /// DynSymArr stores dynamic symbols based on the symbol number, which is a
-  /// unique number used to refer to a symbol entry in ELF dynamic symbol table.
-  DynSymArr          : ELFSymbol []
-  /// StaticSymArr stores static symbols based on the symbol number.
-  StaticSymArr       : ELFSymbol []
+  /// A mapping from a section number to the corresponding symbol table.
+  SecNumToSymbTbls   : Map<int, ELFSymbol []>
   /// We call a sequence of instructions/values that has the same symbol name
   /// as a "symbol chunk". ELFSymbol chunks are only relevant to code/data
   /// symbols.
