@@ -406,6 +406,52 @@ type RelocationX86 =
   | Reloc386GOTPC = 10UL
   /// x86: (L + A).
   | Reloc38632PLT = 11UL
+  /// x86 TLS relocations
+  | Reloc386TLSTPOFF = 14UL
+  | Reloc386TLSIE = 15UL
+  | Reloc386TLSGOTIE = 16UL
+  | Reloc386TLSLE = 17UL
+  | Reloc386TLSGD = 18UL
+  | Reloc386TLSLDM = 19UL
+  /// x86: (S + A).
+  | Reloc38616 = 20UL
+  /// x86: (S + A - P).
+  | Reloc386PC16 = 21UL
+  /// x86: (S + A).
+  | Reloc3868 = 22UL
+  /// x86: (S + A - P).
+  | Reloc386PC8 = 23UL
+  /// x86 more TLS relocations
+  | Reloc386TLSGD32 = 24UL
+  | Reloc386TLSGDPUSH = 25UL
+  | Reloc386TLSGDCALL = 26UL
+  | Reloc386TLSGDPOP = 27UL
+  | Reloc386TLSLDM32 = 28UL
+  | Reloc386TLSLDMPUSH = 29UL
+  | Reloc386TLSLDMCALL = 30UL
+  | Reloc386TLSLDMPOP = 31UL
+  | Reloc386TLSLDO32 = 32UL
+  | Reloc386TLSIE32 = 33UL
+  | Reloc386TLSLE32 = 34UL
+  | Reloc386TLSDTPMOD32 = 35UL
+  | Reloc386TLSDTPOFF32 = 36UL
+  | Reloc386TLSTPOFF32 = 37UL
+  /// x86: (Z + A).
+  | Reloc386SIZE32 = 38UL
+  /// x86 more TLS relocations
+  | Reloc386TLSGOTDESC = 39UL
+  | Reloc386TLSDESCCALL = 40UL
+  | Reloc386TLSDESC = 41UL
+  /// x86: indirect (B + A).
+  | Reloc386IRELATIVE = 42UL
+  /// x86: (G + A - GOT/G + A)
+  | Reloc386GOT32X = 43UL
+  /// x86: (A + (S >> 4)).
+  | Reloc386SEG16 = 44UL
+  /// x86: (A - S).
+  | Reloc386SUB16 = 45UL
+  /// x86: (A - S).
+  | Reloc386SUB32 = 46UL
 
 /// Relocation type for x86-64.
 type RelocationX64 =
