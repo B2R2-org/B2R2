@@ -147,4 +147,6 @@ type SimpleDiGraph<'V, 'E when 'V :> VertexData and 'V : equality> () =
 
   member __.GetMaxID () = id
 
+  member __.GetVertices () = __.Vertices
+
 // vim: set tw=80 sts=2 sw=2:

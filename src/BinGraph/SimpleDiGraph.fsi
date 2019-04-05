@@ -58,4 +58,6 @@ type SimpleDiGraph<'V, 'E when 'V :> VertexData and 'V : equality> =
 
   member GetMaxID : unit -> VertexID
 
+  member GetVertices : unit -> Set<Vertex<'V>>
+
 // vim: set tw=80 sts=2 sw=2:
