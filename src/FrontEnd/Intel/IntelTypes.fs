@@ -212,7 +212,7 @@ type Opcode =
   /// Compare String Operands (quadword).
   | CMPSQ = 57
   /// Compare and Exchange Bytes.
-  | CMPXCH8B = 58
+  | CMPXCHG8B = 58
   /// Compare and Exchange.
   | CMPXCHG = 59
   /// Compare and Exchange Bytes.
