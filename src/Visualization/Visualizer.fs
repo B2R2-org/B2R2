@@ -58,3 +58,12 @@ let visualizeDisasmCFG hdl disasmCFG =
   with e ->
     eprintfn "%s" <| e.ToString ()
     "{}"
+
+let visualizeIRCFG hdl irCFG =
+  try
+    let iGraph = InputGraph.ofIRCFG hdl irCFG
+    let oGraph = visualize iGraph
+    OutputGraph.toStr oGraph
+  with e ->
+    eprintfn "%s" <| e.ToString ()
+    "{}"

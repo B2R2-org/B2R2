@@ -27,6 +27,7 @@
 namespace B2R2.Visualization
 
 open B2R2
+open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
 open B2R2.BinGraph
 
@@ -92,16 +93,36 @@ module internal InputGraph =
     let disasmData = List.map (ofInstruction hdl) vData.Instrs
     { Address = vData.AddrRange.Min ; Disassembly = disasmData } :: iNodes
 
-  let ofCFGEdge (g: DisasmCFG) iEdges (src: DisasmVertex) (dst: DisasmVertex) =
+  let ofDisasmCFGEdge (g: DisasmCFG) iEdges (src: DisasmVertex) (dst: DisasmVertex) =
     let edge = g.FindEdge src dst
     { From = src.VData.AddrRange.Min ; To = dst.VData.AddrRange.Min ;
       Type = edge } :: iEdges
 
   let ofDisasmCFG hdl (g: DisasmCFG) =
     let iNodes = g.FoldVertex (ofDisassemblyBBL hdl) []
-    let iEdges = g.FoldEdge (ofCFGEdge g) []
+    let iEdges = g.FoldEdge (ofDisasmCFGEdge g) []
     let root = g.GetRoot ()
     { Nodes = iNodes ; Edges = iEdges ; Root = root.VData.AddrRange.Min }
+
+  let ofStmt (stmt: Stmt) =
+    { Disasm = Pp.stmtToString stmt
+      Comment = "" }
+
+  let ofIRBBL hdl iNodes (v: IRVertex) =
+    let vData = v.VData
+    let irData = List.map ofStmt vData.Stmts
+    { Address = fst vData.Ppoint ; Disassembly = irData } :: iNodes
+
+  let ofIRCFGEdge (g: IRCFG) iEdges (src: IRVertex) (dst: IRVertex) =
+    let edge = g.FindEdge src dst
+    { From = fst src.VData.Ppoint ; To = fst dst.VData.Ppoint ;
+      Type = edge } :: iEdges
+
+  let ofIRCFG hdl (g: IRCFG) =
+    let iNodes = g.FoldVertex (ofIRBBL hdl) []
+    let iEdges = g.FoldEdge (ofIRCFGEdge g) []
+    let root = g.GetRoot ()
+    { Nodes = iNodes ; Edges = iEdges ; Root = fst root.VData.Ppoint }
 
 type Point = {
   X : float

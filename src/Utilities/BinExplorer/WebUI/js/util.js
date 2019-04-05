@@ -108,7 +108,10 @@ function replaceTab($self, name, dims) {
   let tabId = "id_tabs-" + g_tabCounter;
   let tab = $("#id_tabContainer li.active");
   tab.attr("value", name);
-  let newTab = $("<a href=#{href}>{label}<span class='glyphicon glyphicon-remove-circle close-tab'></span></a>".replace('{href}', tabId).replace("{label}", name))
+  tab.attr("text-type", "disasm")
+  let newTab = $(`<a href=#{href}>{label}<span class="glyphicon glyphicon-remove-circle close-tab"></span></a>`.replace('{href}', tabId).replace("{label}", name));
+  $("#id_ir-to-disasm").removeClass("show");
+  $("#id_disasm-to-ir").addClass("show");
   tab.empty().append(newTab);
   query({
     "q": "cfg-disasm",

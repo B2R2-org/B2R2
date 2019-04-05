@@ -82,13 +82,21 @@ let handleBinInfo req resp arbiter =
   let txt = "\"" + txt.Replace(@"\", @"\\") + "\""
   Some (defaultEnc.GetBytes (txt)) |> answer req resp
 
-let handleCFG req resp arbiter name =
+type CFGType = 
+  | DisamsCFG
+  | IRCFG
+
+let getCFG hdl (func: Function) = function
+  | DisamsCFG -> Visualizer.visualizeDisasmCFG hdl func.DisasmCFG
+  | IRCFG -> Visualizer.visualizeIRCFG hdl func.IRCFG
+
+let handleCFG req resp arbiter cfgType name =
   let ess = Protocol.getBinEssence arbiter
   match BinEssence.TryFindFuncByName name ess with
   | None -> None |> answer req resp
   | Some func ->
     let hdl = ess.BinHandler
-    let cfg = Visualizer.visualizeDisasmCFG hdl func.DisasmCFG
+    let cfg = getCFG hdl func cfgType
     Some (defaultEnc.GetBytes cfg) |> answer req resp
 
 let handleFunctions req resp arbiter =
@@ -102,7 +110,8 @@ let handleFunctions req resp arbiter =
 let handleAJAX req resp arbiter query args =
     match query with
     | "bininfo" -> handleBinInfo req resp arbiter
-    | "cfg" -> handleCFG req resp arbiter args
+    | "cfg-disasm" ->  handleCFG req resp arbiter DisamsCFG args
+    | "cfg-ir" ->  handleCFG req resp arbiter IRCFG args
     | "functions" -> handleFunctions req resp arbiter
     | _ -> ()
 
