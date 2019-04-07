@@ -30,10 +30,10 @@
 module B2R2.BinGraph.Boundary
 
 open B2R2
-open B2R2.BinFile
 open B2R2.FrontEnd
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
+open B2R2.BinGraph.DisasHeuristic
 
 let initFunction hdl (funcs: Funcs) entry =
   let found, _ = funcs.TryGetValue entry
@@ -110,35 +110,41 @@ let isDummyLeader hdl addr instrs =
 /// TODO: Fill here
 let checkDummyLeader () = false
 
-let addBranchTarget hdl (builder: CFGBuilder) funcs leaders instr isCall =
+let addBranchTarget hdl sAddr (builder: CFGBuilder) funcs leaders instr isCall =
   match getBranchTarget instr with
   /// TODO: Need to identify whether call target is really a function start
   | Some addr when builder.IsInteresting hdl addr ->
     if isCall then initFunction hdl funcs addr
     builder, funcs, addr :: leaders
   | Some addr ->
-    let found, name = hdl.FileInfo.TryFindFunctionSymbolName addr
-    /// TODO: Insert here libc_start_main heuristic to find main function
-    if found && name = "__libc_start_main" then builder, funcs, leaders
+    (* Even if 'addr' is "uninteresting", it can be libc_start_main() at .PLT
+       section. If so, we can obtain more function entries from this call. *)
+    if isLibcStartMain hdl addr then
+      let ptrs = recoverLibcPointers hdl sAddr instr builder
+      List.iter (initFunction hdl funcs) ptrs
+      builder, funcs, ptrs @ leaders
     else builder, funcs, leaders
   | None -> builder, funcs, leaders
 
-let collectEntry hdl builder funcs leaders (instr: Instruction) =
-  if instr.IsCall () then addBranchTarget hdl builder funcs leaders instr true
+let collectEntry hdl sAddr builder funcs leaders (instr: Instruction) =
+  if instr.IsCall () then
+    addBranchTarget hdl sAddr builder funcs leaders instr true
   else builder, funcs, leaders
 
-let rec scanInstrs hdl (builder: CFGBuilder) funcs leaders = function
+let rec scanInstrs hdl sAddr (builder: CFGBuilder) funcs leaders = function
   | instr :: instrs ->
     builder.AddInstr instr
-    let builder, funcs, leaders = collectEntry hdl builder funcs leaders instr
-    scanInstrs hdl builder funcs leaders instrs
+    let builder, funcs, leaders =
+      collectEntry hdl sAddr builder funcs leaders instr
+    scanInstrs hdl sAddr builder funcs leaders instrs
   | [] -> builder, funcs, leaders
 
 let rec parseDisasmBlk hdl (builder: CFGBuilder) funcs addr leaders =
   match parseBlk hdl builder addr with
   | Error instrs ->
     if List.length instrs <> 0 then
-      let builder, funcs, leaders = scanInstrs hdl builder funcs leaders instrs
+      let builder, funcs, leaders =
+        scanInstrs hdl addr builder funcs leaders instrs
       let last = List.last instrs
       let nextAddr = last.Address + uint64 last.Length
       let newAddr = (nextAddr &&& 0xFFFFFFFFFFFFFFF0UL) + 0x10UL
@@ -147,12 +153,13 @@ let rec parseDisasmBlk hdl (builder: CFGBuilder) funcs addr leaders =
       if builder.DisasmEnd < nextAddr then builder.DisasmEnd <- nextAddr
       let leaders = nextAddr :: leaders
       let leaders = if checkDummyLeader () then newAddr :: leaders else leaders
-      addBranchTarget hdl builder funcs leaders last false
+      addBranchTarget hdl addr builder funcs leaders last false
     else
       builder.AddDisasmLeader addr
       builder, funcs, leaders
   | Ok instrs ->
-    let builder, funcs, leaders = scanInstrs hdl builder funcs leaders instrs
+    let builder, funcs, leaders =
+      scanInstrs hdl addr builder funcs leaders instrs
     let last = List.last instrs
     let nextAddr = last.Address + uint64 last.Length
     let newAddr = (nextAddr &&& 0xFFFFFFFFFFFFFFF0UL) + 0x10UL
@@ -161,7 +168,7 @@ let rec parseDisasmBlk hdl (builder: CFGBuilder) funcs addr leaders =
     if builder.DisasmEnd < nextAddr then builder.DisasmEnd <- nextAddr
     let leaders = nextAddr :: leaders
     let leaders = if checkDummyLeader () then newAddr :: leaders else leaders
-    addBranchTarget hdl builder funcs leaders last false
+    addBranchTarget hdl addr builder funcs leaders last false
 
 /// Scan disassembly-level basic block leaders.
 let rec scanDisasmLeaders hdl (builder: CFGBuilder) funcs = function
