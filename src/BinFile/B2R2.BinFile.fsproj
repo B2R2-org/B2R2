@@ -21,7 +21,8 @@
     <Compile Include="ELF.fs" />
     <Compile Include="MachHelper.fs" />
     <Compile Include="Mach.fs" />
-    <Compile Include="PDB.fs" />
+    <Compile Include="PETypes.fs" />
+    <Compile Include="PEPDB.fs" />
     <Compile Include="PEHelper.fs" />
     <Compile Include="PE.fs" />
     <Compile Include="FormatDetector.fs" />
@@ -29,6 +30,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Core\B2R2.Core.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Reflection.Metadata" Version="1.6.0" />
   </ItemGroup>
 
 </Project>

@@ -81,16 +81,15 @@ module PE =
     [<TestMethod>]
     member __.``[BinFile] PE File Parse Test (X86)`` () =
       let fi = parseFile x86FileName x86PDBFileName
-      Assert.AreEqual (fi.EntryPoint, 0x0040140cUL)
-      Assert.AreEqual (fi.FileType, FileType.ExecutableFile)
-      Assert.AreEqual (fi.IsStripped, false)
-      Assert.AreEqual (fi.NXEnabled, true)
-      Assert.AreEqual (fi.GetSections () |> Seq.length, 5)
-      Assert.AreEqual (fi.GetStaticSymbols () |> Seq.length, 102)
-      Assert.AreEqual (fi.GetDynamicSymbols () |> Seq.length, 41)
-      // Assert.AreEqual (fi.IndirectSymNum, 0)
-      Assert.AreEqual (fi.TextStartAddr, 0x00401000UL)
-      Assert.AreEqual (fi.WordSize, WordSize.Bit32)
+      Assert.AreEqual (0x0040140cUL, fi.EntryPoint)
+      Assert.AreEqual (FileType.ExecutableFile, fi.FileType)
+      Assert.AreEqual (false, fi.IsStripped)
+      Assert.AreEqual (true, fi.NXEnabled)
+      Assert.AreEqual (5, fi.GetSections () |> Seq.length)
+      Assert.AreEqual (179, fi.GetStaticSymbols () |> Seq.length)
+      Assert.AreEqual (41, fi.GetDynamicSymbols () |> Seq.length)
+      Assert.AreEqual (0x00401000UL, fi.TextStartAddr)
+      Assert.AreEqual (WordSize.Bit32, fi.WordSize)
       checkSymbol fi 0x00401090UL "_add"
       checkSymbol fi 0x004010d0UL "_mul"
       checkSymbol fi 0x004010e0UL "_main"
@@ -98,16 +97,15 @@ module PE =
     [<TestMethod>]
     member __.``[BinFile] PE File Parse Test (X64)`` () =
       let fi = parseFile x64FileName x64PDBFileName
-      Assert.AreEqual (fi.EntryPoint, 0x1400014b4UL)
-      Assert.AreEqual (fi.FileType, FileType.ExecutableFile)
-      Assert.AreEqual (fi.IsStripped, false)
-      Assert.AreEqual (fi.NXEnabled, true)
-      Assert.AreEqual (fi.GetSections () |> Seq.length, 6)
-      Assert.AreEqual (fi.GetStaticSymbols () |> Seq.length, 101)
-      Assert.AreEqual (fi.GetDynamicSymbols () |> Seq.length, 43)
-      // Assert.AreEqual (fi.IndirectSymNum, 0)
-      Assert.AreEqual (fi.TextStartAddr, 0x140001000UL)
-      Assert.AreEqual (fi.WordSize, WordSize.Bit64)
+      Assert.AreEqual (0x1400014b4UL, fi.EntryPoint)
+      Assert.AreEqual (FileType.ExecutableFile, fi.FileType)
+      Assert.AreEqual (false, fi.IsStripped)
+      Assert.AreEqual (true, fi.NXEnabled)
+      Assert.AreEqual (6, fi.GetSections () |> Seq.length)
+      Assert.AreEqual (180, fi.GetStaticSymbols () |> Seq.length)
+      Assert.AreEqual (43, fi.GetDynamicSymbols () |> Seq.length)
+      Assert.AreEqual (0x140001000UL, fi.TextStartAddr)
+      Assert.AreEqual (WordSize.Bit64, fi.WordSize)
       checkSymbol fi 0x1400010e0UL "add"
       checkSymbol fi 0x140001110UL "mul"
       checkSymbol fi 0x140001130UL "main"

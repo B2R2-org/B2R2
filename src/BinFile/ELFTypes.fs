@@ -760,6 +760,7 @@ type ProgramHeader = {
   PHAlignment  : uint64
 }
 
+/// Main ELF format representation.
 type ELF = {
   /// ELF header.
   ELFHdr            : ELFHeader

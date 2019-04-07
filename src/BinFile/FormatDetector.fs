@@ -39,11 +39,9 @@ let private checkELF reader offset =
           ISA.Init (ELF.Header.readArch reader cls offset) e)
   else None
 
-let private checkPE reader offset =
-  if PE.isPEHeader reader offset then
-    Some (FileFormat.PEBinary,
-          ISA.Init (PE.parsePEArch reader offset) Endian.Little)
-  else None
+let private checkPE bytes offset =
+  try Some (FileFormat.PEBinary, PE.Helper.parseFormat bytes offset)
+  with _ -> None
 
 let private checkMach reader offset =
   if Mach.isMachHeader reader offset then
@@ -59,13 +57,13 @@ let private checkMach reader offset =
 [<CompiledName("Detect")>]
 let detect file =
   use f = File.OpenRead (file)
-  let maxBytes = 2000 (* This is more than enough for all three file formats. *)
+  let maxBytes = 2048 (* This is more than enough for all three file formats. *)
   let bytes = Array.create maxBytes 0uy
   f.Read (bytes, 0, maxBytes) |> ignore
   let reader = BinReader.Init (bytes)
   Monads.OrElse.orElse {
     yield! checkELF reader ELF.Helper.startOffset
-    yield! checkPE reader PE.startOffset
+    yield! checkPE bytes PE.Helper.startOffset
     yield! checkMach reader Mach.startOffset
     yield! Some (FileFormat.RawBinary, ISA.Init (Arch.IntelX86) Endian.Little)
   } |> Option.get
