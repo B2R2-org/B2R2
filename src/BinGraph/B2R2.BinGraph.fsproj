@@ -14,10 +14,10 @@
     <Compile Include="SimpleDiGraph.fs" />
     <Compile Include="Dominator.fsi" />
     <Compile Include="Dominator.fs" />
-    <Compile Include="DisasHeuristic.fs" />
     <Compile Include="CFGTypes.fs" />
     <Compile Include="SSAGraph.fs" />
     <Compile Include="CFGBuilder.fs" />
+    <Compile Include="DisasHeuristic.fs" />
     <Compile Include="Boundary.fs" />
     <Compile Include="CFGUtils.fs" />
     <Compile Include="BinEssence.fs" />

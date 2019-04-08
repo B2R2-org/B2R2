@@ -3,6 +3,7 @@
 
   Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
           DongYeop Oh <oh51dy@kaist.ac.kr>
+          Jaeseung Choi <jschoi17@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -47,86 +48,65 @@ let initStateForLibcStart handle startAddr =
              | Arch.IntelX86 -> Map.add sp (stackAddr 32<rt>) Map.empty
              | Arch.IntelX64 -> Map.add sp (stackAddr 64<rt>) Map.empty
              | _ -> failwith "Not supported arch."
-  {
-    PC = startAddr
+  { PC = startAddr
     BlockEnd = false
     Vars = vars
     TmpVars = Map.empty
     Mems = Map.empty
     NextStmtIdx = 0
-    LblMap = Map.empty
-  }
+    LblMap = Map.empty }
 
-let intel32LibcParams acc st =
-  let f addr acc =
-    try (loadMem st.Mems Endian.Little addr 32<rt> |> BitVector.toUInt64) :: acc
-    with InvalidMemException -> acc
+let intel32LibcParams state =
+  let f ptr =
+    try Some (loadMem state.Mems Endian.Little ptr 32<rt> |> BitVector.toUInt64)
+    with InvalidMemException -> None
   /// 1st, 4th, and 5th parameter of _libc_start_main
-  match Map.tryFind (Intel.Register.ESP |> Intel.Register.toRegID) st.Vars with
+  let stackPtrReg = Intel.Register.ESP |> Intel.Register.toRegID
+  match Map.tryFind stackPtrReg state.Vars with
   | Some (Def esp) -> let esp = BitVector.toUInt64 esp
-                      f esp acc |> f (esp + 12UL) |> f (esp + 16UL)
-  | _ -> acc
+                      List.choose f [ esp; esp + 12UL; esp + 16UL ]
+  | _ -> []
 
-let intel64LibcParams acc st =
-  let f var acc =
-    match Map.tryFind (Intel.Register.toRegID var) st.Vars with
-    | Some (Def addr) -> (BitVector.toUInt64 addr) :: acc
-    | _ -> acc
+let intel64LibcParams state =
+  let f var =
+    match Map.tryFind (Intel.Register.toRegID var) state.Vars with
+    | Some (Def addr) -> Some (BitVector.toUInt64 addr)
+    | _ -> None
   /// 1st, 4th, and 5th parameter of _libc_start_main
-  f Intel.Register.RDI acc |> f Intel.Register.RCX |> f Intel.Register.R8
+  List.choose f [ Intel.Register.RDI; Intel.Register.RCX; Intel.Register.R8 ]
 
-let findNewLeadersByLibcHeuristic acc handle st =
-  match handle.ISA.Arch with
-  | Arch.IntelX86 -> intel32LibcParams acc st
-  | Arch.IntelX64 -> intel64LibcParams acc st
+let getLibcStartMainParams hdl state =
+  match hdl.ISA.Arch with
+  | Arch.IntelX86 -> intel32LibcParams state
+  | Arch.IntelX64 -> intel64LibcParams state
   | _ -> failwith "Not supported arch."
 
-let rec buildBlock acc startAddr endAddr instrMap =
-  let ins: 'T when 'T :> Instruction = Map.find startAddr instrMap
-  let nextAddr = startAddr + uint64 ins.Length
+let isLibcStartMain hdl addr =
+  let found, name = hdl.FileInfo.TryFindFunctionSymbolName addr
+  found && name = "__libc_start_main" &&
+  FileFormat.isELF hdl.FileInfo.FileFormat
+
+let rec collectLibcStartInstrs (builder: CFGBuilder) curAddr endAddr acc =
+  let ins = builder.GetInstr curAddr
+  let nextAddr = curAddr + uint64 ins.Length
   if nextAddr = endAddr then List.rev (ins :: acc)
-  else buildBlock (ins :: acc) nextAddr endAddr instrMap
+  else collectLibcStartInstrs builder nextAddr endAddr (ins :: acc)
 
-/// Evaluate concretely, but ignore any expressions that involve unknown values.
-let analyzeLibcStartBlock st stmts =
-  Array.fold (fun st stmt ->
-    try evalStmt st emptyCallBack stmt with
+/// Evaluate instructions that prepare call to libc_start_main. Ignore any
+/// expressions that involve unknown values.
+let evalLibcStartInstrs hdl state ins =
+  let stmts = BinHandler.LiftInstr hdl ins
+  Array.fold (fun state stmt ->
+    try evalStmt state emptyCallBack stmt with
     | UnknownVarException (* Simply ignore exceptions *)
-    | InvalidMemException -> st
-  ) st stmts
+    | InvalidMemException -> state
+  ) state stmts
 
-let getLibcFuncPtrArgs acc handle leaders instrMap (callerAddr: Addr) =
-  let s, _ = Set.partition (fun leaderAddr -> leaderAddr < callerAddr) leaders
-  let blockLeader = Set.maxElement s
-  let blk = buildBlock [] blockLeader callerAddr instrMap
-  let ir = List.map (fun ins -> BinHandler.LiftInstr handle ins) blk
-  let st = initStateForLibcStart handle blockLeader
-  let st = List.fold analyzeLibcStartBlock st ir
-  let acc = findNewLeadersByLibcHeuristic acc handle st
-  acc, instrMap
-
-let isLibcStartMain (handle: BinHandler) = function
-  | true, "__libc_start_main" -> FileFormat.isELF handle.FileInfo.FileFormat
-  | _, _ -> false
-
-let isCallTargetLibcStart handle (ins: 'T when 'T :> Instruction) =
-  match ins.DirectBranchTarget () with
-  | false, _ -> false
-  | true, addr ->
-    handle.FileInfo.TryFindFunctionSymbolName addr
-    |> isLibcStartMain handle
-
-let isCallingLibcStart handle (ins: 'T when 'T :> Instruction) =
-  ins.IsCall () && isCallTargetLibcStart handle ins
-
-/// Examine __libc_start_main's arguments with copy propagation
-let recoverLibcPtrs acc handle leaders exits instrMap =
-  let callers = List.filter (fun ins -> isCallingLibcStart handle ins) exits
-  match callers with
-  | [i] -> getLibcFuncPtrArgs acc handle leaders instrMap i.Address
-  | _ -> acc, instrMap
-
-let recover handle leaders exits instrMap =
-  recoverLibcPtrs [] handle leaders exits instrMap
-
-// vim: set tw=80 sts=2 sw=2:
+/// Retrieve function pointer arguments of libc_start_main() function call.
+let recoverLibcPointers hdl sAddr (callInstr: Instruction) builder =
+  let callAddr = callInstr.Address
+  let instrs = collectLibcStartInstrs builder sAddr callAddr []
+  let initState = initStateForLibcStart hdl sAddr
+  let callState = List.fold (evalLibcStartInstrs hdl) initState instrs
+  getLibcStartMainParams hdl callState
+  |> List.filter (builder.IsInteresting hdl)
