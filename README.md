@@ -29,9 +29,10 @@ B2R2?
    naturally supports *pure parallelism* for binary disassembling, lifting and
    IR optimization.
 
-1. B2R2 is *easy* to play with: there is absolutely no dependency hell for B2R2:
-   All you need to do is to install [.NET Core
-   SDK](https://dotnet.microsoft.com/download), and you are ready to go! Native
+1. B2R2 is *easy* to play with: there is absolutely no dependency hell for B2R2
+   because it is a fully-managed library.  All you need to do is to install
+   [.NET Core SDK](https://dotnet.microsoft.com/download), and you are ready to
+   go! Native
    [IntelliSense](https://docs.microsoft.com/en-us/visualstudio/ide/using-intellisense?view=vs-2017)
    support is another plus!
 
@@ -59,9 +60,12 @@ which can help explore such features using a simple command line interface.
 Dependencies?
 -------------
 
-B2R2 itself does *not* rely on any external libraries. So, you really don't need
-to install any other libraries in order to build B2R2! Just install .NET core,
-and that's all.
+B2R2 relies on a tiny set of external .NET libraries, and our design principle
+is to use a minimum number of libraries. Below is a list of libraries that we
+leverage.
+
+- [System.Reflection.Metadata](https://www.nuget.org/packages/System.Reflection.Metadata/)
+- [Microsoft.FSharpLu.Json](https://www.nuget.org/packages/Microsoft.FSharpLu.Json/)
 
 API Documentation
 -----------------
