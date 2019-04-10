@@ -168,7 +168,7 @@ Citation
 --------
 
 If you plan to use B2R2 in your own research. Please consider citing our
-[paper](https://FIXME):
+[paper](https://softsec.kaist.ac.kr/~sangkilc/papers/jung-bar19.pdf):
 
 ```bibtex
 @INPROCEEDINGS{jung:bar:2019,
