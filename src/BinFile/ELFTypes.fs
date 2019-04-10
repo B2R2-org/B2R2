@@ -637,45 +637,47 @@ with
 /// Relocation entry.
 type RelocationEntry = {
   /// The location at which to apply the relocation action.
-  RelOffset   : uint64
+  RelOffset: uint64
   /// Relocation symbol.
-  RelSymbol   : ELFSymbol
+  RelSymbol: ELFSymbol
   /// Relocation type.
-  RelType     : RelocationType
+  RelType: RelocationType
   /// A constant addend used to compute the value to be stored into the
   /// relocatable field.
-  RelAddend   : uint64
+  RelAddend: uint64
+  /// The number of the section that defines this relocation.
+  RelSecNumber: int
 }
 
 /// Relocation information
 type RelocInfo = {
-  RelocByAddr  : Map<Addr, RelocationEntry>
-  RelocByName  : Map<string, RelocationEntry>
+  RelocByAddr: Map<Addr, RelocationEntry>
+  RelocByName: Map<string, RelocationEntry>
 }
 
-type SymChunk =
-  {
-    /// Section symbol.
-    SecELFSymbol     : ELFSymbol option
-    /// Function symbol.
-    FuncELFSymbol    : ELFSymbol option
-    /// Mapping symbols are used specifically for ARM to specify code/data
-    /// boundaries. For example, $a represents the start of an ARM code snippet.
-    MappingELFSymbol : ELFSymbol option
-  }
+/// XXX need to fix.
+type SymChunk = {
+  /// Section symbol.
+  SecELFSymbol: ELFSymbol option
+  /// Function symbol.
+  FuncELFSymbol: ELFSymbol option
+  /// Mapping symbols are used specifically for ARM to specify code/data
+  /// boundaries. For example, $a represents the start of an ARM code snippet.
+  MappingELFSymbol: ELFSymbol option
+}
 
 /// Main data structure for storing symbol information.
 type ELFSymbolInfo = {
   /// Linux-specific symbol version table containing versions required to link.
-  VersionTable       : Map<uint16, string>
+  VersionTable: Map<uint16, string>
   /// A mapping from a section number to the corresponding symbol table.
-  SecNumToSymbTbls   : Map<int, ELFSymbol []>
+  SecNumToSymbTbls: Map<int, ELFSymbol []>
   /// We call a sequence of instructions/values that has the same symbol name
   /// as a "symbol chunk". ELFSymbol chunks are only relevant to code/data
   /// symbols.
-  SymChunks          : ARMap<SymChunk>
+  SymChunks: ARMap<SymChunk>
   /// Store a mapping from AddrRange to a mapping symbol (for ARM binaries).
-  MappingELFSymbols  : ARMap<ELFSymbol>
+  MappingELFSymbols: ARMap<ELFSymbol>
 }
 
 /// This member tells what kind of segment this array element describes or

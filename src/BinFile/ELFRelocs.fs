@@ -48,13 +48,14 @@ let readInfoWithArch reader eHdr offset =
 let inline getRelocSIdx eHdr i =
   if eHdr.Class = WordSize.Bit32 then i >>> 8 else i >>> 32
 
-let parseRelocELFSymbol hasAdd eHdr typMask (symTbl: ELFSymbol []) reader pos =
+let inline parseRelocELFSymbol hasAdd eHdr typMask symTbl reader pos sec =
   let info = readInfoWithArch reader eHdr pos
   {
     RelOffset = peekUIntOfType reader eHdr.Class pos
     RelType = typMask &&& info |> RelocationType.FromNum eHdr.MachineType
-    RelSymbol = symTbl.[(getRelocSIdx eHdr info |> Convert.ToInt32)]
+    RelSymbol = Array.get symTbl (getRelocSIdx eHdr info |> Convert.ToInt32)
     RelAddend = if hasAdd then readHeader64 reader eHdr.Class pos 8 16 else 0UL
+    RelSecNumber = sec.SecNum
   }
 
 let nextRelOffset hasAdd cls offset =
@@ -74,7 +75,7 @@ let parseRelocSection eHdr reader sec symbInfo relInfo =
     if rNum = 0UL then relInfo
     else
       let symTbl = symbInfo.SecNumToSymbTbls.[int sec.SecLink]
-      let rel = parseRelocELFSymbol hasAdd eHdr typMask symTbl reader offset
+      let rel = parseRelocELFSymbol hasAdd eHdr typMask symTbl reader offset sec
       let nextOffset = nextRelOffset hasAdd eHdr.Class offset
       parseLoop (rNum - 1UL) (accumulateRelocInfo relInfo rel) nextOffset
   let entrySize =
