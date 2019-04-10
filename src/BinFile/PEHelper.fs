@@ -261,26 +261,35 @@ let getImportSymbols pe =
     | ImportByOrdinal (_, dllname) ->
       { Address = uint64 addr + pe.PEHeaders.PEHeader.ImageBase
         Name = ""
-        Kind = SymbolKind.FunctionType
+        Kind = SymbolKind.ExternFunctionType
         Target = TargetKind.DynamicSymbol
         LibraryName = dllname } :: acc
     | ImportByName (_, funname, dllname) ->
       { Address = uint64 addr + pe.PEHeaders.PEHeader.ImageBase
         Name = funname
-        Kind = SymbolKind.FunctionType
+        Kind = SymbolKind.ExternFunctionType
         Target = TargetKind.DynamicSymbol
         LibraryName = dllname } :: acc
   pe.ImportMap
   |> Map.fold conv []
   |> List.rev
 
+let getSymbolKindBySectionIndex pe idx =
+  let ch = pe.PEHeaders.SectionHeaders.[idx].SectionCharacteristics
+  if ch.HasFlag SectionCharacteristics.MemExecute then SymbolKind.FunctionType
+  else SymbolKind.ObjectType
+
 let getExportSymbols pe =
   let conv acc addr exp =
-    { Address = uint64 addr + pe.PEHeaders.PEHeader.ImageBase
-      Name = exp
-      Kind = SymbolKind.FunctionType
-      Target = TargetKind.DynamicSymbol
-      LibraryName = "" } :: acc
+    let rva = int (addr - pe.PEHeaders.PEHeader.ImageBase)
+    match pe.PEHeaders.GetContainingSectionIndex rva with
+    | -1 -> acc
+    | idx ->
+      { Address = addr
+        Name = exp
+        Kind = getSymbolKindBySectionIndex pe idx
+        Target = TargetKind.DynamicSymbol
+        LibraryName = "" } :: acc
   pe.ExportMap
   |> Map.fold conv []
 

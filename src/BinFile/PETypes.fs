@@ -130,7 +130,7 @@ type DBIStreamHeader = {
   VersionHeader: DBIStreamVersion
   /// The index to the global stream.
   GlobalStreamIndex: int
-  /// the index to the public stream.
+  /// The index to the public stream.
   PublicStreamIndex: int
   /// The index to the stream containing all CodeView symbol records used by the
   /// program.
