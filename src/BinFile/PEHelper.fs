@@ -243,8 +243,7 @@ let findSymFromIAT addr pe =
   | _ -> None
 
 let findSymFromEAT addr pe () =
-  let rva = addr - pe.PEHeaders.PEHeader.ImageBase
-  match Map.tryFind rva pe.ExportMap with
+  match Map.tryFind addr pe.ExportMap with
   | Some n -> Some n
   | _ -> None
 
