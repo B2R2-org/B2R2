@@ -96,9 +96,9 @@ let readSymSize (reader: BinReader) cls offset =
 
 let parseSymb secs verSymSec strTab verTbl cls (reader: BinReader) symIdx pos =
   let nameIdx = reader.PeekUInt32 pos
-  let info = readHeaderB reader cls pos 12 4
-  let other = readHeaderB reader cls pos 13 5
-  let ndx =  readHeader16 reader cls pos 14 6 |> int
+  let info = peekHeaderB reader cls pos 12 4
+  let other = peekHeaderB reader cls pos 13 5
+  let ndx =  peekHeaderU16 reader cls pos 14 6 |> int
   let secIdx = SectionHeaderIdx.IndexFromInt ndx
   let verInfo = verSymSec >>= parseVersData reader symIdx >>= retrieveVer verTbl
   {

@@ -281,6 +281,7 @@ let getSectionRanges handle =
     if section.Size > 0UL then section.ToAddrRange () :: acc else acc
   handle.FileInfo.GetExecutableSections ()
   |> Seq.fold folder []
+  |> List.sortBy (fun r -> r.Min)
 
 let getActor action showAddr hdl opt =
   match action, opt with
@@ -300,9 +301,6 @@ let dump (opts: BinDumpOpts) =
   let secRanges = getSectionRanges handle
   let action = opts.DumpMethod
   let showAddr = opts.ShowAddress
-  let doOpt = opts.DoOptimization
-  let disasmFn = BinHandler.DisasmBBlock
-  let liftFn = BinHandler.LiftBBlock
   let actor = opts.DoOptimization |> getActor action showAddr handle
   if secRanges.IsEmpty then ()
   else List.iter (fun sR -> actor (AddrRange.GetMin sR) (AddrRange.GetMax sR))

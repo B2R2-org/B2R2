@@ -36,18 +36,26 @@ let readUIntOfType reader bitType o =
   let inline sizeByCls bitType = if bitType = WordSize.Bit32 then 4 else 8
   struct (peekUIntOfType reader bitType o, o + sizeByCls bitType)
 
-let readHeaderB (reader: BinReader) cls offset d32 d64 =
+let peekHeaderB (reader: BinReader) cls offset d32 d64 =
   offset + (if cls = WordSize.Bit32 then d32 else d64)
   |> reader.PeekByte
 
-let readHeader16 (reader: BinReader) cls offset d32 d64 =
+let peekHeaderU16 (reader: BinReader) cls offset d32 d64 =
   offset + (if cls = WordSize.Bit32 then d32 else d64)
   |> reader.PeekUInt16
 
-let readHeader32 (reader: BinReader) cls offset d32 d64 =
+let peekHeaderI32 (reader: BinReader) cls offset d32 d64 =
+  offset + (if cls = WordSize.Bit32 then d32 else d64)
+  |> reader.PeekInt32
+
+let peekHeaderU32 (reader: BinReader) cls offset d32 d64 =
   offset + (if cls = WordSize.Bit32 then d32 else d64)
   |> reader.PeekUInt32
 
-let readHeader64 reader cls offset d32 d64 =
+let peekHeaderNative reader cls offset d32 d64 =
   offset + (if cls = WordSize.Bit32 then d32 else d64)
   |> peekUIntOfType reader cls
+
+let peekCString (reader: BinReader) offset (size: int) =
+  let bs = reader.PeekBytes (size, offset)
+  ByteArray.extractCString bs 0

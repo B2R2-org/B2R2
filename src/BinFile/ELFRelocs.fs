@@ -30,8 +30,8 @@ open System
 open B2R2
 open B2R2.BinFile.FileHelper
 
-let readInfoWithArch reader eHdr offset =
-  let info = readHeader64 reader eHdr.Class offset 4 8
+let peekInfoWithArch reader eHdr offset =
+  let info = peekHeaderNative reader eHdr.Class offset 4 8
   match eHdr.MachineType with
   | Arch.MIPS1 | Arch.MIPS2 | Arch.MIPS3 | Arch.MIPS4 | Arch.MIPS5
   | Arch.MIPS32 | Arch.MIPS32R2 | Arch.MIPS32R6
@@ -49,12 +49,13 @@ let inline getRelocSIdx eHdr i =
   if eHdr.Class = WordSize.Bit32 then i >>> 8 else i >>> 32
 
 let inline parseRelocELFSymbol hasAdd eHdr typMask symTbl reader pos sec =
-  let info = readInfoWithArch reader eHdr pos
+  let info = peekInfoWithArch reader eHdr pos
+  let cls = eHdr.Class
   {
-    RelOffset = peekUIntOfType reader eHdr.Class pos
+    RelOffset = peekUIntOfType reader cls pos
     RelType = typMask &&& info |> RelocationType.FromNum eHdr.MachineType
     RelSymbol = Array.get symTbl (getRelocSIdx eHdr info |> Convert.ToInt32)
-    RelAddend = if hasAdd then readHeader64 reader eHdr.Class pos 8 16 else 0UL
+    RelAddend = if hasAdd then peekHeaderNative reader cls pos 8 16 else 0UL
     RelSecNumber = sec.SecNum
   }
 

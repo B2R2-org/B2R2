@@ -34,9 +34,6 @@ open B2R2.BinFile
 let [<Literal>] secPLT = ".plt"
 let [<Literal>] secTEXT = ".text"
 
-/// The start offset for parsing ELF files.
-let [<Literal>] startOffset = 0
-
 let private pltThumbStubBytes = [| 0x78uy; 0x47uy; 0xc0uy; 0x46uy |]
 
 let elfTypeToSymbKind ndx = function
@@ -136,11 +133,11 @@ let private parseELF offset reader =
 
 let initELF bytes =
   let reader = BinReader.Init (bytes, Endian.Little)
-  if Header.isELF reader startOffset then ()
+  if Header.isELF reader 0 then ()
   else raise FileFormatMismatchException
-  Header.readEndianness reader startOffset
+  Header.peekEndianness reader 0
   |> BinReader.RenewReader reader
-  |> parseELF startOffset
+  |> parseELF 0
 
 let elfSymbolToSymbol target (symb: ELFSymbol) =
   {

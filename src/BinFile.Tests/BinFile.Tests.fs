@@ -119,7 +119,7 @@ module Mach =
   let checkSymbol (fileInfo : MachFileInfo) addr symName =
     let found, n = fileInfo.TryFindFunctionSymbolName addr
     Assert.IsTrue (found)
-    Assert.AreEqual(n, symName)
+    Assert.AreEqual(symName, n)
 
   [<TestClass>]
   type TestClass () =
@@ -127,48 +127,48 @@ module Mach =
     [<TestMethod>]
     member __.``[BinFile] Mach File Parse Test (X86_Stripped)`` () =
       let fi = parseFile "mach_x86_rm_stripped"
-      Assert.AreEqual (fi.EntryPoint, 0x00002050UL)
-      Assert.AreEqual (fi.FileType, FileType.ExecutableFile)
-      Assert.AreEqual (fi.IsStripped, true)
-      Assert.AreEqual (fi.NXEnabled, true)
-      Assert.AreEqual (fi.GetSections () |> Seq.length, 11)
-      Assert.AreEqual (fi.GetStaticSymbols () |> Seq.length, 1)
-      Assert.AreEqual (fi.GetDynamicSymbols () |> Seq.length, 49)
-      Assert.AreEqual (fi.GetLinkageTableEntries () |> Seq.length, 45)
-      Assert.AreEqual (fi.TextStartAddr, 0x00002050UL)
-      Assert.AreEqual (fi.WordSize, WordSize.Bit32)
+      Assert.AreEqual (0x00002050UL, fi.EntryPoint)
+      Assert.AreEqual (FileType.ExecutableFile, fi.FileType)
+      Assert.AreEqual (true, fi.IsStripped)
+      Assert.AreEqual (true, fi.NXEnabled)
+      Assert.AreEqual (9, fi.GetSections () |> Seq.length)
+      Assert.AreEqual (0, fi.GetStaticSymbols () |> Seq.length)
+      Assert.AreEqual (49, fi.GetDynamicSymbols () |> Seq.length)
+      Assert.AreEqual (45, fi.GetLinkageTableEntries () |> Seq.length)
+      Assert.AreEqual (0x00002050UL, fi.TextStartAddr)
+      Assert.AreEqual (WordSize.Bit32, fi.WordSize)
       checkSymbol fi 0x00003b28UL "___error"
       checkSymbol fi 0x00003b70UL "_fflush"
 
     [<TestMethod>]
     member __.``[BinFile] Mach File Parse Test (X64)`` () =
       let fi = parseFile "mach_x64_wc"
-      Assert.AreEqual (fi.EntryPoint, 0x100000E90UL)
-      Assert.AreEqual (fi.FileType, FileType.ExecutableFile)
-      Assert.AreEqual (fi.IsStripped, false)
-      Assert.AreEqual (fi.NXEnabled, false)
-      Assert.AreEqual (fi.GetSections () |> Seq.length, 15)
-      Assert.AreEqual (fi.GetStaticSymbols () |> Seq.length, 621)
-      Assert.AreEqual (fi.GetDynamicSymbols () |> Seq.length, 77)
-      Assert.AreEqual (fi.GetLinkageTableEntries () |> Seq.length, 70)
-      Assert.AreEqual (fi.TextStartAddr, 0x100000D30UL)
-      Assert.AreEqual (fi.WordSize, WordSize.Bit64)
+      Assert.AreEqual (0x100000E90UL, fi.EntryPoint)
+      Assert.AreEqual (FileType.ExecutableFile, fi.FileType)
+      Assert.AreEqual (false, fi.IsStripped)
+      Assert.AreEqual (true, fi.NXEnabled)
+      Assert.AreEqual (13, fi.GetSections () |> Seq.length)
+      Assert.AreEqual (723, fi.GetStaticSymbols () |> Seq.length)
+      Assert.AreEqual (77, fi.GetDynamicSymbols () |> Seq.length)
+      Assert.AreEqual (72, fi.GetLinkageTableEntries () |> Seq.length)
+      Assert.AreEqual (0x100000D30UL, fi.TextStartAddr)
+      Assert.AreEqual (WordSize.Bit64, fi.WordSize)
       checkSymbol fi 0x100000D30UL "_usage"
       checkSymbol fi 0x100005F90UL "_error"
 
     [<TestMethod>]
     member __.``[BinFile] Mach File Parse Test (X64_Stripped)`` () =
       let fi = parseFile "mach_x64_wc_stripped"
-      Assert.AreEqual (fi.EntryPoint, 0x100000E90UL)
-      Assert.AreEqual (fi.FileType, FileType.ExecutableFile)
-      Assert.AreEqual (fi.IsStripped, true)
-      Assert.AreEqual (fi.NXEnabled, false)
-      Assert.AreEqual (fi.GetSections () |> Seq.length, 15)
-      Assert.AreEqual (fi.GetStaticSymbols () |> Seq.length, 1)
-      Assert.AreEqual (fi.GetDynamicSymbols () |> Seq.length, 77)
-      Assert.AreEqual (fi.GetLinkageTableEntries () |> Seq.length, 70)
-      Assert.AreEqual (fi.TextStartAddr, 0x100000D30UL)
-      Assert.AreEqual (fi.WordSize, WordSize.Bit64)
+      Assert.AreEqual (0x100000E90UL, fi.EntryPoint)
+      Assert.AreEqual (FileType.ExecutableFile, fi.FileType)
+      Assert.AreEqual (true, fi.IsStripped)
+      Assert.AreEqual (true, fi.NXEnabled)
+      Assert.AreEqual (13, fi.GetSections () |> Seq.length)
+      Assert.AreEqual (0, fi.GetStaticSymbols () |> Seq.length)
+      Assert.AreEqual (77, fi.GetDynamicSymbols () |> Seq.length)
+      Assert.AreEqual (72, fi.GetLinkageTableEntries () |> Seq.length)
+      Assert.AreEqual (0x100000D30UL, fi.TextStartAddr)
+      Assert.AreEqual (WordSize.Bit64, fi.WordSize)
       checkSymbol fi 0x10000B076UL "___error"
       checkSymbol fi 0x10000B0D0UL "_fflush"
 

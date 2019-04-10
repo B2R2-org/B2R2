@@ -30,24 +30,23 @@ module B2R2.BinFile.FormatDetector
 open System.IO
 open B2R2
 
-let private checkELF reader offset =
-  if ELF.Header.isELF reader offset then
-    let cls = ELF.Header.readClass reader offset
-    let e = ELF.Header.readEndianness reader offset
+let private checkELF reader =
+  if ELF.Header.isELF reader 0 then
+    let cls = ELF.Header.peekClass reader 0
+    let e = ELF.Header.peekEndianness reader 0
     let reader = BinReader.RenewReader reader e
-    Some (FileFormat.ELFBinary,
-          ISA.Init (ELF.Header.readArch reader cls offset) e)
+    Some (FileFormat.ELFBinary, ISA.Init (ELF.Header.peekArch reader cls 0) e)
   else None
 
-let private checkPE bytes offset =
-  try Some (FileFormat.PEBinary, PE.Helper.parseFormat bytes offset)
+let private checkPE bytes =
+  try Some (FileFormat.PEBinary, PE.Helper.parseFormat bytes 0)
   with _ -> None
 
-let private checkMach reader offset =
-  if Mach.isMachHeader reader offset then
-    let e = Mach.readEndianness reader offset
+let private checkMach reader =
+  if Mach.Header.isMach reader 0 then
+    let e = Mach.Header.peekEndianness reader 0
     let reader = BinReader.RenewReader reader e
-    Some (FileFormat.MachBinary, ISA.Init (Mach.readArch reader offset) e)
+    Some (FileFormat.MachBinary, ISA.Init (Mach.Header.peekArch reader 0) e)
   else None
 
 /// <summary>
@@ -62,9 +61,9 @@ let detect file =
   f.Read (bytes, 0, maxBytes) |> ignore
   let reader = BinReader.Init (bytes)
   Monads.OrElse.orElse {
-    yield! checkELF reader ELF.Helper.startOffset
-    yield! checkPE bytes PE.Helper.startOffset
-    yield! checkMach reader Mach.startOffset
+    yield! checkELF reader
+    yield! checkPE bytes
+    yield! checkMach reader
     yield! Some (FileFormat.RawBinary, ISA.Init (Arch.IntelX86) Endian.Little)
   } |> Option.get
 

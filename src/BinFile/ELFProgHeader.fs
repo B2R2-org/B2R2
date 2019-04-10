@@ -31,20 +31,20 @@ open B2R2
 open B2R2.BinFile
 open B2R2.BinFile.FileHelper
 
-let readPHdrFlags (reader: BinReader) cls offset =
+let peekPHdrFlags (reader: BinReader) cls offset =
   let pHdrPHdrFlagsOffset = if cls = WordSize.Bit32 then 24 else 4
   offset + pHdrPHdrFlagsOffset |> reader.PeekInt32
 
 let parseProgHeader cls (reader: BinReader) offset =
   {
     PHType = reader.PeekUInt32 offset |> LanguagePrimitives.EnumOfValue
-    PHFlags = readPHdrFlags reader cls offset |> LanguagePrimitives.EnumOfValue
-    PHOffset = readHeader64 reader cls offset 4 8
-    PHAddr = readHeader64 reader cls offset 8 16
-    PHPhyAddr = readHeader64 reader cls offset 12 24
-    PHFileSize = readHeader64 reader cls offset 16 32
-    PHMemSize = readHeader64 reader cls offset 20 40
-    PHAlignment = readHeader64 reader cls offset 28 48
+    PHFlags = peekPHdrFlags reader cls offset |> LanguagePrimitives.EnumOfValue
+    PHOffset = peekHeaderNative reader cls offset 4 8
+    PHAddr = peekHeaderNative reader cls offset 8 16
+    PHPhyAddr = peekHeaderNative reader cls offset 12 24
+    PHFileSize = peekHeaderNative reader cls offset 16 32
+    PHMemSize = peekHeaderNative reader cls offset 20 40
+    PHAlignment = peekHeaderNative reader cls offset 28 48
   }
 
 /// Parse and associate program headers with section headers to return the list

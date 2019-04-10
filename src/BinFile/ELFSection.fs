@@ -40,10 +40,10 @@ let parseSectionNameContents eHdr (reader: BinReader) =
   let size = peekUIntOfType reader eHdr.Class nextOffset
   reader.PeekBytes (Convert.ToInt32 size, Convert.ToInt32 strOffset)
 
-let readSecType (reader: BinReader) offset: SectionType =
+let peekSecType (reader: BinReader) offset: SectionType =
   offset + 4 |> reader.PeekUInt32 |> LanguagePrimitives.EnumOfValue
 
-let readSecFlags (reader: BinReader) cls offset : SectionFlag =
+let peekSecFlags (reader: BinReader) cls offset : SectionFlag =
   offset + 8
   |> peekUIntOfType reader cls
   |> LanguagePrimitives.EnumOfValue
@@ -52,15 +52,15 @@ let parseSection num strBytes cls (reader: BinReader) offset =
   {
     SecNum = num
     SecName = reader.PeekInt32 offset |> ByteArray.extractCString strBytes
-    SecType = readSecType reader offset
-    SecFlags = readSecFlags reader cls offset
-    SecAddr = readHeader64 reader cls offset 12 16
-    SecOffset = readHeader64 reader cls offset 16 24
-    SecSize = readHeader64 reader cls offset 20 32
-    SecLink = readHeader32 reader cls offset 24 40
-    SecInfo = readHeader32 reader cls offset 28 44
-    SecAlignment = readHeader64 reader cls offset 32 48
-    SecEntrySize = readHeader64 reader cls offset 36 56
+    SecType = peekSecType reader offset
+    SecFlags = peekSecFlags reader cls offset
+    SecAddr = peekHeaderNative reader cls offset 12 16
+    SecOffset = peekHeaderNative reader cls offset 16 24
+    SecSize = peekHeaderNative reader cls offset 20 32
+    SecLink = peekHeaderU32 reader cls offset 24 40
+    SecInfo = peekHeaderU32 reader cls offset 28 44
+    SecAlignment = peekHeaderNative reader cls offset 32 48
+    SecEntrySize = peekHeaderNative reader cls offset 36 56
   }
 
 let inline hasSHFTLS flags =

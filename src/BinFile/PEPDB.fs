@@ -28,6 +28,7 @@ module internal B2R2.BinFile.PE.PDB
 
 open System
 open B2R2
+open B2R2.BinFile.FileHelper
 
 let private magicBytes =
   [| 'M'; 'i'; 'c'; 'r'; 'o'; 's'; 'o'; 'f';
@@ -93,10 +94,6 @@ let parseStreamDirectory reader sb =
   |> BinReader.Init
   |> buildStreamDirectory sb
 
-let readSymName (reader: BinReader) (size: int) offset =
-  let bs = reader.PeekBytes (size, offset)
-  ByteArray.extractCString bs 0
-
 let parseSym (reader: BinReader) streamSize =
   let rec loop acc cnt offset =
     let size = reader.PeekUInt16 offset |> int
@@ -110,7 +107,7 @@ let parseSym (reader: BinReader) streamSize =
           { Flags = flg
             Address = reader.PeekUInt32 (offset + 8) |> uint64
             Segment = reader.PeekUInt16 (offset + 12)
-            Name = readSymName reader (size - 12) (offset + 14) }
+            Name = peekCString reader (offset + 14) (size - 12) }
         loop (sym :: acc) (cnt + 1) (offset + size + 2)
       | _ -> loop acc (cnt + 1) (offset + size + 2)
   loop [] 0 0

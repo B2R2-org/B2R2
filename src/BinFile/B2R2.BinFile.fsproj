@@ -1,11 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <IsPackable>false</IsPackable>
-    <IsTestProject>false</IsTestProject>
   </PropertyGroup>
-
+  <ItemGroup>
+    <ProjectReference Include="..\Core\B2R2.Core.fsproj" />
+  </ItemGroup>
   <ItemGroup>
     <Compile Include="FileTypes.fs" />
     <Compile Include="FileInfo.fs" />
@@ -19,6 +18,12 @@
     <Compile Include="ELFRelocs.fs" />
     <Compile Include="ELFHelper.fs" />
     <Compile Include="ELF.fs" />
+    <Compile Include="MachTypes.fs" />
+    <Compile Include="MachLoadCommands.fs" />
+    <Compile Include="MachHeader.fs" />
+    <Compile Include="MachSegment.fs" />
+    <Compile Include="MachSection.fs" />
+    <Compile Include="MachSymbol.fs" />
     <Compile Include="MachHelper.fs" />
     <Compile Include="Mach.fs" />
     <Compile Include="PETypes.fs" />
@@ -27,13 +32,7 @@
     <Compile Include="PE.fs" />
     <Compile Include="FormatDetector.fs" />
   </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\Core\B2R2.Core.fsproj" />
-  </ItemGroup>
-
   <ItemGroup>
     <PackageReference Include="System.Reflection.Metadata" Version="1.6.0" />
   </ItemGroup>
-
 </Project>

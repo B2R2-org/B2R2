@@ -35,31 +35,27 @@ let private elfMagicNumber = [| 0x7fuy; 0x45uy; 0x4cuy; 0x46uy |]
 let isELF (reader: BinReader) offset =
   reader.PeekBytes (4, offset) = elfMagicNumber
 
-let readClass (reader: BinReader) offset =
+let peekClass (reader: BinReader) offset =
   match offset + 4 |> reader.PeekByte with
   | 0x1uy -> WordSize.Bit32
   | 0x2uy -> WordSize.Bit64
   | _ -> raise InvalidWordSizeException
 
-let readEndianness (reader: BinReader) offset =
+let peekEndianness (reader: BinReader) offset =
   match offset + 5 |> reader.PeekByte with
   | 0x1uy -> Endian.Little
   | 0x2uy -> Endian.Big
   | _ -> raise InvalidEndianException
 
-let readOSABI (reader: BinReader) offset: OSABI =
-  offset + 7 |> reader.PeekByte |> LanguagePrimitives.EnumOfValue
 
-let readOSABIVersion (reader: BinReader) offset =
-  offset + 8 |> reader.PeekByte |> uint32
-
-let readELFFileType (reader: BinReader) offset: ELFFileType =
+let peekELFFileType (reader: BinReader) offset: ELFFileType =
   offset + 16 |> reader.PeekUInt16 |> LanguagePrimitives.EnumOfValue
 
-let readELFFlags reader cls offset = readHeader32 reader cls offset 36 48
+let peekELFFlags reader cls offset =
+  peekHeaderU32 reader cls offset 36 48
 
 let getMIPSISA (reader: BinReader) cls offset =
-  match readELFFlags reader cls offset &&& 0xf0000000u with
+  match peekELFFlags reader cls offset &&& 0xf0000000u with
   | 0x00000000u -> Arch.MIPS1
   | 0x10000000u -> Arch.MIPS2
   | 0x20000000u -> Arch.MIPS3
@@ -73,7 +69,7 @@ let getMIPSISA (reader: BinReader) cls offset =
   | 0xa0000000u -> Arch.MIPS64R6
   | c -> failwithf "invalid MIPS arch (%02x)" c
 
-let readArch (reader: BinReader) cls offset =
+let peekArch (reader: BinReader) cls offset =
   match offset + 18 |> reader.PeekInt16 with
   | 0x03s -> Arch.IntelX86
   | 0x3es -> Arch.IntelX64
@@ -84,23 +80,23 @@ let readArch (reader: BinReader) cls offset =
   | _ -> Arch.UnknownISA
 
 let parse (reader: BinReader) offset =
-  let cls = readClass reader offset
+  let cls = peekClass reader offset
   {
     Class = cls
-    Endian = readEndianness reader offset
-    Version = readHeader32 reader cls offset 6 6
-    OSABI = readOSABI reader offset
-    OSABIVersion = readOSABIVersion reader offset
-    ELFFileType = readELFFileType reader offset
-    MachineType = readArch reader cls offset
-    EntryPoint = readHeader64 reader cls offset 24 24
-    PHdrTblOffset = readHeader64 reader cls offset 28 32
-    SHdrTblOffset = readHeader64 reader cls offset 32 40
-    ELFFlags = readELFFlags reader cls offset
-    HeaderSize = readHeader16 reader cls offset 40 52
-    PHdrEntrySize = readHeader16 reader cls offset 42 54
-    PHdrNum = readHeader16 reader cls offset 44 56
-    SHdrEntrySize = readHeader16 reader cls offset 46 58
-    SHdrNum = readHeader16 reader cls offset 48 60
-    SHdrStrIdx = readHeader16 reader cls offset 50 62
+    Endian = peekEndianness reader offset
+    Version = peekHeaderU32 reader cls offset 6 6
+    OSABI = offset + 7 |> reader.PeekByte |> LanguagePrimitives.EnumOfValue
+    OSABIVersion = offset + 8 |> reader.PeekByte |> uint32
+    ELFFileType = peekELFFileType reader offset
+    MachineType = peekArch reader cls offset
+    EntryPoint = peekHeaderNative reader cls offset 24 24
+    PHdrTblOffset = peekHeaderNative reader cls offset 28 32
+    SHdrTblOffset = peekHeaderNative reader cls offset 32 40
+    ELFFlags = peekELFFlags reader cls offset
+    HeaderSize = peekHeaderU16 reader cls offset 40 52
+    PHdrEntrySize = peekHeaderU16 reader cls offset 42 54
+    PHdrNum = peekHeaderU16 reader cls offset 44 56
+    SHdrEntrySize = peekHeaderU16 reader cls offset 46 58
+    SHdrNum = peekHeaderU16 reader cls offset 48 60
+    SHdrStrIdx = peekHeaderU16 reader cls offset 50 62
   }

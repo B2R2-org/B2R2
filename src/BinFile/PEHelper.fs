@@ -32,9 +32,6 @@ open B2R2.BinFile
 open B2R2.Monads.Maybe
 open System.Reflection.PortableExecutable
 
-/// The start offset for parsing ELF files.
-let [<Literal>] startOffset = 0
-
 let parseFormat bytes offset =
   let bs = Array.sub bytes offset (Array.length bytes - offset)
   use stream = new IO.MemoryStream (bs)
@@ -185,9 +182,9 @@ let pdbSymbolToSymbol (sym: PESymbol) =
 
 let parsePDB pdbBytes =
   let reader = BinReader.Init (pdbBytes)
-  if PDB.isPDBHeader reader startOffset then ()
+  if PDB.isPDBHeader reader 0 then ()
   else raise FileFormatMismatchException
-  PDB.parse reader startOffset
+  PDB.parse reader 0
 
 let getPDBSymbols (execpath: string) = function
   | None ->
@@ -312,14 +309,10 @@ let secHdrToSection pe (sec: SectionHeader) =
     Name = sec.Name }
 
 let initPE bytes execpath rawpdb =
-  try
-    let bs = Array.sub bytes startOffset (Array.length bytes - startOffset)
-    let binReader = BinReader.Init (bs)
-    use stream = new IO.MemoryStream (bs)
-    use peReader = new PEReader (stream, PEStreamOptions.Default)
-    parsePE execpath rawpdb binReader peReader
-  with e ->
-    printfn "%s" <| e.ToString ()
-    raise FileFormatMismatchException
+  let bs = Array.sub bytes 0 (Array.length bytes)
+  let binReader = BinReader.Init (bs)
+  use stream = new IO.MemoryStream (bs)
+  use peReader = new PEReader (stream, PEStreamOptions.Default)
+  parsePE execpath rawpdb binReader peReader
 
 // vim: set tw=80 sts=2 sw=2:
