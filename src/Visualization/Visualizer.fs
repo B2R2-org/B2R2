@@ -52,7 +52,7 @@ let visualizeFile inputFile outputFile =
 
 let visualizeDisasmCFG hdl disasmCFG =
   try
-    let iGraph = InputGraph.ofDisasmCFG hdl disasmCFG
+    let iGraph = InputGraph.ofCFG hdl disasmCFG
     let oGraph = visualize iGraph
     OutputGraph.toStr oGraph
   with e ->
@@ -61,7 +61,7 @@ let visualizeDisasmCFG hdl disasmCFG =
 
 let visualizeIRCFG hdl irCFG =
   try
-    let iGraph = InputGraph.ofIRCFG hdl irCFG
+    let iGraph = InputGraph.ofCFG hdl irCFG
     let oGraph = visualize iGraph
     OutputGraph.toStr oGraph
   with e ->

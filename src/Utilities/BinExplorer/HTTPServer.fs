@@ -33,6 +33,10 @@ open B2R2
 open B2R2.BinGraph
 open B2R2.Visualization
 
+type CFGType = 
+  | DisasmCFG
+  | IRCFG
+
 let rootDir =
   let asm = Reflection.Assembly.GetExecutingAssembly ()
   let outDir = IO.Path.GetDirectoryName asm.Location
@@ -82,12 +86,8 @@ let handleBinInfo req resp arbiter =
   let txt = "\"" + txt.Replace(@"\", @"\\") + "\""
   Some (defaultEnc.GetBytes (txt)) |> answer req resp
 
-type CFGType = 
-  | DisamsCFG
-  | IRCFG
-
 let getCFG hdl (func: Function) = function
-  | DisamsCFG -> Visualizer.visualizeDisasmCFG hdl func.DisasmCFG
+  | DisasmCFG ->  Visualizer.visualizeDisasmCFG hdl func.DisasmCFG
   | IRCFG -> Visualizer.visualizeIRCFG hdl func.IRCFG
 
 let handleCFG req resp arbiter cfgType name =
@@ -110,7 +110,7 @@ let handleFunctions req resp arbiter =
 let handleAJAX req resp arbiter query args =
     match query with
     | "bininfo" -> handleBinInfo req resp arbiter
-    | "cfg-disasm" ->  handleCFG req resp arbiter DisamsCFG args
+    | "cfg-disasm" ->  handleCFG req resp arbiter DisasmCFG args
     | "cfg-ir" ->  handleCFG req resp arbiter IRCFG args
     | "functions" -> handleFunctions req resp arbiter
     | _ -> ()
