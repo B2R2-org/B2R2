@@ -38,13 +38,13 @@ html, body {
     list-style-type: none;
     display: flex; }
     #id_tabContainer ul li.tab {
+      max-width: 300px;
       position: relative;
       border: 1px solid black;
       border-top-right-radius: 3px;
       border-top-left-radius: 3px;
       background: #6272a4;
       margin: 0 2px;
-      width: 200px;
       display: flex;
       align-items: center; }
       #id_tabContainer ul li.tab a {
@@ -54,7 +54,11 @@ html, body {
         font-size: 15px;
         color: white;
         display: block;
-        padding: 5px 10px; }
+        padding: 5px 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-right: 20px; }
       #id_tabContainer ul li.tab.active {
         background: #44475a;
         border-bottom: none; }
@@ -63,7 +67,8 @@ html, body {
         font-size: 17px;
         color: white;
         right: 5px;
-        top: 10px; }
+        top: 10px; 
+        cursor: pointer; }
 
 #id_FunctionsListWrapper {
   width: 350px;
@@ -74,14 +79,15 @@ html, body {
     all: unset;
     background: none;
     border: none;
-    position: fixed;
     border-bottom: 1px solid white;
+    box-sizing: border-box;
+    width: 100%;
     color: white;
     padding: 5px;
     padding-left: 10px;
-    height: 35px; }
+    height: 35px; 
+    margin: 5px 0; }
   #id_FunctionsListWrapper #id_FunctionsList {
-    margin-top: 45px;
     height: 100%;
     overflow-y: auto; }
     #id_FunctionsListWrapper #id_FunctionsList #funcSelector {

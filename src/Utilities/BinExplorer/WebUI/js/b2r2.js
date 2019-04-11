@@ -533,14 +533,14 @@ function registerEvents(reductionRate, dims, g) {
   minimap.call(clickAndDrag);
 
 
-  function handlerDragStart(){
+  function handlerDragStart() {
     console.log("handlerDragStart")
   }
-  function handlerDragMove(){
+  function handlerDragMove() {
     console.log("handlerDragMove")
 
   }
-  function handlerDragEnd(){
+  function handlerDragEnd() {
     console.log("handlerDragEnd")
 
   }
@@ -727,6 +727,7 @@ function runOnline(dims) {
   })
   query("functions", "", drawFunctions);
   query("bininfo", "", drawBinInfo);
+
 }
 
 function reloadUI() {
@@ -748,11 +749,8 @@ function reloadUI() {
     height: cfgVPDim.height * minimapRatio
   };
 
-  $("#minimapDiv").css("height", (minimapVPDim.height+30)+"px").css("margin-right", minimapMarginRight + "px");
+  $("#minimapDiv").css("height", (minimapVPDim.height + 30) + "px").css("margin-right", minimapMarginRight + "px");
   $("#minimapDiv").css("margin-bottom", bottomMargin + "px");
-
-  $("#id_funcFilter").width($("#id_FunctionsListWrapper").width()-20)
-
   return { cfgVPDim: cfgVPDim, minimapVPDim: minimapVPDim };
 }
 

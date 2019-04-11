@@ -1,6 +1,6 @@
 var tabTitle = $("#tab_title"),
   tabContent = $("#tab_content"),
-  tabTemplate = `<li class='tab active' counter={number} value={label}><a href=#{href}>{label}</a><span class="glyphicon glyphicon-remove-circle close-tab"></span></li>`,
+  tabTemplate = "<li class='tab active' title={label} counter={number} value={label}><a href=#{href}>{label}</a><span class='glyphicon glyphicon-remove-circle close-tab'></span></li>",
   g_tabCounter = -1;
 
 function addTab($self, functionName, dims) {
@@ -25,8 +25,8 @@ function addTab($self, functionName, dims) {
 }
 
 function addGraphDiv(dims) {
-  let graphDivTemplate = `<div id='cfgDiv-{number}'><svg id="cfg-{number}" class="box"></svg></div>`.replace(/\{number\}/g, g_tabCounter);
-  let miniMapTemplate = ` <svg id="minimap-{number}" class="box min-box"></svg>`.replace(/\{number\}/g, g_tabCounter);
+  let graphDivTemplate = "<div id='cfgDiv-{number}'><svg id='cfg-{number}' class='box'></svg></div>".replace(/\{number\}/g, g_tabCounter);
+  let miniMapTemplate = "<svg id='minimap-{number}' class='box min-box'></svg>".replace(/\{number\}/g, g_tabCounter);
   $("#id_graphContainer").append(graphDivTemplate);
   $("#minimapDiv").append(miniMapTemplate);
   d3.select("svg#cfg-" + g_tabCounter)
@@ -95,7 +95,7 @@ function replaceTab($self, name, dims) {
   let tabId = "id_tabs-" + g_tabCounter;
   let tab = $("#id_tabContainer li.active");
   tab.attr("value", name);
-  let newTab = $(`<a href=#{href}>{label}<span class="glyphicon glyphicon-remove-circle close-tab"></span></a>`.replace('{href}', tabId).replace("{label}", name))
+  let newTab = $("<a href=#{href}>{label}<span class='glyphicon glyphicon-remove-circle close-tab'></span></a>".replace('{href}', tabId).replace("{label}", name))
   tab.empty().append(newTab);
   query("cfg",
     $self.attr('value'),
