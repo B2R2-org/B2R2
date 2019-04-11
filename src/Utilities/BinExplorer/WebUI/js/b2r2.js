@@ -1,8 +1,9 @@
 /*
   B2R2 - the Next-Generation Reversing Platform
 
-  Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
+  Author: Subin Jeong <cyclon2@kaist.ac.kr>
           Soomin Kim <soomink@kaist.ac.kr>
+          Sang Kil Cha <sangkilc@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -46,9 +47,10 @@ var edgeThickness = 3;
 // The duration time for zooming when both nodes and edges are double clicked.
 var focusMovementDuration = 750;
 
-function initMarker(defs, id) {
+function initMarker(defs, name) {
+  let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
   defs.append("marker")
-    .attr("id", id).attr("class", id)
+    .attr("id", name+"-"+currentTabNumber).attr("class", name)
     .attr("markerWidth", 3)
     .attr("markerHeight", 3)
     .attr("markerUnits", "strokeWidth")
@@ -235,7 +237,7 @@ function drawEdge(e) {
 
   if (e.IsBackEdge) p.attr("stroke-dasharray", "4, 4");
 
-  p.attr("marker-end", "url(#cfg" + e.Type + "Arrow)");
+  p.attr("marker-end", "url(#cfg" + e.Type + "Arrow-"+currentTabNumber+")");
 
   let miniLineFunction = d3.line()
     .x(function (d) { return d.X * minimapRatio; })

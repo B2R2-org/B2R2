@@ -87,11 +87,11 @@ module internal InputGraph =
   let ofInstruction hdl (instr: Instruction) =
     { Disasm = instr.Disasm (true, true, hdl.FileInfo)
       Comment = "" }
- 
+
   let ofStmt (stmt: Stmt) =
     { Disasm = Pp.stmtToString stmt
       Comment = "" }
-  
+
   let ofBBL hdl iNodes (v: Vertex<_>) =
     match box v with
     | :? DisasmVertex as v ->
@@ -103,7 +103,7 @@ module internal InputGraph =
       { Address = fst v.VData.Ppoint ;
         Disassembly = irData } :: iNodes
     | _ -> failwith "Should not be happened"
-  
+
   let ofCFGEdge g iEdges src dst =
     match (box g, box src, box dst) with
     | (:? DisasmCFG as g), (:? DisasmVertex as src), (:? DisasmVertex as dst) ->
@@ -115,19 +115,19 @@ module internal InputGraph =
       { From = fst src.VData.Ppoint ; To = fst dst.VData.Ppoint ;
       Type = edge } :: iEdges
     | _ -> failwith "Should not be happened"
-    
+
   let ofDisasmCFG hdl (g: DisasmCFG) =
     let iNodes = g.FoldVertex (ofBBL hdl) []
     let iEdges = g.FoldEdge (ofCFGEdge g) []
     let root = g.GetRoot ()
     { Nodes = iNodes ; Edges = iEdges ; Root = root.VData.AddrRange.Min }
-  
+
   let ofIRCFG hdl (g: IRCFG) =
     let iNodes = g.FoldVertex (ofBBL hdl) []
     let iEdges = g.FoldEdge (ofCFGEdge g) []
     let root = g.GetRoot ()
     { Nodes = iNodes ; Edges = iEdges ; Root = fst root.VData.Ppoint }
-  
+
   let ofCFG hdl g =
     match box g with
     | :? DisasmCFG as g -> ofDisasmCFG hdl g
