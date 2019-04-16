@@ -39,6 +39,10 @@ type PEFileInfo (bytes, path, ?rawpdb) =
 
   override __.FileFormat = FileFormat.PEBinary
 
+  override __.ISA =
+    let arch = machineToArch pe.PEHeaders.CoffHeader.Machine
+    ISA.Init arch Endian.Little
+
   override __.FilePath = path
 
   override __.EntryPoint =

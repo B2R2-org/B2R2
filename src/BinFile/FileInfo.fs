@@ -40,6 +40,11 @@ type FileInfo () =
   abstract FileFormat: FileFormat
 
   /// <summary>
+  ///   The ISA that this file expects to run on.
+  /// </summary>
+  abstract ISA: ISA
+
+  /// <summary>
   ///   What kind of binary is this?
   /// </summary>
   abstract FileType: FileType

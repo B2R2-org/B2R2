@@ -32,16 +32,19 @@ open B2R2.BinFile
 open B2R2.Monads.Maybe
 open System.Reflection.PortableExecutable
 
+let machineToArch = function
+  | Machine.I386 -> Arch.IntelX86
+  | Machine.Amd64 | Machine.IA64 -> Arch.IntelX64
+  | Machine.Arm -> Arch.ARMv7
+  | Machine.Arm64 -> Arch.AARCH64
+  | _ -> raise InvalidISAException
+
 let parseFormat bytes offset =
   let bs = Array.sub bytes offset (Array.length bytes - offset)
   use stream = new IO.MemoryStream (bs)
   use reader = new PEReader (stream, PEStreamOptions.Default)
-  match reader.PEHeaders.CoffHeader.Machine with
-  | Machine.I386 -> ISA.Init Arch.IntelX86 Endian.Little
-  | Machine.Amd64 | Machine.IA64 -> ISA.Init Arch.IntelX64 Endian.Little
-  | Machine.Arm -> ISA.Init Arch.ARMv7 Endian.Little
-  | Machine.Arm64 -> ISA.Init Arch.AARCH64 Endian.Little
-  | _ -> raise InvalidISAException
+  let arch = reader.PEHeaders.CoffHeader.Machine |> machineToArch
+  ISA.Init arch Endian.Little
 
 let getRawOffset (headers: PEHeaders) rva =
   let idx = headers.GetContainingSectionIndex rva

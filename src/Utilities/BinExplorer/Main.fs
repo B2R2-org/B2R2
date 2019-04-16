@@ -167,9 +167,8 @@ let dumpJsonFiles jsonDir ess =
       System.IO.File.WriteAllBytes(irJsonPath, irJson)
     ) <| List.ofSeq ess.Functions.Values
 
-let initBinHdl name =
-  let fmt, isa = FormatDetector.detect name
-  BinHandler.Init (isa, ArchOperationMode.NoMode, fmt, 0UL, name)
+let initBinHdl isa (name: string) =
+  BinHandler.Init (isa, ArchOperationMode.NoMode, true, 0UL, name)
 
 let realMain (opts: BinExplorerOpts) =
   if Array.isEmpty opts.InputStr && String.length opts.InputFile = 0 &&
@@ -182,7 +181,7 @@ let realMain (opts: BinExplorerOpts) =
     let outputJson = opts.JsonDumpFile
     visualizeGraph inputJson outputJson
   else
-    let ess = initBinHdl opts.InputFile |> buildGraph opts.Verbose
+    let ess = initBinHdl opts.ISA opts.InputFile |> buildGraph opts.Verbose
     if opts.JsonDumpDir <> "" then dumpJsonFiles opts.JsonDumpDir ess
     else ()
     let arbiter = Protocol.genArbiter ess opts.LogFile

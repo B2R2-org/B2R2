@@ -36,51 +36,47 @@ open B2R2.FrontEnd
 open B2R2.FrontEnd.BinHandlerHelper
 
 type BinHandler = {
-  ISA                : ISA
-  FileInfo           : FileInfo
-  BinReader          : BinReader
-  ParsingContext     : ParsingContext
-  TranslationContext : TranslationContext
-  Parser             : Parser
+  ISA: ISA
+  FileInfo: FileInfo
+  BinReader: BinReader
+  ParsingContext: ParsingContext
+  TranslationContext: TranslationContext
+  Parser: Parser
 }
 with
-  static member private Init (isa, mode, format, baseAddr, bytes, path) =
+  static member private Init (isa, mode, autoDetect, baseAddr, bytes, path) =
     let path = try IO.Path.GetFullPath path with _ -> ""
-    let fi = newFileInfo bytes baseAddr path format
-    let mode =
-      if mode = ArchOperationMode.NoMode && isARM isa
-        then detectThumb fi.EntryPoint isa else mode
+    let fi = newFileInfo bytes baseAddr path isa autoDetect
+    let isa = fi.ISA
+    let needCheckThumb = mode = ArchOperationMode.NoMode && isARM isa
+    let mode = if needCheckThumb then detectThumb fi.EntryPoint isa else mode
     let ctxt, parser = initHelpers isa
-    {
-      ISA = isa
+    { ISA = isa
       FileInfo = fi
       BinReader = BinReader.Init (bytes, isa.Endian)
       ParsingContext = ParsingContext (mode)
       TranslationContext = ctxt
-      Parser = parser
-    }
+      Parser = parser }
 
-  static member Init (isa, archMode, format, baseAddr, bytes) =
-    BinHandler.Init (isa, archMode, format, baseAddr, bytes, "")
+  static member Init (isa, archMode, autoDetect, baseAddr, bytes) =
+    BinHandler.Init (isa, archMode, autoDetect, baseAddr, bytes, "")
 
-  static member Init (isa, archMode, format, baseAddr, fileName) =
+  static member Init (isa, archMode, autoDetect, baseAddr, fileName) =
     let bytes = IO.File.ReadAllBytes fileName
-    BinHandler.Init (isa, archMode, format, baseAddr, bytes, fileName)
+    BinHandler.Init (isa, archMode, autoDetect, baseAddr, bytes, fileName)
 
-  static member Init (isa, archMode, format) =
-    BinHandler.Init (isa, archMode, format, 0UL, [||], "")
+  static member Init (isa, archMode) =
+    BinHandler.Init (isa, archMode, false, 0UL, [||], "")
 
   static member Init (isa) = BinHandler.Init (isa, [||])
 
   static member Init (isa, bytes) =
     let defaultMode = ArchOperationMode.NoMode
-    let defaultFmt = FileFormat.RawBinary
-    BinHandler.Init (isa, defaultMode, defaultFmt, 0UL, bytes, "")
+    BinHandler.Init (isa, defaultMode, false, 0UL, bytes, "")
 
   static member UpdateCode h addr bs =
-    { h with
-        FileInfo = newFileInfo bs addr h.FileInfo.FilePath h.FileInfo.FileFormat
-        BinReader = BinReader.Init (bs, h.ISA.Endian) }
+    { h with FileInfo = new RawFileInfo (bs, addr, h.ISA) :> FileInfo
+             BinReader = BinReader.Init (bs, h.ISA.Endian) }
 
   member __.ReadBytes (addr, nBytes) =
     BinHandler.ReadBytes (__, addr, nBytes)

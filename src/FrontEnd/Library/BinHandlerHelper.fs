@@ -48,13 +48,14 @@ let initHelpers isa =
     MIPS.MIPSParser (isa.WordSize, isa.Arch) :> Parser
   | _ -> Utils.futureFeature ()
 
-let inline newFileInfo bytes (baseAddr: Addr) path format =
-  match format with
-  | FileFormat.ELFBinary -> new ELFFileInfo (bytes, path) :> FileInfo
-  | FileFormat.PEBinary -> new PEFileInfo (bytes, path) :> FileInfo
-  | FileFormat.MachBinary -> new MachFileInfo (bytes, path) :> FileInfo
-  | FileFormat.RawBinary -> new RawFileInfo (bytes, baseAddr) :> FileInfo
-  | _ -> invalidArg "FileFormat" "Unknown file format."
+let newFileInfo bytes (baseAddr: Addr) path isa autoDetect =
+  if autoDetect then
+    match FormatDetector.detect path with
+    | FileFormat.ELFBinary -> new ELFFileInfo (bytes, path) :> FileInfo
+    | FileFormat.PEBinary -> new PEFileInfo (bytes, path) :> FileInfo
+    | FileFormat.MachBinary -> new MachFileInfo (bytes, path, isa) :> FileInfo
+    | _ -> new RawFileInfo (bytes, baseAddr, isa) :> FileInfo
+  else new RawFileInfo (bytes, baseAddr, isa) :> FileInfo
 
 let detectThumb entryPoint (isa: ISA) =
   match isa.Arch with

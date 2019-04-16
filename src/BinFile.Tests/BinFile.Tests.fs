@@ -111,10 +111,11 @@ module PE =
       checkSymbol fi 0x140001130UL "main"
 
 module Mach =
-  let parseFile fileName =
+  let parseFile fileName arch =
     let zip = fileName + ".zip"
     let bytes = ZIPReader.readFileFromZipFile FileFormat.MachBinary zip fileName
-    new MachFileInfo (bytes, fileName)
+    let isa = ISA.Init arch Endian.Little
+    new MachFileInfo (bytes, fileName, isa)
 
   let checkSymbol (fileInfo : MachFileInfo) addr symName =
     let found, n = fileInfo.TryFindFunctionSymbolName addr
@@ -126,7 +127,7 @@ module Mach =
 
     [<TestMethod>]
     member __.``[BinFile] Mach File Parse Test (X86_Stripped)`` () =
-      let fi = parseFile "mach_x86_rm_stripped"
+      let fi = parseFile "mach_x86_rm_stripped" Architecture.IntelX86
       Assert.AreEqual (0x00002050UL, fi.EntryPoint)
       Assert.AreEqual (FileType.ExecutableFile, fi.FileType)
       Assert.AreEqual (true, fi.IsStripped)
@@ -142,7 +143,7 @@ module Mach =
 
     [<TestMethod>]
     member __.``[BinFile] Mach File Parse Test (X64)`` () =
-      let fi = parseFile "mach_x64_wc"
+      let fi = parseFile "mach_x64_wc" Architecture.IntelX64
       Assert.AreEqual (0x100000E90UL, fi.EntryPoint)
       Assert.AreEqual (FileType.ExecutableFile, fi.FileType)
       Assert.AreEqual (false, fi.IsStripped)
@@ -158,7 +159,7 @@ module Mach =
 
     [<TestMethod>]
     member __.``[BinFile] Mach File Parse Test (X64_Stripped)`` () =
-      let fi = parseFile "mach_x64_wc_stripped"
+      let fi = parseFile "mach_x64_wc_stripped" Architecture.IntelX64
       Assert.AreEqual (0x100000E90UL, fi.EntryPoint)
       Assert.AreEqual (FileType.ExecutableFile, fi.FileType)
       Assert.AreEqual (true, fi.IsStripped)

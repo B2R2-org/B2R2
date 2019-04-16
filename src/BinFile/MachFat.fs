@@ -24,41 +24,36 @@
   SOFTWARE.
 *)
 
-/// Binary file format detector.
-module B2R2.BinFile.FormatDetector
+module internal B2R2.BinFile.Mach.Fat
 
-open System.IO
 open B2R2
 
-let private elfBinary reader =
-  if ELF.Header.isELF reader 0 then Some FileFormat.ELFBinary
-  else None
+type FatArch = {
+  CPUType: CPUType
+  CPUSubType: CPUSubType
+  Offset: int
+  Size: int
+  Align: int
+}
 
-let private peBinary bytes =
-  try PE.Helper.parseFormat bytes 0 |> ignore
-      Some (FileFormat.PEBinary)
-  with _ -> None
+let readFatArch (reader: BinReader) pos =
+  { CPUType = reader.PeekInt32 pos |> LanguagePrimitives.EnumOfValue
+    CPUSubType = reader.PeekInt32 (pos + 4) |> LanguagePrimitives.EnumOfValue
+    Offset = reader.PeekInt32 (pos + 8)
+    Size = reader.PeekInt32 (pos + 12)
+    Align = reader.PeekInt32 (pos + 16) }
 
-let private machBinary reader =
-  if Mach.Header.isMach reader 0 then Some FileFormat.MachBinary
-  else None
+let rec loadFat acc reader pos cnt =
+  if cnt = 0 then acc
+  else let arch = readFatArch reader pos
+       loadFat (arch :: acc) reader (pos + 20) (cnt - 1)
 
-/// <summary>
-///   Given a binary file path, identify its file format and return a tuple of
-///   (B2R2.FileFormat and B2R2.ISA).
-/// </summary>
-[<CompiledName("Detect")>]
-let detect file =
-  use f = File.OpenRead (file)
-  let maxBytes = 2048 (* This is more than enough for all the file formats. *)
-  let bytes = Array.create maxBytes 0uy
-  f.Read (bytes, 0, maxBytes) |> ignore
-  let reader = BinReader.Init (bytes)
-  Monads.OrElse.orElse {
-    yield! elfBinary reader
-    yield! peBinary bytes
-    yield! machBinary reader
-    yield! Some FileFormat.RawBinary
-  } |> Option.get
+/// Convert FatArch to a tuple of (Architecture, Offset), where Offset is the
+/// offset to the binary object of the corresponding architecture.
+let toTuple arch =
+  Header.cpuTypeToArch arch.CPUType arch.CPUSubType, arch.Offset
 
-// vim: set tw=80 sts=2 sw=2:
+let loadFormats (reader: BinReader) =
+  let nArch = reader.PeekInt32 4
+  loadFat [] reader 0 nArch
+  |> List.map toTuple

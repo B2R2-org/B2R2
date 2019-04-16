@@ -34,12 +34,19 @@ open B2R2.BinFile.Mach.Helper
 /// <summary>
 ///   This class represents a Mach-O binary file.
 /// </summary>
-type MachFileInfo (bytes, path) =
+type MachFileInfo (bytes, path, isa) =
   inherit FileInfo ()
 
   let mach = initMach bytes
 
   override __.FileFormat = FileFormat.MachBinary
+
+  override __.ISA =
+    let cputype = mach.MachHdr.CPUType
+    let cpusubtype = mach.MachHdr.CPUSubType
+    let arch = Header.cpuTypeToArch cputype cpusubtype
+    let endian = Header.magicToEndian mach.MachHdr.Magic
+    ISA.Init arch endian
 
   override __.FilePath = path
 

@@ -29,13 +29,18 @@ module B2R2.BinFile.Mach.Header
 open B2R2
 open B2R2.BinFile
 
-let peekMagic (reader : BinReader) offset =
+let peekMagic (reader: BinReader) offset =
   reader.PeekUInt32 offset |> LanguagePrimitives.EnumOfValue
 
-let isMach (reader : BinReader) offset =
+let isFat reader offset =
+  match peekMagic reader offset with
+  | Magic.FATCigam | Magic.FATMagic -> true
+  | _ -> false
+
+let isMach reader offset =
   match peekMagic reader offset with
   | Magic.MHCigam | Magic.MHCigam64 | Magic.MHMagic | Magic.MHMagic64 -> true
-  | _ -> false
+  | _ -> isFat reader offset
 
 let peekCPUType (reader: BinReader) offset =
   offset + 4 |> reader.PeekInt32 |> LanguagePrimitives.EnumOfValue
@@ -43,8 +48,7 @@ let peekCPUType (reader: BinReader) offset =
 let peekCPUSubType (reader: BinReader) offset =
   offset + 8 |> reader.PeekInt32 |> LanguagePrimitives.EnumOfValue
 
-let getMIPSISA (reader: BinReader) offset =
-  match peekCPUSubType reader offset with
+let getMIPSISA = function
   | CPUSubType.MIPSAll
   | CPUSubType.MIPSR2300
   | CPUSubType.MIPSR2600
@@ -52,14 +56,19 @@ let getMIPSISA (reader: BinReader) offset =
   | CPUSubType.MIPSR2000A -> Arch.MIPS32R2
   | _ -> raise InvalidISAException
 
-let peekArch reader offset =
-  match peekCPUType reader offset with
+let cpuTypeToArch cputype subtype =
+  match cputype with
   | CPUType.I386 -> Arch.IntelX86
   | CPUType.X64 -> Arch.IntelX64
   | CPUType.ARM -> Arch.ARMv7
   | CPUType.ARM64 -> Arch.AARCH64
-  | CPUType.MIPS -> getMIPSISA reader offset
+  | CPUType.MIPS -> getMIPSISA subtype
   | _ -> Arch.UnknownISA
+
+let peekArch reader offset =
+  let cputype = peekCPUType reader offset
+  let subtype = peekCPUSubType reader offset
+  cpuTypeToArch cputype subtype
 
 let peekClass reader offset =
   match peekMagic reader offset with
@@ -67,11 +76,13 @@ let peekClass reader offset =
   | Magic.MHMagic64 | Magic.MHCigam64 -> WordSize.Bit64
   | _ -> raise FileFormatMismatchException
 
-let peekEndianness reader offset =
-  match peekMagic reader offset with
+let magicToEndian = function
   | Magic.MHMagic | Magic.MHMagic64 -> Endian.Little
   | Magic.MHCigam | Magic.MHCigam64 -> Endian.Big
   | _ -> raise FileFormatMismatchException
+
+let peekEndianness reader offset =
+  peekMagic reader offset |> magicToEndian
 
 let parse reader offset =
   { Magic = peekMagic reader offset

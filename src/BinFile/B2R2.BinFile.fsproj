@@ -21,6 +21,7 @@
     <Compile Include="MachTypes.fs" />
     <Compile Include="MachLoadCommands.fs" />
     <Compile Include="MachHeader.fs" />
+    <Compile Include="MachFat.fs" />
     <Compile Include="MachSegment.fs" />
     <Compile Include="MachSection.fs" />
     <Compile Include="MachSymbol.fs" />

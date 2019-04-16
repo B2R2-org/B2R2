@@ -44,6 +44,12 @@ type Magic =
   /// The byte ordering scheme of the target machine is the reverse of the host
   /// CPU (64-bit CPU).
   | MHCigam64 = 0xCFFAEDFEu
+  /// The file is intended for use on multiple architectures (FAT binary). This
+  /// value is used on a big-endian host.
+  | FATMagic = 0xCAFEBABEu
+  /// The file is intended for use on multiple architectures (FAT binary). This
+  /// value is used on a little-endian host.
+  | FATCigam = 0xBEBAFECAu
 
 /// CPUType indicates the architecture.
 type CPUType =

@@ -44,24 +44,10 @@ type OptOption =
   | Opt
   | OptPar
 
-/// Indicate whether the input format should be automatically inferred or is
-/// simply given by the user.
-type FormatRequest =
-  | GivenFormat of FileFormat
-  | UndiscoveredFormat
-
-/// If the format is already given by a user, this function simply returns a
-/// tuple of file format and architecture. When the format is yet discovered,
-/// this function reads the given file to detect its file format, and returns
-/// the corresponding result.
-let returnFormat file isa = function
-  | GivenFormat fmt -> fmt, isa
-  | UndiscoveredFormat -> FormatDetector.detect file
-
-type BinDumpOpts (fmt, isa) =
+type BinDumpOpts (autoDetect, isa) =
   inherit CmdOpts(isa)
   /// Discover binary file format or not?
-  member val FormatReq = fmt with get, set
+  member val AutoDetect = autoDetect with get, set
 
   /// Disassemble or IR-translate?
   member val DumpMethod = LowUIRLift with get, set
@@ -98,16 +84,12 @@ type BinDumpOpts (fmt, isa) =
     CmdOpts.New ( descr = "Perform parallel bblock optimization for IL",
                   callback = cb, long = "--par-optimize")
 
-/// "-f" or "--input-format" option for specifying an input format.
-  static member OptInputFormat () =
-    let cb (opts: BinDumpOpts) (arg: string []) =
-      opts.FormatReq <- match arg.[0].ToLower () with
-                          | "auto" -> UndiscoveredFormat
-                          | str -> GivenFormat (FileFormat.ofString str)
+  static member OptRawBinary () =
+    let cb (opts: BinDumpOpts) _ =
+      opts.AutoDetect <- false
       opts
-    CmdOpts.New (
-      descr = "Specify input <format> (RAW|ELF|PE|MACH|AUTO)",
-      extra = 1, callback = cb, short = "-f", long = "--input-format" )
+    CmdOpts.New ( descr = "Turn off file format detection",
+                  callback = cb, long = "--raw-binary" )
 
 let spec =
   [
@@ -115,9 +97,9 @@ let spec =
 
     CmdOpts.OptInputFile ()
     CmdOpts.OptInputString ()
-    BinDumpOpts.OptInputFormat ()
     CmdOpts.OptISA ()
     CmdOpts.OptArchMode ()
+    BinDumpOpts.OptRawBinary ()
 
     CmdOpts.New (descr = "\n[Output Configuration]\n", dummy = true)
 
@@ -138,18 +120,22 @@ let spec =
   ]
 
 let initWithFile (opts: BinDumpOpts) =
-  let formatReq = opts.FormatReq
-  let fmt, isa = returnFormat opts.InputFile opts.ISA formatReq
   BinHandler.Init (
-    isa, opts.ArchOperationMode, fmt, opts.BaseAddress, opts.InputFile)
+    opts.ISA,
+    opts.ArchOperationMode,
+    opts.AutoDetect,
+    opts.BaseAddress,
+    opts.InputFile
+  )
 
 let initWithBytes (opts: BinDumpOpts) =
   BinHandler.Init (
     opts.ISA,
     opts.ArchOperationMode,
-    FileFormat.RawBinary,
+    false,
     opts.BaseAddress,
-    opts.InputStr)
+    opts.InputStr
+  )
 
 let isInvalidCmdLine (opts: BinDumpOpts) =
   Array.isEmpty opts.InputStr && String.IsNullOrEmpty opts.InputFile
@@ -308,8 +294,7 @@ let dump (opts: BinDumpOpts) =
 
 [<EntryPoint>]
 let main args =
-  let fmt = GivenFormat FileFormat.RawBinary
-  let opts = BinDumpOpts (fmt, ISA.Init (Arch.IntelX86) Endian.Little)
+  let opts = BinDumpOpts (true, ISA.Init (Arch.IntelX86) Endian.Little)
   CmdOpts.ParseAndRun dump spec opts args
 
 // vim: set tw=80 sts=2 sw=2:
