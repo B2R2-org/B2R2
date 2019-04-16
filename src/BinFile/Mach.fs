@@ -89,17 +89,17 @@ type MachFileInfo (bytes, path) =
 
   override __.GetSections () =
     mach.Sections.SecByNum
-    |> Array.map (machSectionToSection)
+    |> Array.map (machSectionToSection mach.SegmentMap)
     |> Array.toSeq
 
   override __.GetSections (addr) =
     match ARMap.tryFindByAddr addr mach.Sections.SecByAddr with
-    | Some s -> Seq.singleton (machSectionToSection s)
+    | Some s -> Seq.singleton (machSectionToSection mach.SegmentMap s)
     | None -> Seq.empty
 
   override __.GetSectionsByName (name) =
     match Map.tryFind name mach.Sections.SecByName with
-    | Some s -> Seq.singleton (machSectionToSection s)
+    | Some s -> Seq.singleton (machSectionToSection mach.SegmentMap s)
     | None -> Seq.empty
 
   override __.GetSegments () = Segment.getAll mach

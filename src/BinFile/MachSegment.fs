@@ -26,13 +26,19 @@
 
 module B2R2.BinFile.Mach.Segment
 
+open B2R2
 open B2R2.BinFile
 
-let filter cmds =
+let extract cmds =
   let chooser = function
     | Segment s -> Some s
     | _ -> None
   List.choose chooser cmds
+
+let buildMap (segs: SegCmd list) =
+  segs
+  |> List.fold (fun map s ->
+       ARMap.addRange s.VMAddr (s.VMAddr + s.VMSize) s map) ARMap.empty
 
 let segCmdToSegment seg =
   { Address = seg.VMAddr

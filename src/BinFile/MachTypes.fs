@@ -650,13 +650,15 @@ type SymInfo = {
 /// Main mach-o file structure.
 type Mach = {
   /// Entry point.
-  EntryPoint  : Addr
+  EntryPoint: Addr
   /// Header.
-  MachHdr     : MachHeader
+  MachHdr: MachHeader
   /// Segments.
-  Segments    : SegCmd list
+  Segments: SegCmd list
+  /// Segment address map.
+  SegmentMap: ARMap<SegCmd>
   /// Sections.
-  Sections    : SectionInfo
+  Sections: SectionInfo
   /// Symbol info.
-  SymInfo     : SymInfo
+  SymInfo: SymInfo
 }

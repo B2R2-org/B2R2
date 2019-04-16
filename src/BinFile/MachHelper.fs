@@ -29,26 +29,33 @@ module internal B2R2.BinFile.Mach.Helper
 open B2R2
 open B2R2.BinFile
 
-let rec getMainCmd = function
-  | [] -> raise FileFormatMismatchException
-  | Main m :: _ -> m
-  | _ :: tl -> getMainCmd tl
+let isMainCmd = function
+  | Main _ -> true
+  | _ -> false
 
-let rec getPageZeroSeg = function
-  | [] -> raise FileFormatMismatchException
-  | Segment s :: _ when s.SegName = "__PAGEZERO" -> s
-  | _ :: tl -> getPageZeroSeg tl
+let getMainOffset cmds =
+  match cmds |> List.tryFind isMainCmd with
+  | Some (Main m) -> m.EntryOff
+  | _ -> raise FileFormatMismatchException
+
+let getTextOffset segs =
+  let isTextSegment (s: SegCmd) = s.SegName = "__TEXT"
+  match segs |> List.tryFind isTextSegment with
+  | Some s -> s.VMAddr
+  | _ -> raise FileFormatMismatchException
 
 let parseMach offset reader  =
   let machHdr = Header.parse reader offset
   let cmds = LoadCommands.parse reader offset machHdr
-  let segs = Segment.filter cmds
+  let segs = Segment.extract cmds
+  let segmap = Segment.buildMap segs
   let secs = Section.parseSections reader machHdr.Class segs
   let symInfo = Symbol.parse machHdr cmds secs reader
-  { EntryPoint = (getPageZeroSeg cmds).VMSize + (getMainCmd cmds).EntryOff
+  { EntryPoint = getTextOffset segs + getMainOffset cmds
     SymInfo = symInfo
     MachHdr = machHdr
     Segments = segs
+    SegmentMap = segmap
     Sections = secs }
 
 let initMach bytes =
@@ -100,16 +107,20 @@ let getAllDynamicSymbols mach =
                          && not (s.SymType.HasFlag SymbolType.NSect))
   |> Array.map (machSymbolToSymbol TargetKind.DynamicSymbol)
 
-let secFlagToSectionKind = function
+let secFlagToSectionKind isExecutable = function
   | SectionType.NonLazySymbolPointers
   | SectionType.LazySymbolPointers
   | SectionType.SymbolStubs -> SectionKind.LinkageTableSection
-  | SectionType.Regular -> SectionKind.ExecutableSection
-  | _ -> SectionKind.ExtraSection
+  | _ ->
+    if isExecutable then SectionKind.ExecutableSection
+    else SectionKind.ExtraSection
 
-let machSectionToSection (sec: MachSection) =
+let machSectionToSection segMap (sec: MachSection) =
+  let seg = ARMap.findByAddr sec.SecAddr segMap
+  let perm: Permission = seg.InitProt |> LanguagePrimitives.EnumOfValue
+  let isExecutable = perm.HasFlag Permission.Executable
   { Address = sec.SecAddr
-    Kind = secFlagToSectionKind sec.SecType
+    Kind = secFlagToSectionKind isExecutable sec.SecType
     Size = sec.SecSize
     Name = sec.SecName }
 
