@@ -275,9 +275,7 @@ function centerAlign(dims, shiftX, reductionRate) {
 
 function setMinimap(dims, reductionRate) {
   let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
-  let minimapMarginRight =
-    parseInt($("#id_graphContainer").css("padding-right"))
-    + parseInt($("#id_graphContainer").css("margin-right"));
+  let minimapMarginRight = 20;
 
   let minimapWidth = document.getElementById("minimapStage-" + currentTabNumber).getBoundingClientRect().width * reductionRate;
   let minimapHeight = document.getElementById("minimapStage-" + currentTabNumber).getBoundingClientRect().height * reductionRate;
@@ -331,7 +329,6 @@ function drawCFG(dims, cfg) {
 function drawCFGAux(dims, cfg) {
   let extraRatio = 0.9, // Give a little bit more space.
     stageDim = null,
-    shiftX = 0.0,
     reductionRate;
 
   initSVG();
@@ -350,7 +347,7 @@ function drawCFGAux(dims, cfg) {
 
   dims = setMinimap(dims, reductionRate);
   centerAlign(dims, dims.minimapDim.width / 2, reductionRate);
-  drawMinimapViewPort(dims, reductionRate);
+  drawMinimapViewPort(dims);
   registerEvents(reductionRate, dims, cfg);
   $("#icon-refresh").removeClass("rotating"); // Stop the animation.
 }
@@ -527,7 +524,7 @@ function registerEvents(reductionRate, dims, g) {
 
   function dragMove() {
     let mouseSVGPoint = getEventPointFromMinimap(d3.event.sourceEvent);
-    let minimapX = mouseSVGPoint.x - offsetX;
+    let minimapX = mouseSVGPoint.x - offsetX - (dims.minimapDim.width - dims.minimapVPDim.width) / 2;
     let minimapY = mouseSVGPoint.y - offsetY;
     let minimapK = reductionRate * inverseK;
 
@@ -580,7 +577,7 @@ function registerEvents(reductionRate, dims, g) {
     translateWidthRatio = minimapBound.width / viewportBound.width;
     translateHeightRatio = minimapBound.height / viewportBound.height;
 
-    transX = (- transX) * translateWidthRatio;
+    transX = (- transX) * translateWidthRatio + (dims.minimapDim.width - dims.minimapVPDim.width) / 2;
     transY = (- transY) * translateHeightRatio;
 
     minimapVP.attr("transform",
