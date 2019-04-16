@@ -61,8 +61,8 @@ type Tag =
 type Term = string * Tag
 
 type InputNode = {
-  Address     : Addr
-  Disassembly : DisasmData list
+  Address: Addr
+  Data: DisasmData list
 }
 
 type InputEdge = {
@@ -88,51 +88,48 @@ module internal InputGraph =
     { Disasm = instr.Disasm (true, true, hdl.FileInfo)
       Comment = "" }
 
+  let disasmBBL hdl (v: Vertex<DisassemblyBBL>) =
+    let disasmData = List.map (ofInstruction hdl) v.VData.Instrs
+    { Address = v.VData.AddrRange.Min; Data = disasmData }
+
   let ofStmt (stmt: Stmt) =
-    { Disasm = Pp.stmtToString stmt
-      Comment = "" }
+    { Disasm = Pp.stmtToString stmt; Comment = "" }
 
-  let ofBBL hdl iNodes (v: Vertex<_>) =
-    match box v with
-    | :? DisasmVertex as v ->
-      let disasmData = List.map (ofInstruction hdl) v.VData.Instrs
-      { Address = v.VData.AddrRange.Min ;
-        Disassembly = disasmData } :: iNodes
-    | :? IRVertex as v ->
-      let irData = List.map ofStmt v.VData.Stmts
-      { Address = fst v.VData.Ppoint ;
-        Disassembly = irData } :: iNodes
-    | _ -> failwith "Should not be happened"
+  let irBBL _hdl (v: Vertex<IRBBL>) =
+    let irData = List.map ofStmt v.VData.Stmts
+    { Address = fst v.VData.Ppoint; Data = irData }
 
-  let ofCFGEdge g iEdges src dst =
-    match (box g, box src, box dst) with
-    | (:? DisasmCFG as g), (:? DisasmVertex as src), (:? DisasmVertex as dst) ->
-      let edge = g.FindEdge src dst
-      { From = src.VData.AddrRange.Min ; To = dst.VData.AddrRange.Min ;
-      Type = edge } :: iEdges
-    | (:? IRCFG as g), (:? IRVertex as src), (:? IRVertex as dst) ->
-      let edge = g.FindEdge src dst
-      { From = fst src.VData.Ppoint ; To = fst dst.VData.Ppoint ;
-      Type = edge } :: iEdges
-    | _ -> failwith "Should not be happened"
+  let ofBBL hdl bblFn iNodes (v: Vertex<_>) =
+    bblFn hdl v :: iNodes
 
-  let ofDisasmCFG hdl (g: DisasmCFG) =
-    let iNodes = g.FoldVertex (ofBBL hdl) []
-    let iEdges = g.FoldEdge (ofCFGEdge g) []
-    let root = g.GetRoot ()
-    { Nodes = iNodes ; Edges = iEdges ; Root = root.VData.AddrRange.Min }
+  let disasmEdge (g: DisasmCFG) (src: Vertex<_>) (dst: Vertex<_>) =
+    let e = g.FindEdge src dst
+    { From = src.VData.AddrRange.Min; To = dst.VData.AddrRange.Min; Type = e }
 
-  let ofIRCFG hdl (g: IRCFG) =
-    let iNodes = g.FoldVertex (ofBBL hdl) []
-    let iEdges = g.FoldEdge (ofCFGEdge g) []
-    let root = g.GetRoot ()
-    { Nodes = iNodes ; Edges = iEdges ; Root = fst root.VData.Ppoint }
+  let irEdge (g: IRCFG) (src: Vertex<_>) (dst: Vertex<_>) =
+    let e = g.FindEdge src dst
+    { From = fst src.VData.Ppoint; To = fst dst.VData.Ppoint; Type = e }
 
-  let ofCFG hdl g =
-    match box g with
-    | :? DisasmCFG as g -> ofDisasmCFG hdl g
-    | :? IRCFG as g -> ofIRCFG hdl g
-    | _ -> failwith "Should not be happened"
+  let ofCFGEdge g edgeFn iEdges src dst =
+    edgeFn g src dst :: iEdges
+
+  let ofCFG hdl rootFn bblFn edgeFn (g: #DiGraph<_, _>) =
+    let iNodes = g.FoldVertex (ofBBL hdl bblFn) []
+    let iEdges = g.FoldEdge (ofCFGEdge g edgeFn) []
+    let root = g.GetRoot () |> rootFn
+    { Nodes = iNodes; Edges = iEdges; Root = root }
+
+  let disasmRoot (v: Vertex<DisassemblyBBL>) =
+    v.VData.AddrRange.Min
+
+  let irRoot (v: Vertex<IRBBL>) =
+    fst v.VData.Ppoint
+
+  let ofDisasmCFG hdl (g: #DiGraph<_, _>) =
+    ofCFG hdl disasmRoot disasmBBL disasmEdge g
+
+  let ofIRCFG hdl (g: #DiGraph<_, _>) =
+    ofCFG hdl irRoot irBBL irEdge g
 
 type Point = {
   X : float
@@ -257,9 +254,9 @@ module VGraph =
         []
 
   let private addVNode (vGraph: VGraph) root vMap (iNode: InputNode) =
-    let width = calcWidth iNode.Disassembly
-    let height = calcHeight iNode.Disassembly
-    let terms = List.map disasmDataToTerms iNode.Disassembly
+    let width = calcWidth iNode.Data
+    let height = calcHeight iNode.Data
+    let terms = List.map disasmDataToTerms iNode.Data
     let vNode =
       VNode (vGraph.GenID (), iNode.Address, terms, width, height, false)
     let v = vGraph.AddVertex vNode

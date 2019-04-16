@@ -33,7 +33,7 @@ open B2R2
 open B2R2.BinGraph
 open B2R2.Visualization
 
-type CFGType = 
+type CFGType =
   | DisasmCFG
   | IRCFG
 
@@ -110,8 +110,8 @@ let handleFunctions req resp arbiter =
 let handleAJAX req resp arbiter query args =
     match query with
     | "bininfo" -> handleBinInfo req resp arbiter
-    | "cfg-disasm" ->  handleCFG req resp arbiter DisasmCFG args
-    | "cfg-ir" ->  handleCFG req resp arbiter IRCFG args
+    | "cfg-disasm" -> handleCFG req resp arbiter DisasmCFG args
+    | "cfg-ir" -> handleCFG req resp arbiter IRCFG args
     | "functions" -> handleFunctions req resp arbiter
     | _ -> ()
 
