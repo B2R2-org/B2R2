@@ -3,7 +3,7 @@ var tabTitle = $("#tab_title"),
   tabTemplate = "<li class='tab active' title={label} counter={number} value={label}><a href=#{href}>{label}</a><span class='glyphicon glyphicon-remove-circle close-tab'></span></li>",
   g_tabCounter = -1;
 
-function addTab($self, functionName, dims) {
+function addTab(functionName, dims, json) {
   g_tabCounter++;
   deactivatedTab()
   let tabContainer = $("#id_tabContainer");
@@ -13,19 +13,12 @@ function addTab($self, functionName, dims) {
     li = $(tabTemplate.replace('{href}', tabId).replace(/\{label\}/g, label).replace("{number}", g_tabCounter).replace("{type}", textType));
   tabContainer.find('ul').append(li);
   addGraphDiv(dims);
-  query({
-    "q": "cfg-disasm",
-    "args": $self.attr('value')
-  },
-    function (json) {
-      if (!isEmpty(json)) {
-        $("#uiFuncName").text(function (_, _) {
-          return $self.attr('value');
-        });
-        drawCFG(dims, json);
-      }
-    });
+  $("#uiFuncName").text(function (_, _) {
+    return functionName;
+  });
+  drawCFG(dims, json);
 }
+
 
 function addGraphDiv(dims) {
   let graphDivTemplate = "<div id='cfgDiv-{number}'><svg id='cfg-{number}' class='box'></svg></div>".replace(/\{number\}/g, g_tabCounter);
@@ -35,10 +28,6 @@ function addGraphDiv(dims) {
   d3.select("svg#cfg-" + g_tabCounter)
     .attr("width", dims.cfgVPDim.width)
     .attr("height", dims.cfgVPDim.height)
-
-  d3.select("svg#minimap" + g_tabCounter)
-    .attr("width", dims.minimapVPDim.width)
-    .attr("height", dims.minimapVPDim.height);
 }
 
 function closeTab($el) {

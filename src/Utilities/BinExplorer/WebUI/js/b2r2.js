@@ -88,7 +88,7 @@ function initSVG() {
   // First draw an empty background for minimap.
   d3.select("svg#minimap-" + currentTabNumber)
     .append("rect").attr("width", "100%").attr("height", "100%")
-    .attr("fill", "white");
+    .attr("fill", "#282a36");
 
   // Create a top layer for drawing a CFG on the minimap.
   d3.select("svg#minimap-" + currentTabNumber).append("g").attr("id", "minimapStage-" + currentTabNumber);
@@ -187,7 +187,8 @@ function drawNode(v) {
   d3.select("g#minimapStage-" + currentTabNumber).append("rect")
     .attr("class", "minimapRects")
     .attr("rx", "1").attr("ry", "1")
-    .attr("fill", "white").attr("fill-opacity", "0.25")
+    .attr("fill", "rgb(45, 53, 70)")
+    .attr("stroke", "rgb(255, 255,255)")
     .attr("style", "outline: 1px solid black;")
     .attr("width", v.Width * minimapRatio)
     .attr("height", v.Height * minimapRatio)
@@ -245,9 +246,9 @@ function drawEdge(e) {
     .curve(d3.curveLinear);
 
   let m = d3.select("g#minimapStage-" + currentTabNumber).insert("path", ":first-child")
+    .attr("class", "cfg" + e.Type)
     .attr("d", miniLineFunction(e.Points))
-    .attr("stroke", "black")
-    .attr("stroke-width", 0.5)
+    .attr("stroke-width", 0.7)
     .attr("fill", "none");
 
   if (e.IsBackEdge) m.attr("stroke-dasharray", "2, 2");
@@ -272,11 +273,24 @@ function centerAlign(dims, shiftX, reductionRate) {
       "translate (" + shiftX + ", 0) scale (" + reductionRate + ")");
 }
 
-function setMinimap(dims) {
+function setMinimap(dims, reductionRate) {
   let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
+  let minimapMarginRight =
+    parseInt($("#id_graphContainer").css("padding-right"))
+    + parseInt($("#id_graphContainer").css("margin-right"));
 
-  let newWidth = dims.minimapVPDim.width;
-  let newHeight = dims.minimapVPDim.height;
+  let minimapWidth = document.getElementById("minimapStage-" + currentTabNumber).getBoundingClientRect().width * reductionRate;
+  let minimapHeight = document.getElementById("minimapStage-" + currentTabNumber).getBoundingClientRect().height * reductionRate;
+
+  let minimapDim = {
+    width: minimapWidth < 200 ? 200 : minimapWidth,
+    height: minimapHeight < 300 ? 300 : minimapHeight,
+  };
+
+  dims.minimapDim = minimapDim;
+
+  let newWidth = dims.minimapDim.width;
+  let newHeight = dims.minimapDim.height;
 
   // set minimap size based on the graph size.
   d3.select("svg#minimap-" + currentTabNumber)
@@ -289,7 +303,10 @@ function setMinimap(dims) {
   let nodes = d3.select("g#minimapStage-" + currentTabNumber).selectAll(".minimapRects");
   nodes.attr("style", "outline: " + nodeSize + "px" + " solid black;");
 
-  return newWidth / 2;
+  $("#minimapDiv").css("height", (minimapDim.height + 30) + "px").css("margin-right", minimapMarginRight + "px");
+  $("#minimapDiv").css("margin-bottom", bottomMargin + "px");
+
+  return dims
 }
 
 function drawMinimapViewPort(dims) {
@@ -302,7 +319,7 @@ function drawMinimapViewPort(dims) {
     .attr("height", (dims.minimapVPDim.height - 2) + "px")
     .attr("fill", "transparent")
     .attr("stroke-width", "0.5")
-    .attr("stroke", "black");
+    .attr("stroke", "white");
 }
 
 function drawCFG(dims, cfg) {
@@ -331,9 +348,9 @@ function drawCFGAux(dims, cfg) {
   // In other words, the maximum reductionRate is one.
   if (reductionRate >= 1) reductionRate = 1;
 
-  shiftX = setMinimap(dims);
-  centerAlign(dims, shiftX, reductionRate);
-  drawMinimapViewPort(dims);
+  dims = setMinimap(dims, reductionRate);
+  centerAlign(dims, dims.minimapDim.width / 2, reductionRate);
+  drawMinimapViewPort(dims, reductionRate);
   registerEvents(reductionRate, dims, cfg);
   $("#icon-refresh").removeClass("rotating"); // Stop the animation.
 }
@@ -369,7 +386,6 @@ function registerEvents(reductionRate, dims, g) {
   function convertvMapPtToVPCoordinate(dx, dy) {
     let miniVPBound =
       document.getElementById("minimapVP-" + currentTabNumber).getBoundingClientRect();
-
     let widthRatio = minimapRatio / translateWidthRatio;
     let halfWidth = miniVPBound.width / minimapRatio / 2;
 
@@ -546,26 +562,6 @@ function registerEvents(reductionRate, dims, g) {
 
   minimap.call(clickAndDrag);
 
-
-  function handlerDragStart() {
-    console.log("handlerDragStart")
-  }
-  function handlerDragMove() {
-    console.log("handlerDragMove")
-
-  }
-  function handlerDragEnd() {
-    console.log("handlerDragEnd")
-
-  }
-
-  let miniMapHandlerdragBehavior = d3.drag()
-    .on("start", handlerDragStart)
-    .on("drag", handlerDragMove)
-    .on("end", handlerDragEnd);
-
-  minimapHandler.call(miniMapHandlerdragBehavior);
-
   document.getElementById("cfg-" + currentTabNumber)
     .addEventListener("mousemove", (function () { /*empty*/ }).bind(this));
 
@@ -684,49 +680,6 @@ function isEmpty(obj) {
 
 // Run in online mode (this is the default).
 function runOnline(dims) {
-  function singleClickOnFunctionItem(e) {
-    let $self = $(this);
-    let functionName = $self.attr('value');
-    let tabsLength = $("#id_tabContainer li").length;
-    if (tabsLength === 0) {
-      addTab($self, functionName, dims);
-    } else if (checkDuplicateTab(functionName)) {
-      activateTabbyName($self);
-    } else {
-      replaceTab($self, functionName, dims)
-    }
-  }
-
-  function doubleClickOnFunctionItem(e) {
-    let $self = $(this);
-    let functionName = $self.attr('value');
-    if (checkDuplicateTab(functionName)) {
-      activateTabbyName($self)
-    } else {
-      addTab($self, functionName, dims);
-    }
-  }
-  $(document).on('click', "#funcSelector li", function (e) {
-    $("#funcSelector li.clicked").each(function () {
-      $(this).removeClass("clicked")
-    });
-    let self = this;
-    $(self).addClass("clicked");
-    setTimeout(function () {
-      var dblclick = parseInt($(self).data('double'), 10);
-      if (dblclick > 0) {
-        $(self).data('double', dblclick - 1);
-      } else {
-        singleClickOnFunctionItem.call(self, e);
-      }
-      activateOpenFunction();
-
-    }, 300);
-  }).on('dblclick', "#funcSelector li", function (e) {
-    $(this).data('double', 2);
-    doubleClickOnFunctionItem.call(this, e);
-  });
-
   $(document).on('click', "#id_tabContainer .tab", function (e) {
     activateTabbyElement($(this));
   })
@@ -791,10 +744,6 @@ function runOnline(dims) {
 }
 
 function reloadUI() {
-  let minimapMarginRight =
-    parseInt($("#id_graphContainer").css("padding-right"))
-    + parseInt($("#id_graphContainer").css("margin-right"));
-
   let cfgVPDim = {
     width: document.getElementById("id_graphContainer").getBoundingClientRect().width
       - parseInt($("#id_graphContainer").css("padding-right"))
@@ -803,16 +752,84 @@ function reloadUI() {
       - document.getElementById("id_tabContainer").getBoundingClientRect().height
       - bottomMargin
   }
-
   let minimapVPDim = {
     width: cfgVPDim.width * minimapRatio,
-    height: cfgVPDim.height * minimapRatio
-  };
+    height: cfgVPDim.height * minimapRatio,
+  }
+  $("#id_funcFilter").width($("#id_FunctionsListWrapper").width() - 20)
 
-  $("#minimapDiv").css("height", (minimapVPDim.height + 30) + "px").css("margin-right", minimapMarginRight + "px");
-  $("#minimapDiv").css("margin-bottom", bottomMargin + "px");
   return { cfgVPDim: cfgVPDim, minimapVPDim: minimapVPDim };
 }
+
+function singleClickOnFunctionItem(e) {
+  let $self = $(this);
+  let functionName = $self.attr('value');
+  let tabsLength = $("#id_tabContainer li").length;
+  if (tabsLength === 0) {
+    query({
+        "q": "cfg-disasm",
+        "args": functionName
+    },
+      function (json) {
+        if (!isEmpty(json)) {
+          $("#uiFuncName").text(function (_, _) {
+            return functionName;
+          });
+          let dims = reloadUI();
+          addTab(functionName, dims, json);
+          drawCFG(dims, json);
+        }
+      });
+  } else if (checkDuplicateTab(functionName)) {
+    activateTabbyName($self);
+  } else {
+    let dims = reloadUI();
+    replaceTab($self, functionName, dims)
+  }
+}
+
+function doubleClickOnFunctionItem(e) {
+  let $self = $(this);
+  let functionName = $self.attr('value');
+  if (checkDuplicateTab(functionName)) {
+    activateTabbyName($self)
+  } else {
+    query({
+        "q": "cfg-disasm",
+        "args": functionName
+    },
+      function (json) {
+        if (!isEmpty(json)) {
+          $("#uiFuncName").text(function (_, _) {
+            return functionName;
+          });
+          let dims = reloadUI();
+          addTab(functionName, dims, json);
+          drawCFG(dims, json);
+        }
+      });
+  }
+}
+$(document).on('click', "#funcSelector li", function (e) {
+  $("#funcSelector li.clicked").each(function () {
+    $(this).removeClass("clicked")
+  });
+  let self = this;
+  $(self).addClass("clicked");
+  setTimeout(function () {
+    var dblclick = parseInt($(self).data('double'), 10);
+    if (dblclick > 0) {
+      $(self).data('double', dblclick - 1);
+    } else {
+      singleClickOnFunctionItem.call(self, e);
+    }
+    activateOpenFunction();
+
+  }, 300);
+}).on('dblclick', "#funcSelector li", function (e) {
+  $(this).data('double', 2);
+  doubleClickOnFunctionItem.call(this, e);
+});
 
 function main() {
   let dims = reloadUI();
