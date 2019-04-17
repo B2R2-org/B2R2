@@ -301,8 +301,9 @@ function setMinimap(dims, reductionRate) {
   let nodes = d3.select("g#minimapStage-" + currentTabNumber).selectAll(".minimapRects");
   nodes.attr("style", "outline: " + nodeSize + "px" + " solid black;");
 
-  $("#minimapDiv").css("height", (minimapDim.height + 30) + "px").css("margin-right", minimapMarginRight + "px");
+  $("#minimapDiv").css("margin-right", minimapMarginRight + "px");
   $("#minimapDiv").css("margin-bottom", bottomMargin + "px");
+  $("#minimapDiv").css("padding-top", "20px");
 
   return dims
 }
@@ -370,7 +371,6 @@ function registerEvents(reductionRate, dims, g) {
   let cfgStage = d3.select("g#cfgStage-" + currentTabNumber);
   let minimap = d3.select("svg#minimap-" + currentTabNumber);
   let minimapVP = d3.select("rect#minimapVP-" + currentTabNumber);
-  let minimapHandler = d3.select("rect#id_minimapHandler-" + currentTabNumber);
   let nodes = cfgStage.selectAll(".cfgNodeBlur");
   let edges = cfgStage.selectAll(".cfgEdgeBlur");
   let texts = cfgStage.selectAll(".cfgDisasmText");
@@ -494,7 +494,7 @@ function registerEvents(reductionRate, dims, g) {
 
   function jumpToCursor() {
     let centerPoint = getEventPointFromMinimap(d3.event.sourceEvent);
-    let minimapX = centerPoint.x - offsetX;
+    let minimapX = centerPoint.x - offsetX - (dims.minimapDim.width - dims.minimapVPDim.width) / 2;
     let minimapY = centerPoint.y - offsetY;
     let minimapK = reductionRate * inverseK;
 
@@ -648,6 +648,33 @@ function registerRefreshEvents(dims) {
         }
       });
   });
+}
+
+function draggableMinimap() {
+  let $minimapHandler = $("#minimapDiv .move-minimap")
+  let $minimapContainer = $("#minimapDiv")
+  var dragging = false;
+  var iX, iY;
+  $minimapHandler.mousedown(function (e) {
+    let minimapContainer = document.getElementById("minimapDiv")
+    dragging = true;
+    iX = e.clientX - minimapContainer.offsetLeft;
+    iY = e.clientY - minimapContainer.offsetTop;
+    minimapContainer.setCapture && minimapContainer.setCapture();
+    return false;
+  });
+  document.onmousemove = function (e) {
+    if (dragging) {
+      var e = e || window.event;
+      var oX = e.clientX - iX;
+      var oY = e.clientY - iY;
+      $minimapContainer.css({ "left": oX + "px", "top": oY + "px" });
+      return false;
+    }
+  };
+  $(document).mouseup(function (e) {
+    dragging = false;
+  })
 }
 
 // Offline mode renders a single function only. Inter-function analysis is not
@@ -834,6 +861,7 @@ function main() {
 
   filterFunctions();
   registerRefreshEvents(dims);
+  draggableMinimap();
 
   if (window.location.protocol == "file:")
     return runOffline(dims);

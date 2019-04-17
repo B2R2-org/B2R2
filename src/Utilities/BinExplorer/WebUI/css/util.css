@@ -121,11 +121,31 @@ html, body {
   width: 100%;
   height: 100%; }
 
+#minimapDiv {
+  width: fit-content;
+  height: fit-content;
+  border: 1px solid white;
+  background-color: #44475a; }
+  #minimapDiv span.glyphicon {
+    color: white;
+    border: 1px solid white;
+    width: fit-content;
+    background-color: #44475a;
+    font-size: 12px;
+    padding: 1px;
+    margin-right: 2px; }
+    #minimapDiv span.glyphicon.move-minimap {
+      position: absolute;
+      right: 0;
+      top: 2px; 
+      cursor: all-scroll; }
+
 .box {
   background: #44475a; }
 
 .min-box {
-  border: 1px solid #ccc; }
+  border: 1px solid #ccc;
+  cursor: default; }
 
 .cfgCJmpTrueEdgeArrow {
   fill: #50fa7b; }
