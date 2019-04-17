@@ -149,7 +149,7 @@ module Mach =
       Assert.AreEqual (false, fi.IsStripped)
       Assert.AreEqual (true, fi.NXEnabled)
       Assert.AreEqual (13, fi.GetSections () |> Seq.length)
-      Assert.AreEqual (723, fi.GetStaticSymbols () |> Seq.length)
+      Assert.AreEqual (576, fi.GetStaticSymbols () |> Seq.length)
       Assert.AreEqual (77, fi.GetDynamicSymbols () |> Seq.length)
       Assert.AreEqual (72, fi.GetLinkageTableEntries () |> Seq.length)
       Assert.AreEqual (0x100000D30UL, fi.TextStartAddr)

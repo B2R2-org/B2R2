@@ -45,7 +45,7 @@ type SymbolKind =
   | ObjectType = 1
   /// The symbol is associated with a general function.
   | FunctionType = 2
-  /// The symbol is associated with an external function.
+  /// The symbol is associated with an external (imported) function.
   | ExternFunctionType = 3
   /// The symbol is associated with a section.
   | SectionType = 4
@@ -54,9 +54,9 @@ type SymbolKind =
 
 /// Is the symbol used for static target or dynamic target?
 type TargetKind =
-  /// Statically symbols.
+  /// Static symbols.
   | StaticSymbol = 1
-  /// Dynamically symbols.
+  /// Dynamic symbols.
   | DynamicSymbol = 2
 
 /// A symbol object defined in a file-format-agnostic way.

@@ -317,6 +317,7 @@ type LoadCommand =
   | SymTab of SymTabCmd
   | DySymTab of DySymTabCmd
   | DyLib of DyLibCmd
+  | DyLdInfo of DyLdInfoCmd
   | Main of MainCmd
   | Unhandled of UnhandledCommand
 
@@ -412,6 +413,30 @@ and DySymTabCmd = {
   LocalRelOff: uint32
   /// An integer indicating the number of entries in the local relocation table.
   NumLocalRel: uint32
+}
+
+/// DYLD information command (dyld_info_command).
+and DyLdInfoCmd = {
+  /// File offset to rebase info.
+  RebaseOff: int
+  /// The size of rebase info.
+  RebaseSize: uint32
+  /// File offset to binding info
+  BindOff: int
+  /// The size of binding info.
+  BindSize: uint32
+  /// File offset to weak binding info.
+  WeakBindOff: int
+  /// The size of weak binding info.
+  WeakBindSize: uint32
+  /// File offset to lazy binding info.
+  LazyBindOff: int
+  /// The size of lazy binding info.
+  LazyBindSize: uint32
+  /// File offset to export info.
+  ExportOff: int
+  /// The size of export info.
+  ExportSize: uint32
 }
 
 /// Main command.
@@ -643,6 +668,14 @@ type MachSymbol = {
   SymAddr    : Addr
 }
 
+/// Export info.
+type ExportInfo = {
+  /// Symbol name.
+  ExportSymName: string
+  /// Exported symbol address.
+  ExportAddr: Addr
+}
+
 /// Symbol info
 type SymInfo = {
   /// All symbols.
@@ -651,9 +684,11 @@ type SymInfo = {
   SymbolMap: Map<Addr, MachSymbol>
   /// Linkage table.
   LinkageTable: LinkageTableEntry list
+  /// Export info.
+  Exports: ExportInfo list
 }
 
-/// Main mach-o file structure.
+/// Main Mach-o file structure.
 type Mach = {
   /// Entry point.
   EntryPoint: Addr

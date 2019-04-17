@@ -161,8 +161,8 @@ let computeRangeSet map =
   |> Seq.fold folder ARMap.empty
 
 // FIXME: clean up required.
-let getChunks (symTbl: ELFSymbol []) (dynSym: ELFSymbol []) =
-  let targetMap = if symTbl.Length = 0 then dynSym else symTbl
+let getChunks (sSym: ELFSymbol []) (dSym: ELFSymbol []) =
+  let targetMap = if sSym.Length = 0 then dSym else sSym
   let chunkMap, mappingSymbs =
     Array.fold insertAddrChunkMap (Map.empty, Map.empty) targetMap
   struct (computeRangeSet chunkMap, computeRangeSet mappingSymbs)
@@ -184,9 +184,7 @@ let parse eHdr secs reader =
   let staticSymArr = getMergedSymbolTbl secs.StaticSymSecNums symTbls
   let dynamicSymArr = getMergedSymbolTbl secs.DynSymSecNums symTbls
   let struct (symChunks, mappingSymbs) = getChunks staticSymArr dynamicSymArr
-  {
-    VersionTable = verTbl
+  { VersionTable = verTbl
     SecNumToSymbTbls = symTbls
     SymChunks = symChunks
-    MappingELFSymbols = mappingSymbs
-  }
+    MappingELFSymbols = mappingSymbs }

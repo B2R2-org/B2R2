@@ -41,7 +41,6 @@ let elfTypeToSymbKind ndx = function
   | SymbolType.STTGNUIFunc
   | SymbolType.STTFunc ->
     if ndx = SHNUndef then SymbolKind.NoType
-    elif ndx = SHNCommon then SymbolKind.ExternFunctionType
     else SymbolKind.FunctionType
   | SymbolType.STTSection -> SymbolKind.SectionType
   | SymbolType.STTFile ->SymbolKind.FileType

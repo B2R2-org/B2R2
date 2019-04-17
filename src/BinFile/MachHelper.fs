@@ -86,34 +86,39 @@ let tryFindFunctionSymb mach addr =
   | Some s -> Some s.SymName
   | None -> None
 
-let machTypeToSymbKind (sym: MachSymbol) =
-  if sym.SymType.HasFlag SymbolType.NFun then
-    if sym.IsExternal then SymbolKind.ExternFunctionType
-    else SymbolKind.FunctionType
+let machTypeToSymbKind isText (sym: MachSymbol) =
+  if sym.SymType.HasFlag SymbolType.NFun || isText sym.SymAddr then
+    SymbolKind.FunctionType
   elif sym.SymType.HasFlag SymbolType.NSO
     || sym.SymType.HasFlag SymbolType.NOSO then
     SymbolKind.FileType
   else
     SymbolKind.NoType
 
-let machSymbolToSymbol target (sym: MachSymbol) =
+let machSymbolToSymbol isText target (sym: MachSymbol) =
   { Address = sym.SymAddr
     Name = sym.SymName
-    Kind = machTypeToSymbKind sym
+    Kind = machTypeToSymbKind isText sym
     Target = target
     LibraryName = Symbol.getSymbolLibName sym }
 
+let getIsTextFunc mach =
+  let arr = mach.Sections.SecByNum
+  match Array.tryFind (fun s -> s.SecName = "__text") arr with
+  | None -> fun _ -> false
+  | Some s -> fun addr -> s.SecAddr <= addr && (s.SecAddr + s.SecSize > addr)
+
 let getAllStaticSymbols mach =
+  let isText = getIsTextFunc mach
   mach.SymInfo.Symbols
-  |> Array.filter (fun s -> int s.SymType &&& 0xe0 <> 0
-                         || s.SymType.HasFlag SymbolType.NStSym)
-  |> Array.map (machSymbolToSymbol TargetKind.StaticSymbol)
+  |> Array.filter Symbol.isStatic
+  |> Array.map (machSymbolToSymbol isText TargetKind.StaticSymbol)
 
 let getAllDynamicSymbols mach =
+  let isText = getIsTextFunc mach
   mach.SymInfo.Symbols
-  |> Array.filter (fun s -> int s.SymType &&& 0xe0 = 0
-                         && not (s.SymType.HasFlag SymbolType.NSect))
-  |> Array.map (machSymbolToSymbol TargetKind.DynamicSymbol)
+  |> Array.filter Symbol.isDynamic
+  |> Array.map (machSymbolToSymbol isText TargetKind.DynamicSymbol)
 
 let secFlagToSectionKind isExecutable = function
   | SectionType.NonLazySymbolPointers

@@ -35,15 +35,19 @@ let [<Literal>] IndirectSymbolLocal = 0x80000000
 let [<Literal>] IndirectSymbolABS = 0x40000000
 
 let chooseDyLib = function
-  | DyLib s -> Some s
+  | DyLib c -> Some c
   | _ -> None
 
 let chooseSymTab = function
-  | SymTab s -> Some s
+  | SymTab c -> Some c
   | _ -> None
 
 let chooseDynSymTab = function
-  | DySymTab s -> Some s
+  | DySymTab c -> Some c
+  | _ -> None
+
+let chooseDyLdInfo = function
+  | DyLdInfo c -> Some c
   | _ -> None
 
 let getLibraryVerInfo (flags: MachFlag) libs nDesc =
@@ -79,10 +83,23 @@ let parseSymTable (reader: BinReader) macHdr libs symtabs =
     parseSymTab acc reader macHdr libs strtab symtab.SymOff symtab.NumOfSym
   symtabs |> List.fold foldSymTabs [] |> List.rev |> List.toArray
 
+let isStatic s =
+  let hasStaticType s =
+    s.SymType = SymbolType.NStSym
+    || s.SymType = SymbolType.NFun
+    || s.SymType.HasFlag SymbolType.NSect
+    || int s.SymType &&& 0xe0 <> 0
+  hasStaticType s
+  && s.SecNum > 0uy
+  && s.SymAddr > 0UL
+  && s.SymDesc <> 0x10s
+
+let isDynamic s =
+  int s.SymType &&& 0xe0 = 0
+  && not (s.SymType.HasFlag SymbolType.NSect)
+
 let obtainStaticSymbols symbols =
-  let isStatic s =
-    s.SymType = SymbolType.NStSym || s.SymType = SymbolType.NFun
-  symbols |> Array.filter (fun s -> isStatic s && s.SecNum > 0uy)
+  symbols |> Array.filter isStatic
 
 let rec parseDynTab acc (reader: BinReader) offset numSymbs =
   if numSymbs = 0u then acc
@@ -152,6 +169,42 @@ let createLinkageTable stubs ptrtbls =
   let nameMap = Map.fold (fun m a s -> Map.add s.SymName a m) Map.empty stubs
   ptrtbls |> Map.fold (accumulateLinkageInfo nameMap) []
 
+let rec readStr (reader: BinReader) pos acc =
+  match reader.PeekByte pos with
+  | 0uy ->
+    List.rev acc |> List.toArray |> Text.Encoding.ASCII.GetString, pos + 1
+  | b -> readStr reader (pos + 1) (b :: acc)
+
+let buildExportEntry name addr =
+  { ExportSymName = name; ExportAddr = addr }
+
+/// The symbols exported by a dylib are encoded in a trie.
+let parseExportTrieHead (reader: BinReader) trieOffset =
+  let rec parseExportTrie offset str acc =
+    let b = reader.PeekByte offset
+    if b = 0uy then (* non-terminal *)
+      let numChildren, len = reader.PeekULEB128 (offset + 1)
+      parseChildren (offset + 1 + len) numChildren str acc
+    else
+      let _, shift= reader.PeekULEB128 offset
+      let _flag = reader.PeekByte (offset + shift)
+      let symbOffset, _ = reader.PeekULEB128 (offset + shift + 1)
+      buildExportEntry str symbOffset :: acc
+  and parseChildren offset numChildren str acc =
+    if numChildren = 0UL then acc
+    else
+      let pref, nextOffset = readStr reader offset []
+      let nextNode, len = reader.PeekULEB128 nextOffset
+      let acc = parseExportTrie (int nextNode + trieOffset) (str + pref) acc
+      parseChildren (nextOffset + len) (numChildren - 1UL) str acc
+  parseExportTrie trieOffset "" []
+
+let parseExports (reader: BinReader) dyldinfo =
+  match List.tryHead dyldinfo with
+  | None -> []
+  | Some info ->
+    parseExportTrieHead reader info.ExportOff
+
 let buildSymbolMap stubs ptrtbls staticsymbs =
   let map = Map.fold (fun map k v -> Map.add k v map) stubs ptrtbls
   Array.fold (fun map s -> Map.add s.SymAddr s map) map staticsymbs
@@ -160,12 +213,15 @@ let parse macHdr cmds secs reader =
   let libs = List.choose chooseDyLib cmds |> List.toArray
   let symtabs = List.choose chooseSymTab cmds
   let dyntabs = List.choose chooseDynSymTab cmds
+  let dyldinfo = List.choose chooseDyLdInfo cmds
   let symbols = parseSymTable reader macHdr libs symtabs
   let staticsymbs = obtainStaticSymbols symbols
   let dynsymIndices = parseDynSymTable reader dyntabs
   let stubs = parseSymbolStubs secs symbols dynsymIndices
   let ptrtbls = parseSymbolPtrs macHdr secs symbols dynsymIndices
   let linkage = createLinkageTable stubs ptrtbls
+  let exports = parseExports reader dyldinfo
   { Symbols = symbols |> Array.filter (fun s -> s.SymType <> SymbolType.NOpt)
     SymbolMap = buildSymbolMap stubs ptrtbls staticsymbs
-    LinkageTable = linkage }
+    LinkageTable = linkage
+    Exports = exports }

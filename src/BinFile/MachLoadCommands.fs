@@ -85,6 +85,18 @@ let parseDyLibCmd (reader: BinReader) size offset =
     DyLibCurVer = offset + 16 |> reader.PeekUInt32
     DyLibCmpVer = offset + 20 |> reader.PeekUInt32 }
 
+let parseDyLdInfo (reader: BinReader) offset =
+  { RebaseOff = offset + 8 |> reader.PeekInt32
+    RebaseSize = offset + 12 |> reader.PeekUInt32
+    BindOff = offset + 16 |> reader.PeekInt32
+    BindSize = offset + 20 |> reader.PeekUInt32
+    WeakBindOff = offset + 24 |> reader.PeekInt32
+    WeakBindSize = offset + 28 |> reader.PeekUInt32
+    LazyBindOff = offset + 32 |> reader.PeekInt32
+    LazyBindSize = offset + 36 |> reader.PeekUInt32
+    ExportOff = offset + 40 |> reader.PeekInt32
+    ExportSize = offset + 44 |> reader.PeekUInt32 }
+
 let parseCmd (reader: BinReader) cls offset =
   let cmdType = reader.PeekInt32 offset |> LanguagePrimitives.EnumOfValue
   let cmdSize = reader.PeekUInt32 (offset + 4)
@@ -96,6 +108,8 @@ let parseCmd (reader: BinReader) cls offset =
     | LoadCmdType.LCDySymTab -> DySymTab (parseDySymCmd reader offset)
     | LoadCmdType.LCMain -> Main (parseMainCmd reader offset)
     | LoadCmdType.LCLoadDyLib -> DyLib (parseDyLibCmd reader cmdSize offset)
+    | LoadCmdType.LCDyLDInfo
+    | LoadCmdType.LCDyLDInfoOnly -> DyLdInfo (parseDyLdInfo reader offset)
     | _ -> Unhandled { Cmd = cmdType; CmdSize = cmdSize }
   struct (command, Convert.ToInt32 cmdSize)
 
