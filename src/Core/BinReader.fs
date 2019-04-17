@@ -57,6 +57,15 @@ type BinReader (bytes: byte []) =
   /// Peek a character array of size n at the given offset.
   member __.PeekChars (n: int, o: int) = __.PeekBytes (n, o) |> Array.map char
 
+  /// Peek a number (64-bit integer) using the ULEB128 method.
+  member __.PeekULEB128 (o: int) =
+    let rec readLoop n cnt offset  =
+      let b = __.PeekByte (offset)
+      let acc = (uint64 (b &&& 0x7Fuy) <<< (cnt * 7)) ||| n
+      if b &&& 0x80uy <> 0uy then readLoop acc (cnt + 1) (offset + 1)
+      else acc, cnt + 1
+    readLoop 0UL 0 o
+
   /// Peek an int16 value at the given offset.
   abstract member PeekInt16: o: int -> int16
 
@@ -136,7 +145,7 @@ type BinReader (bytes: byte []) =
     | Endian.Big -> BinReaderBE (bytes) :> BinReader
     | _ -> invalidArg "BinReader.init" "Invalid endian is given."
 
-  /// Return a new BinReader of the given endianness. This function will returnt
+  /// Return a new BinReader of the given endianness. This function will return
   /// the same reader if the given endianness is the same as the endianness of
   /// the original reader.
   static member RenewReader (reader: BinReader) endian =
