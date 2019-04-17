@@ -39,6 +39,8 @@ type PEFileInfo (bytes, path, ?rawpdb) =
 
   override __.FileFormat = FileFormat.PEBinary
 
+  override __.BinReader = pe.BinReader
+
   override __.ISA =
     let arch = machineToArch pe.PEHeaders.CoffHeader.Machine
     ISA.Init arch Endian.Little

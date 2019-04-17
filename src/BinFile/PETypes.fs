@@ -184,4 +184,6 @@ type PE = {
   WordSize: WordSize
   /// Symbol information from PDB.
   PDB: PDBInfo
+  /// BinReader
+  BinReader: BinReader
 }

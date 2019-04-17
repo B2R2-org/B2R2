@@ -38,7 +38,6 @@ open B2R2.BinIR
 type BinHandler = {
   ISA                : ISA
   FileInfo           : FileInfo
-  BinReader          : BinReader
   ParsingContext     : ParsingContext
   TranslationContext : TranslationContext
   Parser             : Parser

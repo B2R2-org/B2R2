@@ -44,29 +44,35 @@ let getTextOffset segs =
   | Some s -> s.VMAddr
   | _ -> raise FileFormatMismatchException
 
-let parseMach offset reader  =
-  let machHdr = Header.parse reader offset
-  let cmds = LoadCommands.parse reader offset machHdr
+let parseMach reader  =
+  let machHdr = Header.parse reader 0
+  let cmds = LoadCommands.parse reader machHdr
   let segs = Segment.extract cmds
   let segmap = Segment.buildMap segs
   let secs = Section.parseSections reader machHdr.Class segs
-  let symInfo = Symbol.parse machHdr cmds secs reader offset
+  let symInfo = Symbol.parse machHdr cmds secs reader
   { EntryPoint = getTextOffset segs + getMainOffset cmds
     SymInfo = symInfo
     MachHdr = machHdr
     Segments = segs
     SegmentMap = segmap
-    Sections = secs }
+    Sections = secs
+    BinReader = reader }
+
+let updateReaderForFat bytes isa reader =
+  if Header.isFat reader 0 then
+    let offset, size = Fat.computeOffsetAndSize reader isa
+    let bytes = Array.sub bytes offset size
+    BinReader.Init (bytes)
+  else reader
 
 let initMach bytes isa =
-  let reader = BinReader.Init (bytes)
-  let offset =
-    if Header.isFat reader 0 then Fat.computeOffset reader isa  else 0
-  if Header.isMach reader offset then ()
+  let reader = BinReader.Init (bytes) |> updateReaderForFat bytes isa
+  if Header.isMach reader 0 then ()
   else raise FileFormatMismatchException
-  Header.peekEndianness reader offset
+  Header.peekEndianness reader 0
   |> BinReader.RenewReader reader
-  |> parseMach offset
+  |> parseMach
 
 let transFileType = function
   | MachFileType.MHExecute -> FileType.ExecutableFile

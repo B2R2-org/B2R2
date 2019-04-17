@@ -667,4 +667,6 @@ type Mach = {
   Sections: SectionInfo
   /// Symbol info.
   SymInfo: SymInfo
+  /// BinReader.
+  BinReader: BinReader
 }

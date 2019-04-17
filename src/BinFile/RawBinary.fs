@@ -37,6 +37,8 @@ type RawFileInfo (bytes: byte [], baseAddr, isa) =
 
   override __.FileFormat = FileFormat.RawBinary
 
+  override __.BinReader = BinReader.Init (bytes, isa.Endian)
+
   override __.ISA = isa
 
   override __.FilePath = ""

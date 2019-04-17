@@ -223,14 +223,13 @@ let parsePE execpath rawpdb binReader (peReader: PEReader) =
   let exportDirTables = parseExports binReader headers
   let importMap = parseImportMap binReader headers wordSize importDirTables
   let pdbInfo = getPDBSymbols execpath rawpdb |> buildPDBInfo headers
-  {
-    PEHeaders = headers
+  { PEHeaders = headers
     SectionHeaders = peReader.PEHeaders.SectionHeaders |> Seq.toArray
     ImportMap= importMap
     ExportMap = exportDirTables
     WordSize = wordSize
     PDB = pdbInfo
-  }
+    BinReader = binReader }
 
 let findSymFromPDB addr pdb =
   Map.tryFind addr pdb.SymbolByAddr

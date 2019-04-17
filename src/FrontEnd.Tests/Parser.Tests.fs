@@ -295,7 +295,7 @@ module Intel =
     member __.``Intel IL Test`` () =
       let isa = ISA.Init Arch.IntelX86 Endian.Little
       let hdl = BinHandler.Init (isa)
-      Assert.AreEqual (0, hdl.BinReader.Length ())
+      Assert.AreEqual (0, hdl.FileInfo.BinReader.Length ())
 
 module ARMv7 =
   open B2R2.FrontEnd.ARM32

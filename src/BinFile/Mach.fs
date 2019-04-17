@@ -41,6 +41,8 @@ type MachFileInfo (bytes, path, isa) =
 
   override __.FileFormat = FileFormat.MachBinary
 
+  override __.BinReader = mach.BinReader
+
   override __.ISA =
     let cputype = mach.MachHdr.CPUType
     let cpusubtype = mach.MachHdr.CPUSubType

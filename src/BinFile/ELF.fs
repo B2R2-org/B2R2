@@ -40,6 +40,8 @@ type ELFFileInfo (bytes, path) =
 
   override __.FileFormat = FileFormat.ELFBinary
 
+  override __.BinReader = elf.BinReader
+
   override __.ISA = ISA.Init elf.ELFHdr.MachineType elf.ELFHdr.Endian
 
   override __.FilePath = path

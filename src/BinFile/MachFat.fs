@@ -52,9 +52,9 @@ let matchISA isa fatArch =
   let arch = Header.cpuTypeToArch fatArch.CPUType fatArch.CPUSubType
   isa.Arch = arch
 
-let computeOffset (reader: BinReader) isa =
+let computeOffsetAndSize (reader: BinReader) isa =
   let reader = BinReader.RenewReader reader Endian.Big
   let nArch = reader.PeekInt32 4
   match loadFat [] reader 8 nArch |> List.tryFind (matchISA isa) with
   | None -> raise InvalidISAException
-  | Some fatArch -> fatArch.Offset
+  | Some fatArch -> fatArch.Offset, fatArch.Size

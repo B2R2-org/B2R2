@@ -99,10 +99,10 @@ let parseCmd (reader: BinReader) cls offset =
     | _ -> Unhandled { Cmd = cmdType; CmdSize = cmdSize }
   struct (command, Convert.ToInt32 cmdSize)
 
-let parse reader offset machHdr =
+let parse reader machHdr =
   let rec loop cNum acc offset =
     if cNum = 0u then List.rev acc
     else let struct (cmd, cmdSize) = parseCmd reader machHdr.Class offset
          loop (cNum - 1u) (cmd :: acc) (offset + cmdSize)
   let cmdOffset = if machHdr.Class = WordSize.Bit32 then 28 else 32
-  offset + cmdOffset |> loop machHdr.NumCmds []
+  cmdOffset |> loop machHdr.NumCmds []

@@ -765,23 +765,25 @@ type ProgramHeader = {
 /// Main ELF format representation.
 type ELF = {
   /// ELF header.
-  ELFHdr            : ELFHeader
+  ELFHdr: ELFHeader
   /// Segment information.
-  ProgHeaders       : ProgramHeader list
+  ProgHeaders: ProgramHeader list
   /// Loadable segments.
-  LoadableSegments  : ProgramHeader list
+  LoadableSegments: ProgramHeader list
   /// Loadable section numbers.
-  LoadableSecNums   : Set<int>
+  LoadableSecNums: Set<int>
   /// Section information.
-  SecInfo           : SectionInfo
+  SecInfo: SectionInfo
   /// Symbol information.
-  SymInfo           : ELFSymbolInfo
+  SymInfo: ELFSymbolInfo
   /// Relocation information.
-  RelocInfo         : RelocInfo
+  RelocInfo: RelocInfo
   /// Procedure Linkage Table.
-  PLT               : ARMap<ELFSymbol>
+  PLT: ARMap<ELFSymbol>
   /// PLT start address.
-  PLTStart          : Addr
+  PLTStart: Addr
   /// PLT end address.
-  PLTEnd            : Addr
+  PLTEnd: Addr
+  /// BinReader
+  BinReader: BinReader
 }

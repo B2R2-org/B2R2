@@ -129,6 +129,7 @@ let private parseELF offset reader =
     PLT = plt
     PLTStart = pltStart
     PLTEnd = pltEnd
+    BinReader = reader
   }
 
 let initELF bytes =
