@@ -48,12 +48,13 @@ let rec loadFat acc reader pos cnt =
   else let arch = readFatArch reader pos
        loadFat (arch :: acc) reader (pos + 20) (cnt - 1)
 
-/// Convert FatArch to a tuple of (Architecture, Offset), where Offset is the
-/// offset to the binary object of the corresponding architecture.
-let toTuple arch =
-  Header.cpuTypeToArch arch.CPUType arch.CPUSubType, arch.Offset
+let matchISA isa fatArch =
+  let arch = Header.cpuTypeToArch fatArch.CPUType fatArch.CPUSubType
+  isa.Arch = arch
 
-let loadFormats (reader: BinReader) =
+let computeOffset (reader: BinReader) isa =
+  let reader = BinReader.RenewReader reader Endian.Big
   let nArch = reader.PeekInt32 4
-  loadFat [] reader 0 nArch
-  |> List.map toTuple
+  match loadFat [] reader 8 nArch |> List.tryFind (matchISA isa) with
+  | None -> raise InvalidISAException
+  | Some fatArch -> fatArch.Offset

@@ -72,11 +72,12 @@ let rec parseSymTab acc reader macHdr libs strtab offset numSymbs =
        let offset' = offset + 8 + WordSize.toByteWidth macHdr.Class
        parseSymTab acc reader macHdr libs strtab offset' (numSymbs - 1u)
 
-let parseSymTable (reader: BinReader) macHdr libs symtabs =
+let parseSymTable (reader: BinReader) offset macHdr libs symtabs =
   let foldSymTabs acc symtab =
     let strtabSize = Convert.ToInt32 symtab.StrSize
-    let strtab = reader.PeekBytes (strtabSize, symtab.StrOff)
-    parseSymTab acc reader macHdr libs strtab symtab.SymOff symtab.NumOfSym
+    let strtab = reader.PeekBytes (strtabSize, offset + symtab.StrOff)
+    let symOff = offset + symtab.SymOff
+    parseSymTab acc reader macHdr libs strtab symOff symtab.NumOfSym
   symtabs |> List.fold foldSymTabs [] |> List.rev |> List.toArray
 
 let obtainStaticSymbols symbols =
@@ -90,9 +91,9 @@ let rec parseDynTab acc (reader: BinReader) offset numSymbs =
        parseDynTab (idx :: acc) reader (offset + 4) (numSymbs- 1u)
 
 /// DynSym table contains indices to the symbol table.
-let parseDynSymTable reader dyntabs =
+let parseDynSymTable reader offset dyntabs =
   let foldDynTabs acc dyntab =
-    let tabOffset = Convert.ToInt32 dyntab.IndirectSymOff
+    let tabOffset = Convert.ToInt32 dyntab.IndirectSymOff + offset
     parseDynTab acc reader tabOffset dyntab.NumIndirectSym
   dyntabs |> List.fold foldDynTabs [] |> List.rev |> List.toArray
 
@@ -156,13 +157,13 @@ let buildSymbolMap stubs ptrtbls staticsymbs =
   let map = Map.fold (fun map k v -> Map.add k v map) stubs ptrtbls
   Array.fold (fun map s -> Map.add s.SymAddr s map) map staticsymbs
 
-let parse macHdr cmds secs reader =
+let parse macHdr cmds secs reader offset =
   let libs = List.choose chooseDyLib cmds |> List.toArray
   let symtabs = List.choose chooseSymTab cmds
   let dyntabs = List.choose chooseDynSymTab cmds
-  let symbols = parseSymTable reader macHdr libs symtabs
+  let symbols = parseSymTable reader offset macHdr libs symtabs
   let staticsymbs = obtainStaticSymbols symbols
-  let dynsymIndices = parseDynSymTable reader dyntabs
+  let dynsymIndices = parseDynSymTable reader offset dyntabs
   let stubs = parseSymbolStubs secs symbols dynsymIndices
   let ptrtbls = parseSymbolPtrs macHdr secs symbols dynsymIndices
   let linkage = createLinkageTable stubs ptrtbls

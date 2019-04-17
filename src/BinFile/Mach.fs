@@ -37,7 +37,7 @@ open B2R2.BinFile.Mach.Helper
 type MachFileInfo (bytes, path, isa) =
   inherit FileInfo ()
 
-  let mach = initMach bytes
+  let mach = initMach bytes isa
 
   override __.FileFormat = FileFormat.MachBinary
 

@@ -36,7 +36,7 @@ let isMainCmd = function
 let getMainOffset cmds =
   match cmds |> List.tryFind isMainCmd with
   | Some (Main m) -> m.EntryOff
-  | _ -> raise FileFormatMismatchException
+  | _ -> 0UL
 
 let getTextOffset segs =
   let isTextSegment (s: SegCmd) = s.SegName = "__TEXT"
@@ -50,7 +50,7 @@ let parseMach offset reader  =
   let segs = Segment.extract cmds
   let segmap = Segment.buildMap segs
   let secs = Section.parseSections reader machHdr.Class segs
-  let symInfo = Symbol.parse machHdr cmds secs reader
+  let symInfo = Symbol.parse machHdr cmds secs reader offset
   { EntryPoint = getTextOffset segs + getMainOffset cmds
     SymInfo = symInfo
     MachHdr = machHdr
@@ -58,13 +58,15 @@ let parseMach offset reader  =
     SegmentMap = segmap
     Sections = secs }
 
-let initMach bytes =
+let initMach bytes isa =
   let reader = BinReader.Init (bytes)
-  if Header.isMach reader 0 then ()
+  let offset =
+    if Header.isFat reader 0 then Fat.computeOffset reader isa  else 0
+  if Header.isMach reader offset then ()
   else raise FileFormatMismatchException
-  Header.peekEndianness reader 0
+  Header.peekEndianness reader offset
   |> BinReader.RenewReader reader
-  |> parseMach 0
+  |> parseMach offset
 
 let transFileType = function
   | MachFileType.MHExecute -> FileType.ExecutableFile
