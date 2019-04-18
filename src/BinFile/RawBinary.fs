@@ -49,7 +49,7 @@ type RawFileInfo (bytes: byte [], baseAddr, isa) =
 
   override __.FileType = FileType.UnknownFile
 
-  override __.WordSize = WordSize.Bit32
+  override __.WordSize = isa.WordSize
 
   override __.NXEnabled = false
 
