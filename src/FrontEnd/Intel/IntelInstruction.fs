@@ -86,6 +86,12 @@ type IntelInstruction (addr, numBytes, insInfo, wordSize) =
       true
     | _ -> false
 
+  override __.IsInterrupt () =
+    match __.Info.Opcode with
+    | Opcode.INT | Opcode.INT3 | Opcode.INTO | Opcode.SYSCALL | Opcode.SYSENTER
+      -> true
+    | _ -> false
+
   override __.IsExit () =
        __.IsDirectBranch ()
     || __.IsIndirectBranch ()

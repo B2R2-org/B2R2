@@ -73,6 +73,8 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
 
   override __.IsRET () = false // XXX
 
+  override __.IsInterrupt () = Utils.futureFeature ()
+
   override __.IsExit () = // FIXME
     __.IsDirectBranch () ||
     __.IsIndirectBranch ()

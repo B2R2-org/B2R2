@@ -84,6 +84,8 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
   override __.IsRET () =
     __.Info.Opcode = Opcode.RET
 
+  override __.IsInterrupt () = Utils.futureFeature ()
+
   override __.IsExit () = // FIXME
     __.IsDirectBranch () ||
     __.IsIndirectBranch ()
