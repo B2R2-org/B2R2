@@ -57,6 +57,17 @@ type CmdList () =
     |> Seq.map createSegmentString
     |> Seq.toArray
 
+  let createSectionString (idx: int) (sec: Section) =
+    idx.ToString ("D2") + ". "
+    + addrToString sec.Address + ":" + addrToString (sec.Address + sec.Size)
+    + " (" + sec.Size.ToString ("D6") + ")"
+    + " [" + sec.Name + "] "
+
+  let listSections (handler: BinHandler) =
+    handler.FileInfo.GetSections ()
+    |> Seq.mapi createSectionString
+    |> Seq.toArray
+
   override __.CmdName = "list"
 
   override __.CmdAlias = [ "ls" ]
@@ -67,7 +78,8 @@ type CmdList () =
     "Usage: list <cmds> [options]\n\n\
      Currently available commands are:\n\
      - functions: List functions in the binary.\n\
-     - segments: List segments to be loaded."
+     - segments: List segments to be loaded.\n\
+     - sections: List sections in the binary."
 
   override __.SubCommands = [ "functions"; "segments"; ]
 
@@ -77,6 +89,8 @@ type CmdList () =
     | "funcs" :: _ -> listFunctions binEssence.Functions
     | "segments" :: _
     | "segs" :: _ -> listSegments binEssence.BinHandler
+    | "sections" :: _
+    | "secs" :: _ -> listSections binEssence.BinHandler
     | _ -> [| "[*] Unknown list cmd is given." |]
 
 // vim: set tw=80 sts=2 sw=2:
