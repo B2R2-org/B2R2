@@ -29,7 +29,30 @@ module internal B2R2.BinFile.ELF.Symbol
 open System
 open B2R2
 open B2R2.Monads.Maybe
+open B2R2.BinFile
 open B2R2.BinFile.FileHelper
+
+let getSymbKind ndx = function
+  | SymbolType.STTObject -> SymbolKind.ObjectType
+  | SymbolType.STTGNUIFunc
+  | SymbolType.STTFunc ->
+    if ndx = SHNUndef then SymbolKind.NoType
+    else SymbolKind.FunctionType
+  | SymbolType.STTSection -> SymbolKind.SectionType
+  | SymbolType.STTFile ->SymbolKind.FileType
+  | _ -> SymbolKind.NoType
+
+let versionToLibName version =
+  match version with
+  | Some version -> version.VerName
+  | None -> ""
+
+let toB2R2Symbol target (symb: ELFSymbol) =
+  { Address = symb.Addr
+    Name = symb.SymName
+    Kind = getSymbKind symb.SecHeaderIndex symb.SymType
+    Target = target
+    LibraryName = versionToLibName symb.VerInfo }
 
 let verName strTab vnaNameOffset =
   if vnaNameOffset >= Array.length strTab then ""
@@ -101,8 +124,7 @@ let parseSymb secs verSymSec strTab verTbl cls (reader: BinReader) symIdx pos =
   let ndx =  peekHeaderU16 reader cls pos 14 6 |> int
   let secIdx = SectionHeaderIdx.IndexFromInt ndx
   let verInfo = verSymSec >>= parseVersData reader symIdx >>= retrieveVer verTbl
-  {
-    Addr = readSymAddr reader cls pos
+  { Addr = readSymAddr reader cls pos
     SymName = ByteArray.extractCString strTab (Convert.ToInt32 nameIdx)
     Size = readSymSize reader cls pos
     Bind = info >>> 4 |> LanguagePrimitives.EnumOfValue
@@ -110,8 +132,7 @@ let parseSymb secs verSymSec strTab verTbl cls (reader: BinReader) symIdx pos =
     Vis = other &&& 0x3uy |> LanguagePrimitives.EnumOfValue
     SecHeaderIndex = secIdx
     ParentSection = Array.tryItem ndx secs.SecByNum
-    VerInfo = verInfo
-  }
+    VerInfo = verInfo }
 
 let getVerSymSection symTblSec secByType =
   if symTblSec.SecType = SectionType.SHTDynSym then
@@ -132,44 +153,28 @@ let parseSymbols cls secs (reader: BinReader) verTbl acc symTblSec =
          loop (count + 1UL) (sym :: acc) (nextSymOffset cls offset)
   Convert.ToInt32 symTblSec.SecOffset |> loop 0UL acc
 
-let genChunkMapBySTType chunk sym map map2 =
-  match sym.SymType with
-  | SymbolType.STTSection ->
-    Map.add sym.Addr { chunk with SecELFSymbol = Some sym } map, map2
-  | SymbolType.STTNoType ->
-    Map.add sym.Addr { chunk with MappingELFSymbol = Some sym } map,
-    Map.add sym.Addr sym map2
-  | SymbolType.STTFunc ->
-    Map.add sym.Addr { chunk with FuncELFSymbol = Some sym } map, map2
-  | _ -> Map.add sym.Addr chunk map, map2
-
-let insertAddrChunkMap (map, map2) sym =
-  let empty =
-    { SecELFSymbol = None; FuncELFSymbol = None; MappingELFSymbol = None }
-  match Map.tryFind sym.Addr map with
-  | Some c -> genChunkMapBySTType c sym map map2
-  | None -> genChunkMapBySTType empty sym map map2
-
-let computeRangeSet map =
-  let folder map = function
-    | [| (sAddr, chunk); (eAddr, _) |] ->
-      ARMap.add (AddrRange (sAddr, eAddr)) chunk map
-    | _ -> failwith "Fatal error"
-  Map.toSeq map
-  |> Seq.filter (fun (addr, _) -> addr <> 0UL)
-  |> Seq.windowed 2
-  |> Seq.fold folder ARMap.empty
-
-// FIXME: clean up required.
-let getChunks (sSym: ELFSymbol []) (dSym: ELFSymbol []) =
-  let targetMap = if sSym.Length = 0 then dSym else sSym
-  let chunkMap, mappingSymbs =
-    Array.fold insertAddrChunkMap (Map.empty, Map.empty) targetMap
-  struct (computeRangeSet chunkMap, computeRangeSet mappingSymbs)
-
 let getMergedSymbolTbl numbers symTbls =
   numbers
   |> List.fold (fun acc n -> Array.append (Map.find n symTbls) acc) [||]
+
+let private getStaticSymArrayInternal secInfo symTbl =
+  getMergedSymbolTbl secInfo.StaticSymSecNums symTbl
+
+let getStaticSymArray elf =
+  getStaticSymArrayInternal elf.SecInfo elf.SymInfo.SecNumToSymbTbls
+
+let private getDynamicSymArrayInternal secInfo symTbl =
+  getMergedSymbolTbl secInfo.DynSymSecNums symTbl
+
+let getDynamicSymArray elf =
+  getDynamicSymArrayInternal elf.SecInfo elf.SymInfo.SecNumToSymbTbls
+
+let buildSymbolMap staticSymArr dynamicSymArr =
+  let folder map sym =
+    if sym.Addr > 0UL then Map.add sym.Addr sym map
+    else map
+  let map = staticSymArr |> Array.fold folder Map.empty
+  dynamicSymArr |> Array.fold folder map
 
 let parse eHdr secs reader =
   let cls = eHdr.Class
@@ -181,10 +186,13 @@ let parse eHdr secs reader =
       Map.add n (Array.ofList symbols) map) Map.empty sec
   let symTbls =
     List.map (fun n -> n, secs.SecByNum.[n]) symTabNumbers |> getSymTables
-  let staticSymArr = getMergedSymbolTbl secs.StaticSymSecNums symTbls
-  let dynamicSymArr = getMergedSymbolTbl secs.DynSymSecNums symTbls
-  let struct (symChunks, mappingSymbs) = getChunks staticSymArr dynamicSymArr
+  let staticSymArr = getStaticSymArrayInternal secs symTbls
+  let dynamicSymArr = getDynamicSymArrayInternal secs symTbls
   { VersionTable = verTbl
     SecNumToSymbTbls = symTbls
-    SymChunks = symChunks
-    MappingELFSymbols = mappingSymbs }
+    AddrToSymbTable = buildSymbolMap staticSymArr dynamicSymArr }
+
+let updatePLTSymbols symInfo (plt: ARMap<ELFSymbol>) =
+  let update map =
+    plt |> ARMap.fold (fun map r s -> Map.add r.Min s map) map
+  { symInfo with AddrToSymbTable = update symInfo.AddrToSymbTable }

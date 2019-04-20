@@ -57,8 +57,6 @@ type RawFileInfo (bytes: byte [], baseAddr, isa) =
 
   override __.TranslateAddress addr = System.Convert.ToInt32 (addr - baseAddr)
 
-  override __.FindSymbolChunkStartAddress _addr = 0UL
-
   override __.GetSymbols () = Seq.empty
 
   override __.GetStaticSymbols () = Seq.empty

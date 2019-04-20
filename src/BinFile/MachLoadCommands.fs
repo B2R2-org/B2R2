@@ -24,7 +24,7 @@
   SOFTWARE.
 *)
 
-module B2R2.BinFile.Mach.LoadCommands
+module internal B2R2.BinFile.Mach.LoadCommands
 
 open System
 open B2R2

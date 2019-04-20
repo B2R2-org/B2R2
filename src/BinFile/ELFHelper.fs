@@ -28,7 +28,6 @@ module internal B2R2.BinFile.ELF.Helper
 
 open System
 open B2R2
-open B2R2.Monads.Maybe
 open B2R2.BinFile
 
 let [<Literal>] secPLT = ".plt"
@@ -36,21 +35,7 @@ let [<Literal>] secTEXT = ".text"
 
 let private pltThumbStubBytes = [| 0x78uy; 0x47uy; 0xc0uy; 0x46uy |]
 
-let elfTypeToSymbKind ndx = function
-  | SymbolType.STTObject -> SymbolKind.ObjectType
-  | SymbolType.STTGNUIFunc
-  | SymbolType.STTFunc ->
-    if ndx = SHNUndef then SymbolKind.NoType
-    else SymbolKind.FunctionType
-  | SymbolType.STTSection -> SymbolKind.SectionType
-  | SymbolType.STTFile ->SymbolKind.FileType
-  | _ -> SymbolKind.NoType
-
-let elfVersionToLibName version =
-  match version with
-  | Some version -> version.VerName
-  | None -> ""
-
+// FIXME
 let pltFirstSkipBytes = function
 | Arch.IntelX86
 | Arch.IntelX64 -> 0x10UL
@@ -70,41 +55,30 @@ let findPltSize sAddr plt reader = function
   | Arch.AARCH64 -> 0x10UL
   | _ -> failwith "Implement"
 
+let isFuncSymb s =
+  s.SymType = SymbolType.STTFunc || s.SymType = SymbolType.STTGNUIFunc
+
 let inline tryFindFuncSymb elf addr =
-  if addr >= elf.PLTStart && addr < elf.PLTEnd then
-    ARMap.tryFindByAddr addr elf.PLT
-    >>= (fun s -> Some s.SymName)
-  else
-    ARMap.tryFindByAddr addr elf.SymInfo.SymChunks
-    >>= (fun c -> c.FuncELFSymbol)
-    >>= (fun s -> if s.Addr = addr then Some s.SymName else None)
+  match Map.tryFind addr elf.SymInfo.AddrToSymbTable with
+  | None -> None
+  | Some s -> if isFuncSymb s then Some s.SymName else None
 
-let tryFindELFSymbolChunkRange elf addr =
-  match ARMap.tryFindKey (addr + 1UL) elf.SymInfo.SymChunks with
-  | Some range when range.Min = addr + 1UL -> Some range
-  | _ -> ARMap.tryFindKey addr elf.SymInfo.SymChunks
-
-let parsePLTELFSymbols arch sections (reloc: RelocInfo) reader =
-  let plt = Map.find secPLT sections.SecByName
-  let pltStartAddr = plt.SecAddr + pltFirstSkipBytes arch
-  let pltEndAddr = plt.SecAddr + plt.SecSize
-  let folder (map, sAddr) _ (rel: RelocationEntry) =
-    match rel.RelType with
-    | RelocationX86 RelocationX86.Reloc386JmpSlot
-    | RelocationX64 RelocationX64.RelocX64JmpSlot
-    | RelocationARMv7 RelocationARMv7.RelocARMJmpSlot
-    | RelocationARMv8 RelocationARMv8.RelocAARCH64JmpSlot ->
-      let nextStartAddr = sAddr + findPltSize sAddr plt reader arch
-      let addrRange = AddrRange (sAddr, nextStartAddr)
-      ARMap.add addrRange rel.RelSymbol map, nextStartAddr
-    | _ -> map, sAddr
-  struct (
-    Map.fold folder (ARMap.empty, pltStartAddr) reloc.RelocByAddr |> fst,
-    pltStartAddr,
-    pltEndAddr
-  )
-
-let private hasPLT secs = Map.containsKey secPLT secs.SecByName
+let parsePLT arch sections (reloc: RelocInfo) reader =
+  match Map.tryFind secPLT sections.SecByName with
+  | Some plt ->
+    let pltStartAddr = plt.SecAddr + pltFirstSkipBytes arch
+    let folder (map, sAddr) _ (rel: RelocationEntry) =
+      match rel.RelType with
+      | RelocationX86 RelocationX86.Reloc386JmpSlot
+      | RelocationX64 RelocationX64.RelocX64JmpSlot
+      | RelocationARMv7 RelocationARMv7.RelocARMJmpSlot
+      | RelocationARMv8 RelocationARMv8.RelocAARCH64JmpSlot ->
+        let nextStartAddr = sAddr + findPltSize sAddr plt reader arch
+        let addrRange = AddrRange (sAddr, nextStartAddr)
+        ARMap.add addrRange rel.RelSymbol map, nextStartAddr
+      | _ -> map, sAddr
+    Map.fold folder (ARMap.empty, pltStartAddr) reloc.RelocByAddr |> fst
+  | None -> ARMap.empty
 
 let private parseELF offset reader =
   let eHdr = Header.parse reader offset
@@ -114,11 +88,9 @@ let private parseELF offset reader =
   let loadableSecNums = ProgHeader.getLoadableSecNums secs loadableSegs
   let symbs = Symbol.parse eHdr secs reader
   let reloc = Relocs.parse eHdr secs symbs reader
-  let struct (plt, pltStart, pltEnd) =
-    if hasPLT secs then parsePLTELFSymbols eHdr.MachineType secs reloc reader
-    else struct (ARMap.empty, 0UL, 0UL)
-  {
-    ELFHdr = eHdr
+  let plt = parsePLT eHdr.MachineType secs reloc reader
+  let symbs = Symbol.updatePLTSymbols symbs plt
+  { ELFHdr = eHdr
     ProgHeaders = proghdrs
     LoadableSegments = loadableSegs
     LoadableSecNums = loadableSecNums
@@ -126,10 +98,7 @@ let private parseELF offset reader =
     SymInfo = symbs
     RelocInfo = reloc
     PLT = plt
-    PLTStart = pltStart
-    PLTEnd = pltEnd
-    BinReader = reader
-  }
+    BinReader = reader }
 
 let initELF bytes =
   let reader = BinReader.Init (bytes, Endian.Little)
@@ -138,15 +107,6 @@ let initELF bytes =
   Header.peekEndianness reader 0
   |> BinReader.RenewReader reader
   |> parseELF 0
-
-let elfSymbolToSymbol target (symb: ELFSymbol) =
-  {
-    Address = symb.Addr
-    Name = symb.SymName
-    Kind = elfTypeToSymbKind symb.SecHeaderIndex symb.SymType
-    Target = target
-    LibraryName = elfVersionToLibName symb.VerInfo
-  }
 
 let secFlagToSectionKind flag entrySize =
   if flag &&& SectionFlag.SHFExecInstr = SectionFlag.SHFExecInstr then
@@ -158,12 +118,10 @@ let secFlagToSectionKind flag entrySize =
     SectionKind.ExtraSection
 
 let elfSectionToSection (sec: ELFSection) =
-  {
-    Address = sec.SecAddr
+  { Address = sec.SecAddr
     Kind = secFlagToSectionKind sec.SecFlags sec.SecEntrySize
     Size = sec.SecSize
-    Name = sec.SecName
-  }
+    Name = sec.SecName }
 
 let rec isValid addr = function
   | seg :: tl ->

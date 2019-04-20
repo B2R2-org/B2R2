@@ -672,12 +672,8 @@ type ELFSymbolInfo = {
   VersionTable: Map<uint16, string>
   /// A mapping from a section number to the corresponding symbol table.
   SecNumToSymbTbls: Map<int, ELFSymbol []>
-  /// We call a sequence of instructions/values that has the same symbol name
-  /// as a "symbol chunk". ELFSymbol chunks are only relevant to code/data
-  /// symbols.
-  SymChunks: ARMap<SymChunk>
-  /// Store a mapping from AddrRange to a mapping symbol (for ARM binaries).
-  MappingELFSymbols: ARMap<ELFSymbol>
+  /// Address to symbol mapping.
+  AddrToSymbTable: Map<Addr, ELFSymbol>
 }
 
 /// This member tells what kind of segment this array element describes or
@@ -780,10 +776,6 @@ type ELF = {
   RelocInfo: RelocInfo
   /// Procedure Linkage Table.
   PLT: ARMap<ELFSymbol>
-  /// PLT start address.
-  PLTStart: Addr
-  /// PLT end address.
-  PLTEnd: Addr
   /// BinReader
   BinReader: BinReader
 }

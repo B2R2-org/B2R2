@@ -24,7 +24,7 @@
   SOFTWARE.
 *)
 
-module B2R2.BinFile.Mach.Section
+module internal B2R2.BinFile.Mach.Section
 
 open B2R2
 open B2R2.BinFile.FileHelper

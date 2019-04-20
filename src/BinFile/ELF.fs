@@ -77,20 +77,14 @@ type ELFFileInfo (bytes, path) =
     | Some n -> name <- n; true
     | None -> false
 
-  override __.FindSymbolChunkStartAddress addr =
-    match tryFindELFSymbolChunkRange elf addr with
-    | Some range -> range.Min
-    | None -> 0UL
-
   override __.GetSymbols () =
     let s = __.GetStaticSymbols ()
     let d = __.GetDynamicSymbols ()
     Seq.append s d
 
   override __.GetStaticSymbols () =
-    let secNumbers = elf.SecInfo.StaticSymSecNums
-    Symbol.getMergedSymbolTbl secNumbers elf.SymInfo.SecNumToSymbTbls
-    |> Array.map (elfSymbolToSymbol TargetKind.StaticSymbol)
+    Symbol.getStaticSymArray elf
+    |> Array.map (Symbol.toB2R2Symbol TargetKind.StaticSymbol)
     |> Array.toSeq
 
   override __.GetDynamicSymbols (?defined: bool) =
@@ -98,10 +92,9 @@ type ELFFileInfo (bytes, path) =
     let alwaysTrue = fun _ -> true
     let filter =
       if onlyDef then (fun s -> s.SecHeaderIndex <> SHNUndef) else alwaysTrue
-    let secNumbers = elf.SecInfo.DynSymSecNums
-    Symbol.getMergedSymbolTbl secNumbers elf.SymInfo.SecNumToSymbTbls
+    Symbol.getDynamicSymArray elf
     |> Array.filter filter
-    |> Array.map (elfSymbolToSymbol TargetKind.DynamicSymbol)
+    |> Array.map (Symbol.toB2R2Symbol TargetKind.DynamicSymbol)
     |> Array.toSeq
 
   override __.GetSections () =
@@ -127,7 +120,7 @@ type ELFFileInfo (bytes, path) =
   override __.GetLinkageTableEntries () =
     let create pltAddr (symb: ELFSymbol) =
       { FuncName = symb.SymName
-        LibraryName = elfVersionToLibName symb.VerInfo
+        LibraryName = Symbol.versionToLibName symb.VerInfo
         TrampolineAddress = pltAddr
         TableAddress = symb.Addr }
     elf.PLT
@@ -138,7 +131,7 @@ type ELFFileInfo (bytes, path) =
   override __.GetRelocationSymbols () =
     let translate (_, reloc) =
       { reloc.RelSymbol with Addr = reloc.RelOffset }
-      |> elfSymbolToSymbol TargetKind.DynamicSymbol
+      |> Symbol.toB2R2Symbol TargetKind.DynamicSymbol
     elf.RelocInfo.RelocByName
     |> Map.toSeq
     |> Seq.map translate

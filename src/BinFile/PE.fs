@@ -89,9 +89,6 @@ type PEFileInfo (bytes, path, ?rawpdb) =
     | Some n -> name <- n; true
     | None -> false
 
-  override __.FindSymbolChunkStartAddress _addr =
-    Utils.futureFeature ()
-
   override __.GetSymbols () =
     let s = __.GetStaticSymbols ()
     let d = __.GetDynamicSymbols ()

@@ -24,7 +24,7 @@
   SOFTWARE.
 *)
 
-module B2R2.BinFile.Mach.Header
+module internal B2R2.BinFile.Mach.Header
 
 open B2R2
 open B2R2.BinFile

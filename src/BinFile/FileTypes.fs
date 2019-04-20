@@ -47,16 +47,19 @@ type SymbolKind =
   | FunctionType = 2
   /// The symbol is associated with an external (imported) function.
   | ExternFunctionType = 3
+  /// The symbol is associated with a trampoline instruction, such as PLT.
+  | TrampolineType = 4
   /// The symbol is associated with a section.
-  | SectionType = 4
+  | SectionType = 5
   /// The symbol gives the name of the source file associated with the obj file.
-  | FileType = 5
+  | FileType = 6
 
-/// Is the symbol used for static target or dynamic target?
+/// Is the symbol used for static target (static link editor) or dynamic target
+/// (dynamic linker)?
 type TargetKind =
-  /// Static symbols.
+  /// Static symbols are used by link editor, and can be stripped off.
   | StaticSymbol = 1
-  /// Dynamic symbols.
+  /// Dynamic symbols cannot be stripped off.
   | DynamicSymbol = 2
 
 /// A symbol object defined in a file-format-agnostic way.

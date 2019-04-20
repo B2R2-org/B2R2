@@ -99,20 +99,6 @@ type FileInfo () =
   abstract member TranslateAddress: addr: Addr -> int
 
   /// <summary>
-  ///   Find the start address of the symbol chunk, which includes the given
-  ///   address. We let a symbol chunk be a consecutive sequence of code/data
-  ///   that corresponds to the same symbol.
-  /// </summary>
-  /// <returns>
-  ///   Returns a start address of the symbol chunk if it exists. Otherwise, it
-  ///   raises an exception.
-  /// </returns>
-  /// <exception cref="T:B2R2.BinFile.InvalidAddrReadException">
-  ///   Thrown when the given address is out of a valid address range.
-  /// </exception>
-  abstract member FindSymbolChunkStartAddress: Addr -> Addr
-
-  /// <summary>
   ///   Return a list of all the symbols from the binary.
   /// </summary>
   /// <returns>

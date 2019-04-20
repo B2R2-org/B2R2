@@ -82,8 +82,6 @@ type MachFileInfo (bytes, path, isa) =
     | Some n -> name <- n; true
     | None -> false
 
-  override __.FindSymbolChunkStartAddress _addr = Utils.futureFeature ()
-
   override __.GetSymbols () =
     let s = getAllStaticSymbols mach
     let d = getAllDynamicSymbols mach

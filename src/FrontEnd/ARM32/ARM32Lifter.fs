@@ -2911,7 +2911,8 @@ let translate insInfo ctxt =
   | Op.VMRS -> vmrs insInfo ctxt
   | Op.VCVT | Op.VCVTR | Op.VMLS | Op.VADD | Op.VMUL | Op.VDIV
   | Op.VMOV | Op.VCMP | Op.VCMPE -> sideEffects insInfo addr UnsupportedFP
-  | o -> raise <| NotImplementedIRException (Disasm.opCodeToString o)
+  | o -> eprintfn "%A" o
+         raise <| NotImplementedIRException (Disasm.opCodeToString o)
   |> fun builder -> builder.ToStmts ()
 
 // vim: set tw=80 sts=2 sw=2:

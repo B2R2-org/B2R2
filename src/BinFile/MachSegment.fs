@@ -24,7 +24,7 @@
   SOFTWARE.
 *)
 
-module B2R2.BinFile.Mach.Segment
+module internal B2R2.BinFile.Mach.Segment
 
 open B2R2
 open B2R2.BinFile

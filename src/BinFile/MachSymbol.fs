@@ -24,7 +24,7 @@
   SOFTWARE.
 *)
 
-module B2R2.BinFile.Mach.Symbol
+module internal B2R2.BinFile.Mach.Symbol
 
 open System
 open B2R2
