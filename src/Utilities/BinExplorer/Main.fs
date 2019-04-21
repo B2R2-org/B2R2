@@ -2,7 +2,6 @@
   B2R2 - the Next-Generation Reversing Platform
 
   Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
-          DongYeop Oh <oh51dy@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -29,12 +28,11 @@ module B2R2.Utilities.BinExplorer.Main
 
 open B2R2
 open B2R2.BinGraph
-open B2R2.BinFile
 open B2R2.FrontEnd
 open B2R2.Visualization
 open B2R2.Utilities
 
-type BinExplorerOpts () =
+type BinExplorerOpts (isa) =
   inherit CmdOpts()
 
   /// Host port number.
@@ -52,6 +50,12 @@ type BinExplorerOpts () =
 
   /// Dump each CFG in JSON format?
   member val JsonDumpDir = "" with get, set
+
+  /// Specify ISA. This is only meaningful for universal (fat) binaries because
+  /// BinHandler will automatically detect file format by default. When a fat
+  /// binary is given, we need to choose which architecture to explorer with
+  /// this option.
+  member val ISA = isa with get, set
 
   /// Enable readline mode or not. This option will be removed when .NET bug:
   /// https://github.com/dotnet/corefx/issues/32174 is fixed.
@@ -93,6 +97,13 @@ type BinExplorerOpts () =
       descr = "File name to dump CFG json (default is ./output.cfg)",
       extra = 1, callback = cb, long = "--dumpjson" )
 
+  /// "-a" or "--isa" option for specifying ISA.
+  static member OptISA () =
+    let cb (opts: #CmdOpts) (arg: string []) =
+      (BinExplorerOpts.ToThis opts).ISA <- ISA.OfString arg.[0]; opts
+    CmdOpts.New ( descr = "Specify <ISA> (e.g., x86) for fat binaries",
+                  extra = 1, callback = cb, short = "-a", long= "--isa" )
+
   static member OptReadLine () =
     let cb (opts: #CmdOpts) (_arg : string []) =
       (BinExplorerOpts.ToThis opts).EnableReadLine <- true; opts
@@ -111,9 +122,7 @@ let spec =
   [
     CmdOpts.New ( descr="[Input Configuration]\n", dummy=true )
 
-    CmdOpts.OptInputFile ()
-    CmdOpts.OptISA ()
-    CmdOpts.OptBaseAddr ()
+    BinExplorerOpts.OptISA ()
 
     CmdOpts.New ( descr="\n[Host Configuration]\n", dummy=true )
 
@@ -133,7 +142,7 @@ let spec =
 
     BinExplorerOpts.OptReadLine ()
     BinExplorerOpts.OptJsonDumpDir ()
-    CmdOpts.OptQuite ()
+    CmdOpts.OptVerbose ()
     CmdOpts.OptHelp ()
   ]
 
@@ -170,18 +179,17 @@ let dumpJsonFiles jsonDir ess =
 let initBinHdl isa (name: string) =
   BinHandler.Init (isa, ArchOperationMode.NoMode, true, 0UL, name)
 
-let realMain (opts: BinExplorerOpts) =
-  if Array.isEmpty opts.InputStr && String.length opts.InputFile = 0 &&
-    not opts.EnableVisual then
-    eprintfn "A string, a file, or a visual mode option should be given.\n\n\
-              See B2R2 --help for more info."; exit 1
-  else ()
-  if opts.EnableVisual then
+let realMain files (opts: BinExplorerOpts) =
+  if List.length files = 0 && not opts.EnableVisual then
+    eprintfn "Either a file or a visual mode option should be given.\n\n\
+              Type --help to see more info."; exit 1
+  elif opts.EnableVisual then
     let inputJson = opts.JsonLoadFile
     let outputJson = opts.JsonDumpFile
     visualizeGraph inputJson outputJson
   else
-    let ess = initBinHdl opts.ISA opts.InputFile |> buildGraph opts.Verbose
+    let file = List.head files
+    let ess = initBinHdl ISA.DefaultISA file |> buildGraph opts.Verbose
     if opts.JsonDumpDir <> "" then dumpJsonFiles opts.JsonDumpDir ess
     else ()
     let arbiter = Protocol.genArbiter ess opts.LogFile
@@ -190,7 +198,7 @@ let realMain (opts: BinExplorerOpts) =
 
 [<EntryPoint>]
 let main args =
-  let opts = BinExplorerOpts ()
-  CmdOpts.ParseAndRun realMain spec opts args
+  let opts = BinExplorerOpts (ISA.DefaultISA)
+  CmdOpts.ParseAndRun realMain "<binary file>" spec opts args
 
 // vim: set tw=80 sts=2 sw=2:

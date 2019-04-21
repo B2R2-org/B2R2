@@ -2,7 +2,6 @@
   B2R2 - the Next-Generation Reversing Platform
 
   Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
-          DongYeop Oh <oh51dy@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -33,25 +32,7 @@ open OptParse
 
 /// A common set of command-line options used in analyzing binaries.
 [<AbstractClass>]
-type CmdOpts (?isa) =
-  /// Input file path.
-  member val InputFile = "" with get, set
-
-  /// Input string from command line.
-  member val InputStr: byte [] = [||] with get, set
-
-  /// ISA
-  member val ISA = defaultArg isa ISA.DefaultISA with get, set
-
-  /// ArchOperationMode
-  member val ArchOperationMode = ArchOperationMode.NoMode with get, set
-
-  /// Base address
-  member val BaseAddress: Addr = 0UL with get, set
-
-  /// Whether to show addresses or not
-  member val ShowAddress = false with get, set
-
+type CmdOpts () =
   /// Verbosity
   member val Verbose = false with get, set
 
@@ -63,53 +44,8 @@ type CmdOpts (?isa) =
                                      ?short=short, ?long=long,
                                      ?dummy=dummy, ?descrColor=descrColor )
 
-  /// "-i" option for specifying an input file.
-  static member OptInputFile () =
-    let cb (opts: #CmdOpts) (arg: string []) =
-      opts.InputFile <- arg.[0]; opts
-    CmdOpts.New ( descr = "Specify an input <file>",
-                  extra = 1, callback = cb, short = "-i" )
-
-  /// "-s" option for specifying an input string.
-  static member OptInputString () =
-    let cb (opts: #CmdOpts) (arg: string []) =
-      opts.InputStr <- ByteArray.ofHexString arg.[0]; opts
-    CmdOpts.New ( descr = "Specify an input <hexstring> from command line",
-                  extra = 1, callback = cb, short = "-s" )
-
-  /// "-a" or "--isa" option for specifying ISA.
-  static member OptISA () =
-    let cb (opts: #CmdOpts) (arg: string []) =
-      opts.ISA <- ISA.OfString arg.[0]; opts
-    CmdOpts.New ( descr = "Specify <ISA> (e.g., x86) from command line",
-                  extra = 1, callback = cb, short = "-a", long= "--isa" )
-
-  /// "-m" or "--mode" option for specifying ArchOperationMode.
-  static member OptArchMode () =
-    let cb (opts: #CmdOpts) (arg: string []) =
-      opts.ArchOperationMode <- ArchOperationMode.ofString arg.[0]; opts
-    CmdOpts.New (
-      descr = "Specify <operation mode> (e.g., thumb/arm) from cmdline",
-      extra = 1, callback = cb, short = "-m", long= "--mode" )
-
-  /// "-r" or "--base-addr" option for specifying a base address.
-  static member OptBaseAddr () =
-    let cb (opts: #CmdOpts) (arg: string []) =
-      opts.BaseAddress <- Convert.ToUInt64 (arg.[0], 16)
-      opts.ShowAddress <- true
-      opts
-    CmdOpts.New ( descr = "Specify the base <address> in hex (default=0)",
-                  extra = 1, callback = cb, short = "-r", long = "--base-addr" )
-
-  /// "--show-addr" option decides whether to show addresses in disassembly.
-  static member OptShowAddr () =
-    let cb (opts: #CmdOpts) _ =
-      opts.ShowAddress <- true; opts
-    CmdOpts.New ( descr = "Show addresses in disassembly",
-                  callback = cb, long = "--show-addr" )
-
-  /// "-q" or "--quite" option turns on the quiet mode.
-  static member OptQuite () =
+  /// "-v" or "--verbose" option turns on the verbose mode.
+  static member OptVerbose () =
     let cb (opts: #CmdOpts) _ =
       opts.Verbose <- true; opts
     CmdOpts.New ( descr = "Verbose mode",
@@ -120,12 +56,13 @@ type CmdOpts (?isa) =
     CmdOpts.New ( descr = "Show this usage",
                   help = true, short = "-h", long = "--help" )
 
-  static member private parseCmdOpts spec defaultOpts argv showLogo =
+  static member private parseCmdOpts spec defaultOpts argv showLogo usageTail =
     let termFn () = exit 1
     let prog = Environment.GetCommandLineArgs().[0]
     let usageGetter () =
       showLogo ()
-      String.Format ("[Usage]{0}{0}%p %o", Environment.NewLine)
+      let tail = if String.IsNullOrEmpty usageTail then "" else " " + usageTail
+      String.Format ("[Usage]{0}{0}%p %o{1}", Environment.NewLine, tail)
     try
       optParse spec usageGetter prog argv defaultOpts
     with
@@ -145,10 +82,11 @@ type CmdOpts (?isa) =
     Console.WriteLine (Attribution.copyright + Environment.NewLine)
 
   /// Parse command line arguments, and run the mainFn
-  static member ParseAndRun mainFn optSpec (opts: #CmdOpts) args =
-    let _, opts = CmdOpts.parseCmdOpts optSpec opts args CmdOpts.writeIntro
+  static member ParseAndRun mainFn usageTail optSpec (opts: #CmdOpts) args =
+    let rest, opts =
+      CmdOpts.parseCmdOpts optSpec opts args CmdOpts.writeIntro usageTail
     if opts.Verbose then CmdOpts.writeIntro () else ()
-    try mainFn opts; 0
+    try mainFn rest opts; 0
     with e -> eprintfn "Error: %s" e.Message
               eprintfn "%s" (if opts.Verbose then e.StackTrace else ""); 1
 

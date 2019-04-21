@@ -45,7 +45,26 @@ type OptOption =
   | OptPar
 
 type BinDumpOpts (autoDetect, isa) =
-  inherit CmdOpts(isa)
+  inherit CmdOpts()
+
+  /// Input file path.
+  member val InputFile = "" with get, set
+
+  /// Input string from command line.
+  member val InputStr: byte [] = [||] with get, set
+
+  /// ISA
+  member val ISA = isa with get, set
+
+  /// ArchOperationMode
+  member val ArchOperationMode = ArchOperationMode.NoMode with get, set
+
+  /// Base address
+  member val BaseAddress: Addr = 0UL with get, set
+
+  /// Whether to show addresses or not
+  member val ShowAddress = false with get, set
+
   /// Discover binary file format or not?
   member val AutoDetect = autoDetect with get, set
 
@@ -59,6 +78,53 @@ type BinDumpOpts (autoDetect, isa) =
     match opts with
     | :? BinDumpOpts as opts -> opts
     | _ -> failwith "Invalid Opts."
+
+  /// "-a" or "--isa" option for specifying ISA.
+  static member OptISA () =
+    let cb (opts: #CmdOpts) (arg: string []) =
+      (BinDumpOpts.ToThis opts).ISA <- ISA.OfString arg.[0]; opts
+    CmdOpts.New ( descr = "Specify <ISA> (e.g., x86) from command line",
+                  extra = 1, callback = cb, short = "-a", long= "--isa" )
+
+  /// "-i" option for specifying an input file.
+  static member OptInputFile () =
+    let cb (opts: #CmdOpts) (arg: string []) =
+      (BinDumpOpts.ToThis opts).InputFile <- arg.[0]; opts
+    CmdOpts.New ( descr = "Specify an input <file>",
+                  extra = 1, callback = cb, short = "-i" )
+
+  /// "-s" option for specifying an input string.
+  static member OptInputString () =
+    let cb (opts: #CmdOpts) (arg: string []) =
+      (BinDumpOpts.ToThis opts).InputStr <- ByteArray.ofHexString arg.[0]; opts
+    CmdOpts.New ( descr = "Specify an input <hexstring> from command line",
+                  extra = 1, callback = cb, short = "-s" )
+
+  /// "-m" or "--mode" option for specifying ArchOperationMode.
+  static member OptArchMode () =
+    let cb (opts: #CmdOpts) (arg: string []) =
+      (BinDumpOpts.ToThis opts).ArchOperationMode <-
+        ArchOperationMode.ofString arg.[0]
+      opts
+    CmdOpts.New (
+      descr = "Specify <operation mode> (e.g., thumb/arm) from cmdline",
+      extra = 1, callback = cb, short = "-m", long= "--mode" )
+
+  /// "-r" or "--base-addr" option for specifying a base address.
+  static member OptBaseAddr () =
+    let cb (opts: #CmdOpts) (arg: string []) =
+      (BinDumpOpts.ToThis opts).BaseAddress <- Convert.ToUInt64 (arg.[0], 16)
+      (BinDumpOpts.ToThis opts).ShowAddress <- true
+      opts
+    CmdOpts.New ( descr = "Specify the base <address> in hex (default=0)",
+                  extra = 1, callback = cb, short = "-r", long = "--base-addr" )
+
+  /// "--show-addr" option decides whether to show addresses in disassembly.
+  static member OptShowAddr () =
+    let cb (opts: #CmdOpts) _ =
+      (BinDumpOpts.ToThis opts).ShowAddress <- true; opts
+    CmdOpts.New ( descr = "Show addresses in disassembly",
+                  callback = cb, long = "--show-addr" )
 
   static member OptDisasm () =
     let cb (opts: #CmdOpts) _ =
@@ -95,27 +161,27 @@ let spec =
   [
     CmdOpts.New (descr = "[Input Configuration]\n", dummy = true)
 
-    CmdOpts.OptInputFile ()
-    CmdOpts.OptInputString ()
-    CmdOpts.OptISA ()
-    CmdOpts.OptArchMode ()
+    BinDumpOpts.OptInputFile ()
+    BinDumpOpts.OptInputString ()
+    BinDumpOpts.OptISA ()
+    BinDumpOpts.OptArchMode ()
     BinDumpOpts.OptRawBinary ()
 
     CmdOpts.New (descr = "\n[Output Configuration]\n", dummy = true)
 
     BinDumpOpts.OptDisasm ()
     BinDumpOpts.OptTransIR ()
-    CmdOpts.OptShowAddr ()
+    BinDumpOpts.OptShowAddr ()
 
     CmdOpts.New (descr = "\n[Optional Configuration]\n", dummy = true)
 
-    CmdOpts.OptBaseAddr ()
+    BinDumpOpts.OptBaseAddr ()
     BinDumpOpts.OptTransOptimization ()
     BinDumpOpts.OptTransParOptimization()
 
     CmdOpts.New (descr = "\n[Extra]\n", dummy = true)
 
-    CmdOpts.OptQuite ()
+    CmdOpts.OptVerbose ()
     CmdOpts.OptHelp ()
   ]
 
@@ -281,7 +347,7 @@ let cmdErrExit () =
             See bindump --help for more info."
   exit 1
 
-let dump (opts: BinDumpOpts) =
+let dump _ (opts: BinDumpOpts) =
   if isInvalidCmdLine opts then cmdErrExit () else ()
   let handle = initHandle opts
   let secRanges = getSectionRanges handle
@@ -295,6 +361,6 @@ let dump (opts: BinDumpOpts) =
 [<EntryPoint>]
 let main args =
   let opts = BinDumpOpts (true, ISA.Init (Arch.IntelX86) Endian.Little)
-  CmdOpts.ParseAndRun dump spec opts args
+  CmdOpts.ParseAndRun dump "" spec opts args
 
 // vim: set tw=80 sts=2 sw=2:
