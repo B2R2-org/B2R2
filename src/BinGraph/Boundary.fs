@@ -76,7 +76,7 @@ let inline isExitCall hdl (instr: Instruction) =
 
 /// Remove possibilities call instructions are considered as jump
 let inline isExit hdl (instr: Instruction) = // FIXME: Cleanup needed
-  instr.IsExit () && (not <| instr.IsCall ()) || isExitCall hdl instr
+  instr.IsExit ()
 
 /// XXX: move this to BinHandler
 /// This is a slightly different version of that of
@@ -111,32 +111,33 @@ let isDummyLeader hdl addr instrs =
 /// TODO: Fill here
 let checkDummyLeader () = false
 
-let addBranchTarget hdl sAddr (builder: CFGBuilder) funcs leaders instr isCall =
-  match getBranchTarget instr with
-  /// TODO: Need to identify whether call target is really a function start
-  | Some addr when builder.IsInteresting hdl addr ->
-    if isCall then initFunction hdl builder funcs addr
-    builder, funcs, addr :: leaders
-  | Some addr ->
-    (* Even if 'addr' is "uninteresting", it can be libc_start_main() at .PLT
-       section. If so, we can obtain more function entries from this call. *)
-    if isLibcStartMain hdl addr then
-      let ptrs = recoverLibcPointers hdl sAddr instr builder
-      List.iter (initFunction hdl builder funcs) ptrs
-      builder, funcs, ptrs @ leaders
+let addBranchTarget hdl sAddr (builder: CFGBuilder) funcs leaders (instr: Instruction) =
+  let next = instr.Address + uint64 instr.Length
+  if instr.IsExit () then
+    if instr.IsCall () then
+      match getBranchTarget instr with
+      | Some addr when builder.IsInteresting hdl addr ->
+        initFunction hdl builder funcs addr
+        builder, funcs, next :: addr :: leaders
+      | Some addr when isLibcStartMain hdl addr ->
+        let ptrs = recoverLibcPointers hdl sAddr instr builder
+        List.iter (initFunction hdl builder funcs) ptrs
+        builder, funcs, ptrs @ leaders
+      | Some addr -> builder, funcs, leaders
+      | None -> builder, funcs, next :: leaders
+    elif instr.IsDirectBranch () then
+      match getBranchTarget instr with
+      | Some addr ->
+        if instr.IsCondBranch () then builder, funcs, addr :: next :: leaders
+        else builder, funcs, addr :: leaders
+      | None -> builder, funcs, next :: leaders
+    elif instr.IsIndirectBranch () then builder, funcs, next :: leaders
     else builder, funcs, leaders
-  | None -> builder, funcs, leaders
-
-let collectEntry hdl sAddr builder funcs leaders (instr: Instruction) =
-  if instr.IsCall () then
-    addBranchTarget hdl sAddr builder funcs leaders instr true
-  else builder, funcs, leaders
+  else builder, funcs, next :: leaders
 
 let rec scanInstrs hdl sAddr (builder: CFGBuilder) funcs leaders = function
   | instr :: instrs ->
     builder.AddInstr instr
-    let builder, funcs, leaders =
-      collectEntry hdl sAddr builder funcs leaders instr
     scanInstrs hdl sAddr builder funcs leaders instrs
   | [] -> builder, funcs, leaders
 
@@ -148,49 +149,36 @@ let rec parseDisasmBlk hdl (builder: CFGBuilder) funcs addr leaders =
         scanInstrs hdl addr builder funcs leaders instrs
       let last = List.last instrs
       let nextAddr = last.Address + uint64 last.Length
-      let newAddr = (nextAddr &&& 0xFFFFFFFFFFFFFFF0UL) + 0x10UL
-      builder.AddDisasmLeader addr
-      builder.UpdateParsableOfDisasmLeader addr
-      if builder.DisasmEnd < nextAddr then builder.DisasmEnd <- nextAddr
-      let leaders = nextAddr :: leaders
-      let leaders = if checkDummyLeader () then newAddr :: leaders else leaders
-      addBranchTarget hdl addr builder funcs leaders last false
-    else
-      builder.AddDisasmLeader addr
-      builder, funcs, leaders
+      builder.AddDisasmBoundary addr nextAddr
+      addBranchTarget hdl addr builder funcs leaders last
+    else builder, funcs, leaders
   | Ok instrs ->
     let builder, funcs, leaders =
       scanInstrs hdl addr builder funcs leaders instrs
     let last = List.last instrs
     let nextAddr = last.Address + uint64 last.Length
-    let newAddr = (nextAddr &&& 0xFFFFFFFFFFFFFFF0UL) + 0x10UL
-    builder.AddDisasmLeader addr
-    builder.UpdateParsableOfDisasmLeader addr
-    if builder.DisasmEnd < nextAddr then builder.DisasmEnd <- nextAddr
-    let leaders = nextAddr :: leaders
-    let leaders = if checkDummyLeader () then newAddr :: leaders else leaders
-    addBranchTarget hdl addr builder funcs leaders last false
+    builder.AddDisasmBoundary addr nextAddr
+    addBranchTarget hdl addr builder funcs leaders last
 
 /// Scan disassembly-level basic block leaders.
-let rec scanDisasmLeaders hdl (builder: CFGBuilder) funcs = function
-  | leader :: leaders when builder.ExistDisasmLeader leader ->
-    scanDisasmLeaders hdl builder funcs leaders
+let rec scanDisasmBoundaries hdl (builder: CFGBuilder) funcs = function
+  | leader :: leaders when builder.ExistDisasmBoundary leader ->
+    scanDisasmBoundaries hdl builder funcs leaders
   | leader :: leaders when not <| builder.IsInteresting hdl leader ->
-    builder.AddDisasmLeader leader
-    scanDisasmLeaders hdl builder funcs leaders
+    scanDisasmBoundaries hdl builder funcs leaders
   | leader :: leaders ->
     let builder, funcs, leaders =
       parseDisasmBlk hdl builder funcs leader leaders
-    scanDisasmLeaders hdl builder funcs leaders
+    scanDisasmBoundaries hdl builder funcs leaders
   | [] -> builder, funcs
 
 /// Find leaders at disassembly level. Because the concept of leader totally
 /// includes entry, we can find undiscovered entries while scanning
 /// instructions.
-let rec findDisasmLeaders hdl builder funcs = function
+let rec findDisasmBoundaries hdl builder funcs = function
   | entry :: entries ->
-    let builder, funcs = scanDisasmLeaders hdl builder funcs [entry]
-    findDisasmLeaders hdl builder funcs entries
+    let builder, funcs = scanDisasmBoundaries hdl builder funcs [entry]
+    findDisasmBoundaries hdl builder funcs entries
   | [] -> builder, funcs
 
 let rec identifyDisasmBoundary hdl (builder: CFGBuilder) (funcs: Funcs) =
@@ -198,7 +186,7 @@ let rec identifyDisasmBoundary hdl (builder: CFGBuilder) (funcs: Funcs) =
   if List.length entries = 0 then builder, funcs
   else
     List.iter (fun a -> builder.UnanalyzedFuncs.Remove a |> ignore) entries
-    findDisasmLeaders hdl builder funcs entries
+    findDisasmBoundaries hdl builder funcs entries
     ||> identifyDisasmBoundary hdl
 
 let givePPointToStmtFold (addr, idx, stmts) = function
@@ -300,7 +288,8 @@ let rec findIRLeaders hdl (builder: CFGBuilder) = function
       findIRLeaders hdl builder leaders
   | [ addr ] ->
     if builder.GetParsableByDisasmLeader addr then
-      let stmts, eAddr = liftIRBlk hdl builder addr [ builder.DisasmEnd ]
+      //let stmts, eAddr = liftIRBlk hdl builder addr [ builder.DisasmEnd ]
+      let stmts, eAddr = liftIRBlk hdl builder addr [ ]
       let sPpoint = addr, 0
       let ePpoint = eAddr, 0
       builder.AddIRLeader sPpoint

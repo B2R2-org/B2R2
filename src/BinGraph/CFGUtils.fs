@@ -43,36 +43,26 @@ let accumulateBBLs bbls addr = function
   | Error () -> bbls
   | Ok bbl -> Map.add addr bbl bbls
 
-let rec buildDisasmBBLAux (builder: CFGBuilder) sAddr leaders addr instrs =
-  if addr = List.head leaders then
+let rec buildDisasmBBLAux (builder: CFGBuilder) sAddr addr eAddr instrs =
+  if addr = eAddr then
     if List.length instrs = 0 then Error ()
     else
-      let addrRange = AddrRange (sAddr, addr)
+      let addrRange = AddrRange (sAddr, eAddr)
       let last = List.head instrs
       let instrs = List.rev instrs
       Ok <| DisassemblyBBL (addrRange, instrs, last)
-  elif addr > List.head leaders then
-    buildDisasmBBLAux builder sAddr (List.tail leaders) addr instrs
   else
     let instr = builder.GetInstr addr
     let nextAddr = addr + uint64 instr.Length
     let instrs = instr :: instrs
-    buildDisasmBBLAux builder sAddr leaders nextAddr instrs
+    buildDisasmBBLAux builder sAddr nextAddr eAddr instrs
 
 let rec buildDisasmBBLs hdl (builder: CFGBuilder) bbls = function
-  | leader :: ((_ :: _) as leaders) ->
-    if not <| builder.IsInteresting hdl leader then
-      buildDisasmBBLs hdl builder bbls leaders
-    elif not <| builder.GetParsableByDisasmLeader leader then
-      buildDisasmBBLs hdl builder bbls leaders
-    else
-      let bbls =
-        buildDisasmBBLAux builder leader leaders leader []
-        |> accumulateBBLs bbls leader
-      buildDisasmBBLs hdl builder bbls leaders
-  | [ addr ] ->
-    let last = builder.DisasmEnd
-    accumulateBBLs bbls addr <| buildDisasmBBLAux builder addr [last] addr []
+  | (sAddr, eAddr) :: boundaries ->
+    let bbls =
+      buildDisasmBBLAux builder sAddr sAddr eAddr []
+      |> accumulateBBLs bbls sAddr
+    buildDisasmBBLs hdl builder bbls boundaries
   | [] -> bbls
 
 let inline getNextPpoint (addr, cnt) = function
@@ -105,10 +95,13 @@ let rec buildIRBBLs hdl (builder: CFGBuilder) bbls = function
         buildIRBBLAux builder leader leaders leader []
         |> accumulateBBLs bbls leader
       buildIRBBLs hdl builder bbls leaders
+  | _ -> bbls
+  (*
   | [ addr ] ->
     let last = builder.DisasmEnd, 0
     accumulateBBLs bbls addr <| buildIRBBLAux builder addr [last] addr []
   | [] -> bbls
+  *)
 
 let inline isDisasmBlockEnd (instr: Instruction) =
   instr.IsExit () && not <| instr.IsCall ()
@@ -280,7 +273,7 @@ let rec buildIRCFGs hdl builder (funcs: Funcs) funcset bbls = function
 
 let buildCFGs hdl (builder: CFGBuilder) (funcs: Funcs) =
   let disasmBBLs =
-    buildDisasmBBLs hdl builder Map.empty <| builder.GetDisasmLeaders ()
+    buildDisasmBBLs hdl builder Map.empty <| builder.GetDisasmBoundaries ()
   let irBBLs = buildIRBBLs hdl builder Map.empty <| builder.GetIRLeaders ()
   let entries = funcs.Keys |> Seq.toList
   let funcset = Set.ofList entries
