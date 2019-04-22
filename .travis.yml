@@ -1,6 +1,7 @@
 language: csharp
 mono: none
-dotnet: 2.1.502
+dotnet: 2.2
+dist: bionic
 solution: B2R2.sln
 script:
     - dotnet build -c Release
