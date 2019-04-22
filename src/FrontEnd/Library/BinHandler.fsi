@@ -131,6 +131,28 @@ with
     -> BinHandler
 
   /// <summary>
+  ///   Initialize a BinHandler from an ISA and a binary file path, assuming
+  ///   that the archMode is NoMode. B2R2 will automatically detect the file
+  ///   format of the given binary file, but it will refer to the given ISA
+  ///   parameter when the binary has multiple architectures, e.g., a fat binary
+  ///   on macOS. If the given binary file does not follow the known formats,
+  ///   then B2R2 consider it as a raw binary with base address at 0.
+  /// </summary>
+  /// <param name="isa">ISA.</param>
+  /// <param name="fileName">Binary file path.</param>
+  /// <returns>BinHandler.</returns>
+  static member Init: isa: ISA * fileName: string -> BinHandler
+
+  /// <summary>
+  ///   Initialize a BinHandler from an ISA and a byte sequence, assuming that
+  ///   the archMode is NoMode, and the format is RawBinary.
+  /// </summary>
+  /// <param name="isa">ISA.</param>
+  /// <param name="bytes">Byte sequence.</param>
+  /// <returns>BinHandler.</returns>
+  static member Init: isa: ISA * bytes: byte [] -> BinHandler
+
+  /// <summary>
   ///   Initialize an empty BinHandler. This function is useful when you want to
   ///   delay loading the actual body of your binary blob.
   /// </summary>
@@ -150,17 +172,6 @@ with
   /// <param name="isa">ISA.</param>
   /// <returns>BinHandler.</returns>
   static member Init: isa: ISA -> BinHandler
-
-  /// <summary>
-  ///   Initialize an empty BinHandler from an ISA and a byte sequence, assuming
-  ///   that the archMode is NoMode, and the format is RawBinary. This function
-  ///   is useful when you want to delay loading the actual body of your binary
-  ///   blob.
-  /// </summary>
-  /// <param name="isa">ISA.</param>
-  /// <param name="bytes">Byte sequence.</param>
-  /// <returns>BinHandler.</returns>
-  static member Init: isa: ISA * bytes: byte [] -> BinHandler
 
   /// <summary>
   ///   Update BinHandler to have new code at a new address (addr). BinHandler
