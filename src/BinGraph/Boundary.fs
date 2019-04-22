@@ -197,71 +197,47 @@ let givePPointToStmt stmts =
   let _, _, stmts = List.fold givePPointToStmtFold (0UL, 0, []) stmts
   List.rev stmts
 
-let inline isInnerLeader (sPpoint, ePpoint) ppoint =
-  ppoint >= sPpoint && ppoint < ePpoint
-
 /// We only consider spliting disassembly level basic blocks into ir level
 /// basic blocks. To find new disassembly level basic block leader is out of
 /// scope.
-let rec scanIRLeaders hdl (builder: CFGBuilder) boundary = function
+let rec scanIRLeaders hdl (builder: CFGBuilder) leaders = function
   | (ppoint, (LMark symb as stmt)) :: stmts ->
     builder.AddStmt ppoint stmt
     builder.AddLabel ppoint symb
-    builder.AddIRLeader ppoint
-    builder.UpdateLiftableOfIRLeader ppoint
-    scanIRLeaders hdl builder boundary stmts
-  | (((addr, idx) as ppoint), (InterJmp (_, Num bv, _) as stmt)) :: stmts ->
-    builder.AddStmt ppoint stmt
-    let newPpoint = BitVector.toUInt64 bv, 0
-    if isInnerLeader boundary newPpoint then
-      builder.AddIRLeader newPpoint
-      builder.UpdateLiftableOfIRLeader newPpoint
-    let instr = builder.GetInstr addr
-    if not <| instr.IsCall () then
-      builder.AddIRLeader (addr, idx + 1)
-      builder.UpdateLiftableOfIRLeader (addr, idx + 1)
-    elif isExitCall hdl instr then
-      builder.AddIRLeader (addr, idx + 1)
-      builder.UpdateLiftableOfIRLeader (addr, idx + 1)
-    scanIRLeaders hdl builder boundary stmts
-  | (ppoint, (InterCJmp (_, _, Num tBv, Num fBv) as stmt)) :: stmts ->
-    let addr, idx = ppoint
-    builder.AddStmt ppoint stmt
-    let tPpoint = BitVector.toUInt64 tBv, 0
-    let fPpoint = BitVector.toUInt64 fBv, 0
-    if isInnerLeader boundary tPpoint then
-      builder.AddIRLeader tPpoint
-      builder.UpdateLiftableOfIRLeader tPpoint
-    if isInnerLeader boundary fPpoint then
-      builder.AddIRLeader fPpoint
-      builder.UpdateLiftableOfIRLeader fPpoint
-    builder.AddIRLeader (addr, idx + 1)
-    builder.UpdateLiftableOfIRLeader (addr, idx + 1)
-    scanIRLeaders hdl builder boundary stmts
-  | (((addr, idx) as ppoint), (Jmp _ as stmt)) :: stmts
-  | (((addr, idx) as ppoint), (CJmp _ as stmt)) :: stmts
-  | (((addr, idx) as ppoint), (InterJmp _ as stmt)) :: stmts
-  | (((addr, idx) as ppoint), (InterCJmp _ as stmt)) :: stmts
-  | (((addr, idx) as ppoint), ((SideEffect Halt) as stmt)) :: stmts ->
-    builder.AddStmt ppoint stmt
-    if not <| (builder.GetInstr addr).IsCall () then
-      builder.AddIRLeader (addr, idx + 1)
-      builder.UpdateLiftableOfIRLeader (addr, idx + 1)
-    scanIRLeaders hdl builder boundary stmts
+    scanIRLeaders hdl builder (ppoint :: leaders) stmts
   | (ppoint, stmt) :: stmts ->
     builder.AddStmt ppoint stmt
-    scanIRLeaders hdl builder boundary stmts
+    scanIRLeaders hdl builder leaders stmts
+  | [] -> builder, List.rev leaders
+
+let rec getIRBBLEnd hdl (builder: CFGBuilder) ppoint ePpoint =
+  match builder.GetStmt ppoint with
+  | InterJmp _ | InterCJmp _ | Jmp _ | CJmp _ | SideEffect Halt -> ppoint
+  | IEMark addr ->
+    if (addr, 0) = ePpoint then ppoint
+    else getIRBBLEnd hdl builder (addr, 0) ePpoint
+  | _ ->
+    let addr, cnt = ppoint
+    getIRBBLEnd hdl builder (addr, cnt + 1) ePpoint
+
+let rec scanIRBoundaries hdl builder last = function
+  | leader :: ((nextLeader :: _) as leaders) ->
+    let ePpoint = getIRBBLEnd hdl builder leader nextLeader
+    builder.AddIRBoundary leader ePpoint
+    scanIRBoundaries hdl builder last leaders
+  | [ leader ] ->
+    let ePpoint = getIRBBLEnd hdl builder leader last
+    builder.AddIRBoundary leader ePpoint
+    builder
   | [] -> builder
 
 /// This is also different version of that of
 /// FrontEnd/FrontEnd.Utils/Lifter.fs because our basic block is more
 /// fine-grainded, so we don't want to lift instructions more than our basic
 /// block range.
-let liftIRBlk hdl (builder: CFGBuilder) sAddr addrs =
-  let rec liftLoop acc addr addrs =
-    if addr = List.head addrs then acc, addr
-    elif addr > List.head addrs then liftLoop acc addr <| List.tail addrs
-    elif not <| builder.IsInteresting hdl addr then acc, addr
+let liftIRBlk hdl (builder: CFGBuilder) sAddr eAddr =
+  let rec liftLoop acc addr =
+    if addr = eAddr then acc
     else
       let instr = builder.GetInstr addr
       let stmts =
@@ -269,37 +245,21 @@ let liftIRBlk hdl (builder: CFGBuilder) sAddr addrs =
         |> LocalOptimizer.Optimize |> Array.toList
       let acc = List.append acc stmts
       let nextAddr = addr + uint64 instr.Length
-      liftLoop acc nextAddr addrs
-  let stmts, eAddr = liftLoop [] sAddr addrs
-  givePPointToStmt stmts, eAddr
+      liftLoop acc nextAddr
+  liftLoop [] sAddr |> givePPointToStmt
 
-let rec findIRLeaders hdl (builder: CFGBuilder) = function
-  | sAddr :: ((_ :: _) as leaders) ->
-    if builder.GetParsableByDisasmLeader sAddr then
-      let stmts, eAddr = liftIRBlk hdl builder sAddr leaders
-      let sPpoint = sAddr, 0
-      let ePpoint = eAddr, 0
-      builder.AddIRLeader sPpoint
-      builder.UpdateLiftableOfIRLeader sPpoint
-      let builder = scanIRLeaders hdl builder (sPpoint, ePpoint) stmts
-      findIRLeaders hdl builder leaders
-    else
-      builder.AddIRLeader (sAddr, 0)
-      findIRLeaders hdl builder leaders
-  | [ addr ] ->
-    if builder.GetParsableByDisasmLeader addr then
-      //let stmts, eAddr = liftIRBlk hdl builder addr [ builder.DisasmEnd ]
-      let stmts, eAddr = liftIRBlk hdl builder addr [ ]
-      let sPpoint = addr, 0
-      let ePpoint = eAddr, 0
-      builder.AddIRLeader sPpoint
-      builder.UpdateLiftableOfIRLeader sPpoint
-      scanIRLeaders hdl builder (sPpoint, ePpoint) stmts
-    else builder
+let rec findIRBoundaries hdl (builder: CFGBuilder) = function
+  | (sAddr, eAddr) :: boundaries ->
+    let stmts = liftIRBlk hdl builder sAddr eAddr
+    let sPpoint = sAddr, 0
+    let ePpoint = eAddr, 0
+    let builder, leaders = scanIRLeaders hdl builder [ sPpoint ] stmts
+    let builder = scanIRBoundaries hdl builder ePpoint leaders
+    findIRBoundaries hdl builder boundaries
   | [] -> builder
 
 let identifyIRBoundary hdl (builder: CFGBuilder) funcs =
-  let builder = findIRLeaders hdl builder <| builder.GetDisasmLeaders ()
+  let builder = findIRBoundaries hdl builder <| builder.GetDisasmBoundaries ()
   builder, funcs
 
 let identify hdl builder funcs =

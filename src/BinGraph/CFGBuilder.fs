@@ -55,8 +55,8 @@ type CFGBuilder () =
   let instrMap = Dictionary<Addr, Instruction> ()
   let stmtMap = Dictionary<PPoint, Stmt> ()
   let labelMap = Dictionary<Addr * Symbol, int> ()
-  let disasmBoundaries = Dictionary<Addr * Addr, (Addr option)> ()
-  let irLeaders = Dictionary<PPoint, Addr option * bool> ()
+  let disasmBoundaries = Dictionary<Addr * Addr, Addr option> ()
+  let irBoundaries = Dictionary<PPoint * PPoint, Addr option> ()
 
   let isExecutable hdl addr =
     match hdl.FileInfo.GetSections addr |> Seq.tryHead with
@@ -68,8 +68,6 @@ type CFGBuilder () =
   member __.StmtMap with get () = stmtMap
 
   member __.LabelMap with get () = labelMap
-
-  member __.IRLeaders with get () = irLeaders
 
   member __.UnanalyzedFuncs with get () = unanalyzedFuncs
 
@@ -100,7 +98,6 @@ type CFGBuilder () =
 
   member __.GetParsableByDisasmLeader leader =
     disasmLeaders.[leader] |> snd
-  *)
 
   member __.GetLiftableByIRLeader leader =
     irLeaders.[leader] |> snd
@@ -108,6 +105,7 @@ type CFGBuilder () =
   member __.TryGetEntryByIRLeader leader =
     if irLeaders.ContainsKey (leader) then irLeaders.[leader] |> fst |> Some
     else None
+  *)
 
   member __.AddDisasmBoundary startAddr endAddr =
     disasmBoundaries.[(startAddr, endAddr)] <- None
@@ -115,24 +113,24 @@ type CFGBuilder () =
   member __.ExistDisasmBoundary addr =
     disasmBoundaries.Keys |> Seq.map fst |> Seq.contains addr
 
+  member __.GetDisasmBoundaries () =
+    disasmBoundaries.Keys |> Seq.toList |> List.sort
+
+  member __.AddIRBoundary startPpoint endPpoint =
+    irBoundaries.[(startPpoint, endPpoint)] <- None
+
+  member __.GetIRBoundaries () =
+    irBoundaries.Keys |> Seq.toList |> List.sort
   (*
   member __.UpdateEntryOfDisasmLeader addr entry =
     let _, b = disasmLeaders.[addr]
     disasmLeaders.[addr] <- (Some entry, b)
-  *)
-
-  (*
   member __.UpdateParsableOfDisasmLeader addr =
     let entry, _ = disasmLeaders.[addr]
     disasmLeaders.[addr] <- (entry, true)
   *)
 
-  member __.GetDisasmBoundaries () =
-    disasmBoundaries.Keys |> Seq.toList |> List.sort
-
-  member __.AddIRLeader ppoint =
-    irLeaders.[ppoint] <- (None, false)
-
+  (*
   member __.UpdateEntryOfIRLeader ppoint entry =
     let _, b = irLeaders.[ppoint]
     irLeaders.[ppoint] <- (Some entry, b)
@@ -140,9 +138,7 @@ type CFGBuilder () =
   member __.UpdateLiftableOfIRLeader ppoint =
     let entry, _ = irLeaders.[ppoint]
     irLeaders.[ppoint] <- (entry, true)
-
-  member __.GetIRLeaders () =
-    irLeaders.Keys |> Seq.toList |> List.sort
+  *)
 
   member __.IsInteresting hdl addr =
     hdl.FileInfo.IsValidAddr addr && isExecutable hdl addr

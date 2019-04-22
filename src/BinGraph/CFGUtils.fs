@@ -69,39 +69,26 @@ let inline getNextPpoint (addr, cnt) = function
   | IEMark (addr) -> addr, 0
   | _ -> addr, cnt + 1
 
-let rec buildIRBBLAux (builder: CFGBuilder) sPpoint leaders ppoint stmts =
-  if ppoint = List.head leaders then
+let rec buildIRBBLAux (builder: CFGBuilder) sPpoint ppoint ePpoint stmts =
+  if ppoint = ePpoint then
     if List.length stmts = 0 then Error ()
     else
       let last = List.head stmts
       let stmts = List.rev stmts
       Ok <| IRBBL (sPpoint, ppoint, stmts, last)
-  elif ppoint > List.head leaders then
-    buildIRBBLAux builder sPpoint (List.tail leaders) ppoint stmts
   else
     let stmt = builder.GetStmt ppoint
     let nextPpoint = getNextPpoint ppoint stmt
     let stmts = stmt :: stmts
-    buildIRBBLAux builder sPpoint leaders nextPpoint stmts
+    buildIRBBLAux builder sPpoint nextPpoint ePpoint stmts
 
 let rec buildIRBBLs hdl (builder: CFGBuilder) bbls = function
-  | ((addr, cnt) as leader) :: ((_ :: _) as leaders) ->
-    if not <| builder.IsInteresting hdl addr then
-      buildIRBBLs hdl builder bbls leaders
-    elif not <| builder.GetLiftableByIRLeader leader then
-      buildIRBBLs hdl builder bbls leaders
-    else
-      let bbls =
-        buildIRBBLAux builder leader leaders leader []
-        |> accumulateBBLs bbls leader
-      buildIRBBLs hdl builder bbls leaders
-  | _ -> bbls
-  (*
-  | [ addr ] ->
-    let last = builder.DisasmEnd, 0
-    accumulateBBLs bbls addr <| buildIRBBLAux builder addr [last] addr []
+  | (sPpoint, ePpoint) :: boundaries ->
+    let bbls =
+      buildIRBBLAux builder sPpoint sPpoint ePpoint []
+      |> accumulateBBLs bbls sPpoint
+    buildIRBBLs hdl builder bbls boundaries
   | [] -> bbls
-  *)
 
 let inline isDisasmBlockEnd (instr: Instruction) =
   instr.IsExit () && not <| instr.IsCall ()
@@ -274,7 +261,7 @@ let rec buildIRCFGs hdl builder (funcs: Funcs) funcset bbls = function
 let buildCFGs hdl (builder: CFGBuilder) (funcs: Funcs) =
   let disasmBBLs =
     buildDisasmBBLs hdl builder Map.empty <| builder.GetDisasmBoundaries ()
-  let irBBLs = buildIRBBLs hdl builder Map.empty <| builder.GetIRLeaders ()
+  let irBBLs = buildIRBBLs hdl builder Map.empty <| builder.GetIRBoundaries ()
   let entries = funcs.Keys |> Seq.toList
   let funcset = Set.ofList entries
   let builder = buildDisasmCFGs hdl builder funcs funcset disasmBBLs entries
