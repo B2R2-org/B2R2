@@ -35,7 +35,8 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinGraph.DisasHeuristic
 
-let initFunction hdl (funcs: Funcs) entry =
+let initFunction hdl (builder: CFGBuilder) (funcs: Funcs) entry =
+  builder.UnanalyzedFuncs.Add entry |> ignore
   let found, _ = funcs.TryGetValue entry
   if found then ()
   else
@@ -51,8 +52,8 @@ let initFunction hdl (funcs: Funcs) entry =
 /// investigating call instructions.
 let getInitialEntries hdl (builder: CFGBuilder) funcs =
   let fi = hdl.FileInfo
-  fi.GetFunctionAddresses () |> Seq.iter (initFunction hdl funcs)
-  if fi.EntryPoint <> 0UL then initFunction hdl funcs fi.EntryPoint else ()
+  fi.GetFunctionAddresses () |> Seq.iter (initFunction hdl builder funcs)
+  if fi.EntryPoint <> 0UL then initFunction hdl builder funcs fi.EntryPoint
   builder, funcs
 
 /// TODO: This will be a heuristic to find function entries by prologue idioms
@@ -114,14 +115,14 @@ let addBranchTarget hdl sAddr (builder: CFGBuilder) funcs leaders instr isCall =
   match getBranchTarget instr with
   /// TODO: Need to identify whether call target is really a function start
   | Some addr when builder.IsInteresting hdl addr ->
-    if isCall then initFunction hdl funcs addr
+    if isCall then initFunction hdl builder funcs addr
     builder, funcs, addr :: leaders
   | Some addr ->
     (* Even if 'addr' is "uninteresting", it can be libc_start_main() at .PLT
        section. If so, we can obtain more function entries from this call. *)
     if isLibcStartMain hdl addr then
       let ptrs = recoverLibcPointers hdl sAddr instr builder
-      List.iter (initFunction hdl funcs) ptrs
+      List.iter (initFunction hdl builder funcs) ptrs
       builder, funcs, ptrs @ leaders
     else builder, funcs, leaders
   | None -> builder, funcs, leaders
@@ -193,13 +194,11 @@ let rec findDisasmLeaders hdl builder funcs = function
   | [] -> builder, funcs
 
 let rec identifyDisasmBoundary hdl (builder: CFGBuilder) (funcs: Funcs) =
-  let entries = funcs.Keys |> Set.ofSeq
-  let disasmLeaders = builder.GetDisasmLeaders () |> Set.ofList
-  let diff = Set.difference entries disasmLeaders
-  if Set.isEmpty diff then builder, funcs
+  let entries = Seq.toList builder.UnanalyzedFuncs
+  if List.length entries = 0 then builder, funcs
   else
-    Set.iter (initFunction hdl funcs) diff
-    findDisasmLeaders hdl builder funcs <| Set.toList diff
+    List.iter (fun a -> builder.UnanalyzedFuncs.Remove a |> ignore) entries
+    findDisasmLeaders hdl builder funcs entries
     ||> identifyDisasmBoundary hdl
 
 let givePPointToStmtFold (addr, idx, stmts) = function
@@ -322,7 +321,7 @@ let identify hdl builder funcs =
   ||> identifyIRBoundary hdl
 
 let identifyWithEntries hdl entries builder funcs =
-  List.iter (initFunction hdl funcs) entries
+  List.iter (initFunction hdl builder funcs) entries
   (builder, funcs)
   ||> identifyDisasmBoundary hdl
   ||> identifyIRBoundary hdl

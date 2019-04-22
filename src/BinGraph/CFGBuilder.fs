@@ -51,10 +51,12 @@ type Function (entry, name, regType) =
 type Funcs = Dictionary<Addr, Function>
 
 type CFGBuilder () =
+  let unanalyzedFuncs = HashSet<Addr> ()
   let instrMap = Dictionary<Addr, Instruction> ()
   let stmtMap = Dictionary<PPoint, Stmt> ()
   let labelMap = Dictionary<Addr * Symbol, int> ()
   let disasmLeaders = Dictionary<Addr, Addr option * bool> ()
+  let disasmBoundaries = Dictionary<Addr * Addr, Addr option> ()
   let irLeaders = Dictionary<PPoint, Addr option * bool> ()
 
   let isExecutable hdl addr =
@@ -73,6 +75,8 @@ type CFGBuilder () =
   member __.IRLeaders with get () = irLeaders
 
   member val DisasmEnd : Addr = 0UL with get, set
+
+  member __.UnanalyzedFuncs with get () = unanalyzedFuncs
 
   member __.AddInstr (instr: Instruction) =
     instrMap.[instr.Address] <- instr
@@ -124,6 +128,9 @@ type CFGBuilder () =
 
   member __.GetDisasmLeaders () =
     disasmLeaders.Keys |> Seq.toList |> List.sort
+
+  member __.GetDisasmBoundaries () =
+    disasmBoundaries.Keys |> Seq.toList |> List.sort
 
   member __.AddIRLeader ppoint =
     irLeaders.[ppoint] <- (None, false)
