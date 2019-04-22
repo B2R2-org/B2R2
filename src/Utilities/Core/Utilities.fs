@@ -31,7 +31,6 @@ open System
 open OptParse
 
 /// A common set of command-line options used in analyzing binaries.
-[<AbstractClass>]
 type CmdOpts () =
   /// Verbosity
   member val Verbose = false with get, set

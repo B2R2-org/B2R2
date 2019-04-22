@@ -26,5 +26,31 @@
 
 module B2R2.Utilities.FileViewer.CmdOptions
 
-let spec =
-  []
+open B2R2
+open B2R2.Utilities
+
+type FileViewerOpts () =
+  inherit CmdOpts ()
+
+  /// Specify ISA. This is only meaningful for universal (fat) binaries because
+  /// BinHandler will automatically detect file format by default. When a fat
+  /// binary is given, we need to choose which architecture to explorer with
+  /// this option.
+  member val ISA = ISA.DefaultISA with get, set
+
+  static member private ToThis (opts: CmdOpts) =
+    match opts with
+    | :? FileViewerOpts as opts -> opts
+    | _ -> failwith "Invalid Opts."
+
+  /// "-a" or "--isa" option for specifying ISA.
+  static member OptISA () =
+    let cb (opts: #CmdOpts) (arg: string []) =
+      (FileViewerOpts.ToThis opts).ISA <- ISA.OfString arg.[0]; opts
+    CmdOpts.New ( descr = "Specify <ISA> (e.g., x86) for fat binaries",
+                  extra = 1, callback = cb, short = "-a", long= "--isa" )
+
+let spec: FileViewerOpts OptParse.Option list =
+  [ FileViewerOpts.OptISA ()
+    CmdOpts.OptVerbose ()
+    CmdOpts.OptHelp () ]
