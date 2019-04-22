@@ -63,14 +63,19 @@ with
     let bytes = IO.File.ReadAllBytes fileName
     BinHandler.Init (isa, archMode, autoDetect, baseAddr, bytes, fileName)
 
-  static member Init (isa, archMode) =
-    BinHandler.Init (isa, archMode, false, 0UL, [||], "")
-
-  static member Init (isa) = BinHandler.Init (isa, [||])
+  static member Init (isa, fileName) =
+    let bytes = IO.File.ReadAllBytes fileName
+    let defaultMode = ArchOperationMode.NoMode
+    BinHandler.Init (isa, defaultMode, true, 0UL, bytes, fileName)
 
   static member Init (isa, bytes) =
     let defaultMode = ArchOperationMode.NoMode
     BinHandler.Init (isa, defaultMode, false, 0UL, bytes, "")
+
+  static member Init (isa, archMode) =
+    BinHandler.Init (isa, archMode, false, 0UL, [||], "")
+
+  static member Init (isa) = BinHandler.Init (isa, [||])
 
   static member UpdateCode h addr bs =
     { h with FileInfo = new RawFileInfo (bs, addr, h.ISA) :> FileInfo }
