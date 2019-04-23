@@ -130,9 +130,9 @@ let addBranchTarget hdl sAddr (builder: CFGBuilder) funcs leaders (instr: Instru
       | Some addr ->
         if instr.IsCondBranch () then builder, funcs, addr :: next :: leaders
         else builder, funcs, addr :: leaders
-      | None -> builder, funcs, next :: leaders
-    elif instr.IsIndirectBranch () then builder, funcs, next :: leaders
-    else builder, funcs, leaders
+      | None -> builder, funcs, leaders
+    elif instr.IsIndirectBranch () then builder, funcs, leaders
+    else builder, funcs, next :: leaders
   else builder, funcs, next :: leaders
 
 let rec scanInstrs hdl sAddr (builder: CFGBuilder) funcs leaders = function

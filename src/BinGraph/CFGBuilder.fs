@@ -90,23 +90,6 @@ type CFGBuilder () =
     let idx = labelMap.[(addr, symb)]
     (addr, idx)
 
-  (*
-  member __.TryGetEntryByDisasmLeader leader =
-    if disasmLeaders.ContainsKey (leader) then
-      disasmLeaders.[leader] |> fst |> Some
-    else None
-
-  member __.GetParsableByDisasmLeader leader =
-    disasmLeaders.[leader] |> snd
-
-  member __.GetLiftableByIRLeader leader =
-    irLeaders.[leader] |> snd
-
-  member __.TryGetEntryByIRLeader leader =
-    if irLeaders.ContainsKey (leader) then irLeaders.[leader] |> fst |> Some
-    else None
-  *)
-
   member __.AddDisasmBoundary startAddr endAddr =
     disasmBoundaries.[(startAddr, endAddr)] <- None
 
@@ -116,29 +99,35 @@ type CFGBuilder () =
   member __.GetDisasmBoundaries () =
     disasmBoundaries.Keys |> Seq.toList |> List.sort
 
+  member __.UpdateEntryOfDisasmBoundary leader entry =
+    let boundaries = __.GetDisasmBoundaries ()
+    let boundary = List.find (fun (sAddr, _) -> sAddr = leader) boundaries
+    disasmBoundaries.[boundary] <- Some entry
+
+  member __.TryGetEntryByDisasmLeader leader =
+    let boundaries = __.GetDisasmBoundaries ()
+    let boundary = List.find (fun (sAddr, _) -> sAddr = leader) boundaries
+    if disasmBoundaries.ContainsKey boundary then
+      Some disasmBoundaries.[boundary]
+    else None
+
   member __.AddIRBoundary startPpoint endPpoint =
     irBoundaries.[(startPpoint, endPpoint)] <- None
 
   member __.GetIRBoundaries () =
     irBoundaries.Keys |> Seq.toList |> List.sort
-  (*
-  member __.UpdateEntryOfDisasmLeader addr entry =
-    let _, b = disasmLeaders.[addr]
-    disasmLeaders.[addr] <- (Some entry, b)
-  member __.UpdateParsableOfDisasmLeader addr =
-    let entry, _ = disasmLeaders.[addr]
-    disasmLeaders.[addr] <- (entry, true)
-  *)
 
-  (*
-  member __.UpdateEntryOfIRLeader ppoint entry =
-    let _, b = irLeaders.[ppoint]
-    irLeaders.[ppoint] <- (Some entry, b)
+  member __.UpdateEntryOfIRBoundary leader entry =
+    let boundaries = __.GetIRBoundaries ()
+    let boundary = List.find (fun (sPpoint, _) -> sPpoint = leader) boundaries
+    irBoundaries.[boundary] <- Some entry
 
-  member __.UpdateLiftableOfIRLeader ppoint =
-    let entry, _ = irLeaders.[ppoint]
-    irLeaders.[ppoint] <- (entry, true)
-  *)
+  member __.TryGetEntryByIRLeader leader =
+    let boundaries = __.GetIRBoundaries ()
+    let boundary = List.find (fun (sAddr, _) -> sAddr = leader) boundaries
+    if irBoundaries.ContainsKey boundary then
+      Some irBoundaries.[boundary]
+    else None
 
   member __.IsInteresting hdl addr =
     hdl.FileInfo.IsValidAddr addr && isExecutable hdl addr
