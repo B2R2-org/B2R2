@@ -172,6 +172,35 @@ let rec scanDisasmBoundaries hdl (builder: CFGBuilder) funcs = function
     scanDisasmBoundaries hdl builder funcs leaders
   | [] -> builder, funcs
 
+let rec checkRange (builder: CFGBuilder) addr eAddr =
+  match builder.TryGetInstr addr with
+  | Some instr ->
+    let next = instr.Address + uint64 instr.Length
+    if next > eAddr then false
+    elif next = eAddr then true
+    else checkRange builder next eAddr
+  | None -> false
+
+let includes builder (sAddr0, eAddr0) (sAddr1, eAddr1) =
+  if eAddr0 = eAddr1 then
+    if sAddr0 < sAddr1 then checkRange builder sAddr0 sAddr1
+    else false
+  else false
+
+let rec refineDisasmBoundariesAux (builder: CFGBuilder) = function
+  | boundary1 :: ((boundary2 :: _) as boundaries) ->
+    if includes builder boundary1 boundary2 then
+      let sAddr0, _ = boundary1
+      let sAddr1, _ = boundary2
+      builder.RemoveDisasmBoundary boundary1
+      builder.AddDisasmBoundary sAddr0 sAddr1
+      refineDisasmBoundariesAux builder boundaries
+    else refineDisasmBoundariesAux builder boundaries
+  | [ _ ] | [] -> builder
+
+let refineDisasmBoundaries (builder: CFGBuilder) =
+  refineDisasmBoundariesAux builder <| builder.GetDisasmBoundaries ()
+
 /// Find leaders at disassembly level. Because the concept of leader totally
 /// includes entry, we can find undiscovered entries while scanning
 /// instructions.
@@ -179,7 +208,7 @@ let rec findDisasmBoundaries hdl builder funcs = function
   | entry :: entries ->
     let builder, funcs = scanDisasmBoundaries hdl builder funcs [entry]
     findDisasmBoundaries hdl builder funcs entries
-  | [] -> builder, funcs
+  | [] -> refineDisasmBoundaries builder, funcs
 
 let rec identifyDisasmBoundary hdl (builder: CFGBuilder) (funcs: Funcs) =
   let entries = Seq.toList builder.UnanalyzedFuncs

@@ -89,15 +89,13 @@ type CFGTestClass () =
 
   [<TestMethod>]
   member __.``Boundary Test: Disassembly Leader Identification`` () =
-    let disasmLeaders = builder.GetDisasmBoundaries ()
-    Assert.AreEqual (8, List.length disasmLeaders)
-    (*
+    let disasmBoundaries = builder.GetDisasmBoundaries ()
+    Assert.AreEqual (10, List.length disasmBoundaries)
     [ (0x00UL, 0x19UL) ; (0x19UL, 0x3FUL) ; (0x3FUL, 0x48UL) ;
-      (0x48UL, 0x52UL) ; (0x52UL, 0x55UL) ; (0x55UL, 0x5fUL) ;
+      (0x48UL, 0x52UL) ; (0x52UL, 0x55UL) ; (0x55UL, 0x5FUL) ;
       (0x5FUL, 0x62UL) ; (0x62UL, 0x71UL) ; (0x71UL, 0x81UL) ;
       (0x81UL, 0x84UL) ]
-    |> List.iter (fun x -> Assert.IsTrue <| List.contains x disasmLeaders) 
-    *)
+    |> List.iter (fun x -> Assert.IsTrue <| List.contains x disasmBoundaries)
 
   [<TestMethod>]
   member __.``Boundary Test: IR Leader Identification`` () =
@@ -112,41 +110,58 @@ type CFGTestClass () =
 
   [<TestMethod>]
   member __.``DisasmGraph Vertex Test: _start`` () =
-    let cfg = funcs.[0UL].DisasmCFG
-    Assert.AreEqual (4, cfg.Size ())
+    let cfg = funcs.[0x00UL].DisasmCFG
+    Assert.AreEqual (7, cfg.Size ())
     let vMap = cfg.FoldVertex disasmVertexFolder Map.empty
-    [ 0x0UL ; 0x3FUL ; 0x48UL ; 0x55UL ]
+    [ 0x00UL ; 0x19UL ; 0x3FUL ; 0x48UL ; 0x52UL ; 0x55UL ; 0x5FUL ]
     |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x vMap)
-    let v00 = Map.find 0x0UL vMap
+    let v00 = Map.find 0x00UL vMap
+    let v19 = Map.find 0x19UL vMap
     let v3F = Map.find 0x3FUL vMap
     let v48 = Map.find 0x48UL vMap
+    let v52 = Map.find 0x52UL vMap
     let v55 = Map.find 0x55UL vMap
-    let vList = [ v00 ; v3F ; v48 ; v55 ]
+    let v5F = Map.find 0x5FUL vMap
+    let vList = [ v00 ; v19 ; v3F ; v48 ; v52 ; v55 ; v5F ]
     let bblList = List.map (fun (x: Vertex<_>) -> x.VData) vList
     let addrRangeList =
-      [ AddrRange (0x0UL, 0x3FUL) ; AddrRange (0x3FUL, 0x48UL) ;
-        AddrRange (0x48UL, 0x55UL) ; AddrRange (0x55UL, 0x62UL) ]
+      [ AddrRange (0x00UL, 0x19UL) ; AddrRange (0x19UL, 0x3FUL) ;
+        AddrRange (0x3FUL, 0x48UL) ; AddrRange (0x48UL, 0x52UL) ;
+        AddrRange (0x52UL, 0x55UL) ; AddrRange (0x55UL, 0x5FUL) ;
+        AddrRange (0x5FUL, 0x62UL) ]
     List.zip addrRangeList bblList
     |> List.iter (fun (x, y) -> Assert.AreEqual (x, y.AddrRange))
 
   [<TestMethod>]
   member __.``DisasmGraph Edge Test: _start`` () =
-    let cfg = funcs.[0UL].DisasmCFG
+    let cfg = funcs.[0x00UL].DisasmCFG
     let vMap = cfg.FoldVertex disasmVertexFolder Map.empty
-    let v00 = Map.find 0x0UL vMap
+    let v00 = Map.find 0x00UL vMap
+    let v19 = Map.find 0x19UL vMap
     let v3F = Map.find 0x3FUL vMap
     let v48 = Map.find 0x48UL vMap
+    let v52 = Map.find 0x52UL vMap
     let v55 = Map.find 0x55UL vMap
+    let v5F = Map.find 0x5FUL vMap
     let eMap = cfg.FoldEdge (disasmEdgeFolder cfg) Map.empty
-    Assert.AreEqual (4, eMap.Count)
-    [ (0x0UL, 0x3FUL) ; (0x0UL, 0x48UL) ; (0x3FUL, 0x55UL) ; (0x48UL, 0x55UL) ]
+    Assert.AreEqual (7, eMap.Count)
+    [ (0x00UL, 0x19UL) ; (0x19UL, 0x3FUL) ; (0x19UL, 0x48UL) ;
+      (0x3FUL, 0x55UL) ; (0x48UL, 0x52UL) ; (0x52UL, 0x55UL) ;
+      (0x55UL, 0x5FUL) ]
     |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x eMap)
-    let edge003F = cfg.FindEdge v00 v3F
-    let edge0048 = cfg.FindEdge v00 v48
+    let edge0019 = cfg.FindEdge v00 v19
+    let edge193F = cfg.FindEdge v19 v3F
+    let edge1948 = cfg.FindEdge v19 v48
     let edge3F55 = cfg.FindEdge v3F v55
-    let edge4855 = cfg.FindEdge v48 v55
-    let eList = [ edge003F ; edge0048 ; edge3F55 ; edge4855 ]
-    let edgeTypeList = [ CJmpFalseEdge ; CJmpTrueEdge ; JmpEdge ; JmpEdge ]
+    let edge4952 = cfg.FindEdge v48 v52
+    let edge5255 = cfg.FindEdge v52 v55
+    let edge555F = cfg.FindEdge v55 v5F
+    let eList =
+      [ edge0019 ; edge193F ; edge1948 ; edge3F55 ; edge4952 ; edge5255 ;
+        edge555F ]
+    let edgeTypeList =
+      [ JmpEdge ; CJmpFalseEdge ; CJmpTrueEdge ; JmpEdge ; JmpEdge ; JmpEdge ;
+        JmpEdge ]
     List.zip edgeTypeList eList
     |> List.iter (fun (x, y) -> Assert.AreEqual (x, y))
 
@@ -173,23 +188,34 @@ type CFGTestClass () =
   [<TestMethod>]
   member __.``DisasmGraph Vertex Test: bar`` () =
     let cfg = funcs.[0x71UL].DisasmCFG
-    Assert.AreEqual (1, cfg.Size ())
+    Assert.AreEqual (2, cfg.Size ())
     let vMap = cfg.FoldVertex disasmVertexFolder Map.empty
-    [ 0x71UL ]
+    [ 0x71UL ; 0x81UL ]
     |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x vMap)
     let v71 = Map.find 0x71UL vMap
-    let vList = [ v71 ]
+    let v81 = Map.find 0x81UL vMap
+    let vList = [ v71 ; v81 ]
     let bblList = List.map (fun (x: Vertex<_>) -> x.VData) vList
-    let addrRangeList = [ AddrRange (0x71UL, 0x81UL) ]
+    let addrRangeList =
+      [ AddrRange (0x71UL, 0x81UL) ; AddrRange (0x81UL, 0x84UL) ]
     List.zip addrRangeList bblList
     |> List.iter (fun (x, y) -> Assert.AreEqual (x, y.AddrRange))
 
   [<TestMethod>]
   member __.``DisasmGraph Edge Test: bar`` () =
     let cfg = funcs.[0x71UL].DisasmCFG
+    let vMap = cfg.FoldVertex disasmVertexFolder Map.empty
+    let v71 = Map.find 0x71UL vMap
+    let v81 = Map.find 0x81UL vMap
     let eMap = cfg.FoldEdge (disasmEdgeFolder cfg) Map.empty
-    Assert.AreEqual (0, eMap.Count)
-    /// XXX: What about a bbl starting from 0x81? ( nop ; pop rbp ; ret )
+    Assert.AreEqual (1, eMap.Count)
+    [ (0x71UL, 0x81UL) ]
+    |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x eMap)
+    let edge7181 = cfg.FindEdge v71 v81
+    let eList = [ edge7181 ]
+    let edgeTypeList = [ JmpEdge ]
+    List.zip edgeTypeList eList
+    |> List.iter (fun (x, y) -> Assert.AreEqual (x, y))
 
   [<TestMethod>]
   member __.``IRGraph Vertex Test: _start`` () =

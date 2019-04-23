@@ -77,6 +77,9 @@ type CFGBuilder () =
   member __.GetInstr addr =
     instrMap.[addr]
 
+  member __.TryGetInstr addr =
+    if instrMap.ContainsKey addr then Some instrMap.[addr] else None
+
   member __.AddStmt ppoint stmt =
     stmtMap.[ppoint] <- stmt
 
@@ -95,6 +98,9 @@ type CFGBuilder () =
 
   member __.ExistDisasmBoundary addr =
     disasmBoundaries.Keys |> Seq.map fst |> Seq.contains addr
+
+  member __.RemoveDisasmBoundary boundary =
+    disasmBoundaries.Remove boundary |> ignore
 
   member __.GetDisasmBoundaries () =
     disasmBoundaries.Keys |> Seq.toList |> List.sort

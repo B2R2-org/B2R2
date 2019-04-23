@@ -103,8 +103,8 @@ let getDisasmSuccessors hdl builder (bbl: DisassemblyBBL) =
       | Some addr ->
         if last.IsCondBranch () then
           if last.IsCJmpOnTrue () then
-            [ Some (addr, CJmpTrueEdge) ; Some (next, CJmpFalseEdge) ]
-          else [ Some (addr, CJmpFalseEdge) ; Some (next, CJmpTrueEdge) ]
+            [ Some (addr, CJmpFalseEdge) ; Some (next, CJmpTrueEdge) ]
+          else [ Some (addr, CJmpTrueEdge) ; Some (next, CJmpFalseEdge) ]
         else [ Some (addr, JmpEdge) ]
       | None -> []
     elif last.IsIndirectBranch () then [ None ]
@@ -189,7 +189,11 @@ let getIRSuccessors hdl (builder: CFGBuilder) (bbl: IRBBL) =
     [ Some ((tAddr, 0), CJmpTrueEdge) ; Some ((fAddr, 0), CJmpFalseEdge) ]
   | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ -> [ None ]
   | SideEffect Halt -> []
-  | stmt -> [ Some (getNextPpoint bbl.LastPpoint stmt, JmpEdge) ]
+  | stmt -> []
+  (*
+    printfn "%A %A %A" bbl.Ppoint bbl.LastPpoint stmt
+    [ Some (getNextPpoint bbl.LastPpoint stmt, JmpEdge) ]
+  *)
 
 let addIRLeader
     hdl (builder: CFGBuilder) funcset bbls (cfg: IRCFG) entry leader = function
