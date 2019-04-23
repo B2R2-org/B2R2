@@ -25,6 +25,12 @@ function addGraphDiv(dims) {
   let miniMapTemplate = "<svg id='minimap-{number}' class='box min-box'></svg>".replace(/\{number\}/g, g_tabCounter);
   $("#id_graphContainer").append(graphDivTemplate);
   $("#minimapDiv").append(miniMapTemplate);
+  // minimize the new minimap when it is minimized.
+  if ($("#minimapDiv").hasClass("active")) {
+    d3.select("#minimap-" + g_tabCounter)
+      .style("border", "unset")
+      .style("height", "0")
+  }
   d3.select("svg#cfg-" + g_tabCounter)
     .attr("width", dims.cfgVPDim.width)
     .attr("height", dims.cfgVPDim.height)
