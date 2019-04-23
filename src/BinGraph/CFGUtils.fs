@@ -73,8 +73,8 @@ let rec buildIRBBLAux (builder: CFGBuilder) sPpoint ppoint ePpoint stmts =
   if ppoint = ePpoint then
     if List.length stmts = 0 then Error ()
     else
-      let last = List.head stmts
-      let stmts = List.rev stmts
+      let last = builder.GetStmt ppoint
+      let stmts = List.rev (last :: stmts)
       Ok <| IRBBL (sPpoint, ppoint, stmts, last)
   else
     let stmt = builder.GetStmt ppoint
@@ -161,6 +161,11 @@ let rec buildDisasmCFGs hdl builder (funcs: Funcs) funcset bbls = function
     buildDisasmCFGs hdl builder funcs funcset bbls entries
   | [] -> builder
 
+let rec getNextAddr (builder: CFGBuilder) ppoint =
+  match builder.GetStmt ppoint with
+  | IEMark addr -> addr
+  | stmt -> getNextAddr builder <| getNextPpoint ppoint stmt
+
 let getIRSuccessors hdl (builder: CFGBuilder) (bbl: IRBBL) =
   match bbl.LastStmt with
   | Jmp (Name symbol) ->
@@ -180,6 +185,9 @@ let getIRSuccessors hdl (builder: CFGBuilder) (bbl: IRBBL) =
     let addr, _ = bbl.LastPpoint
     let fPpoint = builder.FindPPointByLabel addr fSymbol
     [ Some (fPpoint, CJmpFalseEdge) ; None ]
+  | InterJmp (_, Num bv, InterJmpInfo.IsCall) ->
+    let addr = getNextAddr builder bbl.LastPpoint
+    [ Some ((addr, 0), JmpEdge) ]
   | InterJmp (_, Num bv, _) ->
     let addr = BitVector.toUInt64 bv
     if isExecutable hdl addr then [ Some ((addr, 0), JmpEdge) ] else []
@@ -189,11 +197,7 @@ let getIRSuccessors hdl (builder: CFGBuilder) (bbl: IRBBL) =
     [ Some ((tAddr, 0), CJmpTrueEdge) ; Some ((fAddr, 0), CJmpFalseEdge) ]
   | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ -> [ None ]
   | SideEffect Halt -> []
-  | stmt -> []
-  (*
-    printfn "%A %A %A" bbl.Ppoint bbl.LastPpoint stmt
-    [ Some (getNextPpoint bbl.LastPpoint stmt, JmpEdge) ]
-  *)
+  | stmt -> [ Some (getNextPpoint bbl.LastPpoint stmt, JmpEdge) ]
 
 let addIRLeader
     hdl (builder: CFGBuilder) funcset bbls (cfg: IRCFG) entry leader = function

@@ -181,7 +181,7 @@ let rec checkRange (builder: CFGBuilder) addr eAddr =
     else checkRange builder next eAddr
   | None -> false
 
-let includes builder (sAddr0, eAddr0) (sAddr1, eAddr1) =
+let includesDisasmBoundary builder (sAddr0, eAddr0) (sAddr1, eAddr1) =
   if eAddr0 = eAddr1 then
     if sAddr0 < sAddr1 then checkRange builder sAddr0 sAddr1
     else false
@@ -189,7 +189,7 @@ let includes builder (sAddr0, eAddr0) (sAddr1, eAddr1) =
 
 let rec refineDisasmBoundariesAux (builder: CFGBuilder) = function
   | boundary1 :: ((boundary2 :: _) as boundaries) ->
-    if includes builder boundary1 boundary2 then
+    if includesDisasmBoundary builder boundary1 boundary2 then
       let sAddr0, _ = boundary1
       let sAddr1, _ = boundary2
       builder.RemoveDisasmBoundary boundary1
@@ -277,6 +277,30 @@ let liftIRBlk hdl (builder: CFGBuilder) sAddr eAddr =
       liftLoop acc nextAddr
   liftLoop [] sAddr |> givePPointToStmt
 
+let includesIRBoundary builder (sPpoint0, ePpoint0) (sPpoint1, ePpoint1) =
+  if ePpoint0 = ePpoint1 then
+    let sAddr0, sCnt0 = sPpoint0
+    let sAddr1, sCnt1 = sPpoint1
+    if sAddr0 < sAddr1 || sAddr0 = sAddr1 && sCnt0 < sCnt1 then
+      checkRange builder sAddr0 sAddr1
+    else false
+  else false
+
+let rec refineIRBoundariesAux hdl (builder: CFGBuilder) = function
+  | boundary1 :: ((boundary2 :: _) as boundaries) ->
+    if includesIRBoundary builder boundary1 boundary2 then
+      let sPpoint0, _ = boundary1
+      let sPpoint1, _ = boundary2
+      let ePpoint0 = getIRBBLEnd hdl builder sPpoint0 sPpoint1
+      builder.RemoveIRBoundary boundary1
+      builder.AddIRBoundary sPpoint0 ePpoint0
+      refineIRBoundariesAux hdl builder boundaries
+    else refineIRBoundariesAux hdl builder boundaries
+  | [ _ ] | [] -> builder
+
+let refineIRBoundaries hdl (builder: CFGBuilder) =
+  refineIRBoundariesAux hdl builder <| builder.GetIRBoundaries ()
+
 let rec findIRBoundaries hdl (builder: CFGBuilder) = function
   | (sAddr, eAddr) :: boundaries ->
     let stmts = liftIRBlk hdl builder sAddr eAddr
@@ -285,7 +309,7 @@ let rec findIRBoundaries hdl (builder: CFGBuilder) = function
     let builder, leaders = scanIRLeaders hdl builder [ sPpoint ] stmts
     let builder = scanIRBoundaries hdl builder ePpoint leaders
     findIRBoundaries hdl builder boundaries
-  | [] -> builder
+  | [] -> refineIRBoundaries hdl builder
 
 let identifyIRBoundary hdl (builder: CFGBuilder) funcs =
   let builder = findIRBoundaries hdl builder <| builder.GetDisasmBoundaries ()

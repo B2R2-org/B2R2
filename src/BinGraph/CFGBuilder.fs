@@ -123,6 +123,9 @@ type CFGBuilder () =
   member __.GetIRBoundaries () =
     irBoundaries.Keys |> Seq.toList |> List.sort
 
+  member __.RemoveIRBoundary boundary =
+    irBoundaries.Remove boundary |> ignore
+
   member __.UpdateEntryOfIRBoundary leader entry =
     let boundaries = __.GetIRBoundaries ()
     let boundary = List.find (fun (sPpoint, _) -> sPpoint = leader) boundaries
