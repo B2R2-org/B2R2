@@ -1035,7 +1035,7 @@ type Opcode =
   /// Zip vectors (secondary).
   | ZIP2 = 476
 
-type internal PrefetchOperation =
+type PrefetchOperation =
   | PLDL1KEEP
   | PLDL1STRM
   | PLDL2KEEP
@@ -1706,7 +1706,7 @@ module Register =
   let inline toRegID (reg: Register) =
     LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
 
-type internal Option =
+type OptionOpr =
   | SY
   | ST
   | LD
@@ -1720,7 +1720,7 @@ type internal Option =
   | OSHST
   | OSHLD
 
-type internal SIMDVector =
+type SIMDVector =
   | VecB
   | VecH
   | VecS
@@ -1735,7 +1735,7 @@ type internal SIMDVector =
   | TwoD
   | OneQ
 
- type internal SRType =
+ type SRType =
   | SRTypeLSL
   | SRTypeLSR
   | SRTypeASR
@@ -1743,21 +1743,21 @@ type internal SIMDVector =
   | SRTypeRRX
   | SRTypeMSL
 
-type internal Index = uint8
+type Index = uint8
 
 /// SIMD&FP Register
-type internal SIMDFPscalRegister = Register
+type SIMDFPscalRegister = Register
 /// SIMD vector register
-type internal SIMDVectorRegister = Register * SIMDVector
+type SIMDVectorRegister = Register * SIMDVector
 /// SIMD vector register with element index
-type internal SIMDVectorRegisterWithIndex = Register * SIMDVector * Index
+type SIMDVectorRegisterWithIndex = Register * SIMDVector * Index
 
-type internal SIMDFPRegister =
+type SIMDFPRegister =
   | SIMDFPScalarReg of SIMDFPscalRegister
   | SIMDVecReg of SIMDVectorRegister
   | SIMDVecRegWithIdx of SIMDVectorRegisterWithIndex
 
-type internal SIMDOperand =
+type SIMDOperand =
   (* SIMD&FP register *)
   | SFReg of SIMDFPRegister
   (* SIMD vector register list or SIMD vector element list *)
@@ -1767,14 +1767,14 @@ type internal SIMDOperand =
   | FourRegs of SIMDFPRegister * SIMDFPRegister * SIMDFPRegister
                 * SIMDFPRegister
 
-type internal SystemOp =
+type SystemOp =
   | SysAT
   | SysDC
   | SysIC
   | SysTLBI
   | SysSYS
 
-type internal DCOpr =
+type DCOpr =
   | IVAC
   | ISW
   | CSW
@@ -1784,20 +1784,20 @@ type internal DCOpr =
   | CVAU
   | CIVAC
 
-type internal SysOperand =
+type SysOperand =
   | DCOpr of DCOpr
 
-type internal Const = int64
+type Const = int64
 
-type internal Amount =
+type Amount =
   | Imm of Const
   | Reg of Register
 
-type internal Shift = SRType * Amount
+type Shift = SRType * Amount
 
-type internal Label = Const
+type Label = Const
 
-type internal ExtendType =
+type ExtendType =
   | ExtUXTB
   | ExtUXTH
   | ExtUXTW
@@ -1807,34 +1807,34 @@ type internal ExtendType =
   | ExtSXTW
   | ExtSXTX
 
-type internal ExtendRegisterOffset = ExtendType * Const option
+type ExtendRegisterOffset = ExtendType * Const option
 
-type internal Pstate =
+type Pstate =
   | SPSEL
   | DAIFSET
   | DAIFCLR
 
-type internal RegisterOffset =
+type RegisterOffset =
   /// Register offset.
   | ShiftOffset of Shift
   /// Extended register offset.
   | ExtRegOffset of ExtendRegisterOffset
 
-type internal ImmOffset =
+type ImmOffset =
   | BaseOffset of Register * Const option
   | Lbl of Label
 
-type internal Offset =
+type Offset =
   | ImmOffset of ImmOffset
   | RegOffset of Register * Register * RegisterOffset option
 
-type internal AddressingMode =
+type AddressingMode =
   | BaseMode of Offset
   | PreIdxMode of Offset
   | PostIdxMode of Offset
   | LiteralMode of Offset
 
-type internal Operand =
+type Operand =
   | Register of Register
   | SIMDOpr of SIMDOperand
   | Immediate of Const
@@ -1843,7 +1843,7 @@ type internal Operand =
   | Shift of Shift
   | ExtReg of RegisterOffset option
   | Memory of AddressingMode
-  | Option of Option
+  | Option of OptionOpr
   | Pstate of Pstate
   | PrfOp of PrefetchOperation
   | Cond of Condition
@@ -1851,7 +1851,7 @@ type internal Operand =
   | LSB of uint8
   | SysOpr of SysOperand
 
-type internal Operands =
+type Operands =
   | NoOperand
   | OneOperand of Operand
   | TwoOperands of Operand * Operand
@@ -1861,7 +1861,7 @@ type internal Operands =
 
 /// Basic information for a single ARMv8 instruction obtained after parsing.
 [<NoComparison; CustomEquality>]
-type InsInfo = internal {
+type InsInfo = {
   /// Address.
   Address: Addr
   /// Instruction length.

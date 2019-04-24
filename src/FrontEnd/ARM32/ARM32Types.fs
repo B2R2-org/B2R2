@@ -2084,7 +2084,7 @@ type internal SCR =
 type internal NSACR =
   | NSACR_RFR
 
-type internal Option =
+type OptionOpr =
   | SY
   | ST
   | LD
@@ -2098,7 +2098,7 @@ type internal Option =
   | OSHST
   | OSHLD
 
-type internal Iflag =
+type Iflag =
   | A
   | I
   | F
@@ -2111,7 +2111,7 @@ type internal SIMDVFPRegisterSpacing =
   | Single
   | Double
 
-type internal SRType =
+type SRType =
   | SRTypeLSL
   | SRTypeLSR
   | SRTypeASR
@@ -2119,14 +2119,14 @@ type internal SRType =
   | SRTypeRRX
 
 /// A8.2 Standard assembler syntax fields
-type internal Qualifier =
+type Qualifier =
   /// Wide.
   | W
   /// Narrow.
   | N
 
 /// A2.6.3 Data types supported by the Advanced SIMD Extension
-type internal SIMDDataType =
+type SIMDDataType =
   | SIMDTyp8      (* Any element of <size> bits *)
   | SIMDTyp16
   | SIMDTyp32
@@ -2148,17 +2148,17 @@ type internal SIMDDataType =
   | SIMDTypU32
   | SIMDTypU64
 
-type internal SIMDDataTypes =
+type SIMDDataTypes =
   | OneDT of SIMDDataType
   | TwoDT of SIMDDataType * SIMDDataType
 
 /// V{<modifier>}<operation>{<shape>}{<c>}{<q>}{.<dt>} {<dest>,} <src1>, <src2>
-type internal SIMDFPRegister =
+type SIMDFPRegister =
   | Vector of Register
   | Scalar of Register * Element option
 and Element = uint8
 
-type internal SIMDOperand =
+type SIMDOperand =
   | SFReg of SIMDFPRegister
   | OneReg of SIMDFPRegister
   | TwoRegs of SIMDFPRegister * SIMDFPRegister
@@ -2166,11 +2166,11 @@ type internal SIMDOperand =
   | FourRegs of
       SIMDFPRegister * SIMDFPRegister * SIMDFPRegister * SIMDFPRegister
 
-type internal Amount = Imm of uint32
+type Amount = Imm of uint32
 
-type internal Shift = SRType * Amount
+type Shift = SRType * Amount
 
-type internal PSRFlag =
+type PSRFlag =
   | PSRc
   | PSRx
   | PSRxc
@@ -2191,29 +2191,29 @@ type internal PSRFlag =
   | PSRg
   | PSRnzcvqg
 
-type internal Const = int64
+type Const = int64
 
-type internal Label = Const
+type Label = Const
 
-type internal Align = Const
+type Align = Const
 
-type internal Sign =
+type Sign =
   | Plus
   | Minus
 
-type internal Offset =
+type Offset =
   | ImmOffset of Register * Sign option * Const option
   | RegOffset of Register * Sign option * Register * Shift option
   | AlignOffset of Register * Align option * Register option (* Advanced SIMD *)
 
-type internal AddressingMode =
+type AddressingMode =
   | OffsetMode of Offset
   | PreIdxMode of Offset
   | PostIdxMode of Offset
   | UnIdxMode of Register * Const (* [<Rn>], <option> *)
   | LiteralMode of Label
 
-type internal Operand =
+type Operand =
   | Register of Register
   | SpecReg of Register * PSRFlag option
   | RegList of Register list
@@ -2223,12 +2223,12 @@ type internal Operand =
   | Shift of Shift
   | RegShift of SRType * Register
   | Memory of AddressingMode
-  | Option of Option
+  | Option of OptionOpr
   | Iflag of Iflag
   | Endian of Endian
   | Cond of Condition
 
-type internal Operands =
+type Operands =
   | NoOperand
   | OneOperand of Operand
   | TwoOperands of Operand * Operand
@@ -2239,7 +2239,7 @@ type internal Operands =
 
 /// Basic information for a single ARMv7 instruction obtained after parsing.
 [<NoComparison; CustomEquality>]
-type InsInfo = internal {
+type InsInfo = {
   /// Address.
   Address: Addr
   /// Number of bytes.

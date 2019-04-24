@@ -1493,7 +1493,7 @@ type OpGroup =
   | G17 = 20
 
 /// Specifies the kind of operand. See Appendix A.2 of Volume 2 (Intel Manual)
-type internal OprMode =
+type OprMode =
   /// Direct address
   | A = 0x1
   /// Bound Register
@@ -1561,7 +1561,7 @@ type internal OprMode =
   | E0 = 0x1b
 
 /// Specifies the size of operand. See Appendix A.2 of Volume 2
-type internal OprSize =
+type OprSize =
   /// Word/DWord depending on operand-size attribute
   | A = 0x40
   /// Byte size
@@ -1625,7 +1625,7 @@ type internal OprSize =
   | Z = 0x700
 
 /// Defines attributes for registers to apply register conversion rules.
-type internal RGrpAttr =
+type RGrpAttr =
   /// This represents the case where there is no given attribute.
   | ANone = 0x0
   /// Registers defined by the 4th row of Table 2-2. Vol. 2A.
@@ -1673,7 +1673,7 @@ type internal RGrpAttr =
 /// +---------+------------+-----------+------------+
 /// </code>
 /// </summary>
-type internal OperandDesc =
+type OperandDesc =
   /// The most generic operand kind which can be described with OprMode
   /// and OprSize.
   | ODModeSize of struct (OprMode * OprSize)
@@ -1688,7 +1688,7 @@ type internal OperandDesc =
   | ODImmOne
 
 /// The scale of Scaled Index.
-type internal Scale =
+type Scale =
   /// Times 1
   | X1 = 1
   /// Times 2
@@ -1699,19 +1699,19 @@ type internal Scale =
   | X8 = 8
 
 /// Scaled index.
-type internal ScaledIndex = Register * Scale
+type ScaledIndex = Register * Scale
 
 /// Jump target of a branch instruction.
-type internal JumpTarget =
+type JumpTarget =
   | Absolute of Selector * Addr * OperandSize
   | Relative of Offset
-and internal Selector = int16
-and internal Offset = int64
-and internal OperandSize = RegType
+and Selector = int16
+and Offset = int64
+and OperandSize = RegType
 
 /// We define four different types of X86 operands:
 /// register, memory, direct address, and immediate.
-type internal Operand =
+type Operand =
   | OprReg of Register
   | OprMem of Register option * ScaledIndex option * Disp option * OperandSize
   | OprDirAddr of JumpTarget
@@ -1720,7 +1720,7 @@ type internal Operand =
 and Disp = int64
 
 /// A set of operands in an X86 instruction.
-type internal Operands =
+type Operands =
   | NoOperand
   | OneOperand of Operand
   | TwoOperands of Operand * Operand
@@ -1729,7 +1729,7 @@ type internal Operands =
 
 /// Specific conditions for determining the size of operands.
 /// (See Appendix A.2.5 of Vol. 2D).
-type internal SizeCond =
+type SizeCond =
   /// Use 32-bit operands as default in 64-bit mode.
   | SzDef32
   /// Use 64-bit operands as default in 64-bit mode = d64.
@@ -1742,7 +1742,7 @@ type internal SizeCond =
   | SzInv64
 
 /// Types of VEX (Vector Extension).
-type internal VEXType =
+type VEXType =
   /// Original VEX that refers to two-byte opcode map.
   | VEXTwoByteOp = 0x1
   /// Original VEX that refers to three-byte opcode map #1.
@@ -1767,13 +1767,13 @@ module internal VEXType = begin
 end
 
 /// Represents the size information of an instruction.
-type internal InsSize = {
+type InsSize = {
   MemSize       : MemorySize
   RegSize       : RegType
   OperationSize : RegType
   SizeCond      : SizeCond
 }
-and internal MemorySize = {
+and MemorySize = {
   EffOprSize      : RegType
   EffAddrSize     : RegType
   EffRegSize      : RegType
@@ -1789,17 +1789,17 @@ type internal MemLookupType =
 /// Vector destination merging/zeroing: P[23] encodes the destination result
 /// behavior which either zeroes the masked elements or leave masked element
 /// unchanged.
-type internal ZeroingOrMerging =
+type ZeroingOrMerging =
   | Zeroing
   | Merging
 
-type internal EVEXPrefix = {
+type EVEXPrefix = {
   Z   : ZeroingOrMerging
   AAA : uint8 (* Embedded opmask register specifier *)
 }
 
 /// Information about Intel vector extension.
-type internal VEXInfo = {
+type VEXInfo = {
   VVVV            : byte
   VectorLength    : RegType
   VEXType         : VEXType
@@ -1823,7 +1823,7 @@ type internal TemporaryInfo = {
 
 /// Basic information obtained by parsing an Intel instruction.
 [<NoComparison; CustomEquality>]
-type InsInfo = internal {
+type InsInfo = {
   /// Prefixes.
   Prefixes        : Prefix
   /// REX Prefix.

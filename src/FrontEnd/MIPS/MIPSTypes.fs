@@ -467,20 +467,20 @@ type Opcode =
 
 type internal Op = Opcode
 
-type internal Operand =
+type Operand =
   | Register of Register
   | Immediate of Imm
   | Memory of Base * Offset * AccessLength
   | Address of JumpTarget
   | ShiftAmount of Imm
 
-and internal Imm = uint64
-and internal JumpTarget = Relative of Offset
-and internal Offset = int64
-and internal Base = Register
-and internal AccessLength = RegType
+and Imm = uint64
+and JumpTarget = Relative of Offset
+and Offset = int64
+and Base = Register
+and AccessLength = RegType
 
-type internal Operands =
+type Operands =
   | NoOperand
   | OneOperand of Operand
   | TwoOperands of Operand * Operand
@@ -492,7 +492,7 @@ type internal Instruction =
 
 /// Basic information obtained by parsing a MIPS instruction.
 [<NoComparison; CustomEquality>]
-type InsInfo = internal {
+type InsInfo = {
   /// Address.
   Address: Addr
   /// Instruction length.
