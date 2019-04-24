@@ -50,7 +50,7 @@ var focusMovementDuration = 750;
 function initMarker(defs, name) {
   let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
   defs.append("marker")
-    .attr("id", name+"-"+currentTabNumber).attr("class", name)
+    .attr("id", name + "-" + currentTabNumber).attr("class", name)
     .attr("markerWidth", 3)
     .attr("markerHeight", 3)
     .attr("markerUnits", "strokeWidth")
@@ -238,7 +238,7 @@ function drawEdge(e) {
 
   if (e.IsBackEdge) p.attr("stroke-dasharray", "4, 4");
 
-  p.attr("marker-end", "url(#cfg" + e.Type + "Arrow-"+currentTabNumber+")");
+  p.attr("marker-end", "url(#cfg" + e.Type + "Arrow-" + currentTabNumber + ")");
 
   let miniLineFunction = d3.line()
     .x(function (d) { return d.X * minimapRatio; })
@@ -656,7 +656,7 @@ function draggableMinimap() {
   var dragging = false;
   var iX, iY;
   $minimapHandler.mousedown(function (e) {
-    let minimapContainer = document.getElementById("minimapDiv")
+    let minimapContainer = document.getElementById("minimapDiv");
     dragging = true;
     iX = e.clientX - minimapContainer.offsetLeft;
     iY = e.clientY - minimapContainer.offsetTop;
@@ -675,6 +675,36 @@ function draggableMinimap() {
   $(document).mouseup(function (e) {
     dragging = false;
   })
+}
+
+function returnInitPositionMinimap() {
+  $("#minimapDiv .return-minimap").on("click", function () {
+    let $minimapContainer = $("#minimapDiv")
+    $minimapContainer.css({ "left": "", "top": "" });
+    $minimapContainer.css({ "right": "0", "bottom": "0" });
+  });
+}
+
+function resizeMinimap() {
+  $(".resize-minimap").on("click", function () {
+    if ($(this).hasClass("minimize-minimap")) {
+      $("#minimapDiv").addClass("active");
+      d3.selectAll(".min-box")
+        .style("border", "unset")
+        .style("height", "0")
+    } else {
+      $("#minimapDiv").removeClass("active");
+      d3.selectAll(".min-box")
+        .style("height", "initial")
+        .style("border", "1px solid #ccc")
+    }
+  });
+}
+
+function registerMinimapEvents() {
+  draggableMinimap();
+  resizeMinimap();
+  returnInitPositionMinimap();
 }
 
 // Offline mode renders a single function only. Inter-function analysis is not
@@ -791,8 +821,8 @@ function singleClickOnFunctionItem(e) {
   let tabsLength = $("#id_tabContainer li").length;
   if (tabsLength === 0) {
     query({
-        "q": "cfg-disasm",
-        "args": functionName
+      "q": "cfg-disasm",
+      "args": functionName
     },
       function (json) {
         if (!isEmpty(json)) {
@@ -819,8 +849,8 @@ function doubleClickOnFunctionItem(e) {
     activateTabbyName($self)
   } else {
     query({
-        "q": "cfg-disasm",
-        "args": functionName
+      "q": "cfg-disasm",
+      "args": functionName
     },
       function (json) {
         if (!isEmpty(json)) {
@@ -834,6 +864,8 @@ function doubleClickOnFunctionItem(e) {
       });
   }
 }
+
+
 $(document).on('click', "#funcSelector li", function (e) {
   $("#funcSelector li.clicked").each(function () {
     $(this).removeClass("clicked")
@@ -861,7 +893,7 @@ function main() {
 
   filterFunctions();
   registerRefreshEvents(dims);
-  draggableMinimap();
+  registerMinimapEvents();
 
   if (window.location.protocol == "file:")
     return runOffline(dims);
