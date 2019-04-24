@@ -50,11 +50,14 @@ let initHelpers isa =
 
 let newFileInfo bytes (baseAddr: Addr) path isa autoDetect =
   if autoDetect then
-    match FormatDetector.detect path with
-    | FileFormat.ELFBinary -> new ELFFileInfo (bytes, path) :> FileInfo
-    | FileFormat.PEBinary -> new PEFileInfo (bytes, path) :> FileInfo
-    | FileFormat.MachBinary -> new MachFileInfo (bytes, path, isa) :> FileInfo
-    | _ -> new RawFileInfo (bytes, baseAddr, isa) :> FileInfo
+    if System.IO.File.Exists path
+    then FormatDetector.detect path
+    else FormatDetector.detectBuffer bytes
+    |> function
+      | FileFormat.ELFBinary -> new ELFFileInfo (bytes, path) :> FileInfo
+      | FileFormat.PEBinary -> new PEFileInfo (bytes, path) :> FileInfo
+      | FileFormat.MachBinary -> new MachFileInfo (bytes, path, isa) :> FileInfo
+      | _ -> new RawFileInfo (bytes, baseAddr, isa) :> FileInfo
   else new RawFileInfo (bytes, baseAddr, isa) :> FileInfo
 
 let detectThumb entryPoint (isa: ISA) =
