@@ -44,6 +44,21 @@ let private machBinary reader =
   else None
 
 /// <summary>
+///   Given a byte array, identify its file format and return a tuple of
+///   (B2R2.FileFormat and B2R2.ISA).
+/// </summary>
+[<CompiledName("Detect")>]
+let detectBuffer bytes =
+  let reader = BinReader.Init (bytes)
+  Monads.OrElse.orElse {
+    yield! elfBinary reader
+    yield! peBinary bytes
+    yield! machBinary reader
+    yield! Some FileFormat.RawBinary
+  } |> Option.get
+
+
+/// <summary>
 ///   Given a binary file path, identify its file format and return a tuple of
 ///   (B2R2.FileFormat and B2R2.ISA).
 /// </summary>
@@ -53,12 +68,6 @@ let detect file =
   let maxBytes = 2048 (* This is more than enough for all the file formats. *)
   let bytes = Array.create maxBytes 0uy
   f.Read (bytes, 0, maxBytes) |> ignore
-  let reader = BinReader.Init (bytes)
-  Monads.OrElse.orElse {
-    yield! elfBinary reader
-    yield! peBinary bytes
-    yield! machBinary reader
-    yield! Some FileFormat.RawBinary
-  } |> Option.get
+  detectBuffer bytes
 
 // vim: set tw=80 sts=2 sw=2:
