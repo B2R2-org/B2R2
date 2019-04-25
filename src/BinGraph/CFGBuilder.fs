@@ -106,13 +106,13 @@ type CFGBuilder () =
     disasmBoundaries.Keys |> Seq.toList |> List.sort
 
   member __.UpdateEntryOfDisasmBoundary leader entry =
-    let boundaries = __.GetDisasmBoundaries ()
-    let boundary = List.find (fun (sAddr, _) -> sAddr = leader) boundaries
+    let boundary =
+      Seq.find (fun (sAddr, _) -> sAddr = leader) disasmBoundaries.Keys
     disasmBoundaries.[boundary] <- Some entry
 
   member __.TryGetEntryByDisasmLeader leader =
-    let boundaries = __.GetDisasmBoundaries ()
-    let boundary = List.find (fun (sAddr, _) -> sAddr = leader) boundaries
+    let boundary =
+      Seq.find (fun (sAddr, _) -> sAddr = leader) disasmBoundaries.Keys
     if disasmBoundaries.ContainsKey boundary then
       Some disasmBoundaries.[boundary]
     else None
@@ -127,13 +127,13 @@ type CFGBuilder () =
     irBoundaries.Remove boundary |> ignore
 
   member __.UpdateEntryOfIRBoundary leader entry =
-    let boundaries = __.GetIRBoundaries ()
-    let boundary = List.find (fun (sPpoint, _) -> sPpoint = leader) boundaries
+    let boundary =
+      Seq.find (fun (sPpoint, _) -> sPpoint = leader) irBoundaries.Keys
     irBoundaries.[boundary] <- Some entry
 
   member __.TryGetEntryByIRLeader leader =
-    let boundaries = __.GetIRBoundaries ()
-    let boundary = List.find (fun (sAddr, _) -> sAddr = leader) boundaries
+    let boundary =
+      Seq.find (fun (sAddr, _) -> sAddr = leader) irBoundaries.Keys
     if irBoundaries.ContainsKey boundary then
       Some irBoundaries.[boundary]
     else None

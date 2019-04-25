@@ -33,15 +33,18 @@ open B2R2.FrontEnd
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open System.Text
+open System.Collections.Generic
 
 let isExecutable hdl addr =
   match hdl.FileInfo.GetSections addr |> Seq.tryHead with
   | Some s -> s.Kind = SectionKind.ExecutableSection
   | _ -> false
 
-let accumulateBBLs bbls addr = function
+let accumulateBBLs (bbls: Dictionary<_, _>) addr = function
   | Error () -> bbls
-  | Ok bbl -> Map.add addr bbl bbls
+  | Ok bbl ->
+    bbls.[addr] <- bbl
+    bbls
 
 let rec buildDisasmBBLAux (builder: CFGBuilder) sAddr addr eAddr instrs =
   if addr = eAddr then
@@ -114,16 +117,16 @@ let getDisasmSuccessors hdl (builder: CFGBuilder) (bbl: DisassemblyBBL) =
   else [ Some (next, JmpEdge) ]
 
 let addDisasmLeader
-    hdl (builder:CFGBuilder) funcset bbls (g: DisasmCFG) entry leader = function
+    hdl (builder:CFGBuilder) funcset (bbls: Dictionary<Addr, DisassemblyBBL>) (g: DisasmCFG) entry leader = function
   | None ->
     if leader <> entry && Set.contains leader funcset then None
     else
       builder.UpdateEntryOfDisasmBoundary leader entry
-      let bbl = Map.find leader bbls
+      let bbl = bbls.[leader]
       let v = g.AddVertex bbl
       Some (v, getDisasmSuccessors hdl builder bbl)
   | Some entry_ when entry = entry_ ->
-    let bbl = Map.find leader bbls
+    let bbl = bbls.[leader]
     let v = g.FindVertexByData bbl
     Some (v, [])
   | Some entry_ ->
@@ -158,7 +161,7 @@ let rec buildDisasmCFGs hdl builder (funcs: Funcs) funcset bbls = function
   | entry :: entries ->
     let cfg = funcs.[entry].DisasmCFG
     buildDisasmCFG hdl builder cfg funcset bbls entry
-    let bbl = Map.find entry bbls
+    let bbl = bbls.[entry]
     if cfg.Size () <> 0 then cfg.FindVertexByData bbl |> cfg.SetRoot else ()
     buildDisasmCFGs hdl builder funcs funcset bbls entries
   | [] -> builder
@@ -202,16 +205,16 @@ let getIRSuccessors hdl (builder: CFGBuilder) (bbl: IRBBL) =
   | stmt -> [ Some (getNextPpoint bbl.LastPpoint stmt, JmpEdge) ]
 
 let addIRLeader
-    hdl (builder: CFGBuilder) funcset bbls (cfg: IRCFG) entry leader = function
+    hdl (builder: CFGBuilder) funcset (bbls: Dictionary<PPoint, IRBBL>) (cfg: IRCFG) entry leader = function
   | None ->
     if leader <> (entry, 0) && Set.contains (fst leader) funcset then None
     else
       builder.UpdateEntryOfIRBoundary leader entry
-      let bbl = Map.find leader bbls
+      let bbl = bbls.[leader]
       let v = cfg.AddVertex bbl
       Some (v, getIRSuccessors hdl builder bbl)
   | Some entry_ when entry = entry_ ->
-    let bbl = Map.find leader bbls
+    let bbl = bbls.[leader]
     let v = cfg.FindVertexByData bbl
     Some (v, [])
   | Some entry_ ->
@@ -243,15 +246,17 @@ let rec buildIRCFGs hdl builder (funcs: Funcs) funcset bbls = function
   | entry :: entries ->
     let cfg = funcs.[entry].IRCFG
     buildIRCFG hdl builder cfg funcset bbls entry
-    let bbl = Map.find (entry, 0) bbls
+    let bbl = bbls.[(entry, 0)]
     if cfg.Size () <> 0 then cfg.FindVertexByData bbl |> cfg.SetRoot else ()
     buildIRCFGs hdl builder funcs funcset bbls entries
   | [] -> builder
 
 let buildCFGs hdl (builder: CFGBuilder) (funcs: Funcs) =
+  let disasmBBLs = Dictionary<Addr, DisassemblyBBL> ()
   let disasmBBLs =
-    buildDisasmBBLs hdl builder Map.empty <| builder.GetDisasmBoundaries ()
-  let irBBLs = buildIRBBLs hdl builder Map.empty <| builder.GetIRBoundaries ()
+    buildDisasmBBLs hdl builder disasmBBLs <| builder.GetDisasmBoundaries ()
+  let irBBLs = Dictionary<PPoint, IRBBL> ()
+  let irBBLs = buildIRBBLs hdl builder irBBLs <| builder.GetIRBoundaries ()
   let entries = funcs.Keys |> Seq.toList
   let funcset = Set.ofList entries
   let builder = buildDisasmCFGs hdl builder funcs funcset disasmBBLs entries
