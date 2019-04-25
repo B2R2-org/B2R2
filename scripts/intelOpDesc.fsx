@@ -2,7 +2,10 @@
 #load "../src/Core/TypeExtensions.fs"
 #load "../src/Core/RegType.fs"
 #load "../src/Core/RegisterID.fs"
+#load "../src/Core/WordSize.fs"
+#load "../src/Core/AddrRange.fs"
 #load "../src/FrontEnd/Intel/IntelRegister.fs"
+#load "../src/FrontEnd/Intel/IntelTypes.fs"
 (*
   B2R2 - the Next-Generation Reversing Platform
 
@@ -30,7 +33,6 @@
   SOFTWARE.
 *)
 
-open System.Text.RegularExpressions
 open B2R2.FrontEnd.Intel
 
 /// We define 8 different RegGrp types. Intel instructions use an integer value
@@ -139,51 +141,53 @@ type OprSize =
   | DQD = 0x1c0
   /// Register size = Double-quadword, Pointer size = Quadword
   | DQQ = 0x200
+  /// Register size = Double-quadword, Pointer size = Word
+  | DQW = 0x240
   /// Register size = Doubledword, Pointer size = Word
-  | DW = 0x240
+  | DW = 0x280
   /// 32-bit, 48 bit, or 80-bit pointer, depending on operand-size attribute
-  | P = 0x280
+  | P = 0x2c0
   /// 128-bit or 256-bit packed double-precision floating-point data
-  | PD = 0x2c0
+  | PD = 0x300
   /// Quadword MMX techonolgy register
-  | PI = 0x300
+  | PI = 0x340
   /// 128-bit or 256-bit packed single-precision floating-point data
-  | PS = 0x340
+  | PS = 0x380
   /// 128-bit or 256-bit packed single-precision floating-point data, pointer
   /// size : Quadword
-  | PSQ = 0x380
+  | PSQ = 0x3c0
   /// Quadword, regardless of operand-size attribute
-  | Q = 0x3c0
+  | Q = 0x400
   /// Quad-Quadword (256-bits), regardless of operand-size attribute
-  | QQ = 0x400
+  | QQ = 0x440
   /// 6-byte or 10-byte pseudo-descriptor
-  | S = 0x440
+  | S = 0x480
   /// Scalar element of a 128-bit double-precision floating data
-  | SD = 0x480
+  | SD = 0x4c0
   /// Scalar element of a 128-bit double-precision floating data, but the
   /// pointer size is quadword
-  | SDQ = 0x4c0
+  | SDQ = 0x500
   /// Scalar element of a 128-bit single-precision floating data
-  | SS = 0x500
+  | SS = 0x540
   /// Scalar element of a 128-bit single-precision floating data, but the
   /// pointer size is doubleword
-  | SSD = 0x540
+  | SSD = 0x580
   /// Scalar element of a 128-bit single-precision floating data, but the
   /// pointer size is quadword
-  | SSQ = 0x580
+  | SSQ = 0x5c0
   /// Word/DWord/QWord depending on operand-size attribute
-  | V = 0x5c0
+  | V = 0x600
   /// Word, regardless of operand-size attribute
-  | W = 0x600
+  | W = 0x640
   /// dq or qq based on the operand-size attribute
-  | X = 0x640
+  | X = 0x680
   /// 128-bit, 256-bit or 512-bit depending on operand-size attribute
-  | XZ = 0x680
+  | XZ = 0x6c0
   /// Doubleword or quadword (in 64-bit mode), depending on operand-size
   /// attribute
-  | Y = 0x6c0
+  | Y = 0x700
   /// Word for 16-bit operand-size or DWord for 32 or 64-bit operand size
-  | Z = 0x700
+  | Z = 0x740
 
 /// Defines attributes for registers to apply register conversion rules.
 type RGrpAttr =
@@ -312,6 +316,7 @@ let _Wd = ODModeSize (struct (OprMode.W, OprSize.D))
 let _Wdq = ODModeSize (struct (OprMode.W, OprSize.DQ))
 let _Wdqd = ODModeSize (struct (OprMode.W, OprSize.DQD))
 let _Wdqq = ODModeSize (struct (OprMode.W, OprSize.DQQ))
+let _Wdqw = ODModeSize (struct (OprMode.W, OprSize.DQW))
 let _Wpd = ODModeSize (struct (OprMode.W, OprSize.PD))
 let _Wps = ODModeSize (struct (OprMode.W, OprSize.PS))
 let _Wpsq = ODModeSize (struct (OprMode.W, OprSize.PSQ))
@@ -464,6 +469,7 @@ let VdqUdq = [| _Vdq; _Udq |]
 let VdqWdq = [| _Vdq; _Wdq |]
 let VdqWdqd = [| _Vdq; _Wdqd |]
 let VdqWdqq = [| _Vdq; _Wdqq |]
+let VdqWdqw = [| _Vdq; _Wdqw |]
 let VpdWpd = [| _Vpd; _Wpd |]
 let VpsHpsWpsIb = [| _Vps; _Hps; _Wps; _Ib |]
 let VpsWps = [| _Vps; _Wps |]
@@ -795,6 +801,7 @@ let descs =
     ("VdqWdq", [| _Vdq; _Wdq |])
     ("VdqWdqd", [| _Vdq; _Wdqd |])
     ("VdqWdqq", [| _Vdq; _Wdqq |])
+    ("VdqWdqw", [| _Vdq; _Wdqw |])
     ("VpdWpd", [| _Vpd; _Wpd |])
     ("VpsHpsWpsIb", [| _Vps; _Hps; _Wps; _Ib |])
     ("VpsWps", [| _Vps; _Wps |])
