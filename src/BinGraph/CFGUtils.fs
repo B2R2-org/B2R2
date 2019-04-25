@@ -93,13 +93,14 @@ let rec buildIRBBLs hdl (builder: CFGBuilder) bbls = function
 let inline private getBranchTarget (instr: Instruction) =
   instr.DirectBranchTarget () |> Utils.tupleToOpt
 
-let getDisasmSuccessors hdl builder (bbl: DisassemblyBBL) =
+let getDisasmSuccessors hdl (builder: CFGBuilder) (bbl: DisassemblyBBL) =
   let last = bbl.LastInstr
   let next = last.Address + uint64 last.Length
   if last.IsExit () then
     if last.IsCall () then [ Some (next, JmpEdge) ] // XXX: Will be modified
     elif last.IsDirectBranch () then
       match getBranchTarget last with
+      | Some addr when not <| builder.IsInteresting hdl addr -> []
       | Some addr ->
         if last.IsCondBranch () then
           if last.IsCJmpOnTrue () then
@@ -108,7 +109,8 @@ let getDisasmSuccessors hdl builder (bbl: DisassemblyBBL) =
         else [ Some (addr, JmpEdge) ]
       | None -> []
     elif last.IsIndirectBranch () then [ None ]
-    else [ Some (next, JmpEdge) ]
+    elif last.IsInterrupt () then [ Some (next, JmpEdge) ]
+    else []
   else [ Some (next, JmpEdge) ]
 
 let addDisasmLeader
