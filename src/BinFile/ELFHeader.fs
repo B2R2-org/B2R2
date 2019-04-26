@@ -33,6 +33,7 @@ let private elfMagicNumber = [| 0x7fuy; 0x45uy; 0x4cuy; 0x46uy |]
 
 /// Check if the file has a valid ELF header.
 let isELF (reader: BinReader) offset =
+  reader.Length() > offset + sizeof<uint32> &&
   reader.PeekBytes (4, offset) = elfMagicNumber
 
 let peekClass (reader: BinReader) offset =
