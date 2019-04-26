@@ -36,10 +36,10 @@ open B2R2.BinIR.LowUIR
 open B2R2.BinGraph.DisasHeuristic
 
 let initFunction hdl (builder: CFGBuilder) (funcs: Funcs) entry =
-  builder.UnanalyzedFuncs.Add entry |> ignore
   let found, _ = funcs.TryGetValue entry
   if found then ()
   else
+    builder.UnanalyzedFuncs.Add entry |> ignore
     let found, name = hdl.FileInfo.TryFindFunctionSymbolName entry
     let regType =
       hdl.FileInfo.WordSize |> WordSize.toByteWidth |> RegType.fromByteWidth
@@ -235,30 +235,28 @@ let isInnerLeader (sPpoint, ePpoint) ppoint =
 /// We only consider spliting disassembly level basic blocks into ir level
 /// basic blocks. To find new disassembly level basic block leader is out of
 /// scope.
-let rec scanIRLeaders hdl (builder: CFGBuilder) boundary leaders = function
+let rec scanIRLeaders hdl (builder: CFGBuilder) boundary = function
   | (ppoint, (LMark symb as stmt)) :: stmts ->
     builder.AddStmt ppoint stmt
     builder.AddLabel ppoint symb
-    scanIRLeaders hdl builder boundary (ppoint :: leaders) stmts
+    builder.AddIRLeader ppoint
+    scanIRLeaders hdl builder boundary stmts
   | (ppoint, (InterJmp (_, Num bv, _) as stmt)) :: stmts ->
     builder.AddStmt ppoint stmt
     let newPpoint = BitVector.toUInt64 bv, 0
-    let leaders =
-      if isInnerLeader boundary newPpoint then newPpoint :: leaders else leaders
-    scanIRLeaders hdl builder boundary (ppoint :: leaders) stmts
+    if isInnerLeader boundary newPpoint then builder.AddIRLeader newPpoint
+    scanIRLeaders hdl builder boundary stmts
   | (ppoint, (InterCJmp (_, _, Num tBv, Num fBv) as stmt)) :: stmts ->
     builder.AddStmt ppoint stmt
     let tPpoint = BitVector.toUInt64 tBv, 0
     let fPpoint = BitVector.toUInt64 fBv, 0
-    let leaders =
-      if isInnerLeader boundary tPpoint then tPpoint :: leaders else leaders
-    let leaders =
-      if isInnerLeader boundary fPpoint then fPpoint :: leaders else leaders
-    scanIRLeaders hdl builder boundary (ppoint :: leaders) stmts
+    if isInnerLeader boundary tPpoint then builder.AddIRLeader tPpoint
+    if isInnerLeader boundary fPpoint then builder.AddIRLeader fPpoint
+    scanIRLeaders hdl builder boundary stmts
   | (ppoint, stmt) :: stmts ->
     builder.AddStmt ppoint stmt
-    scanIRLeaders hdl builder boundary leaders stmts
-  | [] -> builder, List.rev leaders
+    scanIRLeaders hdl builder boundary stmts
+  | [] -> builder
 
 let rec getIRBBLEnd hdl (builder: CFGBuilder) ppoint ePpoint =
   match builder.GetStmt ppoint with
@@ -322,21 +320,23 @@ let rec refineIRBoundariesAux hdl (builder: CFGBuilder) = function
 let refineIRBoundaries hdl (builder: CFGBuilder) =
   refineIRBoundariesAux hdl builder <| builder.GetIRBoundaries ()
 
-let rec findIRBoundaries hdl (builder: CFGBuilder) ePpoint leaders = function
+let rec findIRBoundaries hdl (builder: CFGBuilder) ePpoint = function
   | (sAddr, eAddr) :: boundaries ->
     let stmts = liftIRBlk hdl builder sAddr eAddr
     let sPpoint = sAddr, 0
     let ePpoint = eAddr, 0
-    let builder, leaders =
-      scanIRLeaders hdl builder (sPpoint, ePpoint) (sPpoint :: leaders) stmts
-    findIRBoundaries hdl builder ePpoint leaders boundaries
+    builder.AddIRLeader sPpoint
+    let builder =
+      scanIRLeaders hdl builder (sPpoint, ePpoint) stmts
+    findIRBoundaries hdl builder ePpoint boundaries
   | [] ->
-    let builder = scanIRBoundaries hdl builder ePpoint <| List.sort leaders
+    let builder =
+      scanIRBoundaries hdl builder ePpoint <| builder.GetIRLeaders ()
     refineIRBoundaries hdl builder
 
 let identifyIRBoundary hdl (builder: CFGBuilder) funcs =
   let builder =
-    findIRBoundaries hdl builder (0UL, 0) [] <| builder.GetDisasmBoundaries ()
+    findIRBoundaries hdl builder (0UL, 0) <| builder.GetDisasmBoundaries ()
   builder, funcs
 
 let identify hdl builder funcs =

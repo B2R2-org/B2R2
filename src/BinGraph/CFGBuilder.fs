@@ -55,7 +55,9 @@ type CFGBuilder () =
   let instrMap = Dictionary<Addr, Instruction> ()
   let stmtMap = Dictionary<PPoint, Stmt> ()
   let labelMap = Dictionary<Addr * Symbol, int> ()
+  let disasmLeaders = HashSet<Addr> ()
   let disasmBoundaries = Dictionary<Addr * Addr, Addr option> ()
+  let irLeaders = HashSet<PPoint> ()
   let irBoundaries = Dictionary<PPoint * PPoint, Addr option> ()
 
   let isExecutable hdl addr =
@@ -94,10 +96,11 @@ type CFGBuilder () =
     (addr, idx)
 
   member __.AddDisasmBoundary startAddr endAddr =
+    disasmLeaders.Add startAddr |> ignore
     disasmBoundaries.[(startAddr, endAddr)] <- None
 
   member __.ExistDisasmBoundary addr =
-    disasmBoundaries.Keys |> Seq.map fst |> Seq.contains addr
+    disasmLeaders.Contains addr
 
   member __.RemoveDisasmBoundary boundary =
     disasmBoundaries.Remove boundary |> ignore
@@ -116,6 +119,12 @@ type CFGBuilder () =
     if disasmBoundaries.ContainsKey boundary then
       Some disasmBoundaries.[boundary]
     else None
+
+  member __.AddIRLeader ppoint =
+    irLeaders.Add ppoint |> ignore
+
+  member __.GetIRLeaders () =
+    irLeaders |> Seq.toList |> List.sort
 
   member __.AddIRBoundary startPpoint endPpoint =
     irBoundaries.[(startPpoint, endPpoint)] <- None
