@@ -30,7 +30,10 @@ open B2R2
 open B2R2.BinFile
 
 let peekMagic (reader: BinReader) offset =
-  reader.PeekUInt32 offset |> LanguagePrimitives.EnumOfValue
+  if reader.Length() > offset + sizeof<uint32>
+  then reader.PeekUInt32 offset
+  else 0ul
+  |> LanguagePrimitives.EnumOfValue
 
 let isFat reader offset =
   match peekMagic reader offset with
