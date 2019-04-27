@@ -96,66 +96,67 @@ let rec buildIRBBLs hdl (builder: CFGBuilder) bbls = function
 let inline private getBranchTarget (instr: Instruction) =
   instr.DirectBranchTarget () |> Utils.tupleToOpt
 
-let getDisasmSuccessors hdl (builder: CFGBuilder) (bbl: DisassemblyBBL) =
+let getDisasmSuccessors hdl (builder: CFGBuilder) leader edges (bbl: DisassemblyBBL) =
   let last = bbl.LastInstr
   let next = last.Address + uint64 last.Length
   if last.IsExit () then
-    if last.IsCall () then [ Some (next, JmpEdge) ] // XXX: Will be modified
+    if last.IsCall () then [], (leader, Some (next, JmpEdge)) :: edges // XXX: Will be modified
     elif last.IsDirectBranch () then
       match getBranchTarget last with
-      | Some addr when not <| builder.IsInteresting hdl addr -> []
+      | Some addr when not <| builder.IsInteresting hdl addr -> [], edges
       | Some addr ->
         if last.IsCondBranch () then
           if last.IsCJmpOnTrue () then
-            [ Some (addr, CJmpFalseEdge) ; Some (next, CJmpTrueEdge) ]
-          else [ Some (addr, CJmpTrueEdge) ; Some (next, CJmpFalseEdge) ]
-        else [ Some (addr, JmpEdge) ]
-      | None -> []
-    elif last.IsIndirectBranch () then [ None ]
-    elif last.IsInterrupt () then [ Some (next, JmpEdge) ]
-    else []
-  else [ Some (next, JmpEdge) ]
+            [addr ; next], (leader, Some (addr, CJmpFalseEdge)) ::
+                              (leader, Some (next, CJmpTrueEdge)) :: edges
+          else
+            [addr ; next], (leader, Some (addr, CJmpTrueEdge)) ::
+                              (leader, Some (next, CJmpFalseEdge)) :: edges
+        else [addr], (leader, Some (addr, JmpEdge)) :: edges
+      | None -> [], edges
+    elif last.IsIndirectBranch () then [], (leader, None) :: edges
+    elif last.IsInterrupt () then
+      [next], (leader, Some (next, JmpEdge)) :: edges
+    else [], edges
+  else [next], (leader, Some (next, JmpEdge)) :: edges
 
-let addDisasmLeader
-    hdl (builder:CFGBuilder) funcset (bbls: Dictionary<Addr, DisassemblyBBL>) (g: DisasmCFG) entry leader = function
+let rec addDisasmVertex hdl (builder: CFGBuilder) funcset (bbls: Dictionary<Addr, DisassemblyBBL>) (g: DisasmCFG) entry edges leader =
+  match builder.GetEntryByDisasmLeader leader with
   | None ->
-    if leader <> entry && Set.contains leader funcset then None
+    if leader <> entry && Set.contains leader funcset then edges
     else
       builder.UpdateEntryOfDisasmBoundary leader entry
       let bbl = bbls.[leader]
       let v = g.AddVertex bbl
-      Some (v, getDisasmSuccessors hdl builder bbl)
-  | Some entry_ when entry = entry_ ->
-    let bbl = bbls.[leader]
-    let v = g.FindVertexByData bbl
-    Some (v, [])
-  | Some entry_ ->
-    /// XXX: Need to merge functions here
-    None
+      let targets, edges = getDisasmSuccessors hdl builder leader edges bbl
+      List.fold (addDisasmVertex hdl builder funcset bbls g entry) edges targets
+  | Some entry_ when entry = entry_ -> edges
+  | Some entry -> edges /// XXX: Need to merge functions here
 
-let chkAndAddDisasmLeader
-    hdl (builder:CFGBuilder) funcset bbls cfg entry leader =
-  builder.TryGetEntryByDisasmLeader leader
-  |> Option.bind (addDisasmLeader hdl builder funcset bbls cfg entry leader)
+let belongSameDisasm (builder: CFGBuilder) sAddr dAddr =
+  let sEntry = builder.GetEntryByDisasmLeader sAddr
+  let dEntry = builder.GetEntryByDisasmLeader dAddr
+  match sEntry, dEntry with
+  | Some sEntry, Some dEntry when sEntry = dEntry -> true
+  | _ -> false
 
-/// XXX: Cleanup needed
-let buildDisasmCFG hdl (builder: CFGBuilder) cfg funcset bbls entry =
-  let rec buildLoop parent = function
-    | [] -> ()
-    | Some (leader, edgeType) :: leaders ->
-      match chkAndAddDisasmLeader hdl builder funcset bbls cfg entry leader with
-      | Some (child, succs) ->
-        cfg.AddEdge parent child edgeType
-        buildLoop child succs
-      | None -> ()
-      buildLoop parent leaders
-    | None :: leaders ->
-      /// This is the case that needs branch target resolving.
-      parent.VData.ToResolve <- true
-      buildLoop parent leaders
-  match chkAndAddDisasmLeader hdl builder funcset bbls cfg entry entry with
-  | Some (v, succs) -> buildLoop v succs
-  | None -> ()
+let rec addDisasmEdges builder (bbls: Dictionary<Addr, DisassemblyBBL>) (g: DisasmCFG) = function
+  | [] -> ()
+  | (src, Some (dst, edgeType)) :: edges ->
+    if belongSameDisasm builder src dst then
+      let s = g.FindVertexByData bbls.[src]
+      let d = g.FindVertexByData bbls.[dst]
+      g.AddEdge s d edgeType
+      addDisasmEdges builder bbls g edges
+    else addDisasmEdges builder bbls g edges
+  | (src, None) :: edges ->
+    let s = g.FindVertexByData bbls.[src]
+    s.VData.ToResolve <- true
+    addDisasmEdges builder bbls g edges
+
+let buildDisasmCFG hdl (builder: CFGBuilder) (cfg: DisasmCFG) funcset bbls entry =
+  addDisasmVertex hdl builder funcset bbls cfg entry [] entry
+  |> addDisasmEdges builder bbls cfg
 
 let rec buildDisasmCFGs hdl builder (funcs: Funcs) funcset bbls = function
   | entry :: entries ->
@@ -171,76 +172,82 @@ let rec getNextAddr (builder: CFGBuilder) ppoint =
   | IEMark addr -> addr
   | stmt -> getNextAddr builder <| getNextPpoint ppoint stmt
 
-let getIRSuccessors hdl (builder: CFGBuilder) (bbl: IRBBL) =
+let getIRSuccessors hdl (builder: CFGBuilder) leader edges (bbl: IRBBL) =
   match bbl.LastStmt with
   | Jmp (Name symbol) ->
     let addr, _ = bbl.LastPpoint
     let ppoint = builder.FindPPointByLabel addr symbol
-    [ Some (ppoint, JmpEdge) ]
+    [ppoint], (leader, Some (ppoint, JmpEdge)) :: edges
   | CJmp (_, Name tSymbol, Name fSymbol) ->
     let addr, _ = bbl.LastPpoint
     let tPpoint = builder.FindPPointByLabel addr tSymbol
     let fPpoint = builder.FindPPointByLabel addr fSymbol
-    [ Some (tPpoint, CJmpTrueEdge) ; Some (fPpoint, CJmpFalseEdge) ]
+    [tPpoint ; fPpoint], (leader, Some (tPpoint, CJmpTrueEdge)) ::
+                            (leader, Some (fPpoint, CJmpFalseEdge)) :: edges
   | CJmp (_, Name tSymbol, _) ->
     let addr, _ = bbl.LastPpoint
     let tPpoint = builder.FindPPointByLabel addr tSymbol
-    [ Some (tPpoint, CJmpTrueEdge) ; None ]
+    [tPpoint], (leader, Some (tPpoint, CJmpTrueEdge)) :: (leader, None) :: edges
   | CJmp (_, _, Name fSymbol) ->
     let addr, _ = bbl.LastPpoint
     let fPpoint = builder.FindPPointByLabel addr fSymbol
-    [ Some (fPpoint, CJmpFalseEdge) ; None ]
+    [fPpoint], (leader, Some (fPpoint, CJmpFalseEdge)) :: (leader, None) :: edges
   | InterJmp (_, Num bv, InterJmpInfo.IsCall) ->
     let addr = getNextAddr builder bbl.LastPpoint
-    [ Some ((addr, 0), JmpEdge) ]
+    [(addr, 0)], (leader, Some ((addr, 0), JmpEdge)) :: edges
   | InterJmp (_, Num bv, _) ->
     let addr = BitVector.toUInt64 bv
-    if isExecutable hdl addr then [ Some ((addr, 0), JmpEdge) ] else []
+    if isExecutable hdl addr then
+      [(addr, 0)], (leader, Some ((addr, 0), JmpEdge)) :: edges
+    else [], edges
   | InterCJmp (_, _, Num tBv, Num fBv) ->
     let tAddr = BitVector.toUInt64 tBv
     let fAddr = BitVector.toUInt64 fBv
-    [ Some ((tAddr, 0), CJmpTrueEdge) ; Some ((fAddr, 0), CJmpFalseEdge) ]
-  | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ -> [ None ]
-  | SideEffect Halt -> []
-  | stmt -> [ Some (getNextPpoint bbl.LastPpoint stmt, JmpEdge) ]
+    [(tAddr, 0) ; (fAddr, 0)], (leader, Some ((tAddr, 0), CJmpTrueEdge)) ::
+                                  (leader, Some ((fAddr, 0), CJmpFalseEdge)) :: edges
+  | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ -> [], (leader, None) :: edges
+  | SideEffect Halt -> [], edges
+  | stmt ->
+    let next = getNextPpoint bbl.LastPpoint stmt
+    [next], (leader, Some (next, JmpEdge)) :: edges
 
-let addIRLeader
-    hdl (builder: CFGBuilder) funcset (bbls: Dictionary<PPoint, IRBBL>) (cfg: IRCFG) entry leader = function
+let rec addIRVertex hdl (builder: CFGBuilder) funcset (bbls: Dictionary<PPoint, IRBBL>) (g: IRCFG) entry edges leader =
+  match builder.GetEntryByIRLeader leader with
   | None ->
-    if leader <> (entry, 0) && Set.contains (fst leader) funcset then None
+    if leader <> (entry, 0) && Set.contains (fst leader) funcset then edges
     else
       builder.UpdateEntryOfIRBoundary leader entry
       let bbl = bbls.[leader]
-      let v = cfg.AddVertex bbl
-      Some (v, getIRSuccessors hdl builder bbl)
-  | Some entry_ when entry = entry_ ->
-    let bbl = bbls.[leader]
-    let v = cfg.FindVertexByData bbl
-    Some (v, [])
-  | Some entry_ ->
-    /// XXX: Need to merge functions here
-    None
+      let v = g.AddVertex bbl
+      let targets, edges = getIRSuccessors hdl builder leader edges bbl
+      List.fold (addIRVertex hdl builder funcset bbls g entry) edges targets
+  | Some entry_ when entry = entry_ -> edges
+  | Some entry -> edges
 
-let chkAndAddIRLeader hdl (builder:CFGBuilder) funcset bbls cfg entry leader =
-  builder.TryGetEntryByIRLeader leader
-  |> Option.bind (addIRLeader hdl builder funcset bbls cfg entry leader)
+let belongSameIR (builder: CFGBuilder) sAddr dAddr =
+  let sEntry = builder.GetEntryByIRLeader sAddr
+  let dEntry = builder.GetEntryByIRLeader dAddr
+  match sEntry, dEntry with
+  | Some sEntry, Some dEntry when sEntry = dEntry -> true
+  | _ -> false
 
-let buildIRCFG hdl (builder: CFGBuilder) cfg funcset bbls entry =
-  let rec buildLoop (parent: Vertex<IRBBL>) = function
-    | [] -> ()
-    | Some (leader, edgeType) :: leaders ->
-      match chkAndAddIRLeader hdl builder funcset bbls cfg entry leader with
-      | Some (child, succs) ->
-        cfg.AddEdge parent child edgeType
-        buildLoop child succs
-      | None -> ()
-      buildLoop parent leaders
-    | None :: leaders ->
-      parent.VData.ToResolve <- true
-      buildLoop parent leaders
-  match chkAndAddIRLeader hdl builder funcset bbls cfg entry (entry, 0) with
-  | Some (v, succs) -> buildLoop v succs
-  | None -> ()
+let rec addIREdges builder (bbls: Dictionary<PPoint, IRBBL>) (g: IRCFG) = function
+  | [] -> ()
+  | (src, Some (dst, edgeType)) :: edges ->
+    if belongSameIR builder src dst then
+      let s = g.FindVertexByData bbls.[src]
+      let d = g.FindVertexByData bbls.[dst]
+      g.AddEdge s d edgeType
+      addIREdges builder bbls g edges
+    else addIREdges builder bbls g edges
+  | (src, None) :: edges ->
+    let s = g.FindVertexByData bbls.[src]
+    s.VData.ToResolve <- true
+    addIREdges builder bbls g edges
+
+let buildIRCFG hdl (builder: CFGBuilder) (cfg: IRCFG) funcset bbls entry =
+  addIRVertex hdl builder funcset bbls cfg entry [] (entry, 0)
+  |> addIREdges builder bbls cfg
 
 let rec buildIRCFGs hdl builder (funcs: Funcs) funcset bbls = function
   | entry :: entries ->

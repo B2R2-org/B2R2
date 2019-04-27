@@ -56,9 +56,9 @@ type CFGBuilder () =
   let stmtMap = Dictionary<PPoint, Stmt> ()
   let labelMap = Dictionary<Addr * Symbol, int> ()
   let disasmLeaders = HashSet<Addr> ()
-  let disasmBoundaries = Dictionary<Addr * Addr, Addr option> ()
+  let disasmBoundaries = Dictionary<Addr, (Addr * Addr) * Addr option> ()
   let irLeaders = HashSet<PPoint> ()
-  let irBoundaries = Dictionary<PPoint * PPoint, Addr option> ()
+  let irBoundaries = Dictionary<PPoint, (PPoint * PPoint) * Addr option> ()
 
   let isExecutable hdl addr =
     match hdl.FileInfo.GetSections addr |> Seq.tryHead with
@@ -97,27 +97,26 @@ type CFGBuilder () =
 
   member __.AddDisasmBoundary startAddr endAddr =
     disasmLeaders.Add startAddr |> ignore
-    disasmBoundaries.[(startAddr, endAddr)] <- None
+    disasmBoundaries.[startAddr] <- ((startAddr, endAddr), None)
 
   member __.ExistDisasmBoundary addr =
     disasmLeaders.Contains addr
 
-  member __.RemoveDisasmBoundary boundary =
-    disasmBoundaries.Remove boundary |> ignore
+  member __.RemoveDisasmBoundary leader =
+    disasmBoundaries.Remove leader |> ignore
 
   member __.GetDisasmBoundaries () =
-    disasmBoundaries.Keys |> Seq.toList |> List.sort
+    disasmBoundaries.Values |> Seq.map fst |> Seq.toList |> List.sort
 
   member __.UpdateEntryOfDisasmBoundary leader entry =
-    let boundary =
-      Seq.find (fun (sAddr, _) -> sAddr = leader) disasmBoundaries.Keys
-    disasmBoundaries.[boundary] <- Some entry
+    disasmBoundaries.[leader] <- (fst disasmBoundaries.[leader], Some entry)
+
+  member __.GetEntryByDisasmLeader leader =
+    snd disasmBoundaries.[leader]
 
   member __.TryGetEntryByDisasmLeader leader =
-    let boundary =
-      Seq.find (fun (sAddr, _) -> sAddr = leader) disasmBoundaries.Keys
-    if disasmBoundaries.ContainsKey boundary then
-      Some disasmBoundaries.[boundary]
+    if disasmBoundaries.ContainsKey leader then
+      Some <| snd disasmBoundaries.[leader]
     else None
 
   member __.AddIRLeader ppoint =
@@ -127,24 +126,23 @@ type CFGBuilder () =
     irLeaders |> Seq.toList |> List.sort
 
   member __.AddIRBoundary startPpoint endPpoint =
-    irBoundaries.[(startPpoint, endPpoint)] <- None
+    irBoundaries.[startPpoint] <- ((startPpoint, endPpoint), None)
 
   member __.GetIRBoundaries () =
-    irBoundaries.Keys |> Seq.toList |> List.sort
+    irBoundaries.Values |> Seq.map fst |> Seq.toList |> List.sort
 
-  member __.RemoveIRBoundary boundary =
-    irBoundaries.Remove boundary |> ignore
+  member __.RemoveIRBoundary leader =
+    irBoundaries.Remove leader |> ignore
 
   member __.UpdateEntryOfIRBoundary leader entry =
-    let boundary =
-      Seq.find (fun (sPpoint, _) -> sPpoint = leader) irBoundaries.Keys
-    irBoundaries.[boundary] <- Some entry
+    irBoundaries.[leader] <- (fst irBoundaries.[leader], Some entry)
+
+  member __.GetEntryByIRLeader leader =
+    snd irBoundaries.[leader]
 
   member __.TryGetEntryByIRLeader leader =
-    let boundary =
-      Seq.find (fun (sAddr, _) -> sAddr = leader) irBoundaries.Keys
-    if irBoundaries.ContainsKey boundary then
-      Some irBoundaries.[boundary]
+    if irBoundaries.ContainsKey leader then
+      Some <| snd irBoundaries.[leader]
     else None
 
   member __.IsInteresting hdl addr =

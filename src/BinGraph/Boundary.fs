@@ -195,7 +195,7 @@ let rec refineDisasmBoundariesAux (builder: CFGBuilder) = function
     if includesDisasmBoundary builder boundary1 boundary2 then
       let sAddr0, _ = boundary1
       let sAddr1, _ = boundary2
-      builder.RemoveDisasmBoundary boundary1
+      builder.RemoveDisasmBoundary sAddr0
       builder.AddDisasmBoundary sAddr0 sAddr1
       refineDisasmBoundariesAux builder boundaries
     else refineDisasmBoundariesAux builder boundaries
@@ -311,7 +311,7 @@ let rec refineIRBoundariesAux hdl (builder: CFGBuilder) = function
       let sPpoint0, _ = boundary1
       let sPpoint1, _ = boundary2
       let ePpoint0 = getIRBBLEnd hdl builder sPpoint0 sPpoint1
-      builder.RemoveIRBoundary boundary1
+      builder.RemoveIRBoundary sPpoint0
       builder.AddIRBoundary sPpoint0 ePpoint0
       refineIRBoundariesAux hdl builder boundaries
     else refineIRBoundariesAux hdl builder boundaries
