@@ -44,8 +44,9 @@ type IntelInstruction (addr, numBytes, insInfo, wordSize) =
     | Opcode.RETFar | Opcode.RETFarImm | Opcode.RETNear | Opcode.RETNearImm
     | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
     | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JNB | Opcode.JNL | Opcode.JNO
-    | Opcode.JNP | Opcode.JNS | Opcode.JNZ | Opcode.JO | Opcode.JP | Opcode.JS
-    | Opcode.JZ | Opcode.LOOP | Opcode.LOOPE | Opcode.LOOPNE -> true
+    | Opcode.JNP | Opcode.JNS | Opcode.JNZ | Opcode.JO | Opcode.JP
+    | Opcode.JRCXZ | Opcode.JS | Opcode.JZ | Opcode.LOOP | Opcode.LOOPE
+    | Opcode.LOOPNE -> true
     | _ -> false
 
   member __.HasConcJmpTarget () =
@@ -63,16 +64,18 @@ type IntelInstruction (addr, numBytes, insInfo, wordSize) =
     match __.Info.Opcode with
     | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
     | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JNB | Opcode.JNL | Opcode.JNO
-    | Opcode.JNP | Opcode.JNS | Opcode.JNZ | Opcode.JO | Opcode.JP | Opcode.JS
-    | Opcode.JZ | Opcode.LOOP | Opcode.LOOPE | Opcode.LOOPNE -> true
+    | Opcode.JNP | Opcode.JNS | Opcode.JNZ | Opcode.JO | Opcode.JP
+    | Opcode.JRCXZ | Opcode.JS | Opcode.JZ | Opcode.LOOP | Opcode.LOOPE
+    | Opcode.LOOPNE -> true
     | _ -> false
 
   override __.IsCJmpOnTrue () =
     __.IsCondBranch ()
     && match __.Info.Opcode with
        | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
-       | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JO | Opcode.JP | Opcode.JS
-       | Opcode.JZ | Opcode.LOOP | Opcode.LOOPE -> true
+       | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JO | Opcode.JP
+       | Opcode.JRCXZ | Opcode.JS | Opcode.JZ | Opcode.LOOP | Opcode.LOOPE ->
+         true
        | _ -> false
 
   override __.IsCall () =
