@@ -87,11 +87,17 @@ type BitVector =
     /// BitVector Bitwise Not.
     static member (~~~) : v: BitVector -> BitVector
 
-    /// BitVector unsigned division.
+    /// BitVector signed division.
     static member (/) : v1: BitVector * v2: BitVector -> BitVector
 
-    /// BitVector unsigned modulo.
+    /// BitVector unsigned division.
+    static member (|/|) : v1: BitVector * v2: BitVector -> BitVector
+
+    /// BitVector signed modulo.
     static member (%) : v1: BitVector * v2: BitVector -> BitVector
+
+    /// BitVector unsigned modulo.
+    static member (|%|) : v1: BitVector * v2: BitVector -> BitVector
 
     /// BitVector unary negation.
     static member (~-): v: BitVector -> BitVector

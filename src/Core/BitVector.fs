@@ -131,9 +131,15 @@ type BitVector =
     BitVector.bnot v
 
   static member (/) (v1: BitVector, v2: BitVector) =
+    BitVector.sdiv v1 v2
+
+  static member (|/|) (v1: BitVector, v2: BitVector) =
     BitVector.div v1 v2
 
   static member (%) (v1: BitVector, v2: BitVector) =
+    BitVector.smodulo v1 v2
+
+  static member (|%|) (v1: BitVector, v2: BitVector) =
     BitVector.modulo v1 v2
 
   static member (~-) (v: BitVector) =
