@@ -181,6 +181,16 @@ type DiGraph<'V, 'E when 'V :> VertexData> () =
     | Some v -> v
     | None -> raise VertexNotFoundException
 
+  member __.FindVertexBy fn =
+    let folder acc (v: Vertex<_>) = if fn v then Some v else acc
+    match __.FoldVertex folder None with
+    | Some v -> v
+    | None -> raise VertexNotFoundException
+
+  member __.TryFindVertexBy fn =
+    let folder acc (v: Vertex<_>) = if fn v then Some v else acc
+    __.FoldVertex folder None
+
   /// Fold every vertex in the graph in a depth-first manner starting from the
   /// root node.
   member __.FoldVertexDFS fn acc =
