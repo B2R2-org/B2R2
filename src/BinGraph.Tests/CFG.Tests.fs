@@ -271,9 +271,10 @@ type CFGTestClass () =
     let eList =
       [ edge000190 ; edge1903F0 ; edge190480 ; edge3F0550 ; edge480520 ;
         edge520550 ; edge5505F0 ]
+    printfn "%A" eList
     let edgeTypeList =
-      [ JmpEdge ; CJmpFalseEdge ; CJmpTrueEdge ; JmpEdge ; JmpEdge ; JmpEdge ;
-        JmpEdge ]
+      [ FallThroughEdge ; CJmpFalseEdge ; CJmpTrueEdge ; JmpEdge ;
+        FallThroughEdge ; JmpEdge ; FallThroughEdge ]
     List.zip edgeTypeList eList
     |> List.iter (fun (x, y) -> Assert.AreEqual (x, y))
 
@@ -337,8 +338,8 @@ type CFGTestClass () =
     let eList = cfg.FoldEdge (ssaEdgeFolder cfg) [] |> List.rev
     Assert.AreEqual (7, List.length eList)
     let edgeTypeList =
-      [ JmpEdge ; CJmpFalseEdge ; CJmpTrueEdge ; JmpEdge ; JmpEdge ; JmpEdge ;
-        JmpEdge ]
+      [ FallThroughEdge ; CJmpFalseEdge ; CJmpTrueEdge ; JmpEdge ;
+        FallThroughEdge ; JmpEdge ; FallThroughEdge ]
     List.zip edgeTypeList eList
     |> List.iter (fun (x, y) -> Assert.AreEqual (x, y))
 
