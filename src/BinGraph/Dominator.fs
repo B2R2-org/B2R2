@@ -168,7 +168,7 @@ let connect (g: DiGraph<_, _>) =
 /// Disconnect the dummy node and the entry nodes.
 let disconnect (g: DiGraph<_, _>) =
   let root = g.GetRoot ()
-  root.Preds <- root.Preds |> List.filter (fun p -> p.GetID () <> root.GetID ())
+  root.Preds <- root.Preds |> List.filter (fun p -> p.GetID () <> 0)
 
 let initDominator (g: DiGraph<_, _>) =
   let ctxt = initContext g

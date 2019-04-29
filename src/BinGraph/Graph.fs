@@ -181,6 +181,10 @@ type DiGraph<'V, 'E when 'V :> VertexData> () =
     | Some v -> v
     | None -> raise VertexNotFoundException
 
+  member __.TryFindVertexByID id =
+    let folder acc (v: Vertex<_>) = if v.GetID () = id then Some v else acc
+    __.FoldVertex folder None
+
   member __.FindVertexBy fn =
     let folder acc (v: Vertex<_>) = if fn v then Some v else acc
     match __.FoldVertex folder None with

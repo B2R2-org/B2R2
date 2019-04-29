@@ -72,16 +72,24 @@ type IRCall (target) =
 
   member __.Target: Addr = target
 
-type SSABBL (irbbl, stmts, last) =
+type SSAVertexData (irVertexData) =
   inherit VertexData (VertexData.genID ())
 
-  member __.IRBBL: IRBBL = irbbl
+  member __.IRVertexData : IRVertexData = irVertexData
+
+type SSABBL (irVertexData, stmts, last) =
+  inherit SSAVertexData (irVertexData)
+
+  member __.IRVertexData: IRVertexData = irVertexData
 
   member __.Stmts: SSA.Stmt list = stmts
 
   member __.LastStmt: SSA.Stmt = last
 
   member val ToResolve = false with get, set
+
+type SSACall (irVertexData) =
+  inherit SSAVertexData (irVertexData)
 
 type CFGEdge =
   | JmpEdge
@@ -101,6 +109,6 @@ type IRVertex = Vertex<IRVertexData>
 
 type IRCFG = SimpleDiGraph<IRVertexData, CFGEdge>
 
-type SSAVertex = Vertex<SSABBL>
+type SSAVertex = Vertex<SSAVertexData>
 
-type SSACFG = SimpleDiGraph<SSABBL, CFGEdge>
+type SSACFG = SimpleDiGraph<SSAVertexData, CFGEdge>

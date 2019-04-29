@@ -52,7 +52,7 @@ type SSAContext =
     PredMap : Map<VertexID, VertexID []>
     SuccMap : Map<VertexID, (VertexID * CFGEdge) list>
     DFMap : Map<VertexID, VertexID list>
-    SSAMap : Map<VertexID, IRBBL * (Stmt list)>
+    SSAMap : Map<VertexID, IRVertexData * (Stmt list)>
     DomTree : Map<VertexID, VertexID list> * int
   }
 
@@ -82,13 +82,21 @@ let getGraphInfo domCtxt (irCFG: IRCFG) ssaCtxt (v: Vertex<_>) =
   { ssaCtxt with PredMap = predMap ; SuccMap = succMap ; DFMap = dfMap }
 
 let translateIR regType ctxt (v: Vertex<IRVertexData>) =
-  let vData = v.VData :?> IRBBL
-  let stmts = Translate.translateStmt regType (fst vData.Ppoint) [] vData.Stmts
-  let ssaMap = Map.add vData.ID (vData, stmts) ctxt.SSAMap
-  { ctxt with SSAMap = ssaMap }
+  match v.VData with
+  | :? IRBBL as vData ->
+    let vData = v.VData :?> IRBBL
+    let stmts = Translate.translateStmt regType (fst vData.Ppoint) [] vData.Stmts
+    let ssaMap = Map.add vData.ID (v.VData, stmts) ctxt.SSAMap
+    { ctxt with SSAMap = ssaMap }
+  | :? IRCall as vData ->
+    /// XXX: Will be fixed
+    let ssaMap = Map.add vData.ID (v.VData, []) ctxt.SSAMap
+    { ctxt with SSAMap = ssaMap }
+  | _ -> ctxt
 
 let initContext regType (irCFG: IRCFG) =
   let ctxt = Dominator.initDominatorContext irCFG
+  irCFG.IterVertex (fun (v: Vertex<_>) -> printfn "%d" <| v.GetID ())
   let domTree = getDomTree ctxt
   { PredMap = Map.empty ; SuccMap = Map.empty ; DFMap = Map.empty ;
     SSAMap = Map.empty ; DomTree = domTree }
@@ -316,6 +324,7 @@ let renamePhi stacks predMap parent ssaMap n =
   Map.add n (irbbl, stmts) ssaMap
 
 let rec rename tree predMap succMap aOrig (ssaMap, counts, stacks) n =
+  printfn "n: %d" n
   let irbbl, stmts = Map.find n ssaMap
   let stmts, counts, stacks =
     List.fold renameStmt ([], counts, stacks) stmts
@@ -323,6 +332,7 @@ let rec rename tree predMap succMap aOrig (ssaMap, counts, stacks) n =
   let ssaMap =
     List.fold (renamePhi stacks predMap n) ssaMap (Map.find n succMap)
   let children = Map.find n tree
+  printfn "%A" children
   let ssaMap, counts, stacks =
     List.fold (rename tree predMap succMap aOrig) (ssaMap, counts, stacks) children
   let defs = Map.find n aOrig
@@ -352,10 +362,15 @@ let toResolve = function
   | Jmp (InterCJmp _) -> true
   | _ -> false
 
-let genVMap (g: SSACFG) n (irbbl, stmts) =
-  let ssaBBL = SSABBL (irbbl, stmts, List.head <| List.rev stmts)
-  if toResolve ssaBBL.LastStmt then ssaBBL.ToResolve <- true
-  g.AddVertex ssaBBL
+let genVMap (g: SSACFG) n ((irData: IRVertexData), stmts) =
+  match irData with
+  | :? IRBBL as irData ->
+    let ssaBBL = SSABBL (irData, stmts, List.head <| List.rev stmts)
+    if toResolve ssaBBL.LastStmt then ssaBBL.ToResolve <- true
+    g.AddVertex ssaBBL
+  | :? IRCall as irData ->
+    let ssaCall = SSACall (irData)
+    g.AddVertex ssaCall
 
 let addEdge (g: SSACFG) p (c, ty) =
   g.AddEdge p c ty
@@ -373,7 +388,11 @@ let setRoot (irCFG: IRCFG) (ssaCFG: SSACFG) =
   let irRoot = irCFG.GetRoot ()
   let irRootBBL = irRoot.VData :?> IRBBL
   ssaCFG.IterVertex (fun v ->
-    if v.VData.IRBBL = irRootBBL then ssaCFG.SetRoot v)
+    match v.VData with
+    | :? SSABBL as vData ->
+      let irData = vData.IRVertexData :?> IRBBL
+      if irData = irRootBBL then ssaCFG.SetRoot v
+    | _ -> ())
 
 let transform regType irCFG ssaCFG =
   let ctxt = initContext regType irCFG
