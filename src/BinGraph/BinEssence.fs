@@ -47,6 +47,7 @@ with
   static member Init _verbose hdl =
     (* Currently no other choice *)
     let builder, funcs = CFGUtils.construct hdl None
+    CFGUtils.analCalls funcs
     { BinHandler = hdl; CFGBuilder = builder ; Functions = funcs }
 
   static member FindFuncByEntry entry ess =
@@ -72,11 +73,11 @@ with
   static member EdgeToDOT (Edge e) = // FIXME
     sprintf "%A" e
 
-  static member ShowDisasmDOT name (disasmCFG: CFG<DisassemblyBBL>) =
+  static member ShowDisasmDOT name (disasmCFG: DisasmCFG) =
     disasmCFG.ToDOTStr name BinEssence.DisasmVertexToDOT BinEssence.EdgeToDOT
     |> System.Console.WriteLine
 
-  static member ShowIRDOT name (irCFG: CFG<IRBBL>) =
+  static member ShowIRDOT name (irCFG: IRCFG) =
     irCFG.ToDOTStr name BinEssence.IrVertexToDOT BinEssence.EdgeToDOT
     |> System.Console.WriteLine
 

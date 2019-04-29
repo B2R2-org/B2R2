@@ -67,11 +67,14 @@ type CFGTestClass () =
     Map.add (sAddr, dAddr) e acc
 
   let irVertexFolder acc (v: IRVertex) =
-    Map.add v.VData.Ppoint v acc
+    let vData = v.VData :?> IRBBL
+    Map.add vData.Ppoint v acc
 
   let irEdgeFolder (cfg: IRCFG) acc (src: IRVertex) (dst: IRVertex) =
-    let sPpoint = src.VData.Ppoint
-    let dPpoint = dst.VData.Ppoint
+    let sData = src.VData :?> IRBBL
+    let dData = dst.VData :?> IRBBL
+    let sPpoint = sData.Ppoint
+    let dPpoint = dData.Ppoint
     let e = cfg.FindEdge src dst
     Map.add (sPpoint, dPpoint) e acc
 
@@ -233,7 +236,7 @@ type CFGTestClass () =
     let v550 = Map.find (0x55UL, 0) vMap
     let v5F0 = Map.find (0x5FUL, 0) vMap
     let vList = [ v000 ; v190 ; v3F0 ; v480 ; v520 ; v550 ; v5F0 ]
-    let bblList = List.map (fun (x: Vertex<_>) -> x.VData) vList
+    let bblList = List.map (fun (x: IRVertex) -> x.VData :?> IRBBL) vList
     let pPointList =
       [ (0x00UL, 0) ; (0x19UL, 0) ; (0x3FUL, 0) ; (0x48UL, 0) ; (0x52UL, 0) ;
         (0x55UL, 0) ; (0x5FUL, 0) ]
@@ -283,7 +286,7 @@ type CFGTestClass () =
     |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x vMap)
     let v620 = Map.find (0x62UL, 0) vMap
     let vList = [ v620 ]
-    let bblList = List.map (fun (x: Vertex<_>) -> x.VData) vList
+    let bblList = List.map (fun (x: IRVertex) -> x.VData :?> IRBBL) vList
     let pPointList = [ (0x62UL, 0) ]
     List.zip pPointList bblList
     |> List.iter (fun (x, y) -> Assert.AreEqual (x, y.Ppoint))
@@ -304,7 +307,7 @@ type CFGTestClass () =
     let v710 = Map.find (0x71UL, 0) vMap
     let v810 = Map.find (0x81UL, 0) vMap
     let vList = [ v710 ; v810 ]
-    let bblList = List.map (fun (x: Vertex<_>) -> x.VData) vList
+    let bblList = List.map (fun (x: IRVertex) -> x.VData :?> IRBBL) vList
     let pPointList = [ (0x71UL, 0) ; (0x81UL, 0) ]
     List.zip pPointList bblList
     |> List.iter (fun (x, y) -> Assert.AreEqual (x, y.Ppoint))

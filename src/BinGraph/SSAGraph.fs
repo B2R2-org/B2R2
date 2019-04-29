@@ -77,12 +77,12 @@ let getGraphInfo domCtxt (irCFG: IRCFG) ssaCtxt (v: Vertex<_>) =
   let succMap = Map.add id succs ssaCtxt.SuccMap
   let frontiers =
     Dominator.frontier domCtxt v
-    |> List.map (fun (v: Vertex<IRBBL>) -> v.GetID ())
+    |> List.map (fun (v: Vertex<IRVertexData>) -> v.GetID ())
   let dfMap = Map.add id frontiers ssaCtxt.DFMap
   { ssaCtxt with PredMap = predMap ; SuccMap = succMap ; DFMap = dfMap }
 
-let translateIR regType ctxt (v: Vertex<IRBBL>) =
-  let vData = v.VData
+let translateIR regType ctxt (v: Vertex<IRVertexData>) =
+  let vData = v.VData :?> IRBBL
   let stmts = Translate.translateStmt regType (fst vData.Ppoint) [] vData.Stmts
   let ssaMap = Map.add vData.ID (vData, stmts) ctxt.SSAMap
   { ctxt with SSAMap = ssaMap }
@@ -371,7 +371,7 @@ let buildCFG g ctxt =
 
 let setRoot (irCFG: IRCFG) (ssaCFG: SSACFG) =
   let irRoot = irCFG.GetRoot ()
-  let irRootBBL = irRoot.VData
+  let irRootBBL = irRoot.VData :?> IRBBL
   ssaCFG.IterVertex (fun v ->
     if v.VData.IRBBL = irRootBBL then ssaCFG.SetRoot v)
 

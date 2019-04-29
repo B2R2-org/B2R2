@@ -53,7 +53,7 @@ let rec buildDisasmBBLAux (builder: CFGBuilder) sAddr addr eAddr instrs =
       let addrRange = AddrRange (sAddr, eAddr)
       let last = List.head instrs
       let instrs = List.rev instrs
-      Ok <| DisassemblyBBL (addrRange, instrs, last)
+      Ok <| DisasmBBL (addrRange, instrs, last)
   else
     let instr = builder.GetInstr addr
     let nextAddr = addr + uint64 instr.Length
@@ -96,11 +96,11 @@ let rec buildIRBBLs hdl (builder: CFGBuilder) bbls = function
 let inline private getBranchTarget (instr: Instruction) =
   instr.DirectBranchTarget () |> Utils.tupleToOpt
 
-let getDisasmSuccessors hdl (builder: CFGBuilder) leader edges (bbl: DisassemblyBBL) =
+let getDisasmSuccessors hdl (builder: CFGBuilder) leader edges (bbl: DisasmBBL) =
   let last = bbl.LastInstr
   let next = last.Address + uint64 last.Length
   if last.IsExit () then
-    if last.IsCall () then // XXX: Will be modified
+    if last.IsCall () then
       [next], (leader, Some (next, JmpEdge)) :: edges
     elif last.IsDirectBranch () then
       match getBranchTarget last with
@@ -121,7 +121,7 @@ let getDisasmSuccessors hdl (builder: CFGBuilder) leader edges (bbl: Disassembly
     else [], edges
   else [next], (leader, Some (next, JmpEdge)) :: edges
 
-let rec addDisasmVertex hdl (builder: CFGBuilder) funcset (bbls: Dictionary<Addr, DisassemblyBBL>) (g: DisasmCFG) entry edges leader =
+let rec addDisasmVertex hdl (builder: CFGBuilder) funcset (bbls: Dictionary<Addr, DisasmBBL>) (g: DisasmCFG) entry edges leader =
   match builder.GetEntryByDisasmLeader leader with
   | None ->
     if leader <> entry && Set.contains leader funcset then edges
@@ -141,7 +141,7 @@ let belongSameDisasm (builder: CFGBuilder) sAddr dAddr =
   | Some sEntry, Some dEntry when sEntry = dEntry -> true
   | _ -> false
 
-let rec addDisasmEdges builder (bbls: Dictionary<Addr, DisassemblyBBL>) (g: DisasmCFG) = function
+let rec addDisasmEdges builder (bbls: Dictionary<Addr, DisasmBBL>) (g: DisasmCFG) = function
   | [] -> ()
   | (src, Some (dst, edgeType)) :: edges ->
     if belongSameDisasm builder src dst then
@@ -195,7 +195,7 @@ let getIRSuccessors hdl (builder: CFGBuilder) leader edges (bbl: IRBBL) =
     [fPpoint], (leader, Some (fPpoint, CJmpFalseEdge)) :: (leader, None) :: edges
   | InterJmp (_, Num bv, InterJmpInfo.IsCall) ->
     let addr = getNextAddr builder bbl.LastPpoint
-    [(addr, 0)], (leader, Some ((addr, 0), JmpEdge)) :: edges
+    [(addr, 0)], (leader, Some ((addr, 0), FallThroughEdge)) :: edges
   | InterJmp (_, Num bv, _) ->
     let addr = BitVector.toUInt64 bv
     if isExecutable hdl addr then
@@ -243,7 +243,8 @@ let rec addIREdges builder (bbls: Dictionary<PPoint, IRBBL>) (g: IRCFG) = functi
     else addIREdges builder bbls g edges
   | (src, None) :: edges ->
     let s = g.FindVertexByData bbls.[src]
-    s.VData.ToResolve <- true
+    let sData = s.VData :?> IRBBL
+    sData.ToResolve <- true
     addIREdges builder bbls g edges
 
 let buildIRCFG hdl (builder: CFGBuilder) (cfg: IRCFG) funcset bbls entry =
@@ -260,7 +261,7 @@ let rec buildIRCFGs hdl builder (funcs: Funcs) funcset bbls = function
   | [] -> builder
 
 let buildCFGs hdl (builder: CFGBuilder) (funcs: Funcs) =
-  let disasmBBLs = Dictionary<Addr, DisassemblyBBL> ()
+  let disasmBBLs = Dictionary<Addr, DisasmBBL> ()
   let disasmBBLs =
     buildDisasmBBLs hdl builder disasmBBLs <| builder.GetDisasmBoundaries ()
   let irBBLs = Dictionary<PPoint, IRBBL> ()
@@ -285,6 +286,56 @@ let construct hdl = function
     (builder, funcs)
     ||> Boundary.identify hdl
     ||> buildCFGs hdl
+
+let hasCall (bbl: IRBBL) =
+  match bbl.LastStmt with
+  | InterJmp (_, _, InterJmpInfo.IsCall) -> true
+  | _ -> false
+
+let tryGetCallTarget (bbl: IRBBL) =
+  match bbl.LastStmt with
+  | InterJmp (_, Num bv, _) -> Some <| BitVector.toUInt64 bv
+  | _ -> None
+
+let callVertexFinder addr (v: IRVertex) =
+  match v.VData with
+  | :? IRBBL -> false
+  | :? IRCall as vData -> vData.Target = addr
+
+let getCallVertex (irCFG: IRCFG) addr =
+  match irCFG.TryFindVertexBy (callVertexFinder addr) with
+  | Some v -> v
+  | None ->
+    let vData = IRCall (addr)
+    irCFG.AddVertex vData
+
+/// XXX: Need refactoring
+let tryFindFallThrough (irCFG: IRCFG) (v: IRVertex) =
+  List.fold (fun acc w ->
+    match irCFG.FindEdge v w with
+    | FallThroughEdge -> Some w
+    | _ -> None) None v.Succs
+
+let addIRCall irCFG v vData =
+  if hasCall vData then
+    match tryGetCallTarget vData, tryFindFallThrough irCFG v with
+    | Some addr, Some fallThrough ->
+      let callV = getCallVertex irCFG addr
+      irCFG.AddEdge v callV CallEdge
+      irCFG.AddEdge callV fallThrough RetEdge
+    | _ -> ()
+
+let analIRCallsAux irCFG (v: IRVertex) =
+  match v.VData with
+  | :? IRBBL as vData -> addIRCall irCFG v vData
+  | _ -> ()
+
+let analIRCalls (func: Function) =
+  let cfg = func.IRCFG
+  cfg.IterVertex (analIRCallsAux cfg)
+
+let analCalls funcs =
+  Seq.iter (fun (KeyValue(_, func)) -> analIRCalls func) funcs
 
 /// Stringify functions
 let bgToJson toResolve (sb: StringBuilder) =
@@ -319,7 +370,8 @@ let private disasmVertexToJson (sb: StringBuilder, hdl, cnt) (v: DisasmVertex) =
   sb.Append("\n    }"), hdl, cnt + 1
 
 let inline irVertexToString (v: IRVertex) =
-  v.VData.Ppoint.ToString ()
+  let vData = v.VData :?> IRBBL
+  vData.Ppoint.ToString ()
 
 let private irToJson hdl (sb: StringBuilder) stmt =
   let s = Pp.stmtToString stmt
@@ -334,14 +386,15 @@ let private stmtsToJson hdl stmts sb =
   irLoop sb stmts
 
 let private irVertexToJson (sb: StringBuilder, hdl, cnt) (v: IRVertex) =
+  let vData = v.VData :?> IRBBL
   let sb = if cnt = 0 then sb else sb.Append(",\n")
   let sb = sb.Append("    \"").Append(irVertexToString v)
   let sb = sb.Append("\": {\n")
   let sb = sb.Append("      \"background\": ")
-  let sb = bgToJson v.VData.ToResolve sb
+  let sb = bgToJson vData.ToResolve sb
   let sb = sb.Append(",\n")
   let sb = sb.Append("      \"instrs\": [\n")
-  let sb = stmtsToJson hdl v.VData.Stmts sb
+  let sb = stmtsToJson hdl vData.Stmts sb
   let sb = sb.Append("\n      ]")
   sb.Append("\n    }"), hdl, cnt + 1
 
@@ -349,6 +402,9 @@ let private edgeTypeToString = function
   | JmpEdge -> "cfgJmpEdge"
   | CJmpTrueEdge -> "cfgCJmpTrueEdge"
   | CJmpFalseEdge -> "cfgCJmpFalseEdge"
+  | CallEdge -> "cfgCallEdge"
+  | RetEdge -> "cfgRetEdge"
+  | FallThroughEdge -> "cfgFallThroughEdge"
 
 let private edgeToJson vToStrFunc (sb: StringBuilder, g: CFG<_>, cnt) src dst =
   let srcID: string = vToStrFunc src

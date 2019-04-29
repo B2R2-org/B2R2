@@ -34,7 +34,7 @@ open System.Collections.Generic
 
 type PPoint = Addr * int
 
-type DisassemblyBBL (range: AddrRange, instrs, last) =
+type DisasmBBL (range: AddrRange, instrs, last) =
   inherit RangedVertexData (range)
 
   /// List of all the instructions in this block.
@@ -46,8 +46,11 @@ type DisassemblyBBL (range: AddrRange, instrs, last) =
   /// Do we need to resolve the successor(s) of this basic block?
   member val ToResolve = false with get, set
 
-type IRBBL (ppoint, lastPpoint, stmts, last) =
+type IRVertexData () =
   inherit VertexData (VertexData.genID ())
+
+type IRBBL (ppoint, lastPpoint, stmts, last) =
+  inherit IRVertexData ()
 
   /// This block's starting program point
   member __.Ppoint: PPoint = ppoint
@@ -64,6 +67,11 @@ type IRBBL (ppoint, lastPpoint, stmts, last) =
   /// Do we need to resolve the successor(s) of this basic block?
   member val ToResolve = false with get, set
 
+type IRCall (target) =
+  inherit IRVertexData ()
+
+  member __.Target: Addr = target
+
 type SSABBL (irbbl, stmts, last) =
   inherit VertexData (VertexData.genID ())
 
@@ -79,16 +87,19 @@ type CFGEdge =
   | JmpEdge
   | CJmpTrueEdge
   | CJmpFalseEdge
+  | CallEdge
+  | RetEdge
+  | FallThroughEdge
 
 type CFG<'a when 'a :> VertexData> = DiGraph<'a, CFGEdge>
 
-type DisasmVertex = Vertex<DisassemblyBBL>
+type DisasmVertex = Vertex<DisasmBBL>
 
-type DisasmCFG = RangedDiGraph<DisassemblyBBL, CFGEdge>
+type DisasmCFG = RangedDiGraph<DisasmBBL, CFGEdge>
 
-type IRVertex = Vertex<IRBBL>
+type IRVertex = Vertex<IRVertexData>
 
-type IRCFG = SimpleDiGraph<IRBBL, CFGEdge>
+type IRCFG = SimpleDiGraph<IRVertexData, CFGEdge>
 
 type SSAVertex = Vertex<SSABBL>
 
