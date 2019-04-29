@@ -100,7 +100,8 @@ let getDisasmSuccessors hdl (builder: CFGBuilder) leader edges (bbl: Disassembly
   let last = bbl.LastInstr
   let next = last.Address + uint64 last.Length
   if last.IsExit () then
-    if last.IsCall () then [], (leader, Some (next, JmpEdge)) :: edges // XXX: Will be modified
+    if last.IsCall () then // XXX: Will be modified
+      [next], (leader, Some (next, JmpEdge)) :: edges
     elif last.IsDirectBranch () then
       match getBranchTarget last with
       | Some addr when not <| builder.IsInteresting hdl addr -> [], edges
