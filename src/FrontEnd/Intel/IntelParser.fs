@@ -288,17 +288,17 @@ let private dsVex0F381D   = [| 0L; VxWx; 0L; 0L |]
 let private dsNor0F381E   = [| PqQq; VdqWdq; 0L; 0L |]
 let private dsVex0F381E   = [| 0L; VxWx; 0L; 0L |]
 let private dsNor0F3820   = [| 0L; VdqWdqq; 0L; 0L |]
-let private dsVex0F3820   = [| 0L; VdqWdqq; 0L; 0L |]
+let private dsVex0F3820   = [| 0L; VxWdqqdq; 0L; 0L |]
 let private dsNor0F3821   = [| 0L; VdqWdqd; 0L; 0L |]
-let private dsVex0F3821   = [| 0L; VdqWdqd; 0L; 0L |]
+let private dsVex0F3821   = [| 0L; VxWdqdq; 0L; 0L |]
 let private dsNor0F3822   = [| 0L; VdqWdqw; 0L; 0L |]
-let private dsVex0F3822   = [| 0L; VdqWdqw; 0L; 0L |]
+let private dsVex0F3822   = [| 0L; VxWdqwd; 0L; 0L |]
 let private dsNor0F3823   = [| 0L; VdqWdqq; 0L; 0L |]
-let private dsVex0F3823   = [| 0L; VdqWdqq; 0L; 0L |]
+let private dsVex0F3823   = [| 0L; VxWdqqdq; 0L; 0L |]
 let private dsNor0F3824   = [| 0L; VdqWdqd; 0L; 0L |]
-let private dsVex0F3824   = [| 0L; VdqWdqd; 0L; 0L |]
+let private dsVex0F3824   = [| 0L; VxWdqdq; 0L; 0L |]
 let private dsNor0F3825   = [| 0L; VdqWdqq; 0L; 0L |]
-let private dsVex0F3825   = [| 0L; VdqWdqq; 0L; 0L |]
+let private dsVex0F3825   = [| 0L; VxWdqqdq; 0L; 0L |]
 let private dsNor0F3828   = [| 0L; VdqWdq; 0L; 0L |]
 let private dsVex0F3828   = [| 0L; VxHxWx; 0L; 0L |]
 let private dsNor0F3829   = [| 0L; VdqWdq; 0L; 0L |]
@@ -306,17 +306,17 @@ let private dsVex0F3829   = [| 0L; VxHxWx; 0L; 0L |]
 let private dsNor0F382B   = [| 0L; VdqWdq; 0L; 0L |]
 let private dsVex0F382B   = [| 0L; VxHxWx; 0L; 0L |]
 let private dsNor0F3830   = [| 0L; VdqWdqq; 0L; 0L |]
-let private dsVex0F3830   = [| 0L; VdqWdqq; 0L; 0L |]
+let private dsVex0F3830   = [| 0L; VxWdqqdq; 0L; 0L |]
 let private dsNor0F3831   = [| 0L; VdqWdqd; 0L; 0L |]
-let private dsVex0F3831   = [| 0L; VdqWdqd; 0L; 0L |]
+let private dsVex0F3831   = [| 0L; VxWdqdq; 0L; 0L |]
 let private dsNor0F3832   = [| 0L; VdqWdqw; 0L; 0L |]
-let private dsVex0F3832   = [| 0L; VdqWdqw; 0L; 0L |]
+let private dsVex0F3832   = [| 0L; VxWdqwd; 0L; 0L |]
 let private dsNor0F3833   = [| 0L; VdqWdqq; 0L; 0L |]
-let private dsVex0F3833   = [| 0L; VdqWdqq; 0L; 0L |]
+let private dsVex0F3833   = [| 0L; VxWdqqdq; 0L; 0L |]
 let private dsNor0F3834   = [| 0L; VdqWdqd; 0L; 0L |]
-let private dsVex0F3834   = [| 0L; VdqWdqd; 0L; 0L |]
+let private dsVex0F3834   = [| 0L; VxWdqdq; 0L; 0L |]
 let private dsNor0F3835   = [| 0L; VdqWdqq; 0L; 0L |]
-let private dsVex0F3835   = [| 0L; VdqWdqq; 0L; 0L |]
+let private dsVex0F3835   = [| 0L; VxWdqqdq; 0L; 0L |]
 let private dsNor0F3837   = [| 0L; VdqWdq; 0L; 0L |]
 let private dsVex0F3837   = [| 0L; VxHxWx; 0L; 0L |]
 let private dsNor0F3838   = [| 0L; VdqWdq; 0L; 0L |]
@@ -444,30 +444,40 @@ let private getSizeBySzDesc t effOprSz szKind =
   | 0x80L  (* OprSize.B *) -> struct (8<rt>, 8<rt>)
   | 0xc0L  (* OprSize.Bnd *) ->
     struct (effOprSz, if is32bit t then 64<rt> else 128<rt>)
-  | 0x640L (* OprSize.W *) -> struct (16<rt>, 16<rt>)
+  | 0x700L (* OprSize.W *) -> struct (16<rt>, 16<rt>)
   | 0x100L (* OprSize.D *) -> struct (32<rt>, 32<rt>)
   | 0x140L (* OprSize.DB *) -> struct (32<rt>, 8<rt>)
-  | 0x280L (* OprSize.DW *) -> struct (32<rt>, 16<rt>)
-  | 0x2c0L (* OprSize.P *) ->
+  | 0x300L (* OprSize.DW *) -> struct (32<rt>, 16<rt>)
+  | 0x380L (* OprSize.P *) ->
     if effOprSz = 16<rt> then struct (16<rt>, 32<rt>)
     elif effOprSz = 32<rt> then struct (32<rt>, 48<rt>)
     else struct (64<rt>, 80<rt>)
-  | 0x340L (* OprSize.PI *) | 0x400L (* OprSize.Q *) -> struct (64<rt>, 64<rt>)
-  | 0x1c0L (* OprSize.DQD *) | 0x580L (* OprSize.SSD *) ->
+  | 0x400L (* OprSize.PI *) | 0x4c0L (* OprSize.Q *) -> struct (64<rt>, 64<rt>)
+  | 0x2c0L (* OprSize.DQW *) -> struct (128<rt>, 16<rt>)
+  | 0x1c0L (* OprSize.DQD *) | 0x640L (* OprSize.SSD *) ->
     struct (128<rt>, 32<rt>)
-  | 0x200L (* OprSize.DQQ *)
-  | 0x500L (* OprSize.SDQ *)
-  | 0x5c0L (* OprSize.SSQ *) -> struct (128<rt>, 64<rt>)
+  | 0x280L (* OprSize.DQQDQ *) ->
+    if getVecLen t = 128<rt> then struct (128<rt>, 64<rt>)
+    else struct (128<rt>, 128<rt>)
+  | 0x200L (* OprSize.DQDQ *) ->
+    if getVecLen t = 128<rt> then struct (128<rt>, 32<rt>)
+    else struct (128<rt>, 64<rt>)
+  | 0x340L (* OprSize.DQWD *) ->
+    if getVecLen t = 128<rt> then struct (128<rt>, 16<rt>)
+    else struct (128<rt>, 32<rt>)
+  | 0x240L (* OprSize.DQQ *)
+  | 0x5c0L (* OprSize.SDQ *)
+  | 0x680L (* OprSize.SSQ *) -> struct (128<rt>, 64<rt>)
   | 0x180L (* OprSize.DQ *)
-  | 0x4c0L (* OprSize.SD *)
-  | 0x540L (* OprSize.SS *) -> struct (128<rt>, 128<rt>)
-  | 0x3c0L (* OprSize.PSQ *) -> struct (getVecLen t, 64<rt>)
-  | 0x300L (* OprSize.PD *)
-  | 0x380L (* OprSize.PS *)
-  | 0x680L (* OprSize.X *)
-  | 0x6c0L (* OprSize.XZ *) -> struct (getVecLen t, getVecLen t)
-  | 0x440L (* OprSize.QQ *) -> struct (256<rt>, 256<rt>)
-  | 0x700L (* OprSize.Y *) ->
+  | 0x580L (* OprSize.SD *)
+  | 0x600L (* OprSize.SS *) -> struct (128<rt>, 128<rt>)
+  | 0x480L (* OprSize.PSQ *) -> struct (getVecLen t, 64<rt>)
+  | 0x3c0L (* OprSize.PD *)
+  | 0x440L (* OprSize.PS *)
+  | 0x740L (* OprSize.X *)
+  | 0x780L (* OprSize.XZ *) -> struct (getVecLen t, getVecLen t)
+  | 0x500L (* OprSize.QQ *) -> struct (256<rt>, 256<rt>)
+  | 0x7c0L (* OprSize.Y *) ->
     if is64bit t && hasREXW (selectREX t.TVEXInfo t.TREXPrefix)
     then struct (64<rt>, 64<rt>)
     else struct (32<rt>, 32<rt>)
@@ -2033,9 +2043,9 @@ let inline private parseOprForDirectJmp insInfo reader pos =
 
 let inline private getImmSize effOprSz = function
   | 0x80L (* OprSize.B *) -> 8<rt>
-  | 0x600L (* OprSize.V *) -> effOprSz
-  | 0x640L (* OprSize.W *) -> 16<rt>
-  | 0x740L (* OprSize.Z *) ->
+  | 0x6c0L (* OprSize.V *) -> effOprSz
+  | 0x700L (* OprSize.W *) -> 16<rt>
+  | 0x800L (* OprSize.Z *) ->
     if effOprSz = 64<rt> || effOprSz = 32<rt> then 32<rt> else effOprSz
   | _ -> raise ParsingFailureException
 

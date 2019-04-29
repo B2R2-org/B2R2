@@ -477,11 +477,11 @@ let opVEX =
                       Opcode.InvalOP; Opcode.InvalOP |])
    ("opNor0F3801", [| Opcode.PHADDW; Opcode.PHADDW;
                       Opcode.InvalOP; Opcode.InvalOP |])
-   ("opVex0F3801", [| Opcode.InvalOP; Opcode.InvalOP;
+   ("opVex0F3801", [| Opcode.InvalOP; Opcode.VPHADDW;
                       Opcode.InvalOP; Opcode.InvalOP |])
    ("opNor0F3802", [| Opcode.PHADDD; Opcode.PHADDD;
                       Opcode.InvalOP; Opcode.InvalOP |])
-   ("opVex0F3802", [| Opcode.InvalOP; Opcode.InvalOP;
+   ("opVex0F3802", [| Opcode.InvalOP; Opcode.VPHADDD;
                       Opcode.InvalOP; Opcode.InvalOP |])
    ("opNor0F3803", [| Opcode.PHADDSW; Opcode.PHADDSW;
                       Opcode.InvalOP; Opcode.InvalOP |])
@@ -611,7 +611,7 @@ let opVEX =
                       Opcode.InvalOP; Opcode.InvalOP |])
    ("opNor0F383A", [| Opcode.InvalOP; Opcode.PMINUW;
                       Opcode.InvalOP; Opcode.InvalOP |])
-   ("opVex0F383A", [| Opcode.InvalOP; Opcode.InvalOP;
+   ("opVex0F383A", [| Opcode.InvalOP; Opcode.VPMINUW;
                       Opcode.InvalOP; Opcode.InvalOP |])
    ("opNor0F383B", [| Opcode.InvalOP; Opcode.PMINUD;
                       Opcode.InvalOP; Opcode.InvalOP |])
@@ -639,7 +639,7 @@ let opVEX =
                       Opcode.InvalOP; Opcode.InvalOP |])
    ("opNor0F3841", [| Opcode.InvalOP; Opcode.PHMINPOSUW;
                       Opcode.InvalOP; Opcode.InvalOP |])
-   ("opVex0F3841", [| Opcode.InvalOP; Opcode.InvalOP;
+   ("opVex0F3841", [| Opcode.InvalOP; Opcode.VPHMINPOSUW;
                       Opcode.InvalOP; Opcode.InvalOP |])
    ("opNor0F385A", [| Opcode.InvalOP; Opcode.InvalOP;
                       Opcode.InvalOP; Opcode.InvalOP |])

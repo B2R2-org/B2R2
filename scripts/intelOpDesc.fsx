@@ -139,55 +139,67 @@ type OprSize =
   | DQ = 0x180
   /// Register size = Double-quadword, Pointer size = Doubleword
   | DQD = 0x1c0
+  /// Register size = Double-quadword, Pointer size depending on operand-size
+  /// attribute. If the operand-size is 128-bit, the pointer size is doubleword;
+  /// If the operand-size is 256-bit, the pointer size is quadword.
+  | DQDQ = 0x200
   /// Register size = Double-quadword, Pointer size = Quadword
-  | DQQ = 0x200
+  | DQQ = 0x240
+  /// Register size = Double-quadword, Pointer size depending on operand-size
+  /// attribute. If the operand-size is 128-bit, the pointer size is quadword;
+  /// If the operand-size is 256-bit, the pointer size is double-quadword.
+  | DQQDQ = 0x280
   /// Register size = Double-quadword, Pointer size = Word
-  | DQW = 0x240
+  | DQW = 0x2c0
   /// Register size = Doubledword, Pointer size = Word
-  | DW = 0x280
+  | DW = 0x300
+  /// Register size = Double-quadword, Pointer size depending on operand-size
+  /// attribute. If the operand-size is 128-bit, the pointer size is word;
+  /// If the operand-size is 256-bit, the pointer size is doubleword.
+  | DQWD = 0x340
   /// 32-bit, 48 bit, or 80-bit pointer, depending on operand-size attribute
-  | P = 0x2c0
+  | P = 0x380
   /// 128-bit or 256-bit packed double-precision floating-point data
-  | PD = 0x300
+  | PD = 0x3c0
   /// Quadword MMX techonolgy register
-  | PI = 0x340
+  | PI = 0x400
   /// 128-bit or 256-bit packed single-precision floating-point data
-  | PS = 0x380
+  | PS = 0x440
   /// 128-bit or 256-bit packed single-precision floating-point data, pointer
   /// size : Quadword
-  | PSQ = 0x3c0
+  | PSQ = 0x480
   /// Quadword, regardless of operand-size attribute
-  | Q = 0x400
+  | Q = 0x4c0
   /// Quad-Quadword (256-bits), regardless of operand-size attribute
-  | QQ = 0x440
+  | QQ = 0x500
   /// 6-byte or 10-byte pseudo-descriptor
-  | S = 0x480
+  | S = 0x540
   /// Scalar element of a 128-bit double-precision floating data
-  | SD = 0x4c0
+  | SD = 0x580
   /// Scalar element of a 128-bit double-precision floating data, but the
   /// pointer size is quadword
-  | SDQ = 0x500
+  | SDQ = 0x5c0
   /// Scalar element of a 128-bit single-precision floating data
-  | SS = 0x540
+  | SS = 0x600
   /// Scalar element of a 128-bit single-precision floating data, but the
   /// pointer size is doubleword
-  | SSD = 0x580
+  | SSD = 0x640
   /// Scalar element of a 128-bit single-precision floating data, but the
   /// pointer size is quadword
-  | SSQ = 0x5c0
+  | SSQ = 0x680
   /// Word/DWord/QWord depending on operand-size attribute
-  | V = 0x600
+  | V = 0x6c0
   /// Word, regardless of operand-size attribute
-  | W = 0x640
+  | W = 0x700
   /// dq or qq based on the operand-size attribute
-  | X = 0x680
+  | X = 0x740
   /// 128-bit, 256-bit or 512-bit depending on operand-size attribute
-  | XZ = 0x6c0
+  | XZ = 0x780
   /// Doubleword or quadword (in 64-bit mode), depending on operand-size
   /// attribute
-  | Y = 0x700
+  | Y = 0x7c0
   /// Word for 16-bit operand-size or DWord for 32 or 64-bit operand size
-  | Z = 0x740
+  | Z = 0x800
 
 /// Defines attributes for registers to apply register conversion rules.
 type RGrpAttr =
@@ -313,10 +325,14 @@ let _Vx = ODModeSize (struct (OprMode.V, OprSize.X))
 let _Vy = ODModeSize (struct (OprMode.V, OprSize.Y))
 let _VZxz = ODModeSize (struct (OprMode.VZ, OprSize.XZ))
 let _Wd = ODModeSize (struct (OprMode.W, OprSize.D))
+
 let _Wdq = ODModeSize (struct (OprMode.W, OprSize.DQ))
 let _Wdqd = ODModeSize (struct (OprMode.W, OprSize.DQD))
+let _Wdqdq = ODModeSize (struct (OprMode.W, OprSize.DQDQ))
 let _Wdqq = ODModeSize (struct (OprMode.W, OprSize.DQQ))
+let _Wdqqdq = ODModeSize (struct (OprMode.W, OprSize.DQQDQ))
 let _Wdqw = ODModeSize (struct (OprMode.W, OprSize.DQW))
+let _Wdqwd = ODModeSize (struct (OprMode.W, OprSize.DQWD))
 let _Wpd = ODModeSize (struct (OprMode.W, OprSize.PD))
 let _Wps = ODModeSize (struct (OprMode.W, OprSize.PS))
 let _Wpsq = ODModeSize (struct (OprMode.W, OprSize.PSQ))
@@ -480,6 +496,9 @@ let VssWss = [| _Vss; _Wss |]
 let VssWssd = [| _Vss; _Wssd |]
 let VxMd = [| _Vx; _Md |]
 let VxMx = [| _Vx; _Mx |]
+let VxWdqqdq = [| _Vx; _Wdqqdq |]
+let VxWdqdq = [| _Vx; _Wdqdq |]
+let VxWdqwd = [| _Vx; _Wdqwd |]
 let VxWss = [| _Vx; _Wss |]
 let VxWssd = [| _Vx; _Wssd |]
 let VxWssq = [| _Vx; _Wssq |]
@@ -812,6 +831,9 @@ let descs =
     ("VssWssd", [| _Vss; _Wssd |])
     ("VxMd", [| _Vx; _Md |])
     ("VxMx", [| _Vx; _Mx |])
+    ("VxWdqqdq", [| _Vx; _Wdqqdq |])
+    ("VxWdqdq", [| _Vx; _Wdqdq |])
+    ("VxWdqwd", [| _Vx; _Wdqwd |])
     ("VxWss", [| _Vx; _Wss |])
     ("VxWssd", [| _Vx; _Wssd |])
     ("VxWssq", [| _Vx; _Wssq |])
