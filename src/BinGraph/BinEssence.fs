@@ -47,7 +47,7 @@ with
   static member Init _verbose hdl =
     (* Currently no other choice *)
     let builder, funcs = CFGUtils.construct hdl None
-    CFGUtils.analCalls funcs
+    let funcs = CFGUtils.analCalls funcs
     { BinHandler = hdl; CFGBuilder = builder ; Functions = funcs }
 
   static member FindFuncByEntry entry ess =

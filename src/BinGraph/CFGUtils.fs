@@ -336,6 +336,7 @@ let analIRCalls (func: Function) =
 
 let analCalls funcs =
   Seq.iter (fun (KeyValue(_, func)) -> analIRCalls func) funcs
+  funcs
 
 /// Stringify functions
 let bgToJson toResolve (sb: StringBuilder) =
