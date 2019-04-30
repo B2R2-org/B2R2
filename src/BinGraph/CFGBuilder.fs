@@ -35,6 +35,8 @@ open B2R2.BinIR.LowUIR
 open System.Collections.Generic
 
 type Function (entry, name, regType) =
+  inherit VertexData (VertexData.genID ())
+
   let irCFG = IRCFG ()
   let ssaCFG = lazy (SSAGraph.transform regType irCFG (SSACFG ()))
 
@@ -48,7 +50,13 @@ type Function (entry, name, regType) =
 
   member __.SSACFG with get () = ssaCFG.Force ()
 
+type CallGraphEdge =
+  | CGCallEdge
+  | CGRetEdge
+
 type Funcs = Dictionary<Addr, Function>
+
+type CallGraph = SimpleDiGraph<Function, CallGraphEdge>
 
 type CFGBuilder () =
   let unanalyzedFuncs = HashSet<Addr> ()

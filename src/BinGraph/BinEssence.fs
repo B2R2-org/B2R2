@@ -42,13 +42,18 @@ type BinEssence =
 
     /// A map from Addr to a Function.
     Functions: Funcs
+
+    CallGraph: CallGraph
   }
 with
   static member Init _verbose hdl =
     (* Currently no other choice *)
     let builder, funcs = CFGUtils.construct hdl None
     let funcs = CFGUtils.analCalls funcs
-    { BinHandler = hdl; CFGBuilder = builder ; Functions = funcs }
+    let callGraph = SimpleDiGraph ()
+    CFGUtils.buildCallGraph hdl funcs callGraph
+    { BinHandler = hdl; CFGBuilder = builder ; Functions = funcs ;
+      CallGraph = callGraph }
 
   static member FindFuncByEntry entry ess =
     ess.Functions.Values |> List.ofSeq

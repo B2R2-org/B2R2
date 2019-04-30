@@ -338,6 +338,23 @@ let analCalls funcs =
   Seq.iter (fun (KeyValue(_, func)) -> analIRCalls func) funcs
   funcs
 
+let addCallGraphEdge hdl (funcs: Funcs) (callGraph: CallGraph) (func: Function) =
+  func.IRCFG.IterVertex (fun (v: IRVertex) ->
+    match v.VData with
+    | :? IRCall as vData ->
+      if isExecutable hdl vData.Target then
+        let target = funcs.[vData.Target]
+        let src = callGraph.FindVertexByData func
+        let dst = callGraph.FindVertexByData target
+        callGraph.AddEdge src dst CGCallEdge
+        callGraph.AddEdge dst src CGRetEdge
+    | _ -> ())
+
+let buildCallGraph hdl funcs (callGraph: CallGraph) =
+  Seq.iter (fun (KeyValue(_, func)) -> callGraph.AddVertex func |> ignore) funcs
+  Seq.iter (fun (KeyValue(_, func)) ->
+    addCallGraphEdge hdl funcs callGraph func) funcs
+
 /// Stringify functions
 let bgToJson toResolve (sb: StringBuilder) =
   if toResolve then sb.Append("\"pink\"")
