@@ -644,6 +644,7 @@ function registerRefreshEvents(dims) {
           $("#uiFuncName").text(function (_, _) {
             return $(this).attr('value');
           });
+          let dims = reloadUI();
           drawCFG(dims, json);
         }
       });
@@ -741,12 +742,13 @@ function runOnline(dims) {
   $(document).on('click', '.close-tab', function (e) {
     e.preventDefault();
     e.stopPropagation();
-    closeTab($(this))
+    let closedTabNum = closeTab($(this))
     activateOpenFunction();
     let tabs = $("#id_tabContainer li");
     if (tabs.length <= 0) {
-      d3.select("g#cfgStage-" + currentTabNumber).remove();
-      d3.select("g#minimapStage-" + currentTabNumber).remove();
+      $("#cfgDiv-" + closedTabNum).remove();
+      d3.select("g#cfgStage-" + closedTabNum).remove();
+      d3.select("g#minimapStage-" + closedTabNum).remove();
       d3.select("#minimap rect").remove();
     } else {
       if ($(this).closest('li').hasClass("active")) {
@@ -810,7 +812,6 @@ function reloadUI() {
     width: cfgVPDim.width * minimapRatio,
     height: cfgVPDim.height * minimapRatio,
   }
-  $("#id_funcFilter").width($("#id_FunctionsListWrapper").width() - 20)
 
   return { cfgVPDim: cfgVPDim, minimapVPDim: minimapVPDim };
 }
