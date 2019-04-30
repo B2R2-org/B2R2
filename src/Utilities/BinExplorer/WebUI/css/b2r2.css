@@ -244,11 +244,34 @@ body {
     font-size: 12px;
     padding: 1px;
     margin-right: 2px; }
+  #minimapDiv span.glyphicon.move-minimap {
+    position: absolute;
+    right: 0;
+    top: 2px; 
+    cursor: all-scroll; }
     #minimapDiv span.glyphicon.move-minimap {
       position: absolute;
       right: 0;
       top: 2px; 
       cursor: all-scroll; }
+      #minimapDiv span.glyphicon.resize-minimap {
+        position: absolute;
+        right: 20px;
+        top: 2px;
+        cursor: pointer; }
+      #minimapDiv span.glyphicon.maximize-minimap {
+        display: none; }
+      #minimapDiv span.glyphicon.return-minimap {
+        position: absolute;
+        right: 40px;
+        top: 2px;
+        cursor: pointer; }
+    #minimapDiv.active {
+      height: 0; }
+      #minimapDiv.active span.glyphicon.minimize-minimap {
+        display: none; }
+      #minimapDiv.active span.glyphicon.maximize-minimap {
+        display: block; }
 
 .box {
   background: var(--selection); }
