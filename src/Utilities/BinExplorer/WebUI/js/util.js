@@ -37,7 +37,9 @@ function addGraphDiv(dims) {
 }
 
 function closeTab($el) {
+  let closedTabNum = $el.closest('li').attr("counter");
   $el.closest('li').remove();
+  return closedTabNum;
 }
 
 function checkDuplicateTab(functionName) {
@@ -115,7 +117,7 @@ function replaceTab($self, name, dims) {
     function (json) {
       if (!isEmpty(json)) {
         $("#uiFuncName").text(function (_, _) {
-          return $(self).attr('value');
+          return name;
         });
         drawCFG(dims, json);
       }
