@@ -87,7 +87,7 @@ let handleBinInfo req resp arbiter =
   Some (defaultEnc.GetBytes (txt)) |> answer req resp
 
 let getCFG hdl (func: Function) = function
-  | DisasmCFG ->  Visualizer.visualizeDisasmCFG hdl func.DisasmCFG
+  | DisasmCFG -> Visualizer.visualizeDisasmCFG hdl func.DisasmCFG
   | IRCFG -> Visualizer.visualizeIRCFG hdl func.IRCFG
 
 let handleCFG req resp arbiter cfgType name =

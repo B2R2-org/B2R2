@@ -61,13 +61,13 @@ type Tag =
 type Term = string * Tag
 
 type InputNode = {
-  Address: Addr
+  Address: PPoint
   Data: DisasmData list
 }
 
 type InputEdge = {
-  From       : Addr
-  To         : Addr
+  From       : PPoint
+  To         : PPoint
   Type       : CFGEdge
 }
 
@@ -75,7 +75,7 @@ type InputEdge = {
 type InputGraph = {
   Nodes: InputNode list
   Edges: InputEdge list
-  Root: Addr
+  Root: PPoint
 }
 
 module internal InputGraph =
@@ -90,25 +90,26 @@ module internal InputGraph =
 
   let disasmBBL hdl (v: Vertex<DisassemblyBBL>) =
     let disasmData = List.map (ofInstruction hdl) v.VData.Instrs
-    { Address = v.VData.AddrRange.Min; Data = disasmData }
+    { Address = (v.VData.AddrRange.Min, 0); Data = disasmData }
 
   let ofStmt (stmt: Stmt) =
     { Disasm = Pp.stmtToString stmt; Comment = "" }
 
   let irBBL _hdl (v: Vertex<IRBBL>) =
     let irData = List.map ofStmt v.VData.Stmts
-    { Address = fst v.VData.Ppoint; Data = irData }
+    { Address = v.VData.Ppoint; Data = irData }
 
   let ofBBL hdl bblFn iNodes (v: Vertex<_>) =
     bblFn hdl v :: iNodes
 
   let disasmEdge (g: DisasmCFG) (src: Vertex<_>) (dst: Vertex<_>) =
     let e = g.FindEdge src dst
-    { From = src.VData.AddrRange.Min; To = dst.VData.AddrRange.Min; Type = e }
+    { From = (src.VData.AddrRange.Min, 0); To = (dst.VData.AddrRange.Min, 0);
+      Type = e }
 
   let irEdge (g: IRCFG) (src: Vertex<_>) (dst: Vertex<_>) =
     let e = g.FindEdge src dst
-    { From = fst src.VData.Ppoint; To = fst dst.VData.Ppoint; Type = e }
+    { From = src.VData.Ppoint; To = dst.VData.Ppoint; Type = e }
 
   let ofCFGEdge g edgeFn iEdges src dst =
     edgeFn g src dst :: iEdges
@@ -120,10 +121,10 @@ module internal InputGraph =
     { Nodes = iNodes; Edges = iEdges; Root = root }
 
   let disasmRoot (v: Vertex<DisassemblyBBL>) =
-    v.VData.AddrRange.Min
+    (v.VData.AddrRange.Min, 0)
 
   let irRoot (v: Vertex<IRBBL>) =
-    fst v.VData.Ppoint
+    v.VData.Ppoint
 
   let ofDisasmCFG hdl (g: #DiGraph<_, _>) =
     ofCFG hdl disasmRoot disasmBBL disasmEdge g
@@ -137,7 +138,7 @@ type Point = {
 }
 
 type OutputNode = {
-  Address     : Addr
+  Address     : PPoint
   Terms       : Term list list
   Width       : float
   Height      : float
@@ -300,7 +301,7 @@ module VGraph =
   let private ppNode (vNode: Vertex<VNode>) =
     Dbg.logn "Node {"
     sprintf "\tID: %d" (vNode.GetID ()) |> Dbg.logn
-    sprintf "\tAddr: %x" vNode.VData.Addr |> Dbg.logn
+    sprintf "\tAddr: %A" vNode.VData.Addr |> Dbg.logn
     sprintf "\tLayer: %d" vNode.VData.Layer |> Dbg.logn
     Dbg.logn "\tPreds: ["
     List.iter (fun (v: Vertex<VNode>) ->
@@ -351,8 +352,7 @@ module VGraph =
   let getAddr (v: Vertex<VNode>) =
     v.VData.Addr
 
-  let getLayer (v: Vertex<VNode>) =
-    v.VData.Layer
+  let getLayer (v: Vertex<VNode>) = v.VData.Layer
 
   let setLayer (v: Vertex<VNode>) layer = v.VData.Layer <- layer
 
