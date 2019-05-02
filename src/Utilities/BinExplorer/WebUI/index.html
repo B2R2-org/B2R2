@@ -96,8 +96,6 @@
         <ul></ul>
       </div>
       <div id="id_graphContainer">
-        <div id="cfgDiv">
-        </div>
       </div>
       <div id="minimapDiv">
         <span title="Move minimap" class="move-minimap glyphicon glyphicon-move"></span>
@@ -107,12 +105,18 @@
           class="resize-minimap maximize-minimap glyphicon glyphicon-triangle-top"></span>
         <span title="To the initial location" class="return-minimap glyphicon glyphicon-record"></span>
       </div>
+      <div class="internel-autocomplete-container">
+        <input id="id_address-search" placeholder="Address" type="text" autocomplete="off">
+        <div id="id-autocomplete-list" class="autocomplete-list"></div>
+      </div>
     </div>
   </div>
   <script src="js/d3.min.js"></script>
   <script src="js/jquery.min.js"></script>
   <script src="js/bootstrap.min.js"></script>
-  <script src="js/util.js"></script>
+  <script src="js/b2r2.tab.js"></script>
+  <script src="js/b2r2.graph.js"></script>
+  <script src="js/b2r2.autocomplete.js"></script>
   <script src="js/b2r2.js"></script>
 </body>
 

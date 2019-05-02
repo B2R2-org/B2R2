@@ -30,6 +30,7 @@ body {
   right: 0;
   bottom: 0;
   position: absolute;
+  display: none;
 }
 
 #minimapVP {
@@ -322,3 +323,53 @@ body {
 
 .cfgCJmpFalseEdge {
   stroke: var(--red); }
+
+#id_address-search {
+  all: unset;
+  background: none;
+  border: none;
+  border-bottom: 1px solid white;
+  box-sizing: border-box;
+  color: white;
+  padding: 5px;
+  width: 230px; }
+
+.autocomplete-list {
+  min-width: 230px;
+  position: absolute;
+  background: var(--selection);
+  overflow-y: auto;
+  max-height: 800px;
+  border: 1px solid black; }
+
+.autocomplete-list .autocomplete-item {
+  padding: 5px;
+  color: white;
+  border-bottom: 1px solid lightslategray; }
+
+.autocomplete-list .autocomplete-item:hover {
+  background: var(--darkgray); }
+
+  .autocomplete-list .autocomplete-item:hover span {
+    color: var(--yellow); }
+
+  .autocomplete-list .autocomplete-item .memory {
+    height: 20px;
+    font-size: 14px;
+    color: white;
+    padding-right: 10px; }
+
+  .autocomplete-list .autocomplete-item strong {
+    color: var(--cyan); }
+
+  .autocomplete-list .autocomplete-item .operand {
+    height: 20px;
+    font-size: 11px;
+    color: lightgray; }
+
+.internel-autocomplete-container {
+  position: absolute;
+  top: 100px;
+  right: 20px;
+  display: none;
+}
