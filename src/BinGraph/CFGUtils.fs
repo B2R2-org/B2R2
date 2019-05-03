@@ -347,13 +347,19 @@ let addCallGraphEdge hdl (funcs: Funcs) (callGraph: CallGraph) (func: Function) 
         let src = callGraph.FindVertexByData func
         let dst = callGraph.FindVertexByData target
         callGraph.AddEdge src dst CGCallEdge
-        callGraph.AddEdge dst src CGRetEdge
     | _ -> ())
 
-let buildCallGraph hdl funcs (callGraph: CallGraph) =
+let buildCallGraph (hdl: BinHandler) funcs (callGraph: CallGraph) =
   Seq.iter (fun (KeyValue(_, func)) -> callGraph.AddVertex func |> ignore) funcs
   Seq.iter (fun (KeyValue(_, func)) ->
     addCallGraphEdge hdl funcs callGraph func) funcs
+  let fi = hdl.FileInfo
+  if fi.EntryPoint <> 0UL then
+    let v =
+      callGraph.FindVertexBy (fun (v: Vertex<Function>) ->
+        v.VData.Entry = fi.EntryPoint)
+    callGraph.SetRoot v
+  else () // XXX: Library cases. Fix this
 
 /// Stringify functions
 let bgToJson toResolve (sb: StringBuilder) =

@@ -52,7 +52,6 @@ type Function (entry, name, regType) =
 
 type CallGraphEdge =
   | CGCallEdge
-  | CGRetEdge
 
 type Funcs = Dictionary<Addr, Function>
 
