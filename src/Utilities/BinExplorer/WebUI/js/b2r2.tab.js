@@ -112,9 +112,6 @@ function activateTab($el) {
   tab.addClass("active");
   $("#cfgDiv-" + tabNumber).show();
   $("#minimap-" + tabNumber).show();
-  $("#uiFuncName").text(function (_, _) {
-    return functionName;
-  });
   toggleDisasmIR(textType);
   query({
     "q": "cfg-" + textType.toLowerCase(),
@@ -123,7 +120,7 @@ function activateTab($el) {
     function (json) {
       if (!isEmpty(json)) {
         $("#uiFuncName").text(function (_, _) {
-          return name;
+          return functionName;
         });
         autocomplete(json);
       }

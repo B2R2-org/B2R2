@@ -11,59 +11,51 @@
 
   <link href="css/bootstrap.min.css" rel="stylesheet" />
   <link href="css/b2r2.css" rel="stylesheet" />
+  <script defer src="https://use.fontawesome.com/releases/v5.8.1/js/all.js"
+    integrity="sha384-g5uSoOSBd7KkhAMlnQILrecXvzst9TdC09/VM+pjDTCM+1il8RHz5fKANTFFb+gQ"
+    crossorigin="anonymous"></script>
 
 </head>
 
 <body>
-
-  <nav class="navbar navbar-inverse navbar-fixed-top">
-    <div class="navbar-header">
-      <a class="navbar-brand">B2R2</a>
-      <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
-        <span class="icon-bar"></span>
-        <span class="icon-bar"></span>
-        <span class="icon-bar"></span>
-      </button>
+  <div class="fixed-navbar-top">
+    <div class="logo-image"><img src="b2r2.png"></div>
+    <div class="filename active"><var id="binInfo">Offline</var></div>
+    <div class="function-name">
+      <div id="uiFuncName"></div>
     </div>
-    <div class="navbar-collapse collapse">
-      <ul class="nav navbar-nav">
-        <li class="active" id="uiTitle">
-          <a href="#"><var id="binInfo">Offline</var></a>
-        </li>
-        <li>
-          <a href="#"><var id="uiFuncName"></var></a>
-        </li>
-      </ul>
-      <div class="navbar-header navbar-right">
-        <form class="navbar-form navbar-left">
-          <button type="button" class="btn btn-default text-center changeTextType show" id="id_disasm-to-ir">
-            <span>IR</span>
-          </button>
-          <button type="button" class="btn btn-default text-center changeTextType" id="id_ir-to-disasm">
-            <span>disasm</span>
-          </button>
-          <button type="button" class="btn btn-default text-center" style="width: 40px" id="btn-refresh">
-            <span id="icon-refresh" style="padding: 0" class="glyphicon glyphicon-refresh"></span>
-          </button>
-        </form>
-        <ul class="nav navbar-nav">
-          <li class="dropdown">
-            <a class="dropdown-toggle" data-toggle="dropdown" href="#">
-              <span class="glyphicon glyphicon-wrench"></span>&nbsp; &nbsp;
-            </a>
-            <ul class="dropdown-menu">
-              <li id="menuCopyCFG">
-                <a href="#" data-toggle="modal" data-target="#modalCopyCFG">Copy the CFG to clipboard</a>
-              </li>
-              <li>
-                <a href="#" data-toggle="modal" data-target="#modalAbout">About</a>
-              </li>
-            </ul>
-          </li>
-        </ul>
+    <div class="nav-right">
+      <div class="nav-item">
+        <div class="changeTextType show" id="id_disasm-to-ir">
+          <span>IR</span>
+        </div>
+        <div class="changeTextType" id="id_ir-to-disasm">
+          <span>DASM</span>
+        </div>
+      </div>
+      <div class="nav-item">
+        <div class="btn-refresh" title="Refresh CFG" id="id_btn-refresh">
+          <span id="icon-refresh" style="padding: 0" class="glyphicon glyphicon-refresh"></span>
+        </div>
+      </div>
+      <div class="dropdown">
+        <div class="nav-item dropdown-btn" id="id_dropdown-menu" data-toggle="dropdown" aria-haspopup="true"
+          aria-expanded="false">
+          <span class="glyphicon glyphicon-wrench"></span>&nbsp; &nbsp;
+        </div>
+        <div class="dropdown-menu dropdown-menu-right" aria-labelledby="id_dropdown-menu">
+          <div class="dropdown-item">
+            <div id="menuCopyCFG">
+              <a href="#" data-toggle="modal" data-target="#modalCopyCFG">Copy the CFG to clipboard</a>
+            </div>
+          </div>
+          <div class="dropdown-item">
+            <a href="#" data-toggle="modal" data-target="#modalAbout">About</a>
+          </div>
+        </div>
       </div>
     </div>
-  </nav>
+  </div>
   <div id="modalCopyCFG" class="modal fade" role="dialog">
     <div class="modal-dialog">
       <div class="modal-content">
@@ -85,6 +77,10 @@
   </div>
   <input id="cfgFile" type="file" name="" style="display: none;" />
   <div id="id_MainContainer" class="main-container" class="ui-widget-content">
+    <div class="sidebar-menu">
+      <div class="sidebar-item active" title="Functions"><i class="fas fa-list"></i></div>
+      <!-- <div class="sidebar-item" title="Comments"><i class="fas fa-comment-dots"></i></div> -->
+    </div>
     <div id="id_FunctionsListWrapper">
       <input id="id_funcFilter" placeholder="Function filter" />
       <div id="id_FunctionsList">

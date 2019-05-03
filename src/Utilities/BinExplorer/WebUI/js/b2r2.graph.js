@@ -601,7 +601,7 @@ function registerEvents(reductionRate, dims, g) {
 }
 
 function registerRefreshEvents(dims) {
-  $("#btn-refresh").click(function () {
+  $("#id_btn-refresh").click(function () {
     query({
       "q": "cfg-disasm",
       "args": $("#uiFuncName").text()
