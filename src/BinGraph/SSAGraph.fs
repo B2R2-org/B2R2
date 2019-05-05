@@ -81,6 +81,10 @@ let getGraphInfo domCtxt (irCFG: IRCFG) ssaCtxt (v: Vertex<_>) =
   let dfMap = Map.add id frontiers ssaCtxt.DFMap
   { ssaCtxt with PredMap = predMap ; SuccMap = succMap ; DFMap = dfMap }
 
+let getReturns regType target =
+  /// XXX: Will be fixed
+  [ MemVar -1 ]
+
 let translateIR regType ctxt (v: Vertex<IRVertexData>) =
   let vData = v.VData
   if vData.IsBBL () then
@@ -90,8 +94,9 @@ let translateIR regType ctxt (v: Vertex<IRVertexData>) =
     let ssaMap = Map.add vData.ID (v.VData, stmts) ctxt.SSAMap
     { ctxt with SSAMap = ssaMap }
   else
-    /// XXX: Will be fixed
-    let ssaMap = Map.add vData.ID (v.VData, []) ctxt.SSAMap
+    let _, target = vData.GetTarget ()
+    let stmts = List.map (fun def -> Def (def, Return)) <| getReturns regType target
+    let ssaMap = Map.add vData.ID (v.VData, stmts) ctxt.SSAMap
     { ctxt with SSAMap = ssaMap }
 
 let initContext regType (irCFG: IRCFG) =
@@ -134,6 +139,7 @@ let rec addDefFromExpr defSet = function
   | Cast (_, _, expr) -> addDefFromExpr defSet expr
   | Extract (expr, _, _) -> addDefFromExpr defSet expr
   | Undefined _ -> defSet
+  | Return -> defSet
 
 let collectVars defSet = function
   | Def (dest, expr) ->
@@ -225,7 +231,8 @@ let renameDest stacks = function
 let rec renameExpr stacks = function
   | (Num _ as expr)
   | (Undefined _ as expr)
-  | (FuncName _ as expr) -> expr
+  | (FuncName _ as expr)
+  | (Return as expr) -> expr
   | Var def -> Var <| renameDest stacks def
   | Load (def, ty, expr) ->
     let def = renameDest stacks def

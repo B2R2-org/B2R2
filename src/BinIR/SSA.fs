@@ -86,6 +86,8 @@ type Expr =
     /// case).
   | Undefined of RegType * string
 
+  | Return
+
 /// IR Label. Since we don't distinguish instruction boundary in SSA level, we
 /// need to specify where the label comes from.
 type Label = Addr * Symbol
