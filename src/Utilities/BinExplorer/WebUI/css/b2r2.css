@@ -143,28 +143,34 @@ body {
 .fixed-navbar-top {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   position: fixed;
   top: 0;
   height: 55px;
   width: 100%;
   background: var(--nav); }
   .fixed-navbar-top .logo-image {
-    height: 100%;
+    height: 55px;
     width: 55px;
     background: black;
     padding: 4px; }
     .fixed-navbar-top .logo-image img {
-      height: 100%;
-      width: 100%; }
+      height: 47px;
+      width: 47px; }
   .fixed-navbar-top .filename {
     color: white;
     padding: 10px; }
   .fixed-navbar-top .function-name {
+    width: 100%;
+    overflow: hidden;
     color: white;
     font-size: 16px; }
+  .fixed-navbar-top .function-name #uiFuncName {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap; }
   .fixed-navbar-top .nav-right {
     display: flex;
-    position: absolute;
     right: 10px; }
     .fixed-navbar-top .nav-right .btn-refresh {
       color: white;
@@ -272,6 +278,7 @@ body {
 
 #id_FunctionsListWrapper {
   min-width: 250px;
+  max-width: 300px;
   height: 100%;
   border-right: 1px solid var(--darkgray);
   background: var(--background);
@@ -284,7 +291,6 @@ body {
     box-sizing: border-box;
     width: 100%!important;
     color: white;
-    padding: 5px 10px;
     height: 35px;
     padding: 5px 10px; }
   #id_FunctionsListWrapper #id_FunctionsList {
@@ -294,19 +300,22 @@ body {
       all: unset; }
       #id_FunctionsListWrapper #id_FunctionsList #funcSelector li {
         all: unset;
+        overflow: hidden;
+        max-width: 300px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
         cursor: pointer;
         height: 20px;
-        display: flex;
-        flex-direction: column;
         color: white;
         padding: 5px 10px;
         font-size: 15px;
         display: flex;
+        flex-direction: column;
         justify-content: center; }
         #id_FunctionsListWrapper #id_FunctionsList #funcSelector li.active {
-          color: #50fa7b; }
+          color: var(--green); }
         #id_FunctionsListWrapper #id_FunctionsList #funcSelector li.clicked {
-          background: #50fa7b;
+          background: var(--green);
           color: black; }
 
 #id_graphContainer {
@@ -364,7 +373,7 @@ body {
   cursor: default; }
 
 .cfgCJmpTrueEdgeArrow {
-  fill: #50fa7b; }
+  fill: var(--green); }
 
 .cfgCJmpFalseEdgeArrow {
   fill: var(--red); }
@@ -374,11 +383,11 @@ body {
   stroke: var(--red); }
 
 .cfgCJmpTrueEdge {
-  stroke: #50fa7b; }
+  stroke: var(--green); }
 
 .cfgCJmpTrueEdgeBlur:hover {
   filter: url(#cfgBlur);
-  stroke: #50fa7b; }
+  stroke: var(--green); }
 
 .cfgDisasmComment {
   fill: var(--comment); }

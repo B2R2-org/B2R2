@@ -106,10 +106,10 @@ function toggleDisasmIR(textType) {
 function activateTab($el) {
   deactivatedTab();
   let functionName = $el.attr('value');
-  let textType = $el.attr('text-type');
-  let tab = $("#id_tabContainer [value='" + functionName + "']");
-  let tabNumber = tab.find('a').attr('href').split("-").slice(-1)[0];
-  tab.addClass("active");
+  let $tab = $("#id_tabContainer li[value='" + functionName + "']");
+  let textType = $tab.attr('text-type');
+  let tabNumber = $tab.find('a').attr('href').split("-").slice(-1)[0];
+  $tab.addClass("active");
   $("#cfgDiv-" + tabNumber).show();
   $("#minimap-" + tabNumber).show();
   toggleDisasmIR(textType);
@@ -119,9 +119,7 @@ function activateTab($el) {
   },
     function (json) {
       if (!isEmpty(json)) {
-        $("#uiFuncName").text(function (_, _) {
-          return functionName;
-        });
+        setuiFuncName(functionName);
         autocomplete(json);
       }
     });
@@ -129,22 +127,20 @@ function activateTab($el) {
 
 function replaceTab($self, name, dims) {
   let tabId = "id_tabs-" + g_tabCounter;
-  let tab = $("#id_tabContainer li.active");
-  tab.attr("value", name);
-  tab.attr("text-type", "disasm")
+  let $tab = $("#id_tabContainer li.active");
+  $tab.attr("value", name);
+  $tab.attr("text-type", "disasm")
   let newTab = $(`<a href=#{href}>{label}<span class="glyphicon glyphicon-remove-circle close-tab"></span></a>`.replace('{href}', tabId).replace("{label}", name));
   $("#id_ir-to-disasm").removeClass("show");
   $("#id_disasm-to-ir").addClass("show");
-  tab.empty().append(newTab);
+  $tab.empty().append(newTab);
   query({
     "q": "cfg-disasm",
     "args": $self.attr('value')
   },
     function (json) {
       if (!isEmpty(json)) {
-        $("#uiFuncName").text(function (_, _) {
-          return name;
-        });
+        setuiFuncName(name);
         drawCFG(dims, json);
       }
     });

@@ -77,9 +77,7 @@ function disasm2irEvent(dims) {
     },
       function (json) {
         if (!isEmpty(json)) {
-          $("#uiFuncName").text(function (_, _) {
-            return $(this).attr('value');
-          });
+          setuiFuncName(funcName);
           drawCFG(dims, json);
           $("#id_tabContainer li.active").attr("text-type", "ir");
           toggleDisasmIR("ir");
@@ -97,9 +95,7 @@ function ir2disasmEvent(dims) {
     },
       function (json) {
         if (!isEmpty(json)) {
-          $("#uiFuncName").text(function (_, _) {
-            return $(this).attr('value');
-          });
+          setuiFuncName(funcName);
           drawCFG(dims, json);
           $("#id_tabContainer li.active").attr("text-type", "ir");
           toggleDisasmIR("disasm");
@@ -164,9 +160,7 @@ function functionListClickEvent() {
       },
         function (json) {
           if (!isEmpty(json)) {
-            $("#uiFuncName").text(function (_, _) {
-              return funcName;
-            });
+            setuiFuncName(funcName);
             let dims = reloadUI();
             addTab(funcName, dims, json);
             drawCFG(dims, json);
@@ -193,9 +187,7 @@ function functionListClickEvent() {
       },
         function (json) {
           if (!isEmpty(json)) {
-            $("#uiFuncName").text(function (_, _) {
-              return funcName;
-            });
+            setuiFuncName(funcName);
             let dims = reloadUI();
             addTab(funcName, dims, json);
             drawCFG(dims, json);
@@ -234,6 +226,11 @@ function UIElementInit(isShow) {
     $("#minimapDiv").hide();
     $(".internel-autocomplete-container").hide();
   }
+}
+
+function setuiFuncName(name) {
+  $("#uiFuncName").text(name);
+  $("#uiFuncName").attr("title", name);
 }
 
 function main() {
