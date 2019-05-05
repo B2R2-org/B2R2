@@ -82,17 +82,17 @@ let getGraphInfo domCtxt (irCFG: IRCFG) ssaCtxt (v: Vertex<_>) =
   { ssaCtxt with PredMap = predMap ; SuccMap = succMap ; DFMap = dfMap }
 
 let translateIR regType ctxt (v: Vertex<IRVertexData>) =
-  match v.VData with
-  | :? IRBBL as vData ->
-    let vData = v.VData :?> IRBBL
-    let stmts = Translate.translateStmt regType (fst vData.Ppoint) [] vData.Stmts
+  let vData = v.VData
+  if vData.IsBBL () then
+    let _, ppoint = vData.GetPpoint ()
+    let _, stmts = vData.GetStmts ()
+    let stmts = Translate.translateStmt regType (fst ppoint) [] stmts
     let ssaMap = Map.add vData.ID (v.VData, stmts) ctxt.SSAMap
     { ctxt with SSAMap = ssaMap }
-  | :? IRCall as vData ->
+  else
     /// XXX: Will be fixed
     let ssaMap = Map.add vData.ID (v.VData, []) ctxt.SSAMap
     { ctxt with SSAMap = ssaMap }
-  | _ -> ctxt
 
 let initContext regType (irCFG: IRCFG) =
   let ctxt = Dominator.initDominatorContext irCFG
@@ -363,13 +363,12 @@ let toResolve = function
   | _ -> false
 
 let genVMap (g: SSACFG) n ((irData: IRVertexData), stmts) =
-  match irData with
-  | :? IRBBL as irData ->
+  if irData.IsBBL () then
     let ssaBBL = SSABBL (irData, stmts, List.head <| List.rev stmts)
     if toResolve ssaBBL.LastStmt then ssaBBL.ToResolve <- true
     g.AddVertex ssaBBL
-  | :? IRCall as irData ->
-    let ssaCall = SSACall (irData)
+  else
+    let ssaCall = SSACall (irData, stmts)
     g.AddVertex ssaCall
 
 let addEdge (g: SSACFG) p (c, ty) =
@@ -386,13 +385,13 @@ let buildCFG g ctxt =
 
 let setRoot (irCFG: IRCFG) (ssaCFG: SSACFG) =
   let irRoot = irCFG.GetRoot ()
-  let irRootBBL = irRoot.VData :?> IRBBL
+  let irRootBBL = irRoot.VData
   ssaCFG.IterVertex (fun v ->
-    match v.VData with
-    | :? SSABBL as vData ->
-      let irData = vData.IRVertexData :?> IRBBL
+    let vData = v.VData
+    if vData.IsBBL () then
+      let irData = vData.IRVertexData
       if irData = irRootBBL then ssaCFG.SetRoot v
-    | _ -> ())
+    else ())
 
 let transform regType irCFG ssaCFG =
   let ctxt = initContext regType irCFG

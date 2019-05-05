@@ -243,8 +243,7 @@ let rec addIREdges builder (bbls: Dictionary<PPoint, IRBBL>) (g: IRCFG) = functi
     else addIREdges builder bbls g edges
   | (src, None) :: edges ->
     let s = g.FindVertexByData bbls.[src]
-    let sData = s.VData :?> IRBBL
-    sData.ToResolve <- true
+    s.VData.SetToResolve true
     addIREdges builder bbls g edges
 
 let buildIRCFG hdl (builder: CFGBuilder) (cfg: IRCFG) funcset bbls entry =
@@ -287,20 +286,26 @@ let construct hdl = function
     ||> Boundary.identify hdl
     ||> buildCFGs hdl
 
-let hasCall (bbl: IRBBL) =
-  match bbl.LastStmt with
-  | InterJmp (_, _, InterJmpInfo.IsCall) -> true
-  | _ -> false
+let hasCall (bbl: IRVertexData) =
+  let b, stmt = bbl.GetLastStmt ()
+  if b then
+    match stmt with
+    | InterJmp (_, _, InterJmpInfo.IsCall) -> true
+    | _ -> false
+  else false
 
-let tryGetCallTarget (bbl: IRBBL) =
-  match bbl.LastStmt with
-  | InterJmp (_, Num bv, _) -> Some <| BitVector.toUInt64 bv
-  | _ -> None
+let tryGetCallTarget (bbl: IRVertexData) =
+  let b, stmt = bbl.GetLastStmt ()
+  if b then
+    match stmt with
+    | InterJmp (_, Num bv, _) -> Some <| BitVector.toUInt64 bv
+    | _ -> None
+  else None
 
 let callVertexFinder addr (v: IRVertex) =
-  match v.VData with
-  | :? IRBBL -> false
-  | :? IRCall as vData -> vData.Target = addr
+  let vData = v.VData
+  let b, target = vData.GetTarget ()
+  if b then addr = target else false
 
 let getCallVertex (irCFG: IRCFG) addr =
   match irCFG.TryFindVertexBy (callVertexFinder addr) with
@@ -326,9 +331,8 @@ let addIRCall irCFG v vData =
     | _ -> ()
 
 let analIRCallsAux irCFG (v: IRVertex) =
-  match v.VData with
-  | :? IRBBL as vData -> addIRCall irCFG v vData
-  | _ -> ()
+  let vData = v.VData
+  if vData.IsBBL () then addIRCall irCFG v vData
 
 let analIRCalls (func: Function) =
   let cfg = func.IRCFG
@@ -340,14 +344,15 @@ let analCalls funcs =
 
 let addCallGraphEdge hdl (funcs: Funcs) (callGraph: CallGraph) (func: Function) =
   func.IRCFG.IterVertex (fun (v: IRVertex) ->
-    match v.VData with
-    | :? IRCall as vData ->
-      if isExecutable hdl vData.Target then
-        let target = funcs.[vData.Target]
+    let vData = v.VData
+    if not <| vData.IsBBL () then
+      let _, target = vData.GetTarget ()
+      if isExecutable hdl target then
+        let target = funcs.[target]
         let src = callGraph.FindVertexByData func
         let dst = callGraph.FindVertexByData target
         callGraph.AddEdge src dst CGCallEdge
-    | _ -> ())
+    else ())
 
 let buildCallGraph (hdl: BinHandler) funcs (callGraph: CallGraph) =
   Seq.iter (fun (KeyValue(_, func)) -> callGraph.AddVertex func |> ignore) funcs
@@ -394,8 +399,8 @@ let private disasmVertexToJson (sb: StringBuilder, hdl, cnt) (v: DisasmVertex) =
   sb.Append("\n    }"), hdl, cnt + 1
 
 let inline irVertexToString (v: IRVertex) =
-  let vData = v.VData :?> IRBBL
-  vData.Ppoint.ToString ()
+  let _, ppoint = v.VData.GetPpoint ()
+  ppoint.ToString ()
 
 let private irToJson hdl (sb: StringBuilder) stmt =
   let s = Pp.stmtToString stmt
@@ -410,15 +415,16 @@ let private stmtsToJson hdl stmts sb =
   irLoop sb stmts
 
 let private irVertexToJson (sb: StringBuilder, hdl, cnt) (v: IRVertex) =
-  let vData = v.VData :?> IRBBL
+  let vData = v.VData
   let sb = if cnt = 0 then sb else sb.Append(",\n")
   let sb = sb.Append("    \"").Append(irVertexToString v)
   let sb = sb.Append("\": {\n")
   let sb = sb.Append("      \"background\": ")
-  let sb = bgToJson vData.ToResolve sb
+  let _, toResolve = vData.GetToResolve ()
+  let sb = bgToJson toResolve sb
   let sb = sb.Append(",\n")
   let sb = sb.Append("      \"instrs\": [\n")
-  let sb = stmtsToJson hdl vData.Stmts sb
+  let sb = stmtsToJson hdl (snd <| vData.GetStmts ()) sb
   let sb = sb.Append("\n      ]")
   sb.Append("\n    }"), hdl, cnt + 1
 

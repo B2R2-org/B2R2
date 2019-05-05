@@ -95,17 +95,14 @@ module internal InputGraph =
   let ofStmt (stmt: Stmt) =
     { Disasm = Pp.stmtToString stmt; Comment = "" }
 
-  let getIRBBL (v: IRVertex) =
-    match v.VData with
-    | :? IRBBL as vData -> Some vData
-    | _ -> None
-
   let irBBL hdl (v: Vertex<IRVertexData>) =
-    match getIRBBL v with
-    | Some vData ->
-      let irData = List.map ofStmt vData.Stmts
-      Some { Address = fst vData.Ppoint; Data = irData }
-    | _ -> None
+    let vData = v.VData
+    if vData.IsBBL () then
+      let _, ppoint = vData.GetPpoint ()
+      let _, stmts = vData.GetStmts ()
+      let irData = List.map ofStmt stmts
+      Some { Address = fst ppoint ; Data = irData }
+    else None
 
   let ofBBL hdl bblFn iNodes (v: Vertex<_>) =
     match bblFn hdl v with
@@ -116,12 +113,15 @@ module internal InputGraph =
     let e = g.FindEdge src dst
     Some { From = src.VData.AddrRange.Min; To = dst.VData.AddrRange.Min; Type = e }
 
-  let irEdge (g: IRCFG) (src: Vertex<_>) (dst: Vertex<_>) =
-    match getIRBBL src, getIRBBL dst with
-    | Some sData, Some dData ->
+  let irEdge (g: IRCFG) (src: IRVertex) (dst: IRVertex) =
+    let sData = src.VData
+    let dData = dst.VData
+    if sData.IsBBL () && dData.IsBBL () then
       let e = g.FindEdge src dst
-      Some <| { From = fst sData.Ppoint; To = fst dData.Ppoint; Type = e }
-    | _ -> None
+      let _, sPpoint = sData.GetPpoint ()
+      let _, dPpoint = dData.GetPpoint ()
+      Some { From = fst sPpoint; To = fst dPpoint; Type = e }
+    else None
 
   let ofCFGEdge g edgeFn iEdges src dst =
     match edgeFn g src dst with
@@ -138,8 +138,8 @@ module internal InputGraph =
     v.VData.AddrRange.Min
 
   let irRoot (v: Vertex<IRVertexData>) =
-    let vData = v.VData :?> IRBBL
-    fst vData.Ppoint
+    let _, ppoint = v.VData.GetPpoint ()
+    fst ppoint
 
   let ofDisasmCFG hdl (g: #DiGraph<_, _>) =
     ofCFG hdl disasmRoot disasmBBL disasmEdge g

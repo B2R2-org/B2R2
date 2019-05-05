@@ -69,65 +69,45 @@ type CFGTestClass () =
     Map.add (sAddr, dAddr) e acc
 
   let irVertexFolder acc (v: IRVertex) =
-    let vData = v.VData :?> IRBBL
-    Map.add vData.Ppoint v acc
+    let _, ppoint = v.VData.GetPpoint ()
+    Map.add ppoint v acc
 
   let irBBLFolder acc (v: IRVertex) =
-    match v.VData with
-    | :? IRBBL as vData -> Map.add vData.Ppoint v acc
-    | _ -> acc
+    let b, ppoint = v.VData.GetPpoint ()
+    if b then Map.add ppoint v acc else acc
 
   let irCallFolder acc (v: IRVertex) =
-    match v.VData with
-    | :? IRCall as vData -> Map.add vData.Target v acc
-    | _ -> acc
-
-  let isIRBBL (v: IRVertex) =
-    match v.VData with
-    | :? IRBBL -> true
-    | _ -> false
-
-  let isIRCall (v: IRVertex) =
-    match v.VData with
-    | :? IRCall -> true
-    | _ -> false
+    let b, target = v.VData.GetTarget ()
+    if b then Map.add target v acc else acc
 
   let irEdgeFolder (cfg: IRCFG) acc (src: IRVertex) (dst: IRVertex) =
-    let sData = src.VData :?> IRBBL
-    let dData = dst.VData :?> IRBBL
-    let sPpoint = sData.Ppoint
-    let dPpoint = dData.Ppoint
+    let _, sPpoint = src.VData.GetPpoint ()
+    let _, dPpoint = dst.VData.GetPpoint ()
     let e = cfg.FindEdge src dst
     Map.add (sPpoint, dPpoint) e acc
 
   let irNormalEdgeFolder (cfg: IRCFG) acc (src: IRVertex) (dst: IRVertex) =
-    if isIRBBL src && isIRBBL dst then
-      let sData = src.VData :?> IRBBL
-      let dData = dst.VData :?> IRBBL
-      let sPpoint = sData.Ppoint
-      let dPpoint = dData.Ppoint
+    let sb, sPpoint = src.VData.GetPpoint ()
+    let db, dPpoint = dst.VData.GetPpoint ()
+    if sb && db then
       let e = cfg.FindEdge src dst
       Map.add (sPpoint, dPpoint) e acc
     else acc
 
   let irCallEdgeFolder (cfg: IRCFG) acc (src: IRVertex) (dst: IRVertex) =
-    if isIRCall dst then
-      let sData = src.VData :?> IRBBL
-      let dData = dst.VData :?> IRCall
-      let sPpoint = sData.Ppoint
-      let dTarget = dData.Target
+    let sb, ppoint = src.VData.GetPpoint ()
+    let db, target = dst.VData.GetTarget ()
+    if sb && db then
       let e = cfg.FindEdge src dst
-      Map.add (sPpoint, dTarget) e acc
+      Map.add (ppoint, target) e acc
     else acc
 
   let irRetEdgeFolder (cfg: IRCFG) acc (src: IRVertex) (dst: IRVertex) =
-    if isIRCall src then
-      let sData = src.VData :?> IRCall
-      let dData = dst.VData :?> IRBBL
-      let sTarget = sData.Target
-      let dPpoint = dData.Ppoint
+    let sb, target = src.VData.GetTarget ()
+    let db, ppoint = dst.VData.GetPpoint ()
+    if sb && db then
       let e = cfg.FindEdge src dst
-      Map.add (sTarget, dPpoint) e acc
+      Map.add (target, ppoint) e acc
     else acc
 
   let ssaEdgeFolder (cfg: SSACFG) acc (src: SSAVertex) (dst: SSAVertex) =
@@ -288,12 +268,14 @@ type CFGTestClass () =
     let v550 = Map.find (0x55UL, 0) vMap
     let v5F0 = Map.find (0x5FUL, 0) vMap
     let vList = [ v000 ; v190 ; v3F0 ; v480 ; v520 ; v550 ; v5F0 ]
-    let bblList = List.map (fun (x: IRVertex) -> x.VData :?> IRBBL) vList
+    let bblList = List.map (fun (x: IRVertex) -> x.VData) vList
     let pPointList =
       [ (0x00UL, 0) ; (0x19UL, 0) ; (0x3FUL, 0) ; (0x48UL, 0) ; (0x52UL, 0) ;
         (0x55UL, 0) ; (0x5FUL, 0) ]
     List.zip pPointList bblList
-    |> List.iter (fun (x, y) -> Assert.AreEqual (x, y.Ppoint))
+    |> List.iter (fun (x, y) ->
+        let _, ppoint = y.GetPpoint ()
+        Assert.AreEqual (x, ppoint))
 
   [<TestMethod>]
   member __.``IRGraph Edge Test: _start`` () =
@@ -338,10 +320,12 @@ type CFGTestClass () =
     |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x vMap)
     let v620 = Map.find (0x62UL, 0) vMap
     let vList = [ v620 ]
-    let bblList = List.map (fun (x: IRVertex) -> x.VData :?> IRBBL) vList
+    let bblList = List.map (fun (x: IRVertex) -> x.VData) vList
     let pPointList = [ (0x62UL, 0) ]
     List.zip pPointList bblList
-    |> List.iter (fun (x, y) -> Assert.AreEqual (x, y.Ppoint))
+    |> List.iter (fun (x, y) ->
+        let _, ppoint = y.GetPpoint ()
+        Assert.AreEqual (x, ppoint))
 
   [<TestMethod>]
   member __.``IRGraph Edge Test: foo`` () =
@@ -359,10 +343,12 @@ type CFGTestClass () =
     let v710 = Map.find (0x71UL, 0) vMap
     let v810 = Map.find (0x81UL, 0) vMap
     let vList = [ v710 ; v810 ]
-    let bblList = List.map (fun (x: IRVertex) -> x.VData :?> IRBBL) vList
+    let bblList = List.map (fun (x: IRVertex) -> x.VData) vList
     let pPointList = [ (0x71UL, 0) ; (0x81UL, 0) ]
     List.zip pPointList bblList
-    |> List.iter (fun (x, y) -> Assert.AreEqual (x, y.Ppoint))
+    |> List.iter (fun (x, y) ->
+        let _, ppoint = y.GetPpoint ()
+        Assert.AreEqual (x, ppoint))
 
   [<TestMethod>]
   member __.``IRGraph Edge Test: bar`` () =
@@ -438,12 +424,14 @@ type CFGTestClass () =
     let v550 = Map.find (0x55UL, 0) bblMap
     let v5F0 = Map.find (0x5FUL, 0) bblMap
     let vList = [ v000 ; v190 ; v3F0 ; v480 ; v520 ; v550 ; v5F0 ]
-    let bblList = List.map (fun (x: IRVertex) -> x.VData :?> IRBBL) vList
+    let bblList = List.map (fun (x: IRVertex) -> x.VData) vList
     let pPointList =
       [ (0x00UL, 0) ; (0x19UL, 0) ; (0x3FUL, 0) ; (0x48UL, 0) ; (0x52UL, 0) ;
         (0x55UL, 0) ; (0x5FUL, 0) ]
     List.zip pPointList bblList
-    |> List.iter (fun (x, y) -> Assert.AreEqual (x, y.Ppoint))
+    |> List.iter (fun (x, y) ->
+        let _, ppoint = y.GetPpoint ()
+        Assert.AreEqual (x, ppoint))
     let callMap = cfg.FoldVertex irCallFolder Map.empty
     Assert.AreEqual (2, callMap.Count)
     [ 0x62UL ; 0x71UL ]
@@ -451,10 +439,12 @@ type CFGTestClass () =
     let c62 = Map.find 0x62UL callMap
     let c71 = Map.find 0x71UL callMap
     let cList = [ c62 ; c71 ]
-    let bblList = List.map (fun (x: IRVertex) -> x.VData :?> IRCall) cList
+    let bblList = List.map (fun (x: IRVertex) -> x.VData) cList
     let targetList = [ 0x62UL ; 0x71UL ]
     List.zip targetList bblList
-    |> List.iter (fun (x, y) -> Assert.AreEqual (x, y.Target))
+    |> List.iter (fun (x, y) ->
+        let _, target = y.GetTarget ()
+        Assert.AreEqual (x, target))
 
   [<TestMethod>]
   member __.``IRGraph Edge Test after Call Analysis: _start`` () =
@@ -506,10 +496,12 @@ type CFGTestClass () =
     |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x bblMap)
     let v620 = Map.find (0x62UL, 0) bblMap
     let vList = [ v620 ]
-    let bblList = List.map (fun (x: IRVertex) -> x.VData :?> IRBBL) vList
+    let bblList = List.map (fun (x: IRVertex) -> x.VData) vList
     let pPointList = [ (0x62UL, 0) ]
     List.zip pPointList bblList
-    |> List.iter (fun (x, y) -> Assert.AreEqual (x, y.Ppoint))
+    |> List.iter (fun (x, y) ->
+        let _, ppoint = y.GetPpoint ()
+        Assert.AreEqual (x, ppoint))
     let callMap = cfg.FoldVertex irCallFolder Map.empty
     Assert.AreEqual (0, callMap.Count)
 
@@ -533,10 +525,12 @@ type CFGTestClass () =
     let v710 = Map.find (0x71UL, 0) bblMap
     let v810 = Map.find (0x81UL, 0) bblMap
     let vList = [ v710 ; v810 ]
-    let bblList = List.map (fun (x: IRVertex) -> x.VData :?> IRBBL) vList
+    let bblList = List.map (fun (x: IRVertex) -> x.VData) vList
     let pPointList = [ (0x71UL, 0) ; (0x81UL, 0) ]
     List.zip pPointList bblList
-    |> List.iter (fun (x, y) -> Assert.AreEqual (x, y.Ppoint))
+    |> List.iter (fun (x, y) ->
+        let _, ppoint = y.GetPpoint ()
+        Assert.AreEqual (x, ppoint))
     let callMap = cfg.FoldVertex irCallFolder Map.empty
     Assert.AreEqual (0, callMap.Count)
 

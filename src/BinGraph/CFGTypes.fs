@@ -29,7 +29,6 @@ namespace B2R2.BinGraph
 open B2R2
 open B2R2.FrontEnd
 open B2R2.BinIR
-open B2R2.BinIR.LowUIR
 open System.Collections.Generic
 
 type PPoint = Addr * int
@@ -46,50 +45,103 @@ type DisasmBBL (range: AddrRange, instrs, last) =
   /// Do we need to resolve the successor(s) of this basic block?
   member val ToResolve = false with get, set
 
+[<AbstractClass>]
 type IRVertexData () =
   inherit VertexData (VertexData.genID ())
+
+  abstract member IsBBL: unit -> bool
+
+  abstract member GetPpoint: outref<PPoint> -> bool
+
+  abstract member GetStmts: outref<LowUIR.Stmt list> -> bool
+
+  abstract member GetLastStmt: outref<LowUIR.Stmt> -> bool
+
+  abstract member SetToResolve: bool -> unit
+
+  abstract member GetToResolve: outref<bool> -> bool
+
+  abstract member GetTarget: outref<Addr> -> bool
 
 type IRBBL (ppoint, lastPpoint, stmts, last) =
   inherit IRVertexData ()
 
-  /// This block's starting program point
-  member __.Ppoint: PPoint = ppoint
-
-  /// List of all the statements in this block.
-  member __.Stmts: Stmt list = stmts
+  let mutable toResolve = false
 
   /// The last statement of this block (to access it efficiently).
-  member __.LastStmt: Stmt = last
+  member __.LastStmt: LowUIR.Stmt = last
 
   /// Program point of the last statement.
   member __.LastPpoint: PPoint = lastPpoint
 
-  /// Do we need to resolve the successor(s) of this basic block?
-  member val ToResolve = false with get, set
+  override __.IsBBL () = true
+
+  override __.GetPpoint (pp: outref<PPoint>) =
+    pp <- ppoint
+    true
+
+  override __.GetStmts (s: outref<LowUIR.Stmt list>) =
+    s <- stmts
+    true
+
+  override __.GetLastStmt (s: outref<LowUIR.Stmt>) =
+    s <- last
+    true
+
+  override __.SetToResolve b = toResolve <- b
+
+  override __.GetToResolve (b: outref<bool>) =
+    b <- toResolve
+    true
+
+  override __.GetTarget (target: outref<Addr>) = false
 
 type IRCall (target) =
   inherit IRVertexData ()
 
-  member __.Target: Addr = target
+  override __.IsBBL () = false
 
+  override __.GetPpoint (pp: outref<PPoint>) = false
+
+  override __.GetStmts (s: outref<LowUIR.Stmt list>) = false
+
+  override __.GetLastStmt (s: outref<LowUIR.Stmt>) = false
+
+  override __.SetToResolve b = ()
+
+  override __.GetToResolve (b: outref<bool>) = false
+
+  override __.GetTarget (t: outref<Addr>) =
+    t <- target
+    true
+
+[<AbstractClass>]
 type SSAVertexData (irVertexData) =
   inherit VertexData (VertexData.genID ())
 
   member __.IRVertexData : IRVertexData = irVertexData
 
+  abstract member IsBBL : unit -> bool
+
+  abstract GetStmts : unit -> SSA.Stmt list
+
 type SSABBL (irVertexData, stmts, last) =
   inherit SSAVertexData (irVertexData)
-
-  member __.IRVertexData: IRVertexData = irVertexData
-
-  member __.Stmts: SSA.Stmt list = stmts
 
   member __.LastStmt: SSA.Stmt = last
 
   member val ToResolve = false with get, set
 
-type SSACall (irVertexData) =
+  override __.IsBBL () = true
+
+  override __.GetStmts () = stmts
+
+type SSACall (irVertexData, stmts) =
   inherit SSAVertexData (irVertexData)
+
+  override __.IsBBL () = false
+
+  override __.GetStmts () = stmts
 
 type CFGEdge =
   | JmpEdge
