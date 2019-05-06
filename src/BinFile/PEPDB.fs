@@ -30,6 +30,12 @@ open System
 open B2R2
 open B2R2.BinFile.FileHelper
 
+/// Hold an MSF stream.
+type MSFStream = {
+  Reader: BinReader
+  ByteSize: int
+}
+
 let private magicBytes =
   [| 'M'; 'i'; 'c'; 'r'; 'o'; 's'; 'o'; 'f';
      't'; ' '; 'C'; '/'; 'C'; '+'; '+'; ' ';
@@ -40,13 +46,11 @@ let isPDBHeader (reader: BinReader) offset =
   reader.PeekChars (32, offset) = magicBytes
 
 let parseSuperBlock (reader: BinReader) offset =
-  {
-    BlockSize = offset + 32 |> reader.PeekInt32
+  { BlockSize = offset + 32 |> reader.PeekInt32
     FreeBlockMapIdx = offset + 36 |> reader.PeekInt32
     NumBlocks = offset + 40 |> reader.PeekInt32
     NumDirectoryBytes = offset + 44 |> reader.PeekInt32
-    BlockMapAddr = offset + 52 |> reader.PeekInt32
-  }
+    BlockMapAddr = offset + 52 |> reader.PeekInt32 }
 
 let inline getNumBlocks numBytes blockSize =
   (numBytes + blockSize - 1) / blockSize
@@ -79,11 +83,9 @@ let buildStreamDirectory sb (reader: BinReader) =
   let numStream = reader.PeekInt32 0
   let streamSizes = readIntValues reader numStream [] 4 |> List.toArray
   let streamBlks = parseStreamBlks reader sb streamSizes (numStream * 4 + 4)
-  {
-    NumStreams = numStream
+  { NumStreams = numStream
     StreamSizes = streamSizes
-    StreamBlocks = streamBlks
-  }
+    StreamBlocks = streamBlks }
 
 let parseStreamDirectory reader sb =
   let numBlks = getNumBlocks sb.NumDirectoryBytes sb.BlockSize
@@ -94,44 +96,126 @@ let parseStreamDirectory reader sb =
   |> BinReader.Init
   |> buildStreamDirectory sb
 
-let parseSym (reader: BinReader) streamSize =
-  let rec loop acc cnt offset =
-    let size = reader.PeekUInt16 offset |> int
-    if offset >= int streamSize || size = 0 then acc
+let parseStream reader superBlock streamDir idx =
+  let blks = streamDir.StreamBlocks.[idx] |> Array.toList
+  let size = streamDir.StreamSizes.[idx]
+  let stream = readStream reader superBlock.BlockSize blks
+  { Reader = BinReader.Init (stream); ByteSize = size }
+
+let buildStreamMap reader superBlock streamDir =
+  let rec builder acc idx =
+    if idx >= streamDir.NumStreams then List.rev acc |> List.toArray
     else
-      let typ = reader.PeekUInt16 (offset + 2) |> LanguagePrimitives.EnumOfValue
-      let flg = reader.PeekInt32 (offset + 4) |> LanguagePrimitives.EnumOfValue
-      match typ with
-      | SymType.SPUB32 -> (* PUBSYM32 *)
-        let sym =
-          { Flags = flg
-            Address = reader.PeekUInt32 (offset + 8) |> uint64
-            Segment = reader.PeekUInt16 (offset + 12)
-            Name = peekCString reader (offset + 14) (size - 12) }
-        loop (sym :: acc) (cnt + 1) (offset + size + 2)
-      | _ -> loop acc (cnt + 1) (offset + size + 2)
+      let stream = lazy (parseStream reader superBlock streamDir idx)
+      builder (stream :: acc) (idx + 1)
+  builder [] 0
+
+let getStream (streamMap: Lazy<MSFStream> []) idx =
+  let s = streamMap.[idx]
+  s.Force ()
+
+let parseDBIHeader dbiStream =
+  let reader = dbiStream.Reader
+  { DBIVersion = 4 |> reader.PeekInt32 |> LanguagePrimitives.EnumOfValue
+    GlobalStreamIdx = 12 |> reader.PeekUInt16 |> int
+    PublicStreamIdx = 16 |> reader.PeekUInt16 |> int
+    SymRecordStreamIdx = 20 |> reader.PeekUInt16 |> int
+    ModInfoSize = 24 |> reader.PeekInt32 }
+
+let rec parseSymbolRecord stream offset modules streamMap =
+  let reader = stream.Reader
+  let size = reader.PeekUInt16 offset |> int
+  let typ = reader.PeekUInt16 (offset + 2) |> LanguagePrimitives.EnumOfValue
+  let flg = reader.PeekInt32 (offset + 4) |> LanguagePrimitives.EnumOfValue
+  match typ with
+  | SymType.SPUB32 -> (* PUBSYM32 *)
+    { Flags = flg
+      Address = reader.PeekUInt32 (offset + 8) |> uint64
+      Segment = reader.PeekUInt16 (offset + 12)
+      Name = peekCString reader (offset + 14) (size - 12) } |> Some
+  | SymType.SLPROC32
+  | SymType.SGPROC32 -> (* PROCSYM32 *)
+    { Flags = SymFlags.Function
+      Address = reader.PeekUInt32 (offset + 32) |> uint64
+      Segment = reader.PeekUInt16 (offset + 36)
+      Name = peekCString reader (offset + 39) (size - 36) } |> Some
+  | SymType.SPROCREF
+  | SymType.SLPROCREF -> (* REFSYM2 *)
+    let modnum = reader.PeekUInt16 (offset + 12) |> int
+    let refOffset = reader.PeekInt32 (offset + 8)
+    let m = Array.get modules (modnum - 1)
+    let stream = getStream streamMap m.SymStreamIndex
+    parseSymbolRecord stream refOffset modules streamMap
+  | _ -> None
+
+let parseSymRecordStream modules streamMap stream =
+  let rec loop acc cnt offset =
+    let size = stream.Reader.PeekUInt16 offset |> int
+    if offset >= int stream.ByteSize || size = 0 then acc
+    else
+      match parseSymbolRecord stream offset modules streamMap with
+      | Some sym -> loop (sym :: acc) (cnt + 1) (offset + size + 2)
+      | None -> loop acc (cnt + 1) (offset + size + 2)
   loop [] 0 0
 
-let getDBIStreamOffset sb streamDir =
-  let dbiBlkIndices = streamDir.StreamBlocks.[3]
-  dbiBlkIndices.[0] * sb.BlockSize
+let readStr (reader: BinReader) pos =
+  let rec loop acc pos =
+    let byte = reader.PeekByte pos
+    if byte = 0uy then List.rev acc |> List.toArray, pos + 1
+    else loop (byte :: acc) (pos + 1)
+  let bs, nextPos = loop [] pos
+  Text.Encoding.ASCII.GetString bs, nextPos
 
-let parseDBIStream (reader: BinReader) superBlock streamDir =
-  let offset = getDBIStreamOffset superBlock streamDir
-  { VersionHeader = offset |> reader.PeekInt32 |> LanguagePrimitives.EnumOfValue
-    GlobalStreamIndex = offset + 12 |> reader.PeekUInt16 |> int
-    PublicStreamIndex = offset + 16 |> reader.PeekUInt16 |> int
-    SymRecordStreamIndex = offset + 20 |> reader.PeekUInt16 |> int }
+let align offset n =
+  if offset &&& (n - 1) > 0 then (offset &&& (~~~ (n - 1))) + n
+  else offset
 
-let parseSymbolStream reader superBlock streamDir dbi =
-  let blks = streamDir.StreamBlocks.[dbi.SymRecordStreamIndex] |> Array.toList
-  let size = streamDir.StreamSizes.[dbi.SymRecordStreamIndex]
-  let stream = readStream reader superBlock.BlockSize blks
-  let symReader = BinReader.Init (stream)
-  parseSym symReader size
+let parseModuleInfo dbi dbiStream =
+  let maxOffset = dbi.ModInfoSize + 64
+  let reader = dbiStream.Reader
+  let rec loop acc pos =
+    if pos >= maxOffset then acc
+    else
+      let modName, nextOffset = readStr reader (pos + 64)
+      let objName, nextOffset = readStr reader nextOffset
+      let acc =
+        { SectionIndex = reader.PeekUInt16 (pos + 4) |> int
+          SymStreamIndex = reader.PeekUInt16 (pos + 34) |> int
+          ModuleName = modName
+          ObjFileName = objName } :: acc
+      loop acc (align nextOffset 4)
+  loop [] 64 |> List.rev |> List.toArray
+
+let rec readHashRecords acc (reader: BinReader) offset numEntries =
+  if numEntries = 0u then List.rev acc
+  else
+    let r = { HROffset = reader.PeekInt32 offset
+              HRCRef = reader.PeekInt32 (offset + 4) }
+    readHashRecords (r :: acc) reader (offset + 8) (numEntries - 1u)
+
+let parseGSIHeader (reader: BinReader) =
+  { VersionSignature = reader.PeekUInt32 0
+    VersionHeader = reader.PeekUInt32 4
+    HashRecordSize = reader.PeekUInt32 8
+    NumBuckets = reader.PeekUInt32 12 }
+
+let parseGSIHashRecord reader gsiHeader =
+  if gsiHeader.VersionSignature = 0xFFFFFFFFu
+    && gsiHeader.VersionHeader = 0xF12F091Au
+  then readHashRecords [] reader 16 (gsiHeader.HashRecordSize / 8u)
+  else []
+
+let parseGlobalSymbolInfo glStream =
+  let gsiHeader = parseGSIHeader glStream.Reader
+  parseGSIHashRecord glStream.Reader gsiHeader
 
 let parse reader offset =
   let superBlock = parseSuperBlock reader offset
   let streamDir = parseStreamDirectory reader superBlock
-  let dbi = parseDBIStream reader superBlock streamDir
-  parseSymbolStream reader superBlock streamDir dbi
+  let streamMap = buildStreamMap reader superBlock streamDir
+  let dbiStream = getStream streamMap 3
+  let dbi = parseDBIHeader dbiStream
+  let modules = parseModuleInfo dbi dbiStream
+  let _gsi = getStream streamMap dbi.GlobalStreamIdx |> parseGlobalSymbolInfo
+  getStream streamMap dbi.SymRecordStreamIdx
+  |> parseSymRecordStream modules streamMap
