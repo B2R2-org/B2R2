@@ -57,6 +57,9 @@ type CFGTestClass () =
   let builder, funcs = CFGUtils.construct hdl (Some [ 0UL ])
   let builder_, funcs_ = CFGUtils.construct hdl (Some [ 0UL ])
   let funcs_ = CFGUtils.analCalls funcs_
+  let callGraph = SimpleDiGraph ()
+  let _ = CFGUtils.buildCallGraph hdl funcs_ callGraph
+  let _ = NoReturn.noReturnAnalysis hdl callGraph
 
   let disasmVertexFolder acc (v: DisasmVertex) =
     Map.add v.VData.AddrRange.Min v acc

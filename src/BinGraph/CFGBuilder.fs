@@ -39,6 +39,7 @@ type Function (entry, name, regType) =
 
   let irCFG = IRCFG ()
   let ssaCFG = lazy (SSAGraph.transform regType irCFG (SSACFG ()))
+  let mutable noReturn = false
 
   member val Entry : Addr = entry
 
@@ -49,6 +50,8 @@ type Function (entry, name, regType) =
   member __.IRCFG with get () = irCFG
 
   member __.SSACFG with get () = ssaCFG.Force ()
+
+  member __.NoReturn with get () = noReturn and set (v) = noReturn <- v
 
 type CallGraphEdge =
   | CGCallEdge

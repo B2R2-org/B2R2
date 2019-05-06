@@ -37,3 +37,24 @@ let rec private kahnTopologicalSortLoop acc (g: SimpleDiGraph<_, _>) =
 let kahnTopologicalSort (g: SimpleDiGraph<_, _>) =
   let h = g.Clone ()
   List.rev <| kahnTopologicalSortLoop [] h
+
+let rec checkStack visited (stack: Vertex<_> list) orderMap cnt =
+  match stack with
+  | [] -> stack, orderMap, cnt
+  | v :: stack ->
+    if List.exists (fun s -> Set.contains s visited |> not) v.Succs then
+      v :: stack, orderMap, cnt
+    else
+      let orderMap = Map.add v cnt orderMap
+      checkStack visited stack orderMap (cnt - 1)
+
+let dfsOrdering (visited, stack, orderMap, cnt) v =
+  let visited = Set.add v visited
+  let stack, orderMap, cnt = checkStack visited (v :: stack) orderMap cnt
+  visited, stack, orderMap, cnt
+
+let dfsTopologicalSort (g: DiGraph<_, _>) =
+  let size = g.Size () - 1
+  let _, _, dfsOrder, _ =
+    g.FoldVertexDFS dfsOrdering (Set.empty, [], Map.empty, size)
+  dfsOrder

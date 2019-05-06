@@ -207,7 +207,8 @@ type DiGraph<'V, 'E when 'V :> VertexData> () =
         visited.Add (v.GetID ()) |> ignore
         List.fold (fun tovisit s -> s :: tovisit) tovisit v.Succs
         |> foldLoop (fn acc v)
-    foldLoop acc [__.GetRoot ()]
+    let acc = foldLoop acc [__.GetRoot ()]
+    foldLoop acc __.Unreachables
 
   /// Fold every vertex in the graph in a breadth-first manner starting from the
   /// root node.

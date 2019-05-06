@@ -52,6 +52,7 @@ with
     let funcs = CFGUtils.analCalls funcs
     let callGraph = SimpleDiGraph ()
     CFGUtils.buildCallGraph hdl funcs callGraph
+    NoReturn.noReturnAnalysis hdl callGraph
     { BinHandler = hdl; CFGBuilder = builder ; Functions = funcs ;
       CallGraph = callGraph }
 
