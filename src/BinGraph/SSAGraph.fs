@@ -81,32 +81,42 @@ let getGraphInfo domCtxt (irCFG: IRCFG) ssaCtxt (v: Vertex<_>) =
   let dfMap = Map.add id frontiers ssaCtxt.DFMap
   { ssaCtxt with PredMap = predMap ; SuccMap = succMap ; DFMap = dfMap }
 
-let getReturns regType target =
-  /// XXX: Will be fixed
-  [ MemVar -1 ]
+let getReturns hdl target =
+  let regType =
+    hdl.FileInfo.WordSize |> WordSize.toByteWidth |> RegType.fromByteWidth
+  match hdl.ISA.Arch with
+  | Arch.IntelX86 ->
+    let regID = Intel.Register.EAX |> Intel.Register.toRegID
+    [ MemVar -1 ; RegVar (regType, regID, "EAX", -1) ]
+  | Arch.IntelX64 ->
+    let regID = Intel.Register.RAX |> Intel.Register.toRegID
+    [ MemVar -1 ; RegVar (regType, regID, "RAX", -1) ]
+  | _ -> failwith "Not supported arch."
 
-let translateIR regType ctxt (v: Vertex<IRVertexData>) =
+let translateIR hdl ctxt (v: Vertex<IRVertexData>) =
   let vData = v.VData
   if vData.IsBBL () then
     let _, ppoint = vData.GetPpoint ()
     let _, stmts = vData.GetStmts ()
+    let regType =
+      hdl.FileInfo.WordSize |> WordSize.toByteWidth |> RegType.fromByteWidth
     let stmts = Translate.translateStmt regType (fst ppoint) [] stmts
     let ssaMap = Map.add vData.ID (v.VData, stmts) ctxt.SSAMap
     { ctxt with SSAMap = ssaMap }
   else
     let _, target = vData.GetTarget ()
-    let stmts = List.map (fun def -> Def (def, Return)) <| getReturns regType target
+    let stmts = List.map (fun def -> Def (def, Return)) <| getReturns hdl target
     let ssaMap = Map.add vData.ID (v.VData, stmts) ctxt.SSAMap
     { ctxt with SSAMap = ssaMap }
 
-let initContext regType (irCFG: IRCFG) =
+let initContext hdl (irCFG: IRCFG) =
   let ctxt = Dominator.initDominatorContext irCFG
   irCFG.IterVertex (fun (v: Vertex<_>) -> printfn "%d" <| v.GetID ())
   let domTree = getDomTree ctxt
   { PredMap = Map.empty ; SuccMap = Map.empty ; DFMap = Map.empty ;
     SSAMap = Map.empty ; DomTree = domTree }
   |> irCFG.FoldVertex (getGraphInfo ctxt irCFG)
-  |> irCFG.FoldVertex (translateIR regType)
+  |> irCFG.FoldVertex (translateIR hdl)
 
 let addDefFromDest defSet = function
   | RegVar (ty, r, s, _) -> Set.add (Reg (ty, r, s)) defSet
@@ -204,7 +214,9 @@ let placePhis ctxt =
   let ssaMap = Map.fold (insertPhi ctxt.PredMap) ssaMap phiSites
   { ctxt with SSAMap = ssaMap }
 
-let initializeRenaming regType ssaMap =
+let initializeRenaming hdl ssaMap =
+  let regType =
+    hdl.FileInfo.WordSize |> WordSize.toByteWidth |> RegType.fromByteWidth
   let defs =
     Map.fold (fun d _ (_, stmts) ->
       List.fold collectVars d stmts) Set.empty ssaMap
@@ -348,9 +360,9 @@ let rec rename tree predMap succMap aOrig (ssaMap, counts, stacks) n =
     Map.add def stack stacks) stacks defs
   ssaMap, counts, stacks
 
-let renameVars regType ctxt =
+let renameVars hdl ctxt =
   let ssaMap = ctxt.SSAMap
-  let counts, stacks = initializeRenaming regType ssaMap
+  let counts, stacks = initializeRenaming hdl ssaMap
   let defs =
     Map.map (fun _ (_, stmts) -> List.fold collectDefs Set.empty stmts) ssaMap
   let tree, root = ctxt.DomTree
@@ -400,10 +412,10 @@ let setRoot (irCFG: IRCFG) (ssaCFG: SSACFG) =
       if irData = irRootBBL then ssaCFG.SetRoot v
     else ())
 
-let transform regType irCFG ssaCFG =
-  let ctxt = initContext regType irCFG
+let transform hdl irCFG ssaCFG =
+  let ctxt = initContext hdl irCFG
   let ctxt = placePhis ctxt
-  let ctxt = renameVars regType ctxt
+  let ctxt = renameVars hdl ctxt
   buildCFG ssaCFG ctxt
   setRoot irCFG ssaCFG
   ssaCFG
