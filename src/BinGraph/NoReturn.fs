@@ -60,8 +60,9 @@ let isNoReturnCall hdl (fcg: CallGraph) target =
       fcg.FindVertexBy (fun (v: Vertex<Function>) -> v.VData.Entry = target)
     funcV.VData.NoReturn
 
-let rec removeVertices domTree (irCFG: IRCFG) v =
-  List.iter (removeVertices domTree irCFG) <| Map.find v domTree
+let rec removeVertices domTree disasmCFG (irCFG: IRCFG) v =
+  // TODO: Remove corresponding vertices from disasmCFG
+  List.iter (removeVertices domTree disasmCFG irCFG) <| Map.find v domTree
   irCFG.RemoveVertex v
 
 let disconnectCall hdl (fcg: CallGraph) disasmCFG (irCFG: IRCFG) (v: IRVertex) =
@@ -71,14 +72,17 @@ let disconnectCall hdl (fcg: CallGraph) disasmCFG (irCFG: IRCFG) (v: IRVertex) =
     if isNoReturnCall hdl fcg target then
       let ctxt = Dominator.initDominatorContext irCFG
       let tree, _ = Dominator.dominatorTree ctxt
-      List.iter (removeVertices tree irCFG) <| Map.find v tree
+      List.iter (removeVertices tree disasmCFG irCFG) <| Map.find v tree
+
+// TODO
+let disconnectSysCall hdl fcg disasmCFG irCFG v = ()
 
 let disconnect hdl fcg (v: Vertex<Function>) =
   let entry = v.VData.Entry
   let irCFG = v.VData.IRCFG
   let disasmCFG = v.VData.DisasmCFG
   irCFG.IterVertex (disconnectCall hdl fcg disasmCFG irCFG)
-  // irCFG.IterVErtex (disconnectSysCall hdl fcg disasmCFG irCFG)
+  irCFG.IterVertex (disconnectSysCall hdl fcg disasmCFG irCFG)
 
 let updateNoReturn (func: Function) =
   let irCFG = func.IRCFG
