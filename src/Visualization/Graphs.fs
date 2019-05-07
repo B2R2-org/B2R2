@@ -111,7 +111,9 @@ module internal InputGraph =
 
   let disasmEdge (g: DisasmCFG) (src: Vertex<_>) (dst: Vertex<_>) =
     let e = g.FindEdge src dst
-    Some { From = src.VData.AddrRange.Min; To = dst.VData.AddrRange.Min; Type = e }
+    let sAddr = src.VData.AddrRange.Min
+    let dAddr = dst.VData.AddrRange.Min
+    Some { From = sAddr ; To = dAddr ; Type = e }
 
   let irEdge (g: IRCFG) (src: IRVertex) (dst: IRVertex) =
     let sData = src.VData

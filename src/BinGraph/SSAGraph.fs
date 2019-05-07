@@ -350,7 +350,8 @@ let rec rename tree predMap succMap aOrig (ssaMap, counts, stacks) n =
     List.fold (renamePhi stacks predMap n) ssaMap (Map.find n succMap)
   let children = Map.find n tree
   let ssaMap, counts, stacks =
-    List.fold (rename tree predMap succMap aOrig) (ssaMap, counts, stacks) children
+    children
+    |> List.fold (rename tree predMap succMap aOrig) (ssaMap, counts, stacks)
   let defs = Map.find n aOrig
   let stacks = Set.fold (fun stacks def ->
     let stack = Map.find def stacks |> List.tail

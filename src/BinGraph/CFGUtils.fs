@@ -35,6 +35,9 @@ open B2R2.BinIR.LowUIR
 open System.Text
 open System.Collections.Generic
 
+type DisasmBBLs = Dictionary<Addr, DisasmBBL>
+type IRBBLs = Dictionary<PPoint, IRBBL>
+
 let isExecutable hdl addr =
   match hdl.FileInfo.GetSections addr |> Seq.tryHead with
   | Some s -> s.Kind = SectionKind.ExecutableSection
@@ -94,7 +97,7 @@ let rec buildIRBBLs hdl (builder: CFGBuilder) bbls = function
 let inline private getBranchTarget (instr: Instruction) =
   instr.DirectBranchTarget () |> Utils.tupleToOpt
 
-let getDisasmSuccessors hdl (builder: CFGBuilder) leader edges (bbl: DisasmBBL) =
+let getDisasmSuccessors hdl (builder: CFGBuilder) leader edges (bbl:DisasmBBL) =
   let last = bbl.LastInstr
   let next = last.Address + uint64 last.Length
   if last.IsExit () then
@@ -119,7 +122,9 @@ let getDisasmSuccessors hdl (builder: CFGBuilder) leader edges (bbl: DisasmBBL) 
     else [], edges
   else [next], (leader, Some (next, JmpEdge)) :: edges
 
-let rec addDisasmVertex hdl (builder: CFGBuilder) funcset (bbls: Dictionary<Addr, DisasmBBL>) (g: DisasmCFG) entry edges leader =
+let rec addDisasmVertex
+    hdl (builder: CFGBuilder) funcset (bbls: DisasmBBLs) (g: DisasmCFG) entry
+    edges leader =
   match builder.GetEntryByDisasmLeader leader with
   | None ->
     if leader <> entry && Set.contains leader funcset then edges
@@ -139,7 +144,7 @@ let belongSameDisasm (builder: CFGBuilder) sAddr dAddr =
   | Some sEntry, Some dEntry when sEntry = dEntry -> true
   | _ -> false
 
-let rec addDisasmEdges builder (bbls: Dictionary<Addr, DisasmBBL>) (g: DisasmCFG) = function
+let rec addDisasmEdges builder (bbls: DisasmBBLs) (g: DisasmCFG) = function
   | [] -> ()
   | (src, Some (dst, edgeType)) :: edges ->
     if belongSameDisasm builder src dst then
@@ -153,7 +158,7 @@ let rec addDisasmEdges builder (bbls: Dictionary<Addr, DisasmBBL>) (g: DisasmCFG
     s.VData.ToResolve <- true
     addDisasmEdges builder bbls g edges
 
-let buildDisasmCFG hdl (builder: CFGBuilder) (cfg: DisasmCFG) funcset bbls entry =
+let buildDisasmCFG hdl (builder:CFGBuilder) (cfg:DisasmCFG) funcset bbls entry =
   addDisasmVertex hdl builder funcset bbls cfg entry [] entry
   |> addDisasmEdges builder bbls cfg
 
@@ -190,7 +195,7 @@ let getIRSuccessors hdl (builder: CFGBuilder) leader edges (bbl: IRBBL) =
   | CJmp (_, _, Name fSymbol) ->
     let addr, _ = bbl.LastPpoint
     let fPpoint = builder.FindPPointByLabel addr fSymbol
-    [fPpoint], (leader, Some (fPpoint, CJmpFalseEdge)) :: (leader, None) :: edges
+    [fPpoint], (leader, Some (fPpoint, CJmpFalseEdge)) :: (leader,None) :: edges
   | InterJmp (_, Num bv, InterJmpInfo.IsCall) ->
     let addr = getNextAddr builder bbl.LastPpoint
     [(addr, 0)], (leader, Some ((addr, 0), FallThroughEdge)) :: edges
@@ -202,8 +207,10 @@ let getIRSuccessors hdl (builder: CFGBuilder) leader edges (bbl: IRBBL) =
   | InterCJmp (_, _, Num tBv, Num fBv) ->
     let tAddr = BitVector.toUInt64 tBv
     let fAddr = BitVector.toUInt64 fBv
-    [(tAddr, 0) ; (fAddr, 0)], (leader, Some ((tAddr, 0), CJmpTrueEdge)) ::
-                                  (leader, Some ((fAddr, 0), CJmpFalseEdge)) :: edges
+    let edges =
+      (leader, Some ((tAddr, 0), CJmpTrueEdge)) ::
+      (leader, Some ((fAddr, 0), CJmpFalseEdge)) :: edges
+    [(tAddr, 0) ; (fAddr, 0)], edges
   | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ -> [], (leader, None) :: edges
   | SideEffect Halt -> [], edges
   | SideEffect SysCall ->
@@ -217,7 +224,9 @@ let getIRSuccessors hdl (builder: CFGBuilder) leader edges (bbl: IRBBL) =
     let next = getNextPpoint bbl.LastPpoint stmt
     [next], (leader, Some (next, JmpEdge)) :: edges
 
-let rec addIRVertex hdl (builder: CFGBuilder) funcset (bbls: Dictionary<PPoint, IRBBL>) (g: IRCFG) entry edges leader =
+let rec addIRVertex
+    hdl (builder: CFGBuilder) funcset (bbls: IRBBLs) (g: IRCFG) entry edges
+    leader =
   match builder.GetEntryByIRLeader leader with
   | None ->
     if leader <> (entry, 0) && Set.contains (fst leader) funcset then edges
@@ -237,7 +246,7 @@ let belongSameIR (builder: CFGBuilder) sAddr dAddr =
   | Some sEntry, Some dEntry when sEntry = dEntry -> true
   | _ -> false
 
-let rec addIREdges builder (bbls: Dictionary<PPoint, IRBBL>) (g: IRCFG) = function
+let rec addIREdges builder (bbls: IRBBLs) (g: IRCFG) = function
   | [] -> ()
   | (src, Some (dst, edgeType)) :: edges ->
     if belongSameIR builder src dst then
@@ -347,7 +356,7 @@ let analCalls funcs =
   Seq.iter (fun (KeyValue(_, func)) -> analIRCalls func) funcs
   funcs
 
-let addCallGraphEdge hdl (funcs: Funcs) (callGraph: CallGraph) (func: Function) =
+let addCallGraphEdge hdl (funcs:Funcs) (callGraph: CallGraph) (func: Function) =
   func.IRCFG.IterVertex (fun (v: IRVertex) ->
     let vData = v.VData
     if not <| vData.IsBBL () then
