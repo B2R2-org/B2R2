@@ -111,7 +111,6 @@ let translateIR hdl ctxt (v: Vertex<IRVertexData>) =
 
 let initContext hdl (irCFG: IRCFG) =
   let ctxt = Dominator.initDominatorContext irCFG
-  irCFG.IterVertex (fun (v: Vertex<_>) -> printfn "%d" <| v.GetID ())
   let domTree = getDomTree ctxt
   { PredMap = Map.empty ; SuccMap = Map.empty ; DFMap = Map.empty ;
     SSAMap = Map.empty ; DomTree = domTree }
@@ -343,7 +342,6 @@ let renamePhi stacks predMap parent ssaMap n =
   Map.add n (irbbl, stmts) ssaMap
 
 let rec rename tree predMap succMap aOrig (ssaMap, counts, stacks) n =
-  printfn "n: %d" n
   let irbbl, stmts = Map.find n ssaMap
   let stmts, counts, stacks =
     List.fold renameStmt ([], counts, stacks) stmts
@@ -351,7 +349,6 @@ let rec rename tree predMap succMap aOrig (ssaMap, counts, stacks) n =
   let ssaMap =
     List.fold (renamePhi stacks predMap n) ssaMap (Map.find n succMap)
   let children = Map.find n tree
-  printfn "%A" children
   let ssaMap, counts, stacks =
     List.fold (rename tree predMap succMap aOrig) (ssaMap, counts, stacks) children
   let defs = Map.find n aOrig

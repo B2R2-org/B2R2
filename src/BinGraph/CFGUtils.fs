@@ -74,11 +74,9 @@ let inline getNextPpoint (addr, cnt) = function
 
 let rec buildIRBBLAux (builder: CFGBuilder) sPpoint ppoint ePpoint stmts =
   if ppoint = ePpoint then
-    if List.length stmts = 0 then Error ()
-    else
-      let last = builder.GetStmt ppoint
-      let stmts = List.rev (last :: stmts)
-      Ok <| IRBBL (sPpoint, ppoint, stmts, last)
+    let last = builder.GetStmt ppoint
+    let stmts = List.rev (last :: stmts)
+    Ok <| IRBBL (sPpoint, ppoint, stmts, last)
   else
     let stmt = builder.GetStmt ppoint
     let nextPpoint = getNextPpoint ppoint stmt
@@ -208,6 +206,9 @@ let getIRSuccessors hdl (builder: CFGBuilder) leader edges (bbl: IRBBL) =
                                   (leader, Some ((fAddr, 0), CJmpFalseEdge)) :: edges
   | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ -> [], (leader, None) :: edges
   | SideEffect Halt -> [], edges
+  | (SideEffect SysCall) as stmt ->
+    let next = getNextPpoint bbl.LastPpoint stmt
+    [next], (leader, Some (next, FallThroughEdge)) :: edges
   | stmt ->
     let next = getNextPpoint bbl.LastPpoint stmt
     [next], (leader, Some (next, JmpEdge)) :: edges

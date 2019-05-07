@@ -251,6 +251,12 @@ let rec scanIRLeaders hdl (builder: CFGBuilder) boundary = function
     if isInnerLeader boundary tPpoint then builder.AddIRLeader tPpoint
     if isInnerLeader boundary fPpoint then builder.AddIRLeader fPpoint
     scanIRLeaders hdl builder boundary stmts
+  | (ppoint, (SideEffect Halt as stmt)) :: stmts
+  | (ppoint, (SideEffect SysCall as stmt)) :: stmts ->
+    builder.AddStmt ppoint stmt
+    let addr, cnt = ppoint
+    builder.AddIRLeader (addr, cnt + 1)
+    scanIRLeaders hdl builder boundary stmts
   | (ppoint, stmt) :: stmts ->
     builder.AddStmt ppoint stmt
     scanIRLeaders hdl builder boundary stmts
@@ -258,7 +264,8 @@ let rec scanIRLeaders hdl (builder: CFGBuilder) boundary = function
 
 let rec getIRBBLEnd hdl (builder: CFGBuilder) ppoint ePpoint =
   match builder.GetStmt ppoint with
-  | InterJmp _ | InterCJmp _ | Jmp _ | CJmp _ | SideEffect Halt -> ppoint
+  | InterJmp _ | InterCJmp _ | Jmp _ | CJmp _
+  | SideEffect Halt | SideEffect SysCall -> ppoint
   | IEMark addr ->
     if (addr, 0) = ePpoint then ppoint
     else getIRBBLEnd hdl builder (addr, 0) ePpoint
