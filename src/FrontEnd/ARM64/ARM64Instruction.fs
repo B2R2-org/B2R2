@@ -99,6 +99,8 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
       | _ -> false
     else false
 
+  override __.InterruptNum (num: byref<int64>) = Utils.futureFeature ()
+
   override __.IsNop () =
     __.Info.Opcode = Opcode.NOP
 

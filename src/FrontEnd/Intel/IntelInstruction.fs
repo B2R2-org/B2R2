@@ -45,6 +45,7 @@ type IntelInstruction (addr, numBytes, insInfo, wordSize) =
     | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
     | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JNB | Opcode.JNL | Opcode.JNO
     | Opcode.JNP | Opcode.JNS | Opcode.JNZ | Opcode.JO | Opcode.JP | Opcode.JS
+    | Opcode.JRCXZ
     | Opcode.JZ | Opcode.LOOP | Opcode.LOOPE | Opcode.LOOPNE -> true
     | _ -> false
 
@@ -62,6 +63,7 @@ type IntelInstruction (addr, numBytes, insInfo, wordSize) =
   override __.IsCondBranch () =
     match __.Info.Opcode with
     | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
+    | Opcode.JRCXZ
     | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JNB | Opcode.JNL | Opcode.JNO
     | Opcode.JNP | Opcode.JNS | Opcode.JNZ | Opcode.JO | Opcode.JP | Opcode.JS
     | Opcode.JZ | Opcode.LOOP | Opcode.LOOPE | Opcode.LOOPNE -> true
@@ -71,6 +73,7 @@ type IntelInstruction (addr, numBytes, insInfo, wordSize) =
     __.IsCondBranch ()
     && match __.Info.Opcode with
        | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
+        | Opcode.JRCXZ
        | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JO | Opcode.JP | Opcode.JS
        | Opcode.JZ | Opcode.LOOP | Opcode.LOOPE -> true
        | _ -> false
@@ -110,6 +113,15 @@ type IntelInstruction (addr, numBytes, insInfo, wordSize) =
       | OneOperand (OprDirAddr (Absolute (_))) -> failwith "Implement" // XXX
       | OneOperand (OprDirAddr (Relative offset)) ->
         addr <- (int64 __.Address + offset) |> uint64
+        true
+      | _ -> false
+    else false
+
+  override __.InterruptNum (num: byref<int64>) =
+    if __.Info.Opcode = Opcode.INT then
+      match __.Info.Operands with
+      | OneOperand (OprImm n) ->
+        num <- n
         true
       | _ -> false
     else false

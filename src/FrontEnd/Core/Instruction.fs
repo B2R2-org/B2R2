@@ -159,6 +159,8 @@ type Instruction (addr, numBytes, wordSize) =
   /// </returns>
   abstract member DirectBranchTarget: [<Out>] addr: byref<Addr> -> bool
 
+  abstract member InterruptNum: [<Out>] num: byref<int64> -> bool
+
   /// <summary>
   ///   Lift this instruction into a LowUIR given a translation context.
   /// </summary>
