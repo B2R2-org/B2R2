@@ -97,12 +97,24 @@ let rec buildIRBBLs hdl (builder: CFGBuilder) bbls = function
 let inline private getBranchTarget (instr: Instruction) =
   instr.DirectBranchTarget () |> Utils.tupleToOpt
 
+let noReturnFuncs = [ "__assert_fail" ; "_abort" ; "_exit" ; "_err" ]
+
+let inline isExitCall hdl (instr: Instruction) =
+  if instr.IsCall () then
+    match getBranchTarget instr with
+    | Some addr ->
+      let found, name = hdl.FileInfo.TryFindFunctionSymbolName addr
+      if found then List.contains name noReturnFuncs else false
+    | _ -> false
+  else false
+
 let getDisasmSuccessors hdl (builder: CFGBuilder) leader edges (bbl:DisasmBBL) =
   let last = bbl.LastInstr
   let next = last.Address + uint64 last.Length
   if last.IsExit () then
     if last.IsCall () then
-      [next], (leader, Some (next, JmpEdge)) :: edges
+      if isExitCall hdl last then [], edges
+      else [next], (leader, Some (next, JmpEdge)) :: edges
     elif last.IsDirectBranch () then
       match getBranchTarget last with
       | Some addr when not <| builder.IsInteresting hdl addr -> [], edges
@@ -197,8 +209,10 @@ let getIRSuccessors hdl (builder: CFGBuilder) leader edges (bbl: IRBBL) =
     let fPpoint = builder.FindPPointByLabel addr fSymbol
     [fPpoint], (leader, Some (fPpoint, CJmpFalseEdge)) :: (leader,None) :: edges
   | InterJmp (_, Num bv, InterJmpInfo.IsCall) ->
-    let addr = getNextAddr builder bbl.LastPpoint
-    [(addr, 0)], (leader, Some ((addr, 0), FallThroughEdge)) :: edges
+    if isExitCall hdl <| (builder.GetInstr (fst bbl.LastPpoint)) then [], edges
+    else
+      let addr = getNextAddr builder bbl.LastPpoint
+      [(addr, 0)], (leader, Some ((addr, 0), FallThroughEdge)) :: edges
   | InterJmp (_, Num bv, _) ->
     let addr = BitVector.toUInt64 bv
     if isExecutable hdl addr then

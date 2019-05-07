@@ -61,20 +61,16 @@ let findEntriesByPattern hdl builder funcs =
 let inline private getBranchTarget (instr: Instruction) =
   instr.DirectBranchTarget () |> Utils.tupleToOpt
 
+let noReturnFuncs = [ "__assert_fail" ; "_abort" ; "_exit" ; "_err" ]
+
 let inline isExitCall hdl (instr: Instruction) =
   if instr.IsCall () then
     match getBranchTarget instr with
     | Some addr ->
       let found, name = hdl.FileInfo.TryFindFunctionSymbolName addr
-      if found then
-        name = "__assert_fail" || name = "_abort" || name = "_exit"
-      else false
+      if found then List.contains name noReturnFuncs else false
     | _ -> false
   else false
-
-/// Remove possibilities call instructions are considered as jump
-let inline isExit hdl (instr: Instruction) = // FIXME: Cleanup needed
-  instr.IsExit ()
 
 /// XXX: move this to BinHandler
 /// This is a slightly different version of that of
@@ -89,7 +85,7 @@ let parseBlk hdl (builder: CFGBuilder) addr =
       | None -> Error <| List.rev acc
       | Some instr ->
         let acc = instr :: acc
-        if isExit hdl instr then Ok <| List.rev acc
+        if instr.IsExit () then Ok <| List.rev acc
         else parseLoop acc (addr + uint64 instr.Length)
   parseLoop [] addr
 
@@ -127,6 +123,7 @@ let addBranchTarget hdl sAddr (builder: CFGBuilder) funcs leaders (instr: Instru
         let ptrs = recoverLibcPointers hdl sAddr instr builder
         List.iter (initFunction hdl builder funcs) ptrs
         builder, funcs, next :: ptrs @ leaders
+      | Some addr when isExitCall hdl instr -> builder, funcs, leaders
       | Some addr -> builder, funcs, next :: leaders
       | None -> builder, funcs, next :: leaders
     elif instr.IsDirectBranch () then
