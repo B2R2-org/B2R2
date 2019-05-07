@@ -138,13 +138,12 @@ type CFGTestClass () =
   [<TestMethod>]
   member __.``Boundary Test: IR Leader Identification`` () =
     let irBoundaries = builder.GetIRBoundaries ()
-    Assert.AreEqual (11, List.length irBoundaries)
+    Assert.AreEqual (10, List.length irBoundaries)
     [ ((0x00UL, 0), (0x14UL, 3)) ; ((0x19UL, 0), (0x3DUL, 1)) ;
       ((0x3FUL, 0), (0x46UL, 1)) ; ((0x48UL, 0), (0x4DUL, 3)) ;
       ((0x52UL, 0), (0x52UL, 13)) ; ((0x55UL, 0), (0x5AUL, 3)) ;
       ((0x5FUL, 0), (0x61UL, 3)) ; ((0x62UL, 0), (0x70UL, 3)) ;
-      ((0x71UL, 0), (0x7FUL, 1)) ; ((0x7FUL, 2), (0x7FUL, 2)) ;
-      ((0x81UL, 0), (0x83UL, 3)) ]
+      ((0x71UL, 0), (0x7FUL, 1)) ; ((0x81UL, 0), (0x83UL, 3)) ]
     |> List.iter (fun x -> Assert.IsTrue <| List.contains x irBoundaries)
 
   [<TestMethod>]
@@ -340,16 +339,15 @@ type CFGTestClass () =
   [<TestMethod>]
   member __.``IRGraph Vertex Test: bar`` () =
     let cfg = funcs.[0x71UL].IRCFG
-    Assert.AreEqual (3, cfg.Size ())
+    Assert.AreEqual (2, cfg.Size ())
     let vMap = cfg.FoldVertex irVertexFolder Map.empty
-    [ (0x71UL, 0) ; (0x7FUL, 2) ; (0x81UL, 0) ]
+    [ (0x71UL, 0) ; (0x81UL, 0) ]
     |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x vMap)
     let v710 = Map.find (0x71UL, 0) vMap
-    let v7F2 = Map.find (0x7FUL, 2) vMap
     let v810 = Map.find (0x81UL, 0) vMap
-    let vList = [ v710 ; v7F2 ; v810 ]
+    let vList = [ v710 ; v810 ]
     let bblList = List.map (fun (x: IRVertex) -> x.VData) vList
-    let pPointList = [ (0x71UL, 0) ; (0x7FUL, 2) ; (0x81UL, 0) ]
+    let pPointList = [ (0x71UL, 0) ; (0x81UL, 0) ]
     List.zip pPointList bblList
     |> List.iter (fun (x, y) ->
         let _, ppoint = y.GetPpoint ()
@@ -360,14 +358,12 @@ type CFGTestClass () =
     let cfg = funcs.[0x71UL].IRCFG
     let vMap = cfg.FoldVertex irVertexFolder Map.empty
     let v710 = Map.find (0x71UL, 0) vMap
-    let v7F2 = Map.find (0x7FUL, 2) vMap
     let v810 = Map.find (0x81UL, 0) vMap
     let eMap = cfg.FoldEdge (irEdgeFolder cfg) Map.empty
-    Assert.AreEqual (2, eMap.Count)
-    let edge7107F2 = cfg.FindEdge v710 v7F2
-    let edge7F2810 = cfg.FindEdge v7F2 v810
-    let eList = [ edge7107F2 ; edge7F2810 ]
-    let edgeTypeList = [ FallThroughEdge ; JmpEdge ]
+    Assert.AreEqual (1, eMap.Count)
+    let edge710810 = cfg.FindEdge v710 v810
+    let eList = [ edge710810 ]
+    let edgeTypeList = [ FallThroughEdge ]
     List.zip edgeTypeList eList
     |> List.iter (fun (x, y) -> Assert.AreEqual (x, y))
 
@@ -401,18 +397,39 @@ type CFGTestClass () =
   [<TestMethod>]
   member __.``SSAGraph Vertex Test: bar`` () =
     let cfg = funcs.[0x71UL].SSACFG
-    Assert.AreEqual (3, cfg.Size ())
+    Assert.AreEqual (2, cfg.Size ())
 
   [<TestMethod>]
   member __.``SSAGraph Edge Test: bar`` () =
     let cfg = funcs.[0x71UL].SSACFG
     let eList = cfg.FoldEdge (ssaEdgeFolder cfg) [] |> List.rev
-    Assert.AreEqual (2, List.length eList)
-    let edgeTypeList = [ FallThroughEdge ; JmpEdge ]
+    Assert.AreEqual (1, List.length eList)
+    let edgeTypeList = [ FallThroughEdge ]
     List.zip edgeTypeList eList
     |> List.iter (fun (x, y) -> Assert.AreEqual (x, y))
 
   /// TODO: SSA translation functionality test
+
+  [<TestMethod>]
+  member __.``DisasmGraph Vertex Test after Call Analysis: bar`` () =
+    let cfg = funcs_.[0x71UL].DisasmCFG
+    Assert.AreEqual (1, cfg.Size ())
+    let vMap = cfg.FoldVertex disasmVertexFolder Map.empty
+    [ 0x71UL ]
+    |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x vMap)
+    let v71 = Map.find 0x71UL vMap
+    let vList = [ v71 ]
+    let bblList = List.map (fun (x: Vertex<_>) -> x.VData) vList
+    let addrRangeList =
+      [ AddrRange (0x71UL, 0x81UL) ]
+    List.zip addrRangeList bblList
+    |> List.iter (fun (x, y) -> Assert.AreEqual (x, y.AddrRange))
+
+  [<TestMethod>]
+  member __.``DisasmGraph Edge Test after Call Analysis: bar`` () =
+    let cfg = funcs_.[0x71UL].DisasmCFG
+    let eMap = cfg.FoldEdge (disasmEdgeFolder cfg) Map.empty
+    Assert.AreEqual (0, eMap.Count)
 
   [<TestMethod>]
   member __.``IRGraph Vertex Test after Call Analysis: _start`` () =

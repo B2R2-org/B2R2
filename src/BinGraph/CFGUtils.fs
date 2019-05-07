@@ -207,8 +207,8 @@ let getIRSuccessors hdl (builder: CFGBuilder) leader edges (bbl: IRBBL) =
   | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ -> [], (leader, None) :: edges
   | SideEffect Halt -> [], edges
   | (SideEffect SysCall) as stmt ->
-    let next = getNextPpoint bbl.LastPpoint stmt
-    [next], (leader, Some (next, FallThroughEdge)) :: edges
+    let addr = getNextAddr builder bbl.LastPpoint
+    [(addr, 0)], (leader, Some ((addr, 0), FallThroughEdge)) :: edges
   | stmt ->
     let next = getNextPpoint bbl.LastPpoint stmt
     [next], (leader, Some (next, JmpEdge)) :: edges
@@ -355,17 +355,18 @@ let addCallGraphEdge hdl (funcs: Funcs) (callGraph: CallGraph) (func: Function) 
         callGraph.AddEdge src dst CGCallEdge
     else ())
 
+let tryFindEntryFunction entry (v: Vertex<Function>) =
+  entry = v.VData.Entry
+
 let buildCallGraph (hdl: BinHandler) funcs (callGraph: CallGraph) =
   Seq.iter (fun (KeyValue(_, func)) -> callGraph.AddVertex func |> ignore) funcs
   Seq.iter (fun (KeyValue(_, func)) ->
     addCallGraphEdge hdl funcs callGraph func) funcs
   let fi = hdl.FileInfo
-  if fi.EntryPoint <> 0UL then
-    let v =
-      callGraph.FindVertexBy (fun (v: Vertex<Function>) ->
-        v.VData.Entry = fi.EntryPoint)
-    callGraph.SetRoot v
-  else () // XXX: Library cases. Fix this
+  /// XXX: Fix me
+  match callGraph.TryFindVertexBy (tryFindEntryFunction fi.EntryPoint) with
+  | Some v -> callGraph.SetRoot v
+  | None -> failwith "FIXME"
 
 /// Stringify functions
 let bgToJson toResolve (sb: StringBuilder) =

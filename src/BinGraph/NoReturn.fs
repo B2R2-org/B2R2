@@ -63,10 +63,20 @@ let isNoReturnCall hdl (fcg: CallGraph) target =
       fcg.FindVertexBy (fun (v: Vertex<Function>) -> v.VData.Entry = target)
     funcV.VData.NoReturn
 
-let rec removeVertices domTree disasmCFG (irCFG: IRCFG) v =
-  // TODO: Remove corresponding vertices from disasmCFG
+let findDisasmVertex addr (v: DisasmVertex) =
+  let addrRange = v.VData.AddrRange
+  addrRange.Min <= addr && addr < addrRange.Max
+
+let rec removeVertices domTree (disasmCFG: DisasmCFG) (irCFG: IRCFG) (v: IRVertex) =
   List.iter (removeVertices domTree disasmCFG irCFG) <| Map.find v domTree
-  irCFG.RemoveVertex v
+  let b, ppoint = v.VData.GetPpoint ()
+  if b then
+    match disasmCFG.TryFindVertexBy (findDisasmVertex <| fst ppoint) with
+    | Some w ->
+      disasmCFG.RemoveVertex w
+      irCFG.RemoveVertex v
+    | None -> irCFG.RemoveVertex v
+  else irCFG.RemoveVertex v
 
 let disconnectCall hdl (fcg: CallGraph) disasmCFG (irCFG: IRCFG) (v: IRVertex) =
   let vData = v.VData
