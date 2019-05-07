@@ -138,7 +138,10 @@ let addBranchTarget hdl sAddr (builder: CFGBuilder) funcs leaders (instr: Instru
         else builder, funcs, addr :: leaders
       | None -> builder, funcs, leaders
     elif instr.IsIndirectBranch () then builder, funcs, leaders
-    elif instr.IsInterrupt () then builder, funcs, next ::leaders
+    elif instr.IsInterrupt () then
+      let b, num = instr.InterruptNum ()
+      if b && num = 0x29L then builder, funcs, leaders
+      else builder, funcs, next ::leaders
     else builder, funcs, leaders
   else builder, funcs, next :: leaders
 
@@ -230,6 +233,11 @@ let givePPointToStmt stmts =
 let isInnerLeader (sPpoint, ePpoint) ppoint =
   ppoint >= sPpoint && ppoint < ePpoint
 
+let rec getNextAddr (builder: CFGBuilder) ppoint =
+  let addr = fst ppoint
+  let instr = builder.GetInstr addr
+  instr.Address + uint64 instr.Length
+
 /// We only consider spliting disassembly level basic blocks into ir level
 /// basic blocks. To find new disassembly level basic block leader is out of
 /// scope.
@@ -251,6 +259,14 @@ let rec scanIRLeaders hdl (builder: CFGBuilder) boundary = function
     if isInnerLeader boundary tPpoint then builder.AddIRLeader tPpoint
     if isInnerLeader boundary fPpoint then builder.AddIRLeader fPpoint
     scanIRLeaders hdl builder boundary stmts
+  | (ppoint, (SideEffect Halt as stmt)) :: stmts ->
+    builder.AddStmt ppoint stmt
+    scanIRLeaders hdl builder boundary stmts
+  | (ppoint, (SideEffect _ as stmt)) :: stmts ->
+    builder.AddStmt ppoint stmt
+    let addr = getNextAddr builder ppoint
+    builder.AddIRLeader (addr, 0)
+    scanIRLeaders hdl builder boundary stmts
   | (ppoint, stmt) :: stmts ->
     builder.AddStmt ppoint stmt
     scanIRLeaders hdl builder boundary stmts
@@ -259,7 +275,7 @@ let rec scanIRLeaders hdl (builder: CFGBuilder) boundary = function
 let rec getIRBBLEnd hdl (builder: CFGBuilder) ppoint ePpoint =
   match builder.GetStmt ppoint with
   | InterJmp _ | InterCJmp _ | Jmp _ | CJmp _
-  | SideEffect Halt | SideEffect SysCall -> ppoint
+  | SideEffect _ -> ppoint
   | IEMark addr ->
     if (addr, 0) = ePpoint then ppoint
     else getIRBBLEnd hdl builder (addr, 0) ePpoint

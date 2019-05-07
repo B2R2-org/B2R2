@@ -206,7 +206,11 @@ let getIRSuccessors hdl (builder: CFGBuilder) leader edges (bbl: IRBBL) =
                                   (leader, Some ((fAddr, 0), CJmpFalseEdge)) :: edges
   | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ -> [], (leader, None) :: edges
   | SideEffect Halt -> [], edges
-  | (SideEffect SysCall) as stmt ->
+  | SideEffect SysCall ->
+    let addr = getNextAddr builder bbl.LastPpoint
+    [(addr, 0)], (leader, Some ((addr, 0), FallThroughEdge)) :: edges
+  | SideEffect (Interrupt n) when n = 0x29 -> [], edges
+  | SideEffect _ ->
     let addr = getNextAddr builder bbl.LastPpoint
     [(addr, 0)], (leader, Some ((addr, 0), FallThroughEdge)) :: edges
   | stmt ->
