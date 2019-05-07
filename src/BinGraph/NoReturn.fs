@@ -79,13 +79,15 @@ let rec removeVertices domTree (disasmCFG: DisasmCFG) (irCFG: IRCFG) (v: IRVerte
   else irCFG.RemoveVertex v
 
 let disconnectCall hdl (fcg: CallGraph) disasmCFG (irCFG: IRCFG) (v: IRVertex) =
-  let vData = v.VData
-  let b, target = vData.GetTarget ()
-  if b then
-    if isNoReturnCall hdl fcg target then
-      let ctxt = Dominator.initDominatorContext irCFG
-      let tree, _ = Dominator.dominatorTree ctxt
-      List.iter (removeVertices tree disasmCFG irCFG) <| Map.find v tree
+  match irCFG.TryFindVertexByData v.VData with
+  | Some _ ->
+    let b, target = v.VData.GetTarget ()
+    if b then
+      if isNoReturnCall hdl fcg target then
+        let ctxt = Dominator.initDominatorContext irCFG
+        let tree, _ = Dominator.dominatorTree ctxt
+        List.iter (removeVertices tree disasmCFG irCFG) <| Map.find v tree
+  | None -> ()
 
 let getStackPtrRegID = function
   | Arch.IntelX86 -> Intel.Register.ESP |> Intel.Register.toRegID
