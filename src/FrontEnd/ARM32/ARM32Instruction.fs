@@ -81,6 +81,8 @@ type ARM32Instruction (addr, numBytes, insInfo) =
     | Opcode.POP, OneOperand (Register R.PC) -> true
     | _ -> false
 
+  override __.IsInterrupt () = Utils.futureFeature ()
+
   override __.IsExit () = // FIXME
     __.IsDirectBranch () ||
     __.IsIndirectBranch ()
@@ -93,6 +95,8 @@ type ARM32Instruction (addr, numBytes, insInfo) =
         true
       | _ -> false
     else false
+
+  override __.InterruptNum (num: byref<int64>) = Utils.futureFeature ()
 
   override __.IsNop () =
     __.Info.Opcode = Op.NOP

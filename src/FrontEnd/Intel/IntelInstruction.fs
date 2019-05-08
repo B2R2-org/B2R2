@@ -89,6 +89,12 @@ type IntelInstruction (addr, numBytes, insInfo, wordSize) =
       true
     | _ -> false
 
+  override __.IsInterrupt () =
+    match __.Info.Opcode with
+    | Opcode.INT | Opcode.INT3 | Opcode.INTO | Opcode.SYSCALL | Opcode.SYSENTER
+      -> true
+    | _ -> false
+
   override __.IsExit () =
        __.IsDirectBranch ()
     || __.IsIndirectBranch ()
@@ -107,6 +113,15 @@ type IntelInstruction (addr, numBytes, insInfo, wordSize) =
       | OneOperand (OprDirAddr (Absolute (_))) -> failwith "Implement" // XXX
       | OneOperand (OprDirAddr (Relative offset)) ->
         addr <- (int64 __.Address + offset) |> uint64
+        true
+      | _ -> false
+    else false
+
+  override __.InterruptNum (num: byref<int64>) =
+    if __.Info.Opcode = Opcode.INT then
+      match __.Info.Operands with
+      | OneOperand (OprImm n) ->
+        num <- n
         true
       | _ -> false
     else false

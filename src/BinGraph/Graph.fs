@@ -181,6 +181,20 @@ type DiGraph<'V, 'E when 'V :> VertexData> () =
     | Some v -> v
     | None -> raise VertexNotFoundException
 
+  member __.TryFindVertexByID id =
+    let folder acc (v: Vertex<_>) = if v.GetID () = id then Some v else acc
+    __.FoldVertex folder None
+
+  member __.FindVertexBy fn =
+    let folder acc (v: Vertex<_>) = if fn v then Some v else acc
+    match __.FoldVertex folder None with
+    | Some v -> v
+    | None -> raise VertexNotFoundException
+
+  member __.TryFindVertexBy fn =
+    let folder acc (v: Vertex<_>) = if fn v then Some v else acc
+    __.FoldVertex folder None
+
   /// Fold every vertex in the graph in a depth-first manner starting from the
   /// root node.
   member __.FoldVertexDFS fn acc =
@@ -193,7 +207,8 @@ type DiGraph<'V, 'E when 'V :> VertexData> () =
         visited.Add (v.GetID ()) |> ignore
         List.fold (fun tovisit s -> s :: tovisit) tovisit v.Succs
         |> foldLoop (fn acc v)
-    foldLoop acc [__.GetRoot ()]
+    let acc = foldLoop acc [__.GetRoot ()]
+    foldLoop acc __.Unreachables
 
   /// Fold every vertex in the graph in a breadth-first manner starting from the
   /// root node.

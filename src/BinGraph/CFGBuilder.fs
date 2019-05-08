@@ -34,9 +34,12 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open System.Collections.Generic
 
-type Function (entry, name, regType) =
+type Function (entry, name, hdl) =
+  inherit VertexData (VertexData.genID ())
+
   let irCFG = IRCFG ()
-  let ssaCFG = lazy (SSAGraph.transform regType irCFG (SSACFG ()))
+  let ssaCFG = lazy (SSAGraph.transform hdl irCFG (SSACFG ()))
+  let mutable noReturn = false
 
   member val Entry : Addr = entry
 
@@ -48,14 +51,24 @@ type Function (entry, name, regType) =
 
   member __.SSACFG with get () = ssaCFG.Force ()
 
+  member __.NoReturn with get () = noReturn and set (v) = noReturn <- v
+
+type CallGraphEdge =
+  | CGCallEdge
+
 type Funcs = Dictionary<Addr, Function>
 
+type CallGraph = SimpleDiGraph<Function, CallGraphEdge>
+
 type CFGBuilder () =
+  let unanalyzedFuncs = HashSet<Addr> ()
   let instrMap = Dictionary<Addr, Instruction> ()
   let stmtMap = Dictionary<PPoint, Stmt> ()
   let labelMap = Dictionary<Addr * Symbol, int> ()
-  let disasmLeaders = Dictionary<Addr, Addr option * bool> ()
-  let irLeaders = Dictionary<PPoint, Addr option * bool> ()
+  let disasmLeaders = HashSet<Addr> ()
+  let disasmBoundaries = Dictionary<Addr, (Addr * Addr) * Addr option> ()
+  let irLeaders = HashSet<PPoint> ()
+  let irBoundaries = Dictionary<PPoint, (PPoint * PPoint) * Addr option> ()
 
   let isExecutable hdl addr =
     match hdl.FileInfo.GetSections addr |> Seq.tryHead with
@@ -68,17 +81,16 @@ type CFGBuilder () =
 
   member __.LabelMap with get () = labelMap
 
-  member __.DisasmLeaders with get () = disasmLeaders
-
-  member __.IRLeaders with get () = irLeaders
-
-  member val DisasmEnd : Addr = 0UL with get, set
+  member __.UnanalyzedFuncs with get () = unanalyzedFuncs
 
   member __.AddInstr (instr: Instruction) =
     instrMap.[instr.Address] <- instr
 
   member __.GetInstr addr =
     instrMap.[addr]
+
+  member __.TryGetInstr addr =
+    if instrMap.ContainsKey addr then Some instrMap.[addr] else None
 
   member __.AddStmt ppoint stmt =
     stmtMap.[ppoint] <- stmt
@@ -93,51 +105,55 @@ type CFGBuilder () =
     let idx = labelMap.[(addr, symb)]
     (addr, idx)
 
+  member __.AddDisasmBoundary startAddr endAddr =
+    disasmLeaders.Add startAddr |> ignore
+    disasmBoundaries.[startAddr] <- ((startAddr, endAddr), None)
+
+  member __.ExistDisasmBoundary addr =
+    disasmLeaders.Contains addr
+
+  member __.RemoveDisasmBoundary leader =
+    disasmBoundaries.Remove leader |> ignore
+
+  member __.GetDisasmBoundaries () =
+    disasmBoundaries.Values |> Seq.map fst |> Seq.toList |> List.sort
+
+  member __.UpdateEntryOfDisasmBoundary leader entry =
+    disasmBoundaries.[leader] <- (fst disasmBoundaries.[leader], Some entry)
+
+  member __.GetEntryByDisasmLeader leader =
+    snd disasmBoundaries.[leader]
+
   member __.TryGetEntryByDisasmLeader leader =
-    if disasmLeaders.ContainsKey (leader) then
-      disasmLeaders.[leader] |> fst |> Some
+    if disasmBoundaries.ContainsKey leader then
+      Some <| snd disasmBoundaries.[leader]
     else None
-
-  member __.GetParsableByDisasmLeader leader =
-    disasmLeaders.[leader] |> snd
-
-  member __.GetLiftableByIRLeader leader =
-    irLeaders.[leader] |> snd
-
-  member __.TryGetEntryByIRLeader leader =
-    if irLeaders.ContainsKey (leader) then irLeaders.[leader] |> fst |> Some
-    else None
-
-  member __.AddDisasmLeader addr =
-    disasmLeaders.[addr] <- (None, false)
-
-  member __.ExistDisasmLeader addr =
-    disasmLeaders.ContainsKey (addr)
-
-  member __.UpdateEntryOfDisasmLeader addr entry =
-    let _, b = disasmLeaders.[addr]
-    disasmLeaders.[addr] <- (Some entry, b)
-
-  member __.UpdateParsableOfDisasmLeader addr =
-    let entry, _ = disasmLeaders.[addr]
-    disasmLeaders.[addr] <- (entry, true)
-
-  member __.GetDisasmLeaders () =
-    disasmLeaders.Keys |> Seq.toList |> List.sort
 
   member __.AddIRLeader ppoint =
-    irLeaders.[ppoint] <- (None, false)
-
-  member __.UpdateEntryOfIRLeader ppoint entry =
-    let _, b = irLeaders.[ppoint]
-    irLeaders.[ppoint] <- (Some entry, b)
-
-  member __.UpdateLiftableOfIRLeader ppoint =
-    let entry, _ = irLeaders.[ppoint]
-    irLeaders.[ppoint] <- (entry, true)
+    irLeaders.Add ppoint |> ignore
 
   member __.GetIRLeaders () =
-    irLeaders.Keys |> Seq.toList |> List.sort
+    irLeaders |> Seq.toList |> List.sort
+
+  member __.AddIRBoundary startPpoint endPpoint =
+    irBoundaries.[startPpoint] <- ((startPpoint, endPpoint), None)
+
+  member __.GetIRBoundaries () =
+    irBoundaries.Values |> Seq.map fst |> Seq.toList |> List.sort
+
+  member __.RemoveIRBoundary leader =
+    irBoundaries.Remove leader |> ignore
+
+  member __.UpdateEntryOfIRBoundary leader entry =
+    irBoundaries.[leader] <- (fst irBoundaries.[leader], Some entry)
+
+  member __.GetEntryByIRLeader leader =
+    snd irBoundaries.[leader]
+
+  member __.TryGetEntryByIRLeader leader =
+    if irBoundaries.ContainsKey leader then
+      Some <| snd irBoundaries.[leader]
+    else None
 
   member __.IsInteresting hdl addr =
     hdl.FileInfo.IsValidAddr addr && isExecutable hdl addr

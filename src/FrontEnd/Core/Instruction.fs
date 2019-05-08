@@ -124,6 +124,14 @@ type Instruction (addr, numBytes, wordSize) =
   abstract member IsRET: unit -> bool
 
   /// <summary>
+  ///   Does this instruction involve an interrupt?
+  /// </summary>
+  /// <returns>
+  ///   Returns true if this is an interrupt instruction
+  /// </returns>
+  abstract member IsInterrupt: unit -> bool
+
+  /// <summary>
   ///   Does this instruction exit a basic block? For example, this function
   ///   returns true for the <c>HLT</c> instruction of Intel. We also consider
   ///   system call instructions as an exit instruction.
@@ -150,6 +158,8 @@ type Instruction (addr, numBytes, wordSize) =
   ///   Returns true if a target address exists. Otherwise, returns false.
   /// </returns>
   abstract member DirectBranchTarget: [<Out>] addr: byref<Addr> -> bool
+
+  abstract member InterruptNum: [<Out>] num: byref<int64> -> bool
 
   /// <summary>
   ///   Lift this instruction into a LowUIR given a translation context.

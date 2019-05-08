@@ -73,6 +73,8 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
 
   override __.IsRET () = false // XXX
 
+  override __.IsInterrupt () = Utils.futureFeature ()
+
   override __.IsExit () = // FIXME
     __.IsDirectBranch () ||
     __.IsIndirectBranch ()
@@ -85,6 +87,8 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
         true
       | _ -> false
     else false
+
+  override __.InterruptNum (num: byref<int64>) = Utils.futureFeature ()
 
   override __.IsNop () =
     __.Info.Opcode = Opcode.NOP
