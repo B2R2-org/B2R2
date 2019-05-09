@@ -492,6 +492,7 @@ type BitVector =
     let len = v1.Length
     if len <> v2.Length then raise ArithTypeMismatchException
     match len with
+    | 1<rt>
     | 8<rt> -> { v1 with Num = v1.Num <<< int v2.Num |> uint8 |> uint64 }
     | 16<rt> -> { v1 with Num = v1.Num <<< int v2.Num |> uint16 |> uint64 }
     | 32<rt> -> { v1 with Num = v1.Num <<< int v2.Num |> uint32 |> uint64 }
@@ -515,6 +516,7 @@ type BitVector =
   [<CompiledName("Sar")>]
   static member sar v1 v2 =
     match v1.Length with
+    | 1<rt>
     | 8<rt> ->
       { v1 with Num = (int8 v1.Num >>> int v2.Num) |> uint8 |> uint64 }
     | 16<rt> ->
