@@ -79,14 +79,21 @@
   <div id="id_MainContainer" class="main-container" class="ui-widget-content">
     <div class="sidebar-menu">
       <div class="sidebar-item active" title="Functions"><i class="fas fa-list"></i></div>
-      <!-- <div class="sidebar-item" title="Comments"><i class="fas fa-comment-dots"></i></div> -->
+      <div class="sidebar-item" title="Comments"><i class="fas fa-comment-dots"></i></div>
     </div>
-    <div id="id_FunctionsListWrapper">
-      <input id="id_funcFilter" placeholder="Function filter" />
-      <div id="id_FunctionsList">
-        <ul id="funcSelector"></ul>
+    <div class="sidebar-content">
+      <div style="display:block;" id="id_FunctionsListWrapper">
+        <input id="id_funcFilter" placeholder="Function filter" />
+        <div id="id_FunctionsList">
+          <ul id="funcSelector"></ul>
+        </div>
+      </div>
+      <div style="display:none;" id="id_CommentsListWrapper">
+        <div id="id_CommentList">
+        </div>
       </div>
     </div>
+
     <div class="graph-container">
       <div id="id_tabContainer">
         <ul></ul>
@@ -107,13 +114,45 @@
       </div>
     </div>
   </div>
+  <div id="id_contextmenu" class='contextmenu'>
+    <div class='contextmenu-item' value="comment">Comment</div>
+    <div class="content-divider"></div>
+    <div class='contextmenu-item' value="copy">Copy</div>
+    <div class='contextmenu-item' value="copy-address">Copy Address</div>
+    <div class='contextmenu-item' value="copy-block">Copy Block</div>
+  </div>
+  <div id="id_comment-modal" class="modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-body">
+          <div id="id_title-stmt" class="title-stmt"></div>
+          <textarea onkeypress="onCommentSubmit();" id="id_comment"></textarea>
+          <div class="comment-btn-container">
+            <button class="comment-btn close">Close</button>
+            <button class="comment-btn comment">Comment</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="id_toast"></div>
+
+
   <script src="js/d3.min.js"></script>
   <script src="js/jquery.min.js"></script>
   <script src="js/bootstrap.min.js"></script>
+  <script src="js/b2r2.util.js"></script>
   <script src="js/b2r2.tab.js"></script>
-  <script src="js/b2r2.graph.js"></script>
   <script src="js/b2r2.autocomplete.js"></script>
+  <script src="js/b2r2.sidebar.js"></script>
+  <script src="js/b2r2.graph.js"></script>
+  <script src="js/b2r2.comment.js"></script>
+  <script src="js/b2r2.contextmenu.js"></script>
   <script src="js/b2r2.js"></script>
+  <script>
+
+
+  </script>
 </body>
 
 </html>

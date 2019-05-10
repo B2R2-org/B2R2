@@ -47,8 +47,6 @@ function autocomplete(cfg) {
       stmt.push({
         Nodeidx: parseFloat(d),
         idx: parseFloat(t),
-        Pos: data[d].Pos,
-        Width: data[d].Width
       });
       stmts.push(stmt);
     }
@@ -74,12 +72,10 @@ function autocomplete(cfg) {
         if (lowerStmtstr.indexOf(lowerValue) > -1) {
           let memory = stmt[0];
           let meta = stmt[stmt.length - 1];
-          let item = '<div class="autocomplete-item" nidx=[NIDX] idx=[IDX]  width=[WIDTH] posX=[POSX]  posY=[POSY]>'
+          let item = '<div class="autocomplete-item" target=[TARGET] nidx=[NIDX] idx=[IDX]>'
+            .replace("[TARGET]", memory)
             .replace("[NIDX]", meta.Nodeidx)
-            .replace("[IDX]", meta.idx)
-            .replace("[WIDTH]", meta.Width)
-            .replace("[POSX]", meta.Pos.X)
-            .replace("[POSY]", meta.Pos.Y);
+            .replace("[IDX]", meta.idx);
           let idx = lowerStmtstr.indexOf(value);
           if (idx < 16) {
             item += '<span class="memory">[CONTENT]</span>'.replace("[CONTENT]",
@@ -119,9 +115,13 @@ function autocomplete(cfg) {
     });
 
     $(document).on("mouseover", ".autocomplete-list .autocomplete-item", function () {
-      let x = parseFloat($(this).attr("posX"));
-      let y = parseFloat($(this).attr("posY"));
-      let width = parseFloat($(this).attr("width"));
+      let addr = $(this).attr("target")
+      let rect = d3.select("#id_" + addr);
+      let width = rect.attr("width");
+      let gNode = d3.select(rect.node().parentNode.parentNode);
+      let pos = gNode.attr("transform").split("translate")[1].split("(")[1].split(")")[0].split(",");
+      let x = parseFloat(pos[0]);
+      let y = parseFloat(pos[1]);
       let idx = $(this).attr("idx");
       let stmt = $(this).text().substr(0, 16) + " " + $(this).text().substr(16);
       activeStmt(x, y, idx, width, stmt);
@@ -135,6 +135,7 @@ function autocomplete(cfg) {
     // in graph.js
   }
   function activeStmt(x, y, idx, width, stmt) {
+    $(".g-stmt-box").remove();
     let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
     let g = d3.select("#cfgStage-" + currentTabNumber).select("g").append("g").attr("class", "g-stmt-box");
     let box = g.append("rect");
