@@ -390,10 +390,12 @@ let buildCallGraph (hdl: BinHandler) funcs (callGraph: CallGraph) =
   Seq.iter (fun (KeyValue(_, func)) ->
     addCallGraphEdge hdl funcs callGraph func) funcs
   let fi = hdl.FileInfo
-  /// XXX: Fix me
   match callGraph.TryFindVertexBy (tryFindEntryFunction fi.EntryPoint) with
   | Some v -> callGraph.SetRoot v
-  | None -> failwith "FIXME"
+  | None ->
+    /// Set random unreachable vertex as a root
+    let v = List.head callGraph.Unreachables
+    callGraph.SetRoot v
 
 /// Stringify functions
 let bgToJson toResolve (sb: StringBuilder) =
