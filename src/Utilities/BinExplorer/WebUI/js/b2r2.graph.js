@@ -80,6 +80,7 @@ function initSVG() {
   initMarker(defs, "cfgJmpEdgeArrow");
   initMarker(defs, "cfgCJmpTrueEdgeArrow");
   initMarker(defs, "cfgCJmpFalseEdgeArrow");
+  initMarker(defs, "cfgFallThroughEdgeArrow");
 
   // Add filters.
   defs.append("filter").attr("id", "cfgBlur")

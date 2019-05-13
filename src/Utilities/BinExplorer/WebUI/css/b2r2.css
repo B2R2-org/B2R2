@@ -406,6 +406,16 @@ body {
   filter: url(#cfgBlur);
   stroke: var(--green); }
 
+.cfgFallThroughEdge {
+  stroke: var(--purple); }
+
+.cfgEdgeBlur:hover {
+  filter: url(#cfgBlur);
+  stroke: var(--purple); }
+
+.cfgFallThroughEdgeArrow {
+  fill: var(--purple); }
+
 .cfgDisasmComment {
   fill: var(--comment); }
 
