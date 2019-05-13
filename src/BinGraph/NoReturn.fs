@@ -67,8 +67,7 @@ let findDisasmVertex addr (v: DisasmVertex) =
   let addrRange = v.VData.AddrRange
   addrRange.Min <= addr && addr < addrRange.Max
 
-let rec removeVertices domTree (disasmCFG: DisasmCFG) (irCFG: IRCFG) (v: IRVertex) =
-  List.iter (removeVertices domTree disasmCFG irCFG) <| Map.find v domTree
+let removeVertex (disasmCFG: DisasmCFG) (irCFG: IRCFG) (v: IRVertex) =
   let b, ppoint = v.VData.GetPpoint ()
   if b then
     match disasmCFG.TryFindVertexBy (findDisasmVertex <| fst ppoint) with
@@ -77,6 +76,19 @@ let rec removeVertices domTree (disasmCFG: DisasmCFG) (irCFG: IRCFG) (v: IRVerte
       irCFG.RemoveVertex v
     | None -> irCFG.RemoveVertex v
   else irCFG.RemoveVertex v
+
+let rec removeVertices domTree disasmCFG irCFG (v: IRVertex) =
+  List.iter (removeVertices domTree disasmCFG irCFG) <| Map.find v domTree
+  removeVertex disasmCFG irCFG v
+
+let rec removeTree disasmCFG (irCFG: IRCFG) (v: IRVertex) =
+  match irCFG.TryFindVertexByData v.VData with
+  | Some _ ->
+    if List.length v.Preds = 0 then
+      let succs = v.Succs
+      removeVertex disasmCFG irCFG v
+      List.iter (removeTree disasmCFG irCFG) <| succs
+  | None -> ()
 
 let disconnectCall hdl (fcg: CallGraph) disasmCFG (irCFG: IRCFG) (v: IRVertex) =
   match irCFG.TryFindVertexByData v.VData with
@@ -87,6 +99,9 @@ let disconnectCall hdl (fcg: CallGraph) disasmCFG (irCFG: IRCFG) (v: IRVertex) =
         let ctxt = Dominator.initDominatorContext irCFG
         let tree, _ = Dominator.dominatorTree ctxt
         List.iter (removeVertices tree disasmCFG irCFG) <| Map.find v tree
+        let root = irCFG.GetRoot ()
+        irCFG.Unreachables
+        |> List.iter (fun v -> if v <> root then removeTree disasmCFG irCFG v)
   | None -> ()
 
 let getStackPtrRegID = function
