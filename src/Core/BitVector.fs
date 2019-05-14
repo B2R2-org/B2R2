@@ -538,7 +538,7 @@ type BitVector =
     | 16<rt> -> BitVector.midNum16 - 1UL
     | 32<rt> -> BitVector.midNum32 - 1UL
     | 64<rt> -> BitVector.midNum64 - 1UL
-    | _ -> failwith "Invalid type for signed max num"
+    | _ -> nSizeErr rt
 
   [<CompiledName("SignedMin")>]
   static member signedMin rt =
@@ -547,7 +547,7 @@ type BitVector =
     | 16<rt> -> BitVector.midNum16
     | 32<rt> -> BitVector.midNum32
     | 64<rt> -> BitVector.midNum64
-    | _ -> failwith "Invalid type for signed min num"
+    | _ -> nSizeErr rt
 
   [<CompiledName("IsSignedMin")>]
   static member isSignedMin bv =
