@@ -168,13 +168,13 @@ let getDefSite def defSites =
   | None -> Set.empty
 
 let collectDefSite id defSites def =
-  let defSite = getDefSite def defSites
+  let defSite = Set.add id <| getDefSite def defSites
   Map.add def defSite defSites
 
 let collectDefSites defSites id defSet =
   Set.fold (collectDefSite id) defSites defSet
 
-let findPhiSiteAux defs def phiSite w id =
+let findPhiSiteAux defs def (phiSite, w) id =
   if not <| Set.contains id phiSite then
     let phiSite = Set.add id phiSite
     if not <| Set.contains def (Map.find id defs) then phiSite, id :: w
@@ -185,7 +185,7 @@ let rec findPhiSite dfMap defs def phiSite = function
   | [] -> phiSite
   | id :: w ->
     let frontiers = Map.find id dfMap
-    let phiSite, w = findPhiSiteAux defs def phiSite w id
+    let phiSite, w = List.fold (findPhiSiteAux defs def) (phiSite, w) frontiers
     findPhiSite dfMap defs def phiSite w
 
 let findPhiSites dfMap defs def defSites =
