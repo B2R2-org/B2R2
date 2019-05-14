@@ -131,7 +131,7 @@ type TestClass () =
     let e1 = BitVector.ofUBInt 10000000I 128<rt>
     let e2 = BitVector.ofUBInt 3000000I 128<rt>
     let n1 = BitVector.ofInt64 (-10000000L) 128<rt>
-    let n2 = BitVector.ofInt64(-3000000L) 128<rt>
+    let n2 = BitVector.ofInt64 (-3000000L) 128<rt>
     Assert.AreEqual (BitVector.toString <| BitVector.add e1 e2, "0xC65D40:I128")
     Assert.AreEqual (BitVector.toString <| BitVector.sub e1 e2, "0x6ACFC0:I128")
     Assert.AreEqual (BitVector.toString <| BitVector.mul e1 e2,
