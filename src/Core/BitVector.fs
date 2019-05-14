@@ -521,6 +521,16 @@ type BitVector =
     if BitVector.gt bv1 bv2 = BitVector.T then bv1
     else bv2
 
+  [<CompiledName("Smin")>]
+  static member smin bv1 bv2 =
+    if BitVector.slt bv1 bv2 = BitVector.T then bv1
+    else bv2
+
+  [<CompiledName("Smax")>]
+  static member smax bv1 bv2 =
+    if BitVector.sgt bv1 bv2 = BitVector.T then bv1
+    else bv2
+
   static member maxNum8 = BitVector.ofUInt64 0xFFUL 8<rt>
   static member maxNum16 = BitVector.ofUInt64 0xFFFFUL 16<rt>
   static member maxNum32 = BitVector.ofUInt64 0xFFFFFFFFUL 32<rt>

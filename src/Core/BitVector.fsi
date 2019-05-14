@@ -304,6 +304,14 @@ type BitVector =
     [<CompiledName("Max")>]
     static member max : BitVector -> BitVector -> BitVector
 
+    /// BitVector Signed Minimum Value.
+    [<CompiledName("Smin")>]
+    static member smin : BitVector -> BitVector -> BitVector
+
+    /// BitVector Signed Maximum Value.
+    [<CompiledName("Smax")>]
+    static member smax : BitVector -> BitVector -> BitVector
+
     /// BitVector of maximum 8-bit integer.
     [<CompiledName("MaxNum8")>]
     static member maxNum8 : BitVector
