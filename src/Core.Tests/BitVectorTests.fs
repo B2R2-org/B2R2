@@ -147,6 +147,46 @@ type TestClass () =
                      "0xEFFFFEF5:I32")
 
   [<TestMethod>]
+  member __.``Basic Arithmetic 5`` () =
+    // test for signed division
+    let n1 = BitVector.ofInt64 (-4L) 64<rt>
+    let n2 = BitVector.ofInt64 (-2L) 64<rt>
+    Assert.AreEqual (BitVector.toString <| BitVector.sdiv n1 n2, "0x2:I64")
+    Assert.AreEqual (BitVector.toString <| BitVector.sdiv n2 n1, "0x0:I64")
+    let n1 = BitVector.ofInt64 (-4L) 64<rt>
+    let n2 = BitVector.ofInt64 (2L) 64<rt>
+    Assert.AreEqual (BitVector.toString <| BitVector.sdiv n1 n2,
+                     "0xFFFFFFFFFFFFFFFE:I64")
+    Assert.AreEqual (BitVector.toString <| BitVector.sdiv n2 n1, "0x0:I64")
+    let n1 = BitVector.ofInt64 (4L) 64<rt>
+    let n2 = BitVector.ofInt64 (-2L) 64<rt>
+    Assert.AreEqual (BitVector.toString <| BitVector.sdiv n1 n2,
+                     "0xFFFFFFFFFFFFFFFE:I64")
+    Assert.AreEqual (BitVector.toString <| BitVector.sdiv n2 n1, "0x0:I64")
+
+  [<TestMethod>]
+  member __.``Basic Arithmetic 6`` () =
+    // test for shift operations
+    let n1 = BitVector.ofInt64 1L 32<rt>
+    let n2 = BitVector.ofInt64 31L 32<rt>
+    let n3 = BitVector.ofInt64 32L 32<rt>
+    let n4 = BitVector.ofInt64 (-1L) 32<rt>
+    Assert.AreEqual (BitVector.toString <| BitVector.shl n1 n2, "0x80000000:I32")
+    Assert.AreEqual (BitVector.toString <| BitVector.shl n1 n3, "0x0:I32")
+    Assert.AreEqual (BitVector.toString <| BitVector.shl n4 n1, "0xFFFFFFFE:I32")
+    Assert.AreEqual (BitVector.toString <| BitVector.shl n4 n2, "0x80000000:I32")
+
+    Assert.AreEqual (BitVector.toString <| BitVector.shr n1 n2, "0x0:I32")
+    Assert.AreEqual (BitVector.toString <| BitVector.shr n4 n2, "0x1:I32")
+    Assert.AreEqual (BitVector.toString <| BitVector.shr n4 n3, "0x0:I32")
+    Assert.AreEqual (BitVector.toString <| BitVector.shr n4 n1, "0x7FFFFFFF:I32")
+
+    Assert.AreEqual (BitVector.toString <| BitVector.sar n1 n2, "0x0:I32")
+    Assert.AreEqual (BitVector.toString <| BitVector.sar n4 n3, "0xFFFFFFFF:I32")
+    Assert.AreEqual (BitVector.toString <| BitVector.sar n4 n1, "0xFFFFFFFF:I32")
+    Assert.AreEqual (BitVector.toString <| BitVector.sar n4 n3, "0xFFFFFFFF:I32")
+
+  [<TestMethod>]
   member __.``Modulo`` () =
     // Unsigned modulo.
     let n1 = BitVector.ofUInt32 5ul 32<rt>
