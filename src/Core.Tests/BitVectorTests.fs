@@ -3,6 +3,7 @@
 
   Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
           Minkyu Jung <hestati@kaist.ac.kr>
+          Dongkwan Kim <dkay@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
