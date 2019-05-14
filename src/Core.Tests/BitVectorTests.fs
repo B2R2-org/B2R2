@@ -187,6 +187,33 @@ type TestClass () =
     Assert.AreEqual (BitVector.toString <| BitVector.sar n4 n3, "0xFFFFFFFF:I32")
 
   [<TestMethod>]
+  member __.``Basic Arithmetic 7`` () =
+    // test for 1 bit operation
+    let n0 = BitVector.ofInt64 (0L) 1<rt>
+    let n1 = BitVector.ofInt64 (1L) 1<rt>
+    Assert.AreEqual (BitVector.toString <| BitVector.add n1 n0, "0x1:I1")
+    Assert.AreEqual (BitVector.toString <| BitVector.add n1 n1, "0x0:I1")
+    Assert.AreEqual (BitVector.toString <| BitVector.sub n1 n0, "0x1:I1")
+    Assert.AreEqual (BitVector.toString <| BitVector.sub n1 n1, "0x0:I1")
+    Assert.AreEqual (BitVector.toString <| BitVector.sub n0 n1, "0x1:I1")
+    Assert.AreEqual (BitVector.toString <| BitVector.mul n1 n0, "0x0:I1")
+    Assert.AreEqual (BitVector.toString <| BitVector.mul n0 n1, "0x0:I1")
+    Assert.AreEqual (BitVector.toString <| BitVector.mul n1 n1, "0x1:I1")
+    Assert.AreEqual (BitVector.toString <| BitVector.div n0 n1, "0x0:I1")
+    Assert.AreEqual (BitVector.toString <| BitVector.div n1 n1, "0x1:I1")
+    Assert.AreEqual (BitVector.toString <| BitVector.sdiv n0 n1, "0x0:I1")
+    Assert.AreEqual (BitVector.toString <| BitVector.sdiv n1 n1, "0x1:I1")
+    Assert.AreEqual (BitVector.toString <| BitVector.shl n1 n0, "0x1:I1")
+    Assert.AreEqual (BitVector.toString <| BitVector.shl n0 n1, "0x0:I1")
+    Assert.AreEqual (BitVector.toString <| BitVector.shl n1 n1, "0x0:I1")
+    Assert.AreEqual (BitVector.toString <| BitVector.shr n1 n0, "0x1:I1")
+    Assert.AreEqual (BitVector.toString <| BitVector.shr n0 n1, "0x0:I1")
+    Assert.AreEqual (BitVector.toString <| BitVector.shr n1 n1, "0x0:I1")
+    Assert.AreEqual (BitVector.toString <| BitVector.sar n1 n0, "0x1:I1")
+    Assert.AreEqual (BitVector.toString <| BitVector.sar n0 n1, "0x0:I1")
+    Assert.AreEqual (BitVector.toString <| BitVector.sar n1 n1, "0x0:I1")
+
+  [<TestMethod>]
   member __.``Modulo`` () =
     // Unsigned modulo.
     let n1 = BitVector.ofUInt32 5ul 32<rt>
