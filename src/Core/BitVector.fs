@@ -447,10 +447,13 @@ type BitVector =
     let bv1 = if sign1 then v1 else BitVector.neg v1
     let bv2 = if sign2 then v2 else BitVector.neg v2
     let bv = BitVector.modulo bv1 bv2
-    if sign1 && sign2 then bv
-    elif sign1 && not sign2 then BitVector.add bv v2
-    elif not sign1 && sign2 then BitVector.sub v2 bv
-    else BitVector.neg bv
+    if BitVector.isZero bv then bv
+    else
+      match sign1, sign2 with
+      | true, true -> bv
+      | true, false -> BitVector.add bv v2
+      | false, true -> BitVector.sub v2 bv
+      | false, false -> BitVector.neg bv
 
   [<CompiledName("Shl")>]
   static member shl v1 v2 =
