@@ -250,6 +250,31 @@ type TestClass () =
     let n1 = BitVector.ofUBInt -5I 256<rt>
     let n2 = BitVector.ofInt64 3L 256<rt>
     Assert.AreEqual (BitVector.smodulo n1 n2, BitVector.ofInt32 1l 256<rt>)
+    // zero value test
+    let n1 = BitVector.ofUInt32 6ul 32<rt>
+    let n2 = BitVector.ofInt32 3l 32<rt>
+    Assert.AreEqual (BitVector.smodulo n1 n2, BitVector.ofInt32 0l 32<rt>)
+    let n1 = BitVector.ofUBInt 6I 256<rt>
+    let n2 = BitVector.ofInt64 3L 256<rt>
+    Assert.AreEqual (BitVector.smodulo n1 n2, BitVector.ofInt32 0l 256<rt>)
+    let n1 = BitVector.ofUInt32 6ul 32<rt>
+    let n2 = BitVector.ofInt32 -3l 32<rt>
+    Assert.AreEqual (BitVector.smodulo n1 n2, BitVector.ofInt32 0l 32<rt>)
+    let n1 = BitVector.ofUBInt 6I 256<rt>
+    let n2 = BitVector.ofInt64 -3L 256<rt>
+    Assert.AreEqual (BitVector.smodulo n1 n2, BitVector.ofInt32 0l 256<rt>)
+    let n1 = BitVector.ofInt32 -6l 32<rt>
+    let n2 = BitVector.ofInt32 -3l 32<rt>
+    Assert.AreEqual (BitVector.smodulo n1 n2, BitVector.ofInt32 0l 32<rt>)
+    let n1 = BitVector.ofUBInt -6I 256<rt>
+    let n2 = BitVector.ofInt64 -3L 256<rt>
+    Assert.AreEqual (BitVector.smodulo n1 n2, BitVector.ofInt32 0l 256<rt>)
+    let n1 = BitVector.ofInt32 -6l 32<rt>
+    let n2 = BitVector.ofInt32 3l 32<rt>
+    Assert.AreEqual (BitVector.smodulo n1 n2, BitVector.ofInt32 0l 32<rt>)
+    let n1 = BitVector.ofUBInt -6I 256<rt>
+    let n2 = BitVector.ofInt64 3L 256<rt>
+    Assert.AreEqual (BitVector.smodulo n1 n2, BitVector.ofInt32 0l 256<rt>)
 
   [<TestMethod>]
   member __.``Logical Operators`` () =
