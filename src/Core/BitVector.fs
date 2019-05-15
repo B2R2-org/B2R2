@@ -429,22 +429,28 @@ type BitVector =
   [<CompiledName("Div")>]
   static member div v1 v2 = BitVector.binOp (/) (bigint.Divide) v1 v2
 
-  static member signedOp v1 v2 op =
+  [<CompiledName("Sdiv")>]
+  static member sdiv v1 v2 =
     let sign1, sign2 = BitVector.isPositive v1, BitVector.isPositive v2
     let bv1 = if sign1 then v1 else BitVector.neg v1
     let bv2 = if sign2 then v2 else BitVector.neg v2
-    let bv = op bv1 bv2
+    let bv = BitVector.div bv1 bv2
     if sign1 = sign2 then bv
     else BitVector.neg bv
-
-  [<CompiledName("Sdiv")>]
-  static member sdiv v1 v2 = BitVector.signedOp v1 v2 BitVector.div
 
   [<CompiledName("Modulo")>]
   static member modulo v1 v2 = BitVector.binOp (%) (bigint.op_Modulus) v1 v2
 
   [<CompiledName("SModulo")>]
-  static member smodulo v1 v2 = BitVector.signedOp v1 v2 BitVector.modulo
+  static member smodulo v1 v2 =
+    let sign1, sign2 = BitVector.isPositive v1, BitVector.isPositive v2
+    let bv1 = if sign1 then v1 else BitVector.neg v1
+    let bv2 = if sign2 then v2 else BitVector.neg v2
+    let bv = BitVector.modulo bv1 bv2
+    if sign1 && sign2 then bv
+    elif sign1 && not sign2 then BitVector.add bv v2
+    elif not sign1 && sign2 then BitVector.sub v2 bv
+    else BitVector.neg bv
 
   [<CompiledName("Shl")>]
   static member shl v1 v2 =
