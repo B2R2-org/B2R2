@@ -215,22 +215,41 @@ type TestClass () =
     Assert.AreEqual (BitVector.toString <| BitVector.sar n1 n1, "0x0:I1")
 
   [<TestMethod>]
-  member __.``Modulo`` () =
-    // Unsigned modulo.
+  member __.``Unsigned Modulo`` () =
     let n1 = BitVector.ofUInt32 5ul 32<rt>
     let n2 = BitVector.ofInt32 -3l 32<rt>
     Assert.AreEqual (BitVector.toString <| BitVector.modulo n1 n2, "0x5:I32")
     let n1 = BitVector.ofUBInt 5I 256<rt>
     let n2 = BitVector.ofInt64 -3L 256<rt>
     Assert.AreEqual (BitVector.toString <| BitVector.modulo n1 n2, "0x5:I256")
-    // Signed modulo.
+
+  [<TestMethod>]
+  member __.``Signed Modulo`` () =
+    // Added for signed modulo bug test
+    let n1 = BitVector.ofUInt32 5ul 32<rt>
+    let n2 = BitVector.ofInt32 3l 32<rt>
+    Assert.AreEqual (BitVector.smodulo n1 n2, BitVector.ofInt32 2l 32<rt>)
+    let n1 = BitVector.ofUBInt 5I 256<rt>
+    let n2 = BitVector.ofInt64 3L 256<rt>
+    Assert.AreEqual (BitVector.smodulo n1 n2, BitVector.ofInt32 2l 256<rt>)
     let n1 = BitVector.ofUInt32 5ul 32<rt>
     let n2 = BitVector.ofInt32 -3l 32<rt>
-    Assert.AreEqual (BitVector.toString <| BitVector.smodulo n1 n2,
-                     "0xFFFFFFFE:I32")
+    Assert.AreEqual (BitVector.smodulo n1 n2, BitVector.ofInt32 -1l 32<rt>)
     let n1 = BitVector.ofUBInt 5I 256<rt>
-    let n2 = BitVector.ofInt64 (-3L) 256<rt>
+    let n2 = BitVector.ofInt64 -3L 256<rt>
+    Assert.AreEqual (BitVector.smodulo n1 n2, BitVector.ofInt32 -1l 256<rt>)
+    let n1 = BitVector.ofInt32 -5l 32<rt>
+    let n2 = BitVector.ofInt32 -3l 32<rt>
+    Assert.AreEqual (BitVector.smodulo n1 n2, BitVector.ofInt32 -2l 32<rt>)
+    let n1 = BitVector.ofUBInt -5I 256<rt>
+    let n2 = BitVector.ofInt64 -3L 256<rt>
     Assert.AreEqual (BitVector.smodulo n1 n2, BitVector.ofInt32 -2l 256<rt>)
+    let n1 = BitVector.ofInt32 -5l 32<rt>
+    let n2 = BitVector.ofInt32 3l 32<rt>
+    Assert.AreEqual (BitVector.smodulo n1 n2, BitVector.ofInt32 1l 32<rt>)
+    let n1 = BitVector.ofUBInt -5I 256<rt>
+    let n2 = BitVector.ofInt64 3L 256<rt>
+    Assert.AreEqual (BitVector.smodulo n1 n2, BitVector.ofInt32 1l 256<rt>)
 
   [<TestMethod>]
   member __.``Logical Operators`` () =
