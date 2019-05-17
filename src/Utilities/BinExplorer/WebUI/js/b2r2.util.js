@@ -60,6 +60,12 @@ function getReductionRate() {
   // If the entire CFG is smaller than the cfgVP, then simply use the rate 1.
   // In other words, the maximum reductionRate is one.
   if (reductionRate >= 1) reductionRate = 1;
-  console.log(reductionRate);
   return reductionRate;
+}
+
+function getGroupPos(transformAttr) {
+  let pos = transformAttr.split("translate")[1].split("(")[1].split(")")[0].split(",");
+  return pos.map(function (x) {
+    return parseFloat(x);
+  })
 }

@@ -51,6 +51,7 @@ function Sidebar() {
       case "Comments":
         $("#id_FunctionsListWrapper").hide();
         $("#id_CommentsListWrapper").show();
+        setSidebarComments();
         break;
       default:
         break;
@@ -58,29 +59,44 @@ function Sidebar() {
   });
 }
 
-function setComments(funcName, nodes) {
-  $("#id_CommentList").empty();
+function templeteSidebarComment(id, addr, comment) {
+  let item = "";
+  item += "<div class='comment-content' target='#" + id + "' title='" + addr + "'>";
+  item += "<small class='comment-memory'>" + addr + "</small>";
+  item += "<div class='comment-summary'> # " + comment + "</div>";
+  item += "</div>";
+  return item;
+}
+
+function templateSidebarCommentList(funcName) {
+  let tab_id = $("li[title=" + funcName + "]").attr("counter");
+  let $gComments = $("#cfgGrp" + tab_id + " g.gComment");
   let item = "<div class='comment-section' value='" + funcName + "'>";
   item += "<div class='comment-function'>"
   item += "<i style='width: 10px' class='comment-arrow fas fa-caret-down'></i>";
   item += funcName;
   item += "</div>";
   item += "<div class='comment-list'>"
-  for (let i = 0; i < nodes.length; i++) {
-    let terms = nodes[i].Terms;
-    for (let j = 0; j < terms.length; j++) {
-      let addr = terms[j][0][0].split(":")[0];
-      let comment = terms[j][terms[j].length - 1][0];
-      if (comment.length > 0) {
-        item += "<div class='comment-content' title='" + addr + "'>";
-        item += "<small class='comment-memory'>" + addr + "</small>";
-        item += "<div class='comment-summary'> # " + comment + "</div>";
-        item += "</div>";
-      }
-    }
+  for (let i = 0; i < $gComments.length; i++) {
+    let $gComment = $($gComments[i]);
+    let id = $gComment.attr("id");
+    item += templeteSidebarComment(id, $gComment.parent().find(".stmt").text().split(" ")[0],
+      $gComment.parent().find(".commentText").text());
   }
   item += "</div>";
   item += "</div>";
+
+  return item;
+}
+
+function setSidebarComments() {
+  $("#id_CommentList").empty();
+  let tablist = $("#id_tabContainer li");
+  let item = "";
+  for (let i = 0; i < tablist.length; i++) {
+    let tab = tablist[i];
+    item += templateSidebarCommentList($(tab).attr("title"));
+  }
   $("#id_CommentList").append(item);
 }
 

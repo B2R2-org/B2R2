@@ -28,19 +28,19 @@
 
 function ContextMenu() {
   $(document).on("click", ".contextmenu-item", function () {
-    $("#id_contextmenu").hide();
-    let target_id = $("#id_contextmenu").attr("target");
+    let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
+    $("#id_node-contextmenu").hide();
+    let target_id = $("#id_node-contextmenu").attr("target");
     let textbox = d3.select(target_id);
     let gtext = d3.select(textbox.node().parentNode);
     switch ($(this).attr("value")) {
       case "comment":
-        $("#id_comment-modal").attr("target", target_id);
         textbox.attr("class", "nodestmtbox stmtHighlight");
-        let text_id = "#id_text-" + textbox.attr("id").split("id_")[1];
-        $("#id_title-stmt").html(coloringStmt($(text_id).text().split("#")[0]));
+        let text_id = "#id_" + currentTabNumber + "_text-" + target_id.split("_rect-")[1];
+        $("#id_title-stmt").html(coloringStmt($(text_id).html()));
         $('#id_comment-modal').modal('show');
-        let comment = $(target_id).parent().find(".cfgDisasmComment").text().split("# ")[1];
-        $('#id_comment').val(comment);
+        let comment = $(target_id).parent().find(".commentText").text();
+        commitInit(target_id, comment);
         break;
       case "copy":
         copyToClipboard(gtext.text());
@@ -67,15 +67,19 @@ function ContextMenu() {
     }
   });
   $(document).on("click", function (e) {
-    if ($("#id_contextmenu").is(":visible") && !$(e.target).hasClass(".contextmenu-item")) {
-      $("#id_contextmenu").hide();
+    if ($("#id_node-contextmenu").is(":visible") && !$(e.target).hasClass(".contextmenu-item")) {
+      $("#id_node-contextmenu").hide();
     } else {
 
     }
   });
   function coloringStmt(text) {
-    let coloredStmt = "<span class='cyan'>" + text.substring(0, 16) + "</span>";
-    coloredStmt += text.substring(16);
+    let texts = text.split(/(<([^>]+)>)/ig);
+    let textsrawNum = Math.floor(texts.length / 6);
+    let coloredStmt = "<span class='cyan'>" + texts[3] + "</span>";
+    for (let i = 1; i < textsrawNum; i++) {
+      coloredStmt += texts[i * 6 + 3];
+    }
     return coloredStmt;
   }
 }

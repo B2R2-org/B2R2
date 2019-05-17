@@ -56,6 +56,7 @@ function autocomplete(cfg) {
   }
   function searchItem() {
     $("#id_address-search").on("keyup", function (e) {
+      let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
       removeAllItem();
       var lowerValue = this.value.toLowerCase();
       var value = this.value;
@@ -72,16 +73,17 @@ function autocomplete(cfg) {
         if (lowerStmtstr.indexOf(lowerValue) > -1) {
           let memory = stmt[0];
           let meta = stmt[stmt.length - 1];
-          let item = '<div class="autocomplete-item" target=[TARGET] nidx=[NIDX] idx=[IDX]>'
-            .replace("[TARGET]", memory)
-            .replace("[NIDX]", meta.Nodeidx)
-            .replace("[IDX]", meta.idx);
+          let item = '<div class="autocomplete-item" target=[TARGET] addr=[ADDR] idx=[IDX]>'
+            .replace("[TARGET]", "#id_" + currentTabNumber + "_rect-" + meta.Nodeidx + "-" + meta.idx)
+            .replace("[IDX]", meta.idx)
+            .replace("[ADDR]", memory);
           let idx = lowerStmtstr.indexOf(value);
           if (idx < 16) {
             item += '<span class="memory">[CONTENT]</span>'.replace("[CONTENT]",
               memory.substr(0, idx)
               + "<strong>" + memory.substr(idx, value.length) + "</strong>"
               + memory.substr(idx + value.length));
+
             for (let i = 1; i < stmt.length - 1; i++) {
               item += '<span class="operand">[OPERAND]</span>'.replace("[OPERAND]", stmt[i]);
             }
@@ -115,16 +117,18 @@ function autocomplete(cfg) {
     });
 
     $(document).on("mouseover", ".autocomplete-list .autocomplete-item", function () {
-      let addr = $(this).attr("target")
-      let rect = d3.select("#id_" + addr);
+      let target = $(this).attr("target");
+      let rect = d3.select(target);
+      // let text = d3.select("#id_" + currentTabNumber + "_text-" + target.split("_rect-")[1]);
+      let text = d3.select(target.replace("_rect-", "_text-"));
       let width = rect.attr("width");
+      let gtext = d3.select(rect.node().parentNode);
       let gNode = d3.select(rect.node().parentNode.parentNode);
-      let pos = gNode.attr("transform").split("translate")[1].split("(")[1].split(")")[0].split(",");
+      let pos = getGroupPos(gNode.attr("transform"))
       let x = parseFloat(pos[0]);
-      let y = parseFloat(pos[1]);
-      let idx = $(this).attr("idx");
-      let stmt = $(this).text().substr(0, 16) + " " + $(this).text().substr(16);
-      activeStmt(x, y, idx, width, stmt);
+      let y = pos[1] + getGroupPos(gtext.attr("transform"))[1];
+      let stmt = text.html().replace(/(<([^>]+)>)/ig, " ");
+      activeStmt(x, y, width, stmt);
     });
 
     $(document).on("mouseout", ".autocomplete-item", function () {
@@ -134,22 +138,22 @@ function autocomplete(cfg) {
   function focusNode(x, y) {
     // in graph.js
   }
-  function activeStmt(x, y, idx, width, stmt) {
+  function activeStmt(x, y, width, stmt) {
     $(".g-stmt-box").remove();
     let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
-    let g = d3.select("#cfgStage-" + currentTabNumber).select("g").append("g").attr("class", "g-stmt-box");
+    let g = d3.select("#cfgStage-" + currentTabNumber)
+      .select("g").append("g")
+      .attr("class", "g-stmt-box")
+      .attr("transform", "translate(" + x + "," + y + ")");
     let box = g.append("rect");
     box
       .attr("width", width)
       .attr("height", 20)
-      .attr("x", x)
-      .attr("y", y + 15 * idx + 2)
       .attr("fill", "black");
     let tbox = g.append("text").attr("font-family", "'Inconsolata', monospace").text(stmt)
     tbox
-      .attr("font-size", 16)
-      .attr("x", x)
-      .attr("y", y + 15 * idx + 15)
+      .attr("font-size", 15)
+      .attr("y", 15)
       .attr("fill", "yellow");
 
     // In minimap
@@ -162,12 +166,11 @@ function autocomplete(cfg) {
       .attr("height", 20 * minimapRatio)
       .attr("transform",
         "translate(" + x * minimapRatio +
-        ", " + (y + 15 * idx + 2) * minimapRatio + ")");
+        ", " + y * minimapRatio + ")");
 
     // remove when clicked;
     g.on("click", function () {
-      g.remove();
-      minibox.remove();
+      deactiveStmt();
     });
   }
   function deactiveStmt() {

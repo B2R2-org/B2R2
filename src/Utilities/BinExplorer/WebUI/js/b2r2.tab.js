@@ -103,12 +103,12 @@ function toggleDisasmIR(textType) {
   }
 }
 
-function activateTab($el) {
+function activateTab($el, callback) {
   deactivatedTab();
   let functionName = $el.attr('value');
   let $tab = $("#id_tabContainer li[value='" + functionName + "']");
   let textType = $tab.attr('text-type');
-  let tabNumber = $tab.find('a').attr('href').split("-").slice(-1)[0];
+  let tabNumber = $tab.attr("counter");
   $tab.addClass("active");
   $("#cfgDiv-" + tabNumber).show();
   $("#minimap-" + tabNumber).show();
@@ -121,6 +121,9 @@ function activateTab($el) {
       if (!isEmpty(json)) {
         setuiFuncName(functionName);
         autocomplete(json);
+        if (callback !== undefined) {
+          callback("success");
+        }
       }
     });
 }
@@ -168,11 +171,11 @@ function closeTabEvent() {
   $(document).on('click', '.close-tab', function (e) {
     e.preventDefault();
     e.stopPropagation();
-    let closedTabNum = closeTab($(this))
+    let closedTabNum = closeTab($(this));
+    $("#cfgDiv-" + closedTabNum).remove();
     activateOpenFunction();
     let tabs = $("#id_tabContainer li");
     if (tabs.length <= 0) {
-      $("#cfgDiv-" + closedTabNum).remove();
       d3.select("g#cfgStage-" + closedTabNum).remove();
       d3.select("g#minimapStage-" + closedTabNum).remove();
       d3.select("#minimap rect").remove();
