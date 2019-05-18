@@ -86,8 +86,25 @@ let getReturns hdl target =
     hdl.FileInfo.WordSize |> WordSize.toByteWidth |> RegType.fromByteWidth
   match hdl.ISA.Arch with
   | Arch.IntelX86 ->
-    let regID = Intel.Register.EAX |> Intel.Register.toRegID
-    [ MemVar -1 ; RegVar (regType, regID, "EAX", -1) ]
+    let found, name = hdl.FileInfo.TryFindFunctionSymbolName target
+    if found && name = "__x86.get_pc_thunk.bx" then
+      let regID = Intel.Register.EBX |> Intel.Register.toRegID
+      [ MemVar -1 ; RegVar (regType, regID, "EBX", -1) ]
+    elif found && name = "__x86.get_pc_thunk.cx" then
+      let regID = Intel.Register.ECX |> Intel.Register.toRegID
+      [ MemVar -1 ; RegVar (regType, regID, "ECX", -1) ]
+    elif found && name = "__x86.get_pc_thunk.dx" then
+      let regID = Intel.Register.EDX |> Intel.Register.toRegID
+      [ MemVar -1 ; RegVar (regType, regID, "EDX", -1) ]
+    elif found && name = "__x86.get_pc_thunk.si" then
+      let regID = Intel.Register.ESI |> Intel.Register.toRegID
+      [ MemVar -1 ; RegVar (regType, regID, "ESI", -1) ]
+    elif found && name = "__x86.get_pc_thunk.di" then
+      let regID = Intel.Register.EDI |> Intel.Register.toRegID
+      [ MemVar -1 ; RegVar (regType, regID, "EDI", -1) ]
+    else
+      let regID = Intel.Register.EAX |> Intel.Register.toRegID
+      [ MemVar -1 ; RegVar (regType, regID, "EAX", -1) ]
   | Arch.IntelX64 ->
     let regID = Intel.Register.RAX |> Intel.Register.toRegID
     [ MemVar -1 ; RegVar (regType, regID, "RAX", -1) ]
