@@ -86,8 +86,12 @@ function setComment(tab_id, target_id, comment, isOpen) {
     .html('<i title="Comment" class="fas fa-quote-left fa-sm comment-dot"></i>')
     .on("click", function () {
       let gid = "#" + $(this).attr("id").replace("_comment_dot-", "_g_comment-");
+      let nodeidx = target_id.split("-")[1];
+      let stmtidx = target_id.split("-")[2];
+      let mininodeid = "#minimap-" + tab_id + " " + "[miniid='" + nodeidx + "']";
       $(gid).find(".commentRect").toggleClass("active");
       $(gid).find(".commentText").toggleClass("active");
+      $(mininodeid).find("[stmtidx='" + stmtidx + "'].miniCommentRect").toggle("active")
       let gNode = $(this).parent().parent();
       gNode.append($(this).parent());
       let gcfg = gNode.parent();
@@ -144,9 +148,12 @@ function setComment(tab_id, target_id, comment, isOpen) {
     commitInit(target_id, comment);
   });
   let commentTextPos = commentText.node().getBBox();
+  let commentTextWidth = parseFloat(commentTextPos.width) + 2 * commentTextMargin;
+  let commentTextHeight = parseFloat(commentTextPos.height) + 2 * commentTextMargin;
+
   commentRect
-    .attr("width", parseFloat(commentTextPos.width) + 2 * commentTextMargin)
-    .attr("height", parseFloat(commentTextPos.height) + 2 * commentTextMargin);
+    .attr("width", commentTextWidth)
+    .attr("height", commentTextHeight);
 
   if (isOpen) {
     commentRect.classed("active", true);
@@ -155,6 +162,28 @@ function setComment(tab_id, target_id, comment, isOpen) {
     commentRect.classed("active", false);
     commentText.classed("active", false);
   }
+
+  // minimap add comment
+  let nodeidx = target_id.split("-")[1];
+  let stmtidx = target_id.split("-")[2];
+  let mininodeid = "#minimap-" + tab_id + " " + "[miniid='" + nodeidx + "']";
+  let gMiniNode = d3.select(mininodeid);
+  let miniComment;
+  if ($(mininodeid).find("[stmtidx='" + stmtidx + "'].miniCommentRect").length > 0) {
+    miniComment = gMiniNode.select("rect.miniCommentRect");
+  } else {
+    miniComment = gMiniNode.append("rect");
+  }
+  miniComment
+    .attr("stmtidx", stmtidx)
+    .attr("class", "miniCommentRect active")
+    .attr("width", commentTextWidth * minimapRatio)
+    .attr("height", commentTextHeight * minimapRatio)
+    .attr("rx", 2)
+    .attr("ry", 2)
+    .attr("x", (x + commentLeftMargin) * minimapRatio)
+    .attr("y", 14 * minimapRatio * stmtidx)
+    .attr("fill", "black");
 
   // reload sidebar
   setSidebarComments();

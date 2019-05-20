@@ -43,6 +43,15 @@ span.cyan {
   display: block;
 }
 
+.miniCommentRect {
+  fill: rgba(40, 42, 54, 1);
+  stroke: var(--lightcomment);
+  display: none;
+}
+.miniCommentRect.active {
+  display: block;
+}
+
 .stmtHighlight {
   fill: rgba(153, 161, 161, 0.5);
 }

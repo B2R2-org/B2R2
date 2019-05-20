@@ -130,11 +130,8 @@ function drawNode(idx, v) {
   let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
   let g = d3.select("g#cfgGrp" + currentTabNumber).append("g")
     .attr("nodeid", idx)
-    .attr("class", "gNode")
-    .on("click", function () {
-      let gcfg = $(this).parent();
-      gcfg.append($(this));
-    })
+    .attr("class", "gNode");
+
   let rect = g.append("rect")
     .attr("class", "cfgNode")
     .attr("fill", "white")
@@ -212,18 +209,20 @@ function drawNode(idx, v) {
 
   g.attr("transform", "translate (" + v.Pos.X + "," + v.Pos.Y + ")");
 
-  d3.select("g#minimapStage-" + currentTabNumber).append("rect")
+  d3.select("g#minimapStage-" + currentTabNumber)
+    .append("g")
     .attr("miniid", idx)
+    .attr("transform",
+      "translate(" + v.Pos.X * minimapRatio +
+      ", " + v.Pos.Y * minimapRatio + ")")
+    .append("rect")
     .attr("class", "minimapRects")
     .attr("rx", "1").attr("ry", "1")
     .attr("fill", "rgb(45, 53, 70)")
     .attr("stroke", "rgb(255, 255,255)")
     .attr("style", "outline: 1px solid black;")
     .attr("width", v.Width * minimapRatio)
-    .attr("height", v.Height * minimapRatio)
-    .attr("transform",
-      "translate(" + v.Pos.X * minimapRatio +
-      ", " + v.Pos.Y * minimapRatio + ")");
+    .attr("height", v.Height * minimapRatio);
 }
 
 function drawNodes(g) {
@@ -412,13 +411,6 @@ function registerEvents(reductionRate, dims, g) {
     let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
     let miniVPBound =
       document.getElementById("minimapVP-" + currentTabNumber).getBoundingClientRect();
-    let viewportBound =
-      document.getElementById("cfgStage-" + currentTabNumber).getBoundingClientRect();
-    let minimapBound =
-      document.getElementById("minimapStage-" + currentTabNumber).getBoundingClientRect();
-
-    translateWidthRatio = minimapBound.width / viewportBound.width;
-    translateHeightRatio = minimapBound.height / viewportBound.height;
 
     let widthRatio = minimapRatio / translateWidthRatio;
     let halfWidth = miniVPBound.width / minimapRatio / 2;
@@ -439,13 +431,12 @@ function registerEvents(reductionRate, dims, g) {
     let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
     let miniVPBound =
       document.getElementById("minimapVP-" + currentTabNumber).getBoundingClientRect();
-    let viewportBound =
-      document.getElementById("cfgStage-" + currentTabNumber).getBoundingClientRect();
+
     let minimapBound =
       document.getElementById("minimapStage-" + currentTabNumber).getBoundingClientRect();
-
+    let viewportBound =
+      document.getElementById("cfgStage-" + currentTabNumber).getBoundingClientRect();
     translateWidthRatio = minimapBound.width / viewportBound.width;
-    translateHeightRatio = minimapBound.height / viewportBound.height;
 
     let widthRatio = minimapRatio / translateWidthRatio;
     let heightRatio = minimapRatio / translateHeightRatio;
@@ -454,11 +445,11 @@ function registerEvents(reductionRate, dims, g) {
     let halfHeight = miniVPBound.height / minimapRatio / 2;
     let newX = (halfWidth - dx) * widthRatio;
     let newY = (halfHeight - dy) * heightRatio;
-
     cfg.transition()
       .duration(focusMovementDuration * accelerationRate)
       .call(zoom.transform,
         d3.zoomIdentity.translate(newX, newY).scale(transK));
+
   }
 
   function getMousePos() {
