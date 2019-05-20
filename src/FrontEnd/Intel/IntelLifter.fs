@@ -3033,6 +3033,13 @@ let por ins insAddr insLen ctxt =
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
+let opPsadbw _ =
+  let abs expr = ite (lt expr (num0 8<rt>)) (AST.neg expr) (expr)
+  Array.map2 (fun e1 e2 -> abs (e1 .- e2))
+
+let psadbw ins insAddr insLen ctxt =
+  buildPackedInstr ins insAddr insLen ctxt 8<rt> opPsadbw 64
+
 let pshufb ins insAddr insLen ctxt =
   let dst, src = getTwoOprs ins
   let oprSize = getOperationSize ins
@@ -3111,6 +3118,43 @@ let pshufhw ins insAddr insLen ctxt =
   done
   builder <! (dstA := srcA)
   builder <! (dstB := concatExprs tmps)
+  endMark insAddr insLen builder
+
+let pshuflw ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (8)
+  let dst, src, imm = getThreeOprs ins
+  let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+  let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
+  let imm = transOprToExpr ins insAddr insLen ctxt imm
+  startMark insAddr insLen builder
+  let tmps = Array.init 4 (fun _ -> tmpVar 16<rt>)
+  let n16 = numI32 16 64<rt>
+  let mask2 = numI32 3 64<rt> (* 2-bit mask *)
+  for i in 1 .. 4 do
+    let imm =
+      ((extractLow 64<rt> imm) >> (numI32 ((i - 1) * 2) 64<rt>)) .& mask2
+    builder <! (tmps.[i - 1] := extractLow 16<rt> (srcA >> (imm .* n16)))
+  done
+  builder <! (dstA := concatExprs tmps)
+  builder <! (dstB := srcB)
+  endMark insAddr insLen builder
+
+let pshufw ins insAddr insLen ctxt =
+  let dst, src, ord = getThreeOprs ins |> transThreeOprs ins insAddr insLen ctxt
+  let oprSize = getOperationSize ins
+  let cnt = RegType.toBitWidth oprSize / 16
+  let builder = new StmtBuilder (2 * cnt)
+  startMark insAddr insLen builder
+  let tmps = Array.init cnt (fun _ -> tmpVar 16<rt>)
+  let n16 = numI32 16 oprSize
+  let mask2 = numI32 3 16<rt> (* 2-bit mask *)
+  for i in 1 .. cnt do
+    let order =
+      ((extractLow 16<rt> ord) >> (numI32 ((i - 1) * 2) 16<rt>)) .& mask2
+    let order' = zExt oprSize order
+    builder <! (tmps.[i - 1] := extractLow 16<rt> (src >> (order' .* n16)))
+  done
+  builder <! (dst := concatExprs tmps)
   endMark insAddr insLen builder
 
 let logicalLeftShiftDwords oprSize src cntSrc builder =
@@ -3404,6 +3448,54 @@ let pxor ins insAddr insLen ctxt =
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
+let rcl ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (8)
+  let dst, count = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
+  let oprSize = getOperationSize ins
+  let cF = getRegVar ctxt R.CF
+  let oF = getRegVar ctxt R.OF
+  let tmpCount = tmpVar oprSize
+  let size = numI32 (RegType.toBitWidth oprSize) oprSize
+  let count = zExt oprSize count
+  let cnt =
+    match oprSize with
+    | 8<rt> -> (count .& numI32 0x1f oprSize) .% numI32 9 oprSize
+    | 16<rt> -> (count .& numI32 0x1f oprSize) .% numI32 17 oprSize
+    | 32<rt> -> count .& numI32 0x1f oprSize
+    | 64<rt> -> count .& numI32 0x3f oprSize
+    | _ -> raise InvalidOperandSizeException
+  let cond = count == num1 oprSize
+  startMark insAddr insLen builder
+  builder <! (tmpCount := cnt)
+  builder <! (dst := (dst << tmpCount) .| (dst >> (size .- tmpCount)))
+  builder <! (cF := extractHigh 1<rt> dst)
+  builder <! (oF := ite cond (extractHigh 1<rt> dst <+> cF) undefOF)
+  endMark insAddr insLen builder
+
+let rcr ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (8)
+  let dst, count = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
+  let oprSize = getOperationSize ins
+  let cF = getRegVar ctxt R.CF
+  let oF = getRegVar ctxt R.OF
+  let tmpCount = tmpVar oprSize
+  let size = numI32 (RegType.toBitWidth oprSize) oprSize
+  let count = zExt oprSize count
+  let cnt =
+    match oprSize with
+    | 8<rt> -> (count .& numI32 0x1f oprSize) .% numI32 9 oprSize
+    | 16<rt> -> (count .& numI32 0x1f oprSize) .% numI32 17 oprSize
+    | 32<rt> -> count .& numI32 0x1f oprSize
+    | 64<rt> -> count .& numI32 0x3f oprSize
+    | _ -> raise InvalidOperandSizeException
+  let cond = count == num1 oprSize
+  startMark insAddr insLen builder
+  builder <! (tmpCount := cnt)
+  builder <! (oF := ite cond (extractHigh 1<rt> dst <+> cF) undefOF)
+  builder <! (dst := (dst >> tmpCount) .| (dst << (size .- tmpCount)))
+  builder <! (cF := extractHigh 1<rt> dst)
+  endMark insAddr insLen builder
+
 let rdpkru ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
   let errExp = unDef 1<rt> "#GP(0) error"
@@ -3440,30 +3532,6 @@ let ret ins insAddr insLen ctxt isFar isImm =
     endMark insAddr insLen builder
   | true, true
   | true, false -> sideEffects insAddr insLen UnsupportedFAR
-
-let rcr ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
-  let dst, count = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
-  let oprSize = getOperationSize ins
-  let cF = getRegVar ctxt R.CF
-  let oF = getRegVar ctxt R.OF
-  let tmpCount = tmpVar oprSize
-  let size = numI32 (RegType.toBitWidth oprSize) oprSize
-  let count = zExt oprSize count
-  let cnt =
-    match oprSize with
-    | 8<rt> -> (count .& numI32 0x1f oprSize) .% numI32 9 oprSize
-    | 16<rt> -> (count .& numI32 0x1f oprSize) .% numI32 17 oprSize
-    | 32<rt> -> count .& numI32 0x1f oprSize
-    | 64<rt> -> count .& numI32 0x3f oprSize
-    | _ -> raise InvalidOperandSizeException
-  let cond = count == num1 oprSize
-  startMark insAddr insLen builder
-  builder <! (tmpCount := cnt)
-  builder <! (oF := ite cond (extractHigh 1<rt> dst <+> cF) undefOF)
-  builder <! (dst := (dst >> tmpCount) .| (dst << (size .- tmpCount)))
-  builder <! (cF := extractHigh 1<rt> dst)
-  endMark insAddr insLen builder
 
 let rotate ins insAddr insLen ctxt lfn hfn cfFn ofFn =
   let builder = new StmtBuilder (8)
@@ -4475,6 +4543,15 @@ let xchg ins insAddr insLen ctxt =
   builder <! (dstAssign oprSize src t)
   endMark insAddr insLen builder
 
+let xlatb ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (4)
+  let addressSize = getEffAddrSz ins
+  let al = zExt addressSize (getRegVar ctxt R.AL)
+  let bx = getRegOfSize ctxt addressSize GrpEBX
+  startMark insAddr insLen builder
+  builder <! (getRegVar ctxt R.AL := loadLE 8<rt> (al .+ bx))
+  endMark insAddr insLen builder
+
 let xor ins insAddr insLen ctxt =
   let builder = new StmtBuilder (16)
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
@@ -4734,9 +4811,12 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.PREFETCHNTA
   | Opcode.PREFETCHT0 | Opcode.PREFETCHT1
   | Opcode.PREFETCHW | Opcode.PREFETCHT2 -> nop insAddr insLen
+  | Opcode.PSADBW -> psadbw ins insAddr insLen ctxt
   | Opcode.PSHUFB -> pshufb ins insAddr insLen ctxt
   | Opcode.PSHUFD -> pshufd ins insAddr insLen ctxt
   | Opcode.PSHUFHW -> pshufhw ins insAddr insLen ctxt
+  | Opcode.PSHUFLW -> pshuflw ins insAddr insLen ctxt
+  | Opcode.PSHUFW -> pshufw ins insAddr insLen ctxt
   | Opcode.PSLLD -> pslld ins insAddr insLen ctxt
   | Opcode.PSLLDQ -> pslldq ins insAddr insLen ctxt
   | Opcode.PSLLQ -> psllq ins insAddr insLen ctxt
@@ -4769,6 +4849,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.PUSHAD -> pusha ins insAddr insLen ctxt 32<rt>
   | Opcode.PUSHF | Opcode.PUSHFD | Opcode.PUSHFQ -> pushf ins insAddr insLen ctxt
   | Opcode.PXOR -> pxor ins insAddr insLen ctxt
+  | Opcode.RCL -> rcl ins insAddr insLen ctxt
   | Opcode.RCR -> rcr ins insAddr insLen ctxt
   | Opcode.RDPKRU -> rdpkru ins insAddr insLen ctxt
   | Opcode.RDPMC -> sideEffects insAddr insLen UnsupportedExtension
@@ -4869,18 +4950,13 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.XCHG -> xchg ins insAddr insLen ctxt
   | Opcode.XEND -> sideEffects insAddr insLen UnsupportedExtension
   | Opcode.XGETBV -> sideEffects insAddr insLen UnsupportedExtension
+  | Opcode.XLATB -> xlatb ins insAddr insLen ctxt
   | Opcode.XOR -> xor ins insAddr insLen ctxt
   | Opcode.XORPD -> sideEffects insAddr insLen UnsupportedFP
   | Opcode.XORPS -> sideEffects insAddr insLen UnsupportedFP
   | Opcode.XRSTOR | Opcode.XSAVE | Opcode.XSAVEOPT ->
     sideEffects insAddr insLen UnsupportedExtension
   | Opcode.XTEST -> sideEffects insAddr insLen UnsupportedExtension
-  (* FIXME *)
-  | Opcode.PSADBW
-  | Opcode.PSHUFLW
-  | Opcode.PSHUFW
-  | Opcode.RCL
-  | Opcode.XLATB -> sideEffects insAddr insLen UnsupportedFP
   | Opcode.IN | Opcode.INTO | Opcode.INVD | Opcode.INVLPG | Opcode.IRETD
   | Opcode.IRETQ | Opcode.IRETW | Opcode.LAR | Opcode.LGDT | Opcode.LLDT
   | Opcode.LMSW | Opcode.LSL | Opcode.LTR | Opcode.OUT | Opcode.SGDT
