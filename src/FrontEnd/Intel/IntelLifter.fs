@@ -269,13 +269,13 @@ let getMemExpr512 expr =
 let getMemExprs expr =
   match expr with
   | Load (e, 128<rt>, expr, _, _) ->
-    [ AST.load e 64<rt> (expr .+ numI32 8 (AST.typeOf expr));
-      AST.load e 64<rt> expr ]
+    [ AST.load e 64<rt> expr;
+      AST.load e 64<rt> (expr .+ numI32 8 (AST.typeOf expr)) ]
   | Load (e, 256<rt>, expr, _, _) ->
-    [ AST.load e 64<rt> (expr .+ numI32 24 (AST.typeOf expr));
-      AST.load e 64<rt> (expr .+ numI32 16 (AST.typeOf expr));
+    [ AST.load e 64<rt> expr
       AST.load e 64<rt> (expr .+ numI32 8 (AST.typeOf expr));
-      AST.load e 64<rt> expr ]
+      AST.load e 64<rt> (expr .+ numI32 16 (AST.typeOf expr));
+      AST.load e 64<rt> (expr .+ numI32 24 (AST.typeOf expr)); ]
   | _ -> raise InvalidOperandException
 
 let getPseudoRegVar128 ctxt r =
@@ -293,9 +293,9 @@ let getPseudoRegVar512 ctxt r =
 
 let getPseudoRegVars ctxt r =
   match Register.getKind r with
-  | Register.Kind.XMM -> [ getPseudoRegVar ctxt r 2; getPseudoRegVar ctxt r 1 ]
-  | Register.Kind.YMM -> [ getPseudoRegVar ctxt r 4; getPseudoRegVar ctxt r 3
-                           getPseudoRegVar ctxt r 2; getPseudoRegVar ctxt r 1 ]
+  | Register.Kind.XMM -> [ getPseudoRegVar ctxt r 1; getPseudoRegVar ctxt r 2 ]
+  | Register.Kind.YMM -> [ getPseudoRegVar ctxt r 1; getPseudoRegVar ctxt r 2
+                           getPseudoRegVar ctxt r 3; getPseudoRegVar ctxt r 4 ]
   | _ -> raise InvalidOperandException
 
 let transOprToExprVec ins insAddr insLen ctxt opr =
@@ -1054,7 +1054,22 @@ let saturateToUnsignedWord expr =
   let maxNum = numU32 0xffu 16<rt>
   ite checkMin minNum (ite checkMax maxNum expr)
 
-//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+let buildMove ins insAddr insLen ctxt bufSize =
+  let builder = new StmtBuilder (bufSize)
+  let dst, src = getTwoOprs ins
+  let oprSize = getOperationSize ins
+  startMark insAddr insLen builder
+  match oprSize with
+  | 32<rt> | 64<rt> ->
+    let dst, src = transTwoOprs ins insAddr insLen ctxt (dst, src)
+    builder <! (dst := src)
+  | 128<rt> | 256<rt> | 512<rt> ->
+    let dst = transOprToExprVec ins insAddr insLen ctxt dst
+    let src = transOprToExprVec ins insAddr insLen ctxt src
+    List.iter2 (fun d s -> builder <! (d := s)) dst src
+  | _ -> raise InvalidOperandSizeException
+  endMark insAddr insLen builder
+
 let makeSrc builder packSize packNum src =
   let tSrc = Array.init packNum (fun _ -> tmpVar packSize)
   for i in 0 .. packNum - 1 do
@@ -1076,10 +1091,10 @@ let buildPackedInstrTwoOprs ins insAddr insLen ctxt packSz opFn bufSz dst src =
   | 128<rt> ->
     let packNum = packNum / (oprSize / 64<rt>)
     let srcAppend src =
-      let src = transOprToExprVec ins insAddr insLen ctxt src |> List.rev
+      let src = transOprToExprVec ins insAddr insLen ctxt src
       List.map (makeSrc packNum) src |> List.fold Array.append [||]
     let tSrc = opFn oprSize (srcAppend dst) (srcAppend src)
-    let dst = transOprToExprVec ins insAddr insLen ctxt dst |> List.rev
+    let dst = transOprToExprVec ins insAddr insLen ctxt dst
     let packNum = Array.length tSrc / List.length dst
     let assign idx dst =
       builder <! (dst := Array.sub tSrc (packNum * idx) packNum |> concatExprs)
@@ -1101,9 +1116,9 @@ let buildPackedInstrThreeOprs ins iAddr iLen ctxt packSz opFn bufSz dst s1 s2 =
     builder <! (dst := opFn oprSize src1 src2 |> concatExprs)
   | 128<rt> | 256<rt> ->
     let packNum = packNum / (oprSize / 64<rt>)
-    let dst = transOprToExprVec ins iAddr iLen ctxt dst |> List.rev
+    let dst = transOprToExprVec ins iAddr iLen ctxt dst
     let srcAppend src =
-      let src = transOprToExprVec ins iAddr iLen ctxt src |> List.rev
+      let src = transOprToExprVec ins iAddr iLen ctxt src
       List.map (makeSrc packNum) src |> List.fold Array.append [||]
     let tSrc = opFn oprSize (srcAppend s1) (srcAppend s2)
     let assign idx dst =
@@ -1119,7 +1134,6 @@ let buildPackedInstr ins insAddr insLen ctxt packSz opFn bufSz =
   | ThreeOperands (o1, o2, o3) ->
     buildPackedInstrThreeOprs ins insAddr insLen ctxt packSz opFn bufSz o1 o2 o3
   | _ -> raise InvalidOperandException
-//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 /// A module for all x86-IR translation functions
 let aaa ins insAddr insLen ctxt =
@@ -2069,15 +2083,7 @@ let jmp ins insAddr insLen ctxt =
   builder <! (InterJmp (pc, opr, InterJmpInfo.Base))
   endMark insAddr insLen builder
 
-let lddqu ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
-  let dst, src = getTwoOprs ins
-  let dst1, dst2 = transOprToExpr128 ins insAddr insLen ctxt dst
-  let src1, src2 = transOprToExpr128 ins insAddr insLen ctxt src
-  startMark insAddr insLen builder
-  builder <! (dst1 := src1)
-  builder <! (dst2 := src2)
-  endMark insAddr insLen builder
+let lddqu ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
 
 let lea ins insAddr insLen ctxt =
   let builder = new StmtBuilder (4)
@@ -2202,15 +2208,8 @@ let mov ins insAddr insLen ctxt =
   builder <! (dstAssign oprSize dst (zExt oprSize src))
   endMark insAddr insLen builder
 
-let movAligned ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
-  let dst, src = getTwoOprs ins
-  let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
-  let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
-  startMark insAddr insLen builder
-  builder <! (dstA := srcA)
-  builder <! (dstB := srcB)
-  endMark insAddr insLen builder
+let movapd ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
+let movaps ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
 
 let movd ins insAddr insLen ctxt =
   let builder = new StmtBuilder (4)
@@ -2225,15 +2224,8 @@ let movd ins insAddr insLen ctxt =
   | _, _ -> raise InvalidOperandException
   endMark insAddr insLen builder
 
-let movdqx ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
-  let dst, src = getTwoOprs ins
-  let dst1, dst2 = transOprToExpr128 ins insAddr insLen ctxt dst
-  let src1, src2 = transOprToExpr128 ins insAddr insLen ctxt src
-  startMark insAddr insLen builder
-  builder <! (dst1 := src1)
-  builder <! (dst2 := src2)
-  endMark insAddr insLen builder
+let movdqa ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
+let movdqu ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
 
 let movhpd ins insAddr insLen ctxt =
   let builder = new StmtBuilder (4)
@@ -2287,22 +2279,9 @@ let movmskps ins insAddr insLen ctxt =
   builder <! (dst := zExt oprSize <| concat srcB srcA)
   endMark insAddr insLen builder
 
-let movntdq ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
-  let dst, src = getTwoOprs ins
-  let dst1, dst2 = transOprToExpr128 ins insAddr insLen ctxt dst
-  let src1, src2 = transOprToExpr128 ins insAddr insLen ctxt src
-  startMark insAddr insLen builder
-  builder <! (dst1 := src1)
-  builder <! (dst2 := src2)
-  endMark insAddr insLen builder
+let movntdq ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
 
-let movnti ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
-  let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
-  startMark insAddr insLen builder
-  builder <! (dst := src)
-  endMark insAddr insLen builder
+let movnti ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
 
 let movq ins insAddr insLen ctxt =
   let builder = new StmtBuilder (4)
@@ -2348,15 +2327,7 @@ let movsx ins insAddr insLen ctxt =
   builder <! (dstAssign oprSize dst (sExt oprSize src))
   endMark insAddr insLen builder
 
-let movups ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
-  let dst, src = getTwoOprs ins
-  let dst1, dst2 = transOprToExpr128 ins insAddr insLen ctxt dst
-  let src1, src2 = transOprToExpr128 ins insAddr insLen ctxt src
-  startMark insAddr insLen builder
-  builder <! (dst1 := src1)
-  builder <! (dst2 := src2)
-  endMark insAddr insLen builder
+let movups ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
 
 let movzx ins insAddr insLen ctxt =
   let builder = new StmtBuilder (4)
@@ -2432,17 +2403,12 @@ let logOr ins insAddr insLen ctxt =
   enumSZPFlags ctxt t oprSize builder
   endMark insAddr insLen builder
 
+let opPor _ = Array.map2 (.|)
+
 (* FIXME: FP instructions(ORPD/ORPS)
 let orp ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
-  let dst, src = getTwoOprs ins
-  let dst1, dst2 = transOprToExpr128 ins insAddr insLen ctxt dst
-  let src1, src2 = transOprToExpr128 ins insAddr insLen ctxt src
-  startMark insAddr insLen builder
-  builder <! (dst1 := (dst1 .| src1))
-  builder <! (dst2 := (dst2 .| src2))
-  endMark insAddr insLen builder
- *)
+  buildPackedInstr ins insAddr insLen ctxt 64<rt> opPor 8
+*)
 
 let outs ins insAddr insLen ctxt =
   let builder = new StmtBuilder (16)
@@ -3002,8 +2968,6 @@ let popf ins insAddr insLen ctxt =
   builder <! (getRegVar ctxt R.CF := extractLow 1<rt> t)
   endMark insAddr insLen builder
 
-let opPor _ = Array.map2 (.|)
-
 let por ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 64<rt> opPor 8
 
@@ -3142,7 +3106,7 @@ let logicalLeftShiftDwords oprSize src cntSrc builder =
   ite (gt cntSrc (numU32 31u oprSize)) (num0 oprSize) (concatExprs tmps)
 
 let opShiftPackedDataLogical oprSize packSz shift src1 src2 =
-  let count = concatExprs src2
+  let count = concatExprs src2 |> zExt oprSize
   let cond = gt count (numI32 ((int packSz) - 1) oprSize)
   let shifted expr = extract (shift (zExt oprSize expr) count) packSz 0
   Array.map (fun e -> ite cond (num0 packSz) (shifted e)) src1
@@ -3899,39 +3863,7 @@ let vmovdqu ins insAddr insLen ctxt =
   else raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
-let vmovntdq ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
-  let dst, src = getTwoOprs ins
-  let oprSize = getOperationSize ins
-  startMark insAddr insLen builder
-  match oprSize with
-  | 128<rt> ->
-    let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
-    let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
-    builder <! (dstA := srcA)
-    builder <! (dstB := srcB)
-  | 256<rt> ->
-    let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
-    let srcD, srcC, srcB, srcA = transOprToExpr256 ins insAddr insLen ctxt src
-    builder <! (dstA := srcA)
-    builder <! (dstB := srcB)
-    builder <! (dstC := srcC)
-    builder <! (dstD := srcD)
-  | 512<rt> ->
-    let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
-      transOprToExpr512 ins insAddr insLen ctxt dst
-    let srcH, srcG, srcF, srcE, srcD, srcC, srcB, srcA =
-      transOprToExpr512 ins insAddr insLen ctxt src
-    builder <! (dstA := srcA)
-    builder <! (dstB := srcB)
-    builder <! (dstC := srcC)
-    builder <! (dstD := srcD)
-    builder <! (dstE := srcE)
-    builder <! (dstF := srcF)
-    builder <! (dstG := srcG)
-    builder <! (dstH := srcH)
-  | _ -> raise InvalidOperandSizeException
-  endMark insAddr insLen builder
+let vmovntdq ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 16
 
 let getEVEXPrx = function
   | Some v -> match v.EVEXPrx with
@@ -4643,10 +4575,12 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.MINPD | Opcode.MINPS -> sideEffects insAddr insLen UnsupportedFP
   | Opcode.MINSD | Opcode.MINSS -> sideEffects insAddr insLen UnsupportedFP
   | Opcode.MOV -> mov ins insAddr insLen ctxt
-  | Opcode.MOVAPD | Opcode.MOVAPS -> movAligned ins insAddr insLen ctxt
+  | Opcode.MOVAPD -> movapd ins insAddr insLen ctxt
+  | Opcode.MOVAPS -> movaps ins insAddr insLen ctxt
   | Opcode.MOVD -> movd ins insAddr insLen ctxt
   | Opcode.MOVDQ2Q -> sideEffects insAddr insLen UnsupportedFP
-  | Opcode.MOVDQA | Opcode.MOVDQU -> movdqx ins insAddr insLen ctxt
+  | Opcode.MOVDQA -> movdqa ins insAddr insLen ctxt
+  | Opcode.MOVDQU -> movdqu ins insAddr insLen ctxt
   | Opcode.MOVHLPS -> sideEffects insAddr insLen UnsupportedFP
   | Opcode.MOVHPD -> movhpd ins insAddr insLen ctxt
   | Opcode.MOVHPS -> sideEffects insAddr insLen UnsupportedFP
