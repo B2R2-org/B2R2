@@ -534,7 +534,7 @@ let addWithCarry src1 src2 carryIn =
   result, carryOut, overflow
 
 /// Is this ARM instruction set, on page A2-51.
-let isInstrSetARM ctxt = not (isSetAPSR_J ctxt) .& not (isSetAPSR_T ctxt)
+let isInstrSetARM ctxt = not (isSetCPSR_J ctxt) .& not (isSetCPSR_T ctxt)
 
 /// Is this Thumb instruction set, on page A2-51.
 let isInstrSetThumb ctxt = not (isSetAPSR_J ctxt) .& isSetAPSR_T ctxt
@@ -1031,6 +1031,9 @@ let add isSetFlags insInfo ctxt =
   let lblCondPass = lblSymbol "CondCheckPassed"
   let lblCondFail = lblSymbol "CondCheckFailed"
   let dst, src1, src2 = parseOprOfADD insInfo ctxt
+  let src1 =
+    if src1 = getPC ctxt then src1 .+ (BitVector.ofUInt32 8u 32<rt> |> num)
+    else src1
   let res, carryOut, overflow = addWithCarry src1 src2 (num0 32<rt>)
   let result = tmpVar 32<rt>
   let isCondPass = isCondPassed insInfo.Condition
