@@ -25,6 +25,32 @@ span.cyan {
 .stmt {
   font-family: 'Inconsolata', monospace;
 }
+.commentText {
+  font-family: 'Inconsolata', monospace;
+  white-space:pre;
+  display: none;
+}
+.commentText.active {
+  display: block;
+}
+
+.commentRect {
+  fill: rgba(40, 42, 54, 1);
+  stroke: var(--lightcomment);
+  display: none;
+}
+.commentRect.active {
+  display: block;
+}
+
+.miniCommentRect {
+  fill: rgba(40, 42, 54, 1);
+  stroke: var(--lightcomment);
+  display: none;
+}
+.miniCommentRect.active {
+  display: block;
+}
 
 .stmtHighlight {
   fill: rgba(153, 161, 161, 0.5);
@@ -412,7 +438,7 @@ body {
 .cfgFallThroughEdge {
   stroke: var(--purple); }
 
-.cfgEdgeBlur:hover {
+.cfgFallThroughEdgeBlur:hover {
   filter: url(#cfgBlur);
   stroke: var(--purple); }
 

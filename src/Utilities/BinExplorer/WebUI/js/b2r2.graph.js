@@ -39,7 +39,7 @@ var minimapRatio = 0.4;
 var padding = 4;
 
 // Node border thickness.
-var nodeBorderThickness = 3;
+var nodeBorderThickness = 1.5;
 
 // Edge thickness.
 var edgeThickness = 3;
@@ -128,7 +128,10 @@ function strRepeat(str, num) {
 function drawNode(idx, v) {
   const nodePaddingTop = 3;
   let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
-  let g = d3.select("g#cfgGrp" + currentTabNumber).append("g").attr("nodeid", idx);
+  let g = d3.select("g#cfgGrp" + currentTabNumber).append("g")
+    .attr("nodeid", idx)
+    .attr("class", "gNode");
+
   let rect = g.append("rect")
     .attr("class", "cfgNode")
     .attr("fill", "white")
@@ -146,14 +149,22 @@ function drawNode(idx, v) {
   let i, j;
   for (i = 0; i < v.Terms.length; i++) {
     let y = i * 14 + nodePaddingTop;
-    let gtext = g.append("g").attr("idx", i).attr("transform", "translate(0," + y + ")")
+    let idNum = "[NODEID]-[STMTID]".replace("[NODEID]", idx).replace("[STMTID]", i);
+    let rectid = "id_" + currentTabNumber + "_rect-" + idNum;
+    let textid = "id_" + currentTabNumber + "_text-" + idNum;
+    let gtext = g.append("g")
+      .attr("id", "id_" + currentTabNumber + "_g-" + idNum)
+      .attr("class", "gstmt")
+      .attr("idx", i)
+      .attr("transform", "translate(0," + y + ")")
+
     let terms = v.Terms[i];
     let s = terms[0][0];
     let tag = terms[0][1];
-    let text = gtext.append("text").attr("class", "stmt").attr("id", "id_text-" + s.split(":")[0]);
+    let text = gtext.append("text").attr("class", "stmt").attr("id", textid);
     let mnemonic = s + strRepeat(" ", (s.length > 8 ? 0 : 8 - s.length));
     gtext.insert("rect")
-      .attr("id", "id_" + s.split(":")[0])
+      .attr("id", rectid)
       .attr("class", "nodestmtbox")
       .attr("width", v.Width)
       .attr("y", 4)
@@ -164,7 +175,7 @@ function drawNode(idx, v) {
         function showContextMemu() {
           const e = d3.event;
           e.preventDefault();
-          $("#id_contextmenu")
+          $("#id_node-contextmenu")
             .css("display", "block")
             .css("top", e.clientY)
             .css("left", e.clientX)
@@ -183,7 +194,7 @@ function drawNode(idx, v) {
         } else if (j == terms.length - 1) {
           if (s.length > 0) {
             let comment = " # " + s;
-            appendDisasmFragment(text, "cfgDisasmComment " + tag, comment, false);
+            setComment(currentTabNumber, "#" + rectid, comment, true);
           }
         } else {
           appendDisasmFragment(text, "cfgDisasmText " + tag, s, false);
@@ -198,18 +209,20 @@ function drawNode(idx, v) {
 
   g.attr("transform", "translate (" + v.Pos.X + "," + v.Pos.Y + ")");
 
-  d3.select("g#minimapStage-" + currentTabNumber).append("rect")
+  d3.select("g#minimapStage-" + currentTabNumber)
+    .append("g")
     .attr("miniid", idx)
+    .attr("transform",
+      "translate(" + v.Pos.X * minimapRatio +
+      ", " + v.Pos.Y * minimapRatio + ")")
+    .append("rect")
     .attr("class", "minimapRects")
     .attr("rx", "1").attr("ry", "1")
     .attr("fill", "rgb(45, 53, 70)")
     .attr("stroke", "rgb(255, 255,255)")
     .attr("style", "outline: 1px solid black;")
     .attr("width", v.Width * minimapRatio)
-    .attr("height", v.Height * minimapRatio)
-    .attr("transform",
-      "translate(" + v.Pos.X * minimapRatio +
-      ", " + v.Pos.Y * minimapRatio + ")");
+    .attr("height", v.Height * minimapRatio);
 }
 
 function drawNodes(g) {
@@ -341,7 +354,6 @@ function drawCFG(dims, cfg) {
   // This is to make sure that the rotation animation is running first.
   setTimeout(function () { drawCFGAux(dims, cfg); }, 5);
   autocomplete(cfg);
-  setComments($("#uiFuncName").text(), cfg.Nodes);
 }
 
 function drawCFGAux(dims, cfg) {
@@ -381,8 +393,6 @@ function registerEvents(reductionRate, dims, g) {
   let transX = 0;
   let transY = 0;
   let transK = 1 / reductionRate;
-  let minimapBound =
-    document.getElementById("minimapStage-" + currentTabNumber).getBoundingClientRect();
 
   let cfg = d3.select("svg#cfg-" + currentTabNumber);
   let cfgStage = d3.select("g#cfgStage-" + currentTabNumber);
@@ -398,13 +408,16 @@ function registerEvents(reductionRate, dims, g) {
   }
 
   function convertvMapPtToVPCoordinate(dx, dy) {
+    let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
     let miniVPBound =
       document.getElementById("minimapVP-" + currentTabNumber).getBoundingClientRect();
+
     let widthRatio = minimapRatio / translateWidthRatio;
     let halfWidth = miniVPBound.width / minimapRatio / 2;
 
     return { x: dx + halfWidth * widthRatio, y: dy };
   }
+
 
   function getPointFromEdgePts(edgePts, index) {
     let lastPts = edgePts[index].split(",");
@@ -415,8 +428,15 @@ function registerEvents(reductionRate, dims, g) {
   }
 
   function toCenter(dx, dy, accelerationRate) {
+    let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
     let miniVPBound =
       document.getElementById("minimapVP-" + currentTabNumber).getBoundingClientRect();
+
+    let minimapBound =
+      document.getElementById("minimapStage-" + currentTabNumber).getBoundingClientRect();
+    let viewportBound =
+      document.getElementById("cfgStage-" + currentTabNumber).getBoundingClientRect();
+    translateWidthRatio = minimapBound.width / viewportBound.width;
 
     let widthRatio = minimapRatio / translateWidthRatio;
     let heightRatio = minimapRatio / translateHeightRatio;
@@ -429,6 +449,7 @@ function registerEvents(reductionRate, dims, g) {
       .duration(focusMovementDuration * accelerationRate)
       .call(zoom.transform,
         d3.zoomIdentity.translate(newX, newY).scale(transK));
+
   }
 
   function getMousePos() {
@@ -530,6 +551,7 @@ function registerEvents(reductionRate, dims, g) {
   }
 
   function dragStart() {
+    let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
     let evt = d3.event.sourceEvent;
     let vp = document.getElementById("minimapVP-" + currentTabNumber).getBoundingClientRect();
 
@@ -578,8 +600,12 @@ function registerEvents(reductionRate, dims, g) {
     .addEventListener("mousemove", (function () { /*empty*/ }).bind(this));
 
   function zoomed() {
+    let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
     let minimapBound =
       document.getElementById("minimapStage-" + currentTabNumber).getBoundingClientRect();
+    let viewportBound =
+      document.getElementById("cfgStage-" + currentTabNumber).getBoundingClientRect();
+
     cfgStage.attr("transform", d3.event.transform);
 
     transX = d3.event.transform.x;
@@ -589,8 +615,6 @@ function registerEvents(reductionRate, dims, g) {
     inverseK = 1 / transK;
     let minimapK = reductionRate * inverseK;
 
-    let viewportBound =
-      document.getElementById("cfgStage-" + currentTabNumber).getBoundingClientRect();
     translateWidthRatio = minimapBound.width / viewportBound.width;
     translateHeightRatio = minimapBound.height / viewportBound.height;
 
@@ -605,8 +629,8 @@ function registerEvents(reductionRate, dims, g) {
 
   $(document).on("click", ".autocomplete-item", function () {
     if (currentTabNumber === $("#id_tabContainer li.tab.active").attr("counter")) {
-      let addr = $(this).attr("target");
-      let rect = d3.select("#id_" + addr);
+      let target = $(this).attr("target");
+      let rect = d3.select(target);
       let width = rect.attr("width");
       let gNode = d3.select(rect.node().parentNode.parentNode);
       let idx = parseInt($(this).attr("idx"));
@@ -621,22 +645,42 @@ function registerEvents(reductionRate, dims, g) {
 
   $(document).on("click", ".comment-content", function () {
     if (currentTabNumber === $("#id_tabContainer li.tab.active").attr("counter")) {
-      let addr = $(this).attr("title");
-      let rect = d3.select("#id_" + addr);
-      $(".stmtHighlight").removeClass("stmtHighlight");
-      rect.attr("class", "nodestmtbox stmtHighlight")
-        .on("click", function () {
-          $(this).removeClass("stmtHighlight");
+      // #id_tabid_[element-type]_nodeidx_idx
+      let $self = $(this);
+      let tabid = $self.attr("target").split("_")[1];
+      let tab = $("#id_tabContainer li[counter=" + tabid + "]");
+      if (tab.length > 0) {
+        function getData() {
+          return new Promise(function (resolve, reject) {
+            activateTab(tab, resolve);
+          });
+        }
+        getData().then(function (data) {
+          let rectid = $self.attr("target").replace("_g_comment-", "_rect-");
+          let rect = d3.select(rectid);
+          $(".stmtHighlight").removeClass("stmtHighlight");
+          rect.attr("class", "nodestmtbox stmtHighlight")
+            .on("click", function () {
+              $(this).removeClass("stmtHighlight");
+            });
+          let width = rect.attr("width");
+          let gNode = d3.select(rect.node().parentNode.parentNode);
+          let gidx = parseInt(d3.select(rect.node().parentNode).attr("idx"));
+          let pos = gNode.attr("transform")
+            .split("translate")[1].split("(")[1].split(")")[0].split(",");
+
+          let x = (parseFloat(pos[0]) + width / 2) * reductionRate;
+          let y = (parseFloat(pos[1]) + gidx * 14) * reductionRate;
+
+          let vMapPt = convertvMapPtToVPCoordinate(x, y);
+          toCenter(parseFloat(vMapPt.x), parseFloat(vMapPt.y), 1);
+        }).catch(function (err) {
+          console.error(err); // Error 출력
         });
-      let width = rect.attr("width");
-      let gNode = d3.select(rect.node().parentNode.parentNode);
-      let gidx = parseInt(d3.select(rect.node().parentNode).attr("idx"));
-      let pos = gNode.attr("transform")
-        .split("translate")[1].split("(")[1].split(")")[0].split(",");
-      let x = (parseFloat(pos[0]) + width / 2) * reductionRate;;
-      let y = (parseFloat(pos[1]) + gidx * 14) * reductionRate;
-      let vMapPt = convertvMapPtToVPCoordinate(x, y);
-      toCenter(parseFloat(vMapPt.x), parseFloat(vMapPt.y), 1);
+      } else {
+
+      }
+
     }
   });
 
@@ -646,7 +690,7 @@ function registerEvents(reductionRate, dims, g) {
   cfg.call(zoom).call(zoom.transform, transform).on("dblclick.zoom", null);
 }
 
-function registerRefreshEvents(dims) {
+function registerRefreshEvents() {
   $("#id_btn-refresh").click(function () {
     query({
       "q": "cfg-disasm",
@@ -654,6 +698,7 @@ function registerRefreshEvents(dims) {
     },
       function (json) {
         if (!isEmpty(json)) {
+          let dims = reloadUI();
           drawCFG(dims, json);
         }
       });

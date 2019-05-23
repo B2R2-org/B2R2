@@ -132,8 +132,14 @@ function runOnline(dims) {
 }
 
 function reloadUI() {
+  let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
+  const graphContainerWidth = $(window).width()
+    - $(".sidebar-menu").width()
+    - $(".sidebar-content").width();
+  $("#id_graphContainer").width(graphContainerWidth);
+  d3.select("#cfg-" + currentTabNumber).attr("width", graphContainerWidth)
   let cfgVPDim = {
-    width: document.getElementById("id_graphContainer").getBoundingClientRect().width
+    width: graphContainerWidth
       - parseInt($("#id_graphContainer").css("padding-right"))
       - rightMargin,
     height: document.getElementById("id_MainContainer").getBoundingClientRect().height
@@ -144,7 +150,6 @@ function reloadUI() {
     width: cfgVPDim.width * minimapRatio,
     height: cfgVPDim.height * minimapRatio,
   }
-
   return { cfgVPDim: cfgVPDim, minimapVPDim: minimapVPDim };
 }
 
