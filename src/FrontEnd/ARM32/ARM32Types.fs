@@ -2214,19 +2214,19 @@ type AddressingMode =
   | LiteralMode of Label
 
 type Operand =
-  | Register of Register
-  | SpecReg of Register * PSRFlag option
-  | RegList of Register list
-  | SIMDOpr of SIMDOperand
-  | Immediate of Const
-  | FPImmediate of float
-  | Shift of Shift
-  | RegShift of SRType * Register
-  | Memory of AddressingMode
-  | Option of OptionOpr
-  | Iflag of Iflag
-  | Endian of Endian
-  | Cond of Condition
+  | OprReg of Register
+  | OprSpecReg of Register * PSRFlag option
+  | OprRegList of Register list
+  | OprSIMD of SIMDOperand
+  | OprImm of Const
+  | OprFPImm of float
+  | OprShift of Shift
+  | OprRegShift of SRType * Register
+  | OprMemory of AddressingMode
+  | OprOption of OptionOpr
+  | OprIflag of Iflag
+  | OprEndian of Endian
+  | OprCond of Condition
 
 type Operands =
   | NoOperand

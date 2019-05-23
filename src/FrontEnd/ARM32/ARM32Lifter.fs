@@ -66,10 +66,10 @@ let regsToUInt32 regs = List.fold (fun acc reg -> acc + getRegNum reg) 0u regs
 let regsToExpr regs = num <| BitVector.ofUInt32 (regsToUInt32 regs) 16<rt>
 
 let transOprToExpr ctxt = function
-  | SpecReg (reg, _)
-  | Register reg -> getRegVar ctxt reg
-  | RegList regs -> regsToExpr regs
-  | Immediate imm -> num <| BitVector.ofInt64 imm 32<rt>
+  | OprSpecReg (reg, _)
+  | OprReg reg -> getRegVar ctxt reg
+  | OprRegList regs -> regsToExpr regs
+  | OprImm imm -> num <| BitVector.ofInt64 imm 32<rt>
   | _ -> raise InvalidOperandException
 
 let transOneOpr insInfo ctxt =
@@ -521,7 +521,7 @@ let shiftForRegAmount value regType shiftType amount carryIn =
   shiftCForRegAmount value regType shiftType amount carryIn |> fst
 
 /// Perform a specified shift by a specified amount on a bitstring,
-/// on page A8-292. function : Shift()
+/// on page A8-292. function : OprShift()
 let shift value regType shiftType amount carryIn =
   shiftC value regType shiftType amount carryIn |> fst
 
@@ -670,19 +670,19 @@ let bitCount num size =
 /// function : CountLeadingZeroBits()
 let countLeadingZeroBits b size = size - 1 - highestSetBit b size
 
-/// Memory access that must be aligned, at specified privilege level,
+/// OprMemory access that must be aligned, at specified privilege level,
 /// on page B2-1294. function : MemA[]
 let memAWithPriv addr size value = b0  // FIXME
 
-/// Memory access that must be aligned, at current privilege level,
+/// OprMemory access that must be aligned, at current privilege level,
 /// on page B2-1294. function : MemA_with_priv[]
 let memA addr size value = memAWithPriv addr size value
 
-/// Memory access that must be aligned, at specified privilege level,
+/// OprMemory access that must be aligned, at specified privilege level,
 /// on page B2-1294. function : MemU_with_priv[]
 let memUWithPriv addr size value = b0  // FIXME
 
-/// Memory access without alignment requirement, at current privilege level,
+/// OprMemory access without alignment requirement, at current privilege level,
 /// on page B2-1295. function : MemU[]
 let memU addr size value = memUWithPriv addr size value
 
@@ -884,7 +884,7 @@ let cpsrWriteByInstr ctxt value bytemask isExcptReturn (builder: StmtBuilder) =
 
 let transShiftOprs ctxt opr1 opr2 =
   match opr1, opr2 with
-  | Register _, Shift (typ, Imm imm) ->
+  | OprReg _, OprShift (typ, Imm imm) ->
     let e = transOprToExpr ctxt opr1
     let carryIn = getCarryFlag ctxt
     shift e 32<rt> typ imm carryIn
@@ -892,22 +892,22 @@ let transShiftOprs ctxt opr1 opr2 =
 
 let parseOprOfMVNS insInfo ctxt =
   match insInfo.Operands with
-  | TwoOperands (Register _, Immediate _) -> transTwoOprs insInfo ctxt
+  | TwoOperands (OprReg _, OprImm _) -> transTwoOprs insInfo ctxt
   | ThreeOperands (opr1, opr2, opr3) ->
     transOprToExpr ctxt opr1, transShiftOprs ctxt opr2 opr3
   | _ -> raise InvalidOperandException
 
 let transTwoOprsOfADC insInfo ctxt =
   match insInfo.Operands with
-  | TwoOperands (Register _, Register _) ->
+  | TwoOperands (OprReg _, OprReg _) ->
     let e1, e2 = transTwoOprs insInfo ctxt
     e1, e1, shift e2 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
   | _ -> raise InvalidOperandException
 
 let transThreeOprsOfADC insInfo ctxt =
   match insInfo.Operands with
-  | ThreeOperands (_, _, Immediate _) -> transThreeOprs insInfo ctxt
-  | ThreeOperands (Register _, Register _, Register _) ->
+  | ThreeOperands (_, _, OprImm _) -> transThreeOprs insInfo ctxt
+  | ThreeOperands (OprReg _, OprReg _, OprReg _) ->
     let carryIn = getCarryFlag ctxt
     let e1, e2, e3 = transThreeOprs insInfo ctxt
     e1, e2, shift e3 32<rt> SRTypeLSL 0u carryIn
@@ -915,10 +915,10 @@ let transThreeOprsOfADC insInfo ctxt =
 
 let transFourOprsOfADC insInfo ctxt =
   match insInfo.Operands with
-  | FourOperands (opr1, opr2, opr3 , (Shift (_, Imm _) as opr4)) ->
+  | FourOperands (opr1, opr2, opr3 , (OprShift (_, Imm _) as opr4)) ->
     let e1, e2 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
     e1, e2, transShiftOprs ctxt opr3 opr4
-  | FourOperands (opr1, opr2, opr3 , RegShift (typ, reg)) ->
+  | FourOperands (opr1, opr2, opr3 , OprRegShift (typ, reg)) ->
     let e1, e2 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
     let e3 = transOprToExpr ctxt opr3
     let amount = extractLow 8<rt> (getRegVar ctxt reg) |> zExt 32<rt>
@@ -991,17 +991,17 @@ let adc isSetFlags insInfo ctxt =
 
 let transTwoOprsOfADD insInfo ctxt =
   match insInfo.Operands with
-  | TwoOperands (Register _, Immediate _) ->
+  | TwoOperands (OprReg _, OprImm _) ->
     let e1, e2 = transTwoOprs insInfo ctxt in e1, e1, e2
-  | TwoOperands (Register _, Register _) ->
+  | TwoOperands (OprReg _, OprReg _) ->
     let e1, e2 = transTwoOprs insInfo ctxt
     e1, e1, shift e2 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
   | _ -> raise InvalidOperandException
 
 let transThreeOprsOfADD insInfo ctxt =
   match insInfo.Operands with
-  | ThreeOperands (_, _, Immediate _) -> transThreeOprs insInfo ctxt
-  | ThreeOperands (Register _, Register _, Register _) ->
+  | ThreeOperands (_, _, OprImm _) -> transThreeOprs insInfo ctxt
+  | ThreeOperands (OprReg _, OprReg _, OprReg _) ->
     let carryIn = getCarryFlag ctxt
     let e1, e2, e3 = transThreeOprs insInfo ctxt
     e1, e2, shift e3 32<rt> SRTypeLSL 0u carryIn
@@ -1009,10 +1009,10 @@ let transThreeOprsOfADD insInfo ctxt =
 
 let transFourOprsOfADD insInfo ctxt =
   match insInfo.Operands with
-  | FourOperands (opr1, opr2, opr3 , (Shift (_, Imm _) as opr4)) ->
+  | FourOperands (opr1, opr2, opr3 , (OprShift (_, Imm _) as opr4)) ->
     let e1, e2 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
     e1, e2, transShiftOprs ctxt opr3 opr4
-  | FourOperands (opr1, opr2, opr3 , RegShift (typ, reg)) ->
+  | FourOperands (opr1, opr2, opr3 , OprRegShift (typ, reg)) ->
     let e1, e2 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
     let e3 = transOprToExpr ctxt opr3
     let amount = extractLow 8<rt> (getRegVar ctxt reg) |> zExt 32<rt>
@@ -1073,7 +1073,7 @@ let targetModeOfBL insInfo =
 let parseOprOfBL insInfo =
   let targetMode = targetModeOfBL insInfo
   match insInfo.Operands with
-  | OneOperand (Memory (LiteralMode imm)) ->
+  | OneOperand (OprMemory (LiteralMode imm)) ->
     transLableOprsOfBL insInfo targetMode imm, targetMode
   | _ -> raise InvalidOperandException
 
@@ -1111,13 +1111,13 @@ let bl insInfo ctxt =
 
 let branchWithLink insInfo ctxt =
   match insInfo.Operands with
-  | OneOperand (Register reg) -> blxWithReg insInfo reg ctxt
+  | OneOperand (OprReg reg) -> blxWithReg insInfo reg ctxt
   | _ -> bl insInfo ctxt
 
 let parseOprOfPUSHPOP insInfo =
   match insInfo.Operands with
-  | OneOperand (Register r) -> regsToUInt32 [ r ] //, true (unAlignedAllowed)
-  | OneOperand (RegList regs) -> regsToUInt32 regs //, false (unAlignedAllowed)
+  | OneOperand (OprReg r) -> regsToUInt32 [ r ] //, true (unAlignedAllowed)
+  | OneOperand (OprRegList regs) -> regsToUInt32 regs //, false (unAlignedAllowed)
   | _ -> raise InvalidOperandException
 
 let pushLoop ctxt numOfReg addr (builder: StmtBuilder) =
@@ -1290,7 +1290,7 @@ let subsAndRelatedInstr insInfo ctxt =
 
 let transTwoOprsOfAND insInfo ctxt =
   match insInfo.Operands with
-  | TwoOperands (Register _, Register _) ->
+  | TwoOperands (OprReg _, OprReg _) ->
     let e1, e2 = transTwoOprs insInfo ctxt
     let shifted, carryOut = shiftC e2 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
     e1, e2, shifted, carryOut
@@ -1298,20 +1298,20 @@ let transTwoOprsOfAND insInfo ctxt =
 
 let transThreeOprsOfAND insInfo ctxt =
   match insInfo.Operands with
-  | ThreeOperands (_, _, Immediate _) ->
+  | ThreeOperands (_, _, OprImm _) ->
     let e1, e2, e3 = transThreeOprs insInfo ctxt
     e1, e2, e3, getCarryFlag ctxt
   | _ -> raise InvalidOperandException
 
 let transFourOprsOfAND insInfo ctxt =
   match insInfo.Operands with
-  | FourOperands (opr1, opr2, opr3 , Shift (typ, Imm imm)) ->
+  | FourOperands (opr1, opr2, opr3 , OprShift (typ, Imm imm)) ->
     let carryIn = getCarryFlag ctxt
     let dst, src1 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
     let e3 = transOprToExpr ctxt opr3
     let shifted, carryOut = shiftC e3 32<rt> typ imm carryIn
     dst, src1, shifted, carryOut
-  | FourOperands (opr1, opr2, opr3 , RegShift (typ, reg)) ->
+  | FourOperands (opr1, opr2, opr3 , OprRegShift (typ, reg)) ->
     let carryIn = getCarryFlag ctxt
     let dst, src1 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
     let e3 = transOprToExpr ctxt opr3
@@ -1388,10 +1388,10 @@ let eor isSetFlags insInfo ctxt =
 
 let transFourOprsOfRSB insInfo ctxt =
   match insInfo.Operands with
-  | FourOperands (opr1, opr2, opr3 , (Shift (_, Imm _) as opr4)) ->
+  | FourOperands (opr1, opr2, opr3 , (OprShift (_, Imm _) as opr4)) ->
     let e1, e2 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
     e1, e2, transShiftOprs ctxt opr3 opr4
-  | FourOperands (opr1, opr2, opr3 , RegShift (typ, reg)) ->
+  | FourOperands (opr1, opr2, opr3 , OprRegShift (typ, reg)) ->
     let e1, e2 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
     let e3 = transOprToExpr ctxt opr3
     let amount = extractLow 8<rt> (getRegVar ctxt reg) |> zExt 32<rt>
@@ -1428,17 +1428,17 @@ let rsb isSetFlags insInfo ctxt =
 
 let transTwoOprsOfSBC insInfo ctxt =
   match insInfo.Operands with
-  | TwoOperands (Register _, Register _) ->
+  | TwoOperands (OprReg _, OprReg _) ->
     let e1, e2 = transTwoOprs insInfo ctxt
     e1, e1, shift e2 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
   | _ -> raise InvalidOperandException
 
 let transFourOprsOfSBC insInfo ctxt =
   match insInfo.Operands with
-  | FourOperands (opr1, opr2, opr3 , (Shift (_, Imm _) as opr4)) ->
+  | FourOperands (opr1, opr2, opr3 , (OprShift (_, Imm _) as opr4)) ->
     let e1, e2 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
     e1, e2, transShiftOprs ctxt opr3 opr4
-  | FourOperands (opr1, opr2, opr3 , RegShift (typ, reg)) ->
+  | FourOperands (opr1, opr2, opr3 , OprRegShift (typ, reg)) ->
     let e1, e2 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
     let e3 = transOprToExpr ctxt opr3
     let amount = extractLow 8<rt> (getRegVar ctxt reg) |> zExt 32<rt>
@@ -1476,10 +1476,10 @@ let sbc isSetFlags insInfo ctxt =
 
 let transFourOprsOfRSC insInfo ctxt =
   match insInfo.Operands with
-  | FourOperands (opr1, opr2, opr3 , (Shift (_, Imm _) as opr4)) ->
+  | FourOperands (opr1, opr2, opr3 , (OprShift (_, Imm _) as opr4)) ->
     let e1, e2 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
     e1, e2, transShiftOprs ctxt opr3 opr4
-  | FourOperands (opr1, opr2, opr3 , RegShift (typ, reg)) ->
+  | FourOperands (opr1, opr2, opr3 , OprRegShift (typ, reg)) ->
     let e1, e2 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
     let e3 = transOprToExpr ctxt opr3
     let amount = extractLow 8<rt> (getRegVar ctxt reg) |> zExt 32<rt>
@@ -1556,10 +1556,10 @@ let bic isSetFlags insInfo ctxt =
 
 let transTwoOprsOfMVN insInfo ctxt =
   match insInfo.Operands with
-  | TwoOperands (Register _, Immediate _) ->
+  | TwoOperands (OprReg _, OprImm _) ->
     let e1, e2 = transTwoOprs insInfo ctxt
     e1, e2, getCarryFlag ctxt
-  | TwoOperands (Register _, Register _) ->
+  | TwoOperands (OprReg _, OprReg _) ->
     let e1, e2 = transTwoOprs insInfo ctxt
     let shifted, carryOut = shiftC e2 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
     e1, shifted, carryOut
@@ -1567,12 +1567,12 @@ let transTwoOprsOfMVN insInfo ctxt =
 
 let transThreeOprsOfMVN insInfo ctxt =
   match insInfo.Operands with
-  | ThreeOperands (opr1, opr2, Shift (typ, Imm imm)) ->
+  | ThreeOperands (opr1, opr2, OprShift (typ, Imm imm)) ->
     let carryIn = getCarryFlag ctxt
     let dst, src = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
     let shifted, carryOut = shiftC src 32<rt> typ imm carryIn
     dst, shifted, carryOut
-  | ThreeOperands (opr1, opr2, RegShift (typ, rs)) ->
+  | ThreeOperands (opr1, opr2, OprRegShift (typ, rs)) ->
     let carryIn = getCarryFlag ctxt
     let dst, src = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
     let amount = extractLow 8<rt> (getRegVar ctxt rs) |> zExt 32<rt>
@@ -1614,12 +1614,12 @@ let getImmShiftFromShiftType imm = function
 
 let transTwoOprsOfShiftInstr insInfo shiftTyp ctxt =
   match insInfo.Operands with
-  | TwoOperands (Register _, Register _) when shiftTyp = SRTypeRRX ->
+  | TwoOperands (OprReg _, OprReg _) when shiftTyp = SRTypeRRX ->
     let carryIn = getCarryFlag ctxt
     let e1, e2 = transTwoOprs insInfo ctxt
     let result, carryOut = shiftC e2 32<rt> shiftTyp 1ul carryIn
     e1, result, carryOut
-  | TwoOperands (Register _, Register _) ->
+  | TwoOperands (OprReg _, OprReg _) ->
     let carryIn = getCarryFlag ctxt
     let e1, e2 = transTwoOprs insInfo ctxt
     let shiftN = extractLow 8<rt> e2 |> zExt 32<rt>
@@ -1629,12 +1629,12 @@ let transTwoOprsOfShiftInstr insInfo shiftTyp ctxt =
 
 let transThreeOprsOfShiftInstr insInfo shiftTyp ctxt =
   match insInfo.Operands with
-  | ThreeOperands (opr1, opr2, Immediate imm) ->
+  | ThreeOperands (opr1, opr2, OprImm imm) ->
     let e1, e2 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
     let shiftN = getImmShiftFromShiftType (uint32 imm) shiftTyp
     let shifted, carryOut = shiftC e2 32<rt> shiftTyp shiftN (getCarryFlag ctxt)
     e1, shifted, carryOut
-  | ThreeOperands (_, _, Register _) ->
+  | ThreeOperands (_, _, OprReg _) ->
     let carryIn = getCarryFlag ctxt
     let e1, e2, e3 = transThreeOprs insInfo ctxt
     let amount = extractLow 8<rt> e3 |> zExt 32<rt>
@@ -1670,100 +1670,100 @@ let shiftInstr isSetFlags insInfo typ ctxt =
 
 let subs isSetFlags insInfo ctxt =
   match insInfo.Operands with
-  | ThreeOperands (Register R.PC, _, _)
+  | ThreeOperands (OprReg R.PC, _, _)
     when insInfo.Mode = ArchOperationMode.ThumbMode -> subsPCLRThumb insInfo ctxt
-  | ThreeOperands (Register R.PC, _, _)
-  | FourOperands (Register R.PC, _, _, _) -> subsAndRelatedInstr insInfo ctxt
+  | ThreeOperands (OprReg R.PC, _, _)
+  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr insInfo ctxt
   | _ -> sub isSetFlags insInfo ctxt
 
 let adds isSetFlags insInfo ctxt =
   match insInfo.Operands with
-  | ThreeOperands (Register R.PC, _, _)
-  | FourOperands (Register R.PC, _, _, _) -> subsAndRelatedInstr insInfo ctxt
+  | ThreeOperands (OprReg R.PC, _, _)
+  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr insInfo ctxt
   | _ -> add isSetFlags insInfo ctxt
 
 let adcs isSetFlags insInfo ctxt =
   match insInfo.Operands with
-  | ThreeOperands (Register R.PC, _, _)
-  | FourOperands (Register R.PC, _, _, _) -> subsAndRelatedInstr insInfo ctxt
+  | ThreeOperands (OprReg R.PC, _, _)
+  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr insInfo ctxt
   | _ -> adc isSetFlags insInfo ctxt
 
 let ands isSetFlags insInfo ctxt =
   match insInfo.Operands with
-  | ThreeOperands (Register R.PC, _, _)
-  | FourOperands (Register R.PC, _, _, _) -> subsAndRelatedInstr insInfo ctxt
+  | ThreeOperands (OprReg R.PC, _, _)
+  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr insInfo ctxt
   | _ -> transAND isSetFlags insInfo ctxt
 
 let movs isSetFlags insInfo ctxt =
   match insInfo.Operands with
-  | TwoOperands (Register R.PC, _) -> subsAndRelatedInstr insInfo ctxt
+  | TwoOperands (OprReg R.PC, _) -> subsAndRelatedInstr insInfo ctxt
   | _ -> mov isSetFlags insInfo ctxt
 
 let eors isSetFlags insInfo ctxt =
   match insInfo.Operands with
-  | ThreeOperands (Register R.PC, _, _)
-  | FourOperands (Register R.PC, _, _, _) -> subsAndRelatedInstr insInfo ctxt
+  | ThreeOperands (OprReg R.PC, _, _)
+  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr insInfo ctxt
   | _ -> eor isSetFlags insInfo ctxt
 
 let rsbs isSetFlags insInfo ctxt =
   match insInfo.Operands with
-  | ThreeOperands (Register R.PC, _, _)
-  | FourOperands (Register R.PC, _, _, _) -> subsAndRelatedInstr insInfo ctxt
+  | ThreeOperands (OprReg R.PC, _, _)
+  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr insInfo ctxt
   | _ -> rsb isSetFlags insInfo ctxt
 
 let sbcs isSetFlags insInfo ctxt =
   match insInfo.Operands with
-  | ThreeOperands (Register R.PC, _, _)
-  | FourOperands (Register R.PC, _, _, _) -> subsAndRelatedInstr insInfo ctxt
+  | ThreeOperands (OprReg R.PC, _, _)
+  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr insInfo ctxt
   | _ -> sbc isSetFlags insInfo ctxt
 
 let rscs isSetFlags insInfo ctxt =
   match insInfo.Operands with
-  | ThreeOperands (Register R.PC, _, _)
-  | FourOperands (Register R.PC, _, _, _) -> subsAndRelatedInstr insInfo ctxt
+  | ThreeOperands (OprReg R.PC, _, _)
+  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr insInfo ctxt
   | _ -> rsc isSetFlags insInfo ctxt
 
 let orrs isSetFlags insInfo ctxt =
   match insInfo.Operands with
-  | ThreeOperands (Register R.PC, _, _)
-  | FourOperands (Register R.PC, _, _, _) -> subsAndRelatedInstr insInfo ctxt
+  | ThreeOperands (OprReg R.PC, _, _)
+  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr insInfo ctxt
   | _ -> orr isSetFlags insInfo ctxt
 
 let bics isSetFlags insInfo ctxt =
   match insInfo.Operands with
-  | ThreeOperands (Register R.PC, _, _)
-  | FourOperands (Register R.PC, _, _, _) -> subsAndRelatedInstr insInfo ctxt
+  | ThreeOperands (OprReg R.PC, _, _)
+  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr insInfo ctxt
   | _ -> bic isSetFlags insInfo ctxt
 
 let mvns isSetFlags insInfo ctxt =
   match insInfo.Operands with
-  | TwoOperands (Register R.PC, _)
-  | ThreeOperands (Register R.PC, _, _) -> subsAndRelatedInstr insInfo ctxt
+  | TwoOperands (OprReg R.PC, _)
+  | ThreeOperands (OprReg R.PC, _, _) -> subsAndRelatedInstr insInfo ctxt
   | _ -> mvn isSetFlags insInfo ctxt
 
 let asrs isSetFlags insInfo ctxt =
   match insInfo.Operands with
-  | ThreeOperands (Register R.PC, _, _) -> subsAndRelatedInstr insInfo ctxt
+  | ThreeOperands (OprReg R.PC, _, _) -> subsAndRelatedInstr insInfo ctxt
   | _ -> shiftInstr isSetFlags insInfo SRTypeASR ctxt
 
 let lsls isSetFlags insInfo ctxt =
   match insInfo.Operands with
-  | ThreeOperands (Register R.PC, _, _) -> subsAndRelatedInstr insInfo ctxt
+  | ThreeOperands (OprReg R.PC, _, _) -> subsAndRelatedInstr insInfo ctxt
   | _ -> shiftInstr isSetFlags insInfo SRTypeLSL ctxt
 
 let lsrs isSetFlags insInfo ctxt =
   match insInfo.Operands with
-  | ThreeOperands (Register R.PC, _, _) -> subsAndRelatedInstr insInfo ctxt
+  | ThreeOperands (OprReg R.PC, _, _) -> subsAndRelatedInstr insInfo ctxt
   | _ -> shiftInstr isSetFlags insInfo SRTypeLSR ctxt
 
 let rors isSetFlags insInfo ctxt =
   match insInfo.Operands with
-  | ThreeOperands (Register R.PC, _, _) -> subsAndRelatedInstr insInfo ctxt
+  | ThreeOperands (OprReg R.PC, _, _) -> subsAndRelatedInstr insInfo ctxt
   | _ -> shiftInstr isSetFlags insInfo SRTypeROR ctxt
 
 let rrxs isSetFlags insInfo ctxt =
   match insInfo.Operands with
-  | TwoOperands (Register R.PC, _) -> subsAndRelatedInstr insInfo ctxt
+  | TwoOperands (OprReg R.PC, _) -> subsAndRelatedInstr insInfo ctxt
   | _ -> shiftInstr isSetFlags insInfo SRTypeRRX ctxt
 
 let clz insInfo ctxt =
@@ -1804,8 +1804,8 @@ let clz insInfo ctxt =
 
 let transTwoOprsOfCMN insInfo ctxt =
   match insInfo.Operands with
-  | TwoOperands (Register _, Immediate _) -> transTwoOprs insInfo ctxt
-  | TwoOperands (Register _, Register _) ->
+  | TwoOperands (OprReg _, OprImm _) -> transTwoOprs insInfo ctxt
+  | TwoOperands (OprReg _, OprReg _) ->
     let e1, e2 = transTwoOprs insInfo ctxt
     let shifted = shift e2 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
     e1, shifted
@@ -1813,12 +1813,12 @@ let transTwoOprsOfCMN insInfo ctxt =
 
 let transThreeOprsOfCMN insInfo ctxt =
   match insInfo.Operands with
-  | ThreeOperands (opr1, opr2, Shift (typ, Imm imm)) ->
+  | ThreeOperands (opr1, opr2, OprShift (typ, Imm imm)) ->
     let carryIn = getCarryFlag ctxt
     let dst, src = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
     let shifted = shift src 32<rt> typ imm carryIn
     dst, shifted
-  | ThreeOperands (opr1, opr2, RegShift (typ, rs)) ->
+  | ThreeOperands (opr1, opr2, OprRegShift (typ, rs)) ->
     let carryIn = getCarryFlag ctxt
     let dst, src = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
     let amount = extractLow 8<rt> (getRegVar ctxt rs) |> zExt 32<rt>
@@ -1869,19 +1869,19 @@ let mla isSetFlags insInfo ctxt =
 
 let transTwoOprsOfCMP insInfo ctxt =
   match insInfo.Operands with
-  | TwoOperands (Register _, Immediate _) -> transTwoOprs insInfo ctxt
-  | TwoOperands (Register _, Register _) ->
+  | TwoOperands (OprReg _, OprImm _) -> transTwoOprs insInfo ctxt
+  | TwoOperands (OprReg _, OprReg _) ->
     let e1, e2 = transTwoOprs insInfo ctxt
     e1, shift e2 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
   | _ -> raise InvalidOperandException
 
 let transThreeOprsOfCMP insInfo ctxt =
   match insInfo.Operands with
-  | ThreeOperands (opr1, opr2, Shift (typ, Imm imm)) ->
+  | ThreeOperands (opr1, opr2, OprShift (typ, Imm imm)) ->
     let carryIn = getCarryFlag ctxt
     let dst, src = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
     dst, shift src 32<rt> typ imm carryIn
-  | ThreeOperands (opr1, opr2, RegShift (typ, rs)) ->
+  | ThreeOperands (opr1, opr2, OprRegShift (typ, rs)) ->
     let carryIn = getCarryFlag ctxt
     let dst, src = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
     let amount = extractLow 8<rt> (getRegVar ctxt rs) |> zExt 32<rt>
@@ -1949,15 +1949,15 @@ let umull isSetFlags insInfo ctxt =
 
 let transOprsOfTEQ insInfo ctxt =
   match insInfo.Operands with
-  | TwoOperands (Register _, Immediate _) ->
+  | TwoOperands (OprReg _, OprImm _) ->
     let rn, imm = transTwoOprs insInfo ctxt
     rn, imm, getCarryFlag ctxt
-  | ThreeOperands (opr1, opr2, Shift (typ, Imm imm)) ->
+  | ThreeOperands (opr1, opr2, OprShift (typ, Imm imm)) ->
     let carryIn = getCarryFlag ctxt
     let rn, rm = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
     let shifted, carryOut = shiftC rm 32<rt> typ imm carryIn
     rn, shifted, carryOut
-  | ThreeOperands (opr1, opr2, RegShift (typ, rs)) ->
+  | ThreeOperands (opr1, opr2, OprRegShift (typ, rs)) ->
     let carryIn = getCarryFlag ctxt
     let rn, rm = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
     let amount = extractLow 8<rt> (getRegVar ctxt rs) |> zExt 32<rt>
@@ -1999,19 +1999,19 @@ let mul isSetFlags insInfo ctxt =
 
 let transOprsOfTST insInfo ctxt =
   match insInfo.Operands with
-  | TwoOperands (Register _, Immediate _) ->
+  | TwoOperands (OprReg _, OprImm _) ->
     let rn, imm = transTwoOprs insInfo ctxt
     rn, imm, getCarryFlag ctxt
-  | TwoOperands (Register _, Register _) ->
+  | TwoOperands (OprReg _, OprReg _) ->
     let e1, e2 = transTwoOprs insInfo ctxt
     let shifted, carryOut = shiftC e2 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
     e1, shifted, carryOut
-  | ThreeOperands (opr1, opr2, Shift (typ, Imm imm)) ->
+  | ThreeOperands (opr1, opr2, OprShift (typ, Imm imm)) ->
     let carryIn = getCarryFlag ctxt
     let rn, rm = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
     let shifted, carryOut = shiftC rm 32<rt> typ imm carryIn
     rn, shifted, carryOut
-  | ThreeOperands (opr1, opr2, RegShift (typ, rs)) ->
+  | ThreeOperands (opr1, opr2, OprRegShift (typ, rs)) ->
     let carryIn = getCarryFlag ctxt
     let rn, rm = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
     let amount = extractLow 8<rt> (getRegVar ctxt rs) |> zExt 32<rt>
@@ -2055,7 +2055,7 @@ let smull isSetFlags insInfo ctxt =
 let parseOprOfB insInfo =
   let pc = bvOfBaseAddr insInfo.Address
   match insInfo.Operands with
-  | OneOperand (Memory (LiteralMode imm)) ->
+  | OneOperand (OprMemory (LiteralMode imm)) ->
     pc .+ (num <| BitVector.ofInt64 imm 32<rt>)
   | _ -> raise InvalidOperandException
 
@@ -2127,7 +2127,7 @@ let pop insInfo ctxt =
 
 let parseOprOfLDM insInfo ctxt =
   match insInfo.Operands with
-  | TwoOperands (Register reg, RegList regs) ->
+  | TwoOperands (OprReg reg, OprRegList regs) ->
     let struct (rn, bool) = ParseUtils.parseRegW reg
     getRegVar ctxt rn, getRegNum rn, bool, regsToUInt32 regs
   | _ -> raise InvalidOperandException
@@ -2171,41 +2171,41 @@ let getOffAddrWithImm s r imm =
   | _, _ -> r
 
 let parseMemOfLDR insInfo ctxt = function
-  | Memory (OffsetMode (ImmOffset (rn , s, imm))) ->
+  | OprMemory (OffsetMode (ImmOffset (rn , s, imm))) ->
     getOffAddrWithImm s (getRegVar ctxt rn) imm, None
-  | Memory (PreIdxMode (ImmOffset (rn , s, imm))) ->
+  | OprMemory (PreIdxMode (ImmOffset (rn , s, imm))) ->
     let rn = getRegVar ctxt rn
     let offsetAddr = getOffAddrWithImm s rn imm
     offsetAddr, Some (rn := offsetAddr)
-  | Memory (PostIdxMode (ImmOffset (rn , s, imm))) ->
+  | OprMemory (PostIdxMode (ImmOffset (rn , s, imm))) ->
     let rn = getRegVar ctxt rn
     rn, Some (rn := getOffAddrWithImm s rn imm)
-  | Memory (LiteralMode imm) ->
+  | OprMemory (LiteralMode imm) ->
     let addr = bvOfBaseAddr insInfo.Address
     let pc = align addr (num <| BitVector.ofInt32 4 32<rt>)
     pc .+ (num <| BitVector.ofInt64 imm 32<rt>), None
-  | Memory (OffsetMode (RegOffset (n, _, m, None))) ->
+  | OprMemory (OffsetMode (RegOffset (n, _, m, None))) ->
     let offset = shift (getRegVar ctxt m) 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
     getRegVar ctxt n .+ offset, None
-  | Memory (PreIdxMode (RegOffset (n, s, m, None))) ->
+  | OprMemory (PreIdxMode (RegOffset (n, s, m, None))) ->
     let rn = getRegVar ctxt n
     let offset = shift (getRegVar ctxt m) 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
     let offsetAddr = getOffAddrWithExpr s rn offset
     offsetAddr, Some (rn := offsetAddr)
-  | Memory (PostIdxMode (RegOffset (n, s, m, None))) ->
+  | OprMemory (PostIdxMode (RegOffset (n, s, m, None))) ->
     let rn = getRegVar ctxt n
     let offset = shift (getRegVar ctxt m) 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
     rn, Some (rn := getOffAddrWithExpr s rn offset)
-  | Memory (OffsetMode (RegOffset (n, s, m, Some (t, Imm i)))) ->
+  | OprMemory (OffsetMode (RegOffset (n, s, m, Some (t, Imm i)))) ->
     let rn = getRegVar ctxt n
     let offset = shift (getRegVar ctxt m) 32<rt> t i (getCarryFlag ctxt)
     getOffAddrWithExpr s rn offset, None
-  | Memory (PreIdxMode (RegOffset (n, s, m, Some (t, Imm i)))) ->
+  | OprMemory (PreIdxMode (RegOffset (n, s, m, Some (t, Imm i)))) ->
     let rn = getRegVar ctxt n
     let offset = shift (getRegVar ctxt m) 32<rt> t i (getCarryFlag ctxt)
     let offsetAddr = getOffAddrWithExpr s rn offset
     offsetAddr, Some (rn := offsetAddr)
-  | Memory (PostIdxMode (RegOffset (n, s, m, Some (t, Imm i)))) ->
+  | OprMemory (PostIdxMode (RegOffset (n, s, m, Some (t, Imm i)))) ->
     let rn = getRegVar ctxt n
     let offset = shift (getRegVar ctxt m) 32<rt> t i (getCarryFlag ctxt)
     rn, Some (rn := getOffAddrWithExpr s rn offset)
@@ -2213,7 +2213,7 @@ let parseMemOfLDR insInfo ctxt = function
 
 let parseOprOfLDR insInfo ctxt =
   match insInfo.Operands with
-  | TwoOperands (Register rt, (Memory _ as mem)) ->
+  | TwoOperands (OprReg rt, (OprMemory _ as mem)) ->
     let addr, stmt = parseMemOfLDR insInfo ctxt mem
     getRegVar ctxt rt, addr, stmt
   | _ -> raise InvalidOperandException
@@ -2260,20 +2260,20 @@ let ldrb insInfo ctxt =
   endMark insInfo lblCondFail isCondPass builder
 
 let parseMemOfLDRD insInfo ctxt = function
-  | Memory (OffsetMode (RegOffset (n, s, m, None))) ->
+  | OprMemory (OffsetMode (RegOffset (n, s, m, None))) ->
     getOffAddrWithExpr s (getRegVar ctxt n) (getRegVar ctxt m), None
-  | Memory (PreIdxMode (RegOffset (n, s, m, None))) ->
+  | OprMemory (PreIdxMode (RegOffset (n, s, m, None))) ->
     let rn = getRegVar ctxt n
     let offsetAddr = getOffAddrWithExpr s rn (getRegVar ctxt m)
     offsetAddr, Some (rn := offsetAddr)
-  | Memory (PostIdxMode (RegOffset (n, s, m, None))) ->
+  | OprMemory (PostIdxMode (RegOffset (n, s, m, None))) ->
     let rn = getRegVar ctxt n
     rn, Some (rn := getOffAddrWithExpr s rn (getRegVar ctxt m))
   | mem -> parseMemOfLDR insInfo ctxt mem
 
 let parseOprOfLDRD insInfo ctxt =
   match insInfo.Operands with
-  | ThreeOperands (Register t, Register t2, (Memory _ as mem)) ->
+  | ThreeOperands (OprReg t, OprReg t2, (OprMemory _ as mem)) ->
     let addr, stmt = parseMemOfLDRD insInfo ctxt mem
     getRegVar ctxt t, getRegVar ctxt t2, addr, stmt
   | _ -> raise InvalidOperandException
@@ -2364,7 +2364,7 @@ let strh insInfo ctxt =
 
 let parseOprOfSTM insInfo ctxt =
   match insInfo.Operands with
-  | TwoOperands (Register reg, RegList regs) ->
+  | TwoOperands (OprReg reg, OprRegList regs) ->
     let struct (rn, bool) = ParseUtils.parseRegW reg
     getRegVar ctxt rn, bool, regsToUInt32 regs
   | _ -> raise InvalidOperandException
@@ -2410,7 +2410,7 @@ let stm opcode insInfo ctxt =
 let parseOprOfCBZ insInfo ctxt =
   let pc = bvOfBaseAddr insInfo.Address
   match insInfo.Operands with
-  | TwoOperands (Register rn, (Memory (LiteralMode imm))) ->
+  | TwoOperands (OprReg rn, (OprMemory (LiteralMode imm))) ->
     getRegVar ctxt rn, pc .+ (num <| BitVector.ofInt64 imm 32<rt>)
   | _ -> raise InvalidOperandException
 
@@ -2433,10 +2433,10 @@ let cbz nonZero insInfo ctxt =
 
 let parseOprOfTableBranch insInfo ctxt =
   match insInfo.Operands with
-  | OneOperand (Memory (OffsetMode (RegOffset (rn, None, rm, None)))) ->
+  | OneOperand (OprMemory (OffsetMode (RegOffset (rn, None, rm, None)))) ->
     let addr = getRegVar ctxt rn .+ getRegVar ctxt rm
     loadLE 8<rt> addr |> zExt 32<rt>
-  | OneOperand (Memory (OffsetMode (RegOffset (rn, None, rm, Some (_, Imm i)))))
+  | OneOperand (OprMemory (OffsetMode (RegOffset (rn, None, rm, Some (_, Imm i)))))
     -> let addr = getRegVar ctxt rn .+ (shiftLSL (getRegVar ctxt rm) 32<rt> i)
        loadLE 16<rt> addr |> zExt 32<rt>
   | _ -> raise InvalidOperandException
@@ -2455,7 +2455,7 @@ let tableBranch insInfo ctxt =
 
 let parseOprOfBFC insInfo ctxt =
   match insInfo.Operands with
-  | ThreeOperands (Register rd, Immediate lsb, Immediate width) ->
+  | ThreeOperands (OprReg rd, OprImm lsb, OprImm width) ->
     getRegVar ctxt rd, Convert.ToInt32 lsb, Convert.ToInt32 width
   | _ -> raise InvalidOperandException
 
@@ -2471,7 +2471,7 @@ let bfc insInfo ctxt =
 
 let parseOprOfRdRnLsbWidth insInfo ctxt =
   match insInfo.Operands with
-  | FourOperands (Register rd, Register rn, Immediate lsb, Immediate width) ->
+  | FourOperands (OprReg rd, OprReg rn, OprImm lsb, OprImm width) ->
     getRegVar ctxt rd, getRegVar ctxt rn,
     Convert.ToInt32 lsb, Convert.ToInt32 width
   | _ -> raise InvalidOperandException
@@ -2494,9 +2494,9 @@ let bfi insInfo ctxt =
 
 let parseOprOfUXTB insInfo ctxt =
   match insInfo.Operands with
-  | TwoOperands (Register rd, Register rm) ->
+  | TwoOperands (OprReg rd, OprReg rm) ->
     getRegVar ctxt rd, getRegVar ctxt rm, 0u
-  | ThreeOperands (Register rd, Register rm, Shift (_, Imm i)) ->
+  | ThreeOperands (OprReg rd, OprReg rm, OprShift (_, Imm i)) ->
     getRegVar ctxt rd, getRegVar ctxt rm, i
   | _ -> raise InvalidOperandException
 
@@ -2513,7 +2513,7 @@ let uxtb insInfo ctxt =
 
 let parseOprOfUXTAB insInfo ctxt =
   match insInfo.Operands with
-  | FourOperands (Register rd, Register rn, Register rm, Shift (_, Imm i)) ->
+  | FourOperands (OprReg rd, OprReg rn, OprReg rm, OprShift (_, Imm i)) ->
     getRegVar ctxt rd, getRegVar ctxt rn, getRegVar ctxt rm, i
   | _ -> raise InvalidOperandException
 
@@ -2544,7 +2544,7 @@ let ubfx insInfo ctxt =
 /// For ThumbMode (T1 case)
 let parseOprOfADR insInfo ctxt =
   match insInfo.Operands with
-  | TwoOperands (Register rd, Memory (LiteralMode imm)) ->
+  | TwoOperands (OprReg rd, OprMemory (LiteralMode imm)) ->
     let addr = bvOfBaseAddr insInfo.Address
     let pc = align addr (num <| BitVector.ofInt32 4 32<rt>)
     getRegVar ctxt rd, pc .+ (num <| BitVector.ofInt64 imm 32<rt>)
@@ -2594,8 +2594,8 @@ let checkSingleReg = function
 
 let parseOprOfVLDR insInfo ctxt =
   match insInfo.Operands with
-  | TwoOperands (SIMDOpr (SFReg (Vector d)),
-                 Memory (OffsetMode (ImmOffset (rn , s, imm)))) ->
+  | TwoOperands (OprSIMD (SFReg (Vector d)),
+                 OprMemory (OffsetMode (ImmOffset (rn , s, imm)))) ->
     let baseAddr =
       if rn = R.PC then
         let addr = bvOfBaseAddr insInfo.Address
@@ -2625,8 +2625,8 @@ let vldr insInfo ctxt =
 
 let parseOprOfVSTR insInfo ctxt =
   match insInfo.Operands with
-  | TwoOperands (SIMDOpr (SFReg (Vector d)),
-                 Memory (OffsetMode (ImmOffset (rn , s, imm)))) ->
+  | TwoOperands (OprSIMD (SFReg (Vector d)),
+                 OprMemory (OffsetMode (ImmOffset (rn , s, imm)))) ->
     let baseAddr = getRegVar ctxt rn
     getRegVar ctxt d, getOffAddrWithImm s baseAddr imm, checkSingleReg d
   | _ -> raise InvalidOperandException
@@ -2648,7 +2648,7 @@ let vstr insInfo ctxt =
 
 let parseOprOfVPUSHVPOP insInfo =
   match insInfo.Operands with
-  | OneOperand (RegList r) -> r
+  | OneOperand (OprRegList r) -> r
   | _ -> raise InvalidOperandException
 
 let getVFPSRegisterToInt = function

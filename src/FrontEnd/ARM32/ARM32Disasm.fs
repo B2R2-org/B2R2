@@ -937,19 +937,19 @@ let endToString = function
   | _ -> invalidArg "Endian" "Invalid endian is given."
 
 let oprToString i addr (sb: StringBuilder) = function
-  | Register reg -> sb.Append (regToString reg)
-  | SpecReg (reg, pFlag) -> specRegToString reg pFlag sb
-  | RegList regList -> sb.Append (regListToString regList)
-  | SIMDOpr simd -> simdOprToString simd sb
-  | Immediate imm -> immToString imm None sb
-  | FPImmediate fp -> fpImmToString fp sb
-  | Shift s -> shiftToString s sb
-  | RegShift (s, r) -> regShiftToString s r sb
-  | Memory addrMode -> memToString i addr addrMode sb
-  | Option opt -> sb.Append (optToString opt)
-  | Iflag flag -> sb.Append (iFlagToString flag)
-  | Endian e -> sb.Append (endToString e)
-  | Cond c -> sb.Append (condToString (Some c))
+  | OprReg reg -> sb.Append (regToString reg)
+  | OprSpecReg (reg, pFlag) -> specRegToString reg pFlag sb
+  | OprRegList regList -> sb.Append (regListToString regList)
+  | OprSIMD simd -> simdOprToString simd sb
+  | OprImm imm -> immToString imm None sb
+  | OprFPImm fp -> fpImmToString fp sb
+  | OprShift s -> shiftToString s sb
+  | OprRegShift (s, r) -> regShiftToString s r sb
+  | OprMemory addrMode -> memToString i addr addrMode sb
+  | OprOption opt -> sb.Append (optToString opt)
+  | OprIflag flag -> sb.Append (iFlagToString flag)
+  | OprEndian e -> sb.Append (endToString e)
+  | OprCond c -> sb.Append (condToString (Some c))
 
 let printOprs ins pc (sb: StringBuilder) =
   let toStrFn = oprToString ins pc

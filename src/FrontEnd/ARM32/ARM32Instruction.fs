@@ -43,7 +43,7 @@ type ARM32Instruction (addr, numBytes, insInfo) =
 
   member __.HasConcJmpTarget () =
     match __.Info.Operands with
-    | OneOperand (Memory (LiteralMode _)) -> true
+    | OneOperand (OprMemory (LiteralMode _)) -> true
     | _ -> false
 
   override __.IsDirectBranch () =
@@ -78,7 +78,7 @@ type ARM32Instruction (addr, numBytes, insInfo) =
 
   override __.IsRET () = // This is wrong
     match __.Info.Opcode, __.Info.Operands with
-    | Opcode.POP, OneOperand (Register R.PC) -> true
+    | Opcode.POP, OneOperand (OprReg R.PC) -> true
     | _ -> false
 
   override __.IsInterrupt () = Utils.futureFeature ()
@@ -90,7 +90,7 @@ type ARM32Instruction (addr, numBytes, insInfo) =
   override __.DirectBranchTarget (addr: byref<Addr>) =
     if __.IsBranch () then
       match __.Info.Operands with
-      | OneOperand (Memory (LiteralMode offset)) ->
+      | OneOperand (OprMemory (LiteralMode offset)) ->
         addr <- (int64 __.Address + offset) |> uint64
         true
       | _ -> false
