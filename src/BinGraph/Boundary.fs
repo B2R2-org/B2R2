@@ -153,7 +153,8 @@ let rec parseDisasmBlk hdl (builder: CFGBuilder) funcs addr leaders =
       let last = List.last instrs
       let nextAddr = last.Address + uint64 last.Length
       builder.AddDisasmBoundary addr nextAddr
-      addBranchTarget hdl addr builder funcs leaders last
+      builder, funcs, leaders
+      //addBranchTarget hdl addr builder funcs leaders last
     else builder, funcs, leaders
   | Ok instrs ->
     let builder, funcs, leaders =
@@ -277,24 +278,25 @@ let rec scanIRLeaders hdl (builder: CFGBuilder) boundary = function
     scanIRLeaders hdl builder boundary stmts
   | [] -> builder
 
-let rec getIRBBLEnd hdl (builder: CFGBuilder) ppoint ePpoint =
-  match builder.GetStmt ppoint with
-  | InterJmp _ | InterCJmp _ | Jmp _ | CJmp _ -> ppoint
-  | SideEffect _ -> ppoint
-  | IEMark addr ->
+let rec getIRBBLEnd hdl (builder: CFGBuilder) prev ppoint ePpoint =
+  match builder.TryGetStmt ppoint with
+  | None -> prev
+  | Some (InterJmp _) | Some (InterCJmp _) | Some (Jmp _) | Some (CJmp _)
+  | Some (SideEffect _) -> ppoint
+  | Some (IEMark addr) ->
     if (addr, 0) = ePpoint then ppoint
-    else getIRBBLEnd hdl builder (addr, 0) ePpoint
+    else getIRBBLEnd hdl builder ppoint (addr, 0) ePpoint
   | _ ->
     let addr, cnt = ppoint
-    getIRBBLEnd hdl builder (addr, cnt + 1) ePpoint
+    getIRBBLEnd hdl builder ppoint (addr, cnt + 1) ePpoint
 
 let rec scanIRBoundaries hdl builder last = function
   | leader :: ((nextLeader :: _) as leaders) ->
-    let ePpoint = getIRBBLEnd hdl builder leader nextLeader
+    let ePpoint = getIRBBLEnd hdl builder leader leader nextLeader
     builder.AddIRBoundary leader ePpoint
     scanIRBoundaries hdl builder last leaders
   | [ leader ] ->
-    let ePpoint = getIRBBLEnd hdl builder leader last
+    let ePpoint = getIRBBLEnd hdl builder leader leader last
     builder.AddIRBoundary leader ePpoint
     builder
   | [] -> builder
@@ -330,7 +332,7 @@ let rec refineIRBoundariesAux hdl (builder: CFGBuilder) = function
     if includesIRBoundary builder boundary1 boundary2 then
       let sPpoint0, _ = boundary1
       let sPpoint1, _ = boundary2
-      let ePpoint0 = getIRBBLEnd hdl builder sPpoint0 sPpoint1
+      let ePpoint0 = getIRBBLEnd hdl builder sPpoint0 sPpoint0 sPpoint1
       builder.RemoveIRBoundary sPpoint0
       builder.AddIRBoundary sPpoint0 ePpoint0
       refineIRBoundariesAux hdl builder boundaries

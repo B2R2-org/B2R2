@@ -108,31 +108,38 @@ let inline isExitCall hdl (instr: Instruction) =
     | _ -> false
   else false
 
+let accumulateFallThrough (builder:CFGBuilder) leader next targets edge edges =
+  match builder.TryGetInstr next with
+  | Some _ -> next :: targets, (leader, Some (next, edge)) :: edges
+  | None -> targets, edges
+
 let getDisasmSuccessors hdl (builder: CFGBuilder) leader edges (bbl:DisasmBBL) =
   let last = bbl.LastInstr
   let next = last.Address + uint64 last.Length
   if last.IsExit () then
     if last.IsCall () then
       if isExitCall hdl last then [], edges
-      else [next], (leader, Some (next, JmpEdge)) :: edges
+      else accumulateFallThrough builder leader next [] JmpEdge edges
     elif last.IsDirectBranch () then
       match getBranchTarget last with
       | Some addr when not <| builder.IsInteresting hdl addr -> [], edges
       | Some addr ->
         if last.IsCondBranch () then
           if last.IsCJmpOnTrue () then
-            [addr ; next], (leader, Some (addr, CJmpFalseEdge)) ::
-                              (leader, Some (next, CJmpTrueEdge)) :: edges
+            (leader, Some (addr, CJmpFalseEdge)) :: edges
+            |> accumulateFallThrough builder leader next [addr] CJmpTrueEdge
           else
-            [addr ; next], (leader, Some (addr, CJmpTrueEdge)) ::
-                              (leader, Some (next, CJmpFalseEdge)) :: edges
+            (leader, Some (addr, CJmpTrueEdge)) :: edges
+            |> accumulateFallThrough builder leader next [addr] CJmpFalseEdge
         else [addr], (leader, Some (addr, JmpEdge)) :: edges
       | None -> [], edges
     elif last.IsIndirectBranch () then [], (leader, None) :: edges
     elif last.IsInterrupt () then
-      [next], (leader, Some (next, JmpEdge)) :: edges
+      let b, num = last.InterruptNum ()
+      if b && num = 0x29L then [], edges
+      else accumulateFallThrough builder leader next [] JmpEdge edges
     else [], edges
-  else [next], (leader, Some (next, JmpEdge)) :: edges
+  else accumulateFallThrough builder leader next [] JmpEdge edges
 
 let rec addDisasmVertex
     hdl (builder: CFGBuilder) funcset (bbls: DisasmBBLs) (g: DisasmCFG) entry
@@ -221,10 +228,17 @@ let getIRSuccessors hdl (builder: CFGBuilder) leader edges (bbl: IRBBL) =
   | InterCJmp (_, _, Num tBv, Num fBv) ->
     let tAddr = BitVector.toUInt64 tBv
     let fAddr = BitVector.toUInt64 fBv
-    let edges =
-      (leader, Some ((tAddr, 0), CJmpTrueEdge)) ::
-      (leader, Some ((fAddr, 0), CJmpFalseEdge)) :: edges
-    [(tAddr, 0) ; (fAddr, 0)], edges
+    if builder.ExistIRBoundary (tAddr, 0) then
+      if builder.ExistIRBoundary (fAddr, 0) then
+        let edges =
+          (leader, Some ((tAddr, 0), CJmpTrueEdge)) ::
+          (leader, Some ((fAddr, 0), CJmpFalseEdge)) :: edges
+        [ (tAddr, 0) ; (fAddr, 0) ], edges
+      else [ (tAddr, 0) ], (leader, Some ((tAddr, 0), CJmpTrueEdge)) :: edges
+    else
+      if builder.ExistIRBoundary (fAddr, 0) then
+        [ (fAddr, 0) ], (leader, Some ((fAddr, 0), CJmpFalseEdge)) :: edges
+      else [], edges
   | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ -> [], (leader, None) :: edges
   | SideEffect Halt -> [], edges
   | SideEffect UndefinedInstr -> [], edges
@@ -237,7 +251,9 @@ let getIRSuccessors hdl (builder: CFGBuilder) leader edges (bbl: IRBBL) =
     [(addr, 0)], (leader, Some ((addr, 0), FallThroughEdge)) :: edges
   | stmt ->
     let next = getNextPpoint bbl.LastPpoint stmt
-    [next], (leader, Some (next, JmpEdge)) :: edges
+    if builder.ExistIRBoundary next then
+      [next], (leader, Some (next, JmpEdge)) :: edges
+    else [], edges
 
 let rec addIRVertex
     hdl (builder: CFGBuilder) funcset (bbls: IRBBLs) (g: IRCFG) entry edges

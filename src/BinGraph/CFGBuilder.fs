@@ -98,6 +98,9 @@ type CFGBuilder () =
   member __.GetStmt ppoint =
     stmtMap.[ppoint]
 
+  member __.TryGetStmt ppoint =
+    if stmtMap.ContainsKey ppoint then Some stmtMap.[ppoint] else None
+
   member __.AddLabel (addr, idx) symb =
     labelMap.[(addr, symb)] <- idx
 
@@ -131,6 +134,9 @@ type CFGBuilder () =
 
   member __.AddIRLeader ppoint =
     irLeaders.Add ppoint |> ignore
+
+  member __.ExistIRBoundary ppoint =
+    irLeaders.Contains ppoint
 
   member __.GetIRLeaders () =
     irLeaders |> Seq.toList |> List.sort
