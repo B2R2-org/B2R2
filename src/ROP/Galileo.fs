@@ -92,7 +92,7 @@ let private getExecutableSegs hdl =
   let fi = hdl.FileInfo
   let rxRanges =
     fi.GetSegments (Permission.Readable ||| Permission.Executable)
-  if fi.NXEnabled then
+  if not fi.IsNXEnabled then
     fi.GetSegments (Permission.Readable)
     |> Seq.append rxRanges
     |> Seq.distinct

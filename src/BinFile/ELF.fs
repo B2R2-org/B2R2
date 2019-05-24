@@ -60,10 +60,10 @@ type ELFFileInfo (bytes, path) =
 
   override __.WordSize = elf.ELFHdr.Class
 
-  override __.NXEnabled =
+  override __.IsNXEnabled =
     let predicate e = e.PHType = ProgramHeaderType.PTGNUStack
     match List.tryFind predicate elf.ProgHeaders with
-    | Some s -> s.PHFlags &&& Permission.Executable = Permission.Executable
+    | Some s -> s.PHFlags.HasFlag Permission.Executable |> not
     | _ -> false
 
   override __.TextStartAddr =

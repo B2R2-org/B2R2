@@ -51,7 +51,7 @@ type RawFileInfo (bytes: byte [], baseAddr, isa) =
 
   override __.WordSize = isa.WordSize
 
-  override __.NXEnabled = false
+  override __.IsNXEnabled = false
 
   override __.TextStartAddr = baseAddr
 

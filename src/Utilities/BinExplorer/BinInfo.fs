@@ -58,7 +58,7 @@ type CmdBinInfo () =
     let staticSymNum = fileInfo.GetStaticSymbols () |> Seq.length
     let dynamicSymNum = fileInfo.GetDynamicSymbols () |> Seq.length
     let fileType = fileInfo.FileType |> FileInfo.FileTypeToString
-    let nx = if fileInfo.NXEnabled then "Enabled" else "Disabled"
+    let nx = if fileInfo.IsNXEnabled then "Enabled" else "Disabled"
     [|
        "[*] Binary information:\n"
        sprintf "- Executable Path: %s" path

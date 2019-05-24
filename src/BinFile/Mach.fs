@@ -63,7 +63,7 @@ type MachFileInfo (bytes, path, isa) =
 
   override __.WordSize = mach.MachHdr.Class
 
-  override __.NXEnabled =
+  override __.IsNXEnabled =
     not (mach.MachHdr.Flags.HasFlag MachFlag.MHAllowStackExecution)
     || mach.MachHdr.Flags.HasFlag MachFlag.MHNoHeapExecution
 

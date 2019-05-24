@@ -70,9 +70,9 @@ type FileInfo () =
   abstract WordSize: WordSize
 
   /// <summary>
-  ///   Is NX enabled for this binary?
+  ///   Is NX enabled for this binary? (DEP enabled or not)
   /// </summary>
-  abstract NXEnabled: bool
+  abstract IsNXEnabled: bool
 
   /// <summary>
   ///   The entry point of this binary (the start address that this binary runs

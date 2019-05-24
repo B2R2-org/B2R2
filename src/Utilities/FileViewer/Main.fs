@@ -45,7 +45,7 @@ let dumpBasic (fi: FileInfo) =
 let dumpSecurity (fi: FileInfo) =
   printfn "## Security Information"
   printfn "- Stripped binary  : %b" fi.IsStripped
-  printfn "- DEP enabled      : %b" fi.NXEnabled
+  printfn "- DEP (NX) enabled : %b" fi.IsNXEnabled
   printfn ""
 
 let dumpSections (fi: FileInfo) addrToString =

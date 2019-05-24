@@ -66,7 +66,7 @@ type PEFileInfo (bytes, path, ?rawpdb) =
     | PEMagic.PE32Plus -> WordSize.Bit64
     | _ -> raise InvalidWordSizeException
 
-  override __.NXEnabled =
+  override __.IsNXEnabled =
     pe.PEHeaders.PEHeader.DllCharacteristics.HasFlag
       (DllCharacteristics.NxCompatible)
 
