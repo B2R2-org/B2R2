@@ -119,7 +119,6 @@ module Mach =
 
   let checkSymbol (fileInfo : MachFileInfo) addr symName =
     let found, n = fileInfo.TryFindFunctionSymbolName addr
-    printfn "%x: %s => %b; %s" addr symName found n
     Assert.IsTrue (found)
     Assert.AreEqual(symName, n)
 
