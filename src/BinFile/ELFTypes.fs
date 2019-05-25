@@ -233,6 +233,55 @@ type SectionInfo = {
   VerDefSec: ELFSection option
 }
 
+/// ELF dynamic section tags.
+type DynamicSectionTag =
+  | DTNull = 0UL
+  | DTNeeded = 1UL
+  | DTPLTRelSz = 2UL
+  | DTPLTRelGot = 3UL
+  | DTHash = 4UL
+  | DTStrTab = 5UL
+  | DTSymTab = 6UL
+  | DTRELA = 7UL
+  | DTRELASz = 8UL
+  | DTRELAEnt = 9UL
+  | DTStrSz = 10UL
+  | DTSymEnt = 11UL
+  | DTInit = 12UL
+  | DTFini = 13UL
+  | DTSOName = 14UL
+  | DTRPath = 15UL
+  | DTSymbolic = 16UL
+  | DTREL = 17UL
+  | DTRELSz = 18UL
+  | DTRELEnt = 19UL
+  | DTPLTRel = 20UL
+  | DTDebug = 21UL
+  | DTTextRel = 22UL
+  | DTJmpRel = 23UL
+  | DTBindNow = 24UL
+  | DTInitArray = 25UL
+  | DTFiniArray = 26UL
+  | DTInitArraySz = 27UL
+  | DTFiniArraySz = 28UL
+  | DTRunPath = 29UL
+  | DTFlags = 30UL
+  | DTEncoding = 31UL
+  | DTPreInitArray = 32UL
+  | DTPreInitArraySz = 33UL
+  | DTMaxPosTags = 34UL
+  | DTFlags1 = 0x6ffffffbUL
+  | DTRELACount = 0x6ffffff9UL
+  | DTVerSym = 0x6ffffff0UL
+  | DTVerNeed = 0x6ffffffeUL
+  | DTVerNeedNum = 0x6fffffffUL
+
+/// Dynamic section entry.
+type DynamicSectionEntry = {
+  DTag: DynamicSectionTag
+  DVal: uint64
+}
+
 /// A symbol's binding determines the linkage visibility and behavior.
 type SymbolBind =
   /// Local symbols are not visible outside. Local symbols of the same name may
@@ -653,17 +702,6 @@ type RelocationEntry = {
 type RelocInfo = {
   RelocByAddr: Map<Addr, RelocationEntry>
   RelocByName: Map<string, RelocationEntry>
-}
-
-/// XXX need to fix.
-type SymChunk = {
-  /// Section symbol.
-  SecELFSymbol: ELFSymbol option
-  /// Function symbol.
-  FuncELFSymbol: ELFSymbol option
-  /// Mapping symbols are used specifically for ARM to specify code/data
-  /// boundaries. For example, $a represents the start of an ARM code snippet.
-  MappingELFSymbol: ELFSymbol option
 }
 
 /// Main data structure for storing symbol information.

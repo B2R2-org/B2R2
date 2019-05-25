@@ -121,15 +121,37 @@ let parse eHdr reader =
             VerDefSec = updateVerSec isVerDef sec }
       parseLoop (sec :: secByNum) nextInfo (sIdx + 1) nextOffset
   let emptyInfo =
-    {
-      SecByAddr = ARMap.empty
+    { SecByAddr = ARMap.empty
       SecByName = Map.empty
       SecByNum = [||]
       StaticSymSecNums = []
       DynSymSecNums = []
       VerSymSec = None
       VerNeedSec = None
-      VerDefSec = None
-    }
+      VerDefSec = None }
   Convert.ToInt32 eHdr.SHdrTblOffset
   |> parseLoop [] emptyInfo 0
+
+let parseDynamicSection (reader: BinReader) (sec: ELFSection) =
+  let secStart = int sec.SecOffset
+  let secEnd = secStart + int sec.SecSize
+  let readSize = int (sec.SecEntrySize / 2UL)
+  let readType: WordSize = LanguagePrimitives.EnumOfValue (readSize * 8)
+  let rec readLoop acc offset =
+    if offset >= secEnd then List.rev acc
+    else
+      let tag = peekUIntOfType reader readType offset
+      let value = peekUIntOfType reader readType (offset + readSize)
+      let entry = { DTag = LanguagePrimitives.EnumOfValue tag; DVal = value }
+      let nextOffset = offset + readSize + readSize
+      (* Ignore after null entry *)
+      let nextOffset = if value = 0UL && tag = 0UL then secEnd else nextOffset
+      readLoop (entry :: acc) nextOffset
+  readLoop [] secStart
+  |> Some
+
+let getDynamicSectionEntries reader secInfo =
+  secInfo.SecByNum
+  |> Array.tryFind (fun s -> s.SecType = SectionType.SHTDynamic)
+  |> Option.bind (parseDynamicSection reader)
+  |> Option.defaultValue []

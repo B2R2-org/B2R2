@@ -67,6 +67,9 @@ type MachFileInfo (bytes, path, isa) =
     not (mach.MachHdr.Flags.HasFlag MachFlag.MHAllowStackExecution)
     || mach.MachHdr.Flags.HasFlag MachFlag.MHNoHeapExecution
 
+  override __.IsRelocatable =
+    mach.MachHdr.Flags.HasFlag MachFlag.MHPIE
+
   override __.IsValidAddr addr =
     match ARMap.tryFindByAddr addr mach.Sections.SecByAddr with
     | Some _ -> true

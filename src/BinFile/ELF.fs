@@ -66,6 +66,12 @@ type ELFFileInfo (bytes, path) =
     | Some s -> s.PHFlags.HasFlag Permission.Executable |> not
     | _ -> false
 
+  override __.IsRelocatable =
+    let pred (e: DynamicSectionEntry) = e.DTag = DynamicSectionTag.DTDebug
+    __.FileType = FileType.LibFile
+    && Section.getDynamicSectionEntries elf.BinReader elf.SecInfo
+       |> List.exists pred
+
   override __.TextStartAddr =
     (Map.find secTEXT elf.SecInfo.SecByName).SecAddr
 

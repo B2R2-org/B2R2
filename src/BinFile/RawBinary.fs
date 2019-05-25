@@ -53,6 +53,8 @@ type RawFileInfo (bytes: byte [], baseAddr, isa) =
 
   override __.IsNXEnabled = false
 
+  override __.IsRelocatable = false
+
   override __.TextStartAddr = baseAddr
 
   override __.TranslateAddress addr = System.Convert.ToInt32 (addr - baseAddr)

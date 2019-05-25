@@ -75,6 +75,11 @@ type FileInfo () =
   abstract IsNXEnabled: bool
 
   /// <summary>
+  ///   Is this binary relocatable (position-independent)?
+  /// </summary>
+  abstract IsRelocatable: bool
+
+  /// <summary>
   ///   The entry point of this binary (the start address that this binary runs
   ///   at). Note that some binaries (e.g., PE DLL files) do not have a specific
   ///   entry point, and EntryPoint will return zero in such a case.

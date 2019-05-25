@@ -70,6 +70,10 @@ type PEFileInfo (bytes, path, ?rawpdb) =
     pe.PEHeaders.PEHeader.DllCharacteristics.HasFlag
       (DllCharacteristics.NxCompatible)
 
+  override __.IsRelocatable =
+    pe.PEHeaders.PEHeader.DllCharacteristics.HasFlag
+      (DllCharacteristics.DynamicBase)
+
   override __.IsValidAddr addr =
     let rva = int (addr - pe.PEHeaders.PEHeader.ImageBase)
     match pe.PEHeaders.GetContainingSectionIndex rva with

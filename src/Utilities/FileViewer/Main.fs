@@ -46,6 +46,7 @@ let dumpSecurity (fi: FileInfo) =
   printfn "## Security Information"
   printfn "- Stripped binary  : %b" fi.IsStripped
   printfn "- DEP (NX) enabled : %b" fi.IsNXEnabled
+  printfn "- Relocatable (PIE): %b" fi.IsRelocatable
   printfn ""
 
 let dumpSections (fi: FileInfo) addrToString =
