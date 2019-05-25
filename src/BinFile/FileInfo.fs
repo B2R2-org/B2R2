@@ -112,7 +112,10 @@ type FileInfo () =
   abstract member GetSymbols: unit -> seq<Symbol>
 
   /// <summary>
-  ///   Return a list of all the static symbols from the binary.
+  ///   Return a list of all the static symbols from the binary. Static symbols
+  ///   can be removed when we strip the binary. Unlike dynamic symbols, static
+  ///   symbols are not required to run the binary, thus they can be safely
+  ///   removed before releasing it.
   /// </summary>
   /// <returns>
   ///   A sequence of static symbols.
@@ -120,9 +123,10 @@ type FileInfo () =
   abstract member GetStaticSymbols: unit -> seq<Symbol>
 
   /// <summary>
-  ///   Return a list of all the dynamic symbols from the binary. The argument
-  ///   indicates whether to return only internally defined symbols (i.e.,
-  ///   disregard external symbols).
+  ///   Return a list of all the dynamic symbols from the binary. Dynamic
+  ///   symbols are the ones that are required to run the binary. The "defined"
+  ///   argument indicates whether to return only internally defined symbols
+  ///   (i.e., disregard external symbols that are imported from other files).
   /// </summary>
   /// <returns>
   ///   A sequence of dynamic symbols.

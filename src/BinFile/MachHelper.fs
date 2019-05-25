@@ -114,10 +114,12 @@ let getAllStaticSymbols mach =
   |> Array.filter Symbol.isStatic
   |> Array.map (machSymbolToSymbol isText TargetKind.StaticSymbol)
 
-let getAllDynamicSymbols mach =
+let getAllDynamicSymbols excludeImported mach =
   let isText = getIsTextFunc mach
+  let filter = Array.filter (fun (s: MachSymbol) -> s.SymAddr > 0UL)
   mach.SymInfo.Symbols
   |> Array.filter Symbol.isDynamic
+  |> fun arr -> if excludeImported then filter arr else arr
   |> Array.map (machSymbolToSymbol isText TargetKind.DynamicSymbol)
 
 let secFlagToSectionKind isExecutable = function

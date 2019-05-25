@@ -87,13 +87,14 @@ type MachFileInfo (bytes, path, isa) =
 
   override __.GetSymbols () =
     let s = getAllStaticSymbols mach
-    let d = getAllDynamicSymbols mach
+    let d = getAllDynamicSymbols false mach
     Array.append s d |> Array.toSeq
 
   override __.GetStaticSymbols () = getAllStaticSymbols mach |> Array.toSeq
 
   override __.GetDynamicSymbols (?defined) =
-    getAllDynamicSymbols mach |> Array.toSeq
+    let onlyDef = defaultArg defined false
+    getAllDynamicSymbols onlyDef mach |> Array.toSeq
 
   override __.GetRelocationSymbols () = Utils.futureFeature ()
 

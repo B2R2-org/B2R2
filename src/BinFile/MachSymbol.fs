@@ -84,19 +84,15 @@ let parseSymTable (reader: BinReader) macHdr libs symtabs =
   symtabs |> List.fold foldSymTabs [] |> List.rev |> List.toArray
 
 let isStatic s =
-  let hasStaticType s =
-    s.SymType = SymbolType.NStSym
-    || s.SymType = SymbolType.NFun
-    || s.SymType.HasFlag SymbolType.NSect
-    || int s.SymType &&& 0xe0 <> 0
-  hasStaticType s
-  && s.SecNum > 0uy
-  && s.SymAddr > 0UL
-  && s.SymDesc <> 0x10s
+  let isDebuggingInfo s = int s.SymType &&& 0xe0 <> 0
+  /// REFERENCED_DYNAMICALLY field  of n_desc is set. This means this symbol
+  /// will not be stripped (thus, this symbol is dynamic).
+  let isReferrencedDynamically s = s.SymDesc &&& 0x10s <> 0s
+  isDebuggingInfo s
+  || (s.SecNum > 0uy && s.SymAddr > 0UL && s.VerInfo = None
+     && (isReferrencedDynamically s |> not))
 
-let isDynamic s =
-  int s.SymType &&& 0xe0 = 0
-  && not (s.SymType.HasFlag SymbolType.NSect)
+let isDynamic s = isStatic s |> not
 
 let obtainStaticSymbols symbols =
   symbols |> Array.filter isStatic

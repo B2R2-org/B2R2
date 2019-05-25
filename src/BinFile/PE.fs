@@ -105,7 +105,9 @@ type PEFileInfo (bytes, path, ?rawpdb) =
     |> Array.toSeq
 
   override __.GetDynamicSymbols (?defined) =
-    getAllDynamicSymbols pe |> List.toSeq
+    let onlyDef = defaultArg defined false
+    if onlyDef then getExportSymbols pe else getAllDynamicSymbols pe
+    |> List.toSeq
 
   override __.GetRelocationSymbols () = Utils.futureFeature ()
 
