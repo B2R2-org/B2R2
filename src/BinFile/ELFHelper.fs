@@ -75,7 +75,8 @@ let parsePLT arch sections (reloc: RelocInfo) reader =
       | RelocationARMv8 RelocationARMv8.RelocAARCH64JmpSlot ->
         let nextStartAddr = sAddr + findPltSize sAddr plt reader arch
         let addrRange = AddrRange (sAddr, nextStartAddr)
-        ARMap.add addrRange rel.RelSymbol map, nextStartAddr
+        let symb = { rel.RelSymbol with Addr = rel.RelOffset }
+        ARMap.add addrRange symb map, nextStartAddr
       | _ -> map, sAddr
     Map.fold folder (ARMap.empty, pltStartAddr) reloc.RelocByAddr |> fst
   | None -> ARMap.empty
