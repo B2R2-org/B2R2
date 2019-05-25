@@ -141,7 +141,21 @@ type PEFileInfo (bytes, path, ?rawpdb) =
     |> Seq.map secToSegment
 
   override __.GetLinkageTableEntries () =
-    Utils.futureFeature ()
+    pe.ImportMap
+    |> Map.fold (fun acc addr info ->
+         match info with
+         | PE.ImportByOrdinal (_, dllname) ->
+           { FuncName = ""
+             LibraryName = dllname
+             TrampolineAddress = 0UL
+             TableAddress = addrFromRVA pe.PEHeaders addr } :: acc
+         | PE.ImportByName (_, fname, dllname) ->
+           { FuncName = fname
+             LibraryName = dllname
+             TrampolineAddress = 0UL
+             TableAddress = addrFromRVA pe.PEHeaders addr } :: acc) []
+    |> List.sortBy (fun entry -> entry.TableAddress)
+    |> List.toSeq
 
   override __.TextStartAddr =
     match __.GetSectionsByName ".text" |> Seq.tryHead with

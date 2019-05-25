@@ -59,6 +59,9 @@ let readStr headers (binReader: BinReader) rva =
   if rva = 0 then ""
   else getRawOffset headers rva |> loop [] |> Text.Encoding.ASCII.GetString
 
+let inline addrFromRVA (headers: PEHeaders) rva =
+  uint64 rva + headers.PEHeader.ImageBase
+
 let readImportDirectoryTableEntry (binReader: BinReader) headers pos =
   { ImportLookupTableRVA = binReader.PeekInt32 pos
     ForwarderChain = binReader.PeekInt32 (pos + 8)
@@ -151,8 +154,8 @@ let buildExportTable binReader headers sec edt =
   let folder map (name, ord) =
     match addrtbl.[int ord] with
     | ExportRVA rva ->
-      let rva = uint64 rva + headers.PEHeader.ImageBase
-      Map.add rva name map
+      let addr = addrFromRVA headers rva
+      Map.add addr name map
     | _ -> map
   parseENPT binReader headers edt
   |> List.fold folder Map.empty
@@ -254,16 +257,16 @@ let tryFindFunctionSymbolName pe addr =
   | name -> name
 
 let getImportSymbols pe =
-  let conv acc addr imp =
+  let conv acc rva imp =
     match imp with
     | ImportByOrdinal (_, dllname) ->
-      { Address = uint64 addr + pe.PEHeaders.PEHeader.ImageBase
+      { Address = addrFromRVA pe.PEHeaders rva
         Name = ""
         Kind = SymbolKind.ExternFunctionType
         Target = TargetKind.DynamicSymbol
         LibraryName = dllname } :: acc
     | ImportByName (_, funname, dllname) ->
-      { Address = uint64 addr + pe.PEHeaders.PEHeader.ImageBase
+      { Address = addrFromRVA pe.PEHeaders rva
         Name = funname
         Kind = SymbolKind.ExternFunctionType
         Target = TargetKind.DynamicSymbol
@@ -305,7 +308,7 @@ let secFlagToSectionKind (flags: SectionCharacteristics) =
     SectionKind.ExtraSection
 
 let secHdrToSection pe (sec: SectionHeader) =
-  { Address = uint64 sec.VirtualAddress + pe.PEHeaders.PEHeader.ImageBase
+  { Address = addrFromRVA pe.PEHeaders sec.VirtualAddress
     Kind = secFlagToSectionKind sec.SectionCharacteristics
     Size = sec.VirtualSize |> uint64
     Name = sec.Name }
