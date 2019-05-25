@@ -216,7 +216,7 @@ type PE = {
   SectionHeaders: SectionHeader []
   /// RVA to import information.
   ImportMap: Map<int, ImportInfo>
-  /// RVA to exported function name.
+  /// Address to exported function name.
   ExportMap: Map<Addr, string>
   /// Word size for the binary.
   WordSize: WordSize
