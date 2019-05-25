@@ -52,7 +52,8 @@ type PEFileInfo (bytes, path, ?rawpdb) =
     if entry = 0 then 0UL
     else uint64 entry + pe.PEHeaders.PEHeader.ImageBase
 
-  override __.IsStripped = false
+  override __.IsStripped =
+    Array.length pe.PDB.SymbolArray = 0
 
   override __.FileType =
     let c = pe.PEHeaders.CoffHeader.Characteristics
