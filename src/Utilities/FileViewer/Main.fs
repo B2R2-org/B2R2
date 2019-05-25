@@ -69,8 +69,10 @@ let targetString s =
 let dumpSymbols (fi: FileInfo) addrToString =
   let lib s =
     if System.String.IsNullOrWhiteSpace s then "" else " @ " + s
-  printfn "## Symbol Information"
+  printfn "## Symbol Information (s: static / d: dynamic)"
   fi.GetSymbols ()
+  |> Seq.sortBy (fun s -> s.Name)
+  |> Seq.sortBy (fun s -> s.Address)
   |> Seq.iter (fun s ->
        printfn "- %s %s %s%s"
         (targetString s) (addrToString s.Address) s.Name (lib s.LibraryName))
