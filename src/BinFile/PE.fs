@@ -56,8 +56,8 @@ type PEFileInfo (bytes, path, ?rawpdb) =
 
   override __.FileType =
     let c = pe.PEHeaders.CoffHeader.Characteristics
-    if c.HasFlag Characteristics.ExecutableImage then FileType.ExecutableFile
-    elif c.HasFlag Characteristics.Dll then FileType.LibFile
+    if c.HasFlag Characteristics.Dll then FileType.LibFile
+    elif c.HasFlag Characteristics.ExecutableImage then FileType.ExecutableFile
     else FileType.UnknownFile
 
   override __.WordSize =
