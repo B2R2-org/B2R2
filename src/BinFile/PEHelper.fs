@@ -142,9 +142,11 @@ let parseENPT (binReader: BinReader) headers edt =
     else let str = binReader.PeekInt32 (pos1) |> readStr headers binReader
          let ord = binReader.PeekInt16 (pos2)
          loop ((str, ord) :: acc) (cnt - 1) (pos1 + 4) (pos2 + 2)
-  let offset1 = edt.NamePointerRVA |> getRawOffset headers
-  let offset2 = edt.OrdinalTableRVA |> getRawOffset headers
-  loop [] edt.NumNamePointers offset1 offset2
+  if edt.NamePointerRVA = 0 then []
+  else
+    let offset1 = edt.NamePointerRVA |> getRawOffset headers
+    let offset2 = edt.OrdinalTableRVA |> getRawOffset headers
+    loop [] edt.NumNamePointers offset1 offset2
 
 let buildExportTable binReader headers sec edt =
   let addrtbl = parseEAT binReader headers sec edt
