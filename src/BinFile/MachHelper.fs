@@ -86,8 +86,8 @@ let tryFindFunctionSymb mach addr =
   | Some s -> Some s.SymName
   | None -> None
 
-let machTypeToSymbKind isText (sym: MachSymbol) =
-  if sym.SymType.HasFlag SymbolType.NFun || isText sym.SymAddr then
+let machTypeToSymbKind (sym: MachSymbol) =
+  if sym.SymType.HasFlag SymbolType.NFun then
     SymbolKind.FunctionType
   elif sym.SymType.HasFlag SymbolType.NSO
     || sym.SymType.HasFlag SymbolType.NOSO then
@@ -95,32 +95,24 @@ let machTypeToSymbKind isText (sym: MachSymbol) =
   else
     SymbolKind.NoType
 
-let machSymbolToSymbol isText target (sym: MachSymbol) =
+let machSymbolToSymbol target (sym: MachSymbol) =
   { Address = sym.SymAddr
     Name = sym.SymName
-    Kind = machTypeToSymbKind isText sym
+    Kind = machTypeToSymbKind sym
     Target = target
     LibraryName = Symbol.getSymbolLibName sym }
 
-let getIsTextFunc mach =
-  let arr = mach.Sections.SecByNum
-  match Array.tryFind (fun s -> s.SecName = "__text") arr with
-  | None -> fun _ -> false
-  | Some s -> fun addr -> s.SecAddr <= addr && (s.SecAddr + s.SecSize > addr)
-
 let getAllStaticSymbols mach =
-  let isText = getIsTextFunc mach
   mach.SymInfo.Symbols
   |> Array.filter Symbol.isStatic
-  |> Array.map (machSymbolToSymbol isText TargetKind.StaticSymbol)
+  |> Array.map (fun s -> machSymbolToSymbol TargetKind.StaticSymbol s)
 
 let getAllDynamicSymbols excludeImported mach =
-  let isText = getIsTextFunc mach
   let filter = Array.filter (fun (s: MachSymbol) -> s.SymAddr > 0UL)
   mach.SymInfo.Symbols
   |> Array.filter Symbol.isDynamic
   |> fun arr -> if excludeImported then filter arr else arr
-  |> Array.map (machSymbolToSymbol isText TargetKind.DynamicSymbol)
+  |> Array.map (machSymbolToSymbol TargetKind.DynamicSymbol)
 
 let secFlagToSectionKind isExecutable = function
   | SectionType.NonLazySymbolPointers
