@@ -1,4 +1,4 @@
-/// ASCII Adjust After Addition.
+ï»¿/// ASCII Adjust After Addition.
 AAA
 /// ASCII Adjust AX Before Division.
 AAD
@@ -49,9 +49,9 @@ BTR
 /// Bit Test and Set.
 BTS
 /// Far call.
-CALLFar (* Far call *)
+CALLFar
 /// Near call.
-CALLNear (* Near call *)
+CALLNear
 /// Convert Byte to Word.
 CBW
 /// Convert Doubleword to Quadword.
@@ -82,12 +82,12 @@ CMOVB
 CMOVBE
 /// Conditional Move (Move if greater (ZF=0 and SF=OF)).
 CMOVG
-/// Conditional Move (Move if less (SF¡Á OF)).
-CMOVL
-/// Conditional Move (Move if less or equal (ZF=1 or SF¡Á OF)).
-CMOVLE
 /// Conditional Move (Move if greater or equal (SF=OF)).
 CMOVGE
+/// Conditional Move (Move if less (SFâ‰ OF)).
+CMOVL
+/// Conditional Move (Move if less or equal (ZF=1 or SFâ‰ OF)).
+CMOVLE
 /// Conditional Move (Move if not overflow (OF=0)).
 CMOVNO
 /// Conditional Move (Move if not parity (PF=0)).
@@ -108,18 +108,18 @@ CMOVZ
 CMP
 /// Compare String Operands (byte).
 CMPSB
-/// Compare String Operands (word).
-CMPSW
 /// Compare String Operands (dword).
 CMPSD
 /// Compare String Operands (quadword).
 CMPSQ
-/// Compare and Exchange Bytes.
-CMPXCH8B
+/// Compare String Operands (word).
+CMPSW
 /// Compare and Exchange.
 CMPXCHG
 /// Compare and Exchange Bytes.
 CMPXCHG16B
+/// Compare and Exchange Bytes.
+CMPXCHG8B
 /// Compare Scalar Ordered Double-Precision FP Values and Set EFLAGS.
 COMISD
 /// Compare Scalar Ordered Single-Precision FP Values and Set EFLAGS.
@@ -254,6 +254,14 @@ FDIVRP
 FFREE
 /// Add.
 FIADD
+/// Compare Integer.
+FICOM
+/// Compare Integer and pop the register stack.
+FICOMP
+/// Divide.
+FIDIV
+/// Reverse Divide.
+FIDIVR
 /// Load Integer.
 FILD
 /// Multiply.
@@ -262,10 +270,6 @@ FIMUL
 FINCSTP
 /// Initialize Floating-Point Unit.
 FINIT
-/// Compare Integer.
-FICOM
-/// Compare Integer and pop the register stack.
-FICOMP
 /// Store Integer.
 FIST
 /// Store Integer and pop the register stack.
@@ -276,10 +280,6 @@ FISTTP
 FISUB
 /// Reverse Subtract.
 FISUBR
-/// Divide
-FIDIV
-/// Reverse Divide.
-FIDIVR
 /// Load Floating Point Value.
 FLD
 /// Load Constant (Push +1.0 onto the FPU register stack).
@@ -288,24 +288,24 @@ FLD1
 FLDCW
 /// Load x87 FPU Environment.
 FLDENV
-/// Load Constant (Push log210 onto the FPU register stack).
-FLDL2T
 /// Load Constant (Push log2e onto the FPU register stack).
 FLDL2E
-/// Load Constant (Push Pi onto the FPU register stack).
-FLDPI
+/// Load Constant (Push log210 onto the FPU register stack).
+FLDL2T
 /// Load Constant (Push log102 onto the FPU register stack).
 FLDLG2
 /// Load Constant (Push loge2 onto the FPU register stack).
 FLDLN2
+/// Load Constant (Push Pi onto the FPU register stack).
+FLDPI
 /// Load Constant (Push +0.0 onto the FPU register stack).
 FLDZ
-/// No Operation.
-FNOP
 /// Multiply.
 FMUL
 /// Multiply and pop the register stack.
 FMULP
+/// No Operation.
+FNOP
 /// Partial Arctangent.
 FPATAN
 /// Partial Remainder.
@@ -362,12 +362,6 @@ FUCOMPP
 FXAM
 /// Exchange Register Contents.
 FXCH
-/// Extract Exponent and Significand.
-FXTRACT
-/// compute y * log2x.
-FYL2X
-/// compute y * log2(x+1).
-FYL2XP1
 /// Restore x87 FPU, MMX, XMM, and MXCSR State.
 FXRSTOR
 /// Restore x87 FPU, MMX, XMM, and MXCSR State.
@@ -376,6 +370,12 @@ FXRSTOR64
 FXSAVE
 /// Save x87 FPU, MMX Technology, and SSE State.
 FXSAVE64
+/// Extract Exponent and Significand.
+FXTRACT
+/// compute y * log2x.
+FYL2X
+/// compute y * log2(x+1).
+FYL2XP1
 /// GETSEC.
 GETSEC
 /// Halt.
@@ -398,20 +398,20 @@ INSD
 INSW
 /// Call to Interrupt (Interrupt vector specified by immediate byte).
 INT
-/// Call to Interrupt (Interrupt 3?trap to debugger).
+/// Call to Interrupt (Interrupt 3â€”trap to debugger).
 INT3
-/// Call to Interrupt (InteInterrupt 4?if overflow flag is 1).
+/// Call to Interrupt (InteInterrupt 4â€”if overflow flag is 1).
 INTO
 /// Invalidate Internal Caches.
 INVD
 /// Invalidate TLB Entries.
 INVLPG
-/// Interrupt return (16-bit operand size).
-IRETW
 /// Interrupt return (32-bit operand size).
 IRETD
 /// Interrupt return (64-bit operand size).
 IRETQ
+/// Interrupt return (16-bit operand size).
+IRETW
 /// Jump if Condition Is Met (Jump short if above, CF=0 and ZF=0).
 JA
 /// Jump if Condition Is Met (Jump short if below, CF=1).
@@ -424,14 +424,14 @@ JCXZ
 JECXZ
 /// Jump if Condition Is Met (Jump short if greater, ZF=0 and SF=OF).
 JG
-/// Jump if Condition Is Met (Jump short if less, SF¡Á OF).
+/// Jump if Condition Is Met (Jump short if less, SFâ‰ OF).
 JL
-/// Jump if Condition Is Met (Jump short if less or equal, ZF=1 or SF¡Á OF).
+/// Jump if Condition Is Met (Jump short if less or equal, ZF=1 or SFâ‰ OF).
 JLE
 /// Far jmp.
-JMPFar (* Far jmp *)
+JMPFar
 /// Near jmp.
-JMPNear (* Near jmp *)
+JMPNear
 /// Jump if Condition Is Met (Jump near if not below, CF=0).
 JNB
 /// Jump if Condition Is Met (Jump near if not less, SF=OF).
@@ -452,7 +452,7 @@ JP
 JRCXZ
 /// Jump if Condition Is Met (Jump short if sign, SF=1).
 JS
-/// Jump if Condition Is Met (Jump short if zero, ZF
+/// Jump if Condition Is Met (Jump short if zero, ZF=1).
 JZ
 /// Load Status Flags into AH Register.
 LAHF
@@ -486,17 +486,17 @@ LLDT
 LMSW
 /// Load String (byte).
 LODSB
-/// Load String (word).
-LODSW
 /// Load String (doubleword).
 LODSD
 /// Load String (quadword).
 LODSQ
-/// Loop According to ECX Counter (count ¡Á 0).
+/// Load String (word).
+LODSW
+/// Loop According to ECX Counter (count â‰  0).
 LOOP
-/// Loop According to ECX Counter (count ¡Á 0 and ZF
+/// Loop According to ECX Counter (count â‰  0 and ZF = 1).
 LOOPE
-/// Loop According to ECX Counter (count ¡Á 0 and ZF
+/// Loop According to ECX Counter (count â‰  0 and ZF = 0).
 LOOPNE
 /// Load Segment Limit.
 LSL
@@ -506,10 +506,10 @@ LSS
 LTR
 /// the Number of Leading Zero Bits.
 LZCNT
-/// Return Maximum Packed Single-Precision Floating-Point Values.
-MAXPS
 /// Return Maximum Packed Double-Precision Floating-Point Values.
 MAXPD
+/// Return Maximum Packed Single-Precision Floating-Point Values.
+MAXPS
 /// Return Maximum Scalar Double-Precision Floating-Point Values.
 MAXSD
 /// Return Maximum Scalar Single-Precision Floating-Point Values.
@@ -560,7 +560,7 @@ MOVLPS
 MOVMSKPD
 /// Extract Packed Single-Precision Floating-Point Sign Mask.
 MOVMSKPS
-/// Load Double Quadword Non-Temporal Aligned Hint
+/// Load Double Quadword Non-Temporal Aligned Hint.
 MOVNTDQ
 /// Store Doubleword Using Non-Temporal Hint.
 MOVNTI
@@ -582,12 +582,12 @@ MOVSD
 MOVSHDUP
 /// Move Packed Single-FP Low and Duplicate.
 MOVSLDUP
+/// Move Data from String to String (quadword).
+MOVSQ
 /// Move Scalar Single-Precision Floating-Point Values.
 MOVSS
 /// Move Data from String to String (word).
 MOVSW
-/// Move Data from String to String (quadword).
-MOVSQ
 /// Move with Sign-Extension.
 MOVSX
 /// Move with Sign-Extension (doubleword to quadword).
@@ -632,10 +632,18 @@ OUTSB
 OUTSD
 /// Output String to Port (word).
 OUTSW
+/// Computes the absolute value of each signed byte data element.
+PABSB
+/// Computes the absolute value of each signed 32-bit data element.
+PABSD
+/// Computes the absolute value of each signed 16-bit data element.
+PABSW
 /// Pack with Signed Saturation.
 PACKSSDW
 /// Pack with Signed Saturation.
 PACKSSWB
+/// Pack with Unsigned Saturation.
+PACKUSDW
 /// Pack with Unsigned Saturation.
 PACKUSWB
 /// Add Packed byte Integers.
@@ -660,18 +668,20 @@ PALIGNR
 PAND
 /// Logical AND NOT.
 PANDN
+/// Spin Loop Hint.
+PAUSE
 /// Average Packed Integers (byte).
 PAVGB
 /// Average Packed Integers (word).
 PAVGW
-/// Spin Loop Hint.
-PAUSE
 /// Compare Packed Data for Equal (byte).
 PCMPEQB
 /// Compare Packed Data for Equal (doubleword).
 PCMPEQD
 /// Compare Packed Data for Equal (quadword).
 PCMPEQQ
+/// Compare packed words for equal.
+PCMPEQW
 /// Packed Compare Explicit Length Strings, Return Index.
 PCMPESTRI
 /// Packed Compare Explicit Length Strings, Return Mask.
@@ -680,6 +690,8 @@ PCMPESTRM
 PCMPGTB
 /// Compare Packed Signed Integers for Greater Than (doubleword).
 PCMPGTD
+/// Performs logical compare of greater-than on packed integer quadwords.
+PCMPGTQ
 /// Compare Packed Signed Integers for Greater Than (word).
 PCMPGTW
 /// Packed Compare Implicit Length Strings, Return Index.
@@ -688,30 +700,86 @@ PCMPISTRI
 PCMPISTRM
 /// Extract Word.
 PEXTRW
+/// Packed Horizontal Add.
+PHADDD
+/// Packed Horizontal Add and Saturate.
+PHADDSW
+/// Packed Horizontal Add.
+PHADDW
+/// Packed Horizontal Word Minimum.
+PHMINPOSUW
+/// Packed Horizontal Subtract.
+PHSUBD
+/// Packed Horizontal Subtract and Saturate.
+PHSUBSW
+/// Packed Horizontal Subtract.
+PHSUBW
 /// Insert Byte.
 PINSRB
 /// Insert Word.
 PINSRW
 /// Multiply and Add Packed Integers.
 PMADDWD
+/// Compare packed signed byte integers.
+PMAXSB
+/// Compare packed signed dword integers.
+PMAXSD
 /// Maximum of Packed Signed Word Integers.
 PMAXSW
 /// Maximum of Packed Unsigned Byte Integers.
 PMAXUB
+/// Compare packed unsigned dword integers.
+PMAXUD
+/// Compare packed unsigned word integers.
+PMAXUW
+/// Minimum of Packed Signed Byte Integers.
+PMINSB
+/// Compare packed signed dword integers.
+PMINSD
 /// Minimum of Packed Signed Word Integers.
 PMINSW
 /// Minimum of Packed Unsigned Byte Integers.
 PMINUB
 /// Minimum of Packed Dword Integers.
 PMINUD
-/// Minimum of Packed Signed Byte Integers.
-PMINSB
+/// Compare packed unsigned word integers.
+PMINUW
 /// Move Byte Mask.
 PMOVMSKB
+/// Packed Move with Sign Extend.
+PMOVSXBD
+/// Packed Move with Sign Extend.
+PMOVSXBQ
+/// Packed Move with Sign Extend.
+PMOVSXBW
+/// Packed Move with Sign Extend.
+PMOVSXDQ
+/// Packed Move with Sign Extend.
+PMOVSXWD
+/// Packed Move with Sign Extend.
+PMOVSXWQ
+/// Packed Move with Zero Extend.
+PMOVZXBD
+/// Packed Move with Zero Extend.
+PMOVZXBQ
+/// Packed Move with Zero Extend.
+PMOVZXBW
+/// Packed Move with Zero Extend.
+PMOVZXDQ
+/// Packed Move with Zero Extend.
+PMOVZXWD
+/// Packed Move with Zero Extend.
+PMOVZXWQ
+/// Multiply Packed Doubleword Integers.
+PMULDQ
+/// Packed Multiply High with Round and Scale.
+PMULHRSW
 /// Multiply Packed Unsigned Integers and Store High Result.
 PMULHUW
 /// Multiply Packed Signed Integers and Store High Result.
 PMULHW
+/// Multiply Packed Integers and Store Low Result.
+PMULLD
 /// Multiply Packed Signed Integers and Store Low Result.
 PMULLW
 /// Multiply Packed Unsigned Doubleword Integers.
@@ -756,6 +824,12 @@ PSHUFHW
 PSHUFLW
 /// Shuffle Packed Words.
 PSHUFW
+/// Packed Sign Byte.
+PSIGNB
+/// Packed Sign Doubleword.
+PSIGND
+/// Packed Sign Word.
+PSIGNW
 /// Shift Packed Data Left Logical (doubleword).
 PSLLD
 /// Shift Double Quadword Left Logical.
@@ -846,14 +920,14 @@ RDSEED
 RDTSC
 /// Read Time-Stamp Counter and Processor ID.
 RDTSCP
-/// Near return.
-RETNear    (* Near return *)
-/// Near return w/ immediate .
-RETNearImm (* Near return w/ immediate *)
 /// Far return.
-RETFar     (* Far return *)
+RETFar
 /// Far return w/ immediate.
-RETFarImm  (* Far return w/ immediate *)
+RETFarImm
+/// Near return.
+RETNear
+/// Near return w/ immediate .
+RETNearImm
 /// Rotate x bits r/m(x) left once..
 ROL
 /// Rotate x bits r/m(x) right once.
@@ -870,12 +944,12 @@ SAR
 SBB
 /// Scan String (byte).
 SCASB
-/// Scan String (word).
-SCASW
 /// Scan String (doubleword).
 SCASD
 /// Scan String (quadword).
 SCASQ
+/// Scan String (word).
+SCASW
 /// Set byte if above (CF=0 and ZF=0).
 SETA
 /// Set byte if below (CF=1).
@@ -884,9 +958,9 @@ SETB
 SETBE
 /// Set byte if greater (ZF=0 and SF=OF)..
 SETG
-/// Set byte if less (SF¡Á OF).
+/// Set byte if less (SFâ‰  OF).
 SETL
-/// Set byte if less or equal (ZF=1 or SF¡Á OF).
+/// Set byte if less or equal (ZF=1 or SFâ‰  OF).
 SETLE
 /// Set byte if not below (CF=0).
 SETNB
@@ -942,12 +1016,12 @@ STI
 STMXCSR
 /// Store String (store AL).
 STOSB
-/// Store String (store AX).
-STOSW
 /// Store String (store EAX).
 STOSD
 /// Store String (store RAX).
 STOSQ
+/// Store String (store AX).
+STOSW
 /// Store Task Register.
 STR
 /// Subtract.
@@ -1126,10 +1200,18 @@ VMXON
 VORPD
 /// Bitwise Logical OR of Single-Precision Floating-Point Values.
 VORPS
+/// Packed Absolute Value (byte).
+VPABSB
+/// Packed Absolute Value (dword).
+VPABSD
+/// Packed Absolute Value (word).
+VPABSW
 /// Pack with Signed Saturation.
 VPACKSSDW
 /// Pack with Signed Saturation.
 VPACKSSWB
+/// Pack with Unsigned Saturation.
+VPACKUSDW
 /// Pack with Unsigned Saturation.
 VPACKUSWB
 /// Add Packed byte Integers.
@@ -1166,6 +1248,8 @@ VPCMPEQB
 VPCMPEQD
 /// Compare Packed Data for Equal (quadword).
 VPCMPEQQ
+/// Compare Packed Data for Equal (word).
+VPCMPEQW
 /// Packed Compare Explicit Length Strings, Return Index.
 VPCMPESTRI
 /// Packed Compare Explicit Length Strings, Return Mask.
@@ -1174,6 +1258,8 @@ VPCMPESTRM
 VPCMPGTB
 /// Compare Packed Signed Integers for Greater Than (doubleword).
 VPCMPGTD
+/// Compare Packed Data for Greater Than (qword).
+VPCMPGTQ
 /// Compare Packed Signed Integers for Greater Than (word).
 VPCMPGTW
 /// Packed Compare Implicit Length Strings, Return Index.
@@ -1182,28 +1268,86 @@ VPCMPISTRI
 VPCMPISTRM
 /// Extract Word.
 VPEXTRW
+/// Packed Horizontal Add (32-bit).
+VPHADDD
+/// Packed Horizontal Add and Saturate (16-bit).
+VPHADDSW
+/// Packed Horizontal Add (16-bit).
+VPHADDW
+/// Packed Horizontal Word Minimum.
+VPHMINPOSUW
+/// Packed Horizontal Subtract (32-bit).
+VPHSUBD
+/// Packed Horizontal Subtract and Saturate (16-bit)
+VPHSUBSW
+/// Packed Horizontal Subtract (16-bit).
+VPHSUBW
 /// Insert Byte.
 VPINSRB
 /// Insert Word.
 VPINSRW
 /// Multiply and Add Packed Integers.
 VPMADDWD
+/// Maximum of Packed Signed Integers (byte).
+VPMAXSB
+/// Maximum of Packed Signed Integers (dword).
+VPMAXSD
 /// Maximum of Packed Signed Word Integers.
 VPMAXSW
 /// Maximum of Packed Unsigned Byte Integers.
 VPMAXUB
+/// Maximum of Packed Unsigned Integers (dword).
+VPMAXUD
+/// Maximum of Packed Unsigned Integers (word).
+VPMAXUW
+/// Minimum of Packed Signed Integers (byte).
+VPMINSB
+/// Minimum of Packed Signed Integers (dword).
+VPMINSD
 /// Minimum of Packed Signed Word Integers.
 VPMINSW
 /// Minimum of Packed Unsigned Byte Integers.
 VPMINUB
 /// Minimum of Packed Dword Integers.
 VPMINUD
+/// Minimum of Packed Unsigned Integers (word).
+VPMINUW
 /// Move Byte Mask.
 VPMOVMSKB
+/// Packed Move with Sign Extend (8-bit to 32-bit).
+VPMOVSXBD
+/// Packed Move with Sign Extend (8-bit to 64-bit).
+VPMOVSXBQ
+/// Packed Move with Sign Extend (8-bit to 16-bit).
+VPMOVSXBW
+/// Packed Move with Sign Extend (32-bit to 64-bit).
+VPMOVSXDQ
+/// Packed Move with Sign Extend (16-bit to 32-bit).
+VPMOVSXWD
+/// Packed Move with Sign Extend (16-bit to 64-bit).
+VPMOVSXWQ
+/// Packed Move with Zero Extend (8-bit to 32-bit).
+VPMOVZXBD
+/// Packed Move with Zero Extend (8-bit to 64-bit).
+VPMOVZXBQ
+/// Packed Move with Zero Extend (8-bit to 16-bit).
+VPMOVZXBW
+/// Packed Move with Zero Extend (32-bit to 64-bit).
+VPMOVZXDQ
+/// Packed Move with Zero Extend (16-bit to 32-bit).
+VPMOVZXWD
+/// Packed Move with Zero Extend (16-bit to 64-bit).
+VPMOVZXWQ
+/// Multiply Packed Doubleword Integers.
+VPMULDQ
+/// Packed Multiply High with Round and Scale.
+VPMULHRSW
 /// Multiply Packed Unsigned Integers and Store High Result.
 VPMULHUW
 /// Multiply Packed Signed Integers and Store High Result.
 VPMULHW
+/// Multiply Packed Integers and Store Low Result.
+VPMULLD
 /// Multiply Packed Signed Integers and Store Low Result.
 VPMULLW
 /// Multiply Packed Unsigned Doubleword Integers.
@@ -1220,6 +1364,12 @@ VPSHUFD
 VPSHUFHW
 /// Shuffle Packed Low Words.
 VPSHUFLW
+/// Packed SIGN (byte).
+VPSIGNB
+/// Packed SIGN (doubleword).
+VPSIGND
+/// Packed SIGN (word).
+VPSIGNW
 /// Shift Packed Data Left Logical (doubleword).
 VPSLLD
 /// Shift Double Quadword Left Logical.
