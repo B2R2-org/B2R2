@@ -66,16 +66,21 @@ let targetString s =
   | TargetKind.DynamicSymbol -> "(d)"
   | _ -> failwith "Invalid symbol target kind."
 
-let dumpSymbols (fi: FileInfo) addrToString =
-  let lib s =
-    if System.String.IsNullOrWhiteSpace s then "" else " @ " + s
+let dumpSymbols (fi: FileInfo) addrToString dumpAll =
+  let lib s = if System.String.IsNullOrWhiteSpace s then "" else " @ " + s
+  let name (s: Symbol) = if s.Name.Length > 0 then " " + s.Name else ""
+  let filterNoType (s: Symbol) =
+    s.Target = TargetKind.DynamicSymbol
+    || (s.Kind <> SymbolKind.NoType && s.Name.Length > 0)
   printfn "## Symbol Information (s: static / d: dynamic)"
   fi.GetSymbols ()
+  |> (fun symbs -> if dumpAll then symbs else Seq.filter filterNoType symbs)
   |> Seq.sortBy (fun s -> s.Name)
   |> Seq.sortBy (fun s -> s.Address)
+  |> Seq.sortBy (fun s -> s.Target)
   |> Seq.iter (fun s ->
-       printfn "- %s %s %s%s"
-        (targetString s) (addrToString s.Address) s.Name (lib s.LibraryName))
+       printfn "- %s %s%s%s"
+        (targetString s) (addrToString s.Address) (name s) (lib s.LibraryName))
   printfn ""
 
 let dumpIfNotEmpty s =
@@ -103,7 +108,7 @@ let dumpFile (opts: FileViewerOpts) (filepath: string) =
   dumpBasic fi
   dumpSecurity fi
   dumpSections fi addrToString
-  dumpSymbols fi addrToString
+  dumpSymbols fi addrToString opts.Verbose
   dumpLinkageTable fi addrToString
 
 let dump files opts =

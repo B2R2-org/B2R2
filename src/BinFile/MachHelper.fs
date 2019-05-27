@@ -105,7 +105,7 @@ let machSymbolToSymbol target (sym: MachSymbol) =
 let getAllStaticSymbols mach =
   mach.SymInfo.Symbols
   |> Array.filter Symbol.isStatic
-  |> Array.map (fun s -> machSymbolToSymbol TargetKind.StaticSymbol s)
+  |> Array.map (machSymbolToSymbol TargetKind.StaticSymbol)
 
 let getAllDynamicSymbols excludeImported mach =
   let filter = Array.filter (fun (s: MachSymbol) -> s.SymAddr > 0UL)
