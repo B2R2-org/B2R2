@@ -58,6 +58,8 @@ type ARM32Instruction (addr, numBytes, insInfo) =
     | Op.B, Some Condition.NV -> false
     | Op.B, Some Condition.UN -> false
     | Op.B, Some _ -> true
+    // XXX: Need to add more conditions for BX
+    | Op.BX, Some Condition.EQ -> true
     | _ -> false
 
   override __.IsCJmpOnTrue () =
