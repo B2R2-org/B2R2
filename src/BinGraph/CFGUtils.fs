@@ -395,8 +395,9 @@ let buildCallGraph (hdl: BinHandler) funcs (callGraph: CallGraph) =
   | Some v -> callGraph.SetRoot v
   | None ->
     /// Set random unreachable vertex as a root
-    let v = List.head callGraph.Unreachables
-    callGraph.SetRoot v
+    if List.length callGraph.Unreachables <> 0 then
+      let v = List.head callGraph.Unreachables
+      callGraph.SetRoot v
 
 /// Stringify functions
 let bgToJson toResolve (sb: StringBuilder) =

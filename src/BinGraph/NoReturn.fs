@@ -207,7 +207,8 @@ let rec analNoReturn hdl fcg visited queue = function
     else analNoReturn hdl fcg visited queue vs
 
 let noReturnAnalysis hdl (fcg: CallGraph) =
-  let g = fcg.Clone ()
-  removeSelfCycle g
-  removeBackEdges g
-  analNoReturn hdl g Set.empty [] g.Exits
+  if fcg.Size () <> 0 then
+    let g = fcg.Clone ()
+    removeSelfCycle g
+    removeBackEdges g
+    analNoReturn hdl g Set.empty [] g.Exits
