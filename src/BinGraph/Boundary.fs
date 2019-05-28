@@ -61,7 +61,7 @@ let findEntriesByPattern hdl builder funcs =
 let inline private getBranchTarget (instr: Instruction) =
   instr.DirectBranchTarget () |> Utils.tupleToOpt
 
-let noReturnFuncs = [ "__assert_fail" ; "_abort" ; "_exit" ; "_err" ]
+let noReturnFuncs = [ "abort" ; "__assert_fail" ; "_abort" ; "_exit" ; "_err" ]
 
 let inline isExitCall hdl (instr: Instruction) =
   if instr.IsCall () then
@@ -134,7 +134,9 @@ let addBranchTarget hdl sAddr (builder: CFGBuilder) funcs leaders (instr: Instru
         if instr.IsCondBranch () then builder, funcs, addr :: next :: leaders
         else builder, funcs, addr :: leaders
       | None -> builder, funcs, leaders
-    elif instr.IsIndirectBranch () then builder, funcs, leaders
+    elif instr.IsIndirectBranch () then
+      if instr.IsCondBranch () then builder, funcs, next :: leaders
+      else builder, funcs, leaders
     elif instr.IsInterrupt () then
       let b, num = instr.InterruptNum ()
       if b && num = 0x29L then builder, funcs, leaders
@@ -260,6 +262,9 @@ let rec scanIRLeaders hdl (builder: CFGBuilder) boundary = function
     builder.AddStmt ppoint stmt
     scanIRLeaders hdl builder boundary stmts
   | (ppoint, (SideEffect (Interrupt 0x29) as stmt)) :: stmts ->
+    builder.AddStmt ppoint stmt
+    scanIRLeaders hdl builder boundary stmts
+  | (ppoint, (SideEffect UndefinedInstr as stmt)) :: stmts ->
     builder.AddStmt ppoint stmt
     scanIRLeaders hdl builder boundary stmts
   | (ppoint, (SideEffect _ as stmt)) :: stmts ->

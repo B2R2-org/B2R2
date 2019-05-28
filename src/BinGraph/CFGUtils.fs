@@ -97,7 +97,7 @@ let rec buildIRBBLs hdl (builder: CFGBuilder) bbls = function
 let inline private getBranchTarget (instr: Instruction) =
   instr.DirectBranchTarget () |> Utils.tupleToOpt
 
-let noReturnFuncs = [ "__assert_fail" ; "_abort" ; "_exit" ; "_err" ]
+let noReturnFuncs = [ "abort" ; "__assert_fail" ; "_abort" ; "_exit" ; "_err" ]
 
 let inline isExitCall hdl (instr: Instruction) =
   if instr.IsCall () then
@@ -227,6 +227,7 @@ let getIRSuccessors hdl (builder: CFGBuilder) leader edges (bbl: IRBBL) =
     [(tAddr, 0) ; (fAddr, 0)], edges
   | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ -> [], (leader, None) :: edges
   | SideEffect Halt -> [], edges
+  | SideEffect UndefinedInstr -> [], edges
   | SideEffect SysCall ->
     let addr = getNextAddr builder bbl.LastPpoint
     [(addr, 0)], (leader, Some ((addr, 0), FallThroughEdge)) :: edges
