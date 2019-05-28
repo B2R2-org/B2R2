@@ -38,6 +38,7 @@ let stackAddr t = Def (BitVector.ofInt32 0x1000000 t)
 let getStackPtrRegID = function
   | Arch.IntelX86 -> Intel.Register.ESP |> Intel.Register.toRegID
   | Arch.IntelX64 -> Intel.Register.RSP |> Intel.Register.toRegID
+  | Arch.ARMv7 -> ARM32.Register.SP |> ARM32.Register.toRegID
   | _ -> failwith "Not supported arch."
 
 let initStateForLibcStart handle startAddr =
@@ -47,6 +48,7 @@ let initStateForLibcStart handle startAddr =
   let vars = match isa.Arch with
              | Arch.IntelX86 -> Map.add sp (stackAddr 32<rt>) Map.empty
              | Arch.IntelX64 -> Map.add sp (stackAddr 64<rt>) Map.empty
+             | Arch.ARMv7 -> Map.add sp (stackAddr 32<rt>) Map.empty
              | _ -> failwith "Not supported arch."
   { PC = startAddr
     BlockEnd = false
@@ -75,10 +77,22 @@ let intel64LibcParams state =
   /// 1st, 4th, and 5th parameter of _libc_start_main
   List.choose f [ Intel.Register.RDI; Intel.Register.RCX; Intel.Register.R8 ]
 
+let arm32LibcParams state =
+  let f var =
+    match Map.tryFind (ARM32.Register.toRegID var) state.Vars with
+    | Some (Def addr) -> Some (BitVector.toUInt64 addr)
+    | _ -> None
+  let g ptr =
+    try Some (loadMem state.Mems Endian.Little ptr 32<rt> |> BitVector.toUInt64)
+    with InvalidMemException -> None
+  /// XXX: This only chooses init and main
+  List.choose f [ ARM32.Register.R0; ARM32.Register.R3 ]
+
 let getLibcStartMainParams hdl state =
   match hdl.ISA.Arch with
   | Arch.IntelX86 -> intel32LibcParams state
   | Arch.IntelX64 -> intel64LibcParams state
+  | Arch.ARMv7 -> arm32LibcParams state
   | _ -> failwith "Not supported arch."
 
 let isLibcStartMain hdl addr =
