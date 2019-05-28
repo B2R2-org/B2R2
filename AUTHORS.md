@@ -16,5 +16,6 @@ list of contributors in alphabetic order.
 - TA Thanh Dinh
 - Subin Jeong
 - Doyeon Kim
+- Hongsik Kim
 - Minsu Lee
 - DongYeop Oh
