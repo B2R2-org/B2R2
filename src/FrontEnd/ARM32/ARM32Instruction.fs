@@ -91,7 +91,7 @@ type ARM32Instruction (addr, numBytes, insInfo) =
     if __.IsBranch () then
       match __.Info.Operands with
       | OneOperand (OprMemory (LiteralMode offset)) ->
-        addr <- (int64 __.Address + offset) |> uint64
+        addr <- ((int64 __.Address + offset + 8L) &&& 0xFFFFFFFFL) |> uint64
         true
       | _ -> false
     else false
