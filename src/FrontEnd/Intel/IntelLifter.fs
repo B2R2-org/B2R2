@@ -2136,39 +2136,29 @@ let ldmxcsr ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let loop ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = new StmtBuilder (8)
   let dst = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
   let addrSize = getEffAddrSz ins
   let oprSize = getOperationSize ins
+  let pc = getInstrPtr ctxt
   let count, cntSize =
     if addrSize = 32<rt> then getRegVar ctxt R.ECX, 32<rt>
     elif addrSize = 64<rt> then getRegVar ctxt R.RCX, 64<rt>
     else getRegVar ctxt R.CX, 16<rt>
   let zf = getRegVar ctxt R.ZF
-  let ip = if oprSize = 64<rt> then getRegVar ctxt R.RIP
-           else getRegVar ctxt R.EIP
   let tcnt = tmpVar cntSize
-  let lblLoop = lblSymbol "Loop"
-  let lblCont = lblSymbol "Continue"
-  let lblEnd = lblSymbol "End"
   startMark insAddr insLen builder
-  builder <! (tcnt := count)
-  builder <! (LMark lblLoop)
-  builder <! (tcnt := tcnt .- num1 cntSize)
+  builder <! (tcnt := count .- num1 cntSize)
   let branchCond =
     match ins.Opcode with
     | Opcode.LOOP -> tcnt != num0 cntSize
     | Opcode.LOOPE -> (zf == b1) .& (tcnt != num0 cntSize)
     | Opcode.LOOPNE -> (zf == b0) .& (tcnt != num0 cntSize)
     | _ -> raise InvalidOpcodeException
-  builder <! (CJmp (branchCond, Name lblCont, Name lblEnd))
-  builder <! (LMark lblCont)
-  if oprSize = 16<rt> then
-    builder <! (ip := ip .+ (ip .& numI32 0xFFFF 32<rt>))
-  else
-    builder <! (ip := ip .+ sExt oprSize dst)
-  builder <! (Jmp (Name lblLoop))
-  builder <! (LMark lblEnd)
+  let fallThrough = bvOfBaseAddr insAddr ctxt .+ bvOfInstrLen insLen ctxt
+  let jumpTarget = if oprSize = 16<rt> then pc .& numI32 0xFFFF 32<rt>
+                   else sExt oprSize dst
+  builder <! (InterCJmp (branchCond, pc, jumpTarget, fallThrough))
   endMark insAddr insLen builder
 
 let lzcnt ins insAddr insLen ctxt =
