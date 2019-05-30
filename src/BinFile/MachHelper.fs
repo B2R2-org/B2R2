@@ -87,10 +87,10 @@ let tryFindFunctionSymb mach addr =
   | None -> None
 
 let machTypeToSymbKind (sym: MachSymbol) =
-  if sym.SymType.HasFlag SymbolType.NFun then
+  if sym.SymType = SymbolType.NFun && sym.SymName.Length > 0 then
     SymbolKind.FunctionType
-  elif sym.SymType.HasFlag SymbolType.NSO
-    || sym.SymType.HasFlag SymbolType.NOSO then
+  elif sym.SymType = SymbolType.NSO
+    || sym.SymType = SymbolType.NOSO then
     SymbolKind.FileType
   else
     SymbolKind.NoType
