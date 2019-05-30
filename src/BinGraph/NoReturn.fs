@@ -189,8 +189,8 @@ let updateNoReturn (func: Function) =
   if isNoReturn then func.NoReturn <- isNoReturn
 
 let rec analNoReturn hdl fcg visited queue = function
-  | [] ->
-    if List.length queue <> 0 then analNoReturn hdl fcg visited [] queue
+  | [] -> () // XXX: Temporary patch. below expression causes infinite loop
+    //if List.length queue <> 0 then analNoReturn hdl fcg visited [] queue
   | (v: Vertex<_>) :: vs ->
     if not <| Set.contains v visited then
       if List.forall (fun w -> Set.contains w visited) v.Succs then

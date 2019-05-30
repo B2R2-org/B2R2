@@ -57,4 +57,9 @@ let dfsTopologicalSort (g: DiGraph<_, _>) =
   let size = g.Size () - 1
   let _, _, dfsOrder, _ =
     g.FoldVertexDFS dfsOrdering (Set.empty, [], Map.empty, size)
-  dfsOrder
+  /// XXX: The below is normalizing. This is also a temporary patch..
+  let min = Map.fold (fun acc _ x -> if acc < x then acc else x) (-1) dfsOrder
+  let dfsOrder = Map.map (fun _ x -> x - min) dfsOrder
+  let size = g.Size ()
+  g.FoldVertex (fun acc v ->
+    if Map.containsKey v acc then acc else Map.add v size acc) dfsOrder
