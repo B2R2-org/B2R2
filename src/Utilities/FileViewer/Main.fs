@@ -97,6 +97,12 @@ let dumpLinkageTable (fi: FileInfo) addrToString =
         (dumpIfNotEmpty a.LibraryName))
   printfn ""
 
+let dumpFunctions (fi: FileInfo) addrToString =
+  printfn "## Functions"
+  Seq.append (fi.GetStaticSymbols ()) (fi.GetDynamicSymbols true)
+  |> Seq.filter (fun s -> s.Kind = SymbolKind.FunctionType)
+  |> Seq.iter (fun s -> printfn "- %s: %s" (addrToString s.Address) s.Name)
+
 let dumpFile (opts: FileViewerOpts) (filepath: string) =
   let hdl = BinHandler.Init (opts.ISA, filepath)
   let fi = hdl.FileInfo
@@ -110,6 +116,7 @@ let dumpFile (opts: FileViewerOpts) (filepath: string) =
   dumpSections fi addrToString
   dumpSymbols fi addrToString opts.Verbose
   dumpLinkageTable fi addrToString
+  dumpFunctions fi addrToString
 
 let dump files opts =
   files |> List.iter (dumpFile opts)
