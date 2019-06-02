@@ -82,11 +82,16 @@ let emptyCallBack =
 
 let tr = BitVector.one 1<rt>
 
-let rec private loadMemLoop acc m endian addr len =
+let rec private loadMemLoop ldr acc m endian addr len =
   if len > 0u then
     match Map.tryFind addr m with
-    | None -> raise InvalidMemException
-    | Some b -> loadMemLoop (b :: acc) m endian (addr + 1UL) (len - 1u)
+    | None ->
+      let r = ldr addr
+      if Option.isNone r then raise InvalidMemException
+      else
+        let b = Option.get r
+        loadMemLoop ldr (b :: acc) m endian (addr + 1UL) (len - 1u)
+    | Some b -> loadMemLoop ldr (b :: acc) m endian (addr + 1UL) (len - 1u)
   else
     let arr =
       Array.ofList (if endian = Endian.Little then List.rev acc else acc)
@@ -100,9 +105,9 @@ let private unwrap = function
   | Undef -> raise UndefExpException
   | Def bv -> bv
 
-let loadMem m endian addr t =
+let loadMem ldr m endian addr t =
   let len = RegType.toByteWidth t |> uint32
-  loadMemLoop [] m endian addr len
+  loadMemLoop ldr [] m endian addr len
 
 let rec private getBytes acc cnt endian (v: bigint) =
   if cnt > 0 then
@@ -115,7 +120,7 @@ let storeMem m endian addr v =
   let bs = BitVector.getValue v |> getBytes [] len endian
   Array.foldi (fun m idx b -> Map.add (addr + uint64 idx) b m) m bs |> fst
 
-let rec evalConcrete st e =
+let rec evalConcrete ldr st e =
   match e with
   | Num n -> Def n
   | Var (_, n, _, _) ->
@@ -123,61 +128,62 @@ let rec evalConcrete st e =
   | PCVar (t, _) -> BitVector.ofUInt64 st.PC t |> Def
   | TempVar (_, n) ->
     Option.getWithExn (Map.tryFind n st.TmpVars) UnknownVarException
-  | UnOp (UnOpType.NEG, e, _, _) -> evalConcrete st e |> apply BitVector.neg
-  | UnOp (UnOpType.NOT, e, _, _) -> evalConcrete st e |> apply BitVector.bnot
-  | BinOp (t, _, e1, e2, _, _) -> evalBinOp st e1 e2 t |> Def
-  | RelOp (t, e1, e2, _, _) -> evalRelOp st e1 e2 t |> Def
-  | Load (endian, t, addr, _, _) -> evalLoad st endian t addr |> Def
-  | Ite (cond, e1, e2, _, _) -> evalIte st cond e1 e2
+  | UnOp (UnOpType.NEG, e, _, _) -> evalConcrete ldr st e |> apply BitVector.neg
+  | UnOp (UnOpType.NOT, e, _, _) ->
+    evalConcrete ldr st e |> apply BitVector.bnot
+  | BinOp (t, _, e1, e2, _, _) -> evalBinOp ldr st e1 e2 t |> Def
+  | RelOp (t, e1, e2, _, _) -> evalRelOp ldr st e1 e2 t |> Def
+  | Load (endian, t, addr, _, _) -> evalLoad ldr st endian t addr |> Def
+  | Ite (cond, e1, e2, _, _) -> evalIte ldr st cond e1 e2
   | Cast (CastKind.SignExt, t, e, _, _) ->
-    evalConcrete st e |> apply (fun bv -> BitVector.sext bv t)
+    evalConcrete ldr st e |> apply (fun bv -> BitVector.sext bv t)
   | Cast (CastKind.ZeroExt, t, e, _, _) ->
-    evalConcrete st e |> apply (fun bv -> BitVector.zext bv t)
+    evalConcrete ldr st e |> apply (fun bv -> BitVector.zext bv t)
   | Extract (e, t, p, _, _) ->
-    evalConcrete st e |> apply (fun bv -> BitVector.extract bv t p)
+    evalConcrete ldr st e |> apply (fun bv -> BitVector.extract bv t p)
   | Undefined (_) -> Undef
   | _ -> raise InvalidExpException
-and evalLoad st endian t addr =
-  let addr = evalConcrete st addr |> unwrap
-  loadMem st.Mems endian (BitVector.toUInt64 addr) t
-and evalIte st cond e1 e2 =
-  let cond = evalConcrete st cond |> unwrap
-  if cond = tr then evalConcrete st e1 else evalConcrete st e2
-and evalBinOpConc st e1 e2 fn =
-  let e1 = evalConcrete st e1 |> unwrap
-  let e2 = evalConcrete st e2 |> unwrap
+and evalLoad ldr st endian t addr =
+  let addr = evalConcrete ldr st addr |> unwrap
+  loadMem ldr st.Mems endian (BitVector.toUInt64 addr) t
+and evalIte ldr st cond e1 e2 =
+  let cond = evalConcrete ldr st cond |> unwrap
+  if cond = tr then evalConcrete ldr st e1 else evalConcrete ldr st e2
+and evalBinOpConc ldr st e1 e2 fn =
+  let e1 = evalConcrete ldr st e1 |> unwrap
+  let e2 = evalConcrete ldr st e2 |> unwrap
   fn e1 e2
-and evalBinOp st e1 e2 = function
-  | BinOpType.ADD -> evalBinOpConc st e1 e2 BitVector.add
-  | BinOpType.SUB -> evalBinOpConc st e1 e2 BitVector.sub
-  | BinOpType.MUL  -> evalBinOpConc st e1 e2 BitVector.mul
-  | BinOpType.DIV -> evalBinOpConc st e1 e2 BitVector.div
-  | BinOpType.SDIV -> evalBinOpConc st e1 e2 BitVector.sdiv
-  | BinOpType.MOD -> evalBinOpConc st e1 e2 BitVector.modulo
-  | BinOpType.SMOD -> evalBinOpConc st e1 e2 BitVector.smodulo
-  | BinOpType.SHL -> evalBinOpConc st e1 e2 BitVector.shl
-  | BinOpType.SAR -> evalBinOpConc st e1 e2 BitVector.sar
-  | BinOpType.SHR -> evalBinOpConc st e1 e2 BitVector.shr
-  | BinOpType.AND -> evalBinOpConc st e1 e2 BitVector.band
-  | BinOpType.OR -> evalBinOpConc st e1 e2 BitVector.bor
-  | BinOpType.XOR -> evalBinOpConc st e1 e2 BitVector.bxor
-  | BinOpType.CONCAT -> evalBinOpConc st e1 e2 BitVector.concat
+and evalBinOp ldr st e1 e2 = function
+  | BinOpType.ADD -> evalBinOpConc ldr st e1 e2 BitVector.add
+  | BinOpType.SUB -> evalBinOpConc ldr st e1 e2 BitVector.sub
+  | BinOpType.MUL  -> evalBinOpConc ldr st e1 e2 BitVector.mul
+  | BinOpType.DIV -> evalBinOpConc ldr st e1 e2 BitVector.div
+  | BinOpType.SDIV -> evalBinOpConc ldr st e1 e2 BitVector.sdiv
+  | BinOpType.MOD -> evalBinOpConc ldr st e1 e2 BitVector.modulo
+  | BinOpType.SMOD -> evalBinOpConc ldr st e1 e2 BitVector.smodulo
+  | BinOpType.SHL -> evalBinOpConc ldr st e1 e2 BitVector.shl
+  | BinOpType.SAR -> evalBinOpConc ldr st e1 e2 BitVector.sar
+  | BinOpType.SHR -> evalBinOpConc ldr st e1 e2 BitVector.shr
+  | BinOpType.AND -> evalBinOpConc ldr st e1 e2 BitVector.band
+  | BinOpType.OR -> evalBinOpConc ldr st e1 e2 BitVector.bor
+  | BinOpType.XOR -> evalBinOpConc ldr st e1 e2 BitVector.bxor
+  | BinOpType.CONCAT -> evalBinOpConc ldr st e1 e2 BitVector.concat
   | _ -> raise IllegalASTTypeException
-and evalRelOp st e1 e2 = function
-  | RelOpType.EQ -> evalBinOpConc st e1 e2 BitVector.eq
-  | RelOpType.NEQ -> evalBinOpConc st e1 e2 BitVector.neq
-  | RelOpType.GT -> evalBinOpConc st e1 e2 BitVector.gt
-  | RelOpType.GE -> evalBinOpConc st e1 e2 BitVector.ge
-  | RelOpType.SGT -> evalBinOpConc st e1 e2 BitVector.sgt
-  | RelOpType.SGE -> evalBinOpConc st e1 e2 BitVector.sge
-  | RelOpType.LT -> evalBinOpConc st e1 e2 BitVector.lt
-  | RelOpType.LE -> evalBinOpConc st e1 e2 BitVector.le
-  | RelOpType.SLT -> evalBinOpConc st e1 e2 BitVector.slt
-  | RelOpType.SLE -> evalBinOpConc st e1 e2 BitVector.sle
+and evalRelOp ldr st e1 e2 = function
+  | RelOpType.EQ -> evalBinOpConc ldr st e1 e2 BitVector.eq
+  | RelOpType.NEQ -> evalBinOpConc ldr st e1 e2 BitVector.neq
+  | RelOpType.GT -> evalBinOpConc ldr st e1 e2 BitVector.gt
+  | RelOpType.GE -> evalBinOpConc ldr st e1 e2 BitVector.ge
+  | RelOpType.SGT -> evalBinOpConc ldr st e1 e2 BitVector.sgt
+  | RelOpType.SGE -> evalBinOpConc ldr st e1 e2 BitVector.sge
+  | RelOpType.LT -> evalBinOpConc ldr st e1 e2 BitVector.lt
+  | RelOpType.LE -> evalBinOpConc ldr st e1 e2 BitVector.le
+  | RelOpType.SLT -> evalBinOpConc ldr st e1 e2 BitVector.slt
+  | RelOpType.SLE -> evalBinOpConc ldr st e1 e2 BitVector.sle
   | _ -> raise IllegalASTTypeException
 
-let evalPut st lhs rhs =
-  try let v = evalConcrete st rhs
+let evalPut ldr st lhs rhs =
+  try let v = evalConcrete ldr st rhs
       match lhs with
       | Var (_, n, _, _) -> { st with Vars = Map.add n v st.Vars }
       | PCVar (_) -> { st with PC = unwrap v |> BitVector.toUInt64; }
@@ -185,9 +191,9 @@ let evalPut st lhs rhs =
       | _ -> raise InvalidExpException
   with UndefExpException -> st (* Do not store undefined value *)
 
-let evalStore st cb endian addr v =
-  let addr = evalConcrete st addr |> unwrap |> BitVector.toUInt64
-  let v = evalConcrete st v |> unwrap
+let evalStore ldr st cb endian addr v =
+  let addr = evalConcrete ldr st addr |> unwrap |> BitVector.toUInt64
+  let v = evalConcrete ldr st v |> unwrap
   cb.StoreCallBack st.PC addr v
   { st with Mems = storeMem st.Mems endian addr v }
 
@@ -196,28 +202,29 @@ let evalJmp st target =
   | Name n -> { st with NextStmtIdx = Map.find n st.LblMap }
   | _ -> raise InvalidExpException
 
-let evalCJmp st cond t1 t2 =
-  let cond = evalConcrete st cond |> unwrap
+let evalCJmp ldr st cond t1 t2 =
+  let cond = evalConcrete ldr st cond |> unwrap
   if cond = tr then evalJmp st t1 else evalJmp st t2
 
-let evalInterCJmp st cond pc t1 t2 =
-  let cond = evalConcrete st cond |> unwrap
-  evalPut st pc (if cond = tr then t1 else t2)
+let evalInterCJmp ldr st cond pc t1 t2 =
+  let cond = evalConcrete ldr st cond |> unwrap
+  evalPut ldr st pc (if cond = tr then t1 else t2)
 
 let private nextStmt st = { st with NextStmtIdx = st.NextStmtIdx + 1 }
 
 let private endBlock st = { st with BlockEnd = true }
 
-let evalStmt st cb = function
+let evalStmt ldr st cb = function
   | ISMark (_) -> st |> nextStmt
   | IEMark (addr) -> { st with PC = addr } |> nextStmt
   | LMark _ -> st |> nextStmt
-  | Put (lhs, rhs) -> evalPut st lhs rhs |> nextStmt
-  | Store (endian, addr, v) -> evalStore st cb endian addr v |> nextStmt
+  | Put (lhs, rhs) -> evalPut ldr st lhs rhs |> nextStmt
+  | Store (endian, addr, v) -> evalStore ldr st cb endian addr v |> nextStmt
   | Jmp target -> evalJmp st target
-  | CJmp (cond, t1, t2) -> evalCJmp st cond t1 t2
-  | InterJmp (pc, target, _) -> evalPut st pc target |> endBlock
-  | InterCJmp (cond, pc, t1, t2) -> evalInterCJmp st cond pc t1 t2 |> endBlock
+  | CJmp (cond, t1, t2) -> evalCJmp ldr st cond t1 t2
+  | InterJmp (pc, target, _) -> evalPut ldr st pc target |> endBlock
+  | InterCJmp (cond, pc, t1, t2) ->
+    evalInterCJmp ldr st cond pc t1 t2 |> endBlock
   | SideEffect eff -> cb.SideEffectCallBack eff st |> nextStmt |> endBlock
 
 /// For a given array of statements (of an instruction), genLblMap generates a

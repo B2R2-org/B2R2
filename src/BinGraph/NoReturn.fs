@@ -127,9 +127,11 @@ let initState hdl startAddr =
     NextStmtIdx = 0
     LblMap = Map.empty }
 
+let dummyLoader _ _ = None
+
 let evalStmts hdl state stmts =
   Array.fold (fun state stmt ->
-    try evalStmt state emptyCallBack stmt with
+    try evalStmt (dummyLoader hdl) state emptyCallBack stmt with
     | UnknownVarException (* Simply ignore exceptions *)
     | InvalidMemException -> state
   ) state stmts
