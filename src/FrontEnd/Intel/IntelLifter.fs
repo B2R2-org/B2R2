@@ -3985,6 +3985,9 @@ let vmovq ins insAddr insLen ctxt =
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
+let vpaddb ins insAddr insLen ctxt =
+  buildPackedInstr ins insAddr insLen ctxt 8<rt> opPadd 32
+
 let vpaddd ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 32<rt> opPadd 16
 
@@ -4202,6 +4205,11 @@ let opVpslld oprSize = opShiftVpackedDataLogical oprSize 32<rt> (<<)
 let vpslld ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 32<rt> opVpslld 16
 
+let opVpsrld oprSize = opShiftVpackedDataLogical oprSize 32<rt> (<<)
+
+let vpsrld ins insAddr insLen ctxt =
+  buildPackedInstr ins insAddr insLen ctxt 32<rt> opVpsrld 16
+
 let shiftVDQ ins insAddr insLen ctxt shift =
   let builder = new StmtBuilder (8)
   let dst, src, cnt = getThreeOprs ins
@@ -4261,8 +4269,14 @@ let vpsrlq ins insAddr insLen ctxt =
 let vpsubb ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 8<rt> opPsub 128
 
+let vpunpckhdq ins insAddr insLen ctxt =
+  buildPackedInstr ins insAddr insLen ctxt 32<rt> opPunpckHigh 16
+
 let vpunpckhqdq ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 64<rt> opPunpckHigh 16
+
+let vpunpckldq ins insAddr insLen ctxt =
+  buildPackedInstr ins insAddr insLen ctxt 32<rt> opPunpckLow 16
 
 let vpunpcklqdq ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 64<rt> opPunpckLow 16
@@ -4752,7 +4766,9 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.VMOVDQU64 -> vmovdqu64 ins insAddr insLen ctxt
   | Opcode.VMOVNTDQ -> vmovntdq ins insAddr insLen ctxt
   | Opcode.VMOVQ -> vmovq ins insAddr insLen ctxt
+  | Opcode.VMOVUPS -> movups ins insAddr insLen ctxt
   | Opcode.VMPTRLD -> sideEffects insAddr insLen UnsupportedExtension
+  | Opcode.VPADDB -> vpaddb ins insAddr insLen ctxt
   | Opcode.VPADDD -> vpaddd ins insAddr insLen ctxt
   | Opcode.VPADDQ -> vpaddq ins insAddr insLen ctxt
   | Opcode.VPALIGNR -> vpalignr ins insAddr insLen ctxt
@@ -4775,11 +4791,14 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.VPSLLD -> vpslld ins insAddr insLen ctxt
   | Opcode.VPSLLDQ -> vpslldq ins insAddr insLen ctxt
   | Opcode.VPSLLQ -> vpsllq ins insAddr insLen ctxt
+  | Opcode.VPSRLD -> vpsrld ins insAddr insLen ctxt
   | Opcode.VPSRLDQ -> vpsrldq ins insAddr insLen ctxt
   | Opcode.VPSRLQ -> vpsrlq ins insAddr insLen ctxt
   | Opcode.VPSUBB -> vpsubb ins insAddr insLen ctxt
   | Opcode.VPTEST -> vptest ins insAddr insLen ctxt
+  | Opcode.VPUNPCKHDQ -> vpunpckhdq ins insAddr insLen ctxt
   | Opcode.VPUNPCKHQDQ -> vpunpckhqdq ins insAddr insLen ctxt
+  | Opcode.VPUNPCKLDQ -> vpunpckldq ins insAddr insLen ctxt
   | Opcode.VPUNPCKLQDQ -> vpunpcklqdq ins insAddr insLen ctxt
   | Opcode.VPXOR -> vpxor ins insAddr insLen ctxt
   | Opcode.VZEROUPPER -> vzeroupper ins insAddr insLen ctxt
