@@ -53,20 +53,27 @@ type IRVertexData () =
 
   abstract member GetPpoint: outref<PPoint> -> bool
 
+  abstract member GetLastPpoint: outref<PPoint> -> bool
+
   abstract member GetStmts: outref<LowUIR.Stmt list> -> bool
 
   abstract member GetLastStmt: outref<LowUIR.Stmt> -> bool
 
-  abstract member SetToResolve: bool -> unit
+  abstract member SetIsIndirectCall: bool -> unit
 
-  abstract member GetToResolve: outref<bool> -> bool
+  abstract member GetIsIndirectCall: outref<bool> -> bool
+
+  abstract member SetIsIndirectJump: bool -> unit
+
+  abstract member GetIsIndirectJump: outref<bool> -> bool
 
   abstract member GetTarget: outref<Addr> -> bool
 
 type IRBBL (ppoint, lastPpoint, stmts, last) =
   inherit IRVertexData ()
 
-  let mutable toResolve = false
+  let mutable isIndirectCall = false
+  let mutable isIndirectJump = false
 
   /// The last statement of this block (to access it efficiently).
   member __.LastStmt: LowUIR.Stmt = last
@@ -80,6 +87,10 @@ type IRBBL (ppoint, lastPpoint, stmts, last) =
     pp <- ppoint
     true
 
+  override __.GetLastPpoint (pp: outref<PPoint>) =
+    pp <- lastPpoint
+    true
+
   override __.GetStmts (s: outref<LowUIR.Stmt list>) =
     s <- stmts
     true
@@ -88,10 +99,16 @@ type IRBBL (ppoint, lastPpoint, stmts, last) =
     s <- last
     true
 
-  override __.SetToResolve b = toResolve <- b
+  override __.SetIsIndirectCall b = isIndirectCall <- b
 
-  override __.GetToResolve (b: outref<bool>) =
-    b <- toResolve
+  override __.GetIsIndirectCall (b: outref<bool>) =
+    b <- isIndirectCall
+    true
+
+  override __.SetIsIndirectJump b = isIndirectJump <- b
+
+  override __.GetIsIndirectJump (b: outref<bool>) =
+    b <- isIndirectJump
     true
 
   override __.GetTarget (target: outref<Addr>) = false
@@ -103,13 +120,19 @@ type IRCall (target) =
 
   override __.GetPpoint (pp: outref<PPoint>) = false
 
+  override __.GetLastPpoint (pp: outref<PPoint>) = false
+
   override __.GetStmts (s: outref<LowUIR.Stmt list>) = false
 
   override __.GetLastStmt (s: outref<LowUIR.Stmt>) = false
 
-  override __.SetToResolve b = ()
+  override __.SetIsIndirectCall b = ()
 
-  override __.GetToResolve (b: outref<bool>) = false
+  override __.GetIsIndirectCall (b: outref<bool>) = false
+
+  override __.SetIsIndirectJump b = ()
+
+  override __.GetIsIndirectJump (b: outref<bool>) = false
 
   override __.GetTarget (t: outref<Addr>) =
     t <- target
@@ -130,7 +153,9 @@ type SSABBL (irVertexData, stmts, last) =
 
   member __.LastStmt: SSA.Stmt = last
 
-  member val ToResolve = false with get, set
+  member val IsIndirectCall = false with get, set
+
+  member val IsIndirectJump = false with get, set
 
   override __.IsBBL () = true
 

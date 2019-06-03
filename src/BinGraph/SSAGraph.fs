@@ -387,19 +387,13 @@ let renameVars hdl ctxt =
     rename tree ctxt.PredMap succMap defs (ssaMap, counts, stacks) root
   { ctxt with SSAMap = ssaMap }
 
-let toResolve = function
-  | Jmp (IntraJmp _)
-  | Jmp (IntraCJmp _)
-  | Jmp (InterJmp (_, Num _))
-  | Jmp (InterCJmp (_, _, Num _, Num _)) -> false
-  | Jmp (InterJmp _)
-  | Jmp (InterCJmp _) -> true
-  | _ -> false
-
 let genVMap (g: SSACFG) n ((irData: IRVertexData), stmts) =
   if irData.IsBBL () then
     let ssaBBL = SSABBL (irData, stmts, List.head <| List.rev stmts)
-    if toResolve ssaBBL.LastStmt then ssaBBL.ToResolve <- true
+    let _, isIndirectCall = irData.GetIsIndirectCall ()
+    ssaBBL.IsIndirectCall <- isIndirectCall
+    let _, isIndirectJump = irData.GetIsIndirectJump ()
+    ssaBBL.IsIndirectJump <- isIndirectJump
     g.AddVertex ssaBBL
   else
     let ssaCall = SSACall (irData, stmts)
