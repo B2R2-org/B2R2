@@ -529,7 +529,10 @@ let shift value regType shiftType amount carryIn =
 /// on page A2-43. function : AddWithCarry()
 let addWithCarry src1 src2 carryIn =
   let result = src1 .+ src2 .+ carryIn
-  let carryOut = lt result src1
+  let carryOut =
+    ite (carryIn == (BitVector.ofUInt32 1u 32<rt> |> num))
+      (ge src1 (not src2)) (gt src1 (not src2))
+  //let carryOut = ge result src1
   let overflow = getOverflowFlagOnAdd src1 src2 result
   result, carryOut, overflow
 
@@ -1901,6 +1904,7 @@ let cmp insInfo ctxt =
   let e1, e2 = parseOprOfCMP insInfo ctxt
   let result = tmpVar 32<rt>
   let res, carryOut, overflow = addWithCarry e1 (not e2) (num1 32<rt>)
+  printfn "%A" (not e2)
   let cpsr = getRegVar ctxt R.CPSR
   let isCondPass = isCondPassed insInfo.Condition
   startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
