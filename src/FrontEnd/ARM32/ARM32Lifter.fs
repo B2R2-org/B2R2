@@ -290,6 +290,13 @@ let getPSR ctxt reg psrType =
   | PSR_T -> psr .& maskPSRForTbit
   | PSR_M -> psr .& maskPSRForMbits
 
+//let isSetCPSR_N ctxt = getPSR ctxt R.CPSR PSR_N == maskPSRForNbit
+//let isSetCPSR_Z ctxt = getPSR ctxt R.CPSR PSR_Z == maskPSRForZbit
+//let isSetCPSR_C ctxt = getPSR ctxt R.CPSR PSR_C == maskPSRForCbit
+//let isSetCPSR_V ctxt = getPSR ctxt R.CPSR PSR_V == maskPSRForVbit
+//let isSetCPSR_J ctxt = getPSR ctxt R.CPSR PSR_J == maskPSRForJbit
+//let isSetCPSR_T ctxt = getPSR ctxt R.CPSR PSR_T == maskPSRForTbit
+
 let isSetCPSR_N ctxt = getPSR ctxt R.CPSR PSR_N == maskPSRForNbit
 let isSetCPSR_Z ctxt = getPSR ctxt R.CPSR PSR_Z == maskPSRForZbit
 let isSetCPSR_C ctxt = getPSR ctxt R.CPSR PSR_C == maskPSRForCbit
@@ -297,15 +304,8 @@ let isSetCPSR_V ctxt = getPSR ctxt R.CPSR PSR_V == maskPSRForVbit
 let isSetCPSR_J ctxt = getPSR ctxt R.CPSR PSR_J == maskPSRForJbit
 let isSetCPSR_T ctxt = getPSR ctxt R.CPSR PSR_T == maskPSRForTbit
 
-let isSetAPSR_N ctxt = getPSR ctxt R.APSR PSR_N == maskPSRForNbit
-let isSetAPSR_Z ctxt = getPSR ctxt R.APSR PSR_Z == maskPSRForZbit
-let isSetAPSR_C ctxt = getPSR ctxt R.APSR PSR_C == maskPSRForCbit
-let isSetAPSR_V ctxt = getPSR ctxt R.APSR PSR_V == maskPSRForVbit
-let isSetAPSR_J ctxt = getPSR ctxt R.APSR PSR_J == maskPSRForJbit
-let isSetAPSR_T ctxt = getPSR ctxt R.APSR PSR_T == maskPSRForTbit
-
 let getCarryFlag ctxt =
-  getPSR ctxt R.APSR PSR_C >> (num <| BitVector.ofInt32 29 32<rt>)
+  getPSR ctxt R.CPSR PSR_C >> (num <| BitVector.ofInt32 29 32<rt>)
 
 let maskAndOR e1 e2 regType maskSize =
   let mask = BitVector.ofUBInt (BigInteger.getMask maskSize) regType
@@ -537,19 +537,19 @@ let addWithCarry src1 src2 carryIn =
 let isInstrSetARM ctxt = not (isSetCPSR_J ctxt) .& not (isSetCPSR_T ctxt)
 
 /// Is this Thumb instruction set, on page A2-51.
-let isInstrSetThumb ctxt = not (isSetAPSR_J ctxt) .& isSetAPSR_T ctxt
+let isInstrSetThumb ctxt = not (isSetCPSR_J ctxt) .& isSetCPSR_T ctxt
 
 /// Sets the ARM instruction set, on page A2-51.
 let selectARMInstrSet ctxt (builder: StmtBuilder) =
-  let apsr = getRegVar ctxt R.APSR
-  builder <! (apsr := disablePSR ctxt R.APSR PSR_J)
-  builder <! (apsr := disablePSR ctxt R.APSR PSR_T)
+  let cpsr = getRegVar ctxt R.CPSR
+  builder <! (cpsr := disablePSR ctxt R.CPSR PSR_J)
+  builder <! (cpsr := disablePSR ctxt R.CPSR PSR_T)
 
 /// Sets the ARM instruction set, on page A2-51.
 let selectThumbInstrSet ctxt (builder: StmtBuilder) =
-  let apsr = getRegVar ctxt R.APSR
-  builder <! (apsr := disablePSR ctxt R.APSR PSR_J)
-  builder <! (apsr := enablePSR ctxt R.APSR PSR_T)
+  let cpsr = getRegVar ctxt R.CPSR
+  builder <! (cpsr := disablePSR ctxt R.CPSR PSR_J)
+  builder <! (cpsr := enablePSR ctxt R.CPSR PSR_T)
 
 /// Sets the instruction set currently in use, on page A2-51.
 /// SelectInstrSet()
@@ -981,11 +981,11 @@ let adc isSetFlags insInfo ctxt =
   else
     builder <! (dst := result)
     if isSetFlags then
-      let apsr = getRegVar ctxt R.APSR
-      builder <! (apsr := extractHigh 1<rt> result |> setPSR ctxt R.APSR PSR_N)
-      builder <! (apsr := result == num0 32<rt> |> setPSR ctxt R.APSR PSR_Z)
-      builder <! (apsr := carryOut |> setPSR ctxt R.APSR PSR_C)
-      builder <! (apsr := overflow |> setPSR ctxt R.APSR PSR_V)
+      let cpsr = getRegVar ctxt R.CPSR
+      builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
+      builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
+      builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
+      builder <! (cpsr := overflow |> setPSR ctxt R.CPSR PSR_V)
     else ()
   endMark insInfo lblCondFail isCondPass builder
 
@@ -1043,11 +1043,11 @@ let add isSetFlags insInfo ctxt =
   else
     builder <! (dst := result)
     if isSetFlags then
-      let apsr = getRegVar ctxt R.APSR
-      builder <! (apsr := extractHigh 1<rt> result |> setPSR ctxt R.APSR PSR_N)
-      builder <! (apsr := result == num0 32<rt> |> setPSR ctxt R.APSR PSR_Z)
-      builder <! (apsr := carryOut |> setPSR ctxt R.APSR PSR_C)
-      builder <! (apsr := overflow |> setPSR ctxt R.APSR PSR_V)
+      let cpsr = getRegVar ctxt R.CPSR
+      builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
+      builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
+      builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
+      builder <! (cpsr := overflow |> setPSR ctxt R.CPSR PSR_V)
     else ()
   endMark insInfo lblCondFail isCondPass builder
 
@@ -1103,7 +1103,7 @@ let bl insInfo ctxt =
   let isCondPass = isCondPassed insInfo.Condition
   startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
   if insInfo.Mode = ArchOperationMode.ARMMode then
-    builder <! (lr := addr .- (num <| BitVector.ofInt32 4 32<rt>))
+    builder <! (lr := addr .+ (num <| BitVector.ofInt32 4 32<rt>))
   else builder <! (lr := maskAndOR addr (num1 32<rt>) 32<rt> 1)
   selectInstrSet ctxt builder targetMode
   builder <! (branchWritePC ctxt e InterJmpInfo.IsCall)
@@ -1172,11 +1172,11 @@ let sub isSetFlags insInfo ctxt =
   else
     builder <! (dst := result)
     if isSetFlags then
-      let apsr = getRegVar ctxt R.APSR
-      builder <! (apsr := extractHigh 1<rt> result |> setPSR ctxt R.APSR PSR_N)
-      builder <! (apsr := result == num0 32<rt> |> setPSR ctxt R.APSR PSR_Z)
-      builder <! (apsr := carryOut |> setPSR ctxt R.APSR PSR_C)
-      builder <! (apsr := overflow |> setPSR ctxt R.APSR PSR_V)
+      let cpsr = getRegVar ctxt R.CPSR
+      builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
+      builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
+      builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
+      builder <! (cpsr := overflow |> setPSR ctxt R.CPSR PSR_V)
     else ()
   endMark insInfo lblCondFail isCondPass builder
 
@@ -1340,10 +1340,10 @@ let transAND isSetFlags insInfo ctxt =
   else
     builder <! (dst := result)
     if isSetFlags then
-      let apsr = getRegVar ctxt R.APSR
-      builder <! (apsr := extractHigh 1<rt> result |> setPSR ctxt R.APSR PSR_N)
-      builder <! (apsr := result == num0 32<rt> |> setPSR ctxt R.APSR PSR_Z)
-      builder <! (apsr := carryOut |> setPSR ctxt R.APSR PSR_C)
+      let cpsr = getRegVar ctxt R.CPSR
+      builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
+      builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
+      builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
     else ()
   endMark insInfo lblCondFail isCondPass builder
 
@@ -1360,9 +1360,9 @@ let mov isSetFlags insInfo ctxt =
   else
     builder <! (dst := result)
     if isSetFlags then
-      let apsr = getRegVar ctxt R.APSR
-      builder <! (apsr := extractHigh 1<rt> result |> setPSR ctxt R.APSR PSR_N)
-      builder <! (apsr := result == num0 32<rt> |> setPSR ctxt R.APSR PSR_Z)
+      let cpsr = getRegVar ctxt R.CPSR
+      builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
+      builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
     else ()
   endMark insInfo lblCondFail isCondPass builder
 
@@ -1379,10 +1379,10 @@ let eor isSetFlags insInfo ctxt =
   else
     builder <! (dst := result)
     if isSetFlags then
-      let apsr = getRegVar ctxt R.APSR
-      builder <! (apsr := extractHigh 1<rt> result |> setPSR ctxt R.APSR PSR_N)
-      builder <! (apsr := result == num0 32<rt> |> setPSR ctxt R.APSR PSR_Z)
-      builder <! (apsr := carryOut |> setPSR ctxt R.APSR PSR_C)
+      let cpsr = getRegVar ctxt R.CPSR
+      builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
+      builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
+      builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
     else ()
   endMark insInfo lblCondFail isCondPass builder
 
@@ -1418,11 +1418,11 @@ let rsb isSetFlags insInfo ctxt =
   else
     builder <! (dst := result)
     if isSetFlags then
-      let apsr = getRegVar ctxt R.APSR
-      builder <! (apsr := extractHigh 1<rt> result |> setPSR ctxt R.APSR PSR_N)
-      builder <! (apsr := result == num0 32<rt> |> setPSR ctxt R.APSR PSR_Z)
-      builder <! (apsr := carryOut |> setPSR ctxt R.APSR PSR_C)
-      builder <! (apsr := overflow |> setPSR ctxt R.APSR PSR_V)
+      let cpsr = getRegVar ctxt R.CPSR
+      builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
+      builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
+      builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
+      builder <! (cpsr := overflow |> setPSR ctxt R.CPSR PSR_V)
     else ()
   endMark insInfo lblCondFail isCondPass builder
 
@@ -1466,11 +1466,11 @@ let sbc isSetFlags insInfo ctxt =
   else
     builder <! (dst := result)
     if isSetFlags then
-      let apsr = getRegVar ctxt R.APSR
-      builder <! (apsr := extractHigh 1<rt> result |> setPSR ctxt R.APSR PSR_N)
-      builder <! (apsr := result == num0 32<rt> |> setPSR ctxt R.APSR PSR_Z)
-      builder <! (apsr := carryOut |> setPSR ctxt R.APSR PSR_C)
-      builder <! (apsr := overflow |> setPSR ctxt R.APSR PSR_V)
+      let cpsr = getRegVar ctxt R.CPSR
+      builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
+      builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
+      builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
+      builder <! (cpsr := overflow |> setPSR ctxt R.CPSR PSR_V)
     else ()
   endMark insInfo lblCondFail isCondPass builder
 
@@ -1506,11 +1506,11 @@ let rsc isSetFlags insInfo ctxt =
   else
     builder <! (dst := result)
     if isSetFlags then
-      let apsr = getRegVar ctxt R.APSR
-      builder <! (apsr := extractHigh 1<rt> result |> setPSR ctxt R.APSR PSR_N)
-      builder <! (apsr := result == num0 32<rt> |> setPSR ctxt R.APSR PSR_Z)
-      builder <! (apsr := carryOut |> setPSR ctxt R.APSR PSR_C)
-      builder <! (apsr := overflow |> setPSR ctxt R.APSR PSR_V)
+      let cpsr = getRegVar ctxt R.CPSR
+      builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
+      builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
+      builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
+      builder <! (cpsr := overflow |> setPSR ctxt R.CPSR PSR_V)
     else ()
   endMark insInfo lblCondFail isCondPass builder
 
@@ -1527,10 +1527,10 @@ let orr isSetFlags insInfo ctxt =
   else
     builder <! (dst := result)
     if isSetFlags then
-      let apsr = getRegVar ctxt R.APSR
-      builder <! (apsr := extractHigh 1<rt> result |> setPSR ctxt R.APSR PSR_N)
-      builder <! (apsr := result == num0 32<rt> |> setPSR ctxt R.APSR PSR_Z)
-      builder <! (apsr := carryOut |> setPSR ctxt R.APSR PSR_C)
+      let cpsr = getRegVar ctxt R.CPSR
+      builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
+      builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
+      builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
     else ()
   endMark insInfo lblCondFail isCondPass builder
 
@@ -1547,10 +1547,10 @@ let bic isSetFlags insInfo ctxt =
   else
     builder <! (dst := result)
     if isSetFlags then
-      let apsr = getRegVar ctxt R.APSR
-      builder <! (apsr := extractHigh 1<rt> result |> setPSR ctxt R.APSR PSR_N)
-      builder <! (apsr := result == num0 32<rt> |> setPSR ctxt R.APSR PSR_Z)
-      builder <! (apsr := carryOut |> setPSR ctxt R.APSR PSR_C)
+      let cpsr = getRegVar ctxt R.CPSR
+      builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
+      builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
+      builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
     else ()
   endMark insInfo lblCondFail isCondPass builder
 
@@ -1599,10 +1599,10 @@ let mvn isSetFlags insInfo ctxt =
   else
     builder <! (dst := result)
     if isSetFlags then
-      let apsr = getRegVar ctxt R.APSR
-      builder <! (apsr := extractHigh 1<rt> result |> setPSR ctxt R.APSR PSR_N)
-      builder <! (apsr := result == num0 32<rt> |> setPSR ctxt R.APSR PSR_Z)
-      builder <! (apsr := carryOut |> setPSR ctxt R.APSR PSR_C)
+      let cpsr = getRegVar ctxt R.CPSR
+      builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
+      builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
+      builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
     else ()
   endMark insInfo lblCondFail isCondPass builder
 
@@ -1661,10 +1661,10 @@ let shiftInstr isSetFlags insInfo typ ctxt =
   else
     builder <! (dst := result)
     if isSetFlags then
-      let apsr = getRegVar ctxt R.APSR
-      builder <! (apsr := extractHigh 1<rt> result |> setPSR ctxt R.APSR PSR_N)
-      builder <! (apsr := result == num0 32<rt> |> setPSR ctxt R.APSR PSR_Z)
-      builder <! (apsr := carryOut |> setPSR ctxt R.APSR PSR_C)
+      let cpsr = getRegVar ctxt R.CPSR
+      builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
+      builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
+      builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
     else ()
   endMark insInfo lblCondFail isCondPass builder
 
@@ -1839,14 +1839,14 @@ let cmn insInfo ctxt =
   let dst, src = parseOprOfCMN insInfo ctxt
   let result = tmpVar 32<rt>
   let res, carryOut, overflow = addWithCarry dst src (num0 32<rt>)
-  let apsr = getRegVar ctxt R.APSR
+  let cpsr = getRegVar ctxt R.CPSR
   let isCondPass = isCondPassed insInfo.Condition
   startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
   builder <! (result := res)
-  builder <! (apsr := extractHigh 1<rt> result |> setPSR ctxt R.APSR PSR_N)
-  builder <! (apsr := result == num0 32<rt> |> setPSR ctxt R.APSR PSR_Z)
-  builder <! (apsr := carryOut |> setPSR ctxt R.APSR PSR_C)
-  builder <! (apsr := overflow |> setPSR ctxt R.APSR PSR_V)
+  builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
+  builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
+  builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
+  builder <! (cpsr := overflow |> setPSR ctxt R.CPSR PSR_V)
   endMark insInfo lblCondFail isCondPass builder
 
 let mla isSetFlags insInfo ctxt =
@@ -1861,9 +1861,9 @@ let mla isSetFlags insInfo ctxt =
                                      zExt 64<rt> ra))
   builder <! (rd := r)
   if isSetFlags then
-    let apsr = getRegVar ctxt R.APSR
-    builder <! (apsr := extractHigh 1<rt> r |> setPSR ctxt R.APSR PSR_N)
-    builder <! (apsr := r == num0 32<rt> |> setPSR ctxt R.APSR PSR_Z)
+    let cpsr = getRegVar ctxt R.CPSR
+    builder <! (cpsr := extractHigh 1<rt> r |> setPSR ctxt R.CPSR PSR_N)
+    builder <! (cpsr := r == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
   else ()
   endMark insInfo lblCondFail isCondPass builder
 
@@ -1901,14 +1901,14 @@ let cmp insInfo ctxt =
   let e1, e2 = parseOprOfCMP insInfo ctxt
   let result = tmpVar 32<rt>
   let res, carryOut, overflow = addWithCarry e1 (not e2) (num1 32<rt>)
-  let apsr = getRegVar ctxt R.APSR
+  let cpsr = getRegVar ctxt R.CPSR
   let isCondPass = isCondPassed insInfo.Condition
   startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
   builder <! (result := res)
-  builder <! (apsr := extractHigh 1<rt> result |> setPSR ctxt R.APSR PSR_N)
-  builder <! (apsr := result == num0 32<rt> |> setPSR ctxt R.APSR PSR_Z)
-  builder <! (apsr := carryOut |> setPSR ctxt R.APSR PSR_C)
-  builder <! (apsr := overflow |> setPSR ctxt R.APSR PSR_V)
+  builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
+  builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
+  builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
+  builder <! (cpsr := overflow |> setPSR ctxt R.CPSR PSR_V)
   endMark insInfo lblCondFail isCondPass builder
 
 let umlal isSetFlags insInfo ctxt =
@@ -1923,9 +1923,9 @@ let umlal isSetFlags insInfo ctxt =
   builder <! (rdHi := extractHigh 32<rt> result)
   builder <! (rdLo := extractLow 32<rt> result)
   if isSetFlags then
-    let apsr = getRegVar ctxt R.APSR
-    builder <! (apsr := extractHigh 1<rt> result |> setPSR ctxt R.APSR PSR_N)
-    builder <! (apsr := result == num0 64<rt> |> setPSR ctxt R.APSR PSR_Z)
+    let cpsr = getRegVar ctxt R.CPSR
+    builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
+    builder <! (cpsr := result == num0 64<rt> |> setPSR ctxt R.CPSR PSR_Z)
   else ()
   endMark insInfo lblCondFail isCondPass builder
 
@@ -1941,9 +1941,9 @@ let umull isSetFlags insInfo ctxt =
   builder <! (rdHi := extractHigh 32<rt> result)
   builder <! (rdLo := extractLow 32<rt> result)
   if isSetFlags then
-    let apsr = getRegVar ctxt R.APSR
-    builder <! (apsr := extractHigh 1<rt> result |> setPSR ctxt R.APSR PSR_N)
-    builder <! (apsr := result == num0 64<rt> |> setPSR ctxt R.APSR PSR_Z)
+    let cpsr = getRegVar ctxt R.CPSR
+    builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
+    builder <! (cpsr := result == num0 64<rt> |> setPSR ctxt R.CPSR PSR_Z)
   else ()
   endMark insInfo lblCondFail isCondPass builder
 
@@ -1971,13 +1971,13 @@ let teq insInfo ctxt =
   let lblCondFail = lblSymbol "CondCheckFailed"
   let src1, src2, carryOut = transOprsOfTEQ insInfo ctxt
   let result = tmpVar 32<rt>
-  let apsr = getRegVar ctxt R.APSR
+  let cpsr = getRegVar ctxt R.CPSR
   let isCondPass = isCondPassed insInfo.Condition
   startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
   builder <! (result := src1 <+> src2)
-  builder <! (apsr := extractHigh 1<rt> result |> setPSR ctxt R.APSR PSR_N)
-  builder <! (apsr := result == num0 32<rt> |> setPSR ctxt R.APSR PSR_Z)
-  builder <! (apsr := carryOut |> setPSR ctxt R.APSR PSR_C)
+  builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
+  builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
+  builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
   endMark insInfo lblCondFail isCondPass builder
 
 let mul isSetFlags insInfo ctxt =
@@ -1991,9 +1991,9 @@ let mul isSetFlags insInfo ctxt =
   builder <! (result := extractLow 32<rt> (zExt 64<rt> rn .* zExt 64<rt> rm))
   builder <! (rd := result)
   if isSetFlags then
-    let apsr = getRegVar ctxt R.APSR
-    builder <! (apsr := extractHigh 1<rt> result |> setPSR ctxt R.APSR PSR_N)
-    builder <! (apsr := result == num0 32<rt> |> setPSR ctxt R.APSR PSR_Z)
+    let cpsr = getRegVar ctxt R.CPSR
+    builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
+    builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
   else ()
   endMark insInfo lblCondFail isCondPass builder
 
@@ -2025,13 +2025,13 @@ let tst insInfo ctxt =
   let lblCondFail = lblSymbol "CondCheckFailed"
   let src1, src2, carryOut = transOprsOfTST insInfo ctxt
   let result = tmpVar 32<rt>
-  let apsr = getRegVar ctxt R.APSR
+  let cpsr = getRegVar ctxt R.CPSR
   let isCondPass = isCondPassed insInfo.Condition
   startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
   builder <! (result := src1 .& src2)
-  builder <! (apsr := extractHigh 1<rt> result |> setPSR ctxt R.APSR PSR_N)
-  builder <! (apsr := result == num0 32<rt> |> setPSR ctxt R.APSR PSR_Z)
-  builder <! (apsr := carryOut |> setPSR ctxt R.APSR PSR_C)
+  builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
+  builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
+  builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
   endMark insInfo lblCondFail isCondPass builder
 
 let smull isSetFlags insInfo ctxt =
@@ -2046,9 +2046,9 @@ let smull isSetFlags insInfo ctxt =
   builder <! (rdHi := extractHigh 32<rt> result)
   builder <! (rdLo := extractLow 32<rt> result)
   if isSetFlags then
-    let apsr = getRegVar ctxt R.APSR
-    builder <! (apsr := extractHigh 1<rt> result |> setPSR ctxt R.APSR PSR_N)
-    builder <! (apsr := result == num0 64<rt> |> setPSR ctxt R.APSR PSR_Z)
+    let cpsr = getRegVar ctxt R.CPSR
+    builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
+    builder <! (cpsr := result == num0 64<rt> |> setPSR ctxt R.CPSR PSR_Z)
   else ()
   endMark insInfo lblCondFail isCondPass builder
 
@@ -2183,7 +2183,7 @@ let parseMemOfLDR insInfo ctxt = function
   | OprMemory (LiteralMode imm) ->
     let addr = bvOfBaseAddr insInfo.Address
     let pc = align addr (num <| BitVector.ofInt32 4 32<rt>)
-    pc .+ (num <| BitVector.ofInt64 imm 32<rt>), None
+    pc .+ (num <| BitVector.ofUInt32 8u 32<rt>) .+ (num <| BitVector.ofInt64 imm 32<rt>), None
   | OprMemory (OffsetMode (RegOffset (n, _, m, None))) ->
     let offset = shift (getRegVar ctxt m) 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
     getRegVar ctxt n .+ offset, None
@@ -2314,9 +2314,9 @@ let str insInfo ctxt =
   let rt, addr, stmt = parseOprOfLDR insInfo ctxt
   let isCondPass = isCondPassed insInfo.Condition
   startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
-  builder <! (loadLE 32<rt> addr := rt)
-  if rt = getPC ctxt then builder <! (loadLE 32<rt> addr := rt)
-  else builder <! (loadLE 32<rt> addr := pcStoreValue ctxt)
+  //builder <! (loadLE 32<rt> addr := rt)
+  if rt = getPC ctxt then builder <! (loadLE 32<rt> addr := pcStoreValue ctxt)
+  else builder <! (loadLE 32<rt> addr := rt)
   match stmt with
   | Some s -> builder <! s
   | None -> ()
@@ -2808,11 +2808,11 @@ let vmrs insInfo ctxt =
   let lblCondPass = lblSymbol "CondCheckPassed"
   let lblCondFail = lblSymbol "CondCheckFailed"
   let rt, fpscr = transTwoOprs insInfo ctxt
-  let apsr = getRegVar ctxt R.APSR
+  let cpsr = getRegVar ctxt R.CPSR
   let isCondPass = isCondPassed insInfo.Condition
   startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
-  if rt <> apsr then builder <! (rt := fpscr)
-  else builder <! (apsr := disablePSR ctxt R.APSR PSR_Cond .|
+  if rt <> cpsr then builder <! (rt := fpscr)
+  else builder <! (cpsr := disablePSR ctxt R.CPSR PSR_Cond .|
                            getPSR ctxt R.FPSCR PSR_Cond)
   endMark insInfo lblCondFail isCondPass builder
 
