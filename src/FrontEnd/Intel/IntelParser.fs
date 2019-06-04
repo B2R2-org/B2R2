@@ -1087,6 +1087,22 @@ let inline private selectPrefix t =
   | None -> t.TPrefixes
   | Some v -> v.VPrefixes
 
+let getOpAndOprKindByOpGrp12 t b regBits =
+  match modIsMemory b, regBits, hasOprSz (selectPrefix t) with
+  | false, 0b010, false -> Opcode.PSRLW, NqIb, SzDef32
+  | false, 0b010, true  ->
+    if t.TVEXInfo = None then Opcode.PSRLW, UdqIb, SzDef32
+    else Opcode.VPSRLW, HxUxIb, SzDef32
+  | false, 0b100, false -> Opcode.PSRAW, NqIb, SzDef32
+  | false, 0b100, true  ->
+    if t.TVEXInfo = None then Opcode.PSRAW, UdqIb, SzDef32
+    else Opcode.VPSRAW, HxUxIb, SzDef32
+  | false, 0b110, false -> Opcode.PSLLW, NqIb, SzDef32
+  | false, 0b110, true  ->
+    if t.TVEXInfo = None then Opcode.PSLLW, UdqIb, SzDef32
+    else Opcode.VPSLLW, HxUxIb, SzDef32
+  | _ -> raise ParsingFailureException
+
 let getOpAndOprKindByOpGrp13 t b regBits =
   match modIsMemory b, regBits, hasOprSz (selectPrefix t) with
   | false, 0b010, false -> Opcode.PSRLD, NqIb, SzDef32
@@ -1165,11 +1181,12 @@ let parseOpAndOprKindByGrp t reader pos b oprDescs oprGrp =
     getOpAndOprKindByOpGrp11 Opcode.XABORT Ib b r oprDescs reader pos
   | OpGroup.G11B ->
     getOpAndOprKindByOpGrp11 Opcode.XBEGIN Jz b r oprDescs reader pos
+  | OpGroup.G12 -> getOpAndOprKindByOpGrp12 t b r, pos
   | OpGroup.G13 -> getOpAndOprKindByOpGrp13 t b r, pos
   | OpGroup.G14 -> getOpAndOprKindByOpGrp14 t b r, pos
   | OpGroup.G15 -> parseOpAndOprKindByOpGrp15 t pos b r
   | OpGroup.G16 -> (grp16Op.[r], oprDescs, SzDef32), pos
-  | OpGroup.G10 | OpGroup.G12 | OpGroup.G17 | _ ->
+  | OpGroup.G10 | OpGroup.G17 | _ ->
     raise ParsingFailureException (* Not implemented yet *)
 
 let parseOpGrpInfo t (reader: BinReader) pos grp oprDescs =
@@ -1668,6 +1685,7 @@ let private pTwoByteOp t reader pos byte =
   | 0x01uy -> parseGrpOpcode t reader pos OpGroup.G7 0L
   | 0xBAuy -> parseGrpOpcode t reader pos OpGroup.G8 EvIb
   | 0xC7uy -> parseGrpOpcode t reader pos OpGroup.G9 0L
+  | 0x71uy -> parseGrpOpcode t reader pos OpGroup.G12 0L
   | 0x72uy -> parseGrpOpcode t reader pos OpGroup.G13 0L
   | 0x73uy -> parseGrpOpcode t reader pos OpGroup.G14 0L
   | 0xAEuy -> parseGrpOpcode t reader pos OpGroup.G15 0L
