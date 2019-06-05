@@ -277,7 +277,7 @@ let belongSameIR (builder: CFGBuilder) sAddr dAddr =
   | Some sEntry, Some dEntry when sEntry = dEntry -> true
   | _ -> false
 
-let rec addIREdges builder (bbls: IRBBLs) (g: IRCFG) = function
+let rec addIREdges (builder: CFGBuilder) (bbls: IRBBLs) (g: IRCFG) = function
   | [] -> ()
   | (src, Some (dst, edgeType)) :: edges ->
     if belongSameIR builder src dst then
@@ -288,7 +288,12 @@ let rec addIREdges builder (bbls: IRBBLs) (g: IRCFG) = function
     else addIREdges builder bbls g edges
   | (src, None) :: edges ->
     let s = g.FindVertexByData bbls.[src]
-    s.VData.SetToResolve true
+    let b, pp = s.VData.GetLastPpoint ()
+    if b then
+      let lastInstr = builder.GetInstr <| fst pp
+      if lastInstr.IsCall () then s.VData.SetIsIndirectCall true
+      elif lastInstr.IsRET () then ()
+      else s.VData.SetIsIndirectJump true
     addIREdges builder bbls g edges
 
 let buildIRCFG hdl (builder: CFGBuilder) (cfg: IRCFG) funcset bbls entry =
@@ -469,8 +474,9 @@ let private irVertexToJson (sb: StringBuilder, hdl, cnt) (v: IRVertex) =
   let sb = sb.Append("    \"").Append(irVertexToString v)
   let sb = sb.Append("\": {\n")
   let sb = sb.Append("      \"background\": ")
-  let _, toResolve = vData.GetToResolve ()
-  let sb = bgToJson toResolve sb
+  let _, isIndirectCall = vData.GetIsIndirectCall ()
+  let _, isIndirectJump = vData.GetIsIndirectJump ()
+  let sb = bgToJson (isIndirectCall || isIndirectJump) sb
   let sb = sb.Append(",\n")
   let sb = sb.Append("      \"instrs\": [\n")
   let sb = stmtsToJson hdl (snd <| vData.GetStmts ()) sb
