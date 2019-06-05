@@ -211,8 +211,7 @@ function drawNode(idx, v) {
           appendDisasmFragment(text, "cfgDisasmText " + tag, s, false);
         } else if (j == terms.length - 1) {
           if (s.length > 0) {
-            let comment = " # " + s;
-            setComment(currentTabNumber, "#" + rectid, comment, true);
+            setComment(currentTabNumber, "#" + rectid, s, true);
           }
         } else {
           appendDisasmFragment(text, "cfgDisasmText " + tag, s, false);

@@ -109,13 +109,46 @@ function setComment(tab_id, target_id, comment, isOpen) {
       let nodeidx = target_id.split("-")[1];
       let stmtidx = target_id.split("-")[2];
       let mininodeid = "#minimap-" + tab_id + " " + "[miniid='" + nodeidx + "']";
-      $(gid).find(".commentRect").toggleClass("active");
-      $(gid).find(".commentText").toggleClass("active");
-      $(mininodeid).find("[stmtidx='" + stmtidx + "'].miniCommentRect").toggle("active")
+      let isOpenComment = $(gid).find(".commentRect").hasClass("click-active");
+      if (isOpenComment) {
+        $(gid).find(".commentRect").removeClass("active");
+        $(gid).find(".commentRect").removeClass("click-active");
+        $(gid).find(".commentText").removeClass("active");
+        $(gid).find(".commentText").removeClass("click-active");
+        $(mininodeid).find("[stmtidx='" + stmtidx + "'].miniCommentRect").removeClass("click-active");
+      } else {
+        $(gid).find(".commentRect").addClass("active");
+        $(gid).find(".commentText").addClass("active");
+        $(gid).find(".commentRect").addClass("click-active");
+        $(gid).find(".commentText").addClass("click-active");
+        $(mininodeid).find("[stmtidx='" + stmtidx + "'].miniCommentRect").addClass("click-active");
+      }
       let gNode = $(this).parent().parent();
       gNode.append($(this).parent());
       let gcfg = gNode.parent();
       gcfg.append(gNode);
+    })
+    .on("mouseenter", function () {
+      let gid = "#" + $(this).attr("id").replace("_comment_dot-", "_g_comment-");
+      let nodeidx = target_id.split("-")[1];
+      let stmtidx = target_id.split("-")[2];
+      let mininodeid = "#minimap-" + tab_id + " " + "[miniid='" + nodeidx + "']";
+      $(gid).find(".commentRect").addClass("active");
+      $(gid).find(".commentText").addClass("active");
+
+      // reorder node to forward the comment
+      let gNode = $(this).parent().parent();
+      gNode.append($(this).parent());
+      let gcfg = gNode.parent();
+      gcfg.append(gNode);
+    })
+    .on("mouseleave", function () {
+      let gid = "#" + $(this).attr("id").replace("_comment_dot-", "_g_comment-");
+      let nodeidx = target_id.split("-")[1];
+      let stmtidx = target_id.split("-")[2];
+      let mininodeid = "#minimap-" + tab_id + " " + "[miniid='" + nodeidx + "']";
+      $(gid).find(".commentRect").removeClass("active");
+      $(gid).find(".commentText").removeClass("active");
     });
   let x = parseFloat(rect.attr("width"));
   let commentRect;
@@ -177,10 +210,14 @@ function setComment(tab_id, target_id, comment, isOpen) {
 
   if (isOpen) {
     commentRect.classed("active", true);
+    commentRect.classed("click-active", true);
     commentText.classed("active", true);
+    commentText.classed("click-active", true);
   } else {
     commentRect.classed("active", false);
+    commentRect.classed("click-active", false);
     commentText.classed("active", false);
+    commentText.classed("click-active", false);
   }
 
   // minimap add comment
@@ -196,7 +233,7 @@ function setComment(tab_id, target_id, comment, isOpen) {
   }
   miniComment
     .attr("stmtidx", stmtidx)
-    .attr("class", "miniCommentRect active")
+    .attr("class", "miniCommentRect click-active")
     .attr("width", commentTextWidth * minimapRatio)
     .attr("height", commentTextHeight * minimapRatio)
     .attr("rx", 2)
