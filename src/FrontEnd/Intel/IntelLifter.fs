@@ -2146,14 +2146,13 @@ let loop ins insAddr insLen ctxt =
     elif addrSize = 64<rt> then getRegVar ctxt R.RCX, 64<rt>
     else getRegVar ctxt R.CX, 16<rt>
   let zf = getRegVar ctxt R.ZF
-  let tcnt = tmpVar cntSize
   startMark insAddr insLen builder
-  builder <! (tcnt := count .- num1 cntSize)
+  builder <! (count := count .- num1 cntSize)
   let branchCond =
     match ins.Opcode with
-    | Opcode.LOOP -> tcnt != num0 cntSize
-    | Opcode.LOOPE -> (zf == b1) .& (tcnt != num0 cntSize)
-    | Opcode.LOOPNE -> (zf == b0) .& (tcnt != num0 cntSize)
+    | Opcode.LOOP -> count != num0 cntSize
+    | Opcode.LOOPE -> (zf == b1) .& (count != num0 cntSize)
+    | Opcode.LOOPNE -> (zf == b0) .& (count != num0 cntSize)
     | _ -> raise InvalidOpcodeException
   let fallThrough = bvOfBaseAddr insAddr ctxt .+ bvOfInstrLen insLen ctxt
   let jumpTarget = if oprSize = 16<rt> then pc .& numI32 0xFFFF 32<rt>
