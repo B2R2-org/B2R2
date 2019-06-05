@@ -45,8 +45,31 @@ function filterFunctions() {
 }
 
 function drawBinInfo(str) {
-  $("#binInfo").text(function (_, _) { return str; });
+  let filepath;
+  let token = str.split("/");
+  if (str.length < 45) {
+    filepath = str;
+  } else {
+    for (let t in token) {
+      if (token.slice(t).join("/").length < 45) {
+        filepath = ".../" + token.slice(t).join("/");
+        break
+      }
+    }
+  }
+
+  if (filepath === undefined) {
+    filepath = str.split("/").slice(str.split("/").length - 1); // only file name
+  }
+  $("#binInfo").text(filepath);
+  $("#binInfo").attr("title", str);
 }
+
+$("#binInfo").on("click", function () {
+  let str = $("#binInfo").attr("title");
+  copyToClipboard(str);
+  popToast("info", "Copy File Path", 3);
+})
 
 function disasm2irEvent(dims) {
   $(document).on("click", "#id_disasm-to-ir", function () {
