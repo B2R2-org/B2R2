@@ -33,7 +33,7 @@ open System.Collections.Generic
 
 type PPoint = Addr * int
 
-type DisasmBBL (range: AddrRange, instrs, last) =
+type DisasmBBL (range: AddrRange, instrs, last, comments) =
   inherit RangedVertexData (range)
 
   /// List of all the instructions in this block.
@@ -41,6 +41,8 @@ type DisasmBBL (range: AddrRange, instrs, last) =
 
   /// The last instruction of this block (to access it efficiently).
   member __.LastInstr: Instruction = last
+
+  member val Comments: string list = comments with get, set
 
   /// Do we need to resolve the successor(s) of this basic block?
   member val ToResolve = false with get, set

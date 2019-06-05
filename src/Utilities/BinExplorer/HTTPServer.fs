@@ -28,6 +28,7 @@ module internal B2R2.Utilities.BinExplorer.HTTPServer
 
 open System
 open System.Net
+open System.Runtime.Serialization
 open System.Runtime.Serialization.Json
 open B2R2
 open B2R2.BinGraph
@@ -36,6 +37,19 @@ open B2R2.Visualization
 type CFGType =
   | DisasmCFG
   | IRCFG
+
+
+[<DataContract>]
+  type Comment = {
+    [<field: DataMember(Name = "name")>]
+    name: string
+    [<field: DataMember(Name = "addr")>]
+    addr: string
+    [<field: DataMember(Name = "idx")>]
+    idx: string
+    [<field: DataMember(Name = "comment")>]
+    comment: string
+  }
 
 let rootDir =
   let asm = Reflection.Assembly.GetExecutingAssembly ()
@@ -60,6 +74,11 @@ let json<'t> (obj: 't) =
   use ms = new IO.MemoryStream ()
   (new DataContractJsonSerializer(typeof<'t>)).WriteObject(ms, obj)
   Text.Encoding.Default.GetString (ms.ToArray ())
+
+let jsonParser<'t> (jsonString:string)  : 't =
+  use ms = new IO.MemoryStream (Text.Encoding.Default.GetBytes(jsonString))
+  let obj = (new DataContractJsonSerializer(typeof<'t>)).ReadObject(ms)
+  obj :?> 't
 
 let readIfExists path =
   if IO.File.Exists path then Some (IO.File.ReadAllBytes (path))
@@ -107,12 +126,27 @@ let handleFunctions req resp arbiter =
   Some (json<string []> addrs |> defaultEnc.GetBytes)
   |> answer req resp
 
+let handleComment req resp arbiter (args: string) =
+  let commentReq = (jsonParser<Comment> args)
+  let name = commentReq.name
+  let ess = Protocol.getBinEssence arbiter
+  match BinEssence.TryFindFuncByName name ess with
+  | None -> None |> answer req resp
+  | Some func ->
+    let hdl = ess.BinHandler
+    let addr = commentReq.addr
+    let comment = commentReq.comment
+    let idx = commentReq.idx |> int
+    let status = Visualizer.setCommentIRCFG hdl addr idx comment func.DisasmCFG
+    Some (json<string> status  |> defaultEnc.GetBytes) |> answer req resp
+
 let handleAJAX req resp arbiter query args =
     match query with
     | "bininfo" -> handleBinInfo req resp arbiter
     | "cfg-disasm" -> handleCFG req resp arbiter DisasmCFG args
     | "cfg-ir" -> handleCFG req resp arbiter IRCFG args
     | "functions" -> handleFunctions req resp arbiter
+    | "disasm-comment" -> handleComment req resp arbiter args
     | _ -> ()
 
 let handle (req: HttpListenerRequest) (resp: HttpListenerResponse) arbiter =

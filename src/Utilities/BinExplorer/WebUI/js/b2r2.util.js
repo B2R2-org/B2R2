@@ -69,3 +69,23 @@ function getGroupPos(transformAttr) {
     return parseFloat(x);
   })
 }
+
+function query(arguments, callback) {
+  function serialize(arguments) {
+    var params = [];
+    for (var arg in arguments)
+      if (arguments.hasOwnProperty(arg)) {
+        params.push(encodeURIComponent(arg) + "=" + encodeURIComponent(arguments[arg]));
+      }
+    return params.join("&");
+  }
+  let req = new XMLHttpRequest();
+  let params = serialize(arguments);
+  req.onreadystatechange = function () {
+    if (this.readyState == 4 && this.status == 200) {
+      callback(JSON.parse(this.responseText));
+    }
+  }
+  req.open("GET", "/ajax/?" + params, true);
+  req.send();
+}

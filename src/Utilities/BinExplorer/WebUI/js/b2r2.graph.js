@@ -128,8 +128,27 @@ function strRepeat(str, num) {
 function drawNode(idx, v) {
   const nodePaddingTop = 3;
   let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
+
+  // set minimap before comment added
+  d3.select("g#minimapStage-" + currentTabNumber)
+    .append("g")
+    .attr("miniid", idx)
+    .attr("transform",
+      "translate(" + v.Pos.X * minimapRatio +
+      ", " + v.Pos.Y * minimapRatio + ")")
+    .append("rect")
+    .attr("class", "minimapRects")
+    .attr("rx", "1").attr("ry", "1")
+    .attr("fill", "rgb(45, 53, 70)")
+    .attr("stroke", "rgb(255, 255,255)")
+    .attr("style", "outline: 1px solid black;")
+    .attr("width", v.Width * minimapRatio)
+    .attr("height", v.Height * minimapRatio);
+
+  // set main graph
   let g = d3.select("g#cfgGrp" + currentTabNumber).append("g")
     .attr("nodeid", idx)
+    .attr("addr", v.Address[0])
     .attr("class", "gNode");
 
   let rect = g.append("rect")
@@ -141,7 +160,6 @@ function drawNode(idx, v) {
   // Additional layer for bluring.
   let rectBlur = g.append("rect")
     .attr("class", "cfgNodeBlur")
-    .attr("id", v.NodeID)
     .attr("fill", "transparent")
     .attr("stroke", "black")
     .attr("stroke-width", nodeBorderThickness);
@@ -208,21 +226,6 @@ function drawNode(idx, v) {
   rectBlur.attr("width", v.Width).attr("height", v.Height);
 
   g.attr("transform", "translate (" + v.Pos.X + "," + v.Pos.Y + ")");
-
-  d3.select("g#minimapStage-" + currentTabNumber)
-    .append("g")
-    .attr("miniid", idx)
-    .attr("transform",
-      "translate(" + v.Pos.X * minimapRatio +
-      ", " + v.Pos.Y * minimapRatio + ")")
-    .append("rect")
-    .attr("class", "minimapRects")
-    .attr("rx", "1").attr("ry", "1")
-    .attr("fill", "rgb(45, 53, 70)")
-    .attr("stroke", "rgb(255, 255,255)")
-    .attr("style", "outline: 1px solid black;")
-    .attr("width", v.Width * minimapRatio)
-    .attr("height", v.Height * minimapRatio);
 }
 
 function drawNodes(g) {

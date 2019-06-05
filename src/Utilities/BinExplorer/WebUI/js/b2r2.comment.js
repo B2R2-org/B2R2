@@ -46,8 +46,28 @@ function Comment() {
     let current_tab_id = $("#id_tabContainer li.tab.active").attr("counter");
     let target_id = $("#id_comment-modal").attr("target");
     let comment = $('#id_comment').val();
+    let funcName = $("#uiFuncName").text();
     if (comment.length > 0) {
       setComment(current_tab_id, target_id, comment, true);
+      let nodeidx = target_id.split("-")[1];
+      let stmtidx = target_id.split("-")[2];
+      let addr = $("g[nodeid='" + nodeidx + "']").attr("addr");
+      let $tab = $("#id_tabContainer li[value='" + funcName + "']");
+      let textType = $tab.attr('text-type').toLowerCase();
+      query({
+        "q": textType + "-comment",
+        "args": JSON.stringify({
+          "name": funcName,
+          "addr": addr,
+          "comment": comment,
+          "idx": stmtidx
+        })
+      },
+        function (json) {
+          if (!isEmpty(json)) {
+
+          }
+        });
     } else {
       removeComment(target_id);
     }

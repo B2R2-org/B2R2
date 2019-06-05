@@ -56,7 +56,8 @@ let rec buildDisasmBBLAux (builder: CFGBuilder) sAddr addr eAddr instrs =
       let addrRange = AddrRange (sAddr, eAddr)
       let last = List.head instrs
       let instrs = List.rev instrs
-      Ok <| DisasmBBL (addrRange, instrs, last)
+      let comments = [ for i in 1 .. (List.length instrs) -> "" ]
+      Ok <| DisasmBBL (addrRange, instrs, last, comments)
   else
     let instr = builder.GetInstr addr
     let nextAddr = addr + uint64 instr.Length

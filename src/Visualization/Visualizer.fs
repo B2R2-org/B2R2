@@ -67,3 +67,6 @@ let visualizeIRCFG hdl irCFG =
   with e ->
     eprintfn "%s" <| e.ToString ()
     "{}"
+
+let setCommentIRCFG hdl addr idx comment disasmCFG =
+  InputGraph.setComment hdl addr idx comment disasmCFG

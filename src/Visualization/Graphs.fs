@@ -84,12 +84,12 @@ module internal InputGraph =
     | Choice1Of2 c -> c
     | Choice2Of2 e -> failwith e
 
-  let ofInstruction hdl (instr: Instruction) =
-    { Disasm = instr.Disasm (true, true, hdl.FileInfo)
-      Comment = "" }
+  let ofInstruction hdl (instr: Instruction) (comment: string) =
+    { Disasm = instr.Disasm (true, true, hdl.FileInfo);
+      Comment = comment }
 
   let disasmBBL hdl (v: Vertex<DisasmBBL>) =
-    let disasmData = List.map (ofInstruction hdl) v.VData.Instrs
+    let disasmData = List.map2 (ofInstruction hdl) v.VData.Instrs v.VData.Comments
     Some { Address = (v.VData.AddrRange.Min, 0); Data = disasmData }
 
   let ofStmt (stmt: Stmt) =
@@ -148,6 +148,19 @@ module internal InputGraph =
 
   let ofIRCFG hdl (g: #DiGraph<_, _>) =
     ofCFG hdl irRoot irBBL irEdge g
+
+  let private getVertex vertices v =
+    v :: vertices
+
+  let setComment hdl addr idx comment (g: #DiGraph<_, _>) =
+    let iNodes = g.FoldVertex getVertex []
+    let v = iNodes |> List.find (fun (v: Vertex<DisasmBBL>) ->
+      v.VData.AddrRange.Min.ToString() = addr
+    )
+    v.VData.Comments <- v.VData.Comments |> List.mapi (
+      fun i c -> if i = idx then comment else c
+    )
+    "Success"
 
 type Point = {
   X : float
