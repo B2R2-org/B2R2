@@ -53,7 +53,7 @@ type ExprInfo = {
 
 /// IR Expressions.
 /// NOTE: You SHOULD NOT create Expr without using functions in
-/// NOTE: B2R2.BinIR.LowUIR.HashCons or B2R2.BinIR.LowUIR.AST.
+///       B2R2.BinIR.LowUIR.HashCons or B2R2.BinIR.LowUIR.AST.
 [<CustomEquality; NoComparison>]
 type Expr =
     /// A number. For example, (0x42:I32) is a 32-bit number 0x42
@@ -171,24 +171,24 @@ type Expr =
     | Var (_typ, n, _, _) -> n.GetHashCode ()
     | PCVar (_typ, n) -> __.Hash2 (_typ.GetHashCode ()) (n.GetHashCode ())
     | TempVar (_typ, n) -> __.Hash2 (_typ.GetHashCode ()) (n.GetHashCode ())
-    | UnOp (op, e, _, Some x) -> x.Hash
+    | UnOp (_, _, _, Some x) -> x.Hash
     | UnOp (op, e, _, None) -> __.Hash2 (op.GetHashCode ()) (e.GetHashCode ())
     | Name s -> s.GetHashCode ()
     | FuncName s -> s.GetHashCode ()
-    | BinOp (op, typ, e1, e2, _, Some x) -> x.Hash
+    | BinOp (_, _, _, _, _, Some x) -> x.Hash
     | BinOp (op, typ, e1, e2, _, None) ->
       __.Hash4 (op.GetHashCode ()) (typ.GetHashCode ())
                (e1.GetHashCode ()) (e2.GetHashCode ())
-    | RelOp (op, e1, e2, _, Some x) -> x.Hash
+    | RelOp (_, _, _, _, Some x) -> x.Hash
     | RelOp (op, e1, e2, _, None) ->
       __.Hash3 (op.GetHashCode ()) (e1.GetHashCode ()) (e2.GetHashCode ())
-    | Load (_endian, typ, e, _, Some x) -> x.Hash
+    | Load (_endian, _, _, _, Some x) -> x.Hash
     | Load (_endian, typ, e, _, None) ->
       __.Hash3 (_endian.GetHashCode ()) (typ.GetHashCode ()) (e.GetHashCode ())
-    | Ite (cond, e1, e2, _, Some x) -> x.Hash
+    | Ite (_, _, _, _, Some x) -> x.Hash
     | Ite (cond, e1, e2, _, None) ->
       __.Hash3 (cond.GetHashCode ()) (e1.GetHashCode ()) (e2.GetHashCode ())
-    | Cast (cast, typ, e, _, Some x) -> x.Hash
+    | Cast (_, _, _, _, Some x) -> x.Hash
     | Cast (cast, typ, e, _, None) ->
       __.Hash3 (cast.GetHashCode ()) (typ.GetHashCode ()) (e.GetHashCode ())
     | Extract (_, _, _, _, Some x) -> x.Hash
@@ -255,9 +255,6 @@ type Stmt =
 
     /// This represents an instruction with side effects such as a system call.
   | SideEffect of SideEffect
-
-/// A program is a list of statements.
-type Prog = Stmt list list
 
 /// Pretty printer for LowUIR.
 module Pp =

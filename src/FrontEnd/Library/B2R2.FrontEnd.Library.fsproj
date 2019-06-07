@@ -20,6 +20,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" PrivateAssets="all"/>
     <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" PrivateAssets="all"/>
+    <ProjectReference Include="..\..\ConcEval\B2R2.ConcEval.fsproj" PrivateAssets="all"/>
     <ProjectReference Include="..\..\BinFile\B2R2.BinFile.fsproj" PrivateAssets="all"/>
     <ProjectReference Include="..\Core\B2R2.FrontEnd.Core.fsproj" PrivateAssets="all"/>
     <ProjectReference Include="..\Intel\B2R2.FrontEnd.Intel.fsproj" PrivateAssets="all"/>

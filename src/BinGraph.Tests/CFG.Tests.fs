@@ -55,7 +55,7 @@ type CFGTestClass () =
   let isa = ISA.Init Architecture.IntelX64 Endian.Little
   let hdl = BinHandler.Init (isa, binary)
   let builder, funcs = CFGUtils.construct hdl (Some [ 0UL ])
-  let builder_, funcs_ = CFGUtils.construct hdl (Some [ 0UL ])
+  let _, funcs_ = CFGUtils.construct hdl (Some [ 0UL ])
   let funcs_ = CFGUtils.analCalls funcs_
   let callGraph = SimpleDiGraph ()
   let _ = CFGUtils.buildCallGraph hdl funcs_ callGraph
@@ -120,10 +120,10 @@ type CFGTestClass () =
   [<TestMethod>]
   member __.``Boundary Test: Function Identification`` () =
     let addrs =
-      Seq.fold (fun acc (KeyValue(addr, _)) -> Set.add addr acc) Set.empty funcs 
+      Seq.fold (fun acc (KeyValue(addr, _)) -> Set.add addr acc) Set.empty funcs
     Assert.AreEqual (3, Set.count addrs)
     [ 0UL ; 0x62UL ; 0x71UL ]
-    |> List.iter (fun x -> Assert.IsTrue <| Set.contains x addrs) 
+    |> List.iter (fun x -> Assert.IsTrue <| Set.contains x addrs)
 
   [<TestMethod>]
   member __.``Boundary Test: Disassembly Leader Identification`` () =
