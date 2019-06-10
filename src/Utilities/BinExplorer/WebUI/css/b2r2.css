@@ -202,7 +202,8 @@ body {
       width: 47px; }
   .fixed-navbar-top .filename {
     color: white;
-    padding: 10px; }
+    padding: 10px;
+    white-space: pre; }
   .fixed-navbar-top .function-name {
     width: 100%;
     overflow: hidden;
