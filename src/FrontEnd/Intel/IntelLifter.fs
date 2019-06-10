@@ -3121,12 +3121,12 @@ let shiftDQ ins insAddr insLen ctxt shift =
   let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
   let cnt = transOprToExpr ins insAddr insLen ctxt cnt |> castNum 8<rt>
   let oprSize = getOperationSize ins
-  let t = tmpVar 8<rt>
-  let tDst = tmpVar oprSize
+  let t1 = tmpVar 8<rt>
+  let t2, tDst = tmpVars2 oprSize
   startMark insAddr insLen builder
-  builder <! (t := ite (lt (numU32 15u 8<rt>) cnt) (numU32 16u 8<rt>) cnt)
-  builder <! (tDst := concat dstB dstA)
-  builder <! (tDst := (shift tDst (zExt oprSize (t .* numU32 8u 8<rt>))))
+  builder <! (t1 := ite (lt (numU32 15u 8<rt>) cnt) (numU32 16u 8<rt>) cnt)
+  builder <! (t2 := concat dstB dstA)
+  builder <! (tDst := (shift t2 (zExt oprSize (t1 .* numU32 8u 8<rt>))))
   builder <! (dstA := extractLow 64<rt> tDst)
   builder <! (dstB := extractHigh 64<rt> tDst)
   endMark insAddr insLen builder
