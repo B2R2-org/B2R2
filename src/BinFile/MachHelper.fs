@@ -38,11 +38,21 @@ let getMainOffset cmds =
   | Some (Main m) -> m.EntryOff
   | _ -> 0UL
 
-let getTextOffset segs =
+let getTextSegOffset segs =
   let isTextSegment (s: SegCmd) = s.SegName = "__TEXT"
   match segs |> List.tryFind isTextSegment with
   | Some s -> s.VMAddr
   | _ -> raise FileFormatMismatchException
+
+let getTextSecOffset secs =
+  match secs.SecByNum |> Array.tryFind (fun s -> s.SecName = "__text") with
+  | Some s -> s.SecAddr
+  | _ -> raise FileFormatMismatchException
+
+let computeEntryPoint secs segs cmds =
+  let mainOffset = getMainOffset cmds
+  if mainOffset = 0UL then getTextSecOffset secs
+  else mainOffset + getTextSegOffset segs
 
 let parseMach reader  =
   let machHdr = Header.parse reader 0
@@ -51,7 +61,7 @@ let parseMach reader  =
   let segmap = Segment.buildMap segs
   let secs = Section.parseSections reader machHdr.Class segs
   let symInfo = Symbol.parse machHdr cmds secs reader
-  { EntryPoint = getTextOffset segs + getMainOffset cmds
+  { EntryPoint = computeEntryPoint secs segs cmds
     SymInfo = symInfo
     MachHdr = machHdr
     Segments = segs
