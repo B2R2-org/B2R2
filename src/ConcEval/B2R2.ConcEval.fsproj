@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Types.fs" />
+    <Compile Include="Memory.fs" />
+    <Compile Include="Variables.fs" />
+    <Compile Include="Labels.fs" />
+    <Compile Include="EvalState.fs" />
+    <Compile Include="Evaluator.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BinIR\B2R2.BinIR.fsproj" />
+  </ItemGroup>
+
+</Project>

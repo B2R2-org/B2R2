@@ -31,7 +31,7 @@ open B2R2.BinFile
 open B2R2.FrontEnd
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
-open B2R2.BinIR.LowUIR.Eval
+open B2R2.ConcEval
 
 let isExecutable (hdl: BinHandler) addr =
   match hdl.FileInfo.GetSections addr |> Seq.tryHead with
@@ -111,56 +111,42 @@ let getStackPtrRegID = function
 
 let stackAddr t = Def (BitVector.ofInt32 0x1000000 t)
 
-let initState hdl startAddr =
-  let isa = hdl.ISA
-  let sp = getStackPtrRegID isa.Arch
-  let vars =
-    match isa.Arch with
-    | Arch.IntelX86 -> Map.add sp (stackAddr 32<rt>) Map.empty
-    | Arch.IntelX64 -> Map.add sp (stackAddr 64<rt>) Map.empty
-    | _ -> failwith "Not supported arch."
-  { PC = startAddr
-    BlockEnd = false
-    Vars = vars
-    TmpVars = Map.empty
-    Mems = Map.empty
-    NextStmtIdx = 0
-    LblMap = Map.empty }
-
 let dummyLoader _ _ = None
 
-let evalStmts hdl state stmts =
-  Array.fold (fun state stmt ->
-    try evalStmt (dummyLoader hdl) state emptyCallBack stmt with
-    | UnknownVarException (* Simply ignore exceptions *)
-    | InvalidMemException -> state
-  ) state stmts
+let initState hdl =
+  let isa = hdl.ISA
+  let st = EvalState (dummyLoader, true)
+  let sp = getStackPtrRegID isa.Arch
+  match isa.Arch with
+  | Arch.IntelX86 -> EvalState.PrepareContext st 0 0UL [(sp, stackAddr 32<rt>)]
+  | Arch.IntelX64 -> EvalState.PrepareContext st 0 0UL [(sp, stackAddr 64<rt>)]
+  | _ -> failwith "Not supported arch."
 
-let isIntel32NoReturnSysCall hdl state =
-  match Map.tryFind (Intel.Register.toRegID Intel.Register.EAX) state.Vars with
-  | Some (Def v) -> BitVector.toUInt64 v = 1UL
+let isIntel32NoReturnSysCall state =
+  match EvalState.GetReg state (Intel.Register.toRegID Intel.Register.EAX) with
+  | Def v -> BitVector.toUInt64 v = 1UL
   | _ -> false
 
-let isIntel64NoReturnSysCall hdl state =
-  match Map.tryFind (Intel.Register.toRegID Intel.Register.RAX) state.Vars with
-  | Some (Def v) -> BitVector.toUInt64 v = 60UL
+let isIntel64NoReturnSysCall state =
+  match EvalState.GetReg state (Intel.Register.toRegID Intel.Register.RAX) with
+  | Def v -> BitVector.toUInt64 v = 60UL
   | _ -> false
 
 let isNoReturnSysCall hdl (vData: IRVertexData) = function
   | SideEffect SysCall ->
-    let b1, ppoint = vData.GetPpoint ()
+    let b1, _ = vData.GetPpoint ()
     let b2, stmts = vData.GetStmts ()
     if b1 && b2 then
-      let state = initState hdl <| fst ppoint
-      let state = evalStmts hdl state <| List.toArray stmts
+      let state = initState hdl
+      let state = List.toArray stmts |> Evaluator.evalBlock state 0
       match hdl.ISA.Arch with
-      | Arch.IntelX86 -> isIntel32NoReturnSysCall hdl state
-      | Arch.IntelX64 -> isIntel64NoReturnSysCall hdl state
+      | Arch.IntelX86 -> isIntel32NoReturnSysCall state
+      | Arch.IntelX64 -> isIntel64NoReturnSysCall state
       | _ -> failwith "Not supported arch."
     else false
-  | stmt -> false
+  | _ -> false
 
-let disconnectSysCall hdl fcg disasmCFG irCFG (v: IRVertex) =
+let disconnectSysCall hdl disasmCFG irCFG (v: IRVertex) =
   let vData = v.VData
   let b, stmt = vData.GetLastStmt ()
   if b then
@@ -168,13 +154,13 @@ let disconnectSysCall hdl fcg disasmCFG irCFG (v: IRVertex) =
       let ctxt = Dominator.initDominatorContext irCFG
       let tree, _ = Dominator.dominatorTree ctxt
       List.iter (removeVertices tree disasmCFG irCFG) <| Map.find v tree
+    else ()
 
 let disconnect hdl fcg (v: Vertex<Function>) =
-  let entry = v.VData.Entry
   let irCFG = v.VData.IRCFG
   let disasmCFG = v.VData.DisasmCFG
   irCFG.IterVertex (disconnectCall hdl fcg disasmCFG irCFG)
-  irCFG.IterVertex (disconnectSysCall hdl fcg disasmCFG irCFG)
+  irCFG.IterVertex (disconnectSysCall hdl disasmCFG irCFG)
 
 let updateNoReturn (func: Function) =
   let irCFG = func.IRCFG

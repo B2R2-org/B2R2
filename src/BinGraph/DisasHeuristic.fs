@@ -29,7 +29,7 @@
 module B2R2.BinGraph.DisasHeuristic
 
 open B2R2
-open B2R2.BinIR.LowUIR.Eval
+open B2R2.ConcEval
 open B2R2.FrontEnd
 
 /// An arbitrary stack value for applying heuristics.
@@ -41,29 +41,7 @@ let getStackPtrRegID = function
   | Arch.ARMv7 -> ARM32.Register.SP |> ARM32.Register.toRegID
   | _ -> failwith "Not supported arch."
 
-let initStateForLibcStart handle startAddr =
-  let isa = handle.ISA
-  // FIXME
-  let sp = getStackPtrRegID isa.Arch
-  let vars =
-    match isa.Arch with
-    | Arch.IntelX86 ->
-      /// XXX: This is another heuristic
-      let ebx = Intel.Register.EBX |> Intel.Register.toRegID
-      Map.add sp (stackAddr 32<rt>) Map.empty
-      |> Map.add ebx (Def (BitVector.ofInt32 (int startAddr) 32<rt>))
-    | Arch.IntelX64 -> Map.add sp (stackAddr 64<rt>) Map.empty
-    | Arch.ARMv7 -> Map.add sp (stackAddr 32<rt>) Map.empty
-    | _ -> failwith "Not supported arch."
-  { PC = startAddr
-    BlockEnd = false
-    Vars = vars
-    TmpVars = Map.empty
-    Mems = Map.empty
-    NextStmtIdx = 0
-    LblMap = Map.empty }
-
-let imageLoader hdl addr =
+let imageLoader hdl _pc addr =
   match hdl.ISA.Arch with
   | Arch.IntelX86 ->
     let fileInfo = hdl.FileInfo
@@ -73,46 +51,59 @@ let imageLoader hdl addr =
     else None
   | _ -> None
 
-let intel32LibcParams hdl state =
+let initStateForLibcStart handle startAddr =
+  let isa = handle.ISA
+  let sp = getStackPtrRegID isa.Arch
+  let st = EvalState (imageLoader handle, true)
+  match isa.Arch with
+  | Arch.IntelX86 ->
+    // XXX dirty hack.
+    let ebx = Intel.Register.EBX |> Intel.Register.toRegID
+    EvalState.PrepareContext st 0 0UL
+      [(sp, stackAddr 32<rt>)
+       (ebx, Def (BitVector.ofInt32 (int startAddr) 32<rt>))]
+  // FIXME
+  | Arch.IntelX64 ->
+    EvalState.PrepareContext st 0 0UL [(sp, stackAddr 64<rt>)]
+  | Arch.ARMv7 ->
+    EvalState.PrepareContext st 0 0UL [(sp, stackAddr 32<rt>)]
+  | _ -> failwith "Not supported arch."
+
+let intel32LibcParams (state: EvalState) =
   let f ptr =
-    try
-      loadMem (imageLoader hdl) state.Mems Endian.Little ptr 32<rt>
-      |> BitVector.toUInt64 |> Some
+    try state.Memory.Read state.PC ptr Endian.Little 32<rt>
+        |> BitVector.toUInt64
+        |> Some
     with InvalidMemException -> None
   /// 1st, 4th, and 5th parameter of _libc_start_main
   let stackPtrReg = Intel.Register.ESP |> Intel.Register.toRegID
-  match Map.tryFind stackPtrReg state.Vars with
-  | Some (Def esp) ->
+  match EvalState.GetReg state stackPtrReg with
+  | Def esp ->
     let esp = BitVector.toUInt64 esp
     List.choose f [ esp; esp + 12UL; esp + 16UL ]
   | _ -> []
 
 let intel64LibcParams state =
   let f var =
-    match Map.tryFind (Intel.Register.toRegID var) state.Vars with
-    | Some (Def addr) -> Some (BitVector.toUInt64 addr)
+    match EvalState.GetReg state (Intel.Register.toRegID var) with
+    | Def addr -> Some (BitVector.toUInt64 addr)
     | _ -> None
   /// 1st, 4th, and 5th parameter of _libc_start_main
   List.choose f [ Intel.Register.RDI; Intel.Register.RCX; Intel.Register.R8 ]
 
-let arm32LibcParams hdl state =
+let arm32LibcParams state =
   let f var =
-    match Map.tryFind (ARM32.Register.toRegID var) state.Vars with
-    | Some (Def addr) -> Some (BitVector.toUInt64 addr)
+    match EvalState.GetReg state (ARM32.Register.toRegID var) with
+    | Def addr -> Some (BitVector.toUInt64 addr)
     | _ -> None
-  let g ptr =
-    try
-      loadMem (imageLoader hdl) state.Mems Endian.Little ptr 32<rt>
-      |> BitVector.toUInt64 |> Some
-    with InvalidMemException -> None
   /// XXX: This only chooses init and main
   List.choose f [ ARM32.Register.R0; ARM32.Register.R3 ]
 
 let getLibcStartMainParams hdl state =
   match hdl.ISA.Arch with
-  | Arch.IntelX86 -> intel32LibcParams hdl state
+  | Arch.IntelX86 -> intel32LibcParams state
   | Arch.IntelX64 -> intel64LibcParams state
-  | Arch.ARMv7 -> arm32LibcParams hdl state
+  | Arch.ARMv7 -> arm32LibcParams state
   | _ -> failwith "Not supported arch."
 
 let isLibcStartMain hdl addr =
@@ -130,11 +121,7 @@ let rec collectLibcStartInstrs (builder: CFGBuilder) curAddr endAddr acc =
 /// expressions that involve unknown values.
 let evalLibcStartInstrs hdl state ins =
   let stmts = BinHandler.LiftInstr hdl ins
-  Array.fold (fun state stmt ->
-    try evalStmt (imageLoader hdl) state emptyCallBack stmt with
-    | UnknownVarException (* Simply ignore exceptions *)
-    | InvalidMemException -> state
-  ) state stmts
+  Evaluator.evalBlock state 0 stmts
 
 /// Retrieve function pointer arguments of libc_start_main() function call.
 let recoverLibcPointers hdl sAddr (callInstr: Instruction) builder =
