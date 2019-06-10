@@ -137,7 +137,7 @@ let handleComment req resp arbiter (args: string) =
     let addr = commentReq.addr
     let comment = commentReq.comment
     let idx = commentReq.idx |> int
-    let status = Visualizer.setCommentIRCFG hdl addr idx comment func.DisasmCFG
+    let status = Visualizer.setCommentDisasmCFG hdl addr idx comment func.DisasmCFG
     Some (json<string> status  |> defaultEnc.GetBytes) |> answer req resp
 
 let handleAJAX req resp arbiter query args =
