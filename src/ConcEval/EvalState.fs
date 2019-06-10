@@ -53,6 +53,11 @@ type EvalCallBacks () =
   member val StoreEventHandler: Addr -> Addr -> BitVector -> unit =
     fun _ _ _ -> () with get, set
 
+  /// Put event handler. The first parameter is PC, and the second is the value
+  /// that is put to the destination.
+  member val PutEventHandler: Addr -> EvalValue -> unit =
+    fun _ _ -> () with get, set
+
   /// Side-effect event handler.
   member val SideEffectEventHandler: SideEffect -> EvalState -> EvalState =
     fun _ st -> st with get, set
@@ -64,6 +69,8 @@ type EvalCallBacks () =
   member __.OnLoad pc addr v = __.LoadEventHandler pc addr v
 
   member __.OnStore pc addr v = __.StoreEventHandler pc addr v
+
+  member __.OnPut pc v = __.PutEventHandler pc v
 
   member __.OnSideEffect eff = __.SideEffectEventHandler eff
 

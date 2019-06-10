@@ -117,6 +117,7 @@ and private evalRelOp st e1 e2 = function
 let private evalPut st lhs rhs =
   try
     let v = evalConcrete st rhs
+    st.Callbacks.OnPut st.PC v
     match lhs with
     | Var (_, n, _, _) -> EvalState.SetReg st n v
     | PCVar (_) -> unwrap v |> BitVector.toUInt64 |> EvalState.SetPC st
