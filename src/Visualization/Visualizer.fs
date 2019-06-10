@@ -69,4 +69,7 @@ let visualizeIRCFG hdl irCFG =
     "{}"
 
 let setCommentDisasmCFG hdl addr idx comment disasmCFG =
-  InputGraph.setComment hdl addr idx comment disasmCFG
+  InputGraph.ofDisasmComment hdl addr idx comment disasmCFG
+
+let setCommentIRCFG hdl addr idx comment irCFG =
+  InputGraph.ofIRComment hdl addr idx comment irCFG

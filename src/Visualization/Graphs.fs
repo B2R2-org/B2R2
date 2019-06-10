@@ -92,15 +92,16 @@ module internal InputGraph =
     let disasmData = List.map2 (ofInstruction hdl) v.VData.Instrs v.VData.Comments
     Some { Address = (v.VData.AddrRange.Min, 0); Data = disasmData }
 
-  let ofStmt (stmt: Stmt) =
-    { Disasm = Pp.stmtToString stmt; Comment = "" }
+  let ofStmt (stmt: Stmt) (comment: string) =
+    { Disasm = Pp.stmtToString stmt; Comment = comment }
 
   let irBBL hdl (v: Vertex<IRVertexData>) =
     let vData = v.VData
     if vData.IsBBL () then
       let _, ppoint = vData.GetPpoint ()
       let _, stmts = vData.GetStmts ()
-      let irData = List.map ofStmt stmts
+      let comments = vData.GetComments
+      let irData = List.map2 ofStmt stmts comments
       Some { Address = ppoint ; Data = irData }
     else None
 
@@ -152,7 +153,7 @@ module internal InputGraph =
   let private getVertex vertices v =
     v :: vertices
 
-  let setComment hdl addr idx comment (g: #DiGraph<_, _>) =
+  let ofDisasmComment hdl addr idx comment (g: #DiGraph<_, _>) =
     let iNodes = g.FoldVertex getVertex []
     let v = iNodes |> List.find (fun (v: Vertex<DisasmBBL>) ->
       v.VData.AddrRange.Min.ToString() = addr
@@ -161,6 +162,21 @@ module internal InputGraph =
       fun i c -> if i = idx then comment else c
     )
     "Success"
+
+  let ofIRComment hdl addr idx comment (g: #DiGraph<_, _>) =
+    let iNodes = g.FoldVertex getVertex []
+    let v = iNodes |> List.find (fun (v: Vertex<IRVertexData>) ->
+      if v.VData.IsBBL () then
+        let _, ppoint = v.VData.GetPpoint ()
+        let _addr = (fst ppoint).ToString()
+        _addr = addr
+      else false
+    )
+    List.mapi (
+      fun i c -> if i = idx then comment else c
+    ) v.VData.GetComments |> v.VData.SetComments
+    "Success"
+
 
 type Point = {
   X : float

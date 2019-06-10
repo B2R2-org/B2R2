@@ -80,7 +80,8 @@ let rec buildIRBBLAux (builder: CFGBuilder) sPpoint ppoint ePpoint stmts =
   if ppoint = ePpoint then
     let last = builder.GetStmt ppoint
     let stmts = List.rev (last :: stmts)
-    Ok <| IRBBL (sPpoint, ppoint, stmts, last)
+    let comments = [ for i in 1 .. (List.length stmts) -> "" ]
+    Ok <| IRBBL (sPpoint, ppoint, stmts, last, comments)
   else
     let stmt = builder.GetStmt ppoint
     let nextPpoint = getNextPpoint ppoint stmt

@@ -34,11 +34,19 @@ span.cyan {
   display: block;
 }
 
+.commentText.click-active {
+  display: block;
+}
+
 .commentRect {
   fill: rgba(40, 42, 54, 1);
   stroke: var(--lightcomment);
   display: none;
 }
+.commentRect.click-active {
+  display: block;
+}
+
 .commentRect.active {
   display: block;
 }
@@ -48,7 +56,8 @@ span.cyan {
   stroke: var(--lightcomment);
   display: none;
 }
-.miniCommentRect.active {
+
+.miniCommentRect.click-active {
   display: block;
 }
 
