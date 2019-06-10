@@ -126,7 +126,11 @@ let handleFunctions req resp arbiter =
   Some (json<string []> addrs |> defaultEnc.GetBytes)
   |> answer req resp
 
-let handleComment req resp arbiter (args: string) =
+let getComment hdl addr idx comment (func: Function) = function
+  | DisasmCFG -> Visualizer.setCommentDisasmCFG hdl addr idx comment func.DisasmCFG
+  | IRCFG -> Visualizer.setCommentIRCFG hdl addr idx comment func.IRCFG
+
+let handleComment req resp arbiter cfgType (args: string) =
   let commentReq = (jsonParser<Comment> args)
   let name = commentReq.name
   let ess = Protocol.getBinEssence arbiter
@@ -137,7 +141,7 @@ let handleComment req resp arbiter (args: string) =
     let addr = commentReq.addr
     let comment = commentReq.comment
     let idx = commentReq.idx |> int
-    let status = Visualizer.setCommentDisasmCFG hdl addr idx comment func.DisasmCFG
+    let status = getComment hdl addr idx comment func cfgType
     Some (json<string> status  |> defaultEnc.GetBytes) |> answer req resp
 
 let handleAJAX req resp arbiter query args =
@@ -146,7 +150,8 @@ let handleAJAX req resp arbiter query args =
     | "cfg-disasm" -> handleCFG req resp arbiter DisasmCFG args
     | "cfg-ir" -> handleCFG req resp arbiter IRCFG args
     | "functions" -> handleFunctions req resp arbiter
-    | "disasm-comment" -> handleComment req resp arbiter args
+    | "disasm-comment" -> handleComment req resp arbiter DisasmCFG args
+    | "ir-comment" -> handleComment req resp arbiter IRCFG args
     | _ -> ()
 
 let handle (req: HttpListenerRequest) (resp: HttpListenerResponse) arbiter =

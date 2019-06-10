@@ -71,11 +71,16 @@ type IRVertexData () =
 
   abstract member GetTarget: outref<Addr> -> bool
 
-type IRBBL (ppoint, lastPpoint, stmts, last) =
+  abstract member GetComments: string list with get
+
+  abstract member SetComments: string list -> unit
+
+type IRBBL (ppoint, lastPpoint, stmts, last, comments) =
   inherit IRVertexData ()
 
   let mutable isIndirectCall = false
   let mutable isIndirectJump = false
+  let mutable comments = comments
 
   /// The last statement of this block (to access it efficiently).
   member __.LastStmt: LowUIR.Stmt = last
@@ -113,6 +118,12 @@ type IRBBL (ppoint, lastPpoint, stmts, last) =
     b <- isIndirectJump
     true
 
+  override __.GetComments =
+    comments
+
+  override __.SetComments (_comments: string list) =
+    comments <- _comments
+
   override __.GetTarget (target: outref<Addr>) = false
 
 type IRCall (target) =
@@ -139,6 +150,10 @@ type IRCall (target) =
   override __.GetTarget (t: outref<Addr>) =
     t <- target
     true
+
+  override __.GetComments = []
+
+  override __.SetComments (_comments: string list) = ()
 
 [<AbstractClass>]
 type SSAVertexData (irVertexData) =
