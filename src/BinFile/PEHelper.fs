@@ -107,7 +107,8 @@ let parseILT binReader headers wordSize map idt =
       let entry = parseILTEntry binReader headers idt mask rva
       let map = Map.add (idt.ImportAddressTableRVA + rvaOffset) entry map
       loop map (rvaOffset + skip) (pos + skip)
-  idt.ImportLookupTableRVA
+  if idt.ImportLookupTableRVA <> 0 then idt.ImportLookupTableRVA
+  else idt.ImportAddressTableRVA
   |> getRawOffset headers
   |> loop map 0
 
