@@ -2725,8 +2725,7 @@ let pinsrb ins insAddr insLen ctxt =
   builder <! (sel := count .& numI32 0xf oprSize)
   builder <! (mask := (numI32 0x0ff oprSize) << sel8)
   builder <! (temp := (zExt oprSize (extract src 8<rt> 0) << sel8) .& mask)
-  builder <! (tDst := concat dstB dstA)
-  builder <! (tDst := (tDst .& (AST.not mask)) .| temp)
+  builder <! (tDst := ((concat dstB dstA) .& (AST.not mask)) .| temp)
   builder <! (dstA := extractLow 64<rt> tDst)
   builder <! (dstB := extractHigh 64<rt> tDst)
   endMark insAddr insLen builder
@@ -2970,8 +2969,6 @@ let psadbw ins insAddr insLen ctxt =
 let pshufb ins insAddr insLen ctxt =
   let dst, src = getTwoOprs ins
   let oprSize = getOperationSize ins
-  let tDst = tmpVar oprSize
-  let tSrc = tmpVar oprSize
   let cnt = RegType.toBitWidth oprSize / 8
   let builder = new StmtBuilder (2 * cnt)
   startMark insAddr insLen builder
@@ -2993,9 +2990,11 @@ let pshufb ins insAddr insLen ctxt =
   | 128<rt> ->
     let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
     let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
-    builder <! (tDst := concat dstB dstA)
-    builder <! (tSrc := concat srcB srcA)
-    genTmps tDst tSrc
+    let conDst, conSrc = tmpVars2 oprSize
+    let tDst = tmpVar oprSize
+    builder <! (conDst := concat dstB dstA)
+    builder <! (conSrc := concat srcB srcA)
+    genTmps conDst conSrc
     builder <! (tDst := concatExprs tmps)
     builder <! (dstA := extractLow 64<rt> tDst)
     builder <! (dstB := extractHigh 64<rt> tDst)
@@ -3209,14 +3208,14 @@ let ptest ins insAddr insLen ctxt =
   let src1, src2 = getTwoOprs ins
   let src1B, src1A = transOprToExpr128 ins insAddr insLen ctxt src1
   let src2B, src2A = transOprToExpr128 ins insAddr insLen ctxt src2
-  let t1, t2 = tmpVars2 64<rt>
+  let t1, t2, t3, t4 = tmpVars4 64<rt>
   startMark insAddr insLen builder
   builder <! (t1 := src2A .& src1A)
   builder <! (t2 := src2B .& src1B)
   builder <! (getRegVar ctxt R.ZF := (t1 .| t2) == (num0 64<rt>))
-  builder <! (t1 := src2A .& AST.not src1A)
-  builder <! (t2 := src2B .& AST.not src1B)
-  builder <! (getRegVar ctxt R.CF := (t1 .| t2) == (num0 64<rt>))
+  builder <! (t3 := src2A .& AST.not src1A)
+  builder <! (t4 := src2B .& AST.not src1B)
+  builder <! (getRegVar ctxt R.CF := (t3 .| t4) == (num0 64<rt>))
   builder <! (getRegVar ctxt R.AF := b0)
   builder <! (getRegVar ctxt R.OF := b0)
   builder <! (getRegVar ctxt R.PF := b0)
@@ -3233,17 +3232,18 @@ let vptest ins insAddr insLen ctxt =
     let src2D, src2C, src2B, src2A =
       transOprToExpr256 ins insAddr insLen ctxt src2
     let t1, t2, t3, t4 = tmpVars4 64<rt>
+    let t5, t6, t7, t8 = tmpVars4 64<rt>
     startMark insAddr insLen builder
     builder <! (t1 := src1A .& src2A)
     builder <! (t2 := src1B .& src2B)
     builder <! (t3 := src1C .& src2C)
     builder <! (t4 := src1D .& src2D)
     builder <! (getRegVar ctxt R.ZF := (t1 .| t2 .| t3 .| t4) == (num0 64<rt>))
-    builder <! (t1 := src1A .& AST.not src2A)
-    builder <! (t2 := src1B .& AST.not src2B)
-    builder <! (t3 := src1C .& AST.not src2C)
-    builder <! (t4 := src1D .& AST.not src2D)
-    builder <! (getRegVar ctxt R.CF := (t1 .| t2 .| t3 .| t4) == (num0 64<rt>))
+    builder <! (t5 := src1A .& AST.not src2A)
+    builder <! (t6 := src1B .& AST.not src2B)
+    builder <! (t7 := src1C .& AST.not src2C)
+    builder <! (t8 := src1D .& AST.not src2D)
+    builder <! (getRegVar ctxt R.CF := (t5 .| t6 .| t7 .| t8) == (num0 64<rt>))
     builder <! (getRegVar ctxt R.AF := b0)
     builder <! (getRegVar ctxt R.OF := b0)
     builder <! (getRegVar ctxt R.PF := b0)
@@ -3330,7 +3330,7 @@ let pusha ins insAddr insLen ctxt oprSize =
   auxPush oprSize ctxt (getRegVar ctxt cx) builder
   auxPush oprSize ctxt (getRegVar ctxt dx) builder
   auxPush oprSize ctxt (getRegVar ctxt bx) builder
-  auxPush oprSize ctxt (t) builder
+  auxPush oprSize ctxt t builder
   auxPush oprSize ctxt (getRegVar ctxt bp) builder
   auxPush oprSize ctxt (getRegVar ctxt si) builder
   auxPush oprSize ctxt (getRegVar ctxt di) builder
@@ -3712,16 +3712,16 @@ let tzcnt ins insAddr insLen ctxt =
   let oprSize = getOperationSize ins
   let max = numI32 (RegType.toBitWidth oprSize) oprSize
   startMark insAddr insLen builder
-  let t = tmpVar oprSize
-  builder <! (t := num0 oprSize)
+  let t1, t2 = tmpVars2 oprSize
+  builder <! (t1 := num0 oprSize)
   builder <! (LMark lblLoopCond)
-  let cond = (lt t max) .& (extractLow 1<rt> (src >> t) == b0)
+  let cond = (lt t1 max) .& (extractLow 1<rt> (src >> t1) == b0)
   builder <! (CJmp (cond, Name lblLoop, Name lblExit))
   builder <! (LMark lblLoop)
-  builder <! (t := t .+ num1 oprSize)
+  builder <! (t2 := t1 .+ num1 oprSize)
   builder <! (Jmp (Name lblLoopCond))
   builder <! (LMark lblExit)
-  builder <! (dstAssign oprSize dst t)
+  builder <! (dstAssign oprSize dst t2)
   builder <! (getRegVar ctxt R.CF := dst == max)
   builder <! (getRegVar ctxt R.ZF := dst == num0 oprSize)
   builder <! (getRegVar ctxt R.OF := undefOF)
