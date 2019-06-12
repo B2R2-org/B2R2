@@ -1028,10 +1028,7 @@ let mToString wordSz (ins: InsInfo) b si d oprSz (sb: StringBuilder) =
   | Some s -> let sb = sb.Append(regToStr s).Append(":")
               (memAddrToStr b si d wordSz sb).Append("]")
 
-let inline relToString pc offset (fi: FileInfo option) (sb: StringBuilder) =
-  let sb = if offset < 0L then sb.Append("-") else sb.Append("+")
-  let sb = iToHexStr (abs offset) sb
-  let targetAddr = pc + uint64 offset
+let commentWithSymbol (fi: FileInfo option) (sb: StringBuilder) targetAddr =
   match fi with
   | Some fi ->
     match fi.TryFindFunctionSymbolName (targetAddr) with
@@ -1039,6 +1036,12 @@ let inline relToString pc offset (fi: FileInfo option) (sb: StringBuilder) =
     | true, "" -> sb // XXX how is this possible?
     | true, name -> sb.Append(" ; <").Append(name).Append(">")
   | None -> sb.Append(" ; ") |> uToHexStr targetAddr
+
+let inline relToString pc offset (fi: FileInfo option) (sb: StringBuilder) =
+  let sb = if offset < 0L then sb.Append("-") else sb.Append("+")
+  let sb = iToHexStr (abs offset) sb
+  let targetAddr = pc + uint64 offset
+  commentWithSymbol fi sb targetAddr
 
 let inline absToString selector (offset: Addr) _sz (sb: StringBuilder) =
   (uToHexStr (uint64 selector) sb).Append(":")
@@ -1105,6 +1108,11 @@ let recomputeRIPRel pc disp (ins: InsInfo) (insLen: uint32) (sb: StringBuilder) 
 let printOprs ins insAddr insLen fi pc wordSz (sb: StringBuilder) =
   match ins.Operands with
   | NoOperand -> sb
+  | OneOperand (OprMem (Some Register.RIP, None, Some off, 64<rt>)) ->
+    let sb = sb.Append (" ")
+    let sb = mToString wordSz ins (Some Register.RIP) None (Some off) 64<rt> sb
+    let addr = pc + uint64 insLen + uint64 off
+    commentWithSymbol fi sb addr
   | OneOperand opr ->
     oprToString wordSz ins insAddr fi opr true (sb.Append(" "))
   | TwoOperands (OprMem (Some R.RIP, None, Some disp, _), opr) ->
