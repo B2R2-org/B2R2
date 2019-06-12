@@ -109,8 +109,12 @@ type IntelInstruction (addr, numBytes, insInfo, wordSize) =
 
   override __.DirectBranchTarget (addr: byref<Addr>) =
     if __.IsBranch () then
+      // OneOperand (OprMem (Some RIP,None,Some 2205534L,64))
       match __.Info.Operands with
       | OneOperand (OprDirAddr (Absolute (_))) -> failwith "Implement" // XXX
+      | OneOperand (OprMem (Some Register.RIP, None, Some offset, 64<rt>)) ->
+        addr <- __.Address + uint64 __.Length + uint64 offset
+        true
       | OneOperand (OprDirAddr (Relative offset)) ->
         addr <- (int64 __.Address + offset) |> uint64
         true
