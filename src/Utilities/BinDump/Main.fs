@@ -65,6 +65,9 @@ type BinDumpOpts (autoDetect, isa) =
   /// Whether to show addresses or not
   member val ShowAddress = false with get, set
 
+  /// Show symbols or not?
+  member val ShowSymbols = false with get, set
+
   /// Discover binary file format or not?
   member val AutoDetect = autoDetect with get, set
 
@@ -126,6 +129,12 @@ type BinDumpOpts (autoDetect, isa) =
     CmdOpts.New ( descr = "Show addresses in disassembly",
                   callback = cb, long = "--show-addr" )
 
+  static member OptShowSymbols () =
+    let cb (opts: #CmdOpts) _ =
+      (BinDumpOpts.ToThis opts).ShowSymbols <- true; opts
+    CmdOpts.New ( descr = "Show symbols while disassembling binary",
+                  callback = cb, long = "--show-symbols")
+
   static member OptDisasm () =
     let cb (opts: #CmdOpts) _ =
       (BinDumpOpts.ToThis opts).DumpMethod <- Disassemble; opts
@@ -172,6 +181,7 @@ let spec =
     BinDumpOpts.OptDisasm ()
     BinDumpOpts.OptTransIR ()
     BinDumpOpts.OptShowAddr ()
+    BinDumpOpts.OptShowSymbols ()
 
     CmdOpts.New (descr = "\n[Optional Configuration]\n", dummy = true)
 
@@ -245,23 +255,24 @@ let pickNext hdl eAddr untilFn bbFn sAddr = function
   | Error (res, nextAddr) ->
     bbFn res; printIllegal (); getNextAddr hdl nextAddr |> Some
 
-let printDisasmUntil hdl showAddr sAddr eAddr =
+let printDisasmUntil hdl showAddr showSymbs sAddr eAddr =
   let printFn = function
-    | Some ins -> BinHandler.DisasmInstr hdl showAddr false ins
-                  |> Console.WriteLine
+    | Some ins ->
+      BinHandler.DisasmInstr hdl showAddr showSymbs ins |> Console.WriteLine
     | None -> printIllegal ()
   parseUntil hdl sAddr eAddr |> List.iter printFn
 
 let printDisasm result = printIfNotEmpty result
 
-let printBlkDisasm showAddr hdl sA eA =
-  let untilFn sA = printDisasmUntil hdl showAddr sA eA
+let printBlkDisasm showAddr showSymbs hdl sA eA =
+  let untilFn sA = printDisasmUntil hdl showAddr showSymbs sA eA
   let digest = pickNext hdl eA untilFn printDisasm
   let rec loop sA =
     if sA >= eA then ()
-    else match BinHandler.DisasmBBlock hdl showAddr false sA |> digest sA with
-         | Some n -> loop n
-         | None -> ()
+    else
+      match BinHandler.DisasmBBlock hdl showAddr showSymbs sA |> digest sA with
+      | Some n -> loop n
+      | None -> ()
   loop sA
 
 let printLowUIRUntil hdl sAddr eAddr =
@@ -335,9 +346,9 @@ let getSectionRanges handle =
   |> Seq.fold folder []
   |> List.sortBy (fun r -> r.Min)
 
-let getActor action showAddr hdl opt =
+let getActor action showAddr showSymbs hdl opt =
   match action, opt with
-  | Disassemble, _     -> printBlkDisasm showAddr hdl
+  | Disassemble, _     -> printBlkDisasm showAddr showSymbs hdl
   | LowUIRLift, NoOpt  -> printBlkLowUIR (fun x -> x) hdl
   | LowUIRLift, Opt    -> printBlkLowUIR (BinHandler.Optimize) hdl
   | LowUIRLift, OptPar -> parPrintOptBlkLowUIR hdl
@@ -353,7 +364,8 @@ let dump _ (opts: BinDumpOpts) =
   let secRanges = getSectionRanges handle
   let action = opts.DumpMethod
   let showAddr = opts.ShowAddress
-  let actor = opts.DoOptimization |> getActor action showAddr handle
+  let showSymbs = opts.ShowSymbols
+  let actor = opts.DoOptimization |> getActor action showAddr showSymbs handle
   if secRanges.IsEmpty then ()
   else List.iter (fun sR -> actor (AddrRange.GetMin sR) (AddrRange.GetMax sR))
         secRanges
