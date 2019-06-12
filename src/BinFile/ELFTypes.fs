@@ -814,6 +814,8 @@ type ELF = {
   RelocInfo: RelocInfo
   /// Procedure Linkage Table.
   PLT: ARMap<ELFSymbol>
+  /// Global symbols (such as R_X86_64_GLOB_DAT).
+  Globals: Map<Addr, ELFSymbol>
   /// BinReader
   BinReader: BinReader
 }

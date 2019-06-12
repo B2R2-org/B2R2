@@ -123,8 +123,8 @@ let addBranchTarget hdl sAddr (builder: CFGBuilder) funcs leaders (instr: Instru
         let ptrs = recoverLibcPointers hdl sAddr instr builder
         List.iter (initFunction hdl builder funcs) ptrs
         builder, funcs, next :: ptrs @ leaders
-      | Some addr when isExitCall hdl instr -> builder, funcs, leaders
-      | Some addr -> builder, funcs, next :: leaders
+      | Some _ when isExitCall hdl instr -> builder, funcs, leaders
+      | Some _ -> builder, funcs, next :: leaders
       | None -> builder, funcs, next :: leaders
     elif instr.IsDirectBranch () then
       match getBranchTarget instr with
@@ -154,7 +154,6 @@ let rec parseDisasmBlk hdl (builder: CFGBuilder) funcs addr leaders =
       let nextAddr = last.Address + uint64 last.Length
       builder.AddDisasmBoundary addr nextAddr
       builder, funcs, leaders
-      //addBranchTarget hdl addr builder funcs leaders last
     else builder, funcs, leaders
   | Ok instrs ->
     let builder, funcs, leaders =

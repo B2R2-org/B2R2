@@ -81,6 +81,15 @@ let parsePLT arch sections (reloc: RelocInfo) reader =
     Map.fold folder (ARMap.empty, pltStartAddr) reloc.RelocByAddr |> fst
   | None -> ARMap.empty
 
+let parseGlobalSymbols reloc =
+  let folder map addr (rel: RelocationEntry) =
+    match rel.RelType with
+    | RelocationX86 RelocationX86.Reloc386GlobData
+    | RelocationX64 RelocationX64.RelocX64GlobData ->
+      Map.add addr rel.RelSymbol map
+    | _ -> map
+  reloc.RelocByAddr |> Map.fold folder Map.empty
+
 let private parseELF offset reader =
   let eHdr = Header.parse reader offset
   let secs = Section.parse eHdr reader
@@ -90,7 +99,8 @@ let private parseELF offset reader =
   let symbs = Symbol.parse eHdr secs reader
   let reloc = Relocs.parse eHdr secs symbs reader
   let plt = parsePLT eHdr.MachineType secs reloc reader
-  let symbs = Symbol.updatePLTSymbols symbs plt
+  let globals = parseGlobalSymbols reloc
+  let symbs = Symbol.updatePLTSymbols plt symbs |> Symbol.updateGlobals globals
   { ELFHdr = eHdr
     ProgHeaders = proghdrs
     LoadableSegments = loadableSegs
@@ -99,6 +109,7 @@ let private parseELF offset reader =
     SymInfo = symbs
     RelocInfo = reloc
     PLT = plt
+    Globals = globals
     BinReader = reader }
 
 let initELF bytes =

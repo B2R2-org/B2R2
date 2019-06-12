@@ -192,7 +192,10 @@ let parse eHdr secs reader =
     SecNumToSymbTbls = symTbls
     AddrToSymbTable = buildSymbolMap staticSymArr dynamicSymArr }
 
-let updatePLTSymbols symInfo (plt: ARMap<ELFSymbol>) =
-  let update map =
-    plt |> ARMap.fold (fun map r s -> Map.add r.Min s map) map
+let updatePLTSymbols (plt: ARMap<ELFSymbol>) symInfo =
+  let update map = plt |> ARMap.fold (fun map r s -> Map.add r.Min s map) map
+  { symInfo with AddrToSymbTable = update symInfo.AddrToSymbTable }
+
+let updateGlobals (globals: Map<Addr, ELFSymbol>) symInfo =
+  let update map = globals |> Map.fold (fun map a s -> Map.add a s map) map
   { symInfo with AddrToSymbTable = update symInfo.AddrToSymbTable }
