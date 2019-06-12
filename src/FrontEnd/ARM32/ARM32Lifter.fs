@@ -1037,11 +1037,11 @@ let add isSetFlags insInfo ctxt =
   let src1 =
     if src1 = getPC ctxt then src1 .+ (BitVector.ofUInt32 8u 32<rt> |> num)
     else src1
-  let res, carryOut, overflow = addWithCarry src1 src2 (num0 32<rt>)
-  let result = tmpVar 32<rt>
+  let result, carryOut, overflow = addWithCarry src1 src2 (num0 32<rt>)
+  //let result = tmpVar 32<rt>
   let isCondPass = isCondPassed insInfo.Condition
   startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
-  builder <! (result := res)
+  //builder <! (result := res)
   if dst = getPC ctxt then writePC ctxt result builder
   else
     builder <! (dst := result)
@@ -2835,7 +2835,7 @@ let translate insInfo ctxt =
   | Op.SUBS -> subs true insInfo ctxt
   | Op.AND -> transAND false insInfo ctxt
   | Op.ANDS -> ands true insInfo ctxt
-  | Op.MOV | Op.MOVW -> mov true insInfo ctxt
+  | Op.MOV | Op.MOVW -> mov false insInfo ctxt
   | Op.MOVS -> movs true insInfo ctxt
   | Op.EOR -> eor false insInfo ctxt
   | Op.EORS -> eors true insInfo ctxt
@@ -2899,7 +2899,7 @@ let translate insInfo ctxt =
   | Op.STM -> stm Op.STM insInfo ctxt
   | Op.STMIB -> stm Op.STMIB insInfo ctxt
   | Op.STMDA -> stm Op.STMDA insInfo ctxt
-  | Op.STCL | Op.SVC | Op.MRC2 | Op.LDCL -> coprocOp insInfo addr // coprocessor instruction
+  | Op.STCL | Op.SVC | Op.MRC | Op.MRC2 | Op.LDCL -> coprocOp insInfo addr // coprocessor instruction
   | Op.CBNZ -> cbz true insInfo ctxt
   | Op.CBZ -> cbz false insInfo ctxt
   | Op.TBH | Op.TBB -> tableBranch insInfo ctxt
