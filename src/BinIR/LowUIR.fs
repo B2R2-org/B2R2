@@ -327,7 +327,7 @@ module Pp =
       sb.Append (n) |> ignore
       sb.Append (":") |> ignore
       sb.Append (RegType.toString typ) |> ignore
-    | Name (n) -> sb.Append (n) |> ignore
+    | Name (n) -> sb.Append (Symbol.getName n) |> ignore
     | FuncName (n) -> sb.Append (n) |> ignore
     | UnOp (op, e, _, _) ->
       sb.Append ("(") |> ignore
@@ -386,29 +386,26 @@ module Pp =
   let private _stmtToString stmt (sb: StringBuilder) =
     match stmt with
     | ISMark (addr, len) ->
-      sb.Append ("-------------ISMark (") |> ignore
+      sb.Append ("=== ISMark (") |> ignore
       sb.Append (addr.ToString("X")) |> ignore
-      sb.Append (", ") |> ignore
-      sb.Append (len) |> ignore
-      sb.Append (")-------------") |> ignore
+      sb.Append (")") |> ignore
     | IEMark (addr) ->
-      sb.Append ("-------------IEMark (") |> ignore
+      sb.Append ("=== IEMark (pc := ") |> ignore
       sb.Append (addr.ToString("X")) |> ignore
-      sb.Append (")-------------") |> ignore
+      sb.Append (")") |> ignore
     | LMark lbl ->
-      sb.Append ("-------------LMark (") |> ignore
+      sb.Append ("=== LMark (") |> ignore
       sb.Append (Symbol.getName lbl) |> ignore
-      sb.Append (")-------------") |> ignore
+      sb.Append (")") |> ignore
     | Put (exp1, exp2) ->
       _expToString exp1 sb
       sb.Append (" := ") |> ignore
       _expToString exp2 sb
     | Jmp exp ->
-      sb.Append ("Jmp ") |> ignore
+      sb.Append ("JmpLbl ") |> ignore
       _expToString exp sb
-    | InterJmp (pc, exp, _) ->
-      _expToString pc sb
-      sb.Append (" := ") |> ignore
+    | InterJmp (_pc, exp, _) ->
+      sb.Append ("Jmp ") |> ignore
       _expToString exp sb
     | Store (_endian, exp1, exp2) ->
       sb.Append ("[") |> ignore
@@ -418,17 +415,16 @@ module Pp =
     | CJmp (cond, t, f) ->
       sb.Append ("if") |> ignore
       _expToString cond sb
+      sb.Append (" then JmpLbl ") |> ignore
+      _expToString t sb
+      sb.Append (" else JmpLbl ") |> ignore
+      _expToString f sb
+    | InterCJmp (cond, _pc, t, f) ->
+      sb.Append ("if") |> ignore
+      _expToString cond sb
       sb.Append (" then Jmp ") |> ignore
       _expToString t sb
       sb.Append (" else Jmp ") |> ignore
-      _expToString f sb
-    | InterCJmp (cond, pc, t, f) ->
-      _expToString pc sb
-      sb.Append (" := if ") |> ignore
-      _expToString cond sb
-      sb.Append (" then ") |> ignore
-      _expToString t sb
-      sb.Append (" else ") |> ignore
       _expToString f sb
     | SideEffect eff ->
       sb.Append ("SideEffect " + sideEffectToString eff) |> ignore

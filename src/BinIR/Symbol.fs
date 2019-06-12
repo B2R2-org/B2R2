@@ -31,3 +31,5 @@ type Symbol = string * int
 
 module Symbol =
   let getName (s: Symbol) = fst s
+
+  let toString (s: Symbol) = fst s + "_" + (snd s).ToString ()
