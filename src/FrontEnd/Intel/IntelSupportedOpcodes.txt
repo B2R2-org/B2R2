@@ -1492,6 +1492,10 @@ XORPS
 XRSTOR
 /// Save Processor Extended States.
 XSAVE
+/// Save processor extended states with compaction to memory.
+XSAVEC
+/// Save processor extended states with compaction to memory.
+XSAVEC64
 /// Save Processor Extended States Optimized.
 XSAVEOPT
 /// Set Extended Control Register.

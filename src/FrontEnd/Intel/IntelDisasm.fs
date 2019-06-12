@@ -958,6 +958,8 @@ let opCodeToString = function
   | Opcode.XORPS -> "xorps"
   | Opcode.XRSTOR -> "xrstor"
   | Opcode.XSAVE -> "xsave"
+  | Opcode.XSAVEC -> "xsavec"
+  | Opcode.XSAVEC64 -> "xsavec64"
   | Opcode.XSAVEOPT -> "xsaveopt"
   | Opcode.XSETBV -> "xsetbv"
   | Opcode.XTEST -> "xtest"

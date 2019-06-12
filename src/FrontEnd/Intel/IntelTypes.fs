@@ -1589,14 +1589,18 @@ type Opcode =
   | XRSTOR = 745
   /// Save Processor Extended States.
   | XSAVE = 746
+  /// Save processor extended states with compaction to memory.
+  | XSAVEC = 747
+  /// Save processor extended states with compaction to memory.
+  | XSAVEC64 = 748
   /// Save Processor Extended States Optimized.
-  | XSAVEOPT = 747
+  | XSAVEOPT = 749
   /// Set Extended Control Register.
-  | XSETBV = 748
+  | XSETBV = 750
   /// Test If In Transactional Execution.
-  | XTEST = 749
+  | XTEST = 751
   /// Invalid Opcode.
-  | InvalOP = 750
+  | InvalOP = 752
 
 /// We define 8 different RegGrp types. Intel instructions use an integer value
 /// such as a REG field of a ModR/M value.

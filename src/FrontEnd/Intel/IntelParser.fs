@@ -1065,6 +1065,8 @@ let getOpAndPorKindByOpGrp9 t b regBits =
   match modIsMemory b, regBits, hasOprSzPref, hasREPZPref, hasREXWPref with
   | true,  0b001, false, false, true -> Opcode.CMPXCHG16B, Mdq, SzDef32
   | true,  0b001, false, false, _    -> Opcode.CMPXCHG8B, Mq, SzDef32
+  | true,  0b100, false, false, true    -> Opcode.XSAVEC64, Mq, SzDef32
+  | true,  0b100, false, false, _    -> Opcode.XSAVEC, Mq, SzDef32
   | true,  0b110, false, false, _    -> Opcode.VMPTRLD, Mq, SzDef32
   | true,  0b111, false, false, _    -> Opcode.VMPTRST, Mq, SzDef32
   | true,  0b110, true,  false, _    -> Opcode.VMCLEAR, Mq, SzDef32
