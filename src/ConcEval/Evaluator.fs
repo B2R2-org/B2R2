@@ -168,8 +168,9 @@ let rec internal gotoNextInstr stmts st =
   else st
 
 let internal tryEvaluate stmt st =
-  try evalStmt st stmt
-  with UndefExpException ->
+  try evalStmt st stmt with
+  | UndefExpException
+  | InvalidMemException ->
     if st.IgnoreUndef then EvalState.NextStmt st
     else raise UndefExpException
 
