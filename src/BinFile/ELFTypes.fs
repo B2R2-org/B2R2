@@ -687,8 +687,8 @@ with
 type RelocationEntry = {
   /// The location at which to apply the relocation action.
   RelOffset: uint64
-  /// Relocation symbol.
-  RelSymbol: ELFSymbol
+  /// Relocation symbol. Symbol can be None when only the addend is used.
+  RelSymbol: ELFSymbol option
   /// Relocation type.
   RelType: RelocationType
   /// A constant addend used to compute the value to be stored into the

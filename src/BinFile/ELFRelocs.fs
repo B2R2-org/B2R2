@@ -51,23 +51,28 @@ let inline getRelocSIdx eHdr i =
 let inline parseRelocELFSymbol hasAdd eHdr typMask symTbl reader pos sec =
   let info = peekInfoWithArch reader eHdr pos
   let cls = eHdr.Class
-  {
-    RelOffset = peekUIntOfType reader cls pos
+  { RelOffset = peekUIntOfType reader cls pos
     RelType = typMask &&& info |> RelocationType.FromNum eHdr.MachineType
-    RelSymbol = Array.get symTbl (getRelocSIdx eHdr info |> Convert.ToInt32)
+    RelSymbol = Array.tryItem (getRelocSIdx eHdr info |> Convert.ToInt32) symTbl
     RelAddend = if hasAdd then peekHeaderNative reader cls pos 8 16 else 0UL
-    RelSecNumber = sec.SecNum
-  }
+    RelSecNumber = sec.SecNum }
 
 let nextRelOffset hasAdd cls offset =
   if cls = WordSize.Bit32 then offset + (if hasAdd then 12 else 8)
   else offset + (if hasAdd then 24 else 16)
 
 let accumulateRelocInfo relInfo rel =
-  {
-    RelocByAddr = Map.add rel.RelOffset rel relInfo.RelocByAddr
-    RelocByName = Map.add rel.RelSymbol.SymName rel relInfo.RelocByName
-  }
+  match rel.RelSymbol with
+  | None ->
+    { relInfo with RelocByAddr = Map.add rel.RelOffset rel relInfo.RelocByAddr }
+  | Some name ->
+    { RelocByAddr = Map.add rel.RelOffset rel relInfo.RelocByAddr
+      RelocByName = Map.add name.SymName rel relInfo.RelocByName }
+
+let tryFindSymbTable idx symbInfo =
+  match Map.tryFind idx symbInfo.SecNumToSymbTbls with
+  | None -> [||]
+  | Some tbl -> tbl
 
 let parseRelocSection eHdr reader sec symbInfo relInfo =
   let hasAdd = sec.SecType = SectionType.SHTRela (* Has addend? *)
@@ -75,7 +80,7 @@ let parseRelocSection eHdr reader sec symbInfo relInfo =
   let rec parseLoop rNum relInfo offset =
     if rNum = 0UL then relInfo
     else
-      let symTbl = symbInfo.SecNumToSymbTbls.[int sec.SecLink]
+      let symTbl = tryFindSymbTable (int sec.SecLink) symbInfo
       let rel = parseRelocELFSymbol hasAdd eHdr typMask symTbl reader offset sec
       let nextOffset = nextRelOffset hasAdd eHdr.Class offset
       parseLoop (rNum - 1UL) (accumulateRelocInfo relInfo rel) nextOffset

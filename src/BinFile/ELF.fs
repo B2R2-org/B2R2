@@ -136,11 +136,14 @@ type ELFFileInfo (bytes, path) =
 
   override __.GetRelocationSymbols () =
     let translate (_, reloc) =
-      { reloc.RelSymbol with Addr = reloc.RelOffset }
-      |> Symbol.toB2R2Symbol TargetKind.DynamicSymbol
+      reloc.RelSymbol
+      |> Option.bind (fun s ->
+           { s with Addr = reloc.RelOffset }
+           |> Symbol.toB2R2Symbol TargetKind.DynamicSymbol
+           |> Some)
     elf.RelocInfo.RelocByName
     |> Map.toSeq
-    |> Seq.map translate
+    |> Seq.choose translate
 
   override __.IsValidAddr addr =
     isValid addr elf.LoadableSegments
