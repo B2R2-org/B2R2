@@ -608,6 +608,8 @@ MULPS
 MULSD
 /// Multiply Scalar Single-Precision Floating-Point Values.
 MULSS
+/// Unsigned multiply without affecting arithmetic flags.
+MULX
 /// Monitor Wait.
 MWAIT
 /// Two's Complement Negation.
@@ -932,6 +934,8 @@ RETNearImm
 ROL
 /// Rotate x bits r/m(x) right once.
 ROR
+/// Rotate right without affecting arithmetic flags.
+RORX
 /// Round Scalar Double Precision Floating-Point Values.
 ROUNDSD
 /// Resume from System Management Mode.
@@ -940,6 +944,8 @@ RSM
 SAHF
 /// Shift.
 SAR
+/// Shift arithmetic right.
+SARX
 /// Integer Subtraction with Borrow.
 SBB
 /// Scan String (byte).
@@ -990,10 +996,14 @@ SGDT
 SHL
 /// Double Precision Shift Left.
 SHLD
+/// Shift logic left.
+SHLX
 /// Shift.
 SHR
 /// Double Precision Shift Right.
 SHRD
+/// Shift logic right.
+SHRX
 /// Shuffle Packed Double-Precision Floating-Point Values.
 SHUFPD
 /// Shuffle Packed Single-Precision Floating-Point Values.
@@ -1004,6 +1014,14 @@ SIDT
 SLDT
 /// Store Machine Status Word.
 SMSW
+/// Compute packed square roots of packed double-precision FP values.
+SQRTPD
+/// Compute square roots of packed single-precision floating-point values.
+SQRTPS
+/// Compute scalar square root of scalar double-precision floating-point values.
+SQRTSD
+/// Compute square root of scalar single-precision floating-point values.
+SQRTSS
 /// Set AC Flag in EFLAGS Register.
 STAC
 /// Set Carry Flag.
@@ -1430,6 +1448,14 @@ VPXOR
 VSHUFPD
 /// Shuffle Packed Single-Precision Floating-Point Values.
 VSHUFPS
+/// Compute packed square roots of packed double-precision FP values.
+VSQRTPD
+/// Compute square roots of packed single-precision floating-point values.
+VSQRTPS
+/// Compute scalar square root of scalar double-precision floating-point values.
+VSQRTSD
+/// Compute square root of scalar single-precision floating-point values.
+VSQRTSS
 /// Subtract Packed Double-Precision Floating-Point Values.
 VSUBPD
 /// Subtract Packed Single-Precision Floating-Point Values.
@@ -1490,6 +1516,10 @@ XORPD
 XORPS
 /// Restore Processor Extended States.
 XRSTOR
+/// Restore processor supervisor-mode extended states from memory.
+XRSTORS
+/// Restore processor supervisor-mode extended states from memory.
+XRSTORS64
 /// Save Processor Extended States.
 XSAVE
 /// Save processor extended states with compaction to memory.
@@ -1498,6 +1528,10 @@ XSAVEC
 XSAVEC64
 /// Save Processor Extended States Optimized.
 XSAVEOPT
+/// Save processor supervisor-mode extended states to memory.
+XSAVES
+/// Save processor supervisor-mode extended states to memory.
+XSAVES64
 /// Set Extended Control Register.
 XSETBV
 /// Test If In Transactional Execution.

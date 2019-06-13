@@ -120,6 +120,10 @@ let opVEX =
                     Opcode.InvalOP; Opcode.InvalOP |])
    ("opVex0F50", [| Opcode.VMOVMSKPS; Opcode.VMOVMSKPD;
                     Opcode.InvalOP; Opcode.InvalOP |])
+   ("opNor0F51", [| Opcode.SQRTPS; Opcode.SQRTPD;
+                    Opcode.SQRTSS; Opcode.SQRTSD |])
+   ("opVex0F51", [| Opcode.VSQRTPS; Opcode.VSQRTPD;
+                    Opcode.VSQRTSS; Opcode.VSQRTSD |])
    ("opNor0F54", [| Opcode.ANDPS; Opcode.ANDPD;
                     Opcode.InvalOP; Opcode.InvalOP |])
    ("opVex0F54", [| Opcode.VANDPS; Opcode.VANDPD;
@@ -653,6 +657,14 @@ let opVEX =
                       Opcode.InvalOP; Opcode.CRC32; Opcode.CRC32 |])
    ("opNor0F38F1", [| Opcode.MOVBE; Opcode.MOVBE;
                       Opcode.InvalOP; Opcode.CRC32; Opcode.CRC32 |])
+   ("opNor0F38F6", [| Opcode.InvalOP; Opcode.InvalOP;
+                      Opcode.InvalOP; Opcode.InvalOP |])
+   ("opVex0F38F6", [| Opcode.InvalOP; Opcode.InvalOP;
+                      Opcode.InvalOP; Opcode.MULX |])
+   ("opNor0F38F7", [| Opcode.InvalOP; Opcode.InvalOP;
+                      Opcode.InvalOP; Opcode.InvalOP |])
+   ("opVex0F38F7", [| Opcode.InvalOP; Opcode.SHLX;
+                      Opcode.SARX; Opcode.SHRX |])
    ("opNor0F3A0F", [| Opcode.PALIGNR; Opcode.PALIGNR;
                       Opcode.InvalOP; Opcode.InvalOP |])
    ("opVex0F3A0F", [| Opcode.InvalOP; Opcode.VPALIGNR;
@@ -685,6 +697,10 @@ let opVEX =
                       Opcode.InvalOP; Opcode.InvalOP |])
    ("opVex0F3A0B", [| Opcode.InvalOP; Opcode.InvalOP;
                       Opcode.InvalOP; Opcode.InvalOP |])
+   ("opNor0F3AF0", [| Opcode.InvalOP; Opcode.InvalOP;
+                      Opcode.InvalOP; Opcode.InvalOP |])
+   ("opVex0F3AF0", [| Opcode.InvalOP; Opcode.InvalOP;
+                      Opcode.InvalOP; Opcode.RORX |])
    ("opEmpty", [| Opcode.InvalOP; Opcode.InvalOP;
                   Opcode.InvalOP; Opcode.InvalOP |])
 ]

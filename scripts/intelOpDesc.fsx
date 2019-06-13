@@ -35,212 +35,6 @@
 
 open B2R2.FrontEnd.Intel
 
-/// We define 8 different RegGrp types. Intel instructions use an integer value
-/// such as a REG field of a ModR/M value.
-type RegGrp =
-  /// AL/AX/EAX/...
-  | RG0 = 0
-  /// CL/CX/ECX/...
-  | RG1 = 1
-  /// DL/DX/EDX/...
-  | RG2 = 2
-  /// BL/BX/EBX/...
-  | RG3 = 3
-  /// AH/SP/ESP/...
-  | RG4 = 4
-  /// CH/BP/EBP/...
-  | RG5 = 5
-  /// DH/SI/ESI/...
-  | RG6 = 6
-  /// BH/DI/EDI/...
-  | RG7 = 7
-
-/// Specifies the kind of operand. See Appendix A.2 of Volume 2 (Intel Manual)
-type OprMode =
-  /// Direct address
-  | A = 0x1
-  /// Bound Register
-  | BndR = 0x2
-  /// Bound Register or memory
-  | BndM = 0x3
-  /// The reg field of the ModR/M byte selects a control register
-  | C = 0x4
-  /// The reg field of the ModR/M byte selects a debug register
-  | D = 0x5
-  /// General Register or Memory
-  | E = 0x6
-  /// General Register
-  | G = 0x7
-  /// The VEX.vvvv field of the VEX prefix selects a 128-bit XMM register or a
-  /// 256-bit YMM regerister, determined by operand type
-  | H = 0x8
-  /// Unsigned Immediate
-  | I = 0x9
-  /// Signed Immediate
-  | SI = 0xa
-  /// EIP relative offset
-  | J = 0xb
-  /// Memory
-  | M = 0xc
-  /// A ModR/M follows the opcode and specifies the operand. The operand is
-  /// either a 128-bit, 256-bit or 512-bit memory location.
-  | MZ = 0xd
-  /// The R/M field of the ModR/M byte selects a packed-quadword, MMX
-  /// technology register
-  | N = 0xe
-  /// No ModR/M byte. No base register, index register, or scaling factor
-  | O = 0xf
-  /// The reg field of the ModR/M byte selects a packed quadword MMX technology
-  /// register
-  | P = 0x10
-  /// A ModR/M byte follows the opcode and specifies the operand. The operand
-  /// is either an MMX technology register of a memory address
-  | Q = 0x11
-  /// The R/M field of the ModR/M byte may refer only to a general register
-  | R = 0x12
-  /// The reg field of the ModR/M byte selects a segment register
-  | S = 0x13
-  /// The R/M field of the ModR/M byte selects a 128-bit XMM register or a
-  /// 256-bit YMM register, determined by operand type
-  | U = 0x14
-  /// The reg field of the ModR/M byte selects a 128-bit XMM register or a
-  /// 256-bit YMM register, determined by operand type
-  | V = 0x15
-  /// The reg field of the ModR/M byte selects a 128-bit XMM register or a
-  /// 256-bit YMM register, 512-bit ZMM register determined by operand type
-  | VZ = 0x16
-  /// A ModR/M follows the opcode and specifies the operand. The operand is
-  /// either a 128-bit XMM register, a 256-bit YMM register, or a memory address
-  | W = 0x17
-  /// A ModR/M follows the opcode and specifies the operand. The operand is
-  /// either a 128-bit XMM register, a 256-bit YMM register, a 512-bit ZMM
-  /// register or a memory address
-  | WZ = 0x18
-  /// Memory addressed by the DS:rSI register pair.
-  | X = 0x19
-  /// Memory addressed by the ES:rDI register pair.
-  | Y = 0x1a
-  /// The reg field of the ModR/M byte is 0b000
-  | E0 = 0x1b
-
-/// Specifies the size of operand. See Appendix A.2 of Volume 2
-type OprSize =
-  /// Word/DWord depending on operand-size attribute
-  | A = 0x40
-  /// Byte size
-  | B = 0x80
-  /// 64-bit or 128-bit : Bound Register or Memory
-  | Bnd = 0xc0
-  /// Doubleword, regardless of operand-size attribute
-  | D = 0x100
-  /// Register size = Doubledword, Pointer size = Byte
-  | DB = 0x140
-  /// Double-quadword, regardless of operand-size attribute
-  | DQ = 0x180
-  /// Register size = Double-quadword, Pointer size = Doubleword
-  | DQD = 0x1c0
-  /// Register size = Double-quadword, Pointer size depending on operand-size
-  /// attribute. If the operand-size is 128-bit, the pointer size is doubleword;
-  /// If the operand-size is 256-bit, the pointer size is quadword.
-  | DQDQ = 0x200
-  /// Register size = Double-quadword, Pointer size = Quadword
-  | DQQ = 0x240
-  /// Register size = Double-quadword, Pointer size depending on operand-size
-  /// attribute. If the operand-size is 128-bit, the pointer size is quadword;
-  /// If the operand-size is 256-bit, the pointer size is double-quadword.
-  | DQQDQ = 0x280
-  /// Register size = Double-quadword, Pointer size = Word
-  | DQW = 0x2c0
-  /// Register size = Doubledword, Pointer size = Word
-  | DW = 0x300
-  /// Register size = Double-quadword, Pointer size depending on operand-size
-  /// attribute. If the operand-size is 128-bit, the pointer size is word;
-  /// If the operand-size is 256-bit, the pointer size is doubleword.
-  | DQWD = 0x340
-  /// 32-bit, 48 bit, or 80-bit pointer, depending on operand-size attribute
-  | P = 0x380
-  /// 128-bit or 256-bit packed double-precision floating-point data
-  | PD = 0x3c0
-  /// Quadword MMX techonolgy register
-  | PI = 0x400
-  /// 128-bit or 256-bit packed single-precision floating-point data
-  | PS = 0x440
-  /// 128-bit or 256-bit packed single-precision floating-point data, pointer
-  /// size : Quadword
-  | PSQ = 0x480
-  /// Quadword, regardless of operand-size attribute
-  | Q = 0x4c0
-  /// Quad-Quadword (256-bits), regardless of operand-size attribute
-  | QQ = 0x500
-  /// 6-byte or 10-byte pseudo-descriptor
-  | S = 0x540
-  /// Scalar element of a 128-bit double-precision floating data
-  | SD = 0x580
-  /// Scalar element of a 128-bit double-precision floating data, but the
-  /// pointer size is quadword
-  | SDQ = 0x5c0
-  /// Scalar element of a 128-bit single-precision floating data
-  | SS = 0x600
-  /// Scalar element of a 128-bit single-precision floating data, but the
-  /// pointer size is doubleword
-  | SSD = 0x640
-  /// Scalar element of a 128-bit single-precision floating data, but the
-  /// pointer size is quadword
-  | SSQ = 0x680
-  /// Word/DWord/QWord depending on operand-size attribute
-  | V = 0x6c0
-  /// Word, regardless of operand-size attribute
-  | W = 0x700
-  /// dq or qq based on the operand-size attribute
-  | X = 0x740
-  /// 128-bit, 256-bit or 512-bit depending on operand-size attribute
-  | XZ = 0x780
-  /// Doubleword or quadword (in 64-bit mode), depending on operand-size
-  /// attribute
-  | Y = 0x7c0
-  /// Word for 16-bit operand-size or DWord for 32 or 64-bit operand size
-  | Z = 0x800
-
-/// Defines attributes for registers to apply register conversion rules.
-type RGrpAttr =
-  /// This represents the case where there is no given attribute.
-  | ANone = 0x0
-  /// Registers defined by the 4th row of Table 2-2. Vol. 2A.
-  | AMod11 = 0x1
-  /// Registers defined by REG bit of the opcode: some instructions such as PUSH
-  /// make use of its opcode to represent the REG bit. REX bits can change the
-  /// symbol.
-  | ARegInOpREX = 0x2
-  /// Registers defined by REG bit of the opcode: some instructions such as PUSH
-  /// make use of its opcode to represent the REG bit. REX bits cannot change
-  /// the symbol.
-  | ARegInOpNoREX = 0x4
-  /// Registers defined by REG field of the ModR/M byte.
-  | ARegBits = 0x8
-  /// Base registers defined by the RM field: first three rows of Table 2-2.
-  | ABaseRM = 0x10
-  /// Registers defined by the SIB index field.
-  | ASIBIdx = 0x20
-  /// Registers defined by the SIB base field.
-  | ASIBBase = 0x40
-
-/// Defines four different descriptions of an instruction operand. Most of these
-/// descriptions are found in Appendix A. (Opcode Map) of the manual Vol. 2D. We
-/// also introduce several new descriptors for our own purpose.
-type OperandDesc =
-  /// The most generic operand kind which can be described with OprMode
-  /// and OprSize.
-  | ODModeSize of struct (OprMode * OprSize)
-  /// This operand is represented as a single register.
-  /// (e.g., mov al, 1)
-  | ODReg of Register
-  /// This operand is represented as a single opcode, and the symbol of the
-  /// register symbol must be resolved by looking at the register mapping table
-  /// (see GrpEAX for instance).
-  | ODRegGrp of RegGrp * OprSize * RGrpAttr
-  /// This operand is represented as an immediate value (of one).
-  | ODImmOne
-
 type R = Register
 
 /// Converted to int64 by script
@@ -248,6 +42,7 @@ let _Ap = ODModeSize (struct (OprMode.A, OprSize.P))
 let _Cd = ODModeSize (struct (OprMode.C, OprSize.D))
 let _BNDRbnd = ODModeSize (struct (OprMode.BndR, OprSize.Bnd))
 let _BNDRMbnd = ODModeSize (struct (OprMode.BndM, OprSize.Bnd))
+let _By = ODModeSize (struct (OprMode.B, OprSize.Y))
 let _Dd = ODModeSize (struct (OprMode.D, OprSize.D))
 let _E0v = ODModeSize (struct (OprMode.E0, OprSize.V)) (* \x0f\x1f *)
 let _Eb = ODModeSize (struct (OprMode.E, OprSize.B))
@@ -527,6 +322,9 @@ let GvEvIb = [| _Gv; _Ev; _Ib |]
 let GvEvIz = [| _Gv; _Ev; _Iz |]
 let GvEvSIb = [| _Gv; _Ev; _SIb |]
 let GvEvSIz = [| _Gv; _Ev; _SIz |]
+let GyByEy = [| _Gy; _By; _Ey |]
+let GyEyBy = [| _Gy; _Ey; _By |]
+let GyEyIb = [| _Gy; _Ey; _Ib |]
 let HxUxIb = [| _Hx; _Ux; _Ib |]
 let PqEdwIb = [| _Pq; _Edw; _Ib |]
 let PqQqIb = [| _Pq; _Qq; _Ib |]
@@ -862,6 +660,9 @@ let descs =
     ("GvEvIz", [| _Gv; _Ev; _Iz |])
     ("GvEvSIb", [| _Gv; _Ev; _SIb |])
     ("GvEvSIz", [| _Gv; _Ev; _SIz |])
+    ("GyByEy", [| _Gy; _By; _Ey |])
+    ("GyEyBy", [| _Gy; _Ey; _By |])
+    ("GyEyIb", [| _Gy; _Ey; _Ib |])
     ("HxUxIb", [| _Hx; _Ux; _Ib |])
     ("PqEdwIb", [| _Pq; _Edw; _Ib |])
     ("PqQqIb", [| _Pq; _Qq; _Ib |])
