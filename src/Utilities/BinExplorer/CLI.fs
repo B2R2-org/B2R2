@@ -60,7 +60,7 @@ let rec noReadLineLoop cmds arbiter =
     noReadLineLoop cmds arbiter
 
 let start enableReadLine arbiter =
-  let cmds = CmdSpec.spec |> CmdMap.build
+  let cmds = CmdSpec.speclist |> CmdMap.build
   if enableReadLine then
     FsReadLine.Console ("B2R2> ", cmds.CmdList)
     |> cliLoop cmds arbiter

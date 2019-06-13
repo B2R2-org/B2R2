@@ -38,17 +38,11 @@ type BinExplorerOpts (isa) =
   /// Host port number.
   member val Port = 8282 with get, set
 
-  /// Enable visualization.
-  member val EnableVisual = false with get, set
-
   /// Logging output file.
   member val LogFile = "B2R2.log" with get, set
 
-  member val JsonLoadFile = "" with get, set
-
-  member val JsonDumpFile = "./output.cfg" with get, set
-
-  /// Dump each CFG in JSON format?
+  /// If this is not empty, we will dump each CFG (in JSON format) into the
+  /// given directory.
   member val JsonDumpDir = "" with get, set
 
   /// Specify ISA. This is only meaningful for universal (fat) binaries because
@@ -77,25 +71,6 @@ type BinExplorerOpts (isa) =
       (BinExplorerOpts.ToThis opts).LogFile <- arg.[0]; opts
     CmdOpts.New ( descr = "Specify log file <name> (default: B2R2.log)",
                   callback = cb, short = "-l", long = "--log" )
-
-  static member OptVisualization () =
-    let cb (opts: #CmdOpts) (_arg: string []) =
-      (BinExplorerOpts.ToThis opts).EnableVisual <- true; opts
-    CmdOpts.New ( descr = "Enable CFG Visualization mode",
-                  callback = cb, long = "--visual" )
-
-  static member OptJsonLoadFile () =
-    let cb (opts: #CmdOpts) (arg: string []) =
-      (BinExplorerOpts.ToThis opts).JsonLoadFile <- arg.[0]; opts
-    CmdOpts.New ( descr = "File name to load CFG json",
-                  extra = 1, callback = cb, long = "--loadjson" )
-
-  static member OptJsonDumpFile () =
-    let cb (opts: #CmdOpts) (arg: string []) =
-      (BinExplorerOpts.ToThis opts).JsonDumpFile <- arg.[0]; opts
-    CmdOpts.New (
-      descr = "File name to dump CFG json (default is ./output.cfg)",
-      extra = 1, callback = cb, long = "--dumpjson" )
 
   /// "-a" or "--isa" option for specifying ISA.
   static member OptISA () =
@@ -132,12 +107,6 @@ let spec =
 
     BinExplorerOpts.OptLogFile ()
 
-    CmdOpts.New ( descr="\n[Visualization Configuration]\n", dummy=true )
-
-    BinExplorerOpts.OptVisualization ()
-    BinExplorerOpts.OptJsonLoadFile ()
-    BinExplorerOpts.OptJsonDumpFile ()
-
     CmdOpts.New ( descr="\n[Extra]\n", dummy=true )
 
     BinExplorerOpts.OptReadLine ()
@@ -146,12 +115,8 @@ let spec =
     CmdOpts.OptHelp ()
   ]
 
-let visualizeGraph inputFile outputFile =
-  Visualizer.visualizeFile inputFile outputFile
-
 let buildGraph verbose handle =
-  let ess = BinEssence.Init verbose handle
-  ess
+  BinEssence.Init verbose handle
 
 let startGUI (opts: BinExplorerOpts) arbiter =
   HTTPServer.startServer arbiter opts.Port |> Async.Start
@@ -179,26 +144,62 @@ let dumpJsonFiles jsonDir ess =
 let initBinHdl isa (name: string) =
   BinHandler.Init (isa, ArchOperationMode.NoMode, true, 0UL, name)
 
-let realMain files (opts: BinExplorerOpts) =
-  if List.length files = 0 && not opts.EnableVisual then
-    eprintfn "Either a file or a visual mode option should be given.\n\n\
-              Type --help to see more info."; exit 1
-  elif opts.EnableVisual then
-    let inputJson = opts.JsonLoadFile
-    let outputJson = opts.JsonDumpFile
-    visualizeGraph inputJson outputJson
+let interactiveMain files (opts: BinExplorerOpts) =
+  if List.length files = 0 then
+    eprintfn "A file should be given as input.\n\n\
+              Type --help or --batch to see more info."; exit 1
   else
     let file = List.head files
     let ess = initBinHdl ISA.DefaultISA file |> buildGraph opts.Verbose
-    if opts.JsonDumpDir <> "" then dumpJsonFiles opts.JsonDumpDir ess
-    else ()
+    if opts.JsonDumpDir <> "" then dumpJsonFiles opts.JsonDumpDir ess else ()
     let arbiter = Protocol.genArbiter ess opts.LogFile
     startGUI opts arbiter
     CLI.start opts.EnableReadLine arbiter
 
+let showBatchUsage () =
+  eprintfn "--batch <cmd> [args ...]"
+  eprintfn ""
+  eprintfn "[Available Commands]"
+  eprintfn ""
+  eprintfn "* visualize: visualize the given CFG, and return assigned coords."
+  eprintfn ""
+  eprintfn "    visualize <input json> <output json>"
+  eprintfn ""
+  eprintfn "* null: run basic analyses on the binary and exit (for debugging)."
+  eprintfn ""
+  eprintfn "    null <files/dirs>"
+  exit 1
+
+let visualizeGraph inputFile outputFile =
+  Visualizer.visualizeFile inputFile outputFile
+
+let toFileArray path =
+  if System.IO.Directory.Exists path then System.IO.Directory.GetFiles path
+  elif System.IO.File.Exists path then [| path |]
+  else [||]
+
+let nullrun = function
+  | [] -> showBatchUsage ()
+  | paths ->
+    let files = paths |> List.map toFileArray
+    let numFiles = List.fold (fun cnt arr -> Array.length arr + cnt) 0 files
+    files
+    |> List.iteri (fun idx1 arr ->
+         Array.iteri (fun idx2 f ->
+           let idx = 1 + idx1 + idx2
+           printfn "Analyzing %s ... (%d/%d)" f idx numFiles
+           initBinHdl ISA.DefaultISA f |> buildGraph false |> ignore) arr)
+
+let batchMain args =
+  match Array.toList args with
+  | "visualize" :: infile :: outfile :: _ -> visualizeGraph infile outfile; 0
+  | "null" :: rest -> nullrun rest; 0
+  | _ -> showBatchUsage ()
+
 [<EntryPoint>]
 let main args =
   let opts = BinExplorerOpts (ISA.DefaultISA)
-  CmdOpts.ParseAndRun realMain "<binary file>" spec opts args
+  if Array.tryHead args = Some "--batch" then batchMain (Array.tail args)
+  else CmdOpts.ParseAndRun interactiveMain "<binary file>" spec opts args
 
 // vim: set tw=80 sts=2 sw=2:
