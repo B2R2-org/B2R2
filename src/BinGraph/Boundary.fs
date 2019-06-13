@@ -270,7 +270,8 @@ let rec scanIRLeaders hdl (builder: CFGBuilder) boundary = function
   | (ppoint, (SideEffect _ as stmt)) :: stmts ->
     builder.AddStmt ppoint stmt
     let addr = getNextAddr builder ppoint
-    builder.AddIRLeader (addr, 0)
+    if builder.TryGetInstr addr |> Option.isSome then
+      builder.AddIRLeader (addr, 0)
     scanIRLeaders hdl builder boundary stmts
   | (ppoint, stmt) :: stmts ->
     builder.AddStmt ppoint stmt

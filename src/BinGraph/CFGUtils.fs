@@ -250,7 +250,9 @@ let getIRSuccessors hdl (builder: CFGBuilder) leader edges (bbl: IRBBL) =
   | SideEffect (Interrupt n) when n = 0x29 -> [], edges
   | SideEffect _ ->
     let addr = getNextAddr builder bbl.LastPpoint
-    [(addr, 0)], (leader, Some ((addr, 0), FallThroughEdge)) :: edges
+    if builder.TryGetInstr addr |> Option.isSome then
+      [(addr, 0)], (leader, Some ((addr, 0), FallThroughEdge)) :: edges
+    else [], edges
   | stmt ->
     let next = getNextPpoint bbl.LastPpoint stmt
     if builder.ExistIRBoundary next then
