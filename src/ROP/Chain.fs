@@ -59,7 +59,8 @@ module ROPHandle =
   }
 
   let private getSummary (hdl: ROPHandle) (gadget: Gadget) =
-    hdl.Summaries.GetOrAdd (gadget.Offset, (fun _ -> Summary.summary gadget))
+    hdl.Summaries.GetOrAdd (gadget.Offset,
+                            (fun _ -> Summary.summary hdl.BinHdl gadget))
 
   let private getSetterMap hdl =
     let folder acc info =

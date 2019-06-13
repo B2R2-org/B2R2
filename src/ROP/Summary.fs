@@ -30,6 +30,7 @@ open System
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
+open B2R2.FrontEnd
 open B2R2.FrontEnd.Intel
 
 type Summary = {
@@ -274,5 +275,9 @@ module Summary =
              s.OutMems
     printfn "-----------------------------------"
 
-  let summary gadget =
-    Array.fold State.evalStmt State.initState gadget.IRs |> getSummary
+  let summary hdl gadget =
+    gadget.Instrs
+    |> List.map (BinHandler.LiftInstr hdl)
+    |> Array.concat
+    |> Array.fold (State.evalStmt) State.initState
+    |> getSummary

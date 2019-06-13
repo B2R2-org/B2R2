@@ -28,14 +28,12 @@ namespace B2R2.ROP
 
 open System
 open B2R2.FrontEnd
-open B2R2.BinIR.LowUIR
 
 /// Tail is a instruction sequence that needs to be placed at the end of each
 /// ROP gadget.
 type Tail = {
-  Pattern : byte []
-  Instrs  : Instruction list
-  IRs     : Stmt []
+  Pattern: byte []
+  TailInstrs: Instruction list
 }
 
 type Offset = uint64
@@ -43,7 +41,6 @@ type Offset = uint64
 /// ROP gadget is a list of instructions.
 type Gadget = {
   Instrs : Instruction list
-  IRs    : Stmt []
   Offset : Offset
   PreOff : Offset
 }
@@ -52,6 +49,11 @@ type Gadget = {
 type GadgetMap = Map<Offset, Gadget>
 
 module Gadget =
+  let create offset tail =
+    { Instrs = tail.TailInstrs
+      Offset = offset
+      PreOff = offset }
+
   let toString hdl (gadget: Gadget) =
     let s = sprintf "[*] Offset = %x\n" gadget.Offset
     gadget.Instrs
