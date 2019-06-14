@@ -968,8 +968,6 @@ let nop insInfo addr =
   builder <! (IEMark (uint64 insInfo.NumBytes + insInfo.Address))
   builder
 
-let coprocOp insInfo addr = nop insInfo addr
-
 let adc isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
   let lblCondPass = lblSymbol "CondCheckPassed"
@@ -2899,7 +2897,8 @@ let translate insInfo ctxt =
   | Op.STM -> stm Op.STM insInfo ctxt
   | Op.STMIB -> stm Op.STMIB insInfo ctxt
   | Op.STMDA -> stm Op.STMDA insInfo ctxt
-  | Op.STCL | Op.SVC | Op.MRC | Op.MRC2 | Op.LDCL -> coprocOp insInfo addr // coprocessor instruction
+  | Op.STCL | Op.SVC | Op.MRC | Op.MRC2 | Op.LDCL ->
+    sideEffects insInfo addr UnsupportedExtension (* coprocessor instructions *)
   | Op.CBNZ -> cbz true insInfo ctxt
   | Op.CBZ -> cbz false insInfo ctxt
   | Op.TBH | Op.TBB -> tableBranch insInfo ctxt
