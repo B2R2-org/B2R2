@@ -280,6 +280,9 @@ let opVEX =
                         Opcode.InvalOP; Opcode.InvalOP |])
    ("opEVex0F7FB32", [| Opcode.InvalOP; Opcode.VMOVDQA32;
                         Opcode.InvalOP; Opcode.InvalOP |])
+   ("opNor0FC2", [| Opcode.CMPPS; Opcode.CMPPD; Opcode.CMPSS; Opcode.CMPSD |])
+   ("opVex0FC2", [| Opcode.InvalOP; Opcode.InvalOP;
+                    Opcode.InvalOP; Opcode.InvalOP |])
    ("opNor0FC4", [| Opcode.PINSRW; Opcode.PINSRW;
                     Opcode.InvalOP; Opcode.InvalOP |])
    ("opVex0FC4", [| Opcode.InvalOP; Opcode.VPINSRW;

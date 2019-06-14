@@ -39,10 +39,10 @@ type R = Register
 
 /// Converted to int64 by script
 let _Ap = ODModeSize (struct (OprMode.A, OprSize.P))
-let _Cd = ODModeSize (struct (OprMode.C, OprSize.D))
 let _BNDRbnd = ODModeSize (struct (OprMode.BndR, OprSize.Bnd))
 let _BNDRMbnd = ODModeSize (struct (OprMode.BndM, OprSize.Bnd))
 let _By = ODModeSize (struct (OprMode.B, OprSize.Y))
+let _Cd = ODModeSize (struct (OprMode.C, OprSize.D))
 let _Dd = ODModeSize (struct (OprMode.D, OprSize.D))
 let _E0v = ODModeSize (struct (OprMode.E0, OprSize.V)) (* \x0f\x1f *)
 let _Eb = ODModeSize (struct (OprMode.E, OprSize.B))
@@ -76,9 +76,9 @@ let _Ma = ODModeSize (struct (OprMode.M, OprSize.A))
 let _Md = ODModeSize (struct (OprMode.M, OprSize.D))
 let _Mdq = ODModeSize (struct (OprMode.M, OprSize.DQ))
 let _Mdqd = ODModeSize (struct (OprMode.M, OprSize.DQD))
+let _Mp = ODModeSize (struct (OprMode.M, OprSize.P))
 let _Mpd = ODModeSize (struct (OprMode.M, OprSize.PD))
 let _Mps = ODModeSize (struct (OprMode.M, OprSize.PS))
-let _Mp = ODModeSize (struct (OprMode.M, OprSize.P))
 let _Mq = ODModeSize (struct (OprMode.M, OprSize.Q))
 let _Ms = ODModeSize (struct (OprMode.M, OprSize.S))
 let _Mv = ODModeSize (struct (OprMode.M, OprSize.V))
@@ -120,7 +120,6 @@ let _Vx = ODModeSize (struct (OprMode.V, OprSize.X))
 let _Vy = ODModeSize (struct (OprMode.V, OprSize.Y))
 let _VZxz = ODModeSize (struct (OprMode.VZ, OprSize.XZ))
 let _Wd = ODModeSize (struct (OprMode.W, OprSize.D))
-
 let _Wdq = ODModeSize (struct (OprMode.W, OprSize.DQ))
 let _Wdqd = ODModeSize (struct (OprMode.W, OprSize.DQD))
 let _Wdqdq = ODModeSize (struct (OprMode.W, OprSize.DQDQ))
@@ -157,12 +156,12 @@ let Gv = [| _Gv |]
 let Gw = [| _Gw |]
 let Gy = [| _Gy |]
 let Gz = [| _Gz |]
-let Jb = [| _Jb |]
-let Jz = [| _Jz |]
 let Ib = [| _Ib |]
 let Iv = [| _Iv |]
 let Iw = [| _Iw |]
 let Iz = [| _Iz |]
+let Jb = [| _Jb |]
+let Jz = [| _Jz |]
 let Ma = [| _Ma |]
 let Mdq = [| _Mdq |]
 let Mp = [| _Mp |]
@@ -282,7 +281,6 @@ let VdqWdqd = [| _Vdq; _Wdqd |]
 let VdqWdqq = [| _Vdq; _Wdqq |]
 let VdqWdqw = [| _Vdq; _Wdqw |]
 let VpdWpd = [| _Vpd; _Wpd |]
-let VpsHpsWpsIb = [| _Vps; _Hps; _Wps; _Ib |]
 let VpsWps = [| _Vps; _Wps |]
 let VqqMdq = [| _Vqq; _Mdq |]
 let VsdWsd = [| _Vsd; _Wsd |]
@@ -291,8 +289,8 @@ let VssWss = [| _Vss; _Wss |]
 let VssWssd = [| _Vss; _Wssd |]
 let VxMd = [| _Vx; _Md |]
 let VxMx = [| _Vx; _Mx |]
-let VxWdqqdq = [| _Vx; _Wdqqdq |]
 let VxWdqdq = [| _Vx; _Wdqdq |]
+let VxWdqqdq = [| _Vx; _Wdqqdq |]
 let VxWdqwd = [| _Vx; _Wdqwd |]
 let VxWss = [| _Vx; _Wss |]
 let VxWssd = [| _Vx; _Wssd |]
@@ -301,19 +299,20 @@ let VxWx = [| _Vx; _Wx |]
 let VyEy = [| _Vy; _Ey |]
 let VZxzWdqd = [| _VZxz; _Wdqd |]
 let VZxzWZxz = [| _VZxz; _WZxz |]
-let WdqVdq = [| _Wdq; _Vdq |]
 let WdqdVdq = [| _Wdqd; _Vdq |]
 let WdqqVdq = [| _Wdqq; _Vdq |]
+let WdqVdq = [| _Wdq; _Vdq |]
 let WpdVpd = [| _Wpd; _Vpd |]
 let WpsVps = [| _Wps; _Vps |]
-let WssVx = [| _Wss; _Vx |]
 let WssdVx = [| _Wssd; _Vx |]
+let WssVx = [| _Wss; _Vx |]
 let WxVx = [| _Wx; _Vx |]
 let WZxzVZxz = [| _WZxz; _VZxz |]
 let XbYb = [| _Xb; _Yb |]
 let XvYv = [| _Xv; _Yv |]
 let YbXb = [| _Yb; _Xb |]
 let YvXv = [| _Yv; _Xv |]
+
 let EvGvCL = [| _Ev; _Gv; ODReg R.CL |]
 let EvGvIb = [| _Ev; _Gv; _Ib |]
 let GdNqIb = [| _Gd; _Nq; _Ib |]
@@ -328,21 +327,23 @@ let GyEyIb = [| _Gy; _Ey; _Ib |]
 let HxUxIb = [| _Hx; _Ux; _Ib |]
 let PqEdwIb = [| _Pq; _Edw; _Ib |]
 let PqQqIb = [| _Pq; _Qq; _Ib |]
+let VdqEdwIb =  [| _Vdq; _Edw; _Ib |]
 let VdqHdqMdq = [| _Vdq; _Hdq; _Mdq |]
 let VdqHdqMdqd = [| _Vdq; _Hdq; _Mdqd |]
 let VdqHdqMq = [| _Vdq; _Hdq; _Mq |]
 let VdqHdqUdq = [| _Vdq; _Hdq; _Udq |]
-let VdqEdwIb =  [| _Vdq; _Edw; _Ib |]
 let VdqWdqIb = [| _Vdq; _Wdq; _Ib |]
+let VpdHpdWpd = [| _Vpd; _Hpd; _Wpd |]
+let VpsHpsWps = [| _Vps; _Hps; _Wps |]
 let VsdHsdEy = [| _Vsd; _Hsd; _Ey |]
-let VssHssEy = [| _Vss; _Hss; _Ey |]
 let VsdHsdWsd = [| _Vsd; _Hsd; _Wsd |]
 let VsdHsdWsdq = [| _Vsd; _Hsd; _Wsdq |]
 let VsdWsdIb = [| _Vsd; _Wsd; _Ib |]
+let VsdWsdqIb = [| _Vsd; _Wsdq; _Ib |]
+let VssHssEy = [| _Vss; _Hss; _Ey |]
 let VssHssWss = [| _Vss; _Hss; _Wss |]
 let VssHssWssd = [| _Vss; _Hss; _Wssd |]
-let VpdHpdWpd = [| _Vpd; _Hpd; _Wpd |]
-let VpsHpsWps = [| _Vps; _Hps; _Wps |]
+let VssWssdIb = [| _Vss; _Wssd; _Ib |]
 let VxHxWdq = [| _Vx; _Hx; _Wdq |]
 let VxHxWsd = [| _Vx; _Hx; _Wsd |]
 let VxHxWss = [| _Vx; _Hx; _Wss |]
@@ -350,9 +351,11 @@ let VxHxWx = [| _Vx; _Hx; _Wx |]
 let VxWxIb = [| _Vx; _Wx; _Ib |]
 let WsdHxVsd = [| _Wsd; _Hx; _Vsd |]
 let WssHxVss = [| _Wss; _Hx; _Vss |]
+
 let VdqHdqEdwIb = [| _Vdq; _Hdq; _Edw; _Ib |]
-let VxHxWxIb = [| _Vx; _Hx; _Wx; _Ib |]
+let VpsHpsWpsIb = [| _Vps; _Hps; _Wps; _Ib |]
 let VqqHqqWdqIb = [| _Vqq; _Hqq; _Wdq; _Ib |]
+let VxHxWxIb = [| _Vx; _Hx; _Wx; _Ib |]
 
 let inline private _RGz rg changeable =
   ODRegGrp (rg, OprSize.Z, if changeable then RGrpAttr.ARegInOpREX
@@ -496,12 +499,12 @@ let descs =
     ("Gw", [| _Gw |])
     ("Gy", [| _Gy |])
     ("Gz", [| _Gz |])
-    ("Jb", [| _Jb |])
-    ("Jz", [| _Jz |])
     ("Ib", [| _Ib |])
     ("Iv", [| _Iv |])
     ("Iw", [| _Iw |])
     ("Iz", [| _Iz |])
+    ("Jb", [| _Jb |])
+    ("Jz", [| _Jz |])
     ("Ma", [| _Ma |])
     ("Mdq", [| _Mdq |])
     ("Mp", [| _Mp |])
@@ -528,6 +531,7 @@ let descs =
     ("Wdqd", [| _Wdqd |])
     ("Wdqq", [| _Wdqq |])
     ("Wx", [| _Wx |])
+
     ("ALDX", [| ODReg R.AL; ODReg R.DX |])
     ("ALIb", [| ODReg R.AL; _Ib |])
     ("ALOb", [| ODReg R.AL; _Ob |])
@@ -620,7 +624,6 @@ let descs =
     ("VdqWdqq", [| _Vdq; _Wdqq |])
     ("VdqWdqw", [| _Vdq; _Wdqw |])
     ("VpdWpd", [| _Vpd; _Wpd |])
-    ("VpsHpsWpsIb", [| _Vps; _Hps; _Wps; _Ib |])
     ("VpsWps", [| _Vps; _Wps |])
     ("VqqMdq", [| _Vqq; _Mdq |])
     ("VsdWsd", [| _Vsd; _Wsd |])
@@ -629,8 +632,8 @@ let descs =
     ("VssWssd", [| _Vss; _Wssd |])
     ("VxMd", [| _Vx; _Md |])
     ("VxMx", [| _Vx; _Mx |])
-    ("VxWdqqdq", [| _Vx; _Wdqqdq |])
     ("VxWdqdq", [| _Vx; _Wdqdq |])
+    ("VxWdqqdq", [| _Vx; _Wdqqdq |])
     ("VxWdqwd", [| _Vx; _Wdqwd |])
     ("VxWss", [| _Vx; _Wss |])
     ("VxWssd", [| _Vx; _Wssd |])
@@ -639,19 +642,20 @@ let descs =
     ("VyEy", [| _Vy; _Ey |])
     ("VZxzWdqd", [| _VZxz; _Wdqd |])
     ("VZxzWZxz", [| _VZxz; _WZxz |])
-    ("WdqVdq", [| _Wdq; _Vdq |])
     ("WdqdVdq", [| _Wdqd; _Vdq |])
     ("WdqqVdq", [| _Wdqq; _Vdq |])
+    ("WdqVdq", [| _Wdq; _Vdq |])
     ("WpdVpd", [| _Wpd; _Vpd |])
     ("WpsVps", [| _Wps; _Vps |])
-    ("WssVx", [| _Wss; _Vx |])
     ("WssdVx", [| _Wssd; _Vx |])
+    ("WssVx", [| _Wss; _Vx |])
     ("WxVx", [| _Wx; _Vx |])
     ("WZxzVZxz", [| _WZxz; _VZxz |])
     ("XbYb", [| _Xb; _Yb |])
     ("XvYv", [| _Xv; _Yv |])
     ("YbXb", [| _Yb; _Xb |])
     ("YvXv", [| _Yv; _Xv |])
+
     ("EvGvCL", [| _Ev; _Gv; ODReg R.CL |])
     ("EvGvIb", [| _Ev; _Gv; _Ib |])
     ("GdNqIb", [| _Gd; _Nq; _Ib |])
@@ -666,21 +670,23 @@ let descs =
     ("HxUxIb", [| _Hx; _Ux; _Ib |])
     ("PqEdwIb", [| _Pq; _Edw; _Ib |])
     ("PqQqIb", [| _Pq; _Qq; _Ib |])
+    ("VdqEdwIb", [| _Vdq; _Edw; _Ib |])
     ("VdqHdqMdq", [| _Vdq; _Hdq; _Mdq |])
     ("VdqHdqMdqd", [| _Vdq; _Hdq; _Mdqd |])
     ("VdqHdqMq", [| _Vdq; _Hdq; _Mq |])
     ("VdqHdqUdq", [| _Vdq; _Hdq; _Udq |])
-    ("VdqEdwIb", [| _Vdq; _Edw; _Ib |])
     ("VdqWdqIb", [| _Vdq; _Wdq; _Ib |])
+    ("VpdHpdWpd", [| _Vpd; _Hpd; _Wpd |])
+    ("VpsHpsWps", [| _Vps; _Hps; _Wps |])
     ("VsdHsdEy", [| _Vsd; _Hsd; _Ey |])
-    ("VssHssEy", [| _Vss; _Hss; _Ey |])
     ("VsdHsdWsd", [| _Vsd; _Hsd; _Wsd |])
     ("VsdHsdWsdq", [| _Vsd; _Hsd; _Wsdq |])
     ("VsdWsdIb", [| _Vsd; _Wsd; _Ib |])
+    ("VsdWsdqIb", [| _Vsd; _Wsdq; _Ib |])
+    ("VssHssEy", [| _Vss; _Hss; _Ey |])
     ("VssHssWss", [| _Vss; _Hss; _Wss |])
     ("VssHssWssd", [| _Vss; _Hss; _Wssd |])
-    ("VpdHpdWpd", [| _Vpd; _Hpd; _Wpd |])
-    ("VpsHpsWps", [| _Vps; _Hps; _Wps |])
+    ("VssWssdIb", [| _Vss; _Wssd; _Ib |])
     ("VxHxWdq", [| _Vx; _Hx; _Wdq |])
     ("VxHxWsd", [| _Vx; _Hx; _Wsd |])
     ("VxHxWss", [| _Vx; _Hx; _Wss |])
@@ -688,9 +694,12 @@ let descs =
     ("VxWxIb", [| _Vx; _Wx; _Ib |])
     ("WsdHxVsd", [| _Wsd; _Hx; _Vsd |])
     ("WssHxVss", [| _Wss; _Hx; _Vss |])
+
     ("VdqHdqEdwIb", [| _Vdq; _Hdq; _Edw; _Ib |])
-    ("VxHxWxIb", [| _Vx; _Hx; _Wx; _Ib |])
+    ("VpsHpsWpsIb", [| _Vps; _Hps; _Wps; _Ib |])
     ("VqqHqqWdqIb", [| _Vqq; _Hqq; _Wdq; _Ib |])
+    ("VxHxWxIb", [| _Vx; _Hx; _Wx; _Ib |])
+
     ("RGzRGz", [| ODRegGrp (RegGrp.RG0, OprSize.Z, RGrpAttr.ARegInOpNoREX);
                   ODRegGrp (RegGrp.RG0, OprSize.Z, RGrpAttr.ARegInOpREX) |])
     ("RGvSIz", [| ODRegGrp (RegGrp.RG0, OprSize.V, RGrpAttr.ARegInOpNoREX);

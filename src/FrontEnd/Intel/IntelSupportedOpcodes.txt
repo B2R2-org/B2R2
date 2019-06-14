@@ -106,12 +106,18 @@ CMOVS
 CMOVZ
 /// Compare Two Operands.
 CMP
+/// Compare packed double-precision floating-point values.
+CMPPD
+/// Compare packed single-precision floating-point values.
+CMPPS
 /// Compare String Operands (byte).
 CMPSB
-/// Compare String Operands (dword).
+/// Compare String Operands (dword) or Compare scalar dbl-precision FP values.
 CMPSD
 /// Compare String Operands (quadword).
 CMPSQ
+/// Compare scalar single-precision floating-point values.
+CMPSS
 /// Compare String Operands (word).
 CMPSW
 /// Compare and Exchange.

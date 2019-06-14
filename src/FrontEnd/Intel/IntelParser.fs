@@ -158,6 +158,8 @@ let private dsNor0F7F     = [| QqPq; WdqVdq; WdqVdq; 0L |]
 let private dsVex0F7F     = [| 0L; WxVx; WxVx; 0L |]
 let private dsEVex0F7FB64 = [| 0L; WZxzVZxz; 0L; 0L |]
 let private dsEVex0F7FB32 = [| 0L; WZxzVZxz; 0L; 0L |]
+let private dsNor0FC2     = [| VdqWdqIb; VdqWdqIb; VssWssdIb; VsdWsdqIb |]
+let private dsVex0FC2     = [| 0L; 0L; 0L; 0L |]
 let private dsNor0FC4     = [| PqEdwIb; VdqEdwIb; 0L; 0L |]
 let private dsVex0FC4     = [| 0L; VdqHdqEdwIb; 0L; 0L |]
 let private dsNor0FC5     = [| GdNqIb; GdUdqIb; 0L; 0L |]
@@ -588,6 +590,7 @@ let newInsSize t sizeCond opCode oprDescs =
   }
 
 let private processOpDescExn oprDescs = function
+  | Opcode.CMPSD when oprDescs <> 0L -> oprDescs
   | Opcode.CMPSB | Opcode.CMPSW | Opcode.CMPSD | Opcode.CMPSQ -> 0L
   | _ -> oprDescs
 
@@ -1639,6 +1642,7 @@ let private pTwoByteOp t reader pos byte =
   | 0xBFuy -> parseOp t Opcode.MOVSX SzDef32 GvEw, pos
   | 0xC0uy -> parseOp t Opcode.XADD SzDef32 EbGb, pos
   | 0xC1uy -> parseOp t Opcode.XADD SzDef32 EvGv, pos
+  | 0xC2uy -> parseVEX t SzDef32 opNor0FC2 opVex0FC2 dsNor0FC2 dsVex0FC2, pos
   | 0xC3uy -> parseOp t Opcode.MOVNTI SzDef32 MyGy, pos
   | 0xC4uy -> parseVEX t SzDef32 opNor0FC4 opVex0FC4 dsNor0FC4 dsVex0FC4, pos
   | 0xC5uy -> parseVEX t SzDef32 opNor0FC5 opVex0FC5 dsNor0FC5 dsVex0FC5, pos
