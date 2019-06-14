@@ -30,41 +30,41 @@ module B2R2.BinGraph.Dominator
 open B2R2.Utils
 open System.Collections.Generic
 
-type DomInfo<'V when 'V :> VertexData> =
-  {
-    /// Vertex ID -> DFNum
-    DFNumMap      : Dictionary<VertexID, int>
-    /// DFNum -> Vertex
-    Vertex        : Vertex<'V> []
-    /// DFNum -> DFNum in the ancestor chain s.t. DFNum of its Semi is minimal.
-    Label         : int []
-    /// DFNum -> DFNum of the parent node (zero if not exists).
-    Parent        : int []
-    /// DFNum -> DFNum of the child node (zero if not exists).
-    Child         : int []
-    /// DFNum -> DFNum of an ancestor.
-    Ancestor      : int []
-    /// DFNum -> DFNum of a semidominator.
-    Semi          : int []
-    /// DFNum -> set of DFNums (vertices that share the same sdom).
-    Bucket        : Set<int> []
-    /// DFNum -> Size
-    Size          : int []
-    /// DFNum -> DFNum of an immediate dominator.
-    IDom          : int []
-    /// Length of the arrays.
-    MaxLength     : int
-  }
+type DomInfo<'V when 'V :> VertexData> = {
+  /// Vertex ID -> DFNum
+  DFNumMap      : Dictionary<VertexID, int>
+  /// DFNum -> Vertex
+  Vertex        : Vertex<'V> []
+  /// DFNum -> DFNum in the ancestor chain s.t. DFNum of its Semi is minimal.
+  Label         : int []
+  /// DFNum -> DFNum of the parent node (zero if not exists).
+  Parent        : int []
+  /// DFNum -> DFNum of the child node (zero if not exists).
+  Child         : int []
+  /// DFNum -> DFNum of an ancestor.
+  Ancestor      : int []
+  /// DFNum -> DFNum of a semidominator.
+  Semi          : int []
+  /// DFNum -> set of DFNums (vertices that share the same sdom).
+  Bucket        : Set<int> []
+  /// DFNum -> Size
+  Size          : int []
+  /// DFNum -> DFNum of an immediate dominator.
+  IDom          : int []
+  /// Length of the arrays.
+  MaxLength     : int
+}
 
-type DominatorContext<'V, 'E when 'V :> VertexData> =
-  {
-    ForwardGraph : DiGraph<'V, 'E>
-    ForwardDomInfo : DomInfo<'V>
-    BackwardGraph : DiGraph<'V, 'E>
-    BackwardDomInfo : DomInfo<'V>
-  }
+/// Storing DomInfo of a graph. We use this to repeatedly compute doms/pdoms of
+/// the same graph.
+type DominatorContext<'V, 'E when 'V :> VertexData> = {
+  ForwardGraph : DiGraph<'V, 'E>
+  ForwardDomInfo : DomInfo<'V>
+  BackwardGraph : DiGraph<'V, 'E>
+  BackwardDomInfo : DomInfo<'V>
+}
 
-let initContext (g: DiGraph<_, _>) =
+let initDomInfo (g: DiGraph<_, _>) =
   let len = g.Size () + 2 (* To reserve a room for entry (dummy) node. *)
   {
     DFNumMap = Dictionary<VertexID, int>()
@@ -80,80 +80,80 @@ let initContext (g: DiGraph<_, _>) =
     MaxLength = len
   }
 
-let inline dfnum ctxt (v: Vertex<_>) =
-  ctxt.DFNumMap.[v.GetID ()]
+let inline dfnum info (v: Vertex<_>) =
+  info.DFNumMap.[v.GetID ()]
 
-let rec assignDFNum ctxt n = function
+let rec assignDFNum info n = function
   | (p, v: Vertex<_>) :: stack
-      when not <| ctxt.DFNumMap.ContainsKey (v.GetID ()) ->
-    ctxt.DFNumMap.Add (v.GetID (), n)
-    ctxt.Semi.[n] <- n
-    ctxt.Vertex.[n] <- v
-    ctxt.Label.[n] <- n
-    ctxt.Parent.[n] <- p
+      when not <| info.DFNumMap.ContainsKey (v.GetID ()) ->
+    info.DFNumMap.Add (v.GetID (), n)
+    info.Semi.[n] <- n
+    info.Vertex.[n] <- v
+    info.Label.[n] <- n
+    info.Parent.[n] <- p
     List.fold (fun acc s -> (n, s) :: acc) stack v.Succs
-    |> assignDFNum ctxt (n+1)
-  | _ :: stack -> assignDFNum ctxt n stack
+    |> assignDFNum info (n+1)
+  | _ :: stack -> assignDFNum info n stack
   | [] -> n
 
-let rec compress ctxt v =
-  let a = ctxt.Ancestor.[v]
-  if ctxt.Ancestor.[a] <> 0 then
-    compress ctxt a
-    if ctxt.Semi.[ctxt.Label.[a]] < ctxt.Semi.[ctxt.Label.[v]] then
-      ctxt.Label.[v] <- ctxt.Label.[a]
+let rec compress info v =
+  let a = info.Ancestor.[v]
+  if info.Ancestor.[a] <> 0 then
+    compress info a
+    if info.Semi.[info.Label.[a]] < info.Semi.[info.Label.[v]] then
+      info.Label.[v] <- info.Label.[a]
     else ()
-    ctxt.Ancestor.[v] <- ctxt.Ancestor.[a]
+    info.Ancestor.[v] <- info.Ancestor.[a]
 
-let eval ctxt v =
-  let a = ctxt.Ancestor.[v]
-  if a = 0 then ctxt.Label.[v]
+let eval info v =
+  let a = info.Ancestor.[v]
+  if a = 0 then info.Label.[v]
   else
-    compress ctxt v
-    if ctxt.Semi.[ctxt.Label.[a]] >= ctxt.Semi.[ctxt.Label.[v]] then
-      ctxt.Label.[v]
-    else ctxt.Label.[a]
+    compress info v
+    if info.Semi.[info.Label.[a]] >= info.Semi.[info.Label.[v]] then
+      info.Label.[v]
+    else info.Label.[a]
 
 /// Compute semidominator of v.
-let rec computeSemiDom ctxt v = function
+let rec computeSemiDom info v = function
   | pred :: preds ->
-    let u = eval ctxt pred
-    if ctxt.Semi.[u] < ctxt.Semi.[v] then ctxt.Semi.[v] <- ctxt.Semi.[u]
-    computeSemiDom ctxt v preds
+    let u = eval info pred
+    if info.Semi.[u] < info.Semi.[v] then info.Semi.[v] <- info.Semi.[u]
+    computeSemiDom info v preds
   | [] -> ()
 
-let link ctxt v w =
+let link info v w =
   let mutable s = w
-  while ctxt.Semi.[ctxt.Label.[w]] < ctxt.Semi.[ctxt.Label.[ctxt.Child.[s]]] do
-    if ctxt.Size.[s] + ctxt.Size.[ctxt.Child.[ctxt.Child.[s]]]
-       >= 2 * ctxt.Size.[ctxt.Child.[s]]
-    then ctxt.Ancestor.[ctxt.Child.[s]] <- s
-         ctxt.Child.[s] <- ctxt.Child.[ctxt.Child.[s]]
-    else ctxt.Size.[ctxt.Child.[s]] <- ctxt.Size.[s]
-         ctxt.Ancestor.[s] <- ctxt.Child.[s]
-         s <- ctxt.Ancestor.[s]
+  while info.Semi.[info.Label.[w]] < info.Semi.[info.Label.[info.Child.[s]]] do
+    if info.Size.[s] + info.Size.[info.Child.[info.Child.[s]]]
+       >= 2 * info.Size.[info.Child.[s]]
+    then info.Ancestor.[info.Child.[s]] <- s
+         info.Child.[s] <- info.Child.[info.Child.[s]]
+    else info.Size.[info.Child.[s]] <- info.Size.[s]
+         info.Ancestor.[s] <- info.Child.[s]
+         s <- info.Ancestor.[s]
   done
-  ctxt.Label.[s] <- ctxt.Label.[w]
-  ctxt.Size.[v] <- ctxt.Size.[v] + ctxt.Size.[w]
-  if ctxt.Size.[v] < 2 * ctxt.Size.[w] then
+  info.Label.[s] <- info.Label.[w]
+  info.Size.[v] <- info.Size.[v] + info.Size.[w]
+  if info.Size.[v] < 2 * info.Size.[w] then
     let t = s
-    s <- ctxt.Child.[v]
-    ctxt.Child.[v] <- t
+    s <- info.Child.[v]
+    info.Child.[v] <- t
   while s <> 0 do
-    ctxt.Ancestor.[s] <- v
-    s <- ctxt.Child.[s]
+    info.Ancestor.[s] <- v
+    s <- info.Child.[s]
   done
 
-let computeDom ctxt p =
+let computeDom info p =
   Set.iter (fun v ->
-    let u = eval ctxt v
-    if ctxt.Semi.[u] < ctxt.Semi.[v] then ctxt.IDom.[v] <- u
-    else ctxt.IDom.[v] <- p) ctxt.Bucket.[p]
-  ctxt.Bucket.[p] <- Set.empty
+    let u = eval info v
+    if info.Semi.[u] < info.Semi.[v] then info.IDom.[v] <- u
+    else info.IDom.[v] <- p) info.Bucket.[p]
+  info.Bucket.[p] <- Set.empty
 
-let rec computeDomOrDelay ctxt parent =
-  if ctxt.Bucket.[parent].IsEmpty then ()
-  else computeDom ctxt parent
+let rec computeDomOrDelay info parent =
+  if info.Bucket.[parent].IsEmpty then ()
+  else computeDom info parent
 
 /// Temporarily connect entry dummy node and real entry nodes.
 let connect (g: DiGraph<_, _>) =
@@ -171,24 +171,24 @@ let disconnect (g: DiGraph<_, _>) =
   root.Preds <- root.Preds |> List.filter (fun p -> p.GetID () <> 0)
 
 let initDominator (g: DiGraph<_, _>) =
-  let ctxt = initContext g
+  let info = initDomInfo g
   let dummyEntry = connect g
-  let n = assignDFNum ctxt 1 [(0, dummyEntry)]
+  let n = assignDFNum info 1 [(0, dummyEntry)]
   for i = n - 1 downto 2 do
-    let v = ctxt.Vertex.[i]
-    let p = ctxt.Parent.[i]
-    List.map (dfnum ctxt) v.Preds |> computeSemiDom ctxt i
-    ctxt.Bucket.[ctxt.Semi.[i]] <- Set.add i ctxt.Bucket.[ctxt.Semi.[i]]
-    link ctxt p i (* Link the parent (p) to the forest. *)
-    computeDomOrDelay ctxt p
+    let v = info.Vertex.[i]
+    let p = info.Parent.[i]
+    List.map (dfnum info) v.Preds |> computeSemiDom info i
+    info.Bucket.[info.Semi.[i]] <- Set.add i info.Bucket.[info.Semi.[i]]
+    link info p i (* Link the parent (p) to the forest. *)
+    computeDomOrDelay info p
   done
   disconnect g
   for i = 2 to n - 1 do
-    if ctxt.IDom.[i] <> ctxt.Semi.[i] then
-      ctxt.IDom.[i] <- ctxt.IDom.[ctxt.IDom.[i]]
+    if info.IDom.[i] <> info.Semi.[i] then
+      info.IDom.[i] <- info.IDom.[info.IDom.[i]]
     else ()
   done
-  ctxt
+  info
 
 let topologicalOrder (visited, stack, orderMap, cnt) v =
   let rec checkStack visited (stack: Vertex<_> list) orderMap cnt =
