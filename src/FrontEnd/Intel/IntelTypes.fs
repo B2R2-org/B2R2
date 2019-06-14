@@ -169,37 +169,37 @@ type Opcode =
   | CLTS = 35
   /// Complement Carry Flag.
   | CMC = 36
-  /// Conditional Move (Move if above (CF=0 and ZF=0)).
+  /// Conditional Move (Move if above (CF = 0 and ZF = 0)).
   | CMOVA = 37
-  /// Conditional Move (Move if above or equal (CF=0)).
+  /// Conditional Move (Move if above or equal (CF = 0)).
   | CMOVAE = 38
-  /// Conditional Move (Move if below (CF=1)).
+  /// Conditional Move (Move if below (CF = 1)).
   | CMOVB = 39
-  /// Conditional Move (Move if below or equal (CF=1 or ZF=1)).
+  /// Conditional Move (Move if below or equal (CF = 1 or ZF = 1)).
   | CMOVBE = 40
-  /// Conditional Move (Move if greater (ZF=0 and SF=OF)).
+  /// Conditional Move (Move if greater (ZF = 0 and SF = OF)).
   | CMOVG = 41
-  /// Conditional Move (Move if greater or equal (SF=OF)).
+  /// Conditional Move (Move if greater or equal (SF = OF)).
   | CMOVGE = 42
-  /// Conditional Move (Move if less (SF≠OF)).
+  /// Conditional Move (Move if less (SF <> OF)).
   | CMOVL = 43
-  /// Conditional Move (Move if less or equal (ZF=1 or SF≠OF)).
+  /// Conditional Move (Move if less or equal (ZF = 1 or SF <> OF)).
   | CMOVLE = 44
-  /// Conditional Move (Move if not overflow (OF=0)).
+  /// Conditional Move (Move if not overflow (OF = 0)).
   | CMOVNO = 45
-  /// Conditional Move (Move if not parity (PF=0)).
+  /// Conditional Move (Move if not parity (PF = 0)).
   | CMOVNP = 46
-  /// Conditional Move (Move if not sign (SF=0)).
+  /// Conditional Move (Move if not sign (SF = 0)).
   | CMOVNS = 47
-  /// Conditional Move (Move if not zero (ZF=0)).
+  /// Conditional Move (Move if not zero (ZF = 0)).
   | CMOVNZ = 48
-  /// Conditional Move (Move if overflow (OF=1)).
+  /// Conditional Move (Move if overflow (OF = 1)).
   | CMOVO = 49
-  /// Conditional Move (Move if parity (PF=1)).
+  /// Conditional Move (Move if parity (PF = 1)).
   | CMOVP = 50
-  /// Conditional Move (Move if sign (SF=1)).
+  /// Conditional Move (Move if sign (SF = 1)).
   | CMOVS = 51
-  /// Conditional Move (Move if zero (ZF=1)).
+  /// Conditional Move (Move if zero (ZF = 1)).
   | CMOVZ = 52
   /// Compare Two Operands.
   | CMP = 53
@@ -315,21 +315,21 @@ type Opcode =
   | FCHS = 108
   /// Clear Exceptions.
   | FCLEX = 109
-  /// Floating-Point Conditional Move (if below (CF=1)).
+  /// Floating-Point Conditional Move (if below (CF = 1)).
   | FCMOVB = 110
-  /// Floating-Point Conditional Move (if below or equal (CF=1 or ZF=1)).
+  /// Floating-Point Conditional Move (if below or equal (CF = 1 or ZF = 1)).
   | FCMOVBE = 111
-  /// Floating-Point Conditional Move (if equal (ZF=1)).
+  /// Floating-Point Conditional Move (if equal (ZF = 1)).
   | FCMOVE = 112
-  /// Floating-Point Conditional Move (if not below (CF=0)).
+  /// Floating-Point Conditional Move (if not below (CF = 0)).
   | FCMOVNB = 113
-  /// Floating-Point Conditional Move (if not below or equal (CF=0 and ZF=0)).
+  /// FP Conditional Move (if not below or equal (CF = 0 and ZF = 0)).
   | FCMOVNBE = 114
-  /// Floating-Point Conditional Move (if not equal (ZF=0)).
+  /// Floating-Point Conditional Move (if not equal (ZF = 0)).
   | FCMOVNE = 115
-  /// Floating-Point Conditional Move (if not unordered (PF=0)).
+  /// Floating-Point Conditional Move (if not unordered (PF = 0)).
   | FCMOVNU = 116
-  /// Floating-Point Conditional Move (if unordered (PF=1)).
+  /// Floating-Point Conditional Move (if unordered (PF = 1)).
   | FCMOVU = 117
   /// Compare Floating Point Values.
   | FCOM = 118
@@ -515,47 +515,47 @@ type Opcode =
   | IRETQ = 208
   /// Interrupt return (16-bit operand size).
   | IRETW = 209
-  /// Jump if Condition Is Met (Jump short if above, CF=0 and ZF=0).
+  /// Jump if Condition Is Met (Jump short if above, CF = 0 and ZF = 0).
   | JA = 210
-  /// Jump if Condition Is Met (Jump short if below, CF=1).
+  /// Jump if Condition Is Met (Jump short if below, CF = 1).
   | JB = 211
-  /// Jump if Condition Is Met (Jump short if below or equal, CF=1 or ZF).
+  /// Jump if Condition Is Met (Jump short if below or equal, CF = 1 or ZF).
   | JBE = 212
   /// Jump if Condition Is Met (Jump short if CX register is 0).
   | JCXZ = 213
   /// Jump if Condition Is Met (Jump short if ECX register is 0).
   | JECXZ = 214
-  /// Jump if Condition Is Met (Jump short if greater, ZF=0 and SF=OF).
+  /// Jump if Condition Is Met (Jump short if greater, ZF = 0 and SF = OF).
   | JG = 215
-  /// Jump if Condition Is Met (Jump short if less, SF≠OF).
+  /// Jump if Condition Is Met (Jump short if less, SF <> OF).
   | JL = 216
-  /// Jump if Condition Is Met (Jump short if less or equal, ZF=1 or SF≠OF).
+  /// Jump if Cond Is Met (Jump short if less or equal, ZF = 1 or SF <> OF).
   | JLE = 217
   /// Far jmp.
   | JMPFar = 218
   /// Near jmp.
   | JMPNear = 219
-  /// Jump if Condition Is Met (Jump near if not below, CF=0).
+  /// Jump if Condition Is Met (Jump near if not below, CF = 0).
   | JNB = 220
-  /// Jump if Condition Is Met (Jump near if not less, SF=OF).
+  /// Jump if Condition Is Met (Jump near if not less, SF = OF).
   | JNL = 221
-  /// Jump if Condition Is Met (Jump near if not overflow, OF=0).
+  /// Jump if Condition Is Met (Jump near if not overflow, OF = 0).
   | JNO = 222
-  /// Jump if Condition Is Met (Jump near if not parity, PF=0).
+  /// Jump if Condition Is Met (Jump near if not parity, PF = 0).
   | JNP = 223
-  /// Jump if Condition Is Met (Jump near if not sign, SF=0).
+  /// Jump if Condition Is Met (Jump near if not sign, SF = 0).
   | JNS = 224
-  /// Jump if Condition Is Met (Jump near if not zero, ZF=0).
+  /// Jump if Condition Is Met (Jump near if not zero, ZF = 0).
   | JNZ = 225
-  /// Jump if Condition Is Met (Jump near if overflow, OF=1).
+  /// Jump if Condition Is Met (Jump near if overflow, OF = 1).
   | JO = 226
-  /// Jump if Condition Is Met (Jump near if parity, PF=1).
+  /// Jump if Condition Is Met (Jump near if parity, PF = 1).
   | JP = 227
   /// Jump if Condition Is Met (Jump short if RCX register is 0).
   | JRCXZ = 228
-  /// Jump if Condition Is Met (Jump short if sign, SF=1).
+  /// Jump if Condition Is Met (Jump short if sign, SF = 1).
   | JS = 229
-  /// Jump if Condition Is Met (Jump short if zero, ZF=1).
+  /// Jump if Condition Is Met (Jump short if zero, ZF = 1).
   | JZ = 230
   /// Load Status Flags into AH Register.
   | LAHF = 231
@@ -595,11 +595,11 @@ type Opcode =
   | LODSQ = 248
   /// Load String (word).
   | LODSW = 249
-  /// Loop According to ECX Counter (count ≠ 0).
+  /// Loop According to ECX Counter (count <> 0).
   | LOOP = 250
-  /// Loop According to ECX Counter (count ≠ 0 and ZF = 1).
+  /// Loop According to ECX Counter (count <> 0 and ZF = 1).
   | LOOPE = 251
-  /// Loop According to ECX Counter (count ≠ 0 and ZF = 0).
+  /// Loop According to ECX Counter (count <> 0 and ZF = 0).
   | LOOPNE = 252
   /// Load Segment Limit.
   | LSL = 253
@@ -1059,37 +1059,37 @@ type Opcode =
   | SCASQ = 480
   /// Scan String (word).
   | SCASW = 481
-  /// Set byte if above (CF=0 and ZF=0).
+  /// Set byte if above (CF = 0 and ZF = 0).
   | SETA = 482
-  /// Set byte if below (CF=1).
+  /// Set byte if below (CF = 1).
   | SETB = 483
-  /// Set byte if below or equal (CF=1 or ZF=1).
+  /// Set byte if below or equal (CF = 1 or ZF = 1).
   | SETBE = 484
-  /// Set byte if greater (ZF=0 and SF=OF)..
+  /// Set byte if greater (ZF = 0 and SF = OF)..
   | SETG = 485
-  /// Set byte if less (SF≠ OF).
+  /// Set byte if less (SF <> OF).
   | SETL = 486
-  /// Set byte if less or equal (ZF=1 or SF≠ OF).
+  /// Set byte if less or equal (ZF = 1 or SF <> OF).
   | SETLE = 487
-  /// Set byte if not below (CF=0).
+  /// Set byte if not below (CF = 0).
   | SETNB = 488
-  /// Set byte if not less (SF=OF).
+  /// Set byte if not less (SF = OF).
   | SETNL = 489
-  /// Set byte if not overflow (OF=0).
+  /// Set byte if not overflow (OF = 0).
   | SETNO = 490
-  /// Set byte if not parity (PF=0).
+  /// Set byte if not parity (PF = 0).
   | SETNP = 491
-  /// Set byte if not sign (SF=0).
+  /// Set byte if not sign (SF = 0).
   | SETNS = 492
-  /// Set byte if not zero (ZF=0).
+  /// Set byte if not zero (ZF = 0).
   | SETNZ = 493
-  /// Set byte if overflow (OF=1).
+  /// Set byte if overflow (OF = 1).
   | SETO = 494
-  /// Set byte if parity (PF=1).
+  /// Set byte if parity (PF = 1).
   | SETP = 495
-  /// Set byte if sign (SF=1).
+  /// Set byte if sign (SF = 1).
   | SETS = 496
-  /// Set byte if sign (ZF=1).
+  /// Set byte if sign (ZF = 1).
   | SETZ = 497
   /// Store Fence.
   | SFENCE = 498
@@ -1121,7 +1121,7 @@ type Opcode =
   | SQRTPD = 511
   /// Compute square roots of packed single-precision floating-point values.
   | SQRTPS = 512
-  /// Compute scalar square root of scalar double-precision floating-point values.
+  /// Compute scalar square root of scalar double-precision FP values.
   | SQRTSD = 513
   /// Compute square root of scalar single-precision floating-point values.
   | SQRTSS = 514
@@ -1555,7 +1555,7 @@ type Opcode =
   | VSQRTPD = 728
   /// Compute square roots of packed single-precision floating-point values.
   | VSQRTPS = 729
-  /// Compute scalar square root of scalar double-precision floating-point values.
+  /// Compute scalar square root of scalar double-precision FP values.
   | VSQRTSD = 730
   /// Compute square root of scalar single-precision floating-point values.
   | VSQRTSS = 731

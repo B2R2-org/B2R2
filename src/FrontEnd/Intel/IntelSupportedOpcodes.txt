@@ -72,37 +72,37 @@ CLI
 CLTS
 /// Complement Carry Flag.
 CMC
-/// Conditional Move (Move if above (CF=0 and ZF=0)).
+/// Conditional Move (Move if above (CF = 0 and ZF = 0)).
 CMOVA
-/// Conditional Move (Move if above or equal (CF=0)).
+/// Conditional Move (Move if above or equal (CF = 0)).
 CMOVAE
-/// Conditional Move (Move if below (CF=1)).
+/// Conditional Move (Move if below (CF = 1)).
 CMOVB
-/// Conditional Move (Move if below or equal (CF=1 or ZF=1)).
+/// Conditional Move (Move if below or equal (CF = 1 or ZF = 1)).
 CMOVBE
-/// Conditional Move (Move if greater (ZF=0 and SF=OF)).
+/// Conditional Move (Move if greater (ZF = 0 and SF = OF)).
 CMOVG
-/// Conditional Move (Move if greater or equal (SF=OF)).
+/// Conditional Move (Move if greater or equal (SF = OF)).
 CMOVGE
-/// Conditional Move (Move if less (SF≠OF)).
+/// Conditional Move (Move if less (SF <> OF)).
 CMOVL
-/// Conditional Move (Move if less or equal (ZF=1 or SF≠OF)).
+/// Conditional Move (Move if less or equal (ZF = 1 or SF <> OF)).
 CMOVLE
-/// Conditional Move (Move if not overflow (OF=0)).
+/// Conditional Move (Move if not overflow (OF = 0)).
 CMOVNO
-/// Conditional Move (Move if not parity (PF=0)).
+/// Conditional Move (Move if not parity (PF = 0)).
 CMOVNP
-/// Conditional Move (Move if not sign (SF=0)).
+/// Conditional Move (Move if not sign (SF = 0)).
 CMOVNS
-/// Conditional Move (Move if not zero (ZF=0)).
+/// Conditional Move (Move if not zero (ZF = 0)).
 CMOVNZ
-/// Conditional Move (Move if overflow (OF=1)).
+/// Conditional Move (Move if overflow (OF = 1)).
 CMOVO
-/// Conditional Move (Move if parity (PF=1)).
+/// Conditional Move (Move if parity (PF = 1)).
 CMOVP
-/// Conditional Move (Move if sign (SF=1)).
+/// Conditional Move (Move if sign (SF = 1)).
 CMOVS
-/// Conditional Move (Move if zero (ZF=1)).
+/// Conditional Move (Move if zero (ZF = 1)).
 CMOVZ
 /// Compare Two Operands.
 CMP
@@ -218,21 +218,21 @@ FBSTP
 FCHS
 /// Clear Exceptions.
 FCLEX
-/// Floating-Point Conditional Move (if below (CF=1)).
+/// Floating-Point Conditional Move (if below (CF = 1)).
 FCMOVB
-/// Floating-Point Conditional Move (if below or equal (CF=1 or ZF=1)).
+/// Floating-Point Conditional Move (if below or equal (CF = 1 or ZF = 1)).
 FCMOVBE
-/// Floating-Point Conditional Move (if equal (ZF=1)).
+/// Floating-Point Conditional Move (if equal (ZF = 1)).
 FCMOVE
-/// Floating-Point Conditional Move (if not below (CF=0)).
+/// Floating-Point Conditional Move (if not below (CF = 0)).
 FCMOVNB
-/// Floating-Point Conditional Move (if not below or equal (CF=0 and ZF=0)).
+/// FP Conditional Move (if not below or equal (CF = 0 and ZF = 0)).
 FCMOVNBE
-/// Floating-Point Conditional Move (if not equal (ZF=0)).
+/// Floating-Point Conditional Move (if not equal (ZF = 0)).
 FCMOVNE
-/// Floating-Point Conditional Move (if not unordered (PF=0)).
+/// Floating-Point Conditional Move (if not unordered (PF = 0)).
 FCMOVNU
-/// Floating-Point Conditional Move (if unordered (PF=1)).
+/// Floating-Point Conditional Move (if unordered (PF = 1)).
 FCMOVU
 /// Compare Floating Point Values.
 FCOM
@@ -418,47 +418,47 @@ IRETD
 IRETQ
 /// Interrupt return (16-bit operand size).
 IRETW
-/// Jump if Condition Is Met (Jump short if above, CF=0 and ZF=0).
+/// Jump if Condition Is Met (Jump short if above, CF = 0 and ZF = 0).
 JA
-/// Jump if Condition Is Met (Jump short if below, CF=1).
+/// Jump if Condition Is Met (Jump short if below, CF = 1).
 JB
-/// Jump if Condition Is Met (Jump short if below or equal, CF=1 or ZF).
+/// Jump if Condition Is Met (Jump short if below or equal, CF = 1 or ZF).
 JBE
 /// Jump if Condition Is Met (Jump short if CX register is 0).
 JCXZ
 /// Jump if Condition Is Met (Jump short if ECX register is 0).
 JECXZ
-/// Jump if Condition Is Met (Jump short if greater, ZF=0 and SF=OF).
+/// Jump if Condition Is Met (Jump short if greater, ZF = 0 and SF = OF).
 JG
-/// Jump if Condition Is Met (Jump short if less, SF≠OF).
+/// Jump if Condition Is Met (Jump short if less, SF <> OF).
 JL
-/// Jump if Condition Is Met (Jump short if less or equal, ZF=1 or SF≠OF).
+/// Jump if Cond Is Met (Jump short if less or equal, ZF = 1 or SF <> OF).
 JLE
 /// Far jmp.
 JMPFar
 /// Near jmp.
 JMPNear
-/// Jump if Condition Is Met (Jump near if not below, CF=0).
+/// Jump if Condition Is Met (Jump near if not below, CF = 0).
 JNB
-/// Jump if Condition Is Met (Jump near if not less, SF=OF).
+/// Jump if Condition Is Met (Jump near if not less, SF = OF).
 JNL
-/// Jump if Condition Is Met (Jump near if not overflow, OF=0).
+/// Jump if Condition Is Met (Jump near if not overflow, OF = 0).
 JNO
-/// Jump if Condition Is Met (Jump near if not parity, PF=0).
+/// Jump if Condition Is Met (Jump near if not parity, PF = 0).
 JNP
-/// Jump if Condition Is Met (Jump near if not sign, SF=0).
+/// Jump if Condition Is Met (Jump near if not sign, SF = 0).
 JNS
-/// Jump if Condition Is Met (Jump near if not zero, ZF=0).
+/// Jump if Condition Is Met (Jump near if not zero, ZF = 0).
 JNZ
-/// Jump if Condition Is Met (Jump near if overflow, OF=1).
+/// Jump if Condition Is Met (Jump near if overflow, OF = 1).
 JO
-/// Jump if Condition Is Met (Jump near if parity, PF=1).
+/// Jump if Condition Is Met (Jump near if parity, PF = 1).
 JP
 /// Jump if Condition Is Met (Jump short if RCX register is 0).
 JRCXZ
-/// Jump if Condition Is Met (Jump short if sign, SF=1).
+/// Jump if Condition Is Met (Jump short if sign, SF = 1).
 JS
-/// Jump if Condition Is Met (Jump short if zero, ZF=1).
+/// Jump if Condition Is Met (Jump short if zero, ZF = 1).
 JZ
 /// Load Status Flags into AH Register.
 LAHF
@@ -498,11 +498,11 @@ LODSD
 LODSQ
 /// Load String (word).
 LODSW
-/// Loop According to ECX Counter (count ≠ 0).
+/// Loop According to ECX Counter (count <> 0).
 LOOP
-/// Loop According to ECX Counter (count ≠ 0 and ZF = 1).
+/// Loop According to ECX Counter (count <> 0 and ZF = 1).
 LOOPE
-/// Loop According to ECX Counter (count ≠ 0 and ZF = 0).
+/// Loop According to ECX Counter (count <> 0 and ZF = 0).
 LOOPNE
 /// Load Segment Limit.
 LSL
@@ -962,37 +962,37 @@ SCASD
 SCASQ
 /// Scan String (word).
 SCASW
-/// Set byte if above (CF=0 and ZF=0).
+/// Set byte if above (CF = 0 and ZF = 0).
 SETA
-/// Set byte if below (CF=1).
+/// Set byte if below (CF = 1).
 SETB
-/// Set byte if below or equal (CF=1 or ZF=1).
+/// Set byte if below or equal (CF = 1 or ZF = 1).
 SETBE
-/// Set byte if greater (ZF=0 and SF=OF)..
+/// Set byte if greater (ZF = 0 and SF = OF)..
 SETG
-/// Set byte if less (SF≠ OF).
+/// Set byte if less (SF <> OF).
 SETL
-/// Set byte if less or equal (ZF=1 or SF≠ OF).
+/// Set byte if less or equal (ZF = 1 or SF <> OF).
 SETLE
-/// Set byte if not below (CF=0).
+/// Set byte if not below (CF = 0).
 SETNB
-/// Set byte if not less (SF=OF).
+/// Set byte if not less (SF = OF).
 SETNL
-/// Set byte if not overflow (OF=0).
+/// Set byte if not overflow (OF = 0).
 SETNO
-/// Set byte if not parity (PF=0).
+/// Set byte if not parity (PF = 0).
 SETNP
-/// Set byte if not sign (SF=0).
+/// Set byte if not sign (SF = 0).
 SETNS
-/// Set byte if not zero (ZF=0).
+/// Set byte if not zero (ZF = 0).
 SETNZ
-/// Set byte if overflow (OF=1).
+/// Set byte if overflow (OF = 1).
 SETO
-/// Set byte if parity (PF=1).
+/// Set byte if parity (PF = 1).
 SETP
-/// Set byte if sign (SF=1).
+/// Set byte if sign (SF = 1).
 SETS
-/// Set byte if sign (ZF=1).
+/// Set byte if sign (ZF = 1).
 SETZ
 /// Store Fence.
 SFENCE
@@ -1024,7 +1024,7 @@ SMSW
 SQRTPD
 /// Compute square roots of packed single-precision floating-point values.
 SQRTPS
-/// Compute scalar square root of scalar double-precision floating-point values.
+/// Compute scalar square root of scalar double-precision FP values.
 SQRTSD
 /// Compute square root of scalar single-precision floating-point values.
 SQRTSS
@@ -1458,7 +1458,7 @@ VSHUFPS
 VSQRTPD
 /// Compute square roots of packed single-precision floating-point values.
 VSQRTPS
-/// Compute scalar square root of scalar double-precision floating-point values.
+/// Compute scalar square root of scalar double-precision FP values.
 VSQRTSD
 /// Compute square root of scalar single-precision floating-point values.
 VSQRTSS
