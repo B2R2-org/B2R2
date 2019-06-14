@@ -886,15 +886,7 @@ let processAddrExn32 ins addr =
   | Op.B | Op.LDR -> addr + 8UL
   | _ -> addr
 
-let postBracket addrMode (sb: StringBuilder) =
-  match addrMode with
-  | OffsetMode _ -> sb.Append ("]")
-  | PreIdxMode _ -> sb.Append ("]!")
-  | PostIdxMode _ -> sb
-  | UnIdxMode _ -> sb.Append ("}")
-  | LiteralMode _ -> sb
-
-let memToString ins addr addrMode (sb: StringBuilder) =
+let memHead ins addr addrMode (sb: StringBuilder) =
   match addrMode with
   | OffsetMode offset | PreIdxMode offset | PostIdxMode offset ->
     offsetToString addrMode offset (sb.Append ("["))
@@ -905,8 +897,17 @@ let memToString ins addr addrMode (sb: StringBuilder) =
     let sb = sb.Append ("0x")
     let addr = processAddrExn32 ins addr
     sb.Append (((int32 addr) + (int32 lbl)).ToString ("x"))
-    (* alternative : [PC, imm] *)
-  |> postBracket addrMode
+
+let memTail addrMode (sb: StringBuilder) =
+  match addrMode with
+  | OffsetMode _ -> sb.Append ("]")
+  | PreIdxMode _ -> sb.Append ("]!")
+  | PostIdxMode _ -> sb
+  | UnIdxMode _ -> sb.Append ("}")
+  | LiteralMode _ -> sb
+
+let memToString ins addr addrMode (sb: StringBuilder) =
+  memHead ins addr addrMode sb |> memTail addrMode
 
 let optToString = function
   | SY -> "sy"
