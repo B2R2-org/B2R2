@@ -55,9 +55,8 @@ let private alignVertices vertices =
 let private generateVLayout vPerLayer =
   Array.map (fun vertices -> alignVertices vertices) vPerLayer
 
-let private calcBaryCenter (vLayout: Vertex<_> [] []) layer isDown (v: Vertex<_>) =
-  let nodes =
-    if isDown then v.Preds else v.Succs
+let private baryCenter (vLayout: Vertex<_> [][]) layer isDown (v: Vertex<_>) =
+  let nodes = if isDown then v.Preds else v.Succs
   if List.isEmpty nodes then System.Double.MaxValue, v
   else
     let vertices = if isDown then vLayout.[layer - 1] else vLayout.[layer + 1]
@@ -66,7 +65,7 @@ let private calcBaryCenter (vLayout: Vertex<_> [] []) layer isDown (v: Vertex<_>
 
 let private bcReorderOneLayer (vLayout: Vertex<_> [] []) isDown layer =
   let vertices = vLayout.[layer]
-  let baryCenters = Array.map (calcBaryCenter vLayout layer isDown) vertices
+  let baryCenters = Array.map (baryCenter vLayout layer isDown) vertices
   let baryCenters = Array.sortBy fst baryCenters
 #if DEBUG
   Dbg.logn "BcReorder Before:"
@@ -134,7 +133,7 @@ let private reverseOneLayer vLayout isDown maxLayer layer =
   if count <> 0 then
     let vertices = vLayout.[layer]
     let baryCenters =
-      Array.map (calcBaryCenter vLayout layer isDown) vertices
+      Array.map (baryCenter vLayout layer isDown) vertices
     let bcByValues =
       Array.fold collectBaryCenters Map.empty baryCenters
     let isReversed =
