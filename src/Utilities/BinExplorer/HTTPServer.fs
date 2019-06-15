@@ -144,6 +144,24 @@ let handleComment req resp arbiter cfgType (args: string) =
     let status = getComment hdl addr idx comment func cfgType
     Some (json<string> status  |> defaultEnc.GetBytes) |> answer req resp
 
+let handleAddress req resp arbiter (args: string) =
+  let jsonData = (jsonParser<Comment> args)
+  let entry: Addr =  Convert.ToUInt64(jsonData.addr, 16) |> uint64
+  let ess = Protocol.getBinEssence arbiter
+  let addrs =
+    Array.ofSeq ess.Functions.Values
+    |> Array.map (fun (func: Function) -> func.Entry|> uint64)
+    |> Array.sort
+  let searchedAddr = Array.fold (fun acc x -> if entry >= x then x else acc) 0UL addrs
+  match BinEssence.TryFindFuncByEntry searchedAddr ess with
+  | None -> Some (json<string> "" |> defaultEnc.GetBytes) |> answer req resp
+  | Some func ->
+    let hdl = ess.BinHandler
+    let cfg = Visualizer.visualizeDisasmCFG hdl func.DisasmCFG
+    let namedcfg = cfg.[..cfg.Length-2] + ",\"Name\": \""+ func.Name + "\"}"
+    Some (defaultEnc.GetBytes namedcfg) |> answer req resp
+
+
 let handleAJAX req resp arbiter query args =
     match query with
     | "bininfo" -> handleBinInfo req resp arbiter
@@ -152,6 +170,7 @@ let handleAJAX req resp arbiter query args =
     | "functions" -> handleFunctions req resp arbiter
     | "disasm-comment" -> handleComment req resp arbiter DisasmCFG args
     | "ir-comment" -> handleComment req resp arbiter IRCFG args
+    | "address" -> handleAddress req resp arbiter args
     | _ -> ()
 
 let handle (req: HttpListenerRequest) (resp: HttpListenerResponse) arbiter =

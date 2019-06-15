@@ -140,7 +140,6 @@ function reloadUI() {
     - $(".sidebar-menu").width()
     - $(".sidebar-content").width();
   $("#id_graphContainer").width(graphContainerWidth);
-  d3.select("#cfg-" + currentTabNumber).attr("width", graphContainerWidth)
   let cfgVPDim = {
     width: graphContainerWidth
       - parseInt($("#id_graphContainer").css("padding-right"))
@@ -153,6 +152,11 @@ function reloadUI() {
     width: cfgVPDim.width * minimapRatio,
     height: cfgVPDim.height * minimapRatio,
   }
+
+  d3.select("svg#cfg-" + currentTabNumber)
+    .attr("width", cfgVPDim.width)
+    .attr("height", cfgVPDim.height);
+
   return { cfgVPDim: cfgVPDim, minimapVPDim: minimapVPDim };
 }
 

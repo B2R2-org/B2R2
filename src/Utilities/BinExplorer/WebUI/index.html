@@ -25,6 +25,10 @@
       <div id="uiFuncName"></div>
     </div>
     <div class="nav-right">
+      <div class="nav-item-search">
+        <input id="id-input_address" type="text" onkeypress="onKeyPressSearchAddress();" placeholder="Goto Address">
+        <i class="fas fa-search" onclick="onClickSearchAddress();"></i>
+      </div>
       <div class="nav-item">
         <div class="changeTextType show" id="id_disasm-to-ir">
           <span>IR</span>
@@ -99,6 +103,7 @@
         <ul></ul>
       </div>
       <div id="id_graphContainer">
+        <var id="id_event-trigger"></var>
       </div>
       <div id="minimapDiv">
         <span title="Move minimap" class="move-minimap glyphicon glyphicon-move"></span>
@@ -150,7 +155,6 @@
   <script src="js/b2r2.contextmenu.js"></script>
   <script src="js/b2r2.js"></script>
   <script>
-
 
   </script>
 </body>

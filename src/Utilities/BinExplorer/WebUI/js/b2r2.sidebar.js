@@ -70,7 +70,7 @@ function templeteSidebarComment(id, addr, comment) {
 
 function templateSidebarCommentList(funcName) {
   let tab_id = $("li[title=" + funcName + "]").attr("counter");
-  let $gComments = $("#cfgGrp" + tab_id + " g.gComment");
+  let $gComments = $("#cfgGrp-" + tab_id + " g.gComment");
   let item = "<div class='comment-section' value='" + funcName + "'>";
   item += "<div class='comment-function'>"
   item += "<i style='width: 10px' class='comment-arrow fas fa-caret-down'></i>";

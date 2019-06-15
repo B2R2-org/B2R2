@@ -31,26 +31,29 @@ function autocomplete(cfg) {
 
   let stmts = [];
   //stmts = [ address operand:[] meta:{pos, width, idx} ]
-  let data = cfg.Nodes;
-  for (let d in data) {
-    for (let t in data[d].Terms) {
-      let stmt = [];
-      let terms = data[d].Terms[t];
-      let address = terms[0][0].replace(":", "");
-      stmt.push(address);
-      for (let i = 1; i < terms.length - 1; i++) {
-        //operand
-        stmt.push(terms[i][0]);
-      }
+  if (cfg != undefined) {
+    let data = cfg.Nodes;
+    for (let d in data) {
+      for (let t in data[d].Terms) {
+        let stmt = [];
+        let terms = data[d].Terms[t];
+        let address = terms[0][0].replace(":", "");
+        stmt.push(address);
+        for (let i = 1; i < terms.length - 1; i++) {
+          //operand
+          stmt.push(terms[i][0]);
+        }
 
-      //meta
-      stmt.push({
-        Nodeidx: parseFloat(d),
-        idx: parseFloat(t),
-      });
-      stmts.push(stmt);
+        //meta
+        stmt.push({
+          Nodeidx: parseFloat(d),
+          idx: parseFloat(t),
+        });
+        stmts.push(stmt);
+      }
     }
   }
+
   function removeAllItem() {
     $("#id-autocomplete-list").empty();
   }
@@ -125,7 +128,7 @@ function autocomplete(cfg) {
       let gtext = d3.select(rect.node().parentNode);
       let gNode = d3.select(rect.node().parentNode.parentNode);
       let pos = getGroupPos(gNode.attr("transform"))
-      let x = parseFloat(pos[0]);
+      let x = pos[0];
       let y = pos[1] + getGroupPos(gtext.attr("transform"))[1];
       let stmt = text.html().replace(/(<([^>]+)>)/ig, " ");
       activeStmt(x, y, width, stmt);
@@ -184,4 +187,9 @@ function autocomplete(cfg) {
 
   searchItem();
   addActiveItem();
+
+  return {
+    activeStmt: activeStmt,
+    deactiveStmt: deactiveStmt
+  }
 }

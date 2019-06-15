@@ -107,7 +107,7 @@ function activateTab($el, callback) {
   deactivatedTab();
   let functionName = $el.attr('value');
   let $tab = $("#id_tabContainer li[value='" + functionName + "']");
-  let textType = $tab.attr('text-type');
+  let textType = $tab.attr('text-type') === undefined ? "disasm" : $tab.attr('text-type');
   let tabNumber = $tab.attr("counter");
   $tab.addClass("active");
   $("#cfgDiv-" + tabNumber).show();
@@ -188,4 +188,73 @@ function closeTabEvent() {
     }
     $(this).closest('li').remove();
   });
+}
+
+function checkValidAddress(addr) {
+
+}
+
+function getNodeElement(cfg, addr) {
+  let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
+  let data = cfg.Nodes;
+  for (let d in data) {
+    for (let t in data[d].Terms) {
+      let terms = data[d].Terms[t];
+      let address = terms[0][0].replace(":", "");
+      if (addr === address) {
+        return {
+          "addr": address,
+          "id": "#id_{tab}_rect-{nodeidx}-{idx}"
+            .replace("{tab}", currentTabNumber)
+            .replace("{nodeidx}", parseFloat(d))
+            .replace("{idx}", parseFloat(t))
+        }
+      }
+    }
+  }
+}
+
+function searchAddress() {
+  let addr = $("#id-input_address").val();
+  query({
+    "q": "address",
+    "args": JSON.stringify({ "addr": addr })
+  },
+    function (json) {
+      if (!isEmpty(json)) {
+        let funcName = json.Name
+        let dims = reloadUI();
+        let fullAddr = "0".repeat(16 - addr.length) + addr;
+        if (checkDuplicateTab(funcName)) {
+          activateTab($("#id_tabContainer li[title='" + funcName + "']"));
+        } else {
+          addTab(funcName, dims, json);
+          drawCFG(dims, json);
+          UIElementInit(true);
+          autocomplete(json);
+        }
+        $("#id_event-trigger").attr("target", getNodeElement(json, fullAddr).id);
+        setTimeout(function () { $("#id_event-trigger").click(); }, 5);
+      } else {
+        popToast("alert", "Not found Address", 3);
+      }
+    });
+}
+
+function onKeyPressSearchAddress() {
+  var key = window.event.keyCode;
+  if (key === 13) {
+    if (window.event.shiftKey) {
+    } else {
+      searchAddress();
+    }
+    return false;
+  }
+  else {
+    return true;
+  }
+}
+
+function onClickSearchAddress() {
+  searchAddress();
 }

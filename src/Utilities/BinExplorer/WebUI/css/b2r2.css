@@ -233,7 +233,25 @@ body {
       height: 55px;
       display: flex;
       justify-content: center;
-      align-items: center }
+      align-items: center; }
+    .fixed-navbar-top .nav-item-search {
+      position: relative;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center; }
+    .fixed-navbar-top .nav-item-search input {
+      all:unset;
+      padding: 5px;
+      background: none;
+      border: none;
+      border-bottom: 1px solid white;
+      box-sizing: border-box;
+      color: white; }
+    .fixed-navbar-top .nav-item-search .fa-search {
+      cursor: pointer;
+      position: absolute;
+      right: 0; }
     .fixed-navbar-top .nav-item:hover * {
       font-weight: bold; }
 
@@ -743,4 +761,7 @@ body {
   visibility: visible;
   -webkit-animation: fadein 0.5s, fadeout 0.5s 2.5s;
   animation: fadein 0.5s, fadeout 0.5s 2.5s;
+}
+#id_toast.alert {
+  background-color: rgba(196, 45, 45, 0.7);;
 }

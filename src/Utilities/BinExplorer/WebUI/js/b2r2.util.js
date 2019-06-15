@@ -36,31 +36,22 @@ function copyToClipboard(str) {
 }
 
 function popToast(type, content, seconds) {
-  var x = document.getElementById("id_toast");
-  x.className = "show";
-  $(x).text(content);
-  setTimeout(function () { x.className = x.className.replace("show", ""); }, seconds * 1000);
-}
-
-function getReductionRate() {
-  console.log("getReductionRate")
-  let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
-  let extraRatio = 0.9;
-  let r = document.getElementById("cfgGrp" + currentTabNumber).getBBox();
-  let stageDim = {
-    width: r.width,
-    height: r.height
-  };
-
-  let dims = reloadUI();
-  let reductionRate =
-    Math.min(dims.cfgVPDim.width / stageDim.width,
-      dims.cfgVPDim.height / stageDim.height) * extraRatio;
-
-  // If the entire CFG is smaller than the cfgVP, then simply use the rate 1.
-  // In other words, the maximum reductionRate is one.
-  if (reductionRate >= 1) reductionRate = 1;
-  return reductionRate;
+  switch (type) {
+    case "info":
+      var x = document.getElementById("id_toast");
+      x.className = "show";
+      $(x).text(content);
+      setTimeout(function () { x.className = x.className.replace("show", ""); }, seconds * 1000);
+      break;
+    case "alert":
+      var x = document.getElementById("id_toast");
+      x.className = "alert show";
+      $(x).text(content);
+      setTimeout(function () { x.className = x.className.replace("show", ""); }, seconds * 1000);
+      break;
+    default:
+      break;
+  }
 }
 
 function getGroupPos(transformAttr) {
@@ -88,4 +79,34 @@ function query(arguments, callback) {
   }
   req.open("GET", "/ajax/?" + params, true);
   req.send();
+}
+
+function convertvMapPtToVPCoordinate(dx, dy) {
+  let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
+  let minimapBound = document.getElementById("minimapStage-" + currentTabNumber).getBoundingClientRect();
+  let viewportBound = document.getElementById("cfgStage-" + currentTabNumber).getBoundingClientRect();
+  let miniVPBound = document.getElementById("minimapVP-" + currentTabNumber).getBoundingClientRect();
+  let translateWidthRatio = minimapBound.width / viewportBound.width;
+  let widthRatio = minimapRatio / translateWidthRatio;
+  let halfWidth = miniVPBound.width / minimapRatio / 2;
+  return { x: dx + halfWidth * widthRatio, y: dy };
+}
+
+function toCenter(dx, dy, zoom, transK, durationTime) {
+  let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
+  let cfg = d3.select("svg#cfg-" + currentTabNumber);
+  let miniVPBound = document.getElementById("minimapVP-" + currentTabNumber).getBoundingClientRect();
+  let minimapBound = document.getElementById("minimapStage-" + currentTabNumber).getBoundingClientRect();
+  let viewportBound = document.getElementById("cfgStage-" + currentTabNumber).getBoundingClientRect();
+  let translateWidthRatio = minimapBound.width / viewportBound.width;
+  let widthRatio = minimapRatio / translateWidthRatio;
+
+  let halfWidth = miniVPBound.width / minimapRatio / 2;
+  let halfHeight = miniVPBound.height / minimapRatio / 2;
+  let newX = (halfWidth - dx) * widthRatio;
+  let newY = (halfHeight - dy) * widthRatio; // depends on widthRatio not heightRatio
+  cfg.transition()
+    .duration(durationTime)
+    .call(zoom.transform,
+      d3.zoomIdentity.translate(newX, newY).scale(transK));
 }

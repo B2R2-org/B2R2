@@ -73,10 +73,10 @@ function initSVG() {
 
   // Create the main group for a CFG. This is to easily maintain the
   // coordinates of the main graph.
-  d3.select("g#cfgStage-" + currentTabNumber).append("g").attr("id", "cfgGrp" + currentTabNumber);
+  d3.select("g#cfgStage-" + currentTabNumber).append("g").attr("id", "cfgGrp-" + currentTabNumber);
 
   // Several definitions to use to draw a CFG.
-  let defs = d3.select("g#cfgGrp" + currentTabNumber).append("defs");
+  let defs = d3.select("g#cfgGrp-" + currentTabNumber).append("defs");
   initMarker(defs, "cfgJmpEdgeArrow");
   initMarker(defs, "cfgCJmpTrueEdgeArrow");
   initMarker(defs, "cfgCJmpFalseEdgeArrow");
@@ -146,7 +146,7 @@ function drawNode(idx, v) {
     .attr("height", v.Height * minimapRatio);
 
   // set main graph
-  let g = d3.select("g#cfgGrp" + currentTabNumber).append("g")
+  let g = d3.select("g#cfgGrp-" + currentTabNumber).append("g")
     .attr("nodeid", idx)
     .attr("addr", v.Address[0])
     .attr("class", "gNode");
@@ -175,12 +175,12 @@ function drawNode(idx, v) {
       .attr("class", "gstmt")
       .attr("idx", i)
       .attr("transform", "translate(0," + y + ")")
-
     let terms = v.Terms[i];
     let s = terms[0][0];
     let tag = terms[0][1];
     let text = gtext.append("text").attr("class", "stmt").attr("id", textid);
     let mnemonic = s + strRepeat(" ", (s.length > 8 ? 0 : 8 - s.length));
+
     gtext.insert("rect")
       .attr("id", rectid)
       .attr("class", "nodestmtbox")
@@ -234,7 +234,7 @@ function drawNodes(g) {
     drawNode(i, g.Nodes[i]);
   }
 
-  let r = document.getElementById("cfgGrp" + currentTabNumber).getBBox(),
+  let r = document.getElementById("cfgGrp-" + currentTabNumber).getBBox(),
     obj = {
       width: r.width,
       height: r.height
@@ -253,14 +253,14 @@ function drawEdge(e) {
   lineFunction.curve(d3.curveMonotoneY);
 
   // Additional line for bluring.
-  d3.select("g#cfgGrp" + currentTabNumber).insert("path", ":first-child")
+  d3.select("g#cfgGrp-" + currentTabNumber).insert("path", ":first-child")
     .attr("class", "cfg" + e.Type + "Blur" + " cfgEdgeBlur")
     .attr("d", lineFunction(e.Points))
     .attr("stroke", "transparent")
     .attr("stroke-width", edgeThickness)
     .attr("fill", "none");
 
-  let p = d3.select("g#cfgGrp" + currentTabNumber).insert("path", ":first-child")
+  let p = d3.select("g#cfgGrp-" + currentTabNumber).insert("path", ":first-child")
     .attr("class", "cfg" + e.Type)
     .attr("d", lineFunction(e.Points))
     .attr("stroke-width", edgeThickness)
@@ -295,7 +295,7 @@ function centerAlign(dims, shiftX, reductionRate) {
 
   let leftPadding = (dims.cfgVPDim.width) / 2 / reductionRate;
 
-  d3.select("g#cfgGrp" + currentTabNumber).attr("transform",
+  d3.select("g#cfgGrp-" + currentTabNumber).attr("transform",
     "translate(" + leftPadding + ", 0)");
 
   d3.select("g#minimapStage-" + currentTabNumber)
@@ -380,13 +380,12 @@ function drawCFGAux(dims, cfg) {
   dims = setMinimap(dims, reductionRate);
   centerAlign(dims, dims.minimapDim.width / 2, reductionRate);
   drawMinimapViewPort(dims);
-  registerEvents(reductionRate, dims, cfg);
+  registerEvents(reductionRate, dims);
   $("#icon-refresh").removeClass("rotating"); // Stop the animation.
 }
 
-function registerEvents(reductionRate, dims, g) {
+function registerEvents(reductionRate, dims) {
   let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
-  let zoom = null;
   let translateWidthRatio = null;
   let translateHeightRatio = null;
   let offsetX = null;
@@ -403,23 +402,12 @@ function registerEvents(reductionRate, dims, g) {
   let nodes = cfgStage.selectAll(".cfgNodeBlur");
   let edges = cfgStage.selectAll(".cfgEdgeBlur");
   let texts = cfgStage.selectAll(".cfgDisasmText");
+  let zoom = null;
 
   function getEdgePts(edge) {
     return edge.split(/M|L/)
       .filter(function (el) { return el.length != 0; });
   }
-
-  function convertvMapPtToVPCoordinate(dx, dy) {
-    let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
-    let miniVPBound =
-      document.getElementById("minimapVP-" + currentTabNumber).getBoundingClientRect();
-
-    let widthRatio = minimapRatio / translateWidthRatio;
-    let halfWidth = miniVPBound.width / minimapRatio / 2;
-
-    return { x: dx + halfWidth * widthRatio, y: dy };
-  }
-
 
   function getPointFromEdgePts(edgePts, index) {
     let lastPts = edgePts[index].split(",");
@@ -427,31 +415,6 @@ function registerEvents(reductionRate, dims, g) {
     let lastY = parseFloat(lastPts[lastPts.length - 1]) * reductionRate;
 
     return { x: lastX, y: lastY };
-  }
-
-  function toCenter(dx, dy, accelerationRate) {
-    let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
-    let miniVPBound =
-      document.getElementById("minimapVP-" + currentTabNumber).getBoundingClientRect();
-
-    let minimapBound =
-      document.getElementById("minimapStage-" + currentTabNumber).getBoundingClientRect();
-    let viewportBound =
-      document.getElementById("cfgStage-" + currentTabNumber).getBoundingClientRect();
-    translateWidthRatio = minimapBound.width / viewportBound.width;
-
-    let widthRatio = minimapRatio / translateWidthRatio;
-    let heightRatio = minimapRatio / translateHeightRatio;
-
-    let halfWidth = miniVPBound.width / minimapRatio / 2;
-    let halfHeight = miniVPBound.height / minimapRatio / 2;
-    let newX = (halfWidth - dx) * widthRatio;
-    let newY = (halfHeight - dy) * heightRatio;
-    cfg.transition()
-      .duration(focusMovementDuration * accelerationRate)
-      .call(zoom.transform,
-        d3.zoomIdentity.translate(newX, newY).scale(transK));
-
   }
 
   function getMousePos() {
@@ -482,7 +445,7 @@ function registerEvents(reductionRate, dims, g) {
       // As b2r2.css has .glyphicon { padding-right: 5px; }, which is used
       // when dims are generated at reloadUI(), 5px plus to vMapPt.x
       // has to be considered as long as the padding has been maintained.
-      toCenter(vMapLastPt.x + 5, vMapLastPt.y, acceleration);
+      toCenter(vMapLastPt.x + 5, vMapLastPt.y, zoom, transK, focusMovementDuration * acceleration);
     });
   });
 
@@ -506,7 +469,7 @@ function registerEvents(reductionRate, dims, g) {
       let vMapPt = convertvMapPtToVPCoordinate(x, y);
       let halfHeight = d3.select(this).attr("height") / 2 * reductionRate;
 
-      toCenter(vMapPt.x + 5, vMapPt.y + halfHeight, 100);
+      toCenter(vMapPt.x + 5, vMapPt.y + halfHeight, zoom, transK, focusMovementDuration * 100);
     });
 
   });
@@ -603,10 +566,8 @@ function registerEvents(reductionRate, dims, g) {
 
   function zoomed() {
     let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
-    let minimapBound =
-      document.getElementById("minimapStage-" + currentTabNumber).getBoundingClientRect();
-    let viewportBound =
-      document.getElementById("cfgStage-" + currentTabNumber).getBoundingClientRect();
+    let minimapBound = document.getElementById("minimapStage-" + currentTabNumber).getBoundingClientRect();
+    let viewportBound = document.getElementById("cfgStage-" + currentTabNumber).getBoundingClientRect();
 
     cfgStage.attr("transform", d3.event.transform);
 
@@ -636,12 +597,11 @@ function registerEvents(reductionRate, dims, g) {
       let width = rect.attr("width");
       let gNode = d3.select(rect.node().parentNode.parentNode);
       let idx = parseInt($(this).attr("idx"));
-      let pos = gNode.attr("transform")
-        .split("translate")[1].split("(")[1].split(")")[0].split(",");
-      let x = (parseFloat(pos[0]) + width / 2) * reductionRate;;
-      let y = (parseFloat(pos[1]) + idx * 14) * reductionRate;
+      let pos = getGroupPos(gNode.attr("transform"));
+      let x = (pos[0] + width / 2) * reductionRate;;
+      let y = (pos[1] + idx * 14) * reductionRate;
       let vMapPt = convertvMapPtToVPCoordinate(x, y);
-      toCenter(parseFloat(vMapPt.x), parseFloat(vMapPt.y), 1);
+      toCenter(parseFloat(vMapPt.x), parseFloat(vMapPt.y), zoom, transK, focusMovementDuration);
     }
   });
 
@@ -668,14 +628,13 @@ function registerEvents(reductionRate, dims, g) {
           let width = rect.attr("width");
           let gNode = d3.select(rect.node().parentNode.parentNode);
           let gidx = parseInt(d3.select(rect.node().parentNode).attr("idx"));
-          let pos = gNode.attr("transform")
-            .split("translate")[1].split("(")[1].split(")")[0].split(",");
+          let pos = getGroupPos(gNode.attr("transform"));
 
-          let x = (parseFloat(pos[0]) + width / 2) * reductionRate;
-          let y = (parseFloat(pos[1]) + gidx * 14) * reductionRate;
+          let x = (pos[0] + width / 2) * reductionRate;
+          let y = (pos[1] + gidx * 14) * reductionRate;
 
           let vMapPt = convertvMapPtToVPCoordinate(x, y);
-          toCenter(parseFloat(vMapPt.x), parseFloat(vMapPt.y), 1);
+          toCenter(parseFloat(vMapPt.x), parseFloat(vMapPt.y), zoom, transK, focusMovementDuration);
         }).catch(function (err) {
           console.error(err); // Error 출력
         });
@@ -683,6 +642,27 @@ function registerEvents(reductionRate, dims, g) {
 
       }
 
+    }
+  });
+  $(document).on("click", "#id_event-trigger", function () {
+    if (currentTabNumber === $("#id_tabContainer li.tab.active").attr("counter")) {
+      let target_id = $(this).attr("target");
+      let rect = d3.select(target_id);
+      let text = d3.select(target_id.replace("_rect-", "_text-"));
+      let gtext = d3.select(rect.node().parentNode);
+      let width = rect.attr("width");
+      let gNode = d3.select(rect.node().parentNode.parentNode);
+      let idx = parseInt(target_id.split("-")[2]);
+      let pos = getGroupPos(gNode.attr("transform"));
+
+      let x = (pos[0] + width / 2) * reductionRate;;
+      let y = (pos[1] + idx * 14) * reductionRate;
+      let vMapPt = convertvMapPtToVPCoordinate(x, y);
+      let stmt = text.html().replace(/(<([^>]+)>)/ig, " ");
+      toCenter(parseFloat(vMapPt.x), parseFloat(vMapPt.y), zoom, transK, 0);
+      let y2 = pos[1] + getGroupPos(gtext.attr("transform"))[1];
+      autocomplete().deactiveStmt();
+      autocomplete().activeStmt(pos[0], y2, width, stmt);
     }
   });
 
