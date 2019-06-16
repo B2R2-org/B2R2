@@ -4734,6 +4734,8 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.SHRD -> shrd ins insAddr insLen ctxt
   | Opcode.SHUFPD -> sideEffects insAddr insLen UnsupportedFP
   | Opcode.SHUFPS -> sideEffects insAddr insLen UnsupportedFP
+  | Opcode.SQRTPD | Opcode.SQRTPS | Opcode.SQRTSD | Opcode.SQRTSS ->
+    sideEffects insAddr insLen UnsupportedFP
   | Opcode.STC -> stc insAddr insLen ctxt
   | Opcode.STD -> std insAddr insLen ctxt
   | Opcode.STI -> sti insAddr insLen ctxt
