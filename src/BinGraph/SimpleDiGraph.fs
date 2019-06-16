@@ -137,6 +137,8 @@ type SimpleDiGraph<'V, 'E when 'V :> VertexData and 'V : equality> () =
     | None -> raise EdgeNotFoundException
     | Some (_, _, Edge eData) -> eData
 
+  override __.GetVertices () = __.Vertices
+
   member __.TryFindEdge (src: Vertex<'V>) (dst: Vertex<'V>) =
     match Map.tryFind (src.GetID (), dst.GetID ()) __.Edges with
     | None -> None
@@ -146,7 +148,5 @@ type SimpleDiGraph<'V, 'E when 'V :> VertexData and 'V : equality> () =
   member __.GenID () = id <- id + 1; id
 
   member __.GetMaxID () = id
-
-  member __.GetVertices () = __.Vertices
 
 // vim: set tw=80 sts=2 sw=2:

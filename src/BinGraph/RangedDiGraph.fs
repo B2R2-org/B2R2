@@ -151,4 +151,7 @@ type RangedDiGraph<'V, 'E when 'V :> RangedVertexData> () =
     | None -> raise EdgeNotFoundException
     | Some (_, _, Edge eData) -> eData
 
+  override __.GetVertices () =
+    __.Vertices |> IM.fold (fun acc _ v -> Set.add v acc) Set.empty
+
 // vim: set tw=80 sts=2 sw=2:

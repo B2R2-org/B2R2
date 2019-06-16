@@ -45,6 +45,7 @@ type SimpleDiGraph<'V, 'E when 'V :> VertexData and 'V : equality> =
   /// Find edge data.
   override FindEdge : Vertex<'V> -> Vertex<'V> -> 'E
   override Reverse : unit -> DiGraph<'V, 'E>
+  override GetVertices : unit -> Set<Vertex<'V>>
 
   /// Clone this graph and return a new one. Copied vertices will have the same
   /// IDs assigned. The reverse parameter tells whether the graph is constructed
@@ -57,7 +58,5 @@ type SimpleDiGraph<'V, 'E when 'V :> VertexData and 'V : equality> =
   member GenID : unit -> VertexID
 
   member GetMaxID : unit -> VertexID
-
-  member GetVertices : unit -> Set<Vertex<'V>>
 
 // vim: set tw=80 sts=2 sw=2:

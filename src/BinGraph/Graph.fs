@@ -175,6 +175,8 @@ type DiGraph<'V, 'E when 'V :> VertexData> () =
   /// Fold every edge in the graph (the order can be arbitrary).
   abstract IterEdge: (Vertex<'V> -> Vertex<'V> -> unit) -> unit
 
+  abstract GetVertices: unit -> Set<Vertex<'V>>
+
   member __.FindVertexByID id =
     let folder acc (v: Vertex<_>) = if v.GetID () = id then Some v else acc
     match __.FoldVertex folder None with
@@ -197,6 +199,8 @@ type DiGraph<'V, 'E when 'V :> VertexData> () =
 
   /// Fold every vertex in the graph in a depth-first manner starting from the
   /// root node.
+  /// N.B. We should try to fold on every single vertex, as there is no easy way
+  /// to check unreachable graphs from a root node.
   member __.FoldVertexDFS fn acc =
     let visited: HashSet<int> = new HashSet<int> ()
     let rec foldLoop acc = function
@@ -208,7 +212,7 @@ type DiGraph<'V, 'E when 'V :> VertexData> () =
         List.fold (fun tovisit s -> s :: tovisit) tovisit v.Succs
         |> foldLoop (fn acc v)
     let acc = foldLoop acc [__.GetRoot ()]
-    foldLoop acc __.Unreachables
+    __.GetVertices () |> Set.toList |> foldLoop acc
 
   /// Fold every vertex in the graph in a breadth-first manner starting from the
   /// root node.
@@ -240,6 +244,7 @@ type DiGraph<'V, 'E when 'V :> VertexData> () =
         List.fold (fun tovisit s -> s :: tovisit) tovisit v.Succs
         |> iterLoop
     iterLoop [__.GetRoot ()]
+    __.GetVertices () |> Set.toList |> iterLoop
 
   /// Iterate every vertex in the graph in a breadth-first manner starting from
   /// the root node.
@@ -277,7 +282,8 @@ type DiGraph<'V, 'E when 'V :> VertexData> () =
       | v :: tovisit ->
         visited.Add (v.GetID ()) |> ignore
         foldEdgeDFSAux acc tovisit fn v ||> foldLoop
-    foldLoop acc [__.GetRoot ()]
+    let acc = foldLoop acc [__.GetRoot ()]
+    __.GetVertices () |> Set.toList |> foldLoop acc
 
   /// Iterate every edge in the graph in a depth-first manner starting from the
   /// root node. N.B. we do not provide BFS-style folding function for edges.
@@ -299,6 +305,7 @@ type DiGraph<'V, 'E when 'V :> VertexData> () =
         visited.Add (v.GetID ()) |> ignore
         iterEdgeDFSAux tovisit fn v |> iterLoop
     iterLoop [__.GetRoot ()]
+    __.GetVertices () |> Set.toList |> iterLoop
 
   /// Return the DOT-representation of this graph.
   member __.ToDOTStr name vToStrFn (_eToStrFn: Edge<'E> -> string) =
