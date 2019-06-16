@@ -95,7 +95,7 @@ module internal InputGraph =
   let ofStmt (stmt: Stmt) (comment: string) =
     { Disasm = Pp.stmtToString stmt; Comment = comment }
 
-  let irBBL hdl (v: Vertex<IRVertexData>) =
+  let irBBL _ (v: Vertex<IRVertexData>) =
     let vData = v.VData
     if vData.IsBBL () then
       let _, ppoint = vData.GetPpoint ()
@@ -163,7 +163,7 @@ module internal InputGraph =
     )
     "Success"
 
-  let ofIRComment hdl addr idx comment (g: #DiGraph<_, _>) =
+  let ofIRComment _ addr idx comment (g: #DiGraph<_, _>) =
     let iNodes = g.FoldVertex getVertex []
     let v = iNodes |> List.find (fun (v: Vertex<IRVertexData>) ->
       if v.VData.IsBBL () then

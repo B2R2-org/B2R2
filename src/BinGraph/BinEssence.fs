@@ -37,23 +37,22 @@ type BinEssence =
     /// BInary handler.
     BinHandler: BinHandler
 
-    /// CFG Builder.
-    CFGBuilder: CFGBuilder
-
     /// A map from Addr to a Function.
     Functions: Funcs
 
+    /// Call graph.
     CallGraph: CallGraph
   }
 with
   static member Init _verbose hdl =
     (* Currently no other choice *)
-    let builder, funcs = CFGUtils.construct hdl None
+    let funcs = CFGUtils.construct hdl (CFGBuilder ()) None
     let funcs = CFGUtils.analCalls funcs
     let callGraph = SimpleDiGraph ()
     CFGUtils.buildCallGraph hdl funcs callGraph
     NoReturn.noReturnAnalysis hdl callGraph
-    { BinHandler = hdl; CFGBuilder = builder ; Functions = funcs ;
+    { BinHandler = hdl
+      Functions = funcs
       CallGraph = callGraph }
 
   static member FindFuncByEntry entry ess =

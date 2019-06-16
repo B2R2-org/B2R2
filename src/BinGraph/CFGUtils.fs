@@ -313,7 +313,7 @@ let rec buildIRCFGs hdl builder (funcs: Funcs) funcset bbls = function
     buildIRCFGs hdl builder funcs funcset bbls entries
   | [] -> builder
 
-let buildCFGs hdl (builder: CFGBuilder) (funcs: Funcs) =
+let private buildCFGs hdl (builder: CFGBuilder) (funcs: Funcs) =
   let disasmBBLs = Dictionary<Addr, DisasmBBL> ()
   let disasmBBLs =
     buildDisasmBBLs hdl builder disasmBBLs <| builder.GetDisasmBoundaries ()
@@ -323,21 +323,17 @@ let buildCFGs hdl (builder: CFGBuilder) (funcs: Funcs) =
   let funcset = Set.ofList entries
   let builder = buildDisasmCFGs hdl builder funcs funcset disasmBBLs entries
   let builder = buildIRCFGs hdl builder funcs funcset irBBLs entries
-  builder, funcs
+  funcs
 
 /// This is our primary API
-let construct hdl = function
+let construct hdl builder = function
   | Some entryAddrs ->
-    let builder = CFGBuilder ()
-    let funcs = Funcs ()
-    (builder, funcs)
-    ||> Boundary.identifyWithEntries hdl entryAddrs
+    Funcs ()
+    |> Boundary.identifyWithEntries hdl entryAddrs builder
     ||> buildCFGs hdl
   | None ->
-    let builder = CFGBuilder ()
-    let funcs = Funcs ()
-    (builder, funcs)
-    ||> Boundary.identify hdl
+    Funcs ()
+    |> Boundary.identify hdl builder
     ||> buildCFGs hdl
 
 let hasCall (bbl: IRVertexData) =

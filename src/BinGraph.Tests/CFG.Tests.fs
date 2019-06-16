@@ -54,11 +54,12 @@ type CFGTestClass () =
 
   let isa = ISA.Init Architecture.IntelX64 Endian.Little
   let hdl = BinHandler.Init (isa, binary)
-  let builder, funcs = CFGUtils.construct hdl (Some [ 0UL ])
-  let _, funcs_ = CFGUtils.construct hdl (Some [ 0UL ])
-  let funcs_ = CFGUtils.analCalls funcs_
+  let builder = CFGBuilder ()
+  let funcs = CFGUtils.construct hdl builder (Some [ 0UL ])
+  let funcs' = CFGUtils.construct hdl (CFGBuilder ()) (Some [ 0UL ])
+  let funcs' = CFGUtils.analCalls funcs'
   let callGraph = SimpleDiGraph ()
-  let _ = CFGUtils.buildCallGraph hdl funcs_ callGraph
+  let _ = CFGUtils.buildCallGraph hdl funcs' callGraph
   let _ = NoReturn.noReturnAnalysis hdl callGraph
 
   let disasmVertexFolder acc (v: DisasmVertex) =
@@ -412,7 +413,7 @@ type CFGTestClass () =
 
   [<TestMethod>]
   member __.``DisasmGraph Vertex Test after Call Analysis: bar`` () =
-    let cfg = funcs_.[0x71UL].DisasmCFG
+    let cfg = funcs'.[0x71UL].DisasmCFG
     Assert.AreEqual (1, cfg.Size ())
     let vMap = cfg.FoldVertex disasmVertexFolder Map.empty
     [ 0x71UL ]
@@ -427,13 +428,13 @@ type CFGTestClass () =
 
   [<TestMethod>]
   member __.``DisasmGraph Edge Test after Call Analysis: bar`` () =
-    let cfg = funcs_.[0x71UL].DisasmCFG
+    let cfg = funcs'.[0x71UL].DisasmCFG
     let eMap = cfg.FoldEdge (disasmEdgeFolder cfg) Map.empty
     Assert.AreEqual (0, eMap.Count)
 
   [<TestMethod>]
   member __.``IRGraph Vertex Test after Call Analysis: _start`` () =
-    let cfg = funcs_.[0x00UL].IRCFG
+    let cfg = funcs'.[0x00UL].IRCFG
     Assert.AreEqual (9, cfg.Size ())
     let bblMap = cfg.FoldVertex irBBLFolder Map.empty
     Assert.AreEqual (7, bblMap.Count)
@@ -472,7 +473,7 @@ type CFGTestClass () =
 
   [<TestMethod>]
   member __.``IRGraph Edge Test after Call Analysis: _start`` () =
-    let cfg = funcs_.[0x00UL].IRCFG
+    let cfg = funcs'.[0x00UL].IRCFG
     let bblMap = cfg.FoldVertex irBBLFolder Map.empty
     let v000 = Map.find (0x00UL, 0) bblMap
     let v190 = Map.find (0x19UL, 0) bblMap
@@ -513,7 +514,7 @@ type CFGTestClass () =
 
   [<TestMethod>]
   member __.``IRGraph Vertex Test after Call Analysis: foo`` () =
-    let cfg = funcs_.[0x62UL].IRCFG
+    let cfg = funcs'.[0x62UL].IRCFG
     Assert.AreEqual (1, cfg.Size ())
     let bblMap = cfg.FoldVertex irBBLFolder Map.empty
     [ (0x62UL, 0) ]
@@ -531,7 +532,7 @@ type CFGTestClass () =
 
   [<TestMethod>]
   member __.``IRGraph Edge Test after Call Analysis: foo`` () =
-    let cfg = funcs_.[0x62UL].IRCFG
+    let cfg = funcs'.[0x62UL].IRCFG
     let normalEdges = cfg.FoldEdge (irNormalEdgeFolder cfg) Map.empty
     Assert.AreEqual (0, normalEdges.Count)
     let callEdges = cfg.FoldEdge (irCallEdgeFolder cfg) Map.empty
@@ -541,7 +542,7 @@ type CFGTestClass () =
 
   [<TestMethod>]
   member __.``IRGraph Vertex Test after Call Analysis: bar`` () =
-    let cfg = funcs_.[0x71UL].IRCFG
+    let cfg = funcs'.[0x71UL].IRCFG
     Assert.AreEqual (1, cfg.Size ())
     let bblMap = cfg.FoldVertex irVertexFolder Map.empty
     [ (0x71UL, 0) ]
@@ -559,7 +560,7 @@ type CFGTestClass () =
 
   [<TestMethod>]
   member __.``IRGraph Edge Test after Call Analysis: bar`` () =
-    let cfg = funcs_.[0x71UL].IRCFG
+    let cfg = funcs'.[0x71UL].IRCFG
     let normalEdges = cfg.FoldEdge (irNormalEdgeFolder cfg) Map.empty
     Assert.AreEqual (0, normalEdges.Count)
     let callEdges = cfg.FoldEdge (irCallEdgeFolder cfg) Map.empty
@@ -569,33 +570,33 @@ type CFGTestClass () =
 
   [<TestMethod>]
   member __.``SSAGraph Vertex Test after Call Analysis: _start`` () =
-    let cfg = funcs_.[0x00UL].SSACFG
+    let cfg = funcs'.[0x00UL].SSACFG
     Assert.AreEqual (9, cfg.Size ())
 
   [<TestMethod>]
   member __.``SSAGraph Edge Test after Call Analysis: _start`` () =
-    let cfg = funcs_.[0x00UL].SSACFG
+    let cfg = funcs'.[0x00UL].SSACFG
     let eList = cfg.FoldEdge (ssaEdgeFolder cfg) [] |> List.rev
     Assert.AreEqual (13, List.length eList)
 
   [<TestMethod>]
   member __.``SSAGraph Vertex Test after Call Analysis: foo`` () =
-    let cfg = funcs_.[0x62UL].SSACFG
+    let cfg = funcs'.[0x62UL].SSACFG
     Assert.AreEqual (1, cfg.Size ())
 
   [<TestMethod>]
   member __.``SSAGraph Edge Test after Call Analysis: foo`` () =
-    let cfg = funcs_.[0x62UL].SSACFG
+    let cfg = funcs'.[0x62UL].SSACFG
     let eList = cfg.FoldEdge (ssaEdgeFolder cfg) []
     Assert.AreEqual (0, List.length eList)
 
   [<TestMethod>]
   member __.``SSAGraph Vertex Test after Call Analysis: bar`` () =
-    let cfg = funcs_.[0x71UL].SSACFG
+    let cfg = funcs'.[0x71UL].SSACFG
     Assert.AreEqual (1, cfg.Size ())
 
   [<TestMethod>]
   member __.``SSAGraph Edge Test after Call Analysis: bar`` () =
-    let cfg = funcs_.[0x71UL].SSACFG
+    let cfg = funcs'.[0x71UL].SSACFG
     let eList = cfg.FoldEdge (ssaEdgeFolder cfg) [] |> List.rev
     Assert.AreEqual (0, List.length eList)
