@@ -38,7 +38,7 @@ type Function (entry, name, hdl) =
   inherit VertexData (VertexData.genID ())
 
   let irCFG = IRCFG ()
-  let ssaCFG = lazy (SSAGraph.transform hdl irCFG (SSACFG ()))
+  let ssaCFG = lazy (SSA.transform hdl irCFG (SSACFG ()))
   let mutable noReturn = false
 
   member val Entry : Addr = entry

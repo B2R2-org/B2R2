@@ -15,7 +15,10 @@
     <Compile Include="Dominator.fsi" />
     <Compile Include="Dominator.fs" />
     <Compile Include="CFGTypes.fs" />
-    <Compile Include="SSAGraph.fs" />
+    <Compile Include="DisasmCFG.fs" />
+    <Compile Include="IRCFG.fs" />
+    <Compile Include="SSACFG.fs" />
+    <Compile Include="SSA.fs" />
     <Compile Include="CFGBuilder.fs" />
     <Compile Include="DisasHeuristic.fs" />
     <Compile Include="Boundary.fs" />

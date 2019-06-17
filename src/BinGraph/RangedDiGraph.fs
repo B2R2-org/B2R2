@@ -85,7 +85,6 @@ type RangedDiGraph<'V, 'E when 'V :> RangedVertexData> () =
     | Some v -> v
     | _ -> raise VertexNotFoundException
 
-  /// XXX: is it right way to find vertex?
   override __.FindVertexByData vdata =
     match IM.tryFind vdata.AddrRange __.Vertices with
     | Some v -> v

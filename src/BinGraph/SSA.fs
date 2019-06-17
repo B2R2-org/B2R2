@@ -24,7 +24,7 @@
   SOFTWARE.
 *)
 
-module B2R2.BinGraph.SSAGraph
+module B2R2.BinGraph.SSA
 
 open B2R2
 open B2R2.FrontEnd
@@ -47,14 +47,13 @@ let destToDefKind = function
   | MemVar _ -> Mem
   | _ -> failwith "Unexpected"
 
-type SSAContext =
-  {
-    PredMap : Map<VertexID, VertexID []>
-    SuccMap : Map<VertexID, (VertexID * CFGEdge) list>
-    DFMap : Map<VertexID, VertexID list>
-    SSAMap : Map<VertexID, IRVertexData * (Stmt list)>
-    DomTree : Map<VertexID, VertexID list> * int
-  }
+type SSAContext = {
+  PredMap : Map<VertexID, VertexID []>
+  SuccMap : Map<VertexID, (VertexID * CFGEdge) list>
+  DFMap : Map<VertexID, VertexID list>
+  SSAMap : Map<VertexID, IRVertexData * (Stmt list)>
+  DomTree : Map<VertexID, VertexID list> * int
+}
 
 let getDomTree ctxt =
   let domTree, root = Dominator.dominatorTree ctxt

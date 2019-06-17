@@ -2,6 +2,7 @@
   B2R2 - the Next-Generation Reversing Platform
 
   Author: Soomin Kim <soomink@kaist.ac.kr>
+          Sang Kil Cha <sangkilc@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -26,17 +27,38 @@
 
 namespace B2R2.BinGraph
 
-open B2R2
+open B2R2.BinIR
 
-/// Program point.
-type PPoint = Addr * int
+[<AbstractClass>]
+type SSAVertexData (irVertexData) =
+  inherit VertexData (VertexData.genID ())
 
-type CFGEdge =
-  | JmpEdge
-  | CJmpTrueEdge
-  | CJmpFalseEdge
-  | CallEdge
-  | RetEdge
-  | FallThroughEdge
+  member __.IRVertexData : IRVertexData = irVertexData
 
-type CFG<'a when 'a :> VertexData> = DiGraph<'a, CFGEdge>
+  abstract member IsBBL : unit -> bool
+
+  abstract GetStmts : unit -> SSA.Stmt list
+
+type SSABBL (irVertexData, stmts, last) =
+  inherit SSAVertexData (irVertexData)
+
+  member __.LastStmt: SSA.Stmt = last
+
+  member val IsIndirectCall = false with get, set
+
+  member val IsIndirectJump = false with get, set
+
+  override __.IsBBL () = true
+
+  override __.GetStmts () = stmts
+
+type SSACall (irVertexData, stmts) =
+  inherit SSAVertexData (irVertexData)
+
+  override __.IsBBL () = false
+
+  override __.GetStmts () = stmts
+
+type SSAVertex = Vertex<SSAVertexData>
+
+type SSACFG = SimpleDiGraph<SSAVertexData, CFGEdge>
