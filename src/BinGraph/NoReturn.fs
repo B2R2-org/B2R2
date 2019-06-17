@@ -91,6 +91,8 @@ let disconnectCall hdl (fcg: CallGraph) disasmCFG (irCFG: IRCFG) (v: IRVertex) =
     if b then
       if isNoReturnCall hdl fcg target then
         List.iter (fun w -> irCFG.RemoveEdge v w) v.Succs
+        List.iter (fun (u: IRVertex) ->
+          List.iter (fun w -> if v <> w then irCFG.RemoveEdge u w) u.Succs) v.Preds
         let reachSet = getReachables Set.empty [irCFG.GetRoot ()]
         irCFG.IterVertex (fun v ->
           if not <| Set.contains v reachSet then removeVertex disasmCFG irCFG v)
