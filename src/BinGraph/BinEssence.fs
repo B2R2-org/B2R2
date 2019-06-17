@@ -32,17 +32,16 @@ open B2R2.FrontEnd
 /// Represent the "essence" of a binary code. This is the primary data structure
 /// for storing various information about a binary, such as its CFG, FileFormat
 /// information, etc.
-type BinEssence =
-  {
-    /// BInary handler.
-    BinHandler: BinHandler
+type BinEssence = {
+  /// BInary handler.
+  BinHandler: BinHandler
 
-    /// A map from Addr to a Function.
-    Functions: Funcs
+  /// A map from Addr to a Function.
+  Functions: Funcs
 
-    /// Call graph.
-    CallGraph: CallGraph
-  }
+  /// Call graph.
+  CallGraph: CallGraph
+}
 with
   static member Init _verbose hdl =
     (* Currently no other choice *)
@@ -87,8 +86,8 @@ with
     |> System.Console.WriteLine
 
   static member ShowDot ess =
-    ess.Functions.Values |> List.ofSeq
-    |> List.iter (fun (func: Function) ->
+    ess.Functions.Values
+    |> Seq.iter (fun (func: Function) ->
         let name = "\"" + func.Entry.ToString ("X") + "\""
         BinEssence.ShowDisasmDOT name func.DisasmCFG
         BinEssence.ShowIRDOT name func.IRCFG)
