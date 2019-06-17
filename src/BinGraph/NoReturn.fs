@@ -77,18 +77,12 @@ let removeVertex (disasmCFG: DisasmCFG) (irCFG: IRCFG) (v: IRVertex) =
     | None -> irCFG.RemoveVertex v
   else irCFG.RemoveVertex v
 
-let rec removeVertices domTree disasmCFG irCFG (v: IRVertex) =
-  List.iter (removeVertices domTree disasmCFG irCFG) <| Map.find v domTree
-  removeVertex disasmCFG irCFG v
-
-let rec removeTree disasmCFG (irCFG: IRCFG) (v: IRVertex) =
-  match irCFG.TryFindVertexByData v.VData with
-  | Some _ ->
-    if List.length v.Preds = 0 then
-      let succs = v.Succs
-      removeVertex disasmCFG irCFG v
-      List.iter (removeTree disasmCFG irCFG) <| succs
-  | None -> ()
+let rec getReachables reachSet = function
+  | [] -> reachSet
+  | hd :: tl when Set.contains hd reachSet -> getReachables reachSet tl
+  | (hd: IRVertex) :: tl ->
+    let reachSet = Set.add hd reachSet
+    getReachables reachSet (hd.Succs @ tl)
 
 let disconnectCall hdl (fcg: CallGraph) disasmCFG (irCFG: IRCFG) (v: IRVertex) =
   match irCFG.TryFindVertexByData v.VData with
@@ -96,12 +90,10 @@ let disconnectCall hdl (fcg: CallGraph) disasmCFG (irCFG: IRCFG) (v: IRVertex) =
     let b, target = v.VData.GetTarget ()
     if b then
       if isNoReturnCall hdl fcg target then
-        let ctxt = Dominator.initDominatorContext irCFG
-        let tree, _ = Dominator.dominatorTree ctxt
-        List.iter (removeVertices tree disasmCFG irCFG) <| Map.find v tree
-        let root = irCFG.GetRoot ()
-        irCFG.Unreachables
-        |> List.iter (fun v -> if v <> root then removeTree disasmCFG irCFG v)
+        List.iter (fun w -> irCFG.RemoveEdge v w) v.Succs
+        let reachSet = getReachables Set.empty [irCFG.GetRoot ()]
+        irCFG.IterVertex (fun v ->
+          if not <| Set.contains v reachSet then removeVertex disasmCFG irCFG v)
   | None -> ()
 
 let getStackPtrRegID = function
@@ -146,14 +138,15 @@ let isNoReturnSysCall hdl (vData: IRVertexData) = function
     else false
   | _ -> false
 
-let disconnectSysCall hdl disasmCFG irCFG (v: IRVertex) =
+let disconnectSysCall hdl disasmCFG (irCFG: IRCFG) (v: IRVertex) =
   let vData = v.VData
   let b, stmt = vData.GetLastStmt ()
   if b then
     if isNoReturnSysCall hdl vData stmt then
-      let ctxt = Dominator.initDominatorContext irCFG
-      let tree, _ = Dominator.dominatorTree ctxt
-      List.iter (removeVertices tree disasmCFG irCFG) <| Map.find v tree
+      List.iter (fun w -> irCFG.RemoveEdge v w) v.Succs
+      let reachSet = getReachables Set.empty [irCFG.GetRoot ()]
+      irCFG.IterVertex (fun v ->
+        if not <| Set.contains v reachSet then removeVertex disasmCFG irCFG v)
     else ()
 
 let disconnect hdl fcg (v: Vertex<Function>) =

@@ -510,7 +510,7 @@ type CFGTestClass () =
     let callEdges = cfg.FoldEdge (irCallEdgeFolder cfg) Map.empty
     Assert.AreEqual (3, callEdges.Count)
     let retEdges = cfg.FoldEdge (irRetEdgeFolder cfg) Map.empty
-    Assert.AreEqual (3, retEdges.Count)
+    Assert.AreEqual (2, retEdges.Count)
 
   [<TestMethod>]
   member __.``IRGraph Vertex Test after Call Analysis: foo`` () =
@@ -577,7 +577,7 @@ type CFGTestClass () =
   member __.``SSAGraph Edge Test after Call Analysis: _start`` () =
     let cfg = funcs'.[0x00UL].SSACFG
     let eList = cfg.FoldEdge (ssaEdgeFolder cfg) [] |> List.rev
-    Assert.AreEqual (13, List.length eList)
+    Assert.AreEqual (12, List.length eList)
 
   [<TestMethod>]
   member __.``SSAGraph Vertex Test after Call Analysis: foo`` () =
