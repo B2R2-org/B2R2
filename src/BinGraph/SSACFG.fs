@@ -61,4 +61,4 @@ type SSACall (irVertexData, stmts) =
 
 type SSAVertex = Vertex<SSAVertexData>
 
-type SSACFG = SimpleDiGraph<SSAVertexData, CFGEdge>
+type SSACFG = SimpleDiGraph<SSAVertexData, CFGEdgeKind>

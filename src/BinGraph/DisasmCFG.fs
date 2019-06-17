@@ -48,4 +48,4 @@ type DisasmBBL (range: AddrRange, instrs, last, comments) =
 
 type DisasmVertex = Vertex<DisasmBBL>
 
-type DisasmCFG = RangedDiGraph<DisasmBBL, CFGEdge>
+type DisasmCFG = RangedDiGraph<DisasmBBL, CFGEdgeKind>

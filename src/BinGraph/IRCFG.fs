@@ -140,4 +140,4 @@ type IRCall (target) =
 
 type IRVertex = Vertex<IRVertexData>
 
-type IRCFG = SimpleDiGraph<IRVertexData, CFGEdge>
+type IRCFG = SimpleDiGraph<IRVertexData, CFGEdgeKind>

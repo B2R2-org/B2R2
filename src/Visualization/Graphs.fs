@@ -68,7 +68,7 @@ type InputNode = {
 type InputEdge = {
   From       : PPoint
   To         : PPoint
-  Type       : CFGEdge
+  Type       : CFGEdgeKind
 }
 
 /// This is Visualization module's input type.
@@ -192,7 +192,7 @@ type OutputNode = {
 }
 
 type OutputEdge = {
-  Type       : CFGEdge
+  Type       : CFGEdgeKind
   Points     : Point list
   IsBackEdge : bool
 }

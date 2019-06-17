@@ -49,7 +49,7 @@ let destToDefKind = function
 
 type SSAContext = {
   PredMap : Map<VertexID, VertexID []>
-  SuccMap : Map<VertexID, (VertexID * CFGEdge) list>
+  SuccMap : Map<VertexID, (VertexID * CFGEdgeKind) list>
   DFMap : Map<VertexID, VertexID list>
   SSAMap : Map<VertexID, IRVertexData * (Stmt list)>
   DomTree : Map<VertexID, VertexID list> * int
