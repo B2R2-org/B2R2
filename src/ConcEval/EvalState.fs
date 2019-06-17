@@ -44,6 +44,9 @@ type Context () =
   /// Store labels and their corresponding statement indices.
   member val Labels = Labels () with get
 
+  /// Architecture mode.
+  member val Mode = ArchOperationMode.NoMode with get, set
+
 type EvalCallBacks () =
   /// Memory load event handler.
   member val LoadEventHandler: Addr -> Addr -> BitVector -> unit =
@@ -187,6 +190,15 @@ and EvalState (?reader, ?ignoreundef) =
   static member PrepareBlockEval stmts (st: EvalState) =
     st.Contexts.[st.ThreadId].Labels.Update stmts
     st.Contexts.[st.ThreadId].StmtIdx <- 0
+    st
+
+  /// Get the current architecture operation mode.
+  static member GetMode (st: EvalState) =
+    st.Contexts.[st.ThreadId].Mode
+
+  /// Set the architecture operation mode.
+  static member SetMode (st: EvalState) mode =
+    st.Contexts.[st.ThreadId].Mode <- mode
     st
 
   /// Delete temporary states variables and get ready for evaluating the next
