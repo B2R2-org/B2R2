@@ -110,7 +110,7 @@ let getInstrLen reader offset = function
 let parseRegW (reg: Register) =
   let intReg = int reg
   if intReg &&& 0x10000000 = 0x10000000 then
-    struct (enum<Register> (intReg &&& 0x111111), intReg &&& 0x1000000 <> 0x0)
+    struct (enum<Register> (intReg &&& 0xffffff), intReg &&& 0x1000000 <> 0x0)
   else raise InvalidRegWException
 
 // vim: set tw=80 sts=2 sw=2:
