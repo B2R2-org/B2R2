@@ -435,11 +435,11 @@ type CFGTestClass () =
   [<TestMethod>]
   member __.``IRGraph Vertex Test after Call Analysis: _start`` () =
     let cfg = funcs'.[0x00UL].IRCFG
-    Assert.AreEqual (9, cfg.Size ())
+    Assert.AreEqual (8, cfg.Size ())
     let bblMap = cfg.FoldVertex irBBLFolder Map.empty
-    Assert.AreEqual (7, bblMap.Count)
+    Assert.AreEqual (6, bblMap.Count)
     [ (0x00UL, 0) ; (0x19UL, 0) ; (0x3FUL, 0) ; (0x48UL, 0) ; (0x52UL, 0) ;
-      (0x55UL, 0) ; (0x5FUL, 0) ]
+      (0x55UL, 0) ]
     |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x bblMap)
     let v000 = Map.find (0x00UL, 0) bblMap
     let v190 = Map.find (0x19UL, 0) bblMap
@@ -447,12 +447,11 @@ type CFGTestClass () =
     let v480 = Map.find (0x48UL, 0) bblMap
     let v520 = Map.find (0x52UL, 0) bblMap
     let v550 = Map.find (0x55UL, 0) bblMap
-    let v5F0 = Map.find (0x5FUL, 0) bblMap
-    let vList = [ v000 ; v190 ; v3F0 ; v480 ; v520 ; v550 ; v5F0 ]
+    let vList = [ v000 ; v190 ; v3F0 ; v480 ; v520 ; v550 ]
     let bblList = List.map (fun (x: IRVertex) -> x.VData) vList
     let pPointList =
       [ (0x00UL, 0) ; (0x19UL, 0) ; (0x3FUL, 0) ; (0x48UL, 0) ; (0x52UL, 0) ;
-        (0x55UL, 0) ; (0x5FUL, 0) ]
+        (0x55UL, 0) ]
     List.zip pPointList bblList
     |> List.iter (fun (x, y) ->
         let _, ppoint = y.GetPpoint ()
@@ -481,16 +480,14 @@ type CFGTestClass () =
     let v480 = Map.find (0x48UL, 0) bblMap
     let v520 = Map.find (0x52UL, 0) bblMap
     let v550 = Map.find (0x55UL, 0) bblMap
-    let v5F0 = Map.find (0x5FUL, 0) bblMap
     let callMap = cfg.FoldVertex irCallFolder Map.empty
     let c62 = Map.find 0x62UL callMap
     let c71 = Map.find 0x71UL callMap
     let normalEdges = cfg.FoldEdge (irNormalEdgeFolder cfg) Map.empty
-    Assert.AreEqual (7, normalEdges.Count)
+    Assert.AreEqual (6, normalEdges.Count)
     [ ((0x00UL, 0), (0x19UL, 0)) ; ((0x19UL, 0), (0x3FUL, 0)) ;
       ((0x19UL, 0), (0x48UL, 0)) ; ((0x3FUL, 0), (0x55UL, 0)) ;
-      ((0x48UL, 0), (0x52UL, 0)) ; ((0x52UL, 0), (0x55UL, 0)) ;
-      ((0x55UL, 0), (0x5FUL, 0)) ]
+      ((0x48UL, 0), (0x52UL, 0)) ; ((0x52UL, 0), (0x55UL, 0)) ]
     |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x normalEdges)
     let edge000190 = cfg.FindEdge v000 v190
     let edge1903F0 = cfg.FindEdge v190 v3F0
@@ -498,19 +495,18 @@ type CFGTestClass () =
     let edge3F0550 = cfg.FindEdge v3F0 v550
     let edge480520 = cfg.FindEdge v480 v520
     let edge520550 = cfg.FindEdge v520 v550
-    let edge5505F0 = cfg.FindEdge v550 v5F0
     let eList =
       [ edge000190 ; edge1903F0 ; edge190480 ; edge3F0550 ; edge480520 ;
-        edge520550 ; edge5505F0 ]
+        edge520550 ]
     let edgeTypeList =
       [ FallThroughEdge ; CJmpFalseEdge ; CJmpTrueEdge ; JmpEdge ;
-        FallThroughEdge ; JmpEdge ; FallThroughEdge ]
+        FallThroughEdge ; JmpEdge ]
     List.zip edgeTypeList eList
     |> List.iter (fun (x, y) -> Assert.AreEqual (x, y))
     let callEdges = cfg.FoldEdge (irCallEdgeFolder cfg) Map.empty
     Assert.AreEqual (3, callEdges.Count)
     let retEdges = cfg.FoldEdge (irRetEdgeFolder cfg) Map.empty
-    Assert.AreEqual (3, retEdges.Count)
+    Assert.AreEqual (2, retEdges.Count)
 
   [<TestMethod>]
   member __.``IRGraph Vertex Test after Call Analysis: foo`` () =
@@ -571,13 +567,13 @@ type CFGTestClass () =
   [<TestMethod>]
   member __.``SSAGraph Vertex Test after Call Analysis: _start`` () =
     let cfg = funcs'.[0x00UL].SSACFG
-    Assert.AreEqual (9, cfg.Size ())
+    Assert.AreEqual (8, cfg.Size ())
 
   [<TestMethod>]
   member __.``SSAGraph Edge Test after Call Analysis: _start`` () =
     let cfg = funcs'.[0x00UL].SSACFG
     let eList = cfg.FoldEdge (ssaEdgeFolder cfg) [] |> List.rev
-    Assert.AreEqual (13, List.length eList)
+    Assert.AreEqual (11, List.length eList)
 
   [<TestMethod>]
   member __.``SSAGraph Vertex Test after Call Analysis: foo`` () =
