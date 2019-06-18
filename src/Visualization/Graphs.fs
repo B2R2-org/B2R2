@@ -256,7 +256,7 @@ module VGraph =
   let padding = 4.0
 
   let private calcLength { Disasm = disasm ; Comment = comment } =
-    String.length disasm + String.length comment
+    String.length disasm
 
   let private calcWidth disassembly =
     let maxLength = List.map calcLength disassembly |> List.max |> float

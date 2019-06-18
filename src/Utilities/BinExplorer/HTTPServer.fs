@@ -32,6 +32,7 @@ open System.Runtime.Serialization
 open System.Runtime.Serialization.Json
 open B2R2
 open B2R2.BinGraph
+open B2R2.Utilities
 open B2R2.Visualization
 
 type CFGType =
@@ -40,7 +41,7 @@ type CFGType =
 
 
 [<DataContract>]
-  type Comment = {
+  type JsonDefs = {
     [<field: DataMember(Name = "name")>]
     name: string
     [<field: DataMember(Name = "addr")>]
@@ -49,6 +50,8 @@ type CFGType =
     idx: string
     [<field: DataMember(Name = "comment")>]
     comment: string
+    [<field: DataMember(Name = "command")>]
+    command: string
   }
 
 let rootDir =
@@ -131,7 +134,7 @@ let getComment hdl addr idx comment (func: Function) = function
   | IRCFG -> Visualizer.setCommentIRCFG hdl addr idx comment func.IRCFG
 
 let handleComment req resp arbiter cfgType (args: string) =
-  let commentReq = (jsonParser<Comment> args)
+  let commentReq = (jsonParser<JsonDefs> args)
   let name = commentReq.name
   let ess = Protocol.getBinEssence arbiter
   match BinEssence.TryFindFuncByName name ess with
@@ -145,7 +148,7 @@ let handleComment req resp arbiter cfgType (args: string) =
     Some (json<string> status  |> defaultEnc.GetBytes) |> answer req resp
 
 let handleAddress req resp arbiter (args: string) =
-  let jsonData = (jsonParser<Comment> args)
+  let jsonData = (jsonParser<JsonDefs> args)
   let entry: Addr =  Convert.ToUInt64(jsonData.addr, 16) |> uint64
   let ess = Protocol.getBinEssence arbiter
   let addrs =
@@ -162,6 +165,14 @@ let handleAddress req resp arbiter (args: string) =
     Some (defaultEnc.GetBytes namedcfg) |> answer req resp
 
 
+let handleCommand req resp arbiter (args: string) =
+  let jsonData = (jsonParser<JsonDefs> args)
+  let cmd = jsonData.command
+  let cmds = CmdSpec.speclist |> CmdMap.build
+  let result = CLI.handleStr cmds arbiter cmd
+  Some (json<string> result  |> defaultEnc.GetBytes) |> answer req resp
+
+
 let handleAJAX req resp arbiter query args =
     match query with
     | "bininfo" -> handleBinInfo req resp arbiter
@@ -171,6 +182,7 @@ let handleAJAX req resp arbiter query args =
     | "disasm-comment" -> handleComment req resp arbiter DisasmCFG args
     | "ir-comment" -> handleComment req resp arbiter IRCFG args
     | "address" -> handleAddress req resp arbiter args
+    | "command" -> handleCommand req resp arbiter args
     | _ -> ()
 
 let handle (req: HttpListenerRequest) (resp: HttpListenerResponse) arbiter =
