@@ -41,17 +41,24 @@ function Sidebar() {
   });
 
   $(document).on("click", ".sidebar-item", function () {
+    function show(wrapper) {
+      $(".sidebar-content > div").hide();
+      Terminal().deleteTerminal();
+      $(wrapper).show();
+    }
     $(".sidebar-item.active").removeClass("active");
     $(this).addClass("active");
     switch ($(this).attr("title")) {
       case "Functions":
-        $("#id_CommentsListWrapper").hide();
-        $("#id_FunctionsListWrapper").show();
+        show("#id_FunctionsListWrapper");
         break
       case "Comments":
-        $("#id_FunctionsListWrapper").hide();
-        $("#id_CommentsListWrapper").show();
+        show("#id_CommentsListWrapper");
         setSidebarComments();
+        break;
+      case "Terminal":
+        show("#id_TerminalWrapper");
+        Terminal().setTerminal(500);
         break;
       default:
         break;
@@ -69,7 +76,7 @@ function templeteSidebarComment(id, addr, comment) {
 }
 
 function templateSidebarCommentList(funcName) {
-  let tab_id = $("li[title=" + funcName + "]").attr("counter");
+  let tab_id = $("#id_tabContainer li[title=" + funcName + "]").attr("counter");
   let $gComments = $("#cfgGrp-" + tab_id + " g.gComment");
   let item = "<div class='comment-section' value='" + funcName + "'>";
   item += "<div class='comment-function'>"

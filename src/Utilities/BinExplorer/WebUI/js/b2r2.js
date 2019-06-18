@@ -26,10 +26,10 @@
   SOFTWARE.
 */
 
-function drawFunctions(funcs) {
+function drawFunctions(status, funcs) {
   $.each(funcs, function (_, addr) {
     $("#funcSelector").append($('<li>', {
-      value: addr,
+      title: addr,
       text: addr
     }));
   });
@@ -44,7 +44,7 @@ function filterFunctions() {
   });
 }
 
-function drawBinInfo(str) {
+function drawBinInfo(status, str) {
   let filepath;
   let token = str.split("/");
   if (str.length < 45) {
@@ -78,7 +78,7 @@ function disasm2irEvent(dims) {
       "q": "cfg-ir",
       "args": funcName
     },
-      function (json) {
+      function (status, json) {
         if (!isEmpty(json)) {
           setuiFuncName(funcName);
           drawCFG(dims, json);
@@ -96,7 +96,7 @@ function ir2disasmEvent(dims) {
       "q": "cfg-disasm",
       "args": funcName
     },
-      function (json) {
+      function (status, json) {
         if (!isEmpty(json)) {
           setuiFuncName(funcName);
           drawCFG(dims, json);
@@ -163,14 +163,14 @@ function reloadUI() {
 function functionListClickEvent() {
   function clickCall(e) {
     let $self = $(this);
-    let funcName = $self.attr('value');
+    let funcName = $self.attr('title');
     let tabsLength = $("#id_tabContainer li").length;
     if (tabsLength === 0) {
       query({
         "q": "cfg-disasm",
         "args": funcName
       },
-        function (json) {
+        function (status, json) {
           if (!isEmpty(json)) {
             setuiFuncName(funcName);
             let dims = reloadUI();
@@ -189,7 +189,7 @@ function functionListClickEvent() {
 
   function dbclickCall(e) {
     let $self = $(this);
-    let funcName = $self.attr('value');
+    let funcName = $self.attr('title');
     if (checkDuplicateTab(funcName)) {
       activateTab($self)
     } else {
@@ -197,7 +197,7 @@ function functionListClickEvent() {
         "q": "cfg-disasm",
         "args": funcName
       },
-        function (json) {
+        function (status, json) {
           if (!isEmpty(json)) {
             setuiFuncName(funcName);
             let dims = reloadUI();
@@ -238,11 +238,6 @@ function UIElementInit(isShow) {
     $("#minimapDiv").hide();
     $(".internel-autocomplete-container").hide();
   }
-}
-
-function setuiFuncName(name) {
-  $("#uiFuncName").text(name);
-  $("#uiFuncName").attr("title", name);
 }
 
 function main() {

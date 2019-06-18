@@ -63,7 +63,7 @@ function Comment() {
           "idx": stmtidx
         })
       },
-        function (json) {
+        function (status, json) {
           if (!isEmpty(json)) {
 
           }
