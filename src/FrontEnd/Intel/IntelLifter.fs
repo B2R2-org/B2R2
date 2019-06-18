@@ -1024,7 +1024,7 @@ let saturateSignedWordToUnsignedByte expr =
   let checkMax = sgt expr (numI32 255 16<rt>)
   let minNum = numU32 0u 8<rt>
   let maxNum = numU32 0xffu 8<rt>
-  ite checkMin minNum (ite checkMax maxNum expr)
+  ite checkMin minNum (ite checkMax maxNum (extractLow 8<rt> expr))
 
 let saturateToSignedByte expr =
   let checkMin = slt expr (numI32 -128 8<rt>)
