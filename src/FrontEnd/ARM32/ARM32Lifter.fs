@@ -1100,11 +1100,10 @@ let bl insInfo ctxt =
   let lblCondFail = lblSymbol "CondCheckFailed"
   let e, targetMode = parseOprOfBL insInfo
   let lr = getRegVar ctxt R.LR
-  let addr = bvOfBaseAddr insInfo.Address
+  let addr = bvOfBaseAddr insInfo.Address .+ (num <| BitVector.ofInt32 4 32<rt>)
   let isCondPass = isCondPassed insInfo.Condition
   startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
-  if insInfo.Mode = ArchOperationMode.ARMMode then
-    builder <! (lr := addr .+ (num <| BitVector.ofInt32 4 32<rt>))
+  if insInfo.Mode = ArchOperationMode.ARMMode then builder <! (lr := addr)
   else builder <! (lr := maskAndOR addr (num1 32<rt>) 32<rt> 1)
   selectInstrSet ctxt builder targetMode
   builder <! (branchWritePC ctxt e InterJmpInfo.IsCall)
@@ -1902,7 +1901,6 @@ let cmp insInfo ctxt =
   let e1, e2 = parseOprOfCMP insInfo ctxt
   let result = tmpVar 32<rt>
   let res, carryOut, overflow = addWithCarry e1 (not e2) (num1 32<rt>)
-  printfn "%A" (not e2)
   let cpsr = getRegVar ctxt R.CPSR
   let isCondPass = isCondPassed insInfo.Condition
   startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
