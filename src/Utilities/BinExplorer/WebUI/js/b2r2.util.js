@@ -73,8 +73,13 @@ function query(arguments, callback) {
   let req = new XMLHttpRequest();
   let params = serialize(arguments);
   req.onreadystatechange = function () {
-    if (this.readyState == 4 && this.status == 200) {
-      callback(JSON.parse(this.responseText));
+    // if (this.readyState == 4 && this.status == 200) { }
+    if (this.readyState == 4) {
+      if (this.responseText.length > 0) {
+        callback(this.status, JSON.parse(this.responseText));
+      } else {
+        callback(this.status, this.responseText);
+      }
     }
   }
   req.open("GET", "/ajax/?" + params, true);
@@ -109,4 +114,9 @@ function toCenter(dx, dy, zoom, transK, durationTime) {
     .duration(durationTime)
     .call(zoom.transform,
       d3.zoomIdentity.translate(newX, newY).scale(transK));
+}
+
+function setuiFuncName(name) {
+  $("#uiFuncName").text(name);
+  $("#uiFuncName").attr("title", name);
 }

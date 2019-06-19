@@ -40,6 +40,14 @@ let handle cmds arbiter (line: string) =
     print arbiter ""
   | [] -> ()
 
+let handleStr cmds arbiter (line: string) =
+  match line.Split (' ') |> Array.toList with
+  | cmd :: args ->
+    let ess = Protocol.getBinEssence arbiter
+    Cmd.handle cmds ess cmd args
+      |> Array.fold (fun acc x -> acc + x.ToString()+"\n") ""
+  | [] -> ""
+
 let rec cliLoop cmds arbiter (console: FsReadLine.Console) =
   let line = console.ReadLine ()
   match line with

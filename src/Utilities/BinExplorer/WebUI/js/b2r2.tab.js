@@ -105,7 +105,7 @@ function toggleDisasmIR(textType) {
 
 function activateTab($el, callback) {
   deactivatedTab();
-  let functionName = $el.attr('value');
+  let functionName = $el.attr('title');
   let $tab = $("#id_tabContainer li[value='" + functionName + "']");
   let textType = $tab.attr('text-type') === undefined ? "disasm" : $tab.attr('text-type');
   let tabNumber = $tab.attr("counter");
@@ -117,7 +117,7 @@ function activateTab($el, callback) {
     "q": "cfg-" + textType.toLowerCase(),
     "args": functionName
   },
-    function (json) {
+    function (status, json) {
       if (!isEmpty(json)) {
         setuiFuncName(functionName);
         autocomplete(json);
@@ -139,9 +139,9 @@ function replaceTab($self, name, dims) {
   $tab.empty().append(newTab);
   query({
     "q": "cfg-disasm",
-    "args": $self.attr('value')
+    "args": $self.attr('title')
   },
-    function (json) {
+    function (status, json) {
       if (!isEmpty(json)) {
         setuiFuncName(name);
         drawCFG(dims, json);
@@ -155,7 +155,7 @@ function activateOpenFunction() {
   });
   $("#id_tabContainer li").each(function () {
     let tabFunctionName = $(this).attr("value")
-    $("#funcSelector li[value='" + tabFunctionName + "']").each(function () {
+    $("#funcSelector li[title='" + tabFunctionName + "']").each(function () {
       $(this).addClass("active")
     });
   })
@@ -220,7 +220,7 @@ function searchAddress() {
     "q": "address",
     "args": JSON.stringify({ "addr": addr })
   },
-    function (json) {
+    function (status, json) {
       if (!isEmpty(json)) {
         let funcName = json.Name
         let dims = reloadUI();
@@ -230,6 +230,7 @@ function searchAddress() {
         } else {
           addTab(funcName, dims, json);
           drawCFG(dims, json);
+          setuiFuncName(funcName);
           UIElementInit(true);
           autocomplete(json);
         }

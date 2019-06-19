@@ -678,7 +678,7 @@ function registerRefreshEvents() {
       "q": "cfg-disasm",
       "args": $("#uiFuncName").text()
     },
-      function (json) {
+      function (status, json) {
         if (!isEmpty(json)) {
           let dims = reloadUI();
           drawCFG(dims, json);

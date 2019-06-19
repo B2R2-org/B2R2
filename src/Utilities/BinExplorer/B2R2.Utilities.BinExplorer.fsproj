@@ -9,7 +9,6 @@
 
   <ItemGroup>
     <Compile Include="Protocol.fs" />
-    <Compile Include="HTTPServer.fs" />
     <Compile Include="CmdTypes.fs" />
     <Compile Include="BinInfo.fs" />
     <Compile Include="Credits.fs" />
@@ -22,6 +21,7 @@
     <Compile Include="Help.fs" />
     <Compile Include="CmdSpec.fs" />
     <Compile Include="CLI.fs" />
+    <Compile Include="HTTPServer.fs" />
     <Compile Include="Main.fs" />
     <None Include="WebUI\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
