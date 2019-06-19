@@ -879,11 +879,16 @@ let offsetToString addrMode offset sb =
 let processAddrExn32 ins addr =
   match ins.Opcode with
   | Op.CBZ | Op.CBNZ -> addr + 4UL
-  | Op.B | Op.BL when ins.Mode = ArchOperationMode.ThumbMode -> addr + 4UL
-  | Op.BLX | Op.ADR | Op.LDR when ins.Mode = ArchOperationMode.ThumbMode ->
-    ParseUtils.align (addr + 4UL) 4UL
-  | Op.BL | Op.BLX | Op.ADR -> ParseUtils.align (addr + 8UL) 4UL
-  | Op.B | Op.LDR -> addr + 8UL
+  | Op.B when ins.Mode = ArchOperationMode.ThumbMode -> addr + 4UL
+  | Op.BL when ins.Mode = ArchOperationMode.ThumbMode -> addr + 4UL
+  | Op.BLX when ins.Mode = ArchOperationMode.ThumbMode -> addr + 4UL
+  | Op.ADR when ins.Mode = ArchOperationMode.ThumbMode -> addr + 4UL
+  | Op.LDR when ins.Mode = ArchOperationMode.ThumbMode -> addr + 4UL
+  | Op.B
+  | Op.BL
+  | Op.BLX
+  | Op.ADR
+  | Op.LDR -> ParseUtils.align (addr + 8UL) 4UL
   | _ -> addr
 
 let memHead ins addr addrMode (sb: StringBuilder) =
