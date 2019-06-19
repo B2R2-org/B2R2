@@ -307,9 +307,15 @@ let isSetCPSR_T ctxt = getPSR ctxt R.CPSR PSR_T == maskPSRForTbit
 let getCarryFlag ctxt =
   getPSR ctxt R.CPSR PSR_C >> (num <| BitVector.ofInt32 29 32<rt>)
 
+let getMask maskSize regType =
+  BitVector.ofUBInt (BigInteger.getMask maskSize) regType
+  |> BitVector.bnot |> num
+
+let maskAnd e regType maskSize =
+  e .& (getMask maskSize regType)
+
 let maskAndOR e1 e2 regType maskSize =
-  let mask = BitVector.ofUBInt (BigInteger.getMask maskSize) regType
-             |> BitVector.bnot |> num
+  let mask = getMask maskSize regType
   let expr = e1 .& mask
   expr .| e2
 
@@ -564,9 +570,9 @@ let selectInstrSet ctxt builder = function
 /// Write value to R.PC, without interworking, on page A2-47.
 /// function : BranchWritePC()
 let branchWritePC ctxt result jmpInfo =
-  let resultClear2Bit = maskAndOR result (num0 32<rt>) 32<rt> 2
-  let resultClear1Bit = maskAndOR result (num0 32<rt>) 32<rt> 1
-  let newPC = ite (isInstrSetARM ctxt) resultClear2Bit resultClear1Bit
+  let resultClear2Bits = maskAnd result 32<rt> 2
+  let resultClear1Bit = maskAnd result 32<rt> 1
+  let newPC = ite (isInstrSetARM ctxt) resultClear2Bits resultClear1Bit
   InterJmp (getPC ctxt, newPC, jmpInfo) // FIXME
 
 /// Write value to R.PC, with interworking, on page A2-47.
@@ -577,7 +583,6 @@ let bxWritePC ctxt result (builder: StmtBuilder) =
   let lblL2 = lblSymbol "bxWPCL2"
   let lblL3 = lblSymbol "bxWPCL3"
   let lblEnd = lblSymbol "bxWPCEnd"
-  let num0 = num0 32<rt>
   let cond1 = extractLow 1<rt> result == b1
   let cond2 = extract result 1<rt> 1 == b1
   let pc = getPC ctxt
@@ -585,7 +590,7 @@ let bxWritePC ctxt result (builder: StmtBuilder) =
   builder <! (LMark lblL0)
   selectThumbInstrSet ctxt builder
   // FIXME
-  builder <! (InterJmp (pc, maskAndOR result num0 32<rt> 1, InterJmpInfo.Base))
+  builder <! (InterJmp (pc, maskAnd result 32<rt> 1, InterJmpInfo.Base))
   builder <! (Jmp (Name lblEnd))
   builder <! (LMark lblL1)
   builder <! (CJmp (cond2, Name lblL2, Name lblL3))
@@ -601,15 +606,15 @@ let bxWritePC ctxt result (builder: StmtBuilder) =
 /// Write value to R.PC, with interworking for ARM only from ARMv7
 /// , on page A2-47. function : ALUWritePC()
 let writePC ctxt result (builder: StmtBuilder) =
-  let lblL0 = lblSymbol "writePCL0"
-  let lblL1 = lblSymbol "writePCL1"
-  let lblEnd = lblSymbol "writePCEnd"
+  let lblArm = lblSymbol "LARM"
+  let lblThm = lblSymbol "LTHM"
+  let lblEnd = lblSymbol "LEnd"
   let cond = isInstrSetARM ctxt
-  builder <! (CJmp (cond, Name lblL0, Name lblL1))
-  builder <! (LMark lblL0)
+  builder <! (CJmp (cond, Name lblArm, Name lblThm))
+  builder <! (LMark lblArm)
   bxWritePC ctxt result builder
   builder <! (Jmp (Name lblEnd))
-  builder <! (LMark lblL1)
+  builder <! (LMark lblThm)
   builder <! (branchWritePC ctxt result InterJmpInfo.Base)
   builder <! (LMark lblEnd)
 
@@ -2541,11 +2546,12 @@ let ubfx insInfo ctxt =
   else builder <! (SideEffect UndefinedInstr)  //FIXME  (use UNPREDICTABLE)
   endMark insInfo lblCondFail isCondPass builder
 
-/// For ThumbMode (T1 case)
+/// ADR For ThumbMode (T1 case)
 let parseOprOfADR insInfo ctxt =
   match insInfo.Operands with
   | TwoOperands (OprReg rd, OprMemory (LiteralMode imm)) ->
     let addr = bvOfBaseAddr insInfo.Address
+    let addr = addr .+ (num <| BitVector.ofInt32 4 32<rt>)
     let pc = align addr (num <| BitVector.ofInt32 4 32<rt>)
     getRegVar ctxt rd, pc .+ (num <| BitVector.ofInt64 imm 32<rt>)
   | _ -> raise InvalidOperandException
