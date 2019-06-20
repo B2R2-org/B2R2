@@ -51,16 +51,15 @@ let getThumbParser = function
   | _ -> failwith "Invalid instruction length"
 
 let inline private newInsInfo addr c opcode qualifier simd oprs instrLen mode =
-  let insInfo = {
-    Address = addr
-    NumBytes = instrLen
-    Condition  = c
-    Opcode = opcode
-    Operands = oprs
-    Qualifier = qualifier
-    SIMDTyp = simd
-    Mode = mode
-  }
+  let insInfo =
+    { Address = addr
+      NumBytes = instrLen
+      Condition  = c
+      Opcode = opcode
+      Operands = oprs
+      Qualifier = qualifier
+      SIMDTyp = simd
+      Mode = mode }
   ARM32Instruction (addr, instrLen, insInfo)
 
 let parse reader arch mode addr pos itState =

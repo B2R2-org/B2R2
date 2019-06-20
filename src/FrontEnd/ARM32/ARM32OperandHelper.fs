@@ -556,17 +556,23 @@ let getReg b s e = getRegister (extract b s e |> byte)
 let getSign s = if s = 1u then Plus else Minus
 
 let retSndIfNotTheSame a b = isUnpredictable (a = b); b
+
 let checkSize size v = isUnpredictable (size = v)
 
 let parseOneOpr b checkfn opr = checkfn b opr; OneOperand (opr b)
+
 let parseTwoOprs b checkfn ((op1, op2) as oprs) =
   checkfn b oprs; TwoOperands (op1 b, op2 b)
+
 let parseThreeOprs b checkfn ((op1, op2, op3) as oprs) =
   checkfn b oprs; ThreeOperands (op1 b, op2 b, op3 b)
+
 let parseFourOprs b checkfn ((op1, op2, op3, op4) as oprs) =
   checkfn b oprs; FourOperands (op1 b, op2 b, op3 b, op4 b)
+
 let parseFiveOprs b checkfn ((op1, op2, op3, op4, op5) as oprs) =
   checkfn b oprs; FiveOperands (op1 b, op2 b, op3 b, op4 b, op5 b)
+
 let parseSixOprs b checkfn ((op1, op2, op3, op4, op5, op6) as oprs) =
   checkfn b oprs; SixOperands (op1 b, op2 b, op3 b, op4 b, op5 b, op6 b)
 
@@ -1417,6 +1423,7 @@ let getScalarC b =
     | opc when opc &&& 0b1011u = 0b0010u -> raise UndefinedException
     | _ -> failwith "Wrong scalarC encoding."
   (dd, Some x) |> sSReg
+
 let getScalarD b =
   let dd = concat (pickBit b 7u) (extract b 19u 16u) 4 |> byte
            |> getVFPDRegister
@@ -1438,6 +1445,7 @@ let getScalarD b =
   (dd, Some x) |> sSReg
 
 let dummyChk _ _ = ()
+
 let checkStoreEx1 b (op1, op2, _) =
   let rn = getRegC b
   isUnpredictable (op1 b = OprReg R.PC || op2 b = OprReg R.PC ||
@@ -1575,6 +1583,7 @@ let chkUnpreAJ b (op1, op2, _) =
   isUnpredictable ((p = 0u && w = 1u) || op2 b = OprReg R.PC ||
                    ((p = 0u || w = 1u) &&
                     (rn = OprReg R.PC || rn = op1 b || rn = op2 b)))
+
 let chkUnpreAK (_, b2) _ =
   let rm = getRegA b2
   isUnpredictable (rm = OprReg R.SP || rm = OprReg R.PC)
@@ -1612,20 +1621,26 @@ let chkUnpreAS b _ =
                    (pickBit b 21u = 1u && List.exists (fun e -> e = rn) rl))
 
 let chkUnpreAT b _ = isUnpredictable (pickBit b 13u = 0b1u)
+
 let chkUnpreAU b (_, _, op3, op4, _) =
   isUnpredictable (op3 b = OprReg R.PC || op4 b = OprReg R.PC)
+
 let chkUnpreAV b (_, _, op3, op4, _) =
   isUnpredictable (op3 b = OprReg R.PC ||
                    op4 b = OprReg R.PC || op3 b = op4 b)
+
 let chkUnpreAW b (op1, _, op3, op4) =
   isUnpredictable (op3 b = OprReg R.PC || op4 b = OprReg R.PC ||
                    op1 b = OprReg R.S31)
+
 let chkUnpreAX b (op1, op2, op3, _) =
   isUnpredictable (op1 b = OprReg R.PC || op2 b = OprReg R.PC ||
                    op3 b = OprReg R.S31 || op1 b = op2 b)
+
 let chkUnpreAY b (op1, op2, _) =
   isUnpredictable (op1 b = OprReg R.PC ||
                    op2 b = OprReg R.PC || op1 b = op2 b)
+
 let chkUnpreAZ b _ =
   let regs = (extract b 7u 0u) / 2u
   isUnpredictable (regs = 0u || regs > 16u ||
@@ -1635,10 +1650,13 @@ let chkUnpreBA b _ =
   let imm8 = extract b 7u 0u
   isUnpredictable (imm8 = 0u ||
                    (concat (extract b 15u 12u) (pickBit b 22u) 1) + imm8 > 32u)
+
 let chkUnpreBB b (_, _, op3, _, _, _) = isUnpredictable (op3 b = OprReg R.PC)
+
 let chkUnpreBC b _ =
   let rL = ((pickBit b 8u) <<< 14) + (extract b 7u 0u) |> getRegList
   isUnpredictable (List.length rL < 1)
+
 let chkUnpreBD opcode itState b op1 =
   let isITOpcode = function
     | Op.ITE | Op.ITET | Op.ITTE | Op.ITEE | Op.ITETT | Op.ITTET | Op.ITEET
@@ -1956,16 +1974,22 @@ let chkUnpreDC (b1, b2) (op1, op2, op3, op4) =
                    opr3 = OprReg R.SP || opr3 = OprReg R.PC ||
                    opr4 = OprReg R.SP || opr4 = OprReg R.PC ||
                    opr1 = opr2)
+
 let chkUnpreDD b _ =
   isUnpredictable (List.length (getRegList (extract b 7u 0u)) < 1)
+
 let chkUnpreDE itState _ _ = isUnpredictable (inITBlock itState)
+
 let chkUnpreDF itState b _ =
     let d = concat (pickBit b 7u) (extract b 2u 0u) 3
     isUnpredictable (d = 15u && chkUnpreInAndNotLastItBlock itState)
+
 let chkUnpreDG itState _ _ =
     isUnpredictable (chkUnpreInAndNotLastItBlock itState)
+
 let chkUnpreDH itState b op =
   isUnpredictable (op b = OprReg R.PC || chkUnpreInAndNotLastItBlock itState)
+
 let chkUnpreDI itState b _ =
   isUnpredictable (extract b 19u 16u = 15u ||
                    chkUnpreInAndNotLastItBlock itState)
