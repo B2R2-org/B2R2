@@ -590,7 +590,6 @@ let bxWritePC ctxt result (builder: StmtBuilder) =
   let cond1 = extractLow 1<rt> result == b1
   let cond2 = extract result 1<rt> 1 == b0
   let pc = getPC ctxt
-  printfn "%A %A" pc result
   builder <! (CJmp (cond0, Name lblL0, Name lblL1))
   builder <! (LMark lblL0)
   builder <! (CJmp (cond1, Name lblL2, Name lblL3))
@@ -2134,12 +2133,12 @@ let pop insInfo ctxt =
   startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
   builder <! (t0 := addr)
   let addr = popLoop ctxt numOfReg t0 builder
-  if (numOfReg >>> 15 &&& 1u) = 1u then
-    builder <! (loadLE 32<rt> addr |> loadWritePC ctxt)
-  else ()
   if (numOfReg >>> 13 &&& 1u) = 0u then
     builder <! (sp := sp .+ (num <| BitVector.ofInt32 stackWidth 32<rt>))
   else builder <! (sp := (Expr.Undefined (32<rt>, "UNKNOWN")))
+  if (numOfReg >>> 15 &&& 1u) = 1u then
+    builder <! (loadLE 32<rt> addr |> loadWritePC ctxt)
+  else ()
   endMark insInfo lblCondFail isCondPass builder
 
 let parseOprOfLDM insInfo ctxt =
