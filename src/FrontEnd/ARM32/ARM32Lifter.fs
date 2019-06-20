@@ -582,19 +582,31 @@ let bxWritePC ctxt result (builder: StmtBuilder) =
   let lblL1 = lblSymbol "bxWPCL1"
   let lblL2 = lblSymbol "bxWPCL2"
   let lblL3 = lblSymbol "bxWPCL3"
+  let lblL4 = lblSymbol "bxWPCL4"
+  let lblL5 = lblSymbol "bxWPCL5"
+  let lblL6 = lblSymbol "bxWPCL6"
   let lblEnd = lblSymbol "bxWPCEnd"
+  let cond0 = (isSetCPSR_J ctxt) .& (isSetCPSR_T ctxt)
   let cond1 = extractLow 1<rt> result == b1
-  let cond2 = extract result 1<rt> 1 == b1
+  let cond2 = extract result 1<rt> 1 == b0
   let pc = getPC ctxt
-  builder <! (CJmp (cond1, Name lblL0, Name lblL1))
+  printfn "%A %A" pc result
+  builder <! (CJmp (cond0, Name lblL0, Name lblL1))
   builder <! (LMark lblL0)
-  selectThumbInstrSet ctxt builder
+  builder <! (CJmp (cond1, Name lblL2, Name lblL3))
+  builder <! (LMark lblL2)
   // FIXME
-  builder <! (InterJmp (pc, maskAnd result 32<rt> 1, InterJmpInfo.Base))
+  builder <! (InterJmp (pc, maskAnd result 32<rt> 0, InterJmpInfo.Base))
   builder <! (Jmp (Name lblEnd))
   builder <! (LMark lblL1)
-  builder <! (CJmp (cond2, Name lblL2, Name lblL3))
-  builder <! (LMark lblL2)
+  builder <! (CJmp (cond1, Name lblL4, Name lblL5))
+  builder <! (LMark lblL4)
+  selectThumbInstrSet ctxt builder
+  builder <! (InterJmp (pc, maskAnd result 32<rt> 0, InterJmpInfo.Base))
+  builder <! (Jmp (Name lblEnd))
+  builder <! (LMark lblL5)
+  builder <! (CJmp (cond2, Name lblL6, Name lblL3))
+  builder <! (LMark lblL6)
   selectARMInstrSet ctxt builder
   // FIXME
   builder <! (InterJmp (pc, result, InterJmpInfo.Base))
