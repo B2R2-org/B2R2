@@ -1797,7 +1797,7 @@ let clz insInfo ctxt =
   let numSize = (num <| BitVector.ofInt32 32 32<rt>)
   let numMinusOne = (num <| BitVector.ofInt32 -1 32<rt>)
   let t1, result = tmpVar 32<rt>, tmpVar 32<rt>
-  let cond1 = lt t1 (num0 32<rt>)
+  let cond1 = t1 == (num0 32<rt>)
   let cond2 = src .& ((num1 32<rt>) << t1) != (num0 32<rt>)
   let isCondPass = isCondPassed insInfo.Condition
   startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
