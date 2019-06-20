@@ -29,6 +29,7 @@ module internal B2R2.FrontEnd.ARM32.ParseUtils
 
 open B2R2
 open B2R2.FrontEnd.ARM32
+open B2R2.FrontEnd
 
 let extract binary n1 n2 =
   let m, n = if max n1 n2 = n1 then n1, n2 else n2, n1
@@ -64,10 +65,10 @@ let decodeRegShift = function
   | _ -> raise InvalidTypeException
 
 /// Test if the current instruction is in an IT block.
-let inITBlock it = it &&& 0b1111uy <> 0b0000uy
+let inITBlock (ctxt: ParsingContext) = List.isEmpty ctxt.ITState |> not
 
 /// Test if the current instruction is the last instruction of an IT block.
-let lastInITBlock it = it &&& 0b1111uy = 0b1000uy
+let lastInITBlock (ctxt: ParsingContext) = List.length ctxt.ITState = 1
 
 let parseCond = function
   | 0x0uy -> Condition.EQ

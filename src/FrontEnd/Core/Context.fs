@@ -36,7 +36,7 @@ type ParsingContext (archMode) =
   member val ArchOperationMode: ArchOperationMode = archMode with get, set
 
   /// ITState for ARM.
-  member val ITState: byte = 0uy with get, set
+  member val ITState: byte list = [] with get, set
 
 /// A high-level interface for the translation context, which stores several
 /// states for translating/lifting instructions.

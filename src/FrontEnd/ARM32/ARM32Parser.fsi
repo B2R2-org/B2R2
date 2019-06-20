@@ -29,16 +29,16 @@
 module B2R2.FrontEnd.ARM32.Parser
 
 open B2R2
+open B2R2.FrontEnd
 
 /// Read in bytes and return a parsed instruction for ARMv7. This function
 /// returns ARM32Instruction, which is a specialized type for 32-bit ARM. If you
 /// want to handle instructions in a platform-agnostic manner, you'd better use
 /// the ARM32Parser class.
 val parse: BinReader
+        -> ParsingContext
         -> Architecture
-        -> ArchOperationMode
         -> Addr
         -> int
-        -> byte
         -> ARM32Instruction
 

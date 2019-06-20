@@ -1456,8 +1456,8 @@ let checkStoreEx2 b (op1, op2, op3, _) =
                    op2 b = OprReg R.LR || rn = OprReg R.PC || op1 b = rn ||
                    op1 b = op2 b || op1 b = op3 b)
 
-let chkUnpreInAndNotLastItBlock itState =
-  inITBlock itState && lastInITBlock itState |> not
+let chkUnpreInAndNotLastItBlock ctxt =
+  inITBlock ctxt && lastInITBlock ctxt |> not
 
 let chkUnpreA b (op1, op2, op3) =
   isUnpredictable (op1 b = OprReg R.PC || op2 b = OprReg R.PC ||
@@ -1498,10 +1498,10 @@ let chkUnpreP b (op1, op2, _) =
   isUnpredictable (op1 b = OprReg R.PC || op2 b = OprReg R.PC)
 let chkUnpreQ b (op1, op2, _, _) =
   isUnpredictable (op1 b = OprReg R.PC || op2 b = OprReg R.PC)
-let chkUnpreR itState b _ =
+let chkUnpreR ctxt b _ =
   let d = concat (pickBit b 7u) (extract b 2u 0u) 3
   isUnpredictable ((extract b 6u 3u = 15u && d = 15u) &&
-                   d = 15u && inITBlock itState && lastInITBlock itState |> not)
+                   d = 15u && inITBlock ctxt && lastInITBlock ctxt |> not)
 let chkUnpreS b _ =
   let rnd = concat (pickBit b 7u) (extract b 2u 0u) 3
   let rm = extract b 6u 3u
@@ -1657,17 +1657,17 @@ let chkUnpreBC b _ =
   let rL = ((pickBit b 8u) <<< 14) + (extract b 7u 0u) |> getRegList
   isUnpredictable (List.length rL < 1)
 
-let chkUnpreBD opcode itState b op1 =
+let chkUnpreBD opcode ctxt b op1 =
   let isITOpcode = function
     | Op.ITE | Op.ITET | Op.ITTE | Op.ITEE | Op.ITETT | Op.ITTET | Op.ITEET
     | Op.ITTTE | Op.ITETE | Op.ITTEE | Op.ITEEE -> true
     | _ -> false
-  isUnpredictable (inITBlock itState || op1 b = OprCond Condition.UN ||
+  isUnpredictable (inITBlock ctxt || op1 b = OprCond Condition.UN ||
                    (op1 b = OprCond Condition.AL && isITOpcode opcode))
 
-let chkUnpreBE itState b _ =
+let chkUnpreBE ctxt b _ =
   isUndefined (extract b 11u 8u = 14u)
-  isUnpredictable (inITBlock itState)
+  isUnpredictable (inITBlock ctxt)
 
 let chkUnpreBF (b1, b2) _ =
   let n = extract b1 3u 0u
@@ -1675,19 +1675,19 @@ let chkUnpreBF (b1, b2) _ =
   isUnpredictable (n = 15u || List.length rL < 2 ||
                    pickBit b2 5u = 0b1u || pickBit b2 n = 0b1u)
 
-let chkUnpreBG itState (_, b2) _ =
+let chkUnpreBG ctxt (_, b2) _ =
   let pm = (extract b2 15u 14u)
   let rL = concat (pm <<< 1) (extract b2 12u 0u) 13 |> getRegList
   isUnpredictable (List.length rL < 2 || pm = 0b11u ||
-                   (pickBit b2 15u = 1u && chkUnpreInAndNotLastItBlock itState))
+                   (pickBit b2 15u = 1u && chkUnpreInAndNotLastItBlock ctxt))
 
-let chkUnpreBH itState (b1, b2) _ =
+let chkUnpreBH ctxt (b1, b2) _ =
   let n = extract b1 3u 0u
   let w =  pickBit b1 5u
   let pm = extract b2 15u 14u
   let rl = getRegList (concat (pm <<< 1) (extract b2 12u 0u) 13)
   isUnpredictable (n = 15u || List.length rl < 2 || pm = 0b11u)
-  isUnpredictable (pickBit b2 15u = 1u && chkUnpreInAndNotLastItBlock itState)
+  isUnpredictable (pickBit b2 15u = 1u && chkUnpreInAndNotLastItBlock ctxt)
   isUnpredictable (w = 1u && pickBit b2 n = 1u)
 
 let chkUnpreBI (_, b2) _ =
@@ -1758,11 +1758,11 @@ let chkUnpreBQ (b1, b2) (op1, op2, op3, _) =
                    rn = R.PC || op1 (b1, b2) = OprReg rn ||
                    op1 (b1, b2) = op2 (b1, b2))
 
-let chkUnpreBR itState (b1, b2) _ =
+let chkUnpreBR ctxt (b1, b2) _ =
   let rn = getRegister (extract b1 3u 0u |> byte)
   let rm = getRegister (extract b2 3u 0u |> byte)
   isUnpredictable (rn = R.SP || rm = R.SP || rm = R.PC)
-  isUnpredictable (chkUnpreInAndNotLastItBlock itState)
+  isUnpredictable (chkUnpreInAndNotLastItBlock ctxt)
 
 let chkUnpreBS (b1, b2) (op1, _) =
   let rn = getRegister (extract b1 3u 0u |> byte)
@@ -1900,11 +1900,11 @@ let chkUnpreCQ (b1, b2) op1 =
 let chkUnpreCR (_, b2) _ =
   isUnpredictable (pickBit b2 0u = 0b1u)
 
-let chkUnpreCS itState (_, b2) _ =
+let chkUnpreCS ctxt (_, b2) _ =
   isUnpredictable ((extract b2 4u 0u <> 0b0u && pickBit b2 8u = 0b0u) ||
                    (pickBit b2 10u = 0b1u && extract b2 7u 5u = 0b0u) ||
                    (pickBit b2 10u = 0b0u && extract b2 7u 5u <> 0b0u))
-  isUnpredictable (extract b2 10u 9u = 1u || inITBlock itState)
+  isUnpredictable (extract b2 10u 9u = 1u || inITBlock ctxt)
 
 let chkUnpreCT (b1, b2) (op1, _) =
   let rn = getRegister (extract b1 3u 0u |> byte)
@@ -1913,11 +1913,11 @@ let chkUnpreCT (b1, b2) (op1, _) =
   isUnpredictable (opr1 = OprReg R.SP || (opr1 = OprReg R.PC && w = 1u) ||
                    (w = 1u && OprReg rn = op1 (b1, b2)))
 
-let chkUnpreCU itState (b1, b2) _ =
+let chkUnpreCU ctxt (b1, b2) _ =
   let n = extract b1 3u 0u
   let t = extract b2 15u 12u
   isUnpredictable ((pickBit b2 8u = 1u && n = t) ||
-                   (t = 15u && chkUnpreInAndNotLastItBlock itState))
+                   (t = 15u && chkUnpreInAndNotLastItBlock ctxt))
 
 let chkUnpreCV (b1, b2) (op1, _) = isUnpredictable (op1 (b1, b2) = OprReg R.SP)
 let chkUnpreCW (b1, b2) (op1, _) =
@@ -1978,27 +1978,27 @@ let chkUnpreDC (b1, b2) (op1, op2, op3, op4) =
 let chkUnpreDD b _ =
   isUnpredictable (List.length (getRegList (extract b 7u 0u)) < 1)
 
-let chkUnpreDE itState _ _ = isUnpredictable (inITBlock itState)
+let chkUnpreDE ctxt _ _ = isUnpredictable (inITBlock ctxt)
 
-let chkUnpreDF itState b _ =
+let chkUnpreDF ctxt b _ =
     let d = concat (pickBit b 7u) (extract b 2u 0u) 3
-    isUnpredictable (d = 15u && chkUnpreInAndNotLastItBlock itState)
+    isUnpredictable (d = 15u && chkUnpreInAndNotLastItBlock ctxt)
 
-let chkUnpreDG itState _ _ =
-    isUnpredictable (chkUnpreInAndNotLastItBlock itState)
+let chkUnpreDG ctxt _ _ =
+    isUnpredictable (chkUnpreInAndNotLastItBlock ctxt)
 
-let chkUnpreDH itState b op =
-  isUnpredictable (op b = OprReg R.PC || chkUnpreInAndNotLastItBlock itState)
+let chkUnpreDH ctxt b op =
+  isUnpredictable (op b = OprReg R.PC || chkUnpreInAndNotLastItBlock ctxt)
 
-let chkUnpreDI itState b _ =
+let chkUnpreDI ctxt b _ =
   isUnpredictable (extract b 19u 16u = 15u ||
-                   chkUnpreInAndNotLastItBlock itState)
+                   chkUnpreInAndNotLastItBlock ctxt)
 let chkUnpreDJ it (b1, b2) op1 =
   isUnpredictable (op1 (b1, b2) = OprReg R.SP ||
                     (op1 (b1, b2) = OprReg R.PC &&
                      chkUnpreInAndNotLastItBlock it))
-let chkUnpreDK itState b (op, _) =
-  isUnpredictable (op b = OprReg R.PC && chkUnpreInAndNotLastItBlock itState)
+let chkUnpreDK ctxt b (op, _) =
+  isUnpredictable (op b = OprReg R.PC && chkUnpreInAndNotLastItBlock ctxt)
 
 let chkUnpreDL mode b (op1, _) =
   isUnpredictable (op1 b = OprReg R.SP && mode <> ArchOperationMode.ARMMode)

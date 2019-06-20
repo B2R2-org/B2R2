@@ -1480,7 +1480,8 @@ module ARMv7 =
 
   let private test arch endian cond op (q: Qualifier option) simd oprs bytes =
     let reader = BinReader.Init (bytes, endian)
-    let ins = Parser.parse reader arch ArchOperationMode.ARMMode 0UL 0 0uy
+    let ctxt = new ParsingContext (ArchOperationMode.ARMMode)
+    let ins = Parser.parse reader ctxt arch 0UL 0
     let cond' = ins.Info.Condition
     let opcode' = ins.Info.Opcode
     let oprs' = ins.Info.Operands
@@ -5192,7 +5193,8 @@ module ARMThumb =
 
   let private test arch endian cond op q (simd: SIMDDataType option) oprs bs =
     let reader = BinReader.Init (bs, endian)
-    let ins = Parser.parse reader arch ArchOperationMode.ThumbMode 0UL 0 0uy
+    let ctxt = new ParsingContext (ArchOperationMode.ThumbMode)
+    let ins = Parser.parse reader ctxt arch 0UL 0
     let cond' = ins.Info.Condition
     let opcode' = ins.Info.Opcode
     let oprs' = ins.Info.Operands

@@ -41,7 +41,7 @@ type ARM32TranslationContext (isa) =
 type ARM32Parser (arch) =
   inherit Parser ()
   override __.Parse reader ctxt addr pos =
-    Parser.parse reader arch ctxt.ArchOperationMode addr pos ctxt.ITState
+    Parser.parse reader ctxt arch addr pos
     :> Instruction
 
 // vim: set tw=80 sts=2 sw=2:
