@@ -357,6 +357,25 @@ let renamePhi stacks predMap parent ssaMap n =
   List.iter (renamePhiAux stacks preds parent) stmts
   Map.add n (irbbl, stmts) ssaMap
 
+let removeDef stacks = function
+  | RegVar (ty, r, s, _) ->
+    let def = Reg (ty, r, s)
+    Map.add def (List.tail <| Map.find def stacks) stacks
+  | PCVar (ty, _) ->
+    let def = PC ty
+    Map.add def (List.tail <| Map.find def stacks) stacks
+  | TempVar _ as def -> stacks
+  | MemVar _ ->
+    let def = Mem
+    Map.add def (List.tail <| Map.find def stacks) stacks
+
+let popStack stacks = function
+  | LMark _
+  | SideEffect _
+  | Jmp _ -> stacks
+  | Def (def, _)
+  | Phi (def, _) -> removeDef stacks def
+
 let rec rename tree predMap succMap aOrig (ssaMap, counts, stacks) n =
   let irbbl, stmts = Map.find n ssaMap
   let stmts, counts, stacks =
@@ -369,9 +388,7 @@ let rec rename tree predMap succMap aOrig (ssaMap, counts, stacks) n =
     children
     |> List.fold (rename tree predMap succMap aOrig) (ssaMap, counts, stacks)
   let defs = Map.find n aOrig
-  let stacks = Set.fold (fun stacks def ->
-    let stack = Map.find def stacks |> List.tail
-    Map.add def stack stacks) stacks defs
+  let stacks = List.fold popStack stacks stmts
   ssaMap, counts, stacks
 
 let renameVars hdl ctxt =
