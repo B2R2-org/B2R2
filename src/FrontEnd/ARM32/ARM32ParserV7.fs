@@ -1607,39 +1607,47 @@ let parseGroup3 ctxt bin =
     Op.LDRSH, cond, 0uy, None, p2Oprs bin dummyChk (getRegI, getMemD)
   | _ -> parseGroup3Sub cond bin
 
+let inverseCond cond =
+  (cond &&& 0xeuy) ||| ((~~~ cond) &&& 0b1uy)
+
+let getITOpcodeWithX cond x =
+  let invCond = inverseCond cond
+  if x then Op.ITT, [ cond; cond ] else Op.ITE, [ cond; invCond ]
+
+let getITOpcodeWithXY cond x y =
+  let invCond = inverseCond cond
+  match x, y with
+  | true, true -> Op.ITTT, [ cond; cond; cond ]
+  | true, false -> Op.ITTE, [ cond; cond; invCond ]
+  | false, true -> Op.ITET, [ cond; invCond; cond ]
+  | false, false -> Op.ITEE, [ cond; invCond; invCond ]
+
+let getITOpcodeWithXYZ cond x y z =
+  let invCond = inverseCond cond
+  match x, y, z with
+  | true, true, true -> Op.ITTTT, [ cond; cond; cond; cond ]
+  | true, true, false -> Op.ITTTE, [ cond; cond; cond; invCond ]
+  | true, false, true -> Op.ITTET, [ cond; cond; invCond; cond ]
+  | true, false, false -> Op.ITTEE, [ cond; cond; invCond; invCond ]
+  | false, true, true -> Op.ITETT, [ cond; invCond; cond; cond ]
+  | false, true, false -> Op.ITETE, [ cond; invCond; cond; invCond ]
+  | false, false, true -> Op.ITEET, [ cond; invCond; invCond; cond ]
+  | false, false, false -> Op.ITEEE, [ cond; invCond; invCond; invCond ]
+
 let getIT fstCond cond mask =
   let mask0 = pickBit mask 0u
   let mask1 = pickBit mask 1u
   let mask2 = pickBit mask 2u
   let mask3 = pickBit mask 3u
-  let checkX () = fstCond = pickBit mask 3u
-  let checkY () = fstCond = pickBit mask 2u
-  let checkZ () = fstCond = pickBit mask 1u
-  let invCond = (cond &&& 0xeuy) ||| ((~~~ cond) &&& 0b1uy)
-  let getITOpcodeWithX () =
-    if checkX () then Op.ITT, [ cond; cond ] else Op.ITE, [ cond; invCond ]
-  let getITOpcodeWithXY () =
-    match checkX (), checkY () with
-    | true, true -> Op.ITTT, [ cond; cond; cond ]
-    | true, false -> Op.ITTE, [ cond; cond; invCond ]
-    | false, true -> Op.ITET, [ cond; invCond; cond ]
-    | false, false -> Op.ITEE, [ cond; invCond; invCond ]
-  let getITOpcodeWithXYZ () =
-    match checkX (), checkY (), checkZ () with
-    | true, true, true -> Op.ITTTT, [ cond; cond; cond; cond ]
-    | true, true, false -> Op.ITTTE, [ cond; cond; cond; invCond ]
-    | true, false, true -> Op.ITTET, [ cond; cond; invCond; cond ]
-    | true, false, false -> Op.ITTEE, [ cond; cond; invCond; invCond ]
-    | false, true, true -> Op.ITETT, [ cond; invCond; cond; cond ]
-    | false, true, false -> Op.ITETE, [ cond; invCond; cond; invCond ]
-    | false, false, true -> Op.ITEET, [ cond; invCond; invCond; cond ]
-    | false, false, false -> Op.ITEEE, [ cond; invCond; invCond; invCond ]
+  let x = fstCond = pickBit mask 3u
+  let y = fstCond = pickBit mask 2u
+  let z = fstCond = pickBit mask 1u
   let opcode, itState =
     match mask3, mask2, mask1, mask0 with
     | 0b1u, 0b0u, 0b0u, 0b0u -> Op.IT, [ cond ]
-    | _, 0b1u, 0b0u, 0b0u -> getITOpcodeWithX ()
-    | _, _, 0b1u, 0b0u -> getITOpcodeWithXY ()
-    | _, _, _, 0b1u -> getITOpcodeWithXYZ ()
+    | _, 0b1u, 0b0u, 0b0u -> getITOpcodeWithX cond x
+    | _, _, 0b1u, 0b0u -> getITOpcodeWithXY cond x y
+    | _, _, _, 0b1u -> getITOpcodeWithXYZ cond x y z
     | _ -> failwith "Wrong opcode in IT instruction"
   opcode, itState
 
