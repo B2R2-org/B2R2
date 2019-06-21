@@ -1009,4 +1009,4 @@ let parseV8A32ARM bin =
     | op when op &&& 0b1110u = 0b1100u -> parseGroup110v8 cond bin
     | op when op &&& 0b1110u = 0b1110u -> raise UnallocatedException
     | _ -> failwith "Wrong group specified."
-  opcode, Some cond, None, SIMDTyp, operands
+  opcode, Some cond, 0uy, None, SIMDTyp, operands

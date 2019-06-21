@@ -209,7 +209,7 @@ let maskPSRForTbit = num <| BitVector.ofUBInt 32I 32<rt>
 /// PSR bits[4:0]
 let maskPSRForMbits = num <| BitVector.ofUBInt 31I 32<rt>
 
-let enablePSR ctxt reg psrType =
+let enablePSRBits ctxt reg psrType =
   let psr = getRegVar ctxt reg
   match psrType with
   | PSR_Cond -> psr .| maskPSRForCondbits
@@ -229,7 +229,7 @@ let enablePSR ctxt reg psrType =
   | PSR_T -> psr .| maskPSRForTbit
   | PSR_M -> psr .| maskPSRForMbits
 
-let disablePSR ctxt reg psrType =
+let disablePSRBits ctxt reg psrType =
   let psr = getRegVar ctxt reg
   match psrType with
   | PSR_Cond -> psr .& not maskPSRForCondbits
@@ -268,7 +268,7 @@ let setPSR ctxt reg psrType expr =
     | PSR_F -> expr << (num <| BitVector.ofInt32 6 32<rt>)
     | PSR_T -> expr << (num <| BitVector.ofInt32 5 32<rt>)
     | PSR_M -> expr
-  disablePSR ctxt reg psrType .| (zExt 32<rt> expr |> shift)
+  disablePSRBits ctxt reg psrType .| (zExt 32<rt> expr |> shift)
 
 let getPSR ctxt reg psrType =
   let psr = getRegVar ctxt reg
@@ -551,14 +551,14 @@ let isInstrSetThumb ctxt = not (isSetCPSR_J ctxt) .& isSetCPSR_T ctxt
 /// Sets the ARM instruction set, on page A2-51.
 let selectARMInstrSet ctxt (builder: StmtBuilder) =
   let cpsr = getRegVar ctxt R.CPSR
-  builder <! (cpsr := disablePSR ctxt R.CPSR PSR_J)
-  builder <! (cpsr := disablePSR ctxt R.CPSR PSR_T)
+  builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_J)
+  builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_T)
 
 /// Sets the ARM instruction set, on page A2-51.
 let selectThumbInstrSet ctxt (builder: StmtBuilder) =
   let cpsr = getRegVar ctxt R.CPSR
-  builder <! (cpsr := disablePSR ctxt R.CPSR PSR_J)
-  builder <! (cpsr := enablePSR ctxt R.CPSR PSR_T)
+  builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_J)
+  builder <! (cpsr := enablePSRBits ctxt R.CPSR PSR_T)
 
 /// Sets the instruction set currently in use, on page A2-51.
 /// SelectInstrSet()
@@ -820,7 +820,8 @@ let writeModeBits ctxt value isExcptReturn (builder: StmtBuilder) =
   else ()
   builder <! (LMark lblL17)
   let mValue = value .& maskPSRForMbits
-  builder <! (getRegVar ctxt R.CPSR := disablePSR ctxt R.CPSR PSR_M .| mValue)
+  builder <!
+    (getRegVar ctxt R.CPSR := disablePSRBits ctxt R.CPSR PSR_M .| mValue)
 
 /// R.CPSR write by an instruction, on page B1-1152.
 /// function : CPSRWriteByInstr()
@@ -830,19 +831,19 @@ let cpsrWriteByInstr ctxt value bytemask isExcptReturn (builder: StmtBuilder) =
   if bytemask &&& 0b1000 = 0b1000 then
     let nzcvValue = value .& maskPSRForCondbits
     let qValue = value .& maskPSRForQbit
-    builder <! (cpsr := disablePSR ctxt R.CPSR PSR_Cond .| nzcvValue)
-    builder <! (cpsr := disablePSR ctxt R.CPSR PSR_Q .| qValue)
+    builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_Cond .| nzcvValue)
+    builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_Q .| qValue)
     if isExcptReturn then
       let itValue = value .& maskPSRForIT10bits
       let jValue = value .& maskPSRForJbit
-      builder <! (cpsr := disablePSR ctxt R.CPSR PSR_IT10 .| itValue)
-      builder <! (cpsr := disablePSR ctxt R.CPSR PSR_J .| jValue)
+      builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_IT10 .| itValue)
+      builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_J .| jValue)
     else ()
   else ()
 
   if bytemask &&& 0b0100 = 0b0100 then
     let geValue = value .& maskPSRForGEbits
-    builder <! (cpsr := disablePSR ctxt R.CPSR PSR_GE .| geValue)
+    builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_GE .| geValue)
   else ()
 
   if bytemask &&& 0b0010 = 0b0010 then
@@ -850,16 +851,16 @@ let cpsrWriteByInstr ctxt value bytemask isExcptReturn (builder: StmtBuilder) =
     let lblL1 = lblSymbol "cpsrWriteByInstrL1"
     if isExcptReturn then
       let itValue = value .& maskPSRForIT72bits
-      builder <! (cpsr := disablePSR ctxt R.CPSR PSR_IT72 .| itValue)
+      builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_IT72 .| itValue)
     else ()
     let eValue = value .& maskPSRForEbit
-    builder <! (cpsr := disablePSR ctxt R.CPSR PSR_E .| eValue)
+    builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_E .| eValue)
     let cond =
       privileged .& (isSecure ctxt .| isSetSCR_AW ctxt .| haveVirtExt ())
     builder <! (CJmp (cond, Name lblL0, Name lblL1))
     builder <! (LMark lblL0)
     let aValue = value .& maskPSRForAbit
-    builder <! (cpsr := disablePSR ctxt R.CPSR PSR_A .| aValue)
+    builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_A .| aValue)
     builder <! (LMark lblL1)
   else ()
 
@@ -875,7 +876,7 @@ let cpsrWriteByInstr ctxt value bytemask isExcptReturn (builder: StmtBuilder) =
     builder <! (CJmp (privileged, Name lblL2, Name lblL3))
     builder <! (LMark lblL2)
     let iValue = value .& maskPSRForIbit
-    builder <! (cpsr := disablePSR ctxt R.CPSR PSR_I .| iValue)
+    builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_I .| iValue)
     builder <! (LMark lblL3)
 
     let chkValueF = (value .& maskPSRForFbit) == num0 32<rt>
@@ -884,12 +885,12 @@ let cpsrWriteByInstr ctxt value bytemask isExcptReturn (builder: StmtBuilder) =
     builder <! (CJmp (cond, Name lblL4, Name lblL5))
     builder <! (LMark lblL4)
     let fValue = value .& maskPSRForFbit
-    builder <! (cpsr := disablePSR ctxt R.CPSR PSR_F .| fValue)
+    builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_F .| fValue)
     builder <! (LMark lblL5)
 
     if isExcptReturn then
       let tValue = value .& maskPSRForTbit
-      builder <! (cpsr := disablePSR ctxt R.CPSR PSR_T .| tValue)
+      builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_T .| tValue)
     else ()
 
     builder <! (CJmp (privileged, Name lblL6, Name lblL7))
@@ -2567,6 +2568,20 @@ let parseOprOfADR insInfo ctxt =
     getRegVar ctxt rd, pc .+ (num <| BitVector.ofInt64 imm 32<rt>)
   | _ -> raise InvalidOperandException
 
+let it insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let cpsr = getRegVar ctxt R.CPSR
+  let itState = num <| BitVector.ofInt32 (int insInfo.ITState) 32<rt>
+  let mask10 = num <| BitVector.ofInt32 0b11 32<rt>
+  let mask72 = (num <| BitVector.ofInt32 0b11111100 32<rt>)
+  let itState10 = itState .& mask10
+  let itState72 = (itState .& mask72) >> (num <| BitVector.ofInt32 2 32<rt>)
+  builder <! (ISMark (insInfo.Address, insInfo.NumBytes))
+  builder <! (cpsr := itState10 |> setPSR ctxt R.CPSR PSR_IT10)
+  builder <! (cpsr := itState72 |> setPSR ctxt R.CPSR PSR_IT72)
+  builder <! (IEMark (uint64 insInfo.NumBytes + insInfo.Address))
+  builder
+
 let adr insInfo ctxt =
   let builder = new StmtBuilder (32)
   let lblCondPass = lblSymbol "CondCheckPassed"
@@ -2829,7 +2844,7 @@ let vmrs insInfo ctxt =
   let isCondPass = isCondPassed insInfo.Condition
   startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
   if rt <> cpsr then builder <! (rt := fpscr)
-  else builder <! (cpsr := disablePSR ctxt R.CPSR PSR_Cond .|
+  else builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_Cond .|
                            getPSR ctxt R.FPSCR PSR_Cond)
   endMark insInfo lblCondFail isCondPass builder
 
@@ -2893,7 +2908,7 @@ let translate insInfo ctxt =
   | Op.BX -> bx insInfo ctxt
   | Op.IT | Op.ITT | Op.ITE | Op.ITTT | Op.ITET | Op.ITTE
   | Op.ITEE | Op.ITTTT | Op.ITETT | Op.ITTET | Op.ITEET
-  | Op.ITTTE | Op.ITETE | Op.ITTEE | Op.ITEEE
+  | Op.ITTTE | Op.ITETE | Op.ITTEE | Op.ITEEE -> it insInfo ctxt
   | Op.NOP -> nop insInfo addr
   | Op.MOVT -> movt insInfo ctxt
   | Op.POP -> pop insInfo ctxt

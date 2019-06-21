@@ -1415,7 +1415,7 @@ let parseV7ARMUncond bin =
     | op when op &&& 0b111u = 0b110u -> uncond110 bin
     | op when op &&& 0b111u = 0b111u -> uncond111 bin
     | _ -> failwith "Wrong group specified."
-  opcode, None, None, q, operands
+  opcode, None, 0uy, None, q, operands
 
 /// ARM Architecture Reference Manual ARMv7-A and ARMv7-R edition, DDI0406C.b
 let parseV7ARM bin =
@@ -1435,7 +1435,7 @@ let parseV7ARM bin =
       | op when op &&& 0b1110u = 0b1100u -> parseGroup110 bin
       | op when op &&& 0b1110u = 0b1110u -> parseGroup111 bin
       | _ -> failwith "Wrong group specified."
-    opcode, Some cond, None, SIMDTyp, operands
+    opcode, Some cond, 0uy, None, SIMDTyp, operands
 
 /// Shift (immediate), add, subtract, move, and compare, page A6-224
 let group0LSLInITBlock bin =
@@ -1463,7 +1463,7 @@ let parseGroup0InITBlock cond bin =
     | op when op &&& 0b11100u = 0b11100u ->
       Op.SUB, p2Oprs bin dummyChk (getRegJ, getImm8A)
     | _ -> failwith "Wrong opcode in parseGroup0."
-  opcode, cond, None, operands
+  opcode, cond, 0uy, None, operands
 
 /// Shift (immediate), add, subtract, move, and compare, page A6-224
 let group0LSLOutITBlock bin =
@@ -1491,12 +1491,12 @@ let parseGroup0OutITBlock bin =
     | op when op &&& 0b11100u = 0b11100u ->
       Op.SUBS, p2Oprs bin dummyChk (getRegJ, getImm8A)
     | _ -> failwith "Wrong opcode in parseGroup0."
-  opcode, None, None, operands
+  opcode, None, 0uy, None, operands
 
 /// Shift (immediate), add, subtract, move, and compare, page A6-224
 let parseGroup0 ctxt bin =
   if extract bin 13u 9u &&& 0b11100u = 0b10100u then
-    Op.CMP, getCondWithITSTATE ctxt, None,
+    Op.CMP, getCondWithITSTATE ctxt, 0uy, None,
     p2Oprs bin dummyChk (getRegJ, getImm8A)
   else match inITBlock ctxt with
        | true -> parseGroup0InITBlock (getCondWithITSTATE ctxt) bin
@@ -1541,12 +1541,15 @@ let parseGroup1 ctxt bin =
   let cond () = getCondWithITSTATE ctxt
   let parseWithITSTATE () =
     if inITBlock ctxt then
-      let op, opers = parseGroup1InITBlock bin in op, cond (), None, opers
-    else let op, opers = parseGroup1OutITBlock bin in op, None, None, opers
+      let op, oprs = parseGroup1InITBlock bin in op, cond (), 0uy, None, oprs
+    else let op, oprs = parseGroup1OutITBlock bin in op, None, 0uy, None, oprs
   match extract bin 9u 6u with
-  | 0b1000u -> Op.TST, cond (), None, p2Oprs bin dummyChk (getRegI, getRegH)
-  | 0b1010u -> Op.CMP, cond (), None, p2Oprs bin dummyChk (getRegI, getRegH)
-  | 0b1011u -> Op.CMN, cond (), None, p2Oprs bin dummyChk (getRegI, getRegH)
+  | 0b1000u ->
+    Op.TST, cond (), 0uy, None, p2Oprs bin dummyChk (getRegI, getRegH)
+  | 0b1010u ->
+    Op.CMP, cond (), 0uy, None, p2Oprs bin dummyChk (getRegI, getRegH)
+  | 0b1011u ->
+    Op.CMN, cond (), 0uy, None, p2Oprs bin dummyChk (getRegI, getRegH)
   | _ -> parseWithITSTATE ()
 
 let parseGroup2ADD ctxt bin =
@@ -1568,32 +1571,40 @@ let parseGroup2 ctxt bin =
     | 0b110u -> Op.BX, p1Opr bin (chkUnpreDG ctxt) getRegP
     | 0b111u -> Op.BLX, p1Opr bin (chkUnpreDH ctxt) getRegP
     | _ -> failwith "Wrong opcode in parseGroup2."
-  opcode, cond, None, operands
+  opcode, cond, 0uy, None, operands
 
 let parseGroup3Sub cond bin =
   match extract bin 15u 11u with
-  | 0b01100u -> Op.STR, cond, None, p2Oprs bin dummyChk (getRegI, getMemE)
-  | 0b01101u -> Op.LDR, cond, None, p2Oprs bin dummyChk (getRegI, getMemE)
-  | 0b01110u -> Op.STRB, cond, None, p2Oprs bin dummyChk (getRegI, getMemF)
-  | 0b01111u -> Op.LDRB, cond, None, p2Oprs bin dummyChk (getRegI, getMemF)
-  | 0b10000u -> Op.STRH, cond, None, p2Oprs bin dummyChk (getRegI, getMemG)
-  | 0b10001u -> Op.LDRH, cond, None, p2Oprs bin dummyChk (getRegI, getMemG)
-  | 0b10010u -> Op.STR, cond, None, p2Oprs bin dummyChk (getRegJ, getMemC)
-  | 0b10011u -> Op.LDR, cond, None, p2Oprs bin dummyChk (getRegJ, getMemC)
+  | 0b01100u -> Op.STR, cond, 0uy, None, p2Oprs bin dummyChk (getRegI, getMemE)
+  | 0b01101u -> Op.LDR, cond, 0uy, None, p2Oprs bin dummyChk (getRegI, getMemE)
+  | 0b01110u -> Op.STRB, cond, 0uy, None, p2Oprs bin dummyChk (getRegI, getMemF)
+  | 0b01111u -> Op.LDRB, cond, 0uy, None, p2Oprs bin dummyChk (getRegI, getMemF)
+  | 0b10000u -> Op.STRH, cond, 0uy, None, p2Oprs bin dummyChk (getRegI, getMemG)
+  | 0b10001u -> Op.LDRH, cond, 0uy, None, p2Oprs bin dummyChk (getRegI, getMemG)
+  | 0b10010u -> Op.STR, cond, 0uy, None, p2Oprs bin dummyChk (getRegJ, getMemC)
+  | 0b10011u -> Op.LDR, cond, 0uy, None, p2Oprs bin dummyChk (getRegJ, getMemC)
   | _ -> failwith "Wrong opcode in parseGroup3."
 
 /// Load/store single data item, page A6-227
 let parseGroup3 ctxt bin =
   let cond = getCondWithITSTATE ctxt
   match concat (extract bin 15u 12u) (extract bin 11u 9u) 3 with
-  | 0b0101000u -> Op.STR, cond, None, p2Oprs bin dummyChk (getRegI, getMemD)
-  | 0b0101001u -> Op.STRH, cond, None, p2Oprs bin dummyChk (getRegI, getMemD)
-  | 0b0101010u -> Op.STRB, cond, None, p2Oprs bin dummyChk (getRegI, getMemD)
-  | 0b0101011u -> Op.LDRSB, cond, None, p2Oprs bin dummyChk (getRegI, getMemD)
-  | 0b0101100u -> Op.LDR, cond, None, p2Oprs bin dummyChk (getRegI, getMemD)
-  | 0b0101101u -> Op.LDRH, cond, None, p2Oprs bin dummyChk (getRegI, getMemD)
-  | 0b0101110u -> Op.LDRB, cond, None, p2Oprs bin dummyChk (getRegI, getMemD)
-  | 0b0101111u -> Op.LDRSH, cond, None, p2Oprs bin dummyChk (getRegI, getMemD)
+  | 0b0101000u ->
+    Op.STR, cond, 0uy, None, p2Oprs bin dummyChk (getRegI, getMemD)
+  | 0b0101001u ->
+    Op.STRH, cond, 0uy, None, p2Oprs bin dummyChk (getRegI, getMemD)
+  | 0b0101010u ->
+    Op.STRB, cond, 0uy, None, p2Oprs bin dummyChk (getRegI, getMemD)
+  | 0b0101011u ->
+    Op.LDRSB, cond, 0uy, None, p2Oprs bin dummyChk (getRegI, getMemD)
+  | 0b0101100u ->
+    Op.LDR, cond, 0uy, None, p2Oprs bin dummyChk (getRegI, getMemD)
+  | 0b0101101u ->
+    Op.LDRH, cond, 0uy, None, p2Oprs bin dummyChk (getRegI, getMemD)
+  | 0b0101110u ->
+    Op.LDRB, cond, 0uy, None, p2Oprs bin dummyChk (getRegI, getMemD)
+  | 0b0101111u ->
+    Op.LDRSH, cond, 0uy, None, p2Oprs bin dummyChk (getRegI, getMemD)
   | _ -> parseGroup3Sub cond bin
 
 let getIT fstCond cond mask =
@@ -1639,12 +1650,12 @@ let getIfThenNHints cond (ctxt: ParsingContext) bin =
     let opcode, itState = getIT (pickBit o1 0u) (byte o1) o2
     let operand = p1Opr bin (chkUnpreBD opcode ctxt) getFirstCond
     ctxt.ITState <- itState
-    opcode, None, None, operand
-  | 0b0000u, _ -> Op.NOP, cond (), None, NoOperand
-  | 0b0001u, _ -> Op.YIELD, cond (), None, NoOperand
-  | 0b0010u, _ -> Op.WFE, cond (), None, NoOperand
-  | 0b0011u, _ -> Op.WFI, cond (), None, NoOperand
-  | 0b0100u, _ -> Op.SEV, cond (), None, NoOperand
+    opcode, None, (byte bin), None, operand
+  | 0b0000u, _ -> Op.NOP, cond (), 0uy, None, NoOperand
+  | 0b0001u, _ -> Op.YIELD, cond (), 0uy, None, NoOperand
+  | 0b0010u, _ -> Op.WFE, cond (), 0uy, None, NoOperand
+  | 0b0011u, _ -> Op.WFI, cond (), 0uy, None, NoOperand
+  | 0b0100u, _ -> Op.SEV, cond (), 0uy, None, NoOperand
   | _ -> failwith "Wrong if-then & hints."
 
 /// Miscellaneous 16-bit instructions, page A6-228
@@ -1653,41 +1664,45 @@ let parseGroup4 ctxt bin =
   let chkImod () = pickBit bin 4u = 0b0u
   match extract bin 11u 5u with
   | op when op &&& 0b1111100u = 0b0000000u ->
-    Op.ADD, cond (), None, p3Oprs bin dummyChk (getRegSP, getRegSP, getImm7A)
+    Op.ADD, cond (), 0uy, None,
+    p3Oprs bin dummyChk (getRegSP, getRegSP, getImm7A)
   | op when op &&& 0b1111100u = 0b0000100u ->
-    Op.SUB, cond (), None, p3Oprs bin dummyChk (getRegSP, getRegSP, getImm7A)
+    Op.SUB, cond (), 0uy, None,
+    p3Oprs bin dummyChk (getRegSP, getRegSP, getImm7A)
   | op when op &&& 0b1111000u = 0b0001000u ->
-    Op.CBZ, None, None, p2Oprs bin (chkUnpreDE ctxt) (getRegI, getLbl7A)
+    Op.CBZ, None, 0uy, None, p2Oprs bin (chkUnpreDE ctxt) (getRegI, getLbl7A)
   | op when op &&& 0b1111110u = 0b0010000u ->
-    Op.SXTH, cond (), None, p2Oprs bin dummyChk (getRegI, getRegH)
+    Op.SXTH, cond (), 0uy, None, p2Oprs bin dummyChk (getRegI, getRegH)
   | op when op &&& 0b1111110u = 0b0010010u ->
-    Op.SXTB, cond (), None, p2Oprs bin dummyChk (getRegI, getRegH)
+    Op.SXTB, cond (), 0uy, None, p2Oprs bin dummyChk (getRegI, getRegH)
   | op when op &&& 0b1111110u = 0b0010100u ->
-    Op.UXTH, cond (), None, p2Oprs bin dummyChk (getRegI, getRegH)
+    Op.UXTH, cond (), 0uy, None, p2Oprs bin dummyChk (getRegI, getRegH)
   | op when op &&& 0b1111110u = 0b0010110u ->
-    Op.UXTB, cond (), None, p2Oprs bin dummyChk (getRegI, getRegH)
+    Op.UXTB, cond (), 0uy, None, p2Oprs bin dummyChk (getRegI, getRegH)
   | op when op &&& 0b1111000u = 0b0011000u ->
-    Op.CBZ, None, None, p2Oprs bin (chkUnpreDE ctxt) (getRegI, getLbl7A)
+    Op.CBZ, None, 0uy, None, p2Oprs bin (chkUnpreDE ctxt) (getRegI, getLbl7A)
   | op when op &&& 0b1110000u = 0b0100000u ->
-    Op.PUSH, cond (), None, p1Opr bin chkUnpreBC getRegListN
-  | 0b0110010u -> Op.SETEND, None, None, p1Opr bin (chkUnpreDE ctxt) getEndianB
+    Op.PUSH, cond (), 0uy, None, p1Opr bin chkUnpreBC getRegListN
+  | 0b0110010u ->
+    Op.SETEND, None, 0uy, None, p1Opr bin (chkUnpreDE ctxt) getEndianB
   | 0b0110011u when chkImod () ->
-    Op.CPSIE, None, None, p1Opr bin (chkUnpreDE ctxt) getFlagB
-  | 0b0110011u -> Op.CPSID, None, None, p1Opr bin (chkUnpreDE ctxt) getFlagB
+    Op.CPSIE, None, 0uy, None, p1Opr bin (chkUnpreDE ctxt) getFlagB
+  | 0b0110011u ->
+    Op.CPSID, None, 0uy, None, p1Opr bin (chkUnpreDE ctxt) getFlagB
   | op when op &&& 0b1111000u = 0b1001000u ->
-    Op.CBNZ, None, None, p2Oprs bin (chkUnpreDE ctxt) (getRegI, getLbl7A)
+    Op.CBNZ, None, 0uy, None, p2Oprs bin (chkUnpreDE ctxt) (getRegI, getLbl7A)
   | op when op &&& 0b1111110u = 0b1010000u ->
-    Op.REV, cond (), None, p2Oprs bin dummyChk (getRegI, getRegH)
+    Op.REV, cond (), 0uy, None, p2Oprs bin dummyChk (getRegI, getRegH)
   | op when op &&& 0b1111110u = 0b1010010u ->
-    Op.REV16, cond (), None, p2Oprs bin dummyChk (getRegI, getRegH)
+    Op.REV16, cond (), 0uy, None, p2Oprs bin dummyChk (getRegI, getRegH)
   | op when op &&& 0b1111110u = 0b1010110u ->
-    Op.REVSH, cond (), None, p2Oprs bin dummyChk (getRegI, getRegH)
+    Op.REVSH, cond (), 0uy, None, p2Oprs bin dummyChk (getRegI, getRegH)
   | op when op &&& 0b1111000u = 0b1011000u ->
-    Op.CBNZ, None, None, p2Oprs bin (chkUnpreDE ctxt) (getRegI, getLbl7A)
+    Op.CBNZ, None, 0uy, None, p2Oprs bin (chkUnpreDE ctxt) (getRegI, getLbl7A)
   | op when op &&& 0b1110000u = 0b1100000u ->
-    Op.POP, cond (), None, p1Opr bin chkUnpreBC getRegListO
+    Op.POP, cond (), 0uy, None, p1Opr bin chkUnpreBC getRegListO
   | op when op &&& 0b1111000u = 0b1110000u ->
-    Op.BKPT, None, None, p1Opr bin dummyChk getImm8A
+    Op.BKPT, None, 0uy, None, p1Opr bin dummyChk getImm8A
   | op when op &&& 0b1111000u = 0b1111000u -> getIfThenNHints cond ctxt bin
   | _ -> failwith "Wrong opcode in parseGroup4."
 
@@ -1696,9 +1711,9 @@ let parseGroup5 ctxt bin =
   let cond () = getCondWithITSTATE ctxt
   let bCond c = c |> byte |> parseCond |> Some
   match extract bin 11u 8u with
-  | 0b1110u -> Op.UDF, cond (), None, p1Opr bin dummyChk getImm8A
-  | 0b1111u -> Op.SVC, cond (), None, p1Opr bin dummyChk getImm8A
-  | c -> Op.B, bCond c, getQfN (), p1Opr bin (chkUnpreBE ctxt) getLbl9A
+  | 0b1110u -> Op.UDF, cond (), 0uy, None, p1Opr bin dummyChk getImm8A
+  | 0b1111u -> Op.SVC, cond (), 0uy, None, p1Opr bin dummyChk getImm8A
+  | c -> Op.B, bCond c, 0uy, getQfN (), p1Opr bin (chkUnpreBE ctxt) getLbl9A
 
 /// Load/store multiple. page A6-237
 let parseGroup6 ctxt bin =
@@ -2625,7 +2640,7 @@ let parseV7Thumb32Group01 ctxt bin =
     | 0b01u -> parseGroup8 bin
     | 0b10u | 0b11u -> parseGroup9 bin
     | _ -> failwith "Wrong thumb group specified."
-  opcode, getCondWithITSTATE ctxt, q, dt, operands
+  opcode, getCondWithITSTATE ctxt, 0uy, q, dt, operands
 
 let parseV7Thumb32Group10 ctxt bin =
   let opcode, cond, q, operands =
@@ -2634,7 +2649,7 @@ let parseV7Thumb32Group10 ctxt bin =
     | 0b1u, 0b0u -> parseGroup11 ctxt bin
     | _, 0b1u -> parseGroup12 ctxt bin
     | _ -> failwith "Wrong thumb group specified."
-  opcode, cond, q, None, operands
+  opcode, cond, 0uy, q, None, operands
 
 let parseV7Thumb32Group11 ctxt bin =
   let opcode, q, dt, operands =
@@ -2650,7 +2665,7 @@ let parseV7Thumb32Group11 ctxt bin =
     | op when op &&& 0b1111000u = 0b0111000u -> parseGroup20 bin
     | op when op &&& 0b1000000u = 0b1000000u -> parseGroup9 bin
     | _ -> failwith "Wrong thumb group specified."
-  opcode, getCondWithITSTATE ctxt, q, dt, operands
+  opcode, getCondWithITSTATE ctxt, 0uy, q, dt, operands
 
 /// ARM Architecture Reference Manual ARMv7-A and ARMv7-R edition, DDI0406C.b
 let parseV7Thumb32 (ctxt: ParsingContext) bin =
@@ -2663,24 +2678,26 @@ let parseV7Thumb32 (ctxt: ParsingContext) bin =
 /// ARM Architecture Reference Manual ARMv7-A and ARMv7-R edition, DDI0406C.b
 let parseV7Thumb16 (ctxt: ParsingContext) bin =
   let cond () = getCondWithITSTATE ctxt
-  let opcode, cond, qualifier, operands =
+  let opcode, cond, itState, qualifier, operands =
     match extract bin 15u 11u with
     | op when op &&& 0b11000u = 0b00000u -> parseGroup0 ctxt bin
     | 0b01000u when pickBit bin 10u = 0b0u -> parseGroup1 ctxt bin
     | 0b01000u -> parseGroup2 ctxt bin
-    | 0b01001u -> Op.LDR, cond (), None, p2Oprs bin dummyChk (getRegJ, getLbl8A)
+    | 0b01001u ->
+      Op.LDR, cond (), 0uy, None, p2Oprs bin dummyChk (getRegJ, getLbl8A)
     | op when op &&& 0b11110u = 0b01010u -> parseGroup3 ctxt bin
     | op when op &&& 0b11100u = 0b01100u -> parseGroup3 ctxt bin
     | op when op &&& 0b11100u = 0b10000u -> parseGroup3 ctxt bin
-    | 0b10100u -> Op.ADR, cond (), None, p2Oprs bin dummyChk (getRegJ, getLbl8A)
-    | 0b10101u ->
-      Op.ADD, cond (), None, p3Oprs bin dummyChk (getRegJ, getRegSP, getImm8B)
+    | 0b10100u ->
+      Op.ADR, cond (), 0uy, None, p2Oprs bin dummyChk (getRegJ, getLbl8A)
+    | 0b10101u -> Op.ADD, cond (), 0uy, None,
+                  p3Oprs bin dummyChk (getRegJ, getRegSP, getImm8B)
     | op when op &&& 0b11110u = 0b10110u -> parseGroup4 ctxt bin
-    | 0b11000u ->
-      Op.STM, cond (), None, p2Oprs bin chkUnpreDD (getRegisterWC, getRegListR)
-    | 0b11001u ->
-      Op.LDM, cond (), None, p2Oprs bin chkUnpreDD (getRegisterWD, getRegListR)
+    | 0b11000u -> Op.STM, cond (), 0uy, None,
+                  p2Oprs bin chkUnpreDD (getRegisterWC, getRegListR)
+    | 0b11001u -> Op.LDM, cond (), 0uy, None,
+                  p2Oprs bin chkUnpreDD (getRegisterWD, getRegListR)
     | op when op &&& 0b11110u = 0b11010u -> parseGroup5 ctxt bin
-    | 0b11100u -> Op.B, cond (), getQfN (), p1Opr bin dummyChk getLbl12A
+    | 0b11100u -> Op.B, cond (), 0uy, getQfN (), p1Opr bin dummyChk getLbl12A
     | _ -> failwith "Wrong thumb group specified."
-  opcode, cond, qualifier, None, operands
+  opcode, cond, itState, qualifier, None, operands

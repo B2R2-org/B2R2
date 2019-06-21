@@ -2250,6 +2250,8 @@ type InsInfo = {
   Opcode: Opcode
   /// Operands.
   Operands: Operands
+  /// IT state for this instruction (used only for IT instructions).
+  ITState: byte
   /// Qualifier.
   Qualifier: Qualifier option
   /// SIMD data type.
