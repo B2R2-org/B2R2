@@ -344,8 +344,8 @@ let parseCond = function
   | Condition.UN -> 0b111, 1
   | _ -> failwith "Invalid condition"
 
-/// Returns TRUE if the current instruction passes its condition code check,
-/// on page A8-289. function : ConditionPassed()
+/// Returns TRUE if the current instruction needs to be executed. See page
+/// A8-289. function : ConditionPassed()
 let conditionPassed ctxt cond =
   let cond1, cond2 = parseCond cond
   let result =
@@ -578,14 +578,14 @@ let branchWritePC ctxt result jmpInfo =
 /// Write value to R.PC, with interworking, on page A2-47.
 /// function : BXWritePC()
 let bxWritePC ctxt result (builder: StmtBuilder) =
-  let lblL0 = lblSymbol "bxWPCL0"
-  let lblL1 = lblSymbol "bxWPCL1"
-  let lblL2 = lblSymbol "bxWPCL2"
-  let lblL3 = lblSymbol "bxWPCL3"
-  let lblL4 = lblSymbol "bxWPCL4"
-  let lblL5 = lblSymbol "bxWPCL5"
-  let lblL6 = lblSymbol "bxWPCL6"
-  let lblEnd = lblSymbol "bxWPCEnd"
+  let lblL0 = lblSymbol "L0"
+  let lblL1 = lblSymbol "L1"
+  let lblL2 = lblSymbol "L2"
+  let lblL3 = lblSymbol "L3"
+  let lblL4 = lblSymbol "L4"
+  let lblL5 = lblSymbol "L5"
+  let lblL6 = lblSymbol "L6"
+  let lblEnd = lblSymbol "LEND"
   let cond0 = (isSetCPSR_J ctxt) .& (isSetCPSR_T ctxt)
   let cond1 = extractLow 1<rt> result == b1
   let cond2 = extract result 1<rt> 1 == b0
@@ -952,48 +952,53 @@ let parseOprOfADC insInfo ctxt =
   | FourOperands _ -> transFourOprsOfADC insInfo ctxt
   | _ -> raise InvalidOperandException
 
-let isCondPassed (cond: Condition option) =
-  if cond.IsNone then true
-  else match Option.get cond with
-       | Condition.AL | Condition.UN -> true
-       | _ -> false
-
-let startMark insInfo ctxt lblPass lblFail isCondPass builder =
+let startMark insInfo builder =
   builder <! (ISMark (insInfo.Address, insInfo.NumBytes))
-  if isCondPass then ()
+
+let checkCondition insInfo ctxt isUnconditional builder =
+  let lblPass = lblSymbol "CondCheckPassed"
+  let lblFail = lblSymbol "CondCheckFailed"
+  if isUnconditional then lblFail
   else
     let cond = conditionPassed ctxt (Option.get insInfo.Condition)
     builder <! (CJmp (cond, Name lblPass, Name lblFail))
     builder <! (LMark lblPass)
+    lblFail
 
-let endMark insInfo lblFail isCondPass builder =
-  if isCondPass then ()
+let putEndLabel lblFail isCondPassed builder =
+  if isCondPassed then ()
   else builder <! (LMark lblFail)
+
+let endMark insInfo builder =
   builder <! (IEMark (uint64 insInfo.NumBytes + insInfo.Address))
   builder
 
-let sideEffects insInfo addr name =
+let sideEffects insInfo name =
   let builder = new StmtBuilder (4)
-  builder <! (ISMark (addr, insInfo.NumBytes))
+  startMark insInfo builder
   builder <! (SideEffect name)
-  builder <! (IEMark (uint64 insInfo.NumBytes + insInfo.Address))
-  builder
+  endMark insInfo builder
 
-let nop insInfo addr =
+let nop insInfo =
   let builder = new StmtBuilder (4)
-  builder <! (ISMark (addr, insInfo.NumBytes))
-  builder <! (IEMark (uint64 insInfo.NumBytes + insInfo.Address))
-  builder
+  startMark insInfo builder
+  endMark insInfo builder
+
+let isUnconditional cond =
+  match cond with
+  | None
+  | Some Condition.AL
+  | Some Condition.UN -> true
+  | _ -> false
 
 let adc isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let dst, src1, src2 = parseOprOfADC insInfo ctxt
   let res, carryOut, overflow = addWithCarry src1 src2 (getCarryFlag ctxt)
   let result = tmpVar 32<rt>
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (result := res)
   if dst = getPC ctxt then writePC ctxt result builder
   else
@@ -1005,7 +1010,8 @@ let adc isSetFlags insInfo ctxt =
       builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
       builder <! (cpsr := overflow |> setPSR ctxt R.CPSR PSR_V)
     else ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let transTwoOprsOfADD insInfo ctxt =
   match insInfo.Operands with
@@ -1046,16 +1052,15 @@ let parseOprOfADD insInfo ctxt =
 
 let add isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let dst, src1, src2 = parseOprOfADD insInfo ctxt
   let src1 =
     if src1 = getPC ctxt then src1 .+ (BitVector.ofUInt32 8u 32<rt> |> num)
     else src1
   let result, carryOut, overflow = addWithCarry src1 src2 (num0 32<rt>)
   //let result = tmpVar 32<rt>
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   //builder <! (result := res)
   if dst = getPC ctxt then writePC ctxt result builder
   else
@@ -1067,7 +1072,8 @@ let add isSetFlags insInfo ctxt =
       builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
       builder <! (cpsr := overflow |> setPSR ctxt R.CPSR PSR_V)
     else ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 /// Align integer or bitstring to multiple of an integer, on page AppxP-2655
 /// function : Align()
@@ -1097,34 +1103,34 @@ let parseOprOfBL insInfo =
 
 let blxWithReg insInfo reg ctxt =
   let builder = new StmtBuilder (32)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let lr = getRegVar ctxt R.LR
   let addr = bvOfBaseAddr insInfo.Address
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   if insInfo.Mode = ArchOperationMode.ARMMode then
     builder <! (lr := addr .- (num <| BitVector.ofInt32 4 32<rt>))
   else
     let addr = addr .- (num <| BitVector.ofInt32 2 32<rt>)
     builder <! (lr := maskAndOR addr (num1 32<rt>) 32<rt> 1)
   bxWritePC ctxt (getRegVar ctxt reg) builder
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let bl insInfo ctxt =
   let builder = new StmtBuilder (16)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let e, targetMode = parseOprOfBL insInfo
   let lr = getRegVar ctxt R.LR
   let addr = bvOfBaseAddr insInfo.Address .+ (num <| BitVector.ofInt32 4 32<rt>)
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   if insInfo.Mode = ArchOperationMode.ARMMode then builder <! (lr := addr)
   else builder <! (lr := maskAndOR addr (num1 32<rt>) 32<rt> 1)
   selectInstrSet ctxt builder targetMode
   builder <! (branchWritePC ctxt e InterJmpInfo.IsCall)
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let branchWithLink insInfo ctxt =
   match insInfo.Operands with
@@ -1151,22 +1157,22 @@ let pushLoop ctxt numOfReg addr (builder: StmtBuilder) =
 
 let push insInfo ctxt =
   let builder = new StmtBuilder (32)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let t0 = tmpVar 32<rt>
   let sp = getRegVar ctxt R.SP
   let numOfReg = parseOprOfPUSHPOP insInfo
   let stackWidth = 4 * bitCount numOfReg 16
   let addr = sp .- (num <| BitVector.ofInt32 stackWidth 32<rt>)
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (t0 := addr)
   let addr = pushLoop ctxt numOfReg t0 builder
   if (numOfReg >>> 15 &&& 1u) = 1u then
     builder <! (loadLE 32<rt> addr := pcStoreValue ctxt)
   else ()
   builder <! (sp := t0)
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let parseOprOfSUB insInfo ctxt =
   match insInfo.Operands with
@@ -1177,13 +1183,12 @@ let parseOprOfSUB insInfo ctxt =
 
 let sub isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let dst, src1, src2 = parseOprOfSUB insInfo ctxt
   let res, carryOut, overflow = addWithCarry src1 (not src2) (num1 32<rt>)
   let result = tmpVar 32<rt>
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (result := res)
   if dst = getPC ctxt then writePC ctxt result builder
   else
@@ -1195,13 +1200,12 @@ let sub isSetFlags insInfo ctxt =
       builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
       builder <! (cpsr := overflow |> setPSR ctxt R.CPSR PSR_V)
     else ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 /// B9.3.19 SUBS R.PC, R.LR (Thumb), on page B9-2008
 let subsPCLRThumb insInfo ctxt =
   let builder = new StmtBuilder (64)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let lblL0 = lblSymbol "subsPCLRThumbL0"
   let lblL1 = lblSymbol "subsPCLRThumbL1"
   let lblL2 = lblSymbol "subsPCLRThumbL2"
@@ -1213,8 +1217,9 @@ let subsPCLRThumb insInfo ctxt =
   let cond = getPSR ctxt R.CPSR PSR_M ==
              (num <| BitVector.ofInt32 0b11010 32<rt>)
              .& isSetCPSR_J ctxt .& isSetCPSR_T ctxt
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (CJmp (currentModeIsUserOrSystem ctxt, Name lblL0, Name lblL1))
   builder <! (LMark lblL0)
   builder <! (SideEffect UndefinedInstr)  //FIXME  (use UNPREDICTABLE)
@@ -1228,7 +1233,8 @@ let subsPCLRThumb insInfo ctxt =
   builder <! (LMark lblL3)
   builder <! (branchWritePC ctxt result InterJmpInfo.IsRet)
   builder <! (LMark lblEnd)
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let parseResultOfSUBAndRela insInfo ctxt =
   match insInfo.Opcode with
@@ -1269,8 +1275,6 @@ let parseResultOfSUBAndRela insInfo ctxt =
 /// B9.3.20 SUBS R.PC, R.LR and related instruction (ARM), on page B9-2010
 let subsAndRelatedInstr insInfo ctxt =
   let builder = new StmtBuilder (64)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let lblL0 = lblSymbol "subsAndRelatedInstrL0"
   let lblL1 = lblSymbol "subsAndRelatedInstrL1"
   let lblL2 = lblSymbol "subsAndRelatedInstrL2"
@@ -1279,8 +1283,9 @@ let subsAndRelatedInstr insInfo ctxt =
   let lblL5 = lblSymbol "subsAndRelatedInstrL5"
   let lblEnd = lblSymbol "subsAndRelatedInstrEnd"
   let result = tmpVar 32<rt>
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (CJmp (currentModeIsHyp ctxt, Name lblL0, Name lblL1))
   builder <! (LMark lblL0)
   builder <! (SideEffect UndefinedInstr)  //FIXME  (use UNDEFINED)
@@ -1303,7 +1308,8 @@ let subsAndRelatedInstr insInfo ctxt =
   builder <! (result := parseResultOfSUBAndRela insInfo ctxt)
   builder <! (branchWritePC ctxt result InterJmpInfo.IsRet)
   builder <! (LMark lblEnd)
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let transTwoOprsOfAND insInfo ctxt =
   match insInfo.Operands with
@@ -1346,12 +1352,11 @@ let parseOprOfAND insInfo ctxt =
 
 let transAND isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let dst, src1, src2, carryOut = parseOprOfAND insInfo ctxt
   let result = tmpVar 32<rt>
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (result := src1 .& src2)
   if dst = getPC ctxt then writePC ctxt result builder
   else
@@ -1362,16 +1367,16 @@ let transAND isSetFlags insInfo ctxt =
       builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
       builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
     else ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let mov isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let dst, res = transTwoOprs insInfo ctxt
   let result = tmpVar 32<rt>
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (result := res)
   if dst = getPC ctxt then writePC ctxt result builder
   else
@@ -1381,16 +1386,16 @@ let mov isSetFlags insInfo ctxt =
       builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
       builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
     else ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let eor isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let dst, src1, src2, carryOut = parseOprOfAND insInfo ctxt
   let result = tmpVar 32<rt>
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (result := src1 <+> src2)
   if dst = getPC ctxt then writePC ctxt result builder
   else
@@ -1401,7 +1406,8 @@ let eor isSetFlags insInfo ctxt =
       builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
       builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
     else ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let transFourOprsOfRSB insInfo ctxt =
   match insInfo.Operands with
@@ -1423,13 +1429,12 @@ let parseOprOfRSB insInfo ctxt =
 
 let rsb isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let dst, src1, src2 = parseOprOfRSB insInfo ctxt
   let res, carryOut, overflow = addWithCarry (not src1) src2 (num1 32<rt>)
   let result = tmpVar 32<rt>
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (result := res)
   if dst = getPC ctxt then writePC ctxt result builder
   else
@@ -1441,7 +1446,8 @@ let rsb isSetFlags insInfo ctxt =
       builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
       builder <! (cpsr := overflow |> setPSR ctxt R.CPSR PSR_V)
     else ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let transTwoOprsOfSBC insInfo ctxt =
   match insInfo.Operands with
@@ -1471,13 +1477,12 @@ let parseOprOfSBC insInfo ctxt =
 
 let sbc isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let dst, src1, src2 = parseOprOfSBC insInfo ctxt
   let r, carryOut, overflow = addWithCarry src1 (not src2) (getCarryFlag ctxt)
   let result = tmpVar 32<rt>
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (result := r)
   if dst = getPC ctxt then writePC ctxt result builder
   else
@@ -1489,7 +1494,8 @@ let sbc isSetFlags insInfo ctxt =
       builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
       builder <! (cpsr := overflow |> setPSR ctxt R.CPSR PSR_V)
     else ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let transFourOprsOfRSC insInfo ctxt =
   match insInfo.Operands with
@@ -1511,13 +1517,12 @@ let parseOprOfRSC insInfo ctxt =
 
 let rsc isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let dst, src1, src2 = parseOprOfRSC insInfo ctxt
   let r, carryOut, overflow = addWithCarry (not src1) src2 (getCarryFlag ctxt)
   let result = tmpVar 32<rt>
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (result := r)
   if dst = getPC ctxt then writePC ctxt result builder
   else
@@ -1529,16 +1534,16 @@ let rsc isSetFlags insInfo ctxt =
       builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
       builder <! (cpsr := overflow |> setPSR ctxt R.CPSR PSR_V)
     else ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let orr isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let dst, src1, src2, carryOut = parseOprOfAND insInfo ctxt
   let result = tmpVar 32<rt>
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (result := src1 .| src2)
   if dst = getPC ctxt then writePC ctxt result builder
   else
@@ -1549,16 +1554,16 @@ let orr isSetFlags insInfo ctxt =
       builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
       builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
     else ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let bic isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let dst, src1, src2, carryOut = parseOprOfAND insInfo ctxt
   let result = tmpVar 32<rt>
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (result := src1 .& (not src2))
   if dst = getPC ctxt then writePC ctxt result builder
   else
@@ -1569,7 +1574,8 @@ let bic isSetFlags insInfo ctxt =
       builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
       builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
     else ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let transTwoOprsOfMVN insInfo ctxt =
   match insInfo.Operands with
@@ -1605,12 +1611,11 @@ let parseOprOfMVN insInfo ctxt =
 
 let mvn isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let dst, src, carryOut = parseOprOfMVN insInfo ctxt
   let result = tmpVar 32<rt>
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (result := not src)
   if dst = getPC ctxt then writePC ctxt result builder
   else
@@ -1621,7 +1626,8 @@ let mvn isSetFlags insInfo ctxt =
       builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
       builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
     else ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let getImmShiftFromShiftType imm = function
   | SRTypeLSL | SRTypeROR -> imm
@@ -1667,12 +1673,11 @@ let parseOprOfShiftInstr insInfo shiftTyp ctxt =
 
 let shiftInstr isSetFlags insInfo typ ctxt =
   let builder = new StmtBuilder (32)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let result = tmpVar 32<rt>
   let dst, res, carryOut = parseOprOfShiftInstr insInfo typ ctxt
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (result := res)
   if dst = getPC ctxt then writePC ctxt result builder
   else
@@ -1683,7 +1688,8 @@ let shiftInstr isSetFlags insInfo typ ctxt =
       builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
       builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
     else ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let subs isSetFlags insInfo ctxt =
   match insInfo.Operands with
@@ -1785,8 +1791,6 @@ let rrxs isSetFlags insInfo ctxt =
 
 let clz insInfo ctxt =
   let builder = new StmtBuilder (32)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let dst, src = transTwoOprs insInfo ctxt
   let lblL0 = lblSymbol "L0"
   let lblL1 = lblSymbol "L1"
@@ -1799,8 +1803,9 @@ let clz insInfo ctxt =
   let t1, result = tmpVar 32<rt>, tmpVar 32<rt>
   let cond1 = t1 == (num0 32<rt>)
   let cond2 = src .& ((num1 32<rt>) << t1) != (num0 32<rt>)
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (t1 := numSize .- (num1 32<rt>))
   builder <! (LMark lblL0)
   builder <! (CJmp (cond1, Name lblL1, Name lblL2))
@@ -1817,7 +1822,8 @@ let clz insInfo ctxt =
   builder <! (Jmp (Name lblL0))
   builder <! (LMark lblL5)
   builder <! (dst := numSize .- (num1 32<rt>) .- result)
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let transTwoOprsOfCMN insInfo ctxt =
   match insInfo.Operands with
@@ -1851,29 +1857,28 @@ let parseOprOfCMN insInfo ctxt =
 
 let cmn insInfo ctxt =
   let builder = new StmtBuilder (16)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let dst, src = parseOprOfCMN insInfo ctxt
   let result = tmpVar 32<rt>
   let res, carryOut, overflow = addWithCarry dst src (num0 32<rt>)
   let cpsr = getRegVar ctxt R.CPSR
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (result := res)
   builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
   builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
   builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
   builder <! (cpsr := overflow |> setPSR ctxt R.CPSR PSR_V)
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let mla isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (16)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let rd, rn, rm, ra = transFourOprs insInfo ctxt
   let r = tmpVar 32<rt>
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (r := extractLow 32<rt> (zExt 64<rt> rn .* zExt 64<rt> rm .+
                                      zExt 64<rt> ra))
   builder <! (rd := r)
@@ -1882,7 +1887,8 @@ let mla isSetFlags insInfo ctxt =
     builder <! (cpsr := extractHigh 1<rt> r |> setPSR ctxt R.CPSR PSR_N)
     builder <! (cpsr := r == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
   else ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let transTwoOprsOfCMP insInfo ctxt =
   match insInfo.Operands with
@@ -1913,29 +1919,28 @@ let parseOprOfCMP insInfo ctxt =
 
 let cmp insInfo ctxt =
   let builder = new StmtBuilder (16)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let e1, e2 = parseOprOfCMP insInfo ctxt
   let result = tmpVar 32<rt>
   let res, carryOut, overflow = addWithCarry e1 (not e2) (num1 32<rt>)
   let cpsr = getRegVar ctxt R.CPSR
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (result := res)
   builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
   builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
   builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
   builder <! (cpsr := overflow |> setPSR ctxt R.CPSR PSR_V)
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let umlal isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (16)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let rdLo, rdHi, rn, rm = transFourOprs insInfo ctxt
   let result = tmpVar 64<rt>
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (result := zExt 64<rt> rn .* zExt 64<rt> rm .+ concat rdLo rdHi)
   builder <! (rdHi := extractHigh 32<rt> result)
   builder <! (rdLo := extractLow 32<rt> result)
@@ -1944,16 +1949,16 @@ let umlal isSetFlags insInfo ctxt =
     builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
     builder <! (cpsr := result == num0 64<rt> |> setPSR ctxt R.CPSR PSR_Z)
   else ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let umull isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (16)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let rdLo, rdHi, rn, rm = transFourOprs insInfo ctxt
   let result = tmpVar 64<rt>
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (result := zExt 64<rt> rn .* zExt 64<rt> rm)
   builder <! (rdHi := extractHigh 32<rt> result)
   builder <! (rdLo := extractLow 32<rt> result)
@@ -1962,7 +1967,8 @@ let umull isSetFlags insInfo ctxt =
     builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
     builder <! (cpsr := result == num0 64<rt> |> setPSR ctxt R.CPSR PSR_Z)
   else ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let transOprsOfTEQ insInfo ctxt =
   match insInfo.Operands with
@@ -1984,27 +1990,26 @@ let transOprsOfTEQ insInfo ctxt =
 
 let teq insInfo ctxt =
   let builder = new StmtBuilder (16)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let src1, src2, carryOut = transOprsOfTEQ insInfo ctxt
   let result = tmpVar 32<rt>
   let cpsr = getRegVar ctxt R.CPSR
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (result := src1 <+> src2)
   builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
   builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
   builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let mul isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (16)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let rd, rn, rm = transThreeOprs insInfo ctxt
   let result = tmpVar 32<rt>
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (result := extractLow 32<rt> (zExt 64<rt> rn .* zExt 64<rt> rm))
   builder <! (rd := result)
   if isSetFlags then
@@ -2012,7 +2017,8 @@ let mul isSetFlags insInfo ctxt =
     builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
     builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
   else ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let transOprsOfTST insInfo ctxt =
   match insInfo.Operands with
@@ -2038,27 +2044,26 @@ let transOprsOfTST insInfo ctxt =
 
 let tst insInfo ctxt =
   let builder = new StmtBuilder (16)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let src1, src2, carryOut = transOprsOfTST insInfo ctxt
   let result = tmpVar 32<rt>
   let cpsr = getRegVar ctxt R.CPSR
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (result := src1 .& src2)
   builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
   builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
   builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let smull isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (16)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let rdLo, rdHi, rn, rm = transFourOprs insInfo ctxt
   let result = tmpVar 64<rt>
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (result := sExt 64<rt> rn .* sExt 64<rt> rm)
   builder <! (rdHi := extractHigh 32<rt> result)
   builder <! (rdLo := extractLow 32<rt> result)
@@ -2067,7 +2072,8 @@ let smull isSetFlags insInfo ctxt =
     builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
     builder <! (cpsr := result == num0 64<rt> |> setPSR ctxt R.CPSR PSR_Z)
   else ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let parseOprOfB insInfo =
   let pc = bvOfBaseAddr insInfo.Address
@@ -2078,23 +2084,23 @@ let parseOprOfB insInfo =
 
 let b insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let e = parseOprOfB insInfo
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (branchWritePC ctxt e InterJmpInfo.Base)
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let bx insInfo ctxt =
   let builder = new StmtBuilder (32)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let rm = transOneOpr insInfo ctxt
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   bxWritePC ctxt rm builder
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let movtAssign dst src =
   let maskHigh16In32 = num <| BitVector.ofUBInt 4294901760I 32<rt>
@@ -2104,13 +2110,13 @@ let movtAssign dst src =
 
 let movt insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let dst, res = transTwoOprs insInfo ctxt
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (movtAssign dst res)
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let popLoop ctxt numOfReg addr (builder: StmtBuilder) =
   let loop addr count =
@@ -2123,15 +2129,14 @@ let popLoop ctxt numOfReg addr (builder: StmtBuilder) =
 
 let pop insInfo ctxt =
   let builder = new StmtBuilder (32)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let t0 = tmpVar 32<rt>
   let sp = getRegVar ctxt R.SP
   let numOfReg = parseOprOfPUSHPOP insInfo
   let stackWidth = 4 * bitCount numOfReg 16
   let addr = sp
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (t0 := addr)
   let addr = popLoop ctxt numOfReg t0 builder
   if (numOfReg >>> 13 &&& 1u) = 0u then
@@ -2140,7 +2145,8 @@ let pop insInfo ctxt =
   if (numOfReg >>> 15 &&& 1u) = 1u then
     builder <! (loadLE 32<rt> addr |> loadWritePC ctxt)
   else ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let parseOprOfLDM insInfo ctxt =
   match insInfo.Operands with
@@ -2158,14 +2164,13 @@ let getLDMStartAddr rn stackWidth = function
 
 let ldm opcode insInfo ctxt =
   let builder = new StmtBuilder (32)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let t0 = tmpVar 32<rt>
   let rn, numOfRn, wback, numOfReg = parseOprOfLDM insInfo ctxt
   let stackWidth = 4 * bitCount numOfReg 16
   let addr = getLDMStartAddr rn stackWidth opcode
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (t0 := addr)
   let addr = popLoop ctxt numOfReg t0 builder
   if (numOfReg >>> 15 &&& 1u) = 1u then
@@ -2177,7 +2182,8 @@ let ldm opcode insInfo ctxt =
   if wback && (numOfReg &&& numOfRn) = numOfRn then
     builder <! (rn := (Expr.Undefined (32<rt>, "UNKNOWN")))
   else ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let getOffAddrWithExpr s r e = if s = Some Plus then r .+ e else r .- e
 
@@ -2237,15 +2243,14 @@ let parseOprOfLDR insInfo ctxt =
 
 let ldr insInfo ctxt =
   let builder = new StmtBuilder (16)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let lblL0 = lblSymbol "L0"
   let lblL1 = lblSymbol "L1"
   let lblEnd = lblSymbol "End"
   let data = tmpVar 32<rt>
   let rt, addr, stmt = parseOprOfLDR insInfo ctxt
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (data := loadLE 32<rt> addr)
   match stmt with
   | Some s -> builder <! s
@@ -2261,20 +2266,21 @@ let ldr insInfo ctxt =
     builder <! (SideEffect UndefinedInstr)
     builder <! (LMark lblEnd)
   else builder <! (rt := data)
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let ldrb insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let rt, addr, stmt = parseOprOfLDR insInfo ctxt
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (rt := loadLE 8<rt> addr |> zExt 32<rt>)
   match stmt with
   | Some s -> builder <! s
   | None -> ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let parseMemOfLDRD insInfo ctxt = function
   | OprMemory (OffsetMode (RegOffset (n, s, m, None))) ->
@@ -2297,87 +2303,87 @@ let parseOprOfLDRD insInfo ctxt =
 
 let ldrd insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let rt, rt2, addr, stmt = parseOprOfLDRD insInfo ctxt
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (rt := loadLE 32<rt> addr)
   builder <! (rt2 := loadLE 32<rt> (addr .+ (num (BitVector.ofInt32 4 32<rt>))))
   match stmt with
   | Some s -> builder <! s
   | None -> ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let ldrh insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let rt, addr, stmt = parseOprOfLDR insInfo ctxt
   let data = tmpVar 16<rt>
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (data := loadLE 16<rt> addr)
   match stmt with
   | Some s -> builder <! s
   | None -> ()
   builder <! (rt := data |> zExt 32<rt>)
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let str insInfo ctxt =
   let builder = new StmtBuilder (16)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let rt, addr, stmt = parseOprOfLDR insInfo ctxt
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   //builder <! (loadLE 32<rt> addr := rt)
   if rt = getPC ctxt then builder <! (loadLE 32<rt> addr := pcStoreValue ctxt)
   else builder <! (loadLE 32<rt> addr := rt)
   match stmt with
   | Some s -> builder <! s
   | None -> ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let strb insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let rt, addr, stmt = parseOprOfLDR insInfo ctxt
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (loadLE 8<rt> addr := extractLow 8<rt> rt)
   match stmt with
   | Some s -> builder <! s
   | None -> ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let strd insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let rt, rt2, addr, stmt = parseOprOfLDRD insInfo ctxt
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (loadLE 32<rt> addr := rt)
   builder <! (loadLE 32<rt> (addr .+ (num <| BitVector.ofInt32 4 32<rt>)) := rt2)
   match stmt with
   | Some s -> builder <! s
   | None -> ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let strh insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let rt, addr, stmt = parseOprOfLDR insInfo ctxt
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   match stmt with
   | Some s -> builder <! s
   | None -> ()
   builder <! (loadLE 16<rt> addr := extractLow 16<rt> rt)
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let parseOprOfSTM insInfo ctxt =
   match insInfo.Operands with
@@ -2406,14 +2412,13 @@ let stmLoop ctxt numOfReg wback rn addr (builder: StmtBuilder) =
 
 let stm opcode insInfo ctxt =
   let builder = new StmtBuilder (32)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let t0 = tmpVar 32<rt>
   let rn, wback, numOfReg = parseOprOfSTM insInfo ctxt
   let stackWidth = 4 * bitCount numOfReg 16
   let addr = getSTMStartAddr rn stackWidth opcode
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (t0 := addr)
   let addr = stmLoop ctxt numOfReg wback rn t0 builder
   if (numOfReg >>> 15 &&& 1u) = 1u then
@@ -2422,7 +2427,8 @@ let stm opcode insInfo ctxt =
   if wback then
     builder <! (rn := rn .+ (num <| BitVector.ofInt32 stackWidth 32<rt>))
   else ()
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let parseOprOfCBZ insInfo ctxt =
   let pc = bvOfBaseAddr insInfo.Address
@@ -2433,20 +2439,20 @@ let parseOprOfCBZ insInfo ctxt =
 
 let cbz nonZero insInfo ctxt =
   let builder = new StmtBuilder (16)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let lblL0 = lblSymbol "L0"
   let lblL1 = lblSymbol "L1"
   let n = if nonZero then num1 1<rt> else num0 1<rt>
   let rn, pc = parseOprOfCBZ insInfo ctxt
   let cond = n <+> (rn == num0 32<rt>)
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (CJmp (cond, Name lblL0, Name lblL1))
   builder <! (LMark lblL0)
   builder <! (branchWritePC ctxt pc InterJmpInfo.Base)
   builder <! (LMark lblL1)
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let parseOprOfTableBranch insInfo ctxt =
   match insInfo.Operands with
@@ -2460,15 +2466,15 @@ let parseOprOfTableBranch insInfo ctxt =
 
 let tableBranch insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let pc = bvOfBaseAddr insInfo.Address
   let halfwords = parseOprOfTableBranch insInfo ctxt
   let result = pc .+ ((num <| BitVector.ofInt32 2 32<rt>) .* halfwords)
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (branchWritePC ctxt result InterJmpInfo.Base)
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let parseOprOfBFC insInfo ctxt =
   match insInfo.Operands with
@@ -2478,13 +2484,13 @@ let parseOprOfBFC insInfo ctxt =
 
 let bfc insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let rd, lsb, width = parseOprOfBFC insInfo ctxt
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (rd := replicate rd 32<rt> lsb width 0)
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let parseOprOfRdRnLsbWidth insInfo ctxt =
   match insInfo.Operands with
@@ -2495,19 +2501,19 @@ let parseOprOfRdRnLsbWidth insInfo ctxt =
 
 let bfi insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let rd, rn, lsb, width = parseOprOfRdRnLsbWidth insInfo ctxt
   let t0 = tmpVar 32<rt>
   let t1 = tmpVar 32<rt>
   let n = rn .&
           (BitVector.ofUBInt (BigInteger.getMask width) 32<rt> |> num)
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (t0 := n << (num <| BitVector.ofInt32 lsb 32<rt>))
   builder <! (t1 := replicate rd 32<rt> lsb width 0)
   builder <! (rd := t0 .| t1)
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let parseOprOfUXTB insInfo ctxt =
   match insInfo.Operands with
@@ -2519,14 +2525,14 @@ let parseOprOfUXTB insInfo ctxt =
 
 let uxtb insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let rd, rm, rotation = parseOprOfUXTB insInfo ctxt
   let rotated = shiftROR rm 32<rt> rotation
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (rd := zExt 32<rt> (extractLow 8<rt> rotated))
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let parseOprOfUXTAB insInfo ctxt =
   match insInfo.Operands with
@@ -2536,27 +2542,27 @@ let parseOprOfUXTAB insInfo ctxt =
 
 let uxtab insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let rd, rn, rm, rotation = parseOprOfUXTAB insInfo ctxt
   let rotated = shiftROR rm 32<rt> rotation
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (rd := rn .+ zExt 32<rt> (extractLow 8<rt> rotated))
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let ubfx insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let rd, rn, lsb, width = parseOprOfRdRnLsbWidth insInfo ctxt
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   if lsb + width - 1 <= 31 then
     let v = BitVector.ofUBInt (BigInteger.getMask width) 32<rt> |> num
     builder <! (rd := (rn >> (num <| BitVector.ofInt32 lsb 32<rt>)) .& v)
   else builder <! (SideEffect UndefinedInstr)  //FIXME  (use UNPREDICTABLE)
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 /// ADR For ThumbMode (T1 case)
 let parseOprOfADR insInfo ctxt =
@@ -2576,46 +2582,45 @@ let it insInfo ctxt =
   let mask72 = (num <| BitVector.ofInt32 0b11111100 32<rt>)
   let itState10 = itState .& mask10
   let itState72 = (itState .& mask72) >> (num <| BitVector.ofInt32 2 32<rt>)
-  builder <! (ISMark (insInfo.Address, insInfo.NumBytes))
+  startMark insInfo builder
   builder <! (cpsr := itState10 |> setPSR ctxt R.CPSR PSR_IT10)
   builder <! (cpsr := itState72 |> setPSR ctxt R.CPSR PSR_IT72)
-  builder <! (IEMark (uint64 insInfo.NumBytes + insInfo.Address))
-  builder
+  endMark insInfo builder
 
 let adr insInfo ctxt =
   let builder = new StmtBuilder (32)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let rd, result = parseOprOfADR insInfo ctxt
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   if rd = getPC ctxt then writePC ctxt result builder
   else builder <! (rd := result)
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let mls insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let rd, rn, rm, ra = transFourOprs insInfo ctxt
   let r = tmpVar 32<rt>
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (r := extractLow 32<rt> (zExt 64<rt> rn .- zExt 64<rt> rm .*
                                      zExt 64<rt> ra))
   builder <! (rd := r)
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let sxth insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let rd, rm, rotation = parseOprOfUXTB insInfo ctxt
   let rotated = shiftROR rm 32<rt> rotation
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (rd := sExt 32<rt> (extractLow 8<rt> rotated))
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let checkSingleReg = function
   | R.S0 | R.S1 | R.S2 | R.S3 | R.S4 | R.S5 | R.S6 | R.S7 | R.S8 | R.S9
@@ -2638,11 +2643,10 @@ let parseOprOfVLDR insInfo ctxt =
 
 let vldr insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let rd, addr, isSReg = parseOprOfVLDR insInfo ctxt
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   if isSReg then
     let data = tmpVar 32<rt>
     builder <! (data := loadLE 32<rt> addr)
@@ -2653,7 +2657,8 @@ let vldr insInfo ctxt =
     builder <! (d1 := loadLE 32<rt> addr)
     builder <! (d2 := loadLE 32<rt> (addr .+ (num (BitVector.ofInt32 4 32<rt>))))
     builder <! (rd := concat d1 d2)
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let parseOprOfVSTR insInfo ctxt =
   match insInfo.Operands with
@@ -2665,18 +2670,18 @@ let parseOprOfVSTR insInfo ctxt =
 
 let vstr insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let rd, addr, isSReg = parseOprOfVSTR insInfo ctxt
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   if isSReg then builder <! (loadLE 32<rt> addr := rd)
   else
     let mem1 = loadLE 32<rt> addr
     let mem2 = loadLE 32<rt>  (addr .+ (num <| BitVector.ofInt32 4 32<rt>))
     builder <! (mem1 := extractHigh 32<rt> rd)
     builder <! (mem2 := extractLow 32<rt> rd)
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let parseOprOfVPUSHVPOP insInfo =
   match insInfo.Operands with
@@ -2786,18 +2791,18 @@ let vpopLoop ctxt d imm isSReg addr (builder: StmtBuilder) =
 
 let vpop insInfo ctxt =
   let builder = new StmtBuilder (64) // FIXME
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let t0 = tmpVar 32<rt>
   let sp = getRegVar ctxt R.SP
   let d, imm, isSReg = parsePUSHPOPsubValue insInfo
   let addr = sp
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (t0 := addr)
   builder <! (sp := addr .+ (num <| BitVector.ofInt32 (imm <<< 2) 32<rt>))
   vpopLoop ctxt d imm isSReg t0 builder
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let vpushLoop ctxt d imm isSReg addr (builder: StmtBuilder) =
   let rec singleRegLoop r addr =
@@ -2822,31 +2827,31 @@ let vpushLoop ctxt d imm isSReg addr (builder: StmtBuilder) =
 
 let vpush insInfo ctxt =
   let builder = new StmtBuilder (64) // FIXME
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let t0 = tmpVar 32<rt>
   let sp = getRegVar ctxt R.SP
   let d, imm, isSReg = parsePUSHPOPsubValue insInfo
   let addr = sp .- (num <| BitVector.ofInt32 (imm <<< 2) 32<rt>)
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   builder <! (t0 := addr)
   builder <! (sp := addr .- (num <| BitVector.ofInt32 (imm <<< 2) 32<rt>))
   vpushLoop ctxt d imm isSReg t0 builder
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 let vmrs insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let lblCondPass = lblSymbol "CondCheckPassed"
-  let lblCondFail = lblSymbol "CondCheckFailed"
   let rt, fpscr = transTwoOprs insInfo ctxt
   let cpsr = getRegVar ctxt R.CPSR
-  let isCondPass = isCondPassed insInfo.Condition
-  startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblCondFail = checkCondition insInfo ctxt isUnconditional builder
   if rt <> cpsr then builder <! (rt := fpscr)
   else builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_Cond .|
                            getPSR ctxt R.FPSCR PSR_Cond)
-  endMark insInfo lblCondFail isCondPass builder
+  putEndLabel lblCondFail isUnconditional builder
+  endMark insInfo builder
 
 /// Translate IR.
 let translate insInfo ctxt =
@@ -2909,7 +2914,7 @@ let translate insInfo ctxt =
   | Op.IT | Op.ITT | Op.ITE | Op.ITTT | Op.ITET | Op.ITTE
   | Op.ITEE | Op.ITTTT | Op.ITETT | Op.ITTET | Op.ITEET
   | Op.ITTTE | Op.ITETE | Op.ITTEE | Op.ITEEE -> it insInfo ctxt
-  | Op.NOP -> nop insInfo addr
+  | Op.NOP -> nop insInfo
   | Op.MOVT -> movt insInfo ctxt
   | Op.POP -> pop insInfo ctxt
   | Op.LDM -> ldm Op.LDM insInfo ctxt
@@ -2928,7 +2933,7 @@ let translate insInfo ctxt =
   | Op.STMIB -> stm Op.STMIB insInfo ctxt
   | Op.STMDA -> stm Op.STMDA insInfo ctxt
   | Op.STCL | Op.SVC | Op.MRC | Op.MRC2 | Op.LDCL ->
-    sideEffects insInfo addr UnsupportedExtension (* coprocessor instructions *)
+    sideEffects insInfo UnsupportedExtension (* coprocessor instructions *)
   | Op.CBNZ -> cbz true insInfo ctxt
   | Op.CBZ -> cbz false insInfo ctxt
   | Op.TBH | Op.TBB -> tableBranch insInfo ctxt
@@ -2946,7 +2951,7 @@ let translate insInfo ctxt =
   | Op.VPUSH -> vpush insInfo ctxt
   | Op.VMRS -> vmrs insInfo ctxt
   | Op.VCVT | Op.VCVTR | Op.VMLS | Op.VADD | Op.VMUL | Op.VDIV
-  | Op.VMOV | Op.VCMP | Op.VCMPE -> sideEffects insInfo addr UnsupportedFP
+  | Op.VMOV | Op.VCMP | Op.VCMPE -> sideEffects insInfo UnsupportedFP
   | o -> eprintfn "%A" o
          raise <| NotImplementedIRException (Disasm.opCodeToString o)
   |> fun builder -> builder.ToStmts ()
