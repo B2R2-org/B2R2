@@ -1585,6 +1585,26 @@ let orr isSetFlags insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
+let orn isSetFlags insInfo ctxt =
+  let builder = new StmtBuilder (32)
+  let dst, src1, src2, carryOut = parseOprOfAND insInfo ctxt
+  let result = tmpVar 32<rt>
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  builder <! (result := src1 .| not src2)
+  if dst = getPC ctxt then writePC ctxt result builder
+  else
+    builder <! (dst := result)
+    if isSetFlags then
+      let cpsr = getRegVar ctxt R.CPSR
+      builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
+      builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
+      builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
+    else ()
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
 let bic isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
   let dst, src1, src2, carryOut = parseOprOfAND insInfo ctxt
@@ -1779,6 +1799,12 @@ let orrs isSetFlags insInfo ctxt =
   | ThreeOperands (OprReg R.PC, _, _)
   | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr insInfo ctxt
   | _ -> orr isSetFlags insInfo ctxt
+
+let orns isSetFlags insInfo ctxt =
+  match insInfo.Operands with
+  | ThreeOperands (OprReg R.PC, _, _)
+  | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr insInfo ctxt
+  | _ -> orn isSetFlags insInfo ctxt
 
 let bics isSetFlags insInfo ctxt =
   match insInfo.Operands with
@@ -2907,6 +2933,8 @@ let translate insInfo ctxt =
   | Op.RSCS -> rscs true insInfo ctxt
   | Op.ORR -> orr false insInfo ctxt
   | Op.ORRS -> orrs true insInfo ctxt
+  | Op.ORN -> orn false insInfo ctxt
+  | Op.ORNS -> orns true insInfo ctxt
   | Op.BIC -> bic false insInfo ctxt
   | Op.BICS -> bics true insInfo ctxt
   | Op.MVN -> mvn false insInfo ctxt
