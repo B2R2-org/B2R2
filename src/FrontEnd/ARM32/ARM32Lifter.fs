@@ -2388,6 +2388,47 @@ let ldrh insInfo ctxt =
 let sel8Bits r offset =
   extract r 8<rt> offset |> zExt 32<rt>
 
+let combine8bitResults t1 t2 t3 t4 =
+  let n8 = num <| BitVector.ofInt32 8 32<rt>
+  let n16 = num <| BitVector.ofInt32 16 32<rt>
+  let n24 = num <| BitVector.ofInt32 24 32<rt>
+  (t4 << n24) .| (t3 << n16) .| (t2 << n8) .| t1
+
+let combineGEs ge0 ge1 ge2 ge3 =
+  let n1 = num1 32<rt>
+  let n2 = num <| BitVector.ofInt32 2 32<rt>
+  let n3 = num <| BitVector.ofInt32 3 32<rt>
+  ge0 .| (ge1 << n1) .| (ge2 << n2) .| (ge3 << n3)
+
+let uadd8 insInfo ctxt =
+  let builder = new StmtBuilder (32)
+  let rd, rn, rm = transThreeOprs insInfo ctxt
+  let sum1 = tmpVar 32<rt>
+  let sum2 = tmpVar 32<rt>
+  let sum3 = tmpVar 32<rt>
+  let sum4 = tmpVar 32<rt>
+  let ge0 = tmpVar 32<rt>
+  let ge1 = tmpVar 32<rt>
+  let ge2 = tmpVar 32<rt>
+  let ge3 = tmpVar 32<rt>
+  let cpsr = getRegVar ctxt R.CPSR
+  let n100 = num <| BitVector.ofInt32 0x100 32<rt>
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  builder <! (sum1 := sel8Bits rn 0 .+ sel8Bits rm 0)
+  builder <! (sum2 := sel8Bits rn 8 .+ sel8Bits rm 8)
+  builder <! (sum3 := sel8Bits rn 16 .+ sel8Bits rm 16)
+  builder <! (sum4 := sel8Bits rn 24 .+ sel8Bits rm 24)
+  builder <! (rd := combine8bitResults sum1 sum2 sum3 sum4)
+  builder <! (ge0 := ite (ge sum1 n100) (num1 32<rt>) (num0 32<rt>))
+  builder <! (ge1 := ite (ge sum2 n100) (num1 32<rt>) (num0 32<rt>))
+  builder <! (ge2 := ite (ge sum3 n100) (num1 32<rt>) (num0 32<rt>))
+  builder <! (ge3 := ite (ge sum4 n100) (num1 32<rt>) (num0 32<rt>))
+  builder <! (cpsr := combineGEs ge0 ge1 ge2 ge3 |> setPSR ctxt R.CPSR PSR_GE)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
 let sel insInfo ctxt =
   let builder = new StmtBuilder (16)
   let t1 = tmpVar 32<rt>
@@ -2399,8 +2440,6 @@ let sel insInfo ctxt =
   let n2 = num <| BitVector.ofInt32 2 32<rt>
   let n4 = num <| BitVector.ofInt32 4 32<rt>
   let n8 = num <| BitVector.ofInt32 8 32<rt>
-  let n16 = num <| BitVector.ofInt32 16 32<rt>
-  let n24 = num <| BitVector.ofInt32 24 32<rt>
   let ge = getPSR ctxt R.CPSR PSR_GE >> (num <| BitVector.ofInt32 16 32<rt>)
   let isUnconditional = isUnconditional insInfo.Condition
   startMark insInfo builder
@@ -2409,7 +2448,7 @@ let sel insInfo ctxt =
   builder <!  (t2 := ite ((ge .& n2) == n2) (sel8Bits rn 8) (sel8Bits rm 8))
   builder <!  (t3 := ite ((ge .& n4) == n4) (sel8Bits rn 16) (sel8Bits rm 16))
   builder <!  (t4 := ite ((ge .& n8) == n8) (sel8Bits rn 24) (sel8Bits rm 24))
-  builder <! (rd := (t4 << n24) .| (t3 << n16) .| (t2 << n8) .| t1)
+  builder <! (rd := combine8bitResults t1 t2 t3 t4)
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
@@ -3024,6 +3063,7 @@ let translate insInfo ctxt =
   | Op.TBH | Op.TBB -> tableBranch insInfo ctxt
   | Op.BFC -> bfc insInfo ctxt
   | Op.BFI -> bfi insInfo ctxt
+  | Op.UADD8 -> uadd8 insInfo ctxt
   | Op.UXTB -> uxtb insInfo ctxt
   | Op.UXTAB -> uxtab insInfo ctxt
   | Op.UBFX -> ubfx insInfo ctxt
