@@ -1538,18 +1538,16 @@ let parseGroup1OutITBlock bin =
 
 /// Data-processing, page A6-225
 let parseGroup1 ctxt bin =
-  let cond () = getCondWithITSTATE ctxt
+  let cond = getCondWithITSTATE ctxt
   let parseWithITSTATE () =
     if inITBlock ctxt then
-      let op, oprs = parseGroup1InITBlock bin in op, cond (), 0uy, None, oprs
+      let op, oprs = parseGroup1InITBlock bin
+      op, cond, 0uy, None, oprs
     else let op, oprs = parseGroup1OutITBlock bin in op, None, 0uy, None, oprs
   match extract bin 9u 6u with
-  | 0b1000u ->
-    Op.TST, cond (), 0uy, None, p2Oprs bin dummyChk (getRegI, getRegH)
-  | 0b1010u ->
-    Op.CMP, cond (), 0uy, None, p2Oprs bin dummyChk (getRegI, getRegH)
-  | 0b1011u ->
-    Op.CMN, cond (), 0uy, None, p2Oprs bin dummyChk (getRegI, getRegH)
+  | 0b1000u -> Op.TST, cond, 0uy, None, p2Oprs bin dummyChk (getRegI, getRegH)
+  | 0b1010u -> Op.CMP, cond, 0uy, None, p2Oprs bin dummyChk (getRegI, getRegH)
+  | 0b1011u -> Op.CMN, cond, 0uy, None, p2Oprs bin dummyChk (getRegI, getRegH)
   | _ -> parseWithITSTATE ()
 
 let parseGroup2ADD ctxt bin =
