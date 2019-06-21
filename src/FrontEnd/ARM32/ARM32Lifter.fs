@@ -582,19 +582,30 @@ let bxWritePC ctxt result (builder: StmtBuilder) =
   let lblL1 = lblSymbol "bxWPCL1"
   let lblL2 = lblSymbol "bxWPCL2"
   let lblL3 = lblSymbol "bxWPCL3"
+  let lblL4 = lblSymbol "bxWPCL4"
+  let lblL5 = lblSymbol "bxWPCL5"
+  let lblL6 = lblSymbol "bxWPCL6"
   let lblEnd = lblSymbol "bxWPCEnd"
+  let cond0 = (isSetCPSR_J ctxt) .& (isSetCPSR_T ctxt)
   let cond1 = extractLow 1<rt> result == b1
-  let cond2 = extract result 1<rt> 1 == b1
+  let cond2 = extract result 1<rt> 1 == b0
   let pc = getPC ctxt
-  builder <! (CJmp (cond1, Name lblL0, Name lblL1))
+  builder <! (CJmp (cond0, Name lblL0, Name lblL1))
   builder <! (LMark lblL0)
-  selectThumbInstrSet ctxt builder
+  builder <! (CJmp (cond1, Name lblL2, Name lblL3))
+  builder <! (LMark lblL2)
   // FIXME
-  builder <! (InterJmp (pc, maskAnd result 32<rt> 1, InterJmpInfo.Base))
+  builder <! (InterJmp (pc, maskAnd result 32<rt> 0, InterJmpInfo.Base))
   builder <! (Jmp (Name lblEnd))
   builder <! (LMark lblL1)
-  builder <! (CJmp (cond2, Name lblL2, Name lblL3))
-  builder <! (LMark lblL2)
+  builder <! (CJmp (cond1, Name lblL4, Name lblL5))
+  builder <! (LMark lblL4)
+  selectThumbInstrSet ctxt builder
+  builder <! (InterJmp (pc, maskAnd result 32<rt> 0, InterJmpInfo.Base))
+  builder <! (Jmp (Name lblEnd))
+  builder <! (LMark lblL5)
+  builder <! (CJmp (cond2, Name lblL6, Name lblL3))
+  builder <! (LMark lblL6)
   selectARMInstrSet ctxt builder
   // FIXME
   builder <! (InterJmp (pc, result, InterJmpInfo.Base))
@@ -1785,7 +1796,7 @@ let clz insInfo ctxt =
   let numSize = (num <| BitVector.ofInt32 32 32<rt>)
   let numMinusOne = (num <| BitVector.ofInt32 -1 32<rt>)
   let t1, result = tmpVar 32<rt>, tmpVar 32<rt>
-  let cond1 = lt t1 (num0 32<rt>)
+  let cond1 = t1 == (num0 32<rt>)
   let cond2 = src .& ((num1 32<rt>) << t1) != (num0 32<rt>)
   let isCondPass = isCondPassed insInfo.Condition
   startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
@@ -2122,12 +2133,12 @@ let pop insInfo ctxt =
   startMark insInfo ctxt lblCondPass lblCondFail isCondPass builder
   builder <! (t0 := addr)
   let addr = popLoop ctxt numOfReg t0 builder
-  if (numOfReg >>> 15 &&& 1u) = 1u then
-    builder <! (loadLE 32<rt> addr |> loadWritePC ctxt)
-  else ()
   if (numOfReg >>> 13 &&& 1u) = 0u then
     builder <! (sp := sp .+ (num <| BitVector.ofInt32 stackWidth 32<rt>))
   else builder <! (sp := (Expr.Undefined (32<rt>, "UNKNOWN")))
+  if (numOfReg >>> 15 &&& 1u) = 1u then
+    builder <! (loadLE 32<rt> addr |> loadWritePC ctxt)
+  else ()
   endMark insInfo lblCondFail isCondPass builder
 
 let parseOprOfLDM insInfo ctxt =
