@@ -270,6 +270,7 @@ let setPSR ctxt reg psrType expr =
     | PSR_M -> expr
   disablePSRBits ctxt reg psrType .| (zExt 32<rt> expr |> shift)
 
+/// Get PSR bits without shifting it.
 let getPSR ctxt reg psrType =
   let psr = getRegVar ctxt reg
   match psrType with
@@ -2384,6 +2385,34 @@ let ldrh insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
+let sel8Bits r offset =
+  extract r 8<rt> offset |> zExt 32<rt>
+
+let sel insInfo ctxt =
+  let builder = new StmtBuilder (16)
+  let t1 = tmpVar 32<rt>
+  let t2 = tmpVar 32<rt>
+  let t3 = tmpVar 32<rt>
+  let t4 = tmpVar 32<rt>
+  let rd, rn, rm = transThreeOprs insInfo ctxt
+  let n1 = num1 32<rt>
+  let n2 = num <| BitVector.ofInt32 2 32<rt>
+  let n4 = num <| BitVector.ofInt32 4 32<rt>
+  let n8 = num <| BitVector.ofInt32 8 32<rt>
+  let n16 = num <| BitVector.ofInt32 16 32<rt>
+  let n24 = num <| BitVector.ofInt32 24 32<rt>
+  let ge = getPSR ctxt R.CPSR PSR_GE >> (num <| BitVector.ofInt32 16 32<rt>)
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  builder <!  (t1 := ite ((ge .& n1) == n1) (sel8Bits rn 0) (sel8Bits rm 0))
+  builder <!  (t2 := ite ((ge .& n2) == n2) (sel8Bits rn 8) (sel8Bits rm 8))
+  builder <!  (t3 := ite ((ge .& n4) == n4) (sel8Bits rn 16) (sel8Bits rm 16))
+  builder <!  (t4 := ite ((ge .& n8) == n8) (sel8Bits rn 24) (sel8Bits rm 24))
+  builder <! (rd := (t4 << n24) .| (t3 << n16) .| (t2 << n8) .| t1)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
 let str insInfo ctxt =
   let builder = new StmtBuilder (16)
   let rt, addr, stmt = parseOprOfLDR insInfo ctxt
@@ -2980,6 +3009,7 @@ let translate insInfo ctxt =
   | Op.LDRB -> ldrb insInfo ctxt
   | Op.LDRD -> ldrd insInfo ctxt
   | Op.LDRH -> ldrh insInfo ctxt
+  | Op.SEL -> sel insInfo ctxt
   | Op.STR -> str insInfo ctxt
   | Op.STRB -> strb insInfo ctxt
   | Op.STRD -> strd insInfo ctxt
