@@ -2832,7 +2832,7 @@ let sxth insInfo ctxt =
   let isUnconditional = isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
-  builder <! (rd := sExt 32<rt> (extractLow 8<rt> rotated))
+  builder <! (rd := sExt 32<rt> (extractLow 16<rt> rotated))
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
