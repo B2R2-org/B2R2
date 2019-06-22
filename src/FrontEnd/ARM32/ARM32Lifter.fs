@@ -362,7 +362,7 @@ let shiftLSLCForRegAmount value regType amount carryIn =
   let chkGT = relop RelOpType.GT amount (num (BitVector.ofUInt32 0u regType))
   let result = value << amount
   let result = ite chkGT result (Expr.Undefined (regType, "AssertError"))
-  let carryOut = value << (amount .- num1 regType ) |> extractHigh 1<rt>
+  let carryOut = value << (amount .- num1 regType) |> extractHigh 1<rt>
   let carryOut = ite chkGT carryOut (Expr.Undefined (1<rt>, "AssertError"))
   ite chkEQ value result, ite chkEQ carryIn carryOut
 
@@ -1715,50 +1715,54 @@ let getImmShiftFromShiftType imm = function
   | SRTypeASR -> if imm = 0ul then 32ul else imm
   | SRTypeRRX -> 1ul
 
-let transTwoOprsOfShiftInstr insInfo shiftTyp ctxt =
+let transTwoOprsOfShiftInstr insInfo shiftTyp ctxt tmp =
   match insInfo.Operands with
   | TwoOperands (OprReg _, OprReg _) when shiftTyp = SRTypeRRX ->
     let carryIn = getCarryFlag ctxt
     let e1, e2 = transTwoOprs insInfo ctxt
-    let result, carryOut = shiftC e2 32<rt> shiftTyp 1ul carryIn
-    e1, result, carryOut
+    let result, carryOut = shiftC tmp 32<rt> shiftTyp 1ul carryIn
+    e1, e2, result, carryOut
   | TwoOperands (OprReg _, OprReg _) ->
     let carryIn = getCarryFlag ctxt
     let e1, e2 = transTwoOprs insInfo ctxt
     let shiftN = extractLow 8<rt> e2 |> zExt 32<rt>
-    let result, carryOut = shiftCForRegAmount e1 32<rt> shiftTyp shiftN carryIn
-    e1, result, carryOut
+    let result, carryOut = shiftCForRegAmount tmp 32<rt> shiftTyp shiftN carryIn
+    e1, e1, result, carryOut
   | _ -> raise InvalidOperandException
 
-let transThreeOprsOfShiftInstr insInfo shiftTyp ctxt =
+let transThreeOprsOfShiftInstr insInfo shiftTyp ctxt tmp =
   match insInfo.Operands with
   | ThreeOperands (opr1, opr2, OprImm imm) ->
     let e1 = transOprToExpr ctxt opr1
     let e2 = transOprToExpr ctxt opr2
     let shiftN = getImmShiftFromShiftType (uint32 imm) shiftTyp
-    let shifted, carryOut = shiftC e2 32<rt> shiftTyp shiftN (getCarryFlag ctxt)
-    e1, shifted, carryOut
+    let shifted, carryOut =
+      shiftC tmp 32<rt> shiftTyp shiftN (getCarryFlag ctxt)
+    e1, e2, shifted, carryOut
   | ThreeOperands (_, _, OprReg _) ->
     let carryIn = getCarryFlag ctxt
     let e1, e2, e3 = transThreeOprs insInfo ctxt
     let amount = extractLow 8<rt> e3 |> zExt 32<rt>
-    let shifted, carryOut = shiftCForRegAmount e2 32<rt> shiftTyp amount carryIn
-    e1, shifted, carryOut
+    let shifted, carryOut =
+      shiftCForRegAmount tmp 32<rt> shiftTyp amount carryIn
+    e1, e2, shifted, carryOut
   | _ -> raise InvalidOperandException
 
-let parseOprOfShiftInstr insInfo shiftTyp ctxt =
+let parseOprOfShiftInstr insInfo shiftTyp ctxt tmp =
   match insInfo.Operands with
-  | TwoOperands _ -> transTwoOprsOfShiftInstr insInfo shiftTyp ctxt
-  | ThreeOperands _ -> transThreeOprsOfShiftInstr insInfo shiftTyp ctxt
+  | TwoOperands _ -> transTwoOprsOfShiftInstr insInfo shiftTyp ctxt tmp
+  | ThreeOperands _ -> transThreeOprsOfShiftInstr insInfo shiftTyp ctxt tmp
   | _ -> raise InvalidOperandException
 
 let shiftInstr isSetFlags insInfo typ ctxt =
   let builder = new StmtBuilder (32)
+  let srcTmp = tmpVar 32<rt>
   let result = tmpVar 32<rt>
-  let dst, res, carryOut = parseOprOfShiftInstr insInfo typ ctxt
+  let dst, src, res, carryOut = parseOprOfShiftInstr insInfo typ ctxt srcTmp
   let isUnconditional = isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  builder <! (srcTmp := src)
   builder <! (result := res)
   if dst = getPC ctxt then writePC ctxt result builder
   else
