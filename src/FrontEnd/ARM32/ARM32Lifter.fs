@@ -1141,7 +1141,7 @@ let blxWithReg insInfo reg ctxt =
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   if insInfo.Mode = ArchOperationMode.ARMMode then
-    builder <! (lr := addr .- (num <| BitVector.ofInt32 4 32<rt>))
+    builder <! (lr := addr .+ (num <| BitVector.ofInt32 4 32<rt>))
   else
     let addr = addr .- (num <| BitVector.ofInt32 2 32<rt>)
     builder <! (lr := maskAndOR addr (num1 32<rt>) 32<rt> 1)
