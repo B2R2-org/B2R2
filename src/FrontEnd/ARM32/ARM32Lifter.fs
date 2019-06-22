@@ -929,10 +929,12 @@ let transThreeOprsOfADC insInfo ctxt =
 let transFourOprsOfADC insInfo ctxt =
   match insInfo.Operands with
   | FourOperands (opr1, opr2, opr3 , (OprShift (_, Imm _) as opr4)) ->
-    let e1, e2 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
+    let e1, e2 =
+      transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
     e1, e2, transShiftOprs ctxt opr3 opr4
   | FourOperands (opr1, opr2, opr3 , OprRegShift (typ, reg)) ->
-    let e1, e2 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
+    let e1 = transOprToExpr ctxt opr1
+    let e2 = transOprToExpr ctxt opr2
     let e3 = transOprToExpr ctxt opr3
     let amount = extractLow 8<rt> (getRegVar ctxt reg) |> zExt 32<rt>
     e1, e2, shiftForRegAmount e3 32<rt> typ amount (getCarryFlag ctxt)
@@ -1019,9 +1021,17 @@ let isUnconditional cond =
   | Some Condition.UN -> true
   | _ -> false
 
+let convertPCOpr insInfo ctxt opr =
+  if opr = getPC ctxt then
+    let rel = if insInfo.Mode = ArchOperationMode.ARMMode then 8 else 4
+    opr .+ (num <| BitVector.ofInt32 rel 32<rt>)
+  else opr
+
 let adc isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
   let dst, src1, src2 = parseOprOfADC insInfo ctxt
+  let src1 = convertPCOpr insInfo ctxt src1
+  let src2 = convertPCOpr insInfo ctxt src2
   let t1, t2 = tmpVar 32<rt>, tmpVar 32<rt>
   let result = tmpVar 32<rt>
   let isUnconditional = isUnconditional insInfo.Condition
@@ -1065,10 +1075,12 @@ let transThreeOprsOfADD insInfo ctxt =
 let transFourOprsOfADD insInfo ctxt =
   match insInfo.Operands with
   | FourOperands (opr1, opr2, opr3 , (OprShift (_, Imm _) as opr4)) ->
-    let e1, e2 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
+    let e1 = transOprToExpr ctxt opr1
+    let e2 = transOprToExpr ctxt opr2
     e1, e2, transShiftOprs ctxt opr3 opr4
   | FourOperands (opr1, opr2, opr3 , OprRegShift (typ, reg)) ->
-    let e1, e2 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
+    let e1 = transOprToExpr ctxt opr1
+    let e2 = transOprToExpr ctxt opr2
     let e3 = transOprToExpr ctxt opr3
     let amount = extractLow 8<rt> (getRegVar ctxt reg) |> zExt 32<rt>
     e1, e2, shiftForRegAmount e3 32<rt> typ amount (getCarryFlag ctxt)
@@ -1084,10 +1096,9 @@ let parseOprOfADD insInfo ctxt =
 let add isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
   let dst, src1, src2 = parseOprOfADD insInfo ctxt
+  let src1 = convertPCOpr insInfo ctxt src1
+  let src2 = convertPCOpr insInfo ctxt src2
   let t1, t2 = tmpVar 32<rt>, tmpVar 32<rt>
-  let src1 =
-    if src1 = getPC ctxt then src1 .+ (BitVector.ofUInt32 8u 32<rt> |> num)
-    else src1
   let isUnconditional = isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
@@ -1209,6 +1220,8 @@ let push insInfo ctxt =
 let sub isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
   let dst, src1, src2 = parseOprOfADD insInfo ctxt
+  let src1 = convertPCOpr insInfo ctxt src1
+  let src2 = convertPCOpr insInfo ctxt src2
   let t1, t2 = tmpVar 32<rt>, tmpVar 32<rt>
   let result = tmpVar 32<rt>
   let isUnconditional = isUnconditional insInfo.Condition
@@ -1358,13 +1371,15 @@ let transFourOprsOfAND insInfo ctxt =
   match insInfo.Operands with
   | FourOperands (opr1, opr2, opr3 , OprShift (typ, Imm imm)) ->
     let carryIn = getCarryFlag ctxt
-    let dst, src1 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
+    let dst = transOprToExpr ctxt opr1
+    let src1 = transOprToExpr ctxt opr2
     let e3 = transOprToExpr ctxt opr3
     let shifted, carryOut = shiftC e3 32<rt> typ imm carryIn
     dst, src1, shifted, carryOut
   | FourOperands (opr1, opr2, opr3 , OprRegShift (typ, reg)) ->
     let carryIn = getCarryFlag ctxt
-    let dst, src1 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
+    let dst = transOprToExpr ctxt opr1
+    let src1 = transOprToExpr ctxt opr2
     let e3 = transOprToExpr ctxt opr3
     let amount = extractLow 8<rt> (getRegVar ctxt reg) |> zExt 32<rt>
     let shifted, carryOut = shiftCForRegAmount e3 32<rt> typ amount carryIn
@@ -1440,10 +1455,12 @@ let eor isSetFlags insInfo ctxt =
 let transFourOprsOfRSB insInfo ctxt =
   match insInfo.Operands with
   | FourOperands (opr1, opr2, opr3 , (OprShift (_, Imm _) as opr4)) ->
-    let e1, e2 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
+    let e1 = transOprToExpr ctxt opr1
+    let e2 = transOprToExpr ctxt opr2
     e1, e2, transShiftOprs ctxt opr3 opr4
   | FourOperands (opr1, opr2, opr3 , OprRegShift (typ, reg)) ->
-    let e1, e2 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
+    let e1 = transOprToExpr ctxt opr1
+    let e2 = transOprToExpr ctxt opr2
     let e3 = transOprToExpr ctxt opr3
     let amount = extractLow 8<rt> (getRegVar ctxt reg) |> zExt 32<rt>
     e1, e2, shiftForRegAmount e3 32<rt> typ amount (getCarryFlag ctxt)
@@ -1490,10 +1507,12 @@ let transTwoOprsOfSBC insInfo ctxt =
 let transFourOprsOfSBC insInfo ctxt =
   match insInfo.Operands with
   | FourOperands (opr1, opr2, opr3 , (OprShift (_, Imm _) as opr4)) ->
-    let e1, e2 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
+    let e1 = transOprToExpr ctxt opr1
+    let e2 = transOprToExpr ctxt opr2
     e1, e2, transShiftOprs ctxt opr3 opr4
   | FourOperands (opr1, opr2, opr3 , OprRegShift (typ, reg)) ->
-    let e1, e2 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
+    let e1 = transOprToExpr ctxt opr1
+    let e2 = transOprToExpr ctxt opr2
     let e3 = transOprToExpr ctxt opr3
     let amount = extractLow 8<rt> (getRegVar ctxt reg) |> zExt 32<rt>
     e1, e2, shiftForRegAmount e3 32<rt> typ amount (getCarryFlag ctxt)
@@ -1534,10 +1553,12 @@ let sbc isSetFlags insInfo ctxt =
 let transFourOprsOfRSC insInfo ctxt =
   match insInfo.Operands with
   | FourOperands (opr1, opr2, opr3 , (OprShift (_, Imm _) as opr4)) ->
-    let e1, e2 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
+    let e1 = transOprToExpr ctxt opr1
+    let e2 = transOprToExpr ctxt opr2
     e1, e2, transShiftOprs ctxt opr3 opr4
   | FourOperands (opr1, opr2, opr3 , OprRegShift (typ, reg)) ->
-    let e1, e2 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
+    let e1 = transOprToExpr ctxt opr1
+    let e2 = transOprToExpr ctxt opr2
     let e3 = transOprToExpr ctxt opr3
     let amount = extractLow 8<rt> (getRegVar ctxt reg) |> zExt 32<rt>
     e1, e2, shiftForRegAmount e3 32<rt> typ amount (getCarryFlag ctxt)
@@ -1649,12 +1670,14 @@ let transThreeOprsOfMVN insInfo ctxt =
   match insInfo.Operands with
   | ThreeOperands (opr1, opr2, OprShift (typ, Imm imm)) ->
     let carryIn = getCarryFlag ctxt
-    let dst, src = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
+    let dst = transOprToExpr ctxt opr1
+    let src = transOprToExpr ctxt opr2
     let shifted, carryOut = shiftC src 32<rt> typ imm carryIn
     dst, shifted, carryOut
   | ThreeOperands (opr1, opr2, OprRegShift (typ, rs)) ->
     let carryIn = getCarryFlag ctxt
-    let dst, src = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
+    let dst = transOprToExpr ctxt opr1
+    let src = transOprToExpr ctxt opr2
     let amount = extractLow 8<rt> (getRegVar ctxt rs) |> zExt 32<rt>
     let shifted, carryOut = shiftCForRegAmount src 32<rt> typ amount carryIn
     dst, shifted, carryOut
@@ -1710,7 +1733,8 @@ let transTwoOprsOfShiftInstr insInfo shiftTyp ctxt =
 let transThreeOprsOfShiftInstr insInfo shiftTyp ctxt =
   match insInfo.Operands with
   | ThreeOperands (opr1, opr2, OprImm imm) ->
-    let e1, e2 = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
+    let e1 = transOprToExpr ctxt opr1
+    let e2 = transOprToExpr ctxt opr2
     let shiftN = getImmShiftFromShiftType (uint32 imm) shiftTyp
     let shifted, carryOut = shiftC e2 32<rt> shiftTyp shiftN (getCarryFlag ctxt)
     e1, shifted, carryOut
@@ -1751,7 +1775,8 @@ let shiftInstr isSetFlags insInfo typ ctxt =
 let subs isSetFlags insInfo ctxt =
   match insInfo.Operands with
   | ThreeOperands (OprReg R.PC, _, _)
-    when insInfo.Mode = ArchOperationMode.ThumbMode -> subsPCLRThumb insInfo ctxt
+    when insInfo.Mode = ArchOperationMode.ThumbMode ->
+    subsPCLRThumb insInfo ctxt
   | ThreeOperands (OprReg R.PC, _, _)
   | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr insInfo ctxt
   | _ -> sub isSetFlags insInfo ctxt
@@ -1901,12 +1926,14 @@ let transThreeOprsOfCMN insInfo ctxt =
   match insInfo.Operands with
   | ThreeOperands (opr1, opr2, OprShift (typ, Imm imm)) ->
     let carryIn = getCarryFlag ctxt
-    let dst, src = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
+    let dst = transOprToExpr ctxt opr1
+    let src = transOprToExpr ctxt opr2
     let shifted = shift src 32<rt> typ imm carryIn
     dst, shifted
   | ThreeOperands (opr1, opr2, OprRegShift (typ, rs)) ->
     let carryIn = getCarryFlag ctxt
-    let dst, src = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
+    let dst = transOprToExpr ctxt opr1
+    let src = transOprToExpr ctxt opr2
     let amount = extractLow 8<rt> (getRegVar ctxt rs) |> zExt 32<rt>
     let shifted = shiftForRegAmount src 32<rt> typ amount carryIn
     dst, shifted
@@ -1968,11 +1995,13 @@ let transThreeOprsOfCMP insInfo ctxt =
   match insInfo.Operands with
   | ThreeOperands (opr1, opr2, OprShift (typ, Imm imm)) ->
     let carryIn = getCarryFlag ctxt
-    let dst, src = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
+    let dst = transOprToExpr ctxt opr1
+    let src = transOprToExpr ctxt opr2
     dst, shift src 32<rt> typ imm carryIn
   | ThreeOperands (opr1, opr2, OprRegShift (typ, rs)) ->
     let carryIn = getCarryFlag ctxt
-    let dst, src = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
+    let dst = transOprToExpr ctxt opr1
+    let src = transOprToExpr ctxt opr2
     let amount = extractLow 8<rt> (getRegVar ctxt rs) |> zExt 32<rt>
     dst, shiftForRegAmount src 32<rt> typ amount carryIn
   | _ -> raise InvalidOperandException
@@ -2046,12 +2075,14 @@ let transOprsOfTEQ insInfo ctxt =
     rn, imm, getCarryFlag ctxt
   | ThreeOperands (opr1, opr2, OprShift (typ, Imm imm)) ->
     let carryIn = getCarryFlag ctxt
-    let rn, rm = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
+    let rn = transOprToExpr ctxt opr1
+    let rm = transOprToExpr ctxt opr2
     let shifted, carryOut = shiftC rm 32<rt> typ imm carryIn
     rn, shifted, carryOut
   | ThreeOperands (opr1, opr2, OprRegShift (typ, rs)) ->
     let carryIn = getCarryFlag ctxt
-    let rn, rm = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
+    let rn = transOprToExpr ctxt opr1
+    let rm = transOprToExpr ctxt opr2
     let amount = extractLow 8<rt> (getRegVar ctxt rs) |> zExt 32<rt>
     let shifted, carryOut = shiftCForRegAmount rm 32<rt> typ amount carryIn
     rn, shifted, carryOut
@@ -2100,12 +2131,14 @@ let transOprsOfTST insInfo ctxt =
     e1, shifted, carryOut
   | ThreeOperands (opr1, opr2, OprShift (typ, Imm imm)) ->
     let carryIn = getCarryFlag ctxt
-    let rn, rm = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
+    let rn = transOprToExpr ctxt opr1
+    let rm = transOprToExpr ctxt opr2
     let shifted, carryOut = shiftC rm 32<rt> typ imm carryIn
     rn, shifted, carryOut
   | ThreeOperands (opr1, opr2, OprRegShift (typ, rs)) ->
     let carryIn = getCarryFlag ctxt
-    let rn, rm = transOprToExpr ctxt opr1, transOprToExpr ctxt opr2
+    let rn = transOprToExpr ctxt opr1
+    let rm = transOprToExpr ctxt opr2
     let amount = extractLow 8<rt> (getRegVar ctxt rs) |> zExt 32<rt>
     let shifted, carryOut = shiftCForRegAmount rm 32<rt> typ amount carryIn
     rn, shifted, carryOut
@@ -2264,7 +2297,8 @@ let getOffAddrWithImm s r imm =
 
 let parseMemOfLDR insInfo ctxt = function
   | OprMemory (OffsetMode (ImmOffset (rn , s, imm))) ->
-    getOffAddrWithImm s (getRegVar ctxt rn) imm, None
+    let rn = getRegVar ctxt rn |> convertPCOpr insInfo ctxt
+    getOffAddrWithImm s rn imm, None
   | OprMemory (PreIdxMode (ImmOffset (rn , s, imm))) ->
     let rn = getRegVar ctxt rn
     let offsetAddr = getOffAddrWithImm s rn imm
@@ -2275,22 +2309,29 @@ let parseMemOfLDR insInfo ctxt = function
   | OprMemory (LiteralMode imm) ->
     let addr = bvOfBaseAddr insInfo.Address
     let pc = align addr (num <| BitVector.ofInt32 4 32<rt>)
-    pc .+ (num <| BitVector.ofUInt32 8u 32<rt>) .+ (num <| BitVector.ofInt64 imm 32<rt>), None
+    let rel = if insInfo.Mode = ArchOperationMode.ARMMode then 8u else 4u
+    pc .+ (num <| BitVector.ofUInt32 rel 32<rt>)
+       .+ (num <| BitVector.ofInt64 imm 32<rt>), None
   | OprMemory (OffsetMode (RegOffset (n, _, m, None))) ->
-    let offset = shift (getRegVar ctxt m) 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
-    getRegVar ctxt n .+ offset, None
+    let m = getRegVar ctxt m |> convertPCOpr insInfo ctxt
+    let n = getRegVar ctxt n |> convertPCOpr insInfo ctxt
+    let offset = shift m 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
+    n .+ offset, None
   | OprMemory (PreIdxMode (RegOffset (n, s, m, None))) ->
     let rn = getRegVar ctxt n
-    let offset = shift (getRegVar ctxt m) 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
+    let offset =
+      shift (getRegVar ctxt m) 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
     let offsetAddr = getOffAddrWithExpr s rn offset
     offsetAddr, Some (rn := offsetAddr)
   | OprMemory (PostIdxMode (RegOffset (n, s, m, None))) ->
     let rn = getRegVar ctxt n
-    let offset = shift (getRegVar ctxt m) 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
+    let offset =
+      shift (getRegVar ctxt m) 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
     rn, Some (rn := getOffAddrWithExpr s rn offset)
   | OprMemory (OffsetMode (RegOffset (n, s, m, Some (t, Imm i)))) ->
-    let rn = getRegVar ctxt n
-    let offset = shift (getRegVar ctxt m) 32<rt> t i (getCarryFlag ctxt)
+    let rn = getRegVar ctxt n |> convertPCOpr insInfo ctxt
+    let rm = getRegVar ctxt m |> convertPCOpr insInfo ctxt
+    let offset = shift rm 32<rt> t i (getCarryFlag ctxt)
     getOffAddrWithExpr s rn offset, None
   | OprMemory (PreIdxMode (RegOffset (n, s, m, Some (t, Imm i)))) ->
     let rn = getRegVar ctxt n
