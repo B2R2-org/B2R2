@@ -2539,6 +2539,21 @@ let strh insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
+let strex insInfo ctxt =
+  let builder = new StmtBuilder (16)
+  let rd, rt, addr, stmt = parseOprOfLDRD insInfo ctxt
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  if rt = getPC ctxt then builder <! (loadLE 32<rt> addr := pcStoreValue ctxt)
+  else builder <! (loadLE 32<rt> addr := rt)
+  match stmt with
+  | Some s -> builder <! s
+  | None -> ()
+  builder <! (rd := num0 32<rt>) (* XXX: always succeeds for now *)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
 let parseOprOfSTM insInfo ctxt =
   match insInfo.Operands with
   | TwoOperands (OprReg reg, OprRegList regs) ->
@@ -3080,9 +3095,11 @@ let translate insInfo ctxt =
   | Op.LDRB -> ldrb insInfo ctxt
   | Op.LDRD -> ldrd insInfo ctxt
   | Op.LDRH -> ldrh insInfo ctxt
+  | Op.LDREX -> ldr insInfo ctxt
   | Op.SEL -> sel insInfo ctxt
   | Op.REV -> rev insInfo ctxt
   | Op.STR -> str insInfo ctxt
+  | Op.STREX -> strex insInfo ctxt
   | Op.STRB -> strb insInfo ctxt
   | Op.STRD -> strd insInfo ctxt
   | Op.STRH -> strh insInfo ctxt
@@ -3110,6 +3127,7 @@ let translate insInfo ctxt =
   | Op.VMRS -> vmrs insInfo ctxt
   | Op.VCVT | Op.VCVTR | Op.VMLS | Op.VADD | Op.VMUL | Op.VDIV
   | Op.VMOV | Op.VCMP | Op.VCMPE -> sideEffects insInfo UnsupportedFP
+  | Op.DMB | Op.DSB | Op.ISB -> nop insInfo
   | o -> eprintfn "%A" o
          raise <| NotImplementedIRException (Disasm.opCodeToString o)
   |> fun builder -> builder.ToStmts ()
