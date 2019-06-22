@@ -532,7 +532,6 @@ let addWithCarry src1 src2 carryIn =
   let carryOut =
     ite (carryIn == (BitVector.ofUInt32 1u 32<rt> |> num))
       (ge src1 (not src2)) (gt src1 (not src2))
-  //let carryOut = ge result src1
   let overflow = getOverflowFlagOnAdd src1 src2 result
   result, carryOut, overflow
 
@@ -1023,11 +1022,14 @@ let isUnconditional cond =
 let adc isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
   let dst, src1, src2 = parseOprOfADC insInfo ctxt
-  let res, carryOut, overflow = addWithCarry src1 src2 (getCarryFlag ctxt)
+  let t1, t2 = tmpVar 32<rt>, tmpVar 32<rt>
   let result = tmpVar 32<rt>
   let isUnconditional = isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  builder <! (t1 := src1)
+  builder <! (t2 := src2)
+  let res, carryOut, overflow = addWithCarry t1 t2 (getCarryFlag ctxt)
   builder <! (result := res)
   if dst = getPC ctxt then writePC ctxt result builder
   else
@@ -1082,15 +1084,16 @@ let parseOprOfADD insInfo ctxt =
 let add isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
   let dst, src1, src2 = parseOprOfADD insInfo ctxt
+  let t1, t2 = tmpVar 32<rt>, tmpVar 32<rt>
   let src1 =
     if src1 = getPC ctxt then src1 .+ (BitVector.ofUInt32 8u 32<rt> |> num)
     else src1
-  let result, carryOut, overflow = addWithCarry src1 src2 (num0 32<rt>)
-  //let result = tmpVar 32<rt>
   let isUnconditional = isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
-  //builder <! (result := res)
+  builder <! (t1 := src1)
+  builder <! (t2 := src2)
+  let result, carryOut, overflow = addWithCarry t1 t2 (num0 32<rt>)
   if dst = getPC ctxt then writePC ctxt result builder
   else
     builder <! (dst := result)
@@ -1203,21 +1206,17 @@ let push insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
-let parseOprOfSUB insInfo ctxt =
-  match insInfo.Operands with
-  | TwoOperands _ -> let e1, e2 = transTwoOprs insInfo ctxt in e1, e1, e2
-  | ThreeOperands _ -> transThreeOprsOfADD insInfo ctxt
-  | FourOperands _ -> transFourOprsOfADD insInfo ctxt
-  | _ -> raise InvalidOperandException
-
 let sub isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
-  let dst, src1, src2 = parseOprOfSUB insInfo ctxt
-  let res, carryOut, overflow = addWithCarry src1 (not src2) (num1 32<rt>)
+  let dst, src1, src2 = parseOprOfADD insInfo ctxt
+  let t1, t2 = tmpVar 32<rt>, tmpVar 32<rt>
   let result = tmpVar 32<rt>
   let isUnconditional = isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  builder <! (t1 := src1)
+  builder <! (t2 := src2)
+  let res, carryOut, overflow = addWithCarry t1 (not t2) (num1 32<rt>)
   builder <! (result := res)
   if dst = getPC ctxt then writePC ctxt result builder
   else
@@ -1240,7 +1239,7 @@ let subsPCLRThumb insInfo ctxt =
   let lblL2 = lblSymbol "subsPCLRThumbL2"
   let lblL3 = lblSymbol "subsPCLRThumbL3"
   let lblEnd = lblSymbol "subsPCLRThumbEnd"
-  let _, _, src2 = parseOprOfSUB insInfo ctxt
+  let _, _, src2 = parseOprOfADD insInfo ctxt
   let pc = getPC ctxt
   let result, _, _ = addWithCarry pc (not src2) (num1 32<rt>)
   let cond = getPSR ctxt R.CPSR PSR_M ==
@@ -1459,11 +1458,14 @@ let parseOprOfRSB insInfo ctxt =
 let rsb isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
   let dst, src1, src2 = parseOprOfRSB insInfo ctxt
-  let res, carryOut, overflow = addWithCarry (not src1) src2 (num1 32<rt>)
   let result = tmpVar 32<rt>
+  let t1, t2 = tmpVar 32<rt>, tmpVar 32<rt>
   let isUnconditional = isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  builder <! (t1 := src1)
+  builder <! (t2 := src2)
+  let res, carryOut, overflow = addWithCarry (not t1) t2 (num1 32<rt>)
   builder <! (result := res)
   if dst = getPC ctxt then writePC ctxt result builder
   else
@@ -1507,11 +1509,14 @@ let parseOprOfSBC insInfo ctxt =
 let sbc isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
   let dst, src1, src2 = parseOprOfSBC insInfo ctxt
-  let r, carryOut, overflow = addWithCarry src1 (not src2) (getCarryFlag ctxt)
+  let t1, t2 = tmpVar 32<rt>, tmpVar 32<rt>
   let result = tmpVar 32<rt>
   let isUnconditional = isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  builder <! (t1 := src1)
+  builder <! (t2 := src2)
+  let r, carryOut, overflow = addWithCarry t1 (not t2) (getCarryFlag ctxt)
   builder <! (result := r)
   if dst = getPC ctxt then writePC ctxt result builder
   else
@@ -1547,11 +1552,14 @@ let parseOprOfRSC insInfo ctxt =
 let rsc isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
   let dst, src1, src2 = parseOprOfRSC insInfo ctxt
-  let r, carryOut, overflow = addWithCarry (not src1) src2 (getCarryFlag ctxt)
+  let t1, t2 = tmpVar 32<rt>, tmpVar 32<rt>
   let result = tmpVar 32<rt>
   let isUnconditional = isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  builder <! (t1 := src1)
+  builder <! (t1 := src2)
+  let r, carryOut, overflow = addWithCarry (not t1) t2 (getCarryFlag ctxt)
   builder <! (result := r)
   if dst = getPC ctxt then writePC ctxt result builder
   else
@@ -1914,11 +1922,14 @@ let cmn insInfo ctxt =
   let builder = new StmtBuilder (16)
   let dst, src = parseOprOfCMN insInfo ctxt
   let result = tmpVar 32<rt>
-  let res, carryOut, overflow = addWithCarry dst src (num0 32<rt>)
+  let t1, t2 = tmpVar 32<rt>, tmpVar 32<rt>
   let cpsr = getRegVar ctxt R.CPSR
   let isUnconditional = isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  builder <! (t1 := dst)
+  builder <! (t2 := src)
+  let res, carryOut, overflow = addWithCarry t1 t2 (num0 32<rt>)
   builder <! (result := res)
   builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
   builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
@@ -1974,13 +1985,16 @@ let parseOprOfCMP insInfo ctxt =
 
 let cmp insInfo ctxt =
   let builder = new StmtBuilder (16)
-  let e1, e2 = parseOprOfCMP insInfo ctxt
+  let rn, rm = parseOprOfCMP insInfo ctxt
   let result = tmpVar 32<rt>
-  let res, carryOut, overflow = addWithCarry e1 (not e2) (num1 32<rt>)
+  let t1, t2 = tmpVar 32<rt>, tmpVar 32<rt>
   let cpsr = getRegVar ctxt R.CPSR
   let isUnconditional = isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  builder <! (t1 := rn)
+  builder <! (t2 := rm)
+  let res, carryOut, overflow = addWithCarry t1 (not t2) (num1 32<rt>)
   builder <! (result := res)
   builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
   builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
