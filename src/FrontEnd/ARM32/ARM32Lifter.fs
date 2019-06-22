@@ -2448,10 +2448,14 @@ let sel8Bits r offset =
   extract r 8<rt> offset |> zExt 32<rt>
 
 let combine8bitResults t1 t2 t3 t4 =
+  let mask = num <| BitVector.ofInt32 0xff 32<rt>
   let n8 = num <| BitVector.ofInt32 8 32<rt>
   let n16 = num <| BitVector.ofInt32 16 32<rt>
   let n24 = num <| BitVector.ofInt32 24 32<rt>
-  (t4 << n24) .| (t3 << n16) .| (t2 << n8) .| t1
+  ((t4 .& mask) << n24)
+  .| ((t3 .& mask) << n16)
+  .| ((t2 .& mask) << n8)
+  .| (t1 .& mask)
 
 let combineGEs ge0 ge1 ge2 ge3 =
   let n1 = num1 32<rt>
