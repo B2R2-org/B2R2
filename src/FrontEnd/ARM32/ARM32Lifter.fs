@@ -2452,6 +2452,24 @@ let sel insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
+let rev insInfo ctxt =
+  let builder = new StmtBuilder (16)
+  let t1 = tmpVar 32<rt>
+  let t2 = tmpVar 32<rt>
+  let t3 = tmpVar 32<rt>
+  let t4 = tmpVar 32<rt>
+  let rd, rm = transTwoOprs insInfo ctxt
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  builder <! (t1 :=  sel8Bits rm 0)
+  builder <! (t2 :=  sel8Bits rm 8)
+  builder <! (t3 :=  sel8Bits rm 16)
+  builder <! (t4 :=  sel8Bits rm 24)
+  builder <! (rd := combine8bitResults t4 t3 t2 t1)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
 let str insInfo ctxt =
   let builder = new StmtBuilder (16)
   let rt, addr, stmt = parseOprOfLDR insInfo ctxt
@@ -3049,6 +3067,7 @@ let translate insInfo ctxt =
   | Op.LDRD -> ldrd insInfo ctxt
   | Op.LDRH -> ldrh insInfo ctxt
   | Op.SEL -> sel insInfo ctxt
+  | Op.REV -> rev insInfo ctxt
   | Op.STR -> str insInfo ctxt
   | Op.STRB -> strb insInfo ctxt
   | Op.STRD -> strd insInfo ctxt
