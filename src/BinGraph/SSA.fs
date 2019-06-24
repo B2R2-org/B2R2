@@ -85,28 +85,37 @@ let getReturns hdl target =
     hdl.FileInfo.WordSize |> WordSize.toByteWidth |> RegType.fromByteWidth
   match hdl.ISA.Arch with
   | Arch.IntelX86 ->
+    let espID = Intel.Register.ESP |> Intel.Register.toRegID
     let found, name = hdl.FileInfo.TryFindFunctionSymbolName target
     if found && name = "__x86.get_pc_thunk.bx" then
       let regID = Intel.Register.EBX |> Intel.Register.toRegID
-      [ MemVar -1 ; RegVar (regType, regID, "EBX", -1) ]
+      [ MemVar -1 ;
+        RegVar (regType, regID, "EBX", -1); RegVar (regType, espID, "ESP", -1) ]
     elif found && name = "__x86.get_pc_thunk.cx" then
       let regID = Intel.Register.ECX |> Intel.Register.toRegID
-      [ MemVar -1 ; RegVar (regType, regID, "ECX", -1) ]
+      [ MemVar -1 ;
+        RegVar (regType, regID, "ECX", -1); RegVar (regType, espID, "ESP", -1) ]
     elif found && name = "__x86.get_pc_thunk.dx" then
       let regID = Intel.Register.EDX |> Intel.Register.toRegID
-      [ MemVar -1 ; RegVar (regType, regID, "EDX", -1) ]
+      [ MemVar -1 ;
+        RegVar (regType, regID, "EDX", -1); RegVar (regType, espID, "ESP", -1) ]
     elif found && name = "__x86.get_pc_thunk.si" then
       let regID = Intel.Register.ESI |> Intel.Register.toRegID
-      [ MemVar -1 ; RegVar (regType, regID, "ESI", -1) ]
+      [ MemVar -1 ;
+        RegVar (regType, regID, "ESI", -1); RegVar (regType, espID, "ESP", -1) ]
     elif found && name = "__x86.get_pc_thunk.di" then
       let regID = Intel.Register.EDI |> Intel.Register.toRegID
-      [ MemVar -1 ; RegVar (regType, regID, "EDI", -1) ]
+      [ MemVar -1 ;
+        RegVar (regType, regID, "EDI", -1); RegVar (regType, espID, "ESP", -1) ]
     else
       let regID = Intel.Register.EAX |> Intel.Register.toRegID
-      [ MemVar -1 ; RegVar (regType, regID, "EAX", -1) ]
+      [ MemVar -1 ;
+        RegVar (regType, regID, "EAX", -1); RegVar (regType, espID, "ESP", -1) ]
   | Arch.IntelX64 ->
+    let rspID = Intel.Register.RSP |> Intel.Register.toRegID
     let regID = Intel.Register.RAX |> Intel.Register.toRegID
-    [ MemVar -1 ; RegVar (regType, regID, "RAX", -1) ]
+    [ MemVar -1 ;
+      RegVar (regType, regID, "RAX", -1) ; RegVar (regType, rspID, "RSP", -1) ]
   | _ -> failwith "Not supported arch."
 
 let translateIR hdl ctxt (v: Vertex<IRVertexData>) =
