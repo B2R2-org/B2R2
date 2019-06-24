@@ -53,6 +53,7 @@ EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Utilities.BinExplorer", "src\Utilities\BinExplorer\B2R2.Utilities.BinExplorer.fsproj", "{A6964A5A-176B-4E02-8137-81443075EAA7}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.ConcEval", "src\ConcEval\B2R2.ConcEval.fsproj", "{0AAD8FD3-EDB5-4019-82F3-6D1FDB9773F9}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Assembler", "Assembler", "{C76D41A4-7963-41F0-9F6D-CDC80624FB25}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Assembler.MIPS", "src\Assembler\MIPS\B2R2.Assembler.MIPS.fsproj", "{991634E3-32C0-4EC7-8F3D-9373721EE9DC}"
