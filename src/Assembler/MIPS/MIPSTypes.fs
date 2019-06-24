@@ -32,6 +32,7 @@ type Operand =
   | Label of string
   | Register of string
 
+// TODO: convert string to Opcode, Operand to Instruction Operand
 type Statement =
   | Instruction of string * Operand list
   | Label of string

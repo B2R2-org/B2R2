@@ -50,29 +50,32 @@ module private Rules =
   let operandSeps: Parser<_> = (pchar ',' >>. whitespace) <|> whitespace1
   let betweenParen s = s |> skipWhitespaces |> between (pchar '(') (pchar ')')
 
-  let alphaNumericWithUnderscore s = Char.IsLetterOrDigit s || s = '_'
+  let alphanumericWithUnderscore s = Char.IsLetterOrDigit s || s = '_'
 
-  let pid: Parser<_> = many1Satisfy alphaNumericWithUnderscore
-  let labelDef: Parser<_> = pid .>>? pchar ':' |>> Statement.Label
+  let pId: Parser<_> = many1Satisfy alphanumericWithUnderscore
+  let labelDef: Parser<_> = pId .>>? pchar ':' |>> Statement.Label
 
   let opcode: Parser<_> =
     (Enum.GetNames typeof<Opcode>)
     |> Array.map pstringCI
     |> choice
 
-  let label: Parser<_> = pid |>> Operand.Label
+  let label: Parser<_> = pId |>> Operand.Label
 
   let numberFormat =
     NumberLiteralOptions.AllowBinary
     ||| NumberLiteralOptions.AllowOctal
     ||| NumberLiteralOptions.AllowHexadecimal
     ||| NumberLiteralOptions.AllowMinusSign
-  let pimm: Parser<_> =
+  let regNumberFormat = NumberLiteralOptions.None
+  let pImm: Parser<_> =
     numberLiteral numberFormat "number" |>> (fun x -> x.String)
+  let pRegImm: Parser<_> =
+    numberLiteral regNumberFormat "number" |>> (fun x -> x.String)
   let operators: Parser<_> = pchar '+' <|> pchar '-'
   let immWithOperators: Parser<_> =
-    attempt (pipe3 pimm operators pimm (fun a b c -> sprintf "%s%c%s" a b c))
-  let imm: Parser<_> = immWithOperators <|> pimm |>> Operand.Immediate
+    attempt (pipe3 pImm operators pImm (fun a b c -> sprintf "%s%c%s" a b c))
+  let imm: Parser<_> = immWithOperators <|> pImm |>> Operand.Immediate
 
   let registers: Parser<_> [] =
     (Enum.GetNames typeof<Register>)
@@ -80,23 +83,25 @@ module private Rules =
     |> Array.map pstringCI
 
   let allRegisters: Parser<_> [] =
-    Array.append [|pimm|] registers
+    Array.append [|pRegImm|] registers
 
-  let preg: Parser<_> =
+  let pReg: Parser<_> =
     (pchar '$' >>. (allRegisters |> choice))
     <|> (registers |> choice)
 
-  let reg: Parser<_> = preg |>> Operand.Register
-  let regAddr: Parser<_> = betweenParen preg
+  let reg: Parser<_> = pReg |>> Operand.Register
+  let regAddr: Parser<_> = betweenParen pReg
 
-  let paddr: Parser<_> = opt (pimm .>> whitespace) .>>.? regAddr
+  let paddr: Parser<_> = opt (pImm .>> whitespace) .>>.? regAddr
   let addr: Parser<_> = paddr |>> Operand.Address
 
   let operand: Parser<_> = addr <|> reg <|> imm <|> label
   let operands: Parser<_> = sepBy operand operandSeps
+
   let instruction: Parser<_> =
     opcode .>>. (whitespace >>. operands) |>> Statement.Instruction
-  let statement: Parser<_> = (opt labelDef .>> whitespace) .>>. (opt instruction)
+  let statement: Parser<_> =
+    (opt labelDef .>> whitespace) .>>. (opt instruction)
   let statements: Parser<_> = sepEndBy statement terminator .>> eof
 
 let parse assembly =
