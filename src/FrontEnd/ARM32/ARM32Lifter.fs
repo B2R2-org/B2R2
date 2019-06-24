@@ -3174,6 +3174,8 @@ let translate insInfo ctxt =
   | Op.VPOP -> vpop insInfo ctxt
   | Op.VPUSH -> vpush insInfo ctxt
   | Op.VMRS -> vmrs insInfo ctxt
+  | Op.VST1 | Op.VST2 | Op.VST3 | Op.VST4 ->
+    sideEffects insInfo UnsupportedExtension
   | Op.VCVT | Op.VCVTR | Op.VMLS | Op.VADD | Op.VMUL | Op.VDIV
   | Op.VMOV | Op.VCMP | Op.VCMPE | Op.VSTM | Op.VSTMDB | Op.VSTMIA ->
     sideEffects insInfo UnsupportedFP
