@@ -554,6 +554,24 @@ type BitVector =
   static member midNum32 = BitVector.ofUInt64 0x80000000UL 32<rt>
   static member midNum64 = BitVector.ofUInt64 0x8000000000000000UL 64<rt>
 
+  [<CompiledName("UnsignedMax")>]
+  static member unsignedMax rt =
+    match rt with
+    | 8<rt> -> BitVector.maxNum8
+    | 16<rt> -> BitVector.maxNum16
+    | 32<rt> -> BitVector.maxNum32
+    | 64<rt> -> BitVector.maxNum64
+    | _ -> nSizeErr rt
+
+  [<CompiledName("UnsignedMin")>]
+  static member unsignedMin rt =
+    match rt with
+    | 8<rt> -> BitVector.zero rt
+    | 16<rt> -> BitVector.zero rt
+    | 32<rt> -> BitVector.zero rt
+    | 64<rt> -> BitVector.zero rt
+    | _ -> nSizeErr rt
+
   [<CompiledName("SignedMax")>]
   static member signedMax rt =
     match rt with
@@ -571,6 +589,14 @@ type BitVector =
     | 32<rt> -> BitVector.midNum32
     | 64<rt> -> BitVector.midNum64
     | _ -> nSizeErr rt
+
+  [<CompiledName("IsUnsignedMax")>]
+  static member isUnsignedMax bv =
+    BitVector.unsignedMax bv.Length = bv
+
+  [<CompiledName("IsSignedMax")>]
+  static member isSignedMax bv =
+    BitVector.signedMax bv.Length = bv
 
   [<CompiledName("IsSignedMin")>]
   static member isSignedMin bv =

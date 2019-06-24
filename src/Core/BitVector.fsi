@@ -328,6 +328,14 @@ type BitVector =
     [<CompiledName("MaxNum64")>]
     static member maxNum64 : BitVector
 
+    /// BitVector of unsigned maximum integer for given RegType.
+    [<CompiledName("UnsignedMax")>]
+    static member unsignedMax : RegType -> BitVector
+
+    /// BitVector of unsigned minimum integer for given RegType.
+    [<CompiledName("UnsignedMin")>]
+    static member unsignedMin : RegType -> BitVector
+
     /// BitVector of signed maximum integer for given RegType.
     [<CompiledName("SignedMax")>]
     static member signedMax : RegType -> BitVector
@@ -335,6 +343,14 @@ type BitVector =
     /// BitVector of signed minimum integer for given RegType.
     [<CompiledName("SignedMin")>]
     static member signedMin : RegType -> BitVector
+
+    /// Does the bitvector represent a unsigned max value?
+    [<CompiledName("IsUnsignedMax")>]
+    static member isUnsignedMax: BitVector -> bool
+
+    /// Does the bitvector represent a signed max value?
+    [<CompiledName("IsSignedMax")>]
+    static member isSignedMax: BitVector -> bool
 
     /// Does the bitvector represent a signed min value?
     [<CompiledName("IsSignedMin")>]
