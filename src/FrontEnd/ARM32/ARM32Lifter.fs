@@ -1357,7 +1357,7 @@ let transTwoOprsOfAND insInfo ctxt =
   | TwoOperands (OprReg _, OprReg _) ->
     let e1, e2 = transTwoOprs insInfo ctxt
     let shifted, carryOut = shiftC e2 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
-    e1, e2, shifted, carryOut
+    e1, e1, shifted, carryOut
   | _ -> raise InvalidOperandException
 
 let transThreeOprsOfAND insInfo ctxt =
