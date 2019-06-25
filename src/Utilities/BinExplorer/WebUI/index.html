@@ -82,12 +82,12 @@
   <input id="cfgFile" type="file" name="" style="display: none;" />
   <div id="id_MainContainer" class="main-container" class="ui-widget-content">
     <div class="sidebar-menu">
-      <div class="sidebar-item" title="Functions"><i class="fas fa-list"></i></div>
+      <div class="sidebar-item active" title="Functions"><i class="fas fa-list"></i></div>
       <div class="sidebar-item" title="Comments"><i class="fas fa-comment-dots"></i></div>
-      <div class="sidebar-item active" title="Terminal"><i class="fas fa-terminal"></i></div>
+      <div class="sidebar-item" title="Terminal"><i class="fas fa-terminal"></i></div>
     </div>
     <div class="sidebar-content">
-      <div style="display:none;" id="id_FunctionsListWrapper">
+      <div style="display:block;" id="id_FunctionsListWrapper">
         <input id="id_funcFilter" placeholder="Function filter" />
         <div id="id_FunctionsList">
           <ul id="funcSelector"></ul>
@@ -97,7 +97,7 @@
         <div id="id_CommentList">
         </div>
       </div>
-      <div style="display: block;" id="id_TerminalWrapper">
+      <div style="display: none;" id="id_TerminalWrapper">
         <div id="id_cmdContainer">
           <div id="id_content" class=""></div>
           <div class="command-container">
@@ -168,10 +168,6 @@
   <script src="js/b2r2.contextmenu.js"></script>
   <script src="js/b2r2.terminal.js"></script>
   <script src="js/b2r2.js"></script>
-  <script src="//localhost:35729/livereload.js"></script>
-  <script>
-    Terminal().setTerminal(550);
-  </script>
 </body>
 
 </html>
