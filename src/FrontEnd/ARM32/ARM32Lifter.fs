@@ -1364,7 +1364,14 @@ let transThreeOprsOfAND insInfo ctxt =
   match insInfo.Operands with
   | ThreeOperands (_, _, OprImm _) ->
     let e1, e2, e3 = transThreeOprs insInfo ctxt
-    e1, e2, e3, getCarryFlag ctxt
+    let carryIn = getCarryFlag ctxt
+    let carryOut =
+      match insInfo.Cflag with
+      | Some v ->
+        if v then BitVector.one 1<rt> |> Num
+        else BitVector.zero 1<rt> |> Num
+      | None -> carryIn
+    e1, e2, e3, carryOut
   | _ -> raise InvalidOperandException
 
 let transFourOprsOfAND insInfo ctxt =

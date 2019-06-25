@@ -978,7 +978,8 @@ let getImmI b =
 let getImmJ (b1, b2) =
   let i = pickBit b1 10u
   let i3 = extract b2 14u 12u
-  let rot = concat (concat i i3 3) (pickBit b2 7u) 1 |> int
+  let tp = concat i i3 3
+  let rot = concat tp (pickBit b2 7u) 1 |> int
   let imm = extract b2 7u 0u |> int
   match rot with
   | 0b00000 | 0b00001 -> imm |> int64 |> OprImm
@@ -987,6 +988,7 @@ let getImmJ (b1, b2) =
   | 0b00110
   | 0b00111 -> imm <<< 24 + imm <<< 16 + imm <<< 8 + imm |> int64 |> OprImm
   | rot -> (0b10000000 ||| imm) <<< (32 - rot) |> int64 |> OprImm
+
 let getImmK (_, b2) =
   (extract b2 4u 0u) - (concat (extract b2 14u 12u) (extract b2 7u 6u) 2) + 1u
   |> int64 |> OprImm
@@ -1021,6 +1023,7 @@ let getImm12A b =
   let imm = extract b 7u 0u |> int
   if rot = 0 then imm |> int64 |> OprImm
   else (imm <<< ((32 - rot) * 2)) + (imm >>> rot * 2) |> int64 |> OprImm
+  //imm |> int64 |> OprImm
 let getImm12B b =
   (extract b 19u 16u |> int64 <<< 12) + (extract b 11u 0u |> int64) |> OprImm
 let getImm12C b = extract b 11u 0u |> int64 |> OprImm

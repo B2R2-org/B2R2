@@ -2258,6 +2258,8 @@ type InsInfo = {
   SIMDTyp: SIMDDataTypes option
   /// Target architecture mode.
   Mode: ArchOperationMode
+  /// Carry Flag from decoding instruction
+  Cflag: bool option
 }
 with
   override __.GetHashCode () =
@@ -2280,5 +2282,6 @@ with
       && i.Qualifier = __.Qualifier
       && i.SIMDTyp = __.SIMDTyp
       && i.Mode = __.Mode
+      && i.Cflag = __.Cflag
     | _ -> false
 
