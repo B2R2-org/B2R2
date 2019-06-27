@@ -11,6 +11,8 @@
 .DS_Store
 
 .vscode
+.idea
+.ionide
 *.swp
 
 [Dd]ebug/
