@@ -55,24 +55,29 @@ function Terminal() {
           switch (keyword) {
             case "show":
               let funcName = cmd.split(" ")[1];
-              if (funcName === undefined) { funcName = ""; }
-              query({
-                "q": "cfg-disasm",
-                "args": funcName
-              },
-                function (status, json) {
-                  if (status != 404 && !isEmpty(json)) {
-                    let dims = reloadUI();
-                    addTab(funcName, dims, json);
-                    drawCFG(dims, json);
-                    UIElementInit(true);
-                    autocomplete(json);
-                    setuiFuncName(funcName);
-                    addCommands(cmd, "");
-                  } else {
-                    addCommands(cmd, "[*] Unknown function: '" + funcName + "'");
-                  }
-                });
+              if (checkDuplicateTab(funcName)) {
+                activateTab($("#id_tabContainer li[title='" + funcName + "']"));
+                addCommands(cmd, "");
+              } else {
+                if (funcName === undefined) { funcName = ""; }
+                query({
+                  "q": "cfg-disasm",
+                  "args": funcName
+                },
+                  function (status, json) {
+                    if (status != 404 && !isEmpty(json)) {
+                      let dims = reloadUI();
+                      addTab(funcName, dims, json);
+                      drawCFG(dims, json);
+                      UIElementInit(true);
+                      autocomplete(json);
+                      setuiFuncName(funcName);
+                      addCommands(cmd, "");
+                    } else {
+                      addCommands(cmd, "[*] Unknown function: '" + funcName + "'");
+                    }
+                  });
+              }
               break;
             case "clear":
 
