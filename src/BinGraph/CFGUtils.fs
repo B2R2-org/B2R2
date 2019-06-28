@@ -217,7 +217,7 @@ let getIRSuccessors hdl (builder: CFGBuilder) leader edges (bbl: IRBBL) =
     let addr, _ = bbl.LastPpoint
     let fPpoint = builder.FindPPointByLabel addr fSymbol
     [fPpoint], (leader, Some (fPpoint, CJmpFalseEdge)) :: (leader,None) :: edges
-  | InterJmp (_, Num bv, InterJmpInfo.IsCall) ->
+  | InterJmp (_, _, InterJmpInfo.IsCall) ->
     if isExitCall hdl <| (builder.GetInstr (fst bbl.LastPpoint)) then [], edges
     else
       let addr = getNextAddr builder bbl.LastPpoint
