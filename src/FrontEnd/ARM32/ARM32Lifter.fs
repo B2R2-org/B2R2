@@ -624,7 +624,8 @@ let writePC ctxt result (builder: StmtBuilder) =
 
 /// Write value to R.PC, with interworking (without it before ARMv5T),
 /// on page A2-47. function : LoadWritePC()
-let loadWritePC ctxt result = branchWritePC ctxt result InterJmpInfo.Base
+let loadWritePC ctxt builder result =
+  bxWritePC ctxt result builder
 
 /// Position of rightmost 1 in a bitstring, on page AppxP-2653.
 /// function : LowestSetBit()
@@ -2256,7 +2257,7 @@ let pop insInfo ctxt =
     builder <! (sp := sp .+ (num <| BitVector.ofInt32 stackWidth 32<rt>))
   else builder <! (sp := (Expr.Undefined (32<rt>, "UNKNOWN")))
   if (numOfReg >>> 15 &&& 1u) = 1u then
-    builder <! (loadLE 32<rt> addr |> loadWritePC ctxt)
+    loadLE 32<rt> addr |> loadWritePC ctxt builder
   else ()
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
@@ -2287,7 +2288,7 @@ let ldm opcode insInfo ctxt =
   builder <! (t0 := addr)
   let addr = popLoop ctxt numOfReg t0 builder
   if (numOfReg >>> 15 &&& 1u) = 1u then
-    builder <! (loadLE 32<rt> addr |> loadWritePC ctxt)
+    loadLE 32<rt> addr |> loadWritePC ctxt builder
   else ()
   if wback && (numOfReg &&& numOfRn) = 0u then
     builder <! (rn := rn .+ (num <| BitVector.ofInt32 stackWidth 32<rt>))
@@ -2381,7 +2382,7 @@ let ldr insInfo ctxt =
                == (num <| BitVector.ofInt32 0 32<rt>)
     builder <! (CJmp (cond, Name lblL0, Name lblL1))
     builder <! (LMark lblL0)
-    builder <! (loadWritePC ctxt data)
+    loadWritePC ctxt builder data
     builder <! (Jmp (Name lblEnd))
     builder <! (LMark lblL1)
     builder <! (SideEffect UndefinedInstr)
