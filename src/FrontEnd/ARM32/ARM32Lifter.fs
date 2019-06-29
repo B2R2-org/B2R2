@@ -2145,7 +2145,13 @@ let transOprsOfTST insInfo ctxt =
   match insInfo.Operands with
   | TwoOperands (OprReg _, OprImm _) ->
     let rn, imm = transTwoOprs insInfo ctxt
-    rn, imm, getCarryFlag ctxt
+    let carryOut =
+      match insInfo.Cflag with
+      | Some v ->
+        if v then BitVector.one 1<rt> |> Num
+        else BitVector.zero 1<rt> |> Num
+      | None -> getCarryFlag ctxt
+    rn, imm, carryOut
   | TwoOperands (OprReg _, OprReg _) ->
     let e1, e2 = transTwoOprs insInfo ctxt
     let shifted, carryOut = shiftC e2 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
