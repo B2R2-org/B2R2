@@ -1901,36 +1901,27 @@ let rrxs isSetFlags insInfo ctxt =
 let clz insInfo ctxt =
   let builder = new StmtBuilder (32)
   let dst, src = transTwoOprs insInfo ctxt
-  let lblL0 = lblSymbol "L0"
-  let lblL1 = lblSymbol "L1"
-  let lblL2 = lblSymbol "L2"
-  let lblL3 = lblSymbol "L3"
-  let lblL4 = lblSymbol "L4"
-  let lblL5 = lblSymbol "L5"
+  let lblBoundCheck = lblSymbol "LBoundCheck"
+  let lblZeroCheck = lblSymbol "LZeroCheck"
+  let lblCount = lblSymbol "LCount"
+  let lblEnd = lblSymbol "LEnd"
   let numSize = (num <| BitVector.ofInt32 32 32<rt>)
-  let numMinusOne = (num <| BitVector.ofInt32 -1 32<rt>)
-  let t1, result = tmpVar 32<rt>, tmpVar 32<rt>
+  let t1 = tmpVar 32<rt>
   let cond1 = t1 == (num0 32<rt>)
-  let cond2 = src .& ((num1 32<rt>) << t1) != (num0 32<rt>)
+  let cond2 = src .& ((num1 32<rt>) << (t1 .- num1 32<rt>)) != (num0 32<rt>)
   let isUnconditional = isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
-  builder <! (t1 := numSize .- (num1 32<rt>))
-  builder <! (LMark lblL0)
-  builder <! (CJmp (cond1, Name lblL1, Name lblL2))
-  builder <! (LMark lblL1)
-  builder <! (result := numMinusOne)
-  builder <! (Jmp (Name lblL5))
-  builder <! (LMark lblL2)
-  builder <! (CJmp (cond2, Name lblL3, Name lblL4))
-  builder <! (LMark lblL3)
-  builder <! (result := t1)
-  builder <! (Jmp (Name lblL5))
-  builder <! (LMark lblL4)
+  builder <! (t1 := numSize)
+  builder <! (LMark lblBoundCheck)
+  builder <! (CJmp (cond1, Name lblEnd, Name lblZeroCheck))
+  builder <! (LMark lblZeroCheck)
+  builder <! (CJmp (cond2, Name lblEnd, Name lblCount))
+  builder <! (LMark lblCount)
   builder <! (t1 := t1 .- (num1 32<rt>))
-  builder <! (Jmp (Name lblL0))
-  builder <! (LMark lblL5)
-  builder <! (dst := numSize .- (num1 32<rt>) .- result)
+  builder <! (Jmp (Name lblBoundCheck))
+  builder <! (LMark lblEnd)
+  builder <! (dst := numSize .- t1)
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
