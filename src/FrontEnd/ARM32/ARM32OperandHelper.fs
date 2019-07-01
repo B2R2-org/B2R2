@@ -987,7 +987,9 @@ let getImmJ (b1, b2) =
   | 0b00100 | 0b00101 -> ((imm <<< 24) + (imm <<< 8)) |> int64 |> OprImm
   | 0b00110 | 0b00111
       -> ((imm <<< 24) + (imm <<< 16) + (imm <<< 8) + imm) |> int64 |> OprImm
-  | rot -> (0b10000000 ||| imm) <<< (32 - rot) |> int64 |> OprImm
+  | rot -> 
+      let unrotated = (0b10000000 ||| imm)
+      (unrotated <<< (32 - rot) ||| unrotated >>> rot) |> int64 |> OprImm
 
 let getImmK (_, b2) =
   (extract b2 4u 0u) - (concat (extract b2 14u 12u) (extract b2 7u 6u) 2) + 1u
