@@ -2846,8 +2846,8 @@ let mls insInfo ctxt =
   let isUnconditional = isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
-  builder <! (r := extractLow 32<rt> (zExt 64<rt> rn .- zExt 64<rt> rm .*
-                                     zExt 64<rt> ra))
+  builder <! (r := extractLow 32<rt> (zExt 64<rt> ra .- zExt 64<rt> rn .*
+                                     zExt 64<rt> rm))
   builder <! (rd := r)
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
