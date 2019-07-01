@@ -66,6 +66,7 @@ leverage.
 
 - [System.Reflection.Metadata](https://www.nuget.org/packages/System.Reflection.Metadata/)
 - [Microsoft.FSharpLu.Json](https://www.nuget.org/packages/Microsoft.FSharpLu.Json/)
+- [FParsec](https://www.nuget.org/packages/FParsec)
 
 API Documentation
 -----------------
