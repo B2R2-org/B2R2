@@ -2689,18 +2689,25 @@ let cbz nonZero insInfo ctxt =
 let parseOprOfTableBranch insInfo ctxt =
   match insInfo.Operands with
   | OneOperand (OprMemory (OffsetMode (RegOffset (rn, None, rm, None)))) ->
-    let addr = getRegVar ctxt rn .+ getRegVar ctxt rm
+    let rn = getRegVar ctxt rn |> convertPCOpr insInfo ctxt
+    let rm = getRegVar ctxt rm |> convertPCOpr insInfo ctxt
+    let addr = rn .+ rm
     loadLE 8<rt> addr |> zExt 32<rt>
-  | OneOperand (OprMemory (OffsetMode (RegOffset (rn, None, rm, Some (_, Imm i)))))
-    -> let addr = getRegVar ctxt rn .+ (shiftLSL (getRegVar ctxt rm) 32<rt> i)
-       loadLE 16<rt> addr |> zExt 32<rt>
+  | OneOperand (OprMemory (OffsetMode (RegOffset (rn,
+                                                  None,
+                                                  rm, Some (_, Imm i))))) ->
+    let rn = getRegVar ctxt rn |> convertPCOpr insInfo ctxt
+    let rm = getRegVar ctxt rm |> convertPCOpr insInfo ctxt
+    let addr = rn .+ (shiftLSL rm 32<rt> i)
+    loadLE 16<rt> addr |> zExt 32<rt>
   | _ -> raise InvalidOperandException
 
 let tableBranch insInfo ctxt =
   let builder = new StmtBuilder (8)
   let pc = bvOfBaseAddr insInfo.Address
   let halfwords = parseOprOfTableBranch insInfo ctxt
-  let result = pc .+ ((num <| BitVector.ofInt32 2 32<rt>) .* halfwords)
+  let numTwo = num <| BitVector.ofInt32 2 32<rt>
+  let result = pc .+ (numTwo .* halfwords)
   let isUnconditional = isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
