@@ -413,14 +413,14 @@ module Pp =
       sb.Append ("] := ") |> ignore
       _expToString exp2 sb
     | CJmp (cond, t, f) ->
-      sb.Append ("if") |> ignore
+      sb.Append ("if ") |> ignore
       _expToString cond sb
       sb.Append (" then JmpLbl ") |> ignore
       _expToString t sb
       sb.Append (" else JmpLbl ") |> ignore
       _expToString f sb
     | InterCJmp (cond, _pc, t, f) ->
-      sb.Append ("if") |> ignore
+      sb.Append ("if ") |> ignore
       _expToString cond sb
       sb.Append (" then Jmp ") |> ignore
       _expToString t sb
