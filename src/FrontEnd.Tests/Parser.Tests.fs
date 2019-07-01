@@ -5329,7 +5329,7 @@ module ARMThumb =
                 [| 0x45uy; 0x44uy |]
 
       testThumb (Some Condition.AL) Op.MOV (Some W) None
-                (TwoOperands (OprReg R.R7, OprImm 134217728L))
+                (TwoOperands (OprReg R.R7, OprImm 524296L))
                 [| 0xf0uy; 0x4fuy; 0x17uy; 0x08uy |]
 
       testThumb None Op.MOVS None None
