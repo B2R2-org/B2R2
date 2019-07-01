@@ -280,6 +280,31 @@ let rec scanIRLeaders hdl (builder: CFGBuilder) boundary = function
     scanIRLeaders hdl builder boundary stmts
   | [] -> builder
 
+let rec scanLiftedIRLeaders hdl (builder: CFGBuilder) isNextNew ppoint =
+  let addr, cnt = ppoint
+  match builder.TryGetStmt ppoint with
+  | None -> builder
+  | Some (ISMark _) ->
+    if isNextNew then builder.AddIRLeader ppoint
+    scanLiftedIRLeaders hdl builder false (addr, cnt + 1)
+  | Some (IEMark addr) ->
+    scanLiftedIRLeaders hdl builder isNextNew (addr, 0)
+  | Some (LMark symb) ->
+    builder.AddLabel ppoint symb
+    builder.AddIRLeader ppoint
+    scanLiftedIRLeaders hdl builder false (addr, cnt + 1)
+  | Some (InterJmp (_, Num bv, _)) ->
+    builder.AddIRLeader (BitVector.toUInt64 bv, 0)
+    scanLiftedIRLeaders hdl builder true (addr, cnt + 1)
+  | Some (InterCJmp (_, _, Num tBv, Num fBv)) ->
+    builder.AddIRLeader (BitVector.toUInt64 tBv, 0)
+    builder.AddIRLeader (BitVector.toUInt64 fBv, 0)
+    scanLiftedIRLeaders hdl builder true (addr, cnt + 1)
+  | Some (SideEffect _) ->
+    scanLiftedIRLeaders hdl builder true (addr, cnt + 1)
+  | Some _ ->
+    scanLiftedIRLeaders hdl builder isNextNew (addr, cnt + 1)
+
 let rec getIRBBLEnd hdl (builder: CFGBuilder) prev ppoint ePpoint =
   match builder.TryGetStmt ppoint with
   | None -> prev
@@ -299,6 +324,28 @@ let rec scanIRBoundaries hdl builder last = function
     scanIRBoundaries hdl builder last leaders
   | [ leader ] ->
     let ePpoint = getIRBBLEnd hdl builder leader leader last
+    builder.AddIRBoundary leader ePpoint
+    builder
+  | [] -> builder
+
+let rec getLiftedIRBBLEnd hdl (builder: CFGBuilder) prev ppoint =
+  match builder.TryGetStmt ppoint with
+  | None -> prev
+  | Some (InterJmp _) | Some (InterCJmp _) | Some (Jmp _) | Some (CJmp _)
+  | Some (SideEffect _) -> ppoint
+  | Some (IEMark addr) ->
+    getLiftedIRBBLEnd hdl builder ppoint (addr, 0)
+  | _ ->
+    let addr, cnt = ppoint
+    getLiftedIRBBLEnd hdl builder ppoint (addr, cnt + 1)
+
+let rec scanLiftedIRBoundaries hdl builder = function
+  | leader :: ((nextLeader :: _) as leaders) ->
+    let ePpoint = getIRBBLEnd hdl builder leader leader nextLeader
+    builder.AddIRBoundary leader ePpoint
+    scanLiftedIRBoundaries hdl builder leaders
+  | [ leader ] ->
+    let ePpoint = getLiftedIRBBLEnd hdl builder leader leader
     builder.AddIRBoundary leader ePpoint
     builder
   | [] -> builder
@@ -358,20 +405,47 @@ let rec findIRBoundaries hdl (builder: CFGBuilder) ePpoint = function
       scanIRBoundaries hdl builder ePpoint <| builder.GetIRLeaders ()
     refineIRBoundaries hdl builder
 
+let rec findLiftedIRBoundaries hdl (builder: CFGBuilder) = function
+  | sAddr :: entries ->
+    let sPpoint = sAddr, 0
+    builder.AddIRLeader sPpoint
+    let builder = scanLiftedIRLeaders hdl builder false sPpoint
+    findLiftedIRBoundaries hdl builder entries
+  | [] ->
+    let builder =
+      scanLiftedIRBoundaries hdl builder <| builder.GetIRLeaders ()
+    refineIRBoundaries hdl builder
+
 let identifyIRBoundary hdl (builder: CFGBuilder) funcs =
   let builder =
     findIRBoundaries hdl builder (0UL, 0) <| builder.GetDisasmBoundaries ()
   builder, funcs
 
-let identify hdl builder funcs =
-  (builder, funcs)
-  ||> getInitialEntries hdl
-  ||> findEntriesByPattern hdl
-  ||> identifyDisasmBoundary hdl
-  ||> identifyIRBoundary hdl
+let loadIRStmts (builder: CFGBuilder) addr stmts =
+  List.fold (fun cnt stmt ->
+    builder.AddStmt (addr, cnt) stmt
+    cnt + 1) 0 stmts
+  |> ignore
 
-let identifyWithEntries hdl entries builder funcs =
-  List.iter (initFunction hdl builder funcs) entries
-  (builder, funcs)
-  ||> identifyDisasmBoundary hdl
-  ||> identifyIRBoundary hdl
+let identifyLiftedIRBoundary hdl entries liftResults builder funcs =
+  Map.iter (loadIRStmts builder) liftResults
+  let builder =
+    findLiftedIRBoundaries hdl builder <| entries
+  builder, funcs
+
+let identify hdl builder funcs = function
+  | Default ->
+    (builder, funcs)
+    ||> getInitialEntries hdl
+    ||> findEntriesByPattern hdl
+    ||> identifyDisasmBoundary hdl
+    ||> identifyIRBoundary hdl
+  | KnownEntries entryAddrs ->
+    List.iter (initFunction hdl builder funcs) entryAddrs
+    (builder, funcs)
+    ||> identifyDisasmBoundary hdl
+    ||> identifyIRBoundary hdl
+  | ExtLifter (entries, liftResults) ->
+    List.iter (initFunction hdl builder funcs) entries
+    (builder, funcs)
+    ||> identifyLiftedIRBoundary hdl entries liftResults

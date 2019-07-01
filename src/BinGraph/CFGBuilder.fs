@@ -34,6 +34,11 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open System.Collections.Generic
 
+type CFGBuildOption =
+  | Default
+  | KnownEntries of Addr list
+  | ExtLifter of Addr list * Map<Addr, Stmt list>
+
 type Function (entry, name, hdl) =
   inherit VertexData (VertexData.genID ())
 
