@@ -157,7 +157,7 @@ let interactiveMain files (opts: BinExplorerOpts) =
     CLI.start opts.EnableReadLine arbiter
 
 let showBatchUsage () =
-  eprintfn "--batch <cmd> [args ...]"
+  eprintfn "[file(s) ...] --batch <cmd> [args ...]"
   eprintfn ""
   eprintfn "[Available Commands]"
   eprintfn ""
@@ -165,9 +165,9 @@ let showBatchUsage () =
   eprintfn ""
   eprintfn "    visualize <input json> <output json>"
   eprintfn ""
-  eprintfn "* null: run basic analyses on the binary and exit (for debugging)."
+  eprintfn "* null: run basic analyses on the files and exit (for testing)."
   eprintfn ""
-  eprintfn "    null <files/dirs>"
+  eprintfn "    null"
   exit 1
 
 let visualizeGraph inputFile outputFile =
@@ -190,16 +190,20 @@ let nullrun = function
            printfn "Analyzing %s ... (%d/%d)" f idx numFiles
            initBinHdl ISA.DefaultISA f |> buildGraph false |> ignore) arr)
 
-let batchMain args =
-  match Array.toList args with
+let batchMain files args =
+  match args with
   | "visualize" :: infile :: outfile :: _ -> visualizeGraph infile outfile; 0
-  | "null" :: rest -> nullrun rest; 0
+  | "null" :: _ -> nullrun files; 0
   | _ -> showBatchUsage ()
+
+let convertArgsToLists (files, args) =
+  (Array.toList files), (Array.tail args |> Array.toList)
 
 [<EntryPoint>]
 let main args =
   let opts = BinExplorerOpts (ISA.DefaultISA)
-  if Array.tryHead args = Some "--batch" then batchMain (Array.tail args)
-  else CmdOpts.ParseAndRun interactiveMain "<binary file>" spec opts args
+  match Array.tryFindIndex (fun a -> a = "--batch") args with
+  | Some idx -> Array.splitAt idx args |> convertArgsToLists ||> batchMain
+  | None -> CmdOpts.ParseAndRun interactiveMain "<binary file>" spec opts args
 
 // vim: set tw=80 sts=2 sw=2:
