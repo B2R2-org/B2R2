@@ -190,10 +190,18 @@ let nullrun = function
            printfn "Analyzing %s ... (%d/%d)" f idx numFiles
            initBinHdl ISA.DefaultISA f |> buildGraph false |> ignore) arr)
 
+let batchRun files cmd args =
+  let cmds = CmdSpec.speclist |> CmdMap.build
+  files
+  |> List.iter (fun file ->
+       let ess = initBinHdl ISA.DefaultISA file |> buildGraph false
+       Cmd.handle cmds ess cmd args |> Array.iter System.Console.WriteLine)
+
 let batchMain files args =
   match args with
   | "visualize" :: infile :: outfile :: _ -> visualizeGraph infile outfile; 0
   | "null" :: _ -> nullrun files; 0
+  | cmd :: args -> batchRun files cmd args; 0
   | _ -> showBatchUsage ()
 
 let convertArgsToLists (files, args) =
