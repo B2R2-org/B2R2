@@ -28,25 +28,17 @@ module internal B2R2.Utilities.BinExplorer.CLI
 
 open B2R2
 
-let print arbiter line =
+let cliPrinter arbiter () line =
   Protocol.logString arbiter line
   System.Console.WriteLine line
 
-let handle cmds arbiter (line: string) =
+let handle cmds arbiter (line: string) acc printer =
   match line.Split (' ') |> Array.toList with
   | cmd :: args ->
     let ess = Protocol.getBinEssence arbiter
-    Cmd.handle cmds ess cmd args |> Array.iter (print arbiter)
-    print arbiter ""
-  | [] -> ()
-
-let handleStr cmds arbiter (line: string) =
-  match line.Split (' ') |> Array.toList with
-  | cmd :: args ->
-    let ess = Protocol.getBinEssence arbiter
-    Cmd.handle cmds ess cmd args
-      |> Array.fold (fun acc x -> acc + x.ToString()+"\n") ""
-  | [] -> ""
+    let acc = Cmd.handle cmds ess cmd args |> Array.fold (printer arbiter) acc
+    printer arbiter acc ""
+  | [] -> acc
 
 let rec cliLoop cmds arbiter (console: FsReadLine.Console) =
   let line = console.ReadLine ()
@@ -54,7 +46,7 @@ let rec cliLoop cmds arbiter (console: FsReadLine.Console) =
   | "" -> cliLoop cmds arbiter console
   | "quit" | "q" | "exit" -> Protocol.terminate arbiter
   | line ->
-    handle cmds arbiter line
+    handle cmds arbiter line () cliPrinter
     cliLoop cmds arbiter console
 
 let rec noReadLineLoop cmds arbiter =
@@ -64,7 +56,7 @@ let rec noReadLineLoop cmds arbiter =
   | "" -> noReadLineLoop cmds arbiter
   | "quit" | "q" | "exit" -> Protocol.terminate arbiter
   | line ->
-    handle cmds arbiter line
+    handle cmds arbiter line () cliPrinter
     noReadLineLoop cmds arbiter
 
 let start enableReadLine arbiter =

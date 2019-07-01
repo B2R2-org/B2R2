@@ -164,14 +164,22 @@ let handleAddress req resp arbiter (args: string) =
     let namedcfg = cfg.[..cfg.Length-2] + ",\"Name\": \""+ func.Name + "\"}"
     Some (defaultEnc.GetBytes namedcfg) |> answer req resp
 
+let handleStr cmds arbiter (line: string) =
+  match line.Split (' ') |> Array.toList with
+  | cmd :: args ->
+    let ess = Protocol.getBinEssence arbiter
+    Cmd.handle cmds ess cmd args
+      |> Array.fold (fun acc x -> acc + x.ToString()+"\n") ""
+  | [] -> ""
+
+let jsonPrinter _ acc line = acc + line + "\n"
 
 let handleCommand req resp arbiter (args: string) =
   let jsonData = (jsonParser<JsonDefs> args)
   let cmd = jsonData.command
   let cmds = CmdSpec.speclist |> CmdMap.build
-  let result = CLI.handleStr cmds arbiter cmd
+  let result = CLI.handle cmds arbiter cmd "" jsonPrinter
   Some (json<string> result  |> defaultEnc.GetBytes) |> answer req resp
-
 
 let handleAJAX req resp arbiter query args =
     match query with
