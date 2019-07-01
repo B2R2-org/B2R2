@@ -2852,6 +2852,17 @@ let mls insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
+let uxth insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let rd, rm, rotation = parseOprOfUXTB insInfo ctxt
+  let rotated = shiftROR rm 32<rt> rotation
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  builder <! (rd := zExt 32<rt> (extractLow 16<rt> rotated))
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
 let sxth insInfo ctxt =
   let builder = new StmtBuilder (8)
   let rd, rm, rotation = parseOprOfUXTB insInfo ctxt
@@ -3191,6 +3202,7 @@ let translate insInfo ctxt =
   | Op.UBFX -> ubfx insInfo ctxt
   | Op.ADR -> adr insInfo ctxt // for Thumb mode
   | Op.MLS -> mls insInfo ctxt
+  | Op.UXTH -> uxth insInfo ctxt
   | Op.SXTH -> sxth insInfo ctxt
   | Op.VLDR -> vldr insInfo ctxt
   | Op.VSTR -> vstr insInfo ctxt
