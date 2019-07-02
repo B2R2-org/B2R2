@@ -2799,7 +2799,49 @@ let ubfx insInfo ctxt =
   if lsb + width - 1 <= 31 then
     let v = BitVector.ofUBInt (BigInteger.getMask width) 32<rt> |> num
     builder <! (rd := (rn >> (num <| BitVector.ofInt32 lsb 32<rt>)) .& v)
-  else builder <! (SideEffect UndefinedInstr)  //FIXME  (use UNPREDICTABLE)
+  else builder <! (SideEffect UndefinedInstr)  //FIXME (use UNPREDICTABLE)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let parseOprOfUqOpr ctxt = function
+  | ThreeOperands (OprReg rd, OprReg rn, OprReg rm) ->
+    getRegVar ctxt rd, getRegVar ctxt rn, getRegVar ctxt rm
+  | _ -> raise InvalidOperandException
+
+let createTemporaries cnt regtype =
+  Array.init cnt (fun _ -> tmpVar regtype)
+
+let extractUQOps r width =
+  let typ = RegType.fromBitWidth width
+  [| for w in 0 .. width .. 31 do yield extract r typ w |> zExt 32<rt> done |]
+
+let saturate e width =
+  let max32 = num <| BitVector.ofInt32 (pown 2 width - 1) 32<rt>
+  let zero = num0 32<rt>
+  let resultType = RegType.fromBitWidth width
+  ite (sgt e max32) (extractLow resultType max32)
+      (ite (slt e zero) (num0 resultType) (extractLow resultType e))
+
+let getUQAssignment tmps width =
+  tmps
+  |> Array.mapi (fun idx t ->
+       (zExt 32<rt> t) << (num <| BitVector.ofInt32 (idx * width) 32<rt>))
+  |> Array.reduce (.|)
+
+let uqopr insInfo ctxt width opr =
+  let builder = new StmtBuilder (16)
+  let rd, rn, rm = parseOprOfUqOpr ctxt insInfo.Operands
+  let tmps = createTemporaries (32 / width) 32<rt>
+  let sats = createTemporaries (32 / width) (RegType.fromBitWidth width)
+  let rns = extractUQOps rn width
+  let rms = extractUQOps rm width
+  let diffs = Array.map2 opr rns rms
+  let isUnconditional = isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  Array.iter2 (fun tmp diff -> builder <! (tmp := diff)) tmps diffs
+  Array.iter2 (fun s t -> builder <! (s := saturate t width)) sats tmps
+  builder <! (rd := getUQAssignment sats width)
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
@@ -3198,6 +3240,10 @@ let translate insInfo ctxt =
   | Op.UXTB -> uxtb insInfo ctxt
   | Op.UXTAB -> uxtab insInfo ctxt
   | Op.UBFX -> ubfx insInfo ctxt
+  | Op.UQADD8 -> uqopr insInfo ctxt 8 (.+)
+  | Op.UQADD16 -> uqopr insInfo ctxt 16 (.+)
+  | Op.UQSUB8 -> uqopr insInfo ctxt 8 (.-)
+  | Op.UQSUB16 -> uqopr insInfo ctxt 16 (.-)
   | Op.ADR -> adr insInfo ctxt // for Thumb mode
   | Op.MLS -> mls insInfo ctxt
   | Op.UXTH -> uxth insInfo ctxt
