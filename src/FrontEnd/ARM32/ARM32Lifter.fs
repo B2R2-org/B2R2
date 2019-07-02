@@ -2768,16 +2768,25 @@ let uxtab insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
-let ubfx insInfo ctxt =
+let bfx insInfo ctxt signExtend =
   let builder = new StmtBuilder (8)
   let rd, rn, lsb, width = parseOprOfRdRnLsbWidth insInfo ctxt
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
-  if lsb + width - 1 <= 31 then
-    let v = BitVector.ofUBInt (BigInteger.getMask width) 32<rt> |> num
-    builder <! (rd := (rn >> (num <| BitVector.ofInt32 lsb 32<rt>)) .& v)
-  else builder <! (SideEffect UndefinedInstr)  //FIXME (use UNPREDICTABLE)
+  if lsb + width - 1 > 31 || width < 0 then raise InvalidOperandException
+  else ()
+  let v = BitVector.ofUBInt (BigInteger.getMask width) 32<rt> |> num
+  builder <! (rd := (rn >> (num <| BitVector.ofInt32 lsb 32<rt>)) .& v)
+  if signExtend && width > 1 then
+    let msb = tmpVar 32<rt>
+    let mask = tmpVar 32<rt>
+    let msboffset = num <| BitVector.ofInt32 (lsb + width - 1) 32<rt>
+    let shift = num <| BitVector.ofInt32 width 32<rt>
+    builder <! (msb := (rn >> msboffset) .& num1 32<rt>)
+    builder <! (mask := (not (msb .- num1 32<rt>)) << shift)
+    builder <! (rd := rd .| mask)
+  else ()
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
@@ -3219,7 +3228,8 @@ let translate insInfo ctxt =
   | Op.UADD8 -> uadd8 insInfo ctxt
   | Op.UXTB -> uxtb insInfo ctxt
   | Op.UXTAB -> uxtab insInfo ctxt
-  | Op.UBFX -> ubfx insInfo ctxt
+  | Op.SBFX -> bfx insInfo ctxt true
+  | Op.UBFX -> bfx insInfo ctxt false
   | Op.UQADD8 -> uqopr insInfo ctxt 8 (.+)
   | Op.UQADD16 -> uqopr insInfo ctxt 16 (.+)
   | Op.UQSUB8 -> uqopr insInfo ctxt 8 (.-)
