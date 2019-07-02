@@ -114,4 +114,11 @@ let parseRegW (reg: Register) =
     struct (enum<Register> (intReg &&& 0xffffff), intReg &&& 0x1000000 <> 0x0)
   else raise InvalidRegWException
 
+let isUnconditional cond =
+  match cond with
+  | None
+  | Some Condition.AL
+  | Some Condition.UN -> true
+  | _ -> false
+
 // vim: set tw=80 sts=2 sw=2:

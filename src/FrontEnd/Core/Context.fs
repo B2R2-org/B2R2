@@ -38,6 +38,10 @@ type ParsingContext (archMode) =
   /// ITState for ARM.
   member val ITState: byte list = [] with get, set
 
+  /// Indicate whether an ITblock (in ARM) is started. This is true only when an
+  /// IT hint instruction is encountered.
+  member val ITBlockStarted = false with get, set
+
 /// A high-level interface for the translation context, which stores several
 /// states for translating/lifting instructions.
 [<AbstractClass>]
