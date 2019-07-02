@@ -2390,13 +2390,13 @@ let ldr insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
-let ldrb insInfo ctxt =
+let ldreg insInfo ctxt size ext =
   let builder = new StmtBuilder (8)
   let rt, addr, stmt = parseOprOfLDR insInfo ctxt
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
-  builder <! (rt := loadLE 8<rt> addr |> zExt 32<rt>)
+  builder <! (rt := loadLE size addr |> ext 32<rt>)
   match stmt with
   | Some s -> builder <! s
   | None -> ()
@@ -2433,21 +2433,6 @@ let ldrd insInfo ctxt =
   match stmt with
   | Some s -> builder <! s
   | None -> ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
-  endMark insInfo builder
-
-let ldrh insInfo ctxt =
-  let builder = new StmtBuilder (8)
-  let rt, addr, stmt = parseOprOfLDR insInfo ctxt
-  let data = tmpVar 16<rt>
-  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
-  startMark insInfo builder
-  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
-  builder <! (data := loadLE 16<rt> addr)
-  match stmt with
-  | Some s -> builder <! s
-  | None -> ()
-  builder <! (rt := data |> zExt 32<rt>)
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
@@ -3208,9 +3193,11 @@ let translate insInfo ctxt =
   | Op.LDMDA -> ldm Op.LDMDA insInfo ctxt
   | Op.LDMDB -> ldm Op.LDMDB insInfo ctxt
   | Op.LDR -> ldr insInfo ctxt
-  | Op.LDRB -> ldrb insInfo ctxt
+  | Op.LDRB -> ldreg insInfo ctxt 8<rt> zExt
+  | Op.LDRSB -> ldreg insInfo ctxt 8<rt> sExt
   | Op.LDRD -> ldrd insInfo ctxt
-  | Op.LDRH -> ldrh insInfo ctxt
+  | Op.LDRH -> ldreg insInfo ctxt 16<rt> zExt
+  | Op.LDRSH -> ldreg insInfo ctxt 16<rt> sExt
   | Op.LDREX -> ldr insInfo ctxt
   | Op.SEL -> sel insInfo ctxt
   | Op.REV -> rev insInfo ctxt
