@@ -271,9 +271,9 @@ type BitVector =
     | 1<rt> -> n &&& 1UL
     | 2<rt> -> n &&& 0x3UL
     | 4<rt> -> n &&& 0xFUL
-    | 8<rt> -> uint8 n |> uint64
-    | 16<rt> -> uint16 n |> uint64
-    | 32<rt> -> uint32 n |> uint64
+    | 8<rt> -> n &&& 0xFFUL
+    | 16<rt> -> n &&& 0xFFFFUL
+    | 32<rt> -> n &&& 0xFFFFFFFFUL
     | 64<rt> -> n
     | sz -> nSizeErr sz
 
@@ -512,10 +512,12 @@ type BitVector =
 
   [<CompiledName("Sext")>]
   static member sext bv typ =
-    let mask =
-      BitVector.ofUBInt (RegType.getMask typ - RegType.getMask bv.Length) typ
     let bv' = BitVector.cast bv typ
-    if BitVector.isPositive bv then bv' else BitVector.add mask bv'
+    if BitVector.isPositive bv then bv'
+    else
+      let mask =
+        BitVector.ofUBInt (RegType.getMask typ - RegType.getMask bv.Length) typ
+      BitVector.add mask bv'
 
   [<CompiledName("Zext")>]
   static member zext bv t = BitVector.cast bv t
