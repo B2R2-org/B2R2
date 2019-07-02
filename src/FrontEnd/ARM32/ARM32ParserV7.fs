@@ -2058,28 +2058,24 @@ let parseGroup10WithRdSub b1 b2 =
   match extract b1 8u 4u with
   | 0b00000u ->
     Op.AND, None, p3Oprs (b1, b2) chkUnpreBV (getRegAV, getRegAY, getImmJ),
-      None
+    None
   | 0b00001u ->
     Op.ANDS, None, p3Oprs (b1, b2) chkUnpreCD (getRegAV, getRegAY, getImmJ),
-      getCFThumb (b1, b2)
+    getCFThumb (b1, b2)
   | 0b01000u ->
-    Op.EOR, None, p3Oprs (b1, b2) chkUnpreBV (getRegAV, getRegAY, getImmJ),
-      None
+    Op.EOR, None, p3Oprs (b1, b2) chkUnpreBV (getRegAV, getRegAY, getImmJ), None
   | 0b01001u ->
     Op.EORS, None, p3Oprs (b1, b2) chkUnpreCD (getRegAV, getRegAY, getImmJ),
-      getCFThumb (b1, b2)
+    getCFThumb (b1, b2)
   | 0b10000u ->
-    Op.ADD, getQfW (), p3Oprs (b1, b2) chkUnpreCF (getRegAV, getRegAY, getImmJ),
-      None
+    Op.ADD,
+    getQfW (), p3Oprs (b1, b2) chkUnpreCF (getRegAV, getRegAY, getImmJ), None
   | 0b10001u ->
     Op.ADDS,
-    getQfW (),
-    p3Oprs (b1, b2) chkUnpreCG (getRegAV, getRegAY, getImmJ),
-      None
+    getQfW (), p3Oprs (b1, b2) chkUnpreCG (getRegAV, getRegAY, getImmJ), None
   | 0b11010u ->
     Op.SUB,
-    getQfW (),
-    p3Oprs (b1, b2) chkUnpreCF (getRegAV, getRegAY, getImmJ), None
+    getQfW (), p3Oprs (b1, b2) chkUnpreCF (getRegAV, getRegAY, getImmJ), None
   | 0b11011u ->
     Op.SUBS,
     getQfW (),
@@ -2093,11 +2089,11 @@ let parseGroup10WithRd b1 b2 =
   else
     match extract b1 8u 5u with
     | 0b0000u -> Op.TST, None, p2Oprs (b1, b2) chkUnpreBL (getRegAY, getImmJ),
-                  getCFThumb (b1, b2)
+                 getCFThumb (b1, b2)
     | 0b0100u -> Op.TEQ, None, p2Oprs (b1, b2) chkUnpreBL (getRegAY, getImmJ),
-                  getCFThumb (b1, b2)
+                 getCFThumb (b1, b2)
     | 0b1000u -> Op.CMN, None, p2Oprs (b1, b2) chkUnpreCC (getRegAY, getImmJ),
-                  None
+                 None
     | 0b1101u ->
       Op.CMP, getQfW (), p2Oprs (b1, b2) chkUnpreCC (getRegAY, getImmJ), None
     | _ -> failwith "Wrong opcode in parseGroup10."
@@ -2703,11 +2699,11 @@ let parseV7Thumb32Group10 ctxt bin =
     match pickBit bin 9u, pickBit bin 31u with
     | 0b0u, 0b0u -> parseGroup10 ctxt bin
     | 0b1u, 0b0u ->
-        let opc, c, qual, opr = parseGroup11 ctxt bin
-        opc, c, qual, opr, None
+      let opc, c, qual, opr = parseGroup11 ctxt bin
+      opc, c, qual, opr, None
     | _, 0b1u ->
-        let opc, c, qual, opr = parseGroup12 ctxt bin
-        opc, c, qual, opr, None
+      let opc, c, qual, opr = parseGroup12 ctxt bin
+      opc, c, qual, opr, None
     | _ -> failwith "Wrong thumb group specified."
   opcode, cond, 0uy, q, None, operands, cflag
 

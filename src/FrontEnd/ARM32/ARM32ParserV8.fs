@@ -473,7 +473,7 @@ let parseMoveSpecRegInstr bin =
 /// Cyclic Redundancy Check on page F4-2509
 /// Miscellaneous on page F4-2507
 let parseCyclRedundanyCheckInstrs cond bin =
-  isUnpredictable (cond <> Condition.AL)
+  checkUnpred (cond <> Condition.AL)
   checkSize ((extract bin 22u 21u) <<< 8 |> int) 64
   match extract bin 22u 21u, pickBit bin 9u with
   | 0u, 0u -> Op.CRC32B, getRegDCAOprsWithUnpreA bin

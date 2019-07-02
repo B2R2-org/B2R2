@@ -70,7 +70,7 @@ let getCoprocCRegister = function
   | 0x0Fuy -> R.C15
   | _ -> raise InvalidRegisterException
 
-let isUnpredictable cond = if cond then raise UnpredictableException else ()
+let checkUnpred cond = if cond then raise UnpredictableException else ()
 let isUndefined cond = if cond then raise UndefinedException else ()
 let isValidOpcode cond = if cond then raise InvalidOpcodeException else ()
 
@@ -555,9 +555,9 @@ let getReg b s e = getRegister (extract b s e |> byte)
 
 let getSign s = if s = 1u then Plus else Minus
 
-let retSndIfNotTheSame a b = isUnpredictable (a = b); b
+let retSndIfNotTheSame a b = checkUnpred (a = b); b
 
-let checkSize size v = isUnpredictable (size = v)
+let checkSize size v = checkUnpred (size = v)
 
 let parseOneOpr b checkfn opr = checkfn b opr; OneOperand (opr b)
 
@@ -716,7 +716,7 @@ let getRegSP _ = OprReg R.SP
 let getRegPC _ = OprReg R.PC
 let getRegLR _ = OprReg R.LR
 let getAPSRxA b = let mask = extract b 19u 18u
-                  isUnpredictable (mask = 00u)
+                  checkUnpred (mask = 00u)
                   mask |> byte |> getAPSR |> OprSpecReg
 let getAPSRxB b = extract b 19u 18u |> byte |> getAPSR |> OprSpecReg
 let getAPSRxC (_, b2) = extract b2 11u 10u |> byte |> getAPSR |> OprSpecReg
@@ -912,7 +912,7 @@ let getShiftJ (_, b2) = extract b2 5u 4u |> getShiftOprByRotate
 
 let getImm0 _ = OprImm 0L
 let getImmA opcode i b =
-  let chk1 i = isUnpredictable (i = 0u)
+  let chk1 i = checkUnpred (i = 0u)
   let chk2 i = isValidOpcode (opcode <> Op.VMOV || opcode <> Op.VMVN); chk1 i
   let i = concat (concat i (extract b 18u 16u) 3) (extract b 3u 0u) 4
   match concat (pickBit b 5u) (extract b 11u 8u) 4 with
@@ -987,7 +987,7 @@ let getImmJ (b1, b2) =
   | 0b00100 | 0b00101 -> ((imm <<< 24) + (imm <<< 8)) |> int64 |> OprImm
   | 0b00110 | 0b00111
       -> ((imm <<< 24) + (imm <<< 16) + (imm <<< 8) + imm) |> int64 |> OprImm
-  | rot -> 
+  | rot ->
       let unrotated = (0b10000000 ||| imm)
       ((unrotated <<< (32 - rot)) ||| (unrotated >>> rot)) |> int64 |> OprImm
 
@@ -1453,560 +1453,565 @@ let dummyChk _ _ = ()
 
 let checkStoreEx1 b (op1, op2, _) =
   let rn = getRegC b
-  isUnpredictable (op1 b = OprReg R.PC || op2 b = OprReg R.PC ||
-                   rn = OprReg R.PC || op1 b = rn || op1 b = op2 b)
+  checkUnpred (op1 b = OprReg R.PC || op2 b = OprReg R.PC ||
+               rn = OprReg R.PC || op1 b = rn || op1 b = op2 b)
 let checkStoreEx2 b (op1, op2, op3, _) =
   let rn = getRegC b
-  isUnpredictable (op1 b = OprReg R.PC || pickBit b 0u = 0b1u ||
-                   op2 b = OprReg R.LR || rn = OprReg R.PC || op1 b = rn ||
-                   op1 b = op2 b || op1 b = op3 b)
+  checkUnpred (op1 b = OprReg R.PC || pickBit b 0u = 0b1u ||
+               op2 b = OprReg R.LR || rn = OprReg R.PC || op1 b = rn ||
+               op1 b = op2 b || op1 b = op3 b)
 
 let chkUnpreInAndNotLastItBlock ctxt =
   inITBlock ctxt && lastInITBlock ctxt |> not
 
 let chkUnpreA b (op1, op2, op3) =
-  isUnpredictable (op1 b = OprReg R.PC || op2 b = OprReg R.PC ||
-                   op3 b = OprReg R.PC)
+  checkUnpred (op1 b = OprReg R.PC || op2 b = OprReg R.PC ||
+               op3 b = OprReg R.PC)
 let chkUnpreB b (op1, op2, op3, op4) =
-  isUnpredictable (op1 b = OprReg R.PC || op2 b = OprReg R.PC ||
-                   op3 b = OprReg R.PC || op4 b = OprReg R.PC)
+  checkUnpred (op1 b = OprReg R.PC || op2 b = OprReg R.PC ||
+               op3 b = OprReg R.PC || op4 b = OprReg R.PC)
 let chkUnpreC b (op1, op2, op3, _) =
-  isUnpredictable (op1 b = OprReg R.PC || op2 b = OprReg R.PC ||
-                   op3 b = OprReg R.PC)
-let chkUnpreD b op = isUnpredictable (op b = OprReg R.PC)
+  checkUnpred (op1 b = OprReg R.PC || op2 b = OprReg R.PC ||
+               op3 b = OprReg R.PC)
+let chkUnpreD b op = checkUnpred (op b = OprReg R.PC)
 let chkUnpreE b (op1, op2) =
-  isUnpredictable (op1 b = OprReg R.PC || op2 b = OprReg R.PC)
-let chkUnpreF b (_, op2) = isUnpredictable (op2 b = OprReg R.PC)
-let chkUnpreG b (op1, _) = isUnpredictable (op1 b = OprReg R.PC)
+  checkUnpred (op1 b = OprReg R.PC || op2 b = OprReg R.PC)
+let chkUnpreF b (_, op2) = checkUnpred (op2 b = OprReg R.PC)
+let chkUnpreG b (op1, _) = checkUnpred (op1 b = OprReg R.PC)
 let chkUnpreH b (_, op2) =
-  isUnpredictable (extract b 19u 16u = 0b0u || op2 b = OprReg R.PC)
+  checkUnpred (extract b 19u 16u = 0b0u || op2 b = OprReg R.PC)
 let chkUnpreI b (op1, op2, op3, op4) =
-  isUnpredictable (op1 b = OprReg R.PC || op2 b = OprReg R.PC ||
-                   op3 b = OprReg R.PC || op4 b = OprReg R.PC ||
-                   op1 b = op2 b)
+  checkUnpred (op1 b = OprReg R.PC || op2 b = OprReg R.PC ||
+               op3 b = OprReg R.PC || op4 b = OprReg R.PC ||
+               op1 b = op2 b)
 let chkUnpreJ b (op1, op2, _) =
   let rn = getRegC b
-  isUnpredictable (op1 b = OprReg R.PC || op2 b = OprReg R.PC ||
-                   rn = OprReg R.PC || rn = op1 b || rn = op2 b)
+  checkUnpred (op1 b = OprReg R.PC || op2 b = OprReg R.PC ||
+               rn = OprReg R.PC || rn = op1 b || rn = op2 b)
 let chkUnpreK b (op1, _) =
   let rn = getRegC b
-  isUnpredictable (rn = OprReg R.PC || op1 b = OprReg R.PC)
+  checkUnpred (rn = OprReg R.PC || op1 b = OprReg R.PC)
 let chkUnpreL b (op1, _, _) =
-  isUnpredictable (pickBit b 12u = 0b1u || op1 b = OprReg R.LR ||
-                   getRegC b = OprReg R.PC)
+  checkUnpred (pickBit b 12u = 0b1u || op1 b = OprReg R.LR ||
+               getRegC b = OprReg R.PC)
 let chkUnpreM b (op1, _, op3) =
-  isUnpredictable (op1 b = OprReg R.PC || op3 b = OprReg R.PC)
-let chkUnpreN b _ = isUnpredictable (getRegC b = OprReg R.PC)
+  checkUnpred (op1 b = OprReg R.PC || op3 b = OprReg R.PC)
+let chkUnpreN b _ = checkUnpred (getRegC b = OprReg R.PC)
 let chkUnpreO b (op1, _, op3, _) =
-  isUnpredictable (op1 b = OprReg R.PC || op3 b = OprReg R.PC)
+  checkUnpred (op1 b = OprReg R.PC || op3 b = OprReg R.PC)
 let chkUnpreP b (op1, op2, _) =
-  isUnpredictable (op1 b = OprReg R.PC || op2 b = OprReg R.PC)
+  checkUnpred (op1 b = OprReg R.PC || op2 b = OprReg R.PC)
 let chkUnpreQ b (op1, op2, _, _) =
-  isUnpredictable (op1 b = OprReg R.PC || op2 b = OprReg R.PC)
+  checkUnpred (op1 b = OprReg R.PC || op2 b = OprReg R.PC)
 let chkUnpreR ctxt b _ =
   let d = concat (pickBit b 7u) (extract b 2u 0u) 3
-  isUnpredictable ((extract b 6u 3u = 15u && d = 15u) &&
-                   d = 15u && inITBlock ctxt && lastInITBlock ctxt |> not)
+  checkUnpred ((extract b 6u 3u = 15u && d = 15u) &&
+               d = 15u && inITBlock ctxt && lastInITBlock ctxt |> not)
 let chkUnpreS b _ =
   let rnd = concat (pickBit b 7u) (extract b 2u 0u) 3
   let rm = extract b 6u 3u
-  isUnpredictable (rnd = 15u || rm = 15u)
-  isUnpredictable (rnd < 8u && rm < 8u)
+  checkUnpred (rnd = 15u || rm = 15u)
+  checkUnpred (rnd < 8u && rm < 8u)
 let chkUnpreT b (op1, _) =
-  isUnpredictable (op1 b = OprReg R.PC || pickBit b 24u = pickBit b 21u)
-let chkUnpreU b (_, op2, _) = isUnpredictable (op2 b = OprReg R.PC)
+  checkUnpred (op1 b = OprReg R.PC || pickBit b 24u = pickBit b 21u)
+let chkUnpreU b (_, op2, _) = checkUnpred (op2 b = OprReg R.PC)
 let chkUnpreV b (op1, _) =
   let rn = getRegC b
-  isUnpredictable (op1 b = OprReg R.PC || rn = OprReg R.PC || rn = op1 b ||
-                   getRegA b = OprReg R.PC)
+  checkUnpred (op1 b = OprReg R.PC || rn = OprReg R.PC || rn = op1 b ||
+               getRegA b = OprReg R.PC)
 let chkUnpreW b (op1, _) =
   let rn = getRegC b
-  isUnpredictable (op1 b = OprReg R.PC || rn = OprReg R.PC || rn = op1 b)
+  checkUnpred (op1 b = OprReg R.PC || rn = OprReg R.PC || rn = op1 b)
 
-let chkUnpreX b _ = isUnpredictable (extract b 19u 16u = 0b0u)
-let chkUnpreY b op = isUnpredictable (op b = OprReg R.SP)
+let chkUnpreX b _ = checkUnpred (extract b 19u 16u = 0b0u)
+let chkUnpreY b op = checkUnpred (op b = OprReg R.SP)
 let chkUnpreZ b (op1, _) =
   let rn = getRegC b
-  isUnpredictable (rn = OprReg R.PC || rn = op1 b)
+  checkUnpred (rn = OprReg R.PC || rn = op1 b)
 let chkUnpreAA b (op1, _) =
   let rn = getRegC b
-  isUnpredictable ((pickBit b 24u = 0u || pickBit b 21u = 1u) &&
-                   (rn = OprReg R.PC || rn = op1 b))
+  checkUnpred ((pickBit b 24u = 0u || pickBit b 21u = 1u) &&
+               (rn = OprReg R.PC || rn = op1 b))
 let chkUnpreAB b (op1, _) =
   let rn = getRegC b
-  isUnpredictable (op1 b = OprReg R.PC ||
-                   ((rn = op1 b) && (pickBit b 24u = 0u || pickBit b 21u = 1u)))
+  checkUnpred (op1 b = OprReg R.PC ||
+               ((rn = op1 b) && (pickBit b 24u = 0u || pickBit b 21u = 1u)))
 let chkUnpreAC b (op1, _) =
   let rn = getRegC b
-  isUnpredictable (op1 b = OprReg R.PC ||
+  checkUnpred (op1 b = OprReg R.PC ||
                    ((rn = OprReg R.PC || rn = op1 b) &&
                     (pickBit b 24u = 0u || pickBit b 21u = 1u)))
 let chkUnpreAD b (op1, _) =
   let rn = getRegC b
-  isUnpredictable (op1 b = OprReg R.PC || getRegA b = OprReg R.PC ||
-                   ((pickBit b 24u = 0b0u || pickBit b 21u = 0b1u) &&
-                    (rn = OprReg R.PC || rn = op1 b)))
+  checkUnpred (op1 b = OprReg R.PC || getRegA b = OprReg R.PC ||
+               ((pickBit b 24u = 0b0u || pickBit b 21u = 0b1u) &&
+                (rn = OprReg R.PC || rn = op1 b)))
 
 let chkUnpreAE b (op1, op2, _) =
   let rn = getRegC b
   let rm = getRegA b
-  isUnpredictable ((pickBit b 24u = 0u && pickBit b 21u = 1u) ||
-                   op2 b = OprReg R.PC || rm = OprReg R.PC || rm = op1 b ||
-                   rm = op2 b || (pickBit b 24u = 0u || pickBit b 21u = 1u) &&
-                   (rn = OprReg R.PC || rn = op1 b || rn = op2 b))
+  checkUnpred ((pickBit b 24u = 0u && pickBit b 21u = 1u) ||
+               op2 b = OprReg R.PC || rm = OprReg R.PC || rm = op1 b ||
+               rm = op2 b || (pickBit b 24u = 0u || pickBit b 21u = 1u) &&
+               (rn = OprReg R.PC || rn = op1 b || rn = op2 b))
 
 let chkUnpreAF b (op1, op2, _) =
   let rn = getRegC b
   let rm = getRegA b
   let p = pickBit b 24u
   let w = pickBit b 21u
-  isUnpredictable ((p = 0u && w = 1u) || op2 b = OprReg R.PC ||
-                   rm = OprReg R.PC || pickBit b 12u = 1u ||
-                   ((p = 0u || w = 1u) &&
-                    (rn = OprReg R.PC || rn = op1 b || rn = op2 b)))
+  checkUnpred ((p = 0u && w = 1u) || op2 b = OprReg R.PC ||
+               rm = OprReg R.PC || pickBit b 12u = 1u ||
+               ((p = 0u || w = 1u) &&
+                (rn = OprReg R.PC || rn = op1 b || rn = op2 b)))
 let chkUnpreAG b (op1, _) =
   let rn = getRegC b
-  isUnpredictable (op1 b = OprReg R.PC ||
-                   ((rn = OprReg R.PC || rn = op1 b) &&
-                    (pickBit b 24u = 0b0u || pickBit b 21u = 0b1u)))
+  checkUnpred (op1 b = OprReg R.PC ||
+               ((rn = OprReg R.PC || rn = op1 b) &&
+                (pickBit b 24u = 0b0u || pickBit b 21u = 0b1u)))
 let chkUnpreAH b (op1, _) =
-  isUnpredictable (op1 b = OprReg R.PC ||
-                   ((pickBit b 24u = 0b0u || pickBit b 21u = 0b1u) &&
-                    (getRegC b = op1 b)))
+  checkUnpred (op1 b = OprReg R.PC ||
+               ((pickBit b 24u = 0b0u || pickBit b 21u = 0b1u) &&
+                (getRegC b = op1 b)))
 
 let chkUnpreAI b (op1, op2, _) =
   let p = pickBit b 24u
   let w = pickBit b 21u
   let rn = getRegC b
-  isUnpredictable (((p = 0b0u || w = 0b1u) && (rn = op1 b || rn = op2 b)) ||
-                   p = 0b0u && w = 0b1u)
+  checkUnpred (((p = 0b0u || w = 0b1u) && (rn = op1 b || rn = op2 b)) ||
+               p = 0b0u && w = 0b1u)
 
 let chkUnpreAJ b (op1, op2, _) =
   let p = pickBit b 24u
   let w = pickBit b 21u
   let rn = getRegC b
-  isUnpredictable ((p = 0u && w = 1u) || op2 b = OprReg R.PC ||
-                   ((p = 0u || w = 1u) &&
-                    (rn = OprReg R.PC || rn = op1 b || rn = op2 b)))
+  checkUnpred ((p = 0u && w = 1u) || op2 b = OprReg R.PC
+               || ((p = 0u || w = 1u) &&
+                   (rn = OprReg R.PC || rn = op1 b || rn = op2 b)))
 
 let chkUnpreAK (_, b2) _ =
   let rm = getRegA b2
-  isUnpredictable (rm = OprReg R.SP || rm = OprReg R.PC)
+  checkUnpred (rm = OprReg R.SP || rm = OprReg R.PC)
 
 let chkUnpreAL b (op1, _) =
   let rn = getRegC b
-  isUnpredictable (getRegA b = OprReg R.PC ||
-                   rn = OprReg R.PC || rn = op1 b)
+  checkUnpred (getRegA b = OprReg R.PC || rn = OprReg R.PC || rn = op1 b)
 
 let chkUnpreAM b (op1, _) =
   let rn = getRegC b
-  isUnpredictable (getRegA b = OprReg R.PC ||
-                   ((pickBit b 24u = 0u || pickBit b 21u = 1u) &&
-                    (rn = OprReg R.PC || rn = op1 b)))
+  checkUnpred (getRegA b = OprReg R.PC
+              || ((pickBit b 24u = 0u || pickBit b 21u = 1u)
+                  && (rn = OprReg R.PC || rn = op1 b)))
 
 let chkUnpreAN b (op1, _) =
-  isUnpredictable (op1 b = OprReg R.PC); chkUnpreAM b (op1, ())
+  checkUnpred (op1 b = OprReg R.PC); chkUnpreAM b (op1, ())
 let chkUnpreAO b _ =
-  isUnpredictable (concat (pickBit b 22u) (pickBit b 5u) 1 = 0b11u)
+  checkUnpred (concat (pickBit b 22u) (pickBit b 5u) 1 = 0b11u)
 let chkUnpreAP b (op1, _, _) =
   let msb = extract b 20u 16u |> int64
   let lsb = extract b 11u 7u |> int64
-  isUnpredictable (op1 b = OprReg R.PC || msb < lsb)
+  checkUnpred (op1 b = OprReg R.PC || msb < lsb)
 let chkUnpreAQ b (op1, _, _, _) =
   let msb = extract b 20u 16u |> int64
   let lsb = extract b 11u 7u |> int64
-  isUnpredictable (op1 b = OprReg R.PC || msb < lsb)
+  checkUnpred (op1 b = OprReg R.PC || msb < lsb)
 let chkUnpreAR b _ =
-  isUnpredictable (getReg b 19u 16u = R.PC ||
-                   List.length (extract b 15u 0u |> getRegList) < 1)
+  checkUnpred (getReg b 19u 16u = R.PC ||
+               List.length (extract b 15u 0u |> getRegList) < 1)
 let chkUnpreAS b _ =
   let rn = getReg b 19u 16u
   let rl = extract b 15u 0u |> getRegList
-  isUnpredictable (rn = R.PC || List.length rl < 1 ||
-                   (pickBit b 21u = 1u && List.exists (fun e -> e = rn) rl))
+  checkUnpred (rn = R.PC || List.length rl < 1 ||
+               (pickBit b 21u = 1u && List.exists (fun e -> e = rn) rl))
 
-let chkUnpreAT b _ = isUnpredictable (pickBit b 13u = 0b1u)
+let chkUnpreAT b _ = checkUnpred (pickBit b 13u = 0b1u)
 
 let chkUnpreAU b (_, _, op3, op4, _) =
-  isUnpredictable (op3 b = OprReg R.PC || op4 b = OprReg R.PC)
+  checkUnpred (op3 b = OprReg R.PC || op4 b = OprReg R.PC)
 
 let chkUnpreAV b (_, _, op3, op4, _) =
-  isUnpredictable (op3 b = OprReg R.PC ||
-                   op4 b = OprReg R.PC || op3 b = op4 b)
+  checkUnpred (op3 b = OprReg R.PC ||
+               op4 b = OprReg R.PC || op3 b = op4 b)
 
 let chkUnpreAW b (op1, _, op3, op4) =
-  isUnpredictable (op3 b = OprReg R.PC || op4 b = OprReg R.PC ||
-                   op1 b = OprReg R.S31)
+  checkUnpred (op3 b = OprReg R.PC || op4 b = OprReg R.PC ||
+               op1 b = OprReg R.S31)
 
 let chkUnpreAX b (op1, op2, op3, _) =
-  isUnpredictable (op1 b = OprReg R.PC || op2 b = OprReg R.PC ||
-                   op3 b = OprReg R.S31 || op1 b = op2 b)
+  checkUnpred (op1 b = OprReg R.PC || op2 b = OprReg R.PC ||
+               op3 b = OprReg R.S31 || op1 b = op2 b)
 
 let chkUnpreAY b (op1, op2, _) =
-  isUnpredictable (op1 b = OprReg R.PC ||
-                   op2 b = OprReg R.PC || op1 b = op2 b)
+  checkUnpred (op1 b = OprReg R.PC ||
+               op2 b = OprReg R.PC || op1 b = op2 b)
 
 let chkUnpreAZ b _ =
   let regs = (extract b 7u 0u) / 2u
-  isUnpredictable (regs = 0u || regs > 16u ||
+  checkUnpred (regs = 0u || regs > 16u ||
                    (concat (pickBit b 22u) (extract b 15u 12u) 4) + regs > 32u)
 
 let chkUnpreBA b _ =
   let imm8 = extract b 7u 0u
-  isUnpredictable (imm8 = 0u ||
-                   (concat (extract b 15u 12u) (pickBit b 22u) 1) + imm8 > 32u)
+  checkUnpred (imm8 = 0u ||
+               (concat (extract b 15u 12u) (pickBit b 22u) 1) + imm8 > 32u)
 
-let chkUnpreBB b (_, _, op3, _, _, _) = isUnpredictable (op3 b = OprReg R.PC)
+let chkUnpreBB b (_, _, op3, _, _, _) = checkUnpred (op3 b = OprReg R.PC)
 
 let chkUnpreBC b _ =
   let rL = ((pickBit b 8u) <<< 14) + (extract b 7u 0u) |> getRegList
-  isUnpredictable (List.length rL < 1)
+  checkUnpred (List.length rL < 1)
 
 let chkUnpreBD opcode ctxt b op1 =
   let isITOpcode = function
     | Op.ITE | Op.ITET | Op.ITTE | Op.ITEE | Op.ITETT | Op.ITTET | Op.ITEET
     | Op.ITTTE | Op.ITETE | Op.ITTEE | Op.ITEEE -> true
     | _ -> false
-  isUnpredictable (inITBlock ctxt || op1 b = OprCond Condition.UN ||
-                   (op1 b = OprCond Condition.AL && isITOpcode opcode))
+  checkUnpred (inITBlock ctxt || op1 b = OprCond Condition.UN ||
+               (op1 b = OprCond Condition.AL && isITOpcode opcode))
 
 let chkUnpreBE ctxt b _ =
   isUndefined (extract b 11u 8u = 14u)
-  isUnpredictable (inITBlock ctxt)
+  checkUnpred (inITBlock ctxt)
 
 let chkUnpreBF (b1, b2) _ =
   let n = extract b1 3u 0u
   let rL = concat ((pickBit b2 14u) <<< 1) (extract b2 12u 0u) 13 |> getRegList
-  isUnpredictable (n = 15u || List.length rL < 2 ||
-                   pickBit b2 5u = 0b1u || pickBit b2 n = 0b1u)
+  checkUnpred (n = 15u || List.length rL < 2 ||
+               pickBit b2 5u = 0b1u || pickBit b2 n = 0b1u)
 
 let chkUnpreBG ctxt (_, b2) _ =
   let pm = (extract b2 15u 14u)
   let rL = concat (pm <<< 1) (extract b2 12u 0u) 13 |> getRegList
-  isUnpredictable (List.length rL < 2 || pm = 0b11u ||
-                   (pickBit b2 15u = 1u && chkUnpreInAndNotLastItBlock ctxt))
+  checkUnpred (List.length rL < 2 || pm = 0b11u ||
+               (pickBit b2 15u = 1u && chkUnpreInAndNotLastItBlock ctxt))
 
 let chkUnpreBH ctxt (b1, b2) _ =
   let n = extract b1 3u 0u
   let w =  pickBit b1 5u
   let pm = extract b2 15u 14u
   let rl = getRegList (concat (pm <<< 1) (extract b2 12u 0u) 13)
-  isUnpredictable (n = 15u || List.length rl < 2 || pm = 0b11u)
-  isUnpredictable (pickBit b2 15u = 1u && chkUnpreInAndNotLastItBlock ctxt)
-  isUnpredictable (w = 1u && pickBit b2 n = 1u)
+  checkUnpred (n = 15u || List.length rl < 2 || pm = 0b11u)
+  checkUnpred (pickBit b2 15u = 1u && chkUnpreInAndNotLastItBlock ctxt)
+  checkUnpred (w = 1u && pickBit b2 n = 1u)
 
 let chkUnpreBI (_, b2) _ =
   let m = pickBit b2 14u
   let rl = getRegList (concat (m <<< 1) (extract b2 12u 0u) 13)
-  isUnpredictable (List.length rl < 2 || pickBit b2 15u = 0b1u
-                   || pickBit b2 13u = 0b1u)
+  checkUnpred (List.length rl < 2 || pickBit b2 15u = 0b1u
+               || pickBit b2 13u = 0b1u)
 
 let chkUnpreBJ (b1, b2) (op1, op2, _) =
   let rn = getRegister (extract b1 3u 0u |> byte)
   let opr1 = op1 (b1, b2)
   let opr2 = op2 (b1, b2)
-  isUnpredictable (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
-                   opr2 = OprReg R.SP || opr2 = OprReg R.PC ||
-                   rn = R.PC || op1 (b1, b2) = OprReg rn ||
-                   op1 (b1, b2) = op2 (b1, b2))
+  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
+               opr2 = OprReg R.SP || opr2 = OprReg R.PC ||
+               rn = R.PC || op1 (b1, b2) = OprReg rn ||
+               op1 (b1, b2) = op2 (b1, b2))
 
 let chkUnpreBK (b1, b2) (op1, _) =
-  isUnpredictable (op1 (b1, b2) = OprReg R.SP ||
-                   op1 (b1, b2) = OprReg R.PC ||
-                   getRegister (extract b1 3u 0u |> byte) = R.PC)
+  checkUnpred (op1 (b1, b2) = OprReg R.SP ||
+               op1 (b1, b2) = OprReg R.PC ||
+               getRegister (extract b1 3u 0u |> byte) = R.PC)
 
 let chkUnpreBL (b1, b2) (op1, _) =
-  isUnpredictable (op1 (b1, b2) = OprReg R.SP ||
-                   op1 (b1, b2) = OprReg R.PC)
+  checkUnpred (op1 (b1, b2) = OprReg R.SP ||
+               op1 (b1, b2) = OprReg R.PC)
 
 let chkUnpreBM (b1, b2) (op1, op2, _) =
   let rn = getRegister (extract b1 3u 0u |> byte)
-  isUnpredictable (((OprReg rn = op1 (b1, b2) || OprReg rn = op2 (b1, b2))
-                    && pickBit b1 5u = 0b1u) || rn = R.PC ||
-                   op1 (b1, b2) = OprReg R.SP ||
-                   op1 (b1, b2) = OprReg R.PC ||
-                   op2 (b1, b2) = OprReg R.SP ||
-                   op2 (b1, b2) = OprReg R.PC)
+  checkUnpred (((OprReg rn = op1 (b1, b2) || OprReg rn = op2 (b1, b2))
+               && pickBit b1 5u = 0b1u) || rn = R.PC ||
+               op1 (b1, b2) = OprReg R.SP ||
+               op1 (b1, b2) = OprReg R.PC ||
+               op2 (b1, b2) = OprReg R.SP ||
+               op2 (b1, b2) = OprReg R.PC)
 
 let chkUnpreBN (b1, b2) (op1, op2, _) =
   let rn = getRegister (extract b1 3u 0u |> byte)
-  isUnpredictable (((OprReg rn = op1 (b1, b2) || OprReg rn = op2 (b1, b2))
-                    && pickBit b1 5u = 0b1u) || op1 (b1, b2) = op2 (b1, b2) ||
-                   op1 (b1, b2) = OprReg R.SP ||
-                   op1 (b1, b2) = OprReg R.PC ||
-                   op2 (b1, b2) = OprReg R.SP ||
-                   op2 (b1, b2) = OprReg R.PC)
+  checkUnpred (((OprReg rn = op1 (b1, b2) || OprReg rn = op2 (b1, b2))
+               && pickBit b1 5u = 0b1u) || op1 (b1, b2) = op2 (b1, b2) ||
+               op1 (b1, b2) = OprReg R.SP ||
+               op1 (b1, b2) = OprReg R.PC ||
+               op2 (b1, b2) = OprReg R.SP ||
+               op2 (b1, b2) = OprReg R.PC)
 
 let chkUnpreBO (b1, b2) (op1, op2, _) =
-  isUnpredictable (op1 (b1, b2) = OprReg R.SP ||
-                   op1 (b1, b2) = OprReg R.PC ||
-                   op2 (b1, b2) = OprReg R.SP ||
-                   op2 (b1, b2) = OprReg R.PC ||
-                   op1 (b1, b2) = op2 (b1, b2))
+  checkUnpred (op1 (b1, b2) = OprReg R.SP ||
+               op1 (b1, b2) = OprReg R.PC ||
+               op2 (b1, b2) = OprReg R.SP ||
+               op2 (b1, b2) = OprReg R.PC ||
+               op1 (b1, b2) = op2 (b1, b2))
 
 let chkUnpreBP (b1, b2) (op1, op2, _) =
   let rn = getRegister (extract b1 3u 0u |> byte)
-  isUnpredictable (op1 (b1, b2) = OprReg R.SP ||
-                   op1 (b1, b2) = OprReg R.PC ||
-                   op2 (b1, b2) = OprReg R.SP ||
-                   op2 (b1, b2) = OprReg R.PC ||
-                   rn = R.PC || op1 (b1, b2) = op2 (b1, b2))
+  checkUnpred (op1 (b1, b2) = OprReg R.SP ||
+               op1 (b1, b2) = OprReg R.PC ||
+               op2 (b1, b2) = OprReg R.SP ||
+               op2 (b1, b2) = OprReg R.PC ||
+               rn = R.PC || op1 (b1, b2) = op2 (b1, b2))
 
 let chkUnpreBQ (b1, b2) (op1, op2, op3, _) =
   let rn = getRegister (extract b1 3u 0u |> byte)
   let opr1 = op1 (b1, b2)
   let opr2 = op2 (b1, b2)
   let opr3 = op3 (b1, b2)
-  isUnpredictable (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
-                   opr2 = OprReg R.SP || opr2 = OprReg R.PC ||
-                   opr3 = OprReg R.SP || opr3 = OprReg R.PC ||
-                   rn = R.PC || op1 (b1, b2) = OprReg rn ||
-                   op1 (b1, b2) = op2 (b1, b2))
+  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
+               opr2 = OprReg R.SP || opr2 = OprReg R.PC ||
+               opr3 = OprReg R.SP || opr3 = OprReg R.PC ||
+               rn = R.PC || op1 (b1, b2) = OprReg rn ||
+               op1 (b1, b2) = op2 (b1, b2))
 
 let chkUnpreBR ctxt (b1, b2) _ =
   let rn = getRegister (extract b1 3u 0u |> byte)
   let rm = getRegister (extract b2 3u 0u |> byte)
-  isUnpredictable (rn = R.SP || rm = R.SP || rm = R.PC)
-  isUnpredictable (chkUnpreInAndNotLastItBlock ctxt)
+  checkUnpred (rn = R.SP || rm = R.SP || rm = R.PC)
+  checkUnpred (chkUnpreInAndNotLastItBlock ctxt)
 
 let chkUnpreBS (b1, b2) (op1, _) =
   let rn = getRegister (extract b1 3u 0u |> byte)
   let opr1 = op1 (b1, b2)
-  isUnpredictable (opr1 = OprReg R.SP || opr1 = OprReg R.PC || rn = R.PC)
+  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC || rn = R.PC)
 
 let chkUnpreBT (b1, b2) (op1, op2) =
   let opr1 = op1 (b1, b2)
   let opr2 = op2 (b1, b2)
-  isUnpredictable (opr1 = OprReg R.PC || opr2 = OprReg R.PC ||
-                   (opr1 = OprReg R.SP && opr2 = OprReg R.SP))
+  checkUnpred (opr1 = OprReg R.PC || opr2 = OprReg R.PC ||
+               (opr1 = OprReg R.SP && opr2 = OprReg R.SP))
 
 let chkUnpreBU (b1, b2) (op1, op2) =
   let opr1 = op1 (b1, b2)
   let opr2 = op2 (b1, b2)
-  isUnpredictable (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
-                   opr2 = OprReg R.SP || opr2 = OprReg R.PC)
+  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
+               opr2 = OprReg R.SP || opr2 = OprReg R.PC)
 
 let chkUnpreBV (b1, b2) (op1, op2, _) =
   let opr1 = op1 (b1, b2)
   let opr2 = op2 (b1, b2)
-  isUnpredictable (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
-                   opr2 = OprReg R.SP || opr2 = OprReg R.PC)
+  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
+               opr2 = OprReg R.SP || opr2 = OprReg R.PC)
 
 let chkUnpreBW (b1, b2) (op1, op2, _) =
   let opr2 = op2 (b1, b2)
-  isUnpredictable (op1 (b1, b2) = OprReg R.PC || opr2 = OprReg R.SP ||
-                   opr2 = OprReg R.PC)
+  checkUnpred (op1 (b1, b2) = OprReg R.PC || opr2 = OprReg R.SP ||
+               opr2 = OprReg R.PC)
 
 let chkUnpreBX (b1, b2) (op1, op2, op3, _) =
   let opr1 = op1 (b1, b2)
   let opr2 = op2 (b1, b2)
   let opr3 = op3 (b1, b2)
-  isUnpredictable (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
+  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
                    opr2 = OprReg R.SP || opr2 = OprReg R.PC ||
                    opr3 = OprReg R.SP || opr3 = OprReg R.PC)
 
 let chkUnpreBY (b1, b2) (op1, op2, op3, _) =
   let opr2 = op2 (b1, b2)
   let opr3 = op3 (b1, b2)
-  isUnpredictable (op1 (b1, b2) = OprReg R.SP || opr2 = OprReg R.SP ||
+  checkUnpred (op1 (b1, b2) = OprReg R.SP || opr2 = OprReg R.SP ||
                    opr2 = OprReg R.PC || opr3 = OprReg R.SP ||
                    opr3 = OprReg R.PC)
 
 let chkUnpreBZ (b1, b2) (op1, op2, op3, _) =
   let opr1 = op1 (b1, b2)
   let opr3 = op3 (b1, b2)
-  isUnpredictable (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
-                   op2 (b1, b2) = OprReg R.SP || opr3 = OprReg R.SP ||
-                   opr3 = OprReg R.PC)
+  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
+               op2 (b1, b2) = OprReg R.SP || opr3 = OprReg R.SP ||
+               opr3 = OprReg R.PC)
 
 let chkUnpreCA (b1, b2) (op1, op2, op3, _) =
   let opr1 = op1 (b1, b2)
   let opr3 = op3 (b1, b2)
-  isUnpredictable (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
-                   op2 (b1, b2) = OprReg R.PC || opr3 = OprReg R.SP ||
-                   opr3 = OprReg R.PC)
+  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
+               op2 (b1, b2) = OprReg R.PC || opr3 = OprReg R.SP ||
+               opr3 = OprReg R.PC)
 
 let chkUnpreCB (b1, b2) (op1, op2, op3, _) =
   let opr3 = op3 (b1, b2)
-  isUnpredictable (op1 (b1, b2) = OprReg R.SP ||
-                   op2 (b1, b2) = OprReg R.PC ||
-                   opr3 = OprReg R.SP || opr3 = OprReg R.PC)
+  checkUnpred (op1 (b1, b2) = OprReg R.SP ||
+               op2 (b1, b2) = OprReg R.PC ||
+               opr3 = OprReg R.SP || opr3 = OprReg R.PC)
 
 let chkUnpreCC (b1, b2) (op1, _) =
-  isUnpredictable (op1 (b1, b2) = OprReg R.PC)
+  checkUnpred (op1 (b1, b2) = OprReg R.PC)
 
 let chkUnpreCD (b1, b2) (op1, op2, _) =
   let opr2 = op2 (b1, b2)
-  isUnpredictable (op1 (b1, b2) = OprReg R.SP || opr2 = OprReg R.SP ||
-                   opr2 = OprReg R.PC)
+  checkUnpred (op1 (b1, b2) = OprReg R.SP || opr2 = OprReg R.SP ||
+               opr2 = OprReg R.PC)
 
 let chkUnpreCE (b1, b2) (op1, op2, _) =
   let opr1 = op1 (b1, b2)
-  isUnpredictable (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
-                   op2 (b1, b2) = OprReg R.SP)
+  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
+               op2 (b1, b2) = OprReg R.SP)
 
-let chkUnpreCF (b1, b2) (op1, op2, _) =
-  let opr1 = op1 (b1, b2)
-  isUnpredictable (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
-                   op2 (b1, b2) = OprReg R.PC)
+let chkUnpreCF (b1, b2) (op1, op2, op3) =
+  let rd = op1 (b1, b2)
+  let rn = op2 (b1, b2)
+  let rm = op3 (b1, b2)
+  checkUnpred (rn <> OprReg R.SP
+               && (rd = OprReg R.SP
+                   || (rd = OprReg R.PC && pickBit b1 4u = 0b0u)
+                   || rn = OprReg R.PC
+                   || rm = OprReg R.SP || rm = OprReg R.PC))
 
 let chkUnpreCG (b1, b2) (op1, op2, _) =
-  isUnpredictable (op1 (b1, b2) = OprReg R.SP || op2 (b1, b2) = OprReg R.PC)
+  checkUnpred (op1 (b1, b2) = OprReg R.SP || op2 (b1, b2) = OprReg R.PC)
 
 let chkUnpreCH (b1, b2) (op1, _, _) =
   let opr1 = op1 (b1, b2)
-  isUnpredictable (opr1 = OprReg R.SP || opr1 = OprReg R.PC)
+  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC)
 
 let chkUnpreCI (b1, b2) (op1, _, op3, _) =
   let opr1 = op1 (b1, b2)
   let opr3 = op3 (b1, b2)
-  isUnpredictable (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
-                   opr3 = OprReg R.SP || opr3 = OprReg R.PC)
+  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
+               opr3 = OprReg R.SP || opr3 = OprReg R.PC)
 
 let chkUnpreCJ (b1, b2) (op1, _, op3) =
   let opr1 = op1 (b1, b2)
   let opr3 = op3 (b1, b2)
-  isUnpredictable (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
-                   opr3 = OprReg R.SP || opr3 = OprReg R.PC)
+  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
+               opr3 = OprReg R.SP || opr3 = OprReg R.PC)
 
 let chkUnpreCK (b1, b2) (op1, op2, _ , _) =
   let opr1 = op1 (b1, b2)
   let opr2 = op2 (b1, b2)
-  isUnpredictable (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
-                   opr2 = OprReg R.SP || opr2 = OprReg R.PC)
+  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
+               opr2 = OprReg R.SP || opr2 = OprReg R.PC)
 
 let chkUnpreCL (b1, b2) (op1, op2, _ , _) =
   let msb = extract b2 4u 0u
   let lsb = concat (extract b2 14u 12u) (extract b2 7u 6u) 2
   let opr1 = op1 (b1, b2)
-  isUnpredictable (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
-                   op2 (b1, b2) = OprReg R.SP || msb < lsb)
+  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
+               op2 (b1, b2) = OprReg R.SP || msb < lsb)
 
 let chkUnpreCM (b1, b2) (op1, _, _) =
   let msb = extract b2 4u 0u
   let lsb = concat (extract b2 14u 12u) (extract b2 7u 6u) 2
   let opr1 = op1 (b1, b2)
-  isUnpredictable (opr1 = OprReg R.SP || opr1 = OprReg R.PC || msb < lsb)
+  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC || msb < lsb)
 
 let chkUnpreCN (b1, b2) (_, op2) =
   let opr2 = op2 (b1, b2)
-  isUnpredictable (opr2 = OprReg R.SP || opr2 = OprReg R.PC)
+  checkUnpred (opr2 = OprReg R.SP || opr2 = OprReg R.PC)
 
 let chkUnpreCO (_, b2) _ =
-  isUnpredictable (getAPSR (extract b2 11u 10u |> byte) = (R.APSR, None))
+  checkUnpred (getAPSR (extract b2 11u 10u |> byte) = (R.APSR, None))
 
 let chkUnpreCP (b1, b2) (_, op2) =
-  isUnpredictable (extract b2 11u 8u = 0b0000u || op2 (b1, b2) = OprReg R.PC)
+  checkUnpred (extract b2 11u 8u = 0b0000u || op2 (b1, b2) = OprReg R.PC)
 
 let chkUnpreCQ (b1, b2) op1 =
   let opr1 = op1 (b1, b2)
-  isUnpredictable (opr1 = OprReg R.SP || opr1 = OprReg R.PC)
+  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC)
 
 let chkUnpreCR (_, b2) _ =
-  isUnpredictable (pickBit b2 0u = 0b1u)
+  checkUnpred (pickBit b2 0u = 0b1u)
 
 let chkUnpreCS ctxt (_, b2) _ =
-  isUnpredictable ((extract b2 4u 0u <> 0b0u && pickBit b2 8u = 0b0u) ||
-                   (pickBit b2 10u = 0b1u && extract b2 7u 5u = 0b0u) ||
-                   (pickBit b2 10u = 0b0u && extract b2 7u 5u <> 0b0u))
-  isUnpredictable (extract b2 10u 9u = 1u || inITBlock ctxt)
+  checkUnpred ((extract b2 4u 0u <> 0b0u && pickBit b2 8u = 0b0u) ||
+               (pickBit b2 10u = 0b1u && extract b2 7u 5u = 0b0u) ||
+               (pickBit b2 10u = 0b0u && extract b2 7u 5u <> 0b0u))
+  checkUnpred (extract b2 10u 9u = 1u || inITBlock ctxt)
 
 let chkUnpreCT (b1, b2) (op1, _) =
   let rn = getRegister (extract b1 3u 0u |> byte)
   let w = pickBit b2 8u
   let opr1 = op1 (b1, b2)
-  isUnpredictable (opr1 = OprReg R.SP || (opr1 = OprReg R.PC && w = 1u) ||
-                   (w = 1u && OprReg rn = op1 (b1, b2)))
+  checkUnpred (opr1 = OprReg R.SP || (opr1 = OprReg R.PC && w = 1u) ||
+               (w = 1u && OprReg rn = op1 (b1, b2)))
 
 let chkUnpreCU ctxt (b1, b2) _ =
   let n = extract b1 3u 0u
   let t = extract b2 15u 12u
-  isUnpredictable ((pickBit b2 8u = 1u && n = t) ||
-                   (t = 15u && chkUnpreInAndNotLastItBlock ctxt))
+  checkUnpred ((pickBit b2 8u = 1u && n = t) ||
+               (t = 15u && chkUnpreInAndNotLastItBlock ctxt))
 
-let chkUnpreCV (b1, b2) (op1, _) = isUnpredictable (op1 (b1, b2) = OprReg R.SP)
+let chkUnpreCV (b1, b2) (op1, _) = checkUnpred (op1 (b1, b2) = OprReg R.SP)
 let chkUnpreCW (b1, b2) (op1, _) =
   let rm = getRegister (extract b2 3u 0u |> byte)
-  isUnpredictable (op1 (b1, b2) = OprReg R.SP || rm = R.SP || rm = R.PC)
+  checkUnpred (op1 (b1, b2) = OprReg R.SP || rm = R.SP || rm = R.PC)
 
 let chkUnpreCX it (_, b2) _ =
   let rm = getRegister (extract b2 3u 0u |> byte)
   let t = extract b2 15u 12u
-  isUnpredictable (rm = R.SP || rm = R.PC ||
+  checkUnpred (rm = R.SP || rm = R.PC ||
                    (t = 15u && chkUnpreInAndNotLastItBlock it))
 
 let chkUnpreCY (b1, b2) (op1, op2, op3) =
   let opr1 = op1 (b1, b2)
   let opr2 = op2 (b1, b2)
   let opr3 = op3 (b1, b2)
-  isUnpredictable (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
-                   opr2 = OprReg R.SP || opr2 = OprReg R.PC ||
-                   opr3 = OprReg R.SP || opr3 = OprReg R.PC)
+  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
+               opr2 = OprReg R.SP || opr2 = OprReg R.PC ||
+               opr3 = OprReg R.SP || opr3 = OprReg R.PC)
 
 let chkUnpreCZ (b1, b2) (op1, op2) =
   let opr1 = op1 (b1, b2)
   let opr2 = op2 (b1, b2)
-  isUnpredictable (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
-                   opr2 = OprReg R.SP || opr2 = OprReg R.PC ||
-                   OprReg (getRegister (extract b1 3u 0u |> byte)) <> opr2 )
+  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
+               opr2 = OprReg R.SP || opr2 = OprReg R.PC ||
+               OprReg (getRegister (extract b1 3u 0u |> byte)) <> opr2 )
 
 let chkUnpreDA (b1, b2) (op1, op2, op3, op4) =
   let opr1 = op1 (b1, b2)
   let opr2 = op2 (b1, b2)
   let opr3 = op3 (b1, b2)
-  isUnpredictable (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
-                   opr2 = OprReg R.SP || opr2 = OprReg R.PC ||
-                   opr3 = OprReg R.SP || opr3 = OprReg R.PC ||
-                   op4 (b1, b2) = OprReg R.SP)
+  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
+               opr2 = OprReg R.SP || opr2 = OprReg R.PC ||
+               opr3 = OprReg R.SP || opr3 = OprReg R.PC ||
+               op4 (b1, b2) = OprReg R.SP)
 
 let chkUnpreDB (b1, b2) (op1, op2, op3, op4) =
   let opr1 = op1 (b1, b2)
   let opr2 = op2 (b1, b2)
   let opr3 = op3 (b1, b2)
   let opr4 = op4 (b1, b2)
-  isUnpredictable (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
-                   opr2 = OprReg R.SP || opr2 = OprReg R.PC ||
-                   opr3 = OprReg R.SP || opr3 = OprReg R.PC ||
-                   opr4 = OprReg R.SP || opr4 = OprReg R.PC)
+  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
+               opr2 = OprReg R.SP || opr2 = OprReg R.PC ||
+               opr3 = OprReg R.SP || opr3 = OprReg R.PC ||
+               opr4 = OprReg R.SP || opr4 = OprReg R.PC)
 
 let chkUnpreDC (b1, b2) (op1, op2, op3, op4) =
   let opr1 = op1 (b1, b2)
   let opr2 = op2 (b1, b2)
   let opr3 = op3 (b1, b2)
   let opr4 = op4 (b1, b2)
-  isUnpredictable (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
-                   opr2 = OprReg R.SP || opr2 = OprReg R.PC ||
-                   opr3 = OprReg R.SP || opr3 = OprReg R.PC ||
-                   opr4 = OprReg R.SP || opr4 = OprReg R.PC ||
-                   opr1 = opr2)
+  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
+               opr2 = OprReg R.SP || opr2 = OprReg R.PC ||
+               opr3 = OprReg R.SP || opr3 = OprReg R.PC ||
+               opr4 = OprReg R.SP || opr4 = OprReg R.PC ||
+               opr1 = opr2)
 
 let chkUnpreDD b _ =
-  isUnpredictable (List.length (getRegList (extract b 7u 0u)) < 1)
+  checkUnpred (List.length (getRegList (extract b 7u 0u)) < 1)
 
-let chkUnpreDE ctxt _ _ = isUnpredictable (inITBlock ctxt)
+let chkUnpreDE ctxt _ _ = checkUnpred (inITBlock ctxt)
 
 let chkUnpreDF ctxt b _ =
     let d = concat (pickBit b 7u) (extract b 2u 0u) 3
-    isUnpredictable (d = 15u && chkUnpreInAndNotLastItBlock ctxt)
+    checkUnpred (d = 15u && chkUnpreInAndNotLastItBlock ctxt)
 
 let chkUnpreDG ctxt _ _ =
-    isUnpredictable (chkUnpreInAndNotLastItBlock ctxt)
+    checkUnpred (chkUnpreInAndNotLastItBlock ctxt)
 
 let chkUnpreDH ctxt b op =
-  isUnpredictable (op b = OprReg R.PC || chkUnpreInAndNotLastItBlock ctxt)
+  checkUnpred (op b = OprReg R.PC || chkUnpreInAndNotLastItBlock ctxt)
 
 let chkUnpreDI ctxt b _ =
-  isUnpredictable (extract b 19u 16u = 15u ||
-                   chkUnpreInAndNotLastItBlock ctxt)
+  checkUnpred (extract b 19u 16u = 15u ||
+               chkUnpreInAndNotLastItBlock ctxt)
+
 let chkUnpreDJ it (b1, b2) op1 =
-  isUnpredictable (op1 (b1, b2) = OprReg R.SP ||
-                    (op1 (b1, b2) = OprReg R.PC &&
-                     chkUnpreInAndNotLastItBlock it))
+  checkUnpred (op1 (b1, b2) = OprReg R.SP ||
+               (op1 (b1, b2) = OprReg R.PC && chkUnpreInAndNotLastItBlock it))
+
 let chkUnpreDK ctxt b (op, _) =
-  isUnpredictable (op b = OprReg R.PC && chkUnpreInAndNotLastItBlock ctxt)
+  checkUnpred (op b = OprReg R.PC && chkUnpreInAndNotLastItBlock ctxt)
 
 let chkUnpreDL mode b (op1, _) =
-  isUnpredictable (op1 b = OprReg R.SP && mode <> ArchOperationMode.ARMMode)
+  checkUnpred (op1 b = OprReg R.SP && mode <> ArchOperationMode.ARMMode)
 
 let chkUndefA q b _ =
   let size = extract b 21u 20u
@@ -2126,29 +2131,29 @@ let chkBothC (b1, b2) (op1 ,_) =
   let rn = getRegister (extract b1 3u 0u |> byte)
   let opr1 = op1 (b1, b2)
   isUndefined (rn = R.PC)
-  isUnpredictable (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
-                   (pickBit b2 8u = 1u && OprReg rn = opr1))
+  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
+               (pickBit b2 8u = 1u && OprReg rn = opr1))
 let chkBothD (b1, b2) (op1, _) =
   let rn = getRegister (extract b1 3u 0u |> byte)
   isUndefined (rn = R.PC)
-  isUnpredictable (op1 (b1, b2) = OprReg R.PC ||
-                   (pickBit b2 8u = 0b1u && OprReg rn = op1 (b1, b2)))
+  checkUnpred (op1 (b1, b2) = OprReg R.PC ||
+               (pickBit b2 8u = 0b1u && OprReg rn = op1 (b1, b2)))
 let chkBothE (b1, b2) (op1, op2) =
   isUndefined (getRegister (extract b1 3u 0u |> byte) = R.PC)
   chkUnpreBL (b1, b2) (op1, op2)
 let chkBothF (b1, b2) (op1, _) =
   isUndefined (getRegister (extract b1 3u 0u |> byte) = R.PC)
-  isUnpredictable (op1 (b1, b2) = OprReg R.PC)
+  checkUnpred (op1 (b1, b2) = OprReg R.PC)
 let chkBothG (b1, b2) (op1, _) =
   let rm = getRegister (extract b2 3u 0u |> byte)
   let opr1 = op1 (b1, b2)
   isUndefined (getRegister (extract b1 3u 0u |> byte) = R.PC)
-  isUnpredictable (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
-                   rm = R.SP || rm = R.PC)
+  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
+               rm = R.SP || rm = R.PC)
 let chkBothH (b1, b2) (op1, _) =
   let rm = getRegister (extract b2 3u 0u |> byte)
   isUndefined (getRegister (extract b1 3u 0u |> byte) = R.PC)
-  isUnpredictable (op1 (b1, b2) = OprReg R.PC || rm = R.SP || rm = R.PC)
+  checkUnpred (op1 (b1, b2) = OprReg R.PC || rm = R.SP || rm = R.PC)
 
 let oneDt dt = Some (OneDT dt)
 let twoDt (dt1, dt2) = Some (TwoDT (dt1, dt2))
