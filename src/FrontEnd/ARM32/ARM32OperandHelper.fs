@@ -1676,8 +1676,8 @@ let chkUnpreBE ctxt b _ =
 let chkUnpreBF (b1, b2) _ =
   let n = extract b1 3u 0u
   let rL = concat ((pickBit b2 14u) <<< 1) (extract b2 12u 0u) 13 |> getRegList
-  checkUnpred (n = 15u || List.length rL < 2 ||
-               pickBit b2 5u = 0b1u || pickBit b2 n = 0b1u)
+  checkUnpred ((n = 15u || List.length rL < 2) ||
+               (pickBit b1 5u = 0b1u && pickBit b2 n = 0b1u))
 
 let chkUnpreBG ctxt (_, b2) _ =
   let pm = (extract b2 15u 14u)
