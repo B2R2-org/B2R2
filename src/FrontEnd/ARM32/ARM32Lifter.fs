@@ -358,13 +358,10 @@ let conditionPassed ctxt cond =
 /// Logical shift left of a bitstring, with carry output, on page A2-41.
 /// for Register amount. function : LSL_C()
 let shiftLSLCForRegAmount value regType amount carryIn =
-  let chkEQ = relop RelOpType.EQ amount (num (BitVector.ofUInt32 0u regType))
-  let chkGT = relop RelOpType.GT amount (num (BitVector.ofUInt32 0u regType))
+  let chkZero = relop RelOpType.EQ amount (num (BitVector.ofUInt32 0u regType))
   let result = value << amount
-  let result = ite chkGT result (Expr.Undefined (regType, "AssertError"))
   let carryOut = value << (amount .- num1 regType) |> extractHigh 1<rt>
-  let carryOut = ite chkGT carryOut (Expr.Undefined (1<rt>, "AssertError"))
-  ite chkEQ value result, ite chkEQ carryIn carryOut
+  ite chkZero value result, ite chkZero carryIn carryOut
 
 /// Logical shift left of a bitstring, on page A2-41. for Register amount.
 /// function : LSL()
@@ -374,13 +371,10 @@ let shiftLSLForRegAmount value regType amount carryIn =
 /// Logical shift right of a bitstring, with carry output, on page A2-41.
 /// for Register amount. function : LSR_C()
 let shiftLSRCForRegAmount value regType amount carryIn =
-  let chkEQ = relop RelOpType.EQ amount (num (BitVector.ofUInt32 0u regType))
-  let chkGT = relop RelOpType.GT amount (num (BitVector.ofUInt32 0u regType))
+  let chkZero = relop RelOpType.EQ amount (num (BitVector.ofUInt32 0u regType))
   let result = value >> amount
-  let result = ite chkGT result (Expr.Undefined (regType, "AssertError"))
   let carryOut = value >> (amount .- num1 regType ) |> extractLow 1<rt>
-  let carryOut = ite chkGT carryOut (Expr.Undefined (1<rt>, "AssertError"))
-  ite chkEQ value result, ite chkEQ carryIn carryOut
+  ite chkZero value result, ite chkZero carryIn carryOut
 
 /// Logical shift right of a bitstring, on page A2-41. for Register amount.
 /// function : LSR()
@@ -390,13 +384,10 @@ let shiftLSRForRegAmount value regType amount carryIn =
 /// Arithmetic shift right of a bitstring, with carry output, on page A2-41.
 /// for Register amount. function : ASR_C()
 let shiftASRCForRegAmount value regType amount carryIn =
-  let chkEQ = relop RelOpType.EQ amount (num (BitVector.ofUInt32 0u regType))
-  let chkGT = relop RelOpType.GT amount (num (BitVector.ofUInt32 0u regType))
+  let chkZero = relop RelOpType.EQ amount (num (BitVector.ofUInt32 0u regType))
   let result = value ?>> amount
-  let result = ite chkGT result (Expr.Undefined (regType, "AssertError"))
   let carryOut = value ?>> (amount .- num1 regType ) |> extractLow 1<rt>
-  let carryOut = ite chkGT carryOut (Expr.Undefined (1<rt>, "AssertError"))
-  ite chkEQ value result, ite chkEQ carryIn carryOut
+  ite chkZero value result, ite chkZero carryIn carryOut
 
 /// Logical shift right of a bitstring, on page A2-41. for Register amount.
 /// function : ASR()
@@ -406,12 +397,13 @@ let shiftASRForRegAmount value regType amount carryIn =
 /// Rotate right of a bitstring, with carry output, on page A2-41.
 /// for Register amount. function : ROR_C()
 let shiftRORCForRegAmount value regType amount carryIn =
-  let chkEQ = relop RelOpType.EQ amount (num (BitVector.ofUInt32 0u regType))
+  let chkZero = relop RelOpType.EQ amount (num (BitVector.ofUInt32 0u regType))
   let m = amount .% num (BitVector.ofInt32 (RegType.toBitWidth regType) regType)
+  let nm = (num <| BitVector.ofInt32 32 32<rt>) .- m
   let result = shiftLSRForRegAmount value regType m carryIn .|
-               shiftLSLForRegAmount value regType m carryIn
+               shiftLSLForRegAmount value regType nm carryIn
   let carryOut = extractHigh 1<rt> result
-  ite chkEQ value result, ite chkEQ carryIn carryOut
+  ite chkZero value result, ite chkZero carryIn carryOut
 
 /// Rotate right of a bitstring, on page A2-41. for Register amount.
 /// function : ROR()
@@ -421,12 +413,12 @@ let shiftRORForRegAmount value regType amount carryIn =
 /// Rotate right with extend of a bitstring, with carry output, on page A2-41.
 /// for Register amount. function : RRX_C()
 let shiftRRXCForRegAmount value regType amount carryIn =
-  let chkEQ = relop RelOpType.EQ amount (num (BitVector.ofUInt32 0u regType))
+  let chkZero = relop RelOpType.EQ amount (num (BitVector.ofUInt32 0u regType))
   let amount1 = num (BitVector.ofInt32 (RegType.toBitWidth regType) regType)
   let e1 = shiftLSLForRegAmount (zExt 32<rt> carryIn) regType
             (amount1 .- num1 regType) carryIn
   let e2 = shiftLSRForRegAmount value regType (num1 regType) carryIn
-  ite chkEQ value (e1 .| e2), ite chkEQ carryIn (extractLow 1<rt> value)
+  ite chkZero value (e1 .| e2), ite chkZero carryIn (extractLow 1<rt> value)
 
 /// Rotate right with extend of a bitstring, on page A2-41. for Register amount.
 /// function : RRX()
