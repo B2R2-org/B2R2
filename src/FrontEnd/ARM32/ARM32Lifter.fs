@@ -2305,10 +2305,10 @@ let parseMemOfLDR insInfo ctxt = function
   | OprMemory (PreIdxMode (ImmOffset (rn , s, imm))) ->
     let rn = getRegVar ctxt rn
     let offsetAddr = getOffAddrWithImm s rn imm
-    offsetAddr, Some (rn := offsetAddr)
+    offsetAddr, Some (rn, offsetAddr)
   | OprMemory (PostIdxMode (ImmOffset (rn , s, imm))) ->
     let rn = getRegVar ctxt rn
-    rn, Some (rn := getOffAddrWithImm s rn imm)
+    rn, Some (rn, getOffAddrWithImm s rn imm)
   | OprMemory (LiteralMode imm) ->
     let addr = bvOfBaseAddr insInfo.Address
     let pc = align addr (num <| BitVector.ofInt32 4 32<rt>)
@@ -2325,12 +2325,12 @@ let parseMemOfLDR insInfo ctxt = function
     let offset =
       shift (getRegVar ctxt m) 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
     let offsetAddr = getOffAddrWithExpr s rn offset
-    offsetAddr, Some (rn := offsetAddr)
+    offsetAddr, Some (rn, offsetAddr)
   | OprMemory (PostIdxMode (RegOffset (n, s, m, None))) ->
     let rn = getRegVar ctxt n
     let offset =
       shift (getRegVar ctxt m) 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
-    rn, Some (rn := getOffAddrWithExpr s rn offset)
+    rn, Some (rn, getOffAddrWithExpr s rn offset)
   | OprMemory (OffsetMode (RegOffset (n, s, m, Some (t, Imm i)))) ->
     let rn = getRegVar ctxt n |> convertPCOpr insInfo ctxt
     let rm = getRegVar ctxt m |> convertPCOpr insInfo ctxt
@@ -2340,58 +2340,40 @@ let parseMemOfLDR insInfo ctxt = function
     let rn = getRegVar ctxt n
     let offset = shift (getRegVar ctxt m) 32<rt> t i (getCarryFlag ctxt)
     let offsetAddr = getOffAddrWithExpr s rn offset
-    offsetAddr, Some (rn := offsetAddr)
+    offsetAddr, Some (rn, offsetAddr)
   | OprMemory (PostIdxMode (RegOffset (n, s, m, Some (t, Imm i)))) ->
     let rn = getRegVar ctxt n
     let offset = shift (getRegVar ctxt m) 32<rt> t i (getCarryFlag ctxt)
-    rn, Some (rn := getOffAddrWithExpr s rn offset)
+    rn, Some (rn, getOffAddrWithExpr s rn offset)
   | _ -> raise InvalidOperandException
 
 let parseOprOfLDR insInfo ctxt =
   match insInfo.Operands with
   | TwoOperands (OprReg rt, (OprMemory _ as mem)) ->
-    let addr, stmt = parseMemOfLDR insInfo ctxt mem
-    getRegVar ctxt rt, addr, stmt
+    let addr, writeback = parseMemOfLDR insInfo ctxt mem
+    getRegVar ctxt rt, addr, writeback
   | _ -> raise InvalidOperandException
 
-let ldr insInfo ctxt =
+/// Load register
+let ldr insInfo ctxt size ext =
   let builder = new StmtBuilder (16)
-  let lblL0 = lblSymbol "L0"
-  let lblL1 = lblSymbol "L1"
-  let lblEnd = lblSymbol "End"
   let data = tmpVar 32<rt>
-  let rt, addr, stmt = parseOprOfLDR insInfo ctxt
+  let rt, addr, writeback = parseOprOfLDR insInfo ctxt
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
-  builder <! (data := loadLE 32<rt> addr)
-  match stmt with
-  | Some s -> builder <! s
-  | None -> ()
-  if rt = getPC ctxt then
-    let cond = addr .& (num <| BitVector.ofInt32 3 32<rt>)
-               == (num <| BitVector.ofInt32 0 32<rt>)
-    builder <! (CJmp (cond, Name lblL0, Name lblL1))
-    builder <! (LMark lblL0)
-    loadWritePC ctxt isUnconditional builder data
-    builder <! (Jmp (Name lblEnd))
-    builder <! (LMark lblL1)
-    builder <! (SideEffect UndefinedInstr)
-    builder <! (LMark lblEnd)
+  match writeback with
+  | Some (basereg, newoffset) ->
+    let taddr = tmpVar 32<rt>
+    let twriteback = tmpVar 32<rt>
+    builder <! (taddr := addr)
+    builder <! (twriteback := newoffset)
+    builder <! (data := loadLE size taddr |> ext 32<rt>)
+    builder <! (basereg := twriteback)
+  | None ->
+    builder <! (data := loadLE size addr |> ext 32<rt>)
+  if rt = getPC ctxt then loadWritePC ctxt isUnconditional builder data
   else builder <! (rt := data)
-  putEndLabel ctxt lblIgnore isUnconditional builder
-  endMark insInfo builder
-
-let ldreg insInfo ctxt size ext =
-  let builder = new StmtBuilder (8)
-  let rt, addr, stmt = parseOprOfLDR insInfo ctxt
-  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
-  startMark insInfo builder
-  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
-  builder <! (rt := loadLE size addr |> ext 32<rt>)
-  match stmt with
-  | Some s -> builder <! s
-  | None -> ()
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
@@ -2401,10 +2383,10 @@ let parseMemOfLDRD insInfo ctxt = function
   | OprMemory (PreIdxMode (RegOffset (n, s, m, None))) ->
     let rn = getRegVar ctxt n
     let offsetAddr = getOffAddrWithExpr s rn (getRegVar ctxt m)
-    offsetAddr, Some (rn := offsetAddr)
+    offsetAddr, Some (rn, offsetAddr)
   | OprMemory (PostIdxMode (RegOffset (n, s, m, None))) ->
     let rn = getRegVar ctxt n
-    rn, Some (rn := getOffAddrWithExpr s rn (getRegVar ctxt m))
+    rn, Some (rn, getOffAddrWithExpr s rn (getRegVar ctxt m))
   | mem -> parseMemOfLDR insInfo ctxt mem
 
 let parseOprOfLDRD insInfo ctxt =
@@ -2416,15 +2398,23 @@ let parseOprOfLDRD insInfo ctxt =
 
 let ldrd insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let rt, rt2, addr, stmt = parseOprOfLDRD insInfo ctxt
+  let rt, rt2, addr, writeback = parseOprOfLDRD insInfo ctxt
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
-  builder <! (rt := loadLE 32<rt> addr)
-  builder <! (rt2 := loadLE 32<rt> (addr .+ (num (BitVector.ofInt32 4 32<rt>))))
-  match stmt with
-  | Some s -> builder <! s
-  | None -> ()
+  let n4 = num (BitVector.ofInt32 4 32<rt>)
+  match writeback with
+  | Some (basereg, newoffset) ->
+    let taddr = tmpVar 32<rt>
+    let twriteback = tmpVar 32<rt>
+    builder <! (taddr := addr)
+    builder <! (twriteback := newoffset)
+    builder <! (rt := loadLE 32<rt> taddr)
+    builder <! (rt2 := loadLE 32<rt> (taddr .+ n4))
+    builder <! (basereg := twriteback)
+  | None ->
+    builder <! (rt := loadLE 32<rt> addr)
+    builder <! (rt2 := loadLE 32<rt> (addr .+ n4))
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
@@ -2519,54 +2509,54 @@ let rev insInfo ctxt =
 
 let str insInfo ctxt =
   let builder = new StmtBuilder (16)
-  let rt, addr, stmt = parseOprOfLDR insInfo ctxt
+  let rt, addr, writeback = parseOprOfLDR insInfo ctxt
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   //builder <! (loadLE 32<rt> addr := rt)
   if rt = getPC ctxt then builder <! (loadLE 32<rt> addr := pcStoreValue ctxt)
   else builder <! (loadLE 32<rt> addr := rt)
-  match stmt with
-  | Some s -> builder <! s
+  match writeback with
+  | Some (basereg, newoffset) -> builder <! (basereg := newoffset)
   | None -> ()
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
 let strb insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let rt, addr, stmt = parseOprOfLDR insInfo ctxt
+  let rt, addr, writeback = parseOprOfLDR insInfo ctxt
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   builder <! (loadLE 8<rt> addr := extractLow 8<rt> rt)
-  match stmt with
-  | Some s -> builder <! s
+  match writeback with
+  | Some (basereg, newoffset) -> builder <! (basereg := newoffset)
   | None -> ()
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
 let strd insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let rt, rt2, addr, stmt = parseOprOfLDRD insInfo ctxt
+  let rt, rt2, addr, writeback = parseOprOfLDRD insInfo ctxt
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   builder <! (loadLE 32<rt> addr := rt)
   builder <! (loadLE 32<rt> (addr .+ (num <| BitVector.ofInt32 4 32<rt>)) := rt2)
-  match stmt with
-  | Some s -> builder <! s
+  match writeback with
+  | Some (basereg, newoffset) -> builder <! (basereg := newoffset)
   | None -> ()
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
 let strh insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let rt, addr, stmt = parseOprOfLDR insInfo ctxt
+  let rt, addr, writeback = parseOprOfLDR insInfo ctxt
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
-  match stmt with
-  | Some s -> builder <! s
+  match writeback with
+  | Some (basereg, newoffset) -> builder <! (basereg := newoffset)
   | None -> ()
   builder <! (loadLE 16<rt> addr := extractLow 16<rt> rt)
   putEndLabel ctxt lblIgnore isUnconditional builder
@@ -2574,14 +2564,14 @@ let strh insInfo ctxt =
 
 let strex insInfo ctxt =
   let builder = new StmtBuilder (16)
-  let rd, rt, addr, stmt = parseOprOfLDRD insInfo ctxt
+  let rd, rt, addr, writeback = parseOprOfLDRD insInfo ctxt
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   if rt = getPC ctxt then builder <! (loadLE 32<rt> addr := pcStoreValue ctxt)
   else builder <! (loadLE 32<rt> addr := rt)
-  match stmt with
-  | Some s -> builder <! s
+  match writeback with
+  | Some (basereg, newoffset) -> builder <! (basereg := newoffset)
   | None -> ()
   builder <! (rd := num0 32<rt>) (* XXX: always succeeds for now *)
   putEndLabel ctxt lblIgnore isUnconditional builder
@@ -3193,13 +3183,13 @@ let translate insInfo ctxt =
   | Op.LDMIB -> ldm Op.LDMIB insInfo ctxt
   | Op.LDMDA -> ldm Op.LDMDA insInfo ctxt
   | Op.LDMDB -> ldm Op.LDMDB insInfo ctxt
-  | Op.LDR -> ldr insInfo ctxt
-  | Op.LDRB -> ldreg insInfo ctxt 8<rt> zExt
-  | Op.LDRSB -> ldreg insInfo ctxt 8<rt> sExt
+  | Op.LDR -> ldr insInfo ctxt 32<rt> zExt
+  | Op.LDRB -> ldr insInfo ctxt 8<rt> zExt
+  | Op.LDRSB -> ldr insInfo ctxt 8<rt> sExt
   | Op.LDRD -> ldrd insInfo ctxt
-  | Op.LDRH -> ldreg insInfo ctxt 16<rt> zExt
-  | Op.LDRSH -> ldreg insInfo ctxt 16<rt> sExt
-  | Op.LDREX -> ldr insInfo ctxt
+  | Op.LDRH -> ldr insInfo ctxt 16<rt> zExt
+  | Op.LDRSH -> ldr insInfo ctxt 16<rt> sExt
+  | Op.LDREX -> ldr insInfo ctxt 32<rt> zExt
   | Op.SEL -> sel insInfo ctxt
   | Op.REV -> rev insInfo ctxt
   | Op.STR -> str insInfo ctxt
