@@ -477,7 +477,7 @@ let shiftASR value regType amount =
 let shiftRORC value regType amount =
   Utils.assertByCond (amount <> 0u) InvalidShiftAmountException
   let m = amount % uint32 (RegType.toBitWidth regType)
-  let result = shiftLSR value regType m .| shiftLSL value regType m
+  let result = shiftLSR value regType m .| shiftLSL value regType (32u - m)
   result, extractHigh 1<rt> result
 
 /// Rotate right of a bitstring, on page A2-41. function : ROR()
