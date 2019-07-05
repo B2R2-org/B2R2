@@ -1581,7 +1581,7 @@ let rsc isSetFlags insInfo ctxt =
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   builder <! (t1 := src1)
-  builder <! (t1 := src2)
+  builder <! (t2 := src2)
   let r, carryOut, overflow = addWithCarry (not t1) t2 (getCarryFlag ctxt)
   builder <! (result := r)
   if dst = getPC ctxt then writePC ctxt isUnconditional result builder
