@@ -481,32 +481,31 @@ let parse3Reg bin k =
   let chkU = k = 0b0u
   match concat (extract bin 11u 8u) (pickBit bin 4u) 1 with
   | 0b00000u -> Op.VHADD, getOneDtD k bin, getXYZRegOprs bin chkUndefF
-  | 0b00001u -> Op.VQADD, getOneDtD k bin, getXYZRegOprs bin chkUndefF
+  | 0b00001u -> Op.VQADD, getOneDtD k bin, getXYZRegOprs bin chkUndefD
   | 0b00010u -> Op.VRHADD, getOneDtD k bin, getXYZRegOprs bin chkUndefF
   | 0b00011u -> let opcode, oprs = get3RegBitwise bin k in opcode, None, oprs
   | 0b00100u -> Op.VHSUB, getOneDtD k bin, getXYZRegOprs bin chkUndefF
   | 0b00101u -> Op.VQSUB, getOneDtD k bin, getXYZRegOprs bin chkUndefD
   | 0b00110u -> Op.VCGT, getOneDtD k bin, getXYZRegOprs bin chkUndefF
   | 0b00111u -> Op.VCGE, getOneDtD k bin, getXYZRegOprs bin chkUndefF
-  | 0b01000u -> Op.VSHL, getOneDtD k bin, getXZYRegOprs bin chkUndefF
-  | 0b01001u -> Op.VQSHL, getOneDtD k bin, getXZYRegOprs bin chkUndefF
-  | 0b01010u -> Op.VRSHL, getOneDtD k bin, getXZYRegOprs bin chkUndefF
-  | 0b01011u -> Op.VQRSHL, getOneDtD k bin, getXZYRegOprs bin chkUndefF
+  | 0b01000u -> Op.VSHL, getOneDtD k bin, getXZYRegOprs bin chkUndefD
+  | 0b01001u -> Op.VQSHL, getOneDtD k bin, getXZYRegOprs bin chkUndefD
+  | 0b01010u -> Op.VRSHL, getOneDtD k bin, getXZYRegOprs bin chkUndefD
+  | 0b01011u -> Op.VQRSHL, getOneDtD k bin, getXZYRegOprs bin chkUndefD
   | 0b01100u -> Op.VMAX, getOneDtD k bin, getXYZRegOprs bin chkUndefF
   | 0b01101u -> Op.VMIN, getOneDtD k bin, getXYZRegOprs bin chkUndefF
   | 0b01110u -> Op.VABD, getOneDtD k bin, getXYZRegOprs bin chkUndefF
   | 0b01111u -> Op.VABA, getOneDtD k bin, getXYZRegOprs bin chkUndefF
-  | 0b10000u when chkU -> Op.VADD, getOneDtF bin, getXYZRegOprs bin chkUndefJ
-  | 0b10000u -> Op.VSUB, getOneDtF bin, getXYZRegOprs bin chkUndefJ
+  | 0b10000u when chkU -> Op.VADD, getOneDtF bin, getXYZRegOprs bin chkUndefF
+  | 0b10000u -> Op.VSUB, getOneDtF bin, getXYZRegOprs bin chkUndefF
   | 0b10001u when chkU -> Op.VTST, getOneDtF bin, getXYZRegOprs bin chkUndefD
   | 0b10001u ->Op.VCEQ, getOneDtF bin, getXYZRegOprs bin chkUndefD
   | 0b10010u when chkU -> Op.VMLA, getOneDtF bin, getXYZRegOprs bin chkUndefD
   | 0b10010u -> Op.VMLS, getOneDtF bin, getXYZRegOprs bin chkUndefD
   | 0b10011u -> Op.VMUL, getOneDtF bin, getXYZRegOprs bin chkUndefD
-  | 0b10100u -> Op.VPMAX, getOneDtD k bin, getXYZRegOprs bin chkUndefF
-  | 0b10101u -> Op.VPMIN, getOneDtD k bin, getXYZRegOprs bin chkUndefF
-  | 0b10110u when chkU ->
-    Op.VQDMULH, getOneDtF bin, getXYZRegOprs bin chkUndefK
+  | 0b10100u -> Op.VPMAX, getOneDtD k bin, getXYZRegOprs bin chkUndefJ
+  | 0b10101u -> Op.VPMIN, getOneDtD k bin, getXYZRegOprs bin chkUndefJ
+  | 0b10110u when chkU -> Op.VQDMULH, getOneDtF bin, getXYZRegOprs bin chkUndefK
   | 0b10110u -> Op.VQRDMULH, getOneDtF bin,  getXYZRegOprs bin chkUndefK
   | 0b10111u -> Op.VPADD, getOneDtF bin,  getXYZRegOprs bin chkUndefD
   | op when op &&& 0b11110u = 0b11010u ->

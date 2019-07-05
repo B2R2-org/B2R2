@@ -71,7 +71,9 @@ let getCoprocCRegister = function
   | _ -> raise InvalidRegisterException
 
 let checkUnpred cond = if cond then raise UnpredictableException else ()
+
 let isUndefined cond = if cond then raise UndefinedException else ()
+
 let isValidOpcode cond = if cond then raise InvalidOpcodeException else ()
 
 let getRegister = function
@@ -2021,52 +2023,80 @@ let chkUndefA q b _ =
   let size = extract b 21u 20u
   isUndefined (size = 0u || size = 3u ||
                (q = 1u && (pickBit b 16u = 1u || pickBit b 12u = 1u)))
+
 let chkUndefB q b _ =
   let size = extract b 21u 20u
   isUndefined (size = 0u || (pickBit b 8u = 1u && size = 1u) ||
                q = 1u && (pickBit b 12u = 1u || pickBit b 16u = 1u))
+
 let chkUndefC b _ = isUndefined (extract b 21u 20u = 0u || pickBit b 12u = 1u)
+
 let chkUndefD b  _ =
   let pick = pickBit b
   isUndefined (pick 6u = 1u && (pick 12u = 1u || pick 16u = 1u || pick 0u = 1u))
+
 let chkUndefE b _ = isUndefined (extract b 21u 20u = 3u)
+
 let chkUndefF b _ = chkUndefD b (); chkUndefE b ()
+
 let chkUndefG b _ =
   isUndefined (pickBit b 6u = 0b0u && pickBit b 10u = 0b1u); chkUndefD b ()
+
 let chkUndefH b _ =
   isUndefined (pickBit b 6u = 1u && (pickBit b 12u = 1u || pickBit b 0u = 1u))
-let chkUndefJ b _ = isUndefined (extract b 21u 20u = 3u); chkUndefD b ()
+
+let chkUndefJ b _ =
+  isUndefined (extract b 21u 20u = 3u || pickBit b 6u = 1u)
+
 let chkUndefK b _ =
   let size = extract b 21u 20u
   isUndefined (size = 0u || size = 3u); chkUndefD b ()
+
 let chkUndefL b _ = isUndefined (pickBit b 20u = 1u); chkUndefD b ()
+
 let chkUndefM b _ = isUndefined (pickBit b 20u = 1u || pickBit b 6u = 1u)
+
 let chkUndefN b _ = isUndefined (pickBit b 6u = 0b1u && pickBit b 12u = 0b1u)
+
 let chkUndefO b _ = isUndefined (extract b 3u 0u % 2u = 0b1u)
+
 let chkUndefP b _ = isUndefined (pickBit b 21u = 0b0u); chkUndefH b ()
+
 let chkUndefQ b _ =
   isUndefined (pickBit b 12u = 1u || (pickBit b 8u = 1u && pickBit b 16u = 1u))
+
 let chkUndefR b _ = isUndefined (pickBit b 16u = 1u || pickBit b 0u = 1u)
+
 let chkUndefS b _ = isUndefined (pickBit b 12u = 0b1u)
+
 let chkUndefT b _ = isUndefined (extract b 21u 20u = 0u || pickBit b 12u = 1u)
+
 let chkUndefU b _ =
   chkUndefH b ()
   isUndefined (pickBit b 6u = 0u &&
                ((extract b 8u 7u) + (extract b 19u 18u)) >= 3u)
+
 let chkUndefV b _ = chkUndefH b (); isUndefined (extract b 19u 18u = 0b11u)
+
 let chkUndefW b _ = chkUndefH b (); isUndefined (extract b 19u 18u <> 0b10u)
+
 let chkUndefX b _ =
   chkUndefH b (); isUndefined (pickBit b 6u = 0u && extract b 19u 18u = 0b11u)
+
 let chkUndefY b _ =
   chkUndefH b (); isUndefined (pickBit b 6u = 0u && extract b 19u 18u <> 0b00u)
+
 let chkUndefZ b _ =
   chkUndefH b (); isUndefined (extract b 19u 18u <> 0b00u)
+
 let chkUndefAA b _ =
   chkUndefH b (); isUndefined (extract b 19u 18u = 0b11u)
+
 let chkUndefAB b _ =
   chkUndefH b ()
   isUndefined (extract b 19u 18u = 0b11u ||
                pickBit b 6u = 0u && extract b 19u 18u = 0b10u)
+
 let chkUndefAC b _ =
   let s = extract b 19u 18u
   chkUndefH b (); isUndefined (s = 0b11u || (pickBit b 10u = 1u && s <> 0b10u))
