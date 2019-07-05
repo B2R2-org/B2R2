@@ -5298,8 +5298,7 @@ module ARMThumb =
                 (ThreeOperands (OprReg R.R7, OprReg R.R6, OprImm 1L))
                 [| 0x1cuy; 0x77uy |]
 
-      testThumb (Some Condition.AL) Op.ADDW None None
-                (ThreeOperands (OprReg R.R0, OprReg R.PC, OprImm 1L))
+      testThumb None Op.InvalidOP None None NoOperand
                 [| 0xf2uy; 0x0fuy; 0x00uy; 0x01uy |]
 
       testThumb (Some Condition.AL) Op.ADR None None

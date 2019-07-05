@@ -1844,7 +1844,18 @@ let chkUnpreCE (b1, b2) (op1, op2, _) =
   checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
                op2 (b1, b2) = OprReg R.SP)
 
-let chkUnpreCF (b1, b2) (op1, op2, op3) =
+let chkUnpreCF (b1, b2) (op1, op2, _) =
+  let rd = op1 (b1, b2)
+  let rn = op2 (b1, b2)
+  checkUnpred (rn <> OprReg R.SP
+               && (rd = OprReg R.SP
+                   || (rd = OprReg R.PC && pickBit b1 4u = 0b0u)
+                   || rn = OprReg R.PC))
+
+let chkUnpreCG (b1, b2) (op1, op2, _) =
+  checkUnpred (op1 (b1, b2) = OprReg R.SP || op2 (b1, b2) = OprReg R.PC)
+
+let chkUnpreCH (b1, b2) (op1, op2, op3) =
   let rd = op1 (b1, b2)
   let rn = op2 (b1, b2)
   let rm = op3 (b1, b2)
@@ -1853,13 +1864,6 @@ let chkUnpreCF (b1, b2) (op1, op2, op3) =
                    || (rd = OprReg R.PC && pickBit b1 4u = 0b0u)
                    || rn = OprReg R.PC
                    || rm = OprReg R.SP || rm = OprReg R.PC))
-
-let chkUnpreCG (b1, b2) (op1, op2, _) =
-  checkUnpred (op1 (b1, b2) = OprReg R.SP || op2 (b1, b2) = OprReg R.PC)
-
-let chkUnpreCH (b1, b2) (op1, _, _) =
-  let opr1 = op1 (b1, b2)
-  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC)
 
 let chkUnpreCI (b1, b2) (op1, _, op3, _) =
   let opr1 = op1 (b1, b2)

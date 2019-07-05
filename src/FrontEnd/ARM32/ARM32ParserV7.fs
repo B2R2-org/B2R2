@@ -1865,7 +1865,8 @@ let parseGroup8WithRdSub b1 b2 =
   | 0b01001u -> Op.EORS, getQfW (), p4Oprs (b1, b2) chkUnpreBY operands
   | 0b10000u -> Op.ADD, getQfW (), p4Oprs (b1, b2) chkUnpreCA operands
   | 0b10001u -> Op.ADDS, getQfW (), p4Oprs (b1, b2) chkUnpreCB operands
-  | 0b11010u -> Op.SUB, getQfW (), p4Oprs (b1, b2) chkUnpreCA operands
+  | 0b11010u ->
+    Op.SUB, getQfW (), p4Oprs (b1, b2) chkUnpreCA operands
   | 0b11011u -> Op.SUBS, getQfW (), p4Oprs (b1, b2) chkUnpreCB operands
     | _ -> failwith "Wrong opcode in parseGroup8."
 
