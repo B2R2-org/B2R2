@@ -2689,42 +2689,6 @@ let bfi insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
-let parseOprOfUXTB insInfo ctxt =
-  match insInfo.Operands with
-  | TwoOperands (OprReg rd, OprReg rm) ->
-    getRegVar ctxt rd, getRegVar ctxt rm, 0u
-  | ThreeOperands (OprReg rd, OprReg rm, OprShift (_, Imm i)) ->
-    getRegVar ctxt rd, getRegVar ctxt rm, i
-  | _ -> raise InvalidOperandException
-
-let uxtb insInfo ctxt =
-  let builder = new StmtBuilder (8)
-  let rd, rm, rotation = parseOprOfUXTB insInfo ctxt
-  let rotated = shiftROR rm 32<rt> rotation
-  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
-  startMark insInfo builder
-  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
-  builder <! (rd := zExt 32<rt> (extractLow 8<rt> rotated))
-  putEndLabel ctxt lblIgnore isUnconditional builder
-  endMark insInfo builder
-
-let parseOprOfUXTAB insInfo ctxt =
-  match insInfo.Operands with
-  | FourOperands (OprReg rd, OprReg rn, OprReg rm, OprShift (_, Imm i)) ->
-    getRegVar ctxt rd, getRegVar ctxt rn, getRegVar ctxt rm, i
-  | _ -> raise InvalidOperandException
-
-let uxtab insInfo ctxt =
-  let builder = new StmtBuilder (8)
-  let rd, rn, rm, rotation = parseOprOfUXTAB insInfo ctxt
-  let rotated = shiftROR rm 32<rt> rotation
-  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
-  startMark insInfo builder
-  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
-  builder <! (rd := rn .+ zExt 32<rt> (extractLow 8<rt> rotated))
-  putEndLabel ctxt lblIgnore isUnconditional builder
-  endMark insInfo builder
-
 let bfx insInfo ctxt signExtend =
   let builder = new StmtBuilder (8)
   let rd, rn, lsb, width = parseOprOfRdRnLsbWidth insInfo ctxt
@@ -2836,25 +2800,39 @@ let mls insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
-let uxth insInfo ctxt =
+let parseOprOfExtend insInfo ctxt =
+  match insInfo.Operands with
+  | TwoOperands (OprReg rd, OprReg rm) ->
+    getRegVar ctxt rd, getRegVar ctxt rm, 0u
+  | ThreeOperands (OprReg rd, OprReg rm, OprShift (_, Imm i)) ->
+    getRegVar ctxt rd, getRegVar ctxt rm, i
+  | _ -> raise InvalidOperandException
+
+let extend insInfo ctxt extractfn amount =
   let builder = new StmtBuilder (8)
-  let rd, rm, rotation = parseOprOfUXTB insInfo ctxt
+  let rd, rm, rotation = parseOprOfExtend insInfo ctxt
   let rotated = shiftROR rm 32<rt> rotation
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
-  builder <! (rd := zExt 32<rt> (extractLow 16<rt> rotated))
+  builder <! (rd := extractfn 32<rt> (extractLow amount rotated))
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
-let sxth insInfo ctxt =
+let parseOprOfXTA insInfo ctxt =
+  match insInfo.Operands with
+  | FourOperands (OprReg rd, OprReg rn, OprReg rm, OprShift (_, Imm i)) ->
+    getRegVar ctxt rd, getRegVar ctxt rn, getRegVar ctxt rm, i
+  | _ -> raise InvalidOperandException
+
+let extendAndAdd insInfo ctxt amount =
   let builder = new StmtBuilder (8)
-  let rd, rm, rotation = parseOprOfUXTB insInfo ctxt
+  let rd, rn, rm, rotation = parseOprOfXTA insInfo ctxt
   let rotated = shiftROR rm 32<rt> rotation
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
-  builder <! (rd := sExt 32<rt> (extractLow 16<rt> rotated))
+  builder <! (rd := rn .+ zExt 32<rt> (extractLow amount rotated))
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
@@ -3186,8 +3164,8 @@ let translate insInfo ctxt =
   | Op.BFC -> bfc insInfo ctxt
   | Op.BFI -> bfi insInfo ctxt
   | Op.UADD8 -> uadd8 insInfo ctxt
-  | Op.UXTB -> uxtb insInfo ctxt
-  | Op.UXTAB -> uxtab insInfo ctxt
+  | Op.UXTAB -> extendAndAdd insInfo ctxt 8<rt>
+  | Op.UXTAH -> extendAndAdd insInfo ctxt 16<rt>
   | Op.SBFX -> bfx insInfo ctxt true
   | Op.UBFX -> bfx insInfo ctxt false
   | Op.UQADD8 -> uqopr insInfo ctxt 8 (.+)
@@ -3196,8 +3174,10 @@ let translate insInfo ctxt =
   | Op.UQSUB16 -> uqopr insInfo ctxt 16 (.-)
   | Op.ADR -> adr insInfo ctxt // for Thumb mode
   | Op.MLS -> mls insInfo ctxt
-  | Op.UXTH -> uxth insInfo ctxt
-  | Op.SXTH -> sxth insInfo ctxt
+  | Op.UXTB -> extend insInfo ctxt zExt 8<rt>
+  | Op.SXTB -> extend insInfo ctxt sExt 8<rt>
+  | Op.UXTH -> extend insInfo ctxt zExt 16<rt>
+  | Op.SXTH -> extend insInfo ctxt sExt 16<rt>
   | Op.VLDR -> vldr insInfo ctxt
   | Op.VSTR -> vstr insInfo ctxt
   | Op.VPOP -> vpop insInfo ctxt
