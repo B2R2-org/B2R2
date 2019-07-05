@@ -215,6 +215,12 @@ type TestClass () =
     Assert.AreEqual (BitVector.toString <| BitVector.sar n1 n1, "0x0:I1")
 
   [<TestMethod>]
+  member __.``Shift Right by a Large Amount`` () =
+    let n1 = BitVector.ofUInt32 1ul 32<rt>
+    let n2 = BitVector.ofInt32 128 32<rt>
+    Assert.AreEqual (BitVector.toString <| BitVector.shr n1 n2, "0x0:I32")
+
+  [<TestMethod>]
   member __.``Unsigned Modulo`` () =
     let n1 = BitVector.ofUInt32 5ul 32<rt>
     let n2 = BitVector.ofInt32 -3l 32<rt>

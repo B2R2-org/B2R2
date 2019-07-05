@@ -473,7 +473,9 @@ type BitVector =
     elif v1.Length = 1<rt> then
       { v1 with Num = if v2.Num = 0UL then v1.Num else 0UL }
     elif v1.Length <= 64<rt> then
-      { v1 with Num = v1.Num >>> (int v2.Num) }
+      (* In .NET, 1UL >>> 63 = 0, but 1UL >>> 64 = 1 *)
+      let amount = min (int v2.Num) 0x3f
+      { v1 with Num = v1.Num >>> amount }
     else
       { v1 with BigNum = bigint.op_RightShift (v1.BigNum, int v2.BigNum) }
 
