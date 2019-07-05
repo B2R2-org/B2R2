@@ -2398,6 +2398,7 @@ let parseOprOfLDRD insInfo ctxt =
 
 let ldrd insInfo ctxt =
   let builder = new StmtBuilder (8)
+  let taddr = tmpVar 32<rt>
   let rt, rt2, addr, writeback = parseOprOfLDRD insInfo ctxt
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
@@ -2405,7 +2406,6 @@ let ldrd insInfo ctxt =
   let n4 = num (BitVector.ofInt32 4 32<rt>)
   match writeback with
   | Some (basereg, newoffset) ->
-    let taddr = tmpVar 32<rt>
     let twriteback = tmpVar 32<rt>
     builder <! (taddr := addr)
     builder <! (twriteback := newoffset)
@@ -2413,8 +2413,9 @@ let ldrd insInfo ctxt =
     builder <! (rt2 := loadLE 32<rt> (taddr .+ n4))
     builder <! (basereg := twriteback)
   | None ->
-    builder <! (rt := loadLE 32<rt> addr)
-    builder <! (rt2 := loadLE 32<rt> (addr .+ n4))
+    builder <! (taddr := addr)
+    builder <! (rt := loadLE 32<rt> taddr)
+    builder <! (rt2 := loadLE 32<rt> (taddr .+ n4))
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
@@ -3202,11 +3203,11 @@ let translate insInfo ctxt =
   | Op.VPOP -> vpop insInfo ctxt
   | Op.VPUSH -> vpush insInfo ctxt
   | Op.VMRS -> vmrs insInfo ctxt
-  | Op.VST1 | Op.VST2 | Op.VST3 | Op.VST4 ->
-    sideEffects insInfo UnsupportedExtension
+  | Op.VST1 | Op.VST2 | Op.VST3 | Op.VST4
   | Op.VCVT | Op.VCVTR | Op.VMLS | Op.VADD | Op.VMUL | Op.VDIV
+  | Op.VSHL | Op.VSHR | Op.VDUP
   | Op.VMOV | Op.VCMP | Op.VCMPE | Op.VSTM | Op.VSTMDB | Op.VSTMIA ->
-    sideEffects insInfo UnsupportedFP
+    sideEffects insInfo UnsupportedExtension
   | Op.DMB | Op.DSB | Op.ISB | Op.PLD -> nop insInfo
   | o -> eprintfn "%A" o
          raise <| NotImplementedIRException (Disasm.opCodeToString o)
