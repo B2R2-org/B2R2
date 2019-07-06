@@ -405,6 +405,7 @@ let getVFPBits bit vbits = function
 
 let getVRegWithOffset e1 e2 offset regSize =
   getVFPRegister (getVFPBits e1 e2 regSize + offset |> byte) regSize
+
 let getVReg e1 e2 regSize =
   getVFPRegister (getVFPBits e1 e2 regSize |> byte) regSize
 
@@ -913,6 +914,7 @@ let getShiftI (b1, b2) = getShift (pickBit b1 5u <<< 1) (getShiftImm5A b2)
 let getShiftJ (_, b2) = extract b2 5u 4u |> getShiftOprByRotate
 
 let getImm0 _ = OprImm 0L
+
 let getImmA opcode i b =
   let chk1 i = checkUnpred (i = 0u)
   let chk2 i = isValidOpcode (opcode <> Op.VMOV || opcode <> Op.VMVN); chk1 i
@@ -931,14 +933,16 @@ let getImmA opcode i b =
   | 0b11110u -> getImm11110 opcode i |> OprImm
   | 0b01111u -> getImm01111 opcode i |> OprImm
   | _ -> raise UndefinedException
+
 let getImmB b =
   match concat (pickBit b 7u) (extract b 21u 16u) 6 with
-  | 1u -> 8L - (extract b 18u 16u |> int64)
-  | i when i &&& 0b1110u = 0b0010u -> 16L - (extract b 19u 16u |> int64)
-  | i when i &&& 0b1100u = 0b0100u -> 32L - (extract b 20u 16u |> int64)
-  | i when i &&& 0b1000u = 0b1000u -> 64L - (extract b 21u 16u |> int64)
+  | i when i &&& 0b1111000u = 0b1000u -> 8L - (extract b 18u 16u |> int64)
+  | i when i &&& 0b1110000u = 0b10000u -> 16L - (extract b 19u 16u |> int64)
+  | i when i &&& 0b1100000u = 0b100000u -> 32L - (extract b 20u 16u |> int64)
+  | i when i &&& 0b1000000u > 0u -> 64L - (extract b 21u 16u |> int64)
   | _ -> failwith "Wrong encoding in getImmB"
   |> OprImm
+
 let getImmC b =
   match concat (pickBit b 7u) (extract b 21u 19u) 3 with
   | 1u -> extract b 18u 16u |> int64 |> OprImm
@@ -946,6 +950,7 @@ let getImmC b =
   | i when i &&& 0b1100u = 0b0100u -> extract b 20u 16u |> int64 |> OprImm
   | i when i &&& 0b1000u = 0b1000u -> extract b 21u 16u |> int64 |> OprImm
   | _ -> failwith "Wrong encoding in getImmC"
+
 let getImmD b =
   match extract b 21u 19u with
   | 1u -> 8L - (extract b 18u 16u |> int64)

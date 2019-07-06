@@ -728,7 +728,6 @@ let parseAdvSIMDDataProc b mode =
   let ext f t v = extract b f t = v
   let pick u v = pickBit b u = v
   let k = if mode = ArchOperationMode.ARMMode then pickBit b 24u else pickBit b 28u
-  let cU () = k = 0b0u
   match concat (extract b 23u 19u) (extract b 7u 4u) 4 with
   | op when op &&& 0b100000000u = 0b000000000u -> parse3Reg b k
   | op when op &&& 0b101111001u = 0b100000001u -> parse1Reg b k
@@ -740,7 +739,7 @@ let parseAdvSIMDDataProc b mode =
   | op when op &&& 0b101100101u = 0b101000000u -> parse3RegDiffLen b k
   | op when op &&& 0b101000101u = 0b100000100u -> parse2RegScalar b k
   | op when op &&& 0b101100101u = 0b101000100u -> parse2RegScalar b k
-  | op when op &&& 0b101100001u = 0b101100000u && cU () ->
+  | op when op &&& 0b101100001u = 0b101100000u && k = 0b0u ->
     Op.VEXT, getOneDtE (),
     p4Oprs b chkUndefG (getRegX, getRegY, getRegZ, getImm4C)
   | op when op &&& 0b101100001u = 0b101100000u && pick 11u 0b0u ->
