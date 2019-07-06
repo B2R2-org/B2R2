@@ -2180,6 +2180,22 @@ let smull isSetFlags insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
+let smulhalf insInfo ctxt s1top s2top =
+  let builder = new StmtBuilder (8)
+  let rd, rn, rm = transThreeOprs insInfo ctxt
+  let t1 = tmpVar 32<rt>
+  let t2 = tmpVar 32<rt>
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  if s1top then builder <! (t1 := extractHigh 16<rt> rn |> zExt 32<rt>)
+  else builder <! (t1 := extractLow 16<rt> rn |> sExt 32<rt>)
+  if s2top then builder <! (t2 := extractHigh 16<rt> rm |> zExt 32<rt>)
+  else builder <! (t2 := extractLow 16<rt> rm |> sExt 32<rt>)
+  builder <! (rd := t1 .* t2)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
 let parseOprOfB insInfo =
   let pc = bvOfBaseAddr insInfo.Address
   match insInfo.Operands with
@@ -3122,6 +3138,10 @@ let translate insInfo ctxt =
   | Op.MUL -> mul false insInfo ctxt
   | Op.MULS -> mul true insInfo ctxt
   | Op.TST -> tst insInfo ctxt
+  | Op.SMULBB -> smulhalf insInfo ctxt false false
+  | Op.SMULBT -> smulhalf insInfo ctxt false true
+  | Op.SMULTB -> smulhalf insInfo ctxt true false
+  | Op.SMULTT -> smulhalf insInfo ctxt true true
   | Op.SMULL -> smull false insInfo ctxt
   | Op.SMULLS -> smull true insInfo ctxt
   | Op.B -> b insInfo ctxt
@@ -3184,9 +3204,12 @@ let translate insInfo ctxt =
   | Op.VPUSH -> vpush insInfo ctxt
   | Op.VMRS -> vmrs insInfo ctxt
   | Op.VST1 | Op.VST2 | Op.VST3 | Op.VST4
+  | Op.VLD1 | Op.VLD2 | Op.VLD3 | Op.VLD4
   | Op.VCVT | Op.VCVTR | Op.VMLS | Op.VADD | Op.VMUL | Op.VDIV
-  | Op.VSHL | Op.VSHR | Op.VDUP
-  | Op.VMOV | Op.VCMP | Op.VCMPE | Op.VSTM | Op.VSTMDB | Op.VSTMIA ->
+  | Op.VSHL | Op.VSHR | Op.VRSHR | Op.VRSHRN | Op.VDUP | Op.VTBL
+  | Op.VPADD | Op.VMULL | Op.VMLAL
+  | Op.VMOVN | Op.VMOV
+  | Op.VCMP | Op.VCMPE | Op.VSTM | Op.VSTMDB | Op.VSTMIA ->
     sideEffects insInfo UnsupportedExtension
   | Op.DMB | Op.DSB | Op.ISB | Op.PLD -> nop insInfo
   | o -> eprintfn "%A" o
