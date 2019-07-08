@@ -70,14 +70,9 @@ type MachFileInfo (bytes, path, isa) =
   override __.IsRelocatable =
     mach.MachHdr.Flags.HasFlag MachFlag.MHPIE
 
-  override __.IsValidAddr addr =
-    match ARMap.tryFindByAddr addr mach.Sections.SecByAddr with
-    | Some _ -> true
-    | None -> false
-
   override __.TranslateAddress addr =
-    match ARMap.tryFindByAddr addr mach.Sections.SecByAddr with
-    | Some s -> Convert.ToInt32 (addr - s.SecAddr + uint64 s.SecOffset)
+    match ARMap.tryFindByAddr addr mach.SegmentMap with
+    | Some s -> Convert.ToInt32 (addr - s.VMAddr + s.FileOff)
     | None -> raise InvalidAddrReadException
 
   override __.TryFindFunctionSymbolName (addr, name: byref<string>) =
@@ -122,5 +117,26 @@ type MachFileInfo (bytes, path, isa) =
 
   override __.TextStartAddr =
     (Map.find "__text" mach.Sections.SecByName).SecAddr
+
+  override __.IsValidAddr addr =
+    match ARMap.tryFindByAddr addr mach.SegmentMap with
+    | Some _ -> true
+    | None -> false
+
+  override __.IsValidRange range =
+    IntervalSet.findAll range mach.InvalidAddrRanges |> List.isEmpty
+
+  override __.IsInFileAddr addr =
+    match ARMap.tryFindByAddr addr mach.Sections.SecByAddr with
+    | Some _ -> true
+    | None -> false
+
+  override __.IsInFileRange range =
+    IntervalSet.findAll range mach.NotInFileRanges |> List.isEmpty
+
+  override __.GetNotInFileIntervals range =
+    IntervalSet.findAll range mach.NotInFileRanges
+    |> List.map (FileHelper.trimByRange range)
+    |> List.toSeq
 
 // vim: set tw=80 sts=2 sw=2:

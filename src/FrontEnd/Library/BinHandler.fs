@@ -84,8 +84,20 @@ with
     BinHandler.ReadBytes (__, addr, nBytes)
 
   static member ReadBytes ({ FileInfo = fi }, addr, nBytes) =
-    if fi.IsValidAddr (addr + uint64 nBytes - 1UL) then
+    let range = AddrRange (addr, addr + uint64 nBytes)
+    if fi.IsInFileRange range then
       fi.BinReader.PeekBytes (nBytes, fi.TranslateAddress addr)
+    elif fi.IsValidRange range then
+      fi.GetNotInFileIntervals range
+      |> classifyRanges range
+      |> List.fold (fun bs (range, isInFile) ->
+           let len = range.Max - range.Min |> int
+           if isInFile then
+             let addr = fi.TranslateAddress range.Min
+             fi.BinReader.PeekBytes (len, addr)
+             |> Array.append bs
+           else Array.create len 0uy |> Array.append bs
+         ) [||]
     else invalidArg "ReadBytes" "Invalid address or size is given."
 
   member __.ReadInt (addr, nBytes) =

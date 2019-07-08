@@ -702,6 +702,10 @@ type Mach = {
   Sections: SectionInfo
   /// Symbol info.
   SymInfo: SymInfo
+  /// Invalid address ranges.
+  InvalidAddrRanges: IntervalSet
+  /// Not-in-file address ranges.
+  NotInFileRanges: IntervalSet
   /// BinReader.
   BinReader: BinReader
 }

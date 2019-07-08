@@ -59,3 +59,19 @@ let peekHeaderNative reader cls offset d32 d64 =
 let peekCString (reader: BinReader) offset (size: int) =
   let bs = reader.PeekBytes (size, offset)
   ByteArray.extractCString bs 0
+
+let addInvRange set saddr eaddr =
+  if saddr = eaddr then set
+  else IntervalSet.add (AddrRange (saddr, eaddr)) set
+
+let addLastInvRange wordSize (set, saddr) =
+  let laddr =
+    if wordSize = WordSize.Bit32 then 0xFFFFFFFFUL else 0xFFFFFFFFFFFFFFFFUL
+  IntervalSet.add (AddrRange (saddr, laddr)) set
+
+/// Trim the target range based on my range (myrange) in such a way that the
+/// resulting range is always included in myrange.
+let trimByRange myrange target =
+  let l = max (AddrRange.GetMin myrange) (AddrRange.GetMin target)
+  let h = min (AddrRange.GetMax myrange) (AddrRange.GetMax target)
+  AddrRange (l, h)

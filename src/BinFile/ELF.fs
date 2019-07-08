@@ -148,4 +148,18 @@ type ELFFileInfo (bytes, path) =
   override __.IsValidAddr addr =
     isValid addr elf.LoadableSegments
 
+  override __.IsValidRange range =
+    IntervalSet.findAll range elf.InvalidAddrRanges |> List.isEmpty
+
+  override __.IsInFileAddr addr =
+    isInFile addr elf.LoadableSegments
+
+  override __.IsInFileRange range =
+    IntervalSet.findAll range elf.NotInFileRanges |> List.isEmpty
+
+  override __.GetNotInFileIntervals range =
+    IntervalSet.findAll range elf.NotInFileRanges
+    |> List.map (FileHelper.trimByRange range)
+    |> List.toSeq
+
 // vim: set tw=80 sts=2 sw=2:

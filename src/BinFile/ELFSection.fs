@@ -49,8 +49,7 @@ let peekSecFlags (reader: BinReader) cls offset : SectionFlag =
   |> LanguagePrimitives.EnumOfValue
 
 let parseSection num strBytes cls (reader: BinReader) offset =
-  {
-    SecNum = num
+  { SecNum = num
     SecName = reader.PeekInt32 offset |> ByteArray.extractCString strBytes
     SecType = peekSecType reader offset
     SecFlags = peekSecFlags reader cls offset
@@ -60,8 +59,7 @@ let parseSection num strBytes cls (reader: BinReader) offset =
     SecLink = peekHeaderU32 reader cls offset 24 40
     SecInfo = peekHeaderU32 reader cls offset 28 44
     SecAlignment = peekHeaderNative reader cls offset 32 48
-    SecEntrySize = peekHeaderNative reader cls offset 36 56
-  }
+    SecEntrySize = peekHeaderNative reader cls offset 36 56 }
 
 let inline hasSHFTLS flags =
   flags &&& SectionFlag.SHFTLS = SectionFlag.SHFTLS

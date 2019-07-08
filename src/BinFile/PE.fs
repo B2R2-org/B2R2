@@ -75,12 +75,6 @@ type PEFileInfo (bytes, path, ?rawpdb) =
     pe.PEHeaders.PEHeader.DllCharacteristics.HasFlag
       (DllCharacteristics.DynamicBase)
 
-  override __.IsValidAddr addr =
-    let rva = int (addr - pe.PEHeaders.PEHeader.ImageBase)
-    match pe.PEHeaders.GetContainingSectionIndex rva with
-    | -1 -> false
-    | _ -> true
-
   override __.TranslateAddress addr =
     let rva = int (addr - pe.PEHeaders.PEHeader.ImageBase)
     match pe.PEHeaders.GetContainingSectionIndex rva with
@@ -164,5 +158,32 @@ type PEFileInfo (bytes, path, ?rawpdb) =
     match __.GetSectionsByName ".text" |> Seq.tryHead with
     | None -> 0UL
     | Some sec -> sec.Address
+
+  override __.IsValidAddr addr =
+    let rva = int (addr - pe.PEHeaders.PEHeader.ImageBase)
+    match pe.PEHeaders.GetContainingSectionIndex rva with
+    | -1 -> false
+    | _ -> true
+
+  override __.IsValidRange range =
+    IntervalSet.findAll range pe.InvalidAddrRanges |> List.isEmpty
+
+  override __.IsInFileAddr addr =
+    let baseAddr = pe.PEHeaders.PEHeader.ImageBase
+    let rva = int (addr - baseAddr)
+    match pe.PEHeaders.GetContainingSectionIndex rva with
+    | -1 -> false
+    | idx ->
+      let sec = pe.PEHeaders.SectionHeaders.[idx]
+      let startAddr = baseAddr + uint64 sec.VirtualAddress
+      startAddr <= addr && ((startAddr + uint64 sec.SizeOfRawData) > addr)
+
+  override __.IsInFileRange range =
+    IntervalSet.findAll range pe.NotInFileRanges |> List.isEmpty
+
+  override __.GetNotInFileIntervals range =
+    IntervalSet.findAll range pe.NotInFileRanges
+    |> List.map (FileHelper.trimByRange range)
+    |> List.toSeq
 
 // vim: set tw=80 sts=2 sw=2:

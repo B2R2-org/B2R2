@@ -97,4 +97,24 @@ type RawFileInfo (bytes: byte [], baseAddr, isa) =
   override __.IsValidAddr (addr) =
     addr >= baseAddr && addr < (baseAddr + uint64 bytes.LongLength)
 
+  override __.IsValidRange (range) =
+    __.IsValidAddr range.Min && __.IsValidAddr (range.Max - 1UL)
+
+  override __.IsInFileAddr (addr) = __.IsValidAddr (addr)
+
+  override __.IsInFileRange range = __.IsValidRange range
+
+  override __.GetNotInFileIntervals range =
+    let lastAddr = baseAddr + uint64 bytes.LongLength
+    if range.Max <= baseAddr then Seq.singleton range
+    elif range.Max <= lastAddr && range.Min < baseAddr then
+      Seq.singleton (AddrRange (range.Min, baseAddr))
+    elif range.Max > lastAddr && range.Min < baseAddr then
+      [ AddrRange (range.Min, baseAddr); AddrRange (lastAddr, range.Max) ]
+      |> List.toSeq
+    elif range.Max > lastAddr && range.Min <= lastAddr then
+      Seq.singleton (AddrRange (lastAddr, range.Max))
+    elif range.Max > lastAddr && range.Min > lastAddr then Seq.singleton range
+    else Seq.empty
+
 // vim: set tw=80 sts=2 sw=2:

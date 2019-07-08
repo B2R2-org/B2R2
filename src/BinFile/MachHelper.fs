@@ -54,12 +54,22 @@ let computeEntryPoint secs segs cmds =
   if mainOffset = 0UL then getTextSecOffset secs
   else mainOffset + getTextSegOffset segs
 
+let invRanges wordSize segs getNextStartAddr =
+  segs
+  |> List.filter (fun seg -> seg.VMAddr > 0UL)
+  |> List.sortBy (fun seg -> seg.VMAddr)
+  |> List.fold (fun (set, saddr) seg ->
+       let n = getNextStartAddr seg
+       FileHelper.addInvRange set saddr seg.VMAddr, n) (IntervalSet.empty, 0UL)
+  |> FileHelper.addLastInvRange wordSize
+
 let parseMach reader  =
   let machHdr = Header.parse reader 0
+  let cls = machHdr.Class
   let cmds = LoadCommands.parse reader machHdr
   let segs = Segment.extract cmds
   let segmap = Segment.buildMap segs
-  let secs = Section.parseSections reader machHdr.Class segs
+  let secs = Section.parseSections reader cls segs
   let symInfo = Symbol.parse machHdr cmds secs reader
   { EntryPoint = computeEntryPoint secs segs cmds
     SymInfo = symInfo
@@ -67,6 +77,8 @@ let parseMach reader  =
     Segments = segs
     SegmentMap = segmap
     Sections = secs
+    InvalidAddrRanges = invRanges cls segs (fun s -> s.VMAddr + s.VMSize)
+    NotInFileRanges = invRanges cls segs (fun s -> s.VMAddr + s.FileSize)
     BinReader = reader }
 
 let updateReaderForFat bytes isa reader =

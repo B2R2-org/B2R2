@@ -91,12 +91,21 @@ let parseGlobalSymbols reloc =
     | _ -> map
   reloc.RelocByAddr |> Map.fold folder Map.empty
 
+let invRanges wordSize segs getNextStartAddr =
+  segs
+  |> List.sortBy (fun seg -> seg.PHAddr)
+  |> List.fold (fun (set, saddr) seg ->
+       let n = getNextStartAddr seg
+       FileHelper.addInvRange set saddr seg.PHAddr, n) (IntervalSet.empty, 0UL)
+  |> FileHelper.addLastInvRange wordSize
+
 let private parseELF offset reader =
   let eHdr = Header.parse reader offset
+  let cls = eHdr.Class
   let secs = Section.parse eHdr reader
   let proghdrs = ProgHeader.parse eHdr reader
-  let loadableSegs = ProgHeader.getLoadableProgHeaders proghdrs
-  let loadableSecNums = ProgHeader.getLoadableSecNums secs loadableSegs
+  let segs = ProgHeader.getLoadableProgHeaders proghdrs
+  let loadableSecNums = ProgHeader.getLoadableSecNums secs segs
   let symbs = Symbol.parse eHdr secs reader
   let reloc = Relocs.parse eHdr secs symbs reader
   let plt = parsePLT eHdr.MachineType secs reloc reader
@@ -104,13 +113,15 @@ let private parseELF offset reader =
   let symbs = Symbol.updatePLTSymbols plt symbs |> Symbol.updateGlobals globals
   { ELFHdr = eHdr
     ProgHeaders = proghdrs
-    LoadableSegments = loadableSegs
+    LoadableSegments = segs
     LoadableSecNums = loadableSecNums
     SecInfo = secs
     SymInfo = symbs
     RelocInfo = reloc
     PLT = plt
     Globals = globals
+    InvalidAddrRanges = invRanges cls segs (fun s -> s.PHAddr + s.PHMemSize)
+    NotInFileRanges = invRanges cls segs (fun s -> s.PHAddr + s.PHFileSize)
     BinReader = reader }
 
 let initELF bytes =
@@ -136,18 +147,25 @@ let elfSectionToSection (sec: ELFSection) =
     Size = sec.SecSize
     Name = sec.SecName }
 
+let inline private inFile seg addr =
+  let vAddr = seg.PHAddr
+  addr >= vAddr && addr < vAddr + seg.PHFileSize
+
+let inline private inMem seg addr =
+  let vAddr = seg.PHAddr
+  addr >= vAddr && addr < vAddr + seg.PHMemSize
+
 let rec isValid addr = function
-  | seg :: tl ->
-    let vAddr = seg.PHAddr
-    if addr >= vAddr && addr < vAddr + seg.PHFileSize then true
-    else isValid addr tl
+  | seg :: tl -> if inMem seg addr then true else isValid addr tl
+  | [] -> false
+
+let rec isInFile addr = function
+  | seg :: tl -> if inFile seg addr then true else isInFile addr tl
   | [] -> false
 
 let rec translateAddr addr = function
   | seg :: tl ->
-    let vAddr = seg.PHAddr
-    if addr >= vAddr && addr < vAddr + seg.PHFileSize then
-      Convert.ToInt32 (addr - vAddr + seg.PHOffset)
+    if inMem seg addr then Convert.ToInt32 (addr - seg.PHAddr + seg.PHOffset)
     else translateAddr addr tl
   | [] -> raise InvalidAddrReadException
 

@@ -216,13 +216,62 @@ type FileInfo () =
 
   /// <summary>
   ///   Check if the given address is valid for this binary. We say a given
-  ///   address is valid for the binary, if the address is within the range of
+  ///   address is valid for the binary if the address is within the range of
   ///   statically computable segment ranges.
   /// </summary>
   /// <returns>
   ///   Returns true if the address is within a valid range, false otherwise.
   /// </returns>
-  abstract member IsValidAddr : Addr -> bool
+  abstract member IsValidAddr: Addr -> bool
+
+  /// <summary>
+  ///   Check if the given address range is valid. This functino returns true
+  ///   only if the whole range of the addressess are valid (for every address
+  ///   in the range, IsValidAddr should return true).
+  /// </summary>
+  /// <returns>
+  ///   Returns true if the whole range of addresses is within a valid range,
+  ///   false otherwise.
+  /// </returns>
+  abstract member IsValidRange: AddrRange -> bool
+
+  /// <summary>
+  ///   Check if the given address is valid and there is an actual mapping from
+  ///   the binary file to the corresponding memory. Unlike IsValidAddr, this
+  ///   function checks if we can decide the actual value of the given address
+  ///   from the binary. For example, a program header of an ELF file may
+  ///   contain 100 bytes in size, but when it is mapped to a segment in memory,
+  ///   the size of the segment can be larger than the size of the program
+  ///   header. This function checks if the given address is in the range of the
+  ///   segment that has a direct mapping to the file's program header.
+  /// </summary>
+  /// <returns>
+  ///   Returns true if the address is within a mapped address range, false
+  ///   otherwise.
+  /// </returns>
+  abstract member IsInFileAddr: Addr -> bool
+
+  /// <summary>
+  ///   Check if the given address range is valid and there exists a
+  ///   corresponding region in the actual binary file. This functino returns
+  ///   true only if the whole range of the addressess are valid (for every
+  ///   address in the range, IsInFileAddr should return true).
+  /// </summary>
+  /// <returns>
+  ///   Returns true if the whole range of addresses is within a valid range,
+  ///   false otherwise.
+  /// </returns>
+  abstract member IsInFileRange: AddrRange -> bool
+
+  /// <summary>
+  ///   Given a range r, return a list of address ragnes (intervals) that are
+  ///   within r, and that are not in-file.
+  /// </summary>
+  /// <returns>
+  ///   Returns an empty list when the given range r is valid, i.e.,
+  ///   `IsInFileRange r = true`.
+  /// </returns>
+  abstract member GetNotInFileIntervals: AddrRange -> seq<AddrRange>
 
   /// <summary>
   ///   Returns a sequence of local function addresses (excluding external

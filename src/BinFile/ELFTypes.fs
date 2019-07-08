@@ -816,6 +816,10 @@ type ELF = {
   PLT: ARMap<ELFSymbol>
   /// Global symbols (such as R_X86_64_GLOB_DAT).
   Globals: Map<Addr, ELFSymbol>
+  /// Invalid address ranges.
+  InvalidAddrRanges: IntervalSet
+  /// Not-in-file address ranges.
+  NotInFileRanges: IntervalSet
   /// BinReader
   BinReader: BinReader
 }

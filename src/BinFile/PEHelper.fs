@@ -216,25 +216,35 @@ let buildPDBInfo (headers: PEHeaders) symbs =
     | Some sec -> genSymbol acc sec sym
     | None -> acc
   let mAddr, mName, lst = symbs |> List.fold folder (Map.empty, Map.empty, [])
-  {
-    SymbolByAddr = mAddr
+  { SymbolByAddr = mAddr
     SymbolByName = mName
-    SymbolArray = List.rev lst |> List.toArray
-  }
+    SymbolArray = List.rev lst |> List.toArray }
+
+let invRanges wordSize (headers: PEHeaders) sechdrs getNextStartAddr =
+  sechdrs
+  |> Array.sortBy (fun (s: SectionHeader) -> s.VirtualAddress)
+  |> Array.fold (fun (set, saddr) s ->
+       let myaddr = uint64 s.VirtualAddress + headers.PEHeader.ImageBase
+       let n = getNextStartAddr myaddr s
+       FileHelper.addInvRange set saddr myaddr, n) (IntervalSet.empty, 0UL)
+  |> FileHelper.addLastInvRange wordSize
 
 let parsePE execpath rawpdb binReader (peReader: PEReader) =
-  let headers = peReader.PEHeaders
-  let wordSize = getWordSize headers.PEHeader
-  let importDirTables = parseImports binReader headers
-  let exportDirTables = parseExports binReader headers
-  let importMap = parseImportMap binReader headers wordSize importDirTables
-  let pdbInfo = getPDBSymbols execpath rawpdb |> buildPDBInfo headers
-  { PEHeaders = headers
-    SectionHeaders = peReader.PEHeaders.SectionHeaders |> Seq.toArray
+  let hdrs = peReader.PEHeaders
+  let wordSize = getWordSize hdrs.PEHeader
+  let importDirTables = parseImports binReader hdrs
+  let exportDirTables = parseExports binReader hdrs
+  let importMap = parseImportMap binReader hdrs wordSize importDirTables
+  let pdbInfo = getPDBSymbols execpath rawpdb |> buildPDBInfo hdrs
+  let sechdrs = peReader.PEHeaders.SectionHeaders |> Seq.toArray
+  { PEHeaders = hdrs
+    SectionHeaders = sechdrs
     ImportMap= importMap
     ExportMap = exportDirTables
     WordSize = wordSize
     PDB = pdbInfo
+    InvalidAddrRanges = invRanges wordSize hdrs sechdrs (fun a s -> a + uint64 s.VirtualSize)
+    NotInFileRanges = invRanges wordSize hdrs sechdrs (fun a s -> a + uint64 s.SizeOfRawData)
     BinReader = binReader }
 
 let findSymFromPDB addr pdb =

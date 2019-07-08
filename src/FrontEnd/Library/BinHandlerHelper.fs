@@ -84,3 +84,21 @@ let inline disasm showAddr resolveSymbol fileInfo addr bbl =
     sb.Append(s), nextAddr + uint64 ins.Length
   let sb, addr = List.fold disasmFolder (StringBuilder (), addr) bbl
   sb.ToString (), addr
+
+/// Classify ranges to be either in-file or not-in-file. The second parameter
+/// (notinfiles) is a sequence of (exclusive) ranges within the myrange, which
+/// represent the not-in-file ranges. This function will simply divide the
+/// myrange into subranges where each subrange is labeled with either true or
+/// false, where true means in-file, and false means not-in-file.
+let classifyRanges myrange notinfiles =
+  notinfiles
+  |> Seq.fold (fun (infiles, saddr) r ->
+       let l = AddrRange.GetMin r
+       let h = AddrRange.GetMax r
+       if saddr = l then (r, false) :: infiles, h
+       else (r, false) :: ((AddrRange (saddr, l), true) :: infiles), h
+     ) ([], AddrRange.GetMin myrange)
+  |> (fun (infiles, saddr) ->
+       if saddr = myrange.Max then infiles
+       else ((AddrRange (saddr, myrange.Max), true) :: infiles))
+  |> List.rev

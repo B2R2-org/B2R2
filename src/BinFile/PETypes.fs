@@ -222,6 +222,10 @@ type PE = {
   WordSize: WordSize
   /// Symbol information from PDB.
   PDB: PDBInfo
+  /// Invalid address ranges.
+  InvalidAddrRanges: IntervalSet
+  /// Not-in-file address ranges.
+  NotInFileRanges: IntervalSet
   /// BinReader
   BinReader: BinReader
 }
