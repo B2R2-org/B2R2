@@ -33,26 +33,25 @@ open B2R2.FrontEnd
 /// ROP gadget.
 type Tail = {
   Pattern: byte []
-  TailInstrs: Instruction list
 }
 
 type Offset = uint64
 
 /// ROP gadget is a list of instructions.
 type Gadget = {
-  Instrs : Instruction list
-  Offset : Offset
-  PreOff : Offset
+  Instrs: Instruction list
+  Offset: Offset
+  NextOff: Offset
 }
 
 /// GadgetMap is a mapping from an offset to an ROP gadget.
 type GadgetMap = Map<Offset, Gadget>
 
 module Gadget =
-  let create offset tail =
-    { Instrs = tail.TailInstrs
+  let create offset instrs =
+    { Instrs = instrs
       Offset = offset
-      PreOff = offset }
+      NextOff = offset }
 
   let toString hdl (gadget: Gadget) =
     let s = sprintf "[*] Offset = %x\n" gadget.Offset
@@ -72,9 +71,9 @@ type GadgetArr = Gadget array
 
 module GadgetArr =
   let private pickHelper chooser (falseSet, acc) (gadget: Gadget) =
-    let pre = gadget.PreOff
+    let next = gadget.NextOff
     let cur = gadget.Offset
-    if pre <> cur && (Set.contains pre falseSet) then
+    if next <> cur && (Set.contains next falseSet) then
       (Set.add cur falseSet, acc)
     else
       match chooser gadget with

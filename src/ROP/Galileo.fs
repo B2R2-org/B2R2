@@ -2,6 +2,7 @@
   B2R2 - the Next-Generation Reversing Platform
 
   Author: HyungSeok Han <hyungseok.han@kaist.ac.kr>
+          Sang Kil Cha <sangkilc@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -35,25 +36,13 @@ let filter = function
   | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ -> false
   | _ -> true
 
-let inline updateGadgets cur pre ins gadgets =
-  match Map.tryFind pre gadgets with
-  | Some pGadget ->
-    let g = { Instrs = ins :: pGadget.Instrs
-              Offset = cur
-              PreOff = pre }
-    Map.add cur g gadgets, true
-  | _ -> gadgets, false
+let private toTail bytes = { Pattern = bytes }
 
-let private toTail isa bytes =
-  let hdl = BinHandler.Init (isa, bytes=bytes)
-  let lastAddr = Array.length bytes |> uint64
-  let rec parseInstrs acc addr =
-    if lastAddr > addr then
-      let ins = BinHandler.ParseInstr hdl addr
-      parseInstrs (ins :: acc) (addr + uint64 ins.Length)
-    else List.rev acc
-  { Pattern = bytes
-    TailInstrs = parseInstrs [] 0UL }
+let private instrMaxLen hdl =
+  match hdl.ISA.Arch with
+  | Arch.IntelX86 | Arch.IntelX64 -> 15UL
+  | Arch.AARCH32 | Arch.AARCH64 | Arch.ARMv7 -> 4UL
+  | _ -> raise InvalidISAException
 
 let getTailPatterns hdl =
   match hdl.ISA.Arch, hdl.ISA.Endian with
@@ -66,7 +55,7 @@ let getTailPatterns hdl =
       [| 0x0Fuy; 0x05uy |] (* SYSCALL *)
       [| 0x0Fuy; 0x05uy; 0xC3uy |] (* SYSCALL; RET *) ]
   | _ -> failwith "Unsupported arch."
-  |> List.map (toTail hdl.ISA)
+  |> List.map toTail
 
 let private getExecutableSegs hdl =
   let fi = hdl.FileInfo
@@ -79,37 +68,54 @@ let private getExecutableSegs hdl =
   else
     rxRanges
 
-let getNext minaddr cur (ins: Instruction) last map =
-  let pre = cur + (uint64 ins.Length)
-  if ins.IsExit () then
-    if pre < last then (minaddr - 1UL, last, map)
-    else (cur - 1UL, last, map)
-  else
-    match updateGadgets cur pre ins map with
-    | map, true -> (cur - 1UL, cur, map)
-    | map, false -> (cur - 1UL, last, map)
+let inline updateGadgets curAddr nextAddr ins gadgets =
+  match Map.tryFind nextAddr gadgets with
+  | Some pGadget ->
+    let g = { Instrs = ins :: pGadget.Instrs
+              Offset = curAddr
+              NextOff = nextAddr }
+    Map.add curAddr g gadgets |> Some
+  | _ -> None
 
-let rec addBackward hdl minaddr cur last map =
-  if cur < minaddr || (cur + 1UL) = 0UL then map
+let rec buildBackward hdl minAddr curAddr lastAddr map =
+  if curAddr < minAddr || (curAddr + 1UL) = 0UL then map
   else
-    match BinHandler.TryParseInstr hdl cur with
+    match BinHandler.TryParseInstr hdl curAddr with
     | Some ins ->
-      getNext minaddr cur ins last map |||> addBackward hdl minaddr
-    | None -> addBackward hdl minaddr (cur - 1UL) last map
+      let nextAddr = curAddr + (uint64 ins.Length)
+      if ins.IsExit () then
+        if nextAddr < lastAddr then map
+        else buildBackward hdl minAddr (curAddr - 1UL) lastAddr map
+      else
+        match updateGadgets curAddr nextAddr ins map with
+        | Some map ->
+          let minAddr' = curAddr - instrMaxLen hdl
+          buildBackward hdl minAddr' (curAddr - 1UL) curAddr map
+        | None -> buildBackward hdl minAddr (curAddr - 1UL) lastAddr map
+    | None -> buildBackward hdl minAddr (curAddr - 1UL) lastAddr map
 
-let private buildGadgetMapFromSeg hdl (tail: Tail) map (seg: Segment) =
-  let minaddr = seg.Address
-  let folder map idx =
-    let sGadget = Gadget.create idx tail
+let parseTail hdl addr bytes =
+  let lastAddr = (Array.length bytes |> uint64) + addr
+  let rec parseLoop acc addr =
+    if lastAddr > addr then
+      let ins = BinHandler.ParseInstr hdl addr
+      parseLoop (ins :: acc) (addr + uint64 ins.Length)
+    else List.rev acc
+  parseLoop [] addr
+
+let private buildGadgetMap hdl (tail: Tail) map (seg: Segment) =
+  let minAddr = seg.Address
+  let build map idx =
+    let sGadget = parseTail hdl idx tail.Pattern |> Gadget.create idx
     Map.add idx sGadget map
-    |> addBackward hdl minaddr (idx - 1UL) idx
+    |> buildBackward hdl (minAddr - instrMaxLen hdl) (idx - 1UL) idx
   BinHandler.ReadBytes (hdl, seg.Address, int (seg.Size))
-  |> ByteArray.findIdxs minaddr tail.Pattern
-  |> List.fold folder map
+  |> ByteArray.findIdxs minAddr tail.Pattern
+  |> List.fold build map
 
 let findGadgets hdl =
-  let executableSegs = getExecutableSegs hdl
+  let segs = getExecutableSegs hdl
   let buildGadgetMapPerTail acc tail =
-    executableSegs |> Seq.fold (buildGadgetMapFromSeg hdl tail) acc
+    Seq.fold (buildGadgetMap hdl tail) acc segs
   getTailPatterns hdl
   |> List.fold buildGadgetMapPerTail GadgetMap.empty

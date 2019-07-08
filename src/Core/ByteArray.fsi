@@ -34,8 +34,8 @@ val ofHexString : string -> byte []
 /// Extract a C-string (string that ends with a NULL char) from a byte array.
 val extractCString : byte [] -> int -> string
 
-/// Find and return the offsets of all the matching byte positions. The search
-/// starts from the offset.
+/// Find and return the offsets of all the matching byte positions. The final
+/// byte positions are adjusted by the given offset.
 val findIdxs : offset: uint64 -> pattern: byte [] -> buf: byte [] -> uint64 list
 
 /// Find a matching byte position. If there is no match, this function will
