@@ -79,7 +79,7 @@ module IntervalSet =
       match Op.ViewL v with
       | Nil -> []
       | Cons (x: IntervalSetElem, xs) -> x.Val :: matches xs
-    Op.TakeUntil (fun (elt: InterMonoid<Addr>) -> Key ih < elt.GetMin ()) s
+    Op.TakeUntil (fun (elt: InterMonoid<Addr>) -> Key ih <= elt.GetMin ()) s
     |> matches
 
   /// Find and return the first matching interval from the given range.

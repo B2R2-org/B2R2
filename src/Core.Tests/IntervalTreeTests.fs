@@ -85,6 +85,15 @@ type TestClass () =
     Assert.AreEqual (Some range2, IntervalSet.tryFindByAddr 0x99UL set)
 
   [<TestMethod>]
+  member __.``IntervalSet Test Overlaps 2`` () =
+    let range1 = AddrRange (0x100UL, 0x200UL)
+    let range2 = AddrRange (0x300UL, 0x400UL)
+    let set = IntervalSet.add range1 IntervalSet.empty
+    let set = IntervalSet.add range2 set
+    let range = AddrRange (0x250UL, 0x300UL)
+    Assert.AreEqual (0, IntervalSet.findAll range set |> List.length)
+
+  [<TestMethod>]
   member __.``IntervalMap Test tryFindByMin`` () =
     let range1 = AddrRange (0x100UL, 0x200UL)
     let map = IntervalMap.add range1 1 IntervalMap.empty
