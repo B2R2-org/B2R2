@@ -160,23 +160,13 @@ type PEFileInfo (bytes, path, ?rawpdb) =
     | Some sec -> sec.Address
 
   override __.IsValidAddr addr =
-    let rva = int (addr - pe.PEHeaders.PEHeader.ImageBase)
-    match pe.PEHeaders.GetContainingSectionIndex rva with
-    | -1 -> false
-    | _ -> true
+    IntervalSet.containsAddr addr pe.InvalidAddrRanges |> not
 
   override __.IsValidRange range =
     IntervalSet.findAll range pe.InvalidAddrRanges |> List.isEmpty
 
   override __.IsInFileAddr addr =
-    let baseAddr = pe.PEHeaders.PEHeader.ImageBase
-    let rva = int (addr - baseAddr)
-    match pe.PEHeaders.GetContainingSectionIndex rva with
-    | -1 -> false
-    | idx ->
-      let sec = pe.PEHeaders.SectionHeaders.[idx]
-      let startAddr = baseAddr + uint64 sec.VirtualAddress
-      startAddr <= addr && ((startAddr + uint64 sec.SizeOfRawData) > addr)
+    IntervalSet.containsAddr addr pe.NotInFileRanges |> not
 
   override __.IsInFileRange range =
     IntervalSet.findAll range pe.NotInFileRanges |> List.isEmpty

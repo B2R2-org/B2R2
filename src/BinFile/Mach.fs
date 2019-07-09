@@ -119,17 +119,13 @@ type MachFileInfo (bytes, path, isa) =
     (Map.find "__text" mach.Sections.SecByName).SecAddr
 
   override __.IsValidAddr addr =
-    match ARMap.tryFindByAddr addr mach.SegmentMap with
-    | Some _ -> true
-    | None -> false
+    IntervalSet.containsAddr addr mach.InvalidAddrRanges |> not
 
   override __.IsValidRange range =
     IntervalSet.findAll range mach.InvalidAddrRanges |> List.isEmpty
 
   override __.IsInFileAddr addr =
-    match ARMap.tryFindByAddr addr mach.Sections.SecByAddr with
-    | Some _ -> true
-    | None -> false
+    IntervalSet.containsAddr addr mach.NotInFileRanges |> not
 
   override __.IsInFileRange range =
     IntervalSet.findAll range mach.NotInFileRanges |> List.isEmpty

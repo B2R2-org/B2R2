@@ -146,13 +146,13 @@ type ELFFileInfo (bytes, path) =
     |> Seq.choose translate
 
   override __.IsValidAddr addr =
-    isValid addr elf.LoadableSegments
+    IntervalSet.containsAddr addr elf.InvalidAddrRanges |> not
 
   override __.IsValidRange range =
     IntervalSet.findAll range elf.InvalidAddrRanges |> List.isEmpty
 
   override __.IsInFileAddr addr =
-    isInFile addr elf.LoadableSegments
+    IntervalSet.containsAddr addr elf.NotInFileRanges |> not
 
   override __.IsInFileRange range =
     IntervalSet.findAll range elf.NotInFileRanges |> List.isEmpty

@@ -147,21 +147,9 @@ let elfSectionToSection (sec: ELFSection) =
     Size = sec.SecSize
     Name = sec.SecName }
 
-let inline private inFile seg addr =
-  let vAddr = seg.PHAddr
-  addr >= vAddr && addr < vAddr + seg.PHFileSize
-
 let inline private inMem seg addr =
   let vAddr = seg.PHAddr
   addr >= vAddr && addr < vAddr + seg.PHMemSize
-
-let rec isValid addr = function
-  | seg :: tl -> if inMem seg addr then true else isValid addr tl
-  | [] -> false
-
-let rec isInFile addr = function
-  | seg :: tl -> if inFile seg addr then true else isInFile addr tl
-  | [] -> false
 
 let rec translateAddr addr = function
   | seg :: tl ->
