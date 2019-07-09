@@ -108,7 +108,7 @@ let private buildGadgetMap hdl (tail: Tail) map (seg: Segment) =
   let build map idx =
     let sGadget = parseTail hdl idx tail.Pattern |> Gadget.create idx
     Map.add idx sGadget map
-    |> buildBackward hdl (minAddr - instrMaxLen hdl) (idx - 1UL) idx
+    |> buildBackward hdl (min 0UL (minAddr - instrMaxLen hdl)) (idx - 1UL) idx
   BinHandler.ReadBytes (hdl, seg.Address, int (seg.Size))
   |> ByteArray.findIdxs minAddr tail.Pattern
   |> List.fold build map
