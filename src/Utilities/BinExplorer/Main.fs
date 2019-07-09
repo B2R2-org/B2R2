@@ -63,7 +63,7 @@ type BinExplorerOpts (isa) =
   static member OptPort () =
     let cb (opts: #CmdOpts) (arg: string []) =
       (BinExplorerOpts.ToThis opts).Port <- int arg.[0]; opts
-    CmdOpts.New ( descr = "Specify host port <number>",
+    CmdOpts.New ( descr = "Specify host port <number> (default: 8282)",
                   callback = cb, short = "-p", long = "--port" )
 
   static member OptLogFile () =
@@ -90,7 +90,7 @@ type BinExplorerOpts (isa) =
     let cb (opts: #CmdOpts) (arg : string []) =
       (BinExplorerOpts.ToThis opts).JsonDumpDir <- arg.[0]; opts
     CmdOpts.New (
-      descr = "Directory name to dump CFG json (do not dump if empty)",
+      descr = "Directory name to dump CFG json (no dump if empty)",
       extra = 1, callback = cb, short = "-j", long = "--jsondir")
 
 let spec =
@@ -113,6 +113,10 @@ let spec =
     BinExplorerOpts.OptJsonDumpDir ()
     CmdOpts.OptVerbose ()
     CmdOpts.OptHelp ()
+
+    CmdOpts.New ( descr="\n[Batch Mode]\n", dummy=true )
+    CmdOpts.New ( descr="Run in batch mode (w/o interative shell).",
+                  long = "--batch" )
   ]
 
 let buildGraph verbose handle =
@@ -157,17 +161,14 @@ let interactiveMain files (opts: BinExplorerOpts) =
     CLI.start opts.EnableReadLine arbiter
 
 let showBatchUsage () =
-  eprintfn "[file(s) ...] --batch <cmd> [args ...]"
+  eprintfn "dotnet run -- [file(s) ...] --batch <cmd> [args ...]"
   eprintfn ""
-  eprintfn "[Available Commands]"
+  eprintfn "[Special Commands]"
   eprintfn ""
   eprintfn "* visualize: visualize the given CFG, and return assigned coords."
   eprintfn ""
   eprintfn "    visualize <input json> <output json>"
   eprintfn ""
-  eprintfn "* null: run basic analyses on the files and exit (for testing)."
-  eprintfn ""
-  eprintfn "    null"
   exit 1
 
 let visualizeGraph inputFile outputFile =
@@ -178,34 +179,27 @@ let toFileArray path =
   elif System.IO.File.Exists path then [| path |]
   else [||]
 
-let nullrun = function
-  | [] -> showBatchUsage ()
-  | paths ->
-    let files = paths |> List.map toFileArray
-    let numFiles = List.fold (fun cnt arr -> Array.length arr + cnt) 0 files
-    files
-    |> List.iteri (fun idx1 arr ->
-         Array.iteri (fun idx2 f ->
-           let idx = 1 + idx1 + idx2
-           printfn "Analyzing %s ... (%d/%d)" f idx numFiles
-           initBinHdl ISA.DefaultISA f |> buildGraph false |> ignore) arr)
-
-let batchRun files cmd args =
+let batchRun paths cmd args =
   let cmds = CmdSpec.speclist |> CmdMap.build
+  let files = paths |> List.map toFileArray
+  let numFiles = List.fold (fun cnt arr -> Array.length arr + cnt) 0 files
   files
-  |> List.iter (fun file ->
-       let ess = initBinHdl ISA.DefaultISA file |> buildGraph false
-       Cmd.handle cmds ess cmd args |> Array.iter System.Console.WriteLine)
+  |> List.iteri (fun idx1 arr ->
+       Array.iteri (fun idx2 f ->
+         let idx = 1 + idx1 + idx2
+         printfn "Running %s ... (%d/%d)" f idx numFiles
+         let ess = initBinHdl ISA.DefaultISA f |> buildGraph false
+         Cmd.handle cmds ess cmd args
+         |> Array.iter System.Console.WriteLine) arr)
 
-let batchMain files args =
+let batchMain paths args =
   match args with
   | "visualize" :: infile :: outfile :: _ -> visualizeGraph infile outfile; 0
-  | "null" :: _ -> nullrun files; 0
-  | cmd :: args -> batchRun files cmd args; 0
+  | cmd :: args -> batchRun paths cmd args; 0
   | _ -> showBatchUsage ()
 
-let convertArgsToLists (files, args) =
-  (Array.toList files), (Array.tail args |> Array.toList)
+let convertArgsToLists (paths, args) =
+  (Array.toList paths), (Array.tail args |> Array.toList)
 
 [<EntryPoint>]
 let main args =

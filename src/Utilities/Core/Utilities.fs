@@ -61,7 +61,8 @@ type CmdOpts () =
     let usageGetter () =
       showLogo ()
       let tail = if String.IsNullOrEmpty usageTail then "" else " " + usageTail
-      String.Format ("[Usage]{0}{0}%p %o{1}", Environment.NewLine, tail)
+      String.Format ("[Usage]{0}{0}dotnet run -- %o{1}",
+                     Environment.NewLine, tail)
     try
       optParse spec usageGetter prog argv defaultOpts
     with
