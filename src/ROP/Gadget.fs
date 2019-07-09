@@ -2,6 +2,7 @@
   B2R2 - the Next-Generation Reversing Platform
 
   Author: HyungSeok Han <hyungseok.han@kaist.ac.kr>
+          Sang Kil Cha <sangkilc@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -54,18 +55,23 @@ module Gadget =
       NextOff = offset }
 
   let toString hdl (gadget: Gadget) =
-    let s = sprintf "[*] Offset = %x\n" gadget.Offset
+    let sb = Text.StringBuilder ()
+    let sb = sb.Append (sprintf "[*] Offset = %x\n" gadget.Offset)
     gadget.Instrs
-    |> List.fold (fun acc i ->
-                   let disasm = BinHandler.DisasmInstr hdl true false i
-                   acc + disasm + Environment.NewLine) s
+    |> List.fold (fun (sb: Text.StringBuilder) i ->
+         let disasm = BinHandler.DisasmInstr hdl true false i
+         sb.Append(disasm).Append(Environment.NewLine)) sb
+    |> fun sb -> sb.ToString ()
 
 module GadgetMap =
   let empty = Map.empty
 
   let toString hdl (gadgets: GadgetMap) =
-    Map.fold (fun acc _ gadget ->
-               acc + Gadget.toString hdl gadget + "\n") "" gadgets
+    let sb = Text.StringBuilder ()
+    gadgets
+    |> Map.fold (fun (sb: Text.StringBuilder) _ gadget ->
+         sb.Append(Gadget.toString hdl gadget).Append(Environment.NewLine)) sb
+    |> fun sb -> sb.ToString ()
 
 type GadgetArr = Gadget array
 
