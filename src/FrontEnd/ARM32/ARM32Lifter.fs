@@ -3086,15 +3086,15 @@ let vpush insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
-let parseOprOfVAND insInfo ctxt = 
+let parseOprOfVAND insInfo ctxt =
   match insInfo.Operands with
-  | ThreeOperands 
+  | ThreeOperands
       (OprSIMD (SFReg (Vector r1)), OprSIMD (SFReg (Vector r2)),
-        OprSIMD (SFReg (Vector r3))) -> 
+        OprSIMD (SFReg (Vector r3))) ->
             getRegVar ctxt r1, getRegVar ctxt r2, getRegVar ctxt r3
-  | _ -> raise InvalidOperandException 
- 
-let vand insInfo ctxt = 
+  | _ -> raise InvalidOperandException
+
+let vand insInfo ctxt =
   let builder = new StmtBuilder (8)
   let dst, src1, src2 = parseOprOfVAND insInfo ctxt
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
@@ -3246,10 +3246,10 @@ let translate insInfo ctxt =
   | Op.VMRS -> vmrs insInfo ctxt
   | Op.VST1 | Op.VST2 | Op.VST3 | Op.VST4
   | Op.VLD1 | Op.VLD2 | Op.VLD3 | Op.VLD4
-  | Op.VCVT | Op.VCVTR | Op.VMLS | Op.VADD | Op.VMUL | Op.VDIV
+  | Op.VCVT | Op.VCVTR | Op.VMLS | Op.VADD | Op.VSUB | Op.VMUL | Op.VDIV
   | Op.VSHL | Op.VSHR | Op.VRSHR | Op.VRSHRN | Op.VDUP | Op.VTBL
-  | Op.VPADD | Op.VMULL | Op.VMLAL
-  | Op.VMOVN | Op.VMOV
+  | Op.VPADD | Op.VMULL | Op.VMLAL | Op.VCLZ | Op.VNEG
+  | Op.VMOVN | Op.VMOV | Op.VMAX | Op.VMIN | Op.VABS
   | Op.VCMP | Op.VCMPE | Op.VSTM | Op.VSTMDB | Op.VSTMIA ->
     sideEffects insInfo UnsupportedExtension
   | Op.DMB | Op.DSB | Op.ISB | Op.PLD -> nop insInfo
