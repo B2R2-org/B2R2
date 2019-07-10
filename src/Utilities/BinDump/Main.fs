@@ -249,7 +249,8 @@ let inline parseUntil hdl sAddr eAddr =
   loop sAddr []
 
 let pickNext hdl eAddr untilFn bbFn sAddr = function
-  | Ok (_, nextAddr) | Error (_, nextAddr) when nextAddr > eAddr ->
+  | Ok (_, nextAddr)
+  | Error (_, nextAddr) when nextAddr >= eAddr ->
     untilFn sAddr |> ignore; None
   | Ok (res, nextAddr) -> bbFn res; Some nextAddr
   | Error (res, nextAddr) ->
@@ -367,8 +368,9 @@ let dump _ (opts: BinDumpOpts) =
   let showSymbs = opts.ShowSymbols
   let actor = opts.DoOptimization |> getActor action showAddr showSymbs handle
   if secRanges.IsEmpty then ()
-  else List.iter (fun sR -> actor (AddrRange.GetMin sR) (AddrRange.GetMax sR))
-        secRanges
+  else
+    secRanges
+    |> List.iter (fun sR -> actor (AddrRange.GetMin sR) (AddrRange.GetMax sR))
 
 [<EntryPoint>]
 let main args =
