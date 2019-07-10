@@ -601,9 +601,8 @@ let getRegK b =
   if pickBit b 22u = 0b0u then getCPSR (mask |> byte) |> OprSpecReg
   else getSPSR (mask |> byte) |> OprSpecReg
 let getRegL b = getRegister (extract b 15u 12u + 1u |> byte) |> OprReg
-let getRegM b = OprReg (getRegisterW R.SP (pickBit b 21u <> 0b0u))
-let getRegN b = OprReg (getRegisterW (getReg b 19u 16u)
-                                       (pickBit b 21u <> 0b0u))
+let getRegM b = OprReg R.SP // getRegisterW
+let getRegN b = OprReg (getReg b 19u 16u) // getRegisterW
 let getRegO b = concat (pickBit b 7u) (extract b 2u 0u) 3 |> byte
                 |> getRegister |> OprReg
 let getRegP b = getReg b 6u 3u |> OprReg
@@ -633,8 +632,7 @@ let getRegY b =
 let getRegZ b =
   let regSize = if pickBit b 6u = 0u then 64 else 128
   getVReg (pickBit b 5u) (extract b 3u 0u) regSize |> sVReg
-let getRegAA b = OprReg (getRegisterW (getReg b 19u 16u)
-                                        (pickBit b 21u <> 0b0u))
+let getRegAA b = OprReg (getReg b 19u 16u) // getRegisterW
 let getRegAB b =
   let regSize = if pickBit b 21u = 0u then 64 else 128
   getVReg (pickBit b 7u) (extract b 19u 16u) regSize |> sVReg
@@ -739,19 +737,14 @@ let getBankedRegB (_, b2) =
 let getBankedRegC (b1, b2) =
   let sysM = concat (pickBit b2 4u) (extract b1 3u 0u) 4
   getBankedRegs (pickBit b1 4u) sysM |> OprReg
-let getRegisterWA b =
-  getRegisterW (getRegister (extract b 19u 16u |> byte)) (pickBit b 21u <> 0b0u)
-  |> OprReg
-let getRegisterWB (b1, _) =
-  getRegisterW (getRegister (extract b1 3u 0u |> byte)) (pickBit b1 5u <> 0b0u)
-  |> OprReg
-let getRegisterWC b =
-  OprReg (getRegisterW (getRegister (extract b 10u 8u |> byte)) true)
-let getRegisterWD b =
+let getRegisterWA b = getRegister (extract b 19u 16u |> byte) |> OprReg // getRegisterW
+let getRegisterWB (b1, _) = getRegister (extract b1 3u 0u |> byte) |> OprReg // getRegisterW
+let getRegisterWC b = OprReg (getRegister (extract b 10u 8u |> byte)) // getRegisterW
+let getRegisterWD b = // getRegisterW
   let rn = getRegister (extract b 10u 8u |> byte)
   let rl = extract b 7u 0u |> getRegList
-  if List.exists (fun e -> e = rn) rl then OprReg (getRegisterW rn false)
-  else OprReg (getRegisterW rn true)
+  if List.exists (fun e -> e = rn) rl then OprReg rn
+  else OprReg rn
 let getCRegA b = extract b 15u 12u |> byte |> getCoprocCRegister |> OprReg
 let getCRegB b = extract b 3u 0u |> byte |> getCoprocCRegister |> OprReg
 let getCRegC b = extract b 19u 16u |> byte |> getCoprocCRegister |> OprReg
@@ -2440,74 +2433,74 @@ let getRxIa opcode i = getRegX, getImmA opcode i
 /// Multiply and Accumulate, page F4.2.2 in ARMv8-A ARM DDI 0487A.k
 let parseMulNMulAcc bin =
   match extract bin 23u 20u with
-  | 0b0000u ->
-    Op.MUL, parseThreeOprs bin chkUnpreA (getRegC, getRegA, getRegB)
-  | 0b0001u ->
-    Op.MULS, parseThreeOprs bin chkUnpreA (getRegC, getRegA, getRegB)
-  | 0b0010u ->
-    Op.MLA, parseFourOprs bin chkUnpreB (getRegC, getRegA, getRegB, getRegD)
-  | 0b0011u ->
-    Op.MLAS, parseFourOprs bin chkUnpreB (getRegC, getRegA, getRegB, getRegD)
-  | 0b0100u ->
-    Op.UMAAL, parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
+  | 0b0000u -> Op.MUL, None,
+               parseThreeOprs bin chkUnpreA (getRegC, getRegA, getRegB)
+  | 0b0001u -> Op.MULS, None,
+               parseThreeOprs bin chkUnpreA (getRegC, getRegA, getRegB)
+  | 0b0010u -> Op.MLA, None,
+               parseFourOprs bin chkUnpreB (getRegC, getRegA, getRegB, getRegD)
+  | 0b0011u -> Op.MLAS, None,
+               parseFourOprs bin chkUnpreB (getRegC, getRegA, getRegB, getRegD)
+  | 0b0100u -> Op.UMAAL, None,
+               parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
   | 0b0101u -> raise UndefinedException
-  | 0b0110u ->
-    Op.MLS, parseFourOprs bin chkUnpreB (getRegC, getRegA, getRegB, getRegD)
+  | 0b0110u -> Op.MLS, None,
+               parseFourOprs bin chkUnpreB (getRegC, getRegA, getRegB, getRegD)
   | 0b0111u -> raise UndefinedException
-  | 0b1000u ->
-    Op.UMULL, parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
-  | 0b1001u ->
-    Op.UMULLS, parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
-  | 0b1010u ->
-    Op.UMLAL, parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
-  | 0b1011u ->
-    Op.UMLALS, parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
-  | 0b1100u ->
-    Op.SMULL, parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
-  | 0b1101u ->
-    Op.SMULLS, parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
-  | 0b1110u ->
-    Op.SMLAL, parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
-  | 0b1111u ->
-    Op.SMLALS, parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
+  | 0b1000u -> Op.UMULL, None,
+               parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
+  | 0b1001u -> Op.UMULLS, None,
+               parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
+  | 0b1010u -> Op.UMLAL, None,
+               parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
+  | 0b1011u -> Op.UMLALS, None,
+               parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
+  | 0b1100u -> Op.SMULL, None,
+               parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
+  | 0b1101u -> Op.SMULLS, None,
+               parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
+  | 0b1110u -> Op.SMLAL, None,
+               parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
+  | 0b1111u -> Op.SMLALS, None,
+               parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
   | _ -> failwith "Wrong Multiply & mul-accumulate encoding."
 
 /// Halfword multiply and multi..., page A5-203 in ARMv7-A , DDI0406C.b
 /// Halfword Multiply and Accumulate on page F4-2510  in ARMv8-A ARM DDI 0487A.k
 let parseHalfMulNMulAcc bin =
   match concat (extract bin 22u 21u) (extract bin 6u 5u) 2 with
-  | 0b0000u ->
-    Op.SMLABB, parseFourOprs bin chkUnpreB (getRegC, getRegA, getRegB, getRegD)
-  | 0b0001u ->
-    Op.SMLATB, parseFourOprs bin chkUnpreB (getRegC, getRegA, getRegB, getRegD)
-  | 0b0010u ->
-    Op.SMLABT, parseFourOprs bin chkUnpreB (getRegC, getRegA, getRegB, getRegD)
-  | 0b0011u ->
-    Op.SMLATT, parseFourOprs bin chkUnpreB (getRegC, getRegA, getRegB, getRegD)
-  | 0b0100u ->
-    Op.SMLAWB, parseFourOprs bin chkUnpreB (getRegC, getRegA, getRegB, getRegD)
-  | 0b0110u ->
-    Op.SMLAWT, parseFourOprs bin chkUnpreB (getRegC, getRegA, getRegB, getRegD)
-  | 0b0101u ->
-    Op.SMULWB, parseThreeOprs bin dummyChk (getRegD, getRegA, getRegB)
-  | 0b0111u ->
-    Op.SMULWT, parseThreeOprs bin chkUnpreA (getRegC, getRegA, getRegB)
-  | 0b1000u ->
-    Op.SMLALBB, parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
-  | 0b1001u ->
-    Op.SMLALTB, parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
-  | 0b1010u ->
-    Op.SMLALBT, parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
-  | 0b1011u ->
-    Op.SMLALTT, parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
-  | 0b1100u ->
-    Op.SMULBB, parseThreeOprs bin chkUnpreA (getRegC, getRegA, getRegB)
-  | 0b1101u ->
-    Op.SMULTB, parseThreeOprs bin chkUnpreA (getRegC, getRegA, getRegB)
-  | 0b1110u ->
-    Op.SMULBT, parseThreeOprs bin chkUnpreA (getRegC, getRegA, getRegB)
-  | 0b1111u ->
-    Op.SMULTT, parseThreeOprs bin chkUnpreA (getRegC, getRegA, getRegB)
+  | 0b0000u -> Op.SMLABB, None,
+               parseFourOprs bin chkUnpreB (getRegC, getRegA, getRegB, getRegD)
+  | 0b0001u -> Op.SMLATB, None,
+               parseFourOprs bin chkUnpreB (getRegC, getRegA, getRegB, getRegD)
+  | 0b0010u -> Op.SMLABT, None,
+               parseFourOprs bin chkUnpreB (getRegC, getRegA, getRegB, getRegD)
+  | 0b0011u -> Op.SMLATT, None,
+               parseFourOprs bin chkUnpreB (getRegC, getRegA, getRegB, getRegD)
+  | 0b0100u -> Op.SMLAWB, None,
+               parseFourOprs bin chkUnpreB (getRegC, getRegA, getRegB, getRegD)
+  | 0b0110u -> Op.SMLAWT, None,
+               parseFourOprs bin chkUnpreB (getRegC, getRegA, getRegB, getRegD)
+  | 0b0101u -> Op.SMULWB, None,
+               parseThreeOprs bin dummyChk (getRegD, getRegA, getRegB)
+  | 0b0111u -> Op.SMULWT, None,
+               parseThreeOprs bin chkUnpreA (getRegC, getRegA, getRegB)
+  | 0b1000u -> Op.SMLALBB, None,
+               parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
+  | 0b1001u -> Op.SMLALTB, None,
+               parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
+  | 0b1010u -> Op.SMLALBT, None,
+               parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
+  | 0b1011u -> Op.SMLALTT, None,
+               parseFourOprs bin chkUnpreI (getRegD, getRegC, getRegA, getRegB)
+  | 0b1100u -> Op.SMULBB, None,
+               parseThreeOprs bin chkUnpreA (getRegC, getRegA, getRegB)
+  | 0b1101u -> Op.SMULTB, None,
+               parseThreeOprs bin chkUnpreA (getRegC, getRegA, getRegB)
+  | 0b1110u -> Op.SMULBT, None,
+               parseThreeOprs bin chkUnpreA (getRegC, getRegA, getRegB)
+  | 0b1111u -> Op.SMULTT, None,
+               parseThreeOprs bin chkUnpreA (getRegC, getRegA, getRegB)
   | _ -> failwith "Wrong Halfword multiply & mul-accumulate encoding."
 
 /// OprMemory hints, Adv SIMD instrs, and miscellaneous instrs, page A5-217

@@ -619,10 +619,10 @@ let parseGroup000v8 cond bin =
     | 0b10000u, _, _, _ when cond = Condition.UN && o5 = 0u ->
       parseUnCondMiscellaneous bin
     | _, 1u, b, 1u when b <> 0u -> parseExtraLoadStore bin
-    | b, 1u, 0u, 1u when b &&& 0b10000u = 0u -> parseMulNMulAcc bin
+//    | b, 1u, 0u, 1u when b &&& 0b10000u = 0u -> parseMulNMulAcc bin
     | b, 1u, 0u, 1u when b &&& 0b10000u = 0b10000u -> parseSynPrimitives bin
     | b, 0u, _, _ when b &&& 0b11001u = 0b10000u -> parseMiscelInstrs cond bin
-    | b, 1u, _, 0u when b &&& 0b11001u = 0b10000u -> parseHalfMulNMulAcc bin
+//    | b, 1u, _, 0u when b &&& 0b11001u = 0b10000u -> parseHalfMulNMulAcc bin
     | b, _, _, 0u when b &&& 0b11001u <> 0b10000u -> parseDataProcImmSReg bin
     | b, 0u, _, 1u when b &&& 0b11001u <> 0b10000u -> parseDataProcRegSReg bin
     | _ -> failwith "Wrong opcode in group000."
@@ -999,7 +999,7 @@ let parseV8A32ARM bin =
   let cond = extract bin 31u 28u |> byte |> parseCond
   let opcode, SIMDTyp, operands =
     match op with
-    | op when op &&& 0b1110u = 0b0000u -> parseGroup000v8 cond bin
+    //| op when op &&& 0b1110u = 0b0000u -> parseGroup000v8 cond bin
     | op when op &&& 0b1110u = 0b0010u -> parseGroup001v8 cond bin
     | op when op &&& 0b1110u = 0b0100u -> parseGroup010v8 cond bin
     | op when op &&& 0b1111u = 0b0110u -> parseGroup0110v8 cond bin
@@ -1009,4 +1009,6 @@ let parseV8A32ARM bin =
     | op when op &&& 0b1110u = 0b1100u -> parseGroup110v8 cond bin
     | op when op &&& 0b1110u = 0b1110u -> raise UnallocatedException
     | _ -> failwith "Wrong group specified."
-  opcode, Some cond, 0uy, None, SIMDTyp, operands, None
+  opcode, Some cond, 0uy, None, None, SIMDTyp, operands, None
+
+// vim: set tw=80 sts=2 sw=2:

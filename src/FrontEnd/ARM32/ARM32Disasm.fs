@@ -572,7 +572,23 @@ let inline printSIMDDataTypes ins (sb: StringBuilder) =
   | Some (TwoDT (dt1, dt2)) ->
     (sb.Append (SIMDTypToStr dt1)).Append (SIMDTypToStr dt2)
 
-let rec regToString = function
+let existRegList = function
+  | TwoOperands (_, OprRegList _) -> true
+  | _ -> false
+
+let isRFEorSRS = function
+  | Op.RFE | Op.RFEDA | Op.RFEDB | Op.RFEIA | Op.RFEIB
+  | Op.SRS | Op.SRSDA | Op.SRSDB | Op.SRSIA | Op.SRSIB -> true
+  | _ -> false
+
+let inline checkWBack ins isRegList reg =
+  match ins.WriteBack with
+  | Some true when existRegList ins.Operands && not isRegList -> reg + "!"
+  | Some true when isRFEorSRS ins.Opcode -> reg + "!"
+  | _ -> reg
+
+let regToString (ins: InsInfo) isRegList reg =
+  match reg with
   | R.R0 -> "r0"
   | R.R1 -> "r1"
   | R.R2 -> "r2"
@@ -744,8 +760,8 @@ let rec regToString = function
   | R.SPfiq -> "sp_fiq"
   | R.LRfiq -> "lr_fiq"
   | R.SPSRfiq -> "spsr_fiq"
-  | reg -> let struct (r, b) = ParseUtils.parseRegW reg
-           if b then regToString r + "!" else regToString r
+  | _ -> failwith "Invalid Register"
+  |> checkWBack ins isRegList
 
 let psrFlagToString = function
   | PSRc -> "_c"
@@ -768,38 +784,38 @@ let psrFlagToString = function
   | PSRg -> "_g"
   | PSRnzcvqg -> "_nzcvqg"
 
-let specRegToString reg pFlag (sb: StringBuilder) =
+let specRegToString ins reg pFlag (sb: StringBuilder) =
   match pFlag with
-  | None -> sb.Append (regToString reg) // FIXME: exist?
-  | Some f -> (sb.Append (regToString reg)).Append (psrFlagToString f)
+  | None -> sb.Append (regToString ins false reg) // FIXME: exist?
+  | Some f -> (sb.Append (regToString ins false reg)).Append (psrFlagToString f)
 
-let regListToString list =
-  let rL = list |> List.map regToString
+let regListToString ins list =
+  let rL = list |> List.map (regToString ins true)
                 |> List.reduce (fun s1 s2 -> s1 + ", " + s2)
   "{" + rL + "}"
 
-let simdToString s =
+let simdToString ins s =
   match s with
-  | Vector v -> regToString v
-  | Scalar (v, None) -> (regToString v) + "[]"
-  | Scalar (v, Some i) -> (regToString v) + "[" + (string i) + "]"
+  | Vector v -> regToString ins false v
+  | Scalar (v, None) -> (regToString ins false v) + "[]"
+  | Scalar (v, Some i) -> (regToString ins false v) + "[" + (string i) + "]"
 
-let simdOprToString simd (sb: StringBuilder) =
+let simdOprToString ins simd (sb: StringBuilder) =
   match simd with
-  | SFReg s -> sb.Append (simdToString s)
-  | OneReg s -> ((sb.Append ("{")).Append (simdToString s)).Append ("}")
+  | SFReg s -> sb.Append (simdToString ins s)
+  | OneReg s -> ((sb.Append ("{")).Append (simdToString ins s)).Append ("}")
   | TwoRegs (s1, s2) ->
-    let sb = ((sb.Append ("{")).Append (simdToString s1)).Append (", ")
-    (sb.Append (simdToString s2)).Append ("}")
+    let sb = ((sb.Append ("{")).Append (simdToString ins s1)).Append (", ")
+    (sb.Append (simdToString ins s2)).Append ("}")
   | ThreeRegs (s1, s2, s3) ->
-    let sb = ((sb.Append ("{")).Append (simdToString s1)).Append (", ")
-    let sb = (sb.Append (simdToString s2)).Append (", ")
-    (sb.Append (simdToString s3)).Append ("}")
+    let sb = ((sb.Append ("{")).Append (simdToString ins s1)).Append (", ")
+    let sb = (sb.Append (simdToString ins s2)).Append (", ")
+    (sb.Append (simdToString ins s3)).Append ("}")
   | FourRegs (s1, s2, s3, s4) ->
-    let sb = ((sb.Append ("{")).Append (simdToString s1)).Append (", ")
-    let sb = (sb.Append (simdToString s2)).Append (", ")
-    let sb = (sb.Append (simdToString s3)).Append (", ")
-    (sb.Append (simdToString s4)).Append ("}")
+    let sb = ((sb.Append ("{")).Append (simdToString ins s1)).Append (", ")
+    let sb = (sb.Append (simdToString ins s2)).Append (", ")
+    let sb = (sb.Append (simdToString ins s3)).Append (", ")
+    (sb.Append (simdToString ins s4)).Append ("}")
 
 let signToString = function
   | None -> ""
@@ -833,48 +849,55 @@ let shiftToString shift (sb: StringBuilder) =
   | (s, amt) -> (sb.Append (srTypeToString s)).Append (" ")
                 |> amountToString amt
 
-let regShiftToString shift reg (sb: StringBuilder) =
+let regShiftToString ins shift reg (sb: StringBuilder) =
   let sb = (sb.Append (srTypeToString shift)).Append (" ")
-  sb.Append (regToString reg)
+  sb.Append (regToString ins false reg)
 
 let delimPostIdx = function
   | PostIdxMode _ -> "], "
   | _ -> ", "
 
-let immOffsetToString addrMode offset (sb: StringBuilder) =
+let immOffsetToString ins addrMode offset (sb: StringBuilder) =
   match offset with
-  | reg, _, None | reg, _, Some 0L -> sb.Append (regToString reg)
+  | reg, _, None | reg, _, Some 0L -> sb.Append (regToString ins false reg)
   | reg, s, Some imm ->
-    (sb.Append (regToString reg)).Append (delimPostIdx addrMode)
+    (sb.Append (regToString ins false reg)).Append (delimPostIdx addrMode)
     |> immToString imm s
 
-let regOffsetToString addrMode offset (sb: StringBuilder) =
+let regOffsetToString ins addrMode offset (sb: StringBuilder) =
   match offset with
   | bReg, s, reg, None ->
-    let sb = (sb.Append (regToString bReg)).Append (delimPostIdx addrMode)
-    (sb.Append (signToString s)).Append (regToString reg)
+    let sb =
+      (sb.Append (regToString ins false bReg)).Append (delimPostIdx addrMode)
+    (sb.Append (signToString s)).Append (regToString ins false reg)
   | bReg, s, reg, Some shf ->
-    let sb = (sb.Append (regToString bReg)).Append (delimPostIdx addrMode)
-    ((sb.Append (signToString s)).Append (regToString reg)).Append (", ")
+    let sb =
+      (sb.Append (regToString ins false bReg)).Append (delimPostIdx addrMode)
+    ((sb.Append (signToString s)).Append
+      (regToString ins false reg)).Append (", ")
     |> shiftToString shf
 
-let alignOffsetToString offset (sb: StringBuilder) =
+let alignOffsetToString ins offset (sb: StringBuilder) =
   match offset with
   | bReg, Some align, None ->
-    ((sb.Append (regToString bReg)).Append (":")).Append (string align)
+    ((sb.Append (regToString ins false bReg)).Append (":")).Append
+      (string align)
   | bReg, Some align, Some reg ->
-    let sb = (sb.Append (regToString bReg)).Append (":")
-    ((sb.Append (string align)).Append ("], ")).Append (regToString reg)
+    let sb = (sb.Append (regToString ins false bReg)).Append (":")
+    ((sb.Append (string align)).Append ("], ")).Append
+      (regToString ins false reg)
   | bReg, None, Some reg ->
-    ((sb.Append (regToString bReg)).Append ("], ")).Append (regToString reg)
-  | bReg, None, None -> sb.Append (regToString bReg)
+    ((sb.Append (regToString ins false bReg)).Append ("], ")).Append
+      (regToString ins false reg)
+  | bReg, None, None -> sb.Append (regToString ins false bReg)
 
-let offsetToString addrMode offset sb =
+let offsetToString ins addrMode offset sb =
   match offset with
-  | ImmOffset (reg, s, imm) -> immOffsetToString addrMode (reg, s, imm) sb
+  | ImmOffset (reg, s, imm) -> immOffsetToString ins addrMode (reg, s, imm) sb
   | RegOffset (bReg, s, reg, shf) ->
-    regOffsetToString addrMode (bReg, s, reg, shf) sb
-  | AlignOffset (bReg, align, reg) -> alignOffsetToString (bReg, align, reg) sb
+    regOffsetToString ins addrMode (bReg, s, reg, shf) sb
+  | AlignOffset (bReg, align, reg) ->
+    alignOffsetToString ins (bReg, align, reg) sb
 
 let processAddrExn32 ins addr =
   match ins.Opcode with
@@ -894,9 +917,9 @@ let processAddrExn32 ins addr =
 let memHead ins addr addrMode (sb: StringBuilder) =
   match addrMode with
   | OffsetMode offset | PreIdxMode offset | PostIdxMode offset ->
-    offsetToString addrMode offset (sb.Append ("["))
+    offsetToString ins addrMode offset (sb.Append ("["))
   | UnIdxMode (reg, opt) ->
-    ((sb.Append ("[")).Append (regToString reg)).Append ("], {")
+    ((sb.Append ("[")).Append (regToString ins false reg)).Append ("], {")
     |> optionToString opt
   | LiteralMode lbl ->
     let sb = sb.Append ("0x")
@@ -943,14 +966,14 @@ let endToString = function
   | _ -> invalidArg "Endian" "Invalid endian is given."
 
 let oprToString i addr (sb: StringBuilder) = function
-  | OprReg reg -> sb.Append (regToString reg)
-  | OprSpecReg (reg, pFlag) -> specRegToString reg pFlag sb
-  | OprRegList regList -> sb.Append (regListToString regList)
-  | OprSIMD simd -> simdOprToString simd sb
+  | OprReg reg -> sb.Append (regToString i false reg)
+  | OprSpecReg (reg, pFlag) -> specRegToString i reg pFlag sb
+  | OprRegList regList -> sb.Append (regListToString i regList)
+  | OprSIMD simd -> simdOprToString i simd sb
   | OprImm imm -> immToString imm None sb
   | OprFPImm fp -> fpImmToString fp sb
   | OprShift s -> shiftToString s sb
-  | OprRegShift (s, r) -> regShiftToString s r sb
+  | OprRegShift (s, r) -> regShiftToString i s r sb
   | OprMemory addrMode -> memToString i addr addrMode sb
   | OprOption opt -> sb.Append (optToString opt)
   | OprIflag flag -> sb.Append (iFlagToString flag)

@@ -107,12 +107,13 @@ let getInstrLen reader offset = function
   | ArchOperationMode.ThumbMode -> getThumbLen reader offset |> uint64
   | ArchOperationMode.ARMMode -> 4UL
   | _ -> raise InvalidTargetArchModeException
-
+(*
 let parseRegW (reg: Register) =
   let intReg = int reg
   if intReg &&& 0x10000000 = 0x10000000 then
     struct (enum<Register> (intReg &&& 0xffffff), intReg &&& 0x1000000 <> 0x0)
   else raise InvalidRegWException
+*)
 
 let isUnconditional cond =
   match cond with

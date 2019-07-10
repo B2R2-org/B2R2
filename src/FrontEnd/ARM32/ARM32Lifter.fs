@@ -2292,8 +2292,7 @@ let pop insInfo ctxt =
 let parseOprOfLDM insInfo ctxt =
   match insInfo.Operands with
   | TwoOperands (OprReg reg, OprRegList regs) ->
-    let struct (rn, bool) = ParseUtils.parseRegW reg
-    getRegVar ctxt rn, getRegNum rn, bool, regsToUInt32 regs
+    getRegVar ctxt reg, getRegNum reg, regsToUInt32 regs
   | _ -> raise InvalidOperandException
 
 let getLDMStartAddr rn stackWidth = function
@@ -2306,7 +2305,8 @@ let getLDMStartAddr rn stackWidth = function
 let ldm opcode insInfo ctxt =
   let builder = new StmtBuilder (32)
   let t0 = tmpVar 32<rt>
-  let rn, numOfRn, wback, numOfReg = parseOprOfLDM insInfo ctxt
+  let rn, numOfRn, numOfReg = parseOprOfLDM insInfo ctxt
+  let wback = Option.get insInfo.WriteBack
   let stackWidth = 4 * bitCount numOfReg 16
   let addr = getLDMStartAddr rn stackWidth opcode
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
@@ -2592,8 +2592,7 @@ let strd insInfo ctxt =
 let parseOprOfSTM insInfo ctxt =
   match insInfo.Operands with
   | TwoOperands (OprReg reg, OprRegList regs) ->
-    let struct (rn, bool) = ParseUtils.parseRegW reg
-    getRegVar ctxt rn, bool, regsToUInt32 regs
+    getRegVar ctxt reg, regsToUInt32 regs
   | _ -> raise InvalidOperandException
 
 let getSTMStartAddr rn msize = function
@@ -2618,7 +2617,8 @@ let stmLoop ctxt regs wback rn addr (builder: StmtBuilder) =
 let stm opcode insInfo ctxt wbop =
   let builder = new StmtBuilder (32)
   let taddr = tmpVar 32<rt>
-  let rn, wback, regs = parseOprOfSTM insInfo ctxt
+  let rn, regs = parseOprOfSTM insInfo ctxt
+  let wback = Option.get insInfo.WriteBack
   let msize = BitVector.ofInt32 (4 * bitCount regs 16) 32<rt> |> num
   let addr = getSTMStartAddr rn msize opcode
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
