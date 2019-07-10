@@ -2162,24 +2162,6 @@ let tst insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
-let smull isSetFlags insInfo ctxt =
-  let builder = new StmtBuilder (16)
-  let rdLo, rdHi, rn, rm = transFourOprs insInfo ctxt
-  let result = tmpVar 64<rt>
-  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
-  startMark insInfo builder
-  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
-  builder <! (result := sExt 64<rt> rn .* sExt 64<rt> rm)
-  builder <! (rdHi := extractHigh 32<rt> result)
-  builder <! (rdLo := extractLow 32<rt> result)
-  if isSetFlags then
-    let cpsr = getRegVar ctxt R.CPSR
-    builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
-    builder <! (cpsr := result == num0 64<rt> |> setPSR ctxt R.CPSR PSR_Z)
-  else ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
-  endMark insInfo builder
-
 let smulhalf insInfo ctxt s1top s2top =
   let builder = new StmtBuilder (8)
   let rd, rn, rm = transThreeOprs insInfo ctxt
@@ -2193,6 +2175,44 @@ let smulhalf insInfo ctxt s1top s2top =
   if s2top then builder <! (t2 := extractHigh 16<rt> rm |> zExt 32<rt>)
   else builder <! (t2 := extractLow 16<rt> rm |> sExt 32<rt>)
   builder <! (rd := t1 .* t2)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+/// SMULL, SMLAL, etc.
+let smulandacc isSetFlags doAcc insInfo ctxt =
+  let builder = new StmtBuilder (16)
+  let rdLo, rdHi, rn, rm = transFourOprs insInfo ctxt
+  let tmpresult = tmpVar 64<rt>
+  let result = tmpVar 64<rt>
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  builder <! (tmpresult := sExt 64<rt> rn .* sExt 64<rt> rm)
+  if doAcc then builder <! (result := tmpresult .+ concat rdHi rdLo)
+  else builder <! (result := tmpresult)
+  builder <! (rdHi := extractHigh 32<rt> result)
+  builder <! (rdLo := extractLow 32<rt> result)
+  if isSetFlags then
+    let cpsr = getRegVar ctxt R.CPSR
+    builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
+    builder <! (cpsr := result == num0 64<rt> |> setPSR ctxt R.CPSR PSR_Z)
+  else ()
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let smulacchalf insInfo ctxt s1top s2top =
+  let builder = new StmtBuilder (8)
+  let rd, rn, rm, ra = transFourOprs insInfo ctxt
+  let t1 = tmpVar 32<rt>
+  let t2 = tmpVar 32<rt>
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  if s1top then builder <! (t1 := extractHigh 16<rt> rn |> zExt 32<rt>)
+  else builder <! (t1 := extractLow 16<rt> rn |> sExt 32<rt>)
+  if s2top then builder <! (t2 := extractHigh 16<rt> rm |> zExt 32<rt>)
+  else builder <! (t2 := extractLow 16<rt> rm |> sExt 32<rt>)
+  builder <! (rd := (t1 .* t2) .+ sExt 32<rt> ra)
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
@@ -3141,8 +3161,14 @@ let translate insInfo ctxt =
   | Op.SMULBT -> smulhalf insInfo ctxt false true
   | Op.SMULTB -> smulhalf insInfo ctxt true false
   | Op.SMULTT -> smulhalf insInfo ctxt true true
-  | Op.SMULL -> smull false insInfo ctxt
-  | Op.SMULLS -> smull true insInfo ctxt
+  | Op.SMULL -> smulandacc false false insInfo ctxt
+  | Op.SMULLS -> smulandacc true false insInfo ctxt
+  | Op.SMLAL -> smulandacc false true insInfo ctxt
+  | Op.SMLALS -> smulandacc true true insInfo ctxt
+  | Op.SMLABB -> smulacchalf insInfo ctxt false false
+  | Op.SMLABT -> smulacchalf insInfo ctxt false true
+  | Op.SMLATB -> smulacchalf insInfo ctxt true false
+  | Op.SMLATT -> smulacchalf insInfo ctxt true true
   | Op.B -> b insInfo ctxt
   | Op.BX -> bx insInfo ctxt
   | Op.IT | Op.ITT | Op.ITE | Op.ITTT | Op.ITET | Op.ITTE
