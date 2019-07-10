@@ -243,8 +243,10 @@ let parsePE execpath rawpdb binReader (peReader: PEReader) =
     ExportMap = exportDirTables
     WordSize = wordSize
     PDB = pdbInfo
-    InvalidAddrRanges = invRanges wordSize hdrs sechdrs (fun a s -> a + uint64 s.VirtualSize)
-    NotInFileRanges = invRanges wordSize hdrs sechdrs (fun a s -> a + uint64 s.SizeOfRawData)
+    InvalidAddrRanges =
+      invRanges wordSize hdrs sechdrs (fun a s -> a + uint64 s.VirtualSize)
+    NotInFileRanges =
+      invRanges wordSize hdrs sechdrs (fun a s -> a + uint64 s.SizeOfRawData)
     BinReader = binReader }
 
 let findSymFromPDB addr pdb =

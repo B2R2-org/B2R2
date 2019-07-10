@@ -567,9 +567,9 @@ type MachSection = {
 
 /// Section information.
 type SectionInfo = {
-  SecByAddr  : ARMap<MachSection>
-  SecByName  : Map<string, MachSection>
-  SecByNum   : MachSection []
+  SecByAddr: ARMap<MachSection>
+  SecByName: Map<string, MachSection>
+  SecByNum: MachSection []
 }
 
 /// Symbol type (N_TYPE).
@@ -652,20 +652,20 @@ type SymbolType =
 /// Mach-O symbol.
 type MachSymbol = {
   /// Symbol name.
-  SymName    : string
+  SymName: string
   /// Symbol type (N_TYPE field of n_type).
-  SymType    : SymbolType
+  SymType: SymbolType
   /// Is this an external symbol?
-  IsExternal : bool
+  IsExternal: bool
   /// The number of the section that this symbol can be found.
-  SecNum     : byte
+  SecNum: byte
   /// Providing additional information about the nature of this symbol for
   /// non-stab symbols.
-  SymDesc    : int16
+  SymDesc: int16
   /// External library version info.
-  VerInfo    : DyLibCmd option
+  VerInfo: DyLibCmd option
   /// Address of the symbol.
-  SymAddr    : Addr
+  SymAddr: Addr
 }
 
 /// Export info.

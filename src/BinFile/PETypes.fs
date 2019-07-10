@@ -42,7 +42,7 @@ type ImportDirectoryTable = {
   /// The RVA of the import address table. The contents of this table are
   /// identical to the contents of the import lookup table until the image is
   /// bound.
-  ImportAddressTableRVA : int
+  ImportAddressTableRVA: int
 }
 
 /// Import information.
@@ -195,10 +195,10 @@ type SymFlags =
 /// PE symbol. We separate B2R2.BinFile.Symbol from format-specific symbol type
 /// for future references.
 type PESymbol = {
-  Flags   : SymFlags
-  Address : Addr
-  Segment : uint16
-  Name    : string
+  Flags: SymFlags
+  Address: Addr
+  Segment: uint16
+  Name: string
 }
 
 /// PDB information.

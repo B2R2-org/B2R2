@@ -50,23 +50,23 @@ type OSABI =
 
 /// ELF header.
 type ELFHeader = {
-  Class          : WordSize
-  Endian         : Endian
-  Version        : uint32
-  OSABI          : OSABI
-  OSABIVersion   : uint32
-  ELFFileType    : ELFFileType
-  MachineType    : Architecture
-  EntryPoint     : uint64
-  PHdrTblOffset  : uint64
-  SHdrTblOffset  : uint64
-  ELFFlags       : uint32
-  HeaderSize     : uint16
-  PHdrEntrySize  : uint16
-  PHdrNum        : uint16
-  SHdrEntrySize  : uint16
-  SHdrNum        : uint16
-  SHdrStrIdx     : uint16
+  Class: WordSize
+  Endian: Endian
+  Version: uint32
+  OSABI: OSABI
+  OSABIVersion: uint32
+  ELFFileType: ELFFileType
+  MachineType: Architecture
+  EntryPoint: uint64
+  PHdrTblOffset: uint64
+  SHdrTblOffset: uint64
+  ELFFlags: uint32
+  HeaderSize: uint16
+  PHdrEntrySize: uint16
+  PHdrNum: uint16
+  SHdrEntrySize: uint16
+  SHdrNum: uint16
+  SHdrStrIdx: uint16
 }
 
 /// This member categorizes the section's contents and semantics.
@@ -403,30 +403,30 @@ type VersionType =
 /// Symbol version information.
 type SymVerInfo = {
   /// Version type.
-  VerType : VersionType
+  VerType: VersionType
   /// Version string.
-  VerName : string
+  VerName: string
 }
 
 type ELFSymbol = {
   /// Address of the symbol.
-  Addr           : Addr
+  Addr: Addr
   /// Symbol's name.
-  SymName        : string
+  SymName: string
   /// Size of the symbol (e.g., size of the data object).
-  Size           : uint64
+  Size: uint64
   /// Symbol binding.
-  Bind           : SymbolBind
+  Bind: SymbolBind
   /// Symbol type.
-  SymType        : SymbolType
+  SymType: SymbolType
   /// Symbol visibility.
-  Vis            : SymbolVisibility
+  Vis: SymbolVisibility
   /// The index of the relevant section with regard to this symbol.
-  SecHeaderIndex : SectionHeaderIdx
+  SecHeaderIndex: SectionHeaderIdx
   /// Parent section of this section.
-  ParentSection  : ELFSection option
+  ParentSection: ELFSection option
   /// Version information.
-  VerInfo        : SymVerInfo option
+  VerInfo: SymVerInfo option
 }
 
 /// Relocation type for x86.
@@ -774,26 +774,26 @@ type ProgramHeaderType =
 /// the ELF header's members.
 type ProgramHeader = {
   /// Program header type.
-  PHType       : ProgramHeaderType
+  PHType: ProgramHeaderType
   /// Flags relevant to the segment.
-  PHFlags      : Permission
+  PHFlags: Permission
   /// An offset from the beginning of the file at which the first byte of the
   /// segment resides in memory.
-  PHOffset     : uint64
+  PHOffset: uint64
   /// The virtual address at which the first byte of the segment resides in
   /// memory.
-  PHAddr       : Addr
+  PHAddr: Addr
   /// The physical address of the segment. This is reserved for systems using
   /// physical addresses.
-  PHPhyAddr    : Addr
+  PHPhyAddr: Addr
   /// The number of bytes in the file image of the segment.
-  PHFileSize   : uint64
+  PHFileSize: uint64
   /// The number of bytes in the memory image of the segment. This can be
   /// greater than PHFileSize as some sections (w/ SHTNoBits type) occupy
   /// nothing in the binary file, but can be mapped in the segment at runtime.
-  PHMemSize    : uint64
+  PHMemSize: uint64
   /// The value to which the segments are aligned in memory and in the file.
-  PHAlignment  : uint64
+  PHAlignment: uint64
 }
 
 /// Main ELF format representation.

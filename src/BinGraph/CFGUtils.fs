@@ -322,7 +322,7 @@ let private buildCFGs hdl (builder: CFGBuilder) (funcs: Funcs) =
   let entries = funcs.Keys |> Seq.toList
   let funcset = Set.ofList entries
   let builder = buildDisasmCFGs hdl builder funcs funcset disasmBBLs entries
-  let builder = buildIRCFGs hdl builder funcs funcset irBBLs entries
+  let _builder = buildIRCFGs hdl builder funcs funcset irBBLs entries
   funcs
 
 /// This is our primary API
