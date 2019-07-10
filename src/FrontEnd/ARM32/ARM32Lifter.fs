@@ -2863,15 +2863,8 @@ let parseOprOfVLDR insInfo ctxt =
   match insInfo.Operands with
   | TwoOperands (OprSIMD (SFReg (Vector d)),
                  OprMemory (OffsetMode (ImmOffset (rn , s, imm)))) ->
-    let baseAddr =
-      if rn = R.PC then
-        let addr = bvOfBaseAddr insInfo.Address
-        let pc = align addr (num <| BitVector.ofInt32 4 32<rt>)
-        if insInfo.Mode = ArchOperationMode.ARMMode then
-          pc .+ (num <| BitVector.ofInt32 8 32<rt>)
-        else
-          pc .+ (num <| BitVector.ofInt32 4 32<rt>)
-      else getRegVar ctxt rn
+    let pc = getRegVar ctxt rn |> convertPCOpr insInfo ctxt
+    let baseAddr = align pc (num <| BitVector.ofInt32 4 32<rt>)
     getRegVar ctxt d, getOffAddrWithImm s baseAddr imm, checkSingleReg d
   | _ -> raise InvalidOperandException
 
