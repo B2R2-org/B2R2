@@ -3060,12 +3060,11 @@ let vpush insInfo ctxt =
   let t0 = tmpVar 32<rt>
   let sp = getRegVar ctxt R.SP
   let d, imm, isSReg = parsePUSHPOPsubValue insInfo
-  let addr = sp .- (num <| BitVector.ofInt32 (imm <<< 2) 32<rt>)
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
-  builder <! (t0 := addr)
-  builder <! (sp := addr .- (num <| BitVector.ofInt32 (imm <<< 2) 32<rt>))
+  builder <! (t0 := sp .- (num <| BitVector.ofInt32 (imm <<< 2) 32<rt>))
+  builder <! (sp := t0)
   vpushLoop ctxt d imm isSReg t0 builder
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
