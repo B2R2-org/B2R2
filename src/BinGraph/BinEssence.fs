@@ -45,7 +45,7 @@ type BinEssence = {
 with
   static member Init _verbose hdl =
     (* Currently no other choice *)
-    let funcs = CFGUtils.construct hdl (CFGBuilder ()) None
+    let funcs = CFGUtils.construct hdl (CFGBuilder ()) Default
     let funcs = CFGUtils.analCalls funcs
     let callGraph = SimpleDiGraph ()
     CFGUtils.buildCallGraph hdl funcs callGraph
