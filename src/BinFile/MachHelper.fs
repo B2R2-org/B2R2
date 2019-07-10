@@ -39,7 +39,7 @@ let getMainOffset cmds =
   | _ -> 0UL
 
 let getTextSegOffset segs =
-  let isTextSegment (s: SegCmd) = s.SegName = "__TEXT"
+  let isTextSegment s = s.SegCmdName = "__TEXT"
   match segs |> List.tryFind isTextSegment with
   | Some s -> s.VMAddr
   | _ -> raise FileFormatMismatchException
@@ -56,7 +56,7 @@ let computeEntryPoint secs segs cmds =
 
 let invRanges wordSize segs getNextStartAddr =
   segs
-  |> List.filter (fun seg -> seg.VMAddr > 0UL)
+  |> List.filter (fun seg -> seg.SegCmdName <> "__PAGEZERO")
   |> List.sortBy (fun seg -> seg.VMAddr)
   |> List.fold (fun (set, saddr) seg ->
        let n = getNextStartAddr seg

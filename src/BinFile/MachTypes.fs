@@ -328,7 +328,7 @@ and SegCmd = {
   /// size is in the size of the command.
   SecOff: int
   /// Segment name.
-  SegName: string
+  SegCmdName: string
   /// The starting virtual memory address of this segment
   VMAddr: Addr
   /// The number of bytes of virtual memory occupied by this segment.
