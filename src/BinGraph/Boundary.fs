@@ -61,7 +61,9 @@ let findEntriesByPattern hdl builder funcs =
 let inline private getBranchTarget (instr: Instruction) =
   instr.DirectBranchTarget () |> Utils.tupleToOpt
 
-let noReturnFuncs = [ "abort" ; "__assert_fail" ; "_abort" ; "_exit" ; "_err" ]
+let noReturnFuncs =
+  [ "abort" ; "__assert_fail" ; "_abort" ; "_exit" ; "_err" ;
+    "___stack_chk_fail" ]
 
 let inline isExitCall hdl (instr: Instruction) =
   if instr.IsCall () then
