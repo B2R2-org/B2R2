@@ -496,8 +496,8 @@ let parse3Reg bin k =
   | 0b01101u -> Op.VMIN, getOneDtD k bin, getXYZRegOprs bin chkUndefF
   | 0b01110u -> Op.VABD, getOneDtD k bin, getXYZRegOprs bin chkUndefF
   | 0b01111u -> Op.VABA, getOneDtD k bin, getXYZRegOprs bin chkUndefF
-  | 0b10000u when chkU -> Op.VADD, getOneDtF bin, getXYZRegOprs bin chkUndefF
-  | 0b10000u -> Op.VSUB, getOneDtF bin, getXYZRegOprs bin chkUndefF
+  | 0b10000u when chkU -> Op.VADD, getOneDtF bin, getXYZRegOprs bin chkUndefD
+  | 0b10000u -> Op.VSUB, getOneDtF bin, getXYZRegOprs bin chkUndefD
   | 0b10001u when chkU -> Op.VTST, getOneDtF bin, getXYZRegOprs bin chkUndefD
   | 0b10001u ->Op.VCEQ, getOneDtF bin, getXYZRegOprs bin chkUndefD
   | 0b10010u when chkU -> Op.VMLA, getOneDtF bin, getXYZRegOprs bin chkUndefD
