@@ -2883,11 +2883,8 @@ let parseOprOfVLDR insInfo ctxt =
   match insInfo.Operands with
   | TwoOperands (OprSIMD (SFReg (Vector d)),
                  OprMemory (OffsetMode (ImmOffset (rn , s, imm)))) ->
-    let baseAddr =
-      if rn = R.PC then
-        let addr = bvOfBaseAddr insInfo.Address
-        align addr (num <| BitVector.ofInt32 4 32<rt>)
-      else getRegVar ctxt rn
+    let pc = getRegVar ctxt rn |> convertPCOpr insInfo ctxt
+    let baseAddr = align pc (num <| BitVector.ofInt32 4 32<rt>)
     getRegVar ctxt d, getOffAddrWithImm s baseAddr imm, checkSingleReg d
   | _ -> raise InvalidOperandException
 
@@ -3089,6 +3086,24 @@ let vpush insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
+let parseOprOfVAND insInfo ctxt = 
+  match insInfo.Operands with
+  | ThreeOperands 
+      (OprSIMD (SFReg (Vector r1)), OprSIMD (SFReg (Vector r2)),
+        OprSIMD (SFReg (Vector r3))) -> 
+            getRegVar ctxt r1, getRegVar ctxt r2, getRegVar ctxt r3
+  | _ -> raise InvalidOperandException 
+ 
+let vand insInfo ctxt = 
+  let builder = new StmtBuilder (8)
+  let dst, src1, src2 = parseOprOfVAND insInfo ctxt
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  builder <! (dst := src1 .& src2)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
 let vmrs insInfo ctxt =
   let builder = new StmtBuilder (8)
   let rt, fpscr = transTwoOprs insInfo ctxt
@@ -3227,6 +3242,7 @@ let translate insInfo ctxt =
   | Op.VSTR -> vstr insInfo ctxt
   | Op.VPOP -> vpop insInfo ctxt
   | Op.VPUSH -> vpush insInfo ctxt
+  | Op.VAND -> vand insInfo ctxt
   | Op.VMRS -> vmrs insInfo ctxt
   | Op.VST1 | Op.VST2 | Op.VST3 | Op.VST4
   | Op.VLD1 | Op.VLD2 | Op.VLD3 | Op.VLD4
