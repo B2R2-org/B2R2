@@ -49,6 +49,9 @@ type TranslationContext (isa) =
   /// Word size in bits (RegType).
   member val WordBitSize: RegType = WordSize.toRegType isa.WordSize
 
+  /// The endianness.
+  member val Endianness: Endian = isa.Endian
+
   /// <summary>
   ///   Get register expression from a given register ID.
   /// </summary>

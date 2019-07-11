@@ -2903,7 +2903,8 @@ let vldr insInfo ctxt =
     let d2 = tmpVar 32<rt>
     builder <! (d1 := loadLE 32<rt> addr)
     builder <! (d2 := loadLE 32<rt> (addr .+ (num (BitVector.ofInt32 4 32<rt>))))
-    builder <! (rd := concat d1 d2)
+    builder <! (rd := if ctxt.Endianness = Endian.Big then concat d1 d2
+                      else concat d2 d1)
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
@@ -2925,8 +2926,11 @@ let vstr insInfo ctxt =
   else
     let mem1 = loadLE 32<rt> addr
     let mem2 = loadLE 32<rt>  (addr .+ (num <| BitVector.ofInt32 4 32<rt>))
-    builder <! (mem1 := extractHigh 32<rt> rd)
-    builder <! (mem2 := extractLow 32<rt> rd)
+    let isbig = ctxt.Endianness = Endian.Big
+    builder <!
+      (mem1 := if isbig then extractHigh 32<rt> rd else extractLow 32<rt> rd)
+    builder <!
+      (mem2 := if isbig then extractLow 32<rt> rd else extractHigh 32<rt> rd)
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
