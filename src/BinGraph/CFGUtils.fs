@@ -59,10 +59,12 @@ let rec buildDisasmBBLAux (builder: CFGBuilder) sAddr addr eAddr instrs =
       let comments = [ for i in 1 .. (List.length instrs) -> "" ]
       Ok <| DisasmBBL (addrRange, instrs, last, comments)
   else
-    let instr = builder.GetInstr addr
-    let nextAddr = addr + uint64 instr.Length
-    let instrs = instr :: instrs
-    buildDisasmBBLAux builder sAddr nextAddr eAddr instrs
+    match builder.TryGetInstr addr with
+    | Some instr ->
+      let nextAddr = addr + uint64 instr.Length
+      let instrs = instr :: instrs
+      buildDisasmBBLAux builder sAddr nextAddr eAddr instrs
+    | None -> Error ()
 
 let rec buildDisasmBBLs hdl (builder: CFGBuilder) bbls = function
   | (sAddr, eAddr) :: boundaries ->
@@ -83,10 +85,12 @@ let rec buildIRBBLAux (builder: CFGBuilder) sPpoint ppoint ePpoint stmts =
     let comments = [ for i in 1 .. (List.length stmts) -> "" ]
     Ok <| IRBBL (sPpoint, ppoint, stmts, last, comments)
   else
-    let stmt = builder.GetStmt ppoint
-    let nextPpoint = getNextPpoint ppoint stmt
-    let stmts = stmt :: stmts
-    buildIRBBLAux builder sPpoint nextPpoint ePpoint stmts
+    match builder.TryGetStmt ppoint with
+    | Some stmt ->
+      let nextPpoint = getNextPpoint ppoint stmt
+      let stmts = stmt :: stmts
+      buildIRBBLAux builder sPpoint nextPpoint ePpoint stmts
+    | None -> Error ()
 
 let rec buildIRBBLs hdl (builder: CFGBuilder) bbls = function
   | (sPpoint, ePpoint) :: boundaries ->
@@ -148,24 +152,29 @@ let getDisasmSuccessors hdl (builder: CFGBuilder) leader edges (bbl:DisasmBBL) =
 let rec addDisasmVertex
     hdl (builder: CFGBuilder) funcset (bbls: DisasmBBLs) (g: DisasmCFG) entry
     edges leader =
-  match builder.GetEntryByDisasmLeader leader with
-  | None ->
-    if leader <> entry && Set.contains leader funcset then edges
-    else
-      builder.UpdateEntryOfDisasmBoundary leader entry
-      let bbl = bbls.[leader]
-      let v = g.AddVertex bbl
-      let targets, edges = getDisasmSuccessors hdl builder leader edges bbl
-      List.fold (addDisasmVertex hdl builder funcset bbls g entry) edges targets
-  | Some entry_ when entry = entry_ -> edges
-  | Some entry -> edges /// XXX: Need to merge functions here
+  let entry_ = builder.TryGetEntryByDisasmLeader leader
+  if Option.isSome entry_ then
+    match Option.get entry_ with
+    | None ->
+      if leader <> entry && Set.contains leader funcset then edges
+      else
+        builder.UpdateEntryOfDisasmBoundary leader entry
+        let bbl = bbls.[leader]
+        let v = g.AddVertex bbl
+        let targets, edges = getDisasmSuccessors hdl builder leader edges bbl
+        List.fold (addDisasmVertex hdl builder funcset bbls g entry) edges targets
+    | Some entry_ when entry = entry_ -> edges
+    | Some entry -> edges /// XXX: Need to merge functions here
+  else edges
 
 let belongSameDisasm (builder: CFGBuilder) sAddr dAddr =
-  let sEntry = builder.GetEntryByDisasmLeader sAddr
-  let dEntry = builder.GetEntryByDisasmLeader dAddr
-  match sEntry, dEntry with
-  | Some sEntry, Some dEntry when sEntry = dEntry -> true
-  | _ -> false
+  let sEntry = builder.TryGetEntryByDisasmLeader sAddr
+  let dEntry = builder.TryGetEntryByDisasmLeader dAddr
+  if Option.isSome sEntry && Option.isSome dEntry then
+    match Option.get sEntry, Option.get dEntry with
+    | Some sEntry, Some dEntry when sEntry = dEntry -> true
+    | _ -> false
+  else false
 
 let rec addDisasmEdges builder (bbls: DisasmBBLs) (g: DisasmCFG) = function
   | [] -> ()
@@ -228,7 +237,9 @@ let getIRSuccessors hdl (builder: CFGBuilder) leader edges (bbl: IRBBL) =
     let fPpoint = builder.FindPPointByLabel addr fSymbol
     [fPpoint], (leader, Some (fPpoint, CJmpFalseEdge)) :: (leader,None) :: edges
   | InterJmp (_, _, InterJmpInfo.IsCall) ->
-    if isExitCall hdl <| (builder.GetInstr (fst bbl.LastPpoint)) then [], edges
+    let instr = builder.TryGetInstr <| fst bbl.LastPpoint
+    if Option.isNone instr then [], edges
+    elif isExitCall hdl <| Option.get instr then [], edges
     else
       let addr = getNextAddr builder bbl.LastPpoint
       [(addr, 0)], (leader, Some ((addr, 0), FallThroughEdge)) :: edges
@@ -282,17 +293,20 @@ let getIRSuccessors hdl (builder: CFGBuilder) leader edges (bbl: IRBBL) =
 let rec addIRVertex
     hdl (builder: CFGBuilder) funcset (bbls: IRBBLs) (g: IRCFG) entry edges
     leader =
-  match builder.GetEntryByIRLeader leader with
-  | None ->
-    if leader <> (entry, 0) && Set.contains (fst leader) funcset then edges
-    else
-      builder.UpdateEntryOfIRBoundary leader entry
-      let bbl = bbls.[leader]
-      let v = g.AddVertex bbl
-      let targets, edges = getIRSuccessors hdl builder leader edges bbl
-      List.fold (addIRVertex hdl builder funcset bbls g entry) edges targets
-  | Some entry_ when entry = entry_ -> edges
-  | Some entry -> edges
+  let entry_ = builder.TryGetEntryByIRLeader leader
+  if Option.isSome entry_ then
+    match Option.get entry_ with
+    | None ->
+      if leader <> (entry, 0) && Set.contains (fst leader) funcset then edges
+      else
+        builder.UpdateEntryOfIRBoundary leader entry
+        let bbl = bbls.[leader]
+        let v = g.AddVertex bbl
+        let targets, edges = getIRSuccessors hdl builder leader edges bbl
+        List.fold (addIRVertex hdl builder funcset bbls g entry) edges targets
+    | Some entry_ when entry = entry_ -> edges
+    | Some entry -> edges
+  else edges
 
 let getLiftedIRSuccessors hdl (builder: CFGBuilder) leader edges (bbl: IRBBL) =
   match bbl.LastStmt with
@@ -362,11 +376,13 @@ let rec addLiftedIRVertex
   | Some entry -> edges
 
 let belongSameIR (builder: CFGBuilder) sAddr dAddr =
-  let sEntry = builder.GetEntryByIRLeader sAddr
-  let dEntry = builder.GetEntryByIRLeader dAddr
-  match sEntry, dEntry with
-  | Some sEntry, Some dEntry when sEntry = dEntry -> true
-  | _ -> false
+  let sEntry = builder.TryGetEntryByIRLeader sAddr
+  let dEntry = builder.TryGetEntryByIRLeader dAddr
+  if Option.isSome sEntry && Option.isSome dEntry then
+    match Option.get sEntry, Option.get dEntry with
+    | Some sEntry, Some dEntry when sEntry = dEntry -> true
+    | _ -> false
+  else false
 
 let rec addIREdges (builder: CFGBuilder) (bbls: IRBBLs) (g: IRCFG) = function
   | [] -> ()
@@ -381,10 +397,13 @@ let rec addIREdges (builder: CFGBuilder) (bbls: IRBBLs) (g: IRCFG) = function
     let s = g.FindVertexByData bbls.[src]
     let b, pp = s.VData.GetLastPpoint ()
     if b then
-      let lastInstr = builder.GetInstr <| fst pp
-      if lastInstr.IsCall () then s.VData.SetIsIndirectCall true
-      elif lastInstr.IsRET () then ()
-      else s.VData.SetIsIndirectJump true
+      let addr = fst pp
+      let lastInstr = builder.TryGetInstr addr
+      if Option.isSome lastInstr then
+        let lastInstr = Option.get lastInstr
+        if lastInstr.IsCall () then s.VData.SetIsIndirectCall true
+        elif lastInstr.IsRET () then ()
+        else s.VData.SetIsIndirectJump true
     addIREdges builder bbls g edges
 
 let rec addLiftedIREdges (builder: CFGBuilder) (bbls: IRBBLs) (g: IRCFG) edges =
