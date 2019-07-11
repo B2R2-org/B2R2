@@ -294,10 +294,6 @@ let getBankedRegs r sysM =
   | 0b1u, 0b11110u -> R.SPSRhyp
   | _ -> raise UnpredictableException
 
-let getRegisterW (reg: Register) bool =
-  let b = if bool then 0x01000000 else 0
-  enum<Register> (0x10000000 ||| int reg ||| b)
-
 let getOption = function
   | 0b0010uy -> OSHST
   | 0b0011uy -> OSH
@@ -601,8 +597,8 @@ let getRegK b =
   if pickBit b 22u = 0b0u then getCPSR (mask |> byte) |> OprSpecReg
   else getSPSR (mask |> byte) |> OprSpecReg
 let getRegL b = getRegister (extract b 15u 12u + 1u |> byte) |> OprReg
-let getRegM b = OprReg R.SP // getRegisterW
-let getRegN b = OprReg (getReg b 19u 16u) // getRegisterW
+let getRegM b = OprReg R.SP
+let getRegN b = OprReg (getReg b 19u 16u)
 let getRegO b = concat (pickBit b 7u) (extract b 2u 0u) 3 |> byte
                 |> getRegister |> OprReg
 let getRegP b = getReg b 6u 3u |> OprReg
@@ -632,7 +628,7 @@ let getRegY b =
 let getRegZ b =
   let regSize = if pickBit b 6u = 0u then 64 else 128
   getVReg (pickBit b 5u) (extract b 3u 0u) regSize |> sVReg
-let getRegAA b = OprReg (getReg b 19u 16u) // getRegisterW
+let getRegAA b = OprReg (getReg b 19u 16u)
 let getRegAB b =
   let regSize = if pickBit b 21u = 0u then 64 else 128
   getVReg (pickBit b 7u) (extract b 19u 16u) regSize |> sVReg
@@ -737,10 +733,10 @@ let getBankedRegB (_, b2) =
 let getBankedRegC (b1, b2) =
   let sysM = concat (pickBit b2 4u) (extract b1 3u 0u) 4
   getBankedRegs (pickBit b1 4u) sysM |> OprReg
-let getRegisterWA b = getRegister (extract b 19u 16u |> byte) |> OprReg // getRegisterW
-let getRegisterWB (b1, _) = getRegister (extract b1 3u 0u |> byte) |> OprReg // getRegisterW
-let getRegisterWC b = OprReg (getRegister (extract b 10u 8u |> byte)) // getRegisterW
-let getRegisterWD b = // getRegisterW
+let getRegisterWA b = getRegister (extract b 19u 16u |> byte) |> OprReg
+let getRegisterWB (b1, _) = getRegister (extract b1 3u 0u |> byte) |> OprReg
+let getRegisterWC b = OprReg (getRegister (extract b 10u 8u |> byte))
+let getRegisterWD b =
   let rn = getRegister (extract b 10u 8u |> byte)
   let rl = extract b 7u 0u |> getRegList
   if List.exists (fun e -> e = rn) rl then OprReg rn
