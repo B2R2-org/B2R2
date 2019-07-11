@@ -1,5 +1,24 @@
 # B2R2 Change Log
 
+## 0.2.0 (2019-07-11)
+
+### Added
+- Add a new style in the WebUI.
+- Add a search feature in the WebUI.
+- Add Mach-O fat file format support.
+- Add FileViewer utility.
+- Add a batch option to BinExplorer.
+- Add a boilerplate assembler module.
+
+### Changed
+- Rewrote BinFile modules.
+- Fix bugs in the minimap handling of the WebUI.
+- Clean up ROP gadget search.
+- Fix a BitVector bug.
+- Fix a IntervalSet bug.
+- Fix various ARMv7 parsing and lifting bugs (not yet stable).
+- Enable the use of external lifter.
+
 ## 0.1.1 (2019-03-22)
 
 ### Added
