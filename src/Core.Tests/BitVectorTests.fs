@@ -388,3 +388,14 @@ type TestClass () =
     Assert.AreEqual (e1 % e2, BitVector.ofInt32 4 64<rt>)
     Assert.AreEqual (e2 % e1, BitVector.zero 64<rt>)
     Assert.AreEqual (-e1, BitVector.ofInt32 -4 64<rt>)
+
+  [<TestMethod>]
+  member __.``BitVector from Array (Beware of the MSB)``() =
+    let arr =
+      [| 0uy; 0uy; 0uy; 0uy; 0uy; 0uy; 248uy; 127uy;
+         0uy; 0uy; 0uy; 0uy; 0uy; 0uy; 240uy; 255uy |]
+    let e1 = BitVector.ofArr arr
+    let t1 = BitVector.ofUInt64 0xFFF0000000000000UL 64<rt>
+    let t2 = BitVector.ofUInt64 0x7FF8000000000000UL 64<rt>
+    let e2 = BitVector.concat t1 t2
+    Assert.AreEqual(BitVector.T, BitVector.eq e1 e2)

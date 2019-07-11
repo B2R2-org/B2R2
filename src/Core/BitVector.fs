@@ -207,14 +207,19 @@ type BitVector =
       let n = BitConverter.ToUInt64 (arr, 0)
       { Num = n; Length = 64<rt>; BigNum = bigNull }
     | 10 ->
+      let arr = Array.append arr [| 0uy |]
       { Num = 0UL; Length = 80<rt>; BigNum = bigint arr }
     | 16 ->
+      let arr = Array.append arr [| 0uy |]
       { Num = 0UL; Length = 128<rt>; BigNum = bigint arr }
     | 32 ->
+      let arr = Array.append arr [| 0uy |]
       { Num = 0UL; Length = 256<rt>; BigNum = bigint arr }
     | 64 ->
+      let arr = Array.append arr [| 0uy |]
       { Num = 0UL; Length = 512<rt>; BigNum = bigint arr }
     | sz when sz > 64 ->
+      let arr = Array.append arr [| 0uy |]
       { Num = 0UL; Length = sz * 8<rt>; BigNum = bigint arr }
     | sz -> nSizeErr (sz * 8)
 
