@@ -1945,14 +1945,13 @@ let parseMOVRegImmShift b1 b2 =
 let parseGroup8WithRdSub b1 b2 =
   let operands = (getRegAV, getRegAY, getRegAX, getShiftF)
   match extract b1 8u 4u with
-  | 0b00000u -> Op.AND, getQfW (), p4Oprs (b1, b2) chkUnpreCA operands
+  | 0b00000u -> Op.AND, getQfW (), p4Oprs (b1, b2) chkUnpreBX operands
   | 0b00001u -> Op.ANDS, getQfW (), p4Oprs (b1, b2) chkUnpreBY operands
   | 0b01000u -> Op.EOR, getQfW (), p4Oprs (b1, b2) chkUnpreBX operands
   | 0b01001u -> Op.EORS, getQfW (), p4Oprs (b1, b2) chkUnpreBY operands
   | 0b10000u -> Op.ADD, getQfW (), p4Oprs (b1, b2) chkUnpreCA operands
   | 0b10001u -> Op.ADDS, getQfW (), p4Oprs (b1, b2) chkUnpreCB operands
-  | 0b11010u ->
-    Op.SUB, getQfW (), p4Oprs (b1, b2) chkUnpreCA operands
+  | 0b11010u -> Op.SUB, getQfW (), p4Oprs (b1, b2) chkUnpreCA operands
   | 0b11011u -> Op.SUBS, getQfW (), p4Oprs (b1, b2) chkUnpreCB operands
     | _ -> failwith "Wrong opcode in parseGroup8."
 

@@ -3273,6 +3273,7 @@ let translate insInfo ctxt =
   | Op.VSHL | Op.VSHR | Op.VRSHR | Op.VRSHRN | Op.VDUP | Op.VTBL
   | Op.VPADD | Op.VMULL | Op.VMLAL | Op.VCLZ | Op.VNEG
   | Op.VMOVN | Op.VMOV | Op.VMAX | Op.VMIN | Op.VABS
+  | Op.VORR | Op.VORN
   | Op.VCMP | Op.VCMPE | Op.VSTM | Op.VSTMDB | Op.VSTMIA ->
     sideEffects insInfo UnsupportedExtension
   | Op.DMB | Op.DSB | Op.ISB | Op.PLD -> nop insInfo

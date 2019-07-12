@@ -1793,19 +1793,20 @@ let chkUnpreBW (b1, b2) (op1, op2, _) =
                opr2 = OprReg R.PC)
 
 let chkUnpreBX (b1, b2) (op1, op2, op3, _) =
-  let opr1 = op1 (b1, b2)
-  let opr2 = op2 (b1, b2)
-  let opr3 = op3 (b1, b2)
-  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
-                   opr2 = OprReg R.SP || opr2 = OprReg R.PC ||
-                   opr3 = OprReg R.SP || opr3 = OprReg R.PC)
+  let rd = op1 (b1, b2)
+  let rn = op2 (b1, b2)
+  let rm = op3 (b1, b2)
+  checkUnpred (rd = OprReg R.SP || rd = OprReg R.PC
+               || rn = OprReg R.SP || rn = OprReg R.PC
+               || rm = OprReg R.SP || rm = OprReg R.PC)
 
 let chkUnpreBY (b1, b2) (op1, op2, op3, _) =
-  let opr2 = op2 (b1, b2)
-  let opr3 = op3 (b1, b2)
-  checkUnpred (op1 (b1, b2) = OprReg R.SP || opr2 = OprReg R.SP ||
-                   opr2 = OprReg R.PC || opr3 = OprReg R.SP ||
-                   opr3 = OprReg R.PC)
+  let rd = op1 (b1, b2)
+  let rn = op2 (b1, b2)
+  let rm = op3 (b1, b2)
+  checkUnpred (rd = OprReg R.SP
+               || rn = OprReg R.SP || rn = OprReg R.PC
+               || rm = OprReg R.SP || rm = OprReg R.PC)
 
 let chkUnpreBZ (b1, b2) (op1, op2, op3, _) =
   let opr1 = op1 (b1, b2)
@@ -1815,17 +1816,20 @@ let chkUnpreBZ (b1, b2) (op1, op2, op3, _) =
                opr3 = OprReg R.PC)
 
 let chkUnpreCA (b1, b2) (op1, op2, op3, _) =
-  let opr1 = op1 (b1, b2)
-  let opr3 = op3 (b1, b2)
-  checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
-               op2 (b1, b2) = OprReg R.PC || opr3 = OprReg R.SP ||
-               opr3 = OprReg R.PC)
+  let rd = op1 (b1, b2)
+  let rn = op2 (b1, b2)
+  let rm = op3 (b1, b2)
+  checkUnpred (rn <> OprReg R.SP
+               && (rd = OprReg R.SP || rd = OprReg R.PC
+                   || rn = OprReg R.PC
+                   || rm = OprReg R.SP || rm = OprReg R.PC))
 
 let chkUnpreCB (b1, b2) (op1, op2, op3, _) =
-  let opr3 = op3 (b1, b2)
-  checkUnpred (op1 (b1, b2) = OprReg R.SP ||
-               op2 (b1, b2) = OprReg R.PC ||
-               opr3 = OprReg R.SP || opr3 = OprReg R.PC)
+  let rd = op1 (b1, b2)
+  let rn = op2 (b1, b2)
+  let rm = op3 (b1, b2)
+  checkUnpred (rd = OprReg R.SP || rn = OprReg R.PC
+               || rm = OprReg R.SP || rm = OprReg R.PC)
 
 let chkUnpreCC (b1, b2) (op1, _) =
   checkUnpred (op1 (b1, b2) = OprReg R.PC)
