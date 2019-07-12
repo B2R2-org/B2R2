@@ -2526,6 +2526,22 @@ let sel insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
+let rbit insInfo ctxt =
+  let builder = new StmtBuilder (16)
+  let t1 = tmpVar 32<rt>
+  let t2 = tmpVar 32<rt>
+  let rd, rm = transTwoOprs insInfo ctxt
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  builder <! (t1 := rm)
+  builder <! (rd := rd <+> rd)
+  for i = 0 to 31 do
+    builder <! (t2 := (extract t1 1<rt> i) |> zExt 32<rt>)
+    builder <! (rd := rd .| (t2 << (num <| BitVector.ofInt32 (31 - i) 32<rt>)))
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
 let rev insInfo ctxt =
   let builder = new StmtBuilder (16)
   let t1 = tmpVar 32<rt>
@@ -3208,6 +3224,7 @@ let translate insInfo ctxt =
   | Op.LDRSH -> ldr insInfo ctxt 16<rt> sExt
   | Op.LDREX -> ldr insInfo ctxt 32<rt> zExt
   | Op.SEL -> sel insInfo ctxt
+  | Op.RBIT -> rbit insInfo ctxt
   | Op.REV -> rev insInfo ctxt
   | Op.STR -> str insInfo ctxt 32<rt>
   | Op.STREX -> strex insInfo ctxt
@@ -3250,6 +3267,8 @@ let translate insInfo ctxt =
   | Op.VMRS -> vmrs insInfo ctxt
   | Op.VST1 | Op.VST2 | Op.VST3 | Op.VST4
   | Op.VLD1 | Op.VLD2 | Op.VLD3 | Op.VLD4
+  | Op.VCEQ | Op.VCGT | Op.VCGE | Op.VCLE | Op.VCLT | Op.VTST
+  | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT
   | Op.VCVT | Op.VCVTR | Op.VMLS | Op.VADD | Op.VSUB | Op.VMUL | Op.VDIV
   | Op.VSHL | Op.VSHR | Op.VRSHR | Op.VRSHRN | Op.VDUP | Op.VTBL
   | Op.VPADD | Op.VMULL | Op.VMLAL | Op.VCLZ | Op.VNEG
