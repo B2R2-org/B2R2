@@ -248,9 +248,10 @@ let inline parseUntil hdl sAddr eAddr =
     else List.rev acc
   loop sAddr []
 
-let pickNext hdl eAddr untilFn bbFn sAddr = function
-  | Ok (_, nextAddr)
-  | Error (_, nextAddr) when nextAddr >= eAddr ->
+let pickNext hdl eAddr untilFn bbFn sAddr r =
+  match r with
+  | Error (res, nextAddr) when nextAddr = eAddr -> bbFn res; None
+  | Ok (_, nextAddr) | Error (_, nextAddr) when nextAddr > eAddr ->
     untilFn sAddr |> ignore; None
   | Ok (res, nextAddr) -> bbFn res; Some nextAddr
   | Error (res, nextAddr) ->
@@ -278,9 +279,10 @@ let printBlkDisasm showAddr showSymbs hdl sA eA =
 
 let printLowUIRUntil hdl sAddr eAddr =
   let printFn = function
-    | Some ins -> BinHandler.LiftInstr hdl ins
-                  |> LowUIR.Pp.stmtsToString
-                  |> Console.WriteLine
+    | Some ins ->
+      BinHandler.LiftInstr hdl ins
+      |> LowUIR.Pp.stmtsToString
+      |> Console.WriteLine
     | None -> printIllegal ()
   parseUntil hdl sAddr eAddr |> List.iter printFn
 
