@@ -2289,23 +2289,25 @@ let getLDMStartAddr rn stackWidth = function
   | Op.LDMIB -> rn .+ (num <| BitVector.ofInt32 4 32<rt>)
   | _ -> raise InvalidOpcodeException
 
-let ldm opcode insInfo ctxt =
+let ldm opcode insInfo ctxt wbackop =
   let builder = new StmtBuilder (32)
   let t0 = tmpVar 32<rt>
+  let t1 = tmpVar 32<rt>
   let rn, numOfRn, numOfReg = parseOprOfLDM insInfo ctxt
   let wback = Option.get insInfo.WriteBack
   let stackWidth = 4 * bitCount numOfReg 16
-  let addr = getLDMStartAddr rn stackWidth opcode
+  let addr = getLDMStartAddr t0 stackWidth opcode
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
-  builder <! (t0 := addr)
-  let addr = popLoop ctxt numOfReg t0 builder
+  builder <! (t0 := rn)
+  builder <! (t1 := addr)
+  let addr = popLoop ctxt numOfReg t1 builder
   if (numOfReg >>> 15 &&& 1u) = 1u then
     loadLE 32<rt> addr |> loadWritePC ctxt isUnconditional builder
   else ()
   if wback && (numOfReg &&& numOfRn) = 0u then
-    builder <! (rn := rn .+ (num <| BitVector.ofInt32 stackWidth 32<rt>))
+    builder <! (rn := wbackop t0 (num <| BitVector.ofInt32 stackWidth 32<rt>))
   else ()
   if wback && (numOfReg &&& numOfRn) = numOfRn then
     builder <! (rn := (Expr.Undefined (32<rt>, "UNKNOWN")))
@@ -3199,10 +3201,11 @@ let translate insInfo ctxt =
   | Op.NOP -> nop insInfo
   | Op.MOVT -> movt insInfo ctxt
   | Op.POP -> pop insInfo ctxt
-  | Op.LDM -> ldm Op.LDM insInfo ctxt
-  | Op.LDMIB -> ldm Op.LDMIB insInfo ctxt
-  | Op.LDMDA -> ldm Op.LDMDA insInfo ctxt
-  | Op.LDMDB -> ldm Op.LDMDB insInfo ctxt
+  | Op.LDM -> ldm Op.LDM insInfo ctxt (.+)
+  | Op.LDMIA -> ldm Op.LDMIA insInfo ctxt (.+)
+  | Op.LDMIB -> ldm Op.LDMIB insInfo ctxt (.+)
+  | Op.LDMDA -> ldm Op.LDMDA insInfo ctxt (.-)
+  | Op.LDMDB -> ldm Op.LDMDB insInfo ctxt (.-)
   | Op.LDR -> ldr insInfo ctxt 32<rt> zExt
   | Op.LDRB -> ldr insInfo ctxt 8<rt> zExt
   | Op.LDRSB -> ldr insInfo ctxt 8<rt> sExt
@@ -3253,7 +3256,7 @@ let translate insInfo ctxt =
   | Op.VAND -> vand insInfo ctxt
   | Op.VMRS -> vmrs insInfo ctxt
   | Op.VST1 | Op.VST2 | Op.VST3 | Op.VST4
-  | Op.VLD1 | Op.VLD2 | Op.VLD3 | Op.VLD4
+  | Op.VLD1 | Op.VLD2 | Op.VLD3 | Op.VLD4 | Op.VLDM | Op.VLDMDB | Op.VLDMIA
   | Op.VCEQ | Op.VCGT | Op.VCGE | Op.VCLE | Op.VCLT | Op.VTST
   | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT
   | Op.VCVT | Op.VCVTR | Op.VMLS | Op.VADD | Op.VSUB | Op.VMUL | Op.VDIV
