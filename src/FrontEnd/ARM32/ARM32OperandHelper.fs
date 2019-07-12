@@ -2017,6 +2017,10 @@ let chkUnpreDK ctxt b (op, _) =
 let chkUnpreDL mode b (op1, _) =
   checkUnpred (op1 b = OprReg R.SP && mode <> ArchOperationMode.ARMMode)
 
+let chkUnpreDM (b1, b2) (op1, op2, op3) =
+  let rd = op1 (b1, b2)
+  checkUnpred (rd = OprReg R.SP || rd = OprReg R.PC)
+
 let chkUndefA q b _ =
   let size = extract b 21u 20u
   isUndefined (size = 0u || size = 3u ||

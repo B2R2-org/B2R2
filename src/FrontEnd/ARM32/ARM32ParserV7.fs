@@ -2257,10 +2257,14 @@ let parseGroup11 cond bin =
   let chkA = concat (extract b2 14u 12u) (extract b2 7u 6u) 2 <> 0b00000u
   let opcode, operands =
     match extract b1 8u 4u with
+    | 0b00000u when not chkRn ->
+      Op.ADDW, p3Oprs (b1, b2) chkUnpreDM (getRegAV, getRegAY, getImm12F)
     | 0b00000u ->
       Op.ADDW, p3Oprs (b1, b2) chkUnpreCH (getRegAV, getRegAY, getImm12F)
     | 0b00100u ->
       Op.MOVW, p2Oprs (b1, b2) chkUnpreBL (getRegAV, getImm16A)
+    | 0b01010u when not chkRn ->
+      Op.SUBW, p3Oprs (b1, b2) chkUnpreDM (getRegAV, getRegAY, getImm12F)
     | 0b01010u ->
       Op.SUBW, p3Oprs (b1, b2) chkUnpreCH (getRegAV, getRegAY, getImm12F)
     | 0b01100u ->
