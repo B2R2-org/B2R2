@@ -1347,61 +1347,53 @@ let subsAndRelatedInstr insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
-let transTwoOprsOfAND insInfo ctxt =
+let computeCarryOutFromImmCflag insInfo ctxt =
+  match insInfo.Cflag with
+  | Some v ->
+    if v then BitVector.one 1<rt> |> Num
+    else BitVector.zero 1<rt> |> Num
+  | None -> getCarryFlag ctxt
+
+let translateLogicOp insInfo ctxt (builder: StmtBuilder) =
   match insInfo.Operands with
   | TwoOperands (OprReg _, OprReg _) ->
+    let t = tmpVar 32<rt>
     let e1, e2 = transTwoOprs insInfo ctxt
-    let shifted, carryOut = shiftC e2 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
+    builder <! (t := e2)
+    let shifted, carryOut = shiftC t 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
     e1, e1, shifted, carryOut
-  | _ -> raise InvalidOperandException
-
-let transThreeOprsOfAND insInfo ctxt =
-  match insInfo.Operands with
   | ThreeOperands (_, _, OprImm _) ->
     let e1, e2, e3 = transThreeOprs insInfo ctxt
-    let carryIn = getCarryFlag ctxt
-    let carryOut =
-      match insInfo.Cflag with
-      | Some v ->
-        if v then BitVector.one 1<rt> |> Num
-        else BitVector.zero 1<rt> |> Num
-      | None -> carryIn
+    let carryOut = computeCarryOutFromImmCflag insInfo ctxt
     e1, e2, e3, carryOut
-  | _ -> raise InvalidOperandException
-
-let transFourOprsOfAND insInfo ctxt =
-  match insInfo.Operands with
   | FourOperands (opr1, opr2, opr3 , OprShift (typ, Imm imm)) ->
+    let t = tmpVar 32<rt>
     let carryIn = getCarryFlag ctxt
     let dst = transOprToExpr ctxt opr1
     let src1 = transOprToExpr ctxt opr2
-    let e3 = transOprToExpr ctxt opr3
-    let shifted, carryOut = shiftC e3 32<rt> typ imm carryIn
+    let rm = transOprToExpr ctxt opr3
+    builder <! (t := rm)
+    let shifted, carryOut = shiftC t 32<rt> typ imm carryIn
     dst, src1, shifted, carryOut
   | FourOperands (opr1, opr2, opr3 , OprRegShift (typ, reg)) ->
+    let t = tmpVar 32<rt>
     let carryIn = getCarryFlag ctxt
     let dst = transOprToExpr ctxt opr1
     let src1 = transOprToExpr ctxt opr2
-    let e3 = transOprToExpr ctxt opr3
+    let rm = transOprToExpr ctxt opr3
+    builder <! (t := rm)
     let amount = extractLow 8<rt> (getRegVar ctxt reg) |> zExt 32<rt>
-    let shifted, carryOut = shiftCForRegAmount e3 32<rt> typ amount carryIn
+    let shifted, carryOut = shiftCForRegAmount t 32<rt> typ amount carryIn
     dst, src1, shifted, carryOut
   | _ -> raise InvalidOperandException
 
-let parseOprOfAND insInfo ctxt =
-  match insInfo.Operands with
-  | TwoOperands _ -> transTwoOprsOfAND insInfo ctxt
-  | ThreeOperands _ -> transThreeOprsOfAND insInfo ctxt
-  | FourOperands _ -> transFourOprsOfAND insInfo ctxt
-  | _ -> raise InvalidOperandException
-
-let transAND isSetFlags insInfo ctxt =
+let logicalAnd isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
-  let dst, src1, src2, carryOut = parseOprOfAND insInfo ctxt
-  let result = tmpVar 32<rt>
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let dst, src1, src2, carryOut = translateLogicOp insInfo ctxt builder
+  let result = tmpVar 32<rt>
   builder <! (result := src1 .& src2)
   if dst = getPC ctxt then writePC ctxt isUnconditional result builder
   else
@@ -1436,11 +1428,11 @@ let mov isSetFlags insInfo ctxt =
 
 let eor isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
-  let dst, src1, src2, carryOut = parseOprOfAND insInfo ctxt
-  let result = tmpVar 32<rt>
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let dst, src1, src2, carryOut = translateLogicOp insInfo ctxt builder
+  let result = tmpVar 32<rt>
   builder <! (result := src1 <+> src2)
   if dst = getPC ctxt then writePC ctxt isUnconditional result builder
   else
@@ -1599,11 +1591,11 @@ let rsc isSetFlags insInfo ctxt =
 
 let orr isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
-  let dst, src1, src2, carryOut = parseOprOfAND insInfo ctxt
-  let result = tmpVar 32<rt>
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let dst, src1, src2, carryOut = translateLogicOp insInfo ctxt builder
+  let result = tmpVar 32<rt>
   builder <! (result := src1 .| src2)
   if dst = getPC ctxt then writePC ctxt isUnconditional result builder
   else
@@ -1619,11 +1611,11 @@ let orr isSetFlags insInfo ctxt =
 
 let orn isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
-  let dst, src1, src2, carryOut = parseOprOfAND insInfo ctxt
-  let result = tmpVar 32<rt>
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let dst, src1, src2, carryOut = translateLogicOp insInfo ctxt builder
+  let result = tmpVar 32<rt>
   builder <! (result := src1 .| not src2)
   if dst = getPC ctxt then writePC ctxt isUnconditional result builder
   else
@@ -1639,11 +1631,11 @@ let orn isSetFlags insInfo ctxt =
 
 let bic isSetFlags insInfo ctxt =
   let builder = new StmtBuilder (32)
-  let dst, src1, src2, carryOut = parseOprOfAND insInfo ctxt
-  let result = tmpVar 32<rt>
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let dst, src1, src2, carryOut = translateLogicOp insInfo ctxt builder
+  let result = tmpVar 32<rt>
   builder <! (result := src1 .& (not src2))
   if dst = getPC ctxt then writePC ctxt isUnconditional result builder
   else
@@ -1803,7 +1795,7 @@ let ands isSetFlags insInfo ctxt =
   match insInfo.Operands with
   | ThreeOperands (OprReg R.PC, _, _)
   | FourOperands (OprReg R.PC, _, _, _) -> subsAndRelatedInstr insInfo ctxt
-  | _ -> transAND isSetFlags insInfo ctxt
+  | _ -> logicalAnd isSetFlags insInfo ctxt
 
 let movs isSetFlags insInfo ctxt =
   match insInfo.Operands with
@@ -2121,12 +2113,7 @@ let transOprsOfTST insInfo ctxt =
   match insInfo.Operands with
   | TwoOperands (OprReg _, OprImm _) ->
     let rn, imm = transTwoOprs insInfo ctxt
-    let carryOut =
-      match insInfo.Cflag with
-      | Some v ->
-        if v then BitVector.one 1<rt> |> Num
-        else BitVector.zero 1<rt> |> Num
-      | None -> getCarryFlag ctxt
+    let carryOut = computeCarryOutFromImmCflag insInfo ctxt
     rn, imm, carryOut
   | TwoOperands (OprReg _, OprReg _) ->
     let e1, e2 = transTwoOprs insInfo ctxt
@@ -3149,7 +3136,7 @@ let translate insInfo ctxt =
   | Op.PUSH -> push insInfo ctxt
   | Op.SUB | Op.SUBW -> sub false insInfo ctxt
   | Op.SUBS -> subs true insInfo ctxt
-  | Op.AND -> transAND false insInfo ctxt
+  | Op.AND -> logicalAnd false insInfo ctxt
   | Op.ANDS -> ands true insInfo ctxt
   | Op.MOV | Op.MOVW -> mov false insInfo ctxt
   | Op.MOVS -> movs true insInfo ctxt
