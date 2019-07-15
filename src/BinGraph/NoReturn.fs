@@ -165,9 +165,9 @@ let updateNoReturn (func: Function) =
       let b, stmt = vData.GetLastStmt ()
       if b then
         match stmt with
-        | InterJmp (_, _, InterJmpInfo.IsRet) -> false
-        | InterJmp (_, _, InterJmpInfo.IsCall) -> false
-        | _ -> true
+        | InterJmp (_, _, InterJmpInfo.IsCall)
+        | SideEffect _ -> true
+        | _ -> false
       else true) irCFG.Exits
   if isNoReturn then func.NoReturn <- isNoReturn
 
