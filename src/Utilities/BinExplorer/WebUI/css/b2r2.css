@@ -364,13 +364,21 @@ html, body {
         cursor: pointer; }
 
 .sidebar-content {
-  width: 250px;
-  min-width: 250px;
-  max-width: 250px;
+  display: flex;
   height: 100%;
   border-right: 1px solid var(--darkgray);
   background: var(--background);
   position: relative; }
+  .sidebar-content-item {
+    width: 200px;
+  }
+  #id_resize-sidebar {
+    width: 3px;
+    max-width: 3px;
+    min-width: 3px;
+    background: transparent;
+    height: 100%;
+    cursor: col-resize; }
   #id_FunctionsListWrapper {
     all: unset;
     max-width: 250px;
@@ -384,7 +392,7 @@ html, body {
     border: none;
     border-bottom: 1px solid white;
     box-sizing: border-box;
-    width: 250px;
+    width: 100%;
     color: white;
     -webkit-text-fill-color: white;
     height: 35px;
@@ -397,7 +405,6 @@ html, body {
       #id_FunctionsListWrapper #id_FunctionsList #funcSelector li {
         all: unset;
         overflow: hidden;
-        max-width: 300px;
         text-overflow: ellipsis;
         white-space: nowrap;
         cursor: pointer;

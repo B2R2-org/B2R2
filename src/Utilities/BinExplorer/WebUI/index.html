@@ -86,18 +86,18 @@
       <div class="sidebar-item" title="Comments"><i class="fas fa-comment-dots"></i></div>
       <div class="sidebar-item" title="Terminal"><i class="fas fa-terminal"></i></div>
     </div>
-    <div class="sidebar-content">
-      <div style="display:block;" id="id_FunctionsListWrapper">
+    <div id="id_sidebar-content" class="sidebar-content">
+      <div class="sidebar-content-item" style="display:block;" id="id_FunctionsListWrapper">
         <input id="id_funcFilter" placeholder="Function filter" />
         <div id="id_FunctionsList">
           <ul id="funcSelector"></ul>
         </div>
       </div>
-      <div style="display:none;" id="id_CommentsListWrapper">
+      <div class="sidebar-content-item" style="display:none;" id="id_CommentsListWrapper">
         <div id="id_CommentList">
         </div>
       </div>
-      <div style="display: none;" id="id_TerminalWrapper">
+      <div class="sidebar-content-wide-item" style="display: none;" id="id_TerminalWrapper">
         <div id="id_cmdContainer">
           <div id="id_content" class=""></div>
           <div class="command-container">
@@ -107,6 +107,7 @@
           </div>
         </div>
       </div>
+      <div id="id_resize-sidebar"></div>
     </div>
     <div class="graph-container">
       <div id="id_tabContainer">
