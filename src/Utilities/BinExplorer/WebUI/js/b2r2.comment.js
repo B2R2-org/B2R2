@@ -243,7 +243,7 @@ function setComment(tab_id, target_id, comment, isOpen) {
     .attr("fill", "black");
 
   // reload sidebar
-  setSidebarComments();
+  Sidebar().setSidebarComments();
 }
 
 function removeComment(target_id) {

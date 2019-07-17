@@ -532,7 +532,6 @@ function registerEvents(reductionRate, dims) {
 
     transX = - minimapX / translateWidthRatio;
     transY = - minimapY / translateHeightRatio;
-
     minimapVP.attr("transform",
       "translate(" + minimapX + ","
       + minimapY + ") scale(" + minimapK + ")");

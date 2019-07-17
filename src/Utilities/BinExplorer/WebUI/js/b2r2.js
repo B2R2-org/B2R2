@@ -46,23 +46,23 @@ function filterFunctions() {
 
 function drawBinInfo(status, str) {
   let filepath;
-  let token = str.split("/");
-  if (str.length < 45) {
-    filepath = str;
-  } else {
-    for (let t in token) {
-      if (token.slice(t).join("/").length < 45) {
-        filepath = ".../" + token.slice(t).join("/");
-        break
-      }
+let token = str.split("/");
+if (str.length < 45) {
+  filepath = str;
+} else {
+  for (let t in token) {
+    if (token.slice(t).join("/").length < 45) {
+      filepath = ".../" + token.slice(t).join("/");
+      break
     }
   }
+}
 
-  if (filepath === undefined) {
-    filepath = str.split("/").slice(str.split("/").length - 1); // only file name
-  }
-  $("#binInfo").text(filepath);
-  $("#binInfo").attr("title", str);
+if (filepath === undefined) {
+  filepath = str.split("/").slice(str.split("/").length - 1); // only file name
+}
+$("#binInfo").text(filepath);
+$("#binInfo").attr("title", str);
 }
 
 $("#binInfo").on("click", function () {
@@ -157,6 +157,9 @@ function reloadUI() {
     .attr("width", cfgVPDim.width)
     .attr("height", cfgVPDim.height);
 
+  $("#funcSelector")
+    .attr("style", "height: " + cfgVPDim.height + "px");
+
   return { cfgVPDim: cfgVPDim, minimapVPDim: minimapVPDim };
 }
 
@@ -248,6 +251,7 @@ function main() {
   registerRefreshEvents(dims);
   registerMinimapEvents();
   functionListClickEvent();
+  resizeSidebar(reloadUI);
 
   if (window.location.protocol == "file:")
     return runOffline(dims);
@@ -261,4 +265,4 @@ if (typeof window === 'undefined') { // For Node.js
   module.exports.initEvents = initEvents;
 } else {
   window.addEventListener('load', function () { main(); }, false);
-}
+} 
