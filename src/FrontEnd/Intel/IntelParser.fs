@@ -977,15 +977,13 @@ let private getD9EscEffOprSizeByModRM = function
  | _ -> raise ParsingFailureException
 
 let private getDFEscEffOprSizeByModRM = function
- | 0b000 | 0b001 | 0b010 | 0b011 -> 16<rt>
- | 0b100 -> 80<rt>
- | 0b101 -> 64<rt>
- | 0b110 -> 80<rt>
- | 0b111 -> 64<rt>
+ | 0b000 | 0b001 | 0b010 | 0b011 -> 16<rt> (* word-integer *)
+ | 0b100 | 0b110 -> 80<rt> (* packed-BCD *)
+ | 0b101 | 0b111 -> 64<rt> (* qword-integer *)
  | _ -> raise ParsingFailureException
 
 let private getEscEffOprSizeByESCOp = function
-  | 0xD8uy | 0xDAuy | 0xDBuy | 0xDCuy | 0xDDuy -> 32<rt>
+  | 0xD8uy | 0xDAuy | 0xDBuy | 0xDDuy -> 32<rt>
   | 0xDEuy -> 16<rt>
   | _ -> raise ParsingFailureException
 
@@ -997,8 +995,9 @@ let private parseESCOp t (reader: BinReader) pos escFlag getOpIn getOpOut =
     let effOprSize =
       match escFlag with
       | 0xD9uy -> getReg b |> getD9EscEffOprSizeByModRM
+      | 0xDCuy -> 64<rt> (* double-real *)
       | 0xDFuy -> getReg b |> getDFEscEffOprSizeByModRM
-      | _ -> escFlag |> getEscEffOprSizeByESCOp
+      | _ -> escFlag |> getEscEffOprSizeByESCOp (* FIXME *)
     let memSize = { insSize.MemSize with EffOprSize = effOprSize }
     let insSize = { insSize with MemSize = memSize }
     Some (struct (newTemporaryIns opCode NoOperand t insSize, Mz)), pos
