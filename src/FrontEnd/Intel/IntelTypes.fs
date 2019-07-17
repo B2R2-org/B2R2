@@ -409,32 +409,32 @@ type Opcode =
   | FMULP = 155
   /// No Operation.
   | FNOP = 156
-  /// Partial Arctangent.
-  | FPATAN = 157
-  /// Partial Remainder.
-  | FPREM = 158
-  /// Partial Remainder.
-  | FPREM1 = 159
-  /// Partial Tangent.
-  | FPTAN = 160
-  /// Round to Integer.
-  | FRNDINT = 161
-  /// Restore x87 FPU State.
-  | FRSTOR = 162
-  /// Store x87 FPU State.
-  | FSAVE = 163
-  /// Scale.
-  | FSCALE = 164
-  /// Sine.
-  | FSIN = 165
-  /// Sine and Cosine.
-  | FSINCOS = 166
-  /// Square Root.
-  | FSQRT = 167
-  /// Store Floating Point Value.
-  | FST = 168
   /// Store x87 FPU Control Word.
-  | FSTCW = 169
+  | FNSTCW = 157
+  /// Partial Arctangent.
+  | FPATAN = 158
+  /// Partial Remainder.
+  | FPREM = 159
+  /// Partial Remainder.
+  | FPREM1 = 160
+  /// Partial Tangent.
+  | FPTAN = 161
+  /// Round to Integer.
+  | FRNDINT = 162
+  /// Restore x87 FPU State.
+  | FRSTOR = 163
+  /// Store x87 FPU State.
+  | FSAVE = 164
+  /// Scale.
+  | FSCALE = 165
+  /// Sine.
+  | FSIN = 166
+  /// Sine and Cosine.
+  | FSINCOS = 167
+  /// Square Root.
+  | FSQRT = 168
+  /// Store Floating Point Value.
+  | FST = 169
   /// Store x87 FPU Environment.
   | FSTENV = 170
   /// Store Floating Point Value.

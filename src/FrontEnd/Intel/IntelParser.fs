@@ -778,7 +778,7 @@ let private getD9OpWithin00toBF b =
   | 0b100 -> Opcode.FLDENV
   | 0b101 -> Opcode.FLDCW
   | 0b110 -> Opcode.FSTENV
-  | 0b111 -> Opcode.FSTCW
+  | 0b111 -> Opcode.FNSTCW
   | _ -> raise ParsingFailureException // failwith "Not a D9 Opcode"
 
 (* Table A-10 of Volume 2
@@ -970,6 +970,12 @@ let private getDFOverBF b =
   if b = 0xE0uy then OprReg R.AX |> OneOperand
   else TwoOperands (getRM b |> getSTReg, OprReg R.ST0)
 
+let private getD9EscEffOprSizeByModRM = function
+ | 0b000 | 0b010 | 0b011 -> 32<rt> (* single-real *)
+ | 0b100 | 0b110 -> 16<rt> (* FIXME: 14/28 bytes (m14byte or m28byte) *)
+ | 0b101 | 0b111 -> 16<rt> (* 2 bytes *)
+ | _ -> raise ParsingFailureException
+
 let private getDFEscEffOprSizeByModRM = function
  | 0b000 | 0b001 | 0b010 | 0b011 -> 16<rt>
  | 0b100 -> 80<rt>
@@ -979,7 +985,7 @@ let private getDFEscEffOprSizeByModRM = function
  | _ -> raise ParsingFailureException
 
 let private getEscEffOprSizeByESCOp = function
-  | 0xD8uy | 0xD9uy | 0xDAuy | 0xDBuy | 0xDCuy | 0xDDuy -> 32<rt>
+  | 0xD8uy | 0xDAuy | 0xDBuy | 0xDCuy | 0xDDuy -> 32<rt>
   | 0xDEuy -> 16<rt>
   | _ -> raise ParsingFailureException
 
@@ -989,8 +995,10 @@ let private parseESCOp t (reader: BinReader) pos escFlag getOpIn getOpOut =
     let opCode = getOpIn b
     let insSize = newInsSize t SzDef32 opCode Mz
     let effOprSize =
-      if escFlag = 0xDFuy then getReg b |> getDFEscEffOprSizeByModRM
-      else escFlag |> getEscEffOprSizeByESCOp
+      match escFlag with
+      | 0xD9uy -> getReg b |> getD9EscEffOprSizeByModRM
+      | 0xDFuy -> getReg b |> getDFEscEffOprSizeByModRM
+      | _ -> escFlag |> getEscEffOprSizeByESCOp
     let memSize = { insSize.MemSize with EffOprSize = effOprSize }
     let insSize = { insSize with MemSize = memSize }
     Some (struct (newTemporaryIns opCode NoOperand t insSize, Mz)), pos

@@ -4533,8 +4533,8 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.FSIN | Opcode.FCOS | Opcode.FSINCOS | Opcode.FPTAN | Opcode.FPATAN
   | Opcode.F2XM1 | Opcode.FYL2X | Opcode.FYL2XP1 ->
     sideEffects insAddr insLen UnsupportedFP
+  | Opcode.FNSTCW -> sideEffects insAddr insLen UnsupportedFP
   | Opcode.FST -> sideEffects insAddr insLen UnsupportedFP
-  | Opcode.FSTCW -> sideEffects insAddr insLen UnsupportedFP
   | Opcode.FSTP -> sideEffects insAddr insLen UnsupportedFP
   | Opcode.FSTSW -> sideEffects insAddr insLen UnsupportedFP
   | Opcode.FSUB -> sideEffects insAddr insLen UnsupportedFP
