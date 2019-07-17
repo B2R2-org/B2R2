@@ -367,8 +367,8 @@ let inline private _RGv rg changeable =
 
 let RGzRGz = [| _RGz RegGrp.RG0 false; _RGz RegGrp.RG0 true |]
 let RGvSIz = [| _RGv RegGrp.RG0 false; _SIz |]
-let RGvDX = [| _RGv RegGrp.RG0 false; ODReg R.DX |]
-let DXRGv = [| ODReg R.DX; _RGv RegGrp.RG0 false |]
+let RGzDX = [| _RGz RegGrp.RG0 false; ODReg R.DX |]
+let DXRGz = [| ODReg R.DX; _RGz RegGrp.RG0 false |]
 
 (*
 let ORSR sg = [| ODReg sg |]
@@ -706,10 +706,10 @@ let descs =
                   ODRegGrp (RegGrp.RG0, OprSize.Z, RGrpAttr.ARegInOpREX) |])
     ("RGvSIz", [| ODRegGrp (RegGrp.RG0, OprSize.V, RGrpAttr.ARegInOpNoREX);
                   _SIz |])
-    ("RGvDX", [| ODRegGrp (RegGrp.RG0, OprSize.V, RGrpAttr.ARegInOpNoREX);
+    ("RGzDX", [| ODRegGrp (RegGrp.RG0, OprSize.Z, RGrpAttr.ARegInOpNoREX);
                  ODReg R.DX |])
-    ("DXRGv", [| ODReg R.DX;
-                 ODRegGrp (RegGrp.RG0, OprSize.V, RGrpAttr.ARegInOpNoREX) |])
+    ("DXRGz", [| ODReg R.DX;
+                 ODRegGrp (RegGrp.RG0, OprSize.Z, RGrpAttr.ARegInOpNoREX) |])
   ]
 
 let toInt64 = function

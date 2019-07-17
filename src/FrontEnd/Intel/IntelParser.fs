@@ -491,22 +491,26 @@ let private getSizeBySzDesc t effOprSz szKind =
     if is64bit t && hasREXW (selectREX t.TVEXInfo t.TREXPrefix)
     then struct (64<rt>, 64<rt>)
     else struct (32<rt>, 32<rt>)
+  | 0x800L (* OprSize.Z *) ->
+    if effOprSz = 64<rt> || effOprSz = 32<rt> then struct (32<rt>, effOprSz)
+    else struct (effOprSz, effOprSz)
   | _ -> struct (effOprSz, effOprSz)
 
-let private convRegSize t effOprSz oprDesc =
-  let kind = oprDesc &&& 0xF000L
-  if (kind ^^^ 0x3000L) = 0L then Register.toRegType (getRegister oprDesc)
-  elif (kind ^^^ 0x4000L) = 0L
-    || ((kind ^^^ 0x2000L) = 0L && isRegMode (getModeFld oprDesc)) then
-    let (struct (x, _)) = getSizeBySzDesc t effOprSz (getSizeFld oprDesc)
-    in x
-  else 0<rt>
+let private convRegSize t effOprSz oprDesc oprDescs =
+  match getDescKindFld oprDesc with
+  | 0x2000L when isRegMode (getModeFld oprDesc) -> (* ODModeSize && RegMode *)
+    let (struct (x, _)) = getSizeBySzDesc t effOprSz (getSizeFld oprDesc) in x
+  | 0x3000L when (getSndDesc oprDescs |> getDescKindFld) = 0x4000L -> 0<rt>
+  | 0x3000L -> Register.toRegType (getRegister oprDesc) (* ODReg *)
+  | 0x4000L -> (* ODRegGrp *)
+    let (struct (x, _)) = getSizeBySzDesc t effOprSz (getSizeFld oprDesc) in x
+  | _ -> 0<rt>
 
 let rec private findRegSize amount oprDescs t effOprSz ret =
   let oprDesc = (oprDescs >>> amount) &&& 0xffffL
   if oprDesc = 0L then ret
   else
-    let v = convRegSize t effOprSz oprDesc
+    let v = convRegSize t effOprSz oprDesc oprDescs
     if v <> 0<rt> then v
     elif amount = 0 then ret
     else findRegSize (amount - 16) oprDescs t effOprSz ret
@@ -2008,9 +2012,9 @@ let private pOneByteOpcode t reader pos = function
   | 0xEAuy -> ensure32 t; parseOp t Opcode.JMPFar SzInv64 Ap, pos
   | 0xEBuy -> parseOp t Opcode.JMPNear Sz64 Jb, pos
   | 0xECuy -> parseOp t Opcode.IN SzDef32 ALDX, pos
-  | 0xEDuy -> parseOp t Opcode.IN SzDef32 RGvDX, pos
+  | 0xEDuy -> parseOp t Opcode.IN SzDef32 RGzDX, pos
   | 0xEEuy -> parseOp t Opcode.OUT SzDef32 DXAL, pos
-  | 0xEFuy -> parseOp t Opcode.OUT SzDef32 DXRGv, pos
+  | 0xEFuy -> parseOp t Opcode.OUT SzDef32 DXRGz, pos
   | 0xF4uy -> parseOp t Opcode.HLT Sz64 0L, pos
   | 0xF5uy -> parseOp t Opcode.CMC Sz64 0L, pos
   | 0xF8uy -> parseOp t Opcode.CLC Sz64 0L, pos
