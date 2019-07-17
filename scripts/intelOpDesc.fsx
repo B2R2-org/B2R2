@@ -196,6 +196,7 @@ let BNDRbndBNDRMbnd = [| _BNDRbnd; _BNDRMbnd |]
 let BNDRMbndBNDRbnd = [| _BNDRMbnd; _BNDRbnd |]
 let CdRd = [| _Cd; _Rd |]
 let DdRd = [| _Dd; _Rd |]
+let DXAL = [| ODReg R.DX; ODReg R.AL |]
 let Eb1L = [| _Eb; ODImmOne |]
 let EbCL = [| _Eb; ODReg R.CL |]
 let EbGb = [| _Eb; _Gb |]
@@ -539,6 +540,7 @@ let descs =
     ("BNDRMbndBNDRbnd", [| _BNDRMbnd; _BNDRbnd |])
     ("CdRd", [| _Cd; _Rd |])
     ("DdRd", [| _Dd; _Rd |])
+    ("DXAL", [| ODReg R.DX; ODReg R.AL |])
     ("Eb1L", [| _Eb; ODImmOne |])
     ("EbCL", [| _Eb; ODReg R.CL |])
     ("EbGb", [| _Eb; _Gb |])

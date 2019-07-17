@@ -2009,7 +2009,7 @@ let private pOneByteOpcode t reader pos = function
   | 0xEBuy -> parseOp t Opcode.JMPNear Sz64 Jb, pos
   | 0xECuy -> parseOp t Opcode.IN SzDef32 ALDX, pos
   | 0xEDuy -> parseOp t Opcode.IN SzDef32 RGvDX, pos
-  | 0xEEuy -> parseOp t Opcode.OUT SzDef32 ALDX, pos
+  | 0xEEuy -> parseOp t Opcode.OUT SzDef32 DXAL, pos
   | 0xEFuy -> parseOp t Opcode.OUT SzDef32 DXRGv, pos
   | 0xF4uy -> parseOp t Opcode.HLT Sz64 0L, pos
   | 0xF5uy -> parseOp t Opcode.CMC Sz64 0L, pos
