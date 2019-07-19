@@ -136,8 +136,9 @@ let parseEAT (binReader: BinReader) headers (sec: SectionHeader) edt =
     if cnt = 0 then List.rev acc |> List.toArray
     else let rva = binReader.PeekInt32 (pos)
          loop (getEntry rva :: acc) (cnt - 1) (pos + 4)
-  let offset = edt.ExportAddressTableRVA |> getRawOffset headers
-  loop [] edt.AddressTableEntries offset
+  match edt.ExportAddressTableRVA with
+  | 0 -> [||]
+  | rva -> getRawOffset headers rva |> loop [] edt.AddressTableEntries
 
 /// Parse Export Name Pointer Table (ENPT).
 let parseENPT (binReader: BinReader) headers edt =
