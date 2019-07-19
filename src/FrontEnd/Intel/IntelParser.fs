@@ -1737,13 +1737,6 @@ let private parseTwoByteOpcode t (reader: BinReader) pos =
 let inline private getDescForRegGrp t regGrp =
   int regGrp |> findReg 8<rt> RGrpAttr.AMod11 t.TREXPrefix |> RegIb
 
-/// The assembler may insert the 16-bit operand-size prefix with this
-/// instruction. (Vol. 2A 3-531)
-let private addOpSizePref t =
-  if not (hasOprSz t.TPrefixes) then
-    { t with TPrefixes = Prefix.PrxOPSIZE ||| t.TPrefixes }
-  else t
-
 let private pOneByteOpcode t reader pos = function
   | 0x00uy -> parseOp t Opcode.ADD SzDef32 EbGb, pos
   | 0x01uy -> parseOp t Opcode.ADD SzDef32 EvGv, pos
@@ -1886,9 +1879,9 @@ let private pOneByteOpcode t reader pos = function
   | 0x89uy -> parseOp t Opcode.MOV SzDef32 EvGv, pos
   | 0x8Auy -> parseOp t Opcode.MOV SzDef32 GbEb, pos
   | 0x8Buy -> parseOp t Opcode.MOV SzDef32 GvEv, pos
-  | 0x8Cuy -> parseOp (addOpSizePref t) Opcode.MOV SzDef32 EvSw, pos
+  | 0x8Cuy -> parseOp t Opcode.MOV SzDef32 EvSw, pos
   | 0x8Duy -> parseOp t Opcode.LEA SzDef32 GvMv, pos
-  | 0x8Euy -> parseOp (addOpSizePref t) Opcode.MOV SzDef32 SwEw, pos
+  | 0x8Euy -> parseOp t Opcode.MOV SzDef32 SwEw, pos
   | 0x90uy ->
     if hasNoPrefNoREX t then parseOp t Opcode.NOP SzDef32 0L, pos
     elif hasREPZ t.TPrefixes then parseOp t Opcode.PAUSE SzDef32 0L, pos
