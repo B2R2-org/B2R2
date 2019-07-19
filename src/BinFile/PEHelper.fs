@@ -46,8 +46,24 @@ let parseFormat bytes offset =
   let arch = reader.PEHeaders.CoffHeader.Machine |> machineToArch
   ISA.Init arch Endian.Little
 
-let getRawOffset (headers: PEHeaders) rva =
+/// Some PE files have a section header indicating that the corresponding
+/// section's size is zero even if it contains actual data, i.e.,
+/// sHdr.VirtualSize = 0, but sHdr.SizeOfRawData <> 0. In such cases,
+/// GetContainingSectionIndex function will not be able to find a match, and we
+/// should fall back on this path.
+let findSectionIdxOfZeroVirtualSize (headers: PEHeaders) rva =
+  headers.SectionHeaders
+  |> Seq.tryFindIndex (fun s -> s.VirtualAddress <= rva
+                             && rva < s.VirtualAddress + s.SizeOfRawData)
+  |> Option.defaultValue -1
+
+let findSectionIndex (headers: PEHeaders) rva =
   let idx = headers.GetContainingSectionIndex rva
+  if idx < 0 then findSectionIdxOfZeroVirtualSize headers rva
+  else idx
+
+let getRawOffset (headers: PEHeaders) rva =
+  let idx = findSectionIndex headers rva
   let sHdr = headers.SectionHeaders.[idx]
   rva + sHdr.PointerToRawData - sHdr.VirtualAddress
 
@@ -168,7 +184,8 @@ let parseExports binReader (headers: PEHeaders) =
   match headers.PEHeader.ExportTableDirectory.RelativeVirtualAddress with
   | 0 -> Map.empty
   | rva ->
-    let sec = headers.SectionHeaders.[headers.GetContainingSectionIndex rva]
+    let idx = findSectionIndex headers rva
+    let sec = headers.SectionHeaders.[idx]
     getRawOffset headers rva
     |> readExportDirectoryTableEntry binReader headers
     |> buildExportTable binReader headers sec
@@ -299,7 +316,7 @@ let getSymbolKindBySectionIndex pe idx =
 let getExportSymbols pe =
   let conv acc addr exp =
     let rva = int (addr - pe.PEHeaders.PEHeader.ImageBase)
-    match pe.PEHeaders.GetContainingSectionIndex rva with
+    match findSectionIndex pe.PEHeaders rva with
     | -1 -> acc
     | idx ->
       { Address = addr
