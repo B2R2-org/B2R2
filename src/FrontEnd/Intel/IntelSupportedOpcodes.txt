@@ -312,6 +312,8 @@ FMUL
 FMULP
 /// No Operation.
 FNOP
+/// Store x87 FPU Control Word.
+FNSTCW
 /// Partial Arctangent.
 FPATAN
 /// Partial Remainder.
@@ -336,8 +338,6 @@ FSINCOS
 FSQRT
 /// Store Floating Point Value.
 FST
-/// Store x87 FPU Control Word.
-FSTCW
 /// Store x87 FPU Environment.
 FSTENV
 /// Store Floating Point Value.

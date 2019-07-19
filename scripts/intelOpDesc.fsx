@@ -196,6 +196,7 @@ let BNDRbndBNDRMbnd = [| _BNDRbnd; _BNDRMbnd |]
 let BNDRMbndBNDRbnd = [| _BNDRMbnd; _BNDRbnd |]
 let CdRd = [| _Cd; _Rd |]
 let DdRd = [| _Dd; _Rd |]
+let DXAL = [| ODReg R.DX; ODReg R.AL |]
 let Eb1L = [| _Eb; ODImmOne |]
 let EbCL = [| _Eb; ODReg R.CL |]
 let EbGb = [| _Eb; _Gb |]
@@ -366,8 +367,8 @@ let inline private _RGv rg changeable =
 
 let RGzRGz = [| _RGz RegGrp.RG0 false; _RGz RegGrp.RG0 true |]
 let RGvSIz = [| _RGv RegGrp.RG0 false; _SIz |]
-let RGvDX = [| _RGv RegGrp.RG0 false; ODReg R.DX |]
-let DXRGv = [| ODReg R.DX; _RGv RegGrp.RG0 false |]
+let RGzDX = [| _RGz RegGrp.RG0 false; ODReg R.DX |]
+let DXRGz = [| ODReg R.DX; _RGz RegGrp.RG0 false |]
 
 (*
 let ORSR sg = [| ODReg sg |]
@@ -539,6 +540,7 @@ let descs =
     ("BNDRMbndBNDRbnd", [| _BNDRMbnd; _BNDRbnd |])
     ("CdRd", [| _Cd; _Rd |])
     ("DdRd", [| _Dd; _Rd |])
+    ("DXAL", [| ODReg R.DX; ODReg R.AL |])
     ("Eb1L", [| _Eb; ODImmOne |])
     ("EbCL", [| _Eb; ODReg R.CL |])
     ("EbGb", [| _Eb; _Gb |])
@@ -704,10 +706,10 @@ let descs =
                   ODRegGrp (RegGrp.RG0, OprSize.Z, RGrpAttr.ARegInOpREX) |])
     ("RGvSIz", [| ODRegGrp (RegGrp.RG0, OprSize.V, RGrpAttr.ARegInOpNoREX);
                   _SIz |])
-    ("RGvDX", [| ODRegGrp (RegGrp.RG0, OprSize.V, RGrpAttr.ARegInOpNoREX);
+    ("RGzDX", [| ODRegGrp (RegGrp.RG0, OprSize.Z, RGrpAttr.ARegInOpNoREX);
                  ODReg R.DX |])
-    ("DXRGv", [| ODReg R.DX;
-                 ODRegGrp (RegGrp.RG0, OprSize.V, RGrpAttr.ARegInOpNoREX) |])
+    ("DXRGz", [| ODReg R.DX;
+                 ODRegGrp (RegGrp.RG0, OprSize.Z, RGrpAttr.ARegInOpNoREX) |])
   ]
 
 let toInt64 = function

@@ -491,22 +491,26 @@ let private getSizeBySzDesc t effOprSz szKind =
     if is64bit t && hasREXW (selectREX t.TVEXInfo t.TREXPrefix)
     then struct (64<rt>, 64<rt>)
     else struct (32<rt>, 32<rt>)
+  | 0x800L (* OprSize.Z *) ->
+    if effOprSz = 64<rt> || effOprSz = 32<rt> then struct (32<rt>, effOprSz)
+    else struct (effOprSz, effOprSz)
   | _ -> struct (effOprSz, effOprSz)
 
-let private convRegSize t effOprSz oprDesc =
-  let kind = oprDesc &&& 0xF000L
-  if (kind ^^^ 0x3000L) = 0L then Register.toRegType (getRegister oprDesc)
-  elif (kind ^^^ 0x4000L) = 0L
-    || ((kind ^^^ 0x2000L) = 0L && isRegMode (getModeFld oprDesc)) then
-    let (struct (x, _)) = getSizeBySzDesc t effOprSz (getSizeFld oprDesc)
-    in x
-  else 0<rt>
+let private convRegSize t effOprSz oprDesc oprDescs =
+  match getDescKindFld oprDesc with
+  | 0x2000L when isRegMode (getModeFld oprDesc) -> (* ODModeSize && RegMode *)
+    let (struct (x, _)) = getSizeBySzDesc t effOprSz (getSizeFld oprDesc) in x
+  | 0x3000L when (getSndDesc oprDescs |> getDescKindFld) = 0x4000L -> 0<rt>
+  | 0x3000L -> Register.toRegType (getRegister oprDesc) (* ODReg *)
+  | 0x4000L -> (* ODRegGrp *)
+    let (struct (x, _)) = getSizeBySzDesc t effOprSz (getSizeFld oprDesc) in x
+  | _ -> 0<rt>
 
 let rec private findRegSize amount oprDescs t effOprSz ret =
   let oprDesc = (oprDescs >>> amount) &&& 0xffffL
   if oprDesc = 0L then ret
   else
-    let v = convRegSize t effOprSz oprDesc
+    let v = convRegSize t effOprSz oprDesc oprDescs
     if v <> 0<rt> then v
     elif amount = 0 then ret
     else findRegSize (amount - 16) oprDescs t effOprSz ret
@@ -778,7 +782,7 @@ let private getD9OpWithin00toBF b =
   | 0b100 -> Opcode.FLDENV
   | 0b101 -> Opcode.FLDCW
   | 0b110 -> Opcode.FSTENV
-  | 0b111 -> Opcode.FSTCW
+  | 0b111 -> Opcode.FNSTCW
   | _ -> raise ParsingFailureException // failwith "Not a D9 Opcode"
 
 (* Table A-10 of Volume 2
@@ -970,16 +974,20 @@ let private getDFOverBF b =
   if b = 0xE0uy then OprReg R.AX |> OneOperand
   else TwoOperands (getRM b |> getSTReg, OprReg R.ST0)
 
+let private getD9EscEffOprSizeByModRM = function
+ | 0b000 | 0b010 | 0b011 -> 32<rt> (* single-real *)
+ | 0b100 | 0b110 -> 16<rt> (* FIXME: 14/28 bytes (m14byte or m28byte) *)
+ | 0b101 | 0b111 -> 16<rt> (* 2 bytes *)
+ | _ -> raise ParsingFailureException
+
 let private getDFEscEffOprSizeByModRM = function
- | 0b000 | 0b001 | 0b010 | 0b011 -> 16<rt>
- | 0b100 -> 80<rt>
- | 0b101 -> 64<rt>
- | 0b110 -> 80<rt>
- | 0b111 -> 64<rt>
+ | 0b000 | 0b001 | 0b010 | 0b011 -> 16<rt> (* word-integer *)
+ | 0b100 | 0b110 -> 80<rt> (* packed-BCD *)
+ | 0b101 | 0b111 -> 64<rt> (* qword-integer *)
  | _ -> raise ParsingFailureException
 
 let private getEscEffOprSizeByESCOp = function
-  | 0xD8uy | 0xD9uy | 0xDAuy | 0xDBuy | 0xDCuy | 0xDDuy -> 32<rt>
+  | 0xD8uy | 0xDAuy | 0xDBuy | 0xDDuy -> 32<rt>
   | 0xDEuy -> 16<rt>
   | _ -> raise ParsingFailureException
 
@@ -989,8 +997,11 @@ let private parseESCOp t (reader: BinReader) pos escFlag getOpIn getOpOut =
     let opCode = getOpIn b
     let insSize = newInsSize t SzDef32 opCode Mz
     let effOprSize =
-      if escFlag = 0xDFuy then getReg b |> getDFEscEffOprSizeByModRM
-      else escFlag |> getEscEffOprSizeByESCOp
+      match escFlag with
+      | 0xD9uy -> getReg b |> getD9EscEffOprSizeByModRM
+      | 0xDCuy -> 64<rt> (* double-real *)
+      | 0xDFuy -> getReg b |> getDFEscEffOprSizeByModRM
+      | _ -> escFlag |> getEscEffOprSizeByESCOp (* FIXME *)
     let memSize = { insSize.MemSize with EffOprSize = effOprSize }
     let insSize = { insSize with MemSize = memSize }
     Some (struct (newTemporaryIns opCode NoOperand t insSize, Mz)), pos
@@ -1726,13 +1737,6 @@ let private parseTwoByteOpcode t (reader: BinReader) pos =
 let inline private getDescForRegGrp t regGrp =
   int regGrp |> findReg 8<rt> RGrpAttr.AMod11 t.TREXPrefix |> RegIb
 
-/// The assembler may insert the 16-bit operand-size prefix with this
-/// instruction. (Vol. 2A 3-531)
-let private addOpSizePref t =
-  if not (hasOprSz t.TPrefixes) then
-    { t with TPrefixes = Prefix.PrxOPSIZE ||| t.TPrefixes }
-  else t
-
 let private pOneByteOpcode t reader pos = function
   | 0x00uy -> parseOp t Opcode.ADD SzDef32 EbGb, pos
   | 0x01uy -> parseOp t Opcode.ADD SzDef32 EvGv, pos
@@ -1875,9 +1879,9 @@ let private pOneByteOpcode t reader pos = function
   | 0x89uy -> parseOp t Opcode.MOV SzDef32 EvGv, pos
   | 0x8Auy -> parseOp t Opcode.MOV SzDef32 GbEb, pos
   | 0x8Buy -> parseOp t Opcode.MOV SzDef32 GvEv, pos
-  | 0x8Cuy -> parseOp (addOpSizePref t) Opcode.MOV SzDef32 EvSw, pos
+  | 0x8Cuy -> parseOp t Opcode.MOV SzDef32 EvSw, pos
   | 0x8Duy -> parseOp t Opcode.LEA SzDef32 GvMv, pos
-  | 0x8Euy -> parseOp (addOpSizePref t) Opcode.MOV SzDef32 SwEw, pos
+  | 0x8Euy -> parseOp t Opcode.MOV SzDef32 SwEw, pos
   | 0x90uy ->
     if hasNoPrefNoREX t then parseOp t Opcode.NOP SzDef32 0L, pos
     elif hasREPZ t.TPrefixes then parseOp t Opcode.PAUSE SzDef32 0L, pos
@@ -2001,9 +2005,9 @@ let private pOneByteOpcode t reader pos = function
   | 0xEAuy -> ensure32 t; parseOp t Opcode.JMPFar SzInv64 Ap, pos
   | 0xEBuy -> parseOp t Opcode.JMPNear Sz64 Jb, pos
   | 0xECuy -> parseOp t Opcode.IN SzDef32 ALDX, pos
-  | 0xEDuy -> parseOp t Opcode.IN SzDef32 RGvDX, pos
-  | 0xEEuy -> parseOp t Opcode.OUT SzDef32 ALDX, pos
-  | 0xEFuy -> parseOp t Opcode.OUT SzDef32 DXRGv, pos
+  | 0xEDuy -> parseOp t Opcode.IN SzDef32 RGzDX, pos
+  | 0xEEuy -> parseOp t Opcode.OUT SzDef32 DXAL, pos
+  | 0xEFuy -> parseOp t Opcode.OUT SzDef32 DXRGz, pos
   | 0xF4uy -> parseOp t Opcode.HLT Sz64 0L, pos
   | 0xF5uy -> parseOp t Opcode.CMC Sz64 0L, pos
   | 0xF8uy -> parseOp t Opcode.CLC Sz64 0L, pos
