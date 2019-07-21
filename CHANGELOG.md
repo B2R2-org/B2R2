@@ -1,5 +1,15 @@
 # B2R2 Change Log
 
+## 0.2.1 (2019-07-21)
+
+### Added
+- Add a draggable handle between WebUI panes.
+
+### Changed
+- Fix various ARMv7 parsing/lifting bugs (not yet stable, but getting there).
+- Fix PE header parsing bugs (GitHub issue #23 and #24)
+- Fix x86 parsing errors (GitHub issue #22)
+
 ## 0.2.0 (2019-07-11)
 
 ### Added
@@ -9,6 +19,7 @@
 - Add FileViewer utility.
 - Add a batch option to BinExplorer.
 - Add a boilerplate assembler module.
+- Add the conceval (concrete evaluation) module.
 
 ### Changed
 - Rewrote BinFile modules.
