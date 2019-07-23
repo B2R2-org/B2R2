@@ -24,25 +24,23 @@
   SOFTWARE.
 *)
 
-module internal B2R2.Utilities.BinExplorer.CmdSpec
+namespace B2R2.Utilities.BinExplorer
 
-/// Command specification in *alphabetic* order. The entries in this list
-/// should match with the KeyWords of help commands (in defaultCmds).
-let speclist =
-  [
-    CmdBinInfo () :> Cmd
-    CmdCredits () :> Cmd
-    CmdEvalExpr () :> Cmd
-    CmdDisasm () :> Cmd
-    CmdGadgetSearch () :> Cmd
-    CmdROP () :> Cmd
-    CmdList () :> Cmd
-    CmdSearch () :> Cmd
-    CmdHexDump () :> Cmd
-    CmdPrint () :> Cmd
-    (* Default commands *)
-    CmdHelp () :> Cmd
-    CmdExit () :> Cmd
-  ]
+type CmdEvalExpr () =
+  inherit Cmd ()
 
-// vim: set tw=80 sts=2 sw=2:
+  override __.CmdName = "?"
+
+  override __.CmdAlias = []
+
+  override __.CmdDescr = "Evaluates and displays the value of an expression."
+
+  override __.CmdHelp =
+    "Usage: ? <expression>\n\n\
+     Evaluates the given expression and prints out the value. This command\n\
+     supports basic arithmetic expressions."
+
+  override __.SubCommands = []
+
+  override __.CallBack _ binEssence args =
+    [| __.CmdHelp |]

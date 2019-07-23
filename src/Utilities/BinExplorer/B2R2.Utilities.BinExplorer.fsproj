@@ -12,6 +12,7 @@
     <Compile Include="CmdTypes.fs" />
     <Compile Include="BinInfo.fs" />
     <Compile Include="Credits.fs" />
+    <Compile Include="EvalExpr.fs" />
     <Compile Include="List.fs" />
     <Compile Include="Search.fs" />
     <Compile Include="HexDump.fs" />
