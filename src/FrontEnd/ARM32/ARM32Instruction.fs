@@ -100,6 +100,13 @@ type ARM32Instruction (addr, numBytes, insInfo) =
 
   override __.InterruptNum (num: byref<int64>) = Utils.futureFeature ()
 
+  override __.GetNextInstrAddrs () =
+    // FIXME this is wrong.
+    let acc = Seq.singleton (__.Address + uint64 __.Length)
+    match __.DirectBranchTarget () |> Utils.tupleToOpt with
+    | None -> acc
+    | Some target -> Seq.singleton target |> Seq.append acc
+
   override __.IsNop () =
     __.Info.Opcode = Op.NOP
 

@@ -109,7 +109,6 @@ type IntelInstruction (addr, numBytes, insInfo, wordSize) =
 
   override __.DirectBranchTarget (addr: byref<Addr>) =
     if __.IsBranch () then
-      // OneOperand (OprMem (Some RIP,None,Some 2205534L,64))
       match __.Info.Operands with
       | OneOperand (OprDirAddr (Absolute (_))) -> failwith "Implement" // XXX
       | OneOperand (OprMem (Some Register.RIP, None, Some offset, 64<rt>)) ->
@@ -129,6 +128,20 @@ type IntelInstruction (addr, numBytes, insInfo, wordSize) =
         true
       | _ -> false
     else false
+
+  member private __.AddBranchTargetIfExist addrs =
+    match __.DirectBranchTarget () |> Utils.tupleToOpt with
+    | None -> addrs
+    | Some target -> Seq.singleton target |> Seq.append addrs
+
+  override __.GetNextInstrAddrs () =
+    let acc = Seq.singleton (__.Address + uint64 __.Length)
+    if __.IsCall () then acc |> __.AddBranchTargetIfExist
+    elif __.IsDirectBranch () || __.IsIndirectBranch () then
+      if __.IsCondBranch () then acc |> __.AddBranchTargetIfExist
+      else __.AddBranchTargetIfExist Seq.empty
+    elif __.Info.Opcode = Opcode.HLT then Seq.empty
+    else acc
 
   override __.IsNop () =
     __.Info.Opcode = Opcode.NOP

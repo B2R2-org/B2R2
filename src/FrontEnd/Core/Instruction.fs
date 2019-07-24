@@ -159,7 +159,18 @@ type Instruction (addr, numBytes, wordSize) =
   /// </returns>
   abstract member DirectBranchTarget: [<Out>] addr: byref<Addr> -> bool
 
+  /// <summary>
+  ///   Return the interrupt number if this is an interrupt instruction.
+  /// </summary>
   abstract member InterruptNum: [<Out>] num: byref<int64> -> bool
+
+  /// <summary>
+  ///   Return a sequence of possible next instruction addresses. For branch
+  ///   instructions, the returned sequence includes jump target(s). For regular
+  ///   instructions, the sequence is a singleton of the fall-through address.
+  ///   This function does not resolve indirect branch targets.
+  /// </summary>
+  abstract member GetNextInstrAddrs: unit -> seq<Addr>
 
   /// <summary>
   ///   Lift this instruction into a LowUIR given a translation context.
