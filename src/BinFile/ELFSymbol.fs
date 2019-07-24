@@ -109,29 +109,40 @@ let retrieveVer verTbl verData =
   | None -> None
   | Some verStr -> Some { VerType = t; VerName = verStr }
 
-let readSymAddr (reader: BinReader) cls offset =
+let readSymAddr (reader: BinReader) cls (parent: ELFSection option) txt offset =
   let symAddrOffset = if cls = WordSize.Bit32 then 4 else 8
-  offset + symAddrOffset |> peekUIntOfType reader cls
+  let symAddr = offset + symAddrOffset |> peekUIntOfType reader cls
+  match parent with
+  | None -> symAddr
+  | Some sec ->
+    (* This is to give a meaningful address to static symbols in a relocatable
+       object. We let .text section's address to be zero, and assume that the
+       .text section always precedes the other sections. See
+       https://github.com/B2R2-org/B2R2/issues/25 for more details. *)
+    if sec.SecAddr = 0UL && sec.SecOffset > txt then
+      sec.SecOffset - txt + symAddr
+    else sec.SecAddr + symAddr
 
 let readSymSize (reader: BinReader) cls offset =
   let symSizeOffset = if cls = WordSize.Bit32 then 8 else 16
   offset + symSizeOffset |> peekUIntOfType reader cls
 
-let parseSymb secs verSymSec strTab verTbl cls (reader: BinReader) symIdx pos =
+let parseSymb secs vssec strTab verTbl cls (reader: BinReader) txt symIdx pos =
   let nameIdx = reader.PeekUInt32 pos
   let info = peekHeaderB reader cls pos 12 4
   let other = peekHeaderB reader cls pos 13 5
   let ndx =  peekHeaderU16 reader cls pos 14 6 |> int
+  let parent = Array.tryItem ndx secs.SecByNum
   let secIdx = SectionHeaderIdx.IndexFromInt ndx
-  let verInfo = verSymSec >>= parseVersData reader symIdx >>= retrieveVer verTbl
-  { Addr = readSymAddr reader cls pos
+  let verInfo = vssec >>= parseVersData reader symIdx >>= retrieveVer verTbl
+  { Addr = readSymAddr reader cls parent txt pos
     SymName = ByteArray.extractCString strTab (Convert.ToInt32 nameIdx)
     Size = readSymSize reader cls pos
     Bind = info >>> 4 |> LanguagePrimitives.EnumOfValue
     SymType = info &&& 0xfuy |> LanguagePrimitives.EnumOfValue
     Vis = other &&& 0x3uy |> LanguagePrimitives.EnumOfValue
     SecHeaderIndex = secIdx
-    ParentSection = Array.tryItem ndx secs.SecByNum
+    ParentSection = parent
     VerInfo = verInfo }
 
 let getVerSymSection symTblSec secByType =
@@ -142,15 +153,22 @@ let getVerSymSection symTblSec secByType =
 let nextSymOffset cls offset =
   offset + if cls = WordSize.Bit32 then 16 else 24
 
+let getTextSectionOffset secs =
+  match Map.tryFind ".text" secs.SecByName with
+  | None -> 0UL
+  | Some sec -> sec.SecOffset
+
 let parseSymbols cls secs (reader: BinReader) verTbl acc symTblSec =
   let ss = secs.SecByNum.[Convert.ToInt32 symTblSec.SecLink] (* Get the sec. *)
   let stbl = reader.PeekBytes (ss.SecSize, ss.SecOffset) (* Get the str table *)
-  let verSymSec = secs.VerSymSec
+  let vssec = secs.VerSymSec
   let sNum = symTblSec.SecSize / (if cls = WordSize.Bit32 then 16UL else 24UL)
-  let rec loop count acc offset =
-    if count = sNum then List.rev acc
-    else let sym = parseSymb secs verSymSec stbl verTbl cls reader count offset
-         loop (count + 1UL) (sym :: acc) (nextSymOffset cls offset)
+  let txt = getTextSectionOffset secs
+  let rec loop cnt acc offset =
+    if cnt = sNum then List.rev acc
+    else
+      let sym = parseSymb secs vssec stbl verTbl cls reader txt cnt offset
+      loop (cnt + 1UL) (sym :: acc) (nextSymOffset cls offset)
   Convert.ToInt32 symTblSec.SecOffset |> loop 0UL acc
 
 let getMergedSymbolTbl numbers symTbls =
