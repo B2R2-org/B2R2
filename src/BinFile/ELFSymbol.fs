@@ -121,7 +121,7 @@ let readSymAddr (reader: BinReader) cls (parent: ELFSection option) txt offset =
        https://github.com/B2R2-org/B2R2/issues/25 for more details. *)
     if sec.SecAddr = 0UL && sec.SecOffset > txt then
       sec.SecOffset - txt + symAddr
-    else sec.SecAddr + symAddr
+    else symAddr
 
 let readSymSize (reader: BinReader) cls offset =
   let symSizeOffset = if cls = WordSize.Bit32 then 8 else 16
