@@ -1,11 +1,15 @@
+# Project Leader
+- Sang Kil Cha <sangkilc@kaist.ac.kr>
+
 # Current Developers (alphabetical order)
 
-- Sang Kil Cha <sangkilc@kaist.ac.kr>
+- Mehdi Aghakishiyev <agakisiyev.mehdi@gmail.com>
 - Jaeseung Choi <jschoi17@kaist.ac.kr>
 - Seung Il Jung <sijung@kaist.ac.kr>
 - Dongkwan Kim <dkay@kaist.ac.kr>
 - Kangsu Kim <kskim0610@kaist.ac.kr>
 - Soomin Kim <soomink@kaist.ac.kr>
+- Michael Tegegn <michaelwalelegn11@gmail.com>
 
 # Contributors
 
