@@ -30,6 +30,6 @@ open B2R2.NameMangling
 open Microsoft.VisualStudio.TestTools.UnitTesting
 
 let test mangled demangled =
-  let mutable result = ""
-  Demangler.demangle mangled &result |> ignore
-  Assert.AreEqual (demangled, result)
+  match Demangler.Demangle mangled with
+  | true, result -> Assert.AreEqual (demangled, result)
+  | false, _ -> failwith "Demangling failure."

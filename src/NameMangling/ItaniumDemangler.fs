@@ -30,12 +30,10 @@ module ItaniumDemangler =
   let isItaniumMangled (str: string) =
     str.Length > 2 && str.[0..1] = "_Z"
 
-  let demangle (str: string) (dest: byref<string>) =
+  let demangle (str: string) =
     match ItaniumParser.run str.[2 ..] with
     | FParsec.CharParsers.Success (result, _, pos) ->
       if pos.Column = int64(str.Length) - 1L then
-        dest <- ItaniumInterpreter.interpret result; true
-      else
-        false
-    | FParsec.CharParsers.Failure (_, _, _) ->
-      false
+        Some <| ItaniumInterpreter.interpret result
+      else None
+    | FParsec.CharParsers.Failure (_, _, _) -> None

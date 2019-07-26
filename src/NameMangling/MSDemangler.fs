@@ -32,10 +32,10 @@ module MSDemangler =
     let str = str.Trim ()
     str.Length <> 0 && str.StartsWith "?" && str.Contains "@"
 
-  let demangle (str: string) (dest: byref<string>) =
+  let demangle (str: string) =
     match MSParser.run str.[1 ..] with
     | FParsec.CharParsers.Success (result, _, _) ->
       let result = MSInterpreter.interpret result
-      dest <- result.Trim (); true
+      Some <| result.Trim ()
     | FParsec.CharParsers.Failure (_, _, _) ->
-      false
+      None

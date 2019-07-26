@@ -28,16 +28,18 @@ namespace B2R2.NameMangling
 
 open System.Runtime.InteropServices
 
-module Demangler =
-  [<CompiledName("Detect")>]
-  let detect str =
+type Demangler =
+  static member Detect str =
     if MSDemangler.isMSMangled str then MSMangler
     elif ItaniumDemangler.isItaniumMangled str then ItaniumMangler
     else UnknownMangler
 
-  [<CompiledName("Demangle")>]
-  let demangle str ([<Out>] dest: byref<string>) =
-    match detect str with
-    | MSMangler -> MSDemangler.demangle str &dest
-    | ItaniumMangler -> ItaniumDemangler.demangle str &dest
-    | UnknownMangler-> false
+  static member Demangle (str, [<Out>] dest: byref<string>) =
+    let result =
+      match Demangler.Detect str with
+      | MSMangler -> MSDemangler.demangle str
+      | ItaniumMangler -> ItaniumDemangler.demangle str
+      | UnknownMangler-> None
+    match result with
+    | None -> false
+    | Some s -> dest <- s; true
