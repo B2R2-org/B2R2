@@ -12,6 +12,7 @@
     <Compile Include="CmdTypes.fs" />
     <Compile Include="BinInfo.fs" />
     <Compile Include="Credits.fs" />
+    <Compile Include="Demangle.fs" />
     <Compile Include="List.fs" />
     <Compile Include="Search.fs" />
     <Compile Include="HexDump.fs" />
@@ -32,6 +33,7 @@
     <ProjectReference Include="..\..\BinGraph\B2R2.BinGraph.fsproj" />
     <ProjectReference Include="..\..\ROP\B2R2.ROP.fsproj" />
     <ProjectReference Include="..\..\Visualization\B2R2.Visualization.fsproj" />
+    <ProjectReference Include="..\..\NameMangling\B2R2.NameMangling.fsproj" />
     <ProjectReference Include="..\Core\B2R2.Utilities.Core.fsproj" />
   </ItemGroup>
 

@@ -24,25 +24,26 @@
   SOFTWARE.
 *)
 
-module internal B2R2.Utilities.BinExplorer.CmdSpec
+namespace B2R2.Utilities.BinExplorer
 
-/// Command specification in *alphabetic* order. The entries in this list
-/// should match with the KeyWords of help commands (in defaultCmds).
-let speclist =
-  [
-    CmdBinInfo () :> Cmd
-    CmdCredits () :> Cmd
-    CmdDemangle () :> Cmd
-    CmdDisasm () :> Cmd
-    CmdGadgetSearch () :> Cmd
-    CmdROP () :> Cmd
-    CmdList () :> Cmd
-    CmdSearch () :> Cmd
-    CmdHexDump () :> Cmd
-    CmdPrint () :> Cmd
-    (* Default commands *)
-    CmdHelp () :> Cmd
-    CmdExit () :> Cmd
-  ]
+open B2R2
+open B2R2.NameMangling
 
-// vim: set tw=80 sts=2 sw=2:
+type CmdDemangle () =
+  inherit Cmd ()
+
+  override __.CmdName = "demangle"
+
+  override __.CmdAlias = [ "undecorate" ]
+
+  override __.CmdDescr = "Demangle the given mangled string."
+
+  override __.CmdHelp = "Usage: demangle <string>"
+
+  override __.SubCommands = []
+
+  override __.CallBack _ _ args =
+    let mangled = String.concat " " args
+    match Demangler.Demangle mangled |> Utils.tupleToOpt with
+    | None -> [| "[*] Invalid input." |]
+    | Some s -> [| s |]
