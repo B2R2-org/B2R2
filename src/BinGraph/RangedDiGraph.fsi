@@ -40,18 +40,17 @@ type RangedVertexData =
 type RangedDiGraph<'V, 'E when 'V :> RangedVertexData> =
   inherit DiGraph<'V, 'E>
   new: unit -> RangedDiGraph<'V, 'E>
-  override IsEmpty : unit -> bool
-  override Size : unit -> int
-  override AddVertex : 'V -> Vertex<'V>
-  override RemoveVertex : Vertex<'V> -> unit
-  override FindVertex : Vertex<'V> -> Vertex<'V>
-  override FindVertexByData : 'V -> Vertex<'V>
-  override TryFindVertexByData : 'V -> Vertex<'V> option
-  override AddEdge : Vertex<'V> -> Vertex<'V> -> 'E -> unit
-  override RemoveEdge : Vertex<'V> -> Vertex<'V> -> unit
-  /// Find edge data.
-  override FindEdge : Vertex<'V> -> Vertex<'V> -> 'E
-  override Reverse : unit -> DiGraph<'V, 'E>
+  override IsEmpty: unit -> bool
+  override Size: unit -> int
+  override AddVertex: 'V -> Vertex<'V>
+  override RemoveVertex: Vertex<'V> -> unit
+  override Exists: Vertex<'V> -> bool
+  override FindVertexByData: 'V -> Vertex<'V>
+  override TryFindVertexByData: 'V -> Vertex<'V> option
+  override AddEdge: Vertex<'V> -> Vertex<'V> -> 'E -> unit
+  override RemoveEdge: Vertex<'V> -> Vertex<'V> -> unit
+  override FindEdgeData: Vertex<'V> -> Vertex<'V> -> 'E
+  override Reverse: unit -> DiGraph<'V, 'E>
 
   /// Clone this graph and return a new one. The new graph will have vertices
   /// with newly assigned IDs. The reverse parameter tells whether the graph

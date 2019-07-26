@@ -26,19 +26,57 @@
 
 namespace B2R2.BinIR
 
-/// Raised when an illegal AST type is used. This should never be raised in
-/// normal situation.
-exception IllegalASTTypeException
+/// Binary operator types.
+type BinOpType =
+  /// Addition
+  | ADD = 0
+  /// Subtraction
+  | SUB = 1
+  /// Multiplication
+  | MUL = 2
+  /// Unsigned division
+  | DIV = 3
+  /// Signed division
+  | SDIV = 4
+  /// Unsigned modulo
+  | MOD = 5
+  /// Signed modulo
+  | SMOD = 6
+  /// Shift left
+  | SHL= 7
+  /// Shift right
+  | SHR = 8
+  /// Sign-extended shift right
+  | SAR = 9
+  /// Bitwise and
+  | AND = 10
+  /// Bitwise or
+  | OR = 11
+  /// Bitwise xor
+  | XOR = 12
+  /// Concat two reg values
+  | CONCAT = 13
+  /// Apply a function
+  | APP = 14
+  /// Cons arguments of function
+  | CONS = 15
 
-/// Raised when an assignment expression has an invalid destination expression.
-exception InvalidAssignmentException
-
-/// Rasied when an invalid expression is encountered during type checking or
-/// evaluation.
-exception InvalidExprException
-
-/// Raised when an expression does not type-check.
-exception TypeCheckException of string
-
-/// Represent a start position.
-type StartPos = int
+module BinOpType =
+  let toString = function
+    | BinOpType.ADD -> "+"
+    | BinOpType.SUB -> "-"
+    | BinOpType.MUL -> "*"
+    | BinOpType.DIV -> "/"
+    | BinOpType.SDIV -> "?/"
+    | BinOpType.MOD -> "%"
+    | BinOpType.SMOD -> "?%"
+    | BinOpType.SHL -> "<<"
+    | BinOpType.SHR -> ">>"
+    | BinOpType.SAR -> "?>>"
+    | BinOpType.AND -> "&"
+    | BinOpType.OR -> "|"
+    | BinOpType.XOR -> "^"
+    | BinOpType.CONCAT -> "++"
+    | BinOpType.APP -> "-|"
+    | BinOpType.CONS -> "::"
+    | _ -> raise IllegalASTTypeException

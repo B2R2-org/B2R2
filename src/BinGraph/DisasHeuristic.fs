@@ -2,7 +2,6 @@
   B2R2 - the Next-Generation Reversing Platform
 
   Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
-          DongYeop Oh <oh51dy@kaist.ac.kr>
           Jaeseung Choi <jschoi17@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -28,40 +27,38 @@
 
 module B2R2.BinGraph.DisasHeuristic
 
+#if false
 open B2R2
 open B2R2.ConcEval
 open B2R2.FrontEnd
 
 /// An arbitrary stack value for applying heuristics.
-let stackAddr t = Def (BitVector.ofInt32 0x1000000 t)
+let private stackAddr t = Def (BitVector.ofInt32 0x1000000 t)
 
-let getStackPtrRegID = function
+let private getStackPtrRegister = function
   | Arch.IntelX86 -> Intel.Register.ESP |> Intel.Register.toRegID
   | Arch.IntelX64 -> Intel.Register.RSP |> Intel.Register.toRegID
   | Arch.ARMv7 -> ARM32.Register.SP |> ARM32.Register.toRegID
   | _ -> failwith "Not supported arch."
 
-let imageLoader hdl _pc addr =
-  match hdl.ISA.Arch with
-  | Arch.IntelX86 ->
-    let fileInfo = hdl.FileInfo
-    if fileInfo.IsValidAddr addr then
-      let v = BinHandler.ReadBytes (hdl, addr, 1)
-      Some <| v.[0]
-    else None
-  | _ -> None
+let memoryReader hdl _pc addr =
+  let fileInfo = hdl.FileInfo
+  if fileInfo.IsValidAddr addr then
+    let v = BinHandler.ReadBytes (hdl, addr, 1)
+    Some <| v.[0]
+  else None
 
 let initStateForLibcStart handle startAddr =
   let isa = handle.ISA
-  let sp = getStackPtrRegID isa.Arch
-  let st = EvalState (imageLoader handle, true)
+  let sp = getStackPtrRegister isa.Arch
+  let st = EvalState (memoryReader handle, true)
   match isa.Arch with
   | Arch.IntelX86 ->
     // XXX dirty hack.
     let ebx = Intel.Register.EBX |> Intel.Register.toRegID
     EvalState.PrepareContext st 0 0UL
-      [(sp, stackAddr 32<rt>)
-       (ebx, Def (BitVector.ofInt32 (int startAddr) 32<rt>))]
+      [ (sp, stackAddr 32<rt>)
+        (ebx, Def (BitVector.ofInt32 (int startAddr) 32<rt>)) ]
   // FIXME
   | Arch.IntelX64 ->
     EvalState.PrepareContext st 0 0UL [(sp, stackAddr 64<rt>)]
@@ -131,3 +128,4 @@ let recoverLibcPointers hdl sAddr (callInstr: Instruction) builder =
   let callState = List.fold (evalLibcStartInstrs hdl) initState instrs
   getLibcStartMainParams hdl callState
   |> List.filter (builder.IsInteresting hdl)
+#endif

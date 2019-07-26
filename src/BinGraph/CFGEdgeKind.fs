@@ -1,7 +1,8 @@
 (*
   B2R2 - the Next-Generation Reversing Platform
 
-  Author: Soomin Kim <soomink@kaist.ac.kr>
+  Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
+          Soomin Kim <soomink@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -26,28 +27,38 @@
 
 namespace B2R2.BinGraph
 
-open B2R2
-
-/// Program point (PPoint) represents a specific location of a lifted LowUIR. A
-/// PPoint is a tuple of (address and a index of the IR statement in the
-/// corresponding basic block).
-type PPoint = Addr * int
-
 /// We distinguish edges of a CFG by classifying them into several kinds.
 type CFGEdgeKind =
   /// An edge of a direct jump, e.g., JMP +0x42.
-  | JmpEdge
-  /// A true edge of a conditional jump.
-  | CJmpTrueEdge
-  /// A false edge of a conditional jump.
-  | CJmpFalseEdge
-  /// An edge of a call instruction, e.g., CALL foo.
+  | InterJmpEdge
+  /// An edge of a conditional jump that is exercised when the condition is
+  /// true.
+  | InterCJmpTrueEdge
+  /// An edge of a conditional jump that is exercised when the condition is
+  /// false.
+  | InterCJmpFalseEdge
+  /// A direct jump edge only visible from an IR-level CFG, because there is a
+  /// control-flow inside a machine instruction.
+  | IntraJmpEdge
+  /// A true conditional edge only visible from an IR-level CFG, because there
+  /// is a control-flow inside a machine instruction.
+  | IntraCJmpTrueEdge
+  /// A false conditional edge only visible from an IR-level CFG, because there
+  /// is a control-flow inside a machine instruction.
+  | IntraCJmpFalseEdge
+  /// An edge of a regular call instruction.
   | CallEdge
-  /// An edge of a return instruction.
+  /// An edge of a call instruction to an external function or PLT.
+  | ExternalCallEdge
+  /// An edge of a function return.
   | RetEdge
   /// A simple fall-through case. This type is created when an edge cuts in two
-  /// consecutive instructions.
+  /// consecutive instructions, or after a call instruction.
   | FallThroughEdge
-
-/// A CFG is a DiGraph where edges are a CFGEdgeKind.
-type CFG<'a when 'a :> VertexData> = DiGraph<'a, CFGEdgeKind>
+  /// An implicit edge that is not explicitly visible from the current CALL
+  /// instruction, but visible within the function. If there is a path in the
+  /// callee that calls a function, then we create an implicit edge from a
+  /// caller to any of the callees.
+  | ImplicitCallEdge
+  /// Unknown edge type. This should be an error case.
+  | UnknownEdge

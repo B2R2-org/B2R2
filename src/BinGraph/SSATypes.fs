@@ -24,21 +24,25 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinIR
+namespace B2R2.BinGraph
 
-/// Raised when an illegal AST type is used. This should never be raised in
-/// normal situation.
-exception IllegalASTTypeException
+open B2R2.BinIR
+open System.Collections.Generic
 
-/// Raised when an assignment expression has an invalid destination expression.
-exception InvalidAssignmentException
+/// Disassembly-based CFG, where each node contains disassembly code.
+type SSACFG = ControlFlowGraph<SSABBlock, CFGEdgeKind>
 
-/// Rasied when an invalid expression is encountered during type checking or
-/// evaluation.
-exception InvalidExprException
+/// A mapping from an address to a SSACFG vertex.
+type SSAVMap = Dictionary<ProgramPoint, Vertex<SSABBlock>>
 
-/// Raised when an expression does not type-check.
-exception TypeCheckException of string
+/// Mapping from a variable to a set of defining SSA basic blocks.
+type DefSites = Dictionary<SSA.VariableKind, Set<Vertex<SSABBlock>>>
 
-/// Represent a start position.
-type StartPos = int
+/// Defined variables per node in a SSACFG.
+type DefsPerNode = Dictionary<Vertex<SSABBlock>, Set<SSA.VariableKind>>
+
+/// Counter for each variable.
+type VarCountMap = Dictionary<SSA.VariableKind, int>
+
+/// Variable ID stack.
+type IDStack = Dictionary<SSA.VariableKind, int list>

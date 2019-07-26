@@ -27,7 +27,7 @@
 
 namespace B2R2.BinGraph
 
-type SimpleDiGraph<'V, 'E when 'V :> VertexData and 'V : equality> () =
+type ControlFlowGraph<'V, 'E when 'V :> BasicBlock and 'V: equality> () =
   inherit DiGraph<'V, 'E>()
   let mutable vertices: Set<Vertex<'V>>  = Set.empty
   let mutable edges: Map<EdgeID, Vertex<'V> * Vertex<'V> * Edge<'E>> = Map.empty
@@ -82,8 +82,7 @@ type SimpleDiGraph<'V, 'E when 'V :> VertexData and 'V : equality> () =
     /// This shouldn't be happened.
     | _ -> raise MultipleVerticesFoundException
 
-  override __.FindVertex v =
-    if Set.contains v __.Vertices then v else raise VertexNotFoundException
+  override __.Exists v = Set.contains v __.Vertices
 
   override __.AddEdge src dst e =
     __.CheckVertexExistence src
@@ -105,17 +104,16 @@ type SimpleDiGraph<'V, 'E when 'V :> VertexData and 'V : equality> () =
     __.Edges <- Map.remove (src.GetID (), dst.GetID ()) __.Edges
 
   member __.Clone (?reverse) =
-    let g = SimpleDiGraph<'V, 'E>()
+    let g = ControlFlowGraph<'V, 'E>()
     let isReverse = defaultArg reverse false
     let dict = System.Collections.Generic.Dictionary<VertexID, Vertex<'V>>()
-    let addEdgeNormal (s: Vertex<'V>) (d: Vertex<'V>) =
-      g.AddEdge dict.[s.GetID ()] dict.[d.GetID ()] (__.FindEdge s d)
-    let addEdgeReverse (s: Vertex<'V>) (d: Vertex<'V>) =
-      g.AddEdge dict.[d.GetID ()] dict.[s.GetID ()] (__.FindEdge s d)
+    let addEdgeNormal (s: Vertex<'V>) (d: Vertex<'V>) e =
+      g.AddEdge dict.[s.GetID ()] dict.[d.GetID ()] e
+    let addEdgeReverse (s: Vertex<'V>) (d: Vertex<'V>) e =
+      g.AddEdge dict.[d.GetID ()] dict.[s.GetID ()] e
     let addEdge = if isReverse then addEdgeReverse else addEdgeNormal
     __.IterVertex (fun v -> dict.Add(v.GetID (), g.AddVertex v.VData))
     __.IterEdge addEdge
-    if isReverse then () else g.FindVertex (__.GetRoot ()) |> g.SetRoot
     g
 
   override __.Reverse () = upcast __.Clone (true)
@@ -127,12 +125,12 @@ type SimpleDiGraph<'V, 'E when 'V :> VertexData and 'V : equality> () =
     __.Vertices |> Set.iter fn
 
   override __.FoldEdge fn acc =
-    __.Edges |> Map.fold (fun acc _ (src, dst, _) -> fn acc src dst) acc
+    __.Edges |> Map.fold (fun acc _ (src, dst, Edge e) -> fn acc src dst e) acc
 
   override __.IterEdge fn =
-    __.Edges |> Map.iter (fun _ (src, dst, _) -> fn src dst)
+    __.Edges |> Map.iter (fun _ (src, dst, Edge e) -> fn src dst e)
 
-  override __.FindEdge (src: Vertex<'V>) (dst: Vertex<'V>) =
+  override __.FindEdgeData (src: Vertex<'V>) (dst: Vertex<'V>) =
     match Map.tryFind (src.GetID (), dst.GetID ()) __.Edges with
     | None -> raise EdgeNotFoundException
     | Some (_, _, Edge eData) -> eData
@@ -143,10 +141,5 @@ type SimpleDiGraph<'V, 'E when 'V :> VertexData and 'V : equality> () =
     match Map.tryFind (src.GetID (), dst.GetID ()) __.Edges with
     | None -> None
     | Some (_, _, Edge eData) -> Some eData
-
-  /// This is a custom vertex id generator for visualization
-  member __.GenID () = id <- id + 1; id
-
-  member __.GetMaxID () = id
 
 // vim: set tw=80 sts=2 sw=2:

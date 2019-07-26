@@ -30,12 +30,6 @@ namespace B2R2.BinIR.LowUIR
 open B2R2
 open B2R2.BinIR
 
-exception InvalidAssignmentException
-exception InvalidExprException
-
-/// This exception occurs when an expression does not type-check.
-exception TypeCheckException of string
-
 module TypeCheck =
 
   let rec typeOf = function
@@ -185,19 +179,19 @@ module AST =
 
   let pcVar (t: RegType) (name: string) = PCVar (t, name)
 
-  let varCnt = ref -1
+  let private varCnt = ref -1
 
   let tmpVar (t: RegType) =
     let i = System.Threading.Interlocked.Increment (varCnt)
     if i >= 0 then TempVar (t, i)
-              else failwith "temporary variable counter wrapped around"
+    else failwith "temporary variable counter wrapped around"
 
-  let lblCnt = ref -1
+  let private lblCnt = ref -1
 
   let lblSymbol n : Symbol =
     let i = System.Threading.Interlocked.Increment (lblCnt)
     if i >= 0 then (n, i)
-              else failwith "label counter wrapped around"
+    else failwith "label counter wrapped around"
 
   let inline unopBuilder (t: UnOpType) e proc =
     match e with

@@ -35,19 +35,40 @@ open B2R2.FrontEnd
 type BinEssence = {
   /// BInary handler.
   BinHandler: BinHandler
-
-  /// A map from Addr to a Function.
-  Functions: Funcs
-
-  /// Call graph.
-  CallGraph: CallGraph
+  /// Binary apparatus holds crucial machinery about binary code and their
+  /// lifted statements. For example, it provides a convenient mapping from an
+  /// address to the corresponding instruction and IR statements.
+  BinaryApparatus: BinaryApparatus
+  /// Super Control Flow Graph.
+  SCFG: SCFG
 }
 with
+  static member private BuildFoundation hdl app =
+    let scfg = SCFG (hdl, app)
+    let app = CFGUtils.callTargets scfg.Graph |> BinaryApparatus.updateFuncs app
+    struct (scfg, app)
+
+  static member private Analysis hdl app (scfg: SCFG) analyzers =
+    let app' = CFGUtils.postAnalysis scfg.Graph app analyzers
+    if app' = app then
+      { BinHandler = hdl
+        BinaryApparatus = app'
+        SCFG = scfg }
+    else
+      let struct (scfg', app') = BinEssence.BuildFoundation hdl app'
+      BinEssence.Analysis hdl app' scfg' analyzers
+
+  static member Init hdl =
+    let app = BinaryApparatus.init hdl
+    let struct (scfg, app) = BinEssence.BuildFoundation hdl app
+    BinEssence.Analysis hdl app scfg []
+
+#if false
   static member Init _verbose hdl =
     (* Currently no other choice *)
     let funcs = CFGUtils.construct hdl (CFGBuilder ()) Default
     let funcs = CFGUtils.analCalls funcs
-    let callGraph = SimpleDiGraph ()
+    let callGraph = ControlFlowGraph ()
     CFGUtils.buildCallGraph hdl funcs callGraph
     NoReturn.noReturnAnalysis hdl callGraph
     { BinHandler = hdl
@@ -91,3 +112,4 @@ with
         let name = "\"" + func.Entry.ToString ("X") + "\""
         BinEssence.ShowDisasmDOT name func.DisasmCFG
         BinEssence.ShowIRDOT name func.IRCFG)
+#endif

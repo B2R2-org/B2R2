@@ -30,9 +30,6 @@ namespace B2R2.BinIR.LowUIR
 open B2R2
 open B2R2.BinIR
 
-exception InvalidAssignmentException
-exception InvalidExprException
-
 /// This module defines functions for handling the AST of LowUIR.
 module AST = begin
   /// Get Expression Information

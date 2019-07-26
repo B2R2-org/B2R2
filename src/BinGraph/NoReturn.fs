@@ -24,6 +24,8 @@
   SOFTWARE.
 *)
 
+namespace B2R2.BinGraph
+#if false
 module B2R2.BinGraph.NoReturn
 
 open B2R2
@@ -195,3 +197,4 @@ let noReturnAnalysis hdl (fcg: CallGraph) =
     removeSelfCycle g
     removeBackEdges g
     analNoReturn hdl g Set.empty [] g.Exits
+#endif

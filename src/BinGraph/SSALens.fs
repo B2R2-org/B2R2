@@ -27,25 +27,35 @@
 
 namespace B2R2.BinGraph
 
-open B2R2
-open B2R2.FrontEnd
+/// A graph lens for obtaining SSACFG.
+type SSALens (scfg) =
+  let getVertex g (vMap: SSAVMap) (old: Vertex<IRBasicBlock>) pos =
+    match vMap.TryGetValue pos with
+    | false, _ ->
+      let pairs = old.VData.GetPairs ()
+      let v = (g: SSACFG).AddVertex (SSABBlock (scfg, pos, pairs))
+      vMap.Add (pos, v)
+      v
+    | true, v -> v
 
-type DisasmBBL (range: AddrRange, instrs, last, comments) =
-  inherit RangedVertexData (range)
+  let convertToSSA (irCFG: CFGUtils.CFG) ssaCFG vMap =
+    irCFG.IterEdge (fun src dst e ->
+      let srcPos = src.VData.Position
+      let dstPos = dst.VData.Position
+      let srcV = getVertex ssaCFG vMap src srcPos
+      let dstV = getVertex ssaCFG vMap dst dstPos
+      ssaCFG.AddEdge srcV dstV e)
 
-  /// List of all the instructions in this block.
-  member __.Instrs: Instruction list = instrs
+  interface ILens<SSABBlock> with
+    member __.Filter (g: CFGUtils.CFG) root =
+      let ssaCFG = SSACFG ()
+      let vMap = new SSAVMap ()
+      let defSites = DefSites ()
+      convertToSSA g ssaCFG vMap
+      ssaCFG.FindVertexBy (fun v -> v.VData.Position = root.VData.Position)
+      |> SSAUtils.computeFrontiers ssaCFG
+      |> SSAUtils.placePhis vMap defSites
+      |> SSAUtils.renameVars defSites
+      ssaCFG :> DiGraph<SSABBlock, CFGEdgeKind>
 
-  /// The last instruction of this block (to access it efficiently).
-  member __.LastInstr: Instruction = last
-
-  /// User-defined comments for this basic block, where each entry in the list
-  /// corresponds to the nth instruction of the block.
-  member val Comments: string list = comments with get, set
-
-  /// Do we need to resolve the successor(s) of this basic block?
-  member val ToResolve = false with get, set
-
-type DisasmVertex = Vertex<DisasmBBL>
-
-type DisasmCFG = RangedDiGraph<DisasmBBL, CFGEdgeKind>
+  static member Init (scfg) = SSALens (scfg) :> ILens<SSABBlock>

@@ -249,7 +249,7 @@ type VEdge (src, dst, ty) =
 
   member __.Points with get() = points and set(v) = points <- v
 
-type VGraph = SimpleDiGraph<VNode, VEdge>
+type VGraph = ControlFlowGraph<VNode, VEdge>
 
 module VGraph =
   [<Literal>]

@@ -24,21 +24,28 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinIR
+namespace B2R2.BinGraph
 
-/// Raised when an illegal AST type is used. This should never be raised in
-/// normal situation.
-exception IllegalASTTypeException
+open B2R2
 
-/// Raised when an assignment expression has an invalid destination expression.
-exception InvalidAssignmentException
-
-/// Rasied when an invalid expression is encountered during type checking or
-/// evaluation.
-exception InvalidExprException
-
-/// Raised when an expression does not type-check.
-exception TypeCheckException of string
-
-/// Represent a start position.
-type StartPos = int
+/// A program point (ProgramPoint) is a fine-grained location in a program,
+/// which can point to a specific IR statement. We represent it as a tuple:
+/// (Address of the instruction, Index of the IR stmt for the instruction).
+type ProgramPoint (addr, pos) =
+  /// Address of the instruction.
+  member val Address: Addr = addr
+  /// Index of the IR statement within the instruction.
+  member val Position: int = pos
+  override __.Equals (o) =
+    match o with
+    | :? ProgramPoint as o -> o.Address = __.Address && o.Position = __.Position
+    | _ -> false
+  override __.GetHashCode () = hash (__.Address, __.Position)
+  interface System.IComparable with
+    member __.CompareTo (o) =
+      match o with
+      | :? ProgramPoint as o ->
+        (* To lexicographically sort leaders. Being too pedantic here. *)
+        if __.Address = o.Address then compare __.Position o.Position
+        else compare __.Address o.Address
+      | _ -> invalidArg "ProgramPoint" "Invalid comparison"

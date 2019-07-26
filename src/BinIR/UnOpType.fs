@@ -26,19 +26,17 @@
 
 namespace B2R2.BinIR
 
-/// Raised when an illegal AST type is used. This should never be raised in
-/// normal situation.
-exception IllegalASTTypeException
+/// Unary operator types.
+type UnOpType =
+  /// Make it negative (Two's complement)
+  | NEG = 0
+  /// Bitwise not (One's complement)
+  | NOT = 1
 
-/// Raised when an assignment expression has an invalid destination expression.
-exception InvalidAssignmentException
+module UnOpType =
+  let toString = function
+    | UnOpType.NEG -> "-"
+    | UnOpType.NOT -> "~"
+    | _ -> raise IllegalASTTypeException
 
-/// Rasied when an invalid expression is encountered during type checking or
-/// evaluation.
-exception InvalidExprException
-
-/// Raised when an expression does not type-check.
-exception TypeCheckException of string
-
-/// Represent a start position.
-type StartPos = int
+// vim: set tw=80 sts=2 sw=2:

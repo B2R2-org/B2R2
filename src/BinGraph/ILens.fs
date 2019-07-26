@@ -24,21 +24,23 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinIR
+namespace B2R2.BinGraph
 
-/// Raised when an illegal AST type is used. This should never be raised in
-/// normal situation.
-exception IllegalASTTypeException
-
-/// Raised when an assignment expression has an invalid destination expression.
-exception InvalidAssignmentException
-
-/// Rasied when an invalid expression is encountered during type checking or
-/// evaluation.
-exception InvalidExprException
-
-/// Raised when an expression does not type-check.
-exception TypeCheckException of string
-
-/// Represent a start position.
-type StartPos = int
+/// The Lens interface, which is a converter from a graph to another graph. In
+/// B2R2, An IR-level SCFG forms the basis, and we should apply different lenses
+/// to obtain different graphs. For example, we can get disassembly-based CFG by
+/// applying DisasmLens to the SCFG.
+type ILens<'V when 'V :> VertexData and 'V: equality> =
+  /// <summary>
+  /// The main function of the ILens interface, which will essentially convert a
+  /// given CFG into another graph.
+  /// </summary>
+  /// <param name="graph">The given CFG.</param>
+  /// <param name="root">The root node of the CFG.</param>
+  /// <returns>
+  /// A converted graph.
+  /// </returns>
+  abstract member Filter:
+       graph: CFGUtils.CFG
+    -> root: Vertex<IRBasicBlock>
+    -> DiGraph<'V, CFGEdgeKind>

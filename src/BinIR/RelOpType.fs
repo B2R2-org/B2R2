@@ -26,19 +26,39 @@
 
 namespace B2R2.BinIR
 
-/// Raised when an illegal AST type is used. This should never be raised in
-/// normal situation.
-exception IllegalASTTypeException
+/// Relative operator types.
+type RelOpType =
+  /// Equal
+  | EQ = 0
+  /// Not equal
+  | NEQ = 1
+  /// Unsigned greater than
+  | GT = 2
+  /// Unsigned greater than or equal
+  | GE = 3
+  /// Signed greater than
+  | SGT = 4
+  /// Signed greater than or equal
+  | SGE = 5
+  /// Unsigned less than
+  | LT = 6
+  /// Unsigned less than or equal
+  | LE = 7
+  /// Signed less than
+  | SLT = 8
+  /// Signed less than or equal
+  | SLE = 9
 
-/// Raised when an assignment expression has an invalid destination expression.
-exception InvalidAssignmentException
-
-/// Rasied when an invalid expression is encountered during type checking or
-/// evaluation.
-exception InvalidExprException
-
-/// Raised when an expression does not type-check.
-exception TypeCheckException of string
-
-/// Represent a start position.
-type StartPos = int
+module RelOpType =
+  let toString = function
+    | RelOpType.EQ -> "="
+    | RelOpType.NEQ -> "!="
+    | RelOpType.GT -> ">"
+    | RelOpType.GE -> ">="
+    | RelOpType.SGT -> "?>"
+    | RelOpType.SGE -> "?>="
+    | RelOpType.LT -> "<"
+    | RelOpType.LE -> "<="
+    | RelOpType.SLT -> "?<"
+    | RelOpType.SLE -> "?<="
+    | _ -> raise IllegalASTTypeException

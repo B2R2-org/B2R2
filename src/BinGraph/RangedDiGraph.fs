@@ -80,10 +80,10 @@ type RangedDiGraph<'V, 'E when 'V :> RangedVertexData> () =
     __.Exits <- List.filter (fun e -> e.GetID () <> v.GetID ()) __.Exits
     __.DecSize ()
 
-  override __.FindVertex (v:Vertex<_>) =
+  override __.Exists (v:Vertex<_>) =
     match IM.tryFind v.VData.AddrRange __.Vertices with
-    | Some v -> v
-    | _ -> raise VertexNotFoundException
+    | Some v -> true
+    | _ -> false
 
   override __.FindVertexByData vdata =
     match IM.tryFind vdata.AddrRange __.Vertices with
@@ -116,14 +116,13 @@ type RangedDiGraph<'V, 'E when 'V :> RangedVertexData> () =
     let g = RangedDiGraph<'V, 'E>()
     let isReverse = defaultArg reverse false
     let dict = System.Collections.Generic.Dictionary<VertexID, Vertex<'V>>()
-    let addEdgeNormal (s: Vertex<'V>) (d: Vertex<'V>) =
-      g.AddEdge dict.[s.GetID ()] dict.[d.GetID ()] (__.FindEdge s d)
-    let addEdgeReverse (s: Vertex<'V>) (d: Vertex<'V>) =
-      g.AddEdge dict.[d.GetID ()] dict.[s.GetID ()] (__.FindEdge s d)
+    let addEdgeNormal (s: Vertex<'V>) (d: Vertex<'V>) e =
+      g.AddEdge dict.[s.GetID ()] dict.[d.GetID ()] e
+    let addEdgeReverse (s: Vertex<'V>) (d: Vertex<'V>) e =
+      g.AddEdge dict.[d.GetID ()] dict.[s.GetID ()] e
     let addEdge = if isReverse then addEdgeReverse else addEdgeNormal
     __.IterVertex (fun v -> dict.Add(v.GetID (), g.AddVertex v.VData))
     __.IterEdge addEdge
-    if isReverse then () else g.FindVertex (__.GetRoot ()) |> g.SetRoot
     g
 
   override __.Reverse () = upcast __.Clone (true)
@@ -135,17 +134,17 @@ type RangedDiGraph<'V, 'E when 'V :> RangedVertexData> () =
     __.Vertices |> IM.fold (fun () _ v -> fn v) ()
 
   override __.FoldEdge fn acc =
-    __.Edges |> Map.fold (fun acc _ (src, dst, _) -> fn acc src dst) acc
+    __.Edges |> Map.fold (fun acc _ (src, dst, Edge e) -> fn acc src dst e) acc
 
   override __.IterEdge fn =
-    __.Edges |> Map.iter (fun _ (src, dst, _) -> fn src dst)
+    __.Edges |> Map.iter (fun _ (src, dst, Edge e) -> fn src dst e)
 
   member __.FindVertexByRange range =
     match IM.tryFind range __.Vertices with
     | None -> raise VertexNotFoundException
     | Some v -> v
 
-  override __.FindEdge (src: Vertex<'V>) (dst: Vertex<'V>) =
+  override __.FindEdgeData (src: Vertex<'V>) (dst: Vertex<'V>) =
     match Map.tryFind (src.GetID (), dst.GetID ()) __.Edges with
     | None -> raise EdgeNotFoundException
     | Some (_, _, Edge eData) -> eData

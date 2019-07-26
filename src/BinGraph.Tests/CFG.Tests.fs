@@ -3,10 +3,25 @@ namespace B2R2.BinGraph.Tests
 open B2R2
 open B2R2.FrontEnd
 open B2R2.BinGraph
+open B2R2.BinIR.LowUIR
 open Microsoft.VisualStudio.TestTools.UnitTesting
 
+module Utils =
+  type IRNode = Vertex<IRBasicBlock>
+
+  let foldVertexNoDummy m (v: IRNode) =
+    if v.VData.IsDummy () then m
+    else Map.add v.VData.Position v m
+
+  let foldEdge m (v1: IRNode) (v2: IRNode) e =
+    Map.add (v1.VData.Position, v2.VData.Position) e m
+
+  let foldEdgeNoDummy m (v1: IRNode) (v2: IRNode) e =
+    if v1.VData.IsDummy () || v2.VData.IsDummy () then m
+    else Map.add (v1.VData.Position, v2.VData.Position) e m
+
 [<TestClass>]
-type CFGTestClass () =
+type CFGTest1 () =
 
   /// This is a raw x86-64 binary code generated from the following C code:
   /// int foo(int a);
@@ -54,545 +69,262 @@ type CFGTestClass () =
 
   let isa = ISA.Init Architecture.IntelX64 Endian.Little
   let hdl = BinHandler.Init (isa, binary)
-  let builder = CFGBuilder ()
-  let funcs = CFGUtils.construct hdl builder (KnownEntries [ 0UL ])
-  let funcs' = CFGUtils.construct hdl (CFGBuilder ()) (KnownEntries [ 0UL ])
-  let funcs' = CFGUtils.analCalls funcs'
-  let callGraph = SimpleDiGraph ()
-  let _ = CFGUtils.buildCallGraph hdl funcs' callGraph
-  let _ = NoReturn.noReturnAnalysis hdl callGraph
-
-  let disasmVertexFolder acc (v: DisasmVertex) =
-    Map.add v.VData.AddrRange.Min v acc
-
-  let disasmEdgeFolder
-      (cfg: DisasmCFG) acc (src: DisasmVertex) (dst: DisasmVertex) =
-    let sAddr = src.VData.AddrRange.Min
-    let dAddr = dst.VData.AddrRange.Min
-    let e = cfg.FindEdge src dst
-    Map.add (sAddr, dAddr) e acc
-
-  let irVertexFolder acc (v: IRVertex) =
-    let _, ppoint = v.VData.GetPpoint ()
-    Map.add ppoint v acc
-
-  let irBBLFolder acc (v: IRVertex) =
-    let b, ppoint = v.VData.GetPpoint ()
-    if b then Map.add ppoint v acc else acc
-
-  let irCallFolder acc (v: IRVertex) =
-    let b, target = v.VData.GetTarget ()
-    if b then Map.add target v acc else acc
-
-  let irEdgeFolder (cfg: IRCFG) acc (src: IRVertex) (dst: IRVertex) =
-    let _, sPpoint = src.VData.GetPpoint ()
-    let _, dPpoint = dst.VData.GetPpoint ()
-    let e = cfg.FindEdge src dst
-    Map.add (sPpoint, dPpoint) e acc
-
-  let irNormalEdgeFolder (cfg: IRCFG) acc (src: IRVertex) (dst: IRVertex) =
-    let sb, sPpoint = src.VData.GetPpoint ()
-    let db, dPpoint = dst.VData.GetPpoint ()
-    if sb && db then
-      let e = cfg.FindEdge src dst
-      Map.add (sPpoint, dPpoint) e acc
-    else acc
-
-  let irCallEdgeFolder (cfg: IRCFG) acc (src: IRVertex) (dst: IRVertex) =
-    let sb, ppoint = src.VData.GetPpoint ()
-    let db, target = dst.VData.GetTarget ()
-    if sb && db then
-      let e = cfg.FindEdge src dst
-      Map.add (ppoint, target) e acc
-    else acc
-
-  let irRetEdgeFolder (cfg: IRCFG) acc (src: IRVertex) (dst: IRVertex) =
-    let sb, target = src.VData.GetTarget ()
-    let db, ppoint = dst.VData.GetPpoint ()
-    if sb && db then
-      let e = cfg.FindEdge src dst
-      Map.add (target, ppoint) e acc
-    else acc
-
-  let ssaEdgeFolder (cfg: SSACFG) acc (src: SSAVertex) (dst: SSAVertex) =
-    let e = cfg.FindEdge src dst
-    e :: acc
+  let ess = BinEssence.Init hdl
 
   [<TestMethod>]
   member __.``Boundary Test: Function Identification`` () =
-    let addrs =
-      Seq.fold (fun acc (KeyValue(addr, _)) -> Set.add addr acc) Set.empty funcs
-    Assert.AreEqual (3, Set.count addrs)
-    [ 0UL ; 0x62UL ; 0x71UL ]
-    |> List.iter (fun x -> Assert.IsTrue <| Set.contains x addrs)
+    Assert.AreEqual (3, Set.count ess.BinaryApparatus.FunctionAddrs)
+    let expected = [ 0UL; 0x62UL; 0x71UL ] |> List.toArray
+    let actual = ess.BinaryApparatus.FunctionAddrs |> Set.toArray
+    CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
-  member __.``Boundary Test: Disassembly Leader Identification`` () =
-    let disasmBoundaries = builder.GetDisasmBoundaries ()
-    Assert.AreEqual (10, List.length disasmBoundaries)
-    [ (0x00UL, 0x19UL) ; (0x19UL, 0x3FUL) ; (0x3FUL, 0x48UL) ;
-      (0x48UL, 0x52UL) ; (0x52UL, 0x55UL) ; (0x55UL, 0x5FUL) ;
-      (0x5FUL, 0x62UL) ; (0x62UL, 0x71UL) ; (0x71UL, 0x81UL) ;
-      (0x81UL, 0x84UL) ]
-    |> List.iter (fun x -> Assert.IsTrue <| List.contains x disasmBoundaries)
+  member __.``Boundary Test: Leader Identification`` () =
+    let vertices = ess.SCFG.Vertices
+    let boundaries = ess.SCFG.Boundaries
+    Assert.AreEqual (10, vertices.Count)
+    [ (0x00UL, 0x19UL); (0x19UL, 0x3FUL); (0x3FUL, 0x48UL); (0x48UL, 0x52UL);
+      (0x52UL, 0x55UL); (0x55UL, 0x5FUL); (0x5FUL, 0x62UL); (0x62UL, 0x71UL);
+      (0x71UL, 0x81UL); (0x81UL, 0x84UL); ]
+    |> List.iter (fun r ->
+         Assert.IsTrue <| IntervalSet.contains (AddrRange r) boundaries)
 
   [<TestMethod>]
-  member __.``Boundary Test: IR Leader Identification`` () =
-    let irBoundaries = builder.GetIRBoundaries ()
-    Assert.AreEqual (10, List.length irBoundaries)
-    [ ((0x00UL, 0), (0x14UL, 3)) ; ((0x19UL, 0), (0x3DUL, 1)) ;
-      ((0x3FUL, 0), (0x46UL, 1)) ; ((0x48UL, 0), (0x4DUL, 3)) ;
-      ((0x52UL, 0), (0x52UL, 13)) ; ((0x55UL, 0), (0x5AUL, 3)) ;
-      ((0x5FUL, 0), (0x61UL, 3)) ; ((0x62UL, 0), (0x70UL, 3)) ;
-      ((0x71UL, 0), (0x7FUL, 1)) ; ((0x81UL, 0), (0x83UL, 3)) ]
-    |> List.iter (fun x -> Assert.IsTrue <| List.contains x irBoundaries)
+  member __.``Vertex Test: _start`` () =
+    let cfg, _ = ess.SCFG.GetFunctionCFG 0x00UL
+    Assert.AreEqual (9, cfg.Size ())
+    let vMap = cfg.FoldVertex Utils.foldVertexNoDummy Map.empty
+    Assert.AreEqual (7, vMap.Count)
+    let leaders =
+      [| ProgramPoint (0x00UL, 0); ProgramPoint (0x19UL, 0);
+         ProgramPoint (0x3FUL, 0); ProgramPoint (0x48UL, 0);
+         ProgramPoint (0x52UL, 0); ProgramPoint (0x55UL, 0);
+         ProgramPoint (0x5FUL, 0) |]
+    let actual = leaders |> Array.map (fun l -> (Map.find l vMap).VData.Range)
+    let expected =
+      [| AddrRange (0x00UL, 0x19UL); AddrRange (0x19UL, 0x3FUL);
+         AddrRange (0x3FUL, 0x48UL); AddrRange (0x48UL, 0x52UL);
+         AddrRange (0x52UL, 0x55UL); AddrRange (0x55UL, 0x5FUL);
+         AddrRange (0x5FUL, 0x62UL) |]
+    CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
-  member __.``DisasmGraph Vertex Test: _start`` () =
-    let cfg = funcs.[0x00UL].DisasmCFG
-    Assert.AreEqual (7, cfg.Size ())
-    let vMap = cfg.FoldVertex disasmVertexFolder Map.empty
-    [ 0x00UL ; 0x19UL ; 0x3FUL ; 0x48UL ; 0x52UL ; 0x55UL ; 0x5FUL ]
-    |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x vMap)
-    let v00 = Map.find 0x00UL vMap
-    let v19 = Map.find 0x19UL vMap
-    let v3F = Map.find 0x3FUL vMap
-    let v48 = Map.find 0x48UL vMap
-    let v52 = Map.find 0x52UL vMap
-    let v55 = Map.find 0x55UL vMap
-    let v5F = Map.find 0x5FUL vMap
-    let vList = [ v00 ; v19 ; v3F ; v48 ; v52 ; v55 ; v5F ]
-    let bblList = List.map (fun (x: Vertex<_>) -> x.VData) vList
-    let addrRangeList =
-      [ AddrRange (0x00UL, 0x19UL) ; AddrRange (0x19UL, 0x3FUL) ;
-        AddrRange (0x3FUL, 0x48UL) ; AddrRange (0x48UL, 0x52UL) ;
-        AddrRange (0x52UL, 0x55UL) ; AddrRange (0x55UL, 0x5FUL) ;
-        AddrRange (0x5FUL, 0x62UL) ]
-    List.zip addrRangeList bblList
-    |> List.iter (fun (x, y) -> Assert.AreEqual (x, y.AddrRange))
-
-  [<TestMethod>]
-  member __.``DisasmGraph Edge Test: _start`` () =
-    let cfg = funcs.[0x00UL].DisasmCFG
-    let vMap = cfg.FoldVertex disasmVertexFolder Map.empty
-    let v00 = Map.find 0x00UL vMap
-    let v19 = Map.find 0x19UL vMap
-    let v3F = Map.find 0x3FUL vMap
-    let v48 = Map.find 0x48UL vMap
-    let v52 = Map.find 0x52UL vMap
-    let v55 = Map.find 0x55UL vMap
-    let v5F = Map.find 0x5FUL vMap
-    let eMap = cfg.FoldEdge (disasmEdgeFolder cfg) Map.empty
+  member __.``Edge Test: _start`` () =
+    let cfg, _ = ess.SCFG.GetFunctionCFG 0x00UL
+    let vMap = cfg.FoldVertex Utils.foldVertexNoDummy Map.empty
+    let leaders =
+      [| ProgramPoint (0x00UL, 0); ProgramPoint (0x19UL, 0);
+         ProgramPoint (0x3FUL, 0); ProgramPoint (0x48UL, 0);
+         ProgramPoint (0x52UL, 0); ProgramPoint (0x55UL, 0);
+         ProgramPoint (0x5FUL, 0) |]
+    let vertices = leaders |> Array.map (fun l -> Map.find l vMap)
+    let eMap = cfg.FoldEdge Utils.foldEdge Map.empty
+    Assert.AreEqual (13, eMap.Count)
+    let eMap = cfg.FoldEdge Utils.foldEdgeNoDummy Map.empty
     Assert.AreEqual (7, eMap.Count)
-    [ (0x00UL, 0x19UL) ; (0x19UL, 0x3FUL) ; (0x19UL, 0x48UL) ;
-      (0x3FUL, 0x55UL) ; (0x48UL, 0x52UL) ; (0x52UL, 0x55UL) ;
-      (0x55UL, 0x5FUL) ]
+    [ ProgramPoint (0x00UL, 0), ProgramPoint (0x19UL, 0);
+      ProgramPoint (0x19UL, 0), ProgramPoint (0x3FUL, 0);
+      ProgramPoint (0x19UL, 0), ProgramPoint (0x48UL, 0);
+      ProgramPoint (0x3FUL, 0), ProgramPoint (0x55UL, 0);
+      ProgramPoint (0x48UL, 0), ProgramPoint (0x52UL, 0);
+      ProgramPoint (0x52UL, 0), ProgramPoint (0x55UL, 0);
+      ProgramPoint (0x55UL, 0), ProgramPoint (0x5FUL, 0); ]
     |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x eMap)
-    let edge0019 = cfg.FindEdge v00 v19
-    let edge193F = cfg.FindEdge v19 v3F
-    let edge1948 = cfg.FindEdge v19 v48
-    let edge3F55 = cfg.FindEdge v3F v55
-    let edge4852 = cfg.FindEdge v48 v52
-    let edge5255 = cfg.FindEdge v52 v55
-    let edge555F = cfg.FindEdge v55 v5F
-    let eList =
-      [ edge0019 ; edge193F ; edge1948 ; edge3F55 ; edge4852 ; edge5255 ;
-        edge555F ]
-    let edgeTypeList =
-      [ JmpEdge ; CJmpFalseEdge ; CJmpTrueEdge ; JmpEdge ; JmpEdge ; JmpEdge ;
-        JmpEdge ]
-    List.zip edgeTypeList eList
-    |> List.iter (fun (x, y) -> Assert.AreEqual (x, y))
+    let actual =
+      [| cfg.FindEdgeData vertices.[0] vertices.[1]
+         cfg.FindEdgeData vertices.[1] vertices.[2]
+         cfg.FindEdgeData vertices.[1] vertices.[3]
+         cfg.FindEdgeData vertices.[2] vertices.[5]
+         cfg.FindEdgeData vertices.[3] vertices.[4]
+         cfg.FindEdgeData vertices.[4] vertices.[5]
+         cfg.FindEdgeData vertices.[5] vertices.[6] |]
+    let expected =
+      [| FallThroughEdge; InterCJmpFalseEdge; InterCJmpTrueEdge; InterJmpEdge;
+         FallThroughEdge; FallThroughEdge; FallThroughEdge |]
+    CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
-  member __.``DisasmGraph Vertex Test: foo`` () =
-    let cfg = funcs.[0x62UL].DisasmCFG
+  member __.``Vertex Test: foo`` () =
+    let cfg, _ = ess.SCFG.GetFunctionCFG 0x62UL
     Assert.AreEqual (1, cfg.Size ())
-    let vMap = cfg.FoldVertex disasmVertexFolder Map.empty
-    [ 0x62UL ]
-    |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x vMap)
-    let v62 = Map.find 0x62UL vMap
-    let vList = [ v62 ]
-    let bblList = List.map (fun (x: Vertex<_>) -> x.VData) vList
-    let addrRangeList = [ AddrRange (0x62UL, 0x71UL) ]
-    List.zip addrRangeList bblList
-    |> List.iter (fun (x, y) -> Assert.AreEqual (x, y.AddrRange))
+    let vMap = cfg.FoldVertex Utils.foldVertexNoDummy Map.empty
+    let leaders = [| ProgramPoint (0x62UL, 0) |]
+    let actual = leaders |> Array.map (fun l -> (Map.find l vMap).VData.Range)
+    let expected = [| AddrRange (0x62UL, 0x71UL) |]
+    CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
-  member __.``DisasmGraph Edge Test: foo`` () =
-    let cfg = funcs.[0x62UL].DisasmCFG
-    let eMap = cfg.FoldEdge (disasmEdgeFolder cfg) Map.empty
+  member __.``Edge Test: foo`` () =
+    let cfg, _ = ess.SCFG.GetFunctionCFG 0x62UL
+    let eMap = cfg.FoldEdge Utils.foldEdge Map.empty
     Assert.AreEqual (0, eMap.Count)
 
   [<TestMethod>]
-  member __.``DisasmGraph Vertex Test: bar`` () =
-    let cfg = funcs.[0x71UL].DisasmCFG
+  member __.``Vertex Test: bar`` () =
+    let cfg, _ = ess.SCFG.GetFunctionCFG 0x71UL
     Assert.AreEqual (2, cfg.Size ())
-    let vMap = cfg.FoldVertex disasmVertexFolder Map.empty
-    [ 0x71UL ; 0x81UL ]
-    |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x vMap)
-    let v71 = Map.find 0x71UL vMap
-    let v81 = Map.find 0x81UL vMap
-    let vList = [ v71 ; v81 ]
-    let bblList = List.map (fun (x: Vertex<_>) -> x.VData) vList
-    let addrRangeList =
-      [ AddrRange (0x71UL, 0x81UL) ; AddrRange (0x81UL, 0x84UL) ]
-    List.zip addrRangeList bblList
-    |> List.iter (fun (x, y) -> Assert.AreEqual (x, y.AddrRange))
+    let vMap = cfg.FoldVertex Utils.foldVertexNoDummy Map.empty
+    let leaders = [| ProgramPoint (0x71UL, 0); ProgramPoint (0x81UL, 0) |]
+    let actual = leaders |> Array.map (fun l -> (Map.find l vMap).VData.Range)
+    let expected = [| AddrRange (0x71UL, 0x81UL); AddrRange (0x81UL, 0x84UL) |]
+    CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
-  member __.``DisasmGraph Edge Test: bar`` () =
-    let cfg = funcs.[0x71UL].DisasmCFG
-    let vMap = cfg.FoldVertex disasmVertexFolder Map.empty
-    let v71 = Map.find 0x71UL vMap
-    let v81 = Map.find 0x81UL vMap
-    let eMap = cfg.FoldEdge (disasmEdgeFolder cfg) Map.empty
+  member __.``Edge Test: bar`` () =
+    let cfg, _ = ess.SCFG.GetFunctionCFG 0x71UL
+    let vMap = cfg.FoldVertex Utils.foldVertexNoDummy Map.empty
+    let leaders = [| ProgramPoint (0x71UL, 0); ProgramPoint (0x81UL, 0) |]
+    let vertices = leaders |> Array.map (fun l -> Map.find l vMap)
+    let eMap = cfg.FoldEdge Utils.foldEdge Map.empty
     Assert.AreEqual (1, eMap.Count)
-    [ (0x71UL, 0x81UL) ]
+    [ ProgramPoint (0x71UL, 0), ProgramPoint (0x81UL, 0) ]
     |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x eMap)
-    let edge7181 = cfg.FindEdge v71 v81
-    let eList = [ edge7181 ]
-    let edgeTypeList = [ JmpEdge ]
-    List.zip edgeTypeList eList
-    |> List.iter (fun (x, y) -> Assert.AreEqual (x, y))
-
-  [<TestMethod>]
-  member __.``IRGraph Vertex Test: _start`` () =
-    let cfg = funcs.[0x00UL].IRCFG
-    Assert.AreEqual (7, cfg.Size ())
-    let vMap = cfg.FoldVertex irVertexFolder Map.empty
-    [ (0x00UL, 0) ; (0x19UL, 0) ; (0x3FUL, 0) ; (0x48UL, 0) ; (0x52UL, 0) ;
-      (0x55UL, 0) ; (0x5FUL, 0) ]
-    |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x vMap)
-    let v000 = Map.find (0x00UL, 0) vMap
-    let v190 = Map.find (0x19UL, 0) vMap
-    let v3F0 = Map.find (0x3FUL, 0) vMap
-    let v480 = Map.find (0x48UL, 0) vMap
-    let v520 = Map.find (0x52UL, 0) vMap
-    let v550 = Map.find (0x55UL, 0) vMap
-    let v5F0 = Map.find (0x5FUL, 0) vMap
-    let vList = [ v000 ; v190 ; v3F0 ; v480 ; v520 ; v550 ; v5F0 ]
-    let bblList = List.map (fun (x: IRVertex) -> x.VData) vList
-    let pPointList =
-      [ (0x00UL, 0) ; (0x19UL, 0) ; (0x3FUL, 0) ; (0x48UL, 0) ; (0x52UL, 0) ;
-        (0x55UL, 0) ; (0x5FUL, 0) ]
-    List.zip pPointList bblList
-    |> List.iter (fun (x, y) ->
-        let _, ppoint = y.GetPpoint ()
-        Assert.AreEqual (x, ppoint))
-
-  [<TestMethod>]
-  member __.``IRGraph Edge Test: _start`` () =
-    let cfg = funcs.[0x00UL].IRCFG
-    let vMap = cfg.FoldVertex irVertexFolder Map.empty
-    let v000 = Map.find (0x00UL, 0) vMap
-    let v190 = Map.find (0x19UL, 0) vMap
-    let v3F0 = Map.find (0x3FUL, 0) vMap
-    let v480 = Map.find (0x48UL, 0) vMap
-    let v520 = Map.find (0x52UL, 0) vMap
-    let v550 = Map.find (0x55UL, 0) vMap
-    let v5F0 = Map.find (0x5FUL, 0) vMap
-    let eMap = cfg.FoldEdge (irEdgeFolder cfg) Map.empty
-    Assert.AreEqual (7, eMap.Count)
-    [ ((0x00UL, 0), (0x19UL, 0)) ; ((0x19UL, 0), (0x3FUL, 0)) ;
-      ((0x19UL, 0), (0x48UL, 0)) ; ((0x3FUL, 0), (0x55UL, 0)) ;
-      ((0x48UL, 0), (0x52UL, 0)) ; ((0x52UL, 0), (0x55UL, 0)) ;
-      ((0x55UL, 0), (0x5FUL, 0)) ]
-    |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x eMap)
-    let edge000190 = cfg.FindEdge v000 v190
-    let edge1903F0 = cfg.FindEdge v190 v3F0
-    let edge190480 = cfg.FindEdge v190 v480
-    let edge3F0550 = cfg.FindEdge v3F0 v550
-    let edge480520 = cfg.FindEdge v480 v520
-    let edge520550 = cfg.FindEdge v520 v550
-    let edge5505F0 = cfg.FindEdge v550 v5F0
-    let eList =
-      [ edge000190 ; edge1903F0 ; edge190480 ; edge3F0550 ; edge480520 ;
-        edge520550 ; edge5505F0 ]
-    let edgeTypeList =
-      [ FallThroughEdge ; CJmpFalseEdge ; CJmpTrueEdge ; JmpEdge ;
-        FallThroughEdge ; JmpEdge ; FallThroughEdge ]
-    List.zip edgeTypeList eList
-    |> List.iter (fun (x, y) -> Assert.AreEqual (x, y))
-
-  [<TestMethod>]
-  member __.``IRGraph Vertex Test: foo`` () =
-    let cfg = funcs.[0x62UL].IRCFG
-    Assert.AreEqual (1, cfg.Size ())
-    let vMap = cfg.FoldVertex irVertexFolder Map.empty
-    [ (0x62UL, 0) ]
-    |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x vMap)
-    let v620 = Map.find (0x62UL, 0) vMap
-    let vList = [ v620 ]
-    let bblList = List.map (fun (x: IRVertex) -> x.VData) vList
-    let pPointList = [ (0x62UL, 0) ]
-    List.zip pPointList bblList
-    |> List.iter (fun (x, y) ->
-        let _, ppoint = y.GetPpoint ()
-        Assert.AreEqual (x, ppoint))
-
-  [<TestMethod>]
-  member __.``IRGraph Edge Test: foo`` () =
-    let cfg = funcs.[0x62UL].IRCFG
-    let eMap = cfg.FoldEdge (irEdgeFolder cfg) Map.empty
-    Assert.AreEqual (0, eMap.Count)
-
-  [<TestMethod>]
-  member __.``IRGraph Vertex Test: bar`` () =
-    let cfg = funcs.[0x71UL].IRCFG
-    Assert.AreEqual (2, cfg.Size ())
-    let vMap = cfg.FoldVertex irVertexFolder Map.empty
-    [ (0x71UL, 0) ; (0x81UL, 0) ]
-    |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x vMap)
-    let v710 = Map.find (0x71UL, 0) vMap
-    let v810 = Map.find (0x81UL, 0) vMap
-    let vList = [ v710 ; v810 ]
-    let bblList = List.map (fun (x: IRVertex) -> x.VData) vList
-    let pPointList = [ (0x71UL, 0) ; (0x81UL, 0) ]
-    List.zip pPointList bblList
-    |> List.iter (fun (x, y) ->
-        let _, ppoint = y.GetPpoint ()
-        Assert.AreEqual (x, ppoint))
-
-  [<TestMethod>]
-  member __.``IRGraph Edge Test: bar`` () =
-    let cfg = funcs.[0x71UL].IRCFG
-    let vMap = cfg.FoldVertex irVertexFolder Map.empty
-    let v710 = Map.find (0x71UL, 0) vMap
-    let v810 = Map.find (0x81UL, 0) vMap
-    let eMap = cfg.FoldEdge (irEdgeFolder cfg) Map.empty
-    Assert.AreEqual (1, eMap.Count)
-    let edge710810 = cfg.FindEdge v710 v810
-    let eList = [ edge710810 ]
-    let edgeTypeList = [ FallThroughEdge ]
-    List.zip edgeTypeList eList
-    |> List.iter (fun (x, y) -> Assert.AreEqual (x, y))
+    let actual = [| cfg.FindEdgeData vertices.[0] vertices.[1] |]
+    let expected = [| FallThroughEdge |]
+    CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
   member __.``SSAGraph Vertex Test: _start`` () =
-    let cfg = funcs.[0x00UL].SSACFG
+    let cfg, root = ess.SCFG.GetFunctionCFG 0x0UL
+    let lens = SSALens.Init (ess.SCFG)
+    let ssacfg = lens.Filter cfg root
+    Assert.AreEqual (9, ssacfg.Size ())
+
+[<TestClass>]
+type CFGTest2 () =
+
+  /// This is a raw x86 binary code generated from the following C code:
+  /// static inline void *copy(void *d, const void *s, unsigned int n) {
+  ///   asm volatile ("rep movsb"
+  ///                 : "=D" (d),
+  ///                   "=S" (s),
+  ///                   "=c" (n)
+  ///                 : "0" (d),
+  ///                   "1" (s),
+  ///                   "2" (n)
+  ///                 : "memory");
+  ///   return d;
+  /// }
+  ///
+  /// void _start(void)
+  /// {
+  ///   char buf[32];
+  ///   copy(buf, "hello world", 32);
+  ///   return;
+  /// }
+  let binary =
+     [| 0x57uy; 0x56uy; 0xb9uy; 0x20uy; 0x00uy; 0x00uy; 0x00uy; 0xe8uy; 0x18uy;
+        0x00uy; 0x00uy; 0x00uy; 0x05uy; 0x34uy; 0x1euy; 0x00uy; 0x00uy; 0x83uy;
+        0xecuy; 0x20uy; 0x89uy; 0xe7uy; 0x8duy; 0xb0uy; 0xe8uy; 0xe1uy; 0xffuy;
+        0xffuy; 0xf3uy; 0xa4uy; 0x83uy; 0xc4uy; 0x20uy; 0x5euy; 0x5fuy; 0xc3uy;
+        0x8buy; 0x04uy; 0x24uy; 0xc3uy; |]
+
+  let isa = ISA.Init Architecture.IntelX86 Endian.Little
+  let hdl = BinHandler.Init (isa, binary)
+  let ess = BinEssence.Init hdl
+
+  [<TestMethod>]
+  member __.``Boundary Test: Function Identification`` () =
+    Assert.AreEqual (2, Set.count ess.BinaryApparatus.FunctionAddrs)
+    let expected = [ 0UL; 0x24UL ] |> List.toArray
+    let actual = ess.BinaryApparatus.FunctionAddrs |> Set.toArray
+    CollectionAssert.AreEqual (expected, actual)
+
+  [<TestMethod>]
+  member __.``Boundary Test: Leader Identification`` () =
+    let vertices = ess.SCFG.Vertices
+    let boundaries = ess.SCFG.Boundaries
+    Assert.AreEqual (7, vertices.Count)
+    [ (0x00UL, 0x0CUL); (0x0CUL, 0x1CUL); (0x1CUL, 0x1EUL); (0x1CUL, 0x1EUL);
+      (0x1CUL, 0x1EUL); (0x1EUL, 0x24UL); (0x24UL, 0x28UL); ]
+    |> List.iter (fun r ->
+         Assert.IsTrue <| IntervalSet.contains (AddrRange r) boundaries)
+
+  [<TestMethod>]
+  member __.``Vertex Test: _start`` () =
+    let cfg, _ = ess.SCFG.GetFunctionCFG 0x00UL
     Assert.AreEqual (7, cfg.Size ())
+    let vMap = cfg.FoldVertex Utils.foldVertexNoDummy Map.empty
+    let leaders =
+      [| ProgramPoint (0x00UL, 0); ProgramPoint (0x0CUL, 0);
+         ProgramPoint (0x1CUL, 0); ProgramPoint (0x1CUL, 2);
+         ProgramPoint (0x1CUL, 8); ProgramPoint (0x1EUL, 0) |]
+    let actual =
+      leaders
+      |> Array.map (fun l ->
+        match (Map.find l vMap).VData.GetLastStmt () with
+        | IEMark _ -> 0
+        | InterJmp _ -> 1
+        | InterCJmp _ -> 2
+        | Jmp _ -> 3
+        | CJmp _ -> 4
+        | _ -> -1)
+    let expected =
+      [| 1; 0; 4; 1; 1; 1 |]
+    CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
-  member __.``SSAGraph Edge Test: _start`` () =
-    let cfg = funcs.[0x00UL].SSACFG
-    let eList = cfg.FoldEdge (ssaEdgeFolder cfg) [] |> List.rev
-    Assert.AreEqual (7, List.length eList)
-    let edgeTypeList =
-      [ FallThroughEdge ; CJmpFalseEdge ; CJmpTrueEdge ; JmpEdge ;
-        FallThroughEdge ; JmpEdge ; FallThroughEdge ]
-    List.zip edgeTypeList eList
-    |> List.iter (fun (x, y) -> Assert.AreEqual (x, y))
+  member __.``Edge Test: _start`` () =
+    let cfg, _ = ess.SCFG.GetFunctionCFG 0x00UL
+    let vMap = cfg.FoldVertex Utils.foldVertexNoDummy Map.empty
+    let leaders =
+      [| ProgramPoint (0x00UL, 0); ProgramPoint (0x0CUL, 0);
+         ProgramPoint (0x1CUL, 0); ProgramPoint (0x1CUL, 2);
+         ProgramPoint (0x1CUL, 8); ProgramPoint (0x1EUL, 0) |]
+    let vertices = leaders |> Array.map (fun l -> Map.find l vMap)
+    let eMap = cfg.FoldEdge Utils.foldEdge Map.empty
+    Assert.AreEqual (8, eMap.Count)
+    let eMap = cfg.FoldEdge Utils.foldEdgeNoDummy Map.empty
+    Assert.AreEqual (6, eMap.Count)
+    [ (ProgramPoint (0x00UL, 0), ProgramPoint (0x0CUL, 0));
+      (ProgramPoint (0x0CUL, 0), ProgramPoint (0x1CUL, 0));
+      (ProgramPoint (0x1CUL, 0), ProgramPoint (0x1CUL, 2));
+      (ProgramPoint (0x1CUL, 0), ProgramPoint (0x1CUL, 8));
+      (ProgramPoint (0x1CUL, 2), ProgramPoint (0x1CUL, 0));
+      (ProgramPoint (0x1CUL, 8), ProgramPoint (0x1EUL, 0)); ]
+    |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x eMap)
+    let actual =
+      [| cfg.FindEdgeData vertices.[0] vertices.[1]
+         cfg.FindEdgeData vertices.[1] vertices.[2]
+         cfg.FindEdgeData vertices.[2] vertices.[3]
+         cfg.FindEdgeData vertices.[2] vertices.[4]
+         cfg.FindEdgeData vertices.[3] vertices.[2]
+         cfg.FindEdgeData vertices.[4] vertices.[5] |]
+    let expected =
+      [| FallThroughEdge; FallThroughEdge; IntraCJmpFalseEdge;
+         IntraCJmpTrueEdge; InterJmpEdge; InterJmpEdge |]
+    CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
-  member __.``SSAGraph Vertex Test: foo`` () =
-    let cfg = funcs.[0x62UL].SSACFG
-    Assert.AreEqual (1, cfg.Size ())
+  member __.``DisasmLens Test: _start`` () =
+    let cfg, root = ess.SCFG.GetFunctionCFG 0x00UL
+    let lens = DisasmLens.Init ()
+    let cfg = lens.Filter cfg root
+    Assert.AreEqual (4, cfg.Size ())
+    let vMap = cfg.FoldVertex (fun m v ->
+      Map.add v.VData.Position.Address v m) Map.empty
+    let leaders = [| 0x00UL; 0x0CUL; 0x1CUL; 0x1EUL |]
+    let vertices = leaders |> Array.map (fun l -> Map.find l vMap)
+    let disasmLens = [| 4; 4; 1; 4 |]
+    Array.zip vertices disasmLens
+    |> Array.iter (fun (v, len) ->
+      Assert.AreEqual (len, v.VData.Disassemblies.Length))
+    let eMap = cfg.FoldEdge (fun m v1 v2 e ->
+      let key = v1.VData.Position.Address, v2.VData.Position.Address
+      Map.add key e m) Map.empty
+    Assert.AreEqual (4, eMap.Count)
+    let actual =
+      [| cfg.FindEdgeData vertices.[0] vertices.[1]
+         cfg.FindEdgeData vertices.[1] vertices.[2]
+         cfg.FindEdgeData vertices.[2] vertices.[2]
+         cfg.FindEdgeData vertices.[2] vertices.[3] |]
+    let expected =
+      [| FallThroughEdge; FallThroughEdge; InterJmpEdge; InterJmpEdge |]
+    CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
-  member __.``SSAGraph Edge Test: foo`` () =
-    let cfg = funcs.[0x62UL].SSACFG
-    let eList = cfg.FoldEdge (ssaEdgeFolder cfg) []
-    Assert.AreEqual (0, List.length eList)
-
-  [<TestMethod>]
-  member __.``SSAGraph Vertex Test: bar`` () =
-    let cfg = funcs.[0x71UL].SSACFG
-    Assert.AreEqual (2, cfg.Size ())
-
-  [<TestMethod>]
-  member __.``SSAGraph Edge Test: bar`` () =
-    let cfg = funcs.[0x71UL].SSACFG
-    let eList = cfg.FoldEdge (ssaEdgeFolder cfg) [] |> List.rev
-    Assert.AreEqual (1, List.length eList)
-    let edgeTypeList = [ FallThroughEdge ]
-    List.zip edgeTypeList eList
-    |> List.iter (fun (x, y) -> Assert.AreEqual (x, y))
-
-  /// TODO: SSA translation functionality test
-
-  [<TestMethod>]
-  member __.``DisasmGraph Vertex Test after Call Analysis: bar`` () =
-    let cfg = funcs'.[0x71UL].DisasmCFG
-    Assert.AreEqual (1, cfg.Size ())
-    let vMap = cfg.FoldVertex disasmVertexFolder Map.empty
-    [ 0x71UL ]
-    |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x vMap)
-    let v71 = Map.find 0x71UL vMap
-    let vList = [ v71 ]
-    let bblList = List.map (fun (x: Vertex<_>) -> x.VData) vList
-    let addrRangeList =
-      [ AddrRange (0x71UL, 0x81UL) ]
-    List.zip addrRangeList bblList
-    |> List.iter (fun (x, y) -> Assert.AreEqual (x, y.AddrRange))
-
-  [<TestMethod>]
-  member __.``DisasmGraph Edge Test after Call Analysis: bar`` () =
-    let cfg = funcs'.[0x71UL].DisasmCFG
-    let eMap = cfg.FoldEdge (disasmEdgeFolder cfg) Map.empty
-    Assert.AreEqual (0, eMap.Count)
-
-  [<TestMethod>]
-  member __.``IRGraph Vertex Test after Call Analysis: _start`` () =
-    let cfg = funcs'.[0x00UL].IRCFG
-    Assert.AreEqual (8, cfg.Size ())
-    let bblMap = cfg.FoldVertex irBBLFolder Map.empty
-    Assert.AreEqual (6, bblMap.Count)
-    [ (0x00UL, 0) ; (0x19UL, 0) ; (0x3FUL, 0) ; (0x48UL, 0) ; (0x52UL, 0) ;
-      (0x55UL, 0) ]
-    |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x bblMap)
-    let v000 = Map.find (0x00UL, 0) bblMap
-    let v190 = Map.find (0x19UL, 0) bblMap
-    let v3F0 = Map.find (0x3FUL, 0) bblMap
-    let v480 = Map.find (0x48UL, 0) bblMap
-    let v520 = Map.find (0x52UL, 0) bblMap
-    let v550 = Map.find (0x55UL, 0) bblMap
-    let vList = [ v000 ; v190 ; v3F0 ; v480 ; v520 ; v550 ]
-    let bblList = List.map (fun (x: IRVertex) -> x.VData) vList
-    let pPointList =
-      [ (0x00UL, 0) ; (0x19UL, 0) ; (0x3FUL, 0) ; (0x48UL, 0) ; (0x52UL, 0) ;
-        (0x55UL, 0) ]
-    List.zip pPointList bblList
-    |> List.iter (fun (x, y) ->
-        let _, ppoint = y.GetPpoint ()
-        Assert.AreEqual (x, ppoint))
-    let callMap = cfg.FoldVertex irCallFolder Map.empty
-    Assert.AreEqual (2, callMap.Count)
-    [ 0x62UL ; 0x71UL ]
-    |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x callMap)
-    let c62 = Map.find 0x62UL callMap
-    let c71 = Map.find 0x71UL callMap
-    let cList = [ c62 ; c71 ]
-    let bblList = List.map (fun (x: IRVertex) -> x.VData) cList
-    let targetList = [ 0x62UL ; 0x71UL ]
-    List.zip targetList bblList
-    |> List.iter (fun (x, y) ->
-        let _, target = y.GetTarget ()
-        Assert.AreEqual (x, target))
-
-  [<TestMethod>]
-  member __.``IRGraph Edge Test after Call Analysis: _start`` () =
-    let cfg = funcs'.[0x00UL].IRCFG
-    let bblMap = cfg.FoldVertex irBBLFolder Map.empty
-    let v000 = Map.find (0x00UL, 0) bblMap
-    let v190 = Map.find (0x19UL, 0) bblMap
-    let v3F0 = Map.find (0x3FUL, 0) bblMap
-    let v480 = Map.find (0x48UL, 0) bblMap
-    let v520 = Map.find (0x52UL, 0) bblMap
-    let v550 = Map.find (0x55UL, 0) bblMap
-    let callMap = cfg.FoldVertex irCallFolder Map.empty
-    let c62 = Map.find 0x62UL callMap
-    let c71 = Map.find 0x71UL callMap
-    let normalEdges = cfg.FoldEdge (irNormalEdgeFolder cfg) Map.empty
-    Assert.AreEqual (6, normalEdges.Count)
-    [ ((0x00UL, 0), (0x19UL, 0)) ; ((0x19UL, 0), (0x3FUL, 0)) ;
-      ((0x19UL, 0), (0x48UL, 0)) ; ((0x3FUL, 0), (0x55UL, 0)) ;
-      ((0x48UL, 0), (0x52UL, 0)) ; ((0x52UL, 0), (0x55UL, 0)) ]
-    |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x normalEdges)
-    let edge000190 = cfg.FindEdge v000 v190
-    let edge1903F0 = cfg.FindEdge v190 v3F0
-    let edge190480 = cfg.FindEdge v190 v480
-    let edge3F0550 = cfg.FindEdge v3F0 v550
-    let edge480520 = cfg.FindEdge v480 v520
-    let edge520550 = cfg.FindEdge v520 v550
-    let eList =
-      [ edge000190 ; edge1903F0 ; edge190480 ; edge3F0550 ; edge480520 ;
-        edge520550 ]
-    let edgeTypeList =
-      [ FallThroughEdge ; CJmpFalseEdge ; CJmpTrueEdge ; JmpEdge ;
-        FallThroughEdge ; JmpEdge ]
-    List.zip edgeTypeList eList
-    |> List.iter (fun (x, y) -> Assert.AreEqual (x, y))
-    let callEdges = cfg.FoldEdge (irCallEdgeFolder cfg) Map.empty
-    Assert.AreEqual (3, callEdges.Count)
-    let retEdges = cfg.FoldEdge (irRetEdgeFolder cfg) Map.empty
-    Assert.AreEqual (2, retEdges.Count)
-
-  [<TestMethod>]
-  member __.``IRGraph Vertex Test after Call Analysis: foo`` () =
-    let cfg = funcs'.[0x62UL].IRCFG
-    Assert.AreEqual (1, cfg.Size ())
-    let bblMap = cfg.FoldVertex irBBLFolder Map.empty
-    [ (0x62UL, 0) ]
-    |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x bblMap)
-    let v620 = Map.find (0x62UL, 0) bblMap
-    let vList = [ v620 ]
-    let bblList = List.map (fun (x: IRVertex) -> x.VData) vList
-    let pPointList = [ (0x62UL, 0) ]
-    List.zip pPointList bblList
-    |> List.iter (fun (x, y) ->
-        let _, ppoint = y.GetPpoint ()
-        Assert.AreEqual (x, ppoint))
-    let callMap = cfg.FoldVertex irCallFolder Map.empty
-    Assert.AreEqual (0, callMap.Count)
-
-  [<TestMethod>]
-  member __.``IRGraph Edge Test after Call Analysis: foo`` () =
-    let cfg = funcs'.[0x62UL].IRCFG
-    let normalEdges = cfg.FoldEdge (irNormalEdgeFolder cfg) Map.empty
-    Assert.AreEqual (0, normalEdges.Count)
-    let callEdges = cfg.FoldEdge (irCallEdgeFolder cfg) Map.empty
-    Assert.AreEqual (0, callEdges.Count)
-    let retEdges = cfg.FoldEdge (irRetEdgeFolder cfg) Map.empty
-    Assert.AreEqual (0, retEdges.Count)
-
-  [<TestMethod>]
-  member __.``IRGraph Vertex Test after Call Analysis: bar`` () =
-    let cfg = funcs'.[0x71UL].IRCFG
-    Assert.AreEqual (1, cfg.Size ())
-    let bblMap = cfg.FoldVertex irVertexFolder Map.empty
-    [ (0x71UL, 0) ]
-    |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x bblMap)
-    let v710 = Map.find (0x71UL, 0) bblMap
-    let vList = [ v710 ]
-    let bblList = List.map (fun (x: IRVertex) -> x.VData) vList
-    let pPointList = [ (0x71UL, 0) ]
-    List.zip pPointList bblList
-    |> List.iter (fun (x, y) ->
-        let _, ppoint = y.GetPpoint ()
-        Assert.AreEqual (x, ppoint))
-    let callMap = cfg.FoldVertex irCallFolder Map.empty
-    Assert.AreEqual (0, callMap.Count)
-
-  [<TestMethod>]
-  member __.``IRGraph Edge Test after Call Analysis: bar`` () =
-    let cfg = funcs'.[0x71UL].IRCFG
-    let normalEdges = cfg.FoldEdge (irNormalEdgeFolder cfg) Map.empty
-    Assert.AreEqual (0, normalEdges.Count)
-    let callEdges = cfg.FoldEdge (irCallEdgeFolder cfg) Map.empty
-    Assert.AreEqual (0, callEdges.Count)
-    let retEdges = cfg.FoldEdge (irRetEdgeFolder cfg) Map.empty
-    Assert.AreEqual (0, retEdges.Count)
-
-  [<TestMethod>]
-  member __.``SSAGraph Vertex Test after Call Analysis: _start`` () =
-    let cfg = funcs'.[0x00UL].SSACFG
-    Assert.AreEqual (8, cfg.Size ())
-
-  [<TestMethod>]
-  member __.``SSAGraph Edge Test after Call Analysis: _start`` () =
-    let cfg = funcs'.[0x00UL].SSACFG
-    let eList = cfg.FoldEdge (ssaEdgeFolder cfg) [] |> List.rev
-    Assert.AreEqual (11, List.length eList)
-
-  [<TestMethod>]
-  member __.``SSAGraph Vertex Test after Call Analysis: foo`` () =
-    let cfg = funcs'.[0x62UL].SSACFG
-    Assert.AreEqual (1, cfg.Size ())
-
-  [<TestMethod>]
-  member __.``SSAGraph Edge Test after Call Analysis: foo`` () =
-    let cfg = funcs'.[0x62UL].SSACFG
-    let eList = cfg.FoldEdge (ssaEdgeFolder cfg) []
-    Assert.AreEqual (0, List.length eList)
-
-  [<TestMethod>]
-  member __.``SSAGraph Vertex Test after Call Analysis: bar`` () =
-    let cfg = funcs'.[0x71UL].SSACFG
-    Assert.AreEqual (1, cfg.Size ())
-
-  [<TestMethod>]
-  member __.``SSAGraph Edge Test after Call Analysis: bar`` () =
-    let cfg = funcs'.[0x71UL].SSACFG
-    let eList = cfg.FoldEdge (ssaEdgeFolder cfg) [] |> List.rev
-    Assert.AreEqual (0, List.length eList)
+  member __.``SSAGraph Vertex Test: _start`` () =
+    let cfg, root = ess.SCFG.GetFunctionCFG 0x0UL
+    let lens = SSALens.Init (ess.SCFG)
+    let ssacfg = lens.Filter cfg root
+    Assert.AreEqual (7, ssacfg.Size ())

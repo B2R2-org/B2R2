@@ -24,21 +24,34 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinIR
+namespace B2R2.BinGraph
 
-/// Raised when an illegal AST type is used. This should never be raised in
-/// normal situation.
-exception IllegalASTTypeException
+open B2R2
 
-/// Raised when an assignment expression has an invalid destination expression.
-exception InvalidAssignmentException
+/// The basic term used to describe a line of a basic block (when visualized).
+type Term =
+  /// Mneomonic, i.e., opcode.
+  | Mnemonic of string
+  /// Operand.
+  | Operand of string
+  /// Just a string.
+  | String of string
+  /// Comment.
+  | Comment of string
 
-/// Rasied when an invalid expression is encountered during type checking or
-/// evaluation.
-exception InvalidExprException
+/// A visual line of a basic block.
+type VisualLine = Term list
 
-/// Raised when an expression does not type-check.
-exception TypeCheckException of string
+/// A visual representation of a basic block.
+type VisualBlock = VisualLine list
 
-/// Represent a start position.
-type StartPos = int
+/// The base type for basic block.
+[<AbstractClass>]
+type BasicBlock () =
+  inherit VertexData(VertexData.genID ())
+  /// The start position (ProgramPoint) of the basic block.
+  abstract Position: ProgramPoint with get
+  /// The instruction address range of the basic block.
+  abstract Range: AddrRange with get
+  /// Convert this basic block to a visual representation.
+  abstract ToVisualBlock: unit -> VisualBlock
