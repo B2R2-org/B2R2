@@ -79,7 +79,6 @@ let getUnderscoredSpecialName n =
   | '9' -> "'vcall'"
   | 'A' -> "'typeof'"
   | 'B' -> "'local static guard'"
-  | 'C' -> "----string-----"
   | 'D' -> "'vbase destructor'"
   | 'E' -> "'vector deleting destructor'"
   | 'F' -> "'default constructor closure'"
@@ -92,9 +91,7 @@ let getUnderscoredSpecialName n =
   | 'M' -> "'eh vector destructor iterator'"
   | 'N' -> "'eh vector vbase constructor iterator'"
   | 'O' -> "'copy constructor closure'"
-  | 'P' -> "'udt returning' (prefix)"
   | 'Q' -> "Unknown"
-  | 'R' -> "RTTI-related code (see below)"
   | 'S' -> "'local vftable'"
   | 'T' -> "'local vftable constructor closure'"
   | 'U' -> "operator new[]"
@@ -146,3 +143,45 @@ let getRTTI c =
   | '3' -> "'RTTI Class Hierarchy Descriptor'"
   | '4' -> "'RTTI Complete Object Locator'"
   |  _  -> sprintf "not valid RTTI descriptor %c" c
+
+let getVarAccessLevel c =
+  match c with
+  | '0' -> "private: "
+  | '1' -> "protected: static "
+  | '2' -> "public: static "
+  | _ -> ""
+
+let makeFunParams (lst: string list) =
+  if lst.IsEmpty then "()" else
+  sprintf "(%s)" (List.reduce (fun x y -> x + "," + y) lst)
+
+let makeTemplateArgs (lst: string list) =
+  if lst.IsEmpty then "<>" else
+  sprintf "<%s>" (List.reduce (fun x y -> x + "," + y) lst)
+
+/// Gets the preModifierString and postModifierString.
+/// For modifiers that appear before and after the pointer symbol.
+let getPrefixModStr (prefixes : ModifierPrefix list) =
+  let pre, post =
+    List.fold (
+      fun (pre, post) c ->
+        match c with
+        | Ptr64Mod -> pre, post + " __ptr64"
+        | UnalignedMod -> pre + "__unaligned ", post
+        | RestrictMod -> pre, post + " __restrict"
+        |  _  -> pre, post
+      ) (" ", "") prefixes
+  pre.TrimStart (), post.TrimEnd ()
+
+/// Checks for the existance of & and && indicating prefixes and updates the
+/// pointer string to include them.
+let updatePrefix lst str =
+  let str1 = if List.contains ReferenceMod lst then str + "& " else str
+  if List.contains DoubleReferenceMod lst then str1 + "&& " else str1
+
+/// Changes any type of pointer to normal pointer while keeping its prefixes.
+let changeToNormalPointer (ptr: MSExpr) =
+  match ptr with
+  | PointerStrT ( _ , (pref, modifier), cvT) ->
+      PointerStrT (NormalPointer, (pref, modifier), cvT)
+  | _ -> ptr

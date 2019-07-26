@@ -27,40 +27,7 @@
 
 module B2R2.NameMangling.MSInterpreter
 
-let makeFunParams (lst: string list) =
-  if lst.IsEmpty then "()" else
-  sprintf "(%s)" (List.reduce (fun x y -> x + "," + y) lst)
-
-let makeTemplateArgs (lst: string list) =
-  if lst.IsEmpty then "<>" else
-  sprintf "<%s>" (List.reduce (fun x y -> x + "," + y) lst)
-
-/// Gets the preModifierString and postModifierString.
-/// For modifiers that appear before and after the pointer symbol.
-let getPrefixModStr (prefixes : ModifierPrefix list) =
-  let pre, post =
-    List.fold (
-      fun (pre, post) c ->
-        match c with
-        | Ptr64Mod -> pre, post + " __ptr64"
-        | UnalignedMod -> pre + "__unaligned ", post
-        | RestrictMod -> pre, post + " __restrict"
-        |  _  -> pre, post
-                ) (" ", "") prefixes
-  pre.TrimStart (), post.TrimEnd()
-
-/// Checks for the existance of & and && indicating prefixes and updates the
-/// pointer string to include them.
-let updatePrefix lst str =
-  let str1 = if List.contains ReferenceMod lst then str + "& " else str
-  if List.contains DoubleReferenceMod lst then str1 + "&& " else str1
-
-/// Changes any type of pointer to normal pointer while keeping its prefixes.
-let changeToNormalPointer (ptr: MSExpr) =
-  match ptr with
-  | PointerStrT ( _ , (pref, modifier),cvT) ->
-      PointerStrT (NormalPointer, (pref, modifier),cvT)
-  | _ -> ptr
+open B2R2.NameMangling.MSUtils
 
 /// Main interpreter function that outputs the demangled string
 let rec interpret (sample: MSExpr) =
@@ -160,7 +127,7 @@ let rec interpret (sample: MSExpr) =
 
   | RTTI0 t -> interpret t + " 'RTTI Type Descriptor'"
 
-  | NestedFunc f -> sprintf "'%s'" ((interpret f).Trim ())
+  | NestedFunc f -> sprintf "`%s'" ((interpret f).Trim ())
 
   | MangledSymbolPtr c -> "&" + interpret c
 

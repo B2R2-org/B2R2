@@ -202,8 +202,8 @@ module CVModifier =
   let fromChar = function
     | 'A' | 'Q' | 'U' | 'Y' | 'M' | '2' -> NoMod
     | 'B' | 'J' | 'R' | 'V' | 'Z' | 'N' |'3'-> Constant
-    | 'C' | 'G' | 'K' | 'S' | 'W' | 'O' | '0' | '4'   -> Volatile
-    | 'D' | 'H' | 'L' | 'T' | 'X' | 'P' | '1' | '5'-> ConstantVolatile
+    | 'C' | 'G' | 'K' | 'S' | 'W' | 'O' | '0' | '4' -> Volatile
+    | 'D' | 'H' | 'L' | 'T' | 'X' | 'P' | '1' | '5' -> ConstantVolatile
     | _ -> UnknownMod
 
   let toString = function
@@ -256,7 +256,7 @@ module PointerTypeIndicator =
 
 /// Built in types represented by a single letter.
 type NormalBuiltInType =
-  | EmptyReturn // @ symbol can be used as a return type
+  | EmptyReturn // @ symbol can be used as a return type.
   | SignedChar
   | Char
   | UnsignedChar
@@ -389,7 +389,7 @@ type MSExpr =
                  * (ModifierPrefix list * CVModifier)
                  * MSExpr
 
-  /// A pointer type of PointerStrType * PointedType
+  /// A pointer type of PointerStrType * PointedType.
   | PointerT of MSExpr * MSExpr
 
   /// Whole information of a complex type of complaexTypeKind * TypeBody.

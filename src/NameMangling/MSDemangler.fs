@@ -33,7 +33,8 @@ module MSDemangler =
     str.Length <> 0 && str.StartsWith "?" && str.Contains "@"
 
   let demangle (str: string) =
-    match MSParser.run str.[1 ..] with
+    let MSP = MSParser.MSParserClass ()
+    match MSP.run str.[1 ..] with
     | FParsec.CharParsers.Success (result, _, _) ->
       let result = MSInterpreter.interpret result
       Some <| result.Trim ()

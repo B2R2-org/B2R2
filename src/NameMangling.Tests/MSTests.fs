@@ -2,6 +2,7 @@
   B2R2 - the Next-Generation Reversing Platform
 
   Author: Michael Tegegn <mick@kaist.ac.kr>
+          Sang Kil Cha <sangkilc@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -103,7 +104,7 @@ type MSTests () =
   [<TestMethod>]
   member __.``MSDemangler: A nested function mangled ``() =
     let mangled = "?abc@??abc@@YAXXZ@YAH_FJ@Z"
-    let result = "int __cdecl 'void __cdecl abc(void)'::abc(__int16,long)"
+    let result = "int __cdecl `void __cdecl abc(void)'::abc(__int16,long)"
     test mangled result
 
   [<TestMethod>]
@@ -150,7 +151,7 @@ type MSTests () =
   [<TestMethod>]
   member __.`` MSDemangler: Deconstructor and number namespace mangled ``() =
     let mangled = "??1?$someting@GFG@?1somethingOther@@YADFG@Z"
-    let result = "char __cdecl somethingOther::'2'::someting<unsigned short\
+    let result = "char __cdecl somethingOther::`2'::someting<unsigned short\
     ,short,unsigned short>::~someting<unsigned short,short,unsigned short>\
     (short,unsigned short)"
     test mangled result
@@ -214,7 +215,7 @@ type MSTests () =
   [<TestMethod>]
   member __.`` MSDemangler: nested nameOnly inside a value(not a function)``() =
     let mangled = "?_OptionsStorage@?1??__local_stdio_printf_options@@9@4_KA"
-    let result = "unsigned __int64 '__local_stdio_printf_options'::'2'\
+    let result = "unsigned __int64 `__local_stdio_printf_options'::`2'\
     ::_OptionsStorage"
     test mangled result
 
@@ -290,4 +291,24 @@ type MSTests () =
     let result = "void __cdecl func(std::nullptr_t,bool,int (__cdecl* * const \
     volatile *)(int,std::nullptr_t),int (__cdecl*)(std::nullptr_t),class std::\
     someother<bool,short>,bool)"
+    test mangled result
+
+  [<TestMethod>]
+  member __.`` MSDemangler: Return type operator updated``() =
+    let mangled = "??Bstd@netbase@@YADF@Z"
+    let result = "__cdecl netbase::std::operator char(short)"
+    test mangled result
+
+  [<TestMethod>]
+  member __.`` MSDemangler: Mangled string constant``() =
+    let mangled = "??_C@_0O@EMEFIAMJ@?6Enter?5data?3?5@"
+    let result = "`string'"
+    test mangled result
+
+  [<TestMethod>]
+  member __.`` MSDemangler: Different access level data test``() =
+    let mangled = "?_Psave@?$_Facetptr@V?$ctype@D@std@@@std\
+    @@2PBVfacet@locale@1@B"
+    let result = "public: static class _Facetptr<class std::ctype<char>>::\
+    locale::facet const * const std::_Facetptr<class std::ctype<char>>::_Psave"
     test mangled result
