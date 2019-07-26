@@ -41,32 +41,17 @@ let addargumenttolist expr =
   updateUserState
     (fun us ->
     match expr with
-    | PointerArg (_, Some (CVqualifier a), a2) ->
-      let value = CVqualifier a
+    | PointerArg (_, Some value, a2) ->
       let first = PointerArg ("", Some value, a2)
       let second = expr
       { us with Namelist = second :: first :: us.Namelist }
-    | PointerArg (_, Some (RestrictCV (a, None)), a2) ->
-      let value1 = Restrict (JustPointer)
-      let value2 = RestrictCV (a, None)
-      let first = PointerArg ("", Some value1, a2)
-      let second = PointerArg ("", Some value2, a2)
-      let third = expr
-      { us with Namelist = third :: second :: first :: us.Namelist }
-    | PointerArg (_, Some (RestrictCV (a, Some b)), a2) ->
-      let value1 = RestrictCV (Restrict (Nothing), Some b)
-      let value2 =  RestrictCV (Restrict (JustPointer), Some b)
-      let value3 = RestrictCV (a, Some b)
-      let first = PointerArg ("", Some value1, a2)
-      let second = PointerArg ("", Some value2, a2)
-      let third = PointerArg ("", Some value3, a2)
-      let fourth = expr
-      { us with Namelist = fourth :: third :: second :: first :: us.Namelist }
     | BuiltinType (_) -> us
     | RefArg (ReferenceArg (_, Some value), a2) ->
       let first = RefArg (ReferenceArg (Reference Empty, Some value), a2)
       let second = expr
       { us with Namelist = second :: first :: us.Namelist }
+    | Functionarg (None, expr) ->
+      us
     | _ ->
       { us with Namelist = expr :: us.Namelist }
      )
@@ -79,12 +64,12 @@ let addtoNamelist expr =
       match us.Carry with
       | Dummy _ ->
         { us with
-            Namelist = NestedName (None, [expr]) :: us.Namelist
-            Carry = NestedName (None, [expr]) }
+            Namelist = NestedName (Name "", [expr]) :: us.Namelist
+            Carry = NestedName (Name "", [expr]) }
       | NestedName (a, b) ->
         { us with
-            Namelist = NestedName (a,expr :: b) :: us.Namelist
-            Carry = NestedName (a,expr :: b) }
+            Namelist = NestedName (a, expr :: b) :: us.Namelist
+            Carry = NestedName (a, expr :: b) }
       | _ -> us
     )
   >>.preturn expr
@@ -96,7 +81,7 @@ let updatecarry c =
     (fun us ->
       match us.Carry with
       | NestedName (a, b) -> { us with Carry = NestedName (a, c :: b) }
-      | _ -> { us with Carry = NestedName (None, [c]) })
+      | _ -> { us with Carry = NestedName (Name "", [c]) })
   >>. preturn c
 
 /// Function names are not included in substitution. In case of nested names
@@ -123,12 +108,12 @@ let checkcarry expr =
     (fun us ->
       match expr with
       | Template (_name, Arguments b) ->
-        { us with TemplateArgList = (List.distinct b) }
+        { us with TemplateArgList = b }
       | NestedName (_, b) ->
         let len = List.length b
         match b.[len - 1] with
         | Template (_name, Arguments b) ->
-          { us with TemplateArgList = (List.distinct b) }
+          { us with TemplateArgList = b }
         | _ -> us
       | _ -> us
     )
@@ -146,5 +131,14 @@ let addTemplate expr =
 
 /// Template substitution can be substituted by general substitution.
 let addTsubtolist expr =
-  updateUserState (fun us -> { us with Namelist = expr :: us.Namelist })
-  >>. preturn expr
+    updateUserState
+      (fun us ->
+        match expr with
+        | NestedName (a, b) ->
+          let new_expr = NestedName (a, List.rev b)
+          { us with Namelist = new_expr :: us.Namelist }
+        | SingleArg (NestedName(a, b)) ->
+          let new_expr =SingleArg (NestedName (a, List.rev b))
+          { us with Namelist = new_expr :: us.Namelist }
+        | _ -> { us with Namelist = expr :: us.Namelist })
+    >>. preturn expr

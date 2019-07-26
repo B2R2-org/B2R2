@@ -43,15 +43,7 @@ let rec interpret (input: ItaniumExpr) =
   | Reference a -> ReferenceQualifier.toString a
 
   | CVR (cvqualifier, refqualifier) ->
-    let cv =
-      match cvqualifier with
-      | Some value -> interpret value
-      | None -> ""
-    let ref =
-      match refqualifier with
-      | Some value -> interpret value
-      | None -> ""
-    cv + ref
+    interpret cvqualifier + interpret refqualifier
 
   | Restrict a -> RestrictQualifier.toString a
 
@@ -76,7 +68,11 @@ let rec interpret (input: ItaniumExpr) =
           let final, _ = combine (List.rev arglist) 0 ""
           acc + add + (ret + " " + final)
         | _ ->
-          acc + add + interpret elem) "" args
+          let elem = interpret elem
+          if elem = "" then
+            acc
+          else
+            acc + add + elem) "" args
 
   | Num x -> string(x)
 
@@ -98,35 +94,75 @@ let rec interpret (input: ItaniumExpr) =
       let ret, arglist = getReturnList retandargs
       let final, _ = combine (List.rev arglist) 0 ""
       ret + " " + final
-    | _ -> interpret arg + interpret ref
+    | _ ->
+      let arg = interpret arg
+      if arg.[String.length arg - 1] = '&' then
+        arg
+      else
+        arg + interpret ref
 
   | ConsOrDes a1 -> ConstructorDestructor.toChar a1
 
+  | Literal (a, Num b) ->
+    let a = interpret a
+    if a = "bool" && b<>0 then
+      "true"
+    elif a ="bool" then
+      "false"
+    elif a = "int" then
+      string(b)
+    elif a = "unsigned int" then
+      string(b)+"u"
+    else
+      "(" + a + ")" + string(b)
+
+
   | Literal (a, b) ->
     let a = interpret a
-    "(" + a + ")" + interpret b
+    let b = interpret b
+    "(" + a + ")" + b
 
   | NestedName (a, namelist) ->
-    let add =
-      match a with
-      | Some value -> interpret value
-      | None -> ""
     let nestedname, _ =
       List.fold (
         fun acc elem ->
-          let add1 = if (fst acc = "") then "" else "::"
+          let add = if (fst acc = "") then "" else "::"
           let idx = snd acc
           let prev = if (idx = 0) then Dummy "" else namelist.[idx - 1]
           match elem, prev with
+          | ConsOrDes _, Template (Sxname (a, b), _) ->
+            let elem = interpret elem
+            ((fst acc + add + elem + interpret b), (idx + 1))
+          | ConsOrDes _, Template (Sxsubstitution sx, _) ->
+            let elem = interpret elem
+            ((fst acc + add + elem + Sxabbreviation.get sx), (idx + 1))
           | ConsOrDes _, Template (a, _) ->
             let elem = interpret elem
             ((fst acc + add + elem + interpret a), (idx + 1))
+          | ConsOrDes _, Sxname (_, b) ->
+            let elem = interpret elem
+            fst acc + add + elem + interpret (b), (idx + 1)
+          | ConsOrDes _, Sxsubstitution sx ->
+            let elem = interpret elem
+            fst acc + add + elem + (Sxabbreviation.get sx), (idx + 1)
           | ConsOrDes _, _ ->
             let elem = interpret elem
-            fst acc + add1 + elem + interpret (prev), (idx + 1)
+            fst acc + add + elem + interpret (prev), (idx + 1)
+          | Template (ConsOrDes a, b), Template (Sxname (_,c) , d) ->
+            let elem = interpret (ConsOrDes a)
+            let prev = interpret c
+            fst acc + add + elem + prev + "<" + interpret b + ">0", (idx + 1)
+          | Template (ConsOrDes a, b), Template (c, d) ->
+            let elem = interpret (ConsOrDes a)
+            let prev = interpret c
+            fst acc + add + elem + prev + "<" + interpret b + ">0", (idx + 1)
+          | Template (ConsOrDes a, b), _ ->
+            let elem = interpret (ConsOrDes a)
+            let prev = interpret prev
+            fst acc + add + elem + prev + "<" + interpret b + ">0", (idx + 1)
           | _ ->
-            fst acc + add1 + interpret elem, (idx+1)) ("", 0) namelist
-    nestedname + add
+            fst acc + add + interpret elem, (idx+1)) ("", 0) namelist
+    nestedname + interpret a
 
   | Template (name, tempargs) ->
     (interpret name) + "<" + (interpret tempargs) + ">"
@@ -134,16 +170,14 @@ let rec interpret (input: ItaniumExpr) =
   | Function (a, ret, arglist) ->
     let name, add =
       match a with
-      | NestedName (Some value, b1) ->
-        interpret (NestedName (None, b1)), interpret value
+      | NestedName (value, b1) ->
+        interpret (NestedName (Name "", b1)), interpret value
       | _ -> interpret a, ""
-    let args =
-      match arglist with
-      | Some value -> interpret value
-      | None -> ""
-    if name.[(String.length name) - 1] = '>' && args = "" then
+    let args = interpret arglist
+    let length = String.length name
+    if name.[length - 1] = '>' && args = "" then
       "not mangled properly"
-    elif name.[(String.length name) - 1] = '>' then
+    elif name.[length - 1] = '>' then
       match ret with
       | FunctionPointer (_, _ , _) |
         SingleArg (FunctionPointer (_, _, _)) ->
@@ -157,6 +191,10 @@ let rec interpret (input: ItaniumExpr) =
       | _->
       (interpret ret) + " " + name + "(" + (args) + ")" + add
     else
+      let name =
+        if (name.[length - 1] = '0' && name.[length - 2] = '>') then
+          name.[0..(length - 2)]
+        else name
       let h = if (args = "") then ("") else (", ")
       match ret with
       | FunctionPointer (_, _, _) |
@@ -183,7 +221,10 @@ let rec interpret (input: ItaniumExpr) =
     let operator = interpret a
     let len = String.length operator
     let operator = operator.[8 .. (len - 1)]
-    "(" + interpret b + ")" + operator + "(" + interpret c + ")"
+    if operator = "::" then
+      interpret b + operator + interpret c
+    else
+      "(" + interpret b + ")" + operator + "(" + interpret c + ")"
 
   | Operators a -> "operator" + (OperatorIndicator.toString a)
 
@@ -204,14 +245,15 @@ let rec interpret (input: ItaniumExpr) =
 
   | Vendor s -> s
 
-  | RestrictCV (a, Some value) -> interpret value + interpret a
-
-  | RestrictCV (a, None) -> interpret a
-
-  | RestrictEnd plist ->
-    List.fold (fun acc elem -> acc + interpret elem) "" plist
-
   | SingleP _ -> "*"
+
+  | ArrayPointer (a, b) ->
+    let array = List.fold (fun acc elem -> acc + "[" + string(elem) + "]") "" a
+    interpret b + " " + array
+
+  | Functionarg (Some value, b) -> interpret b + interpret value
+
+  | Functionarg (None, b) -> interpret b
 
   | Dummy _ -> "???"
 

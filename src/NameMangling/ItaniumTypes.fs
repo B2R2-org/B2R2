@@ -156,6 +156,16 @@ module Sxabbreviation =
     | StdBasicIOStream -> "std::basic_iostream<char, std::char_traits<char>>"
     | Unknown -> "???"
 
+  let get = function
+    | StdAllocator -> "allocator"
+    | StdBasicString -> "basic_string"
+    | StdBasicStringT ->
+      "basic_string"
+    | StdBasicIstream -> "basic_istream"
+    | StdBasicOstream -> "basic_ostream"
+    | StdBasicIOStream -> "basic_iostream"
+    | _ -> ""
+
 type OperatorIndicator =
   | New
   | NewList
@@ -201,6 +211,9 @@ type OperatorIndicator =
   | Comma
   | PointertoMember
   | Member
+  | Parantheses
+  | Brackets
+  | DoubleColon
   | Unknown
 
 module OperatorIndicator =
@@ -249,6 +262,9 @@ module OperatorIndicator =
     | "cm" -> Comma
     | "pm" -> PointertoMember
     | "pt" -> Member
+    | "cl" -> Parantheses
+    | "ix" -> Brackets
+    | "sr" -> DoubleColon
     | _    -> Unknown
 
   let toString = function
@@ -296,6 +312,9 @@ module OperatorIndicator =
     | Comma -> ","
     | PointertoMember -> "->*"
     | Member -> "->"
+    | Parantheses -> "()"
+    | Brackets -> "[]"
+    | DoubleColon -> "::"
     | Unknown -> "???"
 
 type ConstructorDestructor =
@@ -340,7 +359,6 @@ module ConsTandVolatile =
 /// only pointer.
 type RestrictQualifier =
   | Nothing
-  | JustPointer
   | Restrict
   | RestrictConst
   | RestrictVolatile
@@ -349,21 +367,19 @@ type RestrictQualifier =
 
 module RestrictQualifier =
   let ofTuple = function
-    | ("", None, None, "") -> Nothing
-    | ("", None, None, "P") -> JustPointer
-    | ("r", None, None, "P") -> Restrict
-    | ("r", Some value, None, "P") -> RestrictVolatile
-    | ("r", None, Some value, "P") -> RestrictConst
-    | ("r", Some con, Some vol, "P") -> RestrictVolatileConst
+    | ("", None, None) -> Nothing
+    | ("r", None, None) -> Restrict
+    | ("r", Some _, None) -> RestrictVolatile
+    | ("r", None, Some _) -> RestrictConst
+    | ("r", Some _, Some _) -> RestrictVolatileConst
     | _ -> Unknown
 
   let toString = function
     | Nothing -> ""
-    | JustPointer -> "*"
-    | Restrict -> "* __restrict__"
-    | RestrictConst -> "* const __restrict__"
-    | RestrictVolatile -> "* volatile __restrict__"
-    | RestrictVolatileConst -> "* const volatile __restrict__"
+    | Restrict -> " __restrict__"
+    | RestrictConst -> " const __restrict__"
+    | RestrictVolatile -> " volatile __restrict__"
+    | RestrictVolatileConst -> " const volatile __restrict__"
     | Unknown -> "???"
 
 type ReferenceQualifier =
@@ -430,7 +446,7 @@ type ItaniumExpr =
 
   /// Nested name composed of optional qualifiers and
   /// list of names, Sx abbreviation, templates and operator names.
-  | NestedName of ItaniumExpr option * ItaniumExpr list
+  | NestedName of ItaniumExpr * ItaniumExpr list
 
   /// Template composed of name and arguments.
   | Template of ItaniumExpr * ItaniumExpr
@@ -438,7 +454,7 @@ type ItaniumExpr =
   /// Function with name (name, template, nestedname), return
   /// and arguments (if return is not included in mangling, second expression
   /// will be part of arguments).
-  | Function of ItaniumExpr * ItaniumExpr * ItaniumExpr option
+  | Function of ItaniumExpr * ItaniumExpr * ItaniumExpr
 
   /// Constructors and Destructors.
   | ConsOrDes of ConstructorDestructor
@@ -468,7 +484,7 @@ type ItaniumExpr =
 
   /// CV qualifiers followed by reference in mangled form. This form is only
   /// used in nested names.
-  | CVR of ItaniumExpr option * ItaniumExpr option
+  | CVR of ItaniumExpr * ItaniumExpr
 
   /// Arguments with pointer (string part, single pointer) and CV qualifiers.
   /// The string part is a single character string "P".
@@ -493,14 +509,11 @@ type ItaniumExpr =
   /// const or volatile between pointer sign (*) and restrict qualifier.
   | Restrict of RestrictQualifier
 
-  /// Combination of  CVqualifier and Restrict qualifier. For example,
-  /// (const volatile* __restrict__), (const* volatile __restrict__).
-  | RestrictCV of ItaniumExpr * ItaniumExpr option
+  /// Array arguments encoded with their size and type.
+  | ArrayPointer of int list * ItaniumExpr
 
-  /// This type is created for helping substitution. It is used when beginning
-  /// of function pointer starts with pointer and restrict. For example,
-  /// int (* __restrict__*)(bool).
-  | RestrictEnd of ItaniumExpr list
+  /// Created for special case of CV qualifiers, first element is qualifier.
+  | Functionarg of ItaniumExpr option * ItaniumExpr
 
 type ItaniumUserState = {
   Namelist: ItaniumExpr List
