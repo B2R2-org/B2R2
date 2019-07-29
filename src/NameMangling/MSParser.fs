@@ -25,14 +25,13 @@
   SOFTWARE.
 *)
 
-module B2R2.NameMangling.MSParser
+namespace B2R2.NameMangling
 
 open System
 open FParsec
 open B2R2.NameMangling.MSUtils
 
-type MSParserClass () =
-
+type MSParser () =
   (* Helper functions for updating the UserState. *)
   let addToNameList c =
     updateUserState ( fun us -> { us with NameList = c :: us.NameList })
@@ -387,17 +386,19 @@ type MSParserClass () =
   /// Parse a name and add to the UserState if it is a name or template.
   let smartParseName =
     pnameAndAt <|> attempt pTemplate >>= addToNameList <|> nameFragment
+
   let smartParseExceptTemplate =
     pnameAndAt >>= addToNameList
     <|> attempt constructedTemplate
     <|> attempt pSpecialName
     <|> nameFragment
+
   let functionFullName =
     smartParseExceptTemplate .>>. many smartParseName
     |>> (fun (x, y) -> x :: y |> FullName)
 
   (* -------------Tying the knot for the references created-----------------*)
-  let updates =
+  do
     fullNameRef :=
       many1 smartParseName |>> FullName
 
@@ -429,5 +430,5 @@ type MSParserClass () =
     <|> attempt pTemplate <|> fullName
 
   /// Runs parser from a string.
-  member __.run str =
+  member __.Run str =
     runParserOnString allExpressions MSUserState.Default "" str

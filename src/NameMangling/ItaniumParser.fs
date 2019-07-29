@@ -25,15 +25,14 @@
   SOFTWARE.
 *)
 
-module B2R2.NameMangling.ItaniumParser
+namespace B2R2.NameMangling
 
 open FParsec
 open System
 open B2R2.NameMangling.ItaniumTables
 open B2R2.NameMangling.ItaniumUtils
 
-
-type ItaniumParserClass () =
+type ItaniumParser () =
   let rec convertbase36todecimal idx res input =
     match input with
     | [] -> res
@@ -277,7 +276,7 @@ type ItaniumParserClass () =
     opt (many (pConstVolatile)) .>>. (pPointer)
     |>> FunctionBegin
 
-  let tietheknot =
+  do
     pTemplateref :=
     saveandreturn (
       ((name <|> attempt (psxname) <|> pOperator <|> attempt pConsOrDes
@@ -335,7 +334,5 @@ type ItaniumParserClass () =
       <|> attempt (psxname)
       <|> pSxsubstitution
 
-  member __.Parse str =
+  member __.Run str =
     runParserOnString (stmt) ItaniumUserState.Default "" str
-
-

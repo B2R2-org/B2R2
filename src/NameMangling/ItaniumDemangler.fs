@@ -31,8 +31,8 @@ module ItaniumDemangler =
     str.Length > 2 && str.[0..1] = "_Z"
 
   let demangle (str: string) =
-    let ItaniumP = ItaniumParser.ItaniumParserClass ()
-    match ItaniumP.Parse str.[2 ..] with
+    let parser = ItaniumParser ()
+    match parser.Run str.[2 ..] with
     | FParsec.CharParsers.Success (result, _, pos) ->
       if pos.Column = int64(str.Length) - 1L then
         Some <| ItaniumInterpreter.interpret result
