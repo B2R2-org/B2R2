@@ -33,7 +33,7 @@ type EnumTypeKind =
   | UnsignedCharEnum
   | ShortEnum
   | UnsignedShortEnum
-  | IntEnum
+  | GeneralEnum
   | UnsignedIntEnum
   | LongEnum
   | UnsignedLongEnum
@@ -45,22 +45,22 @@ module EnumTypeKind =
     | '1' -> UnsignedCharEnum
     | '2' -> ShortEnum
     | '3' -> UnsignedShortEnum
-    | '4' -> IntEnum
+    | '4' -> GeneralEnum
     | '5' -> UnsignedIntEnum
     | '6' -> LongEnum
     | '7' -> UnsignedLongEnum
     |  _  -> UnknownEnumType
 
   let toString = function
-    | CharEnum -> "char"
-    | UnsignedCharEnum -> "unsigned char"
-    | ShortEnum -> "short"
-    | UnsignedShortEnum -> "unsigned short"
-    | IntEnum -> "int"
-    | UnsignedIntEnum -> "unsigned int"
-    | LongEnum -> "long"
-    | UnsignedLongEnum -> "unsigned long"
-    | UnknownEnumType -> "???"
+    | CharEnum -> " char"
+    | UnsignedCharEnum -> " unsigned char"
+    | ShortEnum -> " short"
+    | UnsignedShortEnum -> " unsigned short"
+    | GeneralEnum -> ""
+    | UnsignedIntEnum -> " unsigned int"
+    | LongEnum -> " long"
+    | UnsignedLongEnum -> " unsigned long"
+    | UnknownEnumType -> " ???"
 
 
 /// Indicates the type of the complex type.
@@ -293,7 +293,7 @@ module NormalBuiltInType =
     | EmptyReturn -> ""
     | SignedChar -> "signed char"
     | Char -> "char"
-    | UnsignedChar -> "usigned char"
+    | UnsignedChar -> "unsigned char"
     | Short -> "short"
     | UnsignedShort -> "unsigned short"
     | Int -> "int"

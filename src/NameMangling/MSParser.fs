@@ -132,7 +132,7 @@ type MSParser () =
   let pUSpecialName =
     pstring "_" >>. (noneOf ['R'] <|> digit) |>> getUnderscoredSpecialName
   let pDUSpecialName =
-    pstring "___" >>. (upper) |>> getdUnderscoredSpecialName
+    pstring "__" >>. (upper) |>> getdUnderscoredSpecialName
   let pUdtReturn =
     pstring "_P" >>. (pNSpecialName <|> pUSpecialName <|> pDUSpecialName)
     |>> (+) "'udt returning'"
@@ -146,12 +146,21 @@ type MSParser () =
       | _ -> Name "???")
   let stringConstant =
     pstring "_C@_" >>. digit >>. pnameAndAt >>. many anyChar >>% "`string'"
+  let complexDynamicSpecialName =
+    pchar '?' >>. many (attempt pFunc <|> attempt nonFunctionString <|> fullName)
+    |>> FullName .>> pchar '@'
+  let dynamicSpecialName =
+    pstring "__" >>. anyOf "EF" |>> getdUnderscoredSpecialName .>>.
+    (attempt complexDynamicSpecialName <|> fullName)
+    |>> (fun (str, name) ->
+          ConcatT [Name str; name; Name "''" ])
   let simpleSpecialNames =
     (pNSpecialName <|> attempt pUdtReturn <|> attempt stringConstant)
      <|> attempt pUSpecialName <|> pDUSpecialName |>> Name
   /// Parses special Names like operators.
   let pSpecialName =
-    pchar '?' >>. (returnTypeOperator <|> simpleSpecialNames)
+    pchar '?' >>.
+    (returnTypeOperator <|> attempt dynamicSpecialName <|> simpleSpecialNames)
 
   (* For RTTI0 related codes*)
   let pRTTI0 = pstring "?_R0" >>. possibleType |>> RTTI0
@@ -268,7 +277,8 @@ type MSParser () =
       (fullName .>> pchar '@')
       (dashBasedPtrVoid <|> dashBasedPtrName)
     |>> (fun (ptr, mods, name, dname) ->
-          PointerStrT (ptr, mods, ConcatT([dname; Name " "; name]))
+          PointerStrT
+            (ptr, mods, ConcatT([dname; Name " "; FullName [Name ""; name]]))
         )
     .>>. possibleType |>> PointerT
 
@@ -314,7 +324,32 @@ type MSParser () =
             (fPtr :: List.rev ptrStrs, CallConvention.fromChar x,
             lst.Head, "", lst.Tail))
     <?> "function Type"
-
+  let pMemberFuncPointer =
+    many (attempt pointerAtFunc) .>>.
+    (pointerType .>> anyOf "89" .>>. fullName .>> pchar '@'|>>
+     (fun (p,n) -> PointerStrT (p, ([], NoMod), FullName [Name ""; n])))
+    .>>. normalcvModifier .>>. upper .>>. many (possibleType)
+    .>> opt (pchar 'Z' |>> string <|> pstring "@Z")
+    |>> (fun ((((ptrStrs,fPtr), _), x), lst) ->
+          FuncPointer
+            (fPtr :: List.rev ptrStrs, CallConvention.fromChar x,
+            lst.Head, "", lst.Tail))
+    <?> "member function pointer Type"
+  let pDashBasedFuncPointer =
+    many (attempt pointerAtFunc) .>>.
+    (pointerType .>> pchar '_' .>> anyOf "AB" .>>.
+      (dashBasedPtrVoid <|> dashBasedPtrName)
+    |>> (fun (p, n) -> PointerStrT (p, ([], NoMod), n)))
+    .>>. upper .>>. many possibleType
+    .>> opt (pstring "Z" <|> pstring "@Z")
+    |>> (fun (((ptrStrs,fPtr), x), lst) ->
+      FuncPointer
+        (fPtr :: List.rev ptrStrs, CallConvention.fromChar x,
+        lst.Head, "", lst.Tail))
+  let allFuncPointers =
+    attempt pFuncPointer
+    <|> attempt pMemberFuncPointer
+    <|> attempt pDashBasedFuncPointer
   /// Handles the substitutions for arguments.
   let typeBackRef =
     digit |>> string |>> int .>>. getUserState
@@ -403,7 +438,7 @@ type MSParser () =
       many1 smartParseName |>> FullName
 
     possibleTypeRef :=
-      attempt pFuncPointer <|> attempt arrayPtr <|> attempt complexType
+      attempt allFuncPointers <|> attempt arrayPtr <|> attempt complexType
       <|> enumType <|> attempt arrayType <|> normalBuiltInType
       <|> extendedBuiltInType
       <|> basicPointerTypes <|> typeBackRef

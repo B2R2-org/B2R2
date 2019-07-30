@@ -70,11 +70,12 @@ let rec interpret (sample: MSExpr) =
     let paramTstr = makeFunParams (List.map interpret paramTs)
     let modPrefixes, modifier = modInfo
     let pre, post = getPrefixModStr modPrefixes
-    let modString = CVModifier.toString  modifier + pre + post
+    let modString = CVModifier.toString modifier + pre + post
     let modstrUpdated = updatePrefix modPrefixes modString
     let funcName = interpret name
     let returnTstr =
-      if rtMod = None then interpret returnT + " "
+      if rtMod = None && returnT = SimpleBuiltInType (EmptyReturn) then ""
+      elif rtMod = None then interpret returnT + " "
       else interpret (ModifiedType (returnT, rtMod.Value))
     sprintf "%s%s%s %s%s%s" (CallScope.toString scope) returnTstr
       (CallConvention.toString callConv) funcName paramTstr modstrUpdated
@@ -90,7 +91,7 @@ let rec interpret (sample: MSExpr) =
   | EnumType (c, name) ->
     let enumName = interpret name
     let enumType = EnumTypeKind.toString c
-    sprintf "enum %s %s" enumType enumName
+    sprintf "enum%s %s" enumType enumName
 
   | FuncPointer
     (fPtrs, cc, FuncPointer (fPtrs2, cc2, rt2, _ , pLst2), car, pLst) ->
@@ -98,8 +99,8 @@ let rec interpret (sample: MSExpr) =
     let ptrStrs =
       List.mapi (fun index ptr ->
                     if index = fPtrs.Length - 1 then ptr
-                    else changeToNormalPointer ptr)  fPtrs
-      |> List.map interpret  |> (List.reduce (+))
+                    else changeToNormalPointer ptr) fPtrs
+      |> List.map interpret |> (List.reduce (+))
     let newCarry =
       sprintf "(%s%s%s)%s"
         (CallConvention.toString cc) (ptrStrs.Trim ()) car args
@@ -108,12 +109,15 @@ let rec interpret (sample: MSExpr) =
   | FuncPointer (fPtrs, callC, rType, carry, pLst) ->
     let args = makeFunParams (List.map interpret pLst)
     let ptrStrs =
-      List.mapi (fun index ptr ->
+      (List.mapi (fun index ptr ->
                     if index = fPtrs.Length - 1 then ptr
-                    else changeToNormalPointer ptr)  fPtrs
-      |> List.map interpret  |> (List.reduce (+))
+                    else changeToNormalPointer ptr) fPtrs
+      |> List.map interpret |> (List.reduce (+))).Trim ()
+    let ptrStrsUpdated =
+      if ptrStrs.[0] = '*' then ptrStrs
+      else " " + ptrStrs
     sprintf "%s (%s%s%s)%s" (interpret rType) (CallConvention.toString callC)
-      (ptrStrs.Trim ()) carry args
+      ptrStrsUpdated carry args
 
   | ArrayPtr (pointers, indices, dataType) ->
     let ptrStr = List.map interpret (List.rev pointers) |> List.reduce (+)
@@ -123,7 +127,7 @@ let rec interpret (sample: MSExpr) =
   | ArrayType (dataT, dimension) ->
     let dimensionStr = String.replicate dimension "[]"
     let dataTString = interpret dataT
-    dataTString.Trim ()  + dimensionStr
+    dataTString.Trim () + dimensionStr
 
   | RTTI0 t -> interpret t + " 'RTTI Type Descriptor'"
 
@@ -136,7 +140,7 @@ let rec interpret (sample: MSExpr) =
     let preStr, postStr = getPrefixModStr prefixes
     let postModifiedStr =
       if postStr.Length > 0 then postStr.[1..] + " " else ""
-    interpret typeN + CVModifier.toString modifier  + preStr + postModifiedStr
+    interpret typeN + CVModifier.toString modifier + preStr + postModifiedStr
 
   | PointerStrT (p, (prefix, cvMod), pComp) ->
     let preP, postP = getPrefixModStr prefix

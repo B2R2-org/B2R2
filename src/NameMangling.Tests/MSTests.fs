@@ -91,7 +91,7 @@ type MSTests () =
   [<TestMethod>]
   member __.``MSDemangler: A special name function``() =
     let mangled = "??_G@QAFXD@Z"
-    let result = "public: void __thiscall 'scalar deleting destructor'(char)"
+    let result = "public: void __thiscall `scalar deleting destructor'(char)"
     test mangled result
 
   [<TestMethod>]
@@ -206,7 +206,7 @@ type MSTests () =
     let mangled = "??$?0U?$default_delete@V_Facet_base@std@@@std@@$0A@@?$unique_\
     ptr@V_Facet_base@std@@U?$default_delete@V_Facet_base@std@@@2@@std@@QAE@\
     PAV_Facet_base@1@@Z"
-    let result = "public:  __thiscall std::unique_ptr<class std::_Facet_base,\
+    let result = "public: __thiscall std::unique_ptr<class std::_Facet_base,\
     struct std::default_delete<class std::_Facet_base>>::unique_ptr<class std\
     ::_Facet_base,struct std::default_delete<class std::_Facet_base>><struct \
     std::default_delete<class std::_Facet_base>,0>(class std::_Facet_base *)"
@@ -311,4 +311,30 @@ type MSTests () =
     @@2PBVfacet@locale@1@B"
     let result = "public: static class _Facetptr<class std::ctype<char>>::\
     locale::facet const * const std::_Facetptr<class std::ctype<char>>::_Psave"
+    test mangled result
+
+  [<TestMethod>]
+  member __.`` MSDemangler: Dynamic special Name bug test``() =
+    let mangled = "??__E?ms_classInfo@wxAuiToolBar@@2VwxClassInfo@@A@@YAXXZ"
+    let result = "void __cdecl `dynamic initializer for 'public: static class \
+    wxClassInfo wxAuiToolBar::ms_classInfo''(void)"
+    test mangled result
+
+
+  [<TestMethod>]
+  member __.`` MSDemangler: Dynamic special Name bug test 2``() =
+    let mangled = "??__EwxEVT_AUITOOLBAR_TOOL_DROPDOWN@@YAXXZ"
+    let result = "void __cdecl `dynamic initializer for 'wxEVT_AUITOOLBAR_TOOL\
+    _DROPDOWN''(void)"
+    test mangled result
+
+  [<TestMethod>]
+  member __.`` MSDemangler: Member function pointer bug test``() =
+    let mangled = "?GetEvtMethod@?$wxEventFunctorMethod@V?$wxEventTypeTag@VwxSi\
+    zeEvent@@@@VwxEvtHandler@@VwxEvent@@V2@@@UBEP8wxEvtHandler@@AEXAAVwxEvent@\
+    @@ZXZ"
+    let result = "public: virtual void (__thiscall wxEvtHandler::* __thiscall w\
+    xEventFunctorMethod<class wxEventTypeTag<class wxSizeEvent>,class wxEvtHand\
+    ler,class wxEvent,class wxEvtHandler>::GetEvtMethod(void) const)(class wxEv\
+    ent &)"
     test mangled result
