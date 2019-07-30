@@ -41,20 +41,36 @@ let addargumenttolist expr =
   updateUserState
     (fun us ->
     match expr with
+    | PointerArg (v, Some value, TemplateSub (a, b)) ->
+      let first = PointerArg ("", Some value, Specific b)
+      let second = PointerArg (v, Some value, Specific b)
+      { us with Namelist = second :: first :: us.Namelist }
     | PointerArg (_, Some value, a2) ->
       let first = PointerArg ("", Some value, a2)
       let second = expr
       { us with Namelist = second :: first :: us.Namelist }
     | BuiltinType (_) -> us
+
+    | RefArg (ReferenceArg (v, Some value), TemplateSub (a, b)) ->
+      let first =
+        RefArg (ReferenceArg (Reference Empty, Some value), Specific b)
+      let second = RefArg (ReferenceArg (v, Some value), Specific b)
+      { us with Namelist = second :: first :: us.Namelist }
     | RefArg (ReferenceArg (_, Some value), a2) ->
       let first = RefArg (ReferenceArg (Reference Empty, Some value), a2)
       let second = expr
       { us with Namelist = second :: first :: us.Namelist }
-    | Functionarg (None, expr) ->
+    | Functionarg (None, _) ->
       us
     | _ ->
       { us with Namelist = expr :: us.Namelist }
      )
+  >>. preturn expr
+
+let addLambda expr =
+  updateUserState
+    (fun us ->
+      { us with Namelist = expr :: us.Namelist })
   >>. preturn expr
 
 /// Adding NestedName to substitution list.
@@ -131,14 +147,150 @@ let addTemplate expr =
 
 /// Template substitution can be substituted by general substitution.
 let addTsubtolist expr =
-    updateUserState
-      (fun us ->
-        match expr with
-        | NestedName (a, b) ->
-          let new_expr = NestedName (a, List.rev b)
-          { us with Namelist = new_expr :: us.Namelist }
-        | SingleArg (NestedName(a, b)) ->
-          let new_expr =SingleArg (NestedName (a, List.rev b))
-          { us with Namelist = new_expr :: us.Namelist }
-        | _ -> { us with Namelist = expr :: us.Namelist })
+  updateUserState
+    (fun us ->
+      match expr with
+      | TemplateSub (a, b) ->
+        {us with Namelist = Specific b :: us.Namelist}
+      | _ -> us)
+  >>. preturn expr
+
+/// Functions for managing RetFlag. This flag is used to determine whether
+/// mangling includes return value or not.
+let flagOn =
+  updateUserState (fun us -> { us with RetFlag = 1 })
+
+let flagOff =
+  updateUserState (fun us -> { us with RetFlag = 0 })
+
+/// Parsing return with respect to flag.
+let newsaveandreturn p =
+  getUserState >>= (fun us -> if us.RetFlag = 1 then p else (preturn (Name "")))
+
+/// If template name is formed from constructor or destructor then return is not
+/// included.
+let checkBeginning (a, b) =
+  updateUserState (
+    fun us ->
+      match a with
+      | ConsOrDes _ -> { us with RetFlag = 0 }
+      | _ -> { us with RetFlag = 1 }
+  )
+  >>. preturn (a, b)
+
+/// Adding every element in the pack to substitution list.
+let rec addtoList refer alist res =
+  match alist with
+  | [] -> List.rev res
+  | head :: tail ->
+    addtoList refer tail (RefArg (refer, head) :: res)
+
+ /// Adding arguments pack to substitution list.
+let addArgPack expr =
+   updateUserState (
+     fun us ->
+     match expr with
+     | RefArg (_, Arguments alist) |
+       RefArg (_, TemplateSub (Arguments alist, _)) ->
+       if alist <> [] then
+         let add = alist.[alist.Length - 1]
+         { us with Namelist = add :: us.Namelist }
+       else
+         { us with Namelist = Name "" :: us.Namelist }
+     | _ -> us
+    )
     >>. preturn expr
+
+/// When there is reference qualifier, pack is added one more as whole.
+let addOnCondition expr =
+  updateUserState (
+     fun us ->
+     match expr with
+     | RefArg (ReferenceArg (Reference Empty, None), b) ->
+       { us with Namelist = b :: us.Namelist }
+     | RefArg (a, Arguments b) | RefArg (a, TemplateSub (Arguments b, _)) ->
+       if b <> [] then
+         let add = RefArg (a, b.[b.Length - 1])
+         let new_add = Arguments (addtoList a b [])
+         { us with Namelist = new_add :: add :: us.Namelist }
+       else
+         { us with Namelist = Arguments b :: Name "" :: us.Namelist }
+     | _ -> us
+    )
+    >>. preturn expr
+
+let addArrayPointer expr =
+  updateUserState (
+    fun us ->
+    match expr with
+    | ArrayPointer (Some _ , a, b) ->
+      { us with Namelist = expr :: ArrayPointer (None, a, b) :: us.Namelist }
+    | _ -> { us with Namelist = expr :: us.Namelist }
+   )
+   >>. preturn expr
+
+let argPackFlagOn = updateUserState (fun us -> { us with ArgPackFlag = 1 })
+
+let argPackFlagOff = updateUserState (fun us -> { us with ArgPackFlag = 0 })
+
+/// If argument of template is argument pack it is expanded into seperate
+/// templates each containing one argument from pack.
+let rec createTemplates name arglist res =
+  match arglist with
+  | [] -> List.rev res
+  | hd :: tail ->
+    let add = Template (name, Arguments [hd])
+    createTemplates name tail (add :: res)
+
+let expandArgs expr =
+  getUserState
+  >>= (fun us ->
+         if us.ArgPackFlag = 1 then
+           match expr with
+           | Template (a, Arguments [TemplateSub (args, _)]) ->
+             match args with
+             | Arguments arglist ->
+               let newlist = createTemplates a arglist []
+               preturn (Arguments newlist)
+             | _ -> preturn expr
+           | _ -> preturn expr
+         else
+           preturn expr
+      )
+
+let rec createCLexprs data arglist res =
+  match arglist with
+  | [] -> List.rev res
+  | hd :: tail ->
+    let newarg = hd :: data
+    let newExpr = (CallExpr newarg)
+    createCLexprs data tail (newExpr :: res)
+
+/// If arguments of expression is list of arguments, meaning pack expansion,
+/// seperate expressions each with one argument from list is created.
+let expandCL expr =
+  match expr with
+  | CallExpr a ->
+    match a.[0] with
+    | Arguments arglist ->
+      let CLlist = Arguments (createCLexprs a.Tail arglist [])
+      preturn CLlist
+    | _ -> preturn expr
+  | _ -> preturn expr
+
+let rec createDTexprs data arglist res =
+  match arglist with
+  | [] -> List.rev res
+  | hd :: tail ->
+    let newExpr = DotExpr (hd, data)
+    createDTexprs data tail (newExpr :: res)
+
+let expandDT expr =
+  match expr with
+  | DotExpr (a, b) ->
+    match a with
+    | Arguments arglist ->
+      let DTlist = Arguments (createDTexprs b arglist [])
+      preturn DTlist
+    | _ -> preturn expr
+  | _ -> preturn expr
