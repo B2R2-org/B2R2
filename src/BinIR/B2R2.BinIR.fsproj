@@ -12,6 +12,7 @@
     <Compile Include="LowUIR.fs" />
     <Compile Include="LowUIR.AST.fsi" />
     <Compile Include="LowUIR.AST.fs" />
+    <Compile Include="LowUIR.Parser.fs" />
     <Compile Include="SSA.fs" />
     <Compile Include="SSA.Translate.fs" />
     <Compile Include="Utils.fs" />
