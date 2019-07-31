@@ -24,29 +24,17 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinGraph
+namespace B2R2.Visualization
 
-open B2R2
+open B2R2.BinGraph
 
-/// A program point (ProgramPoint) is a fine-grained location in a program,
-/// which can point to a specific IR statement. We represent it as a tuple:
-/// (Address of the instruction, Index of the IR stmt for the instruction).
-type ProgramPoint (addr, pos) =
-  /// Address of the instruction.
-  member val Address: Addr = addr
-  /// Index of the IR statement within the instruction.
-  member val Position: int = pos
-  override __.Equals (o) =
-    match o with
-    | :? ProgramPoint as o -> o.Address = __.Address && o.Position = __.Position
-    | _ -> false
-  override __.GetHashCode () = hash (__.Address, __.Position)
+/// The main edge data type for visualization.
+type VisEdge (ty) =
+  let mutable isBackEdge = false
+  let mutable points: VisPosition list = []
 
-  interface System.IComparable with
-    member __.CompareTo (o) =
-      match o with
-      | :? ProgramPoint as o ->
-        (* To lexicographically sort leaders. Being too pedantic here. *)
-        if __.Address = o.Address then compare __.Position o.Position
-        else compare __.Address o.Address
-      | _ -> invalidArg "ProgramPoint" "Invalid comparison"
+  member __.Type: CFGEdgeKind = ty
+
+  member __.IsBackEdge with get() = isBackEdge and set(v) = isBackEdge <- v
+
+  member __.Points with get() = points and set(v) = points <- v

@@ -38,24 +38,26 @@ type SSALens (scfg) =
       v
     | true, v -> v
 
-  let convertToSSA (irCFG: CFGUtils.CFG) ssaCFG vMap =
+  let convertToSSA (irCFG: CFGUtils.CFG) ssaCFG vMap root =
+    let root = getVertex ssaCFG vMap root root.VData.PPoint
     irCFG.IterEdge (fun src dst e ->
-      let srcPos = src.VData.Position
-      let dstPos = dst.VData.Position
+      let srcPos = src.VData.PPoint
+      let dstPos = dst.VData.PPoint
       let srcV = getVertex ssaCFG vMap src srcPos
       let dstV = getVertex ssaCFG vMap dst dstPos
       ssaCFG.AddEdge srcV dstV e)
+    root
 
   interface ILens<SSABBlock> with
     member __.Filter (g: CFGUtils.CFG) root =
       let ssaCFG = SSACFG ()
       let vMap = new SSAVMap ()
       let defSites = DefSites ()
-      convertToSSA g ssaCFG vMap
-      ssaCFG.FindVertexBy (fun v -> v.VData.Position = root.VData.Position)
+      let root = convertToSSA g ssaCFG vMap root
+      ssaCFG.FindVertexBy (fun v -> v.VData.PPoint = root.VData.PPoint)
       |> SSAUtils.computeFrontiers ssaCFG
       |> SSAUtils.placePhis vMap defSites
       |> SSAUtils.renameVars defSites
-      ssaCFG :> DiGraph<SSABBlock, CFGEdgeKind>
+      ssaCFG, root
 
   static member Init (scfg) = SSALens (scfg) :> ILens<SSABBlock>

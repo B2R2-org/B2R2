@@ -24,29 +24,39 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinGraph
+namespace B2R2.Visualization
 
-open B2R2
+#if DEBUG
+module VisDebug =
+  open System
+  open B2R2.BinGraph
 
-/// A program point (ProgramPoint) is a fine-grained location in a program,
-/// which can point to a specific IR statement. We represent it as a tuple:
-/// (Address of the instruction, Index of the IR stmt for the instruction).
-type ProgramPoint (addr, pos) =
-  /// Address of the instruction.
-  member val Address: Addr = addr
-  /// Index of the IR statement within the instruction.
-  member val Position: int = pos
-  override __.Equals (o) =
-    match o with
-    | :? ProgramPoint as o -> o.Address = __.Address && o.Position = __.Position
-    | _ -> false
-  override __.GetHashCode () = hash (__.Address, __.Position)
+  let private fs = IO.File.Create ("visualization.log")
 
-  interface System.IComparable with
-    member __.CompareTo (o) =
-      match o with
-      | :? ProgramPoint as o ->
-        (* To lexicographically sort leaders. Being too pedantic here. *)
-        if __.Address = o.Address then compare __.Position o.Position
-        else compare __.Address o.Address
-      | _ -> invalidArg "ProgramPoint" "Invalid comparison"
+  let private getBytes (s: string) =
+    Text.Encoding.ASCII.GetBytes(s + Environment.NewLine)
+
+  /// Log the given string followed by a new line (for debugging).
+  let logn s =
+    let bytes = getBytes s
+    fs.Write (bytes, 0, bytes.Length)
+    fs.Flush ()
+
+  let private ppNode (vNode: Vertex<VisBBlock>) =
+    logn "Node {"
+    sprintf "\tID: %d" (vNode.GetID ()) |> logn
+    sprintf "\tAddr: (%d, %d)"
+      vNode.VData.PPoint.Address vNode.VData.PPoint.Position |> logn
+    sprintf "\tLayer: %d" vNode.VData.Layer |> logn
+    logn "\tPreds: ["
+    List.iter (fun (v: Vertex<VisBBlock>) ->
+      sprintf "%d, " (v.GetID ()) |> logn) vNode.Preds
+    logn "]"
+    logn "\tSuccss: ["
+    List.iter (fun (v: Vertex<VisBBlock>) ->
+      sprintf "%d, " (v.GetID ()) |> logn) vNode.Succs
+    logn "]"
+    logn "}"
+
+  let pp (vGraph: VisGraph) root = vGraph.IterVertexDFS root ppNode
+#endif

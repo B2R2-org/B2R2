@@ -45,7 +45,9 @@ type BinEssence = {
 with
   static member private BuildFoundation hdl app =
     let scfg = SCFG (hdl, app)
-    let app = CFGUtils.callTargets scfg.Graph |> BinaryApparatus.updateFuncs app
+    let app =
+      CFGUtils.callTargets scfg.Graph
+      |> BinaryApparatus.updateFuncs hdl app
     struct (scfg, app)
 
   static member private Analysis hdl app (scfg: SCFG) analyzers =

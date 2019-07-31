@@ -44,16 +44,18 @@ type IRBasicBlock (pairs: InsIRPair [], point: ProgramPoint) =
     else fst pairs.[Array.length pairs - 1]
 
   /// The position of the basic block.
-  override __.Position = point
+  override __.PPoint = point
 
   /// The address range of the basic block. Even if the block contains a partial
   /// IR statements of an instruction, we include the instruction to compute the
   /// range.
   override __.Range =
     let lastAddr = __.LastInstruction.Address + uint64 __.LastInstruction.Length
-    AddrRange (__.Position.Address, lastAddr)
+    AddrRange (__.PPoint.Address, lastAddr)
 
-  override __.ToVisualBlock () =
+  override __.IsDummyBlock () = Array.isEmpty pairs
+
+  override __.ToVisualBlock (_) =
     __.GetIRStatements ()
     |> Array.concat
     |> Array.toList
@@ -74,11 +76,6 @@ type IRBasicBlock (pairs: InsIRPair [], point: ProgramPoint) =
     let stmts = snd pairs.[pairs.Length - 1]
     stmts.[stmts.Length - 1]
 
-  /// Is this a dummy basic block? We consider it as a dummy block when the
-  /// given InstrIRPair is empty. A dummy block is useful to create call target
-  /// vertex in a function-level CFG.
-  member __.IsDummy () = Array.isEmpty pairs
-
   override __.ToString () =
     if pairs.Length = 0 then "IRBBLK(Dummy)"
-    else "IRBBLK(" + __.Position.Address.ToString("X") + ")"
+    else "IRBBLK(" + __.PPoint.Address.ToString("X") + ")"

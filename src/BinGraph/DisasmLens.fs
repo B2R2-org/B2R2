@@ -32,18 +32,29 @@ open B2R2.FrontEnd
 open System.Collections.Generic
 
 /// Basic block type for a disassembly-based CFG (DisasmCFG).
-type DisasmBBlock (instructions: Instruction [], position) =
+type DisasmBBlock (instructions: Instruction [], pp) =
   inherit BasicBlock()
-  override __.Position = position
+
+  override __.PPoint = pp
+
   override __.Range =
     let last = instructions.[instructions.Length - 1]
     AddrRange (last.Address, last.Address + uint64 last.Length)
-  override __.ToVisualBlock () =
-    __.Disassemblies
+
+  override __.IsDummyBlock () = Array.isEmpty instructions
+
+  override __.ToVisualBlock (binhandler) =
+    __.Disassemblies (binhandler)
     |> Array.toList
     |> List.map (fun disasm -> [ String disasm ])
-  member __.Disassemblies =
-    instructions |> Array.map (fun i -> i.Disasm ())
+
+  member __.Disassemblies
+    with get (binhandler) =
+      match binhandler with
+      | None ->
+        instructions |> Array.map (fun i -> i.Disasm ())
+      | Some hdl ->
+        instructions |> Array.map (fun i -> i.Disasm (true, true, hdl.FileInfo))
 
 /// Disassembly-based CFG, where each node contains disassembly code.
 type DisasmCFG = ControlFlowGraph<DisasmBBlock, CFGEdgeKind>
@@ -57,16 +68,17 @@ type DisasmLens () =
     match vMap.TryGetValue addr with
     | false, _ ->
       let instrs = oldVertex.VData.GetInstructions ()
-      let blk = DisasmBBlock (instrs, oldVertex.VData.Position)
+      let blk = DisasmBBlock (instrs, oldVertex.VData.PPoint)
       let v = (g: DisasmCFG).AddVertex blk
       vMap.Add (addr, v)
       v
     | true, v -> v
 
   interface ILens<DisasmBBlock> with
-    member __.Filter (g: CFGUtils.CFG) _ =
+    member __.Filter (g: CFGUtils.CFG) root =
       let newGraph = DisasmCFG ()
       let vMap = new DisasmVMap ()
+      let root = getVertex newGraph vMap root root.VData.PPoint.Address
       g.IterEdge (fun src dst e ->
         match e with
         | IntraCJmpTrueEdge
@@ -75,11 +87,11 @@ type DisasmLens () =
         | CallEdge
         | RetEdge -> ()
         | e ->
-          let srcAddr = src.VData.Position.Address
-          let dstAddr = dst.VData.Position.Address
+          let srcAddr = src.VData.PPoint.Address
+          let dstAddr = dst.VData.PPoint.Address
           let srcV = getVertex newGraph vMap src srcAddr
           let dstV = getVertex newGraph vMap dst dstAddr
           newGraph.AddEdge srcV dstV e)
-      newGraph :> DiGraph<DisasmBBlock, CFGEdgeKind>
+      newGraph, root
 
   static member Init () = DisasmLens () :> ILens<DisasmBBlock>

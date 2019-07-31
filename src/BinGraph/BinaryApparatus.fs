@@ -51,7 +51,8 @@ type BinaryApparatus = {
   InstrMap: InstrMap
   LabelMap: Map<Symbol, Addr * int>
   LeaderPositions: Set<ProgramPoint>
-  FunctionAddrs: Set<Addr>
+  FunctionNames: Map<Addr, string>
+  FunctionAddrs: Map<string, Addr>
   JmpTargetMap: JmpTargetMap
 }
 
@@ -81,7 +82,8 @@ module BinaryApparatus =
     let secondLast = stmts.[stmts.Length - 2]
     match secondLast, last with
     | InterJmp _, IEMark _
-    | InterCJmp _, IEMark _ ->
+    | InterCJmp _, IEMark _
+    | SideEffect _, IEMark _ ->
       Array.sub stmts 0 (stmts.Length - 1)
     | _ -> stmts
 
@@ -129,7 +131,8 @@ module BinaryApparatus =
   type private StmtAccumulator = {
     Labels: Map<Symbol, Addr * int>
     Leaders: Set<ProgramPoint>
-    Functions: Set<Addr>
+    FunctionNameMap: Map<Addr, string>
+    FunctionAddrMap: Map<string, Addr>
   }
 
   let private addLabelLeader s acc =
@@ -139,11 +142,18 @@ module BinaryApparatus =
   let private addAddrLeader addr acc =
     { acc with Leaders = Set.add (ProgramPoint (addr, 0)) acc.Leaders }
 
-  let private addFunctionAddr addr acc =
-    { acc with Functions = Set.add addr acc.Functions }
+  let private obtainFuncName (hdl: BinHandler) addr =
+    match hdl.FileInfo.TryFindFunctionSymbolName addr |> Utils.tupleToOpt with
+    | None -> "func_" + addr.ToString("X")
+    | Some name -> name
+
+  let private addFunction hdl addr acc =
+    let name = obtainFuncName hdl addr
+    { acc with FunctionNameMap = Map.add addr name acc.FunctionNameMap
+               FunctionAddrMap = Map.add name addr acc.FunctionAddrMap }
 
   /// Fold all the statements to get the leaders, function positions, etc.
-  let private foldStmts acc (KeyValue (_, (i: Instruction, stmts))) =
+  let private foldStmts hdl acc (KeyValue (_, (i: Instruction, stmts))) =
     stmts
     |> Array.fold (fun acc stmt ->
       match stmt with
@@ -153,7 +163,7 @@ module BinaryApparatus =
         let addr = BitVector.toUInt64 addr
         addAddrLeader addr acc
         |> addAddrLeader (i.Address + uint64 i.Length)
-        |> addFunctionAddr addr
+        |> addFunction hdl addr
       | InterJmp (_, Num addr, _) -> addAddrLeader (BitVector.toUInt64 addr) acc
       | InterCJmp (_, _, Num addr1, Num addr2) ->
         addAddrLeader (BitVector.toUInt64 addr1) acc
@@ -170,16 +180,23 @@ module BinaryApparatus =
     let instrmap = buildInstrMap hdl entries
     let lblmap = instrmap |> Seq.fold findLabels Map.empty
     let leaders = entries |> Seq.map (fun a -> ProgramPoint (a, 0)) |> Set.ofSeq
-    let functions = Set.ofSeq entries
-    let acc = { Labels = lblmap; Leaders = leaders; Functions = functions }
-    let acc = instrmap |> Seq.fold foldStmts acc
+    let fpairs = entries |> Seq.map (fun e -> e, obtainFuncName hdl e)
+    let acc =
+      { Labels = lblmap
+        Leaders = leaders
+        FunctionNameMap = fpairs |> Map.ofSeq
+        FunctionAddrMap = fpairs |> Seq.map (fun (a, b) -> b, a) |> Map.ofSeq }
+    let acc = instrmap |> Seq.fold (foldStmts hdl) acc
     { InstrMap = instrmap
       LabelMap = lblmap
       LeaderPositions = acc.Leaders
-      FunctionAddrs = acc.Functions
+      FunctionNames = acc.FunctionNameMap
+      FunctionAddrs = acc.FunctionAddrMap
       JmpTargetMap = Map.empty }
 
-  let internal updateFuncs app newaddrs =
-    let addrs =
-      newaddrs |> List.fold (fun acc a -> Set.add a acc) app.FunctionAddrs
-    { app with FunctionAddrs = addrs }
+  let internal updateFuncs hdl app newaddrs =
+    let funcs =
+      newaddrs
+      |> List.fold (fun acc addr ->
+        Map.add addr (obtainFuncName hdl addr) acc) app.FunctionNames
+    { app with FunctionNames = funcs }

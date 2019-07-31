@@ -10,15 +10,15 @@ module Utils =
   type IRNode = Vertex<IRBasicBlock>
 
   let foldVertexNoDummy m (v: IRNode) =
-    if v.VData.IsDummy () then m
-    else Map.add v.VData.Position v m
+    if v.VData.IsDummyBlock () then m
+    else Map.add v.VData.PPoint v m
 
   let foldEdge m (v1: IRNode) (v2: IRNode) e =
-    Map.add (v1.VData.Position, v2.VData.Position) e m
+    Map.add (v1.VData.PPoint, v2.VData.PPoint) e m
 
   let foldEdgeNoDummy m (v1: IRNode) (v2: IRNode) e =
-    if v1.VData.IsDummy () || v2.VData.IsDummy () then m
-    else Map.add (v1.VData.Position, v2.VData.Position) e m
+    if v1.VData.IsDummyBlock () || v2.VData.IsDummyBlock () then m
+    else Map.add (v1.VData.PPoint, v2.VData.PPoint) e m
 
 [<TestClass>]
 type CFGTest1 () =
@@ -73,9 +73,10 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``Boundary Test: Function Identification`` () =
-    Assert.AreEqual (3, Set.count ess.BinaryApparatus.FunctionAddrs)
+    Assert.AreEqual (3, Map.count ess.BinaryApparatus.FunctionNames)
     let expected = [ 0UL; 0x62UL; 0x71UL ] |> List.toArray
-    let actual = ess.BinaryApparatus.FunctionAddrs |> Set.toArray
+    let actual =
+      ess.BinaryApparatus.FunctionNames |> Map.toArray |> Array.map fst
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
@@ -187,7 +188,7 @@ type CFGTest1 () =
   member __.``SSAGraph Vertex Test: _start`` () =
     let cfg, root = ess.SCFG.GetFunctionCFG 0x0UL
     let lens = SSALens.Init (ess.SCFG)
-    let ssacfg = lens.Filter cfg root
+    let ssacfg, _ = lens.Filter cfg root
     Assert.AreEqual (9, ssacfg.Size ())
 
 [<TestClass>]
@@ -225,9 +226,10 @@ type CFGTest2 () =
 
   [<TestMethod>]
   member __.``Boundary Test: Function Identification`` () =
-    Assert.AreEqual (2, Set.count ess.BinaryApparatus.FunctionAddrs)
+    Assert.AreEqual (2, Map.count ess.BinaryApparatus.FunctionNames)
     let expected = [ 0UL; 0x24UL ] |> List.toArray
-    let actual = ess.BinaryApparatus.FunctionAddrs |> Set.toArray
+    let actual =
+      ess.BinaryApparatus.FunctionNames |> Map.toArray |> Array.map fst
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
@@ -299,18 +301,18 @@ type CFGTest2 () =
   member __.``DisasmLens Test: _start`` () =
     let cfg, root = ess.SCFG.GetFunctionCFG 0x00UL
     let lens = DisasmLens.Init ()
-    let cfg = lens.Filter cfg root
+    let cfg, _ = lens.Filter cfg root
     Assert.AreEqual (4, cfg.Size ())
     let vMap = cfg.FoldVertex (fun m v ->
-      Map.add v.VData.Position.Address v m) Map.empty
+      Map.add v.VData.PPoint.Address v m) Map.empty
     let leaders = [| 0x00UL; 0x0CUL; 0x1CUL; 0x1EUL |]
     let vertices = leaders |> Array.map (fun l -> Map.find l vMap)
     let disasmLens = [| 4; 4; 1; 4 |]
     Array.zip vertices disasmLens
     |> Array.iter (fun (v, len) ->
-      Assert.AreEqual (len, v.VData.Disassemblies.Length))
+      Assert.AreEqual (len, v.VData.Disassemblies(None).Length))
     let eMap = cfg.FoldEdge (fun m v1 v2 e ->
-      let key = v1.VData.Position.Address, v2.VData.Position.Address
+      let key = v1.VData.PPoint.Address, v2.VData.PPoint.Address
       Map.add key e m) Map.empty
     Assert.AreEqual (4, eMap.Count)
     let actual =
@@ -326,5 +328,5 @@ type CFGTest2 () =
   member __.``SSAGraph Vertex Test: _start`` () =
     let cfg, root = ess.SCFG.GetFunctionCFG 0x0UL
     let lens = SSALens.Init (ess.SCFG)
-    let ssacfg = lens.Filter cfg root
+    let ssacfg, _ = lens.Filter cfg root
     Assert.AreEqual (7, ssacfg.Size ())

@@ -77,9 +77,12 @@ function initSVG() {
 
   // Several definitions to use to draw a CFG.
   let defs = d3.select("g#cfgGrp-" + currentTabNumber).append("defs");
-  initMarker(defs, "cfgJmpEdgeArrow");
-  initMarker(defs, "cfgCJmpTrueEdgeArrow");
-  initMarker(defs, "cfgCJmpFalseEdgeArrow");
+  initMarker(defs, "cfgInterJmpEdgeArrow");
+  initMarker(defs, "cfgInterCJmpTrueEdgeArrow");
+  initMarker(defs, "cfgInterCJmpFalseEdgeArrow");
+  initMarker(defs, "cfgIntraJmpEdgeArrow");
+  initMarker(defs, "cfgIntraCJmpTrueEdgeArrow");
+  initMarker(defs, "cfgIntraCJmpFalseEdgeArrow");
   initMarker(defs, "cfgFallThroughEdgeArrow");
 
   // Add filters.
@@ -134,8 +137,8 @@ function drawNode(idx, v) {
     .append("g")
     .attr("miniid", idx)
     .attr("transform",
-      "translate(" + v.Pos.X * minimapRatio +
-      ", " + v.Pos.Y * minimapRatio + ")")
+      "translate(" + v.Coordinate.X * minimapRatio +
+      ", " + v.Coordinate.Y * minimapRatio + ")")
     .append("rect")
     .attr("class", "minimapRects")
     .attr("rx", "1").attr("ry", "1")
@@ -148,7 +151,7 @@ function drawNode(idx, v) {
   // set main graph
   let g = d3.select("g#cfgGrp-" + currentTabNumber).append("g")
     .attr("nodeid", idx)
-    .attr("addr", v.Address[0])
+    .attr("addr", v.PPoint[0])
     .attr("class", "gNode");
 
   let rect = g.append("rect")
@@ -224,7 +227,7 @@ function drawNode(idx, v) {
   rect.attr("width", v.Width).attr("height", v.Height);
   rectBlur.attr("width", v.Width).attr("height", v.Height);
 
-  g.attr("transform", "translate (" + v.Pos.X + "," + v.Pos.Y + ")");
+  g.attr("transform", "translate (" + v.Coordinate.X + "," + v.Coordinate.Y + ")");
 }
 
 function drawNodes(g) {
@@ -464,8 +467,8 @@ function registerEvents(reductionRate, dims) {
   nodes.each(function (d, i) {
     d3.select(this).on("dblclick", function () {
       let id = d3.select(this).attr("id");
-      let x = g.Nodes[Number(id)].Pos.X * reductionRate;
-      let y = g.Nodes[Number(id)].Pos.Y * reductionRate;
+      let x = g.Nodes[Number(id)].Coordinate.X * reductionRate;
+      let y = g.Nodes[Number(id)].Coordinate.Y * reductionRate;
       let vMapPt = convertvMapPtToVPCoordinate(x, y);
       let halfHeight = d3.select(this).attr("height") / 2 * reductionRate;
 

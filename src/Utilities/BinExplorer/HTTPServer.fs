@@ -32,26 +32,24 @@ open System.Runtime.Serialization
 open System.Runtime.Serialization.Json
 open B2R2
 open B2R2.BinGraph
-open B2R2.Utilities
 open B2R2.Visualization
 
 type CFGType =
   | DisasmCFG
   | IRCFG
 
-
 [<DataContract>]
   type JsonDefs = {
     [<field: DataMember(Name = "name")>]
-    name: string
+    Name: string
     [<field: DataMember(Name = "addr")>]
-    addr: string
+    Addr: string
     [<field: DataMember(Name = "idx")>]
-    idx: string
+    Idx: string
     [<field: DataMember(Name = "comment")>]
-    comment: string
+    Comment: string
     [<field: DataMember(Name = "command")>]
-    command: string
+    Command: string
   }
 
 let rootDir =
@@ -108,61 +106,64 @@ let handleBinInfo req resp arbiter =
   let txt = "\"" + txt.Replace(@"\", @"\\") + "\""
   Some (defaultEnc.GetBytes (txt)) |> answer req resp
 
-let getCFG hdl (func: Function) = function
-  | DisasmCFG -> Visualizer.visualizeDisasmCFG hdl func.DisasmCFG
-  | IRCFG -> Visualizer.visualizeIRCFG hdl func.IRCFG
+let cfgToJSON cfgType hdl g root =
+  match cfgType with
+  | IRCFG ->
+    Visualizer.getJSONFromGraph g root None
+  | DisasmCFG ->
+    let lens = DisasmLens.Init ()
+    let g, root = lens.Filter g root
+    Visualizer.getJSONFromGraph g root (Some hdl)
 
 let handleCFG req resp arbiter cfgType name =
   let ess = Protocol.getBinEssence arbiter
-  match BinEssence.TryFindFuncByName name ess with
-  | None -> None |> answer req resp
-  | Some func ->
-    let hdl = ess.BinHandler
-    let cfg = getCFG hdl func cfgType
-    Some (defaultEnc.GetBytes cfg) |> answer req resp
+  match ess.SCFG.FindFunctionEntryByName name with
+  | None -> answer req resp None
+  | Some addr ->
+    let s = ess.SCFG.GetFunctionCFG (addr) ||> cfgToJSON cfgType ess.BinHandler
+    Some (defaultEnc.GetBytes s) |> answer req resp
 
 let handleFunctions req resp arbiter =
   let ess = Protocol.getBinEssence arbiter
-  let addrs =
-    Array.ofSeq ess.Functions.Values
-    |> Array.map (fun (func: Function) -> func.Name)
-  Some (json<string []> addrs |> defaultEnc.GetBytes)
+  let names =
+    Map.toArray ess.BinaryApparatus.FunctionAddrs |> Array.map fst
+  Some (json<string []> names |> defaultEnc.GetBytes)
   |> answer req resp
 
-let getComment hdl addr idx comment (func: Function) = function
-  | DisasmCFG -> Visualizer.setCommentDisasmCFG hdl addr idx comment func.DisasmCFG
-  | IRCFG -> Visualizer.setCommentIRCFG hdl addr idx comment func.IRCFG
+// let getComment hdl addr idx comment (func: Function) = function
+//   | DisasmCFG -> Visualizer.setCommentDisasmCFG hdl addr idx comment func.DisasmCFG
+//   | IRCFG -> Visualizer.setCommentIRCFG hdl addr idx comment func.IRCFG
 
-let handleComment req resp arbiter cfgType (args: string) =
-  let commentReq = (jsonParser<JsonDefs> args)
-  let name = commentReq.name
-  let ess = Protocol.getBinEssence arbiter
-  match BinEssence.TryFindFuncByName name ess with
-  | None -> None |> answer req resp
-  | Some func ->
-    let hdl = ess.BinHandler
-    let addr = commentReq.addr
-    let comment = commentReq.comment
-    let idx = commentReq.idx |> int
-    let status = getComment hdl addr idx comment func cfgType
-    Some (json<string> status  |> defaultEnc.GetBytes) |> answer req resp
+// let handleComment req resp arbiter cfgType (args: string) =
+//   let commentReq = (jsonParser<JsonDefs> args)
+//   let name = commentReq.name
+//   let ess = Protocol.getBinEssence arbiter
+//   match BinEssence.TryFindFuncByName name ess with
+//   | None -> None |> answer req resp
+//   | Some func ->
+//     let hdl = ess.BinHandler
+//     let addr = commentReq.addr
+//     let comment = commentReq.comment
+//     let idx = commentReq.idx |> int
+//     let status = getComment hdl addr idx comment func cfgType
+//     Some (json<string> status  |> defaultEnc.GetBytes) |> answer req resp
 
-let handleAddress req resp arbiter (args: string) =
-  let jsonData = (jsonParser<JsonDefs> args)
-  let entry: Addr =  Convert.ToUInt64(jsonData.addr, 16) |> uint64
-  let ess = Protocol.getBinEssence arbiter
-  let addrs =
-    Array.ofSeq ess.Functions.Values
-    |> Array.map (fun (func: Function) -> func.Entry|> uint64)
-    |> Array.sort
-  let searchedAddr = Array.fold (fun acc x -> if entry >= x then x else acc) 0UL addrs
-  match BinEssence.TryFindFuncByEntry searchedAddr ess with
-  | None -> Some (json<string> "" |> defaultEnc.GetBytes) |> answer req resp
-  | Some func ->
-    let hdl = ess.BinHandler
-    let cfg = Visualizer.visualizeDisasmCFG hdl func.DisasmCFG
-    let namedcfg = cfg.[..cfg.Length-2] + ",\"Name\": \""+ func.Name + "\"}"
-    Some (defaultEnc.GetBytes namedcfg) |> answer req resp
+// let handleAddress req resp arbiter (args: string) =
+//   let jsonData = (jsonParser<JsonDefs> args)
+//   let entry: Addr =  Convert.ToUInt64(jsonData.addr, 16) |> uint64
+//   let ess = Protocol.getBinEssence arbiter
+//   let addrs =
+//     Array.ofSeq ess.Functions.Values
+//     |> Array.map (fun (func: Function) -> func.Entry|> uint64)
+//     |> Array.sort
+//   let searchedAddr = Array.fold (fun acc x -> if entry >= x then x else acc) 0UL addrs
+//   match BinEssence.TryFindFuncByEntry searchedAddr ess with
+//   | None -> Some (json<string> "" |> defaultEnc.GetBytes) |> answer req resp
+//   | Some func ->
+//     let hdl = ess.BinHandler
+//     let cfg = Visualizer.visualizeDisasmCFG hdl func.DisasmCFG
+//     let namedcfg = cfg.[..cfg.Length-2] + ",\"Name\": \""+ func.Name + "\"}"
+//     Some (defaultEnc.GetBytes namedcfg) |> answer req resp
 
 let handleStr cmds arbiter (line: string) =
   match line.Split (' ') |> Array.toList with
@@ -176,7 +177,7 @@ let jsonPrinter _ acc line = acc + line + "\n"
 
 let handleCommand req resp arbiter (args: string) =
   let jsonData = (jsonParser<JsonDefs> args)
-  let cmd = jsonData.command
+  let cmd = jsonData.Command
   let cmds = CmdSpec.speclist |> CmdMap.build
   let result = CLI.handle cmds arbiter cmd "" jsonPrinter
   Some (json<string> result  |> defaultEnc.GetBytes) |> answer req resp
@@ -187,9 +188,9 @@ let handleAJAX req resp arbiter query args =
     | "cfg-disasm" -> handleCFG req resp arbiter DisasmCFG args
     | "cfg-ir" -> handleCFG req resp arbiter IRCFG args
     | "functions" -> handleFunctions req resp arbiter
-    | "disasm-comment" -> handleComment req resp arbiter DisasmCFG args
-    | "ir-comment" -> handleComment req resp arbiter IRCFG args
-    | "address" -> handleAddress req resp arbiter args
+    | "disasm-comment" -> () // handleComment req resp arbiter DisasmCFG args
+    | "ir-comment" -> () // handleComment req resp arbiter IRCFG args
+    | "address" -> () // handleAddress req resp arbiter args
     | "command" -> handleCommand req resp arbiter args
     | _ -> ()
 

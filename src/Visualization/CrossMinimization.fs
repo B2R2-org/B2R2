@@ -35,20 +35,21 @@ let private maxCnt = 128
 let private findIndex v vs =
   Array.findIndex (fun w -> v = w) vs
 
-let private generateVPerLayer (vGraph: VGraph) =
+let private generateVPerLayer (vGraph: VisGraph) root =
   let maxLayer = vGraph.FoldVertex (fun layer v ->
-    let l = VGraph.getLayer v
+    let l = VisGraph.getLayer v
     if layer < l then l else layer) 0
   let vPerLayer = Array.map (fun _ -> []) <| Array.zeroCreate (maxLayer + 1)
-  let folder (vPerLayer: Vertex<VNode> list []) v =
-    let layer = VGraph.getLayer v
+  let folder (vPerLayer: Vertex<VisBBlock> list []) v =
+    let layer = VisGraph.getLayer v
     vPerLayer.[layer] <- v :: vPerLayer.[layer]
     vPerLayer
-  vGraph.FoldVertexBFS folder vPerLayer
+  vGraph.FoldVertexBFS root folder vPerLayer
 
 let private alignVertices vertices =
   let arr = Array.zeroCreate (List.length vertices)
-  List.fold (fun i (v: Vertex<VNode>) -> Array.set arr i v ; i + 1) 0 vertices
+  List.fold (fun i (v: Vertex<VisBBlock>) ->
+    Array.set arr i v ; i + 1) 0 vertices
   |> ignore
   arr
 
@@ -68,12 +69,13 @@ let private bcReorderOneLayer (vLayout: Vertex<_> [] []) isDown layer =
   let baryCenters = Array.map (baryCenter vLayout layer isDown) vertices
   let baryCenters = Array.sortBy fst baryCenters
 #if DEBUG
-  Dbg.logn "BcReorder Before:"
-  Array.iter (fun v -> sprintf "%d" (VGraph.getID v) |> Dbg.logn) vertices
-  Dbg.logn "BcReorder BaryCenters:"
+  VisDebug.logn "BcReorder Before:"
+  Array.iter (fun v ->
+    sprintf "%d" (VisGraph.getID v) |> VisDebug.logn) vertices
+  VisDebug.logn "BcReorder BaryCenters:"
   baryCenters
   |> Array.iter (fun (bc, v) ->
-                 sprintf "%d : %f" (VGraph.getID v) bc |> Dbg.logn)
+                 sprintf "%d : %f" (VisGraph.getID v) bc |> VisDebug.logn)
 #endif
   Array.iteri (fun i (_, v) -> vertices.[i] <- v) baryCenters
 
@@ -141,18 +143,20 @@ let private reverseOneLayer vLayout isDown maxLayer layer =
     let bcByValues = Map.toList bcByValues
     let bcByValues = List.sortBy fst bcByValues
 #if DEBUG
-    Dbg.logn <| sprintf "Cross Count: %d" count
-    Dbg.logn "Before:"
-    Array.iter (fun v -> sprintf "%d" (VGraph.getID v) |> Dbg.logn) vertices
+    VisDebug.logn <| sprintf "Cross Count: %d" count
+    VisDebug.logn "Before:"
+    Array.iter (fun v ->
+      sprintf "%d" (VisGraph.getID v) |> VisDebug.logn) vertices
 #endif
     List.fold (reorderVertices vertices) 0 bcByValues |> ignore
 #if DEBUG
-    Dbg.logn "BaryCenters:"
+    VisDebug.logn "BaryCenters:"
     Array.iter (fun (bc, v) ->
-      sprintf "%d: %f" (VGraph.getID v) bc |> Dbg.logn) baryCenters
-    Dbg.logn "After:"
+      sprintf "%d: %f" (VisGraph.getID v) bc |> VisDebug.logn) baryCenters
+    VisDebug.logn "After:"
     vertices
-    |> Array.iter (fun (v: Vertex<_>) -> sprintf "%d" (v.GetID ()) |> Dbg.logn)
+    |> Array.iter (fun (v: Vertex<_>) ->
+      sprintf "%d" (v.GetID ()) |> VisDebug.logn)
 #endif
     if isReversed then phase1 vLayout isDown layer maxLayer
 
@@ -166,19 +170,19 @@ let rec private sugiyamaReorder vLayout cnt hashSet =
   else
     let maxLayer = Array.length vLayout - 1
 #if DEBUG
-    Dbg.logn "Phase1 DOWN"
+    VisDebug.logn "Phase1 DOWN"
 #endif
     phase1 vLayout true 1 maxLayer
 #if DEBUG
-    Dbg.logn "Phase1 UP"
+    VisDebug.logn "Phase1 UP"
 #endif
     phase1 vLayout false (maxLayer - 1) maxLayer
 #if DEBUG
-    Dbg.logn "Phase2 UP"
+    VisDebug.logn "Phase2 UP"
 #endif
     phase2 vLayout false maxLayer
 #if DEBUG
-    Dbg.logn "Phase2 DOWN"
+    VisDebug.logn "Phase2 DOWN"
 #endif
     phase2 vLayout true maxLayer
     let hashCode = vLayout.GetHashCode ()
@@ -187,21 +191,21 @@ let rec private sugiyamaReorder vLayout cnt hashSet =
 
 let private setPos vLayout =
   Array.iter (fun vertices ->
-    Array.iteri (fun i (v: Vertex<VNode>) ->
+    Array.iteri (fun i (v: Vertex<VisBBlock>) ->
       let vData = v.VData
-      vData.Pos <- i) vertices) vLayout
+      vData.Index <- i) vertices) vLayout
 
-let minimizeCrosses vGraph =
-  let vPerLayer = generateVPerLayer vGraph
+let minimizeCrosses vGraph root =
+  let vPerLayer = generateVPerLayer vGraph root
   let vLayout = generateVLayout vPerLayer
   sugiyamaReorder vLayout 0 (Set.add (vLayout.GetHashCode ()) Set.empty)
   setPos vLayout
 #if DEBUG
-  Dbg.logn "vLayout:"
+  VisDebug.logn "vLayout:"
   Array.iteri
     (fun layer arr ->
-      sprintf "%d:" layer |> Dbg.logn
-      sprintf "%A\n" (Array.map VGraph.getID arr) |> Dbg.logn)
+      sprintf "%d:" layer |> VisDebug.logn
+      sprintf "%A\n" (Array.map VisGraph.getID arr) |> VisDebug.logn)
     vLayout
 #endif
   vLayout

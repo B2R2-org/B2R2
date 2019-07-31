@@ -480,32 +480,75 @@ html, body {
   border: 1px solid #ccc;
   cursor: default; }
 
-.cfgCJmpTrueEdgeArrow {
-  fill: var(--green); }
+.cfgInterJmpEdge {
+  stroke: var(--orange); }
 
-.cfgCJmpFalseEdgeArrow {
+.cfgInterJmpEdgeArrow {
+  fill: var(--orange); }
+
+.cfgInterJmpEdgeBlur:hover {
+  filter: url(#cfgBlur);
+  stroke: var(--orange); }
+
+.cfgInterCJmpFalseEdge {
+  stroke: var(--red); }
+
+.cfgInterCJmpFalseEdgeArrow {
   fill: var(--red); }
 
-.cfgCJmpFalseEdgeBlur:hover {
+.cfgInterCJmpFalseEdgeBlur:hover {
   filter: url(#cfgBlur);
   stroke: var(--red); }
 
-.cfgCJmpTrueEdge {
+.cfgInterCJmpTrueEdge {
   stroke: var(--green); }
 
-.cfgCJmpTrueEdgeBlur:hover {
+.cfgInterCJmpTrueEdgeArrow {
+  fill: var(--green); }
+
+.cfgInterCJmpTrueEdgeBlur:hover {
+  filter: url(#cfgBlur);
+  stroke: var(--green); }
+
+.cfgIntraJmpEdge {
+  stroke: var(--orange); }
+
+.cfgIntraJmpEdgeArrow {
+  fill: var(--orange); }
+
+.cfgIntraJmpEdgeBlur:hover {
+  filter: url(#cfgBlur);
+  stroke: var(--orange); }
+
+.cfgIntraCJmpFalseEdge {
+  stroke: var(--red); }
+
+.cfgIntraCJmpFalseEdgeArrow {
+  fill: var(--red); }
+
+.cfgIntraCJmpFalseEdgeBlur:hover {
+  filter: url(#cfgBlur);
+  stroke: var(--red); }
+
+.cfgIntraCJmpTrueEdge {
+  stroke: var(--green); }
+
+.cfgIntraCJmpTrueEdgeArrow {
+  fill: var(--green); }
+
+.cfgIntraCJmpTrueEdgeBlur:hover {
   filter: url(#cfgBlur);
   stroke: var(--green); }
 
 .cfgFallThroughEdge {
   stroke: var(--purple); }
 
+.cfgFallThroughEdgeArrow {
+  fill: var(--purple); }
+
 .cfgFallThroughEdgeBlur:hover {
   filter: url(#cfgBlur);
   stroke: var(--purple); }
-
-.cfgFallThroughEdgeArrow {
-  fill: var(--purple); }
 
 .cfgDisasmComment {
   fill: var(--comment); }
@@ -520,19 +563,6 @@ html, body {
 
 .nodeHighlight {
   fill: lightgoldenrodyellow; }
-
-.cfgJmpEdge {
-  stroke: var(--orange); }
-
-.cfgJmpEdgeArrow {
-  fill: var(--orange); }
-
-.cfgJmpEdgeBlur:hover {
-  filter: url(#cfgBlur);
-  stroke: var(--orange); }
-
-.cfgCJmpFalseEdge {
-  stroke: var(--red); }
 
 #id_address-search {
   all: unset;

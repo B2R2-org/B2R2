@@ -38,9 +38,37 @@ type Term =
   | String of string
   /// Comment.
   | Comment of string
+with
+  static member Width = function
+    | Mnemonic (s)
+    | Operand (s)
+    | String (s)
+    | Comment (s) -> s.Length
+
+  static member ToString = function
+    | Mnemonic (s) -> s
+    | Operand (s) -> s
+    | String (s) -> s
+    | Comment (s) -> s
+
+  static member ToStringTuple = function
+    | Mnemonic (s) -> s, "Menmonic"
+    | Operand (s) -> s, "Operand"
+    | String (s) -> s, "String"
+    | Comment (s) -> s, "Comment"
 
 /// A visual line of a basic block.
 type VisualLine = Term list
+
+module VisualLine =
+  [<CompiledName("LineWidth")>]
+  let lineWidth terms =
+    (* Assume that each term is separated by a space char (+1). *)
+    terms |> List.fold (fun width term -> width + Term.Width term + 1) 0
+
+  [<CompiledName("ToString")>]
+  let toString terms =
+    terms |> List.map Term.ToString |> String.concat " "
 
 /// A visual representation of a basic block.
 type VisualBlock = VisualLine list
@@ -50,8 +78,11 @@ type VisualBlock = VisualLine list
 type BasicBlock () =
   inherit VertexData(VertexData.genID ())
   /// The start position (ProgramPoint) of the basic block.
-  abstract Position: ProgramPoint with get
+  abstract PPoint: ProgramPoint with get
   /// The instruction address range of the basic block.
   abstract Range: AddrRange with get
+  /// Check if this is a dummy basic block inserted by our analysis. We consider
+  /// a dummy block to create call target vertex in a function-level CFG.
+  abstract IsDummyBlock: unit -> bool
   /// Convert this basic block to a visual representation.
-  abstract ToVisualBlock: unit -> VisualBlock
+  abstract ToVisualBlock: ?hdl: B2R2.FrontEnd.BinHandler -> VisualBlock

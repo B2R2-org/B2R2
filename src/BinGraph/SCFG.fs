@@ -51,14 +51,14 @@ type SCFG (hdl, app) =
     boundaries <- CFGUtils.computeBoundaries app vertices
 
   /// The actual graph data structure of the SCFG.
-  member val Graph = g with get
+  member __.Graph with get () = g
 
   /// The set of boundaries (intervals) of the basic blocks.
-  member val Boundaries = boundaries with get
+  member __.Boundaries with get () = boundaries
 
   /// A mapping from the start address of a basic block to the vertex in the
   /// SCFG.
-  member val Vertices = vertices with get
+  member __.Vertices with get () = vertices
 
   /// Return a vertex located at the given address.
   member __.GetVertex (addr) =
@@ -105,17 +105,40 @@ type SCFG (hdl, app) =
       let fallAddr = last.Address + uint64 last.Length
       let succs = (* Make sure fall-through vertex comes first. *)
         succs |> List.sortBy (fun s ->
-          if fallAddr = s.VData.Position.Address then -1 else 1)
+          if fallAddr = s.VData.PPoint.Address then -1 else 1)
       match succs with
       | [] -> ()
       | succ :: tl ->
-        let succPos = succ.VData.Position
+        let succPos = succ.VData.PPoint
         match g.FindEdgeData oldVertex succ with
         | ExternalCallEdge | RetEdge | ImplicitCallEdge -> ()
         | e -> loop (Some curVertex) succPos e
         iterSuccessors oldVertex curVertex tl
-    if app.FunctionAddrs.Contains addr then
+    if app.FunctionNames.ContainsKey addr then
       let rootPos = ProgramPoint (addr, 0)
       loop None rootPos UnknownEdge
       newGraph, vMap.[rootPos]
     else raise InvalidFunctionAddressException
+
+  member private __.ReverseLookUp point =
+    match vertices.TryGetValue point with
+    | false, _ -> None
+    | true, v ->
+      if app.FunctionNames.ContainsKey point.Address then Some v
+      else
+        v.Preds
+        |> List.map (fun v -> v.VData.PPoint)
+        |> List.tryPick __.ReverseLookUp
+
+  /// For a given address, find the address of a function that the address
+  /// belongs to.
+  member __.FindFunctionEntry (addr) =
+    IntervalSet.findAll (AddrRange (addr, addr + 1UL)) __.Boundaries
+    |> List.map (fun r -> ProgramPoint(AddrRange.GetMin r, 0))
+    |> List.tryPick __.ReverseLookUp
+    |> Option.map (fun v -> v.VData.PPoint.Address)
+
+  /// For a given function name, find the corresponding function address if
+  /// exists.
+  member __.FindFunctionEntryByName (name) =
+    Map.tryFind name app.FunctionAddrs

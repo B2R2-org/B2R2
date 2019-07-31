@@ -48,12 +48,12 @@ module SSABlockHelper =
     |> Set.toArray
 
 /// Basic block type for an SSA-based CFG (SSACFG).
-type SSABBlock (scfg, position: ProgramPoint, pairs: InsIRPair []) =
+type SSABBlock (scfg, pp: ProgramPoint, pairs: InsIRPair []) =
   inherit BasicBlock ()
   let mutable stmts =
     if Array.isEmpty pairs then
-      SSABlockHelper.computeDefinedVars scfg position.Address
-      |> Array.map (fun dst -> SSA.Def (dst, SSA.Return (position.Address)))
+      SSABlockHelper.computeDefinedVars scfg pp.Address
+      |> Array.map (fun dst -> SSA.Def (dst, SSA.Return (pp.Address)))
     else
       pairs
       |> Array.map (fun (i, stmts) ->
@@ -63,13 +63,15 @@ type SSABBlock (scfg, position: ProgramPoint, pairs: InsIRPair []) =
 
   let mutable frontier: Vertex<SSABBlock> list = []
 
-  override __.Position = position
+  override __.PPoint = pp
 
   override __.Range =
     let last = pairs.[pairs.Length - 1] |> fst
     AddrRange (last.Address, last.Address + uint64 last.Length)
 
-  override __.ToVisualBlock () =
+  override __.IsDummyBlock () = Array.isEmpty pairs
+
+  override __.ToVisualBlock (_) =
     __.Stmts
     |> Array.toList
     |> List.map (fun stmt -> [ SSA.Pp.stmtToString stmt |> String ])

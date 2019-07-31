@@ -119,8 +119,8 @@ let spec =
                   long = "--batch" )
   ]
 
-let buildGraph verbose handle =
-  BinEssence.Init verbose handle
+let buildGraph _verbose handle =
+  BinEssence.Init handle
 
 let startGUI (opts: BinExplorerOpts) arbiter =
   HTTPServer.startServer arbiter opts.Port |> Async.Start
@@ -130,20 +130,26 @@ let startGUI (opts: BinExplorerOpts) arbiter =
 let dumpJsonFiles jsonDir ess =
   try System.IO.Directory.Delete(jsonDir, true) with _ -> ()
   System.IO.Directory.CreateDirectory(jsonDir) |> ignore
-  List.iter
-    (fun (func: Function) ->
-      let disasmJsonPath = Printf.sprintf "%s/%s.disasmCFG" jsonDir func.Name
-      let irJsonPath = Printf.sprintf "%s/%s.irCFG" jsonDir func.Name
-      let encoding = System.Text.Encoding.UTF8
-      let hdl = ess.BinHandler
-      let disasmJson =
-        CFGUtils.disasmCFGToJson hdl func.DisasmCFG func.Entry
-        |> encoding.GetBytes
-      let irJson =
-        CFGUtils.irCFGToJson hdl func.IRCFG func.Entry |> encoding.GetBytes
-      System.IO.File.WriteAllBytes(disasmJsonPath, disasmJson)
-      System.IO.File.WriteAllBytes(irJsonPath, irJson)
-    ) <| List.ofSeq ess.Functions.Values
+  Map.toList ess.BinaryApparatus.FunctionNames
+  |> List.iter (fun (addr, name) ->
+    let disasmJsonPath = Printf.sprintf "%s/%s.disasmCFG" jsonDir name
+    let irJsonPath = Printf.sprintf "%s/%s.irCFG" jsonDir name
+    let encoding = System.Text.Encoding.UTF8
+    let cfg, root = ess.SCFG.GetFunctionCFG addr
+    let irJson =
+      VisGraph.ofCFG cfg root None
+      |> fst
+      |> JSONExport.toStr
+      |> encoding.GetBytes
+    let lens = DisasmLens.Init ()
+    let disasmcfg, root = lens.Filter cfg root
+    let disasmJson =
+      VisGraph.ofCFG disasmcfg root None
+      |> fst
+      |> JSONExport.toStr
+      |> encoding.GetBytes
+    System.IO.File.WriteAllBytes(disasmJsonPath, disasmJson)
+    System.IO.File.WriteAllBytes(irJsonPath, irJson))
 
 let initBinHdl isa (name: string) =
   BinHandler.Init (isa, ArchOperationMode.NoMode, true, 0UL, name)
@@ -172,7 +178,7 @@ let showBatchUsage () =
   exit 1
 
 let visualizeGraph inputFile outputFile =
-  Visualizer.visualizeFile inputFile outputFile
+  Visualizer.visualizeFromFile inputFile outputFile
 
 let toFileArray path =
   if System.IO.Directory.Exists path then System.IO.Directory.GetFiles path

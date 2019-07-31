@@ -32,7 +32,6 @@ type ControlFlowGraph<'V, 'E when 'V :> BasicBlock and 'V: equality> () =
   let mutable vertices: Set<Vertex<'V>>  = Set.empty
   let mutable edges: Map<EdgeID, Vertex<'V> * Vertex<'V> * Edge<'E>> = Map.empty
   let mutable size = 0
-  let mutable id = -1
 
   member private __.Vertices with get () = vertices and set(v) = vertices <- v
 
