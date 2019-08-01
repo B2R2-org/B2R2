@@ -2930,7 +2930,7 @@ let vstr insInfo ctxt =
   if isSReg then builder <! (loadLE 32<rt> addr := rd)
   else
     let mem1 = loadLE 32<rt> addr
-    let mem2 = loadLE 32<rt>  (addr .+ (num <| BitVector.ofInt32 4 32<rt>))
+    let mem2 = loadLE 32<rt> (addr .+ (num <| BitVector.ofInt32 4 32<rt>))
     let isbig = ctxt.Endianness = Endian.Big
     builder <!
       (mem1 := if isbig then extractHigh 32<rt> rd else extractLow 32<rt> rd)
@@ -3126,6 +3126,121 @@ let vmrs insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
+let parseOprOfVST insInfo ctxt =
+  match insInfo.Operands with
+(*
+  | TwoOperands (OprSIMD (OneReg (Vector d)),
+                 OprMemory (OffsetMode (AlignOffset (rn, a, r)))) ->
+    let pc = getRegVar ctxt rn |> convertPCOpr insInfo ctxt
+    let baseAddr = align pc (num <| BitVector.ofInt32 4 32<rt>)
+    getRegVar ctxt d, getOffAddrWithImm s baseAddr imm, checkSingleReg d
+*)
+(*
+  (* multiple 1/2/3/4-elements *)
+  | TwoOperands (OprSIMD (OneReg (Vector d)),
+                 OprMemory (OffsetMode (AlignOffset (rn, a, r)))) ->
+    transOprToExpr ctxt rn
+  | TwoOperands (OprSIMD (TwoRegs (Vector d1, Vector d2)),
+                 OprMemory (OffsetMode (AlignOffset (rn, a, r)))) -> rn
+  | TwoOperands (OprSIMD (ThreeRegs (Vector d1, Vector d2, Vector d3)),
+                 OprMemory (OffsetMode (AlignOffset (rn, a, r)))) -> rn
+  | TwoOperands (OprSIMD (FourRegs (Vector d1, Vector d2, Vector d3, Vector d4)),
+                 OprMemory (OffsetMode (AlignOffset (rn, a, r)))) -> rn
+  (* single 1/2/3/4-elements from one lane *)
+  | TwoOperands (OprSIMD (OneReg (Scalar (d, e))),
+                 OprMemory (OffsetMode (AlignOffset (rn, a, r)))) -> rn
+*)
+  | _ -> raise InvalidOperandException
+
+let parseDstList = function
+  | TwoOperands (OprSIMD (OneReg (Vector d)), _) -> [ d ]
+  | TwoOperands (OprSIMD (TwoRegs (Vector d1, Vector d2)), _) ->
+    [ d1; d2 ]
+  | TwoOperands (OprSIMD (ThreeRegs (Vector d1, Vector d2, Vector d3)), _) ->
+    [ d1; d2; d3 ]
+  | TwoOperands (OprSIMD (FourRegs (Vector d1, Vector d2,
+                                    Vector d3, Vector d4)), _) ->
+    [ d1; d2; d3; d4 ]
+  | _ -> raise InvalidOperandException
+
+let parseOprOfVST1 ctxt = function
+  | TwoOperands (_, OprMemory (OffsetMode (AlignOffset (rn, _, _))))
+  | TwoOperands (_, OprMemory (PreIdxMode (AlignOffset (rn, _, _)))) ->
+    getRegVar ctxt rn, None
+  | TwoOperands (_, OprMemory (PostIdxMode (AlignOffset (rn, _, Some rm)))) ->
+    getRegVar ctxt rn, getRegVar ctxt rm |> Some
+  | _ -> raise InvalidOperandException
+
+let getRegsOfVST1 = function
+  | TwoOperands (OprSIMD (OneReg _), _) -> 1
+  | TwoOperands (OprSIMD (TwoRegs _), _) -> 2
+  | TwoOperands (OprSIMD (ThreeRegs _), _) -> 3
+  | TwoOperands (OprSIMD (FourRegs _), _) -> 4
+  | _ -> raise InvalidOperandException
+
+let getSizeOfVST1 = function
+  | Some (OneDT SIMDTyp8) -> 0b00
+  | Some (OneDT SIMDTyp16) -> 0b01
+  | Some (OneDT SIMDTyp32) -> 0b10
+  | Some (OneDT SIMDTyp64) -> 0b11
+  | _ -> raise InvalidOperandException
+
+let elem vector e size = extract vector (RegType.fromBitWidth size) (e * size)
+
+let assignByEndian (ctxt: TranslationContext) dst src builder =
+  let isbig = ctxt.Endianness = Endian.Big
+  builder <!
+    (dst := if isbig then extractHigh 32<rt> src else extractLow 32<rt> src)
+
+let registerIndex = function
+  | TwoOperands (_, OprMemory (OffsetMode (AlignOffset _)))
+  | TwoOperands (_, OprMemory (PreIdxMode (AlignOffset _))) -> false
+  | TwoOperands (_, OprMemory (PostIdxMode (AlignOffset _))) -> true
+  | _ -> raise InvalidOperandException
+
+let vst1Multi insInfo ctxt =
+  let builder = new StmtBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let regList = parseDstList insInfo.Operands |> List.map (getRegVar ctxt)
+  let rn, rm = parseOprOfVST1 ctxt insInfo.Operands
+  let regs = getRegsOfVST1 insInfo.Operands
+  let size = getSizeOfVST1 insInfo.SIMDTyp
+  let regIdx = registerIndex insInfo.Operands
+  let ebytes = 1 <<< size
+  let esize = ebytes * 8
+  let elements = 8 / ebytes
+  let addr = tmpVar 32<rt>
+  let updateRn rn =
+    let rmOrTransSz =
+      if regIdx then rm.Value
+      else num <| BitVector.ofInt32 (8 * regs) (RegType.fromBitWidth esize)
+    if insInfo.WriteBack.Value then rn .+ rmOrTransSz else rn
+  builder <! (addr := updateRn rn)
+  for r in 0 .. (regs - 1) do
+    for e in 0 .. (elements - 1) do
+      if ebytes <> 8 then
+        let mem = loadLE (RegType.fromBitWidth esize) addr
+        builder <! (mem := elem regList.[r] e esize)
+      else
+        let mem1 = loadLE 32<rt> addr
+        let mem2 = loadLE 32<rt> (addr .+ (num <| BitVector.ofInt32 4 32<rt>))
+        let reg = elem regList.[r] e esize
+        assignByEndian ctxt mem1 reg builder
+        assignByEndian ctxt mem2 reg builder
+      builder <! (addr := addr .+ (num <| BitVector.ofInt32 ebytes 32<rt>))
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let vst1 (insInfo: InsInfo) ctxt =
+  match insInfo.Operands with
+  | TwoOperands (OprSIMD (OneReg _), _)
+  | TwoOperands (OprSIMD (TwoRegs _), _)
+  | TwoOperands (OprSIMD (ThreeRegs _), _)
+  | TwoOperands (OprSIMD (FourRegs _), _) -> vst1Multi insInfo ctxt
+  | _ -> raise InvalidOperandException
+
 /// Translate IR.
 let translate insInfo ctxt =
   match insInfo.Opcode with
@@ -3255,7 +3370,10 @@ let translate insInfo ctxt =
   | Op.VPUSH -> vpush insInfo ctxt
   | Op.VAND -> vand insInfo ctxt
   | Op.VMRS -> vmrs insInfo ctxt
-  | Op.VST1 | Op.VST2 | Op.VST3 | Op.VST4
+  | Op.VST1 -> vst1 insInfo ctxt
+  | Op.VST2
+  | Op.VST3
+  | Op.VST4
   | Op.VLD1 | Op.VLD2 | Op.VLD3 | Op.VLD4 | Op.VLDM | Op.VLDMDB | Op.VLDMIA
   | Op.VCEQ | Op.VCGT | Op.VCGE | Op.VCLE | Op.VCLT | Op.VTST
   | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT
