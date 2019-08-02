@@ -463,15 +463,18 @@ let changeToAliasOfBitfield bin instr =
   | Opcode.SBFM, FourOperands (rd, _, Immediate immr, Immediate imms), oprSz
       when (immr = 0b000000L) && (imms = 0b000111L) ->
     Opcode.SXTB,
-    TwoOperands (rd, getRegister64 32<rt> (valN bin |> byte) |> Register), oprSz
+    TwoOperands (rd, getRegister64 32<rt> (valN bin |> byte) |> OprRegister),
+    oprSz
   | Opcode.SBFM, FourOperands (rd, _, Immediate immr, Immediate imms), oprSz
       when (immr = 0b000000L) && (imms = 0b001111L) ->
     Opcode.SXTH,
-    TwoOperands (rd, getRegister64 32<rt> (valN bin |> byte) |> Register), oprSz
+    TwoOperands (rd, getRegister64 32<rt> (valN bin |> byte) |> OprRegister),
+    oprSz
   | Opcode.SBFM, FourOperands (rd, _, Immediate immr, Immediate imms), oprSz
       when (immr = 0b000000L) && (imms = 0b011111L) ->
     Opcode.SXTW,
-    TwoOperands (rd, getRegister64 32<rt> (valN bin |> byte) |> Register), oprSz
+    TwoOperands (rd, getRegister64 32<rt> (valN bin |> byte) |> OprRegister),
+    oprSz
   | Opcode.BFM, FourOperands (rd, rn, Immediate immr, Immediate imms), oprSize
       when (valN bin <> 0b11111u) && (imms < immr) ->
     let lsb = (RegType.toBitWidth oprSize |> int64) - immr
@@ -676,7 +679,7 @@ let getISBOprs = function
 
 let changeToAliasOfSystem bin instr =
   match instr with
-  | Opcode.SYS, FiveOperands (_, Register cn, _, _, xt), oSz
+  | Opcode.SYS, FiveOperands (_, OprRegister cn, _, _, xt), oSz
       when cn = R.C7 && SysOp bin = SysDC ->
     Opcode.DC, TwoOperands (dcOp bin, xt), oSz
   | _ -> instr
@@ -751,7 +754,7 @@ let parseTestBranchImm bin =
   let imm = concat b5 (extract bin 23u 19u) 5 |> int64
   let label =
     memLabel (extract bin 18u 5u <<< 2 |> uint64 |> signExtend 16 64 |> int64)
-  opCode, ThreeOperands (Register rt, Immediate imm, label), oprSize
+  opCode, ThreeOperands (OprRegister rt, Immediate imm, label), oprSize
 
 let parseUncondBranchImm bin =
   let opCode = if (pickBit bin 31u) = 0u then Opcode.B else Opcode.BL
@@ -769,11 +772,17 @@ let parseUncondBranchReg bin =
     raise UnallocatedException
   match opc with
   | 0b0000u when isOp21F && isOp3Zero && isOp4Zero ->
-    Opcode.BR, OneOperand (Register <| getRegister64 64<rt> (byte rn)), 0<rt>
+    Opcode.BR,
+    OneOperand (OprRegister <| getRegister64 64<rt> (byte rn)),
+    0<rt>
   | 0b0001u when isOp21F && isOp3Zero && isOp4Zero ->
-    Opcode.BLR, OneOperand (Register <| getRegister64 64<rt> (byte rn)), 64<rt>
+    Opcode.BLR,
+    OneOperand (OprRegister <| getRegister64 64<rt> (byte rn)),
+    64<rt>
   | 0b0010u when isOp21F && isOp3Zero && isOp4Zero ->
-    Opcode.RET, OneOperand (Register <| getRegister64 64<rt> (byte rn)), 64<rt>
+    Opcode.RET,
+    OneOperand (OprRegister <| getRegister64 64<rt> (byte rn)),
+    64<rt>
   | 0b0011u -> raise UnallocatedException
   | o when o &&& 1110u = 0100u && not isRn1F -> raise UnallocatedException
   | 0b0100u when isOp21F && isOp3Zero && isRn1F && isOp4Zero ->
