@@ -111,20 +111,19 @@ type IntelInstruction (addr, numBytes, insInfo, wordSize) =
     if __.IsBranch () then
       match __.Info.Operands with
       | OneOperand (OprDirAddr (Absolute (_))) -> failwith "Implement" // XXX
-      | OneOperand (OprMem (Some Register.RIP, None, Some offset, 64<rt>)) ->
-        addr <- __.Address + uint64 __.Length + uint64 offset
-        true
       | OneOperand (OprDirAddr (Relative offset)) ->
         addr <- (int64 __.Address + offset) |> uint64
         true
       | _ -> false
     else false
 
-  override __.InterruptNum (num: byref<int64>) =
-    if __.Info.Opcode = Opcode.INT then
+  override __.IndirectTrampolineAddr (addr: byref<Addr>) =
+    if __.IsIndirectBranch () then
       match __.Info.Operands with
-      | OneOperand (OprImm n) ->
-        num <- n
+      | OneOperand (OprMem (None, None, Some disp, _)) ->
+        addr <- uint64 disp; true
+      | OneOperand (OprMem (Some Register.RIP, None, Some disp, _)) ->
+        addr <- __.Address + uint64 __.Length + uint64 disp
         true
       | _ -> false
     else false
@@ -142,6 +141,15 @@ type IntelInstruction (addr, numBytes, insInfo, wordSize) =
       else __.AddBranchTargetIfExist Seq.empty
     elif __.Info.Opcode = Opcode.HLT then Seq.empty
     else acc
+
+  override __.InterruptNum (num: byref<int64>) =
+    if __.Info.Opcode = Opcode.INT then
+      match __.Info.Operands with
+      | OneOperand (OprImm n) ->
+        num <- n
+        true
+      | _ -> false
+    else false
 
   override __.IsNop () =
     __.Info.Opcode = Opcode.NOP

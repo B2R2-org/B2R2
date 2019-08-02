@@ -98,7 +98,9 @@ type ARM32Instruction (addr, numBytes, insInfo) =
       | _ -> false
     else false
 
-  override __.InterruptNum (num: byref<int64>) = Utils.futureFeature ()
+  override __.IndirectTrampolineAddr (addr: byref<Addr>) =
+    if __.IsBranch () then Utils.futureFeature ()
+    else false
 
   override __.GetNextInstrAddrs () =
     // FIXME this is wrong.
@@ -106,6 +108,8 @@ type ARM32Instruction (addr, numBytes, insInfo) =
     match __.DirectBranchTarget () |> Utils.tupleToOpt with
     | None -> acc
     | Some target -> Seq.singleton target |> Seq.append acc
+
+  override __.InterruptNum (num: byref<int64>) = Utils.futureFeature ()
 
   override __.IsNop () =
     __.Info.Opcode = Op.NOP

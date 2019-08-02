@@ -26,13 +26,12 @@
 *)
 
 [<RequireQualifiedAccess>]
-module B2R2.BinGraph.CFGUtils
+module B2R2.BinGraph.SCFGUtils
 
 open B2R2
 open B2R2.BinIR.LowUIR
 open System.Collections.Generic
 
-type CFG = ControlFlowGraph<IRBasicBlock, CFGEdgeKind>
 type VMap = Dictionary<ProgramPoint, Vertex<IRBasicBlock>>
 
 let hasNoFallThrough (stmts: Stmt []) =
@@ -83,77 +82,65 @@ let rec private gatherBBlock acc app (leaders: ProgramPoint []) myPoint nextIdx 
        happens on obfuscated code. *)
     else gatherBBlock acc app leaders myPoint (nextIdx + 1)
 
-let createNode (g: CFG) app (vertices: VMap) (leaders: ProgramPoint []) idx =
+let createNode (g: IRCFG) app (vmap: VMap) (leaders: ProgramPoint []) idx =
   let leader = leaders.[idx]
   let pairs = gatherBBlock [] app leaders leader (idx + 1)
   if pairs.Length = 0 then ()
   else
     let b = IRBasicBlock (pairs, leader)
     let v = g.AddVertex b
-    vertices.[leader] <- v
+    vmap.[leader] <- v
 
-let private addIntraEdge (g: CFG) app (vertices: VMap) src symbol edgeProp =
+let private addIntraEdge (g: IRCFG) app (vmap: VMap) src symbol edgeProp =
   let dstPos = Map.find symbol app.LabelMap |> ProgramPoint
-  let dst = vertices.[dstPos]
+  let dst = vmap.[dstPos]
   g.AddEdge src dst edgeProp
 
-let private addInterEdge (g: CFG) (vertices: VMap) src addr edgeProp =
+let private addInterEdge (g: IRCFG) (vmap: VMap) src addr edgeProp =
   let dstPos = ProgramPoint (addr, 0)
-  match vertices.TryGetValue dstPos with
+  match vmap.TryGetValue dstPos with
   | false, _ -> ()
   | true, dst -> g.AddEdge src dst edgeProp
 
-let private addFallthroughEdge g vertices (src: Vertex<IRBasicBlock>) =
+let private addFallthroughEdge g vmap (src: Vertex<IRBasicBlock>) =
   let last = src.VData.LastInstruction
   let fallAddr = last.Address + uint64 last.Length
-  addInterEdge g vertices src fallAddr FallThroughEdge
+  addInterEdge g vmap src fallAddr FallThroughEdge
 
-let connectEdges _ (g: CFG) app (vertices: VMap) (leaders: ProgramPoint[]) idx =
+let connectEdges _ (g: IRCFG) app (vmap: VMap) (leaders: ProgramPoint[]) idx =
   let leader = leaders.[idx]
-  match vertices.TryGetValue leader with
+  match vmap.TryGetValue leader with
   | false, _ -> ()
   | true, src ->
     match src.VData.GetLastStmt () with
     | Jmp (Name s) ->
-      addIntraEdge g app vertices src s IntraJmpEdge
+      addIntraEdge g app vmap src s IntraJmpEdge
     | CJmp (_, Name s1, Name s2) ->
-      addIntraEdge g app vertices src s1 IntraCJmpTrueEdge
-      addIntraEdge g app vertices src s2 IntraCJmpFalseEdge
+      addIntraEdge g app vmap src s1 IntraCJmpTrueEdge
+      addIntraEdge g app vmap src s2 IntraCJmpFalseEdge
     | InterJmp (_, _, InterJmpInfo.IsRet) -> () (* Connect ret edges later. *)
     | InterJmp (_, Num addr, InterJmpInfo.IsCall) ->
       let target = BitVector.toUInt64 addr
       // TODO: add PLT check
-      addInterEdge g vertices src target CallEdge
-      if idx + 1 >= leaders.Length then ()
-      else addFallthroughEdge g vertices src
+      addInterEdge g vmap src target CallEdge
+      if idx + 1 >= leaders.Length then () else addFallthroughEdge g vmap src
     | InterJmp (_, Num addr, _) ->
-      addInterEdge g vertices src (BitVector.toUInt64 addr) InterJmpEdge
+      addInterEdge g vmap src (BitVector.toUInt64 addr) InterJmpEdge
     | InterCJmp (_, _, Num addr1, Num addr2) ->
-      addInterEdge g vertices src (BitVector.toUInt64 addr1) InterCJmpTrueEdge
-      addInterEdge g vertices src (BitVector.toUInt64 addr2) InterCJmpFalseEdge
+      addInterEdge g vmap src (BitVector.toUInt64 addr1) InterCJmpTrueEdge
+      addInterEdge g vmap src (BitVector.toUInt64 addr2) InterCJmpFalseEdge
+    | InterJmp (_, _, InterJmpInfo.IsCall) -> (* Indirect call *)
+      if idx + 1 >= leaders.Length then () else addFallthroughEdge g vmap src
     | InterJmp (_)
     | InterCJmp (_)
     | SideEffect (BinIR.Halt) -> ()
     | _ -> (* Fall through case *)
       if idx + 1 >= leaders.Length then ()
-      else addFallthroughEdge g vertices src
+      else addFallthroughEdge g vmap src
 
-let callTargets (g: CFG) =
-  g.FoldEdge (fun acc _ dst e ->
-    match e with
-    | CallEdge -> dst.VData.PPoint.Address :: acc
-    | _ -> acc) []
-
-let computeBoundaries app (vertices: VMap) =
+let computeBoundaries app (vmap: VMap) =
   app.LeaderPositions
   |> Set.fold (fun set leader ->
-    match vertices.TryGetValue leader with
+    match vmap.TryGetValue leader with
     | false, _ -> set
     | true, v -> IntervalSet.add v.VData.Range set) IntervalSet.empty
-
-let postAnalysis (g: CFG) app analyzers =
-  // _libc_start_main
-  // no_return
-  // switch-case
-  // implicit call edges
-  app

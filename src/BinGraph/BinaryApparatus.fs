@@ -27,17 +27,10 @@
 
 namespace B2R2.BinGraph
 
-open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
-
-/// Instruction and the corresponding IR statements.
-type InsIRPair = Instruction * Stmt []
-
-/// Address to an InsIRPair mapping.
-type InstrMap = Dictionary<Addr, InsIRPair>
 
 /// A mapping from an instruction address to computed jump targets. This table
 /// stores only "computed" jump targets.
@@ -53,6 +46,7 @@ type BinaryApparatus = {
   LeaderPositions: Set<ProgramPoint>
   FunctionNames: Map<Addr, string>
   FunctionAddrs: Map<string, Addr>
+  Callees: CalleeMap
   JmpTargetMap: JmpTargetMap
 }
 
@@ -64,60 +58,8 @@ module BinaryApparatus =
   /// to expand it during the analysis.
   let private getInitialEntryPoints hdl =
     let fi = hdl.FileInfo
-    let funaddrs = fi.GetFunctionAddresses ()
-    if Seq.exists (fun addr -> addr = fi.EntryPoint) funaddrs then funaddrs
-    else Seq.singleton fi.EntryPoint |> Seq.append funaddrs
-
-  let private updateEntries (map: InstrMap) entries newaddrs =
-    let rec loop entries = function
-      | [] -> entries
-      | addr :: rest ->
-        if map.ContainsKey addr then loop entries rest
-        else loop (addr :: entries) rest
-    Seq.toList newaddrs |> loop entries
-
-  /// Remove unnecessary IEMark to ease the analysis.
-  let private trimIEMark (stmts: Stmt []) =
-    let last = stmts.[stmts.Length - 1]
-    let secondLast = stmts.[stmts.Length - 2]
-    match secondLast, last with
-    | InterJmp _, IEMark _
-    | InterCJmp _, IEMark _
-    | SideEffect _, IEMark _ ->
-      Array.sub stmts 0 (stmts.Length - 1)
-    | _ -> stmts
-
-  let private trim stmts =
-    BinHandler.Optimize stmts
-    |> trimIEMark
-
-  let private toInsIRPair hdl (ins: Instruction) =
-    ins, try BinHandler.LiftInstr hdl ins |> trim with _ -> [||]
-
-  let rec private updateInstrMapAndGetTheLastInstr hdl (map: InstrMap) insList =
-    match (insList: Instruction list) with
-    | [] -> failwith "Fatal error: an empty block encountered."
-    | last :: [] ->
-      map.[last.Address] <- toInsIRPair hdl last
-      last
-    | instr :: rest ->
-      map.[instr.Address] <- toInsIRPair hdl instr
-      updateInstrMapAndGetTheLastInstr hdl map rest
-
-  /// Build a mapping from Addr to Instruction. This function recursively parses
-  /// the binary, but does not lift it yet.
-  let private buildInstrMap hdl entries =
-    let map = InstrMap ()
-    let rec buildLoop = function
-      | [] -> map
-      | entry :: rest ->
-        match BinHandler.ParseBBlock hdl entry with
-        | Error _ -> buildLoop rest
-        | Ok instrs ->
-          let last = updateInstrMapAndGetTheLastInstr hdl map instrs
-          let entries = last.GetNextInstrAddrs () |> updateEntries map rest
-          buildLoop entries
-    buildLoop (Seq.toList entries)
+    let funaddrs = fi.GetFunctionAddresses () |> Set.ofSeq
+    Set.add fi.EntryPoint funaddrs
 
   let private findLabels labels (KeyValue (addr, (_, stmts))) =
     stmts
@@ -168,17 +110,19 @@ module BinaryApparatus =
       | InterCJmp (_, _, Num addr1, Num addr2) ->
         addAddrLeader (BitVector.toUInt64 addr1) acc
         |> addAddrLeader (BitVector.toUInt64 addr2)
+      | InterJmp (_, _, InterJmpInfo.IsCall) (* indirect call *)
       | SideEffect (SysCall)
       | SideEffect (Interrupt _) ->
         addAddrLeader (i.Address + uint64 i.Length) acc
       | _ -> acc) acc
 
-  /// Create a binary apparatus from the given BinHandler.
-  [<CompiledName("Init")>]
-  let init hdl =
-    let entries = getInitialEntryPoints hdl
-    let instrmap = buildInstrMap hdl entries
-    let lblmap = instrmap |> Seq.fold findLabels Map.empty
+  let private initAux hdl auxEntries =
+    let entries =
+      auxEntries
+      |> Seq.fold (fun set ent -> Set.add ent set) (getInitialEntryPoints hdl)
+      |> Set.toSeq
+    let instrMap = InstrMap.build hdl entries
+    let lblmap = instrMap |> Seq.fold findLabels Map.empty
     let leaders = entries |> Seq.map (fun a -> ProgramPoint (a, 0)) |> Set.ofSeq
     let fpairs = entries |> Seq.map (fun e -> e, obtainFuncName hdl e)
     let acc =
@@ -186,15 +130,33 @@ module BinaryApparatus =
         Leaders = leaders
         FunctionNameMap = fpairs |> Map.ofSeq
         FunctionAddrMap = fpairs |> Seq.map (fun (a, b) -> b, a) |> Map.ofSeq }
-    let acc = instrmap |> Seq.fold (foldStmts hdl) acc
-    { InstrMap = instrmap
+#if DEBUG
+    printfn "[*] Loaded basic information."
+#endif
+    let acc = instrMap |> Seq.fold (foldStmts hdl) acc
+#if DEBUG
+    printfn "[*] The apparatus is ready to use."
+#endif
+    { InstrMap = instrMap
       LabelMap = lblmap
       LeaderPositions = acc.Leaders
       FunctionNames = acc.FunctionNameMap
       FunctionAddrs = acc.FunctionAddrMap
+      Callees = CalleeMap.build hdl acc.FunctionNameMap instrMap
       JmpTargetMap = Map.empty }
 
-  let internal updateFuncs hdl app newaddrs =
+  /// Create a binary apparatus from the given BinHandler.
+  [<CompiledName("Init")>]
+  let init hdl = initAux hdl Seq.empty
+
+  /// Update instruction info for the given binary appratus based on the given
+  /// target addresses.
+  let internal update hdl app addrs =
+    if Seq.isEmpty addrs then app
+    else initAux hdl addrs
+
+  /// Update informatino about functions (call targets).
+  let internal refreshCallTargets hdl app newaddrs =
     let funcs =
       newaddrs
       |> List.fold (fun acc addr ->

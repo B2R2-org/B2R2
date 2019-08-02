@@ -49,7 +49,7 @@ let private unwrap = function
   | Undef -> raise UndefExpException
   | Def bv -> bv
 
-let rec private evalConcrete st e =
+let rec evalConcrete st e =
   match e with
   | Num n -> Def n
   | Var (_, n, _, _) -> EvalState.GetReg st n
@@ -177,9 +177,9 @@ let internal tryEvaluate stmt st =
 let rec internal evalLoop stmts st =
   let ctxt = EvalState.GetCurrentContext st
   let idx = ctxt.StmtIdx
-  if Array.length stmts > idx && idx >= 0 then
+  if Array.length stmts > idx && idx >= 0 && not st.StopEval then
     let stmt = stmts.[idx]
-    st.Callbacks.OnStmtEval stmt
+    let st = st.Callbacks.OnStmtEval stmt st
     evalLoop stmts (tryEvaluate stmt st |> gotoNextInstr stmts)
   else st
 

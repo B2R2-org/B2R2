@@ -38,7 +38,7 @@ type SSALens (scfg) =
       v
     | true, v -> v
 
-  let convertToSSA (irCFG: CFGUtils.CFG) ssaCFG vMap root =
+  let convertToSSA (irCFG: IRCFG) ssaCFG vMap root =
     let root = getVertex ssaCFG vMap root root.VData.PPoint
     irCFG.IterEdge (fun src dst e ->
       let srcPos = src.VData.PPoint
@@ -49,7 +49,7 @@ type SSALens (scfg) =
     root
 
   interface ILens<SSABBlock> with
-    member __.Filter (g: CFGUtils.CFG) root =
+    member __.Filter (g: IRCFG) root =
       let ssaCFG = SSACFG ()
       let vMap = new SSAVMap ()
       let defSites = DefSites ()

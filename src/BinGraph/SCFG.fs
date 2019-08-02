@@ -39,16 +39,29 @@ exception InvalidFunctionAddressException
 /// a single basic block) may correspond to multiple basic blocks in the
 /// LowUIR-level CFG.
 type SCFG (hdl, app) =
-  let g = CFGUtils.CFG ()
-  let vertices = CFGUtils.VMap ()
+  let g = IRCFG ()
+  let vertices = SCFGUtils.VMap ()
   let mutable boundaries = IntervalSet.empty
   do
     let leaders = app.LeaderPositions |> Set.toArray
     for i = 0 to leaders.Length - 1 do
-      CFGUtils.createNode g app vertices leaders i
+      SCFGUtils.createNode g app vertices leaders i
+#if DEBUG
+    printfn "[*] All the nodes are created."
+#endif
     for i = 0 to leaders.Length - 1 do
-      CFGUtils.connectEdges hdl g app vertices leaders i
-    boundaries <- CFGUtils.computeBoundaries app vertices
+#if DEBUG
+      if i % 1000 = 0 then
+        printfn "[*] Edge connection (%d/%d) done." i (leaders.Length - 1)
+#endif
+      SCFGUtils.connectEdges hdl g app vertices leaders i
+#if DEBUG
+    printfn "[*] All the edges are connected."
+#endif
+    boundaries <- SCFGUtils.computeBoundaries app vertices
+#if DEBUG
+    printfn "[*] Boundary computation is done."
+#endif
 
   /// The actual graph data structure of the SCFG.
   member __.Graph with get () = g
@@ -69,7 +82,7 @@ type SCFG (hdl, app) =
   /// Retrieve an IR-based CFG (subgraph) of a function starting at the given
   /// address (addr) from the SCFG, and the root node.
   member __.GetFunctionCFG (addr) =
-    let newGraph = CFGUtils.CFG ()
+    let newGraph = IRCFG ()
     let vMap = new Dictionary<ProgramPoint, Vertex<IRBasicBlock>> ()
     let rec loop parentVertex pos e =
       let oldVertex = vertices.[pos]
@@ -130,15 +143,35 @@ type SCFG (hdl, app) =
         |> List.map (fun v -> v.VData.PPoint)
         |> List.tryPick __.ReverseLookUp
 
+  /// Find a basic block (vertex) in the SCFG that the given address belongs to.
+  member __.FindVertex (addr) =
+    IntervalSet.findAll (AddrRange (addr, addr + 1UL)) __.Boundaries
+    |> List.map (fun r -> ProgramPoint (AddrRange.GetMin r, 0))
+    |> List.sortBy (fun p -> if p.Address = addr then -1 else 1)
+    |> List.choose (fun p -> vertices.TryGetValue p |> Utils.tupleToOpt)
+    |> List.tryHead
+
+  /// For a given address, find the first vertex of a function that the address
+  /// belongs to.
+  member __.FindFunctionVertex (addr) =
+    IntervalSet.findAll (AddrRange (addr, addr + 1UL)) __.Boundaries
+    |> List.map (fun r -> ProgramPoint (AddrRange.GetMin r, 0))
+    |> List.tryPick __.ReverseLookUp
+
   /// For a given address, find the address of a function that the address
   /// belongs to.
   member __.FindFunctionEntry (addr) =
-    IntervalSet.findAll (AddrRange (addr, addr + 1UL)) __.Boundaries
-    |> List.map (fun r -> ProgramPoint(AddrRange.GetMin r, 0))
-    |> List.tryPick __.ReverseLookUp
+    __.FindFunctionVertex (addr)
     |> Option.map (fun v -> v.VData.PPoint.Address)
 
   /// For a given function name, find the corresponding function address if
   /// exists.
   member __.FindFunctionEntryByName (name) =
     Map.tryFind name app.FunctionAddrs
+
+  /// Retrieve call target addresses.
+  member __.CallTargets () =
+    g.FoldEdge (fun acc _ dst e ->
+      match e with
+      | CallEdge -> dst.VData.PPoint.Address :: acc
+      | _ -> acc) []

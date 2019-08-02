@@ -141,4 +141,6 @@ type ControlFlowGraph<'V, 'E when 'V :> BasicBlock and 'V: equality> () =
     | None -> None
     | Some (_, _, Edge eData) -> Some eData
 
+type IRCFG = ControlFlowGraph<IRBasicBlock, CFGEdgeKind>
+
 // vim: set tw=80 sts=2 sw=2:

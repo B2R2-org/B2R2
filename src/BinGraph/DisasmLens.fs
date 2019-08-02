@@ -75,7 +75,7 @@ type DisasmLens () =
     | true, v -> v
 
   interface ILens<DisasmBBlock> with
-    member __.Filter (g: CFGUtils.CFG) root =
+    member __.Filter (g: IRCFG) root =
       let newGraph = DisasmCFG ()
       let vMap = new DisasmVMap ()
       let root = getVertex newGraph vMap root root.VData.PPoint.Address

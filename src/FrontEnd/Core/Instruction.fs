@@ -160,9 +160,15 @@ type Instruction (addr, numBytes, wordSize) =
   abstract member DirectBranchTarget: [<Out>] addr: byref<Addr> -> bool
 
   /// <summary>
-  ///   Return the interrupt number if this is an interrupt instruction.
+  ///   Return a trampoline address of an indirect branch instruction if we can
+  ///   directly compute the address. For example, `JMP [RIP + 0x42]` is a
+  ///   indirect branch instruction, but we can compute the trampoline address
+  ///   as RIP is statically known anyways.
   /// </summary>
-  abstract member InterruptNum: [<Out>] num: byref<int64> -> bool
+  /// <returns>
+  ///   Returns true if a trampoline address exists. Otherwise, returns false.
+  /// </returns>
+  abstract member IndirectTrampolineAddr: [<Out>] addr: byref<Addr> -> bool
 
   /// <summary>
   ///   Return a sequence of possible next instruction addresses. For branch
@@ -171,6 +177,11 @@ type Instruction (addr, numBytes, wordSize) =
   ///   This function does not resolve indirect branch targets.
   /// </summary>
   abstract member GetNextInstrAddrs: unit -> seq<Addr>
+
+  /// <summary>
+  ///   Return the interrupt number if this is an interrupt instruction.
+  /// </summary>
+  abstract member InterruptNum: [<Out>] num: byref<int64> -> bool
 
   /// <summary>
   ///   Lift this instruction into a LowUIR given a translation context.

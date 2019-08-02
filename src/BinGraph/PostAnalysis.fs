@@ -24,23 +24,12 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinGraph
+module B2R2.BinGraph.PostAnalysis
 
-/// The Lens interface, which is a converter from a graph to another graph. In
-/// B2R2, An IR-level SCFG forms the basis, and we should apply different lenses
-/// to obtain different graphs. For example, we can get disassembly-based CFG by
-/// applying DisasmLens to the SCFG.
-type ILens<'V when 'V :> BasicBlock and 'V: equality> =
-  /// <summary>
-  /// The main function of the ILens interface, which will essentially convert a
-  /// given CFG into another graph.
-  /// </summary>
-  /// <param name="graph">The given CFG.</param>
-  /// <param name="root">The root node of the CFG.</param>
-  /// <returns>
-  /// A converted graph along with its root node.
-  /// </returns>
-  abstract member Filter:
-       graph: IRCFG
-    -> root: Vertex<IRBasicBlock>
-    -> ControlFlowGraph<'V, CFGEdgeKind> * Vertex<'V>
+let run hdl scfg app analyzers =
+  let app = DisasHeuristic.recoverLibcEntries hdl scfg app
+  // _libc_start_main
+  // no_return
+  // switch-case
+  // implicit call edges
+  app

@@ -56,4 +56,9 @@ type ControlFlowGraph<'V, 'E when 'V :> BasicBlock and 'V : equality> =
   /// Try to find an edge from src to dst.
   member TryFindEdge: Vertex<'V> -> Vertex<'V> -> 'E option
 
+/// The main construct of any kind of CFG. We always build an IR-based CFG
+/// first, and then convert it into another type of CFG, such as SSA and
+/// disassembly-based CFG.
+type IRCFG = ControlFlowGraph<IRBasicBlock, CFGEdgeKind>
+
 // vim: set tw=80 sts=2 sw=2:
