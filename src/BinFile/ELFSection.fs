@@ -91,8 +91,9 @@ let isStatic t = t = SectionType.SHTSymTab
 
 let isDynamic t = t = SectionType.SHTDynSym
 
-let updateVerSec predicate sec =
-  if predicate sec.SecType then Some sec else None
+let updateVerSec predicate sec = function
+  | None -> if predicate sec.SecType then Some sec else None
+  | s -> s
 
 let isVerSym t = t = SectionType.SHTGNUVerSym
 
@@ -114,9 +115,9 @@ let parse eHdr reader =
             SecByName = Map.add sec.SecName sec info.SecByName
             StaticSymSecNums = accSymbTabNum info.StaticSymSecNums isStatic sec
             DynSymSecNums = accSymbTabNum info.DynSymSecNums isDynamic sec
-            VerSymSec = updateVerSec isVerSym sec
-            VerNeedSec = updateVerSec isVerNeed sec
-            VerDefSec = updateVerSec isVerDef sec }
+            VerSymSec = updateVerSec isVerSym sec info.VerSymSec
+            VerNeedSec = updateVerSec isVerNeed sec info.VerNeedSec
+            VerDefSec = updateVerSec isVerDef sec info.VerDefSec }
       parseLoop (sec :: secByNum) nextInfo (sIdx + 1) nextOffset
   let emptyInfo =
     { SecByAddr = ARMap.empty

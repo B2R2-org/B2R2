@@ -94,7 +94,7 @@ let parseVersionTable secs (reader: BinReader) =
        let symTblSec = secs.SecByNum.[n]
        let ss = secs.SecByNum.[Convert.ToInt32 symTblSec.SecLink]
        let strTab = reader.PeekBytes (ss.SecSize, ss.SecOffset)
-       let tbl = parseNeededVersionTable tbl reader strTab secs.VerDefSec
+       let tbl = parseNeededVersionTable tbl reader strTab secs.VerNeedSec
        parseDefinedVersionTable tbl reader strTab secs.VerDefSec) Map.empty
 
 let parseVersData (reader: BinReader) symIdx verSymSec =
