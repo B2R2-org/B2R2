@@ -44,10 +44,8 @@ type BinaryApparatus = {
   InstrMap: InstrMap
   LabelMap: Map<Symbol, Addr * int>
   LeaderPositions: Set<ProgramPoint>
-  FunctionNames: Map<Addr, string>
-  FunctionAddrs: Map<string, Addr>
-  Callees: CalleeMap
-  JmpTargetMap: JmpTargetMap
+  CallerMap: CallerMap
+  CalleeMap: CalleeMap
 }
 
 [<RequireQualifiedAccess>]
@@ -73,8 +71,10 @@ module BinaryApparatus =
   type private StmtAccumulator = {
     Labels: Map<Symbol, Addr * int>
     Leaders: Set<ProgramPoint>
-    FunctionNameMap: Map<Addr, string>
-    FunctionAddrMap: Map<string, Addr>
+    /// Collect all the address that are being a target of a direct call
+    /// instruction (not indirect calls, since we don't know the target at this
+    /// point).
+    FunctionAddrs: Set<Addr>
   }
 
   let private addLabelLeader s acc =
@@ -84,18 +84,11 @@ module BinaryApparatus =
   let private addAddrLeader addr acc =
     { acc with Leaders = Set.add (ProgramPoint (addr, 0)) acc.Leaders }
 
-  let private obtainFuncName (hdl: BinHandler) addr =
-    match hdl.FileInfo.TryFindFunctionSymbolName addr |> Utils.tupleToOpt with
-    | None -> "func_" + addr.ToString("X")
-    | Some name -> name
-
-  let private addFunction hdl addr acc =
-    let name = obtainFuncName hdl addr
-    { acc with FunctionNameMap = Map.add addr name acc.FunctionNameMap
-               FunctionAddrMap = Map.add name addr acc.FunctionAddrMap }
+  let private addFunction addr acc =
+    { acc with FunctionAddrs = Set.add addr acc.FunctionAddrs }
 
   /// Fold all the statements to get the leaders, function positions, etc.
-  let private foldStmts hdl acc (KeyValue (_, (i: Instruction, stmts))) =
+  let private foldStmts acc (KeyValue (_, (i: Instruction, stmts))) =
     stmts
     |> Array.fold (fun acc stmt ->
       match stmt with
@@ -105,7 +98,7 @@ module BinaryApparatus =
         let addr = BitVector.toUInt64 addr
         addAddrLeader addr acc
         |> addAddrLeader (i.Address + uint64 i.Length)
-        |> addFunction hdl addr
+        |> addFunction addr
       | InterJmp (_, Num addr, _) -> addAddrLeader (BitVector.toUInt64 addr) acc
       | InterCJmp (_, _, Num addr1, Num addr2) ->
         addAddrLeader (BitVector.toUInt64 addr1) acc
@@ -124,26 +117,23 @@ module BinaryApparatus =
     let instrMap = InstrMap.build hdl entries
     let lblmap = instrMap |> Seq.fold findLabels Map.empty
     let leaders = entries |> Seq.map (fun a -> ProgramPoint (a, 0)) |> Set.ofSeq
-    let fpairs = entries |> Seq.map (fun e -> e, obtainFuncName hdl e)
     let acc =
       { Labels = lblmap
         Leaders = leaders
-        FunctionNameMap = fpairs |> Map.ofSeq
-        FunctionAddrMap = fpairs |> Seq.map (fun (a, b) -> b, a) |> Map.ofSeq }
+        FunctionAddrs = entries |> Set.ofSeq }
 #if DEBUG
     printfn "[*] Loaded basic information."
 #endif
-    let acc = instrMap |> Seq.fold (foldStmts hdl) acc
+    let acc = instrMap |> Seq.fold foldStmts acc
+    let calleeMap = CalleeMap.build hdl acc.FunctionAddrs instrMap
 #if DEBUG
     printfn "[*] The apparatus is ready to use."
 #endif
     { InstrMap = instrMap
       LabelMap = lblmap
       LeaderPositions = acc.Leaders
-      FunctionNames = acc.FunctionNameMap
-      FunctionAddrs = acc.FunctionAddrMap
-      Callees = CalleeMap.build hdl acc.FunctionNameMap instrMap
-      JmpTargetMap = Map.empty }
+      CallerMap = CallerMap.build calleeMap
+      CalleeMap = calleeMap }
 
   /// Create a binary apparatus from the given BinHandler.
   [<CompiledName("Init")>]
@@ -155,10 +145,12 @@ module BinaryApparatus =
     if Seq.isEmpty addrs then app
     else initAux hdl addrs
 
-  /// Update informatino about functions (call targets).
-  let internal refreshCallTargets hdl app newaddrs =
-    let funcs =
-      newaddrs
-      |> List.fold (fun acc addr ->
-        Map.add addr (obtainFuncName hdl addr) acc) app.FunctionNames
-    { app with FunctionNames = funcs }
+  /// Return the list of function addresses from the BinaryApparatus.
+  let getFunctionAddrs app =
+    app.CalleeMap.Callees
+    |> Seq.choose (fun c -> c.Addr)
+
+  /// Return the list of callees that have a concrete mapping to the binary.
+  let getInternalFunctions app =
+    app.CalleeMap.Callees
+    |> Seq.filter (fun c -> c.Addr.IsSome)

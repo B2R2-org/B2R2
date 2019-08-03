@@ -66,8 +66,8 @@ type EvalCallBacks () =
     fun _ st -> st with get, set
 
   /// Statement evaluation event handler.
-  member val StmtEvalEventHandler: LowUIR.Stmt -> EvalState -> EvalState =
-    fun _ st -> st with get, set
+  member val StmtEvalEventHandler: LowUIR.Stmt -> unit =
+    fun _ -> () with get, set
 
   member __.OnLoad pc addr v = __.LoadEventHandler pc addr v
 
@@ -101,10 +101,6 @@ and EvalState (?reader, ?ignoreundef) =
 
   /// Callback functions.
   member val Callbacks = EvalCallBacks () with get
-
-  /// Indicate whether to terminate the evaluation process. We will immediately
-  /// stop evaluation when this flag is set.
-  member val StopEval = false with get, set
 
   /// Indicate whether to terminate the current instruction or not. This flag is
   /// set to true when we encounter an ISMark within a block. In other words, we
@@ -142,13 +138,6 @@ and EvalState (?reader, ?ignoreundef) =
   /// Update the current statement index to be the next (current + 1) statement.
   static member NextStmt (st: EvalState) =
     st.Contexts.[st.ThreadId].StmtIdx <- st.Contexts.[st.ThreadId].StmtIdx + 1
-    st
-
-  /// Set the StopEval flag, which will eventually halt the evaluation process.
-  /// When the evaluation process finishes, our evaluator will return the last
-  /// state.
-  static member Halt (st: EvalState) =
-    st.StopEval <- true
     st
 
   /// Stop evaluating further statements of the current instruction, and move on

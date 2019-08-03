@@ -30,7 +30,6 @@ module B2R2.BinGraph.DisasHeuristic
 open B2R2
 open B2R2.FrontEnd
 open B2R2.ConcEval
-open B2R2.BinIR.LowUIR
 
 let private defZero t = Def (BitVector.zero t)
 let private stackAddr t = Def (BitVector.ofInt32 0x1000000 t)
@@ -57,16 +56,16 @@ let memoryReader hdl _pc addr =
     Some <| v.[0]
   else None
 
-let rec eval (scfg: SCFG) (blk: Vertex<IRBasicBlock>) st =
+let rec eval (scfg: SCFG) (blk: Vertex<IRBasicBlock>) st callerAddr =
   let st' =
     blk.VData.GetIRStatements ()
     |> Array.concat
     |> Evaluator.evalBlock st 0
-  if st'.StopEval then Some st'
+  if blk.VData.LastInstruction.Address = callerAddr then Some st'
   else
     match scfg.FindVertex st'.PC with
     | None -> None
-    | Some v -> eval scfg v st'
+    | Some v -> eval scfg v st' callerAddr
 
 let readMem (st: EvalState) addr endian size =
   let addr = BitVector.toUInt64 addr
@@ -119,23 +118,14 @@ let retrieveLibcStartAddresses hdl app = function
 let analyzeLibcStartMain hdl (scfg: SCFG) app callerAddr =
   let st = EvalState (memoryReader hdl, true)
   let st = initRegs hdl |> EvalState.PrepareContext st 0 callerAddr
-  let pcType = hdl.ISA.WordSize |> WordSize.toRegType
-  let caller = Def (BitVector.ofUInt64 callerAddr pcType)
-  st.Callbacks.StmtEvalEventHandler <-
-    fun stmt st ->
-      match stmt with
-      | InterJmp (pc, _, _) ->
-        if Evaluator.evalConcrete st pc = caller then EvalState.Halt st
-        else st
-      | _ -> st
   match scfg.FindFunctionVertex callerAddr with
   | None -> app
   | Some root ->
-    eval scfg root st
+    eval scfg root st callerAddr
     |> retrieveLibcStartAddresses hdl app
 
 let recoverAddrsFromLibcStartMain hdl scfg app =
-  match Map.tryFind "__libc_start_main" app.Callees with
+  match app.CalleeMap.Find "__libc_start_main" with
   | Some callee ->
     match List.tryExactlyOne callee.Callers with
     | None -> app

@@ -43,9 +43,11 @@ module SSABlockHelper =
 
   /// This is currently intra-procedural.
   let computeDefinedVars (scfg: SCFG) addr =
-    let g, root = scfg.GetFunctionCFG addr
-    g.FoldVertexDFS root defVarFolder Set.empty
-    |> Set.toArray
+    try
+      let g, root = scfg.GetFunctionCFG addr
+      g.FoldVertexDFS root defVarFolder Set.empty
+      |> Set.toArray
+    with _ -> [||]
 
 /// Basic block type for an SSA-based CFG (SSACFG).
 type SSABBlock (scfg, pp: ProgramPoint, pairs: InsIRPair []) =

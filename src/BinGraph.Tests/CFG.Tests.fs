@@ -73,10 +73,10 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``Boundary Test: Function Identification`` () =
-    Assert.AreEqual (3, Map.count ess.BinaryApparatus.FunctionNames)
+    let funcs = BinaryApparatus.getFunctionAddrs ess.BinaryApparatus
+    Assert.AreEqual (3, Seq.length funcs)
     let expected = [ 0UL; 0x62UL; 0x71UL ] |> List.toArray
-    let actual =
-      ess.BinaryApparatus.FunctionNames |> Map.toArray |> Array.map fst
+    let actual = Seq.toArray funcs
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
@@ -226,10 +226,10 @@ type CFGTest2 () =
 
   [<TestMethod>]
   member __.``Boundary Test: Function Identification`` () =
-    Assert.AreEqual (2, Map.count ess.BinaryApparatus.FunctionNames)
+    let funcs = BinaryApparatus.getFunctionAddrs ess.BinaryApparatus
+    Assert.AreEqual (2, Seq.length funcs)
     let expected = [ 0UL; 0x24UL ] |> List.toArray
-    let actual =
-      ess.BinaryApparatus.FunctionNames |> Map.toArray |> Array.map fst
+    let actual = Seq.toArray funcs
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]

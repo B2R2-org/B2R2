@@ -177,9 +177,9 @@ let internal tryEvaluate stmt st =
 let rec internal evalLoop stmts st =
   let ctxt = EvalState.GetCurrentContext st
   let idx = ctxt.StmtIdx
-  if Array.length stmts > idx && idx >= 0 && not st.StopEval then
+  if Array.length stmts > idx && idx >= 0 then
     let stmt = stmts.[idx]
-    let st = st.Callbacks.OnStmtEval stmt st
+    st.Callbacks.OnStmtEval stmt
     evalLoop stmts (tryEvaluate stmt st |> gotoNextInstr stmts)
   else st
 

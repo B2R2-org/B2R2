@@ -77,7 +77,7 @@ type SCFG (hdl, app) =
 
   /// Retrieve an IR-based CFG (subgraph) of a function starting at the given
   /// address (addr) from the SCFG, and the root node.
-  member __.GetFunctionCFG (addr) =
+  member __.GetFunctionCFG (addr: Addr) =
     let newGraph = IRCFG ()
     let vMap = new Dictionary<ProgramPoint, Vertex<IRBasicBlock>> ()
     let rec loop parentVertex pos e =
@@ -120,10 +120,10 @@ type SCFG (hdl, app) =
       | succ :: tl ->
         let succPos = succ.VData.PPoint
         match g.FindEdgeData oldVertex succ with
-        | ExternalCallEdge | RetEdge | ImplicitCallEdge -> ()
+        | ExternalEdge | RetEdge | ImplicitCallEdge -> ()
         | e -> loop (Some curVertex) succPos e
         iterSuccessors oldVertex curVertex tl
-    if app.FunctionNames.ContainsKey addr then
+    if app.CalleeMap.Contains addr then
       let rootPos = ProgramPoint (addr, 0)
       loop None rootPos UnknownEdge
       newGraph, vMap.[rootPos]
@@ -133,7 +133,7 @@ type SCFG (hdl, app) =
     match vertices.TryGetValue point with
     | false, _ -> None
     | true, v ->
-      if app.FunctionNames.ContainsKey point.Address then Some v
+      if app.CalleeMap.Contains point.Address then Some v
       else
         v.Preds
         |> List.map (fun v -> v.VData.PPoint)
@@ -162,8 +162,9 @@ type SCFG (hdl, app) =
 
   /// For a given function name, find the corresponding function address if
   /// exists.
-  member __.FindFunctionEntryByName (name) =
-    Map.tryFind name app.FunctionAddrs
+  member __.FindFunctionEntryByName (name: string) =
+    app.CalleeMap.Find (name)
+    |> Option.bind (fun callee -> callee.Addr)
 
   /// Retrieve call target addresses.
   member __.CallTargets () =

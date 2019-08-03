@@ -130,12 +130,12 @@ let startGUI (opts: BinExplorerOpts) arbiter =
 let dumpJsonFiles jsonDir ess =
   try System.IO.Directory.Delete(jsonDir, true) with _ -> ()
   System.IO.Directory.CreateDirectory(jsonDir) |> ignore
-  Map.toList ess.BinaryApparatus.FunctionNames
-  |> List.iter (fun (addr, name) ->
+  BinaryApparatus.getInternalFunctions ess.BinaryApparatus
+  |> Seq.iter (fun { CalleeName = name; Addr = addr } ->
     let disasmJsonPath = Printf.sprintf "%s/%s.disasmCFG" jsonDir name
     let irJsonPath = Printf.sprintf "%s/%s.irCFG" jsonDir name
     let encoding = System.Text.Encoding.UTF8
-    let cfg, root = ess.SCFG.GetFunctionCFG addr
+    let cfg, root = ess.SCFG.GetFunctionCFG (Option.get addr)
     let irJson =
       VisGraph.ofCFG cfg root None
       |> fst

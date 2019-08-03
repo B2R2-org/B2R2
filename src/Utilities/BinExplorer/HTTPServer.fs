@@ -126,7 +126,9 @@ let handleCFG req resp arbiter cfgType name =
 let handleFunctions req resp arbiter =
   let ess = Protocol.getBinEssence arbiter
   let names =
-    Map.toArray ess.BinaryApparatus.FunctionAddrs |> Array.map fst
+    BinaryApparatus.getInternalFunctions ess.BinaryApparatus
+    |> Seq.map (fun c -> c.CalleeName)
+    |> Seq.toArray
   Some (json<string []> names |> defaultEnc.GetBytes)
   |> answer req resp
 

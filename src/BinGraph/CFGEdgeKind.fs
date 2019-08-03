@@ -48,8 +48,10 @@ type CFGEdgeKind =
   | IntraCJmpFalseEdge
   /// An edge of a regular call instruction.
   | CallEdge
-  /// An edge of a call instruction to an external function or PLT.
-  | ExternalCallEdge
+  /// An edge from an indirect call/jmp instruction.
+  | IndirectEdge
+  /// An edge of a call/jmp instruction to an external function or PLT.
+  | ExternalEdge
   /// An edge of a function return.
   | RetEdge
   /// A simple fall-through case. This type is created when an edge cuts in two

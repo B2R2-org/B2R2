@@ -28,7 +28,7 @@
 namespace B2R2.BinGraph
 
 /// A simple directed graph, which represents any kinds of control-flow graphs
-/// (including call graphs).Vertex Data should support equality operation in
+/// (including call graphs). Vertex Data should support equality operation in
 /// order to support FindVertexByData method. Any graph that inherits from this
 /// class operates with our visualizer.
 type ControlFlowGraph<'V, 'E when 'V :> BasicBlock and 'V : equality> =

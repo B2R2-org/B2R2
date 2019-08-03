@@ -39,9 +39,9 @@ type CmdList () =
   let createFuncString (addr, name) =
     addrToString addr + ": " + name
 
-  let listFunctions funcs =
-    funcs
-    |> Map.toSeq
+  let listFunctions app =
+    BinaryApparatus.getInternalFunctions app
+    |> Seq.map (fun c -> Option.get c.Addr, c.CalleeName)
     |> Seq.sortBy fst
     |> Seq.map createFuncString
     |> Seq.toArray
@@ -86,7 +86,7 @@ type CmdList () =
   override __.CallBack _ (binEssence: BinEssence) args =
     match args with
     | "functions" :: _
-    | "funcs" :: _ -> listFunctions binEssence.BinaryApparatus.FunctionNames
+    | "funcs" :: _ -> listFunctions binEssence.BinaryApparatus
     | "segments" :: _
     | "segs" :: _ -> listSegments binEssence.BinHandler
     | "sections" :: _

@@ -43,25 +43,26 @@ type BinEssence = {
   SCFG: SCFG
 }
 with
-  static member private BuildFoundation hdl app =
-    let scfg = SCFG (hdl, app)
-    let app = scfg.CallTargets () |> BinaryApparatus.refreshCallTargets hdl app
-    struct (scfg, app)
-
   static member private Analysis hdl app (scfg: SCFG) analyzers =
 #if DEBUG
     printfn "[*] Start post analysis."
 #endif
     let app' = PostAnalysis.run hdl scfg app analyzers
     if app' = app then
+#if DEBUG
+      printfn "[*] All done."
+#endif
       { BinHandler = hdl
         BinaryApparatus = app'
         SCFG = scfg }
     else
-      let struct (scfg', app') = BinEssence.BuildFoundation hdl app'
+#if DEBUG
+      printfn "[*] Go to the next phase ..."
+#endif
+      let scfg' = SCFG (hdl, app')
       BinEssence.Analysis hdl app' scfg' analyzers
 
   static member Init hdl =
     let app = BinaryApparatus.init hdl
-    let struct (scfg, app) = BinEssence.BuildFoundation hdl app
+    let scfg = SCFG (hdl, app)
     BinEssence.Analysis hdl app scfg []
