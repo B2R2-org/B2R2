@@ -115,12 +115,15 @@ type Edge<'E> = Edge of 'E
 /// Disclaimer: Our graph implementation is imperative.
 [<AbstractClass>]
 type DiGraph<'V, 'E when 'V :> VertexData> () =
+  let unreachables = HashSet<Vertex<'V>> ()
+  let exits = HashSet<Vertex<'V>> ()
+
   /// A list of unreachable nodes. We always add nodes into this list first, and
   /// then later remove it from the list when adding edges.
-  member val internal Unreachables: Vertex<'V> list = [] with get, set
+  member val internal Unreachables = unreachables with get
 
   /// A list of exit nodes, which do not have any successors.
-  member val internal Exits: Vertex<'V> list = [] with get, set
+  member val internal Exits = exits with get
 
   /// Is this empty? A graph is empty when there is no vertex in the graph.
   abstract IsEmpty: unit -> bool

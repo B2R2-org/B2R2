@@ -50,10 +50,6 @@ type SCFG (hdl, app) =
     printfn "[*] All the nodes are created."
 #endif
     for i = 0 to leaders.Length - 1 do
-#if DEBUG
-      if i % 1000 = 0 then
-        printfn "[*] Edge connection (%d/%d) done." i (leaders.Length - 1)
-#endif
       SCFGUtils.connectEdges hdl g app vertices leaders i
 #if DEBUG
     printfn "[*] All the edges are connected."

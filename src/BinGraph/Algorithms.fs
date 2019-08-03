@@ -27,11 +27,14 @@
 module B2R2.BinGraph.Algorithms
 
 let rec private kahnTopologicalSortLoop acc (g: ControlFlowGraph<_, _>) =
-  match g.Unreachables with
-  | [] -> acc
-  | vertices ->
-    let acc = List.fold (fun acc (v: Vertex<_>) -> v.VData :: acc) acc vertices
-    List.iter (fun v -> g.RemoveVertex v) vertices
+  if g.Unreachables.Count = 0 then acc
+  else
+    let acc =
+      g.Unreachables
+      |> Seq.toList
+      |> List.fold (fun acc (v: Vertex<_>) ->
+        g.RemoveVertex v
+        v.VData :: acc) acc
     kahnTopologicalSortLoop acc g
 
 let kahnTopologicalSort (g: ControlFlowGraph<_, _>) =

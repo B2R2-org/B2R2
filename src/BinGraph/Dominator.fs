@@ -244,7 +244,7 @@ let preparePostDomAnalysis (fg: DiGraph<_, _>) root (bg: DiGraph<_, _>) =
   let reachMap =
     bg.FoldVertex (fun acc (v: Vertex<_>) ->
       Map.add (v.GetID ()) false acc) Map.empty
-  let exits = calculateExits fg bg reachMap bg.Unreachables
+  let exits = calculateExits fg bg reachMap <| Seq.toList bg.Unreachables
   // Restore backedges to backward graph
   List.iter (fun (src, dst, edge) -> fg.AddEdge src dst edge) backEdges
   let dummy = Vertex<'V> ()
