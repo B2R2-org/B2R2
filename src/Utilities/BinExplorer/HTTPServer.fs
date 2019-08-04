@@ -37,6 +37,7 @@ open B2R2.Visualization
 type CFGType =
   | DisasmCFG
   | IRCFG
+  | SSACFG
 
 [<DataContract>]
   type JsonDefs = {
@@ -114,6 +115,10 @@ let cfgToJSON cfgType ess g root =
     let lens = DisasmLens.Init ()
     let g, root = lens.Filter g root ess.BinaryApparatus
     Visualizer.getJSONFromGraph g root (Some ess.BinHandler)
+  | SSACFG ->
+    let lens = SSALens.Init (ess.SCFG)
+    let g, root = lens.Filter g root ess.BinaryApparatus
+    Visualizer.getJSONFromGraph g root (Some ess.BinHandler)
 
 let handleCFG req resp arbiter cfgType name =
   let ess = Protocol.getBinEssence arbiter
@@ -185,16 +190,17 @@ let handleCommand req resp arbiter (args: string) =
   Some (json<string> result  |> defaultEnc.GetBytes) |> answer req resp
 
 let handleAJAX req resp arbiter query args =
-    match query with
-    | "bininfo" -> handleBinInfo req resp arbiter
-    | "cfg-disasm" -> handleCFG req resp arbiter DisasmCFG args
-    | "cfg-ir" -> handleCFG req resp arbiter IRCFG args
-    | "functions" -> handleFunctions req resp arbiter
-    | "disasm-comment" -> () // handleComment req resp arbiter DisasmCFG args
-    | "ir-comment" -> () // handleComment req resp arbiter IRCFG args
-    | "address" -> () // handleAddress req resp arbiter args
-    | "command" -> handleCommand req resp arbiter args
-    | _ -> ()
+  match query with
+  | "bininfo" -> handleBinInfo req resp arbiter
+  | "cfg-Disasm" -> handleCFG req resp arbiter DisasmCFG args
+  | "cfg-LowUIR" -> handleCFG req resp arbiter IRCFG args
+  | "cfg-SSA" -> handleCFG req resp arbiter SSACFG args
+  | "functions" -> handleFunctions req resp arbiter
+  | "disasm-comment" -> () // handleComment req resp arbiter DisasmCFG args
+  | "ir-comment" -> () // handleComment req resp arbiter IRCFG args
+  | "address" -> () // handleAddress req resp arbiter args
+  | "command" -> handleCommand req resp arbiter args
+  | _ -> ()
 
 let handle (req: HttpListenerRequest) (resp: HttpListenerResponse) arbiter =
   match req.Url.LocalPath.Remove (0, 1) with (* Remove the first '/' *)

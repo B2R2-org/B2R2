@@ -41,7 +41,7 @@ function addTab(functionName, dims, json) {
     li = $(tabTemplate.replace('{href}', tabId).replace(/\{label\}/g, label).replace("{number}", g_tabCounter).replace("{type}", textType));
   tabContainer.find('ul').append(li);
   addGraphDiv(dims);
-  toggleDisasmIR("disasm")
+  updateCfgChooserLabel("Disasm")
 }
 
 
@@ -91,16 +91,10 @@ function deactivatedTab() {
   });
 }
 
-function toggleDisasmIR(textType) {
-  if (textType === "disasm") {
-    $("#id_disasm-to-ir").addClass("show");
-    $("#id_ir-to-disasm").removeClass("show");
-  } else if (textType === "ir") {
-    $("#id_ir-to-disasm").addClass("show");
-    $("#id_disasm-to-ir").removeClass("show");
-  } else {
-
-  }
+function updateCfgChooserLabel(textType) {
+  $("#cfgChooser li div a").parents(".dropdown")
+                           .find(".dropdown-toggle")
+                           .html(textType + ' <span class="caret"></span>');
 }
 
 function activateTab($el, callback) {
@@ -112,7 +106,7 @@ function activateTab($el, callback) {
   $tab.addClass("active");
   $("#cfgDiv-" + tabNumber).show();
   $("#minimap-" + tabNumber).show();
-  toggleDisasmIR(textType);
+  updateCfgChooserLabel(textType);
   query({
     "q": "cfg-" + textType.toLowerCase(),
     "args": functionName
@@ -134,11 +128,9 @@ function replaceTab($self, name, dims) {
   $tab.attr("value", name);
   $tab.attr("text-type", "disasm")
   let newTab = $(`<a href=#{href}>{label}<span class="glyphicon glyphicon-remove-circle close-tab"></span></a>`.replace('{href}', tabId).replace("{label}", name));
-  $("#id_ir-to-disasm").removeClass("show");
-  $("#id_disasm-to-ir").addClass("show");
   $tab.empty().append(newTab);
   query({
-    "q": "cfg-disasm",
+    "q": "cfg-Disasm",
     "args": $self.attr('title')
   },
     function (status, json) {

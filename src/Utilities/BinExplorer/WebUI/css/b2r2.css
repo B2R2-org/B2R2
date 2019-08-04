@@ -19,6 +19,7 @@
   --gray: rgb(67,67,67);
   --cmd: rgb(230, 230, 230);
 }
+
 *{box-sizing:border-box; -webkit-box-sizing:border-box;}
 span.cyan {
   color: var(--cyan);
@@ -164,6 +165,17 @@ html, body {
   animation: rotating 2s linear infinite;
 }
 
+.cfgChooserBtn {
+  display: flex;
+  border: none;
+  color: white;
+  background-color: transparent;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  font-weight: bold;
+  white-space: nowrap;
+}
 
 .changeTextType {
   display: flex;
@@ -203,7 +215,9 @@ html, body {
   min-height: 55px;
   width: 100%;
   z-index: 1;
-  background: var(--nav); }
+  background: var(--nav);
+}
+
   .fixed-navbar-top .logo-image {
     height: 55px;
     width: 55px;
@@ -234,7 +248,18 @@ html, body {
       color: white;
       -webkit-text-fill-color: white;
       cursor: pointer; }
+    .fixed-navbar-top .nav-cfg-chooser {
+      padding-left: 20px;
+      height: 55px;
+      display: flex;
+      justify-content: center;
+      align-items: center; }
     .fixed-navbar-top .nav-item {
+      height: 55px;
+      display: flex;
+      justify-content: center;
+      align-items: center; }
+    .fixed-navbar-top .nav-fixed-width {
       width: 55px;
       height: 55px;
       display: flex;
@@ -666,8 +691,6 @@ html, body {
   text-align: left;
   vertical-align: middle;
 }
-
-#id_comment-modal {}
 
 #id_comment-modal .modal-body {
   background: rgba(40, 42, 54, 1);
