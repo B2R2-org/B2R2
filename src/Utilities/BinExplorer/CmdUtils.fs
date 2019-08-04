@@ -24,26 +24,10 @@
   SOFTWARE.
 *)
 
-module internal B2R2.Utilities.BinExplorer.CmdSpec
+module B2R2.Utilities.BinExplorer.CmdUtils
 
-/// Command specification in *alphabetic* order. The entries in this list
-/// should match with the KeyWords of help commands (in defaultCmds).
-let speclist =
-  [
-    CmdBinInfo () :> Cmd
-    CmdCredits () :> Cmd
-    CmdDemangle () :> Cmd
-    CmdDisasm () :> Cmd
-    CmdGadgetSearch () :> Cmd
-    CmdROP () :> Cmd
-    CmdList () :> Cmd
-    CmdSearch () :> Cmd
-    CmdShow () :> Cmd
-    CmdHexDump () :> Cmd
-    CmdPrint () :> Cmd
-    (* Default commands *)
-    CmdHelp () :> Cmd
-    CmdExit () :> Cmd
-  ]
+open System
 
-// vim: set tw=80 sts=2 sw=2:
+let convHexString (str: string) =
+  try Convert.ToUInt64 (str, 16) |> Some
+  with _ -> None

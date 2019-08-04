@@ -10,11 +10,13 @@
   <ItemGroup>
     <Compile Include="Protocol.fs" />
     <Compile Include="CmdTypes.fs" />
+    <Compile Include="CmdUtils.fs" />
     <Compile Include="BinInfo.fs" />
     <Compile Include="Credits.fs" />
     <Compile Include="Demangle.fs" />
     <Compile Include="List.fs" />
     <Compile Include="Search.fs" />
+    <Compile Include="Show.fs" />
     <Compile Include="HexDump.fs" />
     <Compile Include="Print.fs" />
     <Compile Include="Disasm.fs" />
