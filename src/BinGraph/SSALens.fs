@@ -49,9 +49,9 @@ type SSALens (scfg) =
     root
 
   interface ILens<SSABBlock> with
-    member __.Filter (g: IRCFG) root =
+    member __.Filter (g: IRCFG) root _ =
       let ssaCFG = SSACFG ()
-      let vMap = new SSAVMap ()
+      let vMap = SSAVMap ()
       let defSites = DefSites ()
       let root = convertToSSA g ssaCFG vMap root
       ssaCFG.FindVertexBy (fun v -> v.VData.PPoint = root.VData.PPoint)

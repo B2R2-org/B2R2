@@ -188,7 +188,7 @@ type CFGTest1 () =
   member __.``SSAGraph Vertex Test: _start`` () =
     let cfg, root = ess.SCFG.GetFunctionCFG 0x0UL
     let lens = SSALens.Init (ess.SCFG)
-    let ssacfg, _ = lens.Filter cfg root
+    let ssacfg, _ = lens.Filter cfg root ess.BinaryApparatus
     Assert.AreEqual (9, ssacfg.Size ())
 
 [<TestClass>]
@@ -301,7 +301,7 @@ type CFGTest2 () =
   member __.``DisasmLens Test: _start`` () =
     let cfg, root = ess.SCFG.GetFunctionCFG 0x00UL
     let lens = DisasmLens.Init ()
-    let cfg, _ = lens.Filter cfg root
+    let cfg, _ = lens.Filter cfg root ess.BinaryApparatus
     Assert.AreEqual (4, cfg.Size ())
     let vMap = cfg.FoldVertex (fun m v ->
       Map.add v.VData.PPoint.Address v m) Map.empty
@@ -328,5 +328,5 @@ type CFGTest2 () =
   member __.``SSAGraph Vertex Test: _start`` () =
     let cfg, root = ess.SCFG.GetFunctionCFG 0x0UL
     let lens = SSALens.Init (ess.SCFG)
-    let ssacfg, _ = lens.Filter cfg root
+    let ssacfg, _ = lens.Filter cfg root ess.BinaryApparatus
     Assert.AreEqual (7, ssacfg.Size ())

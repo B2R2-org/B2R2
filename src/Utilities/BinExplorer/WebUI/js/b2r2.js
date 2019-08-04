@@ -71,14 +71,14 @@ $("#binInfo").on("click", function () {
   popToast("info", "Copy File Path", 3);
 })
 
-function disasm2irEvent(dims) {
+function registerDisasm2IREvent(dims) {
   $(document).on("click", "#id_disasm-to-ir", function () {
     var funcName = $("#uiFuncName").text();
     query({
       "q": "cfg-ir",
       "args": funcName
     },
-      function (status, json) {
+      function (_status, json) {
         if (!isEmpty(json)) {
           setuiFuncName(funcName);
           drawCFG(dims, json);
@@ -89,14 +89,14 @@ function disasm2irEvent(dims) {
   });
 };
 
-function ir2disasmEvent(dims) {
+function registerIR2DisasmEvent(dims) {
   $(document).on("click", "#id_ir-to-disasm", function () {
     var funcName = $("#uiFuncName").text();
     query({
       "q": "cfg-disasm",
       "args": funcName
     },
-      function (status, json) {
+      function (_status, json) {
         if (!isEmpty(json)) {
           setuiFuncName(funcName);
           drawCFG(dims, json);
@@ -128,8 +128,8 @@ function runOffline(dims) {
 function runOnline(dims) {
   activateTabEvent();
   closeTabEvent();
-  disasm2irEvent(dims);
-  ir2disasmEvent(dims);
+  registerDisasm2IREvent(dims);
+  registerIR2DisasmEvent(dims);
   query({ "q": "functions" }, drawFunctions);
   query({ "q": "bininfo" }, drawBinInfo);
 }
@@ -265,4 +265,4 @@ if (typeof window === 'undefined') { // For Node.js
   module.exports.initEvents = initEvents;
 } else {
   window.addEventListener('load', function () { main(); }, false);
-} 
+}

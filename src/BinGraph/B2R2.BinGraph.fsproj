@@ -33,6 +33,7 @@
     <Compile Include="SSATypes.fs" />
     <Compile Include="SSAUtils.fs" />
     <Compile Include="SSALens.fs" />
+    <Compile Include="CallGraphLens.fs" />
     <Compile Include="BinEssence.fs" />
   </ItemGroup>
 

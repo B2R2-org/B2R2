@@ -106,21 +106,21 @@ let handleBinInfo req resp arbiter =
   let txt = "\"" + txt.Replace(@"\", @"\\") + "\""
   Some (defaultEnc.GetBytes (txt)) |> answer req resp
 
-let cfgToJSON cfgType hdl g root =
+let cfgToJSON cfgType ess g root =
   match cfgType with
   | IRCFG ->
     Visualizer.getJSONFromGraph g root None
   | DisasmCFG ->
     let lens = DisasmLens.Init ()
-    let g, root = lens.Filter g root
-    Visualizer.getJSONFromGraph g root (Some hdl)
+    let g, root = lens.Filter g root ess.BinaryApparatus
+    Visualizer.getJSONFromGraph g root (Some ess.BinHandler)
 
 let handleCFG req resp arbiter cfgType name =
   let ess = Protocol.getBinEssence arbiter
   match ess.SCFG.FindFunctionEntryByName name with
   | None -> answer req resp None
   | Some addr ->
-    let s = ess.SCFG.GetFunctionCFG (addr) ||> cfgToJSON cfgType ess.BinHandler
+    let s = ess.SCFG.GetFunctionCFG (addr) ||> cfgToJSON cfgType ess
     Some (defaultEnc.GetBytes s) |> answer req resp
 
 let handleFunctions req resp arbiter =
