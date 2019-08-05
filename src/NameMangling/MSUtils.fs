@@ -146,14 +146,17 @@ let getRTTI c =
 
 let getVarAccessLevel c =
   match c with
-  | '0' -> "private: "
+  | '0' -> "private: static "
   | '1' -> "protected: static "
   | '2' -> "public: static "
   | _ -> ""
 
 let makeFunParams (lst: string list) =
-  if lst.IsEmpty then "()" else
-  sprintf "(%s)" (List.reduce (fun x y -> x + "," + y) lst)
+  let lst = List.rev lst
+  if lst.IsEmpty then "()"
+  elif lst.Head = "..." && (lst.[1] = "void" || lst.[1] = "...") then
+    sprintf "(%s)" (List.reduce (fun x y -> x + "," + y) (List.rev lst.Tail))
+  else sprintf "(%s)" (List.reduce (fun x y -> x + "," + y) (List.rev lst))
 
 let makeTemplateArgs (lst: string list) =
   if lst.IsEmpty then "<>" else
@@ -180,8 +183,11 @@ let updatePrefix lst str =
   if List.contains DoubleReferenceMod lst then str1 + "&& " else str1
 
 /// Changes any type of pointer to normal pointer while keeping its prefixes.
-let changeToNormalPointer (ptr: MSExpr) =
+let rec changeToNormalPointer (ptr: MSExpr) =
   match ptr with
   | PointerStrT ( _ , (pref, modifier), cvT) ->
       PointerStrT (NormalPointer, (pref, modifier), cvT)
+  | ModifiedType (typ, mods) -> ModifiedType (changeToNormalPointer typ, mods)
+  | PointerT (ptrStr, typ) -> PointerT(changeToNormalPointer ptrStr, typ)
+  | ConcatT lst -> List.map changeToNormalPointer lst |> ConcatT
   | _ -> ptr

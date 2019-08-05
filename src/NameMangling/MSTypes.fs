@@ -160,15 +160,15 @@ module CallScope =
     | PrivateAccess -> "private: "
     | PrivateStatic -> "private: static "
     | PrivateVirtual -> "private: virtual "
-    | PrivateThunk -> "private: thunk "
+    | PrivateThunk -> "[thunk]:private: virtual "
     | Protected -> "protected: "
     | ProtectedStatic -> "protected: static "
     | ProtectedVirtual -> "protected: virtual "
-    | ProtectedThunk -> "protected: thunk "
+    | ProtectedThunk -> "[thunk]:protected: virtual "
     | PublicAccess -> "public: "
     | PublicStatic -> "public: static "
     | PublicVirtual -> "public: virtual "
-    | PublicThunk -> "public: thunk "
+    | PublicThunk -> "[thunk]:public: virtual "
     | FreeScope -> ""
     | UnknownCallScope -> "???"
 
@@ -270,6 +270,7 @@ type NormalBuiltInType =
   | Double
   | LongDouble
   | Void
+  | Ellipsis
   | UnknownNormalBuiltInType
 
 module NormalBuiltInType =
@@ -287,6 +288,7 @@ module NormalBuiltInType =
     | 'N' -> Double
     | 'O' -> LongDouble
     | 'X' -> Void
+    | 'Z' -> Ellipsis
     |  _  -> UnknownNormalBuiltInType
 
   let toString = function
@@ -304,6 +306,7 @@ module NormalBuiltInType =
     | Double -> "double"
     | LongDouble -> "long double"
     | Void -> "void"
+    | Ellipsis -> "..."
     | _ -> "???"
 
 /// Built in types that are represented by an underscore (_), then a letter.

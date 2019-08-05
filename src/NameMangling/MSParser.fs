@@ -99,7 +99,7 @@ type MSParser () =
 
   (*-------------------Non function mangled String.------------------------*)
   let pvalueInfo =
-    anyOf "1234" .>>. (possibleType .>>. normalcvModifier |>> ModifiedType)
+    anyOf "01234" .>>. (possibleType .>>. normalcvModifier |>> ModifiedType)
     |>> (fun (x, typeV) -> ConcatT [Name (getVarAccessLevel x); typeV])
 
   let modNameInfo =
@@ -126,6 +126,12 @@ type MSParser () =
   let pnameAndAt =
     singleName .>> pchar '@' |>> Name
 
+  /// Parses anonymous namespaces
+  let pAnonymousNameSpace =
+    pstring "?A" >>. many (letter <|> digit) .>> pchar '@'
+    >>= (fun lst -> 'A' :: lst |> charListToStr |> Name |> addToNameList
+                     >>. preturn (Name "`anonymous namespace'"))
+
   (* For special names*)
   let pNSpecialName =
      upper <|> anyOf "23456789" |>> getSpecialName
@@ -147,7 +153,8 @@ type MSParser () =
   let stringConstant =
     pstring "_C@_" >>. digit >>. pnameAndAt >>. many anyChar >>% "`string'"
   let complexDynamicSpecialName =
-    pchar '?' >>. many (attempt pFunc <|> attempt nonFunctionString <|> fullName)
+    pchar '?'
+    >>. many1 (attempt pFunc <|> attempt nonFunctionString <|> fullName)
     |>> FullName .>> pchar '@'
   let dynamicSpecialName =
     pstring "__" >>. anyOf "EF" |>> getdUnderscoredSpecialName .>>.
@@ -203,7 +210,7 @@ type MSParser () =
 
   /// Parses built in types represented by just one letter.
   let normalBuiltInType =
-    anyOf "CDEFGHIJKLMNOX" |>> NormalBuiltInType.fromChar |>> SimpleBuiltInType
+    anyOf "CDEFGHIJKLMNOXZ" |>> NormalBuiltInType.fromChar |>> SimpleBuiltInType
   let underscoredType =
     pchar '_' >>. anyOf "DEFGHIJKLMNSUW" |>> UnderscoredBuiltInType.fromChar
     |>> ExtendedBuiltInType
@@ -305,6 +312,19 @@ type MSParser () =
       (fun mods dimension dataT ->
          ArrayType (ModifiedType(dataT, mods), dimension.Length + 1))
 
+  /// Handles back substitutions for arguments.
+  let typeBackRef =
+    digit |>> string |>> int .>>. getUserState
+    |>> (fun (x, us) ->
+          if x >= us.TypeList.Length then Name "?????"
+          else (List.rev us.TypeList).[x])
+
+  /// Parses a type and adds it to the typeList if it is not a simple type.
+  let smartParseType =
+    attempt normalBuiltInType
+    <|> typeBackRef
+    <|> (possibleType >>= addToTypeList)
+
   //Since all the function pointers are considered as normal pointers.
   let pointerAtFunc =
     tuple3
@@ -317,7 +337,7 @@ type MSParser () =
   let pFuncPointer =
     many (attempt pointerAtFunc) .>>.
     (pointerType |>> (fun p -> PointerStrT (p, ([],NoMod), Name "")))
-    .>> anyOf "67" .>>. upper .>>. many (possibleType)
+    .>> anyOf "67" .>>. upper .>>. many smartParseType
     .>> opt (pchar 'Z' |>> string <|> pstring "@Z")
     |>> (fun (((ptrStrs,fPtr), x), lst) ->
           FuncPointer
@@ -328,7 +348,7 @@ type MSParser () =
     many (attempt pointerAtFunc) .>>.
     (pointerType .>> anyOf "89" .>>. fullName .>> pchar '@'|>>
      (fun (p,n) -> PointerStrT (p, ([], NoMod), FullName [Name ""; n])))
-    .>>. normalcvModifier .>>. upper .>>. many (possibleType)
+    .>>. normalcvModifier .>>. upper .>>. many smartParseType
     .>> opt (pchar 'Z' |>> string <|> pstring "@Z")
     |>> (fun ((((ptrStrs,fPtr), _), x), lst) ->
           FuncPointer
@@ -339,34 +359,25 @@ type MSParser () =
     many (attempt pointerAtFunc) .>>.
     (pointerType .>> pchar '_' .>> anyOf "AB" .>>.
       (dashBasedPtrVoid <|> dashBasedPtrName)
-    |>> (fun (p, n) -> PointerStrT (p, ([], NoMod), n)))
-    .>>. upper .>>. many possibleType
+         |>> (fun (p, n) -> PointerStrT (p, ([], NoMod), n)))
+    .>>. upper .>>. many smartParseType
     .>> opt (pstring "Z" <|> pstring "@Z")
     |>> (fun (((ptrStrs,fPtr), x), lst) ->
       FuncPointer
         (fPtr :: List.rev ptrStrs, CallConvention.fromChar x,
         lst.Head, "", lst.Tail))
+
+  // All types of function pointers.
   let allFuncPointers =
     attempt pFuncPointer
     <|> attempt pMemberFuncPointer
     <|> attempt pDashBasedFuncPointer
-  /// Handles the substitutions for arguments.
-  let typeBackRef =
-    digit |>> string |>> int .>>. getUserState
-    |>> (fun (x, us) ->
-          if x >= us.TypeList.Length then Name "?????"
-          else (List.rev us.TypeList).[x])
 
   (*---Parse the function information (call types,args, modifiers, scope).---*)
   let requireMod = anyOf "ABEFIJMNQRUV"
+  let noMod = anyOf "CDKLSTYZ"
   let emptyReturn = pchar '@' >>% EmptyReturn |>> SimpleBuiltInType
   let returnTmodifier = pchar '?' >>. normalcvModifier
-
-  /// Parses a type and adds it to the typeList if it is not a simple type.
-  let smartParseType =
-    attempt normalBuiltInType
-    <|> typeBackRef
-    <|> (possibleType >>= addToTypeList)
 
   let pReqMod =
     requireMod .>>. normalcvModifier .>>. upper .>>. (opt returnTmodifier)
@@ -375,7 +386,7 @@ type MSParser () =
            CallScope.fromChar s, modifier,
            CallConvention.fromChar c, r :: tList, rtMod)
   let pNoMod =
-    upper .>>. upper .>>. (opt returnTmodifier)
+    noMod .>>. upper .>>. (opt returnTmodifier)
     .>>. (possibleType <|> emptyReturn) .>>. many smartParseType
     |>> (fun ((((s, c),rtMod),r),tList) ->
            CallScope.fromChar s, ([],NoMod),
@@ -420,7 +431,8 @@ type MSParser () =
   (* ----------For adding names and templates to the UserState----------*)
   /// Parse a name and add to the UserState if it is a name or template.
   let smartParseName =
-    pnameAndAt <|> attempt pTemplate >>= addToNameList <|> nameFragment
+    pnameAndAt <|> attempt pTemplate >>= addToNameList
+    <|> attempt pAnonymousNameSpace <|> nameFragment
 
   let smartParseExceptTemplate =
     pnameAndAt >>= addToNameList
@@ -432,10 +444,23 @@ type MSParser () =
     smartParseExceptTemplate .>>. many smartParseName
     |>> (fun (x, y) -> x :: y |> FullName)
 
+  /// Parses thunk function.
+  let pThunkFunc =
+    functionFullName .>> pchar '@' .>>. anyOf "WXGHOP" .>>.
+    (pencodedNum |>> sprintf "`adjustor{%d}'" |>> Name)
+    .>>. normalcvModifier .>>. upper .>>. (opt returnTmodifier)
+    .>>. (possibleType <|> emptyReturn) .>>. many smartParseType |>>
+    (fun ((((((((name, scope), adjustor), mods), callT), rtMod), rt), pts)) ->
+       FunctionT
+         (CallScope.fromChar scope, mods, CallConvention.fromChar callT,
+            ConcatT [name; adjustor], rt, pts, rtMod)
+    )
+
   (* -------------Tying the knot for the references created-----------------*)
   do
     fullNameRef :=
-      many1 smartParseName |>> FullName
+      smartParseName .>>. many (pAnonymousNameSpace <|> smartParseName )
+      |>> (fun (fst, rst) -> FullName (fst :: rst))
 
     possibleTypeRef :=
       attempt allFuncPointers <|> attempt arrayPtr <|> attempt complexType
@@ -445,7 +470,7 @@ type MSParser () =
 
     pFuncRef :=
       functionFullName .>> pchar '@' .>>. fInfo
-      .>> opt (pchar 'Z' |>> string <|> pstring "@Z")
+      .>> opt (pstring "@Z")
       |>> (fun (name, (scope, modifier, callT, tList, rtMod)) ->
             (scope, modifier, callT, name, tList.Head, tList.Tail, rtMod)
             |> FunctionT)
@@ -461,8 +486,9 @@ type MSParser () =
 
   (*---------------All Expressions from a mangled string------------------*)
   let allExpressions =
-    attempt pFunc <|> attempt nonFunctionString
+    attempt pFunc <|> attempt nonFunctionString <|> attempt pThunkFunc
     <|> attempt pTemplate <|> fullName
+
 
   /// Runs parser from a string.
   member __.Run str =

@@ -150,7 +150,8 @@ let rec interpret (sample: MSExpr) =
     let pSymbol = PointerTypeIndicator.getPointerSymbol p
     cvModStr + cvTypeComponent + preP + pSymbol + postP + pTypeStr
 
-  | ValueT (name, typeInfo) -> interpret typeInfo + interpret name
+  | ValueT (name, typeInfo) ->
+    interpret (MSUtils.changeToNormalPointer typeInfo) + interpret name
 
   | ConstructedTemplate (types, name) ->
     interpret (Template (FullName [name; name], types))

@@ -320,7 +320,6 @@ type MSTests () =
     wxClassInfo wxAuiToolBar::ms_classInfo''(void)"
     test mangled result
 
-
   [<TestMethod>]
   member __.`` MSDemangler: Dynamic special Name bug test 2``() =
     let mangled = "??__EwxEVT_AUITOOLBAR_TOOL_DROPDOWN@@YAXXZ"
@@ -337,4 +336,47 @@ type MSTests () =
     xEventFunctorMethod<class wxEventTypeTag<class wxSizeEvent>,class wxEvtHand\
     ler,class wxEvent,class wxEvtHandler>::GetEvtMethod(void) const)(class wxEv\
     ent &)"
+    test mangled result
+
+  [<TestMethod>]
+  member __.`` MSDemangler: Thunk Function check``() =
+    let mangled = "??_EwxSizer@@X7BAPAXI@Z"
+    let result = "[thunk]:public: virtual void * __cdecl wxSizer::`vector \
+    deleting destructor'`adjustor{8}'(unsigned int) const"
+    test mangled result
+
+  [<TestMethod>]
+  member __.`` MSDemangler: Anonymous namespace check``() =
+    let mangled = "?MergeLayout@wxAuiLayoutObject@?A0x7605e013@@QAEXABV12@@Z"
+    let result = "public: void __thiscall `anonymous namespace'::wxAuiLayoutOb\
+    ject::MergeLayout(class A0x7605e013::wxAuiLayoutObject const &)"
+    test mangled result
+
+  [<TestMethod>]
+  member __.`` MSDemangler: Function pointer substitution bug test``() =
+    let mangled = "??$OnScopeExit@V?$wxScopeGuardImpl3@P6AXPAPAVwxAuiToolBarI\
+    tem@@0I@ZPAPAV1@PAPAV1@I@@@wxPrivate@@YAXAAV?$wxScopeGuardImpl3@P6AXPAPAVwx\
+    AuiToolBarItem@@0I@ZPAPAV1@PAPAV1@I@@@Z"
+    let result = "void __cdecl wxPrivate::OnScopeExit<class wxScopeGuardImpl3\
+    <void (__cdecl*)(class wxAuiToolBarItem * *,class wxAuiToolBarItem * *,uns\
+    igned int),class wxAuiToolBarItem * *,class wxAuiToolBarItem * *,unsigned \
+    int>>(class wxScopeGuardImpl3<void (__cdecl*)(class wxAuiToolBarItem * *,\
+    class wxAuiToolBarItem * *,unsigned int),class wxAuiToolBarItem * *,class \
+    wxAuiToolBarItem * *,unsigned int> &)"
+    test mangled result
+
+  [<TestMethod>]
+  member __.`` MSDemangler: Dynamic special name on value bug check``() =
+    let mangled = "??__F?sm_eventTableEntries@wxAuiToolBar@@0QBUwxEventTableEn\
+    try@@B@@YAXXZ"
+    let result = "void __cdecl `dynamic atexit destructor for 'private: static \
+    struct wxEventTableEntry const * const wxAuiToolBar::sm_eventTableEntries''\
+    (void)"
+    test mangled result
+
+  [<TestMethod>]
+  member __.`` MSDemangler: Incomplete function parameter pack check``() =
+    let mangled = "?DoPrintfWchar@wxString@@AAAHPB_WZZ"
+    let result = "private: int __cdecl wxString::DoPrintfWchar(wchar_t const \
+    *,...)"
     test mangled result
