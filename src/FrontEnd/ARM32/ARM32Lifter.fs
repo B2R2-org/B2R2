@@ -65,11 +65,28 @@ let regsToUInt32 regs = List.fold (fun acc reg -> acc + getRegNum reg) 0u regs
 
 let regsToExpr regs = num <| BitVector.ofUInt32 (regsToUInt32 regs) 16<rt>
 
+let sfRegToExpr ctxt = function
+  | Vector reg -> getRegVar ctxt reg
+  | Scalar (reg, _) -> getRegVar ctxt reg
+
+let simdToExpr ctxt = function
+  | SFReg s -> sfRegToExpr ctxt s
+(*
+  | OneReg s -> sfRegToExpr ctxt s
+  | TwoRegs (s1, s2) -> [ sfRegToExpr ctxt s1; sfRegToExpr ctxt s2 ]
+  | ThreeRegs (s1, s2, s3) ->
+    [ sfRegToExpr ctxt s1; sfRegToExpr ctxt s2; sfRegToExpr ctxt s3 ]
+  | FourRegs (s1, s2, s3, s4) -> [ sfRegToExpr ctxt s1; sfRegToExpr ctxt s2;
+                                   sfRegToExpr ctxt s3; sfRegToExpr ctxt s4 ]
+*)
+  | _ -> raise InvalidOperandException
+
 let transOprToExpr ctxt = function
   | OprSpecReg (reg, _)
   | OprReg reg -> getRegVar ctxt reg
   | OprRegList regs -> regsToExpr regs
-  | OprImm imm -> num <| BitVector.ofInt64 imm 32<rt>
+  | OprSIMD simd -> simdToExpr ctxt simd
+  | OprImm imm -> num <| BitVector.ofInt64 imm 32<rt> // FIXME
   | _ -> raise InvalidOperandException
 
 let transOneOpr insInfo ctxt =
@@ -3276,6 +3293,79 @@ let vst1 (insInfo: InsInfo) ctxt =
   | TwoOperands (OprSIMD (FourRegs _), _) -> vst1Multi insInfo ctxt
   | _ -> raise InvalidOperandException
 
+let getESzieOfVMOV = function
+  | Some (OneDT SIMDTyp8) -> 8
+  | Some (OneDT SIMDTyp16) -> 16
+  | Some (OneDT SIMDTyp32) -> 32
+  | _ -> raise InvalidOperandException
+
+let getIndexOfVMOV = function
+  | TwoOperands (OprSIMD (SFReg (Scalar (_, Some element))), _) -> int element
+  | _ -> raise InvalidOperandException
+
+let isQwordReg = function
+  | R.Q0 | R.Q1 | R.Q2 | R.Q3 | R.Q4 | R.Q5 | R.Q6 | R.Q7 | R.Q8 | R.Q9 | R.Q10
+  | R.Q11 | R.Q12 | R.Q13 | R.Q14 | R.Q15 -> true
+  | _ -> false
+
+let parseOprOfVMOV insInfo ctxt builder =
+  match insInfo.Operands with
+  | TwoOperands (OprSIMD _, OprSIMD _) ->
+    let dst, src = transTwoOprs insInfo ctxt
+    builder <! (dst := src)
+  | TwoOperands (OprSIMD (SFReg (Vector reg)), OprImm _) ->
+    if isQwordReg reg then
+      let dst, imm = transTwoOprs insInfo ctxt
+      let imm64 = concatExprs [| imm; imm |] // FIXME
+      builder <! (extractLow 64<rt> dst := imm64)
+      builder <! (extractHigh 64<rt> dst := imm64)
+    else
+      let dst, imm = transTwoOprs insInfo ctxt
+      let imm64 = concatExprs [| imm; imm |] // FIXME
+      builder <! (dst := imm64)
+  | TwoOperands (OprSIMD _, OprReg _) ->
+    let dst, src = transTwoOprs insInfo ctxt
+    let index = getIndexOfVMOV insInfo.Operands
+    let esize = getESzieOfVMOV insInfo.SIMDTyp
+    builder <! (elem dst index esize := src)
+  | _ -> raise InvalidOperandException
+
+let vmov insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  parseOprOfVMOV insInfo ctxt builder
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+(* VMOV(immediate)/VMOV(register) *)
+let isF32orF64 = function
+  | Some (OneDT SIMDTypF32) | Some (OneDT SIMDTypF64) -> true
+  | _ -> false
+
+let isAdvSIMDByDT = function
+  (* VMOV (ARM core register to scalar/scalar to ARM core register) *)
+  | Some (OneDT SIMDTyp8) | Some (OneDT SIMDTyp16) -> true
+  | Some (OneDT SIMDTyp32) -> false
+  (* VMOV (between ARM core register and single-precision register) *)
+  (* VMOV (between two ARM core registers and two single-precision registers) *)
+  | None -> false
+  | _ -> raise UndefinedException
+
+let isAdvancedSIMD insInfo =
+  match insInfo.Operands with
+  | TwoOperands (OprSIMD _, OprImm _) | TwoOperands (OprSIMD _, OprSIMD _) ->
+    isF32orF64 insInfo.SIMDTyp |> Operators.not
+  | TwoOperands (OprSIMD _, OprReg _) | TwoOperands (OprReg _, OprSIMD _)
+  | FourOperands (OprSIMD _, OprSIMD _, OprReg _, OprReg _)
+  | FourOperands (OprReg _, OprReg _, OprSIMD _, OprSIMD _) ->
+    isAdvSIMDByDT insInfo.SIMDTyp
+  (* VMOV (between two ARM core registers and a dword extension register) *)
+  | ThreeOperands (OprSIMD _, OprReg _, OprReg _)
+  | ThreeOperands (OprReg _, OprReg _, OprSIMD _) -> false
+  | _ -> false
+
 /// Translate IR.
 let translate insInfo ctxt =
   match insInfo.Opcode with
@@ -3405,17 +3495,18 @@ let translate insInfo ctxt =
   | Op.VPUSH -> vpush insInfo ctxt
   | Op.VAND -> vand insInfo ctxt
   | Op.VMRS -> vmrs insInfo ctxt
+  | Op.VMOV when Operators.not (isAdvancedSIMD insInfo) ->
+    sideEffects insInfo UnsupportedFP
+  | Op.VMOV -> vmov insInfo ctxt
   | Op.VST1 -> vst1 insInfo ctxt
-  | Op.VST2
-  | Op.VST3
-  | Op.VST4
+  | Op.VST2 | Op.VST3 | Op.VST4
   | Op.VLD1 | Op.VLD2 | Op.VLD3 | Op.VLD4 | Op.VLDM | Op.VLDMDB | Op.VLDMIA
   | Op.VCEQ | Op.VCGT | Op.VCGE | Op.VCLE | Op.VCLT | Op.VTST
   | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT
   | Op.VCVT | Op.VCVTR | Op.VMLS | Op.VADD | Op.VSUB | Op.VMUL | Op.VDIV
   | Op.VSHL | Op.VSHR | Op.VRSHR | Op.VRSHRN | Op.VDUP | Op.VTBL
   | Op.VPADD | Op.VMULL | Op.VMLAL | Op.VCLZ | Op.VNEG
-  | Op.VMOVN | Op.VMOV | Op.VMAX | Op.VMIN | Op.VABS
+  | Op.VMOVN | Op.VMAX | Op.VMIN | Op.VABS
   | Op.VORR | Op.VORN
   | Op.VCMP | Op.VCMPE | Op.VSTM | Op.VSTMDB | Op.VSTMIA ->
     sideEffects insInfo UnsupportedExtension
