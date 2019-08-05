@@ -36,26 +36,24 @@ type VisGraph = ControlFlowGraph<VisBBlock, VisEdge>
 module VisGraph =
   let ofCFG (g: ControlFlowGraph<#BasicBlock, _>) (r: Vertex<#BasicBlock>) hdl =
     let newGraph = VisGraph ()
-    let visited = Dictionary<ProgramPoint, Vertex<VisBBlock>> ()
+    let visited = Dictionary<VertexID, Vertex<VisBBlock>> ()
     let getVisBBlock (oldV: Vertex<#BasicBlock>) =
-      match visited.TryGetValue oldV.VData.PPoint with
+      match visited.TryGetValue (oldV.GetID ()) with
       | false, _ ->
         let blk =
           match hdl with
           | None -> VisBBlock (oldV.VData :> BasicBlock, false)
           | Some hdl -> VisBBlock (oldV.VData :> BasicBlock, false, hdl)
         let v = newGraph.AddVertex blk
-        visited.[oldV.VData.PPoint] <- v
+        visited.[oldV.GetID ()] <- v
         v
       | true, v -> v
     let root = getVisBBlock r
     g.IterEdge (fun src dst e ->
-      if src.VData.IsDummyBlock () || dst.VData.IsDummyBlock () then ()
-      else
-        let srcV = getVisBBlock src
-        let dstV = getVisBBlock dst
-        let edge = VisEdge (e)
-        newGraph.AddEdge srcV dstV edge)
+      let srcV = getVisBBlock src
+      let dstV = getVisBBlock dst
+      let edge = VisEdge (e)
+      newGraph.AddEdge srcV dstV edge)
     newGraph, root
 
   let getID v = Vertex<VisBBlock>.GetID v

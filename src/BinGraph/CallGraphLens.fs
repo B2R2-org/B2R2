@@ -31,7 +31,7 @@ open B2R2.BinGraph
 open System.Collections.Generic
 
 /// Basic block type for a call graph (CallCFG).
-type CallGraphBBlock (addr, name, isDummy) =
+type CallGraphBBlock (addr, name, isFake) =
   inherit BasicBlock ()
 
   member __.Name with get () = name
@@ -40,7 +40,7 @@ type CallGraphBBlock (addr, name, isDummy) =
 
   override __.Range = AddrRange (addr, addr + 1UL)
 
-  override __.IsDummyBlock () = isDummy
+  override __.IsFakeBlock () = isFake
 
   override __.ToVisualBlock (_) =
     let term = "CallGraphBB(" + addr.ToString ("X") + ")" |> String
@@ -57,12 +57,12 @@ type CallGraphLens (scfg: SCFG) =
   let getFunctionVertex g vMap (old: Vertex<IRBasicBlock>) addr app =
     match (vMap: CallVMap).TryGetValue addr with
     | false, _ ->
-      let isDummy = old.VData.IsDummyBlock ()
+      let isFake = old.VData.IsFakeBlock ()
       match app.CalleeMap.Find (addr) with
       | None -> None
       | Some callee ->
         let name = callee.CalleeName
-        let v = (g: CallCFG).AddVertex (CallGraphBBlock (addr, name, isDummy))
+        let v = (g: CallCFG).AddVertex (CallGraphBBlock (addr, name, isFake))
         vMap.Add (addr, v)
         Some v
     | true, v -> Some v

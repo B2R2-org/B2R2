@@ -9,15 +9,15 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 module Utils =
   type IRNode = Vertex<IRBasicBlock>
 
-  let foldVertexNoDummy m (v: IRNode) =
-    if v.VData.IsDummyBlock () then m
+  let foldVertexNoFake m (v: IRNode) =
+    if v.VData.IsFakeBlock () then m
     else Map.add v.VData.PPoint v m
 
   let foldEdge m (v1: IRNode) (v2: IRNode) e =
     Map.add (v1.VData.PPoint, v2.VData.PPoint) e m
 
-  let foldEdgeNoDummy m (v1: IRNode) (v2: IRNode) e =
-    if v1.VData.IsDummyBlock () || v2.VData.IsDummyBlock () then m
+  let foldEdgeNoFake m (v1: IRNode) (v2: IRNode) e =
+    if v1.VData.IsFakeBlock () || v2.VData.IsFakeBlock () then m
     else Map.add (v1.VData.PPoint, v2.VData.PPoint) e m
 
 [<TestClass>]
@@ -94,7 +94,7 @@ type CFGTest1 () =
   member __.``Vertex Test: _start`` () =
     let cfg, _ = ess.SCFG.GetFunctionCFG 0x00UL
     Assert.AreEqual (9, cfg.Size ())
-    let vMap = cfg.FoldVertex Utils.foldVertexNoDummy Map.empty
+    let vMap = cfg.FoldVertex Utils.foldVertexNoFake Map.empty
     Assert.AreEqual (7, vMap.Count)
     let leaders =
       [| ProgramPoint (0x00UL, 0); ProgramPoint (0x19UL, 0);
@@ -112,7 +112,7 @@ type CFGTest1 () =
   [<TestMethod>]
   member __.``Edge Test: _start`` () =
     let cfg, _ = ess.SCFG.GetFunctionCFG 0x00UL
-    let vMap = cfg.FoldVertex Utils.foldVertexNoDummy Map.empty
+    let vMap = cfg.FoldVertex Utils.foldVertexNoFake Map.empty
     let leaders =
       [| ProgramPoint (0x00UL, 0); ProgramPoint (0x19UL, 0);
          ProgramPoint (0x3FUL, 0); ProgramPoint (0x48UL, 0);
@@ -121,7 +121,7 @@ type CFGTest1 () =
     let vertices = leaders |> Array.map (fun l -> Map.find l vMap)
     let eMap = cfg.FoldEdge Utils.foldEdge Map.empty
     Assert.AreEqual (13, eMap.Count)
-    let eMap = cfg.FoldEdge Utils.foldEdgeNoDummy Map.empty
+    let eMap = cfg.FoldEdge Utils.foldEdgeNoFake Map.empty
     Assert.AreEqual (7, eMap.Count)
     [ ProgramPoint (0x00UL, 0), ProgramPoint (0x19UL, 0);
       ProgramPoint (0x19UL, 0), ProgramPoint (0x3FUL, 0);
@@ -148,7 +148,7 @@ type CFGTest1 () =
   member __.``Vertex Test: foo`` () =
     let cfg, _ = ess.SCFG.GetFunctionCFG 0x62UL
     Assert.AreEqual (1, cfg.Size ())
-    let vMap = cfg.FoldVertex Utils.foldVertexNoDummy Map.empty
+    let vMap = cfg.FoldVertex Utils.foldVertexNoFake Map.empty
     let leaders = [| ProgramPoint (0x62UL, 0) |]
     let actual = leaders |> Array.map (fun l -> (Map.find l vMap).VData.Range)
     let expected = [| AddrRange (0x62UL, 0x71UL) |]
@@ -164,7 +164,7 @@ type CFGTest1 () =
   member __.``Vertex Test: bar`` () =
     let cfg, _ = ess.SCFG.GetFunctionCFG 0x71UL
     Assert.AreEqual (2, cfg.Size ())
-    let vMap = cfg.FoldVertex Utils.foldVertexNoDummy Map.empty
+    let vMap = cfg.FoldVertex Utils.foldVertexNoFake Map.empty
     let leaders = [| ProgramPoint (0x71UL, 0); ProgramPoint (0x81UL, 0) |]
     let actual = leaders |> Array.map (fun l -> (Map.find l vMap).VData.Range)
     let expected = [| AddrRange (0x71UL, 0x81UL); AddrRange (0x81UL, 0x84UL) |]
@@ -173,7 +173,7 @@ type CFGTest1 () =
   [<TestMethod>]
   member __.``Edge Test: bar`` () =
     let cfg, _ = ess.SCFG.GetFunctionCFG 0x71UL
-    let vMap = cfg.FoldVertex Utils.foldVertexNoDummy Map.empty
+    let vMap = cfg.FoldVertex Utils.foldVertexNoFake Map.empty
     let leaders = [| ProgramPoint (0x71UL, 0); ProgramPoint (0x81UL, 0) |]
     let vertices = leaders |> Array.map (fun l -> Map.find l vMap)
     let eMap = cfg.FoldEdge Utils.foldEdge Map.empty
@@ -187,9 +187,9 @@ type CFGTest1 () =
   [<TestMethod>]
   member __.``SSAGraph Vertex Test: _start`` () =
     let cfg, root = ess.SCFG.GetFunctionCFG 0x0UL
-    let lens = SSALens.Init (ess.SCFG)
+    let lens = SSALens.Init hdl ess.SCFG
     let ssacfg, _ = lens.Filter cfg root ess.BinaryApparatus
-    Assert.AreEqual (9, ssacfg.Size ())
+    Assert.AreEqual (10, ssacfg.Size ())
 
 [<TestClass>]
 type CFGTest2 () =
@@ -246,7 +246,7 @@ type CFGTest2 () =
   member __.``Vertex Test: _start`` () =
     let cfg, _ = ess.SCFG.GetFunctionCFG 0x00UL
     Assert.AreEqual (7, cfg.Size ())
-    let vMap = cfg.FoldVertex Utils.foldVertexNoDummy Map.empty
+    let vMap = cfg.FoldVertex Utils.foldVertexNoFake Map.empty
     let leaders =
       [| ProgramPoint (0x00UL, 0); ProgramPoint (0x0CUL, 0);
          ProgramPoint (0x1CUL, 0); ProgramPoint (0x1CUL, 2);
@@ -268,7 +268,7 @@ type CFGTest2 () =
   [<TestMethod>]
   member __.``Edge Test: _start`` () =
     let cfg, _ = ess.SCFG.GetFunctionCFG 0x00UL
-    let vMap = cfg.FoldVertex Utils.foldVertexNoDummy Map.empty
+    let vMap = cfg.FoldVertex Utils.foldVertexNoFake Map.empty
     let leaders =
       [| ProgramPoint (0x00UL, 0); ProgramPoint (0x0CUL, 0);
          ProgramPoint (0x1CUL, 0); ProgramPoint (0x1CUL, 2);
@@ -276,7 +276,7 @@ type CFGTest2 () =
     let vertices = leaders |> Array.map (fun l -> Map.find l vMap)
     let eMap = cfg.FoldEdge Utils.foldEdge Map.empty
     Assert.AreEqual (8, eMap.Count)
-    let eMap = cfg.FoldEdge Utils.foldEdgeNoDummy Map.empty
+    let eMap = cfg.FoldEdge Utils.foldEdgeNoFake Map.empty
     Assert.AreEqual (6, eMap.Count)
     [ (ProgramPoint (0x00UL, 0), ProgramPoint (0x0CUL, 0));
       (ProgramPoint (0x0CUL, 0), ProgramPoint (0x1CUL, 0));
@@ -327,6 +327,6 @@ type CFGTest2 () =
   [<TestMethod>]
   member __.``SSAGraph Vertex Test: _start`` () =
     let cfg, root = ess.SCFG.GetFunctionCFG 0x0UL
-    let lens = SSALens.Init (ess.SCFG)
+    let lens = SSALens.Init hdl ess.SCFG
     let ssacfg, _ = lens.Filter cfg root ess.BinaryApparatus
     Assert.AreEqual (7, ssacfg.Size ())

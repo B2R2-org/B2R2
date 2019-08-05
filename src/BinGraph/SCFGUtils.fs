@@ -110,11 +110,11 @@ let private addFallthroughEdge g vmap (src: Vertex<IRBasicBlock>) =
 let private getIndirectDstNode (g: IRCFG) (vmap: VMap) callee =
   match callee.Addr with
   | None ->
-    let dummyPos = ProgramPoint.GetDummy ()
-    match vmap.TryGetValue dummyPos with
+    let fakePos = ProgramPoint.GetFake ()
+    match vmap.TryGetValue fakePos with
     | false, _ ->
-      let v = g.AddVertex (IRBasicBlock ([||], dummyPos))
-      vmap.[dummyPos] <- v
+      let v = g.AddVertex (IRBasicBlock ([||], fakePos))
+      vmap.[fakePos] <- v
       Some v
     | true, v -> Some v
   | Some addr ->
@@ -127,7 +127,7 @@ let private addIndirectEdges (g: IRCFG) app vmap (src: Vertex<IRBasicBlock>) =
     match getIndirectDstNode g vmap callee with
     | None -> ()
     | Some dst ->
-      if ProgramPoint.IsDummy dst.VData.PPoint then
+      if ProgramPoint.IsFake dst.VData.PPoint then
         g.AddEdge src dst ExternalEdge
       else
         g.AddEdge src dst IndirectEdge

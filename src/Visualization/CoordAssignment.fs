@@ -46,13 +46,13 @@ let private blockIntervalY = 100.0
 
 // Inner segment is an edge between two dummy nodes
 let hasInnerSegment (v: Vertex<VisBBlock>) =
-  if v.VData.IsDummyBlock () then
-    VisGraph.getPreds v |> List.exists (fun v -> v.VData.IsDummyBlock ())
+  if v.VData.IsDummy then
+    VisGraph.getPreds v |> List.exists (fun v -> v.VData.IsDummy)
   else false
 
 let getInnerPred (v: Vertex<VisBBlock>) =
   VisGraph.getPreds v
-  |> List.find (fun v -> v.VData.IsDummyBlock ())
+  |> List.find (fun v -> v.VData.IsDummy)
 
 // Type2 conflict means two inner segments are crossing
 let markTypeTwoConflict v conflicts v0 =
@@ -367,12 +367,12 @@ let adjustXCoordinate (v: Vertex<VisBBlock>) =
 
 let getLeftCoordinate xs (v: Vertex<VisBBlock>) =
   let vData = v.VData
-  if vData.IsDummyBlock () then xs
+  if vData.IsDummy then xs
   else vData.Coordinate.X :: xs
 
 let getRightCoordinate xs (v: Vertex<VisBBlock>) =
   let vData = v.VData
-  if vData.IsDummyBlock () then xs
+  if vData.IsDummy then xs
   else (vData.Coordinate.X + vData.Width) :: xs
 
 let shiftXCoordinate shift (v: Vertex<VisBBlock>) =

@@ -28,33 +28,45 @@ namespace B2R2.BinGraph
 
 open B2R2
 open B2R2.BinIR
+open B2R2.FrontEnd
 
 module SSABlockHelper =
   let private updateDefinedVar set = function
     | LowUIR.Put (LowUIR.Var (_) as dst, _) ->
       Set.add (SSA.AST.translateDest dst) set
     | LowUIR.Store (_) ->
-      Set.add ({ Kind = SSA.MemVar; Identifier = -1 }) set
+      Set.add ({ SSA.Kind = SSA.MemVar; SSA.Identifier = -1 }) set
     | _ -> set
 
   let private defVarFolder acc (v: Vertex<IRBasicBlock>) =
     v.VData.GetIRStatements ()
     |> Array.fold (fun acc stmts -> Array.fold updateDefinedVar acc stmts) acc
 
+  let private addDefaultDefs (hdl: BinHandler) =
+    match hdl.ISA.Arch with
+    | Architecture.IntelX86 ->
+      let sp = Intel.Register.ESP |> Intel.Register.toRegID
+      [| ({ SSA.Kind = SSA.RegVar (32<rt>, sp, "ESP"); SSA.Identifier = -1 }) |]
+    | Architecture.IntelX64 ->
+      let sp = Intel.Register.RSP |> Intel.Register.toRegID
+      [| ({ SSA.Kind = SSA.RegVar (64<rt>, sp, "RSP"); SSA.Identifier = -1 }) |]
+    | _ -> [||]
+
   /// This is currently intra-procedural.
-  let computeDefinedVars (scfg: SCFG) addr =
+  let computeDefinedVars hdl (scfg: SCFG) addr =
     try
       let g, root = scfg.GetFunctionCFG addr
-      g.FoldVertexDFS root defVarFolder Set.empty
-      |> Set.toArray
+      let defs = g.FoldVertexDFS root defVarFolder Set.empty |> Set.toArray
+      if Array.isEmpty defs then addDefaultDefs hdl
+      else defs
     with _ -> [||]
 
 /// Basic block type for an SSA-based CFG (SSACFG).
-type SSABBlock (scfg, pp: ProgramPoint, pairs: InsIRPair []) =
+type SSABBlock (hdl, scfg, pp: ProgramPoint, pairs: InsIRPair []) =
   inherit BasicBlock ()
   let mutable stmts =
     if Array.isEmpty pairs then
-      SSABlockHelper.computeDefinedVars scfg pp.Address
+      SSABlockHelper.computeDefinedVars hdl scfg pp.Address
       |> Array.map (fun dst -> SSA.Def (dst, SSA.Return (pp.Address)))
     else
       pairs
@@ -71,7 +83,7 @@ type SSABBlock (scfg, pp: ProgramPoint, pairs: InsIRPair []) =
     let last = pairs.[pairs.Length - 1] |> fst
     AddrRange (last.Address, last.Address + uint64 last.Length)
 
-  override __.IsDummyBlock () = Array.isEmpty pairs
+  override __.IsFakeBlock () = Array.isEmpty pairs
 
   override __.ToVisualBlock (_) =
     __.Stmts
@@ -79,6 +91,8 @@ type SSABBlock (scfg, pp: ProgramPoint, pairs: InsIRPair []) =
     |> List.map (fun stmt -> [ SSA.Pp.stmtToString stmt |> String ])
 
   member __.Stmts with get () = stmts and set (v) = stmts <- v
+
+  member __.InsPairs with get () = pairs
 
   member __.Frontier with get () = frontier and set(v) = frontier <- v
 

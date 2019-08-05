@@ -73,6 +73,9 @@ module VisualLine =
 /// A visual representation of a basic block.
 type VisualBlock = VisualLine list
 
+module VisualBlock =
+  let empty: VisualBlock = [ [String "(empty)"] ]
+
 /// The base type for basic block.
 [<AbstractClass>]
 type BasicBlock () =
@@ -81,8 +84,8 @@ type BasicBlock () =
   abstract PPoint: ProgramPoint with get
   /// The instruction address range of the basic block.
   abstract Range: AddrRange with get
-  /// Check if this is a dummy basic block inserted by our analysis. We consider
-  /// a dummy block to create call target vertex in a function-level CFG.
-  abstract IsDummyBlock: unit -> bool
+  /// Check if this is a fake basic block inserted by our analysis. We create a
+  /// fake block to represent call target vertices in a function-level CFG.
+  abstract IsFakeBlock: unit -> bool
   /// Convert this basic block to a visual representation.
   abstract ToVisualBlock: ?hdl: B2R2.FrontEnd.BinHandler -> VisualBlock

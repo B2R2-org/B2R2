@@ -35,6 +35,14 @@ type SSACFG = ControlFlowGraph<SSABBlock, CFGEdgeKind>
 /// A mapping from an address to a SSACFG vertex.
 type SSAVMap = Dictionary<ProgramPoint, Vertex<SSABBlock>>
 
+/// This is a mapping from an edge to a dummy vertex (for external function
+/// calls). We first separately create dummy vertices even if they are
+/// associated with the same node (address) in order to compute dominance
+/// relationships without introducing incorrect paths or cycles. For
+/// convenience, we will always consider as a key "a return edge" from a fake
+/// vertex to a fall-through vertex.
+type FakeVMap = Dictionary<ProgramPoint * ProgramPoint, Vertex<SSABBlock>>
+
 /// Mapping from a variable to a set of defining SSA basic blocks.
 type DefSites = Dictionary<SSA.VariableKind, Set<Vertex<SSABBlock>>>
 

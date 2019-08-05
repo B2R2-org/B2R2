@@ -41,12 +41,13 @@ type ProgramPoint (addr, pos) =
     | :? ProgramPoint as o -> o.Address = __.Address && o.Position = __.Position
     | _ -> false
   override __.GetHashCode () = hash (__.Address, __.Position)
+  override __.ToString () = addr.ToString ("X") + ":" + pos.ToString ()
 
-  /// Get a dummy program point to represent a dummy vertex, which does not
-  /// exist in the binary, in a SCFG. Dummy vertices are useful for representing
-  /// external function calls and their nodes in the SCFG.
-  static member GetDummy () = ProgramPoint (0UL, -1)
-  static member IsDummy (p: ProgramPoint) = p.Address = 0UL && p.Position = -1
+  /// Get a fake program point to represent a fake vertex, which does not exist
+  /// in a CFG. Fake vertices are useful for representing external function
+  /// calls and their nodes in the SCFG.
+  static member GetFake () = ProgramPoint (0UL, -1)
+  static member IsFake (p: ProgramPoint) = p.Address = 0UL && p.Position = -1
 
   interface System.IComparable with
     member __.CompareTo (o) =

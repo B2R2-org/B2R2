@@ -123,7 +123,7 @@ let buildGraph _verbose handle =
   BinEssence.Init handle
 
 let startGUI (opts: BinExplorerOpts) arbiter =
-  HTTPServer.startServer arbiter opts.Port |> Async.Start
+  HTTPServer.startServer arbiter opts.Port opts.Verbose |> Async.Start
 
 /// Dump each CFG into JSON file. This feature is implemented to ease the
 /// development and debugging process, and may be removed in the future.

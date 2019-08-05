@@ -95,7 +95,7 @@ let initializeLine pCoord pOff line =
   (pX + pOffX, pY + pOffY) :: (pX + pOffX, pY) :: line
 
 let extendLine (hPerLayer: _ []) p pCoord pOff cCoord line =
-  if (p: Vertex<VisBBlock>).VData.IsDummyBlock ()
+  if (p: Vertex<VisBBlock>).VData.IsDummy
     && snd pCoord < snd cCoord then
     let pX, pY = pCoord
     let pOffX, pOffY = pOff
@@ -110,7 +110,7 @@ let extendBackEdgeLine p pCoord pOff c cCoord cOff line =
   let cX, cY = cCoord
   let cOffX, cOffY = cOff
   let cWidth = VisGraph.getWidth c
-  if pY > cY && not ((p: Vertex<VisBBlock>).VData.IsDummyBlock ()) then
+  if pY > cY && not ((p: Vertex<VisBBlock>).VData.IsDummy) then
     if pX < cX then
       let xEnd = max (pX + pOffX + pWidth / 2.0) (cX + cOffX + cWidth / 2.0)
       (xEnd, cY - cOffY) :: (xEnd, List.head line |> snd) :: line
@@ -123,7 +123,7 @@ let buildJustBeforeLast pCoord c cCoord cOff line =
   let _, pY = pCoord
   let cX, cY = cCoord
   let cOffX, cOffY = cOff
-  if not ((c: Vertex<VisBBlock>).VData.IsDummyBlock ()) then
+  if not ((c: Vertex<VisBBlock>).VData.IsDummy) then
     let line =
       if pY > cY then (List.head line |> fst, cY - cOffY) :: line else line
     (cX + cOffX, cY) :: (cX + cOffX, cY - cOffY) :: line

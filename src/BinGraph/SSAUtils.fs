@@ -2,6 +2,7 @@
   B2R2 - the Next-Generation Reversing Platform
 
   Author: Soomin Kim <soomink@kaist.ac.kr>
+          Sang Kil Cha <sangkilc@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -55,9 +56,10 @@ let rec iterDefs phiSites (defsPerNode: DefsPerNode) variable = function
       |> List.fold (findPhiSites defs variable) (phiSites, workList)
     iterDefs phiSites defsPerNode variable workList
 
-let placePhis (vMap: SSAVMap) (defSites: DefSites) domCtxt =
+let placePhis (vMap: SSAVMap) (fMap: FakeVMap) (defSites: DefSites) domCtxt =
   let defsPerNode = DefsPerNode ()
-  vMap.Values |> Seq.iter (fun v ->
+  Seq.append vMap.Values fMap.Values
+  |> Seq.iter (fun v ->
     let defs = v.VData.Stmts |> Array.fold collectDefVars Set.empty
     defsPerNode.[v] <- defs
     defs |> Set.iter (fun d ->

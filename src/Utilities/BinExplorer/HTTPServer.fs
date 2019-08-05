@@ -116,7 +116,7 @@ let cfgToJSON cfgType ess g root =
     let g, root = lens.Filter g root ess.BinaryApparatus
     Visualizer.getJSONFromGraph g root (Some ess.BinHandler)
   | SSACFG ->
-    let lens = SSALens.Init (ess.SCFG)
+    let lens = SSALens.Init ess.BinHandler ess.SCFG
     let g, root = lens.Filter g root ess.BinaryApparatus
     Visualizer.getJSONFromGraph g root (Some ess.BinHandler)
 
@@ -211,11 +211,11 @@ let handle (req: HttpListenerRequest) (resp: HttpListenerResponse) arbiter =
   | path ->
     IO.Path.Combine (rootDir, path) |> readIfExists |> answer req resp
 
-let startServer arbiter port =
+let startServer arbiter port verbose =
   let host = "http://localhost:" + port.ToString () + "/"
   let handler (req: HttpListenerRequest) (resp: HttpListenerResponse) =
     try handle req resp arbiter
-    with _ -> () (* Gracefully terminate if a fatal error occurs. *)
+    with e -> if verbose then eprintfn "%A" e else ()
   listener host handler
 
 // vim: set tw=80 sts=2 sw=2:

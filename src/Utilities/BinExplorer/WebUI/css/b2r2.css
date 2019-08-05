@@ -575,6 +575,26 @@ html, body {
   filter: url(#cfgBlur);
   stroke: var(--purple); }
 
+.cfgCallEdge {
+  stroke: var(--lightgray); }
+
+.cfgCallEdgeArrow {
+  fill: var(--lightgray); }
+
+.cfgCallEdgeBlur:hover {
+  filter: url(#cfgBlur);
+  stroke: var(--lightgray); }
+
+.cfgRetEdge {
+  stroke: var(--lightgray); }
+
+.cfgRetEdgeArrow {
+  fill: var(--lightgray); }
+
+.cfgRetEdgeBlur:hover {
+  filter: url(#cfgBlur);
+  stroke: var(--lightgray); }
+
 .cfgDisasmComment {
   fill: var(--comment); }
 

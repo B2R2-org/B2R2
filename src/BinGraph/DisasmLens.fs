@@ -41,7 +41,7 @@ type DisasmBBlock (instructions: Instruction [], pp) =
     let last = instructions.[instructions.Length - 1]
     AddrRange (last.Address, last.Address + uint64 last.Length)
 
-  override __.IsDummyBlock () = Array.isEmpty instructions
+  override __.IsFakeBlock () = Array.isEmpty instructions
 
   override __.ToVisualBlock (binhandler) =
     __.Disassemblies (binhandler)

@@ -46,6 +46,8 @@ type VisBBlock (blk: BasicBlock, isDummy, ?hdl) =
     match hdl with
     | None -> blk.ToVisualBlock ()
     | Some hdl -> blk.ToVisualBlock (hdl)
+    |> fun block ->
+      if block.IsEmpty then VisualBlock.empty else block
 
   let maxLine = visBlock |> List.maxBy (VisualLine.lineWidth)
 
@@ -67,9 +69,11 @@ type VisBBlock (blk: BasicBlock, isDummy, ?hdl) =
 
   override __.Range with get () = blk.Range
 
-  override __.IsDummyBlock () = isDummy
+  override __.IsFakeBlock () = blk.IsFakeBlock ()
 
   override __.ToVisualBlock (_) = visBlock
+
+  member __.IsDummy with get () = isDummy
 
   /// The width of the node.
   member __.Width with get () = width

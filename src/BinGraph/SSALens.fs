@@ -27,37 +27,60 @@
 
 namespace B2R2.BinGraph
 
+open System.Collections.Generic
+
 /// A graph lens for obtaining SSACFG.
-type SSALens (scfg) =
-  let getVertex g (vMap: SSAVMap) (old: Vertex<IRBasicBlock>) pos =
+type SSALens (hdl, scfg) =
+  let getVertex g (vMap: SSAVMap) (oldSrc: Vertex<IRBasicBlock>) =
+    let pos = oldSrc.VData.PPoint
     match vMap.TryGetValue pos with
     | false, _ ->
-      let pairs = old.VData.GetPairs ()
-      let v = (g: SSACFG).AddVertex (SSABBlock (scfg, pos, pairs))
+      let pairs = oldSrc.VData.GetPairs ()
+      let v = (g: SSACFG).AddVertex (SSABBlock (hdl, scfg, pos, pairs))
       vMap.Add (pos, v)
       v
     | true, v -> v
 
-  let convertToSSA (irCFG: IRCFG) ssaCFG vMap root =
-    let root = getVertex ssaCFG vMap root root.VData.PPoint
+  let getFakeVertex g (fMap: FakeVMap) srcPos dstPos =
+    let pos = (srcPos, dstPos)
+    match fMap.TryGetValue pos with
+    | false, _ ->
+      let v = (g: SSACFG).AddVertex (SSABBlock (hdl, scfg, srcPos, [||]))
+      fMap.Add (pos, v)
+      v
+    | true, v -> v
+
+  let convertToSSA (irCFG: IRCFG) ssaCFG vMap fMap root =
+    let root = getVertex ssaCFG vMap root
     irCFG.IterEdge (fun src dst e ->
-      let srcPos = src.VData.PPoint
-      let dstPos = dst.VData.PPoint
-      let srcV = getVertex ssaCFG vMap src srcPos
-      let dstV = getVertex ssaCFG vMap dst dstPos
-      ssaCFG.AddEdge srcV dstV e)
+      (* If a node is fake, it is a call target. *)
+      if dst.VData.IsFakeBlock () then
+        let last = src.VData.LastInstruction
+        let fall = ProgramPoint (last.Address + uint64 last.Length, 0)
+        let srcV = getVertex ssaCFG vMap src
+        let dstV = getFakeVertex ssaCFG fMap dst.VData.PPoint fall
+        ssaCFG.AddEdge srcV dstV e
+      elif src.VData.IsFakeBlock () then
+        let srcV = getFakeVertex ssaCFG fMap src.VData.PPoint dst.VData.PPoint
+        let dstV = getVertex ssaCFG vMap dst
+        ssaCFG.AddEdge srcV dstV e
+      else
+        let srcV = getVertex ssaCFG vMap src
+        let dstV = getVertex ssaCFG vMap dst
+        ssaCFG.AddEdge srcV dstV e)
     root
 
   interface ILens<SSABBlock> with
     member __.Filter (g: IRCFG) root _ =
       let ssaCFG = SSACFG ()
       let vMap = SSAVMap ()
+      let fMap = FakeVMap ()
       let defSites = DefSites ()
-      let root = convertToSSA g ssaCFG vMap root
+      let root = convertToSSA g ssaCFG vMap fMap root
       ssaCFG.FindVertexBy (fun v -> v.VData.PPoint = root.VData.PPoint)
       |> SSAUtils.computeFrontiers ssaCFG
-      |> SSAUtils.placePhis vMap defSites
+      |> SSAUtils.placePhis vMap fMap defSites
       |> SSAUtils.renameVars defSites
       ssaCFG, root
 
-  static member Init (scfg) = SSALens (scfg) :> ILens<SSABBlock>
+  static member Init hdl scfg = SSALens (hdl, scfg) :> ILens<SSABBlock>

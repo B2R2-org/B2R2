@@ -53,7 +53,7 @@ type IRBasicBlock (pairs: InsIRPair [], point: ProgramPoint) =
     let lastAddr = __.LastInstruction.Address + uint64 __.LastInstruction.Length
     AddrRange (__.PPoint.Address, lastAddr)
 
-  override __.IsDummyBlock () = Array.isEmpty pairs
+  override __.IsFakeBlock () = Array.isEmpty pairs
 
   override __.ToVisualBlock (_) =
     __.GetIRStatements ()

@@ -89,8 +89,8 @@ type SCFG (hdl, app) =
     and getCurrentVertex oldVertex pos e =
       match e, vMap.TryGetValue pos with
       | CallEdge, (false, _) ->
-        let dummy = IRBasicBlock([||], pos)
-        let v = newGraph.AddVertex dummy
+        let fake = IRBasicBlock([||], pos)
+        let v = newGraph.AddVertex fake
         vMap.Add (pos, v)
         false, v
       | _, (false, _) ->
