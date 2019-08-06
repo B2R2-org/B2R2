@@ -144,17 +144,18 @@ module CallScope =
     | 'A' | 'B' -> PrivateAccess
     | 'C' | 'D' -> PrivateStatic
     | 'E' | 'F' -> PrivateVirtual
-    | 'G' | 'H' -> PrivateThunk
+    | 'G' | 'H' | '0' | '1' -> PrivateThunk
     | 'I' | 'J' -> Protected
     | 'K' | 'L' -> ProtectedStatic
     | 'M' | 'N' -> ProtectedVirtual
-    | 'O' | 'P' -> ProtectedThunk
+    | 'O' | 'P' | '2' | '3' -> ProtectedThunk
     | 'Q' | 'R' -> PublicAccess
     | 'S' | 'T' -> PublicStatic
     | 'U' | 'V' -> PublicVirtual
-    | 'W' | 'X' -> PublicThunk
+    | 'W' | 'X' | '4' | '5' -> PublicThunk
     | 'Y' | 'Z' -> FreeScope
     | _ -> UnknownCallScope
+
 
   let toString = function
     | PrivateAccess -> "private: "
@@ -408,6 +409,7 @@ type MSExpr =
                  * returnType: MSExpr
                  * interpretationHelperString: InterpHelperString
                  * parameterTypes: MSExpr list
+                 * modifiers: (ModifierPrefix list * CVModifier) option
 
   /// A function of scope * modifiers * calling convention * Name
   /// * ReturnType * ParameterTypes * ReturnType modifiers (if any).
@@ -451,6 +453,10 @@ type MSExpr =
 
   /// Array type (not pointer to array) of modified data type * dimension.
   | ArrayType of MSExpr * ArrayLength
+
+  /// Thunk Function type of calling Type * Name Component * Type Component
+  /// * Return Type
+  | ThunkF of CallConvention * MSExpr * MSExpr * MSExpr
 
   /// Ingored type for temlates.
   | IgnoredType

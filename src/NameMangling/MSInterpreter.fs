@@ -60,11 +60,13 @@ let rec interpret (sample: MSExpr) =
     (mainType + pointerStr).Trim ()
 
   | FunctionT
-    (s, mods, call, nm, FuncPointer(fPtrs, callr, rt, _ , plst), pTs, rtMod) ->
+    (s, mods, call, nm,
+      FuncPointer(fPtrs, callr, rt, _, plst, mod2), pTs, rtMod) ->
     let carry =
       interpret (FunctionT(FreeScope,mods,call,nm,Name(""),pTs,rtMod))
     CallScope.toString s +
-      (interpret (FuncPointer(fPtrs, callr, rt, " " + carry.Trim (), plst)))
+      (interpret
+        (FuncPointer(fPtrs, callr, rt, " " + carry.Trim (), plst, mod2)))
 
   | FunctionT (scope, modInfo, callConv, name, returnT, paramTs, rtMod) ->
     let paramTstr = makeFunParams (List.map interpret paramTs)
@@ -94,19 +96,23 @@ let rec interpret (sample: MSExpr) =
     sprintf "enum%s %s" enumType enumName
 
   | FuncPointer
-    (fPtrs, cc, FuncPointer (fPtrs2, cc2, rt2, _ , pLst2), car, pLst) ->
+    (fPtrs, cc,
+       FuncPointer (fPtrs2, cc2, rt2, _ , pLst2, mod2), car, pLst, mod1) ->
     let args = makeFunParams (List.map interpret pLst)
     let ptrStrs =
       List.mapi (fun index ptr ->
                     if index = fPtrs.Length - 1 then ptr
                     else changeToNormalPointer ptr) fPtrs
       |> List.map interpret |> (List.reduce (+))
+    let modStr =
+      if mod1 = None then ""
+      else interpret (ModifiedType(SimpleBuiltInType EmptyReturn, mod1.Value))
     let newCarry =
-      sprintf "(%s%s%s)%s"
-        (CallConvention.toString cc) (ptrStrs.Trim ()) car args
-    interpret (FuncPointer (fPtrs2, cc2, rt2, newCarry, pLst2))
+      sprintf "(%s%s%s)%s%s" (CallConvention.toString cc)
+        (ptrStrs.Trim ()) car args (modStr.TrimStart ())
+    interpret (FuncPointer (fPtrs2, cc2, rt2, newCarry, pLst2, mod2))
 
-  | FuncPointer (fPtrs, callC, rType, carry, pLst) ->
+  | FuncPointer (fPtrs, callC, rType, carry, pLst, mods) ->
     let args = makeFunParams (List.map interpret pLst)
     let ptrStrs =
       (List.mapi (fun index ptr ->
@@ -116,8 +122,11 @@ let rec interpret (sample: MSExpr) =
     let ptrStrsUpdated =
       if ptrStrs.[0] = '*' then ptrStrs
       else " " + ptrStrs
-    sprintf "%s (%s%s%s)%s" (interpret rType) (CallConvention.toString callC)
-      ptrStrsUpdated carry args
+    let modStr =
+      if mods = None then ""
+      else interpret (ModifiedType(SimpleBuiltInType EmptyReturn, mods.Value))
+    sprintf "%s (%s%s%s)%s%s" (interpret rType) (CallConvention.toString callC)
+      ptrStrsUpdated carry args (modStr.TrimStart ())
 
   | ArrayPtr (pointers, indices, dataType) ->
     let ptrStr = List.map interpret (List.rev pointers) |> List.reduce (+)
@@ -155,6 +164,10 @@ let rec interpret (sample: MSExpr) =
 
   | ConstructedTemplate (types, name) ->
     interpret (Template (FullName [name; name], types))
+
+  | ThunkF (callT, name, typeInfo, returnT) ->
+    sprintf "[thunk]: %s%s %s%s" ((interpret returnT).Trim ())
+      (CallConvention.toString callT) (interpret name) (interpret typeInfo)
 
   | ConcatT (compList) ->
     List.map interpret compList |>

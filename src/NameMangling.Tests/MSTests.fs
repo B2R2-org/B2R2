@@ -339,7 +339,7 @@ type MSTests () =
     test mangled result
 
   [<TestMethod>]
-  member __.`` MSDemangler: Thunk Function check``() =
+  member __.`` MSDemangler: Thunk adjustor Function check``() =
     let mangled = "??_EwxSizer@@X7BAPAXI@Z"
     let result = "[thunk]:public: virtual void * __cdecl wxSizer::`vector \
     deleting destructor'`adjustor{8}'(unsigned int) const"
@@ -380,3 +380,30 @@ type MSTests () =
     let result = "private: int __cdecl wxString::DoPrintfWchar(wchar_t const \
     *,...)"
     test mangled result
+
+  [<TestMethod>]
+  member __.`` MSDemangler: ReturnType operator and member pointer check``() =
+    let mangled = "??B?$wxScopedPtr@VwxAnyValueTypeGlobals@@@@QBEP80@BEPAVwxAny\
+    ValueTypeGlobals@@XZXZ"
+    let result = "public: __thiscall wxScopedPtr<class wxAnyValueTypeGlobals>::\
+    operator class wxAnyValueTypeGlobals * (__thiscall wxScopedPtr<class wxAny\
+    ValueTypeGlobals>::*)(void)const (void) const"
+    test mangled result
+
+  [<TestMethod>]
+  member __.`` MSDemangler: Thunk flat Function check``() =
+    let mangled = "??_9wxMarkupParserOutput@@$B7AE"
+    let result = "[thunk]: __thiscall wxMarkupParserOutput::`vcall'{8,{flat}}\
+    ' }'"
+    test mangled result
+
+  [<TestMethod>]
+  member __.`` MSDemangler: Thunk vtor disp check``() =
+    let mangled = "??_E?$basic_ofstream@DU?$char_traits@D@std@@@std@@$4PPP\
+    PPPPM@A@AEPAXI@Z"
+    let result = "[thunk]:public: virtual void * __thiscall std::basic_ofstream\
+    <char,struct std::char_traits<char>>::`vector deleting destructor'\
+    `vtordisp{4294967292,0}'(unsigned int)"
+    test mangled result
+
+

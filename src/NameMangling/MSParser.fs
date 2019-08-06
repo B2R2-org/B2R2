@@ -52,21 +52,21 @@ type MSParser () =
 
   let letterOrDigit = satisfy Char.IsLetterOrDigit
 
-  let snum = digit |>> string |>> int |>> (+) 1
+  let snum = digit |>> string |>> int64 |>> (+) 1L
 
-  let szero = pchar '@' |>> (fun _ -> 0)
+  let szero = pchar '@' |>> (fun _ -> 0L)
 
   let phex =
     many1 upper .>> pchar '@' |>> List.map getHexChar |>> List.map string
     |>> List.fold (fun s d -> s + d) "0x"
-    |>> int
+    |>> int64
 
   /// Parses the encodedNumber in an MSMangled string.
-  let pencodedNum =
+  let pEncodedNum =
     opt (pchar '?' ) .>>. (snum <|> szero <|> phex)
     |>> (fun (sign, num) ->
            match sign with
-           | Some (_) -> -1 * num
+           | Some (_) -> -1L * num
            | _ -> num)
 
   (* ---------------------Initialization.--------------------------------*)
@@ -79,6 +79,8 @@ type MSParser () =
   let pFunc, pFuncRef = createParserForwardedToRef ()
 
   let pTemplate, pTemplateRef = createParserForwardedToRef ()
+
+  let returnTypeOperator, returnTypeOperatorRef = createParserForwardedToRef ()
 
   /// Parses modifiers prefixes.
   let modifierPrefix = many (anyOf "EFGHI" |>> ModifierPrefix.fromChar)
@@ -98,6 +100,10 @@ type MSParser () =
   /// Parses cvModifier for a __based member.
   let dashBasedMemberPointerModifier =
     modifierPrefix .>>. (anyOf "2345" |>> CVModifier.fromChar)
+
+  /// Parses the calling convention.
+  let pCallConv =
+    upper |>> CallConvention.fromChar
 
   (*-------------------Non function mangled String.------------------------*)
   let pvalueInfo =
@@ -144,14 +150,8 @@ type MSParser () =
   let pUdtReturn =
     pstring "_P" >>. (pNSpecialName <|> pUSpecialName <|> pDUSpecialName)
     |>> (+) "'udt returning'"
-  let returnTypeOperator =
-    pchar 'B' >>. pFunc |>>
-    (function
-      | FunctionT (scope, modInfo, callConv, name, returnT, paramTs, rtMod) ->
-        let newName = FullName [ConcatT [Name "operator "; returnT]; name]
-        let newReturn = SimpleBuiltInType EmptyReturn
-        FunctionT (scope, modInfo, callConv, newName, newReturn, paramTs, rtMod)
-      | _ -> Name "???")
+  let pReturnTypeOperator =
+    pchar 'B' >>. returnTypeOperator
   let stringConstant =
     pstring "_C@_" >>. digit >>. pnameAndAt >>. many anyChar >>% "`string'"
   let complexDynamicSpecialName =
@@ -169,19 +169,19 @@ type MSParser () =
   /// Parses special Names like operators.
   let pSpecialName =
     pchar '?' >>.
-    (returnTypeOperator <|> attempt dynamicSpecialName <|> simpleSpecialNames)
+    (pReturnTypeOperator <|> attempt dynamicSpecialName <|> simpleSpecialNames)
 
   (* For RTTI0 related codes*)
   let pRTTI0 = pstring "?_R0" >>. possibleType |>> RTTI0
   let pRTTI1 =
-    pipe4 (pstring "?_R1" >>. pencodedNum) pencodedNum pencodedNum pencodedNum
+    pipe4 (pstring "?_R1" >>. pEncodedNum) pEncodedNum pEncodedNum pEncodedNum
       (sprintf "'RTTI Base Class Descriptor at (%d,%d,%d,%d)'") |>> Name
   let pRTTIrest = pstring "?_R" >>. digit |>> getRTTI |>> Name
   /// RTTI codes that come as name fragments.
   let pRTTICode = pRTTI0 <|> pRTTI1 <|> pRTTIrest
 
   /// Numbered name spaces.
-  let numName = pchar '?' >>. pencodedNum |>> (sprintf "`%d'") |>> Name
+  let numName = pchar '?' >>. pEncodedNum |>> (sprintf "`%d'") |>> Name
 
   /// Constructor/Deconstructor names.
   let constName =
@@ -189,10 +189,7 @@ type MSParser () =
   let deconstName =
     pchar '1' >>. (pnameAndAt <|> pTemplate >>= addToNameList) |>> Destructor
   let constructedName =
-    getPosition >>=
-     (fun pos -> if pos.Index <> 0L then fail "Did not appear first"
-                 else pchar '?' >>. (constName <|> deconstName)
-    )
+    pchar '?' >>. (constName <|> deconstName)
   let nestedFunc =
     pstring "??" >>. (attempt pFunc <|> nonFunctionString) |>> NestedFunc
   /// Handles substitutions for the name components of the function.
@@ -295,7 +292,8 @@ type MSParser () =
   let arrayPtr =
     tuple3
       (many1 pPtrStrT .>> pchar 'Y')
-      (pencodedNum >>= (fun n -> parray n pencodedNum) |>> Seq.toList)
+      (pEncodedNum |>> int >>= (fun n -> parray n (pEncodedNum |>> int))
+         |>> Seq.toList)
       possibleType
     |>> ArrayPtr <??> " Array Pointer"
 
@@ -342,35 +340,32 @@ type MSParser () =
   let pFuncPointer =
     many (attempt pointerAtFunc) .>>.
     (pointerType |>> (fun p -> PointerStrT (p, ([],NoMod), Name "")))
-    .>> anyOf "67" .>>. upper .>>.
+    .>> anyOf "67" .>>. pCallConv .>>.
     (possibleType .>>. pFuncParameters |>> (fun (x, lst) -> x :: lst))
-    |>> (fun (((ptrStrs,fPtr), x), lst) ->
+    |>> (fun (((ptrStrs,fPtr), cc), lst) ->
           FuncPointer
-            (fPtr :: List.rev ptrStrs, CallConvention.fromChar x,
-            lst.Head, "", lst.Tail))
+            (fPtr :: List.rev ptrStrs, cc, lst.Head, "", lst.Tail, None))
     <?> "function Type"
   let pMemberFuncPointer =
     many (attempt pointerAtFunc) .>>.
     (pointerType .>> anyOf "89" .>>. fullName .>> pchar '@'|>>
      (fun (p,n) -> PointerStrT (p, ([], NoMod), FullName [Name ""; n])))
-    .>>. normalcvModifier .>>. upper .>>.
+    .>>. normalcvModifier .>>. pCallConv .>>.
     (possibleType .>>. pFuncParameters |>> (fun (x, lst) -> x :: lst))
-    |>> (fun ((((ptrStrs,fPtr), _), x), lst) ->
+    |>> (fun ((((ptrStrs,fPtr), mods), cc), lst) ->
           FuncPointer
-            (fPtr :: List.rev ptrStrs, CallConvention.fromChar x,
-            lst.Head, "", lst.Tail))
+            (fPtr :: List.rev ptrStrs, cc, lst.Head, "", lst.Tail, Some mods))
     <?> "member function pointer Type"
   let pDashBasedFuncPointer =
     many (attempt pointerAtFunc) .>>.
     (pointerType .>> pchar '_' .>> anyOf "AB" .>>.
       (dashBasedPtrVoid <|> dashBasedPtrName)
          |>> (fun (p, n) -> PointerStrT (p, ([], NoMod), n)))
-    .>>. upper .>>.
+    .>>. pCallConv .>>.
     (possibleType .>>. pFuncParameters |>> (fun (x, lst) -> x :: lst))
-    |>> (fun (((ptrStrs,fPtr), x), lst) ->
+    |>> (fun (((ptrStrs,fPtr), cc), lst) ->
       FuncPointer
-        (fPtr :: List.rev ptrStrs, CallConvention.fromChar x,
-        lst.Head, "", lst.Tail))
+        (fPtr :: List.rev ptrStrs, cc, lst.Head, "", lst.Tail, None))
 
   // All types of function pointers.
   let allFuncPointers =
@@ -379,23 +374,23 @@ type MSParser () =
     <|> attempt pDashBasedFuncPointer
 
   (*---Parse the function information (call types,args, modifiers, scope).---*)
-  let requireMod = anyOf "ABEFIJMNQRUV"
-  let noMod = anyOf "CDKLSTYZ"
+  /// Parses call scope that requires modifiers to be attached.
+  let requireModS = anyOf "ABEFIJMNQRUV" |>> CallScope.fromChar
+  /// Parses call scope that does not require modifiers to be attached.
+  let noModS = anyOf "CDKLSTYZ" |>> CallScope.fromChar
   let emptyReturn = pchar '@' >>% EmptyReturn |>> SimpleBuiltInType
   let returnTmodifier = pchar '?' >>. normalcvModifier
 
   let pReqMod =
-    requireMod .>>. normalcvModifier .>>. upper .>>. (opt returnTmodifier)
+    requireModS .>>. normalcvModifier .>>. pCallConv .>>. (opt returnTmodifier)
     .>>. (possibleType <|> emptyReturn) .>>. pFuncParameters
-    |>> (fun (((((s, modifier), c), rtMod),r), tList) ->
-           CallScope.fromChar s, modifier,
-           CallConvention.fromChar c, r :: tList, rtMod)
+    |>> (fun (((((s, modifier), cc), rtMod),r), tList) ->
+           s, modifier, cc, r :: tList, rtMod)
   let pNoMod =
-    noMod .>>. upper .>>. (opt returnTmodifier)
+    noModS .>>. pCallConv .>>. (opt returnTmodifier)
     .>>. (possibleType <|> emptyReturn) .>>. pFuncParameters
-    |>> (fun ((((s, c),rtMod),r),tList) ->
-           CallScope.fromChar s, ([],NoMod),
-           CallConvention.fromChar c, r :: tList, rtMod)
+    |>> (fun ((((s, cc),rtMod),r),tList) ->
+           s, ([],NoMod), cc, r :: tList, rtMod)
 
   /// Differentiates the scopes requiring modifiers for function from the
   /// ones that don't. The function information parser parses all the
@@ -406,19 +401,19 @@ type MSParser () =
   (*---------------Unique Template Argument types---------------------*)
   let ignored = pchar '$' >>. (pchar 'Z' <|> pchar 'V') >>% IgnoredType
   let anonymousParam =
-    pchar '?' >>. pencodedNum |>> (sprintf "'template-parameter-%d'") |>> Name
-  let numTempParam = pchar '0' >>. pencodedNum |>> string |>> Name
+    pchar '?' >>. pEncodedNum |>> (sprintf "'template-parameter-%d'") |>> Name
+  let numTempParam = pchar '0' >>. pEncodedNum |>> string |>> Name
   let ptrToMangledSymbol = pstring "1?" >>. pFunc |>> MangledSymbolPtr
   let expNumberParam =
-    pchar '2' >>. pencodedNum .>>. pencodedNum
+    pchar '2' >>. pEncodedNum .>>. pEncodedNum
     |>> (fun (baseN, expN) ->
           let baseStr = (string baseN).ToCharArray ()
           sprintf "%c.%se%d" (Seq.head baseStr)
             (String.Concat (Seq.tail baseStr)) expN |> Name )
   let twoTuple =
-    pipe2 (pchar 'F' >>. pencodedNum) pencodedNum (sprintf "{%d,%d}") |>> Name
+    pipe2 (pchar 'F' >>. pEncodedNum) pEncodedNum (sprintf "{%d,%d}") |>> Name
   let threeTuple =
-    pipe3 (pchar 'G' >>. pencodedNum) pencodedNum pencodedNum
+    pipe3 (pchar 'G' >>. pEncodedNum) pEncodedNum pEncodedNum
       (sprintf "{%d,%d,%d}")
     |>> Name
   let emptyPack = pchar 'S' >>% Name ""
@@ -442,6 +437,7 @@ type MSParser () =
   let smartParseExceptTemplate =
     pnameAndAt >>= addToNameList
     <|> attempt constructedTemplate
+    <|> attempt constructedName
     <|> attempt pSpecialName
     <|> nameFragment
 
@@ -449,24 +445,62 @@ type MSParser () =
     smartParseExceptTemplate .>>. many smartParseName
     |>> (fun (x, y) -> x :: y |> FullName)
 
-  /// Parses thunk function.
-  let pThunkFunc =
-    functionFullName .>> pchar '@' .>>. anyOf "WXGHOP" .>>.
-    (pencodedNum |>> sprintf "`adjustor{%d}'" |>> Name)
-    .>>. normalcvModifier .>>. upper .>>. (opt returnTmodifier)
+  (*---------------------For Thunk Functions.--------------------------*)
+  /// Parses thunk adjustor function.
+  let pThunkFuncAdj =
+    functionFullName .>> pchar '@' .>>. (anyOf "WXGHOP" |>> CallScope.fromChar)
+    .>>. (pEncodedNum |>> sprintf "`adjustor{%d}'" |>> Name)
+    .>>. normalcvModifier .>>. pCallConv .>>. (opt returnTmodifier)
     .>>. (possibleType <|> emptyReturn) .>>. many smartParseType |>>
-    (fun ((((((((name, scope), adjustor), mods), callT), rtMod), rt), pts)) ->
-       FunctionT
-         (CallScope.fromChar scope, mods, CallConvention.fromChar callT,
-            ConcatT [name; adjustor], rt, pts, rtMod)
+    (fun ((((((((name, scope), adjustor), mods), cc), rtMod), rt), pts)) ->
+       FunctionT (scope, mods, cc, ConcatT [name; adjustor], rt, pts, rtMod))
+
+  /// Parses flat thunk function.
+  let pThunkFuncFlat =
+    functionFullName .>> pstring "@$" .>> pchar 'B' .>>. pEncodedNum
+    .>> pchar 'A' .>>. (upper |>> CallConvention.fromChar)
+    |>> (fun ((name, n), callT) ->
+           let typeInfo = sprintf "{%d,{flat}}' }'" n
+           ThunkF (callT, name, Name typeInfo, SimpleBuiltInType EmptyReturn))
+
+  /// Parses Local static destructor helper function.
+  let pThunkFuncStaticDestructor =
+    functionFullName .>> pstring "@$" .>> pchar 'A' .>>.
+    (possibleType .>>. normalcvModifier |>> ModifiedType)
+    |>> (fun (name, typ) ->
+         ThunkF (Free, name, Name "`local static destructor helper'", typ))
+
+  /// Parses value {for <name>} construct.
+  let pThunkFuncForName =
+    functionFullName .>> pstring "@$" .>> pchar 'C' .>>. fullName .>> pchar '@'
+    |>> (fun (name, vName) -> ConcatT[name; Name "{for "; vName; Name "}"])
+
+  /// Parses vtordisp{<num>,<num>} thunk functions.
+  let pThunkVDisplacement =
+    functionFullName .>> pstring "@$" .>>. anyOf "012345" .>>. pEncodedNum
+    .>>. pEncodedNum .>>. normalcvModifier .>>. pCallConv .>>.
+    (possibleType .>>. pFuncParameters |>> (fun (x, lst) -> x :: lst))
+    |>> (fun ((((((name, callS), num1), num2), cvMods), cc), typs) ->
+           let addedName = Name (sprintf "`vtordisp{%d,%d}'" num1 num2)
+           let newName = ConcatT [name; addedName]
+           FunctionT (CallScope.fromChar callS, cvMods, cc,
+                      newName, typs.Head, typs.Tail, None)
     )
+
+  /// All supported Thunk Functions.
+  let allThunkFunc =
+    attempt pThunkFuncAdj
+    <|> attempt pThunkFuncFlat
+    <|> attempt pThunkFuncStaticDestructor
+    <|> attempt pThunkVDisplacement
+    <|> pThunkFuncForName
 
   (* -------------Tying the knot for the references created-----------------*)
   do
     nameFragmentRef :=
        nameBackRef <|> pnameAndAt <|> attempt pTemplate
-       <|> attempt nestedFunc <|> attempt constructedName
-       <|> attempt pRTTICode <|> attempt numName <|> pSpecialName
+       <|> attempt nestedFunc <|> attempt pRTTICode <|> attempt numName
+       <|> pSpecialName <|> attempt constructedName
 
     fullNameRef :=
       smartParseName .>>. many (pAnonymousNameSpace <|> smartParseName )
@@ -492,10 +526,17 @@ type MSParser () =
         .>> pchar '@'
         |>> Template
       )
+    returnTypeOperatorRef :=
+      fullName .>> pchar '@' .>>. fInfo |>>
+      (fun (name, (scope, mods, callT, tList, rtMod)) ->
+        let newName = FullName [ConcatT [Name "operator "; tList.Head]; name]
+        let newReturn = SimpleBuiltInType EmptyReturn
+        FunctionT (scope, mods, callT, newName, newReturn, tList.Tail, rtMod)
+      )
 
   (*---------------All Expressions from a mangled string------------------*)
   let allExpressions =
-    attempt pFunc <|> attempt nonFunctionString <|> attempt pThunkFunc
+    attempt pFunc <|> attempt nonFunctionString <|> attempt allThunkFunc
     <|> attempt pTemplate <|> fullName
 
 
