@@ -120,10 +120,10 @@ type DiGraph<'V, 'E when 'V :> VertexData> () =
 
   /// A list of unreachable nodes. We always add nodes into this list first, and
   /// then later remove it from the list when adding edges.
-  member val internal Unreachables = unreachables with get
+  member val Unreachables = unreachables with get
 
   /// A list of exit nodes, which do not have any successors.
-  member val internal Exits = exits with get
+  member val Exits = exits with get
 
   /// Is this empty? A graph is empty when there is no vertex in the graph.
   abstract IsEmpty: unit -> bool

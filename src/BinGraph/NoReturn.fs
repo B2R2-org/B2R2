@@ -25,6 +25,18 @@
 *)
 
 namespace B2R2.BinGraph
+
+module private NoReturnHelper =
+  let disconnectNoReturnEdges hdl scfg app =
+    let lens = CallGraphLens.Init (scfg)
+    // let cg, _ = lens.Filter scfg.Graph
+    app
+
+type NoReturnAnalysis () =
+  interface IPostAnalysis with
+    member __.Run hdl scfg app =
+      NoReturnHelper.disconnectNoReturnEdges hdl scfg app
+
 #if false
 module B2R2.BinGraph.NoReturn
 

@@ -24,9 +24,6 @@
     <Compile Include="Algorithms.fs" />
     <Compile Include="SCFGUtils.fs" />
     <Compile Include="SCFG.fs" />
-    <Compile Include="DisasHeuristic.fs" />
-    <Compile Include="NoReturn.fs" />
-    <Compile Include="PostAnalysis.fs" />
     <Compile Include="ILens.fs" />
     <Compile Include="DisasmLens.fs" />
     <Compile Include="SSABlock.fs" />
@@ -34,6 +31,9 @@
     <Compile Include="SSAUtils.fs" />
     <Compile Include="SSALens.fs" />
     <Compile Include="CallGraphLens.fs" />
+    <Compile Include="IPostAnalysis.fs" />
+    <Compile Include="DisasHeuristic.fs" />
+    <Compile Include="NoReturn.fs" />
     <Compile Include="BinEssence.fs" />
   </ItemGroup>
 

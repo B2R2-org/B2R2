@@ -24,12 +24,12 @@
   SOFTWARE.
 *)
 
-module B2R2.BinGraph.PostAnalysis
+namespace B2R2.BinGraph
 
-let run hdl scfg app analyzers =
-  let app = DisasHeuristic.recoverLibcEntries hdl scfg app
-  // _libc_start_main
-  // no_return
-  // switch-case
-  // implicit call edges
-  app
+open B2R2.FrontEnd
+
+/// CFG analysis that we perform after constructing the basic SCFG. Post
+/// analysis includes no-return analysis, libc start address analysis,
+/// switch-case analysis, etc.
+type IPostAnalysis =
+  abstract Run: BinHandler -> SCFG -> BinaryApparatus -> BinaryApparatus
