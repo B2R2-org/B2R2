@@ -28,54 +28,6 @@ namespace B2R2.BinGraph
 
 open B2R2
 
-/// The basic term used to describe a line of a basic block (when visualized).
-type Term =
-  /// Mneomonic, i.e., opcode.
-  | Mnemonic of string
-  /// Operand.
-  | Operand of string
-  /// Just a string.
-  | String of string
-  /// Comment.
-  | Comment of string
-with
-  static member Width = function
-    | Mnemonic (s)
-    | Operand (s)
-    | String (s)
-    | Comment (s) -> s.Length
-
-  static member ToString = function
-    | Mnemonic (s) -> s
-    | Operand (s) -> s
-    | String (s) -> s
-    | Comment (s) -> s
-
-  static member ToStringTuple = function
-    | Mnemonic (s) -> s, "Menmonic"
-    | Operand (s) -> s, "Operand"
-    | String (s) -> s, "String"
-    | Comment (s) -> s, "Comment"
-
-/// A visual line of a basic block.
-type VisualLine = Term list
-
-module VisualLine =
-  [<CompiledName("LineWidth")>]
-  let lineWidth terms =
-    (* Assume that each term is separated by a space char (+1). *)
-    terms |> List.fold (fun width term -> width + Term.Width term + 1) 0
-
-  [<CompiledName("ToString")>]
-  let toString terms =
-    terms |> List.map Term.ToString |> String.concat " "
-
-/// A visual representation of a basic block.
-type VisualBlock = VisualLine list
-
-module VisualBlock =
-  let empty: VisualBlock = [ [String "(empty)"] ]
-
 /// The base type for basic block.
 [<AbstractClass>]
 type BasicBlock () =

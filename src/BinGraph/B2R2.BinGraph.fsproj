@@ -12,6 +12,7 @@
     <Compile Include="Dominator.fs" />
     <Compile Include="CFGEdgeKind.fs" />
     <Compile Include="ProgramPoint.fs" />
+    <Compile Include="VisualBlock.fs" />
     <Compile Include="BasicBlock.fs" />
     <Compile Include="RangedDiGraph.fsi" />
     <Compile Include="RangedDiGraph.fs" />
