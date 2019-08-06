@@ -72,26 +72,27 @@ type CallGraphLens (scfg: SCFG) =
     | None -> None
     | Some entry -> getFunctionVertex g vMap old entry app
 
+  let buildCallGraph callCFG (g: IRCFG) vMap app =
+    g.IterEdge (fun src dst e ->
+      match e with
+      | IntraJmpEdge
+      | IndirectEdge
+      | ExternalEdge
+      | CallEdge ->
+        let srcAddr = src.VData.PPoint.Address
+        let dstAddr = dst.VData.PPoint.Address
+        let srcV = getVertex callCFG vMap src srcAddr app
+        let dstV = getVertex callCFG vMap dst dstAddr app
+        match srcV, dstV with
+        | Some s, Some d -> callCFG.AddEdge s d e
+        | _ -> ()
+      | _ -> ())
+
   interface ILens<CallGraphBBlock> with
-    member __.Filter (g: IRCFG) root app =
+    member __.Filter (g: IRCFG) _ app =
       let callCFG = CallCFG ()
       let vMap = CallVMap ()
-      let root = getVertex callCFG vMap root root.VData.PPoint.Address app
-      let root = Option.get root
-      g.IterEdge (fun src dst e ->
-        match e with
-        | IntraJmpEdge
-        | IndirectEdge
-        | ExternalEdge
-        | CallEdge ->
-          let srcAddr = src.VData.PPoint.Address
-          let dstAddr = dst.VData.PPoint.Address
-          let srcV = getVertex callCFG vMap src srcAddr app
-          let dstV = getVertex callCFG vMap dst dstAddr app
-          match srcV, dstV with
-          | Some s, Some d -> callCFG.AddEdge s d e
-          | _ -> ()
-        | _ -> ())
-      callCFG, root
+      buildCallGraph callCFG g vMap app
+      callCFG, []
 
   static member Init (scfg) = CallGraphLens (scfg) :> ILens<CallGraphBBlock>

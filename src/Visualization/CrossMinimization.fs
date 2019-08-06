@@ -28,23 +28,25 @@ module internal B2R2.Visualization.CrossMinimization
 
 open B2R2.BinGraph
 
-// This should be fixed.
-[<Literal>]
-let private maxCnt = 128
+/// The maximum number of iterations.
+let [<Literal>] private maxCnt = 128
 
 let private findIndex v vs =
   Array.findIndex (fun w -> v = w) vs
 
-let private generateVPerLayer (vGraph: VisGraph) root =
-  let maxLayer = vGraph.FoldVertex (fun layer v ->
+let private computeMaxLayer (vGraph: VisGraph) =
+  vGraph.FoldVertex (fun layer v ->
     let l = VisGraph.getLayer v
     if layer < l then l else layer) 0
-  let vPerLayer = Array.map (fun _ -> []) <| Array.zeroCreate (maxLayer + 1)
+
+let private generateVPerLayer vGraph =
+  let maxLayer = computeMaxLayer vGraph
+  let vPerLayer = Array.create (maxLayer + 1) []
   let folder (vPerLayer: Vertex<VisBBlock> list []) v =
     let layer = VisGraph.getLayer v
     vPerLayer.[layer] <- v :: vPerLayer.[layer]
     vPerLayer
-  vGraph.FoldVertexBFS root folder vPerLayer
+  vGraph.FoldVertex folder vPerLayer
 
 let private alignVertices vertices =
   let arr = Array.zeroCreate (List.length vertices)
@@ -195,8 +197,8 @@ let private setPos vLayout =
       let vData = v.VData
       vData.Index <- i) vertices) vLayout
 
-let minimizeCrosses vGraph root =
-  let vPerLayer = generateVPerLayer vGraph root
+let minimizeCrosses vGraph =
+  let vPerLayer = generateVPerLayer vGraph
   let vLayout = generateVLayout vPerLayer
   sugiyamaReorder vLayout 0 (Set.add (vLayout.GetHashCode ()) Set.empty)
   setPos vLayout

@@ -75,10 +75,12 @@ type DisasmLens () =
     | true, v -> v
 
   interface ILens<DisasmBBlock> with
-    member __.Filter (g: IRCFG) root _ =
+    member __.Filter (g: IRCFG) roots _ =
       let newGraph = DisasmCFG ()
       let vMap = DisasmVMap ()
-      let root = getVertex newGraph vMap root root.VData.PPoint.Address
+      let roots =
+        roots |> List.map (fun root ->
+          getVertex newGraph vMap root root.VData.PPoint.Address)
       g.IterEdge (fun src dst e ->
         match e with
         | IntraCJmpTrueEdge
@@ -94,6 +96,6 @@ type DisasmLens () =
           let srcV = getVertex newGraph vMap src srcAddr
           let dstV = getVertex newGraph vMap dst dstAddr
           newGraph.AddEdge srcV dstV e)
-      newGraph, root
+      newGraph, roots
 
   static member Init () = DisasmLens () :> ILens<DisasmBBlock>

@@ -39,23 +39,23 @@ let assignLayerFromSucc v =
 let adjustLayerByMax maxLayer v =
   VisGraph.setLayer v <| maxLayer - VisGraph.getLayer v
 
-let adjustLayer dfsOrdered =
-  let maxLayer = Array.map VisGraph.getLayer dfsOrdered |> Array.max
-  Array.iter (adjustLayerByMax maxLayer) dfsOrdered
+let adjustLayer topoOrdered =
+  let maxLayer = Array.map VisGraph.getLayer topoOrdered |> Array.max
+  Array.iter (adjustLayerByMax maxLayer) topoOrdered
 
 let longestPathAssignLayers vGraph root =
-  let dfsOrder = VisGraph.getDFSOrder vGraph root
-  let dfsOrdered = Array.zeroCreate <| vGraph.Size ()
-  Map.iter (fun v i -> Array.set dfsOrdered i v) dfsOrder
-  let dfsOrdered = Array.rev dfsOrdered
+  let topoOrder = VisGraph.getTopologicalOrder vGraph root
+  let topoOrdered = Array.zeroCreate <| vGraph.Size ()
+  Map.iter (fun v i -> Array.set topoOrdered i v) topoOrder
+  let topoOrdered = Array.rev topoOrdered
 #if DEBUG
-  VisDebug.logn "dfsOrdered:"
-  dfsOrdered
+  VisDebug.logn "topoOrdered:"
+  topoOrdered
   |> Array.iteri (fun i v ->
     sprintf "%d: %d" i (VisGraph.getID v) |> VisDebug.logn)
 #endif
-  Array.iter assignLayerFromSucc dfsOrdered
-  adjustLayer dfsOrdered
+  Array.iter assignLayerFromSucc topoOrdered
+  adjustLayer topoOrdered
 
 let rec promote (layerArr: int []) v =
   let preds = VisGraph.getPreds v
@@ -156,9 +156,9 @@ let addDummyNodes (vGraph: VisGraph) (backEdges, dummies) src dst _ =
 let assignDummyNodes (vGraph: VisGraph) backEdgeList =
   vGraph.FoldEdge (addDummyNodes vGraph) (backEdgeList, Map.empty)
 
-let assignLayers vGraph _root backEdgeList =
+let assignLayers vGraph backEdgeList =
   /// XXX: We'll make an option argument to select layer assignment algorithm
-  /// longestPathAssignLayers vGraph root
+  /// longestPathAssignLayers vGraph
   /// promoteVertices vGraph root
   kahnAssignLayers vGraph
   assignDummyNodes vGraph backEdgeList

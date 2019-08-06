@@ -34,7 +34,7 @@ open System.Collections.Generic
 type VisGraph = ControlFlowGraph<VisBBlock, VisEdge>
 
 module VisGraph =
-  let ofCFG (g: ControlFlowGraph<#BasicBlock, _>) (r: Vertex<#BasicBlock>) hdl =
+  let ofCFG (g: ControlFlowGraph<#BasicBlock, _>) roots hdl =
     let newGraph = VisGraph ()
     let visited = Dictionary<VertexID, Vertex<VisBBlock>> ()
     let getVisBBlock (oldV: Vertex<#BasicBlock>) =
@@ -48,13 +48,14 @@ module VisGraph =
         visited.[oldV.GetID ()] <- v
         v
       | true, v -> v
-    let root = getVisBBlock r
+    (* In case there is no edge in the graph. *)
+    let roots = roots |> List.map (getVisBBlock)
     g.IterEdge (fun src dst e ->
       let srcV = getVisBBlock src
       let dstV = getVisBBlock dst
       let edge = VisEdge (e)
       newGraph.AddEdge srcV dstV edge)
-    newGraph, root
+    newGraph, roots
 
   let getID v = Vertex<VisBBlock>.GetID v
 
@@ -78,9 +79,10 @@ module VisGraph =
 
   let getYPos (v: Vertex<VisBBlock>) = v.VData.Coordinate.Y
 
-  let getDFSOrder (g: VisGraph) root =
+  let getTopologicalOrder (g: VisGraph) roots =
     let size = g.Size () - 1
-    let _, _, dfsOrder, _ =
-      g.FoldVertexDFS root Algorithms.dfsOrdering
-        (Set.empty, [], Map.empty, size)
-    dfsOrder
+    let _, _, topoOrder, _ =
+      roots |> List.fold (fun acc root ->
+        g.FoldVertexDFS root Algorithms.topologicalOrdering acc
+      ) (Set.empty, [], Map.empty, size)
+    topoOrder

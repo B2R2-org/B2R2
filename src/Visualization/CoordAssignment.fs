@@ -194,9 +194,8 @@ let vAlign (vGraph: VisGraph) vLayout maxLayer conflicts vDir hDir =
   let layers =
     match vDir with
     | Topmost -> [1 .. maxLayer]
-    | Bottommost -> [0 .. maxLayer - 1] |> List.rev
-  let initMap =
-    vGraph.FoldVertex (fun map v -> Map.add v v map) Map.empty
+    | Bottommost -> [(maxLayer - 1) .. -1 .. 0]
+  let initMap = vGraph.FoldVertex (fun map v -> Map.add v v map) Map.empty
   List.fold (vAlignLoop vLayout conflicts vDir hDir) (initMap, initMap) layers
 
 let isBorder vertices v = function
@@ -263,7 +262,7 @@ let updateXs root sink shift xs v =
     Map.add v ((Map.find v xs) + shiftValue) xs
   else xs
 
-let hCompact (vGraph: VisGraph) root vLayout rootMap align hDir =
+let hCompact (vGraph: VisGraph) vLayout rootMap align hDir =
   let folder sink v = Map.add v v sink
   let sink = vGraph.FoldVertex folder Map.empty
   let shift = Map.map (fun _ _ -> System.Double.MaxValue) sink
@@ -274,7 +273,7 @@ let hCompact (vGraph: VisGraph) root vLayout rootMap align hDir =
         if v = w then placeBlock vLayout rootMap align hDir acc v else acc)
       (sink, shift, xs)
       rootMap
-  vGraph.FoldVertexDFS root (updateXs rootMap sink shift) xs
+  vGraph.FoldVertex (updateXs rootMap sink shift) xs
 
 let calcPosInfo xs acc (vertices: Vertex<_> []) =
   let left = Map.find vertices.[0] xs
@@ -316,10 +315,10 @@ let averageMedian xAlignments =
   let medians = Map.map (fun _ xs -> xs - mid) medians
   Map.iter setXPos medians
 
-let calcXAlignment vGraph root vLayout maxLayer t1cs xAlignments dir =
+let calcXAlignment vGraph vLayout maxLayer t1cs xAlignments dir =
   let vDir, hDir = dir
   let rootMap, align = vAlign vGraph vLayout maxLayer t1cs vDir hDir
-  let xs = hCompact vGraph root vLayout rootMap align hDir
+  let xs = hCompact vGraph vLayout rootMap align hDir
 #if DEBUG
   VisDebug.logn <| sprintf "vAlign Directions: %A %A" vDir hDir
   VisDebug.logn "Root:"
@@ -337,15 +336,17 @@ let calcXAlignment vGraph root vLayout maxLayer t1cs xAlignments dir =
 #endif
   xs :: xAlignments
 
-let assignXCoordinates (vGraph: VisGraph) root vLayout =
+let assignXCoordinates (vGraph: VisGraph) vLayout =
   let maxLayer = Array.length vLayout - 1
   let _typeTwoConflicts, typeOneConflicts = preprocess vLayout
   let xAlignments =
     List.fold
-      (calcXAlignment vGraph root vLayout maxLayer typeOneConflicts)
+      (calcXAlignment vGraph vLayout maxLayer typeOneConflicts)
       []
-      [ (Topmost, Leftmost) ; (Topmost, Rightmost) ;
-        (Bottommost, Leftmost) ; (Bottommost, Rightmost) ]
+      [ (Topmost, Leftmost)
+        (Topmost, Rightmost)
+        (Bottommost, Leftmost)
+        (Bottommost, Rightmost) ]
   let xAlignments = alignAssignments vLayout xAlignments
   averageMedian xAlignments
 
@@ -386,7 +387,9 @@ let adjustCoordinates (vGraph: VisGraph) =
   let width = rightMost - leftMost
   shiftXCoordinate (rightMost - width / 2.0) |> vGraph.IterVertex
 
-let assignCoordinates vGraph root vLayout =
-  assignXCoordinates vGraph root vLayout
+/// We use the algorithm from Fast and Simple Horizontal Coordinate Assignment
+/// by Brandes et al.
+let assignCoordinates vGraph vLayout =
+  assignXCoordinates vGraph vLayout
   assignYCoordinates vLayout
   adjustCoordinates vGraph

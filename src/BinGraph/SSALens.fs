@@ -27,8 +27,6 @@
 
 namespace B2R2.BinGraph
 
-open System.Collections.Generic
-
 /// A graph lens for obtaining SSACFG.
 type SSALens (hdl, scfg) =
   let getVertex g (vMap: SSAVMap) (oldSrc: Vertex<IRBasicBlock>) =
@@ -50,8 +48,8 @@ type SSALens (hdl, scfg) =
       v
     | true, v -> v
 
-  let convertToSSA (irCFG: IRCFG) ssaCFG vMap fMap root =
-    let root = getVertex ssaCFG vMap root
+  let convertToSSA (irCFG: IRCFG) ssaCFG vMap fMap roots =
+    let roots = roots |> List.map (getVertex ssaCFG vMap)
     irCFG.IterEdge (fun src dst e ->
       (* If a node is fake, it is a call target. *)
       if dst.VData.IsFakeBlock () then
@@ -68,19 +66,20 @@ type SSALens (hdl, scfg) =
         let srcV = getVertex ssaCFG vMap src
         let dstV = getVertex ssaCFG vMap dst
         ssaCFG.AddEdge srcV dstV e)
-    root
+    roots
 
   interface ILens<SSABBlock> with
-    member __.Filter (g: IRCFG) root _ =
+    member __.Filter (g: IRCFG) roots _ =
       let ssaCFG = SSACFG ()
       let vMap = SSAVMap ()
       let fMap = FakeVMap ()
       let defSites = DefSites ()
-      let root = convertToSSA g ssaCFG vMap fMap root
+      let roots = convertToSSA g ssaCFG vMap fMap roots
+      let root = List.head roots
       ssaCFG.FindVertexBy (fun v -> v.VData.PPoint = root.VData.PPoint)
       |> SSAUtils.computeFrontiers ssaCFG
       |> SSAUtils.placePhis vMap fMap defSites
       |> SSAUtils.renameVars defSites
-      ssaCFG, root
+      ssaCFG, roots
 
   static member Init hdl scfg = SSALens (hdl, scfg) :> ILens<SSABBlock>

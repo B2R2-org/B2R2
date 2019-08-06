@@ -36,12 +36,12 @@ type ILens<'V when 'V :> BasicBlock and 'V: equality> =
   /// given CFG into another graph.
   /// </summary>
   /// <param name="graph">The given CFG.</param>
-  /// <param name="root">The root node of the CFG.</param>
+  /// <param name="root">The list of root nodes of the CFG.</param>
   /// <returns>
   /// A converted graph along with its root node.
   /// </returns>
   abstract member Filter:
        graph: IRCFG
-    -> root: Vertex<IRBasicBlock>
+    -> roots: Vertex<IRBasicBlock> list
     -> app: BinaryApparatus
-    -> ControlFlowGraph<'V, CFGEdgeKind> * Vertex<'V>
+    -> ControlFlowGraph<'V, CFGEdgeKind> * Vertex<'V> list

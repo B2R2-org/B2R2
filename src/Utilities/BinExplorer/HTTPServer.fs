@@ -107,25 +107,26 @@ let handleBinInfo req resp arbiter =
   let txt = "\"" + txt.Replace(@"\", @"\\") + "\""
   Some (defaultEnc.GetBytes (txt)) |> answer req resp
 
-let cfgToJSON cfgType ess g root =
+let cfgToJSON cfgType ess g roots =
   match cfgType with
   | IRCFG ->
-    Visualizer.getJSONFromGraph g root None
+    Visualizer.getJSONFromGraph g roots None
   | DisasmCFG ->
     let lens = DisasmLens.Init ()
-    let g, root = lens.Filter g root ess.BinaryApparatus
-    Visualizer.getJSONFromGraph g root (Some ess.BinHandler)
+    let g, roots = lens.Filter g roots ess.BinaryApparatus
+    Visualizer.getJSONFromGraph g roots (Some ess.BinHandler)
   | SSACFG ->
     let lens = SSALens.Init ess.BinHandler ess.SCFG
-    let g, root = lens.Filter g root ess.BinaryApparatus
-    Visualizer.getJSONFromGraph g root (Some ess.BinHandler)
+    let g, roots = lens.Filter g roots ess.BinaryApparatus
+    Visualizer.getJSONFromGraph g roots (Some ess.BinHandler)
 
 let handleCFG req resp arbiter cfgType name =
   let ess = Protocol.getBinEssence arbiter
   match ess.SCFG.FindFunctionEntryByName name with
   | None -> answer req resp None
   | Some addr ->
-    let s = ess.SCFG.GetFunctionCFG (addr) ||> cfgToJSON cfgType ess
+    let cfg, root = ess.SCFG.GetFunctionCFG (addr)
+    let s = cfgToJSON cfgType ess cfg [root]
     Some (defaultEnc.GetBytes s) |> answer req resp
 
 let handleFunctions req resp arbiter =

@@ -45,8 +45,7 @@ module VisDebug =
   let private ppNode (vNode: Vertex<VisBBlock>) =
     logn "Node {"
     sprintf "\tID: %d" (vNode.GetID ()) |> logn
-    sprintf "\tAddr: (%d, %d)"
-      vNode.VData.PPoint.Address vNode.VData.PPoint.Position |> logn
+    sprintf "\tAddr: (%s)" (vNode.VData.PPoint.ToString ()) |> logn
     sprintf "\tLayer: %d" vNode.VData.Layer |> logn
     logn "\tPreds: ["
     List.iter (fun (v: Vertex<VisBBlock>) ->
@@ -58,5 +57,6 @@ module VisDebug =
     logn "]"
     logn "}"
 
-  let pp (vGraph: VisGraph) root = vGraph.IterVertexDFS root ppNode
+  let pp (vGraph: VisGraph) =
+    vGraph.IterVertex ppNode
 #endif

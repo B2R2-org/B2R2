@@ -51,7 +51,7 @@ let rec checkStack visited (stack: Vertex<_> list) orderMap cnt =
       let orderMap = Map.add v cnt orderMap
       checkStack visited stack orderMap (cnt - 1)
 
-let dfsOrdering (visited, stack, orderMap, cnt) v =
+let topologicalOrdering (visited, stack, orderMap, cnt) v =
   let visited = Set.add v visited
   let stack, orderMap, cnt = checkStack visited (v :: stack) orderMap cnt
   visited, stack, orderMap, cnt
@@ -59,7 +59,7 @@ let dfsOrdering (visited, stack, orderMap, cnt) v =
 let dfsTopologicalSort (g: DiGraph<_, _>) root =
   let size = g.Size () - 1
   let _, _, dfsOrder, _ =
-    g.FoldVertexDFS root dfsOrdering (Set.empty, [], Map.empty, size)
+    g.FoldVertexDFS root topologicalOrdering (Set.empty, [], Map.empty, size)
   /// XXX: The below is normalizing. This is also a temporary patch..
   let min = Map.fold (fun acc _ x -> if acc < x then acc else x) (-1) dfsOrder
   let dfsOrder = Map.map (fun _ x -> x - min) dfsOrder

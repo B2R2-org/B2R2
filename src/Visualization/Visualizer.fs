@@ -26,23 +26,23 @@
 
 module B2R2.Visualization.Visualizer
 
-let getJSONFromGraph iGraph root hdl =
+let getJSONFromGraph iGraph roots hdl =
   try
-    let vGraph, root = VisGraph.ofCFG iGraph root hdl
+    let vGraph, roots = VisGraph.ofCFG iGraph roots hdl
   #if DEBUG
-    VisDebug.pp vGraph root
+    VisDebug.pp vGraph
   #endif
-    let backEdgeList = CycleRemoval.removeCycles vGraph root
+    let backEdgeList = CycleRemoval.removeCycles vGraph roots
   #if DEBUG
-    VisDebug.pp vGraph root
+    VisDebug.pp vGraph
   #endif
     let backEdgeList, dummyMap =
-      LayerAssignment.assignLayers vGraph root backEdgeList
+      LayerAssignment.assignLayers vGraph backEdgeList
   #if DEBUG
-    VisDebug.pp vGraph root
+    VisDebug.pp vGraph
   #endif
-    let vLayout = CrossMinimization.minimizeCrosses vGraph root
-    CoordAssignment.assignCoordinates vGraph root vLayout
+    let vLayout = CrossMinimization.minimizeCrosses vGraph
+    CoordAssignment.assignCoordinates vGraph vLayout
     EdgeDrawing.drawEdges vGraph vLayout backEdgeList dummyMap
     vGraph |> JSONExport.toStr
   with e ->
