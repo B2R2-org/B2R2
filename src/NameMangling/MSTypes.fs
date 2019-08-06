@@ -269,7 +269,7 @@ type NormalBuiltInType =
   | Float
   | Double
   | LongDouble
-  | Void
+  | VoidP
   | Ellipsis
   | UnknownNormalBuiltInType
 
@@ -287,7 +287,7 @@ module NormalBuiltInType =
     | 'M' -> Float
     | 'N' -> Double
     | 'O' -> LongDouble
-    | 'X' -> Void
+    | 'X' -> VoidP
     | 'Z' -> Ellipsis
     |  _  -> UnknownNormalBuiltInType
 
@@ -305,7 +305,7 @@ module NormalBuiltInType =
     | Float -> "float"
     | Double -> "double"
     | LongDouble -> "long double"
-    | Void -> "void"
+    | VoidP -> "void"
     | Ellipsis -> "..."
     | _ -> "???"
 

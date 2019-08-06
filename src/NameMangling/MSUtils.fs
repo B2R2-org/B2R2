@@ -152,11 +152,8 @@ let getVarAccessLevel c =
   | _ -> ""
 
 let makeFunParams (lst: string list) =
-  let lst = List.rev lst
   if lst.IsEmpty then "()"
-  elif lst.Head = "..." && (lst.[1] = "void" || lst.[1] = "...") then
-    sprintf "(%s)" (List.reduce (fun x y -> x + "," + y) (List.rev lst.Tail))
-  else sprintf "(%s)" (List.reduce (fun x y -> x + "," + y) (List.rev lst))
+  else sprintf "(%s)" (List.reduce (fun x y -> x + "," + y) lst)
 
 let makeTemplateArgs (lst: string list) =
   if lst.IsEmpty then "<>" else
