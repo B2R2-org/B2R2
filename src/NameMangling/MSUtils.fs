@@ -74,47 +74,47 @@ let getUnderscoredSpecialName n =
   | '4' -> "operator &="
   | '5' -> "operator |="
   | '6' -> "operator ^="
-  | '7' -> "'vftable'"
-  | '8' -> "'vbtable'"
-  | '9' -> "'vcall'"
-  | 'A' -> "'typeof'"
-  | 'B' -> "'local static guard'"
-  | 'D' -> "'vbase destructor'"
-  | 'E' -> "'vector deleting destructor'"
-  | 'F' -> "'default constructor closure'"
-  | 'G' -> "'scalar deleting destructor'"
-  | 'H' -> "'vector constructor iterator'"
-  | 'I' -> "'vector destructor iterator'"
-  | 'J' -> "'vector vbase constructor iterator'"
-  | 'K' -> "'virtual displacement map'"
-  | 'L' -> "'eh vector constructor iterator'"
-  | 'M' -> "'eh vector destructor iterator'"
-  | 'N' -> "'eh vector vbase constructor iterator'"
-  | 'O' -> "'copy constructor closure'"
+  | '7' -> "`vftable'"
+  | '8' -> "`vbtable'"
+  | '9' -> "`vcall'"
+  | 'A' -> "`typeof'"
+  | 'B' -> "`local static guard'"
+  | 'D' -> "`vbase destructor'"
+  | 'E' -> "`vector deleting destructor'"
+  | 'F' -> "`default constructor closure'"
+  | 'G' -> "`scalar deleting destructor'"
+  | 'H' -> "`vector constructor iterator'"
+  | 'I' -> "`vector destructor iterator'"
+  | 'J' -> "`vector vbase constructor iterator'"
+  | 'K' -> "`virtual displacement map'"
+  | 'L' -> "`eh vector constructor iterator'"
+  | 'M' -> "`eh vector destructor iterator'"
+  | 'N' -> "`eh vector vbase constructor iterator'"
+  | 'O' -> "`copy constructor closure'"
   | 'Q' -> "Unknown"
-  | 'S' -> "'local vftable'"
-  | 'T' -> "'local vftable constructor closure'"
+  | 'S' -> "`local vftable'"
+  | 'T' -> "`local vftable constructor closure'"
   | 'U' -> "operator new[]"
   | 'V' -> "operator delete[]"
-  | 'W' -> "'omni callsig'"
-  | 'X' -> "'placement delete closure'"
-  | 'Y' -> "'placement delete[] closure'"
+  | 'W' -> "`omni callsig'"
+  | 'X' -> "`placement delete closure'"
+  | 'Y' -> "`placement delete[] closure'"
   | 'Z' -> ""
-  | _ -> sprintf "not a valid special name  _%c" n
+  | _ -> sprintf "not a valid special name _%c" n
 
 let getdUnderscoredSpecialName n =
   match n with
-  | 'A' -> "'managed vector constructor iterator'"
-  | 'B' -> "'managed vector destructor iterator'"
-  | 'C' -> "'eh vector copy constructor iterator'"
-  | 'D' -> "'eh vector vbase copy constructor iterator'"
-  | 'E' -> "'dynamic initializer'"
-  | 'F' -> "'dynamic atexit destructor`"
-  | 'G' -> "'vector copy constructor iterator'"
-  | 'H' -> "'vector vbase copy constructor iterator'"
-  | 'I' -> "'managed vector copy constructor iterator'"
-  | 'J' -> "'local static thread guard'"
-  | 'K' -> "user defined literal operator"
+  | 'A' -> "`managed vector constructor iterator'"
+  | 'B' -> "`managed vector destructor iterator'"
+  | 'C' -> "`eh vector copy constructor iterator'"
+  | 'D' -> "`eh vector vbase copy constructor iterator'"
+  | 'E' -> "`dynamic initializer for '"
+  | 'F' -> "`dynamic atexit destructor for '"
+  | 'G' -> "`vector copy constructor iterator'"
+  | 'H' -> "`vector vbase copy constructor iterator'"
+  | 'I' -> "`managed vector copy constructor iterator'"
+  | 'J' -> "`local static thread guard'"
+  | 'K' -> "operator \"\""
   | _ -> sprintf "not a valid special name _%c" n
 
 let getHexChar c =
@@ -146,14 +146,14 @@ let getRTTI c =
 
 let getVarAccessLevel c =
   match c with
-  | '0' -> "private: "
+  | '0' -> "private: static "
   | '1' -> "protected: static "
   | '2' -> "public: static "
   | _ -> ""
 
 let makeFunParams (lst: string list) =
-  if lst.IsEmpty then "()" else
-  sprintf "(%s)" (List.reduce (fun x y -> x + "," + y) lst)
+  if lst.IsEmpty then "()"
+  else sprintf "(%s)" (List.reduce (fun x y -> x + "," + y) lst)
 
 let makeTemplateArgs (lst: string list) =
   if lst.IsEmpty then "<>" else
@@ -180,8 +180,11 @@ let updatePrefix lst str =
   if List.contains DoubleReferenceMod lst then str1 + "&& " else str1
 
 /// Changes any type of pointer to normal pointer while keeping its prefixes.
-let changeToNormalPointer (ptr: MSExpr) =
+let rec changeToNormalPointer (ptr: MSExpr) =
   match ptr with
   | PointerStrT ( _ , (pref, modifier), cvT) ->
       PointerStrT (NormalPointer, (pref, modifier), cvT)
+  | ModifiedType (typ, mods) -> ModifiedType (changeToNormalPointer typ, mods)
+  | PointerT (ptrStr, typ) -> PointerT(changeToNormalPointer ptrStr, typ)
+  | ConcatT lst -> List.map changeToNormalPointer lst |> ConcatT
   | _ -> ptr
