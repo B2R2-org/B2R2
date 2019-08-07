@@ -26,50 +26,28 @@
 
 module B2R2.Visualization.Visualizer
 
-let visualize iGraph =
-  let vGraph = VGraph.ofIGraph iGraph
-#if DEBUG
-  VGraph.pp vGraph
-#endif
-  let backEdgeList = CycleRemoval.removeCycles vGraph
-#if DEBUG
-  VGraph.pp vGraph
-#endif
-  let backEdgeList, dummyMap =
-    LayerAssignment.assignLayers vGraph backEdgeList
-#if DEBUG
-  VGraph.pp vGraph
-#endif
-  let vLayout = CrossMinimization.minimizeCrosses vGraph
-  CoordAssignment.assignCoordinates vGraph vLayout
-  EdgeDrawing.drawEdges vGraph vLayout backEdgeList dummyMap
-  VGraph.toOutputGraph vGraph
-
-let visualizeFile inputFile outputFile =
-  let iGraph = InputGraph.ofFile inputFile
-  let oGraph = visualize iGraph
-  OutputGraph.toFile outputFile oGraph
-
-let visualizeDisasmCFG hdl disasmCFG =
+let getJSONFromGraph iGraph roots hdl =
   try
-    let iGraph = InputGraph.ofDisasmCFG hdl disasmCFG
-    let oGraph = visualize iGraph
-    OutputGraph.toStr oGraph
+    let vGraph, roots = VisGraph.ofCFG iGraph roots hdl
+  #if DEBUG
+    VisDebug.pp vGraph
+  #endif
+    let backEdgeList = CycleRemoval.removeCycles vGraph roots
+  #if DEBUG
+    VisDebug.pp vGraph
+  #endif
+    let backEdgeList, dummyMap =
+      LayerAssignment.assignLayers vGraph backEdgeList
+  #if DEBUG
+    VisDebug.pp vGraph
+  #endif
+    let vLayout = CrossMinimization.minimizeCrosses vGraph
+    CoordAssignment.assignCoordinates vGraph vLayout
+    EdgeDrawing.drawEdges vGraph vLayout backEdgeList dummyMap
+    vGraph |> JSONExport.toStr
   with e ->
     eprintfn "%s" <| e.ToString ()
     "{}"
 
-let visualizeIRCFG hdl irCFG =
-  try
-    let iGraph = InputGraph.ofIRCFG hdl irCFG
-    let oGraph = visualize iGraph
-    OutputGraph.toStr oGraph
-  with e ->
-    eprintfn "%s" <| e.ToString ()
-    "{}"
-
-let setCommentDisasmCFG hdl addr idx comment disasmCFG =
-  InputGraph.ofDisasmComment hdl addr idx comment disasmCFG
-
-let setCommentIRCFG hdl addr idx comment irCFG =
-  InputGraph.ofIRComment hdl addr idx comment irCFG
+let visualizeFromFile inFile outFile =
+  ()

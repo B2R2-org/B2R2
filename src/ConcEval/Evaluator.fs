@@ -49,7 +49,7 @@ let private unwrap = function
   | Undef -> raise UndefExpException
   | Def bv -> bv
 
-let rec private evalConcrete st e =
+let rec evalConcrete st e =
   match e with
   | Num n -> Def n
   | Var (_, n, _, _) -> EvalState.GetReg st n

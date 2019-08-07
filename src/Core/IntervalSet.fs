@@ -74,13 +74,13 @@ module IntervalSet =
     let il = range.Min
     let ih = range.Max
     let dropMatcher (e: InterMonoid<Addr>) = Prio il < e.GetMax ()
-    let rec matches xs =
+    let rec matches acc xs =
       let v = Op.DropUntil dropMatcher xs
       match Op.ViewL v with
-      | Nil -> []
-      | Cons (x: IntervalSetElem, xs) -> x.Val :: matches xs
+      | Nil -> acc
+      | Cons (x: IntervalSetElem, xs) -> matches (x.Val :: acc) xs
     Op.TakeUntil (fun (elt: InterMonoid<Addr>) -> Key ih <= elt.GetMin ()) s
-    |> matches
+    |> matches []
 
   /// Find and return the first matching interval from the given range.
   let tryFind range s =

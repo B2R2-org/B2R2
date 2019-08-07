@@ -150,7 +150,7 @@ let transMem ins ctxt addr = function
   | LiteralMode offset -> transBaseMode ins ctxt addr offset
 
 let transOprToExpr ins ctxt addr = function
-  | Register reg -> getRegVar ctxt reg
+  | OprRegister reg -> getRegVar ctxt reg
   | Memory mem -> transMem ins ctxt addr mem
   | SIMDOpr simd -> transSIMD ctxt simd
   | Immediate imm -> num <| BitVector.ofInt64 imm ins.OprSize
@@ -193,17 +193,17 @@ let transBarrelShiftToExpr ins ctxt src shift =
               | SRTypeLSR -> imm >>> int32 amt
               | _ -> failwith "Not implement"
     numI64 imm ins.OprSize
-  | Register reg, Shift (typ, amt) ->
+  | OprRegister reg, Shift (typ, amt) ->
     let reg = getRegVar ctxt reg
     let amount = transShiftAmout ctxt ins.OprSize amt
     shiftReg reg amount ins.OprSize typ
-  | Register reg, ExtReg (Some (ShiftOffset (typ, amt))) ->
+  | OprRegister reg, ExtReg (Some (ShiftOffset (typ, amt))) ->
     let reg = getRegVar ctxt reg
     let amount = transShiftAmout ctxt ins.OprSize amt
     shiftReg reg amount ins.OprSize typ
-  | Register reg, ExtReg (Some (ExtRegOffset (typ, shf))) ->
+  | OprRegister reg, ExtReg (Some (ExtRegOffset (typ, shf))) ->
     extendReg ctxt reg typ shf ins.OprSize
-  | Register reg, ExtReg None -> getRegVar ctxt reg
+  | OprRegister reg, ExtReg None -> getRegVar ctxt reg
   | _ -> raise <| NotImplementedIRException "transBarrelShiftToExpr"
 
 let transFourOprsWithBarrelShift ins ctxt addr =
@@ -1414,9 +1414,9 @@ let ubfm ins ctxt addr =
 let distLogcalShift ins ctxt addr =
   match ins.Operands with
   | ThreeOperands (_, _, Immediate _) -> ubfm ins ctxt addr
-  | ThreeOperands (_, _, Register _) when ins.Opcode = Opcode.LSL ->
+  | ThreeOperands (_, _, OprRegister _) when ins.Opcode = Opcode.LSL ->
     lslv ins ctxt addr
-  | ThreeOperands (_, _, Register _) when ins.Opcode = Opcode.LSR ->
+  | ThreeOperands (_, _, OprRegister _) when ins.Opcode = Opcode.LSR ->
     lsrv ins ctxt addr
   | _ -> raise InvalidOperandException
 

@@ -38,6 +38,7 @@ let speclist =
     CmdROP () :> Cmd
     CmdList () :> Cmd
     CmdSearch () :> Cmd
+    CmdShow () :> Cmd
     CmdHexDump () :> Cmd
     CmdPrint () :> Cmd
     (* Default commands *)

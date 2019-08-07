@@ -26,22 +26,22 @@ type TestClass () =
   let v13 = V (13, (AddrRange (13UL, 14UL)))
 
   (* Graph example from Wikipedia. *)
-  let g = RangedDiGraph ()
-  let n1 = g.AddVertex v1 // Node 1
-  let n2 = g.AddVertex v2 // Node 2
-  let n3 = g.AddVertex v3 // Node 3
-  let n4 = g.AddVertex v4 // Node 4
-  let n5 = g.AddVertex v5 // Node 5
-  let n6 = g.AddVertex v6 // Node 6
-  let _ = g.AddEdge n1 n2 (Edge 1)
-  let _ = g.AddEdge n2 n3 (Edge 2)
-  let _ = g.AddEdge n2 n4 (Edge 3)
-  let _ = g.AddEdge n2 n6 (Edge 4)
-  let _ = g.AddEdge n3 n5 (Edge 5)
-  let _ = g.AddEdge n4 n5 (Edge 6)
-  let _ = g.AddEdge n5 n2 (Edge 7)
-  let _ = g.SetRoot n1
-  let ctxt = Dominator.initDominatorContext g
+  let g1 = RangedDiGraph ()
+  let n1 = g1.AddVertex v1 // Node 1
+  let n2 = g1.AddVertex v2 // Node 2
+  let n3 = g1.AddVertex v3 // Node 3
+  let n4 = g1.AddVertex v4 // Node 4
+  let n5 = g1.AddVertex v5 // Node 5
+  let n6 = g1.AddVertex v6 // Node 6
+  let _ = g1.AddEdge n1 n2 (Edge 1)
+  let _ = g1.AddEdge n2 n3 (Edge 2)
+  let _ = g1.AddEdge n2 n4 (Edge 3)
+  let _ = g1.AddEdge n2 n6 (Edge 4)
+  let _ = g1.AddEdge n3 n5 (Edge 5)
+  let _ = g1.AddEdge n4 n5 (Edge 6)
+  let _ = g1.AddEdge n5 n2 (Edge 7)
+  let g1root = n1
+  let ctxt1 = Dominator.initDominatorContext g1 g1root
 
   (* Graph example from Tiger book. *)
   let g2 = RangedDiGraph ()
@@ -57,8 +57,8 @@ type TestClass () =
   let _ = g2.AddEdge n4 n5 (Edge 4)
   let _ = g2.AddEdge n4 n6 (Edge 5)
   let _ = g2.AddEdge n6 n4 (Edge 6)
-  let _ = g2.SetRoot n1
-  let ctxt2 = Dominator.initDominatorContext g2
+  let g2root = n1
+  let ctxt2 = Dominator.initDominatorContext g2 g2root
 
   (* Arbitrary graph example *)
   let g3 = RangedDiGraph ()
@@ -72,8 +72,8 @@ type TestClass () =
   let _ = g3.AddEdge n2 n4 (Edge 3)
   let _ = g3.AddEdge n3 n4 (Edge 4)
   let _ = g3.AddEdge n3 n5 (Edge 5)
-  let _ = g3.SetRoot n1
-  let ctxt3 = Dominator.initDominatorContext g3
+  let g3root = n1
+  let ctxt3 = Dominator.initDominatorContext g3 g3root
 
   (* Graph example from Tiger book (Fig. 19.5) *)
   let g4 = RangedDiGraph ()
@@ -110,47 +110,48 @@ type TestClass () =
   let _ = g4.AddEdge n10 n12 (Edge 18)
   let _ = g4.AddEdge n11 n12 (Edge 19)
   let _ = g4.AddEdge n12 n13 (Edge 20)
-  let _ = g4.SetRoot n1
-  let ctxt4 = Dominator.initDominatorContext g4
+  let g4root = n1
+  let ctxt4 = Dominator.initDominatorContext g4 g4root
 
   let edgeValue (Edge d) : int = d
 
   let getVertexVal (v: Vertex<V> option) = (Option.get v).VData.Val
 
   let sum acc (v: Vertex<V>) = v.VData.Val + acc
-  let inc acc v1 v2 = acc + (g.FindEdge v1 v2 |> edgeValue)
+  let inc acc v1 v2 e = acc + edgeValue e
 
   [<TestMethod>]
   member __.``RangedDiGraph Traversal Test``() =
-    let s1 = g.FoldVertexDFS sum 0
-    let s2 = g.FoldVertexBFS sum 0
-    let s3 = g.FoldEdge inc 0
+    let s1 = g1.FoldVertexDFS g1root sum 0
+    let s2 = g1.FoldVertexBFS g1root sum 0
+    let s3 = g1.FoldEdge inc 0
     Assert.AreEqual (s1, 21)
     Assert.AreEqual (s2, 21)
     Assert.AreEqual (s3, 28)
 
   [<TestMethod>]
   member __.``RangedDiGraph Removal Test``() =
-    let g2 = g.Clone ()
+    let g2 = g1.Clone ()
+    let g2root = g2.FindVertexByData (g1root.VData)
     g2.FindVertexByRange (AddrRange (3UL, 4UL)) |> g2.RemoveVertex
-    let s1 = g.FoldVertexDFS sum 0
-    let s2 = g2.FoldVertexDFS sum 0
-    Assert.AreEqual (6, g.Size ())
+    let s1 = g1.FoldVertexDFS g1root sum 0
+    let s2 = g2.FoldVertexDFS g2root sum 0
+    Assert.AreEqual (6, g1.Size ())
     Assert.AreEqual (5, g2.Size ())
     Assert.AreEqual (21, s1)
     Assert.AreEqual (18, s2)
 
   [<TestMethod>]
   member __.``Graph Transposition Test``() =
-    let g2 = g.Reverse ()
-    g2.SetRoot (g2.FindVertexByData v6)
-    let s1 = g.FoldVertexDFS sum 0
-    let s2 = g2.FoldVertexDFS sum 0
-    let lst = g2.FoldEdge (fun acc s d ->
-      (s.VData.Val, d.VData.Val) :: acc) []
+    let g2 = g1.Reverse ()
+    let g2root = g2.FindVertexByData v6
+    let s1 = g1.FoldVertexDFS g1root sum 0
+    let s2 = g2.FoldVertexDFS g2root sum 0
+    let lst =
+      g2.FoldEdge (fun acc s d _ -> (s.VData.Val, d.VData.Val) :: acc) []
     let edges = List.sort lst |> List.toArray
     let solution = [| (2, 1); (2, 5); (3, 2); (4, 2); (5, 3); (5, 4); (6, 2) |]
-    Assert.AreEqual (6, g.Size ())
+    Assert.AreEqual (6, g1.Size ())
     Assert.AreEqual (6, g2.Size ())
     Assert.AreEqual (21, s1)
     Assert.AreEqual (21, s2)
@@ -158,17 +159,17 @@ type TestClass () =
 
   [<TestMethod>]
   member __.``Dominator Test 1``() =
-    let v = Dominator.idom ctxt <| g.FindVertexByData v1
+    let v = Dominator.idom ctxt1 <| g1.FindVertexByData v1
     Assert.IsTrue (v.IsNone)
-    let v = Dominator.idom ctxt <| g.FindVertexByData v2
+    let v = Dominator.idom ctxt1 <| g1.FindVertexByData v2
     Assert.AreEqual (1, getVertexVal v)
-    let v = Dominator.idom ctxt <| g.FindVertexByData v3
+    let v = Dominator.idom ctxt1 <| g1.FindVertexByData v3
     Assert.AreEqual (2, getVertexVal v)
-    let v = Dominator.idom ctxt <| g.FindVertexByData v4
+    let v = Dominator.idom ctxt1 <| g1.FindVertexByData v4
     Assert.AreEqual (2, getVertexVal v)
-    let v = Dominator.idom ctxt <| g.FindVertexByData v5
+    let v = Dominator.idom ctxt1 <| g1.FindVertexByData v5
     Assert.AreEqual (2, getVertexVal v)
-    let v = Dominator.idom ctxt <| g.FindVertexByData v6
+    let v = Dominator.idom ctxt1 <| g1.FindVertexByData v6
     Assert.AreEqual (2, getVertexVal v)
 
   [<TestMethod>]
@@ -188,17 +189,17 @@ type TestClass () =
 
   [<TestMethod>]
   member __.``Post-Dominator Test``() =
-    let v = Dominator.ipdom ctxt <| g.FindVertexByData v1
+    let v = Dominator.ipdom ctxt1 <| g1.FindVertexByData v1
     Assert.AreEqual (2, getVertexVal v)
-    let v = Dominator.ipdom ctxt <| g.FindVertexByData v2
+    let v = Dominator.ipdom ctxt1 <| g1.FindVertexByData v2
     Assert.AreEqual (6, getVertexVal v)
-    let v = Dominator.ipdom ctxt <| g.FindVertexByData v3
+    let v = Dominator.ipdom ctxt1 <| g1.FindVertexByData v3
     Assert.AreEqual (5, getVertexVal v)
-    let v = Dominator.ipdom ctxt <| g.FindVertexByData v4
+    let v = Dominator.ipdom ctxt1 <| g1.FindVertexByData v4
     Assert.AreEqual (5, getVertexVal v)
-    let v = Dominator.ipdom ctxt <| g.FindVertexByData v5
+    let v = Dominator.ipdom ctxt1 <| g1.FindVertexByData v5
     Assert.AreEqual (2, getVertexVal v)
-    let v = Dominator.ipdom ctxt <| g.FindVertexByData v6
+    let v = Dominator.ipdom ctxt1 <| g1.FindVertexByData v6
     Assert.IsTrue (v.IsNone)
 
   [<TestMethod>]
@@ -240,8 +241,7 @@ type TestClass () =
     g.AddEdge n4 n6 (Edge 6)
     g.AddEdge n5 n6 (Edge 7)
     g.AddEdge n6 n1 (Edge 8) // Back edge to the root node.
-    g.SetRoot n1
-    let ctxt = Dominator.initDominatorContext g
+    let ctxt = Dominator.initDominatorContext g n1
     let v = Dominator.idom ctxt <| g.FindVertexByData v1
     Assert.IsTrue (v.IsNone)
     let v = Dominator.idom ctxt <| g.FindVertexByData v2

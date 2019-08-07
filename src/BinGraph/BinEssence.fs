@@ -35,59 +35,39 @@ open B2R2.FrontEnd
 type BinEssence = {
   /// BInary handler.
   BinHandler: BinHandler
-
-  /// A map from Addr to a Function.
-  Functions: Funcs
-
-  /// Call graph.
-  CallGraph: CallGraph
+  /// Binary apparatus holds crucial machinery about binary code and their
+  /// lifted statements. For example, it provides a convenient mapping from an
+  /// address to the corresponding instruction and IR statements.
+  BinaryApparatus: BinaryApparatus
+  /// Super Control Flow Graph.
+  SCFG: SCFG
 }
 with
-  static member Init _verbose hdl =
-    (* Currently no other choice *)
-    let funcs = CFGUtils.construct hdl (CFGBuilder ()) Default
-    let funcs = CFGUtils.analCalls funcs
-    let callGraph = SimpleDiGraph ()
-    CFGUtils.buildCallGraph hdl funcs callGraph
-    NoReturn.noReturnAnalysis hdl callGraph
-    { BinHandler = hdl
-      Functions = funcs
-      CallGraph = callGraph }
+  static member private PostAnalysis hdl scfg app =
+    [ LibcAnalysis () :> IPostAnalysis
+      NoReturnAnalysis () :> IPostAnalysis ]
+    |> List.fold (fun app analysis -> analysis.Run hdl scfg app) app
 
-  static member FindFuncByEntry entry ess =
-    ess.Functions.Values |> List.ofSeq
-    |> List.find (fun (func: Function) -> func.Entry = entry)
+  static member private Analysis hdl app (scfg: SCFG) analyzers =
+#if DEBUG
+    printfn "[*] Start post analysis."
+#endif
+    let app' = BinEssence.PostAnalysis hdl scfg { app with Modified = false }
+    if not app'.Modified then
+#if DEBUG
+      printfn "[*] All done."
+#endif
+      { BinHandler = hdl
+        BinaryApparatus = app'
+        SCFG = scfg }
+    else
+#if DEBUG
+      printfn "[*] Go to the next phase ..."
+#endif
+      let scfg' = SCFG (hdl, app')
+      BinEssence.Analysis hdl app' scfg' analyzers
 
-  static member TryFindFuncByEntry entry ess =
-    ess.Functions.Values |> List.ofSeq
-    |> List.tryPick (fun (func: Function) ->
-        if func.Entry = entry then Some func else None)
-
-  static member TryFindFuncByName name ess =
-    ess.Functions.Values |> List.ofSeq
-    |> List.tryPick (fun (func: Function) ->
-        if func.Name = name then Some func else None)
-
-  static member DisasmVertexToDOT v =
-    "\"" + CFGUtils.disasmVertexToString v + "\""
-
-  static member IrVertexToDOT v =
-    "\"" + CFGUtils.irVertexToString v + "\""
-
-  static member EdgeToDOT (Edge e) = // FIXME
-    sprintf "%A" e
-
-  static member ShowDisasmDOT name (disasmCFG: DisasmCFG) =
-    disasmCFG.ToDOTStr name BinEssence.DisasmVertexToDOT BinEssence.EdgeToDOT
-    |> System.Console.WriteLine
-
-  static member ShowIRDOT name (irCFG: IRCFG) =
-    irCFG.ToDOTStr name BinEssence.IrVertexToDOT BinEssence.EdgeToDOT
-    |> System.Console.WriteLine
-
-  static member ShowDot ess =
-    ess.Functions.Values
-    |> Seq.iter (fun (func: Function) ->
-        let name = "\"" + func.Entry.ToString ("X") + "\""
-        BinEssence.ShowDisasmDOT name func.DisasmCFG
-        BinEssence.ShowIRDOT name func.IRCFG)
+  static member Init hdl =
+    let app = BinaryApparatus.init hdl
+    let scfg = SCFG (hdl, app)
+    BinEssence.Analysis hdl app scfg []

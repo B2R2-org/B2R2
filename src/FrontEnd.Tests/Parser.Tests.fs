@@ -2158,63 +2158,76 @@ module ARM64 =
     /// C4.2.1 Add/subtract (immediate)
     [<TestMethod>]
     member __.``[AArch64] Add/subtract (immedate) Parse Test`` () =
-      test64 Opcode.ADD (FourOperands (Register R.W26, Register R.W5, Immediate 0x371L,
-                                Shift (SRTypeLSL, Imm 12L)))
+      test64 Opcode.ADD (FourOperands (OprRegister R.W26,
+                                       OprRegister R.W5,
+                                       Immediate 0x371L,
+                                       Shift (SRTypeLSL, Imm 12L)))
              [| 0x11uy; 0x4duy; 0xc4uy; 0xbauy |]
 
     /// C4.2.2 Bit Field
     [<TestMethod>]
     member __.``[AArch64] Bitfield Parse Test`` () =
-      test64 Opcode.SBFX (FourOperands (Register R.W1, Register R.W0, Immediate 0x1L,
-                                 Immediate 0x1L))
+      test64 Opcode.SBFX (FourOperands (OprRegister R.W1,
+                                        OprRegister R.W0,
+                                        Immediate 0x1L,
+                                        Immediate 0x1L))
              [| 0x13uy; 0x01uy; 0x04uy; 0x01uy |]
 
     /// C4.2.3 Extract
     [<TestMethod>]
     member __.``[AArch64] Extract Parse Test`` () =
-      test64 Opcode.EXTR (FourOperands (Register R.X2, Register R.X1, Register R.X0,
-                                 LSB 0x1uy))
+      test64 Opcode.EXTR (FourOperands (OprRegister R.X2,
+                                        OprRegister R.X1,
+                                        OprRegister R.X0,
+                                        LSB 0x1uy))
              [| 0x93uy; 0xc0uy; 0x04uy; 0x22uy |]
 
     /// C4.2.4 Logical (immediate)
     [<TestMethod>]
     member __.``[AArch64] Logical (immedate) Parse Test`` () =
-      test64 Opcode.AND (ThreeOperands (Register R.W1, Register R.W0,
-                                 Immediate 0x80000001L))
+      test64 Opcode.AND (ThreeOperands (OprRegister R.W1,
+                                        OprRegister R.W0,
+                                        Immediate 0x80000001L))
              [| 0x12uy; 0x01uy; 0x04uy; 0x01uy |]
 
-      test64 Opcode.AND (ThreeOperands (Register R.W1, Register R.W0,
-                                 Immediate 0xE0000001L))
+      test64 Opcode.AND (ThreeOperands (OprRegister R.W1,
+                                        OprRegister R.W0,
+                                        Immediate 0xE0000001L))
              [| 0x12uy; 0x03uy; 0x0cuy; 0x01uy |]
 
-      test64 Opcode.AND (ThreeOperands (Register R.W1, Register R.W0, Immediate 0x3L))
+      test64 Opcode.AND (ThreeOperands (OprRegister R.W1,
+                                        OprRegister R.W0,
+                                        Immediate 0x3L))
              [| 0x12uy; 0x20uy; 0x04uy; 0x01uy |]
 
-      test64 Opcode.AND (ThreeOperands (Register R.W1, Register R.W1,
-                                 Immediate 0xffffffdfL))
+      test64 Opcode.AND (ThreeOperands (OprRegister R.W1,
+                                        OprRegister R.W1,
+                                        Immediate 0xffffffdfL))
              [| 0x12uy; 0x1auy; 0x78uy; 0x21uy |]
 
-      test64 Opcode.AND (ThreeOperands (Register R.X1, Register R.X0,
-                                 Immediate 0x300000003L))
+      test64 Opcode.AND (ThreeOperands (OprRegister R.X1,
+                                        OprRegister R.X0,
+                                        Immediate 0x300000003L))
              [| 0x92uy; 0x20uy; 0x04uy; 0x01uy |]
 
     /// C4.2.5 Move wide (immediate)
     [<TestMethod>]
     member __.``[AArch64] Move wide (immediate) Parse Test`` () =
-      test64 Opcode.MOVN (ThreeOperands (Register R.X21, Immediate 0x0L,
-                                  Shift (SRTypeLSL, Imm 0x10L)))
+      test64 Opcode.MOVN (ThreeOperands (OprRegister R.X21, Immediate 0x0L,
+                                         Shift (SRTypeLSL, Imm 0x10L)))
              [| 0x92uy; 0xa0uy; 0x00uy; 0x15uy |]
 
-      test64 Opcode.MOV (TwoOperands (Register R.XZR, Immediate 0XE002FFFFFFFFFFFFL))
+      test64 Opcode.MOV (TwoOperands (OprRegister R.XZR,
+                                      Immediate 0XE002FFFFFFFFFFFFL))
              [| 0x92uy; 0xe3uy; 0xffuy; 0xbfuy |] (* Alias of MOVN *)
 
-      test64 Opcode.MOV (TwoOperands (Register R.W26, Immediate 0x7FFFFFFFL))
+      test64 Opcode.MOV (TwoOperands (OprRegister R.W26, Immediate 0x7FFFFFFFL))
              [| 0x12uy; 0xb0uy; 0x00uy; 0x1auy |] (* Alias of MOVN *)
 
     /// C4.2.6 PC-rel. addressing
     [<TestMethod>]
     member __.``[AArch64] PC-rel. addressing Parse Test`` () =
-      test64 Opcode.ADR (TwoOperands (Register R.X7, memLabel 0xffe0fL))
+      test64 Opcode.ADR (TwoOperands (OprRegister R.X7, memLabel 0xffe0fL))
              [| 0x70uy; 0x7fuy; 0xf0uy; 0x67uy |]
 
   /// C4.3 Branches, exception generating and system instructions
@@ -2223,7 +2236,7 @@ module ARM64 =
     /// C4.3.1 Compare & branch (immediate)
     [<TestMethod>]
     member __.``[AArch64] Compare & branch Parse Test`` () =
-      test64 Opcode.CBZ (TwoOperands (Register R.X3, memLabel 0x8204L))
+      test64 Opcode.CBZ (TwoOperands (OprRegister R.X3, memLabel 0x8204L))
              [| 0xb4uy; 0x04uy; 0x10uy; 0x23uy |]
 
     /// C4.3.2 Conditional branch (immediate)
@@ -2253,26 +2266,31 @@ module ARM64 =
       test64 Opcode.SEVL NoOperand
              [| 0xd5uy; 0x03uy; 0x20uy; 0xbfuy |]
 
-      test64 Opcode.DC (TwoOperands (SysOpr (DCOpr ZVA), Register R.X3))
+      test64 Opcode.DC (TwoOperands (SysOpr (DCOpr ZVA), OprRegister R.X3))
              [| 0xd5uy; 0x0buy; 0x74uy; 0x23uy |]
 
-      test64 Opcode.SYSL (FiveOperands (Register R.X24, Immediate 0L, Register R.C15,
-                                 Register R.C4, Immediate 6L))
+      test64 Opcode.SYSL (FiveOperands (OprRegister R.X24,
+                                        Immediate 0L, OprRegister R.C15,
+                                        OprRegister R.C4, Immediate 6L))
              [| 0xd5uy; 0x28uy; 0xf4uy; 0xd8uy |]
 
-      test64 Opcode.MSR (TwoOperands (Register (R.HPFAREL2), Register R.X0))
+      test64 Opcode.MSR (TwoOperands (OprRegister (R.HPFAREL2),
+                                      OprRegister R.X0))
              [| 0xd5uy; 0x1cuy; 0x60uy; 0x80uy |]
 
-      test64 Opcode.MSR (TwoOperands (Register (R.ACTLREL1), Register R.X0))
+      test64 Opcode.MSR (TwoOperands (OprRegister (R.ACTLREL1),
+                                      OprRegister R.X0))
              [| 0xd5uy; 0x18uy; 0x10uy; 0x20uy |]
 
-      test64 Opcode.MRS (TwoOperands (Register R.X0, Register (R.ACTLREL1)))
+      test64 Opcode.MRS (TwoOperands (OprRegister R.X0,
+                                      OprRegister (R.ACTLREL1)))
              [| 0xd5uy; 0x38uy; 0x10uy; 0x20uy |]
 
     /// C4.3.5 Test & branch (immediate)
     [<TestMethod>]
     member __.``[AArch64] Test & branch (immediate) Parse Test`` () =
-      test64 Opcode.TBZ (ThreeOperands (Register R.X3, Immediate 0x21L, memLabel 0x8L))
+      test64 Opcode.TBZ (ThreeOperands (OprRegister R.X3,
+                                        Immediate 0x21L, memLabel 0x8L))
              [| 0xb6uy; 0x08uy; 0x00uy; 0x43uy |]
 
     /// C4.3.6 Unconditional branch (immediate)
@@ -2284,7 +2302,7 @@ module ARM64 =
     /// C4.3.7 Unconditional branch (register)
     [<TestMethod>]
     member __.``[AArch64] Unconditional branch (register) Parse Test`` () =
-      test64 Opcode.BR (OneOperand (Register R.XZR))
+      test64 Opcode.BR (OneOperand (OprRegister R.XZR))
              [| 0xd6uy; 0x1fuy; 0x03uy; 0xe0uy |]
 
   /// C4.4 Loads and stores
@@ -2411,10 +2429,11 @@ module ARM64 =
     /// C4.4.5 Load register (literal)
     [<TestMethod>]
     member __.``[AArch64] Load register (literal) Parse Test`` () =
-      test64 Opcode.LDR (TwoOperands (Register R.X9, memLabel 0xa6388L))
+      test64 Opcode.LDR (TwoOperands (OprRegister R.X9, memLabel 0xa6388L))
              [| 0x58uy; 0x53uy; 0x1cuy; 0x49uy |]
 
-      test64 Opcode.LDRSW (TwoOperands (Register R.X30, memLabel 0xfffffffffff00000L))
+      test64 Opcode.LDRSW (TwoOperands (OprRegister R.X30,
+                                        memLabel 0xfffffffffff00000L))
              [| 0x98uy; 0x80uy; 0x00uy; 0x1euy |]
 
       test64 Opcode.PRFM (TwoOperands (PrfOp PLIL2STRM, memLabel 0x1004L))
@@ -2423,21 +2442,24 @@ module ARM64 =
     /// C4.4.6 Load/store exclusive
     [<TestMethod>]
     member __.``[AArch64] Load/store exclusive Parse Test`` () =
-      test64 Opcode.STXRB (ThreeOperands (Register R.W20, Register R.W21,
-                                   memBaseImm (R.X5, None)))
+      test64 Opcode.STXRB (ThreeOperands (OprRegister R.W20, OprRegister R.W21,
+                                          memBaseImm (R.X5, None)))
              [| 0x08uy; 0x14uy; 0x7cuy; 0xb5uy |]
 
-      test64 Opcode.STXP (FourOperands (Register R.W11, Register R.W2, Register R.W1,
-                                 memBaseImm (R.X6, None)))
+      test64 Opcode.STXP (FourOperands (OprRegister R.W11,
+                                        OprRegister R.W2,
+                                        OprRegister R.W1,
+                                        memBaseImm (R.X6, None)))
              [| 0x88uy; 0x2buy; 0x04uy; 0xc2uy |]
 
-      test64 Opcode.LDXRB (TwoOperands (Register R.W26, memBaseImm (R.X11, None)))
+      test64 Opcode.LDXRB (TwoOperands (OprRegister R.W26,
+                                        memBaseImm (R.X11, None)))
              [| 0x08uy; 0x5fuy; 0x7duy; 0x7auy |]
 
     /// C4.4.7 Load/store no-allocate pair (offset)
     [<TestMethod>]
     member __.``[AArch64] Load/store no-allocate pair (offset) Parse Test`` () =
-      test64 Opcode.STNP (ThreeOperands (Register R.W3, Register R.W10,
+      test64 Opcode.STNP (ThreeOperands (OprRegister R.W3, OprRegister R.W10,
                                   memBaseImm (R.X21, Some 0x60L)))
              [| 0x28uy; 0x0cuy; 0x2auy; 0xa3uy |]
 
@@ -2448,29 +2470,30 @@ module ARM64 =
     /// C4.4.8 Load/store register (immediate post-indexed)
     [<TestMethod>]
     member __.``[AArch64] Load/store register (imm post-idx) Parse Test`` () =
-      test64 Opcode.STRB (TwoOperands (Register R.W3,
+      test64 Opcode.STRB (TwoOperands (OprRegister R.W3,
                                 memPostIdxImm (R.X1, Some 0xffffffffffffff0aL)))
              [| 0x38uy; 0x10uy; 0xa4uy; 0x23uy |]
 
-      test64 Opcode.LDRSB (TwoOperands (Register R.W18,
+      test64 Opcode.LDRSB (TwoOperands (OprRegister R.W18,
                                  memPostIdxImm (R.X5, Some 0xeaL)))
              [| 0x38uy; 0xceuy; 0xa4uy; 0xb2uy |]
 
       test64 Opcode.STR (TwoOperands (scalReg R.H2, memPostIdxImm (R.X1, Some 0xcaL)))
              [| 0x7cuy; 0x0cuy; 0xa4uy; 0x22uy |]
 
-      test64 Opcode.STRH (TwoOperands (Register R.W21,
+      test64 Opcode.STRH (TwoOperands (OprRegister R.W21,
                                 memPostIdxImm (R.X7, Some 0xffffffffffffff00L)))
              [| 0x78uy; 0x10uy; 0x04uy; 0xf5uy |]
 
-      test64 Opcode.LDRSW (TwoOperands (Register R.X21,
+      test64 Opcode.LDRSW (TwoOperands (OprRegister R.X21,
                                  memPostIdxImm (R.X10, Some 0x3L)))
              [| 0xb8uy; 0x80uy; 0x35uy; 0x55uy |]
 
     /// C4.4.9 Load/store register (immediate pre-indexed)
     [<TestMethod>]
     member __.``[AArch64] Load/store register (imm pre-idx) Parse Test`` () =
-      test64 Opcode.STRB (TwoOperands (Register R.W17, memPreIdxImm (R.X5, Some 0xfL)))
+      test64 Opcode.STRB (TwoOperands (OprRegister R.W17,
+                                       memPreIdxImm (R.X5, Some 0xfL)))
              [| 0x38uy; 0x00uy; 0xfcuy; 0xb1uy |]
 
       test64 Opcode.STR (TwoOperands (scalReg R.H10, memPreIdxImm (R.X3, Some 0xfL)))
@@ -2479,31 +2502,31 @@ module ARM64 =
     /// C4.4.10 Load/store register (register offset)
     [<TestMethod>]
     member __.``[AArch64] Load/store register (reg offset) Parse Test`` () =
-      test64 Opcode.STRB (TwoOperands (Register R.W7,
+      test64 Opcode.STRB (TwoOperands (OprRegister R.W7,
                                 memBaseReg (R.X3, R.W1,
                                             Some (ExtRegOffset (ExtUXTW,
                                                                 None)))))
              [| 0x38uy; 0x21uy; 0x48uy; 0x67uy |]
 
-      test64 Opcode.STRB (TwoOperands (Register R.W7,
+      test64 Opcode.STRB (TwoOperands (OprRegister R.W7,
                                 memBaseReg (R.X3, R.W3,
                                             Some (ExtRegOffset (ExtUXTW,
                                                                 Some 0x0L)))))
              [| 0x38uy; 0x23uy; 0x58uy; 0x67uy |]
 
-      test64 Opcode.STRB (TwoOperands (Register R.W12,
+      test64 Opcode.STRB (TwoOperands (OprRegister R.W12,
                                 memBaseReg (R.X1, R.X0,
                                             Some (ShiftOffset (SRTypeLSL,
                                                                Imm 0x0L)))))
              [| 0x38uy; 0x20uy; 0x78uy; 0x2cuy |]
 
-      test64 Opcode.LDRH (TwoOperands (Register R.WZR,
+      test64 Opcode.LDRH (TwoOperands (OprRegister R.WZR,
                                 memBaseReg (R.X21, R.W7,
                                             Some (ExtRegOffset (ExtSXTW,
                                                                 None)))))
              [| 0x78uy; 0x67uy; 0xcauy; 0xbfuy |]
 
-      test64 Opcode.LDRSH (TwoOperands (Register R.W17,
+      test64 Opcode.LDRSH (TwoOperands (OprRegister R.W17,
                                  memBaseReg (R.X3, R.X3,
                                              Some (ShiftOffset (SRTypeLSL,
                                                                 Imm 0x1L)))))
@@ -2524,21 +2547,23 @@ module ARM64 =
     /// C4.4.11 Load/store register (unprivileged)
     [<TestMethod>]
     member __.``[AArch64] Load/store register (unprivileged) Parse Test`` () =
-      test64 Opcode.STTRB (TwoOperands (Register R.W14, memBaseImm (R.X7, Some 0x19L)))
+      test64 Opcode.STTRB (TwoOperands (OprRegister R.W14,
+                                        memBaseImm (R.X7, Some 0x19L)))
              [| 0x38uy; 0x01uy; 0x98uy; 0xeeuy |]
 
-      test64 Opcode.STTRH (TwoOperands (Register R.W26,
+      test64 Opcode.STTRH (TwoOperands (OprRegister R.W26,
                                  memBaseImm (R.X5, Some 0xffffffffffffff18L)))
              [| 0x78uy; 0x11uy; 0x88uy; 0xbauy |]
 
-      test64 Opcode.LDTRSW (TwoOperands (Register R.X10,
+      test64 Opcode.LDTRSW (TwoOperands (OprRegister R.X10,
                                   memBaseImm (R.X3, Some 0x1fL)))
              [| 0xb8uy; 0x81uy; 0xf8uy; 0x6auy |]
 
     /// C4.4.12 Load/store register (unscaled immediate)
     [<TestMethod>]
     member __.``[AArch64] Load/store register (unscaled imm) Parse Test`` () =
-      test64 Opcode.STURB (TwoOperands (Register R.W24, memBaseImm (R.X7, Some 0x6aL)))
+      test64 Opcode.STURB (TwoOperands (OprRegister R.W24,
+                                        memBaseImm (R.X7, Some 0x6aL)))
              [| 0x38uy; 0x06uy; 0xa0uy; 0xf8uy |]
 
       test64 Opcode.LDUR (TwoOperands (scalReg R.Q3, memBaseImm (R.X20, Some 0xe0L)))
@@ -2551,7 +2576,8 @@ module ARM64 =
     /// C4.4.13 Load/store register (unsigned immediate)
     [<TestMethod>]
     member __.``[AArch64] Load/store register (unsigned imm) Parse Test`` () =
-      test64 Opcode.STRB (TwoOperands (Register R.WZR, memBaseImm (R.SP, Some 0x555L)))
+      test64 Opcode.STRB (TwoOperands (OprRegister R.WZR,
+                                       memBaseImm (R.SP, Some 0x555L)))
              [| 0x39uy; 0x15uy; 0x57uy; 0xffuy |]
 
       test64 Opcode.STR (TwoOperands (scalReg R.S31, memBaseImm (R.SP, Some 0x1ffcL)))
@@ -2564,25 +2590,27 @@ module ARM64 =
     /// C4.4.14 Load/store register pair (offset)
     [<TestMethod>]
     member __.``[AArch64] Load/store register pair (offset) Parse Test`` () =
-      test64 Opcode.LDP (ThreeOperands (Register R.W25, Register R.W18,
-                                 memBaseImm (R.X29, Some 0xffffffffffffff0cL)))
+      test64 Opcode.LDP (ThreeOperands (OprRegister R.W25,
+                                        OprRegister R.W18,
+                                        memBaseImm (R.X29,
+                                                    Some 0xffffffffffffff0cL)))
              [| 0x29uy; 0x61uy; 0xcbuy; 0xb9uy |]
 
     /// C4.4.15 Load/store register pair (post-indexed)
     [<TestMethod>]
     member __.``[AArch64] Load/store register pair (post-idx) Parse Test`` () =
-      test64 Opcode.STP (ThreeOperands (Register R.X11, Register R.X21,
+      test64 Opcode.STP (ThreeOperands (OprRegister R.X11, OprRegister R.X21,
                                  memPostIdxImm (R.SP, Some 0x1f8L)))
              [| 0xa8uy; 0x9fuy; 0xd7uy; 0xebuy |]
 
-      test64 Opcode.LDPSW (ThreeOperands (Register R.XZR, Register R.X23,
+      test64 Opcode.LDPSW (ThreeOperands (OprRegister R.XZR, OprRegister R.X23,
                                    memPostIdxImm (R.X30, Some 0x7cL)))
              [| 0x68uy; 0xcfuy; 0xdfuy; 0xdfuy |]
 
     /// C4.4.16 Load/store register pair (pre-indexed)
     [<TestMethod>]
     member __.``[AArch64] Load/store register pair (pre-idx) Parse Test`` () =
-      test64 Opcode.STP (ThreeOperands (Register R.XZR, Register R.XZR,
+      test64 Opcode.STP (ThreeOperands (OprRegister R.XZR, OprRegister R.XZR,
                                  memPreIdxImm (R.SP, Some 0x1f8L)))
              [| 0xa9uy; 0x9fuy; 0xffuy; 0xffuy |]
 
@@ -2592,192 +2620,245 @@ module ARM64 =
     /// C4.5.1 Add/subtract (extended register)
     [<TestMethod>]
     member __.``[AArch64] Add/subtract (extended register) Parse Test`` () =
-      test64 Opcode.ADD (FourOperands (Register R.WSP, Register R.WSP, Register R.WZR,
-                                ExtReg None))
+      test64 Opcode.ADD (FourOperands (OprRegister R.WSP,
+                                       OprRegister R.WSP,
+                                       OprRegister R.WZR,
+                                       ExtReg None))
              [| 0x0buy; 0x3fuy; 0x43uy; 0xffuy |]
 
-      test64 Opcode.ADD (FourOperands (Register R.WSP, Register R.WSP, Register R.WZR,
-                                ExtReg (Some (ShiftOffset (SRTypeLSL,
-                                                           Imm 2L)))))
+      test64 Opcode.ADD (FourOperands (OprRegister R.WSP,
+                                       OprRegister R.WSP,
+                                       OprRegister R.WZR,
+                                       ExtReg (Some (ShiftOffset (SRTypeLSL,
+                                                                  Imm 2L)))))
              [| 0x0buy; 0x3fuy; 0x4buy; 0xffuy |]
 
-      test64 Opcode.ADD (FourOperands (Register R.SP, Register R.X10, Register R.W10,
-                                ExtReg (Some (ExtRegOffset (ExtUXTW,
-                                                            Some 2L)))))
+      test64 Opcode.ADD (FourOperands (OprRegister R.SP,
+                                       OprRegister R.X10,
+                                       OprRegister R.W10,
+                                       ExtReg (Some (ExtRegOffset (ExtUXTW,
+                                                                   Some 2L)))))
              [| 0x8buy; 0x2auy; 0x49uy; 0x5fuy |]
 
-      test64 Opcode.CMN (ThreeOperands (Register R.SP, Register R.X14,
-                                 ExtReg (Some (ShiftOffset (SRTypeLSL,
-                                                            Imm 1L)))))
+      test64 Opcode.CMN (ThreeOperands (OprRegister R.SP,
+                                        OprRegister R.X14,
+                                        ExtReg (Some (ShiftOffset (SRTypeLSL,
+                                                                   Imm 1L)))))
              [| 0xabuy; 0x2euy; 0x67uy; 0xffuy |]
 
     /// C4.5.2 Add/subtract (shifted register)
     [<TestMethod>]
     member __.``[AArch64] Add/subtract (shifted register) Parse Test`` () =
-      test64 Opcode.ADD (FourOperands (Register R.W27, Register R.W28, Register R.W14,
-                                Shift (SRTypeASR, Imm 23L)))
+      test64 Opcode.ADD (FourOperands (OprRegister R.W27,
+                                       OprRegister R.W28,
+                                       OprRegister R.W14,
+                                       Shift (SRTypeASR, Imm 23L)))
              [| 0x0buy; 0x8euy; 0x5fuy; 0x9buy |]
 
-      test64 Opcode.SUBS (FourOperands (Register R.W11, Register R.W29, Register R.W14,
-                                 Shift (SRTypeLSR, Imm 7L)))
+      test64 Opcode.SUBS (FourOperands (OprRegister R.W11,
+                                        OprRegister R.W29,
+                                        OprRegister R.W14,
+                                        Shift (SRTypeLSR, Imm 7L)))
              [| 0x6buy; 0x4euy; 0x1fuy; 0xabuy |]
 
-      test64 Opcode.ADDS (FourOperands (Register R.X18, Register R.X29, Register R.X14,
-                                 Shift (SRTypeASR, Imm 7L)))
+      test64 Opcode.ADDS (FourOperands (OprRegister R.X18,
+                                        OprRegister R.X29,
+                                        OprRegister R.X14,
+                                        Shift (SRTypeASR, Imm 7L)))
              [| 0xabuy; 0x8euy; 0x1fuy; 0xb2uy |]
 
     /// C4.5.3 Add/subtract (with carry)
     [<TestMethod>]
     member __.``[AArch64] Add/subtract (with carry) Parse Test`` () =
-      test64 Opcode.ADCS (ThreeOperands (Register R.XZR, Register R.X21,
-                                  Register R.X10))
+      test64 Opcode.ADCS (ThreeOperands (OprRegister R.XZR,
+                                         OprRegister R.X21,
+                                         OprRegister R.X10))
              [| 0xbauy; 0x0auy; 0x02uy; 0xbfuy |]
 
-      test64 Opcode.NGC (TwoOperands (Register R.W30, Register R.W11))
+      test64 Opcode.NGC (TwoOperands (OprRegister R.W30, OprRegister R.W11))
              [| 0x5auy; 0x0buy; 0x03uy; 0xfeuy |]
 
     /// C4.5.4 Conditional compare (immediate)
     [<TestMethod>]
     member __.``[AArch64] Conditional compare (immediate) Parse Test`` () =
-      test64 Opcode.CCMN (FourOperands (Register R.X3, Immediate 0x15L, NZCV 8uy,
-                                 Cond GT))
+      test64 Opcode.CCMN (FourOperands (OprRegister R.X3,
+                                        Immediate 0x15L,
+                                        NZCV 8uy,
+                                        Cond GT))
              [| 0xbauy; 0x55uy; 0xc8uy; 0x68uy |]
 
     /// C4.5.5 Conditional compare (register)
     [<TestMethod>]
     member __.``[AArch64] Conditional compare (register) Parse Test`` () =
-      test64 Opcode.CCMN (FourOperands (Register R.X15, Register R.X28, NZCV 0xfuy,
-                                 Cond PL))
+      test64 Opcode.CCMN (FourOperands (OprRegister R.X15,
+                                        OprRegister R.X28,
+                                        NZCV 0xfuy,
+                                        Cond PL))
              [| 0xbauy; 0x5cuy; 0x51uy; 0xefuy |]
 
     /// C4.5.6 Conditional select
     [<TestMethod>]
     member __.``[AArch64] Conditional select Parse Test`` () =
-      test64 Opcode.CSEL (FourOperands (Register R.X28, Register R.X23, Register R.X6,
-                                 Cond LS))
+      test64 Opcode.CSEL (FourOperands (OprRegister R.X28,
+                                        OprRegister R.X23,
+                                        OprRegister R.X6,
+                                        Cond LS))
              [| 0x9auy; 0x86uy; 0x92uy; 0xfcuy |]
 
-      test64 Opcode.CSINC (FourOperands (Register R.W21, Register R.W0, Register R.W16,
-                                  Cond CS)) // HS
+      test64 Opcode.CSINC (FourOperands (OprRegister R.W21,
+                                         OprRegister R.W0,
+                                         OprRegister R.W16,
+                                         Cond CS)) // HS
              [| 0x1auy; 0x90uy; 0x24uy; 0x15uy |]
 
-      test64 Opcode.CINC (ThreeOperands (Register R.W21, Register R.W16, Cond CC))// LO
+      test64 Opcode.CINC (ThreeOperands (OprRegister R.W21,
+                                         OprRegister R.W16, Cond CC))// LO
              [| 0x1auy; 0x90uy; 0x26uy; 0x15uy |]
 
-      test64 Opcode.CSET (TwoOperands (Register R.W7, Cond LE))
+      test64 Opcode.CSET (TwoOperands (OprRegister R.W7, Cond LE))
              [| 0x1auy; 0x9fuy; 0xc7uy; 0xe7uy |]
 
-      test64 Opcode.CINV (ThreeOperands (Register R.X10, Register R.X7, Cond LE))
+      test64 Opcode.CINV (ThreeOperands (OprRegister R.X10,
+                                         OprRegister R.X7, Cond LE))
              [| 0xdauy; 0x87uy; 0xc0uy; 0xeauy |]
 
-      test64 Opcode.CSETM (TwoOperands (Register R.X10, Cond LE))
+      test64 Opcode.CSETM (TwoOperands (OprRegister R.X10, Cond LE))
              [| 0xdauy; 0x9fuy; 0xc3uy; 0xeauy |]
 
-      test64 Opcode.CSINV (FourOperands (Register R.X10, Register R.X27,
-                                  Register R.XZR, Cond GT))
+      test64 Opcode.CSINV (FourOperands (OprRegister R.X10,
+                                         OprRegister R.X27,
+                                         OprRegister R.XZR, Cond GT))
              [| 0xdauy; 0x9fuy; 0xc3uy; 0x6auy |]
 
-      test64 Opcode.CSNEG (FourOperands (Register R.W30, Register R.W21,
-                                  Register R.W10, Cond AL))
+      test64 Opcode.CSNEG (FourOperands (OprRegister R.W30,
+                                         OprRegister R.W21,
+                                         OprRegister R.W10, Cond AL))
              [| 0x5auy; 0x8auy; 0xe6uy; 0xbeuy |]
 
-      test64 Opcode.CNEG (ThreeOperands (Register R.W30, Register R.W21, Cond LE))
+      test64 Opcode.CNEG (ThreeOperands (OprRegister R.W30,
+                                         OprRegister R.W21, Cond LE))
              [| 0x5auy; 0x95uy; 0xc6uy; 0xbeuy |]
 
     /// C4.5.7 Data-processing (1 source)
     [<TestMethod>]
     member __.``[AArch64] Data-processing (1 source) Parse Test`` () =
-      test64 Opcode.RBIT (TwoOperands (Register R.W28, Register R.W11))
+      test64 Opcode.RBIT (TwoOperands (OprRegister R.W28, OprRegister R.W11))
              [| 0x5auy; 0xc0uy; 0x01uy; 0x7cuy |]
 
-      test64 Opcode.CLS (TwoOperands (Register R.XZR, Register R.X11))
+      test64 Opcode.CLS (TwoOperands (OprRegister R.XZR, OprRegister R.X11))
              [| 0xdauy; 0xc0uy; 0x15uy; 0x7fuy |]
 
-      test64 Opcode.REV32 (TwoOperands (Register R.X30, Register R.X15))
+      test64 Opcode.REV32 (TwoOperands (OprRegister R.X30, OprRegister R.X15))
              [| 0xdauy; 0xc0uy; 0x09uy; 0xfeuy |]
 
     /// C4.5.8 Data-processing (2 source)
     [<TestMethod>]
     member __.``[AArch64] Data-processing (2 source) Parse Test`` () =
-      test64 Opcode.UDIV (ThreeOperands (Register R.W30, Register R.W23,
-                                  Register R.W9))
+      test64 Opcode.UDIV (ThreeOperands (OprRegister R.W30, OprRegister R.W23,
+                                  OprRegister R.W9))
              [| 0x1auy; 0xc9uy; 0x0auy; 0xfeuy |]
 
-      test64 Opcode.CRC32CX (ThreeOperands (Register R.W29, Register R.W3,
-                                     Register R.X26))
+      test64 Opcode.CRC32CX (ThreeOperands (OprRegister R.W29, OprRegister R.W3,
+                                     OprRegister R.X26))
              [| 0x9auy; 0xdauy; 0x5cuy; 0x7duy |]
 
     /// C4.5.9 Data-processing (3 source)
     [<TestMethod>]
     member __.``[AArch64] Data-processing (3 source) Parse Test`` () =
-      test64 Opcode.MADD (FourOperands (Register R.X7, Register R.X28, Register R.X10,
-                                 Register R.X11))
+      test64 Opcode.MADD (FourOperands (OprRegister R.X7,
+                                        OprRegister R.X28,
+                                        OprRegister R.X10,
+                                        OprRegister R.X11))
              [| 0x9buy; 0x0auy; 0x2fuy; 0x87uy |]
 
-      test64 Opcode.MUL (ThreeOperands (Register R.X7, Register R.X28, Register R.X10))
+      test64 Opcode.MUL (ThreeOperands (OprRegister R.X7,
+                                        OprRegister R.X28,
+                                        OprRegister R.X10))
              [| 0x9buy; 0x0auy; 0x7fuy; 0x87uy |] (* Alias of MADD *)
 
-      test64 Opcode.MSUB (FourOperands (Register R.X7, Register R.X28, Register R.X10,
-                                 Register R.X11))
+      test64 Opcode.MSUB (FourOperands (OprRegister R.X7,
+                                        OprRegister R.X28,
+                                        OprRegister R.X10,
+                                        OprRegister R.X11))
              [| 0x9buy; 0x0auy; 0xafuy; 0x87uy |]
 
-      test64 Opcode.SMADDL (FourOperands (Register R.X7, Register R.W28,
-                                   Register R.W10, Register R.X11))
+      test64 Opcode.SMADDL (FourOperands (OprRegister R.X7,
+                                          OprRegister R.W28,
+                                          OprRegister R.W10,
+                                          OprRegister R.X11))
              [| 0x9buy; 0x2auy; 0x2fuy; 0x87uy |]
 
-      test64 Opcode.SMSUBL (FourOperands (Register R.X7, Register R.W28,
-                                   Register R.W10, Register R.X11))
+      test64 Opcode.SMSUBL (FourOperands (OprRegister R.X7,
+                                          OprRegister R.W28,
+                                          OprRegister R.W10,
+                                          OprRegister R.X11))
              [| 0x9buy; 0x2auy; 0xafuy; 0x87uy |]
 
-      test64 Opcode.SMULH (ThreeOperands (Register R.X7, Register R.X28,
-                                   Register R.X10))
+      test64 Opcode.SMULH (ThreeOperands (OprRegister R.X7,
+                                          OprRegister R.X28,
+                                          OprRegister R.X10))
              [| 0x9buy; 0x4auy; 0x2fuy; 0x87uy |]
 
-      test64 Opcode.UMADDL (FourOperands (Register R.X7, Register R.W28,
-                                   Register R.W10, Register R.X11))
+      test64 Opcode.UMADDL (FourOperands (OprRegister R.X7,
+                                          OprRegister R.W28,
+                                          OprRegister R.W10,
+                                          OprRegister R.X11))
              [| 0x9buy; 0xaauy; 0x2fuy; 0x87uy |]
 
-      test64 Opcode.UMSUBL (FourOperands (Register R.X7, Register R.W28,
-                                   Register R.W10, Register R.X11))
+      test64 Opcode.UMSUBL (FourOperands (OprRegister R.X7,
+                                          OprRegister R.W28,
+                                          OprRegister R.W10,
+                                          OprRegister R.X11))
              [| 0x9buy; 0xaauy; 0xafuy; 0x87uy |]
 
-      test64 Opcode.UMULH (ThreeOperands (Register R.X7, Register R.X28,
-                                   Register R.X10))
+      test64 Opcode.UMULH (ThreeOperands (OprRegister R.X7,
+                                          OprRegister R.X28,
+                                          OprRegister R.X10))
              [| 0x9buy; 0xcauy; 0x2fuy; 0x87uy |]
 
-      test64 Opcode.MNEG (ThreeOperands (Register R.X7, Register R.X28,
-                                  Register R.X10))
+      test64 Opcode.MNEG (ThreeOperands (OprRegister R.X7,
+                                         OprRegister R.X28,
+                                         OprRegister R.X10))
              [| 0x9buy; 0x0auy; 0xffuy; 0x87uy |] (* Alias of MSUB *)
 
-      test64 Opcode.SMULL (ThreeOperands (Register R.X7, Register R.W28,
-                                   Register R.W10))
+      test64 Opcode.SMULL (ThreeOperands (OprRegister R.X7,
+                                          OprRegister R.W28,
+                                          OprRegister R.W10))
              [| 0x9buy; 0x2auy; 0x7fuy; 0x87uy |] (* Alias of SMADDL *)
 
-      test64 Opcode.SMNEGL (ThreeOperands (Register R.X7, Register R.W28,
-                                    Register R.W10))
+      test64 Opcode.SMNEGL (ThreeOperands (OprRegister R.X7,
+                                           OprRegister R.W28,
+                                           OprRegister R.W10))
              [| 0x9buy; 0x2auy; 0xffuy; 0x87uy |] (* Alias of SMSUBL *)
 
-      test64 Opcode.UMULL (ThreeOperands (Register R.X7, Register R.W28,
-                                   Register R.W10))
+      test64 Opcode.UMULL (ThreeOperands (OprRegister R.X7,
+                                          OprRegister R.W28,
+                                          OprRegister R.W10))
              [| 0x9buy; 0xaauy; 0x7fuy; 0x87uy |] (* Alias of UMADDL *)
 
-      test64 Opcode.UMNEGL (ThreeOperands (Register R.X7, Register R.W28,
-                                    Register R.W10))
+      test64 Opcode.UMNEGL (ThreeOperands (OprRegister R.X7,
+                                           OprRegister R.W28,
+                                           OprRegister R.W10))
              [| 0x9buy; 0xaauy; 0xffuy; 0x87uy |] (* Alias of UMSUBL *)
 
     /// C4.5.10 Logical (shifted register)
     [<TestMethod>]
     member __.``[AArch64] Logical (shifted register) Parse Test`` () =
-      test64 Opcode.AND (FourOperands (Register R.X5, Register R.X10, Register R.X24,
-                                Shift (SRTypeLSR, Imm 14L)))
+      test64 Opcode.AND (FourOperands (OprRegister R.X5,
+                                       OprRegister R.X10,
+                                       OprRegister R.X24,
+                                       Shift (SRTypeLSR, Imm 14L)))
              [| 0x8auy; 0x58uy; 0x39uy; 0x45uy |]
 
-      test64 Opcode.ORN (FourOperands (Register R.W26, Register R.W29, Register R.W22,
-                                Shift (SRTypeROR, Imm 7L)))
+      test64 Opcode.ORN (FourOperands (OprRegister R.W26,
+                                       OprRegister R.W29,
+                                       OprRegister R.W22,
+                                       Shift (SRTypeROR, Imm 7L)))
              [| 0x2auy; 0xf6uy; 0x1fuy; 0xbauy |]
 
-      test64 Opcode.MVN (ThreeOperands (Register R.W26, Register R.W22,
-                                 Shift (SRTypeROR, Imm 0x7L)))
+      test64 Opcode.MVN (ThreeOperands (OprRegister R.W26,
+                                        OprRegister R.W22,
+                                        Shift (SRTypeROR, Imm 0x7L)))
              [| 0x2auy; 0xf6uy; 0x1fuy; 0xfauy |]
 
   /// C4.6 Data processing - SIMD and floating point
@@ -2838,35 +2919,35 @@ module ARM64 =
                  [| 0x4euy; 0x18uy; 0x04uy; 0x86uy |]
 
       test64 Opcode.DUP (TwoOperands (SIMDOpr (SFReg (SIMDVecReg (R.V1, TwoD))),
-                               Register R.X3))
+                               OprRegister R.X3))
                  [| 0x4euy; 0x08uy; 0x0cuy; 0x61uy |]
 
       test64 Opcode.DUP (TwoOperands (SIMDOpr (SFReg (SIMDVecReg (R.V28, FourH))),
-                               Register R.WZR)) // Online HEX To ARM Conv error
+                               OprRegister R.WZR)) // Online HEX To ARM Conv error
                  [| 0x0euy; 0x1euy; 0x0fuy; 0xfcuy |]
 
       test64 Opcode.DUP (TwoOperands (SIMDOpr (SFReg (SIMDVecReg (R.V28, FourH))),
-                               Register R.WZR))
+                               OprRegister R.WZR))
                  [| 0x0euy; 0x02uy; 0x0fuy; 0xfcuy |]
 
-      test64 Opcode.SMOV (TwoOperands (Register R.W26,
+      test64 Opcode.SMOV (TwoOperands (OprRegister R.W26,
                                 SIMDOpr (SFReg (sVRegIdx R.V7 VecH 0uy))))
                   [| 0x0euy; 0x02uy; 0x2cuy; 0xfauy |]
 
-      test64 Opcode.UMOV (TwoOperands (Register R.W3,
+      test64 Opcode.UMOV (TwoOperands (OprRegister R.W3,
                                 SIMDOpr (SFReg (sVRegIdx R.V14 VecB 0uy))))
                   [| 0x0euy; 0x01uy; 0x3duy; 0xc3uy |]
 
-      test64 Opcode.MOV (TwoOperands (Register R.W3,
+      test64 Opcode.MOV (TwoOperands (OprRegister R.W3,
                                SIMDOpr (SFReg (sVRegIdx R.V14 VecS 0uy))))
                  [| 0x0euy; 0x04uy; 0x3duy; 0xc3uy |]
 
-      test64 Opcode.MOV (TwoOperands (Register R.X3,
+      test64 Opcode.MOV (TwoOperands (OprRegister R.X3,
                                SIMDOpr (SFReg (sVRegIdx R.V14 VecD 0uy))))
                  [| 0x4euy; 0x08uy; 0x3duy; 0xc3uy |]
 
       test64 Opcode.INS (TwoOperands (SIMDOpr (SFReg (sVRegIdx R.V9 VecS 0uy)),
-                               Register R.W1))
+                               OprRegister R.W1))
                  [| 0x4euy; 0x04uy; 0x1cuy; 0x29uy |]
 
       test64 Opcode.INS (TwoOperands (SIMDOpr (SFReg (sVRegIdx R.V5 VecH 0uy)),
@@ -4979,220 +5060,236 @@ module ARM64 =
     /// C4.6.29 Conversion between floating-point and fixed-point
     [<TestMethod>]
     member __.``[AArch64] Conversion between FP and fixed-pt Parse Test`` () =
-      test64 Opcode.SCVTF (ThreeOperands (scalReg R.S28, Register R.W5, Fbits 0x16uy))
+      test64 Opcode.SCVTF (ThreeOperands (scalReg R.S28,
+                                          OprRegister R.W5, Fbits 0x16uy))
                    [| 0x1euy; 0x02uy; 0xa8uy; 0xbcuy |]
 
-      test64 Opcode.UCVTF (ThreeOperands (scalReg R.S5, Register R.W5, Fbits 2uy))
+      test64 Opcode.UCVTF (ThreeOperands (scalReg R.S5,
+                                          OprRegister R.W5, Fbits 2uy))
                    [| 0x1euy; 0x03uy; 0xf8uy; 0xa5uy |]
 
-      test64 Opcode.FCVTZS (ThreeOperands (Register R.W17, scalReg R.S4, Fbits 1uy))
+      test64 Opcode.FCVTZS (ThreeOperands (OprRegister R.W17,
+                                           scalReg R.S4, Fbits 1uy))
                     [| 0x1euy; 0x18uy; 0xfcuy; 0x91uy |]
 
-      test64 Opcode.FCVTZU (ThreeOperands (Register R.W5, scalReg R.S14, Fbits 0x1Fuy))
+      test64 Opcode.FCVTZU (ThreeOperands (OprRegister R.W5,
+                                           scalReg R.S14, Fbits 0x1Fuy))
                     [| 0x1euy; 0x19uy; 0x85uy; 0xc5uy |]
 
-      test64 Opcode.SCVTF (ThreeOperands (scalReg R.D5, Register R.W14, Fbits 0xFuy))
+      test64 Opcode.SCVTF (ThreeOperands (scalReg R.D5,
+                                          OprRegister R.W14, Fbits 0xFuy))
                    [| 0x1euy; 0x42uy; 0xc5uy; 0xc5uy |]
 
-      test64 Opcode.UCVTF (ThreeOperands (scalReg R.D5, Register R.W14, Fbits 0x17uy))
+      test64 Opcode.UCVTF (ThreeOperands (scalReg R.D5,
+                                          OprRegister R.W14, Fbits 0x17uy))
                    [| 0x1euy; 0x43uy; 0xa5uy; 0xc5uy |]
 
-      test64 Opcode.FCVTZS (ThreeOperands (Register R.W5, scalReg R.D14, Fbits 0x1Buy))
+      test64 Opcode.FCVTZS (ThreeOperands (OprRegister R.W5,
+                                           scalReg R.D14, Fbits 0x1Buy))
                     [| 0x1euy; 0x58uy; 0x95uy; 0xc5uy |]
 
-      test64 Opcode.FCVTZU (ThreeOperands (Register R.W5, scalReg R.D26, Fbits 0x16uy))
+      test64 Opcode.FCVTZU (ThreeOperands (OprRegister R.W5,
+                                           scalReg R.D26, Fbits 0x16uy))
                     [| 0x1euy; 0x59uy; 0xabuy; 0x45uy |]
 
-      test64 Opcode.SCVTF (ThreeOperands (scalReg R.S17, Register R.X6, Fbits 0xFuy))
+      test64 Opcode.SCVTF (ThreeOperands (scalReg R.S17,
+                                          OprRegister R.X6, Fbits 0xFuy))
                    [| 0x9euy; 0x02uy; 0xc4uy; 0xd1uy |]
 
-      test64 Opcode.UCVTF (ThreeOperands (scalReg R.S5, Register R.X13, Fbits 0x13uy))
+      test64 Opcode.UCVTF (ThreeOperands (scalReg R.S5,
+                                          OprRegister R.X13, Fbits 0x13uy))
                    [| 0x9euy; 0x03uy; 0xb5uy; 0xa5uy |]
 
-      test64 Opcode.FCVTZS (ThreeOperands (Register R.X13, scalReg R.S6, Fbits 4uy))
+      test64 Opcode.FCVTZS (ThreeOperands (OprRegister R.X13,
+                                           scalReg R.S6, Fbits 4uy))
                     [| 0x9euy; 0x18uy; 0xf0uy; 0xcduy |]
 
-      test64 Opcode.FCVTZU (ThreeOperands (Register R.X13, scalReg R.S14,
-                                    Fbits 0x1Buy))
+      test64 Opcode.FCVTZU (ThreeOperands (OprRegister R.X13,
+                                           scalReg R.S14,
+                                           Fbits 0x1Buy))
                     [| 0x9euy; 0x19uy; 0x95uy; 0xcduy |]
 
-      test64 Opcode.SCVTF (ThreeOperands (scalReg R.D5, Register R.X28, Fbits 0x1Euy))
+      test64 Opcode.SCVTF (ThreeOperands (scalReg R.D5,
+                                          OprRegister R.X28, Fbits 0x1Euy))
                    [| 0x9euy; 0x42uy; 0x8buy; 0x85uy |]
 
-      test64 Opcode.UCVTF (ThreeOperands (scalReg R.D5, Register R.X14, Fbits 0xFuy))
+      test64 Opcode.UCVTF (ThreeOperands (scalReg R.D5,
+                                          OprRegister R.X14, Fbits 0xFuy))
                    [| 0x9euy; 0x43uy; 0xc5uy; 0xc5uy |]
 
-      test64 Opcode.FCVTZS (ThreeOperands (Register R.X17, scalReg R.D22, Fbits 7uy))
+      test64 Opcode.FCVTZS (ThreeOperands (OprRegister R.X17,
+                                           scalReg R.D22, Fbits 7uy))
                     [| 0x9euy; 0x58uy; 0xe6uy; 0xd1uy |]
 
-      test64 Opcode.FCVTZU (ThreeOperands (Register R.X18, scalReg R.D14, Fbits 0xCuy))
+      test64 Opcode.FCVTZU (ThreeOperands (OprRegister R.X18,
+                                           scalReg R.D14, Fbits 0xCuy))
                     [| 0x9euy; 0x59uy; 0xd1uy; 0xd2uy |]
 
     /// C4.6.30 Conversion between floating-point and integer
     [<TestMethod>]
     member __.``[AArch64] Conversion between FP and integer Parse Test`` () =
-      test64 Opcode.FCVTNS (TwoOperands (Register R.W20, scalReg R.S10))
+      test64 Opcode.FCVTNS (TwoOperands (OprRegister R.W20, scalReg R.S10))
                     [| 0x1euy; 0x20uy; 0x01uy; 0x54uy |]
 
-      test64 Opcode.FCVTNS (TwoOperands (Register R.W10, scalReg R.D26))
+      test64 Opcode.FCVTNS (TwoOperands (OprRegister R.W10, scalReg R.D26))
                     [| 0x1euy; 0x60uy; 0x03uy; 0x4auy |]
 
-      test64 Opcode.FCVTNS (TwoOperands (Register R.X2, scalReg R.S11 ))
+      test64 Opcode.FCVTNS (TwoOperands (OprRegister R.X2, scalReg R.S11 ))
                     [| 0x9euy; 0x20uy; 0x01uy; 0x62uy |]
 
-      test64 Opcode.FCVTNS (TwoOperands (Register R.X23, scalReg R.D18))
+      test64 Opcode.FCVTNS (TwoOperands (OprRegister R.X23, scalReg R.D18))
                     [| 0x9euy; 0x60uy; 0x02uy; 0x57uy |]
 
-      test64 Opcode.FCVTNU (TwoOperands (Register R.W24, scalReg R.S5 ))
+      test64 Opcode.FCVTNU (TwoOperands (OprRegister R.W24, scalReg R.S5 ))
                     [| 0x1euy; 0x21uy; 0x00uy; 0xb8uy |]
 
-      test64 Opcode.FCVTNU (TwoOperands (Register R.W18, scalReg R.D21))
+      test64 Opcode.FCVTNU (TwoOperands (OprRegister R.W18, scalReg R.D21))
                     [| 0x1euy; 0x61uy; 0x02uy; 0xb2uy |]
 
-      test64 Opcode.FCVTNU (TwoOperands (Register R.X27, scalReg R.S5 ))
+      test64 Opcode.FCVTNU (TwoOperands (OprRegister R.X27, scalReg R.S5 ))
                     [| 0x9euy; 0x21uy; 0x00uy; 0xbbuy |]
 
-      test64 Opcode.FCVTNU (TwoOperands (Register R.X28, scalReg R.D13))
+      test64 Opcode.FCVTNU (TwoOperands (OprRegister R.X28, scalReg R.D13))
                     [| 0x9euy; 0x61uy; 0x01uy; 0xbcuy |]
 
-      test64 Opcode.SCVTF (TwoOperands (scalReg R.S26, Register R.W5))
+      test64 Opcode.SCVTF (TwoOperands (scalReg R.S26, OprRegister R.W5))
                    [| 0x1euy; 0x22uy; 0x00uy; 0xbauy |]
 
-      test64 Opcode.SCVTF (TwoOperands (scalReg R.D8, Register R.W15))
+      test64 Opcode.SCVTF (TwoOperands (scalReg R.D8, OprRegister R.W15))
                    [| 0x1euy; 0x62uy; 0x01uy; 0xe8uy |]
 
-      test64 Opcode.SCVTF (TwoOperands (scalReg R.S2, Register R.X14))
+      test64 Opcode.SCVTF (TwoOperands (scalReg R.S2, OprRegister R.X14))
                    [| 0x9euy; 0x22uy; 0x01uy; 0xc2uy |]
 
-      test64 Opcode.SCVTF (TwoOperands (scalReg R.D29, Register R.X14))
+      test64 Opcode.SCVTF (TwoOperands (scalReg R.D29, OprRegister R.X14))
                    [| 0x9euy; 0x62uy; 0x01uy; 0xdduy |]
 
-      test64 Opcode.UCVTF (TwoOperands (scalReg R.S29, Register R.W21))
+      test64 Opcode.UCVTF (TwoOperands (scalReg R.S29, OprRegister R.W21))
                    [| 0x1euy; 0x23uy; 0x02uy; 0xbduy |]
 
-      test64 Opcode.UCVTF (TwoOperands (scalReg R.D7, Register R.W14))
+      test64 Opcode.UCVTF (TwoOperands (scalReg R.D7, OprRegister R.W14))
                    [| 0x1euy; 0x63uy; 0x01uy; 0xc7uy |]
 
-      test64 Opcode.UCVTF (TwoOperands (scalReg R.S30, Register R.X14))
+      test64 Opcode.UCVTF (TwoOperands (scalReg R.S30, OprRegister R.X14))
                    [| 0x9euy; 0x23uy; 0x01uy; 0xdeuy |]
 
-      test64 Opcode.UCVTF (TwoOperands (scalReg R.D25, Register R.X21))
+      test64 Opcode.UCVTF (TwoOperands (scalReg R.D25, OprRegister R.X21))
                    [| 0x9euy; 0x63uy; 0x02uy; 0xb9uy |]
 
-      test64 Opcode.FCVTAS (TwoOperands (Register R.W10, scalReg R.S12))
+      test64 Opcode.FCVTAS (TwoOperands (OprRegister R.W10, scalReg R.S12))
                     [| 0x1euy; 0x24uy; 0x01uy; 0x8auy |]
 
-      test64 Opcode.FCVTAS (TwoOperands (Register R.W25, scalReg R.D20))
+      test64 Opcode.FCVTAS (TwoOperands (OprRegister R.W25, scalReg R.D20))
                     [| 0x1euy; 0x64uy; 0x02uy; 0x99uy |]
 
-      test64 Opcode.FCVTAS (TwoOperands (Register R.X21, scalReg R.S18))
+      test64 Opcode.FCVTAS (TwoOperands (OprRegister R.X21, scalReg R.S18))
                     [| 0x9euy; 0x24uy; 0x02uy; 0x55uy |]
 
-      test64 Opcode.FCVTAS (TwoOperands (Register R.X24, scalReg R.D25))
+      test64 Opcode.FCVTAS (TwoOperands (OprRegister R.X24, scalReg R.D25))
                     [| 0x9euy; 0x64uy; 0x03uy; 0x38uy |]
 
-      test64 Opcode.FCVTAU (TwoOperands (Register R.W29, scalReg R.S26))
+      test64 Opcode.FCVTAU (TwoOperands (OprRegister R.W29, scalReg R.S26))
                     [| 0x1euy; 0x25uy; 0x03uy; 0x5duy |]
 
-      test64 Opcode.FCVTAU (TwoOperands (Register R.W5, scalReg R.D26))
+      test64 Opcode.FCVTAU (TwoOperands (OprRegister R.W5, scalReg R.D26))
                     [| 0x1euy; 0x65uy; 0x03uy; 0x45uy |]
 
-      test64 Opcode.FCVTAU (TwoOperands (Register R.X17, scalReg R.S24))
+      test64 Opcode.FCVTAU (TwoOperands (OprRegister R.X17, scalReg R.S24))
                     [| 0x9euy; 0x25uy; 0x03uy; 0x11uy |]
 
-      test64 Opcode.FCVTAU (TwoOperands (Register R.X20, scalReg R.D27))
+      test64 Opcode.FCVTAU (TwoOperands (OprRegister R.X20, scalReg R.D27))
                     [| 0x9euy; 0x65uy; 0x03uy; 0x74uy |]
 
-      test64 Opcode.FMOV (TwoOperands (Register R.W14, scalReg R.S25))
+      test64 Opcode.FMOV (TwoOperands (OprRegister R.W14, scalReg R.S25))
                   [| 0x1euy; 0x26uy; 0x03uy; 0x2euy |]
 
-      test64 Opcode.FMOV (TwoOperands (scalReg R.S3, Register R.W14))
+      test64 Opcode.FMOV (TwoOperands (scalReg R.S3, OprRegister R.W14))
                   [| 0x1euy; 0x27uy; 0x01uy; 0xc3uy |]
 
-      test64 Opcode.FMOV (TwoOperands (Register R.X11, scalReg R.D21))
+      test64 Opcode.FMOV (TwoOperands (OprRegister R.X11, scalReg R.D21))
                   [| 0x9euy; 0x66uy; 0x02uy; 0xabuy |]
 
-      test64 Opcode.FMOV (TwoOperands (scalReg R.D3, Register R.X15))
+      test64 Opcode.FMOV (TwoOperands (scalReg R.D3, OprRegister R.X15))
                   [| 0x9euy; 0x67uy; 0x01uy; 0xe3uy |]
 
-      test64 Opcode.FMOV (TwoOperands (Register R.X29,
+      test64 Opcode.FMOV (TwoOperands (OprRegister R.X29,
                                 SIMDOpr (SFReg (sVRegIdx R.V16 VecD 1uy))))
                   [| 0x9euy; 0xaeuy; 0x02uy; 0x1duy |]
 
       test64 Opcode.FMOV (TwoOperands (SIMDOpr (SFReg (sVRegIdx R.V24 VecD 1uy)),
-                                Register R.X23))
+                                OprRegister R.X23))
                   [| 0x9euy; 0xafuy; 0x02uy; 0xf8uy |]
 
-      test64 Opcode.FCVTPS (TwoOperands (Register R.W14, scalReg R.S6))
+      test64 Opcode.FCVTPS (TwoOperands (OprRegister R.W14, scalReg R.S6))
                     [| 0x1euy; 0x28uy; 0x00uy; 0xceuy |]
 
-      test64 Opcode.FCVTPS (TwoOperands (Register R.W6, scalReg R.D3))
+      test64 Opcode.FCVTPS (TwoOperands (OprRegister R.W6, scalReg R.D3))
                     [| 0x1euy; 0x68uy; 0x00uy; 0x66uy |]
 
-      test64 Opcode.FCVTPS (TwoOperands (Register R.X3, scalReg R.S17))
+      test64 Opcode.FCVTPS (TwoOperands (OprRegister R.X3, scalReg R.S17))
                     [| 0x9euy; 0x28uy; 0x02uy; 0x23uy |]
 
-      test64 Opcode.FCVTPS (TwoOperands (Register R.X26, scalReg R.D27))
+      test64 Opcode.FCVTPS (TwoOperands (OprRegister R.X26, scalReg R.D27))
                     [| 0x9euy; 0x68uy; 0x03uy; 0x7auy |]
 
-      test64 Opcode.FCVTPU (TwoOperands (Register R.W28, scalReg R.S16))
+      test64 Opcode.FCVTPU (TwoOperands (OprRegister R.W28, scalReg R.S16))
                     [| 0x1euy; 0x29uy; 0x02uy; 0x1cuy |]
 
-      test64 Opcode.FCVTPU (TwoOperands (Register R.W19, scalReg R.D9))
+      test64 Opcode.FCVTPU (TwoOperands (OprRegister R.W19, scalReg R.D9))
                     [| 0x1euy; 0x69uy; 0x01uy; 0x33uy |]
 
-      test64 Opcode.FCVTPU (TwoOperands (Register R.X9, scalReg R.S3))
+      test64 Opcode.FCVTPU (TwoOperands (OprRegister R.X9, scalReg R.S3))
                     [| 0x9euy; 0x29uy; 0x00uy; 0x69uy |]
 
-      test64 Opcode.FCVTPU (TwoOperands (Register R.X21, scalReg R.D19))
+      test64 Opcode.FCVTPU (TwoOperands (OprRegister R.X21, scalReg R.D19))
                     [| 0x9euy; 0x69uy; 0x02uy; 0x75uy |]
 
-      test64 Opcode.FCVTMS (TwoOperands (Register R.W29, scalReg R.S14))
+      test64 Opcode.FCVTMS (TwoOperands (OprRegister R.W29, scalReg R.S14))
                     [| 0x1euy; 0x30uy; 0x01uy; 0xdduy |]
 
-      test64 Opcode.FCVTMS (TwoOperands (Register R.W2, scalReg R.D27))
+      test64 Opcode.FCVTMS (TwoOperands (OprRegister R.W2, scalReg R.D27))
                     [| 0x1euy; 0x70uy; 0x03uy; 0x62uy |]
 
-      test64 Opcode.FCVTMS (TwoOperands (Register R.X25, scalReg R.S3))
+      test64 Opcode.FCVTMS (TwoOperands (OprRegister R.X25, scalReg R.S3))
                     [| 0x9euy; 0x30uy; 0x00uy; 0x79uy |]
 
-      test64 Opcode.FCVTMS (TwoOperands (Register R.X6, scalReg R.D4))
+      test64 Opcode.FCVTMS (TwoOperands (OprRegister R.X6, scalReg R.D4))
                     [| 0x9euy; 0x70uy; 0x00uy; 0x86uy |]
 
-      test64 Opcode.FCVTMU (TwoOperands (Register R.W5, scalReg R.S12))
+      test64 Opcode.FCVTMU (TwoOperands (OprRegister R.W5, scalReg R.S12))
                     [| 0x1euy; 0x31uy; 0x01uy; 0x85uy |]
 
-      test64 Opcode.FCVTMU (TwoOperands (Register R.W29, scalReg R.D19))
+      test64 Opcode.FCVTMU (TwoOperands (OprRegister R.W29, scalReg R.D19))
                     [| 0x1euy; 0x71uy; 0x02uy; 0x7duy |]
 
-      test64 Opcode.FCVTMU (TwoOperands (Register R.XZR, scalReg R.S31))
+      test64 Opcode.FCVTMU (TwoOperands (OprRegister R.XZR, scalReg R.S31))
                     [| 0x9euy; 0x31uy; 0x03uy; 0xffuy |]
 
-      test64 Opcode.FCVTMU (TwoOperands (Register R.X0, scalReg R.D0))
+      test64 Opcode.FCVTMU (TwoOperands (OprRegister R.X0, scalReg R.D0))
                     [| 0x9euy; 0x71uy; 0x00uy; 0x00uy |]
 
-      test64 Opcode.FCVTZS (TwoOperands (Register R.W3, scalReg R.S26))
+      test64 Opcode.FCVTZS (TwoOperands (OprRegister R.W3, scalReg R.S26))
                     [| 0x1euy; 0x38uy; 0x03uy; 0x43uy |]
 
-      test64 Opcode.FCVTZS (TwoOperands (Register R.W13, scalReg R.D6))
+      test64 Opcode.FCVTZS (TwoOperands (OprRegister R.W13, scalReg R.D6))
                     [| 0x1euy; 0x78uy; 0x00uy; 0xcduy |]
 
-      test64 Opcode.FCVTZS (TwoOperands (Register R.X25, scalReg R.S19))
+      test64 Opcode.FCVTZS (TwoOperands (OprRegister R.X25, scalReg R.S19))
                     [| 0x9euy; 0x38uy; 0x02uy; 0x79uy |]
 
-      test64 Opcode.FCVTZS (TwoOperands (Register R.X6, scalReg R.D10))
+      test64 Opcode.FCVTZS (TwoOperands (OprRegister R.X6, scalReg R.D10))
                     [| 0x9euy; 0x78uy; 0x01uy; 0x46uy |]
 
-      test64 Opcode.FCVTZU (TwoOperands (Register R.W1, scalReg R.S19))
+      test64 Opcode.FCVTZU (TwoOperands (OprRegister R.W1, scalReg R.S19))
                     [| 0x1euy; 0x39uy; 0x02uy; 0x61uy |]
 
-      test64 Opcode.FCVTZU (TwoOperands (Register R.W27, scalReg R.D25))
+      test64 Opcode.FCVTZU (TwoOperands (OprRegister R.W27, scalReg R.D25))
                     [| 0x1euy; 0x79uy; 0x03uy; 0x3buy |]
 
-      test64 Opcode.FCVTZU (TwoOperands (Register R.X19, scalReg R.S2))
+      test64 Opcode.FCVTZU (TwoOperands (OprRegister R.X19, scalReg R.S2))
                     [| 0x9euy; 0x39uy; 0x00uy; 0x53uy |]
 
-      test64 Opcode.FCVTZU (TwoOperands (Register R.X2, scalReg R.D19))
+      test64 Opcode.FCVTZU (TwoOperands (OprRegister R.X2, scalReg R.D19))
                     [| 0x9euy; 0x79uy; 0x02uy; 0x62uy |]
 
 module ARMThumb =

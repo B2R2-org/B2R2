@@ -53,7 +53,7 @@ function Comment() {
       let stmtidx = target_id.split("-")[2];
       let addr = $("g[nodeid='" + nodeidx + "']").attr("addr");
       let $tab = $("#id_tabContainer li[value='" + funcName + "']");
-      let textType = $tab.attr('text-type').toLowerCase();
+      let textType = $tab.attr('text-type');
       query({
         "q": textType + "-comment",
         "args": JSON.stringify({

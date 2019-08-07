@@ -1835,7 +1835,7 @@ type AddressingMode =
   | LiteralMode of Offset
 
 type Operand =
-  | Register of Register
+  | OprRegister of Register
   | SIMDOpr of SIMDOperand
   | Immediate of Const
   | FPImmediate of float

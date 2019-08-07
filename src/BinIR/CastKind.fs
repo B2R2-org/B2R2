@@ -1,8 +1,7 @@
 (*
   B2R2 - the Next-Generation Reversing Platform
 
-  Author: Soomin Kim <soomink@kaist.ac.kr>
-          Sang Kil Cha <sangkilc@kaist.ac.kr>
+  Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -25,40 +24,17 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinGraph
+namespace B2R2.BinIR
 
-open B2R2.BinIR
+/// Casting kinds.
+type CastKind =
+  /// Sign-extending conversion
+  | SignExt = 0
+  /// Zero-extending conversion
+  | ZeroExt = 1
 
-[<AbstractClass>]
-type SSAVertexData (irVertexData) =
-  inherit VertexData (VertexData.genID ())
-
-  member __.IRVertexData : IRVertexData = irVertexData
-
-  abstract member IsBBL : unit -> bool
-
-  abstract GetStmts : unit -> SSA.Stmt list
-
-type SSABBL (irVertexData, stmts, last) =
-  inherit SSAVertexData (irVertexData)
-
-  member __.LastStmt: SSA.Stmt = last
-
-  member val IsIndirectCall = false with get, set
-
-  member val IsIndirectJump = false with get, set
-
-  override __.IsBBL () = true
-
-  override __.GetStmts () = stmts
-
-type SSACall (irVertexData, stmts) =
-  inherit SSAVertexData (irVertexData)
-
-  override __.IsBBL () = false
-
-  override __.GetStmts () = stmts
-
-type SSAVertex = Vertex<SSAVertexData>
-
-type SSACFG = SimpleDiGraph<SSAVertexData, CFGEdgeKind>
+module CastKind =
+  let toString = function
+    | CastKind.SignExt -> "sext"
+    | CastKind.ZeroExt -> "zext"
+    | _ -> raise IllegalASTTypeException

@@ -58,16 +58,17 @@ type DomInfo<'V when 'V :> VertexData> = {
 /// Storing DomInfo of a graph. We use this to repeatedly compute doms/pdoms of
 /// the same graph.
 type DominatorContext<'V, 'E when 'V :> VertexData> = {
-  ForwardGraph : DiGraph<'V, 'E>
-  ForwardDomInfo : DomInfo<'V>
-  BackwardGraph : DiGraph<'V, 'E>
-  BackwardDomInfo : DomInfo<'V>
+  ForwardGraph: DiGraph<'V, 'E>
+  ForwardRoot: Vertex<'V>
+  ForwardDomInfo: DomInfo<'V>
+  BackwardGraph: DiGraph<'V, 'E>
+  BackwardRoot: Vertex<'V>
+  BackwardDomInfo: DomInfo<'V>
 }
 
 let initDomInfo (g: DiGraph<_, _>) =
   let len = g.Size () + 2 (* To reserve a room for entry (dummy) node. *)
-  {
-    DFNumMap = Dictionary<VertexID, int>()
+  { DFNumMap = Dictionary<VertexID, int>()
     Vertex = Array.zeroCreate len
     Label = Array.create len 0
     Parent = Array.create len 0
@@ -77,8 +78,7 @@ let initDomInfo (g: DiGraph<_, _>) =
     Bucket = Array.create len Set.empty
     Size = Array.create len 1
     IDom = Array.create len 0
-    MaxLength = len
-  }
+    MaxLength = len }
 
 let inline dfnum info (v: Vertex<_>) =
   info.DFNumMap.[v.GetID ()]
@@ -156,9 +156,8 @@ let rec computeDomOrDelay info parent =
   else computeDom info parent
 
 /// Temporarily connect entry dummy node and real entry nodes.
-let connect (g: DiGraph<_, _>) =
-  let root = g.GetRoot ()
-  if root.GetID () = 0 then root
+let connect (root: Vertex<_>) =
+  if root.IsDummy () then root
   else
     let dummyEntry = Vertex<_> ()
     dummyEntry.Succs <- [root]
@@ -166,13 +165,12 @@ let connect (g: DiGraph<_, _>) =
     dummyEntry
 
 /// Disconnect the dummy node and the entry nodes.
-let disconnect (g: DiGraph<_, _>) =
-  let root = g.GetRoot ()
+let disconnect (root: Vertex<_>) =
   root.Preds <- root.Preds |> List.filter (fun p -> p.GetID () <> 0)
 
-let initDominator (g: DiGraph<_, _>) =
+let initDominator (g: DiGraph<_, _>) root =
   let info = initDomInfo g
-  let dummyEntry = connect g
+  let dummyEntry = connect root
   let n = assignDFNum info 1 [(0, dummyEntry)]
   for i = n - 1 downto 2 do
     let v = info.Vertex.[i]
@@ -182,7 +180,7 @@ let initDominator (g: DiGraph<_, _>) =
     link info p i (* Link the parent (p) to the forest. *)
     computeDomOrDelay info p
   done
-  disconnect g
+  disconnect root
   for i = 2 to n - 1 do
     if info.IDom.[i] <> info.Semi.[i] then
       info.IDom.[i] <- info.IDom.[info.IDom.[i]]
@@ -204,7 +202,7 @@ let topologicalOrder (visited, stack, orderMap, cnt) v =
   let stack, orderMap, cnt = checkStack visited (v :: stack) orderMap cnt
   visited, stack, orderMap, cnt
 
-let updateReachMap bg exits reachMap =
+let updateReachMap exits reachMap =
   let rec loop reachMap = function
     | [] -> reachMap
     | (v: Vertex<_>) :: vs ->
@@ -219,7 +217,7 @@ let updateReachMap bg exits reachMap =
 let rec calculateExits (fg: DiGraph<_, _>) (bg: DiGraph<_, _>) reachMap exits =
   if Map.forall (fun _ b -> b) reachMap then exits
   else
-    let reachMap = updateReachMap bg exits reachMap
+    let reachMap = updateReachMap exits reachMap
     let exits =
       fg.FoldVertex (fun acc (v: Vertex<_>) ->
         if List.length v.Succs = 0 && not <| Map.find (v.GetID ()) reachMap then
@@ -227,69 +225,66 @@ let rec calculateExits (fg: DiGraph<_, _>) (bg: DiGraph<_, _>) reachMap exits =
         else acc) exits
     calculateExits fg bg reachMap exits
 
-let preparePostDomAnalysis (fg: DiGraph<_, _>) (bg: DiGraph<_, _>) =
+let preparePostDomAnalysis (fg: DiGraph<_, _>) root (bg: DiGraph<_, _>) =
   // Remove backedges from forward graph
   let size = fg.Size () - 1
   let _, _, order, _ =
-    fg.FoldVertexDFS topologicalOrder (Set.empty, [], Map.empty, size)
+    fg.FoldVertexDFS root topologicalOrder (Set.empty, [], Map.empty, size)
   let backEdges =
-    fg.FoldEdge (fun acc (src: Vertex<_>) (dst: Vertex<_>) ->
+    fg.FoldEdge (fun acc (src: Vertex<_>) (dst: Vertex<_>) edge ->
       if src.GetID () = dst.GetID () then
-        let edge = fg.FindEdge src dst
         fg.RemoveEdge src dst
         (src, dst, edge) :: acc
       else acc) []
-    |> fg.FoldEdge (fun acc (src: Vertex<_>) (dst: Vertex<_>) ->
+    |> fg.FoldEdge (fun acc (src: Vertex<_>) (dst: Vertex<_>) edge ->
       if Map.find src order > Map.find dst order then
-        let edge = fg.FindEdge src dst
         fg.RemoveEdge src dst
         (src, dst, edge) :: acc
       else acc)
   let reachMap =
     bg.FoldVertex (fun acc (v: Vertex<_>) ->
       Map.add (v.GetID ()) false acc) Map.empty
-  let exits = calculateExits fg bg reachMap bg.Unreachables
+  let exits = calculateExits fg bg reachMap <| Seq.toList bg.Unreachables
   // Restore backedges to backward graph
   List.iter (fun (src, dst, edge) -> fg.AddEdge src dst edge) backEdges
   let dummy = Vertex<'V> ()
   dummy.Succs <- exits
   List.iter (fun (v: Vertex<_>) -> v.Preds <- dummy :: v.Preds) exits
-  bg.SetRoot dummy
-  bg
+  bg, dummy
 
-let initDominatorContext g =
-  let forward = initDominator g
-  let g' = g.Reverse () |> preparePostDomAnalysis g
-  let backward = initDominator g'
-  {
-    ForwardGraph = g
+let initDominatorContext g root =
+  let forward = initDominator g root
+  let g', root' = g.Reverse () |> preparePostDomAnalysis g root
+  let backward = initDominator g' root'
+  { ForwardGraph = g
+    ForwardRoot = root
     ForwardDomInfo = forward
     BackwardGraph = g'
-    BackwardDomInfo = backward
-  }
+    BackwardRoot = root'
+    BackwardDomInfo = backward }
 
 let checkVertexInGraph (g: DiGraph<'V, 'E>) (v: Vertex<'V>) =
-  let v' = g.FindVertex v
+  let v' = g.FindVertexByData v.VData
   if v === v' then ()
   else raise VertexNotFoundException
 
-let private idomAux ctxt g v =
-  let id = ctxt.IDom.[dfnum ctxt v]
-  if id > 1 then Some ctxt.Vertex.[id] else None
+let private idomAux info v =
+  let id = info.IDom.[dfnum info v]
+  if id > 1 then Some info.Vertex.[id] else None
 
 let idom ctxt v =
   let g = ctxt.ForwardGraph
   checkVertexInGraph g v
-  idomAux ctxt.ForwardDomInfo g v
+  idomAux ctxt.ForwardDomInfo v
 
-let ipdom ctxt v =
+let ipdom ctxt (v: Vertex<_>) =
   let g' = ctxt.BackwardGraph
-  let v = g'.FindVertex v
-  idomAux ctxt.BackwardDomInfo g' v
+  let v = g'.FindVertexByData v.VData
+  idomAux ctxt.BackwardDomInfo v
 
-let rec domsAux acc v ctxt =
-  let id = ctxt.IDom.[dfnum ctxt v]
-  if id > 0 then domsAux (ctxt.Vertex.[id] :: acc) ctxt.Vertex.[id] ctxt
+let rec domsAux acc v info =
+  let id = info.IDom.[dfnum info v]
+  if id > 0 then domsAux (info.Vertex.[id] :: acc) info.Vertex.[id] info
   else List.rev acc
 
 let doms ctxt v =
@@ -298,13 +293,12 @@ let doms ctxt v =
   domsAux [] v ctxt.ForwardDomInfo
 
 let pdoms ctxt v =
-  let g' = ctxt.BackwardGraph
   domsAux [] v ctxt.BackwardDomInfo
 
-let computeDomTree (g: DiGraph<'V, 'E>) ctxt =
-  let domTree = Array.create ctxt.MaxLength []
-  g.IterVertexDFS (fun v ->
-    let idom = ctxt.IDom.[dfnum ctxt v]
+let computeDomTree (g: DiGraph<'V, 'E>) root info =
+  let domTree = Array.create info.MaxLength []
+  g.IterVertexDFS root (fun v ->
+    let idom = info.IDom.[dfnum info v]
     domTree.[idom] <- v :: domTree.[idom])
   domTree
 
@@ -341,23 +335,24 @@ let rec computeDF
 let frontier ctxt v =
   let g = ctxt.ForwardGraph
   checkVertexInGraph g v
-  let root = g.GetRoot ()
+  let root = ctxt.ForwardRoot
   let ctxt = ctxt.ForwardDomInfo
   let frontiers = Array.create ctxt.MaxLength []
-  let domTree = computeDomTree g ctxt
+  let domTree = computeDomTree g root ctxt
   computeDF domTree frontiers g ctxt root
   frontiers.[dfnum ctxt v]
 
 let dominatorTree ctxt =
   let g = ctxt.ForwardGraph
-  let ctxt = ctxt.ForwardDomInfo
-  let tree = computeDomTree g ctxt
+  let root = ctxt.ForwardRoot
+  let info = ctxt.ForwardDomInfo
+  let tree = computeDomTree g root info
   let tree = Array.sub tree 2 (Array.length tree - 2) // Remove a dummy node
-  let root = ctxt.Vertex.[2]
+  let root = info.Vertex.[2]
   let tree =
     Array.mapi (fun dfNum vs -> dfNum, vs) tree
     |> Array.fold (fun tree (dfNum, vs) ->
-        Map.add ctxt.Vertex.[dfNum + 2] vs tree) Map.empty
+        Map.add info.Vertex.[dfNum + 2] vs tree) Map.empty
   tree, root
 
 // vim: set tw=80 sts=2 sw=2:

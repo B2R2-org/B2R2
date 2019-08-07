@@ -36,14 +36,14 @@ type CmdList () =
   let addrToString (addr: uint64) =
     addr.ToString ("X16")
 
-  let createFuncString (funcs: Funcs) addr =
-    let f = funcs.[addr]
-    addrToString addr + ": " + f.Name
+  let createFuncString (addr, name) =
+    addrToString addr + ": " + name
 
-  let listFunctions (funcs: Funcs) =
-    funcs.Keys
-    |> Seq.sort
-    |> Seq.map (createFuncString funcs)
+  let listFunctions app =
+    BinaryApparatus.getInternalFunctions app
+    |> Seq.map (fun c -> Option.get c.Addr, c.CalleeName)
+    |> Seq.sortBy fst
+    |> Seq.map createFuncString
     |> Seq.toArray
 
   let createSegmentString (seg: Segment) =
@@ -86,7 +86,7 @@ type CmdList () =
   override __.CallBack _ (binEssence: BinEssence) args =
     match args with
     | "functions" :: _
-    | "funcs" :: _ -> listFunctions binEssence.Functions
+    | "funcs" :: _ -> listFunctions binEssence.BinaryApparatus
     | "segments" :: _
     | "segs" :: _ -> listSegments binEssence.BinHandler
     | "sections" :: _
