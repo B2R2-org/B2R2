@@ -57,6 +57,9 @@ function Sidebar() {
         show("#id_CommentsListWrapper");
         Sidebar().setSidebarComments();
         break;
+      case "Call Graph":
+        show("#id_CallGraphWrapper");
+        break;
       case "Terminal":
         show("#id_TerminalWrapper");
         Terminal().setTerminal(500);
@@ -65,6 +68,7 @@ function Sidebar() {
         break;
     }
   });
+
   function templeteSidebarComment(id, addr, comment) {
     let item = "";
     item += "<div class='comment-content' target='#" + id + "' title='" + addr + "'>";

@@ -411,6 +411,12 @@ html, body {
     width: 250px;
     height: 100%;
   }
+  #id_CallGraphWrapper {
+    all: unset;
+    min-width: 250px;
+    width: 500px;
+    height: 100%;
+  }
   #id_FunctionsListWrapper #id_funcFilter {
     all: unset;
     background: none;
