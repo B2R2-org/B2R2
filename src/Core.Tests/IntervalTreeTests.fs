@@ -77,7 +77,7 @@ type TestClass () =
     let set = IntervalSet.add range3 set
     let set = IntervalSet.add range4 set
     let range5 = AddrRange (0x120UL, 0x121UL)
-    let overlap1 = [| range2; range1; range4 |]
+    let overlap1 = [| range4; range1; range2 |]
     let result1 = IntervalSet.findAll range5 set |> List.toArray
     CollectionAssert.AreEqual (overlap1, result1)
     Assert.IsTrue (IntervalSet.contains range1 set)

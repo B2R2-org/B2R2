@@ -107,7 +107,11 @@ type SCFG (hdl, app) =
           let last = p.VData.LastInstruction
           let fallthrough = last.Address + uint64 last.Length
           let falltarget = vMap.[ProgramPoint (fallthrough, 0)]
-          newGraph.AddEdge curVertex falltarget RetEdge
+          match app.CalleeMap.Find (curVertex.VData.PPoint.Address) with
+          | None -> raise VertexNotFoundException
+          | Some callee ->
+            if callee.IsNoReturn then ()
+            else newGraph.AddEdge curVertex falltarget RetEdge
         else ()
     and iterSuccessors oldVertex curVertex succs =
       let last = curVertex.VData.LastInstruction
@@ -130,14 +134,25 @@ type SCFG (hdl, app) =
     else raise InvalidFunctionAddressException
 
   member private __.ReverseLookUp point =
-    match vertices.TryGetValue point with
-    | false, _ -> None
-    | true, v ->
-      if app.CalleeMap.Contains point.Address then Some v
+    let queue = Queue<ProgramPoint> ([ point ])
+    let visited = HashSet<ProgramPoint> ()
+    let rec loop () =
+      if queue.Count = 0 then None
       else
-        v.Preds
-        |> List.map (fun v -> v.VData.PPoint)
-        |> List.tryPick __.ReverseLookUp
+        let point = queue.Dequeue ()
+        visited.Add point |> ignore
+        match vertices.TryGetValue point with
+        | false, _ -> loop ()
+        | true, v ->
+          if app.CalleeMap.Contains point.Address then Some v
+          else
+            v.Preds
+            |> List.iter (fun v ->
+              let point = v.VData.PPoint
+              if visited.Contains point then ()
+              else queue.Enqueue (point))
+            loop ()
+    loop ()
 
   /// Find a basic block (vertex) in the SCFG that the given address belongs to.
   member __.FindVertex (addr) =

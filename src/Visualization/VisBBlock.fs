@@ -47,7 +47,7 @@ type VisBBlock (blk: BasicBlock, isDummy, ?hdl) =
     | None -> blk.ToVisualBlock ()
     | Some hdl -> blk.ToVisualBlock (hdl)
     |> fun block ->
-      if block.IsEmpty then VisualBlock.empty else block
+      if block.IsEmpty then VisualBlock.empty blk.PPoint.Address else block
 
   let maxLine = visBlock |> List.maxBy (VisualLine.lineWidth)
 

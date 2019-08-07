@@ -47,6 +47,8 @@ type Callee = {
   Addr: Addr option
   CalleeKind: CalleeKind
   Callers: Addr list
+  /// Is this callee a no-return function such as "exit"?
+  mutable IsNoReturn: bool
 }
 
 /// A mapping from a caller address to its callees.
@@ -100,7 +102,8 @@ module CalleeMap =
         { CalleeName = calleeName
           Addr = calleeAddr
           CalleeKind = kind
-          Callers = [caller] }
+          Callers = [caller]
+          IsNoReturn = false }
       Map.add calleeName info map
     | Some info ->
       Map.add calleeName { info with Callers = caller :: info.Callers } map
@@ -152,7 +155,8 @@ module CalleeMap =
           { CalleeName = name
             Addr = Some addr
             CalleeKind = InternalCallee
-            Callers = [] } acc) cm
+            Callers = []
+            IsNoReturn = false } acc) cm
 
   let build (hdl: BinHandler) funcs (instrMap: InstrMap) =
     let linkMap = hdl.FileInfo.GetLinkageTableEntries () |> buildLinkMap

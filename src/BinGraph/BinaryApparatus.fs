@@ -46,6 +46,9 @@ type BinaryApparatus = {
   LeaderPositions: Set<ProgramPoint>
   CallerMap: CallerMap
   CalleeMap: CalleeMap
+  /// This is a flag representing whether this BinaryApparatus has been modified
+  /// by our post analysis.
+  Modified: bool
 }
 
 [<RequireQualifiedAccess>]
@@ -133,7 +136,8 @@ module BinaryApparatus =
       LabelMap = lblmap
       LeaderPositions = acc.Leaders
       CallerMap = CallerMap.build calleeMap
-      CalleeMap = calleeMap }
+      CalleeMap = calleeMap
+      Modified = true }
 
   /// Create a binary apparatus from the given BinHandler.
   [<CompiledName("Init")>]

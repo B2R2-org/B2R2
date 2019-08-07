@@ -30,54 +30,9 @@ namespace B2R2.BinGraph
 open B2R2
 open B2R2.FrontEnd
 open B2R2.ConcEval
+open B2R2.BinGraph.EmulationHelper
 
 module private LibcAnalysisHelper =
-
-  let defZero t = Def (BitVector.zero t)
-  let stackAddr t = Def (BitVector.ofInt32 0x1000000 t)
-
-  let initRegs hdl =
-    match hdl.ISA.Arch with
-    | Arch.IntelX86 ->
-      [ (Intel.Register.ESP |> Intel.Register.toRegID, stackAddr 32<rt>)
-        (Intel.Register.EBP |> Intel.Register.toRegID, defZero 32<rt>) ]
-    | Arch.IntelX64 ->
-      [ (Intel.Register.RSP |> Intel.Register.toRegID, stackAddr 64<rt>)
-        (Intel.Register.RBP |> Intel.Register.toRegID, defZero 64<rt>) ]
-    | Arch.AARCH32
-    | Arch.ARMv7 ->
-      [ (ARM32.Register.SP |> ARM32.Register.toRegID, stackAddr 32<rt>) ]
-    | Arch.AARCH64 ->
-      [ (ARM64.Register.SP |> ARM64.Register.toRegID, stackAddr 64<rt>) ]
-    | _ -> []
-
-  let memoryReader hdl _pc addr =
-    let fileInfo = hdl.FileInfo
-    if fileInfo.IsValidAddr addr then
-      let v = BinHandler.ReadBytes (hdl, addr, 1)
-      Some <| v.[0]
-    else None
-
-  let rec eval (scfg: SCFG) (blk: Vertex<IRBasicBlock>) st callerAddr =
-    let st' =
-      blk.VData.GetIRStatements ()
-      |> Array.concat
-      |> Evaluator.evalBlock st 0
-    if blk.VData.LastInstruction.Address = callerAddr then Some st'
-    else
-      match scfg.FindVertex st'.PC with
-      | None -> None
-      | Some v -> eval scfg v st' callerAddr
-
-  let readMem (st: EvalState) addr endian size =
-    let addr = BitVector.toUInt64 addr
-    try st.Memory.Read st.PC addr endian size |> BitVector.toUInt64 |> Some
-    with InvalidMemException -> None
-
-  let readReg st regID =
-    match EvalState.GetReg st regID with
-    | Def v -> Some v
-    | Undef -> None
 
   let retrieveAddrsForx86 hdl app st =
     let esp = (Intel.Register.ESP |> Intel.Register.toRegID)
@@ -119,13 +74,16 @@ module private LibcAnalysisHelper =
       | _ -> app
 
   let analyzeLibcStartMain hdl (scfg: SCFG) app callerAddr =
-    let st = EvalState (memoryReader hdl, true)
-    let st = initRegs hdl |> EvalState.PrepareContext st 0 callerAddr
     match scfg.FindFunctionVertex callerAddr with
     | None -> app
     | Some root ->
-      eval scfg root st callerAddr
-      |> retrieveLibcStartAddresses hdl app
+      let st = EvalState (memoryReader hdl, true)
+      let rootAddr = root.VData.PPoint.Address
+      let st = initRegs hdl |> EvalState.PrepareContext st 0 rootAddr
+      try
+        eval scfg root st (fun last -> last.Address = callerAddr)
+        |> retrieveLibcStartAddresses hdl app
+      with _ -> app
 
   let recoverAddrsFromLibcStartMain hdl scfg app =
     match app.CalleeMap.Find "__libc_start_main" with

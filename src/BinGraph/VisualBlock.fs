@@ -26,6 +26,8 @@
 
 namespace B2R2.BinGraph
 
+open B2R2
+
 /// The basic term used to describe a line of a basic block (when visualized).
 type Term =
   /// Mneomonic, i.e., opcode.
@@ -72,4 +74,5 @@ module VisualLine =
 type VisualBlock = VisualLine list
 
 module VisualBlock =
-  let empty: VisualBlock = [ [String "(empty)"] ]
+  let empty (addr: Addr): VisualBlock =
+    [ [String ("# fake block @ " + (addr.ToString ("X")))] ]

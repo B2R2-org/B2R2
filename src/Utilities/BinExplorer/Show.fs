@@ -53,10 +53,12 @@ type CmdShow () =
     sb.Append ("  - referenced by " + addr.ToString("X") + "\n")
 
   member private __.CalleeToSimpleString prefix (sb: StringBuilder) callee =
+    let noret = if callee.IsNoReturn then " [no return]" else ""
     match callee.Addr with
-    | None -> sb.Append (prefix + callee.CalleeName + "\n")
+    | None -> sb.Append (prefix + callee.CalleeName + noret + "\n")
     | Some addr ->
-      sb.Append (prefix + callee.CalleeName + " @ " + addr.ToString("X") + "\n")
+      sb.Append (prefix + callee.CalleeName
+               + noret + " @ " + addr.ToString("X") + "\n")
 
   member private __.CalleeToString (sb: StringBuilder) callee =
     __.CalleeToSimpleString "" sb callee

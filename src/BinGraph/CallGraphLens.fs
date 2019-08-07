@@ -31,10 +31,12 @@ open B2R2.BinGraph
 open System.Collections.Generic
 
 /// Basic block type for a call graph (CallCFG).
-type CallGraphBBlock (addr, name, isFake) =
+type CallGraphBBlock (addr, name, isFake, isExternal) =
   inherit BasicBlock ()
 
   member __.Name with get () = name
+
+  member __.IsExternal with get () = isExternal
 
   override __.PPoint = ProgramPoint (addr, 0)
 
@@ -57,20 +59,22 @@ type CallGraphLens (scfg: SCFG) =
   let getFunctionVertex g vMap (old: Vertex<IRBasicBlock>) addr app =
     match (vMap: CallVMap).TryGetValue addr with
     | false, _ ->
-      let isFake = old.VData.IsFakeBlock ()
+      let fake = old.VData.IsFakeBlock ()
       match app.CalleeMap.Find (addr) with
       | None -> None
       | Some callee ->
         let name = callee.CalleeName
-        let v = (g: CallCFG).AddVertex (CallGraphBBlock (addr, name, isFake))
+        let ext = callee.CalleeKind = ExternalCallee
+        let v = (g: CallCFG).AddVertex (CallGraphBBlock (addr, name, fake, ext))
         vMap.Add (addr, v)
         Some v
     | true, v -> Some v
 
-  let getVertex g vMap old addr app =
-    match scfg.FindFunctionEntry addr with
+  let getVertex g vMap (old: Vertex<IRBasicBlock>) app =
+    let addr = old.VData.PPoint.Address
+    match app.CalleeMap.Find (addr) with
     | None -> None
-    | Some entry -> getFunctionVertex g vMap old entry app
+    | Some _ -> getFunctionVertex g vMap old addr app
 
   let buildCallGraph callCFG (g: IRCFG) vMap app =
     g.IterEdge (fun src dst e ->
@@ -79,13 +83,14 @@ type CallGraphLens (scfg: SCFG) =
       | IndirectEdge
       | ExternalEdge
       | CallEdge ->
-        let srcAddr = src.VData.PPoint.Address
-        let dstAddr = dst.VData.PPoint.Address
-        let srcV = getVertex callCFG vMap src srcAddr app
-        let dstV = getVertex callCFG vMap dst dstAddr app
-        match srcV, dstV with
-        | Some s, Some d -> callCFG.AddEdge s d e
-        | _ -> ()
+        match scfg.FindFunctionVertex src.VData.PPoint.Address with
+        | None -> ()
+        | Some src ->
+          let srcV = getVertex callCFG vMap src app
+          let dstV = getVertex callCFG vMap dst app
+          match srcV, dstV with
+          | Some s, Some d -> callCFG.AddEdge s d e
+          | _ -> ()
       | _ -> ())
 
   interface ILens<CallGraphBBlock> with
@@ -95,4 +100,5 @@ type CallGraphLens (scfg: SCFG) =
       buildCallGraph callCFG g vMap app
       callCFG, []
 
-  static member Init (scfg) = CallGraphLens (scfg) :> ILens<CallGraphBBlock>
+  static member Init (scfg) =
+    CallGraphLens (scfg) :> ILens<CallGraphBBlock>

@@ -33,6 +33,7 @@
     <Compile Include="SSALens.fs" />
     <Compile Include="CallGraphLens.fs" />
     <Compile Include="IPostAnalysis.fs" />
+    <Compile Include="EmulationHelper.fs" />
     <Compile Include="DisasHeuristic.fs" />
     <Compile Include="NoReturn.fs" />
     <Compile Include="BinEssence.fs" />

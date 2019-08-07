@@ -120,7 +120,7 @@ type CFGTest1 () =
          ProgramPoint (0x5FUL, 0) |]
     let vertices = leaders |> Array.map (fun l -> Map.find l vMap)
     let eMap = cfg.FoldEdge Utils.foldEdge Map.empty
-    Assert.AreEqual (13, eMap.Count)
+    Assert.AreEqual (12, eMap.Count)
     let eMap = cfg.FoldEdge Utils.foldEdgeNoFake Map.empty
     Assert.AreEqual (7, eMap.Count)
     [ ProgramPoint (0x00UL, 0), ProgramPoint (0x19UL, 0);
