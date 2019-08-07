@@ -3231,8 +3231,7 @@ let vst1Multi insInfo ctxt =
   let addr = tmpVar 32<rt>
   let updateRn rn =
     let rmOrTransSz =
-      if regIdx then rm.Value
-      else num <| BitVector.ofInt32 (8 * regs) (RegType.fromBitWidth esize)
+      if regIdx then rm.Value else num <| BitVector.ofInt32 (8 * regs) 32<rt>
     if insInfo.WriteBack.Value then rn .+ rmOrTransSz else rn
   builder <! (addr := updateRn rn)
   for r in 0 .. (regs - 1) do
@@ -3274,8 +3273,7 @@ let vst1Single insInfo ctxt index =
   let addr = tmpVar 32<rt>
   let updateRn rn =
     let rmOrTransSz =
-      if regIdx then rm.Value
-      else num <| BitVector.ofInt32 ebytes 32<rt>
+      if regIdx then rm.Value else num <| BitVector.ofInt32 ebytes 32<rt>
     if insInfo.WriteBack.Value then rn .+ rmOrTransSz else rn
   builder <! (addr := updateRn rn)
   let mem = loadLE (RegType.fromBitWidth esize) addr
