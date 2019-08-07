@@ -82,10 +82,10 @@ function registerCFGChooserEvent(dims) {
     },
     function (_status, json) {
       if (!isEmpty(json)) {
-          setuiFuncName(funcName);
-          drawCFG(dims, json);
-          $("#id_tabContainer li.active").attr("text-type", "ir");
-          updateCfgChooserLabel(t);
+        setuiFuncName(funcName);
+        drawCFG(dims, json);
+        $("#id_tabContainer li.active").attr("text-type", t);
+        updateCfgChooserLabel(t);
       }
     });
   });

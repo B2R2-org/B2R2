@@ -36,7 +36,7 @@ function addTab(functionName, dims, json) {
   deactivatedTab()
   let tabContainer = $("#id_tabContainer");
   let tabId = "id_tabs-" + g_tabCounter;
-  let textType = "disasm";
+  let textType = "Disasm";
   let label = functionName,
     li = $(tabTemplate.replace('{href}', tabId).replace(/\{label\}/g, label).replace("{number}", g_tabCounter).replace("{type}", textType));
   tabContainer.find('ul').append(li);
@@ -101,14 +101,14 @@ function activateTab($el, callback) {
   deactivatedTab();
   let functionName = $el.attr('title');
   let $tab = $("#id_tabContainer li[value='" + functionName + "']");
-  let textType = $tab.attr('text-type') === undefined ? "disasm" : $tab.attr('text-type');
+  let textType = $tab.attr('text-type') === undefined ? "Disasm" : $tab.attr('text-type');
   let tabNumber = $tab.attr("counter");
   $tab.addClass("active");
   $("#cfgDiv-" + tabNumber).show();
   $("#minimap-" + tabNumber).show();
   updateCfgChooserLabel(textType);
   query({
-    "q": "cfg-" + textType.toLowerCase(),
+    "q": "cfg-" + textType,
     "args": functionName
   },
     function (status, json) {
@@ -126,9 +126,10 @@ function replaceTab($self, name, dims) {
   let tabId = "id_tabs-" + g_tabCounter;
   let $tab = $("#id_tabContainer li.active");
   $tab.attr("value", name);
-  $tab.attr("text-type", "disasm")
+  $tab.attr("text-type", "Disasm")
   let newTab = $(`<a href=#{href}>{label}<span class="glyphicon glyphicon-remove-circle close-tab"></span></a>`.replace('{href}', tabId).replace("{label}", name));
   $tab.empty().append(newTab);
+  updateCfgChooserLabel("Disasm");
   query({
     "q": "cfg-Disasm",
     "args": $self.attr('title')
