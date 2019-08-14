@@ -3198,9 +3198,9 @@ let getRegs = function
   | _ -> raise InvalidOperandException
 
 let getSize = function
-  | Some (OneDT SIMDTyp8) -> 0b00
-  | Some (OneDT SIMDTyp16) -> 0b01
-  | Some (OneDT SIMDTyp32) -> 0b10
+  | Some (OneDT SIMDTyp8) | Some (OneDT SIMDTypS8) -> 0b00
+  | Some (OneDT SIMDTyp16) | Some (OneDT SIMDTypS16) -> 0b01
+  | Some (OneDT SIMDTyp32) | Some (OneDT SIMDTypS32) -> 0b10
   | Some (OneDT SIMDTyp64) -> 0b11
   | _ -> raise InvalidOperandException
 
@@ -3468,6 +3468,27 @@ let isAdvancedSIMD insInfo =
   | ThreeOperands (OprReg _, OprReg _, OprSIMD _) -> false
   | _ -> false
 
+let absExpr expr size = ite (slt expr (num0 size)) (AST.neg expr) (expr)
+
+let vabs insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rm = transTwoOprs insInfo ctxt
+  let size = getSize insInfo.SIMDTyp
+  let esize = 8 <<< size
+  let rtEsz = RegType.fromBitWidth esize
+  let elements = 64 / esize
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rm = extract rm 64<rt> (r * 64)
+    for e in 0 .. elements - 1 do
+      builder <! (elem rd e esize := absExpr (elem rm e esize) rtEsz)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
 /// Translate IR.
 let translate insInfo ctxt =
   match insInfo.Opcode with
@@ -3601,17 +3622,24 @@ let translate insInfo ctxt =
     sideEffects insInfo UnsupportedFP
   | Op.VMOV -> vmov insInfo ctxt
   | Op.VST1 -> vst1 insInfo ctxt
-  | Op.VST2 | Op.VST3 | Op.VST4
   | Op.VLD1 -> vld1 insInfo ctxt
-  | Op.VLD2 | Op.VLD3 | Op.VLD4 | Op.VLDM | Op.VLDMDB | Op.VLDMIA
-  | Op.VCEQ | Op.VCGT | Op.VCGE | Op.VCLE | Op.VCLT | Op.VTST
-  | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT
-  | Op.VCVT | Op.VCVTR | Op.VMLS | Op.VADD | Op.VSUB | Op.VMUL | Op.VDIV
-  | Op.VSHL | Op.VSHR | Op.VRSHR | Op.VRSHRN | Op.VDUP | Op.VTBL
-  | Op.VPADD | Op.VMULL | Op.VMLAL | Op.VCLZ | Op.VNEG
-  | Op.VMOVN | Op.VMAX | Op.VMIN | Op.VABS
-  | Op.VORR | Op.VORN
-  | Op.VCMP | Op.VCMPE | Op.VSTM | Op.VSTMDB | Op.VSTMIA ->
+  | Op.VABS when isF32orF64 insInfo.SIMDTyp -> sideEffects insInfo UnsupportedFP
+  | Op.VABS -> vabs insInfo ctxt
+  | Op.VADD
+  | Op.VCLZ | Op.VCMP
+  | Op.VDUP
+  | Op.VLDM | Op.VLDMIA
+  | Op.VSTMIA
+  | Op.VMAX | Op.VMLAL | Op.VMOVN | Op.VMUL | Op.VMULL
+  | Op.VNEG
+  | Op.VPADD
+  | Op.VRSHR
+  | Op.VSHL | Op.VSHR | Op.VSUB
+  | Op.VTBL -> sideEffects insInfo UnsupportedExtension
+  | Op.VLDMDB | Op.VCEQ | Op.VCGT | Op.VCGE | Op.VCLE | Op.VCLT | Op.VTST
+  | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVT | Op.VCVTR | Op.VMLS
+  | Op.VDIV | Op.VRSHRN | Op.VMIN | Op.VORR | Op.VORN | Op.VCMPE | Op.VSTM
+  | Op.VSTMDB | Op.VST2 | Op.VST3 | Op.VST4 | Op.VLD2 | Op.VLD3 | Op.VLD4 ->
     sideEffects insInfo UnsupportedExtension
   | Op.DMB | Op.DSB | Op.ISB | Op.PLD -> nop insInfo
   | o -> eprintfn "%A" o
