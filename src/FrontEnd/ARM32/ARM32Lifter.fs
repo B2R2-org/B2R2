@@ -3198,10 +3198,13 @@ let getRegs = function
   | _ -> raise InvalidOperandException
 
 let getSize = function
-  | Some (OneDT SIMDTyp8) | Some (OneDT SIMDTypS8) -> 0b00
-  | Some (OneDT SIMDTyp16) | Some (OneDT SIMDTypS16) -> 0b01
-  | Some (OneDT SIMDTyp32) | Some (OneDT SIMDTypS32) -> 0b10
-  | Some (OneDT SIMDTyp64) -> 0b11
+  | Some (OneDT SIMDTyp8) | Some (OneDT SIMDTypS8) | Some (OneDT SIMDTypI8)
+    -> 0b00
+  | Some (OneDT SIMDTyp16) | Some (OneDT SIMDTypS16) | Some (OneDT SIMDTypI16)
+    -> 0b01
+  | Some (OneDT SIMDTyp32) | Some (OneDT SIMDTypS32) | Some (OneDT SIMDTypI32)
+    -> 0b10
+  | Some (OneDT SIMDTyp64) | Some (OneDT SIMDTypI64) -> 0b11
   | _ -> raise InvalidOperandException
 
 let elem vector e size = extract vector (RegType.fromBitWidth size) (e * size)
@@ -3476,8 +3479,7 @@ let vabs insInfo ctxt =
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rd, rm = transTwoOprs insInfo ctxt
-  let size = getSize insInfo.SIMDTyp
-  let esize = 8 <<< size
+  let esize = 8 <<< getSize insInfo.SIMDTyp
   let rtEsz = RegType.fromBitWidth esize
   let elements = 64 / esize
   let regs = if typeOf rd = 64<rt> then 1 else 2
@@ -3486,6 +3488,24 @@ let vabs insInfo ctxt =
     let rm = extract rm 64<rt> (r * 64)
     for e in 0 .. elements - 1 do
       builder <! (elem rd e esize := absExpr (elem rm e esize) rtEsz)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let vadd insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, rm = transThreeOprs insInfo ctxt
+  let esize = 8 <<< getSize insInfo.SIMDTyp
+  let elements = 64 / esize
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rn = extract rn 64<rt> (r * 64)
+    let rm = extract rm 64<rt> (r * 64)
+    for e in 0 .. elements - 1 do
+      builder <! (elem rd e esize := elem rn e esize .+ elem rm e esize)
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
@@ -3625,7 +3645,8 @@ let translate insInfo ctxt =
   | Op.VLD1 -> vld1 insInfo ctxt
   | Op.VABS when isF32orF64 insInfo.SIMDTyp -> sideEffects insInfo UnsupportedFP
   | Op.VABS -> vabs insInfo ctxt
-  | Op.VADD
+  | Op.VADD when isF32orF64 insInfo.SIMDTyp -> sideEffects insInfo UnsupportedFP
+  | Op.VADD -> vadd insInfo ctxt
   | Op.VCLZ | Op.VCMP
   | Op.VDUP
   | Op.VLDM | Op.VLDMIA
