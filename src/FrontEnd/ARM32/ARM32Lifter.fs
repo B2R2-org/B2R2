@@ -3509,6 +3509,32 @@ let vadd insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
+let parseOprOfVDUP insInfo ctxt esize =
+  match insInfo.Operands with
+  | TwoOperands (OprSIMD (SFReg (Vector rd)),
+                 OprSIMD (SFReg (Scalar (rm, Some idx)))) ->
+    getRegVar ctxt rd, elem (getRegVar ctxt rm) (int32 idx) esize
+  | TwoOperands (OprSIMD (SFReg (Vector rd)), OprReg rm) ->
+    getRegVar ctxt rd,
+    extractLow (RegType.fromBitWidth esize) (getRegVar ctxt rm)
+  | _ -> raise InvalidOperandException
+
+let vdup insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let esize = 8 <<< getSize insInfo.SIMDTyp
+  let rd, scalar = parseOprOfVDUP insInfo ctxt esize
+  let elements = 64 / esize
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    for e in 0 .. elements - 1 do
+      builder <! (elem rd e esize := scalar)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
 /// Translate IR.
 let translate insInfo ctxt =
   match insInfo.Opcode with
@@ -3647,8 +3673,8 @@ let translate insInfo ctxt =
   | Op.VABS -> vabs insInfo ctxt
   | Op.VADD when isF32orF64 insInfo.SIMDTyp -> sideEffects insInfo UnsupportedFP
   | Op.VADD -> vadd insInfo ctxt
-  | Op.VCLZ | Op.VCMP
-  | Op.VDUP
+  | Op.VDUP -> vdup insInfo ctxt
+  | Op.VCLZ
   | Op.VLDM | Op.VLDMIA
   | Op.VSTMIA
   | Op.VMAX | Op.VMLAL | Op.VMOVN | Op.VMUL | Op.VMULL
@@ -3657,6 +3683,7 @@ let translate insInfo ctxt =
   | Op.VRSHR
   | Op.VSHL | Op.VSHR | Op.VSUB
   | Op.VTBL -> sideEffects insInfo UnsupportedExtension
+  | Op.VCMP -> sideEffects insInfo UnsupportedFP
   | Op.VLDMDB | Op.VCEQ | Op.VCGT | Op.VCGE | Op.VCLE | Op.VCLT | Op.VTST
   | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVT | Op.VCVTR | Op.VMLS
   | Op.VDIV | Op.VRSHRN | Op.VMIN | Op.VORR | Op.VORN | Op.VCMPE | Op.VSTM
