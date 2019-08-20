@@ -3535,6 +3535,45 @@ let vdup insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
+let highestSetBitForIR dst src width oprSz builder =
+  let lblLoop = lblSymbol "Loop"
+  let lblLoopCont = lblSymbol "LoopContinue"
+  let lblUpdateTmp = lblSymbol "UpdateTmp"
+  let lblEnd = lblSymbol "End"
+  let t = tmpVar oprSz
+  let width = (num <| BitVector.ofInt32 (width - 1) oprSz)
+  builder <! (t := width)
+  builder <! (LMark lblLoop)
+  builder <! (CJmp (src >> t == num1 oprSz, Name lblEnd, Name lblLoopCont))
+  builder <! (LMark lblLoopCont)
+  builder <! (CJmp (t == num0 oprSz, Name lblEnd, Name lblUpdateTmp))
+  builder <! (LMark lblUpdateTmp)
+  builder <! (t := t .- num1 oprSz)
+  builder <! (Jmp (Name lblLoop))
+  builder <! (LMark lblEnd)
+  builder <! (dst := width .- t)
+
+let countLeadingZeroBitsForIR dst src oprSize builder =
+  highestSetBitForIR dst src (RegType.toBitWidth oprSize) oprSize builder
+
+let vclz insInfo ctxt =
+  let builder = new StmtBuilder (32)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rm = transTwoOprs insInfo ctxt
+  let esize = 8 <<< getSize insInfo.SIMDTyp
+  let oSz = RegType.fromBitWidth esize
+  let elements = 64 / esize
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rm = extract rm 64<rt> (r * 64)
+    for e in 0 .. elements - 1 do
+      countLeadingZeroBitsForIR (elem rd e esize) (elem rm e esize) oSz builder
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
 /// Translate IR.
 let translate insInfo ctxt =
   match insInfo.Opcode with
@@ -3674,7 +3713,7 @@ let translate insInfo ctxt =
   | Op.VADD when isF32orF64 insInfo.SIMDTyp -> sideEffects insInfo UnsupportedFP
   | Op.VADD -> vadd insInfo ctxt
   | Op.VDUP -> vdup insInfo ctxt
-  | Op.VCLZ
+  | Op.VCLZ -> vclz insInfo ctxt
   | Op.VLDM | Op.VLDMIA
   | Op.VSTMIA
   | Op.VMAX | Op.VMLAL | Op.VMOVN | Op.VMUL | Op.VMULL
