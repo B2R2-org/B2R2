@@ -3629,6 +3629,44 @@ let vsub insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
+let parseOprOfVSTM insInfo ctxt =
+  match insInfo.Operands with
+  | TwoOperands (OprReg reg, OprRegList regs) ->
+    getRegVar ctxt reg, List.map (getRegVar ctxt) regs
+  | _ -> raise InvalidOperandException
+
+let vstm insInfo ctxt =
+  let builder = new StmtBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rn, regList = parseOprOfVSTM insInfo ctxt
+  let add =
+    match insInfo.Opcode with
+    | Op.VSTMIA -> true
+    | Op.VSTMDB -> false
+    | _ -> raise InvalidOpcodeException
+  let regs = List.length regList
+  let imm32 = num <| BitVector.ofInt32 ((regs * 2) <<< 2) 32<rt>
+  let addr = tmpVar 32<rt>
+  let updateRn rn =
+    if insInfo.WriteBack.Value then
+      if add then rn .+ imm32 else rn .- imm32
+    else rn
+  builder <! (addr := if add then rn else rn .- imm32)
+  builder <! (rn := updateRn rn)
+  for r in 0 .. (regs - 1) do
+    let mem1 = loadLE 32<rt> addr
+    let mem2 = loadLE 32<rt> (addr .+ (num <| BitVector.ofInt32 4 32<rt>))
+    let data1 = extractLow 32<rt> regList.[r]
+    let data2 = extractHigh 32<rt> regList.[r]
+    let isbig = ctxt.Endianness = Endian.Big
+    builder <! (mem1 := if isbig then data2 else data1)
+    builder <! (mem2 := if isbig then data1 else data2)
+    builder <! (addr := addr .+ (num <| BitVector.ofInt32 8 32<rt>))
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
 /// Translate IR.
 let translate insInfo ctxt =
   match insInfo.Opcode with
@@ -3775,8 +3813,8 @@ let translate insInfo ctxt =
   | Op.VMIN -> vmaxmin insInfo ctxt false
   | Op.VSUB when isF32orF64 insInfo.SIMDTyp -> sideEffects insInfo UnsupportedFP
   | Op.VSUB -> vsub insInfo ctxt
+  | Op.VSTM | Op.VSTMIA | Op.VSTMDB -> vstm insInfo ctxt
   | Op.VLDM | Op.VLDMIA
-  | Op.VSTMIA
   | Op.VMLAL | Op.VMOVN | Op.VMUL | Op.VMULL
   | Op.VNEG
   | Op.VPADD
@@ -3786,8 +3824,8 @@ let translate insInfo ctxt =
   | Op.VCMP -> sideEffects insInfo UnsupportedFP
   | Op.VLDMDB | Op.VCEQ | Op.VCGT | Op.VCGE | Op.VCLE | Op.VCLT | Op.VTST
   | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVT | Op.VCVTR | Op.VMLS
-  | Op.VDIV | Op.VRSHRN | Op.VORR | Op.VORN | Op.VCMPE | Op.VSTM
-  | Op.VSTMDB | Op.VST2 | Op.VST3 | Op.VST4 | Op.VLD2 | Op.VLD3 | Op.VLD4 ->
+  | Op.VDIV | Op.VRSHRN | Op.VORR | Op.VORN | Op.VCMPE
+  | Op.VST2 | Op.VST3 | Op.VST4 | Op.VLD2 | Op.VLD3 | Op.VLD4 ->
     sideEffects insInfo UnsupportedExtension
   | Op.DMB | Op.DSB | Op.ISB | Op.PLD -> nop insInfo
   | o -> eprintfn "%A" o
