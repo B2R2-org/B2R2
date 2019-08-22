@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="ReplUtils.fs" />
+    <Compile Include="Main.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\BinGraph\B2R2.BinGraph.fsproj" />
+    <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\..\ConcEval\B2R2.ConcEval.fsproj" />
+    <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
+    <ProjectReference Include="..\..\Disassembler\LowUIR.Parser\B2R2.LowUIR.Parser.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\ARM32\B2R2.FrontEnd.ARM32.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\ARM64\B2R2.FrontEnd.ARM64.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\Core\B2R2.FrontEnd.Core.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\Intel\B2R2.FrontEnd.Intel.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\MIPS\B2R2.FrontEnd.MIPS.fsproj" />
+  </ItemGroup>
+
+</Project>
