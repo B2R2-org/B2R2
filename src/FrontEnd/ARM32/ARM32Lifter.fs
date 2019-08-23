@@ -3697,6 +3697,51 @@ let vldm insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
+let vecMulAccOrSub insInfo ctxt add =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, rm = transThreeOprs insInfo ctxt
+  let esize = 8 <<< getSize insInfo.SIMDTyp
+  let elements = 64 / esize
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rn = extract rn 64<rt> (r * 64)
+    let rm = extract rm 64<rt> (r * 64)
+    for e in 0 .. elements - 1 do
+      let sExt reg = sExt (RegType.fromBitWidth esize) (elem reg e esize)
+      let product = sExt rn .* sExt rm
+      let addend = if add then product else not product
+      builder <! (elem rd e esize := elem rd e esize .+ addend)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let vecMulAccOrSubLong insInfo ctxt add =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, rm = transThreeOprs insInfo ctxt
+  let esize = 8 <<< getSize insInfo.SIMDTyp
+  let elements = 64 / esize
+  for e in 0 .. elements - 1 do
+    let unsigned = isUnsigned insInfo.SIMDTyp
+    let extend expr =
+      if unsigned then zExt (RegType.fromBitWidth (esize * 2)) expr
+      else sExt (RegType.fromBitWidth (esize * 2)) expr
+    let product = extend (elem rn e esize) .* extend (elem rm e esize)
+    let addend = if add then product else not product
+    builder <! (elem rd e (esize * 2) := elem rd e (esize * 2) .+ addend)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let vmla insInfo ctxt = vecMulAccOrSub insInfo ctxt true
+let vmlal insInfo ctxt = vecMulAccOrSubLong insInfo ctxt true
+let vmls insInfo ctxt = vecMulAccOrSub insInfo ctxt false
+let vmlsl insInfo ctxt = vecMulAccOrSubLong insInfo ctxt false
+
 /// Translate IR.
 let translate insInfo ctxt =
   match insInfo.Opcode with
@@ -3845,7 +3890,11 @@ let translate insInfo ctxt =
   | Op.VSUB -> vsub insInfo ctxt
   | Op.VSTM | Op.VSTMIA | Op.VSTMDB -> vstm insInfo ctxt
   | Op.VLDM | Op.VLDMIA | Op.VLDMDB -> vldm insInfo ctxt
-  | Op.VMLAL | Op.VMOVN | Op.VMUL | Op.VMULL
+  | Op.VMLA -> vmla insInfo ctxt
+  | Op.VMLAL -> vmlal insInfo ctxt
+  | Op.VMLS -> vmls insInfo ctxt
+  | Op.VMLSL -> vmlsl insInfo ctxt
+  | Op.VMOVN | Op.VMUL | Op.VMULL
   | Op.VNEG
   | Op.VPADD
   | Op.VRSHR
