@@ -3629,7 +3629,7 @@ let vsub insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
-let parseOprOfVSTM insInfo ctxt =
+let parseOprOfVSTLDM insInfo ctxt =
   match insInfo.Operands with
   | TwoOperands (OprReg reg, OprRegList regs) ->
     getRegVar ctxt reg, List.map (getRegVar ctxt) regs
@@ -3640,7 +3640,7 @@ let vstm insInfo ctxt =
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
-  let rn, regList = parseOprOfVSTM insInfo ctxt
+  let rn, regList = parseOprOfVSTLDM insInfo ctxt
   let add =
     match insInfo.Opcode with
     | Op.VSTMIA -> true
@@ -3663,6 +3663,36 @@ let vstm insInfo ctxt =
     let isbig = ctxt.Endianness = Endian.Big
     builder <! (mem1 := if isbig then data2 else data1)
     builder <! (mem2 := if isbig then data1 else data2)
+    builder <! (addr := addr .+ (num <| BitVector.ofInt32 8 32<rt>))
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let vldm insInfo ctxt =
+  let builder = new StmtBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rn, regList = parseOprOfVSTLDM insInfo ctxt
+  let add =
+    match insInfo.Opcode with
+    | Op.VLDMIA -> true
+    | Op.VLDMDB -> false
+    | _ -> raise InvalidOpcodeException
+  let regs = List.length regList
+  let imm32 = num <| BitVector.ofInt32 ((regs * 2) <<< 2) 32<rt>
+  let addr = tmpVar 32<rt>
+  let updateRn rn =
+    if insInfo.WriteBack.Value then
+      if add then rn .+ imm32 else rn .- imm32
+    else rn
+  builder <! (addr := if add then rn else rn .- imm32)
+  builder <! (rn := updateRn rn)
+  for r in 0 .. (regs - 1) do
+    let word1 = loadLE 32<rt> addr
+    let word2 = loadLE 32<rt> (addr .+ (num <| BitVector.ofInt32 4 32<rt>))
+    let isbig = ctxt.Endianness = Endian.Big
+    builder <!
+      (regList.[r] := if isbig then concat word1 word2 else concat word2 word1)
     builder <! (addr := addr .+ (num <| BitVector.ofInt32 8 32<rt>))
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
@@ -3814,7 +3844,7 @@ let translate insInfo ctxt =
   | Op.VSUB when isF32orF64 insInfo.SIMDTyp -> sideEffects insInfo UnsupportedFP
   | Op.VSUB -> vsub insInfo ctxt
   | Op.VSTM | Op.VSTMIA | Op.VSTMDB -> vstm insInfo ctxt
-  | Op.VLDM | Op.VLDMIA
+  | Op.VLDM | Op.VLDMIA | Op.VLDMDB -> vldm insInfo ctxt
   | Op.VMLAL | Op.VMOVN | Op.VMUL | Op.VMULL
   | Op.VNEG
   | Op.VPADD
@@ -3822,7 +3852,7 @@ let translate insInfo ctxt =
   | Op.VSHL | Op.VSHR
   | Op.VTBL -> sideEffects insInfo UnsupportedExtension
   | Op.VCMP -> sideEffects insInfo UnsupportedFP
-  | Op.VLDMDB | Op.VCEQ | Op.VCGT | Op.VCGE | Op.VCLE | Op.VCLT | Op.VTST
+  | Op.VCEQ | Op.VCGT | Op.VCGE | Op.VCLE | Op.VCLT | Op.VTST
   | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVT | Op.VCVTR | Op.VMLS
   | Op.VDIV | Op.VRSHRN | Op.VORR | Op.VORN | Op.VCMPE
   | Op.VST2 | Op.VST3 | Op.VST4 | Op.VLD2 | Op.VLD3 | Op.VLD4 ->
