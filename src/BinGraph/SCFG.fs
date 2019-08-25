@@ -106,12 +106,14 @@ type SCFG (hdl, app) =
         if e = CallEdge then
           let last = p.VData.LastInstruction
           let fallthrough = last.Address + uint64 last.Length
-          let falltarget = vMap.[ProgramPoint (fallthrough, 0)]
+          let fallPP = ProgramPoint (fallthrough, 0)
           match app.CalleeMap.Find (curVertex.VData.PPoint.Address) with
           | None -> raise VertexNotFoundException
           | Some callee ->
-            if callee.IsNoReturn then ()
-            else newGraph.AddEdge curVertex falltarget RetEdge
+            if callee.IsNoReturn || (not <| vMap.ContainsKey fallPP) then ()
+            else
+              let falltarget = vMap.[fallPP]
+              newGraph.AddEdge curVertex falltarget RetEdge
         else ()
     and iterSuccessors oldVertex curVertex succs =
       let last = curVertex.VData.LastInstruction
