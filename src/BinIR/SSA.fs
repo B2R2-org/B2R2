@@ -30,29 +30,41 @@ namespace B2R2.BinIR.SSA
 open B2R2
 open B2R2.BinIR
 
-/// Type representing destination of assignment.
-type Destination =
-  | RegVar of RegType * RegisterID * string * int
-  | PCVar of RegType * int
+/// Type representing destination of an assignment.
+type VariableKind =
+  | RegVar of RegType * RegisterID * string
+  | PCVar of RegType
   | TempVar of RegType * int
-  | MemVar of int
-  (* XXX: Another candidate of MemVar definition *)
-  (* In this way, we treat memory like variables *)
-  // | MemVar of Expr * int
+  | MemVar
+with
+  static member toString = function
+    | RegVar (_, _, n) -> n
+    | PCVar (_) -> "PC"
+    | TempVar (_, n) -> "T_" + n.ToString()
+    | MemVar -> "MEM"
 
-/// IR Expressions.
+/// SSA variables always have their own identifier.
+type Variable = {
+  Kind: VariableKind
+  mutable Identifier: int
+}
+with
+  static member toString ({ Kind = k; Identifier = i }) =
+    VariableKind.toString k + "_" + i.ToString ()
+
+/// Basic expressions similar to LowUIR.Expr.
 type Expr =
     /// A number. For example, (0x42:I32) is a 32-bit number 0x42
   | Num of BitVector
 
     /// A variable.
-  | Var of Destination
+  | Var of Variable
 
     /// Memory lookup such as [T_1]:I32
-  | Load of Destination * RegType * Expr
+  | Load of Variable * RegType * Expr
 
-    /// Memory updating such as [T_1] <- T_2
-  | Store of Destination * Expr * Expr
+    /// Memory update such as [T_1] <- T_2
+  | Store of Variable * Expr * Expr
 
     /// Name of uninterpreted function.
   | FuncName of string
@@ -86,30 +98,33 @@ type Expr =
     /// case).
   | Undefined of RegType * string
 
-  | Return
+    /// Value returned from a function located at the address.
+  | Return of Addr
 
 /// IR Label. Since we don't distinguish instruction boundary in SSA level, we
-/// need to specify where the label comes from.
+/// want to specify where the label comes from.
 type Label = Addr * Symbol
 
 type JmpType =
   (* We directly show jump destination label instread of wrapping with Expr *)
   | IntraJmp of Label
   | IntraCJmp of Expr * Label * Label
-  | InterJmp of Destination * Expr
-  | InterCJmp of Expr * Destination * Expr * Expr
+  | InterJmp of Variable * Expr
+  | InterCJmp of Expr * Variable * Expr * Expr
 
 /// IR Statements.
 type Stmt =
-    /// ConsInfo data representing a label (as in an assembly language). LMark is
-    /// only valid within a machine instruction.
+    /// A label (as in an assembly language). LMark is only valid within a
+    /// machine instruction.
   | LMark of Label
 
     /// Assignment in SSA.
-  | Def of Destination * Expr
+  | Def of Variable * Expr
 
-  | Phi of Destination * int []
+    /// Phi function.
+  | Phi of Variable * int []
 
+    /// Branch statement.
   | Jmp of JmpType
 
     /// This represents an instruction with side effects such as a system call.

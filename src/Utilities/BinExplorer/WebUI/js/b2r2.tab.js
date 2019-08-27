@@ -36,12 +36,12 @@ function addTab(functionName, dims, json) {
   deactivatedTab()
   let tabContainer = $("#id_tabContainer");
   let tabId = "id_tabs-" + g_tabCounter;
-  let textType = "disasm";
+  let textType = "Disasm";
   let label = functionName,
     li = $(tabTemplate.replace('{href}', tabId).replace(/\{label\}/g, label).replace("{number}", g_tabCounter).replace("{type}", textType));
   tabContainer.find('ul').append(li);
   addGraphDiv(dims);
-  toggleDisasmIR("disasm")
+  updateCfgChooserLabel("Disasm")
 }
 
 
@@ -91,30 +91,24 @@ function deactivatedTab() {
   });
 }
 
-function toggleDisasmIR(textType) {
-  if (textType === "disasm") {
-    $("#id_disasm-to-ir").addClass("show");
-    $("#id_ir-to-disasm").removeClass("show");
-  } else if (textType === "ir") {
-    $("#id_ir-to-disasm").addClass("show");
-    $("#id_disasm-to-ir").removeClass("show");
-  } else {
-
-  }
+function updateCfgChooserLabel(textType) {
+  $("#cfgChooser li div a").parents(".dropdown")
+                           .find(".dropdown-toggle")
+                           .html(textType + ' <span class="caret"></span>');
 }
 
 function activateTab($el, callback) {
   deactivatedTab();
   let functionName = $el.attr('title');
   let $tab = $("#id_tabContainer li[value='" + functionName + "']");
-  let textType = $tab.attr('text-type') === undefined ? "disasm" : $tab.attr('text-type');
+  let textType = $tab.attr('text-type') === undefined ? "Disasm" : $tab.attr('text-type');
   let tabNumber = $tab.attr("counter");
   $tab.addClass("active");
   $("#cfgDiv-" + tabNumber).show();
   $("#minimap-" + tabNumber).show();
-  toggleDisasmIR(textType);
+  updateCfgChooserLabel(textType);
   query({
-    "q": "cfg-" + textType.toLowerCase(),
+    "q": "cfg-" + textType,
     "args": functionName
   },
     function (status, json) {
@@ -132,13 +126,12 @@ function replaceTab($self, name, dims) {
   let tabId = "id_tabs-" + g_tabCounter;
   let $tab = $("#id_tabContainer li.active");
   $tab.attr("value", name);
-  $tab.attr("text-type", "disasm")
+  $tab.attr("text-type", "Disasm")
   let newTab = $(`<a href=#{href}>{label}<span class="glyphicon glyphicon-remove-circle close-tab"></span></a>`.replace('{href}', tabId).replace("{label}", name));
-  $("#id_ir-to-disasm").removeClass("show");
-  $("#id_disasm-to-ir").addClass("show");
   $tab.empty().append(newTab);
+  updateCfgChooserLabel("Disasm");
   query({
-    "q": "cfg-disasm",
+    "q": "cfg-Disasm",
     "args": $self.attr('title')
   },
     function (status, json) {

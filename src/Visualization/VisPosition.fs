@@ -1,8 +1,7 @@
 (*
   B2R2 - the Next-Generation Reversing Platform
 
-  Author: Soomin Kim <soomink@kaist.ac.kr>
-          Sang Kil Cha <sangkilc@kaist.ac.kr>
+  Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -25,27 +24,12 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinGraph
+namespace B2R2.Visualization
 
-open B2R2
-open B2R2.FrontEnd
-
-type DisasmBBL (range: AddrRange, instrs, last, comments) =
-  inherit RangedVertexData (range)
-
-  /// List of all the instructions in this block.
-  member __.Instrs: Instruction list = instrs
-
-  /// The last instruction of this block (to access it efficiently).
-  member __.LastInstr: Instruction = last
-
-  /// User-defined comments for this basic block, where each entry in the list
-  /// corresponds to the nth instruction of the block.
-  member val Comments: string list = comments with get, set
-
-  /// Do we need to resolve the successor(s) of this basic block?
-  member val ToResolve = false with get, set
-
-type DisasmVertex = Vertex<DisasmBBL>
-
-type DisasmCFG = RangedDiGraph<DisasmBBL, CFGEdgeKind>
+/// X-Y position of nodes and edges for visualization.
+type VisPosition = {
+  /// X position.
+  mutable X: float
+  /// Y position.
+  mutable Y: float
+}

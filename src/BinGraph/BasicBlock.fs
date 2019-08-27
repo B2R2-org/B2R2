@@ -1,7 +1,7 @@
 (*
   B2R2 - the Next-Generation Reversing Platform
 
-  Author: Soomin Kim <soomink@kaist.ac.kr>
+  Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -28,26 +28,16 @@ namespace B2R2.BinGraph
 
 open B2R2
 
-/// Program point (PPoint) represents a specific location of a lifted LowUIR. A
-/// PPoint is a tuple of (address and a index of the IR statement in the
-/// corresponding basic block).
-type PPoint = Addr * int
-
-/// We distinguish edges of a CFG by classifying them into several kinds.
-type CFGEdgeKind =
-  /// An edge of a direct jump, e.g., JMP +0x42.
-  | JmpEdge
-  /// A true edge of a conditional jump.
-  | CJmpTrueEdge
-  /// A false edge of a conditional jump.
-  | CJmpFalseEdge
-  /// An edge of a call instruction, e.g., CALL foo.
-  | CallEdge
-  /// An edge of a return instruction.
-  | RetEdge
-  /// A simple fall-through case. This type is created when an edge cuts in two
-  /// consecutive instructions.
-  | FallThroughEdge
-
-/// A CFG is a DiGraph where edges are a CFGEdgeKind.
-type CFG<'a when 'a :> VertexData> = DiGraph<'a, CFGEdgeKind>
+/// The base type for basic block.
+[<AbstractClass>]
+type BasicBlock () =
+  inherit VertexData(VertexData.genID ())
+  /// The start position (ProgramPoint) of the basic block.
+  abstract PPoint: ProgramPoint with get
+  /// The instruction address range of the basic block.
+  abstract Range: AddrRange with get
+  /// Check if this is a fake basic block inserted by our analysis. We create a
+  /// fake block to represent call target vertices in a function-level CFG.
+  abstract IsFakeBlock: unit -> bool
+  /// Convert this basic block to a visual representation.
+  abstract ToVisualBlock: ?hdl: B2R2.FrontEnd.BinHandler -> VisualBlock

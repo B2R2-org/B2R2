@@ -24,174 +24,90 @@
   SOFTWARE.
 *)
 
-module B2R2.BinGraph.NoReturn
+namespace B2R2.BinGraph
 
 open B2R2
-open B2R2.BinFile
-open B2R2.FrontEnd
 open B2R2.BinIR
-open B2R2.BinIR.LowUIR
+open B2R2.FrontEnd
 open B2R2.ConcEval
+open B2R2.BinGraph.EmulationHelper
 
-let isExecutable (hdl: BinHandler) addr =
-  match hdl.FileInfo.GetSections addr |> Seq.tryHead with
-  | Some s -> s.Kind = SectionKind.ExecutableSection
-  | _ -> false
+module private NoReturnHelper =
 
-let removeSelfCycle (fcg: CallGraph) =
-  fcg.IterEdge (fun src dst ->
-    if src = dst then fcg.RemoveEdge src dst)
+  let isKnownNoReturnFunction = function
+    | "__assert_fail"
+    | "abort"
+    | "_abort"
+    | "exit"
+    | "_exit" -> true
+    | _ -> false
 
-let removeBackEdge (fcg: CallGraph) order src dst =
-  if Map.find src order > Map.find dst order then
-    fcg.RemoveEdge src dst
+  let sideEffectHandler eff st =
+    match eff with
+    | SysCall -> EvalState.AbortInstr st
+    | _ -> st
 
-let removeBackEdges (fcg: CallGraph) =
-  let dfsOrder = Algorithms.dfsTopologicalSort fcg
-  fcg.IterEdge (removeBackEdge fcg dfsOrder)
+  let checkExitForX86 st =
+    match readReg st (Intel.Register.EAX |> Intel.Register.toRegID) with
+    | None -> false
+    | Some v ->
+      let syscallNum = BitVector.toInt32 v
+      syscallNum = 1 || syscallNum = 252
 
-let noReturnFuncs =
-  [ "__assert_fail" ; "abort" ; "_abort" ; "exit" ; "_exit" ]
+  let checkExitForX64 st =
+    match readReg st (Intel.Register.RAX |> Intel.Register.toRegID) with
+    | None -> false
+    | Some v ->
+      let syscallNum = BitVector.toInt64 v
+      syscallNum = 60L || syscallNum = 231L
 
-let isNoReturnCall hdl (fcg: CallGraph) target =
-  if not <| isExecutable hdl target then
-    let found, name = hdl.FileInfo.TryFindFunctionSymbolName target
-    if found then List.contains name noReturnFuncs
-    else false
-  else
-    let funcV =
-      fcg.FindVertexBy (fun (v: Vertex<Function>) -> v.VData.Entry = target)
-    funcV.VData.NoReturn
-
-let findDisasmVertex addr (v: DisasmVertex) =
-  let addrRange = v.VData.AddrRange
-  addrRange.Min <= addr && addr < addrRange.Max
-
-let removeVertex (disasmCFG: DisasmCFG) (irCFG: IRCFG) (v: IRVertex) =
-  let b, ppoint = v.VData.GetPpoint ()
-  if b then
-    match disasmCFG.TryFindVertexBy (findDisasmVertex <| fst ppoint) with
-    | Some w ->
-      disasmCFG.RemoveVertex w
-      irCFG.RemoveVertex v
-    | None -> irCFG.RemoveVertex v
-  else irCFG.RemoveVertex v
-
-let rec getReachables reachSet = function
-  | [] -> reachSet
-  | hd :: tl when Set.contains hd reachSet -> getReachables reachSet tl
-  | (hd: IRVertex) :: tl ->
-    let reachSet = Set.add hd reachSet
-    getReachables reachSet (hd.Succs @ tl)
-
-let disconnectCall hdl (fcg: CallGraph) disasmCFG (irCFG: IRCFG) (v: IRVertex) =
-  match irCFG.TryFindVertexByData v.VData with
-  | Some _ ->
-    let b, target = v.VData.GetTarget ()
-    if b then
-      if isNoReturnCall hdl fcg target then
-        List.iter (fun w -> irCFG.RemoveEdge v w) v.Succs
-        List.iter (fun (u: IRVertex) ->
-          List.iter (fun w -> if v <> w then irCFG.RemoveEdge u w) u.Succs) v.Preds
-        let reachSet = getReachables Set.empty [irCFG.GetRoot ()]
-        irCFG.IterVertex (fun v ->
-          if not <| Set.contains v reachSet then removeVertex disasmCFG irCFG v)
-  | None -> ()
-
-let getStackPtrRegID = function
-  | Arch.IntelX86 -> Intel.Register.ESP |> Intel.Register.toRegID
-  | Arch.IntelX64 -> Intel.Register.RSP |> Intel.Register.toRegID
-  | _ -> failwith "Not supported arch."
-
-let stackAddr t = Def (BitVector.ofInt32 0x1000000 t)
-
-let dummyLoader _ _ = None
-
-let initState hdl =
-  let isa = hdl.ISA
-  let st = EvalState (dummyLoader, true)
-  let sp = getStackPtrRegID isa.Arch
-  match isa.Arch with
-  | Arch.IntelX86 -> EvalState.PrepareContext st 0 0UL [(sp, stackAddr 32<rt>)]
-  | Arch.IntelX64 -> EvalState.PrepareContext st 0 0UL [(sp, stackAddr 64<rt>)]
-  | _ -> failwith "Not supported arch."
-
-let isIntel32NoReturnSysCall state =
-  match EvalState.GetReg state (Intel.Register.toRegID Intel.Register.EAX) with
-  | Def v -> BitVector.toUInt64 v = 1UL
-  | _ -> false
-
-let isIntel64NoReturnSysCall state =
-  match EvalState.GetReg state (Intel.Register.toRegID Intel.Register.RAX) with
-  | Def v -> BitVector.toUInt64 v = 60UL
-  | _ -> false
-
-let isNoReturnSysCall hdl (vData: IRVertexData) = function
-  | SideEffect SysCall ->
-    let b1, _ = vData.GetPpoint ()
-    let b2, stmts = vData.GetStmts ()
-    if b1 && b2 then
-      let state = initState hdl
-      let state = List.toArray stmts |> Evaluator.evalBlock state 0
+  let retrieveSyscallState (hdl: BinHandler) = function
+    | None -> false
+    | Some st ->
       match hdl.ISA.Arch with
-      | Arch.IntelX86 -> isIntel32NoReturnSysCall state
-      | Arch.IntelX64 -> isIntel64NoReturnSysCall state
-      | _ -> failwith "Not supported arch."
-    else false
-  | _ -> false
+      | Arch.IntelX86 -> checkExitForX86 st
+      | Arch.IntelX64 -> checkExitForX64 st
+      | _ -> false
 
-let disconnectSysCall hdl disasmCFG (irCFG: IRCFG) (v: IRVertex) =
-  let vData = v.VData
-  let b, stmt = vData.GetLastStmt ()
-  if b then
-    if isNoReturnSysCall hdl vData stmt then
-      List.iter (fun w -> irCFG.RemoveEdge v w) v.Succs
-      let reachSet = getReachables Set.empty [irCFG.GetRoot ()]
-      irCFG.IterVertex (fun v ->
-        if not <| Set.contains v reachSet then removeVertex disasmCFG irCFG v)
-    else ()
+  let isNoReturn hdl (scfg: SCFG) (v: Vertex<CallGraphBBlock>) =
+    if v.Succs.IsEmpty then
+      // check syscall
+      let addr = v.VData.PPoint.Address
+      match scfg.FindFunctionVertex addr with
+      | None -> false
+      | Some root ->
+        let st = EvalState (memoryReader hdl, true)
+        let st = initRegs hdl |> EvalState.PrepareContext st 0 addr
+        st.Callbacks.SideEffectEventHandler <- sideEffectHandler
+        try
+          eval scfg root st (fun last -> last.IsInterrupt ())
+          |> retrieveSyscallState hdl
+        with _ -> false
+    else
+      isKnownNoReturnFunction v.VData.Name && v.VData.IsExternal
 
-let disconnect hdl fcg (v: Vertex<Function>) =
-  let irCFG = v.VData.IRCFG
-  let disasmCFG = v.VData.DisasmCFG
-  irCFG.IterVertex (disconnectCall hdl fcg disasmCFG irCFG)
-  irCFG.IterVertex (disconnectSysCall hdl disasmCFG irCFG)
+  let rec findLoop hdl scfg (cg: CallCFG) vmap =
+    (* XXX: currently just perform a single scan. *)
+    cg.FoldVertex (fun vmap v ->
+      Map.add v (isNoReturn hdl scfg v) vmap
+    ) vmap
 
-let updateNoReturn (func: Function) =
-  let irCFG = func.IRCFG
-  let isNoReturn =
-    List.forall (fun (v: IRVertex) ->
-      let vData = v.VData
-      let b, stmt = vData.GetLastStmt ()
-      if b then
-        match stmt with
-        | InterJmp (_, _, InterJmpInfo.IsCall)
-        | SideEffect _ -> true
-        | _ -> false
-      else true) irCFG.Exits
-  if isNoReturn then func.NoReturn <- isNoReturn
+  let findNoReturnEdges hdl (scfg: SCFG) app =
+    let lens = CallGraphLens.Init (scfg)
+    let cg, _ = lens.Filter scfg.Graph [] app
+    let vmap = cg.FoldVertex (fun map v -> Map.add v false map) Map.empty
+    let vmap = findLoop hdl scfg cg vmap
+    Map.filter (fun _ v -> v) vmap
+    |> Map.fold (fun app v _ ->
+      match app.CalleeMap.Find (v.VData.PPoint.Address) with
+      | None -> app
+      | Some callee ->
+        if not callee.IsNoReturn then
+          callee.IsNoReturn <- true
+          { app with Modified = true }
+        else app) app
 
-let rec analNoReturn hdl fcg visited queue = function
-  | [] -> () // XXX: Temporary patch. below expression causes infinite loop
-    //if List.length queue <> 0 then analNoReturn hdl fcg visited [] queue
-  | (v: Vertex<_>) :: vs ->
-    if not <| Set.contains v visited then
-      if List.forall (fun w -> Set.contains w visited) v.Succs then
-        let visited = Set.add v visited
-        disconnect hdl fcg v
-        updateNoReturn v.VData
-        let vs =
-          List.fold (fun vs w ->
-            if not <| Set.contains w visited then w :: vs else vs) vs v.Preds
-        analNoReturn hdl fcg visited queue vs
-      else
-        let queue = if not <| Set.contains v visited then v :: queue else queue
-        analNoReturn hdl fcg visited queue vs
-    else analNoReturn hdl fcg visited queue vs
-
-let noReturnAnalysis hdl (fcg: CallGraph) =
-  if fcg.Size () <> 0 then
-    let g = fcg.Clone ()
-    removeSelfCycle g
-    removeBackEdges g
-    analNoReturn hdl g Set.empty [] g.Exits
+type NoReturnAnalysis () =
+  interface IPostAnalysis with
+    member __.Run hdl scfg app =
+      NoReturnHelper.findNoReturnEdges hdl scfg app

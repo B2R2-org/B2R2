@@ -19,6 +19,7 @@
   --gray: rgb(67,67,67);
   --cmd: rgb(230, 230, 230);
 }
+
 *{box-sizing:border-box; -webkit-box-sizing:border-box;}
 span.cyan {
   color: var(--cyan);
@@ -164,6 +165,17 @@ html, body {
   animation: rotating 2s linear infinite;
 }
 
+.cfgChooserBtn {
+  display: flex;
+  border: none;
+  color: white;
+  background-color: transparent;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  font-weight: bold;
+  white-space: nowrap;
+}
 
 .changeTextType {
   display: flex;
@@ -203,7 +215,9 @@ html, body {
   min-height: 55px;
   width: 100%;
   z-index: 1;
-  background: var(--nav); }
+  background: var(--nav);
+}
+
   .fixed-navbar-top .logo-image {
     height: 55px;
     width: 55px;
@@ -234,7 +248,18 @@ html, body {
       color: white;
       -webkit-text-fill-color: white;
       cursor: pointer; }
+    .fixed-navbar-top .nav-cfg-chooser {
+      padding-left: 20px;
+      height: 55px;
+      display: flex;
+      justify-content: center;
+      align-items: center; }
     .fixed-navbar-top .nav-item {
+      height: 55px;
+      display: flex;
+      justify-content: center;
+      align-items: center; }
+    .fixed-navbar-top .nav-fixed-width {
       width: 55px;
       height: 55px;
       display: flex;
@@ -480,32 +505,95 @@ html, body {
   border: 1px solid #ccc;
   cursor: default; }
 
-.cfgCJmpTrueEdgeArrow {
-  fill: var(--green); }
+.cfgInterJmpEdge {
+  stroke: var(--orange); }
 
-.cfgCJmpFalseEdgeArrow {
+.cfgInterJmpEdgeArrow {
+  fill: var(--orange); }
+
+.cfgInterJmpEdgeBlur:hover {
+  filter: url(#cfgBlur);
+  stroke: var(--orange); }
+
+.cfgInterCJmpFalseEdge {
+  stroke: var(--red); }
+
+.cfgInterCJmpFalseEdgeArrow {
   fill: var(--red); }
 
-.cfgCJmpFalseEdgeBlur:hover {
+.cfgInterCJmpFalseEdgeBlur:hover {
   filter: url(#cfgBlur);
   stroke: var(--red); }
 
-.cfgCJmpTrueEdge {
+.cfgInterCJmpTrueEdge {
   stroke: var(--green); }
 
-.cfgCJmpTrueEdgeBlur:hover {
+.cfgInterCJmpTrueEdgeArrow {
+  fill: var(--green); }
+
+.cfgInterCJmpTrueEdgeBlur:hover {
+  filter: url(#cfgBlur);
+  stroke: var(--green); }
+
+.cfgIntraJmpEdge {
+  stroke: var(--orange); }
+
+.cfgIntraJmpEdgeArrow {
+  fill: var(--orange); }
+
+.cfgIntraJmpEdgeBlur:hover {
+  filter: url(#cfgBlur);
+  stroke: var(--orange); }
+
+.cfgIntraCJmpFalseEdge {
+  stroke: var(--red); }
+
+.cfgIntraCJmpFalseEdgeArrow {
+  fill: var(--red); }
+
+.cfgIntraCJmpFalseEdgeBlur:hover {
+  filter: url(#cfgBlur);
+  stroke: var(--red); }
+
+.cfgIntraCJmpTrueEdge {
+  stroke: var(--green); }
+
+.cfgIntraCJmpTrueEdgeArrow {
+  fill: var(--green); }
+
+.cfgIntraCJmpTrueEdgeBlur:hover {
   filter: url(#cfgBlur);
   stroke: var(--green); }
 
 .cfgFallThroughEdge {
   stroke: var(--purple); }
 
+.cfgFallThroughEdgeArrow {
+  fill: var(--purple); }
+
 .cfgFallThroughEdgeBlur:hover {
   filter: url(#cfgBlur);
   stroke: var(--purple); }
 
-.cfgFallThroughEdgeArrow {
-  fill: var(--purple); }
+.cfgCallEdge {
+  stroke: var(--lightgray); }
+
+.cfgCallEdgeArrow {
+  fill: var(--lightgray); }
+
+.cfgCallEdgeBlur:hover {
+  filter: url(#cfgBlur);
+  stroke: var(--lightgray); }
+
+.cfgRetEdge {
+  stroke: var(--lightgray); }
+
+.cfgRetEdgeArrow {
+  fill: var(--lightgray); }
+
+.cfgRetEdgeBlur:hover {
+  filter: url(#cfgBlur);
+  stroke: var(--lightgray); }
 
 .cfgDisasmComment {
   fill: var(--comment); }
@@ -520,19 +608,6 @@ html, body {
 
 .nodeHighlight {
   fill: lightgoldenrodyellow; }
-
-.cfgJmpEdge {
-  stroke: var(--orange); }
-
-.cfgJmpEdgeArrow {
-  fill: var(--orange); }
-
-.cfgJmpEdgeBlur:hover {
-  filter: url(#cfgBlur);
-  stroke: var(--orange); }
-
-.cfgCJmpFalseEdge {
-  stroke: var(--red); }
 
 #id_address-search {
   all: unset;
@@ -636,8 +711,6 @@ html, body {
   text-align: left;
   vertical-align: middle;
 }
-
-#id_comment-modal {}
 
 #id_comment-modal .modal-body {
   background: rgba(40, 42, 54, 1);

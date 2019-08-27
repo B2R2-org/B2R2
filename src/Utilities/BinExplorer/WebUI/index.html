@@ -11,9 +11,7 @@
 
   <link href="css/bootstrap.min.css" rel="stylesheet" />
   <link href="css/b2r2.css" rel="stylesheet" />
-  <script defer src="https://use.fontawesome.com/releases/v5.8.1/js/all.js"
-    integrity="sha384-g5uSoOSBd7KkhAMlnQILrecXvzst9TdC09/VM+pjDTCM+1il8RHz5fKANTFFb+gQ"
-    crossorigin="anonymous"></script>
+  <link href="css/all.min.css" rel="stylesheet" />
 
 </head>
 
@@ -29,20 +27,22 @@
         <input id="id-input_address" type="text" onkeypress="onKeyPressSearchAddress();" placeholder="Goto Address">
         <i class="fas fa-search" onclick="onClickSearchAddress();"></i>
       </div>
-      <div class="nav-item">
-        <div class="changeTextType show" id="id_disasm-to-ir">
-          <span>IR</span>
-        </div>
-        <div class="changeTextType" id="id_ir-to-disasm">
-          <span>DASM</span>
-        </div>
+      <div class ="nav-item dropdown nav-cfg-chooser">
+        <button class="cfgChooserBtn dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+          CFG Kind<span class="caret"></span>
+        </button>
+        <ul class="dropdown-menu" id="cfgChooser">
+          <li><div class="dropdown-item"><a href="#" data-value="Disasm">Disasm</a></div></li>
+          <li><div class="dropdown-item"><a href="#" data-value="LowUIR">LowUIR</a></div></li>
+          <li><div class="dropdown-item"><a href="#" data-value="SSA">SSA</a></div></li>
+        </ul>
       </div>
-      <div class="nav-item">
+      <div class="nav-item nav-fixed-width">
         <div class="btn-refresh" title="Refresh CFG" id="id_btn-refresh">
           <span id="icon-refresh" style="padding: 0" class="glyphicon glyphicon-refresh"></span>
         </div>
       </div>
-      <div class="dropdown">
+      <div class="nav-item nav-fixed-width dropdown">
         <div class="nav-item dropdown-btn" id="id_dropdown-menu" data-toggle="dropdown" aria-haspopup="true"
           aria-expanded="false">
           <span class="glyphicon glyphicon-wrench"></span>&nbsp; &nbsp;

@@ -7,7 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Graphs.fs" />
+    <Compile Include="VisPosition.fs" />
+    <Compile Include="VisBBlock.fs" />
+    <Compile Include="VisEdge.fs" />
+    <Compile Include="VisGraph.fs" />
+    <Compile Include="VisDebug.fs" />
+    <Compile Include="JSONExport.fs" />
     <Compile Include="CycleRemoval.fs" />
     <Compile Include="LayerAssignment.fs" />
     <Compile Include="CrossMinimization.fs" />

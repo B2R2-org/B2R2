@@ -71,39 +71,23 @@ $("#binInfo").on("click", function () {
   popToast("info", "Copy File Path", 3);
 })
 
-function disasm2irEvent(dims) {
-  $(document).on("click", "#id_disasm-to-ir", function () {
+function registerCFGChooserEvent(dims) {
+  $("#cfgChooser li div a").click(function() {
     var funcName = $("#uiFuncName").text();
+    var t = $(this).data("value");
+    $(this).parents(".dropdown").find(".dropdown-toggle").val(t);
     query({
-      "q": "cfg-ir",
+      "q": ("cfg-" + t),
       "args": funcName
     },
-      function (status, json) {
-        if (!isEmpty(json)) {
-          setuiFuncName(funcName);
-          drawCFG(dims, json);
-          $("#id_tabContainer li.active").attr("text-type", "ir");
-          toggleDisasmIR("ir");
-        }
-      });
-  });
-};
-
-function ir2disasmEvent(dims) {
-  $(document).on("click", "#id_ir-to-disasm", function () {
-    var funcName = $("#uiFuncName").text();
-    query({
-      "q": "cfg-disasm",
-      "args": funcName
-    },
-      function (status, json) {
-        if (!isEmpty(json)) {
-          setuiFuncName(funcName);
-          drawCFG(dims, json);
-          $("#id_tabContainer li.active").attr("text-type", "ir");
-          toggleDisasmIR("disasm");
-        }
-      });
+    function (_status, json) {
+      if (!isEmpty(json)) {
+        setuiFuncName(funcName);
+        drawCFG(dims, json);
+        $("#id_tabContainer li.active").attr("text-type", t);
+        updateCfgChooserLabel(t);
+      }
+    });
   });
 }
 
@@ -128,8 +112,7 @@ function runOffline(dims) {
 function runOnline(dims) {
   activateTabEvent();
   closeTabEvent();
-  disasm2irEvent(dims);
-  ir2disasmEvent(dims);
+  registerCFGChooserEvent(dims);
   query({ "q": "functions" }, drawFunctions);
   query({ "q": "bininfo" }, drawBinInfo);
 }
@@ -170,7 +153,7 @@ function functionListClickEvent() {
     let tabsLength = $("#id_tabContainer li").length;
     if (tabsLength === 0) {
       query({
-        "q": "cfg-disasm",
+        "q": "cfg-Disasm",
         "args": funcName
       },
         function (status, json) {
@@ -197,7 +180,7 @@ function functionListClickEvent() {
       activateTab($self)
     } else {
       query({
-        "q": "cfg-disasm",
+        "q": "cfg-Disasm",
         "args": funcName
       },
         function (status, json) {
@@ -265,4 +248,4 @@ if (typeof window === 'undefined') { // For Node.js
   module.exports.initEvents = initEvents;
 } else {
   window.addEventListener('load', function () { main(); }, false);
-} 
+}

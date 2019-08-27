@@ -1061,8 +1061,8 @@ let sysOprToString = function
   | DCOpr dc -> dcOprToString dc
 
 let oprToString i addr (sb: StringBuilder) = function
-  | Register reg when isRET i && reg = R.X30 -> sb.Remove (sb.Length - 2, 2)
-  | Register reg -> sb.Append (regToString reg)
+  | OprRegister reg when isRET i && reg = R.X30 -> sb.Remove (sb.Length - 2, 2)
+  | OprRegister reg -> sb.Append (regToString reg)
   | SIMDOpr simdOpr -> simdToString simdOpr sb
   | Immediate imm -> immToString imm sb
   | FPImmediate fp -> fpImmToString fp sb

@@ -32,26 +32,25 @@ open System.Runtime.Serialization
 open System.Runtime.Serialization.Json
 open B2R2
 open B2R2.BinGraph
-open B2R2.Utilities
 open B2R2.Visualization
 
 type CFGType =
   | DisasmCFG
   | IRCFG
-
+  | SSACFG
 
 [<DataContract>]
   type JsonDefs = {
     [<field: DataMember(Name = "name")>]
-    name: string
+    Name: string
     [<field: DataMember(Name = "addr")>]
-    addr: string
+    Addr: string
     [<field: DataMember(Name = "idx")>]
-    idx: string
+    Idx: string
     [<field: DataMember(Name = "comment")>]
-    comment: string
+    Comment: string
     [<field: DataMember(Name = "command")>]
-    command: string
+    Command: string
   }
 
 let rootDir =
@@ -108,61 +107,71 @@ let handleBinInfo req resp arbiter =
   let txt = "\"" + txt.Replace(@"\", @"\\") + "\""
   Some (defaultEnc.GetBytes (txt)) |> answer req resp
 
-let getCFG hdl (func: Function) = function
-  | DisasmCFG -> Visualizer.visualizeDisasmCFG hdl func.DisasmCFG
-  | IRCFG -> Visualizer.visualizeIRCFG hdl func.IRCFG
+let cfgToJSON cfgType ess g roots =
+  match cfgType with
+  | IRCFG ->
+    Visualizer.getJSONFromGraph g roots None
+  | DisasmCFG ->
+    let lens = DisasmLens.Init ()
+    let g, roots = lens.Filter g roots ess.BinaryApparatus
+    Visualizer.getJSONFromGraph g roots (Some ess.BinHandler)
+  | SSACFG ->
+    let lens = SSALens.Init ess.BinHandler ess.SCFG
+    let g, roots = lens.Filter g roots ess.BinaryApparatus
+    Visualizer.getJSONFromGraph g roots (Some ess.BinHandler)
 
 let handleCFG req resp arbiter cfgType name =
   let ess = Protocol.getBinEssence arbiter
-  match BinEssence.TryFindFuncByName name ess with
-  | None -> None |> answer req resp
-  | Some func ->
-    let hdl = ess.BinHandler
-    let cfg = getCFG hdl func cfgType
-    Some (defaultEnc.GetBytes cfg) |> answer req resp
+  match ess.SCFG.FindFunctionEntryByName name with
+  | None -> answer req resp None
+  | Some addr ->
+    let cfg, root = ess.SCFG.GetFunctionCFG (addr)
+    let s = cfgToJSON cfgType ess cfg [root]
+    Some (defaultEnc.GetBytes s) |> answer req resp
 
 let handleFunctions req resp arbiter =
   let ess = Protocol.getBinEssence arbiter
-  let addrs =
-    Array.ofSeq ess.Functions.Values
-    |> Array.map (fun (func: Function) -> func.Name)
-  Some (json<string []> addrs |> defaultEnc.GetBytes)
+  let names =
+    BinaryApparatus.getInternalFunctions ess.BinaryApparatus
+    |> Seq.map (fun c -> c.CalleeName)
+    |> Seq.toArray
+  Some (json<string []> names |> defaultEnc.GetBytes)
   |> answer req resp
 
-let getComment hdl addr idx comment (func: Function) = function
-  | DisasmCFG -> Visualizer.setCommentDisasmCFG hdl addr idx comment func.DisasmCFG
-  | IRCFG -> Visualizer.setCommentIRCFG hdl addr idx comment func.IRCFG
+// let getComment hdl addr idx comment (func: Function) = function
+//   | DisasmCFG -> Visualizer.setCommentDisasmCFG hdl addr idx comment func.DisasmCFG
+//   | IRCFG -> Visualizer.setCommentIRCFG hdl addr idx comment func.IRCFG
 
-let handleComment req resp arbiter cfgType (args: string) =
-  let commentReq = (jsonParser<JsonDefs> args)
-  let name = commentReq.name
-  let ess = Protocol.getBinEssence arbiter
-  match BinEssence.TryFindFuncByName name ess with
-  | None -> None |> answer req resp
-  | Some func ->
-    let hdl = ess.BinHandler
-    let addr = commentReq.addr
-    let comment = commentReq.comment
-    let idx = commentReq.idx |> int
-    let status = getComment hdl addr idx comment func cfgType
-    Some (json<string> status  |> defaultEnc.GetBytes) |> answer req resp
+// let handleComment req resp arbiter cfgType (args: string) =
+//   let commentReq = (jsonParser<JsonDefs> args)
+//   let name = commentReq.name
+//   let ess = Protocol.getBinEssence arbiter
+//   match BinEssence.TryFindFuncByName name ess with
+//   | None -> None |> answer req resp
+//   | Some func ->
+//     let hdl = ess.BinHandler
+//     let addr = commentReq.addr
+//     let comment = commentReq.comment
+//     let idx = commentReq.idx |> int
+//     let status = getComment hdl addr idx comment func cfgType
+//     Some (json<string> status  |> defaultEnc.GetBytes) |> answer req resp
 
-let handleAddress req resp arbiter (args: string) =
-  let jsonData = (jsonParser<JsonDefs> args)
-  let entry: Addr =  Convert.ToUInt64(jsonData.addr, 16) |> uint64
-  let ess = Protocol.getBinEssence arbiter
-  let addrs =
-    Array.ofSeq ess.Functions.Values
-    |> Array.map (fun (func: Function) -> func.Entry|> uint64)
-    |> Array.sort
-  let searchedAddr = Array.fold (fun acc x -> if entry >= x then x else acc) 0UL addrs
-  match BinEssence.TryFindFuncByEntry searchedAddr ess with
-  | None -> Some (json<string> "" |> defaultEnc.GetBytes) |> answer req resp
-  | Some func ->
-    let hdl = ess.BinHandler
-    let cfg = Visualizer.visualizeDisasmCFG hdl func.DisasmCFG
-    let namedcfg = cfg.[..cfg.Length-2] + ",\"Name\": \""+ func.Name + "\"}"
-    Some (defaultEnc.GetBytes namedcfg) |> answer req resp
+// let handleAddress req resp arbiter (args: string) =
+//   let jsonData = (jsonParser<JsonDefs> args)
+//   let entry: Addr =  Convert.ToUInt64(jsonData.addr, 16) |> uint64
+//   let ess = Protocol.getBinEssence arbiter
+//   let addrs =
+//     Array.ofSeq ess.Functions.Values
+//     |> Array.map (fun (func: Function) -> func.Entry|> uint64)
+//     |> Array.sort
+//   let searchedAddr = Array.fold (fun acc x -> if entry >= x then x else acc) 0UL addrs
+//   match BinEssence.TryFindFuncByEntry searchedAddr ess with
+//   | None -> Some (json<string> "" |> defaultEnc.GetBytes) |> answer req resp
+//   | Some func ->
+//     let hdl = ess.BinHandler
+//     let cfg = Visualizer.visualizeDisasmCFG hdl func.DisasmCFG
+//     let namedcfg = cfg.[..cfg.Length-2] + ",\"Name\": \""+ func.Name + "\"}"
+//     Some (defaultEnc.GetBytes namedcfg) |> answer req resp
 
 let handleStr cmds arbiter (line: string) =
   match line.Split (' ') |> Array.toList with
@@ -176,22 +185,23 @@ let jsonPrinter _ acc line = acc + line + "\n"
 
 let handleCommand req resp arbiter (args: string) =
   let jsonData = (jsonParser<JsonDefs> args)
-  let cmd = jsonData.command
+  let cmd = jsonData.Command
   let cmds = CmdSpec.speclist |> CmdMap.build
   let result = CLI.handle cmds arbiter cmd "" jsonPrinter
   Some (json<string> result  |> defaultEnc.GetBytes) |> answer req resp
 
 let handleAJAX req resp arbiter query args =
-    match query with
-    | "bininfo" -> handleBinInfo req resp arbiter
-    | "cfg-disasm" -> handleCFG req resp arbiter DisasmCFG args
-    | "cfg-ir" -> handleCFG req resp arbiter IRCFG args
-    | "functions" -> handleFunctions req resp arbiter
-    | "disasm-comment" -> handleComment req resp arbiter DisasmCFG args
-    | "ir-comment" -> handleComment req resp arbiter IRCFG args
-    | "address" -> handleAddress req resp arbiter args
-    | "command" -> handleCommand req resp arbiter args
-    | _ -> ()
+  match query with
+  | "bininfo" -> handleBinInfo req resp arbiter
+  | "cfg-Disasm" -> handleCFG req resp arbiter DisasmCFG args
+  | "cfg-LowUIR" -> handleCFG req resp arbiter IRCFG args
+  | "cfg-SSA" -> handleCFG req resp arbiter SSACFG args
+  | "functions" -> handleFunctions req resp arbiter
+  | "disasm-comment" -> () // handleComment req resp arbiter DisasmCFG args
+  | "ir-comment" -> () // handleComment req resp arbiter IRCFG args
+  | "address" -> () // handleAddress req resp arbiter args
+  | "command" -> handleCommand req resp arbiter args
+  | _ -> ()
 
 let handle (req: HttpListenerRequest) (resp: HttpListenerResponse) arbiter =
   match req.Url.LocalPath.Remove (0, 1) with (* Remove the first '/' *)
@@ -202,11 +212,11 @@ let handle (req: HttpListenerRequest) (resp: HttpListenerResponse) arbiter =
   | path ->
     IO.Path.Combine (rootDir, path) |> readIfExists |> answer req resp
 
-let startServer arbiter port =
+let startServer arbiter port verbose =
   let host = "http://localhost:" + port.ToString () + "/"
   let handler (req: HttpListenerRequest) (resp: HttpListenerResponse) =
     try handle req resp arbiter
-    with _ -> () (* Gracefully terminate if a fatal error occurs. *)
+    with e -> if verbose then eprintfn "%A" e else ()
   listener host handler
 
 // vim: set tw=80 sts=2 sw=2:

@@ -26,45 +26,45 @@
 
 module internal B2R2.Visualization.CycleRemoval
 
-let private removeSelfCycle (vGraph: VGraph) backEdgeList src dst =
-  if VGraph.getID src = VGraph.getID dst then // definition of self cycle
-    let edge = vGraph.FindEdge src dst
+let private removeSelfCycle (vGraph: VisGraph) backEdgeList src dst _ =
+  if VisGraph.getID src = VisGraph.getID dst then (* Definition of self cycle *)
+    let edge = vGraph.FindEdgeData src dst
     edge.IsBackEdge <- true
-    vGraph.RemoveEdge src dst // we should remove self cycles
+    vGraph.RemoveEdge src dst (* We should remove self cycles. *)
     (src, dst, edge) :: backEdgeList
   else backEdgeList
 
-let private removeBackEdge (vGraph: VGraph) order backEdgeList src dst =
+let private removeBackEdge (vGraph: VisGraph) order backEdgeList src dst _ =
   if Map.find src order > Map.find dst order then // BackEdge
     match vGraph.TryFindEdge dst src with
-    | Some _edge -> // exist opposite edges
-      let edge = vGraph.FindEdge src dst
+    | Some edge -> // exist opposite edges
       edge.IsBackEdge <- true
       vGraph.RemoveEdge src dst
       (src, dst, edge) :: backEdgeList
     | None -> // single backedge
-      let edge = vGraph.FindEdge src dst
+      let edge = vGraph.FindEdgeData src dst
       edge.IsBackEdge <- true
       vGraph.RemoveEdge src dst
       vGraph.AddEdge dst src edge
       (src, dst, edge) :: backEdgeList
   else backEdgeList
 
-let private dfsRemoveCycles vGraph backEdgeList =
-  let dfsOrder = VGraph.getDFSOrder vGraph
+let private dfsRemoveCycles vGraph roots backEdgeList =
+  let topoOrder = VisGraph.getTopologicalOrder vGraph roots
   let backEdgeList =
-    vGraph.FoldEdge (removeBackEdge vGraph dfsOrder) backEdgeList
+    vGraph.FoldEdge (removeBackEdge vGraph topoOrder) backEdgeList
 #if DEBUG
-  Dbg.logn "dfsOrder:"
-  dfsOrder
-  |> Map.iter (fun v o -> sprintf "%d -> %d" (VGraph.getID v) o |> Dbg.logn)
-  Dbg.logn "backEdges:"
+  VisDebug.logn "Topological Order:"
+  topoOrder
+  |> Map.iter (fun v o ->
+    sprintf "%d -> %d" (VisGraph.getID v) o |> VisDebug.logn)
+  VisDebug.logn "backEdges:"
   backEdgeList
   |> List.iter (fun (v, w, _) ->
-       sprintf "%d -> %d" (VGraph.getID v) (VGraph.getID w) |> Dbg.logn)
+    sprintf "%d -> %d" (VisGraph.getID v) (VisGraph.getID w) |> VisDebug.logn)
 #endif
   backEdgeList
 
-let removeCycles (vGraph: VGraph) =
+let removeCycles (vGraph: VisGraph) roots =
   let backEdgeList = vGraph.FoldEdge (removeSelfCycle vGraph) []
-  dfsRemoveCycles vGraph backEdgeList
+  dfsRemoveCycles vGraph roots backEdgeList

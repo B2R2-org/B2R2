@@ -896,7 +896,7 @@ let uncond010 bin =
 
 /// Load/store word and unsigned byte, page A5-208
 let parseGroup010 b =
-  let isPushPop () = extract b 19u 16u = 0b1101u
+  let isPushPop () = extract b 19u 16u = 0b1101u && extract b 11u 0u = 0b100u
   let chkRn () = extract b 19u 16u = 0b1111u
   let wback = pickBit b 24u = 0b0u || pickBit b 21u = 0b1u
   let opcode, wback, operands =

@@ -29,63 +29,64 @@ module B2R2.BinGraph.Dominator
 
 open System.Collections.Generic
 
-type DomInfo<'V when 'V :> VertexData> =
-  {
-    /// Vertex ID -> DFNum
-    DFNumMap      : Dictionary<VertexID, int>
-    /// DFNum -> Vertex
-    Vertex        : Vertex<'V> []
-    /// DFNum -> DFNum in the ancestor chain s.t. DFNum of its Semi is minimal.
-    Label         : int []
-    /// DFNum -> DFNum of the parent node (zero if not exists).
-    Parent        : int []
-    /// DFNum -> DFNum of the child node (zero if not exists).
-    Child         : int []
-    /// DFNum -> DFNum of an ancestor.
-    Ancestor      : int []
-    /// DFNum -> DFNum of a semidominator.
-    Semi          : int []
-    /// DFNum -> set of DFNums (vertices that share the same sdom).
-    Bucket        : Set<int> []
-    /// DFNum -> Size
-    Size          : int []
-    /// DFNum -> DFNum of an immediate dominator.
-    IDom          : int []
-    /// Length of the arrays.
-    MaxLength     : int
-  }
+type DomInfo<'V when 'V :> VertexData> = {
+  /// Vertex ID -> DFNum
+  DFNumMap      : Dictionary<VertexID, int>
+  /// DFNum -> Vertex
+  Vertex        : Vertex<'V> []
+  /// DFNum -> DFNum in the ancestor chain s.t. DFNum of its Semi is minimal.
+  Label         : int []
+  /// DFNum -> DFNum of the parent node (zero if not exists).
+  Parent        : int []
+  /// DFNum -> DFNum of the child node (zero if not exists).
+  Child         : int []
+  /// DFNum -> DFNum of an ancestor.
+  Ancestor      : int []
+  /// DFNum -> DFNum of a semidominator.
+  Semi          : int []
+  /// DFNum -> set of DFNums (vertices that share the same sdom).
+  Bucket        : Set<int> []
+  /// DFNum -> Size
+  Size          : int []
+  /// DFNum -> DFNum of an immediate dominator.
+  IDom          : int []
+  /// Length of the arrays.
+  MaxLength     : int
+}
 
-type DominatorContext<'V, 'E when 'V :> VertexData> =
-  {
-    ForwardGraph : DiGraph<'V, 'E>
-    ForwardDomInfo : DomInfo<'V>
-    BackwardGraph : DiGraph<'V, 'E>
-    BackwardDomInfo : DomInfo<'V>
-  }
+type DominatorContext<'V, 'E when 'V :> VertexData> = {
+  ForwardGraph: DiGraph<'V, 'E>
+  ForwardRoot: Vertex<'V>
+  ForwardDomInfo: DomInfo<'V>
+  BackwardGraph: DiGraph<'V, 'E>
+  BackwardRoot: Vertex<'V>
+  BackwardDomInfo: DomInfo<'V>
+}
 
-/// Initialize dominator context for a given graph (g).
-val initDominatorContext : DiGraph<'V, 'E> -> DominatorContext<'V, 'E>
+/// Initialize dominator context for a given graph (g) and the root node of g.
+val initDominatorContext:
+  DiGraph<'V, 'E> -> Vertex<'V> -> DominatorContext<'V, 'E>
 
 /// Return immediate dominator of the given node (v) in the graph (g).
-val idom :
+val idom:
   DominatorContext<'V, 'E> -> Vertex<'V> -> Vertex<'V> option
 
 /// Return immediate post-dominator of the given node (v) in the graph (g).
-val ipdom :
+val ipdom:
   DominatorContext<'V, 'E> -> Vertex<'V> -> Vertex<'V> option
 
 /// Return a list of dominators of the given node (v) in the graph (g).
-val doms :
+val doms:
   DominatorContext<'V, 'E> -> Vertex<'V> -> Vertex<'V> list
 
 /// Return a list of post-dominators of the given node (v) in the graph (g).
-val pdoms :
+val pdoms:
   DominatorContext<'V, 'E> -> Vertex<'V> -> Vertex<'V> list
 
 /// Return the dominance frontier of a given node (v) in the graph (g).
-val frontier :
+val frontier:
   DominatorContext<'V, 'E> -> Vertex<'V> -> Vertex<'V> list
 
 /// Return the dominator tree and its root of the graph
-val dominatorTree :
+val dominatorTree:
   DominatorContext<'V, 'E> -> Map<Vertex<'V>, Vertex<'V> list> * Vertex<'V>

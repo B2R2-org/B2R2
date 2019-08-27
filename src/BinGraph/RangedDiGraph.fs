@@ -65,8 +65,8 @@ type RangedDiGraph<'V, 'E when 'V :> RangedVertexData> () =
     else
       let v = Vertex<_>(data)
       __.Vertices <- IM.add data.AddrRange v __.Vertices
-      __.Unreachables <- v :: __.Unreachables
-      __.Exits <- v :: __.Exits
+      __.Unreachables.Add v |> ignore
+      __.Exits.Add v |> ignore
       __.IncSize ()
       v
 
@@ -75,15 +75,14 @@ type RangedDiGraph<'V, 'E when 'V :> RangedVertexData> () =
     v.Succs |> List.iter (fun succ -> __.RemoveEdge v succ)
     v.Preds |> List.iter (fun pred -> __.RemoveEdge pred v)
     __.Vertices <- IM.remove v.VData.AddrRange __.Vertices
-    __.Unreachables <-
-      List.filter (fun e -> e.GetID () <> v.GetID ()) __.Unreachables
-    __.Exits <- List.filter (fun e -> e.GetID () <> v.GetID ()) __.Exits
+    __.Unreachables.Remove v |> ignore
+    __.Exits.Remove v |> ignore
     __.DecSize ()
 
-  override __.FindVertex (v:Vertex<_>) =
+  override __.Exists (v:Vertex<_>) =
     match IM.tryFind v.VData.AddrRange __.Vertices with
-    | Some v -> v
-    | _ -> raise VertexNotFoundException
+    | Some v -> true
+    | _ -> false
 
   override __.FindVertexByData vdata =
     match IM.tryFind vdata.AddrRange __.Vertices with
@@ -99,31 +98,29 @@ type RangedDiGraph<'V, 'E when 'V :> RangedVertexData> () =
     src.Succs <- dst :: src.Succs
     dst.Preds <- src :: dst.Preds
     __.Edges <- Map.add (src.GetID (), dst.GetID ()) (src, dst, Edge e) __.Edges
-    __.Unreachables <-
-      List.filter (fun v -> v.GetID () <> dst.GetID ()) __.Unreachables
-    __.Exits <- List.filter (fun v -> v.GetID () <> src.GetID ()) __.Exits
+    __.Unreachables.Remove dst |> ignore
+    __.Exits.Remove src |> ignore
 
   override __.RemoveEdge src dst =
     __.CheckVertexExistence src
     __.CheckVertexExistence dst
     src.Succs <- List.filter (fun s -> s.GetID () <> dst.GetID ()) src.Succs
     dst.Preds <- List.filter (fun p -> p.GetID () <> src.GetID ()) dst.Preds
-    if List.length dst.Preds = 0 then __.Unreachables <- dst :: __.Unreachables
-    if List.length src.Succs = 0 then __.Exits <- src :: __.Exits
+    if List.isEmpty dst.Preds then __.Unreachables.Add dst |> ignore else ()
+    if List.isEmpty src.Succs then __.Exits.Add src |> ignore else ()
     __.Edges <- Map.remove (src.GetID (), dst.GetID ()) __.Edges
 
   member __.Clone (?reverse) =
     let g = RangedDiGraph<'V, 'E>()
     let isReverse = defaultArg reverse false
     let dict = System.Collections.Generic.Dictionary<VertexID, Vertex<'V>>()
-    let addEdgeNormal (s: Vertex<'V>) (d: Vertex<'V>) =
-      g.AddEdge dict.[s.GetID ()] dict.[d.GetID ()] (__.FindEdge s d)
-    let addEdgeReverse (s: Vertex<'V>) (d: Vertex<'V>) =
-      g.AddEdge dict.[d.GetID ()] dict.[s.GetID ()] (__.FindEdge s d)
+    let addEdgeNormal (s: Vertex<'V>) (d: Vertex<'V>) e =
+      g.AddEdge dict.[s.GetID ()] dict.[d.GetID ()] e
+    let addEdgeReverse (s: Vertex<'V>) (d: Vertex<'V>) e =
+      g.AddEdge dict.[d.GetID ()] dict.[s.GetID ()] e
     let addEdge = if isReverse then addEdgeReverse else addEdgeNormal
     __.IterVertex (fun v -> dict.Add(v.GetID (), g.AddVertex v.VData))
     __.IterEdge addEdge
-    if isReverse then () else g.FindVertex (__.GetRoot ()) |> g.SetRoot
     g
 
   override __.Reverse () = upcast __.Clone (true)
@@ -135,17 +132,17 @@ type RangedDiGraph<'V, 'E when 'V :> RangedVertexData> () =
     __.Vertices |> IM.fold (fun () _ v -> fn v) ()
 
   override __.FoldEdge fn acc =
-    __.Edges |> Map.fold (fun acc _ (src, dst, _) -> fn acc src dst) acc
+    __.Edges |> Map.fold (fun acc _ (src, dst, Edge e) -> fn acc src dst e) acc
 
   override __.IterEdge fn =
-    __.Edges |> Map.iter (fun _ (src, dst, _) -> fn src dst)
+    __.Edges |> Map.iter (fun _ (src, dst, Edge e) -> fn src dst e)
 
   member __.FindVertexByRange range =
     match IM.tryFind range __.Vertices with
     | None -> raise VertexNotFoundException
     | Some v -> v
 
-  override __.FindEdge (src: Vertex<'V>) (dst: Vertex<'V>) =
+  override __.FindEdgeData (src: Vertex<'V>) (dst: Vertex<'V>) =
     match Map.tryFind (src.GetID (), dst.GetID ()) __.Edges with
     | None -> raise EdgeNotFoundException
     | Some (_, _, Edge eData) -> eData
