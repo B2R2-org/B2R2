@@ -135,25 +135,27 @@ type SCFG (hdl, app) =
       newGraph, vMap.[rootPos]
     else raise InvalidFunctionAddressException
 
-  member private __.ReverseLookUp point =
-    let queue = Queue<ProgramPoint> ([ point ])
-    let visited = HashSet<ProgramPoint> ()
+  member private __.ReverseLookUp addr =
+    let queue = Queue<Addr> ([ addr ])
+    let visited = HashSet<Addr> ()
     let rec loop () =
       if queue.Count = 0 then None
       else
-        let point = queue.Dequeue ()
-        visited.Add point |> ignore
-        match vertices.TryGetValue point with
-        | false, _ -> loop ()
-        | true, v ->
-          if app.CalleeMap.Contains point.Address then Some v
-          else
-            v.Preds
-            |> List.iter (fun v ->
-              let point = v.VData.PPoint
-              if visited.Contains point then ()
-              else queue.Enqueue (point))
-            loop ()
+        let addr = queue.Dequeue ()
+        if visited.Contains addr then loop ()
+        else
+          visited.Add addr |> ignore
+          match vertices.TryGetValue (ProgramPoint (addr, 0)) with
+          | false, _ -> loop ()
+          | true, v ->
+            if app.CalleeMap.Contains addr then Some v
+            else
+              v.Preds
+              |> List.iter (fun v ->
+                let addr = v.VData.PPoint.Address
+                if visited.Contains addr then ()
+                else queue.Enqueue (addr))
+              loop ()
     loop ()
 
   /// Find a basic block (vertex) in the SCFG that the given address belongs to.
@@ -168,7 +170,7 @@ type SCFG (hdl, app) =
   /// belongs to.
   member __.FindFunctionVertex (addr) =
     IntervalSet.findAll (AddrRange (addr, addr + 1UL)) __.Boundaries
-    |> List.map (fun r -> ProgramPoint (AddrRange.GetMin r, 0))
+    |> List.map (fun r -> AddrRange.GetMin r)
     |> List.tryPick __.ReverseLookUp
 
   /// For a given address, find the address of a function that the address
