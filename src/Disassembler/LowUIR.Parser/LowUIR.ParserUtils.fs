@@ -14,10 +14,7 @@ let dummyInterJmpInfo = InterJmpInfo.Base
 let typeCheckR st =
   if AST.typeCheck st then preturn st else fail "statment type check failed"
 
-let pcFromRegName n =
-  PCVar ((RegType.fromBitWidth 32), n)
-let symbolFromSymbolName n =
-  BinIR.Symbol (n, 1)
+let pcFromRegName n = PCVar ((RegType.fromBitWidth 32), n)
 
 let binOpFromString = function
   | "+" -> BinOpType.ADD

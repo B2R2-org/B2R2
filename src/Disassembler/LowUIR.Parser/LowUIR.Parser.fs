@@ -76,19 +76,24 @@ type LowUIRParser (isa, pHelper: IRVarParseHelper) =
   let pExpr, pExprRef = createParserForwardedToRef ()
 
   let pNumE = pBitVector |>> AST.num
+
   let pVarE =
     List.map pstring pHelper.RegNames |> List.map attempt
     |> choice |>> pHelper.StrToVar
 
   let pPCVarE =
     pNormalString |>> pHelper.StrToVar
+
   let pTempVarE =
     spaces >>. pstring "T_" >>. pint32 .>> spaces .>> pchar ':' .>> spaces
     .>>. pRegType |>> (fun (num, typ) -> TempVar (typ, num))
+
   let pNameE = pSymbol |>> Name
+
   // To Do: Usage example not known. How to parse differently from pVar, pPCVar
   // and pSymbol.
   let pFuncNameE = pNormalString |>> FuncName
+
   let pUnOpE =
     pchar '(' >>. spaces >>. pUnaryOperator
     .>> spaces .>>. pExpr .>> spaces .>> pchar ')'
@@ -142,12 +147,13 @@ type LowUIRParser (isa, pHelper: IRVarParseHelper) =
       <|> attempt pUndefinedExprE
       <|> pVarE
 
-
   (*-----------------------------Statements.---------------------------*)
+
   let pISMark =
     pstring "SMark" >>. spaces >>. pchar '(' >>. spaces >>. pHexToUInt64
     .>> spaces .>> pchar ')'
     |>> (fun addr -> ISMark (addr, 0u))
+
   let pIEMark =
     pstring "EMark" >>. spaces >>. pchar '(' >>. spaces
     >>. pstring "pc">>. spaces >>. pstring ":=" >>. spaces
@@ -161,7 +167,7 @@ type LowUIRParser (isa, pHelper: IRVarParseHelper) =
   let pLMark =
     spaces >>. pstring "===" >>. spaces >>. pstring "LMark" >>. spaces
     >>. pchar '(' >>. spaces >>. pNormalString .>> spaces .>> pchar ')'
-    |>> (fun name -> B2R2.BinIR.Symbol (name, 0)) |>> LMark
+    |>> AST.lblSymbol |>> LMark
 
   let pPut =
     (attempt pTempVarE <|> pVarE) .>> spaces .>> pstring ":="
@@ -208,8 +214,7 @@ type LowUIRParser (isa, pHelper: IRVarParseHelper) =
     >>= typeCheckR
 
   member __.Run str =
-    let pvalue = runParserOnString statement () "" str
-    match pvalue with
+    match runParserOnString statement () "" str with
     | FParsec.CharParsers.Success (result, _, _) -> Some result
     | FParsec.CharParsers.Failure (str, _, _) ->
       printfn "%s" str
