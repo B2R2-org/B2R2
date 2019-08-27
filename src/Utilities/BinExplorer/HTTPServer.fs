@@ -125,9 +125,16 @@ let handleCFG req resp arbiter cfgType name =
   match ess.SCFG.FindFunctionEntryByName name with
   | None -> answer req resp None
   | Some addr ->
-    let cfg, root = ess.SCFG.GetFunctionCFG (addr)
-    let s = cfgToJSON cfgType ess cfg [root]
-    Some (defaultEnc.GetBytes s) |> answer req resp
+    try
+      let cfg, root = ess.SCFG.GetFunctionCFG (addr)
+      let s = cfgToJSON cfgType ess cfg [root]
+      Some (defaultEnc.GetBytes s) |> answer req resp
+    with e ->
+#if DEBUG
+      printfn "%A" e; failwith "[FATAL]: Failed to generate CFG"
+#else
+      ()
+#endif
 
 let handleFunctions req resp arbiter =
   let ess = Protocol.getBinEssence arbiter
