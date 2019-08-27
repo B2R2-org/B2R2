@@ -3726,8 +3726,8 @@ let vecMulAccOrSubLong insInfo ctxt add =
   let rd, rn, rm = transThreeOprs insInfo ctxt
   let esize = 8 <<< getSize insInfo.SIMDTyp
   let elements = 64 / esize
+  let unsigned = isUnsigned insInfo.SIMDTyp
   for e in 0 .. elements - 1 do
-    let unsigned = isUnsigned insInfo.SIMDTyp
     let extend expr =
       if unsigned then zExt (RegType.fromBitWidth (esize * 2)) expr
       else sExt (RegType.fromBitWidth (esize * 2)) expr
@@ -3737,10 +3737,83 @@ let vecMulAccOrSubLong insInfo ctxt add =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
-let vmla insInfo ctxt = vecMulAccOrSub insInfo ctxt true
-let vmlal insInfo ctxt = vecMulAccOrSubLong insInfo ctxt true
-let vmls insInfo ctxt = vecMulAccOrSub insInfo ctxt false
-let vmlsl insInfo ctxt = vecMulAccOrSubLong insInfo ctxt false
+let parseOprOfVMLASByScalar insInfo ctxt =
+  match insInfo.Operands with
+  | ThreeOperands (OprSIMD (SFReg (Vector rd)),
+                   OprSIMD (SFReg (Vector rn)),
+                   OprSIMD (SFReg (Scalar (rm, Some index)))) ->
+    getRegVar ctxt rd, getRegVar ctxt rn, (getRegVar ctxt rm, int32 index)
+  | _ -> raise InvalidOperandException
+
+let vecMulAccOrSubByScalar insInfo ctxt add =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, (rm, index) = parseOprOfVMLASByScalar insInfo ctxt
+  let esize = 8 <<< getSize insInfo.SIMDTyp
+  let elements = 64 / esize
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  let op2val = sExt (RegType.fromBitWidth esize) (elem rm index esize)
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rn = extract rn 64<rt> (r * 64)
+    for e in 0 .. elements - 1 do
+      let op1val = sExt (RegType.fromBitWidth esize) (elem rn e esize)
+      let addend = if add then op1val .* op2val else not (op1val .* op2val)
+      builder <! (elem rd e esize := elem rd e esize .+ addend)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let vecMulAccOrSubLongByScalar insInfo ctxt add =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, (rm, index) = parseOprOfVMLASByScalar insInfo ctxt
+  let esize = 8 <<< getSize insInfo.SIMDTyp
+  let elements = 64 / esize
+  let unsigned = isUnsigned insInfo.SIMDTyp
+  let ext = if unsigned then sExt else zExt
+  let op2val = ext (RegType.fromBitWidth (esize * 2)) (elem rm index esize)
+  for e in 0 .. elements - 1 do
+    let op1val = ext (RegType.fromBitWidth (esize * 2)) (elem rn e esize)
+    let addend = if add then op1val .* op2val else not (op1val .* op2val)
+    builder <! (elem rd e (esize * 2) := elem rd e (esize * 2) .+ addend)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let vmla insInfo ctxt =
+  match insInfo.Operands with
+  | ThreeOperands (_, _, OprSIMD (SFReg (Vector _))) ->
+    vecMulAccOrSub insInfo ctxt true
+  | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
+    vecMulAccOrSubByScalar insInfo ctxt true
+  | _ -> raise InvalidOperandException
+
+let vmlal insInfo ctxt =
+  match insInfo.Operands with
+  | ThreeOperands (_, _, OprSIMD (SFReg (Vector _))) ->
+    vecMulAccOrSubLong insInfo ctxt true
+  | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
+    vecMulAccOrSubLongByScalar insInfo ctxt true
+  | _ -> raise InvalidOperandException
+
+let vmls insInfo ctxt =
+  match insInfo.Operands with
+  | ThreeOperands (_, _, OprSIMD (SFReg (Vector _))) ->
+    vecMulAccOrSub insInfo ctxt false
+  | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
+    vecMulAccOrSubByScalar insInfo ctxt false
+  | _ -> raise InvalidOperandException
+
+let vmlsl insInfo ctxt =
+  match insInfo.Operands with
+  | ThreeOperands (_, _, OprSIMD (SFReg (Vector _))) ->
+    vecMulAccOrSubLong insInfo ctxt false
+  | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
+    vecMulAccOrSubLongByScalar insInfo ctxt false
+  | _ -> raise InvalidOperandException
 
 /// Translate IR.
 let translate insInfo ctxt =
@@ -3890,6 +3963,8 @@ let translate insInfo ctxt =
   | Op.VSUB -> vsub insInfo ctxt
   | Op.VSTM | Op.VSTMIA | Op.VSTMDB -> vstm insInfo ctxt
   | Op.VLDM | Op.VLDMIA | Op.VLDMDB -> vldm insInfo ctxt
+  | Op.VMLA | Op.VMLS when isF32orF64 insInfo.SIMDTyp ->
+    sideEffects insInfo UnsupportedFP
   | Op.VMLA -> vmla insInfo ctxt
   | Op.VMLAL -> vmlal insInfo ctxt
   | Op.VMLS -> vmls insInfo ctxt
