@@ -1513,7 +1513,11 @@ let translate ins ctxt =
   | Opcode.UDIV -> udiv ins ctxt addr
   | Opcode.UMULL -> umaddl ins ctxt addr
   | Opcode.UMULH -> umulh ins ctxt addr
-  | o -> raise <| NotImplementedIRException (Disasm.opCodeToString o)
+  | o ->
+#if DEBUG
+         eprintfn "%A" o
+#endif
+         raise <| NotImplementedIRException (Disasm.opCodeToString o)
   |> fun builder -> builder.ToStmts ()
 
 // vim: set tw=80 sts=2 sw=2:

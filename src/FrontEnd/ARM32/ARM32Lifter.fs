@@ -3267,7 +3267,11 @@ let translate insInfo ctxt =
   | Op.VCMP | Op.VCMPE | Op.VSTM | Op.VSTMDB | Op.VSTMIA ->
     sideEffects insInfo UnsupportedExtension
   | Op.DMB | Op.DSB | Op.ISB | Op.PLD -> nop insInfo
-  | o -> eprintfn "%A" o
+  | Op.InvalidOP -> raise InvalidOpcodeException
+  | o ->
+#if DEBUG
+         eprintfn "%A" o
+#endif
          raise <| NotImplementedIRException (Disasm.opCodeToString o)
   |> fun builder -> builder.ToStmts ()
 
