@@ -186,7 +186,7 @@ let rec internal evalLoop stmts st =
 /// Evaluate a block of statements. The block may represent a machine
 /// instruction, or a basic block.
 let evalBlock (st: EvalState) tid stmts =
-  if st.Contexts.Length <= tid then EvalState.ContextSwitch tid st else st
+  if st.ThreadId <> tid then EvalState.ContextSwitch tid st else st
   |> EvalState.PrepareBlockEval stmts
   |> evalLoop stmts
   |> EvalState.CleanUp
