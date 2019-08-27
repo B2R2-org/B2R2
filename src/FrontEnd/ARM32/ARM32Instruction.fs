@@ -78,16 +78,16 @@ type ARM32Instruction (addr, numBytes, insInfo) =
     | Opcode.BL | Opcode.BLX -> true
     | _ -> false
 
-  override __.IsRET () = // This is wrong
-    match __.Info.Opcode, __.Info.Operands with
-    | Opcode.POP, OneOperand (OprReg R.PC) -> true
-    | _ -> false
+  override __.IsRET () =
+    Utils.futureFeature ()
 
-  override __.IsInterrupt () = Utils.futureFeature ()
+  override __.IsInterrupt () =
+    __.Info.Opcode = Op.SVC
 
-  override __.IsExit () = // FIXME
+  override __.IsExit () =
     __.IsDirectBranch () ||
-    __.IsIndirectBranch ()
+    __.IsIndirectBranch () ||
+    __.Info.Opcode = Op.SVC
 
   override __.DirectBranchTarget (addr: byref<Addr>) =
     if __.IsBranch () then
@@ -98,9 +98,8 @@ type ARM32Instruction (addr, numBytes, insInfo) =
       | _ -> false
     else false
 
-  override __.IndirectTrampolineAddr (addr: byref<Addr>) =
-    if __.IsBranch () then Utils.futureFeature ()
-    else false
+  override __.IndirectTrampolineAddr (_: byref<Addr>) =
+    false
 
   override __.GetNextInstrAddrs () =
     // FIXME this is wrong.
