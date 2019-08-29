@@ -58,8 +58,10 @@ type ARM32Instruction (addr, numBytes, insInfo) =
     | Op.B, Some Condition.NV -> false
     | Op.B, Some Condition.UN -> false
     | Op.B, Some _ -> true
-    // XXX: Need to add more conditions for BX
-    | Op.BX, Some Condition.EQ -> true
+    | Op.BX, Some Condition.AL -> false
+    | Op.BX, Some Condition.NV -> false
+    | Op.BX, Some Condition.UN -> false
+    | Op.BX, Some _ -> true
     | _ -> false
 
   override __.IsCJmpOnTrue () =
@@ -101,12 +103,19 @@ type ARM32Instruction (addr, numBytes, insInfo) =
   override __.IndirectTrampolineAddr (_: byref<Addr>) =
     false
 
-  override __.GetNextInstrAddrs () =
-    // FIXME this is wrong.
-    let acc = Seq.singleton (__.Address + uint64 __.Length)
+  member private __.AddBranchTargetIfExist addrs =
     match __.DirectBranchTarget () |> Utils.tupleToOpt with
-    | None -> acc
-    | Some target -> Seq.singleton target |> Seq.append acc
+    | None -> addrs
+    | Some target -> Seq.singleton target |> Seq.append addrs
+
+  override __.GetNextInstrAddrs () =
+    let acc = Seq.singleton (__.Address + uint64 __.Length)
+    if __.IsCall () then acc |> __.AddBranchTargetIfExist
+    elif __.IsBranch () then
+      if __.IsCondBranch () then acc |> __.AddBranchTargetIfExist
+      else __.AddBranchTargetIfExist Seq.empty
+    elif __.Info.Opcode = Opcode.HLT then Seq.empty
+    else acc
 
   override __.InterruptNum (num: byref<int64>) = Utils.futureFeature ()
 

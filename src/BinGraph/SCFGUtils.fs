@@ -37,9 +37,8 @@ type VMap = Dictionary<ProgramPoint, Vertex<IRBasicBlock>>
 let hasNoFallThrough (stmts: Stmt []) =
   if stmts.Length > 0 then
     match stmts.[stmts.Length - 1] with
-    | InterJmp (_, _, InterJmpInfo.IsRet)
-    | InterJmp (_, _, InterJmpInfo.Base)
-    | InterJmp (_, _, InterJmpInfo.IsExit)
+    | InterJmp (_, _, InterJmpInfo.IsCall) -> false
+    | InterJmp (_, _, _)
     | SideEffect (BinIR.Halt) -> true
     | _ -> false
   else false
@@ -75,11 +74,13 @@ let rec private gatherBB acc app (leaders: ProgramPoint []) myPoint nextIdx =
       match selectPair app myPoint nextLeader with
       | None, _ -> [||]
       | Some pair, nextPoint ->
-        gatherBB (pair :: acc) app leaders nextPoint nextIdx
+        let acc = pair :: acc
+        if hasNoFallThrough (snd pair) then List.rev acc |> List.toArray
+        else gatherBB acc app leaders nextPoint nextIdx
     elif nextLeader = myPoint then List.rev acc |> List.toArray
     (* Next point is beyond the next leader's point. This is possible when two
        control flows divide an instruction into two parts. This typically
-       happens on obfuscated code. *)
+       happens in obfuscated code. *)
     else gatherBB acc app leaders myPoint (nextIdx + 1)
 
 let createNode (g: IRCFG) app (vmap: VMap) (leaders: ProgramPoint []) idx =
