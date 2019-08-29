@@ -38,12 +38,12 @@ type InsIRPair = Instruction * Stmt []
 type InstrMap = Dictionary<Addr, InsIRPair>
 
 module InstrMap =
-  let private updateEntries (map: InstrMap) entries newaddrs =
+  let private updateEntries (map: InstrMap) entries translateEntry newaddrs =
     let rec loop entries = function
       | [] -> entries
       | addr :: rest ->
         if map.ContainsKey addr then loop entries rest
-        else loop (addr :: entries) rest
+        else loop (translateEntry addr :: entries) rest
     Seq.toList newaddrs |> loop entries
 
   /// Remove unnecessary IEMark to ease the analysis.
@@ -74,17 +74,27 @@ module InstrMap =
       map.[instr.Address] <- toInsIRPair hdl instr
       updateInstrMapAndGetTheLastInstr hdl map rest
 
+  let translateEntry (hdl: BinHandler) addr =
+    match hdl.ISA.Arch with
+    | Arch.ARMv7 ->
+      if addr &&& 1UL = 0UL then addr, ArchOperationMode.ARMMode
+      else addr - 1UL, ArchOperationMode.ThumbMode
+    | _ -> addr, ArchOperationMode.NoMode
+
   /// Build a mapping from Addr to Instruction. This function recursively parses
   /// the binary, but does not lift it yet.
-  let build hdl entries =
+  let build (hdl: BinHandler) entries =
     let map = InstrMap ()
     let rec buildLoop = function
       | [] -> map
-      | entry :: rest ->
+      | (entry, mode) :: rest ->
+        hdl.ParsingContext.ArchOperationMode <- mode
         match BinHandler.ParseBBlock hdl entry with
         | Error _ -> buildLoop rest
         | Ok instrs ->
           let last = updateInstrMapAndGetTheLastInstr hdl map instrs
-          let entries = last.GetNextInstrAddrs () |> updateEntries map rest
+          let entries =
+            last.GetNextInstrAddrs ()
+            |> updateEntries map rest (translateEntry hdl)
           buildLoop entries
     buildLoop (Seq.toList entries)

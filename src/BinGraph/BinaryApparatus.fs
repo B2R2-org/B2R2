@@ -59,8 +59,10 @@ module BinaryApparatus =
   /// to expand it during the analysis.
   let private getInitialEntryPoints hdl =
     let fi = hdl.FileInfo
-    let funaddrs = fi.GetFunctionAddresses () |> Set.ofSeq
-    Set.add fi.EntryPoint funaddrs
+    fi.GetFunctionAddresses ()
+    |> Seq.map (InstrMap.translateEntry hdl)
+    |> Set.ofSeq
+    |> Set.add (InstrMap.translateEntry hdl fi.EntryPoint)
 
   let private findLabels labels (KeyValue (addr, (_, stmts))) =
     stmts
@@ -119,11 +121,12 @@ module BinaryApparatus =
       |> Set.toSeq
     let instrMap = InstrMap.build hdl entries
     let lblmap = instrMap |> Seq.fold findLabels Map.empty
-    let leaders = entries |> Seq.map (fun a -> ProgramPoint (a, 0)) |> Set.ofSeq
+    let leaders =
+      entries |> Seq.map (fun a -> ProgramPoint (fst a, 0)) |> Set.ofSeq
     let acc =
       { Labels = lblmap
         Leaders = leaders
-        FunctionAddrs = entries |> Set.ofSeq }
+        FunctionAddrs = entries |> Seq.map fst |> Set.ofSeq }
 #if DEBUG
     printfn "[*] Loaded basic information."
 #endif
