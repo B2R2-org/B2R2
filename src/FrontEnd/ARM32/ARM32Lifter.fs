@@ -3199,7 +3199,7 @@ let getRegs = function
 
 let getSize = function
   | Some (OneDT SIMDTyp8) | Some (OneDT SIMDTypS8) | Some (OneDT SIMDTypI8)
-  | Some (OneDT SIMDTypU8) -> 0b00
+  | Some (OneDT SIMDTypU8) | Some (OneDT SIMDTypP8) -> 0b00
   | Some (OneDT SIMDTyp16) | Some (OneDT SIMDTypS16) | Some (OneDT SIMDTypI16)
   | Some (OneDT SIMDTypU16) -> 0b01
   | Some (OneDT SIMDTyp32) | Some (OneDT SIMDTypS32) | Some (OneDT SIMDTypI32)
@@ -3584,7 +3584,7 @@ let isUnsigned = function
   | Some (OneDT SIMDTypU8) | Some (OneDT SIMDTypU16)
   | Some (OneDT SIMDTypU32) -> true
   | Some (OneDT SIMDTypS8) | Some (OneDT SIMDTypS16)
-  | Some (OneDT SIMDTypS32) -> false
+  | Some (OneDT SIMDTypS32) | Some (OneDT SIMDTypP8) -> false
   | _ -> raise InvalidOperandException
 
 let vmaxmin insInfo ctxt maximum =
@@ -3737,7 +3737,7 @@ let vecMulAccOrSubLong insInfo ctxt add =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
-let parseOprOfVMLASByScalar insInfo ctxt =
+let parseOprOfVMulByScalar insInfo ctxt =
   match insInfo.Operands with
   | ThreeOperands (OprSIMD (SFReg (Vector rd)),
                    OprSIMD (SFReg (Vector rn)),
@@ -3750,7 +3750,7 @@ let vecMulAccOrSubByScalar insInfo ctxt add =
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
-  let rd, rn, (rm, index) = parseOprOfVMLASByScalar insInfo ctxt
+  let rd, rn, (rm, index) = parseOprOfVMulByScalar insInfo ctxt
   let esize = 8 <<< getSize insInfo.SIMDTyp
   let elements = 64 / esize
   let regs = if typeOf rd = 64<rt> then 1 else 2
@@ -3770,7 +3770,7 @@ let vecMulAccOrSubLongByScalar insInfo ctxt add =
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
-  let rd, rn, (rm, index) = parseOprOfVMLASByScalar insInfo ctxt
+  let rd, rn, (rm, index) = parseOprOfVMulByScalar insInfo ctxt
   let esize = 8 <<< getSize insInfo.SIMDTyp
   let elements = 64 / esize
   let unsigned = isUnsigned insInfo.SIMDTyp
@@ -3813,6 +3813,119 @@ let vmlsl insInfo ctxt =
     vecMulAccOrSubLong insInfo ctxt false
   | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
     vecMulAccOrSubLongByScalar insInfo ctxt false
+  | _ -> raise InvalidOperandException
+
+let isPolynomial = function
+  | Some (OneDT SIMDTypP8) -> true
+  | _ -> false
+
+// PolynomialMult()
+// A2.8.1 Pseudocode details of polynomial multiplication
+let polynomialMult op1 op2 size = concat op1 op2 // FIXME
+(* A2.8.1 Pseudocode details of polynomial multiplication
+bits(M+N) PolynomialMult(bits(M) op1, bits(N) op2)
+  result = Zeros(M+N);
+  extended_op2 = Zeros(M) : op2;
+  for i=0 to M-1
+    if op1<i> == '1' then
+      result = result EOR LSL(extended_op2, i);
+  return result;
+*)
+
+let vecMul insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, rm = transThreeOprs insInfo ctxt
+  let esize = 8 <<< getSize insInfo.SIMDTyp
+  let rtEsz = RegType.fromBitWidth esize
+  let elements = 64 / esize
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  let polynomial = isPolynomial insInfo.SIMDTyp
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rn = extract rn 64<rt> (r * 64)
+    let rm = extract rm 64<rt> (r * 64)
+    for e in 0 .. elements - 1 do
+      let sExt reg = sExt (rtEsz * 2) (elem reg e esize)
+      let product =
+        if polynomial then polynomialMult rn rm esize else sExt rn .* sExt rm
+      builder <! (elem rd e esize := extractLow rtEsz product)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let vecMulLong insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, rm = transThreeOprs insInfo ctxt
+  let esize = 8 <<< getSize insInfo.SIMDTyp
+  let rtEsz = RegType.fromBitWidth esize
+  let elements = 64 / esize
+  let unsigned = isUnsigned insInfo.SIMDTyp
+  for e in 0 .. elements - 1 do
+    let extend reg =
+      if unsigned then zExt (rtEsz * 2) (elem reg e esize)
+      else sExt (rtEsz * 2) (elem reg e esize)
+    let product = extend rn .* extend rm
+    builder <! (elem rd e esize := extractLow rtEsz product)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let vecMulByScalar insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, (rm, index) = parseOprOfVMulByScalar insInfo ctxt
+  let esize = 8 <<< getSize insInfo.SIMDTyp
+  let rtEsz = RegType.fromBitWidth esize
+  let elements = 64 / esize
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  let op2val = sExt (RegType.fromBitWidth esize) (elem rm index esize)
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rn = extract rn 64<rt> (r * 64)
+    for e in 0 .. elements - 1 do
+      let op1val = sExt (RegType.fromBitWidth esize) (elem rn e esize)
+      builder <! (elem rd e esize := extractLow rtEsz (op1val .* op2val))
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let vecMulLongByScalar insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, (rm, index) = parseOprOfVMulByScalar insInfo ctxt
+  let esize = 8 <<< getSize insInfo.SIMDTyp
+  let rtEsz = (RegType.fromBitWidth esize) * 2
+  let elements = 64 / esize
+  let unsigned = isUnsigned insInfo.SIMDTyp
+  let ext = if unsigned then sExt else zExt
+  let op2val = ext (RegType.fromBitWidth (esize * 2)) (elem rm index esize)
+  for e in 0 .. elements - 1 do
+    let op1val = ext (RegType.fromBitWidth (esize * 2)) (elem rn e esize)
+    builder <! (elem rd e (esize * 2) := extractLow rtEsz (op1val .* op2val))
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let vmul insInfo ctxt =
+  match insInfo.Operands with
+  | ThreeOperands (_, _, OprSIMD (SFReg (Vector _))) ->
+    vecMul insInfo ctxt
+  | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
+    vecMulByScalar insInfo ctxt
+  | _ -> raise InvalidOperandException
+
+let vmull insInfo ctxt =
+  match insInfo.Operands with
+  | ThreeOperands (_, _, OprSIMD (SFReg (Vector _))) ->
+    vecMulLong insInfo ctxt
+  | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
+    vecMulLongByScalar insInfo ctxt
   | _ -> raise InvalidOperandException
 
 /// Translate IR.
@@ -3969,7 +4082,11 @@ let translate insInfo ctxt =
   | Op.VMLAL -> vmlal insInfo ctxt
   | Op.VMLS -> vmls insInfo ctxt
   | Op.VMLSL -> vmlsl insInfo ctxt
-  | Op.VMOVN | Op.VMUL | Op.VMULL
+  | Op.VMUL | Op.VMULL when isF32orF64 insInfo.SIMDTyp ->
+    sideEffects insInfo UnsupportedFP
+  | Op.VMUL -> vmul insInfo ctxt
+  | Op.VMULL -> vmull insInfo ctxt
+  | Op.VMOVN
   | Op.VNEG
   | Op.VPADD
   | Op.VRSHR
