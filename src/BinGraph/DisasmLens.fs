@@ -32,8 +32,10 @@ open B2R2.FrontEnd
 open System.Collections.Generic
 
 /// Basic block type for a disassembly-based CFG (DisasmCFG).
-type DisasmBBlock (instructions: Instruction [], pp) =
+type DisasmBBlock (instrs: Instruction [], pp) =
   inherit BasicBlock()
+
+  let mutable instructions = instrs
 
   override __.PPoint = pp
 
@@ -47,6 +49,10 @@ type DisasmBBlock (instructions: Instruction [], pp) =
     __.Disassemblies (binhandler)
     |> Array.toList
     |> List.map (fun disasm -> [ String disasm ])
+
+  member __.Instructions
+    with get () = instructions
+    and set (i) = instructions <- i
 
   member __.Disassemblies
     with get (binhandler) =
@@ -74,28 +80,58 @@ type DisasmLens () =
       v
     | true, v -> v
 
+  let dfs fnMerge fnEdge (ircfg: IRCFG) (roots: Vertex<IRBasicBlock> list) =
+    let visited = HashSet<ProgramPoint> ()
+    let rec traverse = function
+      | [] -> ()
+      | (addr, v: Vertex<IRBasicBlock>) :: rest ->
+        if visited.Contains v.VData.PPoint then traverse rest
+        else
+          visited.Add v.VData.PPoint |> ignore
+          let acc = v.Succs |> List.fold (succFold addr v) rest
+          traverse acc
+    and succFold addr v acc succ =
+      match ircfg.FindEdgeData v succ with
+      | IndirectEdge
+      | ExternalEdge
+      | CallEdge
+      | RetEdge -> acc
+      | IntraCJmpTrueEdge
+      | IntraCJmpFalseEdge
+      | IntraJmpEdge ->
+        fnMerge addr v succ
+        if visited.Contains succ.VData.PPoint then acc
+        else (addr, succ) :: acc
+      | e ->
+        fnEdge addr v succ e
+        if visited.Contains succ.VData.PPoint then acc
+        else (succ.VData.PPoint.Address, succ) :: acc
+    roots
+    |> List.map (fun r -> r.VData.PPoint.Address, r)
+    |> traverse
+
+  let merge newGraph vMap addr v (succ: Vertex<IRBasicBlock>) =
+    let srcV = getVertex newGraph vMap v addr
+    Array.append srcV.VData.Instructions (succ.VData.GetInstructions ())
+    |> Array.fold (fun m i -> Map.add i.Address i m) Map.empty
+    |> Map.toArray
+    |> Array.map snd
+    |> fun instrs -> srcV.VData.Instructions <- instrs
+
+  let addEdge newGraph vMap sAddr src dst e =
+    let dstAddr = (dst: Vertex<IRBasicBlock>).VData.PPoint.Address
+    let srcV = getVertex newGraph vMap src sAddr
+    let dstV = getVertex newGraph vMap dst dstAddr
+    newGraph.AddEdge srcV dstV e
+
   interface ILens<DisasmBBlock> with
     member __.Filter (g: IRCFG) roots _ =
       let newGraph = DisasmCFG ()
       let vMap = DisasmVMap ()
-      let roots =
-        roots |> List.map (fun root ->
-          getVertex newGraph vMap root root.VData.PPoint.Address)
-      g.IterEdge (fun src dst e ->
-        match e with
-        | IntraCJmpTrueEdge
-        | IntraCJmpFalseEdge
-        | IntraJmpEdge
-        | IndirectEdge
-        | ExternalEdge
-        | CallEdge
-        | RetEdge -> ()
-        | e ->
-          let srcAddr = src.VData.PPoint.Address
-          let dstAddr = dst.VData.PPoint.Address
-          let srcV = getVertex newGraph vMap src srcAddr
-          let dstV = getVertex newGraph vMap dst dstAddr
-          newGraph.AddEdge srcV dstV e)
-      newGraph, roots
+      let roots' =
+        roots
+        |> List.map (fun r -> getVertex newGraph vMap r r.VData.PPoint.Address)
+      dfs (merge newGraph vMap) (addEdge newGraph vMap) g roots
+      newGraph, roots'
 
   static member Init () = DisasmLens () :> ILens<DisasmBBlock>
