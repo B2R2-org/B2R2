@@ -108,6 +108,10 @@ let private addFallthroughEdge g vmap (src: Vertex<IRBasicBlock>) =
   let fallAddr = last.Address + uint64 last.Length
   addInterEdge g vmap src fallAddr FallThroughEdge
 
+let private handleFallThrough (g: IRCFG) vmap src (nextLeader: ProgramPoint) =
+  if nextLeader.Position = 0 then addFallthroughEdge g vmap src
+  else g.AddEdge src vmap.[nextLeader] IntraJmpEdge
+
 let private getIndirectDstNode (g: IRCFG) (vmap: VMap) callee =
   match callee.Addr with
   | None ->
@@ -167,7 +171,7 @@ let connectEdges _ (g: IRCFG) app (vmap: VMap) (leaders: ProgramPoint[]) idx =
     | SideEffect (BinIR.Halt) -> ()
     | _ -> (* Fall through case *)
       if idx + 1 >= leaders.Length then ()
-      else addFallthroughEdge g vmap src
+      else handleFallThrough g vmap src leaders.[idx + 1]
 
 let computeBoundaries app (vmap: VMap) =
   app.LeaderPositions
