@@ -815,11 +815,16 @@ let itAdvance ctxt builder =
   builder <! (cpsr := cpsrIT42 .| ((nextstate .& mask42) << num8))
   builder <! LMark lblEnd
 
-let putEndLabel ctxt lblIgnore isUnconditional builder =
+let putEndLabel ctxt lblIgnore isUnconditional isBranch builder =
   if isUnconditional then ()
   else
     builder <! (LMark lblIgnore)
     itAdvance ctxt builder
+    match isBranch with
+    | None -> ()
+    | Some (i: InsInfo) ->
+      let target = BitVector.ofUInt64 (i.Address + uint64 i.NumBytes) 32<rt>
+      builder <! (InterJmp (getPC ctxt, num target, InterJmpInfo.Base))
 
 let endMark insInfo builder =
   builder <! (IEMark (uint64 insInfo.NumBytes + insInfo.Address))
@@ -866,7 +871,7 @@ let adc isSetFlags insInfo ctxt =
       builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
       builder <! (cpsr := overflow |> setPSR ctxt R.CPSR PSR_V)
     else ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let transTwoOprsOfADD insInfo ctxt =
@@ -930,7 +935,7 @@ let add isSetFlags insInfo ctxt =
       builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
       builder <! (cpsr := overflow |> setPSR ctxt R.CPSR PSR_V)
     else ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 /// Align integer or bitstring to multiple of an integer, on page AppxP-2655
@@ -973,7 +978,7 @@ let bl insInfo ctxt =
   else builder <! (lr := maskAndOR retAddr (num1 32<rt>) 32<rt> 1)
   selectInstrSet ctxt builder targetMode
   builder <! (branchWritePC ctxt insInfo alignedAddr InterJmpInfo.IsCall)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let blxWithReg insInfo reg ctxt =
@@ -989,7 +994,7 @@ let blxWithReg insInfo reg ctxt =
     let addr = addr .+ (num <| BitVector.ofInt32 2 32<rt>)
     builder <! (lr := maskAndOR addr (num1 32<rt>) 32<rt> 1)
   bxWritePC ctxt isUnconditional (getRegVar ctxt reg) builder
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let branchWithLink insInfo ctxt =
@@ -1031,7 +1036,7 @@ let push insInfo ctxt =
     builder <! (loadLE 32<rt> addr := pcStoreValue ctxt)
   else ()
   builder <! (sp := t0)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let sub isSetFlags insInfo ctxt =
@@ -1058,7 +1063,7 @@ let sub isSetFlags insInfo ctxt =
       builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
       builder <! (cpsr := overflow |> setPSR ctxt R.CPSR PSR_V)
     else ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 /// B9.3.19 SUBS R.PC, R.LR (Thumb), on page B9-2008
@@ -1072,7 +1077,7 @@ let subsPCLRThumb insInfo ctxt =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   cpsrWriteByInstr ctxt (getRegVar ctxt R.SPSR) 0b1111 true builder
   builder <! (branchWritePC ctxt insInfo result InterJmpInfo.IsRet)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let parseResultOfSUBAndRela insInfo ctxt =
@@ -1121,7 +1126,7 @@ let subsAndRelatedInstr insInfo ctxt =
   cpsrWriteByInstr ctxt (getRegVar ctxt R.SPSR) 0b1111 true builder
   builder <! (result := parseResultOfSUBAndRela insInfo ctxt)
   builder <! (branchWritePC ctxt insInfo result InterJmpInfo.IsRet)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let computeCarryOutFromImmCflag insInfo ctxt =
@@ -1181,7 +1186,7 @@ let logicalAnd isSetFlags insInfo ctxt =
       builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
       builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
     else ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let mov isSetFlags insInfo ctxt =
@@ -1200,7 +1205,7 @@ let mov isSetFlags insInfo ctxt =
       builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
       builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
     else ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let eor isSetFlags insInfo ctxt =
@@ -1220,7 +1225,7 @@ let eor isSetFlags insInfo ctxt =
       builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
       builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
     else ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let transFourOprsOfRSB insInfo ctxt =
@@ -1265,7 +1270,7 @@ let rsb isSetFlags insInfo ctxt =
       builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
       builder <! (cpsr := overflow |> setPSR ctxt R.CPSR PSR_V)
     else ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let transTwoOprsOfSBC insInfo ctxt =
@@ -1318,7 +1323,7 @@ let sbc isSetFlags insInfo ctxt =
       builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
       builder <! (cpsr := overflow |> setPSR ctxt R.CPSR PSR_V)
     else ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let transFourOprsOfRSC insInfo ctxt =
@@ -1363,7 +1368,7 @@ let rsc isSetFlags insInfo ctxt =
       builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
       builder <! (cpsr := overflow |> setPSR ctxt R.CPSR PSR_V)
     else ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let orr isSetFlags insInfo ctxt =
@@ -1383,7 +1388,7 @@ let orr isSetFlags insInfo ctxt =
       builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
       builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
     else ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let orn isSetFlags insInfo ctxt =
@@ -1403,7 +1408,7 @@ let orn isSetFlags insInfo ctxt =
       builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
       builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
     else ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let bic isSetFlags insInfo ctxt =
@@ -1423,7 +1428,7 @@ let bic isSetFlags insInfo ctxt =
       builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
       builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
     else ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let transTwoOprsOfMVN insInfo ctxt =
@@ -1477,7 +1482,7 @@ let mvn isSetFlags insInfo ctxt =
       builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
       builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
     else ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let getImmShiftFromShiftType imm = function
@@ -1544,7 +1549,7 @@ let shiftInstr isSetFlags insInfo typ ctxt =
       builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
       builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
     else ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let subs isSetFlags insInfo ctxt =
@@ -1676,7 +1681,7 @@ let clz insInfo ctxt =
   builder <! (Jmp (Name lblBoundCheck))
   builder <! (LMark lblEnd)
   builder <! (dst := numSize .- t1)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let transTwoOprsOfCMN insInfo ctxt =
@@ -1728,7 +1733,7 @@ let cmn insInfo ctxt =
   builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
   builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
   builder <! (cpsr := overflow |> setPSR ctxt R.CPSR PSR_V)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let mla isSetFlags insInfo ctxt =
@@ -1746,7 +1751,7 @@ let mla isSetFlags insInfo ctxt =
     builder <! (cpsr := extractHigh 1<rt> r |> setPSR ctxt R.CPSR PSR_N)
     builder <! (cpsr := r == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
   else ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let transTwoOprsOfCMP insInfo ctxt =
@@ -1795,7 +1800,7 @@ let cmp insInfo ctxt =
   builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
   builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
   builder <! (cpsr := overflow |> setPSR ctxt R.CPSR PSR_V)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let umlal isSetFlags insInfo ctxt =
@@ -1813,7 +1818,7 @@ let umlal isSetFlags insInfo ctxt =
     builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
     builder <! (cpsr := result == num0 64<rt> |> setPSR ctxt R.CPSR PSR_Z)
   else ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let umull isSetFlags insInfo ctxt =
@@ -1831,7 +1836,7 @@ let umull isSetFlags insInfo ctxt =
     builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
     builder <! (cpsr := result == num0 64<rt> |> setPSR ctxt R.CPSR PSR_Z)
   else ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let transOprsOfTEQ insInfo ctxt =
@@ -1866,7 +1871,7 @@ let teq insInfo ctxt =
   builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
   builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
   builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let mul isSetFlags insInfo ctxt =
@@ -1883,7 +1888,7 @@ let mul isSetFlags insInfo ctxt =
     builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
     builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
   else ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let transOprsOfTST insInfo ctxt =
@@ -1923,7 +1928,7 @@ let tst insInfo ctxt =
   builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
   builder <! (cpsr := result == num0 32<rt> |> setPSR ctxt R.CPSR PSR_Z)
   builder <! (cpsr := carryOut |> setPSR ctxt R.CPSR PSR_C)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let smulhalf insInfo ctxt s1top s2top =
@@ -1939,7 +1944,7 @@ let smulhalf insInfo ctxt s1top s2top =
   if s2top then builder <! (t2 := extractHigh 16<rt> rm |> zExt 32<rt>)
   else builder <! (t2 := extractLow 16<rt> rm |> sExt 32<rt>)
   builder <! (rd := t1 .* t2)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 /// SMULL, SMLAL, etc.
@@ -1961,7 +1966,7 @@ let smulandacc isSetFlags doAcc insInfo ctxt =
     builder <! (cpsr := extractHigh 1<rt> result |> setPSR ctxt R.CPSR PSR_N)
     builder <! (cpsr := result == num0 64<rt> |> setPSR ctxt R.CPSR PSR_Z)
   else ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let smulacchalf insInfo ctxt s1top s2top =
@@ -1977,7 +1982,7 @@ let smulacchalf insInfo ctxt s1top s2top =
   if s2top then builder <! (t2 := extractHigh 16<rt> rm |> zExt 32<rt>)
   else builder <! (t2 := extractLow 16<rt> rm |> sExt 32<rt>)
   builder <! (rd := (t1 .* t2) .+ sExt 32<rt> ra)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let parseOprOfB insInfo =
@@ -1994,7 +1999,7 @@ let b insInfo ctxt =
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   builder <! (branchWritePC ctxt insInfo e InterJmpInfo.Base)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional (Some insInfo) builder
   endMark insInfo builder
 
 let bx insInfo ctxt =
@@ -2004,7 +2009,7 @@ let bx insInfo ctxt =
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   bxWritePC ctxt isUnconditional rm builder
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional (Some insInfo) builder
   endMark insInfo builder
 
 let movtAssign dst src =
@@ -2020,7 +2025,7 @@ let movt insInfo ctxt =
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   builder <! (movtAssign dst res)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let popLoop ctxt numOfReg addr (builder: StmtBuilder) =
@@ -2050,7 +2055,7 @@ let pop insInfo ctxt =
   if (numOfReg >>> 15 &&& 1u) = 1u then
     loadLE 32<rt> addr |> loadWritePC ctxt isUnconditional builder
   else ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let parseOprOfLDM insInfo ctxt =
@@ -2089,7 +2094,7 @@ let ldm opcode insInfo ctxt wbackop =
   if wback && (numOfReg &&& numOfRn) = numOfRn then
     builder <! (rn := (Expr.Undefined (32<rt>, "UNKNOWN")))
   else ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let getOffAddrWithExpr s r e = if s = Some Plus then r .+ e else r .- e
@@ -2176,7 +2181,7 @@ let ldr insInfo ctxt size ext =
     builder <! (data := loadLE size addr |> ext 32<rt>)
   if rt = getPC ctxt then loadWritePC ctxt isUnconditional builder data
   else builder <! (rt := data)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let parseMemOfLDRD insInfo ctxt = function
@@ -2218,7 +2223,7 @@ let ldrd insInfo ctxt =
     builder <! (taddr := addr)
     builder <! (rt := loadLE 32<rt> taddr)
     builder <! (rt2 := loadLE 32<rt> (taddr .+ n4))
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let sel8Bits r offset =
@@ -2266,7 +2271,7 @@ let uadd8 insInfo ctxt =
   builder <! (ge2 := ite (ge sum3 n100) (num1 32<rt>) (num0 32<rt>))
   builder <! (ge3 := ite (ge sum4 n100) (num1 32<rt>) (num0 32<rt>))
   builder <! (cpsr := combineGEs ge0 ge1 ge2 ge3 |> setPSR ctxt R.CPSR PSR_GE)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let sel insInfo ctxt =
@@ -2289,7 +2294,7 @@ let sel insInfo ctxt =
   builder <!  (t3 := ite ((ge .& n4) == n4) (sel8Bits rn 16) (sel8Bits rm 16))
   builder <!  (t4 := ite ((ge .& n8) == n8) (sel8Bits rn 24) (sel8Bits rm 24))
   builder <! (rd := combine8bitResults t1 t2 t3 t4)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let rbit insInfo ctxt =
@@ -2305,7 +2310,7 @@ let rbit insInfo ctxt =
   for i = 0 to 31 do
     builder <! (t2 := (extract t1 1<rt> i) |> zExt 32<rt>)
     builder <! (rd := rd .| (t2 << (num <| BitVector.ofInt32 (31 - i) 32<rt>)))
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let rev insInfo ctxt =
@@ -2323,7 +2328,7 @@ let rev insInfo ctxt =
   builder <! (t3 :=  sel8Bits rm 16)
   builder <! (t4 :=  sel8Bits rm 24)
   builder <! (rd := combine8bitResults t4 t3 t2 t1)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 /// Store register.
@@ -2339,7 +2344,7 @@ let str insInfo ctxt size =
   match writeback with
   | Some (basereg, newoffset) -> builder <! (basereg := newoffset)
   | None -> ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let strex insInfo ctxt =
@@ -2354,7 +2359,7 @@ let strex insInfo ctxt =
   | Some (basereg, newoffset) -> builder <! (basereg := newoffset)
   | None -> ()
   builder <! (rd := num0 32<rt>) (* XXX: always succeeds for now *)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let strd insInfo ctxt =
@@ -2368,7 +2373,7 @@ let strd insInfo ctxt =
   match writeback with
   | Some (basereg, newoffset) -> builder <! (basereg := newoffset)
   | None -> ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let parseOprOfSTM insInfo ctxt =
@@ -2412,7 +2417,7 @@ let stm opcode insInfo ctxt wbop =
     builder <! (loadLE 32<rt> addr := pcStoreValue ctxt)
   else ()
   if wback then builder <! (rn := wbop rn msize) else ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let parseOprOfCBZ insInfo ctxt =
@@ -2436,7 +2441,7 @@ let cbz nonZero insInfo ctxt =
   builder <! (LMark lblL0)
   builder <! (branchWritePC ctxt insInfo pc InterJmpInfo.Base)
   builder <! (LMark lblL1)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let parseOprOfTableBranch insInfo ctxt =
@@ -2465,7 +2470,7 @@ let tableBranch insInfo ctxt =
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   builder <! (branchWritePC ctxt insInfo result InterJmpInfo.Base)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let parseOprOfBFC insInfo ctxt =
@@ -2481,7 +2486,7 @@ let bfc insInfo ctxt =
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   builder <! (rd := replicate rd 32<rt> lsb width 0)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let parseOprOfRdRnLsbWidth insInfo ctxt =
@@ -2504,7 +2509,7 @@ let bfi insInfo ctxt =
   builder <! (t0 := n << (num <| BitVector.ofInt32 lsb 32<rt>))
   builder <! (t1 := replicate rd 32<rt> lsb width 0)
   builder <! (rd := t0 .| t1)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let bfx insInfo ctxt signExtend =
@@ -2526,7 +2531,7 @@ let bfx insInfo ctxt signExtend =
     builder <! (mask := (not (msb .- num1 32<rt>)) << shift)
     builder <! (rd := rd .| mask)
   else ()
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let parseOprOfUqOpr ctxt = function
@@ -2568,7 +2573,7 @@ let uqopr insInfo ctxt width opr =
   Array.iter2 (fun tmp diff -> builder <! (tmp := diff)) tmps diffs
   Array.iter2 (fun s t -> builder <! (s := saturate t width)) sats tmps
   builder <! (rd := getUQAssignment sats width)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 /// ADR For ThumbMode (T1 case)
@@ -2602,7 +2607,7 @@ let adr insInfo ctxt =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   if rd = getPC ctxt then aluWritePC ctxt insInfo isUnconditional result builder
   else builder <! (rd := result)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let mls insInfo ctxt =
@@ -2615,7 +2620,7 @@ let mls insInfo ctxt =
   builder <! (r := extractLow 32<rt> (zExt 64<rt> ra .- zExt 64<rt> rn .*
                                      zExt 64<rt> rm))
   builder <! (rd := r)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let parseOprOfExtend insInfo ctxt =
@@ -2634,7 +2639,7 @@ let extend insInfo ctxt extractfn amount =
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   builder <! (rd := extractfn 32<rt> (extractLow amount rotated))
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let parseOprOfXTA insInfo ctxt =
@@ -2651,7 +2656,7 @@ let extendAndAdd insInfo ctxt amount =
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   builder <! (rd := rn .+ zExt 32<rt> (extractLow amount rotated))
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let checkSingleReg = function
@@ -2687,7 +2692,7 @@ let vldr insInfo ctxt =
     builder <! (d2 := loadLE 32<rt> (addr .+ (num (BitVector.ofInt32 4 32<rt>))))
     builder <! (rd := if ctxt.Endianness = Endian.Big then concat d1 d2
                       else concat d2 d1)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let parseOprOfVSTR insInfo ctxt =
@@ -2713,7 +2718,7 @@ let vstr insInfo ctxt =
       (mem1 := if isbig then extractHigh 32<rt> rd else extractLow 32<rt> rd)
     builder <!
       (mem2 := if isbig then extractLow 32<rt> rd else extractHigh 32<rt> rd)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let parseOprOfVPUSHVPOP insInfo =
@@ -2834,7 +2839,7 @@ let vpop insInfo ctxt =
   builder <! (t0 := addr)
   builder <! (sp := addr .+ (num <| BitVector.ofInt32 (imm <<< 2) 32<rt>))
   vpopLoop ctxt d imm isSReg t0 builder
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let vpushLoop ctxt d imm isSReg addr (builder: StmtBuilder) =
@@ -2869,7 +2874,7 @@ let vpush insInfo ctxt =
   builder <! (t0 := sp .- (num <| BitVector.ofInt32 (imm <<< 2) 32<rt>))
   builder <! (sp := t0)
   vpushLoop ctxt d imm isSReg t0 builder
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let parseOprOfVAND insInfo ctxt =
@@ -2887,7 +2892,7 @@ let vand insInfo ctxt =
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   builder <! (dst := src1 .& src2)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 let vmrs insInfo ctxt =
@@ -2900,7 +2905,7 @@ let vmrs insInfo ctxt =
   if rt <> cpsr then builder <! (rt := fpscr)
   else builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_Cond .|
                            getPSR ctxt R.FPSCR PSR_Cond)
-  putEndLabel ctxt lblIgnore isUnconditional builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
 /// Translate IR.
