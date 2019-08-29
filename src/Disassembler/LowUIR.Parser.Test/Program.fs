@@ -1,7 +1,8 @@
-open  B2R2.LowUIR.Parser
+
 open System
 open B2R2
 open B2R2.BinIR.LowUIR.IRParseHelper
+open B2R2.BinIR.LowUIR.Parser
 open B2R2.FrontEnd
 
 module Program =

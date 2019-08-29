@@ -24,7 +24,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.LowUIR.Parser
+namespace B2R2.BinIR.LowUIR.Parser
 open FParsec
 open B2R2
 open LowUIRParserUtils
@@ -215,7 +215,11 @@ type LowUIRParser (isa, pHelper: IRVarParseHelper) =
 
   member __.Run str =
     match runParserOnString statement () "" str with
-    | FParsec.CharParsers.Success (result, _, _) -> Some result
+    | FParsec.CharParsers.Success (result, _, pos) ->
+      if pos.Column <> int64 (str.Length + 1) then
+        printfn "[Invalid] Invalid characters at the end of input"
+        ; None
+      else Some result
     | FParsec.CharParsers.Failure (str, _, _) ->
       printfn "%s" str
       None

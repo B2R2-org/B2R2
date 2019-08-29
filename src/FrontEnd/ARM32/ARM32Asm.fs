@@ -10,19 +10,22 @@ type ParseHelper () =
 
   let R = RegExprs ()
 
-  //FIXME
-  override __.IdOf e = RegisterID.create 1
+  override __.IdOf e =
+    match e with
+    | Var (_,id, _,_) -> id
+    | PCVar (_, _) -> Register.toRegID Register.PC
+    | _ -> failwith "not a register expression"
 
   override __.RegNames =
-    [ "R0"; "R1"; "R2" ; "R3"; "R4"; "R5"; "R6";" R7"; "R8"; "SB"; "SL"; "FP";
-      "IP"; "SP"; "LR"; "Q0"; "Q1"; "Q2"; "Q3"; "Q4"; "Q5"; "Q6";"Q7"; "Q8";
+    [ "R0"; "R1"; "R2" ; "R3"; "R4"; "R5"; "R6"; "R7"; "R8"; "SB"; "SL"; "FP";
+      "IP"; "SP"; "LR"; "Q0"; "Q1"; "Q2"; "Q3"; "Q4"; "Q5"; "Q6"; "Q7"; "Q8";
       "Q9"; "Q10"; "Q11"; "Q12"; "Q13"; "Q14"; "Q15"; "D0"; "D1"; "D2"; "D3";
       "D4"; "D5"; "D6"; "D7"; "D8"; "D9"; "D10"; "D11"; "D12"; "D13"; "D14";
       "D15"; "D16"; "D17"; "D18"; "D19"; "D20"; "D21"; "D22"; "D23"; "D24";
       "D25"; "D26"; "D27"; "D28"; "D29"; "D30"; "D31"; "S0"; "S1"; "S2"; "S3";
       "S4"; "S5"; "S6"; "S7"; "S8"; "S9"; "S10"; "S11"; "S12"; "S13"; "S14";
       "S15"; "S16"; "S17"; "S18"; "S19"; "S20"; "S21"; "S22"; "S23"; "S24";
-      "S25"; "S26"; "S27"; "S28"; "S29"; "S30"; "S31";"PC";"APSR"; "SPSR";
+      "S25"; "S26"; "S27"; "S28"; "S29"; "S30"; "S31"; "PC"; "APSR"; "SPSR";
       "CPSR"; "FPSCR"; "SCTLR"; "SCR"; "NSACR" ]
 
   override __.StrToVar s =
@@ -132,9 +135,12 @@ type ParseHelper () =
     | "NSACR" -> R.NSACR
     | _ -> raise UnknownRegException
 
-  // FIXME
   override __.InitStateRegs =
-    [Register.toRegID Register.D11, BitVector.ofInt32 0 32<rt>]
+    __.MainRegs |>
+    List.map (fun regE -> (__.IdOf regE, BitVector.ofInt32 0 (AST.typeOf regE)))
 
-  // FIXME
-  override __.MainRegs = [R.D11]
+  override __.MainRegs =
+    [ R.R0; R.R1; R.R2; R.R3; R.R4; R.R5; R.R6; R.R7; R.R8; R.SB; R.SL; R.FP;
+      R.IP; R.SP; R.LR; R.Q0; R.Q1; R.Q2; R.Q3; R.Q4; R.Q5; R.Q6; R.Q7; R.Q8;
+      R.Q9; R.Q10; R.Q11; R.Q12; R.Q13; R.Q14; R.Q15; R.PC; R.APSR; R.SPSR;
+      R.CPSR; R.FPSCR; R.SCTLR; R.SCR; R.NSACR ]
