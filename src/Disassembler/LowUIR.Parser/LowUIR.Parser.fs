@@ -25,6 +25,7 @@
 *)
 
 namespace B2R2.BinIR.LowUIR.Parser
+
 open FParsec
 open B2R2
 open LowUIRParserUtils
@@ -32,6 +33,7 @@ open B2R2.BinIR.LowUIR
 open IRParseHelper
 
 type UserState = unit
+
 type Parser<'t> = Parser<'t, UserState>
 
 type LowUIRParser (isa, pHelper: IRVarParseHelper) =

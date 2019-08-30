@@ -1,4 +1,32 @@
-﻿module B2R2.FrontEnd.MIPS.MIPSASM
+﻿(*
+  B2R2 - the Next-Generation Reversing Platform
+
+  Author: Michael Tegegn <mick@kaist.ac.kr>
+          Sang Kil Cha <sangkilc@kaist.ac.kr>
+
+  Copyright (c) SoftSec Lab. @ KAIST, since 2016
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+*)
+
+module B2R2.FrontEnd.MIPS.MIPSASM
+
 open B2R2
 open B2R2.FrontEnd.MIPS
 open B2R2.BinIR.LowUIR
@@ -95,15 +123,6 @@ type ParseHelper (wordSize) =
     | "F30" -> R.F30
     | "F31" -> R.F31
     | _ -> raise B2R2.FrontEnd.UnhandledRegExprException
-
-  (*override __.InitStateRegs =
-    [R.HI; R.LO; R.PC; R.R0; R.R1; R.R2; R.R3; R.R4; R.R5; R.R6; R.R7; R.R8;
-    R.R9; R.R10; R.R11; R.R12; R.R13; R.R14; R.R15; R.R16; R.R17; R.R18; R.R19;
-    R.R20; R.R21; R.R22; R.R23; R.R24; R.R25; R.R26; R.R27; R.R28; R.R29; R.R30;
-    R.R31; R.F0; R.F1; R.F2; R.F3; R.F4; R.F5; R.F6; R.F7; R.F8; R.F9; R.F10;
-    R.F11; R.F12; R.F13; R.F14; R.F15; R.F16; R.F17; R.F18; R.F19; R.F20; R.F21;
-    R.F22; R.F23; R.F24; R.F25; R.F26; R.F27; R.F28; R.F29; R.F30; R.F31 ]
-    *)
 
   override __.InitStateRegs =
     __.MainRegs |>

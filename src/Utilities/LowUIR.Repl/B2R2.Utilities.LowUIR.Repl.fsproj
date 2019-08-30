@@ -11,6 +11,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="B2R2.FsReadLine" Version="0.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\BinGraph\B2R2.BinGraph.fsproj" />
     <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
     <ProjectReference Include="..\..\ConcEval\B2R2.ConcEval.fsproj" />
