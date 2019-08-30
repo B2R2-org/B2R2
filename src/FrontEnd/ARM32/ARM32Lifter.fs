@@ -3928,6 +3928,26 @@ let vmull insInfo ctxt =
     vecMulLongByScalar insInfo ctxt
   | _ -> raise InvalidOperandException
 
+let getSizeStartFromI16 = function
+  | Some (OneDT SIMDTypI16) -> 0b00
+  | Some (OneDT SIMDTypI32) -> 0b01
+  | Some (OneDT SIMDTypI64) -> 0b10
+  | _ -> raise InvalidOperandException
+
+let vmovn insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rm = transTwoOprs insInfo ctxt
+  let esize = 8 <<< getSizeStartFromI16 insInfo.SIMDTyp
+  let rtEsz = RegType.fromBitWidth esize
+  let elements = 64 / esize
+  for e in 0 .. elements - 1 do
+    builder <! (elem rd e esize := extractLow rtEsz (elem rm e (esize * 2)))
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
 /// Translate IR.
 let translate insInfo ctxt =
   match insInfo.Opcode with
@@ -4086,7 +4106,7 @@ let translate insInfo ctxt =
     sideEffects insInfo UnsupportedFP
   | Op.VMUL -> vmul insInfo ctxt
   | Op.VMULL -> vmull insInfo ctxt
-  | Op.VMOVN
+  | Op.VMOVN -> vmovn insInfo ctxt
   | Op.VNEG
   | Op.VPADD
   | Op.VRSHR
