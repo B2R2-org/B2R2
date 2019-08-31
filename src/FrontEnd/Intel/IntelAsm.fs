@@ -76,7 +76,7 @@ type ParseHelper (wordSize) =
       "CR0"; "CR2"; "CR3"; "CR4"; "CR8"; "OF"; "DF"; "IF"; "TF"; "SF"; "ZF";
       "AF"; "PF"; "CF"; "K0"; "K1"; "K2"; "K3"; "K4"; "K5"; "K6"; "K7" ]
 
-  override __.StrToVar s =
+  override __.StrToReg s =
     match s with
     | "RAX" -> R.RAX
     | "RBX" -> R.RBX

@@ -1,7 +1,8 @@
 (*
   B2R2 - the Next-Generation Reversing Platform
 
-  Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
+  Author: Michael Tegegn <mick@kaist.ac.kr>
+          Sang Kil Cha <sangkilc@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -28,9 +29,9 @@ namespace B2R2.BinIR.LowUIR.Parser
 
 open FParsec
 open B2R2
-open LowUIRParserUtils
 open B2R2.BinIR.LowUIR
-open IRParseHelper
+open B2R2.BinIR.LowUIR.Parser.Utils
+open B2R2.BinIR.LowUIR.IRParseHelper
 
 type UserState = unit
 
@@ -58,11 +59,11 @@ type LowUIRParser (isa, pHelper: IRVarParseHelper) =
 
   let pBinaryOperator =
     [ "-|"; "++"; "+"; "-"; "*"; "/"; "?/"; "%";
-    "?%"; "<<" ; ">>"; "?>>"; "&"; "|"; "^"; "::"]
+      "?%"; "<<" ; ">>"; "?>>"; "&"; "|"; "^"; "::" ]
     |> List.map pstring |> List.map attempt |> choice |>> binOpFromString
 
   let pRelativeOperator =
-    [ "="; "!=" ; ">"; ">="; "?>"; "<"; "<="; "?<="; "?<"]
+    [ "="; "!=" ; ">"; ">="; "?>"; "<"; "<="; "?<="; "?<" ]
     |> List.map pstring |> List.map attempt |> choice |>> relOpFromString
 
   let pCastType =
@@ -81,10 +82,10 @@ type LowUIRParser (isa, pHelper: IRVarParseHelper) =
 
   let pVarE =
     List.map pstring pHelper.RegNames |> List.map attempt
-    |> choice |>> pHelper.StrToVar
+    |> choice |>> pHelper.StrToReg
 
   let pPCVarE =
-    pNormalString |>> pHelper.StrToVar
+    pNormalString |>> pHelper.StrToReg
 
   let pTempVarE =
     spaces >>. pstring "T_" >>. pint32 .>> spaces .>> pchar ':' .>> spaces

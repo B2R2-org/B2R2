@@ -32,9 +32,9 @@ open B2R2
 open B2R2.BinIR.LowUIR
 open B2R2.ConcEval
 open B2R2.FrontEnd
-open B2R2.Utilities.LowUIRRepl.ReplUtils
-open IRParseHelper
-open ReplDisplay
+open B2R2.Utilities.LowUIRRepl.Utils
+open B2R2.BinIR.LowUIR.IRParseHelper
+open B2R2.Utilities.LowUIRRepl.Utils.ReplDisplay
 
 let console = B2R2.FsReadLine.Console ("-> ", [])
 /// Displays the error message.

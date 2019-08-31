@@ -265,4 +265,4 @@ if (typeof window === 'undefined') { // For Node.js
   module.exports.initEvents = initEvents;
 } else {
   window.addEventListener('load', function () { main(); }, false);
-} 
+}

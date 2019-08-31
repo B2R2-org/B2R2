@@ -25,14 +25,14 @@
   SOFTWARE.
 *)
 
-module B2R2.Utilities.LowUIRRepl.ReplUtils
+module B2R2.Utilities.LowUIRRepl.Utils
 
 open System
 open B2R2
 open B2R2.BinIR.LowUIR
 open B2R2.ConcEval
 open B2R2.FrontEnd
-open IRParseHelper
+open B2R2.BinIR.LowUIR.IRParseHelper
 
 /// Supported repl commands. Other commands may be added here.
 type ReplCommand =

@@ -23,7 +23,7 @@
     <ProjectReference Include="..\..\ConcEval\B2R2.ConcEval.fsproj" />
     <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\Core\B2R2.FrontEnd.Core.fsproj" />
-    <ProjectReference Include="..\LowUIR.Parser\B2R2.LowUIR.Parser.fsproj" />
+    <ProjectReference Include="..\LowUIR\B2R2.LowUIR.Parser.fsproj" />
   </ItemGroup>
 
 </Project>

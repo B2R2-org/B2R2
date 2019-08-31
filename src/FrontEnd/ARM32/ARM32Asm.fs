@@ -55,7 +55,7 @@ type ParseHelper () =
       "S25"; "S26"; "S27"; "S28"; "S29"; "S30"; "S31"; "PC"; "APSR"; "SPSR";
       "CPSR"; "FPSCR"; "SCTLR"; "SCR"; "NSACR" ]
 
-  override __.StrToVar s =
+  override __.StrToReg s =
     match s with
     | "R0" -> R.R0
     | "R1" -> R.R1

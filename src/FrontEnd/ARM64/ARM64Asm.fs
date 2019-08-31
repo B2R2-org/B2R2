@@ -71,7 +71,7 @@ type ParseHelper () =
       "B22"; "B23"; "B24"; "B25"; "B26"; "B27"; "B28"; "B29"; "B30"; "B31";
       "FPCR";"FPSR"; "N"; "Z"; "C" ]
 
-  override __.StrToVar s =
+  override __.StrToReg s =
     match s with
     | "X0"  -> R.X0
     | "X1" -> R.X1
@@ -346,9 +346,9 @@ type ParseHelper () =
 
   override __.MainRegs =
     [ R.X0; R.X1; R.X2; R.X3; R.X4; R.X5; R.X6; R.X7; R.X8; R.X9; R.X10; R.X11;
-    R.X12; R.X13; R.X14; R.X15; R.X16; R.X17; R.X18; R.X19; R.X20; R.X21;
-    R.X22; R.X23; R.X24; R.X25; R.X26; R.X27; R.X28; R.X29; R.X30; R.XZR;
-    R.V0; R.V1; R.V2; R.V3; R.V4; R.V5; R.V6; R.V7; R.V8; R.V9; R.V10; R.V11;
-    R.V12; R.V13; R.V14; R.V15; R.V16; R.V17; R.V18; R.V19; R.V20; R.V21;
-    R.V22; R.V23; R.V24; R.V25; R.V26; R.V27; R.V28; R.V29; R.V30; R.V31;
-    R.FPCR; R.FPSR; R.N; R.Z; R.C ]
+      R.X12; R.X13; R.X14; R.X15; R.X16; R.X17; R.X18; R.X19; R.X20; R.X21;
+      R.X22; R.X23; R.X24; R.X25; R.X26; R.X27; R.X28; R.X29; R.X30; R.XZR;
+      R.V0; R.V1; R.V2; R.V3; R.V4; R.V5; R.V6; R.V7; R.V8; R.V9; R.V10; R.V11;
+      R.V12; R.V13; R.V14; R.V15; R.V16; R.V17; R.V18; R.V19; R.V20; R.V21;
+      R.V22; R.V23; R.V24; R.V25; R.V26; R.V27; R.V28; R.V29; R.V30; R.V31;
+      R.FPCR; R.FPSR; R.N; R.Z; R.C ]
