@@ -25,15 +25,14 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.ARM64.ARM64ASM
+namespace B2R2.FrontEnd.ARM64
 
 open B2R2
-open B2R2.FrontEnd.ARM64
 open B2R2.BinIR.LowUIR
 
 type ParseHelper () =
 
-  inherit IRParseHelper.IRVarParseHelper ()
+  inherit RegParseHelper ()
 
   let R = RegExprs ()
 

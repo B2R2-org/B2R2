@@ -32,7 +32,6 @@ open B2R2
 open B2R2.BinIR.LowUIR
 open B2R2.ConcEval
 open B2R2.FrontEnd
-open B2R2.BinIR.LowUIR.IRParseHelper
 
 /// Supported repl commands. Other commands may be added here.
 type ReplCommand =
@@ -126,8 +125,8 @@ let numToArchitecture n =
   if Map.containsKey n isaMap then ISA.OfString isaMap.[n] |> Some else None
 
 /// Initiates the registers in the architecture with value of zero.
-let initStateForReplStart handle (pHelper: IRVarParseHelper) =
-  let st = EvalState (B2R2.BinGraph.DisasHeuristic.imageLoader handle, true)
+let initStateForReplStart handle (pHelper: RegParseHelper) =
+  let st = EvalState (BinGraph.DisasHeuristic.imageLoader handle, true)
   EvalState.PrepareContext st 0 0UL
     (pHelper.InitStateRegs |> List.map (fun (x, y) -> (x, Def y)))
 
@@ -185,7 +184,7 @@ module ReplDisplay =
     |> (fun (name, value) -> sprintf "%3s: %s" name (getEvalValueString value))
 
   /// Prints all the registers and their statuses to the console.
-  let printRegStatusString state (pHelper: IRVarParseHelper) (status:Status) =
+  let printRegStatusString state (pHelper: RegParseHelper) (status:Status) =
     let changedIds = status.GetUpdatedRegIndices state
     let idList = List.map pHelper.IdOf pHelper.MainRegs
     List.map
@@ -219,6 +218,4 @@ module ReplDisplay =
     printRegStatusString state pHelper status
     printCyan "\nTemporary Registers:" ;
     printTRegStatusString state status
-
-
 

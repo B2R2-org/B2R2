@@ -25,21 +25,20 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.ARM32.ARM32ASM
+namespace B2R2.FrontEnd.ARM32
 
-open B2R2.FrontEnd.ARM32
-open B2R2.BinIR.LowUIR
 open B2R2
+open B2R2.BinIR.LowUIR
 
 type ParseHelper () =
 
-  inherit IRParseHelper.IRVarParseHelper ()
+  inherit RegParseHelper ()
 
   let R = RegExprs ()
 
   override __.IdOf e =
     match e with
-    | Var (_,id, _,_) -> id
+    | Var (_, id, _ ,_) -> id
     | PCVar (_, _) -> Register.toRegID Register.PC
     | _ -> failwith "not a register expression"
 

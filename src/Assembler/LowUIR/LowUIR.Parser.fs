@@ -25,19 +25,18 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinIR.LowUIR.Parser
+namespace B2R2.BinIR.LowUIR
 
 open FParsec
 open B2R2
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.Parser.Utils
-open B2R2.BinIR.LowUIR.IRParseHelper
 
-type UserState = unit
+type ParserUserState = unit
 
-type Parser<'t> = Parser<'t, UserState>
+type Parser<'t> = Parser<'t, ParserUserState>
 
-type LowUIRParser (isa, pHelper: IRVarParseHelper) =
+type LowUIRParser (isa, pHelper: RegParseHelper) =
 
   /// Parses name that can be used as a variable or register Name.
   let pNormalString =

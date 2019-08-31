@@ -33,10 +33,9 @@ open B2R2.BinIR.LowUIR
 open B2R2.ConcEval
 open B2R2.FrontEnd
 open B2R2.Utilities.LowUIRRepl.Utils
-open B2R2.BinIR.LowUIR.IRParseHelper
 open B2R2.Utilities.LowUIRRepl.Utils.ReplDisplay
 
-let console = B2R2.FsReadLine.Console ("-> ", [])
+let console = FsReadLine.Console ("-> ", [])
 /// Displays the error message.
 let showError str =
   printfn "[Invalid] %s" str
@@ -49,7 +48,7 @@ let rec getISAChoice () =
   if arch = None then getISAChoice () else arch.Value
 
 /// Main repl that excecutes the instructions and provides user interface.
-type Repl (pars: Parser.LowUIRParser, pHelper, status:Status) =
+type Repl (pars: LowUIRParser, pHelper, status:Status) =
   member __.Run state =
     let input = console.ReadLine ()
     match ReplCommand.fromInput input with
@@ -59,8 +58,8 @@ type Repl (pars: Parser.LowUIRParser, pHelper, status:Status) =
     | IRStatement input ->
       let parsed =
         try pars.Run (input.Trim ()) with
-        | :? System.OverflowException -> showError "number too large"; None
-        | :? B2R2.InvalidRegTypeException ->
+        | :? OverflowException -> showError "number too large"; None
+        | :? InvalidRegTypeException ->
           showError "invalid register type"; None
         | exc -> showError exc.Message; None
 
@@ -80,14 +79,14 @@ let main argv =
   let isa = getISAChoice ()
 
   (* Parser helper is used by both the parser and the repl. *)
-  let pHelper : IRVarParseHelper =
+  let pHelper: RegParseHelper =
     match isa.Arch with
     | Arch.IntelX86
     | Arch.IntelX64 ->
-      Intel.IntelASM.ParseHelper isa.WordSize :> IRVarParseHelper
+      Intel.ParseHelper isa.WordSize :> RegParseHelper
     | Arch.ARMv7
-    | Arch.AARCH32 -> ARM32.ARM32ASM.ParseHelper () :> IRVarParseHelper
-    | Arch.AARCH64 -> ARM64.ARM64ASM.ParseHelper () :> IRVarParseHelper
+    | Arch.AARCH32 -> ARM32.ParseHelper () :> RegParseHelper
+    | Arch.AARCH64 -> ARM64.ParseHelper () :> RegParseHelper
     | Arch.MIPS1
     | Arch.MIPS2
     | Arch.MIPS3
@@ -98,12 +97,12 @@ let main argv =
     | Arch.MIPS32R6
     | Arch.MIPS64
     | Arch.MIPS64R2
-    | Arch.MIPS64R6 -> MIPS.MIPSASM.ParseHelper isa.WordSize :> IRVarParseHelper
+    | Arch.MIPS64R6 -> MIPS.ParseHelper isa.WordSize :> RegParseHelper
     | _ -> raise InvalidISAException
 
   let state = initStateForReplStart (BinHandler.Init isa) pHelper
 
-  let pars = Parser.LowUIRParser (isa, pHelper)
+  let pars = LowUIRParser (isa, pHelper)
   isa.Arch.ToString () |>
   printBlue
     " ****************** %s B2R2 LowUIR Repl running  **********************\n"

@@ -25,22 +25,19 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.MIPS.MIPSASM
+namespace B2R2.FrontEnd.MIPS
 
 open B2R2
-open B2R2.FrontEnd.MIPS
 open B2R2.BinIR.LowUIR
 
 type ParseHelper (wordSize) =
-
-  inherit IRParseHelper.IRVarParseHelper ()
+  inherit RegParseHelper ()
 
   let R = RegExprs (wordSize)
 
   override __.IdOf e =
     match e with
     | Var (_,id, _,_) -> id
-
     | PCVar (_, _) -> Register.toRegID Register.PC
     | _ -> failwith "not a register expression"
 
@@ -136,5 +133,3 @@ type ParseHelper (wordSize) =
       R.F9; R.F10; R.F11; R.F12; R.F13; R.F14; R.F15; R.F16; R.F17; R.F18;
       R.F19; R.F20; R.F21; R.F22; R.F23; R.F24; R.F25; R.F26; R.F27; R.F28;
       R.F29; R.F30; R.F31 ]
-
-

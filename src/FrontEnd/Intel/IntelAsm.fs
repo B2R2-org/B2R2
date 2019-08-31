@@ -25,14 +25,14 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.Intel.IntelASM
+namespace B2R2.FrontEnd.Intel
+
 open B2R2
-open B2R2.FrontEnd.Intel
 open B2R2.BinIR.LowUIR
 
 type ParseHelper (wordSize) =
 
-  inherit IRParseHelper.IRVarParseHelper ()
+  inherit RegParseHelper ()
 
   let R = RegExprs (wordSize)
 
@@ -61,7 +61,6 @@ type ParseHelper (wordSize) =
       if regT = 32<rt> then Register.toRegID Register.EIP
       else Register.toRegID Register.RIP
     | _ -> failwith "not a register expression"
-
 
   override __.RegNames =
     [ "RAX"; "RBX"; "RCX"; "RDX"; "RSP"; "RBP"; "RSI"; "RDI"; "EAX"; "EBX";

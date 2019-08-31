@@ -1,12 +1,9 @@
-﻿module B2R2.BinIR.LowUIR.IRParseHelper
+namespace B2R2.BinIR.LowUIR
 
 open B2R2
-open B2R2.BinIR.LowUIR
-
-
 
 [<AbstractClass>]
-type IRVarParseHelper () =
+type RegParseHelper () =
   abstract member IdOf: Expr -> RegisterID
   abstract member RegNames: string list
   abstract member StrToReg: string -> Expr
