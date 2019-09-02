@@ -100,7 +100,7 @@ let main argv =
     | Arch.MIPS64R6 -> MIPS.ParseHelper isa.WordSize :> RegParseHelper
     | _ -> raise InvalidISAException
 
-  let state = initStateForReplStart (BinHandler.Init isa) pHelper
+  let state = initStateForReplStart pHelper
 
   let pars = LowUIRParser (isa, pHelper)
   isa.Arch.ToString () |>

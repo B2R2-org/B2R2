@@ -29,6 +29,7 @@ module B2R2.Utilities.LowUIRRepl.Utils
 
 open System
 open B2R2
+open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.ConcEval
 open B2R2.FrontEnd
@@ -125,8 +126,8 @@ let numToArchitecture n =
   if Map.containsKey n isaMap then ISA.OfString isaMap.[n] |> Some else None
 
 /// Initiates the registers in the architecture with value of zero.
-let initStateForReplStart handle (pHelper: RegParseHelper) =
-  let st = EvalState (BinGraph.DisasHeuristic.imageLoader handle, true)
+let initStateForReplStart (pHelper: RegParseHelper) =
+  let st = EvalState (ignoreundef=true)
   EvalState.PrepareContext st 0 0UL
     (pHelper.InitStateRegs |> List.map (fun (x, y) -> (x, Def y)))
 
