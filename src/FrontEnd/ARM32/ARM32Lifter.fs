@@ -3985,6 +3985,28 @@ let vpadd insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
+let vrshr insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rm, imm = transThreeOprs insInfo ctxt
+  let imm = zExt 64<rt> imm
+  let esize = 8 <<< getSize insInfo.SIMDTyp
+  let rtEsz = RegType.fromBitWidth esize
+  let elements = 64 / esize
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  let extend = if isUnsigned insInfo.SIMDTyp then zExt else sExt
+  let roundConst = num1 64<rt> << (imm .- num1 64<rt>)
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rm = extract rm 64<rt> (r * 64)
+    for e in 0 .. elements - 1 do
+      let result = (extend 64<rt> (elem rm e esize) .+ roundConst) >> imm
+      builder <! (elem rd e esize := extractLow rtEsz result)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
 /// Translate IR.
 let translate insInfo ctxt =
   match insInfo.Opcode with
@@ -4149,7 +4171,7 @@ let translate insInfo ctxt =
   | Op.VPADD when isF32orF64 insInfo.SIMDTyp ->
     sideEffects insInfo UnsupportedFP
   | Op.VPADD -> vpadd insInfo ctxt
-  | Op.VRSHR
+  | Op.VRSHR -> vrshr insInfo ctxt
   | Op.VSHL | Op.VSHR
   | Op.VTBL -> sideEffects insInfo UnsupportedExtension
   | Op.VCMP -> sideEffects insInfo UnsupportedFP
