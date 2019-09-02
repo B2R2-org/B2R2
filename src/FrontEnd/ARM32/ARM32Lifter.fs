@@ -3204,7 +3204,8 @@ let getSize = function
   | Some (OneDT SIMDTypU16) -> 0b01
   | Some (OneDT SIMDTyp32) | Some (OneDT SIMDTypS32) | Some (OneDT SIMDTypI32)
   | Some (OneDT SIMDTypU32) -> 0b10
-  | Some (OneDT SIMDTyp64) | Some (OneDT SIMDTypI64) -> 0b11
+  | Some (OneDT SIMDTyp64) | Some (OneDT SIMDTypS64) | Some (OneDT SIMDTypI64)
+  | Some (OneDT SIMDTypU64) -> 0b11
   | _ -> raise InvalidOperandException
 
 let elem vector e size = extract vector (RegType.fromBitWidth size) (e * size)
@@ -3582,9 +3583,10 @@ let minExpr isUnsigned expr1 expr2 =
 
 let isUnsigned = function
   | Some (OneDT SIMDTypU8) | Some (OneDT SIMDTypU16)
-  | Some (OneDT SIMDTypU32) -> true
+  | Some (OneDT SIMDTypU32) | Some (OneDT SIMDTypU64) -> true
   | Some (OneDT SIMDTypS8) | Some (OneDT SIMDTypS16)
-  | Some (OneDT SIMDTypS32) | Some (OneDT SIMDTypP8) -> false
+  | Some (OneDT SIMDTypS32) | Some (OneDT SIMDTypS64) | Some (OneDT SIMDTypP8)
+    -> false
   | _ -> raise InvalidOperandException
 
 let vmaxmin insInfo ctxt maximum =
@@ -4007,6 +4009,51 @@ let vrshr insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
+let vshlImm insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rm, imm = transThreeOprs insInfo ctxt
+  let esize = 8 <<< getSize insInfo.SIMDTyp
+  let imm = zExt (RegType.fromBitWidth esize) imm
+  let elements = 64 / esize
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rm = extract rm 64<rt> (r * 64)
+    for e in 0 .. elements - 1 do
+      builder <! (elem rd e esize := elem rm e esize << imm)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let vshlReg insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rm, rn = transThreeOprs insInfo ctxt
+  let esize = 8 <<< getSize insInfo.SIMDTyp
+  let rtEsz = RegType.fromBitWidth esize
+  let elements = 64 / esize
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  let extend = if isUnsigned insInfo.SIMDTyp then zExt else sExt
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rm = extract rm 64<rt> (r * 64)
+    for e in 0 .. elements - 1 do
+      let shift = sExt 64<rt> (extractLow 8<rt> (elem rn e esize))
+      let result = extend 64<rt> (elem rm e esize) << shift
+      builder <! (elem rd e esize := extractLow rtEsz result)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let vshl insInfo ctxt =
+  match insInfo.Operands with
+  | ThreeOperands (_, _, OprImm _) -> vshlImm insInfo ctxt
+  | ThreeOperands (_, _, OprSIMD _) -> vshlReg insInfo ctxt
+  | _ -> raise InvalidOperandException
+
 /// Translate IR.
 let translate insInfo ctxt =
   match insInfo.Opcode with
@@ -4172,7 +4219,8 @@ let translate insInfo ctxt =
     sideEffects insInfo UnsupportedFP
   | Op.VPADD -> vpadd insInfo ctxt
   | Op.VRSHR -> vrshr insInfo ctxt
-  | Op.VSHL | Op.VSHR
+  | Op.VSHL -> vshl insInfo ctxt
+  | Op.VSHR
   | Op.VTBL -> sideEffects insInfo UnsupportedExtension
   | Op.VCMP -> sideEffects insInfo UnsupportedFP
   | Op.VCEQ | Op.VCGT | Op.VCGE | Op.VCLE | Op.VCLT | Op.VTST
