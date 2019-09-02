@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
@@ -19,6 +19,7 @@
     <Compile Include="ARM64Parser.fsi" />
     <Compile Include="ARM64Parser.fs" />
     <Compile Include="ARM64.fs" />
+    <Compile Include="ARM64Asm.fs" />
   </ItemGroup>
 
   <ItemGroup>
