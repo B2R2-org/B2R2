@@ -3967,6 +3967,24 @@ let vneg insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
+let vpadd insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, rm = transThreeOprs insInfo ctxt
+  let esize = 8 <<< getSize insInfo.SIMDTyp
+  let elements = 64 / esize
+  let h = elements / 2
+  let dest = tmpVar 64<rt>
+  for e in 0 .. h - 1 do
+    let addPair expr = elem expr (2 * e) esize .+ elem expr (2 * e + 1) esize
+    builder <! (elem dest e esize := addPair rn)
+    builder <! (elem dest (e + h) esize := addPair rm)
+  builder <! (rd := dest)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
 /// Translate IR.
 let translate insInfo ctxt =
   match insInfo.Opcode with
@@ -4128,7 +4146,9 @@ let translate insInfo ctxt =
   | Op.VMOVN -> vmovn insInfo ctxt
   | Op.VNEG when isF32orF64 insInfo.SIMDTyp -> sideEffects insInfo UnsupportedFP
   | Op.VNEG -> vneg insInfo ctxt
-  | Op.VPADD
+  | Op.VPADD when isF32orF64 insInfo.SIMDTyp ->
+    sideEffects insInfo UnsupportedFP
+  | Op.VPADD -> vpadd insInfo ctxt
   | Op.VRSHR
   | Op.VSHL | Op.VSHR
   | Op.VTBL -> sideEffects insInfo UnsupportedExtension
