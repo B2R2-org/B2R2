@@ -45,6 +45,9 @@ type LowUIRParser (isa, pHelper: RegParseHelper) =
      many (digit <|> anyOf "ABCDEF") |>> (Seq.map string) |>> String.concat ""
      |>> (fun str -> uint64 ( "0x" + str))
 
+  let pCaseString (s: string) =
+    pstring s <|> (pstring ( s.ToLower () ) >>. preturn s) <?> s
+
   (*---------------------------Primitives.-----------------------------*)
   let pRegType =
     (pchar 'I' <|> pchar 'F') >>. pint32 |>> RegType.fromBitWidth
@@ -80,7 +83,7 @@ type LowUIRParser (isa, pHelper: RegParseHelper) =
   let pNumE = pBitVector |>> AST.num
 
   let pVarE =
-    List.map pstring pHelper.RegNames |> List.map attempt
+    List.map pCaseString pHelper.RegNames |> List.map attempt
     |> choice |>> pHelper.StrToReg
 
   let pPCVarE =
