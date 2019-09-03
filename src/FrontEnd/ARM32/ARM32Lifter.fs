@@ -3210,6 +3210,12 @@ let getSize = function
 
 let elem vector e size = extract vector (RegType.fromBitWidth size) (e * size)
 
+let elemForIR vector vSize index size =
+  let index = zExt vSize index
+  let mask = num <| BitVector.ofUBInt (BigInteger.getMask size) vSize
+  let eSize = num <| BitVector.ofInt32 size vSize
+  (vector >> (index .* eSize)) .& mask |> extractLow (RegType.fromBitWidth size)
+
 let assignByEndian (ctxt: TranslationContext) dst src builder =
   let isbig = ctxt.Endianness = Endian.Big
   builder <!
@@ -4075,6 +4081,37 @@ let vshr insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
+let parseVectors = function
+  | OneReg (Vector d) -> [ d ]
+  | TwoRegs (Vector d1, Vector d2) -> [ d1; d2 ]
+  | ThreeRegs (Vector d1, Vector d2, Vector d3) -> [ d1; d2; d3 ]
+  | FourRegs (Vector d1, Vector d2, Vector d3, Vector d4) -> [ d1; d2; d3; d4 ]
+  | _ -> raise InvalidOperandException
+
+let parseOprOfVecTbl insInfo ctxt =
+  match insInfo.Operands with
+  | ThreeOperands (OprSIMD (SFReg (Vector rd)), OprSIMD regs,
+                   OprSIMD (SFReg (Vector rm))) ->
+    getRegVar ctxt rd, parseVectors regs, getRegVar ctxt rm
+  | _ -> raise InvalidOperandException
+
+let vecTbl insInfo ctxt isVtbl =
+  let builder = new StmtBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, list, rm = parseOprOfVecTbl insInfo ctxt
+  let vectors = list |> List.map (getRegVar ctxt)
+  let length = List.length list
+  let table = concatExprs (List.toArray vectors) |> zExt 256<rt>
+  for i in 0 .. 7 do
+    let index = elem rm i 8
+    let cond = lt index (num <| BitVector.ofInt32 (8 * length) 8<rt>)
+    let e = if isVtbl then num0 8<rt> else elem rd i 8
+    builder <! (elem rd i 8 := ite cond (elemForIR table 256<rt> index 8) e)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
 /// Translate IR.
 let translate insInfo ctxt =
   match insInfo.Opcode with
@@ -4242,7 +4279,8 @@ let translate insInfo ctxt =
   | Op.VRSHR -> vrshr insInfo ctxt
   | Op.VSHL -> vshl insInfo ctxt
   | Op.VSHR -> vshr insInfo ctxt
-  | Op.VTBL -> sideEffects insInfo UnsupportedExtension
+  | Op.VTBL -> vecTbl insInfo ctxt true
+  | Op.VTBX -> vecTbl insInfo ctxt false
   | Op.VCMP -> sideEffects insInfo UnsupportedFP
   | Op.VCEQ | Op.VCGT | Op.VCGE | Op.VCLE | Op.VCLT | Op.VTST
   | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVT | Op.VCVTR | Op.VMLS
