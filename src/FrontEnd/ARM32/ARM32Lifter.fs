@@ -4054,6 +4054,27 @@ let vshl insInfo ctxt =
   | ThreeOperands (_, _, OprSIMD _) -> vshlReg insInfo ctxt
   | _ -> raise InvalidOperandException
 
+let vshr insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rm, imm = transThreeOprs insInfo ctxt
+  let esize = 8 <<< getSize insInfo.SIMDTyp
+  let rtEsz = RegType.fromBitWidth esize
+  let imm = zExt 64<rt> imm
+  let elements = 64 / esize
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  let extend = if isUnsigned insInfo.SIMDTyp then zExt else sExt
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rm = extract rm 64<rt> (r * 64)
+    for e in 0 .. elements - 1 do
+      let result = extend 64<rt> (elem rm e esize) >> imm
+      builder <! (elem rd e esize := extractLow rtEsz result)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
 /// Translate IR.
 let translate insInfo ctxt =
   match insInfo.Opcode with
@@ -4220,7 +4241,7 @@ let translate insInfo ctxt =
   | Op.VPADD -> vpadd insInfo ctxt
   | Op.VRSHR -> vrshr insInfo ctxt
   | Op.VSHL -> vshl insInfo ctxt
-  | Op.VSHR
+  | Op.VSHR -> vshr insInfo ctxt
   | Op.VTBL -> sideEffects insInfo UnsupportedExtension
   | Op.VCMP -> sideEffects insInfo UnsupportedFP
   | Op.VCEQ | Op.VCGT | Op.VCGE | Op.VCLE | Op.VCLT | Op.VTST
