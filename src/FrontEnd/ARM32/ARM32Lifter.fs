@@ -3970,7 +3970,7 @@ let vneg insInfo ctxt =
     let rd = extract rd 64<rt> (r * 64)
     let rm = extract rm 64<rt> (r * 64)
     for e in 0 .. elements - 1 do
-      let result = neg <| sExt rtEsz (elem rd e esize)
+      let result = neg <| sExt rtEsz (elem rm e esize)
       builder <! (elem rd e esize := extractLow rtEsz result)
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
@@ -3985,6 +3985,7 @@ let vpadd insInfo ctxt =
   let elements = 64 / esize
   let h = elements / 2
   let dest = tmpVar 64<rt>
+  builder <! (dest := num0 64<rt>)
   for e in 0 .. h - 1 do
     let addPair expr = elem expr (2 * e) esize .+ elem expr (2 * e + 1) esize
     builder <! (elem dest e esize := addPair rn)
