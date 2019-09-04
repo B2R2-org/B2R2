@@ -48,6 +48,6 @@ let getTypeS = function
   | 'd' -> "double"
   | 'e' -> "long double"
   | 'g' -> "float"
-  | 'z' -> "ellipsis"
+  | 'z' -> "..."
   | _ -> ""
 

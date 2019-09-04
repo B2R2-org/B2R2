@@ -33,6 +33,8 @@ open B2R2.NameMangling.ItaniumTables
 open B2R2.NameMangling.ItaniumUtils
 
 type ItaniumParser () =
+  let charListtoStr a = String (List.toArray a)
+
   let rec convertbase36todecimal idx res input =
     match input with
     | [] -> res
@@ -46,8 +48,7 @@ type ItaniumParser () =
         let cur = pown 36 idx
         convertbase36todecimal (idx + 1) (res + hd * cur) tail
 
-  let pbase36 =
-    many((satisfy Char.IsDigit) <|> (satisfy Char.IsUpper))
+  let pbase36 = many((satisfy Char.IsDigit) <|> (satisfy Char.IsUpper))
 
   let namebackrefS =
     pchar 'S' >>. ((pchar '_' |>> fun (c) -> (-1))
@@ -58,23 +59,32 @@ type ItaniumParser () =
             let a2 = (List.rev us.Namelist).[x + 1]
             match a2 with
             | NestedName (a, b) -> NestedName (a, List.rev b)
+            | PointerArg (a, b, Specific idx) ->
+              let value = us.TemplateArgList.[idx + 1]
+              PointerArg (a, b, value)
+            | RefArg (a, Specific idx) ->
+              let value = us.TemplateArgList.[idx + 1]
+              RefArg (a, value)
+            | Specific idx ->
+              let value = us.TemplateArgList.[idx + 1]
+              value
             | _ -> a2
           else
             Dummy "" ) |>> SingleArg
 
   let namebackrefT =
     pchar 'T' >>. ((pchar '_' |>> fun (c) -> (-1))
-    <|> (pbase36 |>> List.rev |>> convertbase36todecimal 0 0 .>> pchar '_'))
+    <|> (pint32 .>> pchar '_'))
     .>>. getUserState
     |>> (fun (x, us) ->
           if x + 2 <= us.TemplateArgList.Length then
             let a2 = (us.TemplateArgList).[x + 1]
-            a2
+            (a2, x)
           else
-            Dummy "")
+            (Dummy "", x)) |>> TemplateSub
 
   let nparray (a) b =
-    (letter <|> pchar '_') .>>. parray (b - 1) a
+    (letter <|> pchar '_' <|> pchar '$') .>>. parray (b - 1) a
     |>> (fun (a, c) -> (Array.append [|a|] c))
 
   let pvendor =
@@ -87,7 +97,7 @@ type ItaniumParser () =
     |>> string |>> BuiltinTypeIndicator.ofString
 
   let builtindouble =
-    pchar 'D' .>>. (anyOf "dfheisan") |>> (fun (a, b) -> string(a) + string(b))
+    pchar 'D' .>>. (anyOf "dfheisanc") |>> (fun (a, b) -> string(a) + string(b))
     |>> BuiltinTypeIndicator.ofString
 
   let builtin =
@@ -100,12 +110,10 @@ type ItaniumParser () =
     |>> Sxsubstitution
 
   /// Parser for std.
-  let pSt =
-    pstring "St" |>> Sxabbreviation.ofString|>> Sxsubstitution
+  let pSt = pstring "St" |>> Sxabbreviation.ofString|>> Sxsubstitution
 
   let pReference =
-    (pstring "R" <|> pstring "O") |>> ReferenceQualifier.ofString
-    |>> Reference
+    (pstring "R" <|> pstring "O") |>> ReferenceQualifier.ofString |>> Reference
 
   let pCVqualifier =
     (pchar 'K' .>>. opt (pchar 'V')) <|> (pchar 'V' .>>. opt (pchar 'K'))
@@ -115,13 +123,6 @@ type ItaniumParser () =
     pstring "r" .>>. opt (pchar 'V') .>>. opt (pchar 'K') .>>.
     lookAhead (pstring "P") |>> fun (((a, b), c), d) -> (a, b, c)
     |>> RestrictQualifier.ofTuple |>> Restrict
-
-  let pPointer =
-    many1 (pchar 'P' |>> SingleP) |>> Pointer
-
-  let pConstVolatile =
-    attempt (pPointer .>>. (pCVqualifier <|> pRCVqualifier))
-    |>> ConstVolatile
 
   let pCVR =
     (pCVqualifier <|> preturn (Name "")) .>>.
@@ -135,13 +136,14 @@ type ItaniumParser () =
 
   let pSpecificOp =
     pstring "nw" <|> pstring "na" <|> pstring "dl" <|> pstring "da"
+    <|> pstring "cl"
     |>> OperatorIndicator.ofString |>> Operators
 
   let binaryOplist () =
     ["pl"; "pL"; "pm"; "pt"; "mi"; "ml"; "mI"; "mL"; "dv"; "dV";
     "rm"; "rM"; "rs"; "rS"; "ls"; "lS"; "lt"; "le"; "an"; "aN";
     "aa"; "aS"; "or"; "oR"; "oo"; "eo"; "eq"; "ne"; "cm"; "gt";
-    "ge"; "cl"; "sr"; "ix"
+    "ge"; "sr"; "ix"; "qu"
     ]
 
   let pBOperator =
@@ -150,19 +152,22 @@ type ItaniumParser () =
 
   let pOperator = pUOperator <|> pBOperator <|> pSpecificOp
 
+  let pABITag =
+    opt (pchar 'L') >>.
+    (pint32 >>= (nparray (letter <|> digit <|> pchar '_')) |>> String)
+    .>> pchar 'B' .>>.
+    (pint32 >>= (nparray (letter <|> digit <|> pchar '_')) |>> String)
+    |>> ABITag
+
   let name =
     opt (pchar 'L') >>.
     (pint32 >>= (nparray (letter <|> digit <|> pchar '_')) |>> String) |>> Name
 
-  let psxname = pSt .>>. name |>> Sxname
+  let psxname = pSt .>>. (attempt pABITag <|> name) |>> Sxname
 
   let pTemplate, pTemplateref = createParserForwardedToRef ()
 
   let pNestedname, pNestedNameref = createParserForwardedToRef ()
-
-  let pUnaryExpr, pUnaryExprref = createParserForwardedToRef ()
-
-  let pBinaryExpr, pBinaryExprref = createParserForwardedToRef ()
 
   let pPointerArg, pPointerArgref = createParserForwardedToRef ()
 
@@ -172,95 +177,308 @@ type ItaniumParser () =
 
   let stmt, stmtref = createParserForwardedToRef ()
 
+  let scopeEncoding, scopeEncodingref = createParserForwardedToRef ()
+
+  let pExpression, pExpressionRef = createParserForwardedToRef()
+
   let pConstructor =
-    pchar 'C' .>> (pchar '1' <|> pchar '2' <|> pchar '3')
+    pchar 'C' .>>
+    (pchar '1' <|> pchar '2' <|> pchar '3' <|> pchar '4' <|> pchar '5')
     |>> ConstructorDestructor.ofChar |>> ConsOrDes
 
   let pDestructor =
-    pchar 'D' .>> (pchar '1' <|> pchar '2' <|> pchar '0')
+    pchar 'D' .>>
+    (pchar '1' <|> pchar '2' <|> pchar '0' <|> pchar '4' <|> pchar '5')
     |>> ConstructorDestructor.ofChar
     |>> ConsOrDes
 
-  let pConsOrDes = pDestructor  <|> pConstructor
+  let pConsOrDes = pDestructor <|> pConstructor
 
   let pSxoperator = pSt .>>. pOperator |>> Sxoperator
 
   let pLiteral =
     pchar 'L' >>. builtin .>>.
-    ((manyCharsTill (letter <|> digit) (pchar 'E')) |>> Name)
+    ((many1CharsTill (letter <|> digit) (pchar 'E')) |>> Name)
     |>> Literal
 
-  let pValue =
-    pchar 'L' >>. builtin .>>. (pint32 |>> Num) .>> pchar 'E' |>> Literal
 
-  let pExpr =
-    pchar 'X' >>. (pUnaryExpr <|> pBinaryExpr <|> namebackrefT) .>> pchar 'E'
+  let pCallOfset =
+    (pchar 'h' .>> opt (pchar 'n') .>> pint32 .>> pchar '_')
+    <|> (pchar 'v' .>> opt (pchar 'n') .>> pint32 .>> pchar '_'
+    .>> opt (pchar 'n') .>> pint32 .>> pchar '_')
+    |>> CallOffSet.ofString |>> CallOffset
+
+  let pVirtualThunk = pchar 'T' >>. pCallOfset .>>. stmt |>> VirtualThunk
+
+  let pVirtualThunkRet =
+    pstring "Tc" >>. pCallOfset >>. pCallOfset >>. stmt |>> VirtualThunkRet
+
+  let pDigitNozero = satisfy (fun x -> Char.IsDigit x && x <> '0')
+
+  let pDiscard =
+    attempt (pchar '_' .>> digit)
+    <|> (pstring "__" >>. pDigitNozero >>. many1 digit >>. pchar '_')
+
+  let pGuardVariable =
+    pstring "GV" >>. many scopeEncoding .>>.
+    (attempt pTemplate <|> pNestedname <|> attempt pABITag <|> name
+    <|> pOperator <|> attempt psxname <|> attempt pSxsubstitution
+    <|> pSxoperator) .>> opt pDiscard
+    |>> GuardVariable
+
+  let pTransactionSafeFunc = pstring "GTt" >>. stmt |>> TransactionSafeFunction
 
   let pReferenceArg = pReference .>>. opt (pCVqualifier) |>> ReferenceArg
 
-  let pNormalArg =
-    attempt ((attempt pTemplate <|> name <|> pvendor <|> attempt (psxname)
+  let pVector =
+    pstring "Dv" >>. (pint32 |>> Num) .>> pchar '_'
+    .>>.
+    (attempt ((attempt pTemplate <|> attempt pABITag <|> name <|> pvendor
+    <|> attempt (psxname)
     <|> attempt (pSxoperator)) >>= addargumenttolist .>> clearCarry)
+    <|> (pPointerArg <|> pNestedname <|> builtin <|> attempt (pSxsubstitution)
+    <|> namebackrefS <|> (namebackrefT >>= addTsubtolist))
+    .>> clearCarry) |>> Vector
+
+  let pNormalArg =
+    attempt ((attempt pTemplate <|> attempt pABITag <|> name <|> pvendor
+    <|> attempt (psxname) <|> pVector
+    <|> attempt (pSxoperator))
+    >>= addargumenttolist .>> clearCarry)
     <|>
     (pPointerArg <|> pNestedname <|> builtin <|> attempt (pSxsubstitution)
     <|> namebackrefS <|> (namebackrefT >>=addTsubtolist))
     .>> clearCarry
 
-  let pArray =
-      pchar 'P' >>. many (pchar 'A' >>. pint32 .>> pchar '_') .>>.
-      (attempt pfunc <|> pNormalArg<|> prefArg)
-      |>> ArrayPointer
+  /// During pack expansion of argument pack, reference qualifier before
+  /// pack is applied to every element of pack individually.
+  let pArgpack =
+    pstring "Dp" >>. opt pReferenceArg .>>. namebackrefT
+    |>>
+    (fun (x, y) ->
+      match x with
+      | Some value ->
+        RefArg (value, y)
+      | None -> RefArg (ReferenceArg (Reference Empty, None), y))
+    >>= addArgPack >>= addOnCondition
+    |>>
+    (fun b ->
+      match b with
+      | RefArg (a, Arguments alist) |
+        RefArg (a, TemplateSub (Arguments alist, _)) ->
+        List.map (fun x -> RefArg (a, x)) alist
+      | _ -> [b]
+    ) |>> Arguments
+
+  let pMember =
+    pchar 'M' >>. (pNormalArg <|> prefArg) |>> MemberPointer
+
+  let pPointer =
+    many1 (pchar 'P' |>> SingleP <|> pMember) |>> Pointer
+
+  let pConstVolatile =
+    attempt ((pPointer .>>. (pCVqualifier <|> pRCVqualifier))
+    .>> lookAhead (pPointer))
+    |>> ConstVolatile
+
+  let pScope =
+    scopeEncoding .>>.
+    (attempt pTemplate <|> attempt pABITag <|> name <|> attempt psxname
+    <|> attempt pSxoperator
+    <|> pNestedname <|> namebackrefS) |>> ScopeEncoding
+    >>= addargumenttolist
 
   let pfunctionarg =
-      opt (pstring "Dp") >>. (attempt (opt (pCVqualifier))
-      .>>. (attempt (pNormalArg) <|> attempt prefArg <|> pArray))
-      |>> Functionarg >>= addargumenttolist
+    attempt (opt (pstring "Dp")) >>. (attempt (opt (pCVqualifier))
+    .>>. (attempt (pNormalArg) <|> attempt prefArg))
+    |>> Functionarg >>= addargumenttolist
+
+  let pArray =
+    opt (pchar 'P' |>> SingleP <|> pReference) .>>.
+    many1 (pchar 'A' >>. ((pint32 |>> Num) <|> (namebackrefT)
+    <|> preturn (Name "")) .>> pchar '_')
+    .>>. (attempt pfunc <|> pfunctionarg)
+    |>> (fun ((a, b), c) -> (a, b, c))
+    |>> ArrayPointer >>= addArrayPointer
+
+  let pMemberPAsArg =
+    pMember .>>. (pNormalArg <|> prefArg) |>> MemberPAsArgument
+
+  let pLambda =
+    saveandreturn (
+      opt (pchar 'M') >>.
+      pstring "Ul" >>.
+      (many1 (attempt pfunc <|> attempt pfunctionarg <|> attempt pArray
+      <|> pMemberPAsArg) |>> Arguments) .>> pchar 'E'
+      .>>. (pint32 |>> Num <|> preturn (Name "")) .>> pchar '_'
+      |>> LambdaExpression >>= addLambda
+    )
+
+  let pUnnamedType =
+    saveandreturn (
+      pstring "Ut" >>. (pint32 |>> Num <|> preturn (Name "")) .>> pchar '_'
+      |>> UnnamedType >>= addLambda
+    )
+
+  let pscopelambda =
+    (scopeEncoding .>>.
+      (opt (pchar 'd' >>. (pint32 |>> Num <|> preturn (Name "")) .>> pchar '_'))
+    .>>. (pLambda <|> pUnnamedType)
+    |>> (fun ((a, b), c) -> (a, b, c))
+    |>> ScopedLambda)
+    >>= addargumenttolist
 
   let pFunctionArg =
-    opt (pstring "Dp") >>. (attempt pfunc <|> pfunctionarg)
+    (attempt pArgpack <|> attempt pfunc <|> pMemberPAsArg
+    <|> attempt pfunctionarg <|> pArray)
+
+  let pValue =
+    pchar 'L' >>. pFunctionArg .>>. (attempt (pint32 |>> Num)
+    <|> (puint64 |>> Num64))
+    .>> pchar 'E' |>> Literal
+
+  let pParameterRef =
+    pstring "fp" >>. (pint32 |>> Num <|> preturn (Name "")) .>> pchar '_'
+    |>> ParameterRef
+
+  /// Parser for expression arguments.
+  let pSingleArgument =
+    (attempt pTemplate
+    <|> attempt pABITag <|> attempt (name)
+    <|> (attempt (pchar 'L' >>. pchar '_' >>. pchar 'Z' >>. stmt .>> pchar 'E')
+    |>> ExternalName)
+    <|> attempt (pValue) <|> (pLiteral)
+    <|> attempt pExpression
+    <|> attempt (psxname) <|> attempt (pSxoperator)
+    <|> attempt (pSxsubstitution)
+    <|> namebackrefS <|> (namebackrefT))
+    <|> pParameterRef
+    >>= expandArgs
+
+  let pDecltype =
+    (pstring "DT" <|> pstring "Dt") >>. pSingleArgument .>> pchar 'E'
+    |>> DeclType
+
+  let pBinaryExpr =
+    ((pstring "sr" |>> OperatorIndicator.ofString |>> Operators)
+    .>>. ((pSingleArgument) >>= addtoNamelist) .>>. pSingleArgument)
+    <|> (pBOperator .>>. pSingleArgument .>>. pSingleArgument)
+    |>> (fun ((a, b), c) -> (a, b, c))
+    |>> BinaryExpr
+
+  let pUnaryExpr =
+    (pUOperator .>>. pSingleArgument) |>> UnaryExpr
+
+  let pCallExpr =
+    pstring "cl" >>. many1 pSingleArgument .>> pchar 'E'
+    |>> CallExpr >>= expandCL
+
+  let pConversionOneArg =
+    pstring "cv" >>. pFunctionArg .>>. pSingleArgument |>> ConversionOne
+
+  let pConversionMoreArg =
+    pstring "cv" >>. pFunctionArg .>> pchar '_'
+    .>>. many pSingleArgument .>> pchar 'E' |>> ConversionMore
+
+  let pDotExpr =
+    pstring "dt" >>. pSingleArgument .>>. (attempt pTemplate <|> name)
+    |>> DotExpr >>= expandDT
+
+  let pDotPointerExpr =
+    pstring "ds" >>. pSingleArgument .>>. pSingleArgument |>> DotPointerExpr
+
+  let pCastingExpr =
+    (pstring "dc" <|> pstring "cc" <|> pstring "sc" <|> pstring "rc")
+    |>> CasTing.ofString .>>. pFunctionArg .>>. pSingleArgument
+    |>> (fun ((a, b), c) -> (a, b, c))
+    |>> CastingExpr
+
+  let pTypeMeasure =
+    (pstring "ti" <|> pstring "st" <|> pstring "at") |>> MeasureType.ofString
+    .>>. pFunctionArg |>> TypeMeasure
+
+  let pExprMeasure =
+    (pstring "te" <|> pstring "sz" <|> pstring "az" <|> pstring "nw")
+    |>> MeasureExpr.ofString .>>. pSingleArgument
+    |>> ExprMeasure
+
+  let pExpressionArgPack =
+    pstring "sp" >>. argPackFlagOn >>. pSingleArgument .>> argPackFlagOff
+    |>> ExpressionArgPack
+
+  let pExpr =
+    pchar 'X' >>. (pExpression <|> pSingleArgument) .>> pchar 'E'
+
+  let pCastOperator =
+    (pstring "cv"
+    .>>. pFunctionArg)
+    <|> (pstring "li" .>>. name)
+    <|> (pstring "v" .>> digit .>>. name)
+    |>> CastOperator
+
+  let pRTTiVirtualTable =
+    (pstring "TT" <|> pstring "TI" <|> pstring "TS" <|> pstring "TV")
+    |>> RTTIVirtualTable.ofString
+    .>>. (pScope <|> attempt (pNormalArg) <|> pArray <|> prefArg <|> pfunc)
+    .>> opt pDiscard
+    |>> RTTIandVirtualTable
+
+  let pTC =
+    pstring "TC"
+    >>. (pScope <|> attempt (pNormalArg) <|> pArray <|> prefArg <|> pfunc)
+    .>> pint32 .>> pchar '_' .>>.
+    (pScope <|> attempt (pNormalArg) <|> pArray <|> prefArg <|> pfunc)
+    |>> ConstructionVtable
+
+  let pReferenceTemporary =
+    pstring "GR"
+    >>. ((attempt (pchar 'L' >>. name .>> pchar '_') |>> (fun x -> (x, Num 0))
+    |>> ReferenceTemporary)
+    <|> ((attempt pScope
+      <|> ((attempt pTemplate <|> attempt pABITag <|> name <|> attempt psxname
+    <|> attempt pSxoperator) >>= addargumenttolist)
+    <|> pNestedname <|> namebackrefS) .>>. ((pint32 <|> preturn 0) |>> Num)
+    |>> ReferenceTemporary))
 
   let pTemplateArg =
-    (attempt pfunc <|> pfunctionarg <|> attempt (pValue) <|> pLiteral <|> pExpr)
+    (attempt pscopelambda <|> attempt pScope <|> attempt pArgpack
+    <|> attempt pfunc <|> pMemberPAsArg <|> attempt (pValue) <|> attempt pArray
+    <|> attempt pfunctionarg <|> pLiteral <|> pExpr <|> pDecltype)
 
   let pTempArgPack =
     pchar 'J' >>. many (pTemplateArg) .>> pchar 'E'
     |>> Arguments
 
-  let pArguments = (many1 (pFunctionArg.>> clearCarry)) |>> Arguments
+  let pArguments =
+    (many1 ((attempt pFunctionArg <|> pDecltype) .>> clearCarry)) |>> Arguments
+
+  let pClone =
+    many (pchar '.'
+    >>. ((many1 ((satisfy Char.IsLower) <|> pchar '_')
+    |>> charListtoStr |>> Name)
+    <|> (pint32 |>> Num)
+    )) |>> Clone
 
   /// Template arguments.
   let pIarguments =
     saveandreturn (
-      (many1 ((pTemplateArg <|> pTempArgPack) .>> clearCarry))
+      (many1 ((attempt pTemplateArg <|> attempt scopeEncoding <|> pTempArgPack)
+      .>> clearCarry))
       |>> Arguments .>> clearCarry
     )
 
   let pFunctionRetArgs =
-    (attempt pTemplate <|> name <|> pNestedname <|> pOperator
-    <|> attempt (psxname) <|> pSxoperator)
-    >>= checkcarry >>= addTemplate .>> removelast .>> clearCarry
-    .>>. (pFunctionArg) .>>. (pArguments <|> preturn (Name ""))
-    |>> (fun ((a, b), c) -> (a, b, c))
+    many (scopeEncoding) .>>.
+    ((attempt pTemplate <|> attempt pABITag <|> (name >>= addtoNamelist)
+    <|> pNestedname
+    <|> pOperator <|> pCastOperator
+    <|> attempt (psxname) <|> attempt pSxoperator <|> pSxsubstitution)
+    >>= checkcarry >>= addTemplate .>> removelast .>> clearCarry)
+    .>>. (newsaveandreturn (pFunctionArg <|> pDecltype) <|> preturn (Name ""))
+    .>>. (pArguments <|> preturn (Name ""))
+    .>>. (pClone)
+    |>> (fun ((((a, b), c), d),e) -> (a, b, c, d, e))
     |>> Function
-
-  /// Parser for expression arguments.
-  let pSingleArgument =
-    (attempt pTemplate
-    <|> attempt (name)
-    <|> attempt (pchar 'L' >>. pchar '_' >>. pchar 'Z' >>. stmt .>> pchar 'E')
-    <|> attempt (pValue)
-    <|> (pLiteral)
-    <|> pUnaryExpr
-    <|> pBinaryExpr
-    <|> attempt (psxname)
-    <|> attempt (pSxoperator)
-    <|> attempt (pSxsubstitution)
-    <|> namebackrefS
-    <|> namebackrefT)
-    |>> SingleArg
-
-  let pSimpleOperator =
-    pOperator .>>. pArguments |>> SimpleOP
 
   /// Parser for all Sx abbreviation.
   let pStandard = (attempt (pSxsubstitution) <|> pSt) >>= updatecarry
@@ -268,71 +486,79 @@ type ItaniumParser () =
   /// Seperating beginning of nested name from rest. First name cannot be
   /// Constructor or Destructor.
   let pNestedBeginning =
-    (attempt pTemplate <|> attempt (pOperator) <|> name <|> namebackrefT)
+    (attempt pTemplate <|> (attempt pOperator .>> flagOff)
+    <|> (attempt pCastOperator .>> flagOff)
+    <|> (attempt pABITag .>> flagOff) <|> (name .>> flagOff)
+    <|> (pLambda .>> flagOff) <|> (pUnnamedType .>> flagOff) <|> (namebackrefT))
     >>= addtoNamelist
-    <|> attempt (pStandard) <|> (namebackrefS >>= updatecarry)
+    <|> (attempt pStandard .>> flagOff)
+    <|> (namebackrefS >>= updatecarry .>> flagOff)
 
   let nparse =
-    opt (many (pConstVolatile)) .>>. (pPointer)
+    attempt (opt (many (pConstVolatile))) .>>. (pPointer)
     |>> FunctionBegin
 
   do
     pTemplateref :=
     saveandreturn (
-      ((name <|> attempt (psxname) <|> pOperator <|> attempt pConsOrDes
-      <|> attempt (pSxoperator)) >>= addtoNamelist
-      <|> attempt (pSxsubstitution) <|> namebackrefS <|> namebackrefT)
-      .>> clearCarry .>> pchar 'I'
-      .>>. (pIarguments) .>> pchar 'E'
+      ((attempt pABITag <|> name <|> attempt psxname <|> pOperator
+      <|> attempt pSxoperator <|> attempt pConsOrDes) >>= addtoNamelist
+      <|> attempt pSxsubstitution <|> namebackrefS <|> (namebackrefT))
+      .>> clearCarry .>> pchar 'I' .>>. (pIarguments) .>> pchar 'E'
+      >>= checkBeginning
       |>> Template
     )
 
     pNestedNameref :=
-      pchar 'N'
-      >>. (pCVR <|> preturn (Name ""))
+      pchar 'N' >>. (pCVR <|> preturn (Name ""))
       .>>.
       (attempt (pNestedBeginning)
-      .>>. many (pNestedBeginning <|> (pConsOrDes >>= addtoNamelist)))
+      .>>. many (pNestedBeginning
+      <|> (pConsOrDes >>= addtoNamelist .>> flagOff)))
       .>> pchar 'E'
       |>> fun (a, (b, c)) -> (a, b :: c)
       |>> NestedName
 
-    pUnaryExprref :=
-      (pUOperator .>>. pSingleArgument)
-      |>> UnaryExpr
-
-    pBinaryExprref :=
-      ((pstring "sr" |>> OperatorIndicator.ofString |>> Operators)
-      .>>. ((pSingleArgument) >>= addtoNamelist) .>>. pSingleArgument)
-      <|>
-      (pBOperator .>>. pSingleArgument .>>. pSingleArgument)
-      |>> (fun ((a, b), c) -> (a, b, c))
-      |>> BinaryExpr
-
     pPointerArgref :=
       (pstring "P" .>>. (opt (pRCVqualifier <|> pCVqualifier)
-      ) .>>. (pNormalArg))
+      ) .>>. (pNormalArg <|> pLambda <|> pUnnamedType <|> pDecltype))
       |>> (fun ((a, b), c) -> (a, b, c)) |>> PointerArg >>= addargumenttolist
       .>> clearCarry
 
     pfuncref :=
-      (nparse <|> pReference) .>> pchar 'F' .>>. pFunctionArg
-      .>>. pArguments .>> pchar 'E' |>> (fun ((a, b), c) -> (a, b, c))
+      ((nparse <|> pReference) <|> preturn (Name "")) .>>. (opt pCVqualifier)
+      .>> pchar 'F'
+      .>>. pFunctionArg .>>. pArguments .>> pchar 'E'
+      |>> (fun (((a, b), c), d) -> (a, b, c, d))
       |>> FunctionPointer
       >>= addfunctionptolist .>> clearCarry
 
     prefArgref :=
-      pReferenceArg .>>. (pNormalArg <|> pfunc)
+      pReferenceArg .>>.
+      (attempt pNormalArg <|> pfunc <|> pLambda <|> pDecltype)
       |>> RefArg >>= addargumenttolist
 
+    pExpressionRef :=
+      attempt pBinaryExpr <|> attempt pUnaryExpr <|> attempt pCallExpr
+      <|> attempt pConversionOneArg <|> pDotExpr <|> pDotPointerExpr
+      <|> pConversionMoreArg <|> pCastingExpr <|> pTypeMeasure <|> pExprMeasure
+      <|> pExpressionArgPack
+
+    scopeEncodingref :=
+      pchar 'Z' >>.
+      (attempt pFunctionRetArgs <|> scopeEncoding <|> namebackrefS
+      <|> attempt pGuardVariable <|> pTransactionSafeFunc
+      <|> attempt pRTTiVirtualTable <|> pReferenceTemporary
+      <|> (attempt pVirtualThunk <|> attempt pVirtualThunkRet) <|> pTC
+      ) .>> pchar 'E' |>> Scope
+
     stmtref :=
-      attempt (pFunctionRetArgs)
-      <|> pNestedname
-      <|> attempt pTemplate
-      <|> pSimpleOperator
-      <|> name
-      <|> attempt (psxname)
-      <|> pSxsubstitution
+      attempt pGuardVariable
+      <|> pReferenceTemporary
+      <|> pTransactionSafeFunc <|> attempt pRTTiVirtualTable
+      <|> (attempt pVirtualThunk <|> attempt pVirtualThunkRet) <|> pTC
+      <|> attempt (pScope .>> pDiscard)
+      <|> attempt (pFunctionRetArgs)
 
   member __.Run str =
     runParserOnString (stmt) ItaniumUserState.Default "" str

@@ -28,7 +28,7 @@ namespace B2R2.NameMangling
 
 module ItaniumDemangler =
   let isItaniumMangled (str: string) =
-    str.Length > 2 && str.[0..1] = "_Z"
+    str.Length > 2 && str.[0 .. 1] = "_Z"
 
   let demangle (str: string) =
     let parser = ItaniumParser ()
