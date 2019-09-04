@@ -4113,6 +4113,39 @@ let vecTbl insInfo ctxt isVtbl =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
+let isImm = function
+  | Num _ -> true
+  | _ -> false
+
+let vectorCompare insInfo ctxt cmp =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, src1, src2 = transThreeOprs insInfo ctxt
+  let esize = 8 <<< getSize insInfo.SIMDTyp
+  let rtEsz = RegType.fromBitWidth esize
+  let elements = 64 / esize
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let src1 = extract src1 64<rt> (r * 64)
+    for e in 0 .. elements - 1 do
+      let src2 = if isImm src2 then num0 rtEsz
+                 else elem (extract src2 64<rt> (r * 64)) e esize
+      let testPassed = cmp (elem src1 e esize) src2
+      builder <! (elem rd e esize := ite testPassed (num1 rtEsz) (num0 rtEsz))
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let getCmp i unsigned signed = if isUnsigned i.SIMDTyp then unsigned else signed
+
+let vceq insInfo ctxt = vectorCompare insInfo ctxt (==)
+let vcge insInfo ctxt = vectorCompare insInfo ctxt (getCmp insInfo ge sge)
+let vcgt insInfo ctxt = vectorCompare insInfo ctxt (getCmp insInfo gt sgt)
+let vcle insInfo ctxt = vectorCompare insInfo ctxt (getCmp insInfo le sle)
+let vclt insInfo ctxt = vectorCompare insInfo ctxt (getCmp insInfo lt slt)
+
 /// Translate IR.
 let translate insInfo ctxt =
   match insInfo.Opcode with
@@ -4282,12 +4315,22 @@ let translate insInfo ctxt =
   | Op.VSHR -> vshr insInfo ctxt
   | Op.VTBL -> vecTbl insInfo ctxt true
   | Op.VTBX -> vecTbl insInfo ctxt false
-  | Op.VCMP -> sideEffects insInfo UnsupportedFP
-  | Op.VCEQ | Op.VCGT | Op.VCGE | Op.VCLE | Op.VCLT | Op.VTST
-  | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVT | Op.VCVTR | Op.VMLS
-  | Op.VDIV | Op.VRSHRN | Op.VORR | Op.VORN | Op.VCMPE
-  | Op.VST2 | Op.VST3 | Op.VST4 | Op.VLD2 | Op.VLD3 | Op.VLD4 ->
-    sideEffects insInfo UnsupportedExtension
+  | Op.VCMP | Op.VCMPE | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT
+  | Op.VCVT | Op.VCVTR
+  | Op.VDIV -> sideEffects insInfo UnsupportedFP
+  | Op.VCEQ | Op.VCGE | Op.VCGT | Op.VCLE | Op.VCLT
+    when isF32orF64 insInfo.SIMDTyp -> sideEffects insInfo UnsupportedFP
+  | Op.VCEQ -> vceq insInfo ctxt
+  | Op.VCGE -> vcge insInfo ctxt
+  | Op.VCGT -> vcgt insInfo ctxt
+  | Op.VCLE -> vcle insInfo ctxt
+  | Op.VCLT -> vclt insInfo ctxt
+  | Op.VTST
+  | Op.VRSHRN
+  | Op.VORR
+  | Op.VORN
+  | Op.VST2 | Op.VST3 | Op.VST4
+  | Op.VLD2 | Op.VLD3 | Op.VLD4 -> sideEffects insInfo UnsupportedExtension
   | Op.DMB | Op.DSB | Op.ISB | Op.PLD -> nop insInfo
   | o -> eprintfn "%A" o
          raise <| NotImplementedIRException (Disasm.opCodeToString o)
