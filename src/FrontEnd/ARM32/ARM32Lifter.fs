@@ -4183,6 +4183,71 @@ let vrshrn insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
+let vorrReg insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, rm = transThreeOprs insInfo ctxt
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    let reg expr = extract expr 64<rt> (r * 64)
+    builder <! (reg rd := reg rn .| reg rm)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let vorrImm insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, imm = transTwoOprs insInfo ctxt
+  let imm = concat imm imm // FIXME: A8-975
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    builder <! (extract rd 64<rt> (r * 64) := extract rd 64<rt> (r * 64) .| imm)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let vorr insInfo ctxt =
+  match insInfo.Operands with
+  | ThreeOperands _ -> vorrReg insInfo ctxt
+  | TwoOperands _ -> vorrImm insInfo ctxt
+  | _ -> raise InvalidOperandException
+
+let vornReg insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, rm = transThreeOprs insInfo ctxt
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    let reg expr = extract expr 64<rt> (r * 64)
+    builder <! (reg rd := reg rn .| (not <| reg rm))
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let vornImm insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, imm = transTwoOprs insInfo ctxt
+  let imm = concat imm imm // FIXME: A8-975
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    builder <!
+      (extract rd 64<rt> (r * 64) := extract rd 64<rt> (r * 64) .| not imm)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let vorn insInfo ctxt =
+  match insInfo.Operands with
+  | ThreeOperands _ -> vornReg insInfo ctxt
+  | TwoOperands _ -> vornImm insInfo ctxt
+  | _ -> raise InvalidOperandException
+
 /// Translate IR.
 let translate insInfo ctxt =
   match insInfo.Opcode with
@@ -4364,8 +4429,8 @@ let translate insInfo ctxt =
   | Op.VCLT -> vclt insInfo ctxt
   | Op.VTST -> vtst insInfo ctxt
   | Op.VRSHRN -> vrshrn insInfo ctxt
-  | Op.VORR
-  | Op.VORN
+  | Op.VORR -> vorr insInfo ctxt
+  | Op.VORN -> vorn insInfo ctxt
   | Op.VST2 | Op.VST3 | Op.VST4
   | Op.VLD2 | Op.VLD3 | Op.VLD4 -> sideEffects insInfo UnsupportedExtension
   | Op.DMB | Op.DSB | Op.ISB | Op.PLD -> nop insInfo
