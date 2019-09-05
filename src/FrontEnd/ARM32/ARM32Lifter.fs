@@ -4166,6 +4166,23 @@ let vtst insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
+let vrshrn insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rm, imm = transThreeOprs insInfo ctxt
+  let esize = 8 <<< getSizeStartFromI16 insInfo.SIMDTyp
+  let rtEsz = RegType.fromBitWidth esize
+  let imm = zExt (rtEsz * 2) imm
+  let elements = 64 / esize
+  let roundConst = num1 (rtEsz * 2) << (imm .- num1 (rtEsz * 2))
+  for e in 0 .. elements - 1 do
+    let result = (elem rm e (2 * esize) .+ roundConst) >> imm
+    builder <! (elem rd e esize := extractLow rtEsz result)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
 /// Translate IR.
 let translate insInfo ctxt =
   match insInfo.Opcode with
@@ -4346,7 +4363,7 @@ let translate insInfo ctxt =
   | Op.VCLE -> vcle insInfo ctxt
   | Op.VCLT -> vclt insInfo ctxt
   | Op.VTST -> vtst insInfo ctxt
-  | Op.VRSHRN
+  | Op.VRSHRN -> vrshrn insInfo ctxt
   | Op.VORR
   | Op.VORN
   | Op.VST2 | Op.VST3 | Op.VST4
