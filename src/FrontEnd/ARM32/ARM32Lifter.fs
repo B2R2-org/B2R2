@@ -4146,6 +4146,26 @@ let vcgt insInfo ctxt = vectorCompare insInfo ctxt (getCmp insInfo gt sgt)
 let vcle insInfo ctxt = vectorCompare insInfo ctxt (getCmp insInfo le sle)
 let vclt insInfo ctxt = vectorCompare insInfo ctxt (getCmp insInfo lt slt)
 
+let vtst insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, rm = transThreeOprs insInfo ctxt
+  let esize = 8 <<< getSize insInfo.SIMDTyp
+  let rtEsz = RegType.fromBitWidth esize
+  let elements = 64 / esize
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rn = extract rn 64<rt> (r * 64)
+    let rm = extract rm 64<rt> (r * 64)
+    for e in 0 .. elements - 1 do
+      let cond = (elem rn e esize .& elem rm e esize) != num0 rtEsz
+      builder <! (elem rd e esize := ite cond (num1 rtEsz) (num0 rtEsz))
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
 /// Translate IR.
 let translate insInfo ctxt =
   match insInfo.Opcode with
@@ -4325,7 +4345,7 @@ let translate insInfo ctxt =
   | Op.VCGT -> vcgt insInfo ctxt
   | Op.VCLE -> vcle insInfo ctxt
   | Op.VCLT -> vclt insInfo ctxt
-  | Op.VTST
+  | Op.VTST -> vtst insInfo ctxt
   | Op.VRSHRN
   | Op.VORR
   | Op.VORN
