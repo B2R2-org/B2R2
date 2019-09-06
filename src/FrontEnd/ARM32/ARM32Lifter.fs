@@ -4248,6 +4248,79 @@ let vorn insInfo ctxt =
   | TwoOperands _ -> vornImm insInfo ctxt
   | _ -> raise InvalidOperandException
 
+let vst2Multi insInfo ctxt =
+  let builder = new StmtBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let regList = parseDstList insInfo.Operands |> List.map (getRegVar ctxt)
+  let rn, rm = getRnAndRm ctxt insInfo.Operands
+  let regs = getRegs insInfo.Operands / 2
+  let size = getSize insInfo.SIMDTyp
+  let ebytes = 1 <<< size
+  let esize = ebytes * 8
+  let rtEsz = RegType.fromBitWidth esize
+  let elements = 8 / ebytes
+  let regIdx = registerIndex insInfo.Operands
+  let updateRn rn =
+    let rmOrTransSz =
+      if regIdx then rm.Value else num <| BitVector.ofInt32 (16 * regs) 32<rt>
+    if insInfo.WriteBack.Value then rn .+ rmOrTransSz else rn
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn rn)
+  for r in 0 .. (regs - 1) do
+    let rd1 = regList.[r * 2]
+    let rd2 = regList.[r * 2 + 1]
+    for e in 0 .. (elements - 1) do
+      let mem1 = loadLE rtEsz addr
+      let mem2 = loadLE rtEsz (addr .+ (num <| BitVector.ofInt32 ebytes 32<rt>))
+      builder <! (mem1 := elem rd1 e esize)
+      builder <! (mem2 := elem rd2 e esize)
+      builder <! (addr := addr .+ (num (BitVector.ofInt32 (2 * ebytes) 32<rt>)))
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let getScalars insInfo ctxt =
+  match insInfo.Operands with
+  | TwoOperands (OprSIMD (TwoRegs (Scalar (d1, _), Scalar (d2, _))), _) ->
+    [ getRegVar ctxt d1; getRegVar ctxt d2 ]
+  | _ -> raise InvalidOperandException
+
+let vst2Single insInfo ctxt index =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rdList = getScalars insInfo ctxt
+  let rn, rm = getRnAndRm ctxt insInfo.Operands
+  let ebytes = getEbytesBySize insInfo.SIMDTyp
+  let esize = ebytes * 8
+  let regIdx = registerIndex insInfo.Operands
+  let updateRn rn =
+    let rmOrTransSz =
+      if regIdx then rm.Value else num <| BitVector.ofInt32 (16 * ebytes) 32<rt>
+    if insInfo.WriteBack.Value then rn .+ rmOrTransSz else rn
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn rn)
+  let mem1 = loadLE (RegType.fromBitWidth esize) addr
+  let mem2 = loadLE (RegType.fromBitWidth esize) addr
+  builder <! (mem1 := elem rdList.[0] index esize)
+  builder <! (mem2 := elem rdList.[1] index esize)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let vst2 insInfo ctxt =
+  match insInfo.Operands with
+  | TwoOperands (OprSIMD (TwoRegs (Scalar (_, Some index), _)), _) ->
+    vst2Single insInfo ctxt (int32 index)
+  | TwoOperands (OprSIMD (OneReg _), _)
+  | TwoOperands (OprSIMD (TwoRegs _), _)
+  | TwoOperands (OprSIMD (ThreeRegs _), _)
+  | TwoOperands (OprSIMD (FourRegs _), _) -> vst2Multi insInfo ctxt
+  | _ -> raise InvalidOperandException
+
 /// Translate IR.
 let translate insInfo ctxt =
   match insInfo.Opcode with
@@ -4431,7 +4504,8 @@ let translate insInfo ctxt =
   | Op.VRSHRN -> vrshrn insInfo ctxt
   | Op.VORR -> vorr insInfo ctxt
   | Op.VORN -> vorn insInfo ctxt
-  | Op.VST2 | Op.VST3 | Op.VST4
+  | Op.VST2 -> vst2 insInfo ctxt
+  | Op.VST3 | Op.VST4
   | Op.VLD2 | Op.VLD3 | Op.VLD4 -> sideEffects insInfo UnsupportedExtension
   | Op.DMB | Op.DSB | Op.ISB | Op.PLD -> nop insInfo
   | o -> eprintfn "%A" o
