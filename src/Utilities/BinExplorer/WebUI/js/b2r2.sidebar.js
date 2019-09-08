@@ -26,138 +26,143 @@
   SOFTWARE.
 */
 
-function Sidebar() {
-  $(document).on("click", ".comment-function", function () {
-    $icon = $(this).find(".comment-arrow")
-    if ($icon.hasClass("fa-caret-right")) {
-      $icon.removeClass("fa-caret-right");
-      $icon.addClass("fa-caret-down");
-      $icon.closest(".comment-section").find(".comment-list").show();
-    } else {
-      $icon.removeClass("fa-caret-down");
-      $icon.addClass("fa-caret-right");
-      $icon.closest(".comment-section").find(".comment-list").hide();
-    }
-  });
-
-  $(document).on("click", ".sidebar-item", function () {
-    function show(wrapper) {
-      $(".sidebar-content > .sidebar-content-item").hide();
-      $(".sidebar-content > .sidebar-content-wide-item").hide();
-      Terminal().deleteTerminal();
-      $(wrapper).show();
-    }
-    $(".sidebar-item.active").removeClass("active");
-    $(this).addClass("active");
-    switch ($(this).attr("title")) {
-      case "Functions":
-        show("#id_FunctionsListWrapper");
-        break
-      case "Comments":
-        show("#id_CommentsListWrapper");
-        Sidebar().setSidebarComments();
-        break;
-      case "Call Graph":
-        show("#id_CallGraphWrapper");
-        break;
-      case "Terminal":
-        show("#id_TerminalWrapper");
-        Terminal().setTerminal(500);
-        break;
-      default:
-        break;
-    }
-  });
-
-  function templeteSidebarComment(id, addr, comment) {
-    let item = "";
-    item += "<div class='comment-content' target='#" + id + "' title='" + addr + "'>";
-    item += "<small class='comment-memory'>" + addr + "</small>";
-    item += "<div class='comment-summary'> # " + comment + "</div>";
-    item += "</div>";
-    return item;
+class SideBarItem {
+  constructor(d) {
+    this.icon = d.icon;
+    this.id = d.id;
+    this.contentid = d.contentid;
+    this.name = d.name;
+    this.active = d.active;
   }
 
-  function templateSidebarCommentList(funcName) {
-    let tab_id = $("#id_tabContainer li[title=" + funcName + "]").attr("counter");
-    let $gComments = $("#cfgGrp-" + tab_id + " g.gComment");
-    let item = "<div class='comment-section' value='" + funcName + "'>";
-    item += "<div class='comment-function'>"
-    item += "<i style='width: 10px' class='comment-arrow fas fa-caret-down'></i>";
-    item += funcName;
-    item += "</div>";
-    item += "<div class='comment-list'>"
-    for (let i = 0; i < $gComments.length; i++) {
-      let $gComment = $($gComments[i]);
-      let id = $gComment.attr("id");
-      item += templeteSidebarComment(id, $gComment.parent().find(".stmt").text().split(" ")[0],
-        $gComment.parent().find(".commentText").text());
+  open() {
+    $(this.contentid).show();
+    this.active = true;
+    $(this.id).addClass("active");
+  }
+
+  addWindow(dims, newDocument, num) {
+    const minimapid = "#minimap-" + num;
+    const cfgid = "#cfg-" + num;
+
+    if ($(newDocument).find(minimapid).length == 0) {
+      const miniMapTemplate = String.format(b2r2.R.miniMapTemplate, num);
+      $(newDocument).find("#id_new-minimap-div").append(miniMapTemplate);
     }
-    item += "</div>";
-    item += "</div>";
-
-    return item;
-  }
-
-  function setSidebarComments() {
-    $("#id_CommentList").empty();
-    let tablist = $("#id_tabContainer li");
-    let item = "";
-    for (let i = 0; i < tablist.length; i++) {
-      let tab = tablist[i];
-      item += templateSidebarCommentList($(tab).attr("title"));
+    if ($(newDocument).find(cfgid).length == 0) {
+      const graphDivTemplate = String.format(b2r2.R.graphDivTemplate, num);
+      $(newDocument).find("#id_new-graph-container").append(graphDivTemplate);
     }
-    $("#id_CommentList").append(item);
+
+    // minimize the new minimap when it is minimized.
+    if ($(newDocument).find("#id_new-minimap-div").hasClass("active")) {
+      d3.select(newDocument).select(minimapid)
+        .style("border", "unset")
+        .style("height", "0")
+    }
+
+    d3.select(newDocument).select(cfgid)
+      .attr("width", dims.cfgVPDim.width)
+      .attr("height", dims.cfgVPDim.height)
   }
 
-  function addComment(funcName, addr, comment) {
-    let item = "<div class='comment-list'>";
-    item += "<div class='comment-content' title='" + addr + "'>";
-    item += "<small class='comment-memory'>" + addr + "</small>";
-    item += "<div class='comment-summary'> # " + comment + "</div>";
-    item += "</div>";
-    item += "</div>";
-    $("#id_CommentList .comment-section[value='" + funcName + "']").append(item);
-  }
-  return {
-    setSidebarComments: setSidebarComments,
-    addComment: addComment
-  }
-}
-
-function resizeSidebar(callback) {
-  const minimum_size = 100;
-  const resizer = document.getElementById("id_resize-sidebar");
-  const element = document.getElementById("id_sidebar-content");
-  let original_mouse_x = 0;
-  let original_width = 0;
-  resizer.addEventListener('mousedown', function (e) {
-    e.preventDefault();
-    original_width = parseFloat(getComputedStyle(element, null).getPropertyValue('width').replace('px', ''));
-    original_mouse_x = e.pageX;
-    window.addEventListener('mousemove', resize);
-    window.addEventListener('mouseup', stopResize);
-  });
-  function resize(e) {
-    const width = original_width + (e.pageX - original_mouse_x);
-    if (width > minimum_size) {
-      element.style.width = width + 'px';
-      element.style.minWidth = width + 'px';
-      element.style.maxWidth = width + 'px';
-      $(".sidebar-content-item").each(function () {
-        $(this).css("max-width", width);
-        $(this).css("min-width", width);
-        $(this).css("width", width);
-        callback();
+  openWindow() {
+    const self = this;
+    let newWindow = window.open("", "popup", 'height=800,width=1200,toolbar=no');
+    newWindow.document.write(String.format(b2r2.R.newWindowHeadTemplate, "Call Graph"));
+    newWindow.document.write(String.format(b2r2.R.newWindowTemplate, "new", 11));
+    let funcName;
+    if (funcName == undefined || funcName == "") {
+      funcName = $("#funcSelector li:first").text();
+    }
+    query({
+      "q": "cfg-CG",
+      "args": funcName
+    },
+      function (status, json) {
+        if (Object.keys(json).length > 0) {
+          let dims = reloadUI({
+            document: newWindow.document,
+            graphContainerId: "#id_new-graph-container",
+            mainContainerId: "#id_new-main-container",
+            tabContainerId: ""
+          });
+          self.addWindow(dims, newWindow.document, 11);
+          let tabtemp = 11;
+          let g = new FlowGraph({
+            document: newWindow.document,
+            graphContainer: "#id_new-graph-container",
+            minimapContainer: "#id_new-minimap-div",
+            tab: tabtemp,
+            newWindow: true,
+            cfg: "#cfg-" + tabtemp,
+            stage: "#cfgStage-" + tabtemp,
+            group: "#cfgGrp-" + tabtemp,
+            minimap: "#minimap-" + tabtemp,
+            minimapStage: "#minimapStage-" + tabtemp,
+            minimapViewPort: "#minimapVP-" + tabtemp
+          });
+          g.drawGraph(dims, json, true);
+          let autoComplete = new AutoComlete({
+            document: newWindow.document,
+            id: "#id_new-autocomplete-list",
+            inputid: "#id_new-address-search"
+          });
+          autoComplete.registerEvents();
+          autoComplete.reload(g, json);
+        }
       });
-    }
   }
-  function stopResize() {
-    window.removeEventListener('mousemove', resize);
+
+  close() {
+    $(this.contentid).hide();
+    this.active = false;
+    $(this.id).removeClass("active");
   }
-  return {
-    resizeSidebar: resizeSidebar
+
+  registerEvents() {
+
   }
 }
 
-Sidebar();
+class SideBar {
+  constructor(d) {
+    this.items = d.items;
+  }
+
+  add(item) {
+    this.items.push(item);
+  }
+
+  open(id) {
+    if (id === "#id_sidebar-callgraph")
+      return;
+    for (let k in this.items) {
+      if (this.items[k].id === id) {
+        this.items[k].open();
+      } else {
+        this.items[k].close();
+      }
+    }
+  }
+
+  get(id) {
+    for (let k in this.items) {
+      if (this.items[k].id === id) {
+        return this.items[k];
+      }
+    }
+  }
+
+  registerEvents() {
+    const self = this;
+    $(document).on("click", ".sidebar-item", function () {
+      let id = $(this).attr("id");
+      if (id === "id_sidebar-callgraph") {
+        self.get("#" + id).openWindow();
+      } else {
+        self.open("#" + id);
+      }
+    });
+  }
+}
