@@ -942,13 +942,17 @@ let add isSetFlags insInfo ctxt =
 /// function : Align()
 let align e1 e2 = e2 .* (e1 ./ e2)
 
+let pcOffset insInfo =
+  if insInfo.Mode = ArchOperationMode.ARMMode then 8UL else 4UL
+
 let transLableOprsOfBL insInfo targetMode imm =
+  let offset = pcOffset insInfo
   let pc =
     match targetMode with
     | ArchOperationMode.ARMMode ->
-      let addr = bvOfBaseAddr (insInfo.Address + 8UL)
+      let addr = bvOfBaseAddr (insInfo.Address + offset)
       align addr (num (BitVector.ofInt32 4 32<rt>))
-    | ArchOperationMode.ThumbMode -> bvOfBaseAddr (insInfo.Address + 4UL)
+    | ArchOperationMode.ThumbMode -> bvOfBaseAddr (insInfo.Address + offset)
     | _ -> raise InvalidTargetArchModeException
   pc .+ (num <| BitVector.ofInt64 imm 32<rt>)
 
@@ -978,7 +982,7 @@ let bl insInfo ctxt =
   else builder <! (lr := maskAndOR retAddr (num1 32<rt>) 32<rt> 1)
   selectInstrSet ctxt builder targetMode
   builder <! (branchWritePC ctxt insInfo alignedAddr InterJmpInfo.IsCall)
-  putEndLabel ctxt lblIgnore isUnconditional None builder
+  putEndLabel ctxt lblIgnore isUnconditional (Some insInfo) builder
   endMark insInfo builder
 
 let blxWithReg insInfo reg ctxt =
@@ -994,7 +998,7 @@ let blxWithReg insInfo reg ctxt =
     let addr = addr .+ (num <| BitVector.ofInt32 2 32<rt>)
     builder <! (lr := maskAndOR addr (num1 32<rt>) 32<rt> 1)
   bxWritePC ctxt isUnconditional (getRegVar ctxt reg) builder
-  putEndLabel ctxt lblIgnore isUnconditional None builder
+  putEndLabel ctxt lblIgnore isUnconditional (Some insInfo) builder
   endMark insInfo builder
 
 let branchWithLink insInfo ctxt =
@@ -1986,10 +1990,10 @@ let smulacchalf insInfo ctxt s1top s2top =
   endMark insInfo builder
 
 let parseOprOfB insInfo =
-  let pc = bvOfBaseAddr insInfo.Address
+  let addr = bvOfBaseAddr (insInfo.Address + pcOffset insInfo)
   match insInfo.Operands with
   | OneOperand (OprMemory (LiteralMode imm)) ->
-    pc .+ (num <| BitVector.ofInt64 imm 32<rt>)
+    addr .+ (num <| BitVector.ofInt64 imm 32<rt>)
   | _ -> raise InvalidOperandException
 
 let b insInfo ctxt =
@@ -2422,9 +2426,10 @@ let stm opcode insInfo ctxt wbop =
 
 let parseOprOfCBZ insInfo ctxt =
   let pc = bvOfBaseAddr insInfo.Address
+  let offset = pcOffset insInfo |> int64
   match insInfo.Operands with
   | TwoOperands (OprReg rn, (OprMemory (LiteralMode imm))) ->
-    getRegVar ctxt rn, pc .+ (num <| BitVector.ofInt64 imm 32<rt>)
+    getRegVar ctxt rn, pc .+ (num <| BitVector.ofInt64 (imm + offset) 32<rt>)
   | _ -> raise InvalidOperandException
 
 let cbz nonZero insInfo ctxt =
@@ -2441,7 +2446,10 @@ let cbz nonZero insInfo ctxt =
   builder <! (LMark lblL0)
   builder <! (branchWritePC ctxt insInfo pc InterJmpInfo.Base)
   builder <! (LMark lblL1)
-  putEndLabel ctxt lblIgnore isUnconditional None builder
+  let fallAddr = insInfo.Address + uint64 insInfo.NumBytes
+  let fallAddrExp = BitVector.ofUInt64 fallAddr 32<rt> |> num
+  builder <! (InterJmp (getPC ctxt, fallAddrExp, InterJmpInfo.Base))
+  putEndLabel ctxt lblIgnore isUnconditional (Some insInfo) builder
   endMark insInfo builder
 
 let parseOprOfTableBranch insInfo ctxt =

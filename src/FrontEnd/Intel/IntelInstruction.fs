@@ -131,10 +131,12 @@ type IntelInstruction (addr, numBytes, insInfo, wordSize) =
   member private __.AddBranchTargetIfExist addrs =
     match __.DirectBranchTarget () |> Utils.tupleToOpt with
     | None -> addrs
-    | Some target -> Seq.singleton target |> Seq.append addrs
+    | Some target ->
+      Seq.singleton (target, ArchOperationMode.NoMode) |> Seq.append addrs
 
   override __.GetNextInstrAddrs () =
-    let acc = Seq.singleton (__.Address + uint64 __.Length)
+    let acc =
+      Seq.singleton (__.Address + uint64 __.Length, ArchOperationMode.NoMode)
     if __.IsCall () then acc |> __.AddBranchTargetIfExist
     elif __.IsDirectBranch () || __.IsIndirectBranch () then
       if __.IsCondBranch () then acc |> __.AddBranchTargetIfExist

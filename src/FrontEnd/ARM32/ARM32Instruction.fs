@@ -37,8 +37,17 @@ type ARM32Instruction (addr, numBytes, insInfo) =
 
   override __.IsBranch () =
     match __.Info.Opcode with
-    | Op.B | Op.CBNZ | Op.CBZ | Op.BL | Op.BLX | Op.BX | Op.BXJ | Op.TBB
-    | Op.TBH -> true
+    | Op.B | Op.BL | Op.BLX | Op.BX | Op.BXJ
+    | Op.CBNZ | Op.CBZ
+    | Op.TBB | Op.TBH -> true
+    | Op.LDR ->
+      match __.Info.Operands with
+      | TwoOperands (OprReg R.PC, _) -> true
+      | _ -> false
+    | Op.POP ->
+      match __.Info.Operands with
+      | OneOperand (OprRegList regs) -> List.contains R.PC regs
+      | _ -> false
     | _ -> false
 
   member __.HasConcJmpTarget () =
@@ -94,8 +103,12 @@ type ARM32Instruction (addr, numBytes, insInfo) =
   override __.DirectBranchTarget (addr: byref<Addr>) =
     if __.IsBranch () then
       match __.Info.Operands with
-      | OneOperand (OprMemory (LiteralMode offset)) ->
-        addr <- ((int64 __.Address + offset + 8L) &&& 0xFFFFFFFFL) |> uint64
+      | OneOperand (OprMemory (LiteralMode target)) ->
+        (* The PC value of an instruction is its address plus 4 for a Thumb
+           instruction, or plus 8 for an ARM instruction. *)
+        let offset = if __.Info.Mode = ArchOperationMode.ARMMode then 8L else 4L
+        let pc = (int64 __.Address + offset) / 4L * 4L (* Align by 4 *)
+        addr <- ((pc + target) &&& 0xFFFFFFFFL) |> uint64
         true
       | _ -> false
     else false
@@ -103,13 +116,23 @@ type ARM32Instruction (addr, numBytes, insInfo) =
   override __.IndirectTrampolineAddr (_: byref<Addr>) =
     false
 
+  member private __.GetNextMode () =
+    match __.Info.Opcode with
+    | Opcode.BLX
+    | Opcode.BX ->
+      if __.Info.Mode = ArchOperationMode.ARMMode then
+        ArchOperationMode.ThumbMode
+      else ArchOperationMode.ARMMode
+    | _ -> __.Info.Mode
+
   member private __.AddBranchTargetIfExist addrs =
     match __.DirectBranchTarget () |> Utils.tupleToOpt with
     | None -> addrs
-    | Some target -> Seq.singleton target |> Seq.append addrs
+    | Some target ->
+      Seq.singleton (target, __.GetNextMode ()) |> Seq.append addrs
 
   override __.GetNextInstrAddrs () =
-    let acc = Seq.singleton (__.Address + uint64 __.Length)
+    let acc = Seq.singleton (__.Address + uint64 __.Length, __.Info.Mode)
     if __.IsCall () then acc |> __.AddBranchTargetIfExist
     elif __.IsBranch () then
       if __.IsCondBranch () then acc |> __.AddBranchTargetIfExist
