@@ -24,17 +24,24 @@
     </div>
     <div class="nav-right">
       <div class="nav-item-search">
-        <input id="id-input_address" type="text" onkeypress="onKeyPressSearchAddress();" placeholder="Goto Address">
-        <i class="fas fa-search" onclick="onClickSearchAddress();"></i>
+        <input id="id-input_address" type="text" placeholder="Goto Address">
+        <i class="fas fa-search"></i>
       </div>
-      <div class ="nav-item dropdown nav-cfg-chooser">
-        <button class="cfgChooserBtn dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+      <div class="nav-item dropdown nav-cfg-chooser">
+        <button class="cfgChooserBtn dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true"
+          aria-expanded="true">
           CFG Kind<span class="caret"></span>
         </button>
         <ul class="dropdown-menu" id="cfgChooser">
-          <li><div class="dropdown-item"><a href="#" data-value="Disasm">Disasm</a></div></li>
-          <li><div class="dropdown-item"><a href="#" data-value="LowUIR">LowUIR</a></div></li>
-          <li><div class="dropdown-item"><a href="#" data-value="SSA">SSA</a></div></li>
+          <li>
+            <div class="dropdown-item"><a href="#" data-value="Disasm">Disasm</a></div>
+          </li>
+          <li>
+            <div class="dropdown-item"><a href="#" data-value="LowUIR">LowUIR</a></div>
+          </li>
+          <li>
+            <div class="dropdown-item"><a href="#" data-value="SSA">SSA</a></div>
+          </li>
         </ul>
       </div>
       <div class="nav-item nav-fixed-width">
@@ -80,29 +87,26 @@
     </div>
   </div>
   <input id="cfgFile" type="file" name="" style="display: none;" />
-  <div id="id_MainContainer" class="main-container" class="ui-widget-content">
+  <div id="id_mainContainer" class="main-container" class="ui-widget-content">
     <div class="sidebar-menu">
-      <div class="sidebar-item active" title="Functions"><i class="fas fa-list"></i></div>
-      <div class="sidebar-item" title="Comments"><i class="fas fa-comment-dots"></i></div>
-      <div class="sidebar-item" title="Call Graph"><i class="fas fa-project-diagram"></i></div>
-      <div class="sidebar-item" title="Terminal"><i class="fas fa-terminal"></i></div>
+      <div class="sidebar-item active" id="id_sidebar-functions" title="Functions"><i class="fas fa-list"></i></div>
+      <!-- <div class="sidebar-item" id="id_sidebar_comment" title="Comments"><i class="fas fa-comment-dots"></i></div> -->
+      <div class="sidebar-item" id="id_sidebar-callgraph" title="Call Graph"><i class="fas fa-project-diagram"></i>
+      </div>
+      <div class="sidebar-item" id="id_sidebar-terminal" title="Terminal"><i class="fas fa-terminal"></i></div>
     </div>
     <div id="id_sidebar-content" class="sidebar-content">
-      <div class="sidebar-content-item" style="display:block;" id="id_FunctionsListWrapper">
+      <div class="sidebar-content-item" style="display:block;" id="id_functions-wrapper">
         <input id="id_funcFilter" placeholder="Function filter" />
-        <div id="id_FunctionsList">
+        <div id="id_functions">
           <ul id="funcSelector"></ul>
         </div>
       </div>
-      <div class="sidebar-content-item" style="display:none;" id="id_CommentsListWrapper">
+      <!-- <div class="sidebar-content-item" style="display:none;" id="id_comment-wrapper">
         <div id="id_CommentList">
         </div>
-      </div>
-      <div class="sidebar-content-item" style="display:block;" id="id_CallGraphWrapper">
-        <div id="id_CallGraph">
-        </div>
-      </div>
-      <div class="sidebar-content-wide-item" style="display: none;" id="id_TerminalWrapper">
+      </div> -->
+      <div class="sidebar-content-wide-item" style="display: none;" id="id_terminal-wrapper">
         <div id="id_cmdContainer">
           <div id="id_content" class=""></div>
           <div class="command-container">
@@ -121,7 +125,7 @@
       <div id="id_graphContainer">
         <var id="id_event-trigger"></var>
       </div>
-      <div id="minimapDiv">
+      <div class="minimap-container" id="minimapDiv">
         <span title="Move minimap" class="move-minimap glyphicon glyphicon-move"></span>
         <span title="Minimize minimap"
           class="resize-minimap minimize-minimap glyphicon glyphicon-triangle-bottom"></span>
@@ -165,13 +169,22 @@
   <script src="js/d3.min.js"></script>
   <script src="js/jquery.min.js"></script>
   <script src="js/bootstrap.min.js"></script>
-  <script src="js/b2r2.util.js"></script>
-  <script src="js/b2r2.tab.js"></script>
+  <!-- <script src="js/b2r2.util.js"></script>
   <script src="js/b2r2.autocomplete.js"></script>
   <script src="js/b2r2.sidebar.js"></script>
   <script src="js/b2r2.comment.js"></script>
   <script src="js/b2r2.graph.js"></script>
   <script src="js/b2r2.contextmenu.js"></script>
+  <script src="js/b2r2.terminal.js"></script>
+  <script src="js/b2r2.js"></script> -->
+  <script src="js/b2r2.resource.js"></script>
+  <script src="js/b2r2.util.js"></script>
+  <script src="js/b2r2.navbar.js"></script>
+  <script src="js/b2r2.tab.js"></script>
+  <script src="js/b2r2.sidebar.js"></script>
+  <script src="js/b2r2.autocomplete.js"></script>
+  <script src="js/b2r2.graph.js"></script>
+  <script src="js/b2r2.functionList.js"></script>
   <script src="js/b2r2.terminal.js"></script>
   <script src="js/b2r2.js"></script>
 </body>

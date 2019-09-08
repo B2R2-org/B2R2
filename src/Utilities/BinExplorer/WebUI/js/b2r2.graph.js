@@ -27,731 +27,741 @@
 */
 
 // Set the bottom margin of the entire UI
-var bottomMargin = 10;
+const bottomMargin = 10;
 
 // Set the right margin of the entire UI
-var rightMargin = 10;
+const rightMargin = 10;
 
 // Set the ratio between the CFG VP and the minimap VP.
-var minimapRatio = 0.4;
+const minimapRatio = 0.4;
 
 // Set the padding size for each CFG node.
-var padding = 4;
+const padding = 4;
 
 // Node border thickness.
-var nodeBorderThickness = 1.5;
+const nodeBorderThickness = 1.5;
 
 // Edge thickness.
-var edgeThickness = 3;
+const edgeThickness = 3;
 
 // The duration time for zooming when both nodes and edges are double clicked.
-var focusMovementDuration = 750;
+const focusMovementDuration = 750;
 
-function initMarker(defs, name) {
-  let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
-  defs.append("marker")
-    .attr("id", name + "-" + currentTabNumber).attr("class", name)
-    .attr("markerWidth", 3)
-    .attr("markerHeight", 3)
-    .attr("markerUnits", "strokeWidth")
-    .attr("viewBox", "-5 -5 10 10")
-    .attr("refX", 5)
-    .attr("refY", 0)
-    .attr("orient", "auto")
-    .append("path")
-    .attr("d", "M 0,0 m -5,-5 L 5,0 L -5,5 Z");
-}
+const nodePaddingTop = 3;
 
-function initSVG() {
-  let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
-  // Clear up the existing elements.
-  $("#cfg-" + currentTabNumber).empty();
-  $("#minimap-" + currentTabNumber).empty();
-  // Create a top layer for drawing a CFG on the main window.
-  d3.select("svg#cfg-" + currentTabNumber).append("g").attr("id", "cfgStage-" + currentTabNumber)
-    .attr("transform", "scale (1)");
+const minimapMarginRight = 20;
 
-  // Create the main group for a CFG. This is to easily maintain the
-  // coordinates of the main graph.
-  d3.select("g#cfgStage-" + currentTabNumber).append("g").attr("id", "cfgGrp-" + currentTabNumber);
+class NodeLine {
+  constructor(d) {
+    this.graphinfo = d.graphinfo;
+    this.text = d.text;
+    this.class = d.class;
+    this.id = d.id;
+    this.idx = d.idx;
+    this.node = d.node;
+    this.terms = d.terms;
+    this.y = d.y;
+    this.idNum = d.idNum;
+    this.comment = d.comment;
+    this.width = d.width;
+  }
+  init() {
 
-  // Several definitions to use to draw a CFG.
-  let defs = d3.select("g#cfgGrp-" + currentTabNumber).append("defs");
-  initMarker(defs, "cfgInterJmpEdgeArrow");
-  initMarker(defs, "cfgInterCJmpTrueEdgeArrow");
-  initMarker(defs, "cfgInterCJmpFalseEdgeArrow");
-  initMarker(defs, "cfgIntraJmpEdgeArrow");
-  initMarker(defs, "cfgIntraCJmpTrueEdgeArrow");
-  initMarker(defs, "cfgIntraCJmpFalseEdgeArrow");
-  initMarker(defs, "cfgFallThroughEdgeArrow");
-  initMarker(defs, "cfgCallEdgeArrow");
-  initMarker(defs, "cfgRetEdgeArrow");
+  }
 
-  // Add filters.
-  defs.append("filter").attr("id", "cfgBlur")
-    .append("feGaussianBlur").attr("stdDeviation", 2);
+  add() {
+    let rectid = "id_" + this.graphinfo.tab + "_rect-" + this.idNum;
+    let textid = "id_" + this.graphinfo.tab + "_text-" + this.idNum;
 
-  // First draw an empty background for minimap.
-  d3.select("svg#minimap-" + currentTabNumber)
-    .append("rect").attr("width", "100%").attr("height", "100%")
-    .attr("fill", "#282a36");
-
-  // Create a top layer for drawing a CFG on the minimap.
-  d3.select("svg#minimap-" + currentTabNumber).append("g").attr("id", "minimapStage-" + currentTabNumber);
-}
-
-function initEvents(cfg) {
-  $(function () {
-    $("#menuCopyCFG").click(function (e) {
-      e.preventDefault();
-      let mymodal = $("#codeCopyCFG");
-      mymodal.text(JSON.stringify(cfg, null, " "));
-    });
-  })
-
-  $(function () {
-    $("#btnCopyCFG").click(function (e) {
-      copyToClipboard($("#codeCopyCFG").text());
-    });
-  })
-}
-
-function appendDisasmFragment(txt, cls, fragment, isOpcode) {
-  let t = txt.append("tspan")
-    .text(fragment).attr("class", cls).attr("xml:space", "preserve");
-
-  if (isOpcode) t.attr("x", padding / 2).attr("dy", "14px");
-  else t.attr("dx", "0px");
-}
-
-function strRepeat(str, num) {
-  if (num < 0) return "";
-  else if (num === 1) return str;
-  else return str + strRepeat(str, num - 1);
-}
-
-function drawNode(idx, v) {
-  const nodePaddingTop = 3;
-  let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
-
-  // set minimap before comment added
-  d3.select("g#minimapStage-" + currentTabNumber)
-    .append("g")
-    .attr("miniid", idx)
-    .attr("transform",
-      "translate(" + v.Coordinate.X * minimapRatio +
-      ", " + v.Coordinate.Y * minimapRatio + ")")
-    .append("rect")
-    .attr("class", "minimapRects")
-    .attr("rx", "1").attr("ry", "1")
-    .attr("fill", "rgb(45, 53, 70)")
-    .attr("stroke", "rgb(255, 255,255)")
-    .attr("style", "outline: 1px solid black;")
-    .attr("width", v.Width * minimapRatio)
-    .attr("height", v.Height * minimapRatio);
-
-  // set main graph
-  let g = d3.select("g#cfgGrp-" + currentTabNumber).append("g")
-    .attr("nodeid", idx)
-    .attr("addr", v.PPoint[0])
-    .attr("class", "gNode");
-
-  let rect = g.append("rect")
-    .attr("class", "cfgNode")
-    .attr("fill", "white")
-    .attr("stroke", "black")
-    .attr("stroke-width", nodeBorderThickness)
-
-  // Additional layer for bluring.
-  let rectBlur = g.append("rect")
-    .attr("class", "cfgNodeBlur")
-    .attr("fill", "transparent")
-    .attr("stroke", "black")
-    .attr("stroke-width", nodeBorderThickness);
-
-  let i, j;
-  for (i = 0; i < v.Terms.length; i++) {
-    let y = i * 14 + nodePaddingTop;
-    let idNum = "[NODEID]-[STMTID]".replace("[NODEID]", idx).replace("[STMTID]", i);
-    let rectid = "id_" + currentTabNumber + "_rect-" + idNum;
-    let textid = "id_" + currentTabNumber + "_text-" + idNum;
-    let gtext = g.append("g")
-      .attr("id", "id_" + currentTabNumber + "_g-" + idNum)
+    let gtext = this.node.append("g")
+      .attr("id", "id_" + this.graphinfo.tab + "_g-" + this.idNum)
       .attr("class", "gstmt")
-      .attr("idx", i)
-      .attr("transform", "translate(0," + y + ")")
-    let terms = v.Terms[i];
-    let s = terms[0][0];
-    let tag = terms[0][1];
-    let text = gtext.append("text").attr("class", "stmt").attr("id", textid);
-    let mnemonic = s + strRepeat(" ", (s.length > 8 ? 0 : 8 - s.length));
+      .attr("idx", this.idx)
+      .attr("transform", "translate(0," + this.y + ")");
 
-    gtext.insert("rect")
+    let s = this.terms[0][0];
+    let tag = this.terms[0][1];
+    let text = gtext.append("text").attr("class", "stmt").attr("id", textid);
+    let mnemonic = s + this.strRepeat(" ", (s.length > 8 ? 0 : 8 - s.length));
+
+    let contextMenuRect = gtext.insert("rect")
       .attr("id", rectid)
       .attr("class", "nodestmtbox")
-      .attr("width", v.Width)
+      .attr("width", this.width)
       .attr("y", 4)
       .attr("height", 14)
-      .attr("fill", "transparent")
-      .on("contextmenu", function () {
-        let self = this;
-        function showContextMemu() {
-          const e = d3.event;
-          e.preventDefault();
-          $("#id_node-contextmenu")
-            .css("display", "block")
-            .css("top", e.clientY)
-            .css("left", e.clientX)
-            .attr("target", "#" + $(self).attr("id"));
-        }
-        showContextMemu();
-      })
+      .attr("fill", "transparent");
 
-    appendDisasmFragment(text, "cfgDisasmText " + tag, mnemonic, true);
-    if (terms.length > 2) {
-      for (j = 1; j < terms.length; j++) {
-        let s = terms[j][0];
-        let tag = terms[j][1];
-        if (j == terms.length - 2) {
-          appendDisasmFragment(text, "cfgDisasmText " + tag, s, false);
-        } else if (j == terms.length - 1) {
+    this.setContextMenuEventOnStmt(contextMenuRect);
+
+    this.appendDisasmFragment(text, "cfgDisasmText " + tag, mnemonic, true);
+    if (this.terms.length > 2) {
+      for (let j = 1; j < this.terms.length; j++) {
+        let s = this.terms[j][0];
+        let tag = this.terms[j][1];
+        if (j == this.terms.length - 2) {
+          this.appendDisasmFragment(text, "cfgDisasmText " + tag, s, false);
+        } else if (j == this.terms.length - 1) {
           if (s.length > 0) {
             setComment(currentTabNumber, "#" + rectid, s, true);
           }
         } else {
-          appendDisasmFragment(text, "cfgDisasmText " + tag, s, false);
-          appendDisasmFragment(text, "cfgDisasmText", ",", false);
+          this.appendDisasmFragment(text, "cfgDisasmText " + tag, s, false);
+          this.appendDisasmFragment(text, "cfgDisasmText", ",", false);
         }
       }
     }
   }
+  appendDisasmFragment(txt, cls, fragment, isOpcode) {
+    let t = txt.append("tspan")
+      .text(fragment).attr("class", cls).attr("xml:space", "preserve");
 
-  rect.attr("width", v.Width).attr("height", v.Height);
-  rectBlur.attr("width", v.Width).attr("height", v.Height);
-
-  g.attr("transform", "translate (" + v.Coordinate.X + "," + v.Coordinate.Y + ")");
-}
-
-function drawNodes(g) {
-  let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
-
-  for (let i = 0; i < g.Nodes.length; i++) {
-    drawNode(i, g.Nodes[i]);
+    if (isOpcode) t.attr("x", padding / 2).attr("dy", "14px");
+    else t.attr("dx", "0px");
   }
 
-  let r = document.getElementById("cfgGrp-" + currentTabNumber).getBBox(),
-    obj = {
-      width: r.width,
-      height: r.height
+  strRepeat(str, num) {
+    if (num < 0) return "";
+    else if (num === 1) return str;
+    else return str + this.strRepeat(str, num - 1);
+  }
+
+  setContextMenuEventOnStmt(rect) {
+    rect.on("contextmenu", function () {
+      let self = this;
+      function showContextMemu() {
+        const e = d3.event;
+        e.preventDefault();
+        $("#id_node-contextmenu")
+          .css("display", "block")
+          .css("top", e.clientY)
+          .css("left", e.clientX)
+          .attr("target", "#" + $(self).attr("id"));
+      }
+      showContextMemu();
+    })
+  }
+}
+
+class Node {
+  constructor(d) {
+    this.graphinfo = d.graphinfo;
+    this.terms = d.terms;
+    this.idx = d.idx;
+    this.x = d.x;
+    this.y = d.y;
+    this.width = d.width;
+    this.height = d.height;
+    this.addr = d.addr;
+  }
+
+  getNodeindex() {
+
+  }
+
+  addAux(g) {
+    // Additional layer for bluring.
+    let rectBlur = g.append("rect")
+      .attr("class", "cfgNodeBlur")
+      .attr("fill", "transparent")
+      .attr("stroke", "black")
+      .attr("stroke-width", nodeBorderThickness);
+
+    rectBlur.attr("width", this.width).attr("height", this.height);
+  }
+
+  add() {
+    let g = this.graphinfo.document.select(this.graphinfo.group).append("g")
+      .attr("nodeid", this.idx)
+      .attr("addr", this.addr)
+      .attr("class", "gNode")
+      .attr("transform", "translate (" + this.x + "," + this.y + ")");
+
+    let rect = g.append("rect")
+      .attr("class", "cfgNode")
+      .attr("fill", "white")
+      .attr("stroke", "black")
+      .attr("stroke-width", nodeBorderThickness)
+      .attr("width", this.width)
+      .attr("height", this.height);
+
+    this.addAux(g);
+
+    for (let i = 0; i < this.terms.length; i++) {
+      new NodeLine({
+        graphinfo: this.graphinfo,
+        node: g,
+        idx: i,
+        text: "",
+        terms: this.terms[i],
+        idNum: "[NODEID]-[LINEID]".replace("[NODEID]", this.idx).replace("[LINEID]", i),
+        y: i * 14 + nodePaddingTop,
+        width: this.width
+      }).add();
+    }
+  }
+}
+
+class Edge {
+  constructor(d) {
+    this.graphinfo = d.graphinfo;
+    this.type = d.type;
+    this.points = d.points;
+    this.isBackEdge = d.IsBackEdge;
+  }
+
+  add() {
+    let lineFunction = d3.line()
+      .x(function (d) { return d.X; })
+      .y(function (d) { return d.Y; })
+      .curve(d3.curveMonotoneY);
+
+    // Additional line for bluring.
+    this.graphinfo.document.select(this.graphinfo.group).insert("path", ":first-child")
+      .attr("class", "cfg" + this.type + "Blur cfgEdgeBlur")
+      .attr("d", lineFunction(this.points))
+      .attr("stroke", "transparent")
+      .attr("stroke-width", edgeThickness)
+      .attr("fill", "none");
+
+    let p = this.graphinfo.document.select(this.graphinfo.group).insert("path", ":first-child")
+      .attr("class", "cfg" + this.type)
+      .attr("d", lineFunction(this.points))
+      .attr("stroke-width", edgeThickness)
+      .attr("fill", "none");
+
+    if (this.isBackEdge) p.attr("stroke-dasharray", "4, 4");
+
+    p.attr("marker-end", "url(#cfg" + this.type + "Arrow-" + this.graphinfo.tab + ")");
+
+    if (this.isBackEdge) m.attr("stroke-dasharray", "2, 2");
+  }
+}
+
+class MiniNode {
+  constructor(d) {
+    this.graphinfo = d.graphinfo;
+    this.idx = d.idx;
+    this.x = d.x;
+    this.y = d.y;
+    this.width = d.width;
+    this.height = d.height;
+    this.class = "minimapRects";
+  }
+
+  add() {
+    this.graphinfo.document.select(this.graphinfo.minimapStage)
+      .append("g")
+      .attr("miniid", this.idx)
+      .attr("transform",
+        "translate(" + this.x +
+        ", " + this.y + ")")
+      .append("rect")
+      .attr("class", this.class)
+      .attr("rx", "1").attr("ry", "1")
+      .attr("fill", "rgb(45, 53, 70)")
+      .attr("stroke", "rgb(255, 255,255)")
+      .attr("style", "outline: 1px solid black;")
+      .attr("width", this.width)
+      .attr("height", this.height);
+  }
+}
+
+class MiniEdge {
+  constructor(d) {
+    this.graphinfo = d.graphinfo;
+    this.type = d.type;
+    this.points = d.points;
+  }
+
+  add() {
+    let miniLineFunction = d3.line()
+      .x(function (d) { return d.X * minimapRatio; })
+      .y(function (d) { return d.Y * minimapRatio; })
+      .curve(d3.curveLinear);
+
+    let m = this.graphinfo.document.select(this.graphinfo.minimapStage).insert("path", ":first-child")
+      .attr("class", "cfg" + this.type)
+      .attr("d", miniLineFunction(this.points))
+      .attr("stroke-width", 0.7)
+      .attr("fill", "none");
+  }
+}
+
+class MiniFlowGraph {
+  constructor(d) {
+    this.graphinfo = d.graphinfo;
+    this.dims = d.dims;
+    this.stageDim = d.stageDim;
+  }
+
+  draw() {
+    const miniBox = this.graphinfo.document.node().querySelector(this.graphinfo.minimapStage).getBoundingClientRect();
+
+    const newReductionRate = Math.min(this.dims.cfgVPDim.width / this.stageDim.width,
+      this.dims.cfgVPDim.height / this.stageDim.height) * 0.9;
+
+    let minimapWidth = miniBox.width * newReductionRate;
+    let minimapHeight = miniBox.height * newReductionRate;
+
+    let minimapDim = {
+      width: minimapWidth < 200 ? 200 : minimapWidth,
+      height: minimapHeight < 300 ? 300 : minimapHeight,
     };
 
-  return obj;
-}
+    this.dims.minimapDim = minimapDim;
 
-function drawEdge(e) {
-  let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
+    let newWidth = this.dims.minimapDim.width;
+    let newHeight = this.dims.minimapDim.height;
 
-  let lineFunction = d3.line()
-    .x(function (d) { return d.X; })
-    .y(function (d) { return d.Y; });
+    // set minimap size based on the graph size.
+    this.graphinfo.document.select(this.graphinfo.minimap)
+      .attr("width", newWidth + "px").attr("height", newHeight + "px");
 
-  lineFunction.curve(d3.curveMonotoneY);
+    // set size of the minimap nodes.
+    let nodeSize = Math.ceil(Math.log(newWidth / 1000) / Math.log(2));
+    if (nodeSize <= 0) nodeSize = 1;
 
-  // Additional line for bluring.
-  d3.select("g#cfgGrp-" + currentTabNumber).insert("path", ":first-child")
-    .attr("class", "cfg" + e.Type + "Blur" + " cfgEdgeBlur")
-    .attr("d", lineFunction(e.Points))
-    .attr("stroke", "transparent")
-    .attr("stroke-width", edgeThickness)
-    .attr("fill", "none");
+    let nodes = this.graphinfo.document.select(this.graphinfo.minimapStage).selectAll(".minimapRects");
+    nodes.attr("style", "outline: " + nodeSize + "px" + " solid black;");
 
-  let p = d3.select("g#cfgGrp-" + currentTabNumber).insert("path", ":first-child")
-    .attr("class", "cfg" + e.Type)
-    .attr("d", lineFunction(e.Points))
-    .attr("stroke-width", edgeThickness)
-    .attr("fill", "none");
+    $(this.graphinfo.minimapContainer).css("margin-right", minimapMarginRight + "px");
+    $(this.graphinfo.minimapContainer).css("margin-bottom", bottomMargin + "px");
+    $(this.graphinfo.minimapContainer).css("padding-top", "20px");
 
-  if (e.IsBackEdge) p.attr("stroke-dasharray", "4, 4");
-
-  p.attr("marker-end", "url(#cfg" + e.Type + "Arrow-" + currentTabNumber + ")");
-
-  let miniLineFunction = d3.line()
-    .x(function (d) { return d.X * minimapRatio; })
-    .y(function (d) { return d.Y * minimapRatio; })
-    .curve(d3.curveLinear);
-
-  let m = d3.select("g#minimapStage-" + currentTabNumber).insert("path", ":first-child")
-    .attr("class", "cfg" + e.Type)
-    .attr("d", miniLineFunction(e.Points))
-    .attr("stroke-width", 0.7)
-    .attr("fill", "none");
-
-  if (e.IsBackEdge) m.attr("stroke-dasharray", "2, 2");
-}
-
-function drawEdges(g) {
-  for (let i = 0; i < g.Edges.length; i++) {
-    drawEdge(g.Edges[i]);
+    return this.dims
   }
 }
 
-function centerAlign(dims, shiftX, reductionRate) {
-  let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
+class FlowGraph {
+  constructor(d) {
+    if (!isDict(d, "flowgraph")) return;
 
-  let leftPadding = (dims.cfgVPDim.width) / 2 / reductionRate;
+    this.document = d3.select(d.document);
+    if (d.document === undefined)
+      this.document = d3.select(document);
 
-  d3.select("g#cfgGrp-" + currentTabNumber).attr("transform",
-    "translate(" + leftPadding + ", 0)");
+    this.graphContainer = d.graphContainer;
+    if (d.graphContainer === undefined)
+      this.graphContainer = "#id_graphContainer";
 
-  d3.select("g#minimapStage-" + currentTabNumber)
-    .attr("transform",
-      "translate (" + shiftX + ", 0) scale (" + reductionRate + ")");
-}
+    this.minimapContainer = d.minimapContainer;
+    if (d.minimapContainer === undefined)
+      this.minimapContainer = "#minimapDiv";
 
-function setMinimap(dims, reductionRate) {
-  let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
-  let minimapMarginRight = 20;
+    this.tab = d.tab;
+    this.cfg = d.cfg;
+    this.stage = d.stage;
+    this.group = d.group;
+    this.minimap = d.minimap;
+    this.minimapStage = d.minimapStage;
+    this.minimapViewPort = d.minimapViewPort;
+    this.reductionRate = 0;
 
-  let minimapWidth = document.getElementById("minimapStage-" + currentTabNumber).getBoundingClientRect().width * reductionRate;
-  let minimapHeight = document.getElementById("minimapStage-" + currentTabNumber).getBoundingClientRect().height * reductionRate;
-
-  let minimapDim = {
-    width: minimapWidth < 200 ? 200 : minimapWidth,
-    height: minimapHeight < 300 ? 300 : minimapHeight,
-  };
-
-  dims.minimapDim = minimapDim;
-
-  let newWidth = dims.minimapDim.width;
-  let newHeight = dims.minimapDim.height;
-
-  // set minimap size based on the graph size.
-  d3.select("svg#minimap-" + currentTabNumber)
-    .attr("width", newWidth + "px").attr("height", newHeight + "px");
-
-  // set size of the minimap nodes.
-  let nodeSize = Math.ceil(Math.log(newWidth / 1000) / Math.log(2));
-  if (nodeSize <= 0) nodeSize = 1;
-
-  let nodes = d3.select("g#minimapStage-" + currentTabNumber).selectAll(".minimapRects");
-  nodes.attr("style", "outline: " + nodeSize + "px" + " solid black;");
-
-  $("#minimapDiv").css("margin-right", minimapMarginRight + "px");
-  $("#minimapDiv").css("margin-bottom", bottomMargin + "px");
-  $("#minimapDiv").css("padding-top", "20px");
-
-  return dims
-}
-
-function drawMinimapViewPort(dims) {
-  let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
-
-  d3.select("svg#minimap-" + currentTabNumber)
-    .append("rect")
-    .attr("id", "minimapVP-" + currentTabNumber)
-    .attr("width", (dims.minimapVPDim.width - 2) + "px")
-    .attr("height", (dims.minimapVPDim.height - 2) + "px")
-    .attr("fill", "transparent")
-    .attr("stroke-width", "0.5")
-    .attr("stroke", "white");
-}
-
-function drawCFG(dims, cfg) {
-  $("#icon-refresh").addClass("rotating"); // Start the animation.
-  // This is to make sure that the rotation animation is running first.
-  setTimeout(function () { drawCFGAux(dims, cfg); }, 5);
-  autocomplete(cfg);
-}
-
-function drawCFGAux(dims, cfg) {
-  let extraRatio = 0.9, // Give a little bit more space.
-    stageDim = null,
-    reductionRate;
-
-  initSVG();
-  initEvents(cfg);
-
-  stageDim = drawNodes(cfg);
-  drawEdges(cfg);
-
-  reductionRate =
-    Math.min(dims.cfgVPDim.width / stageDim.width,
-      dims.cfgVPDim.height / stageDim.height) * extraRatio;
-
-  // If the entire CFG is smaller than the cfgVP, then simply use the rate 1.
-  // In other words, the maximum reductionRate is one.
-  if (reductionRate >= 1) reductionRate = 1;
-
-  dims = setMinimap(dims, reductionRate);
-  centerAlign(dims, dims.minimapDim.width / 2, reductionRate);
-  drawMinimapViewPort(dims);
-  registerEvents(reductionRate, dims);
-  $("#icon-refresh").removeClass("rotating"); // Stop the animation.
-}
-
-function registerEvents(reductionRate, dims) {
-  let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
-  let translateWidthRatio = null;
-  let translateHeightRatio = null;
-  let offsetX = null;
-  let offsetY = null;
-  let inverseK = reductionRate;
-  let transX = 0;
-  let transY = 0;
-  let transK = 1 / reductionRate;
-
-  let cfg = d3.select("svg#cfg-" + currentTabNumber);
-  let cfgStage = d3.select("g#cfgStage-" + currentTabNumber);
-  let minimap = d3.select("svg#minimap-" + currentTabNumber);
-  let minimapVP = d3.select("rect#minimapVP-" + currentTabNumber);
-  let nodes = cfgStage.selectAll(".cfgNodeBlur");
-  let edges = cfgStage.selectAll(".cfgEdgeBlur");
-  let texts = cfgStage.selectAll(".cfgDisasmText");
-  let zoom = null;
-
-  function getEdgePts(edge) {
-    return edge.split(/M|L/)
-      .filter(function (el) { return el.length != 0; });
+    this.newWindow = d.newWindow;
+    if (d.newWindow === undefined)
+      this.newWindow = false;
   }
 
-  function getPointFromEdgePts(edgePts, index) {
-    let lastPts = edgePts[index].split(",");
-    let lastX = parseFloat(lastPts[lastPts.length - 2]) * reductionRate;
-    let lastY = parseFloat(lastPts[lastPts.length - 1]) * reductionRate;
-
-    return { x: lastX, y: lastY };
+  setMarkerArrow(group, name) {
+    const id = name + "-" + this.tab;
+    group.append("marker")
+      .attr("id", id).attr("class", name)
+      .attr("markerWidth", 3)
+      .attr("markerHeight", 3)
+      .attr("markerUnits", "strokeWidth")
+      .attr("viewBox", "-5 -5 10 10")
+      .attr("refX", 5)
+      .attr("refY", 0)
+      .attr("orient", "auto")
+      .append("path")
+      .attr("d", "M 0,0 m -5,-5 L 5,0 L -5,5 Z");
   }
 
-  function getMousePos() {
-    let mouse = d3.mouse(document.getElementById("cfgStage-" + currentTabNumber));
-
-    return { x: mouse[0] * reductionRate, y: mouse[1] * reductionRate }
+  setFilter(group) {
+    group.append("filter").attr("id", "cfgBlur")
+      .append("feGaussianBlur").attr("stdDeviation", 2);
   }
 
-  // Returns an integer from 1.0 to 2.0 depending on the length.
-  function getAccelerationRate(lastPt, mousePt) {
-    let xpow = Math.pow(lastPt.x - mousePt.x, 2);
-    let ypow = Math.pow(lastPt.y - mousePt.y, 2);
-    let currentLength = Math.sqrt(xpow + ypow);
-    let r = currentLength / (100 + currentLength) + 1.0;
-    return r;
+  setDefs(defs) {
+    // Several definitions to use to draw a CFG.
+    this.setMarkerArrow(defs, "cfgInterJmpEdgeArrow");
+    this.setMarkerArrow(defs, "cfgInterCJmpTrueEdgeArrow");
+    this.setMarkerArrow(defs, "cfgInterCJmpFalseEdgeArrow");
+    this.setMarkerArrow(defs, "cfgIntraJmpEdgeArrow");
+    this.setMarkerArrow(defs, "cfgIntraCJmpTrueEdgeArrow");
+    this.setMarkerArrow(defs, "cfgIntraCJmpFalseEdgeArrow");
+    this.setMarkerArrow(defs, "cfgFallThroughEdgeArrow");
+    this.setMarkerArrow(defs, "cfgCallEdgeArrow");
+    this.setMarkerArrow(defs, "cfgRetEdgeArrow");
+
+    // Add filters.
+    this.setFilter(defs);
   }
 
-  edges.each(function (d, i) {
-    d3.select(this).on("dblclick", function () {
-      let edge = d3.select(this).attr("d");
-      let edgePts = getEdgePts(edge);
-      let lastPt = getPointFromEdgePts(edgePts, edgePts.length - 1);
-      let vMapLastPt = convertvMapPtToVPCoordinate(lastPt.x, lastPt.y);
-      let mousePt = getMousePos();
+  init() {
+    // Clear up the existing elements.
+    $(this.cfg).empty();
+    $(this.minimap).empty();
 
-      let acceleration = getAccelerationRate(vMapLastPt, mousePt);
+    // Create a top layer for drawing a CFG on the main window.
+    this.document.select(this.cfg)
+      .append("g").attr("id", "cfgStage-" + this.tab)
+      .attr("transform", "scale (1)");
 
-      // As b2r2.css has .glyphicon { padding-right: 5px; }, which is used
-      // when dims are generated at reloadUI(), 5px plus to vMapPt.x
-      // has to be considered as long as the padding has been maintained.
-      toCenter(vMapLastPt.x + 5, vMapLastPt.y, zoom, transK, focusMovementDuration * acceleration);
-    });
-  });
+    // Create the main group for a CFG. This is to easily maintain the
+    // coordinates of the main graph.
+    this.document.select(this.stage)
+      .append("g").attr("id", "cfgGrp-" + this.tab);
 
-  nodes.each(function (d, i) {
-    d3.select(this).on("click", function () {
-      let rect = $(".cfgNode")[i];
-      if (rect.classList.contains("nodeHighlight")) {
-        d3.select(rect).classed("nodeHighlight", false);
-      } else {
-        $(".cfgNode").removeClass("nodeHighlight");
-        d3.select(rect).classed("nodeHighlight", true);
-      }
-    });
-  });
+    let defs = this.document.select(this.group).append("defs");
+    this.setDefs(defs);
 
-  nodes.each(function (d, i) {
-    d3.select(this).on("dblclick", function () {
-      let id = d3.select(this).attr("id");
-      let x = g.Nodes[Number(id)].Coordinate.X * reductionRate;
-      let y = g.Nodes[Number(id)].Coordinate.Y * reductionRate;
-      let vMapPt = convertvMapPtToVPCoordinate(x, y);
-      let halfHeight = d3.select(this).attr("height") / 2 * reductionRate;
+    // First draw an empty background for minimap.
+    this.document.select(this.minimap)
+      .append("rect")
+      .attr("width", "100%")
+      .attr("height", "100%")
+      .attr("fill", "#282a36");
 
-      toCenter(vMapPt.x + 5, vMapPt.y + halfHeight, zoom, transK, focusMovementDuration * 100);
-    });
-
-  });
-
-  texts.on("click", function () {
-    // Remove all highlights for cfgDisasmText
-    $(".cfgDisasmText").removeClass("wordHighlight");
-    let clsName = d3.select(this).attr("class").split(" ")[1];
-    // Only highlights with "clsName"
-    // XXX: later we should change false to true
-    texts.filter("." + clsName).classed("wordHighlight", false);
-  });
-
-  function getEventPointFromMinimap(event) {
-    let svgSource = document.getElementById("minimap-" + currentTabNumber);
-    let viewerPoint = svgSource.createSVGPoint();
-
-    viewerPoint.x = event.clientX;
-    viewerPoint.y = event.clientY;
-
-    return viewerPoint.matrixTransform(svgSource.getScreenCTM().inverse());
+    // Create a top layer for drawing a CFG on the minimap.
+    this.document.select(this.minimap)
+      .append("g").attr("id", "minimapStage-" + this.tab);
   }
 
-  function jumpToCursor() {
-    let centerPoint = getEventPointFromMinimap(d3.event.sourceEvent);
-    let minimapX = centerPoint.x - offsetX - (dims.minimapDim.width - dims.minimapVPDim.width) / 2;
-    let minimapY = centerPoint.y - offsetY;
-    let minimapK = reductionRate * inverseK;
+  drawNode(idx, v) {
+    new MiniNode({
+      graphinfo: this,
+      idx: idx,
+      x: v.Coordinate.X * minimapRatio,
+      y: v.Coordinate.Y * minimapRatio,
+      width: v.Width * minimapRatio,
+      height: v.Height * minimapRatio,
+      class: "minimapRects"
+    }).add();
 
-    offsetX = (dims.minimapVPDim.width * minimapK) / 2;
-    offsetY = (dims.minimapVPDim.height * minimapK) / 2;
-    minimapVP.attr("transform",
-      "translate(" + minimapX + ","
-      + minimapY + ") scale(" + minimapK + ")");
-
-    transX = - minimapX / translateWidthRatio;
-    transY = - minimapY / translateHeightRatio;
-    cfgStage.attr("transform",
-      "translate(" + transX + ","
-      + transY + ") scale(" + transK + ")");
-
-    zoom.transform(cfg,
-      d3.zoomIdentity.translate(transX, transY).scale(transK));
+    new Node({
+      graphinfo: this,
+      idx: idx,
+      terms: v.Terms,
+      x: v.Coordinate.X,
+      y: v.Coordinate.Y,
+      width: v.Width,
+      height: v.Height,
+      addr: v.PPoint[0],
+    }).add();
   }
 
-  function dragStart() {
-    let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
-    let evt = d3.event.sourceEvent;
-    let vp = document.getElementById("minimapVP-" + currentTabNumber).getBoundingClientRect();
-
-    offsetX = evt.clientX - vp.left;
-    offsetY = evt.clientY - vp.top;
-  }
-
-  function dragMove() {
-    let mouseSVGPoint = getEventPointFromMinimap(d3.event.sourceEvent);
-    let minimapX = mouseSVGPoint.x - offsetX - (dims.minimapDim.width - dims.minimapVPDim.width) / 2;
-    let minimapY = mouseSVGPoint.y - offsetY;
-    let minimapK = reductionRate * inverseK;
-
-    transX = - minimapX / translateWidthRatio;
-    transY = - minimapY / translateHeightRatio;
-    minimapVP.attr("transform",
-      "translate(" + minimapX + ","
-      + minimapY + ") scale(" + minimapK + ")");
-    cfgStage.attr("transform",
-      "translate(" + transX + ","
-      + transY + ") scale(" + transK + ")");
-    zoom.transform(cfg,
-      d3.zoomIdentity.translate(transX, transY).scale(transK));
-  }
-
-  function dragEnd() {
-    document.getElementById("minimap-" + currentTabNumber).style.cursor = "default";
-  }
-
-  let dragBehavior = d3.drag()
-    .on("start", dragStart)
-    .on("drag", dragMove)
-    .on("end", dragEnd);
-
-  minimapVP.call(dragBehavior);
-
-  let clickAndDrag = d3.drag()
-    .on("start", jumpToCursor)
-    .on("drag", dragMove)
-    .on("end", dragEnd);
-
-  minimap.call(clickAndDrag);
-
-  document.getElementById("cfg-" + currentTabNumber)
-    .addEventListener("mousemove", (function () { /*empty*/ }).bind(this));
-
-  function zoomed() {
-    let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
-    let minimapBound = document.getElementById("minimapStage-" + currentTabNumber).getBoundingClientRect();
-    let viewportBound = document.getElementById("cfgStage-" + currentTabNumber).getBoundingClientRect();
-
-    cfgStage.attr("transform", d3.event.transform);
-
-    transX = d3.event.transform.x;
-    transY = d3.event.transform.y;
-    transK = d3.event.transform.k;
-
-    inverseK = 1 / transK;
-    let minimapK = reductionRate * inverseK;
-
-    translateWidthRatio = minimapBound.width / viewportBound.width;
-    translateHeightRatio = minimapBound.height / viewportBound.height;
-
-    transX = (- transX) * translateWidthRatio + (dims.minimapDim.width - dims.minimapVPDim.width) / 2;
-    transY = (- transY) * translateHeightRatio;
-
-    minimapVP.attr("transform",
-      "translate(" + transX + ","
-      + transY + ") scale(" + minimapK + ")")
-      .attr("style", "stroke-width:" + (1.5 / (minimapK)) + "px");
-  }
-
-  $(document).on("click", ".autocomplete-item", function () {
-    if (currentTabNumber === $("#id_tabContainer li.tab.active").attr("counter")) {
-      let target = $(this).attr("target");
-      let rect = d3.select(target);
-      let width = rect.attr("width");
-      let gNode = d3.select(rect.node().parentNode.parentNode);
-      let idx = parseInt($(this).attr("idx"));
-      let pos = getGroupPos(gNode.attr("transform"));
-      let x = (pos[0] + width / 2) * reductionRate;;
-      let y = (pos[1] + idx * 14) * reductionRate;
-      let vMapPt = convertvMapPtToVPCoordinate(x, y);
-      toCenter(parseFloat(vMapPt.x), parseFloat(vMapPt.y), zoom, transK, focusMovementDuration);
+  drawNodes(g) {
+    for (let i = 0; i < g.Nodes.length; i++) {
+      this.drawNode(i, g.Nodes[i]);
     }
-  });
 
-  $(document).on("click", ".comment-content", function () {
-    if (currentTabNumber === $("#id_tabContainer li.tab.active").attr("counter")) {
-      // #id_tabid_[element-type]_nodeidx_idx
-      let $self = $(this);
-      let tabid = $self.attr("target").split("_")[1];
-      let tab = $("#id_tabContainer li[counter=" + tabid + "]");
-      if (tab.length > 0) {
-        function getData() {
-          return new Promise(function (resolve, reject) {
-            activateTab(tab, resolve);
-          });
-        }
-        getData().then(function (data) {
-          let rectid = $self.attr("target").replace("_g_comment-", "_rect-");
-          let rect = d3.select(rectid);
-          $(".stmtHighlight").removeClass("stmtHighlight");
-          rect.attr("class", "nodestmtbox stmtHighlight")
-            .on("click", function () {
-              $(this).removeClass("stmtHighlight");
-            });
-          let width = rect.attr("width");
-          let gNode = d3.select(rect.node().parentNode.parentNode);
-          let gidx = parseInt(d3.select(rect.node().parentNode).attr("idx"));
-          let pos = getGroupPos(gNode.attr("transform"));
+    let r = this.document.node().querySelector(this.group).getBBox(),
+      obj = {
+        width: r.width,
+        height: r.height
+      };
 
-          let x = (pos[0] + width / 2) * reductionRate;
-          let y = (pos[1] + gidx * 14) * reductionRate;
+    return obj;
+  }
 
-          let vMapPt = convertvMapPtToVPCoordinate(x, y);
-          toCenter(parseFloat(vMapPt.x), parseFloat(vMapPt.y), zoom, transK, focusMovementDuration);
-        }).catch(function (err) {
-          console.error(err); // Error 출력
-        });
-      } else {
+  drawEdge(e) {
+    new Edge({
+      graphinfo: this,
+      type: e.Type,
+      points: e.Points,
+      isBackEdge: e.IsBackEdge
+    }).add();
 
-      }
+    new MiniEdge({
+      graphinfo: this,
+      type: e.Type,
+      points: e.Points
+    }).add();
+  }
 
+  drawEdges(g) {
+    for (let i = 0; i < g.Edges.length; i++) {
+      this.drawEdge(g.Edges[i]);
     }
-  });
-  $(document).on("click", "#id_event-trigger", function () {
-    if (currentTabNumber === $("#id_tabContainer li.tab.active").attr("counter")) {
-      let target_id = $(this).attr("target");
-      let rect = d3.select(target_id);
-      let text = d3.select(target_id.replace("_rect-", "_text-"));
-      let gtext = d3.select(rect.node().parentNode);
-      let width = rect.attr("width");
-      let gNode = d3.select(rect.node().parentNode.parentNode);
-      let idx = parseInt(target_id.split("-")[2]);
-      let pos = getGroupPos(gNode.attr("transform"));
+  }
 
-      let x = (pos[0] + width / 2) * reductionRate;;
-      let y = (pos[1] + idx * 14) * reductionRate;
-      let vMapPt = convertvMapPtToVPCoordinate(x, y);
-      let stmt = text.html().replace(/(<([^>]+)>)/ig, " ");
-      toCenter(parseFloat(vMapPt.x), parseFloat(vMapPt.y), zoom, transK, 0);
-      let y2 = pos[1] + getGroupPos(gtext.attr("transform"))[1];
-      autocomplete().deactiveStmt();
-      autocomplete().activeStmt(pos[0], y2, width, stmt);
+  drawGraphAux(dims, cfg) {
+    function centerAlign(self, dims, shiftX) {
+      let leftPadding = (dims.cfgVPDim.width) / 2 / self.reductionRate;
+
+      self.document.select(self.group).attr("transform",
+        "translate(" + leftPadding + ", 0)");
+
+      self.document.select(self.minimapStage)
+        .attr("transform",
+          "translate (" + shiftX + ", 0) scale (" + self.reductionRate + ")");
     }
-  });
+
+    function drawMinimapViewPort(self, dims) {
+      self.document.select(self.minimap)
+        .append("rect")
+        .attr("id", "minimapVP-" + self.tab)
+        .attr("width", (dims.minimapVPDim.width - 2) + "px")
+        .attr("height", (dims.minimapVPDim.height - 2) + "px")
+        .attr("fill", "transparent")
+        .attr("stroke-width", "0.5")
+        .attr("stroke", "white");
+    }
+
+    let extraRatio = 0.9, // Give a little bit more space.
+      stageDim = null;
+
+    this.init();
+    stageDim = this.drawNodes(cfg);
+    this.drawEdges(cfg);
+    this.data = cfg;
+
+    this.reductionRate =
+      Math.min(dims.cfgVPDim.width / stageDim.width,
+        dims.cfgVPDim.height / stageDim.height) * extraRatio;
+
+    // If the entire CFG is smaller than the cfgVP, then simply use the rate 1.
+    // In other words, the maximum reductionRate is one.
+    if (this.reductionRate >= 1) this.reductionRate = 1;
+
+    dims = new MiniFlowGraph({
+      graphinfo: this,
+      dims: dims,
+      stageDim: stageDim
+    }).draw();
+
+    centerAlign(this, dims, dims.minimapDim.width / 2);
+    drawMinimapViewPort(this, dims);
+    this.registerEvents(dims);
+    $("#icon-refresh").removeClass("rotating"); // Stop the animation.
+  }
+
+  drawGraph(dims, cfg, fitHeight) {
+    $("#icon-refresh").addClass("rotating"); // Start the animation.
+    // This is to make sure that the rotation animation is running first.
+    //setTimeout(function () { this.drawGraphAux(dims, cfg); }, 5);
+    this.drawGraphAux(dims, cfg, fitHeight);
+  }
+
+  registerEvents(dims) {
+    let self = this;
+    let translateWidthRatio = null;
+    let translateHeightRatio = null;
+    let offsetX = null;
+    let offsetY = null;
+    let inverseK = this.reductionRate;
+    let transX = 0;
+    let transY = 0;
+    let transK = 1 / this.reductionRate;
+
+    let cfg = this.document.select(this.cfg);
+    let cfgStage = this.document.select(this.stage);
+    let minimap = this.document.select(this.minimap);
+    let minimapVP = this.document.select(this.minimapViewPort);
+
+    let nodes = cfgStage.selectAll(".cfgNodeBlur");
+    let edges = cfgStage.selectAll(".cfgEdgeBlur");
+    let texts = cfgStage.selectAll(".cfgDisasmText");
+    let zoom = null;
 
 
-  zoom = d3.zoom().scaleExtent([reductionRate, 20]).on("zoom", zoomed);
-  let transform = d3.zoomIdentity.translate(0, 0).scale(reductionRate);
-  cfg.call(zoom).call(zoom.transform, transform).on("dblclick.zoom", null);
-}
+    function getEdgePts(edge) {
+      return edge.split(/M|L/)
+        .filter(function (el) { return el.length != 0; });
+    }
 
-function registerRefreshEvents() {
-  $("#id_btn-refresh").click(function () {
-    query({
-      "q": "cfg-disasm",
-      "args": $("#uiFuncName").text()
-    },
-      function (status, json) {
-        if (!isEmpty(json)) {
-          let dims = reloadUI();
-          drawCFG(dims, json);
+    function getPointFromEdgePts(edgePts, index) {
+      let lastPts = edgePts[index].split(",");
+      let lastX = parseFloat(lastPts[lastPts.length - 2]) * self.reductionRate;
+      let lastY = parseFloat(lastPts[lastPts.length - 1]) * self.reductionRate;
+
+      return { x: lastX, y: lastY };
+    }
+
+    function getMousePos() {
+      let mouse = d3.mouse(self.document.node().querySelector(self.stage));
+
+      return { x: mouse[0] * self.reductionRate, y: mouse[1] * self.reductionRate }
+    }
+
+    // Returns an integer from 1.0 to 2.0 depending on the length.
+    function getAccelerationRate(lastPt, mousePt) {
+      let xpow = Math.pow(lastPt.x - mousePt.x, 2);
+      let ypow = Math.pow(lastPt.y - mousePt.y, 2);
+      let currentLength = Math.sqrt(xpow + ypow);
+      let r = currentLength / (100 + currentLength) + 1.0;
+      return r;
+    }
+
+    edges.each(function (d, i) {
+      d3.select(this).on("dblclick", function () {
+        let edge = d3.select(this).attr("d");
+        let edgePts = getEdgePts(edge);
+        let lastPt = getPointFromEdgePts(edgePts, edgePts.length - 1);
+        let vMapLastPt = convertvMapPtToVPCoordinate({
+          tab: self.tab,
+          document: self.document.node()
+        }, lastPt.x, lastPt.y);
+        let mousePt = getMousePos();
+
+        let acceleration = getAccelerationRate(vMapLastPt, mousePt);
+
+        // As b2r2.css has .glyphicon { padding-right: 5px; }, which is used
+        // when dims are generated at reloadUI(), 5px plus to vMapPt.x
+        // has to be considered as long as the padding has been maintained.
+        toCenter({
+          tab: self.tab,
+          document: self.document.node()
+        }, vMapLastPt.x + 5, vMapLastPt.y, zoom, transK, focusMovementDuration * acceleration);
+      });
+    });
+
+    nodes.each(function (d, i) {
+      d3.select(this).on("click", function () {
+        let rect = $(".cfgNode")[i];
+        if (rect.classList.contains("nodeHighlight")) {
+          d3.select(rect).classed("nodeHighlight", false);
+        } else {
+          $(".cfgNode").removeClass("nodeHighlight");
+          d3.select(rect).classed("nodeHighlight", true);
         }
       });
-  });
-}
+    });
 
-function draggableMinimap() {
-  let $minimapHandler = $("#minimapDiv .move-minimap")
-  let $minimapContainer = $("#minimapDiv")
-  var dragging = false;
-  var iX, iY;
-  $minimapHandler.mousedown(function (e) {
-    let minimapContainer = document.getElementById("minimapDiv");
-    dragging = true;
-    iX = e.clientX - minimapContainer.offsetLeft;
-    iY = e.clientY - minimapContainer.offsetTop;
-    minimapContainer.setCapture && minimapContainer.setCapture();
-    return false;
-  });
-  document.onmousemove = function (e) {
-    if (dragging) {
-      var e = e || window.event;
-      var oX = e.clientX - iX;
-      var oY = e.clientY - iY;
-      $minimapContainer.css({ "left": oX + "px", "top": oY + "px" });
-      return false;
+    texts.on("click", function () {
+      // Remove all highlights for cfgDisasmText
+      $(".cfgDisasmText").removeClass("wordHighlight");
+      let clsName = d3.select(this).attr("class").split(" ")[1];
+      // Only highlights with "clsName"
+      // XXX: later we should change false to true
+      texts.filter("." + clsName).classed("wordHighlight", false);
+    });
+
+    function getEventPointFromMinimap(event) {
+      let svgSource = self.document.node().querySelector(self.minimap);
+      let viewerPoint = svgSource.createSVGPoint();
+
+      viewerPoint.x = event.clientX;
+      viewerPoint.y = event.clientY;
+
+      return viewerPoint.matrixTransform(svgSource.getScreenCTM().inverse());
     }
-  };
-  $(document).mouseup(function (e) {
-    dragging = false;
-  });
-}
 
-function returnInitPositionMinimap() {
-  $("#minimapDiv .return-minimap").on("click", function () {
-    let $minimapContainer = $("#minimapDiv")
-    $minimapContainer.css({ "left": "", "top": "" });
-    $minimapContainer.css({ "right": "0", "bottom": "0" });
-  });
-}
+    function jumpToCursor() {
+      let centerPoint = getEventPointFromMinimap(d3.event.sourceEvent);
+      let minimapX = centerPoint.x - offsetX - (dims.minimapDim.width - dims.minimapVPDim.width) / 2;
+      let minimapY = centerPoint.y - offsetY;
+      let minimapK = self.reductionRate * inverseK;
 
-function resizeMinimap() {
-  $(".resize-minimap").on("click", function () {
-    if ($(this).hasClass("minimize-minimap")) {
-      $("#minimapDiv").addClass("active");
-      d3.selectAll(".min-box")
-        .style("border", "unset")
-        .style("height", "0")
-    } else {
-      $("#minimapDiv").removeClass("active");
-      d3.selectAll(".min-box")
-        .style("height", "initial")
-        .style("border", "1px solid #ccc")
+      offsetX = (dims.minimapVPDim.width * minimapK) / 2;
+      offsetY = (dims.minimapVPDim.height * minimapK) / 2;
+      minimapVP.attr("transform",
+        "translate(" + minimapX + ","
+        + minimapY + ") scale(" + minimapK + ")");
+
+      transX = - minimapX / translateWidthRatio;
+      transY = - minimapY / translateHeightRatio;
+      cfgStage.attr("transform",
+        "translate(" + transX + ","
+        + transY + ") scale(" + transK + ")");
+
+      zoom.transform(cfg,
+        d3.zoomIdentity.translate(transX, transY).scale(transK));
     }
-  });
-}
 
-function registerMinimapEvents() {
-  draggableMinimap();
-  resizeMinimap();
-  returnInitPositionMinimap();
-}
+    function dragStart() {
+      let evt = d3.event.sourceEvent;
+      let vp = self.document.node().querySelector(self.minimapViewPort).getBoundingClientRect();
 
-function isEmpty(obj) {
-  for (var key in obj) {
-    if (obj.hasOwnProperty(key))
-      return false;
+      offsetX = evt.clientX - vp.left;
+      offsetY = evt.clientY - vp.top;
+    }
+
+    function dragMove() {
+      let mouseSVGPoint = getEventPointFromMinimap(d3.event.sourceEvent);
+      let minimapX = mouseSVGPoint.x - offsetX - (dims.minimapDim.width - dims.minimapVPDim.width) / 2;
+      let minimapY = mouseSVGPoint.y - offsetY;
+      let minimapK = self.reductionRate * inverseK;
+
+      transX = - minimapX / translateWidthRatio;
+      transY = - minimapY / translateHeightRatio;
+      minimapVP.attr("transform",
+        "translate(" + minimapX + ","
+        + minimapY + ") scale(" + minimapK + ")");
+      cfgStage.attr("transform",
+        "translate(" + transX + ","
+        + transY + ") scale(" + transK + ")");
+      zoom.transform(cfg,
+        d3.zoomIdentity.translate(transX, transY).scale(transK));
+    }
+
+    function dragEnd() {
+      self.document.node().querySelector(self.minimap).style.cursor = "default";
+    }
+
+    let dragBehavior = d3.drag()
+      .on("start", dragStart)
+      .on("drag", dragMove)
+      .on("end", dragEnd);
+
+    minimapVP.call(dragBehavior);
+
+    let clickAndDrag = d3.drag()
+      .on("start", jumpToCursor)
+      .on("drag", dragMove)
+      .on("end", dragEnd);
+
+    minimap.call(clickAndDrag);
+
+    function zoomed() {
+      let minimapBound = self.document.node().querySelector(self.minimapStage).getBoundingClientRect();
+      let viewportBound = self.document.node().querySelector(self.stage).getBoundingClientRect();
+
+      cfgStage.attr("transform", d3.event.transform);
+
+      transX = d3.event.transform.x;
+      transY = d3.event.transform.y;
+      transK = d3.event.transform.k;
+
+      inverseK = 1 / transK;
+      let minimapK = self.reductionRate * inverseK;
+
+      translateWidthRatio = minimapBound.width / viewportBound.width;
+      translateHeightRatio = minimapBound.height / viewportBound.height;
+
+      transX = (- transX) * translateWidthRatio + (dims.minimapDim.width - dims.minimapVPDim.width) / 2;
+      transY = (- transY) * translateHeightRatio;
+
+      minimapVP.attr("transform",
+        "translate(" + transX + ","
+        + transY + ") scale(" + minimapK + ")")
+        .attr("style", "stroke-width:" + (1.5 / (minimapK)) + "px");
+    }
+    $(self.document.node()).on("click", ".autocomplete-item", function () {
+      if (self.newWindow || self.tab === parseInt($(Root.TabList.id + " li.tab.active").attr("counter"))) {
+        let target = $(this).attr("target");
+        let rect = self.document.select(target);
+        let width = rect.attr("width");
+        let gNode = d3.select(rect.node().parentNode.parentNode);
+        let idx = parseInt($(this).attr("idx"));
+        let pos = getGroupPos(gNode.attr("transform"));
+        let x = (pos[0] + width / 2) * self.reductionRate;;
+        let y = (pos[1] + idx * 14) * self.reductionRate;
+        let vMapPt = convertvMapPtToVPCoordinate({
+          tab: self.tab,
+          document: self.document.node()
+        }, x, y);
+        toCenter({
+          tab: self.tab,
+          document: self.document.node()
+        }, parseFloat(vMapPt.x), parseFloat(vMapPt.y), zoom, transK, focusMovementDuration);
+      }
+    });
+
+    zoom = d3.zoom().scaleExtent([0.05, 20]).on("zoom", zoomed);
+    let transform = d3.zoomIdentity.translate(0, 0).scale(self.reductionRate);
+    cfg.call(zoom).call(zoom.transform, transform).on("dblclick.zoom", null);
   }
-  return true;
 }

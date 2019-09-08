@@ -16,7 +16,7 @@ function Terminal() {
   function resetCmdInput() {
     setTimeout(function () {
       $("#id_cmd").val("");
-      $("#id_TerminalWrapper").scrollTop($("#id_cmdContainer").height());
+      $("#id_terminal-wrapper").scrollTop($("#id_cmdContainer").height());
     }, 5);
   }
   function addCommands(cmd, result) {
@@ -36,7 +36,7 @@ function Terminal() {
         "args": JSON.stringify({ "command": cmd })
       },
         function (status, json) {
-          if (!isEmpty(json)) {
+          if (Object.keys(json).length > 0) {
             addCommands(cmd, json);
           }
         });
