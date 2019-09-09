@@ -38,6 +38,7 @@ type CFGType =
   | DisasmCFG
   | IRCFG
   | SSACFG
+  | CallCFG
 
 [<DataContract>]
   type JsonDefs = {
@@ -117,6 +118,10 @@ let cfgToJSON cfgType ess g roots =
     Visualizer.getJSONFromGraph g roots (Some ess.BinHandler)
   | SSACFG ->
     let lens = SSALens.Init ess.BinHandler ess.SCFG
+    let g, roots = lens.Filter g roots ess.BinaryApparatus
+    Visualizer.getJSONFromGraph g roots (Some ess.BinHandler)
+  | CallCFG ->
+    let lens = CallGraphLens.Init ess.SCFG
     let g, roots = lens.Filter g roots ess.BinaryApparatus
     Visualizer.getJSONFromGraph g roots (Some ess.BinHandler)
 
@@ -203,6 +208,7 @@ let handleAJAX req resp arbiter query args =
   | "cfg-Disasm" -> handleCFG req resp arbiter DisasmCFG args
   | "cfg-LowUIR" -> handleCFG req resp arbiter IRCFG args
   | "cfg-SSA" -> handleCFG req resp arbiter SSACFG args
+  | "cfg-CG" -> handleCFG req resp arbiter CallCFG args
   | "functions" -> handleFunctions req resp arbiter
   | "disasm-comment" -> () // handleComment req resp arbiter DisasmCFG args
   | "ir-comment" -> () // handleComment req resp arbiter IRCFG args

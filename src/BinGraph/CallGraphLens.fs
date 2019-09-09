@@ -76,8 +76,8 @@ type CallGraphLens (scfg: SCFG) =
     | None -> None
     | Some _ -> getFunctionVertex g vMap old addr app
 
-  let buildCallGraph callCFG (g: IRCFG) vMap app =
-    g.IterEdge (fun src dst e ->
+  let buildCallGraph callCFG (_: IRCFG) vMap app =
+    scfg.Graph.IterEdge (fun src dst e ->
       match e with
       | IntraJmpEdge
       | IndirectEdge
@@ -98,7 +98,7 @@ type CallGraphLens (scfg: SCFG) =
       let callCFG = CallCFG ()
       let vMap = CallVMap ()
       buildCallGraph callCFG g vMap app
-      callCFG, []
+      callCFG, callCFG.Unreachables |> Seq.toList
 
   static member Init (scfg) =
     CallGraphLens (scfg) :> ILens<CallGraphBBlock>
