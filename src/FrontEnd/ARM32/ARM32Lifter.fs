@@ -2916,6 +2916,11 @@ let vmrs insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
+let udf insInfo =
+  match insInfo.Operands with
+  | OneOperand (OprImm n) -> sideEffects insInfo (Interrupt (int n))
+  | _ -> raise InvalidOperandException
+
 /// Translate IR.
 let translate insInfo ctxt =
   match insInfo.Opcode with
@@ -3024,6 +3029,7 @@ let translate insInfo ctxt =
   | Op.TBH | Op.TBB -> tableBranch insInfo ctxt
   | Op.BFC -> bfc insInfo ctxt
   | Op.BFI -> bfi insInfo ctxt
+  | Op.UDF -> udf insInfo
   | Op.UADD8 -> uadd8 insInfo ctxt
   | Op.UXTAB -> extendAndAdd insInfo ctxt 8<rt>
   | Op.UXTAH -> extendAndAdd insInfo ctxt 16<rt>
