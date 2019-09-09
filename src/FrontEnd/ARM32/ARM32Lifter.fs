@@ -3185,6 +3185,11 @@ let parseDstList = function
                                      Scalar (d3, None))), _)
   | TwoOperands (OprSIMD (ThreeRegs (Scalar (d1, _), Scalar (d2, _),
                                      Scalar (d3, _))), _) -> [ d1; d2; d3 ]
+  | TwoOperands (OprSIMD (FourRegs (Scalar (d1, None), Scalar (d2, None),
+                                    Scalar (d3, None), Scalar (d4, None))), _)
+  | TwoOperands (OprSIMD (FourRegs (Scalar (d1, _), Scalar (d2, _),
+                                    Scalar (d3, _), Scalar (d4, _))), _) ->
+    [ d1; d2; d3; d4 ]
   | _ -> raise InvalidOperandException
 
 let getRnAndRm ctxt = function
@@ -4674,6 +4679,114 @@ let vld3 insInfo ctxt =
   | TwoOperands (OprSIMD (ThreeRegs _), _) -> vld3Multi insInfo ctxt
   | _ -> raise InvalidOperandException
 
+let vld4SingleOne insInfo ctxt index =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rdList = parseDstList insInfo.Operands |> List.map (getRegVar ctxt)
+  let rn, rm = getRnAndRm ctxt insInfo.Operands
+  let ebytes = getEbytesBySize insInfo.SIMDTyp
+  let esize = ebytes * 8
+  let rtEsz = RegType.fromBitWidth esize
+  let regIdx = registerIndex insInfo.Operands
+  let updateRn rn =
+    let rmOrTransSz =
+      if regIdx then rm.Value else num <| BitVector.ofInt32 (4 * ebytes) 32<rt>
+    if insInfo.WriteBack.Value then rn .+ rmOrTransSz else rn
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn rn)
+  let incAddr inc = num <| BitVector.ofInt32 inc 32<rt>
+  let mem1 = loadLE rtEsz addr
+  let mem2 = loadLE rtEsz (addr .+ incAddr ebytes)
+  let mem3 = loadLE rtEsz (addr .+ incAddr (2 * ebytes))
+  let mem4 = loadLE rtEsz (addr .+ incAddr (3 * ebytes))
+  builder <! (elem rdList.[0] (int32 index) esize := mem1)
+  builder <! (elem rdList.[1] (int32 index) esize := mem2)
+  builder <! (elem rdList.[2] (int32 index) esize := mem3)
+  builder <! (elem rdList.[3] (int32 index) esize := mem4)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let vld4SingleAll insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rdList = parseDstList insInfo.Operands |> List.map (getRegVar ctxt)
+  let rn, rm = getRnAndRm ctxt insInfo.Operands
+  let size = getSize insInfo.SIMDTyp
+  let regIdx = registerIndex insInfo.Operands
+  let ebytes = 1 <<< size
+  let esize = ebytes * 8 |> RegType.fromBitWidth
+  let elements = 8 / ebytes
+  let updateRn rn =
+    let rmOrTransSz =
+      if regIdx then rm.Value else num <| BitVector.ofInt32 (4 * ebytes) 32<rt>
+    if insInfo.WriteBack.Value then rn .+ rmOrTransSz else rn
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn rn)
+  let incAddr inc = num <| BitVector.ofInt32 inc 32<rt>
+  let mem1 = loadLE esize addr
+  let mem2 = loadLE esize (addr .+ incAddr ebytes)
+  let mem3 = loadLE esize (addr .+ incAddr (2 * ebytes))
+  let mem4 = loadLE esize (addr .+ incAddr (3 * ebytes))
+  let repElem1 = Array.replicate elements mem1 |> concatExprs
+  let repElem2 = Array.replicate elements mem2 |> concatExprs
+  let repElem3 = Array.replicate elements mem3 |> concatExprs
+  let repElem4 = Array.replicate elements mem4 |> concatExprs
+  builder <! (rdList.[0] := repElem1)
+  builder <! (rdList.[1] := repElem2)
+  builder <! (rdList.[2] := repElem3)
+  builder <! (rdList.[3] := repElem4)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let vld4Multi insInfo ctxt =
+  let builder = new StmtBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rdList = parseDstList insInfo.Operands |> List.map (getRegVar ctxt)
+  let rn, rm = getRnAndRm ctxt insInfo.Operands
+  let size = getSize insInfo.SIMDTyp
+  let ebytes = 1 <<< size
+  let esize = ebytes * 8
+  let rtEsz = RegType.fromBitWidth esize
+  let elements = 8 / ebytes
+  let regIdx = registerIndex insInfo.Operands
+  let updateRn rn =
+    let rmOrTransSz =
+      if regIdx then rm.Value else num <| BitVector.ofInt32 24 32<rt>
+    if insInfo.WriteBack.Value then rn .+ rmOrTransSz else rn
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn rn)
+  for e in 0 .. (elements - 1) do
+    let incAddr inc = num <| BitVector.ofInt32 inc 32<rt>
+    let mem1 = loadLE rtEsz addr
+    let mem2 = loadLE rtEsz (addr .+ incAddr ebytes)
+    let mem3 = loadLE rtEsz (addr .+ incAddr (2 * ebytes))
+    let mem4 = loadLE rtEsz (addr .+ incAddr (3 * ebytes))
+    builder <! (elem rdList.[0] e esize := mem1)
+    builder <! (elem rdList.[1] e esize := mem2)
+    builder <! (elem rdList.[2] e esize := mem3)
+    builder <! (elem rdList.[3] e esize := mem4)
+    builder <! (addr := addr .+ (num (BitVector.ofInt32 (4 * ebytes) 32<rt>)))
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let vld4 insInfo ctxt =
+  match insInfo.Operands with
+  | TwoOperands (OprSIMD (FourRegs (Scalar (_, Some index), _, _, _)), _) ->
+    vld4SingleOne insInfo ctxt index
+  | TwoOperands (OprSIMD (FourRegs (Scalar (_, None), _, _, _)), _) ->
+    vld4SingleAll insInfo ctxt
+  | TwoOperands (OprSIMD (FourRegs _), _) -> vld4Multi insInfo ctxt
+  | _ -> raise InvalidOperandException
+
 /// Translate IR.
 let translate insInfo ctxt =
   match insInfo.Opcode with
@@ -4862,7 +4975,7 @@ let translate insInfo ctxt =
   | Op.VST4 -> vst4 insInfo ctxt
   | Op.VLD2 -> vld2 insInfo ctxt
   | Op.VLD3 -> vld3 insInfo ctxt
-  | Op.VLD4 -> sideEffects insInfo UnsupportedExtension
+  | Op.VLD4 -> vld4 insInfo ctxt
   | Op.DMB | Op.DSB | Op.ISB | Op.PLD -> nop insInfo
   | o -> eprintfn "%A" o
          raise <| NotImplementedIRException (Disasm.opCodeToString o)
