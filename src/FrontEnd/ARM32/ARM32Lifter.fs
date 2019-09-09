@@ -2059,7 +2059,7 @@ let pop insInfo ctxt =
   if (numOfReg >>> 15 &&& 1u) = 1u then
     loadLE 32<rt> addr |> loadWritePC ctxt isUnconditional builder
   else ()
-  putEndLabel ctxt lblIgnore isUnconditional None builder
+  putEndLabel ctxt lblIgnore isUnconditional (Some insInfo) builder
   endMark insInfo builder
 
 let parseOprOfLDM insInfo ctxt =

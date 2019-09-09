@@ -94,7 +94,12 @@ let createNode (g: IRCFG) app (vmap: VMap) (leaders: ProgramPoint []) idx =
 
 let private addIntraEdge (g: IRCFG) app (vmap: VMap) src symbol edgeProp =
   let dstPos = Map.find symbol app.LabelMap |> ProgramPoint
-  let dst = vmap.[dstPos]
+  let dst =
+    try vmap.[dstPos]
+    (* This is a fatal error, and can only occur when the label is followed by
+       IEMark. If that's the case, we should really fix our IR translation to
+       have an explicit jump to the fall-through instruction. *)
+    with _ -> failwithf "Failed to fetch block @ %s." (dstPos.ToString ())
   g.AddEdge src dst edgeProp
 
 let private addInterEdge (g: IRCFG) (vmap: VMap) src addr edgeProp =
