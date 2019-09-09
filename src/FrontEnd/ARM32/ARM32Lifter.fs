@@ -3178,7 +3178,8 @@ let parseDstList = function
                                     Vector d3, Vector d4)), _) ->
     [ d1; d2; d3; d4 ]
   | TwoOperands (OprSIMD (OneReg (Scalar (d, None))), _) -> [ d ]
-  | TwoOperands (OprSIMD (TwoRegs (Scalar (d1, None), Scalar (d2, None))), _) ->
+  | TwoOperands (OprSIMD (TwoRegs (Scalar (d1, None), Scalar (d2, None))), _)
+  | TwoOperands (OprSIMD (TwoRegs (Scalar (d1, _), Scalar (d2, _))), _) ->
     [ d1; d2 ]
   | _ -> raise InvalidOperandException
 
@@ -4471,6 +4472,103 @@ let vst4 insInfo ctxt =
   | TwoOperands (OprSIMD (FourRegs _), _) -> vst4Multi insInfo ctxt
   | _ -> raise InvalidOperandException
 
+let vld2SingleOne insInfo ctxt index =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rdList = parseDstList insInfo.Operands |> List.map (getRegVar ctxt)
+  let rn, rm = getRnAndRm ctxt insInfo.Operands
+  let ebytes = getEbytesBySize insInfo.SIMDTyp
+  let esize = ebytes * 8
+  let rtEsz = RegType.fromBitWidth esize
+  let regIdx = registerIndex insInfo.Operands
+  let updateRn rn =
+    let rmOrTransSz =
+      if regIdx then rm.Value else num <| BitVector.ofInt32 (2 * ebytes) 32<rt>
+    if insInfo.WriteBack.Value then rn .+ rmOrTransSz else rn
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn rn)
+  let mem1 = loadLE rtEsz addr
+  let mem2 = loadLE rtEsz (addr .+ (num <| BitVector.ofInt32 ebytes 32<rt>))
+  builder <! (elem rdList.[0] (int32 index) esize := mem1)
+  builder <! (elem rdList.[1] (int32 index) esize := mem2)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let vld2SingleAll insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rdList = parseDstList insInfo.Operands |> List.map (getRegVar ctxt)
+  let rn, rm = getRnAndRm ctxt insInfo.Operands
+  let size = getSize insInfo.SIMDTyp
+  let regIdx = registerIndex insInfo.Operands
+  let ebytes = 1 <<< size
+  let esize = ebytes * 8 |> RegType.fromBitWidth
+  let elements = 8 / ebytes
+  let updateRn rn =
+    let rmOrTransSz =
+      if regIdx then rm.Value else num <| BitVector.ofInt32 (2 * ebytes) 32<rt>
+    if insInfo.WriteBack.Value then rn .+ rmOrTransSz else rn
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn rn)
+  let mem1 = loadLE esize addr
+  let mem2 = loadLE esize (addr .+ (num <| BitVector.ofInt32 ebytes 32<rt>))
+  let repElem1 = Array.replicate elements mem1 |> concatExprs
+  let repElem2 = Array.replicate elements mem2 |> concatExprs
+  builder <! (rdList.[0] := repElem1)
+  builder <! (rdList.[1] := repElem2)
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let vld2Multi insInfo ctxt =
+  let builder = new StmtBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rdList = parseDstList insInfo.Operands |> List.map (getRegVar ctxt)
+  let rn, rm = getRnAndRm ctxt insInfo.Operands
+  let regs = getRegs insInfo.Operands / 2
+  let size = getSize insInfo.SIMDTyp
+  let ebytes = 1 <<< size
+  let esize = ebytes * 8
+  let rtEsz = RegType.fromBitWidth esize
+  let elements = 8 / ebytes
+  let regIdx = registerIndex insInfo.Operands
+  let updateRn rn =
+    let rmOrTransSz =
+      if regIdx then rm.Value else num <| BitVector.ofInt32 (16 * regs) 32<rt>
+    if insInfo.WriteBack.Value then rn .+ rmOrTransSz else rn
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn rn)
+  for r in 0 .. (regs - 1) do
+    let rd1 = rdList.[r * 2]
+    let rd2 = rdList.[r * 2 + 1]
+    for e in 0 .. (elements - 1) do
+      let incAddr inc = num <| BitVector.ofInt32 inc 32<rt>
+      let mem1 = loadLE rtEsz addr
+      let mem2 = loadLE rtEsz (addr .+ incAddr ebytes)
+      builder <! (elem rd1 e esize := mem1)
+      builder <! (elem rd2 e esize := mem2)
+      builder <! (addr := addr .+ (num (BitVector.ofInt32 (2 * ebytes) 32<rt>)))
+  putEndLabel ctxt lblIgnore isUnconditional builder
+  endMark insInfo builder
+
+let vld2 insInfo ctxt =
+  match insInfo.Operands with
+  | TwoOperands (OprSIMD (TwoRegs (Scalar (_, Some index), _)), _) ->
+    vld2SingleOne insInfo ctxt index
+  | TwoOperands (OprSIMD (TwoRegs (Scalar _, Scalar _)), _) ->
+    vld2SingleAll insInfo ctxt
+  | TwoOperands (OprSIMD (TwoRegs _), _)
+  | TwoOperands (OprSIMD (FourRegs _), _) -> vld2Multi insInfo ctxt
+  | _ -> raise InvalidOperandException
+
 /// Translate IR.
 let translate insInfo ctxt =
   match insInfo.Opcode with
@@ -4657,7 +4755,8 @@ let translate insInfo ctxt =
   | Op.VST2 -> vst2 insInfo ctxt
   | Op.VST3 -> vst3 insInfo ctxt
   | Op.VST4 -> vst4 insInfo ctxt
-  | Op.VLD2 | Op.VLD3 | Op.VLD4 -> sideEffects insInfo UnsupportedExtension
+  | Op.VLD2 -> vld2 insInfo ctxt
+  | Op.VLD3 | Op.VLD4 -> sideEffects insInfo UnsupportedExtension
   | Op.DMB | Op.DSB | Op.ISB | Op.PLD -> nop insInfo
   | o -> eprintfn "%A" o
          raise <| NotImplementedIRException (Disasm.opCodeToString o)
