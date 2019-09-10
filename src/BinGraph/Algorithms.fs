@@ -52,9 +52,12 @@ let rec checkStack visited (stack: Vertex<_> list) orderMap cnt =
       checkStack visited stack orderMap (cnt - 1)
 
 let topologicalOrdering (visited, stack, orderMap, cnt) v =
-  let visited = Set.add v visited
-  let stack, orderMap, cnt = checkStack visited (v :: stack) orderMap cnt
-  visited, stack, orderMap, cnt
+  if Set.contains v visited then
+    visited, stack, orderMap, cnt
+  else
+    let visited = Set.add v visited
+    let stack, orderMap, cnt = checkStack visited (v :: stack) orderMap cnt
+    visited, stack, orderMap, cnt
 
 let dfsTopologicalSort (g: DiGraph<_, _>) root =
   let size = g.Size () - 1
