@@ -3022,6 +3022,7 @@ let translate insInfo ctxt =
   | Op.STMDA -> stm Op.STMDA insInfo ctxt (.-)
   | Op.STMDB -> stm Op.STMDB insInfo ctxt (.-)
   | Op.STMIB -> stm Op.STMIB insInfo ctxt (.+)
+  | Op.CDP | Op.CDP2 | Op.LDC2
   | Op.STCL | Op.SVC | Op.MRC | Op.MRC2 | Op.LDCL ->
     sideEffects insInfo UnsupportedExtension (* coprocessor instructions *)
   | Op.CBNZ -> cbz true insInfo ctxt
@@ -3051,6 +3052,7 @@ let translate insInfo ctxt =
   | Op.VPUSH -> vpush insInfo ctxt
   | Op.VAND -> vand insInfo ctxt
   | Op.VMRS -> vmrs insInfo ctxt
+  | Op.VABA
   | Op.VST1 | Op.VST2 | Op.VST3 | Op.VST4
   | Op.VLD1 | Op.VLD2 | Op.VLD3 | Op.VLD4 | Op.VLDM | Op.VLDMDB | Op.VLDMIA
   | Op.VCEQ | Op.VCGT | Op.VCGE | Op.VCLE | Op.VCLT | Op.VTST
