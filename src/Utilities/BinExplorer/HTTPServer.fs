@@ -120,13 +120,9 @@ let cfgToJSON cfgType ess g roots =
     let lens = SSALens.Init ess.BinHandler ess.SCFG
     let g, roots = lens.Filter g roots ess.BinaryApparatus
     Visualizer.getJSONFromGraph g roots (Some ess.BinHandler)
-  | CallCFG ->
-    let lens = CallGraphLens.Init ess.SCFG
-    let g, roots = lens.Filter g roots ess.BinaryApparatus
-    Visualizer.getJSONFromGraph g roots (Some ess.BinHandler)
+  | _ -> failwith "Invalid CFG type"
 
-let handleCFG req resp arbiter cfgType name =
-  let ess = Protocol.getBinEssence arbiter
+let handleRegularCFG req resp name (ess: BinEssence) cfgType =
   match ess.SCFG.FindFunctionEntryByName name with
   | None -> answer req resp None
   | Some addr ->
@@ -140,6 +136,24 @@ let handleCFG req resp arbiter cfgType name =
 #else
       ()
 #endif
+
+let handleCFG req resp arbiter cfgType name =
+  let ess = Protocol.getBinEssence arbiter
+  match cfgType with
+  | CallCFG ->
+    try
+      let lens = CallGraphLens.Init ess.SCFG
+      let cfg = ess.SCFG.Graph
+      let g, roots = lens.Filter cfg [] ess.BinaryApparatus
+      let s = Visualizer.getJSONFromGraph g roots (Some ess.BinHandler)
+      Some (defaultEnc.GetBytes s) |> answer req resp
+    with e ->
+#if DEBUG
+      printfn "%A" e; failwith "[FATAL]: Failed to generate CG"
+#else
+      ()
+#endif
+  | typ -> handleRegularCFG req resp name ess typ
 
 let handleFunctions req resp arbiter =
   let ess = Protocol.getBinEssence arbiter
