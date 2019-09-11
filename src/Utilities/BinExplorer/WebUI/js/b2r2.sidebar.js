@@ -68,7 +68,10 @@ class SideBarItem {
 
   openWindow() {
     const self = this;
-    let newWindow = window.open("", "popup", 'height=800,width=1200,toolbar=no');
+    let newWindow = window.open("", '_blank', 'height=800,width=1200,toolbar=no');
+    newWindow.addEventListener('load', function () {
+
+    });
     newWindow.document.write(String.format(b2r2.R.newWindowHeadTemplate, "Call Graph"));
     newWindow.document.write(String.format(b2r2.R.newWindowTemplate, "new", 11));
     let funcName;
@@ -100,16 +103,18 @@ class SideBarItem {
             group: "#cfgGrp-" + tabtemp,
             minimap: "#minimap-" + tabtemp,
             minimapStage: "#minimapStage-" + tabtemp,
-            minimapViewPort: "#minimapVP-" + tabtemp
+            minimapViewPort: "#minimapVP-" + tabtemp,
+            dims: dims,
+            json: json
           });
-          g.drawGraph(dims, json, true);
-          let autoComplete = new AutoComlete({
+          g.drawGraph();
+          let autoComplete = new AutoComplete({
             document: newWindow.document,
             id: "#id_new-autocomplete-list",
             inputid: "#id_new-address-search"
           });
           autoComplete.registerEvents();
-          autoComplete.reload(g, json);
+          autoComplete.reload(g);
         }
       });
   }
@@ -154,6 +159,38 @@ class SideBar {
     }
   }
 
+  resizeSidebar(callback) {
+    const minimum_size = 100;
+    const resizer = document.getElementById("id_resize-sidebar");
+    const element = document.getElementById("id_sidebar-content");
+    let original_mouse_x = 0;
+    let original_width = 0;
+    resizer.addEventListener('mousedown', function (e) {
+      e.preventDefault();
+      original_width = parseFloat(getComputedStyle(element, null).getPropertyValue('width').replace('px', ''));
+      original_mouse_x = e.pageX;
+      window.addEventListener('mousemove', resize);
+      window.addEventListener('mouseup', stopResize);
+    });
+    function resize(e) {
+      const width = original_width + (e.pageX - original_mouse_x);
+      if (width > minimum_size) {
+        element.style.width = width + 'px';
+        element.style.minWidth = width + 'px';
+        element.style.maxWidth = width + 'px';
+        $(".sidebar-content-item").each(function () {
+          $(this).css("max-width", width);
+          $(this).css("min-width", width);
+          $(this).css("width", width);
+          callback();
+        });
+      }
+    }
+    function stopResize() {
+      window.removeEventListener('mousemove', resize);
+    }
+  }
+
   registerEvents() {
     const self = this;
     $(document).on("click", ".sidebar-item", function () {
@@ -164,5 +201,6 @@ class SideBar {
         self.open("#" + id);
       }
     });
+    self.resizeSidebar(reloadUI);
   }
 }

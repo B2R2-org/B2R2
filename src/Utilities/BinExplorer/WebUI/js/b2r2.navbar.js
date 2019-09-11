@@ -25,7 +25,6 @@
   SOFTWARE.
 */
 
-
 class NavBar {
   constructor(d) {
     this.functionName = d.functionName;
@@ -33,9 +32,19 @@ class NavBar {
     this.searchInputId = "#id-input_address";
   }
 
-  setTitle() {
+  setTitle(functionName) {
+    this.functionName = functionName;
     $("#uiFuncName").text(this.functionName);
     $("#uiFuncName").attr("title", this.functionName);
+  }
+
+  setDropdownType(type) {
+    $(".cfgChooserBtn").text(type);
+    $(".cfgChooserBtn").append('<span class="caret"></span>');
+  }
+
+  getDropdownType() {
+    return $(".cfgChooserBtn").text().trim();
   }
 
   setFilePath() {
@@ -76,7 +85,6 @@ class NavBar {
 
   cfgChooser(t) {
     const self = this;
-    let dims = reloadUI();
     let funcName = $("#uiFuncName").text();
     $(this).parents(".dropdown").find(".dropdown-toggle").val(t);
     query({
@@ -85,12 +93,22 @@ class NavBar {
     },
       function (_status, json) {
         if (Object.keys(json).length > 0) {
+          let dims = reloadUI();
           const currentTab = Root.TabList.getActiveTab();
-          currentTab.replace(currentTab.name, dims, json);
+          let g = currentTab.replace(currentTab.name, dims, json);
+          g.drawGraph();
           Root.TabList.tabs[currentTab.name].setType(t);
           self.updateCfgChooserLabel(t);
+          const functionItem = Root.FunctionList.get(currentTab.name);
+          functionItem.setState("active");
+          Root.NavBar.setModalData(json);
         }
       });
+  }
+
+  setModalData(json) {
+    let mymodal = $("#codeCopyCFG");
+    mymodal.text(JSON.stringify(json, null, " "));
   }
 
   searchAddress(addr) {
@@ -100,20 +118,35 @@ class NavBar {
     },
       function (status, json) {
         if (Object.keys(json).length > 0) {
-          let funcName = json.Name
           let dims = reloadUI();
-          let fullAddr = "0".repeat(16 - addr.length) + addr;
-          if (checkDuplicateTab(funcName)) {
-            activateTab($("#id_tabContainer li[title='" + funcName + "']"));
-          } else {
-            addTab(funcName, dims, json);
-            drawCFG(dims, json);
-            setuiFuncName(funcName);
-            UIElementInit(true);
-            autocomplete(json);
-          }
-          $("#id_event-trigger").attr("target", getNodeElement(json, fullAddr).id);
-          setTimeout(function () { $("#id_event-trigger").click(); }, 5);
+          let tab = new Tab({
+            tablist: Root.TabList,
+            active: true,
+            name: funcName,
+            value: funcName,
+            type: "Disasm"
+          });
+          const tabNum = tab.init(dims, funcName);
+
+          let g = new FlowGraph({
+            tab: tabNum,
+            cfg: "#cfg-" + tabNum,
+            stage: "#cfgStage-" + tabNum,
+            group: "#cfgGrp-" + tabNum,
+            minimap: "#minimap-" + tabNum,
+            minimapStage: "#minimapStage-" + tabNum,
+            minimapViewPort: "#minimapVP-" + tabNum,
+            dims: dims,
+            json: json
+          });
+          g.drawGraph();
+          tab.setGraph(g);
+          Root.AutoComplete.reload(g);
+          Root.NavBar.setTitle(funcName);
+          Root.NavBar.setDropdownType("Disasm");
+          Root.NavBar.setModalData(json);
+
+          UIElementInit(true);
         } else {
           popToast("alert", "Not found Address", 3);
         }
@@ -141,11 +174,17 @@ class NavBar {
       const type = $(this).data("value");
       self.cfgChooser(type);
     });
+
     $(self.searchInputId).on("keypress", function () {
       self.searchAddressAux($(self.searchInputId).val());
     });
+
     $(self.searchInputId).next().on("click", function () {
       self.searchAddress($(self.searchInputId).val());
+    });
+
+    $("#btnCopyCFG").click(function (e) {
+      copyToClipboard($("#codeCopyCFG").text());
     });
   }
 }

@@ -118,7 +118,7 @@ function reloadUI(d) {
       tabContainerId: "#id_tabContainer"
     }
   }
-  let graphContainerWidth = $(d.document).width();
+  let graphContainerWidth = $(d.document.defaultView).width();
   if (d.mainContainerId === "#id_mainContainer") {
     graphContainerWidth -= $(".sidebar-menu").width();
     graphContainerWidth -= $(".sidebar-content").width();
@@ -185,9 +185,4 @@ function toCenter(d, dx, dy, zoom, transK, durationTime) {
     .duration(durationTime)
     .call(zoom.transform,
       d3.zoomIdentity.translate(newX, newY).scale(transK));
-}
-
-function setuiFuncName(name) {
-  $("#uiFuncName").text(name);
-  $("#uiFuncName").attr("title", name);
 }

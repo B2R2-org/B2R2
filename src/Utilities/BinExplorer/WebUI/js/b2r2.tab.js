@@ -49,6 +49,7 @@ class TabList {
     }
 
     this.tabs = {};
+    this.endCounter = 0;
   }
 
   getElem() {
@@ -57,6 +58,8 @@ class TabList {
 
   addTab(tab) {
     this.tabs[tab.name] = tab;
+    this.endCounter += 1;
+    return this.endCounter;
   }
 
   setid(id) {
@@ -99,7 +102,8 @@ class TabList {
   }
 
   closeTabAll() {
-    Root.AutoComlete.clearInput();
+    Root.AutoComplete.clearInput();
+    Root.NavBar.setTitle("");
     UIElementInit(false);
   }
 
@@ -115,7 +119,7 @@ class TabList {
     }
   }
 
-  deactivateExceptByFunctionName(funcName) {
+  activate(funcName) {
     for (let i in this.tabs) {
       if (this.tabs[i].name == funcName) {
         this.tabs[i].activate();
@@ -142,7 +146,7 @@ class TabList {
 
     $(document).on('click', this.id + " .tab", function (e) {
       const funcName = $(this).attr('value');
-      self.deactivateExceptByFunctionName(funcName);
+      self.activate(funcName);
     });
   }
 }
@@ -159,8 +163,7 @@ class Tab {
     this.active = d.active;
     this.name = d.name;
     this.type = d.type;
-    this.tablist.addTab(this);
-    this.counter = this.tablist.getLength();
+    this.counter = this.tablist.addTab(this);
     this.id = "#id_tab-" + this.counter;
     this.graph = null;
     this.autocomplete = null;
@@ -218,12 +221,16 @@ class Tab {
     $tab.attr("text-type", type);
   }
 
+  setGraph(g) {
+    this.graph = g;
+  }
+
   addAutoComplete(autocomplete) {
     this.autocomplete = autocomplete;
   }
 
   add(dims, funcName) {
-    this.tablist.deactivateExceptByFunctionName(funcName);
+    this.tablist.activate(funcName);
     return this.init(dims, funcName);
   }
 
@@ -241,8 +248,13 @@ class Tab {
     this.activateTab();
     this.activateContent();
     this.active = true;
-
     Root.NavBar.updateCfgChooserLabel(this.type);
+    Root.NavBar.setTitle(this.name);
+    Root.NavBar.setTitle(this.name);
+    Root.NavBar.setDropdownType("Disasm");
+    if (this.graph != undefined) {
+      Root.AutoComplete.reload(this.graph);
+    }
   }
 
   deactivateTab() {
@@ -269,6 +281,8 @@ class Tab {
 
   closeTab() {
     $(this.id).remove();
+    const functionItem = Root.FunctionList.get(this.name);
+    functionItem.setState("not");
     return this.counter;
   }
 
@@ -281,6 +295,8 @@ class Tab {
 
   replace(name, dims, json) {
     const oldFuncName = this.name;
+    const functionItem = Root.FunctionList.get(oldFuncName);
+    functionItem.setState("not");
     this.setName(name);
     this.closeContent();
     const tab = this.counter;
@@ -293,10 +309,29 @@ class Tab {
       group: "#cfgGrp-" + tab,
       minimap: "#minimap-" + tab,
       minimapStage: "#minimapStage-" + tab,
-      minimapViewPort: "#minimapVP-" + tab
+      minimapViewPort: "#minimapVP-" + tab,
+      dims: dims,
+      json: json
     });
-    g.drawGraph(dims, json, false);
-    Root.AutoComlete.reload(g, json);
+    return g;
+  }
+
+  reload(dims, json) {
+    this.closeContent();
+    const tab = this.counter;
+    this.initContent(dims);
+    let g = new FlowGraph({
+      tab: tab,
+      cfg: "#cfg-" + tab,
+      stage: "#cfgStage-" + tab,
+      group: "#cfgGrp-" + tab,
+      minimap: "#minimap-" + tab,
+      minimapStage: "#minimapStage-" + tab,
+      minimapViewPort: "#minimapVP-" + tab,
+      dims: dims,
+      json: json
+    });
+    g.drawGraph();
   }
 
   registerEvents() {

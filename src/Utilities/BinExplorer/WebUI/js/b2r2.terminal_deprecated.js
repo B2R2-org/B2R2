@@ -55,7 +55,7 @@ function Terminal() {
           switch (keyword) {
             case "show":
               let funcName = cmd.split(" ")[1];
-              if (checkDuplicateTab(funcName)) {
+              if (Root.TabList.checkDuplicate(funcName)) {
                 activateTab($("#id_tabContainer li[title='" + funcName + "']"));
                 addCommands(cmd, "");
               } else {
