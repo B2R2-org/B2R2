@@ -45,7 +45,7 @@ type CallGraphBBlock (addr, name, isFake, isExternal) =
   override __.IsFakeBlock () = isFake
 
   override __.ToVisualBlock (_) =
-    let term = "CallGraphBB(" + addr.ToString ("X") + ")" |> String
+    let term = name |> String
     [ [ term ] ]
 
 /// Call graph, where each node represents a function.
