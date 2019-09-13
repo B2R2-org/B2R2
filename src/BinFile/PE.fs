@@ -26,6 +26,7 @@
 
 namespace B2R2.BinFile
 
+open System
 open B2R2
 open B2R2.BinFile.PE.Helper
 open System.Reflection.PortableExecutable
@@ -103,7 +104,16 @@ type PEFileInfo (bytes, path, ?rawpdb) =
     if onlyDef then getExportSymbols pe else getAllDynamicSymbols pe
     |> List.toSeq
 
-  override __.GetRelocationSymbols () = Utils.futureFeature ()
+  override __.GetRelocationSymbols () =
+    pe.RelocBlocks
+    |> Seq.collect(fun block -> block.Entries |> Seq.map(fun entry -> (block, entry)))
+    |> Seq.map(fun (block, entry) -> {
+      Address = uint64 (block.PageRVA + uint32 entry.Offset)
+      Name = String.Empty
+      Kind = SymbolKind.NoType
+      Target = TargetKind.DynamicSymbol
+      LibraryName = String.Empty
+    })
 
   override __.GetSections () =
     pe.SectionHeaders
