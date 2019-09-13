@@ -190,6 +190,38 @@ let parseExports binReader (headers: PEHeaders) =
     |> readExportDirectoryTableEntry binReader headers
     |> buildExportTable binReader headers sec
 
+let buildRelocBlock (binReader: BinReader) headerOffset =  
+  let blockSize = binReader.PeekInt32 (headerOffset + 4)
+  let upperBound = headerOffset + blockSize
+
+  let rec parseBlock offset entries =
+    if offset < upperBound then
+      let buffer = binReader.PeekUInt16(offset)
+      { Type = buffer >>> 12 |> int32 |> LanguagePrimitives.EnumOfValue;
+        Offset = buffer &&& 0xFFFus }::entries
+      |> parseBlock (offset + 2)
+    else
+      entries |> List.toArray
+
+  { PageRVA = binReader.PeekUInt32 headerOffset
+    BlockSize = blockSize
+    Entries = parseBlock (headerOffset + 8) List.empty }
+
+let parseRelocation (binReader: BinReader) (headers: PEHeaders) =
+  match headers.PEHeader.BaseRelocationTableDirectory.RelativeVirtualAddress with
+  | 0 -> List.empty
+  | rva ->
+    let headerOffset = getRawOffset headers rva
+    let upperBound = headerOffset + headers.PEHeader.BaseRelocationTableDirectory.Size
+
+    let rec parseRelocationDirectory offset blocks =
+      if offset < upperBound then
+        let relocBlock = buildRelocBlock binReader offset
+        parseRelocationDirectory (offset + relocBlock.BlockSize) (relocBlock::blocks)
+      else
+        blocks
+    parseRelocationDirectory headerOffset List.empty
+
 let getWordSize (peHeader: PEHeader) =
   match peHeader.Magic with
   | PEMagic.PE32 -> WordSize.Bit32
@@ -255,10 +287,12 @@ let parsePE execpath rawpdb binReader (peReader: PEReader) =
   let importMap = parseImportMap binReader hdrs wordSize importDirTables
   let pdbInfo = getPDBSymbols execpath rawpdb |> buildPDBInfo hdrs
   let sechdrs = peReader.PEHeaders.SectionHeaders |> Seq.toArray
+  let relocs = parseRelocation binReader hdrs
   { PEHeaders = hdrs
     SectionHeaders = sechdrs
     ImportMap= importMap
     ExportMap = exportDirTables
+    RelocBlocks = relocs
     WordSize = wordSize
     PDB = pdbInfo
     InvalidAddrRanges =
