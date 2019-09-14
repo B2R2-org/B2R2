@@ -193,7 +193,6 @@ let parseExports binReader (headers: PEHeaders) =
 let buildRelocBlock (binReader: BinReader) headerOffset =  
   let blockSize = binReader.PeekInt32 (headerOffset + 4)
   let upperBound = headerOffset + blockSize
-
   let rec parseBlock offset entries =
     if offset < upperBound then
       let buffer = binReader.PeekUInt16(offset)
@@ -202,7 +201,6 @@ let buildRelocBlock (binReader: BinReader) headerOffset =
       |> parseBlock (offset + 2)
     else
       entries |> List.toArray
-
   { PageRVA = binReader.PeekUInt32 headerOffset
     BlockSize = blockSize
     Entries = parseBlock (headerOffset + 8) List.empty }
@@ -213,7 +211,6 @@ let parseRelocation (binReader: BinReader) (headers: PEHeaders) =
   | rva ->
     let headerOffset = getRawOffset headers rva
     let upperBound = headerOffset + headers.PEHeader.BaseRelocationTableDirectory.Size
-
     let rec parseRelocationDirectory offset blocks =
       if offset < upperBound then
         let relocBlock = buildRelocBlock binReader offset

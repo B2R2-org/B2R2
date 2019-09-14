@@ -28,24 +28,23 @@ namespace B2R2.BinFile.PE
 
 open B2R2
 open System.Reflection.PortableExecutable
-open System.Reflection.Metadata
 
 /// Base Relocation Type.
 type BaseRelocType =                                                                                              
-  | IMAGE_REL_BASED_ABSOLUTE        = 0
-  | IMAGE_REL_BASED_HIGH            = 1
-  | IMAGE_REL_BASED_LOW             = 2
-  | IMAGE_REL_BASED_HIGHLOW         = 3
-  | IMAGE_REL_BASED_HIGHADJ         = 4
-  | IMAGE_REL_BASED_MIPS_JMPADDR    = 5
-  | IMAGE_REL_BASED_ARM_MOV32       = 5
-  | IMAGE_REL_BASED_RISCV_HIGH20    = 5
-  | Reserved                        = 6
-  | IMAGE_REL_BASED_THUMB_MOV32     = 7
-  | IMAGE_REL_BASED_RISCV_LOW12I    = 7
-  | IMAGE_REL_BASED_RISCV_LOW12S    = 8
-  | IMAGE_REL_BASED_MIPS_JMPADDR16  = 9
-  | IMAGE_REL_BASED_DIR64           = 10
+  | ImageRelBasedAbsolute = 0
+  | ImageRelBasedHigh = 1
+  | ImageRelBasedLow = 2
+  | ImageRelBasedHighlow = 3
+  | ImageRelBasedHighadj = 4
+  | ImageRelBasedMipsJmpaddr = 5
+  | ImageRelBasedArmMov32 = 5
+  | ImageRelBasedRiscvHigh20 = 5
+  | Reserved = 6
+  | ImageRelBasedThumbMov32 = 7
+  | ImageRelBasedRiscvLow12I =  7
+  | ImageRelBasedRiscvLow12S = 8
+  | ImageRelBasedMipsJmpaddr16 = 9
+  | ImageRelBasedDir64 = 10
 
 /// Relocation Block Entry.
 type RelocBlockEntry = {

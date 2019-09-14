@@ -106,8 +106,9 @@ type PEFileInfo (bytes, path, ?rawpdb) =
 
   override __.GetRelocationSymbols () =
     pe.RelocBlocks
-    |> Seq.collect(fun block -> block.Entries |> Seq.map(fun entry -> (block, entry)))
-    |> Seq.map(fun (block, entry) -> {
+    |> Seq.collect (fun block ->
+      block.Entries |> Seq.map(fun entry -> (block, entry)))
+    |> Seq.map (fun (block, entry) -> {
       Address = uint64 (block.PageRVA + uint32 entry.Offset)
       Name = String.Empty
       Kind = SymbolKind.NoType
