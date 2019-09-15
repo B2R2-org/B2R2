@@ -29,6 +29,36 @@ namespace B2R2.BinFile.PE
 open B2R2
 open System.Reflection.PortableExecutable
 
+/// Base Relocation Type.
+type BaseRelocType =                                                                                              
+  | ImageRelBasedAbsolute = 0
+  | ImageRelBasedHigh = 1
+  | ImageRelBasedLow = 2
+  | ImageRelBasedHighlow = 3
+  | ImageRelBasedHighadj = 4
+  | ImageRelBasedMipsJmpaddr = 5
+  | ImageRelBasedArmMov32 = 5
+  | ImageRelBasedRiscvHigh20 = 5
+  | Reserved = 6
+  | ImageRelBasedThumbMov32 = 7
+  | ImageRelBasedRiscvLow12I =  7
+  | ImageRelBasedRiscvLow12S = 8
+  | ImageRelBasedMipsJmpaddr16 = 9
+  | ImageRelBasedDir64 = 10
+
+/// Relocation Block Entry.
+type RelocBlockEntry = {
+  Type: BaseRelocType
+  Offset: uint16
+}
+
+/// Relocation Block
+type RelocBlock = {
+  PageRVA: uint32
+  BlockSize: int32
+  Entries: RelocBlockEntry []
+}
+
 /// The import information begins with the import directory table, which
 /// describes the remainder of the import information. There is one
 /// ImportDirectoryTable per DLL.
@@ -218,6 +248,8 @@ type PE = {
   ImportMap: Map<int, ImportInfo>
   /// Address to exported function name.
   ExportMap: Map<Addr, string>
+  /// List of relocation blocks
+  RelocBlocks: RelocBlock list
   /// Word size for the binary.
   WordSize: WordSize
   /// Symbol information from PDB.
