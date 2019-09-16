@@ -3654,8 +3654,8 @@ let vecMulLong insInfo ctxt =
     let extend reg =
       if unsigned then zExt (p.RtESize * 2) (elem reg e p.ESize)
       else sExt (p.RtESize * 2) (elem reg e p.ESize)
-    let product = extend rn .* extend rm
-    builder <! (elem rd e p.ESize := extractLow p.RtESize product)
+    let product = extractLow (p.RtESize * 2) (extend rn .* extend rm)
+    builder <! (elem rd e (p.ESize * 2) := product)
   putEndLabel ctxt lblIgnore isUnconditional builder
   endMark insInfo builder
 
