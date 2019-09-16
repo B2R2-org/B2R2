@@ -18,7 +18,7 @@ class FunctionItem {
   }
 
   setState(state) {
-    const $li = $("li[title='" + this.name + "']");
+    const $li = $(this.functionList.id + " li[title='" + this.name + "']");
     if (state === "clicked") {
       this.clicked = true;
       this.active = false;
@@ -57,7 +57,6 @@ class FunctionItem {
             },
               function (status, json) {
                 if (Object.keys(json).length > 0) {
-                  setuiFuncName(funcName);
                   let dims = reloadUI();
                   let tab = new Tab({
                     tablist: Root.TabList,
@@ -65,25 +64,32 @@ class FunctionItem {
                     name: funcName,
                     value: funcName,
                     type: "Disasm"
-                  }).init(dims, funcName);
+                  });
+                  const tabNum = tab.init(dims, funcName);
 
                   let g = new FlowGraph({
-                    tab: tab,
-                    cfg: "#cfg-" + tab,
-                    stage: "#cfgStage-" + tab,
-                    group: "#cfgGrp-" + tab,
-                    minimap: "#minimap-" + tab,
-                    minimapStage: "#minimapStage-" + tab,
-                    minimapViewPort: "#minimapVP-" + tab
+                    tab: tabNum,
+                    cfg: "#cfg-" + tabNum,
+                    stage: "#cfgStage-" + tabNum,
+                    group: "#cfgGrp-" + tabNum,
+                    minimap: "#minimap-" + tabNum,
+                    minimapStage: "#minimapStage-" + tabNum,
+                    minimapViewPort: "#minimapVP-" + tabNum,
+                    dims: dims,
+                    json: json
                   });
-                  g.drawGraph(dims, json, false);
-                  Root.AutoComlete.reload(g, json);
+                  g.drawGraph();
+                  tab.setGraph(g);
+                  Root.AutoComplete.reload(g);
+                  Root.NavBar.setTitle(funcName);
+                  Root.NavBar.setDropdownType("Disasm");
+                  Root.NavBar.setModalData(json);
 
                   UIElementInit(true);
                 }
               });
           } else if (Root.TabList.checkDuplicate(funcName)) {
-            Root.TabList.deactivateExceptByFunctionName(funcName);
+            Root.TabList.activate(funcName);
           } else {
             query({
               "q": "cfg-Disasm",
@@ -94,8 +100,13 @@ class FunctionItem {
                   let tab = Root.TabList.getActiveTab();
                   if (tab != undefined) {
                     let dims = reloadUI();
-                    tab.setName(name);
-                    tab.replace(funcName, dims, json);
+                    let g = tab.replace(funcName, dims, json);
+                    g.drawGraph();
+                    tab.setGraph(g);
+                    Root.AutoComplete.reload(g);
+                    Root.NavBar.setTitle(funcName);
+                    Root.NavBar.setDropdownType("Disasm");
+                    Root.NavBar.setModalData(json);
                   } else {
                     console.log("No active tab!");
                   }
@@ -108,7 +119,7 @@ class FunctionItem {
         clearTimeout(self.functionList.timer);
         self.functionList.clicks = 0;
         if (Root.TabList.checkDuplicate(funcName)) {
-          Root.TabList.deactivateExceptByFunctionName(funcName);
+          Root.TabList.activate(funcName);
         } else {
           query({
             "q": "cfg-Disasm",
@@ -116,7 +127,6 @@ class FunctionItem {
           },
             function (status, json) {
               if (Object.keys(json).length > 0) {
-                setuiFuncName(funcName);
                 let dims = reloadUI();
                 let tab = new Tab({
                   tablist: Root.TabList,
@@ -124,19 +134,25 @@ class FunctionItem {
                   name: funcName,
                   value: funcName,
                   type: "Disasm"
-                }).add(dims, funcName);
-
-                let g = new FlowGraph({
-                  tab: tab,
-                  cfg: "#cfg-" + tab,
-                  stage: "#cfgStage-" + tab,
-                  group: "#cfgGrp-" + tab,
-                  minimap: "#minimap-" + tab,
-                  minimapStage: "#minimapStage-" + tab,
-                  minimapViewPort: "#minimapVP-" + tab
                 });
-                g.drawGraph(dims, json, false);
-                Root.AutoComlete.reload(g, json);
+                const tabNum = tab.add(dims, funcName);
+                let g = new FlowGraph({
+                  tab: tabNum,
+                  cfg: "#cfg-" + tabNum,
+                  stage: "#cfgStage-" + tabNum,
+                  group: "#cfgGrp-" + tabNum,
+                  minimap: "#minimap-" + tabNum,
+                  minimapStage: "#minimapStage-" + tabNum,
+                  minimapViewPort: "#minimapVP-" + tabNum,
+                  dims: dims,
+                  json: json
+                });
+                g.drawGraph();
+                tab.setGraph(g);
+                Root.AutoComplete.reload(g);
+                Root.NavBar.setTitle(funcName);
+                Root.NavBar.setDropdownType("Disasm");
+                Root.NavBar.setModalData(json);
 
                 UIElementInit(true);
               }
@@ -187,7 +203,15 @@ class FunctionList {
     $(this.filterInputId).on("keyup", function () {
       var value = $(this).val().toLowerCase();
       $(self.id + " li").each(function (e, i) {
-        $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+        const name = $(this).text();
+        const idx = name.toLowerCase().indexOf(value);
+        $(this).toggle(idx > -1);
+        if (idx > -1) {
+          const item = name.substr(0, idx)
+            + "<strong>" + name.substr(idx, value.length) + "</strong>"
+            + name.substr(idx + value.length);
+          $(this).html(item);
+        }
       });
     });
   }
@@ -196,7 +220,12 @@ class FunctionList {
     let liList = document.querySelectorAll(this.id + " li.clicked");
     for (let i = 0; i < liList.length; i++) {
       liList[i].classList.remove("clicked");
+      liList[i].classList.add("active");
     }
+  }
+
+  get(name) {
+    return this.funcs[name];
   }
 
 

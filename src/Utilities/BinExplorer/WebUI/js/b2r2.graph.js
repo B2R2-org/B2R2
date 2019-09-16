@@ -30,7 +30,7 @@
 const bottomMargin = 10;
 
 // Set the right margin of the entire UI
-const rightMargin = 10;
+const rightMargin = 20;
 
 // Set the ratio between the CFG VP and the minimap VP.
 const minimapRatio = 0.4;
@@ -291,28 +291,24 @@ class MiniEdge {
 class MiniFlowGraph {
   constructor(d) {
     this.graphinfo = d.graphinfo;
-    this.dims = d.dims;
-    this.stageDim = d.stageDim;
   }
 
   draw() {
     const miniBox = this.graphinfo.document.node().querySelector(this.graphinfo.minimapStage).getBoundingClientRect();
 
-    const newReductionRate = Math.min(this.dims.cfgVPDim.width / this.stageDim.width,
-      this.dims.cfgVPDim.height / this.stageDim.height) * 0.9;
-
-    let minimapWidth = miniBox.width * newReductionRate;
-    let minimapHeight = miniBox.height * newReductionRate;
+    let minimapWidth = miniBox.width * this.graphinfo.reductionRate;
+    let minimapHeight = miniBox.height * this.graphinfo.reductionRate;
 
     let minimapDim = {
       width: minimapWidth < 200 ? 200 : minimapWidth,
       height: minimapHeight < 300 ? 300 : minimapHeight,
     };
 
-    this.dims.minimapDim = minimapDim;
 
-    let newWidth = this.dims.minimapDim.width;
-    let newHeight = this.dims.minimapDim.height;
+    this.graphinfo.dims.minimapDim = minimapDim;
+
+    let newWidth = this.graphinfo.dims.minimapDim.width;
+    let newHeight = this.graphinfo.dims.minimapDim.height;
 
     // set minimap size based on the graph size.
     this.graphinfo.document.select(this.graphinfo.minimap)
@@ -329,7 +325,7 @@ class MiniFlowGraph {
     $(this.graphinfo.minimapContainer).css("margin-bottom", bottomMargin + "px");
     $(this.graphinfo.minimapContainer).css("padding-top", "20px");
 
-    return this.dims
+    return this.graphinfo.dims;
   }
 }
 
@@ -357,6 +353,8 @@ class FlowGraph {
     this.minimapStage = d.minimapStage;
     this.minimapViewPort = d.minimapViewPort;
     this.reductionRate = 0;
+    this.dims = d.dims;
+    this.json = d.json;
 
     this.newWindow = d.newWindow;
     if (d.newWindow === undefined)
@@ -452,9 +450,9 @@ class FlowGraph {
     }).add();
   }
 
-  drawNodes(g) {
-    for (let i = 0; i < g.Nodes.length; i++) {
-      this.drawNode(i, g.Nodes[i]);
+  drawNodes() {
+    for (let i = 0; i < this.json.Nodes.length; i++) {
+      this.drawNode(i, this.json.Nodes[i]);
     }
 
     let r = this.document.node().querySelector(this.group).getBBox(),
@@ -481,30 +479,30 @@ class FlowGraph {
     }).add();
   }
 
-  drawEdges(g) {
-    for (let i = 0; i < g.Edges.length; i++) {
-      this.drawEdge(g.Edges[i]);
+  drawEdges() {
+    for (let i = 0; i < this.json.Edges.length; i++) {
+      this.drawEdge(this.json.Edges[i]);
     }
   }
+  centerAlign(self, shiftX) {
+    let leftPadding = (self.dims.cfgVPDim.width) / 2 / self.reductionRate;
 
-  drawGraphAux(dims, cfg) {
-    function centerAlign(self, dims, shiftX) {
-      let leftPadding = (dims.cfgVPDim.width) / 2 / self.reductionRate;
+    self.document.select(self.group).attr("transform",
+      "translate(" + leftPadding + ", 0)");
 
-      self.document.select(self.group).attr("transform",
-        "translate(" + leftPadding + ", 0)");
+    self.document.select(self.minimapStage)
+      .attr("transform",
+        "translate (" + shiftX + ", 0) scale (" + self.reductionRate + ")");
+  }
 
-      self.document.select(self.minimapStage)
-        .attr("transform",
-          "translate (" + shiftX + ", 0) scale (" + self.reductionRate + ")");
-    }
+  drawGraphAux() {
 
-    function drawMinimapViewPort(self, dims) {
+    function drawMinimapViewPort(self) {
       self.document.select(self.minimap)
         .append("rect")
         .attr("id", "minimapVP-" + self.tab)
-        .attr("width", (dims.minimapVPDim.width - 2) + "px")
-        .attr("height", (dims.minimapVPDim.height - 2) + "px")
+        .attr("width", (self.dims.minimapVPDim.width - 2) + "px")
+        .attr("height", (self.dims.minimapVPDim.height - 2) + "px")
         .attr("fill", "transparent")
         .attr("stroke-width", "0.5")
         .attr("stroke", "white");
@@ -514,38 +512,51 @@ class FlowGraph {
       stageDim = null;
 
     this.init();
-    stageDim = this.drawNodes(cfg);
-    this.drawEdges(cfg);
-    this.data = cfg;
+    stageDim = this.drawNodes();
+    this.drawEdges();
 
     this.reductionRate =
-      Math.min(dims.cfgVPDim.width / stageDim.width,
-        dims.cfgVPDim.height / stageDim.height) * extraRatio;
+      Math.min(this.dims.cfgVPDim.width / stageDim.width,
+        this.dims.cfgVPDim.height / stageDim.height) * extraRatio;
 
     // If the entire CFG is smaller than the cfgVP, then simply use the rate 1.
     // In other words, the maximum reductionRate is one.
     if (this.reductionRate >= 1) this.reductionRate = 1;
 
-    dims = new MiniFlowGraph({
+    this.dims = new MiniFlowGraph({
       graphinfo: this,
-      dims: dims,
-      stageDim: stageDim
     }).draw();
 
-    centerAlign(this, dims, dims.minimapDim.width / 2);
-    drawMinimapViewPort(this, dims);
-    this.registerEvents(dims);
+    this.centerAlign(this, this.dims.minimapDim.width / 2);
+    drawMinimapViewPort(this);
+    this.registerEvents();
     $("#icon-refresh").removeClass("rotating"); // Stop the animation.
   }
 
-  drawGraph(dims, cfg, fitHeight) {
+  resize(dims) {
+    this.dims = dims;
+    this.dims = new MiniFlowGraph({
+      graphinfo: this,
+    }).draw();
+
+    this.centerAlign(this, this.dims.minimapDim.width / 2);
+    d3.select(this.cfg)
+      .attr("width", this.dims.cfgVPDim.width)
+      .attr("height", this.dims.cfgVPDim.height);
+    d3.select(this.minimapViewPort)
+      .attr("width", this.dims.minimapVPDim.width)
+      .attr("height", this.dims.minimapVPDim.height);
+    Root.AutoComplete.reload(this);
+  }
+
+  drawGraph() {
     $("#icon-refresh").addClass("rotating"); // Start the animation.
     // This is to make sure that the rotation animation is running first.
     //setTimeout(function () { this.drawGraphAux(dims, cfg); }, 5);
-    this.drawGraphAux(dims, cfg, fitHeight);
+    this.drawGraphAux();
   }
 
-  registerEvents(dims) {
+  registerEvents() {
     let self = this;
     let translateWidthRatio = null;
     let translateHeightRatio = null;
@@ -561,9 +572,7 @@ class FlowGraph {
     let minimap = this.document.select(this.minimap);
     let minimapVP = this.document.select(this.minimapViewPort);
 
-    let nodes = cfgStage.selectAll(".cfgNodeBlur");
     let edges = cfgStage.selectAll(".cfgEdgeBlur");
-    let texts = cfgStage.selectAll(".cfgDisasmText");
     let zoom = null;
 
 
@@ -618,25 +627,9 @@ class FlowGraph {
       });
     });
 
-    nodes.each(function (d, i) {
-      d3.select(this).on("click", function () {
-        let rect = $(".cfgNode")[i];
-        if (rect.classList.contains("nodeHighlight")) {
-          d3.select(rect).classed("nodeHighlight", false);
-        } else {
-          $(".cfgNode").removeClass("nodeHighlight");
-          d3.select(rect).classed("nodeHighlight", true);
-        }
-      });
-    });
-
-    texts.on("click", function () {
-      // Remove all highlights for cfgDisasmText
-      $(".cfgDisasmText").removeClass("wordHighlight");
-      let clsName = d3.select(this).attr("class").split(" ")[1];
-      // Only highlights with "clsName"
-      // XXX: later we should change false to true
-      texts.filter("." + clsName).classed("wordHighlight", false);
+    $(self.document.node()).on("click", ".cfgNodeBlur", function () {
+      let $rect = $(this).prev();
+      $rect.toggleClass("nodeHighlight");
     });
 
     function getEventPointFromMinimap(event) {
@@ -651,12 +644,12 @@ class FlowGraph {
 
     function jumpToCursor() {
       let centerPoint = getEventPointFromMinimap(d3.event.sourceEvent);
-      let minimapX = centerPoint.x - offsetX - (dims.minimapDim.width - dims.minimapVPDim.width) / 2;
+      let minimapX = centerPoint.x - offsetX - (self.dims.minimapDim.width - self.dims.minimapVPDim.width) / 2;
       let minimapY = centerPoint.y - offsetY;
       let minimapK = self.reductionRate * inverseK;
 
-      offsetX = (dims.minimapVPDim.width * minimapK) / 2;
-      offsetY = (dims.minimapVPDim.height * minimapK) / 2;
+      offsetX = (self.dims.minimapVPDim.width * minimapK) / 2;
+      offsetY = (self.dims.minimapVPDim.height * minimapK) / 2;
       minimapVP.attr("transform",
         "translate(" + minimapX + ","
         + minimapY + ") scale(" + minimapK + ")");
@@ -681,7 +674,7 @@ class FlowGraph {
 
     function dragMove() {
       let mouseSVGPoint = getEventPointFromMinimap(d3.event.sourceEvent);
-      let minimapX = mouseSVGPoint.x - offsetX - (dims.minimapDim.width - dims.minimapVPDim.width) / 2;
+      let minimapX = mouseSVGPoint.x - offsetX - (self.dims.minimapDim.width - self.dims.minimapVPDim.width) / 2;
       let minimapY = mouseSVGPoint.y - offsetY;
       let minimapK = self.reductionRate * inverseK;
 
@@ -731,7 +724,7 @@ class FlowGraph {
       translateWidthRatio = minimapBound.width / viewportBound.width;
       translateHeightRatio = minimapBound.height / viewportBound.height;
 
-      transX = (- transX) * translateWidthRatio + (dims.minimapDim.width - dims.minimapVPDim.width) / 2;
+      transX = (- transX) * translateWidthRatio + (self.dims.minimapDim.width - self.dims.minimapVPDim.width) / 2;
       transY = (- transY) * translateHeightRatio;
 
       minimapVP.attr("transform",
@@ -760,7 +753,7 @@ class FlowGraph {
       }
     });
 
-    zoom = d3.zoom().scaleExtent([0.05, 20]).on("zoom", zoomed);
+    zoom = d3.zoom().scaleExtent([this.reductionRate, 5]).on("zoom", zoomed);
     let transform = d3.zoomIdentity.translate(0, 0).scale(self.reductionRate);
     cfg.call(zoom).call(zoom.transform, transform).on("dblclick.zoom", null);
   }

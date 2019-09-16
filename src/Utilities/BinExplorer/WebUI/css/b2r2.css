@@ -439,21 +439,18 @@ html, body {
     height: calc(100% - 40px);
     overflow-y: auto; }
     #id_functions-wrapper #id_functions #funcSelector {
-      all: unset; }
+      all: unset;
+      display: block;
+      overflow-x: hidden; }
       #id_functions-wrapper #id_functions #funcSelector li {
-        all: unset;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
         cursor: pointer;
-        height: 20px;
         color: white;
         -webkit-text-fill-color: white;
         padding: 5px 10px;
-        font-size: 15px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center; }
+        font-size: 15px; }
         #id_functions-wrapper #id_functions #funcSelector li.active {
           -webkit-text-fill-color: var(--green);
           color: var(--green); }
@@ -461,6 +458,9 @@ html, body {
           background: var(--green);
           -webkit-text-fill-color: black;
           color: black; }
+        #id_functions-wrapper #id_functions #funcSelector li strong {
+          -webkit-text-fill-color: var(--cyan);
+          color: var(--cyan); }
 #id_CommentsListWrapper {
   display: none; }
 

@@ -26,13 +26,12 @@
   SOFTWARE.
 */
 
-class AutoComlete {
+class AutoComplete {
   constructor(d) {
     this.document = d.document;
     if (d.document === undefined)
       this.document = document;
     this.graphinfo = d.graphinfo;
-    this.json = d.json;
     this.stmts = [];
     this.id = d.id;
     if (d.id === undefined)
@@ -43,12 +42,14 @@ class AutoComlete {
 
   }
 
-  reload(graphinfo, json) {
+  reload(graphinfo) {
     //stmts = [ address operand:[] meta:{pos, width, idx} ]
+    this.clearInput();
     this.graphinfo = graphinfo;
-    this.json = json;
-    if (this.json != undefined) {
-      let data = json.Nodes;
+
+    this.stmts = [];
+    if (graphinfo.json != undefined) {
+      let data = graphinfo.json.Nodes;
       for (let d in data) {
         for (let t in data[d].Terms) {
           let stmt = [];
@@ -117,7 +118,7 @@ class AutoComlete {
   }
 
   clearInput() {
-    $(d.document).find(this.inputid).val("");
+    $(this.document).find(this.inputid).val("");
   }
 
   search(word) {

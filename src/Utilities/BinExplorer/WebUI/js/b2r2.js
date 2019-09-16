@@ -33,7 +33,7 @@ var Root = {
   minimapContainerId: null,
   TabList: null,
   FunctionList: null,
-  AutoComlete: null
+  AutoComplete: null
 };
 
 function drawBinInfo(status, str) {
@@ -61,7 +61,30 @@ $("#binInfo").on("click", function () {
   let str = $("#binInfo").attr("title");
   copyToClipboard(str);
   popToast("info", "Copy File Path", 3);
-})
+});
+
+$("#icon-refresh").on("click", function () {
+  const t = $(".cfgChooserBtn").text().trim();
+  query({
+    "q": "cfg-" + t,
+    "args": $("#uiFuncName").text().trim()
+  },
+    function (status, json) {
+      if (Object.keys(json).length > 0) {
+        let tab = Root.TabList.getActiveTab();
+        let dims = reloadUI();
+        tab.reload(dims, json);
+        UIElementInit(true);
+      }
+    });
+});
+
+$(window).on("resize", function () {
+  const tab = Root.TabList.getActiveTab();
+  const dims = reloadUI();
+  console.table(dims);
+  tab.graph.resize(dims);
+});
 
 // Offline mode renders a single function only. Inter-function analysis is not
 // supported in offline mode.
@@ -80,9 +103,12 @@ function runOffline(dims, tab) {
         group: "#cfgGrp-" + tab,
         minimap: "#minimap-" + tab,
         minimapStage: "#minimapStage-" + tab,
-        minimapViewPort: "#minimapVP-" + tab
+        minimapViewPort: "#minimapVP-" + tab,
+        dims: dims,
+        json: json
       });
-      g.drawGraph(dims, json, false);
+      g.drawGraph();
+      tab.setGraph(g);
     };
     try { reader.readAsText(file); }
     catch (_) { console.log("Error: File open failure."); }
@@ -91,9 +117,13 @@ function runOffline(dims, tab) {
 
 // Run in online mode (this is the default).
 function runOnline(dims) {
+  Root.mainContainerId = "#id_mainContainer";
+  Root.graphContainerId = "#id_graphContainer";
+  Root.minimapContainerId = "#minimapDiv";
+
   let tabList = new TabList({});
   let funcList = new FunctionList({});
-  let autoComplete = new AutoComlete({});
+  let autoComplete = new AutoComplete({});
   let navbar = new NavBar({});
   let functionSidebarItem = new SideBarItem({
     icon: "fas fa-list",
@@ -130,20 +160,26 @@ function runOnline(dims) {
     ]
   });
 
+  let minimap = new MiniMap({
+    document: document,
+    moveHandlerId: ".move-minimap",
+    returnHandlerId: ".return-minimap",
+    resizeHandlerId: ".resize-minimap"
+  });
+
   tabList.registerEvents();
   funcList.init();
   funcList.registerEvents();
   autoComplete.registerEvents();
   navbar.registerEvents();
+  minimap.registerEvents();
   sidebar.registerEvents();
-  Root.mainContainerId = "#id_mainContainer";
-  Root.graphContainerId = "#id_graphContainer";
-  Root.minimapContainerId = "#minimapDiv";
   Root.NavBar = navbar;
   Root.TabList = tabList;
   Root.SideBar = sidebar;
   Root.FunctionList = funcList;
-  Root.AutoComlete = autoComplete;
+  Root.AutoComplete = autoComplete;
+  Root.MiniMap = minimap;
 
   query({ "q": "bininfo" }, drawBinInfo);
 }
