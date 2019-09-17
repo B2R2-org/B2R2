@@ -2,8 +2,8 @@
   B2R2 - the Next-Generation Reversing Platform
 
   Author: Subin Jeong <cyclon2@kaist.ac.kr>
-Soomin Kim <soomink@kaist.ac.kr>
-Sang Kil Cha <sangkilc@kaist.ac.kr>
+          Soomin Kim <soomink@kaist.ac.kr>
+          Sang Kil Cha <sangkilc@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -82,7 +82,6 @@ $("#icon-refresh").on("click", function () {
 $(window).on("resize", function () {
   const tab = Root.TabList.getActiveTab();
   const dims = reloadUI();
-  console.table(dims);
   tab.graph.resize(dims);
 });
 

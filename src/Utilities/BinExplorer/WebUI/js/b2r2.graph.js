@@ -51,7 +51,8 @@ const nodePaddingTop = 3;
 
 const minimapMarginRight = 20;
 
-class NodeLine {
+// Each line (statement) in a node.
+class LineOfNode {
   constructor(d) {
     this.graphinfo = d.graphinfo;
     this.text = d.text;
@@ -65,6 +66,7 @@ class NodeLine {
     this.comment = d.comment;
     this.width = d.width;
   }
+
   init() {
 
   }
@@ -112,6 +114,7 @@ class NodeLine {
       }
     }
   }
+
   appendDisasmFragment(txt, cls, fragment, isOpcode) {
     let t = txt.append("tspan")
       .text(fragment).attr("class", cls).attr("xml:space", "preserve");
@@ -188,7 +191,7 @@ class Node {
     this.addAux(g);
 
     for (let i = 0; i < this.terms.length; i++) {
-      new NodeLine({
+      new LineOfNode({
         graphinfo: this.graphinfo,
         node: g,
         idx: i,
