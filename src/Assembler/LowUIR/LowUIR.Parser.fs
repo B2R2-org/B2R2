@@ -32,11 +32,16 @@ open B2R2
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.Parser.Utils
 
-type ParserUserState = unit
+type ExpectedType = RegType
 
-type Parser<'t> = Parser<'t, ParserUserState>
+type Parser<'t> = Parser<'t, ExpectedType>
 
 type LowUIRParser (isa, pHelper: RegParseHelper) =
+
+  (* Functions to help with manipulating the userState *)
+  let makeExpectedType c =
+    updateUserState ( fun us -> AST.typeOf c)
+    >>. preturn c
 
   /// Parses name that can be used as a variable or register Name.
   let pNormalString =
@@ -48,14 +53,26 @@ type LowUIRParser (isa, pHelper: RegParseHelper) =
   let pCaseString (s: string) =
     pstring s <|> (pstring ( s.ToLower () ) >>. preturn s) <?> s
 
+  let numberFormat =     NumberLiteralOptions.AllowMinusSign
+                     ||| NumberLiteralOptions.AllowBinary
+                     ||| NumberLiteralOptions.AllowHexadecimal
+                     ||| NumberLiteralOptions.AllowOctal
+                     ||| NumberLiteralOptions.AllowPlusSign
+
+  let pnumber : Parser<int64> =
+      numberLiteral numberFormat "number"
+      |>> fun nl ->
+              int64 nl.String
   (*---------------------------Primitives.-----------------------------*)
   let pRegType =
-    (pchar 'I' <|> pchar 'F') >>. pint32 |>> RegType.fromBitWidth
+    (anyOf "IiFf" ) >>. pint32 |>> RegType.fromBitWidth
 
   let pBitVector =
-    pstring "0x" >>. pHexToUInt64 .>> spaces
-    .>> pchar ':' .>> spaces .>>. pRegType
-    |>> (fun (n, typ) -> BitVector.ofUInt64 n typ)
+    pnumber .>> spaces
+    .>>. (opt (pchar ':' >>. spaces >>. pRegType))
+    >>= (fun (n, typ) ->
+           if typ.IsNone then getUserState |>> (fun t -> BitVector.ofInt64 n t)
+           else preturn (BitVector.ofInt64 n typ.Value))
 
   let pUnaryOperator = anyOf "-~" |>> string |>> unOpFromString
 
@@ -175,8 +192,9 @@ type LowUIRParser (isa, pHelper: RegParseHelper) =
     |>> AST.lblSymbol |>> LMark
 
   let pPut =
-    (attempt pTempVarE <|> pVarE) .>> spaces .>> pstring ":="
-    .>> spaces .>>. pExpr |>> (fun (dest, value) -> AST.(:=) dest value)
+    (attempt pTempVarE <|> pVarE >>= makeExpectedType) .>> spaces
+    .>> pstring ":=" .>> spaces .>>. pExpr
+    |>> (fun (dest, value) -> AST.(:=) dest value)
 
   let pJmp =
     pstring "JmpLbl" .>> spaces >>. pExpr |>> Jmp
@@ -219,7 +237,7 @@ type LowUIRParser (isa, pHelper: RegParseHelper) =
     >>= typeCheckR
 
   member __.Run str =
-    match runParserOnString statement () "" str with
+    match runParserOnString statement 0<rt> "" str with
     | FParsec.CharParsers.Success (result, _, pos) ->
       if pos.Column <> int64 (str.Length + 1) then
         printfn "[Invalid] Invalid characters at the end of input"
