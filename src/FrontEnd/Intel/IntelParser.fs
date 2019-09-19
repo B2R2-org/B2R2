@@ -31,6 +31,7 @@ module B2R2.FrontEnd.Intel.Parser
 
 open System
 open B2R2
+open B2R2.FrontEnd
 open B2R2.FrontEnd.Intel
 open B2R2.FrontEnd.Intel.RegGroup
 open B2R2.FrontEnd.Intel.Helper

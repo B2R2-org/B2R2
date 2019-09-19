@@ -29,10 +29,7 @@
 module internal B2R2.FrontEnd.Intel.Helper
 
 open B2R2
-
-/// This exception occurs when parsing binary code failed. This exception
-/// indicates a non-recoverable parsing failure.
-exception ParsingFailureException
+open B2R2.FrontEnd
 
 /// Create a new instruction descriptor.
 let newTemporaryIns opcode operands preInfo insSize =

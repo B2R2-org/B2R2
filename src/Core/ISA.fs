@@ -68,8 +68,10 @@ type Architecture =
   | MIPS64R2 = 15
   /// MIPS64R6 (64-bit mode).
   | MIPS64R6 = 16
+  /// Ethereum Vritual Machine.
+  | EVM = 17
   /// Unknown ISA.
-  | UnknownISA = 17
+  | UnknownISA = 18
 
 type Arch = Architecture
 
@@ -126,6 +128,8 @@ with
     | Arch.MIPS64R2
     | Arch.MIPS64R6 ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit64 }
+    | Arch.EVM ->
+      { Arch = arch; Endian = endian; WordSize = WordSize.Bit64 } // FIXME
     | _ -> raise InvalidISAException
 
   static member OfString (s: string) =
@@ -147,6 +151,7 @@ with
     | "mips64r2be" -> ISA.Init (Arch.MIPS64R2) Endian.Big
     | "mips64r6" -> ISA.Init (Arch.MIPS64R6) Endian.Little
     | "mips64r6be" -> ISA.Init (Arch.MIPS64R6) Endian.Big
+    | "evm" -> ISA.Init (Arch.EVM) Endian.Little // FIXME
     | _ -> raise InvalidISAException
 
   static member ArchToString = function

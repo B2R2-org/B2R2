@@ -1,7 +1,7 @@
 (*
   B2R2 - the Next-Generation Reversing Platform
 
-  Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
+  Author: Seung Il Jung <sijung@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -24,26 +24,13 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd
+/// EVM instruction parser.
+module B2R2.FrontEnd.EVM.Parser
 
-/// The IR is not implemented yet.
-exception NotImplementedIRException of string
+open B2R2
 
-/// Invalid use of operand has been encountered during parsing/lifting.
-exception InvalidOperandException
-
-/// Invalid operand size has been used during parsing/lifting.
-exception InvalidOperandSizeException
-
-/// Invalid opcode has been used during parsing/lifting.
-exception InvalidOpcodeException
-
-/// Invalid register has been used during parsing/lifting.
-exception InvalidRegisterException
-
-/// Encountered register expression that is yet handled in our IR.
-exception UnhandledRegExprException
-
-/// This exception occurs when parsing binary code failed. This exception
-/// indicates a non-recoverable parsing failure.
-exception ParsingFailureException
+/// Read in bytes and return a parsed instruction for EVM. This function
+/// returns EVMInstruction, which is a specialized type for EVM. If you want
+/// to handle instructions in a platform-agnostic manner, you'd better use the
+/// EVM class.
+val parse: BinReader -> WordSize -> Addr -> int -> EVMInstruction

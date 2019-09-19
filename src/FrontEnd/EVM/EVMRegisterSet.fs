@@ -1,7 +1,7 @@
-(*
+﻿(*
   B2R2 - the Next-Generation Reversing Platform
 
-  Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
+  Author: Seung Il Jung <sijung@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -24,26 +24,33 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd
+namespace B2R2.FrontEnd.EVM
 
-/// The IR is not implemented yet.
-exception NotImplementedIRException of string
+open B2R2
 
-/// Invalid use of operand has been encountered during parsing/lifting.
-exception InvalidOperandException
+type EVMRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
+  inherit NonEmptyRegisterSet (bitArray, s)
 
-/// Invalid operand size has been used during parsing/lifting.
-exception InvalidOperandSizeException
+  static let defaultSize = 2
+  static let emptyArr = Array.init defaultSize (fun _ -> 0UL)
+  static member EmptySet =
+    new EVMRegisterSet (emptyArr, Set.empty) :> RegisterSet
 
-/// Invalid opcode has been used during parsing/lifting.
-exception InvalidOpcodeException
+  override __.Tag = RegisterSetTag.MIPS
+  override __.ArrSize = defaultSize
+  override __.New x s = new EVMRegisterSet (x, s) :> RegisterSet
+  override __.Empty = EVMRegisterSet.EmptySet
+  override __.EmptyArr = emptyArr
+  override __.Project x =
+    match Register.ofRegID x with
+    | R.SP -> 0
+    | R.GAS -> 1
+    | _ -> -1
 
-/// Invalid register has been used during parsing/lifting.
-exception InvalidRegisterException
+  override __.ToString () =
+    sprintf "EVMReisterSet<%x, %x>" __.BitArray.[0] __.BitArray.[1]
 
-/// Encountered register expression that is yet handled in our IR.
-exception UnhandledRegExprException
-
-/// This exception occurs when parsing binary code failed. This exception
-/// indicates a non-recoverable parsing failure.
-exception ParsingFailureException
+[<RequireQualifiedAccess>]
+module EVMRegisterSet =
+  let singleton = RegisterSetBuilder.singletonBuilder EVMRegisterSet.EmptySet
+  let empty = EVMRegisterSet.EmptySet

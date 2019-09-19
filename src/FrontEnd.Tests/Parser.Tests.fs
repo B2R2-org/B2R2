@@ -1440,7 +1440,7 @@ module Intel =
   [<TestClass>]
   type ExceptionTestClass () =
     [<TestMethod>]
-    [<ExpectedException(typedefof<Intel.Helper.ParsingFailureException>)>]
+    [<ExpectedException(typedefof<ParsingFailureException>)>]
     member __.``Size cond ParsingFailure Test`` () =
       test64 Opcode.AAA NoOperand 1ul [| 0x37uy |]
 

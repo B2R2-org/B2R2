@@ -1,7 +1,7 @@
 (*
   B2R2 - the Next-Generation Reversing Platform
 
-  Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
+  Author: Seung Il Jung <sijung@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -24,26 +24,25 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd
+namespace B2R2.FrontEnd.EVM
 
-/// The IR is not implemented yet.
-exception NotImplementedIRException of string
+open B2R2
+open B2R2.BinIR.LowUIR
+open B2R2.BinIR.LowUIR.AST
 
-/// Invalid use of operand has been encountered during parsing/lifting.
-exception InvalidOperandException
+type internal RegExprs (wordSize) =
+  let var sz t name = AST.var sz t name (EVMRegisterSet.singleton t)
 
-/// Invalid operand size has been used during parsing/lifting.
-exception InvalidOperandSizeException
+  (* Registers *)
+  let regType = WordSize.toRegType wordSize
 
-/// Invalid opcode has been used during parsing/lifting.
-exception InvalidOpcodeException
+  member val SP = var regType (Register.toRegID Register.SP) "SP" with get
+  member val GAS = var regType (Register.toRegID Register.GAS) "Gas" with get
 
-/// Invalid register has been used during parsing/lifting.
-exception InvalidRegisterException
+  member __.GetRegVar (name) =
+    match name with
+    | R.SP -> __.SP
+    | R.GAS -> __.GAS
+    | _ -> raise B2R2.FrontEnd.UnhandledRegExprException
 
-/// Encountered register expression that is yet handled in our IR.
-exception UnhandledRegExprException
-
-/// This exception occurs when parsing binary code failed. This exception
-/// indicates a non-recoverable parsing failure.
-exception ParsingFailureException
+// vim: set tw=80 sts=2 sw=2:

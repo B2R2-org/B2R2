@@ -46,6 +46,9 @@ let initHelpers isa =
   | Arch.MIPS64 | Arch.MIPS64R2 | Arch.MIPS64R6 ->
     MIPS.MIPSTranslationContext (isa) :> TranslationContext,
     MIPS.MIPSParser (isa.WordSize, isa.Arch) :> Parser
+  | Arch.EVM ->
+    EVM.EVMTranslationContext (isa) :> TranslationContext,
+    EVM.EVMParser (isa.WordSize) :> Parser
   | _ -> Utils.futureFeature ()
 
 let newFileInfo bytes (baseAddr: Addr) path isa autoDetect =

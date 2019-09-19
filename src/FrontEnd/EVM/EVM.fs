@@ -1,7 +1,7 @@
-(*
+﻿(*
   B2R2 - the Next-Generation Reversing Platform
 
-  Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
+  Author: Seung Il Jung <sijung@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -24,26 +24,23 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd
+namespace B2R2.FrontEnd.EVM
 
-/// The IR is not implemented yet.
-exception NotImplementedIRException of string
+open B2R2.FrontEnd
 
-/// Invalid use of operand has been encountered during parsing/lifting.
-exception InvalidOperandException
+/// Translation context for Ethereum Virtual Machine (EVM) instructions.
+type EVMTranslationContext (isa) =
+  inherit TranslationContext (isa)
+  /// Register expressions.
+  member val private RegExprs: RegExprs = RegExprs (isa.WordSize)
+  override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
+  override __.GetPseudoRegVar _id _pos = failwith "Implement"
 
-/// Invalid operand size has been used during parsing/lifting.
-exception InvalidOperandSizeException
+/// Parser for EVM instructions. Parser will return a platform-agnostic
+/// instruction type (Instruction).
+type EVMParser (wordSize) =
+  inherit Parser ()
+  override __.Parse binReader _ctxt addr pos =
+    Parser.parse binReader wordSize addr pos :> Instruction
 
-/// Invalid opcode has been used during parsing/lifting.
-exception InvalidOpcodeException
-
-/// Invalid register has been used during parsing/lifting.
-exception InvalidRegisterException
-
-/// Encountered register expression that is yet handled in our IR.
-exception UnhandledRegExprException
-
-/// This exception occurs when parsing binary code failed. This exception
-/// indicates a non-recoverable parsing failure.
-exception ParsingFailureException
+// vim: set tw=80 sts=2 sw=2:
