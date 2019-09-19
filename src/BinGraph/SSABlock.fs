@@ -85,7 +85,7 @@ type SSABBlock (hdl, scfg, pp: ProgramPoint, pairs: InsIRPair []) =
 
   override __.IsFakeBlock () = Array.isEmpty pairs
 
-  override __.ToVisualBlock (_) =
+  override __.ToVisualBlock () =
     __.Stmts
     |> Array.toList
     |> List.map (fun stmt -> [ SSA.Pp.stmtToString stmt |> String ])

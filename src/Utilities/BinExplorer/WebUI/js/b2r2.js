@@ -115,7 +115,7 @@ function runOffline(dims, tab) {
 }
 
 // Run in online mode (this is the default).
-function runOnline(dims) {
+function runOnline() {
   Root.mainContainerId = "#id_mainContainer";
   Root.graphContainerId = "#id_graphContainer";
   Root.minimapContainerId = "#minimapDiv";
@@ -171,8 +171,9 @@ function runOnline(dims) {
   funcList.registerEvents();
   autoComplete.registerEvents();
   navbar.registerEvents();
-  minimap.registerEvents();
   sidebar.registerEvents();
+  minimap.registerEvents();
+
   Root.NavBar = navbar;
   Root.TabList = tabList;
   Root.SideBar = sidebar;
@@ -190,7 +191,7 @@ function main() {
   if (window.location.protocol == "file:")
     return runOffline(dims);
   else {
-    return runOnline(dims);
+    return runOnline();
   }
 }
 

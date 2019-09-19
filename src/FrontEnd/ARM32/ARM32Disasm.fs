@@ -30,12 +30,6 @@ module internal B2R2.FrontEnd.ARM32.Disasm
 open B2R2
 open System.Text
 
-let addrToString (addr: Addr) wordSize verbose =
-  if verbose then
-    if wordSize = WordSize.Bit32 then addr.ToString("X8") + ": "
-    else addr.ToString("X16") + ": "
-  else ""
-
 let inline printAddr (addr: Addr) verbose (sb: StringBuilder) =
   if not verbose then sb
   else (sb.Append (addr.ToString ("X8"))).Append (": ")

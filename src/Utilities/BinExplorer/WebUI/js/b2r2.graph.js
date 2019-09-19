@@ -81,11 +81,7 @@ class LineOfNode {
       .attr("idx", this.idx)
       .attr("transform", "translate(0," + this.y + ")");
 
-    let s = this.terms[0][0];
-    let tag = this.terms[0][1];
     let text = gtext.append("text").attr("class", "stmt").attr("id", textid);
-    let mnemonic = s + this.strRepeat(" ", (s.length > 8 ? 0 : 8 - s.length));
-
     let contextMenuRect = gtext.insert("rect")
       .attr("id", rectid)
       .attr("class", "nodestmtbox")
@@ -96,37 +92,20 @@ class LineOfNode {
 
     this.setContextMenuEventOnStmt(contextMenuRect);
 
-    this.appendDisasmFragment(text, "cfgDisasmText " + tag, mnemonic, true);
-    if (this.terms.length > 2) {
-      for (let j = 1; j < this.terms.length; j++) {
-        let s = this.terms[j][0];
-        let tag = this.terms[j][1];
-        if (j == this.terms.length - 2) {
-          this.appendDisasmFragment(text, "cfgDisasmText " + tag, s, false);
-        } else if (j == this.terms.length - 1) {
-          if (s.length > 0) {
-            setComment(currentTabNumber, "#" + rectid, s, true);
-          }
-        } else {
-          this.appendDisasmFragment(text, "cfgDisasmText " + tag, s, false);
-          this.appendDisasmFragment(text, "cfgDisasmText", ",", false);
-        }
-      }
+    for (let i = 0; i < this.terms.length; i++) {
+      let s = this.terms[i][0];
+      let tag = this.terms[i][1];
+
+      this.appendDisasmFragment(i, text, "cfgDisasmText " + tag, s);
     }
   }
 
-  appendDisasmFragment(txt, cls, fragment, isOpcode) {
+  appendDisasmFragment(i, txt, cls, fragment) {
     let t = txt.append("tspan")
       .text(fragment).attr("class", cls).attr("xml:space", "preserve");
 
-    if (isOpcode) t.attr("x", padding / 2).attr("dy", "14px");
-    else t.attr("dx", "0px");
-  }
-
-  strRepeat(str, num) {
-    if (num < 0) return "";
-    else if (num === 1) return str;
-    else return str + this.strRepeat(str, num - 1);
+    if (i == 0) t.attr("x", padding / 2).attr("dy", "14px");
+    else t.attr("dx", "10px");
   }
 
   setContextMenuEventOnStmt(rect) {

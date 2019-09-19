@@ -55,7 +55,7 @@ type IRBasicBlock (pairs: InsIRPair [], point: ProgramPoint) =
 
   override __.IsFakeBlock () = Array.isEmpty pairs
 
-  override __.ToVisualBlock (_) =
+  override __.ToVisualBlock () =
     __.GetIRStatements ()
     |> Array.concat
     |> Array.toList

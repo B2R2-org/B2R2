@@ -300,7 +300,7 @@ type CFGTest2 () =
   [<TestMethod>]
   member __.``DisasmLens Test: _start`` () =
     let cfg, root = ess.SCFG.GetFunctionCFG 0x00UL
-    let lens = DisasmLens.Init ()
+    let lens = DisasmLens.Init (ess.BinHandler)
     let cfg, _ = lens.Filter cfg [root] ess.BinaryApparatus
     Assert.AreEqual (4, cfg.Size ())
     let vMap = cfg.FoldVertex (fun m v ->
@@ -310,7 +310,7 @@ type CFGTest2 () =
     let disasmLens = [| 4; 4; 1; 4 |]
     Array.zip vertices disasmLens
     |> Array.iter (fun (v, len) ->
-      Assert.AreEqual (len, v.VData.Disassemblies(None).Length))
+      Assert.AreEqual (len, v.VData.Disassemblies.Length))
     let eMap = cfg.FoldEdge (fun m v1 v2 e ->
       let key = v1.VData.PPoint.Address, v2.VData.PPoint.Address
       Map.add key e m) Map.empty

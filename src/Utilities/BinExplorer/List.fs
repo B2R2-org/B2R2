@@ -26,6 +26,7 @@
 
 namespace B2R2.Utilities.BinExplorer
 
+open B2R2
 open B2R2.BinFile
 open B2R2.FrontEnd
 open B2R2.BinGraph
@@ -33,39 +34,41 @@ open B2R2.BinGraph
 type CmdList () =
   inherit Cmd ()
 
-  let addrToString (addr: uint64) =
-    addr.ToString ("X16")
+  let createFuncString hdl (addr, name) =
+    Addr.toString hdl.ISA.WordSize addr + ": " + name
 
-  let createFuncString (addr, name) =
-    addrToString addr + ": " + name
-
-  let listFunctions app =
+  let listFunctions hdl app =
     BinaryApparatus.getInternalFunctions app
     |> Seq.map (fun c -> Option.get c.Addr, c.CalleeName)
     |> Seq.sortBy fst
-    |> Seq.map createFuncString
+    |> Seq.map (createFuncString hdl)
     |> Seq.toArray
 
-  let createSegmentString (seg: Segment) =
+  let createSegmentString handler (seg: Segment) =
     "- "
-    + addrToString seg.Address + ":" + addrToString (seg.Address + seg.Size)
+    + Addr.toString handler.ISA.WordSize seg.Address
+    + ":"
+    + Addr.toString handler.ISA.WordSize (seg.Address + seg.Size)
     + " (" + seg.Size.ToString () + ") ("
     + FileInfo.PermissionToString seg.Permission + ")"
 
   let listSegments (handler: BinHandler) =
     handler.FileInfo.GetSegments ()
-    |> Seq.map createSegmentString
+    |> Seq.map (createSegmentString handler)
     |> Seq.toArray
 
-  let createSectionString (idx: int) (sec: Section) =
-    idx.ToString ("D2") + ". "
-    + addrToString sec.Address + ":" + addrToString (sec.Address + sec.Size)
+  let createSectionString handler (idx: int) (sec: Section) =
+    idx.ToString ("D2")
+    + ". "
+    + Addr.toString handler.ISA.WordSize sec.Address
+    + ":"
+    + Addr.toString handler.ISA.WordSize (sec.Address + sec.Size)
     + " (" + sec.Size.ToString ("D6") + ")"
     + " [" + sec.Name + "] "
 
   let listSections (handler: BinHandler) =
     handler.FileInfo.GetSections ()
-    |> Seq.mapi createSectionString
+    |> Seq.mapi (createSectionString handler)
     |> Seq.toArray
 
   override __.CmdName = "list"
@@ -83,14 +86,14 @@ type CmdList () =
 
   override __.SubCommands = [ "functions"; "segments"; ]
 
-  override __.CallBack _ (binEssence: BinEssence) args =
+  override __.CallBack _ (ess: BinEssence) args =
     match args with
     | "functions" :: _
-    | "funcs" :: _ -> listFunctions binEssence.BinaryApparatus
+    | "funcs" :: _ -> listFunctions ess.BinHandler ess.BinaryApparatus
     | "segments" :: _
-    | "segs" :: _ -> listSegments binEssence.BinHandler
+    | "segs" :: _ -> listSegments ess.BinHandler
     | "sections" :: _
-    | "secs" :: _ -> listSections binEssence.BinHandler
+    | "secs" :: _ -> listSections ess.BinHandler
     | _ -> [| "[*] Unknown list cmd is given." |]
 
 // vim: set tw=80 sts=2 sw=2:

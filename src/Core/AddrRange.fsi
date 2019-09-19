@@ -36,6 +36,10 @@ exception InvalidAddrRangeException
 /// Addresses are represented with a 64-bit integer in B2R2.
 type Addr = uint64
 
+module Addr =
+  /// Convert the given address to a hex-string.
+  val toString: WordSize -> Addr -> string
+
 /// AddrRange is a tuple (min, max) that represents a range of address values
 /// that are greater or equal to the min value (inclusive) and are less than the
 /// max value (exclusive). To access the min and the max value of a range, use

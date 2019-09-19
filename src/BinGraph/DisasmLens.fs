@@ -32,7 +32,7 @@ open B2R2.FrontEnd
 open System.Collections.Generic
 
 /// Basic block type for a disassembly-based CFG (DisasmCFG).
-type DisasmBBlock (instrs: Instruction [], pp) =
+type DisasmBBlock (instrs: Instruction [], pp, hdl: BinHandler) =
   inherit BasicBlock()
 
   let mutable instructions = instrs
@@ -45,22 +45,19 @@ type DisasmBBlock (instrs: Instruction [], pp) =
 
   override __.IsFakeBlock () = Array.isEmpty instructions
 
-  override __.ToVisualBlock (binhandler) =
-    __.Disassemblies (binhandler)
+  override __.ToVisualBlock () =
+    instructions
+    |> Array.map (fun i -> [ Address (Addr.toString hdl.ISA.WordSize i.Address)
+                             String (i.Disasm ()) ])
     |> Array.toList
-    |> List.map (fun disasm -> [ String disasm ])
 
   member __.Instructions
     with get () = instructions
     and set (i) = instructions <- i
 
   member __.Disassemblies
-    with get (binhandler) =
-      match binhandler with
-      | None ->
-        instructions |> Array.map (fun i -> i.Disasm ())
-      | Some hdl ->
-        instructions |> Array.map (fun i -> i.Disasm (true, true, hdl.FileInfo))
+    with get () =
+      instructions |> Array.map (fun i -> i.Disasm ())
 
 /// Disassembly-based CFG, where each node contains disassembly code.
 type DisasmCFG = ControlFlowGraph<DisasmBBlock, CFGEdgeKind>
@@ -69,12 +66,12 @@ type DisasmCFG = ControlFlowGraph<DisasmBBlock, CFGEdgeKind>
 type DisasmVMap = Dictionary<Addr, Vertex<DisasmBBlock>>
 
 /// A graph lens for obtaining DisasmCFG.
-type DisasmLens () =
+type DisasmLens (hdl) =
   let getVertex g (vMap: DisasmVMap) (oldVertex: Vertex<IRBasicBlock>) addr =
     match vMap.TryGetValue addr with
     | false, _ ->
       let instrs = oldVertex.VData.GetInstructions ()
-      let blk = DisasmBBlock (instrs, oldVertex.VData.PPoint)
+      let blk = DisasmBBlock (instrs, oldVertex.VData.PPoint, hdl)
       let v = (g: DisasmCFG).AddVertex blk
       vMap.Add (addr, v)
       v
@@ -134,4 +131,4 @@ type DisasmLens () =
       dfs (merge newGraph vMap) (addEdge newGraph vMap) g roots
       newGraph, roots'
 
-  static member Init () = DisasmLens () :> ILens<DisasmBBlock>
+  static member Init (hdl) = DisasmLens (hdl) :> ILens<DisasmBBlock>

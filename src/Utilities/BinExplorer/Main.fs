@@ -137,14 +137,14 @@ let dumpJsonFiles jsonDir ess =
     let encoding = System.Text.Encoding.UTF8
     let cfg, root = ess.SCFG.GetFunctionCFG (Option.get addr)
     let irJson =
-      VisGraph.ofCFG cfg [root] None
+      VisGraph.ofCFG cfg [root]
       |> fst
       |> JSONExport.toStr
       |> encoding.GetBytes
-    let lens = DisasmLens.Init ()
+    let lens = DisasmLens.Init (ess.BinHandler)
     let disasmcfg, roots = lens.Filter cfg [root] ess.BinaryApparatus
     let disasmJson =
-      VisGraph.ofCFG disasmcfg roots None
+      VisGraph.ofCFG disasmcfg roots
       |> fst
       |> JSONExport.toStr
       |> encoding.GetBytes

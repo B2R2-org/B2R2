@@ -30,6 +30,8 @@ open B2R2
 
 /// The basic term used to describe a line of a basic block (when visualized).
 type Term =
+  /// Address of a disassembled line.
+  | Address of string
   /// Mneomonic, i.e., opcode.
   | Mnemonic of string
   /// Operand.
@@ -40,22 +42,25 @@ type Term =
   | Comment of string
 with
   static member Width = function
+    | Address (s)
     | Mnemonic (s)
     | Operand (s)
     | String (s)
     | Comment (s) -> s.Length
 
   static member ToString = function
-    | Mnemonic (s) -> s
-    | Operand (s) -> s
-    | String (s) -> s
+    | Address (s)
+    | Mnemonic (s)
+    | Operand (s)
+    | String (s)
     | Comment (s) -> s
 
   static member ToStringTuple = function
-    | Mnemonic (s) -> s, "Menmonic"
-    | Operand (s) -> s, "Operand"
-    | String (s) -> s, "String"
-    | Comment (s) -> s, "Comment"
+    | Address (s) -> s, "address"
+    | Mnemonic (s) -> s, "menmonic"
+    | Operand (s) -> s, "operand"
+    | String (s) -> s, "string"
+    | Comment (s) -> s, "comment"
 
 /// A visual line of a basic block.
 type VisualLine = Term list

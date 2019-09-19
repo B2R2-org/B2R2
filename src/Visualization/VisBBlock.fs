@@ -29,7 +29,7 @@ namespace B2R2.Visualization
 open B2R2.BinGraph
 
 /// The main vertex type used for visualization.
-type VisBBlock (blk: BasicBlock, isDummy, ?hdl) =
+type VisBBlock (blk: BasicBlock, isDummy) =
   inherit BasicBlock ()
 
   let mutable layer = -1
@@ -43,11 +43,8 @@ type VisBBlock (blk: BasicBlock, isDummy, ?hdl) =
   let [<Literal>] padding = 4.0
 
   let visBlock =
-    match hdl with
-    | None -> blk.ToVisualBlock ()
-    | Some hdl -> blk.ToVisualBlock (hdl)
-    |> fun block ->
-      if block.IsEmpty then VisualBlock.empty blk.PPoint.Address else block
+    let block = blk.ToVisualBlock ()
+    if block.IsEmpty then VisualBlock.empty blk.PPoint.Address else block
 
   let maxLine = visBlock |> List.maxBy (VisualLine.lineWidth)
 
@@ -71,7 +68,7 @@ type VisBBlock (blk: BasicBlock, isDummy, ?hdl) =
 
   override __.IsFakeBlock () = blk.IsFakeBlock ()
 
-  override __.ToVisualBlock (_) = visBlock
+  override __.ToVisualBlock () = visBlock
 
   member __.IsDummy with get () = isDummy
 

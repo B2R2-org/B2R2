@@ -29,12 +29,6 @@ module internal B2R2.FrontEnd.ARM64.Disasm
 open B2R2
 open System.Text
 
-let addrToString (addr: Addr) wordSize verbose =
-  if verbose then
-    if wordSize = WordSize.Bit32 then addr.ToString("X8") + ": "
-    else addr.ToString("X16") + ": "
-  else ""
-
 let condToString = function
   | Some EQ -> "eq"
   | Some NE -> "ne"

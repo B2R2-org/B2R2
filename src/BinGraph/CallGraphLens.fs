@@ -44,7 +44,7 @@ type CallGraphBBlock (addr, name, isFake, isExternal) =
 
   override __.IsFakeBlock () = isFake
 
-  override __.ToVisualBlock (_) =
+  override __.ToVisualBlock () =
     let term = name |> String
     [ [ term ] ]
 

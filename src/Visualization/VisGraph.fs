@@ -34,16 +34,13 @@ open System.Collections.Generic
 type VisGraph = ControlFlowGraph<VisBBlock, VisEdge>
 
 module VisGraph =
-  let ofCFG (g: ControlFlowGraph<#BasicBlock, _>) roots hdl =
+  let ofCFG (g: ControlFlowGraph<#BasicBlock, _>) roots =
     let newGraph = VisGraph ()
     let visited = Dictionary<VertexID, Vertex<VisBBlock>> ()
     let getVisBBlock (oldV: Vertex<#BasicBlock>) =
       match visited.TryGetValue (oldV.GetID ()) with
       | false, _ ->
-        let blk =
-          match hdl with
-          | None -> VisBBlock (oldV.VData :> BasicBlock, false)
-          | Some hdl -> VisBBlock (oldV.VData :> BasicBlock, false, hdl)
+        let blk = VisBBlock (oldV.VData :> BasicBlock, false)
         let v = newGraph.AddVertex blk
         visited.[oldV.GetID ()] <- v
         v

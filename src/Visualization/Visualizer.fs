@@ -26,9 +26,9 @@
 
 module B2R2.Visualization.Visualizer
 
-let getJSONFromGraph iGraph roots hdl =
+let getJSONFromGraph iGraph roots =
   try
-    let vGraph, roots = VisGraph.ofCFG iGraph roots hdl
+    let vGraph, roots = VisGraph.ofCFG iGraph roots
   #if DEBUG
     VisDebug.pp vGraph
   #endif

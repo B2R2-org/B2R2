@@ -111,15 +111,15 @@ let handleBinInfo req resp arbiter =
 let cfgToJSON cfgType ess g roots =
   match cfgType with
   | IRCFG ->
-    Visualizer.getJSONFromGraph g roots None
+    Visualizer.getJSONFromGraph g roots
   | DisasmCFG ->
-    let lens = DisasmLens.Init ()
+    let lens = DisasmLens.Init (ess.BinHandler)
     let g, roots = lens.Filter g roots ess.BinaryApparatus
-    Visualizer.getJSONFromGraph g roots (Some ess.BinHandler)
+    Visualizer.getJSONFromGraph g roots
   | SSACFG ->
     let lens = SSALens.Init ess.BinHandler ess.SCFG
     let g, roots = lens.Filter g roots ess.BinaryApparatus
-    Visualizer.getJSONFromGraph g roots (Some ess.BinHandler)
+    Visualizer.getJSONFromGraph g roots
   | _ -> failwith "Invalid CFG type"
 
 let handleRegularCFG req resp name (ess: BinEssence) cfgType =
@@ -145,7 +145,7 @@ let handleCFG req resp arbiter cfgType name =
       let lens = CallGraphLens.Init ess.SCFG
       let cfg = ess.SCFG.Graph
       let g, roots = lens.Filter cfg [] ess.BinaryApparatus
-      let s = Visualizer.getJSONFromGraph g roots (Some ess.BinHandler)
+      let s = Visualizer.getJSONFromGraph g roots
       Some (defaultEnc.GetBytes s) |> answer req resp
     with e ->
 #if DEBUG
