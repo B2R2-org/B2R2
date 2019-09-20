@@ -73,7 +73,7 @@ class NavBar {
     $("#binInfo").on("click", function () {
       let str = $("#binInfo").attr("title");
       copyToClipboard(str);
-      popToast("info", "Copy File Path", 3);
+      popToast("info", "File path copied", 3);
     });
   }
 
@@ -148,7 +148,7 @@ class NavBar {
 
           UIElementInit(true);
         } else {
-          popToast("alert", "Not found Address", 3);
+          popToast("alert", "Address not found", 3);
         }
       });
   }

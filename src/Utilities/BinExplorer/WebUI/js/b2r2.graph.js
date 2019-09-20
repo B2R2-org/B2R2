@@ -114,11 +114,7 @@ class LineOfNode {
       function showContextMemu() {
         const e = d3.event;
         e.preventDefault();
-        $("#id_node-contextmenu")
-          .css("display", "block")
-          .css("top", e.clientY)
-          .css("left", e.clientX)
-          .attr("target", "#" + $(self).attr("id"));
+        Root.ContextMenu.show(self, e.clientX, e.clientY);
       }
       showContextMemu();
     })

@@ -28,20 +28,51 @@
 
 class ContextMenu {
   constructor(d) {
-    this.graphinfo = d.graphinfo;
     this.id = d.id;
     if (d.id === undefined)
       this.id = "#id_node-contextmenu";
-    this.list = [];
+    this.visible = false;
   }
 
-  addCase() {
+  show(node, x, y) {
+    $("#id_node-contextmenu")
+      .css("display", "block")
+      .css("top", y)
+      .css("left", x)
+      .attr("target", "#" + $(node).attr("id"));
+    this.visible = true;
+  }
 
+  hide() {
+    if (this.visible) {
+      this.visible = false;
+      $("#id_node-contextmenu")
+        .css("display", "none")
+        .attr("target", "#");
+    }
   }
 
   registerEvents() {
-    $(self.document).on("click", function () {
-      console.log("click");
+    $(document).on("click", ".contextmenu-item", function() {
+      let target_id = $("#id_node-contextmenu").attr("target");
+      let textbox = d3.select(target_id);
+      let gtext = d3.select(textbox.node().parentNode);
+      switch ($(this).attr("value")) {
+        case "copy":
+          copyToClipboard(gtext.select(".string").text());
+          popToast("info", "Line copied", 3);
+          break;
+        case "copy-address":
+          copyToClipboard(gtext.select(".address").text());
+          popToast("info", "Address copied", 3);
+          break;
+        default:
+          break;
+      }
+    });
+
+    $(document).on("click", function () {
+      Root.ContextMenu.hide();
     });
   }
 }

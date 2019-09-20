@@ -33,7 +33,8 @@ var Root = {
   minimapContainerId: null,
   TabList: null,
   FunctionList: null,
-  AutoComplete: null
+  AutoComplete: null,
+  ContextMenu: null
 };
 
 function drawBinInfo(status, str) {
@@ -60,7 +61,7 @@ function drawBinInfo(status, str) {
 $("#binInfo").on("click", function () {
   let str = $("#binInfo").attr("title");
   copyToClipboard(str);
-  popToast("info", "Copy File Path", 3);
+  popToast("info", "File path copied", 3);
 });
 
 $("#icon-refresh").on("click", function () {
@@ -166,6 +167,10 @@ function runOnline() {
     resizeHandlerId: ".resize-minimap"
   });
 
+  let contextmenu = new ContextMenu({
+    id: "#id_node-contextmenu"
+  });
+
   tabList.registerEvents();
   funcList.init();
   funcList.registerEvents();
@@ -173,6 +178,7 @@ function runOnline() {
   navbar.registerEvents();
   sidebar.registerEvents();
   minimap.registerEvents();
+  contextmenu.registerEvents();
 
   Root.NavBar = navbar;
   Root.TabList = tabList;
@@ -180,6 +186,7 @@ function runOnline() {
   Root.FunctionList = funcList;
   Root.AutoComplete = autoComplete;
   Root.MiniMap = minimap;
+  Root.ContextMenu = contextmenu;
 
   query({ "q": "bininfo" }, drawBinInfo);
 }
