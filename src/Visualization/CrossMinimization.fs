@@ -28,11 +28,10 @@ module internal B2R2.Visualization.CrossMinimization
 
 open B2R2.BinGraph
 
+type VLayout = Vertex<VisBBlock> [][]
+
 /// The maximum number of iterations.
 let [<Literal>] private maxCnt = 128
-
-let private findIndex v vs =
-  Array.findIndex (fun w -> v = w) vs
 
 let private computeMaxLayer (vGraph: VisGraph) =
   vGraph.FoldVertex (fun layer v ->
@@ -51,39 +50,43 @@ let private generateVPerLayer vGraph =
 let private alignVertices vertices =
   let arr = Array.zeroCreate (List.length vertices)
   List.fold (fun i (v: Vertex<VisBBlock>) ->
-    Array.set arr i v ; i + 1) 0 vertices
+    Array.set arr i v; v.VData.Index <- i; i + 1) 0 vertices
   |> ignore
   arr
 
 let private generateVLayout vPerLayer =
   Array.map (fun vertices -> alignVertices vertices) vPerLayer
 
-let private baryCenter (vLayout: Vertex<_> [][]) layer isDown (v: Vertex<_>) =
-  let nodes = if isDown then v.Preds else v.Succs
-  if List.isEmpty nodes then System.Double.MaxValue, v
+let private baryCenter isDown (v: Vertex<VisBBlock>) =
+#if DEBUG
+  (VisGraph.getID v).ToString () |> VisDebug.logn
+#endif
+  let neighbor = if isDown then v.Preds else v.Succs
+  if List.isEmpty neighbor then System.Double.MaxValue, v
   else
-    let vertices = if isDown then vLayout.[layer - 1] else vLayout.[layer + 1]
-    let xs = List.fold (fun acc v -> acc + findIndex v vertices) 0 nodes
-    float xs / float (List.length nodes), v
+    let xs = neighbor |> List.fold (fun acc v -> acc + v.VData.Index) 0
+    float xs / float (List.length neighbor), v
 
-let private bcReorderOneLayer (vLayout: Vertex<_> [] []) isDown layer =
+let private bcReorderOneLayer (vLayout: VLayout) isDown layer =
   let vertices = vLayout.[layer]
-  let baryCenters = Array.map (baryCenter vLayout layer isDown) vertices
-  let baryCenters = Array.sortBy fst baryCenters
 #if DEBUG
   VisDebug.logn "BcReorder Before:"
-  Array.iter (fun v ->
-    sprintf "%d" (VisGraph.getID v) |> VisDebug.logn) vertices
-  VisDebug.logn "BcReorder BaryCenters:"
-  baryCenters
-  |> Array.iter (fun (bc, v) ->
-                 sprintf "%d : %f" (VisGraph.getID v) bc |> VisDebug.logn)
 #endif
-  Array.iteri (fun i (_, v) -> vertices.[i] <- v) baryCenters
+  vertices
+  |> Array.map (baryCenter isDown)
+  |> Array.sortBy fst
+#if DEBUG
+  |> fun vs -> VisDebug.logn "BcReorder After:"; vs
+#endif
+  |> Array.iteri (fun i (bc, v) ->
+#if DEBUG
+    sprintf "%d: %f" (VisGraph.getID v) bc |> VisDebug.logn
+#endif
+    v.VData.Index <- i
+    vertices.[i] <- v)
 
 let private phase1 vLayout isDown from maxLayer =
-  let layers =
-    if isDown then [from .. maxLayer] else [0 .. from] |> List.rev
+  let layers = if isDown then [from .. maxLayer] else [from .. -1 .. 0]
   List.iter (bcReorderOneLayer vLayout isDown) layers
 
 let rec private calcFirstIndex idx wlen =
@@ -109,39 +112,36 @@ let private countCross southseq wlen =
       countLoop tree southseq cnt index) (0, tree) southseq
   cnt
 
-let private bilayerCount (vLayout: Vertex<_> [] []) isDown layer =
-  let vs, ws =
-    if isDown then vLayout.[layer - 1], vLayout.[layer]
-    else vLayout.[layer + 1], vLayout.[layer]
+let private bilayerCount (vLayout: VLayout) isDown layer =
+  let myLayer = vLayout.[layer]
   let pairs, _ =
-    Array.fold (fun (acc, i) (v: Vertex<_>) ->
-      if isDown then
-        List.fold (fun acc w -> (i, findIndex w ws) :: acc) acc v.Succs, i + 1
-      else
-        List.fold (fun acc w -> (i, findIndex w ws) :: acc) acc v.Preds, i + 1
-    ) ([], 0) vs
+    if isDown then
+      Array.fold (fun (acc, i) (v: Vertex<VisBBlock>) ->
+        v.Succs |> List.fold (fun acc w -> (i, w.VData.Index) :: acc) acc,
+        i + 1) ([], 0) vLayout.[layer - 1]
+    else
+      Array.fold (fun (acc, i) (v: Vertex<VisBBlock>) ->
+        v.Preds |> List.fold (fun acc w -> (i, w.VData.Index) :: acc) acc,
+        i + 1) ([], 0) vLayout.[layer + 1]
   let pairs = List.sort pairs
   let southseq = List.map snd pairs
-  countCross southseq (Array.length ws)
+  countCross southseq (Array.length myLayer)
 
 let private collectBaryCenters bcByValues (bc, v) =
   match Map.tryFind bc bcByValues with
   | Some (vs) -> Map.add bc (v :: vs) bcByValues
   | None -> Map.add bc [v] bcByValues
 
-let private reorderVertices (vertices: Vertex<_> []) idx (_, vs) =
-  List.fold (fun idx v -> vertices.[idx] <- v; idx + 1) idx vs
+let private reorderVertices (vertices: Vertex<VisBBlock> []) idx (_, vs) =
+  List.fold (fun i v -> vertices.[i] <- v; v.VData.Index <- i; i + 1) idx vs
 
 let private reverseOneLayer vLayout isDown maxLayer layer =
   let count = bilayerCount vLayout isDown layer
   if count <> 0 then
     let vertices = vLayout.[layer]
-    let baryCenters =
-      Array.map (baryCenter vLayout layer isDown) vertices
-    let bcByValues =
-      Array.fold collectBaryCenters Map.empty baryCenters
-    let isReversed =
-      Map.exists (fun _ vs -> List.length vs > 1) bcByValues
+    let baryCenters = Array.map (baryCenter isDown) vertices
+    let bcByValues = Array.fold collectBaryCenters Map.empty baryCenters
+    let isReversed = Map.exists (fun _ vs -> List.length vs > 1) bcByValues
     let bcByValues = Map.toList bcByValues
     let bcByValues = List.sortBy fst bcByValues
 #if DEBUG
@@ -163,8 +163,7 @@ let private reverseOneLayer vLayout isDown maxLayer layer =
     if isReversed then phase1 vLayout isDown layer maxLayer
 
 let private phase2 vLayout isDown maxLayer =
-  let layers =
-    if isDown then [1 .. maxLayer] else [0 .. maxLayer - 1] |> List.rev
+  let layers = if isDown then [1 .. maxLayer] else [maxLayer - 1 .. -1 .. 0]
   List.iter (reverseOneLayer vLayout isDown maxLayer) layers
 
 let rec private sugiyamaReorder vLayout cnt hashSet =
@@ -191,17 +190,9 @@ let rec private sugiyamaReorder vLayout cnt hashSet =
     if not (Set.contains hashCode hashSet) then
       sugiyamaReorder vLayout (cnt + 1) (Set.add hashCode hashSet)
 
-let private setPos vLayout =
-  Array.iter (fun vertices ->
-    Array.iteri (fun i (v: Vertex<VisBBlock>) ->
-      let vData = v.VData
-      vData.Index <- i) vertices) vLayout
-
 let minimizeCrosses vGraph =
-  let vPerLayer = generateVPerLayer vGraph
-  let vLayout = generateVLayout vPerLayer
+  let vLayout = generateVPerLayer vGraph |> generateVLayout
   sugiyamaReorder vLayout 0 (Set.add (vLayout.GetHashCode ()) Set.empty)
-  setPos vLayout
 #if DEBUG
   VisDebug.logn "vLayout:"
   Array.iteri

@@ -4825,7 +4825,11 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.LMSW | Opcode.LSL | Opcode.LTR | Opcode.OUT | Opcode.SGDT
   | Opcode.SIDT | Opcode.SLDT | Opcode.SMSW | Opcode.STR | Opcode.VERR
   | Opcode.VERW -> sideEffects insAddr insLen UnsupportedPrivInstr
-  | o -> printfn "%A" o; raise <| NotImplementedIRException (Disasm.opCodeToString o)
+  | o ->
+#if DEBUG
+         eprintfn "%A" o
+#endif
+         raise <| NotImplementedIRException (Disasm.opCodeToString o)
   |> fun builder -> builder.ToStmts ()
 
 // vim: set tw=80 sts=2 sw=2:

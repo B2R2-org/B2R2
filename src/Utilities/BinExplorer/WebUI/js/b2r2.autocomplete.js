@@ -26,125 +26,60 @@
   SOFTWARE.
 */
 
-function autocomplete(cfg) {
-  resetSerchInput();
+class AutoComplete {
+  constructor(d) {
+    this.document = d.document;
+    if (d.document === undefined)
+      this.document = document;
+    this.graphinfo = d.graphinfo;
+    this.stmts = [];
+    this.id = d.id;
+    if (d.id === undefined)
+      this.id = "#id-autocomplete-list";
+    this.inputid = d.inputid;
+    if (d.inputid === undefined)
+      this.inputid = "#id_address-search";
 
-  let stmts = [];
-  //stmts = [ address operand:[] meta:{pos, width, idx} ]
-  if (cfg != undefined) {
-    let data = cfg.Nodes;
-    for (let d in data) {
-      for (let t in data[d].Terms) {
-        let stmt = [];
-        let terms = data[d].Terms[t];
-        let address = terms[0][0].replace(":", "");
-        stmt.push(address);
-        for (let i = 1; i < terms.length - 1; i++) {
-          //operand
-          stmt.push(terms[i][0]);
+  }
+
+  reload(graphinfo) {
+    //stmts = [ address operand:[] meta:{pos, width, idx} ]
+    this.clearInput();
+    this.graphinfo = graphinfo;
+
+    this.stmts = [];
+    if (graphinfo.json != undefined) {
+      let data = graphinfo.json.Nodes;
+      for (let d in data) {
+        for (let t in data[d].Terms) {
+          let stmt = [];
+          let terms = data[d].Terms[t];
+          let address = terms[0][0].replace(":", "");
+          stmt.push(address);
+          for (let i = 1; i < terms.length - 1; i++) {
+            //operand
+            stmt.push(terms[i][0]);
+          }
+
+          //meta
+          stmt.push({
+            Nodeidx: parseFloat(d),
+            idx: parseFloat(t),
+          });
+          this.stmts.push(stmt);
         }
-
-        //meta
-        stmt.push({
-          Nodeidx: parseFloat(d),
-          idx: parseFloat(t),
-        });
-        stmts.push(stmt);
       }
     }
   }
 
-  function removeAllItem() {
-    $("#id-autocomplete-list").empty();
+  removeElements() {
+    $(this.document).find(this.id).empty();
   }
-  function searchItem() {
-    $("#id_address-search").on("keyup", function (e) {
-      let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
-      removeAllItem();
-      var lowerValue = this.value.toLowerCase();
-      var value = this.value;
-      if (value === "" || parseFloat(value) === 0) {
-        deactiveStmt();
-        return;
-      }
-      let list = []
-      for (let s in stmts) {
-        let stmt = stmts[s];
-        //stmt = address operand:[] pos:{}
-        let stmtstr = stmt.slice(0, -1).join("");
-        let lowerStmtstr = stmtstr.toLowerCase();
-        if (lowerStmtstr.indexOf(lowerValue) > -1) {
-          let memory = stmt[0];
-          let meta = stmt[stmt.length - 1];
-          let item = '<div class="autocomplete-item" target=[TARGET] addr=[ADDR] idx=[IDX]>'
-            .replace("[TARGET]", "#id_" + currentTabNumber + "_rect-" + meta.Nodeidx + "-" + meta.idx)
-            .replace("[IDX]", meta.idx)
-            .replace("[ADDR]", memory);
-          let idx = lowerStmtstr.indexOf(value);
-          if (idx < 16) {
-            item += '<span class="memory">[CONTENT]</span>'.replace("[CONTENT]",
-              memory.substr(0, idx)
-              + "<strong>" + memory.substr(idx, value.length) + "</strong>"
-              + memory.substr(idx + value.length));
 
-            for (let i = 1; i < stmt.length - 1; i++) {
-              item += '<span class="operand">[OPERAND]</span>'.replace("[OPERAND]", stmt[i]);
-            }
-          } else {
-            item += '<span class="memory">[MEMORY]</span>'.replace("[MEMORY]", memory);
-            item += '<span class="operand">[CONTENT]</span>'.replace("[CONTENT]",
-              stmtstr.substr(16, idx - 16)
-              + "<strong>" + stmtstr.substr(idx, value.length) + "</strong>"
-              + stmtstr.substr(idx + value.length));
-          }
-          item += '</div>'
-          list.push(item);
-        }
-      }
-      $("#id-autocomplete-list").append(list.join(""));
-    });
-  }
-  function addActiveItem() {
-    $(document).on("click", ".autocomplete-item", function () {
-      removeAllItem();
-    });
-
-    $(document).on("click", function (e) {
-      if ($(".autocomplete-list").children().size() > 0) {
-        if (!$(e.target).hasClass(".autocomplete-list")) {
-          resetSerchInput();
-          removeAllItem();
-          deactiveStmt();
-        }
-      }
-    });
-
-    $(document).on("mouseover", ".autocomplete-list .autocomplete-item", function () {
-      let target = $(this).attr("target");
-      let rect = d3.select(target);
-      // let text = d3.select("#id_" + currentTabNumber + "_text-" + target.split("_rect-")[1]);
-      let text = d3.select(target.replace("_rect-", "_text-"));
-      let width = rect.attr("width");
-      let gtext = d3.select(rect.node().parentNode);
-      let gNode = d3.select(rect.node().parentNode.parentNode);
-      let pos = getGroupPos(gNode.attr("transform"))
-      let x = pos[0];
-      let y = pos[1] + getGroupPos(gtext.attr("transform"))[1];
-      let stmt = text.html().replace(/(<([^>]+)>)/ig, " ");
-      activeStmt(x, y, width, stmt);
-    });
-
-    $(document).on("mouseout", ".autocomplete-item", function () {
-      deactiveStmt();
-    });
-  }
-  function focusNode(x, y) {
-    // in graph.js
-  }
-  function activeStmt(x, y, width, stmt) {
-    $(".g-stmt-box").remove();
-    let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
-    let g = d3.select("#cfgStage-" + currentTabNumber)
+  activateStmtElements(x, y, width, stmt) {
+    const self = this;
+    self.deactiveStmtElements();
+    let g = self.graphinfo.document.select(this.graphinfo.stage)
       .select("g").append("g")
       .attr("class", "g-stmt-box")
       .attr("transform", "translate(" + x + "," + y + ")");
@@ -160,7 +95,7 @@ function autocomplete(cfg) {
       .attr("fill", "yellow");
 
     // In minimap
-    let minibox = d3.select("g#minimapStage-" + currentTabNumber).append("rect")
+    let minibox = self.graphinfo.document.select(this.graphinfo.minimapStage).append("rect")
       .attr("class", "mini-stmt-box")
       .attr("fill", "yellow")
       .attr("stroke", "black")
@@ -173,23 +108,99 @@ function autocomplete(cfg) {
 
     // remove when clicked;
     g.on("click", function () {
-      deactiveStmt();
+      self.deactiveStmtElements();
     });
   }
-  function deactiveStmt() {
-    d3.selectAll(".g-stmt-box").remove();
-    d3.selectAll(".mini-stmt-box").remove();
+
+  deactiveStmtElements() {
+    d3.select(this.document).selectAll(".g-stmt-box").remove();
+    d3.select(this.document).selectAll(".mini-stmt-box").remove();
   }
 
-  function resetSerchInput() {
-    $("#id_address-search").val("");
+  clearInput() {
+    $(this.document).find(this.inputid).val("");
   }
 
-  searchItem();
-  addActiveItem();
+  search(word) {
+    this.removeElements();
+    var lowerValue = word.toLowerCase();
+    if (word === "" || parseFloat(word) === 0) {
+      this.deactiveStmtElements();
+      return;
+    }
+    let list = []
+    for (let s in this.stmts) {
+      let stmt = this.stmts[s];
+      //stmt = address operand:[] pos:{}
+      let stmtstr = stmt.slice(0, -1).join("");
+      let lowerStmtstr = stmtstr.toLowerCase();
+      if (lowerStmtstr.indexOf(lowerValue) > -1) {
+        let memory = stmt[0];
+        let meta = stmt[stmt.length - 1];
+        let item = '<div class="autocomplete-item" target=[TARGET] addr=[ADDR] idx=[IDX]>'
+          .replace("[TARGET]", "#id_" + this.graphinfo.tab + "_rect-" + meta.Nodeidx + "-" + meta.idx)
+          .replace("[IDX]", meta.idx)
+          .replace("[ADDR]", memory);
+        let idx = lowerStmtstr.indexOf(word);
+        if (idx < 16) {
+          item += '<span class="memory">[CONTENT]</span>'.replace("[CONTENT]",
+            memory.substr(0, idx)
+            + "<strong>" + memory.substr(idx, word.length) + "</strong>"
+            + memory.substr(idx + word.length));
 
-  return {
-    activeStmt: activeStmt,
-    deactiveStmt: deactiveStmt
+          for (let i = 1; i < stmt.length - 1; i++) {
+            item += '<span class="operand">[OPERAND]</span>'.replace("[OPERAND]", stmt[i]);
+          }
+        } else {
+          item += '<span class="memory">[MEMORY]</span>'.replace("[MEMORY]", memory);
+          item += '<span class="operand">[CONTENT]</span>'.replace("[CONTENT]",
+            stmtstr.substr(16, idx - 16)
+            + "<strong>" + stmtstr.substr(idx, word.length) + "</strong>"
+            + stmtstr.substr(idx + word.length));
+        }
+        item += '</div>'
+        list.push(item);
+      }
+    }
+    $(this.document).find(this.id).append(list.join(""));
+  }
+
+  registerEvents() {
+    const self = this;
+    $(self.document).on("keyup", self.inputid, function (e) {
+      self.search(this.value);
+    });
+
+    $(self.document).on("click", ".autocomplete-item", function () {
+      self.removeElements();
+    });
+
+    $(self.document).on("click", function (e) {
+      if ($(self.document).find(".autocomplete-list").children().size() > 0) {
+        if (!$(e.target).hasClass(".autocomplete-list")) {
+          self.clearInput();
+          self.removeElements();
+          self.deactiveStmtElements();
+        }
+      }
+    });
+
+    $(self.document).on("mouseover", self.id + " .autocomplete-item", function () {
+      let target = $(this).attr("target"); //#id_[tabNumber]_rect-[nodeIdx]-[StmtIdx]
+      let rect = d3.select(self.document).select(target);
+      let text = d3.select(self.document).select(target.replace("_rect-", "_text-"));
+      let width = rect.attr("width");
+      let gtext = d3.select(rect.node().parentNode);
+      let gNode = d3.select(rect.node().parentNode.parentNode);
+      let pos = getGroupPos(gNode.attr("transform"))
+      let x = pos[0];
+      let y = pos[1] + getGroupPos(gtext.attr("transform"))[1];
+      let stmt = text.html().replace(/(<([^>]+)>)/ig, " ");
+      self.activateStmtElements(x, y, width, stmt);
+    });
+
+    $(self.document).on("mouseout", ".autocomplete-item", function () {
+      self.deactiveStmtElements();
+    });
   }
 }

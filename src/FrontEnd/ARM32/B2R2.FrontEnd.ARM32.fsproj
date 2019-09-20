@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
@@ -14,6 +14,7 @@
     <Compile Include="ARM32ParseUtils.fs" />
     <Compile Include="ARM32OperandHelper.fs" />
     <Compile Include="ARM32Disasm.fs" />
+    <Compile Include="ARM32IRHelper.fs" />
     <Compile Include="ARM32Lifter.fs" />
     <Compile Include="ARM32Instruction.fs" />
     <Compile Include="ARM32ParserV7.fs" />
@@ -21,6 +22,7 @@
     <Compile Include="ARM32Parser.fsi" />
     <Compile Include="ARM32Parser.fs" />
     <Compile Include="ARM32.fs" />
+    <Compile Include="ARM32Asm.fs" />
   </ItemGroup>
 
   <ItemGroup>

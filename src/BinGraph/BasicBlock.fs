@@ -40,4 +40,4 @@ type BasicBlock () =
   /// fake block to represent call target vertices in a function-level CFG.
   abstract IsFakeBlock: unit -> bool
   /// Convert this basic block to a visual representation.
-  abstract ToVisualBlock: ?hdl: B2R2.FrontEnd.BinHandler -> VisualBlock
+  abstract ToVisualBlock: unit -> VisualBlock

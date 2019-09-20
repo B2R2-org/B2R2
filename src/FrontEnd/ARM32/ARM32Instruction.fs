@@ -37,8 +37,17 @@ type ARM32Instruction (addr, numBytes, insInfo) =
 
   override __.IsBranch () =
     match __.Info.Opcode with
-    | Op.B | Op.CBNZ | Op.CBZ | Op.BL | Op.BLX | Op.BX | Op.BXJ | Op.TBB
-    | Op.TBH -> true
+    | Op.B | Op.BL | Op.BLX | Op.BX | Op.BXJ
+    | Op.CBNZ | Op.CBZ
+    | Op.TBB | Op.TBH -> true
+    | Op.LDR ->
+      match __.Info.Operands with
+      | TwoOperands (OprReg R.PC, _) -> true
+      | _ -> false
+    | Op.POP ->
+      match __.Info.Operands with
+      | OneOperand (OprRegList regs) -> List.contains R.PC regs
+      | _ -> false
     | _ -> false
 
   member __.HasConcJmpTarget () =
@@ -58,8 +67,10 @@ type ARM32Instruction (addr, numBytes, insInfo) =
     | Op.B, Some Condition.NV -> false
     | Op.B, Some Condition.UN -> false
     | Op.B, Some _ -> true
-    // XXX: Need to add more conditions for BX
-    | Op.BX, Some Condition.EQ -> true
+    | Op.BX, Some Condition.AL -> false
+    | Op.BX, Some Condition.NV -> false
+    | Op.BX, Some Condition.UN -> false
+    | Op.BX, Some _ -> true
     | _ -> false
 
   override __.IsCJmpOnTrue () =
@@ -78,36 +89,56 @@ type ARM32Instruction (addr, numBytes, insInfo) =
     | Opcode.BL | Opcode.BLX -> true
     | _ -> false
 
-  override __.IsRET () = // This is wrong
-    match __.Info.Opcode, __.Info.Operands with
-    | Opcode.POP, OneOperand (OprReg R.PC) -> true
-    | _ -> false
+  override __.IsRET () =
+    Utils.futureFeature ()
 
-  override __.IsInterrupt () = Utils.futureFeature ()
+  override __.IsInterrupt () =
+    __.Info.Opcode = Op.SVC
 
-  override __.IsExit () = // FIXME
+  override __.IsExit () =
     __.IsDirectBranch () ||
-    __.IsIndirectBranch ()
+    __.IsIndirectBranch () ||
+    __.Info.Opcode = Op.SVC
 
   override __.DirectBranchTarget (addr: byref<Addr>) =
     if __.IsBranch () then
       match __.Info.Operands with
-      | OneOperand (OprMemory (LiteralMode offset)) ->
-        addr <- ((int64 __.Address + offset + 8L) &&& 0xFFFFFFFFL) |> uint64
+      | OneOperand (OprMemory (LiteralMode target)) ->
+        (* The PC value of an instruction is its address plus 4 for a Thumb
+           instruction, or plus 8 for an ARM instruction. *)
+        let offset = if __.Info.Mode = ArchOperationMode.ARMMode then 8L else 4L
+        let pc = (int64 __.Address + offset) / 4L * 4L (* Align by 4 *)
+        addr <- ((pc + target) &&& 0xFFFFFFFFL) |> uint64
         true
       | _ -> false
     else false
 
-  override __.IndirectTrampolineAddr (addr: byref<Addr>) =
-    if __.IsBranch () then Utils.futureFeature ()
-    else false
+  override __.IndirectTrampolineAddr (_: byref<Addr>) =
+    false
+
+  member private __.GetNextMode () =
+    match __.Info.Opcode with
+    | Opcode.BLX
+    | Opcode.BX ->
+      if __.Info.Mode = ArchOperationMode.ARMMode then
+        ArchOperationMode.ThumbMode
+      else ArchOperationMode.ARMMode
+    | _ -> __.Info.Mode
+
+  member private __.AddBranchTargetIfExist addrs =
+    match __.DirectBranchTarget () |> Utils.tupleToOpt with
+    | None -> addrs
+    | Some target ->
+      Seq.singleton (target, __.GetNextMode ()) |> Seq.append addrs
 
   override __.GetNextInstrAddrs () =
-    // FIXME this is wrong.
-    let acc = Seq.singleton (__.Address + uint64 __.Length)
-    match __.DirectBranchTarget () |> Utils.tupleToOpt with
-    | None -> acc
-    | Some target -> Seq.singleton target |> Seq.append acc
+    let acc = Seq.singleton (__.Address + uint64 __.Length, __.Info.Mode)
+    if __.IsCall () then acc |> __.AddBranchTargetIfExist
+    elif __.IsBranch () then
+      if __.IsCondBranch () then acc |> __.AddBranchTargetIfExist
+      else __.AddBranchTargetIfExist Seq.empty
+    elif __.Info.Opcode = Opcode.HLT then Seq.empty
+    else acc
 
   override __.InterruptNum (num: byref<int64>) = Utils.futureFeature ()
 

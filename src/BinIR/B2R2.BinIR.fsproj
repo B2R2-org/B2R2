@@ -18,11 +18,16 @@
     <Compile Include="LowUIR.Pp.fs" />
     <Compile Include="LowUIR.AST.fsi" />
     <Compile Include="LowUIR.AST.fs" />
+    <Compile Include="RegParseHelper.fs" />
     <Compile Include="SSA.fs" />
     <Compile Include="SSA.Pp.fs" />
     <Compile Include="SSA.AST.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="PrettyPrint.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FParsec" Version="1.0.3" />
   </ItemGroup>
 
   <ItemGroup>

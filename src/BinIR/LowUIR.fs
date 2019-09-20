@@ -37,6 +37,8 @@ type [<System.Flags>] InterJmpInfo =
   | IsCall = 1
   | IsRet = 2
   | IsExit = 4
+  | SwitchToARM = 8
+  | SwitchToThumb = 16
 
 [<Struct>]
 type ConsInfo = {

@@ -1392,6 +1392,9 @@ let translate insInfo (ctxt: TranslationContext) =
   | Op.TRUNCL | Op.TRUNCW -> sideEffects insInfo UnsupportedFP
   | Op.XOR -> logXor insInfo ctxt
   | Op.XORI -> xori insInfo ctxt
-  | o -> printfn "opcode : %A" o
+  | o ->
+#if DEBUG
+         eprintfn "%A" o
+#endif
          raise <| NotImplementedIRException (Disasm.opCodeToString o)
   |> fun builder -> builder.ToStmts ()

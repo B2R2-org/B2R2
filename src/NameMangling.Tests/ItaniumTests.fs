@@ -96,7 +96,7 @@ type ItaniumTests () =
   [<TestMethod>]
   member __.``ItaniumDemangler: Array Pointer``() =
     let mangled = "_Z4funcPA30_A40_Pi"
-    let result = "func(int* [30][40])"
+    let result = "func(int* (*) [30][40])"
     test mangled result
 
   [<TestMethod>]
@@ -184,7 +184,7 @@ type ItaniumTests () =
   member __.``ItaniumDemangler: Sx abbreviation 1``() =
     let mangled = "_ZNSo5funcA5funcBE"
     let result =
-      "std::basic_ostream<char, std::char_traits<char>>::funcA::funcB"
+      "std::basic_ostream<char, std::char_traits<char> >::funcA::funcB"
     test mangled result
 
   [<TestMethod>]
@@ -210,7 +210,7 @@ type ItaniumTests () =
   [<TestMethod>]
   member __.``ItaniumDemangler: Template Substitution``() =
     let mangled = "_Z5funcAI4arg1iPKb4arg2IcEEiT_T0_T2_"
-    let result = "int funcA<arg1, int, bool const*, arg2<char>>\
+    let result = "int funcA<arg1, int, bool const*, arg2<char> >\
     (arg1, int, arg2<char>)"
     test mangled result
 
@@ -220,7 +220,7 @@ type ItaniumTests () =
     _SaIS2_EEEC1ERKS3_"
     let result = "__gnu_cxx::__normal_iterator<std::pair<int, int>*, \
     std::vector<std::pair<int, int>, std::allocator\
-    <std::pair<int, int>>>>::__normal_iterator(std::pair<int, int>* const&)"
+    <std::pair<int, int> > > >::__normal_iterator(std::pair<int, int>* const&)"
     test mangled result
 
   [<TestMethod>]
@@ -228,13 +228,13 @@ type ItaniumTests () =
     let mangled = "_ZN9__gnu_cxxmiIPSt4pairIiiESt6vectorIS2_SaIS2_EEEENS_17__\
     normal_iteratorIT_T0_E15difference_typeERKSA_SD_"
     let result = "__gnu_cxx::__normal_iterator<std::pair<int, int>*, \
-    std::vector<std::pair<int, int>, std::allocator<std::pair<int, int>>>>::\
+    std::vector<std::pair<int, int>, std::allocator<std::pair<int, int> > > >::\
     difference_type __gnu_cxx::operator-<std::pair<int, int>*, \
-    std::vector<std::pair<int, int>, std::allocator<std::pair<int, int>>>>\
+    std::vector<std::pair<int, int>, std::allocator<std::pair<int, int> > > >\
     (__gnu_cxx::__normal_iterator<std::pair<int, int>*, std::vector\
-    <std::pair<int, int>, std::allocator<std::pair<int, int>>>> const&, __gnu\
-    _cxx::__normal_iterator<std::pair<int, int>*, std::vector<std::pair\
-    <int, int>, std::allocator<std::pair<int, int>>>> const&)"
+    <std::pair<int, int>, std::allocator<std::pair<int, int> > > > const&, \
+    __gnu_cxx::__normal_iterator<std::pair<int, int>*, std::vector<std::pair\
+    <int, int>, std::allocator<std::pair<int, int> > > > const&)"
     test mangled result
 
   [<TestMethod>]
@@ -244,13 +244,193 @@ type ItaniumTests () =
     EEE5valueEvE4typeERSC_SJ_"
     let result = "std::enable_if<std::__and_<std::is_move_constructible\
     <std::map<int, long long, std::less<int>, std::allocator<std::pair<int \
-    const, long long>>>*>, std::is_move_assignable<std::map<int, long long, \
-    std::less<int>, std::allocator<std::pair<int const, long long>>>*>>::\
+    const, long long> > >*>, std::is_move_assignable<std::map<int, long long, \
+    std::less<int>, std::allocator<std::pair<int const, long long> > >*> >::\
     value, void>::type std::swap<std::map<int, long long, std::less<int>, std\
-    ::allocator<std::pair<int const, long long>>>*>(std::map<int, long long, \
-    std::less<int>, std::allocator<std::pair<int const, long long>>>*&, std::\
+    ::allocator<std::pair<int const, long long> > >*>(std::map<int, long long, \
+    std::less<int>, std::allocator<std::pair<int const, long long> > >*&, std::\
     map<int, long long, std::less<int>, std::allocator<std::pair<int const, \
-    long long>>>*&)"
+    long long> > >*&)"
     test mangled result
 
+  [<TestMethod>]
+  member __.``ItaniumDemangler: RTTI and Virtual Table``() =
+    let mangled = "_ZTI14GTKFDIOManager"
+    let result = "typeinfo for GTKFDIOManager"
+    test mangled result
 
+  [<TestMethod>]
+  member __.``ItaniumDemangler: Clone``() =
+    let mangled =
+      "_ZN12wxAuiToolBar11OnRightDownER12wxMouseEvent.localalias.159"
+    let result =
+      "wxAuiToolBar::OnRightDown(wxMouseEvent&) [clone .localalias.159]"
+    test mangled result
+
+  [<TestMethod>]
+  member __.``ItaniumDemangler: Scope Encoding``() =
+    let mangled =
+      "_ZZN17wxBaseObjectArrayI16wxAuiToolBarItem43wxObjectArrayTraitsForwxAui\
+      ToolBarItemArrayE8RemoveAtEmmE12__FUNCTION__"
+    let result =
+      "wxBaseObjectArray<wxAuiToolBarItem, wxObjectArrayTraitsForwxAuiToolBar\
+      ItemArray>::RemoveAt(unsigned long, unsigned long)::__FUNCTION__"
+    test mangled result
+
+  [<TestMethod>]
+  member __.``ItaniumDemangler: Member Pointer``() =
+    let mangled =
+      "_ZNK16wxAppConsoleBase11HandleEventEP12wxEvtHandlerMS0_FvR7wxEventES3_"
+    let result =
+      "wxAppConsoleBase::HandleEvent(wxEvtHandler*, void (wxEvtHandler::*)\
+      (wxEvent&), wxEvent&) const"
+    test mangled result
+
+  [<TestMethod>]
+  member __.``ItaniumDemangler: Anonymous namespace``() =
+    let mangled =
+      "_ZN9wxPrivate18wxVectorComparatorIN12_GLOBAL__N_117wxAuiLayoutObject\
+      EE7CompareEPKvS5_S5_"
+    let result =
+      "wxPrivate::wxVectorComparator<(anonymous namespace)::wxAuiLayoutObject>\
+      ::Compare(void const*, void const*, void const*)"
+    test mangled result
+
+  [<TestMethod>]
+  member __.``ItaniumDemangler: Scope Encoding: Return values``() =
+    let mangled =
+      "_ZZ11wxCheckCastI18wxAuiMDIChildFrameEPT_PKvE12__FUNCTION__"
+    let result =
+      "wxCheckCast<wxAuiMDIChildFrame>(void const*)::__FUNCTION__"
+    test mangled result
+
+  [<TestMethod>]
+  member __.``ItaniumDemangler: Guard Variables: Scope Encoding``() =
+    let mangled =
+      "_ZGVZN12_GLOBAL__N_113ParseFormatAtERN8wxString14const_iteratorERK\
+      S1_RKS0_S6_E5dtDef"
+    let result =
+      "guard variable for (anonymous namespace)::ParseFormatAt(wxString::\
+      const_iterator&, wxString::const_iterator const&, wxString const&, \
+      wxString const&)::dtDef"
+    test mangled result
+
+  [<TestMethod>]
+  member __.``ItaniumDemangler: Scope Encoding: Discriminator values``() =
+    let mangled = "_ZZL17wx_add_idle_hooksvE14hook_installed_0"
+    let result = "wx_add_idle_hooks()::hook_installed"
+    test mangled result
+
+  [<TestMethod>]
+  member __.``ItaniumDemangler: RTTI values: TC``() =
+    let mangled = "_ZTC17wxStdOutputStream0_So"
+    let result =
+      "construction vtable for std::basic_ostream<char, std::char_traits<char> \
+      >-in-wxStdOutputStream"
+    test mangled result
+
+  [<TestMethod>]
+  member __.``ItaniumDemangler: Pointer to Member Function as Argument``() =
+    let mangled =
+      "_ZN9OptionSetIN12_GLOBAL__N_111OptionsBaanEE14DefinePropertyEPKcMS1_bN\
+      St7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE"
+    let result =
+      "OptionSet<(anonymous namespace)::OptionsBaan>::DefineProperty\
+      (char const*, bool (anonymous namespace)::OptionsBaan::*, std::__cxx11\
+      ::basic_string<char, std::char_traits<char>, std::allocator<char> >)"
+    test mangled result
+
+  [<TestMethod>]
+  member __.``ItaniumDemangler: ABI Tags``() =
+    let mangled = "_ZN8Document17TransformLineEndsB5cxx11EPKcmi"
+    let result =
+      "Document::TransformLineEnds[abi:cxx11](char const*, unsigned long, int)"
+    test mangled result
+
+  [<TestMethod>]
+  member __.``ItaniumDemangler: Cast Operator``() =
+    let mangled = "_ZNK21wxArgNormalizedStringcv8wxStringEv"
+    let result = "wxArgNormalizedString::operator wxString() const"
+    test mangled result
+
+  [<TestMethod>]
+  member __.``ItaniumDemangler: Template Substitution, Repeating variables``() =
+    let mangled = "_ZN8wxString6PrintfIddddddddddddddddddddEEiRK14wxFormatStr\
+    ingT_T0_T1_T2_T3_T4_T5_T6_T7_T8_T9_T10_T11_T12_T13_T14_T15_T16_T17_T18_"
+    let result = "int wxString::Printf<double, double, double, double, double, \
+    double, double, double, double, double, double, double, double, double, \
+    double, double, double, double, double, double>(wxFormatString const&, \
+    double, double, double, double, double, double, double, double, double, \
+    double, double, double, double, double, double, double, double, double, \
+    double, double)"
+    test mangled result
+
+  [<TestMethod>]
+  member __.``ItaniumDemangler: Argument Packs``() =
+    let mangled = "_ZNSt8_Rb_treeINSt7__cxx1112basic_stringIcSt11char_traits\
+    IcESaIcEEESt4pairIKS5_N9OptionSetI10OptionsAsmE6OptionEESt10_Select1stIS\
+    C_ESt4lessIS5_ESaISC_EE22_M_emplace_hint_uniqueIJRKSt21piecewise_construc\
+    t_tSt5tupleIJOS5_EESN_IJEEEEESt17_Rb_tree_iteratorISC_ESt23_Rb_tree_const\
+    _iteratorISC_EDpOT_.isra.74"
+    let result = "std::_Rb_tree_iterator<std::pair<std::__cxx11::basic_string\
+    <char, std::char_traits<char>, std::allocator<char> > const, OptionSet\
+    <OptionsAsm>::Option> > std::_Rb_tree<std::__cxx11::basic_string<char, \
+    std::char_traits<char>, std::allocator<char> >, std::pair<std::__cxx11::\
+    basic_string<char, std::char_traits<char>, std::allocator<char> > const, \
+    OptionSet<OptionsAsm>::Option>, std::_Select1st<std::pair<std::__cxx11::\
+    basic_string<char, std::char_traits<char>, std::allocator<char> > const, \
+    OptionSet<OptionsAsm>::Option> >, std::less<std::__cxx11::basic_string\
+    <char, std::char_traits<char>, std::allocator<char> > >, std::allocator\
+    <std::pair<std::__cxx11::basic_string<char, std::char_traits<char>, \
+    std::allocator<char> > const, OptionSet<OptionsAsm>::Option> > >::_M_\
+    emplace_hint_unique<std::piecewise_construct_t const&, std::tuple<std::\
+    __cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> \
+    >&&>, std::tuple<> >(std::_Rb_tree_const_iterator<std::pair<std::__cxx11::\
+    basic_string<char, std::char_traits<char>, std::allocator<char> > const, \
+    OptionSet<OptionsAsm>::Option> >, std::piecewise_construct_t const&, \
+    std::tuple<std::__cxx11::basic_string<char, std::char_traits<char>, \
+    std::allocator<char> >&&>&&, std::tuple<>&&) [clone .isra.74]"
+    test mangled result
+
+  [<TestMethod>]
+  member __.``ItaniumDemangler: Arrays``() =
+    let mangled = "_ZSt9__find_ifIN9__gnu_cxx17__normal_iteratorIPNSt7__\
+    cxx1112basic_stringIcSt11char_traitsIcESaIcEEESt6vectorIS7_SaIS7_EEEENS0_\
+    5__ops16_Iter_equals_valIA2_KcEEET_SI_SI_T0_St26random_access_iterator_tag"
+    let result = "__gnu_cxx::__normal_iterator<std::__cxx11::basic_string\
+    <char, std::char_traits<char>, std::allocator<char> >*, std::vector\
+    <std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator\
+    <char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits\
+    <char>, std::allocator<char> > > > > std::__find_if<__gnu_cxx::__normal_\
+    iterator<std::__cxx11::basic_string<char, std::char_traits<char>, \
+    std::allocator<char> >*, std::vector<std::__cxx11::basic_string<char, \
+    std::char_traits<char>, std::allocator<char> >, std::allocator<std::\
+    __cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> \
+    > > > >, __gnu_cxx::__ops::_Iter_equals_val<char const [2]> >(__gnu_cxx::\
+    __normal_iterator<std::__cxx11::basic_string<char, std::char_traits<char>, \
+    std::allocator<char> >*, std::vector<std::__cxx11::basic_string<char, \
+    std::char_traits<char>, std::allocator<char> >, std::allocator<std::__\
+    cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > \
+    > > >, __gnu_cxx::__normal_iterator<std::__cxx11::basic_string<char, \
+    std::char_traits<char>, std::allocator<char> >*, std::vector<std::__cxx11\
+    ::basic_string<char, std::char_traits<char>, std::allocator<char> >, \
+    std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, \
+    std::allocator<char> > > > >, __gnu_cxx::__ops::_Iter_equals_val<char \
+    const [2]>, std::random_access_iterator_tag)"
+    test mangled result
+
+  [<TestMethod>]
+  member __.``ItaniumDemangler: Testing for Void 1``() =
+    let mangled = "_ZN9wxPrivate11OnScopeExitI20wxObjScopeGuardImpl0I20wxWrapp\
+    erInputStreamMS2_KFvvEEEEvRT_"
+    let result = "void wxPrivate::OnScopeExit<wxObjScopeGuardImpl0<wxWrapper\
+    InputStream, void (wxWrapperInputStream::*)() const> >(wxObjScopeGuardImp\
+    l0<wxWrapperInputStream, void (wxWrapperInputStream::*)() const>&)"
+    test mangled result
+
+  [<TestMethod>]
+  member __.``ItaniumDemangler: Testing for Void 2``() =
+    let mangled = "_ZN9wxPrivate11OnScopeExitI17wxScopeGuardImpl0IPFvvEEEEvRT_"
+    let result = "void wxPrivate::OnScopeExit<wxScopeGuardImpl0<void (*)()> >\
+    (wxScopeGuardImpl0<void (*)()>&)"
+    test mangled result

@@ -30,12 +30,6 @@ module internal B2R2.FrontEnd.ARM32.Disasm
 open B2R2
 open System.Text
 
-let addrToString (addr: Addr) wordSize verbose =
-  if verbose then
-    if wordSize = WordSize.Bit32 then addr.ToString("X8") + ": "
-    else addr.ToString("X16") + ": "
-  else ""
-
 let inline printAddr (addr: Addr) verbose (sb: StringBuilder) =
   if not verbose then sb
   else (sb.Append (addr.ToString ("X8"))).Append (": ")
@@ -900,18 +894,13 @@ let offsetToString ins addrMode offset sb =
     alignOffsetToString ins (bReg, align, reg) sb
 
 let processAddrExn32 ins addr =
+  let pc =
+    if ins.Mode = ArchOperationMode.ThumbMode then addr + 4UL else addr + 8UL
   match ins.Opcode with
-  | Op.CBZ | Op.CBNZ -> addr + 4UL
-  | Op.B when ins.Mode = ArchOperationMode.ThumbMode -> addr + 4UL
-  | Op.BL when ins.Mode = ArchOperationMode.ThumbMode -> addr + 4UL
-  | Op.BLX when ins.Mode = ArchOperationMode.ThumbMode -> addr + 4UL
-  | Op.ADR when ins.Mode = ArchOperationMode.ThumbMode -> addr + 4UL
-  | Op.LDR when ins.Mode = ArchOperationMode.ThumbMode -> addr + 4UL
-  | Op.B
-  | Op.BL
-  | Op.BLX
-  | Op.ADR
-  | Op.LDR -> ParseUtils.align (addr + 8UL) 4UL
+  | Op.CBZ | Op.CBNZ
+  | Op.B | Op.BX -> pc
+  | Op.BL | Op.BLX -> ParseUtils.align pc 4UL
+  | Op.ADR -> ParseUtils.align pc 4UL
   | _ -> addr
 
 let memHead ins addr addrMode (sb: StringBuilder) =

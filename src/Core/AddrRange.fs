@@ -37,6 +37,11 @@ exception InvalidAddrRangeException
 /// Address type in B2R2 is 64-bit unsigned integer.
 type Addr = uint64
 
+module Addr =
+  let toString wordSize (addr: Addr) =
+    if wordSize = WordSize.Bit32 then addr.ToString ("X8")
+    else addr.ToString ("X16")
+
 type AddrRange =
   val Min: Addr
   val Max: Addr

@@ -50,7 +50,10 @@ module private LibcAnalysisHelper =
       |> List.filter (fun addr -> app.InstrMap.ContainsKey addr |> not)
       |> function
         | [] -> app
-        | addrs -> BinaryApparatus.update hdl app addrs
+        | addrs ->
+          addrs
+          |> List.map (InstrMap.translateEntry hdl)
+          |> BinaryApparatus.update hdl app
     | Undef -> app
 
   let retrieveAddrsForx64 hdl app st =
@@ -63,7 +66,10 @@ module private LibcAnalysisHelper =
     |> List.filter (fun addr -> app.InstrMap.ContainsKey addr |> not)
     |> function
       | [] -> app
-      | addrs -> BinaryApparatus.update hdl app addrs
+      | addrs ->
+        addrs
+        |> List.map (InstrMap.translateEntry hdl)
+        |> BinaryApparatus.update hdl app
 
   let retrieveLibcStartAddresses hdl app = function
     | None -> app

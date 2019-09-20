@@ -37,9 +37,8 @@ type VMap = Dictionary<ProgramPoint, Vertex<IRBasicBlock>>
 let hasNoFallThrough (stmts: Stmt []) =
   if stmts.Length > 0 then
     match stmts.[stmts.Length - 1] with
-    | InterJmp (_, _, InterJmpInfo.IsRet)
-    | InterJmp (_, _, InterJmpInfo.Base)
-    | InterJmp (_, _, InterJmpInfo.IsExit)
+    | InterJmp (_, _, InterJmpInfo.IsCall) -> false
+    | InterJmp (_, _, _)
     | SideEffect (BinIR.Halt) -> true
     | _ -> false
   else false
@@ -75,11 +74,13 @@ let rec private gatherBB acc app (leaders: ProgramPoint []) myPoint nextIdx =
       match selectPair app myPoint nextLeader with
       | None, _ -> [||]
       | Some pair, nextPoint ->
-        gatherBB (pair :: acc) app leaders nextPoint nextIdx
+        let acc = pair :: acc
+        if hasNoFallThrough (snd pair) then List.rev acc |> List.toArray
+        else gatherBB acc app leaders nextPoint nextIdx
     elif nextLeader = myPoint then List.rev acc |> List.toArray
     (* Next point is beyond the next leader's point. This is possible when two
        control flows divide an instruction into two parts. This typically
-       happens on obfuscated code. *)
+       happens in obfuscated code. *)
     else gatherBB acc app leaders myPoint (nextIdx + 1)
 
 let createNode (g: IRCFG) app (vmap: VMap) (leaders: ProgramPoint []) idx =
@@ -93,7 +94,12 @@ let createNode (g: IRCFG) app (vmap: VMap) (leaders: ProgramPoint []) idx =
 
 let private addIntraEdge (g: IRCFG) app (vmap: VMap) src symbol edgeProp =
   let dstPos = Map.find symbol app.LabelMap |> ProgramPoint
-  let dst = vmap.[dstPos]
+  let dst =
+    try vmap.[dstPos]
+    (* This is a fatal error, and can only occur when the label is followed by
+       IEMark. If that's the case, we should really fix our IR translation to
+       have an explicit jump to the fall-through instruction. *)
+    with _ -> failwithf "Failed to fetch block @ %s." (dstPos.ToString ())
   g.AddEdge src dst edgeProp
 
 let private addInterEdge (g: IRCFG) (vmap: VMap) src addr edgeProp =
@@ -106,6 +112,10 @@ let private addFallthroughEdge g vmap (src: Vertex<IRBasicBlock>) =
   let last = src.VData.LastInstruction
   let fallAddr = last.Address + uint64 last.Length
   addInterEdge g vmap src fallAddr FallThroughEdge
+
+let private handleFallThrough (g: IRCFG) vmap src (nextLeader: ProgramPoint) =
+  if nextLeader.Position = 0 then addFallthroughEdge g vmap src
+  else g.AddEdge src vmap.[nextLeader] IntraJmpEdge
 
 let private getIndirectDstNode (g: IRCFG) (vmap: VMap) callee =
   match callee.Addr with
@@ -166,7 +176,7 @@ let connectEdges _ (g: IRCFG) app (vmap: VMap) (leaders: ProgramPoint[]) idx =
     | SideEffect (BinIR.Halt) -> ()
     | _ -> (* Fall through case *)
       if idx + 1 >= leaders.Length then ()
-      else addFallthroughEdge g vmap src
+      else handleFallThrough g vmap src leaders.[idx + 1]
 
 let computeBoundaries app (vmap: VMap) =
   app.LeaderPositions

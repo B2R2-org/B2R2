@@ -38,6 +38,7 @@ type CFGType =
   | DisasmCFG
   | IRCFG
   | SSACFG
+  | CallCFG
 
 [<DataContract>]
   type JsonDefs = {
@@ -110,24 +111,49 @@ let handleBinInfo req resp arbiter =
 let cfgToJSON cfgType ess g roots =
   match cfgType with
   | IRCFG ->
-    Visualizer.getJSONFromGraph g roots None
+    Visualizer.getJSONFromGraph g roots
   | DisasmCFG ->
-    let lens = DisasmLens.Init ()
+    let lens = DisasmLens.Init (ess.BinHandler)
     let g, roots = lens.Filter g roots ess.BinaryApparatus
-    Visualizer.getJSONFromGraph g roots (Some ess.BinHandler)
+    Visualizer.getJSONFromGraph g roots
   | SSACFG ->
     let lens = SSALens.Init ess.BinHandler ess.SCFG
     let g, roots = lens.Filter g roots ess.BinaryApparatus
-    Visualizer.getJSONFromGraph g roots (Some ess.BinHandler)
+    Visualizer.getJSONFromGraph g roots
+  | _ -> failwith "Invalid CFG type"
 
-let handleCFG req resp arbiter cfgType name =
-  let ess = Protocol.getBinEssence arbiter
+let handleRegularCFG req resp name (ess: BinEssence) cfgType =
   match ess.SCFG.FindFunctionEntryByName name with
   | None -> answer req resp None
   | Some addr ->
-    let cfg, root = ess.SCFG.GetFunctionCFG (addr)
-    let s = cfgToJSON cfgType ess cfg [root]
-    Some (defaultEnc.GetBytes s) |> answer req resp
+    try
+      let cfg, root = ess.SCFG.GetFunctionCFG (addr)
+      let s = cfgToJSON cfgType ess cfg [root]
+      Some (defaultEnc.GetBytes s) |> answer req resp
+    with e ->
+#if DEBUG
+      printfn "%A" e; failwith "[FATAL]: Failed to generate CFG"
+#else
+      ()
+#endif
+
+let handleCFG req resp arbiter cfgType name =
+  let ess = Protocol.getBinEssence arbiter
+  match cfgType with
+  | CallCFG ->
+    try
+      let lens = CallGraphLens.Init ess.SCFG
+      let cfg = ess.SCFG.Graph
+      let g, roots = lens.Filter cfg [] ess.BinaryApparatus
+      let s = Visualizer.getJSONFromGraph g roots
+      Some (defaultEnc.GetBytes s) |> answer req resp
+    with e ->
+#if DEBUG
+      printfn "%A" e; failwith "[FATAL]: Failed to generate CG"
+#else
+      ()
+#endif
+  | typ -> handleRegularCFG req resp name ess typ
 
 let handleFunctions req resp arbiter =
   let ess = Protocol.getBinEssence arbiter
@@ -196,6 +222,7 @@ let handleAJAX req resp arbiter query args =
   | "cfg-Disasm" -> handleCFG req resp arbiter DisasmCFG args
   | "cfg-LowUIR" -> handleCFG req resp arbiter IRCFG args
   | "cfg-SSA" -> handleCFG req resp arbiter SSACFG args
+  | "cfg-CG" -> handleCFG req resp arbiter CallCFG args
   | "functions" -> handleFunctions req resp arbiter
   | "disasm-comment" -> () // handleComment req resp arbiter DisasmCFG args
   | "ir-comment" -> () // handleComment req resp arbiter IRCFG args

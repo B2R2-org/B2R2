@@ -25,6 +25,29 @@
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE.
 */
+function isDict(d, name) {
+  if (d.constructor != Object) {
+    console.error("[" + name + "] " + "Parametes are not correct.");
+    return false;
+  }
+  return true;
+}
+
+String.format = function () {
+  // The string containing the format items (e.g. "{0}")
+  // will and always has to be the first argument.
+  var theString = arguments[0];
+
+  // start with the second argument (i = 1)
+  for (var i = 1; i < arguments.length; i++) {
+    // "gm" = RegEx options for Global search (more than one instance)
+    // and for Multiline search
+    var regEx = new RegExp("\\{" + (i - 1) + "\\}", "gm");
+    theString = theString.replace(regEx, arguments[i]);
+  }
+
+  return theString;
+}
 
 function copyToClipboard(str) {
   let aux = document.createElement("textarea");
@@ -86,23 +109,71 @@ function query(arguments, callback) {
   req.send();
 }
 
-function convertvMapPtToVPCoordinate(dx, dy) {
-  let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
-  let minimapBound = document.getElementById("minimapStage-" + currentTabNumber).getBoundingClientRect();
-  let viewportBound = document.getElementById("cfgStage-" + currentTabNumber).getBoundingClientRect();
-  let miniVPBound = document.getElementById("minimapVP-" + currentTabNumber).getBoundingClientRect();
+function reloadUI(d) {
+  if (d === undefined) {
+    d = {
+      document: document,
+      graphContainerId: "#id_graphContainer",
+      mainContainerId: "#id_mainContainer",
+      tabContainerId: "#id_tabContainer"
+    }
+  }
+  let graphContainerWidth = $(d.document.defaultView).width();
+  if (d.mainContainerId === "#id_mainContainer") {
+    graphContainerWidth -= $(".sidebar-menu").width();
+    graphContainerWidth -= $(".sidebar-content").width();
+  }
+
+  $(d.document).find(d.graphContainerId).width(graphContainerWidth);
+
+  let heightGap = 0;
+  if (d.document.getElementById(d.tabContainerId.substring(1)) != null)
+    heightGap = d.document.getElementById(d.tabContainerId.substring(1)).getBoundingClientRect().height;
+
+  let cfgVPDim = {
+    width: graphContainerWidth
+      - parseInt($(d.document).find(d.graphContainerId).css("padding-right"))
+      - rightMargin,
+    height: d.document.getElementById(d.mainContainerId.substring(1)).getBoundingClientRect().height
+      - heightGap
+      - bottomMargin
+  }
+  let minimapVPDim = {
+    width: cfgVPDim.width * minimapRatio,
+    height: cfgVPDim.height * minimapRatio,
+  }
+
+  $("#funcSelector")
+    .attr("style", "height: " + cfgVPDim.height + "px");
+
+  return { cfgVPDim: cfgVPDim, minimapVPDim: minimapVPDim };
+}
+
+function UIElementInit(isShow) {
+  if (isShow) {
+    $("#minimapDiv").show();
+    $(".internel-autocomplete-container").show();
+  } else {
+    $("#minimapDiv").hide();
+    $(".internel-autocomplete-container").hide();
+  }
+}
+
+function convertvMapPtToVPCoordinate(d, dx, dy) {
+  let minimapBound = d.document.getElementById("minimapStage-" + d.tab).getBoundingClientRect();
+  let viewportBound = d.document.getElementById("cfgStage-" + d.tab).getBoundingClientRect();
+  let miniVPBound = d.document.getElementById("minimapVP-" + d.tab).getBoundingClientRect();
   let translateWidthRatio = minimapBound.width / viewportBound.width;
   let widthRatio = minimapRatio / translateWidthRatio;
   let halfWidth = miniVPBound.width / minimapRatio / 2;
   return { x: dx + halfWidth * widthRatio, y: dy };
 }
 
-function toCenter(dx, dy, zoom, transK, durationTime) {
-  let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
-  let cfg = d3.select("svg#cfg-" + currentTabNumber);
-  let miniVPBound = document.getElementById("minimapVP-" + currentTabNumber).getBoundingClientRect();
-  let minimapBound = document.getElementById("minimapStage-" + currentTabNumber).getBoundingClientRect();
-  let viewportBound = document.getElementById("cfgStage-" + currentTabNumber).getBoundingClientRect();
+function toCenter(d, dx, dy, zoom, transK, durationTime) {
+  let cfg = d3.select(d.document).select("svg#cfg-" + d.tab);
+  let miniVPBound = d.document.getElementById("minimapVP-" + d.tab).getBoundingClientRect();
+  let minimapBound = d.document.getElementById("minimapStage-" + d.tab).getBoundingClientRect();
+  let viewportBound = d.document.getElementById("cfgStage-" + d.tab).getBoundingClientRect();
   let translateWidthRatio = minimapBound.width / viewportBound.width;
   let widthRatio = minimapRatio / translateWidthRatio;
 
@@ -114,9 +185,4 @@ function toCenter(dx, dy, zoom, transK, durationTime) {
     .duration(durationTime)
     .call(zoom.transform,
       d3.zoomIdentity.translate(newX, newY).scale(transK));
-}
-
-function setuiFuncName(name) {
-  $("#uiFuncName").text(name);
-  $("#uiFuncName").attr("title", name);
 }

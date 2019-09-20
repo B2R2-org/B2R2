@@ -26,229 +26,315 @@
   SOFTWARE.
 */
 
-var tabTitle = $("#tab_title"),
-  tabContent = $("#tab_content"),
-  tabTemplate = "<li class='tab active' text-type={type} title={label} counter={number} value={label}><a href=#{href}>{label}</a><span class='glyphicon glyphicon-remove-circle close-tab'></span></li>",
-  g_tabCounter = -1;
+class TabList {
+  constructor(d) {
+    if (!isDict(d, "tablist")) return;
 
-function addTab(functionName, dims, json) {
-  g_tabCounter++;
-  deactivatedTab()
-  let tabContainer = $("#id_tabContainer");
-  let tabId = "id_tabs-" + g_tabCounter;
-  let textType = "Disasm";
-  let label = functionName,
-    li = $(tabTemplate.replace('{href}', tabId).replace(/\{label\}/g, label).replace("{number}", g_tabCounter).replace("{type}", textType));
-  tabContainer.find('ul').append(li);
-  addGraphDiv(dims);
-  updateCfgChooserLabel("Disasm")
-}
-
-
-function addGraphDiv(dims) {
-  let graphDivTemplate = "<div id='cfgDiv-{number}'><svg id='cfg-{number}' class='box'></svg></div>".replace(/\{number\}/g, g_tabCounter);
-  let miniMapTemplate = "<svg id='minimap-{number}' class='box min-box'></svg>".replace(/\{number\}/g, g_tabCounter);
-  $("#id_graphContainer").append(graphDivTemplate);
-  $("#minimapDiv").append(miniMapTemplate);
-  // minimize the new minimap when it is minimized.
-  if ($("#minimapDiv").hasClass("active")) {
-    d3.select("#minimap-" + g_tabCounter)
-      .style("border", "unset")
-      .style("height", "0")
-  }
-  d3.select("svg#cfg-" + g_tabCounter)
-    .attr("width", dims.cfgVPDim.width)
-    .attr("height", dims.cfgVPDim.height)
-}
-
-function closeTab($el) {
-  let closedTabNum = $el.closest('li').attr("counter");
-  $el.closest('li').remove();
-  return closedTabNum;
-}
-
-function checkDuplicateTab(functionName) {
-  let tab = $("#id_tabContainer [value='{functionName}']".replace("{functionName}", functionName));
-  if (tab.length > 0) {
-    return true;
-  } else {
-    return false
-  }
-}
-
-function deactivatedTab() {
-  let tabs = $("#id_tabContainer li");
-  tabs.each(function () {
-    $(this).removeClass("active")
-  });
-  let cfgs = $("#id_graphContainer div")
-  cfgs.each(function () {
-    $(this).hide()
-  });
-  let minimaps = $("#minimapDiv > svg");
-  minimaps.each(function () {
-    $(this).hide();
-  });
-}
-
-function updateCfgChooserLabel(textType) {
-  $("#cfgChooser li div a").parents(".dropdown")
-                           .find(".dropdown-toggle")
-                           .html(textType + ' <span class="caret"></span>');
-}
-
-function activateTab($el, callback) {
-  deactivatedTab();
-  let functionName = $el.attr('title');
-  let $tab = $("#id_tabContainer li[value='" + functionName + "']");
-  let textType = $tab.attr('text-type') === undefined ? "Disasm" : $tab.attr('text-type');
-  let tabNumber = $tab.attr("counter");
-  $tab.addClass("active");
-  $("#cfgDiv-" + tabNumber).show();
-  $("#minimap-" + tabNumber).show();
-  updateCfgChooserLabel(textType);
-  query({
-    "q": "cfg-" + textType,
-    "args": functionName
-  },
-    function (status, json) {
-      if (!isEmpty(json)) {
-        setuiFuncName(functionName);
-        autocomplete(json);
-        if (callback !== undefined) {
-          callback("success");
-        }
-      }
-    });
-}
-
-function replaceTab($self, name, dims) {
-  let tabId = "id_tabs-" + g_tabCounter;
-  let $tab = $("#id_tabContainer li.active");
-  $tab.attr("value", name);
-  $tab.attr("text-type", "Disasm")
-  let newTab = $(`<a href=#{href}>{label}<span class="glyphicon glyphicon-remove-circle close-tab"></span></a>`.replace('{href}', tabId).replace("{label}", name));
-  $tab.empty().append(newTab);
-  updateCfgChooserLabel("Disasm");
-  query({
-    "q": "cfg-Disasm",
-    "args": $self.attr('title')
-  },
-    function (status, json) {
-      if (!isEmpty(json)) {
-        setuiFuncName(name);
-        drawCFG(dims, json);
-      }
-    });
-}
-
-function activateOpenFunction() {
-  $("#funcSelector li.active").each(function () {
-    $(this).removeClass("active")
-  });
-  $("#id_tabContainer li").each(function () {
-    let tabFunctionName = $(this).attr("value")
-    $("#funcSelector li[title='" + tabFunctionName + "']").each(function () {
-      $(this).addClass("active")
-    });
-  })
-}
-
-function activateTabEvent() {
-  $(document).on('click', "#id_tabContainer .tab", function (e) {
-    activateTab($(this));
-  });
-}
-
-function closeTabEvent() {
-  $(document).on('click', '.close-tab', function (e) {
-    e.preventDefault();
-    e.stopPropagation();
-    let closedTabNum = closeTab($(this));
-    $("#cfgDiv-" + closedTabNum).remove();
-    activateOpenFunction();
-    let tabs = $("#id_tabContainer li");
-    if (tabs.length <= 0) {
-      d3.select("g#cfgStage-" + closedTabNum).remove();
-      d3.select("g#minimapStage-" + closedTabNum).remove();
-      d3.select("#minimap rect").remove();
-      UIElementInit(false);
-      $("#uiFuncName").text("");
+    if (d.id == undefined) {
+      this.id = "#id_tabContainer";
     } else {
-      if ($(this).closest('li').hasClass("active")) {
-        activateTab($("#id_tabContainer li:last"));
-      }
+      this.id = d.id;
     }
-    $(this).closest('li').remove();
-  });
-}
 
-function checkValidAddress(addr) {
+    if (d.graphContainerid == undefined) {
+      this.graphContainerid = "#id_graphContainer";
+    } else {
+      this.graphContainerid = d.graphContainerid;
+    }
 
-}
+    if (d.minimapContainerid == undefined) {
+      this.minimapContainerid = "#minimapDiv";
+    } else {
+      this.minimapContainerid = d.minimapContainerid;
+    }
 
-function getNodeElement(cfg, addr) {
-  let currentTabNumber = $("#id_tabContainer li.tab.active").attr("counter");
-  let data = cfg.Nodes;
-  for (let d in data) {
-    for (let t in data[d].Terms) {
-      let terms = data[d].Terms[t];
-      let address = terms[0][0].replace(":", "");
-      if (addr === address) {
-        return {
-          "addr": address,
-          "id": "#id_{tab}_rect-{nodeidx}-{idx}"
-            .replace("{tab}", currentTabNumber)
-            .replace("{nodeidx}", parseFloat(d))
-            .replace("{idx}", parseFloat(t))
-        }
+    this.tabs = {};
+    this.endCounter = 0;
+  }
+
+  getElem() {
+    return $(this.id);
+  }
+
+  addTab(tab) {
+    this.tabs[tab.name] = tab;
+    this.endCounter += 1;
+    return this.endCounter;
+  }
+
+  setid(id) {
+    this.id = id;
+  }
+
+  getLength() {
+    return Object.keys(this.tabs).length
+  }
+
+  checkDuplicate(tabName) {
+    let tab = $(this.id + " [value='{0}']".replace("{0}", tabName));
+    if (tab.length > 0) {
+      return true;
+    } else {
+      return false
+    }
+  }
+
+  replace(oldtab, newtab) {
+    delete this.tabs[oldtab];
+    this.tabs[newtab.name] = newtab;
+  }
+
+  delete(name) {
+    delete this.tabs[name];
+  }
+
+  closeTab(funcName) {
+    const tab = this.tabs[funcName];
+    tab.close();
+    const tabLength = this.getLength();
+    if (tabLength == 0) {
+      this.closeTabAll();
+    } else {
+      if (this.getActiveTab() === undefined) {
+        this.tabs[Object.keys(this.tabs)[0]].activate();
       }
     }
   }
-}
 
-function searchAddress() {
-  let addr = $("#id-input_address").val();
-  query({
-    "q": "address",
-    "args": JSON.stringify({ "addr": addr })
-  },
-    function (status, json) {
-      if (!isEmpty(json)) {
-        let funcName = json.Name
-        let dims = reloadUI();
-        let fullAddr = "0".repeat(16 - addr.length) + addr;
-        if (checkDuplicateTab(funcName)) {
-          activateTab($("#id_tabContainer li[title='" + funcName + "']"));
-        } else {
-          addTab(funcName, dims, json);
-          drawCFG(dims, json);
-          setuiFuncName(funcName);
-          UIElementInit(true);
-          autocomplete(json);
-        }
-        $("#id_event-trigger").attr("target", getNodeElement(json, fullAddr).id);
-        setTimeout(function () { $("#id_event-trigger").click(); }, 5);
+  closeTabAll() {
+    Root.AutoComplete.clearInput();
+    Root.NavBar.setTitle("");
+    UIElementInit(false);
+  }
+
+  getTab(funcName) {
+    return this.tabs[funcName];
+  }
+
+  getActiveTab() {
+    for (let i in this.tabs) {
+      if (this.tabs[i].active) {
+        return this.tabs[i];
+      }
+    }
+  }
+
+  activate(funcName) {
+    for (let i in this.tabs) {
+      if (this.tabs[i].name == funcName) {
+        this.tabs[i].activate();
       } else {
-        popToast("alert", "Not found Address", 3);
+        this.tabs[i].deactivate();
       }
-    });
-}
-
-function onKeyPressSearchAddress() {
-  var key = window.event.keyCode;
-  if (key === 13) {
-    if (window.event.shiftKey) {
-    } else {
-      searchAddress();
     }
-    return false;
   }
-  else {
-    return true;
+
+  deactivateAll() {
+    for (let i in this.tabs) {
+      this.tabs[i].deactivate();
+    }
+  }
+
+  registerEvents() {
+    const self = this;
+    $(document).on('click', '.close-tab', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const funcName = $(this).closest("li").attr("value");
+      self.closeTab(funcName);
+    });
+
+    $(document).on('click', this.id + " .tab", function (e) {
+      const funcName = $(this).attr('value');
+      self.activate(funcName);
+    });
   }
 }
 
-function onClickSearchAddress() {
-  searchAddress();
+class Tab {
+  constructor(d) {
+    if (!isDict(d, "tab")) return;
+
+    this.document = d.document;
+    if (d.document === undefined)
+      this.document = document;
+
+    this.tablist = d.tablist;
+    this.active = d.active;
+    this.name = d.name;
+    this.type = d.type;
+    this.counter = this.tablist.addTab(this);
+    this.id = "#id_tab-" + this.counter;
+    this.graph = null;
+    this.autocomplete = null;
+  }
+
+  init(dims, functionName) {
+    const tabTemplate = b2r2.R.tabTemplate;
+    const textType = "Disasm";
+    const li = String.format(tabTemplate, textType, functionName, this.counter, this.id.split("#")[1]);
+    this.tablist.getElem().find('ul').append(li);
+    this.initContent(dims);
+    return this.counter;
+  }
+
+  initContent(dims) {
+    const minimapid = "#minimap-" + this.counter;
+    const cfgid = "#cfg-" + this.counter;
+
+    if ($(minimapid).length == 0) {
+      const miniMapTemplate = String.format(b2r2.R.miniMapTemplate, this.counter);
+      $(this.tablist.minimapContainerid).append(miniMapTemplate);
+    }
+    if ($(cfgid).length == 0) {
+      const graphDivTemplate = String.format(b2r2.R.graphDivTemplate, this.counter);
+      $(this.tablist.graphContainerid).append(graphDivTemplate);
+    }
+
+    // minimize the new minimap when it is minimized.
+    if ($(this.tablist.minimapContainerid).hasClass("active")) {
+      d3.select(minimapid)
+        .style("border", "unset")
+        .style("height", "0")
+    }
+
+    d3.select(cfgid)
+      .attr("width", dims.cfgVPDim.width)
+      .attr("height", dims.cfgVPDim.height)
+  }
+
+  getElem() {
+    return $(this.id);
+  }
+
+  setName(name) {
+    this.name = name;
+    let $tab = $(this.id);
+    $tab.attr("title", this.name);
+    $tab.attr("value", this.name);
+    $tab.find("a").text(this.name);
+  }
+
+  setType(type) {
+    this.type = type;
+    let $tab = $(this.id);
+    $tab.attr("text-type", type);
+  }
+
+  setGraph(g) {
+    this.graph = g;
+  }
+
+  addAutoComplete(autocomplete) {
+    this.autocomplete = autocomplete;
+  }
+
+  add(dims, funcName) {
+    this.tablist.activate(funcName);
+    return this.init(dims, funcName);
+  }
+
+  activateTab() {
+    let $tab = $(this.id);
+    $tab.addClass("active");
+  }
+
+  activateContent() {
+    $("#cfgDiv-" + this.counter).show();
+    $("#minimap-" + this.counter).show();
+  }
+
+  activate() {
+    this.activateTab();
+    this.activateContent();
+    this.active = true;
+    Root.NavBar.updateCfgChooserLabel(this.type);
+    Root.NavBar.setTitle(this.name);
+    Root.NavBar.setTitle(this.name);
+    Root.NavBar.setDropdownType("Disasm");
+    if (this.graph != undefined) {
+      Root.AutoComplete.reload(this.graph);
+    }
+  }
+
+  deactivateTab() {
+    let $tab = $(this.id);
+    $tab.removeClass("active");
+  }
+
+  deactivateContent() {
+    $("#cfgDiv-" + this.counter).hide();
+    $("#minimap-" + this.counter).hide();
+  }
+
+  deactivate() {
+    this.deactivateTab();
+    this.deactivateContent();
+    this.active = false;
+  }
+
+  closeContent() {
+    $("#cfgDiv-" + this.counter).remove();
+    $("#minimap-" + this.counter).remove();
+    return this.counter;
+  }
+
+  closeTab() {
+    $(this.id).remove();
+    const functionItem = Root.FunctionList.get(this.name);
+    functionItem.setState("not");
+    return this.counter;
+  }
+
+  close() {
+    this.closeTab();
+    this.closeContent();
+    this.tablist.delete(this.name);
+    return this.counter;
+  }
+
+  replace(name, dims, json) {
+    const oldFuncName = this.name;
+    const functionItem = Root.FunctionList.get(oldFuncName);
+    functionItem.setState("not");
+    this.setName(name);
+    this.closeContent();
+    const tab = this.counter;
+    this.initContent(dims);
+    this.tablist.replace(oldFuncName, this);
+    let g = new FlowGraph({
+      tab: tab,
+      cfg: "#cfg-" + tab,
+      stage: "#cfgStage-" + tab,
+      group: "#cfgGrp-" + tab,
+      minimap: "#minimap-" + tab,
+      minimapStage: "#minimapStage-" + tab,
+      minimapViewPort: "#minimapVP-" + tab,
+      dims: dims,
+      json: json
+    });
+    return g;
+  }
+
+  reload(dims, json) {
+    this.closeContent();
+    const tab = this.counter;
+    this.initContent(dims);
+    let g = new FlowGraph({
+      tab: tab,
+      cfg: "#cfg-" + tab,
+      stage: "#cfgStage-" + tab,
+      group: "#cfgGrp-" + tab,
+      minimap: "#minimap-" + tab,
+      minimapStage: "#minimapStage-" + tab,
+      minimapViewPort: "#minimapVP-" + tab,
+      dims: dims,
+      json: json
+    });
+    g.drawGraph();
+  }
+
+  registerEvents() {
+
+  }
 }

@@ -106,9 +106,7 @@ let dumpFunctions (fi: FileInfo) addrToString =
 let dumpFile (opts: FileViewerOpts) (filepath: string) =
   let hdl = BinHandler.Init (opts.ISA, filepath)
   let fi = hdl.FileInfo
-  let addrToString =
-    if fi.WordSize = WordSize.Bit32 then fun (a: Addr) -> a.ToString ("X8")
-    else fun (a: Addr) -> a.ToString ("X16")
+  let addrToString = Addr.toString hdl.ISA.WordSize
   printfn "# %s" fi.FilePath
   printfn ""
   dumpBasic fi

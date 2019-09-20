@@ -74,18 +74,15 @@ let parse reader (ctxt: ParsingContext) arch addr pos =
     | ArchOperationMode.ARMMode -> reader.ReadUInt32 pos
     | _-> raise InvalidTargetArchModeException
   let len = nextPos - pos |> uint32
-  try
-    let opcode, cond, itState, wback, qualifier, simdt, oprs, cflg =
-      match ctxt.ArchOperationMode with
-      | ArchOperationMode.ARMMode ->
-        if isARMv7 arch then Parserv7.parseV7ARM bin
-        else Parserv8.parseV8A32ARM bin // XXX
-      | ArchOperationMode.ThumbMode ->
-        if isARMv7 arch then getThumbParser ctxt bin len
-        else raise UnallocatedException
-      | _ -> raise InvalidTargetArchModeException
-    newInsInfo addr cond opcode itState wback qualifier simdt oprs len mode cflg
-  with _ ->
-    newInsInfo addr None Op.InvalidOP 0uy None None None NoOperand len mode None
+  let opcode, cond, itState, wback, qualifier, simdt, oprs, cflg =
+    match ctxt.ArchOperationMode with
+    | ArchOperationMode.ARMMode ->
+      if isARMv7 arch then Parserv7.parseV7ARM bin
+      else Parserv8.parseV8A32ARM bin // XXX
+    | ArchOperationMode.ThumbMode ->
+      if isARMv7 arch then getThumbParser ctxt bin len
+      else raise UnallocatedException
+    | _ -> raise InvalidTargetArchModeException
+  newInsInfo addr cond opcode itState wback qualifier simdt oprs len mode cflg
 
 // vim: set tw=80 sts=2 sw=2:

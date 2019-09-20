@@ -54,6 +54,7 @@ type BuiltinTypeIndicator =
   | Decimal32
   | Char16
   | Auto
+  | DeclTypeAuto
   | DecltypeNullptr
   | Char32
   | Half
@@ -87,6 +88,7 @@ module BuiltinTypeIndicator =
     | "Df" -> Decimal32
     | "Ds" -> Char16
     | "Da" -> Auto
+    | "Dc" -> DeclTypeAuto
     | "Dn" -> DecltypeNullptr
     | "Di" -> Char32
     | "Dh" -> Half
@@ -113,12 +115,13 @@ module BuiltinTypeIndicator =
     | Double -> "double"
     | LongDouble -> "long double"
     | Float128 -> "float"
-    | Ellipsis -> "ellipsis"
+    | Ellipsis -> "..."
     | Decimal64 -> "decimal64"
     | Decimal128 -> "decimal128"
     | Decimal32 -> "decimal32"
     | Char16 -> "char16_t"
     | Auto -> "auto"
+    | DeclTypeAuto -> "decltype(auto)"
     | DecltypeNullptr -> "decltype(nullptr)"
     | Char32 -> "char32_t"
     | Half -> "half"
@@ -150,10 +153,10 @@ module Sxabbreviation =
     | StdAllocator -> "std::allocator"
     | StdBasicString -> "std::basic_string"
     | StdBasicStringT ->
-      "std::basic_string<char, std::char_traits<char>, std::allocator<char>>"
-    | StdBasicIstream -> "std::basic_istream<char, std::char_traits<char>>"
-    | StdBasicOstream -> "std::basic_ostream<char, std::char_traits<char>>"
-    | StdBasicIOStream -> "std::basic_iostream<char, std::char_traits<char>>"
+      "std::basic_string<char, std::char_traits<char>, std::allocator<char> >"
+    | StdBasicIstream -> "std::basic_istream<char, std::char_traits<char> >"
+    | StdBasicOstream -> "std::basic_ostream<char, std::char_traits<char> >"
+    | StdBasicIOStream -> "std::basic_iostream<char, std::char_traits<char> >"
     | Unknown -> "???"
 
   let get = function
@@ -214,6 +217,7 @@ type OperatorIndicator =
   | Parantheses
   | Brackets
   | DoubleColon
+  | Question
   | Unknown
 
 module OperatorIndicator =
@@ -265,6 +269,7 @@ module OperatorIndicator =
     | "cl" -> Parantheses
     | "ix" -> Brackets
     | "sr" -> DoubleColon
+    | "qu" -> Question
     | _    -> Unknown
 
   let toString = function
@@ -284,7 +289,7 @@ module OperatorIndicator =
     | BinaryRemainder -> "%"
     | BitwiseAnd -> "&"
     | BitwiseOr -> "|"
-    | BitwiseXor -> ""
+    | BitwiseXor -> "^"
     | Assignment -> "="
     | PlusAssign -> "+="
     | MinusAssign -> "-="
@@ -315,6 +320,7 @@ module OperatorIndicator =
     | Parantheses -> "()"
     | Brackets -> "[]"
     | DoubleColon -> "::"
+    | Question -> "?"
     | Unknown -> "???"
 
 type ConstructorDestructor =
@@ -401,12 +407,122 @@ module ReferenceQualifier =
     | Empty -> ""
     | Unknown -> "???"
 
+type RTTIVirtualTable =
+  | VirtualTable
+  | VTT
+  | TypeInfo
+  | TypeInfoName
+  | Unknown
+
+module RTTIVirtualTable =
+  let ofString = function
+    | "TV" -> VirtualTable
+    | "TT" -> VTT
+    | "TI" -> TypeInfo
+    | "TS" -> TypeInfoName
+    | _ -> Unknown
+
+  let toString = function
+    | VirtualTable -> "vtable for "
+    | VTT -> "VTT for "
+    | TypeInfo -> "typeinfo for "
+    | TypeInfoName -> "typeinfo name for "
+    | Unknown -> "???"
+
+type CallOffSet =
+  | NVoffSet
+  | VoffSet
+  | Unknown
+
+module CallOffSet =
+  let ofString = function
+    | 'h' -> NVoffSet
+    | 'v' -> VoffSet
+    | _ -> Unknown
+
+  let toString = function
+    | NVoffSet -> "non-virtual thunk to "
+    | VoffSet -> "virtual thunk to "
+    | Unknown -> "???"
+
+type CasTing =
+  | DynamicCast
+  | StaticCast
+  | ConstCast
+  | ReinterpretCast
+  | Unknown
+
+module CasTing =
+  let ofString = function
+    | "dc" -> DynamicCast
+    | "sc" -> StaticCast
+    | "cc" -> ConstCast
+    | "rc" -> ReinterpretCast
+    | _ -> Unknown
+
+  let toString = function
+    | DynamicCast -> "dynamic_cast"
+    | StaticCast -> "static_cast"
+    | ConstCast -> "const_cast"
+    | ReinterpretCast -> "reinterpret_cast"
+    | Unknown -> ""
+
+type MeasureType =
+  | TypeID
+  | Sizeof
+  | Alignof
+  | Unknown
+
+module MeasureType =
+  let ofString = function
+    | "ti" -> TypeID
+    | "st" -> Sizeof
+    | "at" -> Alignof
+    | _ -> Unknown
+
+  let toString = function
+    | TypeID -> "typeid"
+    | Sizeof -> "sizeof"
+    | Alignof -> "alignof"
+    | Unknown -> ""
+
+type MeasureExpr =
+  | ExprID
+  | SizeofExpr
+  | AlignofExpr
+  | NoExcept
+  | Unknown
+
+module MeasureExpr =
+  let ofString = function
+    | "te" -> ExprID
+    | "sz" -> SizeofExpr
+    | "az" -> AlignofExpr
+    | "nw" -> NoExcept
+    | _ -> Unknown
+
+  let toString = function
+    | ExprID -> "typeid"
+    | SizeofExpr -> "sizeof"
+    | AlignofExpr -> "alignof"
+    | NoExcept -> "noexcept"
+    | Unknown -> ""
+
 type ItaniumExpr =
   /// Dummy type.
   | Dummy of string
 
+  /// Used for marking the index of used template substitution
+  ///(e.g., T2_ gives 2).
+  | Specific of int
+
   /// Number.
   | Num of int
+
+  | Num64 of uint64
+
+  /// Template substituion.
+  | TemplateSub of ItaniumExpr * int
 
   /// Name composed of string.
   | Name of string
@@ -441,6 +557,9 @@ type ItaniumExpr =
   /// Function, template, operator or expression argument.
   | SingleArg of ItaniumExpr
 
+  /// Virtual Table and RTTI values.
+  | RTTIandVirtualTable of RTTIVirtualTable * ItaniumExpr
+
   /// Many arguments.
   | Arguments of ItaniumExpr list
 
@@ -451,20 +570,20 @@ type ItaniumExpr =
   /// Template composed of name and arguments.
   | Template of ItaniumExpr * ItaniumExpr
 
-  /// Function with name (name, template, nestedname), return
-  /// and arguments (if return is not included in mangling, second expression
-  /// will be part of arguments).
-  | Function of ItaniumExpr * ItaniumExpr * ItaniumExpr
+  | Clone of ItaniumExpr list
+
+  /// Function with optional scope encoding(s), name
+  /// (name, template, nestedname and etc.), return and arguments.
+  | Function of
+    ItaniumExpr list * ItaniumExpr * ItaniumExpr * ItaniumExpr * ItaniumExpr
 
   /// Constructors and Destructors.
   | ConsOrDes of ConstructorDestructor
 
   /// Function Pointer is composed of pointers and optional qualifiers, return
   /// and arguments.
-  | FunctionPointer of ItaniumExpr * ItaniumExpr * ItaniumExpr
-
-  /// Operator and arguments.
-  | SimpleOP of ItaniumExpr * ItaniumExpr
+  | FunctionPointer of
+    ItaniumExpr * ItaniumExpr option * ItaniumExpr * ItaniumExpr
 
   /// Unary expression is composed of operator and single argument.
   | UnaryExpr of ItaniumExpr * ItaniumExpr
@@ -510,21 +629,98 @@ type ItaniumExpr =
   | Restrict of RestrictQualifier
 
   /// Array arguments encoded with their size and type.
-  | ArrayPointer of int list * ItaniumExpr
+  | ArrayPointer of ItaniumExpr option * ItaniumExpr list * ItaniumExpr
 
   /// Created for special case of CV qualifiers, first element is qualifier.
   | Functionarg of ItaniumExpr option * ItaniumExpr
+
+  /// Adjustment offset for virtual override thunks.
+  | CallOffset of CallOffSet
+
+  /// Virtual function override thunks with call offset and base encoding.
+  | VirtualThunk of ItaniumExpr * ItaniumExpr
+
+  /// Virtual override thunks with covariant return.
+  | VirtualThunkRet of ItaniumExpr
+
+  | GuardVariable of ItaniumExpr list * ItaniumExpr
+
+  /// Transaction entry point for function declared transaction safe.
+  | TransactionSafeFunction of ItaniumExpr
+
+  /// Lifetime - Extended temporary.
+  | ReferenceTemporary of ItaniumExpr * ItaniumExpr
+
+  | ScopeEncoding of ItaniumExpr * ItaniumExpr
+
+  /// Pointer to member function.
+  | MemberPointer of ItaniumExpr
+
+  | Scope of ItaniumExpr
+
+  | ABITag of string * string
+
+  | ConstructionVtable of ItaniumExpr * ItaniumExpr
+
+  /// Cast and Vendor extended operators.
+  | CastOperator of string * ItaniumExpr
+
+  /// Member pointers as independent arguments.
+  | MemberPAsArgument of ItaniumExpr * ItaniumExpr
+
+  | Vector of ItaniumExpr * ItaniumExpr
+
+  | LambdaExpression of ItaniumExpr * ItaniumExpr
+
+  /// Lambda xpression together with scope encoding.
+  | ScopedLambda of ItaniumExpr * ItaniumExpr option * ItaniumExpr
+
+  | UnnamedType of ItaniumExpr
+
+  | ExternalName of ItaniumExpr
+
+  | CallExpr of ItaniumExpr list
+
+  /// Conversion with one argument.
+  | ConversionOne of ItaniumExpr * ItaniumExpr
+
+  /// Conversion with more than one argument.
+  | ConversionMore of ItaniumExpr * ItaniumExpr list
+
+  /// expr.name .
+  | DotExpr of ItaniumExpr * ItaniumExpr
+
+  /// expr.*expr .
+  | DotPointerExpr of ItaniumExpr * ItaniumExpr
+
+  | CastingExpr of CasTing * ItaniumExpr * ItaniumExpr
+
+  | TypeMeasure of MeasureType * ItaniumExpr
+
+  | ExprMeasure of MeasureExpr * ItaniumExpr
+
+  /// Expression for expanding argument pack.
+  | ExpressionArgPack of ItaniumExpr
+
+  /// Function paramater references.
+  | ParameterRef of ItaniumExpr
+
+  | DeclType of ItaniumExpr
 
 type ItaniumUserState = {
   Namelist: ItaniumExpr List
   TemplateArgList : ItaniumExpr list
   Carry : ItaniumExpr
+  RetFlag : int
+  ArgPackFlag : int
 }
 with
   static member Default =
     { Namelist = []
       TemplateArgList = []
-      Carry = Dummy ""}
+      Carry = Dummy ""
+      RetFlag = 0
+      ArgPackFlag = 0 }
 
 type ItaniumParser<'a> = FParsec.Primitives.Parser<'a, ItaniumUserState>
 

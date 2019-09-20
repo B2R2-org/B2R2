@@ -161,7 +161,7 @@ type Instruction (addr, numBytes, wordSize) =
 
   /// <summary>
   ///   Return a trampoline address of an indirect branch instruction if we can
-  ///   directly compute the address. For example, `JMP [RIP + 0x42]` is a
+  ///   directly compute the address. For example, `JMP [RIP + 0x42]` is an
   ///   indirect branch instruction, but we can compute the trampoline address
   ///   as RIP is statically known anyways.
   /// </summary>
@@ -171,12 +171,13 @@ type Instruction (addr, numBytes, wordSize) =
   abstract member IndirectTrampolineAddr: [<Out>] addr: byref<Addr> -> bool
 
   /// <summary>
-  ///   Return a sequence of possible next instruction addresses. For branch
-  ///   instructions, the returned sequence includes jump target(s). For regular
-  ///   instructions, the sequence is a singleton of the fall-through address.
-  ///   This function does not resolve indirect branch targets.
+  ///   Return a sequence of possible next instruction addresses along with
+  ///   their ArchOperationMode. For branch instructions, the returned sequence
+  ///   includes jump target(s). For regular instructions, the sequence is a
+  ///   singleton of the fall-through address. This function does not resolve
+  ///   indirect branch targets.
   /// </summary>
-  abstract member GetNextInstrAddrs: unit -> seq<Addr>
+  abstract member GetNextInstrAddrs: unit -> seq<Addr * ArchOperationMode>
 
   /// <summary>
   ///   Return the interrupt number if this is an interrupt instruction.
