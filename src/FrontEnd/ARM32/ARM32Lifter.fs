@@ -63,11 +63,28 @@ let regsToUInt32 regs = List.fold (fun acc reg -> acc + getRegNum reg) 0u regs
 
 let regsToExpr regs = num <| BitVector.ofUInt32 (regsToUInt32 regs) 16<rt>
 
+let sfRegToExpr ctxt = function
+  | Vector reg -> getRegVar ctxt reg
+  | Scalar (reg, _) -> getRegVar ctxt reg
+
+let simdToExpr ctxt = function
+  | SFReg s -> sfRegToExpr ctxt s
+(*
+  | OneReg s -> sfRegToExpr ctxt s
+  | TwoRegs (s1, s2) -> [ sfRegToExpr ctxt s1; sfRegToExpr ctxt s2 ]
+  | ThreeRegs (s1, s2, s3) ->
+    [ sfRegToExpr ctxt s1; sfRegToExpr ctxt s2; sfRegToExpr ctxt s3 ]
+  | FourRegs (s1, s2, s3, s4) -> [ sfRegToExpr ctxt s1; sfRegToExpr ctxt s2;
+                                   sfRegToExpr ctxt s3; sfRegToExpr ctxt s4 ]
+*)
+  | _ -> raise InvalidOperandException
+
 let transOprToExpr ctxt = function
   | OprSpecReg (reg, _)
   | OprReg reg -> getRegVar ctxt reg
   | OprRegList regs -> regsToExpr regs
-  | OprImm imm -> num <| BitVector.ofInt64 imm 32<rt>
+  | OprSIMD simd -> simdToExpr ctxt simd
+  | OprImm imm -> num <| BitVector.ofInt64 imm 32<rt> // FIXME
   | _ -> raise InvalidOperandException
 
 let transOneOpr insInfo ctxt =
@@ -2720,7 +2737,7 @@ let vstr insInfo ctxt =
   if isSReg then builder <! (loadLE 32<rt> addr := rd)
   else
     let mem1 = loadLE 32<rt> addr
-    let mem2 = loadLE 32<rt>  (addr .+ (num <| BitVector.ofInt32 4 32<rt>))
+    let mem2 = loadLE 32<rt> (addr .+ (num <| BitVector.ofInt32 4 32<rt>))
     let isbig = ctxt.Endianness = Endian.Big
     builder <!
       (mem1 := if isbig then extractHigh 32<rt> rd else extractLow 32<rt> rd)
@@ -2916,6 +2933,1411 @@ let vmrs insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
+type ParingInfo =
+  {
+    EBytes: int
+    ESize: int
+    RtESize: int<rt>
+    Elements: int
+    RegIndex: bool option
+  }
+
+let getRegs = function
+  | TwoOperands (OprSIMD (OneReg _), _) -> 1
+  | TwoOperands (OprSIMD (TwoRegs _), _) -> 2
+  | TwoOperands (OprSIMD (ThreeRegs _), _) -> 3
+  | TwoOperands (OprSIMD (FourRegs _), _) -> 4
+  | _ -> raise InvalidOperandException
+
+let getEBytes = function
+  | Some (OneDT SIMDTyp8) | Some (OneDT SIMDTypS8) | Some (OneDT SIMDTypI8)
+  | Some (OneDT SIMDTypU8) | Some (OneDT SIMDTypP8) -> 1
+  | Some (OneDT SIMDTyp16) | Some (OneDT SIMDTypS16) | Some (OneDT SIMDTypI16)
+  | Some (OneDT SIMDTypU16) -> 2
+  | Some (OneDT SIMDTyp32) | Some (OneDT SIMDTypS32) | Some (OneDT SIMDTypI32)
+  | Some (OneDT SIMDTypU32) -> 4
+  | Some (OneDT SIMDTyp64) | Some (OneDT SIMDTypS64) | Some (OneDT SIMDTypI64)
+  | Some (OneDT SIMDTypU64) -> 8
+  | _ -> raise InvalidOperandException
+
+let registerIndex = function
+  | TwoOperands (_, OprMemory (OffsetMode (AlignOffset _)))
+  | TwoOperands (_, OprMemory (PreIdxMode (AlignOffset _))) -> Some false
+  | TwoOperands (_, OprMemory (PostIdxMode (AlignOffset _))) -> Some true
+  | _ -> None
+
+/// Parsing information for SIMD instructions
+let getParsingInfo insInfo =
+  let ebytes = getEBytes insInfo.SIMDTyp
+  let esize = ebytes * 8
+  let elements = 8 / ebytes
+  let regIndex = registerIndex insInfo.Operands
+  {
+    EBytes = ebytes
+    ESize = esize
+    RtESize = RegType.fromBitWidth esize
+    Elements = elements
+    RegIndex = regIndex
+  }
+
+let inline numI32 n t = BitVector.ofInt32 n t |> num
+
+let elem vector e size = extract vector (RegType.fromBitWidth size) (e * size)
+
+let elemForIR vector vSize index size =
+  let index = zExt vSize index
+  let mask = num <| BitVector.ofUBInt (BigInteger.getMask size) vSize
+  let eSize = num <| BitVector.ofInt32 size vSize
+  (vector >> (index .* eSize)) .& mask |> extractLow (RegType.fromBitWidth size)
+
+let getESzieOfVMOV = function
+  | Some (OneDT SIMDTyp8) -> 8
+  | Some (OneDT SIMDTyp16) -> 16
+  | Some (OneDT SIMDTyp32) -> 32
+  | _ -> raise InvalidOperandException
+
+let getIndexOfVMOV = function
+  | TwoOperands (OprSIMD (SFReg (Scalar (_, Some element))), _) -> int element
+  | _ -> raise InvalidOperandException
+
+let isQwordReg = function
+  | R.Q0 | R.Q1 | R.Q2 | R.Q3 | R.Q4 | R.Q5 | R.Q6 | R.Q7 | R.Q8 | R.Q9 | R.Q10
+  | R.Q11 | R.Q12 | R.Q13 | R.Q14 | R.Q15 -> true
+  | _ -> false
+
+let parseOprOfVMOV insInfo ctxt builder =
+  match insInfo.Operands with
+  | TwoOperands (OprSIMD _, OprSIMD _) ->
+    let dst, src = transTwoOprs insInfo ctxt
+    builder <! (dst := src)
+  | TwoOperands (OprSIMD (SFReg (Vector reg)), OprImm _) ->
+    if isQwordReg reg then
+      let dst, imm = transTwoOprs insInfo ctxt
+      let imm64 = concat imm imm // FIXME
+      builder <! (extractLow 64<rt> dst := imm64)
+      builder <! (extractHigh 64<rt> dst := imm64)
+    else
+      let dst, imm = transTwoOprs insInfo ctxt
+      let imm64 = concat imm imm // FIXME
+      builder <! (dst := imm64)
+  | TwoOperands (OprSIMD _, OprReg _) ->
+    let dst, src = transTwoOprs insInfo ctxt
+    let index = getIndexOfVMOV insInfo.Operands
+    let esize = getESzieOfVMOV insInfo.SIMDTyp
+    builder <! (elem dst index esize := src)
+  | _ -> raise InvalidOperandException
+
+let vmov insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  parseOprOfVMOV insInfo ctxt builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+(* VMOV(immediate)/VMOV(register) *)
+let isF32orF64 = function
+  | Some (OneDT SIMDTypF32) | Some (OneDT SIMDTypF64) -> true
+  | _ -> false
+
+let isAdvSIMDByDT = function
+  (* VMOV (ARM core register to scalar/scalar to ARM core register) *)
+  | Some (OneDT SIMDTyp8) | Some (OneDT SIMDTyp16) -> true
+  | Some (OneDT SIMDTyp32) -> false
+  (* VMOV (between ARM core register and single-precision register) *)
+  (* VMOV (between two ARM core registers and two single-precision registers) *)
+  | None -> false
+  | _ -> raise UndefinedException
+
+let isAdvancedSIMD insInfo =
+  match insInfo.Operands with
+  | TwoOperands (OprSIMD _, OprImm _) | TwoOperands (OprSIMD _, OprSIMD _) ->
+    isF32orF64 insInfo.SIMDTyp |> Operators.not
+  | TwoOperands (OprSIMD _, OprReg _) | TwoOperands (OprReg _, OprSIMD _)
+  | FourOperands (OprSIMD _, OprSIMD _, OprReg _, OprReg _)
+  | FourOperands (OprReg _, OprReg _, OprSIMD _, OprSIMD _) ->
+    isAdvSIMDByDT insInfo.SIMDTyp
+  (* VMOV (between two ARM core registers and a dword extension register) *)
+  | ThreeOperands (OprSIMD _, OprReg _, OprReg _)
+  | ThreeOperands (OprReg _, OprReg _, OprSIMD _) -> false
+  | _ -> false
+
+let absExpr expr size = ite (slt expr (num0 size)) (AST.neg expr) (expr)
+
+let vabs insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rm = transTwoOprs insInfo ctxt
+  let p = getParsingInfo insInfo
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rm = extract rm 64<rt> (r * 64)
+    for e in 0 .. p.Elements - 1 do
+      builder <! (elem rd e p.ESize := absExpr (elem rm e p.ESize) p.RtESize)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vadd insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, rm = transThreeOprs insInfo ctxt
+  let p = getParsingInfo insInfo
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rn = extract rn 64<rt> (r * 64)
+    let rm = extract rm 64<rt> (r * 64)
+    for e in 0 .. p.Elements - 1 do
+      builder <! (elem rd e p.ESize := elem rn e p.ESize .+ elem rm e p.ESize)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let parseOprOfVDUP insInfo ctxt esize =
+  match insInfo.Operands with
+  | TwoOperands (OprSIMD (SFReg (Vector rd)),
+                 OprSIMD (SFReg (Scalar (rm, Some idx)))) ->
+    getRegVar ctxt rd, elem (getRegVar ctxt rm) (int32 idx) esize
+  | TwoOperands (OprSIMD (SFReg (Vector rd)), OprReg rm) ->
+    getRegVar ctxt rd,
+    extractLow (RegType.fromBitWidth esize) (getRegVar ctxt rm)
+  | _ -> raise InvalidOperandException
+
+let vdup insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let esize = 8 * getEBytes insInfo.SIMDTyp
+  let rd, scalar = parseOprOfVDUP insInfo ctxt esize
+  let elements = 64 / esize
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    for e in 0 .. elements - 1 do builder <! (elem rd e esize := scalar) done
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let highestSetBitForIR dst src width oprSz builder =
+  let lblLoop = lblSymbol "Loop"
+  let lblLoopCont = lblSymbol "LoopContinue"
+  let lblUpdateTmp = lblSymbol "UpdateTmp"
+  let lblEnd = lblSymbol "End"
+  let t = tmpVar oprSz
+  let width = (num <| BitVector.ofInt32 (width - 1) oprSz)
+  builder <! (t := width)
+  builder <! (LMark lblLoop)
+  builder <! (CJmp (src >> t == num1 oprSz, Name lblEnd, Name lblLoopCont))
+  builder <! (LMark lblLoopCont)
+  builder <! (CJmp (t == num0 oprSz, Name lblEnd, Name lblUpdateTmp))
+  builder <! (LMark lblUpdateTmp)
+  builder <! (t := t .- num1 oprSz)
+  builder <! (Jmp (Name lblLoop))
+  builder <! (LMark lblEnd)
+  builder <! (dst := width .- t)
+
+let countLeadingZeroBitsForIR dst src oprSize builder =
+  highestSetBitForIR dst src (RegType.toBitWidth oprSize) oprSize builder
+
+let vclz insInfo ctxt =
+  let builder = new StmtBuilder (32)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rm = transTwoOprs insInfo ctxt
+  let pInfo = getParsingInfo insInfo
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rm = extract rm 64<rt> (r * 64)
+    for e in 0 .. pInfo.Elements - 1 do
+      countLeadingZeroBitsForIR (elem rd e pInfo.ESize) (elem rm e pInfo.ESize)
+                                pInfo.RtESize builder
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let maxExpr isUnsigned expr1 expr2 =
+  let op = if isUnsigned then gt else sgt in ite (op expr1 expr2) expr1 expr2
+
+let minExpr isUnsigned expr1 expr2 =
+  let op = if isUnsigned then lt else slt in ite (op expr1 expr2) expr1 expr2
+
+let isUnsigned = function
+  | Some (OneDT SIMDTypU8) | Some (OneDT SIMDTypU16)
+  | Some (OneDT SIMDTypU32) | Some (OneDT SIMDTypU64) -> true
+  | Some (OneDT SIMDTypS8) | Some (OneDT SIMDTypS16)
+  | Some (OneDT SIMDTypS32) | Some (OneDT SIMDTypS64) | Some (OneDT SIMDTypP8)
+    -> false
+  | _ -> raise InvalidOperandException
+
+let vmaxmin insInfo ctxt maximum =
+  let builder = new StmtBuilder (32)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, rm = transThreeOprs insInfo ctxt
+  let pInfo = getParsingInfo insInfo
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  let unsigned = isUnsigned insInfo.SIMDTyp
+  for r in 0 .. regs - 1 do
+    let rn = extract rn 64<rt> (r * 64)
+    let rm = extract rm 64<rt> (r * 64)
+    let rd = extract rd 64<rt> (r * 64)
+    for e in 0 .. pInfo.Elements - 1 do
+      let op1 = elem rn e pInfo.ESize
+      let op2 = elem rm e pInfo.ESize
+      let result =
+        if maximum then maxExpr unsigned op1 op2 else minExpr unsigned op1 op2
+      builder <! (elem rd e pInfo.ESize := extractLow pInfo.RtESize result)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vsub insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, rm = transThreeOprs insInfo ctxt
+  let p = getParsingInfo insInfo
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rn = extract rn 64<rt> (r * 64)
+    let rm = extract rm 64<rt> (r * 64)
+    for e in 0 .. p.Elements - 1 do
+      builder <! (elem rd e p.ESize := elem rn e p.ESize .- elem rm e p.ESize)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let parseOprOfVSTLDM insInfo ctxt =
+  match insInfo.Operands with
+  | TwoOperands (OprReg reg, OprRegList regs) ->
+    getRegVar ctxt reg, List.map (getRegVar ctxt) regs
+  | _ -> raise InvalidOperandException
+
+let vstm insInfo ctxt =
+  let builder = new StmtBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rn, regList = parseOprOfVSTLDM insInfo ctxt
+  let add =
+    match insInfo.Opcode with
+    | Op.VSTMIA -> true
+    | Op.VSTMDB -> false
+    | _ -> raise InvalidOpcodeException
+  let regs = List.length regList
+  let imm32 = num <| BitVector.ofInt32 ((regs * 2) <<< 2) 32<rt>
+  let addr = tmpVar 32<rt>
+  let updateRn rn =
+    if insInfo.WriteBack.Value then
+      if add then rn .+ imm32 else rn .- imm32
+    else rn
+  builder <! (addr := if add then rn else rn .- imm32)
+  builder <! (rn := updateRn rn)
+  for r in 0 .. (regs - 1) do
+    let mem1 = loadLE 32<rt> addr
+    let mem2 = loadLE 32<rt> (addr .+ (num <| BitVector.ofInt32 4 32<rt>))
+    let data1 = extractLow 32<rt> regList.[r]
+    let data2 = extractHigh 32<rt> regList.[r]
+    let isbig = ctxt.Endianness = Endian.Big
+    builder <! (mem1 := if isbig then data2 else data1)
+    builder <! (mem2 := if isbig then data1 else data2)
+    builder <! (addr := addr .+ (num <| BitVector.ofInt32 8 32<rt>))
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vldm insInfo ctxt =
+  let builder = new StmtBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rn, regList = parseOprOfVSTLDM insInfo ctxt
+  let add =
+    match insInfo.Opcode with
+    | Op.VLDMIA -> true
+    | Op.VLDMDB -> false
+    | _ -> raise InvalidOpcodeException
+  let regs = List.length regList
+  let imm32 = num <| BitVector.ofInt32 ((regs * 2) <<< 2) 32<rt>
+  let addr = tmpVar 32<rt>
+  let updateRn rn =
+    if insInfo.WriteBack.Value then
+      if add then rn .+ imm32 else rn .- imm32
+    else rn
+  builder <! (addr := if add then rn else rn .- imm32)
+  builder <! (rn := updateRn rn)
+  for r in 0 .. (regs - 1) do
+    let word1 = loadLE 32<rt> addr
+    let word2 = loadLE 32<rt> (addr .+ (num <| BitVector.ofInt32 4 32<rt>))
+    let isbig = ctxt.Endianness = Endian.Big
+    builder <!
+      (regList.[r] := if isbig then concat word1 word2 else concat word2 word1)
+    builder <! (addr := addr .+ (num <| BitVector.ofInt32 8 32<rt>))
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vecMulAccOrSub insInfo ctxt add =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, rm = transThreeOprs insInfo ctxt
+  let pInfo = getParsingInfo insInfo
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rn = extract rn 64<rt> (r * 64)
+    let rm = extract rm 64<rt> (r * 64)
+    for e in 0 .. pInfo.Elements - 1 do
+      let sExt reg = sExt pInfo.RtESize (elem reg e pInfo.ESize)
+      let product = sExt rn .* sExt rm
+      let addend = if add then product else not product
+      builder <! (elem rd e pInfo.ESize := elem rd e pInfo.ESize .+ addend)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vecMulAccOrSubLong insInfo ctxt add =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, rm = transThreeOprs insInfo ctxt
+  let p = getParsingInfo insInfo
+  let unsigned = isUnsigned insInfo.SIMDTyp
+  for e in 0 .. p.Elements - 1 do
+    let extend expr =
+      if unsigned then zExt (p.RtESize * 2) expr else sExt (p.RtESize * 2) expr
+    let product = extend (elem rn e p.ESize) .* extend (elem rm e p.ESize)
+    let addend = if add then product else not product
+    builder <! (elem rd e (p.ESize * 2) := elem rd e (p.ESize * 2) .+ addend)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let parseOprOfVMulByScalar insInfo ctxt =
+  match insInfo.Operands with
+  | ThreeOperands (OprSIMD (SFReg (Vector rd)),
+                   OprSIMD (SFReg (Vector rn)),
+                   OprSIMD (SFReg (Scalar (rm, Some index)))) ->
+    getRegVar ctxt rd, getRegVar ctxt rn, (getRegVar ctxt rm, int32 index)
+  | _ -> raise InvalidOperandException
+
+let vecMulAccOrSubByScalar insInfo ctxt add =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, (rm, index) = parseOprOfVMulByScalar insInfo ctxt
+  let p = getParsingInfo insInfo
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  let op2val = sExt p.RtESize (elem rm index p.ESize)
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rn = extract rn 64<rt> (r * 64)
+    for e in 0 .. p.Elements - 1 do
+      let op1val = sExt p.RtESize (elem rn e p.ESize)
+      let addend = if add then op1val .* op2val else not (op1val .* op2val)
+      builder <! (elem rd e p.ESize := elem rd e p.ESize .+ addend)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vecMulAccOrSubLongByScalar insInfo ctxt add =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, (rm, index) = parseOprOfVMulByScalar insInfo ctxt
+  let p = getParsingInfo insInfo
+  let ext = if isUnsigned insInfo.SIMDTyp then sExt else zExt
+  let op2val = ext (p.RtESize * 2) (elem rm index p.ESize)
+  for e in 0 .. p.Elements - 1 do
+    let op1val = ext (p.RtESize * 2) (elem rn e p.ESize)
+    let addend = if add then op1val .* op2val else not (op1val .* op2val)
+    builder <! (elem rd e (p.ESize * 2) := elem rd e (p.ESize * 2) .+ addend)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vmla insInfo ctxt =
+  match insInfo.Operands with
+  | ThreeOperands (_, _, OprSIMD (SFReg (Vector _))) ->
+    vecMulAccOrSub insInfo ctxt true
+  | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
+    vecMulAccOrSubByScalar insInfo ctxt true
+  | _ -> raise InvalidOperandException
+
+let vmlal insInfo ctxt =
+  match insInfo.Operands with
+  | ThreeOperands (_, _, OprSIMD (SFReg (Vector _))) ->
+    vecMulAccOrSubLong insInfo ctxt true
+  | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
+    vecMulAccOrSubLongByScalar insInfo ctxt true
+  | _ -> raise InvalidOperandException
+
+let vmls insInfo ctxt =
+  match insInfo.Operands with
+  | ThreeOperands (_, _, OprSIMD (SFReg (Vector _))) ->
+    vecMulAccOrSub insInfo ctxt false
+  | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
+    vecMulAccOrSubByScalar insInfo ctxt false
+  | _ -> raise InvalidOperandException
+
+let vmlsl insInfo ctxt =
+  match insInfo.Operands with
+  | ThreeOperands (_, _, OprSIMD (SFReg (Vector _))) ->
+    vecMulAccOrSubLong insInfo ctxt false
+  | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
+    vecMulAccOrSubLongByScalar insInfo ctxt false
+  | _ -> raise InvalidOperandException
+
+let isPolynomial = function
+  | Some (OneDT SIMDTypP8) -> true
+  | _ -> false
+
+// PolynomialMult()
+// A2.8.1 Pseudocode details of polynomial multiplication
+let polynomialMult op1 op2 size = concat op1 op2 // FIXME
+(* A2.8.1 Pseudocode details of polynomial multiplication
+bits(M+N) PolynomialMult(bits(M) op1, bits(N) op2)
+  result = Zeros(M+N);
+  extended_op2 = Zeros(M) : op2;
+  for i=0 to M-1
+    if op1<i> == '1' then
+      result = result EOR LSL(extended_op2, i);
+  return result;
+*)
+
+let vecMul insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, rm = transThreeOprs insInfo ctxt
+  let p = getParsingInfo insInfo
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  let polynomial = isPolynomial insInfo.SIMDTyp
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rn = extract rn 64<rt> (r * 64)
+    let rm = extract rm 64<rt> (r * 64)
+    for e in 0 .. p.Elements - 1 do
+      let sExt reg = sExt (p.RtESize * 2) (elem reg e p.ESize)
+      let product =
+        if polynomial then polynomialMult rn rm p.ESize else sExt rn .* sExt rm
+      builder <! (elem rd e p.ESize := extractLow p.RtESize product)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vecMulLong insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, rm = transThreeOprs insInfo ctxt
+  let p = getParsingInfo insInfo
+  let unsigned = isUnsigned insInfo.SIMDTyp
+  for e in 0 .. p.Elements - 1 do
+    let extend reg =
+      if unsigned then zExt (p.RtESize * 2) (elem reg e p.ESize)
+      else sExt (p.RtESize * 2) (elem reg e p.ESize)
+    let product = extractLow (p.RtESize * 2) (extend rn .* extend rm)
+    builder <! (elem rd e (p.ESize * 2) := product)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vecMulByScalar insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, (rm, index) = parseOprOfVMulByScalar insInfo ctxt
+  let p = getParsingInfo insInfo
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  let op2val = sExt (RegType.fromBitWidth p.ESize) (elem rm index p.ESize)
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rn = extract rn 64<rt> (r * 64)
+    for e in 0 .. p.Elements - 1 do
+      let op1val = sExt p.RtESize (elem rn e p.ESize)
+      builder <! (elem rd e p.ESize := extractLow p.RtESize (op1val .* op2val))
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vecMulLongByScalar insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, (rm, index) = parseOprOfVMulByScalar insInfo ctxt
+  let p = getParsingInfo insInfo
+  let rtESz = p.RtESize * 2
+  let ext = if isUnsigned insInfo.SIMDTyp then sExt else zExt
+  let op2val = ext rtESz (elem rm index p.ESize)
+  for e in 0 .. p.Elements - 1 do
+    let op1val = ext rtESz (elem rn e p.ESize)
+    builder <! (elem rd e (p.ESize * 2) := extractLow rtESz (op1val .* op2val))
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vmul insInfo ctxt =
+  match insInfo.Operands with
+  | ThreeOperands (_, _, OprSIMD (SFReg (Vector _))) ->
+    vecMul insInfo ctxt
+  | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
+    vecMulByScalar insInfo ctxt
+  | _ -> raise InvalidOperandException
+
+let vmull insInfo ctxt =
+  match insInfo.Operands with
+  | ThreeOperands (_, _, OprSIMD (SFReg (Vector _))) ->
+    vecMulLong insInfo ctxt
+  | ThreeOperands (_, _, OprSIMD (SFReg (Scalar _))) ->
+    vecMulLongByScalar insInfo ctxt
+  | _ -> raise InvalidOperandException
+
+let getSizeStartFromI16 = function
+  | Some (OneDT SIMDTypI16) -> 0b00
+  | Some (OneDT SIMDTypI32) -> 0b01
+  | Some (OneDT SIMDTypI64) -> 0b10
+  | _ -> raise InvalidOperandException
+
+let vmovn insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rm = transTwoOprs insInfo ctxt
+  let esize = 8 <<< getSizeStartFromI16 insInfo.SIMDTyp
+  let rtEsz = RegType.fromBitWidth esize
+  let elements = 64 / esize
+  for e in 0 .. elements - 1 do
+    builder <! (elem rd e esize := extractLow rtEsz (elem rm e (esize * 2)))
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vneg insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rm = transTwoOprs insInfo ctxt
+  let p = getParsingInfo insInfo
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rm = extract rm 64<rt> (r * 64)
+    for e in 0 .. p.Elements - 1 do
+      let result = neg <| sExt p.RtESize (elem rm e p.ESize)
+      builder <! (elem rd e p.ESize := extractLow p.RtESize result)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vpadd insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, rm = transThreeOprs insInfo ctxt
+  let p = getParsingInfo insInfo
+  let h = p.Elements / 2
+  let dest = tmpVar 64<rt>
+  builder <! (dest := num0 64<rt>)
+  for e in 0 .. h - 1 do
+    let addPair expr =
+      elem expr (2 * e) p.ESize .+ elem expr (2 * e + 1) p.ESize
+    builder <! (elem dest e p.ESize := addPair rn)
+    builder <! (elem dest (e + h) p.ESize := addPair rm)
+  builder <! (rd := dest)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vrshr insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rm, imm = transThreeOprs insInfo ctxt
+  let imm = zExt 64<rt> imm
+  let p = getParsingInfo insInfo
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  let extend = if isUnsigned insInfo.SIMDTyp then zExt else sExt
+  let roundConst = num1 64<rt> << (imm .- num1 64<rt>)
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rm = extract rm 64<rt> (r * 64)
+    for e in 0 .. p.Elements - 1 do
+      let result = (extend 64<rt> (elem rm e p.ESize) .+ roundConst) >> imm
+      builder <! (elem rd e p.ESize := extractLow p.RtESize result)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vshlImm insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rm, imm = transThreeOprs insInfo ctxt
+  let p = getParsingInfo insInfo
+  let imm = zExt p.RtESize imm
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rm = extract rm 64<rt> (r * 64)
+    for e in 0 .. p.Elements - 1 do
+      builder <! (elem rd e p.ESize := elem rm e p.ESize << imm)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vshlReg insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rm, rn = transThreeOprs insInfo ctxt
+  let p = getParsingInfo insInfo
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  let extend = if isUnsigned insInfo.SIMDTyp then zExt else sExt
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rm = extract rm 64<rt> (r * 64)
+    for e in 0 .. p.Elements - 1 do
+      let shift = sExt 64<rt> (extractLow 8<rt> (elem rn e p.ESize))
+      let result = extend 64<rt> (elem rm e p.ESize) << shift
+      builder <! (elem rd e p.ESize := extractLow p.RtESize result)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vshl insInfo ctxt =
+  match insInfo.Operands with
+  | ThreeOperands (_, _, OprImm _) -> vshlImm insInfo ctxt
+  | ThreeOperands (_, _, OprSIMD _) -> vshlReg insInfo ctxt
+  | _ -> raise InvalidOperandException
+
+let vshr insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rm, imm = transThreeOprs insInfo ctxt
+  let p = getParsingInfo insInfo
+  let imm = zExt 64<rt> imm
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  let extend = if isUnsigned insInfo.SIMDTyp then zExt else sExt
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rm = extract rm 64<rt> (r * 64)
+    for e in 0 .. p.Elements - 1 do
+      let result = extend 64<rt> (elem rm e p.ESize) >> imm
+      builder <! (elem rd e p.ESize := extractLow p.RtESize result)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let parseVectors = function
+  | OneReg (Vector d) -> [ d ]
+  | TwoRegs (Vector d1, Vector d2) -> [ d1; d2 ]
+  | ThreeRegs (Vector d1, Vector d2, Vector d3) -> [ d1; d2; d3 ]
+  | FourRegs (Vector d1, Vector d2, Vector d3, Vector d4) -> [ d1; d2; d3; d4 ]
+  | _ -> raise InvalidOperandException
+
+let parseOprOfVecTbl insInfo ctxt =
+  match insInfo.Operands with
+  | ThreeOperands (OprSIMD (SFReg (Vector rd)), OprSIMD regs,
+                   OprSIMD (SFReg (Vector rm))) ->
+    getRegVar ctxt rd, parseVectors regs, getRegVar ctxt rm
+  | _ -> raise InvalidOperandException
+
+let vecTbl insInfo ctxt isVtbl =
+  let builder = new StmtBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, list, rm = parseOprOfVecTbl insInfo ctxt
+  let vectors = list |> List.map (getRegVar ctxt)
+  let length = List.length list
+  let table = concatExprs (List.toArray vectors) |> zExt 256<rt>
+  for i in 0 .. 7 do
+    let index = elem rm i 8
+    let cond = lt index (num <| BitVector.ofInt32 (8 * length) 8<rt>)
+    let e = if isVtbl then num0 8<rt> else elem rd i 8
+    builder <! (elem rd i 8 := ite cond (elemForIR table 256<rt> index 8) e)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let isImm = function
+  | Num _ -> true
+  | _ -> false
+
+let vectorCompare insInfo ctxt cmp =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, src1, src2 = transThreeOprs insInfo ctxt
+  let p = getParsingInfo insInfo
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let src1 = extract src1 64<rt> (r * 64)
+    for e in 0 .. p.Elements - 1 do
+      let src2 = if isImm src2 then num0 p.RtESize
+                 else elem (extract src2 64<rt> (r * 64)) e p.ESize
+      let t = cmp (elem src1 e p.ESize) src2
+      builder <! (elem rd e p.ESize := ite t (num1 p.RtESize) (num0 p.RtESize))
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let getCmp i unsigned signed = if isUnsigned i.SIMDTyp then unsigned else signed
+
+let vceq insInfo ctxt = vectorCompare insInfo ctxt (==)
+let vcge insInfo ctxt = vectorCompare insInfo ctxt (getCmp insInfo ge sge)
+let vcgt insInfo ctxt = vectorCompare insInfo ctxt (getCmp insInfo gt sgt)
+let vcle insInfo ctxt = vectorCompare insInfo ctxt (getCmp insInfo le sle)
+let vclt insInfo ctxt = vectorCompare insInfo ctxt (getCmp insInfo lt slt)
+
+let vtst insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, rm = transThreeOprs insInfo ctxt
+  let p = getParsingInfo insInfo
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    let rd = extract rd 64<rt> (r * 64)
+    let rn = extract rn 64<rt> (r * 64)
+    let rm = extract rm 64<rt> (r * 64)
+    for e in 0 .. p.Elements - 1 do
+      let c = (elem rn e p.ESize .& elem rm e p.ESize) != num0 p.RtESize
+      builder <! (elem rd e p.ESize := ite c (num1 p.RtESize) (num0 p.RtESize))
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vrshrn insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rm, imm = transThreeOprs insInfo ctxt
+  let esize = 8 <<< getSizeStartFromI16 insInfo.SIMDTyp
+  let rtEsz = RegType.fromBitWidth esize
+  let imm = zExt (rtEsz * 2) imm
+  let elements = 64 / esize
+  let roundConst = num1 (rtEsz * 2) << (imm .- num1 (rtEsz * 2))
+  for e in 0 .. elements - 1 do
+    let result = (elem rm e (2 * esize) .+ roundConst) >> imm
+    builder <! (elem rd e esize := extractLow rtEsz result)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vorrReg insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, rm = transThreeOprs insInfo ctxt
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    let reg expr = extract expr 64<rt> (r * 64)
+    builder <! (reg rd := reg rn .| reg rm)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vorrImm insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, imm = transTwoOprs insInfo ctxt
+  let imm = concat imm imm // FIXME: A8-975
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    builder <! (extract rd 64<rt> (r * 64) := extract rd 64<rt> (r * 64) .| imm)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vorr insInfo ctxt =
+  match insInfo.Operands with
+  | ThreeOperands _ -> vorrReg insInfo ctxt
+  | TwoOperands _ -> vorrImm insInfo ctxt
+  | _ -> raise InvalidOperandException
+
+let vornReg insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, rm = transThreeOprs insInfo ctxt
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    let reg expr = extract expr 64<rt> (r * 64)
+    builder <! (reg rd := reg rn .| (not <| reg rm))
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vornImm insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, imm = transTwoOprs insInfo ctxt
+  let imm = concat imm imm // FIXME: A8-975
+  let regs = if typeOf rd = 64<rt> then 1 else 2
+  for r in 0 .. regs - 1 do
+    builder <!
+      (extract rd 64<rt> (r * 64) := extract rd 64<rt> (r * 64) .| not imm)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vorn insInfo ctxt =
+  match insInfo.Operands with
+  | ThreeOperands _ -> vornReg insInfo ctxt
+  | TwoOperands _ -> vornImm insInfo ctxt
+  | _ -> raise InvalidOperandException
+
+let parseDstList = function
+  | TwoOperands (OprSIMD (OneReg (Vector d)), _) -> [ d ]
+  | TwoOperands (OprSIMD (TwoRegs (Vector d1, Vector d2)), _) -> [ d1; d2 ]
+  | TwoOperands (OprSIMD (ThreeRegs (Vector d1, Vector d2, Vector d3)), _) ->
+    [ d1; d2; d3 ]
+  | TwoOperands (OprSIMD (FourRegs (Vector d1, Vector d2,
+                                    Vector d3, Vector d4)), _) ->
+    [ d1; d2; d3; d4 ]
+  | TwoOperands (OprSIMD (OneReg (Scalar (d, None))), _) -> [ d ]
+  | TwoOperands (OprSIMD (TwoRegs (Scalar (d1, _), Scalar (d2, _))), _) ->
+    [ d1; d2 ]
+  | TwoOperands (OprSIMD (ThreeRegs (Scalar (d1, _), Scalar (d2, _),
+                                     Scalar (d3, _))), _) -> [ d1; d2; d3 ]
+  | TwoOperands (OprSIMD (FourRegs (Scalar (d1, _), Scalar (d2, _),
+                                    Scalar (d3, _), Scalar (d4, _))), _) ->
+    [ d1; d2; d3; d4 ]
+  | _ -> raise InvalidOperandException
+
+let getRnAndRm ctxt = function
+  | TwoOperands (_, OprMemory (OffsetMode (AlignOffset (rn, _, _))))
+  | TwoOperands (_, OprMemory (PreIdxMode (AlignOffset (rn, _, _)))) ->
+    getRegVar ctxt rn, None
+  | TwoOperands (_, OprMemory (PostIdxMode (AlignOffset (rn, _, Some rm)))) ->
+    getRegVar ctxt rn, getRegVar ctxt rm |> Some
+  | _ -> raise InvalidOperandException
+
+let assignByEndian (ctxt: TranslationContext) dst src builder =
+  let isbig = ctxt.Endianness = Endian.Big
+  builder <!
+    (dst := if isbig then extractHigh 32<rt> src else extractLow 32<rt> src)
+
+let parseOprOfVecStAndLd ctxt insInfo =
+  let rdList = parseDstList insInfo.Operands |> List.map (getRegVar ctxt)
+  let rn, rm = getRnAndRm ctxt insInfo.Operands
+  rdList, rn, rm
+
+let updateRn insInfo rn (rm: Expr option) n (regIdx: bool option) =
+  let rmOrTransSz = if regIdx.Value then rm.Value else numI32 n 32<rt>
+  if insInfo.WriteBack.Value then rn .+ rmOrTransSz else rn
+
+let incAddr addr n = addr .+ (numI32 n 32<rt>)
+
+let vst1Multi insInfo ctxt =
+  let builder = new StmtBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
+  let pInfo = getParsingInfo insInfo
+  let regs = getRegs insInfo.Operands
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn insInfo rn rm (8 * regs) pInfo.RegIndex)
+  for r in 0 .. (regs - 1) do
+    for e in 0 .. (pInfo.Elements - 1) do
+      if pInfo.EBytes <> 8 then
+        let mem = loadLE pInfo.RtESize addr
+        builder <! (mem := elem rdList.[r] e pInfo.ESize)
+      else
+        let mem1 = loadLE 32<rt> addr
+        let mem2 = loadLE 32<rt> (incAddr addr 4)
+        let reg = elem rdList.[r] e pInfo.ESize
+        assignByEndian ctxt mem1 reg builder
+        assignByEndian ctxt mem2 reg builder
+      builder <! (addr := addr .+ (numI32 pInfo.EBytes 32<rt>))
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vst1Single insInfo ctxt index =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, rm = parseOprOfVecStAndLd ctxt insInfo
+  let pInfo = getParsingInfo insInfo
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn insInfo rn rm pInfo.EBytes pInfo.RegIndex)
+  let mem = loadLE pInfo.RtESize addr
+  builder <! (mem := elem rd.[0] (int32 index) pInfo.ESize)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vst1 insInfo ctxt =
+  match insInfo.Operands with
+  | TwoOperands (OprSIMD (OneReg (Scalar (_, Some index))), _) ->
+    vst1Single insInfo ctxt index
+  | TwoOperands (OprSIMD (OneReg _), _)
+  | TwoOperands (OprSIMD (TwoRegs _), _)
+  | TwoOperands (OprSIMD (ThreeRegs _), _)
+  | TwoOperands (OprSIMD (FourRegs _), _) -> vst1Multi insInfo ctxt
+  | _ -> raise InvalidOperandException
+
+let vld1SingleOne insInfo ctxt index =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rd, rn, rm = parseOprOfVecStAndLd ctxt insInfo
+  let pInfo = getParsingInfo insInfo
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn insInfo rn rm pInfo.EBytes pInfo.RegIndex)
+  let mem = loadLE pInfo.RtESize addr
+  builder <! (elem rd.[0] (int32 index) pInfo.ESize := mem)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vld1SingleAll insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
+  let pInfo = getParsingInfo insInfo
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn insInfo rn rm pInfo.EBytes pInfo.RegIndex)
+  let mem = loadLE pInfo.RtESize addr
+  let repElem = Array.replicate pInfo.Elements mem |> concatExprs
+  for r in 0 .. (List.length rdList - 1) do
+    builder <! (rdList.[r] := repElem) done
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vld1Multi insInfo ctxt =
+  let builder = new StmtBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
+  let pInfo = getParsingInfo insInfo
+  let regs = getRegs insInfo.Operands
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn insInfo rn rm (8 * regs) pInfo.RegIndex)
+  for r in 0 .. (regs - 1) do
+    for e in 0 .. (pInfo.Elements - 1) do
+      if pInfo.EBytes <> 8 then
+        let data = tmpVar pInfo.RtESize
+        builder <! (data := loadLE pInfo.RtESize addr)
+        builder <! (elem rdList.[r] e pInfo.ESize := data)
+      else
+        let data1 = tmpVar 32<rt>
+        let data2 = tmpVar 32<rt>
+        let mem1 = loadLE 32<rt> addr
+        let mem2 = loadLE 32<rt> (addr .+ (num <| BitVector.ofInt32 4 32<rt>))
+        let isbig = ctxt.Endianness = Endian.Big
+        builder <! (data1 := if isbig then mem2 else mem1)
+        builder <! (data2 := if isbig then mem1 else mem1)
+        builder <! (elem rdList.[r] e pInfo.ESize := concat data2 data1)
+      builder <! (addr := incAddr addr pInfo.EBytes)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vld1 insInfo ctxt =
+  match insInfo.Operands with
+  | TwoOperands (OprSIMD (OneReg (Scalar (_, Some index))), _) ->
+    vld1SingleOne insInfo ctxt index
+  | TwoOperands (OprSIMD (OneReg (Scalar _)), _)
+  | TwoOperands (OprSIMD (TwoRegs (Scalar _, Scalar _)), _) ->
+    vld1SingleAll insInfo ctxt
+  | TwoOperands (OprSIMD (OneReg _), _)
+  | TwoOperands (OprSIMD (TwoRegs _), _)
+  | TwoOperands (OprSIMD (ThreeRegs _), _)
+  | TwoOperands (OprSIMD (FourRegs _), _) -> vld1Multi insInfo ctxt
+  | _ -> raise InvalidOperandException
+
+let vst2Multi insInfo ctxt =
+  let builder = new StmtBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
+  let regs = getRegs insInfo.Operands / 2
+  let pInfo = getParsingInfo insInfo
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn insInfo rn rm (16 * regs) pInfo.RegIndex)
+  for r in 0 .. (regs - 1) do
+    let rd1 = rdList.[r * 2]
+    let rd2 = rdList.[r * 2 + 1]
+    for e in 0 .. (pInfo.Elements - 1) do
+      let mem1 = loadLE pInfo.RtESize addr
+      let mem2 = loadLE pInfo.RtESize (addr .+ (numI32 pInfo.EBytes 32<rt>))
+      builder <! (mem1 := elem rd1 e pInfo.ESize)
+      builder <! (mem2 := elem rd2 e pInfo.ESize)
+      builder <! (addr := addr .+ (numI32 (2 * pInfo.EBytes) 32<rt>))
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vst2Single insInfo ctxt index =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
+  let pInfo = getParsingInfo insInfo
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn insInfo rn rm (16 * pInfo.EBytes) pInfo.RegIndex)
+  let mem1 = loadLE pInfo.RtESize addr
+  let mem2 = loadLE pInfo.RtESize (addr .+ (numI32 pInfo.EBytes 32<rt>))
+  builder <! (mem1 := elem rdList.[0] index pInfo.ESize)
+  builder <! (mem2 := elem rdList.[1] index pInfo.ESize)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vst2 insInfo ctxt =
+  match insInfo.Operands with
+  | TwoOperands (OprSIMD (TwoRegs (Scalar (_, Some index), _)), _) ->
+    vst2Single insInfo ctxt (int32 index)
+  | TwoOperands (OprSIMD (OneReg _), _)
+  | TwoOperands (OprSIMD (TwoRegs _), _)
+  | TwoOperands (OprSIMD (ThreeRegs _), _)
+  | TwoOperands (OprSIMD (FourRegs _), _) -> vst2Multi insInfo ctxt
+  | _ -> raise InvalidOperandException
+
+let vst3Multi insInfo ctxt =
+  let builder = new StmtBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
+  let pInfo = getParsingInfo insInfo
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn insInfo rn rm 24 pInfo.RegIndex)
+  for e in 0 .. (pInfo.Elements - 1) do
+    let mem1 = loadLE pInfo.RtESize addr
+    let mem2 = loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
+    let mem3 = loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
+    builder <! (mem1 := elem rdList.[0] e pInfo.ESize)
+    builder <! (mem2 := elem rdList.[1] e pInfo.ESize)
+    builder <! (mem3 := elem rdList.[2] e pInfo.ESize)
+    builder <! (addr := incAddr addr (3 * pInfo.EBytes))
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vst3Single insInfo ctxt index =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
+  let pInfo = getParsingInfo insInfo
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn insInfo rn rm (3 * pInfo.EBytes) pInfo.RegIndex)
+  let mem1 = loadLE pInfo.RtESize addr
+  let mem2 = loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
+  let mem3 = loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
+  builder <! (mem1 := elem rdList.[0] index pInfo.ESize)
+  builder <! (mem2 := elem rdList.[1] index pInfo.ESize)
+  builder <! (mem3 := elem rdList.[2] index pInfo.ESize)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vst3 insInfo ctxt =
+  match insInfo.Operands with
+  | TwoOperands (OprSIMD (ThreeRegs (Scalar (_, Some index), _, _)), _) ->
+    vst3Single insInfo ctxt (int32 index)
+  | TwoOperands (OprSIMD (OneReg _), _)
+  | TwoOperands (OprSIMD (TwoRegs _), _)
+  | TwoOperands (OprSIMD (ThreeRegs _), _)
+  | TwoOperands (OprSIMD (FourRegs _), _) -> vst3Multi insInfo ctxt
+  | _ -> raise InvalidOperandException
+
+let vst4Multi insInfo ctxt =
+  let builder = new StmtBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
+  let pInfo = getParsingInfo insInfo
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn insInfo rn rm 32 pInfo.RegIndex)
+  for e in 0 .. (pInfo.Elements - 1) do
+    let mem1 = loadLE pInfo.RtESize addr
+    let mem2 = loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
+    let mem3 = loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
+    let mem4 = loadLE pInfo.RtESize (incAddr addr (3 * pInfo.EBytes))
+    builder <! (mem1 := elem rdList.[0] e pInfo.ESize)
+    builder <! (mem2 := elem rdList.[1] e pInfo.ESize)
+    builder <! (mem3 := elem rdList.[2] e pInfo.ESize)
+    builder <! (mem4 := elem rdList.[3] e pInfo.ESize)
+    builder <! (addr := incAddr addr (4 * pInfo.EBytes))
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vst4Single insInfo ctxt index =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
+  let pInfo = getParsingInfo insInfo
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn insInfo rn rm (4 * pInfo.EBytes) pInfo.RegIndex)
+  let mem1 = loadLE pInfo.RtESize addr
+  let mem2 = loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
+  let mem3 = loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
+  let mem4 = loadLE pInfo.RtESize (incAddr addr (3 * pInfo.EBytes))
+  builder <! (mem1 := elem rdList.[0] index pInfo.ESize)
+  builder <! (mem2 := elem rdList.[1] index pInfo.ESize)
+  builder <! (mem3 := elem rdList.[2] index pInfo.ESize)
+  builder <! (mem4 := elem rdList.[3] index pInfo.ESize)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vst4 insInfo ctxt =
+  match insInfo.Operands with
+  | TwoOperands (OprSIMD (FourRegs (Scalar (_, Some index), _, _, _)), _) ->
+    vst4Single insInfo ctxt (int32 index)
+  | TwoOperands (OprSIMD (OneReg _), _)
+  | TwoOperands (OprSIMD (TwoRegs _), _)
+  | TwoOperands (OprSIMD (ThreeRegs _), _)
+  | TwoOperands (OprSIMD (FourRegs _), _) -> vst4Multi insInfo ctxt
+  | _ -> raise InvalidOperandException
+
+let vld2SingleOne insInfo ctxt index =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
+  let pInfo = getParsingInfo insInfo
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn insInfo rn rm (2 * pInfo.EBytes) pInfo.RegIndex)
+  let mem1 = loadLE pInfo.RtESize addr
+  let mem2 = loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
+  builder <! (elem rdList.[0] (int32 index) pInfo.ESize := mem1)
+  builder <! (elem rdList.[1] (int32 index) pInfo.ESize := mem2)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vld2SingleAll insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
+  let pInfo = getParsingInfo insInfo
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn insInfo rn rm (2 * pInfo.EBytes) pInfo.RegIndex)
+  let mem1 = loadLE pInfo.RtESize addr
+  let mem2 = loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
+  let repElem1 = Array.replicate pInfo.Elements mem1 |> concatExprs
+  let repElem2 = Array.replicate pInfo.Elements mem2 |> concatExprs
+  builder <! (rdList.[0] := repElem1)
+  builder <! (rdList.[1] := repElem2)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vld2Multi insInfo ctxt =
+  let builder = new StmtBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
+  let pInfo = getParsingInfo insInfo
+  let regs = getRegs insInfo.Operands / 2
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn insInfo rn rm (16 * regs) pInfo.RegIndex)
+  for r in 0 .. (regs - 1) do
+    let rd1 = rdList.[r * 2]
+    let rd2 = rdList.[r * 2 + 1]
+    for e in 0 .. (pInfo.Elements - 1) do
+      let mem1 = loadLE pInfo.RtESize addr
+      let mem2 = loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
+      builder <! (elem rd1 e pInfo.ESize := mem1)
+      builder <! (elem rd2 e pInfo.ESize := mem2)
+      builder <! (addr := incAddr addr (2 * pInfo.EBytes))
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vld2 insInfo ctxt =
+  match insInfo.Operands with
+  | TwoOperands (OprSIMD (TwoRegs (Scalar (_, Some index), _)), _) ->
+    vld2SingleOne insInfo ctxt index
+  | TwoOperands (OprSIMD (TwoRegs (Scalar _, Scalar _)), _) ->
+    vld2SingleAll insInfo ctxt
+  | TwoOperands (OprSIMD (TwoRegs _), _)
+  | TwoOperands (OprSIMD (FourRegs _), _) -> vld2Multi insInfo ctxt
+  | _ -> raise InvalidOperandException
+
+let vld3SingleOne insInfo ctxt index =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
+  let pInfo = getParsingInfo insInfo
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn insInfo rn rm (3 * pInfo.EBytes) pInfo.RegIndex)
+  let mem1 = loadLE pInfo.RtESize addr
+  let mem2 = loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
+  let mem3 = loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
+  builder <! (elem rdList.[0] (int32 index) pInfo.ESize := mem1)
+  builder <! (elem rdList.[1] (int32 index) pInfo.ESize := mem2)
+  builder <! (elem rdList.[2] (int32 index) pInfo.ESize := mem3)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vld3SingleAll insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
+  let pInfo = getParsingInfo insInfo
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn insInfo rn rm (3 * pInfo.EBytes) pInfo.RegIndex)
+  let mem1 = loadLE pInfo.RtESize addr
+  let mem2 = loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
+  let mem3 = loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
+  let repElem1 = Array.replicate pInfo.Elements mem1 |> concatExprs
+  let repElem2 = Array.replicate pInfo.Elements mem2 |> concatExprs
+  let repElem3 = Array.replicate pInfo.Elements mem3 |> concatExprs
+  builder <! (rdList.[0] := repElem1)
+  builder <! (rdList.[1] := repElem2)
+  builder <! (rdList.[2] := repElem3)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vld3Multi insInfo ctxt =
+  let builder = new StmtBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
+  let pInfo = getParsingInfo insInfo
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn insInfo rn rm 24 pInfo.RegIndex)
+  for e in 0 .. (pInfo.Elements - 1) do
+    let mem1 = loadLE pInfo.RtESize addr
+    let mem2 = loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
+    let mem3 = loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
+    builder <! (elem rdList.[0] e pInfo.ESize := mem1)
+    builder <! (elem rdList.[1] e pInfo.ESize := mem2)
+    builder <! (elem rdList.[2] e pInfo.ESize := mem3)
+    builder <! (addr := addr .+ (numI32 (3 * pInfo.EBytes) 32<rt>))
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vld3 insInfo ctxt =
+  match insInfo.Operands with
+  | TwoOperands (OprSIMD (ThreeRegs (Scalar (_, Some index), _, _)), _) ->
+    vld3SingleOne insInfo ctxt index
+  | TwoOperands (OprSIMD (ThreeRegs (Scalar (_, None), _, _)), _) ->
+    vld3SingleAll insInfo ctxt
+  | TwoOperands (OprSIMD (ThreeRegs _), _) -> vld3Multi insInfo ctxt
+  | _ -> raise InvalidOperandException
+
+let vld4SingleOne insInfo ctxt index =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
+  let pInfo = getParsingInfo insInfo
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn insInfo rn rm (4 * pInfo.EBytes) pInfo.RegIndex)
+  let mem1 = loadLE pInfo.RtESize addr
+  let mem2 = loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
+  let mem3 = loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
+  let mem4 = loadLE pInfo.RtESize (incAddr addr (3 * pInfo.EBytes))
+  builder <! (elem rdList.[0] (int32 index) pInfo.ESize := mem1)
+  builder <! (elem rdList.[1] (int32 index) pInfo.ESize := mem2)
+  builder <! (elem rdList.[2] (int32 index) pInfo.ESize := mem3)
+  builder <! (elem rdList.[3] (int32 index) pInfo.ESize := mem4)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vld4SingleAll insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
+  let pInfo = getParsingInfo insInfo
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn insInfo rn rm (4 * pInfo.EBytes) pInfo.RegIndex)
+  let mem1 = loadLE pInfo.RtESize addr
+  let mem2 = loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
+  let mem3 = loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
+  let mem4 = loadLE pInfo.RtESize (incAddr addr (3 * pInfo.EBytes))
+  let repElem1 = Array.replicate pInfo.Elements mem1 |> concatExprs
+  let repElem2 = Array.replicate pInfo.Elements mem2 |> concatExprs
+  let repElem3 = Array.replicate pInfo.Elements mem3 |> concatExprs
+  let repElem4 = Array.replicate pInfo.Elements mem4 |> concatExprs
+  builder <! (rdList.[0] := repElem1)
+  builder <! (rdList.[1] := repElem2)
+  builder <! (rdList.[2] := repElem3)
+  builder <! (rdList.[3] := repElem4)
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vld4Multi insInfo ctxt =
+  let builder = new StmtBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
+  startMark insInfo builder
+  let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
+  let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
+  let pInfo = getParsingInfo insInfo
+  let addr = tmpVar 32<rt>
+  builder <! (addr := rn)
+  builder <! (rn := updateRn insInfo rn rm 24 pInfo.RegIndex)
+  for e in 0 .. (pInfo.Elements - 1) do
+    let mem1 = loadLE pInfo.RtESize addr
+    let mem2 = loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
+    let mem3 = loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
+    let mem4 = loadLE pInfo.RtESize (incAddr addr (3 * pInfo.EBytes))
+    builder <! (elem rdList.[0] e pInfo.ESize := mem1)
+    builder <! (elem rdList.[1] e pInfo.ESize := mem2)
+    builder <! (elem rdList.[2] e pInfo.ESize := mem3)
+    builder <! (elem rdList.[3] e pInfo.ESize := mem4)
+    builder <! (addr := addr .+ (numI32 (4 * pInfo.EBytes) 32<rt>))
+  putEndLabel ctxt lblIgnore isUnconditional None builder
+  endMark insInfo builder
+
+let vld4 insInfo ctxt =
+  match insInfo.Operands with
+  | TwoOperands (OprSIMD (FourRegs (Scalar (_, Some index), _, _, _)), _) ->
+    vld4SingleOne insInfo ctxt index
+  | TwoOperands (OprSIMD (FourRegs (Scalar (_, None), _, _, _)), _) ->
+    vld4SingleAll insInfo ctxt
+  | TwoOperands (OprSIMD (FourRegs _), _) -> vld4Multi insInfo ctxt
+  | _ -> raise InvalidOperandException
+
 let udf insInfo =
   match insInfo.Operands with
   | OneOperand (OprImm n) -> sideEffects insInfo (Interrupt (int n))
@@ -3052,18 +4474,66 @@ let translate insInfo ctxt =
   | Op.VPUSH -> vpush insInfo ctxt
   | Op.VAND -> vand insInfo ctxt
   | Op.VMRS -> vmrs insInfo ctxt
-  | Op.VABA
-  | Op.VST1 | Op.VST2 | Op.VST3 | Op.VST4
-  | Op.VLD1 | Op.VLD2 | Op.VLD3 | Op.VLD4 | Op.VLDM | Op.VLDMDB | Op.VLDMIA
-  | Op.VCEQ | Op.VCGT | Op.VCGE | Op.VCLE | Op.VCLT | Op.VTST
-  | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT
-  | Op.VCVT | Op.VCVTR | Op.VMLS | Op.VADD | Op.VSUB | Op.VMUL | Op.VDIV
-  | Op.VSHL | Op.VSHR | Op.VRSHR | Op.VRSHRN | Op.VDUP | Op.VTBL
-  | Op.VPADD | Op.VMULL | Op.VMLAL | Op.VCLZ | Op.VNEG
-  | Op.VMOVN | Op.VMOV | Op.VMAX | Op.VMIN | Op.VABS
-  | Op.VORR | Op.VORN
-  | Op.VCMP | Op.VCMPE | Op.VSTM | Op.VSTMDB | Op.VSTMIA ->
-    sideEffects insInfo UnsupportedExtension
+  | Op.VMOV when Operators.not (isAdvancedSIMD insInfo) ->
+    sideEffects insInfo UnsupportedFP
+  | Op.VMOV -> vmov insInfo ctxt
+  | Op.VST1 -> vst1 insInfo ctxt
+  | Op.VLD1 -> vld1 insInfo ctxt
+  | Op.VABS when isF32orF64 insInfo.SIMDTyp -> sideEffects insInfo UnsupportedFP
+  | Op.VABS -> vabs insInfo ctxt
+  | Op.VADD when isF32orF64 insInfo.SIMDTyp -> sideEffects insInfo UnsupportedFP
+  | Op.VADD -> vadd insInfo ctxt
+  | Op.VDUP -> vdup insInfo ctxt
+  | Op.VCLZ -> vclz insInfo ctxt
+  | Op.VMAX | Op.VMIN when isF32orF64 insInfo.SIMDTyp ->
+    sideEffects insInfo UnsupportedFP
+  | Op.VMAX -> vmaxmin insInfo ctxt true
+  | Op.VMIN -> vmaxmin insInfo ctxt false
+  | Op.VSUB when isF32orF64 insInfo.SIMDTyp -> sideEffects insInfo UnsupportedFP
+  | Op.VSUB -> vsub insInfo ctxt
+  | Op.VSTM | Op.VSTMIA | Op.VSTMDB -> vstm insInfo ctxt
+  | Op.VLDM | Op.VLDMIA | Op.VLDMDB -> vldm insInfo ctxt
+  | Op.VMLA | Op.VMLS when isF32orF64 insInfo.SIMDTyp ->
+    sideEffects insInfo UnsupportedFP
+  | Op.VMLA -> vmla insInfo ctxt
+  | Op.VMLAL -> vmlal insInfo ctxt
+  | Op.VMLS -> vmls insInfo ctxt
+  | Op.VMLSL -> vmlsl insInfo ctxt
+  | Op.VMUL | Op.VMULL when isF32orF64 insInfo.SIMDTyp ->
+    sideEffects insInfo UnsupportedFP
+  | Op.VMUL -> vmul insInfo ctxt
+  | Op.VMULL -> vmull insInfo ctxt
+  | Op.VMOVN -> vmovn insInfo ctxt
+  | Op.VNEG when isF32orF64 insInfo.SIMDTyp -> sideEffects insInfo UnsupportedFP
+  | Op.VNEG -> vneg insInfo ctxt
+  | Op.VPADD when isF32orF64 insInfo.SIMDTyp ->
+    sideEffects insInfo UnsupportedFP
+  | Op.VPADD -> vpadd insInfo ctxt
+  | Op.VRSHR -> vrshr insInfo ctxt
+  | Op.VSHL -> vshl insInfo ctxt
+  | Op.VSHR -> vshr insInfo ctxt
+  | Op.VTBL -> vecTbl insInfo ctxt true
+  | Op.VTBX -> vecTbl insInfo ctxt false
+  | Op.VCMP | Op.VCMPE | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT
+  | Op.VCVT | Op.VCVTR
+  | Op.VDIV -> sideEffects insInfo UnsupportedFP
+  | Op.VCEQ | Op.VCGE | Op.VCGT | Op.VCLE | Op.VCLT
+    when isF32orF64 insInfo.SIMDTyp -> sideEffects insInfo UnsupportedFP
+  | Op.VCEQ -> vceq insInfo ctxt
+  | Op.VCGE -> vcge insInfo ctxt
+  | Op.VCGT -> vcgt insInfo ctxt
+  | Op.VCLE -> vcle insInfo ctxt
+  | Op.VCLT -> vclt insInfo ctxt
+  | Op.VTST -> vtst insInfo ctxt
+  | Op.VRSHRN -> vrshrn insInfo ctxt
+  | Op.VORR -> vorr insInfo ctxt
+  | Op.VORN -> vorn insInfo ctxt
+  | Op.VST2 -> vst2 insInfo ctxt
+  | Op.VST3 -> vst3 insInfo ctxt
+  | Op.VST4 -> vst4 insInfo ctxt
+  | Op.VLD2 -> vld2 insInfo ctxt
+  | Op.VLD3 -> vld3 insInfo ctxt
+  | Op.VLD4 -> vld4 insInfo ctxt
   | Op.DMB | Op.DSB | Op.ISB | Op.PLD -> nop insInfo
   | Op.InvalidOP -> raise InvalidOpcodeException
   | o ->

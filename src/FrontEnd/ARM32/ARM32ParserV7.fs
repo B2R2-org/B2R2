@@ -735,9 +735,9 @@ let parse2RegMis b =
   | o when o &&& 0b110111u = 0b010100u ->
     Op.VCLT, None, getOneDtV b, p3Oprs b chkUndefAC (getRegX, getRegZ, getImm0)
   | o when o &&& 0b110111u = 0b010110u ->
-    Op.VABS, None, getOneDtV b, p3Oprs b chkUndefAC (getRegX, getRegZ, getImm0)
+    Op.VABS, None, getOneDtV b, p2Oprs b chkUndefAC (getRegX, getRegZ)
   | o when o &&& 0b110111u = 0b010111u ->
-    Op.VNEG, None, getOneDtV b, p3Oprs b chkUndefAC (getRegX, getRegZ, getImm0)
+    Op.VNEG, None, getOneDtV b, p2Oprs b chkUndefAC (getRegX, getRegZ)
   | 0b100000u -> Op.VSWP, None, None, p2Oprs b chkUndefZ (getRegX, getRegZ)
   | 0b100001u ->
     Op.VTRN, None, getOneDtS b, p2Oprs b chkUndefAA (getRegX, getRegZ)

@@ -904,6 +904,11 @@ let getShiftJ (_, b2) = extract b2 5u 4u |> getShiftOprByRotate
 
 let getImm0 _ = OprImm 0L
 
+let replicate value width n =
+  let rec loop acc idx =
+    if idx = 0 then acc else loop (acc ||| (acc <<< (width * idx))) (idx - 1)
+  loop (int64 value) (n - 1)
+
 let getImmA opcode i b =
   let chk1 i = checkUnpred (i = 0u)
   let chk2 i = isValidOpcode (opcode <> Op.VMOV || opcode <> Op.VMVN); chk1 i
@@ -918,7 +923,7 @@ let getImmA opcode i b =
     chk2 i; 0xffu + (i <<< 8) |> int64 |> OprImm
   | r when r &&& 0b01111u = 0b01101u ->
     chk2 i; 0xffu + (0xffu <<< 8) + (i <<< 16) |> int64 |> OprImm
-  | 0b01110u -> isValidOpcode (opcode <> Op.VMOV); i |> int64 |>OprImm
+  | 0b01110u -> isValidOpcode (opcode <> Op.VMOV); replicate i 8 8 |> OprImm
   | 0b11110u -> getImm11110 opcode i |> OprImm
   | 0b01111u -> getImm01111 opcode i |> OprImm
   | _ -> raise UndefinedException
