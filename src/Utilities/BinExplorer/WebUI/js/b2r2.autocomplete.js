@@ -43,7 +43,6 @@ class AutoComplete {
   }
 
   reload(graphinfo) {
-    //stmts = [ address operand:[] meta:{pos, width, idx} ]
     this.clearInput();
     this.graphinfo = graphinfo;
 
@@ -54,9 +53,9 @@ class AutoComplete {
         for (let t in data[d].Terms) {
           let stmt = [];
           let terms = data[d].Terms[t];
-          let address = terms[0][0].replace(":", "");
+          let address = terms[0][0];
           stmt.push(address);
-          for (let i = 1; i < terms.length - 1; i++) {
+          for (let i = 1; i < terms.length; i++) {
             //operand
             stmt.push(terms[i][0]);
           }
@@ -124,15 +123,14 @@ class AutoComplete {
   search(word) {
     this.removeElements();
     var lowerValue = word.toLowerCase();
-    if (word === "" || parseFloat(word) === 0) {
+    if (word === "") {
       this.deactiveStmtElements();
       return;
     }
     let list = []
     for (let s in this.stmts) {
       let stmt = this.stmts[s];
-      //stmt = address operand:[] pos:{}
-      let stmtstr = stmt.slice(0, -1).join("");
+      let stmtstr = stmt.slice(0, -1).join(" ");
       let lowerStmtstr = stmtstr.toLowerCase();
       if (lowerStmtstr.indexOf(lowerValue) > -1) {
         let memory = stmt[0];

@@ -134,7 +134,7 @@ let handleRegularCFG req resp name (ess: BinEssence) cfgType =
 #if DEBUG
       printfn "%A" e; failwith "[FATAL]: Failed to generate CFG"
 #else
-      ()
+      answer req resp None
 #endif
 
 let handleCFG req resp arbiter cfgType name =
@@ -151,7 +151,7 @@ let handleCFG req resp arbiter cfgType name =
 #if DEBUG
       printfn "%A" e; failwith "[FATAL]: Failed to generate CG"
 #else
-      ()
+      answer req resp None
 #endif
   | typ -> handleRegularCFG req resp name ess typ
 
@@ -224,11 +224,11 @@ let handleAJAX req resp arbiter query args =
   | "cfg-SSA" -> handleCFG req resp arbiter SSACFG args
   | "cfg-CG" -> handleCFG req resp arbiter CallCFG args
   | "functions" -> handleFunctions req resp arbiter
-  | "disasm-comment" -> () // handleComment req resp arbiter DisasmCFG args
-  | "ir-comment" -> () // handleComment req resp arbiter IRCFG args
-  | "address" -> () // handleAddress req resp arbiter args
+  | "disasm-comment" -> answer req resp None // handleComment req resp arbiter DisasmCFG args
+  | "ir-comment" -> answer req resp None // handleComment req resp arbiter IRCFG args
+  | "address" -> answer req resp None // handleAddress req resp arbiter args
   | "command" -> handleCommand req resp arbiter args
-  | _ -> ()
+  | _ -> answer req resp None
 
 let handle (req: HttpListenerRequest) (resp: HttpListenerResponse) arbiter =
   match req.Url.LocalPath.Remove (0, 1) with (* Remove the first '/' *)
