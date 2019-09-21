@@ -121,10 +121,11 @@ class FunctionItem {
         if (Root.TabList.checkDuplicate(funcName)) {
           Root.TabList.activate(funcName);
         } else {
-          query({
-            "q": "cfg-Disasm",
-            "args": funcName
-          },
+          query(
+            {
+              "q": "cfg-Disasm",
+              "args": funcName
+            },
             function (status, json) {
               if (Object.keys(json).length > 0) {
                 let dims = reloadUI();
@@ -165,7 +166,7 @@ class FunctionItem {
     });
   }
 
-  registerEvents($self) {
+  registerEvents() {
 
   }
 }
@@ -231,6 +232,5 @@ class FunctionList {
 
   registerEvents() {
     this.setFilterEvent();
-
   }
 }

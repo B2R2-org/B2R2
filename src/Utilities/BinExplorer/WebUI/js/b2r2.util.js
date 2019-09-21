@@ -49,13 +49,13 @@ String.format = function () {
   return theString;
 }
 
-function copyToClipboard(str) {
-  let aux = document.createElement("textarea");
+function copyToClipboard(doc, str) {
+  let aux = doc.createElement("textarea");
   aux.value = str;
-  document.body.appendChild(aux);
+  doc.body.appendChild(aux);
   aux.select();
-  document.execCommand("copy");
-  document.body.removeChild(aux);
+  doc.execCommand("copy");
+  doc.body.removeChild(aux);
 }
 
 function popToast(type, content, seconds) {

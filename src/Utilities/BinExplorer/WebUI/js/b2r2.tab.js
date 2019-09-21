@@ -155,9 +155,10 @@ class Tab {
   constructor(d) {
     if (!isDict(d, "tab")) return;
 
-    this.document = d.document;
     if (d.document === undefined)
       this.document = document;
+    else
+      this.document = d.document;
 
     this.tablist = d.tablist;
     this.active = d.active;

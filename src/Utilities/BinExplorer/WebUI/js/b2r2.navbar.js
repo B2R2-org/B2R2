@@ -72,7 +72,7 @@ class NavBar {
   copyEvent() {
     $("#binInfo").on("click", function () {
       let str = $("#binInfo").attr("title");
-      copyToClipboard(str);
+      copyToClipboard(document, str);
       popToast("info", "File path copied", 3);
     });
   }
@@ -184,7 +184,7 @@ class NavBar {
     });
 
     $("#btnCopyCFG").click(function (e) {
-      copyToClipboard($("#codeCopyCFG").text());
+      copyToClipboard(document, $("#codeCopyCFG").text());
     });
   }
 }

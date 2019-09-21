@@ -90,8 +90,13 @@ class SideBarItem {
             mainContainerId: "#id_new-main-container",
             tabContainerId: ""
           });
-          self.addWindow(dims, newWindow.document, 11);
           let tabtemp = 11;
+          self.addWindow(dims, newWindow.document, tabtemp);
+          let contextmenu = new ContextMenu({
+            document: newWindow.document,
+            id: "id_new-contextmenu"
+          });
+          contextmenu.registerEvents();
           let g = new FlowGraph({
             document: newWindow.document,
             graphContainer: "#id_new-graph-container",
@@ -104,6 +109,7 @@ class SideBarItem {
             minimap: "#minimap-" + tabtemp,
             minimapStage: "#minimapStage-" + tabtemp,
             minimapViewPort: "#minimapVP-" + tabtemp,
+            contextmenu: contextmenu,
             dims: dims,
             json: json
           });

@@ -45,8 +45,7 @@ type CallGraphBBlock (addr, name, isFake, isExternal) =
   override __.IsFakeBlock () = isFake
 
   override __.ToVisualBlock () =
-    let term = name |> String
-    [ [ term ] ]
+    [ [ Address (Addr.toString WordSize.Bit32 addr); String name ] ]
 
 /// Call graph, where each node represents a function.
 type CallCFG = ControlFlowGraph<CallGraphBBlock, CFGEdgeKind>

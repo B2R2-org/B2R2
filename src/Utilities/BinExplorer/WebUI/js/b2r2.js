@@ -60,7 +60,7 @@ function drawBinInfo(status, str) {
 
 $("#binInfo").on("click", function () {
   let str = $("#binInfo").attr("title");
-  copyToClipboard(str);
+  copyToClipboard(document, str);
   popToast("info", "File path copied", 3);
 });
 
@@ -168,7 +168,8 @@ function runOnline() {
   });
 
   let contextmenu = new ContextMenu({
-    id: "#id_node-contextmenu"
+    document: document,
+    id: "id_main-contextmenu"
   });
 
   tabList.registerEvents();

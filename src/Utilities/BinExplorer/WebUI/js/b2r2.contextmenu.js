@@ -28,14 +28,29 @@
 
 class ContextMenu {
   constructor(d) {
-    this.id = d.id;
     if (d.id === undefined)
       this.id = "#id_node-contextmenu";
+    else
+      this.id = d.id;
+
+    if (d.document === undefined)
+      this.document = document;
+    else
+      this.document = d.document;
+
     this.visible = false;
+
+    if ($("#" + this.id).val() === undefined)
+      $(this.document.body).append(
+          "<div id='" + this.id + "' class='contextmenu'>"
+        + "  <div class='contextmenu-item' value='copy'>Copy</div>"
+        + "  <div class='contextmenu-item' value='copy-address'>Copy Address</div>"
+        + "</div>");
+    this.menu = $(this.document.body).find("#" + this.id);
   }
 
   show(node, x, y) {
-    $("#id_node-contextmenu")
+    this.menu
       .css("display", "block")
       .css("top", y)
       .css("left", x)
@@ -46,24 +61,26 @@ class ContextMenu {
   hide() {
     if (this.visible) {
       this.visible = false;
-      $("#id_node-contextmenu")
+      this.menu
         .css("display", "none")
         .attr("target", "#");
     }
   }
 
   registerEvents() {
-    $(document).on("click", ".contextmenu-item", function() {
-      let target_id = $("#id_node-contextmenu").attr("target");
-      let textbox = d3.select(target_id);
-      let gtext = d3.select(textbox.node().parentNode);
+    let self = this;
+
+    $(this.document).on("click", ".contextmenu-item", function() {
+      let target_id = self.menu.attr("target");
+      let textbox = $(self.document.body).find(target_id);
+      let gtext = textbox.parent();
       switch ($(this).attr("value")) {
         case "copy":
-          copyToClipboard(gtext.select(".string").text());
+          copyToClipboard(self.document, gtext.find(".string").text());
           popToast("info", "Line copied", 3);
           break;
         case "copy-address":
-          copyToClipboard(gtext.select(".address").text());
+          copyToClipboard(self.document, gtext.find(".address").text());
           popToast("info", "Address copied", 3);
           break;
         default:
@@ -71,8 +88,8 @@ class ContextMenu {
       }
     });
 
-    $(document).on("click", function () {
-      Root.ContextMenu.hide();
+    $(this.document).on("click", function () {
+      self.hide();
     });
   }
 }

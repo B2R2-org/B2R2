@@ -109,12 +109,13 @@ class LineOfNode {
   }
 
   setContextMenuEventOnStmt(rect) {
+    let contextmenu = this.graphinfo.contextmenu;
     rect.on("contextmenu", function () {
       let self = this;
       function showContextMemu() {
         const e = d3.event;
         e.preventDefault();
-        Root.ContextMenu.show(self, e.clientX, e.clientY);
+        contextmenu.show(self, e.clientX, e.clientY);
       }
       showContextMemu();
     })
@@ -311,17 +312,20 @@ class FlowGraph {
   constructor(d) {
     if (!isDict(d, "flowgraph")) return;
 
-    this.document = d3.select(d.document);
     if (d.document === undefined)
       this.document = d3.select(document);
+    else
+      this.document = d3.select(d.document);
 
-    this.graphContainer = d.graphContainer;
     if (d.graphContainer === undefined)
       this.graphContainer = "#id_graphContainer";
+    else
+      this.graphContainer = d.graphContainer;
 
-    this.minimapContainer = d.minimapContainer;
     if (d.minimapContainer === undefined)
       this.minimapContainer = "#minimapDiv";
+    else
+      this.minimapContainer = d.minimapContainer;
 
     this.tab = d.tab;
     this.cfg = d.cfg;
@@ -334,9 +338,15 @@ class FlowGraph {
     this.dims = d.dims;
     this.json = d.json;
 
-    this.newWindow = d.newWindow;
+    if (d.contextmenu === undefined)
+      this.contextmenu = Root.ContextMenu;
+    else
+      this.contextmenu = d.contextmenu;
+
     if (d.newWindow === undefined)
       this.newWindow = false;
+    else
+      this.newWindow = d.newWindow;
   }
 
   setMarkerArrow(group, name) {
