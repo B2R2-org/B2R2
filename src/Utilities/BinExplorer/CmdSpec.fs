@@ -33,6 +33,11 @@ let speclist =
     CmdBinInfo () :> Cmd
     CmdCredits () :> Cmd
     CmdDemangle () :> Cmd
+    CmdEvalExpr () :> Cmd
+    CmdEvalExprOctal () :> Cmd
+    CmdEvalExprBinary () :> Cmd
+    CmdEvalExprDecimal () :> Cmd
+    CmdEvalExprFloat () :> Cmd
     CmdDisasm () :> Cmd
     CmdGadgetSearch () :> Cmd
     CmdROP () :> Cmd

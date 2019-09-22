@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -14,6 +14,13 @@
     <Compile Include="BinInfo.fs" />
     <Compile Include="Credits.fs" />
     <Compile Include="Demangle.fs" />
+    <Compile Include="SimpleArithReference.fs" />
+    <Compile Include="SimpleArithConverter.fs" />
+    <Compile Include="SimpleArithHelper.fs" />
+    <Compile Include="SimpleArithTypes.fs" />
+    <Compile Include="SimpleArithOperate.fs" />
+    <Compile Include="SimpleArithParser.fs" />
+    <Compile Include="EvalExpr.fs" />
     <Compile Include="List.fs" />
     <Compile Include="Search.fs" />
     <Compile Include="Show.fs" />
@@ -41,6 +48,7 @@
 
   <ItemGroup>
     <PackageReference Include="B2R2.FsReadLine" Version="0.1.1" />
+    <PackageReference Include="FParsec" Version="1.0.3" />
   </ItemGroup>
 
 </Project>
