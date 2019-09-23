@@ -1,7 +1,8 @@
 (*
   B2R2 - the Next-Generation Reversing Platform
 
-  Author: Seung Il Jung <sijung@kaist.ac.kr>
+  Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
+          Seung Il Jung <sijung@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -31,7 +32,7 @@ open B2R2.FrontEnd
 
 let private parsePush (reader: BinReader) opcode size pos =
   let struct (bytes, nextPos) = reader.ReadBytes (size, pos)
-  opcode <| BitVector.ofArr bytes, 3, nextPos
+  opcode <| BitVector.ofArr (Array.rev bytes), 3, nextPos
 
 let private parseOpcode (reader: BinReader) pos =
   let struct (bin, nextPos) = reader.ReadByte pos

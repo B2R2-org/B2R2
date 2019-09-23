@@ -200,18 +200,43 @@ type BitVector =
     | 2 ->
       let n = BitConverter.ToUInt16 (arr, 0) |> uint64
       { Num = n; Length = 16<rt>; BigNum = bigNull }
+    | 3 ->
+      let arr = Array.append arr [| 0uy |]
+      let n = BitConverter.ToUInt32 (arr, 0) |> uint64
+      { Num = n; Length = 24<rt>; BigNum = bigNull }
     | 4 ->
       let n = BitConverter.ToUInt32 (arr, 0) |> uint64
       { Num = n; Length = 32<rt>; BigNum = bigNull }
+    | 5 ->
+      let arr = Array.append arr [| 0uy; 0uy; 0uy |]
+      let n = BitConverter.ToUInt64 (arr, 0)
+      { Num = n; Length = 40<rt>; BigNum = bigNull }
+    | 6 ->
+      let arr = Array.append arr [| 0uy; 0uy |]
+      let n = BitConverter.ToUInt64 (arr, 0)
+      { Num = n; Length = 48<rt>; BigNum = bigNull }
+    | 7 ->
+      let arr = Array.append arr [| 0uy |]
+      let n = BitConverter.ToUInt64 (arr, 0)
+      { Num = n; Length = 56<rt>; BigNum = bigNull }
     | 8 ->
       let n = BitConverter.ToUInt64 (arr, 0)
       { Num = n; Length = 64<rt>; BigNum = bigNull }
+    | 9 ->
+      let arr = Array.append arr [| 0uy |]
+      { Num = 0UL; Length = 72<rt>; BigNum = bigint arr }
     | 10 ->
       let arr = Array.append arr [| 0uy |]
       { Num = 0UL; Length = 80<rt>; BigNum = bigint arr }
+    | sz when sz > 10 && sz < 16 ->
+      let arr = Array.append arr [| 0uy |]
+      { Num = 0UL; Length = sz * 8<rt>; BigNum = bigint arr }
     | 16 ->
       let arr = Array.append arr [| 0uy |]
       { Num = 0UL; Length = 128<rt>; BigNum = bigint arr }
+    | sz when sz > 16 && sz < 32 ->
+      let arr = Array.append arr [| 0uy |]
+      { Num = 0UL; Length = sz * 8<rt>; BigNum = bigint arr }
     | 32 ->
       let arr = Array.append arr [| 0uy |]
       { Num = 0UL; Length = 256<rt>; BigNum = bigint arr }

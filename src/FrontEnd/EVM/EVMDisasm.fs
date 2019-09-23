@@ -1,7 +1,8 @@
 (*
   B2R2 - the Next-Generation Reversing Platform
 
-  Author: Seung Il Jung <sijung@kaist.ac.kr>
+  Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
+          Seung Il Jung <sijung@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -95,38 +96,38 @@ let opCodeToString = function
   | Op.MSIZE -> "msize"
   | Op.GAS -> "gas"
   | Op.JUMPDEST -> "jumpdest"
-  | Op.PUSH1 _ -> "push1"
-  | Op.PUSH2 _ -> "push2"
-  | Op.PUSH3 _ -> "push3"
-  | Op.PUSH4 _ -> "push4"
-  | Op.PUSH5 _ -> "push5"
-  | Op.PUSH6 _ -> "push6"
-  | Op.PUSH7 _ -> "push7"
-  | Op.PUSH8 _ -> "push8"
-  | Op.PUSH9 _ -> "push9"
-  | Op.PUSH10 _ -> "push10"
-  | Op.PUSH11 _ -> "push11"
-  | Op.PUSH12 _ -> "push12"
-  | Op.PUSH13 _ -> "push13"
-  | Op.PUSH14 _ -> "push14"
-  | Op.PUSH15 _ -> "push15"
-  | Op.PUSH16 _ -> "push16"
-  | Op.PUSH17 _ -> "push17"
-  | Op.PUSH18 _ -> "push18"
-  | Op.PUSH19 _ -> "push19"
-  | Op.PUSH20 _ -> "push20"
-  | Op.PUSH21 _ -> "push21"
-  | Op.PUSH22 _ -> "push22"
-  | Op.PUSH23 _ -> "push23"
-  | Op.PUSH24 _ -> "push24"
-  | Op.PUSH25 _ -> "push25"
-  | Op.PUSH26 _ -> "push26"
-  | Op.PUSH27 _ -> "push27"
-  | Op.PUSH28 _ -> "push28"
-  | Op.PUSH29 _ -> "push29"
-  | Op.PUSH30 _ -> "push30"
-  | Op.PUSH31 _ -> "push31"
-  | Op.PUSH32 _ -> "push32"
+  | Op.PUSH1 imm -> "push1 " + BitVector.toString imm
+  | Op.PUSH2 imm -> "push2 " + BitVector.toString imm
+  | Op.PUSH3 imm -> "push3 " + BitVector.toString imm
+  | Op.PUSH4 imm -> "push4 " + BitVector.toString imm
+  | Op.PUSH5 imm -> "push5 " + BitVector.toString imm
+  | Op.PUSH6 imm -> "push6 " + BitVector.toString imm
+  | Op.PUSH7 imm -> "push7 " + BitVector.toString imm
+  | Op.PUSH8 imm -> "push8 " + BitVector.toString imm
+  | Op.PUSH9 imm -> "push9 " + BitVector.toString imm
+  | Op.PUSH10 imm -> "push10 " + BitVector.toString imm
+  | Op.PUSH11 imm -> "push11 " + BitVector.toString imm
+  | Op.PUSH12 imm -> "push12 " + BitVector.toString imm
+  | Op.PUSH13 imm -> "push13 " + BitVector.toString imm
+  | Op.PUSH14 imm -> "push14 " + BitVector.toString imm
+  | Op.PUSH15 imm -> "push15 " + BitVector.toString imm
+  | Op.PUSH16 imm -> "push16 " + BitVector.toString imm
+  | Op.PUSH17 imm -> "push17 " + BitVector.toString imm
+  | Op.PUSH18 imm -> "push18 " + BitVector.toString imm
+  | Op.PUSH19 imm -> "push19 " + BitVector.toString imm
+  | Op.PUSH20 imm -> "push20 " + BitVector.toString imm
+  | Op.PUSH21 imm -> "push21 " + BitVector.toString imm
+  | Op.PUSH22 imm -> "push22 " + BitVector.toString imm
+  | Op.PUSH23 imm -> "push23 " + BitVector.toString imm
+  | Op.PUSH24 imm -> "push24 " + BitVector.toString imm
+  | Op.PUSH25 imm -> "push25 " + BitVector.toString imm
+  | Op.PUSH26 imm -> "push26 " + BitVector.toString imm
+  | Op.PUSH27 imm -> "push27 " + BitVector.toString imm
+  | Op.PUSH28 imm -> "push28 " + BitVector.toString imm
+  | Op.PUSH29 imm -> "push29 " + BitVector.toString imm
+  | Op.PUSH30 imm -> "push30 " + BitVector.toString imm
+  | Op.PUSH31 imm -> "push31 " + BitVector.toString imm
+  | Op.PUSH32 imm -> "push32 " + BitVector.toString imm
   | Op.DUP1 -> "dup1"
   | Op.DUP2 -> "dup2"
   | Op.DUP3 -> "dup3"

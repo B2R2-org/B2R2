@@ -1,7 +1,8 @@
 (*
   B2R2 - the Next-Generation Reversing Platform
 
-  Author: Seung Il Jung <sijung@kaist.ac.kr>
+  Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
+          Seung Il Jung <sijung@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -36,13 +37,20 @@ exception internal InvalidConditionException
 exception internal InvalidFmtException
 
 type Register =
-  /// Stack Point
+  /// Stack Point.
   | SP = 0x0
-  /// Gas
-  | GAS = 0x1
+  /// Program counter.
+  | PC = 0x1
+  /// Gas.
+  | GAS = 0x2
 
 /// Shortcut for Register type.
 type internal R = Register
+
+/// Operation Size.
+type OperationSize = int
+module internal OperationSize =
+  let regType = 256<rt>
 
 /// This module exposes several useful functions to handle EVM registers.
 [<RequireQualifiedAccess>]

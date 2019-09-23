@@ -1,7 +1,8 @@
 (*
   B2R2 - the Next-Generation Reversing Platform
 
-  Author: Seung Il Jung <sijung@kaist.ac.kr>
+  Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
+          Seung Il Jung <sijung@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -36,12 +37,15 @@ type internal RegExprs (wordSize) =
   (* Registers *)
   let regType = WordSize.toRegType wordSize
 
-  member val SP = var regType (Register.toRegID Register.SP) "SP" with get
-  member val GAS = var regType (Register.toRegID Register.GAS) "Gas" with get
+  member val SP =
+    var OperationSize.regType (Register.toRegID Register.SP) "SP" with get
+  member val PC = var 64<rt> (Register.toRegID Register.PC) "PC" with get
+  member val GAS = var 64<rt> (Register.toRegID Register.GAS) "Gas" with get
 
   member __.GetRegVar (name) =
     match name with
     | R.SP -> __.SP
+    | R.PC -> __.PC
     | R.GAS -> __.GAS
     | _ -> raise B2R2.FrontEnd.UnhandledRegExprException
 
