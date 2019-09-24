@@ -130,27 +130,27 @@ class AutoComplete {
     let list = []
     for (let s in this.stmts) {
       let stmt = this.stmts[s];
-      let stmtstr = stmt.slice(0, -1).join(" ");
+      let stmtstr = stmt.slice(0, -1).join("");
       let lowerStmtstr = stmtstr.toLowerCase();
       if (lowerStmtstr.indexOf(lowerValue) > -1) {
-        let memory = stmt[0];
+        let addr = stmt[0];
         let meta = stmt[stmt.length - 1];
         let item = '<div class="autocomplete-item" target=[TARGET] addr=[ADDR] idx=[IDX]>'
           .replace("[TARGET]", "#id_" + this.graphinfo.tab + "_rect-" + meta.Nodeidx + "-" + meta.idx)
           .replace("[IDX]", meta.idx)
-          .replace("[ADDR]", memory);
+          .replace("[ADDR]", addr);
         let idx = lowerStmtstr.indexOf(word);
         if (idx < 16) {
-          item += '<span class="memory">[CONTENT]</span>'.replace("[CONTENT]",
-            memory.substr(0, idx)
-            + "<strong>" + memory.substr(idx, word.length) + "</strong>"
-            + memory.substr(idx + word.length));
+          item += '<span class="address">[CONTENT]</span>'.replace("[CONTENT]",
+            addr.substr(0, idx)
+            + "<strong>" + addr.substr(idx, word.length) + "</strong>"
+            + addr.substr(idx + word.length));
 
           for (let i = 1; i < stmt.length - 1; i++) {
             item += '<span class="operand">[OPERAND]</span>'.replace("[OPERAND]", stmt[i]);
           }
         } else {
-          item += '<span class="memory">[MEMORY]</span>'.replace("[MEMORY]", memory);
+          item += '<span class="address">[MEMORY]</span>'.replace("[MEMORY]", addr);
           item += '<span class="operand">[CONTENT]</span>'.replace("[CONTENT]",
             stmtstr.substr(16, idx - 16)
             + "<strong>" + stmtstr.substr(idx, word.length) + "</strong>"
@@ -193,7 +193,7 @@ class AutoComplete {
       let pos = getGroupPos(gNode.attr("transform"))
       let x = pos[0];
       let y = pos[1] + getGroupPos(gtext.attr("transform"))[1];
-      let stmt = text.html().replace(/(<([^>]+)>)/ig, " ");
+      let stmt = text.html().replace(/(<([^>]+)>)/ig, "");
       self.activateStmtElements(x, y, width, stmt);
     });
 

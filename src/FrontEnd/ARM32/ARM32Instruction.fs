@@ -2,6 +2,7 @@
   B2R2 - the Next-Generation Reversing Platform
 
   Author: Seung Il Jung <sijung@kaist.ac.kr>
+          Sang Kil Cha <sangkilc@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -27,6 +28,8 @@
 namespace B2R2.FrontEnd.ARM32
 
 open B2R2
+open B2R2.FrontEnd
+open System.Text
 
 /// The internal representation for an ARM32 instruction used by our
 /// disassembler and lifter.
@@ -148,10 +151,25 @@ type ARM32Instruction (addr, numBytes, insInfo) =
   override __.Translate ctxt =
     Lifter.translate __.Info ctxt
 
+  member private __.StrBuilder _ (str: string) (acc: StringBuilder) =
+    acc.Append (str)
+
   override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
-    Disasm.disasm showAddr __.Info
+    let acc = StringBuilder ()
+    let acc = Disasm.disasm showAddr __.Info __.StrBuilder acc
+    acc.ToString ()
 
   override __.Disasm () =
-    Disasm.disasm false __.Info
+    let acc = StringBuilder ()
+    let acc = Disasm.disasm false __.Info __.StrBuilder acc
+    acc.ToString ()
+
+  member private __.WordBuilder kind str (acc: AsmWordBuilder) =
+    acc.Append ({ AsmWordKind = kind; AsmWordValue = str })
+
+  override __.Decompose () =
+    AsmWordBuilder (8)
+    |> Disasm.disasm true __.Info __.WordBuilder
+    |> fun b -> b.Finish ()
 
 // vim: set tw=80 sts=2 sw=2:

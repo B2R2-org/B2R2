@@ -27,6 +27,7 @@
 namespace B2R2.BinGraph
 
 open B2R2
+open B2R2.FrontEnd
 open B2R2.BinGraph
 open System.Collections.Generic
 
@@ -45,7 +46,10 @@ type CallGraphBBlock (addr, name, isFake, isExternal) =
   override __.IsFakeBlock () = isFake
 
   override __.ToVisualBlock () =
-    [ [ Address (Addr.toString WordSize.Bit32 addr); String name ] ]
+    [| [| { AsmWordKind = AsmWordKind.Address
+            AsmWordValue = Addr.toString WordSize.Bit32 addr }
+          { AsmWordKind = AsmWordKind.String
+            AsmWordValue = name } |] |]
 
 /// Call graph, where each node represents a function.
 type CallCFG = ControlFlowGraph<CallGraphBBlock, CFGEdgeKind>

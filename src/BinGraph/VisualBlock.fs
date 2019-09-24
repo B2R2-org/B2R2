@@ -27,57 +27,24 @@
 namespace B2R2.BinGraph
 
 open B2R2
-
-/// The basic term used to describe a line of a basic block (when visualized).
-type Term =
-  /// Address of a disassembled line.
-  | Address of string
-  /// Mneomonic, i.e., opcode.
-  | Mnemonic of string
-  /// Operand.
-  | Operand of string
-  /// Just a string.
-  | String of string
-  /// Comment.
-  | Comment of string
-with
-  static member Width = function
-    | Address (s)
-    | Mnemonic (s)
-    | Operand (s)
-    | String (s)
-    | Comment (s) -> s.Length
-
-  static member ToString = function
-    | Address (s)
-    | Mnemonic (s)
-    | Operand (s)
-    | String (s)
-    | Comment (s) -> s
-
-  static member ToStringTuple = function
-    | Address (s) -> s, "address"
-    | Mnemonic (s) -> s, "menmonic"
-    | Operand (s) -> s, "operand"
-    | String (s) -> s, "string"
-    | Comment (s) -> s, "comment"
+open B2R2.FrontEnd
 
 /// A visual line of a basic block.
-type VisualLine = Term list
+type VisualLine = AsmWord []
 
 module VisualLine =
   [<CompiledName("LineWidth")>]
   let lineWidth terms =
-    (* Assume that each term is separated by a space char (+1). *)
-    terms |> List.fold (fun width term -> width + Term.Width term + 1) 0
+    terms |> Array.fold (fun width term -> width + AsmWord.Width term) 0
 
   [<CompiledName("ToString")>]
   let toString terms =
-    terms |> List.map Term.ToString |> String.concat " "
+    terms |> Array.map AsmWord.ToString |> String.concat " "
 
 /// A visual representation of a basic block.
-type VisualBlock = VisualLine list
+type VisualBlock = VisualLine []
 
 module VisualBlock =
   let empty (addr: Addr): VisualBlock =
-    [ [String ("# fake block @ " + (addr.ToString ("X")))] ]
+    [| [|{ AsmWordKind = AsmWordKind.String
+           AsmWordValue = "# fake block @ " + (addr.ToString ("X")) }|] |]

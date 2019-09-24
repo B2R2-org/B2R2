@@ -31,7 +31,6 @@ module internal B2R2.FrontEnd.Intel.Disasm
 open B2R2
 open B2R2.BinFile
 open B2R2.FrontEnd
-open System.Text
 
 let regToStr = function
   | R.RAX -> "rax"
@@ -981,17 +980,17 @@ let opCodeToString = function
   | Opcode.XTEST -> "xtest"
   | _ -> failwith "Unknown opcode encountered."
 
-let inline private iToHexStr (i: int64) (sb: StringBuilder) =
-  sb.Append("0x").Append(i.ToString("X"))
+let inline private iToHexStr (i: int64) builder acc =
+  builder AsmWordKind.Value ("0x" + i.ToString("X")) acc
 
-let inline private uToHexStr (i: uint64) (sb: StringBuilder) =
-  sb.Append("0x").Append(i.ToString("X"))
+let inline private uToHexStr (i: uint64) builder acc =
+  builder AsmWordKind.Value ("0x" + i.ToString("X")) acc
 
-let inline printAddr (addr: Addr) wordSize verbose (sb: StringBuilder) =
-  if not verbose then sb
+let inline buildAddr (addr: Addr) wordSize showAddress builder acc =
+  if not showAddress then acc
   else
-    if wordSize = WordSize.Bit32 then sb.Append(addr.ToString("X8")).Append(": ")
-    else sb.Append(addr.ToString("X16")).Append(": ")
+    builder AsmWordKind.Address (Addr.toString wordSize addr) acc
+    |> builder AsmWordKind.String (": ")
 
 let inline private ptrDirectiveString isFar = function
   | 1 -> "byte ptr"
@@ -1005,63 +1004,87 @@ let inline private ptrDirectiveString isFar = function
   | 64 -> "zmmword ptr"
   | _ -> failwith "Invalid ptr attribute"
 
-let inline dispToString showSign wordSz (disp: Disp) (sb: StringBuilder) =
+let inline dispToString showSign wordSz (disp: Disp) builder acc =
   let mask = WordSize.toRegType wordSz |> RegType.getMask |> uint64
-  if showSign && disp < 0L then sb.Append("-") |> iToHexStr (- disp)
-  elif showSign then sb.Append("+") |> iToHexStr disp
-  else uToHexStr (uint64 disp &&& mask) sb
+  if showSign && disp < 0L then
+    builder AsmWordKind.String "-" acc |> iToHexStr (- disp) builder
+  elif showSign then
+    builder AsmWordKind.String "+" acc |> iToHexStr disp builder
+  else
+    uToHexStr (uint64 disp &&& mask) builder acc
 
-let inline private memDispToStr showSign disp wordSz (sb: StringBuilder) =
+let inline private memDispToStr showSign disp wordSz builder acc =
   match disp with
-  | None -> sb
-  | Some d -> dispToString showSign wordSz d sb
+  | None -> acc
+  | Some d -> dispToString showSign wordSz d builder acc
 
-let inline scaleToString (scale: Scale) (sb: StringBuilder) =
-  if scale = Scale.X1 then sb
-  else sb.Append("*").Append((int scale).ToString())
+let inline scaleToString (scale: Scale) builder acc =
+  if scale = Scale.X1 then acc
+  else
+    builder AsmWordKind.String "*" acc
+    |> builder AsmWordKind.Value ((int scale).ToString())
 
-let inline private memScaleDispToStr emptyBase si d wordSz (sb: StringBuilder) =
+let inline private memScaleDispToStr emptyBase si d wordSz builder acc =
   match si with
-  | None -> memDispToStr (not emptyBase) d wordSz sb
+  | None -> memDispToStr (not emptyBase) d wordSz builder acc
   | Some (i, scale) ->
-    let sb = if emptyBase then sb else sb.Append("+")
-    let sb = sb.Append(regToStr i) |> scaleToString scale
-    memDispToStr true d wordSz sb
+    let acc = if emptyBase then acc else builder AsmWordKind.String "+" acc
+    builder AsmWordKind.Variable (regToStr i) acc
+    |> scaleToString scale builder
+    |> memDispToStr true d wordSz builder
 
-let private memAddrToStr b si disp wordSz (sb: StringBuilder) =
+let private memAddrToStr b si disp wordSz builder acc =
   match b with
-  | None -> memScaleDispToStr true si disp wordSz sb
-  | Some b -> memScaleDispToStr false si disp wordSz (sb.Append(regToStr b))
+  | None -> memScaleDispToStr true si disp wordSz builder acc
+  | Some b ->
+    builder AsmWordKind.Variable (regToStr b) acc
+    |> memScaleDispToStr false si disp wordSz builder
 
-let mToString wordSz (ins: InsInfo) b si d oprSz (sb: StringBuilder) =
-  let isFar = match ins.Opcode with
-              | Opcode.JMPFar | Opcode.CALLFar -> true
-              | _ -> false
-  let ptrDirective = RegType.toByteWidth oprSz |> ptrDirectiveString isFar
-  let sb = sb.Append(ptrDirective).Append(" [")
+let inline isFar (ins: InsInfo) =
+  match ins.Opcode with
+  | Opcode.JMPFar | Opcode.CALLFar -> true
+  | _ -> false
+
+let mToString wordSz (ins: InsInfo) b si d oprSz builder acc =
+  let ptrDirective = RegType.toByteWidth oprSz |> ptrDirectiveString (isFar ins)
   match Helper.getSegment ins.Prefixes with
-  | None -> (memAddrToStr b si d wordSz sb).Append("]")
-  | Some s -> let sb = sb.Append(regToStr s).Append(":")
-              (memAddrToStr b si d wordSz sb).Append("]")
+  | None ->
+    builder AsmWordKind.String ptrDirective acc
+    |> builder AsmWordKind.String (" [")
+    |> memAddrToStr b si d wordSz builder
+    |> builder AsmWordKind.String "]"
+  | Some seg ->
+    builder AsmWordKind.String ptrDirective acc
+    |> builder AsmWordKind.String (" [")
+    |> builder AsmWordKind.Variable (regToStr seg)
+    |> builder AsmWordKind.String ":"
+    |> memAddrToStr b si d wordSz builder
+    |> builder AsmWordKind.String "]"
 
-let commentWithSymbol (fi: FileInfo option) (sb: StringBuilder) targetAddr =
+let commentWithSymbol (fi: FileInfo option) targetAddr builder acc =
   match fi with
   | Some fi ->
     match fi.TryFindFunctionSymbolName (targetAddr) with
-    | false, _ -> sb.Append(" ; ") |> uToHexStr targetAddr
-    | true, "" -> sb // XXX how is this possible?
-    | true, name -> sb.Append(" ; <").Append(name).Append(">")
-  | None -> sb.Append(" ; ") |> uToHexStr targetAddr
+    | false, _ ->
+      builder AsmWordKind.String " ; " acc |> uToHexStr targetAddr builder
+    | true, "" -> acc
+    | true, name ->
+      builder AsmWordKind.String " ; <" acc
+      |> builder AsmWordKind.Value name
+      |> builder AsmWordKind.String ">"
+  | None ->
+    builder AsmWordKind.String " ; " acc |> uToHexStr targetAddr builder
 
-let inline relToString pc offset (fi: FileInfo option) (sb: StringBuilder) =
-  let sb = if offset < 0L then sb.Append("-") else sb.Append("+")
-  let sb = iToHexStr (abs offset) sb
-  let targetAddr = pc + uint64 offset
-  commentWithSymbol fi sb targetAddr
+let inline relToString pc offset fi builder acc =
+  (if offset < 0L then builder AsmWordKind.String "-" acc
+   else builder AsmWordKind.String "+" acc)
+  |> iToHexStr (abs offset) builder
+  |> commentWithSymbol fi (pc + uint64 offset) builder
 
-let inline absToString selector (offset: Addr) _sz (sb: StringBuilder) =
-  (uToHexStr (uint64 selector) sb).Append(":")
-  |> uToHexStr offset
+let inline absToString selector (offset: Addr) builder acc =
+  uToHexStr (uint64 selector) builder acc
+  |> builder AsmWordKind.String ":"
+  |> uToHexStr offset builder
 
 let getOpmaskRegister = function
   | 0x0uy -> Register.K0
@@ -1075,88 +1098,102 @@ let getOpmaskRegister = function
   | _ -> raise InvalidRegisterException
 
 /// Zeroing/Merging (EVEX.z)
-let maskZtoString ev (sb: StringBuilder) =
-  if ev.Z = Zeroing then sb else sb.Append ("{z}")
+let maskZtoString ev builder acc =
+  if ev.Z = Zeroing then acc
+  else builder AsmWordKind.String "{z}" acc
 
 /// Opmask register
-let maskRegToString ePrx (sb: StringBuilder) =
-  if ePrx.AAA = 0uy then sb
-  else let k = getOpmaskRegister ePrx.AAA |> regToStr
-       sb.Append(" {").Append(k).Append("}")
+let maskRegToString ePrx builder acc =
+  if ePrx.AAA = 0uy then acc
+  else
+    builder AsmWordKind.String " {" acc
+    |> builder AsmWordKind.Variable (getOpmaskRegister ePrx.AAA |> regToStr)
+    |> builder AsmWordKind.String "}"
 
-let maskToString vPrx sb =
- match vPrx.EVEXPrx with
- | None -> sb
- | Some ePrx -> maskRegToString ePrx sb |> maskZtoString ePrx
-
-let maskingToString (ins: InsInfo) (sb: StringBuilder) =
+let buildMask (ins: InsInfo) builder acc =
   match ins.VEXInfo with
-  | None -> sb
-  | Some v -> maskToString v sb
+  | Some { EVEXPrx = Some ePrx }->
+    maskRegToString ePrx builder acc |> maskZtoString ePrx builder
+  | _ -> acc
 
-let oprToString wordSz ins insAddr fi opr isFstOpr (sb: StringBuilder) =
+let oprToString wordSz ins insAddr fi opr isFstOpr builder acc =
   match opr with
-  | OprReg reg -> let sb = sb.Append(regToStr reg)
-                  if isFstOpr then maskingToString ins sb else sb
+  | OprReg reg ->
+    let acc = builder AsmWordKind.Variable (regToStr reg) acc
+    if isFstOpr then buildMask ins builder acc else acc
   | OprMem (b, si, disp, oprSz) ->
-    let sb = mToString wordSz ins b si disp oprSz sb
-    if isFstOpr then maskingToString ins sb else sb
-  | OprImm imm -> iToHexStr imm sb
-  | OprDirAddr (Absolute (sel, offset, sz)) -> absToString sel offset sz sb
-  | OprDirAddr (Relative (offset)) -> relToString insAddr offset fi sb
+    let acc = mToString wordSz ins b si disp oprSz builder acc
+    if isFstOpr then buildMask ins builder acc else acc
+  | OprImm imm -> iToHexStr imm builder acc
+  | OprDirAddr (Absolute (sel, offset, _)) -> absToString sel offset builder acc
+  | OprDirAddr (Relative (offset)) -> relToString insAddr offset fi builder acc
 
-let inline printPref (prefs: Prefix) (sb: StringBuilder) =
-  if (prefs &&& Prefix.PrxLOCK) <> Prefix.PrxNone then sb.Append("lock ")
-  elif (prefs &&& Prefix.PrxREPNZ) <> Prefix.PrxNone then sb.Append("repnz ")
-  elif (prefs &&& Prefix.PrxREPZ) <> Prefix.PrxNone then sb.Append("repz ")
-  else sb
+let inline buildPref (prefs: Prefix) builder acc =
+  if (prefs &&& Prefix.PrxLOCK) <> Prefix.PrxNone then
+    builder AsmWordKind.String "lock " acc
+  elif (prefs &&& Prefix.PrxREPNZ) <> Prefix.PrxNone then
+    builder AsmWordKind.String "repnz " acc
+  elif (prefs &&& Prefix.PrxREPZ) <> Prefix.PrxNone then
+    builder AsmWordKind.String "repz " acc
+  else acc
 
-let inline printOpcode opcode (sb: StringBuilder) =
-  sb.Append(opCodeToString opcode)
+let inline buildOpcode opcode builder acc =
+  builder AsmWordKind.Mnemonic (opCodeToString opcode) acc
 
-let recomputeRIPRel pc disp (ins: InsInfo) (insLen: uint32) (sb: StringBuilder) =
+let recomputeRIPRel pc disp (ins: InsInfo) (insLen: uint32) builder acc =
   let oprSize = RegType.toByteWidth ins.InsSize.OperationSize
   let dir = ptrDirectiveString false oprSize
-  let sb = sb.Append(dir).Append(" [")
-  let sb = uToHexStr (pc + uint64 disp + uint64 insLen) sb
-  sb.Append("]")
+  builder AsmWordKind.String dir acc
+  |> builder AsmWordKind.String " ["
+  |> uToHexStr (pc + uint64 disp + uint64 insLen) builder
+  |> builder AsmWordKind.String "]"
 
-let printOprs ins insAddr insLen fi pc wordSz (sb: StringBuilder) =
+let buildOprs ins insLen pc fi wordSz builder acc =
   match ins.Operands with
-  | NoOperand -> sb
+  | NoOperand -> acc
   | OneOperand (OprMem (Some Register.RIP, None, Some off, 64<rt>)) ->
-    let sb = sb.Append (" ")
-    let sb = mToString wordSz ins (Some Register.RIP) None (Some off) 64<rt> sb
-    let addr = pc + uint64 insLen + uint64 off
-    commentWithSymbol fi sb addr
+    builder AsmWordKind.String (" ") acc
+    |> mToString wordSz ins (Some Register.RIP) None (Some off) 64<rt> builder
+    |> commentWithSymbol fi (pc + uint64 insLen + uint64 off) builder
   | OneOperand opr ->
-    oprToString wordSz ins insAddr fi opr true (sb.Append(" "))
+    builder AsmWordKind.String " " acc
+    |> oprToString wordSz ins pc fi opr true builder
   | TwoOperands (OprMem (Some R.RIP, None, Some disp, _), opr) ->
-    (recomputeRIPRel pc disp ins insLen (sb.Append(" "))).Append(", ")
-    |> oprToString wordSz ins insAddr fi opr false
+    builder AsmWordKind.String " " acc
+    |> recomputeRIPRel pc disp ins insLen builder
+    |> builder AsmWordKind.String ", "
+    |> oprToString wordSz ins pc fi opr false builder
   | TwoOperands (opr, OprMem (Some R.RIP, None, Some disp, _)) ->
-    (oprToString wordSz ins insAddr fi opr true (sb.Append(" "))).Append(", ")
-    |> recomputeRIPRel pc disp ins insLen
+    builder AsmWordKind.String " " acc
+    |> oprToString wordSz ins pc fi opr true builder
+    |> builder AsmWordKind.String ", "
+    |> recomputeRIPRel pc disp ins insLen builder
   | TwoOperands (opr1, opr2) ->
-    (oprToString wordSz ins insAddr fi opr1 true (sb.Append(" "))).Append(", ")
-    |> oprToString wordSz ins insAddr fi opr2 false
+    builder AsmWordKind.String " " acc
+    |> oprToString wordSz ins pc fi opr1 true builder
+    |> builder AsmWordKind.String ", "
+    |> oprToString wordSz ins pc fi opr2 false builder
   | ThreeOperands (opr1, opr2, opr3) ->
-    let sb = oprToString wordSz ins insAddr fi opr1 true (sb.Append(" "))
-    let sb = oprToString wordSz ins insAddr fi opr2 false (sb.Append(", "))
-    oprToString wordSz ins insAddr fi opr3 false (sb.Append(", "))
+    builder AsmWordKind.String " " acc
+    |> oprToString wordSz ins pc fi opr1 true builder
+    |> builder AsmWordKind.String ", "
+    |> oprToString wordSz ins pc fi opr2 false builder
+    |> builder AsmWordKind.String ", "
+    |> oprToString wordSz ins pc fi opr3 false builder
   | FourOperands (opr1, opr2, opr3, opr4) ->
-    let sb = oprToString wordSz ins insAddr fi opr1 true (sb.Append(" "))
-    let sb = oprToString wordSz ins insAddr fi opr2 false (sb.Append(", "))
-    let sb = oprToString wordSz ins insAddr fi opr3 false (sb.Append(", "))
-    oprToString wordSz ins insAddr fi opr4 false (sb.Append(", "))
+    builder AsmWordKind.String " " acc
+    |> oprToString wordSz ins pc fi opr1 true builder
+    |> builder AsmWordKind.String ", "
+    |> oprToString wordSz ins pc fi opr2 false builder
+    |> builder AsmWordKind.String ", "
+    |> oprToString wordSz ins pc fi opr3 false builder
+    |> builder AsmWordKind.String ", "
+    |> oprToString wordSz ins pc fi opr4 false builder
 
-let disasm showAddr wordSize fi ins insAddr insLen =
-  let pc = insAddr
-  let sb = StringBuilder ()
-  let sb = printAddr pc wordSize showAddr sb
-  let sb = printPref ins.Prefixes sb
-  let sb = printOpcode ins.Opcode sb
-  let sb = printOprs ins insAddr insLen fi pc wordSize sb
-  sb.ToString ()
+let disasm showAddr wordSize fi ins insAddr insLen builder acc =
+  buildAddr insAddr wordSize showAddr builder acc
+  |> buildPref ins.Prefixes builder
+  |> buildOpcode ins.Opcode builder
+  |> buildOprs ins insLen insAddr fi wordSize builder
 
 // vim: set tw=80 sts=2 sw=2:

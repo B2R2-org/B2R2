@@ -27,6 +27,7 @@
 namespace B2R2.BinGraph
 
 open B2R2
+open B2R2.FrontEnd
 
 /// A basic block that consists of IR (LowUIR) statements. It contains all the
 /// InsIRPairs of the basic block.
@@ -58,8 +59,9 @@ type IRBasicBlock (pairs: InsIRPair [], point: ProgramPoint) =
   override __.ToVisualBlock () =
     __.GetIRStatements ()
     |> Array.concat
-    |> Array.toList
-    |> List.map (fun stmt -> [ BinIR.LowUIR.Pp.stmtToString stmt |> String ])
+    |> Array.map (fun stmt ->
+      [| { AsmWordKind = AsmWordKind.String
+           AsmWordValue = BinIR.LowUIR.Pp.stmtToString stmt } |])
 
   /// Get an array of IR statements of a basic block.
   member __.GetIRStatements () = pairs |> Array.map snd

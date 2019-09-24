@@ -800,12 +800,11 @@ border: 1px solid #555;
   color: var(--yellow);
 }
 
-.autocomplete-list .autocomplete-item .memory {
+.autocomplete-list .autocomplete-item .address {
   height: 20px;
   font-size: 14px;
   color: white;
   -webkit-text-fill-color: white;
-  padding-right: 10px;
 }
 
 .autocomplete-list .autocomplete-item strong {

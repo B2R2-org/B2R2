@@ -28,11 +28,13 @@
 namespace B2R2.FrontEnd.Intel
 
 open B2R2
+open B2R2.FrontEnd
+open System.Text
 
 /// The internal representation for an Intel instruction used by our
 /// disassembler and lifter.
-type IntelInstruction (addr, numBytes, insInfo, wordSize) =
-  inherit FrontEnd.Instruction (addr, numBytes, wordSize)
+type IntelInstruction (addr, numBytes, insInfo, wordSz) =
+  inherit FrontEnd.Instruction (addr, numBytes, wordSz)
 
   /// Basic instruction info.
   member val Info: InsInfo = insInfo
@@ -159,11 +161,26 @@ type IntelInstruction (addr, numBytes, insInfo, wordSize) =
   override __.Translate ctxt =
     Lifter.translate __.Info addr numBytes ctxt
 
+  member private __.StrBuilder _ (str: string) (sb: StringBuilder) =
+    sb.Append str
+
   override __.Disasm (showAddr, resolveSymbol, fileInfo) =
-    let fileInfo = if resolveSymbol then Some fileInfo else None
-    Disasm.disasm showAddr wordSize fileInfo __.Info addr numBytes
+    let file = if resolveSymbol then Some fileInfo else None
+    StringBuilder ()
+    |> Disasm.disasm showAddr wordSz file __.Info addr numBytes __.StrBuilder
+    |> fun sb -> sb.ToString ()
 
   override __.Disasm () =
-    Disasm.disasm false __.WordSize None __.Info addr numBytes
+    StringBuilder ()
+    |> Disasm.disasm false wordSz None __.Info addr numBytes __.StrBuilder
+    |> fun sb -> sb.ToString ()
+
+  member private __.WordBuilder kind str (acc: AsmWordBuilder) =
+    acc.Append ({ AsmWordKind = kind; AsmWordValue = str })
+
+  override __.Decompose () =
+    AsmWordBuilder (8)
+    |> Disasm.disasm true wordSz None __.Info addr numBytes __.WordBuilder
+    |> fun b -> b.Finish ()
 
 // vim: set tw=80 sts=2 sw=2:

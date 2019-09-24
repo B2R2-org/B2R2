@@ -78,7 +78,6 @@ let inline lift translator addr bbl =
 
 let inline disasm showAddr resolveSymbol fileInfo addr bbl =
   let disasmFolder (sb: StringBuilder, nextAddr) (ins: Instruction) =
-    // let s = BinHandler.DisasmInstr handle showAddr ins
     let s = ins.Disasm (showAddr, resolveSymbol, fileInfo)
     let s = if sb.Length = 0 then s else System.Environment.NewLine + s
     sb.Append(s), nextAddr + uint64 ins.Length

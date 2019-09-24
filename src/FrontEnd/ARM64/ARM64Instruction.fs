@@ -27,6 +27,8 @@
 namespace B2R2.FrontEnd.ARM64
 
 open B2R2
+open B2R2.FrontEnd
+open System.Text
 
 /// The internal representation for an ARM64 instruction used by our
 /// disassembler and lifter.
@@ -113,10 +115,25 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
   override __.Translate ctxt =
     Lifter.translate __.Info ctxt
 
+  member private __.StrBuilder _ (str: string) (acc: StringBuilder) =
+    acc.Append (str)
+
   override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
-    Disasm.disasm showAddr wordSize __.Info
+    let acc = StringBuilder ()
+    let acc = Disasm.disasm showAddr __.Info __.StrBuilder acc
+    acc.ToString ()
 
   override __.Disasm () =
-    Disasm.disasm false __.WordSize __.Info
+    let acc = StringBuilder ()
+    let acc = Disasm.disasm false __.Info __.StrBuilder acc
+    acc.ToString ()
+
+  member private __.WordBuilder kind str (acc: AsmWordBuilder) =
+    acc.Append ({ AsmWordKind = kind; AsmWordValue = str })
+
+  override __.Decompose () =
+    AsmWordBuilder (8)
+    |> Disasm.disasm true __.Info __.WordBuilder
+    |> fun b -> b.Finish ()
 
 // vim: set tw=80 sts=2 sw=2:

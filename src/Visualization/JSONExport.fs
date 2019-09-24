@@ -28,6 +28,7 @@
 namespace B2R2.Visualization
 
 open B2R2
+open B2R2.FrontEnd
 open B2R2.BinGraph
 open Microsoft.FSharpLu.Json
 
@@ -38,7 +39,7 @@ type JSONCoordinate = {
 
 type JSONNode = {
   PPoint: Addr * int
-  Terms: (string * string) list list
+  Terms: (string * string) [] []
   Width: float
   Height: float
   Coordinate: JSONCoordinate
@@ -58,7 +59,7 @@ type JSONGraph = {
 
 module JSONExport =
   let private getJSONTerms (visualBlock: VisualBlock) =
-    visualBlock |> List.map (List.map Term.ToStringTuple)
+    visualBlock |> Array.map (Array.map AsmWord.ToStringTuple)
 
   let private ofVisGraph (g: VisGraph) =
     let nodes =

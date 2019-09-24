@@ -28,7 +28,7 @@
 module internal B2R2.FrontEnd.MIPS.Disasm
 
 open B2R2
-open System.Text
+open B2R2.FrontEnd
 
 let regToStr = function
   | R.R0  -> "r0"
@@ -242,63 +242,71 @@ let opCodeToString = function
   | Op.XORI -> "xori"
   | _ -> failwith "Unknown opcode encountered."
 
-let inline printAddr (addr: Addr) wordSize verbose (sb: StringBuilder) =
-  if not verbose then sb
+let inline buildAddr (addr: Addr) wordSize showAddress builder acc =
+  if not showAddress then acc
   else
-    if wordSize = WordSize.Bit32 then sb.Append(addr.ToString("X8")).Append(": ")
-    else sb.Append(addr.ToString("X16")).Append(": ")
+    builder AsmWordKind.Address (Addr.toString wordSize addr) acc
+    |> builder AsmWordKind.String (": ")
 
-let inline printOpcode insInfo (sb: StringBuilder) =
-  sb.Append(opCodeToString insInfo.Opcode)
-
-let inline printCond insInfo (sb: StringBuilder) =
+let inline appendCond insInfo opcode =
   match insInfo.Condition with
-  | None -> sb
-  | Some c -> sb.Append(condToString c)
+  | None -> opcode
+  | Some c -> opcode + condToString c
 
-let inline printFmt insInfo (sb: StringBuilder) =
+let inline appendFmt insInfo opcode =
   match insInfo.Fmt with
-  | None -> sb
-  | Some f -> sb.Append(fmtToString f)
+  | None -> opcode
+  | Some f -> opcode + fmtToString f
 
-let inline relToString pc offset (sb: StringBuilder) =
+let inline buildOpcode ins builder acc =
+  let str = opCodeToString ins.Opcode |> appendCond ins |> appendFmt ins
+  builder AsmWordKind.Mnemonic str acc
+
+let inline relToString pc offset builder acc =
   let targetAddr = pc + uint64 offset
-  sb.Append("0x").Append(targetAddr.ToString("X"))
+  builder AsmWordKind.Value ("0x" + targetAddr.ToString("X")) acc
 
-let oprToString wordSz insInfo opr (sb: StringBuilder) =
+let oprToString insInfo opr delim builder acc =
   match opr with
-  | Register reg -> sb.Append(regToStr reg)
+  | Register reg ->
+    builder AsmWordKind.String delim acc
+    |> builder AsmWordKind.Variable (regToStr reg)
   | Immediate imm
-  | ShiftAmount imm -> sb.Append("0x").Append(imm.ToString("X"))
-  | Memory (b, off, _) -> let sb = sb.Append(off.ToString("D"))
-                          sb.Append("(").Append(regToStr b).Append(")")
-  | Address (Relative offset) -> relToString insInfo.Address offset sb
+  | ShiftAmount imm ->
+    builder AsmWordKind.String delim acc
+    |> builder AsmWordKind.Value ("0x" + imm.ToString ("X"))
+  | Memory (b, off, _) ->
+    builder AsmWordKind.String delim acc
+    |> builder AsmWordKind.Value (off.ToString ("D"))
+    |> builder AsmWordKind.String "("
+    |> builder AsmWordKind.Variable (regToStr b)
+    |> builder AsmWordKind.String ")"
+  | Address (Relative offset) ->
+    builder AsmWordKind.String delim acc
+    |> relToString insInfo.Address offset builder
 
-let printOprs insInfo wordSz (sb: StringBuilder) =
+let buildOprs insInfo builder acc =
   match insInfo.Operands with
-  | NoOperand -> sb
-  | OneOperand opr -> oprToString wordSz insInfo opr (sb.Append(" "))
+  | NoOperand -> acc
+  | OneOperand opr ->
+    oprToString insInfo opr " " builder acc
   | TwoOperands (opr1, opr2) ->
-    (oprToString wordSz insInfo opr1 (sb.Append(" "))).Append(", ")
-    |> oprToString wordSz insInfo opr2
+    oprToString insInfo opr1 " " builder acc
+    |> oprToString insInfo opr2 ", " builder
   | ThreeOperands (opr1, opr2, opr3) ->
-    let sb = oprToString wordSz insInfo opr1 (sb.Append(" "))
-    let sb = oprToString wordSz insInfo opr2 (sb.Append(", "))
-    oprToString wordSz insInfo opr3 (sb.Append(", "))
+    oprToString insInfo opr1 " " builder acc
+    |> oprToString insInfo opr2 ", " builder
+    |> oprToString insInfo opr3 ", " builder
   | FourOperands (opr1, opr2, opr3, opr4) ->
-    let sb = oprToString wordSz insInfo opr1 (sb.Append(" "))
-    let sb = oprToString wordSz insInfo opr2 (sb.Append(", "))
-    let sb = oprToString wordSz insInfo opr3 (sb.Append(", "))
-    oprToString wordSz insInfo opr4 (sb.Append(", "))
+    oprToString insInfo opr1 " " builder acc
+    |> oprToString insInfo opr2 ", " builder
+    |> oprToString insInfo opr3 ", " builder
+    |> oprToString insInfo opr4 ", " builder
 
-let disasm showAddr wordSize insInfo =
+let disasm showAddr wordSize insInfo builder acc =
   let pc = insInfo.Address
-  let sb = StringBuilder ()
-  let sb = printAddr pc wordSize showAddr sb
-  let sb = printOpcode insInfo sb
-  let sb = printCond insInfo sb
-  let sb = printFmt insInfo sb
-  let sb = printOprs insInfo wordSize sb
-  sb.ToString ()
+  buildAddr pc wordSize showAddr builder acc
+  |> buildOpcode insInfo builder
+  |> buildOprs insInfo builder
 
 // vim: set tw=80 sts=2 sw=2:

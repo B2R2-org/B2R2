@@ -87,8 +87,9 @@ type SSABBlock (hdl, scfg, pp: ProgramPoint, pairs: InsIRPair []) =
 
   override __.ToVisualBlock () =
     __.Stmts
-    |> Array.toList
-    |> List.map (fun stmt -> [ SSA.Pp.stmtToString stmt |> String ])
+    |> Array.map (fun stmt ->
+      [| { AsmWordKind = AsmWordKind.String
+           AsmWordValue = SSA.Pp.stmtToString stmt } |])
 
   member __.Stmts with get () = stmts and set (v) = stmts <- v
 

@@ -105,7 +105,7 @@ class LineOfNode {
       .text(fragment).attr("class", cls).attr("xml:space", "preserve");
 
     if (i == 0) t.attr("x", padding / 2).attr("dy", "14px");
-    else t.attr("dx", "10px");
+    else t.attr("dx", "1px");
   }
 
   setContextMenuEventOnStmt(rect) {

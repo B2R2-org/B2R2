@@ -76,7 +76,7 @@ class ContextMenu {
       let gtext = textbox.parent();
       switch ($(this).attr("value")) {
         case "copy":
-          copyToClipboard(self.document, gtext.find(".string").text());
+          copyToClipboard(self.document, gtext.html().replace(/(<([^>]+)>)/ig, ""));
           popToast("info", "Line copied", 3);
           break;
         case "copy-address":

@@ -46,10 +46,7 @@ type DisasmBBlock (instrs: Instruction [], pp, hdl: BinHandler) =
   override __.IsFakeBlock () = Array.isEmpty instructions
 
   override __.ToVisualBlock () =
-    instructions
-    |> Array.map (fun i -> [ Address (Addr.toString hdl.ISA.WordSize i.Address)
-                             String (i.Disasm ()) ])
-    |> Array.toList
+    instructions |> Array.map (fun i -> i.Decompose ())
 
   member __.Instructions
     with get () = instructions

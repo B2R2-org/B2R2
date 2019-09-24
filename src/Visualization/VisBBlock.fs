@@ -44,9 +44,9 @@ type VisBBlock (blk: BasicBlock, isDummy) =
 
   let visBlock =
     let block = blk.ToVisualBlock ()
-    if block.IsEmpty then VisualBlock.empty blk.PPoint.Address else block
+    if block.Length = 0 then VisualBlock.empty blk.PPoint.Address else block
 
-  let maxLine = visBlock |> List.maxBy (VisualLine.lineWidth)
+  let maxLine = visBlock |> Array.maxBy (VisualLine.lineWidth)
 
   let maxLineWidth = VisualLine.lineWidth maxLine |> float
 
@@ -55,7 +55,7 @@ type VisBBlock (blk: BasicBlock, isDummy) =
   /// we are using a fixed-width font. *)
   let width = if isDummy then 0.0 else maxLineWidth * 7.5 + padding * 2.0
 
-  let numLines = visBlock |> List.length
+  let numLines = visBlock |> Array.length
 
   /// This number (14), as in the width case, is empirically obtained with the
   /// current font.

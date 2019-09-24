@@ -225,4 +225,12 @@ type Instruction (addr, numBytes, wordSize) =
   /// </returns>
   abstract member Disasm: unit -> string
 
+  /// <summary>
+  ///   Decompose this instruction into AsmWords.
+  /// </summary>
+  /// <returns>
+  ///   Returns an array of AsmWords.
+  /// </returns>
+  abstract member Decompose: unit -> AsmWord []
+
 // vim: set tw=80 sts=2 sw=2:
