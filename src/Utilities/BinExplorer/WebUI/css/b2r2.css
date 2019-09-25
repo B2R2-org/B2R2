@@ -7,14 +7,17 @@
   --foreground: #f8f8f2;
   --comment: #6272a4;
   --lightcomment: #929dc0;
+  --darkblue: #3673ce;
+  --blue: #4141f0;
   --cyan: #8be9fd;
+  --darkgreen: #2cb174;
   --green: #50fa7b;
   --orange: #ffb86c;
   --pink: #ff79c6;
   --purple: #bd93f9;
   --red: #ff5555;
   --yellow: #f1fa8c;
-  --darkgray: #101010;
+  --darkgray: #505050;
   --lightgray: rgb(153, 161, 161);
   --gray: rgb(67,67,67);
   --cmd: rgb(230, 230, 230);
@@ -29,6 +32,26 @@ span.cyan {
 
 .stmt {
   font-family: 'Inconsolata', monospace;
+}
+
+.stmt .address {
+  fill: var(--lightgray);
+}
+
+.stmt .mnemonic {
+  fill: var(--darkgreen);
+}
+
+.stmt .string {
+  fill: var(--darkgray);
+}
+
+.stmt .variable {
+  fill: var(--blue);
+}
+
+.stmt .value {
+  fill: var(--darkblue);
 }
 
 .commentText {
