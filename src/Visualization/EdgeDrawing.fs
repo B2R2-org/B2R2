@@ -38,6 +38,9 @@ let [<Literal>] edgeOffsetY = 4.0
 /// less than the half of blockIntervalY.
 let [<Literal>] lastSegLen = 20.0
 
+/// The margin to prevent an overlap between a node and its back edges.
+let [<Literal>] backEdgeMargin = 10.0
+
 let restoreBackEdge (vGraph: VisGraph) (src, dst, (edge: VisEdge)) =
   match vGraph.TryFindEdge dst src with
   | Some eData ->
@@ -72,16 +75,16 @@ let computeEdgeEndOffset v length (i, offsetMap) w =
     i + 1, Map.add (w, v) (xOffset, yOffset) offsetMap
   else i + 1, Map.add (v, w) (xOffset, yOffset) offsetMap
 
-let computeEdgeEndOffsets (predOffsets, succOffsets) (v: Vertex<_>) =
+let computeEdgeEndOffsets (predEndOffsets, succEndOffsets) (v: Vertex<_>) =
   let preds = List.sortBy VisGraph.getIndex v.Preds |> List.toArray
   let succs = List.sortBy VisGraph.getIndex v.Succs |> List.toArray
-  let _, predOffsets =
+  let _, predEndOffsets =
     Array.fold (computeEdgeEndOffset v (Array.length preds))
-      (0, predOffsets) preds
-  let _, succOffsets =
+      (0, predEndOffsets) preds
+  let _, succEndOffsets =
     Array.fold (computeEdgeEndOffset v (Array.length succs))
-      (0, succOffsets) succs
-  predOffsets, succOffsets
+      (0, succEndOffsets) succs
+  predEndOffsets, succEndOffsets
 
 let getLeftEnd l v =
   VisGraph.getXPos v :: l
@@ -89,63 +92,66 @@ let getLeftEnd l v =
 let getRightEnd l v =
   VisGraph.getXPos v + VisGraph.getWidth v :: l
 
-let initializeLine pCoord pOff line =
+let initializeLine pCoord pEndOff line =
   let pX, pY = pCoord
-  let pOffX, pOffY = pOff
-  (pX + pOffX, pY + pOffY) :: (pX + pOffX, pY) :: line
+  let pEndOffX, pEndOffY = pEndOff
+  (pX + pEndOffX, pY + pEndOffY) :: (pX + pEndOffX, pY) :: line
 
-let extendLine (hPerLayer: _ []) p pCoord pOff cCoord line =
-  if (p: Vertex<VisBBlock>).VData.IsDummy
-    && snd pCoord < snd cCoord then
+let extendLine (hPerLayer: _ []) p pCoord pEndOff cCoord line =
+  if (p: Vertex<VisBBlock>).VData.IsDummy && snd pCoord < snd cCoord then
     let pX, pY = pCoord
-    let pOffX, pOffY = pOff
-    (pX + pOffX, pY + hPerLayer.[VisGraph.getLayer p] + pOffY) ::
-      (pX + pOffX, pY + pOffY) :: line
+    let pEndOffX, pEndOffY = pEndOff
+    (pX + pEndOffX, pY + hPerLayer.[VisGraph.getLayer p] + pEndOffY)
+    :: (pX + pEndOffX, pY + pEndOffY)
+    :: line
   else line
 
-let extendBackEdgeLine p pCoord pOff c cCoord cOff line =
+let extendBackEdgeLine p pCoord pEndOff cCoord cEndOff line =
   let pX, pY = pCoord
-  let pOffX, _ = pOff
+  let pEndOffX, _ = pEndOff
   let pWidth = VisGraph.getWidth p
   let cX, cY = cCoord
-  let cOffX, cOffY = cOff
-  let cWidth = VisGraph.getWidth c
+  let cEndOffX, cEndOffY = cEndOff
   if pY > cY && not ((p: Vertex<VisBBlock>).VData.IsDummy) then
-    if pX < cX then
-      let xEnd = max (pX + pOffX + pWidth / 2.0) (cX + cOffX + cWidth / 2.0)
-      (xEnd, cY - cOffY) :: (xEnd, List.head line |> snd) :: line
-    else
-      let xEnd = min (pX + pOffX - pWidth / 2.0) (cX + cOffX + cWidth / 2.0)
-      (xEnd, cY - cOffY) :: (xEnd, List.head line |> snd) :: line
+    if pX < cX then (* child is on the right *)
+      let xEnd =
+        max (pX + pWidth / 2.0 + pEndOffX + backEdgeMargin) (cX + cEndOffX)
+      (xEnd, cY - cEndOffY) :: (xEnd, List.head line |> snd) :: line
+    else (* child is on the left *)
+      let xEnd =
+        min (pX - pWidth / 2.0 + pEndOffX - backEdgeMargin) (cX + cEndOffX)
+      (xEnd, cY - cEndOffY) :: (xEnd, List.head line |> snd) :: line
   else line
 
-let buildJustBeforeLast pCoord c cCoord cOff line =
+let buildJustBeforeLast pCoord c cCoord cEndOff line =
   let _, pY = pCoord
   let cX, cY = cCoord
-  let cOffX, cOffY = cOff
+  let cEndOffX, cEndOffY = cEndOff
   if not ((c: Vertex<VisBBlock>).VData.IsDummy) then
     let line =
-      if pY > cY then (List.head line |> fst, cY - cOffY) :: line else line
-    (cX + cOffX, cY) :: (cX + cOffX, cY - cOffY) :: line
+      if pY > cY then (* back edge case. *)
+        (List.head line |> fst, cY - cEndOffY) :: line
+      else line
+    (cX + cEndOffX, cY) :: (cX + cEndOffX, cY - cEndOffY) :: line
   else line
 
-let buildLine hPerLayer p pOff c cOff =
+let buildLine hPerLayer p pEndOff c cEndOff =
   let pCoord =
     VisGraph.getXPos p + VisGraph.getWidth p / 2.0,
     VisGraph.getYPos p + VisGraph.getHeight p
   let cCoord =
     VisGraph.getXPos c + VisGraph.getWidth c / 2.0,
     VisGraph.getYPos c
-  initializeLine pCoord pOff []
-  |> extendLine hPerLayer p pCoord pOff cCoord
-  |> extendBackEdgeLine p pCoord pOff c cCoord cOff
-  |> buildJustBeforeLast pCoord c cCoord cOff
+  initializeLine pCoord pEndOff []
+  |> extendLine hPerLayer p pCoord pEndOff cCoord
+  |> extendBackEdgeLine p pCoord pEndOff cCoord cEndOff
+  |> buildJustBeforeLast pCoord c cCoord cEndOff
 
-let drawEdge (vGraph: VisGraph) hPerLayer predOffsets succOffsets p c _ =
-  let pOff = Map.find (p, c) succOffsets
-  let cOff = Map.find (p, c) predOffsets
+let drawEdge (vGraph: VisGraph) hPerLayer predEndOffsets succEndOffsets p c _ =
+  let pEndOff = Map.find (p, c) succEndOffsets
+  let cEndOff = Map.find (p, c) predEndOffsets
   let eData = vGraph.FindEdgeData p c
-  let line = buildLine hPerLayer p pOff c cOff |> List.rev
+  let line = buildLine hPerLayer p pEndOff c cEndOff |> List.rev
   eData.Points <- line |> List.map (fun (x,y) -> { X = x; Y = y })
 
 let rec removeDummyLoop (vGraph: VisGraph) src c points = function
@@ -178,7 +184,7 @@ let getBoundary (vGraph: VisGraph) =
 let drawEdges (vGraph: VisGraph) vLayout backEdgeList dummyMap =
   restoreBackEdges vGraph backEdgeList
   let hPerLayer = computeHPerLayer vLayout
-  let predOffsets, succOffsets =
+  let predEndOffsets, succEndOffsets =
     vGraph.FoldVertex computeEdgeEndOffsets (Map.empty, Map.empty)
-  vGraph.IterEdge (drawEdge vGraph hPerLayer predOffsets succOffsets)
+  vGraph.IterEdge (drawEdge vGraph hPerLayer predEndOffsets succEndOffsets)
   removeDummies vGraph dummyMap
