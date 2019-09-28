@@ -172,7 +172,8 @@ let fixShift (xs: FloatMap) (shift: FloatMap) (sink: VertexMap) u v = function
 
 let adjustX (xs: FloatMap) u v = function
   | Leftmost ->
-    xs.[v] <- max xs.[v] (xs.[u] + u.VData.Width + blockIntervalX)
+    xs.[v] <-
+      max xs.[v] (xs.[u] + u.VData.Width + v.VData.Width / 2.0 + blockIntervalX)
   | Rightmost ->
     xs.[v] <-
       min xs.[v] (xs.[u] - v.VData.Width - u.VData.Width - blockIntervalX)
