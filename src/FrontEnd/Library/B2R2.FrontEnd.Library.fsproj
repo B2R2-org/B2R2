@@ -6,7 +6,7 @@
     <IsTestProject>false</IsTestProject>
     <PackageId>B2R2.FrontEnd</PackageId>
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
-    <PackageIconUrl>https://softsec.kaist.ac.kr/images/b2r2-240x240.png</PackageIconUrl>
+    <PackageIcon>b2r2-240x240.png</PackageIcon>
     <RepositoryUrl>https://github.com/B2R2-org/B2R2</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
   </PropertyGroup>
@@ -15,6 +15,7 @@
     <Compile Include="BinHandlerHelper.fs" />
     <Compile Include="BinHandler.fsi" />
     <Compile Include="BinHandler.fs" />
+    <None Include="b2r2-240x240.png" Pack="true" PackagePath="" />
   </ItemGroup>
 
   <ItemGroup>
