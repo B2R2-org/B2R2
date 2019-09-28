@@ -58,9 +58,6 @@ let private generateVLayout vPerLayer =
   Array.map (fun vertices -> alignVertices vertices) vPerLayer
 
 let private baryCenter isDown (v: Vertex<VisBBlock>) =
-#if DEBUG
-  (VisGraph.getID v).ToString () |> VisDebug.logn
-#endif
   let neighbor = if isDown then v.Preds else v.Succs
   if List.isEmpty neighbor then System.Double.MaxValue, v
   else
@@ -69,19 +66,10 @@ let private baryCenter isDown (v: Vertex<VisBBlock>) =
 
 let private bcReorderOneLayer (vLayout: VLayout) isDown layer =
   let vertices = vLayout.[layer]
-#if DEBUG
-  VisDebug.logn "BcReorder Before:"
-#endif
   vertices
   |> Array.map (baryCenter isDown)
   |> Array.sortBy fst
-#if DEBUG
-  |> fun vs -> VisDebug.logn "BcReorder After:"; vs
-#endif
-  |> Array.iteri (fun i (bc, v) ->
-#if DEBUG
-    sprintf "%d: %f" (VisGraph.getID v) bc |> VisDebug.logn
-#endif
+  |> Array.iteri (fun i (_, v) ->
     v.VData.Index <- i
     vertices.[i] <- v)
 
@@ -144,22 +132,7 @@ let private reverseOneLayer vLayout isDown maxLayer layer =
     let isReversed = Map.exists (fun _ vs -> List.length vs > 1) bcByValues
     let bcByValues = Map.toList bcByValues
     let bcByValues = List.sortBy fst bcByValues
-#if DEBUG
-    VisDebug.logn <| sprintf "Cross Count: %d" count
-    VisDebug.logn "Before:"
-    Array.iter (fun v ->
-      sprintf "%d" (VisGraph.getID v) |> VisDebug.logn) vertices
-#endif
     List.fold (reorderVertices vertices) 0 bcByValues |> ignore
-#if DEBUG
-    VisDebug.logn "BaryCenters:"
-    Array.iter (fun (bc, v) ->
-      sprintf "%d: %f" (VisGraph.getID v) bc |> VisDebug.logn) baryCenters
-    VisDebug.logn "After:"
-    vertices
-    |> Array.iter (fun (v: Vertex<_>) ->
-      sprintf "%d" (v.GetID ()) |> VisDebug.logn)
-#endif
     if isReversed then phase1 vLayout isDown layer maxLayer
 
 let private phase2 vLayout isDown maxLayer =
@@ -170,21 +143,9 @@ let rec private sugiyamaReorder vLayout cnt hashSet =
   if cnt = maxCnt then ()
   else
     let maxLayer = Array.length vLayout - 1
-#if DEBUG
-    VisDebug.logn "Phase1 DOWN"
-#endif
     phase1 vLayout true 1 maxLayer
-#if DEBUG
-    VisDebug.logn "Phase1 UP"
-#endif
     phase1 vLayout false (maxLayer - 1) maxLayer
-#if DEBUG
-    VisDebug.logn "Phase2 UP"
-#endif
     phase2 vLayout false maxLayer
-#if DEBUG
-    VisDebug.logn "Phase2 DOWN"
-#endif
     phase2 vLayout true maxLayer
     let hashCode = vLayout.GetHashCode ()
     if not (Set.contains hashCode hashSet) then
@@ -193,12 +154,4 @@ let rec private sugiyamaReorder vLayout cnt hashSet =
 let minimizeCrosses vGraph =
   let vLayout = generateVPerLayer vGraph |> generateVLayout
   sugiyamaReorder vLayout 0 (Set.add (vLayout.GetHashCode ()) Set.empty)
-#if DEBUG
-  VisDebug.logn "vLayout:"
-  Array.iteri
-    (fun layer arr ->
-      sprintf "%d:" layer |> VisDebug.logn
-      sprintf "%A\n" (Array.map VisGraph.getID arr) |> VisDebug.logn)
-    vLayout
-#endif
   vLayout

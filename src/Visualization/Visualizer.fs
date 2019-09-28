@@ -30,17 +30,16 @@ let getJSONFromGraph iGraph roots =
   try
     let vGraph, roots = VisGraph.ofCFG iGraph roots
   #if DEBUG
+    VisDebug.logn "# Original"
     VisDebug.pp vGraph
   #endif
     let backEdgeList = CycleRemoval.removeCycles vGraph roots
   #if DEBUG
+    VisDebug.logn "# After cycle removal"
     VisDebug.pp vGraph
   #endif
     let backEdgeList, dummyMap =
       LayerAssignment.assignLayers vGraph backEdgeList
-  #if DEBUG
-    VisDebug.pp vGraph
-  #endif
     let vLayout = CrossMinimization.minimizeCrosses vGraph
     CoordAssignment.assignCoordinates vGraph vLayout
     EdgeDrawing.drawEdges vGraph vLayout backEdgeList dummyMap
@@ -49,5 +48,5 @@ let getJSONFromGraph iGraph roots =
     eprintfn "%s" <| e.ToString ()
     "{}"
 
-let visualizeFromFile inFile outFile =
-  ()
+let visualizeFromFile _inFile _outFile =
+  B2R2.Utils.futureFeature ()

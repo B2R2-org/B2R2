@@ -51,19 +51,7 @@ let private removeBackEdge (vGraph: VisGraph) order backEdgeList src dst _ =
 
 let private dfsRemoveCycles vGraph roots backEdgeList =
   let topoOrder = VisGraph.getTopologicalOrder vGraph roots
-  let backEdgeList =
-    vGraph.FoldEdge (removeBackEdge vGraph topoOrder) backEdgeList
-#if DEBUG
-  VisDebug.logn "Topological Order:"
-  topoOrder
-  |> Map.iter (fun v o ->
-    sprintf "%d -> %d" (VisGraph.getID v) o |> VisDebug.logn)
-  VisDebug.logn "backEdges:"
-  backEdgeList
-  |> List.iter (fun (v, w, _) ->
-    sprintf "%d -> %d" (VisGraph.getID v) (VisGraph.getID w) |> VisDebug.logn)
-#endif
-  backEdgeList
+  vGraph.FoldEdge (removeBackEdge vGraph topoOrder) backEdgeList
 
 let removeCycles (vGraph: VisGraph) roots =
   let backEdgeList = vGraph.FoldEdge (removeSelfCycle vGraph) []

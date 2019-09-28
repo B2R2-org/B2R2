@@ -48,12 +48,6 @@ let longestPathAssignLayers vGraph root =
   let topoOrdered = Array.zeroCreate <| vGraph.Size ()
   Map.iter (fun v i -> Array.set topoOrdered i v) topoOrder
   let topoOrdered = Array.rev topoOrdered
-#if DEBUG
-  VisDebug.logn "topoOrdered:"
-  topoOrdered
-  |> Array.iteri (fun i v ->
-    sprintf "%d: %d" i (VisGraph.getID v) |> VisDebug.logn)
-#endif
   Array.iter assignLayerFromSucc topoOrdered
   adjustLayer topoOrdered
 
