@@ -120,7 +120,7 @@ Build
 -----
 
 Building B2R2 is fun and easy. All you need to do is to install .NET Core SDK
-2.0 or above. Yea, that's it!
+3.0 or above. Yea, that's it!
 
 - To build B2R2 in release mode, type ```make release``` or ```dotnet build -c
   Release``` in the source root.
@@ -153,7 +153,6 @@ contributions! Feel free to write a PR (Pull Requst) while making sure that you
 have read our [contribution guideline](CONTRIBUTING.md).
 
 - Implement CFG recovery algorithms.
-- Implement function boundary identification algorithms.
 - Implement assembler for currently supported ISAs using a parser combinator.
 - Support for floating point operations.
 - Support for more architectures such as PPC.

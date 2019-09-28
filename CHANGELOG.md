@@ -1,5 +1,26 @@
 # B2R2 Change Log
 
+## 0.3.0 (2019-09-28)
+
+### Added
+- Add a demangler module for both Itanium and MS types.
+- Add `GetNextAddrs` method to `Instruction` type.
+- Add several CFG-related lenses to smoothly transform a certain graph into
+  another form.
+- Start supporting ARMv7 SIMD instructions.
+- Add a simple REPL for LowUIR.
+- Add a simple calculator language for BinExplorer.
+
+### Changed
+- Fix ARMv7 translation errors (close to stable now).
+- Fix subtle errors in ELF parsing (GitHub issue #25)
+- Fix visualization bugs.
+- Redesign many parts in BinGraph modules and their APIs.
+- Fix graph building logic to handle ARM/Thumb switching.
+- Refactor WebUI modules.
+- Update disassembly modules to be able to decompose assembly statements into
+  pieces.
+
 ## 0.2.1 (2019-07-21)
 
 ### Added
