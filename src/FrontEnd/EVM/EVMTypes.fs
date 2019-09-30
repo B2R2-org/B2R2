@@ -1,8 +1,8 @@
 (*
   B2R2 - the Next-Generation Reversing Platform
 
-  Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
-          Seung Il Jung <sijung@kaist.ac.kr>
+  Author: Seung Il Jung <sijung@kaist.ac.kr>
+          Sang Kil Cha <sangkilc@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -366,7 +366,7 @@ type Opcode =
   | CREATE2
   /// Similar to CALL, but does not modify state
   | STATICCALL
-  /// Not in yellow paper FIXME
+  /// FIXME: Not in the yellow paper.
   | TXEXECGAS
   /// Stop execution and revert state changes, without consuming all provided
   /// gas and providing a reason

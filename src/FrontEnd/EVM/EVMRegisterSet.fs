@@ -1,8 +1,8 @@
 ﻿(*
   B2R2 - the Next-Generation Reversing Platform
 
-  Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
-          Seung Il Jung <sijung@kaist.ac.kr>
+  Author: Seung Il Jung <sijung@kaist.ac.kr>
+          Sang Kil Cha <sangkilc@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -37,7 +37,7 @@ type EVMRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
   static member EmptySet =
     new EVMRegisterSet (emptyArr, Set.empty) :> RegisterSet
 
-  override __.Tag = RegisterSetTag.MIPS
+  override __.Tag = RegisterSetTag.EVM
   override __.ArrSize = defaultSize
   override __.New x s = new EVMRegisterSet (x, s) :> RegisterSet
   override __.Empty = EVMRegisterSet.EmptySet

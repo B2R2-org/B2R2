@@ -1,8 +1,8 @@
 (*
   B2R2 - the Next-Generation Reversing Platform
 
-  Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
-          Seung Il Jung <sijung@kaist.ac.kr>
+  Author: Seung Il Jung <sijung@kaist.ac.kr>
+          Sang Kil Cha <sangkilc@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -189,16 +189,16 @@ let opCodeToString = function
   | Op.INVALID -> "invalid"
   | Op.SELFDESTRUCT -> "selfdestruct"
 
-let inline printAddr (addr: Addr) wordSize verbose (sb: StringBuilder) =
+let inline printAddr (addr: Addr) verbose (sb: StringBuilder) =
   if not verbose then sb else sb.Append(addr.ToString("X8")).Append(": ")
 
 let inline printOpcode insInfo (sb: StringBuilder) =
   sb.Append(opCodeToString insInfo.Opcode)
 
-let disasm showAddr wordSize insInfo =
+let disasm showAddr insInfo =
   let pc = insInfo.Address
   let sb = StringBuilder ()
-  let sb = printAddr pc wordSize showAddr sb
+  let sb = printAddr pc showAddr sb
   let sb = printOpcode insInfo sb
   sb.ToString ()
 

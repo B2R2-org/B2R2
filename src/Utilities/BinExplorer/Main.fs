@@ -160,7 +160,7 @@ let interactiveMain files (opts: BinExplorerOpts) =
               Type --help or --batch to see more info."; exit 1
   else
     let file = List.head files
-    let ess = initBinHdl ISA.DefaultISA file |> buildGraph opts.Verbose
+    let ess = initBinHdl opts.ISA file |> buildGraph opts.Verbose
     if opts.JsonDumpDir <> "" then dumpJsonFiles opts.JsonDumpDir ess else ()
     let arbiter = Protocol.genArbiter ess opts.LogFile
     startGUI opts arbiter

@@ -1,8 +1,8 @@
 (*
   B2R2 - the Next-Generation Reversing Platform
 
-  Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
-          Seung Il Jung <sijung@kaist.ac.kr>
+  Author: Seung Il Jung <sijung@kaist.ac.kr>
+          Sang Kil Cha <sangkilc@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -76,10 +76,14 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
   override __.DirectBranchTarget (addr: byref<Addr>) = false
 
   override __.IndirectTrampolineAddr (addr: byref<Addr>) =
-    if __.IsBranch () then Utils.futureFeature ()
-    else false
+    // FIXME
+    false
 
-  override __.GetNextInstrAddrs () = Utils.futureFeature ()
+  override __.GetNextInstrAddrs () =
+    let fallthrough = __.Address + uint64 __.Length
+    let acc = Seq.singleton (fallthrough, ArchOperationMode.NoMode)
+    // FIXME
+    acc
 
   override __.InterruptNum (num: byref<int64>) = Utils.futureFeature ()
 
@@ -89,9 +93,12 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
     Lifter.translate __.Info ctxt
 
   override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
-    Disasm.disasm showAddr wordSize __.Info
+    Disasm.disasm showAddr __.Info
 
   override __.Disasm () =
-    Disasm.disasm false __.WordSize __.Info
+    Disasm.disasm false __.Info
+
+  override __.Decompose () =
+    [||] // FIXME
 
 // vim: set tw=80 sts=2 sw=2:

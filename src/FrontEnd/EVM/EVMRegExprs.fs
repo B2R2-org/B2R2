@@ -1,8 +1,8 @@
 (*
   B2R2 - the Next-Generation Reversing Platform
 
-  Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
-          Seung Il Jung <sijung@kaist.ac.kr>
+  Author: Seung Il Jung <sijung@kaist.ac.kr>
+          Sang Kil Cha <sangkilc@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -29,13 +29,9 @@ namespace B2R2.FrontEnd.EVM
 
 open B2R2
 open B2R2.BinIR.LowUIR
-open B2R2.BinIR.LowUIR.AST
 
 type internal RegExprs (wordSize) =
   let var sz t name = AST.var sz t name (EVMRegisterSet.singleton t)
-
-  (* Registers *)
-  let regType = WordSize.toRegType wordSize
 
   member val SP =
     var OperationSize.regType (Register.toRegID Register.SP) "SP" with get
