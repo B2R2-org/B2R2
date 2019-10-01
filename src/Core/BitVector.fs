@@ -222,28 +222,7 @@ type BitVector =
     | 8 ->
       let n = BitConverter.ToUInt64 (arr, 0)
       { Num = n; Length = 64<rt>; BigNum = bigNull }
-    | 9 ->
-      let arr = Array.append arr [| 0uy |]
-      { Num = 0UL; Length = 72<rt>; BigNum = bigint arr }
-    | 10 ->
-      let arr = Array.append arr [| 0uy |]
-      { Num = 0UL; Length = 80<rt>; BigNum = bigint arr }
-    | sz when sz > 10 && sz < 16 ->
-      let arr = Array.append arr [| 0uy |]
-      { Num = 0UL; Length = sz * 8<rt>; BigNum = bigint arr }
-    | 16 ->
-      let arr = Array.append arr [| 0uy |]
-      { Num = 0UL; Length = 128<rt>; BigNum = bigint arr }
-    | sz when sz > 16 && sz < 32 ->
-      let arr = Array.append arr [| 0uy |]
-      { Num = 0UL; Length = sz * 8<rt>; BigNum = bigint arr }
-    | 32 ->
-      let arr = Array.append arr [| 0uy |]
-      { Num = 0UL; Length = 256<rt>; BigNum = bigint arr }
-    | 64 ->
-      let arr = Array.append arr [| 0uy |]
-      { Num = 0UL; Length = 512<rt>; BigNum = bigint arr }
-    | sz when sz > 64 ->
+    | sz when sz > 8 ->
       let arr = Array.append arr [| 0uy |]
       { Num = 0UL; Length = sz * 8<rt>; BigNum = bigint arr }
     | sz -> nSizeErr (sz * 8)
