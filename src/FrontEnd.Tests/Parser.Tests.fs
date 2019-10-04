@@ -6528,4 +6528,22 @@ module MIPS32 =
                (OneOperand (Address (Relative 108L)))
                [| 0x45uy; 0x00uy; 0x00uy; 0x1auy |]
 
+module EVM =
+  open B2R2.FrontEnd.EVM
+
+  let private test opcode bytes =
+    let reader = BinReader.Init (bytes, Endian.Little)
+    let ins = Parser.parse reader WordSize.Bit64 0UL 0
+    let opcode' = ins.Info.Opcode
+    Assert.AreEqual (opcode', opcode)
+
+  /// 60s & 70s: Push Operations
+  [<TestClass>]
+  type PUSHClass () =
+    [<TestMethod>]
+    member __.``[EVM] Push Parse Test`` () =
+      test (Opcode.PUSH10 <| (BitVector.ofUBInt 316059037807746189465I 80<rt>))
+           [| 0x69uy; 0x00uy; 0x11uy; 0x22uy; 0x33uy; 0x44uy; 0x55uy; 0x66uy;
+              0x77uy; 0x88uy; 0x99uy |]
+
 // vim: set tw=80 sts=2 sw=2:

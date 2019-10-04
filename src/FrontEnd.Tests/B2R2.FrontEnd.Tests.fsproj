@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\FrontEnd\EVM\B2R2.FrontEnd.EVM.fsproj" />
     <ProjectReference Include="..\FrontEnd\Intel\B2R2.FrontEnd.Intel.fsproj" />
     <ProjectReference Include="..\FrontEnd\ARM32\B2R2.FrontEnd.ARM32.fsproj" />
     <ProjectReference Include="..\FrontEnd\ARM64\B2R2.FrontEnd.ARM64.fsproj" />
