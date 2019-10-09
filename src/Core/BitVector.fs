@@ -74,17 +74,18 @@ type BitVector =
     else "0x" + __.BigNum.ToString("X").TrimStart('0')
 
   static member inline BOp (v: BitVector) (b: uint64) op bigop =
-    let n = v.Num
+    let a = v.Num
     match v.Length with
-    | 1<rt> | 8<rt> -> { v with Num = op n b |> uint8 |> uint64 }
-    | 16<rt> -> { v with Num = op n b |> uint16 |> uint64 }
-    | 32<rt> -> { v with Num = op n b |> uint32 |> uint64 }
-    | 64<rt> -> { v with Num = op n b }
-    | _ ->
+    | 8<rt> -> { v with Num = op a b |> uint8 |> uint64 }
+    | 16<rt> -> { v with Num = op a b |> uint16 |> uint64 }
+    | 32<rt> -> { v with Num = op a b |> uint32 |> uint64 }
+    | 64<rt> -> { v with Num = op a b }
+    | len when len > 64<rt> ->
       let n1 = v.BigNum
       let n2 = bigint b
-      let n = bigint.op_BitwiseAnd (bigop (n1, n2), RegType.getMask v.Length)
-      { v with BigNum = n }
+      let a = bigint.op_BitwiseAnd (bigop (n1, n2), RegType.getMask v.Length)
+      { v with BigNum = a }
+    | _ -> { v with Num = op a b &&& uint64 (RegType.getMask v.Length) }
 
   static member (+) (v: BitVector, b: uint64) =
     BitVector.BOp v b (+) (bigint.Add)
@@ -149,6 +150,9 @@ type BitVector =
   [<CompiledName("OfUInt64")>]
   static member ofUInt64 (i: uint64) typ =
     match typ with
+#if DEBUG
+    | typ when typ <= 0<rt> -> nSizeErr typ
+#endif
     | 1<rt> when i = 1UL -> { Num = 1UL; Length = typ; BigNum = bigNull }
     | 1<rt> when i = 0UL -> { Num = 0UL; Length = typ; BigNum = bigNull }
     | 2<rt> -> { Num = i &&& 0x3UL; Length = typ; BigNum = bigNull }
@@ -157,38 +161,42 @@ type BitVector =
     | 16<rt> -> { Num = uint16 i |> uint64; Length = typ; BigNum = bigNull }
     | 32<rt> -> { Num = uint32 i |> uint64; Length = typ; BigNum = bigNull }
     | 64<rt> -> { Num = i; Length = typ; BigNum = bigNull }
-    | 80<rt> -> { Num = 0UL; Length = typ; BigNum = bigint i }
-    | 128<rt> -> { Num = 0UL; Length = typ; BigNum = bigint i }
-    | 256<rt> -> { Num = 0UL; Length = typ; BigNum = bigint i }
-    | 512<rt> -> { Num = 0UL; Length = typ; BigNum = bigint i }
-    | _ -> nSizeErr typ
-
-  static member inline convNegs n t =
-    match t with
-    | 128<rt> -> bigint.Pow (2I, 128) - n
-    | 256<rt> -> bigint.Pow (2I, 256) - n
-    | 512<rt> -> bigint.Pow (2I, 512) - n
-    | _ -> nSizeErr t
+    | t when t < 64<rt> ->
+      { Num = i &&& (RegType.getUInt64Mask t); Length = typ; BigNum = bigNull }
+    | _ -> { Num = 0UL; Length = typ; BigNum = bigint i}
 
   [<CompiledName("OfInt64")>]
   static member ofInt64 (i: int64) typ =
-    match typ with
-    | 128<rt> | 256<rt> | 512<rt> ->
+#if DEBUG
+    if typ <= 0<rt> then nSizeErr typ else ()
+#endif
+    if typ <= 64<rt> then BitVector.ofUInt64 (uint64 i) typ
+    else
       if i < 0L then
-        let n = BitVector.convNegs ((~-) i |> uint64 |> bigint) typ
+        let n = bigint.Pow (2I, int typ) - ((~-) i |> uint64 |> bigint)
         { Num = 0UL; Length = typ; BigNum = n }
       else
         { Num = 0UL; Length = typ; BigNum = bigint i }
-    | _ -> BitVector.ofUInt64 (uint64 i) typ
 
   [<CompiledName("OfUInt32")>]
-  static member ofUInt32 (i: uint32) typ = BitVector.ofUInt64 (uint64 i) typ
+  static member ofUInt32 (i: uint32) typ =
+#if DEBUG
+    if typ <= 0<rt> then nSizeErr typ else ()
+#endif
+    BitVector.ofUInt64 (uint64 i) typ
 
   [<CompiledName("OfInt32")>]
-  static member ofInt32 (i: int32) typ = BitVector.ofInt64 (int64 i) typ
+  static member ofInt32 (i: int32) typ =
+#if DEBUG
+    if typ <= 0<rt> then nSizeErr typ else ()
+#endif
+    BitVector.ofInt64 (int64 i) typ
 
   [<CompiledName("OfUBInt")>]
   static member ofUBInt (i: bigint) typ =
+#if DEBUG
+    if typ <= 0<rt> then nSizeErr typ else ()
+#endif
     if typ <= 64<rt> then BitVector.ofUInt64 (uint64 i) typ
     else { Num = 0UL; Length = typ; BigNum = i }
 
@@ -228,7 +236,11 @@ type BitVector =
     | sz -> nSizeErr (sz * 8)
 
   [<CompiledName("OfBv")>]
-  static member ofBv bv t = { bv with Length = t }
+  static member ofBv bv typ =
+#if DEBUG
+    if typ <= 0<rt> then nSizeErr typ else ()
+#endif
+    { bv with Length = typ }
 
   [<CompiledName("ToUInt64")>]
   static member toUInt64 bv =
@@ -277,6 +289,9 @@ type BitVector =
 
   static member inline castSmall n rt =
     match rt with
+#if DEBUG
+    | typ when typ <= 0<rt> -> nSizeErr typ
+#endif
     | 1<rt> -> n &&& 1UL
     | 2<rt> -> n &&& 0x3UL
     | 4<rt> -> n &&& 0xFUL
@@ -284,6 +299,7 @@ type BitVector =
     | 16<rt> -> n &&& 0xFFFFUL
     | 32<rt> -> n &&& 0xFFFFFFFFUL
     | 64<rt> -> n
+    | t when t < 64<rt> -> n &&& (RegType.getUInt64Mask rt)
     | sz -> nSizeErr sz
 
   static member inline castBig n newLen =
@@ -315,10 +331,11 @@ type BitVector =
     | 16<rt> -> { bv with Num = (- (int16 bv.Num)) |> uint16 |> uint64 }
     | 32<rt> -> { bv with Num = (- (int32 bv.Num)) |> uint32 |> uint64 }
     | 64<rt> -> { bv with Num = (- (int64 bv.Num)) |> uint64 }
-    | 128<rt> | 256<rt> | 512<rt> ->
-      let n = bigint.Pow (2I, int bv.Length) - bv.BigNum
-      { bv with BigNum = BitVector.castBig n bv.Length }
-    | len -> nSizeErr len
+    | t when t < 64<rt> ->
+      { bv with Num = ((~~~ bv.Num) + 1UL) &&& (RegType.getUInt64Mask t)}
+    | _ ->
+       let n = bigint.Pow (2I, int bv.Length) - bv.BigNum
+       { bv with BigNum = BitVector.castBig n bv.Length }
 
   [<CompiledName("BitwiseAnd")>]
   static member band v1 v2 = BitVector.binOp (&&&) (bigint.op_BitwiseAnd) v1 v2
@@ -372,7 +389,7 @@ type BitVector =
   static member inline signedComp v1 v2 op8 op16 op32 op64 opBigFn =
     if v1.Length <> v2.Length then raise ArithTypeMismatchException
     match v1.Length with
-    | 1<rt> | 8<rt> ->
+    | 8<rt> ->
       if op8 (int8 v1.Num) (int8 v2.Num) then BitVector.T else BitVector.F
     | 16<rt> ->
       if op16 (int16 v1.Num) (int16 v2.Num) then BitVector.T else BitVector.F
@@ -380,7 +397,16 @@ type BitVector =
       if op32 (int32 v1.Num) (int32 v2.Num) then BitVector.T else BitVector.F
     | 64<rt> ->
       if op64 (int64 v1.Num) (int64 v2.Num) then BitVector.T else BitVector.F
-    | 128<rt> | 256<rt> | 512<rt> ->
+    | t when t < 64<rt> ->
+      if BitVector.isPositive v1 && BitVector.isNegative v2 then BitVector.F
+      elif BitVector.isNegative v1 && BitVector.isPositive v2 then BitVector.T
+      elif BitVector.isNegative v1 && BitVector.isNegative v2 then
+        if op64 (int64 v1.Num) (int64 v2.Num) then BitVector.F
+        else BitVector.T
+      else
+        if op64 (int64 v1.Num) (int64 v2.Num) then BitVector.T
+        else BitVector.F
+    | _ ->
       if BitVector.isPositive v1 && BitVector.isNegative v2 then BitVector.F
       elif BitVector.isNegative v1 && BitVector.isPositive v2 then BitVector.T
       elif BitVector.isNegative v1 && BitVector.isNegative v2 then
@@ -389,7 +415,6 @@ type BitVector =
       else
         if opBigFn (v1.BigNum, v2.BigNum) then BitVector.T
         else BitVector.F
-    | sz -> nSizeErr sz
 
   [<CompiledName("SLT")>]
   static member slt v1 v2 =
@@ -498,14 +523,21 @@ type BitVector =
     | 16<rt> -> { v1 with Num = (int16 n1 >>> int n2) |> uint16 |> uint64 }
     | 32<rt> -> { v1 with Num = (int32 n1 >>> int n2) |> uint32 |> uint64 }
     | 64<rt> -> { v1 with Num = (int64 n1 >>> int n2) |> uint64 }
-    | 128<rt> | 256<rt> | 512<rt> ->
+    | t when t < 64<rt> ->
+      let res = BitVector.shr v1 v2
+      if BitVector.isPositive v1 then res
+      else
+        let pad = RegType.getUInt64Mask v1.Length
+        let pad =
+          pad - (RegType.getUInt64Mask (v1.Length - (1<rt> * int v2.Num)))
+        { res with Num = (res.Num ||| pad) }
+    | _ ->
       let res = BitVector.shr v1 v2
       if BitVector.isPositive v1 then res
       else
         let pad = BigInteger.getMask (int v1.Length)
         let pad = pad - (BigInteger.getMask (int v1.Length - int v2.BigNum))
         { res with BigNum = (bigint.op_BitwiseOr (res.BigNum, pad)) }
-    | sz -> nSizeErr sz
 
   [<CompiledName("Concat")>]
   static member concat v1 v2 =
@@ -570,38 +602,50 @@ type BitVector =
   [<CompiledName("UnsignedMax")>]
   static member unsignedMax rt =
     match rt with
+#if DEBUG
+    | typ when typ <= 0<rt> -> nSizeErr typ
+#endif
     | 8<rt> -> BitVector.maxNum8
     | 16<rt> -> BitVector.maxNum16
     | 32<rt> -> BitVector.maxNum32
     | 64<rt> -> BitVector.maxNum64
-    | _ -> nSizeErr rt
+    | t when t < 64<rt> -> BitVector.ofUInt64 (RegType.getUInt64Mask rt) rt
+    | _ -> { Num = 0UL; Length = rt; BigNum = RegType.getMask rt }
 
   [<CompiledName("UnsignedMin")>]
   static member unsignedMin rt =
-    match rt with
-    | 8<rt> -> BitVector.zero rt
-    | 16<rt> -> BitVector.zero rt
-    | 32<rt> -> BitVector.zero rt
-    | 64<rt> -> BitVector.zero rt
-    | _ -> nSizeErr rt
+#if DEBUG
+    if rt <= 0<rt> then nSizeErr rt else ()
+#endif
+    BitVector.zero rt
 
   [<CompiledName("SignedMax")>]
   static member signedMax rt =
     match rt with
+#if DEBUG
+    | typ when typ <= 0<rt> -> nSizeErr typ
+#endif
     | 8<rt> -> BitVector.midNum8 - 1UL
     | 16<rt> -> BitVector.midNum16 - 1UL
     | 32<rt> -> BitVector.midNum32 - 1UL
     | 64<rt> -> BitVector.midNum64 - 1UL
-    | _ -> nSizeErr rt
+    | t when t < 64<rt> ->
+      BitVector.ofUInt64 (RegType.getUInt64Mask (rt - 1<rt>)) rt
+    | _ ->
+      { Num = 0UL ; Length = rt; BigNum = RegType.getMask (rt - 1<rt>)}
 
   [<CompiledName("SignedMin")>]
   static member signedMin rt =
     match rt with
+#if DEBUG
+    | typ when typ <= 0<rt> -> nSizeErr typ
+#endif
     | 8<rt> -> BitVector.midNum8
     | 16<rt> -> BitVector.midNum16
     | 32<rt> -> BitVector.midNum32
     | 64<rt> -> BitVector.midNum64
-    | _ -> nSizeErr rt
+    | t when t < 64<rt> -> BitVector.ofUInt64 (1UL <<< int (rt - 1<rt>)) rt
+    | _ -> { Num = 0UL; Length = rt; BigNum = 1I <<< int (rt - 1<rt>) }
 
   [<CompiledName("IsUnsignedMax")>]
   static member isUnsignedMax bv =

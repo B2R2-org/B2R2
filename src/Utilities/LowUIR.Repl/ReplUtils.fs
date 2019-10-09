@@ -131,23 +131,10 @@ let initStateForReplStart (pHelper: RegParseHelper) =
   EvalState.PrepareContext st 0 0UL
     (pHelper.InitStateRegs |> List.map (fun (x, y) -> (x, Def y)))
 
-/// Gets a register name and EvalValue string representation.
-let getRegValueString (rid: RegisterID, value: EvalValue) =
-  let reg = Intel.Register.ofRegID rid
-  let valueStr =
-    match value with
-    | Def bv -> BitVector.valToString bv
-    | Undef -> "undef"
-  sprintf "%s: %s" (reg.ToString ()) valueStr
-
 /// Gets a temporary register name and EvalValue string representation.
 let getTempRegrString (n: int, value: EvalValue) =
   let tRegName = "T_" + string (n)
-  let valueStr =
-    match value with
-    | Def bv -> BitVector.valToString bv
-    | Undef -> "undef"
-  sprintf "%s: %s" tRegName valueStr
+  sprintf "%s: %s" tRegName (getEvalValueString value)
 
 module ReplDisplay =
 
