@@ -34,7 +34,7 @@ open System.Text
 /// The internal representation for an Intel instruction used by our
 /// disassembler and lifter.
 type IntelInstruction (addr, numBytes, insInfo, wordSz) =
-  inherit FrontEnd.Instruction (addr, numBytes, wordSz)
+  inherit Instruction (addr, numBytes, wordSz)
 
   /// Basic instruction info.
   member val Info: InsInfo = insInfo

@@ -28,178 +28,185 @@
 module internal B2R2.FrontEnd.EVM.Disasm
 
 open B2R2
-open System.Text
+open B2R2.FrontEnd
 
 let regToStr = function
   | R.SP  -> "sp"
   | R.GAS  -> "gas"
   | _ -> failwith "Unknown Reg"
 
-let opCodeToString = function
-  | Op.STOP -> "stop"
-  | Op.ADD -> "add"
-  | Op.MUL -> "mul"
-  | Op.SUB -> "sub"
-  | Op.DIV -> "div"
-  | Op.SDIV -> "sdiv"
-  | Op.MOD -> "mod"
-  | Op.SMOD -> "smod"
-  | Op.ADDMOD -> "addmod"
-  | Op.MULMOD -> "mulmod"
-  | Op.EXP -> "exp"
-  | Op.SIGNEXTEND -> "signextend"
-  | Op.LT -> "lt"
-  | Op.GT -> "gt"
-  | Op.SLT -> "slt"
-  | Op.SGT -> "sgt"
-  | Op.EQ -> "eq"
-  | Op.ISZERO -> "iszero"
-  | Op.AND -> "and"
-  | Op.OR -> "or"
-  | Op.XOR -> "xor"
-  | Op.NOT -> "not"
-  | Op.BYTE -> "byte"
-  | Op.SHL -> "shl"
-  | Op.SHR -> "shr"
-  | Op.SAR -> "sar"
-  | Op.SHA3 -> "sha3"
-  | Op.ADDRESS -> "address"
-  | Op.BALANCE -> "balance"
-  | Op.ORIGIN -> "origin"
-  | Op.CALLER -> "caller"
-  | Op.CALLVALUE -> "callvalue"
-  | Op.CALLDATALOAD -> "calldataload"
-  | Op.CALLDATASIZE -> "calldatasize"
-  | Op.CALLDATACOPY -> "calldatacopy"
-  | Op.CODESIZE -> "codesize"
-  | Op.CODECOPY -> "codecopy"
-  | Op.GASPRICE -> "gasprice"
-  | Op.EXTCODESIZE -> "extcodesize"
-  | Op.EXTCODECOPY -> "extcodecopy"
-  | Op.RETURNDATASIZE -> "returndatasize"
-  | Op.RETURNDATACOPY -> "returndatacopy"
-  | Op.BLOCKHASH -> "blockhash"
-  | Op.COINBASE -> "coinbase"
-  | Op.TIMESTAMP -> "timestamp"
-  | Op.NUMBER -> "number"
-  | Op.DIFFICULTY -> "difficulty"
-  | Op.GASLIMIT -> "gaslimit"
-  | Op.POP -> "pop"
-  | Op.MLOAD -> "mload"
-  | Op.MSTORE -> "mstore"
-  | Op.MSTORE8 -> "mstore8"
-  | Op.SLOAD -> "sload"
-  | Op.SSTORE -> "sstore"
-  | Op.JUMP -> "jump"
-  | Op.JUMPI -> "jumpi"
-  | Op.GETPC -> "getpc"
-  | Op.MSIZE -> "msize"
-  | Op.GAS -> "gas"
-  | Op.JUMPDEST -> "jumpdest"
-  | Op.PUSH1 imm -> "push1 " + BitVector.toString imm
-  | Op.PUSH2 imm -> "push2 " + BitVector.toString imm
-  | Op.PUSH3 imm -> "push3 " + BitVector.toString imm
-  | Op.PUSH4 imm -> "push4 " + BitVector.toString imm
-  | Op.PUSH5 imm -> "push5 " + BitVector.toString imm
-  | Op.PUSH6 imm -> "push6 " + BitVector.toString imm
-  | Op.PUSH7 imm -> "push7 " + BitVector.toString imm
-  | Op.PUSH8 imm -> "push8 " + BitVector.toString imm
-  | Op.PUSH9 imm -> "push9 " + BitVector.toString imm
-  | Op.PUSH10 imm -> "push10 " + BitVector.toString imm
-  | Op.PUSH11 imm -> "push11 " + BitVector.toString imm
-  | Op.PUSH12 imm -> "push12 " + BitVector.toString imm
-  | Op.PUSH13 imm -> "push13 " + BitVector.toString imm
-  | Op.PUSH14 imm -> "push14 " + BitVector.toString imm
-  | Op.PUSH15 imm -> "push15 " + BitVector.toString imm
-  | Op.PUSH16 imm -> "push16 " + BitVector.toString imm
-  | Op.PUSH17 imm -> "push17 " + BitVector.toString imm
-  | Op.PUSH18 imm -> "push18 " + BitVector.toString imm
-  | Op.PUSH19 imm -> "push19 " + BitVector.toString imm
-  | Op.PUSH20 imm -> "push20 " + BitVector.toString imm
-  | Op.PUSH21 imm -> "push21 " + BitVector.toString imm
-  | Op.PUSH22 imm -> "push22 " + BitVector.toString imm
-  | Op.PUSH23 imm -> "push23 " + BitVector.toString imm
-  | Op.PUSH24 imm -> "push24 " + BitVector.toString imm
-  | Op.PUSH25 imm -> "push25 " + BitVector.toString imm
-  | Op.PUSH26 imm -> "push26 " + BitVector.toString imm
-  | Op.PUSH27 imm -> "push27 " + BitVector.toString imm
-  | Op.PUSH28 imm -> "push28 " + BitVector.toString imm
-  | Op.PUSH29 imm -> "push29 " + BitVector.toString imm
-  | Op.PUSH30 imm -> "push30 " + BitVector.toString imm
-  | Op.PUSH31 imm -> "push31 " + BitVector.toString imm
-  | Op.PUSH32 imm -> "push32 " + BitVector.toString imm
-  | Op.DUP1 -> "dup1"
-  | Op.DUP2 -> "dup2"
-  | Op.DUP3 -> "dup3"
-  | Op.DUP4 -> "dup4"
-  | Op.DUP5 -> "dup5"
-  | Op.DUP6 -> "dup6"
-  | Op.DUP7 -> "dup7"
-  | Op.DUP8 -> "dup8"
-  | Op.DUP9 -> "dup9"
-  | Op.DUP10 -> "dup10"
-  | Op.DUP11 -> "dup11"
-  | Op.DUP12 -> "dup12"
-  | Op.DUP13 -> "dup13"
-  | Op.DUP14 -> "dup14"
-  | Op.DUP15 -> "dup15"
-  | Op.DUP16 -> "dup16"
-  | Op.SWAP1 -> "swap1"
-  | Op.SWAP2 -> "swap2"
-  | Op.SWAP3 -> "swap3"
-  | Op.SWAP4 -> "swap4"
-  | Op.SWAP5 -> "swap5"
-  | Op.SWAP6 -> "swap6"
-  | Op.SWAP7 -> "swap7"
-  | Op.SWAP8 -> "swap8"
-  | Op.SWAP9 -> "swap9"
-  | Op.SWAP10 -> "swap10"
-  | Op.SWAP11 -> "swap11"
-  | Op.SWAP12 -> "swap12"
-  | Op.SWAP13 -> "swap13"
-  | Op.SWAP14 -> "swap14"
-  | Op.SWAP15 -> "swap15"
-  | Op.SWAP16 -> "swap16"
-  | Op.LOG0 -> "log0"
-  | Op.LOG1 -> "log1"
-  | Op.LOG2 -> "log2"
-  | Op.LOG3 -> "log3"
-  | Op.LOG4 -> "log4"
-  | Op.JUMPTO -> "jumpto"
-  | Op.JUMPIF -> "jumpif"
-  | Op.JUMPSUB -> "jumpsub"
-  | Op.JUMPSUBV -> "jumpsubv"
-  | Op.BEGINSUB -> "beginsub"
-  | Op.BEGINDATA -> "begindata"
-  | Op.RETURNSUB -> "returnsub"
-  | Op.PUTLOCAL -> "putlocal"
-  | Op.GETLOCAL -> "getlocal"
-  | Op.SLOADBYTES -> "sloadbytes"
-  | Op.SSTOREBYTES -> "sstorebytes"
-  | Op.SSIZE -> "ssize"
-  | Op.CREATE -> "create"
-  | Op.CALL -> "call"
-  | Op.CALLCODE -> "callcode"
-  | Op.RETURN -> "return"
-  | Op.DELEGATECALL -> "delegatecall"
-  | Op.CREATE2 -> "create2"
-  | Op.STATICCALL -> "staticcall"
-  | Op.TXEXECGAS -> "txexecgas"
-  | Op.REVERT -> "revert"
-  | Op.INVALID -> "invalid"
-  | Op.SELFDESTRUCT -> "selfdestruct"
+let opcodeToStrings = function
+  | Op.STOP -> struct ("stop", None)
+  | Op.ADD -> struct("add", None)
+  | Op.MUL -> struct("mul", None)
+  | Op.SUB -> struct("sub", None)
+  | Op.DIV -> struct("div", None)
+  | Op.SDIV -> struct("sdiv", None)
+  | Op.MOD -> struct("mod", None)
+  | Op.SMOD -> struct("smod", None)
+  | Op.ADDMOD -> struct("addmod", None)
+  | Op.MULMOD -> struct("mulmod", None)
+  | Op.EXP -> struct("exp", None)
+  | Op.SIGNEXTEND -> struct("signextend", None)
+  | Op.LT -> struct("lt", None)
+  | Op.GT -> struct("gt", None)
+  | Op.SLT -> struct("slt", None)
+  | Op.SGT -> struct("sgt", None)
+  | Op.EQ -> struct("eq", None)
+  | Op.ISZERO -> struct("iszero", None)
+  | Op.AND -> struct("and", None)
+  | Op.OR -> struct("or", None)
+  | Op.XOR -> struct("xor", None)
+  | Op.NOT -> struct("not", None)
+  | Op.BYTE -> struct("byte", None)
+  | Op.SHL -> struct("shl", None)
+  | Op.SHR -> struct("shr", None)
+  | Op.SAR -> struct("sar", None)
+  | Op.SHA3 -> struct("sha3", None)
+  | Op.ADDRESS -> struct("address", None)
+  | Op.BALANCE -> struct("balance", None)
+  | Op.ORIGIN -> struct("origin", None)
+  | Op.CALLER -> struct("caller", None)
+  | Op.CALLVALUE -> struct("callvalue", None)
+  | Op.CALLDATALOAD -> struct("calldataload", None)
+  | Op.CALLDATASIZE -> struct("calldatasize", None)
+  | Op.CALLDATACOPY -> struct("calldatacopy", None)
+  | Op.CODESIZE -> struct("codesize", None)
+  | Op.CODECOPY -> struct("codecopy", None)
+  | Op.GASPRICE -> struct("gasprice", None)
+  | Op.EXTCODESIZE -> struct("extcodesize", None)
+  | Op.EXTCODECOPY -> struct("extcodecopy", None)
+  | Op.RETURNDATASIZE -> struct("returndatasize", None)
+  | Op.RETURNDATACOPY -> struct("returndatacopy", None)
+  | Op.BLOCKHASH -> struct("blockhash", None)
+  | Op.COINBASE -> struct("coinbase", None)
+  | Op.TIMESTAMP -> struct("timestamp", None)
+  | Op.NUMBER -> struct("number", None)
+  | Op.DIFFICULTY -> struct("difficulty", None)
+  | Op.GASLIMIT -> struct("gaslimit", None)
+  | Op.POP -> struct("pop", None)
+  | Op.MLOAD -> struct("mload", None)
+  | Op.MSTORE -> struct("mstore", None)
+  | Op.MSTORE8 -> struct("mstore8", None)
+  | Op.SLOAD -> struct("sload", None)
+  | Op.SSTORE -> struct("sstore", None)
+  | Op.JUMP -> struct("jump", None)
+  | Op.JUMPI -> struct("jumpi", None)
+  | Op.GETPC -> struct("getpc", None)
+  | Op.MSIZE -> struct("msize", None)
+  | Op.GAS -> struct("gas", None)
+  | Op.JUMPDEST -> struct("jumpdest", None)
+  | Op.PUSH1 imm -> struct("push1", BitVector.valToString imm |> Some)
+  | Op.PUSH2 imm -> struct("push2", BitVector.valToString imm |> Some)
+  | Op.PUSH3 imm -> struct("push3", BitVector.valToString imm |> Some)
+  | Op.PUSH4 imm -> struct("push4", BitVector.valToString imm |> Some)
+  | Op.PUSH5 imm -> struct("push5", BitVector.valToString imm |> Some)
+  | Op.PUSH6 imm -> struct("push6", BitVector.valToString imm |> Some)
+  | Op.PUSH7 imm -> struct("push7", BitVector.valToString imm |> Some)
+  | Op.PUSH8 imm -> struct("push8", BitVector.valToString imm |> Some)
+  | Op.PUSH9 imm -> struct("push9", BitVector.valToString imm |> Some)
+  | Op.PUSH10 imm -> struct("push10", BitVector.valToString imm |> Some)
+  | Op.PUSH11 imm -> struct("push11", BitVector.valToString imm |> Some)
+  | Op.PUSH12 imm -> struct("push12", BitVector.valToString imm |> Some)
+  | Op.PUSH13 imm -> struct("push13", BitVector.valToString imm |> Some)
+  | Op.PUSH14 imm -> struct("push14", BitVector.valToString imm |> Some)
+  | Op.PUSH15 imm -> struct("push15", BitVector.valToString imm |> Some)
+  | Op.PUSH16 imm -> struct("push16", BitVector.valToString imm |> Some)
+  | Op.PUSH17 imm -> struct("push17", BitVector.valToString imm |> Some)
+  | Op.PUSH18 imm -> struct("push18", BitVector.valToString imm |> Some)
+  | Op.PUSH19 imm -> struct("push19", BitVector.valToString imm |> Some)
+  | Op.PUSH20 imm -> struct("push20", BitVector.valToString imm |> Some)
+  | Op.PUSH21 imm -> struct("push21", BitVector.valToString imm |> Some)
+  | Op.PUSH22 imm -> struct("push22", BitVector.valToString imm |> Some)
+  | Op.PUSH23 imm -> struct("push23", BitVector.valToString imm |> Some)
+  | Op.PUSH24 imm -> struct("push24", BitVector.valToString imm |> Some)
+  | Op.PUSH25 imm -> struct("push25", BitVector.valToString imm |> Some)
+  | Op.PUSH26 imm -> struct("push26", BitVector.valToString imm |> Some)
+  | Op.PUSH27 imm -> struct("push27", BitVector.valToString imm |> Some)
+  | Op.PUSH28 imm -> struct("push28", BitVector.valToString imm |> Some)
+  | Op.PUSH29 imm -> struct("push29", BitVector.valToString imm |> Some)
+  | Op.PUSH30 imm -> struct("push30", BitVector.valToString imm |> Some)
+  | Op.PUSH31 imm -> struct("push31", BitVector.valToString imm |> Some)
+  | Op.PUSH32 imm -> struct("push32", BitVector.valToString imm |> Some)
+  | Op.DUP1 -> struct("dup1", None)
+  | Op.DUP2 -> struct("dup2", None)
+  | Op.DUP3 -> struct("dup3", None)
+  | Op.DUP4 -> struct("dup4", None)
+  | Op.DUP5 -> struct("dup5", None)
+  | Op.DUP6 -> struct("dup6", None)
+  | Op.DUP7 -> struct("dup7", None)
+  | Op.DUP8 -> struct("dup8", None)
+  | Op.DUP9 -> struct("dup9", None)
+  | Op.DUP10 -> struct("dup10", None)
+  | Op.DUP11 -> struct("dup11", None)
+  | Op.DUP12 -> struct("dup12", None)
+  | Op.DUP13 -> struct("dup13", None)
+  | Op.DUP14 -> struct("dup14", None)
+  | Op.DUP15 -> struct("dup15", None)
+  | Op.DUP16 -> struct("dup16", None)
+  | Op.SWAP1 -> struct("swap1", None)
+  | Op.SWAP2 -> struct("swap2", None)
+  | Op.SWAP3 -> struct("swap3", None)
+  | Op.SWAP4 -> struct("swap4", None)
+  | Op.SWAP5 -> struct("swap5", None)
+  | Op.SWAP6 -> struct("swap6", None)
+  | Op.SWAP7 -> struct("swap7", None)
+  | Op.SWAP8 -> struct("swap8", None)
+  | Op.SWAP9 -> struct("swap9", None)
+  | Op.SWAP10 -> struct("swap10", None)
+  | Op.SWAP11 -> struct("swap11", None)
+  | Op.SWAP12 -> struct("swap12", None)
+  | Op.SWAP13 -> struct("swap13", None)
+  | Op.SWAP14 -> struct("swap14", None)
+  | Op.SWAP15 -> struct("swap15", None)
+  | Op.SWAP16 -> struct("swap16", None)
+  | Op.LOG0 -> struct("log0", None)
+  | Op.LOG1 -> struct("log1", None)
+  | Op.LOG2 -> struct("log2", None)
+  | Op.LOG3 -> struct("log3", None)
+  | Op.LOG4 -> struct("log4", None)
+  | Op.JUMPTO -> struct("jumpto", None)
+  | Op.JUMPIF -> struct("jumpif", None)
+  | Op.JUMPSUB -> struct("jumpsub", None)
+  | Op.JUMPSUBV -> struct("jumpsubv", None)
+  | Op.BEGINSUB -> struct("beginsub", None)
+  | Op.BEGINDATA -> struct("begindata", None)
+  | Op.RETURNSUB -> struct("returnsub", None)
+  | Op.PUTLOCAL -> struct("putlocal", None)
+  | Op.GETLOCAL -> struct("getlocal", None)
+  | Op.SLOADBYTES -> struct("sloadbytes", None)
+  | Op.SSTOREBYTES -> struct("sstorebytes", None)
+  | Op.SSIZE -> struct("ssize", None)
+  | Op.CREATE -> struct("create", None)
+  | Op.CALL -> struct("call", None)
+  | Op.CALLCODE -> struct("callcode", None)
+  | Op.RETURN -> struct("return", None)
+  | Op.DELEGATECALL -> struct("delegatecall", None)
+  | Op.CREATE2 -> struct("create2", None)
+  | Op.STATICCALL -> struct("staticcall", None)
+  | Op.TXEXECGAS -> struct("txexecgas", None)
+  | Op.REVERT -> struct("revert", None)
+  | Op.INVALID -> struct("invalid", None)
+  | Op.SELFDESTRUCT -> struct("selfdestruct", None)
 
-let inline printAddr (addr: Addr) verbose (sb: StringBuilder) =
-  if not verbose then sb else sb.Append(addr.ToString("X8")).Append(": ")
+let inline buildAddr (addr: Addr) verbose builder acc =
+  if not verbose then acc
+  else
+    builder AsmWordKind.Address (addr.ToString ("X8")) acc
+    |> builder AsmWordKind.String (": ")
 
-let inline printOpcode insInfo (sb: StringBuilder) =
-  sb.Append(opCodeToString insInfo.Opcode)
+let inline buildOpcode insInfo builder acc =
+  let struct (opcode, extra) = opcodeToStrings insInfo.Opcode
+  match extra with
+  | None -> builder AsmWordKind.Mnemonic opcode acc
+  | Some extra ->
+    builder AsmWordKind.Mnemonic opcode acc
+    |> builder AsmWordKind.String " "
+    |> builder AsmWordKind.Value extra
 
-let disasm showAddr insInfo =
+let disasm showAddr insInfo builder acc =
   let pc = insInfo.Address
-  let sb = StringBuilder ()
-  let sb = printAddr pc showAddr sb
-  let sb = printOpcode insInfo sb
-  sb.ToString ()
+  buildAddr pc showAddr builder acc
+  |> buildOpcode insInfo builder
 
 // vim: set tw=80 sts=2 sw=2:

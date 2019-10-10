@@ -33,7 +33,7 @@ open System.Text
 /// The internal representation for a MIPS instruction used by our
 /// disassembler and lifter.
 type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
-  inherit FrontEnd.Instruction (addr, numBytes, wordSize)
+  inherit Instruction (addr, numBytes, wordSize)
 
   /// Basic instruction information.
   member val Info: InsInfo = insInfo

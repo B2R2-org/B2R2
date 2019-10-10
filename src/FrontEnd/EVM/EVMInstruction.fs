@@ -28,11 +28,13 @@
 namespace B2R2.FrontEnd.EVM
 
 open B2R2
+open B2R2.FrontEnd
+open System.Text
 
 /// The internal representation for a EVM instruction used by our
 /// disassembler and lifter.
 type EVMInstruction (addr, numBytes, insInfo, wordSize) =
-  inherit FrontEnd.Instruction (addr, numBytes, wordSize)
+  inherit Instruction (addr, numBytes, wordSize)
 
   /// Basic instruction information.
   member val Info: InsInfo = insInfo
@@ -92,13 +94,25 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
   override __.Translate ctxt =
     Lifter.translate __.Info ctxt
 
+  member private __.StrBuilder _ (str: string) (acc: StringBuilder) =
+    acc.Append (str)
+
   override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
-    Disasm.disasm showAddr __.Info
+    StringBuilder ()
+    |> Disasm.disasm showAddr __.Info __.StrBuilder
+    |> fun acc -> acc.ToString ()
 
   override __.Disasm () =
-    Disasm.disasm false __.Info
+    StringBuilder ()
+    |> Disasm.disasm false __.Info __.StrBuilder
+    |> fun acc -> acc.ToString ()
+
+  member private __.WordBuilder kind str (acc: AsmWordBuilder) =
+    acc.Append ({ AsmWordKind = kind; AsmWordValue = str })
 
   override __.Decompose () =
-    [||] // FIXME
+    AsmWordBuilder (8)
+    |> Disasm.disasm true __.Info __.WordBuilder
+    |> fun b -> b.Finish ()
 
 // vim: set tw=80 sts=2 sw=2:

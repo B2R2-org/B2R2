@@ -33,7 +33,7 @@ open System.Text
 /// The internal representation for an ARM64 instruction used by our
 /// disassembler and lifter.
 type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
-  inherit FrontEnd.Instruction (addr, numBytes, wordSize)
+  inherit Instruction (addr, numBytes, wordSize)
 
   /// Basic instruction information.
   member val Info: InsInfo = insInfo
