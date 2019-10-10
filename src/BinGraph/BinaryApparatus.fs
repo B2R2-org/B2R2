@@ -108,6 +108,9 @@ module BinaryApparatus =
       | InterCJmp (_, _, Num addr1, Num addr2) ->
         addAddrLeader (BitVector.toUInt64 addr1) acc
         |> addAddrLeader (BitVector.toUInt64 addr2)
+      | InterCJmp (_, _, Num addr, _)
+      | InterCJmp (_, _, _, Num addr) ->
+        addAddrLeader (BitVector.toUInt64 addr) acc
       | InterJmp (_, _, InterJmpInfo.IsCall) (* indirect call *)
       | SideEffect (SysCall)
       | SideEffect (Interrupt _) ->

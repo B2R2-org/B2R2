@@ -167,6 +167,10 @@ let connectEdges _ (g: IRCFG) app (vmap: VMap) (leaders: ProgramPoint[]) idx =
     | InterCJmp (_, _, Num addr1, Num addr2) ->
       addInterEdge g vmap src (BitVector.toUInt64 addr1) InterCJmpTrueEdge
       addInterEdge g vmap src (BitVector.toUInt64 addr2) InterCJmpFalseEdge
+    | InterCJmp (_, _, Num addr, _) ->
+      addInterEdge g vmap src (BitVector.toUInt64 addr) InterCJmpTrueEdge
+    | InterCJmp (_, _, _, Num addr) ->
+      addInterEdge g vmap src (BitVector.toUInt64 addr) InterCJmpFalseEdge
     | InterJmp (_, _, InterJmpInfo.IsCall) -> (* Indirect call *)
       if idx + 1 >= leaders.Length then () else addFallthroughEdge g vmap src
       addIndirectEdges g app vmap src

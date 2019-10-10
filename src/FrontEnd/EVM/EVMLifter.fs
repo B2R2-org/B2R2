@@ -34,30 +34,23 @@ open B2R2.BinIR.LowUIR.AST
 open B2R2.FrontEnd
 open B2R2.FrontEnd.EVM
 
-let inline getRegVar (ctxt: TranslationContext) name =
+let inline private getRegVar (ctxt: TranslationContext) name =
   Register.toRegID name |> ctxt.GetRegVar
 
 let inline private (<!) (builder: StmtBuilder) (s) = builder.Append (s)
 
-let startMark insInfo (builder: StmtBuilder) =
+let inline private startMark insInfo (builder: StmtBuilder) =
   builder <! (ISMark (insInfo.Address, insInfo.NumBytes))
 
-let endMark insInfo (builder: StmtBuilder) =
+let inline private endMark insInfo (builder: StmtBuilder) =
   builder <! (IEMark (uint64 insInfo.NumBytes + insInfo.Address)); builder
 
-let inline numU32 n t = BitVector.ofUInt32 n t |> num
-let inline numI32 n t = BitVector.ofInt32 n t |> num
-let inline numU64 n t = BitVector.ofUInt64 n t |> num
-let inline numI64 n t = BitVector.ofInt64 n t |> num
+let inline private numI32 n t = BitVector.ofInt32 n t |> num
+let inline private numU64 n t = BitVector.ofUInt64 n t |> num
 
-let updateGas ctxt gas builder =
+let inline private updateGas ctxt gas builder =
   let gasReg = getRegVar ctxt R.GAS
   builder <! (gasReg := gasReg .+ numI32 gas 64<rt>)
-
-let bvOfBaseAddr (ctxt: TranslationContext) addr = numU64 addr ctxt.WordBitSize
-
-let bvOfInstrLen (ctxt: TranslationContext) insInfo =
-  numU32 insInfo.NumBytes ctxt.WordBitSize
 
 let sideEffects insInfo name =
   let builder = new StmtBuilder (4)
@@ -70,31 +63,27 @@ let nop insInfo =
   startMark insInfo builder
   endMark insInfo builder
 
-let opPush ctxt expr builder =
+let private pushToStack ctxt expr builder =
   let sp = getRegVar ctxt R.SP
   builder <! (sp := sp .- (num <| BitVector.ofInt32 32 OperationSize.regType))
   builder <! (loadLE OperationSize.regType sp := expr)
 
-let opPop ctxt builder =
-  let t = tmpVar OperationSize.regType
+let private popFromStack ctxt dst builder =
   let sp = getRegVar ctxt R.SP
-  builder <! (t := loadLE OperationSize.regType sp)
+  builder <! (dst := loadLE OperationSize.regType sp)
   builder <! (sp := sp .+ (num <| BitVector.ofInt32 32 OperationSize.regType))
-  t
-
-let getOneInputFromStack ctxt builder = opPop ctxt builder
-let getTwoInputsFromStack ctxt builder = opPop ctxt builder, opPop ctxt builder
-let getThreeInputsFromStack ctxt builder =
-  opPop ctxt builder, opPop ctxt builder, opPop ctxt builder
 
  /// Binary operations and relative operations.
 let basicOperation insInfo ctxt opFn =
   let builder = new StmtBuilder (8)
   let dst = tmpVar OperationSize.regType
+  let src1 = tmpVar OperationSize.regType
+  let src2 = tmpVar OperationSize.regType
   startMark insInfo builder
-  let src1, src2 = getTwoInputsFromStack ctxt builder
+  popFromStack ctxt src1 builder
+  popFromStack ctxt src2 builder
   builder <! (dst := zExt OperationSize.regType (opFn src1 src2))
-  opPush ctxt dst builder
+  pushToStack ctxt dst builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
@@ -109,30 +98,43 @@ let smod insInfo ctxt = basicOperation insInfo ctxt (?%)
 let addmod insInfo ctxt =
   let builder = new StmtBuilder (8)
   let dst = tmpVar OperationSize.regType
+  let src1 = tmpVar OperationSize.regType
+  let src2 = tmpVar OperationSize.regType
+  let src3 = tmpVar OperationSize.regType
   startMark insInfo builder
-  let src1, src2, src3 = getThreeInputsFromStack ctxt builder
+  popFromStack ctxt src1 builder
+  popFromStack ctxt src2 builder
+  popFromStack ctxt src3 builder
   builder <! (dst := (src1 .+ src2) .% src3)
-  opPush ctxt dst builder
+  pushToStack ctxt dst builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
 let mulmod insInfo ctxt =
   let builder = new StmtBuilder (8)
   let dst = tmpVar OperationSize.regType
+  let src1 = tmpVar OperationSize.regType
+  let src2 = tmpVar OperationSize.regType
+  let src3 = tmpVar OperationSize.regType
   startMark insInfo builder
-  let src1, src2, src3 = getThreeInputsFromStack ctxt builder
+  popFromStack ctxt src1 builder
+  popFromStack ctxt src2 builder
+  popFromStack ctxt src3 builder
   builder <! (dst := (src1 .* src2) .% src3)
-  opPush ctxt dst builder
+  pushToStack ctxt dst builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
 let signextend insInfo ctxt =
   let builder = new StmtBuilder (8)
   let dst = tmpVar OperationSize.regType
+  let b = tmpVar OperationSize.regType
+  let x = tmpVar OperationSize.regType
   startMark insInfo builder
-  let b, x = getTwoInputsFromStack ctxt builder
+  popFromStack ctxt b builder
+  popFromStack ctxt x builder
   builder <! (dst := sExt OperationSize.regType x) // FIXME
-  opPush ctxt dst builder
+  pushToStack ctxt dst builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
@@ -146,36 +148,43 @@ let iszero insInfo ctxt =
   let builder = new StmtBuilder (8)
   let opSize = OperationSize.regType
   let dst = tmpVar opSize
+  let v = tmpVar opSize
   startMark insInfo builder
-  let src = getOneInputFromStack ctxt builder
-  builder <! (dst := zExt opSize (src == num0 opSize))
-  opPush ctxt dst builder
+  popFromStack ctxt v builder
+  builder <! (dst := zExt opSize (v == num0 opSize))
+  pushToStack ctxt dst builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
 let logAnd insInfo ctxt = basicOperation insInfo ctxt (.&)
+
 let logOr insInfo ctxt = basicOperation insInfo ctxt (.|)
+
 let xor insInfo ctxt = basicOperation insInfo ctxt (<+>)
 
 let not insInfo ctxt =
   let builder = new StmtBuilder (8)
   let opSize = OperationSize.regType
   let dst = tmpVar opSize
+  let src = tmpVar opSize
   startMark insInfo builder
-  let src = getOneInputFromStack ctxt builder
+  popFromStack ctxt src builder
   builder <! (dst := zExt opSize (not src))
-  opPush ctxt dst builder
+  pushToStack ctxt dst builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
 let byte insInfo ctxt =
   let builder = new StmtBuilder (8)
   let dst = tmpVar OperationSize.regType
-  startMark insInfo builder
-  let src1, src2 = getTwoInputsFromStack ctxt builder
+  let src1 = tmpVar OperationSize.regType
+  let src2 = tmpVar OperationSize.regType
   let num i = num <| BitVector.ofInt32 i OperationSize.regType
+  startMark insInfo builder
+  popFromStack ctxt src1 builder
+  popFromStack ctxt src2 builder
   builder <! (dst := (src2 >> (num 248 .- src1 .* num 8)) .& num 0xff)
-  opPush ctxt dst builder
+  pushToStack ctxt dst builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
@@ -185,27 +194,32 @@ let sar insInfo ctxt = basicOperation insInfo ctxt (?>>)
 
 let pop insInfo ctxt =
   let builder = new StmtBuilder (4)
+  let dst = tmpVar OperationSize.regType
   startMark insInfo builder
-  opPop ctxt builder |> ignore
+  popFromStack ctxt dst builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
 let mload insInfo ctxt =
   let builder = new StmtBuilder (8)
   let opSize = OperationSize.regType
-  let value = tmpVar opSize
+  let value = tmpVar OperationSize.regType
+  let offset = tmpVar OperationSize.regType
   startMark insInfo builder
-  let offset = getOneInputFromStack ctxt builder
+  popFromStack ctxt offset builder
   builder <! (value := loadLE opSize offset)
-  opPush ctxt value builder
+  pushToStack ctxt value builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
 let mstore insInfo ctxt =
   let builder = new StmtBuilder (8)
   let opSize = OperationSize.regType
+  let offset = tmpVar OperationSize.regType
+  let value = tmpVar OperationSize.regType
   startMark insInfo builder
-  let offset, value = getTwoInputsFromStack ctxt builder
+  popFromStack ctxt offset builder
+  popFromStack ctxt value builder
   builder <! (loadLE opSize offset := value)
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
@@ -213,36 +227,44 @@ let mstore insInfo ctxt =
 let mstore8 insInfo ctxt =
   let builder = new StmtBuilder (8)
   let opSize = OperationSize.regType
-  startMark insInfo builder
-  let offset, value = getTwoInputsFromStack ctxt builder
+  let offset = tmpVar OperationSize.regType
+  let value = tmpVar OperationSize.regType
   let num i = numI32 i opSize
+  startMark insInfo builder
+  popFromStack ctxt offset builder
+  popFromStack ctxt value builder
   builder <! (loadLE opSize offset := value .& num 0xff)
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
 let jump insInfo ctxt =
   let builder = new StmtBuilder (8)
+  let dst = tmpVar OperationSize.regType
+  let pc = getRegVar ctxt R.PC
   startMark insInfo builder
-  let src = getOneInputFromStack ctxt builder
-  builder <! (getRegVar ctxt R.PC := extractLow 64<rt> src)
+  popFromStack ctxt dst builder
   updateGas ctxt insInfo.GAS builder
+  builder <! InterJmp (pc, extractLow 64<rt> dst, InterJmpInfo.Base)
   endMark insInfo builder
 
 let jumpi insInfo ctxt =
   let builder = new StmtBuilder (8)
-  startMark insInfo builder
-  let src, cond = getTwoInputsFromStack ctxt builder
-  let src = extractLow 64<rt> src
+  let dst = tmpVar OperationSize.regType
+  let cond = tmpVar OperationSize.regType
   let pc = getRegVar ctxt R.PC
-  builder <! (pc := ite (extractLow 1<rt> cond) src (pc .+ num1 64<rt>))// FIXME
+  let fall = numU64 (insInfo.Address + 1UL) 64<rt>
+  startMark insInfo builder
+  popFromStack ctxt dst builder
+  popFromStack ctxt cond builder
   updateGas ctxt insInfo.GAS builder
+  builder <! InterCJmp (extractLow 1<rt> cond, pc, extractLow 64<rt> dst, fall)
   endMark insInfo builder
 
 let getpc insInfo ctxt =
   let builder = new StmtBuilder (8)
   startMark insInfo builder
   let pc = getRegVar ctxt R.PC |> zExt OperationSize.regType
-  opPush ctxt pc builder
+  pushToStack ctxt pc builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
@@ -251,7 +273,7 @@ let gas insInfo ctxt =
   startMark insInfo builder
   let gasRemaining = tmpVar OperationSize.regType
   builder <! (gasRemaining := zExt OperationSize.regType (getRegVar ctxt R.GAS))
-  opPush ctxt gasRemaining builder
+  pushToStack ctxt gasRemaining builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
@@ -260,7 +282,7 @@ let push insInfo ctxt imm =
   let dst = tmpVar OperationSize.regType
   startMark insInfo builder
   builder <! (dst := zExt OperationSize.regType (num imm))
-  opPush ctxt dst builder
+  pushToStack ctxt dst builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
@@ -271,7 +293,7 @@ let dup insInfo ctxt pos =
   let sp = getRegVar ctxt R.SP
   let pos = numI32 (pos * 32) OperationSize.regType
   builder <! (value := loadLE OperationSize.regType (sp .+ pos))
-  opPush ctxt value builder
+  pushToStack ctxt value builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
@@ -415,6 +437,8 @@ let translate insInfo (ctxt: TranslationContext) =
   | Op.SWAP14 -> swap insInfo ctxt 14
   | Op.SWAP15 -> swap insInfo ctxt 15
   | Op.SWAP16 -> swap insInfo ctxt 16
+  | Op.RETURN
+  | Op.REVERT -> sideEffects insInfo Halt
   | Op.LOG0
   | Op.LOG1
   | Op.LOG2
@@ -435,12 +459,10 @@ let translate insInfo (ctxt: TranslationContext) =
   | Op.CREATE
   | Op.CALL
   | Op.CALLCODE
-  | Op.RETURN
   | Op.DELEGATECALL
   | Op.CREATE2
   | Op.STATICCALL
   | Op.TXEXECGAS
-  | Op.REVERT
   | Op.INVALID
   | Op.SELFDESTRUCT -> sideEffects insInfo UndefinedInstr
   |> fun builder -> builder.ToStmts ()

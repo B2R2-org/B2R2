@@ -41,7 +41,8 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
 
   override __.IsBranch () =
     match __.Info.Opcode with
-    | Opcode.JUMP -> true
+    | Opcode.JUMP
+    | Opcode.JUMPI -> true
     | _ -> false
 
   member __.HasConcJmpTarget () = false
@@ -54,22 +55,29 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
 
   override __.IsCondBranch () =
     match __.Info.Opcode with
-    | Opcode.JUMP -> true
+    | Opcode.JUMPI -> true
     | _ -> false
 
   override __.IsCJmpOnTrue () =
     match __.Info.Opcode with
-    | Opcode.JUMP -> true
+    | Opcode.JUMPI -> true
     | _ -> false
 
-  override __.IsCall () =
+  override __.IsCall () = false
+
+  override __.IsRET () =
     match __.Info.Opcode with
-    | Opcode.JUMP -> true
+    | Opcode.REVERT
+    | Opcode.RETURN -> true
     | _ -> false
-
-  override __.IsRET () = false // XXX
 
   override __.IsInterrupt () = Utils.futureFeature ()
+
+  member private __.IsHaltingInstruction () =
+    __.Info.Opcode = Opcode.REVERT
+    || __.Info.Opcode = Opcode.RETURN
+    || __.Info.Opcode = Opcode.SELFDESTRUCT
+    || __.Info.Opcode = Opcode.INVALID
 
   override __.IsExit () =
     __.IsDirectBranch ()
@@ -88,8 +96,8 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
   override __.GetNextInstrAddrs () =
     let fallthrough = __.Address + uint64 __.Length
     let acc = Seq.singleton (fallthrough, ArchOperationMode.NoMode)
-    // FIXME
-    acc
+    if __.IsHaltingInstruction () then Seq.empty
+    else acc
 
   override __.InterruptNum (num: byref<int64>) = Utils.futureFeature ()
 
