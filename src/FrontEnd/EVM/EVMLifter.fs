@@ -196,7 +196,7 @@ let mload insInfo ctxt =
   let value = tmpVar opSize
   startMark insInfo builder
   let offset = getOneInputFromStack ctxt builder
-  builder <! (value := loadLE opSize (offset .+ numI32 32 opSize))
+  builder <! (value := loadLE opSize offset)
   opPush ctxt value builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
@@ -206,7 +206,7 @@ let mstore insInfo ctxt =
   let opSize = OperationSize.regType
   startMark insInfo builder
   let offset, value = getTwoInputsFromStack ctxt builder
-  builder <! (loadLE opSize (offset .+ numI32 32 opSize) := value)
+  builder <! (loadLE opSize offset := value)
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
@@ -216,7 +216,7 @@ let mstore8 insInfo ctxt =
   startMark insInfo builder
   let offset, value = getTwoInputsFromStack ctxt builder
   let num i = numI32 i opSize
-  builder <! (loadLE opSize (offset .+ num 32) := value .& num 0xff)
+  builder <! (loadLE opSize offset := value .& num 0xff)
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
