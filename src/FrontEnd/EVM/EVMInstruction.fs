@@ -71,9 +71,13 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
 
   override __.IsInterrupt () = Utils.futureFeature ()
 
-  override __.IsExit () = // FIXME
-    __.IsDirectBranch () ||
-    __.IsIndirectBranch ()
+  override __.IsExit () =
+    __.IsDirectBranch ()
+    || __.IsIndirectBranch ()
+    || __.Info.Opcode = Opcode.REVERT
+    || __.Info.Opcode = Opcode.RETURN
+    || __.Info.Opcode = Opcode.SELFDESTRUCT
+    || __.Info.Opcode = Opcode.INVALID
 
   override __.DirectBranchTarget (addr: byref<Addr>) = false
 
