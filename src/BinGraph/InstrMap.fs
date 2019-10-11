@@ -84,7 +84,10 @@ module InstrMap =
       updateInstrMapAndGetTheLastInstr hdl map rest
 
   /// Build a mapping from Addr to Instruction. This function recursively parses
-  /// the binary, but does not lift it yet.
+  /// the binary, but does not lift it yet. Since GetNextInstrAddrs returns next
+  /// concrete target addresses, this function does *not* reveal all reachable
+  /// instructions. Such uncovered instructions should be handled in the next
+  /// phase.
   let build (hdl: BinHandler) entries =
     let map = InstrMap ()
     let rec buildLoop = function

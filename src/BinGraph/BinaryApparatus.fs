@@ -36,10 +36,55 @@ open B2R2.BinIR.LowUIR
 /// stores only "computed" jump targets.
 type JmpTargetMap = Map<Addr, Addr list>
 
-/// Binary apparatus contains the key components and information for our CFG
-/// analysis, such as all the parsed instructions from the target binary as well
-/// as the positions of all the leaders found. This will be updated through our
-/// CFG analyses.
+/// <summary>
+///   Binary apparatus contains the key components and information for our CFG
+///   analysis, such as all the parsed instructions from the target binary as
+///   well as the positions of all the leaders found. This will be updated
+///   through our CFG analyses.
+/// </summary>
+/// <remarks>
+///   <para>B2R2's CFG analyses roughly work as follows.</para>
+///   <para>
+///     In the very first stage, we recursively parse (and lift) binary
+///     instructions starting from the given entry point. In this stage, we
+///     simply follow concrete edges. Therefore we may miss indirect branches in
+///     this stage, but we will handle them later. After parsing the entire
+///     binary, we obtain a mapping (InstrMap) from an address to a pair of an
+///     instruction and an array of LowUIR statements.
+///   </para>
+///   <para>
+///     Next, we recursively traverse every instruction found again as we did in
+///     the first stage, but in this stage, we will analyze lifted LowUIR
+///     statements to figure out any internal branches (intra-instruction
+///     branches). This step is important to gather all possible program points
+///     (ProgramPoint), which are a jump target, i.e., a leader. The leader
+///     information is stored in the LeaderPositions field.
+///   </para>
+///   <para>
+///     While we compute the leader positions, we mark every call target
+///     encountered to build both CallerMap and CalleeMap. Normally, being a
+///     call target (i.e., callee) implies being a function entry. However, this
+///     is not always the case. We should not always consider a callee as a
+///     function. Nevertheless, our lens-based framework can provide a valid CFG
+///     at any callee, which can greatly help further analyses.
+///   </para>
+///   <para>
+///     Once BinaryApparatus is constructed, our SCFG module will then build a
+///     graph based on the information found in the BinaryApparatus. The details
+///     should be found in the SCFG module.
+///   </para>
+///   <para>
+///     Now that we have obtained basic information (BinaryApparatus and SCFG)
+///     to work with, we perform some post analyses to improve the information.
+///     For example, we remove unnecessary edges from the SCFG by disconnecting
+///     return edges from a function that termiates the process (e.g., exit
+///     function), and we recover indirect branch targets to discover more
+///     instructions. After the post analyses, we may or may not have an updated
+///     BinaryApparatus, in which case we rerun the above steps to update our
+///     SCFG (with newly found instructions, etc.). We terminate our analysis
+///     when our post analayses do not bring a different BinaryApparatus.
+///   </para>
+/// </remarks>
 type BinaryApparatus = {
   InstrMap: InstrMap
   LabelMap: Map<Symbol, Addr * int>
