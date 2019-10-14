@@ -608,6 +608,9 @@ let replicate expr regType lsb width value =
   let v = BitVector.ofUBInt (BigInteger.getMask width <<< lsb) regType
   if value = 0 then expr .& (v |> BitVector.bnot |> num) else expr .| (v |> num)
 
+/// All-ones bitstring, on page AppxP-2652.
+let ones rt = BitVector.ofUBInt (RegType.getMask rt) rt |> num
+
 let writeModeBits ctxt value isExcptReturn (builder: StmtBuilder) =
   let lblL8 = lblSymbol "L8"
   let lblL9 = lblSymbol "L9"
@@ -3686,7 +3689,7 @@ let vectorCompare insInfo ctxt cmp =
       let src2 = if isImm src2 then num0 p.RtESize
                  else elem (extract src2 64<rt> (r * 64)) e p.ESize
       let t = cmp (elem src1 e p.ESize) src2
-      builder <! (elem rd e p.ESize := ite t (num1 p.RtESize) (num0 p.RtESize))
+      builder <! (elem rd e p.ESize := ite t (ones p.RtESize) (num0 p.RtESize))
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
