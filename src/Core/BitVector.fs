@@ -496,7 +496,8 @@ type BitVector =
     elif len = 1<rt> then
       { v1 with Num = if v2.Num = 0UL then v1.Num else 0UL }
     elif len <= 64<rt> then
-      { v1 with Num = BitVector.castSmall (v1.Num <<< int v2.Num) len }
+      { v1 with Num = if v2.Num >= 64UL then 0UL
+                      else BitVector.castSmall (v1.Num <<< int v2.Num) len }
     else
       let n = bigint.op_LeftShift (v1.BigNum, int v2.BigNum)
       { v1 with BigNum = BitVector.castBig n len }
@@ -508,21 +509,25 @@ type BitVector =
       { v1 with Num = if v2.Num = 0UL then v1.Num else 0UL }
     elif v1.Length <= 64<rt> then
       (* In .NET, 1UL >>> 63 = 0, but 1UL >>> 64 = 1 *)
-      let amount = min (int v2.Num) 0x3f
-      { v1 with Num = v1.Num >>> amount }
+      { v1 with Num = v1.Num >>> min (int v2.Num) 0x3f }
     else
       { v1 with BigNum = bigint.op_RightShift (v1.BigNum, int v2.BigNum) }
 
   [<CompiledName("Sar")>]
   static member sar v1 v2 =
     let n1, n2 = v1.Num, v2.Num
-    if v1.Length <> v2.Length then raise ArithTypeMismatchException
-    match v1.Length with
+    let l1, l2 = v1.Length, v2.Length
+    if l1 <> l2 then raise ArithTypeMismatchException
+    match l1 with
     | 1<rt> -> { v1 with Num = if n2 = 0UL then n1 else 0UL }
-    | 8<rt> -> { v1 with Num = (int8 n1 >>> int n2) |> uint8 |> uint64 }
-    | 16<rt> -> { v1 with Num = (int16 n1 >>> int n2) |> uint16 |> uint64 }
-    | 32<rt> -> { v1 with Num = (int32 n1 >>> int n2) |> uint32 |> uint64 }
-    | 64<rt> -> { v1 with Num = (int64 n1 >>> int n2) |> uint64 }
+    | 8<rt> ->
+      { v1 with Num = (int8 n1 >>> min (int n2) 0x7) |> uint8 |> uint64 }
+    | 16<rt> ->
+      { v1 with Num = (int16 n1 >>> min (int n2) 0xf) |> uint16 |> uint64 }
+    | 32<rt> ->
+      { v1 with Num = (int32 n1 >>> min (int n2) 0x1f) |> uint32 |> uint64 }
+    | 64<rt> ->
+      { v1 with Num = (int64 n1 >>> min (int n2) 0x3f) |> uint64 }
     | t when t < 64<rt> ->
       let res = BitVector.shr v1 v2
       if BitVector.isPositive v1 then res
