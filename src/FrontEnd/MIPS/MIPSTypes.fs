@@ -473,12 +473,14 @@ type Operand =
   | Memory of Base * Offset * AccessLength
   | Address of JumpTarget
   | ShiftAmount of Imm
+  | GoToLabel of Label
 
 and Imm = uint64
 and JumpTarget = Relative of Offset
 and Offset = int64
 and Base = Register
 and AccessLength = RegType
+and Label = string
 
 type Operands =
   | NoOperand

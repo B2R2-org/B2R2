@@ -284,6 +284,8 @@ let oprToString insInfo opr delim builder acc =
   | Address (Relative offset) ->
     builder AsmWordKind.String delim acc
     |> relToString insInfo.Address offset builder
+  // Never gets matched. Only used in intermediate stage mips assembly parser.
+  | GoToLabel _ -> raise InvalidOperandException
 
 let buildOprs insInfo builder acc =
   match insInfo.Operands with

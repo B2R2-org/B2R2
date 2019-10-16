@@ -1,7 +1,8 @@
-(*
+﻿(*
   B2R2 - the Next-Generation Reversing Platform
 
-  Author: Kangsu Kim <kskim0610@kaist.ac.kr>
+  Author: Mehdi Aghakishiyev <agakisiyev.mehdi@gmail.com>
+          Michael Tegegn <mick@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -23,16 +24,20 @@
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE.
 *)
+module B2R2.Assembler.MIPS.MIPSParserRunner
 
-namespace B2R2.Assembler.MIPS
+open B2R2.Assembler.MIPS.Parser
+open B2R2.Assembler.MIPS.SecondPass
 
-type Operand =
-  | Address of string option * string
-  | Immediate of string
-  | Label of string
-  | Register of string
 
-// TODO: convert string to Opcode, Operand to Instruction Operand
-type Statement =
-  | Instruction of string * Operand list
-  | Label of string
+type Runner (isa, startAddress) =
+
+  let parser = MIPSParser (isa, startAddress)
+
+  /// Runs the mips assembly parser on the assembly string 'mipsAssembly' and
+  /// returns a list of InsInfo's.
+  member __.Run mipsAssembly =
+    match parser.Parse mipsAssembly with
+    | FParsec.CharParsers.Success (result, us, _) -> updateInsInfos result us
+    | FParsec.CharParsers.Failure (str, _, _) ->
+        printfn "Parser failed!\n%s" str; []

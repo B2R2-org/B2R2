@@ -2,6 +2,8 @@
   B2R2 - the Next-Generation Reversing Platform
 
   Author: Kangsu Kim <kskim0610@kaist.ac.kr>
+          Mehdi Aghakishiyev <agakisiyev.mehdi@gmail.com>
+          Michael Tegegn <mick@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -25,42 +27,83 @@
 *)
 
 module B2R2.Assembler.MIPS.Parser
-
+open B2R2
 open B2R2.Assembler.MIPS
 open B2R2.FrontEnd.MIPS
 open FParsec
 open System
 
-type UserState = unit
+type UserState = Map<string, Addr>
 type Parser<'t> = Parser<'t, UserState>
-type Operand = B2R2.Assembler.MIPS.Operand
 
-module private Rules =
+type MIPSParser (mipsISA: ISA, startAddress: Addr) =
+
+  let mutable address = startAddress
+
+  (* Helper functions for updating the UserState. *)
+  let addLabeldef lbl =
+    updateUserState ( fun (us: Map<string, Addr>) -> us.Add (lbl, address))
+    >>. preturn ()
+  let incrementAddress =
+    preturn () |>> (fun _ -> address <- address + 4UL)
+
   let registerNames =
     [| "zero"; "at"; "v0"; "v1"; "a0"; "a1"; "a2"; "a3"; "t0"; "t1"; "t2"; "t3";
        "t4"; "t5"; "t6"; "t7"; "s0"; "s1"; "s2"; "s3"; "s4"; "s5"; "s6"; "s7";
        "t8"; "t9"; "k0"; "k1"; "gp"; "sp"; "s8"; "fp"; "ra"; |]
 
   let isWhitespace c = [ ' '; '\t'; '\f' ] |> List.contains c
-  let whitespace: Parser<_> = manySatisfy isWhitespace
-  let whitespace1: Parser<_> = many1Satisfy isWhitespace
+  let whitespace = manySatisfy isWhitespace
+  let whitespace1 = many1Satisfy isWhitespace
   let skipWhitespaces s = whitespace >>? s .>>? whitespace
-  let terminator: Parser<_> = (pchar ';' <|> newline) |> skipWhitespaces
+  let terminator = (pchar ';' <|> newline) |> skipWhitespaces
 
-  let operandSeps: Parser<_> = (pchar ',' >>. whitespace) <|> whitespace1
+  let operandSeps = (pchar ',' >>. whitespace) <|> whitespace1
   let betweenParen s = s |> skipWhitespaces |> between (pchar '(') (pchar ')')
 
   let alphanumericWithUnderscore s = Char.IsLetterOrDigit s || s = '_'
 
-  let pId: Parser<_> = many1Satisfy alphanumericWithUnderscore
-  let labelDef: Parser<_> = pId .>>? pchar ':' |>> Statement.Label
+  let pId = many1Satisfy alphanumericWithUnderscore
+  let pLabelDef = pId .>>? pchar ':' >>= addLabeldef
 
-  let opcode: Parser<_> =
+  let pOpcode =
     (Enum.GetNames typeof<Opcode>)
-    |> Array.map pstringCI
+    |> Array.map (pstringCI)
+    |> Array.map
+      (fun p -> p .>> (lookAhead (pchar '.') <|> lookAhead (pchar ' ')))
+    |> Array.map (fun p -> attempt (p))
+    |> Array.map
+      (fun (p) ->
+        p |>>
+          (fun name -> Enum.Parse(typeof<Opcode>, name.ToUpper()) :?> Opcode))
     |> choice
 
-  let label: Parser<_> = pId |>> Operand.Label
+  let pCondition =
+    pchar '.'
+    >>.
+    ((Enum.GetNames typeof<Condition>)
+    |> Array.map pstringCI
+    |> Array.map
+      (fun p ->
+        p |>>
+          (fun name ->
+            Enum.Parse(typeof<Condition>, name.ToUpper()) :?> Condition))
+    |> choice)
+
+  let pFmtTemp =
+    pchar '.'
+    >>.
+    ((Enum.GetNames typeof<Fmt>)
+    |> Array.map pstringCI
+    |> Array.map
+      (fun p ->
+        p |>> (fun name -> Enum.Parse(typeof<Fmt>, name.ToUpper()) :?> Fmt))
+    |> choice)
+
+  let pFmt =
+    pFmtTemp .>> (opt pFmtTemp)
+
+  let label = pId |>> Operand.GoToLabel
 
   let numberFormat =
     NumberLiteralOptions.AllowBinary
@@ -68,41 +111,56 @@ module private Rules =
     ||| NumberLiteralOptions.AllowHexadecimal
     ||| NumberLiteralOptions.AllowMinusSign
   let regNumberFormat = NumberLiteralOptions.None
-  let pImm: Parser<_> =
-    numberLiteral numberFormat "number" |>> (fun x -> x.String)
-  let pRegImm: Parser<_> =
+  let pImm =
+    numberLiteral numberFormat "number" |>> (fun x -> x.String |> uint64)
+  let pRegImm =
     numberLiteral regNumberFormat "number" |>> (fun x -> x.String)
-  let operators: Parser<_> = pchar '+' <|> pchar '-'
-  let immWithOperators: Parser<_> =
-    attempt (pipe3 pImm operators pImm (fun a b c -> sprintf "%s%c%s" a b c))
-  let imm: Parser<_> = immWithOperators <|> pImm |>> Operand.Immediate
+  let operators = (pchar '+' |>> fun _ -> (+)) <|> (pchar '-' |>> fun _ -> (-))
+  let immWithOperators =
+    attempt (pipe3 pImm operators pImm (fun a op c -> op a c))
+  let imm = immWithOperators <|> pImm |>> Operand.Immediate
 
-  let registers: Parser<_> [] =
+  let registersList =
     (Enum.GetNames typeof<Register>)
     |> Array.append registerNames
     |> Array.map pstringCI
 
-  let allRegisters: Parser<_> [] =
-    Array.append [|pRegImm|] registers
+  let allRegistersList =
+    Array.append [|pRegImm|] registersList
 
-  let pReg: Parser<_> =
-    (pchar '$' >>. (allRegisters |> choice))
-    <|> (registers |> choice)
+  let pReg =
+    ( (pchar '$' >>. (allRegistersList |> choice)) <|>
+      (registersList |> choice) )
+    |>> (fun regName ->
+           Enum.Parse (typeof<Register>, ParseHelper.getRealRegName regName)
+           :?> Register)
+    <??> "registers"
 
-  let reg: Parser<_> = pReg |>> Operand.Register
+  let reg = pReg |>> Operand.Register
   let regAddr: Parser<_> = betweenParen pReg
 
-  let paddr: Parser<_> = opt (pImm .>> whitespace) .>>.? regAddr
-  let addr: Parser<_> = paddr |>> Operand.Address
+  let paddr = opt (pImm .>> whitespace |>> int64) .>>.? regAddr
+  let addr =
+    paddr |>> (fun (ofstOp, reg) ->
+                 match ofstOp with
+                 | Some offset -> Memory (reg, offset, 32<rt>)
+                 | None -> Memory (reg, 0L, 32<rt>)
+               )
 
-  let operand: Parser<_> = addr <|> reg <|> imm <|> label
-  let operands: Parser<_> = sepBy operand operandSeps
+  let operand = addr <|> reg <|> imm <|> label
+  let operands = sepBy operand operandSeps |>> ParseHelper.extractOperands
+  let pInsInfo =
+      pOpcode .>>.
+      (attempt (opt pCondition)) .>>.
+      (opt pFmt) .>>.
+      (whitespace >>. operands)
+      |>> (fun (((opcode, cond), fmt), operands) ->
+              MIPSInsInfo.construct mipsISA address opcode cond fmt operands )
 
-  let instruction: Parser<_> =
-    opcode .>>. (whitespace >>. operands) |>> Statement.Instruction
-  let statement: Parser<_> =
-    (opt labelDef .>> whitespace) .>>. (opt instruction)
-  let statements: Parser<_> = sepEndBy statement terminator .>> eof
+  let statement =
+    opt pLabelDef >>. spaces >>. pInsInfo  .>> incrementAddress
 
-let parse assembly =
-  run Rules.statements assembly
+  let statements = sepEndBy statement terminator .>> eof
+
+  member __.Parse assembly =
+    runParserOnString statements Map.empty<string, Addr>  "" assembly

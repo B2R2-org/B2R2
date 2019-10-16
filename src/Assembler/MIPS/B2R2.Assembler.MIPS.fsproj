@@ -5,9 +5,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="MIPSTypes.fs" />
+    <Compile Include="MIPSUtils.fs" />
     <Compile Include="MIPSParser.fs" />
-    <Compile Include="MIPSStmtConverter.fs" />
+    <Compile Include="MIPSSecondPass.fs" />
+    <Compile Include="MIPSParserRunner.fs" />
   </ItemGroup>
 
   <ItemGroup>
