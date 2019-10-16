@@ -2849,7 +2849,9 @@ let vpopLoop ctxt d imm isSReg addr (builder: StmtBuilder) =
       let word1 = loadLE 32<rt> addr
       let word2 = loadLE 32<rt> (addr .+ (num <| BitVector.ofInt32 4 32<rt>))
       let nextAddr = addr .+ (num <| BitVector.ofInt32 8 32<rt>)
-      builder <! (getRegVar ctxt reg := concat word1 word2)
+      let isbig = ctxt.Endianness = Endian.Big
+      builder <! (getRegVar ctxt reg := if isbig then concat word1 word2
+                                        else concat word2 word1)
       nonSingleRegLoop (r + 1) nextAddr
     else ()
   let loopFn = if isSReg then singleRegLoop else nonSingleRegLoop
