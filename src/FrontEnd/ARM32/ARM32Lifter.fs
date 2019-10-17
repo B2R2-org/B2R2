@@ -2886,8 +2886,11 @@ let vpushLoop ctxt d imm isSReg addr (builder: StmtBuilder) =
       let mem1 = loadLE 32<rt> addr
       let mem2 = loadLE 32<rt> (addr .+ (num <| BitVector.ofInt32 4 32<rt>))
       let nextAddr = addr .+ (num <| BitVector.ofInt32 8 32<rt>)
-      builder <! (mem1 := extractHigh 32<rt> (getRegVar ctxt reg))
-      builder <! (mem2 := extractLow 32<rt> (getRegVar ctxt reg))
+      let isbig = ctxt.Endianness = Endian.Big
+      let data1 = extractHigh 32<rt> (getRegVar ctxt reg)
+      let data2 = extractLow 32<rt> (getRegVar ctxt reg)
+      builder <! (mem1 := if isbig then data1 else data2)
+      builder <! (mem2 := if isbig then data2 else data1)
       nonSingleRegLoop (r + 1) nextAddr
     else ()
   let loopFn = if isSReg then singleRegLoop else nonSingleRegLoop
