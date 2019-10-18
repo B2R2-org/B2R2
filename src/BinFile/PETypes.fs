@@ -30,7 +30,7 @@ open B2R2
 open System.Reflection.PortableExecutable
 
 /// Base Relocation Type.
-type BaseRelocType =                                                                                              
+type BaseRelocType =
   | ImageRelBasedAbsolute = 0
   | ImageRelBasedHigh = 1
   | ImageRelBasedLow = 2
@@ -60,8 +60,8 @@ type RelocBlock = {
 }
 
 /// The import information begins with the import directory table, which
-/// describes the remainder of the import information. There is one
-/// ImportDirectoryTable per DLL.
+/// describes the remainder of the import information. This type includes both
+/// delay IDT and normal IDT.
 type ImportDirectoryTable = {
   /// The RVA of the import lookup table.
   ImportLookupTableRVA: int
@@ -73,6 +73,8 @@ type ImportDirectoryTable = {
   /// identical to the contents of the import lookup table until the image is
   /// bound.
   ImportAddressTableRVA: int
+  /// Indicate whether this IDT is delay IDT or not.
+  DelayLoad: bool
 }
 
 /// Import information.

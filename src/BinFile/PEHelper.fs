@@ -78,29 +78,48 @@ let readStr headers (binReader: BinReader) rva =
 let inline addrFromRVA (headers: PEHeaders) rva =
   uint64 rva + headers.PEHeader.ImageBase
 
-let readImportDirectoryTableEntry (binReader: BinReader) headers pos =
-  { ImportLookupTableRVA = binReader.PeekInt32 pos
-    ForwarderChain = binReader.PeekInt32 (pos + 8)
-    ImportDLLName = binReader.PeekInt32 (pos + 12) |> readStr headers binReader
-    ImportAddressTableRVA = binReader.PeekInt32 (pos + 16) }
-
 let isNULLImportDir tbl =
   tbl.ImportLookupTableRVA = 0
   && tbl.ForwarderChain = 0
   && tbl.ImportDLLName = ""
   && tbl.ImportAddressTableRVA = 0
 
-let parseImportDirectoryTable binReader headers pos =
-  let rec loop acc pos =
-    let tbl = readImportDirectoryTableEntry binReader headers pos
-    if isNULLImportDir tbl then acc else loop (tbl :: acc) (pos + 20)
-  loop [] pos |> List.rev |> List.toArray
+let readIDTEntry (binReader: BinReader) headers pos =
+  { ImportLookupTableRVA = binReader.PeekInt32 pos
+    ForwarderChain = binReader.PeekInt32 (pos + 8)
+    ImportDLLName = binReader.PeekInt32 (pos + 12) |> readStr headers binReader
+    ImportAddressTableRVA = binReader.PeekInt32 (pos + 16)
+    DelayLoad = false }
 
-let parseImports (binReader: BinReader) (headers: PEHeaders) =
-  match headers.PEHeader.ImportTableDirectory.RelativeVirtualAddress with
+let readDelayIDTEntry (binReader: BinReader) headers pos =
+  { ImportLookupTableRVA = binReader.PeekInt32 (pos + 16)
+    ForwarderChain = 0
+    ImportDLLName = binReader.PeekInt32 (pos + 4) |> readStr headers binReader
+    ImportAddressTableRVA = binReader.PeekInt32 (pos + 12)
+    DelayLoad = true }
+
+let parseImportDirectoryTableAux binReader headers readFn nextPos = function
   | 0 -> [||]
   | rva ->
-    getRawOffset headers rva |> parseImportDirectoryTable binReader headers
+    let rec loop acc pos =
+      let tbl = readFn binReader headers pos
+      if isNULLImportDir tbl then acc else loop (tbl :: acc) (nextPos pos)
+    getRawOffset headers rva |> loop [] |> List.rev |> List.toArray
+
+let parseImportDirectoryTable binReader (headers: PEHeaders) =
+  let nextPos pos = pos + 20
+  headers.PEHeader.ImportTableDirectory.RelativeVirtualAddress
+  |> parseImportDirectoryTableAux binReader headers readIDTEntry nextPos
+
+let parseDelayImportDirectoryTable binReader (headers: PEHeaders) =
+  let nextPos pos = pos + 32
+  headers.PEHeader.DelayImportTableDirectory.RelativeVirtualAddress
+  |> parseImportDirectoryTableAux binReader headers readDelayIDTEntry nextPos
+
+let parseImports (binReader: BinReader) (headers: PEHeaders) =
+  let mainImportTable = parseImportDirectoryTable binReader headers
+  let delayImportTable = parseDelayImportDirectoryTable binReader headers
+  Array.append mainImportTable delayImportTable
 
 let parseILTEntry (binReader: BinReader) headers idt mask rva =
   let dllname = idt.ImportDLLName
@@ -190,7 +209,7 @@ let parseExports binReader (headers: PEHeaders) =
     |> readExportDirectoryTableEntry binReader headers
     |> buildExportTable binReader headers sec
 
-let buildRelocBlock (binReader: BinReader) headerOffset =  
+let buildRelocBlock (binReader: BinReader) headerOffset =
   let blockSize = binReader.PeekInt32 (headerOffset + 4)
   let upperBound = headerOffset + blockSize
   let rec parseBlock offset entries =
@@ -210,11 +229,14 @@ let parseRelocation (binReader: BinReader) (headers: PEHeaders) =
   | 0 -> List.empty
   | rva ->
     let headerOffset = getRawOffset headers rva
-    let upperBound = headerOffset + headers.PEHeader.BaseRelocationTableDirectory.Size
+    let upperBound =
+      headerOffset + headers.PEHeader.BaseRelocationTableDirectory.Size
     let rec parseRelocationDirectory offset blocks =
       if offset < upperBound then
         let relocBlock = buildRelocBlock binReader offset
-        parseRelocationDirectory (offset + relocBlock.BlockSize) (relocBlock::blocks)
+        parseRelocationDirectory
+          (offset + relocBlock.BlockSize)
+          (relocBlock :: blocks)
       else
         blocks
     parseRelocationDirectory headerOffset List.empty
