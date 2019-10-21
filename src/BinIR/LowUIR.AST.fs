@@ -45,7 +45,7 @@ module TypeCheck =
     | Cast (_, t, _, _, _) -> t
     | Extract (_, t, _, _, _) -> t
     | Undefined (t, _) -> t
-    | FuncName (_) | Name (_) -> raise InvalidExprException
+    | FuncName (_) | Name (_) | Nil -> raise InvalidExprException
 
   let concatType e1 e2 =
     let t1 = typeOf e1
@@ -143,10 +143,9 @@ module AST =
     { HasLoad = false; VarInfo = RegisterSet.empty; TempVarInfo = Set.empty }
 
   let getExprInfo = function
-    | Num _ | PCVar _ | Name _ | FuncName _ | Undefined _ -> emptyInfo
-    | Var (_, _, _, x) -> { HasLoad = false
-                            VarInfo = x
-                            TempVarInfo = Set.empty }
+    | Num _ | PCVar _ | Nil | Name _ | FuncName _ | Undefined _ -> emptyInfo
+    | Var (_, _, _, x) ->
+      { HasLoad = false; VarInfo = x; TempVarInfo = Set.empty }
     | TempVar (_, name) -> { HasLoad = false
                              VarInfo = RegisterSet.empty
                              TempVarInfo = Set.singleton name }
@@ -219,19 +218,24 @@ module AST =
     match op, e1, e2 with
     | _, Num n1, Num n2 -> evalBinOp n1 n2 op
     | BinOpType.XOR, _, _ when e1 === e2 -> BitVector.zero t |> Num
-    // Add more XOR case
+    (* TODO: add more cases for optimization *)
     | _ -> BinOp (op, t, e1, e2, mergeTwoInfo e1 e2, None) |> proc
 
   let binop op e1 e2 = binopBuilder op e1 e2 (fun x -> x)
 
   let cons a b =
-    let t = getCommonType a b
-    BinOp (BinOpType.CONS, t, a, b, mergeTwoInfo a b, None)
+    match b with
+    | Nil ->
+      BinOp (BinOpType.CONS, typeOf a, a, b, getExprInfo a, None)
+    | _ ->
+      let t = getCommonType a b
+      BinOp (BinOpType.CONS, t, a, b, mergeTwoInfo a b, None)
 
   let app name args retType =
     let funName = FuncName (name)
-    let args = List.reduceBack cons args
-    BinOp (BinOpType.APP, retType, funName, args, getExprInfo args, None)
+    List.reduceBack cons (args @ [ Nil ])
+    |> fun cons ->
+      BinOp (BinOpType.APP, retType, funName, cons, getExprInfo cons, None)
 
   let inline relopBuilder (op: RelOpType) e1 e2 proc =
 #if DEBUG
@@ -492,9 +496,11 @@ module HashCons =
   /// Hash-consed App constructor.
   let app name args retType =
     let funName = FuncName (name)
-    let args = List.reduceBack cons args
-    BinOp (BinOpType.APP, retType, funName, args, AST.getExprInfo args, None)
-    |> hashCons
+    if List.isEmpty args then [ Nil ] else args
+    |> List.reduceBack cons
+    |> fun cons ->
+      BinOp (BinOpType.APP, retType, funName, cons, AST.getExprInfo cons, None)
+      |> hashCons
 
   let unop t e = AST.unopBuilder t e hashCons
 
