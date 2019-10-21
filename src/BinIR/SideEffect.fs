@@ -28,6 +28,8 @@ namespace B2R2.BinIR
 
 /// Side effect kinds.
 type SideEffect =
+  /// Software breakpoint.
+  | Breakpoint
   /// CPU clock access, e.g., RDTSC on x86.
   | ClockCounter
   /// Memory fence operations, e.g., LFENCE/MFENCE/SFENCE on x86.
@@ -57,6 +59,7 @@ type SideEffect =
 
 module SideEffect =
   let toString = function
+    | Breakpoint -> "Breakpoint"
     | ClockCounter -> "CLK"
     | Fence -> "Fence"
     | Halt -> "Halt"

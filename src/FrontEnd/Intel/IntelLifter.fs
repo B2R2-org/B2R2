@@ -4553,7 +4553,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.INC -> inc ins insAddr insLen ctxt
   | Opcode.INSB | Opcode.INSW | Opcode.INSD -> insinstr ins insAddr insLen ctxt
   | Opcode.INT -> interrupt ins insAddr insLen ctxt
-  | Opcode.INT3 -> sideEffects insAddr insLen (Interrupt 3)
+  | Opcode.INT3 -> sideEffects insAddr insLen Breakpoint
   | Opcode.JMPFar | Opcode.JMPNear -> jmp ins insAddr insLen ctxt
   | Opcode.JO | Opcode.JNO | Opcode.JB | Opcode.JNB
   | Opcode.JZ | Opcode.JNZ | Opcode.JBE | Opcode.JA
