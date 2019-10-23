@@ -162,6 +162,12 @@ module BinaryApparatus =
         addAddrLeader (i.Address + uint64 i.Length) acc
       | _ -> acc) acc
 
+  let private updateMissingInstructions hdl acc (instrMap: InstrMap) =
+    acc.Leaders
+    |> Set.filter (fun leader -> not <| instrMap.ContainsKey leader.Address)
+    |> Set.map (fun leader -> InstrMap.translateEntry hdl leader.Address)
+    |> InstrMap.update hdl instrMap
+
   let private initAux hdl auxEntries =
     let entries =
       auxEntries
@@ -179,6 +185,10 @@ module BinaryApparatus =
     printfn "[*] Loaded basic information."
 #endif
     let acc = instrMap |> Seq.fold foldStmts acc
+#if DEBUG
+    printfn "[*] Update instruction information."
+#endif
+    let instrMap = updateMissingInstructions hdl acc instrMap
     let calleeMap = CalleeMap.build hdl acc.FunctionAddrs instrMap
 #if DEBUG
     printfn "[*] The apparatus is ready to use."

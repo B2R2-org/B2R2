@@ -83,13 +83,8 @@ module InstrMap =
       map.[instr.Address] <- toInsIRPair hdl instr
       updateInstrMapAndGetTheLastInstr hdl map rest
 
-  /// Build a mapping from Addr to Instruction. This function recursively parses
-  /// the binary, but does not lift it yet. Since GetNextInstrAddrs returns next
-  /// concrete target addresses, this function does *not* reveal all reachable
-  /// instructions. Such uncovered instructions should be handled in the next
-  /// phase.
-  let build (hdl: BinHandler) entries =
-    let map = InstrMap ()
+  /// Update the map (InstrMap) from the given entries.
+  let update (hdl: BinHandler) map entries =
     let rec buildLoop = function
       | [] -> map
       | (entry, mode) :: rest ->
@@ -101,3 +96,12 @@ module InstrMap =
           let entries = last.GetNextInstrAddrs () |> updateEntries hdl map rest
           buildLoop entries
     buildLoop (Seq.toList entries)
+
+  /// Build a mapping from Addr to Instruction. This function recursively parses
+  /// the binary, but does not lift it yet. Since GetNextInstrAddrs returns next
+  /// concrete target addresses, this function does *not* reveal all reachable
+  /// instructions. Such uncovered instructions should be handled in the next
+  /// phase.
+  let build (hdl: BinHandler) entries =
+    let map = InstrMap ()
+    update hdl map entries
