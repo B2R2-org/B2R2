@@ -32,10 +32,23 @@ open B2R2.FrontEnd
 /// Translation context for Ethereum Virtual Machine (EVM) instructions.
 type EVMTranslationContext (isa) =
   inherit TranslationContext (isa)
+  let mutable stack: B2R2.BinIR.LowUIR.Expr list = []
   /// Register expressions.
-  member val private RegExprs: RegExprs = RegExprs (isa.WordSize)
+  member val private RegExprs: RegExprs = RegExprs ()
+
   override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
+
   override __.GetPseudoRegVar _id _pos = failwith "Implement"
+
+  override __.Push e =
+    stack <- e :: stack
+
+  override __.Pop () =
+    let ret = stack.Head
+    stack <- stack.Tail
+    ret
+
+  override __.Peek n = List.item (n - 1) stack
 
 /// Parser for EVM instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).

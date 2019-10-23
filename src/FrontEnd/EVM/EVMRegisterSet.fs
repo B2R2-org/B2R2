@@ -44,7 +44,6 @@ type EVMRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
   override __.EmptyArr = emptyArr
   override __.Project x =
     match Register.ofRegID x with
-    | R.SP -> 0
     | R.GAS -> 1
     | _ -> -1
 

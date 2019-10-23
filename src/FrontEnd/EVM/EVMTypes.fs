@@ -37,8 +37,6 @@ exception internal InvalidConditionException
 exception internal InvalidFmtException
 
 type Register =
-  /// Stack Point.
-  | SP = 0x0
   /// Program counter.
   | PC = 0x1
   /// Gas.

@@ -31,7 +31,6 @@ open B2R2
 open B2R2.FrontEnd
 
 let regToStr = function
-  | R.SP  -> "sp"
   | R.GAS  -> "gas"
   | _ -> failwith "Unknown Reg"
 

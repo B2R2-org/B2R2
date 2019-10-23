@@ -70,3 +70,21 @@ type TranslationContext (isa) =
   ///   Returns an IR expression of a pseudo-register.
   /// </returns>
   abstract member GetPseudoRegVar: id: RegisterID -> idx: int -> Expr
+
+  /// <summary>
+  ///   Push a value onto the internal stack. This is used only for
+  ///   stack-machine-based languages such as EVM.
+  /// </summary>
+  abstract member Push: Expr -> unit
+
+  /// <summary>
+  ///   Pop a value from the internal stack. This is used only for
+  ///   stack-machine-based languages such as EVM.
+  /// </summary>
+  abstract member Pop: unit -> Expr
+
+  /// <summary>
+  ///   Peek the nth value from the internal stack. This is used only for
+  ///   stack-machine-based languages such as EVM.
+  /// </summary>
+  abstract member Peek: int -> Expr

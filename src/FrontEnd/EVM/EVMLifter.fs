@@ -63,27 +63,30 @@ let nop insInfo =
   startMark insInfo builder
   endMark insInfo builder
 
-let private pushToStack ctxt expr builder =
-  let sp = getRegVar ctxt R.SP
-  builder <! (sp := sp .- (num <| BitVector.ofInt32 32 OperationSize.regType))
-  builder <! (loadLE OperationSize.regType sp := expr)
+let private pushToStack (ctxt: TranslationContext) expr =
+  ctxt.Push expr
 
-let private popFromStack ctxt dst builder =
-  let sp = getRegVar ctxt R.SP
-  builder <! (dst := loadLE OperationSize.regType sp)
-  builder <! (sp := sp .+ (num <| BitVector.ofInt32 32 OperationSize.regType))
+let private popFromStack (ctxt: TranslationContext) =
+  ctxt.Pop ()
+
+let private peekStack (ctxt: TranslationContext) pos =
+  ctxt.Peek (pos)
+
+let private swapStack (ctxt: TranslationContext) pos =
+  let arr = Array.init (pos + 1) (fun _ -> ctxt.Pop ())
+  let fst = arr.[0]
+  let last = arr.[pos]
+  arr.[0] <- last
+  arr.[pos] <- fst
+  Array.rev arr |> Array.iter (fun e -> ctxt.Push e)
 
  /// Binary operations and relative operations.
 let basicOperation insInfo ctxt opFn =
   let builder = new StmtBuilder (8)
-  let dst = tmpVar OperationSize.regType
-  let src1 = tmpVar OperationSize.regType
-  let src2 = tmpVar OperationSize.regType
+  let src1 = popFromStack ctxt
+  let src2 = popFromStack ctxt
+  zExt OperationSize.regType (opFn src1 src2) |> pushToStack ctxt
   startMark insInfo builder
-  popFromStack ctxt src1 builder
-  popFromStack ctxt src2 builder
-  builder <! (dst := zExt OperationSize.regType (opFn src1 src2))
-  pushToStack ctxt dst builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
@@ -94,220 +97,167 @@ let div insInfo ctxt = basicOperation insInfo ctxt (./)
 let sdiv insInfo ctxt = basicOperation insInfo ctxt (?/)
 let modu insInfo ctxt = basicOperation insInfo ctxt (.%)
 let smod insInfo ctxt = basicOperation insInfo ctxt (?%)
-
-let addmod insInfo ctxt =
-  let builder = new StmtBuilder (8)
-  let dst = tmpVar OperationSize.regType
-  let src1 = tmpVar OperationSize.regType
-  let src2 = tmpVar OperationSize.regType
-  let src3 = tmpVar OperationSize.regType
-  startMark insInfo builder
-  popFromStack ctxt src1 builder
-  popFromStack ctxt src2 builder
-  popFromStack ctxt src3 builder
-  builder <! (dst := (src1 .+ src2) .% src3)
-  pushToStack ctxt dst builder
-  updateGas ctxt insInfo.GAS builder
-  endMark insInfo builder
-
-let mulmod insInfo ctxt =
-  let builder = new StmtBuilder (8)
-  let dst = tmpVar OperationSize.regType
-  let src1 = tmpVar OperationSize.regType
-  let src2 = tmpVar OperationSize.regType
-  let src3 = tmpVar OperationSize.regType
-  startMark insInfo builder
-  popFromStack ctxt src1 builder
-  popFromStack ctxt src2 builder
-  popFromStack ctxt src3 builder
-  builder <! (dst := (src1 .* src2) .% src3)
-  pushToStack ctxt dst builder
-  updateGas ctxt insInfo.GAS builder
-  endMark insInfo builder
-
-let signextend insInfo ctxt =
-  let builder = new StmtBuilder (8)
-  let dst = tmpVar OperationSize.regType
-  let b = tmpVar OperationSize.regType
-  let x = tmpVar OperationSize.regType
-  startMark insInfo builder
-  popFromStack ctxt b builder
-  popFromStack ctxt x builder
-  builder <! (dst := sExt OperationSize.regType x) // FIXME
-  pushToStack ctxt dst builder
-  updateGas ctxt insInfo.GAS builder
-  endMark insInfo builder
-
 let lt insInfo ctxt = basicOperation insInfo ctxt lt
 let gt insInfo ctxt = basicOperation insInfo ctxt gt
 let slt insInfo ctxt = basicOperation insInfo ctxt slt
 let sgt insInfo ctxt = basicOperation insInfo ctxt sgt
 let eq insInfo ctxt = basicOperation insInfo ctxt (==)
-
-let iszero insInfo ctxt =
-  let builder = new StmtBuilder (8)
-  let opSize = OperationSize.regType
-  let dst = tmpVar opSize
-  let v = tmpVar opSize
-  startMark insInfo builder
-  popFromStack ctxt v builder
-  builder <! (dst := zExt opSize (v == num0 opSize))
-  pushToStack ctxt dst builder
-  updateGas ctxt insInfo.GAS builder
-  endMark insInfo builder
-
 let logAnd insInfo ctxt = basicOperation insInfo ctxt (.&)
-
 let logOr insInfo ctxt = basicOperation insInfo ctxt (.|)
-
 let xor insInfo ctxt = basicOperation insInfo ctxt (<+>)
-
-let not insInfo ctxt =
-  let builder = new StmtBuilder (8)
-  let opSize = OperationSize.regType
-  let dst = tmpVar opSize
-  let src = tmpVar opSize
-  startMark insInfo builder
-  popFromStack ctxt src builder
-  builder <! (dst := zExt opSize (not src))
-  pushToStack ctxt dst builder
-  updateGas ctxt insInfo.GAS builder
-  endMark insInfo builder
-
-let byte insInfo ctxt =
-  let builder = new StmtBuilder (8)
-  let dst = tmpVar OperationSize.regType
-  let src1 = tmpVar OperationSize.regType
-  let src2 = tmpVar OperationSize.regType
-  let num i = num <| BitVector.ofInt32 i OperationSize.regType
-  startMark insInfo builder
-  popFromStack ctxt src1 builder
-  popFromStack ctxt src2 builder
-  builder <! (dst := (src2 >> (num 248 .- src1 .* num 8)) .& num 0xff)
-  pushToStack ctxt dst builder
-  updateGas ctxt insInfo.GAS builder
-  endMark insInfo builder
-
 let shl insInfo ctxt = basicOperation insInfo ctxt (<<)
 let shr insInfo ctxt = basicOperation insInfo ctxt (>>)
 let sar insInfo ctxt = basicOperation insInfo ctxt (?>>)
 
+let addmod insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let src1 = popFromStack ctxt
+  let src2 = popFromStack ctxt
+  let src3 = popFromStack ctxt
+  (src1 .+ src2) .% src3 |> pushToStack ctxt
+  startMark insInfo builder
+  updateGas ctxt insInfo.GAS builder
+  endMark insInfo builder
+
+let mulmod insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let src1 = popFromStack ctxt
+  let src2 = popFromStack ctxt
+  let src3 = popFromStack ctxt
+  (src1 .* src2) .% src3 |> pushToStack ctxt
+  startMark insInfo builder
+  updateGas ctxt insInfo.GAS builder
+  endMark insInfo builder
+
+let signextend insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  (* extract (b + 1)-th least significant byte from x, and then sign-extend it
+     to 256-bit. *)
+  let _b = popFromStack ctxt
+  let x = popFromStack ctxt
+  pushToStack ctxt x // FIXME: make it a for-loop.
+  startMark insInfo builder
+  updateGas ctxt insInfo.GAS builder
+  endMark insInfo builder
+
+let iszero insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let cond = popFromStack ctxt
+  zExt OperationSize.regType (cond == num0 OperationSize.regType)
+  |> pushToStack ctxt
+  startMark insInfo builder
+  updateGas ctxt insInfo.GAS builder // FIXME: make it a for-loop.
+  endMark insInfo builder
+
+let not insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let e = popFromStack ctxt
+  zExt OperationSize.regType (not e) |> pushToStack ctxt
+  startMark insInfo builder
+  updateGas ctxt insInfo.GAS builder
+  endMark insInfo builder
+
+let private makeNum i =
+  num <| BitVector.ofInt32 i OperationSize.regType
+
+let byte insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let n = popFromStack ctxt
+  let x = popFromStack ctxt
+  (x >> (makeNum 248 .- n .* makeNum 8)) .& makeNum 0xff |> pushToStack ctxt
+  startMark insInfo builder
+  updateGas ctxt insInfo.GAS builder
+  endMark insInfo builder
+
 let pop insInfo ctxt =
   let builder = new StmtBuilder (4)
-  let dst = tmpVar OperationSize.regType
+  let _ = popFromStack ctxt
   startMark insInfo builder
-  popFromStack ctxt dst builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
 let mload insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let opSize = OperationSize.regType
-  let value = tmpVar OperationSize.regType
-  let offset = tmpVar OperationSize.regType
+  let addr = popFromStack ctxt
+  loadLE OperationSize.regType addr |> pushToStack ctxt
   startMark insInfo builder
-  popFromStack ctxt offset builder
-  builder <! (value := loadLE opSize offset)
-  pushToStack ctxt value builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
 let mstore insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let opSize = OperationSize.regType
-  let offset = tmpVar OperationSize.regType
-  let value = tmpVar OperationSize.regType
+  let addr = popFromStack ctxt
+  let value = popFromStack ctxt
   startMark insInfo builder
-  popFromStack ctxt offset builder
-  popFromStack ctxt value builder
-  builder <! (loadLE opSize offset := value)
   updateGas ctxt insInfo.GAS builder
+  builder <! (loadLE OperationSize.regType addr := value)
   endMark insInfo builder
 
 let mstore8 insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let opSize = OperationSize.regType
-  let offset = tmpVar OperationSize.regType
-  let value = tmpVar OperationSize.regType
-  let num i = numI32 i opSize
+  let addr = popFromStack ctxt
+  let value = popFromStack ctxt
   startMark insInfo builder
-  popFromStack ctxt offset builder
-  popFromStack ctxt value builder
-  builder <! (loadLE opSize offset := value .& num 0xff)
   updateGas ctxt insInfo.GAS builder
+  builder <! (loadLE 8<rt> addr := value .& makeNum 0xff)
   endMark insInfo builder
 
 let jump insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let dst = tmpVar OperationSize.regType
   let pc = getRegVar ctxt R.PC
+  let dst = popFromStack ctxt
   startMark insInfo builder
-  popFromStack ctxt dst builder
   updateGas ctxt insInfo.GAS builder
   builder <! InterJmp (pc, extractLow 64<rt> dst, InterJmpInfo.Base)
   endMark insInfo builder
 
 let jumpi insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let dst = tmpVar OperationSize.regType
-  let cond = tmpVar OperationSize.regType
   let pc = getRegVar ctxt R.PC
+  let dst = popFromStack ctxt
+  let cond = popFromStack ctxt
   let fall = numU64 (insInfo.Address + 1UL) 64<rt>
   startMark insInfo builder
-  popFromStack ctxt dst builder
-  popFromStack ctxt cond builder
   updateGas ctxt insInfo.GAS builder
   builder <! InterCJmp (extractLow 1<rt> cond, pc, extractLow 64<rt> dst, fall)
   endMark insInfo builder
 
 let getpc insInfo ctxt =
   let builder = new StmtBuilder (8)
+  getRegVar ctxt R.PC
+  |> zExt OperationSize.regType
+  |> pushToStack ctxt
   startMark insInfo builder
-  let pc = getRegVar ctxt R.PC |> zExt OperationSize.regType
-  pushToStack ctxt pc builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
 let gas insInfo ctxt =
   let builder = new StmtBuilder (8)
+  zExt OperationSize.regType (getRegVar ctxt R.GAS)
+  |> pushToStack ctxt
   startMark insInfo builder
-  let gasRemaining = tmpVar OperationSize.regType
-  builder <! (gasRemaining := zExt OperationSize.regType (getRegVar ctxt R.GAS))
-  pushToStack ctxt gasRemaining builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
 let push insInfo ctxt imm =
   let builder = new StmtBuilder (8)
-  let dst = tmpVar OperationSize.regType
+  zExt OperationSize.regType (num imm)
+  |> pushToStack ctxt
   startMark insInfo builder
-  builder <! (dst := zExt OperationSize.regType (num imm))
-  pushToStack ctxt dst builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
 let dup insInfo ctxt pos =
   let builder = new StmtBuilder (8)
-  let value = tmpVar OperationSize.regType
+  peekStack ctxt pos |> pushToStack ctxt
   startMark insInfo builder
-  let sp = getRegVar ctxt R.SP
-  let pos = numI32 (pos * 32) OperationSize.regType
-  builder <! (value := loadLE OperationSize.regType (sp .+ pos))
-  pushToStack ctxt value builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
 let swap insInfo ctxt pos =
   let builder = new StmtBuilder (8)
+  swapStack ctxt pos
   startMark insInfo builder
-  let sp = getRegVar ctxt R.SP
-  let pos = numI32 (pos * 32) OperationSize.regType
-  let tmp = tmpVar OperationSize.regType
-  let src1 = loadLE OperationSize.regType sp
-  let src2 = loadLE OperationSize.regType (sp .+ pos)
-  builder <! (tmp := src1)
-  builder <! (loadLE OperationSize.regType sp := src2)
-  builder <! (loadLE OperationSize.regType (sp .+ pos) := tmp)
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
@@ -405,22 +355,22 @@ let translate insInfo (ctxt: TranslationContext) =
   | Op.PUSH30 imm -> push insInfo ctxt imm
   | Op.PUSH31 imm -> push insInfo ctxt imm
   | Op.PUSH32 imm -> push insInfo ctxt imm
-  | Op.DUP1 -> dup insInfo ctxt 0
-  | Op.DUP2 -> dup insInfo ctxt 1
-  | Op.DUP3 -> dup insInfo ctxt 2
-  | Op.DUP4 -> dup insInfo ctxt 3
-  | Op.DUP5 -> dup insInfo ctxt 4
-  | Op.DUP6 -> dup insInfo ctxt 5
-  | Op.DUP7 -> dup insInfo ctxt 6
-  | Op.DUP8 -> dup insInfo ctxt 7
-  | Op.DUP9 -> dup insInfo ctxt 8
-  | Op.DUP10 -> dup insInfo ctxt 9
-  | Op.DUP11 -> dup insInfo ctxt 10
-  | Op.DUP12 -> dup insInfo ctxt 11
-  | Op.DUP13 -> dup insInfo ctxt 12
-  | Op.DUP14 -> dup insInfo ctxt 13
-  | Op.DUP15 -> dup insInfo ctxt 14
-  | Op.DUP16 -> dup insInfo ctxt 15
+  | Op.DUP1 -> dup insInfo ctxt 1
+  | Op.DUP2 -> dup insInfo ctxt 2
+  | Op.DUP3 -> dup insInfo ctxt 3
+  | Op.DUP4 -> dup insInfo ctxt 4
+  | Op.DUP5 -> dup insInfo ctxt 5
+  | Op.DUP6 -> dup insInfo ctxt 6
+  | Op.DUP7 -> dup insInfo ctxt 7
+  | Op.DUP8 -> dup insInfo ctxt 8
+  | Op.DUP9 -> dup insInfo ctxt 9
+  | Op.DUP10 -> dup insInfo ctxt 10
+  | Op.DUP11 -> dup insInfo ctxt 11
+  | Op.DUP12 -> dup insInfo ctxt 12
+  | Op.DUP13 -> dup insInfo ctxt 13
+  | Op.DUP14 -> dup insInfo ctxt 14
+  | Op.DUP15 -> dup insInfo ctxt 15
+  | Op.DUP16 -> dup insInfo ctxt 16
   | Op.SWAP1 -> swap insInfo ctxt 1
   | Op.SWAP2 -> swap insInfo ctxt 2
   | Op.SWAP3 -> swap insInfo ctxt 3
