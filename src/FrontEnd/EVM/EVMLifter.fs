@@ -261,6 +261,106 @@ let swap insInfo ctxt pos =
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
+let obtainInfo insInfo ctxt name =
+  let builder = new StmtBuilder (8)
+  app name [] OperationSize.regType |> pushToStack ctxt
+  startMark insInfo builder
+  updateGas ctxt insInfo.GAS builder
+  endMark insInfo builder
+
+let address insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let pc = BitVector.ofUInt64 insInfo.Address OperationSize.regType |> num
+  pushToStack ctxt pc
+  startMark insInfo builder
+  updateGas ctxt insInfo.GAS builder
+  endMark insInfo builder
+
+let balance insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let addr = popFromStack ctxt
+  app "balance" [ addr ] OperationSize.regType |> pushToStack ctxt
+  startMark insInfo builder
+  updateGas ctxt insInfo.GAS builder
+  endMark insInfo builder
+
+let calldataload insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let i = popFromStack ctxt
+  let length = num1 OperationSize.regType
+  app "msg.data" [ i; length ] OperationSize.regType |> pushToStack ctxt
+  startMark insInfo builder
+  updateGas ctxt insInfo.GAS builder
+  endMark insInfo builder
+
+let calldatacopy insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let dstOffset = popFromStack ctxt
+  let offset = popFromStack ctxt
+  let length = popFromStack ctxt
+  let src = app "msg.data" [ offset; length ] OperationSize.regType
+  startMark insInfo builder
+  builder <! (loadLE OperationSize.regType dstOffset := src)
+  updateGas ctxt insInfo.GAS builder
+  endMark insInfo builder
+
+let codecopy insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let dstOffset = popFromStack ctxt
+  let offset = popFromStack ctxt
+  let length = popFromStack ctxt
+  let src = app "code" [ offset; length ] OperationSize.regType // FIXME
+  startMark insInfo builder
+  builder <! (loadLE OperationSize.regType dstOffset := src)
+  updateGas ctxt insInfo.GAS builder
+  endMark insInfo builder
+
+let extcodecopy insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let addr = popFromStack ctxt
+  let dstOffset = popFromStack ctxt
+  let offset = popFromStack ctxt
+  let length = popFromStack ctxt
+  let src = app "code" [ addr; offset; length ] OperationSize.regType // FIXME
+  startMark insInfo builder
+  builder <! (loadLE OperationSize.regType dstOffset := src)
+  updateGas ctxt insInfo.GAS builder
+  endMark insInfo builder
+
+let returndatacopy insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let dstOffset = popFromStack ctxt
+  let offset = popFromStack ctxt
+  let length = popFromStack ctxt
+  let src = app "returndata" [ offset; length ] OperationSize.regType
+  startMark insInfo builder
+  builder <! (loadLE OperationSize.regType dstOffset := src)
+  updateGas ctxt insInfo.GAS builder
+  endMark insInfo builder
+
+let codesize insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  app "code.size" [] OperationSize.regType |> pushToStack ctxt
+  startMark insInfo builder
+  updateGas ctxt insInfo.GAS builder
+  endMark insInfo builder
+
+let extcodesize insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let addr = popFromStack ctxt
+  app "code.size" [ addr ] OperationSize.regType |> pushToStack ctxt
+  startMark insInfo builder
+  updateGas ctxt insInfo.GAS builder
+  endMark insInfo builder
+
+let blockhash insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let blockNum = popFromStack ctxt
+  app "block.blockHash" [ blockNum ] OperationSize.regType |> pushToStack ctxt
+  startMark insInfo builder
+  updateGas ctxt insInfo.GAS builder
+  endMark insInfo builder
+
 let translate insInfo (ctxt: TranslationContext) =
   match insInfo.Opcode with
   | Op.STOP -> sideEffects insInfo Halt
@@ -290,26 +390,26 @@ let translate insInfo (ctxt: TranslationContext) =
   | Op.SHR -> shr insInfo ctxt
   | Op.SAR -> sar insInfo ctxt
   | Op.SHA3 -> sideEffects insInfo UndefinedInstr
-  | Op.ADDRESS
-  | Op.BALANCE
-  | Op.ORIGIN
-  | Op.CALLER
-  | Op.CALLVALUE
-  | Op.CALLDATALOAD
-  | Op.CALLDATASIZE
-  | Op.CALLDATACOPY
-  | Op.CODESIZE
-  | Op.CODECOPY
-  | Op.GASPRICE
-  | Op.EXTCODESIZE
-  | Op.EXTCODECOPY
-  | Op.RETURNDATASIZE
-  | Op.RETURNDATACOPY
-  | Op.BLOCKHASH
-  | Op.COINBASE
-  | Op.TIMESTAMP
-  | Op.NUMBER
-  | Op.DIFFICULTY
+  | Op.CALLER -> obtainInfo insInfo ctxt "msg.caller"
+  | Op.CALLVALUE -> obtainInfo insInfo ctxt "msg.value"
+  | Op.ADDRESS -> address insInfo ctxt
+  | Op.BALANCE -> balance insInfo ctxt
+  | Op.ORIGIN -> obtainInfo insInfo ctxt "tx.origin"
+  | Op.CALLDATALOAD -> calldataload insInfo ctxt
+  | Op.CALLDATASIZE -> obtainInfo insInfo ctxt "msg.data.size"
+  | Op.COINBASE -> obtainInfo insInfo ctxt "block.coinbase"
+  | Op.TIMESTAMP -> obtainInfo insInfo ctxt "block.timestamp"
+  | Op.NUMBER -> obtainInfo insInfo ctxt "block.number"
+  | Op.DIFFICULTY -> obtainInfo insInfo ctxt "block.difficulty"
+  | Op.CALLDATACOPY -> calldatacopy insInfo ctxt
+  | Op.CODECOPY -> codecopy insInfo ctxt
+  | Op.GASPRICE -> obtainInfo insInfo ctxt "tx.gasprice"
+  | Op.CODESIZE -> codesize insInfo ctxt
+  | Op.EXTCODESIZE -> extcodesize insInfo ctxt
+  | Op.EXTCODECOPY -> extcodecopy insInfo ctxt
+  | Op.RETURNDATASIZE -> obtainInfo insInfo ctxt "returndatasize"
+  | Op.RETURNDATACOPY -> returndatacopy insInfo ctxt
+  | Op.BLOCKHASH -> blockhash insInfo ctxt
   | Op.GASLIMIT -> sideEffects insInfo UndefinedInstr
   | Op.POP -> pop insInfo ctxt
   | Op.MLOAD -> mload insInfo ctxt
