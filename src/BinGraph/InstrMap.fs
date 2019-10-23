@@ -31,28 +31,31 @@ open B2R2.FrontEnd
 open B2R2.BinIR.LowUIR
 open System.Collections.Generic
 
-/// Instruction and the corresponding IR statements.
-type InsIRPair = Instruction * Stmt []
+/// Abstract information about the instruction and its corresponding IR
+/// statements.
+type InstructionInfo = {
+  Instruction: Instruction
+  Stmts: Stmt []
+  ArchOperationMode: ArchOperationMode
+  /// Instruction itself contains its address, but we may want to place this
+  /// instruction in a different location in a virtual address space. This field
+  /// is useful in such cases to give a specific offset to the instruction. This
+  /// field is zero in most cases (except EVM) though.
+  Offset: Addr
+}
 
-/// Address to an InsIRPair mapping.
-type InstrMap = Dictionary<Addr, InsIRPair>
+/// Address to an InstructionInfo mapping.
+type InstrMap = Dictionary<Addr, InstructionInfo>
 
 module InstrMap =
-  let translateEntry (hdl: BinHandler) addr =
-    match hdl.ISA.Arch with
-    | Arch.ARMv7 ->
-      if addr &&& 1UL = 0UL then addr, ArchOperationMode.ARMMode
-      else addr - 1UL, ArchOperationMode.ThumbMode
-    | _ -> addr, ArchOperationMode.NoMode
-
-  let private updateEntries hdl (map: InstrMap) entries newTargets =
+  let private updateEntries hdl (map: InstrMap) entries offset newTargets =
     let rec loop entries = function
       | [] -> entries
       | (addr, mode) :: rest ->
         if map.ContainsKey addr then loop entries rest
         else
-          let entryAddr, _ = translateEntry hdl addr
-          loop ((entryAddr, mode) :: entries) rest
+          let info = LeaderInfo.Init (hdl, addr, mode, offset)
+          loop (info :: entries) rest
     Seq.toList newTargets |> loop entries
 
   /// Remove unnecessary IEMark to ease the analysis.
@@ -70,32 +73,37 @@ module InstrMap =
     BinHandler.Optimize stmts
     |> trimIEMark
 
-  let private toInsIRPair hdl (ins: Instruction) =
-    ins, try BinHandler.LiftInstr hdl ins |> trim with _ -> [||]
+  let private newInstructionInfo hdl (ins: Instruction) =
+    { Instruction = ins
+      Stmts = try BinHandler.LiftInstr hdl ins |> trim with _ -> [||]
+      ArchOperationMode = hdl.ParsingContext.ArchOperationMode
+      Offset = hdl.ParsingContext.CodeOffset }
 
   let rec private updateInstrMapAndGetTheLastInstr hdl (map: InstrMap) insList =
     match (insList: Instruction list) with
     | [] -> failwith "Fatal error: an empty block encountered."
     | last :: [] ->
-      map.[last.Address] <- toInsIRPair hdl last
+      map.[last.Address] <- newInstructionInfo hdl last
       last
     | instr :: rest ->
-      map.[instr.Address] <- toInsIRPair hdl instr
+      map.[instr.Address] <- newInstructionInfo hdl instr
       updateInstrMapAndGetTheLastInstr hdl map rest
 
   /// Update the map (InstrMap) from the given entries.
-  let update (hdl: BinHandler) map entries =
+  let update (hdl: BinHandler) map leaders =
     let rec buildLoop = function
       | [] -> map
-      | (entry, mode) :: rest ->
-        hdl.ParsingContext.ArchOperationMode <- mode
-        match BinHandler.ParseBBlock hdl entry with
+      | leaderInfo :: rest ->
+        hdl.ParsingContext.ArchOperationMode <- leaderInfo.Mode
+        match BinHandler.ParseBBlock hdl leaderInfo.Point.Address with
         | Error _ -> buildLoop rest
         | Ok instrs ->
           let last = updateInstrMapAndGetTheLastInstr hdl map instrs
-          let entries = last.GetNextInstrAddrs () |> updateEntries hdl map rest
+          let entries =
+            last.GetNextInstrAddrs ()
+            |> updateEntries hdl map rest leaderInfo.Offset
           buildLoop entries
-    buildLoop (Seq.toList entries)
+    buildLoop (Seq.toList leaders)
 
   /// Build a mapping from Addr to Instruction. This function recursively parses
   /// the binary, but does not lift it yet. Since GetNextInstrAddrs returns next

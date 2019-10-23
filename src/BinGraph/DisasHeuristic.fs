@@ -52,7 +52,7 @@ module private LibcAnalysisHelper =
         | [] -> app
         | addrs ->
           addrs
-          |> List.map (InstrMap.translateEntry hdl)
+          |> List.map (fun addr -> LeaderInfo.Init (hdl, addr))
           |> BinaryApparatus.update hdl app
     | Undef -> app
 
@@ -68,7 +68,7 @@ module private LibcAnalysisHelper =
       | [] -> app
       | addrs ->
         addrs
-        |> List.map (InstrMap.translateEntry hdl)
+        |> List.map (fun addr -> LeaderInfo.Init (hdl, addr))
         |> BinaryApparatus.update hdl app
 
   let retrieveLibcStartAddresses hdl app = function

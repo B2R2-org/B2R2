@@ -62,17 +62,17 @@ module SSABlockHelper =
     with _ -> [||]
 
 /// Basic block type for an SSA-based CFG (SSACFG).
-type SSABBlock (hdl, scfg, pp: ProgramPoint, pairs: InsIRPair []) =
+type SSABBlock (hdl, scfg, pp: ProgramPoint, instrs: InstructionInfo []) =
   inherit BasicBlock ()
   let mutable stmts =
-    if Array.isEmpty pairs then
+    if Array.isEmpty instrs then
       SSABlockHelper.computeDefinedVars hdl scfg pp.Address
       |> Array.map (fun dst -> SSA.Def (dst, SSA.Return (pp.Address)))
     else
-      pairs
-      |> Array.map (fun (i, stmts) ->
-        let wordSize = i.WordSize |> WordSize.toRegType
-        stmts |> SSA.AST.translateStmts wordSize i.Address)
+      instrs
+      |> Array.map (fun i ->
+        let wordSize = i.Instruction.WordSize |> WordSize.toRegType
+        i.Stmts |> SSA.AST.translateStmts wordSize i.Instruction.Address)
       |> Array.concat
 
   let mutable frontier: Vertex<SSABBlock> list = []
@@ -80,10 +80,10 @@ type SSABBlock (hdl, scfg, pp: ProgramPoint, pairs: InsIRPair []) =
   override __.PPoint = pp
 
   override __.Range =
-    let last = pairs.[pairs.Length - 1] |> fst
+    let last = instrs.[instrs.Length - 1].Instruction
     AddrRange (last.Address, last.Address + uint64 last.Length)
 
-  override __.IsFakeBlock () = Array.isEmpty pairs
+  override __.IsFakeBlock () = Array.isEmpty instrs
 
   override __.ToVisualBlock () =
     __.Stmts
@@ -93,7 +93,7 @@ type SSABBlock (hdl, scfg, pp: ProgramPoint, pairs: InsIRPair []) =
 
   member __.Stmts with get () = stmts and set (v) = stmts <- v
 
-  member __.InsPairs with get () = pairs
+  member __.InsInfos with get () = instrs
 
   member __.Frontier with get () = frontier and set(v) = frontier <- v
 

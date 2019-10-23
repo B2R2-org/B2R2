@@ -33,8 +33,8 @@ type SSALens (hdl, scfg) =
     let pos = oldSrc.VData.PPoint
     match vMap.TryGetValue pos with
     | false, _ ->
-      let pairs = oldSrc.VData.GetPairs ()
-      let v = (g: SSACFG).AddVertex (SSABBlock (hdl, scfg, pos, pairs))
+      let instrs = oldSrc.VData.GetInsInfos ()
+      let v = (g: SSACFG).AddVertex (SSABBlock (hdl, scfg, pos, instrs))
       vMap.Add (pos, v)
       v
     | true, v -> v

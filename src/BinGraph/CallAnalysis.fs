@@ -161,7 +161,8 @@ module CalleeMap =
   let build (hdl: BinHandler) funcs (instrMap: InstrMap) =
     let linkMap = hdl.FileInfo.GetLinkageTableEntries () |> buildLinkMap
     instrMap
-    |> Seq.fold (fun acc (KeyValue (addr, (ins, _))) ->
+    |> Seq.fold (fun acc (KeyValue (addr, i)) ->
+      let ins = i.Instruction
       computeBranchRelationship hdl addr ins funcs linkMap acc) Map.empty
     |> addMissingCallees hdl funcs
     |> CalleeMap

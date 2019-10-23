@@ -42,6 +42,11 @@ type ParsingContext (archMode) =
   /// IT hint instruction is encountered.
   member val ITBlockStarted = false with get, set
 
+  /// Indicate the address offset of the code. This is used in several
+  /// architectures, such as EVM, to correctly resolve jump offsets in a
+  /// dynamically generated code snippet.
+  member val CodeOffset = 0UL with get, set
+
 /// A high-level interface for the translation context, which stores several
 /// states for translating/lifting instructions.
 [<AbstractClass>]

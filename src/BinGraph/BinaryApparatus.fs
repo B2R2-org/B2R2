@@ -49,8 +49,7 @@ type JmpTargetMap = Map<Addr, Addr list>
 ///     instructions starting from the given entry point. In this stage, we
 ///     simply follow concrete edges. Therefore we may miss indirect branches in
 ///     this stage, but we will handle them later. After parsing the entire
-///     binary, we obtain a mapping (InstrMap) from an address to a pair of an
-///     instruction and an array of LowUIR statements.
+///     binary, we obtain a mapping (InstrMap) from an address to an InsInfo.
 ///   </para>
 ///   <para>
 ///     Next, we recursively traverse every instruction found again as we did in
@@ -58,7 +57,7 @@ type JmpTargetMap = Map<Addr, Addr list>
 ///     statements to figure out any internal branches (intra-instruction
 ///     branches). This step is important to gather all possible program points
 ///     (ProgramPoint), which are a jump target, i.e., a leader. The leader
-///     information is stored in the LeaderPositions field.
+///     information is stored in the LeaderInfos field.
 ///   </para>
 ///   <para>
 ///     While we compute the leader positions, we mark every call target
@@ -88,7 +87,7 @@ type JmpTargetMap = Map<Addr, Addr list>
 type BinaryApparatus = {
   InstrMap: InstrMap
   LabelMap: Map<Symbol, Addr * int>
-  LeaderPositions: Set<ProgramPoint>
+  LeaderInfos: Set<LeaderInfo>
   CallerMap: CallerMap
   CalleeMap: CalleeMap
   /// This is a flag representing whether this BinaryApparatus has been modified
@@ -101,16 +100,16 @@ module BinaryApparatus =
   /// This function returns an initial sequence of entry points obtained from
   /// the binary itself (e.g., from its symbol information). Therefore, if the
   /// binary is stripped, the returned sequence will be incomplete, and we need
-  /// to expand it during the analysis.
+  /// to expand it during the other analyses.
   let private getInitialEntryPoints hdl =
     let fi = hdl.FileInfo
     fi.GetFunctionAddresses ()
-    |> Seq.map (InstrMap.translateEntry hdl)
+    |> Seq.map (fun addr -> LeaderInfo.Init (hdl, addr))
     |> Set.ofSeq
-    |> Set.add (InstrMap.translateEntry hdl fi.EntryPoint)
+    |> Set.add (LeaderInfo.Init (hdl, fi.EntryPoint))
 
-  let private findLabels labels (KeyValue (addr, (_, stmts))) =
-    stmts
+  let private findLabels labels (KeyValue (addr, instr)) =
+    instr.Stmts
     |> Array.foldi (fun labels idx stmt ->
          match stmt with
          | LMark (s) -> Map.add s (addr, idx) labels
@@ -120,70 +119,77 @@ module BinaryApparatus =
   /// A temporary accumulator for folding all the IR statements.
   type private StmtAccumulator = {
     Labels: Map<Symbol, Addr * int>
-    Leaders: Set<ProgramPoint>
+    /// This is a set of leaders, each of which is a tuple of a ProgramPoint and
+    /// an address offset. The offset is used to readjust the address of the
+    /// instruction when parsing it (it is mostly 0 though).
+    Leaders: Set<LeaderInfo>
     /// Collect all the address that are being a target of a direct call
     /// instruction (not indirect calls, since we don't know the target at this
     /// point).
     FunctionAddrs: Set<Addr>
   }
 
-  let private addLabelLeader s acc =
-    { acc with
-        Leaders = Set.add (Map.find s acc.Labels |> ProgramPoint) acc.Leaders }
+  let private addLabelLeader s i acc =
+    let ppoint = Map.find s acc.Labels |> ProgramPoint
+    let leaderInfo = LeaderInfo.Init (ppoint, i.ArchOperationMode, i.Offset)
+    (* Replacement will not be made if the same PPoint exsits in the set. *)
+    { acc with Leaders = Set.add leaderInfo acc.Leaders }
 
-  let private addAddrLeader addr acc =
-    { acc with Leaders = Set.add (ProgramPoint (addr, 0)) acc.Leaders }
+  let private addAddrLeader addr i acc =
+    let leaderInfo =
+      LeaderInfo.Init (ProgramPoint (addr, 0), i.ArchOperationMode, i.Offset)
+    (* Replacement will not be made if the same PPoint exsits in the set. *)
+    { acc with Leaders = Set.add leaderInfo acc.Leaders }
 
   let private addFunction addr acc =
     { acc with FunctionAddrs = Set.add addr acc.FunctionAddrs }
 
   /// Fold all the statements to get the leaders, function positions, etc.
-  let private foldStmts acc (KeyValue (_, (i: Instruction, stmts))) =
-    stmts
+  let private foldStmts acc (KeyValue (_, i)) =
+    i.Stmts
     |> Array.fold (fun acc stmt ->
       match stmt with
-      | Jmp (Name s) -> addLabelLeader s acc
-      | CJmp (_, Name s1, Name s2) -> addLabelLeader s1 acc |> addLabelLeader s2
+      | Jmp (Name s) -> addLabelLeader s i acc
+      | CJmp (_, Name s1, Name s2) ->
+        addLabelLeader s1 i acc |> addLabelLeader s2 i
       | InterJmp (_, Num addr, InterJmpInfo.IsCall) ->
         let addr = BitVector.toUInt64 addr
-        addAddrLeader addr acc
-        |> addAddrLeader (i.Address + uint64 i.Length)
+        addAddrLeader addr i acc
+        |> addAddrLeader (i.Instruction.Address + uint64 i.Instruction.Length) i
         |> addFunction addr
-      | InterJmp (_, Num addr, _) -> addAddrLeader (BitVector.toUInt64 addr) acc
+      | InterJmp (_, Num addr, _) ->
+        addAddrLeader (BitVector.toUInt64 addr) i acc
       | InterCJmp (_, _, Num addr1, Num addr2) ->
-        addAddrLeader (BitVector.toUInt64 addr1) acc
-        |> addAddrLeader (BitVector.toUInt64 addr2)
+        addAddrLeader (BitVector.toUInt64 addr1) i acc
+        |> addAddrLeader (BitVector.toUInt64 addr2) i
       | InterCJmp (_, _, Num addr, _)
       | InterCJmp (_, _, _, Num addr) ->
-        addAddrLeader (BitVector.toUInt64 addr) acc
+        addAddrLeader (BitVector.toUInt64 addr) i acc
       | InterJmp (_, _, InterJmpInfo.IsCall) (* indirect call *)
       | SideEffect (SysCall)
       | SideEffect (Interrupt _) ->
-        addAddrLeader (i.Address + uint64 i.Length) acc
+        let fallAddr = i.Instruction.Address + uint64 i.Instruction.Length
+        addAddrLeader fallAddr i acc
       | _ -> acc) acc
 
   let private updateMissingInstructions hdl acc (instrMap: InstrMap) =
     acc.Leaders
-    |> Set.filter (fun leader -> not <| instrMap.ContainsKey leader.Address)
-    |> Set.map (fun leader -> InstrMap.translateEntry hdl leader.Address)
+    |> Set.filter (fun l -> not <| instrMap.ContainsKey l.Point.Address)
     |> InstrMap.update hdl instrMap
 
-  let private initAux hdl auxEntries =
-    let entries =
-      auxEntries
-      |> Seq.fold (fun set ent -> Set.add ent set) (getInitialEntryPoints hdl)
-      |> Set.toSeq
-    let instrMap = InstrMap.build hdl entries
+  let private initBinApp hdl auxEntries =
+    let initial = getInitialEntryPoints hdl
+    let leaders = auxEntries |> Seq.fold (fun set e -> Set.add e set) initial
+    let instrMap = InstrMap.build hdl leaders
+    (* First, recursively parse all possible instructions. *)
     let lblmap = instrMap |> Seq.fold findLabels Map.empty
-    let leaders =
-      entries |> Seq.map (fun a -> ProgramPoint (fst a, 0)) |> Set.ofSeq
-    let acc =
-      { Labels = lblmap
-        Leaders = leaders
-        FunctionAddrs = entries |> Seq.map fst |> Set.ofSeq }
+    let funAddrs = leaders |> Seq.map (fun e -> e.Point.Address) |> Set.ofSeq
+    let acc = { Labels = lblmap; Leaders = leaders; FunctionAddrs = funAddrs }
 #if DEBUG
     printfn "[*] Loaded basic information."
 #endif
+    (* Then, find all possible leaders by scanning lifted IRs. This is necessary
+       because LowUIR may have intra-instruction branches. *)
     let acc = instrMap |> Seq.fold foldStmts acc
 #if DEBUG
     printfn "[*] Update instruction information."
@@ -195,20 +201,21 @@ module BinaryApparatus =
 #endif
     { InstrMap = instrMap
       LabelMap = lblmap
-      LeaderPositions = acc.Leaders
+      LeaderInfos = acc.Leaders
       CallerMap = CallerMap.build calleeMap
       CalleeMap = calleeMap
       Modified = true }
 
   /// Create a binary apparatus from the given BinHandler.
   [<CompiledName("Init")>]
-  let init hdl = initAux hdl Seq.empty
+  let init hdl = initBinApp hdl Seq.empty
 
   /// Update instruction info for the given binary appratus based on the given
-  /// target addresses.
+  /// target addresses. Those addresses should represent a function entry point.
+  /// Regular branch destinations should not be handled here.
   let internal update hdl app addrs =
     if Seq.isEmpty addrs then app
-    else initAux hdl addrs
+    else initBinApp hdl addrs
 
   /// Return the list of function addresses from the BinaryApparatus.
   let getFunctionAddrs app =

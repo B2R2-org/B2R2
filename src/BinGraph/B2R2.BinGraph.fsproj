@@ -16,6 +16,7 @@
     <Compile Include="BasicBlock.fs" />
     <Compile Include="RangedDiGraph.fsi" />
     <Compile Include="RangedDiGraph.fs" />
+    <Compile Include="Leader.fs" />
     <Compile Include="InstrMap.fs" />
     <Compile Include="CallAnalysis.fs" />
     <Compile Include="BinaryApparatus.fs" />
