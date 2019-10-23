@@ -176,7 +176,7 @@ let adjustX (xs: FloatMap) u v = function
       max xs.[v] (xs.[u] + u.VData.Width + v.VData.Width / 2.0 + blockIntervalX)
   | Rightmost ->
     xs.[v] <-
-      min xs.[v] (xs.[u] - v.VData.Width - u.VData.Width - blockIntervalX)
+      min xs.[v] (xs.[u] - v.VData.Width - u.VData.Width / 2.0 - blockIntervalX)
 
 let rec placeBlock vLayout hDir root align sink shift xs v =
   if not (Double.IsNaN (xs: FloatMap).[v]) then ()
@@ -324,7 +324,13 @@ let adjustCoordinates (vGraph: VisGraph) =
   let width = rightMost - leftMost
   shiftXCoordinate (rightMost - width / 2.0) |> vGraph.IterVertex
 
+let adjustWidthOfDummies (vGraph: VisGraph) =
+  let maxWidth =
+    vGraph.FoldVertex (fun maxWidth v -> max maxWidth v.VData.Width) 0.0
+  vGraph.IterVertex (fun v -> v.VData.Width <- maxWidth)
+
 let assignCoordinates vGraph vLayout =
+  adjustWidthOfDummies vGraph
   assignXCoordinates vGraph vLayout
   assignYCoordinates vLayout
   adjustCoordinates vGraph
