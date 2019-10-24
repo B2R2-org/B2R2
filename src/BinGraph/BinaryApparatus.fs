@@ -172,10 +172,15 @@ module BinaryApparatus =
         addAddrLeader fallAddr i acc
       | _ -> acc) acc
 
-  let private updateMissingInstructions hdl acc (instrMap: InstrMap) =
-    acc.Leaders
-    |> Set.filter (fun l -> not <| instrMap.ContainsKey l.Point.Address)
-    |> InstrMap.update hdl instrMap
+  let rec private findLeaders hdl acc (instrMap: InstrMap) =
+    let acc = instrMap |> Seq.fold foldStmts acc
+    let oldCount = instrMap.Count
+    let instrMap =
+      acc.Leaders
+      |> Set.filter (fun l -> not <| instrMap.ContainsKey l.Point.Address)
+      |> InstrMap.update hdl instrMap
+    if oldCount <> instrMap.Count then findLeaders hdl acc instrMap
+    else struct (instrMap, acc)
 
   let private initBinApp hdl auxEntries =
     let initial = getInitialEntryPoints hdl
@@ -188,13 +193,9 @@ module BinaryApparatus =
 #if DEBUG
     printfn "[*] Loaded basic information."
 #endif
-    (* Then, find all possible leaders by scanning lifted IRs. This is necessary
-       because LowUIR may have intra-instruction branches. *)
-    let acc = instrMap |> Seq.fold foldStmts acc
-#if DEBUG
-    printfn "[*] Update instruction information."
-#endif
-    let instrMap = updateMissingInstructions hdl acc instrMap
+    (* Then, find all possible leaders by scanning lifted IRs. We need to do
+       this at a IR-level because LowUIR may have intra-instruction branches. *)
+    let struct (instrMap, acc) = findLeaders hdl acc instrMap
     let calleeMap = CalleeMap.build hdl acc.FunctionAddrs instrMap
 #if DEBUG
     printfn "[*] The apparatus is ready to use."

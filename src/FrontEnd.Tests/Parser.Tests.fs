@@ -6533,7 +6533,8 @@ module EVM =
 
   let private test opcode bytes =
     let reader = BinReader.Init (bytes, Endian.Little)
-    let ins = Parser.parse reader WordSize.Bit64 0UL 0
+    let ctxt = new ParsingContext (ArchOperationMode.NoMode)
+    let ins = Parser.parse reader ctxt WordSize.Bit64 0UL 0
     let opcode' = ins.Info.Opcode
     Assert.AreEqual (opcode', opcode)
 

@@ -52,6 +52,14 @@ let inline private updateGas ctxt gas builder =
   let gasReg = getRegVar ctxt R.GAS
   builder <! (gasReg := gasReg .+ numI32 gas 64<rt>)
 
+let private getConst32 = function
+  | Num n -> n |> BitVector.toInt32
+  | _ -> raise InvalidExprException
+
+let private getConstAddr = function
+  | Num n -> n |> BitVector.toUInt64
+  | _ -> raise InvalidExprException
+
 let sideEffects insInfo name =
   let builder = new StmtBuilder (4)
   startMark insInfo builder
@@ -202,24 +210,33 @@ let mstore8 insInfo ctxt =
   builder <! (loadLE 8<rt> addr := value .& makeNum 0xff)
   endMark insInfo builder
 
+let isCallValue = function
+  | BinOp (BinOpType.APP, _, FuncName "msg.value", _, _, _) -> true
+  | _ -> false
+
 let jump insInfo ctxt =
   let builder = new StmtBuilder (8)
   let pc = getRegVar ctxt R.PC
   let dst = popFromStack ctxt
-  startMark insInfo builder
-  updateGas ctxt insInfo.GAS builder
-  builder <! InterJmp (pc, extractLow 64<rt> dst, InterJmpInfo.Base)
-  endMark insInfo builder
+  if isCallValue dst then
+    sideEffects insInfo Halt
+  else
+    let dstAddr = BitVector.ofUInt64 (getConstAddr dst + insInfo.Offset) 64<rt>
+    startMark insInfo builder
+    updateGas ctxt insInfo.GAS builder
+    builder <! InterJmp (pc, num dstAddr, InterJmpInfo.Base)
+    endMark insInfo builder
 
 let jumpi insInfo ctxt =
   let builder = new StmtBuilder (8)
   let pc = getRegVar ctxt R.PC
   let dst = popFromStack ctxt
+  let dstAddr = BitVector.ofUInt64 (getConstAddr dst + insInfo.Offset) 64<rt>
   let cond = popFromStack ctxt
   let fall = numU64 (insInfo.Address + 1UL) 64<rt>
   startMark insInfo builder
   updateGas ctxt insInfo.GAS builder
-  builder <! InterCJmp (extractLow 1<rt> cond, pc, extractLow 64<rt> dst, fall)
+  builder <! InterCJmp (extractLow 1<rt> cond, pc, num dstAddr, fall)
   endMark insInfo builder
 
 let getpc insInfo ctxt =
@@ -306,12 +323,13 @@ let calldatacopy insInfo ctxt =
 
 let codecopy insInfo ctxt =
   let builder = new StmtBuilder (8)
-  let dstOffset = popFromStack ctxt
+  let dstOffset = popFromStack ctxt |> extractLow 64<rt>
   let offset = popFromStack ctxt
   let length = popFromStack ctxt
-  let src = app "code" [ offset; length ] OperationSize.regType // FIXME
+  let intLength = getConst32 length |> RegType.fromByteWidth
+  let src = app "code" [ offset; length ] intLength
   startMark insInfo builder
-  builder <! (loadLE OperationSize.regType dstOffset := src)
+  builder <! (loadLE intLength dstOffset := src)
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
@@ -488,7 +506,7 @@ let translate insInfo (ctxt: TranslationContext) =
   | Op.SWAP15 -> swap insInfo ctxt 15
   | Op.SWAP16 -> swap insInfo ctxt 16
   | Op.RETURN
-  | Op.REVERT -> sideEffects insInfo Halt
+  | Op.REVERT -> ctxt.Clear (); sideEffects insInfo Halt
   | Op.LOG0
   | Op.LOG1
   | Op.LOG2

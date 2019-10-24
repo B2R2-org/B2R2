@@ -93,3 +93,8 @@ type TranslationContext (isa) =
   ///   stack-machine-based languages such as EVM.
   /// </summary>
   abstract member Peek: int -> Expr
+
+  /// <summary>
+  ///   Clear the stack. This is used only for stack-machine-based languages.
+  /// </summary>
+  abstract member Clear: unit -> unit

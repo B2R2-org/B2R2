@@ -29,9 +29,15 @@
 module B2R2.FrontEnd.EVM.Parser
 
 open B2R2
+open B2R2.FrontEnd
 
 /// Read in bytes and return a parsed instruction for EVM. This function
 /// returns EVMInstruction, which is a specialized type for EVM. If you want
 /// to handle instructions in a platform-agnostic manner, you'd better use the
 /// EVM class.
-val parse: BinReader -> WordSize -> Addr -> int -> EVMInstruction
+val parse: BinReader
+        -> ParsingContext
+        -> WordSize
+        -> Addr
+        -> int
+        -> EVMInstruction

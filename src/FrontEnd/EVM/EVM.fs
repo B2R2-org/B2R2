@@ -50,11 +50,13 @@ type EVMTranslationContext (isa) =
 
   override __.Peek n = List.item (n - 1) stack
 
+  override __.Clear () = stack <- []
+
 /// Parser for EVM instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
 type EVMParser (wordSize) =
   inherit Parser ()
-  override __.Parse binReader _ctxt addr pos =
-    Parser.parse binReader wordSize addr pos :> Instruction
+  override __.Parse binReader ctxt addr pos =
+    Parser.parse binReader ctxt wordSize addr pos :> Instruction
 
 // vim: set tw=80 sts=2 sw=2:

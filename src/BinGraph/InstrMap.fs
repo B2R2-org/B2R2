@@ -95,6 +95,7 @@ module InstrMap =
       | [] -> map
       | leaderInfo :: rest ->
         hdl.ParsingContext.ArchOperationMode <- leaderInfo.Mode
+        hdl.ParsingContext.CodeOffset <- leaderInfo.Offset
         match BinHandler.ParseBBlock hdl leaderInfo.Point.Address with
         | Error _ -> buildLoop rest
         | Ok instrs ->

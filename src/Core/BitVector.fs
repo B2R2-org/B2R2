@@ -245,7 +245,8 @@ type BitVector =
   [<CompiledName("ToUInt64")>]
   static member toUInt64 bv =
     if bv.Length <= 64<rt> then bv.Num
-    else nSizeErr bv.Length
+    elif bv.BigNum > bigint 0xFFFFFFFFFFFFFFFFUL then nSizeErr bv.Length
+    else bv.BigNum |> uint64
 
   [<CompiledName("ToInt64")>]
   static member toInt64 bv = BitVector.toUInt64 bv |> int64

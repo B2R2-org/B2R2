@@ -38,6 +38,7 @@ type ARM32TranslationContext (isa) =
   override __.Push _ = B2R2.Utils.impossible ()
   override __.Pop () = B2R2.Utils.impossible ()
   override __.Peek _ = B2R2.Utils.impossible ()
+  override __.Clear () = B2R2.Utils.impossible ()
 
 /// Parser for 32-bit ARM instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
