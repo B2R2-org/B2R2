@@ -42,6 +42,11 @@ type ParsingContext (archMode) =
   /// IT hint instruction is encountered.
   member val ITBlockStarted = false with get, set
 
+  /// Indicate the address offset of the code. This is used in several
+  /// architectures, such as EVM, to correctly resolve jump offsets in a
+  /// dynamically generated code snippet.
+  member val CodeOffset = 0UL with get, set
+
 /// A high-level interface for the translation context, which stores several
 /// states for translating/lifting instructions.
 [<AbstractClass>]
@@ -70,3 +75,26 @@ type TranslationContext (isa) =
   ///   Returns an IR expression of a pseudo-register.
   /// </returns>
   abstract member GetPseudoRegVar: id: RegisterID -> idx: int -> Expr
+
+  /// <summary>
+  ///   Push a value onto the internal stack. This is used only for
+  ///   stack-machine-based languages such as EVM.
+  /// </summary>
+  abstract member Push: Expr -> unit
+
+  /// <summary>
+  ///   Pop a value from the internal stack. This is used only for
+  ///   stack-machine-based languages such as EVM.
+  /// </summary>
+  abstract member Pop: unit -> Expr
+
+  /// <summary>
+  ///   Peek the nth value from the internal stack. This is used only for
+  ///   stack-machine-based languages such as EVM.
+  /// </summary>
+  abstract member Peek: int -> Expr
+
+  /// <summary>
+  ///   Clear the stack. This is used only for stack-machine-based languages.
+  /// </summary>
+  abstract member Clear: unit -> unit

@@ -36,6 +36,9 @@ val assertByCond: condition: bool -> exn -> unit
 /// Not implemented features encountered, so raise an exception and die.
 val futureFeature: unit -> 'a
 
+/// Fatal error. This should never happen.
+val impossible: unit -> 'a
+
 /// Apply a procedure in the middle of function pipes.
 val inline tap : ('a -> unit) -> 'a -> 'a
 

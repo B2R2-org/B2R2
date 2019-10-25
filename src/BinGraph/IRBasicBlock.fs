@@ -30,19 +30,19 @@ open B2R2
 open B2R2.FrontEnd
 
 /// A basic block that consists of IR (LowUIR) statements. It contains all the
-/// InsIRPairs of the basic block.
-type IRBasicBlock (pairs: InsIRPair [], point: ProgramPoint) =
+/// InstructionInfo of the basic block.
+type IRBasicBlock (instrs: InstructionInfo [], point: ProgramPoint) =
   inherit BasicBlock()
 
   /// The first instruction of the basic block.
   member __.FirstInstruction =
-    if Array.isEmpty pairs then raise DummyDataAccessException
-    else fst pairs.[0]
+    if Array.isEmpty instrs then raise DummyDataAccessException
+    else instrs.[0].Instruction
 
   /// The last instruction of the basic block.
   member __.LastInstruction =
-    if Array.isEmpty pairs then raise DummyDataAccessException
-    else fst pairs.[Array.length pairs - 1]
+    if Array.isEmpty instrs then raise DummyDataAccessException
+    else instrs.[Array.length instrs - 1].Instruction
 
   /// The position of the basic block.
   override __.PPoint = point
@@ -54,7 +54,7 @@ type IRBasicBlock (pairs: InsIRPair [], point: ProgramPoint) =
     let lastAddr = __.LastInstruction.Address + uint64 __.LastInstruction.Length
     AddrRange (__.PPoint.Address, lastAddr)
 
-  override __.IsFakeBlock () = Array.isEmpty pairs
+  override __.IsFakeBlock () = Array.isEmpty instrs
 
   override __.ToVisualBlock () =
     __.GetIRStatements ()
@@ -64,20 +64,20 @@ type IRBasicBlock (pairs: InsIRPair [], point: ProgramPoint) =
            AsmWordValue = BinIR.LowUIR.Pp.stmtToString stmt } |])
 
   /// Get an array of IR statements of a basic block.
-  member __.GetIRStatements () = pairs |> Array.map snd
+  member __.GetIRStatements () = instrs |> Array.map (fun i -> i.Stmts)
 
   /// Get an array of instructions that corresponds to each statement in the
   /// IRStatements.
-  member __.GetInstructions () = pairs |> Array.map fst
+  member __.GetInstructions () = instrs |> Array.map (fun i -> i.Instruction)
 
-  /// Get the array of InstrIRPairs of the basic block.
-  member __.GetPairs () = pairs
+  /// Get the array of InstructionInfo of the basic block.
+  member __.GetInsInfos () = instrs
 
   /// Get the last IR statement of the bblock.
   member __.GetLastStmt () =
-    let stmts = snd pairs.[pairs.Length - 1]
+    let stmts = instrs.[instrs.Length - 1].Stmts
     stmts.[stmts.Length - 1]
 
   override __.ToString () =
-    if pairs.Length = 0 then "IRBBLK(Dummy)"
+    if instrs.Length = 0 then "IRBBLK(Dummy)"
     else "IRBBLK(" + __.PPoint.Address.ToString("X") + ")"

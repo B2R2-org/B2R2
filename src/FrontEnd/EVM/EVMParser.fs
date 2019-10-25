@@ -191,12 +191,13 @@ let private parseOpcode (reader: BinReader) pos =
   | 0xffuy -> struct (SELFDESTRUCT, 5000, nextPos)
   | _ -> raise ParsingFailureException
 
-let parse (reader: BinReader) wordSize addr pos =
+let parse (reader: BinReader) (ctxt: ParsingContext) wordSize addr pos =
   let struct (opcode, gas, nextPos) = parseOpcode reader pos
   let instrLen = nextPos - pos |> uint32
   let insInfo =
     { Address = addr
       NumBytes = instrLen
+      Offset = ctxt.CodeOffset
       Opcode = opcode
       GAS = gas }
   EVMInstruction (addr, instrLen, insInfo, wordSize)

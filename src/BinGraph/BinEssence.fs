@@ -45,6 +45,7 @@ type BinEssence = {
 with
   static member private PostAnalysis hdl scfg app =
     [ (LibcAnalysis () :> IPostAnalysis, "LibC analysis")
+      (EVMCodeCopyAnalysis () :> IPostAnalysis, "EVM codecopy analysis")
       (NoReturnAnalysis () :> IPostAnalysis, "NoReturn analysis") ]
     |> List.fold (fun app (analysis, name) ->
       printfn "[*] %s started." name

@@ -37,8 +37,6 @@ exception internal InvalidConditionException
 exception internal InvalidFmtException
 
 type Register =
-  /// Stack Point.
-  | SP = 0x0
   /// Program counter.
   | PC = 0x1
   /// Gas.
@@ -387,6 +385,9 @@ type InsInfo = {
   Address: Addr
   /// Instruction length.
   NumBytes: uint32
+  /// Offset of the instruction. When codecopy (or similar) is used, we should
+  /// adjust the address of the copied instructions using this offset.
+  Offset: Addr
   /// Opcode.
   Opcode: Opcode
   /// Gas
