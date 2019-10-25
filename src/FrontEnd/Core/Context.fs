@@ -77,24 +77,6 @@ type TranslationContext (isa) =
   abstract member GetPseudoRegVar: id: RegisterID -> idx: int -> Expr
 
   /// <summary>
-  ///   Push a value onto the internal stack. This is used only for
-  ///   stack-machine-based languages such as EVM.
+  ///   Get the current stack instance.
   /// </summary>
-  abstract member Push: Expr -> unit
-
-  /// <summary>
-  ///   Pop a value from the internal stack. This is used only for
-  ///   stack-machine-based languages such as EVM.
-  /// </summary>
-  abstract member Pop: unit -> Expr
-
-  /// <summary>
-  ///   Peek the nth value from the internal stack. This is used only for
-  ///   stack-machine-based languages such as EVM.
-  /// </summary>
-  abstract member Peek: int -> Expr
-
-  /// <summary>
-  ///   Clear the stack. This is used only for stack-machine-based languages.
-  /// </summary>
-  abstract member Clear: unit -> unit
+  abstract member GetStack: unit -> ExprStack

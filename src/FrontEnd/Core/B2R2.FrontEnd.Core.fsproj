@@ -9,6 +9,7 @@
   <ItemGroup>
     <Compile Include="Exceptions.fs" />
     <Compile Include="StmtBuilder.fs" />
+    <Compile Include="Stack.fs" />
     <Compile Include="Context.fs" />
     <Compile Include="AsmWord.fs" />
     <Compile Include="Instruction.fs" />

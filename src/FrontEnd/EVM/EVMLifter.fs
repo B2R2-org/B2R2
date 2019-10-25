@@ -72,21 +72,21 @@ let nop insInfo =
   endMark insInfo builder
 
 let private pushToStack (ctxt: TranslationContext) expr =
-  ctxt.Push expr
+  ctxt.GetStack().Push expr
 
 let private popFromStack (ctxt: TranslationContext) =
-  ctxt.Pop ()
+  ctxt.GetStack().Pop ()
 
 let private peekStack (ctxt: TranslationContext) pos =
-  ctxt.Peek (pos)
+  ctxt.GetStack().Peek (pos)
 
 let private swapStack (ctxt: TranslationContext) pos =
-  let arr = Array.init (pos + 1) (fun _ -> ctxt.Pop ())
+  let arr = Array.init (pos + 1) (fun _ -> ctxt.GetStack().Pop ())
   let fst = arr.[0]
   let last = arr.[pos]
   arr.[0] <- last
   arr.[pos] <- fst
-  Array.rev arr |> Array.iter (fun e -> ctxt.Push e)
+  Array.rev arr |> Array.iter (fun e -> ctxt.GetStack().Push e)
 
  /// Binary operations and relative operations.
 let basicOperation insInfo ctxt opFn =
@@ -485,7 +485,7 @@ let translate insInfo (ctxt: TranslationContext) =
   | Op.GETPC -> getpc insInfo ctxt
   | Op.MSIZE -> sideEffects insInfo UndefinedInstr
   | Op.GAS -> gas insInfo ctxt
-  | Op.JUMPDEST -> ctxt.Clear (); nop insInfo
+  | Op.JUMPDEST -> ctxt.GetStack().Clear (); nop insInfo
   | Op.PUSH1 imm -> push insInfo ctxt imm
   | Op.PUSH2 imm -> push insInfo ctxt imm
   | Op.PUSH3 imm -> push insInfo ctxt imm

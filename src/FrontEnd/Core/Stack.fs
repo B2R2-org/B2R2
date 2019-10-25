@@ -2,7 +2,6 @@
   B2R2 - the Next-Generation Reversing Platform
 
   Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
-          Minkyu Jung <hestati@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -25,24 +24,20 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.ARM64
+namespace B2R2.FrontEnd
 
-open B2R2.FrontEnd
+/// Stack for stack-based languages, such as EVM.
+type ExprStack () =
+  let mutable stack: B2R2.BinIR.LowUIR.Expr list = []
 
-/// Translation context for 64-bit ARM instructions.
-type ARM64TranslationContext (isa) =
-  inherit TranslationContext (isa)
-  /// Register expressions.
-  member val private RegExprs : RegExprs = RegExprs ()
-  override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
-  override __.GetPseudoRegVar _id _pos = failwith "Implement"
-  override __.GetStack () = B2R2.Utils.impossible ()
+  member __.Push e =
+    stack <- e :: stack
 
-/// Parser for 64-bit ARM instructions. Parser will return a platform-agnostic
-/// instruction type (Instruction).
-type ARM64Parser () =
-  inherit Parser ()
-  override __.Parse binReader _ctxt addr pos =
-    Parser.parse binReader addr pos :> Instruction
+  member __.Pop () =
+    let ret = stack.Head
+    stack <- stack.Tail
+    ret
 
-// vim: set tw=80 sts=2 sw=2:
+  member __.Peek n = List.item (n - 1) stack
+
+  member __.Clear () = stack <- []
