@@ -379,6 +379,15 @@ let blockhash insInfo ctxt =
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
+let sha3 insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let offset = popFromStack ctxt
+  let length = popFromStack ctxt
+  app "keccak256" [ offset; length ] OperationSize.regType |> pushToStack ctxt
+  startMark insInfo builder
+  updateGas ctxt insInfo.GAS builder
+  endMark insInfo builder
+
 let translate insInfo (ctxt: TranslationContext) =
   match insInfo.Opcode with
   | Op.STOP -> sideEffects insInfo Halt
@@ -407,7 +416,7 @@ let translate insInfo (ctxt: TranslationContext) =
   | Op.SHL -> shl insInfo ctxt
   | Op.SHR -> shr insInfo ctxt
   | Op.SAR -> sar insInfo ctxt
-  | Op.SHA3 -> sideEffects insInfo UndefinedInstr
+  | Op.SHA3 -> sha3 insInfo ctxt
   | Op.CALLER -> obtainInfo insInfo ctxt "msg.caller"
   | Op.CALLVALUE -> obtainInfo insInfo ctxt "msg.value"
   | Op.ADDRESS -> address insInfo ctxt
