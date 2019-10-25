@@ -179,7 +179,7 @@ let byte insInfo ctxt =
 
 let pop insInfo ctxt =
   let builder = new StmtBuilder (4)
-  let _ = popFromStack ctxt
+  try popFromStack ctxt |> ignore with _ -> ()
   startMark insInfo builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
@@ -210,22 +210,19 @@ let mstore8 insInfo ctxt =
   builder <! (loadLE 8<rt> addr := value .& makeNum 0xff)
   endMark insInfo builder
 
-let isCallValue = function
-  | BinOp (BinOpType.APP, _, FuncName "msg.value", _, _, _) -> true
-  | _ -> false
-
 let jump insInfo ctxt =
   let builder = new StmtBuilder (8)
   let pc = getRegVar ctxt R.PC
-  let dst = popFromStack ctxt
-  if isCallValue dst then
-    sideEffects insInfo Halt
-  else
+  try
+    let dst = popFromStack ctxt
     let dstAddr = BitVector.ofUInt64 (getConstAddr dst + insInfo.Offset) 64<rt>
     startMark insInfo builder
     updateGas ctxt insInfo.GAS builder
     builder <! InterJmp (pc, num dstAddr, InterJmpInfo.Base)
     endMark insInfo builder
+  with
+    | :? System.InvalidOperationException -> (* Special case: terminate func. *)
+      sideEffects insInfo Halt
 
 let jumpi insInfo ctxt =
   let builder = new StmtBuilder (8)
@@ -388,6 +385,45 @@ let sha3 insInfo ctxt =
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
+let call insInfo ctxt fname =
+  let builder = new StmtBuilder (8)
+  let gas = popFromStack ctxt
+  let addr = popFromStack ctxt
+  let value = popFromStack ctxt
+  let argsOffset = popFromStack ctxt
+  let argsLength = popFromStack ctxt
+  let retOffset = popFromStack ctxt
+  let retLength = popFromStack ctxt
+  let args = [ gas; addr; value; argsOffset; argsLength; retOffset; retLength ]
+  app fname args OperationSize.regType |> pushToStack ctxt
+  startMark insInfo builder
+  updateGas ctxt insInfo.GAS builder
+  endMark insInfo builder
+
+let sstore insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let key = popFromStack ctxt
+  let value = popFromStack ctxt
+  let t = tmpVar OperationSize.regType
+  startMark insInfo builder
+  updateGas ctxt insInfo.GAS builder
+  builder <! (t := app "sstore" [ key; value ] OperationSize.regType)
+  endMark insInfo builder
+
+let exp insInfo ctxt =
+  let builder = new StmtBuilder (8)
+  let a = popFromStack ctxt
+  let b = popFromStack ctxt
+  app "exp" [ a; b ] OperationSize.regType |> pushToStack ctxt
+  startMark insInfo builder
+  updateGas ctxt insInfo.GAS builder
+  endMark insInfo builder
+
+let ret insInfo ctxt =
+  popFromStack ctxt |> ignore
+  popFromStack ctxt |> ignore
+  sideEffects insInfo Halt
+
 let translate insInfo (ctxt: TranslationContext) =
   match insInfo.Opcode with
   | Op.STOP -> sideEffects insInfo Halt
@@ -400,7 +436,7 @@ let translate insInfo (ctxt: TranslationContext) =
   | Op.SMOD -> smod insInfo ctxt
   | Op.ADDMOD -> addmod insInfo ctxt
   | Op.MULMOD -> mulmod insInfo ctxt
-  | Op.EXP -> sideEffects insInfo UndefinedInstr
+  | Op.EXP -> exp insInfo ctxt
   | Op.SIGNEXTEND -> signextend insInfo ctxt
   | Op.LT -> lt insInfo ctxt
   | Op.GT -> gt insInfo ctxt
@@ -443,13 +479,13 @@ let translate insInfo (ctxt: TranslationContext) =
   | Op.MSTORE -> mstore insInfo ctxt
   | Op.MSTORE8 -> mstore8 insInfo ctxt
   | Op.SLOAD -> sideEffects insInfo UndefinedInstr
-  | Op.SSTORE -> sideEffects insInfo UndefinedInstr
+  | Op.SSTORE -> sstore insInfo ctxt
   | Op.JUMP -> jump insInfo ctxt
   | Op.JUMPI -> jumpi insInfo ctxt
   | Op.GETPC -> getpc insInfo ctxt
   | Op.MSIZE -> sideEffects insInfo UndefinedInstr
   | Op.GAS -> gas insInfo ctxt
-  | Op.JUMPDEST -> nop insInfo
+  | Op.JUMPDEST -> ctxt.Clear (); nop insInfo
   | Op.PUSH1 imm -> push insInfo ctxt imm
   | Op.PUSH2 imm -> push insInfo ctxt imm
   | Op.PUSH3 imm -> push insInfo ctxt imm
@@ -515,7 +551,9 @@ let translate insInfo (ctxt: TranslationContext) =
   | Op.SWAP15 -> swap insInfo ctxt 15
   | Op.SWAP16 -> swap insInfo ctxt 16
   | Op.RETURN
-  | Op.REVERT -> ctxt.Clear (); sideEffects insInfo Halt
+  | Op.REVERT -> ret insInfo ctxt
+  | Op.CALL -> call insInfo ctxt "call.gas"
+  | Op.CALLCODE -> call insInfo ctxt "callcode.gas"
   | Op.LOG0
   | Op.LOG1
   | Op.LOG2
@@ -534,8 +572,6 @@ let translate insInfo (ctxt: TranslationContext) =
   | Op.SSTOREBYTES
   | Op.SSIZE
   | Op.CREATE
-  | Op.CALL
-  | Op.CALLCODE
   | Op.DELEGATECALL
   | Op.CREATE2
   | Op.STATICCALL
