@@ -173,6 +173,7 @@ module BinaryApparatus =
       | _ -> acc) acc
 
   let rec private findLeaders hdl acc (instrMap: InstrMap) =
+    let acc = { acc with Labels = instrMap |> Seq.fold findLabels Map.empty }
     let acc = instrMap |> Seq.fold foldStmts acc
     let oldCount = instrMap.Count
     let instrMap =
@@ -187,9 +188,8 @@ module BinaryApparatus =
     let leaders = auxEntries |> Seq.fold (fun set e -> Set.add e set) initial
     let instrMap = InstrMap.build hdl leaders
     (* First, recursively parse all possible instructions. *)
-    let lblmap = instrMap |> Seq.fold findLabels Map.empty
     let funAddrs = leaders |> Seq.map (fun e -> e.Point.Address) |> Set.ofSeq
-    let acc = { Labels = lblmap; Leaders = leaders; FunctionAddrs = funAddrs }
+    let acc = { Labels = Map.empty; Leaders = leaders; FunctionAddrs = funAddrs }
 #if DEBUG
     printfn "[*] Loaded basic information."
 #endif
@@ -201,7 +201,7 @@ module BinaryApparatus =
     printfn "[*] The apparatus is ready to use."
 #endif
     { InstrMap = instrMap
-      LabelMap = lblmap
+      LabelMap = acc.Labels
       LeaderInfos = acc.Leaders
       CallerMap = CallerMap.build calleeMap
       CalleeMap = calleeMap
