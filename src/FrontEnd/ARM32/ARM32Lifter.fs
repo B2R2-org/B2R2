@@ -1509,6 +1509,11 @@ let mvn isSetFlags insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
+let svc insInfo ctxt =
+  match insInfo.Operands with
+  | OneOperand (OprImm n) -> sideEffects insInfo (Interrupt (int n))
+  | _ -> raise InvalidOperandException
+
 let getImmShiftFromShiftType imm = function
   | SRTypeLSL | SRTypeROR -> imm
   | SRTypeLSR -> if imm = 0ul then 32ul else imm
@@ -4360,6 +4365,7 @@ let translate insInfo ctxt =
   | Op.ADDS -> adds true insInfo ctxt
   | Op.BL -> bl insInfo ctxt
   | Op.BLX -> branchWithLink insInfo ctxt
+  | Op.BKPT -> sideEffects insInfo Breakpoint
   | Op.PUSH -> push insInfo ctxt
   | Op.SUB | Op.SUBW -> sub false insInfo ctxt
   | Op.SUBS -> subs true insInfo ctxt
@@ -4452,8 +4458,10 @@ let translate insInfo ctxt =
   | Op.STMDA -> stm Op.STMDA insInfo ctxt (.-)
   | Op.STMDB -> stm Op.STMDB insInfo ctxt (.-)
   | Op.STMIB -> stm Op.STMIB insInfo ctxt (.+)
-  | Op.CDP | Op.CDP2 | Op.LDC2
-  | Op.STCL | Op.SVC | Op.MRC | Op.MRC2 | Op.LDCL ->
+  | Op.SVC -> svc insInfo ctxt
+  | Op.CDP | Op.CDP2 | Op.LDC | Op.LDC2 | Op.LDC2L | Op.LDCL | Op.MCR | Op.MCR2
+  | Op.MCRR | Op.MCRR2 | Op.MRC | Op.MRC2 | Op.MRRC | Op.MRRC2
+  | Op.STC | Op.STC2 | Op.STC2L | Op.STCL ->
     sideEffects insInfo UnsupportedExtension (* coprocessor instructions *)
   | Op.CBNZ -> cbz true insInfo ctxt
   | Op.CBZ -> cbz false insInfo ctxt
@@ -4522,9 +4530,10 @@ let translate insInfo ctxt =
   | Op.VSHR -> vshr insInfo ctxt
   | Op.VTBL -> vecTbl insInfo ctxt true
   | Op.VTBX -> vecTbl insInfo ctxt false
-  | Op.VCMP | Op.VCMPE | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT
-  | Op.VCVT | Op.VCVTR
-  | Op.VDIV -> sideEffects insInfo UnsupportedFP
+  | Op.VCMP | Op.VCMPE | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVT
+  | Op.VCVTR | Op.VDIV | Op.VFMA | Op.VFMS | Op.VFNMA | Op.VFNMS | Op.VMSR
+  | Op.VNMLA | Op.VNMLS | Op.VNMUL | Op.VSQRT ->
+    sideEffects insInfo UnsupportedFP
   | Op.VCEQ | Op.VCGE | Op.VCGT | Op.VCLE | Op.VCLT
     when isF32orF64 insInfo.SIMDTyp -> sideEffects insInfo UnsupportedFP
   | Op.VCEQ -> vceq insInfo ctxt
