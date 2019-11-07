@@ -31,14 +31,13 @@ namespace B2R2.Assembler.MIPS
 
 open B2R2
 open B2R2.FrontEnd.MIPS
+open B2R2.Assembler.MIPS.ParserHelper
 open FParsec
 open System
 
 type UserState = Map<string, Addr>
 
-type Parser<'t> = Parser<'t, UserState>
-
-type Parser (mipsISA: ISA, startAddress: Addr) =
+type AsmParser (mipsISA: ISA, startAddress: Addr) =
 
   let mutable address = startAddress
 
@@ -147,13 +146,13 @@ type Parser (mipsISA: ISA, startAddress: Addr) =
     ( (pchar '$' >>. (allRegistersList |> choice)) <|>
       (registersList |> choice) )
     |>> (fun regName ->
-           Enum.Parse (typeof<Register>, ParseHelper.getRealRegName regName)
+           Enum.Parse (typeof<Register>, getRealRegName regName)
            :?> Register)
     <??> "registers"
 
   let reg = pReg |>> Operand.Register
 
-  let regAddr: Parser<_> = betweenParen pReg
+  let regAddr: Parser<_, UserState> = betweenParen pReg
 
   let paddr = opt (pImm .>> whitespace |>> int64) .>>.? regAddr
 
@@ -161,12 +160,11 @@ type Parser (mipsISA: ISA, startAddress: Addr) =
     paddr |>> (fun (ofstOp, reg) ->
                  match ofstOp with
                  | Some offset -> Memory (reg, offset, 32<rt>)
-                 | None -> Memory (reg, 0L, 32<rt>)
-               )
+                 | None -> Memory (reg, 0L, 32<rt>))
 
   let operand = addr <|> reg <|> imm <|> label
 
-  let operands = sepBy operand operandSeps |>> ParseHelper.extractOperands
+  let operands = sepBy operand operandSeps |>> extractOperands
 
   let pInsInfo =
       pOpcode .>>.
@@ -174,7 +172,7 @@ type Parser (mipsISA: ISA, startAddress: Addr) =
       (opt pFmt) .>>.
       (whitespace >>. operands)
       |>> (fun (((opcode, cond), fmt), operands) ->
-              MIPSInsInfo.construct mipsISA address opcode cond fmt operands )
+              newInfo mipsISA address opcode cond fmt operands )
 
   let statement =
     opt pLabelDef >>. spaces >>. pInsInfo  .>> incrementAddress

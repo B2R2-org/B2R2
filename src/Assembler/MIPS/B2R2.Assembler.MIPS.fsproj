@@ -5,9 +5,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="MIPSUtils.fs" />
+    <Compile Include="MIPSParserHelper.fs" />
     <Compile Include="MIPSSecondPass.fs" />
-    <Compile Include="MIPSParser.fs" />
+    <Compile Include="MIPSAsmParser.fs" />
   </ItemGroup>
 
   <ItemGroup>

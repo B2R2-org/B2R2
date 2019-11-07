@@ -13,7 +13,7 @@ type AsmInterface (isa: ISA, startAddress) =
     | Architecture.MIPS32R6
     | Architecture.MIPS4
     | Architecture.MIPS5
-    | Architecture.MIPS64 -> MIPS.Parser (isa, startAddress)
+    | Architecture.MIPS64 -> MIPS.AsmParser (isa, startAddress)
     | _ -> raise InvalidISAException
 
   member __.Run asm = parser.Run asm

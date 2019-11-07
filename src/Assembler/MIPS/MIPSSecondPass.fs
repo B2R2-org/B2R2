@@ -33,7 +33,7 @@ open B2R2.FrontEnd.MIPS
 let updateOperands insAddress operandList labelToAddress =
   let rec doChecking operands (mapping: Map<string, Addr>) result =
     match operands with
-    | [] -> ParseHelper.extractOperands (List.rev result)
+    | [] -> ParserHelper.extractOperands (List.rev result)
     | hd :: tail ->
       match hd with
       | GoToLabel (a1) ->
@@ -54,7 +54,7 @@ let updateInsInfos (insInfoList: InsInfo List) labelToAddress =
     | [] -> List.rev result
     | hd :: tail ->
       let operands = hd.Operands
-      let operands = ParseHelper.getOperandsAsList operands
+      let operands = ParserHelper.getOperandsAsList operands
       let operands = updateOperands hd.Address operands mapping
       let newInsInfo = {hd with Operands = operands}
       doUpdate tail mapping (newInsInfo :: result)
