@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="TMS320C6000Types.fs" />
+    <Compile Include="TMS320C6000RegisterSet.fs" />
+    <Compile Include="TMS320C6000RegExprs.fs" />
+    <Compile Include="TMS320C6000Utils.fs" />
+    <Compile Include="TMS320C6000Instruction.fs" />
+    <Compile Include="TMS320C6000Parser.fsi" />
+    <Compile Include="TMS320C6000Parser.fs" />
+    <Compile Include="TMS320C6000.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
+    <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\..\BinFile\B2R2.BinFile.fsproj" />
+    <ProjectReference Include="..\Core\B2R2.FrontEnd.Core.fsproj" />
+  </ItemGroup>
+
+</Project>

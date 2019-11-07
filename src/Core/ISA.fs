@@ -70,8 +70,12 @@ type Architecture =
   | MIPS64R6 = 16
   /// Ethereum Vritual Machine.
   | EVM = 17
+  /// TMS320C54x, TMS320C55x, etc.
+  | TMS320C5000 = 18
+  /// TMS320C64x, TMS320C67x, etc.
+  | TMS320C6000 = 19
   /// Unknown ISA.
-  | UnknownISA = 18
+  | UnknownISA = 20
 
 type Arch = Architecture
 

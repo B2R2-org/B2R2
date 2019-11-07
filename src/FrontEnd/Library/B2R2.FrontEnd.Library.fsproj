@@ -29,6 +29,7 @@
     <ProjectReference Include="..\ARM64\B2R2.FrontEnd.ARM64.fsproj" PrivateAssets="all"/>
     <ProjectReference Include="..\MIPS\B2R2.FrontEnd.MIPS.fsproj" PrivateAssets="all"/>
     <ProjectReference Include="..\EVM\B2R2.FrontEnd.EVM.fsproj" PrivateAssets="all"/>
+    <ProjectReference Include="..\TMS320C6000\B2R2.FrontEnd.TMS320C6000.fsproj" PrivateAssets="all"/>
     <ProjectReference Include="..\Optimizer\B2R2.FrontEnd.Optimizer.fsproj" PrivateAssets="all"/>
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath=""/>
   </ItemGroup>

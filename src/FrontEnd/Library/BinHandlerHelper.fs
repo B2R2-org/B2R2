@@ -49,6 +49,9 @@ let initHelpers isa =
   | Arch.EVM ->
     EVM.EVMTranslationContext (isa) :> TranslationContext,
     EVM.EVMParser (isa.WordSize) :> Parser
+  | Arch.TMS320C6000 ->
+    TMS320C6000.TMS320C6000TranslationContext (isa) :> TranslationContext,
+    TMS320C6000.TMS320C6000Parser () :> Parser
   | _ -> Utils.futureFeature ()
 
 let newFileInfo bytes (baseAddr: Addr) path isa autoDetect =

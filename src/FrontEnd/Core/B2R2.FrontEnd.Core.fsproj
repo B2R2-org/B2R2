@@ -15,6 +15,7 @@
     <Compile Include="RegisterFactory.fs" />
     <Compile Include="Instruction.fs" />
     <Compile Include="Parser.fs" />
+    <Compile Include="ParseUtils.fs" />
   </ItemGroup>
 
   <ItemGroup>
