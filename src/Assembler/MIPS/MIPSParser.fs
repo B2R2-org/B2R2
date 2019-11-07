@@ -35,6 +35,7 @@ open FParsec
 open System
 
 type UserState = Map<string, Addr>
+
 type Parser<'t> = Parser<'t, UserState>
 
 type Parser (mipsISA: ISA, startAddress: Addr) =
