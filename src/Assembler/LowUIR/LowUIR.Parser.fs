@@ -36,7 +36,7 @@ type ExpectedType = RegType
 
 type Parser<'t> = Parser<'t, ExpectedType>
 
-type LowUIRParser (isa, pHelper: RegParseHelper) =
+type LowUIRParser (isa, regfactory: RegisterFactory) =
 
   (* Functions to help with manipulating the userState *)
   let makeExpectedType c =
@@ -100,11 +100,11 @@ type LowUIRParser (isa, pHelper: RegParseHelper) =
   let pNumE = pBitVector |>> AST.num
 
   let pVarE =
-    List.map pCaseString pHelper.RegNames |> List.map attempt
-    |> choice |>> pHelper.StrToReg
+    List.map pCaseString regfactory.RegNames |> List.map attempt
+    |> choice |>> regfactory.StrToReg
 
   let pPCVarE =
-    pNormalString |>> pHelper.StrToReg
+    pNormalString |>> regfactory.StrToReg
 
   let pTempVarE =
     spaces >>. pstring "T_" >>. pint32 .>> spaces .>> pchar ':' .>> spaces

@@ -2,15 +2,14 @@
 
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
-open System
 open B2R2
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
 
 [<TestClass>]
 type LowUIRTests () =
-  let pHelper = Intel.ParseHelper WordSize.Bit64 :> RegParseHelper
-  let p = LowUIRParser (ISA.DefaultISA, pHelper)
+  let regfactory = Intel.RegFactory WordSize.Bit64 :> RegisterFactory
+  let p = LowUIRParser (ISA.DefaultISA, regfactory)
 
   [<TestMethod>]
   member __.``[Assembler] Parse Test (Intel64 lowUIR)`` () =

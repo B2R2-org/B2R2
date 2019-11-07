@@ -18,7 +18,6 @@
     <Compile Include="LowUIR.Pp.fs" />
     <Compile Include="LowUIR.AST.fsi" />
     <Compile Include="LowUIR.AST.fs" />
-    <Compile Include="RegParseHelper.fs" />
     <Compile Include="SSA.fs" />
     <Compile Include="SSA.Pp.fs" />
     <Compile Include="SSA.AST.fs" />

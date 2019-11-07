@@ -30,8 +30,8 @@ namespace B2R2.FrontEnd.MIPS
 open B2R2
 open B2R2.BinIR.LowUIR
 
-type ParseHelper (wordSize) =
-  inherit RegParseHelper ()
+type RegFactory (wordSize) =
+  inherit RegisterFactory ()
 
   let R = RegExprs (wordSize)
 

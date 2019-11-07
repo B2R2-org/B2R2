@@ -30,9 +30,9 @@ namespace B2R2.FrontEnd.ARM32
 open B2R2
 open B2R2.BinIR.LowUIR
 
-type ParseHelper () =
+type RegFactory () =
 
-  inherit RegParseHelper ()
+  inherit RegisterFactory ()
 
   let R = RegExprs ()
 
