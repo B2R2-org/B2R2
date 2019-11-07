@@ -35,7 +35,7 @@ open B2R2.Assembler.MIPS.ParserHelper
 open FParsec
 open System
 
-type UserState = Map<string, Addr>
+type LabelDefs = Map<string, Addr>
 
 type AsmParser (mipsISA: ISA, startAddress: Addr) =
 
@@ -152,7 +152,7 @@ type AsmParser (mipsISA: ISA, startAddress: Addr) =
 
   let reg = pReg |>> Operand.Register
 
-  let regAddr: Parser<_, UserState> = betweenParen pReg
+  let regAddr = betweenParen pReg
 
   let paddr = opt (pImm .>> whitespace |>> int64) .>>.? regAddr
 
