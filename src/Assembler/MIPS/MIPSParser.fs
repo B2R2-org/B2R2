@@ -4,6 +4,7 @@
   Author: Kangsu Kim <kskim0610@kaist.ac.kr>
           Mehdi Aghakishiyev <agakisiyev.mehdi@gmail.com>
           Michael Tegegn <mick@kaist.ac.kr>
+          Sang Kil Cha <sangkilc@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -26,9 +27,9 @@
   SOFTWARE.
 *)
 
-module B2R2.Assembler.MIPS.Parser
+namespace B2R2.Assembler.MIPS
+
 open B2R2
-open B2R2.Assembler.MIPS
 open B2R2.FrontEnd.MIPS
 open FParsec
 open System
@@ -36,7 +37,7 @@ open System
 type UserState = Map<string, Addr>
 type Parser<'t> = Parser<'t, UserState>
 
-type MIPSParser (mipsISA: ISA, startAddress: Addr) =
+type Parser (mipsISA: ISA, startAddress: Addr) =
 
   let mutable address = startAddress
 
@@ -44,6 +45,7 @@ type MIPSParser (mipsISA: ISA, startAddress: Addr) =
   let addLabeldef lbl =
     updateUserState ( fun (us: Map<string, Addr>) -> us.Add (lbl, address))
     >>. preturn ()
+
   let incrementAddress =
     preturn () |>> (fun _ -> address <- address + 4UL)
 
@@ -53,17 +55,23 @@ type MIPSParser (mipsISA: ISA, startAddress: Addr) =
        "t8"; "t9"; "k0"; "k1"; "gp"; "sp"; "s8"; "fp"; "ra"; |]
 
   let isWhitespace c = [ ' '; '\t'; '\f' ] |> List.contains c
+
   let whitespace = manySatisfy isWhitespace
+
   let whitespace1 = many1Satisfy isWhitespace
+
   let skipWhitespaces s = whitespace >>? s .>>? whitespace
+
   let terminator = (pchar ';' <|> newline) |> skipWhitespaces
 
   let operandSeps = (pchar ',' >>. whitespace) <|> whitespace1
+
   let betweenParen s = s |> skipWhitespaces |> between (pchar '(') (pchar ')')
 
   let alphanumericWithUnderscore s = Char.IsLetterOrDigit s || s = '_'
 
   let pId = many1Satisfy alphanumericWithUnderscore
+
   let pLabelDef = pId .>>? pchar ':' >>= addLabeldef
 
   let pOpcode =
@@ -110,14 +118,20 @@ type MIPSParser (mipsISA: ISA, startAddress: Addr) =
     ||| NumberLiteralOptions.AllowOctal
     ||| NumberLiteralOptions.AllowHexadecimal
     ||| NumberLiteralOptions.AllowMinusSign
+
   let regNumberFormat = NumberLiteralOptions.None
+
   let pImm =
     numberLiteral numberFormat "number" |>> (fun x -> x.String |> uint64)
+
   let pRegImm =
     numberLiteral regNumberFormat "number" |>> (fun x -> x.String)
+
   let operators = (pchar '+' |>> fun _ -> (+)) <|> (pchar '-' |>> fun _ -> (-))
+
   let immWithOperators =
     attempt (pipe3 pImm operators pImm (fun a op c -> op a c))
+
   let imm = immWithOperators <|> pImm |>> Operand.Immediate
 
   let registersList =
@@ -137,9 +151,11 @@ type MIPSParser (mipsISA: ISA, startAddress: Addr) =
     <??> "registers"
 
   let reg = pReg |>> Operand.Register
+
   let regAddr: Parser<_> = betweenParen pReg
 
   let paddr = opt (pImm .>> whitespace |>> int64) .>>.? regAddr
+
   let addr =
     paddr |>> (fun (ofstOp, reg) ->
                  match ofstOp with
@@ -148,7 +164,9 @@ type MIPSParser (mipsISA: ISA, startAddress: Addr) =
                )
 
   let operand = addr <|> reg <|> imm <|> label
+
   let operands = sepBy operand operandSeps |>> ParseHelper.extractOperands
+
   let pInsInfo =
       pOpcode .>>.
       (attempt (opt pCondition)) .>>.
@@ -162,5 +180,7 @@ type MIPSParser (mipsISA: ISA, startAddress: Addr) =
 
   let statements = sepEndBy statement terminator .>> eof
 
-  member __.Parse assembly =
-    runParserOnString statements Map.empty<string, Addr>  "" assembly
+  member __.Run assembly =
+    match runParserOnString statements Map.empty<string, Addr> "" assembly with
+    | Success (result, us, _) -> SecondPass.updateInsInfos result us
+    | Failure (str, _, _) -> printfn "Parser failed!\n%s" str; []

@@ -26,6 +26,7 @@
 *)
 
 module B2R2.Assembler.MIPS.SecondPass
+
 open B2R2
 open B2R2.FrontEnd.MIPS
 

@@ -6,9 +6,8 @@
 
   <ItemGroup>
     <Compile Include="MIPSUtils.fs" />
-    <Compile Include="MIPSParser.fs" />
     <Compile Include="MIPSSecondPass.fs" />
-    <Compile Include="MIPSParserRunner.fs" />
+    <Compile Include="MIPSParser.fs" />
   </ItemGroup>
 
   <ItemGroup>
