@@ -134,6 +134,8 @@ with
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit64 }
     | Arch.EVM -> (* EVM has 256-bit word, but we will use 64-bit here. *)
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit64 }
+    | Arch.TMS320C6000 ->
+      { Arch = arch; Endian = endian; WordSize = WordSize.Bit32 }
     | _ -> raise InvalidISAException
 
   static member OfString (s: string) =
@@ -156,6 +158,8 @@ with
     | "mips64r6" -> ISA.Init (Arch.MIPS64R6) Endian.Little
     | "mips64r6be" -> ISA.Init (Arch.MIPS64R6) Endian.Big
     | "evm" -> ISA.Init (Arch.EVM) Endian.Little
+    | "tms320c6000" -> ISA.Init (Arch.TMS320C6000) Endian.Little
+    | "tms320c6000be" -> ISA.Init (Arch.TMS320C6000) Endian.Big
     | _ -> raise InvalidISAException
 
   static member ArchToString = function
@@ -169,5 +173,6 @@ with
     | Arch.MIPS64R2 -> "MIPS64 Release 2"
     | Arch.MIPS64R6 -> "MIPS64 Release 6"
     | Arch.EVM -> "EVM"
+    | Arch.TMS320C6000 -> "TMS320C6000"
     | Arch.UnknownISA -> "Unknown"
     | _ -> "Not supported ISA"

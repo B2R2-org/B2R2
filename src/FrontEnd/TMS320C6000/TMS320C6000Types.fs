@@ -118,12 +118,122 @@ module Register =
 /// </summary>
 type Opcode =
   | ABS = 0
-  | InvalOP = 1
+  | ABSDP = 1
+  | ABSSP = 2
+  | ADD = 3
+  | ADD2 = 4
+  | ADDAB = 5
+  | ADDAD = 6
+  | ADDAH = 7
+  | ADDAW = 8
+  | ADDDP = 9
+  | ADDK = 10
+  | ADDSP = 11
+  | ADDU = 12
+  | AND = 13
+  | B = 14
+  | CLR = 15
+  | CMPEQ = 16
+  | CMPEQDP = 17
+  | CMPEQSP = 18
+  | CMPGT = 19
+  | CMPGTDP = 20
+  | CMPGTSP = 21
+  | CMPGTU = 22
+  | CMPLT = 23
+  | CMPLTDP = 24
+  | CMPLTSP = 25
+  | CMPLTU = 26
+  | DPINT = 27
+  | DPSP = 28
+  | DPTRUNC = 29
+  | EXT = 30
+  | EXTU = 31
+  | IDLE = 32
+  | INTDP = 33
+  | INTDPU = 34
+  | INTSP = 35
+  | INTSPU = 36
+  | LDB = 37
+  | LDBU = 38
+  | LDDW = 39
+  | LDH = 40
+  | LDHU = 41
+  | LDW = 42
+  | LMBD = 43
+  | MPY = 44
+  | MPYDP = 45
+  | MPYH = 46
+  | MPYHL = 47
+  | MPYHLU = 48
+  | MPYHSLU = 49
+  | MPYHSU = 50
+  | MPYHU = 51
+  | MPYHULS = 52
+  | MPYHUS = 53
+  | MPYI = 54
+  | MPYID = 55
+  | MPYLH = 56
+  | MPYLHU = 57
+  | MPYLSHU = 58
+  | MPYLUHS = 59
+  | MPYSP = 60
+  | MPYSP2DP = 61
+  | MPYSPDP = 62
+  | MPYSU = 63
+  | MPYU = 64
+  | MPYUS = 65
+  | MV = 66
+  | MVC = 67
+  | MVK = 68
+  | MVKH = 69
+  | MVKL = 70
+  | MVKLH = 71
+  | NEG = 72
+  | NOP = 73
+  | NORM = 74
+  | NOT = 75
+  | OR = 76
+  | RCPDP = 77
+  | RCPSP = 78
+  | RSQRDP = 79
+  | RSQRSP = 80
+  | SADD = 81
+  | SAT = 82
+  | SET = 83
+  | SHL = 84
+  | SHR = 85
+  | SHRU = 86
+  | SMPY = 87
+  | SMPYH = 88
+  | SMPYHL = 89
+  | SMPYLH = 90
+  | SPDP = 91
+  | SPINT = 92
+  | SPTRUNC = 93
+  | SSHL = 94
+  | SSUB = 95
+  | STB = 96
+  | STH = 97
+  | STW = 98
+  | SUB = 99
+  | SUB2 = 100
+  | SUBAB = 101
+  | SUBAH = 102
+  | SUBAW = 103
+  | SUBC = 104
+  | SUBDP = 105
+  | SUBSP = 106
+  | SUBU = 107
+  | XOR = 108
+  | ZERO = 109
+  | InvalOP = 110
 
 type internal Op = Opcode
 
 type Operand =
   | Register of Register
+  | RegisterPair of Register * Register
   | Immediate of Imm
 and Imm = uint64
 
@@ -134,8 +244,25 @@ type Operands =
   | ThreeOperands of Operand * Operand * Operand
   | FourOperands of Operand * Operand * Operand * Operand
 
+type Unit =
+  | L1
+  | L2
+  | L1X
+  | L2X
+  | S1
+  | S2
+  | S1X
+  | S2X
+  | M1
+  | M2
+  | M1X
+  | M2X
+  | D1
+  | D2
+  | NoUnit
+
 type internal Instruction =
-  Opcode * Unit option
+  Opcode * Unit
 
 /// Basic information obtained by parsing a TMS320C6000 instruction.
 [<NoComparison; CustomEquality>]
@@ -148,6 +275,8 @@ type InsInfo = {
   Opcode: Opcode
   /// Operands.
   Operands: Operands
+  /// Functional Units.
+  Unit: Unit
   /// Operation Size.
   OperationSize: RegType
   /// Cycle packet index
