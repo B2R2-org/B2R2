@@ -244,7 +244,7 @@ type Operands =
   | ThreeOperands of Operand * Operand * Operand
   | FourOperands of Operand * Operand * Operand * Operand
 
-type Unit =
+type FunctionalUnit =
   | L1
   | L2
   | L1X
@@ -262,7 +262,7 @@ type Unit =
   | NoUnit
 
 type internal Instruction =
-  Opcode * Unit
+  Opcode * FunctionalUnit
 
 /// Basic information obtained by parsing a TMS320C6000 instruction.
 [<NoComparison; CustomEquality>]
@@ -276,7 +276,7 @@ type InsInfo = {
   /// Operands.
   Operands: Operands
   /// Functional Units.
-  Unit: Unit
+  FunctionalUnit: FunctionalUnit
   /// Operation Size.
   OperationSize: RegType
   /// Cycle packet index

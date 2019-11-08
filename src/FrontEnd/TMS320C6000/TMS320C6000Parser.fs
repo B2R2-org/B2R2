@@ -31,7 +31,25 @@ open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.BitData
 
-let getRegisterA = function
+/// Table 3-1. Instruction Operation and Execution Notations.
+type OperandType =
+  /// Signed 32-bit integer value.
+  | SInt
+  /// XXX
+  | SLong
+  | XSInt
+  | SConst
+  | UConst
+
+[<Struct>]
+type OperandInfo =
+  struct
+    val OperandValue: uint32
+    val OperandType: OperandType
+    new (v, t) = { OperandValue = v; OperandType = t }
+  end
+
+let private getRegisterA = function
   | 0b00000u -> R.A0
   | 0b00001u -> R.A1
   | 0b00010u -> R.A2
@@ -64,9 +82,9 @@ let getRegisterA = function
   | 0b11101u -> R.A29
   | 0b11110u -> R.A30
   | 0b11111u -> R.A31
-  | _ -> failwith "Invalid Register"
+  | _ -> Utils.impossible ()
 
-let getRegisterB = function
+let private getRegisterB = function
   | 0b00000u -> R.B0
   | 0b00001u -> R.B1
   | 0b00010u -> R.B2
@@ -99,138 +117,158 @@ let getRegisterB = function
   | 0b11101u -> R.B29
   | 0b11110u -> R.B30
   | 0b11111u -> R.B31
-  | _ -> failwith "Invalid Register"
+  | _ -> Utils.impossible ()
 
-let parseRegister bin = function
+let private parseRegister bin isCrossPath = function
   | L1 | S1 | M1 | D1 -> getRegisterA bin
   | L2 | S2 | M2 | D2 -> getRegisterB bin
-  | L1X | S1X | M1X -> getRegisterA bin
-  | L2X | S2X | M2X -> getRegisterB bin
-  | _ -> failwith "Invalid Register"
+  | L1X | S1X | M1X ->
+    if isCrossPath then getRegisterB bin else getRegisterA bin
+  | L2X | S2X | M2X ->
+    if isCrossPath then getRegisterA bin else getRegisterB bin
+  | _ -> Utils.impossible ()
 
-let parseRegisterX bin = function
-  | L1 | S1 | M1 | D1 -> getRegisterA bin
-  | L2 | S2 | M2 | D2 -> getRegisterB bin
-  | L1X | S1X | M1X -> getRegisterB bin
-  | L2X | S2X | M2X -> getRegisterA bin
-  | _ -> failwith "Invalid Register"
+let private translateOperand bin unit (oprInfo: OperandInfo) =
+  match oprInfo.OperandType with
+  | SInt -> parseRegister bin false unit |> Register
+  | SLong ->
+    (parseRegister (bin + 0b1u) false unit, parseRegister bin false unit)
+    |> RegisterPair
+  | XSInt -> parseRegister bin true unit |> Register
+  | SConst -> uint64 bin |> Immediate
+  | UConst -> uint64 bin |> Immediate
 
-let src1Bits bin = extract bin 17u 13u
-let src2Bits bin = extract bin 22u 18u
-let dstBits bin = extract bin 27u 23u
-let xBit bin = pickBit bin 12u
-let sBit bin = pickBit bin 1u
+let private parseThreeOprs bin unit o1 o2 o3 =
+  ThreeOperands (translateOperand bin unit o1,
+                 translateOperand bin unit o2,
+                 translateOperand bin unit o3)
 
-let opFld11to5 bin = extract bin 11u 5u
-let opFld11to6 bin = extract bin 11u 6u
-let opFld12to7 bin = extract bin 12u 7u
+let private xBit bin = pickBit bin 12u
+let private sBit bin = pickBit bin 1u
+let private pBit bin = pickBit bin 0u
 
-let getLUnit s x =
+/// sint, xsint, sint
+let private parseSiXSiSi bin opcode unit =
+  let o1 = OperandInfo (extract bin 17u 13u, SInt)
+  let o2 = OperandInfo (extract bin 22u 18u, XSInt)
+  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+
+/// sint, xsint, slong
+let private parseSiXSiSl bin opcode unit =
+  let o1 = OperandInfo (extract bin 17u 13u, SInt)
+  let o2 = OperandInfo (extract bin 22u 18u, XSInt)
+  let o3 = OperandInfo (extract bin 27u 23u, SLong)
+  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+
+/// xsint, slong, slong
+let private parseXSiSlSl bin opcode unit =
+  let o1 = OperandInfo (extract bin 17u 13u, XSInt)
+  let o2 = OperandInfo (extract bin 22u 18u, SLong)
+  let o3 = OperandInfo (extract bin 27u 23u, SLong)
+  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+
+/// scst5, xsint, sint
+let private parseSc5XSiSi bin opcode unit =
+  let o1 = OperandInfo (extract bin 17u 13u, SConst)
+  let o2 = OperandInfo (extract bin 22u 18u, XSInt)
+  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+
+/// scst5, slong, slong
+let private parseSc5SlSl bin opcode unit =
+  let o1 = OperandInfo (extract bin 17u 13u, SConst)
+  let o2 = OperandInfo (extract bin 22u 18u, SLong)
+  let o3 = OperandInfo (extract bin 27u 23u, SLong)
+  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+
+/// sint, sint, sint
+let private parseSiSiSi bin opcode unit =
+  let o1 = OperandInfo (extract bin 22u 18u, SInt)
+  let o2 = OperandInfo (extract bin 17u 13u, SInt)
+  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+
+/// sint, ucst5, sint
+let private parseSiUc5Si bin opcode unit =
+  let o1 = OperandInfo (extract bin 22u 18u, SInt)
+  let o2 = OperandInfo (extract bin 17u 13u, UConst)
+  let o3 = OperandInfo (extract bin 27u 23u, SInt)
+  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+
+let private getDUnit s = if s = 0b0u then D1 else D2
+
+/// Appendix C-5. Fig. C-1
+let private parseDUnitSrcs bin =
+  let unit = getDUnit (sBit bin)
+  match extract bin 12u 7u with
+  | 0b010000u -> parseSiSiSi bin Op.ADD unit
+  | 0b010010u -> parseSiUc5Si bin Op.ADD unit
+  | _ -> raise InvalidOpcodeException
+
+let private parseDUnitSrcsExt bin = struct (Op.InvalOP, NoUnit, NoOperand)
+let private parseDUnitLSBasic bin = struct (Op.InvalOP, NoUnit, NoOperand)
+let private parseDUnitLSLongImm bin = struct (Op.InvalOP, NoUnit, NoOperand)
+
+let private getLUnit s x =
   match s, x with
   | 0b0u, 0b0u -> L1
   | 0b0u, 0b1u -> L1X
   | 0b1u, 0b0u -> L2
   | _ -> L2X
 
-let getSUnit s x =
-  match s, x with
+let private parseLUnitSrcs bin =
+  let x, s = xBit bin, sBit bin
+  let unit = getLUnit s x
+  match extract bin 11u 5u with
+  | 0b0000011u -> parseSiXSiSi bin Op.ADD unit
+  | 0b0100011u -> parseSiXSiSl bin Op.ADD unit
+  | 0b0100001u -> parseXSiSlSl bin Op.ADD unit
+  | 0b0000010u -> parseSc5XSiSi bin Op.ADD unit
+  | 0b0100000u -> parseSc5SlSl bin Op.ADD unit
+  | _ -> raise InvalidOpcodeException
+
+let private parseLUnitNonCond bin = struct (Op.InvalOP, NoUnit, NoOperand)
+let private parseLUnitUnary bin = struct (Op.InvalOP, NoUnit, NoOperand)
+
+let private parseMUnitCompound bin = struct (Op.InvalOP, NoUnit, NoOperand)
+let private parseMUnitNonCond bin = struct (Op.InvalOP, NoUnit, NoOperand)
+let private parseMUnitUnaryExt bin = struct (Op.InvalOP, NoUnit, NoOperand)
+
+let private getSUnit = function
   | 0b0u, 0b0u -> S1
   | 0b0u, 0b1u -> S1X
   | 0b1u, 0b0u -> S2
-  | _ -> S2X
+  | _ (* 0b1u, 0b1u *) -> S2X
 
-let getDUnit s = if s = 0b0u then D1 else D2
-
-let Si bin unit = parseRegister bin unit |> Register
-let XSi bin unit = parseRegisterX bin unit |> Register
-let Sl bin unit =
-  (parseRegisterX (bin + 0b1u) unit, parseRegister bin unit) |> RegisterPair
-
-let toImm imm = imm |> uint64 |> Immediate
-let Sc5 bin = toImm bin
-let Uc5 bin = toImm bin
-
-/// sint, xsint, sint
-let parseSiXSiSi bin u =
-  ThreeOperands (Si (src1Bits bin) u, XSi (src2Bits bin) u, Si (dstBits bin) u)
-/// sint, xsint, slong
-let parseSiXSiSl bin u =
-  ThreeOperands (Si (src1Bits bin) u, XSi (src2Bits bin) u, Sl (dstBits bin) u)
-/// xsint, slong, slong
-let parseXSiSlSl bin u =
-  ThreeOperands (XSi (src1Bits bin) u, Sl (src2Bits bin) u, Sl (dstBits bin) u)
-/// scst5, xsing, slong
-let parseSc5XSiSi bin u =
-  ThreeOperands (Sc5 (src1Bits bin), XSi (src2Bits bin) u, Si (dstBits bin) u)
-/// scst5, slong, slong
-let parseSc5SlSl bin u =
-  ThreeOperands (Sc5 (src1Bits bin), Sl (src2Bits bin) u, Sl (dstBits bin) u)
-/// sint, sint, sint
-let parseSiSiSi bin u =
-  ThreeOperands (Si (src2Bits bin) u, Si (src1Bits bin) u, Si (dstBits bin) u)
-/// sint, ucst5, sint
-let parseSiUc5Si bin u =
-  ThreeOperands (Si (src2Bits bin) u, Uc5 (src1Bits bin), Si (dstBits bin) u)
-
-/// Appendix C-5. Fig. C-1
-let parseDUnitSrcs bin =
-  let unit = getDUnit (sBit bin)
-  match opFld12to7 bin with
-  | 0b010000u -> Op.ADD, unit, parseSiSiSi bin unit
-  | 0b010010u -> Op.ADD, unit, parseSiUc5Si bin unit
+let private parseSUnitSrcs bin =
+  let unit = (xBit bin, sBit bin) |> getSUnit
+  match extract bin 11u 6u with
+  | 0b000111u -> parseSiXSiSi bin Op.ADD unit
+  | 0b000110u -> parseSc5XSiSi bin Op.ADD unit
   | _ -> raise InvalidOpcodeException
 
-let parseDUnitSrcsExt bin = Op.InvalOP, NoUnit, NoOperand
-let parseDUnitLSBasic bin = Op.InvalOP, NoUnit, NoOperand
-let parseDUnitLSLongImm bin = Op.InvalOP, NoUnit, NoOperand
+let private parseSUnitSrcsExt bin = struct (Op.InvalOP, NoUnit, NoOperand)
+let private parseSUnitNonCond bin = struct (Op.InvalOP, NoUnit, NoOperand)
+let private parseSUnitUnary bin = struct (Op.InvalOP, NoUnit, NoOperand)
+let private parseSUnitBrImm bin = struct (Op.InvalOP, NoUnit, NoOperand)
+let private parseSUnitUncondImm bin = struct (Op.InvalOP, NoUnit, NoOperand)
+let private parseSUnitBrNOPConst bin = struct (Op.InvalOP, NoUnit, NoOperand)
+let private parseSUnitBrNOPReg bin = struct (Op.InvalOP, NoUnit, NoOperand)
+let private parseSUnitBr bin = struct (Op.InvalOP, NoUnit, NoOperand)
+let private parseSUnitMVK bin = struct (Op.InvalOP, NoUnit, NoOperand)
+let private parseSUnitFieldOps bin = struct (Op.InvalOP, NoUnit, NoOperand)
 
-let parseLUnitSrcs bin =
-  let x, s = xBit bin, sBit bin
-  let unit = getLUnit s x
-  match opFld11to5 bin with
-  | 0b0000011u -> Op.ADD, unit, parseSiXSiSi bin unit
-  | 0b0100011u -> Op.ADD, unit, parseSiXSiSl bin unit
-  | 0b0100001u -> Op.ADD, unit, parseXSiSlSl bin unit
-  | 0b0000010u -> Op.ADD, unit, parseSc5XSiSi bin unit
-  | 0b0100000u -> Op.ADD, unit, parseSc5SlSl bin unit
-  | _ -> raise InvalidOpcodeException
+let private parseNoUnitLoop bin = struct (Op.InvalOP, NoUnit, NoOperand)
+let private parseNoUnitNOPIdle bin = struct (Op.InvalOP, NoUnit, NoOperand)
+let private parseNoUnitEmuControl bin = struct (Op.InvalOP, NoUnit, NoOperand)
 
-let parseLUnitNonCond bin = Op.InvalOP, NoUnit, NoOperand
-let parseLUnitUnary bin = Op.InvalOP, NoUnit, NoOperand
-
-let parseMUnitCompound bin = Op.InvalOP, NoUnit, NoOperand
-let parseMUnitNonCond bin = Op.InvalOP, NoUnit, NoOperand
-let parseMUnitUnaryExt bin = Op.InvalOP, NoUnit, NoOperand
-
-let parseSUnitSrcs bin =
-  let x, s = xBit bin, sBit bin
-  let unit = getSUnit s x
-  match opFld11to6 bin with
-  | 0b000111u -> Op.ADD, unit, parseSiXSiSi bin unit
-  | 0b000110u -> Op.ADD, unit, parseSc5XSiSi bin unit
-  | _ -> raise InvalidOpcodeException
-
-let parseSUnitSrcsExt bin = Op.InvalOP, NoUnit, NoOperand
-let parseSUnitNonCond bin = Op.InvalOP, NoUnit, NoOperand
-let parseSUnitUnary bin = Op.InvalOP, NoUnit, NoOperand
-let parseSUnitBrImm bin = Op.InvalOP, NoUnit, NoOperand
-let parseSUnitUncondImm bin = Op.InvalOP, NoUnit, NoOperand
-let parseSUnitBrNOPConst bin = Op.InvalOP, NoUnit, NoOperand
-let parseSUnitBrNOPReg bin = Op.InvalOP, NoUnit, NoOperand
-let parseSUnitBr bin = Op.InvalOP, NoUnit, NoOperand
-let parseSUnitMVK bin = Op.InvalOP, NoUnit, NoOperand
-let parseSUnitFieldOps bin = Op.InvalOP, NoUnit, NoOperand
-
-let parseNoUnitLoop bin = Op.InvalOP, NoUnit, NoOperand
-let parseNoUnitNOPIdle bin = Op.InvalOP, NoUnit, NoOperand
-let parseNoUnitEmuControl bin = Op.InvalOP, NoUnit, NoOperand
-
-let parseCase1111 bin =
+let private parseCase1111 bin =
   match extract bin 31u 29u with
   | 0b0000u -> parseSUnitNonCond bin
   | _ -> parseSUnitSrcsExt bin
 
-let parseMUnit bin =
+let private parseMUnit bin =
   match extract bin 10u 6u with
   | 0b00011u -> parseMUnitUnaryExt bin
   | _ ->
@@ -238,23 +276,23 @@ let parseMUnit bin =
     | 0b0001u -> parseMUnitNonCond bin
     | _ -> parseMUnitCompound bin
 
-let parseNoUnit bin =
+let private parseNoUnit bin =
   match extract bin 31u 28u, pickBit bin 17u with
   | 0b0001u, _ -> parseNoUnitNOPIdle bin
   | _, 0b1u -> parseNoUnitLoop bin
   | _, _ (* 0b0u *) -> parseNoUnitEmuControl bin
 
-let parseCase0000 bin =
+let private parseCase0000 bin =
   match pickBit bin 6u with
   | 0b0u -> parseNoUnit bin
   | _ -> parseDUnitSrcs bin
 
-let parseCase0100 bin =
+let private parseCase0100 bin =
   match extract bin 31u 29u with
   | 0b000u -> parseSUnitUncondImm bin
   | _ -> parseSUnitBrImm bin
 
-let parseCase1000 bin =
+let private parseCase1000 bin =
   match extract bin 27u 23u, extract bin 11u 6u with
   | 0b00000u, 0b001101u -> parseSUnitBr bin
   | 0b00001u, 0b001101u -> parseSUnitBrNOPReg bin
@@ -262,7 +300,7 @@ let parseCase1000 bin =
   | _, 0b111100u -> parseSUnitUnary bin
   | _, _ -> parseSUnitSrcs bin
 
-let parseCase00 bin =
+let private parseCase00 bin =
   match extract bin 11u 10u, extract bin 5u 4u with
   | 0b10u, 0b11u -> parseDUnitSrcsExt bin
   | 0b11u, 0b11u -> parseCase1111 bin
@@ -271,19 +309,19 @@ let parseCase00 bin =
   | _, 0b01u -> parseCase0100 bin
   | _, _ (* 0b10u *) -> parseCase1000 bin
 
-let parseLUnit bin =
+let private parseLUnit bin =
   match extract bin 31u 28u, extract bin 11u 5u with
   | 0b0001u, _ -> parseLUnitNonCond bin
   | _, 0b0011010u -> parseLUnitUnary bin
   | _ -> parseLUnitSrcs bin
 
-let parseCase10 bin =
+let private parseCase10 bin =
   match extract bin 5u 4u with
   | 0b10u -> parseSUnitMVK bin
   | 0b11u | 0b01u -> parseLUnit bin
   | _ (* 0b00u *) -> parseSUnitFieldOps bin
 
-let parseInstruction bin =
+let private parseInstruction bin =
   match extract bin 3u 2u with
   | 0b00u -> parseCase00 bin
   | 0b01u -> parseDUnitLSBasic bin
@@ -293,13 +331,13 @@ let parseInstruction bin =
 let parse (reader: BinReader) addr pos =
   let struct (bin, nextPos) = reader.ReadUInt32 pos
   let instrLen = nextPos - pos |> uint32
-  let opcode, unit, operands = parseInstruction bin
+  let struct (opcode, unit, operands) = parseInstruction bin
   let insInfo =
     { Address = addr
       NumBytes = instrLen
       Opcode = opcode
       Operands = operands
-      Unit = unit
+      FunctionalUnit = unit
       OperationSize = 32<rt> // FIXME
       PacketIndex = 0 // FIXME
       EffectiveAddress = 0UL }

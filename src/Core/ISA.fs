@@ -159,7 +159,6 @@ with
     | "mips64r6be" -> ISA.Init (Arch.MIPS64R6) Endian.Big
     | "evm" -> ISA.Init (Arch.EVM) Endian.Little
     | "tms320c6000" -> ISA.Init (Arch.TMS320C6000) Endian.Little
-    | "tms320c6000be" -> ISA.Init (Arch.TMS320C6000) Endian.Big
     | _ -> raise InvalidISAException
 
   static member ArchToString = function
