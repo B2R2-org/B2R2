@@ -128,20 +128,21 @@ let private parseRegister bin isCrossPath = function
     if isCrossPath then getRegisterA bin else getRegisterB bin
   | _ -> Utils.impossible ()
 
-let private translateOperand bin unit (oprInfo: OperandInfo) =
+let private translateOperand unit (oprInfo: OperandInfo) =
+  let v = oprInfo.OperandValue
   match oprInfo.OperandType with
-  | SInt -> parseRegister bin false unit |> Register
+  | SInt -> parseRegister v false unit |> Register
   | SLong ->
-    (parseRegister (bin + 0b1u) false unit, parseRegister bin false unit)
+    (parseRegister (v + 0b1u) false unit, parseRegister v false unit)
     |> RegisterPair
-  | XSInt -> parseRegister bin true unit |> Register
-  | SConst -> uint64 bin |> Immediate
-  | UConst -> uint64 bin |> Immediate
+  | XSInt -> parseRegister v true unit |> Register
+  | SConst -> uint64 v |> Immediate
+  | UConst -> uint64 v |> Immediate
 
-let private parseThreeOprs bin unit o1 o2 o3 =
-  ThreeOperands (translateOperand bin unit o1,
-                 translateOperand bin unit o2,
-                 translateOperand bin unit o3)
+let private parseThreeOprs unit o1 o2 o3 =
+  ThreeOperands (translateOperand unit o1,
+                 translateOperand unit o2,
+                 translateOperand unit o3)
 
 let private xBit bin = pickBit bin 12u
 let private sBit bin = pickBit bin 1u
@@ -152,49 +153,49 @@ let private parseSiXSiSi bin opcode unit =
   let o1 = OperandInfo (extract bin 17u 13u, SInt)
   let o2 = OperandInfo (extract bin 22u 18u, XSInt)
   let o3 = OperandInfo (extract bin 27u 23u, SInt)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// sint, xsint, slong
 let private parseSiXSiSl bin opcode unit =
   let o1 = OperandInfo (extract bin 17u 13u, SInt)
   let o2 = OperandInfo (extract bin 22u 18u, XSInt)
   let o3 = OperandInfo (extract bin 27u 23u, SLong)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xsint, slong, slong
 let private parseXSiSlSl bin opcode unit =
   let o1 = OperandInfo (extract bin 17u 13u, XSInt)
   let o2 = OperandInfo (extract bin 22u 18u, SLong)
   let o3 = OperandInfo (extract bin 27u 23u, SLong)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// scst5, xsint, sint
 let private parseSc5XSiSi bin opcode unit =
   let o1 = OperandInfo (extract bin 17u 13u, SConst)
   let o2 = OperandInfo (extract bin 22u 18u, XSInt)
   let o3 = OperandInfo (extract bin 27u 23u, SInt)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// scst5, slong, slong
 let private parseSc5SlSl bin opcode unit =
   let o1 = OperandInfo (extract bin 17u 13u, SConst)
   let o2 = OperandInfo (extract bin 22u 18u, SLong)
   let o3 = OperandInfo (extract bin 27u 23u, SLong)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// sint, sint, sint
 let private parseSiSiSi bin opcode unit =
   let o1 = OperandInfo (extract bin 22u 18u, SInt)
   let o2 = OperandInfo (extract bin 17u 13u, SInt)
   let o3 = OperandInfo (extract bin 27u 23u, SInt)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// sint, ucst5, sint
 let private parseSiUc5Si bin opcode unit =
   let o1 = OperandInfo (extract bin 22u 18u, SInt)
   let o2 = OperandInfo (extract bin 17u 13u, UConst)
   let o3 = OperandInfo (extract bin 27u 23u, SInt)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 let private getDUnit s = if s = 0b0u then D1 else D2
 
@@ -339,9 +340,9 @@ let parse (reader: BinReader) addr pos =
       Operands = operands
       FunctionalUnit = unit
       OperationSize = 32<rt> // FIXME
-      PacketIndex = 0 // FIXME
+      IsParallel = pBit bin <> 0u
       EffectiveAddress = 0UL }
   printfn "%A" insInfo
-  TMS320C6000Instruction (addr, instrLen, insInfo, WordSize.Bit32)
+  TMS320C6000Instruction (addr, instrLen, insInfo)
 
 // vim: set tw=80 sts=2 sw=2:

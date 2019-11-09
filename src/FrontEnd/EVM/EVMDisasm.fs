@@ -188,12 +188,6 @@ let opcodeToStrings = function
   | Op.INVALID -> struct("invalid", None)
   | Op.SELFDESTRUCT -> struct("selfdestruct", None)
 
-let inline buildAddr (addr: Addr) verbose builder acc =
-  if not verbose then acc
-  else
-    builder AsmWordKind.Address (addr.ToString ("X8")) acc
-    |> builder AsmWordKind.String (": ")
-
 let inline buildOpcode insInfo builder acc =
   let struct (opcode, extra) = opcodeToStrings insInfo.Opcode
   match extra with
@@ -205,7 +199,7 @@ let inline buildOpcode insInfo builder acc =
 
 let disasm showAddr insInfo builder acc =
   let pc = insInfo.Address
-  buildAddr pc showAddr builder acc
+  DisasmBuilder.addr pc WordSize.Bit32 showAddr builder acc
   |> buildOpcode insInfo builder
 
 // vim: set tw=80 sts=2 sw=2:

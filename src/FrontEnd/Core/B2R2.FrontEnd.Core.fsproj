@@ -16,6 +16,7 @@
     <Compile Include="Instruction.fs" />
     <Compile Include="Parser.fs" />
     <Compile Include="ParseUtils.fs" />
+    <Compile Include="DisasmUtils.fs" />
   </ItemGroup>
 
   <ItemGroup>

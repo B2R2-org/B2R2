@@ -31,12 +31,6 @@ open B2R2
 open B2R2.FrontEnd
 open System.Text
 
-let inline buildAddr (addr: Addr) verbose builder acc =
-  if not verbose then acc
-  else
-    builder AsmWordKind.Address (addr.ToString ("X8")) acc
-    |> builder AsmWordKind.String (": ")
-
 let opCodeToString = function
   | Op.MOV -> "mov"
   | Op.MOVS -> "movs"
@@ -1076,6 +1070,6 @@ let buildOprs ins pc builder acc =
 
 let disasm showAddr ins builder acc =
   let pc = ins.Address
-  buildAddr pc showAddr builder acc
+  DisasmBuilder.addr pc WordSize.Bit32 showAddr builder acc
   |> buildOpcode ins builder
   |> buildOprs ins pc builder

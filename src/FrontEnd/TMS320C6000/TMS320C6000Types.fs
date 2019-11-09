@@ -279,8 +279,9 @@ type InsInfo = {
   FunctionalUnit: FunctionalUnit
   /// Operation Size.
   OperationSize: RegType
-  /// Cycle packet index
-  PacketIndex : int
+  /// Parallel bit. If this is true, the next instruction followed by this
+  /// instruction will be executed in parallel.
+  IsParallel: bool
   /// Effective address (after applying delay slots)
   EffectiveAddress: Addr
 }

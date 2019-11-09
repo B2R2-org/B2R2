@@ -32,13 +32,16 @@ open System.Text
 
 /// The internal representation for a TMS320C6000 instruction used by our
 /// disassembler and lifter.
-type TMS320C6000Instruction (addr, numBytes, insInfo, wordSize) =
-  inherit Instruction (addr, numBytes, wordSize)
+type TMS320C6000Instruction (addr, numBytes, insInfo) =
+  inherit Instruction (addr, numBytes, WordSize.Bit32)
 
   /// Basic instruction information.
   member val Info: InsInfo = insInfo
 
-  override __.IsBranch () = Utils.futureFeature ()
+  override __.IsBranch () =
+    match __.Info.Opcode with
+    | Op.B -> true
+    | _ -> false
 
   member __.HasConcJmpTarget () = Utils.futureFeature ()
 
@@ -80,12 +83,12 @@ type TMS320C6000Instruction (addr, numBytes, insInfo, wordSize) =
 
   override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
     let acc = StringBuilder ()
-    // let acc = Disasm.disasm showAddr wordSize __.Info __.StrBuilder acc
+    let acc = Disasm.disasm showAddr __.Info __.StrBuilder acc
     acc.ToString ()
 
   override __.Disasm () =
     let acc = StringBuilder ()
-    // let acc = Disasm.disasm false wordSize __.Info __.StrBuilder acc
+    let acc = Disasm.disasm false __.Info __.StrBuilder acc
     acc.ToString ()
 
   member private __.WordBuilder kind str (acc: AsmWordBuilder) =
@@ -93,7 +96,7 @@ type TMS320C6000Instruction (addr, numBytes, insInfo, wordSize) =
 
   override __.Decompose () =
     AsmWordBuilder (8)
-    // |> Disasm.disasm true wordSize __.Info __.WordBuilder
+    |> Disasm.disasm true __.Info __.WordBuilder
     |> fun b -> b.Finish ()
 
 // vim: set tw=80 sts=2 sw=2:

@@ -986,12 +986,6 @@ let inline private iToHexStr (i: int64) builder acc =
 let inline private uToHexStr (i: uint64) builder acc =
   builder AsmWordKind.Value ("0x" + i.ToString("X")) acc
 
-let inline buildAddr (addr: Addr) wordSize showAddress builder acc =
-  if not showAddress then acc
-  else
-    builder AsmWordKind.Address (Addr.toString wordSize addr) acc
-    |> builder AsmWordKind.String (": ")
-
 let inline private ptrDirectiveString isFar = function
   | 1 -> "byte ptr"
   | 2 -> "word ptr"
@@ -1190,10 +1184,10 @@ let buildOprs ins insLen pc fi wordSz builder acc =
     |> builder AsmWordKind.String ", "
     |> oprToString wordSz ins pc fi opr4 false builder
 
-let disasm showAddr wordSize fi ins insAddr insLen builder acc =
-  buildAddr insAddr wordSize showAddr builder acc
+let disasm showAddr wordSize fi ins pc insLen builder acc =
+  DisasmBuilder.addr pc wordSize showAddr builder acc
   |> buildPref ins.Prefixes builder
   |> buildOpcode ins.Opcode builder
-  |> buildOprs ins insLen insAddr fi wordSize builder
+  |> buildOprs ins insLen pc fi wordSize builder
 
 // vim: set tw=80 sts=2 sw=2:
