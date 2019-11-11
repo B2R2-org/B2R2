@@ -33,12 +33,26 @@ open B2R2.FrontEnd.BitData
 
 /// Table 3-1. Instruction Operation and Execution Notations.
 type OperandType =
+  /// Double-precision floating-point register value.
+  | DP
   /// Signed 32-bit integer value.
   | SInt
-  /// XXX
+  /// Signed 40-bit integer value.
   | SLong
+  /// Single-precision floating-point register value that can optionally use
+  /// cross path.
+  | SP
+  /// Double-precision floating-point register value that can optionally use
+  /// cross path.
+  | XDP
+  /// Single-precision floating-point register value that can optionally use
+  /// cross path.
+  | XSP
+  /// 32-bit integer value that can optionally use cross path.
   | XSInt
+  /// n-bit signed constant field.
   | SConst
+  /// n-bit unsigned constant field (for example, ucst5).
   | UConst
 
 [<Struct>]
@@ -131,13 +145,24 @@ let private parseRegister bin isCrossPath = function
 let private translateOperand unit (oprInfo: OperandInfo) =
   let v = oprInfo.OperandValue
   match oprInfo.OperandType with
+  | DP -> (parseRegister (v + 0b1u) false unit, parseRegister v false unit)
+          |> RegisterPair
   | SInt -> parseRegister v false unit |> Register
   | SLong ->
     (parseRegister (v + 0b1u) false unit, parseRegister v false unit)
     |> RegisterPair
+  | SP -> (parseRegister (v + 0b1u) false unit, parseRegister v false unit)
+          |> RegisterPair
+  | XDP -> (parseRegister (v + 0b1u) true unit, parseRegister v true unit)
+           |> RegisterPair
   | XSInt -> parseRegister v true unit |> Register
+  | XSP -> (parseRegister (v + 0b1u) true unit, parseRegister v true unit)
+           |> RegisterPair
   | SConst -> uint64 v |> Immediate
   | UConst -> uint64 v |> Immediate
+
+let private parseTwoOprs unit o1 o2 =
+  TwoOperands (translateOperand unit o1, translateOperand unit o2)
 
 let private parseThreeOprs unit o1 o2 o3 =
   ThreeOperands (translateOperand unit o1,
@@ -147,6 +172,18 @@ let private parseThreeOprs unit o1 o2 o3 =
 let private xBit bin = pickBit bin 12u
 let private sBit bin = pickBit bin 1u
 let private pBit bin = pickBit bin 0u
+
+/// xsint, sint
+let parseXSiSi bin opcode unit =
+  let o1 = OperandInfo (extract bin 22u 18u, XSInt)
+  let o2 = OperandInfo (extract bin 27u 23u, SInt)
+  struct (opcode, unit, parseTwoOprs unit o1 o2)
+
+/// slong, slong
+let parseSlSl bin opcode unit =
+  let o1 = OperandInfo (extract bin 22u 18u, SLong)
+  let o2 = OperandInfo (extract bin 27u 23u, SLong)
+  struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// sint, xsint, sint
 let private parseSiXSiSi bin opcode unit =
@@ -197,7 +234,28 @@ let private parseSiUc5Si bin opcode unit =
   let o3 = OperandInfo (extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
+/// sp, xsp, sp
+let parseSpXSpSp bin opcode unit =
+  let o1 = OperandInfo (extract bin 17u 13u, SP)
+  let o2 = OperandInfo (extract bin 22u 18u, XSP)
+  let o3 = OperandInfo (extract bin 27u 23u, SP)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
+
+/// dp, xdp, dp
+let parseDpXDpDp bin opcode unit =
+  let o1 = OperandInfo (extract bin 17u 13u, DP)
+  let o2 = OperandInfo (extract bin 22u 18u, XDP)
+  let o3 = OperandInfo (extract bin 27u 23u, DP)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
+
 let private getDUnit s = if s = 0b0u then D1 else D2
+
+let exchangeToSUnit = function
+  | L1 -> S1
+  | L2 -> S2
+  | L1X -> S1X
+  | L2X -> S2X
+  | _ -> failwith "Invalid exchange unit"
 
 /// Appendix C-5. Fig. C-1
 let private parseDUnitSrcs bin =
@@ -223,10 +281,16 @@ let private parseLUnitSrcs bin =
   let unit = getLUnit s x
   match extract bin 11u 5u with
   | 0b0000011u -> parseSiXSiSi bin Op.ADD unit
+  | 0b0010000u -> parseSpXSpSp bin Op.ADDSP unit
+  | 0b0011000u -> parseDpXDpDp bin Op.ADDDP unit
+  | 0b0011010u -> parseXSiSi bin Op.ABS unit (* [17:13] - 00000 *)
+  | 0b0111000u -> parseSlSl bin Op.ABS unit
   | 0b0100011u -> parseSiXSiSl bin Op.ADD unit
   | 0b0100001u -> parseXSiSlSl bin Op.ADD unit
   | 0b0000010u -> parseSc5XSiSi bin Op.ADD unit
   | 0b0100000u -> parseSc5SlSl bin Op.ADD unit
+  | 0b1110000u -> parseSpXSpSp bin Op.ADDSP (exchangeToSUnit unit)
+  | 0b1110010u -> parseDpXDpDp bin Op.ADDDP (exchangeToSUnit unit)
   | _ -> raise InvalidOpcodeException
 
 let private parseLUnitNonCond bin = struct (Op.InvalOP, NoUnit, NoOperand)
