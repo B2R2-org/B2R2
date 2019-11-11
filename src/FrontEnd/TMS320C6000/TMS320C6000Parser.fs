@@ -133,7 +133,7 @@ let private getRegisterB = function
   | 0b11111u -> R.B31
   | _ -> Utils.impossible ()
 
-let private parseRegister bin isCrossPath = function
+let private parseReg bin isCrossPath = function
   | L1 | S1 | M1 | D1 -> getRegisterA bin
   | L2 | S2 | M2 | D2 -> getRegisterB bin
   | L1X | S1X | M1X ->
@@ -142,22 +142,28 @@ let private parseRegister bin isCrossPath = function
     if isCrossPath then getRegisterA bin else getRegisterB bin
   | _ -> Utils.impossible ()
 
+let private assertEvenNumber v =
+#if DEBUG
+  if v &&& 1u <> 0u then raise InvalidOperandException else ()
+#endif
+  ()
+
 let private translateOperand unit (oprInfo: OperandInfo) =
   let v = oprInfo.OperandValue
   match oprInfo.OperandType with
-  | DP -> (parseRegister (v + 0b1u) false unit, parseRegister v false unit)
-          |> RegisterPair
-  | SInt -> parseRegister v false unit |> Register
+  | DP ->
+    assertEvenNumber v
+    (parseReg (v + 0b1u) false unit, parseReg v false unit) |> RegisterPair
+  | SInt -> parseReg v false unit |> Register
   | SLong ->
-    (parseRegister (v + 0b1u) false unit, parseRegister v false unit)
-    |> RegisterPair
-  | SP -> (parseRegister (v + 0b1u) false unit, parseRegister v false unit)
-          |> RegisterPair
-  | XDP -> (parseRegister (v + 0b1u) true unit, parseRegister v true unit)
-           |> RegisterPair
-  | XSInt -> parseRegister v true unit |> Register
-  | XSP -> (parseRegister (v + 0b1u) true unit, parseRegister v true unit)
-           |> RegisterPair
+    assertEvenNumber v
+    (parseReg (v + 0b1u) false unit, parseReg v false unit) |> RegisterPair
+  | SP -> parseReg v false unit |> Register
+  | XDP ->
+    assertEvenNumber v
+    (parseReg (v + 0b1u) true unit, parseReg v true unit) |> RegisterPair
+  | XSInt -> parseReg v true unit |> Register
+  | XSP -> parseReg v true unit |> Register
   | SConst -> uint64 v |> Immediate
   | UConst -> uint64 v |> Immediate
 
@@ -250,13 +256,6 @@ let parseDpXDpDp bin opcode unit =
 
 let private getDUnit s = if s = 0b0u then D1 else D2
 
-let exchangeToSUnit = function
-  | L1 -> S1
-  | L2 -> S2
-  | L1X -> S1X
-  | L2X -> S2X
-  | _ -> failwith "Invalid exchange unit"
-
 /// Appendix C-5. Fig. C-1
 let private parseDUnitSrcs bin =
   let unit = getDUnit (sBit bin)
@@ -266,7 +265,13 @@ let private parseDUnitSrcs bin =
   | _ -> raise InvalidOpcodeException
 
 let private parseDUnitSrcsExt bin = struct (Op.InvalOP, NoUnit, NoOperand)
-let private parseDUnitLSBasic bin = struct (Op.InvalOP, NoUnit, NoOperand)
+
+let private parseDUnitLSBasic bin =
+  match extract bin 6u 4u with
+  | 0b010u // FIXME
+  | 0b001u // FIXME
+  | _ -> failwith "IMPL"
+
 let private parseDUnitLSLongImm bin = struct (Op.InvalOP, NoUnit, NoOperand)
 
 let private getLUnit s x =
@@ -276,21 +281,27 @@ let private getLUnit s x =
   | 0b1u, 0b0u -> L2
   | _ -> L2X
 
+let private getSUnit s x =
+  match s, x with
+  | 0b0u, 0b0u -> S1
+  | 0b0u, 0b1u -> S1X
+  | 0b1u, 0b0u -> S2
+  | _ (* 0b1u, 0b1u *) -> S2X
+
 let private parseLUnitSrcs bin =
   let x, s = xBit bin, sBit bin
-  let unit = getLUnit s x
   match extract bin 11u 5u with
-  | 0b0000011u -> parseSiXSiSi bin Op.ADD unit
-  | 0b0010000u -> parseSpXSpSp bin Op.ADDSP unit
-  | 0b0011000u -> parseDpXDpDp bin Op.ADDDP unit
-  | 0b0011010u -> parseXSiSi bin Op.ABS unit (* [17:13] - 00000 *)
-  | 0b0111000u -> parseSlSl bin Op.ABS unit
-  | 0b0100011u -> parseSiXSiSl bin Op.ADD unit
-  | 0b0100001u -> parseXSiSlSl bin Op.ADD unit
-  | 0b0000010u -> parseSc5XSiSi bin Op.ADD unit
-  | 0b0100000u -> parseSc5SlSl bin Op.ADD unit
-  | 0b1110000u -> parseSpXSpSp bin Op.ADDSP (exchangeToSUnit unit)
-  | 0b1110010u -> parseDpXDpDp bin Op.ADDDP (exchangeToSUnit unit)
+  | 0b0000011u -> parseSiXSiSi bin Op.ADD (getLUnit s x)
+  | 0b0010000u -> parseSpXSpSp bin Op.ADDSP (getLUnit s x)
+  | 0b0011000u -> parseDpXDpDp bin Op.ADDDP (getLUnit s x)
+  | 0b0011010u -> parseXSiSi bin Op.ABS (getLUnit s x)
+  | 0b0111000u -> parseSlSl bin Op.ABS (getLUnit s x)
+  | 0b0100011u -> parseSiXSiSl bin Op.ADD (getLUnit s x)
+  | 0b0100001u -> parseXSiSlSl bin Op.ADD (getLUnit s x)
+  | 0b0000010u -> parseSc5XSiSi bin Op.ADD (getLUnit s x)
+  | 0b0100000u -> parseSc5SlSl bin Op.ADD (getLUnit s x)
+  | 0b1110000u -> parseSpXSpSp bin Op.ADDSP (getSUnit s x)
+  | 0b1110010u -> parseDpXDpDp bin Op.ADDDP (getSUnit s x)
   | _ -> raise InvalidOpcodeException
 
 let private parseLUnitNonCond bin = struct (Op.InvalOP, NoUnit, NoOperand)
@@ -300,14 +311,8 @@ let private parseMUnitCompound bin = struct (Op.InvalOP, NoUnit, NoOperand)
 let private parseMUnitNonCond bin = struct (Op.InvalOP, NoUnit, NoOperand)
 let private parseMUnitUnaryExt bin = struct (Op.InvalOP, NoUnit, NoOperand)
 
-let private getSUnit = function
-  | 0b0u, 0b0u -> S1
-  | 0b0u, 0b1u -> S1X
-  | 0b1u, 0b0u -> S2
-  | _ (* 0b1u, 0b1u *) -> S2X
-
 let private parseSUnitSrcs bin =
-  let unit = (xBit bin, sBit bin) |> getSUnit
+  let unit = getSUnit (xBit bin) (sBit bin)
   match extract bin 11u 6u with
   | 0b000111u -> parseSiXSiSi bin Op.ADD unit
   | 0b000110u -> parseSc5XSiSi bin Op.ADD unit
