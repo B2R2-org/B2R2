@@ -28,9 +28,10 @@
 module B2R2.FrontEnd.TMS320C6000.Parser
 
 open B2R2
+open B2R2.FrontEnd
 
 /// Read in bytes and return a parsed instruction for TMS320C6000. This function
 /// returns TMS320C6000Instruction, which is a specialized type for TMS320C6000.
 /// If you want to handle instructions in a platform-agnostic manner, you'd
 /// better use the TMS320C6000 class.
-val parse: BinReader -> Addr -> int -> TMS320C6000Instruction
+val parse: BinReader -> ParsingContext -> Addr -> int -> TMS320C6000Instruction

@@ -228,6 +228,10 @@ let inline appendUnit insInfo opcode =
   | D2 -> opcode + ".D2"
   | NoUnit -> opcode
 
+let buildParallelPipe ins builder acc =
+  if ins.IsParallel then builder AsmWordKind.String "|| " acc
+  else acc
+
 let inline buildOpcode ins builder acc =
   let str = opCodeToString ins.Opcode |> appendUnit ins
   builder AsmWordKind.Mnemonic str acc
@@ -267,5 +271,6 @@ let buildOprs insInfo builder acc =
 let disasm showAddr insInfo builder acc =
   let pc = insInfo.Address
   DisasmBuilder.addr pc WordSize.Bit32 showAddr builder acc
+  |> buildParallelPipe insInfo builder
   |> buildOpcode insInfo builder
   |> buildOprs insInfo builder

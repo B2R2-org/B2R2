@@ -393,7 +393,7 @@ let private parseInstruction bin =
   | 0b10u -> parseCase10 bin
   | _ (* 11u *) -> parseDUnitLSLongImm bin
 
-let parse (reader: BinReader) addr pos =
+let parse (reader: BinReader) (ctxt: ParsingContext) addr pos =
   let struct (bin, nextPos) = reader.ReadUInt32 pos
   let instrLen = nextPos - pos |> uint32
   let struct (opcode, unit, operands) = parseInstruction bin
@@ -404,8 +404,9 @@ let parse (reader: BinReader) addr pos =
       Operands = operands
       FunctionalUnit = unit
       OperationSize = 32<rt> // FIXME
-      IsParallel = pBit bin <> 0u
+      IsParallel = ctxt.InParallel
       EffectiveAddress = 0UL }
+  ctxt.InParallel <- pBit bin <> 0u (* Update the parallel exec information *)
   printfn "%A" insInfo
   TMS320C6000Instruction (addr, instrLen, insInfo)
 

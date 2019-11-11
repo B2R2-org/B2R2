@@ -279,8 +279,9 @@ type InsInfo = {
   FunctionalUnit: FunctionalUnit
   /// Operation Size.
   OperationSize: RegType
-  /// Parallel bit. If this is true, the next instruction followed by this
-  /// instruction will be executed in parallel.
+  /// Parallel bit. If this is true, this instruction will get executed in
+  /// parallel with the previous instruction. Note that this is not exactly the
+  /// same as the P bit used in the processor.
   IsParallel: bool
   /// Effective address (after applying delay slots)
   EffectiveAddress: Addr

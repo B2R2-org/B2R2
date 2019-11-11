@@ -41,7 +41,7 @@ type TMS320C6000TranslationContext (isa) =
 /// instruction type (Instruction).
 type TMS320C6000Parser () =
   inherit Parser ()
-  override __.Parse binReader _ctxt addr pos =
-    Parser.parse binReader addr pos :> Instruction
+  override __.Parse binReader ctxt addr pos =
+    Parser.parse binReader ctxt addr pos :> Instruction
 
 // vim: set tw=80 sts=2 sw=2:
