@@ -231,9 +231,24 @@ type Opcode =
 
 type internal Op = Opcode
 
+type Offset =
+  | OffsetR of Register
+  | UCst5 of uint64
+
+type ModificationPerformed =
+  | NegativeOffset
+  | PositiveOffset
+  | PreDecrement
+  | PreIncrement
+  | PostDecrement
+  | PostIncrement
+
+type AddressingType = ModificationPerformed * Offset
+
 type Operand =
   | Register of Register
   | RegisterPair of Register * Register
+  | OprMem of Register * AddressingType
   | Immediate of Imm
 and Imm = uint64
 
@@ -243,6 +258,10 @@ type Operands =
   | TwoOperands of Operand * Operand
   | ThreeOperands of Operand * Operand * Operand
   | FourOperands of Operand * Operand * Operand * Operand
+
+type Side =
+  | SideA
+  | SideB
 
 type FunctionalUnit =
   | L1

@@ -236,6 +236,37 @@ let inline buildOpcode ins builder acc =
   let str = opCodeToString ins.Opcode |> appendUnit ins
   builder AsmWordKind.Mnemonic str acc
 
+let modeToStr builder baseR acc = function
+  | NegativeOffset ->
+    builder AsmWordKind.String "-" acc
+    |> builder AsmWordKind.Variable (regToStr baseR)
+  | PositiveOffset ->
+    builder AsmWordKind.String "+" acc
+    |> builder AsmWordKind.Variable (regToStr baseR)
+  | PreDecrement ->
+    builder AsmWordKind.String "--" acc
+    |> builder AsmWordKind.Variable (regToStr baseR)
+  | PreIncrement ->
+    builder AsmWordKind.String "++" acc
+    |> builder AsmWordKind.Variable (regToStr baseR)
+  | PostDecrement ->
+    builder AsmWordKind.Variable (regToStr baseR) acc
+    |> builder AsmWordKind.String "--"
+  | PostIncrement ->
+    builder AsmWordKind.Variable (regToStr baseR) acc
+    |> builder AsmWordKind.String "++"
+
+let offsetToStr builder offset acc =
+  match offset with
+  | UCst5 i -> builder AsmWordKind.Value (i.ToString()) acc
+  | OffsetR reg -> builder AsmWordKind.Variable (regToStr reg) acc
+
+let mToString builder baseR mode offset acc =
+  modeToStr builder baseR acc mode
+  |> builder AsmWordKind.String "["
+  |> offsetToStr builder offset
+  |> builder AsmWordKind.String "]"
+
 let oprToString insInfo opr delim builder acc =
   match opr with
   | Register reg ->
@@ -246,6 +277,10 @@ let oprToString insInfo opr delim builder acc =
     |> builder AsmWordKind.Variable (regToStr r1)
     |> builder AsmWordKind.String ":"
     |> builder AsmWordKind.Variable (regToStr r2)
+  | OprMem (baseR, (mode, offset)) ->
+    builder AsmWordKind.String delim acc
+    |> builder AsmWordKind.String " *"
+    |> mToString builder baseR mode offset
   | Immediate imm ->
     builder AsmWordKind.String delim acc
     |> builder AsmWordKind.Value ("0x" + imm.ToString ("X"))
