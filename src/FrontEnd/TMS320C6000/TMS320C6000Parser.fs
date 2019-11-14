@@ -179,20 +179,18 @@ let private yBit bin = pickBit bin 8u
 let private sBit bin = pickBit bin 1u
 let private pBit bin = pickBit bin 0u
 
+let private parseRegPair v unit =
+  let high, low = if v &&& 0b1u = 0b0u then v + 1u, v else v, v - 1u
+  (parseReg high false unit, parseReg low false unit) |> RegisterPair
+
 let private translateOperand bin unit (oprInfo: OperandInfo) =
   let v = oprInfo.OperandValue
   match oprInfo.OperandType with
-  | DP ->
-    assertEvenNumber v
-    (parseReg (v + 0b1u) false unit, parseReg v false unit) |> RegisterPair
+  | DP -> parseRegPair v unit
   | SInt -> parseReg v false unit |> Register
-  | SLong ->
-    assertEvenNumber v
-    (parseReg (v + 0b1u) false unit, parseReg v false unit) |> RegisterPair
+  | SLong -> parseRegPair v unit
   | SP -> parseReg v false unit |> Register
-  | XDP ->
-    assertEvenNumber v
-    (parseReg (v + 0b1u) true unit, parseReg v true unit) |> RegisterPair
+  | XDP -> parseRegPair v unit
   | XSInt -> parseReg v true unit |> Register
   | XSP -> parseReg v true unit |> Register
   | SConst -> uint64 v |> Immediate
@@ -216,6 +214,18 @@ let parseXSiSi bin opcode unit =
 let parseSlSl bin opcode unit =
   let o1 = OperandInfo (extract bin 22u 18u, SLong)
   let o2 = OperandInfo (extract bin 27u 23u, SLong)
+  struct (opcode, unit, parseTwoOprs bin unit o1 o2)
+
+/// dp, dp
+let parseDpDp bin opcode unit =
+  let o1 = OperandInfo (extract bin 22u 18u, DP)
+  let o2 = OperandInfo (extract bin 27u 23u, DP)
+  struct (opcode, unit, parseTwoOprs bin unit o1 o2)
+
+/// xsp, sp
+let parseXSpSp bin opcode unit =
+  let o1 = OperandInfo (extract bin 22u 18u, XSP)
+  let o2 = OperandInfo (extract bin 27u 23u, SP)
   struct (opcode, unit, parseTwoOprs bin unit o1 o2)
 
 /// sint, xsint, sint
@@ -363,11 +373,18 @@ let private parseSUnitSrcs bin =
   match extract bin 11u 6u with
   | 0b000111u -> parseSiXSiSi bin Op.ADD unit
   | 0b000110u -> parseSc5XSiSi bin Op.ADD unit
+  | 0b101100u -> parseDpDp bin Op.ABSDP unit
   | _ -> raise InvalidOpcodeException
 
 let private parseSUnitSrcsExt bin = struct (Op.InvalOP, NoUnit, NoOperand)
 let private parseSUnitNonCond bin = struct (Op.InvalOP, NoUnit, NoOperand)
-let private parseSUnitUnary bin = struct (Op.InvalOP, NoUnit, NoOperand)
+
+let private parseSUnitUnary bin =
+  let unit = getSUnit (xBit bin) (sBit bin)
+  match extract bin 17u 13u with
+  | 0b00000u -> parseXSpSp bin Op.ABSSP unit
+  | _ -> raise InvalidOpcodeException
+
 let private parseSUnitBrImm bin = struct (Op.InvalOP, NoUnit, NoOperand)
 let private parseSUnitUncondImm bin = struct (Op.InvalOP, NoUnit, NoOperand)
 let private parseSUnitBrNOPConst bin = struct (Op.InvalOP, NoUnit, NoOperand)
