@@ -40,7 +40,6 @@ type TMS320C6000Instruction (addr, numBytes, insInfo) =
 
   override __.IsBranch () =
     match __.Info.Opcode with
-    | Op.B -> true
     | _ -> false
 
   member __.HasConcJmpTarget () = Utils.futureFeature ()
