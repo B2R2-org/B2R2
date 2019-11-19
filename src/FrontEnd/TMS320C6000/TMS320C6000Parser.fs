@@ -152,25 +152,26 @@ let private parseRegBySide bin = function
   | SideA -> getRegisterA bin
   | SideB -> getRegisterB bin
 
-let private parseAddrMode unit offset = function
-  | 0b0000u -> NegativeOffset, uint64 offset |> UCst5
-  | 0b0001u -> PositiveOffset, uint64 offset |> UCst5
-  | 0b0100u -> NegativeOffset, parseReg offset false unit |> OffsetR
-  | 0b0101u -> PositiveOffset, parseReg offset false unit |> OffsetR
-  | 0b1000u -> PreDecrement, uint64 offset |> UCst5
-  | 0b1001u -> PreIncrement, uint64 offset |> UCst5
-  | 0b1010u -> PostDecrement, uint64 offset |> UCst5
-  | 0b1011u -> PostIncrement, uint64 offset |> UCst5
-  | 0b1100u -> PreDecrement, parseReg offset false unit |> OffsetR
-  | 0b1101u -> PreIncrement, parseReg offset false unit |> OffsetR
-  | 0b1110u -> PostDecrement, parseReg offset false unit |> OffsetR
-  | 0b1111u -> PostIncrement, parseReg offset false unit |> OffsetR
+let private parseAddrMode unit offset mode baseR =
+  match mode with
+  | 0b0000u -> baseR, NegativeOffset, uint64 offset |> UCst5
+  | 0b0001u -> baseR, PositiveOffset, uint64 offset |> UCst5
+  | 0b0100u -> baseR, NegativeOffset, parseReg offset false unit |> OffsetR
+  | 0b0101u -> baseR, PositiveOffset, parseReg offset false unit |> OffsetR
+  | 0b1000u -> baseR, PreDecrement, uint64 offset |> UCst5
+  | 0b1001u -> baseR, PreIncrement, uint64 offset |> UCst5
+  | 0b1010u -> baseR, PostDecrement, uint64 offset |> UCst5
+  | 0b1011u -> baseR, PostIncrement, uint64 offset |> UCst5
+  | 0b1100u -> baseR, PreDecrement, parseReg offset false unit |> OffsetR
+  | 0b1101u -> baseR, PreIncrement, parseReg offset false unit |> OffsetR
+  | 0b1110u -> baseR, PostDecrement, parseReg offset false unit |> OffsetR
+  | 0b1111u -> baseR, PostIncrement, parseReg offset false unit |> OffsetR
   | _ -> Utils.impossible ()
 
 let private parseMem oprVal unit =
-  let baseR = parseReg (extract oprVal 13u 9u) false unit
-  let addrTyp = parseAddrMode unit (extract oprVal 8u 4u) (extract oprVal 3u 0u)
-  OprMem (baseR, addrTyp)
+  parseReg (extract oprVal 13u 9u) false unit (* Base register *)
+  |> parseAddrMode unit (extract oprVal 8u 4u) (extract oprVal 3u 0u)
+  |> OprMem
 
 let private assertEvenNumber v =
 #if DEBUG
@@ -189,7 +190,7 @@ let private parseRegPair v unit isCPath =
   let high, low = if v &&& 0b1u = 0b0u then v + 1u, v else v, v - 1u
   (parseReg high isCPath unit, parseReg low isCPath unit) |> RegisterPair
 
-let private translateOperand bin unit (oprInfo: OperandInfo) =
+let private translateOperand unit (oprInfo: OperandInfo) =
   let v = oprInfo.OperandValue
   match oprInfo.OperandType with
   | DP -> parseRegPair v unit false
@@ -205,241 +206,241 @@ let private translateOperand bin unit (oprInfo: OperandInfo) =
   | UInt -> parseReg v false unit |> Register
   | ULong -> parseRegPair v unit false
 
-let private parseOneOpr bin unit o = OneOperand (translateOperand bin unit o)
+let private parseOneOpr unit o = OneOperand (translateOperand unit o)
 
-let private parseTwoOprs bin unit o1 o2 =
-  TwoOperands (translateOperand bin unit o1, translateOperand bin unit o2)
+let private parseTwoOprs unit o1 o2 =
+  TwoOperands (translateOperand unit o1, translateOperand unit o2)
 
-let private parseThreeOprs bin unit o1 o2 o3 =
-  ThreeOperands (translateOperand bin unit o1,
-                 translateOperand bin unit o2,
-                 translateOperand bin unit o3)
+let private parseThreeOprs unit o1 o2 o3 =
+  ThreeOperands (translateOperand unit o1,
+                 translateOperand unit o2,
+                 translateOperand unit o3)
 
-let private parseFourOprs bin unit o1 o2 o3 o4 =
-  FourOperands (translateOperand bin unit o1,
-                translateOperand bin unit o2,
-                translateOperand bin unit o3,
-                translateOperand bin unit o4)
+let private parseFourOprs unit o1 o2 o3 o4 =
+  FourOperands (translateOperand unit o1,
+                translateOperand unit o2,
+                translateOperand unit o3,
+                translateOperand unit o4)
 
 /// scst21
 let private parseSc21 bin opcode unit =
   let o = OperandInfo (extract bin 27u 7u, SConst)
-  struct (opcode, unit, parseOneOpr bin unit o)
+  struct (opcode, unit, parseOneOpr unit o)
 
 /// xuint
 let private parseXUi bin opcode unit =
   let o = OperandInfo (extract bin 22u 18u, XUInt)
-  struct (opcode, unit, parseOneOpr bin unit o)
+  struct (opcode, unit, parseOneOpr unit o)
 
 /// xsint, sint
 let private parseXSiSi bin opcode unit =
   let o1 = OperandInfo (extract bin 22u 18u, XSInt)
   let o2 = OperandInfo (extract bin 27u 23u, SInt)
-  struct (opcode, unit, parseTwoOprs bin unit o1 o2)
+  struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// slong, slong
 let private parseSlSl bin opcode unit =
   let o1 = OperandInfo (extract bin 22u 18u, SLong)
   let o2 = OperandInfo (extract bin 27u 23u, SLong)
-  struct (opcode, unit, parseTwoOprs bin unit o1 o2)
+  struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// dp, dp
 let private parseDpDp bin opcode unit =
   let o1 = OperandInfo (extract bin 22u 18u, DP)
   let o2 = OperandInfo (extract bin 27u 23u, DP)
-  struct (opcode, unit, parseTwoOprs bin unit o1 o2)
+  struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// xsp, sp
 let private parseXSpSp bin opcode unit =
   let o1 = OperandInfo (extract bin 22u 18u, XSP)
   let o2 = OperandInfo (extract bin 27u 23u, SP)
-  struct (opcode, unit, parseTwoOprs bin unit o1 o2)
+  struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// scst16, uint
 let private parseSc16Ui bin opcode unit =
   let o1 = OperandInfo (extract bin 22u 7u, SConst)
   let o2 = OperandInfo (extract bin 27u 23u, UInt)
-  struct (opcode, unit, parseTwoOprs bin unit o1 o2)
+  struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// dp, sint
 let private parseDpSi bin opcode unit =
   let o1 = OperandInfo (extract bin 22u 18u, DP)
   let o2 = OperandInfo (extract bin 27u 23u, SInt)
-  struct (opcode, unit, parseTwoOprs bin unit o1 o2)
+  struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// dp, sp
 let private parseDpSp bin opcode unit =
   let o1 = OperandInfo (extract bin 22u 18u, DP)
   let o2 = OperandInfo (extract bin 27u 23u, SP)
-  struct (opcode, unit, parseTwoOprs bin unit o1 o2)
+  struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// sint, xsint, sint
 let private parseSiXSiSi bin opcode unit =
   let o1 = OperandInfo (extract bin 17u 13u, SInt)
   let o2 = OperandInfo (extract bin 22u 18u, XSInt)
   let o3 = OperandInfo (extract bin 27u 23u, SInt)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// sint, xsint, slong
 let private parseSiXSiSl bin opcode unit =
   let o1 = OperandInfo (extract bin 17u 13u, SInt)
   let o2 = OperandInfo (extract bin 22u 18u, XSInt)
   let o3 = OperandInfo (extract bin 27u 23u, SLong)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xsint, slong, slong
 let private parseXSiSlSl bin opcode unit =
   let o1 = OperandInfo (extract bin 17u 13u, XSInt)
   let o2 = OperandInfo (extract bin 22u 18u, SLong)
   let o3 = OperandInfo (extract bin 27u 23u, SLong)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// scst5, xsint, sint
 let private parseSc5XSiSi bin opcode unit =
   let o1 = OperandInfo (extract bin 17u 13u, SConst)
   let o2 = OperandInfo (extract bin 22u 18u, XSInt)
   let o3 = OperandInfo (extract bin 27u 23u, SInt)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// scst5, slong, slong
 let private parseSc5SlSl bin opcode unit =
   let o1 = OperandInfo (extract bin 17u 13u, SConst)
   let o2 = OperandInfo (extract bin 22u 18u, SLong)
   let o3 = OperandInfo (extract bin 27u 23u, SLong)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// sint, sint, sint
 let private parseSiSiSi bin opcode unit =
   let o1 = OperandInfo (extract bin 22u 18u, SInt)
   let o2 = OperandInfo (extract bin 17u 13u, SInt)
   let o3 = OperandInfo (extract bin 27u 23u, SInt)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// sint, ucst5, sint
 let private parseSiUc5Si bin opcode unit =
   let o1 = OperandInfo (extract bin 22u 18u, SInt)
   let o2 = OperandInfo (extract bin 17u 13u, UConst)
   let o3 = OperandInfo (extract bin 27u 23u, SInt)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// sp, xsp, sp
 let parseSpXSpSp bin opcode unit =
   let o1 = OperandInfo (extract bin 17u 13u, SP)
   let o2 = OperandInfo (extract bin 22u 18u, XSP)
   let o3 = OperandInfo (extract bin 27u 23u, SP)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// dp, xdp, dp
 let parseDpXDpDp bin opcode unit =
   let o1 = OperandInfo (extract bin 17u 13u, DP)
   let o2 = OperandInfo (extract bin 22u 18u, XDP)
   let o3 = OperandInfo (extract bin 27u 23u, DP)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// uint, xuint, ulong
 let parseUiXUiUl bin opcode unit =
   let o1 = OperandInfo (extract bin 17u 13u, UInt)
   let o2 = OperandInfo (extract bin 22u 18u, XUInt)
   let o3 = OperandInfo (extract bin 27u 23u, ULong)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xuint, ulong, ulong
 let parseXUiUlUl bin opcode unit =
   let o1 = OperandInfo (extract bin 17u 13u, XUInt)
   let o2 = OperandInfo (extract bin 22u 18u, ULong)
   let o3 = OperandInfo (extract bin 27u 23u, ULong)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// uint, xuint, uint
 let parseUiXUiUi bin opcode unit =
   let o1 = OperandInfo (extract bin 17u 13u, UInt)
   let o2 = OperandInfo (extract bin 22u 18u, XUInt)
   let o3 = OperandInfo (extract bin 27u 23u, UInt)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// scst5, xuint, uint
 let parseSc5XUiUi bin opcode unit =
   let o1 = OperandInfo (extract bin 17u 13u, SConst)
   let o2 = OperandInfo (extract bin 22u 18u, XUInt)
   let o3 = OperandInfo (extract bin 27u 23u, UInt)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xuint, uint, uint
 let parseXUiUiUi bin opcode unit =
   let o1 = OperandInfo (extract bin 22u 18u, XUInt)
   let o2 = OperandInfo (extract bin 17u 13u, UInt)
   let o3 = OperandInfo (extract bin 27u 23u, UInt)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// sint, xsint, uint
 let parseSiXSiUi bin opcode unit =
   let o1 = OperandInfo (extract bin 17u 13u, SInt)
   let o2 = OperandInfo (extract bin 22u 18u, XSInt)
   let o3 = OperandInfo (extract bin 27u 23u, UInt)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// scst5, xsint, uint
 let parseSc5XSiUi bin opcode unit =
   let o1 = OperandInfo (extract bin 17u 13u, SConst)
   let o2 = OperandInfo (extract bin 22u 18u, XSInt)
   let o3 = OperandInfo (extract bin 27u 23u, UInt)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xsint, slong, uint
 let parseXSiSlUi bin opcode unit =
   let o1 = OperandInfo (extract bin 17u 13u, XSInt)
   let o2 = OperandInfo (extract bin 22u 18u, SLong)
   let o3 = OperandInfo (extract bin 27u 23u, UInt)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// scst5, slong, uint
 let parseSc5SlUi bin opcode unit =
   let o1 = OperandInfo (extract bin 17u 13u, SConst)
   let o2 = OperandInfo (extract bin 22u 18u, SLong)
   let o3 = OperandInfo (extract bin 27u 23u, UInt)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// dp, xdp, sint
 let parseDpXDpSi bin opcode unit =
   let o1 = OperandInfo (extract bin 17u 13u, DP)
   let o2 = OperandInfo (extract bin 22u 18u, XDP)
   let o3 = OperandInfo (extract bin 27u 23u, SInt)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// sp, xsp, sint
 let parseSpXSpSi bin opcode unit =
   let o1 = OperandInfo (extract bin 17u 13u, SP)
   let o2 = OperandInfo (extract bin 22u 18u, XSP)
   let o3 = OperandInfo (extract bin 27u 23u, SInt)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// ucst4, xuint, uint
 let parseUc4XUiUi bin opcode unit =
   let o1 = OperandInfo (extract bin 17u 13u, UConst)
   let o2 = OperandInfo (extract bin 22u 18u, XUInt)
   let o3 = OperandInfo (extract bin 27u 23u, UInt)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xuint, ulong, uint
 let parseXUiUlUi bin opcode unit =
   let o1 = OperandInfo (extract bin 17u 13u, XUInt)
   let o2 = OperandInfo (extract bin 22u 18u, ULong)
   let o3 = OperandInfo (extract bin 27u 23u, UInt)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// ucst4, ulong, uint
 let parseUc4UlUi bin opcode unit =
   let o1 = OperandInfo (extract bin 17u 13u, UConst)
   let o2 = OperandInfo (extract bin 22u 18u, ULong)
   let o3 = OperandInfo (extract bin 27u 23u, UInt)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// xsint, uint, sint
 let parseXSiUiSi bin opcode unit =
   let o1 = OperandInfo (extract bin 22u 18u, XSInt)
   let o2 = OperandInfo (extract bin 17u 13u, UInt)
   let o3 = OperandInfo (extract bin 27u 23u, SInt)
-  struct (opcode, unit, parseThreeOprs bin unit o1 o2 o3)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
 /// unit, ucst5, ucst5, uint
 let parseUiUc5Uc5Ui bin opcode unit =
@@ -447,7 +448,7 @@ let parseUiUc5Uc5Ui bin opcode unit =
   let o2 = OperandInfo (extract bin 17u 13u, UConst)
   let o3 = OperandInfo (extract bin 12u 8u, UConst)
   let o4 = OperandInfo (extract bin 27u 23u, UInt)
-  struct (opcode, unit, parseFourOprs bin unit o1 o2 o3 o4)
+  struct (opcode, unit, parseFourOprs unit o1 o2 o3 o4)
 
 /// snit, ucst5, ucst5, sint
 let parseSiUc5Uc5Si bin opcode unit =
@@ -455,7 +456,7 @@ let parseSiUc5Uc5Si bin opcode unit =
   let o2 = OperandInfo (extract bin 17u 13u, UConst)
   let o3 = OperandInfo (extract bin 12u 8u, UConst)
   let o4 = OperandInfo (extract bin 27u 23u, SInt)
-  struct (opcode, unit, parseFourOprs bin unit o1 o2 o3 o4)
+  struct (opcode, unit, parseFourOprs unit o1 o2 o3 o4)
 
 /// mem, reg
 let parseMemReg bin opcode unit =

@@ -236,7 +236,7 @@ let inline buildOpcode ins builder acc =
   let str = opCodeToString ins.Opcode |> appendUnit ins
   builder AsmWordKind.Mnemonic str acc
 
-let modeToStr builder baseR acc = function
+let buildMemBase builder baseR acc = function
   | NegativeOffset ->
     builder AsmWordKind.String "-" acc
     |> builder AsmWordKind.Variable (regToStr baseR)
@@ -256,16 +256,22 @@ let modeToStr builder baseR acc = function
     builder AsmWordKind.Variable (regToStr baseR) acc
     |> builder AsmWordKind.String "++"
 
-let offsetToStr builder offset acc =
+let private offsetToString builder offset acc =
   match offset with
   | UCst5 i -> builder AsmWordKind.Value (i.ToString()) acc
   | OffsetR reg -> builder AsmWordKind.Variable (regToStr reg) acc
 
-let mToString builder baseR mode offset acc =
-  modeToStr builder baseR acc mode
-  |> builder AsmWordKind.String "["
-  |> offsetToStr builder offset
-  |> builder AsmWordKind.String "]"
+let private buildMemOffset builder offset acc =
+  match offset with
+  | UCst5 0UL -> acc
+  | offset ->
+    builder AsmWordKind.String "[" acc
+    |> offsetToString builder offset
+    |> builder AsmWordKind.String "]"
+
+let memToString builder baseR modification offset acc =
+  buildMemBase builder baseR acc modification
+  |> buildMemOffset builder offset
 
 let oprToString insInfo opr delim builder acc =
   match opr with
@@ -277,10 +283,10 @@ let oprToString insInfo opr delim builder acc =
     |> builder AsmWordKind.Variable (regToStr r1)
     |> builder AsmWordKind.String ":"
     |> builder AsmWordKind.Variable (regToStr r2)
-  | OprMem (baseR, (mode, offset)) ->
+  | OprMem (baseR, modification, offset) ->
     builder AsmWordKind.String delim acc
     |> builder AsmWordKind.String " *"
-    |> mToString builder baseR mode offset
+    |> memToString builder baseR modification offset
   | Immediate imm ->
     builder AsmWordKind.String delim acc
     |> builder AsmWordKind.Value ("0x" + imm.ToString ("X"))

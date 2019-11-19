@@ -243,12 +243,10 @@ type ModificationPerformed =
   | PostDecrement
   | PostIncrement
 
-type AddressingType = ModificationPerformed * Offset
-
 type Operand =
   | Register of Register
   | RegisterPair of Register * Register
-  | OprMem of Register * AddressingType
+  | OprMem of Register * ModificationPerformed * Offset
   | Immediate of Imm
 and Imm = uint64
 
