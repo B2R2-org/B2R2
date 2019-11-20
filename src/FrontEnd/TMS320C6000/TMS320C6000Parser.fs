@@ -33,6 +33,8 @@ open B2R2.FrontEnd.BitData
 
 /// Table 3-1. Instruction Operation and Execution Notations.
 type OperandType =
+  /// n-bit constant field (for example, cst5)
+  | Const
   /// Double-precision floating-point register value.
   | DP
   /// Signed 32-bit integer value.
@@ -193,6 +195,7 @@ let private parseRegPair v unit isCPath =
 let private translateOperand unit (oprInfo: OperandInfo) =
   let v = oprInfo.OperandValue
   match oprInfo.OperandType with
+  | Const -> uint64 v |> Immediate
   | DP -> parseRegPair v unit false
   | SInt -> parseReg v false unit |> Register
   | SLong -> parseRegPair v unit false
@@ -271,6 +274,30 @@ let private parseDpSi bin opcode unit =
 /// dp, sp
 let private parseDpSp bin opcode unit =
   let o1 = OperandInfo (extract bin 22u 18u, DP)
+  let o2 = OperandInfo (extract bin 27u 23u, SP)
+  struct (opcode, unit, parseTwoOprs unit o1 o2)
+
+/// xsint, dp
+let private parseXSiDp bin opcode unit =
+  let o1 = OperandInfo (extract bin 22u 18u, XSInt)
+  let o2 = OperandInfo (extract bin 27u 23u, DP)
+  struct (opcode, unit, parseTwoOprs unit o1 o2)
+
+/// xuint, dp
+let private parseXUiDp bin opcode unit =
+  let o1 = OperandInfo (extract bin 22u 18u, XUInt)
+  let o2 = OperandInfo (extract bin 27u 23u, DP)
+  struct (opcode, unit, parseTwoOprs unit o1 o2)
+
+/// xsint, sp
+let private parseXSiSp bin opcode unit =
+  let o1 = OperandInfo (extract bin 22u 18u, XSInt)
+  let o2 = OperandInfo (extract bin 27u 23u, SP)
+  struct (opcode, unit, parseTwoOprs unit o1 o2)
+
+/// xuint, sp
+let private parseXUiSp bin opcode unit =
+  let o1 = OperandInfo (extract bin 22u 18u, XUInt)
   let o2 = OperandInfo (extract bin 27u 23u, SP)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
@@ -442,6 +469,13 @@ let parseXSiUiSi bin opcode unit =
   let o3 = OperandInfo (extract bin 27u 23u, SInt)
   struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
 
+/// cst5, xuint, uint
+let parseC5XUiUi bin opcode unit =
+  let o1 = OperandInfo (extract bin 17u 13u, Const)
+  let o2 = OperandInfo (extract bin 22u 18u, XUInt)
+  let o3 = OperandInfo (extract bin 27u 23u, UInt)
+  struct (opcode, unit, parseThreeOprs unit o1 o2 o3)
+
 /// unit, ucst5, ucst5, uint
 let parseUiUc5Uc5Ui bin opcode unit =
   let o1 = OperandInfo (extract bin 22u 18u, UInt)
@@ -541,10 +575,14 @@ let private parseLUnitSrcs bin =
   | 0b0101001u -> parseXUiUlUl bin Op.ADDU (getLUnit s x)
   | 0b0101011u -> parseUiXUiUl bin Op.ADDU (getLUnit s x)
   | 0b0111000u -> parseSlSl bin Op.ABS (getLUnit s x)
+  | 0b0111001u -> parseXSiDp bin Op.INTDP (getLUnit s x)
+  | 0b0111011u -> parseXUiDp bin Op.INTDPU (getLUnit s x)
   | 0b1000100u -> parseSc5SlUi bin Op.CMPGT (getLUnit s x)
   | 0b1000101u -> parseXSiSlUi bin Op.CMPGT (getLUnit s x)
   | 0b1000110u -> parseSc5XSiUi bin Op.CMPGT (getLUnit s x)
   | 0b1000111u -> parseSiXSiUi bin Op.CMPGT (getLUnit s x)
+  | 0b1001001u -> parseXUiSp bin Op.INTSPU (getLUnit s x)
+  | 0b1001010u -> parseXSiSp bin Op.INTSP (getLUnit s x)
   | 0b1001100u -> parseUc4UlUi bin Op.CMPGTU (getLUnit s x)
   | 0b1001101u -> parseXUiUlUi bin Op.CMPGTU (getLUnit s x)
   | 0b1001110u -> parseUc4XUiUi bin Op.CMPGTU (getLUnit s x)
@@ -561,6 +599,8 @@ let private parseLUnitSrcs bin =
   | 0b1011101u -> parseXUiUlUi bin Op.CMPGTU (getLUnit s x)
   | 0b1011110u -> parseUc4XUiUi bin Op.CMPGTU (getLUnit s x)
   | 0b1011111u -> parseUiXUiUi bin Op.CMPGTU (getLUnit s x)
+  | 0b1101010u -> parseC5XUiUi bin Op.LMBD (getLUnit s x)
+  | 0b1101011u -> parseUiXUiUi bin Op.LMBD (getLUnit s x)
   | 0b1110000u -> parseSpXSpSp bin Op.ADDSP (getSUnit s x)
   | 0b1110010u -> parseDpXDpDp bin Op.ADDDP (getSUnit s x)
   | 0b1111010u -> parseSc5XUiUi bin Op.AND (getLUnit s x)
@@ -652,7 +692,7 @@ let private parseNoUnitLoop bin = struct (Op.InvalOP, NoUnit, NoOperand)
 let private parseNoUnitNOPIdle bin = struct (Op.InvalOP, NoUnit, NoOperand)
 
 /// Appendix G-3. Fig. G-3
-let private parseNoUnitEmuControl bin = struct (Op.InvalOP, NoUnit, NoOperand)
+let private parseNoUnitEmuControl bin = struct (Op.IDLE, NoUnit, NoOperand)
 
 let private parseCase1111 bin =
   match extract bin 31u 29u with
