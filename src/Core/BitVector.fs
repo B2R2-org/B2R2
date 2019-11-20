@@ -103,7 +103,7 @@ type BitVector =
     BitVector.BOp v b (|||) (bigint.op_BitwiseOr)
 
   static member (^^^) (v: BitVector, b: uint64) =
-    BitVector.BOp v b (^^^) (bigint.op_BitwiseOr)
+    BitVector.BOp v b (^^^) (bigint.op_ExclusiveOr)
 
   static member (/) (v: BitVector, b: uint64) =
     BitVector.BOp v b (/) (bigint.Divide)
