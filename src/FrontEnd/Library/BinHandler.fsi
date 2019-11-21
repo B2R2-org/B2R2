@@ -134,9 +134,10 @@ with
   ///   Initialize a BinHandler from an ISA and a binary file path, assuming
   ///   that the archMode is NoMode. B2R2 will automatically detect the file
   ///   format of the given binary file, but it will refer to the given ISA
-  ///   parameter when the binary has multiple architectures, e.g., a fat binary
-  ///   on macOS. If the given binary file does not follow the known formats,
-  ///   then B2R2 consider it as a raw binary with base address at 0.
+  ///   parameter either when the binary has multiple architectures, e.g., a fat
+  ///   binary on macOS, or when B2R2 cannot recognize the given file format. If
+  ///   the given binary file does not follow the known formats, then B2R2
+  ///   consider it as a raw binary with base address at 0.
   /// </summary>
   /// <param name="isa">ISA.</param>
   /// <param name="fileName">Binary file path.</param>
