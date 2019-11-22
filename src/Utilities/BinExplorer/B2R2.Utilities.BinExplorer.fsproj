@@ -15,10 +15,10 @@
     <Compile Include="Credits.fs" />
     <Compile Include="Demangle.fs" />
     <Compile Include="SimpleArithReference.fs" />
-    <Compile Include="SimpleArithConverter.fs" />
-    <Compile Include="SimpleArithHelper.fs" />
     <Compile Include="SimpleArithTypes.fs" />
-    <Compile Include="SimpleArithOperate.fs" />
+    <Compile Include="SimpleArithHelper.fs" />
+    <Compile Include="SimpleArithConverter.fs" />
+    <Compile Include="SimpleArithOperator.fs" />
     <Compile Include="SimpleArithParser.fs" />
     <Compile Include="EvalExpr.fs" />
     <Compile Include="List.fs" />

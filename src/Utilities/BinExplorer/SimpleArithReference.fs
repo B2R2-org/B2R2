@@ -27,66 +27,51 @@
 
 module B2R2.Utilities.BinExplorer.SimpleArithReference
 
-let rec ref = function
-  | "int128Max" -> 170141183460469231731687303715884105727I
-  | "int128Min" -> -170141183460469231731687303715884105728I
-  | "int256Max" -> (abs (ref "int128Min")) * (abs (ref "int128Min")) * 2I - 1I
-  | "int256Min" -> -(ref "int256Max") - 1I
-  | "uint256Max" -> (ref "int256Max" + 1I) * 2I - 1I
-  | "uint128Max" -> 340282366920938463463374607431768211455I
-  | "int32Max" -> 2147483647I
-  | "int32Min" -> -2147483648I
-  | "uint32Max" -> bigint System.UInt32.MaxValue
-  | "int64Max" -> 9223372036854775807I
-  | "int64Min" -> -9223372036854775808I
-  | "uint64Max" -> 18446744073709551615I
-  | "floatMax" -> bigint System.Double.MaxValue
-  | "floatMin" -> bigint System.Double.MinValue
-  | "int8Min" -> -128I
-  | "int8Max" -> 127I
-  | "int16Min" -> -32768I
-  | "int16Max" -> 32767I
-  | _ -> -1I
+let (|Between|_|) (lo, hi) x =
+  if lo <= x && x <= hi then Some () else None
 
+/// Representing single hexadecimal digit in binary with 4 digits.
 let hexToBinaryString = function
   | '0' -> "0000"
-  | '1' -> "1000"
-  | '2' -> "0100"
-  | '3' -> "1100"
-  | '4' -> "0010"
-  | '5' -> "1010"
+  | '1' -> "0001"
+  | '2' -> "0010"
+  | '3' -> "0011"
+  | '4' -> "0100"
+  | '5' -> "0101"
   | '6' -> "0110"
-  | '7' -> "1110"
-  | '8' -> "0001"
+  | '7' -> "0111"
+  | '8' -> "1000"
   | '9' -> "1001"
-  | 'A' | 'a' -> "0101"
-  | 'B' | 'b' -> "1101"
-  | 'C' | 'c' -> "0011"
-  | 'D' | 'd' -> "1011"
-  | 'E' | 'e'-> "0111"
+  | 'A' | 'a' -> "1010"
+  | 'B' | 'b' -> "1011"
+  | 'C' | 'c' -> "1100"
+  | 'D' | 'd' -> "1101"
+  | 'E' | 'e' -> "1110"
   | 'F' | 'f' -> "1111"
   | _ -> ""
 
+/// Representing single octal digit in binary with 3 digits.
 let octalToBinaryString = function
   | '0' -> "000"
-  | '1' -> "100"
+  | '1' -> "001"
   | '2' -> "010"
-  | '3' -> "110"
-  | '4' -> "001"
+  | '3' -> "011"
+  | '4' -> "100"
   | '5' -> "101"
-  | '6' -> "011"
+  | '6' -> "110"
   | '7' -> "111"
   | _ -> ""
 
-let binaryToOctalOrHex = function
-  | "0000" | "000" -> "0"
-  | "0001" | "001" -> "1"
-  | "0010" | "010" -> "2"
-  | "0011" | "011" -> "3"
-  | "0100" | "100" -> "4"
-  | "0101" | "101" -> "5"
-  | "0110" | "110" -> "6"
-  | "0111" | "111" -> "7"
+/// Representing 4 digit binary in single hexadecimal digit.
+let binaryToHexString = function
+  | "0000" -> "0"
+  | "0001" -> "1"
+  | "0010" -> "2"
+  | "0011" -> "3"
+  | "0100" -> "4"
+  | "0101" -> "5"
+  | "0110" -> "6"
+  | "0111" -> "7"
   | "1000" -> "8"
   | "1001" -> "9"
   | "1010" -> "A"
@@ -95,4 +80,16 @@ let binaryToOctalOrHex = function
   | "1101" -> "D"
   | "1110" -> "E"
   | "1111" -> "F"
+  | _ -> ""
+
+/// Representing 3 digit binary in single octal digit.
+let binaryToOctalString = function
+  | "000" -> "0"
+  | "001" -> "1"
+  | "010" -> "2"
+  | "011" -> "3"
+  | "100" -> "4"
+  | "101" -> "5"
+  | "110" -> "6"
+  | "111" -> "7"
   | _ -> ""

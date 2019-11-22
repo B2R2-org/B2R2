@@ -32,21 +32,28 @@ open System.Numerics
 open SimpleArithReference
 
 /// Positive decimal to binary.
-let rec positiveDecToBinary a res =
-  if a = 0I then
-    if res = "" then "0b0"
-    else "0b" + res
-  else
-    positiveDecToBinary (a/2I) (string(a%2I)+res)
+let positiveDecToBinary (decimalNumber: bigint) =
+  let rec doConversion input (res: string) =
+    if input = 0I then
+      if res = "" then "0b0"
+      else "0b" + res
+    else
+      doConversion (input / 2I) (string(input % 2I) + res)
+  doConversion decimalNumber ""
 
 /// Getting two's complement.
-let complement input =
-  List.fold
-    (fun acc elem -> if (elem = '1') then '0' :: acc else '1' :: acc) [] input
+let complement (binaryString: string) =
+  let charListInput = List.rev (Seq.toList binaryString)
+  let res =
+    List.fold
+      (fun acc elem ->
+        if (elem = '1') then '0' :: acc else '1' :: acc) [] charListInput
+  String (List.toArray res)
 
 /// Adding 1 after reversing all bit values.
-let addOnetoBinary input =
-  let a =
+let addOneToBinary (binaryString: string) =
+  let charListInput = List.rev (Seq.toList binaryString)
+  let res =
     List.fold
       (fun acc elem ->
         let flag = snd acc
@@ -55,79 +62,94 @@ let addOnetoBinary input =
         elif flag = '1' || elem = '1' then
           ('1' :: fst acc, '0')
         else
-          ('0' :: fst acc, '0')) ([], '1') input
-  fst a
+          ('0' :: fst acc, '0')) ([], '1') charListInput
+  String (List.toArray (fst res))
 
 /// Completing number of bits to 32, 64, 128 or 256.
-let addZeros (input : String) number =
-  let a = String.replicate number "0"
-  "0b" + a + input.[2 ..]
-
-let complete_2 input size =
-  if size <= 3 then
-    addZeros input (32 - input.Length + 2)
-  elif size = 4 then
-    addZeros input (64 - input.Length + 2)
-  elif size = 5 then
-    addZeros input (128 - input.Length + 2)
+let addZeros (binaryString: string) number =
+  if number < 0 then binaryString
   else
-    addZeros input (256 - input.Length + 2)
+    let a = String.replicate number "0"
+    "0b" + a + binaryString.[2 ..]
 
-let negativeDectoBinary input size =
-  let absolute = abs input
-  let binary = positiveDecToBinary absolute ""
-  let binary = complete_2 binary size
-  let com = complement (List.rev (Seq.toList binary.[2 ..]))
-  let neg_value = String (List.toArray (addOnetoBinary (List.rev com)))
-  "0b" + neg_value
+/// Completing number of bits to 32, 64, 128 or 256.
+let fillWithZeros (binaryString: string) (size: NumType) =
+  let numberOfBits = NumType.getBitLength size
+  match numberOfBits with
+  | n when n <= 32 -> addZeros binaryString (32 - binaryString.Length + 2)
+  | n when n > 0 ->  addZeros binaryString (n - binaryString.Length + 2)
+  | _ -> "Wrong Input"
 
-let allDectoBinary input size =
-  if input > 0I then
-    let res = positiveDecToBinary input ""
-    complete_2 res size
+/// Negative decimal to binary.
+let negativeDectoBinary decimalNumber size =
+  let absolute = abs decimalNumber
+  let binary = positiveDecToBinary absolute
+  let binary = fillWithZeros binary size
+  let com = complement binary.[2 ..]
+  let negValue = addOneToBinary com
+  "0b" + negValue
+
+let decToBinary decimalNumber size =
+  if decimalNumber >= 0I then
+    let res = positiveDecToBinary decimalNumber
+    fillWithZeros res size
   else
-    negativeDectoBinary input size
+    negativeDectoBinary decimalNumber size
+
+let adjustBinaryStringToHex (binaryString: string) =
+  if binaryString.Length % 4 <> 0 then
+    let add = String.replicate (4 - (binaryString.Length % 4)) "0"
+    add + binaryString
+  else
+    binaryString
+
+let adjustBinaryStringToOctal (binaryString: string) =
+  if binaryString.Length % 3 <> 0 then
+    let add = String.replicate (3 - (binaryString.Length % 3)) "0"
+    add + binaryString
+  else
+    binaryString
+
+let rec toHex (input: string) index res =
+  if index >= input.Length then
+      res
+    else
+      let add =
+        if (index + 4 = input.Length) then (input.[index ..])
+        else input.[index .. index + 3]
+      toHex input (index + 4) (res + (binaryToHexString add))
+
+let rec toOctal (input: string) index res =
+  if index >= input.Length then
+      res
+    else
+      let add =
+        if (index + 3 = input.Length) then (input.[index ..])
+        else input.[index .. index + 2]
+      toOctal input (index + 3) (res + (binaryToOctalString add))
 
 /// Converting binary string to hex string.
-let rec binaryToHex (input: String) index res =
-  if index >= input.Length then
-    res
-  else
-    let add =
-      if (index + 4 = input.Length) then (input.[index ..])
-      else input.[index .. index + 3]
-    binaryToHex input (index + 4) (res + (binaryToOctalOrHex add))
+let binaryToHex (binaryString: string) =
+  let adjustedBinary = adjustBinaryStringToHex binaryString
+  let hexString = toHex adjustedBinary 0 ""
+  "0x" + hexString
 
 /// Converting binary string to octal string.
-let rec binaryToOctal (input: String) index res =
-  if index >= input.Length then
-    res
-  else
-    let add =
-      if (index + 3 = input.Length) then (input.[index ..])
-      else input.[index .. index + 2]
-    binaryToOctal input (index + 3) (res + (binaryToOctalOrHex add))
+let binaryToOctal (binaryString: string) =
+  let adjustedBinary = adjustBinaryStringToOctal binaryString
+  let octalString = toOctal adjustedBinary 0 ""
+  "0o" + octalString
 
-let final_converter input flag size =
-  let res = allDectoBinary input size
-  if flag = 0 then
-    let str = res.[2 ..]
-    if str.Length % 4 <> 0 then
-      let add = String.replicate (4 - (str.Length % 4)) "0"
-      "0x" + (binaryToHex (add + str) 0 "")
-    else
-      "0x" + (binaryToHex (str) 0 "")
-  elif flag = 1 then
-    string input
-  elif flag = 2 then
-    res
-  elif flag = 3 then
-    let str = res.[2 ..]
-    if str.Length % 3 <> 0 then
-      let add = String.replicate (3 - (str.Length % 3)) "0"
-      "0x" + (binaryToOctal (add + str) 0 "")
-    else
-      "0x" + (binaryToOctal (str) 0 "")
-  else
-    "Flag Error"
+let getOutputValueString input outputFormat size =
+  let inputInBinary = decToBinary input size
+  match outputFormat with
+  | HexadecimalF ->
+    let str = inputInBinary.[2 ..]
+    binaryToHex str
+  | DecimalF -> string input
+  | BinaryF -> inputInBinary
+  | OctalF ->
+    let str = inputInBinary.[2 ..]
+    binaryToOctal str
+  | _ -> "Flag Error"
 
