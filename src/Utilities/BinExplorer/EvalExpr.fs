@@ -100,108 +100,24 @@ type SimpleArithEvaluator () =
       let fin = result + space + "\n" + "Expecting: Digit or Operator"
       [|fin|]
 
-type CmdEvalExpr () =
+type CmdEvalExpr (name, alias, descrSuffix, helpSuffix, outFormat) =
   inherit Cmd ()
 
-  override __.CmdName = "?"
+  override __.CmdName = name
 
-  override __.CmdAlias = ["?x"]
+  override __.CmdAlias = alias
 
-  override __.CmdDescr = "Evaluates and displays the value of an expression."
+  override __.CmdDescr =
+    "Evaluate and display the value of an expression in " + descrSuffix + "."
 
   override __.CmdHelp =
-    "Usage: ? <expression>\n\n\
-     Evaluates the given expression and prints out the value. This command\n\
+    "Usage: ?" + helpSuffix + " <expression>\n\n\
+     Evaluate the given expression and print out the value. This command\n\
      supports basic arithmetic expressions."
 
   override __.SubCommands = []
 
   override __.CallBack _ _ args =
     match args with
-    | [] -> [|__.CmdHelp|]
-    | _ -> SimpleArithEvaluator().Run args HexadecimalF
-
-type CmdEvalExprDecimal () =
-  inherit Cmd ()
-
-  override __.CmdName = "?d"
-
-  override __.CmdAlias = []
-
-  override __.CmdDescr = "Evaluates and displays the value of an expression."
-
-  override __.CmdHelp =
-    "Usage: ? <expression>\n\n\
-     Evaluates the given expression and prints out the value. This command\n\
-     supports basic arithmetic expressions."
-
-  override __.SubCommands = []
-
-  override __.CallBack _ _ args =
-    match args with
-    | [] -> [|__.CmdHelp|]
-    | _ -> SimpleArithEvaluator().Run args DecimalF
-
-type CmdEvalExprBinary () =
-  inherit Cmd ()
-
-  override __.CmdName = "?b"
-
-  override __.CmdAlias = []
-
-  override __.CmdDescr = "Evaluates and displays the value of an expression."
-
-  override __.CmdHelp =
-    "Usage: ? <expression>\n\n\
-     Evaluates the given expression and prints out the value. This command\n\
-     supports basic arithmetic expressions."
-
-  override __.SubCommands = []
-
-  override __.CallBack _ _ args =
-    match args with
-    | [] -> [|__.CmdHelp|]
-    | _ -> SimpleArithEvaluator().Run args BinaryF
-
-type CmdEvalExprOctal () =
-  inherit Cmd ()
-
-  override __.CmdName = "?o"
-
-  override __.CmdAlias = []
-
-  override __.CmdDescr = "Evaluates and displays the value of an expression."
-
-  override __.CmdHelp =
-    "Usage: ? <expression>\n\n\
-     Evaluates the given expression and prints out the value. This command\n\
-     supports basic arithmetic expressions."
-
-  override __.SubCommands = []
-
-  override __.CallBack _ _ args =
-    match args with
-    | [] -> [|__.CmdHelp|]
-    | _ -> SimpleArithEvaluator().Run args OctalF
-
-type CmdEvalExprFloat () =
-  inherit Cmd ()
-
-  override __.CmdName = "?f"
-
-  override __.CmdAlias = []
-
-  override __.CmdDescr = "Evaluates and displays the value of an expression."
-
-  override __.CmdHelp =
-    "Usage: ? <expression>\n\n\
-     Evaluates the given expression and prints out the value. This command\n\
-     supports basic arithmetic expressions."
-
-  override __.SubCommands = []
-
-  override __.CallBack _ _ args =
-    match args with
-    | [] -> [|__.CmdHelp|]
-    | _ -> SimpleArithEvaluator().Run args FloatingPointF
-
+    | [] -> [| __.CmdHelp |]
+    | _ -> SimpleArithEvaluator().Run args outFormat
