@@ -30,50 +30,75 @@ open FParsec
 open System.Numerics
 open SimpleArithHelper
 open SimpleArithConverter
-open Size
-open DataType
+open B2R2
 
 type SimpleArithEvaluator () =
-  let final str flag =
-    let str, err = concatenate "" str 0
+  /// Concatenating given array of strings. Returning place of error when there
+  /// is space between digits of number.
+  let concatenate arg =
+    let rec doConcatenation res input errorPos =
+      match input with
+      | [] -> (res, errorPos)
+      | hd :: tail ->
+        if hd = "" then
+          doConcatenation res tail errorPos
+        elif res = "" then
+          doConcatenation (res + hd) tail errorPos
+        else
+          let lastChar = res.[res.Length - 1]
+          let firstChar = hd.[0]
+          if System.Char.IsDigit lastChar && System.Char.IsDigit firstChar then
+            doConcatenation (res + " " + hd) tail (res.Length)
+          else
+            doConcatenation (res + " " + hd) tail errorPos
+    doConcatenation "" arg 0
+
+  let processError str (position: Position) =
+    let result = str + "\n"
+    let space = sprintf "%*s^" (int(position.Column) - 2) ""
+    let fin =
+      result + space + "\n" + "Expecting: Digit, Suffix or Operator"
+    [|fin|]
+
+  let processIntegerorFloat result typ =
+    let value = Number.toString result
+    let str = (getIntegerPart ((value)))
+    let intValue = BigInteger.Parse str
+    let intValue =
+      if (hasZeroFraction value) = false && result.FloatValue < 0.0 then
+        (intValue - 1I)
+      else intValue
+    match typ with
+    | DecimalF | OctalF | HexadecimalF | BinaryF ->
+      [| getOutputValueString intValue typ result.Type |]
+    | _ ->
+      if value.IndexOf ('.') = -1 then [| value + ".0" |]
+      else [| value |]
+
+  let checkIntegerOrFloatResult (str: string) result (position: Position) typ =
+    if position.Column <> int64 (str.Length + 1) then
+      processError str position
+    else
+      processIntegerorFloat result typ
+
+  let postProcess str result position typ =
+    match result.Type with
+    | CError pos -> ErrorMessage.constructErrorMessage str pos
+    | _ -> checkIntegerOrFloatResult str result position typ
+
+  member __.Run args representation =
+    let str, err = concatenate args
     if err = 0 then
       match run SimpleArithParser.expr str with
-        | Success ((CError _, NError (a, b)), _, _) ->
-          let result = str + "\n"
-          let space = sprintf "%*s^" (int(b) - 2) ""
-          let fin = result + space + "\n" + a
-          [|fin|]
         | Success (v, _, p) ->
-          if p.Column <> int64 (str.Length + 1) then
-            let result = str + "\n"
-            let space = sprintf "%*s^" (int(p.Column) - 2) ""
-            let fin =
-              result + space + "\n" + "Expecting: Digit, Suffix or Operator"
-            [|fin|]
-          else
-            let value = Numbers.getValue (snd v)
-            let str = (getWhole value)
-            let int_value = BigInteger.Parse str
-            let int_value =
-              if (DataType.getType (fst v) = 2 &&
-                  snd (checkFloat value) = false &&
-                  int_value <= 0I) then (int_value - 1I)
-              else int_value
-            if flag = 0 || flag = 1 || flag = 2 || flag = 3 then
-              let size = (getPriority (getSize (fst v)))
-              [| final_converter int_value flag size |]
-            else
-              if value.IndexOf ('.') = -1 then [| value + ".0" |]
-              else [| value |]
+          postProcess str v p representation
         | Failure (v, _, _) ->
           [|v|]
-     else
-       let result = str + "\n"
-       let space = sprintf "%*s^" (err) ""
-       let fin = result + space + "\n" + "Expecting: Digit or Operator"
-       [|fin|]
-
-  member __.Run str flag = final str flag
+    else
+      let result = str + "\n"
+      let space = sprintf "%*s^" (err) ""
+      let fin = result + space + "\n" + "Expecting: Digit or Operator"
+      [|fin|]
 
 type CmdEvalExpr () =
   inherit Cmd ()
@@ -94,7 +119,7 @@ type CmdEvalExpr () =
   override __.CallBack _ _ args =
     match args with
     | [] -> [|__.CmdHelp|]
-    | _ -> SimpleArithEvaluator().Run args 0
+    | _ -> SimpleArithEvaluator().Run args HexadecimalF
 
 type CmdEvalExprDecimal () =
   inherit Cmd ()
@@ -115,7 +140,7 @@ type CmdEvalExprDecimal () =
   override __.CallBack _ _ args =
     match args with
     | [] -> [|__.CmdHelp|]
-    | _ -> SimpleArithEvaluator().Run args 1
+    | _ -> SimpleArithEvaluator().Run args DecimalF
 
 type CmdEvalExprBinary () =
   inherit Cmd ()
@@ -136,7 +161,7 @@ type CmdEvalExprBinary () =
   override __.CallBack _ _ args =
     match args with
     | [] -> [|__.CmdHelp|]
-    | _ -> SimpleArithEvaluator().Run args 2
+    | _ -> SimpleArithEvaluator().Run args BinaryF
 
 type CmdEvalExprOctal () =
   inherit Cmd ()
@@ -157,7 +182,7 @@ type CmdEvalExprOctal () =
   override __.CallBack _ _ args =
     match args with
     | [] -> [|__.CmdHelp|]
-    | _ -> SimpleArithEvaluator().Run args 3
+    | _ -> SimpleArithEvaluator().Run args OctalF
 
 type CmdEvalExprFloat () =
   inherit Cmd ()
@@ -178,5 +203,5 @@ type CmdEvalExprFloat () =
   override __.CallBack _ _ args =
     match args with
     | [] -> [|__.CmdHelp|]
-    | _ -> SimpleArithEvaluator().Run args 4
+    | _ -> SimpleArithEvaluator().Run args FloatingPointF
 

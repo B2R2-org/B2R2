@@ -31,139 +31,107 @@ open System
 open System.Numerics
 open SimpleArithReference
 
-let getWhole (str : string) =
-  let a = str.IndexOf('.')
-  if a = (-1) then str else str.[.. a - 1]
-
-let rec checkFraction (str : String) index =
-  if index >= str.Length then
-    true
-  elif str.[index] = '0' then
-    checkFraction (str) (index + 1)
+/// Getting integer part of float string.
+let getIntegerPart (str: string) =
+  if str.IndexOf('E') <> -1 || str.IndexOf('e') <> -1 then
+    "0"
   else
+    str.Split [|'.'|] |> Seq.head
+
+/// Checking if fraction part is consisted of only zeros or not.
+let hasZeroFraction (floatString: string) =
+  if floatString.IndexOf('E') <> -1 || floatString.IndexOf('e') <> -1 then
     false
-
-/// Checking floating point integer whether it has fraction part or not for
-/// bitwise operations.
-let checkFloat (str : String) =
-  let a = str.IndexOf('.')
-  if a = -1 then
-    (str, true)
+  elif floatString.IndexOf('.') = -1 then
+    true
   else
-    let new_str = str.[(a + 1) ..]
-    if checkFraction new_str 0 then
-      (str.[.. a - 1], true)
-    else
-      ("", false)
+    let fractionPart = floatString.Split [|'.'|] |> (Seq.item 1)
+    Seq.fold (fun state char -> state && (char = '0')) true fractionPart
 
 /// Reversing given string.
-let rec rev_str (str : string) index res =
-  if index = str.Length then res
-  else rev_str (str) (index + 1) (res + string str.[str.Length - 1 - index])
+let reverseString (input: string) =
+  Seq.rev input |> Seq.toArray |> String
 
 /// Turning given hexadecimal string to binary string.
-let rec turnHextoBinary (str : string) index res =
-  if index = str.Length then res
-  else turnHextoBinary str (index + 1) (res + hexToBinaryString str.[index])
+let turnHexToBinary (hexadecimalString: string) =
+  let rec doConversion (str : string) index res =
+    if index = str.Length then res
+    else doConversion str (index + 1) (res + hexToBinaryString str.[index])
+  doConversion hexadecimalString 0 ""
 
 /// Turning given octal string to binary string.
-let rec turnOctaltoBinary (str : string) index res =
-  if index = str.Length then res
-  else
-    turnOctaltoBinary str (index + 1) (res + octalToBinaryString str.[index])
-
-/// Removing leading zeros in octal representation.
-let rec removeLeadingZeros (str : string) =
-  if str.[str.Length - 1] = '0' then
-    removeLeadingZeros str.[.. str.Length - 2]
-  else str
+let turnOctalToBinary (octalString: string) =
+  let rec doConversion (str: string) index res =
+    if index = str.Length then res
+    else
+      doConversion str (index + 1) (res + octalToBinaryString str.[index])
+  doConversion octalString 0 ""
 
 /// Turning binary string to 128 bit BigInteger value.
-let rec turnBinaryto128Bigint (str : string) index res =
-  if index = str.Length then res
-  else
-    let sign = if (index = 127) then (-1I) else 1I
-    let cur = BigInteger.Parse (string str.[index])
-    let add = sign * (pown 2I (index)) * cur
-    turnBinaryto128Bigint str (index + 1) (add + res)
-
-let rec turnBinaryto128OR256UnsignedBigint (str : string) index res =
-  if index = str.Length then res
-  else
-    let sign = 1I
-    let cur = BigInteger.Parse (string str.[index])
-    let add = sign * (pown 2I (index)) * cur
-    turnBinaryto128Bigint str (index + 1) (add + res)
+let convertBinaryTo128BitBigint (binaryString: string) =
+  let rec doConversion (str: string) index res =
+    if index = str.Length then res
+    else
+      let sign = if (index = 127) then (-1I) else 1I
+      let cur = BigInteger.Parse (string str.[index])
+      let add = sign * (pown 2I (index)) * cur
+      doConversion str (index + 1) (add + res)
+  doConversion binaryString 0 0I
 
 /// Turning binary string to 256 bit BigInteger value.
-let rec turnBinaryto256Bigint (str : string) index res =
-  if index = str.Length then res
-  else
-    let sign = if (index = 255) then (-1I) else 1I
-    let cur = BigInteger.Parse (string str.[index])
-    let add = sign * (pown 2I (index)) * cur
-    turnBinaryto256Bigint str (index + 1) (add + res)
+let convertBinaryTo256BitBigint (binaryString: string) =
+  let rec doConversion (str: string) index res =
+    if index = str.Length then res
+    else
+      let sign = if (index = 255) then (-1I) else 1I
+      let cur = BigInteger.Parse (string str.[index])
+      let add = sign * (pown 2I (index)) * cur
+      doConversion str (index + 1) (add + res)
+  doConversion binaryString 0 0I
 
-/// Turning numbers given in other format than hexadecimal to BigInteger
-/// values.
-let stringToBigint (str : string) =
-  let final_str =
-    match str.[0 .. 1] with
-    | "0x" | "0X" ->
-      let a = rev_str str.[2 ..] 0 ""
-      let a = turnHextoBinary a 0 ""
-      a
-    | "0b" | "0B" ->
-      let a = rev_str str.[2 ..] 0 ""
-      a
-    | "0o" | "0O" ->
-      let a = rev_str str.[2 ..] 0 ""
-      let a = turnOctaltoBinary a 0 ""
-      let a = removeLeadingZeros ("0o" + a)
-      let a = a.[2 ..]
-      let a = if (a = "") then "0" else a
-      a
-    | _ -> ""
-  let rep = "0b"
-  if final_str.Length <= 32 then
-    let num = (rep + (rev_str final_str 0 ""))
+let removeLeadingZerosInOctalNumber (input: string) =
+  match input.Length with
+  | n when (n = 33 || n = 129) ->
+    if input.[0] = '0' then input.[1 ..]
+    else input
+  | n when (n = 66 || n = 258) ->
+    if input.[0] = '0' && input.[1] = '0' then input.[2 ..]
+    else input
+  | _ -> input
+
+let getBinaryRepresentation (input: string) =
+  match input.[0 .. 1] with
+  | "0x" | "0X" -> "0b" + turnHexToBinary input.[2 ..]
+  | "0b" | "0B" -> "0b" + input.[2 ..]
+  | "0o" | "0O" ->
+    "0b" + removeLeadingZerosInOctalNumber (turnOctalToBinary input.[2 ..])
+  | _ -> failwith "0"
+
+let stringToBigint (str: string) =
+  let binaryString = getBinaryRepresentation str
+  match binaryString.[2 ..].Length with
+  | len when len <= 32 ->
+    let num = (binaryString)
     let value = int num
-    (bigint value, 3)
-  elif final_str.Length <= 64 then
-    let value = int64 (rep + (rev_str final_str 0 ""))
-    (bigint value, 4)
-  elif final_str.Length <= 128 then
-    let value = turnBinaryto128Bigint final_str 0 0I
-    (value, 5)
-  elif final_str.Length <= 256 then
-    let value = turnBinaryto256Bigint final_str 0 0I
-    (value, 6)
-  else
-    (-1I, 0)
+    (bigint value, 32)
+  | len when len <= 64 ->
+    let value = int64 (binaryString)
+    (bigint value, 64)
+  | len when len <= 128 ->
+    let binaryString = reverseString binaryString.[2 ..]
+    let value = convertBinaryTo128BitBigint binaryString
+    (value, 128)
+  | len when len <= 256 ->
+    let binaryString = reverseString binaryString.[2 ..]
+    let value = convertBinaryTo256BitBigint binaryString
+    (value, 256)
+  | _ -> (-1I, 0)
 
-let calculateValue (str : string) =
+let stringLiteralToBigint (str: string) =
   let rep = if (str.Length >= 2) then (str.[0 .. 1]) else ""
   if rep = "0x" || rep = "0X" || rep = "0o" || rep = "0O" ||
     rep = "0b" || rep = "oB" then
     stringToBigint (str)
   else
     (BigInteger.Parse str, -1)
-
-/// Concatenating given array of strings. Returning place of error when there
-/// is space between digits of number.
-let rec concatenate res arg flag =
-  match arg with
-  | [] -> (res, flag)
-  | hd :: tail ->
-    if hd = "" then
-      concatenate res tail flag
-    elif res = "" then
-      concatenate (res + hd) tail flag
-    else
-      let last_char = res.[res.Length - 1]
-      let first_char = hd.[0]
-      if System.Char.IsDigit last_char && System.Char.IsDigit first_char then
-        concatenate (res + " " + hd) tail (res.Length)
-      else
-        concatenate (res + hd) tail flag
 

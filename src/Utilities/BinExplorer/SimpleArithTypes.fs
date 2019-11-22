@@ -2,6 +2,7 @@
   B2R2 - the Next-Generation Reversing Platform
 
   Author: Mehdi Aghakishiyev <agakisiyev.mehdi@gmail.com>
+          Michael Tegegn <mick@kaist.ac.kr>
           Sang Kil Cha <sangkilc@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -28,124 +29,198 @@
 namespace B2R2.Utilities.BinExplorer
 open System.Numerics
 open SimpleArithReference
+open System
 
-/// Type for wrapping values
-type Numbers =
-  | I8 of int8
-  | UI8 of uint8
-  | I16 of int16
-  | UI16 of uint16
-  | I32 of int
-  | UI32 of uint32
-  | I64 of int64
-  | UI64 of uint64
-  | I128 of BigInteger
-  | UI128 of BigInteger
-  | I256 of BigInteger
-  | UI256 of BigInteger
-  | F32 of float32
-  | F64 of float
-  | NError of string * int64
+type ErrorMessage =
+  | BitwiseOperation of int
+  | DivisionByZero of int
+  | OutOfRange of int
+  | Default
 
-module Numbers =
-  let getValue = function
-    | I8 a -> string(a)
-    | UI8 a -> string(a)
-    | I16 a -> string(a)
-    | UI16 a -> string(a)
-    | I32 a -> string(a)
-    | UI32 a -> string(a)
-    | I64 a -> string(a)
-    | UI64 a -> string(a)
-    | I128 a -> string(a)
-    | UI128 a -> string(a)
-    | I256 a -> string(a)
-    | UI256 a -> string(a)
-    | F32 a -> string(a)
-    | F64 a -> string(a)
-    | NError (a, _) -> a
+module ErrorMessage =
+  let getErrorMessage = function
+    | BitwiseOperation _ -> "Float does not support bitwise operations"
+    | DivisionByZero _ -> "Cannot divide by zero"
+    | OutOfRange _ -> "Number is out of range"
+    | Default -> "Error"
 
-/// Type for representing number of bits and error types.
-type Size =
-  | B8
-  | B16
-  | B32
-  | B64
-  | B128
-  | B256
-  | BF32
-  | BF64
-  | OutofRange
-  | Arithmetic
-  | Shift
-  | Input
+  let getPosition = function
+    | BitwiseOperation a
+    | DivisionByZero a
+    | OutOfRange a -> a
+    | Default -> -1
 
-module Size =
-  let getPriority = function
-    | B8 -> 1
-    | B16 -> 2
-    | B32 -> 3
-    | B64 -> 4
-    | B128 -> 5
-    | B256 -> 6
-    | BF32 -> 7
-    | BF64 -> 8
-    | OutofRange | Arithmetic | Shift | Input -> 9
+  let constructErrorMessage str errorType =
+    let result = str + "\n"
+    let pos = getPosition errorType
+    if pos <> -1 then
+      let space = sprintf "%*s^" (pos - 2) ""
+      let fin = result + space + "\n" + getErrorMessage errorType
+      [|fin|]
+    else
+      let result = str + "\n"
+      let fin = result + "\n" + "Error"
+      [|fin|]
 
-type DataType =
-  | Signed of Size
-  | Unsigned of Size
-  | Float of Size
-  | CError of Size
+type NumSize =
+  | Bit8
+  | Bit16
+  | Bit32
+  | Bit64
+  | Bit128
+  | Bit256
 
-module DataType =
-  let getType = function
-    | Signed _ -> 0
-    | Unsigned _ -> 1
-    | Float _ -> 2
-    | CError _ -> 3
+module NumSize =
+  let getBitLength = function
+    | Bit8 -> 8
+    | Bit16 -> 16
+    | Bit32 -> 32
+    | Bit64 -> 64
+    | Bit128 -> 128
+    | Bit256 -> 256
 
-  let getIntegerRange = function
-    | Signed B8 -> (-128I, 127I)
-    | Unsigned B8 -> (0I, 255I)
-    | Signed B16 -> (-32768I, 32767I)
-    | Unsigned B16 -> (0I, 65535I)
-    | Signed B32 -> (ref "int32Min", ref "int32Max")
-    | Unsigned B32 -> (0I, ref "uint32Max")
-    | Signed B64 -> (ref "int64Min", ref "int64Max")
-    | Unsigned B64 -> (0I, ref "uint64Max")
-    | Signed B128 -> (ref "int128Min", ref "int128Max")
-    | Unsigned B128 -> (0I, ref "uint128Max")
-    | Signed B256 -> (ref "int256Min", ref "int256Max")
-    | Unsigned B256 -> (0I, ref "uint256Max")
-    | _ -> (-1I, -1I)
+type NumType =
+  | Signed of NumSize
+  | Unsigned of NumSize
+  | Float of NumSize
+  | CError of ErrorMessage
+
+module NumType =
+  let fromInt = function
+    | 8 -> Signed Bit8
+    | 16 -> Signed Bit16
+    | 32 -> Signed Bit32
+    | 64 -> Signed Bit64
+    | 128 -> Signed Bit128
+    | 256 -> Signed Bit256
+    | _ -> CError Default
+
+  let getBitLength = function
+    | Signed a
+    | Unsigned a
+    | Float a ->
+      NumSize.getBitLength a
+    | _ -> -1
+
+  let isSignedInt = function
+    | Signed _ -> true
+    | _ -> false
+
+  let isUnsignedInt = function
+    | Unsigned _ -> true
+    | _ -> false
+
+  let isFloat = function
+    | Float _ -> true
+    | _ -> false
+
+  let isError = function
+    | CError _ -> true
+    | _ -> false
+
+  let rec getMaxValue = function
+    | Signed Bit8 -> 127I
+    | Unsigned Bit8 -> 255I
+    | Signed Bit16 -> int32 Int16.MaxValue |> bigint
+    | Unsigned Bit16 -> int32 UInt16.MaxValue |> bigint
+    | Signed Bit32 -> Int32.MaxValue |> bigint
+    | Unsigned Bit32 -> UInt32.MaxValue |> bigint
+    | Signed Bit64 -> Int64.MaxValue |> bigint
+    | Unsigned Bit64 -> UInt64.MaxValue |> bigint
+    | Signed Bit128 -> 170141183460469231731687303715884105727I
+    | Unsigned Bit128 -> 340282366920938463463374607431768211455I
+    | Signed Bit256 ->
+      bigint.Pow(170141183460469231731687303715884105728I, 2) * 2I - 1I
+    | Unsigned Bit256 -> (getMaxValue (Signed Bit256)) * 2I + 1I
+    | Float Bit32 -> Single.MaxValue |> bigint
+    | Float Bit64 -> Double.MaxValue |> bigint
+    | _ -> failwith "Error has no max value"
+
+  let getMinValue = function
+    | Unsigned Bit8 | Unsigned Bit16 | Unsigned Bit32 | Unsigned Bit64 |
+      Unsigned Bit128 | Unsigned Bit256 -> 0I
+    | Signed Bit8
+    | Signed Bit16
+    | Signed Bit32
+    | Signed Bit64
+    | Signed Bit128
+    | Signed Bit256 as typ ->  getMaxValue typ * -1I - 1I
+    | Float Bit32 -> Single.MinValue |> bigint
+    | Float Bit64 -> Double.MinValue |> bigint
+    | _ -> failwith "Error has no min value"
+
+  /// Checks if the number types have the same sign, or if they are both floats.
+  let isSametype numType1 numtype2 =
+    isSignedInt numType1 && isSignedInt numtype2 ||
+    isUnsignedInt numType1 && isUnsignedInt numtype2 ||
+    isFloat numType1 && isFloat numtype2 ||
+    isError numType1 && isError numtype2
+
+  let isBiggerType numType1 numType2 =
+    getBitLength numType1 > getBitLength numType2
+
+  let getBiggerType numType1 numType2 =
+    if isBiggerType numType1 numType2 then
+      numType1
+    else
+      numType2
 
   let getNextSignedInt = function
-    | 1 -> Signed B16
-    | 2 -> Signed B32
-    | 3 -> Signed B64
-    | 4 -> Signed B128
-    | 5 -> Signed B256
-    | _ -> CError OutofRange
+    | Signed Bit8 | Unsigned Bit8 -> Signed Bit16
+    | Signed Bit16 | Unsigned Bit16 -> Signed Bit32
+    | Signed Bit32 | Unsigned Bit32 -> Signed Bit64
+    | Signed Bit64 | Unsigned Bit64 -> Signed Bit128
+    | Signed Bit128 | Unsigned Bit128 -> Signed Bit256
+    | Signed Bit256 | Unsigned Bit256 -> CError Default
+    | _ -> CError Default
 
-  let getSize = function
-    | Signed a -> a
-    | Unsigned a -> a
-    | Float a -> a
-    | CError a -> a
+  let getRange (typ: NumType) = (getMinValue typ, getMaxValue typ)
 
-  let wrapValue dataType value =
-    match dataType with
-    | Signed B8 -> Signed B8, I8 (int8(value))
-    | Unsigned B8 -> Unsigned B8, UI8 (uint8(value))
-    | Signed B16 -> Signed B16, I16 (int16(value))
-    | Unsigned B16 -> Unsigned B16, UI16 (uint16(value))
-    | Signed B32 -> Signed B32, I32 (int32(value))
-    | Unsigned B32 -> Unsigned B32, UI32 (uint32(value))
-    | Signed B64 -> Signed B64, I64 (int64(value))
-    | Unsigned B64 -> Unsigned B64, UI64 (uint64(value))
-    | Signed B128 -> Signed B128, I128 value
-    | Unsigned B128 -> Unsigned B128, UI128 value
-    | Signed B256 -> Signed B256, I256 value
-    | Unsigned B256 -> Unsigned B256, UI256 value
-    | _ -> CError Input, NError ("Wrong Input", 1L)
+  let isInRange value typ =
+    (value >= getMinValue typ && value <= getMaxValue typ)
+
+  let getInferedType = function
+    | Between (getRange (Signed Bit32)) -> Signed Bit32
+    | Between (getRange (Signed Bit64)) -> Signed Bit64
+    | Between (getRange (Signed Bit128)) -> Signed Bit128
+    | Between (getRange (Signed Bit256)) -> Signed Bit256
+    | Between (getRange (Unsigned Bit256)) -> Unsigned Bit256
+    | _ -> CError Default
+
+type Number = {
+    IntValue : bigint
+    FloatValue: float
+    Type : NumType
+}
+
+module Number =
+  let createInt value typ =
+    if NumType.isInRange value typ then
+      { IntValue = value; Type = typ; FloatValue = -1.0 }
+    else
+      { IntValue = value; Type = CError Default; FloatValue = -1.0 }
+
+  let createFloat typ dbl =
+    { IntValue = -1I; Type = typ; FloatValue = dbl }
+
+  let toString value =
+    if NumType.isSignedInt value.Type || NumType.isUnsignedInt value.Type then
+      string (value.IntValue)
+    elif NumType.isFloat value.Type then
+      string (value.FloatValue)
+    else
+      "Error"
+
+  let isBiggerOperand operand1 operand2 =
+    NumType.isBiggerType operand1.Type operand2.Type
+
+  let isUnsignedNumber operand = NumType.isUnsignedInt operand.Type
+
+  let isSignedNumber operand = NumType.isSignedInt operand.Type
+
+type OutputFormat =
+  | DecimalF
+  | HexadecimalF
+  | OctalF
+  | BinaryF
+  | FloatingPointF
