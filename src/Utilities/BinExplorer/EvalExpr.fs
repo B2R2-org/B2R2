@@ -56,8 +56,7 @@ type SimpleArithEvaluator () =
   let processError str (position: Position) =
     let result = str + "\n"
     let space = sprintf "%*s^" (int(position.Column) - 2) ""
-    let fin =
-      result + space + "\n" + "Expecting: Digit, Suffix or Operator"
+    let fin = result + space + "\n" + "Expecting: Digit, Suffix or Operator"
     [|fin|]
 
   let processIntegerorFloat result typ =
@@ -103,6 +102,8 @@ type SimpleArithEvaluator () =
 type CmdEvalExpr (name, alias, descrSuffix, helpSuffix, outFormat) =
   inherit Cmd ()
 
+  let evaluator = SimpleArithEvaluator ()
+
   override __.CmdName = name
 
   override __.CmdAlias = alias
@@ -120,4 +121,4 @@ type CmdEvalExpr (name, alias, descrSuffix, helpSuffix, outFormat) =
   override __.CallBack _ _ args =
     match args with
     | [] -> [| __.CmdHelp |]
-    | _ -> SimpleArithEvaluator().Run args outFormat
+    | _ -> evaluator.Run args outFormat
