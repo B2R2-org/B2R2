@@ -300,7 +300,7 @@ type CFGTest2 () =
   [<TestMethod>]
   member __.``DisasmLens Test: _start`` () =
     let cfg, root = ess.SCFG.GetFunctionCFG 0x00UL
-    let lens = DisasmLens.Init (ess.BinHandler)
+    let lens = DisasmLens.Init ess.BinaryApparatus
     let cfg, _ = lens.Filter cfg [root] ess.BinaryApparatus
     Assert.AreEqual (4, cfg.Size ())
     let vMap = cfg.FoldVertex (fun m v ->

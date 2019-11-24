@@ -113,7 +113,7 @@ let cfgToJSON cfgType ess g roots =
   | IRCFG ->
     Visualizer.getJSONFromGraph g roots
   | DisasmCFG ->
-    let lens = DisasmLens.Init (ess.BinHandler)
+    let lens = DisasmLens.Init ess.BinaryApparatus
     let g, roots = lens.Filter g roots ess.BinaryApparatus
     Visualizer.getJSONFromGraph g roots
   | SSACFG ->

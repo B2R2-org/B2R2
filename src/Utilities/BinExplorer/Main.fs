@@ -141,7 +141,7 @@ let dumpJsonFiles jsonDir ess =
       |> fst
       |> JSONExport.toStr
       |> encoding.GetBytes
-    let lens = DisasmLens.Init (ess.BinHandler)
+    let lens = DisasmLens.Init ess.BinaryApparatus
     let disasmcfg, roots = lens.Filter cfg [root] ess.BinaryApparatus
     let disasmJson =
       VisGraph.ofCFG disasmcfg roots
