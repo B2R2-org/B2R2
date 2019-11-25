@@ -1042,6 +1042,7 @@ let oprToString i addr operand delim builder acc =
   | OprCond c ->
     prependDelimiter delim builder acc
     |> builder AsmWordKind.String (condToString (Some c))
+  | GoToLabel _ -> acc
 
 let buildOprs ins pc builder acc =
   match ins.Operands with
