@@ -1543,6 +1543,7 @@ type Operand =
   | OprIflag of Iflag
   | OprEndian of Endian
   | OprCond of Condition
+  | GoToLabel of string
 
 type Operands =
   | NoOperand
