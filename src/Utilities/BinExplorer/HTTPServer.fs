@@ -90,6 +90,11 @@ let readIfExists path =
 let getContentType path =
   match IO.Path.GetExtension path with
   | ".css" -> "text/css"
+  | ".js" -> "text/javascript"
+  | ".png" -> "image/png"
+  | ".jpg" -> "image/jpeg"
+  | ".ico" -> "image/x-icon"
+  | ".woff2" -> "font/woff2"
   | _ -> "text/html"
 
 let answer (req: HttpListenerRequest) (resp: HttpListenerResponse) = function

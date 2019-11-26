@@ -83,7 +83,7 @@ $("#icon-refresh").on("click", function () {
 $(window).on("resize", function () {
   const tab = Root.TabList.getActiveTab();
   const dims = reloadUI();
-  tab.graph.resize(dims);
+  if (tab !== undefined) { tab.graph.resize(dims); }
 });
 
 // Offline mode renders a single function only. Inter-function analysis is not
