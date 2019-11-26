@@ -51,6 +51,16 @@ const nodePaddingTop = 3;
 
 const minimapMarginRight = 20;
 
+function selectTxtSpanInStmt(tspanList, offX) {
+  let acc = 0.0;
+  let selected = undefined;
+  $.each(tspanList, function (_, tspan) {
+    acc += tspan.textLength.baseVal.value + tspan.dx.baseVal.length;
+    if (offX < acc) { selected = tspan; return false; }
+  });
+  return selected;
+}
+
 // Each line (statement) in a node.
 class LineOfNode {
   constructor(d) {
@@ -90,7 +100,7 @@ class LineOfNode {
       .attr("height", 14)
       .attr("fill", "transparent");
 
-    this.setContextMenuEventOnStmt(contextMenuRect);
+    this.setEventOnStmt(contextMenuRect);
 
     for (let i = 0; i < this.terms.length; i++) {
       let s = this.terms[i][0];
@@ -108,7 +118,7 @@ class LineOfNode {
     else t.attr("dx", "1px");
   }
 
-  setContextMenuEventOnStmt(rect) {
+  setEventOnStmt(rect) {
     let contextmenu = this.graphinfo.contextmenu;
     rect.on("contextmenu", function () {
       let self = this;
@@ -118,7 +128,22 @@ class LineOfNode {
         contextmenu.show(self, e.clientX, e.clientY);
       }
       showContextMemu();
-    })
+    });
+    rect.on("click", function () {
+      const e = d3.event;
+      let realWidth = this.getBoundingClientRect().width;
+      let posX = e.clientX - $(this).offset().left;
+      let offX = posX / realWidth * $(this).width();
+      let text = $(this).parent().children("text")[0];
+      let selected = selectTxtSpanInStmt($(text).children(), offX);
+      if (selected !== undefined) {
+        if ($(selected).hasClass("value")
+          || $(selected).hasClass("variable")) {
+          $("#id_graphContainer").find(".selectedWord").removeClass("selectedWord");
+          $(selected).addClass("selectedWord");
+        }
+      }
+    });
   }
 }
 
