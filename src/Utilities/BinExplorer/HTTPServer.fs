@@ -244,8 +244,8 @@ let handle (req: HttpListenerRequest) (resp: HttpListenerResponse) arbiter =
   | path ->
     IO.Path.Combine (rootDir, path) |> readIfExists |> answer req resp
 
-let startServer arbiter port verbose =
-  let host = "http://localhost:" + port.ToString () + "/"
+let startServer arbiter ip port verbose =
+  let host = "http://" + ip + ":" + port.ToString () + "/"
   let handler (req: HttpListenerRequest) (resp: HttpListenerResponse) =
     try handle req resp arbiter
     with e -> if verbose then eprintfn "%A" e else ()

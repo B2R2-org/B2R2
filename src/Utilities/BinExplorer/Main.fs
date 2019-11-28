@@ -35,6 +35,9 @@ open B2R2.Utilities
 type BinExplorerOpts (isa) =
   inherit CmdOpts()
 
+  /// IP address to bind.
+  member val IP = "localhost" with get, set
+
   /// Host port number.
   member val Port = 8282 with get, set
 
@@ -60,11 +63,23 @@ type BinExplorerOpts (isa) =
     | :? BinExplorerOpts as opts -> opts
     | _ -> failwith "Invalid Opts."
 
+  /// We can specify an IP to use to enable remote access, but we should make
+  /// sure the two things:
+  /// (1) Make sure we have a permission to bind to the IP address. On Windows,
+  ///     we may have to run `netsh` command to enable this. For example:
+  ///     netsh http add urlacl url=http://192.168.1.1:8282/ user=sangkilc
+  /// (2) Make sure firewall does not block the connection.
+  static member OptIP () =
+    let cb (opts: #CmdOpts) (arg: string []) =
+      (BinExplorerOpts.ToThis opts).IP <- arg.[0]; opts
+    CmdOpts.New ( descr = "Specify IP <address> (default: localhost)",
+                  extra = 1, callback = cb, long = "--ip" )
+
   static member OptPort () =
     let cb (opts: #CmdOpts) (arg: string []) =
       (BinExplorerOpts.ToThis opts).Port <- int arg.[0]; opts
     CmdOpts.New ( descr = "Specify host port <number> (default: 8282)",
-                  callback = cb, short = "-p", long = "--port" )
+                  extra = 1, callback = cb, short = "-p", long = "--port" )
 
   static member OptLogFile () =
     let cb (opts: #CmdOpts) (arg: string []) =
@@ -101,6 +116,7 @@ let spec =
 
     CmdOpts.New ( descr="\n[Host Configuration]\n", dummy=true )
 
+    BinExplorerOpts.OptIP ()
     BinExplorerOpts.OptPort ()
 
     CmdOpts.New ( descr="\n[Logging Configuration]\n", dummy=true )
@@ -123,7 +139,8 @@ let buildGraph _verbose handle =
   BinEssence.Init handle
 
 let startGUI (opts: BinExplorerOpts) arbiter =
-  HTTPServer.startServer arbiter opts.Port opts.Verbose |> Async.Start
+  HTTPServer.startServer arbiter opts.IP opts.Port opts.Verbose
+  |> Async.Start
 
 /// Dump each CFG into JSON file. This feature is implemented to ease the
 /// development and debugging process, and may be removed in the future.
