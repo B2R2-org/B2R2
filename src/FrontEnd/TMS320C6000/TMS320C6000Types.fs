@@ -351,6 +351,7 @@ type internal Op = Opcode
 type Offset =
   | OffsetR of Register
   | UCst5 of uint64
+  | UCst15 of uint64
 
 type ModificationPerformed =
   | NegativeOffset
@@ -379,20 +380,22 @@ type Side =
   | SideB
 
 type FunctionalUnit =
-  | L1
-  | L2
-  | L1X
-  | L2X
-  | S1
-  | S2
-  | S1X
-  | S2X
-  | M1
-  | M2
-  | M1X
-  | M2X
-  | D1
-  | D2
+  | L1Unit
+  | L2Unit
+  | L1XUnit
+  | L2XUnit
+  | S1Unit
+  | S2Unit
+  | S1XUnit
+  | S2XUnit
+  | M1Unit
+  | M2Unit
+  | M1XUnit
+  | M2XUnit
+  | D1Unit
+  | D2Unit
+  | D1XUnit
+  | D2XUnit
   | NoUnit
 
 type internal Instruction =

@@ -329,20 +329,22 @@ let regToStr = function
 
 let inline appendUnit insInfo opcode =
   match insInfo.FunctionalUnit with
-  | L1 -> opcode + ".L1"
-  | L2 -> opcode + ".L2"
-  | L1X -> opcode + ".L1X"
-  | L2X -> opcode + ".L2X"
-  | S1 -> opcode + ".S1"
-  | S2 -> opcode + ".S2"
-  | S1X -> opcode + ".S1X"
-  | S2X -> opcode + ".S2X"
-  | M1 -> opcode + ".M1"
-  | M2 -> opcode + ".M2"
-  | M1X -> opcode + ".M1X"
-  | M2X -> opcode + ".M2X"
-  | D1 -> opcode + ".D1"
-  | D2 -> opcode + ".D2"
+  | L1Unit -> opcode + ".L1"
+  | L2Unit -> opcode + ".L2"
+  | L1XUnit -> opcode + ".L1X"
+  | L2XUnit -> opcode + ".L2X"
+  | S1Unit -> opcode + ".S1"
+  | S2Unit -> opcode + ".S2"
+  | S1XUnit -> opcode + ".S1X"
+  | S2XUnit -> opcode + ".S2X"
+  | M1Unit -> opcode + ".M1"
+  | M2Unit -> opcode + ".M2"
+  | M1XUnit -> opcode + ".M1X"
+  | M2XUnit -> opcode + ".M2X"
+  | D1Unit -> opcode + ".D1"
+  | D2Unit -> opcode + ".D2"
+  | D1XUnit -> opcode + ".D1X"
+  | D2XUnit -> opcode + ".D2X"
   | NoUnit -> opcode
 
 let buildParallelPipe ins builder acc =
@@ -376,6 +378,7 @@ let buildMemBase builder baseR acc = function
 let private offsetToString builder offset acc =
   match offset with
   | UCst5 i -> builder AsmWordKind.Value (i.ToString()) acc
+  | UCst15 i -> builder AsmWordKind.Value (i.ToString()) acc
   | OffsetR reg -> builder AsmWordKind.Variable (regToStr reg) acc
 
 let private buildMemOffset builder offset acc =
