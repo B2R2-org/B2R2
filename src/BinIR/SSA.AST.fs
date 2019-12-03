@@ -30,8 +30,6 @@ module B2R2.BinIR.SSA.AST
 open B2R2
 open B2R2.BinIR
 
-exception InvalidExprException
-
 let rec translateDest = function
   | LowUIR.Var (ty, r, n, _) -> { Kind = RegVar (ty, r, n); Identifier = -1 }
   | LowUIR.PCVar (ty, _) -> { Kind = PCVar (ty); Identifier = -1 }
@@ -61,6 +59,7 @@ let rec translateExpr = function
   | LowUIR.Cast (op, ty, e, _, _) -> Cast (op, ty, translateExpr e)
   | LowUIR.Extract (e, ty, pos, _, _) -> Extract (translateExpr e, ty, pos)
   | LowUIR.Undefined (ty, s) -> Undefined (ty, s)
+  | LowUIR.Nil -> Nil
   | _ -> raise InvalidExprException /// Name
 
 let rec internal translateStmtAux defaultRegType addr = function

@@ -54,51 +54,54 @@ with
 
 /// Basic expressions similar to LowUIR.Expr.
 type Expr =
-    /// A number. For example, (0x42:I32) is a 32-bit number 0x42
+  /// A number. For example, (0x42:I32) is a 32-bit number 0x42
   | Num of BitVector
 
-    /// A variable.
+  /// A variable.
   | Var of Variable
 
-    /// Memory lookup such as [T_1]:I32
+  /// Nil value for cons cells.
+  | Nil
+
+  /// Memory lookup such as [T_1]:I32
   | Load of Variable * RegType * Expr
 
-    /// Memory update such as [T_1] <- T_2
+  /// Memory update such as [T_1] <- T_2
   | Store of Variable * Expr * Expr
 
-    /// Name of uninterpreted function.
+  /// Name of uninterpreted function.
   | FuncName of string
 
-    /// Unary operation such as negation.
+  /// Unary operation such as negation.
   | UnOp of UnOpType * Expr
 
-    /// Binary operation such as add, sub, etc. The second argument is a result
-    /// type after applying BinOp.
+  /// Binary operation such as add, sub, etc. The second argument is a result
+  /// type after applying BinOp.
   | BinOp of BinOpType * RegType * Expr * Expr
 
-    /// Relative operation such as eq, lt, etc.
+  /// Relative operation such as eq, lt, etc.
   | RelOp of RelOpType * Expr * Expr
 
-    /// If-then-else expression. The first expression is a condition, and the
-    /// second and the third are true and false expression respectively.
+  /// If-then-else expression. The first expression is a condition, and the
+  /// second and the third are true and false expression respectively.
   | Ite of Expr * Expr * Expr
 
-    /// Type casting expression. The first argument is a casting type, and the
-    /// second argument is a result type.
+  /// Type casting expression. The first argument is a casting type, and the
+  /// second argument is a result type.
   | Cast of CastKind * RegType * Expr
 
-    /// Extraction expression. The first argument is target expression, and the
-    /// second argument is the number of bits for extraction, and the third is
-    /// the start position.
+  /// Extraction expression. The first argument is target expression, and the
+  /// second argument is the number of bits for extraction, and the third is
+  /// the start position.
   | Extract of Expr * RegType * StartPos
 
-    /// Undefined expression. It is a fatal error when we encounter this
-    /// expression while evaluating a program. This expression is useful when we
-    /// encode a label that should not really jump to (e.g., divide-by-zero
-    /// case).
+  /// Undefined expression. It is a fatal error when we encounter this
+  /// expression while evaluating a program. This expression is useful when we
+  /// encode a label that should not really jump to (e.g., divide-by-zero
+  /// case).
   | Undefined of RegType * string
 
-    /// Value returned from a function located at the address.
+  /// Value returned from a function located at the address.
   | Return of Addr
 
 /// IR Label. Since we don't distinguish instruction boundary in SSA level, we
@@ -114,20 +117,20 @@ type JmpType =
 
 /// IR Statements.
 type Stmt =
-    /// A label (as in an assembly language). LMark is only valid within a
-    /// machine instruction.
+  /// A label (as in an assembly language). LMark is only valid within a
+  /// machine instruction.
   | LMark of Label
 
-    /// Assignment in SSA.
+  /// Assignment in SSA.
   | Def of Variable * Expr
 
-    /// Phi function.
+  /// Phi function.
   | Phi of Variable * int []
 
-    /// Branch statement.
+  /// Branch statement.
   | Jmp of JmpType
 
-    /// This represents an instruction with side effects such as a system call.
+  /// This represents an instruction with side effects such as a system call.
   | SideEffect of SideEffect
 
 /// A program is a list of statements.

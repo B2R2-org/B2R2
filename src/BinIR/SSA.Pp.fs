@@ -36,6 +36,7 @@ let rec private expToStringAux expr (sb: StringBuilder) =
   match expr with
   | Num n -> sb.Append (BitVector.toString n) |> ignore
   | Var (v) -> sb.Append (Variable.toString v) |> ignore
+  | Nil -> sb.Append ("nil") |> ignore
   | FuncName (n) -> sb.Append (n) |> ignore
   | UnOp (op, e) ->
     sb.Append ("(") |> ignore
