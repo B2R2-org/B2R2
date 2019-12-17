@@ -1086,7 +1086,9 @@ let buildPackedInstrTwoOprs ins insAddr insLen ctxt packSz opFn bufSz dst src =
   | 64<rt> ->
     let dst, src = transTwoOprs ins insAddr insLen ctxt (dst, src)
     let src1 = makeSrc packNum dst
-    let src2 = makeSrc packNum src
+    let src2 = match src with
+               | Load (_, rt, _, _, _) -> makeSrc (rt / packSz) src
+               | _ -> makeSrc packNum src
     builder <! (dst := opFn oprSize src1 src2 |> concatExprs)
   | 128<rt> ->
     let packNum = packNum / (oprSize / 64<rt>)
