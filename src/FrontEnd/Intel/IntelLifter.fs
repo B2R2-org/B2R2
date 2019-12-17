@@ -2213,6 +2213,15 @@ let movd ins insAddr insLen ctxt =
   | _, _ -> raise InvalidOperandException
   endMark insAddr insLen builder
 
+let movdq2q ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (4)
+  let dst, src = getTwoOprs ins
+  let dst = transOprToExpr ins insAddr insLen ctxt dst
+  let _, srcA = transOprToExpr128 ins insAddr insLen ctxt src
+  startMark insAddr insLen builder
+  builder <! (dst := srcA)
+  endMark insAddr insLen builder
+
 let movdqa ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
 let movdqu ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
 
@@ -2283,6 +2292,16 @@ let movq ins insAddr insLen ctxt =
   | OprReg r, OprMem _ -> let src = transOprToExpr ins insAddr insLen ctxt src
                           movqMemToReg ctxt src r builder
   | _, _ -> raise InvalidOperandException
+  endMark insAddr insLen builder
+
+let movq2dq ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (4)
+  let dst, src = getTwoOprs ins
+  let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+  let src = transOprToExpr ins insAddr insLen ctxt src
+  startMark insAddr insLen builder
+  builder <! (dstA := src)
+  builder <! (dstB := num0 64<rt>)
   endMark insAddr insLen builder
 
 let movs ins insAddr insLen ctxt =
@@ -4502,6 +4521,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.MOVAPD -> movapd ins insAddr insLen ctxt
   | Opcode.MOVAPS -> movaps ins insAddr insLen ctxt
   | Opcode.MOVD -> movd ins insAddr insLen ctxt
+  | Opcode.MOVDQ2Q -> movdq2q ins insAddr insLen ctxt
   | Opcode.MOVDQA -> movdqa ins insAddr insLen ctxt
   | Opcode.MOVDQU -> movdqu ins insAddr insLen ctxt
   | Opcode.MOVHPD -> movhpd ins insAddr insLen ctxt
@@ -4511,6 +4531,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.MOVNTDQ -> movntdq ins insAddr insLen ctxt
   | Opcode.MOVNTI -> movnti ins insAddr insLen ctxt
   | Opcode.MOVQ -> movq ins insAddr insLen ctxt
+  | Opcode.MOVQ2DQ -> movq2dq ins insAddr insLen ctxt
   | Opcode.MOVSB | Opcode.MOVSW | Opcode.MOVSQ -> movs ins insAddr insLen ctxt
   | Opcode.MOVSD -> movsd ins insAddr insLen ctxt
   | Opcode.MOVSX | Opcode.MOVSXD -> movsx ins insAddr insLen ctxt
