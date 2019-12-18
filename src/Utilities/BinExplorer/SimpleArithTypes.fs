@@ -55,12 +55,9 @@ module ErrorMessage =
     let pos = getPosition errorType
     if pos <> -1 then
       let space = sprintf "%*s^" (pos - 2) ""
-      let fin = result + space + "\n" + getErrorMessage errorType
-      [|fin|]
+      [| result + space + "\n" + getErrorMessage errorType |]
     else
-      let result = str + "\n"
-      let fin = result + "\n" + "Error"
-      [|fin|]
+      [| str + "\n\nError" |]
 
 type NumSize =
   | Bit8
@@ -130,8 +127,8 @@ module NumType =
     | Signed Bit128 -> 170141183460469231731687303715884105727I
     | Unsigned Bit128 -> 340282366920938463463374607431768211455I
     | Signed Bit256 ->
-      bigint.Pow(170141183460469231731687303715884105728I, 2) * 2I - 1I
-    | Unsigned Bit256 -> (getMaxValue (Signed Bit256)) * 2I + 1I
+      bigint.Pow (170141183460469231731687303715884105728I, 2) * 2I - 1I
+    | Unsigned Bit256 -> getMaxValue (Signed Bit256) * 2I + 1I
     | Float Bit32 -> Single.MaxValue |> bigint
     | Float Bit64 -> Double.MaxValue |> bigint
     | _ -> failwith "Error has no max value"
@@ -176,8 +173,7 @@ module NumType =
 
   let getRange (typ: NumType) = (getMinValue typ, getMaxValue typ)
 
-  let isInRange value typ =
-    (value >= getMinValue typ && value <= getMaxValue typ)
+  let isInRange value typ = value >= getMinValue typ && value <= getMaxValue typ
 
   let getInferedType = function
     | Between (getRange (Signed Bit32)) -> Signed Bit32
@@ -194,7 +190,7 @@ type Number = {
 }
 
 module Number =
-  let createInt value typ =
+  let createInt typ value =
     if NumType.isInRange value typ then
       { IntValue = value; Type = typ; FloatValue = -1.0 }
     else
@@ -205,9 +201,9 @@ module Number =
 
   let toString value =
     if NumType.isSignedInt value.Type || NumType.isUnsignedInt value.Type then
-      string (value.IntValue)
+      string value.IntValue
     elif NumType.isFloat value.Type then
-      string (value.FloatValue)
+      string value.FloatValue
     else
       "Error"
 
@@ -224,3 +220,4 @@ type OutputFormat =
   | OctalF
   | BinaryF
   | FloatingPointF
+  | CharacterF

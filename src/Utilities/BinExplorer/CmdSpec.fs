@@ -38,6 +38,7 @@ let speclist =
     CmdEvalExpr ("?b", [], "binary", "b", BinaryF) :> Cmd
     CmdEvalExpr ("?o", [], "octal", "o", OctalF) :> Cmd
     CmdEvalExpr ("?f", [], "float", "f", FloatingPointF) :> Cmd
+    CmdEvalExpr ("?c", [], "character", "c", CharacterF) :> Cmd
     CmdDisasm () :> Cmd
     CmdGadgetSearch () :> Cmd
     CmdROP () :> Cmd
