@@ -236,6 +236,7 @@ let transOprToExpr ins insAddr insLen ctxt = function
   | OprImm imm -> getOperationSize ins |> BitVector.ofInt64 imm |> num
   | OprDirAddr jumpTarget ->
     transDirAddr ctxt.WordBitSize insAddr jumpTarget
+  | _ -> Utils.impossible ()
 
 let getMemExpr128 expr =
   match expr with
