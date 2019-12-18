@@ -48,30 +48,29 @@ type SimpleArithEvaluator () =
           let lastChar = res.[res.Length - 1]
           let firstChar = hd.[0]
           if System.Char.IsDigit lastChar && System.Char.IsDigit firstChar then
-            doConcatenation (res + " " + hd) tail (res.Length)
+            doConcatenation (res + " " + hd) tail res.Length
           else
             doConcatenation (res + " " + hd) tail errorPos
     doConcatenation "" arg 0
 
   let processError str (position: Position) =
     let result = str + "\n"
-    let space = sprintf "%*s^" (int(position.Column) - 2) ""
-    let fin = result + space + "\n" + "Expecting: Digit, Suffix or Operator"
-    [|fin|]
+    let space = sprintf "%*s^" (int position.Column - 2) ""
+    [| result + space + "\n" + "Expecting: Digit, Suffix or Operator" |]
 
   let processIntegerorFloat result typ =
     let value = Number.toString result
-    let str = (getIntegerPart ((value)))
+    let str = getIntegerPart value
     let intValue = BigInteger.Parse str
     let intValue =
-      if (hasZeroFraction value) = false && result.FloatValue < 0.0 then
-        (intValue - 1I)
+      if hasZeroFraction value = false && result.FloatValue < 0.0 then
+        intValue - 1I
       else intValue
     match typ with
     | DecimalF | OctalF | HexadecimalF | BinaryF ->
       [| getOutputValueString intValue typ result.Type |]
     | _ ->
-      if value.IndexOf ('.') = -1 then [| value + ".0" |]
+      if value.IndexOf '.' = -1 then [| value + ".0" |]
       else [| value |]
 
   let checkIntegerOrFloatResult (str: string) result (position: Position) typ =
@@ -85,19 +84,39 @@ type SimpleArithEvaluator () =
     | CError pos -> ErrorMessage.constructErrorMessage str pos
     | _ -> checkIntegerOrFloatResult str result position typ
 
+  let processArithmetic str representation =
+    match run SimpleArithParser.expr str with
+    | Success (v, _, p) ->
+      postProcess str v p representation
+    | Failure (v, _, _) ->
+      [| v |]
+
+  let processASCIIError str (position: Position) =
+    let result = str + "\n"
+    let space = sprintf "%*s^" (int position.Column - 2) ""
+    [| result + space + "\n" + "Wrong Input" |]
+
+  let processASCIICharacters str =
+    match SimpleArithASCIIPArser.run str with
+    | Success (v, _, position) ->
+      if position.Column <> int64 (str.Length + 1) then
+        processASCIIError str position
+      else
+        processBytes v
+    | Failure (v, _, _) ->
+      [| v |]
+
   member __.Run args representation =
     let str, err = concatenate args
     if err = 0 then
-      match run SimpleArithParser.expr str with
-        | Success (v, _, p) ->
-          postProcess str v p representation
-        | Failure (v, _, _) ->
-          [|v|]
+      if representation = CharacterF then
+        processASCIICharacters str
+      else
+        processArithmetic str representation
     else
       let result = str + "\n"
-      let space = sprintf "%*s^" (err) ""
-      let fin = result + space + "\n" + "Expecting: Digit or Operator"
-      [|fin|]
+      let space = sprintf "%*s^" err ""
+      [| result + space + "\n" + "Expecting: Digit or Operator" |]
 
 type CmdEvalExpr (name, alias, descrSuffix, helpSuffix, outFormat) =
   inherit Cmd ()

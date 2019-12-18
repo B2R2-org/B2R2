@@ -38,21 +38,22 @@ let positiveDecToBinary (decimalNumber: bigint) =
       if res = "" then "0b0"
       else "0b" + res
     else
-      doConversion (input / 2I) (string(input % 2I) + res)
+      let currentBit = input % 2I
+      doConversion (input / 2I) (string currentBit + res)
   doConversion decimalNumber ""
 
 /// Getting two's complement.
 let complement (binaryString: string) =
-  let charListInput = List.rev (Seq.toList binaryString)
+  let charListInput = Seq.toList binaryString |> List.rev
   let res =
     List.fold
       (fun acc elem ->
         if (elem = '1') then '0' :: acc else '1' :: acc) [] charListInput
-  String (List.toArray res)
+  List.toArray res |> String
 
 /// Adding 1 after reversing all bit values.
 let addOneToBinary (binaryString: string) =
-  let charListInput = List.rev (Seq.toList binaryString)
+  let charListInput = Seq.toList binaryString |> List.rev
   let res =
     List.fold
       (fun acc elem ->
@@ -63,7 +64,7 @@ let addOneToBinary (binaryString: string) =
           ('1' :: fst acc, '0')
         else
           ('0' :: fst acc, '0')) ([], '1') charListInput
-  String (List.toArray (fst res))
+  fst res |> List.toArray |> String
 
 /// Completing number of bits to 32, 64, 128 or 256.
 let addZeros (binaryString: string) number =
@@ -117,7 +118,7 @@ let rec toHex (input: string) index res =
       let add =
         if (index + 4 = input.Length) then (input.[index ..])
         else input.[index .. index + 3]
-      toHex input (index + 4) (res + (binaryToHexString add))
+      toHex input (index + 4) (res + binaryToHexString add)
 
 let rec toOctal (input: string) index res =
   if index >= input.Length then
@@ -126,7 +127,7 @@ let rec toOctal (input: string) index res =
       let add =
         if (index + 3 = input.Length) then (input.[index ..])
         else input.[index .. index + 2]
-      toOctal input (index + 3) (res + (binaryToOctalString add))
+      toOctal input (index + 3) (res + binaryToOctalString add)
 
 /// Converting binary string to hex string.
 let binaryToHex (binaryString: string) =

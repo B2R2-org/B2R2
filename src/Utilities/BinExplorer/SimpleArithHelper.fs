@@ -33,20 +33,20 @@ open SimpleArithReference
 
 /// Getting integer part of float string.
 let getIntegerPart (str: string) =
-  if str.IndexOf('E') <> -1 || str.IndexOf('e') <> -1 then
+  if str.IndexOf 'E' <> -1 || str.IndexOf 'e' <> -1 then
     "0"
   else
-    str.Split [|'.'|] |> Seq.head
+    str.Split [| '.' |] |> Seq.head
 
 /// Checking if fraction part is consisted of only zeros or not.
 let hasZeroFraction (floatString: string) =
-  if floatString.IndexOf('E') <> -1 || floatString.IndexOf('e') <> -1 then
+  if floatString.IndexOf 'E' <> -1 || floatString.IndexOf 'e' <> -1 then
     false
-  elif floatString.IndexOf('.') = -1 then
+  elif floatString.IndexOf '.' = -1 then
     true
   else
-    let fractionPart = floatString.Split [|'.'|] |> (Seq.item 1)
-    Seq.fold (fun state char -> state && (char = '0')) true fractionPart
+    let fractionPart = floatString.Split [| '.' |] |> (Seq.item 1)
+    Seq.fold (fun state char -> state && char = '0') true fractionPart
 
 /// Reversing given string.
 let reverseString (input: string) =
@@ -73,8 +73,8 @@ let convertBinaryTo128BitBigint (binaryString: string) =
     if index = str.Length then res
     else
       let sign = if (index = 127) then (-1I) else 1I
-      let cur = BigInteger.Parse (string str.[index])
-      let add = sign * (pown 2I (index)) * cur
+      let cur = string str.[index] |> BigInteger.Parse
+      let add = sign * (pown 2I index) * cur
       doConversion str (index + 1) (add + res)
   doConversion binaryString 0 0I
 
@@ -84,8 +84,8 @@ let convertBinaryTo256BitBigint (binaryString: string) =
     if index = str.Length then res
     else
       let sign = if (index = 255) then (-1I) else 1I
-      let cur = BigInteger.Parse (string str.[index])
-      let add = sign * (pown 2I (index)) * cur
+      let cur = string str.[index] |> BigInteger.Parse
+      let add = sign * (pown 2I index) * cur
       doConversion str (index + 1) (add + res)
   doConversion binaryString 0 0I
 
@@ -104,18 +104,20 @@ let getBinaryRepresentation (input: string) =
   | "0x" | "0X" -> "0b" + turnHexToBinary input.[2 ..]
   | "0b" | "0B" -> "0b" + input.[2 ..]
   | "0o" | "0O" ->
-    "0b" + removeLeadingZerosInOctalNumber (turnOctalToBinary input.[2 ..])
+    let binaryPart =
+      turnOctalToBinary input.[2 ..] |> removeLeadingZerosInOctalNumber
+    "0b" + binaryPart
   | _ -> failwith "0"
 
 let stringToBigint (str: string) =
   let binaryString = getBinaryRepresentation str
   match binaryString.[2 ..].Length with
   | len when len <= 32 ->
-    let num = (binaryString)
+    let num = binaryString
     let value = int num
     (bigint value, 32)
   | len when len <= 64 ->
-    let value = int64 (binaryString)
+    let value = int64 binaryString
     (bigint value, 64)
   | len when len <= 128 ->
     let binaryString = reverseString binaryString.[2 ..]
@@ -131,7 +133,18 @@ let stringLiteralToBigint (str: string) =
   let rep = if (str.Length >= 2) then (str.[0 .. 1]) else ""
   if rep = "0x" || rep = "0X" || rep = "0o" || rep = "0O" ||
     rep = "0b" || rep = "oB" then
-    stringToBigint (str)
+    stringToBigint str
   else
     (BigInteger.Parse str, -1)
 
+let processBytes (numbers: string list) =
+  let rec doProcessing (input: string list) res =
+    match input with
+    | [] -> [| res |]
+    | hd :: tail ->
+      let integerValue = int hd
+      if integerValue < 33 || integerValue > 255 then
+        doProcessing tail (res + ".")
+      else
+        doProcessing tail (res + String [| char integerValue |])
+  doProcessing numbers ""

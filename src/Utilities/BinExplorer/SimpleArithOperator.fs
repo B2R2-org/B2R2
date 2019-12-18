@@ -77,9 +77,9 @@ module SimpleArithOperate =
   let castToType rep num =
     let min, max = NumType.getRange rep
     let range = max - min + 1I
-    if num > max then Number.createInt ((num - max - 1I) % range + min) rep
-    elif num < min then Number.createInt ((num - min + 1I) % range + max) rep
-    else Number.createInt num rep
+    if num > max then Number.createInt rep ((num - max - 1I) % range + min) 
+    elif num < min then Number.createInt rep ((num - min + 1I) % range + max) 
+    else Number.createInt rep num 
 
   let castToIntegerValue rep value =
     match rep with
@@ -99,19 +99,21 @@ module SimpleArithOperate =
 
   let convertfromFloat rep (value: float) =
     match rep with
-    | Signed Bit8 -> Number.createInt (bigint (int (int8 value))) rep
-    | Unsigned Bit8 -> Number.createInt (bigint (uint32 (uint8 value))) rep
-    | Signed Bit16 -> Number.createInt (bigint (int (int16 value))) rep
-    | Unsigned Bit16 -> Number.createInt (bigint (uint32 (uint16 value))) rep
-    | Signed Bit32 -> Number.createInt (bigint (int value)) rep
-    | Unsigned Bit32 -> Number.createInt (bigint (uint32 (value))) rep
-    | Signed Bit64 -> Number.createInt (bigint (int64 value)) rep
-    | Unsigned Bit64 -> Number.createInt (bigint (uint64 value)) rep
+    | Signed Bit8 -> value |> int8 |> int |> bigint |> Number.createInt rep
+    | Unsigned Bit8 ->
+      value |> uint8 |> uint32 |> bigint |> Number.createInt rep
+    | Signed Bit16 -> value |> int16 |> int |> bigint |> Number.createInt rep
+    | Unsigned Bit16 ->
+      value |> uint16 |> uint32 |> bigint |> Number.createInt rep
+    | Signed Bit32 -> value |> int |> bigint |> Number.createInt rep
+    | Unsigned Bit32 -> value |> uint32 |> bigint |> Number.createInt rep
+    | Signed Bit64 -> value |> int64 |> bigint |> Number.createInt rep
+    | Unsigned Bit64 -> value |> uint64 |> bigint |> Number.createInt rep
     | Signed Bit128
     | Unsigned Bit128
     | Signed Bit256
     | Unsigned Bit256 -> castToIntegerValue rep (bigint value)
-    | Float Bit32 -> Number.createFloat rep (float (float32 value))
+    | Float Bit32 -> value |> float32 |> float |> Number.createFloat rep
     | Float Bit64 -> Number.createFloat rep value
     | _ ->
       { IntValue = -1I; Type = CError Default; FloatValue = -1.0 }
@@ -120,29 +122,29 @@ module SimpleArithOperate =
     match rep with
     | Signed _ | Unsigned _ -> castToIntegerValue rep value
     | Float Bit32 ->
-      { IntValue = -1I; Type = rep; FloatValue = float(float32(value)) }
+      { IntValue = -1I; Type = rep; FloatValue = float (float32 value) }
     | Float Bit64 ->
-      { IntValue = -1I; Type = rep; FloatValue = float(value) }
+      { IntValue = -1I; Type = rep; FloatValue = float value }
     | _ -> { IntValue = -1I; Type = CError Default; FloatValue = -1.0 }
 
   /// Casting values.
   let cast num nextRep =
-    let value, curRep = num.IntValue, num.Type
+    let curRep = num.Type
     match curRep with
-    | Signed _ | Unsigned _ -> convertFromBigint nextRep value
-    | Float _ -> convertfromFloat nextRep (float(value))
+    | Signed _ | Unsigned _ -> convertFromBigint nextRep num.IntValue
+    | Float _ -> convertfromFloat nextRep num.FloatValue
     | _ -> { IntValue = -1I; Type = CError Default; FloatValue = -1.0 }
 
   let doShiftFloat (val1: Number) (val2: Number) op (pos: Position) =
     let leftSide = Number.toString val1
     let rightSide = Number.toString val2
-    let value1 = getIntegerPart(leftSide)
-    let value2 = getIntegerPart(rightSide)
+    let value1 = getIntegerPart leftSide
+    let value2 = getIntegerPart rightSide
     if hasZeroFraction leftSide && hasZeroFraction rightSide then
       let leftSide = BigInteger.Parse value1
       let rightSide = BigInteger.Parse value2
       let rightSide = castToIntegerValue (Signed Bit32) rightSide
-      let result = op leftSide (int(rightSide.IntValue))
+      let result = op leftSide (int rightSide.IntValue)
       getInferedType result
     else
       let errorType = BitwiseOperation (int pos.Column)
@@ -156,7 +158,7 @@ module SimpleArithOperate =
     | Unsigned _, Signed _ ->
       let leftSide = val1.IntValue
       let rightSide = castToIntegerValue (Signed Bit32) val2.IntValue
-      let result = op leftSide (int(rightSide.IntValue))
+      let result = op leftSide (int rightSide.IntValue)
       castToIntegerValue val1.Type result
     | _ -> doShiftFloat val1 val2 op pos
 
@@ -165,14 +167,14 @@ module SimpleArithOperate =
   let shiftLeft val1 val2 pos = shift val1 val2 (<<<) pos
 
   let doArithmeticFloat32 op (x: Number) (y: Number) =
-    let val1 = float (float32 (Number.toString x))
-    let val2 = float (float32 (Number.toString y))
-    let result = float32(op val1 val2)
+    let val1 = Number.toString x |> float32 |> float
+    let val2 = Number.toString y |> float32 |> float
+    let result = op val1 val2 |> float32
     { IntValue = -1I; Type = Float Bit32; FloatValue = float result }
 
   let doArithmeticFloat64 op (x: Number) (y: Number) =
-    let val1 = float (Number.toString x)
-    let val2 = float (Number.toString y)
+    let val1 = Number.toString x |> float
+    let val2 = Number.toString y |> float
     let result = op val1 val2
     { IntValue = -1I; Type = Float Bit64; FloatValue = result }
 
@@ -256,8 +258,8 @@ module SimpleArithOperate =
   let doBitwiseFloat op val1 val2 (pos: Position) =
     let leftSide = Number.toString val1
     let rightSide = Number.toString val2
-    let value1 = getIntegerPart(leftSide)
-    let value2 = getIntegerPart(rightSide)
+    let value1 = getIntegerPart leftSide
+    let value2 = getIntegerPart rightSide
     if hasZeroFraction leftSide && hasZeroFraction rightSide then
       let leftSide = BigInteger.Parse value1
       let rightSide = BigInteger.Parse value2
@@ -301,9 +303,9 @@ module SimpleArithOperate =
       { IntValue = x.IntValue ^^^ (-1I); Type = x.Type; FloatValue = -1.0 }
     | _ ->
       let numberString = Number.toString x
-      let value = getIntegerPart (numberString)
+      let value = getIntegerPart numberString
       if hasZeroFraction numberString then
-        let value = BigInteger.Parse (value)
+        let value = BigInteger.Parse value
         let result = value ^^^ (-1I)
         getInferedType result
       else
