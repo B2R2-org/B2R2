@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="IntelParserHelper.fs" />
+    <Compile Include="IntelFixInsInfo.fs" />
+    <Compile Include="IntelAsmParser.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\Intel\B2R2.FrontEnd.Intel.fsproj" />
+  </ItemGroup>
+
+</Project>

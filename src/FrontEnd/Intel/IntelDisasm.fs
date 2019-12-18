@@ -1128,6 +1128,7 @@ let oprToString wordSz ins insAddr fi opr isFstOpr builder acc =
   | OprImm imm -> iToHexStr imm builder acc
   | OprDirAddr (Absolute (sel, offset, _)) -> absToString sel offset builder acc
   | OprDirAddr (Relative (offset)) -> relToString insAddr offset fi builder acc
+  | GoToLabel _ -> failwith "Only used in assembly parser"
 
 let inline buildPref (prefs: Prefix) builder acc =
   if (prefs &&& Prefix.PrxLOCK) <> Prefix.PrxNone then

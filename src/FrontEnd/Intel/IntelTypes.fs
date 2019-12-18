@@ -1928,6 +1928,7 @@ type Operand =
   | OprMem of Register option * ScaledIndex option * Disp option * OperandSize
   | OprDirAddr of JumpTarget
   | OprImm of int64
+  | GoToLabel of string
 /// Displacement.
 and Disp = int64
 
