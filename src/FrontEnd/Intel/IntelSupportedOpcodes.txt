@@ -200,6 +200,8 @@ DIVPS
 DIVSD
 /// Divide Scalar Single-Precision Floating-Point Values.
 DIVSS
+/// Empty MMX Technology State.
+EMMS
 /// Make Stack Frame for Procedure Parameters.
 ENTER
 /// Compute 2x-1.

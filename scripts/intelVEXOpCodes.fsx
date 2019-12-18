@@ -260,7 +260,7 @@ let opVEX =
                     Opcode.InvalOP; Opcode.InvalOP |])
    ("opVex0F76", [| Opcode.InvalOP; Opcode.VPCMPEQD;
                     Opcode.InvalOP; Opcode.InvalOP |])
-   ("opNor0F77", [| Opcode.InvalOP; Opcode.InvalOP;
+   ("opNor0F77", [| Opcode.EMMS; Opcode.InvalOP;
                     Opcode.InvalOP; Opcode.InvalOP |])
    ("opVex0F77", [| Opcode.VZEROUPPER; Opcode.InvalOP;
                     Opcode.InvalOP; Opcode.InvalOP |])

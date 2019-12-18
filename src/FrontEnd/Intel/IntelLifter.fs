@@ -4745,9 +4745,9 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.CVTSD2SS | Opcode.CVTSI2SD | Opcode.CVTSI2SS | Opcode.CVTSS2SD
   | Opcode.CVTSS2SI | Opcode.CVTTPD2DQ | Opcode.CVTTPD2PI | Opcode.CVTTPS2DQ
   | Opcode.CVTTPS2PI | Opcode.CVTTSD2SI | Opcode.CVTTSS2SI | Opcode.DIVPD
-  | Opcode.DIVPS | Opcode.DIVSD | Opcode.DIVSS | Opcode.F2XM1 | Opcode.FABS
-  | Opcode.FADD | Opcode.FADDP | Opcode.FBLD | Opcode.FBSTP | Opcode.FCHS
-  | Opcode.FCLEX | Opcode.FCMOVB | Opcode.FCMOVBE | Opcode.FCMOVE
+  | Opcode.DIVPS | Opcode.DIVSD | Opcode.DIVSS | Opcode.EMMS | Opcode.F2XM1
+  | Opcode.FABS | Opcode.FADD | Opcode.FADDP | Opcode.FBLD | Opcode.FBSTP
+  | Opcode.FCHS | Opcode.FCLEX | Opcode.FCMOVB | Opcode.FCMOVBE | Opcode.FCMOVE
   | Opcode.FCMOVNB | Opcode.FCMOVNBE | Opcode.FCMOVNE | Opcode.FCMOVNU
   | Opcode.FCMOVU | Opcode.FCOM | Opcode.FCOMI | Opcode.FCOMIP | Opcode.FCOMP
   | Opcode.FCOMPP | Opcode.FCOS | Opcode.FDECSTP | Opcode.FDIV | Opcode.FDIVP
