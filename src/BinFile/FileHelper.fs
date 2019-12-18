@@ -58,6 +58,7 @@ let peekHeaderNative reader cls offset d32 d64 =
 
 let peekCString (reader: BinReader) offset (size: int) =
   let bs = reader.PeekBytes (size, offset)
+  let bs = if bs.[bs.Length - 1] <> 0uy then Array.append bs [| 0uy |] else bs
   ByteArray.extractCString bs 0
 
 let addInvRange set saddr eaddr =
