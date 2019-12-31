@@ -169,24 +169,6 @@ let handleFunctions req resp arbiter =
   Some (json<string []> names |> defaultEnc.GetBytes)
   |> answer req resp
 
-// let getComment hdl addr idx comment (func: Function) = function
-//   | DisasmCFG -> Visualizer.setCommentDisasmCFG hdl addr idx comment func.DisasmCFG
-//   | IRCFG -> Visualizer.setCommentIRCFG hdl addr idx comment func.IRCFG
-
-// let handleComment req resp arbiter cfgType (args: string) =
-//   let commentReq = (jsonParser<JsonDefs> args)
-//   let name = commentReq.name
-//   let ess = Protocol.getBinEssence arbiter
-//   match BinEssence.TryFindFuncByName name ess with
-//   | None -> None |> answer req resp
-//   | Some func ->
-//     let hdl = ess.BinHandler
-//     let addr = commentReq.addr
-//     let comment = commentReq.comment
-//     let idx = commentReq.idx |> int
-//     let status = getComment hdl addr idx comment func cfgType
-//     Some (json<string> status  |> defaultEnc.GetBytes) |> answer req resp
-
 // let handleAddress req resp arbiter (args: string) =
 //   let jsonData = (jsonParser<JsonDefs> args)
 //   let entry: Addr =  Convert.ToUInt64(jsonData.addr, 16) |> uint64
@@ -223,16 +205,14 @@ let handleCommand req resp arbiter (args: string) =
 
 let handleAJAX req resp arbiter query args =
   match query with
-  | "bininfo" -> handleBinInfo req resp arbiter
-  | "cfg-Disasm" -> handleCFG req resp arbiter DisasmCFG args
-  | "cfg-LowUIR" -> handleCFG req resp arbiter IRCFG args
-  | "cfg-SSA" -> handleCFG req resp arbiter SSACFG args
-  | "cfg-CG" -> handleCFG req resp arbiter CallCFG args
-  | "functions" -> handleFunctions req resp arbiter
-  | "disasm-comment" -> answer req resp None // handleComment req resp arbiter DisasmCFG args
-  | "ir-comment" -> answer req resp None // handleComment req resp arbiter IRCFG args
-  | "address" -> answer req resp None // handleAddress req resp arbiter args
-  | "command" -> handleCommand req resp arbiter args
+  | "BinInfo" -> handleBinInfo req resp arbiter
+  | "Disasm" -> handleCFG req resp arbiter DisasmCFG args
+  | "LowUIR" -> handleCFG req resp arbiter IRCFG args
+  | "SSA" -> handleCFG req resp arbiter SSACFG args
+  | "CG" -> handleCFG req resp arbiter CallCFG args
+  | "Functions" -> handleFunctions req resp arbiter
+  | "Address" -> answer req resp None // handleAddress req resp arbiter args
+  | "Command" -> handleCommand req resp arbiter args
   | _ -> answer req resp None
 
 let handle (req: HttpListenerRequest) (resp: HttpListenerResponse) arbiter =

@@ -1,0 +1,22 @@
+/* B2R2 - the Next-Generation Reversing Platform */
+
+html, body {
+  height: 100%;
+  padding: 0px;
+  margin: 0px;
+  overflow: hidden;
+}
+
+@font-face {
+  font-family: 'Inconsolata';
+  src: url('../fonts/Inconsolata-Regular.ttf'),
+       url('/fonts/Inconsolata-Regular.ttf');
+}
+
+@font-face {
+  font-family: 'Inconsolata';
+  src: url('../fonts/Inconsolata-Bold.ttf'),
+       url('/fonts/Inconsolata-Bold.ttf');
+  font-weight: bold;
+}
+

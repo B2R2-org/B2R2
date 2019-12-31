@@ -1,8 +1,7 @@
 /*
   B2R2 - the Next-Generation Reversing Platform
 
-  Author: Subin Jeong <cyclon2@kaist.ac.kr>
-          Sang Kil Cha <sangkilc@kaist.ac.kr>
+  Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -23,168 +22,61 @@
   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE.
-*/
+ */
+
+"use strict";
 
 class NavBar {
-  constructor(d) {
-    this.functionName = d.functionName;
-    this.path = d.path;
-    this.searchInputId = "#id-input_address";
+  constructor(winManager) {
+    this.winManager = winManager;
+    this.registerCopyCFGEvent();
+    this.registerCFGMenuEvents();
+    this.registerRefreshBtnEvent();
   }
 
-  setTitle(functionName) {
-    this.functionName = functionName;
-    $("#uiFuncName").text(this.functionName);
-    $("#uiFuncName").attr("title", this.functionName);
+  setCFGKind(kind) {
+    if (kind == "Disasm" || kind == "LowUIR" || kind == "SSA")
+      $("#js-cfgkind").text(kind);
+    else
+      $("#js-cfgkind").text("CFG Kind");
   }
 
-  setDropdownType(type) {
-    $(".cfgChooserBtn").text(type);
-    $(".cfgChooserBtn").append('<span class="caret"></span>');
-  }
-
-  getDropdownType() {
-    return $(".cfgChooserBtn").text().trim();
-  }
-
-  setFilePath() {
-    let filepath;
-    let token = str.split("/");
-    if (this.path.length < 45) {
-      filepath = this.path;
-    } else {
-      for (let t in token) {
-        if (token.slice(t).join("/").length < 45) {
-          filepath = ".../" + token.slice(t).join("/");
-          break
-        }
-      }
-    }
-
-    if (filepath === undefined) {
-      filepath = this.path.split("/").slice(str.split("/").length - 1); // only file name
-    }
-
-    $("#binInfo").text(filepath);
-    $("#binInfo").attr("title", this.path);
-  }
-
-  copyEvent() {
-    $("#binInfo").on("click", function () {
-      let str = $("#binInfo").attr("title");
-      copyToClipboard(document, str);
-      popToast("info", "File path copied", 3);
-    });
-  }
-
-  updateCfgChooserLabel(textType) {
-    $("#cfgChooser li div a").parents(".dropdown")
-      .find(".dropdown-toggle")
-      .html(textType + ' <span class="caret"></span>');
-  }
-
-  cfgChooser(t) {
-    const self = this;
-    let funcName = $("#uiFuncName").text();
-    $(this).parents(".dropdown").find(".dropdown-toggle").val(t);
-    query({
-      "q": ("cfg-" + t),
-      "args": funcName
-    },
-      function (_status, json) {
-        if (Object.keys(json).length > 0) {
-          let dims = reloadUI();
-          const currentTab = Root.TabList.getActiveTab();
-          let g = currentTab.replace(currentTab.name, dims, json);
-          g.drawGraph();
-          Root.TabList.tabs[currentTab.name].setType(t);
-          self.updateCfgChooserLabel(t);
-          const functionItem = Root.FunctionList.get(currentTab.name);
-          functionItem.setState("active");
-          Root.NavBar.setModalData(json);
-        }
-      });
-  }
-
-  setModalData(json) {
-    let mymodal = $("#codeCopyCFG");
-    mymodal.text(JSON.stringify(json, null, " "));
-  }
-
-  searchAddress(addr) {
-    query({
-      "q": "address",
-      "args": JSON.stringify({ "addr": addr })
-    },
-      function (status, json) {
-        if (Object.keys(json).length > 0) {
-          let dims = reloadUI();
-          let tab = new Tab({
-            tablist: Root.TabList,
-            active: true,
-            name: funcName,
-            value: funcName,
-            type: "Disasm"
-          });
-          const tabNum = tab.init(dims, funcName);
-
-          let g = new FlowGraph({
-            tab: tabNum,
-            cfg: "#cfg-" + tabNum,
-            stage: "#cfgStage-" + tabNum,
-            group: "#cfgGrp-" + tabNum,
-            minimap: "#minimap-" + tabNum,
-            minimapStage: "#minimapStage-" + tabNum,
-            minimapViewPort: "#minimapVP-" + tabNum,
-            dims: dims,
-            json: json
-          });
-          g.drawGraph();
-          tab.setGraph(g);
-          Root.AutoComplete.reload(g);
-          Root.NavBar.setTitle(funcName);
-          Root.NavBar.setDropdownType("Disasm");
-          Root.NavBar.setModalData(json);
-
-          UIElementInit(true);
-        } else {
-          popToast("alert", "Address not found", 3);
-        }
-      });
-  }
-
-  searchAddressAux(addr) {
-    var key = window.event.keyCode;
-    if (key === 13) {
-      if (window.event.shiftKey) {
-      } else {
-        this.searchAddress(addr);
-      }
+  registerCopyCFGEvent() {
+    const myself = this;
+    $("#js-open-copy-cfg").click(function () {
+      const currentWin = myself.winManager.currentWin;
+      const json = myself.winManager.windows[currentWin].graph.json;
+      $("#js-copy-cfg").text(JSON.stringify(json, null, " "));
+      $("#js-modal-copy-cfg").modal("show");
       return false;
-    }
-    else {
-      return true;
+    });
+  }
+
+  chooseCFG(kind) {
+    const funcName = this.winManager.currentWin;
+    const winManager = this.winManager;
+    if (funcName !== null && funcName.length > 0) {
+      this.setCFGKind(kind);
+      winManager.reloadGraph(funcName, kind);
     }
   }
 
-  registerEvents() {
-    const self = this;
-    self.copyEvent();
-    $("#cfgChooser li div a").on("click", function () {
-      const type = $(this).data("value");
-      self.cfgChooser(type);
+  registerCFGMenuEvents() {
+    const myself = this;
+    d3.select("#js-cfgmenu").selectAll("li").on("click", function () {
+      myself.chooseCFG($(this).data("value"));
     });
+  }
 
-    $(self.searchInputId).on("keypress", function () {
-      self.searchAddressAux($(self.searchInputId).val());
-    });
-
-    $(self.searchInputId).next().on("click", function () {
-      self.searchAddress($(self.searchInputId).val());
-    });
-
-    $("#btnCopyCFG").click(function (e) {
-      copyToClipboard(document, $("#codeCopyCFG").text());
+  registerRefreshBtnEvent() {
+    const myself = this;
+    d3.select("#js-icon-refresh").on("click", function () {
+      const funcName = myself.winManager.currentWin;
+      if (funcName !== null && funcName.length > 0) {
+        const kind = myself.winManager.windows[funcName].graph.kind;
+        myself.winManager.reloadGraph(funcName, kind);
+      }
     });
   }
 }
+

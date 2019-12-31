@@ -1,179 +1,156 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-
   <link rel="icon" href="/favicon.ico">
   <title>B2R2</title>
-
   <link href="css/bootstrap.min.css" rel="stylesheet" />
+  <link href="css/jquery-ui.min.css" rel="stylesheet" />
   <link href="css/b2r2.css" rel="stylesheet" />
-  <link href="css/all.min.css" rel="stylesheet" />
-
+  <link href="css/b2r2.base.css" rel="stylesheet" />
+  <link href="css/b2r2.modal.css" rel="stylesheet" />
+  <link href="css/b2r2.toast.css" rel="stylesheet" />
+  <link href="css/b2r2.rotating.css" rel="stylesheet" />
+  <link href="css/b2r2.header.css" rel="stylesheet" />
+  <link href="css/b2r2.main.css" rel="stylesheet" />
+  <link href="css/b2r2.footer.css" rel="stylesheet" />
+  <link href="css/fontawesome.min.css" rel="stylesheet" />
 </head>
-
 <body>
-  <div class="fixed-navbar-top">
-    <div class="logo-image"><img src="b2r2.png"></div>
-    <div class="filename active"><var id="binInfo">Offline</var></div>
-    <div class="function-name">
-      <div id="uiFuncName"></div>
-    </div>
-    <div class="nav-right">
-      <div class="nav-item-search">
-        <input id="id-input_address" type="text" placeholder="Goto Address">
-        <i class="fas fa-search"></i>
-      </div>
-      <div class="nav-item dropdown nav-cfg-chooser">
-        <button class="cfgChooserBtn dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true"
-          aria-expanded="true">
-          CFG Kind<span class="caret"></span>
-        </button>
-        <ul class="dropdown-menu" id="cfgChooser">
-          <li>
-            <div class="dropdown-item"><a href="#" data-value="Disasm">Disasm</a></div>
-          </li>
-          <li>
-            <div class="dropdown-item"><a href="#" data-value="LowUIR">LowUIR</a></div>
-          </li>
-          <li>
-            <div class="dropdown-item"><a href="#" data-value="SSA">SSA</a></div>
-          </li>
-        </ul>
-      </div>
-      <div class="nav-item nav-fixed-width">
-        <div class="btn-refresh" title="Refresh CFG" id="id_btn-refresh">
-          <span id="icon-refresh" style="padding: 0" class="glyphicon glyphicon-refresh"></span>
+
+  <div class="l-header">
+    <div class="c-logo"><img class="c-logo__img" src="b2r2.png"></div>
+    <var class="c-bininfo" id="js-bininfo">Offline</var>
+    <div class="c-funcinfo" id="js-funcinfo">&nbsp;</div>
+    <div class="l-mainmenu">
+      <div class="l-mainmenu__item dropdown">
+        <div class="c-cfg-menu">
+          <button class="l-mainmenu__toggle dropdown-toggle" id="js-cfgbtn"
+                  type="button" data-toggle="dropdown"
+                  aria-haspopup="true" aria-expanded="true">
+            <span id="js-cfgkind">CFG Kind</span><span class="caret"></span>
+          </button>
+          <ul class="l-dropmenu dropdown-menu" id="js-cfgmenu">
+            <li class="l-dropmenu__item dropdown-item" data-value="Disasm">
+              <a href="#">Disasm</a>
+            </li>
+            <li class="l-dropmenu__item dropdown-item" data-value="LowUIR">
+              <a href="#">LowUIR</a>
+            </li>
+            <li class="l-dropmenu__item dropdown-item" data-value="SSA">
+              <a href="#">SSA</a>
+            </li>
+          </ul>
         </div>
       </div>
-      <div class="nav-item nav-fixed-width dropdown">
-        <div class="nav-item dropdown-btn" id="id_dropdown-menu" data-toggle="dropdown" aria-haspopup="true"
-          aria-expanded="false">
-          <span class="glyphicon glyphicon-wrench"></span>&nbsp; &nbsp;
+      <div class="l-mainmenu__item">
+        <div class="c-refresh-menu">
+          <span id="js-icon-refresh" title="Refresh CFG"
+                class="glyphicon glyphicon-refresh"></span>
         </div>
-        <div class="dropdown-menu dropdown-menu-right" aria-labelledby="id_dropdown-menu">
-          <div class="dropdown-item">
-            <div id="menuCopyCFG">
-              <a href="#" data-toggle="modal" data-target="#modalCopyCFG">Copy the CFG to clipboard</a>
-            </div>
+      </div>
+      <div class="l-mainmenu__item dropdown">
+        <div class="c-config-menu">
+          <div data-toggle="dropdown"
+               aria-haspopup="true" aria-expanded="false">
+            <span title="Tools"
+                  class="glyphicon glyphicon-wrench"></span>
           </div>
-          <div class="dropdown-item">
-            <a href="#" data-toggle="modal" data-target="#modalAbout">About</a>
-          </div>
+          <ul class="l-dropmenu dropdown-menu dropdown-menu-right">
+            <li class="l-dropmenu__item dropdown-item" id="js-open-copy-cfg">
+              <a href="#">Copy the CFG to clipboard</a>
+            </li>
+            <li class="l-dropmenu__item dropdown-item">
+              <a href="#"
+                 data-toggle="modal" data-target="#modal-about">About</a>
+            </li>
+          </ul>
         </div>
       </div>
     </div>
   </div>
-  <div id="modalCopyCFG" class="modal fade" role="dialog">
+
+  <div class="modal fade" id="js-modal-copy-cfg" role="dialog">
     <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header">
-          <button type="button" class="close" data-dismiss="modal">&times;</button>
+          <button type="button" class="close"
+                  data-dismiss="modal">&times;</button>
           <h4 class="modal-title">Copy the CFG (in JSON) to clipboard</h4>
         </div>
         <div class="modal-body">
-          <pre class="pre-xy-scrollable"><code id="codeCopyCFG"></code></pre>
+          <pre class="pre-xy-scrollable"><code id="js-copy-cfg"></code></pre>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-default" id="btnCopyCFG">
+          <button type="button" class="btn btn-default" id="js-copy-cfg-btn">
             <span class="glyphicon glyphicon-paperclip"></span> Copy
           </button>
-          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-default"
+                  data-dismiss="modal">Close</button>
         </div>
       </div>
     </div>
-  </div>
-  <input id="cfgFile" type="file" name="" style="display: none;" />
-  <div id="id_mainContainer" class="main-container" class="ui-widget-content">
-    <div class="sidebar-menu">
-      <div class="sidebar-item active" id="id_sidebar-functions" title="Functions"><i class="fas fa-list"></i></div>
-      <!-- <div class="sidebar-item" id="id_sidebar_comment" title="Comments"><i class="fas fa-comment-dots"></i></div> -->
-      <div class="sidebar-item" id="id_sidebar-callgraph" title="Call Graph"><i class="fas fa-project-diagram"></i>
-      </div>
-      <div class="sidebar-item" id="id_sidebar-terminal" title="Terminal"><i class="fas fa-terminal"></i></div>
-    </div>
-    <div id="id_sidebar-content" class="sidebar-content">
-      <div class="sidebar-content-item" style="display:block;" id="id_functions-wrapper">
-        <input id="id_funcFilter" placeholder="Function filter" />
-        <div id="id_functions">
-          <ul id="funcSelector"></ul>
-        </div>
-      </div>
-      <!-- <div class="sidebar-content-item" style="display:none;" id="id_comment-wrapper">
-        <div id="id_CommentList">
-        </div>
-      </div> -->
-      <div class="sidebar-content-wide-item" style="display: none;" id="id_terminal-wrapper">
-        <div id="id_cmdContainer">
-          <div id="id_content" class=""></div>
-          <div class="command-container">
-            <div class="prompt">B2R2></div>
-            <textarea id="id_cmd" class="cmd" spellcheck="false" onkeydown="Terminal().onCommandSubmit();" cols="53"
-              autofocus></textarea>
-          </div>
-        </div>
-      </div>
-      <div id="id_resize-sidebar"></div>
-    </div>
-    <div class="graph-container">
-      <div id="id_tabContainer">
-        <ul></ul>
-      </div>
-      <div id="id_graphContainer">
-        <var id="id_event-trigger"></var>
-      </div>
-      <div class="minimap-container" id="minimapDiv">
-        <span title="Move minimap" class="move-minimap glyphicon glyphicon-move"></span>
-        <span title="Minimize minimap"
-          class="resize-minimap minimize-minimap glyphicon glyphicon-triangle-bottom"></span>
-        <span title="Go back to original size"
-          class="resize-minimap maximize-minimap glyphicon glyphicon-triangle-top"></span>
-        <span title="To the initial location" class="return-minimap glyphicon glyphicon-record"></span>
-      </div>
-      <div class="internel-autocomplete-container">
-        <input id="id_address-search" placeholder="Search" type="text" autocomplete="off">
-        <div id="id-autocomplete-list" class="autocomplete-list"></div>
-      </div>
-    </div>
-  </div>
-  <div class="bottem-menu">
   </div>
 
-  <div id="id_comment-modal" class="modal" tabindex="-1" role="dialog">
-    <div class="modal-dialog" role="document">
-      <div class="modal-content">
-        <div class="modal-body">
-          <div id="id_title-stmt" class="title-stmt"></div>
-          <textarea onkeypress="onCommentSubmit();" id="id_comment"></textarea>
-          <div class="comment-btn-container">
-            <button class="comment-btn close">Close</button>
-            <button class="comment-btn comment">Comment</button>
-          </div>
-        </div>
+  <input id="js-cfg-file" type="file" name="" style="display: none;" />
+
+  <div class="l-main ui-widget-content">
+    <div class="l-sidemenu">
+      <div class="l-sidemenu__item active" id="js-sidemenu__functions"
+           title="Functions">
+        <i class="fas fa-list"></i>
+      </div>
+      <div class="l-sidemenu__item" id="js-sidemenu__cg"
+           title="Call Graph">
+        <i class="fas fa-project-diagram"></i>
+      </div>
+      <div class="l-sidemenu__item" id="js-sidemenu__term"
+           title="Terminal">
+        <i class="fas fa-terminal"></i>
       </div>
     </div>
+    <div class="l-side-display" id="js-side-display">
+      <div class="c-function-view">
+        <input class="c-function-view__filter" id="js-function-filter"
+               placeholder="Function filter" />
+        <div class="l-function-view__list">
+          <ul class="c-function-view__list" id="js-function-list"></ul>
+        </div>
+      </div>
+      <div class="c-side-resize-bar" id="js-side-resize-bar">&nbsp;</div>
+    </div>
+    <div class="l-primary-display">
+      <div class="l-tab-container"><ul class="c-tabs" id="js-tabs"></ul></div>
+      <div class="l-graph-container" id="js-graph"></div>
+    </div>
   </div>
-  <div id="id_toast"></div>
+
+  <div id="js-search-dialog" title="Search Dialog">
+    <input type="search" class="form-control" placeholder="Search ..."/>
+  </div>
+
+  <div class="l-footer"></div>
+
+  <div class="c-toast" id="js-toast"></div>
 
   <script src="js/d3.min.js"></script>
   <script src="js/jquery.min.js"></script>
+  <script src="js/jquery-ui.min.js"></script>
   <script src="js/bootstrap.min.js"></script>
-  <script src="js/b2r2.resource.js"></script>
-  <script src="js/b2r2.util.js"></script>
+  <script src="js/b2r2.consts.js"></script>
+  <script src="js/b2r2.utils.js"></script>
+  <script src="js/b2r2.toast.js"></script>
   <script src="js/b2r2.navbar.js"></script>
   <script src="js/b2r2.minimap.js"></script>
-  <script src="js/b2r2.tab.js"></script>
-  <script src="js/b2r2.sidebar.js"></script>
-  <script src="js/b2r2.autocomplete.js"></script>
-  <script src="js/b2r2.contextmenu.js"></script>
   <script src="js/b2r2.graph.js"></script>
-  <script src="js/b2r2.functionList.js"></script>
-  <script src="js/b2r2.webconsole.js"></script>
+  <script src="js/b2r2.side.js"></script>
+  <script src="js/b2r2.window.js"></script>
+  <script src="js/b2r2.header.js"></script>
+  <script src="js/b2r2.keyhandler.js"></script>
   <script src="js/b2r2.js"></script>
-</body>
 
+</body>
 </html>
 <!-- vim: set sts=2 sw=2: -->

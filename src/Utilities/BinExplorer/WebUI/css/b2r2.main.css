@@ -1,0 +1,391 @@
+/* B2R2 - the Next-Generation Reversing Platform */
+
+/* The main view. */
+.l-main {
+  position: relative;
+  margin-top: 0px;
+  height: calc(100% - 55px - 25px); /* 100% - header - footer */
+  z-index: 0;
+  display: flex;
+  flex: 0 0 100%;
+  border: 0px;
+}
+
+/* The sidemenu of the main view. */
+.l-sidemenu {
+  height: 100%;
+  flex: 0 0 55px;
+  background: var(--sidemenu-background);
+}
+
+/* Each item of the sidemenu. */
+.l-sidemenu__item {
+  padding: 10px 5px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  height: 55px;
+  cursor: pointer;
+  color: var(--sidemenu-item);
+  -webkit-text-fill-color: var(--sidemenu-item);
+  font-size: 20px;
+}
+
+.l-sidemenu__item:hover {
+  background-color: var(--sidemenu-hover);
+}
+
+.l-sidemenu__item.active {
+  background-color: var(--sidemenu-active);
+}
+
+/* The side display of the main view. */
+.l-side-display {
+  display: flex;
+  flex: 0 0 250px;
+  max-width: 250px;
+  min-width: 180px;
+  height: 100%;
+  border-right: 1px solid var(--side-display-right-hbar);
+  background: var(--side-display-background);
+  position: relative;
+}
+
+/* The function view. */
+.c-function-view {
+  padding-top: 10px;
+  padding-left: 5px;
+  padding-right: 3px;
+  width: 100%;
+  display: block;
+}
+
+/* The function filter. */
+.c-function-view__filter {
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--function-filter-bottom-bar);
+  box-sizing: border-box;
+  width: 100%;
+  color: var(--sidemenu-filter);
+  -webkit-text-fill-color: var(--sidemenu-filter);
+  height: 35px;
+  padding: 5px 10px;
+}
+
+.c-function-view__filter:focus {
+  outline: none;
+}
+
+.l-function-view__list {
+  display: block;
+  height: 100%;
+  padding-left: 0px;
+  overflow-y: auto;
+}
+
+.c-function-view__list {
+  margin-left: 0px;
+  padding-left: 0px;
+}
+
+.c-function-view__icon {
+  padding-right: 10px;
+  font-size: 8px;
+  visibility: hidden;
+}
+
+.c-function-view__icon.pinned {
+  visibility: visible;
+}
+
+.c-function-view__item {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  color: var(--sidemenu-function);
+  -webkit-text-fill-color: var(--sidemenu-function);
+  padding: 5px 10px;
+  font-size: 15px;
+}
+
+.c-function-view__item.focused {
+  background-color: var(--function-item-focused);
+}
+
+/* The resize bar between the side display and the main display. */
+.c-side-resize-bar {
+  width: 3px;
+  max-width: 3px;
+  min-width: 3px;
+  background: var(--side-display-right-hbar);
+  cursor: col-resize;
+}
+
+.l-primary-display {
+  display: flex;
+  flex-direction: column;
+  min-width: 250px;
+  width: 100%;
+  height: 100%;
+  background: var(--primary-display-background);
+}
+
+.l-tab-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: 100%;
+  flex: 0 0 35px;
+  line-height: 30px;
+  padding: 5px 5px 0px 5px;
+  margin: 0px;
+  border: 0px;
+}
+
+.c-tabs {
+  position: absolute;
+  width: 100%;
+  padding: 0px;
+  list-style-type: none;
+  display: block;
+  margin-bottom: 0px;
+}
+
+.c-tabs__item {
+  display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  max-width: 300px;
+  max-height: 30px;
+  border: 1px solid var(--tab-border);
+  border-bottom-width: 0px;
+  border-top-right-radius: 3px;
+  border-top-left-radius: 3px;
+  margin: 0px 2px 0px 0px;
+  padding-right: 5px;
+  background: var(--tab-background);
+  cursor: pointer;
+  color: var(--tab-text);
+}
+
+.c-tabs__item a {
+  align-items: center;
+  font-size: 15px;
+  padding: 5px 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--tab-text);
+}
+
+.c-tabs__item.active {
+  background: var(--tab-active-background);
+}
+
+.c-tabs__item.pinned {
+  font-weight: bold;
+}
+
+.l-graph-container {
+  padding: 0px 5px 5px 5px;
+  width: 100%;
+  height: 100%;
+}
+
+.c-graph {
+  display: none;
+  padding: 0;
+  border-top: 0px;
+  border-left: 1px solid var(--graph-border);
+  border-right: 1px solid var(--graph-border);
+  border-bottom: 1px solid var(--graph-border);
+  background: var(--graph-background);
+  width: 100%;
+  height: 100%;
+}
+
+.c-graph.active {
+  display: block;
+}
+
+.c-graph__node {
+  fill: var(--graph-node-fill);
+  stroke: var(--graph-node-stroke);
+  stroke-width: 1.5px;
+}
+
+.c-graph__node--blur {
+  fill: transparent;
+  stroke: var(--graph-node-stroke);
+  stroke-width: 1.5px;
+}
+
+.c-graph__stmt {
+  font-family: 'Inconsolata', monospace;
+}
+
+.c-graph__stmt--address {
+  fill: var(--graph-stmt-address);
+}
+
+.c-graph__stmt--mnemonic {
+  fill: var(--graph-stmt-mnemonic);
+}
+
+.c-graph__stmt--string {
+  fill: var(--graph-stmt-string);
+}
+
+.c-graph__stmt--variable {
+  fill: var(--graph-stmt-variable);
+}
+
+.c-graph__stmt--value {
+  fill: var(--graph-stmt-value);
+}
+
+.c-graph__edge {
+  stroke-width: 3px;
+  fill: none;
+}
+
+.c-graph__interjmpedge {
+  stroke: var(--graph-edge-interjmp-stroke);
+}
+
+.c-graph__intercjmpfalseedge {
+  stroke: var(--graph-edge-intercjmpfalse-stroke);
+}
+
+.c-graph__intercjmptrueedge {
+  stroke: var(--graph-edge-intercjmptrue-stroke);
+}
+
+.c-graph__intrajmpedge {
+  stroke: var(--graph-edge-intrajmp-stroke);
+}
+
+.c-graph__intracjmpfalseedge {
+  stroke: var(--graph-edge-intracjmpfalse-stroke);
+}
+
+.c-graph__intracjmptrueedge {
+  stroke: var(--graph-edge-intracjmptrue-stroke);
+}
+
+.c-graph__fallthroughedge {
+  stroke: var(--graph-edge-fallthrough-stroke);
+}
+
+.c-graph__calledge {
+  stroke: var(--graph-edge-call-stroke);
+}
+
+.c-graph__retedge {
+  stroke: var(--graph-edge-call-stroke);
+}
+
+.c-graph__arrow-interjmpedge {
+  fill: var(--graph-edge-interjmp-stroke);
+}
+
+.c-graph__arrow-intercjmpfalseedge {
+  fill: var(--graph-edge-intercjmpfalse-stroke);
+}
+
+.c-graph__arrow-intercjmptrueedge {
+  fill: var(--graph-edge-intercjmptrue-stroke);
+}
+
+.c-graph__arrow-intrajmpedge {
+  fill: var(--graph-edge-intrajmp-stroke);
+}
+
+.c-graph__arrow-intracjmpfalseedge {
+  fill: var(--graph-edge-intracjmpfalse-stroke);
+}
+
+.c-graph__arrow-intracjmptrueedge {
+  fill: var(--graph-edge-intracjmptrue-stroke);
+}
+
+.c-graph__arrow-fallthroughedge {
+  fill: var(--graph-edge-fallthrough-stroke);
+}
+
+.c-graph__arrow-calledge {
+  fill: var(--graph-edge-call-stroke);
+}
+
+.c-graph__arrow-retedge {
+  fill: var(--graph-edge-ret-stroke);
+}
+
+.c-minimap {
+  margin-right: 10px;
+  margin-bottom: 10px;
+  right: 0px;
+  bottom: 0px;
+  position: absolute;
+  border: 1px solid var(--minimap-border);
+  color: var(--minimap-icon);
+  background-color: var(--minimap-background);
+  display: flex;
+  flex-direction: column;
+}
+
+.c-minimap__edge {
+  stroke: var(--minimap-edge-stroke);
+  stroke-width: 0.7px;
+  fill: none;
+}
+
+.c-minimap__viewbox {
+  stroke: var(--minimap-viewbox-stroke);
+  stroke-width: 3.5px;
+  fill: transparent;
+  cursor: move;
+}
+
+.l-minimap-topper {
+  position: absolute;
+  width: 100%;
+  text-align: right;
+  padding-left: 2px;
+}
+
+.l-minimap-graph {
+  width: 100%;
+  padding: 3px;
+}
+
+.l-minimap-topper span.glyphicon {
+  border: 1px solid var(--minimap-icon-border);
+  background-color: var(--minimap-background);
+  font-size: 12px;
+  padding: 1px;
+  margin-right: 2px;
+}
+
+.c-minimap__min {
+  position: relative;
+  cursor: pointer;
+}
+
+.c-minimap__recover {
+  position: relative;
+  cursor: pointer;
+}
+
+.c-minimap__init {
+  position: relative;
+  cursor: pointer;
+}
+
+.c-minimap__move {
+  position: relative;
+  cursor: all-scroll;
+}
+
