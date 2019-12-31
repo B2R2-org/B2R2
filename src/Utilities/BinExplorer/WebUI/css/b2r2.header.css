@@ -1,0 +1,98 @@
+/* B2R2 - the Next-Generation Reversing Platform */
+
+/* The header view. */
+.l-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  top: 0;
+  height: 55px;
+  max-height: 55px;
+  min-height: 55px;
+  width: 100%;
+  z-index: 1;
+  background: var(--header-background);
+}
+
+/* The B2R2's logo. */
+.c-logo {
+  height: 55px;
+  width: 55px;
+  background: black;
+  padding: 4px;
+}
+
+.c-logo__img {
+  height: 47px;
+  width: 47px;
+}
+
+/* The component for showing the information about the current binary. */
+.c-bininfo {
+  color: var(--header-text);
+  -webkit-text-fill-color: var(--header-text);
+  padding: 10px;
+  white-space: pre;
+  cursor: pointer;
+  user-select: none;
+  -ms-user-select: none;
+  -webkit-user-select: none;
+}
+
+/* The component for displaying function information. */
+.c-funcinfo {
+  width: 100%;
+  overflow: hidden;
+  color: var(--header-text);
+  -webkit-text-fill-color: var(--header-text);
+  font-size: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The main menu at the right-hand-side of the header. */
+.l-mainmenu {
+  display: flex;
+  right: 10px;
+}
+
+/* Each of the item in the main menu. */
+.l-mainmenu__item {
+  display: flex;
+  justify-content: center;
+  color: var(--header-text);
+  cursor: pointer;
+  min-width: 30px;
+  min-height: 14px;
+  text-align: center;
+}
+
+/* A menu item of a toggling button. */
+.l-mainmenu__toggle {
+  border: none;
+  background-color: transparent;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+/* A dropdown menu of the main menu. */
+.l-dropmenu {
+  background: var(--header-background);
+  padding-left: 5px;
+}
+
+/* We do not follow the BEM style here to give more specificity than the default
+   Bootstrap style. */
+.l-dropmenu .l-dropmenu__item a {
+  padding: 0px;
+  color: var(--header-text);
+  white-space: normal;
+}
+
+/* We do not follow the BEM style here to give more specificity than the default
+   Bootstrap style. */
+.l-dropmenu .l-dropmenu__item a:hover {
+  background: var(--header-menu-hover);
+}
+

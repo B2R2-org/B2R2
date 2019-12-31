@@ -27,12 +27,10 @@
 */
 
 class SideBarItem {
-  constructor(d) {
-    this.icon = d.icon;
-    this.id = d.id;
-    this.contentid = d.contentid;
-    this.name = d.name;
-    this.active = d.active;
+  constructor(dom, isActive) {
+    this.dom = dom;
+    if (isActive) dom.addClass("active");
+    else dom.removeClass("active");
   }
 
   open() {
@@ -84,12 +82,7 @@ class SideBarItem {
     },
       function (status, json) {
         if (Object.keys(json).length > 0) {
-          let dims = reloadUI({
-            document: newWindow.document,
-            graphContainerId: "#id_new-graph-container",
-            mainContainerId: "#id_new-main-container",
-            tabContainerId: ""
-          });
+          let dims = computeUIDimensions(newWindow.document);
           let tabtemp = 11;
           self.addWindow(dims, newWindow.document, tabtemp);
           let contextmenu = new ContextMenu({
@@ -103,10 +96,10 @@ class SideBarItem {
             minimapContainer: "#id_new-minimap-div",
             tab: tabtemp,
             newWindow: true,
-            cfg: "#cfg-" + tabtemp,
-            stage: "#cfgStage-" + tabtemp,
-            group: "#cfgGrp-" + tabtemp,
-            minimap: "#minimap-" + tabtemp,
+            cfg: "#js-main__cfg-" + tabtemp,
+            stage: "#js-cfg-stage-" + tabtemp,
+            group: "#js-cfg-group-" + tabtemp,
+            minimap: "#js-minimap-" + tabtemp,
             minimapStage: "#minimapStage-" + tabtemp,
             minimapViewPort: "#minimapVP-" + tabtemp,
             contextmenu: contextmenu,
@@ -114,13 +107,13 @@ class SideBarItem {
             json: json
           });
           g.drawGraph();
-          let autoComplete = new AutoComplete({
+          let ws = new WordSearch({
             document: newWindow.document,
-            id: "#id_new-autocomplete-list",
+            id: "#id_new-wordsearch-list",
             inputid: "#id_new-address-search"
           });
-          autoComplete.registerEvents();
-          autoComplete.reload(g);
+          ws.registerEvents();
+          ws.reload(g);
         }
       });
   }
@@ -129,10 +122,6 @@ class SideBarItem {
     $(this.contentid).hide();
     this.active = false;
     $(this.id).removeClass("active");
-  }
-
-  registerEvents() {
-
   }
 }
 
@@ -167,8 +156,8 @@ class SideBar {
 
   resizeSidebar(callback) {
     const minimum_size = 100;
-    const resizer = document.getElementById("id_resize-sidebar");
-    const element = document.getElementById("id_sidebar-content");
+    const resizer = document.getElementById("js-sidecontent__resizebar");
+    const element = document.getElementById("js-sidecontent");
     let original_mouse_x = 0;
     let original_width = 0;
     resizer.addEventListener('mousedown', function (e) {
@@ -184,11 +173,11 @@ class SideBar {
         element.style.width = width + 'px';
         element.style.minWidth = width + 'px';
         element.style.maxWidth = width + 'px';
-        $(".sidebar-content-item").each(function () {
+        $(".sidecontent__item").each(function () {
           $(this).css("max-width", width);
           $(this).css("min-width", width);
           $(this).css("width", width);
-          callback();
+          callback(document); // XXX: why not directly call the function??
         });
       }
     }
@@ -199,7 +188,7 @@ class SideBar {
 
   registerEvents() {
     const self = this;
-    $(document).on("click", ".sidebar-item", function () {
+    $(document).on("click", ".sidemenu__item", function () {
       let id = $(this).attr("id");
       if (id === "id_sidebar-callgraph") {
         self.get("#" + id).openWindow();
@@ -207,6 +196,6 @@ class SideBar {
         self.open("#" + id);
       }
     });
-    self.resizeSidebar(reloadUI);
+    self.resizeSidebar(computeUIDimensions);
   }
 }

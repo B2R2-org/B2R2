@@ -1,0 +1,20 @@
+/* B2R2 - the Next-Generation Reversing Platform */
+
+.pre-xy-scrollable {
+  overflow: auto;
+  -ms-word-wrap: normal;
+  word-wrap: normal;
+  overflow-wrap: normal;
+  white-space: pre;
+  max-height: 340px;
+}
+
+.c-search-dialog .ui-dialog-titlebar {
+  display: none;
+}
+
+.ui-widget-overlay {
+  background-color: black;
+  opacity: 0.2;
+}
+

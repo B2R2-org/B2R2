@@ -26,26 +26,21 @@
   SOFTWARE.
 */
 
-class AutoComplete {
+class WordSearch {
   constructor(d) {
-    this.document = d.document;
-    if (d.document === undefined)
-      this.document = document;
     this.graphinfo = d.graphinfo;
     this.stmts = [];
-    this.id = d.id;
-    if (d.id === undefined)
-      this.id = "#id-autocomplete-list";
-    this.inputid = d.inputid;
-    if (d.inputid === undefined)
-      this.inputid = "#id_address-search";
-
+    if (d.document === undefined) this.document = document;
+    else this.document = d.document;
+    if (d.id === undefined) this.id = "#id_wordsearch_list";
+    else this.id = d.id;
+    if (d.inputid === undefined) this.inputid = "#id_address-search";
+    else this.inputid = d.inputid;
   }
 
   reload(graphinfo) {
     this.clearInput();
     this.graphinfo = graphinfo;
-
     this.stmts = [];
     if (graphinfo.json != undefined) {
       let data = graphinfo.json.Nodes;
@@ -87,7 +82,8 @@ class AutoComplete {
       .attr("width", width)
       .attr("height", 20)
       .attr("fill", "black");
-    let tbox = g.append("text").attr("font-family", "'Inconsolata', monospace").text(stmt)
+    let tbox =
+      g.append("text").attr("font-family", "'Inconsolata', monospace").text(stmt)
     tbox
       .attr("font-size", 15)
       .attr("y", 15)
@@ -130,32 +126,41 @@ class AutoComplete {
     let list = []
     for (let s in this.stmts) {
       let stmt = this.stmts[s];
-      let stmtstr = stmt.slice(0, -1).join("");
-      let lowerStmtstr = stmtstr.toLowerCase();
-      if (lowerStmtstr.indexOf(lowerValue) > -1) {
+      let stmtstr = stmt.slice(2, -1).join("").toLowerCase();
+      if (stmtstr.indexOf(lowerValue) > -1) {
         let addr = stmt[0];
         let meta = stmt[stmt.length - 1];
-        let item = '<div class="autocomplete-item" target=[TARGET] addr=[ADDR] idx=[IDX]>'
-          .replace("[TARGET]", "#id_" + this.graphinfo.tab + "_rect-" + meta.Nodeidx + "-" + meta.idx)
-          .replace("[IDX]", meta.idx)
-          .replace("[ADDR]", addr);
-        let idx = lowerStmtstr.indexOf(word);
-        if (idx < 16) {
-          item += '<span class="address">[CONTENT]</span>'.replace("[CONTENT]",
-            addr.substr(0, idx)
-            + "<strong>" + addr.substr(idx, word.length) + "</strong>"
-            + addr.substr(idx + word.length));
-
-          for (let i = 1; i < stmt.length - 1; i++) {
-            item += '<span class="operand">[OPERAND]</span>'.replace("[OPERAND]", stmt[i]);
-          }
-        } else {
-          item += '<span class="address">[MEMORY]</span>'.replace("[MEMORY]", addr);
-          item += '<span class="operand">[CONTENT]</span>'.replace("[CONTENT]",
-            stmtstr.substr(16, idx - 16)
-            + "<strong>" + stmtstr.substr(idx, word.length) + "</strong>"
-            + stmtstr.substr(idx + word.length));
-        }
+        let nodeidx = meta.Nodeidx
+        let stmidx = meta.idx
+        let id = "#id_" + this.graphinfo.tab + "_rect-" + nodeidx + "-" + stmidx
+        let item =
+          '<div class="wordsearch-item" target="' + id
+          + '" addr="' + addr + '" idx="' + stmidx + '">'
+        let maxResultWidth = 32;
+        let wordLen = word.length;
+        let idx = stmtstr.indexOf(word);
+        let resultStartIdx =
+          wordLen + idx > maxResultWidth
+            ? Math.min(wordLen + idx - maxResultWidth, idx) : 0;
+        let wordStartIdx = resultStartIdx > idx ? resultStartIdx : idx;
+        let wordEndIdx =
+          wordStartIdx - resultStartIdx + wordLen > maxResultWidth
+            ? maxResultWidth + resultStartIdx : wordStartIdx + wordLen;
+        let resultEndIdx =
+          wordEndIdx - resultStartIdx > maxResultWidth
+            ? resultStartIdx + maxResultWidth : maxResultWidth;
+        item += '<span class="address">' + addr + ' </span>';
+        item += '<span class="operand">';
+        item +=
+          stmtstr
+            .substr(resultStartIdx, wordStartIdx - resultStartIdx)
+            .replace(" ", "&nbsp;");
+        item +=
+          "<strong>"
+          + stmtstr.substr(wordStartIdx, wordEndIdx - wordStartIdx)
+          + "</strong>"
+          + stmtstr.substr(wordEndIdx, resultEndIdx - wordEndIdx);
+        item += '</span>';
         item += '</div>'
         list.push(item);
       }
@@ -169,13 +174,13 @@ class AutoComplete {
       self.search(this.value);
     });
 
-    $(self.document).on("click", ".autocomplete-item", function () {
+    $(self.document).on("click", ".wordsearch-item", function () {
       self.removeElements();
     });
 
     $(self.document).on("click", function (e) {
-      if ($(self.document).find(".autocomplete-list").children().size() > 0) {
-        if (!$(e.target).hasClass(".autocomplete-list")) {
+      if ($(self.document).find(".wordsearch-list").children().length > 0) {
+        if (!$(e.target).hasClass(".wordsearch-list")) {
           self.clearInput();
           self.removeElements();
           self.deactiveStmtElements();
@@ -183,7 +188,7 @@ class AutoComplete {
       }
     });
 
-    $(self.document).on("mouseover", self.id + " .autocomplete-item", function () {
+    $(self.document).on("mouseover", self.id + " .wordsearch-item", function () {
       let target = $(this).attr("target"); //#id_[tabNumber]_rect-[nodeIdx]-[StmtIdx]
       let rect = d3.select(self.document).select(target);
       let text = d3.select(self.document).select(target.replace("_rect-", "_text-"));
@@ -197,7 +202,7 @@ class AutoComplete {
       self.activateStmtElements(x, y, width, stmt);
     });
 
-    $(self.document).on("mouseout", ".autocomplete-item", function () {
+    $(self.document).on("mouseout", ".wordsearch-item", function () {
       self.deactiveStmtElements();
     });
   }

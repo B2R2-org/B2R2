@@ -1,0 +1,11 @@
+/* B2R2 - the Next-Generation Reversing Platform */
+
+/* The header view. */
+.l-footer {
+  position: relative;
+  width: 100%;
+  height: 25px;
+  background: var(--footer-background);
+  color: var(--footer-text);
+}
+

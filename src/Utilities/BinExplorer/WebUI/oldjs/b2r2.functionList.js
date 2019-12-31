@@ -7,7 +7,6 @@ class FunctionItem {
   }
 
   init() {
-
   }
 
   getElem() {
@@ -49,7 +48,7 @@ class FunctionItem {
       functionList.clicks++;
       if (self.functionList.clicks === 1) {
         functionList.timer = setTimeout(function () {
-          let tabsLength = $("#id_tabContainer li").length;
+          let tabsLength = $(".tab-container li").length;
           if (tabsLength === 0) {
             query({
               "q": "cfg-Disasm",
@@ -57,30 +56,13 @@ class FunctionItem {
             },
               function (status, json) {
                 if (Object.keys(json).length > 0) {
-                  let dims = reloadUI();
-                  let tab = new Tab({
-                    tablist: Root.TabList,
-                    active: true,
-                    name: funcName,
-                    value: funcName,
-                    type: "Disasm"
-                  });
-                  const tabNum = tab.init(dims, funcName);
-
-                  let g = new FlowGraph({
-                    tab: tabNum,
-                    cfg: "#cfg-" + tabNum,
-                    stage: "#cfgStage-" + tabNum,
-                    group: "#cfgGrp-" + tabNum,
-                    minimap: "#minimap-" + tabNum,
-                    minimapStage: "#minimapStage-" + tabNum,
-                    minimapViewPort: "#minimapVP-" + tabNum,
-                    dims: dims,
-                    json: json
-                  });
+                  let dims = computeUIDimensions(document);
+                  let tab = new Tab(Root.TabList, funcName, dims);
+                  const tabIdx = tab.getIndex();
+                  let g = new FlowGraph(document, tabIdx, dims, json, false);
                   g.drawGraph();
                   tab.setGraph(g);
-                  Root.AutoComplete.reload(g);
+                  Root.WordSearch.reload(g);
                   Root.NavBar.setTitle(funcName);
                   Root.NavBar.setDropdownType("Disasm");
                   Root.NavBar.setModalData(json);
@@ -95,15 +77,16 @@ class FunctionItem {
               "q": "cfg-Disasm",
               "args": funcName
             },
+              /// XXX
               function (status, json) {
                 if (Object.keys(json).length > 0) {
                   let tab = Root.TabList.getActiveTab();
                   if (tab != undefined) {
-                    let dims = reloadUI();
+                    let dims = computeUIDimensions(document);
                     let g = tab.replace(funcName, dims, json);
                     g.drawGraph();
                     tab.setGraph(g);
-                    Root.AutoComplete.reload(g);
+                    Root.WordSearch.reload(g);
                     Root.NavBar.setTitle(funcName);
                     Root.NavBar.setDropdownType("Disasm");
                     Root.NavBar.setModalData(json);
@@ -128,29 +111,13 @@ class FunctionItem {
             },
             function (status, json) {
               if (Object.keys(json).length > 0) {
-                let dims = reloadUI();
-                let tab = new Tab({
-                  tablist: Root.TabList,
-                  active: true,
-                  name: funcName,
-                  value: funcName,
-                  type: "Disasm"
-                });
-                const tabNum = tab.add(dims, funcName);
-                let g = new FlowGraph({
-                  tab: tabNum,
-                  cfg: "#cfg-" + tabNum,
-                  stage: "#cfgStage-" + tabNum,
-                  group: "#cfgGrp-" + tabNum,
-                  minimap: "#minimap-" + tabNum,
-                  minimapStage: "#minimapStage-" + tabNum,
-                  minimapViewPort: "#minimapVP-" + tabNum,
-                  dims: dims,
-                  json: json
-                });
+                let dims = computeUIDimensions(document);
+                let tab = new Tab(Root.TabList, funcName, dims);
+                const tabIdx = tab.getIndex();
+                let g = new FlowGraph(document, tabIdx, dims, json, false);
                 g.drawGraph();
                 tab.setGraph(g);
-                Root.AutoComplete.reload(g);
+                Root.WordSearch.reload(g);
                 Root.NavBar.setTitle(funcName);
                 Root.NavBar.setDropdownType("Disasm");
                 Root.NavBar.setModalData(json);

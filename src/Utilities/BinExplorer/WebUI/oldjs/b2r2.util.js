@@ -25,6 +25,7 @@
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE.
 */
+
 function isDict(d, name) {
   if (d.constructor != Object) {
     console.error("[" + name + "] " + "Parametes are not correct.");
@@ -109,32 +110,29 @@ function query(arguments, callback) {
   req.send();
 }
 
-function reloadUI(d) {
-  if (d === undefined) {
-    d = {
-      document: document,
-      graphContainerId: "#id_graphContainer",
-      mainContainerId: "#id_mainContainer",
-      tabContainerId: "#id_tabContainer"
-    }
+function computeUIDimensions(doc) {
+  let contentWidth = $(doc.defaultView).width();
+  let mainContainer = $(doc).find(".main");
+  let sidebarMenu = $(doc).find(".main__sidemenu");
+  if (sidebarMenu.length > 0) {
+    contentWidth -= sidebarMenu.width();
   }
-  let graphContainerWidth = $(d.document.defaultView).width();
-  if (d.mainContainerId === "#id_mainContainer") {
-    graphContainerWidth -= $(".sidebar-menu").width();
-    graphContainerWidth -= $(".sidebar-content").width();
+  let sidebarContent = $(doc).find(".sidecontent");
+  if (sidebarContent.length > 0) {
+    contentWidth -= sidebarContent.width();
   }
-
-  $(d.document).find(d.graphContainerId).width(graphContainerWidth);
-
+  $(doc).find(".content-window").width(contentWidth);
   let heightGap = 0;
-  if (d.document.getElementById(d.tabContainerId.substring(1)) != null)
-    heightGap = d.document.getElementById(d.tabContainerId.substring(1)).getBoundingClientRect().height;
-
+  let tabContainer = $(doc).find(".tab-container");
+  if (tabContainer.length > 0) {
+    heightGap = tabContainer.outerHeight();
+  }
+  let graphContainer = $(doc).find(".graph");
   let cfgVPDim = {
-    width: graphContainerWidth
-      - parseInt($(d.document).find(d.graphContainerId).css("padding-right"))
+    width: contentWidth
+      - parseInt(graphContainer.css("padding-right"))
       - rightMargin,
-    height: d.document.getElementById(d.mainContainerId.substring(1)).getBoundingClientRect().height
+    height: mainContainer.outerHeight()
       - heightGap
       - bottomMargin
   }
@@ -142,20 +140,17 @@ function reloadUI(d) {
     width: cfgVPDim.width * minimapRatio,
     height: cfgVPDim.height * minimapRatio,
   }
-
-  $("#funcSelector")
-    .attr("style", "height: " + cfgVPDim.height + "px");
-
+  $("#funcSelector").attr("style", "height: " + cfgVPDim.height + "px");
   return { cfgVPDim: cfgVPDim, minimapVPDim: minimapVPDim };
 }
 
 function UIElementInit(isShow) {
   if (isShow) {
-    $("#minimapDiv").show();
-    $(".internel-autocomplete-container").show();
+    $(".minimap").show();
+    $(".internel-wordsearch-container").show();
   } else {
-    $("#minimapDiv").hide();
-    $(".internel-autocomplete-container").hide();
+    $(".minimap").hide();
+    $(".internel-wordsearch-container").hide();
   }
 }
 

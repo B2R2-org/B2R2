@@ -49,6 +49,8 @@ type CallGraphBBlock (addr, name, isFake, isExternal) =
     [| [| { AsmWordKind = AsmWordKind.Address
             AsmWordValue = Addr.toString WordSize.Bit32 addr }
           { AsmWordKind = AsmWordKind.String
+            AsmWordValue = ": " }
+          { AsmWordKind = AsmWordKind.Value
             AsmWordValue = name } |] |]
 
 /// Call graph, where each node represents a function.
