@@ -80,3 +80,14 @@ function copyToClipboard(str) {
   document.body.removeChild(aux);
 }
 
+function intToHex(d) {
+  const s = d.toString(16);
+  if (s.length < 2) return '0' + s;
+  else return s;
+}
+
+function intToPrintableChar(d) {
+  if (d >= 32 && d < 127) return String.fromCharCode(d);
+  else return ".";
+}
+

@@ -15,6 +15,7 @@
   <link href="css/b2r2.rotating.css" rel="stylesheet" />
   <link href="css/b2r2.header.css" rel="stylesheet" />
   <link href="css/b2r2.main.css" rel="stylesheet" />
+  <link href="css/b2r2.graph.css" rel="stylesheet" />
   <link href="css/b2r2.footer.css" rel="stylesheet" />
   <link href="css/fontawesome.min.css" rel="stylesheet" />
 </head>
@@ -59,8 +60,8 @@
                   class="glyphicon glyphicon-wrench"></span>
           </div>
           <ul class="l-dropmenu dropdown-menu dropdown-menu-right">
-            <li class="l-dropmenu__item dropdown-item" id="js-open-copy-cfg">
-              <a href="#">Copy the CFG to clipboard</a>
+            <li class="l-dropmenu__item dropdown-item" id="js-open-copy-json">
+              <a href="#">Copy the JSON data to clipboard</a>
             </li>
             <li class="l-dropmenu__item dropdown-item">
               <a href="#"
@@ -72,19 +73,19 @@
     </div>
   </div>
 
-  <div class="modal fade" id="js-modal-copy-cfg" role="dialog">
+  <div class="modal fade" id="js-modal-copy-json" role="dialog">
     <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header">
           <button type="button" class="close"
                   data-dismiss="modal">&times;</button>
-          <h4 class="modal-title">Copy the CFG (in JSON) to clipboard</h4>
+          <h4 class="modal-title">Copy the JSON data to clipboard</h4>
         </div>
         <div class="modal-body">
-          <pre class="pre-xy-scrollable"><code id="js-copy-cfg"></code></pre>
+          <pre class="pre-xy-scrollable"><code id="js-copy-json"></code></pre>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-default" id="js-copy-cfg-btn">
+          <button type="button" class="btn btn-default" id="js-copy-json-btn">
             <span class="glyphicon glyphicon-paperclip"></span> Copy
           </button>
           <button type="button" class="btn btn-default"
@@ -108,7 +109,7 @@
       </div>
       <div class="l-sidemenu__item" id="js-sidemenu__hexview"
            title="Hex View">
-        <tt style="font-size: 8pt; line-height: 100%">
+        <tt class="unselectable c-hexview-icon">
           0100<br/>1010<br/>0011
         </tt>
       </div>
@@ -151,6 +152,8 @@
   <script src="js/b2r2.navbar.js"></script>
   <script src="js/b2r2.minimap.js"></script>
   <script src="js/b2r2.graph.js"></script>
+  <script src="js/b2r2.flowgraph.js"></script>
+  <script src="js/b2r2.hexgraph.js"></script>
   <script src="js/b2r2.side.js"></script>
   <script src="js/b2r2.window.js"></script>
   <script src="js/b2r2.header.js"></script>

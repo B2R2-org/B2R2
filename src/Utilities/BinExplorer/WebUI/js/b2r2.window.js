@@ -74,7 +74,12 @@ class WindowManager {
 
   createGraph(name, kind) {
     const div = this.graphView.append("div").classed("c-graph", true);
-    return new FlowGraph(div, name, kind);
+    switch (kind) {
+      case "Hexview":
+        return new HexGraph(div, kind);
+      default:
+        return new FlowGraph(div, name, kind);
+    }
   }
 
   // Reload the graph of an old kind to a new kind.
@@ -85,7 +90,7 @@ class WindowManager {
   }
 
   createWindow(name, kind, pinned) {
-    if (this.windows[name] !== undefined && !pinned) {
+    if (this.windows[name] !== undefined && this.windows[name].pinned) {
       this.activate(name);
     } else {
       const myself = this;

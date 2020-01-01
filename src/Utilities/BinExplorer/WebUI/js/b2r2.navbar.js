@@ -43,11 +43,11 @@ class NavBar {
 
   registerCopyCFGEvent() {
     const myself = this;
-    $("#js-open-copy-cfg").click(function () {
+    $("#js-open-copy-json").click(function () {
       const currentWin = myself.winManager.currentWin;
       const json = myself.winManager.windows[currentWin].graph.json;
-      $("#js-copy-cfg").text(JSON.stringify(json, null, " "));
-      $("#js-modal-copy-cfg").modal("show");
+      $("#js-copy-json").text(JSON.stringify(json, null, " "));
+      $("#js-modal-copy-json").modal("show");
       return false;
     });
   }
@@ -56,8 +56,15 @@ class NavBar {
     const funcName = this.winManager.currentWin;
     const winManager = this.winManager;
     if (funcName !== null && funcName.length > 0) {
-      this.setCFGKind(kind);
-      winManager.reloadGraph(funcName, kind);
+      switch (winManager.windows[funcName].graph.kind) {
+        case "Disasm":
+        case "LowUIR":
+        case "SSA":
+          this.setCFGKind(kind);
+          winManager.reloadGraph(funcName, kind);
+          break;
+        default: break;
+      }
     }
   }
 

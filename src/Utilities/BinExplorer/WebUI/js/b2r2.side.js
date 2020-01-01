@@ -29,7 +29,10 @@
 class SideMenu {
   static registerEvents(winManager) {
     d3.select("#js-sidemenu__cg").on("click", function () {
-      winManager.createWindow("(call graph)", "CG", true);
+      winManager.createWindow("[-] call graph", "CG", true);
+    });
+    d3.select("#js-sidemenu__hexview").on("click", function () {
+      winManager.createWindow("[-] hexview", "Hexview", true);
     });
   }
 }
@@ -50,7 +53,8 @@ class FunctionList {
   }
 
   unpinEntry(name) {
-    this.funcs[name].select("i").classed("pinned", false);
+    if (name in this.funcs)
+      this.funcs[name].select("i").classed("pinned", false);
   }
 
   addEntry(name, fnClk, fnDblClk) {

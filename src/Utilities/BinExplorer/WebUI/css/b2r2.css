@@ -45,6 +45,12 @@
   --minimap-node-stroke: white;
   --minimap-edge-stroke: white;
   --minimap-viewbox-stroke: white;
+  --hexview-segment-title-text: #f8f8f8;
+  --hexview-segment-title-background: #282a36;
+  --hexview-dump-text: #f8f8f8;
+  --hexview-dump-background: #101010;
+  --hexview-ascii-vbar: white;
+  --hexview-highlight: #008000;
   --footer-background: #020202;
   --footer-text: white;
 }

@@ -31,6 +31,7 @@ open System.Net
 open System.Runtime.Serialization
 open System.Runtime.Serialization.Json
 open B2R2
+open B2R2.FrontEnd
 open B2R2.BinGraph
 open B2R2.Visualization
 
@@ -41,18 +42,26 @@ type CFGType =
   | CallCFG
 
 [<DataContract>]
-  type JsonDefs = {
-    [<field: DataMember(Name = "name")>]
-    Name: string
-    [<field: DataMember(Name = "addr")>]
-    Addr: string
-    [<field: DataMember(Name = "idx")>]
-    Idx: string
-    [<field: DataMember(Name = "comment")>]
-    Comment: string
-    [<field: DataMember(Name = "command")>]
-    Command: string
-  }
+type JsonDefs = {
+  [<field: DataMember(Name = "name")>]
+  Name: string
+  [<field: DataMember(Name = "addr")>]
+  Addr: string
+  [<field: DataMember(Name = "idx")>]
+  Idx: string
+  [<field: DataMember(Name = "comment")>]
+  Comment: string
+  [<field: DataMember(Name = "command")>]
+  Command: string
+}
+
+[<DataContract>]
+type JsonSegInfo = {
+  [<field: DataMember(Name = "addr")>]
+  SegAddr: Addr
+  [<field: DataMember(Name = "bytes")>]
+  SegBytes: byte []
+}
 
 let rootDir =
   let asm = Reflection.Assembly.GetExecutingAssembly ()
@@ -169,30 +178,16 @@ let handleFunctions req resp arbiter =
   Some (json<string []> names |> defaultEnc.GetBytes)
   |> answer req resp
 
-// let handleAddress req resp arbiter (args: string) =
-//   let jsonData = (jsonParser<JsonDefs> args)
-//   let entry: Addr =  Convert.ToUInt64(jsonData.addr, 16) |> uint64
-//   let ess = Protocol.getBinEssence arbiter
-//   let addrs =
-//     Array.ofSeq ess.Functions.Values
-//     |> Array.map (fun (func: Function) -> func.Entry|> uint64)
-//     |> Array.sort
-//   let searchedAddr = Array.fold (fun acc x -> if entry >= x then x else acc) 0UL addrs
-//   match BinEssence.TryFindFuncByEntry searchedAddr ess with
-//   | None -> Some (json<string> "" |> defaultEnc.GetBytes) |> answer req resp
-//   | Some func ->
-//     let hdl = ess.BinHandler
-//     let cfg = Visualizer.visualizeDisasmCFG hdl func.DisasmCFG
-//     let namedcfg = cfg.[..cfg.Length-2] + ",\"Name\": \""+ func.Name + "\"}"
-//     Some (defaultEnc.GetBytes namedcfg) |> answer req resp
-
-let handleStr cmds arbiter (line: string) =
-  match line.Split (' ') |> Array.toList with
-  | cmd :: args ->
-    let ess = Protocol.getBinEssence arbiter
-    Cmd.handle cmds ess cmd args
-      |> Array.fold (fun acc x -> acc + x.ToString()+"\n") ""
-  | [] -> ""
+let handleHexview req resp arbiter =
+  let ess = Protocol.getBinEssence arbiter
+  ess.BinHandler.FileInfo.GetSegments ()
+  |> Seq.map (fun seg ->
+    let bs = BinHandler.ReadBytes (ess.BinHandler, seg.Address, int (seg.Size))
+    { SegAddr = seg.Address; SegBytes = bs })
+  |> json<seq<JsonSegInfo>>
+  |> defaultEnc.GetBytes
+  |> Some
+  |> answer req resp
 
 let jsonPrinter _ acc line = acc + line + "\n"
 
@@ -211,7 +206,7 @@ let handleAJAX req resp arbiter query args =
   | "SSA" -> handleCFG req resp arbiter SSACFG args
   | "CG" -> handleCFG req resp arbiter CallCFG args
   | "Functions" -> handleFunctions req resp arbiter
-  | "Address" -> answer req resp None // handleAddress req resp arbiter args
+  | "Hexview" -> handleHexview req resp arbiter
   | "Command" -> handleCommand req resp arbiter args
   | _ -> answer req resp None
 
