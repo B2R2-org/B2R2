@@ -7,6 +7,10 @@ html, body {
   overflow: hidden;
 }
 
+tt {
+  font-family: 'Inconsolata', monospace;
+}
+
 @font-face {
   font-family: 'Inconsolata';
   src: url('../fonts/Inconsolata-Regular.ttf'),
