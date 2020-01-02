@@ -108,7 +108,8 @@ type MachFileInfo (bytes, path, isa) =
     | Some s -> Seq.singleton (machSectionToSection mach.SegmentMap s)
     | None -> Seq.empty
 
-  override __.GetSegments () = Segment.getAll mach
+  override __.GetSegments (isLoadable) =
+    Segment.getSegments mach isLoadable
 
   override __.GetLinkageTableEntries () =
     mach.SymInfo.LinkageTable

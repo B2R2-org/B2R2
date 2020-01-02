@@ -118,8 +118,8 @@ type ELFFileInfo (bytes, path) =
     | Some s -> Seq.singleton (elfSectionToSection s)
     | None -> Seq.empty
 
-  override __.GetSegments () =
-    elf.LoadableSegments
+  override __.GetSegments (isLoadable) =
+    if isLoadable then elf.LoadableSegments else elf.ProgHeaders
     |> List.map ProgHeader.toSegment
     |> List.toSeq
 

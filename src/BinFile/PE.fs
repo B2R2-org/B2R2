@@ -134,7 +134,7 @@ type PEFileInfo (bytes, path, ?rawpdb) =
     | None -> Seq.empty
     | Some sec -> secHdrToSection pe sec |> Seq.singleton
 
-  override __.GetSegments () =
+  override __.GetSegments (_isLoadable) =
     let getSecPermission (chr: SectionCharacteristics) =
       let x = if chr.HasFlag SectionCharacteristics.MemExecute then 1 else 0
       let w = if chr.HasFlag SectionCharacteristics.MemWrite then 2 else 0

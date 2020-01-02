@@ -45,8 +45,11 @@ let segCmdToSegment seg =
     Size = seg.VMSize
     Permission = seg.MaxProt |> LanguagePrimitives.EnumOfValue }
 
-let getAll mach =
+let getSegments mach isLoadable =
   mach.Segments
+  |> fun segs ->
+    if isLoadable then segs |> List.filter (fun s -> s.FileSize > 0UL)
+    else segs
   |> List.map segCmdToSegment
   |> List.toSeq
 
