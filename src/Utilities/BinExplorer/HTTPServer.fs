@@ -42,20 +42,6 @@ type CFGType =
   | CallCFG
 
 [<DataContract>]
-type JsonDefs = {
-  [<field: DataMember(Name = "name")>]
-  Name: string
-  [<field: DataMember(Name = "addr")>]
-  Addr: string
-  [<field: DataMember(Name = "idx")>]
-  Idx: string
-  [<field: DataMember(Name = "comment")>]
-  Comment: string
-  [<field: DataMember(Name = "command")>]
-  Command: string
-}
-
-[<DataContract>]
 type JsonSegInfo = {
   [<field: DataMember(Name = "addr")>]
   SegAddr: Addr
@@ -191,14 +177,11 @@ let handleHexview req resp arbiter =
 
 let jsonPrinter _ acc line = acc + line + "\n"
 
-let handleCommand req resp arbiter (args: string) =
-  let jsonData = (jsonParser<JsonDefs> args)
-  let cmd = jsonData.Command
-  let cmds = CmdSpec.speclist |> CmdMap.build
-  let result = CLI.handle cmds arbiter cmd "" jsonPrinter
+let handleCommand req resp arbiter cmdMap (args: string) =
+  let result = CLI.handle cmdMap arbiter args "" jsonPrinter
   Some (json<string> result  |> defaultEnc.GetBytes) |> answer req resp
 
-let handleAJAX req resp arbiter query args =
+let handleAJAX req resp arbiter cmdMap query args =
   match query with
   | "BinInfo" -> handleBinInfo req resp arbiter
   | "Disasm" -> handleCFG req resp arbiter DisasmCFG args
@@ -207,13 +190,13 @@ let handleAJAX req resp arbiter query args =
   | "CG" -> handleCFG req resp arbiter CallCFG args
   | "Functions" -> handleFunctions req resp arbiter
   | "Hexview" -> handleHexview req resp arbiter
-  | "Command" -> handleCommand req resp arbiter args
+  | "Command" -> handleCommand req resp arbiter cmdMap args
   | _ -> answer req resp None
 
-let handle (req: HttpListenerRequest) (resp: HttpListenerResponse) arbiter =
+let handle (req: HttpListenerRequest) (resp: HttpListenerResponse) arbiter m =
   match req.Url.LocalPath.Remove (0, 1) with (* Remove the first '/' *)
   | "ajax/" ->
-    handleAJAX req resp arbiter req.QueryString.["q"] req.QueryString.["args"]
+    handleAJAX req resp arbiter m req.QueryString.["q"] req.QueryString.["args"]
   | "" ->
     IO.Path.Combine (rootDir, "index.html") |> readIfExists |> answer req resp
   | path ->
@@ -221,8 +204,9 @@ let handle (req: HttpListenerRequest) (resp: HttpListenerResponse) arbiter =
 
 let startServer arbiter ip port verbose =
   let host = "http://" + ip + ":" + port.ToString () + "/"
+  let cmdMap = CmdSpec.speclist |> CmdMap.build
   let handler (req: HttpListenerRequest) (resp: HttpListenerResponse) =
-    try handle req resp arbiter
+    try handle req resp arbiter cmdMap
     with e -> if verbose then eprintfn "%A" e else ()
   listener host handler
 

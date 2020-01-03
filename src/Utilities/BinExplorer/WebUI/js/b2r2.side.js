@@ -34,6 +34,11 @@ class SideMenu {
     d3.select("#js-sidemenu__hexview").on("click", function () {
       winManager.createWindow("[-] hexview", "Hexview", true);
     });
+    let termCnt = 0;
+    d3.select("#js-sidemenu__term").on("click", function () {
+      winManager.createWindow("[-] Terminal " + termCnt, "Term", true);
+      termCnt += 1;
+    });
   }
 }
 

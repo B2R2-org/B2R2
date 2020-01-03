@@ -280,3 +280,52 @@
   background: var(--hexview-highlight);
 }
 
+.l-graph__terminal {
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.c-graph__termcontent {
+  font-family: 'Inconsolata', monospace;
+  color: var(--terminal-text);
+  background: var(--terminal-background);
+  padding: 5px 5px 0px 5px;
+  flex: 0 0 calc(100% - 30px);
+  overflow-y: auto;
+  white-space: pre;
+}
+
+.c-graph__termresult {
+  display: block;
+}
+
+.l-graph__termprompt {
+  font-family: 'Inconsolata', monospace;
+  color: var(--terminal-text);
+  background: var(--terminal-background);
+  padding: 0px 5px 5px 5px;
+  flex: 0 0 30px;
+  height: 30px;
+  display: flex;
+}
+
+.c-graph__termprompt {
+  margin-left: 10px;
+  width: 100%;
+  height: 100%;
+  padding: 0px;
+  background: none;
+  border: none;
+  outline: none;
+  resize: none;
+  overflow-x: scroll;
+  overflow-y: hidden;
+  white-space: nowrap;
+}
+
+.c-graph__termprompt::-webkit-scrollbar {
+  display: none;
+}
+

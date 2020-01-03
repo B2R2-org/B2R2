@@ -77,6 +77,8 @@ class WindowManager {
     switch (kind) {
       case "Hexview":
         return new HexGraph(div, kind);
+      case "Term":
+        return new TermGraph(div, kind);
       default:
         return new FlowGraph(div, name, kind);
     }
