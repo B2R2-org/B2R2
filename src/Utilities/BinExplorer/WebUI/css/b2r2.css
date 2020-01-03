@@ -51,6 +51,7 @@
   --hexview-dump-background: #101010;
   --hexview-ascii-vbar: white;
   --hexview-highlight: #008000;
+  --hexview-addr: #99a0a0;
   --footer-background: #020202;
   --footer-text: white;
 }

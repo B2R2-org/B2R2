@@ -209,7 +209,7 @@
 }
 
 .l-graph__segment {
-  overflow-y: auto;
+  overflow-y: scroll;
   height: calc(100% - 50px);
 }
 
@@ -233,30 +233,50 @@
   flex-direction: row;
 }
 
-.c-graph__hexdump {
-  flex: 0 0 65%;
+.c-graph__hexaddr {
+  flex: 0 0 160px;
   padding-right: 10px;
+  color: var(--hexview-addr);
+}
+
+.l-graph__hexdata {
+  flex: 0 0 calc(100% - 160px);
+  display: flex;
+  flex-direction: row;
+}
+
+.c-graph__hexdump {
+  flex: 0 0 70%;
+  padding-right: 10px;
+  white-space: pre-line;
+}
+
+.c-graph__hexdump mark {
+  padding: 0px;
+  color: var(--hexview-dump-text);
+  background: var(--hexview-highlight);
+}
+
+.c-graph__hexdump::selection {
+  background: var(--hexview-highlight);
 }
 
 .c-graph__hexascii {
-  flex: 0 0 35%;
+  flex: 0 0 30%;
   border-left: 2px solid var(--hexview-ascii-vbar);
   padding-left: 10px;
+  word-wrap: break-word;
+  width: 35%;
+  white-space: pre-line;
 }
 
-.c-graph__hexvalue {
-  background-color: none;
+.c-graph__hexascii mark {
+  padding: 0px;
+  color: var(--hexview-dump-text);
+  background: var(--hexview-highlight);
 }
 
-.c-graph__hexvalue.active {
-  background-color: var(--hexview-highlight);
-}
-
-.c-graph__asciivalue {
-  background-color: none;
-}
-
-.c-graph__asciivalue.active {
-  background-color: var(--hexview-highlight);
+.c-graph__hexascii::selection {
+  background: var(--hexview-highlight);
 }
 

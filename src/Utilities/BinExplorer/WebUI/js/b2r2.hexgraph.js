@@ -32,11 +32,7 @@ class HexGraph extends Graph {
     this.fetchAndDraw(kind);
   }
 
-  drawSegSelector(segarr) {
-    const div = this.container.append("div")
-      .classed("c-graph__segselector", true);
-    const btndiv = div.append("div")
-      .classed("dropdown", true);
+  drawSegSelectorBtn(btndiv) {
     const btn = btndiv.append("button")
       .classed("btn", true)
       .classed("btn-sm", true)
@@ -48,6 +44,14 @@ class HexGraph extends Graph {
       .attr("aria-expanded", false)
       .text("Select segment ");
     btn.append("span").classed("caret", true);
+  }
+
+  drawSegSelector(segarr) {
+    const div = this.container.append("div")
+      .classed("c-graph__segselector", true);
+    const btndiv = div.append("div")
+      .classed("dropdown", true);
+    this.drawSegSelectorBtn(btndiv);
     const menu = btndiv.append("ul")
       .classed("dropdown-menu", true)
       .attr("role", "menu")
@@ -68,62 +72,92 @@ class HexGraph extends Graph {
     }
   }
 
-  activateCell(dumpview, asciiview, addr) {
-    return function () {
-      dumpview.selectAll("span").each(function () {
-        const elm = d3.select(this);
-        elm.classed("active", elm.attr("data-value") == addr);
-      });
-      asciiview.selectAll("span").each(function () {
-        const elm = d3.select(this);
-        elm.classed("active", elm.attr("data-value") == addr);
-      });
-    };
-  }
-
-  fillDumpView(dumpview, asciiview, seg) {
-    const addr = seg.addr;
+  countCharPerLine(dumpview, seg) {
+    const view = dumpview.node();
+    let cnt = null;
+    let height = null;
     for (let i = 0; i < seg.bytes.length; i++) {
       const b = seg.bytes[i];
-      dumpview.append("span")
-        .classed("c-graph__hexvalue", true)
-        .attr("title", intToHex(addr + i))
-        .attr("data-value", addr + i)
-        .text(intToHex(b))
-        .on("click", this.activateCell(dumpview, asciiview, addr + i));
-      dumpview.append("i").text(" ");
-    }
-  }
-
-  countNumBytesPerLine(dumpview) {
-    let top = null;
-    let cnt = 0;
-    $(dumpview.node()).find("span").each(function () {
-      if (top === null) {
-        top = this.getBoundingClientRect().top;
-      } else if (top != this.getBoundingClientRect().top) {
-        return false;
+      view.innerHTML += intToHex(b) + " ";
+      if (i == 0) height = dumpview.style("height");
+      if (cnt === null && height != dumpview.style("height")) {
+        cnt = i;
+        break;
       }
-      cnt += 1;
-      return true;
-    });
+    }
     return cnt;
   }
 
-  fillASCIIView(dumpview, asciiview, seg) {
-    const numBytes = this.countNumBytesPerLine(dumpview);
-    const wrap = asciiview.append("div");
-    const addr = seg.addr;
+  fillAddrView(addrview, addr, size, numCharsPerLine) {
+    let s = "";
+    for (let a = addr; a < addr + size; a += numCharsPerLine)
+      s += intToHex(a) + "<br/>";
+    addrview.html(s);
+  }
+
+  fillDumpView(dumpview, seg) {
+    let s = "";
     for (let i = 0; i < seg.bytes.length; i++) {
       const b = seg.bytes[i];
-      wrap.append("span")
-        .classed("c-graph__asciivalue", true)
-        .attr("title", intToHex(addr + i))
-        .attr("data-value", addr + i)
-        .text(intToPrintableChar(b))
-        .on("click", this.activateCell(dumpview, asciiview, addr + i));
-      if ((i + 1) % numBytes == 0) wrap.append("br");
+      s += intToHex(b) + " ";
     }
+    dumpview.text(s);
+  }
+
+  fillASCIIView(asciiview, seg, numCharsPerLine) {
+    let s = "";
+    for (let i = 0; i < seg.bytes.length; i++) {
+      const b = seg.bytes[i];
+      s += intToPrintableChar(b);
+      if ((i + 1) % numCharsPerLine == 0) s += "\n";
+    }
+    asciiview.html(s);
+  }
+
+  static getEndOffset(range) {
+    return range.endOffset == range.startOffset
+      ? range.endOffset + 1
+      : range.endOffset;
+  }
+
+  static getCurrentSelection() {
+    const s = window.getSelection();
+    return s.getRangeAt(0);
+  }
+
+  registerDumpViewEvent(dumpview, asciiview, numCharsPerLine) {
+    dumpview.on("click", function () {
+      $(dumpview.node()).unmark();
+      const range = HexGraph.getCurrentSelection();
+      const s = 3 * Math.floor(range.startOffset / 3);
+      const e = 3 * Math.floor((HexGraph.getEndOffset(range) + 5) / 3) - 4;
+      $(dumpview.node()).markRanges([{ start: s, length: e - s }]);
+      const sdiv3 = Math.floor(s / 3);
+      const ss = sdiv3 + Math.floor(sdiv3 / numCharsPerLine);
+      const ediv3 = Math.floor((e + 1) / 3);
+      const se = ediv3 + Math.floor(ediv3 / numCharsPerLine);
+      $(asciiview.node()).unmark();
+      $(asciiview.node()).markRanges([ { start: ss, length: se - ss } ]);
+    });
+  }
+
+  registerASCIIViewEvent(dumpview, asciiview, numCharsPerLine) {
+    asciiview.on("click", function () {
+      $(asciiview.node()).unmark();
+      const range = HexGraph.getCurrentSelection();
+      const s = range.startOffset;
+      const e = HexGraph.getEndOffset(range);
+      $(asciiview.node()).markRanges([ { start: s, length: e - s } ]);
+      const ds = (s - Math.floor(s / (numCharsPerLine + 1))) * 3;
+      const de = (e - Math.floor(e / (numCharsPerLine + 1))) * 3 - 1;
+      $(dumpview.node()).unmark();
+      $(dumpview.node()).markRanges([ { start: ds, length: de - ds } ]);
+    });
+  }
+
+  registerEvents(dumpview, asciiview, numCharsPerLine) {
+    this.registerDumpViewEvent(dumpview, asciiview, numCharsPerLine);
+    this.registerASCIIViewEvent(dumpview, asciiview, numCharsPerLine);
   }
 
   drawSegHexdump(div, seg) {
@@ -133,16 +167,17 @@ class HexGraph extends Graph {
     title.append("a").attr("name", intToHex(addr));
     title.append("li").text(intToHex(addr) + " (" + size + " bytes)");
     const body = div.append("div").classed("l-graph__hexdump", true);
-    const dumpview =
-      body.append("div")
-        .classed("unselectable", true)
-        .classed("c-graph__hexdump", true);
-    const asciiview =
-      body.append("div")
-        .classed("unselectable", true)
-        .classed("c-graph__hexascii", true);
-    this.fillDumpView(dumpview, asciiview, seg);
-    this.fillASCIIView(dumpview, asciiview, seg);
+    const addrview = body.append("div")
+      .classed("unselectable", true)
+      .classed("c-graph__hexaddr", true);
+    const dataview = body.append("div").classed("l-graph__hexdata", true);
+    const dumpview = dataview.append("div").classed("c-graph__hexdump", true);
+    const asciiview = dataview.append("div").classed("c-graph__hexascii", true);
+    const numCharsPerLine = this.countCharPerLine(dumpview, seg);
+    this.fillAddrView(addrview, addr, size, numCharsPerLine);
+    this.fillDumpView(dumpview, seg);
+    this.fillASCIIView(asciiview, seg, numCharsPerLine);
+    this.registerEvents(dumpview, asciiview, numCharsPerLine);
   }
 
   draw(segarr) {

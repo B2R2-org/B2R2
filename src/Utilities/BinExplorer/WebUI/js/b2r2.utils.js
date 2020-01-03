@@ -86,8 +86,16 @@ function intToHex(d) {
   else return s;
 }
 
+function escapeChar(ch) {
+  if (ch == "&") return "&amp;";
+  else if (ch == "<") return "&lt;";
+  else if (ch == ">") return "&gt;";
+  else if (ch == "\"") return "&quot;";
+  else return ch;
+}
+
 function intToPrintableChar(d) {
-  if (d >= 32 && d < 127) return String.fromCharCode(d);
+  if (d >= 32 && d < 127) return escapeChar(String.fromCharCode(d));
   else return ".";
 }
 
