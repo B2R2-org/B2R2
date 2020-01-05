@@ -84,15 +84,28 @@ _|_|_|    _|_|_|_|  _|    _|  _|_|_|_|");
   }
 
   draw() {
+    const myself = this;
     const div = this.container.append("div").classed("l-graph__terminal", true);
-    this.termcontent = div.append("div").classed("c-graph__termcontent", true);
+    this.termcontent = div.append("div")
+      .classed("c-graph__termcontent", true)
+      .attr("tabindex", -1);
     const promptwrap = div.append("div").classed("l-graph__termprompt", true);
     promptwrap.append("span").text(this.promptstring);
-    this.prompt = promptwrap.append("textarea")
+    const prompt = promptwrap.append("textarea")
       .classed("c-graph__termprompt", true)
       .attr("autofocus", true)
       .attr("spellcheck", false)
       .on("keydown", TermGraph.onKeyDown(this));
+    this.prompt = prompt;
+    this.termcontent.on("keydown", function () { myself.focusPrompt(); });
     this.showIntro();
+  }
+
+  focusPrompt() {
+    this.prompt.node().focus();
+  }
+
+  onActivate() {
+    this.focusPrompt();
   }
 }

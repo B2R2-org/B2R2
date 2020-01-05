@@ -57,6 +57,7 @@ class WindowManager {
     this.currentWin = name;
     this.funcList.focusEntry(name);
     this.navbar.setCFGKind(item.graph.kind);
+    item.graph.onActivate();
   }
 
   createTab(name, pinned) {

@@ -33,5 +33,7 @@ class Graph {
     // The type of the graph.
     this.kind = kind;
   }
+
+  onActivate() { } // Do nothing by default.
 }
 

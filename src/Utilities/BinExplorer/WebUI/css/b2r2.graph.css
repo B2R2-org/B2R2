@@ -297,6 +297,10 @@
   white-space: pre;
 }
 
+.c-graph__termcontent:focus {
+  outline: none;
+}
+
 .c-graph__termresult {
   display: block;
 }
