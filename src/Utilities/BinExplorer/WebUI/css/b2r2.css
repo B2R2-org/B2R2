@@ -52,8 +52,9 @@
   --hexview-ascii-vbar: white;
   --hexview-highlight: #008000;
   --hexview-addr: #99a0a0;
-  --terminal-text: #20a020;
+  --terminal-text: #02f002;
   --terminal-background: #101010;
+  --search-dialog-hover-background: #49b060;
   --footer-background: #020202;
   --footer-text: white;
 }

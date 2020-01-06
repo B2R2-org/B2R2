@@ -29,17 +29,14 @@
 // Set the ratio between the CFG VP and the minimap VP.
 const minimapRatio = 0.4;
 
-// Set the padding size for each CFG node.
-const padding = 4;
-
 // The padding between node lines.
 const stmtPaddingTop = 3;
-
-// The duration time for zooming when both nodes and edges are double clicked.
-const focusMovementDuration = 750;
-
-const minimapMarginRight = 20;
 
 // How much time (in millisec.) do we want to wait for the second click of a
 // double-click event.
 const dblClickWaitTime = 300;
+
+// How much time do we wait for the next input prior to running an incremental
+// search.
+const incSearchInterval = 500;
+

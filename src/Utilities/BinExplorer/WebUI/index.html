@@ -134,8 +134,11 @@
     </div>
   </div>
 
-  <div id="js-search-dialog" title="Search Dialog">
-    <input type="search" class="form-control" placeholder="Search ..."/>
+  <div class="input-group" id="js-search-dialog"
+       title="Search Dialog" style="display: contents;">
+    <span class="input-group-addon" style="display: none;"></span>
+    <input class="form-control" type="search" placeholder="Search ..."/>
+    <div class="l-search-dialog-results"></div>
   </div>
 
   <div class="l-footer"></div>
@@ -159,6 +162,7 @@
   <script src="js/b2r2.side.js"></script>
   <script src="js/b2r2.window.js"></script>
   <script src="js/b2r2.header.js"></script>
+  <script src="js/b2r2.search.js"></script>
   <script src="js/b2r2.keyhandler.js"></script>
   <script src="js/b2r2.js"></script>
 

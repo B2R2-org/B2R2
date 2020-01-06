@@ -13,6 +13,22 @@
   display: none;
 }
 
+.l-search-dialog-results {
+  display: none;
+  padding: 5px;
+  width: 100%;
+  overflow-y: auto;
+}
+
+.c-search-dialog__item {
+  padding: 5px;
+  cursor: pointer;
+}
+
+.c-search-dialog__item:hover {
+  background-color: var(--search-dialog-hover-background);
+}
+
 .ui-widget-overlay {
   background-color: black;
   opacity: 0.2;

@@ -46,7 +46,8 @@ class NavBar {
     $("#js-open-copy-json").click(function () {
       const currentWin = myself.winManager.currentWin;
       const json = myself.winManager.windows[currentWin].graph.json;
-      $("#js-copy-json").text(JSON.stringify(json, null, " "));
+      if (json === undefined) $("#js-copy-json").text("");
+      else $("#js-copy-json").text(JSON.stringify(json, null, " "));
       $("#js-modal-copy-json").modal("show");
       return false;
     });

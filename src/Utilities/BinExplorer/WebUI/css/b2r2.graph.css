@@ -32,6 +32,11 @@
   font-family: 'Inconsolata', monospace;
 }
 
+.c-graph__stmt.active {
+  font-weight: bold;
+  font-style: italic;
+}
+
 .c-graph__stmt--address {
   fill: var(--graph-stmt-address);
 }

@@ -42,6 +42,8 @@ class FlowGraph extends Graph {
     this.cfg = this.stage.append("g");
     // The minimap for this graph.
     this.minimap = new Minimap(div, this);
+    // The mapping from address to stmt in the graph.
+    this.linemap = {};
     // The predefined arrows and filters.
     this.predefs = this.cfg.append("defs");
     this.initializePredefs(name);
@@ -107,7 +109,7 @@ class FlowGraph extends Graph {
   appendTerm(idx, txt, tag, term) {
     const cls = "c-graph__stmt--" + tag;
     const tspan = txt.append("tspan").text(term).classed(cls, true);
-    if (idx == 0) tspan.attr("x", padding / 2).attr("dy", "14px");
+    if (idx == 0) tspan.attr("x", 2).attr("dy", "14px");
     else tspan.attr("dx", "0px");
   }
 
@@ -119,6 +121,7 @@ class FlowGraph extends Graph {
       const txt = gstmt.append("text")
         .classed("c-graph__stmt", true)
         .attr("xml:space", "preserve");
+      this.linemap[parseInt(line[0], 16)] = txt;
       for (let j = 0; j < line.length; j++) {
         const term = line[j][0];
         const tag = line[j][1];
@@ -172,9 +175,9 @@ class FlowGraph extends Graph {
     }
   }
 
-  computeReductionRate(vpDims, graphDims) {
-    const widthReduction = vpDims.cfgVPDim.width / graphDims.width;
-    const heightReduction = vpDims.cfgVPDim.height / graphDims.height;
+  computeReductionRate(graphDims) {
+    const widthReduction = this.vpDims.cfgVPDim.width / graphDims.width;
+    const heightReduction = this.vpDims.cfgVPDim.height / graphDims.height;
     let reductionRate = Math.min(widthReduction, heightReduction);
     // If the entire CFG is smaller than the cfgVP, then simply use the rate 1.
     // In other words, the maximum reductionRate is one.
@@ -182,10 +185,10 @@ class FlowGraph extends Graph {
     return reductionRate;
   }
 
-  centerAlign(reductionRate, vpDims) {
-    const xshiftAmount = vpDims.cfgVPDim.width / 2 / reductionRate;
+  centerAlign(reductionRate) {
+    const xshiftAmount = this.vpDims.cfgVPDim.width / 2 / reductionRate;
     this.cfg.attr("transform", "translate(" + xshiftAmount + ",0)");
-    this.minimap.centerAlign(vpDims.minimapVPDim, reductionRate);
+    this.minimap.centerAlign(this.vpDims.minimapVPDim, reductionRate);
   }
 
   static onZoom(g) {
@@ -204,19 +207,27 @@ class FlowGraph extends Graph {
     };
   }
 
-  registerPathDblClickEvents(cfgDim) {
+  computeTranslate(xPos, yPos) {
+    const cfgDim = this.vpDims.cfgVPDim;
+    const s = this.transK / this.reductionRate;
+    const k = this.transK;
+    const x = - xPos * k - (s - 1) * cfgDim.width / 2;
+    const y = - yPos * k + cfgDim.height / 2;
+    return { x: x, y: y, k: k };
+  }
+
+  registerPathDblClickEvents() {
     const myself = this;
     this.cfg.selectAll(".c-graph__edge").on("dblclick", function (pts) {
-      const s = myself.transK / myself.reductionRate;
-      const k = myself.transK;
-      const x = - pts[pts.length - 1].X * k - (s - 1) * cfgDim.width / 2;
-      const y = - pts[pts.length - 1].Y * k + cfgDim.height / 2;
+      const lastpt = pts[pts.length - 1];
+      const r = myself.computeTranslate(lastpt.X, lastpt.Y);
+      const x = r.x, y = r.y, k = r.k;
       myself.svg.transition().duration(700)
         .call(myself.zoom.transform, d3.zoomIdentity.translate(x, y).scale(k));
     });
   }
 
-  registerEvents(reductionRate, vpDims) {
+  registerEvents(reductionRate) {
     const myself = this;
     this.transK = 1 / reductionRate;
     this.zoom = d3.zoom()
@@ -227,21 +238,22 @@ class FlowGraph extends Graph {
       .call(this.zoom)
       .call(this.zoom.transform, transform)
       .on("dblclick.zoom", null);
-    this.minimap.registerViewboxEvents(vpDims.minimapVPDim, this);
-    this.registerPathDblClickEvents(vpDims.cfgVPDim);
+    this.minimap.registerViewboxEvents(this.vpDims.minimapVPDim, this);
+    this.registerPathDblClickEvents();
+    $(document).on("click", function () { myself.deactivateLines(); });
   }
 
   draw(name, json) {
-    const vpDims = computeVPDimensions(this.container);
-    this.minimap.resize(vpDims.minimapVPDim);
-    this.minimap.registerViewbox(vpDims.minimapVPDim);
+    this.vpDims = computeVPDimensions(this.container);
+    this.minimap.resize(this.vpDims.minimapVPDim);
+    this.minimap.registerViewbox(this.vpDims.minimapVPDim);
     this.drawNodes(name, json);
     this.drawEdges(name, json);
     // Compute the actual bbox after drawing the graph.
     const graphDims = this.cfg.node().getBBox();
-    this.reductionRate = this.computeReductionRate(vpDims, graphDims);
-    this.centerAlign(this.reductionRate, vpDims);
-    this.registerEvents(this.reductionRate, vpDims);
+    this.reductionRate = this.computeReductionRate(graphDims);
+    this.centerAlign(this.reductionRate);
+    this.registerEvents(this.reductionRate);
     this.refreshIcon.classed("rotating", false);
   }
 
@@ -256,6 +268,62 @@ class FlowGraph extends Graph {
   moveToInitialPos() {
     this.svg.call(this.zoom.transform,
       d3.zoomIdentity.translate(0, 0).scale(this.reductionRate));
+  }
+
+  createResultValue(patternIdx, patternLen, str) {
+    const maxCnt = 8;
+    const startIdx = patternIdx < maxCnt ? 0 : patternIdx - maxCnt;
+    const myLastIdx = patternIdx + patternLen + maxCnt;
+    const endIdx = myLastIdx > str.length - 1 ? str.length - 1 : myLastIdx;
+    return (startIdx > 0 ? "... " : "")
+      + str.substr(startIdx, patternIdx - startIdx)
+      + "<strong>" + str.substr(patternIdx, patternLen) + "</strong>"
+      + str.substr(patternIdx + patternLen, maxCnt)
+      + (endIdx < myLastIdx ? "" : " ...");
+  }
+
+  deactivateLines() {
+    const myself = this;
+    Object.keys(this.linemap).forEach(function (k) {
+      myself.linemap[k].classed("active", false);
+    });
+  }
+
+  search(q) {
+    const myself = this;
+    let results = [];
+    for (let i = 0; i < this.json.Nodes.length; i++) {
+      const v = this.json.Nodes[i];
+      for (let j = 0; j < v.Terms.length; j++) {
+        const term = v.Terms[j];
+        let str = "";
+        for (let k = 0; k < term.length; k++) {
+          const elm = term[k];
+          str += elm[0];
+        }
+        const patternIdx = str.toLowerCase().indexOf(q);
+        if (patternIdx >= 0) {
+          const addr = parseInt(term[0], 16);
+          results.push({
+            addr: addr,
+            val: this.createResultValue(patternIdx, q.length, str),
+            onclick: function () {
+              const coord = v.Coordinate;
+              const r = myself.computeTranslate(coord.X + v.Width / 2, coord.Y);
+              const x = r.x, y = r.y, k = r.k;
+              myself.svg.transition().duration(500)
+                .call(myself.zoom.transform,
+                  d3.zoomIdentity.translate(x, y).scale(k));
+              myself.linemap[addr].classed("active", true);
+              d3.event.stopPropagation();
+              $("#js-search-dialog").dialog("close");
+            },
+            onhover: null
+          });
+        }
+      }
+    }
+    return results.sort(function (a, b) { return a.addr - b.addr; });
   }
 }
 

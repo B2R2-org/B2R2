@@ -48,6 +48,10 @@ class WindowManager {
     SideMenu.registerEvents(this);
   }
 
+  getCurrentHeight() {
+    return this.graphView.node().getBoundingClientRect().height;
+  }
+
   activate(name) {
     const item = this.windows[name];
     this.tabView.selectAll("li").classed("active", false);
@@ -131,7 +135,7 @@ class WindowManager {
       if (this.currentWin == name) {
         const tab = this.tabView.selectAll("li").filter(":last-child");
         if (tab.empty()) this.onEmptyTab();
-        else this.activate(tab.select("a").text());
+        else { try { this.activate(tab.select("a").text()); } catch (_) { } }
       }
     }
   }

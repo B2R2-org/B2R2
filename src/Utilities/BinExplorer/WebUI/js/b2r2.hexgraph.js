@@ -197,5 +197,9 @@ class HexGraph extends Graph {
       myself.draw(json);
     });
   }
+
+  search(q) {
+    return []; // FIXME
+  }
 }
 

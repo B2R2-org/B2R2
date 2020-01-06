@@ -27,8 +27,10 @@
 "use strict";
 
 class KeyHandler {
-  static space(winManager, e) {
+  static space(e, dlg) {
     e.preventDefault();
+    dlg.clearResults();
+    $("#js-search-dialog .form-control").val("");
     if ($("#js-search-dialog").dialog("isOpen")) {
       $("#js-search-dialog").dialog("close");
     } else {
@@ -37,29 +39,17 @@ class KeyHandler {
     return false;
   }
 
-  static prepareDialogs() {
-    $("#js-search-dialog").dialog({
-      autoOpen: false,
-      modal: true,
-      height: 60,
-      dialogClass: "c-search-dialog",
-      open: function () {
-        $(".ui-widget-overlay").bind("click", function () {
-          $("#js-search-dialog").dialog("close");
-        });
-      },
-      show: { effect: "blind", duration: 300 },
-      hide: { effect: "blind", duration: 300 }
-    });
+  static prepareDialogs(winManager) {
+    return new SearchDialog(winManager);
   }
 
   static prepare(winManager) {
-    KeyHandler.prepareDialogs();
+    const dlg = KeyHandler.prepareDialogs(winManager);
     $(document).keypress(function (e) {
       const tag = e.target.tagName.toLowerCase();
       if (tag == "input" || tag == "textarea") return true;
       switch (e.which) {
-        case 32: return KeyHandler.space(winManager, e);
+        case 32: return KeyHandler.space(e, dlg);
         default: return true;
       }
     })
