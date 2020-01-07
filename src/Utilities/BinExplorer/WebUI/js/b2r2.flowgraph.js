@@ -130,6 +130,23 @@ class FlowGraph extends Graph {
     }
   }
 
+  addContextMenu(g) {
+    $(g.node()).contextMenu({
+      selector: "g",
+      callback: function (k, _opts) {
+        switch (k) {
+          case "copy-stmt":
+            copyToClipboard($(this).text());
+            break;
+          default: break;
+        }
+      },
+      items: {
+        "copy-stmt": { name: "Copy stmt", icon: "copy" }
+      }
+    });
+  }
+
   drawNode(name, v) {
     this.minimap.drawNode(v);
     const x = v.Coordinate.X;
@@ -141,6 +158,7 @@ class FlowGraph extends Graph {
       .classed("c-graph__node", true)
       .attr("width", v.Width)
       .attr("height", v.Height);
+    this.addContextMenu(g);
     const rect = g.append("rect")
       .classed("c-graph__node--blur", true)
       .attr("width", v.Width)
