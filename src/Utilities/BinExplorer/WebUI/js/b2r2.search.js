@@ -73,15 +73,36 @@ class SearchDialog {
 
   onKeyUp(myself) {
     let timer = null;
+    let itemidx = -1;
+    let items = null;
+    const container = d3.select("#js-search-dialog .l-search-dialog-results");
     return function (e) {
       switch (e.keyCode) {
         case 16:
         case 17:
         case 18:
           break; // Ignore ctrl, alt, or shift keys.
-        case 13:
-          clearTimeout(timer);
-          myself.incSearch();
+        case 13: // enter key.
+          items = container.selectAll(".c-search-dialog__item")
+            .classed("active", false).nodes();
+          if (itemidx >= 0 && itemidx <= items.length - 1) {
+            $(items[itemidx]).trigger("click");
+          } else {
+            clearTimeout(timer);
+            myself.incSearch();
+          }
+          break;
+        case 38: // up arrow.
+          items = container.selectAll(".c-search-dialog__item")
+            .classed("active", false).nodes();
+          itemidx = Math.max(itemidx - 1, 0);
+          d3.select(items[itemidx]).classed("active", true);
+          break;
+        case 40: // down arrow.
+          items = container.selectAll(".c-search-dialog__item")
+            .classed("active", false).nodes();
+          itemidx = Math.min(itemidx + 1, items.length - 1);
+          d3.select(items[itemidx]).classed("active", true);
           break;
         default:
           clearTimeout(timer);

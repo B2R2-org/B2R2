@@ -25,6 +25,10 @@
   cursor: pointer;
 }
 
+.c-search-dialog__item.active {
+  background-color: var(--search-dialog-hover-background);
+}
+
 .c-search-dialog__item:hover {
   background-color: var(--search-dialog-hover-background);
 }
