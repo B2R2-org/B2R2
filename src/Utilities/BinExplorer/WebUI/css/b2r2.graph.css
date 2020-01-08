@@ -329,12 +329,8 @@
   border: none;
   outline: none;
   resize: none;
-  overflow-x: scroll;
+  overflow-x: hidden;
   overflow-y: hidden;
   white-space: nowrap;
-}
-
-.c-graph__termprompt::-webkit-scrollbar {
-  display: none;
 }
 
