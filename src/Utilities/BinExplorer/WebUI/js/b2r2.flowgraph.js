@@ -135,6 +135,9 @@ class FlowGraph extends Graph {
       selector: "g",
       callback: function (k, _opts) {
         switch (k) {
+          case "copy-addr":
+            copyToClipboard($(this).find(".c-graph__stmt--address").text());
+            break;
           case "copy-stmt":
             copyToClipboard($(this).text());
             break;
@@ -142,6 +145,7 @@ class FlowGraph extends Graph {
         }
       },
       items: {
+        "copy-addr": { name: "Copy address", icon: "edit" },
         "copy-stmt": { name: "Copy stmt", icon: "copy" }
       }
     });
