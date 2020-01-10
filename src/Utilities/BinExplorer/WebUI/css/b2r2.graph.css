@@ -156,6 +156,7 @@
 .c-minimap__viewbox {
   stroke: var(--minimap-viewbox-stroke);
   stroke-width: 3.5px;
+  vector-effect: non-scaling-stroke;
   fill: transparent;
   cursor: move;
 }
