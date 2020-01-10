@@ -99,7 +99,8 @@ class FunctionList {
     $("#js-function-filter").on("keyup", function () {
       const str = $(this).val().toLowerCase();
       $("#js-function-list li").each(function () {
-        const name = $(this).text();
+        const span = $(this).find("span");
+        const name = span.text();
         const idx = name.toLowerCase().indexOf(str);
         const found = idx > -1;
         $(this).toggle(found);
@@ -107,7 +108,7 @@ class FunctionList {
           const html = name.substr(0, idx)
             + "<strong>" + name.substr(idx, str.length) + "</strong>"
             + name.substr(idx + str.length);
-          $(this).html(html);
+          span.html(html);
         }
       });
     });
