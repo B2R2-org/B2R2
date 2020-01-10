@@ -147,6 +147,11 @@
   flex-direction: column;
 }
 
+.c-minimap__node {
+  fill: var(--minimap-node-fill);
+  stroke: var(--minimap-node-stroke);
+}
+
 .c-minimap__edge {
   stroke: var(--minimap-edge-stroke);
   stroke-width: 0.7px;

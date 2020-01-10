@@ -83,8 +83,6 @@ class Minimap {
     this.stage.append("rect")
       .classed("c-minimap__node", true)
       .attr("rx", "1").attr("ry", "1")
-      .attr("fill", "var(--minimap-node-fill)")
-      .attr("stroke", "var(--minimap-node-stroke)")
       .attr("width", v.Width * minimapRatio)
       .attr("height", v.Height * minimapRatio)
       .attr("transform", "translate(" + x + "," + y + ")");
