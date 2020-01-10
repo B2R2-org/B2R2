@@ -122,6 +122,23 @@
     </div>
     <div class="l-side-display" id="js-side-display">
       <div class="c-function-view">
+        <div class="l-function-sort form-inline">
+          Sort by:&nbsp;
+          <div class="radio">
+            <label for="func-sort-addr">
+              <input class="form-control" type="radio"
+                     name="func-sort" id="func-sort-addr" value="addr"
+                     checked="checked"/>Addr
+            </label>
+          </div>
+          &nbsp;
+          <div class="radio">
+            <label for="func-sort-name">
+              <input class="form-control" type="radio"
+                     name="func-sort" id="func-sort-name" value="name"/>Name
+            </label>
+          </div>
+        </div>
         <input class="c-function-view__filter" id="js-function-filter"
                placeholder="Function filter" />
         <div class="l-function-view__list">

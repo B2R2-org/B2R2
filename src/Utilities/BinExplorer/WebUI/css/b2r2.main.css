@@ -57,6 +57,12 @@
   position: relative;
 }
 
+.l-function-sort {
+  color: var(--sidemenu-item);
+  height: 35px;
+  padding-left: 10px;
+}
+
 /* The function view. */
 .c-function-view {
   padding-top: 10px;
@@ -85,7 +91,7 @@
 
 .l-function-view__list {
   display: block;
-  height: 100%;
+  height: calc(100% - 35px - 35px);
   padding-left: 0px;
   overflow-y: auto;
 }

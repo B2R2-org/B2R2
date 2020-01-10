@@ -47,6 +47,7 @@ class FunctionList {
     this.funcsView = funcsView;
     this.funcs = {};
     this.registerFilterEvent();
+    this.registerSortEvent();
   }
 
   focusEntry(name) {
@@ -66,6 +67,7 @@ class FunctionList {
   addEntry(id, name, fnClk, fnDblClk) {
     const entry = this.funcsView.append("li")
       .attr("title", name)
+      .attr("value", id)
       .classed("c-function-view__item", true)
       .on("click", FunctionList.onClick(id, name, fnClk, fnDblClk))
       .on("dblclick", function () { d3.event.preventDefault(); });
@@ -111,6 +113,34 @@ class FunctionList {
           span.html(html);
         }
       });
+    });
+  }
+
+  sortBy(fn) {
+    const ul = $(this.funcsView.node());
+    const items = $(this.funcsView.node()).find("li").get();
+    items.sort(fn);
+    $.each(items, function (_, li) {
+      ul.append(li);
+    });
+  }
+
+  registerSortEvent() {
+    const myself = this;
+    $("input[type=radio][name=func-sort]").change(function () {
+      switch (this.value) {
+        case "addr":
+          myself.sortBy(function (a, b) {
+            return $(a).attr("value").localeCompare($(b).attr("value"));
+          });
+          break;
+        case "name":
+          myself.sortBy(function (a, b) {
+            return $(a).text().localeCompare($(b).text());
+          });
+        default:
+          break;
+      }
     });
   }
 }
