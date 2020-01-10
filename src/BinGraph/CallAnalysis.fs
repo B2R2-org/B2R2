@@ -43,6 +43,7 @@ type CalleeKind =
 /// instruction, and (2) the address is maked as a function in the symbol table,
 /// and the function is referenced by a branch instruction (either call or jmp).
 type Callee = {
+  CalleeID: string
   CalleeName: string
   Addr: Addr option
   CalleeKind: CalleeKind
@@ -95,23 +96,27 @@ module CalleeMap =
       |> Map.add entry.TrampolineAddress entry.FuncName
       ) Map.empty
 
-  let private accumulateCallRelationship caller calleeName calleeAddr kind map =
-    match Map.tryFind calleeName map with
+  let private accumulateCallRelationship caller id name calleeAddr kind map =
+    match Map.tryFind id map with
     | None ->
       let info =
-        { CalleeName = calleeName
+        { CalleeID = id
+          CalleeName = name
           Addr = calleeAddr
           CalleeKind = kind
           Callers = [caller]
           IsNoReturn = false }
-      Map.add calleeName info map
+      Map.add id info map
     | Some info ->
-      Map.add calleeName { info with Callers = caller :: info.Callers } map
+      Map.add id { info with Callers = caller :: info.Callers } map
 
-  let private obtainFuncName (hdl: BinHandler) addr =
+  let private obtainFuncID (addr: Addr) = "func_" + addr.ToString("X")
+
+  let private obtainFuncIDAndName (hdl: BinHandler) addr =
+    let id = obtainFuncID addr
     match hdl.FileInfo.TryFindFunctionSymbolName addr |> Utils.tupleToOpt with
-    | None -> "func_" + addr.ToString("X")
-    | Some name -> name
+    | None -> id, id
+    | Some name -> id, name
 
   let checkDirectBranch hdl (ins: Instruction) (funcs: Set<Addr>) linkMap =
     match ins.DirectBranchTarget () |> Utils.tupleToOpt with
@@ -119,19 +124,19 @@ module CalleeMap =
       orElse {
         yield!
           if Set.contains target funcs |> not then None
-          else Some (obtainFuncName hdl target, InternalCallee)
+          else Some (obtainFuncIDAndName hdl target, InternalCallee)
         yield!
           Map.tryFind target linkMap
-          |> Option.map (fun n -> n, ExternalCallee)
-      } |> Option.map (fun (n, kind) -> n, Some target, kind)
+          |> Option.map (fun n -> (n, n), ExternalCallee)
+      } |> Option.map (fun ((id, n), kind) -> id, n, Some target, kind)
     | _ -> None
 
   let checkIndirectBranch (ins: Instruction) (hdl: BinHandler) =
     match ins.IndirectTrampolineAddr () |> Utils.tupleToOpt with
     | Some addr ->
-      hdl.FileInfo.TryFindFunctionSymbolName addr
+      hdl.FileInfo.TryFindFunctionSymbolName addr // FIXME: add version string
       |> Utils.tupleToOpt
-      |> Option.map (fun n -> n, None, ExternalCallee)
+      |> Option.map (fun n -> n, n, None, ExternalCallee)
     | _ -> None
 
   let computeBranchRelationship hdl addr ins funcs linkMap acc =
@@ -140,7 +145,7 @@ module CalleeMap =
       yield! checkIndirectBranch ins hdl
     } |> function
       | None -> acc
-      | Some (cn, ca, ck) -> accumulateCallRelationship addr cn ca ck acc
+      | Some (id, cn, ca, ck) -> accumulateCallRelationship addr id cn ca ck acc
 
   let addMissingCallees hdl (funcs: Set<Addr>) (cm: Map<string, Callee>) =
     let calleeAddrs =
@@ -150,9 +155,10 @@ module CalleeMap =
       |> Set.ofSeq
     Set.difference funcs calleeAddrs
     |> Set.fold (fun acc addr ->
-        let name = obtainFuncName hdl addr
-        Map.add name
-          { CalleeName = name
+        let id, name = obtainFuncIDAndName hdl addr
+        Map.add id
+          { CalleeID = id
+            CalleeName = name
             Addr = Some addr
             CalleeKind = InternalCallee
             Callers = []

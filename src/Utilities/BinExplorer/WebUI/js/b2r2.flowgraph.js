@@ -29,7 +29,7 @@
 "use strict";
 
 class FlowGraph extends Graph {
-  constructor(div, name, kind) {
+  constructor(div, id, kind) {
     super(div, kind);
     this.refreshIcon = d3.select("#js-icon-refresh").classed("rotating", true);
     // The json data.
@@ -46,12 +46,12 @@ class FlowGraph extends Graph {
     this.linemap = {};
     // The predefined arrows and filters.
     this.predefs = this.cfg.append("defs");
-    this.initializePredefs(name);
-    this.fetchAndDraw(name, kind);
+    this.initializePredefs(id);
+    this.fetchAndDraw(id, kind);
   }
 
-  generateArrowID(name, tag) {
-    return "js-" + name + "-" + tag.toLowerCase();
+  generateArrowID(id, tag) {
+    return "js-" + id + "-" + tag.toLowerCase();
   }
 
   generateArrowClass(tag) {
@@ -62,14 +62,14 @@ class FlowGraph extends Graph {
     return "c-graph__" + tag.toLowerCase();
   }
 
-  generateFilterID(name, filter) {
-    return "js-filter-" + filter + "-" + name;
+  generateFilterID(id, filter) {
+    return "js-filter-" + filter + "-" + id;
   }
 
-  setMarkerArrow(name, tag) {
+  setMarkerArrow(id, tag) {
     this.predefs.append("marker")
       .classed(this.generateArrowClass(tag), true)
-      .attr("id", this.generateArrowID(name, tag))
+      .attr("id", this.generateArrowID(id, tag))
       .attr("markerWidth", 3)
       .attr("markerHeight", 3)
       .attr("markerUnits", "strokeWidth")
@@ -81,25 +81,25 @@ class FlowGraph extends Graph {
         .attr("d", "M 0,0 m -5,-5 L 5,0 L -5,5 Z");
   }
 
-  setFilter(name) {
+  setFilter(id) {
     this.predefs.append("filter")
-      .attr("id", this.generateFilterID(name, "blur"))
+      .attr("id", this.generateFilterID(id, "blur"))
       .attr("filterUnits", "userSpaceOnUse")
       .append("feGaussianBlur")
         .attr("stdDeviation", 2);
   }
 
-  initializePredefs(name) {
-    this.setMarkerArrow(name, "InterJmpEdge");
-    this.setMarkerArrow(name, "InterCJmpTrueEdge");
-    this.setMarkerArrow(name, "InterCJmpFalseEdge");
-    this.setMarkerArrow(name, "IntraJmpEdge");
-    this.setMarkerArrow(name, "IntraCJmpTrueEdge");
-    this.setMarkerArrow(name, "IntraCJmpFalseEdge");
-    this.setMarkerArrow(name, "FallThroughEdge");
-    this.setMarkerArrow(name, "CallEdge");
-    this.setMarkerArrow(name, "RetEdge");
-    this.setFilter(name);
+  initializePredefs(id) {
+    this.setMarkerArrow(id, "InterJmpEdge");
+    this.setMarkerArrow(id, "InterCJmpTrueEdge");
+    this.setMarkerArrow(id, "InterCJmpFalseEdge");
+    this.setMarkerArrow(id, "IntraJmpEdge");
+    this.setMarkerArrow(id, "IntraCJmpTrueEdge");
+    this.setMarkerArrow(id, "IntraCJmpFalseEdge");
+    this.setMarkerArrow(id, "FallThroughEdge");
+    this.setMarkerArrow(id, "CallEdge");
+    this.setMarkerArrow(id, "RetEdge");
+    this.setFilter(id);
     this.linefunc = d3.line()
       .x(function (d) { return d.X; })
       .y(function (d) { return d.Y; })
@@ -151,7 +151,7 @@ class FlowGraph extends Graph {
     });
   }
 
-  drawNode(name, v) {
+  drawNode(id, v) {
     this.minimap.drawNode(v);
     const x = v.Coordinate.X;
     const y = v.Coordinate.Y;
@@ -167,33 +167,33 @@ class FlowGraph extends Graph {
       .classed("c-graph__node--blur", true)
       .attr("width", v.Width)
       .attr("height", v.Height);
-    const f = this.generateFilterID(name, "blur");
+    const f = this.generateFilterID(id, "blur");
     rect
       .on("mouseover", function () { rect.attr("filter", "url(#" + f + ")"); })
       .on("mouseout", function () { rect.attr("filter", null); });
     this.drawLinesOfNode(v, g);
   }
 
-  drawNodes(name, json) {
+  drawNodes(id, json) {
     for (let i = 0; i < json.Nodes.length; i++) {
-      this.drawNode(name, json.Nodes[i]);
+      this.drawNode(id, json.Nodes[i]);
     }
   }
 
-  drawEdge(name, e) {
+  drawEdge(id, e) {
     this.minimap.drawEdge(e);
     const path = this.cfg.append("path")
       .classed("c-graph__edge", true)
       .classed(this.generateEdgeClass(e.Type), true)
       .datum(e.Points)
       .attr("d", this.linefunc)
-      .attr("marker-end", "url(#" + this.generateArrowID(name, e.Type) + ")");
+      .attr("marker-end", "url(#" + this.generateArrowID(id, e.Type) + ")");
     if (e.IsBackEdge) path.attr("stroke-dasharray", "4, 4");
   }
 
-  drawEdges(name, json) {
+  drawEdges(id, json) {
     for (let i = 0; i < json.Edges.length; i++) {
-      this.drawEdge(name, json.Edges[i]);
+      this.drawEdge(id, json.Edges[i]);
     }
   }
 
@@ -265,12 +265,12 @@ class FlowGraph extends Graph {
     $(document).on("click", function () { myself.deactivateLines(); });
   }
 
-  draw(name, json) {
+  draw(id, json) {
     this.vpDims = computeVPDimensions(this.container);
     this.minimap.resize(this.vpDims.minimapVPDim);
     this.minimap.registerViewbox(this.vpDims.minimapVPDim);
-    this.drawNodes(name, json);
-    this.drawEdges(name, json);
+    this.drawNodes(id, json);
+    this.drawEdges(id, json);
     // Compute the actual bbox after drawing the graph.
     const graphDims = this.cfg.node().getBBox();
     this.reductionRate = this.computeReductionRate(graphDims);
@@ -279,11 +279,11 @@ class FlowGraph extends Graph {
     this.refreshIcon.classed("rotating", false);
   }
 
-  fetchAndDraw(name, kind) {
+  fetchAndDraw(id, kind) {
     const myself = this;
-    query({ "q": kind, "args": name }, function (_status, json) {
+    query({ "q": kind, "args": id }, function (_status, json) {
       myself.json = json;
-      myself.draw(name, json);
+      myself.draw(id, json);
     });
   }
 

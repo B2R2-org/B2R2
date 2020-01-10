@@ -45,7 +45,7 @@ type DisasmBBlock (instrs: Instruction [], pp, app: BinaryApparatus) =
       match app.CalleeMap.Find (addr) with
       | Some callee ->
         words.[words.Length - 1] <-
-          { AsmWordKind = AsmWordKind.Value; AsmWordValue = callee.CalleeName }
+          { AsmWordKind = AsmWordKind.Value; AsmWordValue = callee.CalleeID }
       | None -> ()
       words
     else words

@@ -148,9 +148,9 @@ let dumpJsonFiles jsonDir ess =
   try System.IO.Directory.Delete(jsonDir, true) with _ -> ()
   System.IO.Directory.CreateDirectory(jsonDir) |> ignore
   BinaryApparatus.getInternalFunctions ess.BinaryApparatus
-  |> Seq.iter (fun { CalleeName = name; Addr = addr } ->
-    let disasmJsonPath = Printf.sprintf "%s/%s.disasmCFG" jsonDir name
-    let irJsonPath = Printf.sprintf "%s/%s.irCFG" jsonDir name
+  |> Seq.iter (fun { CalleeID = id; Addr = addr } ->
+    let disasmJsonPath = Printf.sprintf "%s/%s.disasmCFG" jsonDir id
+    let irJsonPath = Printf.sprintf "%s/%s.irCFG" jsonDir id
     let encoding = System.Text.Encoding.UTF8
     let cfg, root = ess.SCFG.GetFunctionCFG (Option.get addr)
     let irJson =

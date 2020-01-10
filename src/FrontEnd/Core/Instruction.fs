@@ -163,7 +163,7 @@ type Instruction (addr, numBytes, wordSize) =
   ///   Return a trampoline address of an indirect branch instruction if we can
   ///   directly compute the address. For example, `JMP [RIP + 0x42]` is an
   ///   indirect branch instruction, but we can compute the trampoline address
-  ///   as RIP is statically known anyways.
+  ///   as RIP is statically known anyways when PIC is off.
   /// </summary>
   /// <returns>
   ///   Returns true if a trampoline address exists. Otherwise, returns false.

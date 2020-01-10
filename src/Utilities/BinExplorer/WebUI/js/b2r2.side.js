@@ -63,33 +63,33 @@ class FunctionList {
       this.funcs[name].select("i").classed("pinned", false);
   }
 
-  addEntry(name, fnClk, fnDblClk) {
+  addEntry(id, name, fnClk, fnDblClk) {
     const entry = this.funcsView.append("li")
       .attr("title", name)
       .classed("c-function-view__item", true)
-      .on("click", FunctionList.onClick(name, fnClk, fnDblClk))
+      .on("click", FunctionList.onClick(id, name, fnClk, fnDblClk))
       .on("dblclick", function () { d3.event.preventDefault(); });
     entry.append("i")
       .classed("c-function-view__icon", true)
       .classed("fas", true)
       .classed("fa-thumbtack", true);
     entry.append("span").text(name);
-    this.funcs[name] = entry;
+    this.funcs[id] = entry;
   }
 
-  static onClick(funcName, fnClk, fnDblClk) {
+  static onClick(funcID, funcName, fnClk, fnDblClk) {
     let clicks = 0;
     let timer = null;
     return function (_) {
       clicks += 1;
       if (clicks === 1) {
         timer = setTimeout(function () {
-          fnClk(funcName);
+          fnClk(funcID, funcName);
           clicks = 0;
         }, dblClickWaitTime);
       } else if (clicks === 2) {
         clearTimeout(timer);
-        fnDblClk(funcName);
+        fnDblClk(funcID, funcName);
         clicks = 0;
       }
     };

@@ -84,7 +84,7 @@ module private NoReturnHelper =
           |> retrieveSyscallState hdl
         with _ -> false
     else
-      isKnownNoReturnFunction v.VData.Name && v.VData.IsExternal
+      isKnownNoReturnFunction v.VData.ID && v.VData.IsExternal
 
   let rec findLoop hdl scfg (cg: CallCFG) vmap =
     (* XXX: currently just perform a single scan. *)

@@ -54,15 +54,15 @@ class NavBar {
   }
 
   chooseCFG(kind) {
-    const funcName = this.winManager.currentWin;
+    const funcID = this.winManager.currentWin;
     const winManager = this.winManager;
-    if (funcName !== null && funcName.length > 0) {
-      switch (winManager.windows[funcName].graph.kind) {
+    if (funcID !== null && funcID.length > 0) {
+      switch (winManager.windows[funcID].graph.kind) {
         case "Disasm":
         case "LowUIR":
         case "SSA":
           this.setCFGKind(kind);
-          winManager.reloadGraph(funcName, kind);
+          winManager.reloadGraph(funcID, kind);
           break;
         default: break;
       }
@@ -79,10 +79,10 @@ class NavBar {
   registerRefreshBtnEvent() {
     const myself = this;
     d3.select("#js-icon-refresh").on("click", function () {
-      const funcName = myself.winManager.currentWin;
-      if (funcName !== null && funcName.length > 0) {
-        const kind = myself.winManager.windows[funcName].graph.kind;
-        myself.winManager.reloadGraph(funcName, kind);
+      const funcID = myself.winManager.currentWin;
+      if (funcID !== null && funcID.length > 0) {
+        const kind = myself.winManager.windows[funcID].graph.kind;
+        myself.winManager.reloadGraph(funcID, kind);
       }
     });
   }

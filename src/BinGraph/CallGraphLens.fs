@@ -32,10 +32,10 @@ open B2R2.BinGraph
 open System.Collections.Generic
 
 /// Basic block type for a call graph (CallCFG).
-type CallGraphBBlock (addr, name, isFake, isExternal) =
+type CallGraphBBlock (addr, id, isFake, isExternal) =
   inherit BasicBlock ()
 
-  member __.Name with get () = name
+  member __.ID with get () = id
 
   member __.IsExternal with get () = isExternal
 
@@ -51,7 +51,7 @@ type CallGraphBBlock (addr, name, isFake, isExternal) =
           { AsmWordKind = AsmWordKind.String
             AsmWordValue = ": " }
           { AsmWordKind = AsmWordKind.Value
-            AsmWordValue = name } |] |]
+            AsmWordValue = id } |] |]
 
 /// Call graph, where each node represents a function.
 type CallCFG = ControlFlowGraph<CallGraphBBlock, CFGEdgeKind>
@@ -68,9 +68,9 @@ type CallGraphLens (scfg: SCFG) =
       match app.CalleeMap.Find (addr) with
       | None -> None
       | Some callee ->
-        let name = callee.CalleeName
+        let id = callee.CalleeID
         let ext = callee.CalleeKind = ExternalCallee
-        let v = (g: CallCFG).AddVertex (CallGraphBBlock (addr, name, fake, ext))
+        let v = (g: CallCFG).AddVertex (CallGraphBBlock (addr, id, fake, ext))
         vMap.Add (addr, v)
         Some v
     | true, v -> Some v

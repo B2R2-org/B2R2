@@ -42,6 +42,14 @@ type CFGType =
   | CallCFG
 
 [<DataContract>]
+type JsonFuncInfo = {
+  [<field: DataMember(Name = "id")>]
+  FuncID: string
+  [<field: DataMember(Name = "name")>]
+  FuncName: string
+}
+
+[<DataContract>]
 type JsonSegInfo = {
   [<field: DataMember(Name = "addr")>]
   SegAddr: Addr
@@ -159,9 +167,9 @@ let handleFunctions req resp arbiter =
   let ess = Protocol.getBinEssence arbiter
   let names =
     BinaryApparatus.getInternalFunctions ess.BinaryApparatus
-    |> Seq.map (fun c -> c.CalleeName)
+    |> Seq.map (fun c -> { FuncID = c.CalleeID; FuncName = c.CalleeName })
     |> Seq.toArray
-  Some (json<string []> names |> defaultEnc.GetBytes)
+  Some (json<(JsonFuncInfo) []> names |> defaultEnc.GetBytes)
   |> answer req resp
 
 let handleHexview req resp arbiter =

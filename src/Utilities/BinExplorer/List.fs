@@ -39,7 +39,7 @@ type CmdList () =
 
   let listFunctions hdl app =
     BinaryApparatus.getInternalFunctions app
-    |> Seq.map (fun c -> Option.get c.Addr, c.CalleeName)
+    |> Seq.map (fun c -> Option.get c.Addr, c.CalleeID)
     |> Seq.sortBy fst
     |> Seq.map (createFuncString hdl)
     |> Seq.toArray

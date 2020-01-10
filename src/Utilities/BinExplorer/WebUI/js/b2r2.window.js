@@ -52,32 +52,33 @@ class WindowManager {
     return this.graphView.node().getBoundingClientRect().height;
   }
 
-  activate(name) {
-    const item = this.windows[name];
+  activate(id) {
+    const item = this.windows[id];
     this.tabView.selectAll("li").classed("active", false);
     item.tab.classed("active", true);
     this.graphView.selectAll("div").classed("active", false);
     item.graph.container.classed("active", true);
-    this.currentWin = name;
-    this.funcList.focusEntry(name);
+    this.currentWin = id;
+    this.funcList.focusEntry(id);
     this.navbar.setCFGKind(item.graph.kind);
     item.graph.onActivate();
   }
 
-  createTab(name, pinned) {
+  createTab(id, name, pinned) {
     const myself = this;
-    const item = this.tabView.append("li").classed("c-tabs__item", true);
+    const item = this.tabView.append("li").classed("c-tabs__item", true)
+      .attr("funcid", id);
     const anchor = item.append("a").text(name);
-    anchor.on("click", function () { myself.activate(anchor.text()); });
+    anchor.on("click", function () { myself.activate(id); });
     item.append("span")
       .classed("glyphicon", true)
       .classed("glyphicon-remove-circle", true)
-      .on("click", function () { myself.closeTab(anchor.text()); });
+      .on("click", function () { myself.closeTab(id); });
     if (pinned) item.classed("pinned", true);
     return item;
   }
 
-  createGraph(name, kind) {
+  createGraph(id, kind) {
     const div = this.graphView.append("div").classed("c-graph", true);
     switch (kind) {
       case "Hexview":
@@ -85,38 +86,38 @@ class WindowManager {
       case "Term":
         return new TermGraph(div, kind);
       default:
-        return new FlowGraph(div, name, kind);
+        return new FlowGraph(div, id, kind);
     }
   }
 
   // Reload the graph of an old kind to a new kind.
-  reloadGraph(name, newKind) {
-    const div = this.windows[name].graph.container;
+  reloadGraph(id, newKind) {
+    const div = this.windows[id].graph.container;
     div.html("");
-    this.windows[name].graph = new FlowGraph(div, name, newKind);
+    this.windows[id].graph = new FlowGraph(div, id, newKind);
   }
 
-  createWindow(name, kind, pinned) {
-    if (this.windows[name] !== undefined && this.windows[name].pinned) {
-      this.activate(name);
+  createWindow(id, name, kind, pinned) {
+    if (this.windows[id] !== undefined && this.windows[id].pinned) {
+      this.activate(id);
     } else {
       const myself = this;
       this.tabView.selectAll("li").each(function () {
-        const funcName = d3.select(this).text();
-        if (!myself.windows[funcName].pinned) myself.closeTab(funcName);
+        const id = d3.select(this).attr("funcid");
+        if (!myself.windows[id].pinned) myself.closeTab(id);
       });
-      const tab = this.createTab(name, pinned);
-      const graph = this.createGraph(name, kind);
-      this.windows[name] = new Window(tab, graph, pinned);
-      this.activate(name);
+      const tab = this.createTab(id, name, pinned);
+      const graph = this.createGraph(id, kind);
+      this.windows[id] = new Window(tab, graph, pinned);
+      this.activate(id);
     }
   }
 
-  loadWindow(name, kind) {
-    if (this.currentWin == name) {
+  loadWindow(id, name, kind) {
+    if (this.currentWin == id) {
       // Do nothing here.
     } else {
-      this.createWindow(name, kind, false);
+      this.createWindow(id, name, kind, false);
     }
   }
 
@@ -125,17 +126,17 @@ class WindowManager {
     this.navbar.setCFGKind("");
   }
 
-  closeTab(name) {
-    if (this.windows[name] !== undefined) {
-      this.windows[name].tab.remove();
-      this.windows[name].tab.classed("pinned", false);
-      this.windows[name].graph.container.remove();
-      this.funcList.unpinEntry(name);
-      delete this.windows[name];
-      if (this.currentWin == name) {
+  closeTab(id) {
+    if (this.windows[id] !== undefined) {
+      this.windows[id].tab.remove();
+      this.windows[id].tab.classed("pinned", false);
+      this.windows[id].graph.container.remove();
+      this.funcList.unpinEntry(id);
+      delete this.windows[id];
+      if (this.currentWin == id) {
         const tab = this.tabView.selectAll("li").filter(":last-child");
         if (tab.empty()) this.onEmptyTab();
-        else { try { this.activate(tab.select("a").text()); } catch (_) { } }
+        else { try { this.activate(tab.attr("funcid")); } catch (_) { } }
       }
     }
   }
@@ -143,18 +144,20 @@ class WindowManager {
   initiate(navbar) {
     this.navbar = navbar;
     const winManager = this;
-    const fnClk = function (funcName) {
-      winManager.loadWindow(funcName, "Disasm");
-      winManager.funcList.focusEntry(funcName);
+    const fnClk = function (funcID, funcName) {
+      winManager.loadWindow(funcID, funcName, "Disasm");
+      winManager.funcList.focusEntry(funcID);
     };
-    const fnDblClk = function (funcName) {
-      winManager.createWindow(funcName, "Disasm", true);
-      winManager.funcList.focusEntry(funcName);
-      winManager.funcList.pinEntry(funcName);
+    const fnDblClk = function (funcID, funcName) {
+      winManager.createWindow(funcID, funcName, "Disasm", true);
+      winManager.funcList.focusEntry(funcID);
+      winManager.funcList.pinEntry(funcID);
     };
     query({ "q": "Functions" }, function (_status, funcs) {
-      $.each(funcs, function (_, name) {
-        winManager.funcList.addEntry(name, fnClk, fnDblClk);
+      $.each(funcs, function (_, funcinfo) {
+        const id = funcinfo.id;
+        const name = funcinfo.name;
+        winManager.funcList.addEntry(id, name, fnClk, fnDblClk);
       });
     });
   }
