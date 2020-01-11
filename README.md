@@ -140,8 +140,8 @@ on any platform without any hassle. B2R2 is in its *infancy* stage, but we
 believe it provides a rich set of library functions for binary analysis. It also
 has a strong front-end that is easily adaptable and extendible! Currently it
 reliably supports x86 and x86-64, meaning that we have heavily tested them; and
-it partially supports ARMv7 (and Thumb), ARMv8, MIPS32, and MIPS64, meaning that
-they work, but we haven't tested them thorougly yet.
+it partially supports ARMv7 (and Thumb), ARMv8, MIPS32, MIPS64, and EVM meaning
+that they work, but we haven't tested them thorougly yet.
 
 
 Features to be Added?

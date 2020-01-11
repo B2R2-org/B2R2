@@ -1,5 +1,22 @@
 # B2R2 Change Log
 
+## 0.3.1 (2020-01-11)
+
+### Added
+- Add boilerplate code for assembler.
+- Add Nil to LowUIR to correctly handle cons cells.
+- Handle delayed import directory table for PE files.
+- Add basic EVM bytecode support.
+
+### Changed
+- Fix and refactor simple calculator language implementation.
+- Fix Mach section parsing bug.
+- Fix ARM translation errors.
+- Remove assumption about callee names.
+- Fix bitectors to generally handle arbitrary sizes.
+- Fix several visualization issues.
+- Rewrite completely the web user interface from scratch.
+
 ## 0.3.0 (2019-09-28)
 
 ### Added
