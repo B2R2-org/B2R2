@@ -29,14 +29,17 @@
 class SideMenu {
   static registerEvents(winManager) {
     d3.select("#js-sidemenu__cg").on("click", function () {
-      winManager.createWindow("[-] call graph", "CG", true);
+      const name = "[-] Call Graph"
+      winManager.createWindow(name, name, "CG", true);
     });
     d3.select("#js-sidemenu__hexview").on("click", function () {
-      winManager.createWindow("[-] hexview", "Hexview", true);
+      const name = "[-] Hexview"
+      winManager.createWindow(name, name, "Hexview", true);
     });
     let termCnt = 0;
     d3.select("#js-sidemenu__term").on("click", function () {
-      winManager.createWindow("[-] Terminal " + termCnt, "Term", true);
+      const name = "[-] Terminal " + termCnt;
+      winManager.createWindow(name, name, "Term", true);
       termCnt += 1;
     });
   }
