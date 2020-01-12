@@ -113,6 +113,18 @@ module AST = begin
   /// Signed modulus.
   val (?%) : Expr -> Expr -> Expr
 
+  /// Floating point add two expressions.
+  val (..+) : Expr -> Expr -> Expr
+
+  /// Floating point subtract two expressions.
+  val (..-) : Expr -> Expr -> Expr
+
+  /// Floating point multiplication.
+  val (..*) : Expr -> Expr -> Expr
+
+  /// floating point division.
+  val (../) : Expr -> Expr -> Expr
+
   /// Equal.
   val (==) : Expr -> Expr -> Expr
 

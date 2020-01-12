@@ -30,9 +30,21 @@ type CastKind =
   | SignExt = 0
   /// Zero-extending conversion
   | ZeroExt = 1
+  /// Integer to float conversion
+  | IntToFloat = 2
+  /// Float to Integer rounded conversion
+  | FloatToIntR = 3
+  /// Float to Integer truncated conversion
+  | FloatToIntT = 4
+  /// Float to Float conversion with different precisions
+  | FloatToFloat = 5
 
 module CastKind =
   let toString = function
     | CastKind.SignExt -> "sext"
     | CastKind.ZeroExt -> "zext"
+    | CastKind.IntToFloat -> "int->float"
+    | CastKind.FloatToIntR -> "float->int"
+    | CastKind.FloatToIntT -> "float-|>int"
+    | CastKind.FloatToFloat -> "float->float"
     | _ -> raise IllegalASTTypeException

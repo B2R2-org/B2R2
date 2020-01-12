@@ -30,11 +30,18 @@ type UnOpType =
   | NEG = 0
   /// Bitwise not (One's complement)
   | NOT = 1
+  /// Square root
+  | SQRT = 2
+  /// Log with base 2
+  | Log2 = 3
+
 
 module UnOpType =
   let toString = function
     | UnOpType.NEG -> "-"
     | UnOpType.NOT -> "~"
+    | UnOpType.SQRT -> "sqrt"
+    | UnOpType.Log2 -> "log2"
     | _ -> raise IllegalASTTypeException
 
 // vim: set tw=80 sts=2 sw=2:

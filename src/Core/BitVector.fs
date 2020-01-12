@@ -302,7 +302,7 @@ type BitVector =
   static member inline castBig n newLen =
     (RegType.getMask newLen) &&& n
 
-  static member inline binOp (op: uint64 -> uint64 -> uint64) opBigFn bv1 bv2 =
+  static member inline IntBinOp (op: uint64 -> uint64 -> uint64) opBigFn bv1 bv2 =
     let n1, n2 = bv1.Num, bv2.Num
     if bv1.Length <> bv2.Length then raise ArithTypeMismatchException
     elif bv1.Length <= 64<rt> then
@@ -311,14 +311,42 @@ type BitVector =
       let n = opBigFn (bv1.BigNum, bv2.BigNum)
       { bv1 with BigNum = BitVector.castBig n bv1.Length }
 
+  (* 80 bit floating point operations are currently not supported. *)
+  static member inline FloatBinOp op32 op64 bv1 bv2 =
+    match bv1.Length, bv2.Length with
+    | 32<rt>, 32<rt> ->
+      let f1 = int32 bv1.Num |> BitConverter.GetBytes
+      let f2 = int32 bv2.Num |> BitConverter.GetBytes
+      let f1 = BitConverter.ToSingle (f1, 0)
+      let f2 = BitConverter.ToSingle (f2, 0)
+      let result = op32 f1 f2 |> float32 |> BitConverter.GetBytes
+      { bv1 with Num = BitConverter.ToInt32 (result, 0) |> uint64 }
+    | 64<rt>, 64<rt> ->
+      let f1 = BitConverter.Int64BitsToDouble <| int64 bv1.Num
+      let f2 = BitConverter.Int64BitsToDouble <| int64 bv2.Num
+      let result = op64 f1 f2 |> float |> BitConverter.DoubleToInt64Bits
+      { bv1 with Num = uint64 result }
+    | _ -> raise ArithTypeMismatchException
+
+
+
   [<CompiledName("Add")>]
-  static member add v1 v2 = BitVector.binOp (+) (bigint.Add) v1 v2
+  static member add v1 v2 = BitVector.IntBinOp (+) (bigint.Add) v1 v2
 
   [<CompiledName("Sub")>]
-  static member sub v1 v2 = BitVector.binOp (-) (bigint.Subtract) v1 v2
+  static member sub v1 v2 = BitVector.IntBinOp (-) (bigint.Subtract) v1 v2
 
   [<CompiledName("Mul")>]
-  static member mul v1 v2 = BitVector.binOp (*) (bigint.Multiply) v1 v2
+  static member mul v1 v2 = BitVector.IntBinOp (*) (bigint.Multiply) v1 v2
+
+  [<CompiledName("FAdd")>]
+  static member fAdd v1 v2 = BitVector.FloatBinOp (+) (+) v1 v2
+
+  [<CompiledName("FSub")>]
+  static member fSub v1 v2 = BitVector.FloatBinOp (-) (-) v1 v2
+
+  [<CompiledName("FMul")>]
+  static member fMul v1 v2 = BitVector.FloatBinOp (*) (*) v1 v2
 
   [<CompiledName("Neg")>]
   static member neg bv =
@@ -335,13 +363,13 @@ type BitVector =
        { bv with BigNum = BitVector.castBig n bv.Length }
 
   [<CompiledName("BitwiseAnd")>]
-  static member band v1 v2 = BitVector.binOp (&&&) (bigint.op_BitwiseAnd) v1 v2
+  static member band v1 v2 = BitVector.IntBinOp (&&&) (bigint.op_BitwiseAnd) v1 v2
 
   [<CompiledName("BitwiseOr")>]
-  static member bor v1 v2 = BitVector.binOp (|||) (bigint.op_BitwiseOr) v1 v2
+  static member bor v1 v2 = BitVector.IntBinOp (|||) (bigint.op_BitwiseOr) v1 v2
 
   [<CompiledName("BitwiseXor")>]
-  static member bxor v1 v2 = BitVector.binOp (^^^) (bigint.op_ExclusiveOr) v1 v2
+  static member bxor v1 v2 = BitVector.IntBinOp (^^^) (bigint.op_ExclusiveOr) v1 v2
 
   [<CompiledName("BitwiseNot")>]
   static member bnot bv =
@@ -458,7 +486,10 @@ type BitVector =
           Length = newLen }
 
   [<CompiledName("Div")>]
-  static member div v1 v2 = BitVector.binOp (/) (bigint.Divide) v1 v2
+  static member div v1 v2 = BitVector.IntBinOp (/) (bigint.Divide) v1 v2
+
+  [<CompiledName("FDiv")>]
+  static member fDiv v1 v2 = BitVector.FloatBinOp (/) (/) v1 v2
 
   [<CompiledName("Sdiv")>]
   static member sdiv v1 v2 =
@@ -470,7 +501,7 @@ type BitVector =
     else BitVector.neg bv
 
   [<CompiledName("Modulo")>]
-  static member modulo v1 v2 = BitVector.binOp (%) (bigint.op_Modulus) v1 v2
+  static member modulo v1 v2 = BitVector.IntBinOp (%) (bigint.op_Modulus) v1 v2
 
   [<CompiledName("SModulo")>]
   static member smodulo v1 v2 =

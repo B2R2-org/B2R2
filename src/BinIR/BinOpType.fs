@@ -58,6 +58,14 @@ type BinOpType =
   | APP = 14
   /// Cons arguments of function
   | CONS = 15
+  /// Floating point addition
+  | FADD = 16
+  /// Floating point subtraction
+  | FSUB = 17
+  /// Floating point multiplication
+  | FMUL = 18
+  /// Floating point division
+  | FDIV = 19
 
 module BinOpType =
   let toString = function
@@ -77,4 +85,8 @@ module BinOpType =
     | BinOpType.CONCAT -> "++"
     | BinOpType.APP -> "-|"
     | BinOpType.CONS -> "::"
+    | BinOpType.FADD -> ".+"
+    | BinOpType.FSUB -> ".-"
+    | BinOpType.FMUL -> ".*"
+    | BinOpType.FDIV -> "./"
     | _ -> raise IllegalASTTypeException

@@ -78,7 +78,12 @@ module TypeCheck =
       if oldType < newType then true
       else if oldType = newType then false
       else castErr newType oldType
-    | _ -> raise IllegalASTTypeException
+    | CastKind.IntToFloat ->
+      if newType = 32<rt> || newType = 64<rt> then true else false
+    | CastKind.FloatToFloat ->
+      if newType = 32<rt> || newType = 64<rt> && newType <> oldType then true
+      else false
+    | _ -> true
 
   let extractTypeCheck (t: RegType) pos (t2: RegType) =
     if (RegType.toBitWidth t + pos) <= RegType.toBitWidth t2 && pos >= 0 then ()
@@ -348,6 +353,14 @@ module AST =
   let (.%) e1 e2 = binop BinOpType.MOD e1 e2
 
   let (?%) e1 e2 = binop BinOpType.SMOD e1 e2
+
+  let (..+) e1 e2 = binop BinOpType.FADD e1 e2
+
+  let (..-) e1 e2 = binop BinOpType.FSUB e1 e2
+
+  let (..*) e1 e2 = binop BinOpType.FMUL e1 e2
+
+  let (../) e1 e2 = binop BinOpType.FDIV e1 e2
 
   let (==) e1 e2 = relop RelOpType.EQ e1 e2
 
