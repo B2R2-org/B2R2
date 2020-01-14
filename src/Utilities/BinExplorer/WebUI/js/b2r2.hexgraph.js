@@ -67,7 +67,8 @@ class HexGraph extends Graph {
           const me = $(this);
           const win = me.closest(".c-graph").find(".l-graph__segment");
           const anchor = win.find("a[name='" + me.text() + "']");
-          win.animate({ scrollTop: anchor.offset().top - 150 }, "slow");
+          const top = win.scrollTop() + anchor.offset().top - 150;
+          win.animate({ scrollTop: top });
         });
     }
   }
