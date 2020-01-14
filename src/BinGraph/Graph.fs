@@ -41,9 +41,6 @@ exception EdgeNotFoundException
 /// Trying to access dummy node's data
 exception DummyDataAccessException
 
-/// When a graph has multiple entry points.
-exception MultipleEntryException
-
 /// A unique ID for a vertex.
 type VertexID = int
 

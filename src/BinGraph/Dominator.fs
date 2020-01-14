@@ -155,22 +155,9 @@ let rec computeDomOrDelay info parent =
   if info.Bucket.[parent].IsEmpty then ()
   else computeDom info parent
 
-/// Temporarily connect entry dummy node and real entry nodes.
-let connect (root: Vertex<_>) =
-  if root.IsDummy () then root
-  else
-    let dummyEntry = Vertex<_> ()
-    dummyEntry.Succs <- [root]
-    root.Preds <- dummyEntry :: root.Preds
-    dummyEntry
-
-/// Disconnect the dummy node and the entry nodes.
-let disconnect (root: Vertex<_>) =
-  root.Preds <- root.Preds |> List.filter (fun p -> p.GetID () <> 0)
-
 let initDominator (g: DiGraph<_, _>) root =
   let info = initDomInfo g
-  let dummyEntry = connect root
+  let dummyEntry = DummyEntry.Connect root
   let n = assignDFNum info 1 [(0, dummyEntry)]
   for i = n - 1 downto 2 do
     let v = info.Vertex.[i]
@@ -180,7 +167,7 @@ let initDominator (g: DiGraph<_, _>) root =
     link info p i (* Link the parent (p) to the forest. *)
     computeDomOrDelay info p
   done
-  disconnect root
+  DummyEntry.Disconnect root
   for i = 2 to n - 1 do
     if info.IDom.[i] <> info.Semi.[i] then
       info.IDom.[i] <- info.IDom.[info.IDom.[i]]
@@ -310,19 +297,14 @@ let rec computeFrontierLocal s ctxt (parent: Vertex<_>) = function
     computeFrontierLocal s ctxt parent rest
   | [] -> s
 
-let rec computeDF
-    (domTree: Vertex<_> list [])
-    (frontiers: Vertex<_> list [])
-    g
-    ctxt
-    (r: Vertex<'V>) =
+let rec computeDF domTree (frontiers: Vertex<_> list []) g ctxt r =
   let mutable s = Set.empty
-  for succ in r.Succs do
+  for succ in (r: Vertex<'V>).Succs do
     let succID = dfnum ctxt succ
     let d = ctxt.Vertex.[ctxt.IDom.[succID]]
     if d.GetID () <> r.GetID () then s <- Set.add succID s
   done
-  for child in domTree.[dfnum ctxt r] do
+  for child in (domTree: Vertex<_> list []).[dfnum ctxt r] do
     computeDF domTree frontiers g ctxt child
     for node in frontiers.[dfnum ctxt child] do
       let doms = domsAux [] node ctxt

@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <Compile Include="Graph.fs" />
+    <Compile Include="DummyVertex.fs" />
     <Compile Include="Dominator.fsi" />
     <Compile Include="Dominator.fs" />
     <Compile Include="CFGEdgeKind.fs" />
