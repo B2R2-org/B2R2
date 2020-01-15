@@ -1,6 +1,6 @@
 language: csharp
 mono: none
-dotnet: 2.2
+dotnet: 3.0
 dist: bionic
 solution: B2R2.sln
 script:
