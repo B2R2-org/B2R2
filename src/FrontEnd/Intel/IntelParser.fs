@@ -945,7 +945,7 @@ let private getD8OverBF b =
 let private getD9OverBF b =
   getD9OpcodeOutside00toBF b,
   if b < 0xC0uy || b >= 0xD0uy then NoOperand
-  else TwoOperands (OprReg R.ST0, getRM b |> getSTReg)
+  else OneOperand (getRM b |> getSTReg)
 
 let private getDAOverBF b =
   getDAOpcodeOutside00toBF b,
