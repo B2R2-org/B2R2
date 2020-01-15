@@ -2651,24 +2651,26 @@ let movs ins insAddr insLen ctxt =
 
 let movsd (ins: InsInfo) insAddr insLen ctxt =
   let builder = new StmtBuilder (4)
-  let dst, src = getTwoOprs ins
-  startMark insAddr insLen builder
-  match dst, src with
-  | OprReg r1, OprReg r2 ->
-    let dst = getPseudoRegVar ctxt r1 1
-    let src = getPseudoRegVar ctxt r2 1
-    builder <! (dst := src)
-  | OprReg r1, OprMem _ ->
-    let dst2, dst1 = getPseudoRegVar128 ctxt r1
-    let src = transOprToExpr ins insAddr insLen ctxt src
-    builder <! (dst1 := src)
-    builder <! (dst2 := num0 64<rt>)
-  | OprMem _ , OprReg r1 ->
-    let dst = transOprToExpr ins insAddr insLen ctxt dst
-    let src = getPseudoRegVar ctxt r1 1
-    builder <! (dstAssign 64<rt> dst src)
-  | _ -> raise InvalidOperandException
-  endMark insAddr insLen builder
+  if ins.Operands = Operands.NoOperand then movs ins insAddr insLen ctxt
+  else
+    let dst, src = getTwoOprs ins
+    startMark insAddr insLen builder
+    match dst, src with
+    | OprReg r1, OprReg r2 ->
+      let dst = getPseudoRegVar ctxt r1 1
+      let src = getPseudoRegVar ctxt r2 1
+      builder <! (dst := src)
+    | OprReg r1, OprMem _ ->
+      let dst2, dst1 = getPseudoRegVar128 ctxt r1
+      let src = transOprToExpr ins insAddr insLen ctxt src
+      builder <! (dst1 := src)
+      builder <! (dst2 := num0 64<rt>)
+    | OprMem _ , OprReg r1 ->
+      let dst = transOprToExpr ins insAddr insLen ctxt dst
+      let src = getPseudoRegVar ctxt r1 1
+      builder <! (dstAssign 64<rt> dst src)
+    | _ -> raise InvalidOperandException
+    endMark insAddr insLen builder
 
 let movss (ins: InsInfo) insAddr insLen ctxt =
   let builder = new StmtBuilder (4)
