@@ -90,7 +90,7 @@ let readIfExists path =
   if IO.File.Exists path then Some (IO.File.ReadAllBytes (path))
   else None
 
-let getContentType path =
+let getContentType (path: string) =
   match IO.Path.GetExtension path with
   | ".css" -> "text/css"
   | ".js" -> "text/javascript"
