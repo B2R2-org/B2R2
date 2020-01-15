@@ -134,24 +134,14 @@ type DiGraph<'V, 'E when 'V :> VertexData> () =
   /// Remove the given vertex from the graph.
   abstract RemoveVertex: Vertex<'V> -> unit
 
-  /// Check the existence of the given vertex from the graph.
-  abstract Exists: Vertex<'V> -> bool
-
-  /// Find a vertex that has the given VertexData, from the graph. It will raise
-  /// an exception if such a vertex does not exist. Note that this function can
-  /// be used only when each vertex always has unique VertexData.
-  abstract FindVertexByData: 'V -> Vertex<'V>
-
-  abstract TryFindVertexByData: 'V -> Vertex<'V> option
-
   /// Add an edge from src to dst.
   abstract AddEdge: src: Vertex<'V> -> dst: Vertex<'V> -> 'E -> unit
 
   /// Remove the edge that spans from src to dst.
   abstract RemoveEdge: src: Vertex<'V> -> dst: Vertex<'V> -> unit
 
-  /// find the data of the edge that spans from src to dst.
-  abstract FindEdgeData: src: Vertex<'V> -> dst: Vertex<'V> -> 'E
+  /// Check the existence of the given vertex from the graph.
+  abstract Exists: Vertex<'V> -> bool
 
   /// Return a new transposed (i.e., reversed) graph.
   abstract Reverse: unit -> DiGraph<'V, 'E>
@@ -168,137 +158,47 @@ type DiGraph<'V, 'E when 'V :> VertexData> () =
   /// Fold every edge in the graph (the order can be arbitrary).
   abstract IterEdge: (Vertex<'V> -> Vertex<'V> -> 'E -> unit) -> unit
 
+  /// Get a set of all vertices in the graph.
   abstract GetVertices: unit -> Set<Vertex<'V>>
 
+  /// Find a vertex that has the given VertexData from the graph. It will raise
+  /// an exception if such a vertex does not exist. Note that this function can
+  /// be used only when each vertex always has unique VertexData.
+  abstract FindVertexByData: 'V -> Vertex<'V>
+
+  /// Find a vertex that has the given VertexData from the graph. This function
+  /// does not raise an exception unlike FindVertexByData.
+  abstract TryFindVertexByData: 'V -> Vertex<'V> option
+
+  /// Find the data of the edge that spans from src to dst.
+  abstract FindEdgeData: src: Vertex<'V> -> dst: Vertex<'V> -> 'E
+
+  /// Find a vertex by its VertexID. This function raises an exception when
+  /// there is no such a vertex.
   member __.FindVertexByID id =
     let folder acc (v: Vertex<_>) = if v.GetID () = id then Some v else acc
     match __.FoldVertex folder None with
     | Some v -> v
     | None -> raise VertexNotFoundException
 
+  /// Find a vertex by its VertexID. This function returns an Option type.
   member __.TryFindVertexByID id =
     let folder acc (v: Vertex<_>) = if v.GetID () = id then Some v else acc
     __.FoldVertex folder None
 
+  /// Find a vertex by the given function. This function returns the first
+  /// element, in which the function returns true. When there is no such an
+  /// element, the function raises an exception.
   member __.FindVertexBy fn =
     let folder acc (v: Vertex<_>) = if fn v then Some v else acc
     match __.FoldVertex folder None with
     | Some v -> v
     | None -> raise VertexNotFoundException
 
+  /// Find a vertex by the given function without raising an exception.
   member __.TryFindVertexBy fn =
     let folder acc (v: Vertex<_>) = if fn v then Some v else acc
     __.FoldVertex folder None
-
-  /// Fold every vertex in the graph in a depth-first manner starting from the
-  /// root node.
-  /// N.B. We should try to fold on every single vertex, as there is no easy way
-  /// to check unreachable graphs from a root node.
-  member __.FoldVertexDFS root fn acc =
-    let visited: HashSet<int> = new HashSet<int> ()
-    let rec foldLoop acc = function
-      | [] -> acc
-      | v :: tovisit when Vertex<_>.GetID v |> visited.Contains ->
-        foldLoop acc tovisit
-      | v :: tovisit ->
-        visited.Add (v.GetID ()) |> ignore
-        List.fold (fun tovisit s -> s :: tovisit) tovisit v.Succs
-        |> foldLoop (fn acc v)
-    let acc = foldLoop acc [root]
-    __.GetVertices () |> Set.toList |> foldLoop acc
-
-  /// Fold every vertex in the graph in a breadth-first manner starting from the
-  /// root node.
-  member __.FoldVertexBFS root fn acc =
-    let visited: HashSet<int> = new HashSet<int> ()
-    let queue: Queue<Vertex<'V>> = new Queue<Vertex<'V>> ()
-    let enqueue vertices = vertices |> List.iter (fun v -> queue.Enqueue (v))
-    let rec foldLoop acc =
-      if queue.Count = 0 then acc
-      else let v = queue.Dequeue ()
-           if visited.Contains (v.GetID ()) then foldLoop acc
-           else visited.Add (v.GetID ()) |> ignore
-                enqueue v.Succs
-                fn acc v |> foldLoop
-    enqueue [root]
-    foldLoop acc
-
-  /// Iterate every vertex in the graph in a depth-first manner starting from
-  /// the root node.
-  member __.IterVertexDFS root fn =
-    let visited: HashSet<int> = new HashSet<int> ()
-    let rec iterLoop = function
-      | [] -> ()
-      | v :: tovisit when Vertex<_>.GetID v |> visited.Contains ->
-        iterLoop tovisit
-      | v :: tovisit ->
-        visited.Add (v.GetID ()) |> ignore
-        fn v
-        List.fold (fun tovisit s -> s :: tovisit) tovisit v.Succs
-        |> iterLoop
-    iterLoop [root]
-    __.GetVertices () |> Set.toList |> iterLoop
-
-  /// Iterate every vertex in the graph in a breadth-first manner starting from
-  /// the root node.
-  member __.IterVertexBFS root fn =
-    let visited: HashSet<int> = new HashSet<int> ()
-    let queue: Queue<Vertex<'V>> = new Queue<Vertex<'V>> ()
-    let enqueue vertices = vertices |> List.iter (fun v -> queue.Enqueue (v))
-    let rec iterLoop () =
-      if queue.Count = 0 then ()
-      else let v = queue.Dequeue ()
-           if visited.Contains (v.GetID ()) then iterLoop ()
-           else visited.Add (v.GetID ()) |> ignore
-                enqueue v.Succs
-                fn v
-                iterLoop ()
-    enqueue [root]
-    iterLoop ()
-
-  /// Fold every edge in the graph in a depth-first manner starting from the
-  /// root node. We do not provide BFS-style folding function for edges.
-  member __.FoldEdgeDFS root fn acc =
-    let inline foldEdgeDFSAux acc tovisit fn (v: Vertex<'V>) =
-      let rec foldLoop (acc, tovisit) = function
-        | succ :: succs ->
-          let acc = fn acc v succ
-          let tovisit = succ :: tovisit
-          foldLoop (acc, tovisit) succs
-        | [] -> acc, tovisit
-      foldLoop (acc, tovisit) v.Succs
-    let visited : HashSet<int> = new HashSet<int> ()
-    let rec foldLoop acc = function
-      | [] -> acc
-      | v :: tovisit when Vertex<_>.GetID v |> visited.Contains ->
-        foldLoop acc tovisit
-      | v :: tovisit ->
-        visited.Add (v.GetID ()) |> ignore
-        foldEdgeDFSAux acc tovisit fn v ||> foldLoop
-    let acc = foldLoop acc [root]
-    __.GetVertices () |> Set.toList |> foldLoop acc
-
-  /// Iterate every edge in the graph in a depth-first manner starting from the
-  /// root node. N.B. we do not provide BFS-style folding function for edges.
-  member __.IterEdgeDFS root fn =
-    let inline iterEdgeDFSAux tovisit fn (v: Vertex<'V>) =
-      let rec iterLoop tovisit = function
-        | succ :: succs ->
-          fn v succ
-          let tovisit = succ :: tovisit
-          iterLoop tovisit succs
-        | [] -> tovisit
-      iterLoop tovisit v.Succs
-    let visited : HashSet<int> = new HashSet<int> ()
-    let rec iterLoop = function
-      | [] -> ()
-      | v :: tovisit when Vertex<_>.GetID v |> visited.Contains ->
-        iterLoop tovisit
-      | v :: tovisit ->
-        visited.Add (v.GetID ()) |> ignore
-        iterEdgeDFSAux tovisit fn v |> iterLoop
-    iterLoop [root]
-    __.GetVertices () |> Set.toList |> iterLoop
 
   /// Return the DOT-representation of this graph.
   member __.ToDOTStr name vToStrFn (_eToStrFn: Edge<'E> -> string) =

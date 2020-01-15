@@ -44,9 +44,11 @@ let adjustLayer topoOrdered =
   Array.iter (adjustLayerByMax maxLayer) topoOrdered
 
 let longestPathAssignLayers vGraph root =
-  let topoOrder = VisGraph.getTopologicalOrder vGraph root
+  let _, orderMap =
+    Traversal.foldTopologically vGraph [root] (fun (cnt, map) v ->
+      cnt + 1, Map.add v cnt map) (0, Map.empty)
   let topoOrdered = Array.zeroCreate <| vGraph.Size ()
-  Map.iter (fun v i -> Array.set topoOrdered i v) topoOrder
+  Map.iter (fun v i -> Array.set topoOrdered i v) orderMap
   let topoOrdered = Array.rev topoOrdered
   Array.iter assignLayerFromSucc topoOrdered
   adjustLayer topoOrdered
@@ -75,7 +77,7 @@ let rec promoteVerticesLoop (vGraph: VisGraph) root layerArr backUp =
         // otherwise, restore previous layout
         else acc, backUp, Array.copy backUp
       else acc, layerArr, backUp
-    vGraph.FoldVertexDFS root folder (0, layerArr, backUp)
+    Traversal.foldPreorder root folder (0, layerArr, backUp)
   // If there exists at least one vertex promoted, this process should be done
   // one more time
   if promotion <> 0 then
@@ -103,8 +105,9 @@ let assignLayerFromPred (vGraph: VisGraph) vData =
     VisGraph.setLayer v <| List.max predLayers + 1
 
 let kahnAssignLayers (vGraph: VisGraph) =
-  let sortedVertices = Algorithms.kahnTopologicalSort vGraph
-  List.iter (assignLayerFromPred vGraph) sortedVertices
+  Traversal.foldTopologically vGraph [] (fun acc v -> v.VData :: acc) []
+  |> List.rev
+  |> List.iter (assignLayerFromPred vGraph)
 
 let rec addDummy (g: VisGraph) (backEdges, dummies) k src dst (e: VisEdge) cnt =
   if cnt = 0 then

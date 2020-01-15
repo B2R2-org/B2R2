@@ -118,24 +118,47 @@ type TestClass () =
   let getVertexVal (v: Vertex<V> option) = (Option.get v).VData.Val
 
   let sum acc (v: Vertex<V>) = v.VData.Val + acc
-  let inc acc v1 v2 e = acc + edgeValue e
+  let inc acc _v1 _v2 e = acc + edgeValue e
 
   [<TestMethod>]
-  member __.``RangedDiGraph Traversal Test``() =
-    let s1 = g1.FoldVertexDFS g1root sum 0
-    let s2 = g1.FoldVertexBFS g1root sum 0
-    let s3 = g1.FoldEdge inc 0
+  member __.``RangedDiGraph Traversal Test 1``() =
+    let s1 = Traversal.foldPostorder g1root sum 0
+    let s2 = Traversal.foldRevPostorder g1root sum 0
+    let s3 = Traversal.foldPreorder g1root sum 0
+    let s4 = g1.FoldVertex sum 0
+    let s5 = g1.FoldEdge inc 0
     Assert.AreEqual (s1, 21)
     Assert.AreEqual (s2, 21)
-    Assert.AreEqual (s3, 28)
+    Assert.AreEqual (s3, 21)
+    Assert.AreEqual (s4, 21)
+    Assert.AreEqual (s5, 28)
+
+  [<TestMethod>]
+  member __.``RangedDiGraph Traversal Test 2``() =
+    let s1 =
+      Traversal.foldPostorder g1root (fun acc v -> v.VData.Val :: acc) []
+      |> List.rev |> List.toArray
+    let s2 =
+      Traversal.foldPreorder g1root (fun acc v -> v.VData.Val :: acc) []
+      |> List.rev |> List.toArray
+    let s3 =
+      Traversal.foldPostorder g3root (fun acc v -> v.VData.Val :: acc) []
+      |> List.rev |> List.toArray
+    let s4 =
+      Traversal.foldPreorder g3root (fun acc v -> v.VData.Val :: acc) []
+      |> List.rev |> List.toArray
+    CollectionAssert.AreEqual ([| 5; 3; 4; 6; 2; 1 |], s1)
+    CollectionAssert.AreEqual ([| 1; 2; 3; 5; 4; 6 |], s2)
+    CollectionAssert.AreEqual ([| 4; 2; 5; 3; 1 |], s3)
+    CollectionAssert.AreEqual ([| 1; 2; 4; 3; 5 |], s4)
 
   [<TestMethod>]
   member __.``RangedDiGraph Removal Test``() =
     let g2 = g1.Clone ()
     let g2root = g2.FindVertexByData (g1root.VData)
     g2.FindVertexByRange (AddrRange (3UL, 4UL)) |> g2.RemoveVertex
-    let s1 = g1.FoldVertexDFS g1root sum 0
-    let s2 = g2.FoldVertexDFS g2root sum 0
+    let s1 = Traversal.foldPreorder g1root sum 0
+    let s2 = Traversal.foldPreorder g2root sum 0
     Assert.AreEqual (6, g1.Size ())
     Assert.AreEqual (5, g2.Size ())
     Assert.AreEqual (21, s1)
@@ -145,8 +168,8 @@ type TestClass () =
   member __.``Graph Transposition Test``() =
     let g2 = g1.Reverse ()
     let g2root = g2.FindVertexByData v6
-    let s1 = g1.FoldVertexDFS g1root sum 0
-    let s2 = g2.FoldVertexDFS g2root sum 0
+    let s1 = Traversal.foldPreorder g1root sum 0
+    let s2 = Traversal.foldPreorder g2root sum 0
     let lst =
       g2.FoldEdge (fun acc s d _ -> (s.VData.Val, d.VData.Val) :: acc) []
     let edges = List.sort lst |> List.toArray

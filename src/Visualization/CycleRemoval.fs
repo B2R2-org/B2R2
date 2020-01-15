@@ -26,6 +26,8 @@
 
 module internal B2R2.Visualization.CycleRemoval
 
+open B2R2.BinGraph
+
 let private removeSelfCycle (vGraph: VisGraph) backEdgeList src dst _ =
   if VisGraph.getID src = VisGraph.getID dst then (* Definition of self cycle *)
     let edge = vGraph.FindEdgeData src dst
@@ -50,8 +52,10 @@ let private removeBackEdge (vGraph: VisGraph) order backEdgeList src dst _ =
   else backEdgeList
 
 let private dfsRemoveCycles vGraph roots backEdgeList =
-  let topoOrder = VisGraph.getTopologicalOrder vGraph roots
-  vGraph.FoldEdge (removeBackEdge vGraph topoOrder) backEdgeList
+  let _, orderMap =
+    Traversal.foldTopologically vGraph roots (fun (cnt, map) v ->
+      cnt + 1, Map.add v cnt map) (0, Map.empty)
+  vGraph.FoldEdge (removeBackEdge vGraph orderMap) backEdgeList
 
 let removeCycles (vGraph: VisGraph) roots =
   let backEdgeList = vGraph.FoldEdge (removeSelfCycle vGraph) []

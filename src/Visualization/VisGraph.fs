@@ -76,10 +76,3 @@ module VisGraph =
 
   let getYPos (v: Vertex<VisBBlock>) = v.VData.Coordinate.Y
 
-  let getTopologicalOrder (g: VisGraph) roots =
-    let size = g.Size () - 1
-    let _, _, topoOrder, _ =
-      roots |> List.fold (fun acc root ->
-        g.FoldVertexDFS root Algorithms.topologicalOrdering acc
-      ) (Set.empty, [], Map.empty, size)
-    topoOrder

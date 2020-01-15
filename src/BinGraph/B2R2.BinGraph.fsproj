@@ -9,6 +9,7 @@
   <ItemGroup>
     <Compile Include="Graph.fs" />
     <Compile Include="DummyVertex.fs" />
+    <Compile Include="Traversal.fs" />
     <Compile Include="Dominator.fsi" />
     <Compile Include="Dominator.fs" />
     <Compile Include="CFGEdgeKind.fs" />
@@ -24,7 +25,6 @@
     <Compile Include="IRBasicBlock.fs" />
     <Compile Include="ControlFlowGraph.fsi" />
     <Compile Include="ControlFlowGraph.fs" />
-    <Compile Include="Algorithms.fs" />
     <Compile Include="SCFGUtils.fs" />
     <Compile Include="SCFG.fs" />
     <Compile Include="ILens.fs" />

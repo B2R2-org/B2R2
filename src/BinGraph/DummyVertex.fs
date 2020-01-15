@@ -35,11 +35,5 @@ type DummyEntry =
     else
       let dummyEntry = Vertex<_> ()
       dummyEntry.Succs <- [root]
-      root.Preds <- dummyEntry :: root.Preds
       dummyEntry
-
-  /// Disconnect the dummy node and root node. The Connect function and this
-  /// function should always be called before/after an analysis.
-  static member Disconnect (root: Vertex<_>) =
-    root.Preds <- root.Preds |> List.filter (fun p -> p.GetID () <> 0)
 

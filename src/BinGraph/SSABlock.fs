@@ -55,8 +55,8 @@ module SSABlockHelper =
   /// This is currently intra-procedural.
   let computeDefinedVars hdl (scfg: SCFG) addr =
     try
-      let g, root = scfg.GetFunctionCFG addr
-      let defs = g.FoldVertexDFS root defVarFolder Set.empty |> Set.toArray
+      let g, _ = scfg.GetFunctionCFG addr
+      let defs = g.FoldVertex defVarFolder Set.empty |> Set.toArray
       if Array.isEmpty defs then addDefaultDefs hdl
       else defs
     with _ -> [||]
