@@ -973,7 +973,7 @@ let private getDEOverBF b =
 let private getDFOverBF b =
   getDFOpcodeOutside00toBF b,
   if b = 0xE0uy then OprReg R.AX |> OneOperand
-  else TwoOperands (getRM b |> getSTReg, OprReg R.ST0)
+  else TwoOperands (OprReg R.ST0, getRM b |> getSTReg)
 
 let private getD9EscEffOprSizeByModRM = function
  | 0b000 | 0b010 | 0b011 -> 32<rt> (* single-real *)

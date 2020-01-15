@@ -181,10 +181,10 @@ module Intel =
     /// 5.2.3 x87 FPU Comparison Instructions
     [<TestMethod>]
     member __.``Intel FPU Comparision Parse Test`` () =
-      test32 Opcode.FCOMIP (TwoOperands (OprReg R.ST1, OprReg R.ST0)) 2ul
+      test32 Opcode.FCOMIP (TwoOperands (OprReg R.ST0, OprReg R.ST1)) 2ul
              [| 0xdfuy; 0xf1uy |]
 
-      test32 Opcode.FUCOMIP (TwoOperands (OprReg R.ST1, OprReg R.ST0)) 2ul
+      test32 Opcode.FUCOMIP (TwoOperands (OprReg R.ST0, OprReg R.ST1)) 2ul
              [| 0xdfuy; 0xe9uy |]
 
   /// 5.4 MMX INSTRUCTIONS
