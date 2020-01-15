@@ -56,7 +56,7 @@ type BinExplorerOpts (isa) =
 
   /// Enable readline mode or not. This option will be removed when .NET bug:
   /// https://github.com/dotnet/corefx/issues/32174 is fixed.
-  member val EnableReadLine = false with get, set
+  member val EnableReadLine = true with get, set
 
   static member private ToThis (opts: CmdOpts) =
     match opts with
@@ -96,10 +96,10 @@ type BinExplorerOpts (isa) =
 
   static member OptReadLine () =
     let cb (opts: #CmdOpts) (_arg : string []) =
-      (BinExplorerOpts.ToThis opts).EnableReadLine <- true; opts
+      (BinExplorerOpts.ToThis opts).EnableReadLine <- false; opts
     CmdOpts.New (
-      descr = "Enable readline feature for BinExplorer",
-      callback = cb, long = "--readline")
+      descr = "Disable readline feature for BinExplorer",
+      callback = cb, long = "--no-readline")
 
   static member OptJsonDumpDir () =
     let cb (opts: #CmdOpts) (arg : string []) =
