@@ -26,7 +26,7 @@
 
 namespace B2R2.Utilities.BinExplorer
 
-open B2R2.BinGraph
+open B2R2.MiddleEnd
 
 /// Raised when there are duplicate commands with the same name or alias.
 exception DuplicateCommandException

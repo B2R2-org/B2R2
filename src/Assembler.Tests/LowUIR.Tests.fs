@@ -41,3 +41,4 @@ type LowUIRTests () =
       Put (Var (64<rt>, regID, "RAX", RegisterSet.empty),
            Num (BitVector.cast BitVector.F 64<rt>))
     Assert.AreEqual (answer, result)
+

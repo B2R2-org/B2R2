@@ -30,6 +30,7 @@ open System
 open System.Text
 open B2R2
 open B2R2.BinGraph
+open B2R2.MiddleEnd
 
 type CmdShow () =
   inherit Cmd ()
@@ -67,7 +68,7 @@ type CmdShow () =
   member __.ShowCaller ess = function
     | (expr: string) :: _ ->
       let addr = CmdUtils.convHexString expr |> Option.defaultValue 0UL
-      match ess.BinaryApparatus.CallerMap.TryGetValue addr with
+      match ess.BinCorpus.CallerMap.TryGetValue addr with
       | false, _ -> [| "[*] Not found." |]
       | true, callee ->
         let sb = StringBuilder ()
@@ -80,8 +81,8 @@ type CmdShow () =
     | (expr: string) :: _ ->
       let addr = CmdUtils.convHexString expr |> Option.defaultValue 0UL
       let sb = StringBuilder ()
-      if Char.IsDigit expr.[0] then ess.BinaryApparatus.CalleeMap.Find (addr)
-      else ess.BinaryApparatus.CalleeMap.Find (expr)
+      if Char.IsDigit expr.[0] then ess.BinCorpus.CalleeMap.Find (addr)
+      else ess.BinCorpus.CalleeMap.Find (expr)
       |> Option.map (fun callee -> (__.CalleeToString sb callee).ToString ())
       |> Option.defaultValue "[*] Not found."
       |> Array.singleton

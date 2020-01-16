@@ -24,14 +24,14 @@
   THE SOFTWARE.
 *)
 
-module B2R2.Core.Tests.IntervalTree
+namespace B2R2.Core.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 
 open B2R2
 
 [<TestClass>]
-type TestClass () =
+type IntervalTreeTests () =
 
   [<TestMethod>]
   member __.``IntervalSet Test tryFindByAddr`` () =

@@ -26,7 +26,7 @@
   THE SOFTWARE.
 *)
 
-module B2R2.Core.Tests.BitVector
+namespace B2R2.Core.Tests
 
 open System
 open Microsoft.VisualStudio.TestTools.UnitTesting
@@ -34,7 +34,7 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 
 [<TestClass>]
-type TestClass () =
+type BitVectorTests () =
 
   [<TestMethod>]
   member __.``Equality`` () =

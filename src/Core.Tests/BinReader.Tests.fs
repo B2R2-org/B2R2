@@ -24,14 +24,13 @@
   THE SOFTWARE.
 *)
 
-module B2R2.Core.Tests.BinReader
+namespace B2R2.Core.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
-
 open B2R2
 
 [<TestClass>]
-type TestClass () =
+type BinReaderTests () =
 
   [<TestMethod>]
   member __.``ULEB128 Test 1`` () =

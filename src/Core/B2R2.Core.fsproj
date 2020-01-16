@@ -21,6 +21,7 @@
     <Compile Include="AddrRangeMap.fs" />
     <Compile Include="BitVector.fsi" />
     <Compile Include="BitVector.fs" />
+    <Compile Include="ProgramPoint.fs" />
     <Compile Include="ByteArray.fsi" />
     <Compile Include="ByteArray.fs" />
     <Compile Include="FingerTree.fs" />

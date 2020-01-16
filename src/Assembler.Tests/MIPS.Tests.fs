@@ -6,7 +6,7 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2.FrontEnd.MIPS
 
 [<TestClass>]
-type TestClass () =
+type MIPSTests () =
   let mips =
       { Arch = Arch.MIPS32; Endian = Endian.Big; WordSize = WordSize.Bit32 }
   let assembler = AsmInterface (mips, 0UL)
@@ -54,3 +54,4 @@ type TestClass () =
       [ newInfo mips 0UL Opcode.BEQ None None operands1;
         newInfo mips 4UL Opcode.JR None None operands2 ]
     Assert.AreEqual (answer, result)
+

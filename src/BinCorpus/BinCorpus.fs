@@ -37,10 +37,10 @@ open B2R2.BinIR.LowUIR
 type JmpTargetMap = Map<Addr, Addr list>
 
 /// <summary>
-///   Binary apparatus contains the key components and information for our CFG
-///   analysis, such as all the parsed instructions from the target binary as
-///   well as the positions of all the leaders found. This will be updated
-///   through our CFG analyses.
+///   Binary corpus (BinCorpus) contains the key components and information
+///   about our CFG analysis, such as all the parsed instructions from the
+///   target binary as well as the positions of all the leaders found. This will
+///   be updated through our CFG analyses.
 /// </summary>
 /// <remarks>
 ///   <para>B2R2's CFG analyses roughly work as follows.</para>
@@ -68,35 +68,35 @@ type JmpTargetMap = Map<Addr, Addr list>
 ///     at any callee, which can greatly help further analyses.
 ///   </para>
 ///   <para>
-///     Once BinaryApparatus is constructed, our SCFG module will then build a
-///     graph based on the information found in the BinaryApparatus. The details
+///     Once BinCorpus is constructed, our SCFG module will then build a
+///     graph based on the information found in the BinCorpus. The details
 ///     should be found in the SCFG module.
 ///   </para>
 ///   <para>
-///     Now that we have obtained basic information (BinaryApparatus and SCFG)
+///     Now that we have obtained basic information (BinCorpus and SCFG)
 ///     to work with, we perform some post analyses to improve the information.
 ///     For example, we remove unnecessary edges from the SCFG by disconnecting
 ///     return edges from a function that termiates the process (e.g., exit
 ///     function), and we recover indirect branch targets to discover more
 ///     instructions. After the post analyses, we may or may not have an updated
-///     BinaryApparatus, in which case we rerun the above steps to update our
+///     BinCorpus, in which case we rerun the above steps to update our
 ///     SCFG (with newly found instructions, etc.). We terminate our analysis
-///     when our post analayses do not bring a different BinaryApparatus.
+///     when our post analayses do not bring a different BinCorpus.
 ///   </para>
 /// </remarks>
-type BinaryApparatus = {
+type BinCorpus = {
   InstrMap: InstrMap
   LabelMap: Map<Symbol, Addr * int>
   LeaderInfos: Set<LeaderInfo>
   CallerMap: CallerMap
   CalleeMap: CalleeMap
-  /// This is a flag representing whether this BinaryApparatus has been modified
+  /// This is a flag representing whether this BinCorpus has been modified
   /// by our post analysis.
   Modified: bool
 }
 
 [<RequireQualifiedAccess>]
-module BinaryApparatus =
+module BinCorpus =
   /// This function returns an initial sequence of entry points obtained from
   /// the binary itself (e.g., from its symbol information). Therefore, if the
   /// binary is stripped, the returned sequence will be incomplete, and we need
@@ -183,7 +183,7 @@ module BinaryApparatus =
     if oldCount <> instrMap.Count then findLeaders hdl acc instrMap
     else struct (instrMap, acc)
 
-  let private initBinApp hdl auxEntries =
+  let private initBinCorpus hdl auxEntries =
     let initial = getInitialEntryPoints hdl
     let leaders = auxEntries |> Seq.fold (fun set e -> Set.add e set) initial
     let instrMap = InstrMap.build hdl leaders
@@ -198,7 +198,7 @@ module BinaryApparatus =
     let struct (instrMap, acc) = findLeaders hdl acc instrMap
     let calleeMap = CalleeMap.build hdl acc.FunctionAddrs instrMap
 #if DEBUG
-    printfn "[*] The apparatus is ready to use."
+    printfn "[*] The corpus is ready to use."
 #endif
     { InstrMap = instrMap
       LabelMap = acc.Labels
@@ -207,18 +207,18 @@ module BinaryApparatus =
       CalleeMap = calleeMap
       Modified = true }
 
-  /// Create a binary apparatus from the given BinHandler.
+  /// Create a binary corpus from the given BinHandler.
   [<CompiledName("Init")>]
-  let init hdl = initBinApp hdl Seq.empty
+  let init hdl = initBinCorpus hdl Seq.empty
 
-  /// Update instruction info for the given binary appratus based on the given
+  /// Update instruction info for the given binary corpus based on the given
   /// target addresses. Those addresses should represent a function entry point.
   /// Regular branch destinations should not be handled here.
-  let internal update hdl app addrs =
+  let update hdl app addrs =
     if Seq.isEmpty addrs then app
-    else initBinApp hdl addrs
+    else initBinCorpus hdl addrs
 
-  /// Return the list of function addresses from the BinaryApparatus.
+  /// Return the list of function addresses from the BinCorpus.
   let getFunctionAddrs app =
     app.CalleeMap.Callees
     |> Seq.choose (fun c -> c.Addr)

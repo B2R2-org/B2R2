@@ -2,7 +2,6 @@
   B2R2 - the Next-Generation Reversing Platform
 
   Author: Sang Kil Cha <sangkilc@kaist.ac.kr>
-          Soomin Kim <soomink@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -25,9 +24,10 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinGraph
+namespace B2R2.MiddleEnd
 
 open B2R2.FrontEnd
+open B2R2.BinGraph
 
 /// Represent the "essence" of a binary code. This is the primary data structure
 /// for storing various information about a binary, such as its CFG, FileFormat
@@ -35,42 +35,42 @@ open B2R2.FrontEnd
 type BinEssence = {
   /// BInary handler.
   BinHandler: BinHandler
-  /// Binary apparatus holds crucial machinery about binary code and their
-  /// lifted statements. For example, it provides a convenient mapping from an
-  /// address to the corresponding instruction and IR statements.
-  BinaryApparatus: BinaryApparatus
+  /// Binary corpus holds crucial machinery about binary code and their lifted
+  /// statements. For example, it provides a convenient mapping from an address
+  /// to the corresponding instruction and IR statements.
+  BinCorpus: BinCorpus
   /// Super Control Flow Graph.
   SCFG: SCFG
 }
 with
-  static member private PostAnalysis hdl scfg app =
+  static member private PostAnalysis hdl scfg corp =
     [ (LibcAnalysis () :> IPostAnalysis, "LibC analysis")
       (EVMCodeCopyAnalysis () :> IPostAnalysis, "EVM codecopy analysis")
       (NoReturnAnalysis () :> IPostAnalysis, "NoReturn analysis") ]
-    |> List.fold (fun app (analysis, name) ->
+    |> List.fold (fun corp (analysis, name) ->
       printfn "[*] %s started." name
-      analysis.Run hdl scfg app) app
+      analysis.Run hdl scfg corp) corp
 
-  static member private Analysis hdl app (scfg: SCFG) analyzers =
+  static member private Analysis hdl corp (scfg: SCFG) analyzers =
 #if DEBUG
     printfn "[*] Start post analysis."
 #endif
-    let app' = BinEssence.PostAnalysis hdl scfg { app with Modified = false }
-    if not app'.Modified then
+    let corp' = BinEssence.PostAnalysis hdl scfg { corp with Modified = false }
+    if not corp'.Modified then
 #if DEBUG
       printfn "[*] All done."
 #endif
       { BinHandler = hdl
-        BinaryApparatus = app'
+        BinCorpus = corp'
         SCFG = scfg }
     else
 #if DEBUG
       printfn "[*] Go to the next phase ..."
 #endif
-      let scfg' = SCFG (hdl, app')
-      BinEssence.Analysis hdl app' scfg' analyzers
+      let scfg' = SCFG (hdl, corp')
+      BinEssence.Analysis hdl corp' scfg' analyzers
 
   static member Init hdl =
-    let app = BinaryApparatus.init hdl
-    let scfg = SCFG (hdl, app)
-    BinEssence.Analysis hdl app scfg []
+    let corp = BinCorpus.init hdl
+    let scfg = SCFG (hdl, corp)
+    BinEssence.Analysis hdl corp scfg []

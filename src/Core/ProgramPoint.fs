@@ -24,9 +24,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinGraph
-
-open B2R2
+namespace B2R2
 
 /// A program point (ProgramPoint) is a fine-grained location in a program,
 /// which can point to a specific IR statement. We represent it as a tuple:

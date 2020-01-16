@@ -27,6 +27,8 @@
 
 namespace B2R2.BinGraph
 
+open B2R2
+
 /// A graph lens for obtaining SSACFG.
 type SSALens (hdl, scfg) =
   let getVertex g (vMap: SSAVMap) (oldSrc: Vertex<IRBasicBlock>) =

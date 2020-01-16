@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Leader.fs" />
+    <Compile Include="InstrMap.fs" />
+    <Compile Include="CallAnalysis.fs" />
+    <Compile Include="BinCorpus.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Core\B2R2.Core.fsproj" />
+    <ProjectReference Include="..\FrontEnd\Core\B2R2.FrontEnd.Core.fsproj" />
+    <ProjectReference Include="..\FrontEnd\Library\B2R2.FrontEnd.Library.fsproj" />
+    <ProjectReference Include="..\FrontEnd\Optimizer\B2R2.FrontEnd.Optimizer.fsproj" />
+    <ProjectReference Include="..\BinIR\B2R2.BinIR.fsproj" />
+  </ItemGroup>
+
+</Project>

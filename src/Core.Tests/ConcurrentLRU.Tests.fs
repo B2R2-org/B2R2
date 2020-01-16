@@ -24,7 +24,7 @@
   THE SOFTWARE.
 *)
 
-module B2R2.Core.Tests.ConcurrentLRU
+namespace B2R2.Core.Tests
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
 
@@ -33,7 +33,7 @@ open B2R2
 open System.Threading
 
 [<TestClass>]
-type TestClass () =
+type ConcurrentLRUTests () =
   member __.GenTestFunc<'K, 'V> (proc: 'K -> 'V) =
     let x = ref 0
     (fun k -> Interlocked.Increment x |> ignore; proc k), x

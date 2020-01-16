@@ -43,5 +43,6 @@ type ILens<'V when 'V :> BasicBlock and 'V: equality> =
   abstract member Filter:
        graph: IRCFG
     -> roots: Vertex<IRBasicBlock> list
-    -> app: BinaryApparatus
+    -> corpus: BinCorpus
     -> ControlFlowGraph<'V, CFGEdgeKind> * Vertex<'V> list
+

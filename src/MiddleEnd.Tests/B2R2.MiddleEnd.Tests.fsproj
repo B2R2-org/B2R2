@@ -6,8 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="LowUIR.Tests.fs" />
-    <Compile Include="MIPS.Tests.fs" />
+    <Compile Include="CFG.Tests.fs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -18,11 +17,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\BinIR\B2R2.BinIR.fsproj" />
-    <ProjectReference Include="..\Assembler\LowUIR\B2R2.Assembler.LowUIR.fsproj" />
-    <ProjectReference Include="..\Assembler\Interface\B2R2.Assembler.Interface.fsproj" />
-    <ProjectReference Include="..\Assembler\MIPS\B2R2.Assembler.MIPS.fsproj" />
-    <ProjectReference Include="..\FrontEnd\Intel\B2R2.FrontEnd.Intel.fsproj" />
+    <ProjectReference Include="..\BinGraph\B2R2.BinGraph.fsproj" />
+    <ProjectReference Include="..\MiddleEnd\B2R2.MiddleEnd.fsproj" />
   </ItemGroup>
 
 </Project>

@@ -32,4 +32,4 @@ open B2R2.FrontEnd
 /// analysis includes no-return analysis, libc start address analysis,
 /// switch-case analysis, etc.
 type IPostAnalysis =
-  abstract Run: BinHandler -> SCFG -> BinaryApparatus -> BinaryApparatus
+  abstract Run: BinHandler -> SCFG -> BinCorpus -> BinCorpus

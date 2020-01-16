@@ -40,6 +40,7 @@
     <ProjectReference Include="..\..\FrontEnd\Core\B2R2.FrontEnd.Core.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\Library\B2R2.FrontEnd.Library.fsproj" />
     <ProjectReference Include="..\..\BinGraph\B2R2.BinGraph.fsproj" />
+    <ProjectReference Include="..\..\MiddleEnd\B2R2.MiddleEnd.fsproj" />
     <ProjectReference Include="..\..\ROP\B2R2.ROP.fsproj" />
     <ProjectReference Include="..\..\Visualization\B2R2.Visualization.fsproj" />
     <ProjectReference Include="..\..\NameMangling\B2R2.NameMangling.fsproj" />

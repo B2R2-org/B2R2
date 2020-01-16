@@ -33,6 +33,7 @@ open System.Runtime.Serialization.Json
 open B2R2
 open B2R2.FrontEnd
 open B2R2.BinGraph
+open B2R2.MiddleEnd
 open B2R2.Visualization
 
 type CFGType =
@@ -121,12 +122,12 @@ let cfgToJSON cfgType ess g roots =
   | IRCFG ->
     Visualizer.getJSONFromGraph g roots
   | DisasmCFG ->
-    let lens = DisasmLens.Init ess.BinaryApparatus
-    let g, roots = lens.Filter g roots ess.BinaryApparatus
+    let lens = DisasmLens.Init ess.BinCorpus
+    let g, roots = lens.Filter g roots ess.BinCorpus
     Visualizer.getJSONFromGraph g roots
   | SSACFG ->
     let lens = SSALens.Init ess.BinHandler ess.SCFG
-    let g, roots = lens.Filter g roots ess.BinaryApparatus
+    let g, roots = lens.Filter g roots ess.BinCorpus
     Visualizer.getJSONFromGraph g roots
   | _ -> failwith "Invalid CFG type"
 
@@ -152,7 +153,7 @@ let handleCFG req resp arbiter cfgType name =
     try
       let lens = CallGraphLens.Init ess.SCFG
       let cfg = ess.SCFG.Graph
-      let g, roots = lens.Filter cfg [] ess.BinaryApparatus
+      let g, roots = lens.Filter cfg [] ess.BinCorpus
       let s = Visualizer.getJSONFromGraph g roots
       Some (defaultEnc.GetBytes s) |> answer req resp
     with e ->
@@ -166,7 +167,7 @@ let handleCFG req resp arbiter cfgType name =
 let handleFunctions req resp arbiter =
   let ess = Protocol.getBinEssence arbiter
   let names =
-    BinaryApparatus.getInternalFunctions ess.BinaryApparatus
+    BinCorpus.getInternalFunctions ess.BinCorpus
     |> Seq.map (fun c -> { FuncID = c.CalleeID; FuncName = c.CalleeName })
     |> Seq.toArray
   Some (json<(JsonFuncInfo) []> names |> defaultEnc.GetBytes)

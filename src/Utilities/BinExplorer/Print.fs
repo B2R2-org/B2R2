@@ -30,6 +30,7 @@ open System
 open System.Text.RegularExpressions
 open B2R2
 open B2R2.FrontEnd
+open B2R2.MiddleEnd
 
 type PrintFormat =
   | Hexadecimal
@@ -145,7 +146,7 @@ type CmdPrint () =
         let len = String.length s |> uint64
         printStrings handler (addr + len + 1UL) (cnt - 1) ((addrstr + s) :: acc)
 
-  let validateRequest (binEssence: BinGraph.BinEssence) = function
+  let validateRequest (binEssence: BinEssence) = function
     | Ok (_, count, ASCII, addr) ->
       let handler = binEssence.BinHandler
       printStrings handler addr count []

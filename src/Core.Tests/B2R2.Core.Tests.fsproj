@@ -3,23 +3,22 @@
   <PropertyGroup>
     <TargetFramework>netcoreapp3.0</TargetFramework>
     <IsPackable>false</IsPackable>
-    <IsTestProject>true</IsTestProject>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="AddrRangeTests.fs" />
-    <Compile Include="ConcurrentLRUTests.fs" />
-    <Compile Include="IntervalTreeTests.fs" />
-    <Compile Include="BitVectorTests.fs" />
-    <Compile Include="ByteArrayTests.fs" />
-    <Compile Include="BinReaderTests.fs" />
-    <Compile Include="Program.fs" />
+    <Compile Include="AddrRange.Tests.fs" />
+    <Compile Include="ConcurrentLRU.Tests.fs" />
+    <Compile Include="IntervalTree.Tests.fs" />
+    <Compile Include="BitVector.Tests.fs" />
+    <Compile Include="ByteArray.Tests.fs" />
+    <Compile Include="BinReader.Tests.fs" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.5.0" />
-    <PackageReference Include="MSTest.TestAdapter" Version="1.2.0" />
-    <PackageReference Include="MSTest.TestFramework" Version="1.2.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.2.0" />
+    <PackageReference Include="MSTest.TestAdapter" Version="1.4.0" />
+    <PackageReference Include="MSTest.TestFramework" Version="1.4.0" />
+    <PackageReference Include="coverlet.collector" Version="1.0.1" />
   </ItemGroup>
 
   <ItemGroup>

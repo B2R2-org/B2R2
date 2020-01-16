@@ -26,6 +26,7 @@
 
 namespace B2R2.BinGraph
 
+open B2R2
 open B2R2.BinIR
 open System.Collections.Generic
 
