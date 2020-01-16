@@ -1004,6 +1004,7 @@ let private parseESCOp t (reader: BinReader) pos escFlag getOpIn getOpOut =
     let effOprSize =
       match escFlag with
       | 0xD9uy -> getReg b |> getD9EscEffOprSizeByModRM
+      | 0xDBuy -> 80<rt> (* tword *)
       | 0xDCuy -> 64<rt> (* double-real *)
       | 0xDDuy -> getReg b |> getDDEscEffOprSizeByModRM
       | 0xDFuy -> getReg b |> getDFEscEffOprSizeByModRM
