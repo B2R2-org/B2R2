@@ -981,6 +981,10 @@ let private getD9EscEffOprSizeByModRM = function
  | 0b101 | 0b111 -> 16<rt> (* 2 bytes *)
  | _ -> raise ParsingFailureException
 
+let private getDDEscEffOprSizeByModRM = function
+ | 0b000 | 0b010 | 0b011 -> 64<rt> (* double-real *)
+ | _ -> raise ParsingFailureException
+
 let private getDFEscEffOprSizeByModRM = function
  | 0b000 | 0b001 | 0b010 | 0b011 -> 16<rt> (* word-integer *)
  | 0b100 | 0b110 -> 80<rt> (* packed-BCD *)
@@ -1001,6 +1005,7 @@ let private parseESCOp t (reader: BinReader) pos escFlag getOpIn getOpOut =
       match escFlag with
       | 0xD9uy -> getReg b |> getD9EscEffOprSizeByModRM
       | 0xDCuy -> 64<rt> (* double-real *)
+      | 0xDDuy -> getReg b |> getDDEscEffOprSizeByModRM
       | 0xDFuy -> getReg b |> getDFEscEffOprSizeByModRM
       | _ -> escFlag |> getEscEffOprSizeByESCOp (* FIXME *)
     let memSize = { insSize.MemSize with EffOprSize = effOprSize }
