@@ -135,6 +135,14 @@ type OperandType =
   /// Unsigned 16 MSB of register that can optionally use cross path.
   | XUMsb16
 
+type MemoryOpOrder =
+  | RegMem
+  | MemReg
+
+let buildMemOperand reg mem = function
+  | RegMem -> TwoOperands (reg, mem)
+  | MemReg -> TwoOperands (mem, reg)
+
 [<Struct>]
 type OperandInfo =
   struct
@@ -504,6 +512,12 @@ let private parseXU4U2 bin opcode unit =
 let private parseS2S2 bin opcode unit =
   let o1 = OperandInfo (extract bin 22u 18u, S2)
   let o2 = OperandInfo (extract bin 27u 23u, S2)
+  struct (opcode, unit, parseTwoOprs unit o1 o2)
+
+/// uscst16, sint
+let private parseUSc16Si bin opcode unit =
+  let o1 = OperandInfo (extract bin 22u 7u, UConst) // FIXME
+  let o2 = OperandInfo (extract bin 27u 23u, SInt)
   struct (opcode, unit, parseTwoOprs unit o1 o2)
 
 /// sint, xsint, sint
@@ -1223,30 +1237,80 @@ let parseSiUc5Uc5Si bin opcode unit =
   struct (opcode, unit, parseFourOprs unit o1 o2 o3 o4)
 
 /// mem [offsetR/ucst5]
-let parseDUnitLSBasicOperands bin opcode unit typ =
+let parseDUnitLSBasicOperands bin opcode unit order =
   let mem = parseMem (extract bin 22u 9u) unit
   let reg =
     parseRegBySide (extract bin 27u 23u) (getSide (sBit bin)) |> Register
-  struct (opcode, unit, TwoOperands (if typ then reg, mem else mem, reg))
+  struct (opcode, unit, buildMemOperand reg mem order)
 
 /// mem [ucst15]
-let parseDUnitLSLongImmOperands bin opcode unit typ =
+let parseDUnitLSLongImmOperands bin opcode unit order =
   let baseReg = getB14orB15 (yBit bin)
   let mem =
     OprMem (baseReg, PositiveOffset, UCst15 (uint64 (extract bin 22u 8u)))
   let reg =
     parseRegBySide (extract bin 27u 23u) (getSide (sBit bin)) |> Register
-  struct (opcode, unit, TwoOperands (if typ then reg, mem else mem, reg))
+  struct (opcode, unit, buildMemOperand reg mem order)
 
 /// mem, regPair
-let parseDUnitDWordOperands bin opcode unit t =
+let parseDUnitDWordOperands bin opcode unit order =
   let mem = parseMem (extract bin 22u 9u) unit
   let v = extract bin 27u 23u
   let regPair =
     let high, low = if v &&& 0b1u = 0b0u then v + 1u, v else v, v - 1u
     let side = getSide (sBit bin)
     (parseRegBySide high side, parseRegBySide low side) |> RegisterPair
-  struct (opcode, unit, TwoOperands (if t then regPair, mem else mem, regPair))
+  struct (opcode, unit, buildMemOperand regPair mem order)
+
+let is0xxxx address = address &&& 0b10000u = 0b00000u
+
+let getCtrlReg crHi crLo =
+  match crHi, crLo with
+  | _, 0b00000u when is0xxxx crHi -> R.AMR
+  | _, 0b00001u when is0xxxx crHi -> R.CSR
+  | 0b00000u, 0b11001u -> R.DIER
+  | 0b00000u, 0b10001u -> R.DNUM
+  | 0b00000u, 0b11101u -> R.ECR
+  | 0b00000u, 0b11101u -> R.EFR
+  | 0b00000u, 0b10010u -> R.FADCR
+  | 0b00000u, 0b10011u -> R.FAUCR
+  | 0b00000u, 0b10100u -> R.FMCR
+  | 0b00000u, 0b11000u -> R.GFPGFR
+  | 0b00000u, 0b10110u -> R.GPLYA
+  | 0b00000u, 0b10111u -> R.GPLYB
+  | _, 0b00011u when is0xxxx crHi -> R.ICR
+  | _, 0b00100u when is0xxxx crHi -> R.IER
+  | 0b00000u, 0b11111u -> R.IERR
+  | 0b00000u, 0b00010u -> R.IFR
+  | 0b00010u, 0b00010u -> R.IFR
+  | 0b00000u, 0b01101u -> R.ILC
+  | _, 0b00110u when is0xxxx crHi -> R.IRP
+  | _, 0b00010u when is0xxxx crHi -> R.ISR
+  | _, 0b00101u when is0xxxx crHi -> R.ISTP
+  | 0b00000u, 0b11011u -> R.ITSR
+  | _, 0b00111u when is0xxxx crHi -> R.NRP
+  | 0b00000u, 0b11100u -> R.NTSR
+  | 0b00000u, 0b10000u -> R.PCE1
+  | 0b10000u, 0b10000u -> R.PCE1
+  | 0b00000u, 0b01111u -> R.REP
+  | 0b00000u, 0b01110u -> R.RILC
+  | 0b00000u, 0b10101u -> R.SSR
+  | 0b00000u, 0b01011u -> R.TSCH
+  | 0b00000u, 0b01010u -> R.TSCL
+  | 0b00000u, 0b11010u -> R.TSR
+  | _ -> Utils.impossible ()
+
+/// Control Register to Register
+let parseCtrlRegToReg bin opcode unit =
+  let o1 = getCtrlReg (extract bin 17u 13u) (extract bin 22u 18u) |> Register
+  let o2 = translateOperand unit (OperandInfo (extract bin 27u 23u, UInt))
+  struct (opcode, unit, TwoOperands (o1, o2))
+
+/// Register to Control Register
+let parseRegToCtrlReg bin opcode unit =
+  let o1 = translateOperand unit (OperandInfo (extract bin 22u 18u, XUInt))
+  let o2 = getCtrlReg (extract bin 17u 13u) (extract bin 27u 23u) |> Register
+  struct (opcode, unit, TwoOperands (o1, o2))
 
 let private getDUnit s x =
   match s, x with
@@ -1263,8 +1327,8 @@ let private parseDUnitSrcs bin =
   | 0b010000u -> parseSiSiSi bin Op.ADD unit
   | 0b010001u -> parseSiSiSi bin Op.SUB unit
   | 0b010010u when isSrc1Zero bin -> parseSiSi bin Op.MV unit
-  | 0b010011u -> parseSiUc5Si bin Op.SUB unit
   | 0b010010u -> parseSiUc5Si bin Op.ADD unit
+  | 0b010011u -> parseSiUc5Si bin Op.SUB unit
   | 0b110000u -> parseSiSiSi bin Op.ADDAB unit
   | 0b110001u -> parseSiSiSi bin Op.SUBAB unit
   | 0b110010u -> parseSiUc5Si bin Op.ADDAB unit
@@ -1279,7 +1343,7 @@ let private parseDUnitSrcs bin =
   | 0b111011u -> parseSiUc5Si bin Op.SUBAW unit
   | 0b111100u -> parseSiSiSi bin Op.ADDAD unit
   | 0b111101u -> parseSiUc5Si bin Op.ADDAD unit
-  | _ -> raise InvalidOpcodeException
+  | _ -> Utils.impossible ()
 
 /// Appendix C. page 724. Fig. C-2
 let private parseDUnitSrcsExt bin =
@@ -1299,7 +1363,7 @@ let private parseDUnitSrcsExt bin =
   | 0b1110u -> parseUiXUiUi bin Op.XOR unit
   | 0b1111u when isSrc111111 bin -> parseXUiUi bin Op.NOT unit
   | 0b1111u -> parseSc5XUiUi bin Op.XOR unit
-  | _ -> Utils.futureFeature ()
+  | _ -> Utils.impossible ()
 
 /// Appendix C. page 724. Fig. C-3
 let private parseDUnitADDLongImm bin =
@@ -1308,34 +1372,34 @@ let private parseDUnitADDLongImm bin =
   | 0b011u -> parseB14B15Uc15Si bin Op.ADDAB unit
   | 0b101u -> parseB14B15Uc15Si bin Op.ADDAH unit
   | 0b111u -> parseB14B15Uc15Si bin Op.ADDAW unit
-  | _ -> Utils.futureFeature ()
+  | _ -> Utils.impossible ()
 
 /// Appendix C. page 724. Fig. C-4
 let private parseDUnitLSBasic bin =
   let unit = getDUnit (yBit bin) 0u
   match extract bin 6u 4u with
-  | 0b000u -> parseDUnitLSBasicOperands bin Op.LDHU unit false
-  | 0b001u -> parseDUnitLSBasicOperands bin Op.LDBU unit false
-  | 0b010u -> parseDUnitLSBasicOperands bin Op.LDB unit false
-  | 0b011u -> parseDUnitLSBasicOperands bin Op.STB unit true
-  | 0b100u -> parseDUnitLSBasicOperands bin Op.LDH unit false
-  | 0b101u -> parseDUnitLSBasicOperands bin Op.STH unit true
-  | 0b110u -> parseDUnitLSBasicOperands bin Op.LDW unit false
-  | 0b111u -> parseDUnitLSBasicOperands bin Op.STW unit true
-  | _ -> Utils.futureFeature ()
+  | 0b000u -> parseDUnitLSBasicOperands bin Op.LDHU unit MemReg
+  | 0b001u -> parseDUnitLSBasicOperands bin Op.LDBU unit MemReg
+  | 0b010u -> parseDUnitLSBasicOperands bin Op.LDB unit MemReg
+  | 0b011u -> parseDUnitLSBasicOperands bin Op.STB unit RegMem
+  | 0b100u -> parseDUnitLSBasicOperands bin Op.LDH unit MemReg
+  | 0b101u -> parseDUnitLSBasicOperands bin Op.STH unit RegMem
+  | 0b110u -> parseDUnitLSBasicOperands bin Op.LDW unit MemReg
+  | 0b111u -> parseDUnitLSBasicOperands bin Op.STW unit RegMem
+  | _ -> Utils.impossible ()
 
 /// Appendix C. page 724. Fig. C-5
 let private parseDUnitLSLongImm bin =
   match extract bin 6u 4u with
-  | 0b000u -> parseDUnitLSLongImmOperands bin Op.LDHU D2Unit false
-  | 0b001u -> parseDUnitLSLongImmOperands bin Op.LDBU D2Unit false
-  | 0b010u -> parseDUnitLSLongImmOperands bin Op.LDB D2Unit false
-  | 0b011u -> parseDUnitLSLongImmOperands bin Op.STB D2Unit true
-  | 0b100u -> parseDUnitLSLongImmOperands bin Op.LDH D2Unit false
-  | 0b101u -> parseDUnitLSLongImmOperands bin Op.STH D2Unit true
-  | 0b110u -> parseDUnitLSLongImmOperands bin Op.LDW D2Unit false
-  | 0b111u -> parseDUnitLSLongImmOperands bin Op.STW D2Unit true
-  | _ -> Utils.futureFeature ()
+  | 0b000u -> parseDUnitLSLongImmOperands bin Op.LDHU D2Unit MemReg
+  | 0b001u -> parseDUnitLSLongImmOperands bin Op.LDBU D2Unit MemReg
+  | 0b010u -> parseDUnitLSLongImmOperands bin Op.LDB D2Unit MemReg
+  | 0b011u -> parseDUnitLSLongImmOperands bin Op.STB D2Unit RegMem
+  | 0b100u -> parseDUnitLSLongImmOperands bin Op.LDH D2Unit MemReg
+  | 0b101u -> parseDUnitLSLongImmOperands bin Op.STH D2Unit RegMem
+  | 0b110u -> parseDUnitLSLongImmOperands bin Op.LDW D2Unit MemReg
+  | 0b111u -> parseDUnitLSLongImmOperands bin Op.STW D2Unit RegMem
+  | _ -> Utils.impossible ()
 
 /// Appendix C. page 724. Fig. C-6
 let private parseDUnitLSDWord bin = struct (Op.InvalOP, NoUnit, NoOperand)
@@ -1371,7 +1435,7 @@ let private parseLUnitUnary bin =
   | 0b00011u -> parseXU4U2 bin Op.UNPKHU4 unit
   | 0b00100u -> parseXs2S2 bin Op.ABS2 unit
   | 0b00101u -> parseSc5Si1 bin Op.MVK unit
-  | _ -> raise InvalidOpcodeException
+  | _ -> Utils.impossible ()
 
 /// Appendix D. page 735. Fig. D-3
 let private parseLUnitNonCond bin = struct (Op.InvalOP, NoUnit, NoOperand)
@@ -1413,7 +1477,7 @@ let private parseMUnitCompound bin =
   | 0b11100u -> parseXiIntInt bin Op.SSHVL unit
   | 0b11101u -> parseXUiUiUi bin Op.ROTL unit
   | 0b11110u -> parseXUiUc5Ui bin Op.ROTL unit
-  | _ -> Utils.futureFeature ()
+  | _ -> Utils.impossible  ()
 
 /// Appendix E. page 743. Fig. E-2
 let private parseMUnitUnaryExt bin =
@@ -1426,7 +1490,7 @@ let private parseMUnitUnaryExt bin =
   | 0b11100u -> parseXUiUi bin Op.SHFL unit
   | 0b11110u -> parseXU4U4 bin Op.BITC4 unit
   | 0b11111u -> parseXUiUi bin Op.BITR unit
-  | _ -> Utils.futureFeature ()
+  | _ -> Utils.impossible ()
 
 /// Appendix E. page 743. Fig. E-3
 let private parseMUnitNonCond bin =
@@ -1444,7 +1508,7 @@ let private parseMUnitNonCond bin =
   | 0b11001u -> parseIntXiInt bin Op.SMPY32 unit
   | 0b11011u -> parseUiXUiUi bin Op.XORMPY unit
   | 0b11111u -> parseUiUiUi bin Op.GMPY unit
-  | _ -> Utils.futureFeature ()
+  | _ -> Utils.impossible ()
 
 /// Appendix E. page 743. Fig. E-4
 let private parseMUnitMPY bin =
@@ -1481,7 +1545,7 @@ let private parseMUnitMPY bin =
   | 0b11101u -> parseUlsb16XSlsb16Si bin Op.MPYUS unit
   | 0b11110u -> parseSc5XUlsb16Si bin Op.MPYSU unit
   | 0b11111u -> parseUlsb16XUlsb16Ui bin Op.MPYU unit
-  | _ -> Utils.futureFeature ()
+  | _ -> Utils.impossible ()
 
 /// Appendix F. page 747. Fig. F-1
 let private parseSUnitSrcs bin =
@@ -1497,6 +1561,8 @@ let private parseSUnitSrcs bin =
   | 0b001010u when isSrc111111 bin -> parseXUiUi bin Op.NOT unit
   | 0b001010u -> parseSc5XUiUi bin Op.XOR unit
   | 0b001011u -> parseUiXUiUi bin Op.XOR unit
+  | 0b001110u -> parseRegToCtrlReg bin Op.MVC unit
+  | 0b001111u -> parseCtrlRegToReg bin Op.MVC unit
   | 0b010000u when isSrc100010 bin -> parseS2S2 bin Op.SWAP2 unit // FIXME
   | 0b010000u -> parseI2Xi2I2 bin Op.PACKLH2 unit
   | 0b010001u -> parseI2Xi2I2 bin Op.SUB2 unit
@@ -1544,7 +1610,7 @@ let private parseSUnitSrcs bin =
   | 0b111011u -> parseXUiUiUi bin Op.SET unit
   | 0b111110u -> parseXSpSp bin Op.RSQRSP unit
   | 0b111111u -> parseXUiUiUi bin Op.CLR unit
-  | _ -> Utils.futureFeature ()
+  | _ -> Utils.impossible ()
 
 /// Appendix F. page 747. Fig. F-2
 let private parseSUnitAddSubFloat bin = struct (Op.InvalOP, NoUnit, NoOperand)
@@ -1576,7 +1642,7 @@ let private parseSUnitSrcsExt bin =
   | 0b1100u -> parseS2XS2S2 bin Op.MIN2 unit
   | 0b1101u -> parseS2XS2S2 bin Op.MAX2 unit
   | 0b1111u -> parseI2Xi2I2 bin Op.PACK2 unit
-  | _ -> Utils.futureFeature ()
+  | _ -> Utils.impossible ()
 
 /// Appendix F. page 748. Fig. F-6
 let private parseSUnitBrDisp bin =
@@ -1610,14 +1676,16 @@ let private parseSUnitNonCondImm bin =
 
 /// Appendix F. page 749. Fig. F-13
 let private parseSUnitMoveConst bin =
-  parseSc16Si bin Op.MVK (getSUnit (sBit bin) 0u)
+  match pickBit bin 6u with
+  | 0b0u -> parseSc16Si bin Op.MVK (getSUnit (sBit bin) 0u)
+  | _ (* 0b01 *) -> parseUSc16Si bin Op.MVKH (getSUnit (sBit bin) 0u) // FIXME
 
 /// Appendix F. page 749. Fig. F-14
 let private parseSUnitNonCond bin =
   let unit = getSUnit (sBit bin) (xBit bin)
   match extract bin 9u 6u with
   | 0b1011u -> parseSiXSiS2 bin Op.RPACK2 unit
-  | _ -> Utils.futureFeature ()
+  | _ -> Utils.impossible ()
 
 /// Appendix F. page 749. Fig. F-15
 let private parseSUnitUnary bin =
@@ -1626,7 +1694,7 @@ let private parseSUnitUnary bin =
   | 0b00000u -> parseXSpSp bin Op.ABSSP unit
   | 0b00010u -> parseXU4U2 bin Op.UNPKLU4 unit
   | 0b00011u -> parseXU4U2 bin Op.UNPKHU4 unit
-  | _ -> raise InvalidOpcodeException
+  | _ -> Utils.impossible ()
 
 /// Appendix F. page 749. Fig. F-16
 let private parseSUnitFieldOps bin =
@@ -1635,7 +1703,7 @@ let private parseSUnitFieldOps bin =
   | 0b01u -> parseSiUc5Uc5Si bin Op.EXT (getSUnit (sBit bin) 0u)
   | 0b10u -> parseUiUc5Uc5Ui bin Op.SET (getSUnit (sBit bin) 0u)
   | 0b11u -> parseUiUc5Uc5Ui bin Op.CLR (getSUnit (sBit bin) 0u)
-  | _ -> raise InvalidOpcodeException
+  | _ -> Utils.impossible ()
 
 /// Appendix H. page 765. Fig. H-1
 let private parseNoUnitDINT bin =
@@ -1644,7 +1712,7 @@ let private parseNoUnitDINT bin =
   | 0b0001u -> struct (Op.SWENR, NoUnit, NoOperand)
   | 0b0010u -> struct (Op.DINT, NoUnit, NoOperand)
   | 0b0011u -> struct (Op.RINT, NoUnit, NoOperand)
-  | _ -> Utils.futureFeature ()
+  | _ -> Utils.impossible ()
 
 /// Appendix H. page 765. Fig. H-2
 let private parseNoUnitIdleNop bin =
@@ -1662,7 +1730,7 @@ let private parseNoUnitCase0 bin =
   match extract bin 31u 28u with
   | 0b0000u -> parseNoUnitIdleNop bin
   | 0b0001u -> parseNoUnitDINT bin
-  | _ -> raise InvalidOpcodeException
+  | _ -> Utils.impossible ()
 
 let private parseNoUnitCase1 bin =
   match extract bin 31u 28u with
@@ -1866,7 +1934,7 @@ let private parseCase110 bin =
   | 0b1110011u -> parseDpXDpDp bin Op.SUBDP (getSUnit s x)
   | 0b1110101u -> parseSpXSpSp bin Op.SUBSP (getSUnit s x) (* src2 - src1 *)
   | 0b1110111u -> parseDpXDpDp bin Op.SUBDP (getSUnit s x) (* src2 - src1 *)
-  | _ -> Utils.futureFeature ()
+  | _ -> Utils.impossible ()
 
 let private parseCase10 bin =
   match pickBit bin 4u with
@@ -1877,15 +1945,15 @@ let private parseDUnitDWord bin =
   let unit = getDUnit (yBit bin) 0u
   match extract bin 6u 4u with
   (* parseDUnitLSBasic, C-4. Exceptional case. *)
-  | 0b011u -> parseDUnitLSBasicOperands bin Op.LDNW unit false
-  | 0b101u -> parseDUnitLSBasicOperands bin Op.STNW unit true
+  | 0b011u -> parseDUnitLSBasicOperands bin Op.LDNW unit MemReg
+  | 0b101u -> parseDUnitLSBasicOperands bin Op.STNW unit RegMem
   (* parseDUnitLSDWord, C-6 *)
-  | 0b100u -> parseDUnitDWordOperands bin Op.STDW unit true
-  | 0b110u -> parseDUnitDWordOperands bin Op.LDDW unit false
+  | 0b100u -> parseDUnitDWordOperands bin Op.STDW unit RegMem
+  | 0b110u -> parseDUnitDWordOperands bin Op.LDDW unit MemReg
   (* parseDUnitLSNonalignDWord C-7 *)
-  | 0b010u -> parseDUnitDWordOperands bin Op.LDNDW unit false
-  | 0b111u -> parseDUnitDWordOperands bin Op.STNDW unit true
-  | _ -> Utils.futureFeature ()
+  | 0b010u -> parseDUnitDWordOperands bin Op.LDNDW unit MemReg
+  | 0b111u -> parseDUnitDWordOperands bin Op.STNDW unit RegMem
+  | _ -> Utils.impossible ()
 
 let private parseDUnitLoadStore bin =
   match pickBit bin 8u with
