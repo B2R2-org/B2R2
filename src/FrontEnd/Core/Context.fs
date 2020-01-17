@@ -47,6 +47,10 @@ type ParsingContext (archMode) =
   /// dynamically generated code snippet.
   member val CodeOffset = 0UL with get, set
 
+  /// Indicate whether the next instruction should be executed in parallel. This
+  /// is used by DSP architectures.
+  member val InParallel = false with get, set
+
 /// A high-level interface for the translation context, which stores several
 /// states for translating/lifting instructions.
 [<AbstractClass>]

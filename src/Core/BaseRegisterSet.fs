@@ -41,6 +41,7 @@ type RegisterSetTag =
   | ARM64 = 3
   | MIPS = 4
   | EVM = 5
+  | TMS320C6000 = 6
 
 /// RegisterSet is an efficient set data structure for managing a set of
 /// registers.

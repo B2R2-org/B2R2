@@ -242,12 +242,6 @@ let opCodeToString = function
   | Op.XORI -> "xori"
   | _ -> failwith "Unknown opcode encountered."
 
-let inline buildAddr (addr: Addr) wordSize showAddress builder acc =
-  if not showAddress then acc
-  else
-    builder AsmWordKind.Address (Addr.toString wordSize addr) acc
-    |> builder AsmWordKind.String (": ")
-
 let inline appendCond insInfo opcode =
   match insInfo.Condition with
   | None -> opcode
@@ -307,7 +301,7 @@ let buildOprs insInfo builder acc =
 
 let disasm showAddr wordSize insInfo builder acc =
   let pc = insInfo.Address
-  buildAddr pc wordSize showAddr builder acc
+  DisasmBuilder.addr pc wordSize showAddr builder acc
   |> buildOpcode insInfo builder
   |> buildOprs insInfo builder
 
