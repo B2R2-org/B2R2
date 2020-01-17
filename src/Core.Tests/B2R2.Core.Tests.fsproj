@@ -12,6 +12,7 @@
     <Compile Include="IntervalTreeTests.fs" />
     <Compile Include="BitVectorTests.fs" />
     <Compile Include="ByteArrayTests.fs" />
+    <Compile Include="LEB128CodecTests.fs" />
     <Compile Include="BinReaderTests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
