@@ -28,6 +28,7 @@
 namespace B2R2.BinGraph
 
 open B2R2
+open B2R2.BinCorpus
 open System.Collections.Generic
 
 /// Raised when the given address is not a start address of a function.

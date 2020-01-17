@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="DataFlowAnalysis.fs" />
+    <Compile Include="ReachingDefinitions.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Core\B2R2.Core.fsproj" />
+    <ProjectReference Include="..\BinGraph\B2R2.BinGraph.fsproj" />
+  </ItemGroup>
+
+</Project>

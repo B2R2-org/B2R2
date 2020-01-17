@@ -2,6 +2,7 @@ namespace B2R2.MiddleEnd.Tests
 
 open B2R2
 open B2R2.FrontEnd
+open B2R2.BinCorpus
 open B2R2.BinGraph
 open B2R2.BinIR.LowUIR
 open B2R2.MiddleEnd
@@ -74,7 +75,7 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``Boundary Test: Function Identification`` () =
-    let funcs = BinCorpus.getFunctionAddrs ess.BinCorpus
+    let funcs = Apparatus.getFunctionAddrs ess.Apparatus
     Assert.AreEqual (3, Seq.length funcs)
     let expected = [ 0UL; 0x62UL; 0x71UL ] |> List.toArray
     let actual = Seq.toArray funcs
@@ -189,7 +190,7 @@ type CFGTest1 () =
   member __.``SSAGraph Vertex Test: _start`` () =
     let cfg, root = ess.SCFG.GetFunctionCFG 0x0UL
     let lens = SSALens.Init hdl ess.SCFG
-    let ssacfg, _ = lens.Filter cfg [root] ess.BinCorpus
+    let ssacfg, _ = lens.Filter cfg [root] ess.Apparatus
     Assert.AreEqual (10, ssacfg.Size ())
 
 [<TestClass>]
@@ -227,7 +228,7 @@ type CFGTest2 () =
 
   [<TestMethod>]
   member __.``Boundary Test: Function Identification`` () =
-    let funcs = BinCorpus.getFunctionAddrs ess.BinCorpus
+    let funcs = Apparatus.getFunctionAddrs ess.Apparatus
     Assert.AreEqual (2, Seq.length funcs)
     let expected = [ 0UL; 0x24UL ] |> List.toArray
     let actual = Seq.toArray funcs
@@ -301,8 +302,8 @@ type CFGTest2 () =
   [<TestMethod>]
   member __.``DisasmLens Test: _start`` () =
     let cfg, root = ess.SCFG.GetFunctionCFG 0x00UL
-    let lens = DisasmLens.Init ess.BinCorpus
-    let cfg, _ = lens.Filter cfg [root] ess.BinCorpus
+    let lens = DisasmLens.Init ess.Apparatus
+    let cfg, _ = lens.Filter cfg [root] ess.Apparatus
     Assert.AreEqual (4, cfg.Size ())
     let vMap = cfg.FoldVertex (fun m v ->
       Map.add v.VData.PPoint.Address v m) Map.empty
@@ -329,5 +330,5 @@ type CFGTest2 () =
   member __.``SSAGraph Vertex Test: _start`` () =
     let cfg, root = ess.SCFG.GetFunctionCFG 0x0UL
     let lens = SSALens.Init hdl ess.SCFG
-    let ssacfg, _ = lens.Filter cfg [root] ess.BinCorpus
+    let ssacfg, _ = lens.Filter cfg [root] ess.Apparatus
     Assert.AreEqual (7, ssacfg.Size ())

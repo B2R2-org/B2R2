@@ -27,8 +27,9 @@
 module B2R2.Utilities.BinExplorer.Main
 
 open B2R2
-open B2R2.BinGraph
 open B2R2.FrontEnd
+open B2R2.BinCorpus
+open B2R2.BinGraph
 open B2R2.MiddleEnd
 open B2R2.Visualization
 open B2R2.Utilities
@@ -148,7 +149,7 @@ let startGUI (opts: BinExplorerOpts) arbiter =
 let dumpJsonFiles jsonDir ess =
   try System.IO.Directory.Delete(jsonDir, true) with _ -> ()
   System.IO.Directory.CreateDirectory(jsonDir) |> ignore
-  BinCorpus.getInternalFunctions ess.BinCorpus
+  Apparatus.getInternalFunctions ess.Apparatus
   |> Seq.iter (fun { CalleeID = id; Addr = addr } ->
     let disasmJsonPath = Printf.sprintf "%s/%s.disasmCFG" jsonDir id
     let irJsonPath = Printf.sprintf "%s/%s.irCFG" jsonDir id
@@ -159,8 +160,8 @@ let dumpJsonFiles jsonDir ess =
       |> fst
       |> JSONExport.toStr
       |> encoding.GetBytes
-    let lens = DisasmLens.Init ess.BinCorpus
-    let disasmcfg, roots = lens.Filter cfg [root] ess.BinCorpus
+    let lens = DisasmLens.Init ess.Apparatus
+    let disasmcfg, roots = lens.Filter cfg [root] ess.Apparatus
     let disasmJson =
       VisGraph.ofCFG disasmcfg roots
       |> fst

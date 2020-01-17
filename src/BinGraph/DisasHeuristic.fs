@@ -31,12 +31,13 @@ open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
+open B2R2.BinCorpus
 open B2R2.ConcEval
 open B2R2.BinGraph.EmulationHelper
 
 module private LibcAnalysisHelper =
 
-  let retrieveAddrsForx86 hdl corpus st =
+  let retrieveAddrsForx86 hdl app st =
     let esp = (Intel.Register.ESP |> Intel.Register.toRegID)
     match EvalState.GetReg st esp with
     | Def sp ->
@@ -49,67 +50,67 @@ module private LibcAnalysisHelper =
         readMem st p5 Endian.Little 32<rt>
         readMem st p6 Endian.Little 32<rt> ]
       |> List.choose id
-      |> List.filter (fun addr -> corpus.InstrMap.ContainsKey addr |> not)
+      |> List.filter (fun addr -> app.InstrMap.ContainsKey addr |> not)
       |> function
-        | [] -> corpus
+        | [] -> app
         | addrs ->
           addrs
           |> List.map (fun addr -> LeaderInfo.Init (hdl, addr))
-          |> BinCorpus.update hdl corpus
-    | Undef -> corpus
+          |> Apparatus.update hdl app
+    | Undef -> app
 
-  let retrieveAddrsForx64 hdl corpus st =
+  let retrieveAddrsForx64 hdl app st =
     [ readReg st (Intel.Register.RDI |> Intel.Register.toRegID)
       readReg st (Intel.Register.RCX |> Intel.Register.toRegID)
       readReg st (Intel.Register.R8 |> Intel.Register.toRegID)
       readReg st (Intel.Register.R9 |> Intel.Register.toRegID) ]
     |> List.choose id
     |> List.map (BitVector.toUInt64)
-    |> List.filter (fun addr -> corpus.InstrMap.ContainsKey addr |> not)
+    |> List.filter (fun addr -> app.InstrMap.ContainsKey addr |> not)
     |> function
-      | [] -> corpus
+      | [] -> app
       | addrs ->
         addrs
         |> List.map (fun addr -> LeaderInfo.Init (hdl, addr))
-        |> BinCorpus.update hdl corpus
+        |> Apparatus.update hdl app
 
-  let retrieveLibcStartAddresses hdl corpus = function
-    | None -> corpus
+  let retrieveLibcStartAddresses hdl app = function
+    | None -> app
     | Some st ->
       match hdl.ISA.Arch with
-      | Arch.IntelX86 -> retrieveAddrsForx86 hdl corpus st
-      | Arch.IntelX64 -> retrieveAddrsForx64 hdl corpus st
-      | _ -> corpus
+      | Arch.IntelX86 -> retrieveAddrsForx86 hdl app st
+      | Arch.IntelX64 -> retrieveAddrsForx64 hdl app st
+      | _ -> app
 
-  let analyzeLibcStartMain hdl (scfg: SCFG) corpus callerAddr =
+  let analyzeLibcStartMain hdl (scfg: SCFG) app callerAddr =
     match scfg.FindFunctionVertex callerAddr with
-    | None -> corpus
+    | None -> app
     | Some root ->
       let st = EvalState (memoryReader hdl, true)
       let rootAddr = root.VData.PPoint.Address
       let st = initRegs hdl |> EvalState.PrepareContext st 0 rootAddr
       try
         eval scfg root st (fun last -> last.Address = callerAddr)
-        |> retrieveLibcStartAddresses hdl corpus
-      with _ -> corpus
+        |> retrieveLibcStartAddresses hdl app
+      with _ -> app
 
-  let recoverAddrsFromLibcStartMain hdl scfg corpus =
-    match corpus.CalleeMap.Find "__libc_start_main" with
+  let recoverAddrsFromLibcStartMain hdl scfg app =
+    match app.CalleeMap.Find "__libc_start_main" with
     | Some callee ->
       match List.tryExactlyOne callee.Callers with
-      | None -> corpus
-      | Some caller -> analyzeLibcStartMain hdl scfg corpus caller
-    | None -> corpus
+      | None -> app
+      | Some caller -> analyzeLibcStartMain hdl scfg app caller
+    | None -> app
 
-  let recoverLibcEntries hdl scfg corpus =
+  let recoverLibcEntries hdl scfg app =
     match hdl.FileInfo.FileFormat with
-    | FileFormat.ELFBinary -> recoverAddrsFromLibcStartMain hdl scfg corpus
-    | _ -> corpus
+    | FileFormat.ELFBinary -> recoverAddrsFromLibcStartMain hdl scfg app
+    | _ -> app
 
 type LibcAnalysis () =
   interface IPostAnalysis with
-    member __.Run hdl scfg corpus =
-      LibcAnalysisHelper.recoverLibcEntries hdl scfg corpus
+    member __.Run hdl scfg app =
+      LibcAnalysisHelper.recoverLibcEntries hdl scfg app
 
 type EVMCodeCopyAnalysis () =
   let findCodeCopy stmts =
@@ -127,19 +128,19 @@ type EVMCodeCopyAnalysis () =
         LeaderInfo.Init (pp, ArchOperationMode.NoMode, offset) |> Some
       | _ -> None)
 
-  let recoverCopiedCode hdl corpus =
-    corpus.InstrMap
-    |> Seq.fold (fun corpus (KeyValue (_, ins)) ->
+  let recoverCopiedCode hdl app =
+    app.InstrMap
+    |> Seq.fold (fun app (KeyValue (_, ins)) ->
       match ins.Stmts |> findCodeCopy with
-      | None -> corpus
+      | None -> app
       | Some leader ->
-        match corpus.CalleeMap.Find leader.Point.Address with
-        | None -> BinCorpus.update hdl corpus [leader]
-        | Some _ -> corpus) corpus
+        match app.CalleeMap.Find leader.Point.Address with
+        | None -> Apparatus.update hdl app [leader]
+        | Some _ -> app) app
 
   interface IPostAnalysis with
-    member __.Run hdl _scfg corpus =
+    member __.Run hdl _scfg app =
       match hdl.FileInfo.ISA.Arch with
-      | Architecture.EVM -> recoverCopiedCode hdl corpus
-      | _ -> corpus
+      | Architecture.EVM -> recoverCopiedCode hdl app
+      | _ -> app
 

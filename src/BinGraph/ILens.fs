@@ -26,6 +26,8 @@
 
 namespace B2R2.BinGraph
 
+open B2R2.BinCorpus
+
 /// The Lens interface, which is a converter from a graph to another graph. In
 /// B2R2, An IR-level SCFG forms the basis, and we should apply different lenses
 /// to obtain different graphs. For example, we can get disassembly-based CFG by
@@ -43,6 +45,6 @@ type ILens<'V when 'V :> BasicBlock and 'V: equality> =
   abstract member Filter:
        graph: IRCFG
     -> roots: Vertex<IRBasicBlock> list
-    -> corpus: BinCorpus
+    -> app: Apparatus
     -> ControlFlowGraph<'V, CFGEdgeKind> * Vertex<'V> list
 

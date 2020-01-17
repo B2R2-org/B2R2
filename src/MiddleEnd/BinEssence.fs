@@ -27,6 +27,7 @@
 namespace B2R2.MiddleEnd
 
 open B2R2.FrontEnd
+open B2R2.BinCorpus
 open B2R2.BinGraph
 
 /// Represent the "essence" of a binary code. This is the primary data structure
@@ -35,42 +36,42 @@ open B2R2.BinGraph
 type BinEssence = {
   /// BInary handler.
   BinHandler: BinHandler
-  /// Binary corpus holds crucial machinery about binary code and their lifted
+  /// The apparatus holds crucial machinery about binary code and their lifted
   /// statements. For example, it provides a convenient mapping from an address
   /// to the corresponding instruction and IR statements.
-  BinCorpus: BinCorpus
+  Apparatus: Apparatus
   /// Super Control Flow Graph.
   SCFG: SCFG
 }
 with
-  static member private PostAnalysis hdl scfg corp =
+  static member private PostAnalysis hdl scfg app =
     [ (LibcAnalysis () :> IPostAnalysis, "LibC analysis")
       (EVMCodeCopyAnalysis () :> IPostAnalysis, "EVM codecopy analysis")
       (NoReturnAnalysis () :> IPostAnalysis, "NoReturn analysis") ]
-    |> List.fold (fun corp (analysis, name) ->
+    |> List.fold (fun app (analysis, name) ->
       printfn "[*] %s started." name
-      analysis.Run hdl scfg corp) corp
+      analysis.Run hdl scfg app) app
 
-  static member private Analysis hdl corp (scfg: SCFG) analyzers =
+  static member private Analysis hdl app (scfg: SCFG) analyzers =
 #if DEBUG
     printfn "[*] Start post analysis."
 #endif
-    let corp' = BinEssence.PostAnalysis hdl scfg { corp with Modified = false }
-    if not corp'.Modified then
+    let app' = BinEssence.PostAnalysis hdl scfg { app with Modified = false }
+    if not app'.Modified then
 #if DEBUG
       printfn "[*] All done."
 #endif
       { BinHandler = hdl
-        BinCorpus = corp'
+        Apparatus = app'
         SCFG = scfg }
     else
 #if DEBUG
       printfn "[*] Go to the next phase ..."
 #endif
-      let scfg' = SCFG (hdl, corp')
-      BinEssence.Analysis hdl corp' scfg' analyzers
+      let scfg' = SCFG (hdl, app')
+      BinEssence.Analysis hdl app' scfg' analyzers
 
   static member Init hdl =
-    let corp = BinCorpus.init hdl
-    let scfg = SCFG (hdl, corp)
-    BinEssence.Analysis hdl corp scfg []
+    let app = Apparatus.init hdl
+    let scfg = SCFG (hdl, app)
+    BinEssence.Analysis hdl app scfg []

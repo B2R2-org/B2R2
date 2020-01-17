@@ -28,6 +28,7 @@ namespace B2R2.BinGraph
 
 open B2R2
 open B2R2.FrontEnd
+open B2R2.BinCorpus
 
 /// A basic block that consists of IR (LowUIR) statements. It contains all the
 /// InstructionInfo of the basic block.

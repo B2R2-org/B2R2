@@ -30,6 +30,7 @@ module B2R2.BinGraph.SCFGUtils
 
 open B2R2
 open B2R2.BinIR.LowUIR
+open B2R2.BinCorpus
 open System.Collections.Generic
 
 type VMap = Dictionary<ProgramPoint, Vertex<IRBasicBlock>>
