@@ -51,8 +51,8 @@ let parseFormat bytes offset =
 /// should fall back on this path.
 let findSectionIdxOfZeroVirtualSize (headers: PEHeaders) rva =
   headers.SectionHeaders
-  |> Seq.tryFindIndex (fun s -> s.VirtualAddress <= rva
-                             && rva < s.VirtualAddress + s.SizeOfRawData)
+  |> Seq.tryFindIndex (fun s ->
+    s.VirtualAddress <= rva && rva < s.VirtualAddress + s.SizeOfRawData)
   |> Option.defaultValue -1
 
 let findSectionIndex (headers: PEHeaders) rva =
@@ -73,8 +73,8 @@ let readStr headers (binReader: BinReader) rva =
   if rva = 0 then ""
   else getRawOffset headers rva |> loop [] |> Text.Encoding.ASCII.GetString
 
-let inline addrFromRVA (headers: PEHeaders) rva =
-  uint64 rva + headers.PEHeader.ImageBase
+let inline addrFromRVA baseAddr rva =
+  uint64 rva + baseAddr
 
 let isNULLImportDir tbl =
   tbl.ImportLookupTableRVA = 0
@@ -114,11 +114,6 @@ let parseDelayImportDirectoryTable binReader (headers: PEHeaders) =
   headers.PEHeader.DelayImportTableDirectory.RelativeVirtualAddress
   |> parseImportDirectoryTableAux binReader headers readDelayIDTEntry nextPos
 
-let parseImports (binReader: BinReader) (headers: PEHeaders) =
-  let mainImportTable = parseImportDirectoryTable binReader headers
-  let delayImportTable = parseDelayImportDirectoryTable binReader headers
-  Array.append mainImportTable delayImportTable
-
 let parseILTEntry (binReader: BinReader) headers idt mask rva =
   let dllname = idt.ImportDLLName
   if rva &&& mask <> 0UL then
@@ -129,10 +124,13 @@ let parseILTEntry (binReader: BinReader) headers idt mask rva =
     let funname = readStr headers binReader (rva + 2)
     ImportByName (hint, funname, dllname)
 
+let computeRVAMaskForILT wordSize =
+  if wordSize = WordSize.Bit32 then 0x80000000UL
+  else 0x8000000000000000UL
+
 let parseILT binReader headers wordSize map idt =
   let skip = if wordSize = WordSize.Bit32 then 4 else 8
-  let mask =
-    if wordSize = WordSize.Bit32 then 0x80000000UL else 0x8000000000000000UL
+  let mask = computeRVAMaskForILT wordSize
   let rec loop map rvaOffset pos =
     let rva = FileHelper.peekUIntOfType binReader wordSize pos
     if rva = 0UL then map
@@ -145,8 +143,10 @@ let parseILT binReader headers wordSize map idt =
   |> getRawOffset headers
   |> loop map 0
 
-let parseImportMap binReader headers wordSize importDirTable =
-  importDirTable
+let parseImports (binReader: BinReader) (headers: PEHeaders) wordSize =
+  let mainImportTable = parseImportDirectoryTable binReader headers
+  let delayImportTable = parseDelayImportDirectoryTable binReader headers
+  Array.append mainImportTable delayImportTable
   |> Array.toList
   |> List.fold (parseILT binReader headers wordSize) Map.empty
 
@@ -191,7 +191,7 @@ let buildExportTable binReader headers sec edt =
   let folder map (name, ord) =
     match addrtbl.[int ord] with
     | ExportRVA rva ->
-      let addr = addrFromRVA headers rva
+      let addr = addrFromRVA headers.PEHeader.ImageBase rva
       Map.add addr name map
     | _ -> map
   parseENPT binReader headers edt
@@ -222,25 +222,20 @@ let buildRelocBlock (binReader: BinReader) headerOffset =
     BlockSize = blockSize
     Entries = parseBlock (headerOffset + 8) List.empty }
 
-let parseRelocation (binReader: BinReader) (headers: PEHeaders) =
-  match headers.PEHeader.BaseRelocationTableDirectory.RelativeVirtualAddress with
+let parseRelocation (binReader: BinReader) (hdrs: PEHeaders) =
+  match hdrs.PEHeader.BaseRelocationTableDirectory.RelativeVirtualAddress with
   | 0 -> List.empty
   | rva ->
-    let headerOffset = getRawOffset headers rva
-    let upperBound =
-      headerOffset + headers.PEHeader.BaseRelocationTableDirectory.Size
-    let rec parseRelocationDirectory offset blocks =
+    let hdrOffset = getRawOffset hdrs rva
+    let upperBound = hdrOffset + hdrs.PEHeader.BaseRelocationTableDirectory.Size
+    let rec parseRelocDirectory offset blks =
       if offset < upperBound then
-        let relocBlock = buildRelocBlock binReader offset
-        parseRelocationDirectory
-          (offset + relocBlock.BlockSize)
-          (relocBlock :: blocks)
-      else
-        blocks
-    parseRelocationDirectory headerOffset List.empty
+        let relocBlk = buildRelocBlock binReader offset
+        parseRelocDirectory (offset + relocBlk.BlockSize) (relocBlk :: blks)
+      else blks
+    parseRelocDirectory hdrOffset List.empty
 
-let getWordSize (peHeader: PEHeader) =
-  match peHeader.Magic with
+let magicToWordSize = function
   | PEMagic.PE32 -> WordSize.Bit32
   | PEMagic.PE32Plus -> WordSize.Bit64
   | _ -> raise InvalidWordSizeException
@@ -269,61 +264,100 @@ let getPDBSymbols (execpath: string) = function
     else []
   | Some rawpdb -> parsePDB rawpdb
 
-let buildPDBInfo (headers: PEHeaders) symbs =
-  let baseaddr = headers.PEHeader.ImageBase
-  let genSymbol (addrMap, nameMap, lst) (sec: SectionHeader) (sym: PESymbol) =
-    let addr = baseaddr + uint64 sec.VirtualAddress + uint64 sym.Address
+let updatePDBInfo baseAddr sechdrs mAddr mName lst (sym: PESymbol) =
+  let secNum = int sym.Segment - 1
+  match Array.tryItem secNum (sechdrs: SectionHeader []) with
+  | Some sec ->
+    let addr = baseAddr + uint64 sec.VirtualAddress + uint64 sym.Address
     let sym = { sym with Address = addr }
-    Map.add addr sym addrMap,
-    Map.add sym.Name sym nameMap,
-    sym :: lst
-  let folder acc sym =
-    let secNum = int sym.Segment - 1
-    match Seq.tryItem secNum headers.SectionHeaders with
-    | Some sec -> genSymbol acc sec sym
-    | None -> acc
-  let mAddr, mName, lst = symbs |> List.fold folder (Map.empty, Map.empty, [])
-  { SymbolByAddr = mAddr
-    SymbolByName = mName
-    SymbolArray = List.rev lst |> List.toArray }
+    struct (Map.add addr sym mAddr, Map.add sym.Name sym mName, sym :: lst)
+  | None -> struct (mAddr, mName, lst)
 
-let invRanges wordSize (headers: PEHeaders) sechdrs getNextStartAddr =
+let buildPDBInfo baseAddr sechdrs symbs =
+  let rec folder mAddr mName lst = function
+    | sym :: rest ->
+      let struct (mAddr, mName, lst) =
+        updatePDBInfo baseAddr sechdrs mAddr mName lst sym
+      folder mAddr mName lst rest
+    | [] ->
+      { SymbolByAddr = mAddr
+        SymbolByName = mName
+        SymbolArray = List.rev lst |> List.toArray }
+  symbs
+  |> folder Map.empty Map.empty []
+
+let invRanges wordSize baseAddr sechdrs getNextStartAddr =
   sechdrs
   |> Array.sortBy (fun (s: SectionHeader) -> s.VirtualAddress)
   |> Array.fold (fun (set, saddr) s ->
-       let myaddr = uint64 s.VirtualAddress + headers.PEHeader.ImageBase
-       let n = getNextStartAddr myaddr s
-       FileHelper.addInvRange set saddr myaddr, n) (IntervalSet.empty, 0UL)
+    let myaddr = uint64 s.VirtualAddress + baseAddr
+    let n = getNextStartAddr myaddr s
+    FileHelper.addInvRange set saddr myaddr, n) (IntervalSet.empty, 0UL)
   |> FileHelper.addLastInvRange wordSize
+
+let computeInvalidAddrRanges wordSize baseAddr sechdrs =
+  invRanges wordSize baseAddr sechdrs (fun a s -> a + uint64 s.VirtualSize)
+
+let computeNotInFileRanges wordSize baseAddr sechdrs =
+  invRanges wordSize baseAddr sechdrs (fun a s -> a + uint64 s.SizeOfRawData)
+
+let parseImage execpath rawpdb binReader (hdrs: PEHeaders) =
+  let wordSize = magicToWordSize hdrs.PEHeader.Magic
+  let baseAddr = hdrs.PEHeader.ImageBase
+  let sechdrs = hdrs.SectionHeaders |> Seq.toArray
+  { PEHeaders = hdrs
+    BaseAddr = baseAddr
+    SectionHeaders = sechdrs
+    ImportMap= parseImports binReader hdrs wordSize
+    ExportMap = parseExports binReader hdrs
+    RelocBlocks = parseRelocation binReader hdrs
+    WordSize = wordSize
+    PDB = getPDBSymbols execpath rawpdb |> buildPDBInfo baseAddr sechdrs
+    InvalidAddrRanges = computeInvalidAddrRanges wordSize baseAddr sechdrs
+    NotInFileRanges = computeNotInFileRanges wordSize baseAddr sechdrs
+    BinReader = binReader }
+
+let getCoffWordSize = function
+  | Machine.Alpha64
+  | Machine.Arm64
+  | Machine.Amd64 -> WordSize.Bit64
+  | _ -> WordSize.Bit32
+
+let parseCoff binReader (hdrs: PEHeaders) =
+  let coff = hdrs.CoffHeader
+  let wordSize = getCoffWordSize coff.Machine
+  let sechdrs = hdrs.SectionHeaders |> Seq.toArray
+  let emptyPDB =
+    { SymbolByAddr = Map.empty; SymbolByName = Map.empty; SymbolArray = [||] }
+  { PEHeaders = hdrs
+    BaseAddr = 0UL
+    SectionHeaders = sechdrs
+    ImportMap= Map.empty
+    ExportMap = Map.empty
+    RelocBlocks = []
+    WordSize = wordSize
+    PDB = emptyPDB
+    InvalidAddrRanges = IntervalSet.empty
+    NotInFileRanges = IntervalSet.empty
+    BinReader = binReader }
 
 let parsePE execpath rawpdb binReader (peReader: PEReader) =
   let hdrs = peReader.PEHeaders
-  let wordSize = getWordSize hdrs.PEHeader
-  let importDirTables = parseImports binReader hdrs
-  let exportDirTables = parseExports binReader hdrs
-  let importMap = parseImportMap binReader hdrs wordSize importDirTables
-  let pdbInfo = getPDBSymbols execpath rawpdb |> buildPDBInfo hdrs
-  let sechdrs = peReader.PEHeaders.SectionHeaders |> Seq.toArray
-  let relocs = parseRelocation binReader hdrs
-  { PEHeaders = hdrs
-    SectionHeaders = sechdrs
-    ImportMap= importMap
-    ExportMap = exportDirTables
-    RelocBlocks = relocs
-    WordSize = wordSize
-    PDB = pdbInfo
-    InvalidAddrRanges =
-      invRanges wordSize hdrs sechdrs (fun a s -> a + uint64 s.VirtualSize)
-    NotInFileRanges =
-      invRanges wordSize hdrs sechdrs (fun a s -> a + uint64 s.SizeOfRawData)
-    BinReader = binReader }
+  if hdrs.IsCoffOnly then parseCoff binReader hdrs
+  else parseImage execpath rawpdb binReader hdrs
+
+let initPE bytes execpath rawpdb =
+  let binReader = BinReader.Init (bytes)
+  use stream = new IO.MemoryStream (bytes)
+  use peReader = new PEReader (stream, PEStreamOptions.Default)
+  parsePE execpath rawpdb binReader peReader
 
 let findSymFromPDB addr pdb =
   Map.tryFind addr pdb.SymbolByAddr
   >>= (fun s -> Some s.Name)
 
 let findSymFromIAT addr pe =
-  let rva = int (addr - pe.PEHeaders.PEHeader.ImageBase)
+  let rva = int (addr - pe.BaseAddr)
   match Map.tryFind rva pe.ImportMap with
   | Some (ImportByName (_, n, _)) -> Some n
   | _ -> None
@@ -344,13 +378,13 @@ let getImportSymbols pe =
   let conv acc rva imp =
     match imp with
     | ImportByOrdinal (_, dllname) ->
-      { Address = addrFromRVA pe.PEHeaders rva
+      { Address = addrFromRVA pe.BaseAddr rva
         Name = ""
         Kind = SymbolKind.ExternFunctionType
         Target = TargetKind.DynamicSymbol
         LibraryName = dllname } :: acc
     | ImportByName (_, funname, dllname) ->
-      { Address = addrFromRVA pe.PEHeaders rva
+      { Address = addrFromRVA pe.BaseAddr rva
         Name = funname
         Kind = SymbolKind.ExternFunctionType
         Target = TargetKind.DynamicSymbol
@@ -360,13 +394,13 @@ let getImportSymbols pe =
   |> List.rev
 
 let getSymbolKindBySectionIndex pe idx =
-  let ch = pe.PEHeaders.SectionHeaders.[idx].SectionCharacteristics
+  let ch = pe.SectionHeaders.[idx].SectionCharacteristics
   if ch.HasFlag SectionCharacteristics.MemExecute then SymbolKind.FunctionType
   else SymbolKind.ObjectType
 
 let getExportSymbols pe =
   let conv acc addr exp =
-    let rva = int (addr - pe.PEHeaders.PEHeader.ImageBase)
+    let rva = int (addr - pe.BaseAddr)
     match findSectionIndex pe.PEHeaders rva with
     | -1 -> acc
     | idx ->
@@ -392,16 +426,9 @@ let secFlagToSectionKind (flags: SectionCharacteristics) =
     SectionKind.ExtraSection
 
 let secHdrToSection pe (sec: SectionHeader) =
-  { Address = addrFromRVA pe.PEHeaders sec.VirtualAddress
+  { Address = addrFromRVA pe.BaseAddr sec.VirtualAddress
     Kind = secFlagToSectionKind sec.SectionCharacteristics
     Size = sec.VirtualSize |> uint64
     Name = sec.Name }
-
-let initPE bytes execpath rawpdb =
-  let bs = Array.sub bytes 0 (Array.length bytes)
-  let binReader = BinReader.Init (bs)
-  use stream = new IO.MemoryStream (bs)
-  use peReader = new PEReader (stream, PEStreamOptions.Default)
-  parsePE execpath rawpdb binReader peReader
 
 // vim: set tw=80 sts=2 sw=2:

@@ -32,6 +32,7 @@ open System.Runtime.InteropServices
 [<AbstractClass>]
 type BinReader (bytes: byte []) =
   let mutable bytes = bytes
+
   /// The byte array stored for this reader.
   member __.Bytes with get () = bytes and set (bs) = bytes <- bs
 

@@ -47,9 +47,11 @@ type PEFileInfo (bytes, path, ?rawpdb) =
   override __.FilePath = path
 
   override __.EntryPoint =
-    let entry = pe.PEHeaders.PEHeader.AddressOfEntryPoint
-    if entry = 0 then 0UL
-    else uint64 entry + pe.PEHeaders.PEHeader.ImageBase
+    if pe.PEHeaders.IsCoffOnly then 0UL
+    else
+      let entry = pe.PEHeaders.PEHeader.AddressOfEntryPoint
+      if entry = 0 then 0UL
+      else uint64 entry + pe.BaseAddr
 
   override __.IsStripped =
     Array.length pe.PDB.SymbolArray = 0
@@ -58,7 +60,7 @@ type PEFileInfo (bytes, path, ?rawpdb) =
     let c = pe.PEHeaders.CoffHeader.Characteristics
     if c.HasFlag Characteristics.Dll then FileType.LibFile
     elif c.HasFlag Characteristics.ExecutableImage then FileType.ExecutableFile
-    else FileType.UnknownFile
+    else FileType.ObjFile
 
   override __.WordSize =
     match pe.PEHeaders.PEHeader.Magic with
@@ -67,15 +69,19 @@ type PEFileInfo (bytes, path, ?rawpdb) =
     | _ -> raise InvalidWordSizeException
 
   override __.IsNXEnabled =
-    pe.PEHeaders.PEHeader.DllCharacteristics.HasFlag
-      (DllCharacteristics.NxCompatible)
+    if pe.PEHeaders.IsCoffOnly then false
+    else
+      pe.PEHeaders.PEHeader.DllCharacteristics.HasFlag
+        DllCharacteristics.NxCompatible
 
   override __.IsRelocatable =
-    pe.PEHeaders.PEHeader.DllCharacteristics.HasFlag
-      (DllCharacteristics.DynamicBase)
+    if pe.PEHeaders.IsCoffOnly then true
+    else
+      pe.PEHeaders.PEHeader.DllCharacteristics.HasFlag
+        DllCharacteristics.DynamicBase
 
   override __.TranslateAddress addr =
-    let rva = int (addr - pe.PEHeaders.PEHeader.ImageBase)
+    let rva = int (addr - pe.BaseAddr)
     match pe.PEHeaders.GetContainingSectionIndex rva with
     | -1 -> raise InvalidAddrReadException
     | idx ->
@@ -120,7 +126,7 @@ type PEFileInfo (bytes, path, ?rawpdb) =
     |> Array.toSeq
 
   override __.GetSections (addr) =
-    let rva = int (addr - pe.PEHeaders.PEHeader.ImageBase)
+    let rva = int (addr - pe.BaseAddr)
     match pe.PEHeaders.GetContainingSectionIndex rva with
     | -1 -> Seq.empty
     | idx ->
@@ -139,8 +145,7 @@ type PEFileInfo (bytes, path, ?rawpdb) =
       let r = if chr.HasFlag SectionCharacteristics.MemRead then 4 else 0
       r + w + x |> LanguagePrimitives.EnumOfValue
     let secToSegment (sec: SectionHeader) =
-      let baseaddr = pe.PEHeaders.PEHeader.ImageBase
-      { Address = uint64 sec.VirtualAddress + baseaddr
+      { Address = uint64 sec.VirtualAddress + pe.BaseAddr
         Size = uint64 sec.VirtualSize
         Permission = getSecPermission sec.SectionCharacteristics }
     pe.PEHeaders.SectionHeaders
@@ -154,12 +159,12 @@ type PEFileInfo (bytes, path, ?rawpdb) =
            { FuncName = ""
              LibraryName = dllname
              TrampolineAddress = 0UL
-             TableAddress = addrFromRVA pe.PEHeaders addr } :: acc
+             TableAddress = addrFromRVA pe.BaseAddr addr } :: acc
          | PE.ImportByName (_, fname, dllname) ->
            { FuncName = fname
              LibraryName = dllname
              TrampolineAddress = 0UL
-             TableAddress = addrFromRVA pe.PEHeaders addr } :: acc) []
+             TableAddress = addrFromRVA pe.BaseAddr addr } :: acc) []
     |> List.sortBy (fun entry -> entry.TableAddress)
     |> List.toSeq
 

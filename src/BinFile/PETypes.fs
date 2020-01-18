@@ -223,7 +223,7 @@ type SymFlags =
   | MSIL = 0b1000
 
 /// PE symbol. We separate B2R2.BinFile.Symbol from format-specific symbol type
-/// for future references.
+/// for ease of analysis.
 type PESymbol = {
   Flags: SymFlags
   Address: Addr
@@ -231,7 +231,7 @@ type PESymbol = {
   Name: string
 }
 
-/// PDB information.
+/// PDB symbol information.
 type PDBInfo = {
   SymbolByAddr: Map<Addr, PESymbol>
   SymbolByName: Map<string, PESymbol>
@@ -242,6 +242,8 @@ type PDBInfo = {
 type PE = {
   /// PE headers.
   PEHeaders: PEHeaders
+  /// Image base address.
+  BaseAddr: Addr
   /// Section headers.
   SectionHeaders: SectionHeader []
   /// RVA to import information.
