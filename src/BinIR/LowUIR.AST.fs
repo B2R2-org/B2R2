@@ -70,6 +70,10 @@ module TypeCheck =
       "Cannot cast from " + oldType.ToString () + " to " + newType.ToString ()
     raise <| TypeCheckException errMsg
 
+  let isFloatValid = function
+  | 32<rt> | 64<rt> -> true
+  | _ -> false
+
   let isCastingValid kind newType e =
     let oldType = typeOf e
     match kind with
@@ -79,10 +83,10 @@ module TypeCheck =
       else if oldType = newType then false
       else castErr newType oldType
     | CastKind.IntToFloat ->
-      if newType = 32<rt> || newType = 64<rt> then true else false
+      if isFloatValid newType then true else raise InvalidFloatTypeException
     | CastKind.FloatToFloat ->
-      if newType = 32<rt> || newType = 64<rt> && newType <> oldType then true
-      else false
+      if isFloatValid oldType && isFloatValid newType then true
+      else raise InvalidFloatTypeException
     | _ -> true
 
   let extractTypeCheck (t: RegType) pos (t2: RegType) =

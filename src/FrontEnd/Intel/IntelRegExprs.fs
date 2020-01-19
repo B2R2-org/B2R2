@@ -95,12 +95,20 @@ type internal RegExprs (wordSize) =
   let dx   = reg16 wordSize edx rdx
   let fcw = var 16<rt> (Register.toRegID Register.FCW) "FCW"
   let fsw = var 16<rt> (Register.toRegID Register.FSW) "FSW"
-  let ftw = var 8<rt> (Register.toRegID Register.FTW) "FTW"
+  let ftw = var 16<rt> (Register.toRegID Register.FTW) "FTW"
   let fop = var 16<rt> (Register.toRegID Register.FOP) "FOP"
   let fip = var 64<rt> (Register.toRegID Register.FIP) "FIP"
   let fcs = var 16<rt> (Register.toRegID Register.FCS) "FCS"
   let fdp = var 64<rt> (Register.toRegID Register.FDP) "FDP"
   let fds = var 16<rt> (Register.toRegID Register.FDS) "FDS"
+  let st0 = var 64<rt> (Register.toRegID Register.ST0) "STO"
+  let st1 = var 64<rt> (Register.toRegID Register.ST1) "ST1"
+  let st2 = var 64<rt> (Register.toRegID Register.ST2) "ST2"
+  let st3 = var 64<rt> (Register.toRegID Register.ST3) "ST3"
+  let st4 = var 64<rt> (Register.toRegID Register.ST4) "ST4"
+  let st5 = var 64<rt> (Register.toRegID Register.ST5) "ST5"
+  let st6 = var 64<rt> (Register.toRegID Register.ST6) "ST6"
+  let st7 = var 64<rt> (Register.toRegID Register.ST7) "STO"
   let mxcsr = var 32<rt> (Register.toRegID Register.MXCSR) "MXCSR"
   let mxcsrmask = var 32<rt> (Register.toRegID Register.MXCSRMASK) "MXCSR_MASK"
   let pkru = var 32<rt> (Register.toRegID Register.PKRU) "PKRU"
@@ -525,6 +533,31 @@ type internal RegExprs (wordSize) =
   member val MXCSR = mxcsr with get
   member val MXCSRMASK = mxcsrmask with get
   member val PKRU = pkru with get
+  (* x87 FPU stack registers - Using 64 bits instead of the actual 80.*)
+  member val ST0 = st0 with get
+  member val ST1 = st1 with get
+  member val ST2 = st2 with get
+  member val ST3 = st3 with get
+  member val ST4 = st4 with get
+  member val ST5 = st5 with get
+  member val ST6 = st6 with get
+  member val ST7 = st7 with get
+  (* x87 FPU Top register *)
+  member val FTOP = extract ftw 3<rt> 11
+  (* x87 FPU Tag word sections*)
+  member val FTW0 = extract ftw 2<rt> 0
+  member val FTW1 = extract ftw 2<rt> 2
+  member val FTW2 = extract ftw 2<rt> 4
+  member val FTW3 = extract ftw 2<rt> 6
+  member val FTW4 = extract ftw 2<rt> 8
+  member val FTW5 = extract ftw 2<rt> 10
+  member val FTW6 = extract ftw 2<rt> 12
+  member val FTW7 = extract ftw 2<rt> 14
+  (* x87 Status Word Flags *)
+  member val FSWC0 = extract fsw 1<rt> 8
+  member val FSWC1 = extract fsw 1<rt> 9
+  member val FSWC2 = extract fsw 1<rt> 10
+  member val FSWC3 = extract fsw 1<rt> 14
   (* Opmask registers *)
   member val K0 = k0 with get
   member val K1 = k1 with get
@@ -649,9 +682,30 @@ type internal RegExprs (wordSize) =
     | R.FCS -> __.FCS
     | R.FDP -> __.FDP
     | R.FDS -> __.FDS
+    | R.FTOP -> __.FTOP
+    | R.FTW0 -> __.FTW0
+    | R.FTW1 -> __.FTW1
+    | R.FTW2 -> __.FTW2
+    | R.FTW3 -> __.FTW3
+    | R.FTW4 -> __.FTW4
+    | R.FTW5 -> __.FTW5
+    | R.FTW6 -> __.FTW6
+    | R.FTW7 -> __.FTW7
+    | R.FSWC0 -> __.FSWC0
+    | R.FSWC1 -> __.FSWC1
+    | R.FSWC2 -> __.FSWC2
+    | R.FSWC3 -> __.FSWC3
     | R.MXCSR -> __.MXCSR
     | R.MXCSRMASK -> __.MXCSRMASK
     | R.PKRU -> __.PKRU
+    | R.ST0 -> __.ST0
+    | R.ST1 -> __.ST1
+    | R.ST2 -> __.ST2
+    | R.ST3 -> __.ST3
+    | R.ST4 -> __.ST4
+    | R.ST5 -> __.ST5
+    | R.ST6 -> __.ST6
+    | R.ST7 -> __.ST7
     | R.K0 -> __.K0
     | R.K1 -> __.K1
     | R.K2 -> __.K2

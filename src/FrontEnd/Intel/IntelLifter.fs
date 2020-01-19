@@ -682,6 +682,59 @@ let setBit ins bitBase bitOffset oprSize setValue =
               bitBase := (bitBase .& (getMask oprSize .- mask)) .| mask
          else raise InvalidExprException
 
+let isFPUStackReg = function
+  | R.ST0 | R.ST1 | R.ST2 | R.ST3 | R.ST4 | R.ST5 | R.ST6 | R.ST7  -> true
+  | _ -> false
+
+let isFPUStackOpr = function
+  | OprReg r when isFPUStackReg r -> true
+  | _ -> false
+
+let checkFPUOnLoad ctxt builder =
+  let top = getRegVar ctxt R.FTOP
+  let c1Flag = getRegVar ctxt R.FSWC1
+  let cond1, cond2 = tmpVars2 1<rt>
+  builder <! (cond1 := top == num0 3<rt>)
+  builder <! (cond2 := (getRegVar ctxt R.FTW0 .+ num1 2<rt>) != num0 2<rt>)
+  builder <! (c1Flag := ite (cond1 .& cond2) (num1 1<rt>) (num0 1<rt>))
+  builder <! (top := top .- num1 3<rt>)
+
+let getTagValue ctxt builder =
+  let tmp = tmpVar 2<rt>
+  let st0 = getRegVar ctxt R.ST0
+  let exponent = extract st0 11<rt> 52
+  let zero = num0 11<rt>
+  let max = BitVector.unsignedMax 11<rt> |> num
+  let cond0 = (extractLow 63<rt> st0) == num0 63<rt>
+  let condSpecial = (exponent == zero) .| (exponent == max)
+  builder <! (tmp := zero)
+  builder <! (tmp := ite condSpecial (BitVector.ofInt32 2 2<rt> |> num) tmp)
+  builder <! (tmp := ite cond0 (num1 2<rt>) tmp)
+  tmp
+
+let updateTagWord ctxt builder =
+  let top = getRegVar ctxt R.FTOP
+  let tagWord = getRegVar ctxt R.FTW
+  let top16, mask, shifter, tagValue16 = tmpVars4 16<rt>
+  let tagValue = getTagValue ctxt builder
+  let value3 = BitVector.ofInt32 3 16<rt> |> num
+  builder <! (top16 := cast CastKind.ZeroExt 16<rt> top)
+  builder <! (shifter := (BitVector.ofInt32 2 16<rt> |> num) .* top16)
+  builder <! (tagValue16 := cast CastKind.ZeroExt 16<rt> tagValue)
+  builder <! (tagValue16 := (tagValue16 << shifter))
+  builder <! (mask := value3 << shifter)
+  builder <! (tagWord := tagWord .& (not mask))
+  builder <! (tagWord := tagWord .| tagValue16)
+
+let shiftFPUStackDown ctxt builder =
+  builder <! (getRegVar ctxt R.ST7 := getRegVar ctxt R.ST6)
+  builder <! (getRegVar ctxt R.ST6 := getRegVar ctxt R.ST5)
+  builder <! (getRegVar ctxt R.ST5 := getRegVar ctxt R.ST4)
+  builder <! (getRegVar ctxt R.ST4 := getRegVar ctxt R.ST3)
+  builder <! (getRegVar ctxt R.ST3 := getRegVar ctxt R.ST2)
+  builder <! (getRegVar ctxt R.ST2 := getRegVar ctxt R.ST1)
+  builder <! (getRegVar ctxt R.ST1 := getRegVar ctxt R.ST0)
+
 let rec subPackedByte opFn s1 s2 (tDstArr: Expr []) oprSz sepSz idx sz builder =
   let tS1, tS2 = tmpVars2 sepSz
   if sz = 0 then ()
@@ -2267,6 +2320,19 @@ let loadLegacyFxrstor ctxt src builder =
   builder <! (grv R.MXCSRMASK := extractHigh 32<rt>tSrc)
   loadFxrstorMMX src grv builder
   loadFxrstorXMM ctxt src xRegs builder
+
+let fld ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (32)
+  let operand = getOneOpr ins
+  let oprExpr = transOprToExpr ins insAddr insLen ctxt operand
+  let tmp = tmpVar 64<rt>
+  startMark insAddr insLen builder
+  builder <! (tmp := cast CastKind.FloatToFloat 64<rt> oprExpr)
+  checkFPUOnLoad ctxt builder
+  shiftFPUStackDown ctxt builder
+  builder <! (getRegVar ctxt R.ST0 := tmp)
+  updateTagWord ctxt builder
+  endMark insAddr insLen builder
 
 let fxrstor ins insAddr insLen ctxt =
   let builder = new StmtBuilder (128)
@@ -5173,6 +5239,28 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.DIVPS -> divps ins insAddr insLen ctxt
   | Opcode.DIVSD -> divsd ins insAddr insLen ctxt
   | Opcode.DIVSS -> divss ins insAddr insLen ctxt
+  | Opcode.FLD -> fld ins insAddr insLen ctxt
+  | Opcode.FABS | Opcode.FADD | Opcode.FADDP | Opcode.FBLD | Opcode.FBSTP
+  | Opcode.FCHS | Opcode.FCLEX | Opcode.FCMOVB | Opcode.FCMOVBE | Opcode.FCMOVE
+  | Opcode.FCMOVNB | Opcode.FCMOVNBE | Opcode.FCMOVNE | Opcode.FCMOVNU
+  | Opcode.FCMOVU | Opcode.FCOM | Opcode.FCOMI | Opcode.FCOMIP | Opcode.FCOMP
+  | Opcode.FCOMPP | Opcode.FCOS | Opcode.FDECSTP | Opcode.FDIV | Opcode.FDIVP
+  | Opcode.FDIVR | Opcode.FDIVRP | Opcode.FFREE | Opcode.FIADD | Opcode.FICOM
+  | Opcode.FICOMP | Opcode.FIDIV | Opcode.FIDIVR | Opcode.FILD | Opcode.FIMUL
+  | Opcode.FINCSTP | Opcode.FINIT | Opcode.FIST | Opcode.FISTP | Opcode.FISTTP
+  | Opcode.FISUB | Opcode.FISUBR | Opcode.FLD1 | Opcode.FLDCW
+  | Opcode.FLDENV | Opcode.FLDL2E | Opcode.FLDL2T | Opcode.FLDLG2
+  | Opcode.FLDLN2 | Opcode.FLDPI | Opcode.FLDZ | Opcode.FMUL | Opcode.FMULP
+  | Opcode.FNOP | Opcode.FNSTCW | Opcode.FPATAN | Opcode.FPREM | Opcode.FPREM1
+  | Opcode.FPTAN | Opcode.FRNDINT | Opcode.FRSTOR | Opcode.FSAVE | Opcode.FSCALE
+  | Opcode.FSIN | Opcode.FSINCOS | Opcode.FSQRT | Opcode.FST | Opcode.FSTENV
+  | Opcode.FSTP | Opcode.FSTSW | Opcode.FSUB | Opcode.FSUBP | Opcode.FSUBR
+  | Opcode.FSUBRP | Opcode.FTST | Opcode.FUCOM | Opcode.FUCOMI | Opcode.FUCOMIP
+  | Opcode.FUCOMP | Opcode.FUCOMPP | Opcode.FXAM | Opcode.FXCH | Opcode.FXTRACT
+  | Opcode.FYL2X | Opcode.FYL2XP1 ->
+    printfn "***********the opcode is %A*************" ins.Opcode
+    printfn "%A" ins
+    sideEffects insAddr insLen UnsupportedFP
   | Opcode.MOVDDUP -> movddup ins insAddr insLen ctxt
   | Opcode.MOVHLPS -> movhlps ins insAddr insLen ctxt
   | Opcode.MOVHPS -> movhps ins insAddr insLen ctxt
@@ -5199,24 +5287,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.CMPPD  | Opcode.CMPPS | Opcode.CMPSD | Opcode.CMPSS | Opcode.COMISD
   | Opcode.COMISS
   | Opcode.EMMS | Opcode.F2XM1
-  | Opcode.FABS | Opcode.FADD | Opcode.FADDP | Opcode.FBLD | Opcode.FBSTP
-  | Opcode.FCHS | Opcode.FCLEX | Opcode.FCMOVB | Opcode.FCMOVBE | Opcode.FCMOVE
-  | Opcode.FCMOVNB | Opcode.FCMOVNBE | Opcode.FCMOVNE | Opcode.FCMOVNU
-  | Opcode.FCMOVU | Opcode.FCOM | Opcode.FCOMI | Opcode.FCOMIP | Opcode.FCOMP
-  | Opcode.FCOMPP | Opcode.FCOS | Opcode.FDECSTP | Opcode.FDIV | Opcode.FDIVP
-  | Opcode.FDIVR | Opcode.FDIVRP | Opcode.FFREE | Opcode.FIADD | Opcode.FICOM
-  | Opcode.FICOMP | Opcode.FIDIV | Opcode.FIDIVR | Opcode.FILD | Opcode.FIMUL
-  | Opcode.FINCSTP | Opcode.FINIT | Opcode.FIST | Opcode.FISTP | Opcode.FISTTP
-  | Opcode.FISUB | Opcode.FISUBR | Opcode.FLD | Opcode.FLD1 | Opcode.FLDCW
-  | Opcode.FLDENV | Opcode.FLDL2E | Opcode.FLDL2T | Opcode.FLDLG2
-  | Opcode.FLDLN2 | Opcode.FLDPI | Opcode.FLDZ | Opcode.FMUL | Opcode.FMULP
-  | Opcode.FNOP | Opcode.FNSTCW | Opcode.FPATAN | Opcode.FPREM | Opcode.FPREM1
-  | Opcode.FPTAN | Opcode.FRNDINT | Opcode.FRSTOR | Opcode.FSAVE | Opcode.FSCALE
-  | Opcode.FSIN | Opcode.FSINCOS | Opcode.FSQRT | Opcode.FST | Opcode.FSTENV
-  | Opcode.FSTP | Opcode.FSTSW | Opcode.FSUB | Opcode.FSUBP | Opcode.FSUBR
-  | Opcode.FSUBRP | Opcode.FTST | Opcode.FUCOM | Opcode.FUCOMI | Opcode.FUCOMIP
-  | Opcode.FUCOMP | Opcode.FUCOMPP | Opcode.FXAM | Opcode.FXCH | Opcode.FXTRACT
-  | Opcode.FYL2X | Opcode.FYL2XP1 | Opcode.MAXPD | Opcode.MAXPS | Opcode.MAXSD
+  | Opcode.MAXPD | Opcode.MAXPS | Opcode.MAXSD
   | Opcode.MAXSS | Opcode.MINPD | Opcode.MINPS | Opcode.MINSD | Opcode.MINSS
   | Opcode.ROUNDSD | Opcode.SHUFPD | Opcode.SHUFPS
   | Opcode.SQRTPD | Opcode.SQRTPS | Opcode.SQRTSD | Opcode.SQRTSS

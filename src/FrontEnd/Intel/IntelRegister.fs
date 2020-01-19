@@ -405,12 +405,38 @@ type Register =
   | FDP = 0xC06
   /// x87 FPU Data Pointer Selector.
   | FDS = 0xC07
+  /// x87 FPU Top indicator bits of Status Word.
+  | FTOP = 0xC08
+  /// x87 FPU Tag word section.
+  | FTW0 = 0xC09
+  /// x87 FPU Tag word section.
+  | FTW1 = 0xC0A
+  /// x87 FPU Tag word section.
+  | FTW2 = 0xC0B
+  /// x87 FPU Tag word section.
+  | FTW3 = 0xC0C
+  /// x87 FPU Tag word section.
+  | FTW4 = 0xC0D
+  /// x87 FPU Tag word section.
+  | FTW5 = 0xC0E
+  /// x87 FPU Tag word section.
+  | FTW6 = 0xC0F
+  /// x87 FPU Tag word section.
+  | FTW7 = 0xC10
+  /// x87 FPU Status Word C flag.
+  | FSWC0 = 0xC11
+  /// x87 FPU Status Word C flag.
+  | FSWC1 = 0xC12
+  /// x87 FPU Status Word C flag.
+  | FSWC2 = 0xC13
+  /// x87 FPU Status Word C flag.
+  | FSWC3 = 0xC14
   /// MXCSR Control and Status Register.
-  | MXCSR = 0xC08
+  | MXCSR = 0xC15
   /// MXCSR_MASK.
-  | MXCSRMASK = 0xC09
+  | MXCSRMASK = 0xC16
   /// Protection-key features register.
-  | PKRU = 0xC0A
+  | PKRU = 0xC17
   /// BND Register (lower 64bits BND0).
   | BND0A = 0xD80
   /// BND Register (Higher 64bits BND0).

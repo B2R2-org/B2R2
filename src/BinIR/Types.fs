@@ -38,5 +38,8 @@ exception InvalidExprException
 /// Raised when an expression does not type-check.
 exception TypeCheckException of string
 
+/// Raised when an illegal number of bits is used to represent floats.
+exception InvalidFloatTypeException
+
 /// Represent a start position.
 type StartPos = int
