@@ -1,10 +1,5 @@
-﻿(*
+(*
   B2R2 - the Next-Generation Reversing Platform
-
-  Author: Kangsu Kim <kskim0610@kaist.ac.kr>
-          Mehdi Aghakishiyev <agakisiyev.mehdi@gmail.com>
-          Michael Tegegn <mick@kaist.ac.kr>
-          Sang Kil Cha <sangkilc@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 

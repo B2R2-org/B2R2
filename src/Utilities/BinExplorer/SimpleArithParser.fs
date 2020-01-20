@@ -1,9 +1,5 @@
-﻿(*
+(*
   B2R2 - the Next-Generation Reversing Platform
-
-  Author: Mehdi Aghakishiyev <agakisiyev.mehdi@gmail.com>
-          Michael Tegegn <mick@kaist.ac.kr>
-          Sang Kil Cha <sangkilc@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -248,7 +244,7 @@ module SimpleArithASCIIPArser =
 
   let parseOctalNumber =
     pstringCI "0o" >>. parseOctalDigits
-    
+
   let all =
     attempt parseHexadecimal
     <|> attempt parseOctalNumber

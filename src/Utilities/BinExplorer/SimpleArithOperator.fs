@@ -1,8 +1,5 @@
-﻿(*
+(*
   B2R2 - the Next-Generation Reversing Platform
-
-  Author: Mehdi Aghakishiyev <agakisiyev.mehdi@gmail.com>
-          Sang Kil Cha <sangkilc@kaist.ac.kr>
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
@@ -77,9 +74,9 @@ module SimpleArithOperate =
   let castToType rep num =
     let min, max = NumType.getRange rep
     let range = max - min + 1I
-    if num > max then Number.createInt rep ((num - max - 1I) % range + min) 
-    elif num < min then Number.createInt rep ((num - min + 1I) % range + max) 
-    else Number.createInt rep num 
+    if num > max then Number.createInt rep ((num - max - 1I) % range + min)
+    elif num < min then Number.createInt rep ((num - min + 1I) % range + max)
+    else Number.createInt rep num
 
   let castToIntegerValue rep value =
     match rep with
