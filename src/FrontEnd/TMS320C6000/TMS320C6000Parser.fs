@@ -1986,7 +1986,6 @@ let parse (reader: BinReader) (ctxt: ParsingContext) addr pos =
       IsParallel = ctxt.InParallel
       EffectiveAddress = 0UL }
   ctxt.InParallel <- pBit bin <> 0u (* Update the parallel exec information *)
-  printfn "%A" insInfo
   TMS320C6000Instruction (addr, instrLen, insInfo)
 
 // vim: set tw=80 sts=2 sw=2:
