@@ -71,7 +71,7 @@ module TypeCheck =
     raise <| TypeCheckException errMsg
 
   let isFloatValid = function
-  | 32<rt> | 64<rt> -> true
+  | 32<rt> | 64<rt> | 80<rt> -> true
   | _ -> false
 
   let isCastingValid kind newType e =
@@ -84,7 +84,7 @@ module TypeCheck =
       else castErr newType oldType
     | CastKind.IntToFloat ->
       if isFloatValid newType then true else raise InvalidFloatTypeException
-    | CastKind.FloatToFloat ->
+    | CastKind.FloatExt ->
       if isFloatValid oldType && isFloatValid newType then true
       else raise InvalidFloatTypeException
     | _ -> true
@@ -366,6 +366,10 @@ module AST =
 
   let (../) e1 e2 = binop BinOpType.FDIV e1 e2
 
+  let (..^) e1 e2 = binop BinOpType.FPOW e1 e2
+
+  let flog e1 e2 = binop BinOpType.FLOG e1 e2
+
   let (==) e1 e2 = relop RelOpType.EQ e1 e2
 
   let (!=) e1 e2 = relop RelOpType.NEQ e1 e2
@@ -386,6 +390,14 @@ module AST =
 
   let sle e1 e2 = relop RelOpType.SLE e1 e2
 
+  let fgt e1 e2 = relop RelOpType.FGT e1 e2
+
+  let fge e1 e2 = relop RelOpType.FGE e1 e2
+
+  let flt e1 e2 = relop RelOpType.FLT e1 e2
+
+  let fle e1 e2 = relop RelOpType.FLE e1 e2
+
   let (.&) e1 e2 = binop BinOpType.AND e1 e2
 
   let (.|) e1 e2 = binop BinOpType.OR e1 e2
@@ -401,6 +413,16 @@ module AST =
   let neg e = unop UnOpType.NEG e
 
   let not e = unop UnOpType.NOT e
+
+  let fSqrt e = unop UnOpType.FSQRT e
+
+  let fSin e = unop UnOpType.FSIN e
+
+  let fCos e = unop UnOpType.FCOS e
+
+  let fTan e = unop UnOpType.FTAN e
+
+  let fAtan e = unop UnOpType.FATAN e
 
   let rec unwrapExpr = function
     | Cast (_, _, e, _, _)

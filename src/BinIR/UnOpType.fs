@@ -31,17 +31,26 @@ type UnOpType =
   /// Bitwise not (One's complement)
   | NOT = 1
   /// Square root
-  | SQRT = 2
-  /// Log with base 2
-  | Log2 = 3
+  | FSQRT = 2
+  /// Cosine
+  | FCOS = 5
+  /// Sine
+  | FSIN = 6
+  /// Tangent
+  | FTAN = 7
+  /// Arc Tangent
+  | FATAN = 8
 
 
 module UnOpType =
   let toString = function
     | UnOpType.NEG -> "-"
     | UnOpType.NOT -> "~"
-    | UnOpType.SQRT -> "sqrt"
-    | UnOpType.Log2 -> "log2"
+    | UnOpType.FSQRT -> "sqrt"
+    | UnOpType.FCOS -> "cos"
+    | UnOpType.FSIN -> "sin"
+    | UnOpType.FTAN -> "tan"
+    | UnOpType.FATAN -> "atan"
     | _ -> raise IllegalASTTypeException
 
 // vim: set tw=80 sts=2 sw=2:

@@ -155,6 +155,18 @@ module AST = begin
   /// Signed less than or equal.
   val sle : Expr -> Expr -> Expr
 
+  /// Float greater than.
+  val fgt : Expr -> Expr -> Expr
+
+  /// Float greater than or equal.
+  val fge : Expr -> Expr -> Expr
+
+  /// Float less than.
+  val flt : Expr -> Expr -> Expr
+
+  /// Float less than or equal.
+  val fle : Expr -> Expr -> Expr
+
   /// Bitwise AND.
   val (.&) : Expr -> Expr -> Expr
 
@@ -173,11 +185,32 @@ module AST = begin
   /// Shift logical left.
   val (<<) : Expr -> Expr -> Expr
 
+  /// Power.
+  val (..^) : Expr -> Expr -> Expr
+
+  /// Logarithm.
+  val flog : Expr -> Expr -> Expr
+
   /// Negation (Two's complement).
   val neg : Expr -> Expr
 
   /// Logical not.
   val not : Expr -> Expr
+
+  /// Square root.
+  val fSqrt : Expr -> Expr
+
+  /// Cosine.
+  val fCos : Expr -> Expr
+
+  /// Sine.
+  val fSin : Expr -> Expr
+
+  /// Tangent.
+  val fTan : Expr -> Expr
+
+  /// Arc Tangent.
+  val fAtan : Expr -> Expr
 
   /// Concatenation.
   val concat : Expr -> Expr -> Expr

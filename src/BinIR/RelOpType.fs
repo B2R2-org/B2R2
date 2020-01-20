@@ -46,6 +46,14 @@ type RelOpType =
   | SLT = 8
   /// Signed less than or equal
   | SLE = 9
+  /// Floating point greater than
+  | FGT = 10
+  /// Floating point greater than or equal
+  | FGE = 11
+  /// Floating point less than
+  | FLT = 12
+  /// Floating point less than or equal
+  | FLE = 13
 
 module RelOpType =
   let toString = function
@@ -59,4 +67,8 @@ module RelOpType =
     | RelOpType.LE -> "<="
     | RelOpType.SLT -> "?<"
     | RelOpType.SLE -> "?<="
+    | RelOpType.FGT -> ".>"
+    | RelOpType.FGE -> ".>="
+    | RelOpType.FLT -> ".<"
+    | RelOpType.FLE -> ".<="
     | _ -> raise IllegalASTTypeException

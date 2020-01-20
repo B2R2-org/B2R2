@@ -302,33 +302,80 @@ type BitVector =
   static member inline castBig n newLen =
     (RegType.getMask newLen) &&& n
 
-  static member inline IntBinOp (op: uint64 -> uint64 -> uint64) opBigFn bv1 bv2 =
+  static member inline private IntBinOp op64 opBigFn bv1 bv2 =
     let n1, n2 = bv1.Num, bv2.Num
     if bv1.Length <> bv2.Length then raise ArithTypeMismatchException
     elif bv1.Length <= 64<rt> then
-      { bv1 with Num = BitVector.castSmall (op n1 n2) bv1.Length }
+      { bv1 with Num = BitVector.castSmall (op64 n1 n2) bv1.Length }
     else
       let n = opBigFn (bv1.BigNum, bv2.BigNum)
       { bv1 with BigNum = BitVector.castBig n bv1.Length }
 
-  (* 80 bit floating point operations are currently not supported. *)
-  static member inline FloatBinOp op32 op64 bv1 bv2 =
+  static member inline private FloatBinOp op64 bv1 bv2 =
     match bv1.Length, bv2.Length with
     | 32<rt>, 32<rt> ->
-      let f1 = int32 bv1.Num |> BitConverter.GetBytes
-      let f2 = int32 bv2.Num |> BitConverter.GetBytes
-      let f1 = BitConverter.ToSingle (f1, 0)
-      let f2 = BitConverter.ToSingle (f2, 0)
-      let result = op32 f1 f2 |> float32 |> BitConverter.GetBytes
+      let f1 = BitVector.getFloatValue bv1
+      let f2 = BitVector.getFloatValue bv2
+      let result = op64 f1 f2 |> float32 |> BitConverter.GetBytes
       { bv1 with Num = BitConverter.ToInt32 (result, 0) |> uint64 }
     | 64<rt>, 64<rt> ->
-      let f1 = BitConverter.Int64BitsToDouble <| int64 bv1.Num
-      let f2 = BitConverter.Int64BitsToDouble <| int64 bv2.Num
-      let result = op64 f1 f2 |> float |> BitConverter.DoubleToInt64Bits
+      let f1 = bv1.Num |> int64 |> BitConverter.Int64BitsToDouble
+      let f2 = bv2.Num |> int64 |> BitConverter.Int64BitsToDouble
+      let result = op64 f1 f2 |> BitConverter.DoubleToInt64Bits
       { bv1 with Num = uint64 result }
+    | 80<rt>, 80<rt> ->
+      let f1 = BitVector.getFloatValue bv1
+      let f2 = BitVector.getFloatValue bv2
+      let result = op64 f1 f2 |> BitConverter.DoubleToInt64Bits |> uint64
+      BitVector.castAsFloat result 80<rt>
     | _ -> raise ArithTypeMismatchException
 
+  static member inline FloatUnOp op64 bv =
+    match bv.Length with
+    | 32<rt> ->
+      let fv = BitVector.getFloatValue bv
+      let result = op64 fv |> float32 |> BitConverter.GetBytes
+      { bv with Num = BitConverter.ToInt32 (result, 0) |> uint64 }
+    | 64<rt> ->
+      let fv = BitVector.getFloatValue bv
+      let result = op64 fv |> BitConverter.DoubleToInt64Bits
+      { bv with Num = uint64 result }
+    | 80<rt> ->
+      let fv = BitVector.getFloatValue bv
+      let result = op64 fv |> BitConverter.DoubleToInt64Bits |> uint64
+      BitVector.castAsFloat result 80<rt>
+    | _ -> raise ArithTypeMismatchException
 
+  static member private castAsFloat num = function
+    | 32<rt> ->
+      let f32 = num |> float32 |> BitConverter.GetBytes
+      let f32 = BitConverter.ToInt32 (f32, 0) |> uint64
+      BitVector.ofUInt64 f32 32<rt>
+    | 64<rt> -> BitVector.ofUInt64 num 64<rt>
+    | 80<rt> ->
+      let signOnly = num &&& (1UL <<< 63) >>> 48
+      let exp = num &&& 0x7FF0000000000000UL >>> 52
+      let expAndSign = exp + 0x3C00UL ||| signOnly  |> bigint
+      let significand = num &&& 0x000FFFFFFFFFFFFFUL
+      let significand = significand ||| 0x0010000000000000UL <<< 11 |> bigint
+      { Num = 0UL; BigNum = expAndSign <<< 64 ||| significand; Length = 80<rt> }
+    | _ -> raise ArithTypeMismatchException
+
+  static member private getFloatValue bv =
+    match bv.Length with
+    | 32<rt> ->
+      let f1 = int32 bv.Num |> BitConverter.GetBytes
+      BitConverter.ToSingle (f1, 0) |> float
+    | 64<rt> ->bv.Num |> int64 |> BitConverter.Int64BitsToDouble
+    | 80<rt> ->
+      let sign = bv.BigNum >>> 79 <<< 63 |> uint64
+      let exponent = bv.BigNum >>> 64 &&& 32767I
+      let adjustedExp = exponent - 15360I |> uint64 <<< 52
+      let significand =
+        bv.BigNum &&& (bigint 0x7FFFFFFFFFFFFFFFUL) |> uint64 >>> 11
+      let f64 = sign ||| adjustedExp ||| significand
+      f64 |> int64 |> BitConverter.Int64BitsToDouble
+    | _ -> raise ArithTypeMismatchException
 
   [<CompiledName("Add")>]
   static member add v1 v2 = BitVector.IntBinOp (+) (bigint.Add) v1 v2
@@ -340,13 +387,13 @@ type BitVector =
   static member mul v1 v2 = BitVector.IntBinOp (*) (bigint.Multiply) v1 v2
 
   [<CompiledName("FAdd")>]
-  static member fAdd v1 v2 = BitVector.FloatBinOp (+) (+) v1 v2
+  static member fAdd v1 v2 = BitVector.FloatBinOp (+) v1 v2
 
   [<CompiledName("FSub")>]
-  static member fSub v1 v2 = BitVector.FloatBinOp (-) (-) v1 v2
+  static member fSub v1 v2 = BitVector.FloatBinOp (-) v1 v2
 
   [<CompiledName("FMul")>]
-  static member fMul v1 v2 = BitVector.FloatBinOp (*) (*) v1 v2
+  static member fMul v1 v2 = BitVector.FloatBinOp (*) v1 v2
 
   [<CompiledName("Neg")>]
   static member neg bv =
@@ -379,6 +426,21 @@ type BitVector =
       { bv with Num = BitVector.castSmall (~~~ bv.Num) bv.Length }
     else
       { bv with BigNum = bigint.Pow (2I, int bv.Length) - bv.BigNum - 1I }
+
+  [<CompiledName("FSqrt")>]
+  static member fSqrt v = BitVector.FloatUnOp sqrt v
+
+  [<CompiledName("FTan")>]
+  static member fTan v = BitVector.FloatUnOp tan v
+
+  [<CompiledName("FATan")>]
+  static member fAtan v = BitVector.FloatUnOp atan v
+
+  [<CompiledName("FSin")>]
+  static member fSin v = BitVector.FloatUnOp sin v
+
+  [<CompiledName("FCos")>]
+  static member fCos v = BitVector.FloatUnOp cos v
 
   [<CompiledName("EQ")>]
   static member eq v1 v2 =
@@ -455,6 +517,23 @@ type BitVector =
   [<CompiledName("SGE")>]
   static member sge v1 v2 = BitVector.sle v2 v1
 
+  static member inline private floatComp v1 v2 op =
+    let fv1 = BitVector.getFloatValue v1
+    let fv2 = BitVector.getFloatValue v2
+    if op fv1 fv2 then BitVector.T else BitVector.F
+
+  [<CompiledName("FGE")>]
+  static member fge v1 v2 = BitVector.floatComp v1 v2 (>=)
+
+  [<CompiledName("FLE")>]
+  static member fle v1 v2 = BitVector.floatComp v1 v2 (<=)
+
+  [<CompiledName("FGT")>]
+  static member fgt v1 v2 = BitVector.floatComp v1 v2 (>)
+
+  [<CompiledName("FLT")>]
+  static member flt v1 v2 = BitVector.floatComp v1 v2 (<)
+
   [<CompiledName("Cast")>]
   static member cast (bv: BitVector) newLen =
     if bv.Length = newLen then bv
@@ -489,7 +568,17 @@ type BitVector =
   static member div v1 v2 = BitVector.IntBinOp (/) (bigint.Divide) v1 v2
 
   [<CompiledName("FDiv")>]
-  static member fDiv v1 v2 = BitVector.FloatBinOp (/) (/) v1 v2
+  static member fDiv v1 v2 = BitVector.FloatBinOp (/) v1 v2
+
+  [<CompiledName("FPow")>]
+  static member fPow v1 v2 =
+    let pow64 f1 f2 = Math.Pow (f1, f2)
+    BitVector.FloatBinOp pow64 v1 v2
+
+  [<CompiledName("FLog")>]
+  static member fLog v1 v2 =
+    let log64 f1 f2 = Math.Log (f2, f1)
+    BitVector.FloatBinOp log64 v1 v2
 
   [<CompiledName("Sdiv")>]
   static member sdiv v1 v2 =
@@ -585,6 +674,59 @@ type BitVector =
       let v2 = BitVector.getValue v2
       let n = bigint.op_LeftShift (v1, int len2) + v2
       { Num = 0UL; Length = targetLen; BigNum = n }
+
+  [<CompiledName("Fext")>]
+  static member fext bv typ =
+    match bv.Length with
+    | 32<rt> ->
+      let f32 = bv.Num |> int32 |> BitConverter.GetBytes
+      let f32 = BitConverter.ToSingle (f32, 0) |> float
+      let f64 = BitConverter.DoubleToInt64Bits f32 |> uint64
+      BitVector.castAsFloat f64 typ
+    | 64<rt> -> BitVector.castAsFloat bv.Num typ
+    | 80<rt> ->
+      let sign = bv.BigNum >>> 79 <<< 63 |> uint64
+      let exponent = bv.BigNum >>> 64 &&& 32767I
+      let adjustedExp = exponent - 15360I |> uint64 <<< 52
+      let significand =
+        bv.BigNum &&& (bigint 0x7FFFFFFFFFFFFFFFUL) |> uint64 >>> 11
+      BitVector.castAsFloat (sign ||| adjustedExp ||| significand) typ
+    | _ -> raise ArithTypeMismatchException
+
+  [<CompiledName("FtoICeil")>]
+  static member ftoICeil bv typ =
+    let fValue =
+      BitVector.getFloatValue bv |> ceil |> BitConverter.DoubleToInt64Bits
+    BitVector.castAsFloat (uint64 fValue) typ
+
+  [<CompiledName("FtoIFloor")>]
+  static member ftoIFloor bv typ =
+    let fValue =
+      BitVector.getFloatValue bv |> floor |> BitConverter.DoubleToInt64Bits
+    BitVector.castAsFloat (uint64 fValue) typ
+
+  [<CompiledName("FtoIRound")>]
+  static member ftoIRound bv typ =
+    let fValue =
+      BitVector.getFloatValue bv |> round |> BitConverter.DoubleToInt64Bits
+    BitVector.castAsFloat (uint64 fValue) typ
+
+  [<CompiledName("FtoITrunc")>]
+  static member ftoITrunc bv typ =
+    let fValue =
+      BitVector.getFloatValue bv |> truncate |> BitConverter.DoubleToInt64Bits
+    BitVector.castAsFloat (uint64 fValue) typ
+
+  [<CompiledName("ItoF")>]
+  static member itoF bv typ =
+    match bv.Length with
+    | t when t <= 64<rt> ->
+      let f64 = bv.Num |> float |> BitConverter.DoubleToInt64Bits |> uint64
+      BitVector.castAsFloat f64 typ
+    | _ ->
+      let f64 = bv.BigNum |> float |> BitConverter.DoubleToInt64Bits |> uint64
+      BitVector.castAsFloat f64 typ
+    | _ -> raise ArithTypeMismatchException
 
   [<CompiledName("Sext")>]
   static member sext bv typ =

@@ -66,6 +66,10 @@ type BinOpType =
   | FMUL = 18
   /// Floating point division
   | FDIV = 19
+  /// Power (x1^x2)
+  | FPOW = 20
+  /// Log (log of x2 in base x1)
+  | FLOG = 21
 
 module BinOpType =
   let toString = function
@@ -89,4 +93,6 @@ module BinOpType =
     | BinOpType.FSUB -> ".-"
     | BinOpType.FMUL -> ".*"
     | BinOpType.FDIV -> "./"
+    | BinOpType.FPOW -> "^"
+    | BinOpType.FLOG -> "log"
     | _ -> raise IllegalASTTypeException

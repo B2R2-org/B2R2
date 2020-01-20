@@ -53,16 +53,12 @@ let rec evalConcrete st e =
   | Var (_, n, _, _) -> EvalState.GetReg st n
   | PCVar (t, _) -> BitVector.ofUInt64 st.PC t |> Def
   | TempVar (_, n) -> EvalState.GetTmp st n
-  | UnOp (UnOpType.NEG, e, _, _) -> evalConcrete st e |> map BitVector.neg
-  | UnOp (UnOpType.NOT, e, _, _) -> evalConcrete st e |> map BitVector.bnot
+  | UnOp (t, e, _, _) -> evalUnOp st e t |> Def
   | BinOp (t, _, e1, e2, _, _) -> evalBinOp st e1 e2 t |> Def
   | RelOp (t, e1, e2, _, _) -> evalRelOp st e1 e2 t |> Def
   | Load (endian, t, addr, _, _) -> evalLoad st endian t addr |> Def
   | Ite (cond, e1, e2, _, _) -> evalIte st cond e1 e2
-  | Cast (CastKind.SignExt, t, e, _, _) ->
-    evalConcrete st e |> map1 BitVector.sext t
-  | Cast (CastKind.ZeroExt, t, e, _, _) ->
-    evalConcrete st e |> map1 BitVector.zext t
+  | Cast (kind, t, e, _, _) -> evalCast st t e kind
   | Extract (e, t, p, _, _) -> evalConcrete st e |> map2 BitVector.extract t p
   | Undefined (_) -> Undef
   | _ -> raise InvalidExprException
@@ -82,6 +78,29 @@ and private evalBinOpConc st e1 e2 fn =
   let e2 = evalConcrete st e2 |> unwrap
   fn e1 e2
 
+and private evalUnOpConc st e fn = evalConcrete st e |> unwrap |> fn
+
+and private evalCast st t e = function
+| CastKind.SignExt -> evalConcrete st e |> map1 BitVector.sext t
+| CastKind.ZeroExt -> evalConcrete st e |> map1 BitVector.zext t
+| CastKind.FloatExt -> evalConcrete st e |> map1 BitVector.fext t
+| CastKind.IntToFloat -> evalConcrete st e |> map1 BitVector.itoF t
+| CastKind.FtoICeil -> evalConcrete st e |> map1 BitVector.ftoICeil t
+| CastKind.FtoIFloor -> evalConcrete st e |> map1 BitVector.ftoIFloor t
+| CastKind.FtoIRound -> evalConcrete st e |> map1 BitVector.ftoIRound t
+| CastKind.FtoITrunc -> evalConcrete st e |> map1 BitVector.ftoITrunc t
+| _ -> raise IllegalASTTypeException
+
+and private evalUnOp st e = function
+  | UnOpType.NEG -> evalUnOpConc st e BitVector.neg
+  | UnOpType.NOT -> evalUnOpConc st e BitVector.bnot
+  | UnOpType.FSQRT -> evalUnOpConc st e BitVector.fSqrt
+  | UnOpType.FCOS -> evalUnOpConc st e BitVector.fCos
+  | UnOpType.FSIN -> evalUnOpConc st e BitVector.fSin
+  | UnOpType.FTAN -> evalUnOpConc st e BitVector.fTan
+  | UnOpType.FATAN -> evalUnOpConc st e BitVector.fAtan
+  | _ -> raise IllegalASTTypeException
+
 and private evalBinOp st e1 e2 = function
   | BinOpType.ADD -> evalBinOpConc st e1 e2 BitVector.add
   | BinOpType.SUB -> evalBinOpConc st e1 e2 BitVector.sub
@@ -97,6 +116,12 @@ and private evalBinOp st e1 e2 = function
   | BinOpType.OR -> evalBinOpConc st e1 e2 BitVector.bor
   | BinOpType.XOR -> evalBinOpConc st e1 e2 BitVector.bxor
   | BinOpType.CONCAT -> evalBinOpConc st e1 e2 BitVector.concat
+  | BinOpType.FADD -> evalBinOpConc st e1 e2 BitVector.fAdd
+  | BinOpType.FSUB -> evalBinOpConc st e1 e2 BitVector.fSub
+  | BinOpType.FMUL -> evalBinOpConc st e1 e2 BitVector.fMul
+  | BinOpType.FDIV -> evalBinOpConc st e1 e2 BitVector.fDiv
+  | BinOpType.FPOW -> evalBinOpConc st e1 e2 BitVector.fPow
+  | BinOpType.FLOG -> evalBinOpConc st e1 e2 BitVector.fLog
   | _ -> raise IllegalASTTypeException
 
 and private evalRelOp st e1 e2 = function
@@ -110,6 +135,10 @@ and private evalRelOp st e1 e2 = function
   | RelOpType.LE -> evalBinOpConc st e1 e2 BitVector.le
   | RelOpType.SLT -> evalBinOpConc st e1 e2 BitVector.slt
   | RelOpType.SLE -> evalBinOpConc st e1 e2 BitVector.sle
+  | RelOpType.FLT -> evalBinOpConc st e1 e2 BitVector.flt
+  | RelOpType.FLE -> evalBinOpConc st e1 e2 BitVector.fle
+  | RelOpType.FGT -> evalBinOpConc st e1 e2 BitVector.fgt
+  | RelOpType.FGE -> evalBinOpConc st e1 e2 BitVector.fge
   | _ -> raise IllegalASTTypeException
 
 let private evalPut st lhs rhs =
