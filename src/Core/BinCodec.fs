@@ -10,10 +10,13 @@ module LEB128 =
   let inline private decodeUnsignedInt (bytes: byte []) (castValue: byte -> 'T) maxLength =
     let rec decodeLoop offset value currentByte length =
       let newValue = value ||| (castValue (currentByte &&& 0x7fuy) <<< (offset * 7))
-      if currentByte &&& 0x80uy = 0uy || offset = length - 1 then
-        Ok (newValue, uint8 (offset + 1))
+      if currentByte &&& 0x80uy <> 0uy && offset = length - 1 then
+        Error "LEB128 Overflow"
       else
-        decodeLoop (offset + 1) newValue bytes.[offset + 1] length
+        if currentByte &&& 0x80uy = 0uy then
+          Ok (newValue, uint8 (offset + 1))
+        else
+          decodeLoop (offset + 1) newValue bytes.[offset + 1] length
     if bytes.Length = 0 then
       Error "Invalid buffer length"
     else
@@ -23,16 +26,19 @@ module LEB128 =
   let inline private decodeSignedInt (bytes: byte []) (castValue: byte -> 'T) maxLength signExtension =
     let rec decodeLoop offset value bits currentByte length =
       let newValue = value ||| (castValue (currentByte &&& 0x7fuy) <<< bits)
-      if currentByte &&& 0x80uy = 0uy || offset = length - 1 then
-        let finalValue =
-          if currentByte &&& 0x40uy <> 0uy then
-            let shiftOffset = if offset < (maxLength - 1) then offset + 1 else offset
-            signExtension <<< (7 * (shiftOffset)) ||| newValue
-          else
-            newValue
-        Ok (finalValue, uint8 (offset + 1))
+      if currentByte &&& 0x80uy <> 0uy && offset = length - 1 then
+        Error "LEB128 Overflow"
       else
-        decodeLoop (offset + 1) newValue (bits + 7) bytes.[offset + 1] length
+        if currentByte &&& 0x80uy = 0uy then
+          let finalValue =
+            if currentByte &&& 0x40uy <> 0uy then
+              let shiftOffset = if offset < (maxLength - 1) then offset + 1 else offset
+              signExtension <<< (7 * (shiftOffset)) ||| newValue
+            else
+              newValue
+          Ok (finalValue, uint8 (offset + 1))
+        else
+          decodeLoop (offset + 1) newValue (bits + 7) bytes.[offset + 1] length
     if bytes.Length = 0 then
       Error "Invalid buffer length"
     else
