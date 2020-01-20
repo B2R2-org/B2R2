@@ -48,7 +48,7 @@ type FileViewerOpts () =
     CmdOpts.New ( descr = "Specify <ISA> (e.g., x86) for fat binaries",
                   extra = 1, callback = cb, short = "-a", long= "--isa" )
 
-let spec: FileViewerOpts OptParse.Option list =
+let spec: FileViewerOpts FsOptParse.Option list =
   [ FileViewerOpts.OptISA ()
     CmdOpts.OptVerbose ()
     CmdOpts.OptHelp () ]
