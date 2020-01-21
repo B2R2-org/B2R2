@@ -24,973 +24,1026 @@
 
 module internal B2R2.FrontEnd.Intel.Constants
 
-(*
-type OperandDesc
-ODImmOne
-+---------+-------------------------------------+
-| 0 0 0 1 |           0 (12bit)                 |
-+---------+-------------------------------------+
-ODModeSize
-+---------+-------------------------------------+
-| 0 0 1 0 |    size (6bit)   |   mode (6bit)    |
-+---------+-------------------------------------+
-ODReg
-+---------+-------------------------------------+
-| 0 0 1 1 |       Register ID (12bit)           |
-+---------+-------------------------------------+
-ODRegGrp
-+---------+------------+-----------+------------+
-| 0 1 0 0 | size(6bit) | grp(3bit) | attr(3bit) |
-+---------+------------+-----------+------------+
-*)
+type R = Register
 
-let [<Literal>] _Ib = 0x208aL
-let [<Literal>] _SIb = 0x208bL
-let [<Literal>] _SIz = 0x280bL
-let [<Literal>] Ap = 0x2381000000000000L
-let [<Literal>] Dd = 0x2106000000000000L
-let [<Literal>] E0v = 0x26dc000000000000L
-let [<Literal>] Eb = 0x2087000000000000L
-let [<Literal>] Ep = 0x2387000000000000L
-let [<Literal>] Ev = 0x26c7000000000000L
-let [<Literal>] Ew = 0x2707000000000000L
-let [<Literal>] Ey = 0x27c7000000000000L
-let [<Literal>] Gb = 0x2088000000000000L
-let [<Literal>] Gd = 0x2108000000000000L
-let [<Literal>] Gv = 0x26c8000000000000L
-let [<Literal>] Gw = 0x2708000000000000L
-let [<Literal>] Gy = 0x27c8000000000000L
-let [<Literal>] Gz = 0x2808000000000000L
-let [<Literal>] Ib = 0x208a000000000000L
-let [<Literal>] Iv = 0x26ca000000000000L
-let [<Literal>] Iw = 0x270a000000000000L
-let [<Literal>] Iz = 0x280a000000000000L
-let [<Literal>] Jb = 0x208c000000000000L
-let [<Literal>] Jz = 0x280c000000000000L
-let [<Literal>] Ma = 0x204d000000000000L
-let [<Literal>] Mdq = 0x218d000000000000L
-let [<Literal>] Mp = 0x238d000000000000L
-let [<Literal>] Mq = 0x24cd000000000000L
-let [<Literal>] Ms = 0x254d000000000000L
-let [<Literal>] Mv = 0x26cd000000000000L
-let [<Literal>] Mw = 0x270d000000000000L
-let [<Literal>] My = 0x27cd000000000000L
-let [<Literal>] Mz = 0x280d000000000000L
-let [<Literal>] Pd = 0x2111000000000000L
-let [<Literal>] Pq = 0x24d1000000000000L
-let [<Literal>] Qq = 0x24d2000000000000L
-let [<Literal>] Rd = 0x2113000000000000L
-let [<Literal>] Rv = 0x26d3000000000000L
-let [<Literal>] Ry = 0x27d3000000000000L
-let [<Literal>] SIb = 0x208b000000000000L
-let [<Literal>] SIv = 0x26cb000000000000L
-let [<Literal>] SIw = 0x270b000000000000L
-let [<Literal>] SIz = 0x280b000000000000L
-let [<Literal>] Sw = 0x2714000000000000L
-let [<Literal>] Vdq = 0x2196000000000000L
-let [<Literal>] Vx = 0x2756000000000000L
-let [<Literal>] Wdq = 0x2198000000000000L
-let [<Literal>] Wdqd = 0x21d8000000000000L
-let [<Literal>] Wdqq = 0x2258000000000000L
-let [<Literal>] Wx = 0x2758000000000000L
-let [<Literal>] ALDX = 0x3018301300000000L
-let [<Literal>] ALIb = 0x3018208a00000000L
-let [<Literal>] ALOb = 0x3018209000000000L
-let [<Literal>] BNDRbndBNDRMbnd = 0x20c320c400000000L
-let [<Literal>] BNDRMbndBNDRbnd = 0x20c420c300000000L
-let [<Literal>] CdRd = 0x2105211300000000L
-let [<Literal>] DdRd = 0x2106211300000000L
-let [<Literal>] DXAL = 0x3013301800000000L
-let [<Literal>] Eb1L = 0x2087100000000000L
-let [<Literal>] EbCL = 0x2087301a00000000L
-let [<Literal>] EbGb = 0x2087208800000000L
-let [<Literal>] EbIb = 0x2087208a00000000L
-let [<Literal>] Ev1L = 0x26c7100000000000L
-let [<Literal>] EvCL = 0x26c7301a00000000L
-let [<Literal>] EvGv = 0x26c726c800000000L
-let [<Literal>] EvIb = 0x26c7208a00000000L
-let [<Literal>] EvIz = 0x26c7280a00000000L
-let [<Literal>] EvSIb = 0x26c7208b00000000L
-let [<Literal>] EvSIz = 0x26c7280b00000000L
-let [<Literal>] EvSw = 0x26c7271400000000L
-let [<Literal>] EwGw = 0x2707270800000000L
-let [<Literal>] EyPd = 0x27c7211100000000L
-let [<Literal>] EyPq = 0x27c724d100000000L
-let [<Literal>] EyVdq = 0x27c7219600000000L
-let [<Literal>] GbEb = 0x2088208700000000L
-let [<Literal>] GdEb = 0x2108208700000000L
-let [<Literal>] GdEw = 0x2108270700000000L
-let [<Literal>] GdEy = 0x210827c700000000L
-let [<Literal>] GdNq = 0x210824cf00000000L
-let [<Literal>] GdUdq = 0x2108219500000000L
-let [<Literal>] GdUx = 0x2108275500000000L
-let [<Literal>] GvEb = 0x26c8208700000000L
-let [<Literal>] GvEd = 0x26c8210700000000L
-let [<Literal>] GvEv = 0x26c826c700000000L
-let [<Literal>] GvEw = 0x26c8270700000000L
-let [<Literal>] GvEy = 0x26c827c700000000L
-let [<Literal>] GvMa = 0x26c8204d00000000L
-let [<Literal>] GvMp = 0x26c8238d00000000L
-let [<Literal>] GvMv = 0x26c826cd00000000L
-let [<Literal>] GwMw = 0x2708270d00000000L
-let [<Literal>] GyMy = 0x27c827cd00000000L
-let [<Literal>] GyUdq = 0x27c8219500000000L
-let [<Literal>] GyUpd = 0x27c823d500000000L
-let [<Literal>] GyUps = 0x27c8245500000000L
-let [<Literal>] GyUx = 0x27c8275500000000L
-let [<Literal>] GyWdq = 0x27c8219800000000L
-let [<Literal>] GyWsd = 0x27c8259800000000L
-let [<Literal>] GyWsdq = 0x27c825d800000000L
-let [<Literal>] GyWss = 0x27c8261800000000L
-let [<Literal>] GyWssd = 0x27c8265800000000L
-let [<Literal>] GzMp = 0x2808238d00000000L
-let [<Literal>] IbAL = 0x208a301800000000L
-let [<Literal>] IwIb = 0x270a208a00000000L
-let [<Literal>] MdqVdq = 0x218d219600000000L
-let [<Literal>] MpdVpd = 0x23cd23d600000000L
-let [<Literal>] MpsVps = 0x244d245600000000L
-let [<Literal>] MqPq = 0x24cd24d100000000L
-let [<Literal>] MqVdq = 0x24cd219600000000L
-let [<Literal>] MwGw = 0x2708270d00000000L
-let [<Literal>] MxVx = 0x274d275600000000L
-let [<Literal>] MyGy = 0x27cd27c800000000L
-let [<Literal>] MZxzVZxz = 0x278e279700000000L
-let [<Literal>] NqIb = 0x24cf208a00000000L
-let [<Literal>] ObAL = 0x2090301800000000L
-let [<Literal>] PdEy = 0x211127c700000000L
-let [<Literal>] PpiWdq = 0x2411219800000000L
-let [<Literal>] PpiWdqq = 0x2411225800000000L
-let [<Literal>] PpiWpd = 0x241123d800000000L
-let [<Literal>] PpiWps = 0x2411245800000000L
-let [<Literal>] PpiWpsq = 0x2411249800000000L
-let [<Literal>] PqEy = 0x24d127c700000000L
-let [<Literal>] PqQd = 0x24d1211200000000L
-let [<Literal>] PqQq = 0x24d124d200000000L
-let [<Literal>] PqUdq = 0x24d1219500000000L
-let [<Literal>] PqWdq = 0x24d1219800000000L
-let [<Literal>] QpiWpd = 0x241223d800000000L
-let [<Literal>] QqPq = 0x24d224d100000000L
-let [<Literal>] RdCd = 0x2113210500000000L
-let [<Literal>] RdDd = 0x2113210600000000L
-let [<Literal>] SwEw = 0x2714270700000000L
-let [<Literal>] UdqIb = 0x2195208a00000000L
-let [<Literal>] VdqEdbIb = 0x21962147208a0000L
-let [<Literal>] VdqEy = 0x219627c700000000L
-let [<Literal>] VdqMdq = 0x2196218d00000000L
-let [<Literal>] VdqMq = 0x219624cd00000000L
-let [<Literal>] VdqNq = 0x219624cf00000000L
-let [<Literal>] VdqQq = 0x219624d200000000L
-let [<Literal>] VdqUdq = 0x2196219500000000L
-let [<Literal>] VdqWdq = 0x2196219800000000L
-let [<Literal>] VdqWdqd = 0x219621d800000000L
-let [<Literal>] VdqWdqq = 0x2196225800000000L
-let [<Literal>] VdqWdqw = 0x219622d800000000L
-let [<Literal>] VpdWpd = 0x23d623d800000000L
-let [<Literal>] VpsWps = 0x2456245800000000L
-let [<Literal>] VqqMdq = 0x2516218d00000000L
-let [<Literal>] VsdWsd = 0x2596259800000000L
-let [<Literal>] VsdWsdq = 0x259625d800000000L
-let [<Literal>] VssWss = 0x2616261800000000L
-let [<Literal>] VssWssd = 0x2616265800000000L
-let [<Literal>] VxMd = 0x2756210d00000000L
-let [<Literal>] VxMx = 0x2756274d00000000L
-let [<Literal>] VxWdqdq = 0x2756221800000000L
-let [<Literal>] VxWdqqdq = 0x2756229800000000L
-let [<Literal>] VxWdqwd = 0x2756235800000000L
-let [<Literal>] VxWss = 0x2756261800000000L
-let [<Literal>] VxWssd = 0x2756265800000000L
-let [<Literal>] VxWssq = 0x2756269800000000L
-let [<Literal>] VxWx = 0x2756275800000000L
-let [<Literal>] VyEy = 0x27d627c700000000L
-let [<Literal>] VZxzWdqd = 0x279721d800000000L
-let [<Literal>] VZxzWZxz = 0x2797279900000000L
-let [<Literal>] WdqdVdq = 0x21d8219600000000L
-let [<Literal>] WdqqVdq = 0x2258219600000000L
-let [<Literal>] WdqVdq = 0x2198219600000000L
-let [<Literal>] WpdVpd = 0x23d823d600000000L
-let [<Literal>] WpsVps = 0x2458245600000000L
-let [<Literal>] WssdVx = 0x2658275600000000L
-let [<Literal>] WssVx = 0x2618275600000000L
-let [<Literal>] WxVx = 0x2758275600000000L
-let [<Literal>] WZxzVZxz = 0x2799279700000000L
-let [<Literal>] XbYb = 0x209a209b00000000L
-let [<Literal>] XvYv = 0x26da26db00000000L
-let [<Literal>] YbXb = 0x209b209a00000000L
-let [<Literal>] YvXv = 0x26db26da00000000L
-let [<Literal>] EvGvCL = 0x26c726c8301a0000L
-let [<Literal>] EvGvIb = 0x26c726c8208a0000L
-let [<Literal>] GdNqIb = 0x210824cf208a0000L
-let [<Literal>] GdUdqIb = 0x21082195208a0000L
-let [<Literal>] GvEvIb = 0x26c826c7208a0000L
-let [<Literal>] GvEvIz = 0x26c826c7280a0000L
-let [<Literal>] GvEvSIb = 0x26c826c7208b0000L
-let [<Literal>] GvEvSIz = 0x26c826c7280b0000L
-let [<Literal>] GyByEy = 0x27c827c227c70000L
-let [<Literal>] GyEyBy = 0x27c827c727c20000L
-let [<Literal>] GyEyIb = 0x27c827c7208a0000L
-let [<Literal>] HxUxIb = 0x27492755208a0000L
-let [<Literal>] PqEdwIb = 0x24d12307208a0000L
-let [<Literal>] PqQqIb = 0x24d124d2208a0000L
-let [<Literal>] VdqEdwIb = 0x21962307208a0000L
-let [<Literal>] VdqHdqMdq = 0x21962189218d0000L
-let [<Literal>] VdqHdqMdqd = 0x2196218921cd0000L
-let [<Literal>] VdqHdqMq = 0x2196218924cd0000L
-let [<Literal>] VdqHdqUdq = 0x2196218921950000L
-let [<Literal>] VdqWdqIb = 0x21962198208a0000L
-let [<Literal>] VpdHpdWpd = 0x23d623c923d80000L
-let [<Literal>] VpsHpsWps = 0x2456244924580000L
-let [<Literal>] VsdHsdEy = 0x2596258927c70000L
-let [<Literal>] VsdHsdWsd = 0x2596258925980000L
-let [<Literal>] VsdHsdWsdq = 0x2596258925d80000L
-let [<Literal>] VsdWsdIb = 0x25962598208a0000L
-let [<Literal>] VsdWsdqIb = 0x259625d8208a0000L
-let [<Literal>] VssHssEy = 0x2616260927c70000L
-let [<Literal>] VssHssWss = 0x2616260926180000L
-let [<Literal>] VssHssWssd = 0x2616260926580000L
-let [<Literal>] VssWssdIb = 0x26162658208a0000L
-let [<Literal>] VxHxWdq = 0x2756274921980000L
-let [<Literal>] VxHxWsd = 0x2756274925980000L
-let [<Literal>] VxHxWss = 0x2756274926180000L
-let [<Literal>] VxHxWx = 0x2756274927580000L
-let [<Literal>] VxWxIb = 0x27562758208a0000L
-let [<Literal>] WsdHxVsd = 0x2598274925960000L
-let [<Literal>] WssHxVss = 0x2618274926160000L
-let [<Literal>] VdqHdqEdwIb = 0x219621892307208aL
-let [<Literal>] VpsHpsWpsIb = 0x245624492458208aL
-let [<Literal>] VqqHqqWdqIb = 0x251625092198208aL
-let [<Literal>] VxHxWxIb = 0x275627492758208aL
-let [<Literal>] RGzRGz = 0x4804480200000000L
-let [<Literal>] RGvSIz = 0x46c4280b00000000L
-let [<Literal>] RGvDX = 0x46c4301300000000L
-let [<Literal>] DXRGv = 0x301346c400000000L
-let [<Literal>] RGzDX = 0x4804301300000000L
-let [<Literal>] DXRGz = 0x3013480400000000L
-let [<Literal>] ORES = 0x3600000000000000L
-let [<Literal>] ORCS = 0x3601000000000000L
-let [<Literal>] ORSS = 0x3602000000000000L
-let [<Literal>] ORDS = 0x3603000000000000L
-let [<Literal>] ORFS = 0x3604000000000000L
-let [<Literal>] ORGS = 0x3605000000000000L
-let [<Literal>] GvG0T = 0x46c2000000000000L
-let [<Literal>] GvG1T = 0x46ca000000000000L
-let [<Literal>] GvG2T = 0x46d2000000000000L
-let [<Literal>] GvG3T = 0x46da000000000000L
-let [<Literal>] GvG4T = 0x46e2000000000000L
-let [<Literal>] GvG5T = 0x46ea000000000000L
-let [<Literal>] GvG6T = 0x46f2000000000000L
-let [<Literal>] GvG7T = 0x46fa000000000000L
-let [<Literal>] GzG0T = 0x4802000000000000L
-let [<Literal>] GzG1T = 0x480a000000000000L
-let [<Literal>] GzG2T = 0x4812000000000000L
-let [<Literal>] GzG3T = 0x481a000000000000L
-let [<Literal>] GzG4T = 0x4822000000000000L
-let [<Literal>] GzG5T = 0x482a000000000000L
-let [<Literal>] GzG6T = 0x4832000000000000L
-let [<Literal>] GzG7T = 0x483a000000000000L
-let [<Literal>] GzG0F = 0x4804000000000000L
-let [<Literal>] GzG1F = 0x480c000000000000L
-let [<Literal>] GzG2F = 0x4814000000000000L
-let [<Literal>] GzG3F = 0x481c000000000000L
-let [<Literal>] GzG4F = 0x4824000000000000L
-let [<Literal>] GzG5F = 0x482c000000000000L
-let [<Literal>] GzG6F = 0x4834000000000000L
-let [<Literal>] GzG7F = 0x483c000000000000L
-let [<Literal>] GvG0TOv = 0x46c226d000000000L
-let [<Literal>] GvG1TOv = 0x46ca26d000000000L
-let [<Literal>] GvG2TOv = 0x46d226d000000000L
-let [<Literal>] GvG3TOv = 0x46da26d000000000L
-let [<Literal>] GvG4TOv = 0x46e226d000000000L
-let [<Literal>] GvG5TOv = 0x46ea26d000000000L
-let [<Literal>] GvG6TOv = 0x46f226d000000000L
-let [<Literal>] GvG7TOv = 0x46fa26d000000000L
-let [<Literal>] GvG0FOv = 0x46c426d000000000L
-let [<Literal>] GvG1FOv = 0x46cc26d000000000L
-let [<Literal>] GvG2FOv = 0x46d426d000000000L
-let [<Literal>] GvG3FOv = 0x46dc26d000000000L
-let [<Literal>] GvG4FOv = 0x46e426d000000000L
-let [<Literal>] GvG5FOv = 0x46ec26d000000000L
-let [<Literal>] GvG6FOv = 0x46f426d000000000L
-let [<Literal>] GvG7FOv = 0x46fc26d000000000L
-let [<Literal>] OvGvG0T = 0x26d046c200000000L
-let [<Literal>] OvGvG1T = 0x26d046ca00000000L
-let [<Literal>] OvGvG2T = 0x26d046d200000000L
-let [<Literal>] OvGvG3T = 0x26d046da00000000L
-let [<Literal>] OvGvG4T = 0x26d046e200000000L
-let [<Literal>] OvGvG5T = 0x26d046ea00000000L
-let [<Literal>] OvGvG6T = 0x26d046f200000000L
-let [<Literal>] OvGvG7T = 0x26d046fa00000000L
-let [<Literal>] OvGvG0F = 0x26d046c400000000L
-let [<Literal>] OvGvG1F = 0x26d046cc00000000L
-let [<Literal>] OvGvG2F = 0x26d046d400000000L
-let [<Literal>] OvGvG3F = 0x26d046dc00000000L
-let [<Literal>] OvGvG4F = 0x26d046e400000000L
-let [<Literal>] OvGvG5F = 0x26d046ec00000000L
-let [<Literal>] OvGvG6F = 0x26d046f400000000L
-let [<Literal>] OvGvG7F = 0x26d046fc00000000L
-let [<Literal>] GvG0FGvG0T = 0x46c446c200000000L
-let [<Literal>] GvG0FGvG1T = 0x46c446ca00000000L
-let [<Literal>] GvG0FGvG2T = 0x46c446d200000000L
-let [<Literal>] GvG0FGvG3T = 0x46c446da00000000L
-let [<Literal>] GvG0FGvG4T = 0x46c446e200000000L
-let [<Literal>] GvG0FGvG5T = 0x46c446ea00000000L
-let [<Literal>] GvG0FGvG6T = 0x46c446f200000000L
-let [<Literal>] GvG0FGvG7T = 0x46c446fa00000000L
-let [<Literal>] GvG0TIb = 0x46c2208a00000000L
-let [<Literal>] GvG1TIb = 0x46ca208a00000000L
-let [<Literal>] GvG2TIb = 0x46d2208a00000000L
-let [<Literal>] GvG3TIb = 0x46da208a00000000L
-let [<Literal>] GvG4TIb = 0x46e2208a00000000L
-let [<Literal>] GvG5TIb = 0x46ea208a00000000L
-let [<Literal>] GvG6TIb = 0x46f2208a00000000L
-let [<Literal>] GvG7TIb = 0x46fa208a00000000L
-let [<Literal>] GvG0FIb = 0x46c4208a00000000L
-let [<Literal>] GvG1FIb = 0x46cc208a00000000L
-let [<Literal>] GvG2FIb = 0x46d4208a00000000L
-let [<Literal>] GvG3FIb = 0x46dc208a00000000L
-let [<Literal>] GvG4FIb = 0x46e4208a00000000L
-let [<Literal>] GvG5FIb = 0x46ec208a00000000L
-let [<Literal>] GvG6FIb = 0x46f4208a00000000L
-let [<Literal>] GvG7FIb = 0x46fc208a00000000L
-let [<Literal>] IbGvG0T = 0x208a46c200000000L
-let [<Literal>] IbGvG1T = 0x208a46ca00000000L
-let [<Literal>] IbGvG2T = 0x208a46d200000000L
-let [<Literal>] IbGvG3T = 0x208a46da00000000L
-let [<Literal>] IbGvG4T = 0x208a46e200000000L
-let [<Literal>] IbGvG5T = 0x208a46ea00000000L
-let [<Literal>] IbGvG6T = 0x208a46f200000000L
-let [<Literal>] IbGvG7T = 0x208a46fa00000000L
-let [<Literal>] IbGvG0F = 0x208a46c400000000L
-let [<Literal>] IbGvG1F = 0x208a46cc00000000L
-let [<Literal>] IbGvG2F = 0x208a46d400000000L
-let [<Literal>] IbGvG3F = 0x208a46dc00000000L
-let [<Literal>] IbGvG4F = 0x208a46e400000000L
-let [<Literal>] IbGvG5F = 0x208a46ec00000000L
-let [<Literal>] IbGvG6F = 0x208a46f400000000L
-let [<Literal>] IbGvG7F = 0x208a46fc00000000L
-let [<Literal>] GvG0TIv = 0x46c226ca00000000L
-let [<Literal>] GvG1TIv = 0x46ca26ca00000000L
-let [<Literal>] GvG2TIv = 0x46d226ca00000000L
-let [<Literal>] GvG3TIv = 0x46da26ca00000000L
-let [<Literal>] GvG4TIv = 0x46e226ca00000000L
-let [<Literal>] GvG5TIv = 0x46ea26ca00000000L
-let [<Literal>] GvG6TIv = 0x46f226ca00000000L
-let [<Literal>] GvG7TIv = 0x46fa26ca00000000L
-let [<Literal>] GvG0FIv = 0x46c426ca00000000L
-let [<Literal>] GvG1FIv = 0x46cc26ca00000000L
-let [<Literal>] GvG2FIv = 0x46d426ca00000000L
-let [<Literal>] GvG3FIv = 0x46dc26ca00000000L
-let [<Literal>] GvG4FIv = 0x46e426ca00000000L
-let [<Literal>] GvG5FIv = 0x46ec26ca00000000L
-let [<Literal>] GvG6FIv = 0x46f426ca00000000L
-let [<Literal>] GvG7FIv = 0x46fc26ca00000000L
+let _Ap = ODModeSize (struct (OprMode.A, OprSize.P))
+let _BNDRbnd = ODModeSize (struct (OprMode.BndR, OprSize.Bnd))
+let _BNDRMbnd = ODModeSize (struct (OprMode.BndM, OprSize.Bnd))
+let _By = ODModeSize (struct (OprMode.B, OprSize.Y))
+let _Cd = ODModeSize (struct (OprMode.C, OprSize.D))
+let _Dd = ODModeSize (struct (OprMode.D, OprSize.D))
+let _E0v = ODModeSize (struct (OprMode.E0, OprSize.V)) (* \x0f\x1f *)
+let _Eb = ODModeSize (struct (OprMode.E, OprSize.B))
+let _Ed = ODModeSize (struct (OprMode.E, OprSize.D))
+let _Edb = ODModeSize (struct (OprMode.E, OprSize.DB))
+let _Edw = ODModeSize (struct (OprMode.E, OprSize.DW))
+let _Ep = ODModeSize (struct (OprMode.E, OprSize.P))
+let _Ev = ODModeSize (struct (OprMode.E, OprSize.V))
+let _Ew = ODModeSize (struct (OprMode.E, OprSize.W))
+let _Ey = ODModeSize (struct (OprMode.E, OprSize.Y))
+let _Gb = ODModeSize (struct (OprMode.G, OprSize.B))
+let _Gd = ODModeSize (struct (OprMode.G, OprSize.D))
+let _Gv = ODModeSize (struct (OprMode.G, OprSize.V))
+let _Gw = ODModeSize (struct (OprMode.G, OprSize.W))
+let _Gy = ODModeSize (struct (OprMode.G, OprSize.Y))
+let _Gz = ODModeSize (struct (OprMode.G, OprSize.Z))
+let _Hdq = ODModeSize (struct (OprMode.H, OprSize.DQ))
+let _Hpd = ODModeSize (struct (OprMode.H, OprSize.PD))
+let _Hps = ODModeSize (struct (OprMode.H, OprSize.PS))
+let _Hqq = ODModeSize (struct (OprMode.H, OprSize.QQ))
+let _Hsd = ODModeSize (struct (OprMode.H, OprSize.SD))
+let _Hss = ODModeSize (struct (OprMode.H, OprSize.SS))
+let _Hx = ODModeSize (struct (OprMode.H, OprSize.X))
+let _Ib = ODModeSize (struct (OprMode.I, OprSize.B))
+let _Iv = ODModeSize (struct (OprMode.I, OprSize.V))
+let _Iw = ODModeSize (struct (OprMode.I, OprSize.W))
+let _Iz = ODModeSize (struct (OprMode.I, OprSize.Z))
+let _Jb = ODModeSize (struct (OprMode.J, OprSize.B))
+let _Jz = ODModeSize (struct (OprMode.J, OprSize.Z))
+let _Ma = ODModeSize (struct (OprMode.M, OprSize.A))
+let _Md = ODModeSize (struct (OprMode.M, OprSize.D))
+let _Mdq = ODModeSize (struct (OprMode.M, OprSize.DQ))
+let _Mdqd = ODModeSize (struct (OprMode.M, OprSize.DQD))
+let _Mp = ODModeSize (struct (OprMode.M, OprSize.P))
+let _Mpd = ODModeSize (struct (OprMode.M, OprSize.PD))
+let _Mps = ODModeSize (struct (OprMode.M, OprSize.PS))
+let _Mq = ODModeSize (struct (OprMode.M, OprSize.Q))
+let _Ms = ODModeSize (struct (OprMode.M, OprSize.S))
+let _Mv = ODModeSize (struct (OprMode.M, OprSize.V))
+let _Mw = ODModeSize (struct (OprMode.M, OprSize.W))
+let _Mx = ODModeSize (struct (OprMode.M, OprSize.X))
+let _My = ODModeSize (struct (OprMode.M, OprSize.Y))
+let _Mz = ODModeSize (struct (OprMode.M, OprSize.Z))
+let _MZxz = ODModeSize (struct (OprMode.MZ, OprSize.XZ))
+let _Nq = ODModeSize (struct (OprMode.N, OprSize.Q))
+let _Ob = ODModeSize (struct (OprMode.O, OprSize.B))
+let _Ov = ODModeSize (struct (OprMode.O, OprSize.V))
+let _Pd = ODModeSize (struct (OprMode.P, OprSize.D))
+let _Ppi = ODModeSize (struct (OprMode.P, OprSize.PI))
+let _Pq = ODModeSize (struct (OprMode.P, OprSize.Q))
+let _Qd = ODModeSize (struct (OprMode.Q, OprSize.D))
+let _Qpi = ODModeSize (struct (OprMode.Q, OprSize.PI))
+let _Qq = ODModeSize (struct (OprMode.Q, OprSize.Q))
+let _Rd = ODModeSize (struct (OprMode.R, OprSize.D))
+let _Rv = ODModeSize (struct (OprMode.R, OprSize.V))
+let _Ry = ODModeSize (struct (OprMode.R, OprSize.Y))
+let _SIb = ODModeSize (struct (OprMode.SI, OprSize.B))
+let _SIv = ODModeSize (struct (OprMode.SI, OprSize.V))
+let _SIw = ODModeSize (struct (OprMode.SI, OprSize.W))
+let _SIz = ODModeSize (struct (OprMode.SI, OprSize.Z))
+let _Sw = ODModeSize (struct (OprMode.S, OprSize.W))
+let _Udq = ODModeSize (struct (OprMode.U, OprSize.DQ))
+let _Upd = ODModeSize (struct (OprMode.U, OprSize.PD))
+let _Ups = ODModeSize (struct (OprMode.U, OprSize.PS))
+let _Uq = ODModeSize (struct (OprMode.U, OprSize.Q))
+let _Ux = ODModeSize (struct (OprMode.U, OprSize.X))
+let _Vdq = ODModeSize (struct (OprMode.V, OprSize.DQ))
+let _Vpd = ODModeSize (struct (OprMode.V, OprSize.PD))
+let _Vps = ODModeSize (struct (OprMode.V, OprSize.PS))
+let _Vq = ODModeSize (struct (OprMode.V, OprSize.Q))
+let _Vqq = ODModeSize (struct (OprMode.V, OprSize.QQ))
+let _Vsd = ODModeSize (struct (OprMode.V, OprSize.SD))
+let _Vss = ODModeSize (struct (OprMode.V, OprSize.SS))
+let _Vx = ODModeSize (struct (OprMode.V, OprSize.X))
+let _Vy = ODModeSize (struct (OprMode.V, OprSize.Y))
+let _VZxz = ODModeSize (struct (OprMode.VZ, OprSize.XZ))
+let _Wd = ODModeSize (struct (OprMode.W, OprSize.D))
+let _Wdq = ODModeSize (struct (OprMode.W, OprSize.DQ))
+let _Wdqd = ODModeSize (struct (OprMode.W, OprSize.DQD))
+let _Wdqdq = ODModeSize (struct (OprMode.W, OprSize.DQDQ))
+let _Wdqq = ODModeSize (struct (OprMode.W, OprSize.DQQ))
+let _Wdqqdq = ODModeSize (struct (OprMode.W, OprSize.DQQDQ))
+let _Wdqw = ODModeSize (struct (OprMode.W, OprSize.DQW))
+let _Wdqwd = ODModeSize (struct (OprMode.W, OprSize.DQWD))
+let _Wpd = ODModeSize (struct (OprMode.W, OprSize.PD))
+let _Wps = ODModeSize (struct (OprMode.W, OprSize.PS))
+let _Wpsq = ODModeSize (struct (OprMode.W, OprSize.PSQ))
+let _Wsd = ODModeSize (struct (OprMode.W, OprSize.SD))
+let _Wsdq = ODModeSize (struct (OprMode.W, OprSize.SDQ))
+let _Wss = ODModeSize (struct (OprMode.W, OprSize.SS))
+let _Wssd = ODModeSize (struct (OprMode.W, OprSize.SSD))
+let _Wssq = ODModeSize (struct (OprMode.W, OprSize.SSQ))
+let _Wx = ODModeSize (struct (OprMode.W, OprSize.X))
+let _WZxz = ODModeSize (struct (OprMode.WZ, OprSize.XZ))
+let _Xb = ODModeSize (struct (OprMode.X, OprSize.B))
+let _Xv = ODModeSize (struct (OprMode.X, OprSize.V))
+let _Yb = ODModeSize (struct (OprMode.Y, OprSize.B))
+let _Yv = ODModeSize (struct (OprMode.Y, OprSize.V))
 
-(*
-type VEXOpcodes
-+-----------------+------------------+-----------------+------------------+
-| Opcode (16Byte) || Opcode (16Byte) | Opcode (16Byte) || Opcode (16Byte) |
-+-----------------+------------------+-----------------+------------------+
-*)
+let Ap = [| _Ap |]
+let Dd = [| _Dd |]
+let E0v = [| _E0v |]
+let Eb = [| _Eb |]
+let Ep = [| _Ep |]
+let Ev = [| _Ev |]
+let Ew = [| _Ew |]
+let Ey = [| _Ey |]
+let Gb = [| _Gb |]
+let Gd = [| _Gd |]
+let Gv = [| _Gv |]
+let Gw = [| _Gw |]
+let Gy = [| _Gy |]
+let Gz = [| _Gz |]
+let Ib = [| _Ib |]
+let Iv = [| _Iv |]
+let Iw = [| _Iw |]
+let Iz = [| _Iz |]
+let Jb = [| _Jb |]
+let Jz = [| _Jz |]
+let Ma = [| _Ma |]
+let Mdq = [| _Mdq |]
+let Mp = [| _Mp |]
+let Mq = [| _Mq |]
+let Ms = [| _Ms |]
+let Mv = [| _Mv |]
+let Mw = [| _Mw |]
+let My = [| _My |]
+let Mz = [| _Mz |]
+let Pd = [| _Pd |]
+let Pq = [| _Pq |]
+let Qq = [| _Qq |]
+let Rd = [| _Rd |]
+let Rv = [| _Rv |]
+let Ry = [| _Ry |]
+let SIb = [| _SIb |]
+let SIv = [| _SIv |]
+let SIw = [| _SIw |]
+let SIz = [| _SIz |]
+let Sw = [| _Sw |]
+let Vdq = [| _Vdq |]
+let Vx = [| _Vx |]
+let Wdq = [| _Wdq |]
+let Wdqd = [| _Wdqd |]
+let Wdqq = [| _Wdqq |]
+let Wx = [| _Wx |]
 
-let [<Literal>] opNor0F1A = 0x305001003050305L
-let [<Literal>] opNor0F1B = 0x305001003050305L
-let [<Literal>] opNor0F10 = 0x12e012d01290125L
-let [<Literal>] opVex0F10Mem = 0x25a025902580255L
-let [<Literal>] opVex0F10Reg = 0x25a025902580255L
-let [<Literal>] opNor0F11 = 0x12e012d01290125L
-let [<Literal>] opVex0F11Mem = 0x25a025902580255L
-let [<Literal>] opVex0F11Reg = 0x25a025902580255L
-let [<Literal>] opNor0F12Mem = 0x11a011901270111L
-let [<Literal>] opNor0F12Reg = 0x115011901270111L
-let [<Literal>] opVex0F12Mem = 0x24e024d02570242L
-let [<Literal>] opVex0F12Reg = 0x249024d02570242L
-let [<Literal>] opNor0F13 = 0x11a011903050305L
-let [<Literal>] opVex0F13 = 0x24e024d03050305L
-let [<Literal>] opNor0F14 = 0x220021f03050305L
-let [<Literal>] opVex0F14 = 0x2e602e503050305L
-let [<Literal>] opNor0F15 = 0x21e021d03050305L
-let [<Literal>] opVex0F15 = 0x2e402e303050305L
-let [<Literal>] opNor0F16Mem = 0x117011601260305L
-let [<Literal>] opNor0F16Reg = 0x118011601260305L
-let [<Literal>] opVex0F16Mem = 0x24b024a02560305L
-let [<Literal>] opVex0F16Reg = 0x24c024a02560305L
-let [<Literal>] opNor0F17 = 0x117011603050305L
-let [<Literal>] opVex0F17 = 0x24b024a03050305L
-let [<Literal>] opNor0F28 = 0x10e010d03050305L
-let [<Literal>] opVex0F28 = 0x240023f03050305L
-let [<Literal>] opNor0F29 = 0x10e010d03050305L
-let [<Literal>] opVex0F29 = 0x240024003050305L
-let [<Literal>] opNor0F2A = 0x4b004a00520051L
-let [<Literal>] opVex0F2A = 0x3050305022f022eL
-let [<Literal>] opNor0F2B = 0x120011f03050305L
-let [<Literal>] opVex0F2B = 0x253025203050305L
-let [<Literal>] opNor0F2C = 0x580056005a0059L
-let [<Literal>] opVex0F2C = 0x305030502320231L
-let [<Literal>] opNor0F2D = 0x4e00480054004fL
-let [<Literal>] opVex0F2D = 0x30503050230022dL
-let [<Literal>] opNor0F2E = 0x21b021a03050305L
-let [<Literal>] opVex0F2E = 0x2e202e103050305L
-let [<Literal>] opNor0F2F = 0x41004003050305L
-let [<Literal>] opVex0F2F = 0x22c022b03050305L
-let [<Literal>] opNor0F50 = 0x11c011b03050305L
-let [<Literal>] opVex0F50 = 0x250024f03050305L
-let [<Literal>] opNor0F51 = 0x201020002030202L
-let [<Literal>] opVex0F51 = 0x2da02d902dc02dbL
-let [<Literal>] opNor0F54 = 0xe000d03050305L
-let [<Literal>] opVex0F54 = 0x228022703050305L
-let [<Literal>] opNor0F55 = 0xc000b03050305L
-let [<Literal>] opVex0F55 = 0x226022503050305L
-let [<Literal>] opNor0F56 = 0x13c013b03050305L
-let [<Literal>] opVex0F56 = 0x265026403050305L
-let [<Literal>] opNor0F57 = 0x2f902f803050305L
-let [<Literal>] opVex0F57 = 0x2e802e703050305L
-let [<Literal>] opNor0F58 = 0x7000600090008L
-let [<Literal>] opVex0F58 = 0x222022102240223L
-let [<Literal>] opNor0F59 = 0x132013101340133L
-let [<Literal>] opVex0F59 = 0x25f025e02610260L
-let [<Literal>] opNor0F5A = 0x4d004900530050L
-let [<Literal>] opVex0F5A = 0x305030503050305L
-let [<Literal>] opNor0F5B = 0x46004c00570305L
-let [<Literal>] opVex0F5B = 0x305030503050305L
-let [<Literal>] opNor0F5C = 0x210020f02120211L
-let [<Literal>] opVex0F5C = 0x2de02dd02e002dfL
-let [<Literal>] opNor0F5D = 0x1080107010a0109L
-let [<Literal>] opVex0F5D = 0x305030503050305L
-let [<Literal>] opNor0F5E = 0x62006100640063L
-let [<Literal>] opVex0F5E = 0x234023302360235L
-let [<Literal>] opNor0F5F = 0x103010201050104L
-let [<Literal>] opVex0F5F = 0x305030503050305L
-let [<Literal>] opNor0F60 = 0x1bc01bc03050305L
-let [<Literal>] opVex0F60 = 0x30502d203050305L
-let [<Literal>] opNor0F61 = 0x1bf01bf03050305L
-let [<Literal>] opVex0F61 = 0x30502d503050305L
-let [<Literal>] opNor0F62 = 0x1bd01bd03050305L
-let [<Literal>] opVex0F62 = 0x30502d303050305L
-let [<Literal>] opNor0F63 = 0x146014603050305L
-let [<Literal>] opVex0F63 = 0x305026a03050305L
-let [<Literal>] opNor0F64 = 0x15d015d03050305L
-let [<Literal>] opVex0F64 = 0x305028103050305L
-let [<Literal>] opNor0F65 = 0x160016003050305L
-let [<Literal>] opVex0F65 = 0x305028403050305L
-let [<Literal>] opNor0F66 = 0x15e015e03050305L
-let [<Literal>] opVex0F66 = 0x305028203050305L
-let [<Literal>] opNor0F67 = 0x148014803050305L
-let [<Literal>] opVex0F67 = 0x305026c03050305L
-let [<Literal>] opNor0F68 = 0x1b801b803050305L
-let [<Literal>] opVex0F68 = 0x30502ce03050305L
-let [<Literal>] opNor0F69 = 0x1bb01bb03050305L
-let [<Literal>] opVex0F69 = 0x30502d103050305L
-let [<Literal>] opNor0F6A = 0x1b901b903050305L
-let [<Literal>] opVex0F6A = 0x30502cf03050305L
-let [<Literal>] opNor0F6B = 0x145014503050305L
-let [<Literal>] opVex0F6B = 0x305026903050305L
-let [<Literal>] opNor0F6C = 0x30501be03050305L
-let [<Literal>] opVex0F6C = 0x30502d403050305L
-let [<Literal>] opNor0F6D = 0x30501ba03050305L
-let [<Literal>] opVex0F6D = 0x30502d003050305L
-let [<Literal>] opNor0F6EB64 = 0x122012203050305L
-let [<Literal>] opNor0F6EB32 = 0x110011003050305L
-let [<Literal>] opVex0F6EB64 = 0x305025403050305L
-let [<Literal>] opVex0F6EB32 = 0x305024103050305L
-let [<Literal>] opNor0F6F = 0x122011301140305L
-let [<Literal>] opVex0F6F = 0x305024302460305L
-let [<Literal>] opEVex0F6FB64 = 0x305024502480305L
-let [<Literal>] opEVex0F6FB32 = 0x305024402470305L
-let [<Literal>] opNor0F70 = 0x1a1019e019f01a0L
-let [<Literal>] opVex0F70 = 0x30502b502b602b7L
-let [<Literal>] opNor0F74 = 0x157015703050305L
-let [<Literal>] opVex0F74 = 0x305027b03050305L
-let [<Literal>] opNor0F75 = 0x15a015a03050305L
-let [<Literal>] opVex0F75 = 0x305027e03050305L
-let [<Literal>] opNor0F76 = 0x158015803050305L
-let [<Literal>] opVex0F76 = 0x305027c03050305L
-let [<Literal>] opNor0F77 = 0x65030503050305L
-let [<Literal>] opVex0F77 = 0x2e9030503050305L
-let [<Literal>] opNor0F7EB64 = 0x122012201220305L
-let [<Literal>] opNor0F7EB32 = 0x110011001220305L
-let [<Literal>] opVex0F7EB64 = 0x305025402540305L
-let [<Literal>] opVex0F7EB32 = 0x305024102540305L
-let [<Literal>] opNor0F7F = 0x122011301140305L
-let [<Literal>] opVex0F7F = 0x305024302460305L
-let [<Literal>] opEVex0F7FB64 = 0x305024503050305L
-let [<Literal>] opEVex0F7FB32 = 0x305024403050305L
-let [<Literal>] opNor0FC2 = 0x370036003b0039L
-let [<Literal>] opVex0FC2 = 0x305030503050305L
-let [<Literal>] opNor0FC4 = 0x16c016c03050305L
-let [<Literal>] opVex0FC4 = 0x305029003050305L
-let [<Literal>] opNor0FC5 = 0x163016303050305L
-let [<Literal>] opVex0FC5 = 0x305028703050305L
-let [<Literal>] opNor0FC6 = 0x1fc01fb03050305L
-let [<Literal>] opVex0FC6 = 0x2d802d703050305L
-let [<Literal>] opNor0FD1 = 0x1ae01ae03050305L
-let [<Literal>] opVex0FD1 = 0x30502c403050305L
-let [<Literal>] opNor0FD2 = 0x1ab01ab03050305L
-let [<Literal>] opVex0FD2 = 0x30502c103050305L
-let [<Literal>] opNor0FD3 = 0x1ad01ad03050305L
-let [<Literal>] opVex0FD3 = 0x30502c303050305L
-let [<Literal>] opNor0FD4 = 0x14b014b03050305L
-let [<Literal>] opVex0FD4 = 0x305026f03050305L
-let [<Literal>] opNor0FD5 = 0x18c018c03050305L
-let [<Literal>] opVex0FD5 = 0x30502b003050305L
-let [<Literal>] opNor0FD6 = 0x305012201230112L
-let [<Literal>] opVex0FD6 = 0x305025403050305L
-let [<Literal>] opNor0FD7 = 0x17a017a03050305L
-let [<Literal>] opVex0FD7 = 0x305029e03050305L
-let [<Literal>] opNor0FD8 = 0x1b401b403050305L
-let [<Literal>] opVex0FD8 = 0x30502ca03050305L
-let [<Literal>] opNor0FD9 = 0x1b501b503050305L
-let [<Literal>] opVex0FD9 = 0x30502cb03050305L
-let [<Literal>] opNor0FDA = 0x177017703050305L
-let [<Literal>] opVex0FDA = 0x305029b03050305L
-let [<Literal>] opNor0FDB = 0x152015203050305L
-let [<Literal>] opVex0FDB = 0x305027603050305L
-let [<Literal>] opNor0FDC = 0x14e014e03050305L
-let [<Literal>] opVex0FDC = 0x305027203050305L
-let [<Literal>] opNor0FDD = 0x14f014f03050305L
-let [<Literal>] opVex0FDD = 0x305027303050305L
-let [<Literal>] opNor0FDE = 0x171017103050305L
-let [<Literal>] opVex0FDE = 0x305029503050305L
-let [<Literal>] opNor0FDF = 0x153015303050305L
-let [<Literal>] opVex0FDF = 0x305027703050305L
-let [<Literal>] opNor0FE0 = 0x155015503050305L
-let [<Literal>] opVex0FE0 = 0x305027803050305L
-let [<Literal>] opNor0FE1 = 0x1aa01aa03050305L
-let [<Literal>] opVex0FE1 = 0x30502c003050305L
-let [<Literal>] opNor0FE2 = 0x1a901a903050305L
-let [<Literal>] opVex0FE2 = 0x30502bf03050305L
-let [<Literal>] opNor0FE3 = 0x156015603050305L
-let [<Literal>] opVex0FE3 = 0x305027903050305L
-let [<Literal>] opNor0FE4 = 0x189018903050305L
-let [<Literal>] opVex0FE4 = 0x30502ad03050305L
-let [<Literal>] opNor0FE5 = 0x18a018a03050305L
-let [<Literal>] opVex0FE5 = 0x30502ae03050305L
-let [<Literal>] opNor0FE6 = 0x305005500450047L
-let [<Literal>] opVex0FE6 = 0x305030503050305L
-let [<Literal>] opNor0FE7 = 0x121011d03050305L
-let [<Literal>] opVex0FE7 = 0x305025103050305L
-let [<Literal>] opEVex0FE7B64 = 0x305030503050305L
-let [<Literal>] opEVex0FE7B32 = 0x305025103050305L
-let [<Literal>] opNor0FE8 = 0x1b201b203050305L
-let [<Literal>] opVex0FE8 = 0x30502c803050305L
-let [<Literal>] opNor0FE9 = 0x1b301b303050305L
-let [<Literal>] opVex0FE9 = 0x30502c903050305L
-let [<Literal>] opNor0FEA = 0x176017603050305L
-let [<Literal>] opVex0FEA = 0x305029a03050305L
-let [<Literal>] opNor0FEB = 0x195019503050305L
-let [<Literal>] opVex0FEB = 0x30502b203050305L
-let [<Literal>] opNor0FEC = 0x14c014c03050305L
-let [<Literal>] opVex0FEC = 0x305027003050305L
-let [<Literal>] opNor0FED = 0x14d014d03050305L
-let [<Literal>] opVex0FED = 0x305027103050305L
-let [<Literal>] opNor0FEE = 0x170017003050305L
-let [<Literal>] opVex0FEE = 0x305029403050305L
-let [<Literal>] opNor0FEF = 0x1c601c603050305L
-let [<Literal>] opVex0FEF = 0x30502d603050305L
-let [<Literal>] opNor0FF0 = 0x3050305030500eaL
-let [<Literal>] opVex0FF0 = 0x30503050305023aL
-let [<Literal>] opNor0FF1 = 0x1a801a803050305L
-let [<Literal>] opVex0FF1 = 0x30502be03050305L
-let [<Literal>] opNor0FF2 = 0x1a501a503050305L
-let [<Literal>] opVex0FF2 = 0x30502bb03050305L
-let [<Literal>] opNor0FF3 = 0x1a701a703050305L
-let [<Literal>] opVex0FF3 = 0x30502bd03050305L
-let [<Literal>] opNor0FF4 = 0x18d018d03050305L
-let [<Literal>] opVex0FF4 = 0x30502b103050305L
-let [<Literal>] opNor0FF5 = 0x16d016d03050305L
-let [<Literal>] opVex0FF5 = 0x305029103050305L
-let [<Literal>] opNor0FF6 = 0x19c019c03050305L
-let [<Literal>] opVex0FF6 = 0x30502b303050305L
-let [<Literal>] opNor0FF8 = 0x1af01af03050305L
-let [<Literal>] opVex0FF8 = 0x30502c503050305L
-let [<Literal>] opNor0FF9 = 0x1b601b603050305L
-let [<Literal>] opVex0FF9 = 0x30502cc03050305L
-let [<Literal>] opNor0FFA = 0x1b001b003050305L
-let [<Literal>] opVex0FFA = 0x30502c603050305L
-let [<Literal>] opNor0FFB = 0x1b101b103050305L
-let [<Literal>] opVex0FFB = 0x30502c703050305L
-let [<Literal>] opNor0FFC = 0x149014903050305L
-let [<Literal>] opVex0FFC = 0x305026d03050305L
-let [<Literal>] opNor0FFD = 0x150015003050305L
-let [<Literal>] opVex0FFD = 0x305027403050305L
-let [<Literal>] opNor0FFE = 0x14a014a03050305L
-let [<Literal>] opVex0FFE = 0x305026e03050305L
-let [<Literal>] opNor0F3800 = 0x19d019d03050305L
-let [<Literal>] opVex0F3800 = 0x30502b403050305L
-let [<Literal>] opNor0F3801 = 0x166016603050305L
-let [<Literal>] opVex0F3801 = 0x305028a03050305L
-let [<Literal>] opNor0F3802 = 0x164016403050305L
-let [<Literal>] opVex0F3802 = 0x305028803050305L
-let [<Literal>] opNor0F3803 = 0x165016503050305L
-let [<Literal>] opVex0F3803 = 0x305028903050305L
-let [<Literal>] opNor0F3805 = 0x16a016a03050305L
-let [<Literal>] opVex0F3805 = 0x305028e03050305L
-let [<Literal>] opNor0F3806 = 0x168016803050305L
-let [<Literal>] opVex0F3806 = 0x305028c03050305L
-let [<Literal>] opNor0F3807 = 0x169016903050305L
-let [<Literal>] opVex0F3807 = 0x305028d03050305L
-let [<Literal>] opNor0F3808 = 0x1a201a203050305L
-let [<Literal>] opVex0F3808 = 0x30502b803050305L
-let [<Literal>] opNor0F3809 = 0x1a401a403050305L
-let [<Literal>] opVex0F3809 = 0x30502ba03050305L
-let [<Literal>] opNor0F380A = 0x1a301a303050305L
-let [<Literal>] opVex0F380A = 0x30502b903050305L
-let [<Literal>] opNor0F380B = 0x188018803050305L
-let [<Literal>] opVex0F380B = 0x30502ac03050305L
-let [<Literal>] opNor0F3817 = 0x30501b703050305L
-let [<Literal>] opVex0F3817 = 0x30502cd03050305L
-let [<Literal>] opNor0F3818 = 0x305030503050305L
-let [<Literal>] opVex0F3818 = 0x305022a03050305L
-let [<Literal>] opEVex0F3818 = 0x305022a03050305L
-let [<Literal>] opNor0F381C = 0x142014203050305L
-let [<Literal>] opVex0F381C = 0x305026603050305L
-let [<Literal>] opNor0F381D = 0x144014403050305L
-let [<Literal>] opVex0F381D = 0x305026803050305L
-let [<Literal>] opNor0F381E = 0x143014303050305L
-let [<Literal>] opVex0F381E = 0x305026703050305L
-let [<Literal>] opNor0F3820 = 0x305017d03050305L
-let [<Literal>] opVex0F3820 = 0x30502a103050305L
-let [<Literal>] opNor0F3821 = 0x305017b03050305L
-let [<Literal>] opVex0F3821 = 0x305029f03050305L
-let [<Literal>] opNor0F3822 = 0x305017c03050305L
-let [<Literal>] opVex0F3822 = 0x30502a003050305L
-let [<Literal>] opNor0F3823 = 0x305017f03050305L
-let [<Literal>] opVex0F3823 = 0x30502a303050305L
-let [<Literal>] opNor0F3824 = 0x305018003050305L
-let [<Literal>] opVex0F3824 = 0x30502a403050305L
-let [<Literal>] opNor0F3825 = 0x305017e03050305L
-let [<Literal>] opVex0F3825 = 0x30502a203050305L
-let [<Literal>] opNor0F3828 = 0x305018703050305L
-let [<Literal>] opVex0F3828 = 0x30502ab03050305L
-let [<Literal>] opNor0F3829 = 0x305015903050305L
-let [<Literal>] opVex0F3829 = 0x305027d03050305L
-let [<Literal>] opNor0F382B = 0x305014703050305L
-let [<Literal>] opVex0F382B = 0x305026b03050305L
-let [<Literal>] opNor0F3830 = 0x305018303050305L
-let [<Literal>] opVex0F3830 = 0x30502a703050305L
-let [<Literal>] opNor0F3831 = 0x305018103050305L
-let [<Literal>] opVex0F3831 = 0x30502a503050305L
-let [<Literal>] opNor0F3832 = 0x305018203050305L
-let [<Literal>] opVex0F3832 = 0x30502a603050305L
-let [<Literal>] opNor0F3833 = 0x305018503050305L
-let [<Literal>] opVex0F3833 = 0x30502a903050305L
-let [<Literal>] opNor0F3834 = 0x305018603050305L
-let [<Literal>] opVex0F3834 = 0x30502aa03050305L
-let [<Literal>] opNor0F3835 = 0x305018403050305L
-let [<Literal>] opVex0F3835 = 0x30502a803050305L
-let [<Literal>] opNor0F3837 = 0x305015f03050305L
-let [<Literal>] opVex0F3837 = 0x305028303050305L
-let [<Literal>] opNor0F3838 = 0x305017403050305L
-let [<Literal>] opVex0F3838 = 0x305029803050305L
-let [<Literal>] opNor0F3839 = 0x305017503050305L
-let [<Literal>] opVex0F3839 = 0x305029903050305L
-let [<Literal>] opNor0F383A = 0x305017903050305L
-let [<Literal>] opVex0F383A = 0x305029d03050305L
-let [<Literal>] opNor0F383B = 0x305017803050305L
-let [<Literal>] opVex0F383B = 0x305029c03050305L
-let [<Literal>] opNor0F383C = 0x305016e03050305L
-let [<Literal>] opVex0F383C = 0x305029203050305L
-let [<Literal>] opNor0F383D = 0x305016f03050305L
-let [<Literal>] opVex0F383D = 0x305029303050305L
-let [<Literal>] opNor0F383E = 0x305017303050305L
-let [<Literal>] opVex0F383E = 0x305029703050305L
-let [<Literal>] opNor0F383F = 0x305017203050305L
-let [<Literal>] opVex0F383F = 0x305029603050305L
-let [<Literal>] opNor0F3840 = 0x305018b03050305L
-let [<Literal>] opVex0F3840 = 0x30502af03050305L
-let [<Literal>] opNor0F3841 = 0x305016703050305L
-let [<Literal>] opVex0F3841 = 0x305028b03050305L
-let [<Literal>] opNor0F385A = 0x305030503050305L
-let [<Literal>] opVex0F385A = 0x305022903050305L
-let [<Literal>] opNor0F3878 = 0x305030503050305L
-let [<Literal>] opVex0F3878 = 0x305027a03050305L
-let [<Literal>] opNor0F38F0 = 0x14f010f03050044L
-let [<Literal>] opNor0F38F1 = 0x14f010f03050044L
-let [<Literal>] opNor0F38F6 = 0x305030503050305L
-let [<Literal>] opVex0F38F6 = 0x305030503050135L
-let [<Literal>] opNor0F38F7 = 0x305030503050305L
-let [<Literal>] opVex0F38F7 = 0x30501f701dd01faL
-let [<Literal>] opNor0F3A0F = 0x151015103050305L
-let [<Literal>] opVex0F3A0F = 0x305027503050305L
-let [<Literal>] opNor0F3A20 = 0x305016b03050305L
-let [<Literal>] opVex0F3A20 = 0x305030503050305L
-let [<Literal>] opNor0F3A38 = 0x305030503050305L
-let [<Literal>] opVex0F3A38 = 0x305023903050305L
-let [<Literal>] opNor0F3A60 = 0x305015c03050305L
-let [<Literal>] opVex0F3A60 = 0x305028003050305L
-let [<Literal>] opNor0F3A61 = 0x305015b03050305L
-let [<Literal>] opVex0F3A61 = 0x305027f03050305L
-let [<Literal>] opNor0F3A62 = 0x305016203050305L
-let [<Literal>] opVex0F3A62 = 0x305028603050305L
-let [<Literal>] opNor0F3A63 = 0x305016103050305L
-let [<Literal>] opVex0F3A63 = 0x305028503050305L
-let [<Literal>] opNor0F3A0B = 0x30501d903050305L
-let [<Literal>] opVex0F3A0B = 0x305030503050305L
-let [<Literal>] opNor0F3AF0 = 0x305030503050305L
-let [<Literal>] opVex0F3AF0 = 0x3050305030501d8L
-let [<Literal>] opEmpty = 0x305030503050305L
+let ORSR sg = [| ODReg sg |]
 
-let inline RegIb r =
-  let reg: int64 = LanguagePrimitives.EnumToValue r |> int64
-  (3L <<< 12 ||| reg) <<< 48 ||| (_Ib <<< 32)
+let ALDX = [| ODReg R.AL; ODReg R.DX |]
+let ALIb = [| ODReg R.AL; _Ib |]
+let ALOb = [| ODReg R.AL; _Ob |]
+let BNDRbndBNDRMbnd = [| _BNDRbnd; _BNDRMbnd |]
+let BNDRMbndBNDRbnd = [| _BNDRMbnd; _BNDRbnd |]
+let CdRd = [| _Cd; _Rd |]
+let DdRd = [| _Dd; _Rd |]
+let DXAL = [| ODReg R.DX; ODReg R.AL |]
+let Eb1L = [| _Eb; ODImmOne |]
+let EbCL = [| _Eb; ODReg R.CL |]
+let EbGb = [| _Eb; _Gb |]
+let EbIb = [| _Eb; _Ib |]
+let Ev1L = [| _Ev; ODImmOne |]
+let EvCL = [| _Ev; ODReg R.CL |]
+let EvGv = [| _Ev; _Gv |]
+let EvIb = [| _Ev; _Ib |]
+let EvIz = [| _Ev; _Iz |]
+let EvSIb = [| _Ev; _SIb |]
+let EvSIz = [| _Ev; _SIz |]
+let EvSw = [| _Ev; _Sw |]
+let EwGw = [| _Ew; _Gw |]
+let EyPd = [| _Ey; _Pd |]
+let EyPq = [| _Ey; _Pq |]
+let EyVdq = [| _Ey; _Vdq |]
+let GbEb = [| _Gb; _Eb |]
+let GdEb = [| _Gd; _Eb |]
+let GdEw = [| _Gd; _Ew |]
+let GdEy = [| _Gd; _Ey |]
+let GdNq = [| _Gd; _Nq |]
+let GdUdq = [| _Gd; _Udq |]
+let GdUx = [| _Gd; _Ux |]
+let GvEb = [| _Gv; _Eb |]
+let GvEd = [| _Gv; _Ed |]
+let GvEv = [| _Gv; _Ev |]
+let GvEw = [| _Gv; _Ew |]
+let GvEy = [| _Gv; _Ey |]
+let GvMa = [| _Gv; _Ma |]
+let GvMp = [| _Gv; _Mp |]
+let GvMv = [| _Gv; _Mv |]
+let GwMw = [| _Gw; _Mw |]
+let GyMy = [| _Gy; _My |]
+let GyUdq = [| _Gy; _Udq |]
+let GyUpd = [| _Gy; _Upd |]
+let GyUps = [| _Gy; _Ups |]
+let GyUx = [| _Gy; _Ux |]
+let GyWdq = [| _Gy; _Wdq |]
+let GyWsd = [| _Gy; _Wsd |]
+let GyWsdq = [| _Gy; _Wsdq |]
+let GyWss = [| _Gy; _Wss |]
+let GyWssd = [| _Gy; _Wssd |]
+let GzMp = [| _Gz; _Mp |]
+let IbAL = [| _Ib; ODReg R.AL |]
+let IwIb = [| _Iw; _Ib |]
+let MdqVdq = [| _Mdq; _Vdq |]
+let MpdVpd = [| _Mpd; _Vpd |]
+let MpsVps = [| _Mps; _Vps |]
+let MqPq = [| _Mq; _Pq |]
+let MqVdq = [| _Mq; _Vdq |]
+let MwGw = [| _Gw; _Mw |]
+let MxVx = [| _Mx; _Vx |]
+let MyGy = [| _My; _Gy |]
+let MZxzVZxz = [| _MZxz; _VZxz |]
+let NqIb = [| _Nq; _Ib |]
+let ObAL = [| _Ob; ODReg R.AL |]
+let PdEy = [| _Pd; _Ey |]
+let PpiWdq = [| _Ppi; _Wdq |]
+let PpiWdqq = [| _Ppi; _Wdqq |]
+let PpiWpd = [| _Ppi; _Wpd |]
+let PpiWps = [| _Ppi; _Wps |]
+let PpiWpsq = [| _Ppi; _Wpsq |]
+let PqEy = [| _Pq; _Ey |]
+let PqQd = [| _Pq; _Qd |]
+let PqQq = [| _Pq; _Qq |]
+let PqUdq = [| _Pq; _Udq |]
+let PqWdq = [| _Pq; _Wdq |]
+let QpiWpd = [| _Qpi; _Wpd |]
+let QqPq = [| _Qq; _Pq |]
+let RdCd = [| _Rd; _Cd |]
+let RdDd = [| _Rd; _Dd |]
+let SwEw = [| _Sw; _Ew |]
+let UdqIb = [| _Udq; _Ib |]
+let VdqEdbIb = [| _Vdq; _Edb; _Ib |]
+let VdqEy = [| _Vdq; _Ey |]
+let VdqMdq = [| _Vdq; _Mdq |]
+let VdqMq = [| _Vdq; _Mq |]
+let VdqNq = [| _Vdq; _Nq |]
+let VdqQq = [| _Vdq; _Qq |]
+let VdqUdq = [| _Vdq; _Udq |]
+let VdqWdq = [| _Vdq; _Wdq |]
+let VdqWdqd = [| _Vdq; _Wdqd |]
+let VdqWdqq = [| _Vdq; _Wdqq |]
+let VdqWdqw = [| _Vdq; _Wdqw |]
+let VpdWpd = [| _Vpd; _Wpd |]
+let VpsWps = [| _Vps; _Wps |]
+let VqqMdq = [| _Vqq; _Mdq |]
+let VsdWsd = [| _Vsd; _Wsd |]
+let VsdWsdq = [| _Vsd; _Wsdq |]
+let VssWss = [| _Vss; _Wss |]
+let VssWssd = [| _Vss; _Wssd |]
+let VxMd = [| _Vx; _Md |]
+let VxMx = [| _Vx; _Mx |]
+let VxWdqdq = [| _Vx; _Wdqdq |]
+let VxWdqqdq = [| _Vx; _Wdqqdq |]
+let VxWdqwd = [| _Vx; _Wdqwd |]
+let VxWss = [| _Vx; _Wss |]
+let VxWssd = [| _Vx; _Wssd |]
+let VxWssq = [| _Vx; _Wssq |]
+let VxWx = [| _Vx; _Wx |]
+let VyEy = [| _Vy; _Ey |]
+let VZxzWdqd = [| _VZxz; _Wdqd |]
+let VZxzWZxz = [| _VZxz; _WZxz |]
+let WdqdVdq = [| _Wdqd; _Vdq |]
+let WdqqVdq = [| _Wdqq; _Vdq |]
+let WdqVdq = [| _Wdq; _Vdq |]
+let WpdVpd = [| _Wpd; _Vpd |]
+let WpsVps = [| _Wps; _Vps |]
+let WssdVx = [| _Wssd; _Vx |]
+let WssVx = [| _Wss; _Vx |]
+let WxVx = [| _Wx; _Vx |]
+let WZxzVZxz = [| _WZxz; _VZxz |]
+let XbYb = [| _Xb; _Yb |]
+let XvYv = [| _Xv; _Yv |]
+let YbXb = [| _Yb; _Xb |]
+let YvXv = [| _Yv; _Xv |]
 
-let getOprMode oprDesc =
-  match oprDesc &&& 0x3fL with
-  | 0x1L -> OprMode.A
-  | 0x2L -> OprMode.B
-  | 0x3L -> OprMode.BndR
-  | 0x4L -> OprMode.BndM
-  | 0x5L -> OprMode.C
-  | 0x6L -> OprMode.D
-  | 0x7L -> OprMode.E
-  | 0x8L -> OprMode.G
-  | 0x9L -> OprMode.H
-  | 0xaL -> OprMode.I
-  | 0xbL -> OprMode.SI
-  | 0xcL -> OprMode.J
-  | 0xdL -> OprMode.M
-  | 0xeL -> OprMode.MZ
-  | 0xfL -> OprMode.N
-  | 0x10L-> OprMode.O
-  | 0x11L -> OprMode.P
-  | 0x12L -> OprMode.Q
-  | 0x13L -> OprMode.R
-  | 0x14L -> OprMode.S
-  | 0x15L -> OprMode.U
-  | 0x16L -> OprMode.V
-  | 0x17L -> OprMode.VZ
-  | 0x18L -> OprMode.W
-  | 0x19L -> OprMode.WZ
-  | 0x1aL -> OprMode.X
-  | 0x1bL -> OprMode.Y
-  | 0x1cL -> OprMode.E0
-  | _ -> failwith "Invalid opr mode"
+let inline RegIb r = [| ODReg r; _Ib |]
 
-let getOprSizeKnd oprDesc =
-  match oprDesc &&& 0xfc0L with
-  | 0x40L -> OprSize.A
-  | 0x80L -> OprSize.B
-  | 0xc0L -> OprSize.Bnd
-  | 0x100L -> OprSize.D
-  | 0x140L -> OprSize.DB
-  | 0x180L -> OprSize.DQ
-  | 0x1c0L -> OprSize.DQD
-  | 0x200L -> OprSize.DQQ
-  | 0x240L -> OprSize.DQW
-  | 0x280L -> OprSize.DW
-  | 0x2c0L -> OprSize.P
-  | 0x300L -> OprSize.PD
-  | 0x340L -> OprSize.PI
-  | 0x380L -> OprSize.PS
-  | 0x3c0L -> OprSize.PSQ
-  | 0x400L -> OprSize.Q
-  | 0x440L -> OprSize.QQ
-  | 0x480L -> OprSize.S
-  | 0x4c0L -> OprSize.SD
-  | 0x500L -> OprSize.SDQ
-  | 0x540L -> OprSize.SS
-  | 0x580L -> OprSize.SSD
-  | 0x5c0L -> OprSize.SSQ
-  | 0x600L -> OprSize.V
-  | 0x640L -> OprSize.W
-  | 0x680L -> OprSize.X
-  | 0x6c0L -> OprSize.XZ
-  | 0x700L -> OprSize.Y
-  | 0x740L -> OprSize.Z
-  | _ -> failwith "Invalid opr size"
+let inline private _RGz rg changeable =
+  ODRegGrp (rg, OprSize.Z, if changeable then RGrpAttr.ARegInOpREX
+                           else RGrpAttr.ARegInOpNoREX)
+let inline private _RGv rg changeable =
+  ODRegGrp (rg, OprSize.V, if changeable then RGrpAttr.ARegInOpREX
+                           else RGrpAttr.ARegInOpNoREX)
 
-let getRGrpAttr oprDesc =
-  match oprDesc &&& 0x7L with
-  | 0x0L -> RGrpAttr.ANone
-  | 0x1L -> RGrpAttr.AMod11
-  | 0x2L -> RGrpAttr.ARegInOpREX
-  | 0x4L -> RGrpAttr.ARegInOpNoREX
-  | 0x8L -> RGrpAttr.ARegBits
-  | 0x10L -> RGrpAttr.ABaseRM
-  | 0x20L -> RGrpAttr.ASIBIdx
-  | 0x40L -> RGrpAttr.ASIBBase
-  | _ -> failwith "Invalid reg grp attr"
+let inline RGv rg = [| _RGv rg true |]
+let inline RGz rg rexChangeable = [| _RGz rg rexChangeable |]
+let inline RGvOv rg rc = [| _RGv rg rc; _Ov |]
+let inline OvRGv rg rc = [| _Ov; _RGv rg rc |]
+let RGzRGz = [| _RGz RegGrp.RG0 false; _RGz RegGrp.RG0 true |]
+let inline RGvRGv rg2 = [| _RGv RegGrp.RG0 false; _RGv rg2 true |]
+let inline RGvIb rg rc = [| _RGv rg rc; _Ib |]
+let inline IbRGv rg rc = [| _Ib; _RGv rg rc |]
+let RGvSIz = [| _RGv RegGrp.RG0 false; _SIz |]
+let inline RGvIv rg = [| _RGv rg true; _Iv |]
+let RGvDX = [| _RGv RegGrp.RG0 false; ODReg R.DX |]
+let DXRGv = [| ODReg R.DX; _RGv RegGrp.RG0 false |]
+let RGzDX = [| _RGz RegGrp.RG0 false; ODReg R.DX |]
+let DXRGz = [| ODReg R.DX; _RGz RegGrp.RG0 false |]
 
-let getRegister oprDesc =
-  match oprDesc &&& 0xfffL with (* Extract low 12 bits to get the register. *)
-  | 0x0L -> R.RAX
-  | 0x1L -> R.RBX
-  | 0x2L -> R.RCX
-  | 0x3L -> R.RDX
-  | 0x4L -> R.RSP
-  | 0x5L -> R.RBP
-  | 0x6L -> R.RSI
-  | 0x7L -> R.RDI
-  | 0x8L -> R.EAX
-  | 0x9L -> R.EBX
-  | 0xAL -> R.ECX
-  | 0xBL -> R.EDX
-  | 0xCL -> R.ESP
-  | 0xDL -> R.EBP
-  | 0xEL -> R.ESI
-  | 0xFL -> R.EDI
-  | 0x10L -> R.AX
-  | 0x11L -> R.BX
-  | 0x12L -> R.CX
-  | 0x13L -> R.DX
-  | 0x14L -> R.SP
-  | 0x15L -> R.BP
-  | 0x16L -> R.SI
-  | 0x17L -> R.DI
-  | 0x18L -> R.AL
-  | 0x19L -> R.BL
-  | 0x1AL -> R.CL
-  | 0x1BL -> R.DL
-  | 0x1CL -> R.AH
-  | 0x1DL -> R.BH
-  | 0x1EL -> R.CH
-  | 0x1FL -> R.DH
-  | 0x20L -> R.R8
-  | 0x21L -> R.R9
-  | 0x22L -> R.R10
-  | 0x23L -> R.R11
-  | 0x24L -> R.R12
-  | 0x25L -> R.R13
-  | 0x26L -> R.R14
-  | 0x27L -> R.R15
-  | 0x28L -> R.R8D
-  | 0x29L -> R.R9D
-  | 0x2AL -> R.R10D
-  | 0x2BL -> R.R11D
-  | 0x2CL -> R.R12D
-  | 0x2DL -> R.R13D
-  | 0x2EL -> R.R14D
-  | 0x2FL -> R.R15D
-  | 0x30L -> R.R8W
-  | 0x31L -> R.R9W
-  | 0x32L -> R.R10W
-  | 0x33L -> R.R11W
-  | 0x34L -> R.R12W
-  | 0x35L -> R.R13W
-  | 0x36L -> R.R14W
-  | 0x37L -> R.R15W
-  | 0x38L -> R.R8L
-  | 0x39L -> R.R9L
-  | 0x3AL -> R.R10L
-  | 0x3BL -> R.R11L
-  | 0x3CL -> R.R12L
-  | 0x3DL -> R.R13L
-  | 0x3EL -> R.R14L
-  | 0x3FL -> R.R15L
-  | 0x40L -> R.SPL
-  | 0x41L -> R.BPL
-  | 0x42L -> R.SIL
-  | 0x43L -> R.DIL
-  | 0x44L -> R.EIP
-  | 0x45L -> R.RIP
-  | 0x100L -> R.ST0
-  | 0x101L -> R.ST1
-  | 0x102L -> R.ST2
-  | 0x103L -> R.ST3
-  | 0x104L -> R.ST4
-  | 0x105L -> R.ST5
-  | 0x106L -> R.ST6
-  | 0x107L -> R.ST7
-  | 0x200L -> R.MM0
-  | 0x201L -> R.MM1
-  | 0x202L -> R.MM2
-  | 0x203L -> R.MM3
-  | 0x204L -> R.MM4
-  | 0x205L -> R.MM5
-  | 0x206L -> R.MM6
-  | 0x207L -> R.MM7
-  | 0x30FL -> R.XMM0
-  | 0x30EL -> R.XMM1
-  | 0x30DL -> R.XMM2
-  | 0x30CL -> R.XMM3
-  | 0x30BL -> R.XMM4
-  | 0x30AL -> R.XMM5
-  | 0x309L -> R.XMM6
-  | 0x308L -> R.XMM7
-  | 0x307L -> R.XMM8
-  | 0x306L -> R.XMM9
-  | 0x305L -> R.XMM10
-  | 0x304L -> R.XMM11
-  | 0x303L -> R.XMM12
-  | 0x302L -> R.XMM13
-  | 0x301L -> R.XMM14
-  | 0x300L -> R.XMM15
-  | 0x40FL -> R.YMM0
-  | 0x40EL -> R.YMM1
-  | 0x40DL -> R.YMM2
-  | 0x40CL -> R.YMM3
-  | 0x40BL -> R.YMM4
-  | 0x40AL -> R.YMM5
-  | 0x409L -> R.YMM6
-  | 0x408L -> R.YMM7
-  | 0x407L -> R.YMM8
-  | 0x406L -> R.YMM9
-  | 0x405L -> R.YMM10
-  | 0x404L -> R.YMM11
-  | 0x403L -> R.YMM12
-  | 0x402L -> R.YMM13
-  | 0x401L -> R.YMM14
-  | 0x400L -> R.YMM15
-  | 0x50FL -> R.ZMM0
-  | 0x50EL -> R.ZMM1
-  | 0x50DL -> R.ZMM2
-  | 0x50CL -> R.ZMM3
-  | 0x50BL -> R.ZMM4
-  | 0x50AL -> R.ZMM5
-  | 0x509L -> R.ZMM6
-  | 0x508L -> R.ZMM7
-  | 0x507L -> R.ZMM8
-  | 0x506L -> R.ZMM9
-  | 0x505L -> R.ZMM10
-  | 0x504L -> R.ZMM11
-  | 0x503L -> R.ZMM12
-  | 0x502L -> R.ZMM13
-  | 0x501L -> R.ZMM14
-  | 0x500L -> R.ZMM15
-  | 0x600L -> R.ES
-  | 0x601L -> R.CS
-  | 0x602L -> R.SS
-  | 0x603L -> R.DS
-  | 0x604L -> R.FS
-  | 0x605L -> R.GS
-  | 0x700L -> R.ESBase
-  | 0x701L -> R.CSBase
-  | 0x702L -> R.SSBase
-  | 0x703L -> R.DSBase
-  | 0x704L -> R.FSBase
-  | 0x705L -> R.GSBase
-  | 0x800L -> R.CR0
-  | 0x802L -> R.CR2
-  | 0x803L -> R.CR3
-  | 0x804L -> R.CR4
-  | 0x900L -> R.DR0
-  | 0x901L -> R.DR1
-  | 0x902L -> R.DR2
-  | 0x903L -> R.DR3
-  | 0x906L -> R.DR6
-  | 0x907L -> R.DR7
-  | 0xA00L -> R.BND0
-  | 0xA01L -> R.BND1
-  | 0xA02L -> R.BND2
-  | 0xA03L -> R.BND3
-  | 0xB00L -> R.OF
-  | 0xB01L -> R.DF
-  | 0xB02L -> R.IF
-  | 0xB03L -> R.TF
-  | 0xB04L -> R.SF
-  | 0xB05L -> R.ZF
-  | 0xB06L -> R.AF
-  | 0xB07L -> R.PF
-  | 0xB08L -> R.CF
-  | 0xC00L -> R.FCW
-  | 0xC01L -> R.FSW
-  | 0xC02L -> R.FTW
-  | 0xC03L -> R.FOP
-  | 0xC04L -> R.FIP
-  | 0xC05L -> R.FCS
-  | 0xC06L -> R.FDP
-  | 0xC07L -> R.FDS
-  | 0xC08L -> R.MXCSR
-  | 0xC09L -> R.MXCSRMASK
-  | 0xD00L -> R.UnknownReg
-  | _ -> failwith "Invalid register"
+let EvGvCL = [| _Ev; _Gv; ODReg R.CL |]
+let EvGvIb = [| _Ev; _Gv; _Ib |]
+let GdNqIb = [| _Gd; _Nq; _Ib |]
+let GdUdqIb = [| _Gd; _Udq; _Ib |]
+let GvEvIb = [| _Gv; _Ev; _Ib |]
+let GvEvIz = [| _Gv; _Ev; _Iz |]
+let GvEvSIb = [| _Gv; _Ev; _SIb |]
+let GvEvSIz = [| _Gv; _Ev; _SIz |]
+let GyByEy = [| _Gy; _By; _Ey |]
+let GyEyBy = [| _Gy; _Ey; _By |]
+let GyEyIb = [| _Gy; _Ey; _Ib |]
+let HxUxIb = [| _Hx; _Ux; _Ib |]
+let PqEdwIb = [| _Pq; _Edw; _Ib |]
+let PqQqIb = [| _Pq; _Qq; _Ib |]
+let VdqEdwIb =  [| _Vdq; _Edw; _Ib |]
+let VdqHdqMdq = [| _Vdq; _Hdq; _Mdq |]
+let VdqHdqMdqd = [| _Vdq; _Hdq; _Mdqd |]
+let VdqHdqMq = [| _Vdq; _Hdq; _Mq |]
+let VdqHdqUdq = [| _Vdq; _Hdq; _Udq |]
+let VdqWdqIb = [| _Vdq; _Wdq; _Ib |]
+let VpdHpdWpd = [| _Vpd; _Hpd; _Wpd |]
+let VpsHpsWps = [| _Vps; _Hps; _Wps |]
+let VsdHsdEy = [| _Vsd; _Hsd; _Ey |]
+let VsdHsdWsd = [| _Vsd; _Hsd; _Wsd |]
+let VsdHsdWsdq = [| _Vsd; _Hsd; _Wsdq |]
+let VsdWsdIb = [| _Vsd; _Wsd; _Ib |]
+let VsdWsdqIb = [| _Vsd; _Wsdq; _Ib |]
+let VssHssEy = [| _Vss; _Hss; _Ey |]
+let VssHssWss = [| _Vss; _Hss; _Wss |]
+let VssHssWssd = [| _Vss; _Hss; _Wssd |]
+let VssWssdIb = [| _Vss; _Wssd; _Ib |]
+let VxHxWdq = [| _Vx; _Hx; _Wdq |]
+let VxHxWsd = [| _Vx; _Hx; _Wsd |]
+let VxHxWss = [| _Vx; _Hx; _Wss |]
+let VxHxWx = [| _Vx; _Hx; _Wx |]
+let VxWxIb = [| _Vx; _Wx; _Ib |]
+let WsdHxVsd = [| _Wsd; _Hx; _Vsd |]
+let WssHxVss = [| _Wss; _Hx; _Vss |]
+
+let VdqHdqEdwIb = [| _Vdq; _Hdq; _Edw; _Ib |]
+let VpsHpsWpsIb = [| _Vps; _Hps; _Wps; _Ib |]
+let VqqHqqWdqIb = [| _Vqq; _Hqq; _Wdq; _Ib |]
+let VxHxWxIb = [| _Vx; _Hx; _Wx; _Ib |]
+
+let opNor0F1A = [| Opcode.InvalOP; Opcode.BNDMOV;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F1B = [| Opcode.InvalOP; Opcode.BNDMOV;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F10 = [| Opcode.MOVUPS; Opcode.MOVUPD;
+                   Opcode.MOVSS; Opcode.MOVSD |]
+let opVex0F10Mem = [| Opcode.VMOVUPS; Opcode.VMOVUPD;
+                      Opcode.VMOVSS; Opcode.VMOVSD |]
+let opVex0F10Reg = [| Opcode.VMOVUPS; Opcode.VMOVUPD;
+                      Opcode.VMOVSS; Opcode.VMOVSD |]
+let opNor0F11 = [| Opcode.MOVUPS; Opcode.MOVUPD;
+                   Opcode.MOVSS; Opcode.MOVSD |]
+let opVex0F11Mem = [| Opcode.VMOVUPS; Opcode.VMOVUPD;
+                      Opcode.VMOVSS; Opcode.VMOVSD |]
+let opVex0F11Reg = [| Opcode.VMOVUPS; Opcode.VMOVUPD;
+                      Opcode.VMOVSS; Opcode.VMOVSD |]
+let opNor0F12Mem = [| Opcode.MOVLPS; Opcode.MOVLPD;
+                      Opcode.MOVSLDUP; Opcode.MOVDDUP |]
+let opNor0F12Reg = [| Opcode.MOVHLPS; Opcode.MOVLPD;
+                      Opcode.MOVSLDUP; Opcode.MOVDDUP |]
+let opVex0F12Mem = [| Opcode.VMOVLPS; Opcode.VMOVLPD;
+                      Opcode.VMOVSLDUP; Opcode.VMOVDDUP |]
+let opVex0F12Reg = [| Opcode.VMOVHLPS; Opcode.VMOVLPD;
+                      Opcode.VMOVSLDUP; Opcode.VMOVDDUP |]
+let opNor0F13 = [| Opcode.MOVLPS; Opcode.MOVLPD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F13 = [| Opcode.VMOVLPS; Opcode.VMOVLPD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F14 = [| Opcode.UNPCKLPS; Opcode.UNPCKLPD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F14 = [| Opcode.VUNPCKLPS; Opcode.VUNPCKLPD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F15 = [| Opcode.UNPCKHPS; Opcode.UNPCKHPD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F15 = [| Opcode.VUNPCKHPS; Opcode.VUNPCKHPD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F16Mem = [| Opcode.MOVHPS; Opcode.MOVHPD;
+                      Opcode.MOVSHDUP; Opcode.InvalOP |]
+let opNor0F16Reg = [| Opcode.MOVLHPS; Opcode.MOVHPD;
+                      Opcode.MOVSHDUP; Opcode.InvalOP |]
+let opVex0F16Mem = [| Opcode.VMOVHPS; Opcode.VMOVHPD;
+                      Opcode.VMOVSHDUP; Opcode.InvalOP |]
+let opVex0F16Reg = [| Opcode.VMOVLHPS; Opcode.VMOVHPD;
+                      Opcode.VMOVSHDUP; Opcode.InvalOP |]
+let opNor0F17 = [| Opcode.MOVHPS; Opcode.MOVHPD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F17 = [| Opcode.VMOVHPS; Opcode.VMOVHPD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F28 = [| Opcode.MOVAPS; Opcode.MOVAPD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F28 = [| Opcode.VMOVAPS; Opcode.VMOVAPD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F29 = [| Opcode.MOVAPS; Opcode.MOVAPD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F29 = [| Opcode.VMOVAPS; Opcode.VMOVAPS;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F2A = [| Opcode.CVTPI2PS; Opcode.CVTPI2PD;
+                   Opcode.CVTSI2SS; Opcode.CVTSI2SD |]
+let opVex0F2A = [| Opcode.InvalOP; Opcode.InvalOP;
+                   Opcode.VCVTSI2SS; Opcode.VCVTSI2SD |]
+let opNor0F2B = [| Opcode.MOVNTPS; Opcode.MOVNTPD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F2B = [| Opcode.VMOVNTPS; Opcode.VMOVNTPD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F2C = [| Opcode.CVTTPS2PI; Opcode.CVTTPD2PI;
+                   Opcode.CVTTSS2SI; Opcode.CVTTSD2SI |]
+let opVex0F2C = [| Opcode.InvalOP; Opcode.InvalOP;
+                   Opcode.VCVTTSS2SI; Opcode.VCVTTSD2SI |]
+let opNor0F2D = [| Opcode.CVTPS2PI; Opcode.CVTPD2PI;
+                   Opcode.CVTSS2SI; Opcode.CVTSD2SI |]
+let opVex0F2D = [| Opcode.InvalOP; Opcode.InvalOP;
+                   Opcode.VCVTSS2SI; Opcode.VCVTSD2SI |]
+let opNor0F2E = [| Opcode.UCOMISS; Opcode.UCOMISD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F2E = [| Opcode.VUCOMISS; Opcode.VUCOMISD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F2F = [| Opcode.COMISS; Opcode.COMISD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F2F = [| Opcode.VCOMISS; Opcode.VCOMISD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F50 = [| Opcode.MOVMSKPS; Opcode.MOVMSKPD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F50 = [| Opcode.VMOVMSKPS; Opcode.VMOVMSKPD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F51 = [| Opcode.SQRTPS; Opcode.SQRTPD;
+                   Opcode.SQRTSS; Opcode.SQRTSD |]
+let opVex0F51 = [| Opcode.VSQRTPS; Opcode.VSQRTPD;
+                   Opcode.VSQRTSS; Opcode.VSQRTSD |]
+let opNor0F54 = [| Opcode.ANDPS; Opcode.ANDPD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F54 = [| Opcode.VANDPS; Opcode.VANDPD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F55 = [| Opcode.ANDNPS; Opcode.ANDNPD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F55 = [| Opcode.VANDNPS; Opcode.VANDNPD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F56 = [| Opcode.ORPS; Opcode.ORPD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F56 = [| Opcode.VORPS; Opcode.VORPD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F57 = [| Opcode.XORPS; Opcode.XORPD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F57 = [| Opcode.VXORPS; Opcode.VXORPD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F58 = [| Opcode.ADDPS; Opcode.ADDPD;
+                   Opcode.ADDSS; Opcode.ADDSD |]
+let opVex0F58 = [| Opcode.VADDPS; Opcode.VADDPD;
+                   Opcode.VADDSS; Opcode.VADDSD |]
+let opNor0F59 = [| Opcode.MULPS; Opcode.MULPD;
+                   Opcode.MULSS; Opcode.MULSD |]
+let opVex0F59 = [| Opcode.VMULPS; Opcode.VMULPD;
+                   Opcode.VMULSS; Opcode.VMULSD |]
+let opNor0F5A = [| Opcode.CVTPS2PD; Opcode.CVTPD2PS;
+                   Opcode.CVTSS2SD; Opcode.CVTSD2SS |]
+let opVex0F5A = [| Opcode.InvalOP; Opcode.InvalOP;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F5B = [| Opcode.CVTDQ2PS; Opcode.CVTPS2DQ;
+                   Opcode.CVTTPS2DQ; Opcode.InvalOP |]
+let opVex0F5B = [| Opcode.InvalOP; Opcode.InvalOP;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F5C = [| Opcode.SUBPS; Opcode.SUBPD;
+                   Opcode.SUBSS; Opcode.SUBSD |]
+let opVex0F5C = [| Opcode.VSUBPS; Opcode.VSUBPD;
+                   Opcode.VSUBSS; Opcode.VSUBSD |]
+let opNor0F5D = [| Opcode.MINPS; Opcode.MINPD;
+                   Opcode.MINSS; Opcode.MINSD |]
+let opVex0F5D = [| Opcode.InvalOP; Opcode.InvalOP;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F5E = [| Opcode.DIVPS; Opcode.DIVPD;
+                   Opcode.DIVSS; Opcode.DIVSD |]
+let opVex0F5E = [| Opcode.VDIVPS; Opcode.VDIVPD;
+                   Opcode.VDIVSS; Opcode.VDIVSD |]
+let opNor0F5F = [| Opcode.MAXPS; Opcode.MAXPD;
+                   Opcode.MAXSS; Opcode.MAXSD |]
+let opVex0F5F = [| Opcode.InvalOP; Opcode.InvalOP;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F60 = [| Opcode.PUNPCKLBW; Opcode.PUNPCKLBW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F60 = [| Opcode.InvalOP; Opcode.VPUNPCKLBW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F61 = [| Opcode.PUNPCKLWD; Opcode.PUNPCKLWD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F61 = [| Opcode.InvalOP; Opcode.VPUNPCKLWD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F62 = [| Opcode.PUNPCKLDQ; Opcode.PUNPCKLDQ;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F62 = [| Opcode.InvalOP; Opcode.VPUNPCKLDQ;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F63 = [| Opcode.PACKSSWB; Opcode.PACKSSWB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F63 = [| Opcode.InvalOP; Opcode.VPACKSSWB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F64 = [| Opcode.PCMPGTB; Opcode.PCMPGTB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F64 = [| Opcode.InvalOP; Opcode.VPCMPGTB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F65 = [| Opcode.PCMPGTW; Opcode.PCMPGTW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F65 = [| Opcode.InvalOP; Opcode.VPCMPGTW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F66 = [| Opcode.PCMPGTD; Opcode.PCMPGTD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F66 = [| Opcode.InvalOP; Opcode.VPCMPGTD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F67 = [| Opcode.PACKUSWB; Opcode.PACKUSWB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F67 = [| Opcode.InvalOP; Opcode.VPACKUSWB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F68 = [| Opcode.PUNPCKHBW; Opcode.PUNPCKHBW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F68 = [| Opcode.InvalOP; Opcode.VPUNPCKHBW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F69 = [| Opcode.PUNPCKHWD; Opcode.PUNPCKHWD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F69 = [| Opcode.InvalOP; Opcode.VPUNPCKHWD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F6A = [| Opcode.PUNPCKHDQ; Opcode.PUNPCKHDQ;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F6A = [| Opcode.InvalOP; Opcode.VPUNPCKHDQ;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F6B = [| Opcode.PACKSSDW; Opcode.PACKSSDW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F6B = [| Opcode.InvalOP; Opcode.VPACKSSDW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F6C = [| Opcode.InvalOP; Opcode.PUNPCKLQDQ;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F6C = [| Opcode.InvalOP; Opcode.VPUNPCKLQDQ;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F6D = [| Opcode.InvalOP; Opcode.PUNPCKHQDQ;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F6D = [| Opcode.InvalOP; Opcode.VPUNPCKHQDQ;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F6EB64 = [| Opcode.MOVQ; Opcode.MOVQ;
+                      Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F6EB32 = [| Opcode.MOVD; Opcode.MOVD;
+                      Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F6EB64 = [| Opcode.InvalOP; Opcode.VMOVQ;
+                      Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F6EB32 = [| Opcode.InvalOP; Opcode.VMOVD;
+                      Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F6F = [| Opcode.MOVQ; Opcode.MOVDQA;
+                   Opcode.MOVDQU; Opcode.InvalOP |]
+let opVex0F6F = [| Opcode.InvalOP; Opcode.VMOVDQA;
+                   Opcode.VMOVDQU; Opcode.InvalOP |]
+let opEVex0F6FB64 = [| Opcode.InvalOP; Opcode.VMOVDQA64;
+                       Opcode.VMOVDQU64; Opcode.InvalOP |]
+let opEVex0F6FB32 = [| Opcode.InvalOP; Opcode.VMOVDQA32;
+                       Opcode.VMOVDQU32; Opcode.InvalOP |]
+let opNor0F70 = [| Opcode.PSHUFW; Opcode.PSHUFD;
+                   Opcode.PSHUFHW; Opcode.PSHUFLW |]
+let opVex0F70 = [| Opcode.InvalOP; Opcode.VPSHUFD;
+                   Opcode.VPSHUFHW; Opcode.VPSHUFLW |]
+let opNor0F74 = [| Opcode.PCMPEQB; Opcode.PCMPEQB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F74 = [| Opcode.InvalOP; Opcode.VPCMPEQB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F75 = [| Opcode.PCMPEQW; Opcode.PCMPEQW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F75 = [| Opcode.InvalOP; Opcode.VPCMPEQW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F76 = [| Opcode.PCMPEQD; Opcode.PCMPEQD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F76 = [| Opcode.InvalOP; Opcode.VPCMPEQD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F77 = [| Opcode.EMMS; Opcode.InvalOP;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F77 = [| Opcode.VZEROUPPER; Opcode.InvalOP;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F7EB64 = [| Opcode.MOVQ; Opcode.MOVQ;
+                      Opcode.MOVQ; Opcode.InvalOP |]
+let opNor0F7EB32 = [| Opcode.MOVD; Opcode.MOVD;
+                      Opcode.MOVQ; Opcode.InvalOP |]
+let opVex0F7EB64 = [| Opcode.InvalOP; Opcode.VMOVQ;
+                      Opcode.VMOVQ; Opcode.InvalOP |]
+let opVex0F7EB32 = [| Opcode.InvalOP; Opcode.VMOVD;
+                      Opcode.VMOVQ; Opcode.InvalOP |]
+let opNor0F7F = [| Opcode.MOVQ; Opcode.MOVDQA;
+                   Opcode.MOVDQU; Opcode.InvalOP |]
+let opVex0F7F = [| Opcode.InvalOP; Opcode.VMOVDQA;
+                   Opcode.VMOVDQU; Opcode.InvalOP |]
+let opEVex0F7FB64 = [| Opcode.InvalOP; Opcode.VMOVDQA64;
+                       Opcode.InvalOP; Opcode.InvalOP |]
+let opEVex0F7FB32 = [| Opcode.InvalOP; Opcode.VMOVDQA32;
+                       Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FC2 = [| Opcode.CMPPS; Opcode.CMPPD;
+                   Opcode.CMPSS; Opcode.CMPSD |]
+let opVex0FC2 = [| Opcode.InvalOP; Opcode.InvalOP;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FC4 = [| Opcode.PINSRW; Opcode.PINSRW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FC4 = [| Opcode.InvalOP; Opcode.VPINSRW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FC5 = [| Opcode.PEXTRW; Opcode.PEXTRW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FC5 = [| Opcode.InvalOP; Opcode.VPEXTRW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FC6 = [| Opcode.SHUFPS; Opcode.SHUFPD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FC6 = [| Opcode.VSHUFPS; Opcode.VSHUFPD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FD1 = [| Opcode.PSRLW; Opcode.PSRLW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FD1 = [| Opcode.InvalOP; Opcode.VPSRLW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FD2 = [| Opcode.PSRLD; Opcode.PSRLD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FD2 = [| Opcode.InvalOP; Opcode.VPSRLD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FD3 = [| Opcode.PSRLQ; Opcode.PSRLQ;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FD3 = [| Opcode.InvalOP; Opcode.VPSRLQ;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FD4 = [| Opcode.PADDQ; Opcode.PADDQ;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FD4 = [| Opcode.InvalOP; Opcode.VPADDQ;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FD5 = [| Opcode.PMULLW; Opcode.PMULLW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FD5 = [| Opcode.InvalOP; Opcode.VPMULLW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FD6 = [| Opcode.InvalOP; Opcode.MOVQ;
+                   Opcode.MOVQ2DQ; Opcode.MOVDQ2Q |]
+let opVex0FD6 = [| Opcode.InvalOP; Opcode.VMOVQ;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FD7 = [| Opcode.PMOVMSKB; Opcode.PMOVMSKB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FD7 = [| Opcode.InvalOP; Opcode.VPMOVMSKB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FD8 = [| Opcode.PSUBUSB; Opcode.PSUBUSB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FD8 = [| Opcode.InvalOP; Opcode.VPSUBUSB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FD9 = [| Opcode.PSUBUSW; Opcode.PSUBUSW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FD9 = [| Opcode.InvalOP; Opcode.VPSUBUSW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FDA = [| Opcode.PMINUB; Opcode.PMINUB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FDA = [| Opcode.InvalOP; Opcode.VPMINUB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FDB = [| Opcode.PAND; Opcode.PAND;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FDB = [| Opcode.InvalOP; Opcode.VPAND;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FDC = [| Opcode.PADDUSB; Opcode.PADDUSB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FDC = [| Opcode.InvalOP; Opcode.VPADDUSB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FDD = [| Opcode.PADDUSW; Opcode.PADDUSW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FDD = [| Opcode.InvalOP; Opcode.VPADDUSW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FDE = [| Opcode.PMAXUB; Opcode.PMAXUB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FDE = [| Opcode.InvalOP; Opcode.VPMAXUB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FDF = [| Opcode.PANDN; Opcode.PANDN;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FDF = [| Opcode.InvalOP; Opcode.VPANDN;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FE0 = [| Opcode.PAVGB; Opcode.PAVGB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FE0 = [| Opcode.InvalOP; Opcode.VPAVGB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FE1 = [| Opcode.PSRAW; Opcode.PSRAW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FE1 = [| Opcode.InvalOP; Opcode.VPSRAW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FE2 = [| Opcode.PSRAD; Opcode.PSRAD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FE2 = [| Opcode.InvalOP; Opcode.VPSRAD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FE3 = [| Opcode.PAVGW; Opcode.PAVGW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FE3 = [| Opcode.InvalOP; Opcode.VPAVGW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FE4 = [| Opcode.PMULHUW; Opcode.PMULHUW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FE4 = [| Opcode.InvalOP; Opcode.VPMULHUW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FE5 = [| Opcode.PMULHW; Opcode.PMULHW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FE5 = [| Opcode.InvalOP; Opcode.VPMULHW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FE6 = [| Opcode.InvalOP; Opcode.CVTTPD2DQ;
+                   Opcode.CVTDQ2PD; Opcode.CVTPD2DQ |]
+let opVex0FE6 = [| Opcode.InvalOP; Opcode.InvalOP;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FE7 = [| Opcode.MOVNTQ; Opcode.MOVNTDQ;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FE7 = [| Opcode.InvalOP; Opcode.VMOVNTDQ;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opEVex0FE7B64 = [| Opcode.InvalOP; Opcode.InvalOP;
+                       Opcode.InvalOP; Opcode.InvalOP |]
+let opEVex0FE7B32 = [| Opcode.InvalOP; Opcode.VMOVNTDQ;
+                       Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FE8 = [| Opcode.PSUBSB; Opcode.PSUBSB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FE8 = [| Opcode.InvalOP; Opcode.VPSUBSB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FE9 = [| Opcode.PSUBSW; Opcode.PSUBSW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FE9 = [| Opcode.InvalOP; Opcode.VPSUBSW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FEA = [| Opcode.PMINSW; Opcode.PMINSW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FEA = [| Opcode.InvalOP; Opcode.VPMINSW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FEB = [| Opcode.POR; Opcode.POR;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FEB = [| Opcode.InvalOP; Opcode.VPOR;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FEC = [| Opcode.PADDSB; Opcode.PADDSB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FEC = [| Opcode.InvalOP; Opcode.VPADDSB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FED = [| Opcode.PADDSW; Opcode.PADDSW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FED = [| Opcode.InvalOP; Opcode.VPADDSW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FEE = [| Opcode.PMAXSW; Opcode.PMAXSW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FEE = [| Opcode.InvalOP; Opcode.VPMAXSW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FEF = [| Opcode.PXOR; Opcode.PXOR;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FEF = [| Opcode.InvalOP; Opcode.VPXOR;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FF0 = [| Opcode.InvalOP; Opcode.InvalOP;
+                   Opcode.InvalOP; Opcode.LDDQU |]
+let opVex0FF0 = [| Opcode.InvalOP; Opcode.InvalOP;
+                   Opcode.InvalOP; Opcode.VLDDQU |]
+let opNor0FF1 = [| Opcode.PSLLW; Opcode.PSLLW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FF1 = [| Opcode.InvalOP; Opcode.VPSLLW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FF2 = [| Opcode.PSLLD; Opcode.PSLLD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FF2 = [| Opcode.InvalOP; Opcode.VPSLLD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FF3 = [| Opcode.PSLLQ; Opcode.PSLLQ;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FF3 = [| Opcode.InvalOP; Opcode.VPSLLQ;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FF4 = [| Opcode.PMULUDQ; Opcode.PMULUDQ;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FF4 = [| Opcode.InvalOP; Opcode.VPMULUDQ;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FF5 = [| Opcode.PMADDWD; Opcode.PMADDWD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FF5 = [| Opcode.InvalOP; Opcode.VPMADDWD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FF6 = [| Opcode.PSADBW; Opcode.PSADBW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FF6 = [| Opcode.InvalOP; Opcode.VPSADBW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FF8 = [| Opcode.PSUBB; Opcode.PSUBB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FF8 = [| Opcode.InvalOP; Opcode.VPSUBB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FF9 = [| Opcode.PSUBW; Opcode.PSUBW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FF9 = [| Opcode.InvalOP; Opcode.VPSUBW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FFA = [| Opcode.PSUBD; Opcode.PSUBD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FFA = [| Opcode.InvalOP; Opcode.VPSUBD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FFB = [| Opcode.PSUBQ; Opcode.PSUBQ;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FFB = [| Opcode.InvalOP; Opcode.VPSUBQ;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FFC = [| Opcode.PADDB; Opcode.PADDB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FFC = [| Opcode.InvalOP; Opcode.VPADDB;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FFD = [| Opcode.PADDW; Opcode.PADDW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FFD = [| Opcode.InvalOP; Opcode.VPADDW;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0FFE = [| Opcode.PADDD; Opcode.PADDD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0FFE = [| Opcode.InvalOP; Opcode.VPADDD;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3800 = [| Opcode.PSHUFB; Opcode.PSHUFB;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3800 = [| Opcode.InvalOP; Opcode.VPSHUFB;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3801 = [| Opcode.PHADDW; Opcode.PHADDW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3801 = [| Opcode.InvalOP; Opcode.VPHADDW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3802 = [| Opcode.PHADDD; Opcode.PHADDD;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3802 = [| Opcode.InvalOP; Opcode.VPHADDD;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3803 = [| Opcode.PHADDSW; Opcode.PHADDSW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3803 = [| Opcode.InvalOP; Opcode.VPHADDSW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3805 = [| Opcode.PHSUBW; Opcode.PHSUBW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3805 = [| Opcode.InvalOP; Opcode.VPHSUBW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3806 = [| Opcode.PHSUBD; Opcode.PHSUBD;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3806 = [| Opcode.InvalOP; Opcode.VPHSUBD;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3807 = [| Opcode.PHSUBSW; Opcode.PHSUBSW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3807 = [| Opcode.InvalOP; Opcode.VPHSUBSW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3808 = [| Opcode.PSIGNB; Opcode.PSIGNB;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3808 = [| Opcode.InvalOP; Opcode.VPSIGNB;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3809 = [| Opcode.PSIGNW; Opcode.PSIGNW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3809 = [| Opcode.InvalOP; Opcode.VPSIGNW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F380A = [| Opcode.PSIGND; Opcode.PSIGND;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F380A = [| Opcode.InvalOP; Opcode.VPSIGND;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F380B = [| Opcode.PMULHRSW; Opcode.PMULHRSW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F380B = [| Opcode.InvalOP; Opcode.VPMULHRSW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3817 = [| Opcode.InvalOP; Opcode.PTEST;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3817 = [| Opcode.InvalOP; Opcode.VPTEST;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3818 = [| Opcode.InvalOP; Opcode.InvalOP;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3818 = [| Opcode.InvalOP; Opcode.VBROADCASTSS;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opEVex0F3818 = [| Opcode.InvalOP; Opcode.VBROADCASTSS;
+                      Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F381C = [| Opcode.PABSB; Opcode.PABSB;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F381C = [| Opcode.InvalOP; Opcode.VPABSB;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F381D = [| Opcode.PABSW; Opcode.PABSW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F381D = [| Opcode.InvalOP; Opcode.VPABSW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F381E = [| Opcode.PABSD; Opcode.PABSD;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F381E = [| Opcode.InvalOP; Opcode.VPABSD;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3820 = [| Opcode.InvalOP; Opcode.PMOVSXBW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3820 = [| Opcode.InvalOP; Opcode.VPMOVSXBW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3821 = [| Opcode.InvalOP; Opcode.PMOVSXBD;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3821 = [| Opcode.InvalOP; Opcode.VPMOVSXBD;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3822 = [| Opcode.InvalOP; Opcode.PMOVSXBQ;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3822 = [| Opcode.InvalOP; Opcode.VPMOVSXBQ;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3823 = [| Opcode.InvalOP; Opcode.PMOVSXWD;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3823 = [| Opcode.InvalOP; Opcode.VPMOVSXWD;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3824 = [| Opcode.InvalOP; Opcode.PMOVSXWQ;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3824 = [| Opcode.InvalOP; Opcode.VPMOVSXWQ;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3825 = [| Opcode.InvalOP; Opcode.PMOVSXDQ;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3825 = [| Opcode.InvalOP; Opcode.VPMOVSXDQ;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3828 = [| Opcode.InvalOP; Opcode.PMULDQ;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3828 = [| Opcode.InvalOP; Opcode.VPMULDQ;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3829 = [| Opcode.InvalOP; Opcode.PCMPEQQ;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3829 = [| Opcode.InvalOP; Opcode.VPCMPEQQ;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F382B = [| Opcode.InvalOP; Opcode.PACKUSDW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F382B = [| Opcode.InvalOP; Opcode.VPACKUSDW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3830 = [| Opcode.InvalOP; Opcode.PMOVZXBW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3830 = [| Opcode.InvalOP; Opcode.VPMOVZXBW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3831 = [| Opcode.InvalOP; Opcode.PMOVZXBD;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3831 = [| Opcode.InvalOP; Opcode.VPMOVZXBD;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3832 = [| Opcode.InvalOP; Opcode.PMOVZXBQ;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3832 = [| Opcode.InvalOP; Opcode.VPMOVZXBQ;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3833 = [| Opcode.InvalOP; Opcode.PMOVZXWD;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3833 = [| Opcode.InvalOP; Opcode.VPMOVZXWD;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3834 = [| Opcode.InvalOP; Opcode.PMOVZXWQ;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3834 = [| Opcode.InvalOP; Opcode.VPMOVZXWQ;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3835 = [| Opcode.InvalOP; Opcode.PMOVZXDQ;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3835 = [| Opcode.InvalOP; Opcode.VPMOVZXDQ;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3837 = [| Opcode.InvalOP; Opcode.PCMPGTQ;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3837 = [| Opcode.InvalOP; Opcode.VPCMPGTQ;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3838 = [| Opcode.InvalOP; Opcode.PMINSB;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3838 = [| Opcode.InvalOP; Opcode.VPMINSB;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3839 = [| Opcode.InvalOP; Opcode.PMINSD;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3839 = [| Opcode.InvalOP; Opcode.VPMINSD;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F383A = [| Opcode.InvalOP; Opcode.PMINUW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F383A = [| Opcode.InvalOP; Opcode.VPMINUW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F383B = [| Opcode.InvalOP; Opcode.PMINUD;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F383B = [| Opcode.InvalOP; Opcode.VPMINUD;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F383C = [| Opcode.InvalOP; Opcode.PMAXSB;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F383C = [| Opcode.InvalOP; Opcode.VPMAXSB;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F383D = [| Opcode.InvalOP; Opcode.PMAXSD;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F383D = [| Opcode.InvalOP; Opcode.VPMAXSD;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F383E = [| Opcode.InvalOP; Opcode.PMAXUW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F383E = [| Opcode.InvalOP; Opcode.VPMAXUW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F383F = [| Opcode.InvalOP; Opcode.PMAXUD;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F383F = [| Opcode.InvalOP; Opcode.VPMAXUD;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3840 = [| Opcode.InvalOP; Opcode.PMULLD;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3840 = [| Opcode.InvalOP; Opcode.VPMULLD;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3841 = [| Opcode.InvalOP; Opcode.PHMINPOSUW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3841 = [| Opcode.InvalOP; Opcode.VPHMINPOSUW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F385A = [| Opcode.InvalOP; Opcode.InvalOP;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F385A = [| Opcode.InvalOP; Opcode.VBROADCASTI128;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3878 = [| Opcode.InvalOP; Opcode.InvalOP;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3878 = [| Opcode.InvalOP; Opcode.VPBROADCASTB;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F38F0 = [| Opcode.MOVBE; Opcode.MOVBE;
+                     Opcode.InvalOP; Opcode.CRC32; Opcode.CRC32 |]
+let opNor0F38F1 = [| Opcode.MOVBE; Opcode.MOVBE;
+                     Opcode.InvalOP; Opcode.CRC32; Opcode.CRC32 |]
+let opNor0F38F6 = [| Opcode.InvalOP; Opcode.InvalOP;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F38F6 = [| Opcode.InvalOP; Opcode.InvalOP;
+                     Opcode.InvalOP; Opcode.MULX |]
+let opNor0F38F7 = [| Opcode.InvalOP; Opcode.InvalOP;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F38F7 = [| Opcode.InvalOP; Opcode.SHLX;
+                     Opcode.SARX; Opcode.SHRX |]
+let opNor0F3A0F = [| Opcode.PALIGNR; Opcode.PALIGNR;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3A0F = [| Opcode.InvalOP; Opcode.VPALIGNR;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3A20 = [| Opcode.InvalOP; Opcode.PINSRB;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3A20 = [| Opcode.InvalOP; Opcode.InvalOP;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3A38 = [| Opcode.InvalOP; Opcode.InvalOP;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3A38 = [| Opcode.InvalOP; Opcode.VINSERTI128;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3A60 = [| Opcode.InvalOP; Opcode.PCMPESTRM;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3A60 = [| Opcode.InvalOP; Opcode.VPCMPESTRM;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3A61 = [| Opcode.InvalOP; Opcode.PCMPESTRI;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3A61 = [| Opcode.InvalOP; Opcode.VPCMPESTRI;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3A62 = [| Opcode.InvalOP; Opcode.PCMPISTRM;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3A62 = [| Opcode.InvalOP; Opcode.VPCMPISTRM;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3A63 = [| Opcode.InvalOP; Opcode.PCMPISTRI;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3A63 = [| Opcode.InvalOP; Opcode.VPCMPISTRI;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3A0B = [| Opcode.InvalOP; Opcode.ROUNDSD;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3A0B = [| Opcode.InvalOP; Opcode.InvalOP;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3AF0 = [| Opcode.InvalOP; Opcode.InvalOP;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3AF0 = [| Opcode.InvalOP; Opcode.InvalOP;
+                     Opcode.InvalOP; Opcode.RORX |]
+let opEmpty = [| Opcode.InvalOP; Opcode.InvalOP;
+                 Opcode.InvalOP; Opcode.InvalOP |]
+
 
 // vim: set tw=80 sts=2 sw=2:

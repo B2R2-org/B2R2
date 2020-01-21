@@ -1859,27 +1859,6 @@ type RGrpAttr =
 /// Defines four different descriptions of an instruction operand. Most of these
 /// descriptions are found in Appendix A. (Opcode Map) of the manual Vol. 2D. We
 /// also introduce several new descriptors for our own purpose. <para/>
-///
-/// Internally, B2R2 represents OperandDesc as an integer as follows to speed up
-/// the parsing process:
-/// <code>
-/// ODImmOne
-/// +---------+-------------------------------------+
-/// | 0 0 0 1 |           0 (12bit)                 |
-/// +---------+-------------------------------------+
-/// ODModeSize
-/// +---------+-------------------------------------+
-/// | 0 0 1 0 |    size (6bit)   |   mode (6bit)    |
-/// +---------+-------------------------------------+
-/// ODReg
-/// +---------+-------------------------------------+
-/// | 0 0 1 1 |       Register ID (12bit)           |
-/// +---------+-------------------------------------+
-/// ODRegGrp
-/// +---------+------------+-----------+------------+
-/// | 0 1 0 0 | size(6bit) | grp(3bit) | attr(3bit) |
-/// +---------+------------+-----------+------------+
-/// </code>
 /// </summary>
 type OperandDesc =
   /// The most generic operand kind which can be described with OprMode
