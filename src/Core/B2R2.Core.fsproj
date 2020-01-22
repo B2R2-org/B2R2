@@ -23,6 +23,7 @@
     <Compile Include="BitVector.fs" />
     <Compile Include="ByteArray.fsi" />
     <Compile Include="ByteArray.fs" />
+    <Compile Include="LEB128.fs" />
     <Compile Include="FingerTree.fs" />
     <Compile Include="IntervalMap.fs" />
     <Compile Include="IntervalSet.fs" />
