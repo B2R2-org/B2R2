@@ -54,14 +54,41 @@ type BinReader (bytes: byte []) =
   /// Peek a character array of size n at the given offset.
   member __.PeekChars (n: int, o: int) = __.PeekBytes (n, o) |> Array.map char
 
-  /// Peek a number (64-bit integer) using the ULEB128 method.
-  member __.PeekULEB128 (o: int) =
-    let rec readLoop n cnt offset  =
-      let b = __.PeekByte (offset)
-      let acc = (uint64 (b &&& 0x7Fuy) <<< (cnt * 7)) ||| n
-      if b &&& 0x80uy <> 0uy then readLoop acc (cnt + 1) (offset + 1)
-      else acc, cnt + 1
-    readLoop 0UL 0 o
+  /// Peek a LEB128-encoded integer into uint64. This function returns a tuple of
+  /// (the decoded uint64, and the count of how many bytes were peeked).
+  member __.PeekUInt64LEB128 (o: int) =
+    let len = if __.Bytes.Length > LEB128.max64LEB128Length
+              then LEB128.max64LEB128Length
+              else __.Bytes.Length
+    let bytes = __.PeekBytes (len, o)
+    LEB128.decodeUInt64 (bytes)
+
+  /// Peek a LEB128-encoded integer into uint32. This function returns a tuple of
+  /// (the decoded uint32, and the count of how many bytes were peeked).
+  member __.PeekUInt32LEB128 (o: int) =
+    let len = if __.Bytes.Length > LEB128.max32LEB128Length
+              then LEB128.max32LEB128Length
+              else __.Bytes.Length
+    let bytes = __.PeekBytes (len, o)
+    LEB128.decodeUInt32 (bytes)
+
+  /// Peek a LEB128-encoded integer into int64. This function returns a tuple of
+  /// (the decoded int64, and the count of how many bytes were peeked).
+  member __.PeekInt64LEB128 (o: int) =
+    let len = if __.Bytes.Length > LEB128.max64LEB128Length
+              then LEB128.max64LEB128Length
+              else __.Bytes.Length
+    let bytes = __.PeekBytes (len, o)
+    LEB128.decodeSInt64 (bytes)
+
+  /// Peek a LEB128-encoded integer into int32. This function returns a tuple of
+  /// (the decoded int32, and the count of how many bytes were peeked).
+  member __.PeekInt32LEB128 (o: int) =
+    let len = if __.Bytes.Length > LEB128.max32LEB128Length
+              then LEB128.max32LEB128Length
+              else __.Bytes.Length
+    let bytes = __.PeekBytes (len, o)
+    LEB128.decodeSInt32 (bytes)
 
   /// Peek an int16 value at the given offset.
   abstract member PeekInt16: o: int -> int16
@@ -127,6 +154,30 @@ type BinReader (bytes: byte []) =
   /// Read a uint64 value at the given offset. This function, unlike PeekUInt64,
   /// will return the next offset.
   member __.ReadUInt64 (o) = struct (__.PeekUInt64 (o), o + 8)
+
+  /// Read a LEB128-encoded integer into uint64 at the given offset.
+  /// This function, unlike PeekUInt64LEB128, will return the next offset.
+  member __.ReadUInt64LEB128 (o) =
+    let decoded, len = __.PeekUInt64LEB128 (o)
+    struct (decoded, o + len)
+
+  /// Read a LEB128-encoded integer into uint32 at the given offset.
+  /// This function, unlike PeekUInt32LEB128, will return the next offset.
+  member __.ReadUInt32LEB128 (o) =
+    let decoded, len = __.PeekUInt32LEB128 (o)
+    struct (decoded, o + len)
+
+  /// Read a LEB128-encoded integer into int64 at the given offset.
+  /// This function, unlike PeekInt64LEB128, will return the next offset.
+  member __.ReadInt64LEB128 (o) =
+    let decoded, len = __.PeekInt64LEB128 (o)
+    struct (decoded, o + len)
+
+  /// Read a LEB128-encoded integer into int32 at the given offset.
+  /// This function, unlike PeekInt32LEB128, will return the next offset.
+  member __.ReadInt32LEB128 (o) =
+    let decoded, len = __.PeekInt32LEB128 (o)
+    struct (decoded, o + len)
 
   /// Length of the file for this reader.
   member __.Length () = Array.length bytes
