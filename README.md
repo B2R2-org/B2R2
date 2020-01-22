@@ -82,6 +82,7 @@ Let's try to use B2R2 APIs.
 
     ```
     mkdir DIRNAME
+    cd DIRNAME
     ```
 
 1. We then create an empty console project with `dotnet` command line:
