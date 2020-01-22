@@ -3730,16 +3730,16 @@ let tzcnt ins insAddr insLen ctxt =
   let oprSize = getOperationSize ins
   let max = numI32 (RegType.toBitWidth oprSize) oprSize
   startMark insAddr insLen builder
-  let t1, t2 = tmpVars2 oprSize
+  let t1 = tmpVar oprSize
   builder <! (t1 := num0 oprSize)
   builder <! (LMark lblLoopCond)
   let cond = (lt t1 max) .& (extractLow 1<rt> (src >> t1) == b0)
   builder <! (CJmp (cond, Name lblLoop, Name lblExit))
   builder <! (LMark lblLoop)
-  builder <! (t2 := t1 .+ num1 oprSize)
+  builder <! (t1 := t1 .+ num1 oprSize)
   builder <! (Jmp (Name lblLoopCond))
   builder <! (LMark lblExit)
-  builder <! (dstAssign oprSize dst t2)
+  builder <! (dstAssign oprSize dst t1)
   builder <! (getRegVar ctxt R.CF := dst == max)
   builder <! (getRegVar ctxt R.ZF := dst == num0 oprSize)
   builder <! (getRegVar ctxt R.OF := undefOF)
