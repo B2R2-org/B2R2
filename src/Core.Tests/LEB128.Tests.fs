@@ -1,9 +1,31 @@
-﻿module B2R2.Core.Tests.LEB128
+(*
+  B2R2 - the Next-Generation Reversing Platform
+
+  Copyright (c) SoftSec Lab. @ KAIST, since 2016
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+*)
+
+module B2R2.Core.Tests.LEB128
 
 open Microsoft.VisualStudio.TestTools.UnitTesting
-
-open B2R2.LEB128
-open System
+open B2R2
 
 [<TestClass>]
 type TestClass () =
@@ -19,11 +41,12 @@ type TestClass () =
       ([| 0x97uy; 0xdeuy; 0x03uy; |], 0xef17UL)
       ([| 0xe5uy; 0x8euy; 0x26uy; |], 0x098765UL)
       ([| 0xffuy; 0xffuy; 0x03uy; |], 0xffffUL)
-      ([| 0xffuy; 0xffuy; 0xffuy; 0xffuy; 0xffuy; 0xffuy; 0xffuy; 0xffuy; 0xffuy; 0x01uy; |], 18446744073709551615UL)
+      ([| 0xffuy; 0xffuy; 0xffuy; 0xffuy; 0xffuy;
+          0xffuy; 0xffuy; 0xffuy; 0xffuy; 0x01uy; |], 18446744073709551615UL)
       ([| 0x83uy; 0x00uy; |], 0x03UL)
     |]
     for arr, res in u64 do
-      let v, c = decodeUInt64 arr
+      let v, c = LEB128.decodeUInt64 arr
       Assert.AreEqual(res, v)
 
   [<TestMethod>]
@@ -40,13 +63,14 @@ type TestClass () =
       ([| 0x83uy; 0x00uy; |], 0x03u)
     |]
     for arr, res in u32 do
-      let v, c = decodeUInt32 arr
+      let v, c = LEB128.decodeUInt32 arr
       Assert.AreEqual(res, v)
 
   [<TestMethod>]
   member __.``decodeSInt64 Test`` () =
     let s64 = [|
-        ([| 0xffuy; 0xffuy; 0xffuy; 0xffuy; 0xffuy; 0xffuy; 0xffuy; 0xffuy; 0xffuy; 0x00uy; |], 9223372036854775807L)
+        ([| 0xffuy; 0xffuy; 0xffuy; 0xffuy; 0xffuy;
+            0xffuy; 0xffuy; 0xffuy; 0xffuy; 0x00uy; |], 9223372036854775807L)
         ([| 0x97uy; 0xdeuy; 0x03uy; |], 0xef17L)
         ([| 0xC0uy; 0x00uy; |], 0x40L)
         ([| 0x3fuy; |], 0x3fL)
@@ -56,11 +80,12 @@ type TestClass () =
         ([| 0x40uy; |], -64L)
         ([| 0xbfuy; 0x7fuy; |], -65L)
         ([| 0x9Buy; 0xF1uy; 0x59uy; |], -624485L)
-        ([| 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x7fuy; |], -9223372036854775808L)
+        ([| 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x80uy;
+            0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x7fuy; |], -9223372036854775808L)
         ([| 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x7fuy; |], -268435456L)
     |]
     for arr, res in s64 do
-        let v, c = decodeSInt64 arr
+        let v, c = LEB128.decodeSInt64 arr
         Assert.AreEqual(res, v)
 
   [<TestMethod>]
@@ -78,7 +103,7 @@ type TestClass () =
         ([| 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x7fuy; |], -268435456)
     |]
     for arr, res in s32 do
-        let v, c = decodeSInt32 arr
+        let v, c = LEB128.decodeSInt32 arr
         Assert.AreEqual(res, v)
 
   [<TestMethod>]
@@ -86,20 +111,25 @@ type TestClass () =
     let overflow = [|
       [| 0xffuy; |]
       [| 0x80uy; 0x80uy; |]
-      [| 0xffuy; 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x7fuy; |]
+      [| 0xffuy; 0x80uy; 0x80uy; 0x80uy; 0x80uy;
+         0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x7fuy; |]
     |]
     let decodeOverflowed func bytes =
       try
         func bytes |> ignore
         false
       with
-        | :? ArgumentException -> true
+        | :? LEB128.LEB128DecodeException -> true
         | _ -> false
-    let u64Result = Array.map (fun arr -> decodeOverflowed decodeUInt64 arr) overflow
+    let u64Result = Array.map (fun arr ->
+      decodeOverflowed LEB128.decodeUInt64 arr) overflow
     Assert.IsTrue (Array.forall (fun ov -> ov) u64Result)
-    let u32Result = Array.map (fun arr -> decodeOverflowed decodeUInt32 arr) overflow
+    let u32Result = Array.map (fun arr ->
+      decodeOverflowed LEB128.decodeUInt32 arr) overflow
     Assert.IsTrue (Array.forall (fun ov -> ov) u32Result)
-    let s64Result = Array.map (fun arr -> decodeOverflowed decodeSInt64 arr) overflow
+    let s64Result = Array.map (fun arr ->
+      decodeOverflowed LEB128.decodeSInt64 arr) overflow
     Assert.IsTrue (Array.forall (fun ov -> ov) s64Result)
-    let s32Result = Array.map (fun arr -> decodeOverflowed decodeSInt32 arr) overflow
+    let s32Result = Array.map (fun arr ->
+      decodeOverflowed LEB128.decodeSInt32 arr) overflow
     Assert.IsTrue (Array.forall (fun ov -> ov) s32Result)
