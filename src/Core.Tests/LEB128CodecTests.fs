@@ -88,11 +88,18 @@ type TestClass () =
       [| 0x80uy; 0x80uy; |]
       [| 0xffuy; 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x7fuy; |]
     |]
-    let mutable overflowed = false
-    for arr in overflow do
+    let decodeOverflowed func bytes =
       try
-        decodeUInt64 arr |> ignore
+        func bytes |> ignore
+        false
       with
-        | :? ArgumentException -> overflowed <- true
-        | _ -> overflowed <- false
-    Assert.AreEqual(true, overflowed)
+        | :? ArgumentException -> true
+        | _ -> false
+    let u64Result = Array.map (fun arr -> decodeOverflowed decodeUInt64 arr) overflow
+    Assert.IsTrue (Array.forall (fun ov -> ov) u64Result)
+    let u32Result = Array.map (fun arr -> decodeOverflowed decodeUInt32 arr) overflow
+    Assert.IsTrue (Array.forall (fun ov -> ov) u32Result)
+    let s64Result = Array.map (fun arr -> decodeOverflowed decodeSInt64 arr) overflow
+    Assert.IsTrue (Array.forall (fun ov -> ov) s64Result)
+    let s32Result = Array.map (fun arr -> decodeOverflowed decodeSInt32 arr) overflow
+    Assert.IsTrue (Array.forall (fun ov -> ov) s32Result)
