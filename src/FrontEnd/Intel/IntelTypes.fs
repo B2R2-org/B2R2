@@ -101,1544 +101,2259 @@ type Opcode =
   | AAS = 3
   /// Add with Carry.
   | ADC = 4
+  /// Unsigned integer add with carry.
+  | ADCX = 5
   /// Add.
-  | ADD = 5
+  | ADD = 6
   /// Add Packed Double-Precision Floating-Point Values.
-  | ADDPD = 6
+  | ADDPD = 7
   /// Add Packed Single-Precision Floating-Point Values.
-  | ADDPS = 7
+  | ADDPS = 8
   /// Add Scalar Double-Precision Floating-Point Values.
-  | ADDSD = 8
+  | ADDSD = 9
   /// Add Scalar Single-Precision Floating-Point Values.
-  | ADDSS = 9
+  | ADDSS = 10
+  /// Packed Double-FP Add/Subtract.
+  | ADDSUBPD = 11
+  /// Packed Single-FP Add/Subtract.
+  | ADDSUBPS = 12
+  /// Unsigned integer add with overflow.
+  | ADOX = 13
+  /// Perform an AES decryption round using an 128-bit state and a round key.
+  | AESDEC = 14
+  /// Perform Last Round of an AES Decryption Flow.
+  | AESDECLAST = 15
+  /// Perform an AES encryption round using an 128-bit state and a round key.
+  | AESENC = 16
+  /// Perform Last Round of an AES Encryption Flow.
+  | AESENCLAST = 17
+  /// Perform an inverse mix column transformation primitive.
+  | AESIMC = 18
+  /// Assist the creation of round keys with a key expansion schedule.
+  | AESKEYGENASSIST = 19
   /// Logical AND.
-  | AND = 10
+  | AND = 20
+  /// Bitwise AND of first source with inverted 2nd source operands.
+  | ANDN = 21
   /// Bitwise Logical AND of Packed Double-Precision Floating-Point Values.
-  | ANDNPD = 11
+  | ANDNPD = 22
   /// Bitwise Logical AND of Packed Single-Precision Floating-Point Values.
-  | ANDNPS = 12
+  | ANDNPS = 23
   /// Bitwise Logical AND NOT of Packed Double-Precision Floating-Point Values.
-  | ANDPD = 13
+  | ANDPD = 24
   /// Bitwise Logical AND NOT of Packed Single-Precision Floating-Point Values.
-  | ANDPS = 14
+  | ANDPS = 25
   /// Adjust RPL Field of Segment Selector.
-  | ARPL = 15
+  | ARPL = 26
+  /// Contiguous bitwise extract.
+  | BEXTR = 27
+  /// Blend Packed Double Precision Floating-Point Values.
+  | BLENDPD = 28
+  /// Blend Packed Single Precision Floating-Point Values.
+  | BLENDPS = 29
+  /// Variable Blend Packed Double Precision Floating-Point Values.
+  | BLENDVPD = 30
+  /// Variable Blend Packed Single Precision Floating-Point Values.
+  | BLENDVPS = 31
+  /// Extract lowest set bit.
+  | BLSI = 32
+  /// Set all lower bits below first set bit to 1.
+  | BLSMSK = 33
+  /// Reset lowest set bit.
+  | BLSR = 34
+  /// Check the address of a memory reference against a LowerBound.
+  | BNDCL = 35
+  /// Check Upper Bound.
+  | BNDCN = 36
+  /// Check Upper Bound.
+  | BNDCU = 37
+  /// Load Extended Bounds Using Address Translation.
+  | BNDLDX = 38
+  /// Create a LowerBound and a UpperBound in a register.
+  | BNDMK = 39
   /// Move Bounds.
-  | BNDMOV = 16
+  | BNDMOV = 40
+  /// Store bounds using address translation.
+  | BNDSTX = 41
   /// Check Array Index Against Bounds.
-  | BOUND = 17
+  | BOUND = 42
   /// Bit Scan Forward.
-  | BSF = 18
+  | BSF = 43
   /// Bit Scan Reverse.
-  | BSR = 19
+  | BSR = 44
   /// Byte Swap.
-  | BSWAP = 20
+  | BSWAP = 45
   /// Bit Test.
-  | BT = 21
+  | BT = 46
   /// Bit Test and Complement.
-  | BTC = 22
+  | BTC = 47
   /// Bit Test and Reset.
-  | BTR = 23
+  | BTR = 48
   /// Bit Test and Set.
-  | BTS = 24
+  | BTS = 49
+  /// Zero high bits starting from specified bit position.
+  | BZHI = 50
   /// Far call.
-  | CALLFar = 25
+  | CALLFar = 51
   /// Near call.
-  | CALLNear = 26
+  | CALLNear = 52
   /// Convert Byte to Word.
-  | CBW = 27
+  | CBW = 53
   /// Convert Doubleword to Quadword.
-  | CDQ = 28
+  | CDQ = 54
   /// Convert Doubleword to Quadword.
-  | CDQE = 29
+  | CDQE = 55
   /// Clear AC Flag in EFLAGS Register.
-  | CLAC = 30
+  | CLAC = 56
   /// Clear Carry Flag.
-  | CLC = 31
+  | CLC = 57
   /// Clear Direction Flag.
-  | CLD = 32
+  | CLD = 58
   /// Flush Cache Line.
-  | CLFLUSH = 33
+  | CLFLUSH = 59
+  /// Flush Cache Line Optimized.
+  | CLFLUSHOPT = 60
   /// Clear Interrupt Flag.
-  | CLI = 34
+  | CLI = 61
+  /// Clear busy bit in a supervisor shadow stack token.
+  | CLRSSBSY = 62
   /// Clear Task-Switched Flag in CR0.
-  | CLTS = 35
+  | CLTS = 63
   /// Complement Carry Flag.
-  | CMC = 36
+  | CMC = 64
   /// Conditional Move (Move if above (CF = 0 and ZF = 0)).
-  | CMOVA = 37
+  | CMOVA = 65
   /// Conditional Move (Move if above or equal (CF = 0)).
-  | CMOVAE = 38
+  | CMOVAE = 66
   /// Conditional Move (Move if below (CF = 1)).
-  | CMOVB = 39
+  | CMOVB = 67
   /// Conditional Move (Move if below or equal (CF = 1 or ZF = 1)).
-  | CMOVBE = 40
+  | CMOVBE = 68
+  /// Conditional move if carry.
+  | CMOVC = 69
   /// Conditional Move (Move if greater (ZF = 0 and SF = OF)).
-  | CMOVG = 41
+  | CMOVG = 70
   /// Conditional Move (Move if greater or equal (SF = OF)).
-  | CMOVGE = 42
+  | CMOVGE = 71
   /// Conditional Move (Move if less (SF <> OF)).
-  | CMOVL = 43
+  | CMOVL = 72
   /// Conditional Move (Move if less or equal (ZF = 1 or SF <> OF)).
-  | CMOVLE = 44
+  | CMOVLE = 73
+  /// Conditional move if not carry.
+  | CMOVNC = 74
   /// Conditional Move (Move if not overflow (OF = 0)).
-  | CMOVNO = 45
+  | CMOVNO = 75
   /// Conditional Move (Move if not parity (PF = 0)).
-  | CMOVNP = 46
+  | CMOVNP = 76
   /// Conditional Move (Move if not sign (SF = 0)).
-  | CMOVNS = 47
+  | CMOVNS = 77
   /// Conditional Move (Move if not zero (ZF = 0)).
-  | CMOVNZ = 48
+  | CMOVNZ = 78
   /// Conditional Move (Move if overflow (OF = 1)).
-  | CMOVO = 49
+  | CMOVO = 79
   /// Conditional Move (Move if parity (PF = 1)).
-  | CMOVP = 50
+  | CMOVP = 80
   /// Conditional Move (Move if sign (SF = 1)).
-  | CMOVS = 51
+  | CMOVS = 81
   /// Conditional Move (Move if zero (ZF = 1)).
-  | CMOVZ = 52
+  | CMOVZ = 82
   /// Compare Two Operands.
-  | CMP = 53
+  | CMP = 83
   /// Compare packed double-precision floating-point values.
-  | CMPPD = 54
+  | CMPPD = 84
   /// Compare packed single-precision floating-point values.
-  | CMPPS = 55
+  | CMPPS = 85
   /// Compare String Operands (byte).
-  | CMPSB = 56
+  | CMPSB = 86
   /// Compare String Operands (dword) or Compare scalar dbl-precision FP values.
-  | CMPSD = 57
+  | CMPSD = 87
   /// Compare String Operands (quadword).
-  | CMPSQ = 58
+  | CMPSQ = 88
   /// Compare scalar single-precision floating-point values.
-  | CMPSS = 59
+  | CMPSS = 89
   /// Compare String Operands (word).
-  | CMPSW = 60
+  | CMPSW = 90
   /// Compare and Exchange.
-  | CMPXCHG = 61
+  | CMPXCHG = 91
   /// Compare and Exchange Bytes.
-  | CMPXCHG16B = 62
+  | CMPXCHG16B = 92
   /// Compare and Exchange Bytes.
-  | CMPXCHG8B = 63
+  | CMPXCHG8B = 93
   /// Compare Scalar Ordered Double-Precision FP Values and Set EFLAGS.
-  | COMISD = 64
+  | COMISD = 94
   /// Compare Scalar Ordered Single-Precision FP Values and Set EFLAGS.
-  | COMISS = 65
+  | COMISS = 95
   /// CPU Identification.
-  | CPUID = 66
+  | CPUID = 96
   /// Convert Quadword to Octaword.
-  | CQO = 67
+  | CQO = 97
   /// Accumulate CRC32 Value.
-  | CRC32 = 68
+  | CRC32 = 98
   /// Convert Packed Dword Integers to Packed Double-Precision FP Values.
-  | CVTDQ2PD = 69
+  | CVTDQ2PD = 99
   /// Convert Packed Dword Integers to Packed Single-Precision FP Values.
-  | CVTDQ2PS = 70
+  | CVTDQ2PS = 100
   /// Convert Packed Double-Precision FP Values to Packed Dword Integers.
-  | CVTPD2DQ = 71
+  | CVTPD2DQ = 101
   /// Convert Packed Double-Precision FP Values to Packed Dword Integers.
-  | CVTPD2PI = 72
+  | CVTPD2PI = 102
   /// Convert Packed Double-Precision FP Values to Packed Single-Precision FP.
-  | CVTPD2PS = 73
+  | CVTPD2PS = 103
   /// Convert Packed Dword Integers to Packed Double-Precision FP Values.
-  | CVTPI2PD = 74
+  | CVTPI2PD = 104
   /// Convert Packed Dword Integers to Packed Single-Precision FP Values.
-  | CVTPI2PS = 75
+  | CVTPI2PS = 105
   /// Convert Packed Single-Precision FP Values to Packed Dword Integers.
-  | CVTPS2DQ = 76
+  | CVTPS2DQ = 106
   /// Convert Packed Single-Precision FP Values to Packed Double-Precision FP.
-  | CVTPS2PD = 77
+  | CVTPS2PD = 107
   /// Convert Packed Single-Precision FP Values to Packed Dword Integers.
-  | CVTPS2PI = 78
+  | CVTPS2PI = 108
   /// Convert Scalar Double-Precision FP Value to Integer.
-  | CVTSD2SI = 79
+  | CVTSD2SI = 109
   /// Convert Scalar Double-Precision FP Value to Scalar Single-Precision FP.
-  | CVTSD2SS = 80
+  | CVTSD2SS = 110
   /// Convert Dword Integer to Scalar Double-Precision FP Value.
-  | CVTSI2SD = 81
+  | CVTSI2SD = 111
   /// Convert Dword Integer to Scalar Single-Precision FP Value.
-  | CVTSI2SS = 82
+  | CVTSI2SS = 112
   /// Convert Scalar Single-Precision FP Value to Scalar Double-Precision FP.
-  | CVTSS2SD = 83
+  | CVTSS2SD = 113
   /// Convert Scalar Single-Precision FP Value to Dword Integer.
-  | CVTSS2SI = 84
+  | CVTSS2SI = 114
   /// Convert with Truncation Packed Double-Precision FP Values to Packed Dword.
-  | CVTTPD2DQ = 85
+  | CVTTPD2DQ = 115
   /// Convert with Truncation Packed Double-Precision FP Values to Packed Dword.
-  | CVTTPD2PI = 86
+  | CVTTPD2PI = 116
   /// Convert with Truncation Packed Single-Precision FP Values to Packed Dword.
-  | CVTTPS2DQ = 87
+  | CVTTPS2DQ = 117
   /// Convert with Truncation Packed Single-Precision FP Values to Packed Dword.
-  | CVTTPS2PI = 88
+  | CVTTPS2PI = 118
   /// Convert with Truncation Scalar Double-Precision FP Value to Signed.
-  | CVTTSD2SI = 89
+  | CVTTSD2SI = 119
   /// Convert with Truncation Scalar Single-Precision FP Value to Dword Integer.
-  | CVTTSS2SI = 90
+  | CVTTSS2SI = 120
   /// Convert Word to Doubleword.
-  | CWD = 91
+  | CWD = 121
   /// Convert Word to Doubleword.
-  | CWDE = 92
+  | CWDE = 122
   /// Decimal Adjust AL after Addition.
-  | DAA = 93
+  | DAA = 123
   /// Decimal Adjust AL after Subtraction.
-  | DAS = 94
+  | DAS = 124
   /// Decrement by 1.
-  | DEC = 95
+  | DEC = 125
   /// Unsigned Divide.
-  | DIV = 96
+  | DIV = 126
   /// Divide Packed Double-Precision Floating-Point Values.
-  | DIVPD = 97
+  | DIVPD = 127
   /// Divide Packed Single-Precision Floating-Point Values.
-  | DIVPS = 98
+  | DIVPS = 128
   /// Divide Scalar Double-Precision Floating-Point Values.
-  | DIVSD = 99
+  | DIVSD = 129
   /// Divide Scalar Single-Precision Floating-Point Values.
-  | DIVSS = 100
+  | DIVSS = 130
+  /// Perform double-precision dot product for up to 2 elements and broadcast.
+  | DPPD = 131
+  /// Perform single-precision dot products for up to 4 elements and broadcast.
+  | DPPS = 132
   /// Empty MMX Technology State.
-  | EMMS = 101
+  | EMMS = 133
+  /// Execute an Enclave System Function of Specified Leaf Number.
+  | ENCLS = 134
+  /// Execute an Enclave User Function of Specified Leaf Number.
+  | ENCLU = 135
+  /// Terminate an Indirect Branch in 32-bit and Compatibility Mode.
+  | ENDBR32 = 136
+  /// Terminate an Indirect Branch in 64-bit Mode.
+  | ENDBR64 = 137
   /// Make Stack Frame for Procedure Parameters.
-  | ENTER = 102
+  | ENTER = 138
+  /// Extract Packed Floating-Point Values.
+  | EXTRACTPS = 139
   /// Compute 2x-1.
-  | F2XM1 = 103
+  | F2XM1 = 140
   /// Absolute Value.
-  | FABS = 104
+  | FABS = 141
   /// Add.
-  | FADD = 105
+  | FADD = 142
   /// Add and pop the register stack.
-  | FADDP = 106
+  | FADDP = 143
   /// Load Binary Coded Decimal.
-  | FBLD = 107
+  | FBLD = 144
   /// Store BCD Integer and Pop.
-  | FBSTP = 108
+  | FBSTP = 145
   /// Change Sign.
-  | FCHS = 109
+  | FCHS = 146
   /// Clear Exceptions.
-  | FCLEX = 110
+  | FCLEX = 147
   /// Floating-Point Conditional Move (if below (CF = 1)).
-  | FCMOVB = 111
+  | FCMOVB = 148
   /// Floating-Point Conditional Move (if below or equal (CF = 1 or ZF = 1)).
-  | FCMOVBE = 112
+  | FCMOVBE = 149
   /// Floating-Point Conditional Move (if equal (ZF = 1)).
-  | FCMOVE = 113
+  | FCMOVE = 150
   /// Floating-Point Conditional Move (if not below (CF = 0)).
-  | FCMOVNB = 114
+  | FCMOVNB = 151
   /// FP Conditional Move (if not below or equal (CF = 0 and ZF = 0)).
-  | FCMOVNBE = 115
+  | FCMOVNBE = 152
   /// Floating-Point Conditional Move (if not equal (ZF = 0)).
-  | FCMOVNE = 116
+  | FCMOVNE = 153
   /// Floating-Point Conditional Move (if not unordered (PF = 0)).
-  | FCMOVNU = 117
+  | FCMOVNU = 154
   /// Floating-Point Conditional Move (if unordered (PF = 1)).
-  | FCMOVU = 118
+  | FCMOVU = 155
   /// Compare Floating Point Values.
-  | FCOM = 119
+  | FCOM = 156
   /// Compare Floating Point Values and Set EFLAGS.
-  | FCOMI = 120
+  | FCOMI = 157
   /// Compare Floating Point Values and Set EFLAGS.
-  | FCOMIP = 121
+  | FCOMIP = 158
   /// Compare Floating Point Values and pop register stack.
-  | FCOMP = 122
+  | FCOMP = 159
   /// Compare Floating Point Values and pop register stack twice.
-  | FCOMPP = 123
+  | FCOMPP = 160
   /// Cosine.
-  | FCOS = 124
+  | FCOS = 161
   /// Decrement Stack-Top Pointer.
-  | FDECSTP = 125
+  | FDECSTP = 162
   /// Divide.
-  | FDIV = 126
+  | FDIV = 163
   /// Divide and pop the register stack.
-  | FDIVP = 127
+  | FDIVP = 164
   /// Reverse Divide.
-  | FDIVR = 128
+  | FDIVR = 165
   /// Reverse Divide and pop the register stack.
-  | FDIVRP = 129
+  | FDIVRP = 166
   /// Free Floating-Point Register.
-  | FFREE = 130
+  | FFREE = 167
   /// Add.
-  | FIADD = 131
+  | FIADD = 168
   /// Compare Integer.
-  | FICOM = 132
+  | FICOM = 169
   /// Compare Integer and pop the register stack.
-  | FICOMP = 133
+  | FICOMP = 170
   /// Divide.
-  | FIDIV = 134
+  | FIDIV = 171
   /// Reverse Divide.
-  | FIDIVR = 135
+  | FIDIVR = 172
   /// Load Integer.
-  | FILD = 136
+  | FILD = 173
   /// Multiply.
-  | FIMUL = 137
+  | FIMUL = 174
   /// Increment Stack-Top Pointer.
-  | FINCSTP = 138
+  | FINCSTP = 175
   /// Initialize Floating-Point Unit.
-  | FINIT = 139
+  | FINIT = 176
   /// Store Integer.
-  | FIST = 140
+  | FIST = 177
   /// Store Integer and pop the register stack.
-  | FISTP = 141
+  | FISTP = 178
   /// Store Integer with Truncation.
-  | FISTTP = 142
+  | FISTTP = 179
   /// Subtract.
-  | FISUB = 143
+  | FISUB = 180
   /// Reverse Subtract.
-  | FISUBR = 144
+  | FISUBR = 181
   /// Load Floating Point Value.
-  | FLD = 145
+  | FLD = 182
   /// Load Constant (Push +1.0 onto the FPU register stack).
-  | FLD1 = 146
+  | FLD1 = 183
   /// Load x87 FPU Control Word.
-  | FLDCW = 147
+  | FLDCW = 184
   /// Load x87 FPU Environment.
-  | FLDENV = 148
+  | FLDENV = 185
   /// Load Constant (Push log2e onto the FPU register stack).
-  | FLDL2E = 149
+  | FLDL2E = 186
   /// Load Constant (Push log210 onto the FPU register stack).
-  | FLDL2T = 150
+  | FLDL2T = 187
   /// Load Constant (Push log102 onto the FPU register stack).
-  | FLDLG2 = 151
+  | FLDLG2 = 188
   /// Load Constant (Push loge2 onto the FPU register stack).
-  | FLDLN2 = 152
+  | FLDLN2 = 189
   /// Load Constant (Push Pi onto the FPU register stack).
-  | FLDPI = 153
+  | FLDPI = 190
   /// Load Constant (Push +0.0 onto the FPU register stack).
-  | FLDZ = 154
+  | FLDZ = 191
   /// Multiply.
-  | FMUL = 155
+  | FMUL = 192
   /// Multiply and pop the register stack.
-  | FMULP = 156
+  | FMULP = 193
+  /// Clear floating-point exception flags without checking for error conditions.
+  | FNCLEX = 194
+  /// Initialize FPU without checking error conditions.
+  | FNINIT = 195
   /// No Operation.
-  | FNOP = 157
+  | FNOP = 196
+  /// Save FPU state without checking error conditions.
+  | FNSAVE = 197
   /// Store x87 FPU Control Word.
-  | FNSTCW = 158
+  | FNSTCW = 198
+  /// Store FPU environment without checking error conditions.
+  | FNSTENV = 199
+  /// Store FPU status word without checking error conditions.
+  | FNSTSW = 200
   /// Partial Arctangent.
-  | FPATAN = 159
+  | FPATAN = 201
   /// Partial Remainder.
-  | FPREM = 160
+  | FPREM = 202
   /// Partial Remainder.
-  | FPREM1 = 161
+  | FPREM1 = 203
   /// Partial Tangent.
-  | FPTAN = 162
+  | FPTAN = 204
   /// Round to Integer.
-  | FRNDINT = 163
+  | FRNDINT = 205
   /// Restore x87 FPU State.
-  | FRSTOR = 164
+  | FRSTOR = 206
   /// Store x87 FPU State.
-  | FSAVE = 165
+  | FSAVE = 207
   /// Scale.
-  | FSCALE = 166
+  | FSCALE = 208
   /// Sine.
-  | FSIN = 167
+  | FSIN = 209
   /// Sine and Cosine.
-  | FSINCOS = 168
+  | FSINCOS = 210
   /// Square Root.
-  | FSQRT = 169
+  | FSQRT = 211
   /// Store Floating Point Value.
-  | FST = 170
+  | FST = 212
+  /// Store FPU control word after checking error conditions.
+  | FSTCW = 213
   /// Store x87 FPU Environment.
-  | FSTENV = 171
+  | FSTENV = 214
   /// Store Floating Point Value.
-  | FSTP = 172
+  | FSTP = 215
   /// Store x87 FPU Status Word.
-  | FSTSW = 173
+  | FSTSW = 216
   /// Subtract.
-  | FSUB = 174
+  | FSUB = 217
   /// Subtract and pop register stack.
-  | FSUBP = 175
+  | FSUBP = 218
   /// Reverse Subtract.
-  | FSUBR = 176
+  | FSUBR = 219
   /// Reverse Subtract and pop register stack.
-  | FSUBRP = 177
+  | FSUBRP = 220
   /// TEST.
-  | FTST = 178
+  | FTST = 221
   /// Unordered Compare Floating Point Values.
-  | FUCOM = 179
+  | FUCOM = 222
   /// Compare Floating Point Values and Set EFLAGS.
-  | FUCOMI = 180
+  | FUCOMI = 223
   /// Compare Floating Point Values and Set EFLAGS and pop register stack.
-  | FUCOMIP = 181
+  | FUCOMIP = 224
   /// Unordered Compare Floating Point Values.
-  | FUCOMP = 182
+  | FUCOMP = 225
   /// Unordered Compare Floating Point Values.
-  | FUCOMPP = 183
+  | FUCOMPP = 226
+  /// Wait for FPU.
+  | FWAIT = 227
   /// Examine ModR/M.
-  | FXAM = 184
+  | FXAM = 228
   /// Exchange Register Contents.
-  | FXCH = 185
+  | FXCH = 229
   /// Restore x87 FPU, MMX, XMM, and MXCSR State.
-  | FXRSTOR = 186
+  | FXRSTOR = 230
   /// Restore x87 FPU, MMX, XMM, and MXCSR State.
-  | FXRSTOR64 = 187
+  | FXRSTOR64 = 231
   /// Save x87 FPU, MMX Technology, and SSE State.
-  | FXSAVE = 188
+  | FXSAVE = 232
   /// Save x87 FPU, MMX Technology, and SSE State.
-  | FXSAVE64 = 189
+  | FXSAVE64 = 233
   /// Extract Exponent and Significand.
-  | FXTRACT = 190
+  | FXTRACT = 234
   /// compute y * log2x.
-  | FYL2X = 191
+  | FYL2X = 235
   /// compute y * log2(x+1).
-  | FYL2XP1 = 192
+  | FYL2XP1 = 236
   /// GETSEC.
-  | GETSEC = 193
+  | GETSEC = 237
+  /// Galois Field Affine Transformation Inverse.
+  | GF2P8AFFINEINVQB = 238
+  /// Galois Field Affine Transformation.
+  | GF2P8AFFINEQB = 239
+  /// Galois Field Multiply Bytes.
+  | GF2P8MULB = 240
+  /// Packed Double-FP Horizontal Add.
+  | HADDPD = 241
+  /// Packed Single-FP Horizontal Add.
+  | HADDPS = 242
   /// Halt.
-  | HLT = 194
+  | HLT = 243
+  /// Packed Double-FP Horizontal Subtract.
+  | HSUBPD = 244
+  /// Packed Single-FP Horizontal Subtract.
+  | HSUBPS = 245
   /// Signed Divide.
-  | IDIV = 195
+  | IDIV = 246
   /// Signed Multiply.
-  | IMUL = 196
+  | IMUL = 247
   /// Input from Port.
-  | IN = 197
+  | IN = 248
   /// Increment by 1.
-  | INC = 198
+  | INC = 249
+  /// Increment the shadow stack pointer (SSP).
+  | INCSSP = 250
   /// Input from Port to String.
-  | INS = 199
+  | INS = 251
   /// Input from Port to String (byte).
-  | INSB = 200
+  | INSB = 252
   /// Input from Port to String (doubleword).
-  | INSD = 201
+  | INSD = 253
+  /// Insert Scalar Single-Precision Floating-Point Value.
+  | INSERTPS = 254
   /// Input from Port to String (word).
-  | INSW = 202
+  | INSW = 255
   /// Call to Interrupt (Interrupt vector specified by immediate byte).
-  | INT = 203
+  | INT = 256
   /// Call to Interrupt (Interrupt 3?trap to debugger).
-  | INT3 = 204
+  | INT3 = 257
   /// Call to Interrupt (InteInterrupt 4?if overflow flag is 1).
-  | INTO = 205
+  | INTO = 258
   /// Invalidate Internal Caches.
-  | INVD = 206
+  | INVD = 259
+  /// Invalidate Translations Derived from EPT.
+  | INVEPT = 260
   /// Invalidate TLB Entries.
-  | INVLPG = 207
+  | INVLPG = 261
+  /// Invalidate Process-Context Identifier.
+  | INVPCID = 262
+  /// Invalidate Translations Based on VPID.
+  | INVVPID = 263
+  /// Return from interrupt.
+  | IRET = 264
   /// Interrupt return (32-bit operand size).
-  | IRETD = 208
+  | IRETD = 265
   /// Interrupt return (64-bit operand size).
-  | IRETQ = 209
+  | IRETQ = 266
   /// Interrupt return (16-bit operand size).
-  | IRETW = 210
+  | IRETW = 267
   /// Jump if Condition Is Met (Jump short if above, CF = 0 and ZF = 0).
-  | JA = 211
+  | JA = 268
   /// Jump if Condition Is Met (Jump short if below, CF = 1).
-  | JB = 212
+  | JB = 269
   /// Jump if Condition Is Met (Jump short if below or equal, CF = 1 or ZF).
-  | JBE = 213
+  | JBE = 270
+  /// Jump if carry.
+  | JC = 271
   /// Jump if Condition Is Met (Jump short if CX register is 0).
-  | JCXZ = 214
+  | JCXZ = 272
   /// Jump if Condition Is Met (Jump short if ECX register is 0).
-  | JECXZ = 215
+  | JECXZ = 273
   /// Jump if Condition Is Met (Jump short if greater, ZF = 0 and SF = OF).
-  | JG = 216
+  | JG = 274
   /// Jump if Condition Is Met (Jump short if less, SF <> OF).
-  | JL = 217
+  | JL = 275
   /// Jump if Cond Is Met (Jump short if less or equal, ZF = 1 or SF <> OF).
-  | JLE = 218
+  | JLE = 276
   /// Far jmp.
-  | JMPFar = 219
+  | JMPFar = 277
   /// Near jmp.
-  | JMPNear = 220
+  | JMPNear = 278
   /// Jump if Condition Is Met (Jump near if not below, CF = 0).
-  | JNB = 221
+  | JNB = 279
+  /// Jump if not carry.
+  | JNC = 280
   /// Jump if Condition Is Met (Jump near if not less, SF = OF).
-  | JNL = 222
+  | JNL = 281
   /// Jump if Condition Is Met (Jump near if not overflow, OF = 0).
-  | JNO = 223
+  | JNO = 282
   /// Jump if Condition Is Met (Jump near if not parity, PF = 0).
-  | JNP = 224
+  | JNP = 283
   /// Jump if Condition Is Met (Jump near if not sign, SF = 0).
-  | JNS = 225
+  | JNS = 284
   /// Jump if Condition Is Met (Jump near if not zero, ZF = 0).
-  | JNZ = 226
+  | JNZ = 285
   /// Jump if Condition Is Met (Jump near if overflow, OF = 1).
-  | JO = 227
+  | JO = 286
   /// Jump if Condition Is Met (Jump near if parity, PF = 1).
-  | JP = 228
+  | JP = 287
   /// Jump if Condition Is Met (Jump short if RCX register is 0).
-  | JRCXZ = 229
+  | JRCXZ = 288
   /// Jump if Condition Is Met (Jump short if sign, SF = 1).
-  | JS = 230
+  | JS = 289
   /// Jump if Condition Is Met (Jump short if zero, ZF = 1).
-  | JZ = 231
+  | JZ = 290
+  /// Add two 8-bit opmasks.
+  | KADDB = 291
+  /// Add two 32-bit opmasks.
+  | KADDD = 292
+  /// Add two 64-bit opmasks.
+  | KADDQ = 293
+  /// Add two 16-bit opmasks.
+  | KADDW = 294
+  /// Logical AND two 8-bit opmasks.
+  | KANDB = 295
+  /// Logical AND two 32-bit opmasks.
+  | KANDD = 296
+  /// Logical AND NOT two 8-bit opmasks.
+  | KANDNB = 297
+  /// Logical AND NOT two 32-bit opmasks.
+  | KANDND = 298
+  /// Logical AND NOT two 64-bit opmasks.
+  | KANDNQ = 299
+  /// Logical AND NOT two 16-bit opmasks.
+  | KANDNW = 300
+  /// Logical AND two 64-bit opmasks.
+  | KANDQ = 301
+  /// Logical AND two 16-bit opmasks.
+  | KANDW = 302
+  /// Move from or move to opmask register of 8-bit data.
+  | KMOVB = 303
+  /// Move from or move to opmask register of 32-bit data.
+  | KMOVD = 304
+  /// Move from or move to opmask register of 64-bit data.
+  | KMOVQ = 305
+  /// Move from or move to opmask register of 16-bit data.
+  | KMOVW = 306
+  /// Bitwise NOT of two 8-bit opmasks.
+  | KNOTB = 307
+  /// Bitwise NOT of two 32-bit opmasks.
+  | KNOTD = 308
+  /// Bitwise NOT of two 64-bit opmasks.
+  | KNOTQ = 309
+  /// Bitwise NOT of two 16-bit opmasks.
+  | KNOTW = 310
+  /// Logical OR two 8-bit opmasks.
+  | KORB = 311
+  /// Logical OR two 32-bit opmasks.
+  | KORD = 312
+  /// Logical OR two 64-bit opmasks.
+  | KORQ = 313
+  /// Update EFLAGS according to the result of bitwise OR of two 8-bit opmasks.
+  | KORTESTB = 314
+  /// Update EFLAGS according to the result of bitwise OR of two 32-bit opmasks.
+  | KORTESTD = 315
+  /// Update EFLAGS according to the result of bitwise OR of two 64-bit opmasks.
+  | KORTESTQ = 316
+  /// Update EFLAGS according to the result of bitwise OR of two 16-bit opmasks.
+  | KORTESTW = 317
+  /// Logical OR two 16-bit opmasks.
+  | KORW = 318
+  /// Shift left 8-bitopmask by specified count.
+  | KSHIFTLB = 319
+  /// Shift left 32-bitopmask by specified count.
+  | KSHIFTLD = 320
+  /// Shift left 64-bitopmask by specified count.
+  | KSHIFTLQ = 321
+  /// Shift left 16-bitopmask by specified count.
+  | KSHIFTLW = 322
+  /// Shift right 8-bit opmask by specified count.
+  | KSHIFTRB = 323
+  /// Shift right 32-bit opmask by specified count.
+  | KSHIFTRD = 324
+  /// Shift right 64-bit opmask by specified count.
+  | KSHIFTRQ = 325
+  /// Shift right 16-bit opmask by specified count.
+  | KSHIFTRW = 326
+  /// Update EFLAGS according to result of bitwise TEST of two 8-bit opmasks.
+  | KTESTB = 327
+  /// Update EFLAGS according to result of bitwise TEST of two 32-bit opmasks.
+  | KTESTD = 328
+  /// Update EFLAGS according to result of bitwise TEST of two 64-bit opmasks.
+  | KTESTQ = 329
+  /// Update EFLAGS according to result of bitwise TEST of two 16-bit opmasks.
+  | KTESTW = 330
+  /// Unpack and interleave two 8-bit opmasks into 16-bit mask.
+  | KUNPCKBW = 331
+  /// Unpack and interleave two 32-bit opmasks into 64-bit mask.
+  | KUNPCKDQ = 332
+  /// Unpack and interleave two 16-bit opmasks into 32-bit mask.
+  | KUNPCKWD = 333
+  /// Bitwise logical XNOR of two 8-bit opmasks.
+  | KXNORB = 334
+  /// Bitwise logical XNOR of two 32-bit opmasks.
+  | KXNORD = 335
+  /// Bitwise logical XNOR of two 64-bit opmasks.
+  | KXNORQ = 336
+  /// Bitwise logical XNOR of two 16-bit opmasks.
+  | KXNORW = 337
+  /// Logical XOR of two 8-bit opmasks.
+  | KXORB = 338
+  /// Logical XOR of two 32-bit opmasks.
+  | KXORD = 339
+  /// Logical XOR of two 64-bit opmasks.
+  | KXORQ = 340
+  /// Logical XOR of two 16-bit opmasks.
+  | KXORW = 341
   /// Load Status Flags into AH Register.
-  | LAHF = 232
+  | LAHF = 342
   /// Load Access Rights Byte.
-  | LAR = 233
+  | LAR = 343
   /// Load Unaligned Integer 128 Bits.
-  | LDDQU = 234
+  | LDDQU = 344
   /// Load MXCSR Register.
-  | LDMXCSR = 235
+  | LDMXCSR = 345
   /// Load Far Pointer (DS).
-  | LDS = 236
+  | LDS = 346
   /// Load Effective Address.
-  | LEA = 237
+  | LEA = 347
   /// High Level Procedure Exit.
-  | LEAVE = 238
+  | LEAVE = 348
   /// Load Far Pointer (ES).
-  | LES = 239
+  | LES = 349
   /// Load Fence.
-  | LFENCE = 240
+  | LFENCE = 350
   /// Load Far Pointer (FS).
-  | LFS = 241
+  | LFS = 351
   /// Load GlobalDescriptor Table Register.
-  | LGDT = 242
+  | LGDT = 352
   /// Load Far Pointer (GS).
-  | LGS = 243
+  | LGS = 353
   /// Load Interrupt Descriptor Table Register.
-  | LIDT = 244
+  | LIDT = 354
   /// Load Local Descriptor Table Register.
-  | LLDT = 245
+  | LLDT = 355
   /// Load Machine Status Word.
-  | LMSW = 246
+  | LMSW = 356
+  /// Assert LOCK# Signal Prefix.
+  | LOCK = 357
   /// Load String (byte).
-  | LODSB = 247
+  | LODSB = 358
   /// Load String (doubleword).
-  | LODSD = 248
+  | LODSD = 359
   /// Load String (quadword).
-  | LODSQ = 249
+  | LODSQ = 360
   /// Load String (word).
-  | LODSW = 250
+  | LODSW = 361
   /// Loop According to ECX Counter (count <> 0).
-  | LOOP = 251
+  | LOOP = 362
   /// Loop According to ECX Counter (count <> 0 and ZF = 1).
-  | LOOPE = 252
+  | LOOPE = 363
   /// Loop According to ECX Counter (count <> 0 and ZF = 0).
-  | LOOPNE = 253
+  | LOOPNE = 364
   /// Load Segment Limit.
-  | LSL = 254
+  | LSL = 365
   /// Load Far Pointer (SS).
-  | LSS = 255
+  | LSS = 366
   /// Load Task Register.
-  | LTR = 256
+  | LTR = 367
   /// the Number of Leading Zero Bits.
-  | LZCNT = 257
+  | LZCNT = 368
+  /// Store Selected Bytes of Double Quadword.
+  | MASKMOVDQU = 369
+  /// Store Selected Bytes of Quadword.
+  | MASKMOVQ = 370
   /// Return Maximum Packed Double-Precision Floating-Point Values.
-  | MAXPD = 258
+  | MAXPD = 371
   /// Return Maximum Packed Single-Precision Floating-Point Values.
-  | MAXPS = 259
+  | MAXPS = 372
   /// Return Maximum Scalar Double-Precision Floating-Point Values.
-  | MAXSD = 260
+  | MAXSD = 373
   /// Return Maximum Scalar Single-Precision Floating-Point Values.
-  | MAXSS = 261
+  | MAXSS = 374
   /// Memory Fence.
-  | MFENCE = 262
+  | MFENCE = 375
   /// Return Minimum Packed Double-Precision Floating-Point Values.
-  | MINPD = 263
+  | MINPD = 376
   /// Return Minimum Packed Single-Precision Floating-Point Values.
-  | MINPS = 264
+  | MINPS = 377
   /// Return Minimum Scalar Double-Precision Floating-Point Values.
-  | MINSD = 265
+  | MINSD = 378
   /// Return Minimum Scalar Single-Precision Floating-Point Values.
-  | MINSS = 266
+  | MINSS = 379
   /// Set Up Monitor Address.
-  | MONITOR = 267
+  | MONITOR = 380
   /// MOV.
-  | MOV = 268
+  | MOV = 381
   /// Move Aligned Packed Double-Precision Floating-Point Values.
-  | MOVAPD = 269
+  | MOVAPD = 382
   /// Move Aligned Packed Single-Precision Floating-Point Values.
-  | MOVAPS = 270
+  | MOVAPS = 383
   /// Move Data After Swapping Bytes.
-  | MOVBE = 271
+  | MOVBE = 384
   /// Move Doubleword.
-  | MOVD = 272
+  | MOVD = 385
   /// Move One Double-FP and Duplicate.
-  | MOVDDUP = 273
+  | MOVDDUP = 386
   /// Move Quadword from XMM to MMX Technology Register.
-  | MOVDQ2Q = 274
+  | MOVDQ2Q = 387
   /// Move Aligned Double Quadword.
-  | MOVDQA = 275
+  | MOVDQA = 388
   /// Move Unaligned Double Quadword.
-  | MOVDQU = 276
+  | MOVDQU = 389
   /// Move Packed Single-Precision Floating-Point Values High to Low.
-  | MOVHLPS = 277
+  | MOVHLPS = 390
   /// Move High Packed Double-Precision Floating-Point Value.
-  | MOVHPD = 278
+  | MOVHPD = 391
   /// Move High Packed Single-Precision Floating-Point Values.
-  | MOVHPS = 279
+  | MOVHPS = 392
   /// Move Packed Single-Precision Floating-Point Values Low to High.
-  | MOVLHPS = 280
+  | MOVLHPS = 393
   /// Move Low Packed Double-Precision Floating-Point Value.
-  | MOVLPD = 281
+  | MOVLPD = 394
   /// Move Low Packed Single-Precision Floating-Point Values.
-  | MOVLPS = 282
+  | MOVLPS = 395
   /// Extract Packed Double-Precision Floating-Point Sign Mask.
-  | MOVMSKPD = 283
+  | MOVMSKPD = 396
   /// Extract Packed Single-Precision Floating-Point Sign Mask.
-  | MOVMSKPS = 284
+  | MOVMSKPS = 397
   /// Load Double Quadword Non-Temporal Aligned Hint.
-  | MOVNTDQ = 285
+  | MOVNTDQ = 398
+  /// Load Double Quadword Non-Temporal Aligned Hint.
+  | MOVNTDQA = 399
   /// Store Doubleword Using Non-Temporal Hint.
-  | MOVNTI = 286
+  | MOVNTI = 400
   /// Store Packed Double-Precision FP Values Using Non-Temporal Hint.
-  | MOVNTPD = 287
+  | MOVNTPD = 401
   /// Store Packed Single-Precision FP Values Using Non-Temporal Hint.
-  | MOVNTPS = 288
+  | MOVNTPS = 402
   /// Store of Quadword Using Non-Temporal Hint.
-  | MOVNTQ = 289
+  | MOVNTQ = 403
   /// Move Quadword.
-  | MOVQ = 290
+  | MOVQ = 404
   /// Move Quadword from MMX Technology to XMM Register.
-  | MOVQ2DQ = 291
+  | MOVQ2DQ = 405
   /// Move Data from String to String (byte).
-  | MOVSB = 292
+  | MOVSB = 406
   /// Move Data from String to String (doubleword).
-  | MOVSD = 293
+  | MOVSD = 407
   /// Move Packed Single-FP High and Duplicate.
-  | MOVSHDUP = 294
+  | MOVSHDUP = 408
   /// Move Packed Single-FP Low and Duplicate.
-  | MOVSLDUP = 295
+  | MOVSLDUP = 409
   /// Move Data from String to String (quadword).
-  | MOVSQ = 296
+  | MOVSQ = 410
   /// Move Scalar Single-Precision Floating-Point Values.
-  | MOVSS = 297
+  | MOVSS = 411
   /// Move Data from String to String (word).
-  | MOVSW = 298
+  | MOVSW = 412
   /// Move with Sign-Extension.
-  | MOVSX = 299
+  | MOVSX = 413
   /// Move with Sign-Extension (doubleword to quadword).
-  | MOVSXD = 300
+  | MOVSXD = 414
   /// Move Unaligned Packed Double-Precision Floating-Point Values.
-  | MOVUPD = 301
+  | MOVUPD = 415
   /// Move Unaligned Packed Single-Precision Floating-Point Values.
-  | MOVUPS = 302
+  | MOVUPS = 416
   /// Move with Zero-Extend.
-  | MOVZX = 303
+  | MOVZX = 417
+  /// Compute Multiple Packed Sums of Absolute Difference.
+  | MPSADBW = 418
   /// Unsigned Multiply.
-  | MUL = 304
+  | MUL = 419
   /// Multiply Packed Double-Precision Floating-Point Values.
-  | MULPD = 305
+  | MULPD = 420
   /// Multiply Packed Single-Precision Floating-Point Values.
-  | MULPS = 306
+  | MULPS = 421
   /// Multiply Scalar Double-Precision Floating-Point Values.
-  | MULSD = 307
+  | MULSD = 422
   /// Multiply Scalar Single-Precision Floating-Point Values.
-  | MULSS = 308
+  | MULSS = 423
   /// Unsigned multiply without affecting arithmetic flags.
-  | MULX = 309
+  | MULX = 424
   /// Monitor Wait.
-  | MWAIT = 310
+  | MWAIT = 425
   /// Two's Complement Negation.
-  | NEG = 311
+  | NEG = 426
   /// No Operation.
-  | NOP = 312
+  | NOP = 427
   /// One's Complement Negation.
-  | NOT = 313
+  | NOT = 428
   /// Logical Inclusive OR.
-  | OR = 314
+  | OR = 429
   /// Bitwise Logical OR of Double-Precision Floating-Point Values.
-  | ORPD = 315
+  | ORPD = 430
   /// Bitwise Logical OR of Single-Precision Floating-Point Values.
-  | ORPS = 316
+  | ORPS = 431
   /// Output to Port.
-  | OUT = 317
+  | OUT = 432
   /// Output String to Port.
-  | OUTS = 318
+  | OUTS = 433
   /// Output String to Port (byte).
-  | OUTSB = 319
+  | OUTSB = 434
   /// Output String to Port (doubleword).
-  | OUTSD = 320
+  | OUTSD = 435
   /// Output String to Port (word).
-  | OUTSW = 321
+  | OUTSW = 436
   /// Computes the absolute value of each signed byte data element.
-  | PABSB = 322
+  | PABSB = 437
   /// Computes the absolute value of each signed 32-bit data element.
-  | PABSD = 323
+  | PABSD = 438
   /// Computes the absolute value of each signed 16-bit data element.
-  | PABSW = 324
+  | PABSW = 439
   /// Pack with Signed Saturation.
-  | PACKSSDW = 325
+  | PACKSSDW = 440
   /// Pack with Signed Saturation.
-  | PACKSSWB = 326
+  | PACKSSWB = 441
   /// Pack with Unsigned Saturation.
-  | PACKUSDW = 327
+  | PACKUSDW = 442
   /// Pack with Unsigned Saturation.
-  | PACKUSWB = 328
+  | PACKUSWB = 443
   /// Add Packed byte Integers.
-  | PADDB = 329
+  | PADDB = 444
   /// Add Packed Doubleword Integers.
-  | PADDD = 330
+  | PADDD = 445
   /// Add Packed Quadword Integers.
-  | PADDQ = 331
+  | PADDQ = 446
   /// Add Packed Signed Integers with Signed Saturation (byte).
-  | PADDSB = 332
+  | PADDSB = 447
   /// Add Packed Signed Integers with Signed Saturation (word).
-  | PADDSW = 333
+  | PADDSW = 448
   /// Add Packed Unsigned Integers with Unsigned Saturation (byte).
-  | PADDUSB = 334
+  | PADDUSB = 449
   /// Add Packed Unsigned Integers with Unsigned Saturation (word).
-  | PADDUSW = 335
+  | PADDUSW = 450
   /// Add Packed word Integers.
-  | PADDW = 336
+  | PADDW = 451
   /// Packed Align Right.
-  | PALIGNR = 337
+  | PALIGNR = 452
   /// Logical AND.
-  | PAND = 338
+  | PAND = 453
   /// Logical AND NOT.
-  | PANDN = 339
+  | PANDN = 454
   /// Spin Loop Hint.
-  | PAUSE = 340
+  | PAUSE = 455
   /// Average Packed Integers (byte).
-  | PAVGB = 341
+  | PAVGB = 456
   /// Average Packed Integers (word).
-  | PAVGW = 342
+  | PAVGW = 457
+  /// Variable Blend Packed Bytes.
+  | PBLENDVB = 458
+  /// Blend Packed Words.
+  | PBLENDW = 459
+  /// Perform carryless multiplication of two 64-bit numbers.
+  | PCLMULQDQ = 460
   /// Compare Packed Data for Equal (byte).
-  | PCMPEQB = 343
+  | PCMPEQB = 461
   /// Compare Packed Data for Equal (doubleword).
-  | PCMPEQD = 344
+  | PCMPEQD = 462
   /// Compare Packed Data for Equal (quadword).
-  | PCMPEQQ = 345
+  | PCMPEQQ = 463
   /// Compare packed words for equal.
-  | PCMPEQW = 346
+  | PCMPEQW = 464
   /// Packed Compare Explicit Length Strings, Return Index.
-  | PCMPESTRI = 347
+  | PCMPESTRI = 465
   /// Packed Compare Explicit Length Strings, Return Mask.
-  | PCMPESTRM = 348
+  | PCMPESTRM = 466
   /// Compare Packed Signed Integers for Greater Than (byte).
-  | PCMPGTB = 349
+  | PCMPGTB = 467
   /// Compare Packed Signed Integers for Greater Than (doubleword).
-  | PCMPGTD = 350
+  | PCMPGTD = 468
   /// Performs logical compare of greater-than on packed integer quadwords.
-  | PCMPGTQ = 351
+  | PCMPGTQ = 469
   /// Compare Packed Signed Integers for Greater Than (word).
-  | PCMPGTW = 352
+  | PCMPGTW = 470
   /// Packed Compare Implicit Length Strings, Return Index.
-  | PCMPISTRI = 353
+  | PCMPISTRI = 471
   /// Packed Compare Implicit Length Strings, Return Mask.
-  | PCMPISTRM = 354
+  | PCMPISTRM = 472
+  /// Parallel deposit of bits using a mask.
+  | PDEP = 473
+  /// Parallel extraction of bits using a mask.
+  | PEXT = 474
+  /// Extract Byte.
+  | PEXTRB = 475
+  /// Extract Dword.
+  | PEXTRD = 476
+  /// Extract Qword.
+  | PEXTRQ = 477
   /// Extract Word.
-  | PEXTRW = 355
+  | PEXTRW = 478
   /// Packed Horizontal Add.
-  | PHADDD = 356
+  | PHADDD = 479
   /// Packed Horizontal Add and Saturate.
-  | PHADDSW = 357
+  | PHADDSW = 480
   /// Packed Horizontal Add.
-  | PHADDW = 358
+  | PHADDW = 481
   /// Packed Horizontal Word Minimum.
-  | PHMINPOSUW = 359
+  | PHMINPOSUW = 482
   /// Packed Horizontal Subtract.
-  | PHSUBD = 360
+  | PHSUBD = 483
   /// Packed Horizontal Subtract and Saturate.
-  | PHSUBSW = 361
+  | PHSUBSW = 484
   /// Packed Horizontal Subtract.
-  | PHSUBW = 362
+  | PHSUBW = 485
   /// Insert Byte.
-  | PINSRB = 363
+  | PINSRB = 486
+  /// Insert a dword value from 32-bit register or memory into an XMM register.
+  | PINSRD = 487
+  /// Insert a qword value from 64-bit register or memory into an XMM register.
+  | PINSRQ = 488
   /// Insert Word.
-  | PINSRW = 364
+  | PINSRW = 489
+  /// Multiply and Add Packed Signed and Unsigned Bytes.
+  | PMADDUBSW = 490
   /// Multiply and Add Packed Integers.
-  | PMADDWD = 365
+  | PMADDWD = 491
   /// Compare packed signed byte integers.
-  | PMAXSB = 366
+  | PMAXSB = 492
   /// Compare packed signed dword integers.
-  | PMAXSD = 367
+  | PMAXSD = 493
   /// Maximum of Packed Signed Word Integers.
-  | PMAXSW = 368
+  | PMAXSW = 494
   /// Maximum of Packed Unsigned Byte Integers.
-  | PMAXUB = 369
+  | PMAXUB = 495
   /// Compare packed unsigned dword integers.
-  | PMAXUD = 370
+  | PMAXUD = 496
   /// Compare packed unsigned word integers.
-  | PMAXUW = 371
+  | PMAXUW = 497
   /// Minimum of Packed Signed Byte Integers.
-  | PMINSB = 372
+  | PMINSB = 498
   /// Compare packed signed dword integers.
-  | PMINSD = 373
+  | PMINSD = 499
   /// Minimum of Packed Signed Word Integers.
-  | PMINSW = 374
+  | PMINSW = 500
   /// Minimum of Packed Unsigned Byte Integers.
-  | PMINUB = 375
+  | PMINUB = 501
   /// Minimum of Packed Dword Integers.
-  | PMINUD = 376
+  | PMINUD = 502
   /// Compare packed unsigned word integers.
-  | PMINUW = 377
+  | PMINUW = 503
   /// Move Byte Mask.
-  | PMOVMSKB = 378
+  | PMOVMSKB = 504
   /// Packed Move with Sign Extend.
-  | PMOVSXBD = 379
+  | PMOVSXBD = 505
   /// Packed Move with Sign Extend.
-  | PMOVSXBQ = 380
+  | PMOVSXBQ = 506
   /// Packed Move with Sign Extend.
-  | PMOVSXBW = 381
+  | PMOVSXBW = 507
   /// Packed Move with Sign Extend.
-  | PMOVSXDQ = 382
+  | PMOVSXDQ = 508
   /// Packed Move with Sign Extend.
-  | PMOVSXWD = 383
+  | PMOVSXWD = 509
   /// Packed Move with Sign Extend.
-  | PMOVSXWQ = 384
+  | PMOVSXWQ = 510
   /// Packed Move with Zero Extend.
-  | PMOVZXBD = 385
+  | PMOVZXBD = 511
   /// Packed Move with Zero Extend.
-  | PMOVZXBQ = 386
+  | PMOVZXBQ = 512
   /// Packed Move with Zero Extend.
-  | PMOVZXBW = 387
+  | PMOVZXBW = 513
   /// Packed Move with Zero Extend.
-  | PMOVZXDQ = 388
+  | PMOVZXDQ = 514
   /// Packed Move with Zero Extend.
-  | PMOVZXWD = 389
+  | PMOVZXWD = 515
   /// Packed Move with Zero Extend.
-  | PMOVZXWQ = 390
+  | PMOVZXWQ = 516
   /// Multiply Packed Doubleword Integers.
-  | PMULDQ = 391
+  | PMULDQ = 517
   /// Packed Multiply High with Round and Scale.
-  | PMULHRSW = 392
+  | PMULHRSW = 518
   /// Multiply Packed Unsigned Integers and Store High Result.
-  | PMULHUW = 393
+  | PMULHUW = 519
   /// Multiply Packed Signed Integers and Store High Result.
-  | PMULHW = 394
+  | PMULHW = 520
   /// Multiply Packed Integers and Store Low Result.
-  | PMULLD = 395
+  | PMULLD = 521
   /// Multiply Packed Signed Integers and Store Low Result.
-  | PMULLW = 396
+  | PMULLW = 522
   /// Multiply Packed Unsigned Doubleword Integers.
-  | PMULUDQ = 397
+  | PMULUDQ = 523
   /// Pop a Value from the Stack.
-  | POP = 398
+  | POP = 524
   /// Pop All General-Purpose Registers (word).
-  | POPA = 399
+  | POPA = 525
   /// Pop All General-Purpose Registers (doubleword).
-  | POPAD = 400
+  | POPAD = 526
   /// Return the Count of Number of Bits Set to 1.
-  | POPCNT = 401
+  | POPCNT = 527
   /// Pop Stack into EFLAGS Register (lower 16bits EFLAGS).
-  | POPF = 402
+  | POPF = 528
   /// Pop Stack into EFLAGS Register (EFLAGS).
-  | POPFD = 403
+  | POPFD = 529
   /// Pop Stack into EFLAGS Register (RFLAGS).
-  | POPFQ = 404
+  | POPFQ = 530
   /// Bitwise Logical OR.
-  | POR = 405
+  | POR = 531
   /// Prefetch Data Into Caches (using NTA hint).
-  | PREFETCHNTA = 406
+  | PREFETCHNTA = 532
   /// Prefetch Data Into Caches (using T0 hint).
-  | PREFETCHT0 = 407
+  | PREFETCHT0 = 533
   /// Prefetch Data Into Caches (using T1 hint).
-  | PREFETCHT1 = 408
+  | PREFETCHT1 = 534
   /// Prefetch Data Into Caches (using T2 hint).
-  | PREFETCHT2 = 409
+  | PREFETCHT2 = 535
   /// Prefetch Data into Caches in Anticipation of a Write.
-  | PREFETCHW = 410
+  | PREFETCHW = 536
   /// Prefetch Vector Data Into Caches with Intent to Write and T1 Hint.
-  | PREFETCHWT1 = 411
+  | PREFETCHWT1 = 537
   /// Compute Sum of Absolute Differences.
-  | PSADBW = 412
+  | PSADBW = 538
   /// Packed Shuffle Bytes.
-  | PSHUFB = 413
+  | PSHUFB = 539
   /// Shuffle Packed Doublewords.
-  | PSHUFD = 414
+  | PSHUFD = 540
   /// Shuffle Packed High Words.
-  | PSHUFHW = 415
+  | PSHUFHW = 541
   /// Shuffle Packed Low Words.
-  | PSHUFLW = 416
+  | PSHUFLW = 542
   /// Shuffle Packed Words.
-  | PSHUFW = 417
+  | PSHUFW = 543
   /// Packed Sign Byte.
-  | PSIGNB = 418
+  | PSIGNB = 544
   /// Packed Sign Doubleword.
-  | PSIGND = 419
+  | PSIGND = 545
   /// Packed Sign Word.
-  | PSIGNW = 420
+  | PSIGNW = 546
   /// Shift Packed Data Left Logical (doubleword).
-  | PSLLD = 421
+  | PSLLD = 547
   /// Shift Double Quadword Left Logical.
-  | PSLLDQ = 422
+  | PSLLDQ = 548
   /// Shift Packed Data Left Logical (quadword).
-  | PSLLQ = 423
+  | PSLLQ = 549
   /// Shift Packed Data Left Logical (word).
-  | PSLLW = 424
+  | PSLLW = 550
   /// Shift Packed Data Right Arithmetic (doubleword).
-  | PSRAD = 425
+  | PSRAD = 551
   /// Shift Packed Data Right Arithmetic (word).
-  | PSRAW = 426
+  | PSRAW = 552
   /// Shift Packed Data Right Logical (doubleword).
-  | PSRLD = 427
+  | PSRLD = 553
   /// Shift Double Quadword Right Logical.
-  | PSRLDQ = 428
+  | PSRLDQ = 554
   /// Shift Packed Data Right Logical (quadword).
-  | PSRLQ = 429
+  | PSRLQ = 555
   /// Shift Packed Data Right Logical (word).
-  | PSRLW = 430
+  | PSRLW = 556
   /// Subtract Packed Integers (byte).
-  | PSUBB = 431
+  | PSUBB = 557
   /// Subtract Packed Integers (doubleword).
-  | PSUBD = 432
+  | PSUBD = 558
   /// Subtract Packed Integers (quadword).
-  | PSUBQ = 433
+  | PSUBQ = 559
   /// Subtract Packed Signed Integers with Signed Saturation (byte).
-  | PSUBSB = 434
+  | PSUBSB = 560
   /// Subtract Packed Signed Integers with Signed Saturation (word).
-  | PSUBSW = 435
+  | PSUBSW = 561
   /// Subtract Packed Unsigned Integers with Unsigned Saturation (byte).
-  | PSUBUSB = 436
+  | PSUBUSB = 562
   /// Subtract Packed Unsigned Integers with Unsigned Saturation (word).
-  | PSUBUSW = 437
+  | PSUBUSW = 563
   /// Subtract Packed Integers (word).
-  | PSUBW = 438
+  | PSUBW = 564
   /// Logical Compare.
-  | PTEST = 439
+  | PTEST = 565
   /// Unpack High Data.
-  | PUNPCKHBW = 440
+  | PUNPCKHBW = 566
   /// Unpack High Data.
-  | PUNPCKHDQ = 441
+  | PUNPCKHDQ = 567
   /// Unpack High Data.
-  | PUNPCKHQDQ = 442
+  | PUNPCKHQDQ = 568
   /// Unpack High Data.
-  | PUNPCKHWD = 443
+  | PUNPCKHWD = 569
   /// Unpack Low Data.
-  | PUNPCKLBW = 444
+  | PUNPCKLBW = 570
   /// Unpack Low Data.
-  | PUNPCKLDQ = 445
+  | PUNPCKLDQ = 571
   /// Unpack Low Data.
-  | PUNPCKLQDQ = 446
+  | PUNPCKLQDQ = 572
   /// Unpack Low Data.
-  | PUNPCKLWD = 447
+  | PUNPCKLWD = 573
   /// Push Word, Doubleword or Quadword Onto the Stack.
-  | PUSH = 448
+  | PUSH = 574
   /// Push All General-Purpose Registers (word).
-  | PUSHA = 449
+  | PUSHA = 575
   /// Push All General-Purpose Registers (doubleword).
-  | PUSHAD = 450
+  | PUSHAD = 576
   /// Push EFLAGS Register onto the Stack (16bits of EFLAGS).
-  | PUSHF = 451
+  | PUSHF = 577
   /// Push EFLAGS Register onto the Stack (EFLAGS).
-  | PUSHFD = 452
+  | PUSHFD = 578
   /// Push EFLAGS Register onto the Stack (RFLAGS).
-  | PUSHFQ = 453
+  | PUSHFQ = 579
   /// Logical Exclusive OR.
-  | PXOR = 454
+  | PXOR = 580
   /// Rotate x bits (CF, r/m(x)) left once.
-  | RCL = 455
+  | RCL = 581
+  /// Compute reciprocals of packed single-precision floating-point values.
+  | RCPPS = 582
+  /// Compute reciprocal of scalar single-precision floating-point values.
+  | RCPSS = 583
   /// Rotate x bits (CF, r/m(x)) right once.
-  | RCR = 456
+  | RCR = 584
   /// Read FS Segment Base.
-  | RDFSBASE = 457
+  | RDFSBASE = 585
   /// Read GS Segment Base.
-  | RDGSBASE = 458
+  | RDGSBASE = 586
   /// Read from Model Specific Register.
-  | RDMSR = 459
+  | RDMSR = 587
   /// Read Protection Key Rights for User Pages.
-  | RDPKRU = 460
+  | RDPKRU = 588
   /// Read Performance-Monitoring Counters.
-  | RDPMC = 461
+  | RDPMC = 589
   /// Read Random Number.
-  | RDRAND = 462
+  | RDRAND = 590
   /// Read Random SEED.
-  | RDSEED = 463
+  | RDSEED = 591
+  /// Read shadow stack point (SSP).
+  | RDSSP = 592
   /// Read Time-Stamp Counter.
-  | RDTSC = 464
+  | RDTSC = 593
   /// Read Time-Stamp Counter and Processor ID.
-  | RDTSCP = 465
+  | RDTSCP = 594
+  /// Repeat while ECX not zero.
+  | REP = 595
+  /// Repeat while equal/Repeat while zero.
+  | REPE = 596
+  /// Repeat while not equal/Repeat while not zero.
+  | REPNE = 597
+  /// Repeat while not equal/Repeat while not zero.
+  | REPNZ = 598
+  /// Repeat while equal/Repeat while zero.
+  | REPZ = 599
   /// Far return.
-  | RETFar = 466
+  | RETFar = 600
   /// Far return w/ immediate.
-  | RETFarImm = 467
+  | RETFarImm = 601
   /// Near return.
-  | RETNear = 468
+  | RETNear = 602
   /// Near return w/ immediate .
-  | RETNearImm = 469
-  /// Rotate x bits r/m(x) left once..
-  | ROL = 470
+  | RETNearImm = 603
+  /// Rotate x bits r/m(x) left once.
+  | ROL = 604
   /// Rotate x bits r/m(x) right once.
-  | ROR = 471
+  | ROR = 605
   /// Rotate right without affecting arithmetic flags.
-  | RORX = 472
+  | RORX = 606
+  /// Round Packed Double Precision Floating-Point Values.
+  | ROUNDPD = 607
+  /// Round Packed Single Precision Floating-Point Values.
+  | ROUNDPS = 608
   /// Round Scalar Double Precision Floating-Point Values.
-  | ROUNDSD = 473
+  | ROUNDSD = 609
+  /// Round Scalar Single Precision Floating-Point Values.
+  | ROUNDSS = 610
   /// Resume from System Management Mode.
-  | RSM = 474
+  | RSM = 611
+  /// Compute reciprocals of square roots of packed single-precision FP values.
+  | RSQRTPS = 612
+  /// Compute reciprocal of square root of scalar single-precision FP values.
+  | RSQRTSS = 613
+  /// Restore a shadow stack pointer (SSP).
+  | RSTORSSP = 614
   /// Store AH into Flags.
-  | SAHF = 475
+  | SAHF = 615
   /// Shift.
-  | SAR = 476
+  | SAR = 616
   /// Shift arithmetic right.
-  | SARX = 477
+  | SARX = 617
+  /// Save previous shadow stack pointer (SSP).
+  | SAVEPREVSSP = 618
   /// Integer Subtraction with Borrow.
-  | SBB = 478
+  | SBB = 619
   /// Scan String (byte).
-  | SCASB = 479
+  | SCASB = 620
   /// Scan String (doubleword).
-  | SCASD = 480
+  | SCASD = 621
   /// Scan String (quadword).
-  | SCASQ = 481
+  | SCASQ = 622
   /// Scan String (word).
-  | SCASW = 482
+  | SCASW = 623
   /// Set byte if above (CF = 0 and ZF = 0).
-  | SETA = 483
+  | SETA = 624
   /// Set byte if below (CF = 1).
-  | SETB = 484
+  | SETB = 625
   /// Set byte if below or equal (CF = 1 or ZF = 1).
-  | SETBE = 485
-  /// Set byte if greater (ZF = 0 and SF = OF)..
-  | SETG = 486
+  | SETBE = 626
+  /// Set byte if greater (ZF = 0 and SF = OF).
+  | SETG = 627
   /// Set byte if less (SF <> OF).
-  | SETL = 487
+  | SETL = 628
   /// Set byte if less or equal (ZF = 1 or SF <> OF).
-  | SETLE = 488
+  | SETLE = 629
   /// Set byte if not below (CF = 0).
-  | SETNB = 489
+  | SETNB = 630
   /// Set byte if not less (SF = OF).
-  | SETNL = 490
+  | SETNL = 631
   /// Set byte if not overflow (OF = 0).
-  | SETNO = 491
+  | SETNO = 632
   /// Set byte if not parity (PF = 0).
-  | SETNP = 492
+  | SETNP = 633
   /// Set byte if not sign (SF = 0).
-  | SETNS = 493
+  | SETNS = 634
   /// Set byte if not zero (ZF = 0).
-  | SETNZ = 494
+  | SETNZ = 635
   /// Set byte if overflow (OF = 1).
-  | SETO = 495
+  | SETO = 636
   /// Set byte if parity (PF = 1).
-  | SETP = 496
+  | SETP = 637
   /// Set byte if sign (SF = 1).
-  | SETS = 497
+  | SETS = 638
+  /// Set busy bit in a supervisor shadow stack token.
+  | SETSSBSY = 639
   /// Set byte if sign (ZF = 1).
-  | SETZ = 498
+  | SETZ = 640
   /// Store Fence.
-  | SFENCE = 499
+  | SFENCE = 641
   /// Store Global Descriptor Table Register.
-  | SGDT = 500
+  | SGDT = 642
+  /// Perform an Intermediate Calculation for the Next Four SHA1 Message Dwords.
+  | SHA1MSG1 = 643
+  /// Perform a Final Calculation for the Next Four SHA1 Message Dwords.
+  | SHA1MSG2 = 644
+  /// Calculate SHA1 state E after four rounds.
+  | SHA1NEXTE = 645
+  /// Perform four rounds of SHA1 operations.
+  | SHA1RNDS4 = 646
+  /// Perform an intermediate calculation for the next 4 SHA256 message dwords.
+  | SHA256MSG1 = 647
+  /// Perform the final calculation for the next four SHA256 message dwords.
+  | SHA256MSG2 = 648
+  /// Perform two rounds of SHA256 operations.
+  | SHA256RNDS2 = 649
   /// Shift.
-  | SHL = 501
+  | SHL = 650
   /// Double Precision Shift Left.
-  | SHLD = 502
+  | SHLD = 651
   /// Shift logic left.
-  | SHLX = 503
+  | SHLX = 652
   /// Shift.
-  | SHR = 504
+  | SHR = 653
   /// Double Precision Shift Right.
-  | SHRD = 505
+  | SHRD = 654
   /// Shift logic right.
-  | SHRX = 506
+  | SHRX = 655
   /// Shuffle Packed Double-Precision Floating-Point Values.
-  | SHUFPD = 507
+  | SHUFPD = 656
   /// Shuffle Packed Single-Precision Floating-Point Values.
-  | SHUFPS = 508
+  | SHUFPS = 657
   /// Store Interrupt Descriptor Table Register.
-  | SIDT = 509
+  | SIDT = 658
   /// Store Local Descriptor Table Register.
-  | SLDT = 510
+  | SLDT = 659
   /// Store Machine Status Word.
-  | SMSW = 511
+  | SMSW = 660
   /// Compute packed square roots of packed double-precision FP values.
-  | SQRTPD = 512
+  | SQRTPD = 661
   /// Compute square roots of packed single-precision floating-point values.
-  | SQRTPS = 513
+  | SQRTPS = 662
   /// Compute scalar square root of scalar double-precision FP values.
-  | SQRTSD = 514
+  | SQRTSD = 663
   /// Compute square root of scalar single-precision floating-point values.
-  | SQRTSS = 515
+  | SQRTSS = 664
   /// Set AC Flag in EFLAGS Register.
-  | STAC = 516
+  | STAC = 665
   /// Set Carry Flag.
-  | STC = 517
+  | STC = 666
   /// Set Direction Flag.
-  | STD = 518
+  | STD = 667
   /// Set Interrupt Flag.
-  | STI = 519
+  | STI = 668
   /// Store MXCSR Register State.
-  | STMXCSR = 520
+  | STMXCSR = 669
   /// Store String (store AL).
-  | STOSB = 521
+  | STOSB = 670
   /// Store String (store EAX).
-  | STOSD = 522
+  | STOSD = 671
   /// Store String (store RAX).
-  | STOSQ = 523
+  | STOSQ = 672
   /// Store String (store AX).
-  | STOSW = 524
+  | STOSW = 673
   /// Store Task Register.
-  | STR = 525
+  | STR = 674
   /// Subtract.
-  | SUB = 526
+  | SUB = 675
   /// Subtract Packed Double-Precision Floating-Point Values.
-  | SUBPD = 527
+  | SUBPD = 676
   /// Subtract Packed Single-Precision Floating-Point Values.
-  | SUBPS = 528
+  | SUBPS = 677
   /// Subtract Scalar Double-Precision Floating-Point Values.
-  | SUBSD = 529
+  | SUBSD = 678
   /// Subtract Scalar Single-Precision Floating-Point Values.
-  | SUBSS = 530
+  | SUBSS = 679
   /// Swap GS Base Register.
-  | SWAPGS = 531
+  | SWAPGS = 680
   /// Fast System Call.
-  | SYSCALL = 532
+  | SYSCALL = 681
   /// Fast System Call.
-  | SYSENTER = 533
+  | SYSENTER = 682
   /// Fast Return from Fast System Call.
-  | SYSEXIT = 534
+  | SYSEXIT = 683
   /// Return From Fast System Call.
-  | SYSRET = 535
+  | SYSRET = 684
   /// Logical Compare.
-  | TEST = 536
+  | TEST = 685
   /// Count the Number of Trailing Zero Bits.
-  | TZCNT = 537
+  | TZCNT = 686
   /// Unordered Compare Scalar Double-Precision FP Values and Set EFLAGS.
-  | UCOMISD = 538
+  | UCOMISD = 687
   /// Unordered Compare Scalar Single-Precision FPValues and Set EFLAGS.
-  | UCOMISS = 539
+  | UCOMISS = 688
+  /// Undefined instruction.
+  | UD = 689
   /// Undefined Instruction (Raise invalid opcode exception).
-  | UD2 = 540
+  | UD2 = 690
   /// Unpack and Interleave High Packed Double-Precision Floating-Point Values.
-  | UNPCKHPD = 541
+  | UNPCKHPD = 691
   /// Unpack and Interleave High Packed Single-Precision Floating-Point Values.
-  | UNPCKHPS = 542
+  | UNPCKHPS = 692
   /// Unpack and Interleave Low Packed Double-Precision Floating-Point Values.
-  | UNPCKLPD = 543
+  | UNPCKLPD = 693
   /// Unpack and Interleave Low Packed Single-Precision Floating-Point Values.
-  | UNPCKLPS = 544
+  | UNPCKLPS = 694
   /// Add Packed Double-Precision Floating-Point Values.
-  | VADDPD = 545
+  | VADDPD = 695
   /// Add Packed Double-Precision Floating-Point Values.
-  | VADDPS = 546
+  | VADDPS = 696
   /// Add Scalar Double-Precision Floating-Point Values.
-  | VADDSD = 547
+  | VADDSD = 697
   /// Add Scalar Single-Precision Floating-Point Values.
-  | VADDSS = 548
+  | VADDSS = 698
+  /// Perform dword alignment of two concatenated source vectors.
+  | VALIGND = 699
+  /// Perform qword alignment of two concatenated source vectors.
+  | VALIGNQ = 700
   /// Bitwise Logical AND of Packed Double-Precision Floating-Point Values.
-  | VANDNPD = 549
+  | VANDNPD = 701
   /// Bitwise Logical AND of Packed Single-Precision Floating-Point Values.
-  | VANDNPS = 550
+  | VANDNPS = 702
   /// Bitwise Logical AND NOT of Packed Double-Precision Floating-Point Values.
-  | VANDPD = 551
+  | VANDPD = 703
   /// Bitwise Logical AND NOT of Packed Single-Precision Floating-Point Values.
-  | VANDPS = 552
+  | VANDPS = 704
+  /// Replace the VBLENDVPD instructions (using opmask as select control).
+  | VBLENDMPD = 705
+  /// Replace the VBLENDVPS instructions (using opmask as select control).
+  | VBLENDMPS = 706
   /// Broadcast 128 bits of int data in mem to low and high 128-bits in ymm1.
-  | VBROADCASTI128 = 553
+  | VBROADCASTI128 = 707
   /// Broadcast Floating-Point Data.
-  | VBROADCASTSS = 554
+  | VBROADCASTSS = 708
   /// Compare Scalar Ordered Double-Precision FP Values and Set EFLAGS.
-  | VCOMISD = 555
+  | VCOMISD = 709
   /// Compare Scalar Ordered Single-Precision FP Values and Set EFLAGS.
-  | VCOMISS = 556
+  | VCOMISS = 710
+  /// Compress packed DP elements of a vector.
+  | VCOMPRESSPD = 711
+  /// Compress packed SP elements of a vector.
+  | VCOMPRESSPS = 712
+  /// Convert Packed Double-Precision FP Values to Packed Quadword Integers.
+  | VCVTPD2QQ = 713
+  /// Convert Packed DP FP Values to Packed Unsigned DWord Integers.
+  | VCVTPD2UDQ = 714
+  /// Convert Packed DP FP Values to Packed Unsigned QWord Integers.
+  | VCVTPD2UQQ = 715
+  /// Convert 16-bit FP values to Single-Precision FP values.
+  | VCVTPH2PS = 716
+  /// Convert Single-Precision FP value to 16-bit FP value.
+  | VCVTPS2PH = 717
+  /// Convert Packed SP FP Values to Packed Signed QWord Int Values.
+  | VCVTPS2QQ = 718
+  /// Convert Packed SP FP Values to Packed Unsigned DWord Int Values.
+  | VCVTPS2UDQ = 719
+  /// Convert Packed SP FP Values to Packed Unsigned QWord Int Values.
+  | VCVTPS2UQQ = 720
+  /// Convert Packed Quadword Integers to Packed Double-Precision FP Values.
+  | VCVTQQ2PD = 721
+  /// Convert Packed Quadword Integers to Packed Single-Precision FP Values.
+  | VCVTQQ2PS = 722
   /// Convert Scalar Double-Precision FP Value to Integer.
-  | VCVTSD2SI = 557
+  | VCVTSD2SI = 723
+  /// Convert Scalar Double-Precision FP Value to Unsigned Doubleword Integer.
+  | VCVTSD2USI = 724
   /// Convert Dword Integer to Scalar Double-Precision FP Value.
-  | VCVTSI2SD = 558
+  | VCVTSI2SD = 725
   /// Convert Dword Integer to Scalar Single-Precision FP Value.
-  | VCVTSI2SS = 559
+  | VCVTSI2SS = 726
   /// Convert Scalar Single-Precision FP Value to Dword Integer.
-  | VCVTSS2SI = 560
+  | VCVTSS2SI = 727
+  /// Convert Scalar Single-Precision FP Value to Unsigned Doubleword Integer.
+  | VCVTSS2USI = 728
+  /// Convert with Truncation Packed DP FP Values to Packed QWord Integers.
+  | VCVTTPD2QQ = 729
+  /// Convert with Truncation Packed DP FP Values to Packed Unsigned DWord Int.
+  | VCVTTPD2UDQ = 730
+  /// Convert with Truncation Packed DP FP Values to Packed Unsigned QWord Int.
+  | VCVTTPD2UQQ = 731
+  /// Convert with Truncation Packed SP FP Values to Packed Signed QWord Int.
+  | VCVTTPS2QQ = 732
+  /// Convert with Truncation Packed SP FP Values to Packed Unsigned DWord Int.
+  | VCVTTPS2UDQ = 733
+  /// Convert with Truncation Packed SP FP Values to Packed Unsigned QWord Int.
+  | VCVTTPS2UQQ = 734
   /// Convert with Truncation Scalar Double-Precision FP Value to Signed.
-  | VCVTTSD2SI = 561
+  | VCVTTSD2SI = 735
+  /// Convert with Truncation Scalar DP FP Value to Unsigned Integer.
+  | VCVTTSD2USI = 736
   /// Convert with Truncation Scalar Single-Precision FP Value to Dword Integer.
-  | VCVTTSS2SI = 562
+  | VCVTTSS2SI = 737
+  /// Convert with Truncation Scalar Single-Precision FP Value to Unsigned Int.
+  | VCVTTSS2USI = 738
+  /// Convert Packed Unsigned DWord Integers to Packed DP FP Values.
+  | VCVTUDQ2PD = 739
+  /// Convert Packed Unsigned DWord Integers to Packed SP FP Values.
+  | VCVTUDQ2PS = 740
+  /// Convert Packed Unsigned QWord Integers to Packed DP FP Values.
+  | VCVTUQQ2PD = 741
+  /// Convert Packed Unsigned QWord Integers to Packed SP FP Values.
+  | VCVTUQQ2PS = 742
+  /// Convert an unsigned integer to the low DP FP elem and merge to a vector.
+  | VCVTUSI2USD = 743
+  /// Convert an unsigned integer to the low SP FP elem and merge to a vector.
+  | VCVTUSI2USS = 744
+  /// Double Block Packed Sum-Absolute-Differences (SAD) on Unsigned Bytes.
+  | VDBPSADBW = 745
   /// Divide Packed Double-Precision Floating-Point Values.
-  | VDIVPD = 563
+  | VDIVPD = 746
   /// Divide Packed Single-Precision Floating-Point Values.
-  | VDIVPS = 564
+  | VDIVPS = 747
   /// Divide Scalar Double-Precision Floating-Point Values.
-  | VDIVSD = 565
+  | VDIVSD = 748
   /// Divide Scalar Single-Precision Floating-Point Values.
-  | VDIVSS = 566
+  | VDIVSS = 749
   /// Verify a Segment for Reading.
-  | VERR = 567
+  | VERR = 750
   /// Verify a Segment for Writing.
-  | VERW = 568
+  | VERW = 751
+  /// Compute approximate base-2 exponential of packed DP FP elems of a vector.
+  | VEXP2PD = 752
+  /// Compute approximate base-2 exponential of packed SP FP elems of a vector.
+  | VEXP2PS = 753
+  /// Compute approximate base-2 exponential of the low DP FP elem of a vector.
+  | VEXP2SD = 754
+  /// Compute approximate base-2 exponential of the low SP FP elem of a vector.
+  | VEXP2SS = 755
+  /// Load Sparse Packed Double-Precision FP Values from Dense Memory.
+  | VEXPANDPD = 756
+  /// Load Sparse Packed Single-Precision FP Values from Dense Memory.
+  | VEXPANDPS = 757
+  /// Extract a vector from a full-length vector with 32-bit granular update.
+  | VEXTRACTF32X4 = 758
+  /// Extract a vector from a full-length vector with 64-bit granular update.
+  | VEXTRACTF64X2 = 759
+  /// Extract a vector from a full-length vector with 64-bit granular update.
+  | VEXTRACTF64X4 = 760
+  /// Extract a vector from a full-length vector with 32-bit granular update.
+  | VEXTRACTI32X4 = 761
+  /// Extract a vector from a full-length vector with 64-bit granular update.
+  | VEXTRACTI64X2 = 762
+  /// Extract a vector from a full-length vector with 64-bit granular update.
+  | VEXTRACTI64X4 = 763
+  /// Fix Up Special Packed Float64 Values.
+  | VFIXUPIMMPD = 764
+  /// Fix Up Special Packed Float32 Values.
+  | VFIXUPIMMPS = 765
+  /// Fix Up Special Scalar Float64 Value.
+  | VFIXUPIMMSD = 766
+  /// Fix Up Special Scalar Float32 Value.
+  | VFIXUPIMMSS = 767
+  /// Tests Types Of a Packed Float64 Values.
+  | VFPCLASSPD = 768
+  /// Tests Types Of a Packed Float32 Values.
+  | VFPCLASSPS = 769
+  /// Tests Types Of a Scalar Float64 Values.
+  | VFPCLASSSD = 770
+  /// Tests Types Of a Scalar Float32 Values.
+  | VFPCLASSSS = 771
+  /// Convert Exponents of Packed DP FP Values to DP FP Values.
+  | VGETEXPPD = 772
+  /// Convert Exponents of Packed SP FP Values to SP FP Values.
+  | VGETEXPPS = 773
+  /// Convert Exponents of Scalar DP FP Values to DP FP Value.
+  | VGETEXPSD = 774
+  /// Convert Exponents of Scalar SP FP Values to SP FP Value.
+  | VGETEXPSS = 775
+  /// Extract Float64 Vector of Normalized Mantissas from Float64 Vector.
+  | VGETMANTPD = 776
+  /// Extract Float32 Vector of Normalized Mantissas from Float32 Vector.
+  | VGETMANTPS = 777
+  /// Extract Float64 of Normalized Mantissas from Float64 Scalar.
+  | VGETMANTSD = 778
+  /// Extract Float32 Vector of Normalized Mantissa from Float32 Vector.
+  | VGETMANTSS = 779
+  /// Insert Packed Floating-Point Values.
+  | VINSERTF32X4 = 780
+  /// Insert Packed Floating-Point Values.
+  | VINSERTF64X2 = 781
+  /// Insert Packed Floating-Point Values.
+  | VINSERTF64X4 = 782
   /// Insert Packed Integer Values.
-  | VINSERTI128 = 569
+  | VINSERTI128 = 783
+  /// Insert Packed Floating-Point Values.
+  | VINSERTI64X2 = 784
   /// Load Unaligned Integer 128 Bits.
-  | VLDDQU = 570
+  | VLDDQU = 785
   /// Call to VM Monitor.
-  | VMCALL = 571
+  | VMCALL = 786
   /// Clear Virtual-Machine Control Structure.
-  | VMCLEAR = 572
+  | VMCLEAR = 787
   /// Invoke VM function.
-  | VMFUNC = 573
+  | VMFUNC = 788
   /// Launch Virtual Machine.
-  | VMLAUNCH = 574
+  | VMLAUNCH = 789
   /// Move Aligned Packed Double-Precision Floating-Point Values.
-  | VMOVAPD = 575
+  | VMOVAPD = 790
   /// Move Aligned Packed Single-Precision Floating-Point Values.
-  | VMOVAPS = 576
+  | VMOVAPS = 791
   /// Move Doubleword.
-  | VMOVD = 577
+  | VMOVD = 792
   /// Move One Double-FP and Duplicate.
-  | VMOVDDUP = 578
+  | VMOVDDUP = 793
   /// Move Aligned Double Quadword.
-  | VMOVDQA = 579
+  | VMOVDQA = 794
   /// Move Aligned Double Quadword.
-  | VMOVDQA32 = 580
+  | VMOVDQA32 = 795
   /// Move Aligned Double Quadword.
-  | VMOVDQA64 = 581
+  | VMOVDQA64 = 796
   /// Move Unaligned Double Quadword.
-  | VMOVDQU = 582
+  | VMOVDQU = 797
+  /// VMOVDQU with 16-bit granular conditional update.
+  | VMOVDQU16 = 798
   /// Move Unaligned Double Quadword.
-  | VMOVDQU32 = 583
+  | VMOVDQU32 = 799
   /// Move Unaligned Double Quadword.
-  | VMOVDQU64 = 584
+  | VMOVDQU64 = 800
+  /// VMOVDQU with 8-bit granular conditional update.
+  | VMOVDQU8 = 801
   /// Move Packed Single-Precision Floating-Point Values High to Low.
-  | VMOVHLPS = 585
+  | VMOVHLPS = 802
   /// Move High Packed Double-Precision Floating-Point Value.
-  | VMOVHPD = 586
+  | VMOVHPD = 803
   /// Move High Packed Single-Precision Floating-Point Values.
-  | VMOVHPS = 587
+  | VMOVHPS = 804
   /// Move Packed Single-Precision Floating-Point Values Low to High.
-  | VMOVLHPS = 588
+  | VMOVLHPS = 805
   /// Move Low Packed Double-Precision Floating-Point Value.
-  | VMOVLPD = 589
+  | VMOVLPD = 806
   /// Move Low Packed Single-Precision Floating-Point Values.
-  | VMOVLPS = 590
+  | VMOVLPS = 807
   /// Extract Packed Double-Precision Floating-Point Sign Mask.
-  | VMOVMSKPD = 591
+  | VMOVMSKPD = 808
   /// Extract Packed Single-Precision Floating-Point Sign Mask.
-  | VMOVMSKPS = 592
+  | VMOVMSKPS = 809
   /// Load Double Quadword Non-Temporal Aligned Hint.
-  | VMOVNTDQ = 593
+  | VMOVNTDQ = 810
   /// Store Packed Double-Precision FP Values Using Non-Temporal Hint.
-  | VMOVNTPD = 594
+  | VMOVNTPD = 811
   /// Store Packed Single-Precision FP Values Using Non-Temporal Hint.
-  | VMOVNTPS = 595
+  | VMOVNTPS = 812
   /// Move Quadword.
-  | VMOVQ = 596
-  /// Move Data from String to String (doubleword)..
-  | VMOVSD = 597
+  | VMOVQ = 813
+  /// Move Data from String to String (doubleword).
+  | VMOVSD = 814
   /// Move Packed Single-FP High and Duplicate.
-  | VMOVSHDUP = 598
+  | VMOVSHDUP = 815
   /// Move Packed Single-FP Low and Duplicate.
-  | VMOVSLDUP = 599
+  | VMOVSLDUP = 816
   /// Move Scalar Single-Precision Floating-Point Values.
-  | VMOVSS = 600
+  | VMOVSS = 817
   /// Move Unaligned Packed Double-Precision Floating-Point Values.
-  | VMOVUPD = 601
+  | VMOVUPD = 818
   /// Move Unaligned Packed Single-Precision Floating-Point Values.
-  | VMOVUPS = 602
+  | VMOVUPS = 819
   /// Load Pointer to Virtual-Machine Control Structure.
-  | VMPTRLD = 603
+  | VMPTRLD = 820
   /// Store Pointer to Virtual-Machine Control Structure.
-  | VMPTRST = 604
+  | VMPTRST = 821
+  /// Reads a component from the VMCS and stores it into a destination operand.
+  | VMREAD = 822
   /// Resume Virtual Machine.
-  | VMRESUME = 605
+  | VMRESUME = 823
   /// Multiply Packed Double-Precision Floating-Point Values.
-  | VMULPD = 606
+  | VMULPD = 824
   /// Multiply Packed Single-Precision Floating-Point Values.
-  | VMULPS = 607
+  | VMULPS = 825
   /// Multiply Scalar Double-Precision Floating-Point Values.
-  | VMULSD = 608
+  | VMULSD = 826
   /// Multiply Scalar Single-Precision Floating-Point Values.
-  | VMULSS = 609
+  | VMULSS = 827
+  /// Writes a component to the VMCS from a source operand.
+  | VMWRITE = 828
   /// Leave VMX Operation.
-  | VMXOFF = 610
+  | VMXOFF = 829
   /// Enter VMX Operation.
-  | VMXON = 611
+  | VMXON = 830
   /// Bitwise Logical OR of Double-Precision Floating-Point Values.
-  | VORPD = 612
+  | VORPD = 831
   /// Bitwise Logical OR of Single-Precision Floating-Point Values.
-  | VORPS = 613
+  | VORPS = 832
   /// Packed Absolute Value (byte).
-  | VPABSB = 614
+  | VPABSB = 833
   /// Packed Absolute Value (dword).
-  | VPABSD = 615
+  | VPABSD = 834
   /// Packed Absolute Value (word).
-  | VPABSW = 616
+  | VPABSW = 835
   /// Pack with Signed Saturation.
-  | VPACKSSDW = 617
+  | VPACKSSDW = 836
   /// Pack with Signed Saturation.
-  | VPACKSSWB = 618
+  | VPACKSSWB = 837
   /// Pack with Unsigned Saturation.
-  | VPACKUSDW = 619
+  | VPACKUSDW = 838
   /// Pack with Unsigned Saturation.
-  | VPACKUSWB = 620
+  | VPACKUSWB = 839
   /// Add Packed byte Integers.
-  | VPADDB = 621
+  | VPADDB = 840
   /// Add Packed Doubleword Integers.
-  | VPADDD = 622
+  | VPADDD = 841
   /// Add Packed Quadword Integers.
-  | VPADDQ = 623
+  | VPADDQ = 842
   /// Add Packed Signed Integers with Signed Saturation (byte).
-  | VPADDSB = 624
+  | VPADDSB = 843
   /// Add Packed Signed Integers with Signed Saturation (word).
-  | VPADDSW = 625
+  | VPADDSW = 844
   /// Add Packed Unsigned Integers with Unsigned Saturation (byte).
-  | VPADDUSB = 626
+  | VPADDUSB = 845
   /// Add Packed Unsigned Integers with Unsigned Saturation (word).
-  | VPADDUSW = 627
+  | VPADDUSW = 846
   /// Add Packed word Integers.
-  | VPADDW = 628
+  | VPADDW = 847
   /// Packed Align Right.
-  | VPALIGNR = 629
+  | VPALIGNR = 848
   /// Logical AND.
-  | VPAND = 630
+  | VPAND = 849
   /// Logical AND NOT.
-  | VPANDN = 631
+  | VPANDN = 850
   /// Average Packed Integers (byte).
-  | VPAVGB = 632
+  | VPAVGB = 851
   /// Average Packed Integers (word).
-  | VPAVGW = 633
+  | VPAVGW = 852
+  /// Blend Byte/Word Vectors Using an Opmask Control.
+  | VPBLENDMB = 853
+  /// Blend Int32/Int64 Vectors Using an OpMask Control.
+  | VPBLENDMD = 854
+  /// Blend qword elements using opmask as select control.
+  | VPBLENDMQ = 855
+  /// Blend word elements using opmask as select control.
+  | VPBLENDMW = 856
   /// Broadcast Integer Data.
-  | VPBROADCASTB = 634
+  | VPBROADCASTB = 857
+  /// Broadcast from general-purpose register to vector register.
+  | VPBROADCASTD = 858
+  /// Broadcast Mask to Vector Register.
+  | VPBROADCASTM = 859
+  /// Broadcast from general-purpose register to vector register.
+  | VPBROADCASTQ = 860
+  /// Broadcast from general-purpose register to vector register.
+  | VPBROADCASTW = 861
+  /// Compare packed signed bytes using specified primitive.
+  | VPCMPB = 862
+  /// Compare packed signed dwords using specified primitive.
+  | VPCMPD = 863
   /// Compare Packed Data for Equal (byte).
-  | VPCMPEQB = 635
+  | VPCMPEQB = 864
   /// Compare Packed Data for Equal (doubleword).
-  | VPCMPEQD = 636
+  | VPCMPEQD = 865
   /// Compare Packed Data for Equal (quadword).
-  | VPCMPEQQ = 637
+  | VPCMPEQQ = 866
   /// Compare Packed Data for Equal (word).
-  | VPCMPEQW = 638
+  | VPCMPEQW = 867
   /// Packed Compare Explicit Length Strings, Return Index.
-  | VPCMPESTRI = 639
+  | VPCMPESTRI = 868
   /// Packed Compare Explicit Length Strings, Return Mask.
-  | VPCMPESTRM = 640
+  | VPCMPESTRM = 869
   /// Compare Packed Signed Integers for Greater Than (byte).
-  | VPCMPGTB = 641
+  | VPCMPGTB = 870
   /// Compare Packed Signed Integers for Greater Than (doubleword).
-  | VPCMPGTD = 642
+  | VPCMPGTD = 871
   /// Compare Packed Data for Greater Than (qword).
-  | VPCMPGTQ = 643
+  | VPCMPGTQ = 872
   /// Compare Packed Signed Integers for Greater Than (word).
-  | VPCMPGTW = 644
+  | VPCMPGTW = 873
   /// Packed Compare Implicit Length Strings, Return Index.
-  | VPCMPISTRI = 645
+  | VPCMPISTRI = 874
   /// Packed Compare Implicit Length Strings, Return Mask.
-  | VPCMPISTRM = 646
+  | VPCMPISTRM = 875
+  /// Compare packed signed quadwords using specified primitive.
+  | VPCMPQ = 876
+  /// Compare packed signed words using specified primitive.
+  | VPCMPW = 877
+  /// Compare packed unsigned bytes using specified primitive.
+  | VPCMUB = 878
+  /// Compare packed unsigned dwords using specified primitive.
+  | VPCMUD = 879
+  /// Compare packed unsigned quadwords using specified primitive.
+  | VPCMUQ = 880
+  /// Compare packed unsigned words using specified primitive.
+  | VPCMUW = 881
+  /// Store Sparse Packed Doubleword Integer Values into Dense Memory/Register.
+  | VPCOMPRESSD = 882
+  /// Store Sparse Packed Quadword Integer Values into Dense Memory/Register.
+  | VPCOMPRESSQ = 883
+  /// Detect conflicts within a vector of packed 32/64-bit integers.
+  | VPCONFLICTD = 884
+  /// Detect conflicts within a vector of packed 64-bit integers.
+  | VPCONFLICTQ = 885
+  /// Full Permute of Bytes from Two Tables Overwriting the Index.
+  | VPERMI2B = 886
+  /// Full permute of two tables of dword elements overwriting the index vector.
+  | VPERMI2D = 887
+  /// Full permute of two tables of DP elements overwriting the index vector.
+  | VPERMI2PD = 888
+  /// Full permute of two tables of SP elements overwriting the index vector.
+  | VPERMI2PS = 889
+  /// Full permute of two tables of qword elements overwriting the index vector.
+  | VPERMI2Q = 890
+  /// Full Permute From Two Tables Overwriting the Index.
+  | VPERMI2W = 891
+  /// Full permute of two tables of dword elements overwriting one source table.
+  | VPERMT2D = 892
+  /// Full permute of two tables of DP elements overwriting one source table.
+  | VPERMT2PD = 893
+  /// Full permute of two tables of SP elements overwriting one source table.
+  | VPERMT2PS = 894
+  /// Full permute of two tables of qword elements overwriting one source table.
+  | VPERMT2Q = 895
+  /// Permute packed word elements.
+  | VPERMW = 896
+  /// Load Sparse Packed Doubleword Integer Values from Dense Memory / Register.
+  | VPEXPANDD = 897
+  /// Load Sparse Packed Quadword Integer Values from Dense Memory / Register.
+  | VPEXPANDQ = 898
   /// Extract Word.
-  | VPEXTRW = 647
+  | VPEXTRW = 899
   /// Packed Horizontal Add (32-bit).
-  | VPHADDD = 648
+  | VPHADDD = 900
   /// Packed Horizontal Add and Saturate (16-bit).
-  | VPHADDSW = 649
+  | VPHADDSW = 901
   /// Packed Horizontal Add (16-bit).
-  | VPHADDW = 650
+  | VPHADDW = 902
   /// Packed Horizontal Word Minimum.
-  | VPHMINPOSUW = 651
+  | VPHMINPOSUW = 903
   /// Packed Horizontal Subtract (32-bit).
-  | VPHSUBD = 652
+  | VPHSUBD = 904
   /// Packed Horizontal Subtract and Saturate (16-bit)
-  | VPHSUBSW = 653
+  | VPHSUBSW = 905
   /// Packed Horizontal Subtract (16-bit).
-  | VPHSUBW = 654
+  | VPHSUBW = 906
   /// Insert Byte.
-  | VPINSRB = 655
+  | VPINSRB = 907
   /// Insert Word.
-  | VPINSRW = 656
+  | VPINSRW = 908
+  /// Count the number of leading zero bits of packed dword elements.
+  | VPLZCNTD = 909
+  /// Count the number of leading zero bits of packed qword elements.
+  | VPLZCNTQ = 910
   /// Multiply and Add Packed Integers.
-  | VPMADDWD = 657
+  | VPMADDWD = 911
   /// Maximum of Packed Signed Integers (byte).
-  | VPMAXSB = 658
+  | VPMAXSB = 912
   /// Maximum of Packed Signed Integers (dword).
-  | VPMAXSD = 659
+  | VPMAXSD = 913
+  /// Compute maximum of packed signed 64-bit integer elements.
+  | VPMAXSQ = 914
   /// Maximum of Packed Signed Word Integers.
-  | VPMAXSW = 660
+  | VPMAXSW = 915
   /// Maximum of Packed Unsigned Byte Integers.
-  | VPMAXUB = 661
+  | VPMAXUB = 916
   /// Maximum of Packed Unsigned Integers (dword).
-  | VPMAXUD = 662
+  | VPMAXUD = 917
+  /// Compute maximum of packed unsigned 64-bit integer elements.
+  | VPMAXUQ = 918
   /// Maximum of Packed Unsigned Integers (word).
-  | VPMAXUW = 663
+  | VPMAXUW = 919
   /// Minimum of Packed Signed Integers (byte).
-  | VPMINSB = 664
+  | VPMINSB = 920
   /// Minimum of Packed Signed Integers (dword).
-  | VPMINSD = 665
+  | VPMINSD = 921
+  /// Compute minimum of packed signed 64-bit integer elements.
+  | VPMINSQ = 922
   /// Minimum of Packed Signed Word Integers.
-  | VPMINSW = 666
+  | VPMINSW = 923
   /// Minimum of Packed Unsigned Byte Integers.
-  | VPMINUB = 667
+  | VPMINUB = 924
   /// Minimum of Packed Dword Integers.
-  | VPMINUD = 668
+  | VPMINUD = 925
+  /// Compute minimum of packed unsigned 64-bit integer elements.
+  | VPMINUQ = 926
   /// Minimum of Packed Unsigned Integers (word).
-  | VPMINUW = 669
+  | VPMINUW = 927
+  /// Convert a vector register in 32/64-bit granularity to an opmask register.
+  | VPMOVB2D = 928
+  /// Convert a Vector Register to a Mask.
+  | VPMOVB2M = 929
+  /// Down Convert DWord to Byte.
+  | VPMOVDB = 930
+  /// Down Convert DWord to Word.
+  | VPMOVDW = 931
+  /// Convert opmask register to vector register in 8-bit granularity.
+  | VPMOVM2B = 932
+  /// Convert opmask register to vector register in 32-bit granularity.
+  | VPMOVM2D = 933
+  /// Convert opmask register to vector register in 64-bit granularity.
+  | VPMOVM2Q = 934
+  /// Convert opmask register to vector register in 16-bit granularity.
+  | VPMOVM2W = 935
   /// Move Byte Mask.
-  | VPMOVMSKB = 670
+  | VPMOVMSKB = 936
+  /// Convert a Vector Register to a Mask.
+  | VPMOVQ2M = 937
+  /// Down Convert QWord to Byte.
+  | VPMOVQB = 938
+  /// Down Convert QWord to DWord.
+  | VPMOVQD = 939
+  /// Down Convert QWord to Word.
+  | VPMOVQW = 940
+  /// Down Convert DWord to Byte.
+  | VPMOVSDB = 941
+  /// Down Convert DWord to Word.
+  | VPMOVSDW = 942
+  /// Down Convert QWord to Byte.
+  | VPMOVSQB = 943
+  /// Down Convert QWord to Dword.
+  | VPMOVSQD = 944
+  /// Down Convert QWord to Word.
+  | VPMOVSQW = 945
+  /// Down Convert Word to Byte.
+  | VPMOVSWB = 946
   /// Packed Move with Sign Extend (8-bit to 32-bit).
-  | VPMOVSXBD = 671
+  | VPMOVSXBD = 947
   /// Packed Move with Sign Extend (8-bit to 64-bit).
-  | VPMOVSXBQ = 672
+  | VPMOVSXBQ = 948
   /// Packed Move with Sign Extend (8-bit to 16-bit).
-  | VPMOVSXBW = 673
+  | VPMOVSXBW = 949
   /// Packed Move with Sign Extend (32-bit to 64-bit).
-  | VPMOVSXDQ = 674
+  | VPMOVSXDQ = 950
   /// Packed Move with Sign Extend (16-bit to 32-bit).
-  | VPMOVSXWD = 675
+  | VPMOVSXWD = 951
   /// Packed Move with Sign Extend (16-bit to 64-bit).
-  | VPMOVSXWQ = 676
+  | VPMOVSXWQ = 952
+  /// Down Convert DWord to Byte.
+  | VPMOVUSDB = 953
+  /// Down Convert DWord to Word.
+  | VPMOVUSDW = 954
+  /// Down Convert QWord to Byte.
+  | VPMOVUSQB = 955
+  /// Down Convert QWord to DWord
+  | VPMOVUSQD = 956
+  /// Down Convert QWord to Dword.
+  | VPMOVUSQW = 957
+  /// Down Convert Word to Byte.
+  | VPMOVUSWB = 958
+  /// Convert a vector register in 16-bit granularity to an opmask register.
+  | VPMOVW2M = 959
+  /// Down convert word elements in a vector to byte elements using truncation.
+  | VPMOVWB = 960
   /// Packed Move with Zero Extend (8-bit to 32-bit).
-  | VPMOVZXBD = 677
+  | VPMOVZXBD = 961
   /// Packed Move with Zero Extend (8-bit to 64-bit).
-  | VPMOVZXBQ = 678
+  | VPMOVZXBQ = 962
   /// Packed Move with Zero Extend (8-bit to 16-bit).
-  | VPMOVZXBW = 679
+  | VPMOVZXBW = 963
   /// Packed Move with Zero Extend (32-bit to 64-bit).
-  | VPMOVZXDQ = 680
+  | VPMOVZXDQ = 964
   /// Packed Move with Zero Extend (16-bit to 32-bit).
-  | VPMOVZXWD = 681
+  | VPMOVZXWD = 965
   /// Packed Move with Zero Extend (16-bit to 64-bit).
-  | VPMOVZXWQ = 682
+  | VPMOVZXWQ = 966
   /// Multiply Packed Doubleword Integers.
-  | VPMULDQ = 683
+  | VPMULDQ = 967
   /// Packed Multiply High with Round and Scale.
-  | VPMULHRSW = 684
+  | VPMULHRSW = 968
   /// Multiply Packed Unsigned Integers and Store High Result.
-  | VPMULHUW = 685
+  | VPMULHUW = 969
   /// Multiply Packed Signed Integers and Store High Result.
-  | VPMULHW = 686
+  | VPMULHW = 970
   /// Multiply Packed Integers and Store Low Result.
-  | VPMULLD = 687
+  | VPMULLD = 971
+  /// Multiply Packed Integers and Store Low Result.
+  | VPMULLQ = 972
   /// Multiply Packed Signed Integers and Store Low Result.
-  | VPMULLW = 688
+  | VPMULLW = 973
   /// Multiply Packed Unsigned Doubleword Integers.
-  | VPMULUDQ = 689
+  | VPMULUDQ = 974
   /// Bitwise Logical OR.
-  | VPOR = 690
+  | VPOR = 975
+  /// Rotate dword elem left by a constant shift count with conditional update.
+  | VPROLD = 976
+  /// Rotate qword elem left by a constant shift count with conditional update.
+  | VPROLQ = 977
+  /// Rotate dword element left by shift counts specified.
+  | VPROLVD = 978
+  /// Rotate qword element left by shift counts specified.
+  | VPROLVQ = 979
+  /// Rotate dword element right by a constant shift count.
+  | VPRORD = 980
+  /// Rotate qword element right by a constant shift count.
+  | VPRORQ = 981
+  /// Rotate dword element right by shift counts specified.
+  | VPRORRD = 982
+  /// Rotate qword element right by shift counts specified.
+  | VPRORRQ = 983
   /// Compute Sum of Absolute Differences.
-  | VPSADBW = 691
+  | VPSADBW = 984
+  /// Scatter dword elements in a vector to memory using dword indices.
+  | VPSCATTERDD = 985
+  /// Scatter qword elements in a vector to memory using dword indices.
+  | VPSCATTERDQ = 986
+  /// Scatter dword elements in a vector to memory using qword indices.
+  | VPSCATTERQD = 987
+  /// Scatter qword elements in a vector to memory using qword indices.
+  | VPSCATTERQQ = 988
   /// Packed Shuffle Bytes.
-  | VPSHUFB = 692
+  | VPSHUFB = 989
   /// Shuffle Packed Doublewords.
-  | VPSHUFD = 693
+  | VPSHUFD = 990
   /// Shuffle Packed High Words.
-  | VPSHUFHW = 694
+  | VPSHUFHW = 991
   /// Shuffle Packed Low Words.
-  | VPSHUFLW = 695
+  | VPSHUFLW = 992
   /// Packed SIGN (byte).
-  | VPSIGNB = 696
+  | VPSIGNB = 993
   /// Packed SIGN (doubleword).
-  | VPSIGND = 697
+  | VPSIGND = 994
   /// Packed SIGN (word).
-  | VPSIGNW = 698
+  | VPSIGNW = 995
   /// Shift Packed Data Left Logical (doubleword).
-  | VPSLLD = 699
+  | VPSLLD = 996
   /// Shift Double Quadword Left Logical.
-  | VPSLLDQ = 700
+  | VPSLLDQ = 997
   /// Shift Packed Data Left Logical (quadword).
-  | VPSLLQ = 701
+  | VPSLLQ = 998
+  /// Variable Bit Shift Left Logical.
+  | VPSLLVW = 999
   /// Shift Packed Data Left Logical (word).
-  | VPSLLW = 702
+  | VPSLLW = 1000
   /// Shift Packed Data Right Arithmetic (doubleword).
-  | VPSRAD = 703
+  | VPSRAD = 1001
+  /// Shift qwords right by a constant shift count and shifting in sign bits.
+  | VPSRAQ = 1002
+  /// Shift qwords right by shift counts in a vector and shifting in sign bits.
+  | VPSRAVQ = 1003
+  /// Variable Bit Shift Right Arithmetic.
+  | VPSRAVW = 1004
   /// Shift Packed Data Right Arithmetic (word).
-  | VPSRAW = 704
+  | VPSRAW = 1005
   /// Shift Packed Data Right Logical (doubleword).
-  | VPSRLD = 705
+  | VPSRLD = 1006
   /// Shift Double Quadword Right Logical.
-  | VPSRLDQ = 706
+  | VPSRLDQ = 1007
   /// Shift Packed Data Right Logical (quadword).
-  | VPSRLQ = 707
+  | VPSRLQ = 1008
+  /// Variable Bit Shift Right Logical.
+  | VPSRLVW = 1009
   /// Shift Packed Data Right Logical (word).
-  | VPSRLW = 708
+  | VPSRLW = 1010
   /// Subtract Packed Integers (byte).
-  | VPSUBB = 709
+  | VPSUBB = 1011
   /// Subtract Packed Integers (doubleword).
-  | VPSUBD = 710
+  | VPSUBD = 1012
   /// Subtract Packed Integers (quadword).
-  | VPSUBQ = 711
+  | VPSUBQ = 1013
   /// Subtract Packed Signed Integers with Signed Saturation (byte).
-  | VPSUBSB = 712
+  | VPSUBSB = 1014
   /// Subtract Packed Signed Integers with Signed Saturation (word).
-  | VPSUBSW = 713
+  | VPSUBSW = 1015
   /// Subtract Packed Unsigned Integers with Unsigned Saturation (byte).
-  | VPSUBUSB = 714
+  | VPSUBUSB = 1016
   /// Subtract Packed Unsigned Integers with Unsigned Saturation (word).
-  | VPSUBUSW = 715
+  | VPSUBUSW = 1017
   /// Subtract Packed Integers (word).
-  | VPSUBW = 716
+  | VPSUBW = 1018
+  /// Perform bitwise ternary logic operation of three vectors.
+  | VPTERLOGD = 1019
+  /// Perform bitwise ternary logic operation of three vectors.
+  | VPTERLOGQ = 1020
   /// Logical Compare.
-  | VPTEST = 717
+  | VPTEST = 1021
+  /// Perform bitwise AND of byte elems of two vecs and write results to opmask.
+  | VPTESTMB = 1022
+  /// Perform bitwise AND of dword elems of 2-vecs and write results to opmask.
+  | VPTESTMD = 1023
+  /// Perform bitwise AND of qword elems of 2-vecs and write results to opmask.
+  | VPTESTMQ = 1024
+  /// Perform bitwise AND of word elems of two vecs and write results to opmask.
+  | VPTESTMW = 1025
+  /// Perform bitwise NAND of byte elems of 2-vecs and write results to opmask.
+  | VPTESTNMB = 1026
+  /// Perform bitwise NAND of dword elems of 2-vecs and write results to opmask.
+  | VPTESTNMD = 1027
+  /// Perform bitwise NAND of qword elems of 2-vecs and write results to opmask.
+  | VPTESTNMQ = 1028
+  /// Perform bitwise NAND of word elems of 2-vecs and write results to opmask.
+  | VPTESTNMW = 1029
   /// Unpack High Data.
-  | VPUNPCKHBW = 718
+  | VPUNPCKHBW = 1030
   /// Unpack High Data.
-  | VPUNPCKHDQ = 719
+  | VPUNPCKHDQ = 1031
   /// Unpack High Data.
-  | VPUNPCKHQDQ = 720
+  | VPUNPCKHQDQ = 1032
   /// Unpack High Data.
-  | VPUNPCKHWD = 721
+  | VPUNPCKHWD = 1033
   /// Unpack Low Data.
-  | VPUNPCKLBW = 722
+  | VPUNPCKLBW = 1034
   /// Unpack Low Data.
-  | VPUNPCKLDQ = 723
+  | VPUNPCKLDQ = 1035
   /// Unpack Low Data.
-  | VPUNPCKLQDQ = 724
+  | VPUNPCKLQDQ = 1036
   /// Unpack Low Data.
-  | VPUNPCKLWD = 725
+  | VPUNPCKLWD = 1037
   /// Logical Exclusive OR.
-  | VPXOR = 726
+  | VPXOR = 1038
+  /// Range Restriction Calculation For Packed Pairs of Float64 Values.
+  | VRANGEPD = 1039
+  /// Range Restriction Calculation For Packed Pairs of Float32 Values.
+  | VRANGEPS = 1040
+  /// Range Restriction Calculation From a pair of Scalar Float64 Values.
+  | VRANGESD = 1041
+  /// Range Restriction Calculation From a Pair of Scalar Float32 Values.
+  | VRANGESS = 1042
+  /// Compute Approximate Reciprocals of Packed Float64 Values.
+  | VRCP14PD = 1043
+  /// Compute Approximate Reciprocals of Packed Float32 Values.
+  | VRCP14PS = 1044
+  /// Compute Approximate Reciprocal of Scalar Float64 Value.
+  | VRCP14SD = 1045
+  /// Compute Approximate Reciprocal of Scalar Float32 Value.
+  | VRCP14SS = 1046
+  /// Computes the reciprocal approximation of the float64 values.
+  | VRCP28PD = 1047
+  /// Computes the reciprocal approximation of the float32 values.
+  | VRCP28PS = 1048
+  /// Computes the reciprocal approximation of the low float64 value.
+  | VRCP28SD = 1049
+  /// Computes the reciprocal approximation of the low float32 value.
+  | VRCP28SS = 1050
+  /// Perform Reduction Transformation on Packed Float64 Values.
+  | VREDUCEPD = 1051
+  /// Perform Reduction Transformation on Packed Float32 Values.
+  | VREDUCEPS = 1052
+  /// Perform a Reduction Transformation on a Scalar Float64 Value.
+  | VREDUCESD = 1053
+  /// Perform a Reduction Transformation on a Scalar Float32 Value.
+  | VREDUCESS = 1054
+  /// Round Packed Float64 Values To Include A Given Number Of Fraction Bits.
+  | VRNDSCALEPD = 1055
+  /// Round Packed Float32 Values To Include A Given Number Of Fraction Bits.
+  | VRNDSCALEPS = 1056
+  /// Round Scalar Float64 Value To Include A Given Number Of Fraction Bits.
+  | VRNDSCALESD = 1057
+  /// Round Scalar Float32 Value To Include A Given Number Of Fraction Bits.
+  | VRNDSCALESS = 1058
+  /// Compute Approximate Reciprocals of Square Roots of Packed Float64 Values.
+  | VRSQRT14PD = 1059
+  /// Compute Approximate Reciprocals of Square Roots of Packed Float32 Values.
+  | VRSQRT14PS = 1060
+  /// Compute Approximate Reciprocal of Square Root of Scalar Float64 Value.
+  | VRSQRT14SD = 1061
+  /// Compute Approximate Reciprocal of Square Root of Scalar Float32 Value.
+  | VRSQRT14SS = 1062
+  /// Computes the reciprocal square root of the float64 values.
+  | VRSQRT28PD = 1063
+  /// Computes the reciprocal square root of the float32 values.
+  | VRSQRT28PS = 1064
+  /// Computes the reciprocal square root of the low float64 value.
+  | VRSQRT28SD = 1065
+  /// Computes the reciprocal square root of the low float32 value.
+  | VRSQRT28SS = 1066
+  /// Multiply packed DP FP elements of a vector by powers.
+  | VSCALEPD = 1067
+  /// Multiply packed SP FP elements of a vector by powers.
+  | VSCALEPS = 1068
+  /// Multiply the low DP FP element of a vector by powers.
+  | VSCALESD = 1069
+  /// Multiply the low SP FP element of a vector by powers.
+  | VSCALESS = 1070
+  /// Scatter SP/DP FP elements in a vector to memory using dword indices.
+  | VSCATTERDD = 1071
+  /// Scatter SP/DP FP elements in a vector to memory using dword indices.
+  | VSCATTERDQ = 1072
+  /// Scatter SP/DP FP elements in a vector to memory using qword indices.
+  | VSCATTERQD = 1073
+  /// Scatter SP/DP FP elements in a vector to memory using qword indices.
+  | VSCATTERQQ = 1074
+  /// Shuffle 128-bit lanes of a vector with 32 bit granular conditional update.
+  | VSHUFF32X4 = 1075
+  /// Shuffle 128-bit lanes of a vector with 64 bit granular conditional update.
+  | VSHUFF64X2 = 1076
+  /// Shuffle 128-bit lanes of a vector with 32 bit granular conditional update.
+  | VSHUFI32X4 = 1077
+  /// Shuffle 128-bit lanes of a vector with 64 bit granular conditional update.
+  | VSHUFI64X2 = 1078
   /// Shuffle Packed Double-Precision Floating-Point Values.
-  | VSHUFPD = 727
+  | VSHUFPD = 1079
   /// Shuffle Packed Single-Precision Floating-Point Values.
-  | VSHUFPS = 728
+  | VSHUFPS = 1080
   /// Compute packed square roots of packed double-precision FP values.
-  | VSQRTPD = 729
+  | VSQRTPD = 1081
   /// Compute square roots of packed single-precision floating-point values.
-  | VSQRTPS = 730
+  | VSQRTPS = 1082
   /// Compute scalar square root of scalar double-precision FP values.
-  | VSQRTSD = 731
+  | VSQRTSD = 1083
   /// Compute square root of scalar single-precision floating-point values.
-  | VSQRTSS = 732
+  | VSQRTSS = 1084
   /// Subtract Packed Double-Precision Floating-Point Values.
-  | VSUBPD = 733
+  | VSUBPD = 1085
   /// Subtract Packed Single-Precision Floating-Point Values.
-  | VSUBPS = 734
+  | VSUBPS = 1086
   /// Subtract Scalar Double-Precision Floating-Point Values.
-  | VSUBSD = 735
+  | VSUBSD = 1087
   /// Subtract Scalar Single-Precision Floating-Point Values.
-  | VSUBSS = 736
+  | VSUBSS = 1088
   /// Unordered Compare Scalar Double-Precision FP Values and Set EFLAGS.
-  | VUCOMISD = 737
+  | VUCOMISD = 1089
   /// Unordered Compare Scalar Single-Precision FPValues and Set EFLAGS.
-  | VUCOMISS = 738
+  | VUCOMISS = 1090
   /// Unpack and Interleave High Packed Double-Precision Floating-Point Values.
-  | VUNPCKHPD = 739
+  | VUNPCKHPD = 1091
   /// Unpack and Interleave High Packed Single-Precision Floating-Point Values.
-  | VUNPCKHPS = 740
+  | VUNPCKHPS = 1092
   /// Unpack and Interleave Low Packed Double-Precision Floating-Point Values.
-  | VUNPCKLPD = 741
+  | VUNPCKLPD = 1093
   /// Unpack and Interleave Low Packed Single-Precision Floating-Point Values.
-  | VUNPCKLPS = 742
+  | VUNPCKLPS = 1094
   /// Bitwise Logical XOR for Double-Precision Floating-Point Values.
-  | VXORPD = 743
+  | VXORPD = 1095
   /// Bitwise Logical XOR for Single-Precision Floating-Point Values.
-  | VXORPS = 744
+  | VXORPS = 1096
   /// Zero Upper Bits of YMM Registers.
-  | VZEROUPPER = 745
+  | VZEROUPPER = 1097
   /// Wait.
-  | WAIT = 746
+  | WAIT = 1098
   /// Write Back and Invalidate Cache.
-  | WBINVD = 747
+  | WBINVD = 1099
   /// Write FS Segment Base.
-  | WRFSBASE = 748
+  | WRFSBASE = 1100
   /// Write GS Segment Base.
-  | WRGSBASE = 749
+  | WRGSBASE = 1101
   /// Write to Model Specific Register.
-  | WRMSR = 750
+  | WRMSR = 1102
   /// Write Data to User Page Key Register.
-  | WRPKRU = 751
+  | WRPKRU = 1103
+  /// Write to a shadow stack.
+  | WRSS = 1104
+  /// Write to a user mode shadow stack.
+  | WRUSS = 1105
   /// Transactional Abort.
-  | XABORT = 752
+  | XABORT = 1106
+  /// Prefix hint to the beginning of an HLE transaction region.
+  | XACQUIRE = 1107
   /// Exchange and Add.
-  | XADD = 753
+  | XADD = 1108
   /// Transactional Begin.
-  | XBEGIN = 754
+  | XBEGIN = 1109
   /// Exchange Register/Memory with Register.
-  | XCHG = 755
+  | XCHG = 1110
   /// Transactional End.
-  | XEND = 756
+  | XEND = 1111
   /// Value of Extended Control Register.
-  | XGETBV = 757
+  | XGETBV = 1112
+  /// Table lookup translation.
+  | XLAT = 1113
   /// Table Look-up Translation.
-  | XLATB = 758
+  | XLATB = 1114
   /// Logical Exclusive OR.
-  | XOR = 759
+  | XOR = 1115
   /// Bitwise Logical XOR for Double-Precision Floating-Point Values.
-  | XORPD = 760
+  | XORPD = 1116
   /// Bitwise Logical XOR for Single-Precision Floating-Point Values.
-  | XORPS = 761
+  | XORPS = 1117
+  /// Prefix hint to the end of an HLE transaction region.
+  | XRELEASE = 1118
   /// Restore Processor Extended States.
-  | XRSTOR = 762
+  | XRSTOR = 1119
   /// Restore processor supervisor-mode extended states from memory.
-  | XRSTORS = 763
+  | XRSTORS = 1120
   /// Restore processor supervisor-mode extended states from memory.
-  | XRSTORS64 = 764
+  | XRSTORS64 = 1121
   /// Save Processor Extended States.
-  | XSAVE = 765
+  | XSAVE = 1122
   /// Save processor extended states with compaction to memory.
-  | XSAVEC = 766
+  | XSAVEC = 1123
   /// Save processor extended states with compaction to memory.
-  | XSAVEC64 = 767
+  | XSAVEC64 = 1124
   /// Save Processor Extended States Optimized.
-  | XSAVEOPT = 768
+  | XSAVEOPT = 1125
   /// Save processor supervisor-mode extended states to memory.
-  | XSAVES = 769
+  | XSAVES = 1126
   /// Save processor supervisor-mode extended states to memory.
-  | XSAVES64 = 770
+  | XSAVES64 = 1127
   /// Set Extended Control Register.
-  | XSETBV = 771
+  | XSETBV = 1128
   /// Test If In Transactional Execution.
-  | XTEST = 772
+  | XTEST = 1129
   /// Invalid Opcode.
-  | InvalOP = 773
+  | InvalOP = 1130
+
 
 /// We define 8 different RegGrp types. Intel instructions use an integer value
 /// such as a REG field of a ModR/M value.
