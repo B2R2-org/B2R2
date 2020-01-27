@@ -125,11 +125,15 @@ type BinReaderTests () =
         | :? LEB128.LEB128DecodeException -> true
         | _ -> false
 
-    let u64Result = Array.map (fun arr -> initBR(arr).PeekUInt64LEB128 |> decodeOverflowed) overflow
+    let u64Result = Array.map (fun arr ->
+      initBR(arr).PeekUInt64LEB128 |> decodeOverflowed) overflow
     Assert.IsTrue (Array.forall (fun ov -> ov) u64Result)
-    let u32Result = Array.map (fun arr -> initBR(arr).PeekUInt32LEB128 |> decodeOverflowed) overflow
+    let u32Result = Array.map (fun arr ->
+      initBR(arr).PeekUInt32LEB128 |> decodeOverflowed) overflow
     Assert.IsTrue (Array.forall (fun ov -> ov) u32Result)
-    let s64Result = Array.map (fun arr -> initBR(arr).PeekInt64LEB128 |> decodeOverflowed) overflow
+    let s64Result = Array.map (fun arr ->
+      initBR(arr).PeekInt64LEB128 |> decodeOverflowed) overflow
     Assert.IsTrue (Array.forall (fun ov -> ov) s64Result)
-    let s32Result = Array.map (fun arr -> initBR(arr).PeekInt32LEB128 |> decodeOverflowed) overflow
+    let s32Result = Array.map (fun arr ->
+      initBR(arr).PeekInt32LEB128 |> decodeOverflowed) overflow
     Assert.IsTrue (Array.forall (fun ov -> ov) s32Result)
