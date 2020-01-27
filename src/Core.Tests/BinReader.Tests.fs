@@ -113,9 +113,6 @@ type BinReaderTests () =
   [<TestMethod>]
   member __.``Overflow handling Test`` () =
     let overflow = [|
-      //FIXME
-      //[| 0xffuy; |]
-      //[| 0x80uy; 0x80uy; |]
       [| 0xffuy; 0x80uy; 0x80uy; 0x80uy; 0x80uy;
          0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x80uy; 0x7fuy; |]
     |]
