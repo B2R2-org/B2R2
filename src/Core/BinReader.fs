@@ -60,7 +60,8 @@ type BinReader (bytes: byte []) =
       let value' = value ||| (cast (b &&& 0x7fuy) <<< (count * 7))
       let offset' = offset + 1
       let count' = count + 1
-      if b &&& 0x80uy <> 0uy && count = len - 1 then raise LEB128.LEB128DecodeException
+      if b &&& 0x80uy <> 0uy && count = len - 1
+      then raise LEB128.LEB128DecodeException
       elif b &&& 0x80uy = 0uy then value', count'
       else readLoop offset' count' value' len
     readLoop o 0 (cast 0uy) maxLen
@@ -72,17 +73,20 @@ type BinReader (bytes: byte []) =
     else
       currentValue
 
-  /// Peek a LEB128-encoded integer at the given offset. This function returns a tuple of
+  /// Peek a LEB128-encoded integer at the given offset.
+  /// This function returns a tuple of
   /// (the decoded uint64, and the count of how many bytes were peeked).
   member __.PeekUInt64LEB128 (o: int) =
     __.peekLEB128 o uint64 LEB128.max64LEB128Length
 
-  /// Peek a LEB128-encoded integer at the given offset. This function returns a tuple of
+  /// Peek a LEB128-encoded integer at the given offset.
+  /// This function returns a tuple of
   /// (the decoded uint32, and the count of how many bytes were peeked).
   member __.PeekUInt32LEB128 (o: int) =
     __.peekLEB128 o uint32 LEB128.max32LEB128Length
 
-  /// Peek a LEB128-encoded integer at the given offset. This function returns a tuple of
+  /// Peek a LEB128-encoded integer at the given offset.
+  /// This function returns a tuple of
   /// (the decoded int64, and the count of how many bytes were peeked).
   member __.PeekInt64LEB128 (o: int) =
     let decoded, len = __.peekLEB128 o int64 LEB128.max64LEB128Length
@@ -90,7 +94,8 @@ type BinReader (bytes: byte []) =
     let b = __.PeekByte(offset)
     __.extendSign b offset decoded 0xFFFFFFFFFFFFFFFFL LEB128.max64LEB128Length, len
 
-  /// Peek a LEB128-encoded integer at the given offset. This function returns a tuple of
+  /// Peek a LEB128-encoded integer at the given offset.
+  /// This function returns a tuple of
   /// (the decoded int32, and the count of how many bytes were peeked).
   member __.PeekInt32LEB128 (o: int) =
     let decoded, len = __.peekLEB128 o int32 LEB128.max32LEB128Length
