@@ -54,14 +54,54 @@ type BinReader (bytes: byte []) =
   /// Peek a character array of size n at the given offset.
   member __.PeekChars (n: int, o: int) = __.PeekBytes (n, o) |> Array.map char
 
-  /// Peek a number (64-bit integer) using the ULEB128 method.
-  member __.PeekULEB128 (o: int) =
-    let rec readLoop n cnt offset  =
-      let b = __.PeekByte (offset)
-      let acc = (uint64 (b &&& 0x7Fuy) <<< (cnt * 7)) ||| n
-      if b &&& 0x80uy <> 0uy then readLoop acc (cnt + 1) (offset + 1)
-      else acc, cnt + 1
-    readLoop 0UL 0 o
+  member inline private __.peekLEB128 (o) cast maxLen =
+    let rec readLoop offset count value len =
+      let b = __.PeekByte(offset)
+      let value' = value ||| (cast (b &&& 0x7fuy) <<< (count * 7))
+      let offset' = offset + 1
+      let count' = count + 1
+      if b &&& 0x80uy <> 0uy && count = len - 1
+      then raise LEB128.LEB128DecodeException
+      elif b &&& 0x80uy = 0uy then value', count'
+      else readLoop offset' count' value' len
+    readLoop o 0 (cast 0uy) maxLen
+
+  member inline private __.extendSign b offset currentValue bitmask maxLen =
+    if b &&& 0x40uy <> 0uy then
+        let shiftOffset = if offset < (maxLen - 1) then offset + 1 else offset
+        bitmask <<< (7 * (shiftOffset)) ||| currentValue
+    else
+      currentValue
+
+  /// Peek a LEB128-encoded integer at the given offset.
+  /// This function returns a tuple of
+  /// (the decoded uint64, and the count of how many bytes were peeked).
+  member __.PeekUInt64LEB128 (o: int) =
+    __.peekLEB128 o uint64 LEB128.max64LEB128Length
+
+  /// Peek a LEB128-encoded integer at the given offset.
+  /// This function returns a tuple of
+  /// (the decoded uint32, and the count of how many bytes were peeked).
+  member __.PeekUInt32LEB128 (o: int) =
+    __.peekLEB128 o uint32 LEB128.max32LEB128Length
+
+  /// Peek a LEB128-encoded integer at the given offset.
+  /// This function returns a tuple of
+  /// (the decoded int64, and the count of how many bytes were peeked).
+  member __.PeekInt64LEB128 (o: int) =
+    let decoded, len = __.peekLEB128 o int64 LEB128.max64LEB128Length
+    let offset = len - 1
+    let b = __.PeekByte(offset)
+    __.extendSign b offset decoded 0xFFFFFFFFFFFFFFFFL LEB128.max64LEB128Length, len
+
+  /// Peek a LEB128-encoded integer at the given offset.
+  /// This function returns a tuple of
+  /// (the decoded int32, and the count of how many bytes were peeked).
+  member __.PeekInt32LEB128 (o: int) =
+    let decoded, len = __.peekLEB128 o int32 LEB128.max32LEB128Length
+    let offset = len - 1
+    let b = __.PeekByte(offset)
+    __.extendSign b offset decoded 0xFFFFFFFF LEB128.max32LEB128Length, len
 
   /// Peek an int16 value at the given offset.
   abstract member PeekInt16: o: int -> int16
@@ -127,6 +167,30 @@ type BinReader (bytes: byte []) =
   /// Read a uint64 value at the given offset. This function, unlike PeekUInt64,
   /// will return the next offset.
   member __.ReadUInt64 (o) = struct (__.PeekUInt64 (o), o + 8)
+
+  /// Read a LEB128-encoded integer into uint64 at the given offset.
+  /// This function, unlike PeekUInt64LEB128, will return the next offset.
+  member __.ReadUInt64LEB128 (o) =
+    let decoded, len = __.PeekUInt64LEB128 (o)
+    struct (decoded, o + len)
+
+  /// Read a LEB128-encoded integer into uint32 at the given offset.
+  /// This function, unlike PeekUInt32LEB128, will return the next offset.
+  member __.ReadUInt32LEB128 (o) =
+    let decoded, len = __.PeekUInt32LEB128 (o)
+    struct (decoded, o + len)
+
+  /// Read a LEB128-encoded integer into int64 at the given offset.
+  /// This function, unlike PeekInt64LEB128, will return the next offset.
+  member __.ReadInt64LEB128 (o) =
+    let decoded, len = __.PeekInt64LEB128 (o)
+    struct (decoded, o + len)
+
+  /// Read a LEB128-encoded integer into int32 at the given offset.
+  /// This function, unlike PeekInt32LEB128, will return the next offset.
+  member __.ReadInt32LEB128 (o) =
+    let decoded, len = __.PeekInt32LEB128 (o)
+    struct (decoded, o + len)
 
   /// Length of the file for this reader.
   member __.Length () = Array.length bytes
