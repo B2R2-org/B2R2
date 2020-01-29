@@ -64,8 +64,8 @@ and Polarity =
   | PosMasked
   | NegMasked
 and OutSelect =
-  | Small
-  | Big
+  | Least
+  | Most
 and Length =
   | Implicit
   | Explicit
@@ -755,7 +755,7 @@ let getPcmpstrInfo opCode (imm: Expr) =
     Sign = if (immByte >>> 1) &&& 1I = 0I then UnSigned else Signed
     Agg = agg
     Polarity = pol
-    OutSelect = if (immByte >>> 6) &&& 1I = 0I then Small else Big
+    OutSelect = if (immByte >>> 6) &&& 1I = 0I then Least else Most
     Len = len
     Ret = ret
   }
@@ -775,10 +775,10 @@ let getIntRes2 e ctrInfo (booRes: Expr []) =
 
 let rec genOutput ctrl e acc i =
   let elemSz = RegType.fromBitWidth <| int ctrl.NumElems
-  let isSmallOut = ctrl.OutSelect = Small
+  let isSmallOut = ctrl.OutSelect = Least
   let e' = e >> numI32 i elemSz
-  let next = if isSmallOut then i - 1 else i
-  let cond =  if isSmallOut then i = 0 else i = int ctrl.NumElems - 1
+  let next = if isSmallOut then i - 1 else i + 1
+  let cond = if isSmallOut then i = 0 else i = int ctrl.NumElems - 1
   if cond then ite (extractLow 1<rt> e') (numI32 i elemSz) acc
   else genOutput ctrl e (ite (extractLow 1<rt> e') (numI32 i elemSz) acc) next
 
@@ -2658,11 +2658,10 @@ let pcmpStrRet (ins: InsInfo) info ctxt intRes2 builder =
   match info.Ret with
   | Index ->
     let outSz, cx =
-      if hasREXW ins.REXPrefix then 64<rt>, R.RCX
-      else 32<rt>, R.ECX
+      if hasREXW ins.REXPrefix then 64<rt>, R.RCX else 32<rt>, R.ECX
     let cx = getRegVar ctxt cx
     let nMaxSz = numI32 nElem elemSz
-    let idx = if info.OutSelect = Small then nElem - 1 else 0
+    let idx = if info.OutSelect = Least then nElem - 1 else 0
     let out = zExt outSz <| genOutput info intRes2 nMaxSz idx
     builder <! (dstAssign outSz cx out)
   | Mask ->
@@ -2671,7 +2670,7 @@ let pcmpStrRet (ins: InsInfo) info ctxt intRes2 builder =
       let src = extract intRes2 1<rt> i
       if (i < nElem / 2) then (acc1, (zExt info.PackSize src) :: acc2)
       else ((zExt info.PackSize src) :: acc1, acc2)
-    if info.OutSelect = Small then
+    if info.OutSelect = Least then
       builder <! (xmmA := zExt 64<rt> intRes2)
       builder <! (xmmB := num0 64<rt>)
     else let r1, r2 = List.fold loop ([], []) [0 .. nElem - 1]
