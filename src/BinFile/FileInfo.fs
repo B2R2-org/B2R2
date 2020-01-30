@@ -31,14 +31,14 @@ open System.Runtime.InteropServices
 [<AbstractClass>]
 type FileInfo () =
   /// <summary>
-  ///   The format of this file: ELF, PE, Mach-O, or etc.
-  /// </summary>
-  abstract FileFormat: FileFormat
-
-  /// <summary>
   ///   The corresponding binary reader.
   /// </summary>
   abstract BinReader: BinReader
+
+  /// <summary>
+  ///   The format of this file: ELF, PE, Mach-O, or etc.
+  /// </summary>
+  abstract FileFormat: FileFormat
 
   /// <summary>
   ///   The ISA that this file expects to run on.
@@ -56,14 +56,14 @@ type FileInfo () =
   abstract FilePath: string
 
   /// <summary>
-  ///   Is this binary stripped?
-  /// </summary>
-  abstract IsStripped: bool
-
-  /// <summary>
   ///   Word size of the CPU that this binary can run on.
   /// </summary>
   abstract WordSize: WordSize
+
+  /// <summary>
+  ///   Is this binary stripped?
+  /// </summary>
+  abstract IsStripped: bool
 
   /// <summary>
   ///   Is NX enabled for this binary? (DEP enabled or not)
@@ -120,14 +120,24 @@ type FileInfo () =
 
   /// <summary>
   ///   Return a list of all the dynamic symbols from the binary. Dynamic
-  ///   symbols are the ones that are required to run the binary. The "defined"
-  ///   argument indicates whether to return only internally defined symbols
-  ///   (i.e., disregard external symbols that are imported from other files).
+  ///   symbols are the ones that are required to run the binary. The
+  ///   "excludeImported" argument indicates whether to return only internally
+  ///   defined symbols (i.e., disregard external symbols that are imported from
+  ///   other files). In "excludeImported" argument is not given, this function
+  ///   will simply return all possible dynamic symbols.
   /// </summary>
   /// <returns>
   ///   A sequence of dynamic symbols.
   /// </returns>
-  abstract member GetDynamicSymbols: ?defined: bool -> seq<Symbol>
+  abstract member GetDynamicSymbols: ?excludeImported: bool -> seq<Symbol>
+
+  /// <summary>
+  ///   Return a list of all relocation symbols from the binary.
+  /// </summary>
+  /// <returns>
+  ///   A sequence of relocation symbols.
+  /// </returns>
+  abstract member GetRelocationSymbols: unit -> seq<Symbol>
 
   /// <summary>
   ///   Return a list of all the sections from the binary.
@@ -155,18 +165,7 @@ type FileInfo () =
   ///   A sequence of sections that have the specified name. This function
   ///   returns an empty sequence if there is no section of the given name.
   /// </returns>
-  abstract member GetSectionsByName: name: string -> seq<Section>
-
-  /// <summary>
-  ///   Return a list of all the linkage table entries from the binary.
-  /// </summary>
-  /// <returns>
-  ///   A sequence of linkage table entries, e.g., PLT entries for ELF files.
-  /// </returns>
-  abstract member GetLinkageTableEntries: unit -> seq<LinkageTableEntry>
-
-  /// <summary> todo </summary>
-  abstract member GetRelocationSymbols: unit -> seq<Symbol>
+  abstract member GetSections: name: string -> seq<Section>
 
   /// <summary>
   ///   Return a list of segments from the binary. If the isLoadable parameter
@@ -204,6 +203,14 @@ type FileInfo () =
   member __.GetSegments (perm: Permission) =
     __.GetSegments ()
     |> Seq.filter (fun s -> (s.Permission &&& perm = perm) && s.Size > 0UL)
+
+  /// <summary>
+  ///   Return a list of all the linkage table entries from the binary.
+  /// </summary>
+  /// <returns>
+  ///   A sequence of linkage table entries, e.g., PLT entries for ELF files.
+  /// </returns>
+  abstract member GetLinkageTableEntries: unit -> seq<LinkageTableEntry>
 
   /// <summary>
   ///   Find the symbol name for a given address.

@@ -28,122 +28,26 @@ open System
 open B2R2
 open B2R2.BinFile
 
-let [<Literal>] secPLT = ".plt"
-let [<Literal>] secTEXT = ".text"
+let convFileType = function
+  | ELFFileType.Executable -> FileType.ExecutableFile
+  | ELFFileType.SharedObject -> FileType.LibFile
+  | ELFFileType.Core -> FileType.CoreFile
+  | _ -> FileType.UnknownFile
 
-let private pltThumbStubBytes = [| 0x78uy; 0x47uy; 0xc0uy; 0x46uy |]
+let isNXEnabled elf =
+  let predicate e = e.PHType = ProgramHeaderType.PTGNUStack
+  match List.tryFind predicate elf.ProgHeaders with
+  | Some s -> s.PHFlags.HasFlag Permission.Executable |> not
+  | _ -> false
 
-// FIXME
-let pltFirstSkipBytes = function
-| Arch.IntelX86
-| Arch.IntelX64 -> 0x10UL
-| Arch.ARMv7 -> 0x14UL
-| Arch.AARCH64 -> 0x20UL
-| _ -> failwith "Implement"
+let isRelocatable elf =
+  let pred (e: DynamicSectionEntry) = e.DTag = DynamicSectionTag.DTDebug
+  elf.ELFHdr.ELFFileType = ELFFileType.SharedObject
+  && Section.getDynamicSectionEntries elf.BinReader elf.SecInfo
+     |> List.exists pred
 
-let isThumbPltELFSymbol sAddr (plt: ELFSection) (reader: BinReader) =
- let offset = Convert.ToInt32 (sAddr - plt.SecAddr + plt.SecOffset)
- reader.PeekBytes (4, offset) = pltThumbStubBytes
-
-let findPltSize sAddr plt reader = function
-  | Arch.IntelX86
-  | Arch.IntelX64 -> 0x10UL
-  | Arch.ARMv7 ->
-    if isThumbPltELFSymbol sAddr plt reader then 0x10UL else 0x0CUL
-  | Arch.AARCH64 -> 0x10UL
-  | _ -> failwith "Implement"
-
-let isFuncSymb s =
-  s.SymType = SymbolType.STTFunc || s.SymType = SymbolType.STTGNUIFunc
-
-let inline tryFindFuncSymb elf addr =
-  match Map.tryFind addr elf.SymInfo.AddrToSymbTable with
-  | None -> None
-  | Some s -> if isFuncSymb s then Some s.SymName else None
-
-let parsePLT arch sections (reloc: RelocInfo) reader =
-  match Map.tryFind secPLT sections.SecByName with
-  | Some plt ->
-    let pltStartAddr = plt.SecAddr + pltFirstSkipBytes arch
-    let folder (map, sAddr) _ (rel: RelocationEntry) =
-      match rel.RelType with
-      | RelocationX86 RelocationX86.Reloc386JmpSlot
-      | RelocationX64 RelocationX64.RelocX64JmpSlot
-      | RelocationARMv7 RelocationARMv7.RelocARMJmpSlot
-      | RelocationARMv8 RelocationARMv8.RelocAARCH64JmpSlot ->
-        let nextStartAddr = sAddr + findPltSize sAddr plt reader arch
-        let addrRange = AddrRange (sAddr, nextStartAddr)
-        let symb = Option.get rel.RelSymbol
-        let symb = { symb with Addr = rel.RelOffset }
-        ARMap.add addrRange symb map, nextStartAddr
-      | _ -> map, sAddr
-    Map.fold folder (ARMap.empty, pltStartAddr) reloc.RelocByAddr |> fst
-  | None -> ARMap.empty
-
-let parseGlobalSymbols reloc =
-  let folder map addr (rel: RelocationEntry) =
-    match rel.RelType with
-    | RelocationX86 RelocationX86.Reloc386GlobData
-    | RelocationX64 RelocationX64.RelocX64GlobData ->
-      Map.add addr (Option.get rel.RelSymbol) map
-    | _ -> map
-  reloc.RelocByAddr |> Map.fold folder Map.empty
-
-let invRanges wordSize segs getNextStartAddr =
-  segs
-  |> List.sortBy (fun seg -> seg.PHAddr)
-  |> List.fold (fun (set, saddr) seg ->
-       let n = getNextStartAddr seg
-       FileHelper.addInvRange set saddr seg.PHAddr, n) (IntervalSet.empty, 0UL)
-  |> FileHelper.addLastInvRange wordSize
-
-let private parseELF offset reader =
-  let eHdr = Header.parse reader offset
-  let cls = eHdr.Class
-  let secs = Section.parse eHdr reader
-  let proghdrs = ProgHeader.parse eHdr reader
-  let segs = ProgHeader.getLoadableProgHeaders proghdrs
-  let loadableSecNums = ProgHeader.getLoadableSecNums secs segs
-  let symbs = Symbol.parse eHdr secs reader
-  let reloc = Relocs.parse eHdr secs symbs reader
-  let plt = parsePLT eHdr.MachineType secs reloc reader
-  let globals = parseGlobalSymbols reloc
-  let symbs = Symbol.updatePLTSymbols plt symbs |> Symbol.updateGlobals globals
-  { ELFHdr = eHdr
-    ProgHeaders = proghdrs
-    LoadableSegments = segs
-    LoadableSecNums = loadableSecNums
-    SecInfo = secs
-    SymInfo = symbs
-    RelocInfo = reloc
-    PLT = plt
-    Globals = globals
-    InvalidAddrRanges = invRanges cls segs (fun s -> s.PHAddr + s.PHMemSize)
-    NotInFileRanges = invRanges cls segs (fun s -> s.PHAddr + s.PHFileSize)
-    BinReader = reader }
-
-let initELF bytes =
-  let reader = BinReader.Init (bytes, Endian.Little)
-  if Header.isELF reader 0 then ()
-  else raise FileFormatMismatchException
-  Header.peekEndianness reader 0
-  |> BinReader.RenewReader reader
-  |> parseELF 0
-
-let secFlagToSectionKind flag entrySize =
-  if flag &&& SectionFlag.SHFExecInstr = SectionFlag.SHFExecInstr then
-    if entrySize > 0UL then SectionKind.LinkageTableSection
-    else SectionKind.ExecutableSection
-  elif flag &&& SectionFlag.SHFWrite = SectionFlag.SHFWrite then
-    SectionKind.WritableSection
-  else
-    SectionKind.ExtraSection
-
-let elfSectionToSection (sec: ELFSection) =
-  { Address = sec.SecAddr
-    Kind = secFlagToSectionKind sec.SecFlags sec.SecEntrySize
-    Size = sec.SecSize
-    Name = sec.SecName }
+let inline getTextStartAddr elf =
+  (Map.find ".text" elf.SecInfo.SecByName).SecAddr
 
 let inline private inMem seg addr =
   let vAddr = seg.PHAddr
@@ -155,4 +59,107 @@ let rec translateAddr addr = function
     else translateAddr addr tl
   | [] -> raise InvalidAddrReadException
 
-// vim: set tw=80 sts=2 sw=2:
+let isFuncSymb s =
+  s.SymType = SymbolType.STTFunc || s.SymType = SymbolType.STTGNUIFunc
+
+let inline tryFindFuncSymb elf addr (name: byref<string>) =
+  match Map.tryFind addr elf.SymInfo.AddrToSymbTable with
+  | None -> false
+  | Some s ->
+    if isFuncSymb s then name <- s.SymName; true
+    else false
+
+let getStaticSymbols elf =
+  Symbol.getStaticSymArray elf
+  |> Array.map (Symbol.toB2R2Symbol TargetKind.StaticSymbol)
+  |> Array.toSeq
+
+let getDynamicSymbols excludeImported elf =
+  let excludeImported = defaultArg excludeImported false
+  let alwaysTrue = fun _ -> true
+  let filter =
+    if excludeImported then (fun s -> s.SecHeaderIndex <> SHNUndef)
+    else alwaysTrue
+  Symbol.getDynamicSymArray elf
+  |> Array.filter filter
+  |> Array.map (Symbol.toB2R2Symbol TargetKind.DynamicSymbol)
+  |> Array.toSeq
+
+let getSymbols elf =
+  let s = getStaticSymbols elf
+  let d = getDynamicSymbols None elf
+  Seq.append s d
+
+let getRelocSymbols elf =
+  let translate (_, reloc) =
+    reloc.RelSymbol
+    |> Option.bind (fun s ->
+         { s with Addr = reloc.RelOffset }
+         |> Symbol.toB2R2Symbol TargetKind.DynamicSymbol
+         |> Some)
+  elf.RelocInfo.RelocByName
+  |> Map.toSeq
+  |> Seq.choose translate
+
+let secFlagToSectionKind flag entrySize =
+  if flag &&& SectionFlag.SHFExecInstr = SectionFlag.SHFExecInstr then
+    if entrySize > 0UL then SectionKind.LinkageTableSection
+    else SectionKind.ExecutableSection
+  elif flag &&& SectionFlag.SHFWrite = SectionFlag.SHFWrite then
+    SectionKind.WritableSection
+  else
+    SectionKind.ExtraSection
+
+let elfSectionToSection sec =
+  { Address = sec.SecAddr
+    Kind = secFlagToSectionKind sec.SecFlags sec.SecEntrySize
+    Size = sec.SecSize
+    Name = sec.SecName }
+
+let getSections elf =
+  elf.SecInfo.SecByNum
+  |> Array.map elfSectionToSection
+  |> Array.toSeq
+
+let getSectionsByAddr elf addr =
+  match ARMap.tryFindByAddr addr elf.SecInfo.SecByAddr with
+  | Some s -> elfSectionToSection s |> Seq.singleton
+  | None -> Seq.empty
+
+let getSectionsByName elf name =
+  match Map.tryFind name elf.SecInfo.SecByName with
+  | Some s -> elfSectionToSection s |> Seq.singleton
+  | None -> Seq.empty
+
+let getSegments elf isLoadable =
+  if isLoadable then elf.LoadableSegments else elf.ProgHeaders
+  |> List.map ProgHeader.toSegment
+  |> List.toSeq
+
+let getPLT elf =
+  let create pltAddr (symb: ELFSymbol) =
+    { FuncName = symb.SymName
+      LibraryName = Symbol.versionToLibName symb.VerInfo
+      TrampolineAddress = pltAddr
+      TableAddress = symb.Addr }
+  elf.PLT
+  |> ARMap.fold (fun acc addrRange s -> create addrRange.Min s :: acc) []
+  |> List.sortBy (fun entry -> entry.TrampolineAddress)
+  |> List.toSeq
+
+let inline isValidAddr elf addr =
+  IntervalSet.containsAddr addr elf.InvalidAddrRanges |> not
+
+let inline isValidRange elf range =
+  IntervalSet.findAll range elf.InvalidAddrRanges |> List.isEmpty
+
+let inline isInFileAddr elf addr =
+  IntervalSet.containsAddr addr elf.NotInFileRanges |> not
+
+let inline isInFileRange elf range =
+  IntervalSet.findAll range elf.NotInFileRanges |> List.isEmpty
+
+let getNotInFileIntervals elf range =
+  IntervalSet.findAll range elf.NotInFileRanges
+  |> List.map (FileHelper.trimByRange range)
+  |> List.toSeq

@@ -33,25 +33,25 @@ open B2R2
 type RawFileInfo (bytes: byte [], baseAddr, isa) =
   inherit FileInfo ()
 
-  override __.FileFormat = FileFormat.RawBinary
-
   override __.BinReader = BinReader.Init (bytes, isa.Endian)
+
+  override __.FileFormat = FileFormat.RawBinary
 
   override __.ISA = isa
 
-  override __.FilePath = ""
-
-  override __.EntryPoint = baseAddr
-
-  override __.IsStripped = false
-
   override __.FileType = FileType.UnknownFile
 
+  override __.FilePath = ""
+
   override __.WordSize = isa.WordSize
+
+  override __.IsStripped = false
 
   override __.IsNXEnabled = false
 
   override __.IsRelocatable = false
+
+  override __.EntryPoint = baseAddr
 
   override __.TextStartAddr = baseAddr
 
@@ -61,15 +61,15 @@ type RawFileInfo (bytes: byte [], baseAddr, isa) =
 
   override __.GetStaticSymbols () = Seq.empty
 
-  override __.GetDynamicSymbols (?defined) = Seq.empty
+  override __.GetDynamicSymbols (?_excludeImported) = Seq.empty
+
+  override __.GetRelocationSymbols () = Seq.empty
 
   override __.GetSections () =
-    Seq.singleton {
-      Address = baseAddr
-      Kind = SectionKind.ExecutableSection
-      Size = uint64 bytes.LongLength
-      Name = ""
-    }
+    Seq.singleton { Address = baseAddr
+                    Kind = SectionKind.ExecutableSection
+                    Size = uint64 bytes.LongLength
+                    Name = "" }
 
   override __.GetSections (addr: Addr) =
     if addr >= baseAddr && addr < (baseAddr + uint64 bytes.LongLength) then
@@ -77,20 +77,16 @@ type RawFileInfo (bytes: byte [], baseAddr, isa) =
     else
       Seq.empty
 
-  override __.GetSectionsByName (_: string) = Seq.empty
+  override __.GetSections (_: string): seq<Section> = Seq.empty
 
   override __.GetSegments (_isLoadable) =
-    Seq.singleton {
-      Address = baseAddr
-      Size = uint64 bytes.LongLength
-      Permission = Permission.Readable ||| Permission.Executable
-    }
-
-  override __.TryFindFunctionSymbolName (_addr, _) = false
+    Seq.singleton { Address = baseAddr
+                    Size = uint64 bytes.LongLength
+                    Permission = Permission.Readable ||| Permission.Executable }
 
   override __.GetLinkageTableEntries () = Seq.empty
 
-  override __.GetRelocationSymbols () = Seq.empty
+  override __.TryFindFunctionSymbolName (_addr, _) = false
 
   override __.IsValidAddr (addr) =
     addr >= baseAddr && addr < (baseAddr + uint64 bytes.LongLength)

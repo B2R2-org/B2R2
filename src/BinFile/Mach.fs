@@ -24,7 +24,6 @@
 
 namespace B2R2.BinFile
 
-open System
 open B2R2
 open B2R2.BinFile.Mach
 open B2R2.BinFile.Mach.Helper
@@ -34,104 +33,34 @@ open B2R2.BinFile.Mach.Helper
 /// </summary>
 type MachFileInfo (bytes, path, isa) =
   inherit FileInfo ()
-
-  let mach = initMach bytes isa
-
-  override __.FileFormat = FileFormat.MachBinary
+  let mach = Parser.parse bytes isa
 
   override __.BinReader = mach.BinReader
-
-  override __.ISA =
-    let cputype = mach.MachHdr.CPUType
-    let cpusubtype = mach.MachHdr.CPUSubType
-    let arch = Header.cpuTypeToArch cputype cpusubtype
-    let endian = Header.magicToEndian mach.MachHdr.Magic
-    ISA.Init arch endian
-
+  override __.FileFormat = FileFormat.MachBinary
+  override __.ISA = getISA mach
+  override __.FileType = convFileType mach.MachHdr.FileType
   override __.FilePath = path
-
-  override __.EntryPoint = mach.EntryPoint
-
-  override __.IsStripped =
-    getAllStaticSymbols mach
-    |> Array.exists (fun s -> s.Kind = SymbolKind.FunctionType)
-    |> not
-
-  override __.FileType = transFileType mach.MachHdr.FileType
-
   override __.WordSize = mach.MachHdr.Class
-
-  override __.IsNXEnabled =
-    not (mach.MachHdr.Flags.HasFlag MachFlag.MHAllowStackExecution)
-    || mach.MachHdr.Flags.HasFlag MachFlag.MHNoHeapExecution
-
-  override __.IsRelocatable =
-    mach.MachHdr.Flags.HasFlag MachFlag.MHPIE
-
-  override __.TranslateAddress addr =
-    match ARMap.tryFindByAddr addr mach.SegmentMap with
-    | Some s -> Convert.ToInt32 (addr - s.VMAddr + s.FileOff)
-    | None -> raise InvalidAddrReadException
-
-  override __.TryFindFunctionSymbolName (addr, name: byref<string>) =
-    match tryFindFunctionSymb mach addr with
-    | Some n -> name <- n; true
-    | None -> false
-
-  override __.GetSymbols () =
-    let s = getAllStaticSymbols mach
-    let d = getAllDynamicSymbols false mach
-    Array.append s d |> Array.toSeq
-
-  override __.GetStaticSymbols () = getAllStaticSymbols mach |> Array.toSeq
-
-  override __.GetDynamicSymbols (?defined) =
-    let onlyDef = defaultArg defined false
-    getAllDynamicSymbols onlyDef mach |> Array.toSeq
-
+  override __.IsStripped = isStripped mach
+  override __.IsNXEnabled = isNXEnabled mach
+  override __.IsRelocatable = mach.MachHdr.Flags.HasFlag MachFlag.MHPIE
+  override __.EntryPoint = mach.EntryPoint
+  override __.TextStartAddr = getTextStartAddr mach
+  override __.TranslateAddress addr = translateAddr mach addr
+  override __.GetSymbols () = getSymbols mach
+  override __.GetStaticSymbols () = getStaticSymbols mach |> Array.toSeq
+  override __.GetDynamicSymbols (?e) = getDynamicSymbols e mach |> Array.toSeq
   override __.GetRelocationSymbols () = Utils.futureFeature ()
-
-  override __.GetSections () =
-    mach.Sections.SecByNum
-    |> Array.map (machSectionToSection mach.SegmentMap)
-    |> Array.toSeq
-
-  override __.GetSections (addr) =
-    match ARMap.tryFindByAddr addr mach.Sections.SecByAddr with
-    | Some s -> Seq.singleton (machSectionToSection mach.SegmentMap s)
-    | None -> Seq.empty
-
-  override __.GetSectionsByName (name) =
-    match Map.tryFind name mach.Sections.SecByName with
-    | Some s -> Seq.singleton (machSectionToSection mach.SegmentMap s)
-    | None -> Seq.empty
-
-  override __.GetSegments (isLoadable) =
-    Segment.getSegments mach isLoadable
-
-  override __.GetLinkageTableEntries () =
-    mach.SymInfo.LinkageTable
-    |> List.sortBy (fun entry -> entry.TrampolineAddress)
-    |> List.toSeq
-
-  override __.TextStartAddr =
-    (Map.find "__text" mach.Sections.SecByName).SecAddr
-
-  override __.IsValidAddr addr =
-    IntervalSet.containsAddr addr mach.InvalidAddrRanges |> not
-
-  override __.IsValidRange range =
-    IntervalSet.findAll range mach.InvalidAddrRanges |> List.isEmpty
-
-  override __.IsInFileAddr addr =
-    IntervalSet.containsAddr addr mach.NotInFileRanges |> not
-
-  override __.IsInFileRange range =
-    IntervalSet.findAll range mach.NotInFileRanges |> List.isEmpty
-
-  override __.GetNotInFileIntervals range =
-    IntervalSet.findAll range mach.NotInFileRanges
-    |> List.map (FileHelper.trimByRange range)
-    |> List.toSeq
+  override __.GetSections () = getSections mach
+  override __.GetSections (addr) = getSectionsByAddr mach addr
+  override __.GetSections (name) = getSectionsByName mach name
+  override __.GetSegments (isLoadable) = Segment.getSegments mach isLoadable
+  override __.GetLinkageTableEntries () = getPLT mach
+  override __.TryFindFunctionSymbolName (addr, n) = tryFindFuncSymb mach addr &n
+  override __.IsValidAddr addr = isValidAddr mach addr
+  override __.IsValidRange range = isValidRange mach range
+  override __.IsInFileAddr addr = isInFileAddr mach addr
+  override __.IsInFileRange range = isInFileRange mach range
+  override __.GetNotInFileIntervals range = getNotInFileIntervals mach range
 
 // vim: set tw=80 sts=2 sw=2:

@@ -33,9 +33,8 @@ let private elfBinary reader =
   else None
 
 let private peBinary bytes =
-  try PE.Helper.parseFormat bytes 0 |> ignore
-      Some (FileFormat.PEBinary)
-  with _ -> None
+  if PE.Helper.isPE bytes 0 then Some FileFormat.PEBinary
+  else None
 
 let private machBinary reader =
   if Mach.Header.isMach reader 0 then Some FileFormat.MachBinary

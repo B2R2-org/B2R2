@@ -24,89 +24,26 @@
 
 module internal B2R2.BinFile.Mach.Helper
 
+open System
 open B2R2
 open B2R2.BinFile
 
-let isMainCmd = function
-  | Main _ -> true
-  | _ -> false
+let getISA mach =
+  let cputype = mach.MachHdr.CPUType
+  let cpusubtype = mach.MachHdr.CPUSubType
+  let arch = Header.cpuTypeToArch cputype cpusubtype
+  let endian = Header.magicToEndian mach.MachHdr.Magic
+  ISA.Init arch endian
 
-let getMainOffset cmds =
-  match cmds |> List.tryFind isMainCmd with
-  | Some (Main m) -> m.EntryOff
-  | _ -> 0UL
-
-let getTextSegOffset segs =
-  let isTextSegment s = s.SegCmdName = "__TEXT"
-  match segs |> List.tryFind isTextSegment with
-  | Some s -> s.VMAddr
-  | _ -> raise FileFormatMismatchException
-
-let getTextSecOffset secs =
-  match secs.SecByNum |> Array.tryFind (fun s -> s.SecName = "__text") with
-  | Some s -> s.SecAddr
-  | _ -> raise FileFormatMismatchException
-
-let computeEntryPoint secs segs cmds =
-  let mainOffset = getMainOffset cmds
-  if mainOffset = 0UL then getTextSecOffset secs
-  else mainOffset + getTextSegOffset segs
-
-let invRanges wordSize segs getNextStartAddr =
-  segs
-  |> List.filter (fun seg -> seg.SegCmdName <> "__PAGEZERO")
-  |> List.sortBy (fun seg -> seg.VMAddr)
-  |> List.fold (fun (set, saddr) seg ->
-       let n = getNextStartAddr seg
-       FileHelper.addInvRange set saddr seg.VMAddr, n) (IntervalSet.empty, 0UL)
-  |> FileHelper.addLastInvRange wordSize
-
-let parseMach reader  =
-  let machHdr = Header.parse reader 0
-  let cls = machHdr.Class
-  let cmds = LoadCommands.parse reader machHdr
-  let segs = Segment.extract cmds
-  let segmap = Segment.buildMap segs
-  let secs = Section.parseSections reader cls segs
-  let symInfo = Symbol.parse machHdr cmds secs reader
-  { EntryPoint = computeEntryPoint secs segs cmds
-    SymInfo = symInfo
-    MachHdr = machHdr
-    Segments = segs
-    SegmentMap = segmap
-    Sections = secs
-    InvalidAddrRanges = invRanges cls segs (fun s -> s.VMAddr + s.VMSize)
-    NotInFileRanges = invRanges cls segs (fun s -> s.VMAddr + s.FileSize)
-    BinReader = reader }
-
-let updateReaderForFat bytes isa reader =
-  if Header.isFat reader 0 then
-    let offset, size = Fat.computeOffsetAndSize reader isa
-    let bytes = Array.sub bytes offset size
-    BinReader.Init (bytes)
-  else reader
-
-let initMach bytes isa =
-  let reader = BinReader.Init (bytes) |> updateReaderForFat bytes isa
-  if Header.isMach reader 0 then ()
-  else raise FileFormatMismatchException
-  Header.peekEndianness reader 0
-  |> BinReader.RenewReader reader
-  |> parseMach
-
-let transFileType = function
+let convFileType = function
   | MachFileType.MHExecute -> FileType.ExecutableFile
   | MachFileType.MHObject -> FileType.ObjFile
-  | MachFileType.MHDylib | MachFileType.MHFvmlib -> FileType.LibFile
+  | MachFileType.MHDylib
+  | MachFileType.MHFvmlib -> FileType.LibFile
   | MachFileType.MHCore -> FileType.CoreFile
   | _ -> FileType.UnknownFile
 
-let tryFindFunctionSymb mach addr =
-  match Map.tryFind addr mach.SymInfo.SymbolMap with
-  | Some s -> Some s.SymName
-  | None -> None
-
-let machTypeToSymbKind (sym: MachSymbol) =
+let machTypeToSymbKind sym =
   if sym.SymType = SymbolType.NFun && sym.SymName.Length > 0 then
     SymbolKind.FunctionType
   elif sym.SymType = SymbolType.NSO
@@ -115,24 +52,47 @@ let machTypeToSymbKind (sym: MachSymbol) =
   else
     SymbolKind.NoType
 
-let machSymbolToSymbol target (sym: MachSymbol) =
+let machSymbolToSymbol target sym =
   { Address = sym.SymAddr
     Name = sym.SymName
     Kind = machTypeToSymbKind sym
     Target = target
     LibraryName = Symbol.getSymbolLibName sym }
 
-let getAllStaticSymbols mach =
+let getStaticSymbols mach =
   mach.SymInfo.Symbols
   |> Array.filter Symbol.isStatic
   |> Array.map (machSymbolToSymbol TargetKind.StaticSymbol)
 
-let getAllDynamicSymbols excludeImported mach =
+let isStripped mach =
+  getStaticSymbols mach
+  |> Array.exists (fun s -> s.Kind = SymbolKind.FunctionType)
+  |> not
+
+let isNXEnabled mach =
+  not (mach.MachHdr.Flags.HasFlag MachFlag.MHAllowStackExecution)
+  || mach.MachHdr.Flags.HasFlag MachFlag.MHNoHeapExecution
+
+let inline getTextStartAddr mach =
+  (Map.find "__text" mach.Sections.SecByName).SecAddr
+
+let inline translateAddr mach addr =
+  match ARMap.tryFindByAddr addr mach.SegmentMap with
+  | Some s -> Convert.ToInt32 (addr - s.VMAddr + s.FileOff)
+  | None -> raise InvalidAddrReadException
+
+let getDynamicSymbols excludeImported mach =
+  let excludeImported = defaultArg excludeImported false
   let filter = Array.filter (fun (s: MachSymbol) -> s.SymAddr > 0UL)
   mach.SymInfo.Symbols
   |> Array.filter Symbol.isDynamic
   |> fun arr -> if excludeImported then filter arr else arr
   |> Array.map (machSymbolToSymbol TargetKind.DynamicSymbol)
+
+let getSymbols mach =
+  let s = getStaticSymbols mach
+  let d = getDynamicSymbols None mach
+  Array.append s d |> Array.toSeq
 
 let secFlagToSectionKind isExecutable = function
   | SectionType.NonLazySymbolPointers
@@ -150,5 +110,47 @@ let machSectionToSection segMap (sec: MachSection) =
     Kind = secFlagToSectionKind isExecutable sec.SecType
     Size = sec.SecSize
     Name = sec.SecName }
+
+let getSections mach =
+  mach.Sections.SecByNum
+  |> Array.map (machSectionToSection mach.SegmentMap)
+  |> Array.toSeq
+
+let getSectionsByAddr mach addr =
+  match ARMap.tryFindByAddr addr mach.Sections.SecByAddr with
+  | Some s -> Seq.singleton (machSectionToSection mach.SegmentMap s)
+  | None -> Seq.empty
+
+let getSectionsByName mach name =
+  match Map.tryFind name mach.Sections.SecByName with
+  | Some s -> Seq.singleton (machSectionToSection mach.SegmentMap s)
+  | None -> Seq.empty
+
+let getPLT mach =
+  mach.SymInfo.LinkageTable
+  |> List.sortBy (fun entry -> entry.TrampolineAddress)
+  |> List.toSeq
+
+let inline tryFindFuncSymb mach addr (name: byref<string>) =
+  match Map.tryFind addr mach.SymInfo.SymbolMap with
+  | Some s -> name <- s.SymName; true
+  | None -> false
+
+let inline isValidAddr mach addr =
+  IntervalSet.containsAddr addr mach.InvalidAddrRanges |> not
+
+let inline isValidRange mach range =
+  IntervalSet.findAll range mach.InvalidAddrRanges |> List.isEmpty
+
+let inline isInFileAddr mach addr =
+  IntervalSet.containsAddr addr mach.NotInFileRanges |> not
+
+let inline isInFileRange mach range =
+  IntervalSet.findAll range mach.NotInFileRanges |> List.isEmpty
+
+let inline getNotInFileIntervals mach range =
+  IntervalSet.findAll range mach.NotInFileRanges
+  |> List.map (FileHelper.trimByRange range)
+  |> List.toSeq
 
 // vim: set tw=80 sts=2 sw=2:

@@ -17,6 +17,7 @@
     <Compile Include="ELFSymbol.fs" />
     <Compile Include="ELFRelocs.fs" />
     <Compile Include="ELFHelper.fs" />
+    <Compile Include="ELFParser.fs" />
     <Compile Include="ELF.fs" />
     <Compile Include="MachTypes.fs" />
     <Compile Include="MachLoadCommands.fs" />
@@ -26,10 +27,12 @@
     <Compile Include="MachSection.fs" />
     <Compile Include="MachSymbol.fs" />
     <Compile Include="MachHelper.fs" />
+    <Compile Include="MachParser.fs" />
     <Compile Include="Mach.fs" />
     <Compile Include="PETypes.fs" />
     <Compile Include="PEPDB.fs" />
     <Compile Include="PEHelper.fs" />
+    <Compile Include="PEParser.fs" />
     <Compile Include="PE.fs" />
     <Compile Include="FormatDetector.fs" />
   </ItemGroup>
