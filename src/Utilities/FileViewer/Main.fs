@@ -28,7 +28,6 @@ open B2R2
 open B2R2.BinFile
 open B2R2.FrontEnd
 open B2R2.Utilities
-open B2R2.Utilities.FileViewer.CmdOptions
 
 let dumpBasic (fi: FileInfo) =
   printfn "## Basic Information"
@@ -58,6 +57,17 @@ let dumpSections (fi: FileInfo) addrToString =
         s.Name)
   printfn ""
 
+let dumpSegments (fi: FileInfo) addrToString =
+  printfn "## Segment Information"
+  fi.GetSegments ()
+  |> Seq.iteri (fun idx s ->
+    printfn "%2d. %s:%s [%s]"
+      idx
+      (addrToString s.Address)
+      (addrToString (s.Address + s.Size))
+      (FileInfo.PermissionToString s.Permission))
+  printfn ""
+
 let targetString s =
   match s.Target with
   | TargetKind.StaticSymbol -> "(s)"
@@ -81,6 +91,18 @@ let dumpSymbols (fi: FileInfo) addrToString dumpAll =
         (targetString s) (addrToString s.Address) (name s) (lib s.LibraryName))
   printfn ""
 
+let dumpRelocs (fi: FileInfo) addrToString =
+  printfn "## Relocation Information"
+  fi.GetRelocationSymbols ()
+  |> Seq.sortBy (fun s -> s.Address)
+  |> Seq.iter (fun r ->
+    printfn "- (%d) %s: %s%s"
+      (int r.Kind)
+      (addrToString r.Address)
+      r.Name
+      (if r.LibraryName = "" then "" else " @ " + r.LibraryName))
+  printfn ""
+
 let dumpIfNotEmpty s =
   if System.String.IsNullOrEmpty s then "" else "@" + s
 
@@ -101,7 +123,7 @@ let dumpFunctions (fi: FileInfo) addrToString =
   |> Seq.filter (fun s -> s.Kind = SymbolKind.FunctionType)
   |> Seq.iter (fun s -> printfn "- %s: %s" (addrToString s.Address) s.Name)
 
-let dumpFile (opts: FileViewerOpts) (filepath: string) =
+let dumpFile (opts: CmdOptions.FileViewerOpts) (filepath: string) =
   let hdl = BinHandler.Init (opts.ISA, filepath)
   let fi = hdl.FileInfo
   let addrToString = Addr.toString hdl.ISA.WordSize
@@ -110,7 +132,9 @@ let dumpFile (opts: FileViewerOpts) (filepath: string) =
   dumpBasic fi
   dumpSecurity fi
   dumpSections fi addrToString
+  dumpSegments fi addrToString
   dumpSymbols fi addrToString opts.Verbose
+  dumpRelocs fi addrToString
   dumpLinkageTable fi addrToString
   dumpFunctions fi addrToString
 
@@ -119,5 +143,5 @@ let dump files opts =
 
 [<EntryPoint>]
 let main args =
-  let opts = FileViewerOpts ()
+  let opts = CmdOptions.FileViewerOpts ()
   CmdOpts.ParseAndRun dump "<binary file(s)>" CmdOptions.spec opts args
