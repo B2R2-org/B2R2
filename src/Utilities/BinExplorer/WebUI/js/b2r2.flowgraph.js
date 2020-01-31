@@ -210,11 +210,9 @@ class FlowGraph extends Graph {
   }
 
   static onZoom(g) {
-    const minimapWidth = g.minimap.stage.node().getBoundingClientRect().width;
     return function () {
       g.transK = d3.event.transform.k;
-      const cfgWidth = g.stage.node().getBoundingClientRect().width;
-      const ratio = minimapWidth / cfgWidth;
+      const ratio = g.reductionRate * minimapRatio / g.transK;
       const x = (- d3.event.transform.x) * ratio;
       const y = (- d3.event.transform.y) * ratio;
       const k = g.reductionRate / g.transK;
