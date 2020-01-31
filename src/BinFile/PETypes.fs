@@ -260,6 +260,8 @@ type PE = {
   InvalidAddrRanges: IntervalSet
   /// Not-in-file address ranges.
   NotInFileRanges: IntervalSet
+  /// A function for finding section index for a given rva (int).
+  FindSectionIdxFromRVA: int -> int
   /// BinReader
   BinReader: BinReader
 }

@@ -81,15 +81,22 @@ let secFlagToSectionKind (flags: SectionCharacteristics) =
   else
     SectionKind.ExtraSection
 
+/// Some PE files have a section header indicating that the corresponding
+/// section's size is zero even if it contains actual data, i.e.,
+/// sHdr.VirtualSize = 0, but sHdr.SizeOfRawData <> 0. Thus, we should use this
+/// function to get the size of sections (segments).
+let getVirtualSectionSize (sec: SectionHeader) =
+  let virtualSize = sec.VirtualSize
+  if virtualSize = 0 then sec.SizeOfRawData else virtualSize
+
 let secHdrToSection pe (sec: SectionHeader) =
   { Address = addrFromRVA pe.BaseAddr sec.VirtualAddress
     Kind = secFlagToSectionKind sec.SectionCharacteristics
-    Size = sec.VirtualSize |> uint64
+    Size = getVirtualSectionSize sec |> uint64
     Name = sec.Name }
 
 let getSectionsByName pe name =
-  let headers = pe.PEHeaders.SectionHeaders
-  match headers |> Seq.tryFind (fun sec -> sec.Name = name) with
+  match pe.SectionHeaders |> Seq.tryFind (fun sec -> sec.Name = name) with
   | None -> Seq.empty
   | Some sec -> secHdrToSection pe sec |> Seq.singleton
 
@@ -100,10 +107,10 @@ let getTextStartAddr pe =
 
 let inline translateAddr pe addr =
   let rva = int (addr - pe.BaseAddr)
-  match pe.PEHeaders.GetContainingSectionIndex rva with
+  match pe.FindSectionIdxFromRVA rva with
   | -1 -> raise InvalidAddrReadException
   | idx ->
-    let sHdr = pe.PEHeaders.SectionHeaders.[idx]
+    let sHdr = pe.SectionHeaders.[idx]
     rva + sHdr.PointerToRawData - sHdr.VirtualAddress
 
 let pdbTypeToSymbKind = function
@@ -122,22 +129,6 @@ let inline getStaticSymbols pe =
   |> Array.map pdbSymbolToSymbol
   |> Array.toSeq
 
-/// Some PE files have a section header indicating that the corresponding
-/// section's size is zero even if it contains actual data, i.e.,
-/// sHdr.VirtualSize = 0, but sHdr.SizeOfRawData <> 0. In such cases,
-/// GetContainingSectionIndex function will not be able to find a match, and we
-/// should fall back on this path.
-let findSectionIdxOfZeroVirtualSize (headers: PEHeaders) rva =
-  headers.SectionHeaders
-  |> Seq.tryFindIndex (fun s ->
-    s.VirtualAddress <= rva && rva < s.VirtualAddress + s.SizeOfRawData)
-  |> Option.defaultValue -1
-
-let findSectionIndex (headers: PEHeaders) rva =
-  let idx = headers.GetContainingSectionIndex rva
-  if idx < 0 then findSectionIdxOfZeroVirtualSize headers rva
-  else idx
-
 let getSymbolKindBySectionIndex pe idx =
   let ch = pe.SectionHeaders.[idx].SectionCharacteristics
   if ch.HasFlag SectionCharacteristics.MemExecute then SymbolKind.FunctionType
@@ -146,7 +137,7 @@ let getSymbolKindBySectionIndex pe idx =
 let getExportSymbols pe =
   let conv acc addr exp =
     let rva = int (addr - pe.BaseAddr)
-    match findSectionIndex pe.PEHeaders rva with
+    match pe.FindSectionIdxFromRVA rva with
     | -1 -> acc
     | idx ->
       { Address = addr
@@ -210,10 +201,10 @@ let getSections pe =
 
 let getSectionsByAddr pe addr =
   let rva = int (addr - pe.BaseAddr)
-  match pe.PEHeaders.GetContainingSectionIndex rva with
+  match pe.FindSectionIdxFromRVA rva with
   | -1 -> Seq.empty
   | idx ->
-    pe.PEHeaders.SectionHeaders.[idx] |> secHdrToSection pe |> Seq.singleton
+    pe.SectionHeaders.[idx] |> secHdrToSection pe |> Seq.singleton
 
 let getImportTable pe =
   pe.ImportMap
@@ -240,9 +231,9 @@ let getSegments pe =
     r + w + x |> LanguagePrimitives.EnumOfValue
   let secToSegment (sec: SectionHeader) =
     { Address = uint64 sec.VirtualAddress + pe.BaseAddr
-      Size = uint64 sec.VirtualSize
+      Size = getVirtualSectionSize sec |> uint64
       Permission = getSecPermission sec.SectionCharacteristics }
-  pe.PEHeaders.SectionHeaders
+  pe.SectionHeaders
   |> Seq.map secToSegment
 
 let private findSymFromIAT addr pe =
