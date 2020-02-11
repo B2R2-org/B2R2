@@ -82,7 +82,17 @@ class FlowGraph extends Graph {
       .attr("id", this.generateFilterID(id, "blur"))
       .attr("filterUnits", "userSpaceOnUse")
       .append("feGaussianBlur")
-        .attr("stdDeviation", 2);
+      .attr("stdDeviation", 2);
+    const background = this.predefs.append("filter")
+      .attr("x", 0)
+      .attr("y", 0)
+      .attr("width", 1)
+      .attr("height", 1)
+      .attr("id", this.generateFilterID(id, "background"));
+    background.append("feFlood").classed("c-graph__background-filter", true);
+    background.append("feComposite")
+      .attr("operator", "xor")
+      .attr("in", "SourceGraphic");
   }
 
   initializePredefs(id) {
@@ -109,7 +119,8 @@ class FlowGraph extends Graph {
     else tspan.attr("dx", "0px");
   }
 
-  drawLinesOfNode(v, g) {
+  drawLinesOfNode(id, v, g) {
+    const f = this.generateFilterID(id, "background");
     for (let i = 0; i < v.Terms.length; i++) {
       const line = v.Terms[i];
       const y = i * 14 + stmtPaddingTop;
@@ -117,6 +128,9 @@ class FlowGraph extends Graph {
       const txt = gstmt.append("text")
         .classed("c-graph__stmt", true)
         .attr("xml:space", "preserve");
+      txt
+        .on("mouseover", function () { txt.attr("filter", "url(#" + f + ")"); })
+        .on("mouseout", function () { txt.attr("filter", null); });
       this.linemap[parseInt(line[0], 16)] = txt;
       for (let j = 0; j < line.length; j++) {
         const term = line[j][0];
@@ -152,7 +166,6 @@ class FlowGraph extends Graph {
     const x = v.Coordinate.X;
     const y = v.Coordinate.Y;
     const g = this.cfg.append("g")
-      .attr("addr", v.PPoint[0])
       .attr("transform", "translate(" + x + "," + y + ")");
     g.append("rect")
       .classed("c-graph__node", true)
@@ -167,7 +180,7 @@ class FlowGraph extends Graph {
     rect
       .on("mouseover", function () { rect.attr("filter", "url(#" + f + ")"); })
       .on("mouseout", function () { rect.attr("filter", null); });
-    this.drawLinesOfNode(v, g);
+    this.drawLinesOfNode(id, v, g);
   }
 
   drawNodes(id, json) {

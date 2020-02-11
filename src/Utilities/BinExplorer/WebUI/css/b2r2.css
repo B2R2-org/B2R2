@@ -23,6 +23,7 @@
   --graph-border: black;
   --graph-node-fill: white;
   --graph-node-stroke: black;
+  --graph-stmt-hover: #70c0c0;
   --graph-stmt-address: #99a0a0;
   --graph-stmt-mnemonic: #2cb174;
   --graph-stmt-string: #505050;

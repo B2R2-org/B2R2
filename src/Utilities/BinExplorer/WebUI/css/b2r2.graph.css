@@ -28,6 +28,10 @@
   stroke-width: 1.5px;
 }
 
+.c-graph__background-filter {
+  flood-color: var(--graph-stmt-hover);
+}
+
 .c-graph__stmt {
   font-family: 'Inconsolata', monospace;
 }
