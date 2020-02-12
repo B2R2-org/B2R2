@@ -40,72 +40,11 @@ class FlowGraph extends Graph {
     this.minimap = new Minimap(div, this);
     // The mapping from address to stmt in the graph.
     this.linemap = {};
-    // The predefined arrows and filters.
-    this.predefs = this.cfg.append("defs");
-    this.initializePredefs(id);
+    this.initializeLineFunc();
     this.fetchAndDraw(id, kind);
   }
 
-  generateArrowID(id, tag) {
-    return "js-" + id + "-" + tag.toLowerCase();
-  }
-
-  generateArrowClass(tag) {
-    return "c-graph__arrow-" + tag.toLowerCase();
-  }
-
-  generateEdgeClass(tag) {
-    return "c-graph__" + tag.toLowerCase();
-  }
-
-  generateFilterID(id, filter) {
-    return "js-filter-" + filter + "-" + id;
-  }
-
-  setMarkerArrow(id, tag) {
-    this.predefs.append("marker")
-      .classed(this.generateArrowClass(tag), true)
-      .attr("id", this.generateArrowID(id, tag))
-      .attr("markerWidth", 3)
-      .attr("markerHeight", 3)
-      .attr("markerUnits", "strokeWidth")
-      .attr("viewBox", "-5 -5 10 10")
-      .attr("refX", 5)
-      .attr("refY", 0)
-      .attr("orient", "auto")
-      .append("path")
-        .attr("d", "M 0,0 m -5,-5 L 5,0 L -5,5 Z");
-  }
-
-  setFilter(id) {
-    this.predefs.append("filter")
-      .attr("id", this.generateFilterID(id, "blur"))
-      .attr("filterUnits", "userSpaceOnUse")
-      .append("feGaussianBlur")
-      .attr("stdDeviation", 2);
-    const background = this.predefs.append("filter")
-      .attr("x", 0)
-      .attr("y", 0)
-      .attr("width", 1)
-      .attr("height", 1)
-      .attr("id", this.generateFilterID(id, "background"));
-    background.append("feFlood").classed("c-graph__background-filter", true);
-    background.append("feComposite")
-      .attr("operator", "xor")
-      .attr("in", "SourceGraphic");
-  }
-
-  initializePredefs(id) {
-    this.setMarkerArrow(id, "InterJmpEdge");
-    this.setMarkerArrow(id, "InterCJmpTrueEdge");
-    this.setMarkerArrow(id, "InterCJmpFalseEdge");
-    this.setMarkerArrow(id, "IntraJmpEdge");
-    this.setMarkerArrow(id, "IntraCJmpTrueEdge");
-    this.setMarkerArrow(id, "IntraCJmpFalseEdge");
-    this.setMarkerArrow(id, "FallThroughEdge");
-    this.setMarkerArrow(id, "CallEdge");
-    this.setMarkerArrow(id, "RetEdge");
-    this.setFilter(id);
+  initializeLineFunc() {
     this.linefunc = d3.line()
       .x(function (d) { return d.X; })
       .y(function (d) { return d.Y; })
@@ -119,8 +58,8 @@ class FlowGraph extends Graph {
     else tspan.attr("dx", "0px");
   }
 
-  drawLinesOfNode(id, v, g) {
-    const f = this.generateFilterID(id, "background");
+  drawLinesOfNode(v, g) {
+    const f = "js-filter-stmt-background";
     for (let i = 0; i < v.Terms.length; i++) {
       const line = v.Terms[i];
       const y = i * 14 + stmtPaddingTop;
@@ -161,7 +100,7 @@ class FlowGraph extends Graph {
     });
   }
 
-  drawNode(id, v) {
+  drawNode(v) {
     this.minimap.drawNode(v);
     const x = v.Coordinate.X;
     const y = v.Coordinate.Y;
@@ -176,33 +115,34 @@ class FlowGraph extends Graph {
       .classed("c-graph__node--blur", true)
       .attr("width", v.Width)
       .attr("height", v.Height);
-    const f = this.generateFilterID(id, "blur");
     rect
-      .on("mouseover", function () { rect.attr("filter", "url(#" + f + ")"); })
+      .on("mouseover", function () {
+        rect.attr("filter", "url(#js-filter-blur)");
+      })
       .on("mouseout", function () { rect.attr("filter", null); });
-    this.drawLinesOfNode(id, v, g);
+    this.drawLinesOfNode(v, g);
   }
 
-  drawNodes(id, json) {
+  drawNodes(json) {
     for (let i = 0; i < json.Nodes.length; i++) {
-      this.drawNode(id, json.Nodes[i]);
+      this.drawNode(json.Nodes[i]);
     }
   }
 
-  drawEdge(id, e) {
+  drawEdge(e) {
     this.minimap.drawEdge(e);
     const path = this.cfg.append("path")
       .classed("c-graph__edge", true)
-      .classed(this.generateEdgeClass(e.Type), true)
+      .classed("c-graph__" + e.Type.toLowerCase(), true)
       .datum(e.Points)
       .attr("d", this.linefunc)
-      .attr("marker-end", "url(#" + this.generateArrowID(id, e.Type) + ")");
+      .attr("marker-end", "url(#" + "js-" + e.Type.toLowerCase() + ")");
     if (e.IsBackEdge) path.attr("stroke-dasharray", "4, 4");
   }
 
-  drawEdges(id, json) {
+  drawEdges(json) {
     for (let i = 0; i < json.Edges.length; i++) {
-      this.drawEdge(id, json.Edges[i]);
+      this.drawEdge(json.Edges[i]);
     }
   }
 
@@ -272,12 +212,12 @@ class FlowGraph extends Graph {
     $(document).on("click", function () { myself.deactivateLines(); });
   }
 
-  draw(id, json) {
+  draw(json) {
     this.vpDims = computeVPDimensions(this.container);
     this.minimap.resize(this.vpDims.minimapVPDim);
     this.minimap.registerViewbox(this.vpDims.minimapVPDim);
-    this.drawNodes(id, json);
-    this.drawEdges(id, json);
+    this.drawNodes(json);
+    this.drawEdges(json);
     // Compute the actual bbox after drawing the graph.
     const graphDims = this.cfg.node().getBBox();
     this.reductionRate = this.computeReductionRate(graphDims);
@@ -290,7 +230,7 @@ class FlowGraph extends Graph {
     const myself = this;
     query({ "q": kind, "args": id }, function (_status, json) {
       myself.json = json;
-      myself.draw(id, json);
+      myself.draw(json);
     });
   }
 

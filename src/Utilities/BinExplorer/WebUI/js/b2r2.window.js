@@ -44,6 +44,7 @@ class WindowManager {
     this.windows = {};
     this.currentWin = null;
     SideMenu.registerEvents(this);
+    SVGDefs.register(this.graphView)
   }
 
   getCurrentHeight() {

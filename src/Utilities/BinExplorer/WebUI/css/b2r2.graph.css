@@ -28,7 +28,7 @@
   stroke-width: 1.5px;
 }
 
-.c-graph__background-filter {
+.c-filter-stmt-background {
   flood-color: var(--graph-stmt-hover);
 }
 
@@ -102,39 +102,39 @@
   stroke: var(--graph-edge-call-stroke);
 }
 
-.c-graph__arrow-interjmpedge {
+.c-arrow-interjmpedge {
   fill: var(--graph-edge-interjmp-stroke);
 }
 
-.c-graph__arrow-intercjmpfalseedge {
+.c-arrow-intercjmpfalseedge {
   fill: var(--graph-edge-intercjmpfalse-stroke);
 }
 
-.c-graph__arrow-intercjmptrueedge {
+.c-arrow-intercjmptrueedge {
   fill: var(--graph-edge-intercjmptrue-stroke);
 }
 
-.c-graph__arrow-intrajmpedge {
+.c-arrow-intrajmpedge {
   fill: var(--graph-edge-intrajmp-stroke);
 }
 
-.c-graph__arrow-intracjmpfalseedge {
+.c-arrow-intracjmpfalseedge {
   fill: var(--graph-edge-intracjmpfalse-stroke);
 }
 
-.c-graph__arrow-intracjmptrueedge {
+.c-arrow-intracjmptrueedge {
   fill: var(--graph-edge-intracjmptrue-stroke);
 }
 
-.c-graph__arrow-fallthroughedge {
+.c-arrow-fallthroughedge {
   fill: var(--graph-edge-fallthrough-stroke);
 }
 
-.c-graph__arrow-calledge {
+.c-arrow-calledge {
   fill: var(--graph-edge-call-stroke);
 }
 
-.c-graph__arrow-retedge {
+.c-arrow-retedge {
   fill: var(--graph-edge-ret-stroke);
 }
 
