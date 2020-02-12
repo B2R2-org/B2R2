@@ -98,6 +98,10 @@
   stroke: var(--graph-edge-call-stroke);
 }
 
+.c-graph__recursivecalledge {
+  stroke: var(--graph-edge-call-stroke);
+}
+
 .c-graph__retedge {
   stroke: var(--graph-edge-call-stroke);
 }
@@ -128,6 +132,10 @@
 
 .c-arrow-fallthroughedge {
   fill: var(--graph-edge-fallthrough-stroke);
+}
+
+.c-arrow-recursivecalledge {
+  fill: var(--graph-edge-call-stroke);
 }
 
 .c-arrow-calledge {

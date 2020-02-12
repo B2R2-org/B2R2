@@ -99,9 +99,11 @@ type SCFG (hdl, app) =
     and addEdge parentVertex curVertex e =
       match parentVertex with
       | None -> ()
-      | Some p ->
-        newGraph.AddEdge p curVertex e
-        if e = CallEdge then
+      | Some p when e = CallEdge ->
+        if curVertex.VData.PPoint.Address = addr then
+          newGraph.AddEdge p curVertex RecursiveCallEdge
+        else
+          newGraph.AddEdge p curVertex e
           let last = p.VData.LastInstruction
           let fallthrough = last.Address + uint64 last.Length
           let fallPP = ProgramPoint (fallthrough, 0)
@@ -112,7 +114,7 @@ type SCFG (hdl, app) =
             else
               let falltarget = vMap.[fallPP]
               newGraph.AddEdge curVertex falltarget RetEdge
-        else ()
+      | Some p -> newGraph.AddEdge p curVertex e
     and iterSuccessors oldVertex curVertex succs =
       let last = curVertex.VData.LastInstruction
       let fallAddr = last.Address + uint64 last.Length

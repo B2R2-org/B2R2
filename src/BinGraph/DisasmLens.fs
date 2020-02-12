@@ -120,7 +120,7 @@ type DisasmLens (app) =
     let srcV = getVertex newGraph vMap v addr
     Array.append srcV.VData.Instructions (succ.VData.GetInstructions ())
     |> Array.fold (fun m i -> Map.add i.Address i m) Map.empty
-    |> Map.toArray
+    |> Map.toArray (* Remove overlapping instructions in an inefficient way. *)
     |> Array.map snd
     |> fun instrs -> srcV.VData.Instructions <- instrs
 
@@ -135,7 +135,7 @@ type DisasmLens (app) =
       let newGraph = DisasmCFG ()
       let vMap = DisasmVMap ()
       let roots' =
-        roots
+        roots (* Add nodes to newGraph. *)
         |> List.map (fun r -> getVertex newGraph vMap r r.VData.PPoint.Address)
       dfs (merge newGraph vMap) (addEdge newGraph vMap) g roots
       newGraph, roots'
