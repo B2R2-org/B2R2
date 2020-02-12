@@ -361,6 +361,22 @@ type BitVector =
       { Num = 0UL; BigNum = expAndSign <<< 64 ||| significand; Length = 80<rt> }
     | _ -> raise ArithTypeMismatchException
 
+  static member private castAsInt f64 typ =
+    match typ with
+    | 8<rt> ->
+      let v = f64 |> int8 |> uint8 |> uint64
+      BitVector.ofUInt64 v 8<rt>
+    | 16<rt> ->
+      let v = f64 |> int16 |> uint16 |> uint64
+      BitVector.ofUInt64 v 16<rt>
+    | 32<rt> ->
+      let v = f64 |> int32
+      BitVector.ofInt32 v 32<rt>
+    | 64<rt> ->
+      let v = f64 |> int64
+      BitVector.ofInt64 v 64<rt>
+    | _ -> raise ArithTypeMismatchException
+
   static member private getFloatValue bv =
     match bv.Length with
     | 32<rt> ->
@@ -695,38 +711,36 @@ type BitVector =
 
   [<CompiledName("FtoICeil")>]
   static member ftoICeil bv typ =
-    let fValue =
-      BitVector.getFloatValue bv |> ceil |> BitConverter.DoubleToInt64Bits
-    BitVector.castAsFloat (uint64 fValue) typ
+    let fValue = BitVector.getFloatValue bv |> ceil
+    BitVector.castAsInt fValue typ
 
   [<CompiledName("FtoIFloor")>]
   static member ftoIFloor bv typ =
-    let fValue =
-      BitVector.getFloatValue bv |> floor |> BitConverter.DoubleToInt64Bits
-    BitVector.castAsFloat (uint64 fValue) typ
+    let fValue = BitVector.getFloatValue bv |> floor
+    BitVector.castAsInt fValue typ
 
   [<CompiledName("FtoIRound")>]
   static member ftoIRound bv typ =
-    let fValue =
-      BitVector.getFloatValue bv |> round |> BitConverter.DoubleToInt64Bits
-    BitVector.castAsFloat (uint64 fValue) typ
+    let fValue = BitVector.getFloatValue bv |> round
+    BitVector.castAsInt fValue typ
 
   [<CompiledName("FtoITrunc")>]
   static member ftoITrunc bv typ =
     let fValue =
-      BitVector.getFloatValue bv |> truncate |> BitConverter.DoubleToInt64Bits
-    BitVector.castAsFloat (uint64 fValue) typ
+      BitVector.getFloatValue bv |> truncate
+    BitVector.castAsInt fValue typ
 
   [<CompiledName("ItoF")>]
   static member itoF bv typ =
-    match bv.Length with
-    | t when t <= 64<rt> ->
-      let f64 = bv.Num |> float |> BitConverter.DoubleToInt64Bits |> uint64
-      BitVector.castAsFloat f64 typ
-    | _ ->
-      let f64 = bv.BigNum |> float |> BitConverter.DoubleToInt64Bits |> uint64
-      BitVector.castAsFloat f64 typ
-    | _ -> raise ArithTypeMismatchException
+    let signedFloat =
+      match bv.Length with
+      | 8<rt> -> bv.Num |> int8 |> float
+      | 16<rt> -> bv.Num |> int16 |> float
+      | 32<rt> -> bv.Num |> int32 |> float
+      | 64<rt> -> bv.Num |> int64 |> float
+      | _ -> raise ArithTypeMismatchException
+    let rep = signedFloat |> BitConverter.DoubleToInt64Bits |> uint64
+    BitVector.castAsFloat rep typ
 
   [<CompiledName("Sext")>]
   static member sext bv typ =
