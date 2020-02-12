@@ -38,7 +38,9 @@ exception internal NotEncodableOn64Exception
 type Prefix =
   | PrxNone = 0x0       (* No prefix *)
   | PrxLOCK = 0x1       (* Group 1 *)
+  /// REPNE/REPNZ prefix is encoded using F2H.
   | PrxREPNZ = 0x2
+  /// REP or REPE/REPZ is encoded using F3H.
   | PrxREPZ = 0x4
   | PrxCS = 0x8         (* Group 2 *)
   | PrxSS = 0x10
@@ -46,7 +48,9 @@ type Prefix =
   | PrxES = 0x40
   | PrxFS = 0x80
   | PrxGS = 0x100
+  /// Operand-size override prefix is encoded using 66H.
   | PrxOPSIZE = 0x200   (* Group 3 *)
+  /// 67H - Address-size override prefix.
   | PrxADDRSIZE = 0x400 (* Group 4 *)
 
 /// REX prefixes.
