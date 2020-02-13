@@ -108,13 +108,14 @@ let private addInterEdge (g: IRCFG) (vmap: VMap) src addr edgeProp =
   | false, _ -> ()
   | true, dst -> g.AddEdge src dst edgeProp
 
-let private addFallthroughEdge g vmap (src: Vertex<IRBasicBlock>) =
+let private addFallthroughEdge g vmap (src: Vertex<IRBasicBlock>) isPseudo =
   let last = src.VData.LastInstruction
   let fallAddr = last.Address + uint64 last.Length
-  addInterEdge g vmap src fallAddr FallThroughEdge
+  if isPseudo then CallFallThroughEdge else FallThroughEdge
+  |> addInterEdge g vmap src fallAddr
 
 let private handleFallThrough (g: IRCFG) vmap src (nextLeader: ProgramPoint) =
-  if nextLeader.Position = 0 then addFallthroughEdge g vmap src
+  if nextLeader.Position = 0 then addFallthroughEdge g vmap src false
   else g.AddEdge src vmap.[nextLeader] IntraJmpEdge
 
 let private getIndirectDstNode (g: IRCFG) (vmap: VMap) callee =
@@ -161,7 +162,8 @@ let connectEdges _ (g: IRCFG) app (vmap: VMap) (leaders: ProgramPoint[]) idx =
     | InterJmp (_, Num addr, InterJmpInfo.IsCall) ->
       let target = BitVector.toUInt64 addr
       addInterEdge g vmap src target CallEdge
-      if idx + 1 >= leaders.Length then () else addFallthroughEdge g vmap src
+      if idx + 1 >= leaders.Length then ()
+      else addFallthroughEdge g vmap src true
     | InterJmp (_, Num addr, _) ->
       addInterEdge g vmap src (BitVector.toUInt64 addr) InterJmpEdge
     | InterCJmp (_, _, Num addr1, Num addr2) ->
@@ -172,8 +174,9 @@ let connectEdges _ (g: IRCFG) app (vmap: VMap) (leaders: ProgramPoint[]) idx =
     | InterCJmp (_, _, _, Num addr) ->
       addInterEdge g vmap src (BitVector.toUInt64 addr) InterCJmpFalseEdge
     | InterJmp (_, _, InterJmpInfo.IsCall) -> (* Indirect call *)
-      if idx + 1 >= leaders.Length then () else addFallthroughEdge g vmap src
       addIndirectEdges g app vmap src true
+      if idx + 1 >= leaders.Length then ()
+      else addFallthroughEdge g vmap src true
     | InterJmp (_)
     | InterCJmp (_) ->
       addIndirectEdges g app vmap src false

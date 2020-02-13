@@ -58,8 +58,12 @@ type CFGEdgeKind =
   /// An edge of a function return.
   | RetEdge
   /// A simple fall-through case. This type is created when an edge cuts in two
-  /// consecutive instructions, or after a call instruction.
+  /// consecutive instructions.
   | FallThroughEdge
+  /// A fall-through after a call instruction. This is indeed a pseudo edge as
+  /// there's no direct control flow from a call instruction to its
+  /// fall-through.
+  | CallFallThroughEdge
   /// An implicit edge that is not explicitly visible from the current CALL
   /// instruction, but visible within the function. If there is a path in the
   /// callee that calls a function, then we create an implicit edge from a

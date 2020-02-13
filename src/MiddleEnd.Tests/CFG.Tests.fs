@@ -166,8 +166,9 @@ type CFGTest1 () =
          cfg.FindEdgeData vertices.[4] vertices.[5]
          cfg.FindEdgeData vertices.[5] vertices.[6] |]
     let expected =
-      [| FallThroughEdge; InterCJmpFalseEdge; InterCJmpTrueEdge; InterJmpEdge;
-         FallThroughEdge; FallThroughEdge; FallThroughEdge |]
+      [| CallFallThroughEdge; InterCJmpFalseEdge; InterCJmpTrueEdge;
+         InterJmpEdge; CallFallThroughEdge; FallThroughEdge;
+         CallFallThroughEdge |]
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
@@ -319,7 +320,7 @@ type CFGTest2 () =
          cfg.FindEdgeData vertices.[3] vertices.[2]
          cfg.FindEdgeData vertices.[4] vertices.[5] |]
     let expected =
-      [| FallThroughEdge; FallThroughEdge; IntraCJmpFalseEdge;
+      [| CallFallThroughEdge; FallThroughEdge; IntraCJmpFalseEdge;
          IntraCJmpTrueEdge; InterJmpEdge; InterJmpEdge |]
     CollectionAssert.AreEqual (expected, actual)
 
@@ -328,26 +329,25 @@ type CFGTest2 () =
     let cfg, root = ess.SCFG.GetFunctionCFG 0x00UL
     let lens = DisasmLens.Init ess.Apparatus
     let cfg, _ = lens.Filter cfg [root] ess.Apparatus
-    Assert.AreEqual (4, cfg.Size ())
+    Assert.AreEqual (3, cfg.Size ())
     let vMap = cfg.FoldVertex (fun m v ->
       Map.add v.VData.PPoint.Address v m) Map.empty
-    let leaders = [| 0x00UL; 0x0CUL; 0x1CUL; 0x1EUL |]
+    let leaders = [| 0x00UL; 0x1CUL; 0x1EUL |]
     let vertices = leaders |> Array.map (fun l -> Map.find l vMap)
-    let disasmLens = [| 4; 4; 1; 4 |]
+    let disasmLens = [| 8; 1; 4 |]
     Array.zip vertices disasmLens
     |> Array.iter (fun (v, len) ->
       Assert.AreEqual (len, v.VData.Disassemblies.Length))
     let eMap = cfg.FoldEdge (fun m v1 v2 e ->
       let key = v1.VData.PPoint.Address, v2.VData.PPoint.Address
       Map.add key e m) Map.empty
-    Assert.AreEqual (4, eMap.Count)
+    Assert.AreEqual (3, eMap.Count)
     let actual =
       [| cfg.FindEdgeData vertices.[0] vertices.[1]
-         cfg.FindEdgeData vertices.[1] vertices.[2]
-         cfg.FindEdgeData vertices.[2] vertices.[2]
-         cfg.FindEdgeData vertices.[2] vertices.[3] |]
+         cfg.FindEdgeData vertices.[1] vertices.[1]
+         cfg.FindEdgeData vertices.[1] vertices.[2] |]
     let expected =
-      [| FallThroughEdge; FallThroughEdge; InterJmpEdge; InterJmpEdge |]
+      [| FallThroughEdge; InterJmpEdge; InterJmpEdge |]
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]

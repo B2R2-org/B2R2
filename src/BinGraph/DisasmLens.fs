@@ -104,6 +104,11 @@ type DisasmLens (app) =
       | ExternalCallEdge
       | CallEdge
       | RetEdge -> acc
+      | CallFallThroughEdge when succ.Preds.Length <= 2 ->
+        (* Two edges: (1) RetEdge from a fake node; (2) CallFallThroughEdge. *)
+        fnMerge addr v succ
+        if visited.Contains succ.VData.PPoint then acc
+        else (addr, succ) :: acc
       | IntraCJmpTrueEdge
       | IntraCJmpFalseEdge
       | IntraJmpEdge ->

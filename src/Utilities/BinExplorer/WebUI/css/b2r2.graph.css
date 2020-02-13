@@ -90,6 +90,10 @@
   stroke: var(--graph-edge-intracjmptrue-stroke);
 }
 
+.c-graph__callfallthroughedge {
+  stroke: var(--graph-edge-fallthrough-stroke);
+}
+
 .c-graph__fallthroughedge {
   stroke: var(--graph-edge-fallthrough-stroke);
 }
@@ -128,6 +132,10 @@
 
 .c-arrow-intracjmptrueedge {
   fill: var(--graph-edge-intracjmptrue-stroke);
+}
+
+.c-arrow-callfallthroughedge {
+  fill: var(--graph-edge-fallthrough-stroke);
 }
 
 .c-arrow-fallthroughedge {
