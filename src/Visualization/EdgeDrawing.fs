@@ -128,7 +128,10 @@ let buildJustBeforeLast pCoord c cCoord cEndOff line =
   if not ((c: Vertex<VisBBlock>).VData.IsDummy) then
     let line =
       if pY > cY then (* back edge case. *)
-        (List.head line |> fst, cY - cEndOffY) :: line
+        if cEndOffX > 0.0 then
+          (cX + cEndOffX + VisGraph.getWidth c / 2.0, cY - cEndOffY) :: line
+        else
+          (cX + cEndOffX - VisGraph.getWidth c / 2.0, cY - cEndOffY) :: line
       else line
     (cX + cEndOffX, cY) :: (cX + cEndOffX, cY - cEndOffY) :: line
   else line
@@ -163,21 +166,16 @@ let rec removeDummyLoop (vGraph: VisGraph) src c points = function
     vGraph.RemoveEdge src c
     eData.Points @ points
 
-let removeDummy (vGraph: VisGraph) (src, dst) ((edge: VisEdge), vertices) =
-  let points = removeDummyLoop vGraph src dst [] vertices
+let removeDummy (vGraph: VisGraph) (src, dst) ((edge: VisEdge), dummies) =
+  let points = removeDummyLoop vGraph src dst [] dummies
   let newEdge = VisEdge (edge.Type)
   newEdge.IsBackEdge <- edge.IsBackEdge
   newEdge.Points <- points
   vGraph.AddEdge src dst newEdge
-  List.iter vGraph.RemoveVertex vertices
+  List.iter vGraph.RemoveVertex dummies
 
 let removeDummies (vGraph: VisGraph) dummyMap =
   Map.iter (removeDummy vGraph) dummyMap
-
-let getBoundary (vGraph: VisGraph) =
-  let leftEnds = vGraph.FoldVertex getLeftEnd []
-  let rightEnds = vGraph.FoldVertex getRightEnd []
-  List.min leftEnds, List.max rightEnds
 
 let drawEdges (vGraph: VisGraph) vLayout backEdgeList dummyMap =
   restoreBackEdges vGraph backEdgeList
