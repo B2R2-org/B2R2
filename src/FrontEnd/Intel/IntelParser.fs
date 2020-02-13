@@ -954,11 +954,8 @@ let private getD9EscEffOprSizeByModRM = function
  | _ -> raise ParsingFailureException
 
 let private getDBEscEffOprSizeByModRM = function
- //| 0b000 | 0b010 | 0b011 -> 32<rt> (* single-real *)
- //| 0b100 | 0b110 -> 16<rt> (* FIXME: 14/28 bytes (m14byte or m28byte) *)
- //| 0b101 | 0b111 -> 16<rt> (* 2 bytes *)
- | 0b101 -> 80<rt>
- | 0b000 | 0b010 | 0b011 -> 32<rt>
+ | 0b101 | 0b111 -> 80<rt> (* extended-real *)
+ | 0b000 | 0b001 | 0b010 | 0b011 -> 32<rt> (* dword-integer *)
  | _ -> raise ParsingFailureException
 
 let private getDDEscEffOprSizeByModRM = function
