@@ -98,8 +98,10 @@ type DisasmLens (app) =
           traverse acc
     and succFold addr v acc succ =
       match ircfg.FindEdgeData v succ with
-      | IndirectEdge
-      | ExternalEdge
+      | IndirectJmpEdge
+      | IndirectCallEdge
+      | ExternalJmpEdge
+      | ExternalCallEdge
       | CallEdge
       | RetEdge -> acc
       | IntraCJmpTrueEdge

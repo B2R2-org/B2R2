@@ -47,10 +47,14 @@ type CFGEdgeKind =
   | CallEdge
   /// An edge of a recursive call instruction.
   | RecursiveCallEdge
-  /// An edge from an indirect call/jmp instruction.
-  | IndirectEdge
-  /// An edge of a call/jmp instruction to an external function or PLT.
-  | ExternalEdge
+  /// An edge from an indirect jmp instruction.
+  | IndirectJmpEdge
+  /// An edge from an indirect call instruction.
+  | IndirectCallEdge
+  /// An edge of a jmp instruction to an external function or PLT.
+  | ExternalJmpEdge
+  /// An edge of a call instruction to an external function or PLT.
+  | ExternalCallEdge
   /// An edge of a function return.
   | RetEdge
   /// A simple fall-through case. This type is created when an edge cuts in two

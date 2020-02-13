@@ -84,8 +84,10 @@ type CallGraphLens (scfg: SCFG) =
     scfg.Graph.IterEdge (fun src dst e ->
       match e with
       | IntraJmpEdge
-      | IndirectEdge
-      | ExternalEdge
+      | IndirectJmpEdge
+      | IndirectCallEdge
+      | ExternalJmpEdge
+      | ExternalCallEdge
       | CallEdge ->
         match scfg.FindFunctionVertex src.VData.PPoint.Address with
         | None -> ()

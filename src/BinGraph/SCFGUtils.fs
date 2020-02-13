@@ -132,15 +132,15 @@ let private getIndirectDstNode (g: IRCFG) (vmap: VMap) callee =
     | false, _ -> None
     | true, v -> Some v
 
-let private addIndirectEdges (g: IRCFG) app vmap (src: Vertex<IRBasicBlock>) =
+let private addIndirectEdges (g: IRCFG) app vmap src isCall =
   let add callee =
     match getIndirectDstNode g vmap callee with
     | None -> ()
     | Some dst ->
       if ProgramPoint.IsFake dst.VData.PPoint then
-        g.AddEdge src dst ExternalEdge
+        g.AddEdge src dst (if isCall then ExternalCallEdge else ExternalJmpEdge)
       else
-        g.AddEdge src dst IndirectEdge
+        g.AddEdge src dst (if isCall then IndirectCallEdge else IndirectJmpEdge)
   let callerAddr = src.VData.PPoint.Address
   match app.CallerMap.TryGetValue callerAddr  with
   | false, _ -> ()
@@ -173,10 +173,10 @@ let connectEdges _ (g: IRCFG) app (vmap: VMap) (leaders: ProgramPoint[]) idx =
       addInterEdge g vmap src (BitVector.toUInt64 addr) InterCJmpFalseEdge
     | InterJmp (_, _, InterJmpInfo.IsCall) -> (* Indirect call *)
       if idx + 1 >= leaders.Length then () else addFallthroughEdge g vmap src
-      addIndirectEdges g app vmap src
+      addIndirectEdges g app vmap src true
     | InterJmp (_)
     | InterCJmp (_) ->
-      addIndirectEdges g app vmap src
+      addIndirectEdges g app vmap src false
     | SideEffect (BinIR.Halt) -> ()
     | _ -> (* Fall through case *)
       if idx + 1 >= leaders.Length then ()

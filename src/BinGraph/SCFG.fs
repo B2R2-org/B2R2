@@ -126,7 +126,7 @@ type SCFG (hdl, app) =
       | succ :: tl ->
         let succPos = succ.VData.PPoint
         match g.FindEdgeData oldVertex succ with
-        | ExternalEdge | RetEdge | ImplicitCallEdge -> ()
+        | ExternalCallEdge | ExternalJmpEdge | RetEdge | ImplicitCallEdge -> ()
         | e -> loop (Some curVertex) succPos e
         iterSuccessors oldVertex curVertex tl
     if app.CalleeMap.Contains addr then
