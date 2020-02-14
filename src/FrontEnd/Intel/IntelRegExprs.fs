@@ -543,7 +543,7 @@ type internal RegExprs (wordSize) =
   member val ST6 = st6 with get
   member val ST7 = st7 with get
   (* x87 FPU Top register *)
-  member val FTOP = extract ftw 3<rt> 11
+  member val FTOP = extract fsw 3<rt> 11
   (* x87 FPU Tag word sections*)
   member val FTW0 = extract ftw 2<rt> 0
   member val FTW1 = extract ftw 2<rt> 2

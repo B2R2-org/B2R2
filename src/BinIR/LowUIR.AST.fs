@@ -358,15 +358,15 @@ module AST =
 
   let (?%) e1 e2 = binop BinOpType.SMOD e1 e2
 
-  let (..+) e1 e2 = binop BinOpType.FADD e1 e2
+  let faddOp e1 e2 = binop BinOpType.FADD e1 e2
 
-  let (..-) e1 e2 = binop BinOpType.FSUB e1 e2
+  let fsubOp e1 e2 = binop BinOpType.FSUB e1 e2
 
-  let (..*) e1 e2 = binop BinOpType.FMUL e1 e2
+  let fmulOp e1 e2 = binop BinOpType.FMUL e1 e2
 
-  let (../) e1 e2 = binop BinOpType.FDIV e1 e2
+  let fdivOp e1 e2 = binop BinOpType.FDIV e1 e2
 
-  let (..^) e1 e2 = binop BinOpType.FPOW e1 e2
+  let fpowOp e1 e2 = binop BinOpType.FPOW e1 e2
 
   let flog e1 e2 = binop BinOpType.FLOG e1 e2
 

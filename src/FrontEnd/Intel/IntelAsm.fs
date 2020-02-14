@@ -41,7 +41,10 @@ type RegFactory (wordSize) =
         R.SF; R.ZF; R.AF; R.PF; R.CF; R.MM0; R.MM1; R.MM2; R.MM3; R.MM4; R.MM5;
         R.MM6; R.MM7; R.FCW; R.FSW; R.FTW; R.FOP; R.FIP; R.FCS; R.FDP; R.FDS;
         R.MXCSR; R.MXCSRMASK; R.PKRU; R.K0; R.K1; R.K2; R.K3; R.K4; R.K5; R.K6;
-        R.K7 ]
+        R.K7; R.ST0; R.ST1; R.ST2; R.ST3; R.ST4; R.ST5; R.ST6; R.ST7; R.ZMM0A;
+        R.ZMM0B; R.ZMM1A; R.ZMM1A; R.ZMM1B; R.ZMM2A; R.ZMM2B; R.ZMM3A; R.ZMM3B;
+        R.ZMM4A; R.ZMM4B; R.ZMM5A; R.ZMM5B; R.ZMM6A; R.ZMM6B; R.ZMM7A; R.ZMM7B;
+        R.ZMM8A; R.ZMM8B ]
     else
       [ R.RAX; R.RBX; R.RCX; R.RDX; R.RSP; R.RBP; R.RSI; R.RDI; R.R8; R.R9;
         R.R10; R.R11; R.R12; R.R13; R.R14; R.R15; R.RIP; R.CS; R.DS; R.ES; R.FS;
@@ -49,7 +52,11 @@ type RegFactory (wordSize) =
         R.CR0;R.CR2; R.CR3; R.CR4; R.CR8; R.OF; R.DF; R.IF; R.TF; R.SF; R.ZF;
         R.AF; R.PF; R.CF; R.MM0;R.MM1; R.MM2; R.MM3; R.MM4; R.MM5; R.MM6; R.MM7;
         R.FCW; R.FSW; R.FTW; R.FOP; R.FIP; R.FCS; R.FDP; R.FDS; R.MXCSR;
-        R.MXCSRMASK; R.PKRU; R.K0; R.K1; R.K2; R.K3; R.K4; R.K5; R.K6; R.K7 ]
+        R.MXCSRMASK; R.PKRU; R.K0; R.K1; R.K2; R.K3; R.K4; R.K5; R.K6; R.K7
+        R.ST0; R.ST1; R.ST2; R.ST3; R.ST4; R.ST5; R.ST6; R.ST7; R.ZMM0A;
+        R.ZMM0B; R.ZMM1A; R.ZMM1B; R.ZMM2A; R.ZMM2B; R.ZMM3A; R.ZMM3B;
+        R.ZMM4A; R.ZMM4B; R.ZMM5A; R.ZMM5B; R.ZMM6A; R.ZMM6B; R.ZMM7A; R.ZMM7B;
+        R.ZMM8A; R.ZMM8B ]
 
   override __.IdOf e =
     match e with
@@ -70,7 +77,10 @@ type RegFactory (wordSize) =
       "MM1"; "MM2"; "MM3"; "MM4"; "MM5"; "MM6"; "MM7"; "CS"; "DS"; "SS"; "ES";
       "FS"; "GS"; "CSBase"; "DSBase"; "ESBase"; "FSBase"; "GSBase"; "SSBase";
       "CR0"; "CR2"; "CR3"; "CR4"; "CR8"; "OF"; "DF"; "IF"; "TF"; "SF"; "ZF";
-      "AF"; "PF"; "CF"; "K0"; "K1"; "K2"; "K3"; "K4"; "K5"; "K6"; "K7" ]
+      "AF"; "PF"; "CF"; "K0"; "K1"; "K2"; "K3"; "K4"; "K5"; "K6"; "K7";
+      "ST0"; "ST1"; "ST2"; "ST3"; "ST4"; "ST5"; "ST6"; "ST7"; "ZMM0A"; "ZMM0B";
+      "ZMM1A"; "ZMM1B"; "ZMM2A"; "ZMM2B"; "ZMM3A"; "ZMM3B"; "ZMM4A"; "ZMM4B";
+      "ZMM5A"; "ZMM5B"; "ZMM6A"; "ZMM6B"; "ZMM7A"; "ZMM7B"; "ZMM8A"; "ZMM8B" ]
 
   override __.StrToReg s =
     match s with
@@ -186,6 +196,32 @@ type RegFactory (wordSize) =
     | "K5" -> R.K5
     | "K6" -> R.K6
     | "K7" -> R.K7
+    | "ST0" -> R.ST0
+    | "ST1" -> R.ST1
+    | "ST2" -> R.ST2
+    | "ST3" -> R.ST3
+    | "ST4" -> R.ST4
+    | "ST5" -> R.ST5
+    | "ST6" -> R.ST6
+    | "ST7" -> R.ST7
+    | "ZMM0A" -> R.ZMM0A
+    | "ZMM0B" -> R.ZMM0B
+    | "ZMM1A" -> R.ZMM1A
+    | "ZMM1B" -> R.ZMM1B
+    | "ZMM2A" -> R.ZMM2A
+    | "ZMM2B" -> R.ZMM2B
+    | "ZMM3A" -> R.ZMM3A
+    | "ZMM3B" -> R.ZMM3B
+    | "ZMM4A" -> R.ZMM4A
+    | "ZMM4B" -> R.ZMM4B
+    | "ZMM5A" -> R.ZMM5A
+    | "ZMM5B" -> R.ZMM5B
+    | "ZMM6A" -> R.ZMM6A
+    | "ZMM6B" -> R.ZMM6B
+    | "ZMM7A" -> R.ZMM7A
+    | "ZMM7B" -> R.ZMM7B
+    | "ZMM8A" -> R.ZMM8A
+    | "ZMM8B" -> R.ZMM8B
     | _ -> raise UnknownRegException
 
   override __.InitStateRegs =
@@ -194,9 +230,13 @@ type RegFactory (wordSize) =
 
   override __.MainRegs =
     if WordSize.is32 wordSize then
-      [ R.EIP; R.EAX; R.EBX; R.ECX; R.EDX; R.ESP; R.EBP; R.ESI; R.EDI; R.OF;
-        R.DF; R.IF; R.TF; R.SF; R.ZF; R.AF; R.PF; R.CF ]
+      [ R.EIP; R.EAX; R.EBX; R.ECX; R.EDX; R.ESP; R.EBP; R.ESI; R.EDI; R.ZMM0A;
+        R.ZMM0B; R.ZMM1A; R.ZMM1A; R.ZMM1B; R.ZMM2A; R.ZMM2B; R.ZMM3A; R.ZMM3B;
+        R.ZMM4A; R.ZMM4B; R.ST0; R.ST1; R.ST2; R.ST3; R.ST4; R.ST5; R.ST6;
+        R.ST7; R.OF; R.DF; R.IF; R.TF; R.SF; R.ZF; R.AF; R.PF; R.CF ]
     else
       [ R.RIP; R.RAX; R.RBX; R.RCX; R.RDX; R.RSP; R.RBP; R.RSI; R.RDI; R.R8;
-        R.R9; R.R10; R.R11; R.R12; R.R13; R.R14; R.R15; R.OF; R.DF; R.IF; R.TF;
-        R.SF; R.ZF; R.AF; R.PF; R.CF]
+        R.R9; R.R10; R.R11; R.R12; R.R13; R.R14; R.R15; R.ZMM0A; R.ZMM0B;
+        R.ZMM1A; R.ZMM1A; R.ZMM1B; R.ZMM2A; R.ZMM2B; R.ZMM3A; R.ZMM3B;
+        R.ZMM4A; R.ZMM4B; R.ST0; R.ST1; R.ST2; R.ST3; R.ST4; R.ST5; R.ST6;
+        R.ST7; R.OF; R.DF; R.IF; R.TF; R.SF; R.ZF; R.AF; R.PF; R.CF ]

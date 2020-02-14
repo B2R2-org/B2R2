@@ -114,16 +114,16 @@ module AST = begin
   val (?%) : Expr -> Expr -> Expr
 
   /// Floating point add two expressions.
-  val (..+) : Expr -> Expr -> Expr
+  val faddOp : Expr -> Expr -> Expr
 
   /// Floating point subtract two expressions.
-  val (..-) : Expr -> Expr -> Expr
+  val fsubOp : Expr -> Expr -> Expr
 
   /// Floating point multiplication.
-  val (..*) : Expr -> Expr -> Expr
+  val fmulOp : Expr -> Expr -> Expr
 
   /// floating point division.
-  val (../) : Expr -> Expr -> Expr
+  val fdivOp : Expr -> Expr -> Expr
 
   /// Equal.
   val (==) : Expr -> Expr -> Expr
@@ -186,7 +186,7 @@ module AST = begin
   val (<<) : Expr -> Expr -> Expr
 
   /// Power.
-  val (..^) : Expr -> Expr -> Expr
+  val fpowOp : Expr -> Expr -> Expr
 
   /// Logarithm.
   val flog : Expr -> Expr -> Expr

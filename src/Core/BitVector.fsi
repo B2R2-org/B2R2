@@ -322,6 +322,10 @@ type BitVector =
     [<CompiledName("EQ")>]
     static member eq : BitVector -> BitVector -> BitVector
 
+    /// BitVector equal.
+    [<CompiledName("DEQ")>]
+    static member dEq : BitVector -> BitVector -> BitVector
+
     // BitVector not equal.
     [<CompiledName("NEQ")>]
     static member neq : BitVector -> BitVector -> BitVector

@@ -71,19 +71,22 @@ type LowUIRParser (isa, regfactory: RegisterFactory) =
            if typ.IsNone then getUserState |>> (fun t -> BitVector.ofInt64 n t)
            else preturn (BitVector.ofInt64 n typ.Value))
 
-  let pUnaryOperator = anyOf "-~" |>> string |>> unOpFromString
+  let pUnaryOperator =
+    [ "-"; "~"; "sqrt"; "cos"; "sin"; "tan"; "atan" ]
+    |> List.map pstring |> List.map attempt |> choice |>> unOpFromString
 
   let pBinaryOperator =
-    [ "-|"; "++"; "+"; "-"; "*"; "/"; "?/"; "%";
-      "?%"; "<<" ; ">>"; "?>>"; "&"; "|"; "^"; "::" ]
+    [ "-|"; "++"; "+"; "-"; "*"; "/"; "?/"; "%"; "?%"; "<<" ; ">>"; "?>>";
+      "&"; "|"; "^"; "::"; ".+"; ".-"; ".*"; "./"; ".^"; "lg" ]
     |> List.map pstring |> List.map attempt |> choice |>> binOpFromString
 
   let pRelativeOperator =
     [ "="; "!=" ; ">"; ">="; "?>"; "<"; "<="; "?<="; "?<" ]
     |> List.map pstring |> List.map attempt |> choice |>> relOpFromString
 
-  let pCastType =
-    pstring "sext" <|> pstring "zext" |>> castTypeFromString
+  let pCastType = //pstring "sext" <|> pstring "zext" |>> castTypeFromString
+    [ "sext"; "zext"; "itof"; "round"; "ceil"; "floor"; "trunc"; "fext" ]
+    |> List.map pstring |> List.map attempt |> choice |>> castTypeFromString
 
   // To Do: Usage example not known. How to parse differently from pVar.
   let pSymbol =
@@ -157,7 +160,7 @@ type LowUIRParser (isa, regfactory: RegisterFactory) =
     .>> pchar ')' |>> AST.unDef dummyRegType
   do
     pExprRef :=
-      pNumE //<|> attempt pVarE <|> attempt pPCVarE
+      pNumE //<|> attempt pPCVarE
       <|> attempt pTempVarE
       //<|> attempt pNameE <|> attempt pFuncNameE
       <|> attempt pUnOpE

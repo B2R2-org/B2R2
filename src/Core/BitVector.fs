@@ -464,6 +464,21 @@ type BitVector =
       BitVector.T
     else BitVector.F
 
+  /// Depriciated equals to compare 80 bit floating point numbers
+  [<CompiledName("DEQ")>]
+  static member dEq v1 v2 =
+    match v1.Length, v2.Length with
+    | 80<rt>, 80<rt> ->
+      let shifter = BitVector.ofInt32 12 80<rt>
+      let v1 = BitVector.shr v1 shifter
+      let v2 = BitVector.shr v2 shifter
+      BitVector.eq v1 v2
+    | t1, t2 ->
+      let shifter = BitVector.ofInt32 1 t1
+      let v1 = BitVector.shr v1 shifter
+      let v2 = BitVector.shr v2 shifter
+      BitVector.eq v1 v2
+
   [<CompiledName("NEQ")>]
   static member neq v1 v2 =
     if v1.Length = v2.Length && v1.Num = v2.Num && v1.BigNum = v2.BigNum then
@@ -693,19 +708,23 @@ type BitVector =
 
   [<CompiledName("Fext")>]
   static member fext bv typ =
-    match bv.Length with
-    | 32<rt> ->
+    match bv.Length, typ with
+    | 32<rt>, 32<rt> | 64<rt>, 64<rt> | 80<rt>, 80<rt> -> bv
+    | 32<rt>, _ ->
       let f32 = bv.Num |> int32 |> BitConverter.GetBytes
       let f32 = BitConverter.ToSingle (f32, 0) |> float
       let f64 = BitConverter.DoubleToInt64Bits f32 |> uint64
       BitVector.castAsFloat f64 typ
-    | 64<rt> -> BitVector.castAsFloat bv.Num typ
-    | 80<rt> ->
+    | 64<rt>, _ -> BitVector.castAsFloat bv.Num typ
+    | 80<rt>, _ ->
       let sign = bv.BigNum >>> 79 <<< 63 |> uint64
       let exponent = bv.BigNum >>> 64 &&& 32767I
       let adjustedExp = exponent - 15360I |> uint64 <<< 52
       let significand =
         bv.BigNum &&& (bigint 0x7FFFFFFFFFFFFFFFUL) |> uint64 >>> 11
+      let significand =
+        if BitVector.extract bv 1<rt> 10 = BitVector.T then significand + 1UL
+        else significand
       BitVector.castAsFloat (sign ||| adjustedExp ||| significand) typ
     | _ -> raise ArithTypeMismatchException
 

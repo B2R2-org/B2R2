@@ -43,7 +43,7 @@ let pcFromRegName n = PCVar ((RegType.fromBitWidth 32), n)
 
 let binOpFromString = function
   | "+" -> BinOpType.ADD
-  |  "-" -> BinOpType.SUB
+  | "-" -> BinOpType.SUB
   | "*" -> BinOpType.MUL
   | "/" -> BinOpType.DIV
   | "?/" -> BinOpType.SDIV
@@ -58,11 +58,22 @@ let binOpFromString = function
   | "++" -> BinOpType.CONCAT
   | "-|" -> BinOpType.APP
   | "::" -> BinOpType.CONS
+  | ".+" -> BinOpType.FADD
+  | ".-" -> BinOpType.FSUB
+  | ".*" -> BinOpType.FMUL
+  | "./" -> BinOpType.FDIV
+  | ".^" -> BinOpType.FPOW
+  | "lg" -> BinOpType.FLOG
   | _ -> raise IllegalASTTypeException
 
 let unOpFromString = function
   | "-" -> UnOpType.NEG
   | "~" -> UnOpType.NOT
+  | "sqrt" -> UnOpType.FSQRT
+  | "cos" -> UnOpType.FCOS
+  | "sin" -> UnOpType.FSIN
+  | "tan" -> UnOpType.FTAN
+  | "atan" -> UnOpType.FATAN
   | _ -> raise IllegalASTTypeException
 
 let relOpFromString = function
@@ -76,11 +87,21 @@ let relOpFromString = function
   | "<=" -> RelOpType.LE
   | "?<" -> RelOpType.SLT
   | "?<=" -> RelOpType.SLE
+  | ".>" -> RelOpType.FGT
+  | ".>=" -> RelOpType.FGE
+  | ".<" -> RelOpType.FLT
+  | ".<=" -> RelOpType.FLE
   | _ -> raise IllegalASTTypeException
 
 let castTypeFromString = function
   | "sext" -> CastKind.SignExt
   | "zext" -> CastKind.ZeroExt
+  | "itof" -> CastKind.IntToFloat
+  | "round" -> CastKind.FtoIRound
+  | "ceil" -> CastKind.FtoICeil
+  | "floor" -> CastKind.FtoIFloor
+  | "trunc" -> CastKind.FtoITrunc
+  | "fext" -> CastKind.FloatExt
   | _ -> raise IllegalASTTypeException
 
 let sideEffectFromString = function
