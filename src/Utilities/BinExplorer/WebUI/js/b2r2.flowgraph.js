@@ -40,6 +40,10 @@ class FlowGraph extends Graph {
     this.minimap = new Minimap(div, this);
     // The mapping from address to stmt in the graph.
     this.linemap = {};
+    // The last activated line.
+    this.lastActiveLine = null;
+    // The last activated terms.
+    this.lastActiveTerms = [];
     this.initializeLineFunc();
     this.fetchAndDraw(id, kind);
   }
@@ -51,17 +55,47 @@ class FlowGraph extends Graph {
       .curve(d3.curveMonotoneY);
   }
 
-  appendTerm(idx, txt, tag, term) {
+  queryDataflow(addr, term) {
+    return this.linemap[addr].Tokens[term];
+  }
+
+  deactivateHighlights() {
+    if (this.lastActiveLine !== null)
+      this.lastActiveLine.classed("active", false);
+    for (let i = 0; i < this.lastActiveTerms.length; i++) {
+      this.lastActiveTerms[i].classed("active", false);
+    }
+    this.lastActiveTerms = [];
+  }
+
+  appendTerm(idx, txt, tag, term, addr) {
     const cls = "c-graph__stmt--" + tag;
     const tspan = txt.append("tspan").text(term).classed(cls, true);
     if (idx == 0) tspan.attr("x", 2).attr("dy", "14px");
     else tspan.attr("dx", "0px");
+    if (tag == "variable" || tag == "value") {
+      const myself = this;
+      tspan.on("click", function () {
+        myself.deactivateHighlights();
+        d3.event.stopPropagation();
+        const nodes = myself.queryDataflow(addr, term);
+        for (let i = 0; i < nodes.length; i++) {
+          nodes[i].classed("active", true);
+          myself.lastActiveTerms.push(nodes[i]);
+        }
+      });
+    }
+    if (term in this.linemap[addr].Tokens)
+      this.linemap[addr].Tokens[term].push(tspan);
+    else
+      this.linemap[addr].Tokens[term] = [tspan];
   }
 
   drawLinesOfNode(v, g) {
     const f = "js-filter-stmt-background";
     for (let i = 0; i < v.Terms.length; i++) {
       const line = v.Terms[i];
+      const addr = parseInt(line[0], 16);
       const y = i * 14 + stmtPaddingTop;
       const gstmt = g.append("g").attr("transform", "translate(0," + y + ")");
       const txt = gstmt.append("text")
@@ -70,11 +104,11 @@ class FlowGraph extends Graph {
       txt
         .on("mouseover", function () { txt.attr("filter", "url(#" + f + ")"); })
         .on("mouseout", function () { txt.attr("filter", null); });
-      this.linemap[parseInt(line[0], 16)] = txt;
+      this.linemap[addr] = { DOM: txt, Tokens: {} };
       for (let j = 0; j < line.length; j++) {
         const term = line[j][0];
         const tag = line[j][1];
-        this.appendTerm(j, txt, tag, term);
+        this.appendTerm(j, txt, tag, term, addr);
       }
     }
   }
@@ -209,7 +243,7 @@ class FlowGraph extends Graph {
       .on("dblclick.zoom", null);
     this.minimap.registerViewboxEvents(this.vpDims.minimapVPDim, this);
     this.registerPathDblClickEvents();
-    $(document).on("click", function () { myself.deactivateLines(); });
+    $(document).on("click", function () { myself.deactivateHighlights(); });
   }
 
   draw(json) {
@@ -251,13 +285,6 @@ class FlowGraph extends Graph {
       + (endIdx < myLastIdx ? "" : " ...");
   }
 
-  deactivateLines() {
-    const myself = this;
-    Object.keys(this.linemap).forEach(function (k) {
-      myself.linemap[k].classed("active", false);
-    });
-  }
-
   search(q) {
     const myself = this;
     let results = [];
@@ -280,10 +307,12 @@ class FlowGraph extends Graph {
               const coord = v.Coordinate;
               const r = myself.computeTranslate(coord.X + v.Width / 2, coord.Y);
               const x = r.x, y = r.y, k = r.k;
+              myself.deactivateHighlights();
               myself.svg.transition().duration(500)
                 .call(myself.zoom.transform,
                   d3.zoomIdentity.translate(x, y).scale(k));
-              myself.linemap[addr].classed("active", true);
+              myself.linemap[addr].DOM.classed("active", true);
+              myself.lastActiveLine = myself.linemap[addr].DOM;
               d3.event.stopPropagation();
               $("#js-search-dialog").dialog("close");
             },

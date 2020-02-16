@@ -61,6 +61,16 @@
   fill: var(--graph-stmt-value);
 }
 
+.c-graph__stmt--variable.active {
+  fill: var(--graph-stmt-highlighted);
+  font-weight: bold;
+}
+
+.c-graph__stmt--value.active {
+  fill: var(--graph-stmt-highlighted);
+  font-weight: bold;
+}
+
 .c-graph__edge {
   stroke-width: 3px;
   fill: none;

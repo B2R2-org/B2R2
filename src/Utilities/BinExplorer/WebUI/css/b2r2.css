@@ -29,6 +29,7 @@
   --graph-stmt-string: #505050;
   --graph-stmt-variable: #4141f0;
   --graph-stmt-value: #3673ce;
+  --graph-stmt-highlighted: #ff5555;
   --graph-edge-interjmp-stroke: #ffb86c;
   --graph-edge-intercjmpfalse-stroke: #ff5555;
   --graph-edge-intercjmptrue-stroke: #50fa7b;
