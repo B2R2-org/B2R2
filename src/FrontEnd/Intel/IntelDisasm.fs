@@ -1133,7 +1133,7 @@ let inline buildOpcode opcode builder acc =
   builder AsmWordKind.Mnemonic (opCodeToString opcode) acc
 
 let recomputeRIPRel pc disp (ins: InsInfo) (insLen: uint32) builder acc =
-  let oprSize = RegType.toByteWidth ins.InsSize.OperationSize
+  let oprSize = RegType.toByteWidth ins.InsSize.MemSize.EffOprSize
   let dir = ptrDirectiveString false oprSize
   builder AsmWordKind.String dir acc
   |> builder AsmWordKind.String " ["
