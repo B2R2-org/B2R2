@@ -1167,7 +1167,7 @@ let parseOpAndOprKindByOpGrp15 t pos b regBits =
   | true,  0b100, false -> (Opcode.XSAVE, Ev, SzDef32), pos
   | true,  0b101, false -> (Opcode.XRSTOR, Ev, SzDef32), pos
   | true,  0b110, false -> (Opcode.XSAVEOPT, Ev, SzDef32), pos
-  | true,  0b111, false -> (Opcode.CLFLUSH, Ev, SzDef32), pos
+  | true,  0b111, false -> (Opcode.CLFLUSH, Eb, SzDef32), pos
   | false, 0b101, false -> (Opcode.LFENCE, [||], SzDef32), pos + 1
   | false, 0b110, false -> (Opcode.MFENCE, [||], SzDef32), pos + 1
   | false, 0b111, false -> (Opcode.SFENCE, [||], SzDef32), pos + 1
