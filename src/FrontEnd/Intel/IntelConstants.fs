@@ -427,7 +427,7 @@ let opVex0F28 = [| Opcode.VMOVAPS; Opcode.VMOVAPD;
                    Opcode.InvalOP; Opcode.InvalOP |]
 let opNor0F29 = [| Opcode.MOVAPS; Opcode.MOVAPD;
                    Opcode.InvalOP; Opcode.InvalOP |]
-let opVex0F29 = [| Opcode.VMOVAPS; Opcode.VMOVAPS;
+let opVex0F29 = [| Opcode.VMOVAPS; Opcode.VMOVAPD;
                    Opcode.InvalOP; Opcode.InvalOP |]
 let opNor0F2A = [| Opcode.CVTPI2PS; Opcode.CVTPI2PD;
                    Opcode.CVTSI2SS; Opcode.CVTSI2SD |]
