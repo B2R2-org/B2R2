@@ -195,32 +195,8 @@ type BitVector =
     static member div : BitVector -> BitVector -> BitVector
 
     /// BitVector signed division.
-    [<CompiledName("Sdiv")>]
+    [<CompiledName("SDiv")>]
     static member sdiv : BitVector -> BitVector -> BitVector
-
-    /// BitVector floating point addition.
-    [<CompiledName("FAdd")>]
-    static member fAdd : BitVector -> BitVector -> BitVector
-
-    /// BitVector floating point subtraction.
-    [<CompiledName("FSub")>]
-    static member fSub : BitVector -> BitVector -> BitVector
-
-    /// BitVector floating point multiplication.
-    [<CompiledName("FMul")>]
-    static member fMul : BitVector -> BitVector -> BitVector
-
-    /// BitVector floating point division.
-    [<CompiledName("FDiv")>]
-    static member fDiv : BitVector -> BitVector -> BitVector
-
-    /// Logarithm.
-    [<CompiledName("FLog")>]
-    static member fLog : BitVector -> BitVector -> BitVector
-
-    /// Power.
-    [<CompiledName("FPow")>]
-    static member fPow : BitVector -> BitVector -> BitVector
 
     /// BitVector logical shift-left.
     [<CompiledName("Shl")>]
@@ -239,36 +215,12 @@ type BitVector =
     static member concat : BitVector -> BitVector -> BitVector
 
     /// BitVector sign-extend.
-    [<CompiledName("Sext")>]
+    [<CompiledName("SExt")>]
     static member sext : BitVector -> RegType -> BitVector
 
     /// BitVector zero-extend.
-    [<CompiledName("Zext")>]
+    [<CompiledName("ZExt")>]
     static member zext : BitVector -> RegType -> BitVector
-
-     /// BitVector float-extend.
-    [<CompiledName("Fext")>]
-    static member fext : BitVector -> RegType -> BitVector
-
-    /// BitVector integer to float.
-    [<CompiledName("ItoF")>]
-    static member itoF : BitVector -> RegType -> BitVector
-
-    /// BitVector float to integer truncated.
-    [<CompiledName("FtoITrunc")>]
-    static member ftoITrunc : BitVector -> RegType -> BitVector
-
-    /// BitVector float to integer rounded.
-    [<CompiledName("FtoIRound")>]
-    static member ftoIRound : BitVector -> RegType -> BitVector
-
-    /// BitVector float to integer floor.
-    [<CompiledName("FtoIFloor")>]
-    static member ftoIFloor : BitVector -> RegType -> BitVector
-
-    /// BitVector float to integer ceil.
-    [<CompiledName("FtoICeil")>]
-    static member ftoICeil : BitVector -> RegType -> BitVector
 
     /// BitVector unsigned modulo.
     [<CompiledName("Modulo")>]
@@ -298,33 +250,14 @@ type BitVector =
     [<CompiledName("Neg")>]
     static member neg : BitVector -> BitVector
 
-    /// Square root function.
-    [<CompiledName("FSqrt")>]
-    static member fSqrt : BitVector -> BitVector
-
-    /// Tangent.
-    [<CompiledName("FTan")>]
-    static member fTan : BitVector -> BitVector
-
-    /// Sine.
-    [<CompiledName("FSin")>]
-    static member fSin : BitVector -> BitVector
-
-    /// Cosine.
-    [<CompiledName("FCos")>]
-    static member fCos : BitVector -> BitVector
-
-    /// Arc Tangent.
-    [<CompiledName("FATan")>]
-    static member fAtan : BitVector -> BitVector
-
     /// BitVector equal.
     [<CompiledName("EQ")>]
     static member eq : BitVector -> BitVector -> BitVector
 
-    /// BitVector equal.
-    [<CompiledName("DEQ")>]
-    static member dEq : BitVector -> BitVector -> BitVector
+    /// BitVector equal. For high-precision floating point numbers, this
+    /// function performs approximate equality check.
+    [<CompiledName("ApproxEQ")>]
+    static member aeq : BitVector -> BitVector -> BitVector
 
     // BitVector not equal.
     [<CompiledName("NEQ")>]
@@ -362,22 +295,6 @@ type BitVector =
     [<CompiledName("SLE")>]
     static member sle : BitVector -> BitVector -> BitVector
 
-    /// BitVector floating point greater than.
-    [<CompiledName("FGT")>]
-    static member fgt : BitVector -> BitVector -> BitVector
-
-     /// BitVector floating point less than.
-    [<CompiledName("FLT")>]
-    static member flt : BitVector -> BitVector -> BitVector
-
-     /// BitVector floating point greater than or equal.
-    [<CompiledName("FGE")>]
-    static member fge : BitVector -> BitVector -> BitVector
-
-     /// BitVector floating point less than or equal.
-    [<CompiledName("FLE")>]
-    static member fle : BitVector -> BitVector -> BitVector
-
     /// BitVector Absolute Value.
     [<CompiledName("Abs")>]
     static member abs : BitVector -> BitVector
@@ -391,11 +308,11 @@ type BitVector =
     static member max : BitVector -> BitVector -> BitVector
 
     /// BitVector Signed Minimum Value.
-    [<CompiledName("Smin")>]
+    [<CompiledName("SMin")>]
     static member smin : BitVector -> BitVector -> BitVector
 
     /// BitVector Signed Maximum Value.
-    [<CompiledName("Smax")>]
+    [<CompiledName("SMax")>]
     static member smax : BitVector -> BitVector -> BitVector
 
     /// BitVector of maximum 8-bit integer.
@@ -477,6 +394,90 @@ type BitVector =
     /// Does the bitvector represent the specified integer number?
     [<CompiledName("IsNum")>]
     static member isNum : BitVector -> uint64  -> bool
+
+    /// BitVector floating point addition.
+    [<CompiledName("FAdd")>]
+    static member fadd : BitVector -> BitVector -> BitVector
+
+    /// BitVector floating point subtraction.
+    [<CompiledName("FSub")>]
+    static member fsub : BitVector -> BitVector -> BitVector
+
+    /// BitVector floating point multiplication.
+    [<CompiledName("FMul")>]
+    static member fmul : BitVector -> BitVector -> BitVector
+
+    /// BitVector floating point division.
+    [<CompiledName("FDiv")>]
+    static member fdiv : BitVector -> BitVector -> BitVector
+
+    /// Logarithm.
+    [<CompiledName("FLog")>]
+    static member flog : BitVector -> BitVector -> BitVector
+
+    /// Power.
+    [<CompiledName("FPow")>]
+    static member fpow : BitVector -> BitVector -> BitVector
+
+     /// BitVector float-extend.
+    [<CompiledName("FExt")>]
+    static member fext : BitVector -> RegType -> BitVector
+
+    /// BitVector integer to float.
+    [<CompiledName("IToF")>]
+    static member itof : BitVector -> RegType -> BitVector
+
+    /// BitVector float to integer truncated.
+    [<CompiledName("FToITrunc")>]
+    static member ftoitrunc : BitVector -> RegType -> BitVector
+
+    /// BitVector float to integer rounded.
+    [<CompiledName("FToIRound")>]
+    static member ftoiround : BitVector -> RegType -> BitVector
+
+    /// BitVector float to integer floor.
+    [<CompiledName("FToIFloor")>]
+    static member ftoifloor : BitVector -> RegType -> BitVector
+
+    /// BitVector float to integer ceil.
+    [<CompiledName("FToICeil")>]
+    static member ftoiceil : BitVector -> RegType -> BitVector
+
+    /// Square root function.
+    [<CompiledName("FSqrt")>]
+    static member fsqrt : BitVector -> BitVector
+
+    /// Tangent.
+    [<CompiledName("FTan")>]
+    static member ftan : BitVector -> BitVector
+
+    /// Sine.
+    [<CompiledName("FSin")>]
+    static member fsin : BitVector -> BitVector
+
+    /// Cosine.
+    [<CompiledName("FCos")>]
+    static member fcos : BitVector -> BitVector
+
+    /// Arc Tangent.
+    [<CompiledName("FATan")>]
+    static member fatan : BitVector -> BitVector
+
+    /// BitVector floating point greater than.
+    [<CompiledName("FGT")>]
+    static member fgt : BitVector -> BitVector -> BitVector
+
+     /// BitVector floating point less than.
+    [<CompiledName("FLT")>]
+    static member flt : BitVector -> BitVector -> BitVector
+
+     /// BitVector floating point greater than or equal.
+    [<CompiledName("FGE")>]
+    static member fge : BitVector -> BitVector -> BitVector
+
+     /// BitVector floating point less than or equal.
+    [<CompiledName("FLE")>]
+    static member fle : BitVector -> BitVector -> BitVector
 
   end
 

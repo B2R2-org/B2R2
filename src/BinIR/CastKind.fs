@@ -51,6 +51,6 @@ module CastKind =
     | CastKind.FtoIRound -> "round"
     | CastKind.FtoICeil -> "ceil"
     | CastKind.FtoIFloor -> "floor"
-    | CastKind.FtoITrunc -> "truc"
+    | CastKind.FtoITrunc -> "trunc"
     | CastKind.FloatExt -> "fext"
     | _ -> raise IllegalASTTypeException

@@ -358,18 +358,6 @@ module AST =
 
   let (?%) e1 e2 = binop BinOpType.SMOD e1 e2
 
-  let faddOp e1 e2 = binop BinOpType.FADD e1 e2
-
-  let fsubOp e1 e2 = binop BinOpType.FSUB e1 e2
-
-  let fmulOp e1 e2 = binop BinOpType.FMUL e1 e2
-
-  let fdivOp e1 e2 = binop BinOpType.FDIV e1 e2
-
-  let fpowOp e1 e2 = binop BinOpType.FPOW e1 e2
-
-  let flog e1 e2 = binop BinOpType.FLOG e1 e2
-
   let (==) e1 e2 = relop RelOpType.EQ e1 e2
 
   let (!=) e1 e2 = relop RelOpType.NEQ e1 e2
@@ -390,14 +378,6 @@ module AST =
 
   let sle e1 e2 = relop RelOpType.SLE e1 e2
 
-  let fgt e1 e2 = relop RelOpType.FGT e1 e2
-
-  let fge e1 e2 = relop RelOpType.FGE e1 e2
-
-  let flt e1 e2 = relop RelOpType.FLT e1 e2
-
-  let fle e1 e2 = relop RelOpType.FLE e1 e2
-
   let (.&) e1 e2 = binop BinOpType.AND e1 e2
 
   let (.|) e1 e2 = binop BinOpType.OR e1 e2
@@ -413,6 +393,26 @@ module AST =
   let neg e = unop UnOpType.NEG e
 
   let not e = unop UnOpType.NOT e
+
+  let fadd e1 e2 = binop BinOpType.FADD e1 e2
+
+  let fsub e1 e2 = binop BinOpType.FSUB e1 e2
+
+  let fmul e1 e2 = binop BinOpType.FMUL e1 e2
+
+  let fdiv e1 e2 = binop BinOpType.FDIV e1 e2
+
+  let fpow e1 e2 = binop BinOpType.FPOW e1 e2
+
+  let flog e1 e2 = binop BinOpType.FLOG e1 e2
+
+  let fgt e1 e2 = relop RelOpType.FGT e1 e2
+
+  let fge e1 e2 = relop RelOpType.FGE e1 e2
+
+  let flt e1 e2 = relop RelOpType.FLT e1 e2
+
+  let fle e1 e2 = relop RelOpType.FLE e1 e2
 
   let fSqrt e = unop UnOpType.FSQRT e
 

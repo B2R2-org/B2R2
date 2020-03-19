@@ -67,8 +67,8 @@ module RelOpType =
     | RelOpType.LE -> "<="
     | RelOpType.SLT -> "?<"
     | RelOpType.SLE -> "?<="
-    | RelOpType.FGT -> ".>"
-    | RelOpType.FGE -> ".>="
-    | RelOpType.FLT -> ".<"
-    | RelOpType.FLE -> ".<="
+    | RelOpType.FGT -> ">."
+    | RelOpType.FGE -> ">=."
+    | RelOpType.FLT -> "<."
+    | RelOpType.FLE -> "<=."
     | _ -> raise IllegalASTTypeException

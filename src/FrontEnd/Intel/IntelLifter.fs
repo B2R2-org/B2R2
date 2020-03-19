@@ -1452,49 +1452,49 @@ let add ins insAddr insLen ctxt =
 let opP op _ = Array.map2 (op)
 
 let addpd ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 64<rt> (opP faddOp) 8
+  buildPackedInstr ins insAddr insLen ctxt 64<rt> (opP fadd) 8
 
 let addps ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 32<rt> (opP faddOp) 8
+  buildPackedInstr ins insAddr insLen ctxt 32<rt> (opP fadd) 8
 
 let addsd ins insAddr insLen ctxt =
-  handleScalarFPOp ins insAddr insLen ctxt 64<rt> faddOp
+  handleScalarFPOp ins insAddr insLen ctxt 64<rt> fadd
 
 let addss ins insAddr insLen ctxt =
-  handleScalarFPOp ins insAddr insLen ctxt 32<rt> faddOp
+  handleScalarFPOp ins insAddr insLen ctxt 32<rt> fadd
 
 let divpd ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 64<rt> (opP fdivOp) 8
+  buildPackedInstr ins insAddr insLen ctxt 64<rt> (opP fdiv) 8
 
 let divps ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 32<rt> (opP fdivOp) 8
+  buildPackedInstr ins insAddr insLen ctxt 32<rt> (opP fdiv) 8
 
 let divsd ins insAddr insLen ctxt =
-  handleScalarFPOp ins insAddr insLen ctxt 64<rt> fdivOp
+  handleScalarFPOp ins insAddr insLen ctxt 64<rt> fdiv
 
 let divss ins insAddr insLen ctxt =
-  handleScalarFPOp ins insAddr insLen ctxt 32<rt> fdivOp
+  handleScalarFPOp ins insAddr insLen ctxt 32<rt> fdiv
 
 let mulpd ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 64<rt> (opP fmulOp) 8
+  buildPackedInstr ins insAddr insLen ctxt 64<rt> (opP fmul) 8
 
 let mulps ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 32<rt> (opP fmulOp) 8
+  buildPackedInstr ins insAddr insLen ctxt 32<rt> (opP fmul) 8
 
 let mulsd ins insAddr insLen ctxt =
-  handleScalarFPOp ins insAddr insLen ctxt 64<rt> fmulOp
+  handleScalarFPOp ins insAddr insLen ctxt 64<rt> fmul
 
 let mulss ins insAddr insLen ctxt =
-  handleScalarFPOp ins insAddr insLen ctxt 32<rt> fmulOp
+  handleScalarFPOp ins insAddr insLen ctxt 32<rt> fmul
 
 let subps ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 32<rt> (opP fsubOp) 8
+  buildPackedInstr ins insAddr insLen ctxt 32<rt> (opP fsub) 8
 
 let subsd ins insAddr insLen ctxt =
-  handleScalarFPOp ins insAddr insLen ctxt 64<rt> fsubOp
+  handleScalarFPOp ins insAddr insLen ctxt 64<rt> fsub
 
 let subss ins insAddr insLen ctxt =
-  handleScalarFPOp ins insAddr insLen ctxt 32<rt> fsubOp
+  handleScalarFPOp ins insAddr insLen ctxt 32<rt> fsub
 
 let sqrtpd ins insAddr insLen ctxt =
   let builder = new StmtBuilder (4)
@@ -2714,14 +2714,14 @@ let f2xm1 _isn insAddr insLen ctxt =
   let flt2 = numI32 2 32<rt> |> cast CastKind.IntToFloat 80<rt>
   let tmp = tmpVar 80<rt>
   startMark insAddr insLen builder
-  builder <! (tmp := fpowOp flt2 st0)
-  builder <! (st0 := fsubOp tmp flt1)
+  builder <! (tmp := fpow flt2 st0)
+  builder <! (st0 := fsub tmp flt1)
   checkC1Flag ctxt builder R.FTW7
   cflagsUndefined023 ctxt builder
   endMark insAddr insLen builder
 
-let fadd ins insAddr insLen ctxt doPop =
-  fpuFBinOp ins insAddr insLen ctxt faddOp doPop true
+let fpuadd ins insAddr insLen ctxt doPop =
+  fpuFBinOp ins insAddr insLen ctxt fadd doPop true
 
 let fbld ins insAddr insLen ctxt =
   let builder = new StmtBuilder (64)
@@ -2941,11 +2941,11 @@ let fdecstp _ins insAddr insLen ctxt =
   builder <! (getRegVar ctxt R.FSWC3 := undefC3)
   endMark insAddr insLen builder
 
-let fdiv ins insAddr insLen ctxt doPop =
-  fpuFBinOp ins insAddr insLen ctxt fdivOp doPop true
+let fpudiv ins insAddr insLen ctxt doPop =
+  fpuFBinOp ins insAddr insLen ctxt fdiv doPop true
 
 let fdivr ins insAddr insLen ctxt doPop =
-  fpuFBinOp ins insAddr insLen ctxt fdivOp doPop false
+  fpuFBinOp ins insAddr insLen ctxt fdiv doPop false
 
 let ffree ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
@@ -2973,7 +2973,7 @@ let ffree ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let fiadd ins insAddr insLen ctxt =
-  fpuIntOp ins insAddr insLen ctxt faddOp true
+  fpuIntOp ins insAddr insLen ctxt fadd true
 
 let ficom ins insAddr insLen ctxt doPop =
   let builder = new StmtBuilder (32)
@@ -2990,10 +2990,10 @@ let ficom ins insAddr insLen ctxt doPop =
   endMark insAddr insLen builder
 
 let fidiv ins insAddr insLen ctxt =
-  fpuIntOp ins insAddr insLen ctxt fdivOp true
+  fpuIntOp ins insAddr insLen ctxt fdiv true
 
 let fidivr ins insAddr insLen ctxt =
-  fpuIntOp ins insAddr insLen ctxt fdivOp false
+  fpuIntOp ins insAddr insLen ctxt fdiv false
 
 let fild ins insAddr insLen ctxt =
   let builder = new StmtBuilder (32)
@@ -3008,7 +3008,7 @@ let fild ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let fimul ins insAddr insLen ctxt =
-  fpuIntOp ins insAddr insLen ctxt fmulOp true
+  fpuIntOp ins insAddr insLen ctxt fmul true
 
 let fincstp _ins insAddr insLen ctxt =
   let builder = new StmtBuilder (16)
@@ -3140,13 +3140,13 @@ let fptan _ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let fisub ins insAddr insLen ctxt =
-  fpuIntOp ins insAddr insLen ctxt fsubOp true
+  fpuIntOp ins insAddr insLen ctxt fsub true
 
 let fisubr ins insAddr insLen ctxt =
-  fpuIntOp ins insAddr insLen ctxt fsubOp false
+  fpuIntOp ins insAddr insLen ctxt fsub false
 
-let fmul ins insAddr insLen ctxt doPop =
-  fpuFBinOp ins insAddr insLen ctxt fmulOp doPop true
+let fpumul ins insAddr insLen ctxt doPop =
+  fpuFBinOp ins insAddr insLen ctxt fmul doPop true
 
 let fprem _ins insAddr insLen ctxt round =
   let builder = new StmtBuilder (32)
@@ -3163,10 +3163,10 @@ let fprem _ins insAddr insLen ctxt round =
   builder <! (expDiff := extract st0 15<rt> 64 .- extract st1 15<rt> 64)
   builder <! (CJmp (lt expDiff (numI32 64 15<rt>), Name lblLT64, Name lblGT64))
   builder <! (LMark lblLT64)
-  builder <! (tmp80A := fdivOp st0 st1)
+  builder <! (tmp80A := fdiv st0 st1)
   builder <! (tmp64 := cast caster 64<rt> tmp80A)
-  builder <! (tmp80B := fmulOp st1 (cast CastKind.IntToFloat 80<rt> tmp64))
-  builder <! (st0 := fsubOp st0 tmp80B)
+  builder <! (tmp80B := fmul st1 (cast CastKind.IntToFloat 80<rt> tmp64))
+  builder <! (st0 := fsub st0 tmp80B)
   builder <! (getRegVar ctxt R.FSWC2 := b0)
   builder <! (getRegVar ctxt R.FSWC1 := extractLow 1<rt> tmp64)
   builder <! (getRegVar ctxt R.FSWC3 := extract tmp64 1<rt> 1)
@@ -3177,10 +3177,10 @@ let fprem _ins insAddr insLen ctxt round =
   builder <! (tmp64 := (zExt 64<rt> expDiff) .- numI32 63 64<rt>)
   builder <! (tmp64 := tmp64 .* numI32 2 64<rt>)
   builder <! (tmp80B := cast CastKind.IntToFloat 80<rt> tmp64)
-  builder <! (tmp80A := fdivOp (fdivOp st0 st1) tmp80B)
+  builder <! (tmp80A := fdiv (fdiv st0 st1) tmp80B)
   builder <! (tmp64 := cast CastKind.FtoITrunc 64<rt> tmp80A)
   builder <! (tmp80A := cast CastKind.IntToFloat 80<rt> tmp64)
-  builder <! (st0 := fsubOp st0 (fmulOp st1 (fmulOp tmp80A tmp80B)))
+  builder <! (st0 := fsub st0 (fmul st1 (fmul tmp80A tmp80B)))
   builder <! (LMark lblExit)
   endMark insAddr insLen builder
 
@@ -3212,7 +3212,7 @@ let fscale _ins insAddr insLen ctxt =
   builder <! (tmp1 := cast CastKind.FtoITrunc 64<rt> st1)
   builder <! (tmp2 := numI32 1 64<rt> << tmp1)
   builder <! (tmp3 := cast CastKind.IntToFloat 80<rt> tmp2)
-  builder <! (st0 := fmulOp st0 tmp3)
+  builder <! (st0 := fmul st0 tmp3)
   checkC1Flag ctxt builder R.FTW6
   cflagsUndefined023 ctxt builder
   endMark insAddr insLen builder
@@ -3312,11 +3312,11 @@ let fsqrt _ins insAddr insLen ctxt =
   checkC1Flag ctxt builder R.FTW7
   endMark insAddr insLen builder
 
-let fsub ins insAddr insLen ctxt doPop =
-  fpuFBinOp ins insAddr insLen ctxt fsubOp doPop true
+let fpusub ins insAddr insLen ctxt doPop =
+  fpuFBinOp ins insAddr insLen ctxt fsub doPop true
 
 let fsubr ins insAddr insLen ctxt doPop =
-  fpuFBinOp ins insAddr insLen ctxt fsubOp doPop false
+  fpuFBinOp ins insAddr insLen ctxt fsub doPop false
 
 let fpuLoad insAddr insLen ctxt oprExpr =
   let builder = new StmtBuilder (32)
@@ -3544,7 +3544,7 @@ let fyl2x _ins insAddr insLen ctxt =
   let tmp = tmpVar 80<rt>
   startMark insAddr insLen builder
   builder <! (tmp := flog flt2 st0)
-  builder <! (st1 := fmulOp st1 tmp)
+  builder <! (st1 := fmul st1 tmp)
   popFPUStack ctxt builder
   checkC1Flag ctxt builder R.FTW6
   cflagsUndefined023 ctxt builder
@@ -3558,8 +3558,8 @@ let fyl2xp1 _ins insAddr insLen ctxt =
   let f1 = numI32 1 32<rt> |> cast CastKind.IntToFloat 80<rt>
   let tmp = tmpVar 64<rt>
   startMark insAddr insLen builder
-  builder <! (tmp := faddOp f1 (flog flt2 st0))
-  builder <! (st1 := fmulOp st1 tmp)
+  builder <! (tmp := fadd f1 (flog flt2 st0))
+  builder <! (st1 := fmul st1 tmp)
   popFPUStack ctxt builder
   checkC1Flag ctxt builder R.FTW6
   cflagsUndefined023 ctxt builder
@@ -5793,16 +5793,16 @@ let isEvexEncoded = function
   | _ -> false
 
 let vaddpd ins insAddr insLen ctxt =
-  vexedPackedFPBinOp64 ins insAddr insLen ctxt faddOp
+  vexedPackedFPBinOp64 ins insAddr insLen ctxt fadd
 
 let vaddps ins insAddr insLen ctxt =
-  vexedPackedFPBinOp32 ins insAddr insLen ctxt faddOp
+  vexedPackedFPBinOp32 ins insAddr insLen ctxt fadd
 
 let vaddsd ins insAddr insLen ctxt =
-  vexedScalarFPBinOp ins insAddr insLen ctxt 64<rt> faddOp
+  vexedScalarFPBinOp ins insAddr insLen ctxt 64<rt> fadd
 
 let vaddss ins insAddr insLen ctxt =
-  vexedScalarFPBinOp ins insAddr insLen ctxt 32<rt> faddOp
+  vexedScalarFPBinOp ins insAddr insLen ctxt 32<rt> fadd
 
 let vandpd ins insAddr insLen ctxt =
   vexedPackedFPBinOp64 ins insAddr insLen ctxt (.&)
@@ -5885,16 +5885,16 @@ let vcvtsi2ss ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let vdivpd ins insAddr insLen ctxt =
-  vexedPackedFPBinOp64 ins insAddr insLen ctxt fdivOp
+  vexedPackedFPBinOp64 ins insAddr insLen ctxt fdiv
 
 let vdivps ins insAddr insLen ctxt =
-  vexedPackedFPBinOp32 ins insAddr insLen ctxt fdivOp
+  vexedPackedFPBinOp32 ins insAddr insLen ctxt fdiv
 
 let vdivsd ins insAddr insLen ctxt =
-  vexedScalarFPBinOp ins insAddr insLen ctxt 64<rt> fdivOp
+  vexedScalarFPBinOp ins insAddr insLen ctxt 64<rt> fdiv
 
 let vdivss ins insAddr insLen ctxt =
-  vexedScalarFPBinOp ins insAddr insLen ctxt 32<rt> fdivOp
+  vexedScalarFPBinOp ins insAddr insLen ctxt 32<rt> fdiv
 
 let vinserti128 ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
@@ -6356,16 +6356,16 @@ let vmovups ins insAddr insLen ctxt = buildVectorMove ins insAddr insLen ctxt
 let vmovupd ins insAddr insLen ctxt = buildVectorMove ins insAddr insLen ctxt
 
 let vmulpd ins insAddr insLen ctxt =
-  vexedPackedFPBinOp64 ins insAddr insLen ctxt fmulOp
+  vexedPackedFPBinOp64 ins insAddr insLen ctxt fmul
 
 let vmulps ins insAddr insLen ctxt =
-  vexedPackedFPBinOp32 ins insAddr insLen ctxt fmulOp
+  vexedPackedFPBinOp32 ins insAddr insLen ctxt fmul
 
 let vmulsd ins insAddr insLen ctxt =
-  vexedScalarFPBinOp ins insAddr insLen ctxt 64<rt> fmulOp
+  vexedScalarFPBinOp ins insAddr insLen ctxt 64<rt> fmul
 
 let vmulss ins insAddr insLen ctxt =
-  vexedScalarFPBinOp ins insAddr insLen ctxt 32<rt> fmulOp
+  vexedScalarFPBinOp ins insAddr insLen ctxt 32<rt> fmul
 
 let vorpd ins insAddr insLen ctxt =
   vexedPackedFPBinOp64 ins insAddr insLen ctxt (.|)
@@ -6838,16 +6838,16 @@ let vsqrtss ins insAddr insLen ctxt =
   vsqrts ins insAddr insLen ctxt 32<rt>
 
 let vsubpd ins insAddr insLen ctxt =
-  vexedPackedFPBinOp64 ins insAddr insLen ctxt fsubOp
+  vexedPackedFPBinOp64 ins insAddr insLen ctxt fsub
 
 let vsubps ins insAddr insLen ctxt =
-  vexedPackedFPBinOp32 ins insAddr insLen ctxt fsubOp
+  vexedPackedFPBinOp32 ins insAddr insLen ctxt fsub
 
 let vsubsd ins insAddr insLen ctxt =
-  vexedScalarFPBinOp ins insAddr insLen ctxt 64<rt> fsubOp
+  vexedScalarFPBinOp ins insAddr insLen ctxt 64<rt> fsub
 
 let vsubss ins insAddr insLen ctxt =
-  vexedScalarFPBinOp ins insAddr insLen ctxt 32<rt> fsubOp
+  vexedScalarFPBinOp ins insAddr insLen ctxt 32<rt> fsub
 
 let vunpckhpd ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
@@ -7424,8 +7424,8 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.EMMS -> emms ins insAddr insLen ctxt
   | Opcode.F2XM1 -> f2xm1 ins insAddr insLen ctxt
   | Opcode.FABS -> fabs ins insAddr insLen ctxt
-  | Opcode.FADD -> fadd ins insAddr insLen ctxt false
-  | Opcode.FADDP -> fadd ins insAddr insLen ctxt true
+  | Opcode.FADD -> fpuadd ins insAddr insLen ctxt false
+  | Opcode.FADDP -> fpuadd ins insAddr insLen ctxt true
   | Opcode.FBLD -> fbld ins insAddr insLen ctxt
   | Opcode.FBSTP -> fbstp ins insAddr insLen ctxt
   | Opcode.FCHS -> fchs ins insAddr insLen ctxt
@@ -7438,8 +7438,8 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.FCMOVNE -> fcmovne ins insAddr insLen ctxt
   | Opcode.FCMOVNU -> fcmovnu ins insAddr insLen ctxt
   | Opcode.FCMOVU -> fcmovu ins insAddr insLen ctxt
-  | Opcode.FDIV -> fdiv ins insAddr insLen ctxt false
-  | Opcode.FDIVP -> fdiv ins insAddr insLen ctxt true
+  | Opcode.FDIV -> fpudiv ins insAddr insLen ctxt false
+  | Opcode.FDIVP -> fpudiv ins insAddr insLen ctxt true
   | Opcode.FIADD -> fiadd ins insAddr insLen ctxt
   | Opcode.FIDIV -> fidiv ins insAddr insLen ctxt
   | Opcode.FIMUL -> fimul ins insAddr insLen ctxt
@@ -7454,13 +7454,13 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.FLDLG2 -> fldlg2 ins insAddr insLen ctxt
   | Opcode.FLDLN2 -> fldln2 ins insAddr insLen ctxt
   | Opcode.FLDCW -> fldcw ins insAddr insLen ctxt
-  | Opcode.FMUL -> fmul ins insAddr insLen ctxt false
-  | Opcode.FMULP -> fmul ins insAddr insLen ctxt true
+  | Opcode.FMUL -> fpumul ins insAddr insLen ctxt false
+  | Opcode.FMULP -> fpumul ins insAddr insLen ctxt true
   | Opcode.FPREM -> fprem ins insAddr insLen ctxt false
   | Opcode.FPREM1 -> fprem ins insAddr insLen ctxt true
   | Opcode.FSQRT -> fsqrt ins insAddr insLen ctxt
-  | Opcode.FSUB -> fsub ins insAddr insLen ctxt false
-  | Opcode.FSUBP -> fsub ins insAddr insLen ctxt true
+  | Opcode.FSUB -> fpusub ins insAddr insLen ctxt false
+  | Opcode.FSUBP -> fpusub ins insAddr insLen ctxt true
   | Opcode.FCOM -> fcom ins insAddr insLen ctxt 0 false
   | Opcode.FCOMP -> fcom ins insAddr insLen ctxt 1 false
   | Opcode.FCOMPP -> fcom ins insAddr insLen ctxt 2 false

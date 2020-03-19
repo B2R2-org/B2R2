@@ -403,13 +403,13 @@ type BitVector =
   static member mul v1 v2 = BitVector.IntBinOp (*) (bigint.Multiply) v1 v2
 
   [<CompiledName("FAdd")>]
-  static member fAdd v1 v2 = BitVector.FloatBinOp (+) v1 v2
+  static member fadd v1 v2 = BitVector.FloatBinOp (+) v1 v2
 
   [<CompiledName("FSub")>]
-  static member fSub v1 v2 = BitVector.FloatBinOp (-) v1 v2
+  static member fsub v1 v2 = BitVector.FloatBinOp (-) v1 v2
 
   [<CompiledName("FMul")>]
-  static member fMul v1 v2 = BitVector.FloatBinOp (*) v1 v2
+  static member fmul v1 v2 = BitVector.FloatBinOp (*) v1 v2
 
   [<CompiledName("Neg")>]
   static member neg bv =
@@ -444,19 +444,19 @@ type BitVector =
       { bv with BigNum = bigint.Pow (2I, int bv.Length) - bv.BigNum - 1I }
 
   [<CompiledName("FSqrt")>]
-  static member fSqrt v = BitVector.FloatUnOp sqrt v
+  static member fsqrt v = BitVector.FloatUnOp sqrt v
 
   [<CompiledName("FTan")>]
-  static member fTan v = BitVector.FloatUnOp tan v
+  static member ftan v = BitVector.FloatUnOp tan v
 
   [<CompiledName("FATan")>]
-  static member fAtan v = BitVector.FloatUnOp atan v
+  static member fatan v = BitVector.FloatUnOp atan v
 
   [<CompiledName("FSin")>]
-  static member fSin v = BitVector.FloatUnOp sin v
+  static member fsin v = BitVector.FloatUnOp sin v
 
   [<CompiledName("FCos")>]
-  static member fCos v = BitVector.FloatUnOp cos v
+  static member fcos v = BitVector.FloatUnOp cos v
 
   [<CompiledName("EQ")>]
   static member eq v1 v2 =
@@ -464,16 +464,15 @@ type BitVector =
       BitVector.T
     else BitVector.F
 
-  /// Depriciated equals to compare 80 bit floating point numbers
-  [<CompiledName("DEQ")>]
-  static member dEq v1 v2 =
+  [<CompiledName("ApproxEQ")>]
+  static member aeq v1 v2 =
     match v1.Length, v2.Length with
     | 80<rt>, 80<rt> ->
       let shifter = BitVector.ofInt32 12 80<rt>
       let v1 = BitVector.shr v1 shifter
       let v2 = BitVector.shr v2 shifter
       BitVector.eq v1 v2
-    | t1, t2 ->
+    | t1, _ ->
       let shifter = BitVector.ofInt32 1 t1
       let v1 = BitVector.shr v1 shifter
       let v2 = BitVector.shr v2 shifter
@@ -599,19 +598,19 @@ type BitVector =
   static member div v1 v2 = BitVector.IntBinOp (/) (bigint.Divide) v1 v2
 
   [<CompiledName("FDiv")>]
-  static member fDiv v1 v2 = BitVector.FloatBinOp (/) v1 v2
+  static member fdiv v1 v2 = BitVector.FloatBinOp (/) v1 v2
 
   [<CompiledName("FPow")>]
-  static member fPow v1 v2 =
+  static member fpow v1 v2 =
     let pow64 f1 f2 = Math.Pow (f1, f2)
     BitVector.FloatBinOp pow64 v1 v2
 
   [<CompiledName("FLog")>]
-  static member fLog v1 v2 =
+  static member flog v1 v2 =
     let log64 f1 f2 = Math.Log (f2, f1)
     BitVector.FloatBinOp log64 v1 v2
 
-  [<CompiledName("Sdiv")>]
+  [<CompiledName("SDiv")>]
   static member sdiv v1 v2 =
     let sign1, sign2 = BitVector.isPositive v1, BitVector.isPositive v2
     let bv1 = if sign1 then v1 else BitVector.neg v1
@@ -706,7 +705,7 @@ type BitVector =
       let n = bigint.op_LeftShift (v1, int len2) + v2
       { Num = 0UL; Length = targetLen; BigNum = n }
 
-  [<CompiledName("Fext")>]
+  [<CompiledName("FExt")>]
   static member fext bv typ =
     match bv.Length, typ with
     | 32<rt>, 32<rt> | 64<rt>, 64<rt> | 80<rt>, 80<rt> -> bv
@@ -728,29 +727,29 @@ type BitVector =
       BitVector.castAsFloat (sign ||| adjustedExp ||| significand) typ
     | _ -> raise ArithTypeMismatchException
 
-  [<CompiledName("FtoICeil")>]
-  static member ftoICeil bv typ =
+  [<CompiledName("FToICeil")>]
+  static member ftoiceil bv typ =
     let fValue = BitVector.getFloatValue bv |> ceil
     BitVector.castAsInt fValue typ
 
-  [<CompiledName("FtoIFloor")>]
-  static member ftoIFloor bv typ =
+  [<CompiledName("FToIFloor")>]
+  static member ftoifloor bv typ =
     let fValue = BitVector.getFloatValue bv |> floor
     BitVector.castAsInt fValue typ
 
-  [<CompiledName("FtoIRound")>]
-  static member ftoIRound bv typ =
+  [<CompiledName("FToIRound")>]
+  static member ftoiround bv typ =
     let fValue = BitVector.getFloatValue bv |> round
     BitVector.castAsInt fValue typ
 
-  [<CompiledName("FtoITrunc")>]
-  static member ftoITrunc bv typ =
+  [<CompiledName("FToITrunc")>]
+  static member ftoitrunc bv typ =
     let fValue =
       BitVector.getFloatValue bv |> truncate
     BitVector.castAsInt fValue typ
 
-  [<CompiledName("ItoF")>]
-  static member itoF bv typ =
+  [<CompiledName("IToF")>]
+  static member itof bv typ =
     let signedFloat =
       match bv.Length with
       | 8<rt> -> bv.Num |> int8 |> float
@@ -761,7 +760,7 @@ type BitVector =
     let rep = signedFloat |> BitConverter.DoubleToInt64Bits |> uint64
     BitVector.castAsFloat rep typ
 
-  [<CompiledName("Sext")>]
+  [<CompiledName("SExt")>]
   static member sext bv typ =
     let bv' = BitVector.cast bv typ
     if BitVector.isPositive bv then bv'
@@ -770,7 +769,7 @@ type BitVector =
         BitVector.ofUBInt (RegType.getMask typ - RegType.getMask bv.Length) typ
       BitVector.add mask bv'
 
-  [<CompiledName("Zext")>]
+  [<CompiledName("ZExt")>]
   static member zext bv t = BitVector.cast bv t
 
   [<CompiledName("Abs")>]
@@ -787,12 +786,12 @@ type BitVector =
     if BitVector.gt bv1 bv2 = BitVector.T then bv1
     else bv2
 
-  [<CompiledName("Smin")>]
+  [<CompiledName("SMin")>]
   static member smin bv1 bv2 =
     if BitVector.slt bv1 bv2 = BitVector.T then bv1
     else bv2
 
-  [<CompiledName("Smax")>]
+  [<CompiledName("SMax")>]
   static member smax bv1 bv2 =
     if BitVector.sgt bv1 bv2 = BitVector.T then bv1
     else bv2

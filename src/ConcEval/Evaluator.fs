@@ -31,10 +31,6 @@ open B2R2.BinIR.LowUIR
 
 let private tr = BitVector.one 1<rt>
 
-let private map fn = function
-  | Undef -> raise UndefExpException
-  | Def bv -> Def (fn bv)
-
 let private map1 fn p1 = function
   | Undef -> raise UndefExpException
   | Def bv -> Def (fn bv p1)
@@ -84,21 +80,21 @@ and private evalCast st t e = function
 | CastKind.SignExt -> evalConcrete st e |> map1 BitVector.sext t
 | CastKind.ZeroExt -> evalConcrete st e |> map1 BitVector.zext t
 | CastKind.FloatExt -> evalConcrete st e |> map1 BitVector.fext t
-| CastKind.IntToFloat -> evalConcrete st e |> map1 BitVector.itoF t
-| CastKind.FtoICeil -> evalConcrete st e |> map1 BitVector.ftoICeil t
-| CastKind.FtoIFloor -> evalConcrete st e |> map1 BitVector.ftoIFloor t
-| CastKind.FtoIRound -> evalConcrete st e |> map1 BitVector.ftoIRound t
-| CastKind.FtoITrunc -> evalConcrete st e |> map1 BitVector.ftoITrunc t
+| CastKind.IntToFloat -> evalConcrete st e |> map1 BitVector.itof t
+| CastKind.FtoICeil -> evalConcrete st e |> map1 BitVector.ftoiceil t
+| CastKind.FtoIFloor -> evalConcrete st e |> map1 BitVector.ftoifloor t
+| CastKind.FtoIRound -> evalConcrete st e |> map1 BitVector.ftoiround t
+| CastKind.FtoITrunc -> evalConcrete st e |> map1 BitVector.ftoitrunc t
 | _ -> raise IllegalASTTypeException
 
 and private evalUnOp st e = function
   | UnOpType.NEG -> evalUnOpConc st e BitVector.neg
   | UnOpType.NOT -> evalUnOpConc st e BitVector.bnot
-  | UnOpType.FSQRT -> evalUnOpConc st e BitVector.fSqrt
-  | UnOpType.FCOS -> evalUnOpConc st e BitVector.fCos
-  | UnOpType.FSIN -> evalUnOpConc st e BitVector.fSin
-  | UnOpType.FTAN -> evalUnOpConc st e BitVector.fTan
-  | UnOpType.FATAN -> evalUnOpConc st e BitVector.fAtan
+  | UnOpType.FSQRT -> evalUnOpConc st e BitVector.fsqrt
+  | UnOpType.FCOS -> evalUnOpConc st e BitVector.fcos
+  | UnOpType.FSIN -> evalUnOpConc st e BitVector.fsin
+  | UnOpType.FTAN -> evalUnOpConc st e BitVector.ftan
+  | UnOpType.FATAN -> evalUnOpConc st e BitVector.fatan
   | _ -> raise IllegalASTTypeException
 
 and private evalBinOp st e1 e2 = function
@@ -116,12 +112,12 @@ and private evalBinOp st e1 e2 = function
   | BinOpType.OR -> evalBinOpConc st e1 e2 BitVector.bor
   | BinOpType.XOR -> evalBinOpConc st e1 e2 BitVector.bxor
   | BinOpType.CONCAT -> evalBinOpConc st e1 e2 BitVector.concat
-  | BinOpType.FADD -> evalBinOpConc st e1 e2 BitVector.fAdd
-  | BinOpType.FSUB -> evalBinOpConc st e1 e2 BitVector.fSub
-  | BinOpType.FMUL -> evalBinOpConc st e1 e2 BitVector.fMul
-  | BinOpType.FDIV -> evalBinOpConc st e1 e2 BitVector.fDiv
-  | BinOpType.FPOW -> evalBinOpConc st e1 e2 BitVector.fPow
-  | BinOpType.FLOG -> evalBinOpConc st e1 e2 BitVector.fLog
+  | BinOpType.FADD -> evalBinOpConc st e1 e2 BitVector.fadd
+  | BinOpType.FSUB -> evalBinOpConc st e1 e2 BitVector.fsub
+  | BinOpType.FMUL -> evalBinOpConc st e1 e2 BitVector.fmul
+  | BinOpType.FDIV -> evalBinOpConc st e1 e2 BitVector.fdiv
+  | BinOpType.FPOW -> evalBinOpConc st e1 e2 BitVector.fpow
+  | BinOpType.FLOG -> evalBinOpConc st e1 e2 BitVector.flog
   | _ -> raise IllegalASTTypeException
 
 and private evalRelOp st e1 e2 = function

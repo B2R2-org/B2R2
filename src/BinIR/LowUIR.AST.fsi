@@ -113,18 +113,6 @@ module AST = begin
   /// Signed modulus.
   val (?%) : Expr -> Expr -> Expr
 
-  /// Floating point add two expressions.
-  val faddOp : Expr -> Expr -> Expr
-
-  /// Floating point subtract two expressions.
-  val fsubOp : Expr -> Expr -> Expr
-
-  /// Floating point multiplication.
-  val fmulOp : Expr -> Expr -> Expr
-
-  /// floating point division.
-  val fdivOp : Expr -> Expr -> Expr
-
   /// Equal.
   val (==) : Expr -> Expr -> Expr
 
@@ -155,18 +143,6 @@ module AST = begin
   /// Signed less than or equal.
   val sle : Expr -> Expr -> Expr
 
-  /// Float greater than.
-  val fgt : Expr -> Expr -> Expr
-
-  /// Float greater than or equal.
-  val fge : Expr -> Expr -> Expr
-
-  /// Float less than.
-  val flt : Expr -> Expr -> Expr
-
-  /// Float less than or equal.
-  val fle : Expr -> Expr -> Expr
-
   /// Bitwise AND.
   val (.&) : Expr -> Expr -> Expr
 
@@ -185,31 +161,55 @@ module AST = begin
   /// Shift logical left.
   val (<<) : Expr -> Expr -> Expr
 
-  /// Power.
-  val fpowOp : Expr -> Expr -> Expr
-
-  /// Logarithm.
-  val flog : Expr -> Expr -> Expr
-
   /// Negation (Two's complement).
   val neg : Expr -> Expr
 
   /// Logical not.
   val not : Expr -> Expr
 
-  /// Square root.
+  /// Floating point add two expressions.
+  val fadd: Expr -> Expr -> Expr
+
+  /// Floating point subtract two expressions.
+  val fsub: Expr -> Expr -> Expr
+
+  /// Floating point multiplication.
+  val fmul : Expr -> Expr -> Expr
+
+  /// Floating point division.
+  val fdiv : Expr -> Expr -> Expr
+
+  /// Floating point greater than.
+  val fgt : Expr -> Expr -> Expr
+
+  /// Floating point greater than or equal.
+  val fge : Expr -> Expr -> Expr
+
+  /// Floating point less than.
+  val flt : Expr -> Expr -> Expr
+
+  /// Floating point less than or equal.
+  val fle : Expr -> Expr -> Expr
+
+  /// Floating point power.
+  val fpow : Expr -> Expr -> Expr
+
+  /// Floating point logarithm.
+  val flog : Expr -> Expr -> Expr
+
+  /// Floating point square root.
   val fSqrt : Expr -> Expr
 
-  /// Cosine.
+  /// Floating point cosine.
   val fCos : Expr -> Expr
 
-  /// Sine.
+  /// Floating point sine.
   val fSin : Expr -> Expr
 
-  /// Tangent.
+  /// Floating point tangent.
   val fTan : Expr -> Expr
 
-  /// Arc Tangent.
+  /// Floating point arc tangent.
   val fAtan : Expr -> Expr
 
   /// Concatenation.
