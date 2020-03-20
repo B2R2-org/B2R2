@@ -481,8 +481,7 @@ let isODRegGrp = function
   | ODRegGrp _ -> true
   | _ -> false
 
-(* FIXME: check
-let private convRegSize t effOprSz oprDesc (oprDescs: OperandDesc []) =
+let private convRegSize t effOprSz oprDesc oprDescs =
   match oprDesc with
   | ODModeSize (OprMode.G, sz) | ODModeSize (OprMode.N , sz)
   | ODModeSize (OprMode.P, sz) | ODModeSize (OprMode.R , sz)
@@ -494,16 +493,17 @@ let private convRegSize t effOprSz oprDesc (oprDescs: OperandDesc []) =
   | ODRegGrp (_, sz, _) ->
     let (struct (x, _)) = getSizeBySzDesc t effOprSz sz in x
   | _ -> 0<rt>
-*)
+
+let rec private findRegSize idx (oprDescs: OperandDesc []) t effOprSz ret =
+  let v = convRegSize t effOprSz oprDescs.[idx] oprDescs
+  if v <> 0<rt> then v
+  elif idx = (Array.length oprDescs) - 1 then ret
+  else findRegSize (idx + 1) oprDescs t effOprSz ret
 
 (* defined in Table 3-4 of the manual Vol. 1. *)
 let inline private getRegSize t oprDescs effOprSz =
-  match Array.tryFind isRegOpr oprDescs with
-  | Some (ODReg reg) -> Register.toRegType reg
-  | Some (ODRegGrp (_, sKnd, _))
-  | Some (ODModeSize (struct (_, sKnd))) ->
-    let (struct (x, _)) = getSizeBySzDesc t effOprSz sKnd in x
-  | _ -> effOprSz
+  if Array.isEmpty oprDescs then effOprSz
+  else findRegSize 0 oprDescs t effOprSz effOprSz
 
 let inline convMemSize descs =
   match descs with

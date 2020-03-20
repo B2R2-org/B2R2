@@ -42,6 +42,7 @@ module Intel =
     Assert.AreEqual (ins.Length, length)
 
   let private test32 = test Prefix.PrxNone None WordSize.Bit32
+  let private test32WithPrx prefix = test prefix None WordSize.Bit32
   let private test64 = test Prefix.PrxNone None WordSize.Bit64
 
   /// 5.1 GENERAL-PURPOSE INSTRUCTIONS
@@ -146,6 +147,22 @@ module Intel =
              [| 0x9auy; 0x98uy; 0x76uy; 0x54uy; 0x32uy; 0x10uy; 0x00uy |]
 
       test32 Opcode.INT (OneOperand (OprImm 1L)) 2ul [| 0xcduy; 0x01uy |]
+
+    /// 5.1.9 I/O Instructions
+    [<TestMethod>]
+    member __.``I/O Instructions Parse Test`` () =
+      test32 Opcode.IN (TwoOperands (OprReg R.EAX, OprReg R.DX)) 1ul
+             [| 0xEDuy |]
+
+      test32 Opcode.OUT (TwoOperands (OprReg R.DX, OprReg R.AL)) 1ul
+             [| 0xEEuy |]
+
+      test32WithPrx Prefix.PrxOPSIZE
+                    Opcode.OUT (TwoOperands (OprReg R.DX, OprReg R.AX)) 2ul
+                    [| 0x66uy; 0xEFuy |]
+
+      test32 Opcode.OUT (TwoOperands (OprReg R.DX, OprReg R.EAX)) 1ul
+             [| 0xEFuy |]
 
     /// 5.1.12 Segment Register Instructions
     [<TestMethod>]
