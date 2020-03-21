@@ -97,8 +97,7 @@ class FlowGraph extends Graph {
       const line = v.Terms[i];
       const addr = parseInt(line[0], 16);
       const y = i * 14 + stmtPaddingTop;
-      const gstmt = g.append("g").attr("transform", "translate(0," + y + ")");
-      const txt = gstmt.append("text")
+      const txt = g.append("text").attr("transform", "translate(0," + y + ")")
         .classed("c-graph__stmt", true)
         .attr("xml:space", "preserve");
       txt
@@ -115,7 +114,7 @@ class FlowGraph extends Graph {
 
   addContextMenu(g) {
     $(g.node()).contextMenu({
-      selector: "g",
+      selector: "text",
       callback: function (k, _opts) {
         switch (k) {
           case "copy-addr":
@@ -145,15 +144,6 @@ class FlowGraph extends Graph {
       .attr("width", v.Width)
       .attr("height", v.Height);
     this.addContextMenu(g);
-    const rect = g.append("rect")
-      .classed("c-graph__node--blur", true)
-      .attr("width", v.Width)
-      .attr("height", v.Height);
-    rect
-      .on("mouseover", function () {
-        rect.attr("filter", "url(#js-filter-blur)");
-      })
-      .on("mouseout", function () { rect.attr("filter", null); });
     this.drawLinesOfNode(v, g);
   }
 

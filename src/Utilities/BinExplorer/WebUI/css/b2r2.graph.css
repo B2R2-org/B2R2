@@ -22,12 +22,6 @@
   stroke-width: 1.5px;
 }
 
-.c-graph__node--blur {
-  fill: transparent;
-  stroke: var(--graph-node-stroke);
-  stroke-width: 1.5px;
-}
-
 .c-filter-stmt-background {
   flood-color: var(--graph-stmt-hover);
 }
