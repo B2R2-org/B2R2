@@ -212,8 +212,18 @@ class FlowGraph extends Graph {
   registerPathDblClickEvents() {
     const myself = this;
     this.cfg.selectAll(".c-graph__edge").on("dblclick", function (pts) {
+      const bounds = d3.event.target.getBoundingClientRect();
+      const clickY = d3.event.clientY;
+      const bottomDist = Math.abs(bounds.bottom - clickY);
+      const topDist = Math.abs(bounds.top - clickY);
+      const goingUp = topDist > bottomDist;
+      const firstpt = pts[0];
       const lastpt = pts[pts.length - 1];
-      const r = myself.computeTranslate(lastpt.X, lastpt.Y);
+      const pt =
+           (goingUp && firstpt.Y > lastpt.Y)
+        || (!goingUp && firstpt.Y < lastpt.Y)
+        ? lastpt : firstpt;
+      const r = myself.computeTranslate(pt.X, pt.Y);
       const x = r.x, y = r.y, k = r.k;
       myself.svg.transition().duration(700)
         .call(myself.zoom.transform, d3.zoomIdentity.translate(x, y).scale(k));
