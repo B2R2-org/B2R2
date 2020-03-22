@@ -102,6 +102,11 @@ module ConcreteEvaluator =
   let inline evalUnOp n = function
     | UnOpType.NEG -> BitVector.neg n |> Num
     | UnOpType.NOT -> BitVector.bnot n |> Num
+    | UnOpType.FSQRT -> BitVector.fsqrt n |> Num
+    | UnOpType.FCOS -> BitVector.fcos n |> Num
+    | UnOpType.FSIN -> BitVector.fsin n |> Num
+    | UnOpType.FTAN -> BitVector.ftan n |> Num
+    | UnOpType.FATAN -> BitVector.fatan n |> Num
     | _ -> failwith "Invalid"
 
   let inline evalBinOp n1 n2 = function
@@ -119,6 +124,12 @@ module ConcreteEvaluator =
     | BinOpType.OR   -> BitVector.bor n1 n2 |> Num
     | BinOpType.XOR  -> BitVector.bxor n1 n2 |> Num
     | BinOpType.CONCAT -> BitVector.concat n1 n2 |> Num
+    | BinOpType.FADD -> BitVector.fadd n1 n2 |> Num
+    | BinOpType.FSUB -> BitVector.fsub n1 n2 |> Num
+    | BinOpType.FMUL -> BitVector.fmul n1 n2 |> Num
+    | BinOpType.FDIV -> BitVector.fdiv n1 n2 |> Num
+    | BinOpType.FPOW -> BitVector.fpow n1 n2 |> Num
+    | BinOpType.FLOG -> BitVector.flog n1 n2 |> Num
     | _ -> failwith "Invalid"
 
   let inline evalRelOp n1 n2 = function
@@ -132,11 +143,21 @@ module ConcreteEvaluator =
     | RelOpType.LE  -> BitVector.le n1 n2 |> Num
     | RelOpType.SLT -> BitVector.slt n1 n2 |> Num
     | RelOpType.SLE -> BitVector.sle n1 n2 |> Num
+    | RelOpType.FLT -> BitVector.flt n1 n2 |> Num
+    | RelOpType.FLE -> BitVector.fle n1 n2 |> Num
+    | RelOpType.FGT -> BitVector.fgt n1 n2 |> Num
+    | RelOpType.FGE -> BitVector.fge n1 n2 |> Num
     | _ -> failwith "Invalid"
 
   let inline evalCast t n = function
     | CastKind.SignExt -> BitVector.sext n t |> Num
     | CastKind.ZeroExt -> BitVector.zext n t |> Num
+    | CastKind.FloatExt -> BitVector.fext n t |> Num
+    | CastKind.IntToFloat -> BitVector.itof n t |> Num
+    | CastKind.FtoICeil -> BitVector.ftoiceil n t |> Num
+    | CastKind.FtoIFloor -> BitVector.ftoifloor n t |> Num
+    | CastKind.FtoIRound -> BitVector.ftoiround n t |> Num
+    | CastKind.FtoITrunc -> BitVector.ftoitrunc n t |> Num
     | _ -> failwith "Invalid"
 
   let inline evalExtract e t pos = BitVector.extract e t pos |> Num
