@@ -136,9 +136,8 @@ let readExportDirectoryTableEntry (binReader: BinReader) secs pos =
     NamePointerRVA = binReader.PeekInt32 (pos + 32)
     OrdinalTableRVA = binReader.PeekInt32 (pos + 36) }
 
-let parseEAT (binReader: BinReader) secs (sec: SectionHeader) edt =
-  let lowerbound = sec.VirtualAddress
-  let upperbound = sec.VirtualAddress + getVirtualSectionSize sec
+let parseEAT (binReader: BinReader) secs range edt =
+  let lowerbound, upperbound = range
   let getEntry rva =
     if rva < lowerbound || rva > upperbound then ExportRVA rva
     else ForwarderRVA rva
@@ -163,8 +162,8 @@ let parseENPT (binReader: BinReader) secs edt =
     let offset2 = edt.OrdinalTableRVA |> getRawOffset secs
     loop [] edt.NumNamePointers offset1 offset2
 
-let buildExportTable binReader (headers: PEHeaders) secs sec edt =
-  let addrtbl = parseEAT binReader secs sec edt
+let buildExportTable binReader (headers: PEHeaders) secs range edt =
+  let addrtbl = parseEAT binReader secs range edt
   let folder map (name, ord) =
     match addrtbl.[int ord] with
     | ExportRVA rva ->
@@ -179,10 +178,11 @@ let parseExports binReader (headers: PEHeaders) secs =
   | 0 -> Map.empty
   | rva ->
     let idx = findSectionIndex secs rva
-    let sec = headers.SectionHeaders.[idx]
+    let size = headers.PEHeader.ExportTableDirectory.Size
+    let range = (rva, rva + size)
     getRawOffset secs rva
     |> readExportDirectoryTableEntry binReader secs
-    |> buildExportTable binReader headers secs sec
+    |> buildExportTable binReader headers secs range
 
 let buildRelocBlock (binReader: BinReader) headerOffset =
   let blockSize = binReader.PeekInt32 (headerOffset + 4)
