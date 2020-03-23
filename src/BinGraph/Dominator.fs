@@ -282,8 +282,9 @@ let rec computeDF domTree (frontiers: Vertex<_> list []) g ctxt r =
   let mutable s = Set.empty
   for succ in (r: Vertex<'V>).Succs do
     let succID = dfnum ctxt succ
+    let domID = ctxt.IDom.[succID]
     let d = ctxt.Vertex.[ctxt.IDom.[succID]]
-    if d.GetID () <> r.GetID () then s <- Set.add succID s
+    if domID <> 0 && d.GetID () <> r.GetID () then s <- Set.add succID s
   done
   for child in (domTree: Vertex<_> list []).[dfnum ctxt r] do
     computeDF domTree frontiers g ctxt child
