@@ -689,7 +689,7 @@ type SymInfo = {
 /// Main Mach-o file structure.
 type Mach = {
   /// Entry point.
-  EntryPoint: Addr
+  EntryPoint: Addr option
   /// Header.
   MachHdr: MachHeader
   /// Segments.
