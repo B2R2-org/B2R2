@@ -36,7 +36,7 @@ let dumpBasic (fi: FileInfo) =
   printfn "- Endianness   : %s" <| Endian.toString fi.ISA.Endian
   printfn "- Word size    : %d bit" <| WordSize.toRegType fi.ISA.WordSize
   printfn "- File type    : %s" <| FileInfo.FileTypeToString fi.FileType
-  printfn "- Entry point  : 0x%x" fi.EntryPoint
+  printfn "- Entry point  : %s" <| FileInfo.EntryPointToString fi.EntryPoint
   printfn ""
 
 let dumpSecurity (fi: FileInfo) =

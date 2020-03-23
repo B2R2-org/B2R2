@@ -65,8 +65,9 @@ let newFileInfo bytes (baseAddr: Addr) path isa autoDetect =
   else new RawFileInfo (bytes, baseAddr, isa) :> FileInfo
 
 let detectThumb entryPoint (isa: ISA) =
-  match isa.Arch with
-  | Arch.ARMv7 when entryPoint % 2UL <> 0UL -> ArchOperationMode.ThumbMode
+  match entryPoint, isa.Arch with
+  | Some entry, Arch.ARMv7 when entry % 2UL <> 0UL -> (* XXX: LIbraries? *)
+    ArchOperationMode.ThumbMode
   | _ -> ArchOperationMode.ARMMode
 
 let isARM (isa: ISA) =

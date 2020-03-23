@@ -103,7 +103,10 @@ module Apparatus =
     fi.GetFunctionAddresses ()
     |> Seq.map (fun addr -> LeaderInfo.Init (hdl, addr))
     |> Set.ofSeq
-    |> Set.add (LeaderInfo.Init (hdl, fi.EntryPoint))
+    |> fun set ->
+      match fi.EntryPoint with
+      | None -> set
+      | Some entry -> Set.add (LeaderInfo.Init (hdl, entry)) set
 
   let private findLabels labels (KeyValue (addr, instr)) =
     instr.Stmts

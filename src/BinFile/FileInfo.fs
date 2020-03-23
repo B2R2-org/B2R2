@@ -78,9 +78,9 @@ type FileInfo () =
   /// <summary>
   ///   The entry point of this binary (the start address that this binary runs
   ///   at). Note that some binaries (e.g., PE DLL files) do not have a specific
-  ///   entry point, and EntryPoint will return zero in such a case.
+  ///   entry point, and EntryPoint will return None in such a case.
   /// </summary>
-  abstract EntryPoint: Addr
+  abstract EntryPoint: Addr option
 
   /// <summary>
   ///   The beginning of the text section of this binary.
@@ -338,3 +338,15 @@ type FileInfo () =
       if p &&& Permission.Executable = LanguagePrimitives.EnumOfValue 0 then ""
       else "X"
     r + w + x
+
+  /// <summary>
+  ///   Convert from entrypoint information to string.
+  /// </summary>
+  /// <param name="entryPoint">Entry point of a given binary.</param>
+  /// <returns>
+  ///   A converted string.
+  /// </returns>
+  static member EntryPointToString (entryPoint: Addr option) =
+    match entryPoint with
+    | None -> "none"
+    | Some entry -> sprintf "0x%x" entry

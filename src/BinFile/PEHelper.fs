@@ -64,11 +64,11 @@ let isRelocatable pe =
   else hdrs.PEHeader.DllCharacteristics.HasFlag DllCharacteristics.DynamicBase
 
 let getEntryPoint pe =
-  if pe.PEHeaders.IsCoffOnly then 0UL
+  if pe.PEHeaders.IsCoffOnly then None
   else
     let entry = pe.PEHeaders.PEHeader.AddressOfEntryPoint
-    if entry = 0 then 0UL (* DLL has no entry point. *)
-    else uint64 entry + pe.BaseAddr
+    if entry = 0 then None
+    else uint64 entry + pe.BaseAddr |> Some
 
 let inline addrFromRVA baseAddr rva =
   uint64 rva + baseAddr

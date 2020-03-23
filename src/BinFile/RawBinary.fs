@@ -51,7 +51,7 @@ type RawFileInfo (bytes: byte [], baseAddr, isa) =
 
   override __.IsRelocatable = false
 
-  override __.EntryPoint = baseAddr
+  override __.EntryPoint = Some baseAddr
 
   override __.TextStartAddr = baseAddr
 

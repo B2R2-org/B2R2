@@ -79,7 +79,7 @@ module PE =
     [<TestMethod>]
     member __.``[BinFile] PE File Parse Test (X86)`` () =
       let fi = parseFile x86FileName x86PDBFileName
-      Assert.AreEqual (0x0040140cUL, fi.EntryPoint)
+      Assert.AreEqual (Some 0x0040140cUL, fi.EntryPoint)
       Assert.AreEqual (FileType.ExecutableFile, fi.FileType)
       Assert.AreEqual (false, fi.IsStripped)
       Assert.AreEqual (true, fi.IsNXEnabled)
@@ -95,7 +95,7 @@ module PE =
     [<TestMethod>]
     member __.``[BinFile] PE File Parse Test (X64)`` () =
       let fi = parseFile x64FileName x64PDBFileName
-      Assert.AreEqual (0x1400014b4UL, fi.EntryPoint)
+      Assert.AreEqual (Some 0x1400014b4UL, fi.EntryPoint)
       Assert.AreEqual (FileType.ExecutableFile, fi.FileType)
       Assert.AreEqual (false, fi.IsStripped)
       Assert.AreEqual (true, fi.IsNXEnabled)
@@ -126,7 +126,7 @@ module Mach =
     [<TestMethod>]
     member __.``[BinFile] Mach File Parse Test (X86_Stripped)`` () =
       let fi = parseFile "mach_x86_rm_stripped" Architecture.IntelX86
-      Assert.AreEqual (0x00002050UL, fi.EntryPoint)
+      Assert.AreEqual (Some 0x00002050UL, fi.EntryPoint)
       Assert.AreEqual (FileType.ExecutableFile, fi.FileType)
       Assert.AreEqual (true, fi.IsStripped)
       Assert.AreEqual (true, fi.IsNXEnabled)
@@ -142,7 +142,7 @@ module Mach =
     [<TestMethod>]
     member __.``[BinFile] Mach File Parse Test (X64)`` () =
       let fi = parseFile "mach_x64_wc" Architecture.IntelX64
-      Assert.AreEqual (0x100000E90UL, fi.EntryPoint)
+      Assert.AreEqual (Some 0x100000E90UL, fi.EntryPoint)
       Assert.AreEqual (FileType.ExecutableFile, fi.FileType)
       Assert.AreEqual (false, fi.IsStripped)
       Assert.AreEqual (true, fi.IsNXEnabled)
@@ -158,7 +158,7 @@ module Mach =
     [<TestMethod>]
     member __.``[BinFile] Mach File Parse Test (X64_Stripped)`` () =
       let fi = parseFile "mach_x64_wc_stripped" Architecture.IntelX64
-      Assert.AreEqual (0x100000E90UL, fi.EntryPoint)
+      Assert.AreEqual (Some 0x100000E90UL, fi.EntryPoint)
       Assert.AreEqual (FileType.ExecutableFile, fi.FileType)
       Assert.AreEqual (true, fi.IsStripped)
       Assert.AreEqual (true, fi.IsNXEnabled)
@@ -203,7 +203,7 @@ module ELF =
     [<TestMethod>]
     member __.``[BinFile] ELF File Parse Test (X86)`` () =
       let fi = parseFile x86FileName
-      Assert.AreEqual (fi.EntryPoint, 0x8049CD0UL)
+      Assert.AreEqual (Some 0x8049CD0UL, fi.EntryPoint)
       Assert.AreEqual (fi.FileType, FileType.ExecutableFile)
       Assert.AreEqual (fi.IsStripped, false)
       Assert.AreEqual (fi.IsNXEnabled, true)
@@ -219,7 +219,7 @@ module ELF =
     [<TestMethod>]
     member __.``[BinFile] ELF File Parse Test (X86_Stripped)`` () =
       let fi = parseFile x86StrippedFileName
-      Assert.AreEqual (fi.EntryPoint, 0x8049CD0UL)
+      Assert.AreEqual (Some 0x8049CD0UL, fi.EntryPoint)
       Assert.AreEqual (fi.FileType, FileType.ExecutableFile)
       Assert.AreEqual (fi.IsStripped, true)
       Assert.AreEqual (fi.IsNXEnabled, true)
@@ -235,7 +235,7 @@ module ELF =
     [<TestMethod>]
     member __.``[BinFile] ELF File Parse Test (X64)`` () =
       let fi = parseFile x64FileName
-      Assert.AreEqual (fi.EntryPoint, 0x404050UL)
+      Assert.AreEqual (Some 0x404050UL, fi.EntryPoint)
       Assert.AreEqual (fi.FileType, FileType.ExecutableFile)
       Assert.AreEqual (fi.IsStripped, false)
       Assert.AreEqual (fi.IsNXEnabled, true)
@@ -251,7 +251,7 @@ module ELF =
     [<TestMethod>]
     member __.``[BinFile] ELF File Parse Test (X64_Stripped)`` () =
       let fi = parseFile x64StrippedFileName
-      Assert.AreEqual (fi.EntryPoint, 0x404050UL)
+      Assert.AreEqual (Some 0x404050UL, fi.EntryPoint)
       Assert.AreEqual (fi.FileType, FileType.ExecutableFile)
       Assert.AreEqual (fi.IsStripped, true)
       Assert.AreEqual (fi.IsNXEnabled, true)
@@ -267,7 +267,7 @@ module ELF =
     [<TestMethod>]
     member __.``[BinFile] ELF File Parse Test (arm32)`` () =
       let fi = parseFile arm32FileName
-      Assert.AreEqual (fi.EntryPoint, 0x00013d0cUL)
+      Assert.AreEqual (Some 0x00013d0cUL, fi.EntryPoint)
       Assert.AreEqual (fi.FileType, FileType.ExecutableFile)
       Assert.AreEqual (fi.IsStripped, false)
       Assert.AreEqual (fi.IsNXEnabled, true)
@@ -283,7 +283,7 @@ module ELF =
     [<TestMethod>]
     member __.``[BinFile] ELF File Parse Test (arm32_Stripped)`` () =
       let fi = parseFile arm32StrippedFileName
-      Assert.AreEqual (fi.EntryPoint, 0x00013d0cUL)
+      Assert.AreEqual (Some 0x00013d0cUL, fi.EntryPoint)
       Assert.AreEqual (fi.FileType, FileType.ExecutableFile)
       Assert.AreEqual (fi.IsStripped, true)
       Assert.AreEqual (fi.IsNXEnabled, true)
@@ -299,7 +299,7 @@ module ELF =
     [<TestMethod>]
     member __.``[BinFile] ELF File Parse Test (thumb)`` () =
       let fi = parseFile thumbFileName
-      Assert.AreEqual (fi.EntryPoint, 0x00013605UL)
+      Assert.AreEqual (Some 0x00013605UL, fi.EntryPoint)
       Assert.AreEqual (fi.FileType, FileType.ExecutableFile)
       Assert.AreEqual (fi.IsStripped, false)
       Assert.AreEqual (fi.IsNXEnabled, true)
@@ -315,7 +315,7 @@ module ELF =
     [<TestMethod>]
     member __.``[BinFile] ELF File Parse Test (thumb_Stripped)`` () =
       let fi = parseFile thumbStrippedFileName
-      Assert.AreEqual (fi.EntryPoint, 0x00013605UL)
+      Assert.AreEqual (Some 0x00013605UL, fi.EntryPoint)
       Assert.AreEqual (fi.FileType, FileType.ExecutableFile)
       Assert.AreEqual (fi.IsStripped, true)
       Assert.AreEqual (fi.IsNXEnabled, true)
@@ -331,7 +331,7 @@ module ELF =
     [<TestMethod>]
     member __.``[BinFile] ELF File Parse Test (aarch64)`` () =
       let fi = parseFile aarch64FileName
-      Assert.AreEqual (fi.EntryPoint, 0x00404788UL)
+      Assert.AreEqual (Some 0x00404788UL, fi.EntryPoint)
       Assert.AreEqual (fi.FileType, FileType.ExecutableFile)
       Assert.AreEqual (fi.IsStripped, false)
       Assert.AreEqual (fi.IsNXEnabled, true)
@@ -347,7 +347,7 @@ module ELF =
     [<TestMethod>]
     member __.``[BinFile] ELF File Parse Test (aarch64_Stripped)`` () =
       let fi = parseFile aarch64StrippedFileName
-      Assert.AreEqual (fi.EntryPoint, 0x00404788UL)
+      Assert.AreEqual (Some 0x00404788UL, fi.EntryPoint)
       Assert.AreEqual (fi.FileType, FileType.ExecutableFile)
       Assert.AreEqual (fi.IsStripped, true)
       Assert.AreEqual (fi.IsNXEnabled, true)
@@ -363,7 +363,7 @@ module ELF =
     [<TestMethod>]
     member __.``[BinFile] ELF File Parse Test (mips32_Stripped)`` () =
       let fi = parseFile mips32StrippedFileName
-      Assert.AreEqual (fi.EntryPoint, 0x00004c80UL)
+      Assert.AreEqual (Some 0x00004c80UL, fi.EntryPoint)
       Assert.AreEqual (fi.FileType, FileType.LibFile)
       Assert.AreEqual (fi.IsStripped, true)
       Assert.AreEqual (fi.IsNXEnabled, false)
@@ -379,7 +379,7 @@ module ELF =
     [<TestMethod>]
     member __.``[BinFile] ELF File Parse Test (mips32_Stripped_le)`` () =
       let fi = parseFile mips32LEStrippedFileName
-      Assert.AreEqual (fi.EntryPoint, 0x00004c80UL)
+      Assert.AreEqual (Some 0x00004c80UL, fi.EntryPoint)
       Assert.AreEqual (fi.FileType, FileType.LibFile)
       Assert.AreEqual (fi.IsStripped, true)
       Assert.AreEqual (fi.IsNXEnabled, false)
@@ -395,7 +395,7 @@ module ELF =
     [<TestMethod>]
     member __.``[BinFile] ELF File Parse Test (mips64_Stripped)`` () =
       let fi = parseFile mips64StrippedFileName
-      Assert.AreEqual (fi.EntryPoint, 0x0000ade0UL)
+      Assert.AreEqual (Some 0x0000ade0UL, fi.EntryPoint)
       Assert.AreEqual (fi.FileType, FileType.LibFile)
       Assert.AreEqual (fi.IsStripped, true)
       Assert.AreEqual (fi.IsNXEnabled, false)

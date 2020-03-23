@@ -50,7 +50,7 @@ type CmdBinInfo () =
     let isa = ess.BinHandler.ISA
     let machine = isa.Arch |> ISA.ArchToString
     let fmt = ess.BinHandler.FileInfo.FileFormat |> FileFormat.toString
-    let entry = fileInfo.EntryPoint
+    let entry = fileInfo.EntryPoint |> FileInfo.EntryPointToString
     let textAddr = fileInfo.TextStartAddr
     let secNum = fileInfo.GetSections () |> Seq.length
     let staticSymNum = fileInfo.GetStaticSymbols () |> Seq.length
@@ -64,7 +64,7 @@ type CmdBinInfo () =
        sprintf "- File Format: %s" fmt
        sprintf "- File Type: %s" fileType
        sprintf "- Start of Text Section Address: 0x%x" textAddr
-       sprintf "- Entry Point Address: 0x%x" entry
+       sprintf "- Entry Point Address: %s" entry
        sprintf "- Number of Sections: %d" secNum
        sprintf "- Number of Static Symbols: %d" staticSymNum
        sprintf "- Number of Dynamic Symbols: %d" dynamicSymNum
