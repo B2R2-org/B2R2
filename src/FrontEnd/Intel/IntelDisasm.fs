@@ -368,6 +368,7 @@ let opCodeToString = function
   | Opcode.FMULP -> "fmulp"
   | Opcode.FNOP -> "fnop"
   | Opcode.FNSTCW -> "fnstcw"
+  | Opcode.FNSTSW -> "fnstsw"
   | Opcode.FPATAN -> "fpatan"
   | Opcode.FPREM -> "fprem"
   | Opcode.FPREM1 -> "fprem1"

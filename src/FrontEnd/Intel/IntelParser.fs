@@ -863,7 +863,7 @@ let private getDDOpWithin00toBF b =
   | 0b011 -> Opcode.FSTP
   | 0b100 -> Opcode.FRSTOR
   | 0b110 -> Opcode.FSAVE
-  | 0b111 -> Opcode.FSTSW
+  | 0b111 -> Opcode.FNSTSW
   | _ -> raise ParsingFailureException // failwith "Not a DD Opcode"
 
 (* Table A-18 of Volume 2
@@ -906,7 +906,7 @@ let private getDFOpWithin00toBF b =
 (* Table A-22 of Volume 2
    (DF Opcode Map When ModR/M Byte is Outside 00H to BFH) *)
 let private getDFOpcodeOutside00toBF = function
-  | 0xE0uy -> Opcode.FSTSW
+  | 0xE0uy -> Opcode.FNSTSW
   | b when b >= 0xE8uy && b <= 0xEFuy -> Opcode.FUCOMIP
   | b when b >= 0xF0uy && b <= 0xF7uy -> Opcode.FCOMIP
   | _ -> raise ParsingFailureException // failwith "Not a DF Opcode"
@@ -960,6 +960,8 @@ let private getDBEscEffOprSizeByModRM = function
 
 let private getDDEscEffOprSizeByModRM = function
  | 0b000 | 0b010 | 0b011 -> 64<rt> (* double-real *)
+ | 0b001 -> 64<rt> (* integer64 *)
+ | 0b111 -> 16<rt> (* 2 bytes *)
  | _ -> raise ParsingFailureException
 
 let private getDFEscEffOprSizeByModRM = function
