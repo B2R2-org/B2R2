@@ -994,7 +994,8 @@ let inline private ptrDirectiveString isFar = function
   | 16 -> "xmmword ptr"
   | 32 -> "ymmword ptr"
   | 64 -> "zmmword ptr"
-  | _ -> failwith "Invalid ptr attribute"
+  | 28 | 108 -> "" (* x87 FPU state *)
+  | _ -> failwithf "Invalid ptr attribute"
 
 let inline dispToString showSign wordSz (disp: Disp) builder acc =
   let mask = WordSize.toRegType wordSz |> RegType.getMask |> uint64
