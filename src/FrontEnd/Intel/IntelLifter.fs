@@ -1283,11 +1283,12 @@ let handleScalarFPOp ins insAddr insLen ctxt sz op =
     ins.Operands |> getFstOperand |> transOprToExpr128 ins insAddr insLen ctxt
   let src1, src2 = getTwoSrcOperands ins.Operands
   let src1 = transOprToExpr64 ins insAddr insLen ctxt src1
-  let src2 = transOprToExpr64 ins insAddr insLen ctxt src2
-  let dst1, src1, src2 =
-    if sz = 32<rt> then
-      extractLow 32<rt> dst1, extractLow 32<rt> src1, extractLow 32<rt> src2
-    else dst1, src1, src2
+  let src2 =
+    if sz = 32<rt> then transOprToExpr32 ins insAddr insLen ctxt src2
+    else transOprToExpr64 ins insAddr insLen ctxt src2
+  let dst1, src1 =
+    if sz = 32<rt> then extractLow 32<rt> dst1, extractLow 32<rt> src1
+    else dst1, src1
   let t1, t2, t3 = tmpVars3 sz
   startMark insAddr insLen builder
   builder <! (t1 := src1)
