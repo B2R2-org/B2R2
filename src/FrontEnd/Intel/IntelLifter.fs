@@ -3093,6 +3093,14 @@ let fnstcw ins insAddr insLen ctxt =
   allCFlagsUndefined ctxt builder
   endMark insAddr insLen builder
 
+let fnstsw ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (8)
+  let oprExpr = getOneOpr ins |> transOprToExpr ins insAddr insLen ctxt
+  startMark insAddr insLen builder
+  builder <! (oprExpr := getRegVar ctxt R.FSW)
+  allCFlagsUndefined ctxt builder
+  endMark insAddr insLen builder
+
 let fpatan _ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
   let c1 = getRegVar ctxt R.FSWC1
@@ -3267,6 +3275,15 @@ let ffst ins insAddr insLen ctxt doPop =
   checkC1Flag ctxt builder R.FTW7
   cflagsUndefined023 ctxt builder
   if doPop then popFPUStack ctxt builder else ()
+  endMark insAddr insLen builder
+
+let fstcw ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (16)
+  let oprExpr = getOneOpr ins |> transOprToExpr ins insAddr insLen ctxt
+  startMark insAddr insLen builder
+  checkFPUExceptions ctxt builder
+  builder <! (oprExpr := getRegVar ctxt R.FCW)
+  allCFlagsUndefined ctxt builder
   endMark insAddr insLen builder
 
 let fstsw ins insAddr insLen ctxt =
@@ -7488,6 +7505,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.FISTTP -> fisttp ins insAddr insLen ctxt
   | Opcode.FNOP -> fnop ins insAddr insLen ctxt
   | Opcode.FNSTCW -> fnstcw ins insAddr insLen ctxt
+  | Opcode.FNSTSW -> fnstsw ins insAddr insLen ctxt
   | Opcode.FPATAN -> fpatan ins insAddr insLen ctxt
   | Opcode.FPTAN -> fptan ins insAddr insLen ctxt
   | Opcode.FRNDINT -> frndint ins insAddr insLen ctxt
@@ -7498,6 +7516,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.FST -> ffst ins insAddr insLen ctxt false
   | Opcode.FSTP -> ffst ins insAddr insLen ctxt true
   | Opcode.FSTENV -> fstenv ins insAddr insLen ctxt
+  | Opcode.FSTCW -> fstcw ins insAddr insLen ctxt
   | Opcode.FSTSW -> fstsw ins insAddr insLen ctxt
   | Opcode.FTST -> ftst ins insAddr insLen ctxt
   | Opcode.FUCOM -> fcom ins insAddr insLen ctxt 0 true
