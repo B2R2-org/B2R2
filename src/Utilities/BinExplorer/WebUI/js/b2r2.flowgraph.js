@@ -143,8 +143,9 @@ class FlowGraph extends Graph {
       .classed("c-graph__node", true)
       .attr("width", v.Width)
       .attr("height", v.Height);
-    this.addContextMenu(g);
-    this.drawLinesOfNode(v, g);
+    const txtgroup = g.append("g").style("display", "none");
+    this.addContextMenu(txtgroup);
+    this.drawLinesOfNode(v, txtgroup);
   }
 
   drawNodes(json) {
@@ -188,6 +189,7 @@ class FlowGraph extends Graph {
 
   static onZoom(g) {
     return function () {
+      const oldTransK = g.transK;
       g.transK = d3.event.transform.k;
       const ratio = g.reductionRate * minimapRatio / g.transK;
       const x = (- d3.event.transform.x) * ratio;
@@ -197,6 +199,15 @@ class FlowGraph extends Graph {
       g.ratio = ratio;
       g.stage.attr("transform", d3.event.transform);
       g.minimap.viewbox.attr("transform", trans);
+      if (g.transK > txtVisThreshold && oldTransK < txtVisThreshold) {
+        g.cfg.selectAll("g")
+          .filter(function () { return $(this).children("text").length > 0; })
+          .select(function () { d3.select(this).style("display", "block"); });
+      } else if (g.transK < txtVisThreshold && oldTransK > txtVisThreshold) {
+        g.cfg.selectAll("g")
+          .filter(function () { return $(this).children("text").length > 0; })
+          .select(function () { d3.select(this).style("display", "none"); });
+      }
     };
   }
 

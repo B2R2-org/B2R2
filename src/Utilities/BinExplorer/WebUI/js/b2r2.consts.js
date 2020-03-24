@@ -38,3 +38,6 @@ const dblClickWaitTime = 300;
 // search.
 const incSearchInterval = 500;
 
+// The threshold for showing text.
+const txtVisThreshold= 0.25;
+
