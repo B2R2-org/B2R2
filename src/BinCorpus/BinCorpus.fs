@@ -145,7 +145,7 @@ module Apparatus =
     { acc with FunctionAddrs = Set.add addr acc.FunctionAddrs }
 
   /// Fold all the statements to get the leaders, function positions, etc.
-  let private foldStmts acc (KeyValue (_, i)) =
+  let private foldStmts hdl acc (KeyValue (_, i)) =
     i.Stmts
     |> Array.fold (fun acc stmt ->
       match stmt with
@@ -154,25 +154,37 @@ module Apparatus =
         addLabelLeader s1 i acc |> addLabelLeader s2 i
       | InterJmp (_, Num addr, InterJmpInfo.IsCall) ->
         let addr = BitVector.toUInt64 addr
-        addAddrLeader addr i acc
-        |> addAddrLeader (i.Instruction.Address + uint64 i.Instruction.Length) i
-        |> addFunction addr
+        if hdl.FileInfo.IsValidAddr addr then
+          addAddrLeader addr i acc
+          |> addAddrLeader
+            (i.Instruction.Address + uint64 i.Instruction.Length) i
+          |> addFunction addr
+        else acc
       | InterJmp (_, Num addr, _) ->
-        addAddrLeader (BitVector.toUInt64 addr) i acc
+        let addr = BitVector.toUInt64 addr
+        if hdl.FileInfo.IsValidAddr addr then addAddrLeader addr i acc
+        else acc
       | InterCJmp (_, _, Num addr1, Num addr2) ->
-        addAddrLeader (BitVector.toUInt64 addr1) i acc
-        |> addAddrLeader (BitVector.toUInt64 addr2) i
+        let addr1 = BitVector.toUInt64 addr1
+        let addr2 = BitVector.toUInt64 addr2
+        if hdl.FileInfo.IsValidAddr addr1 && hdl.FileInfo.IsValidAddr addr2 then
+          addAddrLeader addr1 i acc
+          |> addAddrLeader addr2 i
+        else acc
       | InterCJmp (_, _, Num addr, _)
       | InterCJmp (_, _, _, Num addr) ->
-        addAddrLeader (BitVector.toUInt64 addr) i acc
+        let addr = BitVector.toUInt64 addr
+        if hdl.FileInfo.IsValidAddr addr then addAddrLeader addr i acc
+        else acc
       | InterJmp (_, _, InterJmpInfo.IsCall) (* indirect call *)
       | SideEffect (SysCall)
       | SideEffect (Interrupt _) ->
         let fallAddr = i.Instruction.Address + uint64 i.Instruction.Length
-        addAddrLeader fallAddr i acc
+        if hdl.FileInfo.IsValidAddr fallAddr then addAddrLeader fallAddr i acc
+        else acc
       | _ -> acc) acc
 
-  let rec private findLeaders hdl acc (instrMap: InstrMap) =
+  let rec private findLeaders hdl acc (instrMap: InstrMap) foldStmts =
     let acc = { acc with Labels = instrMap |> Seq.fold findLabels Map.empty }
     let acc = instrMap |> Seq.fold foldStmts acc
     let oldCount = instrMap.Count
@@ -180,7 +192,7 @@ module Apparatus =
       acc.Leaders
       |> Set.filter (fun l -> not <| instrMap.ContainsKey l.Point.Address)
       |> InstrMap.update hdl instrMap
-    if oldCount <> instrMap.Count then findLeaders hdl acc instrMap
+    if oldCount <> instrMap.Count then findLeaders hdl acc instrMap foldStmts
     else struct (instrMap, acc)
 
   let private initApparatus hdl auxEntries =
@@ -195,7 +207,7 @@ module Apparatus =
 #endif
     (* Then, find all possible leaders by scanning lifted IRs. We need to do
        this at a IR-level because LowUIR may have intra-instruction branches. *)
-    let struct (instrMap, acc) = findLeaders hdl acc instrMap
+    let struct (instrMap, acc) = findLeaders hdl acc instrMap (foldStmts hdl)
     let calleeMap = CalleeMap.build hdl acc.FunctionAddrs instrMap
 #if DEBUG
     printfn "[*] The apparatus is ready to use."
