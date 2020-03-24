@@ -282,6 +282,22 @@ type FileInfo () =
   abstract member GetNotInFileIntervals: AddrRange -> seq<AddrRange>
 
   /// <summary>
+  ///   Returns a sequence of local function symbols (excluding external
+  ///   functions) from a given FileInfo.
+  /// </summary>
+  /// <returns>
+  ///   A sequence of function symbols.
+  /// </returns>
+  member __.GetFunctionSymbols () =
+    let dict = System.Collections.Generic.Dictionary<Addr, Symbol> ()
+    __.GetStaticSymbols () |> Seq.iter (fun s -> dict.[s.Address] <- s)
+    __.GetDynamicSymbols (true) |> Seq.iter (fun s ->
+      if dict.ContainsKey s.Address then () else dict.[s.Address] <- s)
+    dict
+    |> Seq.map (fun (KeyValue (_, s)) -> s)
+    |> Seq.filter (fun s -> s.Kind = SymbolKind.FunctionType)
+
+  /// <summary>
   ///   Returns a sequence of local function addresses (excluding external
   ///   functions) from a given FileInfo.
   /// </summary>
@@ -289,8 +305,7 @@ type FileInfo () =
   ///   A sequence of function addresses.
   /// </returns>
   member __.GetFunctionAddresses () =
-    Seq.append (__.GetStaticSymbols ()) (__.GetDynamicSymbols (true))
-    |> Seq.filter (fun s -> s.Kind = SymbolKind.FunctionType)
+    __.GetFunctionSymbols ()
     |> Seq.map (fun s -> s.Address)
 
   /// <summary>

@@ -119,8 +119,7 @@ let dumpLinkageTable (fi: FileInfo) addrToString =
 
 let dumpFunctions (fi: FileInfo) addrToString =
   printfn "## Functions"
-  Seq.append (fi.GetStaticSymbols ()) (fi.GetDynamicSymbols true)
-  |> Seq.filter (fun s -> s.Kind = SymbolKind.FunctionType)
+  fi.GetFunctionSymbols ()
   |> Seq.iter (fun s -> printfn "- %s: %s" (addrToString s.Address) s.Name)
 
 let dumpFile (opts: CmdOptions.FileViewerOpts) (filepath: string) =
