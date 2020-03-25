@@ -329,6 +329,7 @@ let DXRGv = [| ODReg R.DX; _RGv RegGrp.RG0 false |]
 let RGzDX = [| _RGz RegGrp.RG0 false; ODReg R.DX |]
 let DXRGz = [| ODReg R.DX; _RGz RegGrp.RG0 false |]
 
+let EdwVdqIb = [| _Edw; _Vdq; _Ib |]
 let EvGvCL = [| _Ev; _Gv; ODReg R.CL |]
 let EvGvIb = [| _Ev; _Gv; _Ib |]
 let GdNqIb = [| _Gd; _Nq; _Ib |]
@@ -1010,6 +1011,10 @@ let opVex0F38F7 = [| Opcode.InvalOP; Opcode.SHLX;
 let opNor0F3A0F = [| Opcode.PALIGNR; Opcode.PALIGNR;
                      Opcode.InvalOP; Opcode.InvalOP |]
 let opVex0F3A0F = [| Opcode.InvalOP; Opcode.VPALIGNR;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F3A15 = [| Opcode.InvalOP; Opcode.PEXTRW;
+                     Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3A15 = [| Opcode.InvalOP; Opcode.VPEXTRW;
                      Opcode.InvalOP; Opcode.InvalOP |]
 let opNor0F3A20 = [| Opcode.InvalOP; Opcode.PINSRB;
                      Opcode.InvalOP; Opcode.InvalOP |]

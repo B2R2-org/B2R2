@@ -353,6 +353,8 @@ let private dsNor0F38F7   = [| emptyArr; emptyArr; emptyArr; emptyArr |]
 let private dsVex0F38F7   = [| emptyArr; GyEyBy; GyEyBy; GyEyBy |]
 let private dsNor0F3A0F   = [| PqQqIb; VdqWdqIb; emptyArr; emptyArr |]
 let private dsVex0F3A0F   = [| emptyArr; VxHxWxIb; emptyArr; emptyArr |]
+let private dsNor0F3A15   = [| emptyArr; EdwVdqIb; emptyArr; emptyArr |]
+let private dsVex0F3A15   = [| emptyArr; EdwVdqIb; emptyArr; emptyArr |]
 let private dsNor0F3A20   = [| emptyArr; VdqEdbIb; emptyArr; emptyArr |]
 let private dsVex0F3A20   = [| emptyArr; emptyArr; emptyArr; emptyArr |]
 let private dsNor0F3A38   = [| emptyArr; emptyArr; emptyArr; emptyArr |]
@@ -1440,6 +1442,8 @@ let private parseThreeByteOp2 t (reader: BinReader) pos =
   match reader.PeekByte pos with
   | 0x0Fuy -> parseVEX t SzDef32 opNor0F3A0F opVex0F3A0F
                                  dsNor0F3A0F dsVex0F3A0F, pos + 1
+  | 0x15uy -> parseVEX t SzDef32 opNor0F3A15 opVex0F3A15
+                                 dsNor0F3A15 dsVex0F3A15, pos + 1
   | 0x20uy -> parseVEX t SzDef32 opNor0F3A20 opVex0F3A20
                                  dsNor0F3A20 dsVex0F3A20, pos + 1
   | 0x38uy -> parseVEX t SzDef32 opNor0F3A38 opVex0F3A38
