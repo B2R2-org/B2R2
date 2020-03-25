@@ -36,7 +36,7 @@ let rec private expToStringAux expr (sb: StringBuilder) =
   | Var (v) -> sb.Append (Variable.toString v) |> ignore
   | Nil -> sb.Append ("nil") |> ignore
   | FuncName (n) -> sb.Append (n) |> ignore
-  | UnOp (op, e) ->
+  | UnOp (op, _, e) ->
     sb.Append ("(") |> ignore
     sb.Append (UnOpType.toString op) |> ignore
     sb.Append (" ") |> ignore
@@ -50,7 +50,7 @@ let rec private expToStringAux expr (sb: StringBuilder) =
     sb.Append (" ") |> ignore
     expToStringAux e2 sb
     sb.Append (")") |> ignore
-  | RelOp (op, e1, e2) ->
+  | RelOp (op, _, e1, e2) ->
     sb.Append ("(") |> ignore
     expToStringAux e1 sb
     sb.Append (" ") |> ignore
@@ -63,13 +63,13 @@ let rec private expToStringAux expr (sb: StringBuilder) =
     expToStringAux e sb
     sb.Append ("]:") |> ignore
     sb.Append (RegType.toString typ) |> ignore
-  | Store (_, addr, e) ->
+  | Store (_, _, addr, e) ->
     sb.Append ("[") |> ignore
     expToStringAux addr sb
     sb.Append (" <- ") |> ignore
     expToStringAux e sb
     sb.Append ("]") |> ignore
-  | Ite (cond, e1, e2) ->
+  | Ite (cond, _, e1, e2) ->
     sb.Append ("(ite (") |> ignore
     expToStringAux cond sb
     sb.Append (") (") |> ignore
@@ -95,7 +95,7 @@ let rec private expToStringAux expr (sb: StringBuilder) =
     sb.Append ("Undefined expression (") |> ignore
     sb.Append (reason) |> ignore
     sb.Append (")") |> ignore
-  | Return (addr) ->
+  | Return (addr, _) ->
     sb.Append ("RetFromFunc(") |> ignore
     sb.Append (addr.ToString ("X")) |> ignore
     sb.Append (")") |> ignore

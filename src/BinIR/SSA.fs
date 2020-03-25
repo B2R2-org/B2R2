@@ -63,25 +63,28 @@ type Expr =
   /// Memory lookup such as [T_1]:I32
   | Load of Variable * RegType * Expr
 
-  /// Memory update such as [T_1] <- T_2
-  | Store of Variable * Expr * Expr
+  /// Memory update such as [T_1] <- T_2. The second argument is a type of
+  /// stored value.
+  | Store of Variable * RegType * Expr * Expr
 
   /// Name of uninterpreted function.
   | FuncName of string
 
-  /// Unary operation such as negation.
-  | UnOp of UnOpType * Expr
+  /// Unary operation such as negation. The second argument is a result type.
+  | UnOp of UnOpType * RegType * Expr
 
   /// Binary operation such as add, sub, etc. The second argument is a result
   /// type after applying BinOp.
   | BinOp of BinOpType * RegType * Expr * Expr
 
-  /// Relative operation such as eq, lt, etc.
-  | RelOp of RelOpType * Expr * Expr
+  /// Relative operation such as eq, lt, etc. The second argument is a result
+  /// type.
+  | RelOp of RelOpType * RegType * Expr * Expr
 
-  /// If-then-else expression. The first expression is a condition, and the
-  /// second and the third are true and false expression respectively.
-  | Ite of Expr * Expr * Expr
+  /// If-then-else expression. The first expression is a condition, second
+  /// argument is a result type, and the third and the fourth are true and
+  /// false expression respectively.
+  | Ite of Expr * RegType * Expr * Expr
 
   /// Type casting expression. The first argument is a casting type, and the
   /// second argument is a result type.
@@ -98,8 +101,9 @@ type Expr =
   /// case).
   | Undefined of RegType * string
 
-  /// Value returned from a function located at the address.
-  | Return of Addr
+  /// Value returned from a function located at the address. The second
+  /// argument indicates the kind of the returned value.
+  | Return of Addr * VariableKind
 
 /// IR Label. Since we don't distinguish instruction boundary in SSA level, we
 /// want to specify where the label comes from.

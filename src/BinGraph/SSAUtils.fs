@@ -94,19 +94,19 @@ let rec renameExpr stack = function
   | SSA.Load (v, _, expr) ->
     renameDest stack v
     renameExpr stack expr
-  | SSA.Store (mem, addr, expr) ->
+  | SSA.Store (mem, _, addr, expr) ->
     renameDest stack mem
     renameExpr stack addr
     renameExpr stack expr
-  | SSA.UnOp (_, expr) ->
+  | SSA.UnOp (_, _, expr) ->
     renameExpr stack expr
   | SSA.BinOp (_, _, expr1, expr2) ->
     renameExpr stack expr1
     renameExpr stack expr2
-  | SSA.RelOp (_, expr1, expr2) ->
+  | SSA.RelOp (_, _, expr1, expr2) ->
     renameExpr stack expr1
     renameExpr stack expr2
-  | SSA.Ite (expr1, expr2, expr3) ->
+  | SSA.Ite (expr1, _, expr2, expr3) ->
     renameExpr stack expr1
     renameExpr stack expr2
     renameExpr stack expr3

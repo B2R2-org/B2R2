@@ -66,7 +66,8 @@ type SSABBlock (hdl, scfg, pp: ProgramPoint, instrs: InstructionInfo []) =
   let mutable stmts =
     if Array.isEmpty instrs then
       SSABlockHelper.computeDefinedVars hdl scfg pp.Address
-      |> Array.map (fun dst -> SSA.Def (dst, SSA.Return (pp.Address)))
+      |> Array.map (fun dst ->
+        SSA.Def (dst, SSA.Return (pp.Address, dst.Kind)))
     else
       instrs
       |> Array.map (fun i ->

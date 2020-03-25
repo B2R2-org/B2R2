@@ -27,6 +27,12 @@ namespace B2R2.BinIR.LowUIR
 open B2R2
 open B2R2.BinIR
 
+module TypeCheck = begin
+
+  val typeOf : Expr -> RegType
+
+end
+
 /// This module defines functions for handling the AST of LowUIR.
 module AST = begin
   /// Get Expression Information
