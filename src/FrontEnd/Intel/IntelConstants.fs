@@ -260,7 +260,6 @@ let RdCd = [| _Rd; _Cd |]
 let RdDd = [| _Rd; _Dd |]
 let SwEw = [| _Sw; _Ew |]
 let UdqIb = [| _Udq; _Ib |]
-let VdqEdbIb = [| _Vdq; _Edb; _Ib |]
 let VdqEy = [| _Vdq; _Ey |]
 let VdqMdq = [| _Vdq; _Mdq |]
 let VdqMq = [| _Vdq; _Mq |]
@@ -344,6 +343,7 @@ let GyEyIb = [| _Gy; _Ey; _Ib |]
 let HxUxIb = [| _Hx; _Ux; _Ib |]
 let PqEdwIb = [| _Pq; _Edw; _Ib |]
 let PqQqIb = [| _Pq; _Qq; _Ib |]
+let VdqEdbIb = [| _Vdq; _Edb; _Ib |]
 let VdqEdwIb =  [| _Vdq; _Edw; _Ib |]
 let VdqHdqMdq = [| _Vdq; _Hdq; _Mdq |]
 let VdqHdqMdqd = [| _Vdq; _Hdq; _Mdqd |]
@@ -369,6 +369,7 @@ let VxWxIb = [| _Vx; _Wx; _Ib |]
 let WsdHxVsd = [| _Wsd; _Hx; _Vsd |]
 let WssHxVss = [| _Wss; _Hx; _Vss |]
 
+let VdqHdqEdbIb = [| _Vdq; _Hdq; _Edb; _Ib |]
 let VdqHdqEdwIb = [| _Vdq; _Hdq; _Edw; _Ib |]
 let VpsHpsWpsIb = [| _Vps; _Hps; _Wps; _Ib |]
 let VqqHqqWdqIb = [| _Vqq; _Hqq; _Wdq; _Ib |]
@@ -1018,7 +1019,7 @@ let opVex0F3A15 = [| Opcode.InvalOP; Opcode.VPEXTRW;
                      Opcode.InvalOP; Opcode.InvalOP |]
 let opNor0F3A20 = [| Opcode.InvalOP; Opcode.PINSRB;
                      Opcode.InvalOP; Opcode.InvalOP |]
-let opVex0F3A20 = [| Opcode.InvalOP; Opcode.InvalOP;
+let opVex0F3A20 = [| Opcode.InvalOP; Opcode.VPINSRB;
                      Opcode.InvalOP; Opcode.InvalOP |]
 let opNor0F3A38 = [| Opcode.InvalOP; Opcode.InvalOP;
                      Opcode.InvalOP; Opcode.InvalOP |]
