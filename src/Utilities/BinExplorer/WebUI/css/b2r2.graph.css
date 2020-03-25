@@ -22,12 +22,15 @@
   stroke-width: 1.5px;
 }
 
-.c-filter-stmt-background {
-  flood-color: var(--graph-stmt-hover);
+.c-graph__text {
+  font-family: 'Inconsolata', monospace;
+  line-height: 1.0;
+  padding: 5px 5px 5px 5px;
 }
 
 .c-graph__stmt {
   font-family: 'Inconsolata', monospace;
+  line-height: 1.0;
 }
 
 .c-graph__stmt.active {
@@ -35,33 +38,37 @@
   font-style: italic;
 }
 
+.c-graph__stmt.hover {
+  background-color: var(--graph-stmt-hover);
+}
+
 .c-graph__stmt--address {
-  fill: var(--graph-stmt-address);
+  color: var(--graph-stmt-address);
 }
 
 .c-graph__stmt--mnemonic {
-  fill: var(--graph-stmt-mnemonic);
+  color: var(--graph-stmt-mnemonic);
 }
 
 .c-graph__stmt--string {
-  fill: var(--graph-stmt-string);
+  color: var(--graph-stmt-string);
 }
 
 .c-graph__stmt--variable {
-  fill: var(--graph-stmt-variable);
+  color: var(--graph-stmt-variable);
 }
 
 .c-graph__stmt--value {
-  fill: var(--graph-stmt-value);
+  color: var(--graph-stmt-value);
 }
 
 .c-graph__stmt--variable.active {
-  fill: var(--graph-stmt-highlighted);
+  color: var(--graph-stmt-highlighted);
   font-weight: bold;
 }
 
 .c-graph__stmt--value.active {
-  fill: var(--graph-stmt-highlighted);
+  color: var(--graph-stmt-highlighted);
   font-weight: bold;
 }
 

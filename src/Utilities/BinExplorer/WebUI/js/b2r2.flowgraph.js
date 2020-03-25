@@ -68,53 +68,50 @@ class FlowGraph extends Graph {
     this.lastActiveTerms = [];
   }
 
-  appendTerm(idx, txt, tag, term, addr) {
-    const cls = "c-graph__stmt--" + tag;
-    const tspan = txt.append("tspan").text(term).classed(cls, true);
-    if (idx == 0) tspan.attr("x", 2).attr("dy", "14px");
-    else tspan.attr("dx", "0px");
-    if (tag == "variable" || tag == "value") {
-      const myself = this;
-      tspan.on("click", function () {
-        myself.deactivateHighlights();
-        d3.event.stopPropagation();
-        const nodes = myself.queryDataflow(addr, term);
-        for (let i = 0; i < nodes.length; i++) {
-          nodes[i].classed("active", true);
-          myself.lastActiveTerms.push(nodes[i]);
-        }
-      });
-    }
-    if (term in this.linemap[addr].Tokens)
-      this.linemap[addr].Tokens[term].push(tspan);
-    else
-      this.linemap[addr].Tokens[term] = [tspan];
+  onClickTerm(addr, term, span) {
+    const myself = this;
+    span.on("click", function () {
+      myself.deactivateHighlights();
+      d3.event.stopPropagation();
+      const nodes = myself.queryDataflow(addr, term);
+      for (let i = 0; i < nodes.length; i++) {
+        nodes[i].classed("active", true);
+        myself.lastActiveTerms.push(nodes[i]);
+      }
+    });
   }
 
-  drawLinesOfNode(v, g) {
-    const f = "js-filter-stmt-background";
+  updateTokens(addr, term, span) {
+    if (term in this.linemap[addr].Tokens)
+      this.linemap[addr].Tokens[term].push(span);
+    else
+      this.linemap[addr].Tokens[term] = [span];
+  }
+
+  drawTextOfNode(v, txt) {
     for (let i = 0; i < v.Terms.length; i++) {
       const line = v.Terms[i];
       const addr = parseInt(line[0], 16);
-      const y = i * 14 + stmtPaddingTop;
-      const txt = g.append("text").attr("transform", "translate(0," + y + ")")
-        .classed("c-graph__stmt", true)
-        .attr("xml:space", "preserve");
-      txt
-        .on("mouseover", function () { txt.attr("filter", "url(#" + f + ")"); })
-        .on("mouseout", function () { txt.attr("filter", null); });
-      this.linemap[addr] = { DOM: txt, Tokens: {} };
+      const stmt = txt.append("div").classed("c-graph__stmt", true);
+      stmt
+        .on("mouseover", function () { stmt.classed("hover", true); })
+        .on("mouseout", function () { stmt.classed("hover", false); });
+      this.linemap[addr] = { DOM: stmt, Tokens: {} };
       for (let j = 0; j < line.length; j++) {
         const term = line[j][0];
         const tag = line[j][1];
-        this.appendTerm(j, txt, tag, term, addr);
+        const span = stmt.append("span").text(term)
+          .classed("c-graph__stmt--" + tag, true);
+        if (tag == "variable" || tag == "value")
+          this.onClickTerm(addr, term, span);
+        this.updateTokens(addr, term, span);
       }
     }
   }
 
-  addContextMenu(g) {
-    $(g.node()).contextMenu({
-      selector: "text",
+  addContextMenu(txt) {
+    $(txt.node()).contextMenu({
+      selector: "div",
       callback: function (k, _opts) {
         switch (k) {
           case "copy-addr":
@@ -143,9 +140,12 @@ class FlowGraph extends Graph {
       .classed("c-graph__node", true)
       .attr("width", v.Width)
       .attr("height", v.Height);
-    const txtgroup = g.append("g").style("display", "none");
-    this.addContextMenu(txtgroup);
-    this.drawLinesOfNode(v, txtgroup);
+    const fo = g.append("foreignObject")
+      .attr("width", v.Width)
+      .attr("height", v.Height);
+    const txt = fo.append("xhtml:div").classed("c-graph__text", true);
+    this.addContextMenu(txt);
+    this.drawTextOfNode(v, txt);
   }
 
   drawNodes(json) {
@@ -189,7 +189,6 @@ class FlowGraph extends Graph {
 
   static onZoom(g) {
     return function () {
-      const oldTransK = g.transK;
       g.transK = d3.event.transform.k;
       const ratio = g.reductionRate * minimapRatio / g.transK;
       const x = (- d3.event.transform.x) * ratio;
@@ -199,15 +198,6 @@ class FlowGraph extends Graph {
       g.ratio = ratio;
       g.stage.attr("transform", d3.event.transform);
       g.minimap.viewbox.attr("transform", trans);
-      if (g.transK > txtVisThreshold && oldTransK < txtVisThreshold) {
-        g.cfg.selectAll("g")
-          .filter(function () { return $(this).children("text").length > 0; })
-          .select(function () { d3.select(this).style("display", "block"); });
-      } else if (g.transK < txtVisThreshold && oldTransK > txtVisThreshold) {
-        g.cfg.selectAll("g")
-          .filter(function () { return $(this).children("text").length > 0; })
-          .select(function () { d3.select(this).style("display", "none"); });
-      }
     };
   }
 

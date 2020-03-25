@@ -65,15 +65,6 @@ class SVGDefs {
       .attr("filterUnits", "userSpaceOnUse")
       .append("feGaussianBlur")
       .attr("stdDeviation", 2);
-    const background = defs.append("filter")
-      .attr("x", 0)
-      .attr("y", 0)
-      .attr("width", 1)
-      .attr("height", 1)
-      .attr("id", "js-filter-stmt-background");
-    background.append("feFlood").classed("c-filter-stmt-background", true);
-    background.append("feComposite")
-      .attr("in", "SourceGraphic");
   }
 }
 
