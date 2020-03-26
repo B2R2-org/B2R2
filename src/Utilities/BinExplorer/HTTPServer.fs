@@ -189,6 +189,26 @@ let handleCommand req resp arbiter cmdMap (args: string) =
   let result = CLI.handle cmdMap arbiter args "" jsonPrinter
   Some (json<string> result  |> defaultEnc.GetBytes) |> answer req resp
 
+let handleDataflow req resp arbiter (args: string) =
+  let args = args.Split ([|','|])
+  let entry = args.[0] |> uint64
+  let addr = args.[1] |> uint64
+  let var = args.[2]
+  let ess = Protocol.getBinEssence arbiter
+  try
+    let cfg, root = ess.SCFG.GetFunctionCFG (entry)
+    let lens = SSALens.Init ess.BinHandler ess.SCFG
+    let g, roots = lens.Filter cfg [root] ess.Apparatus
+    // FIXME
+    Some ([||])
+    |> answer req resp
+  with e ->
+#if DEBUG
+    printfn "%A" e; failwith "[FATAL]: Failed to obtain dataflow info"
+#else
+    answer req resp None
+#endif
+
 let handleAJAX req resp arbiter cmdMap query args =
   match query with
   | "BinInfo" -> handleBinInfo req resp arbiter
@@ -199,6 +219,7 @@ let handleAJAX req resp arbiter cmdMap query args =
   | "Functions" -> handleFunctions req resp arbiter
   | "Hexview" -> handleHexview req resp arbiter
   | "Command" -> handleCommand req resp arbiter cmdMap args
+  | "DataFlow" -> handleDataflow req resp arbiter args
   | _ -> answer req resp None
 
 let handle (req: HttpListenerRequest) (resp: HttpListenerResponse) arbiter m =

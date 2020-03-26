@@ -41,7 +41,7 @@ let getJSONFromGraph iGraph roots =
     let vLayout = CrossMinimization.minimizeCrosses vGraph
     CoordAssignment.assignCoordinates vGraph vLayout
     EdgeDrawing.drawEdges vGraph vLayout backEdgeList dummyMap
-    vGraph |> JSONExport.toStr
+    JSONExport.toStr roots vGraph
   with e ->
     eprintfn "%s" <| e.ToString ()
     "{}"

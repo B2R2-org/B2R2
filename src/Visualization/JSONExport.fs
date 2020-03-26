@@ -50,6 +50,7 @@ type JSONEdge = {
 
 /// This is Visualization module's final output type.
 type JSONGraph = {
+  Roots: Addr list
   Nodes: JSONNode list
   Edges: JSONEdge list
 }
@@ -58,7 +59,8 @@ module JSONExport =
   let private getJSONTerms (visualBlock: VisualBlock) =
     visualBlock |> Array.map (Array.map AsmWord.ToStringTuple)
 
-  let private ofVisGraph (g: VisGraph) =
+  let private ofVisGraph (g: VisGraph) (roots: Vertex<#BasicBlock> list) =
+    let roots = roots |> List.map (fun r -> r.VData.PPoint.Address)
     let nodes =
       g.FoldVertex (fun acc v ->
         { PPoint = v.VData.PPoint.Address, v.VData.PPoint.Position
@@ -72,12 +74,12 @@ module JSONExport =
         { Type = e.Type
           Points = e.Points |> List.map (fun p -> { X = p.X; Y = p.Y })
           IsBackEdge = e.IsBackEdge } :: acc) []
-    { Nodes = nodes; Edges = edges }
+    { Roots = roots; Nodes = nodes; Edges = edges }
 
-  let toFile s g =
-    ofVisGraph g
+  let toFile s roots g =
+    ofVisGraph g roots
     |> Compact.serializeToFile<JSONGraph> s
 
-  let toStr g =
-    ofVisGraph g
+  let toStr roots g =
+    ofVisGraph g roots
     |> Compact.serialize<JSONGraph>

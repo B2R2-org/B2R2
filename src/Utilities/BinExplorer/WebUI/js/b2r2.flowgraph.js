@@ -55,8 +55,16 @@ class FlowGraph extends Graph {
       .curve(d3.curveMonotoneY);
   }
 
-  queryDataflow(addr, term) {
-    return this.linemap[addr].Tokens[term];
+  queryDataflow(roots, addr, term) {
+    const ret = this.linemap[addr].Tokens[term];
+    if (roots.length !== 1) return ret;
+    const root = roots[0];
+    const args = [root, addr, term];
+    query({ "q": "DataFlow", "args": args }, function (_status, json) {
+      console.log(json);
+      console.log("yes");
+    });
+    return ret;
   }
 
   deactivateHighlights() {
@@ -68,17 +76,19 @@ class FlowGraph extends Graph {
     this.lastActiveTerms = [];
   }
 
-  onClickTerm(addr, term, span) {
-    const myself = this;
-    span.on("click", function () {
-      myself.deactivateHighlights();
-      d3.event.stopPropagation();
-      const nodes = myself.queryDataflow(addr, term);
-      for (let i = 0; i < nodes.length; i++) {
-        nodes[i].classed("active", true);
-        myself.lastActiveTerms.push(nodes[i]);
-      }
-    });
+  onClickTerm(roots, addr, term, tag, span) {
+    if (tag == "variable" || tag == "value") {
+      const myself = this;
+      span.on("click", function () {
+        myself.deactivateHighlights();
+        d3.event.stopPropagation();
+        const nodes = myself.queryDataflow(roots, addr, term);
+        for (let i = 0; i < nodes.length; i++) {
+          nodes[i].classed("active", true);
+          myself.lastActiveTerms.push(nodes[i]);
+        }
+      });
+    }
   }
 
   updateTokens(addr, term, span) {
@@ -88,7 +98,7 @@ class FlowGraph extends Graph {
       this.linemap[addr].Tokens[term] = [span];
   }
 
-  drawTextOfNode(v, txt) {
+  drawTextOfNode(v, roots, txt) {
     for (let i = 0; i < v.Terms.length; i++) {
       const line = v.Terms[i];
       const addr = parseInt(line[0], 16);
@@ -102,8 +112,7 @@ class FlowGraph extends Graph {
         const tag = line[j][1];
         const span = stmt.append("span").text(term)
           .classed("c-graph__stmt--" + tag, true);
-        if (tag == "variable" || tag == "value")
-          this.onClickTerm(addr, term, span);
+        this.onClickTerm(roots, addr, term, tag, span);
         this.updateTokens(addr, term, span);
       }
     }
@@ -130,7 +139,7 @@ class FlowGraph extends Graph {
     });
   }
 
-  drawNode(v) {
+  drawNode(v, roots) {
     this.minimap.drawNode(v);
     const x = v.Coordinate.X;
     const y = v.Coordinate.Y;
@@ -145,12 +154,12 @@ class FlowGraph extends Graph {
       .attr("height", v.Height);
     const txt = fo.append("xhtml:div").classed("c-graph__text", true);
     this.addContextMenu(txt);
-    this.drawTextOfNode(v, txt);
+    this.drawTextOfNode(v, roots, txt);
   }
 
   drawNodes(json) {
     for (let i = 0; i < json.Nodes.length; i++) {
-      this.drawNode(json.Nodes[i]);
+      this.drawNode(json.Nodes[i], json.Roots);
     }
   }
 

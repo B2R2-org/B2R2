@@ -156,14 +156,14 @@ let dumpJsonFiles jsonDir ess =
     let irJson =
       VisGraph.ofCFG cfg [root]
       |> fst
-      |> JSONExport.toStr
+      |> JSONExport.toStr [root]
       |> encoding.GetBytes
     let lens = DisasmLens.Init ess.Apparatus
     let disasmcfg, roots = lens.Filter cfg [root] ess.Apparatus
     let disasmJson =
       VisGraph.ofCFG disasmcfg roots
       |> fst
-      |> JSONExport.toStr
+      |> JSONExport.toStr [root]
       |> encoding.GetBytes
     System.IO.File.WriteAllBytes(disasmJsonPath, disasmJson)
     System.IO.File.WriteAllBytes(irJsonPath, irJson))
