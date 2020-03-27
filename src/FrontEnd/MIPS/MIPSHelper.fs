@@ -122,14 +122,14 @@ let getFRegFrom1511 b = getFRegister (extract b 15u 11u |> byte)
 let getFRegFrom106 b = getFRegister (extract b 10u 6u |> byte)
 let getFRegFrom108 b = getFRegister (extract b 10u 8u |> byte)
 
-let rs b = getRegFrom2521 b |> Register
-let rt b = getRegFrom2016 b |> Register
-let rd b = getRegFrom1511 b |> Register
+let rs b = getRegFrom2521 b |> OpReg
+let rt b = getRegFrom2016 b |> OpReg
+let rd b = getRegFrom1511 b |> OpReg
 
-let fs b = getFRegFrom1511 b |> Register
-let ft b = getFRegFrom2016 b |> Register
-let fd b = getFRegFrom106 b |> Register
-let cc b = getFRegFrom108 b |> Register // FIXME: Floating Point cond code CC.
+let fs b = getFRegFrom1511 b |> OpReg
+let ft b = getFRegFrom2016 b |> OpReg
+let fd b = getFRegFrom106 b |> OpReg
+let cc b = getFRegFrom108 b |> OpReg // FIXME: Floating Point cond code CC.
 
 let sa b = extract b 10u 6u |> uint64 |> ShiftAmount
 let bp b = extract b 7u 6u |> uint64 |> Immediate

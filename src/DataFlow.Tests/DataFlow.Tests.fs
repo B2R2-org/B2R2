@@ -86,11 +86,84 @@ type DataFlowTests () =
   member __.``Reaching Definitions Test 1``() =
     let cfg, root = ess.SCFG.GetFunctionCFG 0UL
     let rd = ReachingDefinitions (cfg)
-    let ins, outs = rd.Compute (root)
-    let solution =
-      [ ProgramPoint (0UL, 1); ProgramPoint (4UL, 2); ProgramPoint (5UL, 2)
-        ProgramPoint (7UL, 1); ProgramPoint (10UL, 4); ProgramPoint (10UL, 5)
-        ProgramPoint (10UL, 6); ProgramPoint (10UL, 7); ProgramPoint (10UL, 8)
-        ProgramPoint (10UL, 11) ]
-    Assert.IsTrue (ins.[root.GetID ()] = Set.ofList [])
-    Assert.IsTrue (outs.[root.GetID ()] = Set.ofList solution)
+    let ins, _outs = rd.Compute (root)
+    let v = cfg.FindVertexBy (fun b -> b.VData.PPoint.Address = 0xEUL) (* 2nd *)
+    let result = ins.[v.GetID ()] |> Set.filter (fun v ->
+      match v.VarExpr with
+      | Regular _ -> true
+      | _ -> false)
+    let solution = [
+      { ProgramPoint = ProgramPoint (0UL, 1)
+        VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) }
+      { ProgramPoint = ProgramPoint (4UL, 2)
+        VarExpr = Regular (Intel.Register.toRegID Intel.Register.ESP) }
+      { ProgramPoint = ProgramPoint (5UL, 2)
+        VarExpr = Regular (Intel.Register.toRegID Intel.Register.ESI) }
+      { ProgramPoint = ProgramPoint (5UL, 3)
+        VarExpr = Regular (Intel.Register.toRegID Intel.Register.OF) }
+      { ProgramPoint = ProgramPoint (5UL, 4)
+        VarExpr = Regular (Intel.Register.toRegID Intel.Register.CF) }
+      { ProgramPoint = ProgramPoint (5UL, 5)
+        VarExpr = Regular (Intel.Register.toRegID Intel.Register.SF) }
+      { ProgramPoint = ProgramPoint (5UL, 6)
+        VarExpr = Regular (Intel.Register.toRegID Intel.Register.ZF) }
+      { ProgramPoint = ProgramPoint (5UL, 9)
+        VarExpr = Regular (Intel.Register.toRegID Intel.Register.PF) }
+      { ProgramPoint = ProgramPoint (5UL, 10)
+        VarExpr = Regular (Intel.Register.toRegID Intel.Register.AF) }
+      { ProgramPoint = ProgramPoint (7UL, 1)
+        VarExpr = Regular (Intel.Register.toRegID Intel.Register.ECX) }
+      { ProgramPoint = ProgramPoint (0xAUL, 4)
+        VarExpr = Regular (Intel.Register.toRegID Intel.Register.CF) }
+      { ProgramPoint = ProgramPoint (0xAUL, 5)
+        VarExpr = Regular (Intel.Register.toRegID Intel.Register.OF) }
+      { ProgramPoint = ProgramPoint (0xAUL, 6)
+        VarExpr = Regular (Intel.Register.toRegID Intel.Register.AF) }
+      { ProgramPoint = ProgramPoint (0xAUL, 7)
+        VarExpr = Regular (Intel.Register.toRegID Intel.Register.SF) }
+      { ProgramPoint = ProgramPoint (0xAUL, 8)
+        VarExpr = Regular (Intel.Register.toRegID Intel.Register.ZF) }
+      { ProgramPoint = ProgramPoint (0xAUL, 11)
+        VarExpr = Regular (Intel.Register.toRegID Intel.Register.PF) } ]
+    Assert.AreEqual (result, Set.ofList solution)
+
+  [<TestMethod>]
+  member __.``Use-Def Test 1``() =
+    let cfg, root = ess.SCFG.GetFunctionCFG 0UL
+    let chain = DataFlowChain.init cfg root false
+    let vp =
+      { ProgramPoint = ProgramPoint (0xEUL, 1)
+        VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) }
+    let res = chain.UseDefChain |> Map.find vp |> Set.toArray
+    let solution = [|
+      { ProgramPoint = ProgramPoint (0x0UL, 1)
+        VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) } |]
+    CollectionAssert.AreEqual (solution, res)
+
+  [<TestMethod>]
+  member __.``Use-Def Test 2``() =
+    let cfg, root = ess.SCFG.GetFunctionCFG 0UL
+    let chain = DataFlowChain.init cfg root true
+    let vp =
+      { ProgramPoint = ProgramPoint (0xEUL, 0)
+        VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) }
+    let res = chain.UseDefChain |> Map.find vp |> Set.toArray
+    let solution = [|
+      { ProgramPoint = ProgramPoint (0x0UL, 0)
+        VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) } |]
+    CollectionAssert.AreEqual (solution, res)
+
+  [<TestMethod>]
+  member __.``Use-Def Test 3``() =
+    let cfg, root = ess.SCFG.GetFunctionCFG 0UL
+    let chain = DataFlowChain.init cfg root false
+    let vp =
+      { ProgramPoint = ProgramPoint (0x1AUL, 1)
+        VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) }
+    let res = chain.UseDefChain |> Map.find vp |> Set.toArray
+    let solution = [|
+      { ProgramPoint = ProgramPoint (0x12UL, 4)
+        VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) }
+      { ProgramPoint = ProgramPoint (0x1AUL, 4)
+        VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) } |]
+    CollectionAssert.AreEqual (solution, res)

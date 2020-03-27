@@ -6086,16 +6086,16 @@ module MIPS64 =
     [<TestMethod>]
     member __.``[MIPS64] Arithmetic operations Parse Test`` () =
       test64R2 Op.DADDU
-               (ThreeOperands (Register R.R15, Register R.R21, Register R.R29))
+               (ThreeOperands (OpReg R.R15, OpReg R.R21, OpReg R.R29))
                [| 0x02uy; 0xbduy; 0x78uy; 0x2duy |]
 
       test64R2 Op.DADDIU
-               (ThreeOperands (Register R.R13, Register R.R6,
+               (ThreeOperands (OpReg R.R13, OpReg R.R6,
                                Immediate 0xffffffffffffccd5UL))
                [| 0x64uy; 0xcduy; 0xccuy; 0xd5uy |]
 
       test64R2 Op.DSUBU
-               (ThreeOperands (Register R.R26, Register R.R17, Register R.R9))
+               (ThreeOperands (OpReg R.R26, OpReg R.R17, OpReg R.R9))
                [| 0x02uy; 0x29uy; 0xd0uy; 0x2fuy |]
 
   /// Shift And Rotate operations
@@ -6104,31 +6104,31 @@ module MIPS64 =
     [<TestMethod>]
     member __.``[MIPS64] Shift And Rotate operations Parse Test`` () =
       test64R2 Op.DROTR
-               (ThreeOperands (Register R.R30, Register R.R13,
+               (ThreeOperands (OpReg R.R30, OpReg R.R13,
                                ShiftAmount 0x1aUL))
                [| 0x00uy; 0x2duy; 0xf6uy; 0xbauy |]
 
       test64R2 Op.DSLL
-               (ThreeOperands (Register R.R29, Register R.R14,
+               (ThreeOperands (OpReg R.R29, OpReg R.R14,
                                ShiftAmount 0x1bUL))
                [| 0x00uy; 0x0euy; 0xeeuy; 0xf8uy |]
 
       test64R2 Op.DSLL32
-               (ThreeOperands (Register R.R28, Register R.R17,
+               (ThreeOperands (OpReg R.R28, OpReg R.R17,
                                ShiftAmount 0x15UL))
                [| 0x00uy; 0x11uy; 0xe5uy; 0x7cuy |]
 
       test64R2 Op.DSLLV
-               (ThreeOperands (Register R.R30, Register R.R26, Register R.R21))
+               (ThreeOperands (OpReg R.R30, OpReg R.R26, OpReg R.R21))
                [| 0x02uy; 0xbauy; 0xf0uy; 0x14uy |]
 
       test64R2 Op.DSRA
-               (ThreeOperands (Register R.R30, Register R.R14,
+               (ThreeOperands (OpReg R.R30, OpReg R.R14,
                                ShiftAmount 0x1fUL))
                [| 0x00uy; 0x0euy; 0xf7uy; 0xfbuy |]
 
       test64R2 Op.DSRA32
-               (ThreeOperands (Register R.R26, Register R.R15,
+               (ThreeOperands (OpReg R.R26, OpReg R.R15,
                                ShiftAmount 0x7UL))
                [| 0x00uy; 0x0fuy; 0xd1uy; 0xffuy |]
 
@@ -6138,12 +6138,12 @@ module MIPS64 =
     [<TestMethod>]
     member __.``[MIPS64] Logical and Bit-Field operations Parse Test`` () =
       test64R2 Op.DEXT
-               (FourOperands (Register R.R29, Register R.R10,
+               (FourOperands (OpReg R.R29, OpReg R.R10,
                               Immediate 0x2UL, Immediate 0xeUL))
                [| 0x7duy; 0x5duy; 0x68uy; 0x83uy |]
 
       test64R2 Op.DINS
-               (FourOperands (Register R.R21, Register R.R15,
+               (FourOperands (OpReg R.R21, OpReg R.R15,
                               Immediate 0x9UL, Immediate 0x11UL))
                [| 0x7duy; 0xf5uy; 0xcauy; 0x47uy |]
 
@@ -6153,15 +6153,15 @@ module MIPS64 =
     [<TestMethod>]
     member __.``[MIPS64] Multiply and Divide operations Parse Test`` () =
       test64R2 Op.DDIVU
-               (TwoOperands (Register R.R30, Register R.R3))
+               (TwoOperands (OpReg R.R30, OpReg R.R3))
                [| 0x03uy; 0xc3uy; 0x00uy; 0x1fuy |]
 
       test64R2 Op.DMULT
-               (TwoOperands (Register R.R24, Register R.R14))
+               (TwoOperands (OpReg R.R24, OpReg R.R14))
                [| 0x03uy; 0x0euy; 0x00uy; 0x1cuy |]
 
       test64R2 Op.DMULTU
-               (TwoOperands (Register R.R17, Register R.R18))
+               (TwoOperands (OpReg R.R17, OpReg R.R18))
                [| 0x02uy; 0x32uy; 0x00uy; 0x1duy |]
 
   /// Load and Store operations
@@ -6170,23 +6170,23 @@ module MIPS64 =
     [<TestMethod>]
     member __.``[MIPS64] Load and Store operations Parse Test`` () =
       test64R2 Op.LD
-               (TwoOperands (Register R.R29, Memory (R.R26, 0x2afdL, 64<rt>)))
+               (TwoOperands (OpReg R.R29, Memory (R.R26, 0x2afdL, 64<rt>)))
                [| 0xdfuy; 0x5duy; 0x2auy; 0xfduy |]
 
       test64R2 Op.LWU
-               (TwoOperands (Register R.R17, Memory (R.R24, -0x52ffL, 32<rt>)))
+               (TwoOperands (OpReg R.R17, Memory (R.R24, -0x52ffL, 32<rt>)))
                [| 0x9fuy; 0x11uy; 0xaduy; 0x01uy |]
 
       test64R2 Op.SD
-               (TwoOperands (Register R.R5, Memory (R.R17, 0x380aL, 64<rt>)))
+               (TwoOperands (OpReg R.R5, Memory (R.R17, 0x380aL, 64<rt>)))
                [| 0xfeuy; 0x25uy; 0x38uy; 0x0auy |]
 
       test64R2 Op.SDL
-               (TwoOperands (Register R.R12, Memory (R.R26, 0x3f02L, 64<rt>)))
+               (TwoOperands (OpReg R.R12, Memory (R.R26, 0x3f02L, 64<rt>)))
                [| 0xb3uy; 0x4cuy; 0x3fuy; 0x02uy |]
 
       test64R2 Op.SDR
-               (TwoOperands (Register R.R11, Memory (R.R6, -0x78ebL, 64<rt>)))
+               (TwoOperands (OpReg R.R11, Memory (R.R6, -0x78ebL, 64<rt>)))
                [| 0xb4uy; 0xcbuy; 0x87uy; 0x15uy |]
 
 module MIPS32 =
@@ -6212,24 +6212,24 @@ module MIPS32 =
     [<TestMethod>]
     member __.``[MIPS32] Arithmetic Operations Parse Test`` () =
       test32R2 Op.ADDIU None None
-               (ThreeOperands (Register R.R28, Register R.R28,
+               (ThreeOperands (OpReg R.R28, OpReg R.R28,
                                Immediate 0xffffffffffff85bcUL))
                [| 0x27uy; 0x9cuy; 0x85uy; 0xbcuy |]
 
       test32R2 Op.CLZ None None
-               (TwoOperands (Register R.R2, Register R.R7))
+               (TwoOperands (OpReg R.R2, OpReg R.R7))
                [| 0x70uy; 0xe2uy; 0x10uy; 0x20uy |]
 
       test32R2 Op.LUI None None
-               (TwoOperands (Register R.R28, Immediate 4UL))
+               (TwoOperands (OpReg R.R28, Immediate 4UL))
                [| 0x3cuy; 0x1cuy; 0x00uy; 0x04uy |]
 
       test32R2 Op.SEB None None
-               (TwoOperands (Register R.R10, Register R.R10))
+               (TwoOperands (OpReg R.R10, OpReg R.R10))
                [| 0x7cuy; 0x0auy; 0x54uy; 0x20uy |]
 
       test32R2 Op.SUBU None None
-               (ThreeOperands (Register R.R2, Register R.R16, Register R.R19))
+               (ThreeOperands (OpReg R.R2, OpReg R.R16, OpReg R.R19))
                [| 0x02uy; 0x13uy; 0x10uy; 0x23uy |]
 
 /// Shift And Rotate Operations
@@ -6238,19 +6238,19 @@ module MIPS32 =
     [<TestMethod>]
     member __.``[MIPS32] Shift And Rotate Operations Parse Test`` () =
       test32R2 Op.ROTR None None
-               (ThreeOperands (Register R.R2, Register R.R4, ShiftAmount 3UL))
+               (ThreeOperands (OpReg R.R2, OpReg R.R4, ShiftAmount 3UL))
                [| 0x00uy; 0x24uy; 0x10uy; 0xc2uy |]
 
       test32R2 Op.SLL None None
-               (ThreeOperands (Register R.R2, Register R.R2, ShiftAmount 2UL))
+               (ThreeOperands (OpReg R.R2, OpReg R.R2, ShiftAmount 2UL))
                [| 0x00uy; 0x02uy; 0x10uy; 0x80uy |]
 
       test32R2 Op.SRA None None
-               (ThreeOperands (Register R.R5, Register R.R5, ShiftAmount 2UL))
+               (ThreeOperands (OpReg R.R5, OpReg R.R5, ShiftAmount 2UL))
                [| 0x00uy; 0x05uy; 0x28uy; 0x83uy |]
 
       test32R2 Op.SRL None None
-               (ThreeOperands (Register R.R2, Register R.R5, ShiftAmount 31UL))
+               (ThreeOperands (OpReg R.R2, OpReg R.R5, ShiftAmount 31UL))
                [| 0x00uy; 0x05uy; 0x17uy; 0xc2uy |]
 
 /// Logical And Bit-Field Operations
@@ -6259,42 +6259,42 @@ module MIPS32 =
     [<TestMethod>]
     member __.``[MIPS32] Logical And Bit-Field operations Parse Test`` () =
       test32R2 Op.AND None None
-               (ThreeOperands (Register R.R2, Register R.R19, Register R.R2))
+               (ThreeOperands (OpReg R.R2, OpReg R.R19, OpReg R.R2))
                [| 0x02uy; 0x62uy; 0x10uy; 0x24uy |]
 
       test32R2 Op.ANDI None None
-               (ThreeOperands (Register R.R2, Register R.R2, Immediate 1UL))
+               (ThreeOperands (OpReg R.R2, OpReg R.R2, Immediate 1UL))
                [| 0x30uy; 0x42uy; 0x00uy; 0x01uy |]
 
       test32R2 Op.EXT None None
-               (FourOperands (Register R.R2, Register R.R2, Immediate 6UL,
+               (FourOperands (OpReg R.R2, OpReg R.R2, Immediate 6UL,
                               Immediate 1UL))
                [| 0x7cuy; 0x42uy; 0x01uy; 0x80uy |]
 
       test32R2 Op.INS None None
-               (FourOperands (Register R.R3, Register R.R6, Immediate 6UL,
+               (FourOperands (OpReg R.R3, OpReg R.R6, Immediate 6UL,
                               Immediate 1UL))
                [| 0x7cuy; 0xc3uy; 0x31uy; 0x84uy |]
 
       test32R2 Op.NOR None None
-               (ThreeOperands (Register R.R6, Register R.R0, Register R.R6))
+               (ThreeOperands (OpReg R.R6, OpReg R.R0, OpReg R.R6))
                [| 0x00uy; 0x06uy; 0x30uy; 0x27uy |]
 
       test32R2 Op.OR None None
-               (ThreeOperands (Register R.R19, Register R.R3, Register R.R0))
+               (ThreeOperands (OpReg R.R19, OpReg R.R3, OpReg R.R0))
                [| 0x00uy; 0x60uy; 0x98uy; 0x25uy |]
 
       test32R2 Op.ORI None None
-               (ThreeOperands (Register R.R19, Register R.R19,
+               (ThreeOperands (OpReg R.R19, OpReg R.R19,
                                Immediate 65535UL))
                [| 0x36uy; 0x73uy; 0xffuy; 0xffuy |]
 
       test32R2 Op.XOR None None
-               (ThreeOperands (Register R.R2, Register R.R2, Register R.R6))
+               (ThreeOperands (OpReg R.R2, OpReg R.R2, OpReg R.R6))
                [| 0x00uy; 0x46uy; 0x10uy; 0x26uy |]
 
       test32R2 Op.XORI None None
-               (ThreeOperands (Register R.R2, Register R.R19, Immediate 6UL))
+               (ThreeOperands (OpReg R.R2, OpReg R.R19, Immediate 6UL))
                [| 0x3auy; 0x62uy; 0x00uy; 0x06uy |]
 
   /// Condition Testing And Conditional Move Operations
@@ -6303,27 +6303,27 @@ module MIPS32 =
     [<TestMethod>]
     member __.``[MIPS32] Condition Testing And .. Operations Parse Test`` () =
       test32R2 Op.MOVN None None
-               (ThreeOperands (Register R.R3, Register R.R4, Register R.R2))
+               (ThreeOperands (OpReg R.R3, OpReg R.R4, OpReg R.R2))
                [| 0x00uy; 0x82uy; 0x18uy; 0x0buy |]
 
       test32R2 Op.MOVZ None None
-               (ThreeOperands (Register R.R2, Register R.R0, Register R.R5))
+               (ThreeOperands (OpReg R.R2, OpReg R.R0, OpReg R.R5))
                [| 0x00uy; 0x05uy; 0x10uy; 0x0auy |]
 
       test32R2 Op.SLT None None
-               (ThreeOperands (Register R.R2, Register R.R19, Register R.R16))
+               (ThreeOperands (OpReg R.R2, OpReg R.R19, OpReg R.R16))
                [| 0x02uy; 0x70uy; 0x10uy; 0x2auy |]
 
       test32R2 Op.SLTI None None
-               (ThreeOperands (Register R.R23, Register R.R2, Immediate 2UL))
+               (ThreeOperands (OpReg R.R23, OpReg R.R2, Immediate 2UL))
                [| 0x28uy; 0x57uy; 0x00uy; 0x02uy |]
 
       test32R2 Op.SLTIU None None
-               (ThreeOperands (Register R.R3, Register R.R2, Immediate 275UL))
+               (ThreeOperands (OpReg R.R3, OpReg R.R2, Immediate 275UL))
                [| 0x2cuy; 0x43uy; 0x01uy; 0x13uy |]
 
       test32R2 Op.SLTU None None
-               (ThreeOperands (Register R.R2, Register R.R0, Register R.R2))
+               (ThreeOperands (OpReg R.R2, OpReg R.R0, OpReg R.R2))
                [| 0x00uy; 0x02uy; 0x10uy; 0x2buy |]
 
   /// Multiply and Divide operations
@@ -6332,15 +6332,15 @@ module MIPS32 =
     [<TestMethod>]
     member __.``[MIPS32] Multiply and Divide operations Parse Test`` () =
       test32R2 Op.DIVU None None
-               (TwoOperands (Register R.R3, Register R.R2))
+               (TwoOperands (OpReg R.R3, OpReg R.R2))
                [| 0x00uy; 0x62uy; 0x00uy; 0x1buy |]
 
       test32R2 Op.MUL None None
-               (ThreeOperands (Register R.R3, Register R.R4, Register R.R8))
+               (ThreeOperands (OpReg R.R3, OpReg R.R4, OpReg R.R8))
                [| 0x70uy; 0x88uy; 0x18uy; 0x02uy |]
 
       test32R2 Op.MULTU None None
-               (TwoOperands (Register R.R23, Register R.R5))
+               (TwoOperands (OpReg R.R23, OpReg R.R5))
                [| 0x02uy; 0xe5uy; 0x00uy; 0x19uy |]
 
 /// Accumulator Access operations
@@ -6349,11 +6349,11 @@ module MIPS32 =
     [<TestMethod>]
     member __.``[MIPS32] Accumulator Access operations Parse Test`` () =
       test32R2 Op.MFHI None None
-               (OneOperand (Register R.R2))
+               (OneOperand (OpReg R.R2))
                [| 0x00uy; 0x00uy; 0x10uy; 0x10uy |]
 
       test32R2 Op.MFLO None None
-               (OneOperand (Register R.R3))
+               (OneOperand (OpReg R.R3))
                [| 0x00uy; 0x00uy; 0x18uy; 0x12uy |]
 
   /// Jumps And Branches Operations
@@ -6362,24 +6362,24 @@ module MIPS32 =
     [<TestMethod>]
     member __.``[MIPS32] Jump And Branches operations Parse Test`` () =
       test32R2 Op.BNE None None
-               (ThreeOperands (Register R.R2, Register R.R0,
+               (ThreeOperands (OpReg R.R2, OpReg R.R0,
                                Address (Relative 4100L)))
                [| 0x14uy; 0x40uy; 0x04uy; 0x00uy |]
 
       test32R2 Op.BLEZ None None
-               (TwoOperands (Register R.R23, Address (Relative 4444L)))
+               (TwoOperands (OpReg R.R23, Address (Relative 4444L)))
                [| 0x1auy; 0xe0uy; 0x04uy; 0x56uy |]
 
       test32R2 Op.BGTZ None None
-               (TwoOperands (Register R.R2, Address (Relative -48L)))
+               (TwoOperands (OpReg R.R2, Address (Relative -48L)))
                [| 0x1cuy; 0x40uy; 0xffuy; 0xf3uy |]
 
       test32R2 Op.JR None None
-               (OneOperand (Register R.R31))
+               (OneOperand (OpReg R.R31))
                [| 0x03uy; 0xe0uy; 0x00uy; 0x08uy |]
 
       test32R2 Op.JALR None None
-               (OneOperand (Register R.R25))
+               (OneOperand (OpReg R.R25))
                [| 0x03uy; 0x20uy; 0xf8uy; 0x09uy |]
 
       test32R2 Op.BAL None None
@@ -6387,11 +6387,11 @@ module MIPS32 =
                [| 0x04uy; 0x11uy; 0x3euy; 0x1duy |]
 
       test32R2 Op.BLTZ None None
-               (TwoOperands (Register R.R2, Address (Relative 424L)))
+               (TwoOperands (OpReg R.R2, Address (Relative 424L)))
                [| 0x04uy; 0x40uy; 0x00uy; 0x69uy |]
 
       test32R2 Op.BGEZ None None
-               (TwoOperands (Register R.R22, Address (Relative 1404L)))
+               (TwoOperands (OpReg R.R22, Address (Relative 1404L)))
                [| 0x06uy; 0xc1uy; 0x01uy; 0x5euy |]
 
   /// Load And Store operations
@@ -6400,39 +6400,39 @@ module MIPS32 =
     [<TestMethod>]
     member __.``[MIPS32] Load And Store operations Parse Test`` () =
       test32R2 Op.LB None None
-               (TwoOperands (Register R.R2, Memory (R.R2, 0L, 8<rt>)))
+               (TwoOperands (OpReg R.R2, Memory (R.R2, 0L, 8<rt>)))
                [| 0x80uy; 0x42uy; 0x00uy; 0x00uy |]
 
       test32R2 Op.LBU None None
-               (TwoOperands (Register R.R2, Memory (R.R19, 17432L, 8<rt>)))
+               (TwoOperands (OpReg R.R2, Memory (R.R19, 17432L, 8<rt>)))
                [| 0x92uy; 0x62uy; 0x44uy; 0x18uy |]
 
       test32R2 Op.LHU None None
-               (TwoOperands (Register R.R2, Memory (R.R29, 170L, 16<rt>)))
+               (TwoOperands (OpReg R.R2, Memory (R.R29, 170L, 16<rt>)))
                [| 0x97uy; 0xa2uy; 0x00uy; 0xaauy |]
 
       test32R2 Op.LW None None
-               (TwoOperands (Register R.R2, Memory (R.R28, -032060L, 32<rt>)))
+               (TwoOperands (OpReg R.R2, Memory (R.R28, -032060L, 32<rt>)))
                [| 0x8fuy; 0x82uy; 0x82uy; 0xc4uy |]
 
       test32R2 Op.SB None None
-               (TwoOperands (Register R.R4, Memory (R.R22, 17372L, 8<rt>)))
+               (TwoOperands (OpReg R.R4, Memory (R.R22, 17372L, 8<rt>)))
                [| 0xa2uy; 0xc4uy; 0x43uy; 0xdcuy |]
 
       test32R2 Op.SH None None
-               (TwoOperands (Register R.R2, Memory (R.R29, 184L, 16<rt>)))
+               (TwoOperands (OpReg R.R2, Memory (R.R29, 184L, 16<rt>)))
                [| 0xa7uy; 0xa2uy; 0x00uy; 0xb8uy |]
 
       test32R2 Op.SW None None
-               (TwoOperands (Register R.R28, Memory (R.R29, 16L, 32<rt>)))
+               (TwoOperands (OpReg R.R28, Memory (R.R29, 16L, 32<rt>)))
                [| 0xafuy; 0xbcuy; 0x00uy; 0x10uy |]
 
       test32R2 Op.SWL None None
-               (TwoOperands (Register R.R4, Memory (R.R2, 0L, 32<rt>)))
+               (TwoOperands (OpReg R.R4, Memory (R.R2, 0L, 32<rt>)))
                [| 0xa8uy; 0x44uy; 0x00uy; 0x00uy |]
 
       test32R2 Op.SWR None None
-               (TwoOperands (Register R.R4, Memory (R.R2, 3L, 32<rt>)))
+               (TwoOperands (OpReg R.R4, Memory (R.R2, 3L, 32<rt>)))
                [| 0xb8uy; 0x44uy; 0x00uy; 0x03uy |]
 
   /// Floating Point operations
@@ -6441,71 +6441,71 @@ module MIPS32 =
     [<TestMethod>]
     member __.``[MIPS32] Floating Point operations Parse Test`` () =
       test32R2 Op.ADD None (Some Fmt.S)
-               (ThreeOperands (Register R.F2, Register R.F4, Register R.F2))
+               (ThreeOperands (OpReg R.F2, OpReg R.F4, OpReg R.F2))
                [| 0x46uy; 0x02uy; 0x20uy; 0x80uy |]
 
       test32R2 Op.ADD None (Some Fmt.D)
-               (ThreeOperands (Register R.F0, Register R.F0, Register R.F2))
+               (ThreeOperands (OpReg R.F0, OpReg R.F0, OpReg R.F2))
                [| 0x46uy; 0x22uy; 0x00uy; 0x00uy |]
 
       test32R2 Op.SUB None (Some Fmt.D)
-               (ThreeOperands (Register R.F12, Register R.F12, Register R.F0))
+               (ThreeOperands (OpReg R.F12, OpReg R.F12, OpReg R.F0))
                [| 0x46uy; 0x20uy; 0x63uy; 0x01uy |]
 
       test32R2 Op.DIV None (Some Fmt.D)
-               (ThreeOperands (Register R.F0, Register R.F0, Register R.F2))
+               (ThreeOperands (OpReg R.F0, OpReg R.F0, OpReg R.F2))
                [| 0x46uy; 0x22uy; 0x00uy; 0x03uy |]
 
       test32R2 Op.DIV None (Some Fmt.S)
-               (ThreeOperands (Register R.F0, Register R.F0, Register R.F2))
+               (ThreeOperands (OpReg R.F0, OpReg R.F0, OpReg R.F2))
                [| 0x46uy; 0x02uy; 0x00uy; 0x03uy |]
 
       test32R2 Op.MOV None (Some Fmt.D)
-               (TwoOperands (Register R.F20, Register R.F0))
+               (TwoOperands (OpReg R.F20, OpReg R.F0))
                [| 0x46uy; 0x20uy; 0x05uy; 0x06uy |]
 
       test32R2 Op.MFC1 None None
-               (TwoOperands (Register R.R20, Register R.F0))
+               (TwoOperands (OpReg R.R20, OpReg R.F0))
                [| 0x44uy; 0x14uy; 0x00uy; 0x00uy |]
 
       test32R2 Op.MTC1 None None
-               (TwoOperands (Register R.R0, Register R.F6))
+               (TwoOperands (OpReg R.R0, OpReg R.F6))
                [| 0x44uy; 0x80uy; 0x30uy; 0x00uy |]
 
       test32R2 Op.LDC1 None None
-               (TwoOperands (Register R.F4, Memory (R.R2, 2632L, 64<rt>)))
+               (TwoOperands (OpReg R.F4, Memory (R.R2, 2632L, 64<rt>)))
                [| 0xd4uy; 0x44uy; 0x0auy; 0x48uy |]
 
       test32R2 Op.LWC1 None None
-               (TwoOperands (Register R.F0, Memory (R.R3, 8L, 32<rt>)))
+               (TwoOperands (OpReg R.F0, Memory (R.R3, 8L, 32<rt>)))
                [| 0xc4uy; 0x60uy; 0x00uy; 0x08uy |]
 
       test32R2 Op.SDC1 None None
-               (TwoOperands (Register R.F0, Memory (R.R29, 16L, 64<rt>)))
+               (TwoOperands (OpReg R.F0, Memory (R.R29, 16L, 64<rt>)))
                [| 0xf7uy; 0xa0uy; 0x00uy; 0x10uy |]
 
       test32R2 Op.SWC1 None None
-               (TwoOperands (Register R.F0, Memory (R.R4, 4L, 32<rt>)))
+               (TwoOperands (OpReg R.F0, Memory (R.R4, 4L, 32<rt>)))
                [| 0xe4uy; 0x80uy; 0x00uy; 0x04uy |]
 
       test32R2 Op.C (Some Condition.LT) (Some Fmt.S)
-               (TwoOperands (Register R.F2, Register R.F0))
+               (TwoOperands (OpReg R.F2, OpReg R.F0))
                [| 0x46uy; 0x00uy; 0x10uy; 0x3cuy |]
 
       test32R2 Op.CVTD None (Some Fmt.W)
-               (TwoOperands (Register R.F0, Register R.F0))
+               (TwoOperands (OpReg R.F0, OpReg R.F0))
                [| 0x46uy; 0x80uy; 0x00uy; 0x21uy |]
 
       test32R2 Op.CVTS None (Some Fmt.D)
-               (TwoOperands (Register R.F0, Register R.F0))
+               (TwoOperands (OpReg R.F0, OpReg R.F0))
                [| 0x46uy; 0x20uy; 0x00uy; 0x20uy |]
 
       test32R2 Op.TRUNCW None (Some Fmt.D)
-               (TwoOperands (Register R.F0, Register R.F0))
+               (TwoOperands (OpReg R.F0, OpReg R.F0))
                [| 0x46uy; 0x20uy; 0x00uy; 0x0duy |]
 
       test32R2 Op.TRUNCW None (Some Fmt.S)
-               (TwoOperands (Register R.F0, Register R.F0))
+               (TwoOperands (OpReg R.F0, OpReg R.F0))
                [| 0x46uy; 0x00uy; 0x00uy; 0x0duy |]
 
 /// ETC Operations
@@ -6514,7 +6514,7 @@ module MIPS32 =
     [<TestMethod>]
     member __.``[MIPS32] ETC Operations Parse Test`` () =
       test32R2 Op.TEQ None None
-               (TwoOperands (Register R.R2, Register R.R0))
+               (TwoOperands (OpReg R.R2, OpReg R.R0))
                [| 0x00uy; 0x40uy; 0x01uy; 0xf4uy |]
 
       test32R2 Op.BC1T None None

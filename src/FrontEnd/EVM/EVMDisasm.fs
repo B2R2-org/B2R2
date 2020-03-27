@@ -27,10 +27,6 @@ module internal B2R2.FrontEnd.EVM.Disasm
 open B2R2
 open B2R2.FrontEnd
 
-let regToStr = function
-  | R.GAS  -> "gas"
-  | _ -> failwith "Unknown Reg"
-
 let opcodeToStrings = function
   | Op.STOP -> struct ("stop", None)
   | Op.ADD -> struct("add", None)

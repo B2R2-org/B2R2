@@ -45,6 +45,7 @@
     <ProjectReference Include="..\..\Visualization\B2R2.Visualization.fsproj" />
     <ProjectReference Include="..\..\NameMangling\B2R2.NameMangling.fsproj" />
     <ProjectReference Include="..\Core\B2R2.Utilities.Core.fsproj" />
+    <ProjectReference Include="..\..\DataFlow\B2R2.DataFlow.fsproj" />
   </ItemGroup>
 
   <ItemGroup>

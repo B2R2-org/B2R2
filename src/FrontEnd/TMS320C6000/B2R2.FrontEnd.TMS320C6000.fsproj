@@ -7,8 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="TMS320C6000Types.fs" />
+    <Compile Include="TMS320C6000Register.fs" />
     <Compile Include="TMS320C6000RegisterSet.fs" />
+    <Compile Include="TMS320C6000Types.fs" />
     <Compile Include="TMS320C6000RegExprs.fs" />
     <Compile Include="TMS320C6000Utils.fs" />
     <Compile Include="TMS320C6000Disasm.fs" />

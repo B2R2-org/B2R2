@@ -56,15 +56,27 @@ class FlowGraph extends Graph {
   }
 
   queryDataflow(roots, addr, term) {
-    const ret = this.linemap[addr].Tokens[term];
-    if (roots.length !== 1) return ret;
+    const myself = this;
     const root = roots[0];
     const args = [root, addr, term];
     query({ "q": "DataFlow", "args": args }, function (_status, json) {
-      console.log(json);
-      console.log("yes");
+      let nodes = myself.linemap[addr].Tokens[term];
+      for (let i = 0; i < json.length; i++) {
+        const addr = json[i].addr;
+        const names = json[i].name;
+        for (let j = 0; j < names.length; j++) {
+          const token = myself.linemap[addr].Tokens[names[j]];
+          if (token !== undefined) {
+            nodes = nodes.concat(token);
+            break;
+          }
+        }
+      }
+      for (let i = 0; i < nodes.length; i++) {
+        nodes[i].classed("active", true);
+        myself.lastActiveTerms.push(nodes[i]);
+      }
     });
-    return ret;
   }
 
   deactivateHighlights() {
@@ -82,11 +94,7 @@ class FlowGraph extends Graph {
       span.on("click", function () {
         myself.deactivateHighlights();
         d3.event.stopPropagation();
-        const nodes = myself.queryDataflow(roots, addr, term);
-        for (let i = 0; i < nodes.length; i++) {
-          nodes[i].classed("active", true);
-          myself.lastActiveTerms.push(nodes[i]);
-        }
+        myself.queryDataflow(roots, addr, term);
       });
     }
   }

@@ -33,6 +33,7 @@ open B2R2.FrontEnd
 open B2R2.BinCorpus
 open B2R2.BinGraph
 open B2R2.MiddleEnd
+open B2R2.DataFlow
 open B2R2.Visualization
 
 type CFGType =
@@ -55,6 +56,14 @@ type JsonSegInfo = {
   SegAddr: Addr
   [<field: DataMember(Name = "bytes")>]
   SegBytes: byte []
+}
+
+[<DataContract>]
+type JsonVarPoint = {
+  [<field: DataMember(Name = "addr")>]
+  VarAddr: Addr
+  [<field: DataMember(Name = "name")>]
+  VarNames: string []
 }
 
 let rootDir =
@@ -189,18 +198,43 @@ let handleCommand req resp arbiter cmdMap (args: string) =
   let result = CLI.handle cmdMap arbiter args "" jsonPrinter
   Some (json<string> result  |> defaultEnc.GetBytes) |> answer req resp
 
+let computeConnectedVars chain v =
+  match Map.tryFind v chain.UseDefChain with
+  | None ->
+    match Map.tryFind v chain.DefUseChain with
+    | None -> Set.singleton v
+    | Some us -> us
+  | Some ds ->
+    ds
+    |> Set.fold (fun s d ->
+      match Map.tryFind d chain.DefUseChain with
+      | None -> s
+      | Some us -> Set.union us s) Set.empty
+
+let getVarNames handler = function
+  | Regular v ->
+    BinHandler.GetRegisterAliases handler v
+    |> Array.map (BinHandler.RegisterIDToString handler)
+  | _ -> [||]
+
 let handleDataflow req resp arbiter (args: string) =
+  let ess = Protocol.getBinEssence arbiter
   let args = args.Split ([|','|])
   let entry = args.[0] |> uint64
   let addr = args.[1] |> uint64
-  let var = args.[2]
-  let ess = Protocol.getBinEssence arbiter
+  let var = args.[2] |> BinHandler.RegisterIDFromString ess.BinHandler
   try
     let cfg, root = ess.SCFG.GetFunctionCFG (entry)
-    let lens = SSALens.Init ess.BinHandler ess.SCFG
-    let g, roots = lens.Filter cfg [root] ess.Apparatus
-    // FIXME
-    Some ([||])
+    let chain = DataFlowChain.init cfg root true
+    let v = { ProgramPoint = ProgramPoint (addr, 0); VarExpr = Regular var }
+    computeConnectedVars chain v
+    |> Set.toArray
+    |> Array.map (fun vp ->
+      { VarAddr = vp.ProgramPoint.Address
+        VarNames = getVarNames ess.BinHandler vp.VarExpr })
+    |> json<JsonVarPoint []>
+    |> defaultEnc.GetBytes
+    |> Some
     |> answer req resp
   with e ->
 #if DEBUG

@@ -56,6 +56,18 @@ module Register =
   let inline toRegID (reg: Register) =
     LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
 
+  let ofString (str: string) =
+    match str.ToLower () with
+    | "pc" -> R.PC
+    | "gas" -> R.GAS
+    | _ -> Utils.impossible ()
+
+  let toString = function
+    | R.GAS  -> "gas"
+    | R.PC -> "pc"
+    | _ -> Utils.impossible ()
+
+
 /// <summary>
 ///   EVM opcodes. This type should be generated using
 ///   <c>scripts/genOpcode.fsx</c> from the `EVMSupportedOpcode.txt` file.

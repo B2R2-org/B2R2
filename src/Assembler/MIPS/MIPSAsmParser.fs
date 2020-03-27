@@ -145,7 +145,7 @@ type AsmParser (mipsISA: ISA, startAddress: Addr) =
            :?> Register)
     <??> "registers"
 
-  let reg = pReg |>> Operand.Register
+  let reg = pReg |>> OpReg
 
   let regAddr = betweenParen pReg
 

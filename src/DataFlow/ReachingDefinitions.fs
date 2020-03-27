@@ -29,44 +29,51 @@ open B2R2.BinGraph
 open B2R2.BinIR.LowUIR
 open System.Collections.Generic
 
-type ReachingDefinitions (cfg: IRCFG) as this =
-  inherit DataFlowAnalysis<Set<ProgramPoint>> (Forward)
+type RDMap = Dictionary<VertexID, Set<VarPoint>>
 
-  let gens = Dictionary<VertexID, Set<ProgramPoint>> ()
-  let kills = Dictionary<VertexID, Set<ProgramPoint>> ()
+type ReachingDefinitions (cfg: IRCFG) as this =
+  inherit DataFlowAnalysis<Set<VarPoint>> (Forward)
+
+  let gens = RDMap ()
+  let kills = RDMap ()
 
   do this.Initialize ()
 
   member private __.FindDefs (v: Vertex<IRBasicBlock>) =
-    let defmap = Dictionary<RegisterID, ProgramPoint> ()
     v.VData.GetInsInfos ()
-    |> Array.iter (fun info ->
-      info.Stmts |> Array.iteri (fun idx stmt ->
+    |> Array.fold (fun list info ->
+      info.Stmts
+      |> Array.foldi (fun list idx stmt ->
         match stmt with
+        | Put (TempVar (_, n), _) ->
+          let pp = ProgramPoint (info.Instruction.Address, idx)
+          { ProgramPoint = pp; VarExpr = Temporary n } :: list
         | Put (Var (_, id, _, _), _) ->
-          defmap.[id] <- ProgramPoint (info.Instruction.Address, idx)
-        | _ -> ()))
-    defmap
+          let pp = ProgramPoint (info.Instruction.Address, idx)
+          { ProgramPoint = pp; VarExpr = Regular id } :: list
+        | _ -> list) list
+      |> fst) []
 
   member private __.Initialize () =
-    let regmap = Dictionary<RegisterID, Set<ProgramPoint>> ()
-    let vmap = Dictionary<VertexID, Set<RegisterID>> ()
+    let vpPerVar = Dictionary<VarExpr, Set<VarPoint>> ()
+    let vpPerVertex = Dictionary<VertexID, VarPoint list> ()
     cfg.IterVertex (fun v ->
       let vid = v.GetID ()
-      let defmap = __.FindDefs v
-      gens.[vid] <- defmap.Values |> Set.ofSeq
-      vmap.[vid] <- Set.empty
-      defmap.Keys |> Seq.iter (fun rid ->
-        vmap.[vid] <- Set.add rid vmap.[vid]
-        let pp = defmap.[rid]
-        if regmap.ContainsKey rid then regmap.[rid] <- Set.add pp regmap.[rid]
-        else regmap.[rid] <- Set.singleton pp)
+      let defs = __.FindDefs v
+      gens.[vid] <- defs |> Set.ofList
+      vpPerVertex.[vid] <- defs
+      defs |> List.iter (fun ({ VarExpr = v } as vp) ->
+        if vpPerVar.ContainsKey v then vpPerVar.[v] <- Set.add vp vpPerVar.[v]
+        else vpPerVar.[v] <- Set.singleton vp
+      )
     )
     cfg.IterVertex (fun v ->
       let vid = v.GetID ()
-      kills.[vid] <-
-        vmap.[vid]
-        |> Set.fold (fun set rid -> Set.union set regmap.[rid]) Set.empty
+      let vars = vpPerVertex.[vid] |> List.map (fun vp -> vp.VarExpr)
+      let vps = vpPerVertex.[vid] |> Set.ofList
+      let alldefs =
+        vars |> List.fold (fun set v -> Set.union set vpPerVar.[v]) Set.empty
+      kills.[vid] <- Set.difference alldefs vps
     )
 
   override __.Meet a b = Set.union a b
@@ -81,4 +88,3 @@ type ReachingDefinitions (cfg: IRCFG) as this =
   override __.Transfer i v =
     let vid = v.GetID ()
     Set.union gens.[vid] (Set.difference i kills.[vid])
-

@@ -30,115 +30,6 @@ open System.Runtime.CompilerServices
 [<assembly: InternalsVisibleTo("B2R2.FrontEnd.Tests")>]
 do ()
 
-type Register =
-  | A0 = 0x0
-  | A1 = 0x1
-  | A2 = 0x2
-  | A3 = 0x3
-  | A4 = 0x4
-  | A5 = 0x5
-  | A6 = 0x6
-  | A7 = 0x7
-  | A8 = 0x8
-  | A9 = 0x9
-  | A10 = 0xA
-  | A11 = 0xB
-  | A12 = 0xC
-  | A13 = 0xD
-  | A14 = 0xE
-  | A15 = 0xF
-  | A16 = 0x10
-  | A17 = 0x11
-  | A18 = 0x12
-  | A19 = 0x13
-  | A20 = 0x14
-  | A21 = 0x15
-  | A22 = 0x16
-  | A23 = 0x17
-  | A24 = 0x18
-  | A25 = 0x19
-  | A26 = 0x1A
-  | A27 = 0x1B
-  | A28 = 0x1C
-  | A29 = 0x1D
-  | A30 = 0x1E
-  | A31 = 0x1F
-  | B0 = 0x20
-  | B1 = 0x21
-  | B2 = 0x22
-  | B3 = 0x23
-  | B4 = 0x24
-  | B5 = 0x25
-  | B6 = 0x26
-  | B7 = 0x27
-  | B8 = 0x28
-  | B9 = 0x29
-  | B10 = 0x2A
-  | B11 = 0x2B
-  | B12 = 0x2C
-  | B13 = 0x2D
-  | B14 = 0x2E
-  | B15 = 0x2F
-  | B16 = 0x30
-  | B17 = 0x31
-  | B18 = 0x32
-  | B19 = 0x33
-  | B20 = 0x34
-  | B21 = 0x35
-  | B22 = 0x36
-  | B23 = 0x37
-  | B24 = 0x38
-  | B25 = 0x39
-  | B26 = 0x3A
-  | B27 = 0x3B
-  | B28 = 0x3C
-  | B29 = 0x3D
-  | B30 = 0x3E
-  | B31 = 0x3F
-  | AMR = 0x40
-  | CSR = 0x41
-  | DIER = 0x42
-  | DNUM = 0x43
-  | ECR = 0x44
-  | EFR = 0x45
-  | FADCR = 0x46
-  | FAUCR = 0x47
-  | FMCR = 0x48
-  | GFPGFR = 0x49
-  | GPLYA = 0x4A
-  | GPLYB = 0x4B
-  | ICR = 0x4C
-  | IER = 0x4D
-  | IERR = 0x4E
-  | IFR = 0x4F
-  | ILC = 0x50
-  | IRP = 0x51
-  | ISR = 0x52
-  | ISTP = 0x53
-  | ITSR = 0x54
-  | NRP = 0x55
-  | NTSR = 0x56
-  | PCE1 = 0x57
-  | REP = 0x58
-  | RILC = 0x59
-  | SSR = 0x5A
-  | TSCH = 0x5B
-  | TSCL = 0x5C
-  | TSR = 0x5D
-
-/// Shortcut for Register type.
-type internal R = Register
-
-/// This module exposes several useful functions to handle TMS320C6000
-/// registers.
-[<RequireQualifiedAccess>]
-module Register =
-  let inline ofRegID (n: RegisterID): Register =
-    int n |> LanguagePrimitives.EnumOfValue
-
-  let inline toRegID (reg: Register) =
-    LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
-
 /// <summary>
 ///   TMS320C6000 opcodes. This type should be generated using
 ///   <c>scripts/genOpcode.fsx</c> from the `TMS320C6000SupportedOpcode.txt`
@@ -390,7 +281,7 @@ type ModificationPerformed =
   | PostIncrement
 
 type Operand =
-  | Register of Register
+  | OpReg of Register
   | RegisterPair of Register * Register
   | OprMem of Register * ModificationPerformed * Offset
   | Immediate of Imm
