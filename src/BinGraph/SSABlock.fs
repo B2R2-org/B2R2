@@ -81,7 +81,7 @@ type SSABBlock (hdl, scfg, pp: ProgramPoint, instrs: InstructionInfo []) =
 
   override __.Range =
     let last = instrs.[instrs.Length - 1].Instruction
-    AddrRange (last.Address, last.Address + uint64 last.Length)
+    AddrRange (pp.Address, last.Address + uint64 last.Length)
 
   override __.IsFakeBlock () = Array.isEmpty instrs
 
