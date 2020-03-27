@@ -362,4 +362,24 @@ with
      * nxt: byref<Addr>
      -> Task<LowUIR.Stmt [] * bool>
 
+  /// <summary>
+  /// Return RegisterID from a given register string. Depending on the
+  /// underlying architecture of the BinHandler, we may have different
+  /// RegisterID.
+  /// </summary>
+  static member RegisterIDFromString: BinHandler -> string -> RegisterID
+
+  /// <summary>
+  /// Return a register string from a given RegisterID. Depending on the
+  /// underlying architecture of the BinHandler, we may have a different string
+  /// result.
+  /// </summary>
+  static member RegisterIDToString: BinHandler -> RegisterID -> string
+
+  /// <summary>
+  /// Return an array of aliases of a given register based on the current
+  /// architecture of BinHandler.
+  /// </summary>
+  static member GetRegisterAliases: BinHandler -> RegisterID -> RegisterID []
+
 // vim: set tw=80 sts=2 sw=2:

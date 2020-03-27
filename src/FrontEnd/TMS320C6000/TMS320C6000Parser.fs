@@ -280,15 +280,15 @@ let getB14orB15 value = if value = 0b0u then R.B14 else R.B15
 let private translateOperand unit (oprInfo: OperandInfo) =
   let v = oprInfo.OperandValue
   match oprInfo.OperandType with
-  | B14B15 -> getB14orB15 v |> Register
+  | B14B15 -> getB14orB15 v |> OpReg
   | BVec2 | BVec4 | I2 | I4 | Int | S2 | S4 | SInt | SLsb16 | SMsb16 | SP | U2
-  | U4 | UInt | ULsb16 | UMsb16 -> parseReg v false unit |> Register
+  | U4 | UInt | ULsb16 | UMsb16 -> parseReg v false unit |> OpReg
   | Const | SConst | UConst -> uint64 v |> Immediate
   | DInt | DP | DS2 | DUInt | DWS4 | DWU4 | SDInt | SLLong | SLong | ULLong
   | ULong -> parseRegPair v unit false
   | XDP -> parseRegPair v unit true
   | XI2 | XI4 | XInt | XS2 | XS4 | XSInt | XSLsb16 | XSMsb16 | XSP | XU2 | XU4
-  | XUInt | XULsb16 | XUMsb16 -> parseReg v true unit |> Register
+  | XUInt | XULsb16 | XUMsb16 -> parseReg v true unit |> OpReg
 
 let private parseOneOpr unit o = OneOperand (translateOperand unit o)
 
@@ -1237,7 +1237,7 @@ let parseSiUc5Uc5Si bin opcode unit =
 let parseDUnitLSBasicOperands bin opcode unit order =
   let mem = parseMem (extract bin 22u 9u) unit
   let reg =
-    parseRegBySide (extract bin 27u 23u) (getSide (sBit bin)) |> Register
+    parseRegBySide (extract bin 27u 23u) (getSide (sBit bin)) |> OpReg
   struct (opcode, unit, buildMemOperand reg mem order)
 
 /// mem [ucst15]
@@ -1246,7 +1246,7 @@ let parseDUnitLSLongImmOperands bin opcode unit order =
   let mem =
     OprMem (baseReg, PositiveOffset, UCst15 (uint64 (extract bin 22u 8u)))
   let reg =
-    parseRegBySide (extract bin 27u 23u) (getSide (sBit bin)) |> Register
+    parseRegBySide (extract bin 27u 23u) (getSide (sBit bin)) |> OpReg
   struct (opcode, unit, buildMemOperand reg mem order)
 
 /// mem, regPair
@@ -1299,14 +1299,14 @@ let getCtrlReg crHi crLo =
 
 /// Control Register to Register
 let parseCtrlRegToReg bin opcode unit =
-  let o1 = getCtrlReg (extract bin 17u 13u) (extract bin 22u 18u) |> Register
+  let o1 = getCtrlReg (extract bin 17u 13u) (extract bin 22u 18u) |> OpReg
   let o2 = translateOperand unit (OperandInfo (extract bin 27u 23u, UInt))
   struct (opcode, unit, TwoOperands (o1, o2))
 
 /// Register to Control Register
 let parseRegToCtrlReg bin opcode unit =
   let o1 = translateOperand unit (OperandInfo (extract bin 22u 18u, XUInt))
-  let o2 = getCtrlReg (extract bin 17u 13u) (extract bin 27u 23u) |> Register
+  let o2 = getCtrlReg (extract bin 17u 13u) (extract bin 27u 23u) |> OpReg
   struct (opcode, unit, TwoOperands (o1, o2))
 
 let private getDUnit s x =

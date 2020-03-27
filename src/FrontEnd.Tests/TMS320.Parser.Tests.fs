@@ -43,12 +43,12 @@ type DUnitTest () =
   [<TestMethod>]
   member __.``[TMS320] .D Unit Insturctions Parse Test`` () =
     test Opcode.ADD D1XUnit
-         (ThreeOperands (Register R.A1, Register R.B12, Register R.A6))
+         (ThreeOperands (OpReg R.A1, OpReg R.B12, OpReg R.A6))
          [| 0xB0uy; 0x3Auy; 0x30uy; 0x03uy |]
 
     test Opcode.LDB D1Unit // *-A5[4],A7
          (TwoOperands (OprMem (R.A5, NegativeOffset, UCst5 4UL),
-                       Register R.A7))
+                       OpReg R.A7))
          [| 0x24uy; 0x80uy; 0x94uy; 0x03uy |]
 
 /// .L Unit Instructions
@@ -56,7 +56,7 @@ type DUnitTest () =
 type LUnitTest () =
   [<TestMethod>]
   member __.``[TMS320] .L Unit Insturctions Parse Test`` () =
-    test Opcode.ABS2 L1Unit (TwoOperands (Register R.A0, Register R.A2))
+    test Opcode.ABS2 L1Unit (TwoOperands (OpReg R.A0, OpReg R.A2))
          [| 0x58uy; 0x83uy; 0x00uy; 0x01uy |]
 
     test Opcode.SUBDP L1XUnit
@@ -71,11 +71,11 @@ type MUnitTest () =
   [<TestMethod>]
   member __.``[TMS320] .M Unit Insturctions Parse Test`` () =
     test Opcode.AVG2 M1Unit
-         (ThreeOperands (Register R.A0, Register R.A1, Register R.A2))
+         (ThreeOperands (OpReg R.A0, OpReg R.A1, OpReg R.A2))
          [| 0xF0uy; 0x04uy; 0x04uy; 0x01uy |]
 
     test Opcode.MPY2IR M1XUnit
-         (ThreeOperands (Register R.A2, Register R.B5,
+         (ThreeOperands (OpReg R.A2, OpReg R.B5,
                          RegisterPair (R.A9, R.A8)))
          [| 0xF0uy; 0x53uy; 0x14uy; 0x14uy |]
 

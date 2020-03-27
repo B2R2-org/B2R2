@@ -40,9 +40,9 @@ type MIPSTests () =
   member __.``[MipsAssembly] Test add with and three operands ``() =
     let result = assembler.Run "add $s0 $1 v0"
     let operands =
-       ThreeOperands (Operand.Register Register.R16,
-                      Operand.Register Register.R1,
-                      Operand.Register Register.R2)
+       ThreeOperands (OpReg Register.R16,
+                      OpReg Register.R1,
+                      OpReg Register.R2)
     let answer =
       [ newInfo mips 0UL Opcode.ADD None None operands ]
     Assert.AreEqual (answer, result)
@@ -50,7 +50,7 @@ type MIPSTests () =
   [<TestMethod>]
   member __.``[MipsAssembly] Test jmp with immediate address ``() =
     let result = assembler.Run " jalr 0"
-    let operands = OneOperand (Operand.Immediate 0UL)
+    let operands = OneOperand (Immediate 0UL)
     let answer =
       [ newInfo mips 0UL Opcode.JALR None None operands ]
     Assert.AreEqual (answer, result)
@@ -58,7 +58,7 @@ type MIPSTests () =
   [<TestMethod>]
   member __.``[MipsAssembly] Test jmp with memmory access operand``() =
     let result = assembler.Run "jr ($s0)"
-    let operands = OneOperand (Operand.Memory (Register.R16, 0L, 32<rt>))
+    let operands = OneOperand (Memory (Register.R16, 0L, 32<rt>))
     let answer =
       [ newInfo mips 0UL Opcode.JR None None operands ]
     Assert.AreEqual (answer, result)
@@ -70,10 +70,10 @@ type MIPSTests () =
                      beq $4, r0, 0x1
                      jr someLabel"
     let operands1 =
-      ThreeOperands (Operand.Register Register.R4,
-                     Operand.Register Register.R0,
-                     Operand.Immediate 1UL)
-    let operands2 = OneOperand (Operand.Address (Relative -8L))
+      ThreeOperands (OpReg Register.R4,
+                     OpReg Register.R0,
+                     Immediate 1UL)
+    let operands2 = OneOperand (Address (Relative -8L))
     let answer =
       [ newInfo mips 0UL Opcode.BEQ None None operands1;
         newInfo mips 4UL Opcode.JR None None operands2 ]

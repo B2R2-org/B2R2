@@ -7,6 +7,8 @@
   <ItemGroup>
     <Compile Include="DataFlowAnalysis.fs" />
     <Compile Include="ReachingDefinitions.fs" />
+    <Compile Include="Utils.fs" />
+    <Compile Include="Chains.fs" />
   </ItemGroup>
 
   <ItemGroup>

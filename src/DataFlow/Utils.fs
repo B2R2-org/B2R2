@@ -22,29 +22,38 @@
   SOFTWARE.
 *)
 
-module B2R2.Visualization.Visualizer
+module B2R2.DataFlow.Utils
 
-let getJSONFromGraph iGraph roots =
-  try
-    let vGraph, roots = VisGraph.ofCFG iGraph roots
-  #if DEBUG
-    VisDebug.logn "# Original"
-    VisDebug.pp vGraph
-  #endif
-    let backEdgeList = CycleRemoval.removeCycles vGraph roots
-  #if DEBUG
-    VisDebug.logn "# After cycle removal"
-    VisDebug.pp vGraph
-  #endif
-    let backEdgeList, dummyMap =
-      LayerAssignment.assignLayers vGraph backEdgeList
-    let vLayout = CrossMinimization.minimizeCrosses vGraph
-    CoordAssignment.assignCoordinates vGraph vLayout
-    EdgeDrawing.drawEdges vGraph vLayout backEdgeList dummyMap
-    JSONExport.toStr roots vGraph
-  with e ->
-    eprintfn "%s" <| e.ToString ()
-    "{}"
+open B2R2.BinIR.LowUIR
 
-let visualizeFromFile _inFile _outFile =
-  B2R2.Utils.futureFeature ()
+let rec private extractUseFromExpr = function
+  | Var (_, id, _, _) -> [ Regular id ]
+  | TempVar (_, n) -> [ Temporary n ]
+  | UnOp (_, e, _, _) -> extractUseFromExpr e
+  | BinOp (_, _, e1, e2, _, _) -> extractUseFromExpr e1 @ extractUseFromExpr e2
+  | RelOp (_, e1, e2, _, _) -> extractUseFromExpr e1 @ extractUseFromExpr e2
+  | Load (_, _, e, _, _) -> extractUseFromExpr e
+  | Ite (c, e1, e2, _, _) ->
+    extractUseFromExpr c @ extractUseFromExpr e1 @ extractUseFromExpr e2
+  | Cast (_, _, e, _, _) -> extractUseFromExpr e
+  | Extract (e, _, _, _, _) -> extractUseFromExpr e
+  | _ -> []
+
+let private extractUseFromStmt = function
+  | Put (_, e)
+  | Store (_, _, e)
+  | Jmp (e)
+  | CJmp (e, _, _)
+  | InterJmp (_, e, _) -> extractUseFromExpr e
+  | InterCJmp (c, _, e1, e2) ->
+    extractUseFromExpr c @ extractUseFromExpr e1 @ extractUseFromExpr e2
+  | _ -> []
+
+let extractUses stmt =
+  extractUseFromStmt stmt
+  |> Set.ofList
+
+let filterRegularVars vars =
+  vars |> Set.filter (function
+    | Regular _ -> true
+    | _ -> false)

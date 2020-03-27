@@ -219,4 +219,87 @@ with
                   else (fun () -> BinHandler.LiftInstList handler is false)
       |> BinHandler.BuildTask
 
+  static member RegisterIDFromString handler str =
+    match handler.ISA.Arch with
+    | Architecture.IntelX86
+    | Architecture.IntelX64 ->
+      Intel.Register.ofString str |> Intel.Register.toRegID
+    | Architecture.ARMv7
+    | Architecture.AARCH32 ->
+      ARM32.Register.ofString str |> ARM32.Register.toRegID
+    | Architecture.AARCH64 ->
+      ARM64.Register.ofString str |> ARM64.Register.toRegID
+    | Architecture.MIPS1
+    | Architecture.MIPS2
+    | Architecture.MIPS3
+    | Architecture.MIPS4
+    | Architecture.MIPS5
+    | Architecture.MIPS32
+    | Architecture.MIPS32R2
+    | Architecture.MIPS32R6
+    | Architecture.MIPS64
+    | Architecture.MIPS64R2
+    | Architecture.MIPS64R6 ->
+      MIPS.Register.ofString str |> MIPS.Register.toRegID
+    | Architecture.EVM ->
+      EVM.Register.ofString str |> EVM.Register.toRegID
+    | Architecture.TMS320C5000
+    | Architecture.TMS320C6000 ->
+      TMS320C6000.Register.ofString str |> TMS320C6000.Register.toRegID
+    | _ -> Utils.futureFeature ()
+
+  static member RegisterIDToString handler rid =
+    match handler.ISA.Arch with
+    | Architecture.IntelX86
+    | Architecture.IntelX64 ->
+      Intel.Register.ofRegID rid |> Intel.Register.toString
+    | Architecture.ARMv7
+    | Architecture.AARCH32 ->
+      ARM32.Register.ofRegID rid |> ARM32.Register.toString
+    | Architecture.AARCH64 ->
+      ARM64.Register.ofRegID rid |> ARM64.Register.toString
+    | Architecture.MIPS1
+    | Architecture.MIPS2
+    | Architecture.MIPS3
+    | Architecture.MIPS4
+    | Architecture.MIPS5
+    | Architecture.MIPS32
+    | Architecture.MIPS32R2
+    | Architecture.MIPS32R6
+    | Architecture.MIPS64
+    | Architecture.MIPS64R2
+    | Architecture.MIPS64R6 ->
+      MIPS.Register.ofRegID rid |> MIPS.Register.toString
+    | Architecture.EVM ->
+      EVM.Register.ofRegID rid |> EVM.Register.toString
+    | Architecture.TMS320C5000
+    | Architecture.TMS320C6000 ->
+      TMS320C6000.Register.ofRegID rid |> TMS320C6000.Register.toString
+    | _ -> Utils.futureFeature ()
+
+  static member GetRegisterAliases handler rid =
+    match handler.ISA.Arch with
+    | Architecture.IntelX86
+    | Architecture.IntelX64 ->
+      Intel.Register.ofRegID rid
+      |> Intel.Register.getAliases
+      |> Array.map Intel.Register.toRegID
+    | Architecture.ARMv7
+    | Architecture.AARCH32
+    | Architecture.AARCH64
+    | Architecture.MIPS1
+    | Architecture.MIPS2
+    | Architecture.MIPS3
+    | Architecture.MIPS4
+    | Architecture.MIPS5
+    | Architecture.MIPS32
+    | Architecture.MIPS32R2
+    | Architecture.MIPS32R6
+    | Architecture.MIPS64
+    | Architecture.MIPS64R2
+    | Architecture.MIPS64R6
+    | Architecture.EVM
+    | Architecture.TMS320C5000
+    | Architecture.TMS320C6000 -> [| rid |]
+    | _ -> Utils.futureFeature ()
 // vim: set tw=80 sts=2 sw=2:

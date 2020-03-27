@@ -53,7 +53,7 @@ let bvOfInstrLen (ctxt: TranslationContext) insInfo =
   numU32 insInfo.NumBytes ctxt.WordBitSize
 
 let transOprToExpr insInfo ctxt = function
-  | Register reg -> getRegVar ctxt reg
+  | OpReg reg -> getRegVar ctxt reg
   | Immediate imm
   | ShiftAmount imm -> ctxt.WordBitSize |> BitVector.ofUInt64 imm |> num
   | Memory (b, o, sz) ->

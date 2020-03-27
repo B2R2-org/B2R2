@@ -24,8 +24,20 @@
 
 namespace B2R2.DataFlow
 
+open B2R2
 open B2R2.BinGraph
 open System.Collections.Generic
+
+/// Defined variable.
+type VarExpr =
+  | Regular of RegisterID
+  | Temporary of int
+
+/// Program point of a defined variable.
+type VarPoint = {
+  ProgramPoint: ProgramPoint
+  VarExpr: VarExpr
+}
 
 /// Either forward or backward analysis.
 type DataFlowDirection =
@@ -94,4 +106,3 @@ type DataFlowAnalysis<'V when 'V: equality> (direction) =
         addToWorklist worklist blk
       else ()
     ins, outs
-

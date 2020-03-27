@@ -257,103 +257,6 @@ let opCodeToString = function
   | Op.ZERO -> "ZERO"
   | _ -> Utils.impossible ()
 
-let regToStr = function
-  | R.A0 -> "A0"
-  | R.A1 -> "A1"
-  | R.A2 -> "A2"
-  | R.A3 -> "A3"
-  | R.A4 -> "A4"
-  | R.A5 -> "A5"
-  | R.A6 -> "A6"
-  | R.A7 -> "A7"
-  | R.A8 -> "A8"
-  | R.A9 -> "A9"
-  | R.A10 -> "A10"
-  | R.A11 -> "A11"
-  | R.A12 -> "A12"
-  | R.A13 -> "A13"
-  | R.A14 -> "A14"
-  | R.A15 -> "A15"
-  | R.A16 -> "A16"
-  | R.A17 -> "A17"
-  | R.A18 -> "A18"
-  | R.A19 -> "A19"
-  | R.A20 -> "A20"
-  | R.A21 -> "A21"
-  | R.A22 -> "A22"
-  | R.A23 -> "A23"
-  | R.A24 -> "A24"
-  | R.A25 -> "A25"
-  | R.A26 -> "A26"
-  | R.A27 -> "A27"
-  | R.A28 -> "A28"
-  | R.A29 -> "A29"
-  | R.A30 -> "A30"
-  | R.A31 -> "A31"
-  | R.B0 -> "B0"
-  | R.B1 -> "B1"
-  | R.B2 -> "B2"
-  | R.B3 -> "B3"
-  | R.B4 -> "B4"
-  | R.B5 -> "B5"
-  | R.B6 -> "B6"
-  | R.B7 -> "B7"
-  | R.B8 -> "B8"
-  | R.B9 -> "B9"
-  | R.B10 -> "B10"
-  | R.B11 -> "B11"
-  | R.B12 -> "B12"
-  | R.B13 -> "B13"
-  | R.B14 -> "B14"
-  | R.B15 -> "B15"
-  | R.B16 -> "B16"
-  | R.B17 -> "B17"
-  | R.B18 -> "B18"
-  | R.B19 -> "B19"
-  | R.B20 -> "B20"
-  | R.B21 -> "B21"
-  | R.B22 -> "B22"
-  | R.B23 -> "B23"
-  | R.B24 -> "B24"
-  | R.B25 -> "B25"
-  | R.B26 -> "B26"
-  | R.B27 -> "B27"
-  | R.B28 -> "B28"
-  | R.B29 -> "B29"
-  | R.B30 -> "B30"
-  | R.B31 -> "B31"
-  | R.AMR -> "AMR"
-  | R.CSR -> "CSR"
-  | R.DIER -> "DIER"
-  | R.DNUM -> "DNUM"
-  | R.ECR -> "ECR"
-  | R.EFR -> "EFR"
-  | R.FADCR -> "FADCR"
-  | R.FAUCR -> "FAUCR"
-  | R.FMCR -> "FMCR"
-  | R.GFPGFR -> "GFPGFR"
-  | R.GPLYA -> "GPLYA"
-  | R.GPLYB -> "GPLYB"
-  | R.ICR -> "ICR"
-  | R.IER -> "IER"
-  | R.IERR -> "IERR"
-  | R.IFR -> "IFR"
-  | R.ILC -> "ILC"
-  | R.IRP -> "IRP"
-  | R.ISR -> "ISR"
-  | R.ISTP -> "ISTP"
-  | R.ITSR -> "ITSR"
-  | R.NRP -> "NRP"
-  | R.NTSR -> "NTSR"
-  | R.PCE1 -> "PCE1"
-  | R.REP -> "REP"
-  | R.RILC -> "RILC"
-  | R.SSR -> "SSR"
-  | R.TSCH -> "TSCH"
-  | R.TSCL -> "TSCL"
-  | R.TSR -> "TSR"
-  | _ -> Utils.impossible ()
-
 let inline appendUnit insInfo opcode =
   match insInfo.FunctionalUnit with
   | L1Unit -> opcode + ".L1"
@@ -385,28 +288,28 @@ let inline buildOpcode ins builder acc =
 let buildMemBase builder baseR acc = function
   | NegativeOffset ->
     builder AsmWordKind.String "-" acc
-    |> builder AsmWordKind.Variable (regToStr baseR)
+    |> builder AsmWordKind.Variable (Register.toString baseR)
   | PositiveOffset ->
     builder AsmWordKind.String "+" acc
-    |> builder AsmWordKind.Variable (regToStr baseR)
+    |> builder AsmWordKind.Variable (Register.toString baseR)
   | PreDecrement ->
     builder AsmWordKind.String "--" acc
-    |> builder AsmWordKind.Variable (regToStr baseR)
+    |> builder AsmWordKind.Variable (Register.toString baseR)
   | PreIncrement ->
     builder AsmWordKind.String "++" acc
-    |> builder AsmWordKind.Variable (regToStr baseR)
+    |> builder AsmWordKind.Variable (Register.toString baseR)
   | PostDecrement ->
-    builder AsmWordKind.Variable (regToStr baseR) acc
+    builder AsmWordKind.Variable (Register.toString baseR) acc
     |> builder AsmWordKind.String "--"
   | PostIncrement ->
-    builder AsmWordKind.Variable (regToStr baseR) acc
+    builder AsmWordKind.Variable (Register.toString baseR) acc
     |> builder AsmWordKind.String "++"
 
 let private offsetToString builder offset acc =
   match offset with
   | UCst5 i -> builder AsmWordKind.Value (i.ToString()) acc
   | UCst15 i -> builder AsmWordKind.Value (i.ToString()) acc
-  | OffsetR reg -> builder AsmWordKind.Variable (regToStr reg) acc
+  | OffsetR reg -> builder AsmWordKind.Variable (Register.toString reg) acc
 
 let private buildMemOffset builder offset acc =
   match offset with
@@ -422,14 +325,14 @@ let memToString builder baseR modification offset acc =
 
 let oprToString insInfo opr delim builder acc =
   match opr with
-  | Register reg ->
+  | OpReg reg ->
     builder AsmWordKind.String delim acc
-    |> builder AsmWordKind.Variable (regToStr reg)
+    |> builder AsmWordKind.Variable (Register.toString reg)
   | RegisterPair (r1, r2) ->
     builder AsmWordKind.String delim acc
-    |> builder AsmWordKind.Variable (regToStr r1)
+    |> builder AsmWordKind.Variable (Register.toString r1)
     |> builder AsmWordKind.String ":"
-    |> builder AsmWordKind.Variable (regToStr r2)
+    |> builder AsmWordKind.Variable (Register.toString r2)
   | OprMem (baseR, modification, offset) ->
     builder AsmWordKind.String delim acc
     |> builder AsmWordKind.String " *"

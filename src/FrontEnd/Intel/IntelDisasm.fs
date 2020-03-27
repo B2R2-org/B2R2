@@ -28,187 +28,6 @@ open B2R2
 open B2R2.BinFile
 open B2R2.FrontEnd
 
-let regToStr = function
-  | R.RAX -> "rax"
-  | R.RBX -> "rbx"
-  | R.RCX -> "rcx"
-  | R.RDX -> "rdx"
-  | R.RSP -> "rsp"
-  | R.RBP -> "rbp"
-  | R.RSI -> "rsi"
-  | R.RDI -> "rdi"
-  | R.EAX -> "eax"
-  | R.EBX -> "ebx"
-  | R.ECX -> "ecx"
-  | R.EDX -> "edx"
-  | R.ESP -> "esp"
-  | R.EBP -> "ebp"
-  | R.ESI -> "esi"
-  | R.EDI -> "edi"
-  | R.AX -> "ax"
-  | R.BX -> "bx"
-  | R.CX -> "cx"
-  | R.DX -> "dx"
-  | R.SP -> "sp"
-  | R.BP -> "bp"
-  | R.SI -> "si"
-  | R.DI -> "di"
-  | R.AL -> "al"
-  | R.BL -> "bl"
-  | R.CL -> "cl"
-  | R.DL -> "dl"
-  | R.AH -> "ah"
-  | R.BH -> "bh"
-  | R.CH -> "ch"
-  | R.DH -> "dh"
-  | R.R8 -> "r8"
-  | R.R9 -> "r9"
-  | R.R10 -> "r10"
-  | R.R11 -> "r11"
-  | R.R12 -> "r12"
-  | R.R13 -> "r13"
-  | R.R14 -> "r14"
-  | R.R15 -> "r15"
-  | R.R8D -> "r8d"
-  | R.R9D -> "r9d"
-  | R.R10D -> "r10d"
-  | R.R11D -> "r11d"
-  | R.R12D -> "r12d"
-  | R.R13D -> "r13d"
-  | R.R14D -> "r14d"
-  | R.R15D -> "r15d"
-  | R.R8W -> "r8w"
-  | R.R9W -> "r8w"
-  | R.R10W -> "r10w"
-  | R.R11W -> "r11w"
-  | R.R12W -> "r12w"
-  | R.R13W -> "r13w"
-  | R.R14W -> "r14w"
-  | R.R15W -> "r15w"
-  | R.R8L -> "r8l"
-  | R.R9L -> "r9l"
-  | R.R10L -> "r10l"
-  | R.R11L -> "r11l"
-  | R.R12L -> "r12l"
-  | R.R13L -> "r13l"
-  | R.R14L -> "r14l"
-  | R.R15L -> "r15l"
-  | R.SPL -> "spl"
-  | R.BPL -> "bpl"
-  | R.SIL -> "sil"
-  | R.DIL -> "dil"
-  | R.EIP -> "eip"
-  | R.RIP -> "rip"
-  | R.ST0 -> "st(0)"
-  | R.ST1 -> "st(1)"
-  | R.ST2 -> "st(2)"
-  | R.ST3 -> "st(3)"
-  | R.ST4 -> "st(4)"
-  | R.ST5 -> "st(5)"
-  | R.ST6 -> "st(6)"
-  | R.ST7 -> "st(7)"
-  | R.MM0 -> "mm0"
-  | R.MM1 -> "mm1"
-  | R.MM2 -> "mm2"
-  | R.MM3 -> "mm3"
-  | R.MM4 -> "mm4"
-  | R.MM5 -> "mm5"
-  | R.MM6 -> "mm6"
-  | R.MM7 -> "mm7"
-  | R.XMM0 -> "xmm0"
-  | R.XMM1 -> "xmm1"
-  | R.XMM2 -> "xmm2"
-  | R.XMM3 -> "xmm3"
-  | R.XMM4 -> "xmm4"
-  | R.XMM5 -> "xmm5"
-  | R.XMM6 -> "xmm6"
-  | R.XMM7 -> "xmm7"
-  | R.XMM8 -> "xmm8"
-  | R.XMM9 -> "xmm9"
-  | R.XMM10 -> "xmm10"
-  | R.XMM11 -> "xmm11"
-  | R.XMM12 -> "xmm12"
-  | R.XMM13 -> "xmm13"
-  | R.XMM14 -> "xmm14"
-  | R.XMM15 -> "xmm15"
-  | R.YMM0 -> "ymm0"
-  | R.YMM1 -> "ymm1"
-  | R.YMM2 -> "ymm2"
-  | R.YMM3 -> "ymm3"
-  | R.YMM4 -> "ymm4"
-  | R.YMM5 -> "ymm5"
-  | R.YMM6 -> "ymm6"
-  | R.YMM7 -> "ymm7"
-  | R.YMM8 -> "ymm8"
-  | R.YMM9 -> "ymm9"
-  | R.YMM10 -> "ymm10"
-  | R.YMM11 -> "ymm11"
-  | R.YMM12 -> "ymm12"
-  | R.YMM13 -> "ymm13"
-  | R.YMM14 -> "ymm14"
-  | R.YMM15 -> "ymm15"
-  | R.ZMM0 -> "zmm0"
-  | R.ZMM1 -> "zmm1"
-  | R.ZMM2 -> "zmm2"
-  | R.ZMM3 -> "zmm3"
-  | R.ZMM4 -> "zmm4"
-  | R.ZMM5 -> "zmm5"
-  | R.ZMM6 -> "zmm6"
-  | R.ZMM7 -> "zmm7"
-  | R.ZMM8 -> "zmm8"
-  | R.ZMM9 -> "zmm9"
-  | R.ZMM10 -> "zmm10"
-  | R.ZMM11 -> "zmm11"
-  | R.ZMM12 -> "zmm12"
-  | R.ZMM13 -> "zmm13"
-  | R.ZMM14 -> "zmm14"
-  | R.ZMM15 -> "zmm15"
-  | R.CS -> "cs"
-  | R.DS -> "ds"
-  | R.SS -> "ss"
-  | R.ES -> "es"
-  | R.FS -> "fs"
-  | R.GS -> "gs"
-  | R.CSBase -> "CSBase"
-  | R.DSBase -> "DSBase"
-  | R.ESBase -> "ESBase"
-  | R.FSBase -> "FSBase"
-  | R.GSBase -> "GSBase"
-  | R.SSBase -> "SSBase"
-  | R.CR0 -> "cr0"
-  | R.CR2 -> "cr2"
-  | R.CR3 -> "cr3"
-  | R.CR4 -> "cr4"
-  | R.CR8 -> "cr8"
-  | R.DR0 -> "dr0"
-  | R.DR1 -> "dr1"
-  | R.DR2 -> "dr2"
-  | R.DR3 -> "dr3"
-  | R.DR6 -> "dr6"
-  | R.DR7 -> "dr7"
-  | R.BND0 -> "bnd0"
-  | R.BND1 -> "bnd1"
-  | R.BND2 -> "bnd2"
-  | R.BND3 -> "bnd3"
-  | R.OF -> "of"
-  | R.DF -> "df"
-  | R.IF -> "if"
-  | R.TF -> "tf"
-  | R.SF -> "sf"
-  | R.ZF -> "zf"
-  | R.AF -> "af"
-  | R.PF -> "pf"
-  | R.CF -> "cf"
-  | R.K0 -> "k0"
-  | R.K1 -> "k1"
-  | R.K2 -> "k2"
-  | R.K3 -> "k3"
-  | R.K4 -> "k4"
-  | R.K5 -> "k5"
-  | R.K6 -> "k6"
-  | R.K7 -> "k7"
-  | _ -> "UnknowReg"
-
 let opCodeToString = function
   | Opcode.AAA -> "aaa"
   | Opcode.AAD -> "aad"
@@ -1022,7 +841,7 @@ let inline private memScaleDispToStr emptyBase si d wordSz builder acc =
   | None -> memDispToStr (not emptyBase) d wordSz builder acc
   | Some (i, scale) ->
     let acc = if emptyBase then acc else builder AsmWordKind.String "+" acc
-    builder AsmWordKind.Variable (regToStr i) acc
+    builder AsmWordKind.Variable (Register.toString i) acc
     |> scaleToString scale builder
     |> memDispToStr true d wordSz builder
 
@@ -1030,7 +849,7 @@ let private memAddrToStr b si disp wordSz builder acc =
   match b with
   | None -> memScaleDispToStr true si disp wordSz builder acc
   | Some b ->
-    builder AsmWordKind.Variable (regToStr b) acc
+    builder AsmWordKind.Variable (Register.toString b) acc
     |> memScaleDispToStr false si disp wordSz builder
 
 let inline isFar (ins: InsInfo) =
@@ -1049,7 +868,7 @@ let mToString wordSz (ins: InsInfo) b si d oprSz builder acc =
   | Some seg ->
     builder AsmWordKind.String ptrDirective acc
     |> builder AsmWordKind.String (" [")
-    |> builder AsmWordKind.Variable (regToStr seg)
+    |> builder AsmWordKind.Variable (Register.toString seg)
     |> builder AsmWordKind.String ":"
     |> memAddrToStr b si d wordSz builder
     |> builder AsmWordKind.String "]"
@@ -1100,7 +919,8 @@ let maskRegToString ePrx builder acc =
   if ePrx.AAA = 0uy then acc
   else
     builder AsmWordKind.String " {" acc
-    |> builder AsmWordKind.Variable (getOpmaskRegister ePrx.AAA |> regToStr)
+    |> builder AsmWordKind.Variable
+      (getOpmaskRegister ePrx.AAA |> Register.toString)
     |> builder AsmWordKind.String "}"
 
 let buildMask (ins: InsInfo) builder acc =
@@ -1112,7 +932,7 @@ let buildMask (ins: InsInfo) builder acc =
 let oprToString wordSz ins insAddr fi opr isFstOpr builder acc =
   match opr with
   | OprReg reg ->
-    let acc = builder AsmWordKind.Variable (regToStr reg) acc
+    let acc = builder AsmWordKind.Variable (Register.toString reg) acc
     if isFstOpr then buildMask ins builder acc else acc
   | OprMem (b, si, disp, oprSz) ->
     let acc = mToString wordSz ins b si disp oprSz builder acc

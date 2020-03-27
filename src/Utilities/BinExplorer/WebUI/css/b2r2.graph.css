@@ -63,11 +63,13 @@
 }
 
 .c-graph__stmt--variable.active {
+  background-color: var(--graph-stmt-highlighted-background);
   color: var(--graph-stmt-highlighted);
   font-weight: bold;
 }
 
 .c-graph__stmt--value.active {
+  background-color: var(--graph-stmt-highlighted-background);
   color: var(--graph-stmt-highlighted);
   font-weight: bold;
 }

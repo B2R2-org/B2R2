@@ -24,78 +24,7 @@
 
 module internal B2R2.FrontEnd.MIPS.Disasm
 
-open B2R2
 open B2R2.FrontEnd
-
-let regToStr = function
-  | R.R0  -> "r0"
-  | R.R1  -> "at"
-  | R.R2  -> "v0"
-  | R.R3  -> "v1"
-  | R.R4  -> "a0"
-  | R.R5  -> "a1"
-  | R.R6  -> "a2"
-  | R.R7  -> "a3"
-  | R.R8  -> "t0"
-  | R.R9  -> "t1"
-  | R.R10 -> "t2"
-  | R.R11 -> "t3"
-  | R.R12 -> "t4"
-  | R.R13 -> "t5"
-  | R.R14 -> "t6"
-  | R.R15 -> "t7"
-  | R.R16 -> "s0"
-  | R.R17 -> "s1"
-  | R.R18 -> "s2"
-  | R.R19 -> "s3"
-  | R.R20 -> "s4"
-  | R.R21 -> "s5"
-  | R.R22 -> "s6"
-  | R.R23 -> "s7"
-  | R.R24 -> "t8"
-  | R.R25 -> "t9"
-  | R.R26 -> "k0"
-  | R.R27 -> "k1"
-  | R.R28 -> "gp"
-  | R.R29 -> "sp"
-  | R.R30 -> "fp"
-  | R.R31 -> "ra"
-  | R.F0  -> "f0"
-  | R.F1  -> "f1"
-  | R.F2  -> "f2"
-  | R.F3  -> "f3"
-  | R.F4  -> "f4"
-  | R.F5  -> "f5"
-  | R.F6  -> "f6"
-  | R.F7  -> "f7"
-  | R.F8  -> "f8"
-  | R.F9  -> "f9"
-  | R.F10 -> "f10"
-  | R.F11 -> "f11"
-  | R.F12 -> "f12"
-  | R.F13 -> "f13"
-  | R.F14 -> "f14"
-  | R.F15 -> "f15"
-  | R.F16 -> "f16"
-  | R.F17 -> "f17"
-  | R.F18 -> "f18"
-  | R.F19 -> "f19"
-  | R.F20 -> "f20"
-  | R.F21 -> "f21"
-  | R.F22 -> "f22"
-  | R.F23 -> "f23"
-  | R.F24 -> "f24"
-  | R.F25 -> "f25"
-  | R.F26 -> "f26"
-  | R.F27 -> "f27"
-  | R.F28 -> "f28"
-  | R.F29 -> "f29"
-  | R.F30 -> "f30"
-  | R.F31 -> "f31"
-  | R.HI  -> "hi"
-  | R.LO  -> "lo"
-  | R.PC  -> "pc"
-  | _ -> failwith "Unknown Reg"
 
 let condToString = function
   | Condition.F -> ".f"
@@ -259,9 +188,9 @@ let inline relToString pc offset builder acc =
 
 let oprToString insInfo opr delim builder acc =
   match opr with
-  | Register reg ->
+  | OpReg reg ->
     builder AsmWordKind.String delim acc
-    |> builder AsmWordKind.Variable (regToStr reg)
+    |> builder AsmWordKind.Variable (Register.toString reg)
   | Immediate imm
   | ShiftAmount imm ->
     builder AsmWordKind.String delim acc
@@ -270,7 +199,7 @@ let oprToString insInfo opr delim builder acc =
     builder AsmWordKind.String delim acc
     |> builder AsmWordKind.Value (off.ToString ("D"))
     |> builder AsmWordKind.String "("
-    |> builder AsmWordKind.Variable (regToStr b)
+    |> builder AsmWordKind.Variable (Register.toString b)
     |> builder AsmWordKind.String ")"
   | Address (Relative offset) ->
     builder AsmWordKind.String delim acc
