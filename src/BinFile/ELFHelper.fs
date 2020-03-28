@@ -32,6 +32,7 @@ let convFileType = function
   | ELFFileType.Executable -> FileType.ExecutableFile
   | ELFFileType.SharedObject -> FileType.LibFile
   | ELFFileType.Core -> FileType.CoreFile
+  | ELFFileType.Relocatable -> FileType.ObjFile
   | _ -> FileType.UnknownFile
 
 let isNXEnabled elf =
@@ -53,11 +54,25 @@ let inline private inMem seg addr =
   let vAddr = seg.PHAddr
   addr >= vAddr && addr < vAddr + seg.PHMemSize
 
-let rec translateAddr addr = function
+let translateWithSecs addr (secs: ELFSection []) =
+  secs
+  |> Array.tryFindIndex (fun s ->
+    s.SecType = SectionType.SHTProgBits
+    && s.SecAddr <= addr && (s.SecAddr + s.SecSize) > addr)
+  |> function
+    | None -> raise InvalidAddrReadException
+    | Some idx -> secs.[idx].SecOffset + addr |> Convert.ToInt32
+
+let rec translateWithSegs addr = function
   | seg :: tl ->
     if inMem seg addr then Convert.ToInt32 (addr - seg.PHAddr + seg.PHOffset)
-    else translateAddr addr tl
+    else translateWithSegs addr tl
   | [] -> raise InvalidAddrReadException
+
+let translateAddr addr elf =
+  match elf.LoadableSegments with
+  | [] -> translateWithSecs addr elf.SecInfo.SecByNum
+  | segs -> translateWithSegs addr segs
 
 let isFuncSymb s =
   s.SymType = SymbolType.STTFunc || s.SymType = SymbolType.STTGNUIFunc
