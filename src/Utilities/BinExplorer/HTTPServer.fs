@@ -209,7 +209,7 @@ let computeConnectedVars chain v =
     |> Set.fold (fun s d ->
       match Map.tryFind d chain.DefUseChain with
       | None -> s
-      | Some us -> Set.union us s) Set.empty
+      | Some us -> Set.union us s) ds
 
 let getVarNames handler = function
   | Regular v ->

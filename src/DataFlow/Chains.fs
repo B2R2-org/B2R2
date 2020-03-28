@@ -33,6 +33,14 @@ type DataFlowChain = {
 }
 
 module DataFlowChain =
+  let private computeInBlockDefs pp (u: VarExpr) (outset: Set<VarPoint>) =
+    outset
+    |> Seq.filter (fun vp ->
+      vp.VarExpr = u
+      && vp.ProgramPoint < (pp: ProgramPoint))
+    |> Seq.sortBy (fun vp -> vp.ProgramPoint)
+    |> Seq.tryLast (* Picking the def that has the largest position idx *)
+
   /// When there are more than one defs for the same variable, we should choose
   /// the last one.
   let private filterLastDefInBlock defs =
@@ -47,7 +55,12 @@ module DataFlowChain =
     |> Map.toList
     |> List.map snd
 
-  let private initUDChain (cfg: IRCFG) (ins: RDMap) =
+  let private computeOutBlockDefs (u: VarExpr) (inset: Set<VarPoint>) =
+    inset
+    |> Set.filter (fun d -> d.VarExpr = u)
+    |> filterLastDefInBlock
+
+  let private initUDChain (cfg: IRCFG) (ins: RDMap) (outs: RDMap) =
     Map.empty
     |> cfg.FoldVertex (fun map v ->
       v.VData.GetInsInfos ()
@@ -55,17 +68,17 @@ module DataFlowChain =
         info.Stmts
         |> Array.foldi (fun map idx stmt ->
           let pp = ProgramPoint (info.Instruction.Address, idx)
-          let defs = ins.[v.GetID ()]
+          let inset = ins.[v.GetID ()]
+          let outset = outs.[v.GetID ()]
           let uses = Utils.extractUses stmt
           uses |> Set.fold (fun map u ->
-            defs
-            |> Set.filter (fun d -> d.VarExpr = u)
-            |> filterLastDefInBlock
-            |> fun lst ->
-              if lst.IsEmpty then
-                map
-              else
-                Map.add { VarExpr = u; ProgramPoint = pp } (Set.ofList lst) map
+            let usepoint = { VarExpr = u; ProgramPoint = pp }
+            let set = computeOutBlockDefs u inset |> Set.ofList
+            let set =
+              match computeInBlockDefs pp u outset with
+              | Some def -> Set.add def set
+              | None -> set
+            Map.add usepoint set map
           ) map
         ) map |> fst
       ) map)
@@ -97,7 +110,7 @@ module DataFlowChain =
   [<CompiledName("Init")>]
   let init cfg root isDisasmLevel =
     let rd = ReachingDefinitions (cfg)
-    let ins, _outs = rd.Compute (root)
-    let udchain = initUDChain cfg ins |> filterDisasm isDisasmLevel
+    let ins, outs = rd.Compute (root)
+    let udchain = initUDChain cfg ins outs |> filterDisasm isDisasmLevel
     let duchain = initDUChain udchain |> filterDisasm isDisasmLevel
     { UseDefChain = udchain; DefUseChain = duchain }

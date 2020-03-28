@@ -221,9 +221,14 @@ with
 
   static member RegisterIDFromString handler str =
     match handler.ISA.Arch with
-    | Architecture.IntelX86
+    | Architecture.IntelX86 ->
+      Intel.Register.ofString str
+      |> Intel.Register.extendRegister32
+      |> Intel.Register.toRegID
     | Architecture.IntelX64 ->
-      Intel.Register.ofString str |> Intel.Register.toRegID
+      Intel.Register.ofString str
+      |> Intel.Register.extendRegister64
+      |> Intel.Register.toRegID
     | Architecture.ARMv7
     | Architecture.AARCH32 ->
       ARM32.Register.ofString str |> ARM32.Register.toRegID
