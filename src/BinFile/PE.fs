@@ -40,7 +40,7 @@ type PEFileInfo (bytes, path, ?rawpdb) =
   override __.FileType = getFileType pe
   override __.FilePath = path
   override __.WordSize = getWordSize pe
-  override __.IsStripped = Array.length pe.PDB.SymbolArray = 0
+  override __.IsStripped = Array.length pe.SymbolInfo.SymbolArray = 0
   override __.IsNXEnabled = isNXEnabled pe
   override __.IsRelocatable = isRelocatable pe
   override __.EntryPoint = getEntryPoint pe

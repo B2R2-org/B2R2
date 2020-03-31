@@ -32,6 +32,7 @@
     <Compile Include="PETypes.fs" />
     <Compile Include="PEPDB.fs" />
     <Compile Include="PEHelper.fs" />
+    <Compile Include="PECoff.fs" />
     <Compile Include="PEParser.fs" />
     <Compile Include="PE.fs" />
     <Compile Include="FormatDetector.fs" />

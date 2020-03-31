@@ -231,8 +231,8 @@ type PESymbol = {
   Name: string
 }
 
-/// PDB symbol information.
-type PDBInfo = {
+/// Symbol information (either from PDB or from COFF symbol table).
+type SymbolInfo = {
   SymbolByAddr: Map<Addr, PESymbol>
   SymbolByName: Map<string, PESymbol>
   SymbolArray: PESymbol []
@@ -254,8 +254,8 @@ type PE = {
   RelocBlocks: RelocBlock list
   /// Word size for the binary.
   WordSize: WordSize
-  /// Symbol information from PDB.
-  PDB: PDBInfo
+  /// Symbol information.
+  SymbolInfo: SymbolInfo
   /// Invalid address ranges.
   InvalidAddrRanges: IntervalSet
   /// Not-in-file address ranges.

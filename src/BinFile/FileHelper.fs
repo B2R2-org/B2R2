@@ -54,7 +54,15 @@ let peekHeaderNative reader cls offset d32 d64 =
   offset + (if cls = WordSize.Bit32 then d32 else d64)
   |> peekUIntOfType reader cls
 
-let peekCString (reader: BinReader) offset (size: int) =
+let peekCString (reader: BinReader) offset =
+  let rec loop acc pos =
+    let byte = reader.PeekByte pos
+    if byte = 0uy then List.rev (0uy :: acc) |> List.toArray
+    else loop (byte :: acc) (pos + 1)
+  let bs = loop [] offset
+  ByteArray.extractCString bs 0
+
+let peekCStringOfSize (reader: BinReader) offset (size: int) =
   let bs = reader.PeekBytes (size, offset)
   let bs = if bs.[bs.Length - 1] <> 0uy then Array.append bs [| 0uy |] else bs
   ByteArray.extractCString bs 0
