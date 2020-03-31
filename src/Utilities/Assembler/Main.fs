@@ -25,6 +25,7 @@
 module B2R2.Utilities.Assembler
 
 open B2R2
+open B2R2.Assembler
 open B2R2.Assembler.Intel
 open System
 
@@ -98,9 +99,6 @@ let spec =
 let isInvalidCmdLine (opts: AssemblerOpts) =
   String.IsNullOrEmpty opts.InputStr && String.IsNullOrEmpty opts.InputFile
 
-let printIllegal () =
-  Console.WriteLine "(illegal)"
-
 let inline printIfNotEmpty s = match s with "" -> () | _ -> Console.WriteLine s
 
 let cmdErrExit () =
@@ -112,14 +110,11 @@ let initAsmString (opts: AssemblerOpts) =
   if opts.InputStr.Length = 0 then IO.File.ReadAllText opts.InputFile
   else opts.InputStr
 
-let initAsmParser (opts: AssemblerOpts) =
-  AsmParser (opts.BaseAddress)
-
 let assembler _ (opts: AssemblerOpts) =
   if isInvalidCmdLine opts then cmdErrExit () else ()
-  let assembler = initAsmParser opts
-  let assembly = assembler.Run (initAsmString opts) opts.ISA
-  ()
+  let asm = AsmParser (opts.ISA, opts.BaseAddress)
+  asm.Run (initAsmString opts) opts.ISA
+  |> ignore
 
 [<EntryPoint>]
 let main args =

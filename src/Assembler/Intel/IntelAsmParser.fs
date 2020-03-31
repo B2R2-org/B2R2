@@ -32,7 +32,7 @@ open System
 
 type LabelDefs = Map<string, int>
 
-type AsmParser (startAddress: Addr) =
+type AsmParser (isa, startAddress: Addr) =
 
   (* TODO: No meaningful address manipulation is implemented. *)
   let mutable index = -1
@@ -77,16 +77,17 @@ type AsmParser (startAddress: Addr) =
   let pOpcode =
     (Enum.GetNames typeof<Opcode>)
     |> Array.map pstringCI
-    |> Array.map
-      (fun p -> p .>> (lookAhead (pchar '.') <|> lookAhead (pchar ' ')))
+    |> Array.map (fun p -> p .>> (lookAhead (anyOf ". " |>> ignore) <|> eof))
     |> Array.map attempt
     |> Array.map
       (fun (p) ->
         p |>>
           (fun name -> Enum.Parse(typeof<Opcode>, name.ToUpper()) :?> Opcode))
     |> choice
-    <|> (pstringCI "jmp" >>. preturn Opcode.JMPNear) // FIXME: JMPNear? JMPFar?
-    <|> (pstringCI "call" >>. preturn Opcode.CALLFar)
+    (* Since far calls, jmps, and rets are unnatural they are ignored *)
+    <|> (pstringCI "jmp" >>. preturn Opcode.JMPNear)
+    <|> (pstringCI "call" >>. preturn Opcode.CALLNear)
+    <|> (pstringCI "ret" >>. preturn Opcode.RETNearImm)
 
   let numberFormat =
     NumberLiteralOptions.AllowBinary
@@ -188,7 +189,10 @@ type AsmParser (startAddress: Addr) =
 
   let operands opc =
     sepBy (operand opc) operandSeps |>> extractOperands
-    |>> (fun operands -> (opc, operands))
+    |>> (fun operands ->
+          match opc, operands with
+          | Opcode.RETNearImm, Operands.NoOperand -> Opcode.RETNear, operands
+          | _ -> opc, operands )
     |> skipWhitespaces
 
   let pInsInfo =

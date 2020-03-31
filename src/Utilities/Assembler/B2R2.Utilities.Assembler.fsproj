@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Assembler\B2R2.Assembler.ARM32\B2R2.Assembler.ARM32.fsproj" />
+    <ProjectReference Include="..\..\Assembler\ARM32\B2R2.Assembler.ARM32.fsproj" />
     <ProjectReference Include="..\..\Assembler\Intel\B2R2.Assembler.Intel.fsproj" />
     <ProjectReference Include="..\..\Assembler\LowUIR\B2R2.Assembler.LowUIR.fsproj" />
     <ProjectReference Include="..\..\Assembler\MIPS\B2R2.Assembler.MIPS.fsproj" />

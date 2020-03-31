@@ -22,24 +22,21 @@
   SOFTWARE.
 *)
 
-namespace B2R2.Assembler
+namespace B2R2.Assembler.Intel
 
-open B2R2
+exception OperandTypeMismatchException
 
-type AsmInterface (isa: ISA, startAddress) =
-  let parser =
-    match isa.Arch with
-    // | Architecture.IntelX64
-    // | Architecture.IntelX86 -> Intel.AsmParser (isa, startAddress)
-    | Architecture.MIPS1
-    | Architecture.MIPS2
-    | Architecture.MIPS3
-    | Architecture.MIPS32
-    | Architecture.MIPS32R2
-    | Architecture.MIPS32R6
-    | Architecture.MIPS4
-    | Architecture.MIPS5
-    | Architecture.MIPS64 -> MIPS.AsmParser (isa, startAddress)
-    | _ -> raise InvalidISAException
+type LabeledByte =
+  | Normal of byte
+  | Label
 
-  member __.Run asm = parser.Run asm
+type EncodedByteCode = {
+  Prefix        : LabeledByte []
+  REXPrefix     : LabeledByte [] // 1 byte option
+  Opcode        : LabeledByte []
+  ModRM         : LabeledByte [] // 1 byte option
+  SIB           : LabeledByte [] // 1 byte option
+  Displacement  : LabeledByte []
+  Immediate     : LabeledByte []
+}
+
