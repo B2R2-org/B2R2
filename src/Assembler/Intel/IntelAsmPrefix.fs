@@ -26,29 +26,21 @@ module internal B2R2.Assembler.Intel.AsmPrefix
 
 open B2R2
 open B2R2.FrontEnd.Intel
-open B2R2.Assembler.Intel.EncodingType
+
+let isReg8 reg = Register.toRegType reg = 8<rt>
+let isReg16 reg = Register.toRegType reg = 16<rt>
+let isReg32 reg = Register.toRegType reg = 32<rt>
+let isReg64 reg = Register.toRegType reg = 64<rt>
 
 let private exceptOprSzPrefOp encType op =
   match encType, op with
-  | EnR32R16, Opcode.IN
-  | EnR32R16, Opcode.MOVZX
-  | EnR32M16, Opcode.MOVZX
-  | EnR16R8, Opcode.OUT -> true
   | _ -> false
 
-let private isOprReg16 op = function
-  | encType when exceptOprSzPrefOp encType op -> false
-  | EnR16 | EnM16
-  | EnR16R16 | EnR32R16 | EnR16R8
-  | EnR16M16 | EnR32M16 | EnR16M8
-  | EnM16I8 | EnM16R16
-  | EnR16I8 | EnR16I16
-  | EnI8AX
-  | EnR16RM16I16 -> true
+let private isOprReg16 = function
   | _ -> false
 
-let private isAddrSz (isa: ISA) reg =
-  match isa.Arch, Register.toRegType reg with
+let private isAddrSz arch reg =
+  match arch, Register.toRegType reg with
   | Arch.IntelX64, 32<rt> -> true
   | Arch.IntelX86, 16<rt> -> true
   | _ -> false
@@ -59,42 +51,92 @@ let private isAddrSize isa = function
   | TwoOperands (OprMem (Some bReg, _, _, _), _) -> isAddrSz isa bReg
   | _ -> false
 
-let encodePrefix isa (ins: InsInfo) encType =
+let encodePrefix arch ins oSzPref =
   // 64-bit mode : register -> 16bit => 66
   //               memory base register -> 32bit => 67
   // 32-bit mode : register -> 16bit => 66
   //               memory base register -> 16bit => 67
 
+  // Prefix group1, group2
+  // FIXME
+  let prxGrp1or2 = LanguagePrimitives.EnumToValue ins.Prefixes
+
   // Prefix group3: Operand-size override
   let prxGrp3 =
-    if isOprReg16 ins.Opcode encType then [| Normal 0x66uy |] else [||]
+    match oSzPref with
+    | Some pref -> [| Normal pref |]
+    | _ -> [||]
 
   // Prefix group4: Address-size override
   let prxGrp4 =
-    if isAddrSize isa ins.Operands then [| Normal 0x67uy |] else [||]
+    if isAddrSize arch ins.Operands then [| Normal 0x67uy |] else [||]
 
-  Array.append prxGrp3 prxGrp4
+  [| yield! prxGrp3; yield! prxGrp4 |]
 
 let private exceptREXPrefOp = function
   | Opcode.CRC32 | Opcode.CMPXCHG8B -> true
   | _ -> false
 
-let encodeREXPref isa (ins: InsInfo) encType =
-  // only 64-bit
-  // 0x40 - 0x4f
-  // 64-bit mode : register 64bit => 48 ~
-  if isa.Arch = Arch.IntelX86 then [||]
-  else
-    match encType with (* Arch.IntelX64 *)
-    | _ when exceptREXPrefOp ins.Opcode -> [||]
-    | EnR64 | EnM64
-    | EnR64R64 | EnR64R32 | EnR64R16 | EnR64R8
-    | EnR64M64 | EnR64M16 | EnR64M8
-    | EnR64I8 | EnR64I64
-    | EnM64R64 | EnM64I8
-    | EnR64RM64I32 -> [| Normal 0x48uy |]
-    (* More cases *)
-    | _ -> [||]
+let encodeRex = function
+  | Register.SPL | Register.BPL | Register.SIL | Register.DIL -> 0x40uy
+  | _ -> 0x0uy
+
+let encodeRexR = function
+  | Register.R8L | Register.R8W | Register.R8D | Register.R8
+  | Register.R9L | Register.R9W | Register.R9D | Register.R9
+  | Register.R10L | Register.R10W | Register.R10D | Register.R10
+  | Register.R11L | Register.R11W | Register.R11D | Register.R11
+  | Register.R12L | Register.R12W | Register.R12D | Register.R12
+  | Register.R13L | Register.R13W | Register.R13D | Register.R13
+  | Register.R14L | Register.R14W | Register.R14D | Register.R14
+  | Register.R15L | Register.R15W | Register.R15D | Register.R15 -> 0x44uy
+  | _ -> 0x0uy
+
+let encodeRexX = function
+  | Register.R8L | Register.R8W | Register.R8D | Register.R8
+  | Register.R9L | Register.R9W | Register.R9D | Register.R9
+  | Register.R10L | Register.R10W | Register.R10D | Register.R10
+  | Register.R11L | Register.R11W | Register.R11D | Register.R11
+  | Register.R12L | Register.R12W | Register.R12D | Register.R12
+  | Register.R13L | Register.R13W | Register.R13D | Register.R13
+  | Register.R14L | Register.R14W | Register.R14D | Register.R14
+  | Register.R15L | Register.R15W | Register.R15D | Register.R15 -> 0x42uy
+  | _ -> 0x0uy
+
+let encodeRexB = function
+  | Register.R8L | Register.R8W | Register.R8D | Register.R8
+  | Register.R9L | Register.R9W | Register.R9D | Register.R9
+  | Register.R10L | Register.R10W | Register.R10D | Register.R10
+  | Register.R11L | Register.R11W | Register.R11D | Register.R11
+  | Register.R12L | Register.R12W | Register.R12D | Register.R12
+  | Register.R13L | Register.R13W | Register.R13D | Register.R13
+  | Register.R14L | Register.R14W | Register.R14D | Register.R14
+  | Register.R15L | Register.R15W | Register.R15D | Register.R15 -> 0x41uy
+  | _ -> 0x0uy
+
+let encodeRexRXB = function
+  | TwoOperands (OprReg r1, OprReg r2) when isReg8 r1 && isReg8 r2 ->
+    encodeRex r1 ||| encodeRex r2
+  | TwoOperands (OprReg r1, OprReg r2) ->
+    encodeRexR r1 ||| encodeRexB r2
+  | TwoOperands (OprReg r, OprMem (Some bReg, Some (s, _), _, _))
+  | TwoOperands (OprMem (Some bReg, Some (s, _), _, _), OprReg r) ->
+    encodeRexR r ||| encodeRexX s ||| encodeRexB bReg
+  | TwoOperands (OprReg r, OprMem (Some bReg, None, _, _))
+  | TwoOperands (OprMem (Some bReg, None, _, _), OprReg r) ->
+    encodeRexR r ||| encodeRexB bReg
+  | TwoOperands (OprReg r, OprImm _) when isReg8 r -> encodeRex r
+  | TwoOperands (OprReg r, OprImm _) -> encodeRexR r
+  | TwoOperands (OprMem (Some bReg, None, _, _), OprImm _) -> encodeRexB bReg
+  | TwoOperands (OprMem (Some bReg, Some (s, _), _, _), OprImm _) ->
+    encodeRexX s ||| encodeRexB bReg
+  | o -> printfn "Inavlid Operand (%A)" o; Utils.futureFeature ()
+
+let encodeREXPref arch (ins: InsInfo) rexW =
+  if arch = Arch.IntelX86 then [||]
+  else let rexW = match rexW with | Some rexW -> rexW | None -> 0uy
+       let rxb = encodeRexRXB ins.Operands (* Arch.IntelX64 *)
+       if rxb = 0uy && rexW = 0uy then [||] else [| Normal (rexW ||| rxb) |]
 
 let private getRexRXB = function
   | REXPrefix.REXR -> 0b011uy

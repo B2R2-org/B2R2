@@ -29,10 +29,7 @@ open System.Text
 open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.Intel
-open B2R2.Assembler.Intel.EncodingType
-open B2R2.Assembler.Intel.AsmPrefix
 open B2R2.Assembler.Intel.AsmOpcode
-open B2R2.Assembler.Intel.AsmOperands
 
 type AssemblyInfo = {
   Index         : int
@@ -42,22 +39,18 @@ type AssemblyInfo = {
   Label         : string option
 }
 
+let encodeInstruction isa ins =
+  match ins.Opcode with
+  | Opcode.AAA -> aaa isa.Arch ins.Operands
+  | Opcode.AAD -> aad isa.Arch ins.Operands
+  | Opcode.AAM -> aam isa.Arch ins.Operands
+  | Opcode.AAS -> aas isa.Arch ins.Operands
+  | Opcode.ADC -> adc isa.Arch ins
+  | Opcode.ADD -> add isa.Arch ins.Operands
+  | _ -> Utils.futureFeature ()
+
 let encodingByteCode isa (ins: InsInfo) =
-  let encType = compute isa ins.Opcode ins.Operands
-  let prefix = encodePrefix isa ins encType
-  let rexPref = encodeREXPref isa ins encType
-  let opcode = encodeOpcode ins encType
-  let modrm = encodeModRM ins encType
-  let sib = encodeSIB ins
-  let disp = encodeDisp ins
-  let imm = encodeImm ins
-  { Prefix = prefix
-    REXPrefix = rexPref
-    Opcode = opcode
-    ModRM = modrm
-    SIB = sib
-    Displacement = disp
-    Immediate = imm }
+  encodeInstruction isa ins
 
 let private getValue enBytes (sb: StringBuilder) =
   Array.rev enBytes
@@ -66,6 +59,13 @@ let private getValue enBytes (sb: StringBuilder) =
     | Normal b -> b.ToString("X2") + acc
     | Label -> "00" + acc)"" // FIXME: assumed (32bit)
   |> sb.Append
+
+let private getValue2 enBytes =
+  Array.rev enBytes
+  |> Array.fold (fun acc byte ->
+    match byte with
+    | Normal b -> b.ToString("X2") + acc
+    | Label -> "00" + acc)"" // FIXME: assumed (32bit)
 
 let private eByteCodeToStr (eIns: EncodedByteCode) =
   let sb = StringBuilder ()
@@ -92,16 +92,7 @@ let private disassembly (isa: ISA) addr bCode =
   let ins = BinHandler.ParseInstr handler 0UL
   printfn "%-4x: %-20s     %s" addr bCode (ins.Disasm ())
 
-let private parseEncInfoToLblBytes (eInfo: EncodedByteCode) =
-  Array.append eInfo.Displacement eInfo.Immediate
-  |> Array.append eInfo.SIB
-  |> Array.append eInfo.ModRM
-  |> Array.append eInfo.Opcode
-  |> Array.append eInfo.REXPrefix
-  |> Array.append eInfo.Prefix
-
-let private parseAsmInfo idx pc byteStr encInfo operands =
-  let lblBytes = parseEncInfoToLblBytes encInfo
+let private parseAsmInfo idx pc byteStr lblBytes operands =
   let label =
     match operands with
     | OneOperand (GoToLabel str) -> Some str
@@ -160,13 +151,16 @@ let private prettyPrint isa asmInfos lbls =
   printfn "<Label>"
   Map.iter (fun lbl addr -> printfn "%04x <%s>:" addr lbl) lbls
 
+let lblByteArrToString byteArr =
+  getValue2 byteArr
+
 // FixMe: Should complete the fields of InsInfo. Should call vexInfoFromOpcode
 // for every insInfo and complete the InsInfo size. It should also look for and
 // substitue label operands.
 let updateInsInfos (ins: InsInfo list) (lbls: Map<string, int>) isa =
   let encodedInfo =
-    List.map (fun ins -> let eByteCode = encodingByteCode isa ins
-                         eByteCode, eByteCodeToStr eByteCode) ins
+    List.map (fun ins -> let eByteCodes = encodingByteCode isa ins
+                         eByteCodes, lblByteArrToString eByteCodes) ins
     |> List.mapi (fun i (e, str) -> i, String.length str / 2 |> uint64, str, e)
     |> updatePC [] 0UL
 

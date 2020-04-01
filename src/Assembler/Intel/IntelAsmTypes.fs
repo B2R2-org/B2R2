@@ -25,6 +25,7 @@
 namespace B2R2.Assembler.Intel
 
 exception OperandTypeMismatchException
+exception NotEncodableException
 
 type LabeledByte =
   | Normal of byte

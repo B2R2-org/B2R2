@@ -196,7 +196,7 @@ type AsmParser (isa, startAddress: Addr) =
     |> skipWhitespaces
 
   let pInsInfo =
-    opt pPrefix >>. (pOpcode >>= operands)
+    opt pPrefix >>. spaces >>. (pOpcode >>= operands)
     |>> (fun (opcode, operands) ->
           newInfo inferredPrefix REXPrefix.NOREX None
             opcode operands dummyInsSize)

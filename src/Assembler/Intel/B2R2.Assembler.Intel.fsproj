@@ -7,10 +7,9 @@
   <ItemGroup>
     <Compile Include="IntelAsmTypes.fs" />
     <Compile Include="IntelParserHelper.fs" />
-    <Compile Include="IntelEncodingType.fs" />
     <Compile Include="IntelAsmPrefix.fs" />
-    <Compile Include="IntelAsmOpcode.fs" />
     <Compile Include="IntelAsmOperands.fs" />
+    <Compile Include="IntelAsmOpcode.fs" />
     <Compile Include="IntelFixInsInfo.fs" />
     <Compile Include="IntelAsmParser.fs" />
   </ItemGroup>
