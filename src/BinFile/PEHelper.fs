@@ -125,7 +125,7 @@ let pdbSymbolToSymbol (sym: PESymbol) =
     LibraryName = "" }
 
 let inline getStaticSymbols pe =
-  pe.PDB.SymbolArray
+  pe.SymbolInfo.SymbolArray
   |> Array.map pdbSymbolToSymbol
   |> Array.toSeq
 
@@ -253,12 +253,13 @@ let tryFindSymbolFromBinary pe addr (name: byref<string>) =
   | Some s -> name <- s; true
 
 let tryFindSymbolFromPDB pe addr (name: byref<string>) =
-  match Map.tryFind addr pe.PDB.SymbolByAddr with
+  match Map.tryFind addr pe.SymbolInfo.SymbolByAddr with
   | None -> false
   | Some s -> name <- s.Name; true
 
 let tryFindFuncSymb pe addr (name: byref<string>) =
-  if pe.PDB.SymbolArray.Length = 0 then tryFindSymbolFromBinary pe addr &name
+  if pe.SymbolInfo.SymbolArray.Length = 0 then
+    tryFindSymbolFromBinary pe addr &name
   else tryFindSymbolFromPDB pe addr &name
 
 let inline isValidAddr pe addr =

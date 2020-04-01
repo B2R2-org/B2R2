@@ -29,8 +29,8 @@ open B2R2.BinFile.FileHelper
 
 let parseSection (reader: BinReader) cls pos =
   let secFlag = peekHeaderI32 reader cls pos 56 64
-  { SecName = peekCString reader pos 16
-    SegName = peekCString reader (pos + 16) 16
+  { SecName = peekCStringOfSize reader pos 16
+    SegName = peekCStringOfSize reader (pos + 16) 16
     SecAddr = peekUIntOfType reader cls (pos + 32)
     SecSize = peekHeaderNative reader cls pos 36 40
     SecOffset = peekHeaderU32 reader cls pos 40 48

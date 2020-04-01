@@ -30,7 +30,7 @@ open B2R2.BinFile.FileHelper
 
 let parseSegCmd (reader: BinReader) cls offset =
   { SecOff = offset + if cls = WordSize.Bit64 then 72 else 56
-    SegCmdName = peekCString reader (offset + 8) 16
+    SegCmdName = peekCStringOfSize reader (offset + 8) 16
     VMAddr = peekHeaderNative reader cls offset 24 24
     VMSize = peekHeaderNative reader cls offset 28 32
     FileOff = peekHeaderNative reader cls offset 32 40

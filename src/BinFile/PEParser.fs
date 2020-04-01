@@ -46,12 +46,8 @@ let getRawOffset secs rva =
   rva + sHdr.PointerToRawData - sHdr.VirtualAddress
 
 let readStr secs (binReader: BinReader) rva =
-  let rec loop acc pos =
-    let byte = binReader.PeekByte pos
-    if byte = 0uy then List.rev acc |> List.toArray
-    else loop (byte :: acc) (pos + 1)
   if rva = 0 then ""
-  else getRawOffset secs rva |> loop [] |> Text.Encoding.ASCII.GetString
+  else getRawOffset secs rva |> FileHelper.peekCString binReader
 
 let isNULLImportDir tbl =
   tbl.ImportLookupTableRVA = 0
@@ -280,27 +276,18 @@ let parseImage execpath rawpdb binReader (hdrs: PEHeaders) =
     ExportMap = parseExports binReader hdrs secs
     RelocBlocks = parseRelocation binReader hdrs secs
     WordSize = wordSize
-    PDB = getPDBSymbols execpath rawpdb |> buildPDBInfo baseAddr secs
+    SymbolInfo = getPDBSymbols execpath rawpdb |> buildPDBInfo baseAddr secs
     InvalidAddrRanges = computeInvalidAddrRanges wordSize baseAddr secs
     NotInFileRanges = computeNotInFileRanges wordSize baseAddr secs
     FindSectionIdxFromRVA = findSectionIndex secs
     BinReader = binReader }
 
-let getCoffWordSize = function
-  | Machine.Alpha64
-  | Machine.Arm64
-  | Machine.Amd64 -> WordSize.Bit64
-  | _ -> WordSize.Bit32
-
 let parseCoff binReader (hdrs: PEHeaders) =
   let coff = hdrs.CoffHeader
-  let wordSize = getCoffWordSize coff.Machine
-  let secs =
-    hdrs.SectionHeaders
-    |> Seq.toArray
-    |> Array.filter (fun s -> s.Name.StartsWith ".text")
-  let emptyPDB =
-    { SymbolByAddr = Map.empty; SymbolByName = Map.empty; SymbolArray = [||] }
+  let wordSize = Coff.getWordSize coff.Machine
+  let secs = hdrs.SectionHeaders |> Seq.toArray
+  let idx = secs |> Array.findIndex (fun s -> s.Name.StartsWith ".text")
+  let findSectionIdxFromRVA = fun _ -> idx
   { PEHeaders = hdrs
     BaseAddr = 0UL
     SectionHeaders = secs
@@ -308,10 +295,10 @@ let parseCoff binReader (hdrs: PEHeaders) =
     ExportMap = Map.empty
     RelocBlocks = []
     WordSize = wordSize
-    PDB = emptyPDB
+    SymbolInfo = Coff.getSymbols binReader coff
     InvalidAddrRanges = IntervalSet.empty
     NotInFileRanges = IntervalSet.empty
-    FindSectionIdxFromRVA = findSectionIndex secs
+    FindSectionIdxFromRVA = findSectionIdxFromRVA
     BinReader = binReader }
 
 let parsePE execpath rawpdb binReader (peReader: PEReader) =
