@@ -316,6 +316,7 @@ type LoadCommand =
   | DySymTab of DySymTabCmd
   | DyLib of DyLibCmd
   | DyLdInfo of DyLdInfoCmd
+  | FuncStarts of FuncStartsCmd
   | Main of MainCmd
   | Unhandled of UnhandledCommand
 
@@ -437,6 +438,12 @@ and DyLdInfoCmd = {
   ExportSize: uint32
 }
 
+/// Function starts command (LC_FUNCTION_STARTS).
+and FuncStartsCmd = {
+  DataOffset: int
+  DataSize: uint32
+}
+
 /// Main command.
 and MainCmd = {
   /// Offset of main().
@@ -552,7 +559,7 @@ type MachSection = {
   /// The file offset of the first relocation entry for this section.
   SecRelOff: uint32
   /// The number of relocation entries located at SecRelOff for this section.
-  SecNumOfReloc: uint32
+  SecNumOfReloc: int
   /// Section type.
   SecType: SectionType
   /// Section attributes.
@@ -656,7 +663,7 @@ type MachSymbol = {
   /// Is this an external symbol?
   IsExternal: bool
   /// The number of the section that this symbol can be found.
-  SecNum: byte
+  SecNum: int
   /// Providing additional information about the nature of this symbol for
   /// non-stab symbols.
   SymDesc: int16
@@ -672,6 +679,24 @@ type ExportInfo = {
   ExportSymName: string
   /// Exported symbol address.
   ExportAddr: Addr
+}
+
+type RelocSymbol =
+  | SymIndex of int (* Symbol table index *)
+  | SecOrdinal of int (* Section number *)
+
+/// Reloc info.
+type RelocationInfo = {
+  /// Offset in the section to what is being relocated.
+  RelocAddr: int
+  /// RelocSymbol
+  RelocSymbol: RelocSymbol
+  /// Relocation length.
+  RelocLength: RegType
+  /// Parent section
+  RelocSection: MachSection
+  /// Is this address part of an instruction that uses PC-relative addressing?
+  IsPCRel: bool
 }
 
 /// Symbol info
@@ -700,6 +725,10 @@ type Mach = {
   Sections: SectionInfo
   /// Symbol info.
   SymInfo: SymInfo
+  /// Text section index.
+  SecText: int
+  /// Relocation information.
+  Relocations: Symbol []
   /// Invalid address ranges.
   InvalidAddrRanges: IntervalSet
   /// Not-in-file address ranges.

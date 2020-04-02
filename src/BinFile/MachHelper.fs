@@ -43,8 +43,11 @@ let convFileType = function
   | MachFileType.MHCore -> FileType.CoreFile
   | _ -> FileType.UnknownFile
 
-let machTypeToSymbKind sym =
-  if sym.SymType = SymbolType.NFun && sym.SymName.Length > 0 then
+let machTypeToSymbKind sym secText =
+  if (sym.SymType = SymbolType.NFun && sym.SymName.Length > 0)
+    || (sym.SymType.HasFlag SymbolType.NSect
+      && sym.SecNum = (secText + 1)
+      && sym.SymDesc = 0s) then
     SymbolKind.FunctionType
   elif sym.SymType = SymbolType.NSO
     || sym.SymType = SymbolType.NOSO then
@@ -52,17 +55,17 @@ let machTypeToSymbKind sym =
   else
     SymbolKind.NoType
 
-let machSymbolToSymbol target sym =
+let machSymbolToSymbol secText target sym =
   { Address = sym.SymAddr
     Name = sym.SymName
-    Kind = machTypeToSymbKind sym
+    Kind = machTypeToSymbKind sym secText
     Target = target
     LibraryName = Symbol.getSymbolLibName sym }
 
 let getStaticSymbols mach =
   mach.SymInfo.Symbols
   |> Array.filter Symbol.isStatic
-  |> Array.map (machSymbolToSymbol TargetKind.StaticSymbol)
+  |> Array.map (machSymbolToSymbol mach.SecText TargetKind.StaticSymbol)
 
 let isStripped mach =
   getStaticSymbols mach
@@ -87,7 +90,7 @@ let getDynamicSymbols excludeImported mach =
   mach.SymInfo.Symbols
   |> Array.filter Symbol.isDynamic
   |> fun arr -> if excludeImported then filter arr else arr
-  |> Array.map (machSymbolToSymbol TargetKind.DynamicSymbol)
+  |> Array.map (machSymbolToSymbol mach.SecText TargetKind.DynamicSymbol)
 
 let getSymbols mach =
   let s = getStaticSymbols mach

@@ -63,13 +63,19 @@ let parseMach reader  =
   let segs = Segment.extract cmds
   let segmap = Segment.buildMap segs
   let secs = Section.parseSections reader cls segs
-  let symInfo = Symbol.parse machHdr cmds secs reader
+  let secText = Section.getTextSectionIndex secs.SecByNum
+  let symInfo = Symbol.parse reader machHdr cmds secs secText
+  let relocs =
+    Reloc.parseRelocs reader secs.SecByNum
+    |> Array.map (Reloc.toSymbol symInfo.Symbols secs.SecByNum)
   { EntryPoint = computeEntryPoint segs cmds
     SymInfo = symInfo
     MachHdr = machHdr
     Segments = segs
     SegmentMap = segmap
     Sections = secs
+    SecText = secText
+    Relocations = relocs
     InvalidAddrRanges = invRanges cls segs (fun s -> s.VMAddr + s.VMSize)
     NotInFileRanges = invRanges cls segs (fun s -> s.VMAddr + s.FileSize)
     BinReader = reader }

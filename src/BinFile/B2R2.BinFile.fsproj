@@ -25,6 +25,7 @@
     <Compile Include="MachFat.fs" />
     <Compile Include="MachSegment.fs" />
     <Compile Include="MachSection.fs" />
+    <Compile Include="MachReloc.fs" />
     <Compile Include="MachSymbol.fs" />
     <Compile Include="MachHelper.fs" />
     <Compile Include="MachParser.fs" />

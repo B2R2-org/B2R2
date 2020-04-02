@@ -36,7 +36,7 @@ let parseSection (reader: BinReader) cls pos =
     SecOffset = peekHeaderU32 reader cls pos 40 48
     SecAlignment = peekHeaderU32 reader cls pos 44 52
     SecRelOff = peekHeaderU32 reader cls pos 48 56
-    SecNumOfReloc = peekHeaderU32 reader cls pos 52 60
+    SecNumOfReloc = peekHeaderI32 reader cls pos 52 60
     SecType = secFlag &&& 0xFF |> LanguagePrimitives.EnumOfValue
     SecAttrib = secFlag &&& 0xFFFFFF00 |> LanguagePrimitives.EnumOfValue
     SecReserved1 = peekHeaderI32 reader cls pos 60 68
@@ -50,12 +50,15 @@ let foldSecInfo acc sec =
 
 let parseSections reader cls segs =
   let rec parseLoop count acc pos =
-    if count = 0u then List.rev acc
+    if count = 0u then acc
     else let sec = parseSection reader cls pos
          let nextPos = pos + if cls = WordSize.Bit64 then 80 else 68
-         parseLoop (count - 1u) (sec :: acc) nextPos
+         parseLoop (count - 1u) (acc @ [sec]) nextPos
   let foldSections acc seg = parseLoop seg.NumSecs acc seg.SecOff
   let sections = List.fold foldSections [] segs
   let acc = { SecByAddr = ARMap.empty; SecByName = Map.empty; SecByNum = [||] }
   let secInfo = List.fold foldSecInfo acc sections
   { secInfo with SecByNum = Array.ofList sections }
+
+let getTextSectionIndex secs =
+  secs |> Array.findIndex (fun s -> s.SecName = "__text")

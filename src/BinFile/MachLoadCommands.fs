@@ -95,6 +95,10 @@ let parseDyLdInfo (reader: BinReader) offset =
     ExportOff = offset + 40 |> reader.PeekInt32
     ExportSize = offset + 44 |> reader.PeekUInt32 }
 
+let parseFuncStarts (reader: BinReader) offset =
+  { DataOffset = offset + 8 |> reader.PeekInt32
+    DataSize = offset + 12 |> reader.PeekUInt32 }
+
 let parseCmd (reader: BinReader) cls offset =
   let cmdType = reader.PeekInt32 offset |> LanguagePrimitives.EnumOfValue
   let cmdSize = reader.PeekUInt32 (offset + 4)
@@ -108,6 +112,7 @@ let parseCmd (reader: BinReader) cls offset =
     | LoadCmdType.LCLoadDyLib -> DyLib (parseDyLibCmd reader cmdSize offset)
     | LoadCmdType.LCDyLDInfo
     | LoadCmdType.LCDyLDInfoOnly -> DyLdInfo (parseDyLdInfo reader offset)
+    | LoadCmdType.LCFunStarts -> FuncStarts (parseFuncStarts reader offset)
     | _ -> Unhandled { Cmd = cmdType; CmdSize = cmdSize }
   struct (command, Convert.ToInt32 cmdSize)
 

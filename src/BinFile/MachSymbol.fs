@@ -48,6 +48,24 @@ let chooseDyLdInfo = function
   | DyLdInfo c -> Some c
   | _ -> None
 
+let chooseFuncStarts = function
+  | FuncStarts c -> Some c
+  | _ -> None
+
+let parseFuncStarts (reader: BinReader) cmds =
+  let rec update set addr offset lastOffset =
+    if offset >= lastOffset then set
+    else
+      let data, count = reader.PeekUInt64LEB128 offset
+      let addr = addr + data
+      update (Set.add addr set) addr (offset + count) lastOffset
+  cmds
+  |> List.fold (fun set c ->
+    let offset = c.DataOffset
+    let fstaddr, count = reader.PeekUInt64LEB128 offset
+    let set = Set.add fstaddr set
+    update set fstaddr (offset + count) (offset + int c.DataSize)) Set.empty
+
 let getLibraryVerInfo (flags: MachFlag) libs nDesc =
   if flags.HasFlag (MachFlag.MHTwoLevel) then
     let ord = nDesc >>> 8 &&& 0xffs |> int
@@ -62,7 +80,7 @@ let parseNList acc (reader: BinReader) macHdr libs strtab offset =
   { SymName = ByteArray.extractCString strtab strIdx
     SymType = nType |> LanguagePrimitives.EnumOfValue
     IsExternal = nType &&& 0x1 = 0x1
-    SecNum = reader.PeekByte (offset + 5)
+    SecNum = reader.PeekByte (offset + 5) |> int
     SymDesc = nDesc
     VerInfo = getLibraryVerInfo macHdr.Flags libs nDesc
     SymAddr = peekUIntOfType reader macHdr.Class (offset + 8) } :: acc
@@ -81,13 +99,27 @@ let parseSymTable (reader: BinReader) macHdr libs symtabs =
     parseSymTab acc reader macHdr libs strtab symtab.SymOff symtab.NumOfSym
   symtabs |> List.fold foldSymTabs [] |> List.rev |> List.toArray
 
+let addFuncs secTxt starts symbols =
+  let symbolAddrs = symbols |> Array.map (fun s -> s.SymAddr) |> Set.ofArray
+  Set.difference starts symbolAddrs
+  |> Set.toArray
+  |> Array.map (fun addr ->
+    { SymName = "func_" + addr.ToString ("X")
+      SymType = SymbolType.NSect
+      IsExternal = false
+      SecNum = secTxt + 1
+      SymDesc = -1s (* To indicate this is B2R2-created symbols. *)
+      VerInfo = None
+      SymAddr = addr })
+  |> Array.append symbols
+
 let isStatic s =
   let isDebuggingInfo s = int s.SymType &&& 0xe0 <> 0
   /// REFERENCED_DYNAMICALLY field  of n_desc is set. This means this symbol
   /// will not be stripped (thus, this symbol is dynamic).
   let isReferrencedDynamically s = s.SymDesc &&& 0x10s <> 0s
   isDebuggingInfo s
-  || (s.SecNum > 0uy && s.SymAddr > 0UL && s.VerInfo = None
+  || (s.SecNum > 0 && s.SymAddr > 0UL && s.VerInfo = None
      && (isReferrencedDynamically s |> not))
 
 let isDynamic s = isStatic s |> not
@@ -203,19 +235,20 @@ let buildSymbolMap stubs ptrtbls staticsymbs =
   let map = Map.fold (fun map k v -> Map.add k v map) stubs ptrtbls
   Array.fold (fun map s -> Map.add s.SymAddr s map) map staticsymbs
 
-let parse macHdr cmds secs reader =
+let parse reader macHdr cmds secs secTxt =
   let libs = List.choose chooseDyLib cmds |> List.toArray
   let symtabs = List.choose chooseSymTab cmds
   let dyntabs = List.choose chooseDynSymTab cmds
   let dyldinfo = List.choose chooseDyLdInfo cmds
-  let symbols = parseSymTable reader macHdr libs symtabs
-  let staticsymbs = obtainStaticSymbols symbols
+  let starts = List.choose chooseFuncStarts cmds |> parseFuncStarts reader
+  let symbs = parseSymTable reader macHdr libs symtabs |> addFuncs secTxt starts
+  let staticsymbs = obtainStaticSymbols symbs
   let dynsymIndices = parseDynSymTable reader dyntabs
-  let stubs = parseSymbolStubs secs symbols dynsymIndices
-  let ptrtbls = parseSymbolPtrs macHdr secs symbols dynsymIndices
+  let stubs = parseSymbolStubs secs symbs dynsymIndices
+  let ptrtbls = parseSymbolPtrs macHdr secs symbs dynsymIndices
   let linkage = createLinkageTable stubs ptrtbls
   let exports = parseExports reader dyldinfo
-  { Symbols = symbols |> Array.filter (fun s -> s.SymType <> SymbolType.NOpt)
+  { Symbols = symbs |> Array.filter (fun s -> s.SymType <> SymbolType.NOpt)
     SymbolMap = buildSymbolMap stubs ptrtbls staticsymbs
     LinkageTable = linkage
     Exports = exports }
