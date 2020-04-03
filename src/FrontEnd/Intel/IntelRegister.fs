@@ -205,6 +205,52 @@ type Register =
   | ST6 = 0x106
   /// x87 FPU registers.
   | ST7 = 0x107
+  /// C87 FPU Control Word.
+  | FCW = 0x108
+  /// x87 FPU Status Word.
+  | FSW = 0x109
+  /// x87 FPU Tag Word.
+  | FTW = 0x10A
+  /// x87 FPU Opcode.
+  | FOP = 0x10B
+  /// x87 FPU Instruction Pointer Offset.
+  | FIP = 0x10C
+  /// x87 FPU Instruction Pointer Selector.
+  | FCS = 0x10D
+  /// x87 FPU Data Pointer Offset.
+  | FDP = 0x10E
+  /// x87 FPU Data Pointer Selector.
+  | FDS = 0x10F
+  /// x87 FPU Top indicator bits of Status Word.
+  | FTOP = 0x110
+  /// x87 FPU Tag word section.
+  | FTW0 = 0x111
+  /// x87 FPU Tag word section.
+  | FTW1 = 0x112
+  /// x87 FPU Tag word section.
+  | FTW2 = 0x113
+  /// x87 FPU Tag word section.
+  | FTW3 = 0x114
+  /// x87 FPU Tag word section.
+  | FTW4 = 0x115
+  /// x87 FPU Tag word section.
+  | FTW5 = 0x116
+  /// x87 FPU Tag word section.
+  | FTW6 = 0x117
+  /// x87 FPU Tag word section.
+  | FTW7 = 0x118
+  /// x87 FPU Status Word C flag.
+  | FSWC0 = 0x119
+  /// x87 FPU Status Word C flag.
+  | FSWC1 = 0x11A
+  /// x87 FPU Status Word C flag.
+  | FSWC2 = 0x11B
+  /// x87 FPU Status Word C flag.
+  | FSWC3 = 0x11C
+  /// MXCSR Control and Status Register.
+  | MXCSR = 0x11D
+  /// MXCSR_MASK.
+  | MXCSRMASK = 0x11E
   /// MMX registers.
   | MM0 = 0x200
   /// MMX registers.
@@ -389,54 +435,8 @@ type Register =
   | PF = 0xB07
   /// Carry Flag in EFLAGS Register
   | CF = 0xB08
-  /// C87 FPU Control Word.
-  | FCW = 0xC00
-  /// x87 FPU Status Word.
-  | FSW = 0xC01
-  /// x87 FPU Tag Word.
-  | FTW = 0xC02
-  /// x87 FPU Opcode.
-  | FOP = 0xC03
-  /// x87 FPU Instruction Pointer Offset.
-  | FIP = 0xC04
-  /// x87 FPU Instruction Pointer Selector.
-  | FCS = 0xC05
-  /// x87 FPU Data Pointer Offset.
-  | FDP = 0xC06
-  /// x87 FPU Data Pointer Selector.
-  | FDS = 0xC07
-  /// x87 FPU Top indicator bits of Status Word.
-  | FTOP = 0xC08
-  /// x87 FPU Tag word section.
-  | FTW0 = 0xC09
-  /// x87 FPU Tag word section.
-  | FTW1 = 0xC0A
-  /// x87 FPU Tag word section.
-  | FTW2 = 0xC0B
-  /// x87 FPU Tag word section.
-  | FTW3 = 0xC0C
-  /// x87 FPU Tag word section.
-  | FTW4 = 0xC0D
-  /// x87 FPU Tag word section.
-  | FTW5 = 0xC0E
-  /// x87 FPU Tag word section.
-  | FTW6 = 0xC0F
-  /// x87 FPU Tag word section.
-  | FTW7 = 0xC10
-  /// x87 FPU Status Word C flag.
-  | FSWC0 = 0xC11
-  /// x87 FPU Status Word C flag.
-  | FSWC1 = 0xC12
-  /// x87 FPU Status Word C flag.
-  | FSWC2 = 0xC13
-  /// x87 FPU Status Word C flag.
-  | FSWC3 = 0xC14
-  /// MXCSR Control and Status Register.
-  | MXCSR = 0xC15
-  /// MXCSR_MASK.
-  | MXCSRMASK = 0xC16
   /// Protection-key features register.
-  | PKRU = 0xC17
+  | PKRU = 0xC00
   /// BND Register (lower 64bits BND0).
   | BND0A = 0xD80
   /// BND Register (Higher 64bits BND0).
