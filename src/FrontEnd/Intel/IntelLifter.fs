@@ -2498,7 +2498,7 @@ let loadFxrstorXMM ctxt addr xRegs builder =
   let pv r = getPseudoRegVar128 ctxt r
   let offset = num (BitVector.ofInt32 8 (getAddrRegSize addr))
   let exprs =
-    List.fold (fun acc r -> let r2, r1 = pv r in r2 :: (r1 :: acc)) [] xRegs
+    List.fold (fun acc r -> let r2, r1 = pv r in r1 :: (r2 :: acc)) [] xRegs
   List.iter (fun reg -> builder <! (updateAddrByOffset addr offset)
                         builder <! (reg := addr)) exprs
 
@@ -2643,29 +2643,43 @@ let load64BitPromotedFxrstor ctxt src builder =
 let load64BitDefaultFxrstor ctxt src builder =
   let grv r = getRegVar ctxt r
   let offset = num (BitVector.ofInt32 8 (getAddrRegSize src))
+  let regSave = tmpVar (getAddrRegSize src)
+  let baseReg = getBaseReg src
+  let t0, t1, t2, t3 = tmpVars4 2<rt>
+  let t4, t5, t6, t7 = tmpVars4 2<rt>
+  let tmp8 = tmpVar 8<rt>
+  let zero2 = num0 2<rt>
+  let three2 = numI32 3 2<rt>
   let xRegs =
     [ R.XMM0; R.XMM1; R.XMM2; R.XMM3; R.XMM4; R.XMM5; R.XMM6; R.XMM7;
       R.XMM8; R.XMM9; R.XMM10; R.XMM11; R.XMM12; R.XMM13; R.XMM14; R.XMM15 ]
-  let tSrc = tmpVar 64<rt>
-  builder <! (tSrc := src)
-  builder <! (grv R.FCW := extractLow 16<rt> tSrc)
-  builder <! (grv R.FSW := extract tSrc 16<rt> 16)
-  builder <! (grv R.FTW := extract tSrc 8<rt> 32)
-  builder <! (grv R.FOP := extract tSrc 16<rt> 48)
+  builder <! (regSave := baseReg)
+  builder <! (tmp8 := extract src 8<rt> 16)
+  builder <! (t0 := ite (extractLow 1<rt> tmp8) zero2 three2)
+  builder <! (t1 := ite (extract tmp8 1<rt> 1) zero2 three2)
+  builder <! (t2 := ite (extract tmp8 1<rt> 2) zero2 three2)
+  builder <! (t3 := ite (extract tmp8 1<rt> 3) zero2 three2)
+  builder <! (t4 := ite (extract tmp8 1<rt> 4) zero2 three2)
+  builder <! (t5 := ite (extract tmp8 1<rt> 5) zero2 three2)
+  builder <! (t6 := ite (extract tmp8 1<rt> 6) zero2 three2)
+  builder <! (t7 := ite (extract tmp8 1<rt> 7) zero2 three2)
+  builder <! (grv R.FOP := extractLow 16<rt> src)
+  builder <! (grv R.FTW := concat (concat (concat t0 t1) (concat t2 t3))
+                                  (concat (concat t4 t5) (concat t6 t7)))
+  builder <! (grv R.FSW := extract src 16<rt> 32)
+  builder <! (grv R.FCW := extract src 16<rt> 48)
   builder <! (updateAddrByOffset src offset)
-  builder <! (tSrc := src)
-  builder <! (extractLow 32<rt> (grv R.FIP) := extractLow 32<rt> tSrc)
-  builder <! (grv R.FCS := extract tSrc 16<rt> 32)
+  builder <! (grv R.FCS := extractLow 16<rt> src)
+  builder <! (extractLow 32<rt> (grv R.FIP) := extractHigh 32<rt> src)
   builder <! (updateAddrByOffset src offset)
-  builder <! (tSrc := src)
-  builder <! (extractLow 32<rt> (grv R.FDP) := extractLow 32<rt> tSrc)
-  builder <! (grv R.FDS := extract tSrc 16<rt> 32)
+  builder <! (grv R.FDS := extractLow 16<rt> src)
+  builder <! (extractLow 32<rt> (grv R.FDP) := extractHigh 32<rt> src)
   builder <! (updateAddrByOffset src offset)
-  builder <! (tSrc := src)
-  builder <! (grv R.MXCSR := extractLow 32<rt> tSrc)
-  builder <! (grv R.MXCSRMASK := extractHigh 32<rt> tSrc)
+  builder <! (grv R.MXCSRMASK := extractLow 32<rt> src)
+  builder <! (grv R.MXCSR := extractHigh 32<rt> src)
   loadFxrstorMMX src grv builder
-  loadFxrstorXMM ctxt src xRegs builder
+  loadFxrstorXMM ctxt src (List.rev xRegs) builder
+  builder <! (baseReg := regSave)
 
 let loadLegacyFxrstor ctxt src builder =
   let grv r = getRegVar ctxt r

@@ -453,6 +453,38 @@ type Register =
   | BND3A = 0xD86
   /// BND Register (Higher 64bits BND3).
   | BND3B = 0xD87
+  /// ST Register (lower 64bits ST0).
+  | ST0A = 0xD88
+  /// ST Register (Higher 16bits ST0).
+  | ST0B = 0xD89
+  /// ST Register (lower 64bits ST1).
+  | ST1A = 0xD8A
+  /// ST Register (Higher 16bits ST1).
+  | ST1B = 0xD8B
+  /// ST Register (lower 64bits ST2).
+  | ST2A = 0xD8C
+  /// ST Register (Higher 16bits ST2).
+  | ST2B = 0xD8D
+  /// ST Register (lower 64bits ST3).
+  | ST3A = 0xD8E
+  /// ST Register (Higher 16bits ST3).
+  | ST3B = 0xD8F
+  /// ST Register (lower 64bits ST4).
+  | ST4A = 0xD90
+  /// ST Register (Higher 16bits ST4).
+  | ST4B = 0xD91
+  /// ST Register (lower 64bits ST5).
+  | ST5A = 0xD92
+  /// ST Register (Higher 16bits ST5).
+  | ST5B = 0xD93
+  /// ST Register (lower 64bits ST6).
+  | ST6A = 0xD94
+  /// ST Register (Higher 16bits ST6).
+  | ST6B = 0xD95
+  /// ST Register (lower 64bits ST7).
+  | ST7A = 0xD96
+  /// ST Register (Higher 16bits ST7).
+  | ST7B = 0xD97
   /// ZMM0A is the 1st 64-bit chunk of ZMM0.
   | ZMM0A = 0xD00
   /// ZMM0B is the 2nd 64-bit chunk of ZMM0.
@@ -985,6 +1017,22 @@ module Register = begin
     | "bnd2b" -> R.BND2B
     | "bnd3a" -> R.BND3A
     | "bnd3b" -> R.BND3B
+    | "st0a" -> R.ST0A
+    | "st0b" -> R.ST0B
+    | "st1a" -> R.ST1A
+    | "st1b" -> R.ST1B
+    | "st2a" -> R.ST2A
+    | "st2b" -> R.ST2B
+    | "st3a" -> R.ST3A
+    | "st3b" -> R.ST3B
+    | "st4a" -> R.ST4A
+    | "st4b" -> R.ST4B
+    | "st5a" -> R.ST5A
+    | "st5b" -> R.ST5B
+    | "st6a" -> R.ST6A
+    | "st6b" -> R.ST6B
+    | "st7a" -> R.ST7A
+    | "st7b" -> R.ST7B
     | "zmm0a" -> R.ZMM0A
     | "zmm0b" -> R.ZMM0B
     | "zmm0c" -> R.ZMM0C
@@ -1472,6 +1520,14 @@ module Register = begin
     | R.YMM13 -> [ R.ZMM13D; R.ZMM13C; R.ZMM13B; R.ZMM13A ]
     | R.YMM14 -> [ R.ZMM14D; R.ZMM14C; R.ZMM14B; R.ZMM14A ]
     | R.YMM15 -> [ R.ZMM15D; R.ZMM15C; R.ZMM15B; R.ZMM15A ]
+    | R.MM0 -> [ R.ST0A ]
+    | R.MM1 -> [ R.ST1A ]
+    | R.MM2 -> [ R.ST2A ]
+    | R.MM3 -> [ R.ST3A ]
+    | R.MM4 -> [ R.ST4A ]
+    | R.MM5 -> [ R.ST5A ]
+    | R.MM6 -> [ R.ST6A ]
+    | R.MM7 -> [ R.ST7A ]
     | e -> failwithf "Unhandled register: %A" e
 end
 
