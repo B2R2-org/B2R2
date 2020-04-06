@@ -45,10 +45,20 @@ module SSABlockHelper =
     match hdl.ISA.Arch with
     | Architecture.IntelX86 ->
       let sp = Intel.Register.ESP |> Intel.Register.toRegID
-      [| ({ SSA.Kind = SSA.RegVar (32<rt>, sp, "ESP"); SSA.Identifier = -1 }) |]
+      let esp =
+        { SSA.Kind = SSA.RegVar (32<rt>, sp, "ESP"); SSA.Identifier = -1 }
+      let ret = Intel.Register.EAX |> Intel.Register.toRegID
+      let eax =
+        { SSA.Kind = SSA.RegVar (32<rt>, ret, "EAX"); SSA.Identifier = -1 }
+      [| esp ; eax |]
     | Architecture.IntelX64 ->
       let sp = Intel.Register.RSP |> Intel.Register.toRegID
-      [| ({ SSA.Kind = SSA.RegVar (64<rt>, sp, "RSP"); SSA.Identifier = -1 }) |]
+      let rsp =
+        { SSA.Kind = SSA.RegVar (64<rt>, sp, "RSP"); SSA.Identifier = -1 }
+      let ret = Intel.Register.RAX |> Intel.Register.toRegID
+      let rax =
+        { SSA.Kind = SSA.RegVar (64<rt>, ret, "RAX"); SSA.Identifier = -1 }
+      [| rsp ; rax |]
     | _ -> [||]
 
   /// This is currently intra-procedural.
