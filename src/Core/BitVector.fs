@@ -346,19 +346,23 @@ type BitVector =
       BitVector.castAsFloat result 80<rt>
     | _ -> raise ArithTypeMismatchException
 
-  static member private castAsFloat num = function
+  static member private castAsFloat num typ =
+    match typ with
     | 32<rt> ->
       let f32 = num |> float32 |> BitConverter.GetBytes
       let f32 = BitConverter.ToInt32 (f32, 0) |> uint64
-      BitVector.ofUInt64 f32 32<rt>
-    | 64<rt> -> BitVector.ofUInt64 num 64<rt>
+      BitVector.ofUInt64 f32 typ
+    | 64<rt> -> BitVector.ofUInt64 num typ
     | 80<rt> ->
-      let signOnly = num &&& (1UL <<< 63) >>> 48
-      let exp = num &&& 0x7FF0000000000000UL >>> 52
-      let expAndSign = exp + 0x3C00UL ||| signOnly  |> bigint
-      let significand = num &&& 0x000FFFFFFFFFFFFFUL
-      let significand = significand ||| 0x0010000000000000UL <<< 11 |> bigint
-      { Num = 0UL; BigNum = expAndSign <<< 64 ||| significand; Length = 80<rt> }
+      match num with
+      | 0UL -> BitVector.zero typ
+      | _ ->
+        let signOnly = num &&& (1UL <<< 63) >>> 48
+        let exp = num &&& 0x7FF0000000000000UL >>> 52
+        let expAndSign = exp + 0x3C00UL ||| signOnly  |> bigint
+        let significand = num &&& 0x000FFFFFFFFFFFFFUL
+        let significand = significand ||| 0x0010000000000000UL <<< 11 |> bigint
+        { Num = 0UL; BigNum = expAndSign <<< 64 ||| significand; Length = typ }
     | _ -> raise ArithTypeMismatchException
 
   static member private castAsInt f64 typ =

@@ -2526,14 +2526,14 @@ let save64BitPromotedFxsave ctxt dst builder =
   builder <! (t5 := (v R.FTW5 != num3))
   builder <! (t6 := (v R.FTW6 != num3))
   builder <! (t7 := (v R.FTW7 != num3))
-  builder <! (dst := concat (concat (v R.FCW) (v R.FSW))
-                            (concat (concat abrTagW reserved8) (v R.FOP)))
+  builder <! (dst := concat (concat (v R.FOP) (concat reserved8 abrTagW))
+                            (concat (v R.FSW) (v R.FCW)))
   builder <! (updateAddrByOffset dst offset)
   builder <! (dst := v R.FIP)
   builder <! (updateAddrByOffset dst offset)
   builder <! (dst := v R.FDP)
   builder <! (updateAddrByOffset dst offset)
-  builder <! (dst := concat (v R.MXCSR) (v R.MXCSRMASK))
+  builder <! (dst := concat (v R.MXCSRMASK) (v R.MXCSR))
   saveFxsaveMMX dst offset v builder
   saveFxsaveXMM ctxt dst offset (List.rev xRegs) builder
   builder <! (baseReg := regSave)
@@ -2563,8 +2563,8 @@ let save64BitDefaultFxsave ctxt dst builder =
   builder <! (t7 := (v R.FTW7 != num3))
   builder <! (abrTagW := concat (concat (concat t7 t6) (concat t5 t4))
                                 (concat (concat t3 t2) (concat t1 t0)))
-  builder <! (dst := (concat (concat (v R.FCW) (v R.FSW))
-                             (concat (concat abrTagW reserved8) (v R.FOP))))
+  builder <! (dst := concat (concat (v R.FOP) (concat reserved8 abrTagW))
+                            (concat (v R.FSW) (v R.FCW)))
   builder <! (updateAddrByOffset dst offset)
   builder <! (dst := concat (extractLow 32<rt> (v R.FIP))
                             (concat (v R.FCS) reserved16))
@@ -2572,7 +2572,7 @@ let save64BitDefaultFxsave ctxt dst builder =
   builder <! (dst := concat (extractLow 32<rt> (v R.FDP))
                             (concat (v R.FDS) reserved16))
   builder <! (updateAddrByOffset dst offset)
-  builder <! (dst := (concat (v R.MXCSR) (v R.MXCSRMASK)))
+  builder <! (dst := concat (v R.MXCSRMASK) (v R.MXCSR))
   saveFxsaveMMX dst offset v builder
   saveFxsaveXMM ctxt dst offset (List.rev xRegs) builder
   builder <! (baseReg := regSave)
@@ -2600,9 +2600,8 @@ let saveLegacyFxsave ctxt dst builder =
   builder <! (t7 := (v R.FTW7 != num3))
   builder <! (abrTagW := concat (concat (concat t7 t6) (concat t5 t4))
                                 (concat (concat t3 t2) (concat t1 t0)))
-  builder <!
-    (dst := concat (concat (v R.FCW) (v R.FSW))
-                   (concat (concat abrTagW reserved8) (v R.FOP)))
+  builder <! (dst := concat (concat (v R.FOP) (concat reserved8 abrTagW))
+                            (concat (v R.FSW) (v R.FCW)))
   builder <! (updateAddrByOffset dst offset)
   builder <!
     (dst := concat (extractLow 32<rt> (v R.FIP)) (concat (v R.FCS) reserved16))
@@ -2610,7 +2609,7 @@ let saveLegacyFxsave ctxt dst builder =
   builder <! (dst := concat (extractLow 32<rt> (v R.FDP))
                             (concat (v R.FDS) reserved16))
   builder <! (updateAddrByOffset dst offset)
-  builder <! (dst := concat (v R.MXCSR) (v R.MXCSRMASK))
+  builder <! (dst := concat (v R.MXCSRMASK) (v R.MXCSR))
   saveFxsaveMMX dst offset v builder
   saveFxsaveXMM ctxt dst offset (List.rev xRegs) builder
   builder <! (baseReg := regSave)
@@ -2654,7 +2653,7 @@ let load64BitDefaultFxrstor ctxt src builder =
     [ R.XMM0; R.XMM1; R.XMM2; R.XMM3; R.XMM4; R.XMM5; R.XMM6; R.XMM7;
       R.XMM8; R.XMM9; R.XMM10; R.XMM11; R.XMM12; R.XMM13; R.XMM14; R.XMM15 ]
   builder <! (regSave := baseReg)
-  builder <! (tmp8 := extract src 8<rt> 16)
+  builder <! (tmp8 := extract src 8<rt> 32)
   builder <! (t0 := ite (extractLow 1<rt> tmp8) zero2 three2)
   builder <! (t1 := ite (extract tmp8 1<rt> 1) zero2 three2)
   builder <! (t2 := ite (extract tmp8 1<rt> 2) zero2 three2)
@@ -2663,20 +2662,20 @@ let load64BitDefaultFxrstor ctxt src builder =
   builder <! (t5 := ite (extract tmp8 1<rt> 5) zero2 three2)
   builder <! (t6 := ite (extract tmp8 1<rt> 6) zero2 three2)
   builder <! (t7 := ite (extract tmp8 1<rt> 7) zero2 three2)
-  builder <! (grv R.FOP := extractLow 16<rt> src)
-  builder <! (grv R.FTW := concat (concat (concat t0 t1) (concat t2 t3))
-                                  (concat (concat t4 t5) (concat t6 t7)))
-  builder <! (grv R.FSW := extract src 16<rt> 32)
-  builder <! (grv R.FCW := extract src 16<rt> 48)
+  builder <! (grv R.FCW := extractLow 16<rt> src)
+  builder <! (grv R.FSW := extract src 16<rt> 16)
+  builder <! (grv R.FTW := concat (concat (concat t7 t6) (concat t5 t4))
+                                  (concat (concat t3 t2) (concat t1 t0)))
+  builder <! (grv R.FOP := extract src 16<rt> 48)
   builder <! (updateAddrByOffset src offset)
-  builder <! (grv R.FCS := extractLow 16<rt> src)
-  builder <! (extractLow 32<rt> (grv R.FIP) := extractHigh 32<rt> src)
+  builder <! (extractLow 32<rt> (grv R.FIP) := extractLow 32<rt> src)
+  builder <! (grv R.FCS := extract src 16<rt> 32)
   builder <! (updateAddrByOffset src offset)
-  builder <! (grv R.FDS := extractLow 16<rt> src)
-  builder <! (extractLow 32<rt> (grv R.FDP) := extractHigh 32<rt> src)
+  builder <! (extractLow 32<rt> (grv R.FDP) := extractLow 32<rt> src)
+  builder <! (grv R.FDS := extract src 16<rt> 32)
   builder <! (updateAddrByOffset src offset)
-  builder <! (grv R.MXCSRMASK := extractLow 32<rt> src)
-  builder <! (grv R.MXCSR := extractHigh 32<rt> src)
+  builder <! (grv R.MXCSR := extractLow 32<rt> src)
+  builder <! (grv R.MXCSRMASK := extractHigh 32<rt> src)
   loadFxrstorMMX src grv builder
   loadFxrstorXMM ctxt src (List.rev xRegs) builder
   builder <! (baseReg := regSave)
@@ -3410,7 +3409,7 @@ let fld ins insAddr insLen ctxt =
   fpuLoad insAddr insLen ctxt oprExpr
 
 let fld1 _ins insAddr insLen ctxt =
-  let oprExpr = BitVector.ofUInt64 4611686018427387903UL 64<rt> |> num
+  let oprExpr = BitVector.ofUInt64 0x3FF0000000000000UL 64<rt> |> num
   fpuLoad insAddr insLen ctxt oprExpr
 
 let fldcw ins insAddr insLen ctxt =
