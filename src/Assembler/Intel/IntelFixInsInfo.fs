@@ -46,7 +46,7 @@ let encodeInstruction isa ins =
   | Opcode.AAM -> aam isa.Arch ins.Operands
   | Opcode.AAS -> aas isa.Arch ins.Operands
   | Opcode.ADC -> adc isa.Arch ins
-  | Opcode.ADD -> add isa.Arch ins.Operands
+  | Opcode.ADD -> add isa.Arch ins
   | _ -> Utils.futureFeature ()
 
 let encodingByteCode isa (ins: InsInfo) =
