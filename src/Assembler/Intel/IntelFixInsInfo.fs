@@ -47,10 +47,8 @@ let encodeInstruction isa ins =
   | Opcode.AAS -> aas isa.Arch ins.Operands
   | Opcode.ADC -> adc isa.Arch ins
   | Opcode.ADD -> add isa.Arch ins
+  | Opcode.MOV -> mov isa.Arch ins
   | _ -> Utils.futureFeature ()
-
-let encodingByteCode isa (ins: InsInfo) =
-  encodeInstruction isa ins
 
 let private getValue enBytes (sb: StringBuilder) =
   Array.rev enBytes
@@ -159,7 +157,7 @@ let lblByteArrToString byteArr =
 // substitue label operands.
 let updateInsInfos (ins: InsInfo list) (lbls: Map<string, int>) isa =
   let encodedInfo =
-    List.map (fun ins -> let eByteCodes = encodingByteCode isa ins
+    List.map (fun ins -> let eByteCodes = encodeInstruction isa ins
                          eByteCodes, lblByteArrToString eByteCodes) ins
     |> List.mapi (fun i (e, str) -> i, String.length str / 2 |> uint64, str, e)
     |> updatePC [] 0UL

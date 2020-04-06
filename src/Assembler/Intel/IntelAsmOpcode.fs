@@ -64,7 +64,7 @@ let adc arch ins =
   | TwoOperands (OprReg Register.AL, OprImm imm) ->
     [| Normal 0x14uy
        yield! encodeImm imm 8<rt> |]
-  | TwoOperands (OprReg Register.AX as o1, OprImm imm) ->
+  | TwoOperands (OprReg Register.AX, OprImm imm) ->
     [| Normal 0x66uy
        Normal 0x15uy
        yield! encodeImm imm 16<rt> |]
@@ -77,137 +77,137 @@ let adc arch ins =
        Normal 0x15uy
        yield! encodeImm imm 32<rt> |]
 
-  // Reg - Imm (Priority 1)
-  | TwoOperands (OprReg r, OprImm imm) when isReg8 r ->
-    [| yield! encodeREXPref arch ins None
-       Normal 0x80uy
-       encodeRI r 0b010uy
-       yield! encodeImm imm 8<rt> |]
-  | TwoOperands (OprReg r, OprImm imm) when isReg16 r ->
-    [| yield! encodePrefix arch ins oSzPref
-       yield! encodeREXPref arch ins None
-       Normal 0x81uy
-       encodeRI r 0b010uy
-       yield! encodeImm imm 16<rt> |]
-  | TwoOperands (OprReg r, OprImm imm) when isReg32 r ->
-    [| yield! encodeREXPref arch ins None
-       Normal 0x81uy
-       encodeRI r 0b010uy
-       yield! encodeImm imm 32<rt> |]
-  | TwoOperands (OprReg r, OprImm imm) when isReg64 r ->
-    no32Arch arch
-    [| yield! encodeREXPref arch ins rexW
-       Normal 0x81uy
-       encodeRI r 0b010uy
-       yield! encodeImm imm 32<rt> |]
-
-  // Mem - Imm (Priority 1)
-  | TwoOperands (OprMem (Some b, s, d, 8<rt>), OprImm imm) ->
-    [| yield! encodePrefix arch ins None
-       yield! encodeREXPref arch ins None
-       Normal 0x80uy
-       encodeMI b s d 0b010uy
-       yield! encodeSIB ins
-       yield! encodeDisp ins
-       yield! encodeImm imm 8<rt> |]
-  | TwoOperands (OprMem (Some b, s, d, 16<rt>), OprImm imm) ->
-    [| yield! encodePrefix arch ins oSzPref
-       yield! encodeREXPref arch ins None
-       Normal 0x81uy
-       encodeMI b s d 0b010uy
-       yield! encodeSIB ins
-       yield! encodeDisp ins
-       yield! encodeImm imm 16<rt> |]
-  | TwoOperands (OprMem (Some b, s, d, 32<rt>), OprImm imm) ->
-    [| yield! encodePrefix arch ins None
-       yield! encodeREXPref arch ins None
-       Normal 0x81uy
-       encodeMI b s d 0b010uy
-       yield! encodeSIB ins
-       yield! encodeDisp ins
-       yield! encodeImm imm 32<rt> |]
-  | TwoOperands (OprMem (Some b, s, d, 64<rt>), OprImm imm) ->
-    no32Arch arch;
-    [| yield! encodePrefix arch ins None
-       yield! encodeREXPref arch ins rexW
-       Normal 0x81uy
-       encodeMI b s d 0b010uy
-       yield! encodeSIB ins
-       yield! encodeDisp ins
-       yield! encodeImm imm 32<rt> |]
-
   // Reg - Imm (Priority 0)
-  | TwoOperands (OprReg r, OprImm imm) when isReg16 r ->
+  | TwoOperands (OprReg r, OprImm imm) when isReg16 r && imm <= 0xFFL ->
     [| yield! encodePrefix arch ins oSzPref
-       yield! encodeREXPref arch ins None
+       yield! encodeREXPref arch ins None false false
        Normal 0x83uy
        encodeRI r 0b010uy
        yield! encodeImm imm 8<rt> |]
-  | TwoOperands (OprReg r, OprImm imm) when isReg32 r ->
-    [| yield! encodeREXPref arch ins None
+  | TwoOperands (OprReg r, OprImm imm) when isReg32 r && imm <= 0xFFL ->
+    [| yield! encodeREXPref arch ins None false false
        Normal 0x83uy
        encodeRI r 0b010uy
        yield! encodeImm imm 8<rt> |]
-  | TwoOperands (OprReg r, OprImm imm) when isReg64 r ->
+  | TwoOperands (OprReg r, OprImm imm) when isReg64 r && imm <= 0xFFL ->
     no32Arch arch
-    [| yield! encodeREXPref arch ins rexW
+    [| yield! encodeREXPref arch ins rexW false false
        Normal 0x83uy
        encodeRI r 0b010uy
        yield! encodeImm imm 8<rt> |]
 
   // Mem - Imm (Priority 0)
-  | TwoOperands (OprMem (Some b, s, d, 16<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) when imm <= 0xFFL ->
     [| yield! encodePrefix arch ins oSzPref
-       yield! encodeREXPref arch ins None
+       yield! encodeREXPref arch ins None false false
        Normal 0x83uy
        encodeMI b s d 0b010uy
        yield! encodeSIB ins
        yield! encodeDisp ins
        yield! encodeImm imm 8<rt> |]
-  | TwoOperands (OprMem (Some b, s, d, 32<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm imm) when imm <= 0xFFL ->
     [| yield! encodePrefix arch ins None
-       yield! encodeREXPref arch ins None
+       yield! encodeREXPref arch ins None false false
        Normal 0x83uy
        encodeMI b s d 0b010uy
        yield! encodeSIB ins
        yield! encodeDisp ins
        yield! encodeImm imm 8<rt> |]
-  | TwoOperands (OprMem (Some b, s, d, 64<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm imm) when imm <= 0xFFL ->
     no32Arch arch
     [| yield! encodePrefix arch ins None
-       yield! encodeREXPref arch ins rexW
+       yield! encodeREXPref arch ins rexW false false
        Normal 0x83uy
        encodeMI b s d 0b010uy
        yield! encodeSIB ins
        yield! encodeDisp ins
        yield! encodeImm imm 8<rt> |]
 
-  // Mem - Reg
-  | TwoOperands (OprMem (Some b, s, d, 8<rt>), OprReg r) when isReg8 r ->
+  // Reg - Imm (Priority 1)
+  | TwoOperands (OprReg r, OprImm imm) when isReg8 r ->
+    [| yield! encodeREXPref arch ins None false false
+       Normal 0x80uy
+       encodeRI r 0b010uy
+       yield! encodeImm imm 8<rt> |]
+  | TwoOperands (OprReg r, OprImm imm) when isReg16 r ->
+    [| yield! encodePrefix arch ins oSzPref
+       yield! encodeREXPref arch ins None false false
+       Normal 0x81uy
+       encodeRI r 0b010uy
+       yield! encodeImm imm 16<rt> |]
+  | TwoOperands (OprReg r, OprImm imm) when isReg32 r ->
+    [| yield! encodeREXPref arch ins None false false
+       Normal 0x81uy
+       encodeRI r 0b010uy
+       yield! encodeImm imm 32<rt> |]
+  | TwoOperands (OprReg r, OprImm imm) when isReg64 r ->
+    no32Arch arch
+    [| yield! encodeREXPref arch ins rexW false false
+       Normal 0x81uy
+       encodeRI r 0b010uy
+       yield! encodeImm imm 32<rt> |]
+
+  // Mem - Imm (Priority 1)
+  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm imm) ->
     [| yield! encodePrefix arch ins None
-       yield! encodeREXPref arch ins None
+       yield! encodeREXPref arch ins None false false
+       Normal 0x80uy
+       encodeMI b s d 0b010uy
+       yield! encodeSIB ins
+       yield! encodeDisp ins
+       yield! encodeImm imm 8<rt> |]
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) ->
+    [| yield! encodePrefix arch ins oSzPref
+       yield! encodeREXPref arch ins None false false
+       Normal 0x81uy
+       encodeMI b s d 0b010uy
+       yield! encodeSIB ins
+       yield! encodeDisp ins
+       yield! encodeImm imm 16<rt> |]
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm imm) ->
+    [| yield! encodePrefix arch ins None
+       yield! encodeREXPref arch ins None false false
+       Normal 0x81uy
+       encodeMI b s d 0b010uy
+       yield! encodeSIB ins
+       yield! encodeDisp ins
+       yield! encodeImm imm 32<rt> |]
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm imm) ->
+    no32Arch arch;
+    [| yield! encodePrefix arch ins None
+       yield! encodeREXPref arch ins rexW false false
+       Normal 0x81uy
+       encodeMI b s d 0b010uy
+       yield! encodeSIB ins
+       yield! encodeDisp ins
+       yield! encodeImm imm 32<rt> |]
+
+  // Mem - Reg
+  | TwoOperands (OprMem (b, s, d, 8<rt>), OprReg r) when isReg8 r ->
+    [| yield! encodePrefix arch ins None
+       yield! encodeREXPref arch ins None false false
        Normal 0x10uy
        encodeMR b s d r
        yield! encodeSIB ins
        yield! encodeDisp ins |]
-  | TwoOperands (OprMem (Some b, s, d, 16<rt>), OprReg r) when isReg16 r ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprReg r) when isReg16 r ->
     [| yield! encodePrefix arch ins oSzPref
-       yield! encodeREXPref arch ins None
+       yield! encodeREXPref arch ins None false false
        Normal 0x11uy
        encodeMR b s d r
        yield! encodeSIB ins
        yield! encodeDisp ins |]
-  | TwoOperands (OprMem (Some b, s, d, 32<rt>), OprReg r) when isReg32 r ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprReg r) when isReg32 r ->
     [| yield! encodePrefix arch ins None
-       yield! encodeREXPref arch ins None
+       yield! encodeREXPref arch ins None false false
        Normal 0x11uy
        encodeMR b s d r
        yield! encodeSIB ins
        yield! encodeDisp ins |]
-  | TwoOperands (OprMem (Some b, s, d, 64<rt>), OprReg r) when isReg64 r ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprReg r) when isReg64 r ->
     no32Arch arch
     [| yield! encodePrefix arch ins None
-       yield! encodeREXPref arch ins rexW
+       yield! encodeREXPref arch ins rexW false false
        Normal 0x11uy
        encodeMR b s d r
        yield! encodeSIB ins
@@ -215,50 +215,50 @@ let adc arch ins =
 
   // Reg - Reg
   | TwoOperands (OprReg r1, OprReg r2) when isReg8 r1 && isReg8 r2 ->
-    [| yield! encodeREXPref arch ins None
+    [| yield! encodeREXPref arch ins None false false
        Normal 0x12uy
        encodeRR r1 r2 |]
   | TwoOperands (OprReg r1, OprReg r2) when isReg16 r1 && isReg16 r2 ->
     [| Normal 0x66uy
-       yield! encodeREXPref arch ins None
+       yield! encodeREXPref arch ins None false false
        Normal 0x13uy
        encodeRR r1 r2 |]
   | TwoOperands (OprReg r1, OprReg r2) when isReg32 r1 && isReg32 r2 ->
-    [| yield! encodeREXPref arch ins None
+    [| yield! encodeREXPref arch ins None false false
        Normal 0x13uy
        encodeRR r1 r2 |]
   | TwoOperands (OprReg r1, OprReg r2) when isReg64 r1 && isReg64 r2 ->
     no32Arch arch
-    [| yield! encodeREXPref arch ins rexW
+    [| yield! encodeREXPref arch ins rexW false false
        Normal 0x13uy
        encodeRR r1 r2 |]
 
   // Reg - Mem
-  | TwoOperands (OprReg r, OprMem (Some b, s, d, 8<rt>)) when isReg8 r ->
+  | TwoOperands (OprReg r, OprMem (b, s, d, 8<rt>)) when isReg8 r ->
     [| yield! encodePrefix arch ins None
-       yield! encodeREXPref arch ins None
+       yield! encodeREXPref arch ins None false false
        Normal 0x12uy
        encodeRM b s d r
        yield! encodeSIB ins
        yield! encodeDisp ins |]
-  | TwoOperands (OprReg r, OprMem (Some b, s, d, 16<rt>)) when isReg16 r ->
+  | TwoOperands (OprReg r, OprMem (b, s, d, 16<rt>)) when isReg16 r ->
     [| yield! encodePrefix arch ins oSzPref
-       yield! encodeREXPref arch ins None
+       yield! encodeREXPref arch ins None false false
        Normal 0x13uy
        encodeRM b s d r
        yield! encodeSIB ins
        yield! encodeDisp ins |]
-  | TwoOperands (OprReg r, OprMem (Some b, s, d, 32<rt>)) when isReg32 r ->
+  | TwoOperands (OprReg r, OprMem (b, s, d, 32<rt>)) when isReg32 r ->
     [| yield! encodePrefix arch ins None
-       yield! encodeREXPref arch ins None
+       yield! encodeREXPref arch ins None false false
        Normal 0x13uy
        encodeRM b s d r
        yield! encodeSIB ins
        yield! encodeDisp ins |]
-  | TwoOperands (OprReg r, OprMem (Some b, s, d, 64<rt>)) when isReg64 r ->
+  | TwoOperands (OprReg r, OprMem (b, s, d, 64<rt>)) when isReg64 r ->
     no32Arch arch
     [| yield! encodePrefix arch ins None
-       yield! encodeREXPref arch ins rexW
+       yield! encodeREXPref arch ins rexW false false
        Normal 0x13uy
        encodeRM b s d r
        yield! encodeSIB ins
@@ -271,7 +271,7 @@ let add arch ins =
   | TwoOperands (OprReg Register.AL, OprImm imm) ->
     [| Normal 0x04uy
        yield! encodeImm imm 8<rt> |]
-  | TwoOperands (OprReg Register.AX as o1, OprImm imm) ->
+  | TwoOperands (OprReg Register.AX, OprImm imm) ->
     [| Normal 0x66uy
        Normal 0x05uy
        yield! encodeImm imm 16<rt> |]
@@ -284,137 +284,137 @@ let add arch ins =
        Normal 0x05uy
        yield! encodeImm imm 32<rt> |]
 
-  // Reg - Imm (Priority 1)
-  | TwoOperands (OprReg r, OprImm imm) when isReg8 r ->
-    [| yield! encodeREXPref arch ins None
-       Normal 0x80uy
-       encodeRI r 0b000uy
-       yield! encodeImm imm 8<rt> |]
-  | TwoOperands (OprReg r, OprImm imm) when isReg16 r ->
-    [| yield! encodePrefix arch ins oSzPref
-       yield! encodeREXPref arch ins None
-       Normal 0x81uy
-       encodeRI r 0b000uy
-       yield! encodeImm imm 16<rt> |]
-  | TwoOperands (OprReg r, OprImm imm) when isReg32 r ->
-    [| yield! encodeREXPref arch ins None
-       Normal 0x81uy
-       encodeRI r 0b000uy
-       yield! encodeImm imm 32<rt> |]
-  | TwoOperands (OprReg r, OprImm imm) when isReg64 r ->
-    no32Arch arch
-    [| yield! encodeREXPref arch ins rexW
-       Normal 0x81uy
-       encodeRI r 0b000uy
-       yield! encodeImm imm 32<rt> |]
-
-  // Mem - Imm (Priority 1)
-  | TwoOperands (OprMem (Some b, s, d, 8<rt>), OprImm imm) ->
-    [| yield! encodePrefix arch ins None
-       yield! encodeREXPref arch ins None
-       Normal 0x80uy
-       encodeMI b s d 0b000uy
-       yield! encodeSIB ins
-       yield! encodeDisp ins
-       yield! encodeImm imm 8<rt> |]
-  | TwoOperands (OprMem (Some b, s, d, 16<rt>), OprImm imm) ->
-    [| yield! encodePrefix arch ins oSzPref
-       yield! encodeREXPref arch ins None
-       Normal 0x81uy
-       encodeMI b s d 0b000uy
-       yield! encodeSIB ins
-       yield! encodeDisp ins
-       yield! encodeImm imm 16<rt> |]
-  | TwoOperands (OprMem (Some b, s, d, 32<rt>), OprImm imm) ->
-    [| yield! encodePrefix arch ins None
-       yield! encodeREXPref arch ins None
-       Normal 0x81uy
-       encodeMI b s d 0b000uy
-       yield! encodeSIB ins
-       yield! encodeDisp ins
-       yield! encodeImm imm 32<rt> |]
-  | TwoOperands (OprMem (Some b, s, d, 64<rt>), OprImm imm) ->
-    no32Arch arch;
-    [| yield! encodePrefix arch ins None
-       yield! encodeREXPref arch ins rexW
-       Normal 0x81uy
-       encodeMI b s d 0b000uy
-       yield! encodeSIB ins
-       yield! encodeDisp ins
-       yield! encodeImm imm 32<rt> |]
-
   // Reg - Imm (Priority 0)
-  | TwoOperands (OprReg r, OprImm imm) when isReg16 r ->
+  | TwoOperands (OprReg r, OprImm imm) when isReg16 r && imm <= 0xFFL ->
     [| yield! encodePrefix arch ins oSzPref
-       yield! encodeREXPref arch ins None
+       yield! encodeREXPref arch ins None false false
        Normal 0x83uy
        encodeRI r 0b000uy
        yield! encodeImm imm 8<rt> |]
-  | TwoOperands (OprReg r, OprImm imm) when isReg32 r ->
-    [| yield! encodeREXPref arch ins None
+  | TwoOperands (OprReg r, OprImm imm) when isReg32 r && imm <= 0xFFL ->
+    [| yield! encodeREXPref arch ins None false false
        Normal 0x83uy
        encodeRI r 0b000uy
        yield! encodeImm imm 8<rt> |]
-  | TwoOperands (OprReg r, OprImm imm) when isReg64 r ->
+  | TwoOperands (OprReg r, OprImm imm) when isReg64 r && imm <= 0xFFL ->
     no32Arch arch
-    [| yield! encodeREXPref arch ins rexW
+    [| yield! encodeREXPref arch ins rexW false false
        Normal 0x83uy
        encodeRI r 0b000uy
        yield! encodeImm imm 8<rt> |]
 
   // Mem - Imm (Priority 0)
-  | TwoOperands (OprMem (Some b, s, d, 16<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) when imm <= 0xFFL ->
     [| yield! encodePrefix arch ins oSzPref
-       yield! encodeREXPref arch ins None
+       yield! encodeREXPref arch ins None false false
        Normal 0x83uy
        encodeMI b s d 0b000uy
        yield! encodeSIB ins
        yield! encodeDisp ins
        yield! encodeImm imm 8<rt> |]
-  | TwoOperands (OprMem (Some b, s, d, 32<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm imm) when imm <= 0xFFL ->
     [| yield! encodePrefix arch ins None
-       yield! encodeREXPref arch ins None
+       yield! encodeREXPref arch ins None false false
        Normal 0x83uy
        encodeMI b s d 0b000uy
        yield! encodeSIB ins
        yield! encodeDisp ins
        yield! encodeImm imm 8<rt> |]
-  | TwoOperands (OprMem (Some b, s, d, 64<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm imm) when imm <= 0xFFL ->
     no32Arch arch
     [| yield! encodePrefix arch ins None
-       yield! encodeREXPref arch ins rexW
+       yield! encodeREXPref arch ins rexW false false
        Normal 0x83uy
        encodeMI b s d 0b000uy
        yield! encodeSIB ins
        yield! encodeDisp ins
        yield! encodeImm imm 8<rt> |]
 
-  // Mem - Reg
-  | TwoOperands (OprMem (Some b, s, d, 8<rt>), OprReg r) when isReg8 r ->
+  // Reg - Imm (Priority 1)
+  | TwoOperands (OprReg r, OprImm imm) when isReg8 r ->
+    [| yield! encodeREXPref arch ins None false false
+       Normal 0x80uy
+       encodeRI r 0b000uy
+       yield! encodeImm imm 8<rt> |]
+  | TwoOperands (OprReg r, OprImm imm) when isReg16 r ->
+    [| yield! encodePrefix arch ins oSzPref
+       yield! encodeREXPref arch ins None false false
+       Normal 0x81uy
+       encodeRI r 0b000uy
+       yield! encodeImm imm 16<rt> |]
+  | TwoOperands (OprReg r, OprImm imm) when isReg32 r ->
+    [| yield! encodeREXPref arch ins None false false
+       Normal 0x81uy
+       encodeRI r 0b000uy
+       yield! encodeImm imm 32<rt> |]
+  | TwoOperands (OprReg r, OprImm imm) when isReg64 r ->
+    no32Arch arch
+    [| yield! encodeREXPref arch ins rexW false false
+       Normal 0x81uy
+       encodeRI r 0b000uy
+       yield! encodeImm imm 32<rt> |]
+
+  // Mem - Imm (Priority 1)
+  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm imm) ->
     [| yield! encodePrefix arch ins None
-       yield! encodeREXPref arch ins None
+       yield! encodeREXPref arch ins None false false
+       Normal 0x80uy
+       encodeMI b s d 0b000uy
+       yield! encodeSIB ins
+       yield! encodeDisp ins
+       yield! encodeImm imm 8<rt> |]
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) ->
+    [| yield! encodePrefix arch ins oSzPref
+       yield! encodeREXPref arch ins None false false
+       Normal 0x81uy
+       encodeMI b s d 0b000uy
+       yield! encodeSIB ins
+       yield! encodeDisp ins
+       yield! encodeImm imm 16<rt> |]
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm imm) ->
+    [| yield! encodePrefix arch ins None
+       yield! encodeREXPref arch ins None false false
+       Normal 0x81uy
+       encodeMI b s d 0b000uy
+       yield! encodeSIB ins
+       yield! encodeDisp ins
+       yield! encodeImm imm 32<rt> |]
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm imm) ->
+    no32Arch arch;
+    [| yield! encodePrefix arch ins None
+       yield! encodeREXPref arch ins rexW false false
+       Normal 0x81uy
+       encodeMI b s d 0b000uy
+       yield! encodeSIB ins
+       yield! encodeDisp ins
+       yield! encodeImm imm 32<rt> |]
+
+  // Mem - Reg
+  | TwoOperands (OprMem (b, s, d, 8<rt>), OprReg r) when isReg8 r ->
+    [| yield! encodePrefix arch ins None
+       yield! encodeREXPref arch ins None false false
        Normal 0x00uy
        encodeMR b s d r
        yield! encodeSIB ins
        yield! encodeDisp ins |]
-  | TwoOperands (OprMem (Some b, s, d, 16<rt>), OprReg r) when isReg16 r ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprReg r) when isReg16 r ->
     [| yield! encodePrefix arch ins oSzPref
-       yield! encodeREXPref arch ins None
+       yield! encodeREXPref arch ins None false false
        Normal 0x01uy
        encodeMR b s d r
        yield! encodeSIB ins
        yield! encodeDisp ins |]
-  | TwoOperands (OprMem (Some b, s, d, 32<rt>), OprReg r) when isReg32 r ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprReg r) when isReg32 r ->
     [| yield! encodePrefix arch ins None
-       yield! encodeREXPref arch ins None
+       yield! encodeREXPref arch ins None false false
        Normal 0x01uy
        encodeMR b s d r
        yield! encodeSIB ins
        yield! encodeDisp ins |]
-  | TwoOperands (OprMem (Some b, s, d, 64<rt>), OprReg r) when isReg64 r ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprReg r) when isReg64 r ->
     no32Arch arch
     [| yield! encodePrefix arch ins None
-       yield! encodeREXPref arch ins rexW
+       yield! encodeREXPref arch ins rexW false false
        Normal 0x01uy
        encodeMR b s d r
        yield! encodeSIB ins
@@ -422,53 +422,233 @@ let add arch ins =
 
   // Reg - Reg
   | TwoOperands (OprReg r1, OprReg r2) when isReg8 r1 && isReg8 r2 ->
-    [| yield! encodeREXPref arch ins None
+    [| yield! encodeREXPref arch ins None false false
        Normal 0x02uy
        encodeRR r1 r2 |]
   | TwoOperands (OprReg r1, OprReg r2) when isReg16 r1 && isReg16 r2 ->
     [| Normal 0x66uy
-       yield! encodeREXPref arch ins None
+       yield! encodeREXPref arch ins None false false
        Normal 0x03uy
        encodeRR r1 r2 |]
   | TwoOperands (OprReg r1, OprReg r2) when isReg32 r1 && isReg32 r2 ->
-    [| yield! encodeREXPref arch ins None
+    [| yield! encodeREXPref arch ins None false false
        Normal 0x03uy
        encodeRR r1 r2 |]
   | TwoOperands (OprReg r1, OprReg r2) when isReg64 r1 && isReg64 r2 ->
     no32Arch arch
-    [| yield! encodeREXPref arch ins rexW
+    [| yield! encodeREXPref arch ins rexW false false
        Normal 0x03uy
        encodeRR r1 r2 |]
 
   // Reg - Mem
-  | TwoOperands (OprReg r, OprMem (Some b, s, d, 8<rt>)) when isReg8 r ->
+  | TwoOperands (OprReg r, OprMem (b, s, d, 8<rt>)) when isReg8 r ->
     [| yield! encodePrefix arch ins None
-       yield! encodeREXPref arch ins None
+       yield! encodeREXPref arch ins None false false
        Normal 0x02uy
        encodeRM b s d r
        yield! encodeSIB ins
        yield! encodeDisp ins |]
-  | TwoOperands (OprReg r, OprMem (Some b, s, d, 16<rt>)) when isReg16 r ->
+  | TwoOperands (OprReg r, OprMem (b, s, d, 16<rt>)) when isReg16 r ->
     [| yield! encodePrefix arch ins oSzPref
-       yield! encodeREXPref arch ins None
+       yield! encodeREXPref arch ins None false false
        Normal 0x03uy
        encodeRM b s d r
        yield! encodeSIB ins
        yield! encodeDisp ins |]
-  | TwoOperands (OprReg r, OprMem (Some b, s, d, 32<rt>)) when isReg32 r ->
+  | TwoOperands (OprReg r, OprMem (b, s, d, 32<rt>)) when isReg32 r ->
     [| yield! encodePrefix arch ins None
-       yield! encodeREXPref arch ins None
+       yield! encodeREXPref arch ins None false false
        Normal 0x03uy
        encodeRM b s d r
        yield! encodeSIB ins
        yield! encodeDisp ins |]
-  | TwoOperands (OprReg r, OprMem (Some b, s, d, 64<rt>)) when isReg64 r ->
+  | TwoOperands (OprReg r, OprMem (b, s, d, 64<rt>)) when isReg64 r ->
     no32Arch arch
     [| yield! encodePrefix arch ins None
-       yield! encodeREXPref arch ins rexW
+       yield! encodeREXPref arch ins rexW false false
        Normal 0x03uy
        encodeRM b s d r
        yield! encodeSIB ins
        yield! encodeDisp ins |]
   | o -> printfn "%A" o; raise OperandTypeMismatchException
+
+let mov arch ins =
+  match ins.Operands with
+  // Reg - Sreg
+  | TwoOperands (OprReg r1, OprReg r2) when isReg16 r1 && isSegReg r2 ->
+    [| yield! encodePrefix arch ins oSzPref
+       yield! encodeREXPref arch ins None true false
+       Normal 0x8Cuy
+       encodeRR r2 r1 |]
+  | TwoOperands (OprReg r1, OprReg r2) when isReg64 r1 && isSegReg r2 ->
+    [| yield! encodeREXPref arch ins rexW true false
+       Normal 0x8Cuy
+       encodeRR r2 r1 |]
+
+  // Mem - Sreg
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprReg r) when isSegReg r ->
+    [| yield! encodePrefix arch ins oSzPref
+       yield! encodeREXPref arch ins None false false
+       Normal 0x8Cuy
+       encodeMR b s d r
+       yield! encodeSIB ins
+       yield! encodeDisp ins |]
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprReg r) when isSegReg r ->
+    [| yield! encodePrefix arch ins None
+       yield! encodeREXPref arch ins rexW true false
+       Normal 0x8Cuy
+       encodeMR b s d r
+       yield! encodeSIB ins
+       yield! encodeDisp ins |]
+
+  // Mem - Reg
+  | TwoOperands (OprMem (b, s, d, 8<rt>), OprReg r) when isReg8 r ->
+    [| yield! encodePrefix arch ins None
+       yield! encodeREXPref arch ins None false false
+       Normal 0x88uy
+       encodeMR b s d r
+       yield! encodeSIB ins
+       yield! encodeDisp ins |]
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprReg r) when isReg16 r ->
+    [| yield! encodePrefix arch ins oSzPref
+       yield! encodeREXPref arch ins None false false
+       Normal 0x89uy
+       encodeMR b s d r
+       yield! encodeSIB ins
+       yield! encodeDisp ins |]
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprReg r) when isReg32 r ->
+    [| yield! encodePrefix arch ins None
+       yield! encodeREXPref arch ins None false false
+       Normal 0x89uy
+       encodeMR b s d r
+       yield! encodeSIB ins
+       yield! encodeDisp ins |]
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprReg r) when isReg64 r ->
+    no32Arch arch
+    [| yield! encodePrefix arch ins None
+       yield! encodeREXPref arch ins rexW false false
+       Normal 0x89uy
+       encodeMR b s d r
+       yield! encodeSIB ins
+       yield! encodeDisp ins |]
+
+  // Reg - Reg
+  | TwoOperands (OprReg r1, OprReg r2) when isReg8 r1 && isReg8 r2 ->
+    [| yield! encodeREXPref arch ins None false false
+       Normal 0x8Auy
+       encodeRR r1 r2 |]
+  | TwoOperands (OprReg r1, OprReg r2) when isReg16 r1 && isReg16 r2 ->
+    [| Normal 0x66uy
+       yield! encodeREXPref arch ins None false false
+       Normal 0x8Buy
+       encodeRR r1 r2 |]
+  | TwoOperands (OprReg r1, OprReg r2) when isReg32 r1 && isReg32 r2 ->
+    [| yield! encodeREXPref arch ins None false false
+       Normal 0x8Buy
+       encodeRR r1 r2 |]
+  | TwoOperands (OprReg r1, OprReg r2) when isReg64 r1 && isReg64 r2 ->
+    no32Arch arch
+    [| yield! encodeREXPref arch ins rexW false false
+       Normal 0x8Buy
+       encodeRR r1 r2 |]
+
+  // Reg - Mem
+  | TwoOperands (OprReg r, OprMem (b, s, d, 8<rt>)) when isReg8 r ->
+    [| yield! encodePrefix arch ins None
+       yield! encodeREXPref arch ins None false false
+       Normal 0x8Auy
+       encodeRM b s d r
+       yield! encodeSIB ins
+       yield! encodeDisp ins |]
+  | TwoOperands (OprReg r, OprMem (b, s, d, 16<rt>)) when isReg16 r ->
+    [| yield! encodePrefix arch ins oSzPref
+       yield! encodeREXPref arch ins None false false
+       Normal 0x8Buy
+       encodeRM b s d r
+       yield! encodeSIB ins
+       yield! encodeDisp ins |]
+  | TwoOperands (OprReg r, OprMem (b, s, d, 32<rt>)) when isReg32 r ->
+    [| yield! encodePrefix arch ins None
+       yield! encodeREXPref arch ins None false false
+       Normal 0x8Buy
+       encodeRM b s d r
+       yield! encodeSIB ins
+       yield! encodeDisp ins |]
+  | TwoOperands (OprReg r, OprMem (b, s, d, 64<rt>)) when isReg64 r ->
+    no32Arch arch
+    [| yield! encodePrefix arch ins None
+       yield! encodeREXPref arch ins rexW false false
+       Normal 0x8Buy
+       encodeRM b s d r
+       yield! encodeSIB ins
+       yield! encodeDisp ins |]
+
+  // Reg - Imm
+  | TwoOperands (OprReg r, OprImm imm) when isReg8 r ->
+    [| yield! encodeREXPref arch ins None false false
+       Normal 0xC6uy
+       encodeRI r 0b000uy
+       yield! encodeImm imm 8<rt> |]
+  | TwoOperands (OprReg r, OprImm imm) when isReg16 r ->
+    [| yield! encodePrefix arch ins oSzPref
+       yield! encodeREXPref arch ins None false false
+       Normal 0xC7uy
+       encodeRI r 0b000uy
+       yield! encodeImm imm 16<rt> |]
+  | TwoOperands (OprReg r, OprImm imm) when isReg32 r ->
+    [| yield! encodeREXPref arch ins None false false
+       Normal 0xC7uy
+       encodeRI r 0b000uy
+       yield! encodeImm imm 32<rt> |]
+  | TwoOperands (OprReg r, OprImm imm) when isReg64 r && imm <= 0xFFFFFFFFL ->
+    no32Arch arch
+    [| yield! encodeREXPref arch ins rexW false false
+       Normal 0xC7uy
+       encodeRI r 0b000uy
+       yield! encodeImm imm 32<rt> |]
+
+  // Mem - Imm
+  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm imm) ->
+    [| yield! encodePrefix arch ins None
+       yield! encodeREXPref arch ins None false false
+       Normal 0xC6uy
+       encodeMI b s d 0b000uy
+       yield! encodeSIB ins
+       yield! encodeDisp ins
+       yield! encodeImm imm 8<rt> |]
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) ->
+    [| yield! encodePrefix arch ins oSzPref
+       yield! encodeREXPref arch ins None false false
+       Normal 0xC7uy
+       encodeMI b s d 0b000uy
+       yield! encodeSIB ins
+       yield! encodeDisp ins
+       yield! encodeImm imm 16<rt> |]
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm imm) ->
+    [| yield! encodePrefix arch ins None
+       yield! encodeREXPref arch ins None false false
+       Normal 0xC7uy
+       encodeMI b s d 0b000uy
+       yield! encodeSIB ins
+       yield! encodeDisp ins
+       yield! encodeImm imm 32<rt> |]
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm imm) ->
+    no32Arch arch;
+    [| yield! encodePrefix arch ins None
+       yield! encodeREXPref arch ins rexW false false
+       Normal 0xC7uy
+       encodeMI b s d 0b000uy
+       yield! encodeSIB ins
+       yield! encodeDisp ins
+       yield! encodeImm imm 32<rt> |]
+
+  // Reg - Imm (Opcode reg field)
+  | TwoOperands (OprReg r, OprImm imm) when isReg64 r ->
+    no32Arch arch
+    [| yield! encodeREXPref arch ins rexW false true
+       encodeRIWithoutModRM r 0xB8uy
+       yield! encodeImm imm 64<rt> |]
+
+  | o -> printfn "%A" o; raise OperandTypeMismatchException
+
 // vim: set tw=80 sts=2 sw=2:

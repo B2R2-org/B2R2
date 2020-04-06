@@ -31,6 +31,7 @@ let isReg8 reg = Register.toRegType reg = 8<rt>
 let isReg16 reg = Register.toRegType reg = 16<rt>
 let isReg32 reg = Register.toRegType reg = 32<rt>
 let isReg64 reg = Register.toRegType reg = 64<rt>
+let isSegReg reg = Register.Kind.Segment = Register.getKind reg
 
 let private exceptOprSzPrefOp encType op =
   match encType, op with
@@ -114,29 +115,37 @@ let encodeRexB = function
   | Register.R15L | Register.R15W | Register.R15D | Register.R15 -> 0x41uy
   | _ -> 0x0uy
 
-let encodeRexRXB = function
+let encodeRexRXB isMR isOpRegFld = function
   | TwoOperands (OprReg r1, OprReg r2) when isReg8 r1 && isReg8 r2 ->
     encodeRex r1 ||| encodeRex r2
-  | TwoOperands (OprReg r1, OprReg r2) ->
-    encodeRexR r1 ||| encodeRexB r2
+  | TwoOperands (OprReg r1, OprReg r2) when isMR ->
+    encodeRexR r2 ||| encodeRexB r1
+  | TwoOperands (OprReg r1, OprReg r2) -> encodeRexR r1 ||| encodeRexB r2
   | TwoOperands (OprReg r, OprMem (Some bReg, Some (s, _), _, _))
   | TwoOperands (OprMem (Some bReg, Some (s, _), _, _), OprReg r) ->
     encodeRexR r ||| encodeRexX s ||| encodeRexB bReg
   | TwoOperands (OprReg r, OprMem (Some bReg, None, _, _))
   | TwoOperands (OprMem (Some bReg, None, _, _), OprReg r) ->
     encodeRexR r ||| encodeRexB bReg
+  | TwoOperands (OprReg r, OprMem (None, None, _, _))
+  | TwoOperands (OprMem (None, None, _, _), OprReg r) -> encodeRexR r
   | TwoOperands (OprReg r, OprImm _) when isReg8 r -> encodeRex r
+  | TwoOperands (OprReg r, OprImm _) when isOpRegFld -> encodeRexB r
   | TwoOperands (OprReg r, OprImm _) -> encodeRexR r
   | TwoOperands (OprMem (Some bReg, None, _, _), OprImm _) -> encodeRexB bReg
   | TwoOperands (OprMem (Some bReg, Some (s, _), _, _), OprImm _) ->
     encodeRexX s ||| encodeRexB bReg
   | o -> printfn "Inavlid Operand (%A)" o; Utils.futureFeature ()
 
-let encodeREXPref arch (ins: InsInfo) rexW =
+let encodeREXPref arch (ins: InsInfo) rexW isMR isOpRegFld =
   if arch = Arch.IntelX86 then [||]
-  else let rexW = match rexW with | Some rexW -> rexW | None -> 0uy
-       let rxb = encodeRexRXB ins.Operands (* Arch.IntelX64 *)
-       if rxb = 0uy && rexW = 0uy then [||] else [| Normal (rexW ||| rxb) |]
+  else (* Arch.IntelX64 *)
+    let rexW =
+      match rexW with
+      | Some rexW -> rexW
+      | None -> 0uy
+    let rxb = encodeRexRXB isMR isOpRegFld ins.Operands
+    if rxb = 0uy && rexW = 0uy then [||] else [| Normal (rexW ||| rxb) |]
 
 let private getRexRXB = function
   | REXPrefix.REXR -> 0b011uy

@@ -63,7 +63,10 @@ let getModRMByte md reg rm = (md <<< 6) + (reg <<< 3) + rm |> Normal
 
 let private getRMBySIB baseReg = function // FIXME: baseReg option
   | Some _ -> 0b100uy
-  | None -> regTo3Bit baseReg
+  | None ->
+    match baseReg with
+    | Some baseReg -> regTo3Bit baseReg
+    | None -> 0b101uy
 
 let encodeRR reg1 reg2 =
   getModRMByte 0b11uy (regTo3Bit reg1) (regTo3Bit reg2)
@@ -80,6 +83,8 @@ let encodeRM baseReg sib disp reg =
 
 let encodeRI reg regConstr =
   getModRMByte 0b11uy regConstr (regTo3Bit reg)
+
+let encodeRIWithoutModRM reg baseHex = baseHex + (regTo3Bit reg) |> Normal
 
 let encodeMI baseReg sib disp regConstr =
   getModRMByte (getMod disp) regConstr (getRMBySIB baseReg sib)
