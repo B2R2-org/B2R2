@@ -17,6 +17,7 @@ list of contributors in alphabetic order.
 - HyungSeok Han
 - Subin Jeong
 - Minkyu Jung
+- Dohyeok Kim
 - Dongkwan Kim
 - Doyeon Kim
 - Hongsik Kim
