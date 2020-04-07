@@ -22,16 +22,30 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinIR.LowUIR
+namespace B2R2.FrontEnd.EVM
 
 open B2R2
+open B2R2.FrontEnd
+open B2R2.BinIR.LowUIR
 
-/// RegisterFactory provides useful functions for accessing register information
-/// such as their IR expressions.
-[<AbstractClass>]
-type RegisterFactory () =
-  abstract member IdOf: Expr -> RegisterID
-  abstract member RegNames: string list
-  abstract member StrToReg: string -> Expr
-  abstract member InitStateRegs: (RegisterID * BitVector) list
-  abstract member MainRegs: Expr list
+type EVMRegisterBay () =
+
+  inherit RegisterBay ()
+
+  override __.GetAllRegExprs () = Utils.futureFeature ()
+
+  override __.GetAllRegNames () = []
+
+  override __.RegIDFromRegExpr (e) =
+    match e with
+    | Var (_, id, _ ,_) -> id
+    | PCVar (_, _) -> Register.toRegID Register.PC
+    | _ -> failwith "not a register expression"
+
+  override __.StrToRegExpr _s = Utils.impossible ()
+  override __.RegIDFromString _s = Utils.futureFeature ()
+  override __.RegIDToString _ = Utils.futureFeature ()
+  override __.GetRegisterAliases _ = Utils.futureFeature ()
+  override __.ProgramCounter = Utils.futureFeature ()
+  override __.StackPointer = Utils.futureFeature ()
+  override __.FramePointer = Utils.futureFeature ()

@@ -42,14 +42,14 @@ module SSABlockHelper =
     |> Array.fold (fun acc stmts -> Array.fold updateDefinedVar acc stmts) acc
 
   let private getStackPtrDef (hdl: BinHandler) wordSize =
-    match RegisterBay.getStackPointer hdl with
+    match hdl.RegisterBay.StackPointer with
     | Some sp ->
-      SSA.RegVar (wordSize, sp, RegisterBay.registerIDToString hdl sp) |> Some
+      SSA.RegVar (wordSize, sp, hdl.RegisterBay.RegIDToString sp) |> Some
     | None -> None
 
   let private getReturnValDef (hdl: BinHandler) wordSize =
     let r = CallingConvention.returnRegister hdl
-    SSA.RegVar (wordSize, r, RegisterBay.registerIDToString hdl r) |> Some
+    SSA.RegVar (wordSize, r, hdl.RegisterBay.RegIDToString r) |> Some
 
   let private addDefaultDefs hdl =
     let wordSize = hdl.ISA.WordSize |> WordSize.toRegType

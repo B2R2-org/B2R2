@@ -31,8 +31,8 @@ open B2R2.FrontEnd
 
 [<TestClass>]
 type LowUIRTests () =
-  let regfactory = Intel.RegFactory WordSize.Bit64 :> RegisterFactory
-  let p = LowUIRParser (ISA.DefaultISA, regfactory)
+  let regbay = Intel.IntelRegisterBay (WordSize.Bit64) :> RegisterBay
+  let p = LowUIRParser (ISA.DefaultISA, regbay)
   let size1Num = BitVector.T
   let size64Num = BitVector.cast size1Num 64<rt>
 

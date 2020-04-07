@@ -26,6 +26,7 @@ namespace B2R2.BinIR.LowUIR
 
 open FParsec
 open B2R2
+open B2R2.FrontEnd
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.Parser.Utils
 
@@ -33,11 +34,11 @@ type ExpectedType = RegType
 
 type Parser<'t> = Parser<'t, ExpectedType>
 
-type LowUIRParser (isa, regfactory: RegisterFactory) =
+type LowUIRParser (isa, regbay: RegisterBay) =
 
   (* Functions to help with manipulating the userState *)
   let makeExpectedType c =
-    updateUserState ( fun us -> AST.typeOf c)
+    updateUserState (fun _ -> AST.typeOf c)
     >>. preturn c
 
   /// Parses name that can be used as a variable or register Name.
@@ -99,12 +100,14 @@ type LowUIRParser (isa, regfactory: RegisterFactory) =
 
   let pNumE = pBitVector |>> AST.num
 
+  let regnames = regbay.GetAllRegNames ()
+
   let pVarE =
-    List.map pCaseString regfactory.RegNames |> List.map attempt
-    |> choice |>> regfactory.StrToReg
+    List.map pCaseString regnames |> List.map attempt
+    |> choice |>> regbay.StrToRegExpr
 
   let pPCVarE =
-    pNormalString |>> regfactory.StrToReg
+    pNormalString |>> regbay.StrToRegExpr
 
   let pTempVarE =
     spaces >>. pstring "T_" >>. pint32 .>> spaces .>> pchar ':' .>> spaces

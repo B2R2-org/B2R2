@@ -38,6 +38,7 @@ type BinHandler = {
   ParsingContext: ParsingContext
   TranslationContext: TranslationContext
   Parser: Parser
+  RegisterBay: RegisterBay
 }
 with
   static member private Init (isa, mode, autoDetect, baseAddr, bytes, path) =
@@ -46,12 +47,13 @@ with
     let isa = fi.ISA
     let needCheckThumb = mode = ArchOperationMode.NoMode && isARM isa
     let mode = if needCheckThumb then detectThumb fi.EntryPoint isa else mode
-    let ctxt, parser = initHelpers isa
+    let ctxt, parser, regbay = initHelpers isa
     { ISA = isa
       FileInfo = fi
       ParsingContext = ParsingContext (mode)
       TranslationContext = ctxt
-      Parser = parser }
+      Parser = parser
+      RegisterBay = regbay }
 
   static member Init (isa, archMode, autoDetect, baseAddr, bytes) =
     BinHandler.Init (isa, archMode, autoDetect, baseAddr, bytes, "")

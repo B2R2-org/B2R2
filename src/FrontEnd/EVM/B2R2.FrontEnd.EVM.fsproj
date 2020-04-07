@@ -10,6 +10,7 @@
     <Compile Include="EVMTypes.fs" />
     <Compile Include="EVMRegisterSet.fs" />
     <Compile Include="EVMRegExprs.fs" />
+    <Compile Include="EVMRegisterBay.fs" />
     <Compile Include="EVMDisasm.fs" />
     <Compile Include="EVMLifter.fs" />
     <Compile Include="EVMInstruction.fs" />

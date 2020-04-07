@@ -24,34 +24,38 @@
 
 namespace B2R2.FrontEnd.ARM32
 
-open B2R2
+open B2R2.FrontEnd
 open B2R2.BinIR.LowUIR
 
-type RegFactory () =
+type ARM32RegisterBay () =
 
-  inherit RegisterFactory ()
+  inherit RegisterBay ()
 
   let R = RegExprs ()
 
-  override __.IdOf e =
+  override __.GetAllRegExprs () =
+    [ R.R0; R.R1; R.R2 ; R.R3; R.R4; R.R5; R.R6; R.R7; R.R8; R.SB; R.SL; R.FP;
+      R.IP; R.SP; R.LR; R.Q0; R.Q1; R.Q2; R.Q3; R.Q4; R.Q5; R.Q6; R.Q7; R.Q8;
+      R.Q9; R.Q10; R.Q11; R.Q12; R.Q13; R.Q14; R.Q15; R.D0; R.D1; R.D2; R.D3;
+      R.D4; R.D5; R.D6; R.D7; R.D8; R.D9; R.D10; R.D11; R.D12; R.D13; R.D14;
+      R.D15; R.D16; R.D17; R.D18; R.D19; R.D20; R.D21; R.D22; R.D23; R.D24;
+      R.D25; R.D26; R.D27; R.D28; R.D29; R.D30; R.D31; R.S0; R.S1; R.S2; R.S3;
+      R.S4; R.S5; R.S6; R.S7; R.S8; R.S9; R.S10; R.S11; R.S12; R.S13; R.S14;
+      R.S15; R.S16; R.S17; R.S18; R.S19; R.S20; R.S21; R.S22; R.S23; R.S24;
+      R.S25; R.S26; R.S27; R.S28; R.S29; R.S30; R.S31; R.PC; R.APSR; R.SPSR;
+      R.CPSR; R.FPSCR; R.SCTLR; R.SCR; R.NSACR ]
+
+  override __.GetAllRegNames () =
+    __.GetAllRegExprs ()
+    |> List.map (__.RegIDFromRegExpr >> __.RegIDToString)
+
+  override __.RegIDFromRegExpr (e) =
     match e with
     | Var (_, id, _ ,_) -> id
     | PCVar (_, _) -> Register.toRegID Register.PC
     | _ -> failwith "not a register expression"
 
-  override __.RegNames =
-    [ "R0"; "R1"; "R2" ; "R3"; "R4"; "R5"; "R6"; "R7"; "R8"; "SB"; "SL"; "FP";
-      "IP"; "SP"; "LR"; "Q0"; "Q1"; "Q2"; "Q3"; "Q4"; "Q5"; "Q6"; "Q7"; "Q8";
-      "Q9"; "Q10"; "Q11"; "Q12"; "Q13"; "Q14"; "Q15"; "D0"; "D1"; "D2"; "D3";
-      "D4"; "D5"; "D6"; "D7"; "D8"; "D9"; "D10"; "D11"; "D12"; "D13"; "D14";
-      "D15"; "D16"; "D17"; "D18"; "D19"; "D20"; "D21"; "D22"; "D23"; "D24";
-      "D25"; "D26"; "D27"; "D28"; "D29"; "D30"; "D31"; "S0"; "S1"; "S2"; "S3";
-      "S4"; "S5"; "S6"; "S7"; "S8"; "S9"; "S10"; "S11"; "S12"; "S13"; "S14";
-      "S15"; "S16"; "S17"; "S18"; "S19"; "S20"; "S21"; "S22"; "S23"; "S24";
-      "S25"; "S26"; "S27"; "S28"; "S29"; "S30"; "S31"; "PC"; "APSR"; "SPSR";
-      "CPSR"; "FPSCR"; "SCTLR"; "SCR"; "NSACR" ]
-
-  override __.StrToReg s =
+  override __.StrToRegExpr s =
     match s with
     | "R0" -> R.R0
     | "R1" -> R.R1
@@ -156,14 +160,22 @@ type RegFactory () =
     | "SCTLR" -> R.SCTLR
     | "SCR" -> R.SCR
     | "NSACR" -> R.NSACR
-    | _ -> raise UnknownRegException
+    | _ -> raise UnhandledRegExprException
 
-  override __.InitStateRegs =
-    __.MainRegs |>
-    List.map (fun regE -> (__.IdOf regE, BitVector.ofInt32 0 (AST.typeOf regE)))
+  override __.RegIDFromString str =
+    Register.ofString str |> Register.toRegID
 
-  override __.MainRegs =
-    [ R.R0; R.R1; R.R2; R.R3; R.R4; R.R5; R.R6; R.R7; R.R8; R.SB; R.SL; R.FP;
-      R.IP; R.SP; R.LR; R.Q0; R.Q1; R.Q2; R.Q3; R.Q4; R.Q5; R.Q6; R.Q7; R.Q8;
-      R.Q9; R.Q10; R.Q11; R.Q12; R.Q13; R.Q14; R.Q15; R.PC; R.APSR; R.SPSR;
-      R.CPSR; R.FPSCR; R.SCTLR; R.SCR; R.NSACR ]
+  override __.RegIDToString rid =
+    Register.ofRegID rid |> Register.toString
+
+  override __.GetRegisterAliases rid =
+    [| rid |]
+
+  override __.ProgramCounter =
+    Register.PC |> Register.toRegID
+
+  override __.StackPointer =
+    Register.SP |> Register.toRegID |> Some
+
+  override __.FramePointer =
+    Register.FP |> Register.toRegID |> Some

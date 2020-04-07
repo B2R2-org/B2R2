@@ -46,13 +46,13 @@ let rec getISAChoice () =
   if arch = None then getISAChoice () else arch.Value
 
 /// Main repl that excecutes the instructions and provides user interface.
-type Repl (pars: LowUIRParser, regfactory, status:Status) =
+type Repl (pars: LowUIRParser, regbay, status:Status) =
   member __.Run state =
     let input = console.ReadLine ()
     match ReplCommand.fromInput input with
     | Quit -> ()
     | NoInput -> __.Run  state
-    | Show -> printRegisters state regfactory status; __.Run state
+    | Show -> printRegisters state regbay status; __.Run state
     | IRStatement input ->
       let parsed =
         try pars.Run (input.Trim ()) with
@@ -68,47 +68,22 @@ type Repl (pars: LowUIRParser, regfactory, status:Status) =
         | :? InvalidCastException -> showError "cast statement invalid"
         | :? InvalidOperationException -> showError "operation is invalid"
         | exc -> showError exc.Message
-        printRegisters state regfactory status
+        printRegisters state regbay status
         status.UpdateStatus state
         __.Run state
 
 [<EntryPoint>]
-let main argv =
+let main _argv =
   let isa = getISAChoice ()
-
-  (* Parser helper is used by both the parser and the repl. *)
-  let regfactory: RegisterFactory =
-    match isa.Arch with
-    | Arch.IntelX86
-    | Arch.IntelX64 ->
-      Intel.RegFactory isa.WordSize :> RegisterFactory
-    | Arch.ARMv7
-    | Arch.AARCH32 -> ARM32.RegFactory () :> RegisterFactory
-    | Arch.AARCH64 -> ARM64.RegFactory () :> RegisterFactory
-    | Arch.MIPS1
-    | Arch.MIPS2
-    | Arch.MIPS3
-    | Arch.MIPS4
-    | Arch.MIPS5
-    | Arch.MIPS32
-    | Arch.MIPS32R2
-    | Arch.MIPS32R6
-    | Arch.MIPS64
-    | Arch.MIPS64R2
-    | Arch.MIPS64R6 -> MIPS.RegFactory isa.WordSize :> RegisterFactory
-    | _ -> raise InvalidISAException
-
-  let state = initStateForReplStart regfactory
-
-  let pars = LowUIRParser (isa, regfactory)
+  let binhandler = BinHandler.Init (isa)
+  let state = initStateForReplStart binhandler.RegisterBay
+  let pars = LowUIRParser (isa, binhandler.RegisterBay)
   isa.Arch.ToString () |>
   printBlue
     " ****************** %s B2R2 LowUIR Repl running  **********************\n"
   let context = EvalState.GetCurrentContext state
   let hist =
     Status (Array.copy (Seq.toArray (context.Registers.ToSeq ())), Array.empty)
-
-  let Evaluator = Repl (pars, regfactory, hist)
+  let Evaluator = Repl (pars, binhandler.RegisterBay, hist)
   Evaluator.Run state
-
   0 // return an integer exit code

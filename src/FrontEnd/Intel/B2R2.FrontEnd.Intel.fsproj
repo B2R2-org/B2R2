@@ -11,6 +11,7 @@
     <Compile Include="IntelRegisterSet.fs" />
     <Compile Include="IntelTypes.fs" />
     <Compile Include="IntelRegExprs.fs" />
+    <Compile Include="IntelRegisterBay.fs" />
     <Compile Include="IntelHelper.fs" />
     <Compile Include="IntelConstants.fs" />
     <Compile Include="IntelDisasm.fs" />
@@ -19,7 +20,6 @@
     <Compile Include="IntelParser.fsi" />
     <Compile Include="IntelParser.fs" />
     <Compile Include="Intel.fs" />
-    <Compile Include="IntelAsm.fs" />
   </ItemGroup>
 
   <ItemGroup>

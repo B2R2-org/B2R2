@@ -15,8 +15,6 @@
     <Compile Include="BinHandlerHelper.fs" />
     <Compile Include="BinHandler.fsi" />
     <Compile Include="BinHandler.fs" />
-    <Compile Include="RegisterBay.fsi" />
-    <Compile Include="RegisterBay.fs" />
     <Compile Include="CallingConvention.fsi" />
     <Compile Include="CallingConvention.fs" />
     <None Include="b2r2-240x240.png" Pack="true" PackagePath="" />

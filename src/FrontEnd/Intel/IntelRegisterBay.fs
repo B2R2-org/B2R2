@@ -25,15 +25,16 @@
 namespace B2R2.FrontEnd.Intel
 
 open B2R2
+open B2R2.FrontEnd
 open B2R2.BinIR.LowUIR
 
-type RegFactory (wordSize) =
+type IntelRegisterBay (wordSize) =
 
-  inherit RegisterFactory ()
+  inherit RegisterBay ()
 
   let R = RegExprs (wordSize)
 
-  let initRegs =
+  override __.GetAllRegExprs () =
     if WordSize.is32 wordSize then
       [ R.EAX; R.EBX; R.ECX; R.EDX; R.ESP; R.EBP; R.ESI; R.EDI; R.EIP; R.CS;
         R.DS; R.ES; R.FS; R.GS; R.SS; R.CSBase; R.DSBase; R.ESBase; R.FSBase;
@@ -58,7 +59,11 @@ type RegFactory (wordSize) =
         R.ZMM4A; R.ZMM4B; R.ZMM5A; R.ZMM5B; R.ZMM6A; R.ZMM6B; R.ZMM7A; R.ZMM7B;
         R.ZMM8A; R.ZMM8B ]
 
-  override __.IdOf e =
+  override __.GetAllRegNames () =
+    __.GetAllRegExprs ()
+    |> List.map (__.RegIDFromRegExpr >> __.RegIDToString)
+
+  override __.RegIDFromRegExpr (e) =
     match e with
     | Var (_,id, _,_) -> id
     | PCVar (regT, _) ->
@@ -66,23 +71,7 @@ type RegFactory (wordSize) =
       else Register.toRegID Register.RIP
     | _ -> failwith "not a register expression"
 
-  override __.RegNames =
-    [ "RAX"; "RBX"; "RCX"; "RDX"; "RSP"; "RBP"; "RSI"; "RDI"; "EAX"; "EBX";
-      "ECX"; "EDX"; "ESP"; "EBP"; "ESI"; "EDI"; "AX"; "BX"; "CX"; "DX"; "SP";
-      "BP"; "SI"; "DI"; "AL"; "BL"; "CL"; "DL"; "AH"; "BH"; "CH"; "DH"; "R8";
-      "R9"; "R10"; "R11"; "R12"; "R13"; "R14"; "R15"; "R8D"; "R9D"; "R10D";
-      "R11D"; "R12D"; "R13D"; "R14D"; "R15D"; "R8W"; "R9W"; "R10W"; "R11W";
-      "R12W"; "R13W"; "R14W"; "R15W"; "R8L"; "R9L"; "R10L"; "R11L"; "R12L";
-      "R13L"; "R14L"; "R15L"; "SPL"; "BPL"; "SIL"; "DIL"; "EIP"; "RIP"; "MM0";
-      "MM1"; "MM2"; "MM3"; "MM4"; "MM5"; "MM6"; "MM7"; "CS"; "DS"; "SS"; "ES";
-      "FS"; "GS"; "CSBase"; "DSBase"; "ESBase"; "FSBase"; "GSBase"; "SSBase";
-      "CR0"; "CR2"; "CR3"; "CR4"; "CR8"; "OF"; "DF"; "IF"; "TF"; "SF"; "ZF";
-      "AF"; "PF"; "CF"; "K0"; "K1"; "K2"; "K3"; "K4"; "K5"; "K6"; "K7";
-      "ST0"; "ST1"; "ST2"; "ST3"; "ST4"; "ST5"; "ST6"; "ST7"; "ZMM0A"; "ZMM0B";
-      "ZMM1A"; "ZMM1B"; "ZMM2A"; "ZMM2B"; "ZMM3A"; "ZMM3B"; "ZMM4A"; "ZMM4B";
-      "ZMM5A"; "ZMM5B"; "ZMM6A"; "ZMM6B"; "ZMM7A"; "ZMM7B"; "ZMM8A"; "ZMM8B" ]
-
-  override __.StrToReg s =
+  override __.StrToRegExpr s =
     match s with
     | "RAX" -> R.RAX
     | "RBX" -> R.RBX
@@ -222,21 +211,29 @@ type RegFactory (wordSize) =
     | "ZMM7B" -> R.ZMM7B
     | "ZMM8A" -> R.ZMM8A
     | "ZMM8B" -> R.ZMM8B
-    | _ -> raise UnknownRegException
+    | _ -> raise UnhandledRegExprException
 
-  override __.InitStateRegs =
-    initRegs |>
-    List.map (fun regE -> (__.IdOf regE, BitVector.ofInt32 0 (AST.typeOf regE)))
+  override __.RegIDFromString str =
+    Register.ofString str |> Register.toRegID
 
-  override __.MainRegs =
-    if WordSize.is32 wordSize then
-      [ R.EIP; R.EAX; R.EBX; R.ECX; R.EDX; R.ESP; R.EBP; R.ESI; R.EDI; R.ZMM0A;
-        R.ZMM0B; R.ZMM1A; R.ZMM1A; R.ZMM1B; R.ZMM2A; R.ZMM2B; R.ZMM3A; R.ZMM3B;
-        R.ZMM4A; R.ZMM4B; R.ST0; R.ST1; R.ST2; R.ST3; R.ST4; R.ST5; R.ST6;
-        R.ST7; R.OF; R.DF; R.IF; R.TF; R.SF; R.ZF; R.AF; R.PF; R.CF ]
-    else
-      [ R.RIP; R.RAX; R.RBX; R.RCX; R.RDX; R.RSP; R.RBP; R.RSI; R.RDI; R.R8;
-        R.R9; R.R10; R.R11; R.R12; R.R13; R.R14; R.R15; R.ZMM0A; R.ZMM0B;
-        R.ZMM1A; R.ZMM1A; R.ZMM1B; R.ZMM2A; R.ZMM2B; R.ZMM3A; R.ZMM3B;
-        R.ZMM4A; R.ZMM4B; R.ST0; R.ST1; R.ST2; R.ST3; R.ST4; R.ST5; R.ST6;
-        R.ST7; R.OF; R.DF; R.IF; R.TF; R.SF; R.ZF; R.AF; R.PF; R.CF ]
+  override __.RegIDToString rid =
+    Register.ofRegID rid |> Register.toString
+
+  override __.GetRegisterAliases rid =
+    Register.ofRegID rid
+    |> Register.getAliases
+    |> Array.map Register.toRegID
+
+  override __.ProgramCounter =
+    if WordSize.is32 wordSize then Register.EIP |> Register.toRegID
+    else Register.RIP |> Register.toRegID
+
+  override __.StackPointer =
+    if WordSize.is32 wordSize then Register.ESP |> Register.toRegID
+    else Register.RSP |> Register.toRegID
+    |> Some
+
+  override __.FramePointer =
+    if WordSize.is32 wordSize then Register.EBP |> Register.toRegID
+    else Register.RBP |> Register.toRegID
+    |> Some

@@ -33,12 +33,12 @@ let defZero t = Def (BitVector.zero t)
 let stackAddr t = Def (BitVector.ofInt32 0x1000000 t)
 
 let obtainStackDef hdl =
-  match RegisterBay.getStackPointer hdl with
+  match hdl.RegisterBay.StackPointer with
   | Some r -> Some (r, hdl.ISA.WordSize |> WordSize.toRegType |> stackAddr)
   | None -> None
 
 let obtainFramePointerDef hdl =
-  match RegisterBay.getFramePointer hdl with
+  match hdl.RegisterBay.FramePointer with
   | Some r -> Some (r, hdl.ISA.WordSize |> WordSize.toRegType |> defZero)
   | None -> None
 

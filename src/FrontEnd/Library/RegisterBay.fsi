@@ -22,9 +22,10 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.RegisterBay
+module B2R2.FrontEnd.XXX.RegisterBay
 
 open B2R2
+open B2R2.FrontEnd
 
 /// <summary>
 /// Return RegisterID from a given register string. Depending on the

@@ -33,11 +33,12 @@ open B2R2.BinIR
 /// represents a chunk of binary code either from a string or from an actual
 /// binary file.
 type BinHandler = {
-  ISA                : ISA
-  FileInfo           : FileInfo
-  ParsingContext     : ParsingContext
-  TranslationContext : TranslationContext
-  Parser             : Parser
+  ISA: ISA
+  FileInfo: FileInfo
+  ParsingContext: ParsingContext
+  TranslationContext: TranslationContext
+  Parser: Parser
+  RegisterBay: RegisterBay
 }
 with
   /// <summary>

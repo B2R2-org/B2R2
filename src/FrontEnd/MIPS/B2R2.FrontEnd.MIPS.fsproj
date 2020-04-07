@@ -9,8 +9,9 @@
   <ItemGroup>
     <Compile Include="MIPSRegister.fs" />
     <Compile Include="MIPSRegisterSet.fs" />
-    <Compile Include="MIPSTypes.fs" />
     <Compile Include="MIPSRegExprs.fs" />
+    <Compile Include="MIPSRegisterBay.fs" />
+    <Compile Include="MIPSTypes.fs" />
     <Compile Include="MIPSUtils.fs" />
     <Compile Include="MIPSHelper.fs" />
     <Compile Include="MIPSDisasm.fs" />
@@ -19,7 +20,6 @@
     <Compile Include="MIPSParser.fsi" />
     <Compile Include="MIPSParser.fs" />
     <Compile Include="MIPS.fs" />
-    <Compile Include="MIPSAsm.fs" />
   </ItemGroup>
 
   <ItemGroup>

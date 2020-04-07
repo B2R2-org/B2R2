@@ -28,6 +28,7 @@ open System
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
+open B2R2.FrontEnd
 open B2R2.ConcEval
 
 /// Supported repl commands. Other commands may be added here.
@@ -122,10 +123,13 @@ let numToArchitecture n =
   if Map.containsKey n isaMap then ISA.OfString isaMap.[n] |> Some else None
 
 /// Initiates the registers in the architecture with value of zero.
-let initStateForReplStart (regfactory: RegisterFactory) =
+let initStateForReplStart (regbay: RegisterBay) =
   let st = EvalState (ignoreundef=true)
-  EvalState.PrepareContext st 0 0UL
-    (regfactory.InitStateRegs |> List.map (fun (x, y) -> (x, Def y)))
+  regbay.GetAllRegExprs ()
+  |> List.map (fun r ->
+    (regbay.RegIDFromRegExpr r, BitVector.ofInt32 0 (AST.typeOf r)))
+  |> List.map (fun (x, y) -> (x, Def y))
+  |> EvalState.PrepareContext st 0 0UL
 
 /// Gets a temporary register name and EvalValue string representation.
 let getTempRegrString (n: int, value: EvalValue) =
@@ -168,14 +172,13 @@ module ReplDisplay =
     |> (fun (name, value) -> sprintf "%3s: %s" name (getEvalValueString value))
 
   /// Prints all the registers and their statuses to the console.
-  let printRegStatusString state (regfactory: RegisterFactory) (status:Status) =
+  let printRegStatusString state (regbay: RegisterBay) (status:Status) =
     let changedIds = status.GetUpdatedRegIndices state
-    let idList = List.map regfactory.IdOf regfactory.MainRegs
-    List.map
-      (fun s ->
-        singleRegStatusString s state |> sprintf "%-34s")
-      regfactory.MainRegs |>
-    List.iteri (fun i str ->
+    let allregexprs = regbay.GetAllRegExprs ()
+    let idList = List.map regbay.RegIDFromRegExpr allregexprs
+    allregexprs
+    |> List.map (fun s -> singleRegStatusString s state |> sprintf "%-34s")
+    |> List.iteri (fun i str ->
       if i%3 = 2 && List.contains (idList.[i]) changedIds then
         printRed "%s\n" str
       elif i%3 = 2 then printfn "%s" str
@@ -196,9 +199,9 @@ module ReplDisplay =
     printfn ""
 
   /// Used to print all available registers to the console.
-  let printRegisters (state: EvalState) regfactory status =
+  let printRegisters (state: EvalState) regbay status =
     printCyan "Main registers: \n" ;
-    printRegStatusString state regfactory status
+    printRegStatusString state regbay status
     printCyan "\nTemporary Registers:" ;
     printTRegStatusString state status
 
