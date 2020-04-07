@@ -1221,7 +1221,7 @@ module Register = begin
     | R.R14D -> "r14d"
     | R.R15D -> "r15d"
     | R.R8W -> "r8w"
-    | R.R9W -> "r8w"
+    | R.R9W -> "r9w"
     | R.R10W -> "r10w"
     | R.R11W -> "r11w"
     | R.R12W -> "r12w"
