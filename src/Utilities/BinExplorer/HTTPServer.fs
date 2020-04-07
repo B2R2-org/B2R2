@@ -213,8 +213,8 @@ let computeConnectedVars chain v =
 
 let getVarNames handler = function
   | Regular v ->
-    BinHandler.GetRegisterAliases handler v
-    |> Array.map (BinHandler.RegisterIDToString handler)
+    RegisterBay.getRegisterAliases handler v
+    |> Array.map (RegisterBay.registerIDToString handler)
   | _ -> [||]
 
 let handleDataflow req resp arbiter (args: string) =
@@ -222,7 +222,7 @@ let handleDataflow req resp arbiter (args: string) =
   let args = args.Split ([|','|])
   let entry = args.[0] |> uint64
   let addr = args.[1] |> uint64
-  let var = args.[2] |> BinHandler.RegisterIDFromString ess.BinHandler
+  let var = args.[2] |> RegisterBay.registerIDFromString ess.BinHandler
   try
     let cfg, root = ess.SCFG.GetFunctionCFG (entry)
     let chain = DataFlowChain.init cfg root true

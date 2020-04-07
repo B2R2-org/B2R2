@@ -32,20 +32,19 @@ open System.Collections.Generic
 let defZero t = Def (BitVector.zero t)
 let stackAddr t = Def (BitVector.ofInt32 0x1000000 t)
 
+let obtainStackDef hdl =
+  match RegisterBay.getStackPointer hdl with
+  | Some r -> Some (r, hdl.ISA.WordSize |> WordSize.toRegType |> stackAddr)
+  | None -> None
+
+let obtainFramePointerDef hdl =
+  match RegisterBay.getFramePointer hdl with
+  | Some r -> Some (r, hdl.ISA.WordSize |> WordSize.toRegType |> defZero)
+  | None -> None
+
 let initRegs hdl =
-  match hdl.ISA.Arch with
-  | Arch.IntelX86 ->
-    [ (Intel.Register.ESP |> Intel.Register.toRegID, stackAddr 32<rt>)
-      (Intel.Register.EBP |> Intel.Register.toRegID, defZero 32<rt>) ]
-  | Arch.IntelX64 ->
-    [ (Intel.Register.RSP |> Intel.Register.toRegID, stackAddr 64<rt>)
-      (Intel.Register.RBP |> Intel.Register.toRegID, defZero 64<rt>) ]
-  | Arch.AARCH32
-  | Arch.ARMv7 ->
-    [ (ARM32.Register.SP |> ARM32.Register.toRegID, stackAddr 32<rt>) ]
-  | Arch.AARCH64 ->
-    [ (ARM64.Register.SP |> ARM64.Register.toRegID, stackAddr 64<rt>) ]
-  | _ -> []
+  [ obtainStackDef hdl; obtainFramePointerDef hdl ]
+  |> List.choose id
 
 let memoryReader hdl _pc addr =
   let fileInfo = hdl.FileInfo

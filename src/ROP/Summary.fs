@@ -24,7 +24,6 @@
 
 namespace B2R2.ROP
 
-open System
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR

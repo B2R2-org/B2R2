@@ -40,20 +40,6 @@ type OS =
 module OS =
   open System.IO
 
-  /// Operating System (OS) type.
-  let osType =
-    match System.Environment.OSVersion.Platform with
-      | System.PlatformID.Win32S
-      | System.PlatformID.Win32Windows
-      | System.PlatformID.Win32NT
-      | System.PlatformID.WinCE -> OS.Windows
-      | System.PlatformID.Unix -> OS.Linux
-      | System.PlatformID.MacOSX -> OS.MacOSX
-      | _ -> raise UnknownOSException
-
-  /// Am I running on Windows?
-  let onWindows = osType = OS.Windows
-
   /// Test if the given program name is runnable in the current environment
   /// by analyzing the PATH environment variable.
   let isRunnable progName =
