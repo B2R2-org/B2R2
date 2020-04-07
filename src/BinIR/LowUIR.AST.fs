@@ -44,11 +44,7 @@ module TypeCheck =
     | Undefined (t, _) -> t
     | FuncName (_) | Name (_) | Nil -> raise InvalidExprException
 
-  let concatType e1 e2 =
-    let t1 = typeOf e1
-    let t2 = typeOf e2
-    if t1 <> t2 then raise <| TypeCheckException "Invalid concatenation."
-    else 2 * t1
+  let concatType e1 e2 = typeOf e1 + typeOf e2
 
   let checkTypeIsBool e =
     let t = typeOf e

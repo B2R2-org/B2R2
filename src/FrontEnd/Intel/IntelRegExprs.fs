@@ -101,14 +101,22 @@ type internal RegExprs (wordSize) =
   let fcs = var 16<rt> (Register.toRegID Register.FCS) "FCS"
   let fdp = var 64<rt> (Register.toRegID Register.FDP) "FDP"
   let fds = var 16<rt> (Register.toRegID Register.FDS) "FDS"
-  let st0 = var 80<rt> (Register.toRegID Register.ST0) "ST0"
-  let st1 = var 80<rt> (Register.toRegID Register.ST1) "ST1"
-  let st2 = var 80<rt> (Register.toRegID Register.ST2) "ST2"
-  let st3 = var 80<rt> (Register.toRegID Register.ST3) "ST3"
-  let st4 = var 80<rt> (Register.toRegID Register.ST4) "ST4"
-  let st5 = var 80<rt> (Register.toRegID Register.ST5) "ST5"
-  let st6 = var 80<rt> (Register.toRegID Register.ST6) "ST6"
-  let st7 = var 80<rt> (Register.toRegID Register.ST7) "ST7"
+  let st0a = var 64<rt> (Register.toRegID Register.ST0A) "ST0A"
+  let st0b = var 16<rt> (Register.toRegID Register.ST0B) "ST0B"
+  let st1a = var 64<rt> (Register.toRegID Register.ST1A) "ST1A"
+  let st1b = var 16<rt> (Register.toRegID Register.ST1B) "ST1B"
+  let st2a = var 64<rt> (Register.toRegID Register.ST2A) "ST2A"
+  let st2b = var 16<rt> (Register.toRegID Register.ST2B) "ST2B"
+  let st3a = var 64<rt> (Register.toRegID Register.ST3A) "ST3A"
+  let st3b = var 16<rt> (Register.toRegID Register.ST3B) "ST3B"
+  let st4a = var 64<rt> (Register.toRegID Register.ST4A) "ST4A"
+  let st4b = var 16<rt> (Register.toRegID Register.ST4B) "ST4B"
+  let st5a = var 64<rt> (Register.toRegID Register.ST5A) "ST5A"
+  let st5b = var 16<rt> (Register.toRegID Register.ST5B) "ST5B"
+  let st6a = var 64<rt> (Register.toRegID Register.ST6A) "ST6A"
+  let st6b = var 16<rt> (Register.toRegID Register.ST6B) "ST6B"
+  let st7a = var 64<rt> (Register.toRegID Register.ST7A) "ST7A"
+  let st7b = var 16<rt> (Register.toRegID Register.ST7B) "ST7B"
   let mxcsr = var 32<rt> (Register.toRegID Register.MXCSR) "MXCSR"
   let mxcsrmask = var 32<rt> (Register.toRegID Register.MXCSRMASK) "MXCSR_MASK"
   let pkru = var 32<rt> (Register.toRegID Register.PKRU) "PKRU"
@@ -238,14 +246,14 @@ type internal RegExprs (wordSize) =
   member val PF = var 1<rt> (Register.toRegID Register.PF) "PF" with get
   member val CF = var 1<rt> (Register.toRegID Register.CF) "CF" with get
   (* MMX Registers *)
-  member val MM0 = var 64<rt> (Register.toRegID Register.MM0) "MM0" with get
-  member val MM1 = var 64<rt> (Register.toRegID Register.MM1) "MM1" with get
-  member val MM2 = var 64<rt> (Register.toRegID Register.MM2) "MM2" with get
-  member val MM3 = var 64<rt> (Register.toRegID Register.MM3) "MM3" with get
-  member val MM4 = var 64<rt> (Register.toRegID Register.MM4) "MM4" with get
-  member val MM5 = var 64<rt> (Register.toRegID Register.MM5) "MM5" with get
-  member val MM6 = var 64<rt> (Register.toRegID Register.MM6) "MM6" with get
-  member val MM7 = var 64<rt> (Register.toRegID Register.MM7) "MM7" with get
+  member val MM0 = st0a
+  member val MM1 = st1a
+  member val MM2 = st2a
+  member val MM3 = st3a
+  member val MM4 = st4a
+  member val MM5 = st5a
+  member val MM6 = st6a
+  member val MM7 = st7a
   (* SSE Registers *)
   member val ZMM0A =
     var 64<rt> (Register.toRegID Register.ZMM0A) "ZMM0A" with get
@@ -533,15 +541,23 @@ type internal RegExprs (wordSize) =
   member val MXCSR = mxcsr with get
   member val MXCSRMASK = mxcsrmask with get
   member val PKRU = pkru with get
-  (* x87 FPU stack registers - Using 64 bits instead of the actual 80.*)
-  member val ST0 = st0 with get
-  member val ST1 = st1 with get
-  member val ST2 = st2 with get
-  member val ST3 = st3 with get
-  member val ST4 = st4 with get
-  member val ST5 = st5 with get
-  member val ST6 = st6 with get
-  member val ST7 = st7 with get
+  (* x87 FPU Stack component registers *)
+  member val ST0A = st0a
+  member val ST0B = st0b
+  member val ST1A = st1a
+  member val ST1B = st1b
+  member val ST2A = st2a
+  member val ST2B = st2b
+  member val ST3A = st3a
+  member val ST3B = st3b
+  member val ST4A = st4a
+  member val ST4B = st4b
+  member val ST5A = st5a
+  member val ST5B = st5b
+  member val ST6A = st6a
+  member val ST6B = st6b
+  member val ST7A = st7a
+  member val ST7B = st7b
   (* x87 FPU Top register *)
   member val FTOP = extract fsw 3<rt> 11
   (* x87 FPU Tag word sections*)
@@ -698,14 +714,6 @@ type internal RegExprs (wordSize) =
     | R.MXCSR -> __.MXCSR
     | R.MXCSRMASK -> __.MXCSRMASK
     | R.PKRU -> __.PKRU
-    | R.ST0 -> __.ST0
-    | R.ST1 -> __.ST1
-    | R.ST2 -> __.ST2
-    | R.ST3 -> __.ST3
-    | R.ST4 -> __.ST4
-    | R.ST5 -> __.ST5
-    | R.ST6 -> __.ST6
-    | R.ST7 -> __.ST7
     | R.K0 -> __.K0
     | R.K1 -> __.K1
     | R.K2 -> __.K2
@@ -950,6 +958,22 @@ type internal RegExprs (wordSize) =
     | R.BND2, 2 -> __.BND2B
     | R.BND3, 1 -> __.BND3A
     | R.BND3, 2 -> __.BND3B
+    | R.ST0, 1 -> __.ST0A
+    | R.ST0, 2 -> __.ST0B
+    | R.ST1, 1 -> __.ST1A
+    | R.ST1, 2 -> __.ST1B
+    | R.ST2, 1 -> __.ST2A
+    | R.ST2, 2 -> __.ST2B
+    | R.ST3, 1 -> __.ST3A
+    | R.ST3, 2 -> __.ST3B
+    | R.ST4, 1 -> __.ST4A
+    | R.ST4, 2 -> __.ST4B
+    | R.ST5, 1 -> __.ST5A
+    | R.ST5, 2 -> __.ST5B
+    | R.ST6, 1 -> __.ST6A
+    | R.ST6, 2 -> __.ST6B
+    | R.ST7, 1 -> __.ST7A
+    | R.ST7, 2 -> __.ST7B
     | _ -> raise B2R2.FrontEnd.UnhandledRegExprException
 
 // vim: set tw=80 sts=2 sw=2:

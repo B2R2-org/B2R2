@@ -42,7 +42,8 @@ type IntelRegisterBay (wordSize) =
         R.SF; R.ZF; R.AF; R.PF; R.CF; R.MM0; R.MM1; R.MM2; R.MM3; R.MM4; R.MM5;
         R.MM6; R.MM7; R.FCW; R.FSW; R.FTW; R.FOP; R.FIP; R.FCS; R.FDP; R.FDS;
         R.MXCSR; R.MXCSRMASK; R.PKRU; R.K0; R.K1; R.K2; R.K3; R.K4; R.K5; R.K6;
-        R.K7; R.ST0; R.ST1; R.ST2; R.ST3; R.ST4; R.ST5; R.ST6; R.ST7; R.ZMM0A;
+        R.K7; R.ST0A; R.ST0B; R.ST1A; R.ST1B; R.ST2A; R.ST2B; R.ST3A; R.ST3B;
+        R.ST4A; R.ST4B; R.ST5A; R.ST5B; R.ST6A; R.ST6B; R.ST7A; R.ST7B; R.ZMM0A;
         R.ZMM0B; R.ZMM1A; R.ZMM1A; R.ZMM1B; R.ZMM2A; R.ZMM2B; R.ZMM3A; R.ZMM3B;
         R.ZMM4A; R.ZMM4B; R.ZMM5A; R.ZMM5B; R.ZMM6A; R.ZMM6B; R.ZMM7A; R.ZMM7B;
         R.ZMM8A; R.ZMM8B ]
@@ -54,10 +55,11 @@ type IntelRegisterBay (wordSize) =
         R.AF; R.PF; R.CF; R.MM0;R.MM1; R.MM2; R.MM3; R.MM4; R.MM5; R.MM6; R.MM7;
         R.FCW; R.FSW; R.FTW; R.FOP; R.FIP; R.FCS; R.FDP; R.FDS; R.MXCSR;
         R.MXCSRMASK; R.PKRU; R.K0; R.K1; R.K2; R.K3; R.K4; R.K5; R.K6; R.K7
-        R.ST0; R.ST1; R.ST2; R.ST3; R.ST4; R.ST5; R.ST6; R.ST7; R.ZMM0A;
-        R.ZMM0B; R.ZMM1A; R.ZMM1B; R.ZMM2A; R.ZMM2B; R.ZMM3A; R.ZMM3B;
-        R.ZMM4A; R.ZMM4B; R.ZMM5A; R.ZMM5B; R.ZMM6A; R.ZMM6B; R.ZMM7A; R.ZMM7B;
-        R.ZMM8A; R.ZMM8B ]
+        R.ST0A; R.ST0B; R.ST1A; R.ST1B; R.ST2A; R.ST2B; R.ST3A; R.ST3B; R.ST4A;
+        R.ST4B; R.ST5A; R.ST5B; R.ST6A; R.ST6B; R.ST7A; R.ST7B; R.ZMM0A;
+        R.ZMM0B; R.ZMM1A; R.ZMM1B; R.ZMM2A; R.ZMM2B; R.ZMM3A; R.ZMM3B; R.ZMM4A;
+        R.ZMM4B; R.ZMM5A; R.ZMM5B; R.ZMM6A; R.ZMM6B; R.ZMM7A; R.ZMM7B; R.ZMM8A;
+        R.ZMM8B ]
 
   override __.GetAllRegNames () =
     __.GetAllRegExprs ()
@@ -185,14 +187,22 @@ type IntelRegisterBay (wordSize) =
     | "K5" -> R.K5
     | "K6" -> R.K6
     | "K7" -> R.K7
-    | "ST0" -> R.ST0
-    | "ST1" -> R.ST1
-    | "ST2" -> R.ST2
-    | "ST3" -> R.ST3
-    | "ST4" -> R.ST4
-    | "ST5" -> R.ST5
-    | "ST6" -> R.ST6
-    | "ST7" -> R.ST7
+    | "ST0A" -> R.ST0A
+    | "ST0B" -> R.ST0B
+    | "ST1A" -> R.ST1A
+    | "ST1B" -> R.ST1B
+    | "ST2A" -> R.ST2A
+    | "ST2B" -> R.ST2B
+    | "ST3A" -> R.ST3A
+    | "ST3B" -> R.ST3B
+    | "ST4A" -> R.ST4A
+    | "ST4B" -> R.ST4B
+    | "ST5A" -> R.ST5A
+    | "ST5B" -> R.ST5B
+    | "ST6A" -> R.ST6A
+    | "ST6B" -> R.ST6B
+    | "ST7A" -> R.ST7A
+    | "ST7B" -> R.ST7B
     | "ZMM0A" -> R.ZMM0A
     | "ZMM0B" -> R.ZMM0B
     | "ZMM1A" -> R.ZMM1A

@@ -310,6 +310,9 @@ let getPseudoRegVars ctxt r =
                            getPseudoRegVar ctxt r 3; getPseudoRegVar ctxt r 4 ]
   | _ -> raise InvalidOperandException
 
+let getFPUPseudoRegVars ctxt r =
+  getPseudoRegVar ctxt r 2, getPseudoRegVar ctxt r 1
+
 let transOprToExprVec ins insAddr insLen ctxt opr =
   match opr with
   | OprReg r -> getPseudoRegVars ctxt r
@@ -735,9 +738,18 @@ let checkFPUOnLoad ctxt builder =
   builder <! (getRegVar ctxt R.FSWC3 := undefC3)
   builder <! (top := top .- num1 3<rt>)
 
+let fpuRegValue ctxt reg =
+  let stb, sta = getFPUPseudoRegVars ctxt reg
+  concat stb sta
+
+let assignFPUReg reg expr80 ctxt builder =
+  let stb, sta = getFPUPseudoRegVars ctxt reg
+  builder <! (sta := extractLow 64<rt> expr80)
+  builder <! (stb := extractHigh 16<rt> expr80)
+
 let getTagValueOnLoad ctxt builder =
   let tmp = tmpVar 2<rt>
-  let st0 = getRegVar ctxt R.ST0
+  let st0 = fpuRegValue ctxt R.ST0
   let exponent = extract st0 11<rt> 52
   let zero = num0 11<rt>
   let max = BitVector.unsignedMax 11<rt> |> num
@@ -773,26 +785,26 @@ let updateTagWordOnPop ctxt builder =
   builder <! (tagWord := tagWord .| mask)
 
 let shiftFPUStackDown ctxt builder =
-  builder <! (getRegVar ctxt R.ST7 := getRegVar ctxt R.ST6)
-  builder <! (getRegVar ctxt R.ST6 := getRegVar ctxt R.ST5)
-  builder <! (getRegVar ctxt R.ST5 := getRegVar ctxt R.ST4)
-  builder <! (getRegVar ctxt R.ST4 := getRegVar ctxt R.ST3)
-  builder <! (getRegVar ctxt R.ST3 := getRegVar ctxt R.ST2)
-  builder <! (getRegVar ctxt R.ST2 := getRegVar ctxt R.ST1)
-  builder <! (getRegVar ctxt R.ST1 := getRegVar ctxt R.ST0)
+  assignFPUReg R.ST7 (fpuRegValue ctxt R.ST6) ctxt builder
+  assignFPUReg R.ST6 (fpuRegValue ctxt R.ST5) ctxt builder
+  assignFPUReg R.ST5 (fpuRegValue ctxt R.ST4) ctxt builder
+  assignFPUReg R.ST4 (fpuRegValue ctxt R.ST3) ctxt builder
+  assignFPUReg R.ST3 (fpuRegValue ctxt R.ST2) ctxt builder
+  assignFPUReg R.ST2 (fpuRegValue ctxt R.ST1) ctxt builder
+  assignFPUReg R.ST1 (fpuRegValue ctxt R.ST0) ctxt builder
 
 let popFPUStack ctxt builder =
   let top = getRegVar ctxt R.FTOP
   let c1Flag = getRegVar ctxt R.FSWC1
   let cond1, cond2 = tmpVars2 1<rt>
-  builder <! (getRegVar ctxt R.ST0 := getRegVar ctxt R.ST1)
-  builder <! (getRegVar ctxt R.ST1 := getRegVar ctxt R.ST2)
-  builder <! (getRegVar ctxt R.ST2 := getRegVar ctxt R.ST3)
-  builder <! (getRegVar ctxt R.ST3 := getRegVar ctxt R.ST4)
-  builder <! (getRegVar ctxt R.ST4 := getRegVar ctxt R.ST5)
-  builder <! (getRegVar ctxt R.ST5 := getRegVar ctxt R.ST6)
-  builder <! (getRegVar ctxt R.ST6 := getRegVar ctxt R.ST7)
-  builder <! (getRegVar ctxt R.ST7 := unDef 80<rt> "Empty Register")
+  assignFPUReg R.ST0 (fpuRegValue ctxt R.ST1) ctxt builder
+  assignFPUReg R.ST1 (fpuRegValue ctxt R.ST2) ctxt builder
+  assignFPUReg R.ST2 (fpuRegValue ctxt R.ST3) ctxt builder
+  assignFPUReg R.ST3 (fpuRegValue ctxt R.ST4) ctxt builder
+  assignFPUReg R.ST4 (fpuRegValue ctxt R.ST5) ctxt builder
+  assignFPUReg R.ST5 (fpuRegValue ctxt R.ST6) ctxt builder
+  assignFPUReg R.ST6 (fpuRegValue ctxt R.ST7) ctxt builder
+  assignFPUReg R.ST7 (num0 80<rt>) ctxt builder
   builder <! (cond1 := top == num0 3<rt>)
   builder <! (cond2 := (getRegVar ctxt R.FTW7 .+ num1 2<rt>) == num0 2<rt>)
   builder <! (c1Flag := ite (cond1 .& cond2) (b0) (c1Flag))
@@ -2706,46 +2718,51 @@ let loadLegacyFxrstor ctxt src builder =
   loadFxrstorXMM ctxt src xRegs builder
 
 let fpuFBinOp ins insAddr insLen ctxt binOp doPop leftToRight =
-  let builder = new StmtBuilder (32)
+  let builder = new StmtBuilder (64)
+  let res = tmpVar 80<rt>
   startMark insAddr insLen builder
   match ins.Operands with
   | NoOperand ->
-    let st0 = getRegVar ctxt R.ST0
-    let st1 = getRegVar ctxt R.ST1
-    if leftToRight then builder <! (st1 := binOp st0 st1)
-    else builder <! (st1 := binOp st1 st0)
+    let st0 = fpuRegValue ctxt R.ST0
+    let st1 = fpuRegValue ctxt R.ST1
+    if leftToRight then builder <! (res := binOp st0 st1)
+    else builder <! (res := binOp st1 st0)
+    assignFPUReg R.ST1 res ctxt builder
     checkC1Flag ctxt builder R.FTW6
   | OneOperand opr ->
     let oprExpr = transOprToFloat80 ins insAddr insLen ctxt opr
-    let st0 = getRegVar ctxt R.ST0
-    if leftToRight then builder <! (st0 := binOp st0 oprExpr)
-    else builder <! (st0 := binOp oprExpr st0)
+    let st0 = fpuRegValue ctxt R.ST0
+    if leftToRight then builder <! (res := binOp st0 oprExpr)
+    else builder <! (res := binOp oprExpr st0)
+    assignFPUReg R.ST0 res ctxt builder
     checkC1Flag ctxt builder R.FTW7
-  | TwoOperands (opr1, opr2) ->
-    let oprExpr1 = transOprToExpr ins insAddr insLen ctxt opr1
+  | TwoOperands (OprReg reg1, opr2) ->
+    let oprExpr1 = getRegVar ctxt reg1
     let oprExpr2 = transOprToExpr ins insAddr insLen ctxt opr2
-    if leftToRight then builder <! (oprExpr1 := binOp oprExpr1 oprExpr2)
-    else builder <! (oprExpr1 := binOp oprExpr2 oprExpr1)
+    if leftToRight then builder <! (res := binOp oprExpr1 oprExpr2)
+    else builder <! (res := binOp oprExpr2 oprExpr1)
+    assignFPUReg reg1 res ctxt builder
   | _ -> raise InvalidOperandException
   if doPop then popFPUStack ctxt builder else ()
   endMark insAddr insLen builder
 
 let fpuIntOp ins insAddr insLen ctxt binOp leftToRight =
-  let builder = new StmtBuilder (4)
-  let st0 = getRegVar ctxt R.ST0
+  let builder = new StmtBuilder (8)
+  let st0 = fpuRegValue ctxt R.ST0
   let oprExpr = getOneOpr ins |> transOprToExpr ins insAddr insLen ctxt
   let tmp = tmpVar 80<rt>
   startMark insAddr insLen builder
   builder <! (tmp := cast CastKind.IntToFloat 80<rt> oprExpr)
-  if leftToRight then builder <! (st0 := binOp st0 tmp)
-  else builder <! (st0 := binOp tmp st0)
+  if leftToRight then builder <! (tmp := binOp st0 tmp)
+  else builder <! (tmp := binOp tmp st0)
+  assignFPUReg R.ST0 tmp ctxt builder
   endMark insAddr insLen builder
 
 let fabs _ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
-  let st0 = getRegVar ctxt R.ST0
+  let st0b, _st0a = getFPUPseudoRegVars ctxt R.ST0
   startMark insAddr insLen builder
-  builder <! (extractHigh 1<rt> st0 := b1)
+  builder <! (extract st0b 1<rt> 15 := b1)
   builder <! (getRegVar ctxt R.FSWC1 := b0)
   builder <! (getRegVar ctxt R.FSWC0 := undefC0)
   builder <! (getRegVar ctxt R.FSWC2 := undefC2)
@@ -2754,25 +2771,27 @@ let fabs _ins insAddr insLen ctxt =
 
 let fcmov ins insAddr insLen ctxt cond =
   let builder = new StmtBuilder (8)
-  let dst, src = getTwoOprs ins
-  let dst = transOprToExpr ins insAddr insLen ctxt dst
+  let _dst, src = getTwoOprs ins
   let src = transOprToExpr ins insAddr insLen ctxt src
+  let st0b, st0a = getFPUPseudoRegVars ctxt R.ST0
   startMark insAddr insLen builder
-  builder <! (dst := ite cond src dst)
+  builder <! (st0a := ite cond (extractLow 64<rt> src) st0a)
+  builder <! (st0b := ite cond (extractHigh 16<rt> src) st0b)
   builder <! (getRegVar ctxt R.FSWC0 := undefC0)
   builder <! (getRegVar ctxt R.FSWC2 := undefC2)
   builder <! (getRegVar ctxt R.FSWC3 := undefC3)
   endMark insAddr insLen builder
 
 let f2xm1 _isn insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
-  let st0 = getRegVar ctxt R.ST0
+  let builder = new StmtBuilder (16)
+  let st0 = fpuRegValue ctxt R.ST0
   let flt1 = num1 32<rt> |> cast CastKind.IntToFloat 80<rt>
   let flt2 = numI32 2 32<rt> |> cast CastKind.IntToFloat 80<rt>
   let tmp = tmpVar 80<rt>
   startMark insAddr insLen builder
   builder <! (tmp := fpow flt2 st0)
-  builder <! (st0 := fsub tmp flt1)
+  builder <! (tmp := fsub tmp flt1)
+  assignFPUReg R.ST0 tmp ctxt builder
   checkC1Flag ctxt builder R.FTW7
   cflagsUndefined023 ctxt builder
   endMark insAddr insLen builder
@@ -2793,14 +2812,14 @@ let fbld ins insAddr insLen ctxt =
   builder <! (tmp := cast CastKind.IntToFloat 80<rt> intgr)
   checkFPUOnLoad ctxt builder
   shiftFPUStackDown ctxt builder
-  builder <! (getRegVar ctxt R.ST0 := tmp)
+  assignFPUReg R.ST0 tmp ctxt builder
   updateTagWordOnLoad ctxt builder
   endMark insAddr insLen builder
 
 let fbstp ins insAddr insLen ctxt =
   let builder = new StmtBuilder (64)
   let dst = getOneOpr ins |> transOprToExpr ins insAddr insLen ctxt
-  let st0 = getRegVar ctxt R.ST0
+  let st0 = fpuRegValue ctxt R.ST0
   let sign = extractHigh 1<rt> st0
   let intgr = tmpVar 64<rt>
   let bcdNum = tmpVar 72<rt>
@@ -2842,11 +2861,11 @@ let fcmovnu ins insAddr insLen ctxt =
 
 let fchs _ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
-  let st0 = getRegVar ctxt R.ST0
+  let st0b, _st0a = getFPUPseudoRegVars ctxt R.ST0
   let tmp = tmpVar 1<rt>
   startMark insAddr insLen builder
-  builder <! (tmp := extractHigh 1<rt> st0)
-  builder <! (extractHigh 1<rt> st0 := not tmp)
+  builder <! (tmp := extractHigh 1<rt> st0b)
+  builder <! (extractHigh 1<rt> st0b := not tmp)
   builder <! (getRegVar ctxt R.FSWC1 := b0)
   builder <! (getRegVar ctxt R.FSWC0 := undefC0)
   builder <! (getRegVar ctxt R.FSWC2 := undefC2)
@@ -2877,11 +2896,11 @@ let fcom ins insAddr insLen ctxt nPop unordered =
   startMark insAddr insLen builder
   match ins.Operands with
   | NoOperand ->
-    builder <! (tmp1 := getRegVar ctxt R.ST0)
-    builder <! (tmp2 := getRegVar ctxt R.ST1)
+    builder <! (tmp1 := fpuRegValue ctxt R.ST0)
+    builder <! (tmp2 := fpuRegValue ctxt R.ST1)
   | OneOperand opr ->
     let oprExpr = transOprToFloat80 ins insAddr insLen ctxt opr
-    builder <! (tmp1 := getRegVar ctxt R.ST0)
+    builder <! (tmp1 := fpuRegValue ctxt R.ST0)
     builder <! (tmp2 := oprExpr)
   | _ -> raise InvalidOperandException
   builder <! (c0 := ite (flt tmp1 tmp2) b1 b0)
@@ -2908,7 +2927,7 @@ let fcom ins insAddr insLen ctxt nPop unordered =
   endMark insAddr insLen builder
 
 let fcomi ins insAddr insLen ctxt doPop =
-  let builder = new StmtBuilder (32)
+  let builder = new StmtBuilder (64)
   let opr1, opr2 = getTwoOprs ins
   let opr1 = transOprToExpr ins insAddr insLen ctxt opr1
   let opr2 = transOprToExpr ins insAddr insLen ctxt opr2
@@ -2955,8 +2974,9 @@ let fcomi ins insAddr insLen ctxt doPop =
   endMark insAddr insLen builder
 
 let ftrig _ins insAddr insLen ctxt trigFunc =
-  let builder = new StmtBuilder (16)
-  let st0 = getRegVar ctxt R.ST0
+  let builder = new StmtBuilder (32)
+  let st0 = fpuRegValue ctxt R.ST0
+  let tmp = tmpVar 80<rt>
   let float80SignUnmask = BitVector.signedMax 80<rt> |> num
   let maxLimit = numI64 (1L <<< 63) 64<rt>
   let maxFloat = cast CastKind.IntToFloat 80<rt> maxLimit
@@ -2972,7 +2992,8 @@ let ftrig _ins insAddr insLen ctxt trigFunc =
   builder <! (tmp := st0 .& float80SignUnmask)
   builder <! (CJmp (flt tmp maxFloat, Name lblInRange, Name lblOutOfRange ))
   builder <! (LMark lblInRange)
-  builder <! (st0 := trigFunc st0)
+  builder <! (tmp := trigFunc st0)
+  assignFPUReg R.ST0 tmp ctxt builder
   builder <! (c1 := ite (getRegVar ctxt R.FTW7 == num3) b0 c1)
   builder <! (c2 := b0)
   builder <! (c0 := undefC0)
@@ -3035,7 +3056,7 @@ let fiadd ins insAddr insLen ctxt =
 let ficom ins insAddr insLen ctxt doPop =
   let builder = new StmtBuilder (32)
   let oprExpr = getOneOpr ins |> transOprToExpr ins insAddr insLen ctxt
-  let st0 = getRegVar ctxt R.ST0
+  let st0 = fpuRegValue ctxt R.ST0
   let tmp = tmpVar 80<rt>
   startMark insAddr insLen builder
   builder <! (tmp := cast CastKind.IntToFloat 80<rt> oprExpr)
@@ -3060,7 +3081,7 @@ let fild ins insAddr insLen ctxt =
   builder <! (tmp := cast CastKind.IntToFloat 80<rt> oprExpr)
   checkFPUOnLoad ctxt builder
   shiftFPUStackDown ctxt builder
-  builder <! (getRegVar ctxt R.ST0 := tmp)
+  assignFPUReg R.ST0 tmp ctxt builder
   updateTagWordOnLoad ctxt builder
   endMark insAddr insLen builder
 
@@ -3099,7 +3120,7 @@ let fist ins insAddr insLen ctxt doPop =
   let builder = new StmtBuilder (32)
   let oprExpr = getOneOpr ins |> transOprToExpr ins insAddr insLen ctxt
   let sz = AST.typeOf oprExpr
-  let st0 = getRegVar ctxt R.ST0
+  let st0 = fpuRegValue ctxt R.ST0
   let tmp1 = tmpVar sz
   let tmp2 = tmpVar 2<rt>
   let num2 = numI32 2 2<rt>
@@ -3117,10 +3138,10 @@ let fist ins insAddr insLen ctxt doPop =
   endMark insAddr insLen builder
 
 let fisttp ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (32)
+  let builder = new StmtBuilder (64)
   let oprExpr = getOneOpr ins |> transOprToExpr ins insAddr insLen ctxt
   let sz = AST.typeOf oprExpr
-  let st0 = getRegVar ctxt R.ST0
+  let st0 = fpuRegValue ctxt R.ST0
   startMark insAddr insLen builder
   builder <! (oprExpr := cast CastKind.FtoICeil sz st0)
   builder <! (getRegVar ctxt R.FSWC1 := b0)
@@ -3159,19 +3180,20 @@ let fnstsw ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let fpatan _ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = new StmtBuilder (16)
   let c1 = getRegVar ctxt R.FSWC1
   let tmp = tmpVar 80<rt>
   startMark insAddr insLen builder
-  builder <! (tmp := getRegVar ctxt R.ST1 ./ getRegVar ctxt R.ST0)
-  builder <! (getRegVar ctxt R.ST1 := fAtan tmp)
+  builder <! (tmp := fpuRegValue ctxt R.ST1 ./ fpuRegValue ctxt R.ST0)
+  builder <! (tmp := fAtan tmp)
+  assignFPUReg R.ST1 tmp ctxt builder
   builder <! (c1 := b0)
   cflagsUndefined023 ctxt builder
   endMark insAddr insLen builder
 
 let fptan _ins insAddr insLen ctxt =
   let builder = new StmtBuilder (64)
-  let st0 = getRegVar ctxt R.ST0
+  let st0 = fpuRegValue ctxt R.ST0
   let float80SignUnmask = BitVector.signedMax 80<rt> |> num
   let maxLimit = numI64 (1L <<< 63) 64<rt>
   let maxFloat = cast CastKind.IntToFloat 80<rt> maxLimit
@@ -3187,7 +3209,8 @@ let fptan _ins insAddr insLen ctxt =
   builder <! (tmp := st0 .& float80SignUnmask)
   builder <! (CJmp (flt tmp maxFloat, Name lblInRange, Name lblOutOfRange ))
   builder <! (LMark lblInRange)
-  builder <! (st0 := fTan st0)
+  builder <! (tmp := fTan st0)
+  assignFPUReg R.ST0 tmp ctxt builder
   builder <! (c1 := ite (getRegVar ctxt R.FTW7 == num3) b0 c1)
   builder <! (c2 := b0)
   builder <! (c0 := undefC0)
@@ -3200,7 +3223,7 @@ let fptan _ins insAddr insLen ctxt =
   builder <! (tmp := numI64 4607182418800017408L 64<rt>)
   checkFPUOnLoad ctxt builder
   shiftFPUStackDown ctxt builder
-  builder <! (getRegVar ctxt R.ST0 := tmp)
+  assignFPUReg R.ST0 tmp ctxt builder
   updateTagWordOnLoad ctxt builder
   endMark insAddr insLen builder
 
@@ -3215,14 +3238,14 @@ let fpumul ins insAddr insLen ctxt doPop =
 
 let fprem _ins insAddr insLen ctxt round =
   let builder = new StmtBuilder (32)
-  let st0 = getRegVar ctxt R.ST0
-  let st1 = getRegVar ctxt R.ST1
+  let st0 = fpuRegValue ctxt R.ST0
+  let st1 = fpuRegValue ctxt R.ST1
   let caster = if round then CastKind.FtoIRound else CastKind.FtoITrunc
   let lblLT64 = lblSymbol "ExpDiffInRange"
   let lblGT64 = lblSymbol "ExpDiffOutOfRange"
   let lblExit = lblSymbol "Exit"
   let expDiff = tmpVar 15<rt>
-  let tmp80A, tmp80B = tmpVars2 80<rt>
+  let tmp80A, tmp80B, tmpres = tmpVars3 80<rt>
   let tmp64 = tmpVar 64<rt>
   startMark insAddr insLen builder
   builder <! (expDiff := extract st0 15<rt> 64 .- extract st1 15<rt> 64)
@@ -3231,7 +3254,8 @@ let fprem _ins insAddr insLen ctxt round =
   builder <! (tmp80A := fdiv st0 st1)
   builder <! (tmp64 := cast caster 64<rt> tmp80A)
   builder <! (tmp80B := fmul st1 (cast CastKind.IntToFloat 80<rt> tmp64))
-  builder <! (st0 := fsub st0 tmp80B)
+  builder <! (tmpres := fsub st0 tmp80B)
+  assignFPUReg R.ST0 tmpres ctxt builder
   builder <! (getRegVar ctxt R.FSWC2 := b0)
   builder <! (getRegVar ctxt R.FSWC1 := extractLow 1<rt> tmp64)
   builder <! (getRegVar ctxt R.FSWC3 := extract tmp64 1<rt> 1)
@@ -3245,13 +3269,15 @@ let fprem _ins insAddr insLen ctxt round =
   builder <! (tmp80A := fdiv (fdiv st0 st1) tmp80B)
   builder <! (tmp64 := cast CastKind.FtoITrunc 64<rt> tmp80A)
   builder <! (tmp80A := cast CastKind.IntToFloat 80<rt> tmp64)
-  builder <! (st0 := fsub st0 (fmul st1 (fmul tmp80A tmp80B)))
+  builder <! (tmp80A := fsub st0 (fmul st1 (fmul tmp80A tmp80B)))
+  assignFPUReg R.ST0 tmp80A ctxt builder
   builder <! (LMark lblExit)
   endMark insAddr insLen builder
 
 let frndint _ins insAddr insLen ctxt =
   let builder = new StmtBuilder (32)
-  let st0 = getRegVar ctxt R.ST0
+  let st0 = fpuRegValue ctxt R.ST0
+  let tmp = tmpVar 80<rt>
   let tmp1 = tmpVar 64<rt>
   let tmp2 = tmpVar 2<rt>
   let num2 = numI32 2 2<rt>
@@ -3262,7 +3288,8 @@ let frndint _ins insAddr insLen ctxt =
     (cstK CastKind.FtoIRound) (cstK CastKind.FtoITrunc))
   builder <! (tmp1 := ite (tmp2 == num1 2<rt>) (cstK CastKind.FtoIFloor) tmp1)
   builder <! (tmp1 := ite (tmp2 == num2) (cstK CastKind.FtoICeil) tmp1)
-  builder <! (st0 := cast CastKind.IntToFloat 64<rt> tmp1)
+  builder <! (tmp := cast CastKind.IntToFloat 80<rt> tmp1)
+  assignFPUReg R.ST0 tmp ctxt builder
   builder <! (getRegVar ctxt R.FSWC1 := ite (tmp2 == num2) b1 b0)
   cflagsUndefined023 ctxt builder
   endMark insAddr insLen builder
@@ -3271,13 +3298,14 @@ let fscale _ins insAddr insLen ctxt =
   let builder = StmtBuilder (16)
   let tmp1, tmp2 = tmpVars2 64<rt>
   let tmp3 = tmpVar 80<rt>
-  let st0 = getRegVar ctxt R.ST0
-  let st1 = getRegVar ctxt R.ST1
+  let st0 = fpuRegValue ctxt R.ST0
+  let st1 = fpuRegValue ctxt R.ST1
   startMark insAddr insLen builder
   builder <! (tmp1 := cast CastKind.FtoITrunc 64<rt> st1)
   builder <! (tmp2 := numI32 1 64<rt> << tmp1)
   builder <! (tmp3 := cast CastKind.IntToFloat 80<rt> tmp2)
-  builder <! (st0 := fmul st0 tmp3)
+  builder <! (tmp3 := fmul st0 tmp3)
+  assignFPUReg R.ST0 tmp3 ctxt builder
   checkC1Flag ctxt builder R.FTW6
   cflagsUndefined023 ctxt builder
   endMark insAddr insLen builder
@@ -3287,7 +3315,7 @@ let fsin ins insAddr insLen ctxt =
 
 let fsincos _ins insAddr insLen ctxt =
   let builder = new StmtBuilder (64)
-  let st0 = getRegVar ctxt R.ST0
+  let st0 = fpuRegValue ctxt R.ST0
   let c0 = getRegVar ctxt R.FSWC0
   let c1 = getRegVar ctxt R.FSWC1
   let c2 = getRegVar ctxt R.FSWC2
@@ -3298,20 +3326,21 @@ let fsincos _ins insAddr insLen ctxt =
   let num3 = BitVector.ofInt32 3 2<rt> |> num
   let lblOutOfRange = lblSymbol "IsOutOfRange"
   let lblInRange = lblSymbol "IsInRange"
-  let tmp = tmpVar 80<rt>
+  let tmp1, tmp2 = tmpVars2 80<rt>
   startMark insAddr insLen builder
-  builder <! (tmp := st0 .& float80SignUnmask)
-  builder <! (CJmp (flt tmp maxFloat, Name lblInRange, Name lblOutOfRange ))
+  builder <! (tmp1 := st0 .& float80SignUnmask)
+  builder <! (CJmp (flt tmp1 maxFloat, Name lblInRange, Name lblOutOfRange ))
   builder <! (LMark lblInRange)
-  builder <! (tmp := fCos st0)
-  builder <! (st0 := fSin st0)
+  builder <! (tmp1 := fCos st0)
+  builder <! (tmp2 := fSin st0)
+  assignFPUReg R.ST0 tmp2 ctxt builder
   builder <! (c1 := ite (getRegVar ctxt R.FTW7 == num3) b0 c1)
   builder <! (c2 := b0)
   builder <! (c0 := undefC0)
   builder <! (c3 := undefC3)
   checkFPUOnLoad ctxt builder
   shiftFPUStackDown ctxt builder
-  builder <! (st0 := tmp)
+  assignFPUReg R.ST0 tmp1 ctxt builder
   updateTagWordOnLoad ctxt builder
   builder <! (LMark lblOutOfRange)
   builder <! (c2 := b1)
@@ -3322,13 +3351,16 @@ let fsincos _ins insAddr insLen ctxt =
 
 let ffst ins insAddr insLen ctxt doPop =
   let builder = new StmtBuilder (32)
-  let oprExpr = getOneOpr ins |> transOprToExpr ins insAddr insLen ctxt
-  let st0 = getRegVar ctxt R.ST0
+  let opr = getOneOpr ins
+  let oprExpr = transOprToExpr ins insAddr insLen ctxt opr
+  let st0 = fpuRegValue ctxt R.ST0
   let sz = AST.typeOf oprExpr
   let tmp = tmpVar sz
   startMark insAddr insLen builder
   builder <! (tmp := cast CastKind.FloatExt sz st0)
-  builder <! (oprExpr := tmp)
+  match opr with
+  | OprReg r -> assignFPUReg r tmp ctxt builder
+  | _ -> builder <! (oprExpr := tmp)
   checkC1Flag ctxt builder R.FTW7
   cflagsUndefined023 ctxt builder
   if doPop then popFPUStack ctxt builder else ()
@@ -3354,7 +3386,7 @@ let fstsw ins insAddr insLen ctxt =
 
 let ftst _ins insAddr insLen ctxt =
   let builder = new StmtBuilder (16)
-  let st0 = getRegVar ctxt R.ST0
+  let st0 = fpuRegValue ctxt R.ST0
   let num0V = num0 80<rt>
   let c0 = getRegVar ctxt R.FSWC0
   let c2 = getRegVar ctxt R.FSWC2
@@ -3379,10 +3411,12 @@ let ftst _ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let fsqrt _ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
-  let st0 = getRegVar ctxt R.ST0
+  let builder = new StmtBuilder (8)
+  let st0 = fpuRegValue ctxt R.ST0
+  let tmp = tmpVar 80<rt>
   startMark insAddr insLen builder
-  builder <! (st0 := unop UnOpType.FSQRT st0)
+  builder <! (tmp := unop UnOpType.FSQRT st0)
+  assignFPUReg R.ST0 tmp ctxt builder
   checkC1Flag ctxt builder R.FTW7
   endMark insAddr insLen builder
 
@@ -3393,13 +3427,13 @@ let fsubr ins insAddr insLen ctxt doPop =
   fpuFBinOp ins insAddr insLen ctxt fsub doPop false
 
 let fpuLoad insAddr insLen ctxt oprExpr =
-  let builder = new StmtBuilder (32)
+  let builder = new StmtBuilder (64)
   let tmp = tmpVar 80<rt>
   startMark insAddr insLen builder
   builder <! (tmp := cast CastKind.FloatExt 80<rt> oprExpr)
   checkFPUOnLoad ctxt builder
   shiftFPUStackDown ctxt builder
-  builder <! (getRegVar ctxt R.ST0 := tmp)
+  assignFPUReg R.ST0 tmp ctxt builder
   updateTagWordOnLoad ctxt builder
   endMark insAddr insLen builder
 
@@ -3501,15 +3535,14 @@ let m28fstenv dst ctxt builder =
   builder <! (dst := tmp)
 
 let ldSts src ctxt builder =
-  let v r = getRegVar ctxt r
-  builder <! (v R.ST0 := extractLow 80<rt> src)
-  builder <! (v R.ST1 := extract src 80<rt> 80)
-  builder <! (v R.ST2 := extract src 80<rt> 160)
-  builder <! (v R.ST3 := extract src 80<rt> 240)
-  builder <! (v R.ST4 := extract src 80<rt> 320)
-  builder <! (v R.ST5 := extract src 80<rt> 400)
-  builder <! (v R.ST6 := extract src 80<rt> 480)
-  builder <! (v R.ST7 := extract src 80<rt> 560)
+  assignFPUReg R.ST0 (extractLow 80<rt> src) ctxt builder
+  assignFPUReg R.ST1 (extract src 80<rt> 80) ctxt builder
+  assignFPUReg R.ST2 (extract src 80<rt> 160) ctxt builder
+  assignFPUReg R.ST3 (extract src 80<rt> 240) ctxt builder
+  assignFPUReg R.ST4 (extract src 80<rt> 320) ctxt builder
+  assignFPUReg R.ST5 (extract src 80<rt> 400) ctxt builder
+  assignFPUReg R.ST6 (extract src 80<rt> 480) ctxt builder
+  assignFPUReg R.ST7 (extract src 80<rt> 560) ctxt builder
 
 let stSts dst ctxt builder =
   let v r = getRegVar ctxt r
@@ -3572,7 +3605,7 @@ let fstenv ins insAddr insLen ctxt =
 
 let fxam _ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
-  let st0 = getRegVar ctxt R.ST0
+  let st0 = fpuRegValue ctxt R.ST0
   let exponent = extract st0 15<rt> 64
   let maxExponent = BitVector.unsignedMax 15<rt> |> num
   let tag7 = getRegVar ctxt R.FTW7
@@ -3590,7 +3623,8 @@ let fxam _ins insAddr insLen ctxt =
 
 let fxtract _ins insAddr insLen ctxt =
   let builder = new StmtBuilder (64)
-  let st0 = getRegVar ctxt R.ST0
+  let st0 = fpuRegValue ctxt R.ST0
+  let tmp = tmpVar 80<rt>
   let exponent = tmpVar 64<rt>
   let significand = tmpVar 80<rt>
   startMark insAddr insLen builder
@@ -3601,19 +3635,20 @@ let fxtract _ins insAddr insLen ctxt =
   builder <! (extract significand 15<rt> 64 := numI32 16383 15<rt>)
   builder <! (extractLow 15<rt> exponent := extract st0 15<rt> 64)
   builder <! (exponent := exponent .- numI32 16383 64<rt>)
-  builder <! (st0 := cast CastKind.IntToFloat 80<rt> exponent)
+  builder <! (tmp := cast CastKind.IntToFloat 80<rt> exponent)
+  assignFPUReg R.ST0 tmp ctxt builder
   checkFPUOnLoad ctxt builder
   shiftFPUStackDown ctxt builder
-  builder <! (st0 := significand)
+  assignFPUReg R.ST0 significand ctxt builder
   updateTagWordOnLoad ctxt builder
   checkC1Flag ctxt builder R.FTW7
   cflagsUndefined023 ctxt builder
   endMark insAddr insLen builder
 
 let fyl2x _ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (32)
-  let st0 = getRegVar ctxt R.ST0
-  let st1 = getRegVar ctxt R.ST1
+  let builder = new StmtBuilder (64)
+  let st0 = fpuRegValue ctxt R.ST0
+  let st1 = fpuRegValue ctxt R.ST1
   let flt2 = numI32 2 32<rt> |> cast CastKind.IntToFloat 80<rt>
   let tmp = tmpVar 80<rt>
   startMark insAddr insLen builder
@@ -3625,15 +3660,16 @@ let fyl2x _ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let fyl2xp1 _ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (32)
-  let st0 = getRegVar ctxt R.ST0
-  let st1 = getRegVar ctxt R.ST1
+  let builder = new StmtBuilder (64)
+  let st0 = fpuRegValue ctxt R.ST0
+  let st1 = fpuRegValue ctxt R.ST1
   let flt2 = numI32 2 32<rt> |> cast CastKind.IntToFloat 80<rt>
   let f1 = numI32 1 32<rt> |> cast CastKind.IntToFloat 80<rt>
-  let tmp = tmpVar 64<rt>
+  let tmp = tmpVar 80<rt>
   startMark insAddr insLen builder
   builder <! (tmp := fadd f1 (flog flt2 st0))
-  builder <! (st1 := fmul st1 tmp)
+  builder <! (tmp := fmul st1 tmp)
+  assignFPUReg R.ST1 tmp ctxt builder
   popFPUStack ctxt builder
   checkC1Flag ctxt builder R.FTW6
   cflagsUndefined023 ctxt builder
@@ -3653,19 +3689,19 @@ let fxrstor ins insAddr insLen ctxt =
 let fxch ins insAddr insLen ctxt =
   let builder = new StmtBuilder (16)
   let tmp = tmpVar 80<rt>
-  let st0 = getRegVar ctxt R.ST0
+  let st0 = fpuRegValue ctxt R.ST0
   startMark insAddr insLen builder
   match ins.Operands with
-  | OneOperand opr ->
+  | OneOperand (OprReg reg as opr) ->
       let oprExpr = transOprToExpr ins insAddr insLen ctxt opr
       builder <! (tmp := st0)
-      builder <! (st0 := oprExpr)
-      builder <! (oprExpr := tmp)
+      assignFPUReg R.ST0 oprExpr ctxt builder
+      assignFPUReg reg tmp ctxt builder
   | NoOperand ->
-      let st1 = getRegVar ctxt R.ST1
+      let st1 = fpuRegValue ctxt R.ST1
       builder <! (tmp := st0)
-      builder <! (st0 := st1)
-      builder <! (st1 := tmp)
+      assignFPUReg R.ST0 st1 ctxt builder
+      assignFPUReg R.ST1 tmp ctxt builder
   | _ -> raise InvalidOperandException
   builder <! (getRegVar ctxt R.FSWC1 := b0)
   cflagsUndefined023 ctxt builder
