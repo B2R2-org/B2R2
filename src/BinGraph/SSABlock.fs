@@ -41,25 +41,22 @@ module SSABlockHelper =
     v.VData.GetIRStatements ()
     |> Array.fold (fun acc stmts -> Array.fold updateDefinedVar acc stmts) acc
 
-  let private addDefaultDefs (hdl: BinHandler) =
-    match hdl.ISA.Arch with
-    | Architecture.IntelX86 ->
-      let sp = Intel.Register.ESP |> Intel.Register.toRegID
-      let esp =
-        { SSA.Kind = SSA.RegVar (32<rt>, sp, "ESP"); SSA.Identifier = -1 }
-      let ret = Intel.Register.EAX |> Intel.Register.toRegID
-      let eax =
-        { SSA.Kind = SSA.RegVar (32<rt>, ret, "EAX"); SSA.Identifier = -1 }
-      [| esp ; eax |]
-    | Architecture.IntelX64 ->
-      let sp = Intel.Register.RSP |> Intel.Register.toRegID
-      let rsp =
-        { SSA.Kind = SSA.RegVar (64<rt>, sp, "RSP"); SSA.Identifier = -1 }
-      let ret = Intel.Register.RAX |> Intel.Register.toRegID
-      let rax =
-        { SSA.Kind = SSA.RegVar (64<rt>, ret, "RAX"); SSA.Identifier = -1 }
-      [| rsp ; rax |]
-    | _ -> [||]
+  let private getStackPtrDef (hdl: BinHandler) wordSize =
+    match RegisterBay.getStackPointer hdl with
+    | Some sp ->
+      SSA.RegVar (wordSize, sp, RegisterBay.registerIDToString hdl sp) |> Some
+    | None -> None
+
+  let private getReturnValDef (hdl: BinHandler) wordSize =
+    let r = CallingConvention.returnRegister hdl
+    SSA.RegVar (wordSize, r, RegisterBay.registerIDToString hdl r) |> Some
+
+  let private addDefaultDefs hdl =
+    let wordSize = hdl.ISA.WordSize |> WordSize.toRegType
+    [ getStackPtrDef hdl wordSize; getReturnValDef hdl wordSize ]
+    |> List.choose id
+    |> List.map (fun kind -> { SSA.Kind = kind; SSA.Identifier = -1 })
+    |> Array.ofList
 
   /// This is currently intra-procedural.
   let computeDefinedVars hdl (scfg: SCFG) addr =
