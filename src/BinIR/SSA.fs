@@ -102,8 +102,8 @@ type Expr =
   | Undefined of RegType * string
 
   /// Value returned from a function located at the address. The second
-  /// argument indicates the kind of the returned value.
-  | Return of Addr * VariableKind
+  /// argument indicates the live definition of previously defined variable.
+  | Return of Addr * Variable
 
 /// IR Label. Since we don't distinguish instruction boundary in SSA level, we
 /// want to specify where the label comes from.

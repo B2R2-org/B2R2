@@ -77,7 +77,8 @@ type SSABBlock (hdl, scfg, pp: ProgramPoint, instrs: InstructionInfo []) =
     if Array.isEmpty instrs then
       SSABlockHelper.computeDefinedVars hdl scfg pp.Address
       |> Array.map (fun dst ->
-        SSA.Def (dst, SSA.Return (pp.Address, dst.Kind)))
+        let src = { SSA.Kind = dst.Kind; SSA.Identifier = -1 }
+        SSA.Def (dst, SSA.Return (pp.Address, src)))
     else
       instrs
       |> Array.map (fun i ->
