@@ -660,4 +660,83 @@ let mov arch ins =
        yield! encodeImm imm 64<rt> |]
   | o -> printfn "%A" o; raise OperandTypeMismatchException
 
+let palignr arch ins =
+  match ins.Operands with
+  // Reg - Reg - Imm8
+  | ThreeOperands (OprReg r1, OprReg r2, OprImm imm)
+    when isMMXReg r1 && isMMXReg r2 ->
+    [| yield! encodePrefix arch ins None false false false
+       yield! encodeREXPref arch ins None false false
+       yield! [| Normal 0x0Fuy; Normal 0x3Auy; Normal 0x0Fuy |]
+       encodeRR r1 r2
+       yield! encodeImm imm 8<rt> |]
+  | ThreeOperands (OprReg r1, OprReg r2, OprImm imm)
+    when isXMMReg r1 && isXMMReg r2 ->
+    [| yield! encodePrefix arch ins oSzPref false false false
+       yield! encodeREXPref arch ins None false false
+       yield! [| Normal 0x0Fuy; Normal 0x3Auy; Normal 0x0Fuy |]
+       encodeRR r1 r2
+       yield! encodeImm imm 8<rt> |]
+  // Reg - Mem - Imm8
+  | ThreeOperands (OprReg r, OprMem (b, s, d, 64<rt>), OprImm imm)
+    when isMMXReg r ->
+    [| yield! encodePrefix arch ins None false false false
+       yield! encodeREXPref arch ins None false false
+       yield! [| Normal 0x0Fuy; Normal 0x3Auy; Normal 0x0Fuy |]
+       encodeRM b s d r
+       yield! encodeSIB ins
+       yield! encodeDisp ins
+       yield! encodeImm imm 8<rt>  |]
+  | ThreeOperands (OprReg r, OprMem (b, s, d, 128<rt>), OprImm imm)
+    when isXMMReg r ->
+    [| yield! encodePrefix arch ins oSzPref false false false
+       yield! encodeREXPref arch ins None false false
+       yield! [| Normal 0x0Fuy; Normal 0x3Auy; Normal 0x0Fuy |]
+       encodeRM b s d r
+       yield! encodeSIB ins
+       yield! encodeDisp ins
+       yield! encodeImm imm 8<rt>  |]
+  | o -> printfn "%A" o; raise OperandTypeMismatchException
+
+let vpalignr arch ins =
+  match ins.Operands with
+  // Reg - Reg - Reg - Imm8
+  | FourOperands (OprReg r1, OprReg r2, OprReg r3, OprImm imm)
+    when isXMMReg r1 && isXMMReg r2 && isXMMReg r3 ->
+    let rexRXB = encodeVEXRexRB r1 r3
+    [| yield! encodeThreeVEXPref rexRXB VEXType.VEXThreeByteOpTwo
+         REXPrefix.NOREX (Some r2) 128<rt> Prefix.PrxOPSIZE
+       Normal 0x0Fuy
+       encodeRR r1 r3
+       yield! encodeImm imm 8<rt> |]
+  | FourOperands (OprReg r1, OprReg r2, OprReg r3, OprImm imm)
+    when isYMMReg r1 && isYMMReg r2 && isYMMReg r3 ->
+    let rexRXB = encodeVEXRexRB r1 r3
+    [| yield! encodeThreeVEXPref rexRXB VEXType.VEXThreeByteOpTwo
+         REXPrefix.NOREX (Some r2) 256<rt> Prefix.PrxOPSIZE
+       Normal 0x0Fuy
+       encodeRR r1 r3
+       yield! encodeImm imm 8<rt> |]
+  // Reg - Reg - Mem - Imm8
+  | FourOperands (OprReg r1, OprReg r2, OprMem (b, s, d, 128<rt>), OprImm imm)
+    when isXMMReg r1 && isXMMReg r2 ->
+    let rexRXB = encodeVEXRexRXB r1 b s
+    [| yield! encodeThreeVEXPref rexRXB VEXType.VEXThreeByteOpTwo
+         REXPrefix.NOREX (Some r2) 128<rt> Prefix.PrxOPSIZE
+       Normal 0x0Fuy
+       encodeRM b s d r1
+       yield! encodeSIB ins
+       yield! encodeDisp ins
+       yield! encodeImm imm 8<rt>  |]
+  | FourOperands (OprReg r1, OprReg r2, OprMem (b, s, d, 256<rt>), OprImm imm)
+    when isYMMReg r1 && isYMMReg r2 ->
+    let rexRXB = encodeVEXRexRXB r1 b s
+    [| yield! encodeThreeVEXPref rexRXB VEXType.VEXThreeByteOpTwo
+         REXPrefix.NOREX (Some r2) 256<rt> Prefix.PrxOPSIZE
+       Normal 0x0Fuy
+       encodeRM b s d r1
+       yield! encodeSIB ins
+       yield! encodeDisp ins
+       yield! encodeImm imm 8<rt>  |]
+  | o -> printfn "%A" o; raise OperandTypeMismatchException
 // vim: set tw=80 sts=2 sw=2:

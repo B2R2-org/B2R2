@@ -48,6 +48,8 @@ let encodeInstruction isa ins =
   | Opcode.ADC -> adc isa.Arch ins
   | Opcode.ADD -> add isa.Arch ins
   | Opcode.MOV -> mov isa.Arch ins
+  | Opcode.PALIGNR -> palignr isa.Arch ins
+  | Opcode.VPALIGNR -> vpalignr isa.Arch ins
   | _ -> Utils.futureFeature ()
 
 let private getValue enBytes (sb: StringBuilder) =
