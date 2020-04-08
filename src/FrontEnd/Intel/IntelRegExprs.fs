@@ -25,11 +25,10 @@
 namespace B2R2.FrontEnd.Intel
 
 open B2R2
-open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST
 
 type internal RegExprs (wordSize) =
-  let var sz t name = AST.var sz t name (IntelRegisterSet.singleton t)
+  let var sz t name = var sz t name (IntelRegisterSet.singleton t)
 
   let reg64 wordSize t name =
     if wordSize = WordSize.Bit32 then unDef 64<rt> name else var 64<rt> t name
@@ -714,6 +713,14 @@ type internal RegExprs (wordSize) =
     | R.MXCSR -> __.MXCSR
     | R.MXCSRMASK -> __.MXCSRMASK
     | R.PKRU -> __.PKRU
+    | R.ST0 -> concat __.ST0B __.ST0A
+    | R.ST1 -> concat __.ST1B __.ST1A
+    | R.ST2 -> concat __.ST2B __.ST2A
+    | R.ST3 -> concat __.ST3B __.ST3A
+    | R.ST4 -> concat __.ST4B __.ST4A
+    | R.ST5 -> concat __.ST5B __.ST5A
+    | R.ST6 -> concat __.ST6B __.ST6A
+    | R.ST7 -> concat __.ST7B __.ST7A
     | R.K0 -> __.K0
     | R.K1 -> __.K1
     | R.K2 -> __.K2
