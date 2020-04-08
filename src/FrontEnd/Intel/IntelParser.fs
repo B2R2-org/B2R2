@@ -2258,7 +2258,7 @@ let inline private getSIB b =
 
 let parseSIB insInfo (reader: BinReader) pos modValue =
   let struct (s, i, b) = reader.PeekByte pos |> int |> getSIB
-  let rexPref = insInfo.REXPrefix
+  let rexPref = selectREX insInfo.VEXInfo insInfo.REXPrefix
   let si = getScaledIndex s i insInfo rexPref
   let baseReg = getBaseReg b insInfo modValue rexPref
   struct (si, baseReg, b), pos + 1
