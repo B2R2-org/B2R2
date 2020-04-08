@@ -136,7 +136,7 @@ type AsmParser (isa, startAddress: Addr) =
 
   let updatePrefix =
     pSegmentRegPrefix .>> spaces .>> pchar ':'
-    |>> (fun pre -> inferredPrefix <- pre)
+    |>> (fun pre -> inferredPrefix <- (inferredPrefix ||| pre))
 
   let pMemOprSize =
     [ "byte ptr"; "word ptr"; "word far ptr"; "dword ptr"; "dword far ptr";

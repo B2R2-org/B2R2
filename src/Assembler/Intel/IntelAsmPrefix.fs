@@ -52,15 +52,43 @@ let private isAddrSize isa = function
   | TwoOperands (OprMem (Some bReg, _, _, _), _) -> isAddrSz isa bReg
   | _ -> false
 
-let encodePrefix arch ins oSzPref =
+let getPrefByte = function
+  | 0x1 -> 0xF0uy   (* Prefix.PrxLOCK *)
+  | 0x2 -> 0xF2uy   (* Prefix.PrxREPNZ *)
+  | 0x4 -> 0xF3uy   (* Prefix.PrxREPZ *)
+  | 0x8 -> 0x2Euy   (* Prefix.PrxCS *)
+  | 0x10 -> 0x36uy  (* Prefix.PrxSS *)
+  | 0x20 -> 0x3Euy  (* Prefix.PrxDS *)
+  | 0x40 -> 0x26uy  (* Prefix.PrxES *)
+  | 0x80 -> 0x64uy  (* Prefix.PrxFS *)
+  | 0x100 -> 0x65uy (* Prefix.PrxGS *)
+  | 0x0 -> 0x0uy
+  | _ -> failwith "Invalid prefix"
+
+let getGrp1Pref prefs = prefs &&& 0x7 |> getPrefByte
+
+let getGrp2Pref prefs = prefs &&& 0x1F8 |> getPrefByte
+
+let encodePrefix arch ins oSzPref canLock canRepz canSeg =
   // 64-bit mode : register -> 16bit => 66
   //               memory base register -> 32bit => 67
   // 32-bit mode : register -> 16bit => 66
   //               memory base register -> 16bit => 67
+  let prefs = LanguagePrimitives.EnumToValue ins.Prefixes
 
-  // Prefix group1, group2
-  // FIXME
-  let prxGrp1or2 = LanguagePrimitives.EnumToValue ins.Prefixes
+  // Prefix group1 and group2
+  let prxGrp1 =
+    let pGrp1 = getGrp1Pref prefs
+    if pGrp1 = 0uy then [||]
+    else if ((pGrp1 = 0xF0uy) && canLock) ||
+            ((pGrp1 = 0xF2uy || pGrp1 = 0xF3uy) && canRepz)
+         then [| pGrp1 |> Normal |]
+         else failwith "Invalid prefix (Lock)"
+
+  let prxGrp2 =
+    if prefs = 0 then [||]
+    else if canSeg then [| getGrp2Pref prefs |> Normal |]
+         else failwith "Invalid prefix (Segment)"
 
   // Prefix group3: Operand-size override
   let prxGrp3 =
@@ -72,7 +100,7 @@ let encodePrefix arch ins oSzPref =
   let prxGrp4 =
     if isAddrSize arch ins.Operands then [| Normal 0x67uy |] else [||]
 
-  [| yield! prxGrp3; yield! prxGrp4 |]
+  [| yield! prxGrp1; yield! prxGrp2; yield! prxGrp3; yield! prxGrp4 |]
 
 let private exceptREXPrefOp = function
   | Opcode.CRC32 | Opcode.CMPXCHG8B -> true
