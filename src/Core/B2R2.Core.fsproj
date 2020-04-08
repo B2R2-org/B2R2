@@ -38,6 +38,7 @@
     <Compile Include="BinReader.fs" />
     <Compile Include="ConcurrentLRU.fs" />
     <Compile Include="ConcurrentWeakReferenceTable.fs" />
+    <Compile Include="Logger.fs" />
     <Compile Include="Utils.fsi" />
     <Compile Include="Utils.fs" />
     <Compile Include="Attribution.fs" />
