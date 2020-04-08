@@ -31,11 +31,11 @@ let isReg8 reg = Register.toRegType reg = 8<rt>
 let isReg16 reg = Register.toRegType reg = 16<rt>
 let isReg32 reg = Register.toRegType reg = 32<rt>
 let isReg64 reg = Register.toRegType reg = 64<rt>
-let isSegReg reg = Register.Kind.Segment = Register.getKind reg
+let isMMXReg reg = Register.Kind.MMX = Register.getKind reg
+let isXMMReg reg = Register.Kind.XMM = Register.getKind reg
+let isYMMReg reg = Register.Kind.YMM = Register.getKind reg
 
-let private exceptOprSzPrefOp encType op =
-  match encType, op with
-  | _ -> false
+let isSegReg reg = Register.Kind.Segment = Register.getKind reg
 
 let private isOprReg16 = function
   | _ -> false
@@ -66,7 +66,6 @@ let getPrefByte = function
   | _ -> failwith "Invalid prefix"
 
 let getGrp1Pref prefs = prefs &&& 0x7 |> getPrefByte
-
 let getGrp2Pref prefs = prefs &&& 0x1F8 |> getPrefByte
 
 let encodePrefix arch ins oSzPref canLock canRepz canSeg =
@@ -102,15 +101,11 @@ let encodePrefix arch ins oSzPref canLock canRepz canSeg =
 
   [| yield! prxGrp1; yield! prxGrp2; yield! prxGrp3; yield! prxGrp4 |]
 
-let private exceptREXPrefOp = function
-  | Opcode.CRC32 | Opcode.CMPXCHG8B -> true
-  | _ -> false
-
 let encodeRex = function
   | Register.SPL | Register.BPL | Register.SIL | Register.DIL -> 0x40uy
   | _ -> 0x0uy
 
-let encodeRexR = function
+let isExtendReg = function
   | Register.R8L | Register.R8W | Register.R8D | Register.R8
   | Register.R9L | Register.R9W | Register.R9D | Register.R9
   | Register.R10L | Register.R10W | Register.R10D | Register.R10
@@ -118,51 +113,58 @@ let encodeRexR = function
   | Register.R12L | Register.R12W | Register.R12D | Register.R12
   | Register.R13L | Register.R13W | Register.R13D | Register.R13
   | Register.R14L | Register.R14W | Register.R14D | Register.R14
-  | Register.R15L | Register.R15W | Register.R15D | Register.R15 -> 0x44uy
-  | _ -> 0x0uy
+  | Register.R15L | Register.R15W | Register.R15D | Register.R15
+  | Register.XMM8 | Register.XMM9 | Register.XMM10 | Register.XMM11
+  | Register.XMM12 | Register.XMM13 | Register.XMM14 | Register.XMM15 -> true
+  | _ -> false
 
-let encodeRexX = function
-  | Register.R8L | Register.R8W | Register.R8D | Register.R8
-  | Register.R9L | Register.R9W | Register.R9D | Register.R9
-  | Register.R10L | Register.R10W | Register.R10D | Register.R10
-  | Register.R11L | Register.R11W | Register.R11D | Register.R11
-  | Register.R12L | Register.R12W | Register.R12D | Register.R12
-  | Register.R13L | Register.R13W | Register.R13D | Register.R13
-  | Register.R14L | Register.R14W | Register.R14D | Register.R14
-  | Register.R15L | Register.R15W | Register.R15D | Register.R15 -> 0x42uy
-  | _ -> 0x0uy
+let encodeRexR reg = if isExtendReg reg then 0x44uy else 0x0uy
+let encodeRexX reg = if isExtendReg reg then 0x42uy else 0x0uy
+let encodeRexB reg = if isExtendReg reg then 0x41uy else 0x0uy
 
-let encodeRexB = function
-  | Register.R8L | Register.R8W | Register.R8D | Register.R8
-  | Register.R9L | Register.R9W | Register.R9D | Register.R9
-  | Register.R10L | Register.R10W | Register.R10D | Register.R10
-  | Register.R11L | Register.R11W | Register.R11D | Register.R11
-  | Register.R12L | Register.R12W | Register.R12D | Register.R12
-  | Register.R13L | Register.R13W | Register.R13D | Register.R13
-  | Register.R14L | Register.R14W | Register.R14D | Register.R14
-  | Register.R15L | Register.R15W | Register.R15D | Register.R15 -> 0x41uy
-  | _ -> 0x0uy
+let convVEXRexByte rexByte = (~~~ rexByte) &&& 0b111uy
+
+let encodeVEXRexRB r1 r2 = convVEXRexByte (encodeRexR r1 ||| encodeRexB r2)
+let encodeVEXRexRXB reg rmOrSBase sIdx =
+  match rmOrSBase, sIdx with
+  | Some r1, Some (r2, _) ->
+    convVEXRexByte (encodeRexR reg ||| encodeRexX r2 ||| encodeRexB r1)
+  | Some r1, None ->
+    convVEXRexByte (encodeRexR reg ||| encodeRexB r1)
+  | None, Some (r2, _) ->
+    convVEXRexByte (encodeRexR reg ||| encodeRexX r2)
+  | None, None -> convVEXRexByte (encodeRexR reg)
 
 let encodeRexRXB isMR isOpRegFld = function
-  | TwoOperands (OprReg r1, OprReg r2) when isReg8 r1 && isReg8 r2 ->
-    encodeRex r1 ||| encodeRex r2
-  | TwoOperands (OprReg r1, OprReg r2) when isMR ->
-    encodeRexR r2 ||| encodeRexB r1
-  | TwoOperands (OprReg r1, OprReg r2) -> encodeRexR r1 ||| encodeRexB r2
+  | TwoOperands (OprReg r1, OprReg r2) ->
+    if isReg8 r1 && isReg8 r2 then encodeRex r1 ||| encodeRex r2
+    elif isMR then encodeRexR r2 ||| encodeRexB r1
+    else encodeRexR r1 ||| encodeRexB r2
   | TwoOperands (OprReg r, OprMem (Some bReg, Some (s, _), _, _))
   | TwoOperands (OprMem (Some bReg, Some (s, _), _, _), OprReg r) ->
     encodeRexR r ||| encodeRexX s ||| encodeRexB bReg
   | TwoOperands (OprReg r, OprMem (Some bReg, None, _, _))
   | TwoOperands (OprMem (Some bReg, None, _, _), OprReg r) ->
     encodeRexR r ||| encodeRexB bReg
+  | TwoOperands (OprReg r, OprMem (None, Some (s, _), _, _))
+  | TwoOperands (OprMem (None, Some (s, _), _, _), OprReg r) ->
+    encodeRexR r ||| encodeRexX s
   | TwoOperands (OprReg r, OprMem (None, None, _, _))
   | TwoOperands (OprMem (None, None, _, _), OprReg r) -> encodeRexR r
-  | TwoOperands (OprReg r, OprImm _) when isReg8 r -> encodeRex r
-  | TwoOperands (OprReg r, OprImm _) when isOpRegFld -> encodeRexB r
-  | TwoOperands (OprReg r, OprImm _) -> encodeRexR r
+  | TwoOperands (OprReg r, OprImm _) ->
+    if isReg8 r then encodeRex r
+    elif isOpRegFld then encodeRexB r else encodeRexR r
   | TwoOperands (OprMem (Some bReg, None, _, _), OprImm _) -> encodeRexB bReg
   | TwoOperands (OprMem (Some bReg, Some (s, _), _, _), OprImm _) ->
     encodeRexX s ||| encodeRexB bReg
+  | ThreeOperands (OprReg r1, OprReg r2, OprImm _) ->
+    encodeRexR r1 ||| encodeRexB r2
+  | ThreeOperands (OprReg r, OprMem (Some bReg, Some (s, _), _, _), OprImm _) ->
+    encodeRexR r ||| encodeRexX s ||| encodeRexB bReg
+  | ThreeOperands (OprReg r, OprMem (Some bReg, None, _, _), OprImm _) ->
+    encodeRexR r ||| encodeRexB bReg
+  | ThreeOperands (OprReg r, OprMem (None, None, _, _), OprImm _) ->
+    encodeRexR r
   | o -> printfn "Inavlid Operand (%A)" o; Utils.futureFeature ()
 
 let encodeREXPref arch (ins: InsInfo) rexW isMR isOpRegFld =
@@ -233,16 +235,14 @@ let private getSIMDPref = function
   | Prefix.PrxREPNZ  (* 0xF2 *) -> 0b11uy
   | _ -> Utils.impossible ()
 
-let getTwoByteVEX rexPref vvvv len pp op =
-  let  rexR = if rexPref = REXPrefix.REXR then 0b0uy else 0b1uy
-  let  vvvv = getVVVVByte vvvv
-  let  vectorLen = getVLen len
-  let  pp = getSIMDPref pp
-  let  sndVByte = (rexR <<< 7) + (vvvv <<< 3) + (vectorLen <<< 2) + pp
-  [| Normal 0b11000101uy; Normal sndVByte; Normal op |]
+let encodeTwoVEXPref rexR vvvv len pp =
+  let vvvv = getVVVVByte vvvv
+  let vectorLen = getVLen len
+  let pp = getSIMDPref pp
+  let sndVByte = (rexR <<< 7) + (vvvv <<< 3) + (vectorLen <<< 2) + pp
+  [| Normal 0xC5uy; Normal sndVByte |]
 
-let getThreeByteVEX rexPref mmmmm rexW vvvv len pp op =
-  let rexRXB = getRexRXB rexPref
+let encodeThreeVEXPref rexRXB mmmmm rexW vvvv len pp =
   let mmmmm = getLeadingOpcodeByte mmmmm
   let rexW = if rexW = REXPrefix.REXW then 0b1uy else 0b0uy
   let vvvv = getVVVVByte vvvv
@@ -250,6 +250,6 @@ let getThreeByteVEX rexPref mmmmm rexW vvvv len pp op =
   let pp = getSIMDPref pp
   let sndVByte = (rexRXB <<< 5) + mmmmm
   let trdVByte = (rexW <<< 7) + (vvvv <<< 3) + (vectorLen <<< 2) + pp
-  [| Normal 0b11000100uy; Normal sndVByte; Normal trdVByte; Normal op |]
+  [| Normal 0xC4uy; Normal sndVByte; Normal trdVByte |]
 
 // vim: set tw=80 sts=2 sw=2:

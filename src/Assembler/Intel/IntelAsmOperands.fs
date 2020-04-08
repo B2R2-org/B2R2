@@ -31,37 +31,41 @@ open B2R2.FrontEnd.Intel
 let private regTo3Bit = function
   | Register.AL | Register.AX | Register.EAX | Register.RAX | Register.BND0
   | Register.MM0 | Register.XMM0 | Register.YMM0 | Register.ES
-  | Register.R8L | Register.R8W | Register.R8D | Register.R8 -> 0b000uy
+  | Register.R8L | Register.R8W | Register.R8D | Register.R8
+  | Register.XMM8 | Register.YMM8 -> 0b000uy
   | Register.CL | Register.CX | Register.ECX | Register.RCX | Register.BND1
   | Register.MM1 | Register.XMM1 | Register.YMM1 | Register.CS
-  | Register.R9L | Register.R9W | Register.R9D | Register.R9 -> 0b001uy
+  | Register.R9L | Register.R9W | Register.R9D | Register.R9
+  | Register.XMM9 | Register.YMM9 -> 0b001uy
   | Register.DL | Register.DX | Register.EDX | Register.RDX | Register.BND2
   | Register.MM2 | Register.XMM2 | Register.YMM2 | Register.SS
-  | Register.R10L | Register.R10W | Register.R10D | Register.R10 -> 0b010uy
+  | Register.R10L | Register.R10W | Register.R10D | Register.R10
+  | Register.XMM10 | Register.YMM10 -> 0b010uy
   | Register.BL | Register.BX | Register.EBX | Register.RBX | Register.BND3
   | Register.MM3 | Register.XMM3 | Register.YMM3 | Register.DS
-  | Register.R11L | Register.R11W | Register.R11D | Register.R11 -> 0b011uy
+  | Register.R11L | Register.R11W | Register.R11D | Register.R11
+  | Register.XMM11 | Register.YMM11 -> 0b011uy
   | Register.AH | Register.SP | Register.ESP | Register.RSP
   | Register.MM4 | Register.XMM4 | Register.YMM4 | Register.FS
   | Register.SPL | Register.R12L | Register.R12W | Register.R12D | Register.R12
-    -> 0b100uy
+  | Register.XMM12 | Register.YMM12 -> 0b100uy
   | Register.CH | Register.BP | Register.EBP | Register.RBP
   | Register.MM5 | Register.XMM5 | Register.YMM5 | Register.GS
   | Register.BPL | Register.R13L | Register.R13W | Register.R13D | Register.R13
-    -> 0b101uy
+  | Register.XMM13 | Register.YMM13  -> 0b101uy
   | Register.DH | Register.SI | Register.ESI | Register.RSI
   | Register.MM6 | Register.XMM6 | Register.YMM6
   | Register.SIL | Register.R14L | Register.R14W | Register.R14D | Register.R14
-    -> 0b110uy
+  | Register.XMM14 | Register.YMM14  -> 0b110uy
   | Register.BH | Register.DI | Register.EDI | Register.RDI
   | Register.MM7 | Register.XMM7 | Register.YMM7
   | Register.DIL | Register.R15L | Register.R15W | Register.R15D | Register.R15
-    -> 0b111uy
+  | Register.XMM15 | Register.YMM15 -> 0b111uy
   | _ -> Utils.impossible ()
 
 let getModRMByte md reg rm = (md <<< 6) + (reg <<< 3) + rm |> Normal
 
-let private getRMBySIB baseReg = function // FIXME: baseReg option
+let private getRMBySIB baseReg = function
   | Some _ -> 0b100uy
   | None ->
     match baseReg with
@@ -127,15 +131,20 @@ let private getScaleBit = function
 
 let private encodeScaledIdx baseReg (reg, scale) =
   let idxBit, sBit = regTo3Bit reg, getScaleBit scale
-  let baseBit = regTo3Bit baseReg
+  let baseBit =
+    match baseReg with
+    | Some baseReg -> regTo3Bit baseReg
+    | None -> 0b101uy
   (sBit <<< 6) + (idxBit <<< 3) + baseBit |> Normal
 
 /// Scale(2):Index(3):Base(3)
 let encodeSIB ins =
   match ins.Operands with
-  | TwoOperands (OprMem (Some b, Some sib, _, _), _)
-  | TwoOperands (_, OprMem (Some b, Some sib, _, _)) ->
-    [| encodeScaledIdx b sib |]
+  | TwoOperands (OprMem (b, Some si, _, _), _)
+  | TwoOperands (_, OprMem (b, Some si, _, _))
+  | ThreeOperands (_, OprMem (b, Some si, _, _), _)
+  | FourOperands (_, _, OprMem (b, Some si, _, _), _) ->
+    [| encodeScaledIdx b si |]
   (* more cases *)
   | _ -> [||]
 
@@ -149,7 +158,9 @@ let encodeDisp ins =
   match ins.Operands with
   | OneOperand (GoToLabel _lbl) -> [| Label; Label; Label; Label |] // FIXME
   | TwoOperands (OprMem (_, _, disp, _), _)
-  | TwoOperands (_, OprMem (_, _, disp, _)) -> adjustDisp disp
+  | TwoOperands (_, OprMem (_, _, disp, _))
+  | ThreeOperands (_, OprMem (_, _, disp, _), _)
+  | FourOperands (_, _, OprMem (_, _, disp, _), _) -> adjustDisp disp
   (* more cases *)
   | _ -> [||]
 
