@@ -124,16 +124,21 @@ let encodeRexB reg = if isExtendReg reg then 0x41uy else 0x0uy
 
 let convVEXRexByte rexByte = (~~~ rexByte) &&& 0b111uy
 
-let encodeVEXRexRB r1 r2 = convVEXRexByte (encodeRexR r1 ||| encodeRexB r2)
-let encodeVEXRexRXB reg rmOrSBase sIdx =
-  match rmOrSBase, sIdx with
-  | Some r1, Some (r2, _) ->
-    convVEXRexByte (encodeRexR reg ||| encodeRexX r2 ||| encodeRexB r1)
-  | Some r1, None ->
-    convVEXRexByte (encodeRexR reg ||| encodeRexB r1)
-  | None, Some (r2, _) ->
-    convVEXRexByte (encodeRexR reg ||| encodeRexX r2)
-  | None, None -> convVEXRexByte (encodeRexR reg)
+let encodeVEXRexRB arch r1 r2 =
+  if arch = Arch.IntelX86 then 0b101uy
+  else convVEXRexByte (encodeRexR r1 ||| encodeRexB r2)
+
+let encodeVEXRexRXB arch reg rmOrSBase sIdx =
+  if arch = Arch.IntelX86 then 0b111uy
+  else
+    match rmOrSBase, sIdx with
+    | Some r1, Some (r2, _) ->
+      convVEXRexByte (encodeRexR reg ||| encodeRexX r2 ||| encodeRexB r1)
+    | Some r1, None ->
+      convVEXRexByte (encodeRexR reg ||| encodeRexB r1)
+    | None, Some (r2, _) ->
+      convVEXRexByte (encodeRexR reg ||| encodeRexX r2)
+    | None, None -> convVEXRexByte (encodeRexR reg)
 
 let encodeRexRXB isMR isOpRegFld = function
   | TwoOperands (OprReg r1, OprReg r2) ->
@@ -251,5 +256,14 @@ let encodeThreeVEXPref rexRXB mmmmm rexW vvvv len pp =
   let sndVByte = (rexRXB <<< 5) + mmmmm
   let trdVByte = (rexW <<< 7) + (vvvv <<< 3) + (vectorLen <<< 2) + pp
   [| Normal 0xC4uy; Normal sndVByte; Normal trdVByte |]
+
+let isTwoByteVEX rexRXB mmmmm rexW pp =
+  (rexRXB = 0b111uy || rexRXB = 0b011uy) && mmmmm = VEXType.VEXTwoByteOp
+  && rexW = REXPrefix.NOREX && pp = Prefix.PrxOPSIZE
+
+let encodeVEXPref rexRXB mmmmm rexW vvvv len pp =
+  if isTwoByteVEX rexRXB mmmmm rexW pp
+  then encodeTwoVEXPref ((rexRXB >>> 2) &&& 0b1uy) vvvv len pp
+  else encodeThreeVEXPref rexRXB mmmmm rexW vvvv len pp
 
 // vim: set tw=80 sts=2 sw=2:

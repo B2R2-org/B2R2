@@ -138,14 +138,9 @@ let private encodeScaledIdx baseReg (reg, scale) =
   (sBit <<< 6) + (idxBit <<< 3) + baseBit |> Normal
 
 /// Scale(2):Index(3):Base(3)
-let encodeSIB ins =
-  match ins.Operands with
-  | TwoOperands (OprMem (b, Some si, _, _), _)
-  | TwoOperands (_, OprMem (b, Some si, _, _))
-  | ThreeOperands (_, OprMem (b, Some si, _, _), _)
-  | FourOperands (_, _, OprMem (b, Some si, _, _), _) ->
-    [| encodeScaledIdx b si |]
-  (* more cases *)
+let encodeSIB baseReg si =
+  match si with
+  | Some si -> [| encodeScaledIdx baseReg si |]
   | _ -> [||]
 
 let private adjustDisp = function
@@ -154,15 +149,10 @@ let private adjustDisp = function
     if disp > 0xffL then BitConverter.GetBytes (int32 disp) |> Array.map Normal
     else [| Normal <| byte disp |]
 
-let encodeDisp ins =
+let encodeDisp ins disp =
   match ins.Operands with
   | OneOperand (GoToLabel _lbl) -> [| Label; Label; Label; Label |] // FIXME
-  | TwoOperands (OprMem (_, _, disp, _), _)
-  | TwoOperands (_, OprMem (_, _, disp, _))
-  | ThreeOperands (_, OprMem (_, _, disp, _), _)
-  | FourOperands (_, _, OprMem (_, _, disp, _), _) -> adjustDisp disp
-  (* more cases *)
-  | _ -> [||]
+  | _ -> adjustDisp disp
 
 let encodeImm (imm: int64) = function
   | 8<rt> -> [| Normal <| byte imm |]
