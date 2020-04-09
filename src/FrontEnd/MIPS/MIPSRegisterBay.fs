@@ -129,6 +129,9 @@ type MIPSRegisterBay (wordSize) =
   override __.RegIDToString rid =
     Register.ofRegID rid |> Register.toString
 
+  override __.RegIDToRegType _rid =
+    WordSize.toRegType wordSize
+
   override __.GetRegisterAliases rid =
     [| rid |]
 

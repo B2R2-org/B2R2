@@ -229,6 +229,9 @@ type IntelRegisterBay (wordSize) =
   override __.RegIDToString rid =
     Register.ofRegID rid |> Register.toString
 
+  override __.RegIDToRegType rid =
+    Register.ofRegID rid |> Register.toRegType
+
   override __.GetRegisterAliases rid =
     Register.ofRegID rid
     |> Register.getAliases

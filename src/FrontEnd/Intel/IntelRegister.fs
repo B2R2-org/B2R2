@@ -1520,18 +1520,23 @@ module Register = begin
     | _ -> "UnknownReg"
 
   let toRegType = function
-    | R.MM0 | R.MM1 | R.MM2 | R.MM3
-    | R.MM4 | R.MM5 | R.MM6 | R.MM7
+    | R.MM0 | R.MM1 | R.MM2 | R.MM3 | R.MM4 | R.MM5 | R.MM6 | R.MM7
+    | R.ST0A | R.ST1A | R.ST2A | R.ST3A | R.ST4A | R.ST5A | R.ST6A | R.ST7A
     | R.RIP | R.R8 | R.R9 | R.R10 | R.R11 | R.R12 | R.R13 | R.R14 | R.R15
-    | R.RAX | R.RBX | R.RCX | R.RDX | R.RSP | R.RBP | R.RSI | R.RDI -> 64<rt>
+    | R.RAX | R.RBX | R.RCX | R.RDX | R.RSP | R.RBP | R.RSI | R.RDI
+    | R.FIP | R.FDP -> 64<rt>
     | R.R8D | R.R9D | R.R10D | R.R11D
     | R.R12D | R.R13D | R.R14D | R.R15D
     | R.EAX | R.EBX | R.ECX | R.EDX
-    | R.ESP | R.EBP | R.ESI | R.EDI | R.EIP | R.PKRU -> 32<rt>
-    | R.ES | R.CS | R.SS | R.DS | R.FS | R.GS
+    | R.ESP | R.EBP | R.ESI | R.EDI | R.EIP | R.PKRU
+    | R.MXCSR | R.MXCSRMASK -> 32<rt>
     | R.R8W | R.R9W | R.R10W | R.R11W
     | R.R12W | R.R13W | R.R14W | R.R15W
-    | R.AX | R.BX | R.CX | R.DX | R.SP | R.BP | R.SI | R.DI -> 16<rt>
+    | R.ST0B | R.ST1B | R.ST2B | R.ST3B | R.ST4B | R.ST5B | R.ST6B | R.ST7B
+    | R.ES | R.CS | R.SS | R.DS | R.FS | R.GS
+    | R.AX | R.BX | R.CX | R.DX | R.SP | R.BP | R.SI | R.DI
+    | R.FCW | R.FSW | R.FTW | R.FOP | R.FCS | R.FDS
+    | R.K0 | R.K1 | R.K2 | R.K3 | R.K4 | R.K5 | R.K6 | R.K7 -> 16<rt>
     | R.R8L | R.R9L | R.R10L | R.R11L
     | R.R12L | R.R13L | R.R14L | R.R15L
     | R.SPL | R.BPL | R.SIL | R.DIL
@@ -1544,6 +1549,12 @@ module Register = begin
     | R.YMM4 | R.YMM5 | R.YMM6 | R.YMM7
     | R.YMM8 | R.YMM9 | R.YMM10 | R.YMM11
     | R.YMM12 | R.YMM13 | R.YMM14 | R.YMM15 -> 256<rt>
+    | R.ST0 | R.ST1 | R.ST2 | R.ST3 | R.ST4 | R.ST5 | R.ST6 | R.ST7 -> 80<rt>
+    | R.DF | R.CF | R.PF | R.AF | R.ZF | R.SF | R.OF
+    | R.FSWC0 | R.FSWC1 | R.FSWC2 | R.FSWC3 -> 1<rt>
+    | R.FTW0 | R.FTW1 | R.FTW2 | R.FTW3
+    | R.FTW4 | R.FTW5 | R.FTW6 | R.FTW7 -> 2<rt>
+    | R.FTOP -> 3<rt>
     | _ -> raise UnknownRegException
 
   let extendRegister32 = function

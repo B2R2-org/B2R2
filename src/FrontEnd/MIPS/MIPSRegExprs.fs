@@ -26,7 +26,6 @@ namespace B2R2.FrontEnd.MIPS
 
 open B2R2
 open B2R2.BinIR.LowUIR
-open B2R2.BinIR.LowUIR.AST
 
 type internal RegExprs (wordSize) =
   let var sz t name = AST.var sz t name (MIPSRegisterSet.singleton t)

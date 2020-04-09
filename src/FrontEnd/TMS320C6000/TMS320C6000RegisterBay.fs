@@ -45,6 +45,7 @@ type TMS320C6000RegisterBay () =
   override __.StrToRegExpr _s = Utils.futureFeature ()
   override __.RegIDFromString _s = Utils.futureFeature ()
   override __.RegIDToString _ = Utils.futureFeature ()
+  override __.RegIDToRegType _ = Utils.futureFeature ()
   override __.GetRegisterAliases _ = Utils.futureFeature ()
   override __.ProgramCounter = Utils.futureFeature ()
   override __.StackPointer = Utils.futureFeature ()

@@ -31,12 +31,23 @@ open B2R2.BinIR.LowUIR
 /// in a platform-agnostic manner.
 [<AbstractClass>]
 type RegisterBay () =
+  /// Return all register expressions.
   abstract member GetAllRegExprs: unit -> Expr list
 
+  /// Return all register names.
   abstract member GetAllRegNames: unit -> string list
 
+  /// Return RegType from a given RegExpr.
+  member __.RegTypeFromRegExpr (e: Expr) =
+    match e with
+    | Var (rt, _, _ ,_)
+    | PCVar (rt, _) -> rt
+    | _ -> raise InvalidRegisterException
+
+  /// Return RegID from a given RegExpr.
   abstract member RegIDFromRegExpr: Expr -> RegisterID
 
+  /// Return RegExpr from a string.
   abstract member StrToRegExpr: string -> Expr
 
   /// <summary>
@@ -52,6 +63,11 @@ type RegisterBay () =
   /// result.
   /// </summary>
   abstract member RegIDToString: RegisterID -> string
+
+  /// <summary>
+  /// Return a RegType from a given RegisterID.
+  /// </summary>
+  abstract member RegIDToRegType: RegisterID -> RegType
 
   /// <summary>
   /// Return an array of aliases of a given register based on the current
