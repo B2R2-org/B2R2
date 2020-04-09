@@ -301,3 +301,93 @@ type TestClass () =
     Assert.AreEqual (3, getVertexVal v)
     let v = Dominator.idom ctxt <| g.FindVertexByData v6
     Assert.AreEqual (1, getVertexVal v)
+
+[<TestClass>]
+type NewTestClass () =
+  let v1 = V (1, (AddrRange (1UL, 2UL)))
+  let v2 = V (2, (AddrRange (2UL, 3UL)))
+  let v3 = V (3, (AddrRange (3UL, 4UL)))
+  let v4 = V (4, (AddrRange (4UL, 5UL)))
+  let v5 = V (5, (AddrRange (5UL, 6UL)))
+  let v6 = V (6, (AddrRange (6UL, 7UL)))
+  let v7 = V (7, (AddrRange (7UL, 8UL)))
+  let v8 = V (8, (AddrRange (8UL, 9UL)))
+  let v9 = V (9, (AddrRange (9UL, 10UL)))
+  let v10 = V (10, (AddrRange (10UL, 11UL)))
+  let v11 = V (11, (AddrRange (11UL, 12UL)))
+  let v12 = V (12, (AddrRange (12UL, 13UL)))
+  let v13 = V (13, (AddrRange (13UL, 14UL)))
+  let v14 = V (14, (AddrRange (14UL, 15UL)))
+  let v15 = V (15, (AddrRange (15UL, 16UL)))
+  let v16 = V (16, (AddrRange (16UL, 17UL)))
+  let v17 = V (17, (AddrRange (17UL, 18UL)))
+  let v18 = V (18, (AddrRange (18UL, 19UL)))
+  let v19 = V (19, (AddrRange (19UL, 20UL)))
+  let v20 = V (20, (AddrRange (20UL, 21UL)))
+  let v21 = V (21, (AddrRange (21UL, 22UL)))
+  let v22 = V (22, (AddrRange (22UL, 23UL)))
+  let v23 = V (23, (AddrRange (23UL, 24UL)))
+
+  let g1 = RangedDiGraph ()
+  let n1 = g1.AddVertex v1
+  let n2 = g1.AddVertex v2
+  let n3 = g1.AddVertex v3
+  let n4 = g1.AddVertex v4
+  let n5 = g1.AddVertex v5
+  let n6 = g1.AddVertex v6
+  let n7 = g1.AddVertex v7
+  let n8 = g1.AddVertex v8
+  let n9 = g1.AddVertex v9
+  let n10 = g1.AddVertex v10
+  let n11 = g1.AddVertex v11
+  let n12 = g1.AddVertex v12
+  let n13 = g1.AddVertex v13
+  let n14 = g1.AddVertex v14
+  let n15 = g1.AddVertex v15
+  let n16 = g1.AddVertex v16
+  let n17 = g1.AddVertex v17
+  let n18 = g1.AddVertex v18
+  let n19 = g1.AddVertex v19
+  let n20 = g1.AddVertex v20
+  let n21 = g1.AddVertex v21
+  let n22 = g1.AddVertex v22
+  let n23 = g1.AddVertex v23
+  let _ = g1.AddEdge n1 n2 (Edge 1)
+  let _ = g1.AddEdge n1 n3 (Edge 2)
+  let _ = g1.AddEdge n2 n4 (Edge 3)
+  let _ = g1.AddEdge n2 n7 (Edge 4)
+  let _ = g1.AddEdge n3 n5 (Edge 5)
+  let _ = g1.AddEdge n3 n6 (Edge 6)
+  let _ = g1.AddEdge n4 n7 (Edge 7)
+  let _ = g1.AddEdge n5 n8 (Edge 8)
+  let _ = g1.AddEdge n5 n10 (Edge 9)
+  let _ = g1.AddEdge n7 n9 (Edge 10)
+  let _ = g1.AddEdge n7 n11 (Edge 11)
+  let _ = g1.AddEdge n8 n10 (Edge 12)
+  let _ = g1.AddEdge n9 n12 (Edge 13)
+  let _ = g1.AddEdge n9 n13 (Edge 14)
+  let _ = g1.AddEdge n10 n19 (Edge 15)
+  let _ = g1.AddEdge n11 n22 (Edge 16)
+  let _ = g1.AddEdge n12 n13 (Edge 17)
+  let _ = g1.AddEdge n13 n14 (Edge 18)
+  let _ = g1.AddEdge n13 n15 (Edge 19)
+  let _ = g1.AddEdge n14 n16 (Edge 20)
+  let _ = g1.AddEdge n15 n16 (Edge 21)
+  let _ = g1.AddEdge n16 n17 (Edge 22)
+  let _ = g1.AddEdge n16 n18 (Edge 23)
+  let _ = g1.AddEdge n17 n18 (Edge 24)
+  let _ = g1.AddEdge n18 n19 (Edge 25)
+  let _ = g1.AddEdge n18 n20 (Edge 26)
+  let _ = g1.AddEdge n19 n21 (Edge 27)
+  let _ = g1.AddEdge n19 n23 (Edge 28)
+  let _ = g1.AddEdge n20 n22 (Edge 29)
+  let _ = g1.AddEdge n21 n22 (Edge 30)
+  let g1root = n1
+  let ctxt1 = Dominator.initDominatorContext g1 g1root
+
+  let getVertexVal (v: Vertex<V> option) = (Option.get v).VData.Val
+
+  [<TestMethod>]
+  member __.``Dominator Test``() =
+    let v = Dominator.idom ctxt1 <| g1.FindVertexByData v19
+    Assert.IsTrue (18 <> getVertexVal v)
