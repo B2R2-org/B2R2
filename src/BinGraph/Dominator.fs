@@ -155,7 +155,7 @@ let initDominator (g: DiGraph<_, _>) root =
   let info = initDomInfo g
   let dummyEntry = DummyEntry.Connect root
   let n = assignDFNum info 0 [(0, dummyEntry)]
-  for i = n downto 2 do
+  for i = n downto 1 do
     let v = info.Vertex.[i]
     let p = info.Parent.[i]
     List.map (dfnum info) v.Preds |> computeSemiDom info i
@@ -163,7 +163,7 @@ let initDominator (g: DiGraph<_, _>) root =
     link info p i (* Link the parent (p) to the forest. *)
     computeDomOrDelay info p
   done
-  for i = 2 to n do
+  for i = 1 to n do
     if info.IDom.[i] <> info.Semi.[i] then
       info.IDom.[i] <- info.IDom.[info.IDom.[i]]
     else ()
@@ -309,12 +309,12 @@ let dominatorTree ctxt =
   let g = ctxt.ForwardGraph
   let info = ctxt.ForwardDomInfo
   let tree = computeDomTree g info
-  let tree = Array.sub tree 2 (Array.length tree - 2) // Remove a dummy node
-  let root = info.Vertex.[2]
+  let tree = Array.sub tree 1 (Array.length tree - 1) // Remove a dummy node
+  let root = info.Vertex.[1]
   let tree =
     Array.mapi (fun dfNum vs -> dfNum, vs) tree
     |> Array.fold (fun tree (dfNum, vs) ->
-        Map.add info.Vertex.[dfNum + 2] vs tree) Map.empty
+        Map.add info.Vertex.[dfNum + 1] vs tree) Map.empty
   tree, root
 
 // vim: set tw=80 sts=2 sw=2:
