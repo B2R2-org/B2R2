@@ -660,6 +660,22 @@ let mov arch ins =
        yield! encodeImm imm 64<rt> |]
   | o -> printfn "%A" o; raise OperandTypeMismatchException
 
+let addpd arch ins =
+  match ins.Operands with
+  | TwoOperands (OprReg r1, OprReg r2) when isXMMReg r1 && isXMMReg r2 ->
+    [| yield! encodePrefix arch ins oSzPref false false false
+       yield! encodeREXPref arch ins None false false
+       yield! [| Normal 0x0Fuy; Normal 0x58uy |]
+       encodeRR r1 r2 |]
+  | TwoOperands (OprReg r, OprMem (b, s, d, 128<rt>)) when isXMMReg r ->
+    [| yield! encodePrefix arch ins oSzPref false false false
+       yield! encodeREXPref arch ins None false false
+       yield! [| Normal 0x0Fuy; Normal 0x58uy |]
+       encodeMR b s d r
+       yield! encodeSIB b s
+       yield! encodeDisp ins d |]
+  | o -> printfn "%A" o; raise OperandTypeMismatchException
+
 let palignr arch ins =
   match ins.Operands with
   // Reg - Reg - Imm8
@@ -696,6 +712,41 @@ let palignr arch ins =
        yield! encodeSIB b s
        yield! encodeDisp ins d
        yield! encodeImm imm 8<rt>  |]
+  | o -> printfn "%A" o; raise OperandTypeMismatchException
+
+let vaddpd arch ins =
+  match ins.Operands with
+  | ThreeOperands (OprReg r1, OprReg r2, OprReg r3)
+    when isXMMReg r1 && isXMMReg r2 && isXMMReg r3 ->
+    let rexRXB = encodeVEXRexRB arch r1 r3
+    [| yield! encodeVEXPref rexRXB VEXType.VEXTwoByteOp REXPrefix.NOREX
+        (Some r2) 128<rt> Prefix.PrxOPSIZE
+       Normal 0x58uy
+       encodeRR r1 r3 |]
+  | ThreeOperands (OprReg r1, OprReg r2, OprReg r3)
+    when isYMMReg r1 && isYMMReg r2 && isYMMReg r3 ->
+    let rexRXB = encodeVEXRexRB arch r1 r3
+    [| yield! encodeTwoVEXPref rexRXB (Some r2) 256<rt> Prefix.PrxOPSIZE
+       Normal 0x58uy
+       encodeRR r1 r3 |]
+  | ThreeOperands (OprReg r1, OprReg r2, OprMem (b, s, d, 128<rt>))
+    when isXMMReg r1 && isXMMReg r2 ->
+    let rexRXB = encodeVEXRexRXB arch r1 b s
+    [| yield! encodeVEXPref rexRXB VEXType.VEXTwoByteOp REXPrefix.NOREX
+         (Some r2) 128<rt> Prefix.PrxOPSIZE
+       Normal 0x58uy
+       encodeRM b s d r1
+       yield! encodeSIB b s
+       yield! encodeDisp ins d |]
+  | ThreeOperands (OprReg r1, OprReg r2, OprMem (b, s, d, 256<rt>))
+    when isYMMReg r1 && isYMMReg r2 ->
+    let rexRXB = encodeVEXRexRXB arch r1 b s
+    [| yield! encodeVEXPref rexRXB VEXType.VEXTwoByteOp REXPrefix.NOREX
+         (Some r2) 256<rt> Prefix.PrxOPSIZE
+       Normal 0x58uy
+       encodeRM b s d r1
+       yield! encodeSIB b s
+       yield! encodeDisp ins d |]
   | o -> printfn "%A" o; raise OperandTypeMismatchException
 
 let vpalignr arch ins =
