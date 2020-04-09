@@ -28,39 +28,39 @@ open System
 open B2R2
 open B2R2.FrontEnd.Intel
 
-let private regTo3Bit = function
+let regTo3Bit = function
   | Register.AL | Register.AX | Register.EAX | Register.RAX | Register.BND0
   | Register.MM0 | Register.XMM0 | Register.YMM0 | Register.ES
   | Register.R8L | Register.R8W | Register.R8D | Register.R8
-  | Register.XMM8 | Register.YMM8 -> 0b000uy
+  | Register.XMM8 | Register.YMM8 | Register.ST0 -> 0b000uy
   | Register.CL | Register.CX | Register.ECX | Register.RCX | Register.BND1
   | Register.MM1 | Register.XMM1 | Register.YMM1 | Register.CS
   | Register.R9L | Register.R9W | Register.R9D | Register.R9
-  | Register.XMM9 | Register.YMM9 -> 0b001uy
+  | Register.XMM9 | Register.YMM9 | Register.ST1 -> 0b001uy
   | Register.DL | Register.DX | Register.EDX | Register.RDX | Register.BND2
   | Register.MM2 | Register.XMM2 | Register.YMM2 | Register.SS
   | Register.R10L | Register.R10W | Register.R10D | Register.R10
-  | Register.XMM10 | Register.YMM10 -> 0b010uy
+  | Register.XMM10 | Register.YMM10 | Register.ST2 -> 0b010uy
   | Register.BL | Register.BX | Register.EBX | Register.RBX | Register.BND3
   | Register.MM3 | Register.XMM3 | Register.YMM3 | Register.DS
   | Register.R11L | Register.R11W | Register.R11D | Register.R11
-  | Register.XMM11 | Register.YMM11 -> 0b011uy
+  | Register.XMM11 | Register.YMM11 | Register.ST3 -> 0b011uy
   | Register.AH | Register.SP | Register.ESP | Register.RSP
   | Register.MM4 | Register.XMM4 | Register.YMM4 | Register.FS
   | Register.SPL | Register.R12L | Register.R12W | Register.R12D | Register.R12
-  | Register.XMM12 | Register.YMM12 -> 0b100uy
+  | Register.XMM12 | Register.YMM12 | Register.ST4 -> 0b100uy
   | Register.CH | Register.BP | Register.EBP | Register.RBP
   | Register.MM5 | Register.XMM5 | Register.YMM5 | Register.GS
   | Register.BPL | Register.R13L | Register.R13W | Register.R13D | Register.R13
-  | Register.XMM13 | Register.YMM13  -> 0b101uy
+  | Register.XMM13 | Register.YMM13 | Register.ST5 -> 0b101uy
   | Register.DH | Register.SI | Register.ESI | Register.RSI
   | Register.MM6 | Register.XMM6 | Register.YMM6
   | Register.SIL | Register.R14L | Register.R14W | Register.R14D | Register.R14
-  | Register.XMM14 | Register.YMM14  -> 0b110uy
+  | Register.XMM14 | Register.YMM14 | Register.ST6 -> 0b110uy
   | Register.BH | Register.DI | Register.EDI | Register.RDI
   | Register.MM7 | Register.XMM7 | Register.YMM7
   | Register.DIL | Register.R15L | Register.R15W | Register.R15D | Register.R15
-  | Register.XMM15 | Register.YMM15 -> 0b111uy
+  | Register.XMM15 | Register.YMM15 | Register.ST7 -> 0b111uy
   | _ -> Utils.impossible ()
 
 let getModRMByte md reg rm = (md <<< 6) + (reg <<< 3) + rm |> Normal
@@ -82,7 +82,7 @@ let private getMod = function
 let encodeMR baseReg sib disp reg =
   getModRMByte (getMod disp) (regTo3Bit reg) (getRMBySIB baseReg sib)
 
-let encodeRM baseReg sib disp reg =
+let encodeRM reg baseReg sib disp =
   getModRMByte (getMod disp) (regTo3Bit reg) (getRMBySIB baseReg sib)
 
 let encodeRI reg regConstr =
@@ -93,7 +93,7 @@ let encodeRIWithoutModRM reg baseHex = baseHex + (regTo3Bit reg) |> Normal
 let encodeMI baseReg sib disp regConstr =
   getModRMByte (getMod disp) regConstr (getRMBySIB baseReg sib)
 
-let encodeM baseReg disp sib regConstr =
+let encodeM baseReg sib disp regConstr =
   getModRMByte (getMod disp) regConstr (getRMBySIB baseReg sib)
 
 let encodeR reg regConstr =
@@ -123,6 +123,16 @@ let encodeRRRI r1 r2 r3 =
 let encodeRRMI baseReg disp reg2 sib =
   getModRMByte (getMod disp) (regTo3Bit reg2) (getRMBySIB baseReg sib)
 
+let encodeModRM = function
+  | EnOprNone -> [||]
+  | EnOprR (r, c) -> [| encodeR r c |]
+  | EnOprM (b, s, d, c) -> [| encodeM b s d c |]
+  | EnOprRM (r, b, s, d)-> [| encodeRM r b s d |]
+  | EnOprMR (b, s, d, r)-> [| encodeMR b s d r |]
+  | EnOprRR (r1, r2) -> [| encodeRR r1 r2 |]
+  | EnOprRI (r, c) -> [| encodeRI r c |]
+  | EnOprMI (b, s, d, c) -> [| encodeMI b s d c |]
+
 let private getScaleBit = function
   | Scale.X1 -> 0b00uy
   | Scale.X2 -> 0b01uy
@@ -138,9 +148,9 @@ let private encodeScaledIdx baseReg (reg, scale) =
   (sBit <<< 6) + (idxBit <<< 3) + baseBit |> Normal
 
 /// Scale(2):Index(3):Base(3)
-let encodeSIB baseReg si =
+let encodeSIB bReg si =
   match si with
-  | Some si -> [| encodeScaledIdx baseReg si |]
+  | Some si -> [| encodeScaledIdx bReg si |]
   | _ -> [||]
 
 let private adjustDisp = function

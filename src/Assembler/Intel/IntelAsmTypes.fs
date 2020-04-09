@@ -24,6 +24,9 @@
 
 namespace B2R2.Assembler.Intel
 
+open B2R2
+open B2R2.FrontEnd.Intel
+
 exception OperandTypeMismatchException
 exception NotEncodableException
 
@@ -33,11 +36,100 @@ type LabeledByte =
 
 type EncodedByteCode = {
   Prefix        : LabeledByte []
-  REXPrefix     : LabeledByte [] // 1 byte option
+  REXPrefix     : LabeledByte []
   Opcode        : LabeledByte []
-  ModRM         : LabeledByte [] // 1 byte option
-  SIB           : LabeledByte [] // 1 byte option
+  ModRM         : LabeledByte []
+  SIB           : LabeledByte []
   Displacement  : LabeledByte []
   Immediate     : LabeledByte []
 }
 
+type EncPrefix =
+  struct
+    val MandPrefix: Prefix (* Mandatory prefix (66H, F2H, or F3H) *)
+    val CanLock: bool
+    val CanRep: bool
+    val CanSeg: bool
+    new (m, l, r, s) =
+      { MandPrefix = m
+        CanLock = l
+        CanRep = r
+        CanSeg = s }
+  end
+
+type EncREXPrefix =
+  struct
+    val RexW: bool
+    val IsMemReg: bool
+    val IsOpRegFld: bool
+    new (w, mr, rf) =
+      { RexW = w
+        IsMemReg = mr
+        IsOpRegFld = rf }
+  end
+
+type EncVEXPrefix =
+  struct
+    val LeadingOpcode: VEXType
+    val RexW: REXPrefix
+    val VecLen: RegType
+    val PP: Prefix
+    new (vt, w, l, p) =
+      { LeadingOpcode = vt
+        RexW = w
+        VecLen = l
+        PP = p }
+  end
+
+type EncContext (arch: B2R2.Architecture) =
+  member val Arch = arch
+  member val PrefNormal = EncPrefix (Prefix.PrxNone, false, false, false)
+  member val PrefF3 = EncPrefix (Prefix.PrxREPZ, false, false, false)
+  member val PrefF2 = EncPrefix (Prefix.PrxREPNZ, false, false, false)
+  member val Pref66 = EncPrefix (Prefix.PrxOPSIZE, false, false, false)
+
+  member val RexNormal = EncREXPrefix (false, false, false)
+  member val RexW = EncREXPrefix (true, false, false)
+  member val RexMR = EncREXPrefix (false, true, false)
+  member val RexWAndMR = EncREXPrefix (true, true, false)
+  member val RexWAndOpFld = EncREXPrefix (true, false, true)
+
+  member val VEX128n0F =
+    EncVEXPrefix (VEXType.VEXTwoByteOp, REXPrefix.NOREX, 128<rt>,
+                  Prefix.PrxNone)
+  member val VEX256n0F =
+    EncVEXPrefix (VEXType.VEXTwoByteOp, REXPrefix.NOREX, 256<rt>,
+                  Prefix.PrxNone)
+  member val VEX128nF3n0F =
+    EncVEXPrefix (VEXType.VEXTwoByteOp, REXPrefix.NOREX, 128<rt>,
+                  Prefix.PrxREPZ)
+  member val VEX128nF2n0F =
+    EncVEXPrefix (VEXType.VEXTwoByteOp, REXPrefix.NOREX, 128<rt>,
+                  Prefix.PrxREPNZ)
+  member val VEX128n66n0F =
+    EncVEXPrefix (VEXType.VEXTwoByteOp, REXPrefix.NOREX, 128<rt>,
+                  Prefix.PrxOPSIZE)
+  member val VEX256n66n0F =
+    EncVEXPrefix (VEXType.VEXTwoByteOp, REXPrefix.NOREX, 256<rt>,
+                  Prefix.PrxOPSIZE)
+  member val VEX128n66nWn0F =
+    EncVEXPrefix (VEXType.VEXTwoByteOp, REXPrefix.REXW, 128<rt>,
+                  Prefix.PrxOPSIZE)
+  member val VEX128n66n0F3A =
+    EncVEXPrefix (VEXType.VEXThreeByteOpTwo, REXPrefix.NOREX, 128<rt>,
+                  Prefix.PrxOPSIZE)
+  member val VEX256n66n0F3A =
+    EncVEXPrefix (VEXType.VEXThreeByteOpTwo, REXPrefix.NOREX, 256<rt>,
+                  Prefix.PrxOPSIZE)
+
+type EncModRM =
+  | EnOprNone
+  | EnOprR of Register * byte
+  | EnOprM of Register option * ScaledIndex option * Disp option * byte
+  | EnOprRM of Register * Register option * ScaledIndex option * Disp option
+  | EnOprMR of Register option * ScaledIndex option * Disp option * Register
+  | EnOprRR of Register * Register
+  | EnOprRI of Register * byte
+  | EnOprMI of Register option * ScaledIndex option * Disp option * byte
+
+// vim: set tw=80 sts=2 sw=2:

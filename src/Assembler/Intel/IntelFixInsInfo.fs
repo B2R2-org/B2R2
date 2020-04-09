@@ -39,19 +39,81 @@ type AssemblyInfo = {
   Label         : string option
 }
 
-let encodeInstruction isa ins =
+let encodeInstruction ins ctxt =
   match ins.Opcode with
-  | Opcode.AAA -> aaa isa.Arch ins.Operands
-  | Opcode.AAD -> aad isa.Arch ins.Operands
-  | Opcode.AAM -> aam isa.Arch ins.Operands
-  | Opcode.AAS -> aas isa.Arch ins.Operands
-  | Opcode.ADC -> adc isa.Arch ins
-  | Opcode.ADD -> add isa.Arch ins
-  | Opcode.ADDPD -> addpd isa.Arch ins
-  | Opcode.MOV -> mov isa.Arch ins
-  | Opcode.PALIGNR -> palignr isa.Arch ins
-  | Opcode.VADDPD -> vaddpd isa.Arch ins
-  | Opcode.VPALIGNR -> vpalignr isa.Arch ins
+  | Opcode.AAA -> aaa ctxt ins.Operands
+  | Opcode.AAD -> aad ctxt ins.Operands
+  | Opcode.AAM -> aam ctxt ins.Operands
+  | Opcode.AAS -> aas ctxt ins.Operands
+  | Opcode.ADC -> adc ctxt ins
+  | Opcode.ADD -> add ctxt ins
+  | Opcode.ADDPD -> addpd ctxt ins
+  | Opcode.ADDPS -> addps ctxt ins
+  | Opcode.ADDSD -> addsd ctxt ins
+  | Opcode.ADDSS -> addss ctxt ins
+  | Opcode.AND -> logAnd ctxt ins
+  | Opcode.ANDPD -> andpd ctxt ins
+  | Opcode.ANDPS -> andps ctxt ins
+  | Opcode.BT -> bt ctxt ins
+  | Opcode.CALLNear -> call ctxt ins
+  | Opcode.CBW -> cbw ctxt ins.Operands
+  | Opcode.CDQE -> cdqe ctxt ins.Operands
+  | Opcode.CMOVA -> cmova ctxt ins
+  | Opcode.CMOVAE -> cmovae ctxt ins
+  | Opcode.CMOVB -> cmovb ctxt ins
+  | Opcode.CMOVBE -> cmovbe ctxt ins
+  | Opcode.CMOVG -> cmovg ctxt ins
+  | Opcode.CMOVGE -> cmovge ctxt ins
+  | Opcode.CMOVL -> cmovl ctxt ins
+  | Opcode.CMOVLE -> cmovle ctxt ins
+  | Opcode.CMOVNO -> cmovno ctxt ins
+  | Opcode.CMOVNP -> cmovnp ctxt ins
+  | Opcode.CMOVNS -> cmovns ctxt ins
+  | Opcode.CMOVNZ -> cmovnz ctxt ins
+  | Opcode.CMOVO -> cmovo ctxt ins
+  | Opcode.CMOVP -> cmovp ctxt ins
+  | Opcode.CMOVS -> cmovs ctxt ins
+  | Opcode.CMOVZ -> cmovz ctxt ins
+  | Opcode.CMP -> cmp ctxt ins
+  | Opcode.CMPXCHG -> cmpxchg ctxt ins
+  | Opcode.CMPXCHG8B -> cmpxchg8b ctxt ins
+  | Opcode.CMPXCHG16B -> cmpxchg16b ctxt ins
+  | Opcode.CVTSI2SD -> cvtsi2sd ctxt ins
+  | Opcode.CVTSI2SS -> cvtsi2ss ctxt ins
+  | Opcode.CVTTSS2SI -> cvttss2si ctxt ins
+  | Opcode.CWDE -> cwde ctxt ins.Operands
+  | Opcode.DIV -> div ctxt ins
+  | Opcode.DIVSD -> divsd ctxt ins
+  | Opcode.DIVSS -> divss ctxt ins
+  | Opcode.FADD -> fadd ctxt ins
+  | Opcode.FADD | Opcode.FDIVP | Opcode.FDIVRP | Opcode.FILD | Opcode.FISTP
+  | Opcode.FLD | Opcode.FLDCW | Opcode.FMUL | Opcode.FMULP | Opcode.FNSTCW
+  | Opcode.FSTP | Opcode.FSUBR | Opcode.FUCOMI | Opcode.FUCOMIP | Opcode.FXCH ->
+    [||] // FIXME
+  | Opcode.HLT -> hlt ctxt ins.Operands
+  | Opcode.IMUL -> imul ctxt ins
+  | Opcode.LEA -> lea ctxt ins
+  | Opcode.MOV -> mov ctxt ins
+  | Opcode.MOVAPS -> movaps ctxt ins
+  | Opcode.MOVSS -> movss ctxt ins
+  | Opcode.MOVSX -> movsx ctxt ins
+  | Opcode.MOVSXD -> movsxd ctxt ins
+  | Opcode.MOVZX -> movzx ctxt ins
+  | Opcode.MUL -> mul ctxt ins
+  | Opcode.MULSD -> mulsd ctxt ins
+  | Opcode.MULSS -> mulss ctxt ins
+  | Opcode.NEG -> neg ctxt ins
+  | Opcode.NOT -> not ctxt ins
+  | Opcode.OR -> logOr ctxt ins
+  | Opcode.PALIGNR -> palignr ctxt ins
+  | Opcode.POP -> pop ctxt ins
+  | Opcode.PUSH -> push ctxt ins
+  | Opcode.PXOR -> pxor ctxt ins
+  | Opcode.VADDPD -> vaddpd ctxt ins
+  | Opcode.VADDPS -> vaddps ctxt ins
+  | Opcode.VADDSD -> vaddsd ctxt ins
+  | Opcode.VADDSS -> vaddss ctxt ins
+  | Opcode.VPALIGNR -> vpalignr ctxt ins
   | _ -> Utils.futureFeature ()
 
 let private getValue enBytes (sb: StringBuilder) =
@@ -160,8 +222,9 @@ let lblByteArrToString byteArr =
 // for every insInfo and complete the InsInfo size. It should also look for and
 // substitue label operands.
 let updateInsInfos (ins: InsInfo list) (lbls: Map<string, int>) isa =
+  let ctxt = EncContext (isa.Arch)
   let encodedInfo =
-    List.map (fun ins -> let eByteCodes = encodeInstruction isa ins
+    List.map (fun ins -> let eByteCodes = encodeInstruction ins ctxt
                          eByteCodes, lblByteArrToString eByteCodes) ins
     |> List.mapi (fun i (e, str) -> i, String.length str / 2 |> uint64, str, e)
     |> updatePC [] 0UL

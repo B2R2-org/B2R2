@@ -34,11 +34,8 @@ let isReg64 reg = Register.toRegType reg = 64<rt>
 let isMMXReg reg = Register.Kind.MMX = Register.getKind reg
 let isXMMReg reg = Register.Kind.XMM = Register.getKind reg
 let isYMMReg reg = Register.Kind.YMM = Register.getKind reg
-
 let isSegReg reg = Register.Kind.Segment = Register.getKind reg
-
-let private isOprReg16 = function
-  | _ -> false
+let isFPUReg reg = Register.Kind.FPU = Register.getKind reg
 
 let private isAddrSz arch reg =
   match arch, Register.toRegType reg with
@@ -68,38 +65,37 @@ let getPrefByte = function
 let getGrp1Pref prefs = prefs &&& 0x7 |> getPrefByte
 let getGrp2Pref prefs = prefs &&& 0x1F8 |> getPrefByte
 
-let encodePrefix arch ins oSzPref canLock canRepz canSeg =
-  // 64-bit mode : register -> 16bit => 66
-  //               memory base register -> 32bit => 67
-  // 32-bit mode : register -> 16bit => 66
-  //               memory base register -> 16bit => 67
+let encodePrefix ins arch (pref: EncPrefix) =
+  (* 64-bit mode : register -> 16bit => 66
+                   memory base register -> 32bit => 67
+     32-bit mode : register -> 16bit => 66
+                   memory base register -> 16bit => 67 *)
   let prefs = LanguagePrimitives.EnumToValue ins.Prefixes
-
-  // Prefix group1 and group2
+  (* Prefix group1 and group2 *)
   let prxGrp1 =
     let pGrp1 = getGrp1Pref prefs
     if pGrp1 = 0uy then [||]
-    else if ((pGrp1 = 0xF0uy) && canLock) ||
-            ((pGrp1 = 0xF2uy || pGrp1 = 0xF3uy) && canRepz)
+    else if ((pGrp1 = 0xF0uy) && pref.CanLock) ||
+            ((pGrp1 = 0xF2uy || pGrp1 = 0xF3uy) && pref.CanRep)
          then [| pGrp1 |> Normal |]
          else failwith "Invalid prefix (Lock)"
-
   let prxGrp2 =
     if prefs = 0 then [||]
-    else if canSeg then [| getGrp2Pref prefs |> Normal |]
+    else if pref.CanSeg then [| getGrp2Pref prefs |> Normal |]
          else failwith "Invalid prefix (Segment)"
-
-  // Prefix group3: Operand-size override
-  let prxGrp3 =
-    match oSzPref with
-    | Some pref -> [| Normal pref |]
+  (* Prefix group3: Operand-size override
+     Control with mandatory prefix *)
+  (* Mandatory Prefix: Two-Byte or Three-Byte opcode *)
+  let mandPrx =
+    match pref.MandPrefix with
+    | Prefix.PrxREPZ -> [| Normal 0xF3uy |]
+    | Prefix.PrxREPNZ -> [| Normal 0xF2uy |]
+    | Prefix.PrxOPSIZE -> [| Normal 0x66uy |]
     | _ -> [||]
-
-  // Prefix group4: Address-size override
+  (* Prefix group4: Address-size override *)
   let prxGrp4 =
     if isAddrSize arch ins.Operands then [| Normal 0x67uy |] else [||]
-
-  [| yield! prxGrp1; yield! prxGrp2; yield! prxGrp3; yield! prxGrp4 |]
+  [| yield! prxGrp1; yield! prxGrp2; yield! mandPrx; yield! prxGrp4 |]
 
 let encodeRex = function
   | Register.SPL | Register.BPL | Register.SIL | Register.DIL -> 0x40uy
@@ -140,7 +136,13 @@ let encodeVEXRexRXB arch reg rmOrSBase sIdx =
       convVEXRexByte (encodeRexR reg ||| encodeRexX r2)
     | None, None -> convVEXRexByte (encodeRexR reg)
 
-let encodeRexRXB isMR isOpRegFld = function
+let encodeRexRXB isMR = function
+  | OneOperand (GoToLabel _) -> 0uy
+  | OneOperand (OprImm _) -> 0uy
+  | OneOperand (OprReg r) -> encodeRexB r
+  | OneOperand (OprMem (Some bReg, Some (s, _), _, _)) ->
+    encodeRexX s ||| encodeRexB bReg
+  | OneOperand (OprMem (Some bReg, None, _, _)) -> encodeRexB bReg
   | TwoOperands (OprReg r1, OprReg r2) ->
     if isReg8 r1 && isReg8 r2 then encodeRex r1 ||| encodeRex r2
     elif isMR then encodeRexR r2 ||| encodeRexB r1
@@ -157,8 +159,7 @@ let encodeRexRXB isMR isOpRegFld = function
   | TwoOperands (OprReg r, OprMem (None, None, _, _))
   | TwoOperands (OprMem (None, None, _, _), OprReg r) -> encodeRexR r
   | TwoOperands (OprReg r, OprImm _) ->
-    if isReg8 r then encodeRex r
-    elif isOpRegFld then encodeRexB r else encodeRexR r
+    if isReg8 r then encodeRex r else encodeRexB r
   | TwoOperands (OprMem (Some bReg, None, _, _), OprImm _) -> encodeRexB bReg
   | TwoOperands (OprMem (Some bReg, Some (s, _), _, _), OprImm _) ->
     encodeRexX s ||| encodeRexB bReg
@@ -172,14 +173,11 @@ let encodeRexRXB isMR isOpRegFld = function
     encodeRexR r
   | o -> printfn "Inavlid Operand (%A)" o; Utils.futureFeature ()
 
-let encodeREXPref arch (ins: InsInfo) rexW isMR isOpRegFld =
+let encodeREXPref ins arch (rexPrx: EncREXPrefix) =
   if arch = Arch.IntelX86 then [||]
   else (* Arch.IntelX64 *)
-    let rexW =
-      match rexW with
-      | Some rexW -> rexW
-      | None -> 0uy
-    let rxb = encodeRexRXB isMR isOpRegFld ins.Operands
+    let rexW = if rexPrx.RexW then 0x48uy else 0uy
+    let rxb = encodeRexRXB rexPrx.IsMemReg ins.Operands
     if rxb = 0uy && rexW = 0uy then [||] else [| Normal (rexW ||| rxb) |]
 
 let private getRexRXB = function
@@ -240,30 +238,31 @@ let private getSIMDPref = function
   | Prefix.PrxREPNZ  (* 0xF2 *) -> 0b11uy
   | _ -> Utils.impossible ()
 
-let encodeTwoVEXPref rexR vvvv len pp =
+let encodeTwoVEXPref rexR vvvv (vex: EncVEXPrefix) =
   let vvvv = getVVVVByte vvvv
-  let vectorLen = getVLen len
-  let pp = getSIMDPref pp
+  let vectorLen = getVLen vex.VecLen
+  let pp = getSIMDPref vex.PP
   let sndVByte = (rexR <<< 7) + (vvvv <<< 3) + (vectorLen <<< 2) + pp
   [| Normal 0xC5uy; Normal sndVByte |]
 
-let encodeThreeVEXPref rexRXB mmmmm rexW vvvv len pp =
-  let mmmmm = getLeadingOpcodeByte mmmmm
-  let rexW = if rexW = REXPrefix.REXW then 0b1uy else 0b0uy
+let encodeThreeVEXPref rexRXB vvvv (vex: EncVEXPrefix) =
+  let mmmmm = getLeadingOpcodeByte vex.LeadingOpcode
+  let rexW = if vex.RexW = REXPrefix.REXW then 0b1uy else 0b0uy
   let vvvv = getVVVVByte vvvv
-  let vectorLen = getVLen len
-  let pp = getSIMDPref pp
+  let vectorLen = getVLen vex.VecLen
+  let pp = getSIMDPref vex.PP
   let sndVByte = (rexRXB <<< 5) + mmmmm
   let trdVByte = (rexW <<< 7) + (vvvv <<< 3) + (vectorLen <<< 2) + pp
   [| Normal 0xC4uy; Normal sndVByte; Normal trdVByte |]
 
-let isTwoByteVEX rexRXB mmmmm rexW pp =
-  (rexRXB = 0b111uy || rexRXB = 0b011uy) && mmmmm = VEXType.VEXTwoByteOp
-  && rexW = REXPrefix.NOREX && pp = Prefix.PrxOPSIZE
+let isTwoByteVEX rexRXB (vex: EncVEXPrefix) =
+  (rexRXB = 0b111uy || rexRXB = 0b011uy) &&
+  vex.LeadingOpcode = VEXType.VEXTwoByteOp &&
+  vex.RexW = REXPrefix.NOREX && vex.PP = Prefix.PrxOPSIZE
 
-let encodeVEXPref rexRXB mmmmm rexW vvvv len pp =
-  if isTwoByteVEX rexRXB mmmmm rexW pp
-  then encodeTwoVEXPref ((rexRXB >>> 2) &&& 0b1uy) vvvv len pp
-  else encodeThreeVEXPref rexRXB mmmmm rexW vvvv len pp
+let encodeVEXPref rexRXB vvvv (vex: EncVEXPrefix) =
+  if isTwoByteVEX rexRXB vex
+  then encodeTwoVEXPref ((rexRXB >>> 2) &&& 0b1uy) vvvv vex
+  else encodeThreeVEXPref rexRXB vvvv vex
 
 // vim: set tw=80 sts=2 sw=2:
