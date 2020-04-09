@@ -64,7 +64,7 @@ type DominatorContext<'V, 'E when 'V :> VertexData> = {
 }
 
 let initDomInfo (g: DiGraph<_, _>) =
-  let len = g.Size () + 2 (* To reserve a room for entry (dummy) node. *)
+  let len = g.Size () + 1 (* To reserve a room for entry (dummy) node. *)
   { DFNumMap = Dictionary<VertexID, int>()
     Vertex = Array.zeroCreate len
     Label = Array.create len 0
@@ -91,7 +91,7 @@ let rec assignDFNum info n = function
     List.fold (fun acc s -> (n, s) :: acc) stack v.Succs
     |> assignDFNum info (n+1)
   | _ :: stack -> assignDFNum info n stack
-  | [] -> n
+  | [] -> n - 1
 
 let rec compress info v =
   let a = info.Ancestor.[v]
@@ -103,13 +103,12 @@ let rec compress info v =
     info.Ancestor.[v] <- info.Ancestor.[a]
 
 let eval info v =
-  let a = info.Ancestor.[v]
-  if a = 0 then info.Label.[v]
+  if info.Ancestor.[v] = 0 then info.Label.[v]
   else
     compress info v
-    if info.Semi.[info.Label.[a]] >= info.Semi.[info.Label.[v]] then
-      info.Label.[v]
-    else info.Label.[a]
+    if info.Semi.[info.Label.[info.Ancestor.[v]]] >= info.Semi.[info.Label.[v]]
+    then info.Label.[v]
+    else info.Label.[info.Ancestor.[v]]
 
 /// Compute semidominator of v.
 let rec computeSemiDom info v = function
@@ -155,8 +154,8 @@ let rec computeDomOrDelay info parent =
 let initDominator (g: DiGraph<_, _>) root =
   let info = initDomInfo g
   let dummyEntry = DummyEntry.Connect root
-  let n = assignDFNum info 1 [(0, dummyEntry)]
-  for i = n - 1 downto 2 do
+  let n = assignDFNum info 0 [(0, dummyEntry)]
+  for i = n downto 2 do
     let v = info.Vertex.[i]
     let p = info.Parent.[i]
     List.map (dfnum info) v.Preds |> computeSemiDom info i
@@ -164,7 +163,7 @@ let initDominator (g: DiGraph<_, _>) root =
     link info p i (* Link the parent (p) to the forest. *)
     computeDomOrDelay info p
   done
-  for i = 2 to n - 1 do
+  for i = 2 to n do
     if info.IDom.[i] <> info.Semi.[i] then
       info.IDom.[i] <- info.IDom.[info.IDom.[i]]
     else ()
@@ -238,7 +237,7 @@ let checkVertexInGraph (g: DiGraph<'V, 'E>) (v: Vertex<'V>) =
 
 let private idomAux info v =
   let id = info.IDom.[dfnum info v]
-  if id > 1 then Some info.Vertex.[id] else None
+  if id >= 1 then Some info.Vertex.[id] else None
 
 let idom ctxt v =
   let g = ctxt.ForwardGraph
