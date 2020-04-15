@@ -2225,17 +2225,19 @@ let cvtps2pi ins insAddr insLen ctxt rounded =
   endMark insAddr insLen builder
 
 let cvtsd2si ins insAddr insLen ctxt rounded =
-  let builder = new StmtBuilder (4)
+  let builder = new StmtBuilder (8)
   let oprSize = getOperationSize ins
   let dst, src = getTwoOprs ins
   let dst = transOprToExpr ins insAddr insLen ctxt dst
   let src = transOprToExpr64 ins insAddr insLen ctxt src
   let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
+  let tmp = tmpVar 32<rt>
   startMark insAddr insLen builder
   if is64bit ctxt && oprSize = 64<rt> then
     builder <! (dst := cast castKind 64<rt> src)
   else
-    builder <! (dst := cast castKind 32<rt> src)
+    builder <! (tmp := cast castKind 32<rt> src)
+    builder <! dstAssign 32<rt> dst tmp
   endMark insAddr insLen builder
 
 let cvtsd2ss ins insAddr insLen ctxt =
@@ -2280,12 +2282,14 @@ let cvtss2si ins insAddr insLen ctxt rounded =
   let dst, src = getTwoOprs ins
   let dst = transOprToExpr ins insAddr insLen ctxt dst
   let src = transOprToExpr32 ins insAddr insLen ctxt src
+  let tmp = tmpVar 32<rt>
   let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
   startMark insAddr insLen builder
   if is64bit ctxt && oprSize = 64<rt> then
     builder <! (dst := cast castKind 64<rt> src)
   else
-    builder <! (dst := cast castKind 32<rt> src)
+    builder <! (tmp := cast castKind 32<rt> src)
+    builder <! (dstAssign 32<rt> dst tmp)
   endMark insAddr insLen builder
 
 let daa ins insAddr insLen ctxt =
