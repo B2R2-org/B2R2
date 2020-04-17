@@ -50,3 +50,6 @@ type TMS320C6000RegisterBay () =
   override __.ProgramCounter = Utils.futureFeature ()
   override __.StackPointer = Utils.futureFeature ()
   override __.FramePointer = Utils.futureFeature ()
+  override __.IsProgramCounter _ = Utils.futureFeature ()
+  override __.IsStackPointer _ = Utils.futureFeature ()
+  override __.IsFramePointer _ = Utils.futureFeature ()

@@ -143,3 +143,12 @@ type MIPSRegisterBay (wordSize) =
 
   override __.FramePointer =
     Register.R30 |> Register.toRegID |> Some
+
+  override __.IsProgramCounter regid =
+    __.ProgramCounter = regid
+
+  override __.IsStackPointer regid =
+    (__.StackPointer |> Option.get) = regid
+
+  override __.IsFramePointer regid =
+    (__.FramePointer |> Option.get) = regid

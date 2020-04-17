@@ -360,3 +360,13 @@ type ARM64RegisterBay () =
 
   override __.FramePointer =
     None
+
+  override __.IsProgramCounter regid =
+    let pcid = Register.PC |> Register.toRegID
+    pcid = regid
+
+  override __.IsStackPointer regid =
+    let spid = Register.SP |> Register.toRegID
+    spid = regid
+
+  override __.IsFramePointer _ = false

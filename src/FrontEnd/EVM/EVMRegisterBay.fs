@@ -50,3 +50,6 @@ type EVMRegisterBay () =
   override __.ProgramCounter = Utils.futureFeature ()
   override __.StackPointer = Utils.futureFeature ()
   override __.FramePointer = Utils.futureFeature ()
+  override __.IsProgramCounter _ = false
+  override __.IsStackPointer _ = false
+  override __.IsFramePointer _ = false

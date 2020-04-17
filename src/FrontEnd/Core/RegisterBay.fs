@@ -89,3 +89,18 @@ type RegisterBay () =
   /// Return a frame pointer register for a given BinHandler.
   /// </summary>
   abstract member FramePointer: RegisterID option
+
+  /// <summary>
+  /// Check if the given RegisterID represents PC.
+  /// </summary>
+  abstract member IsProgramCounter: RegisterID -> bool
+
+  /// <summary>
+  /// Check if the given RegisterID represents a stack pointer.
+  /// </summary>
+  abstract member IsStackPointer: RegisterID -> bool
+
+  /// <summary>
+  /// Check if the given RegisterID represents a frame pointer.
+  /// </summary>
+  abstract member IsFramePointer: RegisterID -> bool

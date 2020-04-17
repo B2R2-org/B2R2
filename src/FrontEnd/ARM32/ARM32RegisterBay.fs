@@ -182,3 +182,15 @@ type ARM32RegisterBay () =
 
   override __.FramePointer =
     Register.FP |> Register.toRegID |> Some
+
+  override __.IsProgramCounter regid =
+    let pcid = Register.PC |> Register.toRegID
+    pcid = regid
+
+  override __.IsStackPointer regid =
+    let spid = Register.SP |> Register.toRegID
+    spid = regid
+
+  override __.IsFramePointer regid =
+    let fpid = Register.FP |> Register.toRegID
+    fpid = regid

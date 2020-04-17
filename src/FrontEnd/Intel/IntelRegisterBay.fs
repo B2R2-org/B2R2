@@ -248,3 +248,12 @@ type IntelRegisterBay (wordSize) =
     if WordSize.is32 wordSize then Register.EBP |> Register.toRegID
     else Register.RBP |> Register.toRegID
     |> Some
+
+  override __.IsProgramCounter regid =
+    __.ProgramCounter = regid
+
+  override __.IsStackPointer regid =
+    (__.StackPointer |> Option.get) = regid
+
+  override __.IsFramePointer regid =
+    (__.FramePointer |> Option.get) = regid
