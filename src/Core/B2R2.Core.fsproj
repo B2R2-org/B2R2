@@ -21,6 +21,7 @@
     <Compile Include="OS.fs" />
     <Compile Include="ISA.fs" />
     <Compile Include="FileFormat.fs" />
+    <Compile Include="Syscalls.fs" />
     <Compile Include="AddrRange.fsi" />
     <Compile Include="AddrRange.fs" />
     <Compile Include="AddrRangeMap.fsi" />

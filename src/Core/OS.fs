@@ -50,4 +50,3 @@ module OS =
     if File.Exists progName then true
     else let vars = System.Environment.GetEnvironmentVariable "PATH"
          vars.Split (Path.PathSeparator) |> Array.exists testPath
-
