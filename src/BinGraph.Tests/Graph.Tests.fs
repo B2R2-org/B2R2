@@ -302,6 +302,36 @@ type TestClass () =
     let v = Dominator.idom ctxt <| g.FindVertexByData v6
     Assert.AreEqual (1, getVertexVal v)
 
+  [<TestMethod>]
+  member __.``Strongly Connected Component Test1`` () =
+    let g = RangedDiGraph ()
+    let n1 = g.AddVertex v1
+    let n2 = g.AddVertex v2
+    let n3 = g.AddVertex v3
+    let n4 = g.AddVertex v4
+    let n5 = g.AddVertex v5
+    let n6 = g.AddVertex v6
+    let n7 = g.AddVertex v7
+    let n8 = g.AddVertex v8
+    g.AddEdge n1 n2 (Edge 1)
+    g.AddEdge n2 n3 (Edge 2)
+    g.AddEdge n3 n4 (Edge 3)
+    g.AddEdge n4 n5 (Edge 4)
+    g.AddEdge n5 n2 (Edge 5)
+    g.AddEdge n5 n6 (Edge 6)
+    g.AddEdge n6 n3 (Edge 7)
+    g.AddEdge n6 n7 (Edge 8)
+    g.AddEdge n7 n2 (Edge 9)
+    g.AddEdge n7 n8 (Edge 10)
+    let sccs = SCC.scc g n1
+    Assert.AreEqual (3, Set.count sccs)
+    let scc1 = Set.singleton n1
+    Assert.IsTrue (Set.contains scc1 sccs)
+    let scc2 = Set.singleton n8
+    Assert.IsTrue (Set.contains scc2 sccs)
+    let scc3 = Set.ofList [ n2 ; n3 ; n4 ; n5 ; n6 ; n7 ]
+    Assert.IsTrue (Set.contains scc3 sccs)
+
 [<TestClass>]
 type NewTestClass () =
   let v1 = V (1, (AddrRange (1UL, 2UL)))
