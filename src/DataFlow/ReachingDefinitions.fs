@@ -32,7 +32,7 @@ open System.Collections.Generic
 type RDMap = Dictionary<VertexID, Set<VarPoint>>
 
 type ReachingDefinitions (cfg: IRCFG) as this =
-  inherit DataFlowAnalysis<Set<VarPoint>> (Forward)
+  inherit DataFlowAnalysis<Set<VarPoint>, IRBasicBlock> (Forward)
 
   let gens = RDMap ()
   let kills = RDMap ()

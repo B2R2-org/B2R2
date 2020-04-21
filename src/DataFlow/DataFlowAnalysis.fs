@@ -46,52 +46,53 @@ type DataFlowDirection =
 
 /// Data-flow analysis framework.
 [<AbstractClass>]
-type DataFlowAnalysis<'V when 'V: equality> (direction) =
+type DataFlowAnalysis<'L, 'V when 'L: equality
+                              and 'V :> VertexData> (direction) =
   /// Exit lattice per vertex.
-  let outs = Dictionary<VertexID, 'V> ()
+  let outs = Dictionary<VertexID, 'L> ()
 
   /// Entry lattice per vertex.
-  let ins = Dictionary<VertexID, 'V> ()
+  let ins = Dictionary<VertexID, 'L> ()
 
   /// Neighboring vertices to compute dataflow. This is dependent on the
   /// direction of the analysis.
   let neighbor =
     match direction with
-    | Forward -> fun (v: Vertex<IRBasicBlock>) -> v.Preds
-    | Backward -> fun (v: Vertex<IRBasicBlock>) -> v.Succs
+    | Forward -> fun (v: Vertex<'V>) -> v.Preds
+    | Backward -> fun (v: Vertex<'V>) -> v.Succs
 
   /// Expand the worklist depending on the direction of the analysis.
   let addToWorklist =
     match direction with
     | Forward ->
-      fun (worklist: Queue<Vertex<IRBasicBlock>>) (v: Vertex<IRBasicBlock>) ->
+      fun (worklist: Queue<Vertex<'V>>) (v: Vertex<'V>) ->
         v.Succs |> List.iter worklist.Enqueue
     | Backward ->
-      fun (worklist: Queue<Vertex<IRBasicBlock>>) (v: Vertex<IRBasicBlock>) ->
+      fun (worklist: Queue<Vertex<'V>>) (v: Vertex<'V>) ->
         v.Preds |> List.iter worklist.Enqueue
 
   /// Meet operation of the lattice.
-  abstract Meet: 'V -> 'V -> 'V
+  abstract Meet: 'L -> 'L -> 'L
 
   /// The bottom of the lattice.
-  abstract Bottom: 'V
+  abstract Bottom: 'L
 
   /// The initial worklist queue. This should be a topologically sorted list to
   /// be efficient.
-  abstract Worklist: Vertex<IRBasicBlock> -> Queue<Vertex<IRBasicBlock>>
+  abstract Worklist: Vertex<'V> -> Queue<Vertex<'V>>
 
   /// The transfer function from an input lattice to an output lattice. The
   /// second parameter is to specify the current block of interest.
-  abstract Transfer: 'V -> Vertex<IRBasicBlock> -> 'V
+  abstract Transfer: 'L -> Vertex<'V> -> 'L
 
-  member private __.InitInsOuts (root: Vertex<IRBasicBlock>) =
+  member private __.InitInsOuts (root: Vertex<'V>) =
     Traversal.iterPreorder root (fun v ->
       let blkid = v.GetID ()
       outs.[blkid] <- __.Bottom
       ins.[blkid] <- __.Bottom)
 
   /// Compute data-flow with the iterative worklist algorithm.
-  member __.Compute (root: Vertex<IRBasicBlock>) =
+  member __.Compute (root: Vertex<'V>) =
     __.InitInsOuts root
     let worklist = __.Worklist root
     while worklist.Count <> 0 do
