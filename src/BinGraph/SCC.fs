@@ -26,6 +26,8 @@ module B2R2.BinGraph.SCC
 
 open System.Collections.Generic
 
+type SCC<'V when 'V :> VertexData> = Set<Vertex<'V>>
+
 type SCCInfo<'V when 'V :> VertexData> = {
   /// Vertex ID -> DFNum
   DFNumMap: Dictionary<VertexID, int>
@@ -90,7 +92,12 @@ and computeLowLink ctxt v (n, stack, sccs) w =
     ctxt.LowLink.[vNum] <- min vLink wLink
     n, stack, sccs
 
-let scc g root =
+let compute (g: DiGraph<'V, 'E>) (root: Vertex<'V>) =
   let ctxt = initSCCInfo g
-  let _, _, sccs = computeSCC ctxt root 1 [] []
-  sccs |> Set.ofList
+  g.Unreachables
+  |> Seq.fold (fun acc v -> Set.add v acc) Set.empty
+  |> Set.add root
+  |> Set.fold (fun acc root ->
+    let _, _, sccs = computeSCC ctxt root 1 [] []
+    sccs |> List.fold (fun acc scc -> Set.add scc acc) acc
+    ) Set.empty
