@@ -518,7 +518,7 @@ let auxPop oprSize ctxt dst builder =
 
 let getCondOfJcc (ins: InsInfo) (ctxt: TranslationContext) oprSize =
   if ctxt.WordBitSize = 64<rt> && oprSize = 16<rt>
-  then raise NotEncodableOn64Exception
+  then raise InvalidOn64Exception
   match ins.Opcode with
   | Opcode.JO -> getRegVar ctxt R.OF
   | Opcode.JNO -> getRegVar ctxt R.OF == b0
@@ -1573,7 +1573,7 @@ let andps ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 32<rt> opPand 16
 
 let arpl ins insAddr insLen ctxt =
-  if is64bit ctxt then raise NotEncodableOn64Exception
+  if is64bit ctxt then raise InvalidOn64Exception
   let builder = new StmtBuilder (8)
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let t1, t2 = tmpVars2 16<rt>

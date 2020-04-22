@@ -27,6 +27,7 @@ module B2R2.Assembler.Intel.ParserHelper
 open B2R2
 open B2R2.FrontEnd.Intel
 
+/// AssemblyLine is either a label or an instruction.
 type AssemblyLine =
   | LabelDefLine
   | InstructionLine of InsInfo
@@ -44,7 +45,7 @@ let extractOperands = function
   | [op1; op2] -> TwoOperands (op1, op2)
   | [op1; op2; op3] -> ThreeOperands (op1, op2, op3)
   | [op1; op2; op3; op4] -> FourOperands (op1, op2, op3, op4)
-  | _ -> failwith "Operand overload"
+  | _ -> Utils.impossible ()
 
 let getOperandsAsList operands =
   match operands with
@@ -53,32 +54,6 @@ let getOperandsAsList operands =
   | TwoOperands (op1, op2) -> [op1; op2]
   | ThreeOperands (op1, op2, op3) -> [op1; op2; op3]
   | FourOperands (op1, op2, op3, op4) -> [op1; op2; op3; op4]
-
-let isCallOrJmpOpcode = function
-  | Opcode.CALLFar
-  | Opcode.CALLNear
-  | Opcode.JA
-  | Opcode.JB
-  | Opcode.JBE
-  | Opcode.JCXZ
-  | Opcode.JECXZ
-  | Opcode.JG
-  | Opcode.JL
-  | Opcode.JLE
-  | Opcode.JMPFar
-  | Opcode.JMPNear
-  | Opcode.JNB
-  | Opcode.JNL
-  | Opcode.JNO
-  | Opcode.JNP
-  | Opcode.JNS
-  | Opcode.JNZ
-  | Opcode.JO
-  | Opcode.JP
-  | Opcode.JRCXZ
-  | Opcode.JS
-  | Opcode.JZ -> true
-  | _ -> false
 
 let ptrStringToBitSize = function
   | "byte ptr" -> 1 * 8<rt>
@@ -90,28 +65,30 @@ let ptrStringToBitSize = function
   | "xmmword ptr" -> 16 * 8<rt>
   | "ymmword ptr" -> 32 * 8<rt>
   | "zmmword ptr" -> 64 * 8<rt>
-  | _ -> failwith "invalid pointer string"
+  | _ -> Utils.impossible ()
 
 let prefixFromRegString (str: string) =
   match str.ToLower () with
   | "cs" -> Prefix.PrxCS
-  | "ds" -> Prefix.PrxCS
-  | "es" -> Prefix.PrxCS
-  | "fs" -> Prefix.PrxCS
-  | "gs" -> Prefix.PrxCS
-  | "ss" -> Prefix.PrxCS
-  | _ -> failwith "invalid segment register string"
+  | "ds" -> Prefix.PrxDS
+  | "es" -> Prefix.PrxES
+  | "fs" -> Prefix.PrxFS
+  | "gs" -> Prefix.PrxGS
+  | "ss" -> Prefix.PrxSS
+  | _ -> Utils.impossible ()
 
 let dummyRegType = 0<rt>
+
 let dummyMemorySize =
   { EffOprSize = dummyRegType
     EffAddrSize = dummyRegType
     EffRegSize = dummyRegType }
+
 let dummyInsSize =
   { MemSize = dummyMemorySize
     RegSize = dummyRegType
     OperationSize = dummyRegType
-    SizeCond = SizeCond.Sz64 }
+    SizeCond = Sz64 }
 
 let newInfo prfxs rexPrfx vexInfo opc operands size =
   { Prefixes = prfxs

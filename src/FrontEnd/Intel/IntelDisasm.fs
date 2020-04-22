@@ -795,7 +795,7 @@ let opCodeToString = function
   | Opcode.XSAVEOPT -> "xsaveopt"
   | Opcode.XSETBV -> "xsetbv"
   | Opcode.XTEST -> "xtest"
-  | _ -> failwith "Unknown opcode encountered."
+  | _ -> raise InvalidOpcodeException
 
 let inline private iToHexStr (i: int64) builder acc =
   builder AsmWordKind.Value ("0x" + i.ToString("X")) acc
@@ -940,7 +940,7 @@ let oprToString wordSz ins insAddr fi opr isFstOpr builder acc =
   | OprImm imm -> iToHexStr imm builder acc
   | OprDirAddr (Absolute (sel, offset, _)) -> absToString sel offset builder acc
   | OprDirAddr (Relative (offset)) -> relToString insAddr offset fi builder acc
-  | GoToLabel _ -> failwith "Only used in assembly parser"
+  | Label _ -> Utils.impossible ()
 
 let inline buildPref (prefs: Prefix) builder acc =
   if (prefs &&& Prefix.PrxLOCK) <> Prefix.PrxNone then

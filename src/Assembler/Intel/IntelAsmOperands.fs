@@ -52,7 +52,7 @@ let regTo3Bit = function
   | Register.CH | Register.BP | Register.EBP | Register.RBP
   | Register.MM5 | Register.XMM5 | Register.YMM5 | Register.GS
   | Register.BPL | Register.R13L | Register.R13W | Register.R13D | Register.R13
-  | Register.XMM13 | Register.YMM13 | Register.ST5 -> 0b101uy
+  | Register.XMM13 | Register.YMM13 | Register.ST5 | Register.RIP -> 0b101uy
   | Register.DH | Register.SI | Register.ESI | Register.RSI
   | Register.MM6 | Register.XMM6 | Register.YMM6
   | Register.SIL | Register.R14L | Register.R14W | Register.R14D | Register.R14
@@ -63,75 +63,53 @@ let regTo3Bit = function
   | Register.XMM15 | Register.YMM15 | Register.ST7 -> 0b111uy
   | _ -> Utils.impossible ()
 
-let getModRMByte md reg rm = (md <<< 6) + (reg <<< 3) + rm |> Normal
+let private getModRMByte md reg rm =
+  (md <<< 6) + (reg <<< 3) + rm |> Normal
 
-let private getRMBySIB baseReg = function
-  | Some _ -> 0b100uy
-  | None ->
-    match baseReg with
-    | Some baseReg -> regTo3Bit baseReg
-    | None -> 0b101uy
+let private getRMBySIB baseReg si =
+  match si, baseReg with
+  | Some _, _ -> 0b100uy
+  | None, Some baseReg -> regTo3Bit baseReg
+  | None, None -> 0b101uy
 
-let encodeRR reg1 reg2 =
-  getModRMByte 0b11uy (regTo3Bit reg1) (regTo3Bit reg2)
+let private isDisp8 disp = 0xFFFFFFFFFFFFFF80L <= disp && disp <= 0x7FL
 
-let private getMod = function
+let private getMod baseReg = function
   | None -> 0b00uy
-  | Some disp -> if disp > 0xffL then 0b10uy else 0b01uy
+  | Some disp ->
+    match baseReg with
+    | Some (Register.RIP) | None -> 0b00uy
+    | _ -> if isDisp8 disp then 0b01uy else 0b10uy
 
-let encodeMR baseReg sib disp reg =
-  getModRMByte (getMod disp) (regTo3Bit reg) (getRMBySIB baseReg sib)
-
-let encodeRM reg baseReg sib disp =
-  getModRMByte (getMod disp) (regTo3Bit reg) (getRMBySIB baseReg sib)
-
-let encodeRI reg regConstr =
-  getModRMByte 0b11uy regConstr (regTo3Bit reg)
-
-let encodeRIWithoutModRM reg baseHex = baseHex + (regTo3Bit reg) |> Normal
-
-let encodeMI baseReg sib disp regConstr =
-  getModRMByte (getMod disp) regConstr (getRMBySIB baseReg sib)
-
-let encodeM baseReg sib disp regConstr =
-  getModRMByte (getMod disp) regConstr (getRMBySIB baseReg sib)
-
-let encodeR reg regConstr =
-  getModRMByte 0b11uy regConstr (regTo3Bit reg)
-
-let encodeRRR r1 r2 =
-  getModRMByte 0b11uy (regTo3Bit r1) (regTo3Bit r2)
-
-let encodeRRM r1 baseReg sib disp =
-  getModRMByte (getMod disp) (regTo3Bit r1) (getRMBySIB baseReg sib)
-
-let encodeRRIWithConstr reg regConstr =
-  getModRMByte 0b11uy regConstr (regTo3Bit reg)
-
-let encodeRRI reg1 reg2 =
+let modrmRR reg1 reg2 =
   getModRMByte 0b11uy (regTo3Bit reg1) (regTo3Bit reg2)
 
-let encodeRMI baseReg disp reg sib =
-  getModRMByte (getMod disp) (regTo3Bit reg) (getRMBySIB baseReg sib)
+let modrmMR baseReg si disp reg =
+  getModRMByte (getMod baseReg disp) (regTo3Bit reg) (getRMBySIB baseReg si)
 
-let encodeMRI baseReg disp reg sib =
-  getModRMByte (getMod disp) (regTo3Bit reg) (getRMBySIB baseReg sib)
+let modrmRM reg baseReg si disp =
+  getModRMByte (getMod baseReg disp) (regTo3Bit reg) (getRMBySIB baseReg si)
 
-let encodeRRRI r1 r2 r3 =
-  getModRMByte 0b11uy (regTo3Bit r1) (regTo3Bit r3)
+let modrmRL reg =
+  getModRMByte 0b00uy (regTo3Bit reg) 0b101uy
 
-let encodeRRMI baseReg disp reg2 sib =
-  getModRMByte (getMod disp) (regTo3Bit reg2) (getRMBySIB baseReg sib)
+let modrmRI reg regConstr =
+  getModRMByte 0b11uy regConstr (regTo3Bit reg)
 
-let encodeModRM = function
-  | EnOprNone -> [||]
-  | EnOprR (r, c) -> [| encodeR r c |]
-  | EnOprM (b, s, d, c) -> [| encodeM b s d c |]
-  | EnOprRM (r, b, s, d)-> [| encodeRM r b s d |]
-  | EnOprMR (b, s, d, r)-> [| encodeMR b s d r |]
-  | EnOprRR (r1, r2) -> [| encodeRR r1 r2 |]
-  | EnOprRI (r, c) -> [| encodeRI r c |]
-  | EnOprMI (b, s, d, c) -> [| encodeMI b s d c |]
+let modrmMI baseReg si disp regConstr =
+  getModRMByte (getMod baseReg disp) regConstr (getRMBySIB baseReg si)
+
+let modrmRC reg regConstr =
+  getModRMByte 0b11uy regConstr (regTo3Bit reg)
+
+let modrmMC baseReg si disp regConstr =
+  getModRMByte (getMod baseReg disp) regConstr (getRMBySIB baseReg si)
+
+let modrmM baseReg si disp regConstr =
+  getModRMByte (getMod baseReg disp) regConstr (getRMBySIB baseReg si)
+
+let modrmR reg regConstr =
+  getModRMByte 0b11uy regConstr (regTo3Bit reg)
 
 let private getScaleBit = function
   | Scale.X1 -> 0b00uy
@@ -139,32 +117,46 @@ let private getScaleBit = function
   | Scale.X4 -> 0b10uy
   | _ (* Scale.X8 *) -> 0b11uy
 
-let private encodeScaledIdx baseReg (reg, scale) =
-  let idxBit, sBit = regTo3Bit reg, getScaleBit scale
-  let baseBit =
-    match baseReg with
-    | Some baseReg -> regTo3Bit baseReg
-    | None -> 0b101uy
+let private encSIB sBit idxBit baseBit =
   (sBit <<< 6) + (idxBit <<< 3) + baseBit |> Normal
 
-/// Scale(2):Index(3):Base(3)
-let encodeSIB bReg si =
-  match si with
-  | Some si -> [| encodeScaledIdx bReg si |]
+let modrmRel _rel = [| IncompleteLabel |] // FIXME
+
+let private encDisp disp = function
+  | 8<rt> -> [| byte disp |> Normal |]
+  | 32<rt> -> BitConverter.GetBytes (int32 disp) |> Array.map Normal
+  | _ -> failwith "Invalid displacement"
+
+let private getDispSz disp = if isDisp8 disp then 8<rt> else 32<rt>
+
+let private isRegFld4 = function
+  | Register.RSP | Register.ESP | Register.SP | Register.AH
+  | Register.R12 | Register.R12D | Register.R12W | Register.R12L | Register.SPL
+    -> true
+  | _ -> false
+
+/// SIB and Displacement.
+let mem b si d =
+  match b, si, d with
+  | Some b, None, None -> if isRegFld4 b then [| Normal 0x24uy |] else [||]
+  | Some b, Some (i, s), None ->
+    [| yield encSIB (getScaleBit s) (regTo3Bit i) (regTo3Bit b) |]
+  | Some b, Some (i, s), Some d ->
+    [| yield encSIB (getScaleBit s) (regTo3Bit i) (regTo3Bit b)
+       yield! encDisp d (getDispSz d) |]
+  | None, Some (i, s), None -> (* Vol.2A 2-7 NOTES *)
+    [| yield encSIB (getScaleBit s) (regTo3Bit i) 0b101uy
+       yield! encDisp 0L 32<rt> |]
+  | None, Some (i, s), Some d ->
+    [| yield encSIB (getScaleBit s) (regTo3Bit i) 0b101uy
+       yield! encDisp d 32<rt> |]
+  | None, None, Some d -> [| yield! encDisp d 32<rt> |]
+  | Some b, None, Some d ->
+    [| yield! if isRegFld4 b then [| Normal 0x24uy |] else [||]
+       yield! encDisp d (getDispSz d) |]
   | _ -> [||]
 
-let private adjustDisp = function
-  | None -> [||]
-  | Some disp ->
-    if disp > 0xffL then BitConverter.GetBytes (int32 disp) |> Array.map Normal
-    else [| Normal <| byte disp |]
-
-let encodeDisp ins disp =
-  match ins.Operands with
-  | OneOperand (GoToLabel _lbl) -> [| Label; Label; Label; Label |] // FIXME
-  | _ -> adjustDisp disp
-
-let encodeImm (imm: int64) = function
+let immediate (imm: int64) = function
   | 8<rt> -> [| Normal <| byte imm |]
   | 16<rt> -> BitConverter.GetBytes (int16 imm) |> Array.map Normal
   | 32<rt> -> BitConverter.GetBytes (int32 imm) |> Array.map Normal

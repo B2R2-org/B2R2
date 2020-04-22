@@ -26,7 +26,6 @@ module B2R2.Utilities.Assembler
 
 open B2R2
 open B2R2.Assembler
-open B2R2.Assembler.Intel
 open System
 
 type AssemblerOpts (isa) =
@@ -79,8 +78,7 @@ type AssemblerOpts (isa) =
                   extra = 1, callback = cb, short = "-r", long = "--base-addr" )
 
 let spec =
-  [
-    CmdOpts.New (descr = "[Input Configuration]\n", dummy = true)
+  [ CmdOpts.New (descr = "[Input Configuration]\n", dummy = true)
 
     AssemblerOpts.OptInputFile ()
     AssemblerOpts.OptInputString ()
@@ -93,8 +91,7 @@ let spec =
     CmdOpts.New (descr = "\n[Extra]\n", dummy = true)
 
     CmdOpts.OptVerbose ()
-    CmdOpts.OptHelp ()
-  ]
+    CmdOpts.OptHelp () ]
 
 let isInvalidCmdLine (opts: AssemblerOpts) =
   String.IsNullOrEmpty opts.InputStr && String.IsNullOrEmpty opts.InputFile
@@ -110,15 +107,22 @@ let initAsmString (opts: AssemblerOpts) =
   if opts.InputStr.Length = 0 then IO.File.ReadAllText opts.InputFile
   else opts.InputStr
 
-let assembler _ (opts: AssemblerOpts) =
+let asmMain _ (opts: AssemblerOpts) =
   if isInvalidCmdLine opts then cmdErrExit () else ()
-  let asm = AsmParser (opts.ISA, opts.BaseAddress)
-  asm.Run (initAsmString opts) opts.ISA
+  match opts.ISA.Arch with
+  | Arch.IntelX86
+  | Arch.IntelX64 ->
+    let asm = Intel.AsmParser (opts.ISA, opts.BaseAddress)
+    asm.Run (initAsmString opts)
+  | _ -> Utils.futureFeature ()
+  |> List.fold (fun addr bs ->
+    printf "%08x: " addr; bs |> Array.iter (printf "%02x"); printfn ""
+    addr + uint64 (Array.length bs)) opts.BaseAddress
   |> ignore
 
 [<EntryPoint>]
 let main args =
   let opts = AssemblerOpts (ISA.Init (Arch.IntelX86) Endian.Little)
-  CmdOpts.ParseAndRun assembler "" spec opts args
+  CmdOpts.ParseAndRun asmMain "" spec opts args
 
 // vim: set tw=80 sts=2 sw=2:

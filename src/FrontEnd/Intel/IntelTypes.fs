@@ -32,7 +32,7 @@ exception internal InvalidRegAccessException
 
 exception internal InvalidPrefixException
 
-exception internal NotEncodableOn64Exception
+exception internal InvalidOn64Exception
 
 /// Instruction prefixes.
 type Prefix =
@@ -637,8 +637,6 @@ type Opcode =
   | JB = 269
   /// Jump if Condition Is Met (Jump short if below or equal, CF = 1 or ZF).
   | JBE = 270
-  /// Jump if carry.
-  | JC = 271
   /// Jump if Condition Is Met (Jump short if CX register is 0).
   | JCXZ = 272
   /// Jump if Condition Is Met (Jump short if ECX register is 0).
@@ -654,9 +652,7 @@ type Opcode =
   /// Near jmp.
   | JMPNear = 278
   /// Jump if Condition Is Met (Jump near if not below, CF = 0).
-  | JNB = 279
-  /// Jump if not carry.
-  | JNC = 280
+  | JNC = 279
   /// Jump if Condition Is Met (Jump near if not less, SF = OF).
   | JNL = 281
   /// Jump if Condition Is Met (Jump near if not overflow, OF = 0).
@@ -2622,7 +2618,7 @@ type Operand =
   | OprMem of Register option * ScaledIndex option * Disp option * OperandSize
   | OprDirAddr of JumpTarget
   | OprImm of int64
-  | GoToLabel of string
+  | Label of string
 /// Displacement.
 and Disp = int64
 
