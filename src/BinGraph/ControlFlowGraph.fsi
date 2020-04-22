@@ -29,29 +29,15 @@ namespace B2R2.BinGraph
 /// order to support FindVertexByData method. Any graph that inherits from this
 /// class operates with our visualizer.
 type ControlFlowGraph<'V, 'E when 'V :> BasicBlock and 'V : equality> =
-  inherit DiGraph<'V, 'E>
+  inherit SimpleDiGraph<'V, 'E>
+
   new: unit -> ControlFlowGraph<'V, 'E>
-  override IsEmpty: unit -> bool
-  override Size: unit -> int
-  override AddVertex: 'V -> Vertex<'V>
-  override RemoveVertex: Vertex<'V> -> unit
-  override Exists: Vertex<'V> -> bool
-  override FindVertexByData: 'V -> Vertex<'V>
-  override TryFindVertexByData: 'V -> Vertex<'V> option
-  override AddEdge: Vertex<'V> -> Vertex<'V> -> 'E -> unit
-  override RemoveEdge: Vertex<'V> -> Vertex<'V> -> unit
-  override FindEdgeData: Vertex<'V> -> Vertex<'V> -> 'E
-  override Reverse: unit -> DiGraph<'V, 'E>
-  override GetVertices: unit -> Set<Vertex<'V>>
 
   /// Clone this graph and return a new one. Copied vertices will have the same
   /// IDs assigned. The reverse parameter tells whether the graph is constructed
   /// with transposed (reversed) edges or not. If the parameter is not given,
   /// this function will simply return the same graph by default.
   member Clone: ?reverse: bool -> ControlFlowGraph<'V, 'E>
-
-  /// Try to find an edge from src to dst.
-  member TryFindEdge: Vertex<'V> -> Vertex<'V> -> 'E option
 
   /// Return a subgraph induced by given set of vertices
   member SubGraph: Set<Vertex<'V>> -> ControlFlowGraph<'V, 'E>

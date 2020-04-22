@@ -41,6 +41,10 @@ type SimpleDiGraph<'V, 'E when 'V :> VertexData and 'V : equality> =
   override FindEdgeData: Vertex<'V> -> Vertex<'V> -> 'E
   override Reverse: unit -> DiGraph<'V, 'E>
   override GetVertices: unit -> Set<Vertex<'V>>
+  override FoldVertex: ('a -> Vertex<'V> -> 'a) -> 'a -> 'a
+  override IterVertex: (Vertex<'V> -> unit) -> unit
+  override FoldEdge: ('a -> Vertex<'V> -> Vertex<'V> -> 'E -> 'a) -> 'a -> 'a
+  override IterEdge: (Vertex<'V> -> Vertex<'V> -> 'E -> unit) -> unit
 
   /// Clone this graph and return a new one. Copied vertices will have the same
   /// IDs assigned. The reverse parameter tells whether the graph is constructed

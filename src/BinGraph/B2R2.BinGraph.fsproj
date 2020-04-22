@@ -8,6 +8,10 @@
 
   <ItemGroup>
     <Compile Include="Graph.fs" />
+    <Compile Include="SimpleDiGraph.fsi" />
+    <Compile Include="SimpleDiGraph.fs" />
+    <Compile Include="RangedDiGraph.fsi" />
+    <Compile Include="RangedDiGraph.fs" />
     <Compile Include="DummyVertex.fs" />
     <Compile Include="Traversal.fs" />
     <Compile Include="Dominator.fsi" />
@@ -15,10 +19,6 @@
     <Compile Include="CFGEdgeKind.fs" />
     <Compile Include="VisualBlock.fs" />
     <Compile Include="BasicBlock.fs" />
-    <Compile Include="SimpleDiGraph.fsi" />
-    <Compile Include="SimpleDiGraph.fs" />
-    <Compile Include="RangedDiGraph.fsi" />
-    <Compile Include="RangedDiGraph.fs" />
     <Compile Include="IRBasicBlock.fs" />
     <Compile Include="ControlFlowGraph.fsi" />
     <Compile Include="ControlFlowGraph.fs" />

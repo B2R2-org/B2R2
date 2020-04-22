@@ -101,18 +101,12 @@ type SimpleDiGraph<'V, 'E when 'V :> VertexData and 'V: equality> () =
     let g = SimpleDiGraph<'V, 'E>()
     let isReverse = defaultArg reverse false
     let dict = System.Collections.Generic.Dictionary<VertexID, Vertex<'V>>()
-    let addVertex (g: SimpleDiGraph<'V, 'E>) v =
-      g.Vertices <- Set.add v g.Vertices
-      g.Unreachables.Add v |> ignore
-      g.Exits.Add v |> ignore
-      g.IncSize ()
-      v
     let addEdgeNormal (s: Vertex<'V>) (d: Vertex<'V>) e =
       g.AddEdge dict.[s.GetID ()] dict.[d.GetID ()] e
     let addEdgeReverse (s: Vertex<'V>) (d: Vertex<'V>) e =
       g.AddEdge dict.[d.GetID ()] dict.[s.GetID ()] e
     let addEdge = if isReverse then addEdgeReverse else addEdgeNormal
-    __.IterVertex (fun v -> dict.Add(v.GetID (), addVertex g v))
+    __.IterVertex (fun v -> dict.Add(v.GetID (), g.AddVertex v.VData))
     __.IterEdge addEdge
     g
 
