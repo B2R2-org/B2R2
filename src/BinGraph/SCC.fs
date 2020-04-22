@@ -37,6 +37,14 @@ type SCCInfo<'V when 'V :> VertexData> = {
   LowLink: int []
 }
 
+type CondensationBlock<'V when 'V :> VertexData> (scc: SCC<'V>) =
+  inherit VertexData(VertexData.genID ())
+
+  member __.SCC = scc
+
+type CondensationGraph<'V when 'V :> VertexData> =
+  SimpleDiGraph<CondensationBlock<'V>, unit>
+
 let initSCCInfo (g: DiGraph<_, _>) =
   let len = g.Size () + 1
   { DFNumMap = Dictionary<VertexID, int>()
@@ -97,7 +105,23 @@ let compute (g: DiGraph<'V, 'E>) (root: Vertex<'V>) =
   g.Unreachables
   |> Seq.fold (fun acc v -> Set.add v acc) Set.empty
   |> Set.add root
-  |> Set.fold (fun acc root ->
-    let _, _, sccs = computeSCC ctxt root 1 [] []
-    sccs |> List.fold (fun acc scc -> Set.add scc acc) acc
-    ) Set.empty
+  |> Set.fold (fun (n, acc) root ->
+    let n, _, sccs = computeSCC ctxt root n [] []
+    let acc = sccs |> List.fold (fun acc scc -> Set.add scc acc) acc
+    n, acc) (1, Set.empty)
+  |> snd
+
+let condensation g root =
+  let sccs = compute g root
+  let condensation = CondensationGraph ()
+  let vMap =
+    Set.fold (fun acc scc ->
+      let v = condensation.AddVertex <| CondensationBlock (scc)
+      Set.fold (fun acc w -> Map.add w v acc) acc scc) Map.empty sccs
+  let edges =
+    g.FoldEdge (fun acc src dst _ ->
+      let src = Map.find src vMap
+      let dst = Map.find dst vMap
+      Set.add (src, dst) acc) Set.empty
+  Set.iter (fun (src, dst) -> condensation.AddEdge src dst ()) edges
+  condensation

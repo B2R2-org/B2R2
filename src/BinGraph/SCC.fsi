@@ -24,9 +24,22 @@
 
 module B2R2.BinGraph.SCC
 
-/// SCC = a set of strongly connected components.
+/// SCC = a strongly connected component.
 type SCC<'V when 'V :> VertexData> = Set<Vertex<'V>>
+
+type CondensationBlock<'V when 'V :> VertexData> =
+  inherit VertexData
+  new: SCC<'V> -> CondensationBlock<'V>
+
+  member SCC: SCC<'V>
+
+/// Condensation graph is a directed acyclic graph(DAG), each of its vertex is
+/// corresponding to original graph's SCC.
+type CondensationGraph<'V when 'V :> VertexData> =
+  SimpleDiGraph<CondensationBlock<'V>, unit>
 
 /// Compute a set of strongly connected components from a given digraph. We use
 /// Tarjan's algorithm.
 val compute: DiGraph<'V, 'E> -> Vertex<'V> -> Set<SCC<'V>> when 'V :> VertexData
+
+val condensation: DiGraph<'V, 'E> -> Vertex<'V> -> CondensationGraph<'V>
