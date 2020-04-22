@@ -101,12 +101,18 @@ type ControlFlowGraph<'V, 'E when 'V :> BasicBlock and 'V: equality> () =
     let g = ControlFlowGraph<'V, 'E>()
     let isReverse = defaultArg reverse false
     let dict = System.Collections.Generic.Dictionary<VertexID, Vertex<'V>>()
+    let addVertex (g: ControlFlowGraph<'V, 'E>) v =
+      g.Vertices <- Set.add v g.Vertices
+      g.Unreachables.Add v |> ignore
+      g.Exits.Add v |> ignore
+      g.IncSize ()
+      v
     let addEdgeNormal (s: Vertex<'V>) (d: Vertex<'V>) e =
       g.AddEdge dict.[s.GetID ()] dict.[d.GetID ()] e
     let addEdgeReverse (s: Vertex<'V>) (d: Vertex<'V>) e =
       g.AddEdge dict.[d.GetID ()] dict.[s.GetID ()] e
     let addEdge = if isReverse then addEdgeReverse else addEdgeNormal
-    __.IterVertex (fun v -> dict.Add(v.GetID (), g.AddVertex v.VData))
+    __.IterVertex (fun v -> dict.Add(v.GetID (), addVertex g v))
     __.IterEdge addEdge
     g
 
@@ -135,6 +141,14 @@ type ControlFlowGraph<'V, 'E when 'V :> BasicBlock and 'V: equality> () =
     match Map.tryFind (src.GetID (), dst.GetID ()) __.Edges with
     | None -> None
     | Some (_, _, Edge eData) -> Some eData
+
+  member __.SubGraph vs =
+    let g = ControlFlowGraph<'V, 'E> ()
+    Set.iter (fun (v: Vertex<'V>) -> g.AddVertex v.VData |> ignore) vs
+    __.IterEdge (fun src dst e ->
+      if Set.contains src vs && Set.contains dst vs then
+        g.AddEdge src dst e)
+    g
 
 type IRCFG = ControlFlowGraph<IRBasicBlock, CFGEdgeKind>
 
