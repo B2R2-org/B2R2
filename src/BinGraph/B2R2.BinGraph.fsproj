@@ -12,6 +12,7 @@
     <Compile Include="Traversal.fs" />
     <Compile Include="Dominator.fsi" />
     <Compile Include="Dominator.fs" />
+    <Compile Include="SimpleDiGraph.fs" />
     <Compile Include="SCC.fsi" />
     <Compile Include="SCC.fs" />
     <Compile Include="CFGEdgeKind.fs" />
