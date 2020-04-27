@@ -349,7 +349,8 @@ type BitVector =
   static member private castAsFloat num typ =
     match typ with
     | 32<rt> ->
-      let f32 = num |> float32 |> BitConverter.GetBytes
+      let f64 = num |> int64 |> BitConverter.Int64BitsToDouble
+      let f32 = f64 |> float32 |> BitConverter.GetBytes
       let f32 = BitConverter.ToInt32 (f32, 0) |> uint64
       BitVector.ofUInt64 f32 typ
     | 64<rt> -> BitVector.ofUInt64 num typ
