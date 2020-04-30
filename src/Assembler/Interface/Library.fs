@@ -29,8 +29,8 @@ open B2R2
 type AsmInterface (isa: ISA, startAddress) =
   let parser =
     match isa.Arch with
-    // | Architecture.IntelX64
-    // | Architecture.IntelX86 -> Intel.AsmParser (isa, startAddress)
+    | Architecture.IntelX64
+    | Architecture.IntelX86 -> Intel.AsmParser (isa, startAddress)
     | Architecture.MIPS1
     | Architecture.MIPS2
     | Architecture.MIPS3
@@ -39,7 +39,7 @@ type AsmInterface (isa: ISA, startAddress) =
     | Architecture.MIPS32R6
     | Architecture.MIPS4
     | Architecture.MIPS5
-    | Architecture.MIPS64 -> MIPS.AsmParser (isa, startAddress)
+    | Architecture.MIPS64
     | _ -> raise InvalidISAException
 
   member __.Run asm = parser.Run asm

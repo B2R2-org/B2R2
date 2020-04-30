@@ -16,6 +16,7 @@
     <ProjectReference Include="..\..\Assembler\Intel\B2R2.Assembler.Intel.fsproj" />
     <ProjectReference Include="..\..\Assembler\LowUIR\B2R2.Assembler.LowUIR.fsproj" />
     <ProjectReference Include="..\..\Assembler\MIPS\B2R2.Assembler.MIPS.fsproj" />
+    <ProjectReference Include="..\..\Assembler\Interface\B2R2.Assembler.Interface.fsproj" />
     <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\Intel\B2R2.FrontEnd.Intel.fsproj" />
     <ProjectReference Include="..\BinDump\B2R2.Utilities.BinDump.fsproj" />

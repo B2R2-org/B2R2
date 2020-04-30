@@ -109,12 +109,9 @@ let initAsmString (opts: AssemblerOpts) =
 
 let asmMain _ (opts: AssemblerOpts) =
   if isInvalidCmdLine opts then cmdErrExit () else ()
-  match opts.ISA.Arch with
-  | Arch.IntelX86
-  | Arch.IntelX64 ->
-    let asm = Intel.AsmParser (opts.ISA, opts.BaseAddress)
-    asm.Run (initAsmString opts)
-  | _ -> Utils.futureFeature ()
+  let assembler = AsmInterface (opts.ISA, opts.BaseAddress)
+  initAsmString opts
+  |> assembler.Run
   |> List.fold (fun addr bs ->
     printf "%08x: " addr; bs |> Array.iter (printf "%02x"); printfn ""
     addr + uint64 (Array.length bs)) opts.BaseAddress

@@ -33,7 +33,7 @@ open B2R2.FrontEnd.MIPS
 type MIPSTests () =
   let mips =
       { Arch = Arch.MIPS32; Endian = Endian.Big; WordSize = WordSize.Bit32 }
-  let assembler = AsmInterface (mips, 0UL)
+  let assembler = MIPS.AsmParser (mips, 0UL)
   let newInfo = MIPS.ParserHelper.newInfo
 
   [<TestMethod>]
