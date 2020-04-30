@@ -1,4 +1,4 @@
-﻿/// ASCII Adjust After Addition.
+/// ASCII Adjust After Addition.
 AAA
 /// ASCII Adjust AX Before Division.
 AAD
@@ -535,51 +535,61 @@ IRETQ
 /// Interrupt return (16-bit operand size).
 IRETW
 /// Jump if Condition Is Met (Jump short if above, CF = 0 and ZF = 0).
+JNBE
 JA
 /// Jump if Condition Is Met (Jump short if below, CF = 1).
+JC
+JNAE
 JB
 /// Jump if Condition Is Met (Jump short if below or equal, CF = 1 or ZF).
+JNA
 JBE
-/// Jump if carry.
-JC
 /// Jump if Condition Is Met (Jump short if CX register is 0).
 JCXZ
 /// Jump if Condition Is Met (Jump short if ECX register is 0).
 JECXZ
+/// Jump if Condition Is Met (Jump short if RCX register is 0).
+JRCXZ
 /// Jump if Condition Is Met (Jump short if greater, ZF = 0 and SF = OF).
+JNLE
 JG
 /// Jump if Condition Is Met (Jump short if less, SF <> OF).
+JNGE
 JL
 /// Jump if Cond Is Met (Jump short if less or equal, ZF = 1 or SF <> OF).
+JNG
 JLE
 /// Far jmp.
 JMPFar
 /// Near jmp.
 JMPNear
 /// Jump if Condition Is Met (Jump near if not below, CF = 0).
-JNB
-/// Jump if not carry.
+JAE
 JNC
+JNB
 /// Jump if Condition Is Met (Jump near if not less, SF = OF).
+JGE
 JNL
 /// Jump if Condition Is Met (Jump near if not overflow, OF = 0).
 JNO
 /// Jump if Condition Is Met (Jump near if not parity, PF = 0).
+JPO
 JNP
 /// Jump if Condition Is Met (Jump near if not sign, SF = 0).
 JNS
 /// Jump if Condition Is Met (Jump near if not zero, ZF = 0).
 JNZ
+JNE
 /// Jump if Condition Is Met (Jump near if overflow, OF = 1).
 JO
 /// Jump if Condition Is Met (Jump near if parity, PF = 1).
 JP
-/// Jump if Condition Is Met (Jump short if RCX register is 0).
-JRCXZ
+JPE
 /// Jump if Condition Is Met (Jump short if sign, SF = 1).
 JS
 /// Jump if Condition Is Met (Jump short if zero, ZF = 1).
 JZ
+JE
 /// Add two 8-bit opmasks.
 KADDB
 /// Add two 32-bit opmasks.
@@ -2260,4 +2270,3 @@ XSETBV
 XTEST
 /// Invalid Opcode.
 InvalOP
-

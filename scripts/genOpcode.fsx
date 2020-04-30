@@ -31,15 +31,16 @@ let split line =
   m.Groups.[1].ToString(), m.Groups.[2].ToString(), m.Groups.[3].ToString()
 
 let print idx (desc, op, comment) =
-  let idx = (idx - 1) / 2
-  if String.length desc > 0 then printfn "  %s" desc
-  else if String.length comment > 0 then printfn "  | %s = %d %s" op idx comment
-  else printfn "  | %s = %d" op idx
+  if String.length desc > 0 then printfn "  %s" desc; idx + 1
+  else if String.length comment > 0 then
+    printfn "  | %s = %d %s" op idx comment; idx
+  else printfn "  | %s = %d" op idx; idx
 
 let conv file =
   System.IO.File.ReadLines (file)
   |> Seq.map split
-  |> Seq.iteri print
+  |> Seq.fold print -1
+  |> ignore
 
 let main args =
   if Array.length args < 2 then
