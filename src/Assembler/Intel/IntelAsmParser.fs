@@ -27,24 +27,25 @@ namespace B2R2.Assembler.Intel
 open B2R2
 open B2R2.FrontEnd.Intel
 open B2R2.Assembler.Intel.ParserHelper
+open B2R2.Assembler.Intel.AsmMain
 open FParsec
 open System
 
-type LabelDefs = Map<string, Addr>
+/// Label name to relative index of instructions.
+type LabelDefs = Map<string, int>
 
-type AsmParser (startAddress: Addr) =
+type AsmParser (isa, baseAddr: Addr) =
 
-  (* TODO: No meaningful address manipulation is implemented. *)
-  let mutable address = startAddress
   let mutable inferredPrefix = Prefix.PrxNone
 
-  (* Helper functions for updating the UserState. *)
   let addLabeldef lbl =
-    updateUserState ( fun (us: Map<string, Addr>) -> us.Add (lbl, address))
+    updateUserState (fun us ->
+      { us with LabelMap = Map.add lbl us.CurIndex us.LabelMap })
     >>. preturn ()
 
-  let incrementAddress insSize =
-    preturn () |>> (fun _ -> address <- address + insSize)
+  let incrementIndex =
+    updateUserState (fun us -> { us with CurIndex = us.CurIndex + 1 })
+    >>. preturn ()
 
   let resetPrefix =
     preturn () |>> (fun _ -> inferredPrefix <- Prefix.PrxNone)
@@ -77,16 +78,17 @@ type AsmParser (startAddress: Addr) =
   let pOpcode =
     (Enum.GetNames typeof<Opcode>)
     |> Array.map pstringCI
-    |> Array.map
-      (fun p -> p .>> (lookAhead (pchar '.') <|> lookAhead (pchar ' ')))
+    |> Array.map (fun p -> p .>> (lookAhead (anyOf "\n;. " |>> ignore) <|> eof))
     |> Array.map attempt
     |> Array.map
       (fun (p) ->
-        p |>>
-          (fun name -> Enum.Parse(typeof<Opcode>, name.ToUpper()) :?> Opcode))
+        p
+        |>> (fun name -> Enum.Parse(typeof<Opcode>, name.ToUpper()) :?> Opcode))
     |> choice
-    <|> (pstringCI "jmp" >>. preturn Opcode.JMPFar)
-    <|> (pstringCI "call" >>. preturn Opcode.CALLFar)
+    (* Since far calls, jmps, and rets are unnatural they are ignored *)
+    <|> (pstringCI "jmp" >>. preturn Opcode.JMPNear)
+    <|> (pstringCI "call" >>. preturn Opcode.CALLNear)
+    <|> (pstringCI "ret" >>. preturn Opcode.RETNearImm)
 
   let numberFormat =
     NumberLiteralOptions.AllowBinary
@@ -115,9 +117,9 @@ type AsmParser (startAddress: Addr) =
           :?> Register)
 
   let pPrefix =
-    pstring "lock" |>> (fun _ ->  inferredPrefix <- Prefix.PrxLOCK)
-    <|> (attempt (pstring "repz") |>> fun _ ->  inferredPrefix <-Prefix.PrxREPZ)
-    <|> (pstring "repnz" |>> fun _ ->  inferredPrefix <- Prefix.PrxREPNZ)
+    pstring "lock" |>> (fun _ -> inferredPrefix <- Prefix.PrxLOCK)
+    <|> (attempt (pstring "repz") |>> fun _ -> inferredPrefix <- Prefix.PrxREPZ)
+    <|> (pstring "repnz" |>> fun _ -> inferredPrefix <- Prefix.PrxREPNZ)
     >>. preturn ()
 
   let pScale =
@@ -135,7 +137,7 @@ type AsmParser (startAddress: Addr) =
 
   let updatePrefix =
     pSegmentRegPrefix .>> spaces .>> pchar ':'
-    |>> (fun pre -> inferredPrefix <- pre)
+    |>> (fun pre -> inferredPrefix <- (inferredPrefix ||| pre))
 
   let pMemOprSize =
     [ "byte ptr"; "word ptr"; "word far ptr"; "dword ptr"; "dword far ptr";
@@ -157,8 +159,8 @@ type AsmParser (startAddress: Addr) =
   let pMemOpr sz =
     opt (attempt updatePrefix) >>. spaces >>. opt (attempt pMemBaseReg)
     .>> spaces .>>. opt (attempt pScaledIndexReg) .>> spaces .>>. opt pDisp
-    |>> fun ((bReg, scaledInd), disp) -> OprMem(bReg, scaledInd, disp, sz)
-    |>betweenSquareBraces
+    |>> fun ((bReg, scaledInd), disp) -> OprMem (bReg, scaledInd, disp, sz)
+    |> betweenSquareBraces
 
   let pAbsoluteAddress =
     pImm |>> int16 .>> spaces .>> pchar ';' .>> spaces .>>. pAddr
@@ -172,11 +174,11 @@ type AsmParser (startAddress: Addr) =
   let pOprMem = pMemOprSize .>> spaces >>= pMemOpr
 
   let pOprDirAddr opc =
-    check opc isCallOrJmpOpcode >>. pJumpTarget |>> OprDirAddr
+    check opc Helper.isBranch >>. pJumpTarget |>> OprDirAddr
 
   let pOprImm = pImm |>> OprImm
 
-  let pGoToLabel = pId |>> GoToLabel
+  let pGoToLabel = pId |>> Label
 
   let operand opc =
     pOprDirAddr opc
@@ -184,23 +186,24 @@ type AsmParser (startAddress: Addr) =
     <|> pOprImm
     <|> pOprMem
     <|> pGoToLabel
-    |>> (fun operand -> printfn "%A" operand; operand)
+    |>> (fun operand -> operand)
 
   let operands opc =
     sepBy (operand opc) operandSeps |>> extractOperands
-    |>> (fun operands -> (opc, operands))
+    |>> (fun operands ->
+          match opc, operands with
+          | Opcode.RETNearImm, NoOperand -> Opcode.RETNear, operands
+          | _ -> opc, operands )
     |> skipWhitespaces
 
   let pInsInfo =
-      opt pPrefix >>. (pOpcode >>= operands)
-      |>> (fun (opcode, operands) ->
-             newInfo inferredPrefix REXPrefix.NOREX None
-              opcode operands dummyInsSize )
+    opt pPrefix >>. spaces >>. (pOpcode >>= operands)
+    |>> (fun (opcode, operands) ->
+          newInfo inferredPrefix REXPrefix.NOREX None
+            opcode operands dummyInsSize)
 
-  // FixMe: the address does not get incremented.
   let pInstructionLine =
-    opt pLabelDef >>. spaces >>. pInsInfo  .>> (incrementAddress 0UL) //FixMe
-    .>> resetPrefix
+    incrementIndex >>. opt pLabelDef >>. spaces >>. pInsInfo .>> resetPrefix
     |>> InstructionLine
 
   let statement =
@@ -211,7 +214,9 @@ type AsmParser (startAddress: Addr) =
   let statements = sepEndBy statement terminator .>> eof
 
   member __.Run assembly =
-    match runParserOnString statements Map.empty<string, Addr> "" assembly with
+    let st = { LabelMap = Map.empty; CurIndex = 0 }
+    match runParserOnString statements st "IntelAsm" assembly with
     | Success (result, us, _) ->
-      FixInsInfo.updateInsInfos (filterInstructionLines result) us
-    | Failure (str, _, _) -> printfn "Parser failed!\n%s" str; []
+      filterInstructionLines result |> assemble us isa baseAddr
+    | Failure (str, _, _) ->
+      failwithf "Assembly failed: %s" str

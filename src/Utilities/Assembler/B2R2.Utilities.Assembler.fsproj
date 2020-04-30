@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Main.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Assembler\ARM32\B2R2.Assembler.ARM32.fsproj" />
+    <ProjectReference Include="..\..\Assembler\Intel\B2R2.Assembler.Intel.fsproj" />
+    <ProjectReference Include="..\..\Assembler\LowUIR\B2R2.Assembler.LowUIR.fsproj" />
+    <ProjectReference Include="..\..\Assembler\MIPS\B2R2.Assembler.MIPS.fsproj" />
+    <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\Intel\B2R2.FrontEnd.Intel.fsproj" />
+    <ProjectReference Include="..\BinDump\B2R2.Utilities.BinDump.fsproj" />
+    <ProjectReference Include="..\Core\B2R2.Utilities.Core.fsproj" />
+  </ItemGroup>
+
+</Project>

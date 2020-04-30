@@ -5,13 +5,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Library.fs" />
+    <Compile Include="AsmParser.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
-    <ProjectReference Include="..\Intel\B2R2.Assembler.Intel.fsproj" />
-    <ProjectReference Include="..\MIPS\B2R2.Assembler.MIPS.fsproj" />
   </ItemGroup>
 
 </Project>

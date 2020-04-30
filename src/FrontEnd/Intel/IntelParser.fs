@@ -24,7 +24,6 @@
 
 module B2R2.FrontEnd.Intel.Parser
 
-open System
 open B2R2
 open B2R2.FrontEnd
 open B2R2.FrontEnd.Intel
@@ -367,7 +366,7 @@ let private dsNor0F3A62   = [| emptyArr; VdqWdqIb; emptyArr; emptyArr |]
 let private dsVex0F3A62   = [| emptyArr; VdqWdqIb; emptyArr; emptyArr |]
 let private dsNor0F3A63   = [| emptyArr; VdqWdqIb; emptyArr; emptyArr |]
 let private dsVex0F3A63   = [| emptyArr; VdqWdqIb; emptyArr; emptyArr |]
-let private dsNor0F3A0B   = [| emptyArr; VsdWsdIb; emptyArr; emptyArr |]
+let private dsNor0F3A0B   = [| emptyArr; VsdWsdqIb; emptyArr; emptyArr |]
 let private dsVex0F3A0B   = [| emptyArr; emptyArr; emptyArr; emptyArr |]
 let private dsNor0F3AF0   = [| emptyArr; emptyArr; emptyArr; emptyArr |]
 let private dsVex0F3AF0   = [| emptyArr; emptyArr; emptyArr; GyEyIb |]
@@ -2259,7 +2258,7 @@ let inline private getSIB b =
 
 let parseSIB insInfo (reader: BinReader) pos modValue =
   let struct (s, i, b) = reader.PeekByte pos |> int |> getSIB
-  let rexPref = insInfo.REXPrefix
+  let rexPref = selectREX insInfo.VEXInfo insInfo.REXPrefix
   let si = getScaledIndex s i insInfo rexPref
   let baseReg = getBaseReg b insInfo modValue rexPref
   struct (si, baseReg, b), pos + 1

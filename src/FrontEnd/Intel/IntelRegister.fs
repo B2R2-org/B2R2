@@ -1544,7 +1544,8 @@ module Register = begin
     | R.XMM0 | R.XMM1 | R.XMM2 | R.XMM3
     | R.XMM4 | R.XMM5 | R.XMM6 | R.XMM7
     | R.XMM8 | R.XMM9 | R.XMM10 | R.XMM11
-    | R.XMM12 | R.XMM13 | R.XMM14 | R.XMM15 -> 128<rt>
+    | R.XMM12 | R.XMM13 | R.XMM14 | R.XMM15
+    | R.BND0 | R.BND1 | R.BND2 | R.BND3 -> 128<rt>
     | R.YMM0 | R.YMM1 | R.YMM2 | R.YMM3
     | R.YMM4 | R.YMM5 | R.YMM6 | R.YMM7
     | R.YMM8 | R.YMM9 | R.YMM10 | R.YMM11

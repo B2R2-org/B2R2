@@ -37,16 +37,7 @@ type IntelInstruction (addr, numBytes, insInfo, wordSz) =
   member val Info: InsInfo = insInfo
 
   override __.IsBranch () =
-    match __.Info.Opcode with
-    | Opcode.CALLFar | Opcode.CALLNear
-    | Opcode.JMPFar | Opcode.JMPNear
-    | Opcode.RETFar | Opcode.RETFarImm | Opcode.RETNear | Opcode.RETNearImm
-    | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
-    | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JNB | Opcode.JNL | Opcode.JNO
-    | Opcode.JNP | Opcode.JNS | Opcode.JNZ | Opcode.JO | Opcode.JP
-    | Opcode.JRCXZ | Opcode.JS | Opcode.JZ | Opcode.LOOP | Opcode.LOOPE
-    | Opcode.LOOPNE -> true
-    | _ -> false
+    Helper.isBranch __.Info.Opcode
 
   member __.HasConcJmpTarget () =
     match __.Info.Operands with

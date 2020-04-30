@@ -29,6 +29,8 @@ open B2R2
 type AsmInterface (isa: ISA, startAddress) =
   let parser =
     match isa.Arch with
+    // | Architecture.IntelX64
+    // | Architecture.IntelX86 -> Intel.AsmParser (isa, startAddress)
     | Architecture.MIPS1
     | Architecture.MIPS2
     | Architecture.MIPS3

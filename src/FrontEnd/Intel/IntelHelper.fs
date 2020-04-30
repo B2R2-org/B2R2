@@ -26,6 +26,10 @@ module internal B2R2.FrontEnd.Intel.Helper
 
 open B2R2
 open B2R2.FrontEnd
+open System.Runtime.CompilerServices
+
+[<assembly: InternalsVisibleTo("B2R2.Assembler.Intel")>]
+do ()
 
 /// Create a new instruction descriptor.
 let newTemporaryIns opcode operands preInfo insSize =
@@ -78,6 +82,17 @@ let getSegment pref =
   elif (pref &&& Prefix.PrxGS) <> Prefix.PrxNone then Some R.GS
   elif (pref &&& Prefix.PrxSS) <> Prefix.PrxNone then Some R.SS
   else None
+
+let isBranch = function
+  | Opcode.CALLFar | Opcode.CALLNear
+  | Opcode.JMPFar | Opcode.JMPNear
+  | Opcode.RETFar | Opcode.RETFarImm | Opcode.RETNear | Opcode.RETNearImm
+  | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
+  | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JNB | Opcode.JNL | Opcode.JNO
+  | Opcode.JNP | Opcode.JNS | Opcode.JNZ | Opcode.JO | Opcode.JP
+  | Opcode.JRCXZ | Opcode.JS | Opcode.JZ | Opcode.LOOP | Opcode.LOOPE
+  | Opcode.LOOPNE -> true
+  | _ -> false
 
 /// Create a temporary instruction information.
 let newTemporaryInfo prefs rexPref vInfo wordSize =

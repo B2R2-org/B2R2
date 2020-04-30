@@ -22,16 +22,9 @@
   SOFTWARE.
 *)
 
-module B2R2.Assembler.Intel.FixInsInfo
+namespace B2R2.Assembler
 
-open B2R2
-open B2R2.FrontEnd.Intel
-
-// FixMe
-let vexInfoFromOpcode opcode :VEXInfo option = None
-
-// FixMe: Should complete the fields of InsInfo. Should call vexInfoFromOpcode
-// for every insInfo and complete the InsInfo size. It should also look for and
-// substitue label operands.
-let updateInsInfos (ins: InsInfo list) (lbls: Map<string, Addr>): InsInfo list =
-  ins
+/// Assembly code parser interface.
+type AsmParser =
+  /// Run parsing from a given string, and returns binary code (in byte array).
+  abstract Run: string -> byte []
