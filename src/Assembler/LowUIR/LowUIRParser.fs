@@ -22,21 +22,19 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinIR.LowUIR
+namespace B2R2.Assembler.LowUIR
 
 open FParsec
 open B2R2
 open B2R2.FrontEnd
 open B2R2.BinIR.LowUIR
-open B2R2.BinIR.LowUIR.Parser.Utils
+open B2R2.Assembler.LowUIR.Utils
 
 type ExpectedType = RegType
 
 type Parser<'t> = Parser<'t, ExpectedType>
 
 type LowUIRParser (isa, regbay: RegisterBay) =
-
-  (* Functions to help with manipulating the userState *)
   let makeExpectedType c =
     updateUserState (fun _ -> AST.typeOf c)
     >>. preturn c
@@ -61,7 +59,9 @@ type LowUIRParser (isa, regbay: RegisterBay) =
       numberLiteral numberFormat "number"
       |>> fun nl ->
               int64 nl.String
+
   (*---------------------------Primitives.-----------------------------*)
+
   let pRegType =
     (anyOf "IiFf" ) >>. pint32 |>> RegType.fromBitWidth
 
@@ -89,10 +89,6 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     [ "sext"; "zext"; "itof"; "round"; "ceil"; "floor"; "trunc"; "fext" ]
     |> List.map pstring |> List.map attempt |> choice |>> castTypeFromString
 
-  // To Do: Usage example not known. How to parse differently from pVar.
-  let pSymbol =
-    pNormalString |>> AST.lblSymbol
-
   (*---------------------------Expressions.----------------------------*)
 
   (*Reference to Expression parser created here.*)
@@ -106,18 +102,9 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     List.map pCaseString regnames |> List.map attempt
     |> choice |>> regbay.StrToRegExpr
 
-  let pPCVarE =
-    pNormalString |>> regbay.StrToRegExpr
-
   let pTempVarE =
     spaces >>. pstring "T_" >>. pint32 .>> spaces .>> pchar ':' .>> spaces
     .>>. pRegType |>> (fun (num, typ) -> TempVar (typ, num))
-
-  let pNameE = pSymbol |>> Name
-
-  // To Do: Usage example not known. How to parse differently from pVar, pPCVar
-  // and pSymbol.
-  let pFuncNameE = pNormalString |>> FuncName
 
   let pUnOpE =
     pchar '(' >>. spaces >>. pUnaryOperator
@@ -163,9 +150,8 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     .>> pchar ')' |>> AST.unDef dummyRegType
   do
     pExprRef :=
-      pNumE //<|> attempt pPCVarE
+      pNumE
       <|> attempt pTempVarE
-      //<|> attempt pNameE <|> attempt pFuncNameE
       <|> attempt pUnOpE
       <|> attempt pBinOpE <|> attempt pRelOpE <|> attempt pLoadE
       <|> attempt pIteE <|> attempt pCastE <|> attempt pExtractE
@@ -241,11 +227,11 @@ type LowUIRParser (isa, regbay: RegisterBay) =
 
   member __.Run str =
     match runParserOnString statement 0<rt> "" str with
-    | FParsec.CharParsers.Success (result, _, pos) ->
+    | Success (result, _, pos) ->
       if pos.Column <> int64 (str.Length + 1) then
-        printfn "[Invalid] Invalid characters at the end of input"
-        ; None
-      else Some result
-    | FParsec.CharParsers.Failure (str, _, _) ->
+        printfn "Invalid characters at the end of input"
+        [||]
+      else [| result |]
+    | Failure (str, _, _) ->
       printfn "%s" str
-      None
+      [||]

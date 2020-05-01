@@ -111,7 +111,7 @@ let asmMain _ (opts: AssemblerOpts) =
   if isInvalidCmdLine opts then cmdErrExit () else ()
   let assembler = AsmInterface (opts.ISA, opts.BaseAddress)
   initAsmString opts
-  |> assembler.Run
+  |> assembler.AssembleBin
   |> List.fold (fun addr bs ->
     printf "%08x: " addr; bs |> Array.iter (printf "%02x"); printfn ""
     addr + uint64 (Array.length bs)) opts.BaseAddress

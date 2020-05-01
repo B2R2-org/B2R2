@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.BinIR.LowUIR.Parser.Utils
+module B2R2.Assembler.LowUIR.Utils
 
 open B2R2
 open B2R2.BinIR

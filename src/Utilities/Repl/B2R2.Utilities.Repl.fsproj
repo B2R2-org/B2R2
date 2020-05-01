@@ -6,7 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="ReplUtils.fs" />
+    <Compile Include="ReplOpts.fs" />
+    <Compile Include="ReplCommand.fs" />
+    <Compile Include="ReplState.fs" />
+    <Compile Include="ReplDisplay.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 
@@ -26,6 +29,7 @@
     <ProjectReference Include="..\..\FrontEnd\Intel\B2R2.FrontEnd.Intel.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\MIPS\B2R2.FrontEnd.MIPS.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\Library\B2R2.FrontEnd.Library.fsproj" />
+    <ProjectReference Include="..\Core\B2R2.Utilities.Core.fsproj" />
   </ItemGroup>
 
 </Project>

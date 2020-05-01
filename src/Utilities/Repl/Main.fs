@@ -24,65 +24,48 @@
 
 module B2R2.Utilities.Repl.Main
 
-open System
 open B2R2
-open B2R2.BinIR.LowUIR
-open B2R2.ConcEval
 open B2R2.FrontEnd
-open B2R2.Utilities.Repl.ReplDisplay
+open B2R2.Assembler
 
-let console = FsReadLine.Console ("-> ", [])
+let cmds =
+  [ "show"
+    "exit" ]
+let console = FsReadLine.Console ("B2R2> ", cmds)
 
 /// Displays the error message.
 let showError str =
   printfn "[Invalid] %s" str
 
-/// Gets ISA choice from the user.
-let rec getISAChoice () =
-  printf "%s" ISATableStr
+let assemble (asm: AsmInterface) (input: string) =
+  try asm.AssembleLowUIR false (input.Trim ())
+  with exc -> showError exc.Message; [||]
+
+let rec run showTemporary (state: ReplState) asm =
   let input = console.ReadLine ()
-  let arch = numToArchitecture input
-  if arch = None then getISAChoice () else arch.Value
+  match ReplCommand.fromString input with
+  | Quit -> ()
+  | NoInput -> run showTemporary state asm
+  | Show ->
+    Display.printRegisters showTemporary state []
+    run showTemporary state asm
+  | StmtInput input ->
+    let stmts = assemble asm input
+    if Array.isEmpty stmts then run showTemporary state asm
+    else
+      let regdelta = state.Update stmts
+      Display.printRegisters showTemporary state regdelta
+      run showTemporary state asm
 
-/// Main repl that excecutes the instructions and provides user interface.
-type Repl (pars: LowUIRParser, regbay, status:Status) =
-  member __.Run state =
-    let input = console.ReadLine ()
-    match ReplCommand.fromInput input with
-    | Quit -> ()
-    | NoInput -> __.Run  state
-    | Show -> printRegisters state regbay status; __.Run state
-    | IRStatement input ->
-      let parsed =
-        try pars.Run (input.Trim ()) with
-        | :? OverflowException -> showError "number too large"; None
-        | :? InvalidRegTypeException ->
-          showError "invalid register type"; None
-        | exc -> showError exc.Message; None
-
-      if parsed = None then __.Run state
-      else
-        try Evaluator.evalStmt state parsed.Value |> ignore; () with
-        | :? InvalidMemException -> showError "memory address can not be read"
-        | :? InvalidCastException -> showError "cast statement invalid"
-        | :? InvalidOperationException -> showError "operation is invalid"
-        | exc -> showError exc.Message
-        printRegisters state regbay status
-        status.UpdateStatus state
-        __.Run state
+let runRepl _args (opts: ReplOpts) =
+  let binhandler = BinHandler.Init (opts.ISA)
+  let state = ReplState (binhandler.RegisterBay, opts.Verbose)
+  let asm = AsmInterface (opts.ISA, 0UL)
+  opts.ISA.Arch.ToString ()
+  |> Display.printBlue "Welcome to B2R2 REPL for (%s)\n"
+  run opts.ShowTemp state asm
 
 [<EntryPoint>]
-let main _argv =
-  let isa = getISAChoice ()
-  let binhandler = BinHandler.Init (isa)
-  let state = initStateForReplStart binhandler.RegisterBay
-  let pars = LowUIRParser (isa, binhandler.RegisterBay)
-  isa.Arch.ToString () |>
-  printBlue
-    " ****************** %s B2R2 LowUIR Repl running  **********************\n"
-  let context = EvalState.GetCurrentContext state
-  let hist =
-    Status (Array.copy (Seq.toArray (context.Registers.ToSeq ())), Array.empty)
-  let Evaluator = Repl (pars, binhandler.RegisterBay, hist)
-  Evaluator.Run state
-  0 // return an integer exit code
+let main args =
+  let opts = ReplOpts ()
+  ReplOpts.ParseAndRun runRepl "" ReplOpts.spec opts args

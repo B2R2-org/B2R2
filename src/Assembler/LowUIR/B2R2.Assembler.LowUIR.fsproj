@@ -5,8 +5,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="LowUIR.ParserUtils.fs" />
-    <Compile Include="LowUIR.Parser.fs" />
+    <Compile Include="LowUIRParserUtils.fs" />
+    <Compile Include="LowUIRParser.fs" />
   </ItemGroup>
 
   <ItemGroup>

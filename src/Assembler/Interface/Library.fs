@@ -25,12 +25,17 @@
 namespace B2R2.Assembler
 
 open B2R2
+open B2R2.FrontEnd
 
 type AsmInterface (isa: ISA, startAddress) =
-  let parser =
+  let handler = BinHandler.Init (isa)
+
+  /// Parse the given string input, and assemble a list of byte arrays, where
+  /// each array corresponds to a binary instruction.
+  member __.AssembleBin asm =
     match isa.Arch with
     | Architecture.IntelX64
-    | Architecture.IntelX86 -> Intel.AsmParser (isa, startAddress)
+    | Architecture.IntelX86 -> Intel.AsmParser(isa, startAddress).Run asm
     | Architecture.MIPS1
     | Architecture.MIPS2
     | Architecture.MIPS3
@@ -42,4 +47,18 @@ type AsmInterface (isa: ISA, startAddress) =
     | Architecture.MIPS64
     | _ -> raise InvalidISAException
 
-  member __.Run asm = parser.Run asm
+  /// Parse the given string input, and assemble an array of IR statements.
+  member __.AssembleLowUIR isFromLowUIR asm =
+    if isFromLowUIR then
+      LowUIR.LowUIRParser(isa, handler.RegisterBay).Run asm
+    else
+      let bs = __.AssembleBin asm |> Array.concat
+      let handler = BinHandler.UpdateCode handler startAddress bs
+      let rec loop addr acc =
+        match BinHandler.TryParseInstr handler addr with
+        | None -> List.rev acc
+        | Some ins ->
+          let stmts = BinHandler.LiftInstr handler ins
+          loop (addr + uint64 ins.Length) (stmts :: acc)
+      loop 0UL []
+      |> Array.concat
