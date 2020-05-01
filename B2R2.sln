@@ -60,7 +60,7 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Utilities.BinExplorer"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Utilities.Assembler", "src\Utilities\Assembler\B2R2.Utilities.Assembler.fsproj", "{2D501B10-F7E8-4E86-9742-94530CDF9BD4}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Utilities.LowUIR.Repl", "src\Utilities\LowUIR.Repl\B2R2.Utilities.LowUIR.Repl.fsproj", "{6F53EF07-DE0B-4F95-93A5-2B96BD49F7E3}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Utilities.Repl", "src\Utilities\Repl\B2R2.Utilities.Repl.fsproj", "{6F53EF07-DE0B-4F95-93A5-2B96BD49F7E3}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.ConcEval", "src\ConcEval\B2R2.ConcEval.fsproj", "{0AAD8FD3-EDB5-4019-82F3-6D1FDB9773F9}"
 EndProject

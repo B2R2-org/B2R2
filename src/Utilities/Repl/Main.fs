@@ -22,15 +22,14 @@
   SOFTWARE.
 *)
 
-module B2R2.Utilities.LowUIRRepl.Repl
+module B2R2.Utilities.Repl.Main
 
 open System
 open B2R2
 open B2R2.BinIR.LowUIR
 open B2R2.ConcEval
 open B2R2.FrontEnd
-open B2R2.Utilities.LowUIRRepl.Utils
-open B2R2.Utilities.LowUIRRepl.Utils.ReplDisplay
+open B2R2.Utilities.Repl.ReplDisplay
 
 let console = FsReadLine.Console ("-> ", [])
 

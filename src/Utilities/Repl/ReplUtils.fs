@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.Utilities.LowUIRRepl.Utils
+namespace B2R2.Utilities.Repl
 
 open System
 open B2R2
@@ -75,68 +75,67 @@ type Status (regSeq, tempRegSeq) =
       []
       ((EvalState.GetCurrentContext state).Temporaries.ToSeq ()) __.TempRegSeq
 
-/// Gets a string representation of an EvalValue.
-let private getEvalValueString = function
-  | Def bv -> bv.ToString ()
-  | Undef -> "undef"
-
-/// Gets the value of a register from the evalstate.
-let private getRegValue st e =
-  match e with
-  | Var (_, n, _, _) -> EvalState.GetReg st n
-  | PCVar (t, _) -> BitVector.ofUInt64 st.PC t |> Def
-  | _ -> raise InvalidExprException
-
-/// Gets the registers name (string), and value (EvalValue) tuple.
-let getRegNameValTuple regExpr evalState =
-  let regName =
-    match regExpr with
-    | Var (_typ, _, n, _) -> n
-    | PCVar (_typ, n) -> n
-    | x -> sprintf "%A" x
-  regName, getRegValue evalState regExpr
-
-/// Map of the isa string and corresponding number on the repl.
-let isaMap =
-  Map.empty. (* Creating an empty Map *)
-    Add("", "x64").
-    Add("0", "x64").
-    Add("1", "x86").
-    Add("2", "x64").
-    Add("3", "armv7").
-    Add("4", "armv7be").
-    Add("5", "armv8a32").
-    Add("6", "armv8a32be").
-    Add("7", "mips32r2").
-    Add("8", "mips32r2be").
-    Add("9", "armv8a64").
-    Add("10", "mips32r6").
-    Add("11", "mips32r6be").
-    Add("12", "armv8a64be").
-    Add("13", "mips64r2").
-    Add("14", "mips64r2be").
-    Add("15", "mips64r6").
-    Add("16", "mips64r6be");;
-
-/// Gets the architecture from the number chosen by the user.
-let numToArchitecture n =
-  if Map.containsKey n isaMap then ISA.OfString isaMap.[n] |> Some else None
-
-/// Initiates the registers in the architecture with value of zero.
-let initStateForReplStart (regbay: RegisterBay) =
-  let st = EvalState (ignoreundef=true)
-  regbay.GetAllRegExprs ()
-  |> List.map (fun r ->
-    (regbay.RegIDFromRegExpr r, BitVector.ofInt32 0 (AST.typeOf r)))
-  |> List.map (fun (x, y) -> (x, Def y))
-  |> EvalState.PrepareContext st 0 0UL
-
-/// Gets a temporary register name and EvalValue string representation.
-let getTempRegrString (n: int, value: EvalValue) =
-  let tRegName = "T_" + string (n)
-  sprintf "%s: %s" tRegName (getEvalValueString value)
-
 module ReplDisplay =
+  /// Gets a string representation of an EvalValue.
+  let private getEvalValueString = function
+    | Def bv -> bv.ToString ()
+    | Undef -> "undef"
+
+  /// Gets the value of a register from the evalstate.
+  let private getRegValue st e =
+    match e with
+    | Var (_, n, _, _) -> EvalState.GetReg st n
+    | PCVar (t, _) -> BitVector.ofUInt64 st.PC t |> Def
+    | _ -> raise InvalidExprException
+
+  /// Gets the registers name (string), and value (EvalValue) tuple.
+  let getRegNameValTuple regExpr evalState =
+    let regName =
+      match regExpr with
+      | Var (_typ, _, n, _) -> n
+      | PCVar (_typ, n) -> n
+      | x -> sprintf "%A" x
+    regName, getRegValue evalState regExpr
+
+  /// Map of the isa string and corresponding number on the repl.
+  let isaMap =
+    Map.empty. (* Creating an empty Map *)
+      Add("", "x64").
+      Add("0", "x64").
+      Add("1", "x86").
+      Add("2", "x64").
+      Add("3", "armv7").
+      Add("4", "armv7be").
+      Add("5", "armv8a32").
+      Add("6", "armv8a32be").
+      Add("7", "mips32r2").
+      Add("8", "mips32r2be").
+      Add("9", "armv8a64").
+      Add("10", "mips32r6").
+      Add("11", "mips32r6be").
+      Add("12", "armv8a64be").
+      Add("13", "mips64r2").
+      Add("14", "mips64r2be").
+      Add("15", "mips64r6").
+      Add("16", "mips64r6be")
+
+  /// Gets the architecture from the number chosen by the user.
+  let numToArchitecture n =
+    if Map.containsKey n isaMap then ISA.OfString isaMap.[n] |> Some else None
+
+  /// Initiates the registers in the architecture with value of zero.
+  let initStateForReplStart (regbay: RegisterBay) =
+    let st = EvalState (ignoreundef=true)
+    regbay.GetAllRegExprs ()
+    |> List.map (fun r ->
+      (regbay.RegIDFromRegExpr r, BitVector.ofInt32 0 (AST.typeOf r)))
+    |> List.map (fun (x, y) -> (x, Def y))
+    |> EvalState.PrepareContext st 0 0UL
+
+  /// Gets a temporary register name and EvalValue string representation.
+  let getTempRegrString (n: int, value: EvalValue) =
+    let tRegName = "T_" + string (n)
+    sprintf "%s: %s" tRegName (getEvalValueString value)
 
   /// Displayed table on the repl console.
   let ISATableStr =

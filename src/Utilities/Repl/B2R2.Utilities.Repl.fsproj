@@ -19,6 +19,7 @@
     <ProjectReference Include="..\..\ConcEval\B2R2.ConcEval.fsproj" />
     <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
     <ProjectReference Include="..\..\Assembler\LowUIR\B2R2.Assembler.LowUIR.fsproj" />
+    <ProjectReference Include="..\..\Assembler\Interface\B2R2.Assembler.Interface.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\Core\B2R2.FrontEnd.Core.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\ARM32\B2R2.FrontEnd.ARM32.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\ARM64\B2R2.FrontEnd.ARM64.fsproj" />
