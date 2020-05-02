@@ -1,5 +1,28 @@
 # B2R2 Change Log
 
+## 0.4.0 (2020-05-02)
+
+### Added
+- Add support for Mach-O relocation.
+- Add support for COFF object parsing.
+- Add support for floating-point operations.
+- Add several missing Intel instructions.
+- Add a basic dataflow framework.
+- Add a partial support for Intel assembler. We will fully implement Intel
+  assembler in the next version.
+
+### Changed
+- Fix various liting/parsing bugs.
+- Fix dominator algorithm bug.
+- Fix various BinGraph bugs.
+- Improve Web UI performance.
+- Fix a zooming bug in the Web UI.
+- Update OptParse version.
+- Remove manually-encoded Intel constants, which will slightly slow down our
+  front-end, but it will improve the maintanence cost.
+- Clean up the REPL app, and make it more generic for future use.
+- Split MiddleEnd from BinGraph.
+
 ## 0.3.1 (2020-01-11)
 
 ### Added

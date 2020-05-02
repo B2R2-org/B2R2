@@ -155,7 +155,6 @@ have read our [contribution guideline](CONTRIBUTING.md).
 
 - Implement CFG recovery algorithms.
 - Implement assembler for currently supported ISAs using a parser combinator.
-- Support for floating point operations.
 - Support for more architectures such as PPC.
 
 Credits
