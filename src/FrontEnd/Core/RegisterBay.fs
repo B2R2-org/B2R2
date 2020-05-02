@@ -37,6 +37,10 @@ type RegisterBay () =
   /// Return all register names.
   abstract member GetAllRegNames: unit -> string list
 
+  /// Return all general register expressions excluding FPU registers, vector
+  /// registers, etc.
+  abstract member GetGeneralRegExprs: unit -> Expr list
+
   /// Return RegType from a given RegExpr.
   member __.RegTypeFromRegExpr (e: Expr) =
     match e with

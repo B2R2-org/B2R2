@@ -63,6 +63,15 @@ type IntelRegisterBay (wordSize) =
     __.GetAllRegExprs ()
     |> List.map (__.RegIDFromRegExpr >> __.RegIDToString)
 
+  override __.GetGeneralRegExprs () =
+    if WordSize.is32 wordSize then
+      [ R.EAX; R.EBX; R.ECX; R.EDX; R.ESP; R.EBP; R.ESI; R.EDI; R.EIP
+        R.OF; R.DF; R.IF; R.SF; R.ZF; R.AF; R.PF; R.CF ]
+    else
+      [ R.RAX; R.RBX; R.RCX; R.RDX; R.RSP; R.RBP; R.RSI; R.RDI; R.R8; R.R9
+        R.R10; R.R11; R.R12; R.R13; R.R14; R.R15; R.RIP
+        R.OF; R.DF; R.IF; R.SF; R.ZF; R.AF; R.PF; R.CF ]
+
   override __.RegIDFromRegExpr (e) =
     match e with
     | Var (_,id, _,_) -> id

@@ -59,7 +59,7 @@ let rec run showTemporary (state: ReplState) asm =
 
 let runRepl _args (opts: ReplOpts) =
   let binhandler = BinHandler.Init (opts.ISA)
-  let state = ReplState (binhandler.RegisterBay, opts.Verbose)
+  let state = ReplState (binhandler.RegisterBay, not opts.Verbose)
   let asm = AsmInterface (opts.ISA, 0UL)
   opts.ISA.Arch.ToString ()
   |> Display.printBlue "Welcome to B2R2 REPL for (%s)\n"

@@ -49,6 +49,10 @@ type ARM32RegisterBay () =
     __.GetAllRegExprs ()
     |> List.map (__.RegIDFromRegExpr >> __.RegIDToString)
 
+  override __.GetGeneralRegExprs () =
+    [ R.R0; R.R1; R.R2 ; R.R3; R.R4; R.R5; R.R6; R.R7; R.R8; R.SB; R.SL; R.FP;
+      R.IP; R.SP; R.LR; R.PC; R.APSR; R.SPSR; R.CPSR ]
+
   override __.RegIDFromRegExpr (e) =
     match e with
     | Var (_, id, _ ,_) -> id

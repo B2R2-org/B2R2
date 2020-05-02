@@ -36,6 +36,8 @@ type EVMRegisterBay () =
 
   override __.GetAllRegNames () = []
 
+  override __.GetGeneralRegExprs () = Utils.futureFeature ()
+
   override __.RegIDFromRegExpr (e) =
     match e with
     | Var (_, id, _ ,_) -> id

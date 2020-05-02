@@ -40,6 +40,10 @@ type ReplState (regbay: RegisterBay, doFiltering) =
     (EvalState.GetCurrentContext state).Registers.ToSeq () |> Seq.toArray
   let mutable prevTmp =
     (EvalState.GetCurrentContext state).Temporaries.ToSeq () |> Seq.toArray
+  let generalRegs =
+    regbay.GetGeneralRegExprs ()
+    |> List.map regbay.RegIDFromRegExpr
+    |> Set.ofList
 
   member private __.EvaluateStmts (stmts: LowUIR.Stmt []) =
     stmts
@@ -68,7 +72,9 @@ type ReplState (regbay: RegisterBay, doFiltering) =
     | Undef -> "undef"
 
   member private __.Filter regPairs =
-    if doFiltering then regPairs // |> List.filter (fun (r, _) -> regbay.)
+    if doFiltering then
+      regPairs
+      |> List.filter (fun (r, _) -> Set.contains r generalRegs)
     else regPairs
 
   member __.GetAllRegValString delta =

@@ -46,6 +46,12 @@ type MIPSRegisterBay (wordSize) =
     __.GetAllRegExprs ()
     |> List.map (__.RegIDFromRegExpr >> __.RegIDToString)
 
+  override __.GetGeneralRegExprs () =
+    [ R.HI; R.LO; R.PC; R.R0; R.R1; R.R2; R.R3; R.R4; R.R5; R.R6; R.R7; R.R8;
+      R.R9; R.R10; R.R11; R.R12; R.R13; R.R14; R.R15; R.R16; R.R17; R.R18;
+      R.R19; R.R20; R.R21; R.R22; R.R23; R.R24; R.R25; R.R26; R.R27; R.R28;
+      R.R29; R.R30; R.R31 ]
+
   override __.RegIDFromRegExpr (e) =
     match e with
     | Var (_,id, _,_) -> id

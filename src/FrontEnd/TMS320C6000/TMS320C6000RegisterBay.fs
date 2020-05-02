@@ -36,6 +36,8 @@ type TMS320C6000RegisterBay () =
 
   override __.GetAllRegNames () = Utils.futureFeature ()
 
+  override __.GetGeneralRegExprs () = Utils.futureFeature ()
+
   override __.RegIDFromRegExpr (e) =
     match e with
     | Var (_, id, _ ,_) -> id
