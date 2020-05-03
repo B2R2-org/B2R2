@@ -29,17 +29,22 @@ open B2R2.BinIR
 open B2R2.FrontEnd
 open B2R2.ConcEval
 
-type ReplState (regbay: RegisterBay, doFiltering) =
-  let mutable state =
+type ParserState =
+  | LowUIRParser
+  | BinParser of Architecture
+
+type ReplState (isa: ISA, regbay: RegisterBay, doFiltering) =
+  let mutable parser = BinParser isa.Arch
+  let mutable rstate =
     regbay.GetAllRegExprs ()
     |> List.map (fun r ->
       (regbay.RegIDFromRegExpr r, BitVector.ofInt32 0 (LowUIR.AST.typeOf r)))
     |> List.map (fun (x, y) -> (x, Def y))
     |> EvalState.PrepareContext (EvalState ()) 0 0UL
   let mutable prevReg =
-    (EvalState.GetCurrentContext state).Registers.ToSeq () |> Seq.toArray
+    (EvalState.GetCurrentContext rstate).Registers.ToSeq () |> Seq.toArray
   let mutable prevTmp =
-    (EvalState.GetCurrentContext state).Temporaries.ToSeq () |> Seq.toArray
+    (EvalState.GetCurrentContext rstate).Temporaries.ToSeq () |> Seq.toArray
   let generalRegs =
     regbay.GetGeneralRegExprs ()
     |> List.map regbay.RegIDFromRegExpr
@@ -47,7 +52,7 @@ type ReplState (regbay: RegisterBay, doFiltering) =
 
   member private __.EvaluateStmts (stmts: LowUIR.Stmt []) =
     stmts
-    |> Array.fold (fun state stmt -> Evaluator.evalStmt state stmt) state
+    |> Array.fold (fun rstate stmt -> Evaluator.evalStmt rstate stmt) rstate
 
   member private __.ComputeDelta prev curr =
     Array.fold2 (fun acc t1 t2 ->
@@ -56,9 +61,9 @@ type ReplState (regbay: RegisterBay, doFiltering) =
 
   /// Update the state and return deltas.
   member __.Update stmts =
-    try state <- __.EvaluateStmts stmts
+    try rstate <- __.EvaluateStmts stmts
     with exc -> printfn "%s" exc.Message
-    let currContext = EvalState.GetCurrentContext state
+    let currContext = EvalState.GetCurrentContext rstate
     let currReg = currContext.Registers.ToSeq () |> Seq.toArray
     let currTmp = currContext.Temporaries.ToSeq () |> Seq.toArray
     let regdelta = __.ComputeDelta prevReg currReg
@@ -96,3 +101,17 @@ type ReplState (regbay: RegisterBay, doFiltering) =
     prevTmp
     |> Seq.toList
     |> List.map (fun (id, v) -> __.TempRegString id v, Set.contains id set)
+
+  member __.SwitchParser () =
+    match parser with
+    | BinParser _ ->
+      parser <- LowUIRParser
+    | LowUIRParser ->
+      parser <- BinParser isa.Arch
+
+  member __.CurrentParser with get() = parser
+
+  member __.ConsolePrompt with get() =
+    match parser with
+    | BinParser arch -> arch.ToString () + "> "
+    | LowUIRParser -> "LowUIR> "

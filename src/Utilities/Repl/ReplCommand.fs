@@ -30,11 +30,13 @@ type ReplCommand =
   | Quit
   | Show
   | NoInput
+  | SwitchParser
 
 module ReplCommand =
   let fromString (str: string) =
     match str.Trim () with
     | "" -> NoInput
     | "q" | "quit" | "exit" | "stop" -> Quit
+    | "switch-parser" | "switchparser" -> SwitchParser
     | "show" -> Show
     | str -> StmtInput str

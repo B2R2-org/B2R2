@@ -30,27 +30,33 @@ open B2R2.Assembler
 
 let cmds =
   [ "show"
+    "switch-parser"
     "exit" ]
+
 let console = FsReadLine.Console ("B2R2> ", cmds)
 
-/// Displays the error message.
-let showError str =
-  printfn "[Invalid] %s" str
-
-let assemble (asm: AsmInterface) (input: string) =
-  try asm.AssembleLowUIR false (input.Trim ())
-  with exc -> showError exc.Message; [||]
+let assemble (state: ReplState) (asm: AsmInterface) (input: string) =
+  let isLowUIRParser =
+    match state.CurrentParser with
+    | LowUIRParser -> true
+    | _ -> false
+  try asm.AssembleLowUIR isLowUIRParser (input.Trim ())
+  with exc -> printfn "%s" exc.Message; [||]
 
 let rec run showTemporary (state: ReplState) asm =
   let input = console.ReadLine ()
   match ReplCommand.fromString input with
   | Quit -> ()
   | NoInput -> run showTemporary state asm
+  | SwitchParser ->
+    state.SwitchParser ()
+    state.ConsolePrompt |> console.UpdatePrompt
+    run showTemporary state asm
   | Show ->
     Display.printRegisters showTemporary state []
     run showTemporary state asm
   | StmtInput input ->
-    let stmts = assemble asm input
+    let stmts = assemble state asm input
     if Array.isEmpty stmts then run showTemporary state asm
     else
       let regdelta = state.Update stmts
@@ -59,10 +65,10 @@ let rec run showTemporary (state: ReplState) asm =
 
 let runRepl _args (opts: ReplOpts) =
   let binhandler = BinHandler.Init (opts.ISA)
-  let state = ReplState (binhandler.RegisterBay, not opts.Verbose)
+  let state = ReplState (opts.ISA, binhandler.RegisterBay, not opts.Verbose)
   let asm = AsmInterface (opts.ISA, 0UL)
-  opts.ISA.Arch.ToString ()
-  |> Display.printBlue "Welcome to B2R2 REPL for (%s)\n"
+  Display.printBlue "Welcome to B2R2 REPL\n"
+  state.ConsolePrompt |> console.UpdatePrompt
   run opts.ShowTemp state asm
 
 [<EntryPoint>]
