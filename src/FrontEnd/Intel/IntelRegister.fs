@@ -1550,6 +1550,10 @@ module Register = begin
     | R.YMM4 | R.YMM5 | R.YMM6 | R.YMM7
     | R.YMM8 | R.YMM9 | R.YMM10 | R.YMM11
     | R.YMM12 | R.YMM13 | R.YMM14 | R.YMM15 -> 256<rt>
+    | R.ZMM0 | R.ZMM1 | R.ZMM2 | R.ZMM3
+    | R.ZMM4 | R.ZMM5 | R.ZMM6 | R.ZMM7
+    | R.ZMM8 | R.ZMM9 | R.ZMM10 | R.ZMM11
+    | R.ZMM12 | R.ZMM13 | R.ZMM14 | R.ZMM15 -> 512<rt>
     | R.ST0 | R.ST1 | R.ST2 | R.ST3 | R.ST4 | R.ST5 | R.ST6 | R.ST7 -> 80<rt>
     | R.DF | R.CF | R.PF | R.AF | R.ZF | R.SF | R.OF
     | R.FSWC0 | R.FSWC1 | R.FSWC2 | R.FSWC3 -> 1<rt>
