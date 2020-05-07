@@ -3989,6 +3989,21 @@ let mov ins insAddr insLen ctxt =
 let movapd ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
 let movaps ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
 
+let movbe ins insAddr insLen ctxt =
+  let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
+  let oprSize = getOperationSize ins
+  let t = tmpVar oprSize
+  let cnt = RegType.toByteWidth oprSize |> int
+  let tmps = Array.init cnt (fun _ -> tmpVar 8<rt>)
+  let builder = new StmtBuilder (2 * cnt)
+  startMark insAddr insLen builder
+  builder <! (t := src)
+  for i in 0 .. cnt - 1 do
+    builder <! (tmps.[i] := extract t 8<rt> (i * 8))
+  done
+  builder <! (dstAssign oprSize dst (concatExprs (Array.rev tmps)))
+  endMark insAddr insLen builder
+
 let movd ins insAddr insLen ctxt =
   let builder = new StmtBuilder (4)
   let dst, src = getTwoOprs ins
@@ -4204,7 +4219,6 @@ let movss (ins: InsInfo) insAddr insLen ctxt =
     builder <! (dstAssign 32<rt> dst src)
   | _ -> raise InvalidOperandException
   endMark insAddr insLen builder
-
 
 let movshdup ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
@@ -7281,6 +7295,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.MOV -> mov ins insAddr insLen ctxt
   | Opcode.MOVAPD -> movapd ins insAddr insLen ctxt
   | Opcode.MOVAPS -> movaps ins insAddr insLen ctxt
+  | Opcode.MOVBE -> movbe ins insAddr insLen ctxt
   | Opcode.MOVD -> movd ins insAddr insLen ctxt
   | Opcode.MOVDQ2Q -> movdq2q ins insAddr insLen ctxt
   | Opcode.MOVDQA -> movdqa ins insAddr insLen ctxt
