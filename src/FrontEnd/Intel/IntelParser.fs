@@ -90,7 +90,7 @@ let private dsVex0F58     = [| VpsHpsWps; VpdHpdWpd; VssHssWssd; VsdHsdWsdq |]
 let private dsNor0F59     = [| VdqWdq; VdqWdq; VdqWdqd; VdqWdqq |]
 let private dsVex0F59     = [| VpsHpsWps; VpdHpdWpd; VssHssWssd; VsdHsdWsdq |]
 let private dsNor0F5A     = [| VdqWdqq; VdqWdq; VdqWdqd; VdqWdqq |]
-let private dsVex0F5A     = [| emptyArr; emptyArr; emptyArr; emptyArr |]
+let private dsVex0F5A     = [| emptyArr; emptyArr; VssHssEy; VssHssWsdq |]
 let private dsNor0F5B     = [| VdqWdq; VdqWdq; VdqWdq; emptyArr |]
 let private dsVex0F5B     = [| emptyArr; emptyArr; emptyArr; emptyArr |]
 let private dsNor0F5C     = [| VdqWdq; VdqWdq; VdqWdqd; VdqWdqq |]
@@ -344,6 +344,12 @@ let private dsNor0F385A   = [| emptyArr; emptyArr; emptyArr; emptyArr |]
 let private dsVex0F385A   = [| emptyArr; VqqMdq; emptyArr; emptyArr |]
 let private dsNor0F3878   = [| emptyArr; emptyArr; emptyArr; emptyArr |]
 let private dsVex0F3878   = [| emptyArr; VxWx; emptyArr; emptyArr |]
+let private dsNor0F3899   = [| emptyArr; emptyArr; emptyArr; emptyArr |]
+let private dsVex0F3899   = [| emptyArr; VxHxWdqq; emptyArr; emptyArr |]
+let private dsNor0F38A9   = [| emptyArr; emptyArr; emptyArr; emptyArr |]
+let private dsVex0F38A9   = [| emptyArr; VxHxWdqq; emptyArr; emptyArr |]
+let private dsNor0F38B9   = [| emptyArr; emptyArr; emptyArr; emptyArr |]
+let private dsVex0F38B9   = [| emptyArr; VxHxWdqq; emptyArr; emptyArr |]
 let private dsNor0F38F0   = [| GyMy; GwMw; emptyArr; GvEb; GdEb |]
 let private dsNor0F38F1   = [| MyGy; MwGw; emptyArr; GvEy; GdEw |]
 let private dsNor0F38F6   = [| emptyArr; emptyArr; emptyArr; emptyArr |]
@@ -1427,6 +1433,12 @@ let private parseThreeByteOp1 t (reader: BinReader) pos =
                                  dsNor0F385A dsVex0F385A, pos + 1
   | 0x78uy -> parseVEX t SzDef32 opNor0F3878 opVex0F3878
                                  dsNor0F3878 dsVex0F3878, pos + 1
+  | 0x99uy -> parseVEX t SzDef32 opNor0F3899 opVex0F3899
+                                 dsNor0F3899 dsVex0F3899, pos + 1
+  | 0xA9uy -> parseVEX t SzDef32 opNor0F38A9 opVex0F38A9
+                                 dsNor0F38A9 dsVex0F38A9, pos + 1
+  | 0xB9uy -> parseVEX t SzDef32 opNor0F38B9 opVex0F38B9
+                                 dsNor0F38B9 dsVex0F38B9, pos + 1
   | 0xF0uy -> parseNonVEX t SzDef32 opNor0F38F0 dsNor0F38F0, pos + 1
   | 0xF1uy -> parseNonVEX t SzDef32 opNor0F38F1 dsNor0F38F1, pos + 1
   | 0xF6uy -> parseVEX t SzDef32 opNor0F38F6 opVex0F38F6
