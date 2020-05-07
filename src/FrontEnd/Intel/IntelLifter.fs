@@ -627,16 +627,19 @@ let movqMemToReg ctxt src r builder =
   | _ -> failwith "Not a Memory to Register."
 
 let movdRegToReg ctxt r1 r2 builder =
+  let tmp = tmpVar 32<rt>
   match Register.getKind r1, Register.getKind r2 with
   | Register.Kind.XMM, _ ->
     builder <! (getPseudoRegVar ctxt r1 1 := zExt 64<rt> (getRegVar ctxt r2))
     builder <! (getPseudoRegVar ctxt r1 2 := num0 64<rt>)
   | _, Register.Kind.XMM ->
-    builder <! (getRegVar ctxt r1 := extractLow 32<rt> (getPseudoRegVar ctxt r2 1))
+    builder <! (tmp := extractLow 32<rt> (getPseudoRegVar ctxt r2 1))
+    builder <! (dstAssign 32<rt> (getRegVar ctxt r1) tmp)
   | Register.Kind.MMX, _ ->
     builder <! (getRegVar ctxt r1 := zExt 64<rt> (getRegVar ctxt r2))
   | _, Register.Kind.MMX ->
-    builder <! (getRegVar ctxt r1 := extractLow 32<rt> (getRegVar ctxt r2))
+    builder <! (tmp := extractLow 32<rt> (getRegVar ctxt r2))
+    builder <! (dstAssign 32<rt> (getRegVar ctxt r1) tmp)
   | _, _ -> failwith "Not a Register to Register."
 
 let movdRegToMem ctxt dst r builder =
@@ -4005,7 +4008,7 @@ let movbe ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let movd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = new StmtBuilder (8)
   let dst, src = getTwoOprs ins
   startMark insAddr insLen builder
   match dst, src  with
