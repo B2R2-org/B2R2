@@ -1456,12 +1456,16 @@ VCVTQQ2PD
 VCVTQQ2PS
 /// Convert Scalar Double-Precision FP Value to Integer.
 VCVTSD2SI
+/// Convert Scalar Double-Precision FP Val to Scalar Single-Precision FP Val.
+VCVTSD2SS
 /// Convert Scalar Double-Precision FP Value to Unsigned Doubleword Integer.
 VCVTSD2USI
 /// Convert Dword Integer to Scalar Double-Precision FP Value.
 VCVTSI2SD
 /// Convert Dword Integer to Scalar Single-Precision FP Value.
 VCVTSI2SS
+/// Convert Scalar Single-Precision FP Val to Scalar Double-Precision FP Val.
+VCVTSS2SD
 /// Convert Scalar Single-Precision FP Value to Dword Integer.
 VCVTSS2SI
 /// Convert Scalar Single-Precision FP Value to Unsigned Doubleword Integer.
@@ -1544,6 +1548,18 @@ VFIXUPIMMPS
 VFIXUPIMMSD
 /// Fix Up Special Scalar Float32 Value.
 VFIXUPIMMSS
+/// Fused Multiply-Add of Scalar Double-Precision Floating-Point Values.
+VFMADD132SD
+/// Fused Multiply-Add of Scalar Single-Precision Floating-Point Values.
+VFMADD132SS
+/// Fused Multiply-Add of Scalar Double-Precision Floating-Point Values.
+VFMADD213SD
+/// Fused Multiply-Add of Scalar Single-Precision Floating-Point Values.
+VFMADD213SS
+/// Fused Multiply-Add of Scalar Double-Precision Floating-Point Values.
+VFMADD231SD
+/// Fused Multiply-Add of Scalar Single-Precision Floating-Point Values.
+VFMADD231SS
 /// Tests Types Of a Packed Float64 Values.
 VFPCLASSPD
 /// Tests Types Of a Packed Float32 Values.
