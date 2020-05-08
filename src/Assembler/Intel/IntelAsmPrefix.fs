@@ -158,7 +158,7 @@ let encodeRexRXB isMR = function
   | NoOperand
   | OneOperand (Label _) | OneOperand (OprDirAddr _)
   | OneOperand (OprImm _)
-  | TwoOperands (OprReg _, Label _) // FIXME
+  | TwoOperands (OprReg _, Label _) | TwoOperands (Label _, OprReg _) // FIXME
   | TwoOperands (OprMem (None, None, Some _, _), OprImm _) -> 0uy
   | OneOperand (OprReg r) ->
     if isReg8 r then encodeRex r ||| encodeRexB r else encodeRexB r

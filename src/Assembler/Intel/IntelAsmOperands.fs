@@ -93,6 +93,9 @@ let modrmRM reg baseReg si disp =
 let modrmRL reg =
   getModRMByte 0b00uy (regTo3Bit reg) 0b101uy
 
+let modrmLI regConstr =
+  getModRMByte 0b00uy regConstr 0b101uy
+
 let modrmRI reg regConstr =
   getModRMByte 0b11uy regConstr (regTo3Bit reg)
 

@@ -191,13 +191,22 @@ let encodeInstruction ins ctxt =
   | Opcode.XOR -> xor ctxt ins
   | op -> printfn "%A" op; Utils.futureFeature ()
 
+let computeIncompMaxLen = function
+  | Opcode.LOOP | Opcode.LOOPE | Opcode.LOOPNE -> 2
+  | Opcode.CALLNear | Opcode.JMPNear -> 5
+  | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JG | Opcode.JL | Opcode.JLE
+  | Opcode.JNB | Opcode.JNL | Opcode.JNO | Opcode.JNP | Opcode.JNS | Opcode.JNZ
+  | Opcode.JO | Opcode.JP | Opcode.JS | Opcode.JZ
+  | Opcode.XBEGIN -> 6
+  | _ -> Utils.futureFeature ()
+
 let computeMaxLen (components: AsmComponent [] list) =
   components
   |> List.map (fun comp ->
        match comp.[0] with
        | Normal _ -> Array.length comp
        | CompleteOp (_, _, bytes) -> Array.length bytes + 4
-       | IncompleteOp _ -> 6 // FIXME
+       | IncompleteOp (op, _) -> computeIncompMaxLen op
        | _ -> Utils.impossible ())
   |> List.toArray
 
@@ -209,7 +218,22 @@ let computeFitType dist =
 
 let getOpByteOfIncomp relSz = function
   | Opcode.JMPNear -> if relSz = 8<rt> then [| 0xEBuy |] else [| 0xE9uy |]
-  | Opcode.JNE -> if relSz = 8<rt> then [| 0x75uy |] else [| 0x85uy; 0x85uy |]
+  | Opcode.JA -> if relSz = 8<rt> then [| 0x77uy |] else [| 0x0Fuy; 0x87uy |]
+  | Opcode.JB -> if relSz = 8<rt> then [| 0x72uy |] else [| 0x0Fuy; 0x82uy |]
+  | Opcode.JBE -> if relSz = 8<rt> then [| 0x76uy |] else [| 0x0Fuy; 0x86uy |]
+  | Opcode.JG -> if relSz = 8<rt> then [| 0x7Fuy |] else [| 0x0Fuy; 0x8Fuy |]
+  | Opcode.JL -> if relSz = 8<rt> then [| 0x7Cuy |] else [| 0x0Fuy; 0x8Cuy |]
+  | Opcode.JLE -> if relSz = 8<rt> then [| 0x7Euy |] else [| 0x0Fuy; 0x8Euy |]
+  | Opcode.JNB -> if relSz = 8<rt> then [| 0x73uy |] else [| 0x0Fuy; 0x83uy |]
+  | Opcode.JNL -> if relSz = 8<rt> then [| 0x7Duy |] else [| 0x0Fuy; 0x8Duy |]
+  | Opcode.JNO -> if relSz = 8<rt> then [| 0x71uy |] else [| 0x0Fuy; 0x81uy |]
+  | Opcode.JNP -> if relSz = 8<rt> then [| 0x7Buy |] else [| 0x0Fuy; 0x8Buy |]
+  | Opcode.JNS -> if relSz = 8<rt> then [| 0x79uy |] else [| 0x0Fuy; 0x89uy |]
+  | Opcode.JNZ -> if relSz = 8<rt> then [| 0x75uy |] else [| 0x0Fuy; 0x85uy |]
+  | Opcode.JO -> if relSz = 8<rt> then [| 0x70uy |] else [| 0x0Fuy; 0x80uy |]
+  | Opcode.JP -> if relSz = 8<rt> then [| 0x7auy |] else [| 0x0Fuy; 0x8Auy |]
+  | Opcode.JS -> if relSz = 8<rt> then [| 0x78uy |] else [| 0x0Fuy; 0x88uy |]
+  | Opcode.JZ -> if relSz = 8<rt> then [| 0x74uy |] else [| 0x0Fuy; 0x84uy |]
   | _ -> Utils.futureFeature ()
 
 let computeDistance myIdx labelIdx maxLenArr =
@@ -255,7 +279,7 @@ let concretizeLabel sz (offset: int64) =
 
 let normalToByte = function
   | Normal b -> b
-  | _ -> Utils.impossible ()
+  | comp -> printfn "%A" comp; Utils.impossible ()
 
 let finalize parserState realLenArr baseAddr myIdx comp =
   match comp with
