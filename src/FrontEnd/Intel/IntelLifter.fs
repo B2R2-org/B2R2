@@ -5990,6 +5990,31 @@ let vbroadcastss ins insAddr insLen ctxt =
   | _ -> raise InvalidOperandException
   endMark insAddr insLen builder
 
+let vcvtsd2ss ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (8)
+  let dst, src1, src2 = getThreeOprs ins
+  let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+  let src1B, src1A = transOprToExpr128 ins insAddr insLen ctxt src1
+  let src2 = transOprToExpr64 ins insAddr insLen ctxt src2
+  startMark insAddr insLen builder
+  builder <! (extractLow 32<rt> dstA := cast CastKind.FloatExt 32<rt> src2)
+  builder <! (extractHigh 32<rt> dstA := extractHigh 32<rt> src1A)
+  builder <! (dstB := src1B)
+  fillZeroHigh128 ctxt dst builder
+  endMark insAddr insLen builder
+
+let vcvtss2sd ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (8)
+  let dst, src1, src2 = getThreeOprs ins
+  let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+  let src1B, _src1A = transOprToExpr128 ins insAddr insLen ctxt src1
+  let src2 = transOprToExpr32 ins insAddr insLen ctxt src2
+  startMark insAddr insLen builder
+  builder <! (dstA := cast CastKind.FloatExt 64<rt> src2)
+  builder <! (dstB := src1B)
+  fillZeroHigh128 ctxt dst builder
+  endMark insAddr insLen builder
+
 let vcvtsi2sd ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
   let dst, src1, src2 = getThreeOprs ins
@@ -6026,6 +6051,45 @@ let vdivsd ins insAddr insLen ctxt =
 
 let vdivss ins insAddr insLen ctxt =
   vexedScalarFPBinOp ins insAddr insLen ctxt 32<rt> fdiv
+
+let vfmadd132sd ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (8)
+  let dst, src2, src3 = getThreeOprs ins
+  let _dstB , dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+  let src2 = transOprToExpr64 ins insAddr insLen ctxt src2
+  let src3 = transOprToExpr64 ins insAddr insLen ctxt src3
+  let tmp = tmpVar 64<rt>
+  startMark insAddr insLen builder
+  builder <! (tmp := fmul dstA src3)
+  builder <! (dstA := fadd tmp src2)
+  fillZeroHigh128 ctxt dst builder
+  endMark insAddr insLen builder
+
+let vfmadd213sd ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (8)
+  let dst, src2, src3 = getThreeOprs ins
+  let _dstB , dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+  let src2 = transOprToExpr64 ins insAddr insLen ctxt src2
+  let src3 = transOprToExpr64 ins insAddr insLen ctxt src3
+  let tmp = tmpVar 64<rt>
+  startMark insAddr insLen builder
+  builder <! (tmp := fmul dstA src2)
+  builder <! (dstA := fadd tmp src3)
+  fillZeroHigh128 ctxt dst builder
+  endMark insAddr insLen builder
+
+let vfmadd231sd ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (8)
+  let dst, src2, src3 = getThreeOprs ins
+  let _dstB , dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+  let src2 = transOprToExpr64 ins insAddr insLen ctxt src2
+  let src3 = transOprToExpr64 ins insAddr insLen ctxt src3
+  let tmp = tmpVar 64<rt>
+  startMark insAddr insLen builder
+  builder <! (tmp := fmul src2 src3)
+  builder <! (dstA := fadd dstA tmp)
+  fillZeroHigh128 ctxt dst builder
+  endMark insAddr insLen builder
 
 let vinserti128 ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
@@ -7701,6 +7765,11 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.VDIVSS -> vdivss ins insAddr insLen ctxt
   | Opcode.VDIVPD -> vdivpd ins insAddr insLen ctxt
   | Opcode.VDIVPS -> vdivps ins insAddr insLen ctxt
+  | Opcode.VCVTSD2SS -> vcvtsd2ss ins insAddr insLen ctxt
+  | Opcode.VCVTSS2SD -> vcvtss2sd ins insAddr insLen ctxt
+  | Opcode.VFMADD132SD -> vfmadd132sd ins insAddr insLen ctxt
+  | Opcode.VFMADD213SD -> vfmadd213sd ins insAddr insLen ctxt
+  | Opcode.VFMADD231SD -> vfmadd231sd ins insAddr insLen ctxt
   | Opcode.VMOVAPS -> vmovdqu ins insAddr insLen ctxt
   | Opcode.VMOVAPD -> vmovdqu ins insAddr insLen ctxt
   | Opcode.VMOVDDUP -> vmovddup ins insAddr insLen ctxt
