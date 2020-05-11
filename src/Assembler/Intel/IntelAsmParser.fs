@@ -214,7 +214,7 @@ type AsmParser (isa, baseAddr: Addr) =
   let statements = sepEndBy statement terminator .>> eof
 
   member __.Run assembly =
-    let st = { LabelMap = Map.empty; CurIndex = 0 }
+    let st = { LabelMap = Map.empty; CurIndex = -1 }
     match runParserOnString statements st "IntelAsm" assembly with
     | Success (result, us, _) ->
       filterInstructionLines result |> assemble us isa baseAddr

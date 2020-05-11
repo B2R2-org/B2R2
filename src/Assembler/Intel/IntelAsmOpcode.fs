@@ -203,7 +203,7 @@ let aas (ctxt: EncContext) = function
 
 let adc (ctxt: EncContext) ins =
   match ins.Operands with
-  (* Reg (fixed) - Imm (Priority 1). *)
+  (* Reg (fixed) - Imm (Priority 1) *)
   | TwoOperands (OprReg Register.AL, OprImm imm) ->
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x14uy |] imm 8<rt>
@@ -229,6 +229,8 @@ let adc (ctxt: EncContext) ins =
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x83uy |] r 0b010uy imm 8<rt>
   (* Mem - Imm (Priority 0) *)
+  | TwoOperands (Label _, OprImm imm) when isInt8 imm ->
+    encLI ctxt ins 0b010uy imm 8<rt> [||] [| 0x83uy |]
   | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) when isInt8 imm ->
     encMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x83uy |] b s d 0b010uy imm 8<rt>
@@ -1390,6 +1392,8 @@ let mov (ctxt: EncContext) ins =
     encMR ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexWAndMR [| 0x8Cuy |] b s d r
   (* Mem - Reg *)
+  | TwoOperands (Label _, OprReg r) ->
+    encRL ctxt ins r [| 0x88uy |] [| 0x89uy |]
   | TwoOperands (OprMem (b, s, d, 8<rt>), OprReg r) when isReg8 r ->
     encMR ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x88uy |] b s d r

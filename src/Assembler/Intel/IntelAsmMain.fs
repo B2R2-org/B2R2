@@ -237,17 +237,17 @@ let getOpByteOfIncomp relSz = function
   | _ -> Utils.futureFeature ()
 
 let computeDistance myIdx labelIdx maxLenArr =
-  let sIdx, count =
-    if myIdx >= labelIdx then labelIdx + 1, myIdx - labelIdx - 2
-    else myIdx + 1, labelIdx - myIdx - 2
-  Array.sub maxLenArr sIdx count
-  |> Array.reduce (+)
-  |> int64
+  let sIdx, count, sign =
+    if myIdx < labelIdx then myIdx + 1, labelIdx - myIdx - 1, id (* forward *)
+    else labelIdx, myIdx - labelIdx + 1, (~-) (* backward *)
+  match Array.sub maxLenArr sIdx count with
+  | [||] -> 0L
+  | arr -> Array.reduce (+) arr |> sign |> int64
 
 let computeAddr idx realLenArr =
-  Array.sub realLenArr 0 (idx - 1)
-  |> Array.reduce (+)
-  |> int64
+  match Array.sub realLenArr 0 idx with
+  | [||] -> 0L
+  | arr -> Array.reduce (+) arr |> int64
 
 let decideOp parserState maxLenArr myIdx (comp: _ []) =
   match comp.[0] with
@@ -281,15 +281,18 @@ let normalToByte = function
   | Normal b -> b
   | comp -> printfn "%A" comp; Utils.impossible ()
 
-let finalize parserState realLenArr baseAddr myIdx comp =
+let finalize arch parserState realLenArr baseAddr myIdx comp =
   match comp with
   | [| CompleteOp (_, OneOperand (Label lbl), bs); IncompLabel sz |] ->
     let labelIdx = Map.find lbl parserState.LabelMap
     let dist = computeDistance myIdx labelIdx realLenArr
     [| yield! bs; yield! concretizeLabel sz dist |]
-  | [| CompleteOp (_, TwoOperands (_, Label lbl), bs); IncompLabel sz |] ->
+  | [| CompleteOp (_, TwoOperands (_, Label lbl), bs); IncompLabel sz |]
+  | [| CompleteOp (_, TwoOperands (Label lbl, _), bs); IncompLabel sz |] ->
     let labelIdx = Map.find lbl parserState.LabelMap
-    let addr = computeAddr labelIdx realLenArr + int64 baseAddr
+    let addr =
+      if arch = Arch.IntelX86 then computeAddr labelIdx realLenArr + int64 baseAddr
+      else computeDistance myIdx labelIdx realLenArr + int64 baseAddr
     [| yield! bs; yield! concretizeLabel sz addr |]
   | _ -> comp |> Array.map normalToByte
 
@@ -300,6 +303,6 @@ let assemble parserState isa (baseAddr: Addr) (instrs: InsInfo list) =
   let components' = components |> List.mapi (decideOp parserState maxLenArr)
   let realLenArr = computeRealLen components'
   components'
-  |> List.mapi (finalize parserState realLenArr baseAddr)
+  |> List.mapi (finalize isa.Arch parserState realLenArr baseAddr)
 
 // vim: set tw=80 sts=2 sw=2:

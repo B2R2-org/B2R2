@@ -26,6 +26,7 @@ module B2R2.Utilities.Assembler
 
 open B2R2
 open B2R2.Assembler
+open B2R2.FrontEnd
 open System
 
 type AssemblerOpts (isa) =
@@ -107,13 +108,20 @@ let initAsmString (opts: AssemblerOpts) =
   if opts.InputStr.Length = 0 then IO.File.ReadAllText opts.InputFile
   else opts.InputStr
 
+let private disassembly isa addr bs =
+  let bCode =
+    bs |> Array.rev |> Array.fold (fun a (b: byte) -> b.ToString("X2") + a) ""
+  let handler = BinHandler.Init (isa, ByteArray.ofHexString bCode)
+  let ins = BinHandler.ParseInstr handler 0UL
+  printfn "%08x: %-20s     %s" addr bCode (ins.Disasm ())
+
 let asmMain _ (opts: AssemblerOpts) =
   if isInvalidCmdLine opts then cmdErrExit () else ()
   let assembler = AsmInterface (opts.ISA, opts.BaseAddress)
   initAsmString opts
   |> assembler.AssembleBin
   |> List.fold (fun addr bs ->
-    printf "%08x: " addr; bs |> Array.iter (printf "%02x"); printfn ""
+    disassembly opts.ISA addr bs
     addr + uint64 (Array.length bs)) opts.BaseAddress
   |> ignore
 

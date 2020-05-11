@@ -158,8 +158,8 @@ let encodeRexRXB isMR = function
   | NoOperand
   | OneOperand (Label _) | OneOperand (OprDirAddr _)
   | OneOperand (OprImm _)
-  | TwoOperands (OprReg _, Label _) | TwoOperands (Label _, OprReg _) // FIXME
-  | TwoOperands (OprMem (None, None, Some _, _), OprImm _) -> 0uy
+  | TwoOperands (OprMem (None, None, Some _, _), OprImm _)
+  | TwoOperands (Label _, OprImm _) -> 0uy
   | OneOperand (OprReg r) ->
     if isReg8 r then encodeRex r ||| encodeRexB r else encodeRexB r
   | OneOperand (OprMem (Some bReg, Some (s, _), _, _)) ->
@@ -173,7 +173,9 @@ let encodeRexRXB isMR = function
     if isReg8 r then encodeRex r ||| encodeRexB r else encodeRexB r
   | TwoOperands (OprMem (Some bReg, None, _, _), OprImm _) -> encodeRexB bReg
   | TwoOperands (OprMem (Some bReg, Some (s, _), _, _), OprImm _) ->
-    encodeRexX s ||| encodeRexB bReg
+    encodeRexR s ||| encodeRexB bReg
+  | TwoOperands (OprReg r, Label _) | TwoOperands (Label _, OprReg r) ->
+    encodeRexR r
   | ThreeOperands (OprReg r1, OprReg r2, OprImm _) ->
     encodeRexR r1 ||| encodeRexB r2
   | ThreeOperands (OprReg r, OprMem (Some bReg, Some (s, _), _, _), OprImm _) ->
