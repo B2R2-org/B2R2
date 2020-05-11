@@ -144,7 +144,7 @@ let handleRegularCFG req resp name (ess: BinEssence) cfgType =
   | None -> answer req resp None
   | Some addr ->
     try
-      let cfg, root = ess.SCFG.GetFunctionCFG (addr)
+      let cfg, root = ess.SCFG.GetFunctionCFG addr
       let s = cfgToJSON cfgType ess cfg [root]
       Some (defaultEnc.GetBytes s) |> answer req resp
     with e ->
@@ -224,7 +224,7 @@ let handleDataflow req resp arbiter (args: string) =
   let addr = args.[1] |> uint64
   let var = args.[2] |> ess.BinHandler.RegisterBay.RegIDFromString
   try
-    let cfg, root = ess.SCFG.GetFunctionCFG (entry)
+    let cfg, root = ess.SCFG.GetFunctionCFG entry
     let chain = DataFlowChain.init cfg root true
     let v = { ProgramPoint = ProgramPoint (addr, 0); VarExpr = Regular var }
     computeConnectedVars chain v

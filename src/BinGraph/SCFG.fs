@@ -27,6 +27,7 @@ namespace B2R2.BinGraph
 open B2R2
 open B2R2.BinCorpus
 open System.Collections.Generic
+open System.Runtime.InteropServices
 
 /// Raised when the given address is not a start address of a function.
 exception InvalidFunctionAddressException
@@ -74,64 +75,60 @@ type SCFG (hdl, app) =
     | true, v -> v
 
   /// Retrieve an IR-based CFG (subgraph) of a function starting at the given
-  /// address (addr) from the SCFG, and the root node.
-  member __.GetFunctionCFG (addr: Addr) =
+  /// address (addr) from the SCFG, and the root node. When the
+  /// preserveRecursiveEdge parameter is false, we create fake blocks for
+  /// recursive calls, which is useful for intra-procedural analyses.
+  member __.GetFunctionCFG (addr: Addr,
+                            [<Optional; DefaultParameterValue(true)>]
+                            preserveRecursiveEdge) =
     let newGraph = IRCFG ()
-    let vMap = new Dictionary<ProgramPoint, Vertex<IRBasicBlock>> ()
-    let rec loop parentVertex pos e =
-      let oldVertex = vertices.[pos]
-      let visited, curVertex = getCurrentVertex oldVertex pos e
-      addEdge parentVertex curVertex e
-      if visited || e = CallEdge then ()
-      else iterSuccessors oldVertex curVertex oldVertex.Succs
-    and getCurrentVertex oldVertex pos e =
-      match e, vMap.TryGetValue pos with
-      | CallEdge, (false, _) ->
-        let fake = IRBasicBlock([||], pos)
-        let v = newGraph.AddVertex fake
+    let vMap = Dictionary<ProgramPoint, Vertex<IRBasicBlock>> ()
+    let visited = HashSet<ProgramPoint> ()
+    let rec loop pos =
+      if visited.Contains pos then ()
+      else
+        visited.Add pos |> ignore
+        getVertex pos |> iterSuccessors vertices.[pos]
+    and getVertex pos =
+      let origVertex = vertices.[pos]
+      match vMap.TryGetValue pos with
+      | (false, _) ->
+        let v = newGraph.AddVertex origVertex.VData
         vMap.Add (pos, v)
-        false, v
-      | _, (false, _) ->
-        let v = newGraph.AddVertex oldVertex.VData
-        vMap.Add (pos, v)
-        false, v
-      | _, (true, v) -> true, v
-    and addEdge parentVertex curVertex e =
-      match parentVertex with
-      | None -> ()
-      | Some p when e = CallEdge ->
-        if curVertex.VData.PPoint.Address = addr then
-          newGraph.AddEdge p curVertex RecursiveCallEdge
-        else
-          newGraph.AddEdge p curVertex e
-          let last = p.VData.LastInstruction
-          let fallthrough = last.Address + uint64 last.Length
-          let fallPP = ProgramPoint (fallthrough, 0)
-          match app.CalleeMap.Find (curVertex.VData.PPoint.Address) with
-          | None -> raise VertexNotFoundException
-          | Some callee ->
-            if callee.IsNoReturn || (not <| vMap.ContainsKey fallPP) then ()
-            else
-              let falltarget = vMap.[fallPP]
-              newGraph.AddEdge curVertex falltarget RetEdge
-      | Some p -> newGraph.AddEdge p curVertex e
-    and iterSuccessors oldVertex curVertex succs =
-      let last = curVertex.VData.LastInstruction
-      let fallAddr = last.Address + uint64 last.Length
-      let succs = (* Make sure fall-through vertex comes first. *)
-        succs |> List.sortBy (fun s ->
-          if fallAddr = s.VData.PPoint.Address then -1 else 1)
-      match succs with
-      | [] -> ()
-      | succ :: tl ->
-        let succPos = succ.VData.PPoint
-        match g.FindEdgeData oldVertex succ with
-        | ExternalCallEdge | ExternalJmpEdge | RetEdge | ImplicitCallEdge -> ()
-        | e -> loop (Some curVertex) succPos e
-        iterSuccessors oldVertex curVertex tl
+        v
+      | (true, v) -> v
+    and iterSuccessors origVertex curVertex =
+      origVertex.Succs
+      |> List.iter (fun succ ->
+        g.FindEdgeData origVertex succ |> addEdge curVertex succ)
+    and addEdge parent child e =
+      match e with
+      | ExternalCallEdge | ExternalJmpEdge | RetEdge | ImplicitCallEdge -> ()
+      | CallEdge
+        when preserveRecursiveEdge && child.VData.PPoint.Address = addr ->
+        let child = getVertex child.VData.PPoint
+        newGraph.AddEdge parent child RecursiveCallEdge
+      | CallEdge | IndirectCallEdge ->
+        let last = parent.VData.LastInstruction
+        let fallPp = ProgramPoint (last.Address + uint64 last.Length, 0)
+        let childPp =
+          if child.VData.IsFakeBlock () then ProgramPoint.GetFake ()
+          else child.VData.PPoint
+        let fake = IRBasicBlock ([||], childPp)
+        let child = newGraph.AddVertex fake
+        newGraph.AddEdge parent child e
+        match app.CalleeMap.Find childPp.Address with
+        | Some callee when callee.IsNoReturn -> ()
+        | _ ->
+          let fall = getVertex fallPp
+          newGraph.AddEdge child fall RetEdge
+      | _ ->
+        let child = getVertex child.VData.PPoint
+        newGraph.AddEdge parent child e
+        loop child.VData.PPoint
     if app.CalleeMap.Contains addr then
       let rootPos = ProgramPoint (addr, 0)
-      loop None rootPos UnknownEdge
+      loop rootPos
       newGraph, vMap.[rootPos]
     else raise InvalidFunctionAddressException
 

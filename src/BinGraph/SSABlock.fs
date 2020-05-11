@@ -61,14 +61,14 @@ module SSABlockHelper =
   /// This is currently intra-procedural.
   let computeDefinedVars hdl (scfg: SCFG) addr =
     try
-      let g, _ = scfg.GetFunctionCFG addr
+      let g, _ = scfg.GetFunctionCFG (addr, false)
       let defs = g.FoldVertex defVarFolder Set.empty |> Set.toArray
       if Array.isEmpty defs then addDefaultDefs hdl
       else defs
     with _ -> [||]
 
 /// Basic block type for an SSA-based CFG (SSACFG).
-type SSABBlock (hdl, scfg, pp: ProgramPoint, instrs: InstructionInfo []) =
+type SSABBlock (hdl, scfg, pp: ProgramPoint, instrs, hasIndirectBranch: bool) =
   inherit BasicBlock ()
   let mutable stmts =
     if Array.isEmpty instrs then
@@ -77,7 +77,7 @@ type SSABBlock (hdl, scfg, pp: ProgramPoint, instrs: InstructionInfo []) =
         let src = { SSA.Kind = dst.Kind; SSA.Identifier = -1 }
         SSA.Def (dst, SSA.Return (pp.Address, src)))
     else
-      instrs
+      (instrs: InstructionInfo [])
       |> Array.map (fun i ->
         let wordSize = i.Instruction.WordSize |> WordSize.toRegType
         i.Stmts |> SSA.AST.translateStmts wordSize i.Instruction.Address)
@@ -98,6 +98,13 @@ type SSABBlock (hdl, scfg, pp: ProgramPoint, instrs: InstructionInfo []) =
     |> Array.map (fun stmt ->
       [| { AsmWordKind = AsmWordKind.String
            AsmWordValue = SSA.Pp.stmtToString stmt } |])
+
+  /// Does this block has indirect branch?
+  member __.HasIndirectBranch = hasIndirectBranch
+
+  /// Get the last statement of the bblock.
+  member __.GetLastStmt () =
+    stmts.[stmts.Length - 1]
 
   member __.Stmts with get () = stmts and set (v) = stmts <- v
 

@@ -46,22 +46,20 @@ with
     [ (LibcAnalysis () :> IPostAnalysis, "LibC analysis")
       (EVMCodeCopyAnalysis () :> IPostAnalysis, "EVM codecopy analysis")
       (NoReturnAnalysis () :> IPostAnalysis, "NoReturn analysis") ]
-    |> List.fold (fun app (analysis, name) ->
+    |> List.fold (fun (scfg, app) (analysis, name) ->
       printfn "[*] %s started." name
-      analysis.Run hdl scfg app) app
+      analysis.Run hdl scfg app) (scfg, app)
 
   static member private Analysis hdl app (scfg: SCFG) analyzers =
 #if DEBUG
     printfn "[*] Start post analysis."
 #endif
-    let app' = BinEssence.PostAnalysis hdl scfg { app with Modified = false }
+    let scfg', app' =
+      BinEssence.PostAnalysis hdl scfg { app with Modified = false }
     if not app'.Modified then
-#if DEBUG
-      printfn "[*] All done."
-#endif
       { BinHandler = hdl
         Apparatus = app'
-        SCFG = scfg }
+        SCFG = scfg' }
     else
 #if DEBUG
       printfn "[*] Go to the next phase ..."
@@ -70,6 +68,15 @@ with
       BinEssence.Analysis hdl app' scfg' analyzers
 
   static member Init hdl =
+#if DEBUG
+    let startTime = System.DateTime.Now
+#endif
     let app = Apparatus.init hdl
     let scfg = SCFG (hdl, app)
-    BinEssence.Analysis hdl app scfg []
+    let ess = BinEssence.Analysis hdl app scfg []
+#if DEBUG
+    let endTime = System.DateTime.Now
+    endTime.Subtract(startTime).TotalSeconds
+    |> printfn "[*] All done in %f sec."
+#endif
+    ess

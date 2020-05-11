@@ -87,6 +87,8 @@ type Apparatus = {
   LeaderInfos: Set<LeaderInfo>
   CallerMap: CallerMap
   CalleeMap: CalleeMap
+  /// Indirect branches' target addresses.
+  IndirectBranchMap: Map<Addr, Set<Addr>>
   /// This is a flag representing whether this Apparatus has been modified
   /// by our post analysis.
   Modified: bool
@@ -145,7 +147,7 @@ module Apparatus =
     { acc with FunctionAddrs = Set.add addr acc.FunctionAddrs }
 
   /// Fold all the statements to get the leaders, function positions, etc.
-  let private foldStmts hdl acc (KeyValue (_, i)) =
+  let private foldStmts hdl indMap acc (KeyValue (_, i)) =
     i.Stmts
     |> Array.fold (fun acc stmt ->
       match stmt with
@@ -176,7 +178,16 @@ module Apparatus =
         let addr = BitVector.toUInt64 addr
         if hdl.FileInfo.IsValidAddr addr then addAddrLeader addr i acc
         else acc
-      | InterJmp (_, _, InterJmpInfo.IsCall) (* indirect call *)
+      | InterJmp (_, _, InterJmpInfo.IsCall) -> (* indirect call *)
+        (* FIXME: we will have to handle newly found callees *)
+        let fallAddr = i.Instruction.Address + uint64 i.Instruction.Length
+        if hdl.FileInfo.IsValidAddr fallAddr then addAddrLeader fallAddr i acc
+        else acc
+      | InterJmp (_, _, _) ->
+        match Map.tryFind i.Instruction.Address indMap with
+        | None -> acc
+        | Some targets ->
+          targets |> Set.fold (fun acc target -> addAddrLeader target i acc) acc
       | SideEffect (SysCall)
       | SideEffect (Interrupt _) ->
         let fallAddr = i.Instruction.Address + uint64 i.Instruction.Length
@@ -195,19 +206,23 @@ module Apparatus =
     if oldCount <> instrMap.Count then findLeaders hdl acc instrMap foldStmts
     else struct (instrMap, acc)
 
-  let private initApparatus hdl auxEntries =
+  let private initApparatus hdl auxEntries auxLeaders indMap =
     let initial = getInitialEntryPoints hdl
     let leaders = auxEntries |> Seq.fold (fun set e -> Set.add e set) initial
-    let instrMap = InstrMap.build hdl leaders
+    let funcAddrs = leaders |> Seq.map (fun e -> e.Point.Address) |> Set.ofSeq
+    let leaders = auxLeaders |> Seq.fold (fun set e -> Set.add e set) leaders
     (* First, recursively parse all possible instructions. *)
-    let addrs = leaders |> Seq.map (fun e -> e.Point.Address) |> Set.ofSeq
-    let acc = { Labels = Map.empty; Leaders = leaders; FunctionAddrs = addrs }
+    let instrMap = InstrMap.build hdl leaders
+    let acc =
+      { Labels = Map.empty; Leaders = leaders; FunctionAddrs = funcAddrs }
+    let indMap = Option.defaultValue Map.empty indMap
 #if DEBUG
     printfn "[*] Loaded basic information."
 #endif
     (* Then, find all possible leaders by scanning lifted IRs. We need to do
        this at a IR-level because LowUIR may have intra-instruction branches. *)
-    let struct (instrMap, acc) = findLeaders hdl acc instrMap (foldStmts hdl)
+    let struct (instrMap, acc) =
+      findLeaders hdl acc instrMap (foldStmts hdl indMap)
     let calleeMap = CalleeMap.build hdl acc.FunctionAddrs instrMap
 #if DEBUG
     printfn "[*] The apparatus is ready to use."
@@ -215,20 +230,21 @@ module Apparatus =
     { InstrMap = instrMap
       LabelMap = acc.Labels
       LeaderInfos = acc.Leaders
+      IndirectBranchMap = indMap
       CallerMap = CallerMap.build calleeMap
       CalleeMap = calleeMap
       Modified = true }
 
   /// Create a binary apparatus from the given BinHandler.
   [<CompiledName("Init")>]
-  let init hdl = initApparatus hdl Seq.empty
+  let init hdl = initApparatus hdl Seq.empty Seq.empty None
 
   /// Update instruction info for the given binary apparatus based on the given
-  /// target addresses. Those addresses should represent a function entry point.
-  /// Regular branch destinations should not be handled here.
-  let update hdl app addrs =
-    if Seq.isEmpty addrs then app
-    else initApparatus hdl addrs
+  /// target addresses. Those addresses should represent either a function entry
+  /// point (entries) or a leader (leaders).
+  let update hdl app entries leaders =
+    if Seq.isEmpty entries && Seq.isEmpty leaders then app
+    else initApparatus hdl entries leaders (Some app.IndirectBranchMap)
 
   /// Return the list of function addresses from the Apparatus.
   let getFunctionAddrs app =
@@ -239,3 +255,18 @@ module Apparatus =
   let getInternalFunctions app =
     app.CalleeMap.Callees
     |> Seq.filter (fun c -> c.Addr.IsSome)
+
+  /// Add a resolved indirect branch target.
+  let addIndirectBranchTarget app fromAddr toAddr =
+    (* FIXME: check if the target is a callee. *)
+    match Map.tryFind fromAddr app.IndirectBranchMap with
+    | None ->
+      let set = Set.singleton toAddr
+      let map = Map.add fromAddr set app.IndirectBranchMap
+      { app with IndirectBranchMap = map; Modified = true }
+    | Some targets ->
+      let modified =
+        if Set.contains toAddr targets then app.Modified else true
+      let targets' = Set.add toAddr targets
+      let map = Map.add fromAddr targets' app.IndirectBranchMap
+      { app with IndirectBranchMap = map; Modified = modified }

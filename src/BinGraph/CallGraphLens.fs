@@ -31,10 +31,12 @@ open B2R2.BinGraph
 open System.Collections.Generic
 
 /// Basic block type for a call graph (CallCFG).
-type CallGraphBBlock (addr, id, isFake, isExternal) =
+type CallGraphBBlock (addr, id, name, isFake, isExternal) =
   inherit BasicBlock ()
 
   member __.ID with get () = id
+
+  member __.Name with get () = name
 
   member __.IsExternal with get () = isExternal
 
@@ -68,8 +70,9 @@ type CallGraphLens (scfg: SCFG) =
       | None -> None
       | Some callee ->
         let id = callee.CalleeID
+        let name = callee.CalleeName
         let ext = callee.CalleeKind = ExternalCallee
-        let v = (g: CallCFG).AddVertex (CallGraphBBlock (addr, id, fake, ext))
+        let v = (g: CallCFG).AddVertex (CallGraphBBlock (addr, id, name, fake, ext))
         vMap.Add (addr, v)
         Some v
     | true, v -> Some v

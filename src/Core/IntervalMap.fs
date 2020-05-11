@@ -70,7 +70,7 @@ module IntervalMap =
       match Op.ViewL v with
       | Nil -> []
       | Cons (x, xs) -> x :: matches xs
-    Op.TakeUntil (fun (elt: InterMonoid<Addr>) -> Key ih < elt.GetMin ()) m
+    Op.TakeUntil (fun (elt: InterMonoid<Addr>) -> Key ih <= elt.GetMin ()) m
     |> matches
 
   /// Find exactly matching interval.
@@ -124,6 +124,12 @@ module IntervalMap =
         else raise InvalidAddrRangeException
     IntervalMap <| replaceLoop l r
 
+  /// Add a new mapping to the IntervalMap when there is no exactly matching
+  /// interval. If there is, replace the mapping with the new value.
+  let addOrReplace (i: AddrRange) (v: 'a) m =
+    if contains i m then replace i v m
+    else add i v m
+
   /// Remove the exactly matched interval from the map.
   let remove (i: AddrRange) (IntervalMap m) =
     let l, r =
@@ -142,5 +148,8 @@ module IntervalMap =
   /// Fold the map.
   let fold fn acc (IntervalMap m) =
     foldl (fun acc (elt: IntervalMapElem<'a>) -> fn acc elt.Key elt.Val) acc m
+
+  /// Iterate the map.
+  let iter fn m = fold (fun _ range elt -> fn range elt) () m
 
 // vim: set tw=80 sts=2 sw=2:

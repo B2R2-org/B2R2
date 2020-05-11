@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinGraph
+namespace B2R2.MiddleEnd
 
 open B2R2
 open B2R2.BinIR
@@ -30,7 +30,8 @@ open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
 open B2R2.BinCorpus
 open B2R2.ConcEval
-open B2R2.BinGraph.EmulationHelper
+open B2R2.BinGraph
+open B2R2.MiddleEnd.EmulationHelper
 
 module private LibcAnalysisHelper =
 
@@ -51,9 +52,8 @@ module private LibcAnalysisHelper =
       |> function
         | [] -> app
         | addrs ->
-          addrs
-          |> List.map (fun addr -> LeaderInfo.Init (hdl, addr))
-          |> Apparatus.update hdl app
+          let entries = addrs |> List.map (fun a -> LeaderInfo.Init (hdl, a))
+          Apparatus.update hdl app entries Seq.empty
     | Undef -> app
 
   let retrieveAddrsForx64 hdl app st =
@@ -67,9 +67,8 @@ module private LibcAnalysisHelper =
     |> function
       | [] -> app
       | addrs ->
-        addrs
-        |> List.map (fun addr -> LeaderInfo.Init (hdl, addr))
-        |> Apparatus.update hdl app
+        let entries = addrs |> List.map (fun a -> LeaderInfo.Init (hdl, a))
+        Apparatus.update hdl app entries Seq.empty
 
   let retrieveLibcStartAddresses hdl app = function
     | None -> app
@@ -101,8 +100,8 @@ module private LibcAnalysisHelper =
 
   let recoverLibcEntries hdl scfg app =
     match hdl.FileInfo.FileFormat with
-    | FileFormat.ELFBinary -> recoverAddrsFromLibcStartMain hdl scfg app
-    | _ -> app
+    | FileFormat.ELFBinary -> scfg, recoverAddrsFromLibcStartMain hdl scfg app
+    | _ -> scfg, app
 
 type LibcAnalysis () =
   interface IPostAnalysis with
@@ -132,12 +131,12 @@ type EVMCodeCopyAnalysis () =
       | None -> app
       | Some leader ->
         match app.CalleeMap.Find leader.Point.Address with
-        | None -> Apparatus.update hdl app [leader]
+        | None -> Apparatus.update hdl app [ leader ] Seq.empty
         | Some _ -> app) app
 
   interface IPostAnalysis with
-    member __.Run hdl _scfg app =
+    member __.Run hdl scfg app =
       match hdl.FileInfo.ISA.Arch with
-      | Architecture.EVM -> recoverCopiedCode hdl app
-      | _ -> app
+      | Architecture.EVM -> scfg, recoverCopiedCode hdl app
+      | _ -> scfg, app
 

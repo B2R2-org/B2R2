@@ -33,6 +33,13 @@ open B2R2.BinCorpus
 type IRBasicBlock (instrs: InstructionInfo [], point: ProgramPoint) =
   inherit BasicBlock()
 
+  let mutable hasIndirectBranch = false
+
+  /// Does this block has indirect branch? This flag will be set after building
+  /// an SCFG.
+  member __.HasIndirectBranch
+    with get () = hasIndirectBranch and set (v) = hasIndirectBranch <- v
+
   /// The first instruction of the basic block.
   member __.FirstInstruction =
     if Array.isEmpty instrs then raise DummyDataAccessException

@@ -29,11 +29,14 @@ open B2R2
 /// A graph lens for obtaining SSACFG.
 type SSALens (hdl, scfg) =
   let getVertex g (vMap: SSAVMap) (oldSrc: Vertex<IRBasicBlock>) =
-    let pos = oldSrc.VData.PPoint
+    let vData = oldSrc.VData
+    let pos = vData.PPoint
     match vMap.TryGetValue pos with
     | false, _ ->
-      let instrs = oldSrc.VData.GetInsInfos ()
-      let v = (g: SSACFG).AddVertex (SSABBlock (hdl, scfg, pos, instrs))
+      let instrs = vData.GetInsInfos ()
+      let hasIndBranch = vData.HasIndirectBranch
+      let v =
+        (g: SSACFG).AddVertex (SSABBlock (hdl, scfg, pos, instrs, hasIndBranch))
       vMap.Add (pos, v)
       v
     | true, v -> v
@@ -42,7 +45,7 @@ type SSALens (hdl, scfg) =
     let pos = (srcPos, dstPos)
     match fMap.TryGetValue pos with
     | false, _ ->
-      let v = (g: SSACFG).AddVertex (SSABBlock (hdl, scfg, srcPos, [||]))
+      let v = (g: SSACFG).AddVertex (SSABBlock (hdl, scfg, srcPos, [||], false))
       fMap.Add (pos, v)
       v
     | true, v -> v
@@ -75,7 +78,8 @@ type SSALens (hdl, scfg) =
       let defSites = DefSites ()
       let roots = convertToSSA g ssaCFG vMap fMap roots
       let root = List.head roots
-      ssaCFG.FindVertexBy (fun v -> v.VData.PPoint = root.VData.PPoint)
+      ssaCFG.FindVertexBy (fun v ->
+        v.VData.PPoint = root.VData.PPoint && not <| v.VData.IsFakeBlock ())
       |> SSAUtils.computeFrontiers ssaCFG
       |> SSAUtils.placePhis vMap fMap defSites
       |> SSAUtils.renameVars defSites

@@ -125,10 +125,10 @@ let private stmtToStringAux stmt (sb: StringBuilder) =
     labelToString lbl1 sb
     sb.Append (" else JmpLbl ") |> ignore
     labelToString lbl2 sb
-  | Jmp (InterJmp (_, dst)) ->
+  | Jmp (InterJmp (dst)) ->
     sb.Append ("Jmp ") |> ignore
     expToStringAux dst sb
-  | Jmp (InterCJmp (cond, _, dst1, dst2)) ->
+  | Jmp (InterCJmp (cond, dst1, dst2)) ->
     sb.Append ("if ") |> ignore
     expToStringAux cond sb
     sb.Append (" then Jmp ") |> ignore
