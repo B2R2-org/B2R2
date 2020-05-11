@@ -8,6 +8,7 @@
     <Compile Include="EmulationHelper.fs" />
     <Compile Include="DisasHeuristic.fs" />
     <Compile Include="NoReturn.fs" />
+    <Compile Include="ConditionRetriever.fs" />
     <Compile Include="BinEssence.fs" />
   </ItemGroup>
 
