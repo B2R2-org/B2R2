@@ -121,18 +121,16 @@ type CFGTest1 () =
     let cfg, _ = ess.SCFG.GetFunctionCFG 0x00UL
     Assert.AreEqual (9, cfg.Size ())
     let vMap = cfg.FoldVertex Utils.foldVertexNoFake Map.empty
-    Assert.AreEqual (7, vMap.Count)
+    Assert.AreEqual (6, vMap.Count)
     let leaders =
       [| ProgramPoint (0x00UL, 0); ProgramPoint (0x19UL, 0);
          ProgramPoint (0x3FUL, 0); ProgramPoint (0x48UL, 0);
-         ProgramPoint (0x52UL, 0); ProgramPoint (0x55UL, 0);
-         ProgramPoint (0x5FUL, 0) |]
+         ProgramPoint (0x52UL, 0); ProgramPoint (0x55UL, 0); |]
     let actual = leaders |> Array.map (fun l -> (Map.find l vMap).VData.Range)
     let expected =
       [| AddrRange (0x00UL, 0x19UL); AddrRange (0x19UL, 0x3FUL);
          AddrRange (0x3FUL, 0x48UL); AddrRange (0x48UL, 0x52UL);
-         AddrRange (0x52UL, 0x55UL); AddrRange (0x55UL, 0x5FUL);
-         AddrRange (0x5FUL, 0x62UL) |]
+         AddrRange (0x52UL, 0x55UL); AddrRange (0x55UL, 0x5FUL); |]
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
@@ -142,20 +140,18 @@ type CFGTest1 () =
     let leaders =
       [| ProgramPoint (0x00UL, 0); ProgramPoint (0x19UL, 0);
          ProgramPoint (0x3FUL, 0); ProgramPoint (0x48UL, 0);
-         ProgramPoint (0x52UL, 0); ProgramPoint (0x55UL, 0);
-         ProgramPoint (0x5FUL, 0) |]
+         ProgramPoint (0x52UL, 0); ProgramPoint (0x55UL, 0); |]
     let vertices = leaders |> Array.map (fun l -> Map.find l vMap)
     let eMap = cfg.FoldEdge Utils.foldEdge Map.empty
-    Assert.AreEqual (12, eMap.Count)
+    Assert.AreEqual (11, eMap.Count)
     let eMap = cfg.FoldEdge Utils.foldEdgeNoFake Map.empty
-    Assert.AreEqual (7, eMap.Count)
+    Assert.AreEqual (6, eMap.Count)
     [ ProgramPoint (0x00UL, 0), ProgramPoint (0x19UL, 0);
       ProgramPoint (0x19UL, 0), ProgramPoint (0x3FUL, 0);
       ProgramPoint (0x19UL, 0), ProgramPoint (0x48UL, 0);
       ProgramPoint (0x3FUL, 0), ProgramPoint (0x55UL, 0);
       ProgramPoint (0x48UL, 0), ProgramPoint (0x52UL, 0);
-      ProgramPoint (0x52UL, 0), ProgramPoint (0x55UL, 0);
-      ProgramPoint (0x55UL, 0), ProgramPoint (0x5FUL, 0); ]
+      ProgramPoint (0x52UL, 0), ProgramPoint (0x55UL, 0); ]
     |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x eMap)
     let actual =
       [| cfg.FindEdgeData vertices.[0] vertices.[1]
@@ -163,12 +159,10 @@ type CFGTest1 () =
          cfg.FindEdgeData vertices.[1] vertices.[3]
          cfg.FindEdgeData vertices.[2] vertices.[5]
          cfg.FindEdgeData vertices.[3] vertices.[4]
-         cfg.FindEdgeData vertices.[4] vertices.[5]
-         cfg.FindEdgeData vertices.[5] vertices.[6] |]
+         cfg.FindEdgeData vertices.[4] vertices.[5] |]
     let expected =
       [| CallFallThroughEdge; InterCJmpFalseEdge; InterCJmpTrueEdge;
-         InterJmpEdge; CallFallThroughEdge; FallThroughEdge;
-         CallFallThroughEdge |]
+         InterJmpEdge; CallFallThroughEdge; FallThroughEdge; |]
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
@@ -216,7 +210,7 @@ type CFGTest1 () =
     let cfg, root = ess.SCFG.GetFunctionCFG 0x0UL
     let lens = SSALens.Init hdl ess.SCFG
     let ssacfg, _ = lens.Filter cfg [root] ess.Apparatus
-    Assert.AreEqual (10, ssacfg.Size ())
+    Assert.AreEqual (9, ssacfg.Size ())
 
 [<TestClass>]
 type CFGTest2 () =

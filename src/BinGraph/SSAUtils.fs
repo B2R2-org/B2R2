@@ -119,11 +119,9 @@ let renameJmp stack = function
   | SSA.IntraJmp _ -> ()
   | SSA.IntraCJmp (expr, _, _) ->
     renameExpr stack expr
-  | SSA.InterJmp (pc, expr) ->
-    renameDest stack pc
+  | SSA.InterJmp (expr) ->
     renameExpr stack expr
-  | SSA.InterCJmp (cond, def, target1, target2) ->
-    renameDest stack def
+  | SSA.InterCJmp (cond, target1, target2) ->
     renameExpr stack cond
     renameExpr stack target1
     renameExpr stack target2

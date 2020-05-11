@@ -128,3 +128,71 @@ let syscallArgRegister handler num =
     | 6 -> MIPS.Register.R9 |> MIPS.Register.toRegID
     | _ -> Utils.impossible ()
   | _ -> Utils.futureFeature ()
+
+[<CompiledName("IsNonVolatile")>]
+let isNonVolatile handler rid =
+  match handler.FileInfo.FileFormat, handler.ISA.Arch with
+  | FileFormat.ELFBinary, Arch.IntelX86 -> (* CDECL *)
+    rid = (Intel.Register.EBP |> Intel.Register.toRegID)
+    || rid = (Intel.Register.EBX |> Intel.Register.toRegID)
+    || rid = (Intel.Register.ESI |> Intel.Register.toRegID)
+    || rid = (Intel.Register.EDI |> Intel.Register.toRegID)
+  | FileFormat.ELFBinary, Arch.IntelX64 -> (* CDECL *)
+    rid = (Intel.Register.RBX |> Intel.Register.toRegID)
+    || rid = (Intel.Register.RSP |> Intel.Register.toRegID)
+    || rid = (Intel.Register.RBP |> Intel.Register.toRegID)
+    || rid = (Intel.Register.R12 |> Intel.Register.toRegID)
+    || rid = (Intel.Register.R13 |> Intel.Register.toRegID)
+    || rid = (Intel.Register.R14 |> Intel.Register.toRegID)
+    || rid = (Intel.Register.R15 |> Intel.Register.toRegID)
+  | FileFormat.ELFBinary, Arch.ARMv7 -> (* EABI *)
+    rid = (ARM32.Register.R4 |> ARM32.Register.toRegID)
+    || rid = (ARM32.Register.R5 |> ARM32.Register.toRegID)
+    || rid = (ARM32.Register.R6 |> ARM32.Register.toRegID)
+    || rid = (ARM32.Register.R7 |> ARM32.Register.toRegID)
+    || rid = (ARM32.Register.R8 |> ARM32.Register.toRegID)
+    || rid = (ARM32.Register.SL |> ARM32.Register.toRegID)
+    || rid = (ARM32.Register.FP |> ARM32.Register.toRegID)
+  | FileFormat.ELFBinary, Arch.AARCH64 -> (* EABI *)
+    rid = (ARM64.Register.X19 |> ARM64.Register.toRegID)
+    || rid = (ARM64.Register.X20 |> ARM64.Register.toRegID)
+    || rid = (ARM64.Register.X21 |> ARM64.Register.toRegID)
+    || rid = (ARM64.Register.X22 |> ARM64.Register.toRegID)
+    || rid = (ARM64.Register.X23 |> ARM64.Register.toRegID)
+    || rid = (ARM64.Register.X24 |> ARM64.Register.toRegID)
+    || rid = (ARM64.Register.X25 |> ARM64.Register.toRegID)
+    || rid = (ARM64.Register.X26 |> ARM64.Register.toRegID)
+    || rid = (ARM64.Register.X27 |> ARM64.Register.toRegID)
+    || rid = (ARM64.Register.X28 |> ARM64.Register.toRegID)
+    || rid = (ARM64.Register.X29 |> ARM64.Register.toRegID)
+  | FileFormat.ELFBinary, Arch.MIPS1
+  | FileFormat.ELFBinary, Arch.MIPS2
+  | FileFormat.ELFBinary, Arch.MIPS3
+  | FileFormat.ELFBinary, Arch.MIPS32
+  | FileFormat.ELFBinary, Arch.MIPS32R2
+  | FileFormat.ELFBinary, Arch.MIPS32R6
+  | FileFormat.ELFBinary, Arch.MIPS4
+  | FileFormat.ELFBinary, Arch.MIPS5
+  | FileFormat.ELFBinary, Arch.MIPS64
+  | FileFormat.ELFBinary, Arch.MIPS64R2
+  | FileFormat.ELFBinary, Arch.MIPS64R6 ->
+    rid = (MIPS.Register.R16 |> MIPS.Register.toRegID)
+    || rid = (MIPS.Register.R17 |> MIPS.Register.toRegID)
+    || rid = (MIPS.Register.R18 |> MIPS.Register.toRegID)
+    || rid = (MIPS.Register.R19 |> MIPS.Register.toRegID)
+    || rid = (MIPS.Register.R20 |> MIPS.Register.toRegID)
+    || rid = (MIPS.Register.R21 |> MIPS.Register.toRegID)
+    || rid = (MIPS.Register.R22 |> MIPS.Register.toRegID)
+    || rid = (MIPS.Register.R23 |> MIPS.Register.toRegID)
+    || rid = (MIPS.Register.R30 |> MIPS.Register.toRegID)
+  | FileFormat.PEBinary, Arch.IntelX64 -> (* Microsoft x64 *)
+    rid = (Intel.Register.RBX |> Intel.Register.toRegID)
+    || rid = (Intel.Register.RSP |> Intel.Register.toRegID)
+    || rid = (Intel.Register.RBP |> Intel.Register.toRegID)
+    || rid = (Intel.Register.RDI |> Intel.Register.toRegID)
+    || rid = (Intel.Register.RSI |> Intel.Register.toRegID)
+    || rid = (Intel.Register.R12 |> Intel.Register.toRegID)
+    || rid = (Intel.Register.R13 |> Intel.Register.toRegID)
+    || rid = (Intel.Register.R14 |> Intel.Register.toRegID)
+    || rid = (Intel.Register.R15 |> Intel.Register.toRegID)
+  | _ -> false (* FIXME *)

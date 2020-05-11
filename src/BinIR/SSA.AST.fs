@@ -51,8 +51,7 @@ let rec translateExpr = function
   | LowUIR.BinOp (op, ty, e1, e2, _, _) ->
     BinOp (op, ty, translateExpr e1, translateExpr e2)
   | LowUIR.RelOp (op, e1, e2, _, _) ->
-    let ty = LowUIR.TypeCheck.typeOf e1
-    RelOp (op, ty, translateExpr e1, translateExpr e2)
+    RelOp (op, 1<rt>, translateExpr e1, translateExpr e2)
   | LowUIR.Load (_, ty, e, _, _) ->
     Load ({ Kind = MemVar; Identifier = -1 }, ty, translateExpr e)
   | LowUIR.Ite (e1, e2, e3, _, _) ->
@@ -94,17 +93,15 @@ let rec internal translateStmtAux defaultRegType addr = function
     let label2 = translateLabel addr label2
     let jmp = IntraCJmp (expr, label1, label2)
     Jmp jmp |> Some
-  | LowUIR.InterJmp (pc, expr, _) ->
-    let pc = translateDest pc
+  | LowUIR.InterJmp (_, expr, _) ->
     let expr = translateExpr expr
-    let jmp = InterJmp (pc, expr)
+    let jmp = InterJmp (expr)
     Jmp jmp |> Some
-  | LowUIR.InterCJmp (expr1, pc, expr2, expr3) ->
-    let pc = translateDest pc
+  | LowUIR.InterCJmp (expr1, _, expr2, expr3) ->
     let expr1 = translateExpr expr1
     let expr2 = translateExpr expr2
     let expr3 = translateExpr expr3
-    let jmp = InterCJmp (expr1, pc, expr2, expr3)
+    let jmp = InterCJmp (expr1, expr2, expr3)
     Jmp jmp |> Some
   | LowUIR.SideEffect s ->
     SideEffect s |> Some

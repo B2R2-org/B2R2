@@ -31,4 +31,4 @@ open B2R2.BinCorpus
 /// analysis includes no-return analysis, libc start address analysis,
 /// switch-case analysis, etc.
 type IPostAnalysis =
-  abstract Run: BinHandler -> SCFG -> Apparatus -> Apparatus
+  abstract Run: BinHandler -> SCFG -> Apparatus -> SCFG * Apparatus

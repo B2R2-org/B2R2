@@ -49,6 +49,11 @@ with
   static member toString ({ Kind = k; Identifier = i }) =
     VariableKind.toString k + "_" + i.ToString ()
 
+  static member IsPC ({ Kind = k }) =
+    match k with
+    | PCVar (_) -> true
+    | _ -> false
+
 /// Basic expressions similar to LowUIR.Expr.
 type Expr =
   /// A number. For example, (0x42:I32) is a 32-bit number 0x42
@@ -110,11 +115,15 @@ type Expr =
 type Label = Addr * Symbol
 
 type JmpType =
-  (* We directly show jump destination label instread of wrapping with Expr *)
+  /// Jump to a label.
   | IntraJmp of Label
+  /// Conditional jump to a label.
   | IntraCJmp of Expr * Label * Label
-  | InterJmp of Variable * Expr
-  | InterCJmp of Expr * Variable * Expr * Expr
+  /// Jump to another instruction. The Expr is the jump address.
+  | InterJmp of Expr
+  /// Conditional jump. The first Expr is the condition, and the second and the
+  /// third Expr refer to true and false branch addresses, respectively.
+  | InterCJmp of Expr * Expr * Expr
 
 /// IR Statements.
 type Stmt =

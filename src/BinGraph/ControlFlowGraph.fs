@@ -42,9 +42,15 @@ type ControlFlowGraph<'V, 'E when 'V :> BasicBlock and 'V: equality> () =
 
   member __.SubGraph vs =
     let g = ControlFlowGraph<'V, 'E> ()
-    Set.iter (fun (v: Vertex<'V>) -> g.AddVertex v.VData |> ignore) vs
+    let vMap =
+      vs
+      |> Set.fold (fun acc (v: Vertex<'V>) ->
+        let v' = g.AddVertex v.VData
+        Map.add v v' acc) Map.empty
     __.IterEdge (fun src dst e ->
       if Set.contains src vs && Set.contains dst vs then
+        let src = Map.find src vMap
+        let dst = Map.find dst vMap
         g.AddEdge src dst e)
     g
 

@@ -37,3 +37,9 @@ val syscallNumRegister: BinHandler -> RegisterID
 /// Obtain the register ID used for the nth syscall parameter.
 [<CompiledName("SyscallArgRegister")>]
 val syscallArgRegister: BinHandler -> int -> RegisterID
+
+/// Check if the given register is non-volatile register in the given binary.
+/// Non-volatile registers are preserved by callee, i.e., callee-saved
+/// registers.
+[<CompiledName("IsNonVolatile")>]
+val isNonVolatile: BinHandler -> RegisterID -> bool

@@ -22,11 +22,12 @@
   SOFTWARE.
 *)
 
-module B2R2.BinGraph.EmulationHelper
+module B2R2.MiddleEnd.EmulationHelper
 
 open B2R2
 open B2R2.FrontEnd
 open B2R2.ConcEval
+open B2R2.BinGraph
 open System.Collections.Generic
 
 let defZero t = Def (BitVector.zero t)

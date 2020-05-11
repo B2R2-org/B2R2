@@ -121,11 +121,11 @@ module CalleeMap =
     | Some target ->
       orElse {
         yield!
-          if Set.contains target funcs |> not then None
-          else Some (obtainFuncIDAndName hdl target, InternalCallee)
-        yield!
           Map.tryFind target linkMap
           |> Option.map (fun n -> (n, n), ExternalCallee)
+        yield!
+          if Set.contains target funcs |> not then None
+          else Some (obtainFuncIDAndName hdl target, InternalCallee)
       } |> Option.map (fun ((id, n), kind) -> id, n, Some target, kind)
     | _ -> None
 
