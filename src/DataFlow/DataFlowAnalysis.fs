@@ -74,8 +74,8 @@ type DataFlowAnalysis<'L, 'V when 'L: equality
   /// Meet operation of the lattice.
   abstract Meet: 'L -> 'L -> 'L
 
-  /// The bottom of the lattice.
-  abstract Bottom: 'L
+  /// The top of the lattice.
+  abstract Top: 'L
 
   /// The initial worklist queue. This should be a topologically sorted list to
   /// be efficient.
@@ -88,8 +88,8 @@ type DataFlowAnalysis<'L, 'V when 'L: equality
   member private __.InitInsOuts (root: Vertex<'V>) =
     Traversal.iterPreorder root (fun v ->
       let blkid = v.GetID ()
-      outs.[blkid] <- __.Bottom
-      ins.[blkid] <- __.Bottom)
+      outs.[blkid] <- __.Top
+      ins.[blkid] <- __.Top)
 
   /// Compute data-flow with the iterative worklist algorithm.
   member __.Compute (root: Vertex<'V>) =
@@ -100,7 +100,7 @@ type DataFlowAnalysis<'L, 'V when 'L: equality
       let blkid = blk.GetID ()
       ins.[blkid] <-
         neighbor blk
-        |> List.fold (fun eff v -> __.Meet eff outs.[v.GetID()]) __.Bottom
+        |> List.fold (fun eff v -> __.Meet eff outs.[v.GetID()]) __.Top
       let outeffect = __.Transfer ins.[blkid] blk
       if outs.[blkid] <> outeffect then
         outs.[blkid] <- outeffect

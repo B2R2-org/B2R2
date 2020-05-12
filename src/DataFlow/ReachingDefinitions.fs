@@ -78,7 +78,7 @@ type ReachingDefinitions (cfg: IRCFG) as this =
 
   override __.Meet a b = Set.union a b
 
-  override __.Bottom = Set.empty
+  override __.Top = Set.empty
 
   override __.Worklist root =
     let q = Queue<Vertex<IRBasicBlock>> ()
