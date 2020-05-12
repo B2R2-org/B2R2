@@ -32,6 +32,7 @@ open System.Collections.Generic
 type VarExpr =
   | Regular of RegisterID
   | Temporary of int
+  | Memory of Addr
 
 /// Program point of a defined variable.
 type VarPoint = {
