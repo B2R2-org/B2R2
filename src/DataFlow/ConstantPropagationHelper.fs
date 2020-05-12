@@ -30,7 +30,12 @@ open B2R2.BinIR.LowUIR
 
 let rec evalExpr st = function
   | Num bv -> Const bv, st
-  | Var (_, rid, _, _) -> Map.find (Regular rid) st, st
+  | Var (_, rid, _, _) ->
+    match Map.tryFind (Regular rid) st with
+    | Some c -> c, st
+    | None ->
+      let st = Map.add (Regular rid) NotAConst st
+      NotAConst, st
   | TempVar (_, n) -> Map.find (Temporary n) st, st
   | UnOp (op, e, _, _) ->
     let c, st = evalExpr st e
