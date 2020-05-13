@@ -22,36 +22,28 @@
   SOFTWARE.
 *)
 
-namespace B2R2.DataFlow
+namespace B2R2.DataFlow.ConstantPropagation
 
 open B2R2
 open B2R2.BinGraph
 open B2R2.BinIR.LowUIR
+open B2R2.DataFlow
 open System.Collections.Generic
 
-type ConstantPropagation () =
-  inherit DataFlowAnalysis<Map<VarExpr, Constant>, IRBasicBlock> (Forward)
+type ConstantPropagation (hdl) =
+  inherit DataFlowAnalysis<CPState, SSABBlock> (Forward)
 
   override __.Meet a b =
-    a
-    |> Map.fold (fun acc vp c ->
-      match Map.tryFind vp acc with
-      | Some c' ->
-        let c = Constant.join c c'
-        Map.add vp c acc
-      | None -> Map.add vp c acc) b
+    CPState.meet a b
 
-  override __.Top = Map.empty
+  override __.Top = CPState.top hdl
 
   override __.Worklist root =
-    let q = Queue<Vertex<IRBasicBlock>> ()
+    let q = Queue<Vertex<SSABBlock>> ()
     Traversal.iterRevPostorder root q.Enqueue
     q
 
   override __.Transfer i v =
     let ppoint = v.VData.PPoint
-    v.VData.GetIRStatements ()
-    |> Array.fold (fun acc stmts ->
-      stmts
-      |> Array.fold ConstantPropagationHelper.evalStmt acc) (ppoint, i)
-    |> snd
+    v.VData.Stmts
+    |> Array.fold (Transfer.evalStmt hdl v) i

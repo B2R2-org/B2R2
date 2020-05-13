@@ -9,9 +9,10 @@
     <Compile Include="ReachingDefinitions.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="Chains.fs" />
-    <Compile Include="Constant.fs" />
-    <Compile Include="ConstantPropagationHelper.fs" />
-    <Compile Include="ConstantPropagation.fs" />
+    <Compile Include="ConstantPropagation\Constant.fs" />
+    <Compile Include="ConstantPropagation\State.fs" />
+    <Compile Include="ConstantPropagation\Transfer.fs" />
+    <Compile Include="ConstantPropagation\ConstantPropagation.fs" />
   </ItemGroup>
 
   <ItemGroup>

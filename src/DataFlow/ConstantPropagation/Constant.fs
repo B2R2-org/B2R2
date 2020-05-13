@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.DataFlow
+namespace B2R2.DataFlow.ConstantPropagation
 
 open B2R2
 
@@ -33,7 +33,7 @@ type Constant =
 
 module Constant =
 
-  let join c1 c2 =
+  let meet c1 c2 =
     match c1, c2 with
     | Undef, c | c, Undef -> c
     | Const bv1, Const bv2 -> if bv1 = bv2 then Const bv1 else NotAConst
@@ -107,7 +107,7 @@ module Constant =
     match c1 with
     | Undef -> Undef
     | Const bv -> if BitVector.isZero bv then c3 else c2
-    | NotAConst -> join c2 c3
+    | NotAConst -> meet c2 c3
 
   let cast op rt c =
     unOp (fun bv -> op bv rt) c
