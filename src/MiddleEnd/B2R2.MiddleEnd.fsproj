@@ -9,12 +9,14 @@
     <Compile Include="DisasHeuristic.fs" />
     <Compile Include="NoReturn.fs" />
     <Compile Include="ConditionRetriever.fs" />
+    <Compile Include="Switch.fs" />
     <Compile Include="BinEssence.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\FrontEnd\Library\B2R2.FrontEnd.Library.fsproj" />
     <ProjectReference Include="..\BinGraph\B2R2.BinGraph.fsproj" />
+    <ProjectReference Include="..\DataFlow\B2R2.DataFlow.fsproj" />
   </ItemGroup>
 
 </Project>
