@@ -30,7 +30,7 @@ open B2R2.BinIR.LowUIR
 open B2R2.DataFlow
 open System.Collections.Generic
 
-type ConstantPropagation (hdl) =
+type ConstantPropagation (hdl, ssaCFG) =
   inherit DataFlowAnalysis<CPState, SSABBlock> (Forward)
 
   override __.Meet a b =
@@ -46,4 +46,4 @@ type ConstantPropagation (hdl) =
   override __.Transfer i v =
     let ppoint = v.VData.PPoint
     v.VData.Stmts
-    |> Array.fold (Transfer.evalStmt hdl v) i
+    |> Array.fold (Transfer.evalStmt hdl ssaCFG v) i

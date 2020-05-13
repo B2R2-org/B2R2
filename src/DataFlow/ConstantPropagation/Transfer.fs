@@ -175,21 +175,33 @@ let evalDef hdl bbl st v e =
   | MemVar -> evalMemDef hdl bbl st v e
   | PCVar _ -> st
 
-let evalPhi st v ns =
+/// We should ignore CallFallThrough edge.
+let removeVarsFromCallFallThrough (ssaCFG: SSACFG) (vertex: Vertex<_>) vs =
+  let preds = vertex.Preds
+  Array.mapi (fun i v ->
+    let p = preds.[i]
+    match ssaCFG.TryFindEdge p vertex with
+    | Some CallFallThroughEdge -> None
+    | _ -> Some v) vs
+  |> Array.filter Option.isSome
+  |> Array.map Option.get
+
+let evalPhi ssaCFG bbl st v ns =
   match v.Kind with
   | RegVar _ | TempVar _ ->
     let c =
       ns
       |> Array.map (fun n -> { v with Identifier = n })
+      |> removeVarsFromCallFallThrough ssaCFG bbl
       |> Array.choose (fun v -> CPState.tryFindReg v st)
       |> Array.reduce Constant.meet
     CPState.storeReg v c st
   | MemVar -> CPState.mergeMem v.Identifier ns st
   | PCVar _ -> st
 
-let evalStmt hdl bbl st = function
+let evalStmt hdl ssaCFG bbl st = function
   | LMark _ -> st
   | Def (v, e) -> evalDef hdl bbl st v e
-  | Phi (v, ns) -> evalPhi st v ns
+  | Phi (v, ns) -> evalPhi ssaCFG bbl st v ns
   | Jmp _ -> st
   | SideEffect _ -> st
