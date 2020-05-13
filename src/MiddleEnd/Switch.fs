@@ -136,13 +136,17 @@ module private SwitchHelper =
       | _ -> None
     | _ -> None
 
-  let inferTableSize hdl baseAddr startAddr =
+  let inferTableSize hdl funcSizes entry baseAddr startAddr =
     let wdSize = WordSize.toByteWidth hdl.ISA.WordSize
     let wdSize64 = uint64 wdSize
+    let withinFunc addr =
+      entry <= addr && addr < entry + Map.find entry funcSizes
     let rec inferSize cnt =
       let offset =
         BinHandler.ReadInt (hdl, startAddr + wdSize64 * uint64 cnt, wdSize)
+      let target = baseAddr + uint64 offset
       if offset >= 0L then cnt
+      elif not <| withinFunc target then cnt
       else inferSize (cnt + 1)
     inferSize 0
 
@@ -158,7 +162,7 @@ module private SwitchHelper =
       Apparatus.addIndirectBranchTarget app fromAddr toAddr) app
 
   /// Find switch tables and update app accordingly.
-  let findSwitchTable hdl cfg (outs: Dictionary<_, _>) app bbl =
+  let findSwitchTable hdl cfg funcSizes entry (outs: Dictionary<_, _>) app bbl =
     let ppoint = (bbl: Vertex<SSABBlock>).VData.PPoint
     if outs.ContainsKey <| bbl.GetID () then
       let out = outs.[bbl.GetID ()]
@@ -175,14 +179,14 @@ module private SwitchHelper =
           | Const baseAddr, Some startAddr ->
             let baseAddr = BitVector.toUInt64 baseAddr
             let startAddr = BitVector.toUInt64 startAddr
-            printfn "%A %A" ppoint <| inferTableSize hdl baseAddr startAddr
+            printfn "%A %A" ppoint <| inferTableSize hdl funcSizes entry baseAddr startAddr
             // updateApp hdl app ppoint.Address baseAddr size
             app
           | _ -> app
         | _ -> app) app
     else app
 
-  let analyze hdl (scfg: SCFG) app callee =
+  let analyze hdl (scfg: SCFG) funcSizes app callee =
     match callee.Addr with
     | Some addr ->
       let irCFG, irRoot = scfg.GetFunctionCFG (addr, false)
@@ -192,9 +196,11 @@ module private SwitchHelper =
       | [] -> app
       | bbls ->
         let cp = ConstantPropagation (hdl, ssaCFG)
-        let root = ssaCFG.FindVertexBy (fun v -> v.VData.PPoint = irRoot.VData.PPoint)
+        let root =
+          ssaCFG.FindVertexBy (fun v -> v.VData.PPoint = irRoot.VData.PPoint)
         let _, outs = cp.Compute root
-        List.fold (findSwitchTable hdl ssaCFG outs) app bbls
+        let entry = root.VData.PPoint.Address
+        List.fold (findSwitchTable hdl ssaCFG funcSizes entry outs) app bbls
     | None -> app
 
   let extractIndirectTargets app =
@@ -212,11 +218,25 @@ module private SwitchHelper =
       | Some addr -> not <| Set.contains addr tabAddrs
       | None -> false)
 
+  let rec getFuncSize acc = function
+    | [] -> acc
+    | [ x ] -> Map.add x 0UL acc
+    | addr :: next :: addrs ->
+      let acc = Map.add addr (next - addr) acc
+      getFuncSize acc (next :: addrs)
+
   let recoverSwitchTables hdl scfg app =
     let prevTargets = extractIndirectTargets app
+    let funcSizes =
+      app.CalleeMap.Callees
+      |> filterOutLinkageTables hdl
+      |> Seq.choose (fun callee -> callee.Addr)
+      |> Seq.toList
+      |> List.sort
+      |> getFuncSize Map.empty
     app.CalleeMap.Callees
     |> filterOutLinkageTables hdl
-    |> Seq.fold (analyze hdl scfg) app
+    |> Seq.fold (analyze hdl scfg funcSizes) app
     |> fun app' ->
       let newTargets = extractIndirectTargets app'
       if prevTargets <> newTargets then
