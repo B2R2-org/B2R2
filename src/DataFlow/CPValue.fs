@@ -22,21 +22,21 @@
   SOFTWARE.
 *)
 
-namespace B2R2.DataFlow.ConstantPropagation
+namespace B2R2.DataFlow
 
 open B2R2
 
-type Constant =
+type CPValue =
   | NotAConst
   | Const of BitVector
   | Undef
 
-module Constant =
+module CPValue =
 
   let meet c1 c2 =
     match c1, c2 with
     | Undef, c | c, Undef -> c
-    | Const bv1, Const bv2 -> if bv1 = bv2 then Const bv1 else NotAConst
+    | Const bv1, Const bv2 -> if bv1 = bv2 then c1 else NotAConst
     | _ -> NotAConst
 
   let unOp op = function
@@ -49,7 +49,7 @@ module Constant =
 
   let binOp op c1 c2 =
     match c1, c2 with
-    | Undef, _ | _, Undef -> Undef
+    | Undef, _ | _, Undef -> Undef (* XXX *)
     | Const bv1, Const bv2 -> Const (op bv1 bv2)
     | _ -> NotAConst
 

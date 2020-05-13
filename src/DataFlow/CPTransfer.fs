@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.DataFlow.ConstantPropagation.Transfer
+module B2R2.DataFlow.CPTransfer
 
 open B2R2
 open B2R2.FrontEnd
@@ -74,13 +74,13 @@ let rec evalExpr hdl bbl st = function
     let c1, st = evalExpr hdl bbl st e1
     let c2, st = evalExpr hdl bbl st e2
     let c3, st = evalExpr hdl bbl st e3
-    Constant.ite c1 c2 c3, st
+    CPValue.ite c1 c2 c3, st
   | Cast (op, rt, e) ->
     let c, st = evalExpr hdl bbl st e
     evalCast op rt c, st
   | Extract (e, rt, pos) ->
     let c, st = evalExpr hdl bbl st e
-    Constant.extract c rt pos, st
+    CPValue.extract c rt pos, st
   | Undefined _ -> Undef, st
   | Return (addr, v) -> evalReturn hdl bbl st addr v, st
   | _ -> Utils.impossible ()
@@ -94,46 +94,46 @@ and evalLoad st m rt addr =
 
 and evalUnOp op c =
   match op with
-  | UnOpType.NEG -> Constant.neg c
-  | UnOpType.NOT -> Constant.not c
+  | UnOpType.NEG -> CPValue.neg c
+  | UnOpType.NOT -> CPValue.not c
   | _ -> NotAConst
 
 and evalBinOp op c1 c2 =
   match op with
-  | BinOpType.ADD -> Constant.add c1 c2
-  | BinOpType.SUB -> Constant.sub c1 c2
-  | BinOpType.MUL -> Constant.mul c1 c2
-  | BinOpType.DIV -> Constant.div c1 c2
-  | BinOpType.SDIV -> Constant.sdiv c1 c2
-  | BinOpType.MOD -> Constant.``mod`` c1 c2
-  | BinOpType.SMOD -> Constant.smod c1 c2
-  | BinOpType.SHL -> Constant.shl c1 c2
-  | BinOpType.SHR -> Constant.shr c1 c2
-  | BinOpType.SAR -> Constant.sar c1 c2
-  | BinOpType.AND -> Constant.``and`` c1 c2
-  | BinOpType.OR -> Constant.``or`` c1 c2
-  | BinOpType.XOR -> Constant.xor c1 c2
-  | BinOpType.CONCAT -> Constant.concat c1 c2
+  | BinOpType.ADD -> CPValue.add c1 c2
+  | BinOpType.SUB -> CPValue.sub c1 c2
+  | BinOpType.MUL -> CPValue.mul c1 c2
+  | BinOpType.DIV -> CPValue.div c1 c2
+  | BinOpType.SDIV -> CPValue.sdiv c1 c2
+  | BinOpType.MOD -> CPValue.``mod`` c1 c2
+  | BinOpType.SMOD -> CPValue.smod c1 c2
+  | BinOpType.SHL -> CPValue.shl c1 c2
+  | BinOpType.SHR -> CPValue.shr c1 c2
+  | BinOpType.SAR -> CPValue.sar c1 c2
+  | BinOpType.AND -> CPValue.``and`` c1 c2
+  | BinOpType.OR -> CPValue.``or`` c1 c2
+  | BinOpType.XOR -> CPValue.xor c1 c2
+  | BinOpType.CONCAT -> CPValue.concat c1 c2
   | _ -> NotAConst
 
 and evalRelOp op c1 c2 =
   match op with
-  | RelOpType.EQ -> Constant.eq c1 c2
-  | RelOpType.NEQ -> Constant.neq c1 c2
-  | RelOpType.GT -> Constant.gt c1 c2
-  | RelOpType.GE -> Constant.ge c1 c2
-  | RelOpType.SGT -> Constant.sgt c1 c2
-  | RelOpType.SGE -> Constant.sge c1 c2
-  | RelOpType.LT -> Constant.lt c1 c2
-  | RelOpType.LE -> Constant.le c1 c2
-  | RelOpType.SLT -> Constant.slt c1 c2
-  | RelOpType.SLE -> Constant.sle c1 c2
+  | RelOpType.EQ -> CPValue.eq c1 c2
+  | RelOpType.NEQ -> CPValue.neq c1 c2
+  | RelOpType.GT -> CPValue.gt c1 c2
+  | RelOpType.GE -> CPValue.ge c1 c2
+  | RelOpType.SGT -> CPValue.sgt c1 c2
+  | RelOpType.SGE -> CPValue.sge c1 c2
+  | RelOpType.LT -> CPValue.lt c1 c2
+  | RelOpType.LE -> CPValue.le c1 c2
+  | RelOpType.SLT -> CPValue.slt c1 c2
+  | RelOpType.SLE -> CPValue.sle c1 c2
   | _ -> NotAConst
 
 and evalCast op rt c =
   match op with
-  | CastKind.SignExt -> Constant.signExt rt c
-  | CastKind.ZeroExt -> Constant.zeroExt rt c
+  | CastKind.SignExt -> CPValue.signExt rt c
+  | CastKind.ZeroExt -> CPValue.zeroExt rt c
   | _ -> NotAConst
 
 and evalReturn hdl bbl st addr v =
@@ -194,7 +194,7 @@ let evalPhi ssaCFG bbl st v ns =
       |> Array.map (fun n -> { v with Identifier = n })
       |> removeVarsFromCallFallThrough ssaCFG bbl
       |> Array.choose (fun v -> CPState.tryFindReg v st)
-      |> Array.reduce Constant.meet
+      |> Array.reduce CPValue.meet
     CPState.storeReg v c st
   | MemVar -> CPState.mergeMem v.Identifier ns st
   | PCVar _ -> st

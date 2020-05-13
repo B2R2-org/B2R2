@@ -22,18 +22,17 @@
   SOFTWARE.
 *)
 
-namespace B2R2.DataFlow.ConstantPropagation
+namespace B2R2.DataFlow
 
 open B2R2
 open B2R2.FrontEnd
 open B2R2.BinIR.SSA
 
-type CPState =
-  {
-    RegState : Map<Variable, Constant>
-    MemState : Map<int, Map<Addr, Constant>>
-    DefaultWordSize : RegType
-  }
+type CPState = {
+  RegState : Map<Variable, CPValue>
+  MemState : Map<int, Map<Addr, CPValue>>
+  DefaultWordSize : RegType
+}
 
 module CPState =
 
@@ -46,18 +45,16 @@ module CPState =
     | Some sp when sp = id ->
       let c = Const (BitVector.ofUInt64 0x80000000UL rt)
       Map.add var c regSt
-    | _ -> Map.add var NotAConst regSt
+    | _ -> Map.add var NotAConst regSt (* Undef? *)
 
   let top hdl =
     let regSt =
       hdl.RegisterBay.GetAllRegExprs ()
       |> List.fold (fun regSt r -> initRegister hdl r regSt) Map.empty
     let memSt = Map.add 0 Map.empty Map.empty
-    {
-      RegState = regSt
+    { RegState = regSt
       MemState = memSt
-      DefaultWordSize = hdl.ISA.WordSize |> WordSize.toRegType
-    }
+      DefaultWordSize = hdl.ISA.WordSize |> WordSize.toRegType }
 
   let storeReg v c st =
     { st with RegState = Map.add v c st.RegState }
@@ -109,7 +106,7 @@ module CPState =
     |> Map.fold (fun acc v c ->
       match Map.tryFind v acc with
       | Some c' ->
-        let c = Constant.meet c c'
+        let c = CPValue.meet c c'
         Map.add v c acc
       | None -> Map.add v c acc) st2
 

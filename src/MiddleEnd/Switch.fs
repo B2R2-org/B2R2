@@ -31,10 +31,45 @@ open B2R2.BinIR
 open B2R2.BinIR.SSA
 open B2R2.BinGraph
 open B2R2.BinCorpus
-open B2R2.DataFlow.ConstantPropagation
+open B2R2.DataFlow
 open System.Collections.Generic
 
+type SwitchTableInfo =
+  {
+    Entry      : Addr
+    BBLLoc     : ProgramPoint
+    JumpBase   : Addr
+    TableRange : Addr * Addr
+  }
+
 module private SwitchHelper =
+
+  let filterOutLinkageTables hdl callees =
+    let tabAddrs =
+      hdl.FileInfo.GetLinkageTableEntries ()
+      |> Seq.map (fun ent -> ent.TrampolineAddress)
+      |> Set.ofSeq
+    callees
+    |> Seq.filter (fun callee ->
+      match callee.Addr with
+      | Some addr -> not <| Set.contains addr tabAddrs
+      | None -> false)
+
+  let rec computeFunctionBoundary acc = function
+    | [] -> acc
+    | [ addr ] -> Map.add addr (addr, 0UL) acc
+    | addr :: next :: addrs ->
+      let acc = Map.add addr (addr, next) acc
+      computeFunctionBoundary acc (next :: addrs)
+
+  let getFunctionBoundary hdl app =
+    app.CalleeMap.Callees
+    |> filterOutLinkageTables hdl
+    |> Seq.choose (fun callee -> callee.Addr)
+    |> Seq.toList
+    |> List.sort
+    |> computeFunctionBoundary Map.empty
+
   let collectVerticesWithIndJump (cfg: ControlFlowGraph<SSABBlock, _>) =
     []
     |> cfg.FoldVertex (fun acc v ->
@@ -46,6 +81,7 @@ module private SwitchHelper =
           if not <| instr.IsCall () then v :: acc else acc
       else acc)
 
+  /// Symbolically execute expression with ignoring memories
   let rec execExpr st = function
     | Num _ as e -> e
     | Var v as e ->
@@ -78,6 +114,7 @@ module private SwitchHelper =
     | Undefined _ as e -> e
     | e -> e
 
+  /// Symbolically execute Def statement only
   let execStmt st = function
     | Def (v, e) ->
       let e = execExpr st e
@@ -101,8 +138,8 @@ module private SwitchHelper =
         Some (tableBase, tableIdx)
       | BinOp (BinOpType.ADD, _, (Load (_, _, addr1) as e1),
                                 (Load (_, _, addr2) as e2)) ->
-        let addr1, _ = Transfer.evalExpr hdl bbl out addr1
-        let addr2, _ = Transfer.evalExpr hdl bbl out addr2
+        let addr1, _ = CPTransfer.evalExpr hdl bbl out addr1
+        let addr2, _ = CPTransfer.evalExpr hdl bbl out addr2
         match addr1, addr2 with
         | Const _, NotAConst -> Some (e1, e2)
         | NotAConst, Const _ -> Some (e2, e1)
@@ -136,116 +173,136 @@ module private SwitchHelper =
       | _ -> None
     | _ -> None
 
-  let inferTableSize hdl funcSizes entry baseAddr startAddr =
-    let wdSize = WordSize.toByteWidth hdl.ISA.WordSize
-    let wdSize64 = uint64 wdSize
-    let withinFunc addr =
-      entry <= addr && addr < entry + Map.find entry funcSizes
-    let rec inferSize cnt =
-      let offset =
-        BinHandler.ReadInt (hdl, startAddr + wdSize64 * uint64 cnt, wdSize)
-      let target = baseAddr + uint64 offset
-      if offset >= 0L then cnt
-      elif not <| withinFunc target then cnt
-      else inferSize (cnt + 1)
-    inferSize 0
-
-  let updateApp hdl (app: Apparatus) fromAddr baseAddr size =
-    let wdSize = WordSize.toByteWidth hdl.ISA.WordSize
-    let wdSize64 = wdSize |> uint64
-    [ 0 .. size - 1 ]
-    |> List.fold (fun app idx ->
-      let offset =
-        BinHandler.ReadInt (hdl, baseAddr + wdSize64 * uint64 idx, wdSize)
-        |> uint64
-      let toAddr = baseAddr + offset
-      Apparatus.addIndirectBranchTarget app fromAddr toAddr) app
-
   /// Find switch tables and update app accordingly.
-  let findSwitchTable hdl cfg funcSizes entry (outs: Dictionary<_, _>) app bbl =
+  let findBase hdl cfg entry (outs: Dictionary<_, _>) switchMap bbl =
     let ppoint = (bbl: Vertex<SSABBlock>).VData.PPoint
     if outs.ContainsKey <| bbl.GetID () then
       let out = outs.[bbl.GetID ()]
-      let st =
+      let symbSt =
         bbl.VData.Stmts
         |> Array.fold execStmt Map.empty
       extractJumpAddrExprs bbl
-      |> List.fold (fun app e ->
-        match findJumpTableAddr hdl bbl out st e with
+      |> List.fold (fun switchMap e ->
+        match findJumpTableAddr hdl bbl out symbSt e with
         | Some (tableBase, Load (_, _, idxAddr)) ->
-          let baseAddr, _ = Transfer.evalExpr hdl bbl out tableBase
+          let baseAddr, _ = CPTransfer.evalExpr hdl bbl out tableBase
           let startAddr = computeAddr out idxAddr
           match baseAddr, startAddr with
           | Const baseAddr, Some startAddr ->
             let baseAddr = BitVector.toUInt64 baseAddr
             let startAddr = BitVector.toUInt64 startAddr
-            printfn "%A %A" ppoint <| inferTableSize hdl funcSizes entry baseAddr startAddr
+            let info =
+              {
+                Entry = entry ;
+                BBLLoc = ppoint ;
+                JumpBase = baseAddr ;
+                TableRange = (startAddr, startAddr)
+              }
+            Map.add startAddr info switchMap
             // updateApp hdl app ppoint.Address baseAddr size
-            app
-          | _ -> app
-        | _ -> app) app
-    else app
+          | _ -> switchMap
+        | _ -> switchMap) switchMap
+    else switchMap
 
-  let analyze hdl (scfg: SCFG) funcSizes app callee =
+  let analyzeBase hdl (scfg: SCFG) app switchMap callee =
     match callee.Addr with
     | Some addr ->
       let irCFG, irRoot = scfg.GetFunctionCFG (addr, false)
       let lens = SSALens.Init hdl scfg
       let ssaCFG, ssaRoots = lens.Filter irCFG [irRoot] app
       match collectVerticesWithIndJump ssaCFG with
-      | [] -> app
+      | [] -> switchMap
       | bbls ->
         let cp = ConstantPropagation (hdl, ssaCFG)
         let root =
           ssaCFG.FindVertexBy (fun v -> v.VData.PPoint = irRoot.VData.PPoint)
         let _, outs = cp.Compute root
         let entry = root.VData.PPoint.Address
-        List.fold (findSwitchTable hdl ssaCFG funcSizes entry outs) app bbls
-    | None -> app
+        bbls
+        |> List.fold (findBase hdl ssaCFG entry outs) switchMap
+    | None -> switchMap
+
+  let findSwitchTableBase hdl scfg app switchMap =
+    app.CalleeMap.Callees
+    |> filterOutLinkageTables hdl
+    |> Seq.fold (analyzeBase hdl scfg app) switchMap
+
+  let inline switchTableHeuristic funcBdry info nextBase addr offset =
+    let inline checkAddr offset =
+      let target = info.JumpBase + uint64 offset
+      match Map.find info.Entry funcBdry with
+      | (sAddr, 0UL) -> sAddr <= target
+      | (sAddr, eAddr) -> sAddr <= target && target < eAddr
+    match nextBase with
+    | Some next ->
+      if addr = next then false
+      else checkAddr offset
+    | None -> checkAddr offset
+
+  let rec inferUpperBound hdl funcBdry info nextBase addr =
+    let wdSize = WordSize.toByteWidth hdl.ISA.WordSize |> uint64
+    let offset = BinHandler.ReadInt (hdl, addr, int wdSize)
+    if offset >= 0L then addr
+    elif not (switchTableHeuristic funcBdry info nextBase addr offset) then addr
+    else inferUpperBound hdl funcBdry info nextBase (addr + wdSize)
+
+  let rec computeTableBoundary hdl funcBdry switchMap = function
+    | [] -> switchMap
+    | [ lb ] ->
+      let info = Map.find lb switchMap
+      let ub = inferUpperBound hdl funcBdry info None lb
+      let info = { info with TableRange = (lb, ub) }
+      Map.add lb info switchMap
+    | lb :: next :: addrs ->
+      let info = Map.find lb switchMap
+      let ub = inferUpperBound hdl funcBdry info (Some next) lb
+      let info = { info with TableRange = (lb, ub) }
+      let switchMap = Map.add lb info switchMap
+      computeTableBoundary hdl funcBdry switchMap (next :: addrs)
+
+  let updateApp hdl (app: Apparatus) info =
+    let wdSize = WordSize.toByteWidth hdl.ISA.WordSize |> uint64
+    let lb, ub = info.TableRange
+    [ lb .. wdSize .. ub - wdSize ]
+    |> List.fold (fun app addr ->
+      let offset = BinHandler.ReadUInt (hdl, addr, int wdSize)
+      let target =
+        if wdSize = 4UL then (info.JumpBase + offset) % 0x100000000UL
+        else info.JumpBase + offset
+      Apparatus.addIndirectBranchTarget app info.BBLLoc.Address target) app
+
+  let refineTables hdl funcBdry app switchMap =
+    let switchMap =
+      switchMap
+      |> Map.fold (fun acc baseAddr _ -> baseAddr :: acc) []
+      |> List.sort
+      |> computeTableBoundary hdl funcBdry switchMap
+    let app = Map.fold (fun app _ info -> updateApp hdl app info) app switchMap
+    Map.iter (fun _ info ->
+      let lb, rb = info.TableRange
+      printfn "%A => %A" info.BBLLoc (rb / 4UL - lb / 4UL)) switchMap
+    app, switchMap
 
   let extractIndirectTargets app =
     app.IndirectBranchMap
     |> Map.fold (fun acc _ addrs -> Set.union acc addrs) Set.empty
 
-  let filterOutLinkageTables hdl callees =
-    let tabAddrs =
-      hdl.FileInfo.GetLinkageTableEntries ()
-      |> Seq.map (fun ent -> ent.TrampolineAddress)
-      |> Set.ofSeq
-    callees
-    |> Seq.filter (fun callee ->
-      match callee.Addr with
-      | Some addr -> not <| Set.contains addr tabAddrs
-      | None -> false)
-
-  let rec getFuncSize acc = function
-    | [] -> acc
-    | [ x ] -> Map.add x 0UL acc
-    | addr :: next :: addrs ->
-      let acc = Map.add addr (next - addr) acc
-      getFuncSize acc (next :: addrs)
-
-  let recoverSwitchTables hdl scfg app =
-    let prevTargets = extractIndirectTargets app
-    let funcSizes =
-      app.CalleeMap.Callees
-      |> filterOutLinkageTables hdl
-      |> Seq.choose (fun callee -> callee.Addr)
-      |> Seq.toList
-      |> List.sort
-      |> getFuncSize Map.empty
-    app.CalleeMap.Callees
-    |> filterOutLinkageTables hdl
-    |> Seq.fold (analyze hdl scfg funcSizes) app
-    |> fun app' ->
-      let newTargets = extractIndirectTargets app'
-      if prevTargets <> newTargets then
-        Set.toSeq newTargets
+  let rec recoverSwitchTables hdl scfg app funcBdry oldSwitchMap =
+    let app, newSwitchMap =
+      findSwitchTableBase hdl scfg app Map.empty
+      |> refineTables hdl funcBdry app
+    if oldSwitchMap = newSwitchMap then scfg, app
+    else
+      let targets = extractIndirectTargets app
+      let app =
+        Set.toSeq targets
         |> Seq.map (fun addr -> LeaderInfo.Init (hdl, addr))
-        |> Apparatus.update hdl app' Seq.empty
-      else app'
+        |> Apparatus.update hdl app Seq.empty
+      let scfg = SCFG (hdl, app)
+      recoverSwitchTables hdl scfg app funcBdry newSwitchMap
 
 type SwitchRecovery () =
   interface IPostAnalysis with
     member __.Run hdl scfg app =
-      scfg, SwitchHelper.recoverSwitchTables hdl scfg app
+      let funcBdry = SwitchHelper.getFunctionBoundary hdl app
+      SwitchHelper.recoverSwitchTables hdl scfg app funcBdry Map.empty

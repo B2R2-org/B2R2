@@ -22,12 +22,10 @@
   SOFTWARE.
 *)
 
-namespace B2R2.DataFlow.ConstantPropagation
+namespace B2R2.DataFlow
 
 open B2R2
 open B2R2.BinGraph
-open B2R2.BinIR.LowUIR
-open B2R2.DataFlow
 open System.Collections.Generic
 
 type ConstantPropagation (hdl, ssaCFG) =
@@ -44,6 +42,5 @@ type ConstantPropagation (hdl, ssaCFG) =
     q
 
   override __.Transfer i v =
-    let ppoint = v.VData.PPoint
     v.VData.Stmts
-    |> Array.fold (Transfer.evalStmt hdl ssaCFG v) i
+    |> Array.fold (CPTransfer.evalStmt hdl ssaCFG v) i
