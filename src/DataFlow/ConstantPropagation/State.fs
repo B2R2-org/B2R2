@@ -52,9 +52,10 @@ module CPState =
     let regSt =
       hdl.RegisterBay.GetAllRegExprs ()
       |> List.fold (fun regSt r -> initRegister hdl r regSt) Map.empty
+    let memSt = Map.add 0 Map.empty Map.empty
     {
       RegState = regSt
-      MemState = Map.empty
+      MemState = memSt
       DefaultWordSize = hdl.ISA.WordSize |> WordSize.toRegType
     }
 
@@ -77,10 +78,10 @@ module CPState =
     let mem = Map.add addr c mem
     c, { st with MemState = Map.add mid mem st.MemState }
 
-  let storeMem m rt addr c st =
+  let storeMem mDst mSrc rt addr c st =
     if rt = st.DefaultWordSize then
       if addr % uint64 rt = 0UL then
-        addMem m.Identifier addr c st
+        addMem mDst.Identifier addr c st
       else NotAConst, st (* Ignore misaligned access *)
     else NotAConst, st (* Ignore small size access *)
 
@@ -113,10 +114,6 @@ module CPState =
       | None -> Map.add v c acc) st2
 
   let mergeMem mDstid mSrcids st =
-    printfn "%A" mSrcids
-    mSrcids
-    |> Array.choose (fun mid -> Map.tryFind mid st.MemState)
-    |> printfn "%A"
     let mem =
       mSrcids
       |> Array.choose (fun mid -> Map.tryFind mid st.MemState)

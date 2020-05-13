@@ -160,12 +160,13 @@ let evalMemDef hdl bbl st mDst e =
   | Store (mSrc, rt, addr, e) ->
     let c, st = evalExpr hdl bbl st e
     let addr, st = evalExpr hdl bbl st addr
+    let st = CPState.copyMem mDst mSrc st
     match addr with
     | Const addr ->
       let addr = BitVector.toUInt64 addr
-      CPState.storeMem mDst rt addr c st |> snd
+      CPState.storeMem mDst mSrc rt addr c st |> snd
     | _ -> st
-  | Return (_, mSrc) -> CPState.copyMem mSrc mDst st
+  | Return (_, mSrc) -> CPState.copyMem mDst mSrc st
   | _ ->  Utils.impossible ()
 
 let evalDef hdl bbl st v e =
