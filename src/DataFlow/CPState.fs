@@ -45,7 +45,7 @@ module CPState =
     | Some sp when sp = id ->
       let c = Const (BitVector.ofUInt64 0x80000000UL rt)
       Map.add var c regSt
-    | _ -> Map.add var NotAConst regSt (* Undef? *)
+    | _ -> Map.add var Undef regSt
 
   let top hdl =
     let regSt =
@@ -79,8 +79,8 @@ module CPState =
     if rt = st.DefaultWordSize then
       if addr % uint64 rt = 0UL then
         addMem mDst.Identifier addr c st
-      else NotAConst, st (* Ignore misaligned access *)
-    else NotAConst, st (* Ignore small size access *)
+      else Undef, st (* Ignore misaligned access *)
+    else Undef, st (* Ignore small size access *)
 
   let tryFindMem mid addr st =
     let st = initializeMemory mid st
@@ -94,8 +94,8 @@ module CPState =
         match tryFindMem mid addr st with
         | Some c -> c, st
         | None -> addMem mid addr NotAConst st
-      else NotAConst, st (* Invalid misaligned access *)
-    else NotAConst, st (* Ignore small size access *)
+      else Undef, st (* Invalid misaligned access *)
+    else Undef, st (* Ignore small size access *)
 
   let copyMem mDst mSrc st =
     let mem = Map.find mSrc.Identifier st.MemState

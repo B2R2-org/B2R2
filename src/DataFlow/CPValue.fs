@@ -49,7 +49,7 @@ module CPValue =
 
   let binOp op c1 c2 =
     match c1, c2 with
-    | Undef, _ | _, Undef -> Undef (* XXX *)
+    | Undef, _ | _, Undef -> Undef
     | Const bv1, Const bv2 -> Const (op bv1 bv2)
     | _ -> NotAConst
 

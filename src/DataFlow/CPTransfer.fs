@@ -90,13 +90,13 @@ and evalLoad st m rt addr =
   | Const addr ->
     let addr = BitVector.toUInt64 addr
     CPState.loadMem m rt addr st
-  | _ -> NotAConst, st
+  | _ -> Undef, st
 
 and evalUnOp op c =
   match op with
   | UnOpType.NEG -> CPValue.neg c
   | UnOpType.NOT -> CPValue.not c
-  | _ -> NotAConst
+  | _ -> Undef
 
 and evalBinOp op c1 c2 =
   match op with
@@ -114,7 +114,7 @@ and evalBinOp op c1 c2 =
   | BinOpType.OR -> CPValue.``or`` c1 c2
   | BinOpType.XOR -> CPValue.xor c1 c2
   | BinOpType.CONCAT -> CPValue.concat c1 c2
-  | _ -> NotAConst
+  | _ -> Undef
 
 and evalRelOp op c1 c2 =
   match op with
@@ -128,13 +128,13 @@ and evalRelOp op c1 c2 =
   | RelOpType.LE -> CPValue.le c1 c2
   | RelOpType.SLT -> CPValue.slt c1 c2
   | RelOpType.SLE -> CPValue.sle c1 c2
-  | _ -> NotAConst
+  | _ -> Undef
 
 and evalCast op rt c =
   match op with
   | CastKind.SignExt -> CPValue.signExt rt c
   | CastKind.ZeroExt -> CPValue.zeroExt rt c
-  | _ -> NotAConst
+  | _ -> Undef
 
 and evalReturn hdl bbl st addr v =
   match v.Kind with
@@ -148,7 +148,7 @@ and evalReturn hdl bbl st addr v =
       Const (BitVector.ofUInt64 p.VData.Range.Max rt)
     elif CallingConvention.isNonVolatile hdl rid then
       CPState.loadReg v st
-    else NotAConst
+    else Undef
   | _ -> Utils.impossible ()
 
 let evalRegDef hdl bbl st v e =
