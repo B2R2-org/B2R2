@@ -103,11 +103,11 @@ module CPValue =
 
   let sle c1 c2 = relOp BitVector.sle c1 c2
 
-  let ite c1 c2 c3 =
-    match c1 with
+  let ite cond c1 c2 =
+    match cond with
     | Undef -> Undef
-    | Const bv -> if BitVector.isZero bv then c3 else c2
-    | NotAConst -> meet c2 c3
+    | Const bv -> if BitVector.isZero bv then c2 else c1
+    | NotAConst -> meet c1 c2
 
   let cast op rt c =
     unOp (fun bv -> op bv rt) c
@@ -118,3 +118,10 @@ module CPValue =
 
   let extract c rt pos =
     unOp (fun bv -> BitVector.extract bv rt pos) c
+
+  let goingDown a b =
+    match a, b with
+    | Undef, Const _
+    | Undef, NotAConst
+    | Const _, NotAConst -> true
+    | _ -> false

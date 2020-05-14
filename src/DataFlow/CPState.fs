@@ -27,104 +27,108 @@ namespace B2R2.DataFlow
 open B2R2
 open B2R2.FrontEnd
 open B2R2.BinIR.SSA
+open B2R2.BinGraph
+open System.Collections.Generic
+
+/// An ID of an SSA memory instance.
+type SSAMemID = int
 
 type CPState = {
-  RegState : Map<Variable, CPValue>
-  MemState : Map<int, Map<Addr, CPValue>>
+  /// BinHandler of the current binary.
+  BinHandler: BinHandler
+  /// SSA edges
+  SSAEdges: SSAEdges.EdgeInfo
+  /// SSA var values.
+  RegState : Dictionary<Variable, CPValue>
+  /// SSA mem values. Only store values of constant addresses.
+  MemState : Dictionary<SSAMemID, Map<Addr, CPValue>>
+  /// Executable edges from vid to vid. If there's no element for an edge, that
+  /// means the edge is not executable.
+  ExecutableEdges: HashSet<VertexID * VertexID>
+  /// Default word size of the current analysis.
   DefaultWordSize : RegType
+  /// Worklist for blocks.
+  BlkWorkList: Queue<VertexID * VertexID>
+  /// Worklist for SSA stmt, this queue stores a list of def variables, and we
+  /// will use SSAEdges to find all related SSA statements.
+  StmtWorkList: Queue<Variable>
 }
 
 module CPState =
-
-  let private initRegister hdl r regSt =
-    let id = hdl.RegisterBay.RegIDFromRegExpr r
-    let rt = hdl.RegisterBay.RegTypeFromRegExpr r
-    let str = hdl.RegisterBay.RegIDToString id
-    let var = { Kind = RegVar (rt, id, str); Identifier = 0 }
+  let private initStackRegister hdl (dict: Dictionary<_, _>) =
     match hdl.RegisterBay.StackPointer with
-    | Some sp when sp = id ->
-      let c = Const (BitVector.ofUInt64 0x80000000UL rt)
-      Map.add var c regSt
-    | _ -> Map.add var Undef regSt
+    | Some sp ->
+      let rt = hdl.RegisterBay.RegIDToRegType sp
+      let str = hdl.RegisterBay.RegIDToString sp
+      let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
+      dict.[var] <- Const (BitVector.ofUInt64 0x80000000UL rt)
+      dict
+    | None -> dict
 
-  let top hdl =
-    let regSt =
-      hdl.RegisterBay.GetAllRegExprs ()
-      |> List.fold (fun regSt r -> initRegister hdl r regSt) Map.empty
-    let memSt = Map.add 0 Map.empty Map.empty
-    { RegState = regSt
-      MemState = memSt
-      DefaultWordSize = hdl.ISA.WordSize |> WordSize.toRegType }
+  let private initMemory (dict: Dictionary<_, _>) =
+    dict.[0] <- Map.empty
+    dict
 
-  let storeReg v c st =
-    { st with RegState = Map.add v c st.RegState }
+  let initState hdl ssaCfg =
+    { BinHandler = hdl
+      SSAEdges = SSAEdges.compute ssaCfg
+      RegState = Dictionary () |> initStackRegister hdl
+      MemState = Dictionary () |> initMemory
+      ExecutableEdges = HashSet ()
+      DefaultWordSize = hdl.ISA.WordSize |> WordSize.toRegType
+      BlkWorkList = Queue ()
+      StmtWorkList = Queue () }
 
-  let tryFindReg v st =
-    Map.tryFind v st.RegState
+  let markExecutable st src dst =
+    if st.ExecutableEdges.Add (src, dst) then st.BlkWorkList.Enqueue (src, dst)
+    else ()
 
-  let loadReg v st =
-    Map.find v st.RegState
+  let findReg st r =
+    match st.RegState.TryGetValue r with
+    | true, v -> v
+    | false, _ -> Undef
 
-  let inline initializeMemory mid st =
-    if Map.containsKey mid st.MemState then st
-    else { st with MemState = Map.add mid Map.empty st.MemState }
+  let findMem st m rt addr =
+    let mid = m.Identifier
+    if st.MemState.ContainsKey mid then ()
+    else st.MemState.[mid] <- Map.empty
+    if (rt = st.DefaultWordSize) && (addr % uint64 rt = 0UL) then
+      match Map.tryFind addr st.MemState.[mid] with
+      | Some c -> c
+      | None -> NotAConst
+    else NotAConst
 
-  let addMem mid addr c st =
-    let st = initializeMemory mid st
-    let mem = Map.find mid st.MemState
-    let mem = Map.add addr c mem
-    c, { st with MemState = Map.add mid mem st.MemState }
+  let copyMem st dstid srcid =
+    if st.MemState.ContainsKey srcid then ()
+    else st.MemState.[srcid] <- Map.empty
+    st.MemState.[dstid] <- st.MemState.[srcid]
 
-  let storeMem mDst mSrc rt addr c st =
-    if rt = st.DefaultWordSize then
-      if addr % uint64 rt = 0UL then
-        addMem mDst.Identifier addr c st
-      else Undef, st (* Ignore misaligned access *)
-    else Undef, st (* Ignore small size access *)
+  let storeMem st mDst rt addr c =
+    if (rt = st.DefaultWordSize) && (addr % uint64 rt = 0UL) then
+      let dstid = mDst.Identifier
+      match Map.tryFind addr st.MemState.[dstid] with
+      | Some old when CPValue.goingDown old c ->
+        st.MemState.[dstid] <- Map.add addr c st.MemState.[dstid]
+        st.StmtWorkList.Enqueue mDst
+      | _ -> ()
+    else ()
 
-  let tryFindMem mid addr st =
-    let st = initializeMemory mid st
-    let mem = Map.find mid st.MemState
-    Map.tryFind addr mem
-
-  let loadMem m rt addr st =
-    if rt = st.DefaultWordSize then
-      if addr % uint64 rt = 0UL then
-        let mid = m.Identifier
-        match tryFindMem mid addr st with
-        | Some c -> c, st
-        | None -> addMem mid addr NotAConst st
-      else Undef, st (* Invalid misaligned access *)
-    else Undef, st (* Ignore small size access *)
-
-  let copyMem mDst mSrc st =
-    let mem = Map.find mSrc.Identifier st.MemState
-    { st with MemState = Map.add mDst.Identifier mem st.MemState }
-
-  let private mergeState st1 st2 =
+  let private mergeMemAux st1 st2 =
     st1
     |> Map.fold (fun acc v c ->
       match Map.tryFind v acc with
-      | Some c' ->
-        let c = CPValue.meet c c'
-        Map.add v c acc
+      | Some c' -> Map.add v (CPValue.meet c c') acc
       | None -> Map.add v c acc) st2
 
-  let mergeMem mDstid mSrcids st =
-    let mem =
-      mSrcids
-      |> Array.choose (fun mid -> Map.tryFind mid st.MemState)
-      |> Array.reduce mergeState
-    { st with MemState = Map.add mDstid mem st.MemState }
-
-  let meet (st1: CPState) (st2: CPState) =
-    let regSt = mergeState st1.RegState st2.RegState
-    let memSt =
-      st1.MemState
-      |> Map.fold (fun acc mid map ->
-        match Map.tryFind mid acc with
-        | Some map' ->
-          let map = mergeState map map'
-          Map.add mid map acc
-        | None -> Map.add mid map acc) st2.MemState
-    { st1 with RegState = regSt ; MemState = memSt }
+  /// Merge memory mapping and return true if changed.
+  let mergeMem st dstid srcids =
+    srcids
+    |> Array.choose (fun mid -> st.MemState.TryGetValue mid |> Utils.tupleToOpt)
+    |> function
+      | [||] -> false
+      | arr ->
+        let merged = Array.reduce mergeMemAux arr
+        if not (st.MemState.ContainsKey dstid)
+          || st.MemState.[dstid] <> merged
+        then st.MemState.[dstid] <- merged; true
+        else false

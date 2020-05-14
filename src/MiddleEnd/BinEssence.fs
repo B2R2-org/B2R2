@@ -46,9 +46,11 @@ with
     [ (LibcAnalysis () :> IPostAnalysis, "LibC analysis")
       (EVMCodeCopyAnalysis () :> IPostAnalysis, "EVM codecopy analysis")
       (NoReturnAnalysis () :> IPostAnalysis, "NoReturn analysis")
-      (SwitchRecovery () :> IPostAnalysis, "Switch case table recovery") ]
+      (BranchRecovery () :> IPostAnalysis, "Indirect branch recovery") ]
     |> List.fold (fun (scfg, app) (analysis, name) ->
+#if DEBUG
       printfn "[*] %s started." name
+#endif
       analysis.Run hdl scfg app) (scfg, app)
 
   static member private Analysis hdl app (scfg: SCFG) analyzers =

@@ -206,7 +206,14 @@ module Apparatus =
     if oldCount <> instrMap.Count then findLeaders hdl acc instrMap foldStmts
     else struct (instrMap, acc)
 
-  let private initApparatus hdl auxEntries auxLeaders indMap =
+  let updateNoReturnInfo oldNoRet (calleeMap: CalleeMap) =
+    oldNoRet |> Seq.iter (fun (addr: Addr) ->
+      match calleeMap.Find addr with
+      | None -> ()
+      | Some c -> c.IsNoReturn <- true)
+    calleeMap
+
+  let private initApparatus hdl auxEntries auxLeaders oldNoRet indMap =
     let initial = getInitialEntryPoints hdl
     let leaders = auxEntries |> Seq.fold (fun set e -> Set.add e set) initial
     let funcAddrs = leaders |> Seq.map (fun e -> e.Point.Address) |> Set.ofSeq
@@ -223,7 +230,9 @@ module Apparatus =
        this at a IR-level because LowUIR may have intra-instruction branches. *)
     let struct (instrMap, acc) =
       findLeaders hdl acc instrMap (foldStmts hdl indMap)
-    let calleeMap = CalleeMap.build hdl acc.FunctionAddrs instrMap
+    let calleeMap =
+      CalleeMap.build hdl acc.FunctionAddrs instrMap
+      |> updateNoReturnInfo oldNoRet
 #if DEBUG
     printfn "[*] The apparatus is ready to use."
 #endif
@@ -237,14 +246,19 @@ module Apparatus =
 
   /// Create a binary apparatus from the given BinHandler.
   [<CompiledName("Init")>]
-  let init hdl = initApparatus hdl Seq.empty Seq.empty None
+  let init hdl = initApparatus hdl Seq.empty Seq.empty Seq.empty None
 
   /// Update instruction info for the given binary apparatus based on the given
   /// target addresses. Those addresses should represent either a function entry
   /// point (entries) or a leader (leaders).
   let update hdl app entries leaders =
     if Seq.isEmpty entries && Seq.isEmpty leaders then app
-    else initApparatus hdl entries leaders (Some app.IndirectBranchMap)
+    else
+      let oldNoRet =
+        app.CalleeMap.Callees
+        |> Seq.filter (fun c -> c.IsNoReturn)
+        |> Seq.choose (fun c -> c.Addr)
+      initApparatus hdl entries leaders oldNoRet (Some app.IndirectBranchMap)
 
   /// Return the list of function addresses from the Apparatus.
   let getFunctionAddrs app =

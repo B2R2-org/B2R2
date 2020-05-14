@@ -141,8 +141,8 @@ let private getIndirectDstNode (g: IRCFG) (vmap: VMap) callee =
     | false, _ -> None
     | true, v -> Some v
 
-let private addResolvedIndirectEdges (g: IRCFG) app vmap src callerAddr isCall =
-  match Map.tryFind callerAddr app.IndirectBranchMap with
+let private addResolvedIndirectEdges (g: IRCFG) app vmap src srcAddr isCall =
+  match Map.tryFind srcAddr app.IndirectBranchMap with
   | None ->
     if isCall then
       let fakePos = ProgramPoint.GetFake ()
@@ -165,9 +165,9 @@ let private addIndirectEdges (g: IRCFG) app vmap src isCall =
         g.AddEdge src dst (if isCall then ExternalCallEdge else ExternalJmpEdge)
       else
         g.AddEdge src dst (if isCall then IndirectCallEdge else IndirectJmpEdge)
-  let callerAddr = src.VData.PPoint.Address
-  match app.CallerMap.TryGetValue callerAddr  with
-  | false, _ -> addResolvedIndirectEdges g app vmap src callerAddr isCall
+  let srcAddr = src.VData.LastInstruction.Address
+  match app.CallerMap.TryGetValue srcAddr with
+  | false, _ -> addResolvedIndirectEdges g app vmap src srcAddr isCall
   | true, callees -> callees |> Set.iter add
 
 let connectEdges _ (g: IRCFG) app (vmap: VMap) (leaders: ProgramPoint[]) idx =

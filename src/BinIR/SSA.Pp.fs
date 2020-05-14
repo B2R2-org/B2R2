@@ -95,9 +95,11 @@ let rec private expToStringAux expr (sb: StringBuilder) =
     sb.Append ("Undefined expression (") |> ignore
     sb.Append (reason) |> ignore
     sb.Append (")") |> ignore
-  | Return (addr, _) ->
+  | ReturnVal (addr, ret, _) ->
     sb.Append ("RetFromFunc(") |> ignore
     sb.Append (addr.ToString ("X")) |> ignore
+    sb.Append (",") |> ignore
+    sb.Append (ret.ToString ("X")) |> ignore
     sb.Append (")") |> ignore
 
 let private labelToString (addr: Addr, symb) (sb: StringBuilder) =

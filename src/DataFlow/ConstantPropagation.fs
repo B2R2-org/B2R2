@@ -24,23 +24,37 @@
 
 namespace B2R2.DataFlow
 
-open B2R2
 open B2R2.BinGraph
-open System.Collections.Generic
 
-type ConstantPropagation (hdl, ssaCFG) =
-  inherit DataFlowAnalysis<CPState, SSABBlock> (Forward)
+/// Modified version of sparse conditional constant propagation of Wegman et al.
+type ConstantPropagation (hdl, ssaCFG: SSACFG) =
+  inherit DataFlowAnalysis<CPValue, SSABBlock> ()
 
-  override __.Meet a b =
-    CPState.meet a b
+  override __.Top = Undef
 
-  override __.Top = CPState.top hdl
+  member private __.ProcessStmt st =
+    while st.StmtWorkList.Count > 0 do
+      let def = st.StmtWorkList.Dequeue ()
+      match Map.tryFind def st.SSAEdges.Uses with
+      | Some uses ->
+        uses
+        |> Set.iter (fun (vid, idx) ->
+          let v = ssaCFG.FindVertexByID vid
+          CPTransfer.evalStmt st v v.VData.Stmts.[idx])
+      | None -> ()
 
-  override __.Worklist root =
-    let q = Queue<Vertex<SSABBlock>> ()
-    Traversal.iterRevPostorder root q.Enqueue
-    q
+  member private __.ProcessBlock st =
+    if st.BlkWorkList.Count > 0 then
+      let _, myid = st.BlkWorkList.Dequeue ()
+      let blk = ssaCFG.FindVertexByID myid
+      blk.VData.Stmts
+      |> Array.iter (fun stmt -> CPTransfer.evalStmt st blk stmt)
+    else ()
 
-  override __.Transfer i v =
-    v.VData.Stmts
-    |> Array.fold (CPTransfer.evalStmt hdl ssaCFG v) i
+  member __.Compute (root: Vertex<SSABBlock>) =
+    let st = CPState.initState hdl ssaCFG
+    st.BlkWorkList.Enqueue (0, root.GetID ())
+    while st.StmtWorkList.Count > 0 || st.BlkWorkList.Count > 0 do
+      __.ProcessStmt st
+      __.ProcessBlock st
+    st

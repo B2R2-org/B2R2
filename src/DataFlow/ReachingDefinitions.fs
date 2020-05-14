@@ -32,7 +32,7 @@ open System.Collections.Generic
 type RDMap = Dictionary<VertexID, Set<VarPoint>>
 
 type ReachingDefinitions (cfg: IRCFG) as this =
-  inherit DataFlowAnalysis<Set<VarPoint>, IRBasicBlock> (Forward)
+  inherit TopologicalDataFlowAnalysis<Set<VarPoint>, IRBasicBlock> (Forward)
 
   let gens = RDMap ()
   let kills = RDMap ()
@@ -79,11 +79,6 @@ type ReachingDefinitions (cfg: IRCFG) as this =
   override __.Meet a b = Set.union a b
 
   override __.Top = Set.empty
-
-  override __.Worklist root =
-    let q = Queue<Vertex<IRBasicBlock>> ()
-    Traversal.iterRevPostorder root q.Enqueue
-    q
 
   override __.Transfer i v =
     let vid = v.GetID ()

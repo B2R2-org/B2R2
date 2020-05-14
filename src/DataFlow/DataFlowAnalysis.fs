@@ -45,10 +45,21 @@ type DataFlowDirection =
   | Forward
   | Backward
 
-/// Data-flow analysis framework.
+/// Data-flow analysis framework. 'L is a lattice, 'V is a vertex data type of a
+/// graph.
 [<AbstractClass>]
 type DataFlowAnalysis<'L, 'V when 'L: equality
-                              and 'V :> VertexData> (direction) =
+                              and 'V :> VertexData> () =
+  /// The top of the lattice. A data-flow analysis solution is computed by
+  /// iterating down from top to bottom.
+  abstract Top: 'L
+
+/// Classic data-flow analysis with topological worklist algorithm.
+[<AbstractClass>]
+type TopologicalDataFlowAnalysis<'L, 'V when 'L: equality
+                                         and 'V :> VertexData> (direction) =
+  inherit DataFlowAnalysis<'L, 'V> ()
+
   /// Exit lattice per vertex.
   let outs = Dictionary<VertexID, 'L> ()
 
@@ -72,20 +83,21 @@ type DataFlowAnalysis<'L, 'V when 'L: equality
       fun (worklist: Queue<Vertex<'V>>) (v: Vertex<'V>) ->
         v.Preds |> List.iter worklist.Enqueue
 
+  /// Initialize worklist queue. This should be a topologically sorted list to
+  /// be efficient.
+  let initWorklist (root: Vertex<'V>) =
+    let q = Queue<Vertex<'V>> ()
+    Traversal.iterRevPostorder root q.Enqueue
+    q
+
   /// Meet operation of the lattice.
   abstract Meet: 'L -> 'L -> 'L
-
-  /// The top of the lattice.
-  abstract Top: 'L
-
-  /// The initial worklist queue. This should be a topologically sorted list to
-  /// be efficient.
-  abstract Worklist: Vertex<'V> -> Queue<Vertex<'V>>
 
   /// The transfer function from an input lattice to an output lattice. The
   /// second parameter is to specify the current block of interest.
   abstract Transfer: 'L -> Vertex<'V> -> 'L
 
+  /// Initialize ints and outs.
   member private __.InitInsOuts (root: Vertex<'V>) =
     Traversal.iterPreorder root (fun v ->
       let blkid = v.GetID ()
@@ -95,7 +107,7 @@ type DataFlowAnalysis<'L, 'V when 'L: equality
   /// Compute data-flow with the iterative worklist algorithm.
   member __.Compute (root: Vertex<'V>) =
     __.InitInsOuts root
-    let worklist = __.Worklist root
+    let worklist = initWorklist root
     while worklist.Count <> 0 do
       let blk = worklist.Dequeue ()
       let blkid = blk.GetID ()

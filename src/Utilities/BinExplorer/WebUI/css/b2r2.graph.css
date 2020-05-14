@@ -79,6 +79,7 @@
   fill: none;
 }
 
+/* Edge */
 .c-graph__interjmpedge {
   stroke: var(--graph-edge-interjmp-stroke);
 }
@@ -103,14 +104,6 @@
   stroke: var(--graph-edge-intracjmptrue-stroke);
 }
 
-.c-graph__callfallthroughedge {
-  stroke: var(--graph-edge-fallthrough-stroke);
-}
-
-.c-graph__fallthroughedge {
-  stroke: var(--graph-edge-fallthrough-stroke);
-}
-
 .c-graph__calledge {
   stroke: var(--graph-edge-call-stroke);
 }
@@ -119,10 +112,27 @@
   stroke: var(--graph-edge-call-stroke);
 }
 
+.c-graph__indirectjmpedge {
+  stroke: var(--graph-edge-interjmp-stroke);
+}
+
+.c-graph__indirectcalledge {
+  stroke: var(--graph-edge-call-stroke);
+}
+
 .c-graph__retedge {
   stroke: var(--graph-edge-call-stroke);
 }
 
+.c-graph__fallthroughedge {
+  stroke: var(--graph-edge-fallthrough-stroke);
+}
+
+.c-graph__callfallthroughedge {
+  stroke: var(--graph-edge-fallthrough-stroke);
+}
+
+/* Arrow */
 .c-arrow-interjmpedge {
   fill: var(--graph-edge-interjmp-stroke);
 }
@@ -147,24 +157,32 @@
   fill: var(--graph-edge-intracjmptrue-stroke);
 }
 
-.c-arrow-callfallthroughedge {
-  fill: var(--graph-edge-fallthrough-stroke);
-}
-
-.c-arrow-fallthroughedge {
-  fill: var(--graph-edge-fallthrough-stroke);
+.c-arrow-calledge {
+  fill: var(--graph-edge-call-stroke);
 }
 
 .c-arrow-recursivecalledge {
   fill: var(--graph-edge-call-stroke);
 }
 
-.c-arrow-calledge {
+.c-arrow-indirectjmpedge {
+  fill: var(--graph-edge-interjmp-stroke);
+}
+
+.c-arrow-indirectcalledge {
   fill: var(--graph-edge-call-stroke);
 }
 
 .c-arrow-retedge {
   fill: var(--graph-edge-ret-stroke);
+}
+
+.c-arrow-fallthroughedge {
+  fill: var(--graph-edge-fallthrough-stroke);
+}
+
+.c-arrow-callfallthroughedge {
+  fill: var(--graph-edge-fallthrough-stroke);
 }
 
 .c-minimap {

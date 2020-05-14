@@ -68,15 +68,22 @@ module SSABlockHelper =
     with _ -> [||]
 
 /// Basic block type for an SSA-based CFG (SSACFG).
-type SSABBlock (hdl, scfg, pp: ProgramPoint, instrs, hasIndirectBranch: bool) =
+type SSABBlock private (hdl, scfg, pp, instrs, retPoint, hasIndirectBranch) =
   inherit BasicBlock ()
+
   let mutable stmts =
-    if Array.isEmpty instrs then
-      SSABlockHelper.computeDefinedVars hdl scfg pp.Address
-      |> Array.map (fun dst ->
-        let src = { SSA.Kind = dst.Kind; SSA.Identifier = -1 }
-        SSA.Def (dst, SSA.Return (pp.Address, src)))
-    else
+    match retPoint with
+    | Some (ret: ProgramPoint) ->
+      let stmts =
+        SSABlockHelper.computeDefinedVars hdl scfg (pp: ProgramPoint).Address
+        |> Array.map (fun dst ->
+          let src = { SSA.Kind = dst.Kind; SSA.Identifier = -1 }
+          SSA.Def (dst, SSA.ReturnVal (pp.Address, ret.Address, src)))
+      let wordSize = hdl.ISA.WordSize |> WordSize.toRegType
+      let fallThrough = BitVector.ofUInt64 ret.Address wordSize
+      let jmpToFallThrough = SSA.Jmp (SSA.InterJmp (SSA.Num fallThrough))
+      Array.append stmts [| jmpToFallThrough |]
+    | None ->
       (instrs: InstructionInfo [])
       |> Array.map (fun i ->
         let wordSize = i.Instruction.WordSize |> WordSize.toRegType
@@ -84,6 +91,12 @@ type SSABBlock (hdl, scfg, pp: ProgramPoint, instrs, hasIndirectBranch: bool) =
       |> Array.concat
 
   let mutable frontier: Vertex<SSABBlock> list = []
+
+  new (hdl, scfg, pp, instrs, hasIndirectBranch) =
+    SSABBlock (hdl, scfg, pp, instrs, None, hasIndirectBranch)
+
+  new (hdl, scfg, pp, retAddr, hasIndirectBranch) =
+    SSABBlock (hdl, scfg, pp, [||], Some retAddr, hasIndirectBranch)
 
   override __.PPoint = pp
 
@@ -100,7 +113,7 @@ type SSABBlock (hdl, scfg, pp: ProgramPoint, instrs, hasIndirectBranch: bool) =
            AsmWordValue = SSA.Pp.stmtToString stmt } |])
 
   /// Does this block has indirect branch?
-  member __.HasIndirectBranch = hasIndirectBranch
+  member __.HasIndirectBranch: bool = hasIndirectBranch
 
   /// Get the last statement of the bblock.
   member __.GetLastStmt () =

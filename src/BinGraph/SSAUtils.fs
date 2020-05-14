@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.BinGraph.SSAUtils
+module internal B2R2.BinGraph.SSAUtils
 
 open B2R2
 open B2R2.BinIR
@@ -89,7 +89,7 @@ let rec renameExpr stack = function
   | SSA.Undefined (_)
   | SSA.FuncName (_)
   | SSA.Nil -> ()
-  | SSA.Return (_, v) -> renameDest stack v
+  | SSA.ReturnVal (_, _, v) -> renameDest stack v
   | SSA.Var v -> renameDest stack v
   | SSA.Load (v, _, expr) ->
     renameDest stack v

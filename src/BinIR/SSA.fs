@@ -106,9 +106,10 @@ type Expr =
   /// case).
   | Undefined of RegType * string
 
-  /// Value returned from a function located at the address. The second
-  /// argument indicates the live definition of previously defined variable.
-  | Return of Addr * Variable
+  /// Value returned from a function located at the address. The second argument
+  /// indicates the return address, and the third argument indicates the live
+  /// definition of previously defined variable.
+  | ReturnVal of Addr * Addr * Variable
 
 /// IR Label. Since we don't distinguish instruction boundary in SSA level, we
 /// want to specify where the label comes from.

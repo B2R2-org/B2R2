@@ -45,7 +45,7 @@ type SSALens (hdl, scfg) =
     let pos = (srcPos, dstPos)
     match fMap.TryGetValue pos with
     | false, _ ->
-      let v = (g: SSACFG).AddVertex (SSABBlock (hdl, scfg, srcPos, [||], false))
+      let v = (g: SSACFG).AddVertex (SSABBlock (hdl, scfg, srcPos, dstPos, false))
       fMap.Add (pos, v)
       v
     | true, v -> v
