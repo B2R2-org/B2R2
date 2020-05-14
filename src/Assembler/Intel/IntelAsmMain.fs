@@ -200,12 +200,15 @@ let computeIncompMaxLen = function
   | Opcode.XBEGIN -> 6
   | _ -> Utils.futureFeature ()
 
+let getImm imm = if Option.isSome imm then Option.get imm else [||]
+
 let computeMaxLen (components: AsmComponent [] list) =
   components
   |> List.map (fun comp ->
        match comp.[0] with
        | Normal _ -> Array.length comp
-       | CompleteOp (_, _, bytes) -> Array.length bytes + 4
+       | CompleteOp (_, _, bytes, imm) ->
+         Array.length bytes + 4 + Array.length (getImm imm)
        | IncompleteOp (op, _) -> computeIncompMaxLen op
        | _ -> Utils.impossible ())
   |> List.toArray
@@ -234,6 +237,7 @@ let getOpByteOfIncomp relSz = function
   | Opcode.JP -> if relSz = 8<rt> then [| 0x7auy |] else [| 0x0Fuy; 0x8Auy |]
   | Opcode.JS -> if relSz = 8<rt> then [| 0x78uy |] else [| 0x0Fuy; 0x88uy |]
   | Opcode.JZ -> if relSz = 8<rt> then [| 0x74uy |] else [| 0x0Fuy; 0x84uy |]
+  | Opcode.CALLNear -> [| 0xE8uy |]
   | _ -> Utils.futureFeature ()
 
 let computeDistance myIdx labelIdx maxLenArr =
@@ -255,7 +259,8 @@ let decideOp parserState maxLenArr myIdx (comp: _ []) =
   | IncompleteOp (op, (OneOperand (Label lbl) as oprs)) ->
     let labelIdx = Map.find lbl parserState.LabelMap
     let t = computeDistance myIdx labelIdx maxLenArr |> computeFitType
-    [| CompleteOp (op, oprs, getOpByteOfIncomp t op)
+    let t = if op = Opcode.CALLNear then 32<rt> (* FIXME *) else t
+    [| CompleteOp (op, oprs, getOpByteOfIncomp t op, None)
        IncompLabel t |]
   | _ -> Utils.impossible ()
 
@@ -263,9 +268,10 @@ let computeRealLen components =
   components
   |> List.map (fun (comp: AsmComponent []) ->
     match comp.[0] with
-    | CompleteOp (_, _, bytes) ->
+    | CompleteOp (_, _, bytes, imm) ->
       match comp.[1] with
-      | IncompLabel sz -> Array.length bytes + RegType.toByteWidth sz
+      | IncompLabel sz ->
+        Array.length bytes + RegType.toByteWidth sz + Array.length (getImm imm)
       | _ -> Utils.impossible ()
     | _ -> Array.length comp)
   |> List.toArray
@@ -283,17 +289,20 @@ let normalToByte = function
 
 let finalize arch parserState realLenArr baseAddr myIdx comp =
   match comp with
-  | [| CompleteOp (_, OneOperand (Label lbl), bs); IncompLabel sz |] ->
+  | [| CompleteOp (_, OneOperand (Label lbl), bs, _); IncompLabel sz |] ->
     let labelIdx = Map.find lbl parserState.LabelMap
     let dist = computeDistance myIdx labelIdx realLenArr
     [| yield! bs; yield! concretizeLabel sz dist |]
-  | [| CompleteOp (_, TwoOperands (_, Label lbl), bs); IncompLabel sz |]
-  | [| CompleteOp (_, TwoOperands (Label lbl, _), bs); IncompLabel sz |] ->
+  | [| CompleteOp (_, TwoOperands (_, Label lbl), bs, imm); IncompLabel sz |]
+  | [| CompleteOp (_, TwoOperands (Label lbl, _), bs, imm); IncompLabel sz |]
+  | [| CompleteOp (_, ThreeOperands (_, Label lbl, _), bs, imm)
+       IncompLabel sz |] ->
     let labelIdx = Map.find lbl parserState.LabelMap
     let addr =
-      if arch = Arch.IntelX86 then computeAddr labelIdx realLenArr + int64 baseAddr
-      else computeDistance myIdx labelIdx realLenArr + int64 baseAddr
-    [| yield! bs; yield! concretizeLabel sz addr |]
+      if arch = Arch.IntelX86 then computeAddr labelIdx realLenArr
+      else computeDistance myIdx labelIdx realLenArr
+    [| yield! bs; yield! concretizeLabel sz (addr  + int64 baseAddr)
+       yield! getImm imm |]
   | _ -> comp |> Array.map normalToByte
 
 let assemble parserState isa (baseAddr: Addr) (instrs: InsInfo list) =

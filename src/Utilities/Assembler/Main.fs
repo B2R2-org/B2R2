@@ -109,9 +109,8 @@ let initAsmString (opts: AssemblerOpts) =
   else opts.InputStr
 
 let private disassembly isa addr bs =
-  let bCode =
-    bs |> Array.rev |> Array.fold (fun a (b: byte) -> b.ToString("X2") + a) ""
-  let handler = BinHandler.Init (isa, ByteArray.ofHexString bCode)
+  let bCode = (BitConverter.ToString (bs)).Replace ("-", "")
+  let handler = BinHandler.Init (isa, bs)
   let ins = BinHandler.ParseInstr handler 0UL
   printfn "%08x: %-20s     %s" addr bCode (ins.Disasm ())
 

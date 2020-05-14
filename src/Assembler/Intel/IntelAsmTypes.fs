@@ -32,10 +32,9 @@ exception NotEncodableException
 /// Basic components for assembling binaries.
 type AsmComponent =
   | Normal of byte
-  | IncompleteLabel
   | IncompLabel of RegType
   | IncompleteOp of Opcode * Operands
-  | CompleteOp of Opcode * Operands * byte []
+  | CompleteOp of Opcode * Operands * byte [] * byte [] option
 
 type EncodedByteCode = {
   Prefix        : AsmComponent []

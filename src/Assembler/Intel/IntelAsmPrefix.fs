@@ -184,6 +184,7 @@ let encodeRexRXB isMR = function
     encodeRexR r ||| encodeRexB bReg
   | ThreeOperands (OprReg r, OprMem (None, None, _, _), OprImm _) ->
     encodeRexR r
+  | ThreeOperands (OprReg r, Label _, OprImm _) -> encodeRexR r
   | o -> printfn "Inavlid Operand (%A)" o; Utils.futureFeature ()
 
 let encodeREXPref ins arch (rexPrx: EncREXPrefix) =

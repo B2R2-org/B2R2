@@ -123,7 +123,11 @@ let private getScaleBit = function
 let private encSIB sBit idxBit baseBit =
   (sBit <<< 6) + (idxBit <<< 3) + baseBit |> Normal
 
-let modrmRel _rel = [| IncompleteLabel |] // FIXME
+let modrmRel (rel: int64) = function // FIXME
+  | 8<rt> -> [| Normal <| byte rel |]
+  | 16<rt> -> BitConverter.GetBytes (int16 rel) |> Array.map Normal
+  | 32<rt> -> BitConverter.GetBytes (int32 rel) |> Array.map Normal
+  | _ -> Utils.impossible ()
 
 let private encDisp disp = function
   | 8<rt> -> [| byte disp |> Normal |]
