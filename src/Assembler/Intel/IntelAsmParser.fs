@@ -37,6 +37,7 @@ type LabelDefs = Map<string, int>
 type AsmParser (isa, baseAddr: Addr) =
 
   let mutable inferredPrefix = Prefix.PrxNone
+  let defaultRegType = isa.WordSize |> WordSize.toRegType
 
   let addLabeldef lbl =
     updateUserState (fun us ->
@@ -157,6 +158,7 @@ type AsmParser (isa, baseAddr: Addr) =
   let pDisp = pImm
 
   let pMemOpr sz =
+    let sz = Option.defaultValue defaultRegType sz
     opt (attempt updatePrefix) >>. spaces >>. opt (attempt pMemBaseReg)
     .>> spaces .>>. opt (attempt pScaledIndexReg) .>> spaces .>>. opt pDisp
     |>> fun ((bReg, scaledInd), disp) -> OprMem (bReg, scaledInd, disp, sz)
@@ -168,25 +170,27 @@ type AsmParser (isa, baseAddr: Addr) =
 
   let pJumpTarget = attempt pAbsoluteAddress <|> (pImm |>> Relative)
 
-  (* operands *)
   let pOprReg = pReg |>> OprReg
 
-  let pOprMem = pMemOprSize .>> spaces >>= pMemOpr
+  let pOprMem = opt (pMemOprSize .>> spaces) >>= pMemOpr
 
   let pOprDirAddr opc =
     check opc Helper.isBranch >>. pJumpTarget |>> OprDirAddr
 
   let pOprImm = pImm |>> OprImm
 
-  let pGoToLabel = pId |>> Label
+  let pSizedLabel sz =
+    let sz = Option.defaultValue defaultRegType sz
+    pId |>> fun lbl -> Label (lbl, sz)
+
+  let pLabel = opt (pMemOprSize .>> spaces) >>= pSizedLabel
 
   let operand opc =
     pOprDirAddr opc
     <|> attempt pOprReg
     <|> pOprImm
-    <|> pOprMem
-    <|> pGoToLabel
-    |>> (fun operand -> operand)
+    <|> attempt pOprMem
+    <|> pLabel
 
   let operands opc =
     sepBy (operand opc) operandSeps |>> extractOperands

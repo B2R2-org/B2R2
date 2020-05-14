@@ -86,14 +86,14 @@ let inline encRL (ctxt: EncContext) ins r op8Byte opByte =
      yield modrmRL r |]
   |> Array.map normalToByte
   |> fun bytes ->
-    [| CompleteOp (ins.Opcode, ins.Operands, bytes, None); IncompLabel 32<rt> |]
+    [| CompOp (ins.Opcode, ins.Operands, bytes, None); IncompLabel 32<rt> |]
 
 let inline encLI (ctxt: EncContext) ins regConstr i immSz op8Byte opByte =
   let pref, rex, opByte = getCtxtByOprSz ctxt op8Byte opByte 32<rt> // FIXME
   let op = [| yield! prxRexOp ins ctxt.Arch pref rex opByte
               yield modrmLI regConstr |] |> Array.map normalToByte
   let imm = immediate i immSz |> Array.map normalToByte |> Some
-  [| CompleteOp (ins.Opcode, ins.Operands, op, imm); IncompLabel 32<rt> |]
+  [| CompOp (ins.Opcode, ins.Operands, op, imm); IncompLabel 32<rt> |]
 
 let inline encRLI (ctxt: EncContext) ins r op i immSz =
   let pref, rex, opByte =
@@ -101,7 +101,7 @@ let inline encRLI (ctxt: EncContext) ins r op i immSz =
   let op = [| yield! prxRexOp ins ctxt.Arch pref rex opByte
               yield modrmRL r |] |> Array.map normalToByte
   let imm = immediate i immSz |> Array.map normalToByte |> Some
-  [| CompleteOp (ins.Opcode, ins.Operands, op, imm); IncompLabel 32<rt> |]
+  [| CompOp (ins.Opcode, ins.Operands, op, imm); IncompLabel 32<rt> |]
 
 let inline encFR (op: byte []) r =
   let op = [| op.[0]; op.[1] + (regTo3Bit r) |]

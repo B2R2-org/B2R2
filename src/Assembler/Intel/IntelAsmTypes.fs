@@ -34,7 +34,7 @@ type AsmComponent =
   | Normal of byte
   | IncompLabel of RegType
   | IncompleteOp of Opcode * Operands
-  | CompleteOp of Opcode * Operands * byte [] * byte [] option
+  | CompOp of Opcode * Operands * byte [] * byte [] option
 
 type EncodedByteCode = {
   Prefix        : AsmComponent []

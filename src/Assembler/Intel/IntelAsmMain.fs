@@ -207,7 +207,7 @@ let computeMaxLen (components: AsmComponent [] list) =
   |> List.map (fun comp ->
        match comp.[0] with
        | Normal _ -> Array.length comp
-       | CompleteOp (_, _, bytes, imm) ->
+       | CompOp (_, _, bytes, imm) ->
          Array.length bytes + 4 + Array.length (getImm imm)
        | IncompleteOp (op, _) -> computeIncompMaxLen op
        | _ -> Utils.impossible ())
@@ -255,12 +255,12 @@ let computeAddr idx realLenArr =
 
 let decideOp parserState maxLenArr myIdx (comp: _ []) =
   match comp.[0] with
-  | Normal _ | CompleteOp _ -> comp
-  | IncompleteOp (op, (OneOperand (Label lbl) as oprs)) ->
+  | Normal _ | CompOp _ -> comp
+  | IncompleteOp (op, (OneOperand (Label (lbl, _)) as oprs)) ->
     let labelIdx = Map.find lbl parserState.LabelMap
     let t = computeDistance myIdx labelIdx maxLenArr |> computeFitType
     let t = if op = Opcode.CALLNear then 32<rt> (* FIXME *) else t
-    [| CompleteOp (op, oprs, getOpByteOfIncomp t op, None)
+    [| CompOp (op, oprs, getOpByteOfIncomp t op, None)
        IncompLabel t |]
   | _ -> Utils.impossible ()
 
@@ -268,7 +268,7 @@ let computeRealLen components =
   components
   |> List.map (fun (comp: AsmComponent []) ->
     match comp.[0] with
-    | CompleteOp (_, _, bytes, imm) ->
+    | CompOp (_, _, bytes, imm) ->
       match comp.[1] with
       | IncompLabel sz ->
         Array.length bytes + RegType.toByteWidth sz + Array.length (getImm imm)
@@ -289,13 +289,13 @@ let normalToByte = function
 
 let finalize arch parserState realLenArr baseAddr myIdx comp =
   match comp with
-  | [| CompleteOp (_, OneOperand (Label lbl), bs, _); IncompLabel sz |] ->
+  | [| CompOp (_, OneOperand (Label (lbl, _)), bs, _); IncompLabel sz |] ->
     let labelIdx = Map.find lbl parserState.LabelMap
     let dist = computeDistance myIdx labelIdx realLenArr
     [| yield! bs; yield! concretizeLabel sz dist |]
-  | [| CompleteOp (_, TwoOperands (_, Label lbl), bs, imm); IncompLabel sz |]
-  | [| CompleteOp (_, TwoOperands (Label lbl, _), bs, imm); IncompLabel sz |]
-  | [| CompleteOp (_, ThreeOperands (_, Label lbl, _), bs, imm)
+  | [| CompOp (_, TwoOperands (_, Label (lbl, _)), bs, imm); IncompLabel sz |]
+  | [| CompOp (_, TwoOperands (Label (lbl, _), _), bs, imm); IncompLabel sz |]
+  | [| CompOp (_, ThreeOperands (_, Label (lbl, _), _), bs, imm)
        IncompLabel sz |] ->
     let labelIdx = Map.find lbl parserState.LabelMap
     let addr =
