@@ -123,10 +123,12 @@ let private getScaleBit = function
 let private encSIB sBit idxBit baseBit =
   (sBit <<< 6) + (idxBit <<< 3) + baseBit |> Normal
 
-let modrmRel (rel: int64) = function // FIXME
-  | 8<rt> -> [| Normal <| byte rel |]
-  | 16<rt> -> BitConverter.GetBytes (int16 rel) |> Array.map Normal
-  | 32<rt> -> BitConverter.GetBytes (int32 rel) |> Array.map Normal
+let modrmRel byteLen (rel: int64) relSz = // FIXME
+  let comRel rel = rel - (byteLen + RegType.toByteWidth relSz |> int64)
+  match relSz with
+  | 8<rt> -> [| Normal <| byte (comRel rel) |]
+  | 16<rt> -> BitConverter.GetBytes (comRel rel |> int16) |> Array.map Normal
+  | 32<rt> -> BitConverter.GetBytes (comRel rel |> int32) |> Array.map Normal
   | _ -> Utils.impossible ()
 
 let private encDisp disp = function

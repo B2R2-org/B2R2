@@ -56,8 +56,9 @@ let inline encR ins arch pref rex op r c =
      modrmR r c |]
 
 let inline encD ins arch pref rex op rel sz =
-  [| yield! prxRexOp ins arch pref rex op
-     yield! modrmRel rel sz |]
+  [| let prxRexOp = prxRexOp ins arch pref rex op
+     yield! prxRexOp
+     yield! modrmRel (Array.length prxRexOp) rel sz |]
 
 let inline encM ins arch pref rex op b s d c =
   [| yield! prxRexOp ins arch pref rex op
@@ -1945,11 +1946,11 @@ let push (ctxt: EncContext) ins =
   | OneOperand (OprReg r) when isReg64 r ->
     no32Arch ctxt.Arch
     encR ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexW [| 0xFFuy |] r 0b110uy
+      ctxt.PrefNormal ctxt.RexNormal [| 0xFFuy |] r 0b110uy
   | OneOperand (OprMem (b, s, d, 64<rt>)) ->
     no32Arch ctxt.Arch
     encM ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexW [| 0xFFuy |] b s d 0b110uy
+      ctxt.PrefNormal ctxt.RexNormal [| 0xFFuy |] b s d 0b110uy
   | OneOperand (OprImm imm) when isInt8 imm ->
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x6Auy |] imm 8<rt>
