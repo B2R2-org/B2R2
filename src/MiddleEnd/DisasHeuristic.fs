@@ -34,6 +34,9 @@ open B2R2.BinGraph
 open B2R2.MiddleEnd.EmulationHelper
 
 module private LibcAnalysisHelper =
+  let buildNewEntrySet hdl addrs =
+    addrs |> List.fold (fun set a ->
+      Set.add (LeaderInfo.Init (hdl, a)) set) Set.empty
 
   let retrieveAddrsForx86 hdl app st =
     let esp = (Intel.Register.ESP |> Intel.Register.toRegID)
@@ -52,8 +55,9 @@ module private LibcAnalysisHelper =
       |> function
         | [] -> app
         | addrs ->
-          let entries = addrs |> List.map (fun a -> LeaderInfo.Init (hdl, a))
-          Apparatus.update hdl app entries Seq.empty
+          let entries = buildNewEntrySet hdl addrs
+          let app = Apparatus.registerRecoveredLeaders app entries
+          Apparatus.update hdl app Seq.empty
     | Undef -> app
 
   let retrieveAddrsForx64 hdl app st =
@@ -62,13 +66,14 @@ module private LibcAnalysisHelper =
       readReg st (Intel.Register.R8 |> Intel.Register.toRegID)
       readReg st (Intel.Register.R9 |> Intel.Register.toRegID) ]
     |> List.choose id
-    |> List.map (BitVector.toUInt64)
+    |> List.map BitVector.toUInt64
     |> List.filter (fun addr -> app.InstrMap.ContainsKey addr |> not)
     |> function
       | [] -> app
       | addrs ->
-        let entries = addrs |> List.map (fun a -> LeaderInfo.Init (hdl, a))
-        Apparatus.update hdl app entries Seq.empty
+        let entries = buildNewEntrySet hdl addrs
+        let app = Apparatus.registerRecoveredLeaders app entries
+        Apparatus.update hdl app Seq.empty
 
   let retrieveLibcStartAddresses hdl app = function
     | None -> app
@@ -131,7 +136,10 @@ type EVMCodeCopyAnalysis () =
       | None -> app
       | Some leader ->
         match app.CalleeMap.Find leader.Point.Address with
-        | None -> Apparatus.update hdl app [ leader ] Seq.empty
+        | None ->
+          let leaderSet = Set.singleton leader
+          let app = Apparatus.registerRecoveredLeaders app leaderSet
+          Apparatus.update hdl app Seq.empty
         | Some _ -> app) app
 
   interface IPostAnalysis with

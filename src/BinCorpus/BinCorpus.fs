@@ -82,10 +82,17 @@ type JmpTargetMap = Map<Addr, Addr list>
 ///   </para>
 /// </remarks>
 type Apparatus = {
+  /// Instruction map.
   InstrMap: InstrMap
+  /// Label map.
   LabelMap: Map<Symbol, Addr * int>
+  /// Leader set.
   LeaderInfos: Set<LeaderInfo>
+  /// Recovered function entries.
+  RecoveredEntries: Set<LeaderInfo>
+  /// Caller map.
   CallerMap: CallerMap
+  /// Callee map.
   CalleeMap: CalleeMap
   /// Indirect branches' target addresses.
   IndirectBranchMap: Map<Addr, Set<Addr>>
@@ -215,7 +222,7 @@ module Apparatus =
 
   let private initApparatus hdl auxEntries auxLeaders oldNoRet indMap =
     let initial = getInitialEntryPoints hdl
-    let leaders = auxEntries |> Seq.fold (fun set e -> Set.add e set) initial
+    let leaders = auxEntries |> Set.fold (fun set e -> Set.add e set) initial
     let funcAddrs = leaders |> Seq.map (fun e -> e.Point.Address) |> Set.ofSeq
     let leaders = auxLeaders |> Seq.fold (fun set e -> Set.add e set) leaders
     (* First, recursively parse all possible instructions. *)
@@ -239,6 +246,7 @@ module Apparatus =
     { InstrMap = instrMap
       LabelMap = acc.Labels
       LeaderInfos = acc.Leaders
+      RecoveredEntries = auxEntries
       IndirectBranchMap = indMap
       CallerMap = CallerMap.build calleeMap
       CalleeMap = calleeMap
@@ -246,19 +254,21 @@ module Apparatus =
 
   /// Create a binary apparatus from the given BinHandler.
   [<CompiledName("Init")>]
-  let init hdl = initApparatus hdl Seq.empty Seq.empty Seq.empty None
+  let init hdl = initApparatus hdl Set.empty Seq.empty Seq.empty None
 
-  /// Update instruction info for the given binary apparatus based on the given
-  /// target addresses. Those addresses should represent either a function entry
-  /// point (entries) or a leader (leaders).
-  let update hdl app entries leaders =
-    if Seq.isEmpty entries && Seq.isEmpty leaders then app
-    else
-      let oldNoRet =
-        app.CalleeMap.Callees
-        |> Seq.filter (fun c -> c.IsNoReturn)
-        |> Seq.choose (fun c -> c.Addr)
-      initApparatus hdl entries leaders oldNoRet (Some app.IndirectBranchMap)
+  /// Update instruction info based on the given binary apparatus and additional
+  /// leader addresses.
+  let update hdl app leaders =
+    let entries = app.RecoveredEntries
+    let oldNoRet =
+      app.CalleeMap.Callees
+      |> Seq.filter (fun c -> c.IsNoReturn)
+      |> Seq.choose (fun c -> c.Addr)
+    initApparatus hdl entries leaders oldNoRet (Some app.IndirectBranchMap)
+
+  /// Register newly recovered leaders to the apparatus.
+  let registerRecoveredLeaders app leaders =
+    { app with RecoveredEntries = Set.union leaders app.RecoveredEntries }
 
   /// Return the list of function addresses from the Apparatus.
   let getFunctionAddrs app =

@@ -34,7 +34,7 @@ open B2R2.BinCorpus
 open B2R2.DataFlow
 
 type BranchInstrInfo =
-  | GOTIndexed of insAddr: Addr * baseAddr: Addr * indexAddr: Addr
+  | GOTIndexed of insAddr: Addr * baseAddr: Addr * indexAddr: Addr * rt: RegType
   | ConstAddr of insAddr: Addr * targetAddr: Addr
   | UnknownFormat
 
@@ -146,11 +146,14 @@ module private BranchRecoveryHelper =
 
   let computeBranchInfo cpstate insAddr exp =
     let exp = extractExp cpstate exp
+    // printfn "%x: %s" insAddr (Pp.expToString exp)
     match exp with
-    | BinOp (BinOpType.ADD, _, Load (_, _, idxExpr), Num tbase)
-    | BinOp (BinOpType.ADD, _, Num tbase, Load (_, _, idxExpr)) ->
+    | BinOp (BinOpType.ADD, _, Load (_, t, idxExpr), Num tbase)
+    | BinOp (BinOpType.ADD, _, Num tbase, Load (_, t, idxExpr))
+    | BinOp (BinOpType.ADD, _, Cast (_, _, Load (_, t, idxExpr)), Num tbase)
+    | BinOp (BinOpType.ADD, _, Num tbase, Cast (_, _, Load (_, t, idxExpr))) ->
       match computeIndexAddr idxExpr with
-      | Some tindex -> GOTIndexed (insAddr, BitVector.toUInt64 tbase, tindex)
+      | Some tindex -> GOTIndexed (insAddr, BitVector.toUInt64 tbase, tindex, t)
       | None -> UnknownFormat
     | Num addr -> ConstAddr (insAddr, BitVector.toUInt64 addr)
     | _ -> UnknownFormat
@@ -160,22 +163,22 @@ module private BranchRecoveryHelper =
     |> List.fold (fun (constBranches, gotBranches) info ->
       match info with
       | ConstAddr (i, t) -> (i, t) :: constBranches, gotBranches
-      | GOTIndexed (instr, baddr, iaddr) ->
-        constBranches, (instr, baddr, iaddr) :: gotBranches
+      | GOTIndexed (instr, baddr, iaddr, rt) ->
+        constBranches, (instr, baddr, iaddr, rt) :: gotBranches
       | _ -> constBranches, gotBranches
     ) ([], [])
 
-  let rec readTargets hdl fStart fEnd baseAddr maxAddr startAddr targets =
+  let rec readTargets hdl fStart fEnd baseAddr maxAddr startAddr rt targets =
     match maxAddr with
     | Some maxAddr when startAddr >= maxAddr -> targets
     | _ ->
-      let wordSize = WordSize.toByteWidth hdl.ISA.WordSize
-      let offset = BinHandler.ReadInt (hdl, startAddr, wordSize) |> uint64
+      let size = RegType.toByteWidth rt
+      let offset = BinHandler.ReadInt (hdl, startAddr, size) |> uint64
       let target = baseAddr + offset
       if target >= fStart && target <= fEnd then
-        let nextAddr = startAddr + uint64 wordSize
+        let nextAddr = startAddr + uint64 size
         let targets = Set.add target targets
-        readTargets hdl fStart fEnd baseAddr maxAddr nextAddr targets
+        readTargets hdl fStart fEnd baseAddr maxAddr nextAddr rt targets
       else targets
 
   let updateConstBranchTargets (fStart, _) constBranches =
@@ -188,16 +191,16 @@ module private BranchRecoveryHelper =
   let inferGOTIndexedBranchTargets hdl (fStart, fEnd) gotBranches infos =
     let rec infer acc = function
       | [] -> acc
-      | [ (iaddr, baddr, start) ] ->
-        let targets = readTargets hdl fStart fEnd baddr None start Set.empty
+      | [ (iaddr, baddr, start, t) ] ->
+        let targets = readTargets hdl fStart fEnd baddr None start t Set.empty
         { FuncEntry = fStart; InstrAddr = iaddr; Targets = targets } :: acc
-      | (iaddr, baddr, s1) :: (((_, _, s2) :: _) as next) ->
-        let targets = readTargets hdl fStart fEnd baddr (Some s2) s1 Set.empty
+      | (iaddr, baddr, s1, t) :: (((_, _, s2, _) :: _) as next) ->
+        let targets = readTargets hdl fStart fEnd baddr (Some s2) s1 t Set.empty
         let acc =
           { FuncEntry = fStart; InstrAddr = iaddr; Targets = targets } :: acc
         infer acc next
     gotBranches
-    |> List.sortBy (fun (_, _, i) -> i)
+    |> List.sortBy (fun (_, _, i, _) -> i)
     |> infer infos
 
   let analyzeIndirectBranch hdl ssaCFG cpstate boundary =
@@ -235,7 +238,7 @@ module private BranchRecoveryHelper =
     let indmap' = callees |> List.fold (analyze hdl app scfg boundaries) indmap
     if indmap <> indmap' then
       let app = { app with IndirectBranchMap = indmap' }
-      let app = Apparatus.update hdl app [] (newLeaders hdl indmap')
+      let app = Apparatus.update hdl app (newLeaders hdl indmap')
       let scfg = SCFG (hdl, app)
       scfg, app
     else scfg, app
