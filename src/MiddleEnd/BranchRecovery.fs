@@ -35,6 +35,7 @@ open B2R2.DataFlow
 
 type BranchInstrInfo =
   | GOTIndexed of insAddr: Addr * baseAddr: Addr * indexAddr: Addr * rt: RegType
+  | FixedTab of insAddr: Addr * indexAddr: Addr * rt: RegType
   | ConstAddr of insAddr: Addr * targetAddr: Addr
   | UnknownFormat
 
@@ -113,7 +114,7 @@ module private BranchRecoveryHelper =
         let addr = BitVector.toUInt64 bv
         match CPState.findMem cpstate mem rt addr with
         | Const bv -> Num bv
-        | _ -> expr
+        | _ -> Load (mem, rt, Num bv)
       | expr -> Load (mem, rt, expr)
     | UnOp (op, rt, e) ->
       let e = extractExp cpstate e
@@ -141,7 +142,8 @@ module private BranchRecoveryHelper =
 
   let computeIndexAddr = function
     | BinOp (BinOpType.ADD, _, Num idx, _)
-    | BinOp (BinOpType.ADD, _, _, Num idx) -> Some (BitVector.toUInt64 idx)
+    | BinOp (BinOpType.ADD, _, _, Num idx)
+    | Num idx -> Some (BitVector.toUInt64 idx)
     | _ -> None
 
   let computeBranchInfo cpstate insAddr exp =
@@ -155,6 +157,9 @@ module private BranchRecoveryHelper =
       match computeIndexAddr idxExpr with
       | Some tindex -> GOTIndexed (insAddr, BitVector.toUInt64 tbase, tindex, t)
       | None -> UnknownFormat
+    | Load (_, t, (BinOp (BinOpType.ADD, _, Num i, _)))
+    | Load (_, t, (BinOp (BinOpType.ADD, _, _, Num i))) ->
+      FixedTab (insAddr, BitVector.toUInt64 i, t)
     | Num addr -> ConstAddr (insAddr, BitVector.toUInt64 addr)
     | _ -> UnknownFormat
 
@@ -167,6 +172,8 @@ module private BranchRecoveryHelper =
         else constBranches, gotBranches
       | GOTIndexed (instr, baddr, iaddr, rt) ->
         constBranches, (instr, baddr, iaddr, rt) :: gotBranches
+      | FixedTab (instr, iaddr, rt) ->
+        constBranches, (instr, 0UL, iaddr, rt) :: gotBranches
       | _ -> constBranches, gotBranches
     ) ([], [])
 

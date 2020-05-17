@@ -90,9 +90,10 @@ module CPState =
 
   let findMem st m rt addr =
     let mid = m.Identifier
+    let align = RegType.toByteWidth rt |> uint64
     if st.MemState.ContainsKey mid then ()
     else st.MemState.[mid] <- Map.empty
-    if (rt = st.DefaultWordSize) && (addr % uint64 rt = 0UL) then
+    if (rt = st.DefaultWordSize) && (addr % align = 0UL) then
       match Map.tryFind addr st.MemState.[mid] with
       | Some c -> c
       | None -> NotAConst
@@ -104,13 +105,14 @@ module CPState =
     st.MemState.[dstid] <- st.MemState.[srcid]
 
   let storeMem st mDst rt addr c =
-    if (rt = st.DefaultWordSize) && (addr % uint64 rt = 0UL) then
+    let align = RegType.toByteWidth rt |> uint64
+    if (rt = st.DefaultWordSize) && (addr % align = 0UL) then
       let dstid = mDst.Identifier
       match Map.tryFind addr st.MemState.[dstid] with
-      | Some old when CPValue.goingDown old c ->
+      | Some old when not <| CPValue.goingDown old c -> ()
+      | _ ->
         st.MemState.[dstid] <- Map.add addr c st.MemState.[dstid]
         st.StmtWorkList.Enqueue mDst
-      | _ -> ()
     else ()
 
   let private mergeMemAux st1 st2 =
