@@ -60,9 +60,10 @@ let rec evalConcrete st e =
   | _ -> raise InvalidExprException
 
 and private evalLoad st endian t addr =
+  let pc = st.PC
   let addr = evalConcrete st addr |> unwrap |> BitVector.toUInt64
-  let v = st.Memory.Read st.PC addr endian t
-  st.Callbacks.OnLoad st.PC addr v
+  let v = st.Memory.Read pc addr endian t
+  st.Callbacks.OnLoad pc addr v
   v
 
 and private evalIte st cond e1 e2 =

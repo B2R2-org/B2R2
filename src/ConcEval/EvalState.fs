@@ -33,6 +33,9 @@ type Context () =
   /// instruction.
   member val StmtIdx = 0 with get, set
 
+  /// The current program counter.
+  member val PC: Addr = 0UL with get, set
+
   /// Store named register values.
   member val Registers = Variables<RegisterID>() with get
 
@@ -88,8 +91,10 @@ and EvalState (?reader, ?ignoreundef) =
   /// second is 1, and so on.
   member val ThreadId = 0 with get, set
 
-  /// The current program counter.
-  member val PC: Addr = 0UL with get, set
+  /// Current PC.
+  member __.PC
+    with get() = __.Contexts.[__.ThreadId].PC
+     and set(addr) = __.Contexts.[__.ThreadId].PC <- addr
 
   /// Per-thread context.
   member val Contexts: Context [] = [||] with get, set
@@ -146,9 +151,8 @@ and EvalState (?reader, ?ignoreundef) =
 
   /// Start evaluating the instruction.
   static member StartInstr (st: EvalState) pc =
-    st.PC <- pc
     st.TerminateInstr <- false
-    st
+    EvalState.SetPC st pc
 
   /// Should we stop evaluating further statements of the current instruction,
   /// and move on to the next instruction?
@@ -172,6 +176,10 @@ and EvalState (?reader, ?ignoreundef) =
   static member SetReg (st: EvalState) r v =
     st.Contexts.[st.ThreadId].Registers.Set r v
     st
+
+  /// Get the program counter (PC).
+  static member GetPC (st: EvalState) =
+    st.PC
 
   /// Set the program counter (PC).
   static member SetPC (st: EvalState) addr =
