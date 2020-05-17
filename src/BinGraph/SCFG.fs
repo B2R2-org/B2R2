@@ -120,8 +120,14 @@ type SCFG (hdl, app) =
         match app.CalleeMap.Find childPp.Address with
         | Some callee when callee.IsNoReturn -> ()
         | _ ->
-          let fall = getVertex fallPp
-          newGraph.AddEdge child fall RetEdge
+          try
+            let fall = getVertex fallPp
+            newGraph.AddEdge child fall RetEdge
+          with :? KeyNotFoundException ->
+#if DEBUG
+            printfn "[W] Illegal fall-through edge (%x) ignored." fallPp.Address
+#endif
+            ()
       | _ ->
         let child = getVertex child.VData.PPoint
         newGraph.AddEdge parent child e

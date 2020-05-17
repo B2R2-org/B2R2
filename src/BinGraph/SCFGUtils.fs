@@ -153,8 +153,13 @@ let private addResolvedIndirectEdges (g: IRCFG) app vmap src srcAddr isCall =
     targets
     |> Set.iter (fun target ->
       let targetAddr = ProgramPoint (target, 0)
-      let dst = (vmap: VMap).[targetAddr]
-      g.AddEdge src dst IndirectJmpEdge)
+      match (vmap: VMap).TryGetValue targetAddr with
+      | true, dst -> g.AddEdge src dst IndirectJmpEdge
+      | false, _ ->
+#if DEBUG
+        printfn "[W] Incorrect branch resolution @ %x" srcAddr
+#endif
+        ())
 
 let private addIndirectEdges (g: IRCFG) app vmap src isCall =
   let add callee =

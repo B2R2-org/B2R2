@@ -162,7 +162,9 @@ module private BranchRecoveryHelper =
     lst
     |> List.fold (fun (constBranches, gotBranches) info ->
       match info with
-      | ConstAddr (i, t) -> (i, t) :: constBranches, gotBranches
+      | ConstAddr (i, t) ->
+        if t <> 0UL then (i, t) :: constBranches, gotBranches
+        else constBranches, gotBranches
       | GOTIndexed (instr, baddr, iaddr, rt) ->
         constBranches, (instr, baddr, iaddr, rt) :: gotBranches
       | _ -> constBranches, gotBranches
