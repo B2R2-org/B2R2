@@ -181,13 +181,15 @@ module private BranchRecoveryHelper =
     match maxAddr with
     | Some maxAddr when startAddr >= maxAddr -> targets
     | _ ->
-      let size = RegType.toByteWidth rt
-      let offset = BinHandler.ReadInt (hdl, startAddr, size) |> uint64
-      let target = baseAddr + offset
-      if target >= fStart && target <= fEnd then
-        let nextAddr = startAddr + uint64 size
-        let targets = Set.add target targets
-        readTargets hdl fStart fEnd baseAddr maxAddr nextAddr rt targets
+      if hdl.FileInfo.IsValidAddr startAddr then
+        let size = RegType.toByteWidth rt
+        let offset = BinHandler.ReadInt (hdl, startAddr, size) |> uint64
+        let target = baseAddr + offset
+        if target >= fStart && target <= fEnd then
+          let nextAddr = startAddr + uint64 size
+          let targets = Set.add target targets
+          readTargets hdl fStart fEnd baseAddr maxAddr nextAddr rt targets
+        else targets
       else targets
 
   let updateConstBranchTargets (fStart, _) constBranches =
