@@ -48,10 +48,10 @@ type CPState = {
   /// Default word size of the current analysis.
   DefaultWordSize : RegType
   /// Worklist for blocks.
-  BlkWorkList: Queue<VertexID * VertexID>
+  FlowWorkList: Queue<VertexID * VertexID>
   /// Worklist for SSA stmt, this queue stores a list of def variables, and we
   /// will use SSAEdges to find all related SSA statements.
-  StmtWorkList: Queue<Variable>
+  SSAWorkList: Queue<Variable>
 }
 
 module CPState =
@@ -76,11 +76,11 @@ module CPState =
       MemState = Dictionary () |> initMemory
       ExecutableEdges = HashSet ()
       DefaultWordSize = hdl.ISA.WordSize |> WordSize.toRegType
-      BlkWorkList = Queue ()
-      StmtWorkList = Queue () }
+      FlowWorkList = Queue ()
+      SSAWorkList = Queue () }
 
   let markExecutable st src dst =
-    if st.ExecutableEdges.Add (src, dst) then st.BlkWorkList.Enqueue (src, dst)
+    if st.ExecutableEdges.Add (src, dst) then st.FlowWorkList.Enqueue (src, dst)
     else ()
 
   let isExecutable st src dst =
@@ -115,7 +115,7 @@ module CPState =
       | Some old when not <| CPValue.goingDown old c -> ()
       | _ ->
         st.MemState.[dstid] <- Map.add addr c st.MemState.[dstid]
-        st.StmtWorkList.Enqueue mDst
+        st.SSAWorkList.Enqueue mDst
     else ()
 
   let private mergeMemAux st1 st2 =

@@ -40,9 +40,9 @@ type ConstantPropagation (hdl, ssaCFG: SSACFG) =
     |> List.filter (fun (src, dst) -> CPState.isExecutable st src dst)
     |> List.length
 
-  member private __.ProcessStmt st =
-    while st.StmtWorkList.Count > 0 do
-      let def = st.StmtWorkList.Dequeue ()
+  member private __.ProcessSSA st =
+    while st.SSAWorkList.Count > 0 do
+      let def = st.SSAWorkList.Dequeue ()
       match Map.tryFind def st.SSAEdges.Uses with
       | Some uses ->
         uses
@@ -53,9 +53,9 @@ type ConstantPropagation (hdl, ssaCFG: SSACFG) =
           else ())
       | None -> ()
 
-  member private __.ProcessBlock st =
-    if st.BlkWorkList.Count > 0 then
-      let _, myid = st.BlkWorkList.Dequeue ()
+  member private __.ProcessFlow st =
+    if st.FlowWorkList.Count > 0 then
+      let _, myid = st.FlowWorkList.Dequeue ()
       let blk = ssaCFG.FindVertexByID myid
       blk.VData.Stmts
       |> Array.iter (fun stmt -> CPTransfer.evalStmt st blk stmt)
@@ -70,8 +70,8 @@ type ConstantPropagation (hdl, ssaCFG: SSACFG) =
 
   member __.Compute (root: Vertex<SSABBlock>) =
     let st = CPState.initState hdl ssaCFG
-    st.BlkWorkList.Enqueue (0, root.GetID ())
-    while st.StmtWorkList.Count > 0 || st.BlkWorkList.Count > 0 do
-      __.ProcessStmt st
-      __.ProcessBlock st
+    st.FlowWorkList.Enqueue (0, root.GetID ())
+    while st.FlowWorkList.Count > 0 || st.SSAWorkList.Count > 0 do
+      __.ProcessFlow st
+      __.ProcessSSA st
     st

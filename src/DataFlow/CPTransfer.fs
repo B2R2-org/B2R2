@@ -157,7 +157,7 @@ let evalMemDef st mDst e =
 let inline updateConst st r v =
   if not (st.RegState.ContainsKey r) || CPValue.goingDown st.RegState.[r] v then
     st.RegState.[r] <- v
-    st.StmtWorkList.Enqueue r
+    st.SSAWorkList.Enqueue r
   else ()
 
 let evalDef st v e =
@@ -186,7 +186,7 @@ let evalPhi st blk dst srcIDs =
       |> fun merged -> updateConst st dst merged
     | MemVar ->
       if CPState.mergeMem st dst.Identifier executableSrcIDs then
-        st.StmtWorkList.Enqueue dst
+        st.SSAWorkList.Enqueue dst
       else ()
     | PCVar _ -> ()
 
