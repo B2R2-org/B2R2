@@ -24,6 +24,7 @@
 
 namespace B2R2.DataFlow
 
+open B2R2.BinIR.SSA
 open B2R2.BinGraph
 
 /// Modified version of sparse conditional constant propagation of Wegman et al.
@@ -58,6 +59,13 @@ type ConstantPropagation (hdl, ssaCFG: SSACFG) =
       let blk = ssaCFG.FindVertexByID myid
       blk.VData.Stmts
       |> Array.iter (fun stmt -> CPTransfer.evalStmt st blk stmt)
+      match blk.VData.GetLastStmt () with
+      | Jmp _ -> ()
+      | _ ->
+        blk.Succs
+        |> List.iter (fun succ ->
+          let succid = succ.GetID ()
+          CPState.markExecutable st myid succid)
     else ()
 
   member __.Compute (root: Vertex<SSABBlock>) =
