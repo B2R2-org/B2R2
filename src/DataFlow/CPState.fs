@@ -89,7 +89,7 @@ module CPState =
   let findReg st r =
     match st.RegState.TryGetValue r with
     | true, v -> v
-    | false, _ -> Undef
+    | false, _ -> NotAConst
 
   let findMem st m rt addr =
     let mid = m.Identifier

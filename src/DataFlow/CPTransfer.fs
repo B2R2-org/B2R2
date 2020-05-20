@@ -135,7 +135,7 @@ let rec evalExpr st = function
   | Extract (e, rt, pos) ->
     let c = evalExpr st e
     CPValue.extract c rt pos
-  | Undefined _ -> Undef
+  | Undefined _ -> NotAConst
   | ReturnVal (addr, ret, v) ->
     evalReturn st addr ret v
   | _ -> Utils.impossible ()
@@ -184,10 +184,12 @@ let evalPhi st blk dst srcIDs =
       |> Array.map (fun i -> { dst with Identifier = i } |> CPState.findReg st)
       |> Array.reduce CPValue.meet
       |> fun merged -> updateConst st dst merged
-    | MemVar ->
+    | MemVar -> ()
+      (*
       if CPState.mergeMem st dst.Identifier executableSrcIDs then
         st.SSAWorkList.Enqueue dst
       else ()
+      *)
     | PCVar _ -> ()
 
 let markAllSuccessors st (blk: Vertex<SSABBlock>) =
