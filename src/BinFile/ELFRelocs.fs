@@ -46,10 +46,10 @@ let peekInfoWithArch reader eHdr offset =
 let inline getRelocSIdx eHdr i =
   if eHdr.Class = WordSize.Bit32 then i >>> 8 else i >>> 32
 
-let inline parseRelocELFSymbol hasAdd eHdr typMask symTbl reader pos sec =
+let inline relocEntry baseAddr hasAdd eHdr typMask symTbl reader pos sec =
   let info = peekInfoWithArch reader eHdr pos
   let cls = eHdr.Class
-  { RelOffset = peekUIntOfType reader cls pos
+  { RelOffset = peekUIntOfType reader cls pos + baseAddr
     RelType = typMask &&& info |> RelocationType.FromNum eHdr.MachineType
     RelSymbol = Array.tryItem (getRelocSIdx eHdr info |> Convert.ToInt32) symTbl
     RelAddend = if hasAdd then peekHeaderNative reader cls pos 8 16 else 0UL
@@ -72,14 +72,14 @@ let tryFindSymbTable idx symbInfo =
   | None -> [||]
   | Some tbl -> tbl
 
-let parseRelocSection eHdr reader sec symbInfo relInfo =
+let parseRelocSection baseAddr eHdr reader sec symbInfo relInfo =
   let hasAdd = sec.SecType = SectionType.SHTRela (* Has addend? *)
   let typMask = if eHdr.Class = WordSize.Bit32 then 0xFFUL else 0xFFFFFFFFUL
   let rec parseLoop rNum relInfo offset =
     if rNum = 0UL then relInfo
     else
       let symTbl = tryFindSymbTable (int sec.SecLink) symbInfo
-      let rel = parseRelocELFSymbol hasAdd eHdr typMask symTbl reader offset sec
+      let rel = relocEntry baseAddr hasAdd eHdr typMask symTbl reader offset sec
       let nextOffset = nextRelOffset hasAdd eHdr.Class offset
       parseLoop (rNum - 1UL) (accumulateRelocInfo relInfo rel) nextOffset
   let entrySize =
@@ -89,13 +89,13 @@ let parseRelocSection eHdr reader sec symbInfo relInfo =
   Convert.ToInt32 sec.SecOffset
   |> parseLoop numEntries relInfo
 
-let parse eHdr secInfo symbInfo reader =
+let parse baseAddr eHdr secInfo symbInfo reader =
   let folder acc sec =
     match sec.SecType with
     | SectionType.SHTRel
     | SectionType.SHTRela ->
       if sec.SecSize = 0UL then acc
-      else parseRelocSection eHdr reader sec symbInfo acc
+      else parseRelocSection baseAddr eHdr reader sec symbInfo acc
     | _ -> acc
   let emptyRelInfo = { RelocByAddr = Map.empty; RelocByName = Map.empty }
   Array.fold folder emptyRelInfo secInfo.SecByNum

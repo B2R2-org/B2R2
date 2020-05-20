@@ -29,7 +29,7 @@ open System.Runtime.InteropServices
 
 /// FileInfo describes a binary file in a format-agnostic way.
 [<AbstractClass>]
-type FileInfo () =
+type FileInfo (baseAddr) =
   /// <summary>
   ///   The corresponding binary reader.
   /// </summary>
@@ -59,6 +59,11 @@ type FileInfo () =
   ///   Word size of the CPU that this binary can run on.
   /// </summary>
   abstract WordSize: WordSize
+
+  /// <summary>
+  ///   Base address where this binary is located at.
+  /// </summary>
+  member __.BaseAddr with get(): Addr = baseAddr
 
   /// <summary>
   ///   Is this binary stripped?

@@ -80,4 +80,3 @@ let parseRelocs binReader secs =
       updateReloc relocs binReader sec startOffset endOffset) []
   |> List.rev
   |> List.toArray
-

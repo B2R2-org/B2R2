@@ -27,11 +27,11 @@ module internal B2R2.BinFile.Mach.Section
 open B2R2
 open B2R2.BinFile.FileHelper
 
-let parseSection (reader: BinReader) cls pos =
+let parseSection baseAddr (reader: BinReader) cls pos =
   let secFlag = peekHeaderI32 reader cls pos 56 64
   { SecName = peekCStringOfSize reader pos 16
     SegName = peekCStringOfSize reader (pos + 16) 16
-    SecAddr = peekUIntOfType reader cls (pos + 32)
+    SecAddr = peekUIntOfType reader cls (pos + 32) + baseAddr
     SecSize = peekHeaderNative reader cls pos 36 40
     SecOffset = peekHeaderU32 reader cls pos 40 48
     SecAlignment = peekHeaderU32 reader cls pos 44 52
@@ -48,10 +48,10 @@ let foldSecInfo acc sec =
   let secByName = Map.add sec.SecName sec acc.SecByName
   { acc with SecByAddr = secByAddr; SecByName = secByName }
 
-let parseSections reader cls segs =
+let parseSections baseAddr reader cls segs =
   let rec parseLoop count acc pos =
     if count = 0u then acc
-    else let sec = parseSection reader cls pos
+    else let sec = parseSection baseAddr reader cls pos
          let nextPos = pos + if cls = WordSize.Bit64 then 80 else 68
          parseLoop (count - 1u) (acc @ [sec]) nextPos
   let foldSections acc seg = parseLoop seg.NumSecs acc seg.SecOff

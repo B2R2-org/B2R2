@@ -84,15 +84,15 @@ let invRanges wordSize segs getNextStartAddr =
        FileHelper.addInvRange set saddr seg.PHAddr, n) (IntervalSet.empty, 0UL)
   |> FileHelper.addLastInvRange wordSize
 
-let private parseELF offset reader =
-  let eHdr = Header.parse reader offset
+let private parseELF baseAddr offset reader =
+  let eHdr = Header.parse baseAddr offset reader
   let cls = eHdr.Class
-  let secs = Section.parse eHdr reader
-  let proghdrs = ProgHeader.parse eHdr reader
+  let secs = Section.parse baseAddr eHdr reader
+  let proghdrs = ProgHeader.parse baseAddr eHdr reader
   let segs = ProgHeader.getLoadableProgHeaders proghdrs
   let loadableSecNums = ProgHeader.getLoadableSecNums secs segs
-  let symbs = Symbol.parse eHdr secs reader
-  let reloc = Relocs.parse eHdr secs symbs reader
+  let symbs = Symbol.parse baseAddr eHdr secs reader
+  let reloc = Relocs.parse baseAddr eHdr secs symbs reader
   let plt = parsePLT eHdr.MachineType secs reloc reader
   let globals = parseGlobalSymbols reloc
   let symbs = Symbol.updatePLTSymbols plt symbs |> Symbol.updateGlobals globals
@@ -109,10 +109,10 @@ let private parseELF offset reader =
     NotInFileRanges = invRanges cls segs (fun s -> s.PHAddr + s.PHFileSize)
     BinReader = reader }
 
-let parse bytes =
+let parse baseAddr bytes =
   let reader = BinReader.Init (bytes, Endian.Little)
   if Header.isELF reader 0 then ()
   else raise FileFormatMismatchException
   Header.peekEndianness reader 0
   |> BinReader.RenewReader reader
-  |> parseELF 0
+  |> parseELF baseAddr 0

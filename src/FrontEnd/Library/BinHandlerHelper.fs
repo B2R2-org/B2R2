@@ -59,17 +59,17 @@ let initHelpers isa =
     TMS320C6000.TMS320C6000RegisterBay () :> RegisterBay
   | _ -> Utils.futureFeature ()
 
-let newFileInfo bytes (baseAddr: Addr) path isa autoDetect =
+let newFileInfo bs (baddr: Addr) path isa autoDetect =
   if autoDetect then
     if System.IO.File.Exists path
     then FormatDetector.detect path
-    else FormatDetector.detectBuffer bytes
+    else FormatDetector.detectBuffer bs
     |> function
-      | FileFormat.ELFBinary -> new ELFFileInfo (bytes, path) :> FileInfo
-      | FileFormat.PEBinary -> new PEFileInfo (bytes, path) :> FileInfo
-      | FileFormat.MachBinary -> new MachFileInfo (bytes, path, isa) :> FileInfo
-      | _ -> new RawFileInfo (bytes, baseAddr, isa) :> FileInfo
-  else new RawFileInfo (bytes, baseAddr, isa) :> FileInfo
+      | FileFormat.ELFBinary -> ELFFileInfo (bs, path, baddr) :> FileInfo
+      | FileFormat.PEBinary -> PEFileInfo (bs, path, baddr) :> FileInfo
+      | FileFormat.MachBinary -> MachFileInfo (bs, path, isa, baddr) :> FileInfo
+      | _ -> new RawFileInfo (bs, isa, baddr) :> FileInfo
+  else new RawFileInfo (bs, isa, baddr) :> FileInfo
 
 let detectThumb entryPoint (isa: ISA) =
   match entryPoint, isa.Arch with

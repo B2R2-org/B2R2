@@ -123,7 +123,7 @@ let dumpFunctions (fi: FileInfo) addrToString =
   |> Seq.iter (fun s -> printfn "- %s: %s" (addrToString s.Address) s.Name)
 
 let dumpFile (opts: CmdOptions.FileViewerOpts) (filepath: string) =
-  let hdl = BinHandler.Init (opts.ISA, filepath)
+  let hdl = BinHandler.Init (opts.ISA, opts.BaseAddress, filepath)
   let fi = hdl.FileInfo
   let addrToString = Addr.toString hdl.ISA.WordSize
   printfn "# %s" fi.FilePath

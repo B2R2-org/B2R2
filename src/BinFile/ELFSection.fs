@@ -46,12 +46,12 @@ let peekSecFlags (reader: BinReader) cls offset : SectionFlag =
   |> peekUIntOfType reader cls
   |> LanguagePrimitives.EnumOfValue
 
-let parseSection num strBytes cls (reader: BinReader) offset =
+let parseSection baseAddr num strBytes cls (reader: BinReader) offset =
   { SecNum = num
     SecName = reader.PeekInt32 offset |> ByteArray.extractCString strBytes
     SecType = peekSecType reader offset
     SecFlags = peekSecFlags reader cls offset
-    SecAddr = peekHeaderNative reader cls offset 12 16
+    SecAddr = peekHeaderNative reader cls offset 12 16 + baseAddr
     SecOffset = peekHeaderNative reader cls offset 16 24
     SecSize = peekHeaderNative reader cls offset 20 32
     SecLink = peekHeaderU32 reader cls offset 24 40
@@ -68,16 +68,16 @@ let inline hasSHFAlloc flags =
 let nextSecOffset cls offset =
   offset + (if cls = WordSize.Bit32 then 40 else 64)
 
-let secHasValidAddr sec =
+let secHasValidAddr baseAddr sec =
   (* .tbss has a meaningless virtual address as per
      https://stackoverflow.com/questions/25501044/. *)
   let secEndAddr = sec.SecAddr + sec.SecSize
-  sec.SecAddr <> 0x0UL
+  sec.SecAddr <> baseAddr
   && not <| hasSHFTLS sec.SecFlags
   && secEndAddr > sec.SecAddr
 
-let addSecToAddrMap sec map =
-  if secHasValidAddr sec then
+let addSecToAddrMap baseAddr sec map =
+  if secHasValidAddr baseAddr sec then
     let endAddr = sec.SecAddr + sec.SecSize
     ARMap.addRange sec.SecAddr endAddr sec map
   else map
@@ -99,17 +99,17 @@ let isVerNeed t = t = SectionType.SHTGNUVerNeed
 
 let isVerDef t = t = SectionType.SHTGNUVerDef
 
-let parse eHdr reader =
+let parse baseAddr eHdr reader =
   let nameContents = parseSectionNameContents eHdr reader
   let rec parseLoop secByNum info sIdx offset =
     if int eHdr.SHdrNum = sIdx then
       { info with SecByNum = List.rev secByNum |> Array.ofList }
     else
-      let sec = parseSection sIdx nameContents eHdr.Class reader offset
+      let sec = parseSection baseAddr sIdx nameContents eHdr.Class reader offset
       let nextOffset = nextSecOffset eHdr.Class offset
       let nextInfo =
         { info with
-            SecByAddr = addSecToAddrMap sec info.SecByAddr
+            SecByAddr = addSecToAddrMap baseAddr sec info.SecByAddr
             SecByName = Map.add sec.SecName sec info.SecByName
             StaticSymSecNums = accSymbTabNum info.StaticSymSecNums isStatic sec
             DynSymSecNums = accSymbTabNum info.DynSymSecNums isDynamic sec

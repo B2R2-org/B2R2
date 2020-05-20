@@ -78,7 +78,7 @@ let peekArch (reader: BinReader) cls offset =
   | 0x0as -> getMIPSISA reader cls offset
   | _ -> Arch.UnknownISA
 
-let parse (reader: BinReader) offset =
+let parse baseAddr offset (reader: BinReader) =
   let cls = peekClass reader offset
   {
     Class = cls
@@ -88,7 +88,7 @@ let parse (reader: BinReader) offset =
     OSABIVersion = offset + 8 |> reader.PeekByte |> uint32
     ELFFileType = peekELFFileType reader offset
     MachineType = peekArch reader cls offset
-    EntryPoint = peekHeaderNative reader cls offset 24 24
+    EntryPoint = peekHeaderNative reader cls offset 24 24 + baseAddr
     PHdrTblOffset = peekHeaderNative reader cls offset 28 32
     SHdrTblOffset = peekHeaderNative reader cls offset 32 40
     ELFFlags = peekELFFlags reader cls offset

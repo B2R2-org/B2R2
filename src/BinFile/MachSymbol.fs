@@ -52,7 +52,7 @@ let chooseFuncStarts = function
   | FuncStarts c -> Some c
   | _ -> None
 
-let parseFuncStarts (reader: BinReader) cmds =
+let parseFuncStarts baseAddr (reader: BinReader) cmds =
   let rec update set addr offset lastOffset =
     if offset >= lastOffset then set
     else
@@ -62,9 +62,10 @@ let parseFuncStarts (reader: BinReader) cmds =
   cmds
   |> List.fold (fun set c ->
     let offset = c.DataOffset
-    let fstaddr, count = reader.PeekUInt64LEB128 offset
-    let set = Set.add fstaddr set
-    update set fstaddr (offset + count) (offset + int c.DataSize)) Set.empty
+    let saddr, count = reader.PeekUInt64LEB128 offset
+    let saddr = saddr + baseAddr
+    let set = Set.add saddr set
+    update set saddr (offset + count) (offset + int c.DataSize)) Set.empty
 
 let getLibraryVerInfo (flags: MachFlag) libs nDesc =
   if flags.HasFlag (MachFlag.MHTwoLevel) then
@@ -73,7 +74,11 @@ let getLibraryVerInfo (flags: MachFlag) libs nDesc =
     else Some <| Array.get libs (ord - 1)
   else None
 
-let parseNList acc (reader: BinReader) macHdr libs strtab offset =
+let adjustSymAddr baseAddr addr =
+  if addr = 0UL then 0UL
+  else baseAddr + addr
+
+let parseNList acc baseAddr (reader: BinReader) macHdr libs strtab offset =
   let strIdx = reader.PeekInt32 offset
   let nDesc = reader.PeekInt16 (offset + 6)
   let nType = reader.PeekByte (offset + 4) |> int
@@ -83,20 +88,22 @@ let parseNList acc (reader: BinReader) macHdr libs strtab offset =
     SecNum = reader.PeekByte (offset + 5) |> int
     SymDesc = nDesc
     VerInfo = getLibraryVerInfo macHdr.Flags libs nDesc
-    SymAddr = peekUIntOfType reader macHdr.Class (offset + 8) } :: acc
+    SymAddr = peekUIntOfType reader macHdr.Class (offset + 8)
+              |> adjustSymAddr baseAddr } :: acc
 
 /// Parse SymTab, which is essentially an array of n_list.
-let rec parseSymTab acc reader macHdr libs strtab offset numSymbs =
+let rec symTab acc baseAddr reader macHdr libs strtab offset numSymbs =
   if numSymbs = 0u then acc
-  else let acc = parseNList acc reader macHdr libs strtab offset
-       let offset' = offset + 8 + WordSize.toByteWidth macHdr.Class
-       parseSymTab acc reader macHdr libs strtab offset' (numSymbs - 1u)
+  else
+    let acc = parseNList acc baseAddr reader macHdr libs strtab offset
+    let offset' = offset + 8 + WordSize.toByteWidth macHdr.Class
+    symTab acc baseAddr reader macHdr libs strtab offset' (numSymbs - 1u)
 
-let parseSymTable (reader: BinReader) macHdr libs symtabs =
+let parseSymTable baseAddr (reader: BinReader) macHdr libs symtabs =
   let foldSymTabs acc symtab =
     let strtabSize = Convert.ToInt32 symtab.StrSize
     let strtab = reader.PeekBytes (strtabSize, symtab.StrOff)
-    parseSymTab acc reader macHdr libs strtab symtab.SymOff symtab.NumOfSym
+    symTab acc baseAddr reader macHdr libs strtab symtab.SymOff symtab.NumOfSym
   symtabs |> List.fold foldSymTabs [] |> List.rev |> List.toArray
 
 let addFuncs secTxt starts symbols =
@@ -205,7 +212,7 @@ let buildExportEntry name addr =
   { ExportSymName = name; ExportAddr = addr }
 
 /// The symbols exported by a dylib are encoded in a trie.
-let parseExportTrieHead (reader: BinReader) trieOffset =
+let parseExportTrieHead baseAddr (reader: BinReader) trieOffset =
   let rec parseExportTrie offset str acc =
     let b = reader.PeekByte offset
     if b = 0uy then (* non-terminal *)
@@ -215,7 +222,7 @@ let parseExportTrieHead (reader: BinReader) trieOffset =
       let _, shift= reader.PeekUInt64LEB128 offset
       let _flag = reader.PeekByte (offset + shift)
       let symbOffset, _ = reader.PeekUInt64LEB128 (offset + shift + 1)
-      buildExportEntry str symbOffset :: acc
+      buildExportEntry str (symbOffset + baseAddr) :: acc
   and parseChildren offset numChildren str acc =
     if numChildren = 0UL then acc
     else
@@ -225,29 +232,31 @@ let parseExportTrieHead (reader: BinReader) trieOffset =
       parseChildren (nextOffset + len) (numChildren - 1UL) str acc
   parseExportTrie trieOffset "" []
 
-let parseExports (reader: BinReader) dyldinfo =
+let parseExports baseAddr (reader: BinReader) dyldinfo =
   match List.tryHead dyldinfo with
   | None -> []
   | Some info ->
-    parseExportTrieHead reader info.ExportOff
+    parseExportTrieHead baseAddr reader info.ExportOff
 
 let buildSymbolMap stubs ptrtbls staticsymbs =
   let map = Map.fold (fun map k v -> Map.add k v map) stubs ptrtbls
   Array.fold (fun map s -> Map.add s.SymAddr s map) map staticsymbs
 
-let parse reader macHdr cmds secs secTxt =
+let parse baseAddr reader macHdr cmds secs secTxt =
   let libs = List.choose chooseDyLib cmds |> List.toArray
   let symtabs = List.choose chooseSymTab cmds
   let dyntabs = List.choose chooseDynSymTab cmds
   let dyldinfo = List.choose chooseDyLdInfo cmds
-  let starts = List.choose chooseFuncStarts cmds |> parseFuncStarts reader
-  let symbs = parseSymTable reader macHdr libs symtabs |> addFuncs secTxt starts
+  let starts =
+    List.choose chooseFuncStarts cmds |> parseFuncStarts baseAddr reader
+  let symbs =
+    parseSymTable baseAddr reader macHdr libs symtabs |> addFuncs secTxt starts
   let staticsymbs = obtainStaticSymbols symbs
   let dynsymIndices = parseDynSymTable reader dyntabs
   let stubs = parseSymbolStubs secs symbs dynsymIndices
   let ptrtbls = parseSymbolPtrs macHdr secs symbs dynsymIndices
   let linkage = createLinkageTable stubs ptrtbls
-  let exports = parseExports reader dyldinfo
+  let exports = parseExports baseAddr reader dyldinfo
   { Symbols = symbs |> Array.filter (fun s -> s.SymType <> SymbolType.NOpt)
     SymbolMap = buildSymbolMap stubs ptrtbls staticsymbs
     LinkageTable = linkage

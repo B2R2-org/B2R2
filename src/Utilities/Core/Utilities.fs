@@ -36,12 +36,12 @@ type CmdOpts () =
   /// Just a wrapper function that instantiate an OptParse.Option object.
   static member New<'a> ( descr, ?callback, ?required, ?extra, ?help,
                                  ?short, ?long, ?dummy, ?descrColor ) =
-    new FsOptParse.Option<'a> ( descr,
-                                ?callback=callback,
-                                ?required=required,
-                                ?extra=extra, ?help=help,
-                                ?short=short, ?long=long,
-                                ?dummy=dummy, ?descrColor=descrColor )
+    Option<'a> ( descr,
+                 ?callback=callback,
+                 ?required=required,
+                 ?extra=extra, ?help=help,
+                 ?short=short, ?long=long,
+                 ?dummy=dummy, ?descrColor=descrColor )
 
   /// "-v" or "--verbose" option turns on the verbose mode.
   static member OptVerbose () =

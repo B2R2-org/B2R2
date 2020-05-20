@@ -221,11 +221,11 @@ let parsePDB pdbBytes =
   PDB.parse reader 0
 
 let getPDBSymbols (execpath: string) = function
-  | None ->
+  | [||] ->
     let pdbPath = IO.Path.ChangeExtension (execpath, "pdb")
     if IO.File.Exists pdbPath then IO.File.ReadAllBytes pdbPath |> parsePDB
     else []
-  | Some rawpdb -> parsePDB rawpdb
+  | rawpdb -> parsePDB rawpdb
 
 let updatePDBInfo baseAddr secs mAddr mName lst (sym: PESymbol) =
   let secNum = int sym.Segment - 1
@@ -265,9 +265,9 @@ let computeInvalidAddrRanges wordSize baseAddr secs =
 let computeNotInFileRanges wordSize baseAddr secs =
   invRanges wordSize baseAddr secs (fun a s -> a + uint64 s.SizeOfRawData)
 
-let parseImage execpath rawpdb binReader (hdrs: PEHeaders) =
+let parseImage execpath rawpdb baseAddr binReader (hdrs: PEHeaders) =
   let wordSize = magicToWordSize hdrs.PEHeader.Magic
-  let baseAddr = hdrs.PEHeader.ImageBase
+  let baseAddr = hdrs.PEHeader.ImageBase + baseAddr
   let secs = hdrs.SectionHeaders |> Seq.toArray
   { PEHeaders = hdrs
     BaseAddr = baseAddr
@@ -282,14 +282,14 @@ let parseImage execpath rawpdb binReader (hdrs: PEHeaders) =
     FindSectionIdxFromRVA = findSectionIndex secs
     BinReader = binReader }
 
-let parseCoff binReader (hdrs: PEHeaders) =
+let parseCoff baseAddr binReader (hdrs: PEHeaders) =
   let coff = hdrs.CoffHeader
   let wordSize = Coff.getWordSize coff.Machine
   let secs = hdrs.SectionHeaders |> Seq.toArray
   let idx = secs |> Array.findIndex (fun s -> s.Name.StartsWith ".text")
   let findSectionIdxFromRVA = fun _ -> idx
   { PEHeaders = hdrs
-    BaseAddr = 0UL
+    BaseAddr = baseAddr
     SectionHeaders = secs
     ImportMap= Map.empty
     ExportMap = Map.empty
@@ -301,14 +301,13 @@ let parseCoff binReader (hdrs: PEHeaders) =
     FindSectionIdxFromRVA = findSectionIdxFromRVA
     BinReader = binReader }
 
-let parsePE execpath rawpdb binReader (peReader: PEReader) =
+let parsePE execpath baseAddr rawpdb binReader (peReader: PEReader) =
   let hdrs = peReader.PEHeaders
-  if hdrs.IsCoffOnly then parseCoff binReader hdrs
-  else parseImage execpath rawpdb binReader hdrs
+  if hdrs.IsCoffOnly then parseCoff baseAddr binReader hdrs
+  else parseImage execpath rawpdb baseAddr binReader hdrs
 
-let parse bytes execpath rawpdb =
+let parse bytes execpath baseAddr rawpdb =
   let binReader = BinReader.Init (bytes)
   use stream = new IO.MemoryStream (bytes)
   use peReader = new PEReader (stream, PEStreamOptions.Default)
-  parsePE execpath rawpdb binReader peReader
-
+  parsePE execpath baseAddr rawpdb binReader peReader

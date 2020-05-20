@@ -30,10 +30,13 @@ open B2R2.BinFile.PE.Helper
 /// <summary>
 ///   This class represents a PE binary file.
 /// </summary>
-type PEFileInfo (bytes, path, ?rawpdb) =
-  inherit FileInfo ()
-  let pe = PE.Parser.parse bytes path rawpdb
+type PEFileInfo (bytes, path, baseAddr, rawpdb) =
+  inherit FileInfo (baseAddr)
+  let pe = PE.Parser.parse bytes path baseAddr rawpdb
 
+  new (bytes, path) = PEFileInfo (bytes, path, 0UL, [||])
+  new (bytes, path, baseAddr) = PEFileInfo (bytes, path, baseAddr, [||])
+  new (bytes, path, rawpdb) = PEFileInfo (bytes, path, 0UL, rawpdb)
   override __.BinReader = pe.BinReader
   override __.FileFormat = FileFormat.PEBinary
   override __.ISA = getISA pe

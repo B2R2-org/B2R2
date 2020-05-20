@@ -26,6 +26,7 @@ module B2R2.Utilities.FileViewer.CmdOptions
 
 open B2R2
 open B2R2.Utilities
+open System
 
 type FileViewerOpts () =
   inherit CmdOpts ()
@@ -35,6 +36,9 @@ type FileViewerOpts () =
   /// binary is given, we need to choose which architecture to explorer with
   /// this option.
   member val ISA = ISA.DefaultISA with get, set
+
+  /// Base address
+  member val BaseAddress: Addr = 0UL with get, set
 
   static member private ToThis (opts: CmdOpts) =
     match opts with
@@ -48,7 +52,16 @@ type FileViewerOpts () =
     CmdOpts.New ( descr = "Specify <ISA> (e.g., x86) for fat binaries",
                   extra = 1, callback = cb, short = "-a", long= "--isa" )
 
+  /// "-r" or "--base-addr" option for specifying a base address.
+  static member OptBaseAddr () =
+    let cb (opts: #CmdOpts) (arg: string []) =
+      (FileViewerOpts.ToThis opts).BaseAddress <- Convert.ToUInt64 (arg.[0], 16)
+      opts
+    CmdOpts.New ( descr = "Specify the base <address> in hex (default=0)",
+                  extra = 1, callback = cb, short = "-r", long = "--base-addr" )
+
 let spec: FileViewerOpts FsOptParse.Option list =
   [ FileViewerOpts.OptISA ()
+    FileViewerOpts.OptBaseAddr ()
     CmdOpts.OptVerbose ()
     CmdOpts.OptHelp () ]

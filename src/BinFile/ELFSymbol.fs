@@ -107,7 +107,11 @@ let retrieveVer verTbl verData =
   | None -> None
   | Some verStr -> Some { VerType = t; VerName = verStr }
 
-let readSymAddr (reader: BinReader) cls (parent: ELFSection option) txt offset =
+let adjustSymAddr baseAddr addr =
+  if addr = 0UL then 0UL
+  else addr + baseAddr
+
+let readSymAddr baseAddr reader cls (parent: ELFSection option) txtOffset offset =
   let symAddrOffset = if cls = WordSize.Bit32 then 4 else 8
   let symAddr = offset + symAddrOffset |> peekUIntOfType reader cls
   match parent with
@@ -117,23 +121,24 @@ let readSymAddr (reader: BinReader) cls (parent: ELFSection option) txt offset =
        object. We let .text section's address to be zero, and assume that the
        .text section always precedes the other sections. See
        https://github.com/B2R2-org/B2R2/issues/25 for more details. *)
-    if sec.SecAddr = 0UL && sec.SecOffset > txt then
-      sec.SecOffset - txt + symAddr
+    if sec.SecAddr = baseAddr && sec.SecOffset > txtOffset then
+      sec.SecOffset - txtOffset + symAddr
     else symAddr
+  |> adjustSymAddr baseAddr
 
 let readSymSize (reader: BinReader) cls offset =
   let symSizeOffset = if cls = WordSize.Bit32 then 8 else 16
   offset + symSizeOffset |> peekUIntOfType reader cls
 
-let parseSymb secs vssec strTab verTbl cls (reader: BinReader) txt symIdx pos =
-  let nameIdx = reader.PeekUInt32 pos
+let symb baseAddr secs vssec strTab verTbl cls reader txt symIdx pos =
+  let nameIdx = (reader: BinReader).PeekUInt32 pos
   let info = peekHeaderB reader cls pos 12 4
   let other = peekHeaderB reader cls pos 13 5
   let ndx =  peekHeaderU16 reader cls pos 14 6 |> int
   let parent = Array.tryItem ndx secs.SecByNum
   let secIdx = SectionHeaderIdx.IndexFromInt ndx
   let verInfo = vssec >>= parseVersData reader symIdx >>= retrieveVer verTbl
-  { Addr = readSymAddr reader cls parent txt pos
+  { Addr = readSymAddr baseAddr reader cls parent txt pos
     SymName = ByteArray.extractCString strTab (Convert.ToInt32 nameIdx)
     Size = readSymSize reader cls pos
     Bind = info >>> 4 |> LanguagePrimitives.EnumOfValue
@@ -156,7 +161,7 @@ let getTextSectionOffset secs =
   | None -> 0UL
   | Some sec -> sec.SecOffset
 
-let parseSymbols cls secs (reader: BinReader) verTbl acc symTblSec =
+let parseSymbols baseAddr cls secs (reader: BinReader) verTbl acc symTblSec =
   let ss = secs.SecByNum.[Convert.ToInt32 symTblSec.SecLink] (* Get the sec. *)
   let stbl = reader.PeekBytes (ss.SecSize, ss.SecOffset) (* Get the str table *)
   let vssec = secs.VerSymSec
@@ -165,7 +170,7 @@ let parseSymbols cls secs (reader: BinReader) verTbl acc symTblSec =
   let rec loop cnt acc offset =
     if cnt = sNum then List.rev acc
     else
-      let sym = parseSymb secs vssec stbl verTbl cls reader txt cnt offset
+      let sym = symb baseAddr secs vssec stbl verTbl cls reader txt cnt offset
       loop (cnt + 1UL) (sym :: acc) (nextSymOffset cls offset)
   Convert.ToInt32 symTblSec.SecOffset |> loop 0UL acc
 
@@ -192,13 +197,13 @@ let buildSymbolMap staticSymArr dynamicSymArr =
   let map = staticSymArr |> Array.fold folder Map.empty
   dynamicSymArr |> Array.fold folder map
 
-let parse eHdr secs reader =
+let parse baseAddr eHdr secs reader =
   let cls = eHdr.Class
   let verTbl = parseVersionTable secs reader
   let symTabNumbers = List.append secs.StaticSymSecNums secs.DynSymSecNums
   let getSymTables sec =
     List.fold (fun map (n, symTblSec) ->
-      let symbols = parseSymbols cls secs reader verTbl [] symTblSec
+      let symbols = parseSymbols baseAddr cls secs reader verTbl [] symTblSec
       Map.add n (Array.ofList symbols) map) Map.empty sec
   let symTbls =
     List.map (fun n -> n, secs.SecByNum.[n]) symTabNumbers |> getSymTables

@@ -28,10 +28,10 @@ open System
 open B2R2
 open B2R2.BinFile.FileHelper
 
-let parseSegCmd (reader: BinReader) cls offset =
+let parseSegCmd baseAddr (reader: BinReader) cls offset =
   { SecOff = offset + if cls = WordSize.Bit64 then 72 else 56
     SegCmdName = peekCStringOfSize reader (offset + 8) 16
-    VMAddr = peekHeaderNative reader cls offset 24 24
+    VMAddr = peekHeaderNative reader cls offset 24 24 + baseAddr
     VMSize = peekHeaderNative reader cls offset 28 32
     FileOff = peekHeaderNative reader cls offset 32 40
     FileSize = peekHeaderNative reader cls offset 36 48
@@ -66,8 +66,8 @@ let parseDySymCmd (reader: BinReader) offset =
     LocalRelOff = offset + 72 |> reader.PeekUInt32
     NumLocalRel = offset + 76 |> reader.PeekUInt32 }
 
-let parseMainCmd (reader: BinReader) offset =
-  { EntryOff = offset + 8 |> reader.PeekUInt64
+let parseMainCmd baseAddr (reader: BinReader) offset =
+  { EntryOff = (offset + 8 |> reader.PeekUInt64) + baseAddr
     StackSize = offset + 16 |> reader.PeekUInt64 }
 
 /// Read lc_str string.
@@ -99,16 +99,16 @@ let parseFuncStarts (reader: BinReader) offset =
   { DataOffset = offset + 8 |> reader.PeekInt32
     DataSize = offset + 12 |> reader.PeekUInt32 }
 
-let parseCmd (reader: BinReader) cls offset =
+let parseCmd baddr (reader: BinReader) cls offset =
   let cmdType = reader.PeekInt32 offset |> LanguagePrimitives.EnumOfValue
   let cmdSize = reader.PeekUInt32 (offset + 4)
   let command =
     match cmdType with
     | LoadCmdType.LCSegment
-    | LoadCmdType.LCSegment64 -> Segment (parseSegCmd reader cls offset)
+    | LoadCmdType.LCSegment64 -> Segment (parseSegCmd baddr reader cls offset)
     | LoadCmdType.LCSymTab -> SymTab (parseSymCmd reader offset)
     | LoadCmdType.LCDySymTab -> DySymTab (parseDySymCmd reader offset)
-    | LoadCmdType.LCMain -> Main (parseMainCmd reader offset)
+    | LoadCmdType.LCMain -> Main (parseMainCmd baddr reader offset)
     | LoadCmdType.LCLoadDyLib -> DyLib (parseDyLibCmd reader cmdSize offset)
     | LoadCmdType.LCDyLDInfo
     | LoadCmdType.LCDyLDInfoOnly -> DyLdInfo (parseDyLdInfo reader offset)
@@ -116,10 +116,11 @@ let parseCmd (reader: BinReader) cls offset =
     | _ -> Unhandled { Cmd = cmdType; CmdSize = cmdSize }
   struct (command, Convert.ToInt32 cmdSize)
 
-let parse reader machHdr =
+let parse baseAddr reader machHdr =
   let rec loop cNum acc offset =
     if cNum = 0u then List.rev acc
-    else let struct (cmd, cmdSize) = parseCmd reader machHdr.Class offset
-         loop (cNum - 1u) (cmd :: acc) (offset + cmdSize)
+    else
+      let struct (cmd, cmdSize) = parseCmd baseAddr reader machHdr.Class offset
+      loop (cNum - 1u) (cmd :: acc) (offset + cmdSize)
   let cmdOffset = if machHdr.Class = WordSize.Bit32 then 28 else 32
   cmdOffset |> loop machHdr.NumCmds []

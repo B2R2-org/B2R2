@@ -56,15 +56,15 @@ let invRanges wordSize segs getNextStartAddr =
        FileHelper.addInvRange set saddr seg.VMAddr, n) (IntervalSet.empty, 0UL)
   |> FileHelper.addLastInvRange wordSize
 
-let parseMach reader  =
+let parseMach baseAddr reader  =
   let machHdr = Header.parse reader 0
   let cls = machHdr.Class
-  let cmds = LoadCommands.parse reader machHdr
+  let cmds = LoadCommands.parse baseAddr reader machHdr
   let segs = Segment.extract cmds
   let segmap = Segment.buildMap segs
-  let secs = Section.parseSections reader cls segs
+  let secs = Section.parseSections baseAddr reader cls segs
   let secText = Section.getTextSectionIndex secs.SecByNum
-  let symInfo = Symbol.parse reader machHdr cmds secs secText
+  let symInfo = Symbol.parse baseAddr reader machHdr cmds secs secText
   let relocs =
     Reloc.parseRelocs reader secs.SecByNum
     |> Array.map (Reloc.toSymbol symInfo.Symbols secs.SecByNum)
@@ -87,10 +87,10 @@ let updateReaderForFat bytes isa reader =
     BinReader.Init (bytes)
   else reader
 
-let parse bytes isa =
+let parse baseAddr bytes isa =
   let reader = BinReader.Init (bytes) |> updateReaderForFat bytes isa
   if Header.isMach reader 0 then ()
   else raise FileFormatMismatchException
   Header.peekEndianness reader 0
   |> BinReader.RenewReader reader
-  |> parseMach
+  |> parseMach baseAddr

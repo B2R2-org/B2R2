@@ -33,12 +33,12 @@ let peekPHdrFlags (reader: BinReader) cls offset =
   let pHdrPHdrFlagsOffset = if cls = WordSize.Bit32 then 24 else 4
   offset + pHdrPHdrFlagsOffset |> reader.PeekInt32
 
-let parseProgHeader cls (reader: BinReader) offset =
+let parseProgHeader baseAddr cls (reader: BinReader) offset =
   {
     PHType = reader.PeekUInt32 offset |> LanguagePrimitives.EnumOfValue
     PHFlags = peekPHdrFlags reader cls offset |> LanguagePrimitives.EnumOfValue
     PHOffset = peekHeaderNative reader cls offset 4 8
-    PHAddr = peekHeaderNative reader cls offset 8 16
+    PHAddr = peekHeaderNative reader cls offset 8 16 + baseAddr
     PHPhyAddr = peekHeaderNative reader cls offset 12 24
     PHFileSize = peekHeaderNative reader cls offset 16 32
     PHMemSize = peekHeaderNative reader cls offset 20 40
@@ -47,13 +47,13 @@ let parseProgHeader cls (reader: BinReader) offset =
 
 /// Parse and associate program headers with section headers to return the list
 /// of segments.
-let parse eHdr reader =
+let parse baseAddr eHdr reader =
   let nextPHdrOffset = if eHdr.Class = WordSize.Bit32 then 32 else 56
   let nextPHdr offset = offset + nextPHdrOffset
   let rec parseLoop pNum acc offset =
     if pNum = 0us then List.rev acc
     else
-      let phdr = parseProgHeader eHdr.Class reader offset
+      let phdr = parseProgHeader baseAddr eHdr.Class reader offset
       parseLoop (pNum - 1us) (phdr :: acc) (nextPHdr offset)
   Convert.ToInt32 eHdr.PHdrTblOffset
   |> parseLoop eHdr.PHdrNum []

@@ -130,6 +130,30 @@ with
 
   /// <summary>
   ///   Initialize a BinHandler from an ISA and a binary file path, assuming
+  ///   that the archMode is NoMode. This function behaves the same as the
+  ///   2-argument constructor Init (isa, fileName), with a difference of using
+  ///   the specified base address when initializing the BinHandler.
+  /// </summary>
+  /// <param name="isa">ISA.</param>
+  /// <param name="baseAddr">Base address.</param>
+  /// <param name="fileName">Binary file path.</param>
+  /// <returns>BinHandler.</returns>
+  static member Init: isa: ISA * baseAddr: Addr * fileName: string -> BinHandler
+
+  /// <summary>
+  ///   Initialize a BinHandler from an ISA and a byte sequence, assuming that
+  ///   the archMode is NoMode. This function behaves the same as the 2-argument
+  ///   constructor Init (isa, bytes), with a difference of using the specified
+  ///   base address when initializing the BinHandler.
+  /// </summary>
+  /// <param name="isa">ISA.</param>
+  /// <param name="baseAddr">Base address.</param>
+  /// <param name="bytes">Byte sequence.</param>
+  /// <returns>BinHandler.</returns>
+  static member Init: isa: ISA * baseAddr: Addr * bytes: byte [] -> BinHandler
+
+  /// <summary>
+  ///   Initialize a BinHandler from an ISA and a binary file path, assuming
   ///   that the archMode is NoMode. B2R2 will automatically detect the file
   ///   format of the given binary file, but it will refer to the given ISA
   ///   parameter either when the binary has multiple architectures, e.g., a fat

@@ -31,10 +31,11 @@ open B2R2.BinFile.ELF.Helper
 /// <summary>
 ///   This class represents an ELF binary file.
 /// </summary>
-type ELFFileInfo (bytes, path) =
-  inherit FileInfo ()
-  let elf = Parser.parse bytes
+type ELFFileInfo (bytes, path, baseAddr) =
+  inherit FileInfo (baseAddr)
+  let elf = Parser.parse baseAddr bytes
 
+  new (bytes, path) = ELFFileInfo (bytes, path, 0UL)
   override __.BinReader = elf.BinReader
   override __.FileFormat = FileFormat.ELFBinary
   override __.ISA = ISA.Init elf.ELFHdr.MachineType elf.ELFHdr.Endian
