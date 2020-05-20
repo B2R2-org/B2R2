@@ -83,6 +83,9 @@ module CPState =
     if st.ExecutableEdges.Add (src, dst) then st.BlkWorkList.Enqueue (src, dst)
     else ()
 
+  let isExecutable st src dst =
+    st.ExecutableEdges.Contains (src, dst)
+
   let findReg st r =
     match st.RegState.TryGetValue r with
     | true, v -> v

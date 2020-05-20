@@ -170,8 +170,7 @@ let executableSources st (blk: Vertex<_>) srcIDs =
   srcIDs
   |> Array.mapi (fun i srcID ->
     let p = blk.Preds.[i]
-    let edgeId = p.GetID (), blk.GetID ()
-    if not <| st.ExecutableEdges.Contains edgeId then None
+    if not <| CPState.isExecutable st (p.GetID ()) (blk.GetID ()) then None
     else Some srcID)
   |> Array.choose id
 
