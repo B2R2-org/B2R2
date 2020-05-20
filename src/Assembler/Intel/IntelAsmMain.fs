@@ -61,9 +61,11 @@ let encodeInstruction ins ctxt =
   | Opcode.AND -> logAnd ctxt ins
   | Opcode.ANDPD -> andpd ctxt ins
   | Opcode.ANDPS -> andps ctxt ins
+  | Opcode.BSR -> bsr ctxt ins
   | Opcode.BT -> bt ctxt ins
   | Opcode.CALLNear -> call ctxt ins
   | Opcode.CBW -> cbw ctxt ins.Operands
+  | Opcode.CDQ -> cdq ctxt ins.Operands
   | Opcode.CDQE -> cdqe ctxt ins.Operands
   | Opcode.CMOVA -> cmova ctxt ins
   | Opcode.CMOVAE -> cmovae ctxt ins
@@ -86,29 +88,38 @@ let encodeInstruction ins ctxt =
   | Opcode.CMPXCHG -> cmpxchg ctxt ins
   | Opcode.CMPXCHG8B -> cmpxchg8b ctxt ins
   | Opcode.CMPXCHG16B -> cmpxchg16b ctxt ins
+  | Opcode.CVTSD2SS -> cvtsd2ss ctxt ins
   | Opcode.CVTSI2SD -> cvtsi2sd ctxt ins
   | Opcode.CVTSI2SS -> cvtsi2ss ctxt ins
+  | Opcode.CVTSS2SI-> cvtss2si ctxt ins
   | Opcode.CVTTSS2SI -> cvttss2si ctxt ins
   | Opcode.CWDE -> cwde ctxt ins.Operands
+  | Opcode.DEC -> dec ctxt ins
   | Opcode.DIV -> div ctxt ins
   | Opcode.DIVSD -> divsd ctxt ins
   | Opcode.DIVSS -> divss ctxt ins
   | Opcode.FADD -> fadd ctxt ins
+  | Opcode.FCMOVB -> fcmovb ctxt ins
+  | Opcode.FDIV -> fdiv ctxt ins
   | Opcode.FDIVP -> fdivp ctxt ins.Operands
   | Opcode.FDIVRP -> fdivrp ctxt ins.Operands
   | Opcode.FILD -> fild ctxt ins
   | Opcode.FISTP -> fistp ctxt ins
   | Opcode.FLD -> fld ctxt ins
+  | Opcode.FLD1 -> fld1 ctxt ins.Operands
   | Opcode.FLDCW -> fldcw ctxt ins
+  | Opcode.FLDZ -> fldz ctxt ins.Operands
   | Opcode.FMUL -> fmul ctxt ins
   | Opcode.FMULP -> fmulp ctxt ins.Operands
   | Opcode.FNSTCW -> fnstcw ctxt ins
   | Opcode.FSTP -> fstp ctxt ins
+  | Opcode.FSUB -> fsub ctxt ins
   | Opcode.FSUBR -> fsubr ctxt ins
   | Opcode.FUCOMI -> fucomi ctxt ins.Operands
   | Opcode.FUCOMIP -> fucomip ctxt ins.Operands
   | Opcode.FXCH -> fxch ctxt ins.Operands
   | Opcode.HLT -> hlt ctxt ins.Operands
+  | Opcode.IDIV -> idiv ctxt ins
   | Opcode.IMUL -> imul ctxt ins
   | Opcode.INC -> inc ctxt ins
   | Opcode.JA -> ja ctxt ins
@@ -128,12 +139,19 @@ let encodeInstruction ins ctxt =
   | Opcode.JS -> js ctxt ins
   | Opcode.JZ -> jz ctxt ins
   | Opcode.JMPNear -> jmp ctxt ins
+  | Opcode.LAHF -> lahf ctxt ins.Operands
   | Opcode.LEA -> lea ctxt ins
+  | Opcode.LEAVE -> leave ctxt ins.Operands
   | Opcode.MOV -> mov ctxt ins
   | Opcode.MOVAPS -> movaps ctxt ins
+  | Opcode.MOVD -> movd ctxt ins
+  | Opcode.MOVDQA -> movdqa ctxt ins
+  | Opcode.MOVDQU -> movdqu ctxt ins
+  | Opcode.MOVSD -> movsd ctxt ins
   | Opcode.MOVSS -> movss ctxt ins
   | Opcode.MOVSX -> movsx ctxt ins
   | Opcode.MOVSXD -> movsxd ctxt ins
+  | Opcode.MOVUPS -> movups ctxt ins
   | Opcode.MOVZX -> movzx ctxt ins
   | Opcode.MUL -> mul ctxt ins
   | Opcode.MULSD -> mulsd ctxt ins
@@ -142,8 +160,12 @@ let encodeInstruction ins ctxt =
   | Opcode.NOP -> nop ctxt ins
   | Opcode.NOT -> not ctxt ins
   | Opcode.OR -> logOr ctxt ins
+  | Opcode.ORPD -> orpd ctxt ins
+  | Opcode.PADDD -> paddd ctxt ins
   | Opcode.PALIGNR -> palignr ctxt ins
   | Opcode.POP -> pop ctxt ins
+  | Opcode.PSHUFD -> pshufd ctxt ins
+  | Opcode.PUNPCKLDQ -> punpckldq ctxt ins
   | Opcode.PUSH -> push ctxt ins
   | Opcode.PXOR -> pxor ctxt ins
   | Opcode.RCL -> rcl ctxt ins
@@ -151,6 +173,7 @@ let encodeInstruction ins ctxt =
   | Opcode.ROL -> rol ctxt ins
   | Opcode.ROR -> ror ctxt ins
   | Opcode.SAR -> sar ctxt ins
+  | Opcode.SAHF -> sahf ctxt ins.Operands
   | Opcode.SBB -> sbb ctxt ins
   | Opcode.SCASB -> scasb ctxt ins
   | Opcode.SCASD -> scasd ctxt ins
@@ -173,12 +196,14 @@ let encodeInstruction ins ctxt =
   | Opcode.SETS -> sets ctxt ins
   | Opcode.SETZ -> setz ctxt ins
   | Opcode.SHL -> shl ctxt ins
+  | Opcode.SHLD -> shld ctxt ins
   | Opcode.SHR -> shr ctxt ins
   | Opcode.STOSB -> stosb ctxt ins
   | Opcode.STOSD -> stosd ctxt ins
   | Opcode.STOSQ -> stosq ctxt ins
   | Opcode.STOSW -> stosw ctxt ins
   | Opcode.SUB -> sub ctxt ins
+  | Opcode.SUBSD -> subsd ctxt ins
   | Opcode.SUBSS -> subss ctxt ins
   | Opcode.TEST -> test ctxt ins
   | Opcode.UCOMISS -> ucomiss ctxt ins
@@ -189,6 +214,7 @@ let encodeInstruction ins ctxt =
   | Opcode.VPALIGNR -> vpalignr ctxt ins
   | Opcode.XCHG -> xchg ctxt ins
   | Opcode.XOR -> xor ctxt ins
+  | Opcode.XORPS -> xorps ctxt ins
   | op -> printfn "%A" op; Utils.futureFeature ()
 
 let computeIncompMaxLen = function
