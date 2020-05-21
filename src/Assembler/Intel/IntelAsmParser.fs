@@ -59,7 +59,7 @@ type AsmParser (isa, baseAddr: Addr) =
 
   let skipWhitespaces s = whitespace >>? s .>>? whitespace
 
-  let terminator = (pchar ';' <|> newline) |> skipWhitespaces
+  let terminator = (pchar ';' <|> newline) |> skipWhitespaces <?> ""
 
   let operandSeps = (pchar ',' >>. whitespace) <|> whitespace1
 
@@ -70,7 +70,7 @@ type AsmParser (isa, baseAddr: Addr) =
 
   let pId = many1Satisfy alphanumericWithUnderscore
 
-  let pLabelDef = pId .>>? pchar ':' >>= addLabeldef
+  let pLabelDef = pId .>>? pchar ':' >>= addLabeldef <?> "label"
 
   /// If the value satisfies the condition then check succeeds.
   let check p condition =
@@ -90,6 +90,7 @@ type AsmParser (isa, baseAddr: Addr) =
     <|> (pstringCI "jmp" >>. preturn Opcode.JMPNear)
     <|> (pstringCI "call" >>. preturn Opcode.CALLNear)
     <|> (pstringCI "ret" >>. preturn Opcode.RETNearImm)
+    <?> "opcode"
 
   let numberFormat =
     NumberLiteralOptions.AllowBinary
@@ -122,6 +123,7 @@ type AsmParser (isa, baseAddr: Addr) =
     <|> (attempt (pstring "repz") |>> fun _ -> inferredPrefix <- Prefix.PrxREPZ)
     <|> (pstring "repnz" |>> fun _ -> inferredPrefix <- Prefix.PrxREPNZ)
     >>. preturn ()
+    <?> "prefix"
 
   let pScale =
     opt (pchar '*') >>. spaces >>.
@@ -212,10 +214,10 @@ type AsmParser (isa, baseAddr: Addr) =
 
   let statement =
     attempt pInstructionLine
-    <|> (pLabelDef |>> fun _ -> LabelDefLine)
+    <|> ((pLabelDef |>> fun _ -> LabelDefLine) <?> "")
     <|> preturn LabelDefLine
 
-  let statements = sepEndBy statement terminator .>> eof
+  let statements = sepEndBy statement terminator .>> (eof <?> "")
 
   member __.Run assembly =
     let st = { LabelMap = Map.empty; CurIndex = -1 }
