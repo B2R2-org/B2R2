@@ -93,6 +93,9 @@ let modrmRM reg baseReg si disp =
 let modrmRL reg =
   getModRMByte 0b00uy (regTo3Bit reg) 0b101uy
 
+let modrmLI regConstr =
+  getModRMByte 0b00uy regConstr 0b101uy
+
 let modrmRI reg regConstr =
   getModRMByte 0b11uy regConstr (regTo3Bit reg)
 
@@ -120,7 +123,13 @@ let private getScaleBit = function
 let private encSIB sBit idxBit baseBit =
   (sBit <<< 6) + (idxBit <<< 3) + baseBit |> Normal
 
-let modrmRel _rel = [| IncompleteLabel |] // FIXME
+let modrmRel byteLen (rel: int64) relSz = // FIXME
+  let comRel rel = rel - (byteLen + RegType.toByteWidth relSz |> int64)
+  match relSz with
+  | 8<rt> -> [| Normal <| byte (comRel rel) |]
+  | 16<rt> -> BitConverter.GetBytes (comRel rel |> int16) |> Array.map Normal
+  | 32<rt> -> BitConverter.GetBytes (comRel rel |> int32) |> Array.map Normal
+  | _ -> Utils.impossible ()
 
 let private encDisp disp = function
   | 8<rt> -> [| byte disp |> Normal |]

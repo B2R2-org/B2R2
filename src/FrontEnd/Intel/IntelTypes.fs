@@ -2647,7 +2647,7 @@ type Operand =
   | OprMem of Register option * ScaledIndex option * Disp option * OperandSize
   | OprDirAddr of JumpTarget
   | OprImm of int64
-  | Label of string
+  | Label of string * RegType
 /// Displacement.
 and Disp = int64
 

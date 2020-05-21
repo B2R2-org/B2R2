@@ -37,6 +37,7 @@ type LabelDefs = Map<string, int>
 type AsmParser (isa, baseAddr: Addr) =
 
   let mutable inferredPrefix = Prefix.PrxNone
+  let defaultRegType = isa.WordSize |> WordSize.toRegType
 
   let addLabeldef lbl =
     updateUserState (fun us ->
@@ -58,7 +59,7 @@ type AsmParser (isa, baseAddr: Addr) =
 
   let skipWhitespaces s = whitespace >>? s .>>? whitespace
 
-  let terminator = (pchar ';' <|> newline) |> skipWhitespaces
+  let terminator = (pchar ';' <|> newline) |> skipWhitespaces <?> ""
 
   let operandSeps = (pchar ',' >>. whitespace) <|> whitespace1
 
@@ -69,7 +70,7 @@ type AsmParser (isa, baseAddr: Addr) =
 
   let pId = many1Satisfy alphanumericWithUnderscore
 
-  let pLabelDef = pId .>>? pchar ':' >>= addLabeldef
+  let pLabelDef = pId .>>? pchar ':' >>= addLabeldef <?> "label"
 
   /// If the value satisfies the condition then check succeeds.
   let check p condition =
@@ -89,6 +90,7 @@ type AsmParser (isa, baseAddr: Addr) =
     <|> (pstringCI "jmp" >>. preturn Opcode.JMPNear)
     <|> (pstringCI "call" >>. preturn Opcode.CALLNear)
     <|> (pstringCI "ret" >>. preturn Opcode.RETNearImm)
+    <?> "opcode"
 
   let numberFormat =
     NumberLiteralOptions.AllowBinary
@@ -121,6 +123,7 @@ type AsmParser (isa, baseAddr: Addr) =
     <|> (attempt (pstring "repz") |>> fun _ -> inferredPrefix <- Prefix.PrxREPZ)
     <|> (pstring "repnz" |>> fun _ -> inferredPrefix <- Prefix.PrxREPNZ)
     >>. preturn ()
+    <?> "prefix"
 
   let pScale =
     opt (pchar '*') >>. spaces >>.
@@ -157,6 +160,7 @@ type AsmParser (isa, baseAddr: Addr) =
   let pDisp = pImm
 
   let pMemOpr sz =
+    let sz = Option.defaultValue defaultRegType sz
     opt (attempt updatePrefix) >>. spaces >>. opt (attempt pMemBaseReg)
     .>> spaces .>>. opt (attempt pScaledIndexReg) .>> spaces .>>. opt pDisp
     |>> fun ((bReg, scaledInd), disp) -> OprMem (bReg, scaledInd, disp, sz)
@@ -168,25 +172,27 @@ type AsmParser (isa, baseAddr: Addr) =
 
   let pJumpTarget = attempt pAbsoluteAddress <|> (pImm |>> Relative)
 
-  (* operands *)
   let pOprReg = pReg |>> OprReg
 
-  let pOprMem = pMemOprSize .>> spaces >>= pMemOpr
+  let pOprMem = opt (pMemOprSize .>> spaces) >>= pMemOpr
 
   let pOprDirAddr opc =
     check opc Helper.isBranch >>. pJumpTarget |>> OprDirAddr
 
   let pOprImm = pImm |>> OprImm
 
-  let pGoToLabel = pId |>> Label
+  let pSizedLabel sz =
+    let sz = Option.defaultValue defaultRegType sz
+    pId |>> fun lbl -> Label (lbl, sz)
+
+  let pLabel = opt (pMemOprSize .>> spaces) >>= pSizedLabel
 
   let operand opc =
     pOprDirAddr opc
     <|> attempt pOprReg
     <|> pOprImm
-    <|> pOprMem
-    <|> pGoToLabel
-    |>> (fun operand -> operand)
+    <|> attempt pOprMem
+    <|> pLabel
 
   let operands opc =
     sepBy (operand opc) operandSeps |>> extractOperands
@@ -208,13 +214,13 @@ type AsmParser (isa, baseAddr: Addr) =
 
   let statement =
     attempt pInstructionLine
-    <|> (pLabelDef |>> fun _ -> LabelDefLine)
+    <|> ((pLabelDef |>> fun _ -> LabelDefLine) <?> "")
     <|> preturn LabelDefLine
 
-  let statements = sepEndBy statement terminator .>> eof
+  let statements = sepEndBy statement terminator .>> (eof <?> "")
 
   member __.Run assembly =
-    let st = { LabelMap = Map.empty; CurIndex = 0 }
+    let st = { LabelMap = Map.empty; CurIndex = -1 }
     match runParserOnString statements st "IntelAsm" assembly with
     | Success (result, us, _) ->
       filterInstructionLines result |> assemble us isa baseAddr
