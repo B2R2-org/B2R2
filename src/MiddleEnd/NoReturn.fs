@@ -63,8 +63,8 @@ module private NoReturnHelper =
     | None -> false
     | Some st ->
       let arch = hdl.ISA.Arch
-      let exitSyscall = LinuxSyscall.getNumber arch LinuxSyscall.Exit
-      let exitGrpSyscall = LinuxSyscall.getNumber arch LinuxSyscall.ExitGroup
+      let exitSyscall = LinuxSyscall.toNumber arch LinuxSyscall.Exit
+      let exitGrpSyscall = LinuxSyscall.toNumber arch LinuxSyscall.ExitGroup
       let reg = CallingConvention.returnRegister hdl
       checkExitSyscall reg exitSyscall exitGrpSyscall st
 
