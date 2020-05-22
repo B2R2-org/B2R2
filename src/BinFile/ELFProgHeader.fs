@@ -34,16 +34,14 @@ let peekPHdrFlags (reader: BinReader) cls offset =
   offset + pHdrPHdrFlagsOffset |> reader.PeekInt32
 
 let parseProgHeader baseAddr cls (reader: BinReader) offset =
-  {
-    PHType = reader.PeekUInt32 offset |> LanguagePrimitives.EnumOfValue
+  { PHType = reader.PeekUInt32 offset |> LanguagePrimitives.EnumOfValue
     PHFlags = peekPHdrFlags reader cls offset |> LanguagePrimitives.EnumOfValue
     PHOffset = peekHeaderNative reader cls offset 4 8
     PHAddr = peekHeaderNative reader cls offset 8 16 + baseAddr
     PHPhyAddr = peekHeaderNative reader cls offset 12 24
     PHFileSize = peekHeaderNative reader cls offset 16 32
     PHMemSize = peekHeaderNative reader cls offset 20 40
-    PHAlignment = peekHeaderNative reader cls offset 28 48
-  }
+    PHAlignment = peekHeaderNative reader cls offset 28 48 }
 
 /// Parse and associate program headers with section headers to return the list
 /// of segments.
@@ -75,8 +73,6 @@ let getLoadableSecNums secs segs =
   segs |> List.fold loop Set.empty
 
 let toSegment phdr =
-  {
-    Address = phdr.PHAddr
-    Size = phdr.PHFileSize
-    Permission = phdr.PHFlags
-  }
+  { Address = phdr.PHAddr
+    Size = phdr.PHMemSize
+    Permission = phdr.PHFlags }
