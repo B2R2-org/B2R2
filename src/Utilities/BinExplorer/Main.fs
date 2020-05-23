@@ -150,23 +150,10 @@ let dumpJsonFiles jsonDir ess =
   Apparatus.getInternalFunctions ess.Apparatus
   |> Seq.iter (fun { CalleeID = id; Addr = addr } ->
     let disasmJsonPath = Printf.sprintf "%s/%s.disasmCFG" jsonDir id
-    let irJsonPath = Printf.sprintf "%s/%s.irCFG" jsonDir id
-    let encoding = System.Text.Encoding.UTF8
     let cfg, root = ess.SCFG.GetFunctionCFG (Option.get addr)
-    let irJson =
-      VisGraph.ofCFG cfg [root]
-      |> fst
-      |> JSONExport.toStr [root]
-      |> encoding.GetBytes
     let lens = DisasmLens.Init ess.Apparatus
-    let disasmcfg, roots = lens.Filter cfg [root] ess.Apparatus
-    let disasmJson =
-      VisGraph.ofCFG disasmcfg roots
-      |> fst
-      |> JSONExport.toStr [root]
-      |> encoding.GetBytes
-    System.IO.File.WriteAllBytes(disasmJsonPath, disasmJson)
-    System.IO.File.WriteAllBytes(irJsonPath, irJson))
+    let disasmcfg, _ = lens.Filter cfg [root] ess.Apparatus
+    CFGExport.toJson disasmcfg disasmJsonPath)
 
 let initBinHdl isa (name: string) =
   BinHandler.Init (isa, ArchOperationMode.NoMode, true, 0UL, name)

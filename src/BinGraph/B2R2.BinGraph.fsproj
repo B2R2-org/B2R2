@@ -22,6 +22,7 @@
     <Compile Include="IRBasicBlock.fs" />
     <Compile Include="ControlFlowGraph.fsi" />
     <Compile Include="ControlFlowGraph.fs" />
+    <Compile Include="CFGExport.fs" />
     <Compile Include="SCC.fsi" />
     <Compile Include="SCC.fs" />
     <Compile Include="SCFGUtils.fs" />
