@@ -180,7 +180,7 @@ let evalStmt st = function
   | CJmp (cond, t, f) -> evalCJmp st cond t f
   | InterJmp (pc, target, _) -> evalPut st pc target |> EvalState.AbortInstr
   | InterCJmp (c, pc, t, f) -> evalIntCJmp st c pc t f |> EvalState.AbortInstr
-  | SideEffect eff -> EvalState.AbortInstr st |> st.Callbacks.OnSideEffect eff
+  | SideEffect eff -> st.Callbacks.OnSideEffect eff st
 
 let rec internal gotoNextInstr stmts st =
   let ctxt = EvalState.GetCurrentContext st
