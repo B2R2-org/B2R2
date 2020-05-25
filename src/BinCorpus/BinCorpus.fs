@@ -259,7 +259,11 @@ module Apparatus =
   /// Update instruction info based on the given binary apparatus and additional
   /// leader addresses.
   let update hdl app leaders =
-    let entries = app.RecoveredEntries
+    let entries =
+      app.CalleeMap.Callees
+      |> Seq.choose (fun c -> c.Addr)
+      |> Seq.fold (fun acc a ->
+        Set.add (LeaderInfo.Init (hdl, a)) acc) app.RecoveredEntries
     let oldNoRet =
       app.CalleeMap.Callees
       |> Seq.filter (fun c -> c.IsNoReturn)
