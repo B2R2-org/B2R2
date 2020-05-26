@@ -242,11 +242,18 @@ module private BranchRecoveryHelper =
     |> Map.fold (fun set _ targets -> Set.union targets set) Set.empty
     |> Set.map (fun addr -> LeaderInfo.Init (hdl, addr))
 
+  let refineIndirectBranchMap oldIndMap newIndMap =
+    Map.map (fun addr targets ->
+      match Map.tryFind addr oldIndMap with
+      | None -> targets
+      | Some targets' -> Set.intersect targets targets') newIndMap
+
   let recover hdl scfg app =
     let callees = computeCalleeAddrs hdl app
     let boundaries = computeFunctionBoundary Map.empty callees
     let indmap = app.IndirectBranchMap
     let indmap' = callees |> List.fold (analyze hdl app scfg boundaries) indmap
+    let indmap' = refineIndirectBranchMap indmap indmap'
     if indmap <> indmap' then
       let app = { app with IndirectBranchMap = indmap' }
       let app = Apparatus.update hdl app (newLeaders hdl indmap')
