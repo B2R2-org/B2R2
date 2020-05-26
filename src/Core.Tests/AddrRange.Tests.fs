@@ -51,6 +51,22 @@ type AddrRangeTests () =
     ARMap.addRange 0UL 400UL 3 m |> ignore
 
   [<TestMethod>]
+  member __.``GetOverlaps Test`` () =
+    let size = 0x10UL
+    let num = 0x100UL
+    let sprayRange m i =
+      let r = AddrRange (size * i, size * (i + 1UL))
+      ARMap.add r None m
+    let r = AddrRange (0x150UL, 0x180UL)
+    let l =
+      [ 0UL .. num - 1UL ]
+      |> List.fold sprayRange ARMap.empty
+      |> ARMap.getOverlaps r
+    let n1 = (r.Max - r.Min) / size
+    let n2 = uint64 <| List.length l
+    Assert.AreEqual (n1, n2)
+
+  [<TestMethod>]
   member __.``Count Test `` () =
     let r = AddrRange (100UL, 200UL)
     let m = ARMap.empty
