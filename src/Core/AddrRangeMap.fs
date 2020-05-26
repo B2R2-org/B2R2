@@ -208,17 +208,14 @@ module ARMap =
                               fold fn acc r
 
   [<CompiledName("GetOverlaps")>]
-  let getOverlaps k tree =
+  let getOverlaps (k: AddrRange) tree =
     let rec loop acc = function
       | Leaf _ -> acc
       | Node (_, k', v', l, r) ->
-        if k = k' then (k',v') :: acc
-        elif k.Min < k'.Min && k.Max <= k'.Min then loop acc l
-        elif k.Min >= k'.Max && k.Max > k'.Max then loop acc r
-        elif k.Min < k'.Min && k.Max > k'.Max then
-          loop acc l @ [(k',v')] @ loop acc r
-        elif k.Min >= k'.Min && k.Min <= k'.Max then loop ((k',v') :: acc) r
-        elif k.Max >= k'.Min && k.Max <= k'.Max then loop acc l @ [(k', v')]
-        elif k.Min >= k'.Min && k.Max <= k'.Max then (k',v') :: acc
-        else acc
+        let acc = if k.Min < k'.Min then loop acc l else acc
+        let acc =
+          if k.Max <= k'.Min || k.Min >= k'.Max then acc
+          else (k', v') :: acc
+        let acc = if k.Max > k'.Max then loop acc r else acc
+        acc
     loop [] tree
