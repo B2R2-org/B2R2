@@ -105,7 +105,9 @@ module private LibcAnalysisHelper =
 
   let recoverLibcEntries hdl scfg app =
     match hdl.FileInfo.FileFormat with
-    | FileFormat.ELFBinary -> scfg, recoverAddrsFromLibcStartMain hdl scfg app
+    | FileFormat.ELFBinary ->
+      let app' = recoverAddrsFromLibcStartMain hdl scfg app
+      SCFG (hdl, app'), app'
     | _ -> scfg, app
 
 type LibcAnalysis () =
