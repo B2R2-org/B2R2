@@ -35,7 +35,6 @@
     <Compile Include="SSAEdges.fs" />
     <Compile Include="SSALens.fs" />
     <Compile Include="CallGraphLens.fs" />
-    <Compile Include="IPostAnalysis.fs" />
   </ItemGroup>
 
   <ItemGroup>

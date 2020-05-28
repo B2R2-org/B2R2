@@ -22,13 +22,18 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinGraph
+namespace B2R2.MiddleEnd
 
 open B2R2.FrontEnd
 open B2R2.BinCorpus
+open B2R2.BinGraph
 
-/// CFG analysis that we perform after constructing the basic SCFG. Post
-/// analysis includes no-return analysis, libc start address analysis,
-/// switch-case analysis, etc.
-type IPostAnalysis =
+/// CFG analysis that we perform after constructing the basic SCFG. An analysis
+/// includes no-return analysis, libc start address analysis, switch-case
+/// recovery analysis, etc.
+type IAnalysis =
+  /// Name of the analysis.
+  abstract Name: string
+
+  /// Run the analysis.
   abstract Run: BinHandler -> SCFG -> Apparatus -> SCFG * Apparatus

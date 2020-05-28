@@ -276,6 +276,8 @@ module private BranchRecoveryHelper =
     else scfg, app
 
 type BranchRecovery () =
-  interface IPostAnalysis with
+  interface IAnalysis with
+    member __.Name = "Indirect Branch Recovery"
+
     member __.Run hdl scfg app =
       BranchRecoveryHelper.recover hdl scfg app

@@ -5,8 +5,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="IAnalysis.fs" />
     <Compile Include="EmulationHelper.fs" />
-    <Compile Include="DisasHeuristic.fs" />
+    <Compile Include="LibcAnalysis.fs" />
+    <Compile Include="EVMCodeCopyAnalysis.fs" />
     <Compile Include="NoReturn.fs" />
     <Compile Include="ConditionRetriever.fs" />
     <Compile Include="BranchRecovery.fs" />

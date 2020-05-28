@@ -230,7 +230,9 @@ module private NoReturnHelper =
         else app) app
 
 type NoReturnAnalysis () =
-  interface IPostAnalysis with
+  interface IAnalysis with
+    member __.Name = "No-Return Analysis"
+
     member __.Run hdl scfg app =
       let app' = NoReturnHelper.findNoReturnEdges hdl scfg app
       SCFG (hdl, app'), app'

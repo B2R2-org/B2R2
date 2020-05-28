@@ -42,23 +42,20 @@ type BinEssence = {
   SCFG: SCFG
 }
 with
-  static member private PostAnalysis hdl scfg app =
-    [ (LibcAnalysis () :> IPostAnalysis, "LibC analysis")
-      (EVMCodeCopyAnalysis () :> IPostAnalysis, "EVM codecopy analysis")
-      (NoReturnAnalysis () :> IPostAnalysis, "NoReturn analysis")
-      (BranchRecovery () :> IPostAnalysis, "Indirect branch recovery") ]
-    |> List.fold (fun (scfg, app) (analysis, name) ->
+  static member private Run hdl scfg app analyses =
+    analyses
+    |> List.fold (fun (scfg, app) (analysis: IAnalysis) ->
 #if DEBUG
-      printfn "[*] %s started." name
+      printfn "[*] %s started." analysis.Name
 #endif
       analysis.Run hdl scfg app) (scfg, app)
 
-  static member private Analysis hdl app (scfg: SCFG) analyzers =
+  static member private AnalysisLoop hdl app (scfg: SCFG) analyses =
 #if DEBUG
     printfn "[*] Start post analysis."
 #endif
     let scfg', app' =
-      BinEssence.PostAnalysis hdl scfg { app with Modified = false }
+      BinEssence.Run hdl scfg { app with Modified = false } analyses
     if not app'.Modified then
       { BinHandler = hdl
         Apparatus = app'
@@ -68,15 +65,20 @@ with
       printfn "[*] Go to the next phase ..."
 #endif
       let scfg' = SCFG (hdl, app')
-      BinEssence.Analysis hdl app' scfg' analyzers
+      BinEssence.AnalysisLoop hdl app' scfg' analyses
 
   static member Init hdl =
+    let analyses =
+      [ LibcAnalysis () :> IAnalysis
+        EVMCodeCopyAnalysis () :> IAnalysis
+        NoReturnAnalysis () :> IAnalysis
+        BranchRecovery () :> IAnalysis ]
 #if DEBUG
     let startTime = System.DateTime.Now
 #endif
     let app = Apparatus.init hdl
     let scfg = SCFG (hdl, app)
-    let ess = BinEssence.Analysis hdl app scfg []
+    let ess = BinEssence.AnalysisLoop hdl app scfg analyses
 #if DEBUG
     let endTime = System.DateTime.Now
     endTime.Subtract(startTime).TotalSeconds
