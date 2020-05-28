@@ -100,6 +100,11 @@ module private BranchRecoveryHelper =
       simplifyBinOp (BinOp (BinOpType.ADD, rt, Num (BitVector.add v1 v2), e))
     | e -> e
 
+  let simplifyExtract = function
+    | Extract (Cast (CastKind.ZeroExt, _, e'), rt, 0) as e ->
+      if AST.typeOf e' = rt then e' else e
+    | e -> e
+
   let rec extractExp cpstate expr =
     match expr with
     | Num _ -> expr
@@ -139,7 +144,7 @@ module private BranchRecoveryHelper =
       Cast (op, rt, e)
     | Extract (e, rt, pos) ->
       let e = extractExp cpstate e
-      Extract (e, rt, pos)
+      simplifyExtract (Extract (e, rt, pos))
     | _ -> expr
 
   let computeIndexAddr = function

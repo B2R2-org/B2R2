@@ -28,6 +28,22 @@ module B2R2.BinIR.SSA.AST
 open B2R2
 open B2R2.BinIR
 
+let rec typeOf = function
+  | Num bv -> BitVector.getType bv
+  | Var { Kind = RegVar (rt, _, _) }
+  | Var { Kind = PCVar rt }
+  | Var { Kind = TempVar (rt, _) } -> rt
+  | Load (_, rt, _) -> rt
+  | Store (_, rt, _, _) -> rt
+  | UnOp (_, rt, _) -> rt
+  | BinOp (_, rt, _, _) -> rt
+  | RelOp (_, rt, _, _) -> rt
+  | Ite (_, rt, _, _) -> rt
+  | Cast (_, rt, _) -> rt
+  | Extract (_, rt, _) -> rt
+  | Undefined (rt, _) -> rt
+  | _ -> raise InvalidExprException
+
 let rec translateDest = function
   | LowUIR.Var (ty, r, n, _) -> { Kind = RegVar (ty, r, n); Identifier = -1 }
   | LowUIR.PCVar (ty, _) -> { Kind = PCVar (ty); Identifier = -1 }
