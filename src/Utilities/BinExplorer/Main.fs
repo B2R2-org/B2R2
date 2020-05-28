@@ -54,9 +54,19 @@ type BinExplorerOpts (isa) =
   /// this option.
   member val ISA = isa with get, set
 
-  /// Enable readline mode or not. This option will be removed when .NET bug:
-  /// https://github.com/dotnet/corefx/issues/32174 is fixed.
+  /// Enable readline mode or not.
   member val EnableReadLine = true with get, set
+
+  /// Enable no-return analysis.
+  member val EnableNoReturn = true with get, set
+
+  /// Enable branch recovery analysis.
+  member val EnableBranchRecovery = true with get, set
+
+  /// List of analyses to perform.
+  member __.GetAnalyses () =
+    [ if __.EnableNoReturn then yield NoReturnAnalysis () :> IAnalysis
+      if __.EnableBranchRecovery then yield BranchRecovery () :> IAnalysis ]
 
   static member private ToThis (opts: CmdOpts) =
     match opts with
@@ -108,9 +118,22 @@ type BinExplorerOpts (isa) =
       descr = "Directory name to dump CFG json (no dump if empty)",
       extra = 1, callback = cb, short = "-j", long = "--jsondir")
 
+  static member OptDisableNoReturn () =
+    let cb (opts: #CmdOpts) (_arg : string []) =
+      (BinExplorerOpts.ToThis opts).EnableNoReturn <- false; opts
+    CmdOpts.New (
+      descr = "Disable no-return analysis.",
+      callback = cb, long = "--disable-no-return")
+
+  static member OptDisableBranchRecovery () =
+    let cb (opts: #CmdOpts) (_arg : string []) =
+      (BinExplorerOpts.ToThis opts).EnableBranchRecovery <- false; opts
+    CmdOpts.New (
+      descr = "Disable indirect branch recovery analysis.",
+      callback = cb, long = "--disable-branch-recovery")
+
 let spec =
-  [
-    CmdOpts.New ( descr="[Input Configuration]\n", dummy=true )
+  [ CmdOpts.New ( descr="[Input Configuration]\n", dummy=true )
 
     BinExplorerOpts.OptISA ()
 
@@ -122,6 +145,11 @@ let spec =
     CmdOpts.New ( descr="\n[Logging Configuration]\n", dummy=true )
 
     BinExplorerOpts.OptLogFile ()
+
+    CmdOpts.New ( descr="\n[Analyses]\n", dummy=true )
+
+    BinExplorerOpts.OptDisableNoReturn ()
+    BinExplorerOpts.OptDisableBranchRecovery ()
 
     CmdOpts.New ( descr="\n[Extra]\n", dummy=true )
 
@@ -135,8 +163,8 @@ let spec =
                   long = "--batch" )
   ]
 
-let buildGraph _verbose handle =
-  BinEssence.Init handle
+let buildGraph (opts: BinExplorerOpts) handle =
+  BinEssence.Init handle <| opts.GetAnalyses ()
 
 let startGUI (opts: BinExplorerOpts) arbiter =
   HTTPServer.startServer arbiter opts.IP opts.Port opts.Verbose
@@ -164,7 +192,7 @@ let interactiveMain files (opts: BinExplorerOpts) =
               Type --help or --batch to see more info."; exit 1
   else
     let file = List.head files
-    let ess = initBinHdl opts.ISA file |> buildGraph opts.Verbose
+    let ess = initBinHdl opts.ISA file |> buildGraph opts
     if opts.JsonDumpDir <> "" then dumpJsonFiles opts.JsonDumpDir ess else ()
     let arbiter = Protocol.genArbiter ess opts.LogFile
     startGUI opts arbiter
@@ -189,7 +217,7 @@ let toFileArray path =
   elif System.IO.File.Exists path then [| path |]
   else [||]
 
-let batchRun paths cmd args =
+let batchRun opts paths cmd args =
   let cmds = CmdSpec.speclist |> CmdMap.build
   let files = paths |> List.map toFileArray
   let numFiles = List.fold (fun cnt arr -> Array.length arr + cnt) 0 files
@@ -198,14 +226,14 @@ let batchRun paths cmd args =
        Array.iteri (fun idx2 f ->
          let idx = 1 + idx1 + idx2
          printfn "Running %s ... (%d/%d)" f idx numFiles
-         let ess = initBinHdl ISA.DefaultISA f |> buildGraph false
+         let ess = initBinHdl ISA.DefaultISA f |> buildGraph opts
          Cmd.handle cmds ess cmd args
          |> Array.iter System.Console.WriteLine) arr)
 
-let batchMain paths args =
+let batchMain opts paths args =
   match args with
   | "visualize" :: infile :: outfile :: _ -> visualizeGraph infile outfile; 0
-  | cmd :: args -> batchRun paths cmd args; 0
+  | cmd :: args -> batchRun opts paths cmd args; 0
   | _ -> showBatchUsage ()
 
 let convertArgsToLists (paths, args) =
@@ -215,7 +243,7 @@ let convertArgsToLists (paths, args) =
 let main args =
   let opts = BinExplorerOpts (ISA.DefaultISA)
   match Array.tryFindIndex (fun a -> a = "--batch") args with
-  | Some idx -> Array.splitAt idx args |> convertArgsToLists ||> batchMain
+  | Some idx -> Array.splitAt idx args |> convertArgsToLists ||> batchMain opts
   | None -> CmdOpts.ParseAndRun interactiveMain "<binary file>" spec opts args
 
 // vim: set tw=80 sts=2 sw=2:

@@ -80,7 +80,7 @@ type DataFlowTests () =
 
   let isa = ISA.Init Architecture.IntelX86 Endian.Little
   let hdl = BinHandler.Init (isa, binary)
-  let ess = BinEssence.Init hdl
+  let ess = BinEssence.Init hdl [ NoReturnAnalysis () ]
 
   [<TestMethod>]
   member __.``Reaching Definitions Test 1``() =
