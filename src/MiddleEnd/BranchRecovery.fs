@@ -83,8 +83,10 @@ module private BranchRecoveryHelper =
         && v.VData.HasIndirectBranch
         && len > 0
       then
-        let lastAddr = v.VData.InsInfos.[len - 1].Instruction.Address
-        (lastAddr, v.VData.GetLastStmt ()) :: acc
+        let lastIns = v.VData.InsInfos.[len - 1].Instruction
+        let lastAddr = lastIns.Address
+        let isCall = lastIns.IsCall ()
+        (lastAddr, v.VData.GetLastStmt (), isCall) :: acc
       else acc) []
 
   let rec simplifyBinOp = function
@@ -146,10 +148,11 @@ module private BranchRecoveryHelper =
     | Num idx -> Some (BitVector.toUInt64 idx)
     | _ -> None
 
-  let computeBranchInfo cpstate insAddr exp =
-    let exp = extractExp cpstate exp
-    // printfn "%x: %s" insAddr (Pp.expToString exp)
-    match exp with
+  let computeCallInfo insAddr = function
+    | Num addr -> ConstAddr (insAddr, BitVector.toUInt64 addr)
+    | _ -> UnknownFormat
+
+  let computeJmpInfo insAddr = function
     | BinOp (BinOpType.ADD, _, Load (_, t, idxExpr), Num tbase)
     | BinOp (BinOpType.ADD, _, Num tbase, Load (_, t, idxExpr))
     | BinOp (BinOpType.ADD, _, Cast (_, _, Load (_, t, idxExpr)), Num tbase)
@@ -162,6 +165,12 @@ module private BranchRecoveryHelper =
       FixedTab (insAddr, BitVector.toUInt64 i, t)
     | Num addr -> ConstAddr (insAddr, BitVector.toUInt64 addr)
     | _ -> UnknownFormat
+
+  let computeBranchInfo cpstate insAddr isCall exp =
+    let exp = extractExp cpstate exp
+    // printfn "%x: %s" insAddr (Pp.expToString exp)
+    if isCall then computeCallInfo insAddr exp
+    else computeJmpInfo insAddr exp
 
   let partitionBranchInfo lst =
     lst
@@ -217,9 +226,9 @@ module private BranchRecoveryHelper =
   let analyzeIndirectBranch hdl ssaCFG cpstate boundary =
     let constBranches, gotBranches =
       extractIndirectBranches ssaCFG
-      |> List.map (fun (insAddr, stmt) ->
+      |> List.map (fun (insAddr, stmt, isCall) ->
         match stmt with
-        | Jmp (InterJmp exp) -> computeBranchInfo cpstate insAddr exp
+        | Jmp (InterJmp exp) -> computeBranchInfo cpstate insAddr isCall exp
         | _ -> UnknownFormat)
       |> partitionBranchInfo
     updateConstBranchTargets boundary constBranches
