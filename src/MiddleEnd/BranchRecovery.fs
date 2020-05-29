@@ -177,19 +177,19 @@ module private BranchRecoveryHelper =
     if isCall then computeCallInfo insAddr exp
     else computeJmpInfo insAddr exp
 
-  let partitionBranchInfo lst =
+  let partitionBranchInfo entry constBranches gotBranches lst =
     lst
     |> List.fold (fun (constBranches, gotBranches) info ->
       match info with
       | ConstAddr (i, t) ->
-        if t <> 0UL then (i, t) :: constBranches, gotBranches
+        if t <> 0UL then (entry, i, t) :: constBranches, gotBranches
         else constBranches, gotBranches
       | GOTIndexed (instr, baddr, iaddr, rt) ->
-        constBranches, (instr, baddr, iaddr, rt) :: gotBranches
+        constBranches, (entry, instr, baddr, iaddr, rt) :: gotBranches
       | FixedTab (instr, iaddr, rt) ->
-        constBranches, (instr, 0UL, iaddr, rt) :: gotBranches
+        constBranches, (entry, instr, 0UL, iaddr, rt) :: gotBranches
       | _ -> constBranches, gotBranches
-    ) ([], [])
+    ) (constBranches, gotBranches)
 
   let rec readTargets hdl fStart fEnd baseAddr maxAddr startAddr rt targets =
     match maxAddr with
@@ -208,50 +208,47 @@ module private BranchRecoveryHelper =
           else targets
       else targets
 
-  let updateConstBranchTargets (fStart, _) constBranches =
+  let updateConstBranchTargets constBranches =
     constBranches
-    |> List.map (fun (insAddr, target) ->
-      { FuncEntry = fStart
+    |> List.map (fun (entry, insAddr, target) ->
+      { FuncEntry = entry
         InstrAddr = insAddr
         Targets = Set.singleton target })
 
-  let inferGOTIndexedBranchTargets hdl (fStart, fEnd) gotBranches infos =
+  let inferGOTIndexedBranchTargets hdl boundaries gotBranches infos =
     let rec infer acc = function
       | [] -> acc
-      | [ (iaddr, baddr, start, t) ] ->
+      | [ (entry, iaddr, baddr, start, t) ] ->
+        let fStart, fEnd = Map.find entry boundaries
         let targets = readTargets hdl fStart fEnd baddr None start t Set.empty
         { FuncEntry = fStart; InstrAddr = iaddr; Targets = targets } :: acc
-      | (iaddr, baddr, s1, t) :: (((_, _, s2, _) :: _) as next) ->
+      | (entry, iaddr, baddr, s1, t) :: (((_, _, _, s2, _) :: _) as next) ->
+        let fStart, fEnd = Map.find entry boundaries
         let targets = readTargets hdl fStart fEnd baddr (Some s2) s1 t Set.empty
         let acc =
           { FuncEntry = fStart; InstrAddr = iaddr; Targets = targets } :: acc
         infer acc next
     gotBranches
-    |> List.sortBy (fun (_, _, i, _) -> i)
+    |> List.sortBy (fun (_, _, _, i, _) -> i)
     |> infer infos
 
-  let analyzeIndirectBranch hdl ssaCFG cpstate boundary =
-    let constBranches, gotBranches =
-      extractIndirectBranches ssaCFG
-      |> List.map (fun (insAddr, stmt, isCall) ->
-        match stmt with
-        | Jmp (InterJmp exp) -> computeBranchInfo cpstate insAddr isCall exp
-        | _ -> UnknownFormat)
-      |> partitionBranchInfo
-    updateConstBranchTargets boundary constBranches
-    |> inferGOTIndexedBranchTargets hdl boundary gotBranches
+  let analyzeIndirectBranch hdl ssaCFG cpstate entry constBranches gotBranches =
+    extractIndirectBranches ssaCFG
+    |> List.map (fun (insAddr, stmt, isCall) ->
+      match stmt with
+      | Jmp (InterJmp exp) -> computeBranchInfo cpstate insAddr isCall exp
+      | _ -> UnknownFormat)
+    |> partitionBranchInfo entry constBranches gotBranches
 
-  let analyze hdl app (scfg: SCFG) boundaries indmap addr =
+  let analyze hdl app (scfg: SCFG) (constBranches, gotBranches) addr =
     let irCFG, irRoot = scfg.GetFunctionCFG (addr, false)
     if hasIndirectBranch irCFG then
       let lens = SSALens.Init hdl scfg
       let ssaCFG, ssaRoot = lens.Filter irCFG [irRoot] app
       let cp = ConstantPropagation (hdl, ssaCFG)
       let cpstate = cp.Compute (List.head ssaRoot)
-      let boundary = Map.find addr boundaries
-      analyzeIndirectBranch hdl ssaCFG cpstate boundary
-      |> List.fold (fun map i -> Map.add i.InstrAddr i.Targets map) indmap
-    else indmap
+      analyzeIndirectBranch hdl ssaCFG cpstate addr constBranches gotBranches
+    else constBranches, gotBranches
 
   let newLeaders hdl indmap =
     indmap
@@ -268,7 +265,12 @@ module private BranchRecoveryHelper =
     let callees = computeCalleeAddrs hdl app
     let boundaries = computeFunctionBoundary Map.empty callees
     let indmap = app.IndirectBranchMap
-    let indmap' = callees |> List.fold (analyze hdl app scfg boundaries) indmap
+    let constBranches, gotBranches =
+      callees |> List.fold (analyze hdl app scfg) ([], [])
+    let indmap' =
+      updateConstBranchTargets constBranches
+      |> inferGOTIndexedBranchTargets hdl boundaries gotBranches
+      |> List.fold (fun map i -> Map.add i.InstrAddr i.Targets map) indmap
     let indmap' = refineIndirectBranchMap indmap indmap'
     if indmap <> indmap' then
       let app = { app with IndirectBranchMap = indmap' }
