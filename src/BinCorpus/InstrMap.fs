@@ -73,7 +73,7 @@ module InstrMap =
 
   let private newInstructionInfo hdl (ins: Instruction) =
     { Instruction = ins
-      Stmts = try BinHandler.LiftInstr hdl ins |> trim with _ -> [||]
+      Stmts = BinHandler.LiftInstr hdl ins |> trim
       ArchOperationMode = hdl.ParsingContext.ArchOperationMode
       Offset = hdl.ParsingContext.CodeOffset }
 
@@ -81,10 +81,10 @@ module InstrMap =
     match (insList: Instruction list) with
     | [] -> failwith "Fatal error: an empty block encountered."
     | last :: [] ->
-      map.[last.Address] <- newInstructionInfo hdl last
+      try map.[last.Address] <- newInstructionInfo hdl last with _ -> ()
       last
     | instr :: rest ->
-      map.[instr.Address] <- newInstructionInfo hdl instr
+      try map.[instr.Address] <- newInstructionInfo hdl instr with _ -> ()
       updateInstrMapAndGetTheLastInstr hdl map rest
 
   /// Update the map (InstrMap) from the given entries.
