@@ -223,6 +223,10 @@ let getImportTable pe =
   |> List.sortBy (fun entry -> entry.TableAddress)
   |> List.toSeq
 
+let isImportTable pe addr =
+  let rva = int (addr - pe.BaseAddr)
+  Map.containsKey rva pe.ImportMap
+
 let getSegments pe =
   let getSecPermission (chr: SectionCharacteristics) =
     let x = if chr.HasFlag SectionCharacteristics.MemExecute then 1 else 0

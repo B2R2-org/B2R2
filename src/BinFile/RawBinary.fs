@@ -86,6 +86,8 @@ type RawFileInfo (bytes: byte [], isa, baseAddr) =
 
   override __.GetLinkageTableEntries () = Seq.empty
 
+  override __.IsLinkageTable _ = false
+
   override __.TryFindFunctionSymbolName (_addr, _) = false
 
   override __.IsValidAddr (addr) =

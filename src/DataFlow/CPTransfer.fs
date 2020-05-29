@@ -151,7 +151,7 @@ let evalMemDef st mDst e =
       let addr = BitVector.toUInt64 addr
       CPState.storeMem st mDst rt addr c
     | _ -> ()
-  | ReturnVal (_, _, mSrc) -> CPState.copyMem st mDst.Identifier mSrc.Identifier
+  | ReturnVal (_, _, _mSrc) -> st.MemState.[mDst.Identifier] <- Map.empty
   | _ ->  Utils.impossible ()
 
 let inline updateConst st r v =

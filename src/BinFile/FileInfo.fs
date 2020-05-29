@@ -218,6 +218,14 @@ type FileInfo (baseAddr) =
   abstract member GetLinkageTableEntries: unit -> seq<LinkageTableEntry>
 
   /// <summary>
+  ///   Return if a given address is an address of a linkage table entry.
+  /// </summary>
+  /// <returns>
+  ///   True if the address is a linkage table address, false otherwise.
+  /// </returns>
+  abstract member IsLinkageTable: Addr -> bool
+
+  /// <summary>
   ///   Find the symbol name for a given address.
   /// </summary>
   /// <returns>

@@ -57,6 +57,7 @@ type ELFFileInfo (bytes, path, baseAddr) =
   override __.GetSections (name) = getSectionsByName elf name
   override __.GetSegments (isLoadable) = getSegments elf isLoadable
   override __.GetLinkageTableEntries () = getPLT elf
+  override __.IsLinkageTable addr = isPLT elf addr
   override __.TryFindFunctionSymbolName (addr, n) = tryFindFuncSymb elf addr &n
   override __.IsValidAddr addr = isValidAddr elf addr
   override __.IsValidRange range = isValidRange elf range

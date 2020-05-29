@@ -162,6 +162,9 @@ let getPLT elf =
   |> List.sortBy (fun entry -> entry.TrampolineAddress)
   |> List.toSeq
 
+let isPLT elf addr =
+  ARMap.containsAddr addr elf.PLT
+
 let inline isValidAddr elf addr =
   IntervalSet.containsAddr addr elf.InvalidAddrRanges |> not
 

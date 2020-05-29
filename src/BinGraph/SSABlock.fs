@@ -56,15 +56,17 @@ module SSABlockHelper =
     [ getStackPtrDef hdl wordSize; getReturnValDef hdl wordSize ]
     |> List.choose id
     |> List.map (fun kind -> { SSA.Kind = kind; SSA.Identifier = -1 })
-    |> Array.ofList
+    |> Set.ofList
 
   /// This is currently intra-procedural.
   let computeDefinedVars hdl (scfg: SCFG) addr =
     try
       let g, _ = scfg.GetFunctionCFG (addr, false)
-      let defs = g.FoldVertex defVarFolder Set.empty |> Set.toArray
-      if Array.isEmpty defs then addDefaultDefs hdl
-      else defs
+      let defs = g.FoldVertex defVarFolder Set.empty
+      let defs = if Set.isEmpty defs then addDefaultDefs hdl else defs
+      if not <| hdl.FileInfo.IsLinkageTable addr then defs
+      else Set.add { SSA.Kind = SSA.MemVar; SSA.Identifier = -1 } defs
+      |> Set.toArray
     with _ -> [||]
 
 /// Basic block type for an SSA-based CFG (SSACFG).
@@ -74,7 +76,7 @@ type SSABBlock private (hdl, scfg, pp, instrs, retPoint, hasIndirectBranch) =
   let mutable stmts =
     match retPoint with
     | Some (ret: ProgramPoint) ->
-      let stmts =
+      let stmts = (* For a fake block, we check which things can be modified. *)
         SSABlockHelper.computeDefinedVars hdl scfg (pp: ProgramPoint).Address
         |> Array.map (fun dst ->
           let src = { SSA.Kind = dst.Kind; SSA.Identifier = -1 }

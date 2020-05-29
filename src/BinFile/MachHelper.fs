@@ -134,6 +134,10 @@ let getPLT mach =
   |> List.sortBy (fun entry -> entry.TrampolineAddress)
   |> List.toSeq
 
+let isPLT mach addr =
+  mach.SymInfo.LinkageTable
+  |> List.exists (fun entry -> entry.TrampolineAddress = addr)
+
 let inline tryFindFuncSymb mach addr (name: byref<string>) =
   match Map.tryFind addr mach.SymInfo.SymbolMap with
   | Some s -> name <- s.SymName; true
