@@ -221,6 +221,21 @@ with
     handler: BinHandler * addr: Addr * nBytes: int -> byte []
 
   /// <summary>
+  ///   Return the corresponding integer option value at the addr of the size
+  ///   from the given BinHandler.
+  /// </summary>
+  /// <param name="handler">BinHandler.</param>
+  /// <param name="addr">The address.</param>
+  /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
+  /// possible.</param>
+  /// <returns>
+  ///   Return the corresponding value (Some int64) if the address and the size
+  ///   is valid. Otherwise None.
+  /// </returns>
+  static member TryReadInt:
+    handler: BinHandler * addr: Addr * size: int -> int64 option
+
+  /// <summary>
   ///   Return the corresponding integer value at the addr of the size from the
   ///   given BinHandler.
   /// </summary>

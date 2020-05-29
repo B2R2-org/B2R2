@@ -108,14 +108,19 @@ with
   member __.ReadInt (addr, nBytes) =
     BinHandler.ReadInt (__, addr, nBytes)
 
-  static member ReadInt ({ FileInfo = fi }, addr, nBytes) =
+  static member TryReadInt ({ FileInfo = fi }, addr, nBytes) =
     let pos = fi.TranslateAddress addr
     match nBytes with
-    | 1 -> fi.BinReader.PeekInt8 pos |> int64
-    | 2 -> fi.BinReader.PeekInt16 pos |> int64
-    | 4 -> fi.BinReader.PeekInt32 pos |> int64
-    | 8 -> fi.BinReader.PeekInt64 pos
-    | _ -> invalidArg "ReadInt" "Invalid size given."
+    | 1 -> fi.BinReader.PeekInt8 pos |> int64 |> Some
+    | 2 -> fi.BinReader.PeekInt16 pos |> int64 |> Some
+    | 4 -> fi.BinReader.PeekInt32 pos |> int64 |> Some
+    | 8 -> fi.BinReader.PeekInt64 pos |> Some
+    | _ -> None
+
+  static member ReadInt (hdl, addr, nBytes) =
+    match BinHandler.TryReadInt (hdl, addr, nBytes) with
+    | None -> invalidArg "ReadInt" "Invalid size given."
+    | Some i -> i
 
   member __.ReadUInt (addr, nBytes) =
     BinHandler.ReadUInt (__, addr, nBytes)
