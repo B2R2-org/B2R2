@@ -53,13 +53,12 @@ type Cmd () =
   abstract member CallBack: CmdMap -> BinEssence -> string list -> string []
 
 /// This is a mapping from a command name to the corresponding command (Cmd).
-and CmdMap =
-  {
-    /// Mapping from command name to Cmd.
-    CmdMap: Map<string, Cmd>
-    /// List of command names and aliases.
-    CmdList: string list
-  }
+and CmdMap = {
+  /// Mapping from command name to Cmd.
+  CmdMap: Map<string, Cmd>
+  /// List of command names and aliases.
+  CmdList: string list
+}
 
 module internal Cmd =
   let warnUnknown (cmd: string) =

@@ -56,6 +56,7 @@ type PEFileInfo (bytes, path, baseAddr, rawpdb) =
   override __.GetSections () = getSections pe
   override __.GetSections (addr) = getSectionsByAddr pe addr
   override __.GetSections (name) = getSectionsByName pe name
+  override __.GetTextSections () = getTextSections pe
   override __.GetSegments (_isLoadable) = getSegments pe
   override __.GetLinkageTableEntries () = getImportTable pe
   override __.IsLinkageTable addr = isImportTable pe addr

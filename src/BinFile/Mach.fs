@@ -55,6 +55,7 @@ type MachFileInfo (bytes, path, isa, baseAddr) =
   override __.GetSections () = getSections mach
   override __.GetSections (addr) = getSectionsByAddr mach addr
   override __.GetSections (name) = getSectionsByName mach name
+  override __.GetTextSections () = getTextSections mach
   override __.GetSegments (isLoadable) = Segment.getSegments mach isLoadable
   override __.GetLinkageTableEntries () = getPLT mach
   override __.IsLinkageTable addr = isPLT mach addr

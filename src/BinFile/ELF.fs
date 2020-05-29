@@ -55,6 +55,7 @@ type ELFFileInfo (bytes, path, baseAddr) =
   override __.GetSections () = getSections elf
   override __.GetSections (addr) = getSectionsByAddr elf addr
   override __.GetSections (name) = getSectionsByName elf name
+  override __.GetTextSections () = getTextSections elf
   override __.GetSegments (isLoadable) = getSegments elf isLoadable
   override __.GetLinkageTableEntries () = getPLT elf
   override __.IsLinkageTable addr = isPLT elf addr

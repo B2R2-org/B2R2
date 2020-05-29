@@ -63,10 +63,14 @@ type BinExplorerOpts (isa) =
   /// Enable branch recovery analysis.
   member val EnableBranchRecovery = true with get, set
 
+  /// Enable branch recovery analysis.
+  member val EnableGapComp = true with get, set
+
   /// List of analyses to perform.
   member __.GetAnalyses () =
     [ if __.EnableNoReturn then yield NoReturnAnalysis () :> IAnalysis
-      if __.EnableBranchRecovery then yield BranchRecovery () :> IAnalysis ]
+      if __.EnableBranchRecovery then yield BranchRecovery () :> IAnalysis
+      if __.EnableGapComp then yield SpeculativeGapCompletion () :> IAnalysis ]
 
   static member private ToThis (opts: CmdOpts) =
     match opts with
@@ -132,6 +136,13 @@ type BinExplorerOpts (isa) =
       descr = "Disable indirect branch recovery analysis.",
       callback = cb, long = "--disable-branch-recovery")
 
+  static member OptDisableSpeculativeGapCompletion () =
+    let cb (opts: #CmdOpts) (_arg : string []) =
+      (BinExplorerOpts.ToThis opts).EnableGapComp <- false; opts
+    CmdOpts.New (
+      descr = "Disable speculative gap completion.",
+      callback = cb, long = "--disable-gap-completion")
+
 let spec =
   [ CmdOpts.New ( descr="[Input Configuration]\n", dummy=true )
 
@@ -150,6 +161,7 @@ let spec =
 
     BinExplorerOpts.OptDisableNoReturn ()
     BinExplorerOpts.OptDisableBranchRecovery ()
+    BinExplorerOpts.OptDisableSpeculativeGapCompletion ()
 
     CmdOpts.New ( descr="\n[Extra]\n", dummy=true )
 

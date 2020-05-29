@@ -12,6 +12,7 @@
     <Compile Include="NoReturn.fs" />
     <Compile Include="ConditionRetriever.fs" />
     <Compile Include="BranchRecovery.fs" />
+    <Compile Include="SpeculativeGapCompletion.fs" />
     <Compile Include="BinEssence.fs" />
   </ItemGroup>
 

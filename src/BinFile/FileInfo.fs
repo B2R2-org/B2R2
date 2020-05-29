@@ -173,6 +173,14 @@ type FileInfo (baseAddr) =
   abstract member GetSections: name: string -> seq<Section>
 
   /// <summary>
+  ///   Return a sequence text sections.
+  /// </summary>
+  /// <returns>
+  ///   A sequence of text sections.
+  /// </returns>
+  abstract member GetTextSections: unit -> seq<Section>
+
+  /// <summary>
   ///   Return a list of segments from the binary. If the isLoadable parameter
   ///   is true, it will only return a list of "loadable" segments. Otherwise,
   ///   it will return all possible segments. By default, this function returns

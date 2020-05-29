@@ -129,6 +129,11 @@ let getSectionsByName mach name =
   | Some s -> Seq.singleton (machSectionToSection mach.SegmentMap s)
   | None -> Seq.empty
 
+let getTextSections mach =
+  mach.Sections.SecByNum.[mach.SecText]
+  |> machSectionToSection mach.SegmentMap
+  |> Seq.singleton
+
 let getPLT mach =
   mach.SymInfo.LinkageTable
   |> List.sortBy (fun entry -> entry.TrampolineAddress)

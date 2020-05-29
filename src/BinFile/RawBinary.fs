@@ -79,6 +79,8 @@ type RawFileInfo (bytes: byte [], isa, baseAddr) =
 
   override __.GetSections (_: string): seq<Section> = Seq.empty
 
+  override __.GetTextSections () = Seq.empty
+
   override __.GetSegments (_isLoadable) =
     Seq.singleton { Address = baseAddr
                     Size = uint64 bytes.LongLength
