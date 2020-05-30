@@ -265,7 +265,8 @@ module private BranchRecoveryHelper =
       | None -> targets
       | Some targets' -> Set.intersect targets targets') newIndMap
 
-  let recover hdl scfg app =
+  let rec recover (noReturn: IAnalysis) hdl scfg app =
+    let scfg, app = noReturn.Run hdl scfg app
     let callees = computeCalleeAddrs hdl app
     let boundaries = computeFunctionBoundary Map.empty callees
     let indmap = app.IndirectBranchMap
@@ -280,12 +281,19 @@ module private BranchRecoveryHelper =
       let app = { app with IndirectBranchMap = indmap' }
       let app = Apparatus.update hdl app (newLeaders hdl indmap')
       let scfg = SCFG (hdl, app)
-      scfg, app
+#if DEBUG
+      printfn "[*] Go to the next phase ..."
+#endif
+      recover noReturn hdl scfg app
     else scfg, app
 
-type BranchRecovery () =
+type BranchRecovery (enableNoReturn) =
+  let noReturn =
+    if enableNoReturn then NoReturnAnalysis () :> IAnalysis
+    else NoAnalysis () :> IAnalysis
+
   interface IAnalysis with
     member __.Name = "Indirect Branch Recovery"
 
     member __.Run hdl scfg app =
-      BranchRecoveryHelper.recover hdl scfg app
+      BranchRecoveryHelper.recover noReturn hdl scfg app

@@ -68,8 +68,10 @@ type BinExplorerOpts (isa) =
 
   /// List of analyses to perform.
   member __.GetAnalyses () =
-    [ if __.EnableNoReturn then yield NoReturnAnalysis () :> IAnalysis
-      if __.EnableBranchRecovery then yield BranchRecovery () :> IAnalysis
+    [ yield LibcAnalysis () :> IAnalysis
+      yield EVMCodeCopyAnalysis () :> IAnalysis
+      if __.EnableBranchRecovery then
+        yield BranchRecovery (__.EnableNoReturn) :> IAnalysis
       if __.EnableGapComp then yield SpeculativeGapCompletion () :> IAnalysis ]
 
   static member private ToThis (opts: CmdOpts) =

@@ -96,9 +96,6 @@ type Apparatus = {
   CalleeMap: CalleeMap
   /// Indirect branches' target addresses.
   IndirectBranchMap: Map<Addr, Set<Addr>>
-  /// This is a flag representing whether this Apparatus has been modified
-  /// by our post analysis.
-  Modified: bool
 }
 
 [<RequireQualifiedAccess>]
@@ -249,8 +246,7 @@ module Apparatus =
       RecoveredEntries = auxEntries
       IndirectBranchMap = indMap
       CallerMap = CallerMap.build calleeMap
-      CalleeMap = calleeMap
-      Modified = true }
+      CalleeMap = calleeMap }
 
   /// Create a binary apparatus from the given BinHandler.
   [<CompiledName("Init")>]
@@ -291,10 +287,8 @@ module Apparatus =
     | None ->
       let set = Set.singleton toAddr
       let map = Map.add fromAddr set app.IndirectBranchMap
-      { app with IndirectBranchMap = map; Modified = true }
+      { app with IndirectBranchMap = map }
     | Some targets ->
-      let modified =
-        if Set.contains toAddr targets then app.Modified else true
       let targets' = Set.add toAddr targets
       let map = Map.add fromAddr targets' app.IndirectBranchMap
-      { app with IndirectBranchMap = map; Modified = modified }
+      { app with IndirectBranchMap = map }

@@ -224,10 +224,8 @@ module private NoReturnHelper =
       match app.CalleeMap.Find (v.VData.PPoint.Address) with
       | None -> app
       | Some callee ->
-        if not callee.IsNoReturn then
-          callee.IsNoReturn <- true
-          { app with Modified = true }
-        else app) app
+        if not callee.IsNoReturn then callee.IsNoReturn <- true else ()
+        app) app
 
 type NoReturnAnalysis () =
   interface IAnalysis with

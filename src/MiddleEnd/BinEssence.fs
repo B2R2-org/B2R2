@@ -42,7 +42,7 @@ type BinEssence = {
   SCFG: SCFG
 }
 with
-  static member private Run hdl scfg app analyses =
+  static member private Analyze hdl scfg app analyses =
     analyses
     |> List.fold (fun (scfg, app) (analysis: IAnalysis) ->
 #if DEBUG
@@ -50,40 +50,18 @@ with
 #endif
       analysis.Run hdl scfg app) (scfg, app)
 
-  static member private AnalyzeOnce hdl app (scfg: SCFG) analyses =
-    BinEssence.Run hdl scfg { app with Modified = false } analyses
-
-  static member private AnalyzeInLoop hdl app (scfg: SCFG) analyses =
-    let scfg', app' =
-      BinEssence.Run hdl scfg { app with Modified = false } analyses
-    if not app'.Modified then
-      { BinHandler = hdl
-        Apparatus = app'
-        SCFG = scfg' }
-    else
-#if DEBUG
-      printfn "[*] Go to the next phase ..."
-#endif
-      let scfg' = SCFG (hdl, app')
-      BinEssence.AnalyzeInLoop hdl app' scfg' analyses
-
   static member Init hdl postAnalyses =
-    let oneTimeAnalyses =
-      [ LibcAnalysis () :> IAnalysis
-        EVMCodeCopyAnalysis () :> IAnalysis ]
 #if DEBUG
     let startTime = System.DateTime.Now
 #endif
     let app = Apparatus.init hdl
     let scfg = SCFG (hdl, app)
-    let scfg, app = BinEssence.AnalyzeOnce hdl app scfg oneTimeAnalyses
-#if DEBUG
-    printfn "[*] Start post analysis."
-#endif
-    let ess = BinEssence.AnalyzeInLoop hdl app scfg postAnalyses
+    let scfg, app = BinEssence.Analyze hdl scfg app postAnalyses
 #if DEBUG
     let endTime = System.DateTime.Now
     endTime.Subtract(startTime).TotalSeconds
     |> printfn "[*] All done in %f sec."
 #endif
-    ess
+    { BinHandler = hdl
+      Apparatus = app
+      SCFG = scfg }
