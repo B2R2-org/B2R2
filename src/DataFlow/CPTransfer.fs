@@ -105,7 +105,7 @@ let evalReturn st addr ret v =
       let wordSize = Const (BitVector.ofUInt64 wordByte rt)
       evalBinOp BinOpType.ADD c wordSize
     elif isGetPCThunk hdl addr then
-      Const (BitVector.ofUInt64 ret rt)
+      PCThunk (BitVector.ofUInt64 ret rt)
     elif CallingConvention.isNonVolatile hdl rid then
       CPState.findReg st v
     else NotAConst
@@ -151,7 +151,15 @@ let evalMemDef st mDst e =
       let addr = BitVector.toUInt64 addr
       CPState.storeMem st mDst rt addr c
     | _ -> ()
-  | ReturnVal (_, _, _mSrc) -> st.MemState.[mDst.Identifier] <- Map.empty
+  | ReturnVal (_, _, mSrc) ->
+    CPState.copyMem st mDst.Identifier mSrc.Identifier
+    let dstMem =
+      st.MemState.[mDst.Identifier]
+      |> Map.map (fun _ v ->
+        match v with
+        | GOT _ -> v
+        | _ -> NotAConst)
+    st.MemState.[mDst.Identifier] <- dstMem
   | _ ->  Utils.impossible ()
 
 let inline updateConst st r v =

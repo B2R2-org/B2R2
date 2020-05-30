@@ -111,6 +111,8 @@ module private BranchRecoveryHelper =
     | Var v ->
       match CPState.findReg cpstate v with
       | Const bv -> Num bv
+      | PCThunk bv -> Num bv
+      | GOT bv -> Num bv
       | _ ->
         match Map.tryFind v cpstate.SSAEdges.Defs with
         | Some (Def (_, e)) -> extractExp cpstate e
@@ -121,6 +123,8 @@ module private BranchRecoveryHelper =
         let addr = BitVector.toUInt64 bv
         match CPState.findMem cpstate mem rt addr with
         | Const bv -> Num bv
+        | PCThunk bv -> Num bv
+        | GOT bv -> Num bv
         | _ -> Load (mem, rt, Num bv)
       | expr -> Load (mem, rt, expr)
     | UnOp (op, rt, e) ->
