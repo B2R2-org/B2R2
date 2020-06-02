@@ -49,6 +49,10 @@ type Context () =
   member val Mode = ArchOperationMode.NoMode with get, set
 
 type EvalCallBacks () =
+  /// Per-instruction handler.
+  member val PerInstrHandler: EvalState -> EvalState =
+    fun st -> st with get, set
+
   /// Memory load event handler.
   member val LoadEventHandler: Addr -> Addr -> BitVector -> unit =
     fun _ _ _ -> () with get, set
@@ -70,13 +74,15 @@ type EvalCallBacks () =
   member val StmtEvalEventHandler: LowUIR.Stmt -> unit =
     fun _ -> () with get, set
 
+  member __.OnInstr st = __.PerInstrHandler st
+
   member __.OnLoad pc addr v = __.LoadEventHandler pc addr v
 
   member __.OnStore pc addr v = __.StoreEventHandler pc addr v
 
   member __.OnPut pc v = __.PutEventHandler pc v
 
-  member __.OnSideEffect eff = __.SideEffectEventHandler eff
+  member __.OnSideEffect eff st = __.SideEffectEventHandler eff st
 
   member __.OnStmtEval stmt = __.StmtEvalEventHandler stmt
 

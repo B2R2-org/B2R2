@@ -201,6 +201,7 @@ let internal tryEvaluate stmt st =
 let rec internal evalLoop stmts st =
   let ctxt = EvalState.GetCurrentContext st
   let idx = ctxt.StmtIdx
+  let st = if idx = 0 then st.Callbacks.OnInstr st else st
   if Array.length stmts > idx && idx >= 0 then
     let stmt = stmts.[idx]
     st.Callbacks.OnStmtEval stmt
