@@ -217,9 +217,12 @@ module Apparatus =
       | Some c -> c.IsNoReturn <- true)
     calleeMap
 
-  let private initApparatus hdl auxEntries auxLeaders oldNoRet indMap =
-    let initial = getInitialEntryPoints hdl
-    let leaders = auxEntries |> Set.fold (fun set e -> Set.add e set) initial
+  let private initApp hdl auxEntries auxLeaders noRets indMap useDefaultEntry =
+    let leaders =
+      if not useDefaultEntry then auxEntries
+      else
+        auxEntries
+        |> Set.fold (fun set e -> Set.add e set) (getInitialEntryPoints hdl)
     let funcAddrs = leaders |> Seq.map (fun e -> e.Point.Address) |> Set.ofSeq
     let leaders = auxLeaders |> Seq.fold (fun set e -> Set.add e set) leaders
     (* First, recursively parse all possible instructions. *)
@@ -236,7 +239,7 @@ module Apparatus =
       findLeaders hdl acc instrMap (foldStmts hdl indMap)
     let calleeMap =
       CalleeMap.build hdl acc.FunctionAddrs instrMap
-      |> updateNoReturnInfo oldNoRet
+      |> updateNoReturnInfo noRets
 #if DEBUG
     printfn "[*] The apparatus is ready to use."
 #endif
@@ -250,7 +253,10 @@ module Apparatus =
 
   /// Create a binary apparatus from the given BinHandler.
   [<CompiledName("Init")>]
-  let init hdl = initApparatus hdl Set.empty Seq.empty Seq.empty None
+  let init hdl = initApp hdl Set.empty Seq.empty Seq.empty None true
+
+  let initWithoutDefaultEntry hdl entries =
+    initApp hdl entries Seq.empty Seq.empty None false
 
   /// Update instruction info based on the given binary apparatus and additional
   /// leader addresses.
@@ -264,7 +270,7 @@ module Apparatus =
       app.CalleeMap.Callees
       |> Seq.filter (fun c -> c.IsNoReturn)
       |> Seq.choose (fun c -> c.Addr)
-    initApparatus hdl entries leaders oldNoRet (Some app.IndirectBranchMap)
+    initApp hdl entries leaders oldNoRet (Some app.IndirectBranchMap) true
 
   /// Register newly recovered leaders to the apparatus.
   let registerRecoveredLeaders app leaders =
