@@ -27,6 +27,7 @@ namespace B2R2.MiddleEnd
 open B2R2
 open B2R2.FrontEnd
 open B2R2.BinCorpus
+open B2R2.BinGraph
 
 module private SpeculativeGapCompletionHelper =
   let findGaps app sAddr eAddr =
@@ -48,14 +49,75 @@ module private SpeculativeGapCompletionHelper =
       if nextAddr >= eAddr then gaps
       else AddrRange (nextAddr, eAddr) :: gaps
 
-  let run hdl scfg app =
-    hdl.FileInfo.GetTextSections ()
-    |> Seq.map (fun sec ->
-      let sAddr, eAddr = sec.Address, sec.Address + sec.Size
-      findGaps app sAddr eAddr)
-    |> Seq.iter (fun (rs: AddrRange list) ->
-      rs |> List.iter (fun r -> printfn "%s" (r.ToString ())))
-    scfg, app
+  let filterBBLs (irCFG: ControlFlowGraph<IRBasicBlock, _>) (gap: AddrRange) =
+    irCFG.FoldVertex (fun (inner, outer, overwrap) v ->
+      if v.VData.IsFakeBlock () then inner, outer, overwrap
+      else
+        let range = v.VData.Range
+        if gap.Min <= range.Min && range.Max <= gap.Max then
+          v :: inner, outer, overwrap
+        elif range.Min <= gap.Max && gap.Max < range.Max then
+          inner, outer, v :: overwrap
+        else inner, v :: outer, overwrap) ([], [], [])
+
+  let checkJumpsToExistingBBL (scfg: SCFG) inner (v: Vertex<IRBasicBlock>) =
+    List.forall (fun succ ->
+      if List.contains succ inner then true
+      else
+        scfg.FindVertex (v.VData.PPoint.Address) |> Option.isSome) v.Succs
+
+  let refineGap (irCFG: ControlFlowGraph<IRBasicBlock, _>) (gap: AddrRange) =
+    let boundary =
+      irCFG.GetVertices ()
+      |> Set.fold (fun acc v ->
+        if v.VData.IsFakeBlock () then acc
+        else v.VData.Range.Max :: acc) []
+      |> List.max
+    if boundary >= gap.Max then None
+    else AddrRange (boundary, gap.Max) |> Some
+
+  let rec tryResolveGaps hdl scfg entries (gap: AddrRange) =
+    let app' =
+      Set.singleton <| LeaderInfo.Init (hdl, gap.Min)
+      |> Apparatus.initWithoutDefaultEntry hdl
+    let scfg' = SCFG.Init (hdl, app')
+    match scfg' with
+    | Error _ ->
+      if gap.Min + 1UL = gap.Max then entries
+      else
+        tryResolveGaps hdl scfg entries <| AddrRange (gap.Min + 1UL, gap.Max)
+    | Ok scfg' ->
+      let irCFG, _ = scfg'.GetFunctionCFG (gap.Min, false)
+      let inner, outer, overwrap = filterBBLs irCFG gap
+      if not <| List.isEmpty overwrap then entries
+      elif not <| List.isEmpty outer then
+        if List.forall (checkJumpsToExistingBBL scfg inner) inner then
+          gap.Min :: entries
+        else entries
+      else
+        match refineGap irCFG gap with
+        | None -> gap.Min :: entries
+        | Some gap' -> tryResolveGaps hdl scfg (gap.Min :: entries) gap'
+
+  let rec run hdl scfg app =
+    let newEntries =
+      hdl.FileInfo.GetTextSections ()
+      |> Seq.map (fun sec ->
+        let sAddr, eAddr = sec.Address, sec.Address + sec.Size
+        findGaps app sAddr eAddr)
+      |> Seq.fold (fun entries (rs: AddrRange list) ->
+        rs |> List.fold (tryResolveGaps hdl scfg) entries) []
+      |> List.map (fun a -> LeaderInfo.Init (hdl, a))
+    if List.isEmpty newEntries then scfg, app
+    else
+      let app =
+        newEntries
+        |> Set.ofList
+        |> Apparatus.registerRecoveredLeaders app
+      let app = Apparatus.update hdl app newEntries
+      match SCFG.Init (hdl, app) with
+      | Ok scfg -> run hdl scfg app
+      | Error e -> failwithf "Failed to run speculative gap completion due to %A" e
 
 type SpeculativeGapCompletion () =
   interface IAnalysis with
