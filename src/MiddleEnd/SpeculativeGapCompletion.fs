@@ -99,7 +99,7 @@ module private SpeculativeGapCompletionHelper =
         | None -> gap.Min :: entries
         | Some gap' -> tryResolveGaps hdl scfg (gap.Min :: entries) gap'
 
-  let rec run hdl scfg app =
+  let rec run (branchRecovery: IAnalysis) hdl scfg app =
     let newEntries =
       hdl.FileInfo.GetTextSections ()
       |> Seq.map (fun sec ->
@@ -108,7 +108,7 @@ module private SpeculativeGapCompletionHelper =
       |> Seq.fold (fun entries (rs: AddrRange list) ->
         rs |> List.fold (tryResolveGaps hdl scfg) entries) []
       |> List.map (fun a -> LeaderInfo.Init (hdl, a))
-    if List.isEmpty newEntries then scfg, app
+    if List.isEmpty newEntries then branchRecovery.Run hdl scfg app
     else
       let app =
         newEntries
@@ -116,12 +116,14 @@ module private SpeculativeGapCompletionHelper =
         |> Apparatus.registerRecoveredLeaders app
       let app = Apparatus.update hdl app newEntries
       match SCFG.Init (hdl, app) with
-      | Ok scfg -> run hdl scfg app
+      | Ok scfg -> run branchRecovery hdl scfg app
       | Error e -> failwithf "Failed to run speculative gap completion due to %A" e
 
-type SpeculativeGapCompletion () =
+type SpeculativeGapCompletion (enableNoReturn) =
+  let branchRecovery = BranchRecovery (enableNoReturn) :> IAnalysis
+
   interface IAnalysis with
     member __.Name = "Speculative Gap Completion"
 
     member __.Run hdl scfg app =
-      SpeculativeGapCompletionHelper.run hdl scfg app
+      SpeculativeGapCompletionHelper.run branchRecovery hdl scfg app
