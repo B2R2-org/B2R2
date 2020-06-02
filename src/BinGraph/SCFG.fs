@@ -41,16 +41,20 @@ type SCFG internal (app, g, vertices) =
   let mutable boundaries = IntervalSet.empty
   do boundaries <- SCFGUtils.computeBoundaries app vertices
 
-  /// SCFG should be constructed only via this method.
-  static member Init (hdl, app) =
+  /// SCFG should be constructed only via this method. The ignoreIllegal
+  /// argument indicates we will ignore any illegal vertices/edges during the
+  /// creation of an SCFG.
+  static member Init (hdl, app, ?ignoreIllegal) =
     let g = IRCFG ()
+    let ignoreIllegal = defaultArg ignoreIllegal true
     let vertices = SCFGUtils.VMap ()
     let leaders = app.LeaderInfos |> Set.toArray |> Array.map (fun l -> l.Point)
+    let iter = if ignoreIllegal then SCFGUtils.iter else SCFGUtils.iterUntilErr
     [ 0 .. leaders.Length - 1 ]
-    |> SCFGUtils.iterUntilErr (SCFGUtils.createNode g app vertices leaders)
+    |> iter (SCFGUtils.createNode g app vertices leaders)
     |> Result.bind (fun () ->
       [ 0 .. leaders.Length - 1 ]
-      |> SCFGUtils.iterUntilErr (SCFGUtils.joinEdges hdl g app vertices leaders)
+      |> iter (SCFGUtils.joinEdges hdl g app vertices leaders)
       |> Result.bind (fun () ->
         SCFG (app, g, vertices) |> Ok))
 

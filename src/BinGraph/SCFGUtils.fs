@@ -32,7 +32,7 @@ open B2R2.BinCorpus
 open System.Collections.Generic
 
 type SCFGError =
-  | NodeCreationError
+  | NodeCreationError of ProgramPoint
   | EdgeCreationError
 
 type VMap = Dictionary<ProgramPoint, Vertex<IRBasicBlock>>
@@ -92,7 +92,7 @@ let rec private gatherBB acc app (leaders: ProgramPoint []) myPoint nextIdx =
 let createNode (g: IRCFG) app (vmap: VMap) (leaders: ProgramPoint []) idx =
   let leader = leaders.[idx]
   let instrs = gatherBB [] app leaders leader (idx + 1)
-  if instrs.Length = 0 then Error NodeCreationError
+  if instrs.Length = 0 then Error (NodeCreationError leader)
   else
     let b = IRBasicBlock (instrs, leader)
     let v = g.AddVertex b
@@ -234,4 +234,10 @@ let rec iterUntilErr fn = function
     match fn idx with
     | Ok _ -> iterUntilErr fn rest
     | Error err -> Error err
+  | [] -> Ok ()
+
+let rec iter fn = function
+  | idx :: rest ->
+    fn idx |> ignore
+    iter fn rest
   | [] -> Ok ()
