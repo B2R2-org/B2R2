@@ -209,6 +209,20 @@ with
 
   /// <summary>
   ///   Return the byte array of size (nBytes) at the addr from the given
+  ///   BinHandler. The return value is an option type. When the given address
+  ///   is invalid, this function returns None.
+  /// </summary>
+  /// <param name="handler">BinHandler.</param>
+  /// <param name="addr">The address.</param>
+  /// <param name="nBytes">The size of the byte array (in bytes).</param>
+  /// <returns>
+  ///   Return (Some bytes) if succeeded, (None) otherwise.
+  /// </returns>
+  static member TryReadBytes:
+    handler: BinHandler * addr: Addr * nBytes: int -> byte [] option
+
+  /// <summary>
+  ///   Return the byte array of size (nBytes) at the addr from the given
   ///   BinHandler.
   /// </summary>
   /// <param name="handler">BinHandler.</param>
@@ -248,6 +262,21 @@ with
   /// </returns>
   static member ReadInt:
     handler: BinHandler * addr: Addr * size: int -> int64
+
+  /// <summary>
+  ///   Return the corresponding unsigned integer option value at the addr of
+  ///   the size from the given BinHandler.
+  /// </summary>
+  /// <param name="handler">BinHandler.</param>
+  /// <param name="addr">The address.</param>
+  /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
+  /// possible.</param>
+  /// <returns>
+  ///   Return the corresponding unsigned integer (Some uint64) if the address
+  ///   and the size is valid. Otherwise, None.
+  /// </returns>
+  static member TryReadUInt:
+    handler: BinHandler * addr: Addr * size: int -> uint64 option
 
   /// <summary>
   ///   Return the corresponding unsigned integer value at the addr of the size

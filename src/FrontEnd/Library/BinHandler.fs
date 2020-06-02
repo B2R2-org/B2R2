@@ -88,10 +88,10 @@ with
   member __.ReadBytes (addr, nBytes) =
     BinHandler.ReadBytes (__, addr, nBytes)
 
-  static member ReadBytes ({ FileInfo = fi }, addr, nBytes) =
+  static member TryReadBytes ({ FileInfo = fi }, addr, nBytes) =
     let range = AddrRange (addr, addr + uint64 nBytes)
     if fi.IsInFileRange range then
-      fi.BinReader.PeekBytes (nBytes, fi.TranslateAddress addr)
+      fi.BinReader.PeekBytes (nBytes, fi.TranslateAddress addr) |> Some
     elif fi.IsValidRange range then
       fi.GetNotInFileIntervals range
       |> classifyRanges range
@@ -103,7 +103,13 @@ with
              |> Array.append bs
            else Array.create len 0uy |> Array.append bs
          ) [||]
-    else invalidArg "ReadBytes" "Invalid address or size is given."
+      |> Some
+    else None
+
+  static member ReadBytes (hdl, addr, nBytes) =
+    match BinHandler.TryReadBytes (hdl, addr, nBytes) with
+    | Some bs -> bs
+    | None -> invalidArg "ReadBytes" "Invalid size given."
 
   member __.ReadInt (addr, nBytes) =
     BinHandler.ReadInt (__, addr, nBytes)
@@ -119,20 +125,25 @@ with
 
   static member ReadInt (hdl, addr, nBytes) =
     match BinHandler.TryReadInt (hdl, addr, nBytes) with
-    | None -> invalidArg "ReadInt" "Invalid size given."
     | Some i -> i
+    | None -> invalidArg "ReadInt" "Invalid size given."
 
   member __.ReadUInt (addr, nBytes) =
     BinHandler.ReadUInt (__, addr, nBytes)
 
-  static member ReadUInt ({ FileInfo = fi }, addr, nBytes) =
+  static member TryReadUInt ({ FileInfo = fi }, addr, nBytes) =
     let pos = fi.TranslateAddress addr
     match nBytes with
-    | 1 -> fi.BinReader.PeekUInt8 pos |> uint64
-    | 2 -> fi.BinReader.PeekUInt16 pos |> uint64
-    | 4 -> fi.BinReader.PeekUInt32 pos |> uint64
-    | 8 -> fi.BinReader.PeekUInt64 pos
-    | _ -> invalidArg "ReadUInt" "Invalid size given."
+    | 1 -> fi.BinReader.PeekUInt8 pos |> uint64 |> Some
+    | 2 -> fi.BinReader.PeekUInt16 pos |> uint64 |> Some
+    | 4 -> fi.BinReader.PeekUInt32 pos |> uint64 |> Some
+    | 8 -> fi.BinReader.PeekUInt64 pos |> Some
+    | _ -> None
+
+  static member ReadUInt (hdl, addr, nBytes) =
+    match BinHandler.TryReadUInt (hdl, addr, nBytes) with
+    | Some i -> i
+    | None -> invalidArg "ReadUInt" "Invalid size given."
 
   member __.ReadASCII (addr) =
     BinHandler.ReadASCII (__, addr)
