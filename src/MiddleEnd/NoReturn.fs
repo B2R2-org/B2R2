@@ -47,10 +47,8 @@ module private NoReturnHelper =
     | LowUIR.ISMark (addr, _) -> bblAddr := addr
     | _ -> ()
 
-  let sideEffectHandler eff st =
-    match eff with
-    | SysCall -> EvalState.AbortInstr st
-    | _ -> st
+  let sideEffectHandler _eff st =
+    EvalState.NextStmt st
 
   let checkExitSyscall reg exitSyscall exitGrpSyscall st =
     match readReg st reg with
@@ -60,13 +58,14 @@ module private NoReturnHelper =
       n = exitSyscall || n = exitGrpSyscall
 
   let retrieveSyscallState (hdl: BinHandler) = function
-    | None -> false
-    | Some st ->
+    | Some st when hdl.FileInfo.FileFormat = FileFormat.ELFBinary
+                || hdl.FileInfo.FileFormat = FileFormat.RawBinary ->
       let arch = hdl.ISA.Arch
       let exitSyscall = LinuxSyscall.toNumber arch LinuxSyscall.Exit
       let exitGrpSyscall = LinuxSyscall.toNumber arch LinuxSyscall.ExitGroup
       let reg = CallingConvention.returnRegister hdl
       checkExitSyscall reg exitSyscall exitGrpSyscall st
+    | _ -> false
 
   let findSyscalls hdl scfg (root: Vertex<IRBasicBlock>) =
     let addr = root.VData.PPoint.Address
