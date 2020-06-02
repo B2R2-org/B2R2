@@ -33,12 +33,18 @@ module private SpeculativeGapCompletionHelper =
     app.InstrMap.Keys
     |> Seq.filter (fun addr -> addr >= sAddr && addr < eAddr)
     |> Seq.sort
-    |> Seq.fold (fun (gaps, prevAddr) addr ->
+    |> Seq.fold (fun (gaps, prevAddr, prevInstAddr) addr ->
       let nextAddr = addr + uint64 app.InstrMap.[addr].Instruction.Length
-      if prevAddr >= addr then gaps, nextAddr
-      else AddrRange (prevAddr, addr) :: gaps, nextAddr
-      ) ([], sAddr)
-    |> fun (gaps, nextAddr) ->
+      if prevAddr >= addr then gaps, nextAddr, addr
+      elif prevInstAddr = sAddr then
+        AddrRange (prevAddr, addr) :: gaps, nextAddr, addr
+      else
+        let prevInstr = app.InstrMap.[prevInstAddr].Instruction
+        if prevInstr.IsIndirectBranch () && not <| prevInstr.IsRET () then
+          gaps, nextAddr, addr
+        else AddrRange (prevAddr, addr) :: gaps, nextAddr, addr
+      ) ([], sAddr, sAddr)
+    |> fun (gaps, nextAddr, _) ->
       if nextAddr >= eAddr then gaps
       else AddrRange (nextAddr, eAddr) :: gaps
 
