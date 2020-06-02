@@ -105,7 +105,9 @@ module private LibcAnalysisHelper =
     match hdl.FileInfo.FileFormat with
     | FileFormat.ELFBinary ->
       let app' = recoverAddrsFromLibcStartMain hdl scfg app
-      SCFG (hdl, app'), app'
+      match SCFG.Init (hdl, app') with
+      | Ok scfg -> scfg, app'
+      | Error e -> failwithf "Failed to recover libc due to %A" e
     | _ -> scfg, app
 
 type LibcAnalysis () =

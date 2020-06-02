@@ -280,11 +280,13 @@ module private BranchRecoveryHelper =
     if indmap <> indmap' then
       let app = { app with IndirectBranchMap = indmap' }
       let app = Apparatus.update hdl app (newLeaders hdl indmap')
-      let scfg = SCFG (hdl, app)
+      match SCFG.Init (hdl, app) with
+      | Ok scfg ->
 #if DEBUG
-      printfn "[*] Go to the next phase ..."
+        printfn "[*] Go to the next phase ..."
 #endif
-      recover noReturn hdl scfg app
+        recover noReturn hdl scfg app
+      | Error e -> failwithf "Failed to recover switch due to %A" e
     else scfg, app
 
 type BranchRecovery (enableNoReturn) =

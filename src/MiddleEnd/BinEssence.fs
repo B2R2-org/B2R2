@@ -55,13 +55,15 @@ with
     let startTime = System.DateTime.Now
 #endif
     let app = Apparatus.init hdl
-    let scfg = SCFG (hdl, app)
-    let scfg, app = BinEssence.Analyze hdl scfg app postAnalyses
+    match SCFG.Init (hdl, app) with
+    | Ok scfg ->
+      let scfg, app = BinEssence.Analyze hdl scfg app postAnalyses
 #if DEBUG
-    let endTime = System.DateTime.Now
-    endTime.Subtract(startTime).TotalSeconds
-    |> printfn "[*] All done in %f sec."
+      let endTime = System.DateTime.Now
+      endTime.Subtract(startTime).TotalSeconds
+      |> printfn "[*] All done in %f sec."
 #endif
-    { BinHandler = hdl
-      Apparatus = app
-      SCFG = scfg }
+      { BinHandler = hdl
+        Apparatus = app
+        SCFG = scfg }
+    | Error e -> failwithf "Failed to initiate BinEssence due to %A" e

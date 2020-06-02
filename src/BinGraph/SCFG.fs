@@ -37,26 +37,22 @@ exception InvalidFunctionAddressException
 /// than the one from disassembly. That is, a single machine instruction (thus,
 /// a single basic block) may correspond to multiple basic blocks in the
 /// LowUIR-level CFG.
-type SCFG (hdl, app) =
-  let g = IRCFG ()
-  let vertices = SCFGUtils.VMap ()
+type SCFG internal (app, g, vertices) =
   let mutable boundaries = IntervalSet.empty
-  do
+  do boundaries <- SCFGUtils.computeBoundaries app vertices
+
+  /// SCFG should be constructed only via this method.
+  static member Init (hdl, app) =
+    let g = IRCFG ()
+    let vertices = SCFGUtils.VMap ()
     let leaders = app.LeaderInfos |> Set.toArray |> Array.map (fun l -> l.Point)
-    for i = 0 to leaders.Length - 1 do
-      SCFGUtils.createNode g app vertices leaders i
-#if DEBUG
-    printfn "[*] All the nodes are created."
-#endif
-    for i = 0 to leaders.Length - 1 do
-      SCFGUtils.connectEdges hdl g app vertices leaders i
-#if DEBUG
-    printfn "[*] All the edges are connected."
-#endif
-    boundaries <- SCFGUtils.computeBoundaries app vertices
-#if DEBUG
-    printfn "[*] Boundary computation is done."
-#endif
+    [ 0 .. leaders.Length - 1 ]
+    |> SCFGUtils.iterUntilErr (SCFGUtils.createNode g app vertices leaders)
+    |> Result.bind (fun () ->
+      [ 0 .. leaders.Length - 1 ]
+      |> SCFGUtils.iterUntilErr (SCFGUtils.joinEdges hdl g app vertices leaders)
+      |> Result.bind (fun () ->
+        SCFG (app, g, vertices) |> Ok))
 
   /// The actual graph data structure of the SCFG.
   member __.Graph with get () = g

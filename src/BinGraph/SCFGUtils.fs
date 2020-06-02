@@ -31,6 +31,10 @@ open B2R2.FrontEnd
 open B2R2.BinCorpus
 open System.Collections.Generic
 
+type SCFGError =
+  | NodeCreationError
+  | EdgeCreationError
+
 type VMap = Dictionary<ProgramPoint, Vertex<IRBasicBlock>>
 
 let hasNoFallThrough (stmts: Stmt []) =
@@ -42,7 +46,8 @@ let hasNoFallThrough (stmts: Stmt []) =
     | _ -> false
   else false
 
-let private selectInfo app (myPoint: ProgramPoint) (nextLeader: ProgramPoint) =
+/// Construct an InstructionInfo for the given program point (myPoint).
+let private constructInfo app (myPoint: ProgramPoint) (nextLeader: ProgramPoint) =
   match app.InstrMap.TryGetValue (myPoint.Address) with
   | false, _ -> None, nextLeader
   | true, i ->
@@ -56,13 +61,13 @@ let private selectInfo app (myPoint: ProgramPoint) (nextLeader: ProgramPoint) =
         let i' = { i with Stmts = Array.sub i.Stmts myPoint.Position delta }
         Some i', nextPoint
       else Some i, nextPoint
-    else
+    else (* Intra-instruction case. *)
       let delta = nextLeader.Position - myPoint.Position
       let i' = { i with Stmts = Array.sub i.Stmts myPoint.Position delta }
       Some i', nextLeader
 
 let rec private gatherBB acc app (leaders: ProgramPoint []) myPoint nextIdx =
-  if nextIdx >= leaders.Length then
+  if nextIdx >= leaders.Length then (* No more leaders after the current. *)
     match app.InstrMap.TryGetValue ((myPoint: ProgramPoint).Address) with
     | false, _ -> List.rev acc |> List.toArray
     | true, i ->
@@ -72,7 +77,7 @@ let rec private gatherBB acc app (leaders: ProgramPoint []) myPoint nextIdx =
   else
     let nextLeader = leaders.[nextIdx]
     if nextLeader > myPoint then
-      match selectInfo app myPoint nextLeader with
+      match constructInfo app myPoint nextLeader with
       | None, _ -> [||]
       | Some info, nextPoint ->
         let acc = info :: acc
@@ -87,11 +92,12 @@ let rec private gatherBB acc app (leaders: ProgramPoint []) myPoint nextIdx =
 let createNode (g: IRCFG) app (vmap: VMap) (leaders: ProgramPoint []) idx =
   let leader = leaders.[idx]
   let instrs = gatherBB [] app leaders leader (idx + 1)
-  if instrs.Length = 0 then ()
+  if instrs.Length = 0 then Error NodeCreationError
   else
     let b = IRBasicBlock (instrs, leader)
     let v = g.AddVertex b
     vmap.[leader] <- v
+    Ok ()
 
 let private addIntraEdge (g: IRCFG) app (vmap: VMap) src symbol edgeProp =
   let dstPos = Map.find symbol app.LabelMap |> ProgramPoint
@@ -175,10 +181,10 @@ let private addIndirectEdges (g: IRCFG) app vmap src isCall =
   | false, _ -> addResolvedIndirectEdges g app vmap src srcAddr isCall
   | true, callees -> callees |> Set.iter add
 
-let connectEdges _ (g: IRCFG) app (vmap: VMap) (leaders: ProgramPoint[]) idx =
+let joinEdges _ (g: IRCFG) app (vmap: VMap) (leaders: ProgramPoint[]) idx =
   let leader = leaders.[idx]
   match vmap.TryGetValue leader with
-  | false, _ -> ()
+  | false, _ -> Error EdgeCreationError
   | true, src ->
     match src.VData.GetLastStmt () with
     | Jmp (Name s) ->
@@ -214,6 +220,7 @@ let connectEdges _ (g: IRCFG) app (vmap: VMap) (leaders: ProgramPoint[]) idx =
     | _ -> (* Fall through case *)
       if idx + 1 >= leaders.Length then ()
       else handleFallThrough g app vmap src leaders.[idx + 1]
+    Ok ()
 
 let computeBoundaries app (vmap: VMap) =
   app.LeaderInfos
@@ -221,3 +228,10 @@ let computeBoundaries app (vmap: VMap) =
     match vmap.TryGetValue leader.Point with
     | false, _ -> set
     | true, v -> IntervalSet.add v.VData.Range set) IntervalSet.empty
+
+let rec iterUntilErr fn = function
+  | idx :: rest ->
+    match fn idx with
+    | Ok _ -> iterUntilErr fn rest
+    | Error err -> Error err
+  | [] -> Ok ()
