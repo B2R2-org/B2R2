@@ -54,7 +54,7 @@ let private constructInfo app (myPoint: ProgramPoint) (nextLeader: ProgramPoint)
     if myPoint.Address <> nextLeader.Address then
       let nextInsAddr = i.Instruction.Address + uint64 i.Instruction.Length
       let nextPoint =
-        if i.Stmts.Length > 0 && hasNoFallThrough i.Stmts then nextLeader
+        if hasNoFallThrough i.Stmts then nextLeader
         else ProgramPoint (nextInsAddr, 0)
       if myPoint.Position > 0 then
         let delta = i.Stmts.Length - myPoint.Position
@@ -156,7 +156,7 @@ let private addResolvedIndirectEdges (g: IRCFG) app vmap src srcAddr isCall =
       let dst = g.AddVertex (IRBasicBlock ([||], fakePos))
       g.AddEdge src dst IndirectCallEdge
     else ()
-  | Some targets ->
+  | Some (targets, _) ->
     targets
     |> Set.iter (fun target ->
       let targetAddr = ProgramPoint (target, 0)

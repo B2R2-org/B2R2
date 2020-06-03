@@ -34,90 +34,79 @@ module private SpeculativeGapCompletionHelper =
     app.InstrMap.Keys
     |> Seq.filter (fun addr -> addr >= sAddr && addr < eAddr)
     |> Seq.sort
-    |> Seq.fold (fun (gaps, prevAddr, prevInstAddr) addr ->
+    |> Seq.fold (fun (gaps, prevAddr) addr ->
       let nextAddr = addr + uint64 app.InstrMap.[addr].Instruction.Length
-      if prevAddr >= addr then gaps, nextAddr, addr
-      elif prevInstAddr = sAddr then
-        AddrRange (prevAddr, addr) :: gaps, nextAddr, addr
-      else
-        let prevInstr = app.InstrMap.[prevInstAddr].Instruction
-        if prevInstr.IsIndirectBranch () && not <| prevInstr.IsRET () then
-          gaps, nextAddr, addr
-        else AddrRange (prevAddr, addr) :: gaps, nextAddr, addr
-      ) ([], sAddr, sAddr)
-    |> fun (gaps, nextAddr, _) ->
+      if prevAddr >= addr then gaps, nextAddr
+      else AddrRange (prevAddr, addr) :: gaps, nextAddr
+      ) ([], sAddr)
+    |> fun (gaps, nextAddr) ->
       if nextAddr >= eAddr then gaps
       else AddrRange (nextAddr, eAddr) :: gaps
 
-  let filterBBLs (irCFG: ControlFlowGraph<IRBasicBlock, _>) (gap: AddrRange) =
-    irCFG.FoldVertex (fun (inner, outer, overwrap) v ->
-      if v.VData.IsFakeBlock () then inner, outer, overwrap
-      else
-        let range = v.VData.Range
-        if gap.Min <= range.Min && range.Max <= gap.Max then
-          v :: inner, outer, overwrap
-        elif range.Min <= gap.Max && gap.Max < range.Max then
-          inner, outer, v :: overwrap
-        else inner, v :: outer, overwrap) ([], [], [])
-
-  let checkJumpsToExistingBBL (scfg: SCFG) inner (v: Vertex<IRBasicBlock>) =
-    List.forall (fun succ ->
-      if List.contains succ inner then true
-      else
-        scfg.FindVertex (v.VData.PPoint.Address) |> Option.isSome) v.Succs
-
-  let refineGap (irCFG: ControlFlowGraph<IRBasicBlock, _>) (gap: AddrRange) =
-    let boundary =
-      irCFG.GetVertices ()
-      |> Set.fold (fun acc v ->
-        if v.VData.IsFakeBlock () then acc
-        else v.VData.Range.Max :: acc) []
-      |> List.max
-    if boundary >= gap.Max then None
-    else AddrRange (boundary, gap.Max) |> Some
-
-  let rec tryResolveGaps hdl scfg entries (gap: AddrRange) =
+  let rec shiftUntilValid hdl scfg entries (gap: AddrRange) =
     let app' =
-      Set.singleton <| LeaderInfo.Init (hdl, gap.Min)
+      LeaderInfo.Init (hdl, gap.Min)
+      |> Set.singleton
       |> Apparatus.initWithoutDefaultEntry hdl
-    let scfg' = SCFG.Init (hdl, app', false)
-    match scfg' with
+    match SCFG.Init (hdl, app', false) with
     | Error _ ->
       if gap.Min + 1UL = gap.Max then entries
       else
-        tryResolveGaps hdl scfg entries <| AddrRange (gap.Min + 1UL, gap.Max)
-    | Ok scfg' ->
-      let irCFG, _ = scfg'.GetFunctionCFG (gap.Min, false)
-      let inner, outer, overwrap = filterBBLs irCFG gap
-      if not <| List.isEmpty overwrap then entries
-      elif not <| List.isEmpty outer then
-        if List.forall (checkJumpsToExistingBBL scfg inner) inner then
-          gap.Min :: entries
-        else entries
-      else
-        match refineGap irCFG gap with
-        | None -> gap.Min :: entries
-        | Some gap' -> tryResolveGaps hdl scfg (gap.Min :: entries) gap'
+        let gap' = AddrRange (gap.Min + 1UL, gap.Max)
+        shiftUntilValid hdl scfg entries gap'
+    | Ok _ -> AddrRange (gap.Min, gap.Max) :: entries
 
-  let rec run (branchRecovery: IAnalysis) hdl scfg app =
-    let newEntries =
-      hdl.FileInfo.GetTextSections ()
-      |> Seq.map (fun sec ->
-        let sAddr, eAddr = sec.Address, sec.Address + sec.Size
-        findGaps app sAddr eAddr)
-      |> Seq.fold (fun entries (rs: AddrRange list) ->
-        rs |> List.fold (tryResolveGaps hdl scfg) entries) []
-      |> List.map (fun a -> LeaderInfo.Init (hdl, a))
-    if List.isEmpty newEntries then branchRecovery.Run hdl scfg app
-    else
-      let app =
-        newEntries
-        |> Set.ofList
-        |> Apparatus.registerRecoveredLeaders app
-      let app = Apparatus.update hdl app newEntries
-      match SCFG.Init (hdl, app) with
-      | Ok scfg -> run branchRecovery hdl scfg app
-      | Error e -> failwithf "Failed to run speculative gap completion due to %A" e
+  let shiftByOne entries (gap: AddrRange) =
+    let nextAddr = gap.Min + 1UL
+    if gap.Max <= nextAddr then entries
+    else AddrRange (nextAddr, gap.Max) :: entries
+
+  let shiftGaps fn gaps =
+    gaps |> List.fold fn []
+
+  let updateResults hdl scfg app (_, resultApp) =
+    // FIXME: appropriately update the app and scfg
+    let entries =
+      resultApp.CalleeMap.Callees
+      |> Seq.choose (fun c -> c.Addr)
+      |> Seq.fold (fun acc a ->
+        Set.add (LeaderInfo.Init (hdl, a)) acc) Set.empty
+    (* Update entries *)
+    let app = Apparatus.registerRecoveredEntries app entries
+    (* Update leaders *)
+    let app = Apparatus.update hdl app resultApp.LeaderInfos
+    (* Update indirect branch info. *)
+    let app = Apparatus.addIndirectBranchMap app resultApp.IndirectBranchMap
+    match SCFG.Init (hdl, app) with
+    | Ok scfg -> scfg, app
+    | Error _ -> scfg, app
+
+  let rec recoverGaps (branchRecovery: IAnalysis) hdl (scfg: SCFG) app gaps =
+    match shiftGaps (shiftUntilValid hdl scfg) gaps with
+    | [] -> scfg, app
+    | gaps ->
+      let entries = gaps |> List.map (fun gap -> LeaderInfo.Init (hdl, gap.Min))
+      let partialApp =
+        Apparatus.initWithoutDefaultEntry hdl (Set.ofList entries)
+      match SCFG.Init (hdl, partialApp, false) with
+      | Ok partialCFG ->
+        let scfg, app =
+          branchRecovery.Run hdl partialCFG partialApp
+          |> updateResults hdl scfg app
+        gaps
+        |> Seq.map (fun gap -> findGaps app gap.Min gap.Max)
+        |> List.concat
+        |> recoverGaps branchRecovery hdl scfg app
+        // FIXME: check the remaining gaps and recurse if necessary
+      | _ -> recoverGaps branchRecovery hdl scfg app (shiftGaps shiftByOne gaps)
+
+  let run branchRecovery hdl (scfg: SCFG) app =
+    hdl.FileInfo.GetTextSections ()
+    |> Seq.map (fun sec ->
+      let sAddr, eAddr = sec.Address, sec.Address + sec.Size
+      findGaps app sAddr eAddr)
+    |> List.concat
+    |> recoverGaps branchRecovery hdl scfg app
 
 type SpeculativeGapCompletion (enableNoReturn) =
   let branchRecovery = BranchRecovery (enableNoReturn) :> IAnalysis

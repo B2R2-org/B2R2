@@ -24,6 +24,7 @@
 
 namespace B2R2.BinCorpus
 
+open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd
 open B2R2.BinIR
@@ -32,6 +33,9 @@ open B2R2.BinIR.LowUIR
 /// A mapping from an instruction address to computed jump targets. This table
 /// stores only "computed" jump targets.
 type JmpTargetMap = Map<Addr, Addr list>
+
+/// Jump table (for switch-case) information: (table range * entry size).
+type JumpTableInfo = AddrRange * RegType
 
 /// <summary>
 ///   Binary apparatus (Apparatus) contains the key components and information
@@ -95,7 +99,7 @@ type Apparatus = {
   /// Callee map.
   CalleeMap: CalleeMap
   /// Indirect branches' target addresses.
-  IndirectBranchMap: Map<Addr, Set<Addr>>
+  IndirectBranchMap: Map<Addr, Set<Addr> * JumpTableInfo option>
 }
 
 [<RequireQualifiedAccess>]
@@ -114,17 +118,23 @@ module Apparatus =
       | None -> set
       | Some entry -> Set.add (LeaderInfo.Init (hdl, entry)) set
 
-  let private findLabels labels (KeyValue (addr, instr)) =
+  let private findLabels complexInstrs labels (KeyValue (addr, instr)) =
     instr.Stmts
     |> Array.foldi (fun labels idx stmt ->
          match stmt with
-         | LMark (s) -> Map.add s (addr, idx) labels
+         | LMark (s) ->
+           (complexInstrs: HashSet<Addr>).Add addr |> ignore
+           Map.add s (addr, idx) labels
          | _ -> labels) labels
     |> fst
 
   /// A temporary accumulator for folding all the IR statements.
   type private StmtAccumulator = {
+    /// Label name to a ProgramPoint (Addr * int).
     Labels: Map<Symbol, Addr * int>
+    /// Complex instruction set. A complex instruction is an instruction that
+    /// contains intra-branches.
+    ComplexInstrs: HashSet<Addr>
     /// This is a set of leaders, each of which is a tuple of a ProgramPoint and
     /// an address offset. The offset is used to readjust the address of the
     /// instruction when parsing it (it is mostly 0 though).
@@ -151,7 +161,7 @@ module Apparatus =
     { acc with FunctionAddrs = Set.add addr acc.FunctionAddrs }
 
   /// Fold all the statements to get the leaders, function positions, etc.
-  let private foldStmts hdl indMap acc (KeyValue (_, i)) =
+  let private foldStmts hdl indMap acc i =
     i.Stmts
     |> Array.fold (fun acc stmt ->
       match stmt with
@@ -190,18 +200,21 @@ module Apparatus =
       | InterJmp (_, _, _) ->
         match Map.tryFind i.Instruction.Address indMap with
         | None -> acc
-        | Some targets ->
+        | Some (targets, _) ->
           targets |> Set.fold (fun acc target -> addAddrLeader target i acc) acc
       | SideEffect (SysCall)
       | SideEffect (Interrupt _) ->
         let fallAddr = i.Instruction.Address + uint64 i.Instruction.Length
         if hdl.FileInfo.IsValidAddr fallAddr then addAddrLeader fallAddr i acc
         else acc
+      | IEMark (a) when acc.ComplexInstrs.Contains i.Instruction.Address ->
+        addAddrLeader a i acc
       | _ -> acc) acc
 
   let rec private findLeaders hdl acc (instrMap: InstrMap) foldStmts =
-    let acc = { acc with Labels = instrMap |> Seq.fold findLabels Map.empty }
-    let acc = instrMap |> Seq.fold foldStmts acc
+    let labels = instrMap |> Seq.fold (findLabels acc.ComplexInstrs) Map.empty
+    let acc = { acc with Labels = labels }
+    let acc = instrMap.Values |> Seq.fold foldStmts acc
     let oldCount = instrMap.Count
     let instrMap =
       acc.Leaders
@@ -228,7 +241,8 @@ module Apparatus =
     (* First, recursively parse all possible instructions. *)
     let instrMap = InstrMap.build hdl leaders
     let acc =
-      { Labels = Map.empty; Leaders = leaders; FunctionAddrs = funcAddrs }
+      { Labels = Map.empty; ComplexInstrs = HashSet ()
+        Leaders = leaders; FunctionAddrs = funcAddrs }
     let indMap = Option.defaultValue Map.empty indMap
     (* Then, find all possible leaders by scanning lifted IRs. We need to do
        this at a IR-level because LowUIR may have intra-instruction branches. *)
@@ -266,8 +280,8 @@ module Apparatus =
       |> Seq.choose (fun c -> c.Addr)
     initApp hdl entries leaders oldNoRet (Some app.IndirectBranchMap) true
 
-  /// Register newly recovered leaders to the apparatus.
-  let registerRecoveredLeaders app leaders =
+  /// Register newly recovered entries to the apparatus.
+  let registerRecoveredEntries app leaders =
     { app with RecoveredEntries = Set.union leaders app.RecoveredEntries }
 
   /// Return the list of function addresses from the Apparatus.
@@ -281,14 +295,8 @@ module Apparatus =
     |> Seq.filter (fun c -> c.Addr.IsSome)
 
   /// Add a resolved indirect branch target.
-  let addIndirectBranchTarget app fromAddr toAddr =
-    (* FIXME: check if the target is a callee. *)
-    match Map.tryFind fromAddr app.IndirectBranchMap with
-    | None ->
-      let set = Set.singleton toAddr
-      let map = Map.add fromAddr set app.IndirectBranchMap
-      { app with IndirectBranchMap = map }
-    | Some targets ->
-      let targets' = Set.add toAddr targets
-      let map = Map.add fromAddr targets' app.IndirectBranchMap
-      { app with IndirectBranchMap = map }
+  let addIndirectBranchMap app indmap =
+    let indmap' =
+      Map.fold (fun acc fromAddr indbranchinfo ->
+        Map.add fromAddr indbranchinfo acc) app.IndirectBranchMap indmap
+    { app with IndirectBranchMap = indmap' }
