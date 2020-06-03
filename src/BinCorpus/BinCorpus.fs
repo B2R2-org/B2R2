@@ -230,9 +230,6 @@ module Apparatus =
     let acc =
       { Labels = Map.empty; Leaders = leaders; FunctionAddrs = funcAddrs }
     let indMap = Option.defaultValue Map.empty indMap
-#if DEBUG
-    printfn "[*] Loaded basic information."
-#endif
     (* Then, find all possible leaders by scanning lifted IRs. We need to do
        this at a IR-level because LowUIR may have intra-instruction branches. *)
     let struct (instrMap, acc) =
@@ -240,9 +237,6 @@ module Apparatus =
     let calleeMap =
       CalleeMap.build hdl acc.FunctionAddrs instrMap
       |> updateNoReturnInfo noRets
-#if DEBUG
-    printfn "[*] The apparatus is ready to use."
-#endif
     { InstrMap = instrMap
       LabelMap = acc.Labels
       LeaderInfos = acc.Leaders

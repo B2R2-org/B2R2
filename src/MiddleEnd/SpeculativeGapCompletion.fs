@@ -80,7 +80,7 @@ module private SpeculativeGapCompletionHelper =
     let app' =
       Set.singleton <| LeaderInfo.Init (hdl, gap.Min)
       |> Apparatus.initWithoutDefaultEntry hdl
-    let scfg' = SCFG.Init (hdl, app')
+    let scfg' = SCFG.Init (hdl, app', false)
     match scfg' with
     | Error _ ->
       if gap.Min + 1UL = gap.Max then entries
