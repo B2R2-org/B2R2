@@ -2436,6 +2436,9 @@ let enter ins insAddr insLen ctxt =
   let frameTemp, addrSize = tmpVars2 ctxt.WordBitSize
   let bp = getBasePtr ctxt
   let sp = getStackPtr ctxt
+  let pc = getInstrPtr ctxt
+  let cinstAddr = bvOfBaseAddr insAddr ctxt
+  let ninstAddr = cinstAddr .+ bvOfInstrLen insLen ctxt
   let lblLoop = lblSymbol "Loop"
   let lblCont = lblSymbol "Continue"
   let lblLevelCheck = lblSymbol "NestingLevelCheck"
@@ -2462,6 +2465,7 @@ let enter ins insAddr insLen ctxt =
   builder <! (LMark lblCont)
   builder <! (bp := frameTemp)
   builder <! (sp := sp .- zExt ctxt.WordBitSize allocSize)
+  builder <! (InterJmp (pc, ninstAddr, InterJmpInfo.Base))
   endMark insAddr insLen builder
 
 let getBaseReg = function
