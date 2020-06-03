@@ -265,6 +265,17 @@ let computeInvalidAddrRanges wordSize baseAddr secs =
 let computeNotInFileRanges wordSize baseAddr secs =
   invRanges wordSize baseAddr secs (fun a s -> a + uint64 s.SizeOfRawData)
 
+let execRanges baseAddr secs =
+  secs
+  |> Array.filter (fun (s: SectionHeader) ->
+    let perm: Permission = getSecPermission s.SectionCharacteristics
+    perm &&& Permission.Executable = Permission.Executable)
+  |> Array.fold (fun set s ->
+    let saddr = baseAddr + uint64 s.VirtualAddress
+    let eaddr = saddr + (uint64 <| getVirtualSectionSize s)
+    IntervalSet.add (AddrRange (saddr, eaddr)) set
+    ) IntervalSet.empty
+
 let parseImage execpath rawpdb baseAddr binReader (hdrs: PEHeaders) =
   let wordSize = magicToWordSize hdrs.PEHeader.Magic
   let baseAddr = hdrs.PEHeader.ImageBase + baseAddr
@@ -279,6 +290,7 @@ let parseImage execpath rawpdb baseAddr binReader (hdrs: PEHeaders) =
     SymbolInfo = getPDBSymbols execpath rawpdb |> buildPDBInfo baseAddr secs
     InvalidAddrRanges = computeInvalidAddrRanges wordSize baseAddr secs
     NotInFileRanges = computeNotInFileRanges wordSize baseAddr secs
+    ExecutableRanges = execRanges baseAddr secs
     FindSectionIdxFromRVA = findSectionIndex secs
     BinReader = binReader }
 
@@ -298,6 +310,7 @@ let parseCoff baseAddr binReader (hdrs: PEHeaders) =
     SymbolInfo = Coff.getSymbols binReader coff
     InvalidAddrRanges = IntervalSet.empty
     NotInFileRanges = IntervalSet.empty
+    ExecutableRanges = execRanges baseAddr secs
     FindSectionIdxFromRVA = findSectionIdxFromRVA
     BinReader = binReader }
 

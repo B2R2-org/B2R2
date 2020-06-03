@@ -64,6 +64,7 @@ type ELFFileInfo (bytes, path, baseAddr) =
   override __.IsValidRange range = isValidRange elf range
   override __.IsInFileAddr addr = isInFileAddr elf addr
   override __.IsInFileRange range = isInFileRange elf range
+  override __.IsExecutableAddr addr = isExecutableAddr elf addr
   override __.GetNotInFileIntervals range = getNotInFileIntervals elf range
   member __.ELF with get() = elf
 

@@ -733,6 +733,8 @@ type Mach = {
   InvalidAddrRanges: IntervalSet
   /// Not-in-file address ranges.
   NotInFileRanges: IntervalSet
+  /// Executable address ranges.
+  ExecutableRanges: IntervalSet
   /// BinReader.
   BinReader: BinReader
 }

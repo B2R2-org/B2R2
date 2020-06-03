@@ -84,6 +84,14 @@ let invRanges wordSize segs getNextStartAddr =
        FileHelper.addInvRange set saddr seg.PHAddr, n) (IntervalSet.empty, 0UL)
   |> FileHelper.addLastInvRange wordSize
 
+let execRanges segs =
+  segs
+  |> List.filter (fun seg ->
+    seg.PHFlags &&& Permission.Executable = Permission.Executable)
+  |> List.fold (fun set seg ->
+    IntervalSet.add (AddrRange (seg.PHAddr, seg.PHAddr + seg.PHMemSize)) set
+    ) IntervalSet.empty
+
 let private parseELF baseAddr offset reader =
   let eHdr = Header.parse baseAddr offset reader
   let cls = eHdr.Class
@@ -107,6 +115,7 @@ let private parseELF baseAddr offset reader =
     Globals = globals
     InvalidAddrRanges = invRanges cls segs (fun s -> s.PHAddr + s.PHMemSize)
     NotInFileRanges = invRanges cls segs (fun s -> s.PHAddr + s.PHFileSize)
+    ExecutableRanges = execRanges segs
     BinReader = reader }
 
 let parse baseAddr bytes =

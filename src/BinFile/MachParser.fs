@@ -56,6 +56,15 @@ let invRanges wordSize segs getNextStartAddr =
        FileHelper.addInvRange set saddr seg.VMAddr, n) (IntervalSet.empty, 0UL)
   |> FileHelper.addLastInvRange wordSize
 
+let execRanges segs =
+  segs
+  |> List.filter (fun seg ->
+    let perm: Permission = seg.MaxProt |> LanguagePrimitives.EnumOfValue
+    perm &&& Permission.Executable = Permission.Executable)
+  |> List.fold (fun set seg ->
+    IntervalSet.add (AddrRange (seg.VMAddr, seg.VMAddr + seg.VMSize)) set
+    ) IntervalSet.empty
+
 let parseMach baseAddr reader  =
   let machHdr = Header.parse reader 0
   let cls = machHdr.Class
@@ -78,6 +87,7 @@ let parseMach baseAddr reader  =
     Relocations = relocs
     InvalidAddrRanges = invRanges cls segs (fun s -> s.VMAddr + s.VMSize)
     NotInFileRanges = invRanges cls segs (fun s -> s.VMAddr + s.FileSize)
+    ExecutableRanges = execRanges segs
     BinReader = reader }
 
 let updateReaderForFat bytes isa reader =

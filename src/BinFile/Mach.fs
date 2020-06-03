@@ -64,6 +64,7 @@ type MachFileInfo (bytes, path, isa, baseAddr) =
   override __.IsValidRange range = isValidRange mach range
   override __.IsInFileAddr addr = isInFileAddr mach addr
   override __.IsInFileRange range = isInFileRange mach range
+  override __.IsExecutableAddr addr = isExecutableAddr mach addr
   override __.GetNotInFileIntervals range = getNotInFileIntervals mach range
 
 // vim: set tw=80 sts=2 sw=2:
