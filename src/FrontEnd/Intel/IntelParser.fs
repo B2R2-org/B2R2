@@ -2168,18 +2168,11 @@ let inline private parseOprImm insInfo reader pos sKnd =
   let imm, nextPos = parseUnsignedImm reader pos sz
   struct (OprImm (int64 imm), nextPos)
 
-let inline private getMask sz =
-  match sz with
-  | 8<rt> -> 0xFFL
-  | 16<rt> -> 0xFFFFL
-  | 32<rt> -> 0xFFFFFFFFL
-  | _ -> 0xFFFFFFFFFFFFFFFFL
-
 let inline private parseOprSImm insInfo reader pos sKnd =
   let sz =
     getImmSize insInfo.InsSize.MemSize.EffOprSize sKnd |> RegType.toByteWidth
   let imm, nextPos = parseSignedImm reader pos sz
-  struct (OprImm (imm &&& getMask insInfo.InsSize.OperationSize), nextPos)
+  struct (OprImm imm, nextPos)
 
 /// The first 24 rows of Table 2-1. of the manual Vol. 2A.
 /// The index of this tbl is a number that is a concatenation of (mod) and

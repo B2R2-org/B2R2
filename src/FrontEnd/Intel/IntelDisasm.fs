@@ -937,6 +937,13 @@ let buildMask (ins: InsInfo) builder acc =
     maskRegToString ePrx builder acc |> maskZtoString ePrx builder
   | _ -> acc
 
+let inline private getMask sz =
+  match sz with
+  | 8<rt> -> 0xFFL
+  | 16<rt> -> 0xFFFFL
+  | 32<rt> -> 0xFFFFFFFFL
+  | _ -> 0xFFFFFFFFFFFFFFFFL
+
 let oprToString wordSz ins insAddr fi opr isFstOpr builder acc =
   match opr with
   | OprReg reg ->
@@ -945,7 +952,8 @@ let oprToString wordSz ins insAddr fi opr isFstOpr builder acc =
   | OprMem (b, si, disp, oprSz) ->
     let acc = mToString wordSz ins b si disp oprSz builder acc
     if isFstOpr then buildMask ins builder acc else acc
-  | OprImm imm -> iToHexStr imm builder acc
+  | OprImm imm ->
+    iToHexStr (imm &&& getMask ins.InsSize.OperationSize) builder acc
   | OprDirAddr (Absolute (sel, offset, _)) -> absToString sel offset builder acc
   | OprDirAddr (Relative (offset)) -> relToString insAddr offset fi builder acc
   | Label _ -> Utils.impossible ()
