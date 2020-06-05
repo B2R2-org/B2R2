@@ -1546,6 +1546,14 @@ module Register = begin
     | R.XMM8 | R.XMM9 | R.XMM10 | R.XMM11
     | R.XMM12 | R.XMM13 | R.XMM14 | R.XMM15
     | R.BND0 | R.BND1 | R.BND2 | R.BND3 -> 128<rt>
+    | R.ZMM0A | R.ZMM1A | R.ZMM2A | R.ZMM3A
+    | R.ZMM4A | R.ZMM5A | R.ZMM6A | R.ZMM7A
+    | R.ZMM8A | R.ZMM9A | R.ZMM10A | R.ZMM11A
+    | R.ZMM12A | R.ZMM13A | R.ZMM14A | R.ZMM15A
+    | R.ZMM0B | R.ZMM1B | R.ZMM2B | R.ZMM3B
+    | R.ZMM4B | R.ZMM5B | R.ZMM6B | R.ZMM7B
+    | R.ZMM8B | R.ZMM9B | R.ZMM10B | R.ZMM11B
+    | R.ZMM12B | R.ZMM13B | R.ZMM14B | R.ZMM15B
     | R.YMM0 | R.YMM1 | R.YMM2 | R.YMM3
     | R.YMM4 | R.YMM5 | R.YMM6 | R.YMM7
     | R.YMM8 | R.YMM9 | R.YMM10 | R.YMM11
@@ -1555,7 +1563,7 @@ module Register = begin
     | R.ZMM8 | R.ZMM9 | R.ZMM10 | R.ZMM11
     | R.ZMM12 | R.ZMM13 | R.ZMM14 | R.ZMM15 -> 512<rt>
     | R.ST0 | R.ST1 | R.ST2 | R.ST3 | R.ST4 | R.ST5 | R.ST6 | R.ST7 -> 80<rt>
-    | R.DF | R.CF | R.PF | R.AF | R.ZF | R.SF | R.OF
+    | R.DF | R.CF | R.PF | R.AF | R.ZF | R.SF | R.OF | R.IF
     | R.FSWC0 | R.FSWC1 | R.FSWC2 | R.FSWC3 -> 1<rt>
     | R.FTW0 | R.FTW1 | R.FTW2 | R.FTW3
     | R.FTW4 | R.FTW5 | R.FTW6 | R.FTW7 -> 2<rt>
