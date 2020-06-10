@@ -90,11 +90,16 @@ module InstrMap =
   let inline private isExecutableLeader hdl leaderInfo =
     hdl.FileInfo.IsExecutableAddr leaderInfo.Point.Address
 
+  let inline private isAlreadyParsed (map: InstrMap) leaderInfo =
+    map.ContainsKey leaderInfo.Point.Address
+
   /// Update the map (InstrMap) from the given entries.
   let update (hdl: BinHandler) map leaders =
     let rec buildLoop = function
       | [] -> map
       | leaderInfo :: rest when isExecutableLeader hdl leaderInfo |> not ->
+        buildLoop rest
+      | leaderInfo :: rest when isAlreadyParsed map leaderInfo ->
         buildLoop rest
       | leaderInfo :: rest ->
         hdl.ParsingContext.ArchOperationMode <- leaderInfo.Mode

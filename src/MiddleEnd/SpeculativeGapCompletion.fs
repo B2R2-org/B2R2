@@ -65,18 +65,11 @@ module private SpeculativeGapCompletionHelper =
     gaps |> List.fold fn []
 
   let updateResults hdl scfg app (_, resultApp) =
-    // FIXME: appropriately update the app and scfg
-    let entries =
-      resultApp.CalleeMap.Callees
-      |> Seq.choose (fun c -> c.Addr)
-      |> Seq.fold (fun acc a ->
-        Set.add (LeaderInfo.Init (hdl, a)) acc) Set.empty
-    (* Update entries *)
-    let app = Apparatus.registerRecoveredEntries app entries
-    (* Update leaders *)
-    let app = Apparatus.update hdl app resultApp.LeaderInfos
-    (* Update indirect branch info. *)
-    let app = Apparatus.addIndirectBranchMap app resultApp.IndirectBranchMap
+    let app =
+      Apparatus.getFunctionAddrs resultApp
+      |> Set.ofSeq
+      |> Set.map (fun addr -> LeaderInfo.Init (hdl, addr))
+      |> Apparatus.registerRecoveredEntries hdl app
     match SCFG.Init (hdl, app) with
     | Ok scfg -> scfg, app
     | Error _ -> scfg, app

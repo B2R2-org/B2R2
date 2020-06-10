@@ -104,6 +104,17 @@ type Apparatus = {
 
 [<RequireQualifiedAccess>]
 module Apparatus =
+
+  /// Return the list of function addresses from the Apparatus.
+  let getFunctionAddrs app =
+    app.CalleeMap.Callees
+    |> Seq.choose (fun c -> c.Addr)
+
+  /// Return the list of callees that have a concrete mapping to the binary.
+  let getInternalFunctions app =
+    app.CalleeMap.Callees
+    |> Seq.filter (fun c -> c.Addr.IsSome)
+
   /// This function returns an initial sequence of entry points obtained from
   /// the binary itself (e.g., from its symbol information). Therefore, if the
   /// binary is stripped, the returned sequence will be incomplete, and we need
@@ -230,6 +241,26 @@ module Apparatus =
       | Some c -> c.IsNoReturn <- true)
     calleeMap
 
+  let private buildApp hdl funcAddrs leaders instrMap indMap noRets =
+    let acc =
+      { Labels = Map.empty; ComplexInstrs = HashSet ()
+        Leaders = leaders; FunctionAddrs = funcAddrs }
+    (* Then, find all possible leaders by scanning lifted IRs. We need to do
+       this at a IR-level because LowUIR may have intra-instruction branches. *)
+    let struct (instrMap, acc) =
+      findLeaders hdl acc instrMap (foldStmts hdl indMap)
+    let calleeMap =
+      CalleeMap.build hdl acc.FunctionAddrs instrMap
+      |> updateNoReturnInfo noRets
+    let entries = Set.map (fun addr -> LeaderInfo.Init (hdl, addr)) funcAddrs
+    { InstrMap = instrMap
+      LabelMap = acc.Labels
+      LeaderInfos = acc.Leaders
+      RecoveredEntries = entries
+      IndirectBranchMap = indMap
+      CallerMap = CallerMap.build calleeMap
+      CalleeMap = calleeMap }
+
   let private initApp hdl auxEntries auxLeaders noRets indMap useDefaultEntry =
     let leaders =
       if not useDefaultEntry then auxEntries
@@ -240,24 +271,8 @@ module Apparatus =
     let leaders = auxLeaders |> Seq.fold (fun set e -> Set.add e set) leaders
     (* First, recursively parse all possible instructions. *)
     let instrMap = InstrMap.build hdl leaders
-    let acc =
-      { Labels = Map.empty; ComplexInstrs = HashSet ()
-        Leaders = leaders; FunctionAddrs = funcAddrs }
     let indMap = Option.defaultValue Map.empty indMap
-    (* Then, find all possible leaders by scanning lifted IRs. We need to do
-       this at a IR-level because LowUIR may have intra-instruction branches. *)
-    let struct (instrMap, acc) =
-      findLeaders hdl acc instrMap (foldStmts hdl indMap)
-    let calleeMap =
-      CalleeMap.build hdl acc.FunctionAddrs instrMap
-      |> updateNoReturnInfo noRets
-    { InstrMap = instrMap
-      LabelMap = acc.Labels
-      LeaderInfos = acc.Leaders
-      RecoveredEntries = auxEntries
-      IndirectBranchMap = indMap
-      CallerMap = CallerMap.build calleeMap
-      CalleeMap = calleeMap }
+    buildApp hdl funcAddrs leaders instrMap indMap noRets
 
   /// Create a binary apparatus from the given BinHandler.
   [<CompiledName("Init")>]
@@ -266,33 +281,37 @@ module Apparatus =
   let initWithoutDefaultEntry hdl entries =
     initApp hdl entries Seq.empty Seq.empty None false
 
+  let private updateApp hdl app auxEntries auxLeaders =
+    let auxEntries =
+      auxEntries
+      |> Seq.fold (fun acc leader -> Set.add leader acc) app.RecoveredEntries
+    let funcAddrs = getFunctionAddrs app |> Set.ofSeq
+    let funcAddrs =
+      auxEntries
+      |> Seq.fold (fun acc leader ->
+        Set.add leader.Point.Address acc) funcAddrs
+    let leaders =
+      auxLeaders
+      |> Seq.fold (fun acc leader -> Set.add leader acc) app.LeaderInfos
+    let leaders =
+      auxEntries
+      |> Seq.fold (fun acc leader -> Set.add leader acc) leaders
+    let instrMap = InstrMap.update hdl app.InstrMap leaders
+    let indMap = app.IndirectBranchMap
+    let noRets =
+      app.CalleeMap.Callees
+      |> Seq.filter (fun callee -> callee.IsNoReturn)
+      |> Seq.choose (fun callee -> callee.Addr)
+    buildApp hdl funcAddrs leaders instrMap indMap noRets
+
   /// Update instruction info based on the given binary apparatus and additional
   /// leader addresses.
-  let update hdl app leaders =
-    let entries =
-      app.CalleeMap.Callees
-      |> Seq.choose (fun c -> c.Addr)
-      |> Seq.fold (fun acc a ->
-        Set.add (LeaderInfo.Init (hdl, a)) acc) app.RecoveredEntries
-    let oldNoRet =
-      app.CalleeMap.Callees
-      |> Seq.filter (fun c -> c.IsNoReturn)
-      |> Seq.choose (fun c -> c.Addr)
-    initApp hdl entries leaders oldNoRet (Some app.IndirectBranchMap) true
+  let update hdl app auxEntries auxLeaders =
+    updateApp hdl app auxEntries auxLeaders
 
   /// Register newly recovered entries to the apparatus.
-  let registerRecoveredEntries app leaders =
-    { app with RecoveredEntries = Set.union leaders app.RecoveredEntries }
-
-  /// Return the list of function addresses from the Apparatus.
-  let getFunctionAddrs app =
-    app.CalleeMap.Callees
-    |> Seq.choose (fun c -> c.Addr)
-
-  /// Return the list of callees that have a concrete mapping to the binary.
-  let getInternalFunctions app =
-    app.CalleeMap.Callees
-    |> Seq.filter (fun c -> c.Addr.IsSome)
+  let registerRecoveredEntries hdl app entries =
+    updateApp hdl app entries Seq.empty
 
   /// Add a resolved indirect branch target.
   let addIndirectBranchMap app indmap =

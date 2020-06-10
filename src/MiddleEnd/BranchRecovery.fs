@@ -307,7 +307,7 @@ module private BranchRecoveryHelper =
       |> List.fold updateIndirectBranchMap indmap
     if indmap <> indmap' then
       let app = Apparatus.addIndirectBranchMap app indmap'
-      let app = Apparatus.update hdl app (newLeaders hdl indmap')
+      let app = Apparatus.update hdl app Seq.empty (newLeaders hdl indmap')
       match SCFG.Init (hdl, app) with
       | Ok scfg ->
 #if DEBUG
