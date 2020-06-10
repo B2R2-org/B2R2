@@ -45,7 +45,7 @@ module private SpeculativeGapCompletionHelper =
 
   let rec shiftUntilValid hdl scfg entries (gap: AddrRange) =
     let entry = LeaderInfo.Init (hdl, gap.Min) |> Set.singleton
-    let app' = Apparatus.initWithoutDefaultEntry hdl entry Set.empty
+    let app' = Apparatus.initByEntries hdl entry Set.empty (Some gap.Max)
     match SCFG.Init (hdl, app', false) with
     | Error _ ->
       if gap.Min + 1UL = gap.Max then entries
@@ -76,20 +76,19 @@ module private SpeculativeGapCompletionHelper =
     match shiftGaps (shiftUntilValid hdl scfg) gaps with
     | [] -> scfg, app
     | gaps ->
-      let entries = gaps |> List.map (fun gap -> LeaderInfo.Init (hdl, gap.Min))
-      let excluded = Apparatus.getFunctionAddrs app |> Set.ofSeq
-      let partialApp =
-        Apparatus.initWithoutDefaultEntry hdl (Set.ofList entries) excluded
+      let ents =
+        gaps |> List.map (fun g -> LeaderInfo.Init (hdl, g.Min)) |> Set.ofList
+      let exclusion = Apparatus.getFunctionAddrs app |> Set.ofSeq
+      let partialApp = Apparatus.initByEntries hdl ents exclusion None
       match SCFG.Init (hdl, partialApp, false) with
       | Ok partialCFG ->
         let scfg, app =
           branchRecovery.Run hdl partialCFG partialApp
           |> updateResults hdl scfg app
         gaps
-        |> Seq.map (fun gap -> findGaps app gap.Min gap.Max)
+        |> List.map (fun gap -> findGaps app gap.Min gap.Max)
         |> List.concat
         |> recoverGaps branchRecovery hdl scfg app
-        // FIXME: check the remaining gaps and recurse if necessary
       | _ -> recoverGaps branchRecovery hdl scfg app (shiftGaps shiftByOne gaps)
 
   let run branchRecovery hdl (scfg: SCFG) app =
