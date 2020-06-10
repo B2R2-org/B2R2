@@ -44,10 +44,8 @@ module private SpeculativeGapCompletionHelper =
       else AddrRange (nextAddr, eAddr) :: gaps
 
   let rec shiftUntilValid hdl scfg entries (gap: AddrRange) =
-    let app' =
-      LeaderInfo.Init (hdl, gap.Min)
-      |> Set.singleton
-      |> Apparatus.initWithoutDefaultEntry hdl
+    let entry = LeaderInfo.Init (hdl, gap.Min) |> Set.singleton
+    let app' = Apparatus.initWithoutDefaultEntry hdl entry Set.empty
     match SCFG.Init (hdl, app', false) with
     | Error _ ->
       if gap.Min + 1UL = gap.Max then entries
@@ -79,8 +77,9 @@ module private SpeculativeGapCompletionHelper =
     | [] -> scfg, app
     | gaps ->
       let entries = gaps |> List.map (fun gap -> LeaderInfo.Init (hdl, gap.Min))
+      let excluded = Apparatus.getFunctionAddrs app |> Set.ofSeq
       let partialApp =
-        Apparatus.initWithoutDefaultEntry hdl (Set.ofList entries)
+        Apparatus.initWithoutDefaultEntry hdl (Set.ofList entries) excluded
       match SCFG.Init (hdl, partialApp, false) with
       | Ok partialCFG ->
         let scfg, app =
