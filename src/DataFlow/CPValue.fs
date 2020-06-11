@@ -85,9 +85,25 @@ module CPValue =
 
   let mul c1 c2 = binOp BitVector.mul c1 c2
 
-  let div c1 c2 = binOp BitVector.div c1 c2
+  let divAux divop c1 c2 =
+    match c1, c2 with
+    | Undef, _ | _, Undef -> Undef
+    | PCThunk bv1, PCThunk bv2
+    | PCThunk bv1, GOT bv2
+    | PCThunk bv1, Const bv2
+    | GOT bv1, GOT bv2
+    | GOT bv1, PCThunk bv2
+    | GOT bv1, Const bv2
+    | Const bv1, PCThunk bv2
+    | Const bv1, GOT bv2
+    | Const bv1, Const bv2 ->
+      if BitVector.isZero bv2 then NotAConst
+      else Const (divop bv1 bv2)
+    | _ -> NotAConst
 
-  let sdiv c1 c2 = binOp BitVector.sdiv c1 c2
+  let div c1 c2 = divAux BitVector.div c1 c2
+
+  let sdiv c1 c2 = divAux BitVector.sdiv c1 c2
 
   let ``mod`` c1 c2 = binOp BitVector.modulo c1 c2
 
