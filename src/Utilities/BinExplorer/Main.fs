@@ -258,10 +258,11 @@ let runCommand cmdMap opts file cmd args =
 let dumpSwitch _cmdMap opts file outdir _args =
   let ess = initBinHdl ISA.DefaultISA file |> buildGraph opts
   let file = file.Replace (System.IO.Path.DirectorySeparatorChar, '_')
+  let file = file.Replace (':', '_')
   let outpath = System.IO.Path.Combine (outdir, file)
   use writer = System.IO.File.CreateText (outpath)
   ess.Apparatus.IndirectBranchMap
-  |> Map.iter (fun fromAddr targets ->
+  |> Map.iter (fun fromAddr (targets, _tblInfo) ->
     targets
     |> Set.iter (fun target ->
       writer.WriteLine (fromAddr.ToString ("X") + "," + target.ToString ("X"))
