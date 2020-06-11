@@ -116,12 +116,14 @@ with
 
   static member TryReadInt ({ FileInfo = fi }, addr, nBytes) =
     let pos = fi.TranslateAddress addr
-    match nBytes with
-    | 1 -> fi.BinReader.PeekInt8 pos |> int64 |> Some
-    | 2 -> fi.BinReader.PeekInt16 pos |> int64 |> Some
-    | 4 -> fi.BinReader.PeekInt32 pos |> int64 |> Some
-    | 8 -> fi.BinReader.PeekInt64 pos |> Some
-    | _ -> None
+    if pos >= fi.BinReader.Bytes.Length || pos < 0 then None
+    else
+      match nBytes with
+      | 1 -> fi.BinReader.PeekInt8 pos |> int64 |> Some
+      | 2 -> fi.BinReader.PeekInt16 pos |> int64 |> Some
+      | 4 -> fi.BinReader.PeekInt32 pos |> int64 |> Some
+      | 8 -> fi.BinReader.PeekInt64 pos |> Some
+      | _ -> None
 
   static member ReadInt (hdl, addr, nBytes) =
     match BinHandler.TryReadInt (hdl, addr, nBytes) with
