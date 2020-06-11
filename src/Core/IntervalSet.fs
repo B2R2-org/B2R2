@@ -105,4 +105,11 @@ module IntervalSet =
         else false
     containLoop r
 
+  /// Fold the set.
+  let fold fn acc (IntervalSet s) =
+    foldl (fun acc (elt: IntervalSetElem) -> fn acc elt.Val) acc s
+
+  /// Iterate the set.
+  let iter fn s = fold (fun _ elt -> fn elt) () s
+
 // vim: set tw=80 sts=2 sw=2:

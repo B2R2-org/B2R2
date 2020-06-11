@@ -72,7 +72,8 @@ type BinExplorerOpts (isa) =
       yield EVMCodeCopyAnalysis () :> IAnalysis
       if __.EnableBranchRecovery then
         yield BranchRecovery (__.EnableNoReturn) :> IAnalysis
-      if __.EnableGapComp then yield SpeculativeGapCompletion () :> IAnalysis ]
+      if __.EnableGapComp then
+        yield SpeculativeGapCompletion (__.EnableNoReturn) :> IAnalysis ]
 
   static member private ToThis (opts: CmdOpts) =
     match opts with

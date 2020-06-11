@@ -54,8 +54,7 @@ module private LibcAnalysisHelper =
         | [] -> app
         | addrs ->
           let entries = buildNewEntrySet hdl addrs
-          let app = Apparatus.registerRecoveredLeaders app entries
-          Apparatus.update hdl app Seq.empty
+          Apparatus.registerRecoveredEntries hdl app entries
     | Undef -> app
 
   let retrieveAddrsForx64 hdl app st =
@@ -70,8 +69,7 @@ module private LibcAnalysisHelper =
       | [] -> app
       | addrs ->
         let entries = buildNewEntrySet hdl addrs
-        let app = Apparatus.registerRecoveredLeaders app entries
-        Apparatus.update hdl app Seq.empty
+        Apparatus.registerRecoveredEntries hdl app entries
 
   let retrieveLibcStartAddresses hdl app = function
     | None -> app

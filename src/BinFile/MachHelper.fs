@@ -160,6 +160,9 @@ let inline isInFileAddr mach addr =
 let inline isInFileRange mach range =
   IntervalSet.findAll range mach.NotInFileRanges |> List.isEmpty
 
+let inline isExecutableAddr mach addr =
+  IntervalSet.containsAddr addr mach.ExecutableRanges
+
 let inline getNotInFileIntervals mach range =
   IntervalSet.findAll range mach.NotInFileRanges
   |> List.map (FileHelper.trimByRange range)

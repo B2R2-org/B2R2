@@ -232,12 +232,13 @@ let isImportTable pe addr =
   let rva = int (addr - pe.BaseAddr)
   Map.containsKey rva pe.ImportMap
 
+let getSecPermission (chr: SectionCharacteristics) =
+  let x = if chr.HasFlag SectionCharacteristics.MemExecute then 1 else 0
+  let w = if chr.HasFlag SectionCharacteristics.MemWrite then 2 else 0
+  let r = if chr.HasFlag SectionCharacteristics.MemRead then 4 else 0
+  r + w + x |> LanguagePrimitives.EnumOfValue
+
 let getSegments pe =
-  let getSecPermission (chr: SectionCharacteristics) =
-    let x = if chr.HasFlag SectionCharacteristics.MemExecute then 1 else 0
-    let w = if chr.HasFlag SectionCharacteristics.MemWrite then 2 else 0
-    let r = if chr.HasFlag SectionCharacteristics.MemRead then 4 else 0
-    r + w + x |> LanguagePrimitives.EnumOfValue
   let secToSegment (sec: SectionHeader) =
     { Address = uint64 sec.VirtualAddress + pe.BaseAddr
       Size = getVirtualSectionSize sec |> uint64
@@ -282,6 +283,9 @@ let inline isInFileAddr pe addr =
 
 let inline isInFileRange pe range =
   IntervalSet.findAll range pe.NotInFileRanges |> List.isEmpty
+
+let inline isExecutableAddr pe addr =
+  IntervalSet.containsAddr addr pe.ExecutableRanges
 
 let inline getNotInFileIntervals pe range =
   IntervalSet.findAll range pe.NotInFileRanges

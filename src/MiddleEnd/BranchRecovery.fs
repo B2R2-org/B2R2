@@ -33,20 +33,19 @@ open B2R2.BinGraph
 open B2R2.BinCorpus
 open B2R2.DataFlow
 
-type BranchInstrInfo =
+type IndirectBranchPattern =
   | GOTIndexed of insAddr: Addr * baseAddr: Addr * indexAddr: Addr * rt: RegType
   | FixedTab of insAddr: Addr * indexAddr: Addr * rt: RegType
   | ConstAddr of insAddr: Addr * targetAddr: Addr
   | UnknownFormat
 
-type IndirectJumpInfo = {
-  /// Address of the function that the indirect jump resides in.
-  FuncEntry: Addr
-  /// Address of the branch instruction
-  InstrAddr: Addr
-  /// Jump target addresses inferred by our analysis.
-  Targets: Set<Addr>
-}
+type BranchInfo =
+  | ConstJmp of entry: Addr * insAddr: Addr * target: Addr
+  | JmpTable of entry: Addr
+              * insAddr: Addr
+              * targets: Set<Addr>
+              * table:AddrRange
+              * rt:RegType
 
 module private BranchRecoveryHelper =
   let filterOutLinkageTables hdl calleeAddrs =
@@ -175,111 +174,140 @@ module private BranchRecoveryHelper =
     | Num addr -> ConstAddr (insAddr, BitVector.toUInt64 addr)
     | _ -> UnknownFormat
 
-  let computeBranchInfo cpstate insAddr isCall exp =
+  let computeIndBranchInfo cpstate insAddr isCall exp =
     let exp = extractExp cpstate exp
     // printfn "%x: %s" insAddr (Pp.expToString exp)
     if isCall then computeCallInfo insAddr exp
     else computeJmpInfo insAddr exp
 
-  let partitionBranchInfo entry constBranches gotBranches lst =
+  let partitionIndBranchInfo entry constBranches jmpTblInfo lst =
     lst
-    |> List.fold (fun (constBranches, gotBranches) info ->
+    |> List.fold (fun (constBranches, jmpTblInfo) info ->
       match info with
       | ConstAddr (i, t) ->
-        if t <> 0UL then (entry, i, t) :: constBranches, gotBranches
-        else constBranches, gotBranches
-      | GOTIndexed (instr, baddr, iaddr, rt) ->
-        constBranches, (entry, instr, baddr, iaddr, rt) :: gotBranches
-      | FixedTab (instr, iaddr, rt) ->
-        constBranches, (entry, instr, 0UL, iaddr, rt) :: gotBranches
-      | _ -> constBranches, gotBranches
-    ) (constBranches, gotBranches)
+        if t <> 0UL then ConstJmp (entry, i, t) :: constBranches, jmpTblInfo
+        else constBranches, jmpTblInfo
+      | GOTIndexed (instr, bAddr, iAddr, rt) ->
+        constBranches, (entry, instr, bAddr, iAddr, rt) :: jmpTblInfo
+      | FixedTab (instr, iAddr, rt) ->
+        constBranches, (entry, instr, 0UL, iAddr, rt) :: jmpTblInfo
+      | _ -> constBranches, jmpTblInfo
+    ) (constBranches, jmpTblInfo)
 
+  /// Read jump targets from a jump table.
   let rec readTargets hdl fStart fEnd baseAddr maxAddr startAddr rt targets =
     match maxAddr with
-    | Some maxAddr when startAddr >= maxAddr -> targets
+    | Some maxAddr when startAddr >= maxAddr -> targets, startAddr
     | _ ->
       if hdl.FileInfo.IsValidAddr startAddr then
         let size = RegType.toByteWidth rt
         match BinHandler.TryReadInt (hdl, startAddr, size) with
-        | None -> targets
+        | None -> targets, startAddr
         | Some offset ->
           let target = baseAddr + uint64 offset
           if target >= fStart && target <= fEnd then
             let nextAddr = startAddr + uint64 size
             let targets = Set.add target targets
             readTargets hdl fStart fEnd baseAddr maxAddr nextAddr rt targets
-          else targets
-      else targets
+          else targets, startAddr
+      else targets, startAddr
 
-  let updateConstBranchTargets constBranches =
-    constBranches
-    |> List.map (fun (entry, insAddr, target) ->
-      { FuncEntry = entry
-        InstrAddr = insAddr
-        Targets = Set.singleton target })
+  let getMaxAddr tableAddrs startAddr maxAddr =
+    tableAddrs
+    |> Set.partition (fun addr -> addr <= startAddr)
+    |> snd
+    |> fun s ->
+      match Set.isEmpty s, maxAddr with
+      | true, None -> None
+      | false, None -> Set.minElement s |> Some
+      | true, Some _ -> maxAddr
+      | false, Some fromAnalysis ->
+        let fromApp = Set.minElement s
+        min fromAnalysis fromApp |> Some
 
-  let inferGOTIndexedBranchTargets hdl boundaries gotBranches infos =
+  let computeTableAddrs app =
+    app.IndirectBranchMap
+    |> Map.fold (fun acc _ (_, info) ->
+      match info with
+      | None -> acc
+      | Some (range, _) -> Set.add range.Min acc
+      ) Set.empty
+
+  let inline accJmpTableInfo acc targets lb iAddr sAddr eAddr t =
+    if Set.isEmpty targets then acc
+    else JmpTable (lb, iAddr, targets, AddrRange (sAddr, eAddr), t) :: acc
+
+  let checkDefinedTable app iAddr sAddr =
+    app.IndirectBranchMap
+    |> Map.exists (fun addr (_, info) ->
+      match info with
+      | None -> false
+      | Some (range, _) -> sAddr = range.Min && iAddr <> addr)
+
+  let inferGOTIndexedBranchTargets hdl app boundaries jmpTblInfo infos =
+    let tableAddrs = computeTableAddrs app
     let rec infer acc = function
       | [] -> acc
-      | [ (entry, iaddr, baddr, start, t) ] ->
-        let fStart, fEnd = Map.find entry boundaries
-        let targets = readTargets hdl fStart fEnd baddr None start t Set.empty
-        { FuncEntry = fStart; InstrAddr = iaddr; Targets = targets } :: acc
-      | (entry, iaddr, baddr, s1, t) :: (((_, _, _, s2, _) :: _) as next) ->
-        let fStart, fEnd = Map.find entry boundaries
-        let targets = readTargets hdl fStart fEnd baddr (Some s2) s1 t Set.empty
-        let acc =
-          { FuncEntry = fStart; InstrAddr = iaddr; Targets = targets } :: acc
-        infer acc next
-    gotBranches
+      | [ (entry, iAddr, bAddr, sAddr, t) ] ->
+        if checkDefinedTable app iAddr sAddr then acc
+        else
+          let lb, ub = Map.find entry boundaries (* function boundaries *)
+          let max = getMaxAddr tableAddrs sAddr None
+          let targets, eAddr = readTargets hdl lb ub bAddr max sAddr t Set.empty
+          accJmpTableInfo acc targets lb iAddr sAddr eAddr t
+      | (entry, iAddr, bAddr, s1, t) :: (((_, _, _, s2, _) :: _) as next) ->
+        if checkDefinedTable app iAddr s1 then infer acc next
+        else
+          let lb, ub = Map.find entry boundaries
+          let max = getMaxAddr tableAddrs s1 (Some s2)
+          let targets, eAddr = readTargets hdl lb ub bAddr max s1 t Set.empty
+          infer (accJmpTableInfo acc targets lb iAddr s1 eAddr t) next
+    jmpTblInfo
     |> List.sortBy (fun (_, _, _, i, _) -> i)
     |> infer infos
 
-  let analyzeIndirectBranch hdl ssaCFG cpstate entry constBranches gotBranches =
+  let analyzeIndirectBranch ssaCFG cpstate entry constBranches jmpTblInfo =
     extractIndirectBranches ssaCFG
     |> List.map (fun (insAddr, stmt, isCall) ->
       match stmt with
-      | Jmp (InterJmp exp) -> computeBranchInfo cpstate insAddr isCall exp
+      | Jmp (InterJmp exp) -> computeIndBranchInfo cpstate insAddr isCall exp
       | _ -> UnknownFormat)
-    |> partitionBranchInfo entry constBranches gotBranches
+    |> partitionIndBranchInfo entry constBranches jmpTblInfo
 
-  let analyze hdl app (scfg: SCFG) (constBranches, gotBranches) addr =
+  let analyzeBranches hdl app (scfg: SCFG) (constBranches, jmpTblInfo) addr =
     let irCFG, irRoot = scfg.GetFunctionCFG (addr, false)
     if hasIndirectBranch irCFG then
       let lens = SSALens.Init hdl scfg
       let ssaCFG, ssaRoot = lens.Filter irCFG [irRoot] app
       let cp = ConstantPropagation (hdl, ssaCFG)
       let cpstate = cp.Compute (List.head ssaRoot)
-      analyzeIndirectBranch hdl ssaCFG cpstate addr constBranches gotBranches
-    else constBranches, gotBranches
+      analyzeIndirectBranch ssaCFG cpstate addr constBranches jmpTblInfo
+    else constBranches, jmpTblInfo
 
   let newLeaders hdl indmap =
     indmap
-    |> Map.fold (fun set _ targets -> Set.union targets set) Set.empty
+    |> Map.fold (fun set _ (targets, _) -> Set.union targets set) Set.empty
     |> Set.map (fun addr -> LeaderInfo.Init (hdl, addr))
 
-  let refineIndirectBranchMap oldIndMap newIndMap =
-    Map.map (fun addr targets ->
-      match Map.tryFind addr oldIndMap with
-      | None -> targets
-      | Some targets' -> Set.intersect targets targets') newIndMap
+  let updateIndirectBranchMap indmap = function
+    | ConstJmp (_, iAddr, target) ->
+      Map.add iAddr (Set.singleton target, None) indmap
+    | JmpTable (_, iAddr, targets, table, rt) ->
+      Map.add iAddr (targets, Some (table, rt)) indmap
 
   let rec recover (noReturn: IAnalysis) hdl scfg app =
     let scfg, app = noReturn.Run hdl scfg app
     let callees = computeCalleeAddrs hdl app
     let boundaries = computeFunctionBoundary Map.empty callees
     let indmap = app.IndirectBranchMap
-    let constBranches, gotBranches =
-      callees |> List.fold (analyze hdl app scfg) ([], [])
+    let branchInfo, jmpTblInfo =
+      callees |> List.fold (analyzeBranches hdl app scfg) ([], [])
     let indmap' =
-      updateConstBranchTargets constBranches
-      |> inferGOTIndexedBranchTargets hdl boundaries gotBranches
-      |> List.fold (fun map i -> Map.add i.InstrAddr i.Targets map) indmap
-    let indmap' = refineIndirectBranchMap indmap indmap'
+      inferGOTIndexedBranchTargets hdl app boundaries jmpTblInfo branchInfo
+      |> List.fold updateIndirectBranchMap indmap
     if indmap <> indmap' then
-      let app = { app with IndirectBranchMap = indmap' }
-      let app = Apparatus.update hdl app (newLeaders hdl indmap')
+      let app = Apparatus.addIndirectBranchMap app indmap'
+      let app = Apparatus.update hdl app Seq.empty (newLeaders hdl indmap')
       match SCFG.Init (hdl, app) with
       | Ok scfg ->
 #if DEBUG

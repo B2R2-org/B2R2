@@ -293,6 +293,16 @@ type FileInfo (baseAddr) =
   abstract member IsInFileRange: AddrRange -> bool
 
   /// <summary>
+  ///   Check if the given address is executable address for this binary. We say
+  ///   a given address is executable if the address is within an executable
+  ///   section.
+  /// </summary>
+  /// <returns>
+  ///   Returns true if the address is executable, false otherwise.
+  /// </returns>
+  abstract member IsExecutableAddr: Addr -> bool
+
+  /// <summary>
   ///   Given a range r, return a list of address ragnes (intervals) that are
   ///   within r, and that are not in-file.
   /// </summary>

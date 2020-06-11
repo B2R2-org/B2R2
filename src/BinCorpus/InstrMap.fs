@@ -45,16 +45,17 @@ type InstructionInfo = {
 /// Address to an InstructionInfo mapping.
 type InstrMap = Dictionary<Addr, InstructionInfo>
 
+[<RequireQualifiedAccess>]
 module InstrMap =
-  let private updateEntries hdl (map: InstrMap) entries offset newTargets =
-    let rec loop entries = function
-      | [] -> entries
+  let private updateLeaders hdl (map: InstrMap) leaders offset newTargets =
+    let rec loop leaders = function
+      | [] -> leaders
       | (addr, mode) :: rest ->
-        if map.ContainsKey addr then loop entries rest
+        if map.ContainsKey addr then loop leaders rest
         else
           let info = LeaderInfo.Init (hdl, addr, mode, offset)
-          loop (info :: entries) rest
-    Seq.toList newTargets |> loop entries
+          loop (info :: leaders) rest
+    Seq.toList newTargets |> loop leaders
 
   /// Remove unnecessary IEMark to ease the analysis.
   let private trimIEMark (stmts: Stmt []) =
@@ -87,28 +88,56 @@ module InstrMap =
       try map.[instr.Address] <- newInstructionInfo hdl instr with _ -> ()
       updateInstrMapAndGetTheLastInstr hdl map rest
 
-  /// Update the map (InstrMap) from the given entries.
-  let update (hdl: BinHandler) map leaders =
-    let rec buildLoop = function
-      | [] -> map
+  let inline private isExecutableLeader hdl leaderInfo =
+    hdl.FileInfo.IsExecutableAddr leaderInfo.Point.Address
+
+  let inline private isAlreadyParsed (map: InstrMap) leaderInfo =
+    map.ContainsKey leaderInfo.Point.Address
+
+  let inline private isMeetBound bblBound instrs =
+    match bblBound with
+    | Some bblBound ->
+      instrs |> List.exists (fun (i: Instruction) -> i.Address = bblBound)
+    | None -> false
+
+  /// Update the map (InstrMap) from the given leaders, and returns both
+  /// InstrMap and a set of leaders. The set may change when a leader falls
+  /// through an existing basic block without an explicit branch instruction.
+  /// See InstrMap.build for more explanation about our design choice.
+  let update (hdl: BinHandler) map bblBound leaders =
+    let rec buildLoop leaderSet = function
+      | [] -> map, leaderSet
+      | leaderInfo :: rest when isExecutableLeader hdl leaderInfo |> not ->
+        buildLoop leaderSet rest
+      | leaderInfo :: rest when isAlreadyParsed map leaderInfo ->
+        buildLoop leaderSet rest
       | leaderInfo :: rest ->
         hdl.ParsingContext.ArchOperationMode <- leaderInfo.Mode
         hdl.ParsingContext.CodeOffset <- leaderInfo.Offset
         match BinHandler.ParseBBlock hdl leaderInfo.Point.Address with
-        | Error _ -> buildLoop rest
         | Ok instrs ->
-          let last = updateInstrMapAndGetTheLastInstr hdl map instrs
-          let entries =
-            last.GetNextInstrAddrs ()
-            |> updateEntries hdl map rest leaderInfo.Offset
-          buildLoop entries
-    buildLoop (Seq.toList leaders)
+          if isMeetBound bblBound instrs then
+            buildLoop (Set.remove leaderInfo leaderSet) rest
+          else
+            let last = updateInstrMapAndGetTheLastInstr hdl map instrs
+            let leaders =
+              last.GetNextInstrAddrs ()
+              |> updateLeaders hdl map rest leaderInfo.Offset
+            buildLoop leaderSet leaders
+        | _ -> buildLoop leaderSet rest
+    buildLoop leaders (Set.toList leaders)
 
   /// Build a mapping from Addr to Instruction. This function recursively parses
   /// the binary, but does not lift it yet. Since GetNextInstrAddrs returns next
   /// concrete target addresses, this function does *not* reveal all reachable
   /// instructions. Such uncovered instructions should be handled in the next
-  /// phase.
-  let build (hdl: BinHandler) entries =
+  /// phase. If the bblBound parameter is given, this function will exclude any
+  /// block that falls to the bblBound address without having an explicit branch
+  /// instruction. This means, we discard any block that starts with no-op(s)
+  /// followed by a known valid basic block, as this is against the definition
+  /// of basic block. Note, however, we do not exclude overlapping basic blocks
+  /// that appear in obfuscated code. In other words, we do *include* cases
+  /// where a block falls through the middle of another block.
+  let build (hdl: BinHandler) leaders bblBound =
     let map = InstrMap ()
-    update hdl map entries
+    update hdl map bblBound leaders

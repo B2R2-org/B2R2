@@ -187,6 +187,9 @@ let inline isInFileAddr elf addr =
 let inline isInFileRange elf range =
   IntervalSet.findAll range elf.NotInFileRanges |> List.isEmpty
 
+let inline isExecutableAddr elf addr =
+  IntervalSet.containsAddr addr elf.ExecutableRanges
+
 let getNotInFileIntervals elf range =
   IntervalSet.findAll range elf.NotInFileRanges
   |> List.map (FileHelper.trimByRange range)

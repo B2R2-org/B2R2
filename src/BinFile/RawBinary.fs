@@ -102,6 +102,8 @@ type RawFileInfo (bytes: byte [], isa, baseAddr) =
 
   override __.IsInFileRange range = __.IsValidRange range
 
+  override __.IsExecutableAddr addr = __.IsValidAddr addr
+
   override __.GetNotInFileIntervals range =
     let lastAddr = baseAddr + uint64 bytes.LongLength
     if range.Max <= baseAddr then Seq.singleton range

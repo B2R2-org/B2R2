@@ -54,9 +54,8 @@ type EVMCodeCopyAnalysis () =
       | Some leader ->
         match app.CalleeMap.Find leader.Point.Address with
         | None ->
-          let leaderSet = Set.singleton leader
-          let app = Apparatus.registerRecoveredLeaders app leaderSet
-          Apparatus.update hdl app Seq.empty
+          let entrySet = Set.singleton leader
+          Apparatus.registerRecoveredEntries hdl app entrySet
         | Some _ -> app) app
 
   interface IAnalysis with
