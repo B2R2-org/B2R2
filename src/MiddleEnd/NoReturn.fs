@@ -43,6 +43,26 @@ module private NoReturnHelper =
     | "_exit" -> true
     | _ -> false
 
+  let hasSyscall (v: Vertex<IRBasicBlock>) =
+    if v.VData.IsFakeBlock () then false
+    else
+      match v.VData.GetLastStmt () with
+      | LowUIR.SideEffect SideEffect.SysCall -> true
+      | _ -> false
+
+  let hasError app (v: Vertex<IRBasicBlock>) =
+    if v.VData.IsFakeBlock () then
+      let target = v.VData.PPoint.Address
+      match app.CalleeMap.Find target with
+      | Some callee when callee.CalleeName = "error" -> true
+      | _ -> false
+    else false
+
+  let hasNoRet noretAddrs (v: Vertex<IRBasicBlock>) =
+    if v.VData.IsFakeBlock () then
+      Set.contains v.VData.PPoint.Address noretAddrs
+    else false
+
   let stmtHandler (bblAddr: Addr ref) = function
     | LowUIR.ISMark (addr, _) -> bblAddr := addr
     | _ -> ()
@@ -81,7 +101,7 @@ module private NoReturnHelper =
       if isExit then Some !bblAddr else None
     with _ -> None
 
-  let disconnectSyscallFallthroughs hdl scfg (cfg: IRCFG) root =
+  let collectSyscallFallThroughs hdl scfg (cfg: IRCFG) root edges =
     match findSyscalls hdl scfg root with
     | Some addr ->
       match cfg.TryFindVertexBy (fun v ->
@@ -89,9 +109,9 @@ module private NoReturnHelper =
         && v.VData.PPoint.Address <= addr
         && (v.VData.LastInstruction.Address
           + uint64 v.VData.LastInstruction.Length) > addr) with
-      | None -> ()
-      | Some v -> v.Succs |> List.iter (fun w -> cfg.RemoveEdge v w)
-    | None -> ()
+      | None -> edges
+      | Some v -> v.Succs |> List.fold (fun acc w -> (v, w) :: acc) edges
+    | None -> edges
 
   let checkFirstArgumentX86 hdl st =
     let esp = (Intel.Register.ESP |> Intel.Register.toRegID)
@@ -116,7 +136,7 @@ module private NoReturnHelper =
       | Arch.IntelX64 -> checkFirstArgumentX64 hdl st
       | _ -> false
 
-  let analyzeError hdl (scfg: SCFG) (v: Vertex<IRBasicBlock>) =
+  let isNoReturnError hdl scfg (v: Vertex<IRBasicBlock>) =
     let st = EvalState (memoryReader hdl, true)
     let addr = v.VData.PPoint.Address
     let lastAddr = v.VData.LastInstruction.Address
@@ -126,38 +146,26 @@ module private NoReturnHelper =
       |> checkFirstArgument hdl
     with _ -> false
 
-  let disconnectErrorFallthroughs hdl scfg app (cfg: IRCFG) =
-    cfg.FoldVertex (fun acc (v: Vertex<IRBasicBlock>) ->
-      if not <| v.VData.IsFakeBlock () then
-        let last = v.VData.LastInstruction
-        if last.IsCall () then
-          let b, addr = last.DirectBranchTarget ()
-          if b then
-            match app.CalleeMap.Find addr with
-            | Some callee when callee.CalleeName = "error" -> v :: acc
-            | _ -> acc
-          else acc
-        else acc
-      else acc) []
-    |> List.filter (fun v -> analyzeError hdl scfg v)
-    |> List.iter (fun v ->
-      v.Succs |> List.iter (fun w -> cfg.RemoveEdge v w))
+  let collectEdgesToFallThrough (cfg: IRCFG) edges (v: Vertex<IRBasicBlock>) =
+    v.Preds
+    |> List.fold (fun acc pred ->
+      match cfg.FindEdgeData pred v with
+      | RetEdge | CallFallThroughEdge -> (pred, v) :: acc
+      | _ -> acc) edges
 
-  let collectNoReturns noretAddrs acc v =
-    if (v: Vertex<IRBasicBlock>).VData.IsFakeBlock () then
-      let addr = v.VData.PPoint.Address
-      if Set.contains addr noretAddrs then Set.add v acc else acc
-    else acc
+  let collectErrorFallThroughs hdl app scfg (cfg: IRCFG) root edges =
+    cfg.FoldVertex (fun acc v ->
+      if hasError app v then v :: acc else acc) []
+    |> List.fold (fun acc v ->
+      if List.exists (isNoReturnError hdl scfg) v.Preds then
+        List.fold (collectEdgesToFallThrough cfg) edges v.Succs
+      else edges) edges
 
-  let collectCallers acc (v: Vertex<IRBasicBlock>) =
-    List.fold (fun acc v -> Set.add v acc) acc v.Preds
-
-  let collectEdges noReturns callers acc src dst = function
-    | RetEdge ->
-      if Set.contains src noReturns then (src, dst) :: acc else acc
-    | CallFallThroughEdge ->
-      if Set.contains src callers then (src, dst) :: acc else acc
-    | _ -> acc
+  let collectNoRetFallThroughs (cfg: IRCFG) noretAddrs edges =
+    cfg.FoldVertex (fun acc v ->
+      if hasNoRet noretAddrs v then v :: acc else acc) []
+    |> List.fold (fun edges v ->
+      List.fold (collectEdgesToFallThrough cfg) edges v.Succs) edges
 
   let rec removeUnreachables (cfg: IRCFG) root =
     let g = cfg.Clone ()
@@ -175,50 +183,44 @@ module private NoReturnHelper =
       else acc) []
     |> List.iter cfg.RemoveVertex
 
-  let disconnectNoRetFallThroughs noretAddrs (cfg: IRCFG) root =
-    let noReturns = cfg.FoldVertex (collectNoReturns noretAddrs) Set.empty
-    let callers = Set.fold collectCallers Set.empty noReturns
-    cfg.FoldEdge (collectEdges noReturns callers) []
-    |> List.iter (fun (src, dst) -> cfg.RemoveEdge src dst)
-    removeUnreachables cfg root
-
   let modifyCFG hdl (scfg: SCFG) app noretAddrs addr =
     let cfg, root = scfg.GetFunctionCFG (addr, false)
-    disconnectSyscallFallthroughs hdl scfg cfg root (* From syscalls *)
-    disconnectErrorFallthroughs hdl scfg app cfg (* From error *)
-    disconnectNoRetFallThroughs noretAddrs cfg root (* From regular calls *)
+    []
+    |> collectSyscallFallThroughs hdl scfg cfg root
+    |> collectErrorFallThroughs hdl app scfg cfg root
+    |> collectNoRetFallThroughs cfg noretAddrs
+    |> List.iter (fun (src, dst) -> cfg.RemoveEdge src dst)
+    removeUnreachables cfg root
     cfg
 
   let isNoReturn hdl (scfg: SCFG) app noretAddrs (v: Vertex<CallGraphBBlock>) =
-    if v.VData.IsExternal then isKnownNoReturnFunction v.VData.Name
+    let addr = v.VData.PPoint.Address
+    if Set.contains addr noretAddrs then false
+    elif v.VData.IsExternal then isKnownNoReturnFunction v.VData.Name
     else
-      let cfg = modifyCFG hdl scfg app noretAddrs v.VData.PPoint.Address
+      let cfg = modifyCFG hdl scfg app noretAddrs addr
       cfg.FoldVertex (fun acc (v: Vertex<IRBasicBlock>) ->
         if List.length v.Succs > 0 then acc
         elif v.VData.IsFakeBlock () then acc
         elif v.VData.LastInstruction.IsInterrupt () then acc
         else false) true
 
-  let rec findLoop hdl scfg app noretVertices =
-    let lens = CallGraphLens.Init (scfg)
-    let cg, _ = lens.Filter scfg.Graph [] app
-    let isChanged, noretVertices =
-      cg.FoldVertex (fun (isChanged, noretVertices) v ->
-        let noretAddrs =
-          noretVertices
-          |> Set.map (fun (v: Vertex<CallGraphBBlock>) ->
-            v.VData.PPoint.Address)
-        if isNoReturn hdl scfg app noretAddrs v then
-          if Set.contains v.VData.PPoint.Address noretAddrs then
-            isChanged, noretVertices
-          else true, Set.add v noretVertices
-        else isChanged, noretVertices) (false, noretVertices)
-    /// Remove edges from call graph
-    if isChanged then findLoop hdl scfg app noretVertices
-    else noretVertices
+  let rec findLoop hdl scfg app noretVertices = function
+    | [] -> noretVertices
+    | v :: vs ->
+      let noretAddrs =
+        noretVertices
+        |> Set.map (fun (v: Vertex<CallGraphBBlock>) -> v.VData.PPoint.Address)
+      if isNoReturn hdl scfg app noretAddrs v then
+        findLoop hdl scfg app (Set.add v noretVertices) (v.Preds @ vs)
+      else findLoop hdl scfg app noretVertices vs
 
   let findNoReturnEdges hdl (scfg: SCFG) app =
-    findLoop hdl scfg app Set.empty
+    let lens = CallGraphLens.Init (scfg)
+    let cg, _ = lens.Filter scfg.Graph [] app
+    cg.FoldVertex (fun acc v ->
+      if List.length v.Succs = 0 then v :: acc else acc) []
+    |> findLoop hdl scfg app Set.empty
     |> Set.fold (fun app (v: Vertex<CallGraphBBlock>) ->
       match app.CalleeMap.Find (v.VData.PPoint.Address) with
       | None -> app
