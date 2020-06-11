@@ -214,13 +214,20 @@ let interactiveMain files (opts: BinExplorerOpts) =
     CLI.start opts.EnableReadLine arbiter
 
 let showBatchUsage () =
-  eprintfn "dotnet run -- [file(s) ...] --batch <cmd> [args ...]"
+  eprintfn "dotnet run -- [file(s) ...] [opt(s) ...] --batch <cmd> [args ...]"
+  eprintfn ""
+  eprintfn "  Any regular BinExplorer commands will work in batch mode, but we"
+  eprintfn "  also provide a list of special commands as described below."
   eprintfn ""
   eprintfn "[Special Commands]"
   eprintfn ""
   eprintfn "* visualize: visualize the given CFG, and return assigned coords."
   eprintfn ""
   eprintfn "    visualize <input json> <output json>"
+  eprintfn ""
+  eprintfn "* dumpswitch: dump switch recovery information to output directory."
+  eprintfn ""
+  eprintfn "    dumpswitch <output dir>"
   eprintfn ""
   exit 1
 
@@ -232,33 +239,55 @@ let toFileArray path =
   elif System.IO.File.Exists path then [| path |]
   else [||]
 
-let batchRun opts paths cmd args =
-  let cmds = CmdSpec.speclist |> CmdMap.build
+let batchRun opts paths fstParam restParams fn =
+  let cmdMap = CmdSpec.speclist |> CmdMap.build
   let files = paths |> List.map toFileArray
   let numFiles = List.fold (fun cnt arr -> Array.length arr + cnt) 0 files
   files
   |> List.iteri (fun idx1 arr ->
-       Array.iteri (fun idx2 f ->
+       Array.iteri (fun idx2 file ->
          let idx = 1 + idx1 + idx2
-         printfn "Running %s ... (%d/%d)" f idx numFiles
-         let ess = initBinHdl ISA.DefaultISA f |> buildGraph opts
-         Cmd.handle cmds ess cmd args
-         |> Array.iter System.Console.WriteLine) arr)
+         printfn "Running %s ... (%d/%d)" file idx numFiles
+         fn cmdMap opts file fstParam restParams) arr)
+
+let runCommand cmdMap opts file cmd args =
+  let ess = initBinHdl ISA.DefaultISA file |> buildGraph opts
+  Cmd.handle cmdMap ess cmd args
+  |> Array.iter System.Console.WriteLine
+
+let dumpSwitch _cmdMap opts file outdir _args =
+  let ess = initBinHdl ISA.DefaultISA file |> buildGraph opts
+  let file = file.Replace (System.IO.Path.DirectorySeparatorChar, '_')
+  let outpath = System.IO.Path.Combine (outdir, file)
+  use writer = System.IO.File.CreateText (outpath)
+  ess.Apparatus.IndirectBranchMap
+  |> Map.iter (fun fromAddr targets ->
+    targets
+    |> Set.iter (fun target ->
+      writer.WriteLine (fromAddr.ToString ("X") + "," + target.ToString ("X"))
+    )
+  )
 
 let batchMain opts paths args =
   match args with
-  | "visualize" :: infile :: outfile :: _ -> visualizeGraph infile outfile; 0
-  | cmd :: args -> batchRun opts paths cmd args; 0
+  | "visualize" :: infile :: outfile :: _ -> visualizeGraph infile outfile
+  | "dumpswitch" :: outdir :: _ ->
+    try System.IO.Directory.Delete (outdir, true) with _ -> ()
+    System.IO.Directory.CreateDirectory (outdir) |> ignore
+    batchRun opts paths outdir [] dumpSwitch
+  | cmd :: args -> batchRun opts paths cmd args runCommand
   | _ -> showBatchUsage ()
 
-let convertArgsToLists (paths, args) =
-  (Array.toList paths), (Array.tail args |> Array.toList)
+let parseAndRunBatchMode opts (beforeOpts, afterOpts) =
+  CmdOpts.ParseAndRun (fun rest opts ->
+    batchMain opts rest (Array.tail afterOpts |> Array.toList)
+  ) "" spec opts beforeOpts
 
 [<EntryPoint>]
 let main args =
   let opts = BinExplorerOpts (ISA.DefaultISA)
   match Array.tryFindIndex (fun a -> a = "--batch") args with
-  | Some idx -> Array.splitAt idx args |> convertArgsToLists ||> batchMain opts
+  | Some idx -> Array.splitAt idx args |> parseAndRunBatchMode opts
   | None -> CmdOpts.ParseAndRun interactiveMain "<binary file>" spec opts args
 
 // vim: set tw=80 sts=2 sw=2:
