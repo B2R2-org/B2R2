@@ -237,3 +237,51 @@ let rec iter fn = function
     fn idx |> ignore
     iter fn rest
   | [] -> Ok ()
+
+let buildNodeRangeMap map (v: Vertex<IRBasicBlock>) =
+  if v.VData.IsFakeBlock () then map
+  else IntervalMap.add v.VData.Range v map
+
+let getDanglingNodes recoveredInfo (g: IRCFG) =
+  g.FoldVertex (fun acc v ->
+    if List.isEmpty v.Preds then v :: acc else acc) []
+  |> List.filter (fun v ->
+    Set.contains v.VData.PPoint.Address recoveredInfo.Entries |> not)
+
+let calcDifference (a: AddrRange) (b: AddrRange) =
+  if a.Min >= b.Min && a.Max <= b.Max then []
+  elif a.Min < b.Min && a.Max > b.Max then
+    [ AddrRange (a.Min, b.Min) ; AddrRange (b.Max, a.Max) ]
+  elif a.Min >= b.Min && a.Max > b.Max then [ AddrRange (b.Max, a.Max) ]
+  elif a.Min < b.Min && a.Max > b.Min then [ AddrRange (a.Min, b.Min) ]
+  else [ a ]
+
+let getDifferences ranges range =
+  List.fold (fun acc r ->
+    (calcDifference range r) @ acc) [] ranges
+
+let calcInstrRemovalRanges range rangeMap =
+  IntervalMap.findAll range rangeMap
+  |> List.map (fun r -> r.Key)
+  |> List.filter (fun r -> r <> range)
+  |> List.fold getDifferences [range]
+  |> List.filter (fun r -> r <> range)
+
+let inline isContained addr (range: AddrRange) =
+  range.Min <= addr && addr < range.Max
+
+let removeInstrs app (v: Vertex<IRBasicBlock>) ranges =
+  let instrMap = app.InstrMap
+  v.VData.GetInstructions ()
+  |> Array.iter (fun instr ->
+    if List.exists (isContained instr.Address) ranges then
+      instrMap.Remove instr.Address |> ignore)
+
+let removeDanglings app recoveredInfo (g: IRCFG) =
+  let rangeMap = g.FoldVertex buildNodeRangeMap IntervalMap.empty
+  getDanglingNodes recoveredInfo g
+  |> List.iter (fun v ->
+    calcInstrRemovalRanges v.VData.Range rangeMap
+    |> removeInstrs app v
+    g.RemoveVertex v)
+  g
