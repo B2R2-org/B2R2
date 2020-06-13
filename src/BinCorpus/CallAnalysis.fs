@@ -137,13 +137,16 @@ module CalleeMap =
       |> Option.map (fun n -> n, n, None, ExternalCallee)
     | _ -> None
 
-  let computeBranchRelationship hdl addr ins funcs linkMap acc =
+  let computeBranchRelationship hdl addr ins funcs linkMap exclusion acc =
     orElse {
       yield! checkDirectBranch hdl ins funcs linkMap
       yield! checkIndirectBranch ins hdl
     } |> function
       | None -> acc
-      | Some (id, cn, ca, ck) -> accumulateCallRelationship addr id cn ca ck acc
+      | Some (id, cn, ca, ck) ->
+        match ca with
+        | Some addr when Set.contains addr exclusion -> acc
+        | _ -> accumulateCallRelationship addr id cn ca ck acc
 
   let addMissingCallees hdl (funcs: Set<Addr>) (cm: Map<string, Callee>) =
     let calleeAddrs =
@@ -162,11 +165,11 @@ module CalleeMap =
             Callers = []
             IsNoReturn = false } acc) cm
 
-  let build (hdl: BinHandler) funcs (instrMap: InstrMap) =
+  let build (hdl: BinHandler) funcs exclusion (instrMap: InstrMap) =
     let linkMap = hdl.FileInfo.GetLinkageTableEntries () |> buildLinkMap
     instrMap
     |> Seq.fold (fun acc (KeyValue (addr, i)) ->
       let ins = i.Instruction
-      computeBranchRelationship hdl addr ins funcs linkMap acc) Map.empty
+      computeBranchRelationship hdl addr ins funcs linkMap exclusion acc) Map.empty
     |> addMissingCallees hdl funcs
     |> CalleeMap

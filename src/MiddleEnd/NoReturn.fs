@@ -153,7 +153,7 @@ module private NoReturnHelper =
       | RetEdge | CallFallThroughEdge -> (pred, v) :: acc
       | _ -> acc) edges
 
-  let collectErrorFallThroughs hdl app scfg (cfg: IRCFG) root edges =
+  let collectErrorFallThroughs hdl scfg app (cfg: IRCFG) root edges =
     cfg.FoldVertex (fun acc v ->
       if hasError app v then v :: acc else acc) []
     |> List.fold (fun acc v ->
@@ -166,6 +166,12 @@ module private NoReturnHelper =
       if hasNoRet noretAddrs v then v :: acc else acc) []
     |> List.fold (fun edges v ->
       List.fold (collectEdgesToFallThrough cfg) edges v.Succs) edges
+
+  let collectFallThroughEdges hdl scfg app cfg root noretAddrs =
+    []
+    |> collectSyscallFallThroughs hdl scfg cfg root
+    |> collectErrorFallThroughs hdl scfg app cfg root
+    |> collectNoRetFallThroughs cfg noretAddrs
 
   let rec removeUnreachables (cfg: IRCFG) root =
     let g = cfg.Clone ()
@@ -185,10 +191,7 @@ module private NoReturnHelper =
 
   let modifyCFG hdl (scfg: SCFG) app noretAddrs addr =
     let cfg, root = scfg.GetFunctionCFG (addr, false)
-    []
-    |> collectSyscallFallThroughs hdl scfg cfg root
-    |> collectErrorFallThroughs hdl app scfg cfg root
-    |> collectNoRetFallThroughs cfg noretAddrs
+    collectFallThroughEdges hdl scfg app cfg root noretAddrs
     |> List.iter (fun (src, dst) -> cfg.RemoveEdge src dst)
     removeUnreachables cfg root
     cfg
@@ -215,25 +218,41 @@ module private NoReturnHelper =
         findLoop hdl scfg app (Set.add v noretVertices) (v.Preds @ vs)
       else findLoop hdl scfg app noretVertices vs
 
-  let findNoReturnEdges hdl (scfg: SCFG) app =
+  let getNoReturnFunctions app noretVertices =
+    noretVertices
+    |> Set.fold (fun acc (v: Vertex<CallGraphBBlock>) ->
+      let addr = v.VData.PPoint.Address
+      match app.CalleeMap.Find (addr) with
+      | None -> acc
+      | Some callee -> Set.add addr acc) Set.empty
+
+  let getNoReturnEdges hdl (scfg: SCFG) app noretFuncs =
+    Apparatus.getFunctionAddrs app
+    |> Seq.fold (fun acc addr ->
+      let cfg, root = scfg.GetFunctionCFG (addr, false)
+      let edges =
+        collectFallThroughEdges hdl scfg app cfg root noretFuncs
+        |> List.map (fun (src, _) -> src.VData.PPoint)
+      edges @ acc) []
+
+  let findNoReturnEdges hdl (scfg: SCFG) app recoveredInfo =
     let lens = CallGraphLens.Init (scfg)
     let cg, _ = lens.Filter scfg.Graph [] app
-    cg.FoldVertex (fun acc v ->
-      if List.length v.Succs = 0 then v :: acc else acc) []
-    |> findLoop hdl scfg app Set.empty
-    |> Set.fold (fun app (v: Vertex<CallGraphBBlock>) ->
-      match app.CalleeMap.Find (v.VData.PPoint.Address) with
-      | None -> app
-      | Some callee ->
-        if not callee.IsNoReturn then callee.IsNoReturn <- true else ()
-        app) app
+    let noretFuncs =
+      cg.FoldVertex (fun acc v ->
+        if List.length v.Succs = 0 then v :: acc else acc) []
+      |> findLoop hdl scfg app Set.empty
+      |> getNoReturnFunctions app
+    let edges = getNoReturnEdges hdl scfg app noretFuncs
+    Apparatus.addNoReturnInfo hdl app recoveredInfo (noretFuncs, edges)
 
 type NoReturnAnalysis () =
   interface IAnalysis with
     member __.Name = "No-Return Analysis"
 
     member __.Run hdl scfg app recoveredInfo =
-      let app' = NoReturnHelper.findNoReturnEdges hdl scfg app
-      match SCFG.Init (hdl, app', recoveredInfo) with
-      | Ok scfg -> scfg, app', recoveredInfo
+      let app', recoveredInfo' =
+        NoReturnHelper.findNoReturnEdges hdl scfg app recoveredInfo
+      match SCFG.Init (hdl, app', recoveredInfo') with
+      | Ok scfg -> scfg, app', recoveredInfo'
       | Error e -> failwithf "Failed to run no-return analysis due to %A" e

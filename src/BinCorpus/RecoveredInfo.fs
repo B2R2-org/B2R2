@@ -33,15 +33,19 @@ type JmpTargetMap = Map<Addr, Addr list>
 /// Jump table (for switch-case) information: (table range * entry size).
 type JumpTableInfo = AddrRange * RegType
 
+type NoReturnInfo = Set<Addr> * ProgramPoint list
+
 type RecoveredInfo = {
   /// Recovered function entries.
   Entries: Set<Addr>
   /// Indirect branches' target addresses.
   IndirectBranchMap: Map<Addr, Set<Addr> * JumpTableInfo option>
+  NoReturnInfo: NoReturnInfo
 }
 
 module RecoveredInfo =
 
-  let init entries indmap =
+  let init entries indmap noretInfo =
     { Entries = entries
-      IndirectBranchMap = indmap }
+      IndirectBranchMap = indmap
+      NoReturnInfo = noretInfo }

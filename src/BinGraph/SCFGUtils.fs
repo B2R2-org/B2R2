@@ -116,26 +116,21 @@ let private addInterEdge (g: IRCFG) (vmap: VMap) src addr edgeProp =
   | false, _ -> ()
   | true, dst -> g.AddEdge src dst edgeProp
 
-let isNoReturn app (last: Instruction) =
-  if last.IsCall () then
-    let b, target = last.DirectBranchTarget ()
-    if b then
-      match app.CalleeMap.Find target with
-      | None -> false
-      | Some callee -> callee.IsNoReturn
-    else false
-  else false
+let isNoReturn recoveredInfo (src: Vertex<IRBasicBlock>) =
+  recoveredInfo.NoReturnInfo
+  |> snd
+  |> List.contains src.VData.PPoint
 
-let private addFallthroughEdge g app vmap (src: Vertex<IRBasicBlock>) isPseudo =
-  let last = src.VData.LastInstruction
-  if isNoReturn app last then ()
+let private addFallthroughEdge g recoveredInfo vmap src isPseudo =
+  if isNoReturn recoveredInfo src then ()
   else
+    let last = (src: Vertex<IRBasicBlock>).VData.LastInstruction
     let fallAddr = last.Address + uint64 last.Length
     if isPseudo then CallFallThroughEdge else FallThroughEdge
     |> addInterEdge g vmap src fallAddr
 
-let private handleFallThrough g app vmap src (nextLeader: ProgramPoint) =
-  if nextLeader.Position = 0 then addFallthroughEdge g app vmap src false
+let private handleFallThrough g rInfo vmap src (nextLeader: ProgramPoint) =
+  if nextLeader.Position = 0 then addFallthroughEdge g rInfo vmap src false
   else (g: IRCFG).AddEdge src vmap.[nextLeader] IntraJmpEdge
 
 let private getIndirectDstNode (g: IRCFG) (vmap: VMap) callee =
@@ -198,7 +193,7 @@ let joinEdges _ (g: IRCFG) app rInfo vmap (leaders: ProgramPoint[]) idx =
       let target = BitVector.toUInt64 addr
       addInterEdge g vmap src target CallEdge
       if idx + 1 >= leaders.Length then ()
-      else addFallthroughEdge g app vmap src true
+      else addFallthroughEdge g rInfo vmap src true
     | InterJmp (_, Num addr, _) ->
       addInterEdge g vmap src (BitVector.toUInt64 addr) InterJmpEdge
     | InterCJmp (_, _, Num addr1, Num addr2) ->
@@ -212,7 +207,7 @@ let joinEdges _ (g: IRCFG) app rInfo vmap (leaders: ProgramPoint[]) idx =
       src.VData.HasIndirectBranch <- true
       addIndirectEdges g app rInfo vmap src true
       if idx + 1 >= leaders.Length then ()
-      else addFallthroughEdge g app vmap src true
+      else addFallthroughEdge g rInfo vmap src true
     | InterJmp (_)
     | InterCJmp (_) ->
       src.VData.HasIndirectBranch <- true
@@ -220,7 +215,7 @@ let joinEdges _ (g: IRCFG) app rInfo vmap (leaders: ProgramPoint[]) idx =
     | SideEffect (BinIR.Halt) -> ()
     | _ -> (* Fall through case *)
       if idx + 1 >= leaders.Length then ()
-      else handleFallThrough g app vmap src leaders.[idx + 1]
+      else handleFallThrough g rInfo vmap src leaders.[idx + 1]
     Ok ()
 
 let computeBoundaries app (vmap: VMap) =

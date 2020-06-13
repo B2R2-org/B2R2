@@ -233,7 +233,7 @@ module Apparatus =
       | Some c -> c.IsNoReturn <- true)
     calleeMap
 
-  let private buildApp hdl entries leaders instrMap indMap noRets exclusion =
+  let private buildApp hdl entries leaders instrMap indMap noRetInfo exclusion =
     let acc =
       { Labels = Map.empty; ComplexInstrs = HashSet ()
         Leaders = leaders; FunctionAddrs = entries }
@@ -242,9 +242,10 @@ module Apparatus =
     let struct (instrMap, acc) =
       findLeaders hdl acc instrMap (foldStmts hdl indMap exclusion)
     let calleeMap =
-      CalleeMap.build hdl acc.FunctionAddrs instrMap
-      |> updateNoReturnInfo noRets
-    let recoveredInfo = RecoveredInfo.init entries indMap
+      CalleeMap.build hdl acc.FunctionAddrs exclusion instrMap
+      |> updateNoReturnInfo (fst noRetInfo)
+    let recoveredInfo = RecoveredInfo.init entries indMap noRetInfo
+    let callees = calleeMap.Callees |> Seq.choose (fun x -> x.Addr)
     { InstrMap = instrMap
       LabelMap = acc.Labels
       LeaderInfos = acc.Leaders
@@ -260,7 +261,7 @@ module Apparatus =
       let entries = leaders |> Seq.map (fun i -> i.Point.Address) |> Set.ofSeq
       (* First, recursively parse all possible instructions. *)
       let instrMap, leaders = InstrMap.build hdl leaders bblBound
-      buildApp hdl entries leaders instrMap Map.empty Seq.empty exclusion
+      buildApp hdl entries leaders instrMap Map.empty (Set.empty, []) exclusion
 
   let inline private append seq = Seq.foldBack Set.add seq
 
@@ -278,11 +279,8 @@ module Apparatus =
     let funcAddrs = computeFuncAddrs app entries
     let instrMap, _ = InstrMap.update hdl app.InstrMap None leaders
     let indMap = recoveredInfo.IndirectBranchMap
-    let noRets =
-      app.CalleeMap.Callees
-      |> Seq.filter (fun callee -> callee.IsNoReturn)
-      |> Seq.choose (fun callee -> callee.Addr)
-    buildApp hdl funcAddrs leaders instrMap indMap noRets app.ExcludedCallees
+    let noRetInfo = recoveredInfo.NoReturnInfo
+    buildApp hdl funcAddrs leaders instrMap indMap noRetInfo app.ExcludedCallees
 
   /// Create a binary apparatus from the given BinHandler. The resulting
   /// apparatus will include default entries found by reading the binary file
@@ -314,3 +312,7 @@ module Apparatus =
       |> Map.fold (fun set _ (targets, _) -> Set.union targets set) Set.empty
       |> Set.map (fun addr -> LeaderInfo.Init (hdl, addr))
     updateApp hdl app Seq.empty leaders recoveredInfo
+
+  let addNoReturnInfo hdl app recoveredInfo noretInfo =
+    let recoveredInfo = { recoveredInfo with NoReturnInfo = noretInfo }
+    updateApp hdl app Seq.empty Seq.empty recoveredInfo
