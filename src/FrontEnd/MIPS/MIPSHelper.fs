@@ -131,43 +131,43 @@ let ft b = getFRegFrom2016 b |> OpReg
 let fd b = getFRegFrom106 b |> OpReg
 let cc b = getFRegFrom108 b |> OpReg // FIXME: Floating Point cond code CC.
 
-let sa b = extract b 10u 6u |> uint64 |> ShiftAmount
-let bp b = extract b 7u 6u |> uint64 |> Immediate
+let sa b = extract b 10u 6u |> uint64 |> OpShiftAmount
+let bp b = extract b 7u 6u |> uint64 |> OpImm
 
 let rel16 b =
   let off = num16 b |> uint64 <<< 2 |> signExtend 18 64 |> int64
-  off + 4L |> Relative |> Address
-let imm16 b = num16 b  |> uint64 |> Immediate
-let imm16SignExt b = num16 b |> uint64 |> signExtend 16 64 |> Immediate
+  off + 4L |> Relative |> OpAddr
+let imm16 b = num16 b  |> uint64 |> OpImm
+let imm16SignExt b = num16 b |> uint64 |> signExtend 16 64 |> OpImm
 let memBaseOff b accLength =
   let offset = num16 b |> uint64 |> signExtend 16 64 |> int64
-  Memory (getRegFrom2521 b, offset, accLength)
+  OpMem (getRegFrom2521 b, offset, accLength)
 
 let posSize b =
   let msb = extract b 15u 11u
   let lsb = extract b 10u 6u
-  lsb |> uint64 |> Immediate, msb + 1u - lsb |> uint64 |> Immediate
+  lsb |> uint64 |> OpImm, msb + 1u - lsb |> uint64 |> OpImm
 let posSize2 b =
   let msbd = extract b 15u 11u
   let lsb = extract b 10u 6u
-  lsb |> uint64 |> Immediate, msbd + 1u |> uint64 |> Immediate
+  lsb |> uint64 |> OpImm, msbd + 1u |> uint64 |> OpImm
 let posSize3 b =
   let msbminus32 = extract b 15u 11u
   let lsb = extract b 10u 6u
-  lsb |> uint64 |> Immediate, msbminus32 + 33u - lsb |> uint64 |> Immediate
+  lsb |> uint64 |> OpImm, msbminus32 + 33u - lsb |> uint64 |> OpImm
 let posSize4 b =
   let msbminus32 = extract b 15u 11u
   let lsbminus32 = extract b 10u 6u
   let pos = lsbminus32 + 32u
-  pos |> uint64 |> Immediate, msbminus32 + 33u - pos |> uint64 |> Immediate
+  pos |> uint64 |> OpImm, msbminus32 + 33u - pos |> uint64 |> OpImm
 let posSize5 b =
   let msbdminus32 = extract b 15u 11u
   let lsb = extract b 10u 6u
-  lsb |> uint64 |> Immediate, msbdminus32 + 33u |> uint64 |> Immediate
+  lsb |> uint64 |> OpImm, msbdminus32 + 33u |> uint64 |> OpImm
 let posSize6 b =
   let msbd = extract b 15u 11u
   let lsbminus32 = extract b 10u 6u
-  lsbminus32 + 32u |> uint64 |> Immediate, msbd + 1u |> uint64 |> Immediate
+  lsbminus32 + 32u |> uint64 |> OpImm, msbd + 1u |> uint64 |> OpImm
 
 let getRel16 b = OneOperand (rel16 b)
 let getRs b = OneOperand (rs b)
@@ -196,7 +196,7 @@ let getRtFs b = TwoOperands (rt b, fs b)
 let getCcOff b =
   match extract b 20u 18u with
   | 0u -> OneOperand (rel16 b)
-  | a -> TwoOperands (a |> uint64 |> Immediate, rel16 b)
+  | a -> TwoOperands (a |> uint64 |> OpImm, rel16 b)
 let getFsFt b = TwoOperands (fs b, ft b)
 let getFdFs b = TwoOperands (fd b, fs b)
 let getCcFsFt b = ThreeOperands (cc b, fs b, ft b)

@@ -36,7 +36,7 @@ let updateOperands insAddress operandList labelToAddress =
       | GoToLabel (a1) ->
         if mapping.ContainsKey a1 then
           let lblAddr = mapping.[a1]
-          let value = Address (Relative (int64 (lblAddr - insAddress) - 4L))
+          let value = OpAddr (Relative (int64 (lblAddr - insAddress) - 4L))
           doChecking tail mapping (value :: result)
         else
           failwith "Incorrect Label"

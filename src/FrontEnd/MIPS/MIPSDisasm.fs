@@ -191,17 +191,17 @@ let oprToString insInfo opr delim builder acc =
   | OpReg reg ->
     builder AsmWordKind.String delim acc
     |> builder AsmWordKind.Variable (Register.toString reg)
-  | Immediate imm
-  | ShiftAmount imm ->
+  | OpImm imm
+  | OpShiftAmount imm ->
     builder AsmWordKind.String delim acc
     |> builder AsmWordKind.Value ("0x" + imm.ToString ("X"))
-  | Memory (b, off, _) ->
+  | OpMem (b, off, _) ->
     builder AsmWordKind.String delim acc
     |> builder AsmWordKind.Value (off.ToString ("D"))
     |> builder AsmWordKind.String "("
     |> builder AsmWordKind.Variable (Register.toString b)
     |> builder AsmWordKind.String ")"
-  | Address (Relative offset) ->
+  | OpAddr (Relative offset) ->
     builder AsmWordKind.String delim acc
     |> relToString insInfo.Address offset builder
   // Never gets matched. Only used in intermediate stage mips assembly parser.

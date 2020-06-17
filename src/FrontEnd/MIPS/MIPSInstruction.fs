@@ -45,7 +45,7 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
 
   member __.HasConcJmpTarget () =
     match __.Info.Operands with
-    | OneOperand (Address _) -> true
+    | OneOperand (OpAddr _) -> true
     | _ -> false
 
   override __.IsDirectBranch () =
@@ -82,7 +82,7 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
   override __.DirectBranchTarget (addr: byref<Addr>) =
     if __.IsBranch () then
       match __.Info.Operands with
-      | OneOperand (Address (Relative offset)) ->
+      | OneOperand (OpAddr (Relative offset)) ->
         addr <- (int64 __.Address + offset) |> uint64
         true
       | _ -> false

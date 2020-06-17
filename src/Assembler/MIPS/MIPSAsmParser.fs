@@ -127,7 +127,7 @@ type AsmParser (mipsISA: ISA, startAddress: Addr) =
   let immWithOperators =
     attempt (pipe3 pImm operators pImm (fun a op c -> op a c))
 
-  let imm = immWithOperators <|> pImm |>> Operand.Immediate
+  let imm = immWithOperators <|> pImm |>> OpImm
 
   let registersList =
     (Enum.GetNames typeof<Register>)
@@ -152,10 +152,11 @@ type AsmParser (mipsISA: ISA, startAddress: Addr) =
   let paddr = opt (pImm .>> whitespace |>> int64) .>>.? regAddr
 
   let addr =
-    paddr |>> (fun (ofstOp, reg) ->
-                 match ofstOp with
-                 | Some offset -> Memory (reg, offset, 32<rt>)
-                 | None -> Memory (reg, 0L, 32<rt>))
+    paddr
+    |>> (fun (ofstOp, reg) ->
+      match ofstOp with
+      | Some offset -> OpMem (reg, offset, 32<rt>)
+      | None -> OpMem (reg, 0L, 32<rt>))
 
   let operand = addr <|> reg <|> imm <|> label
 

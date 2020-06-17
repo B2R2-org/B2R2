@@ -317,10 +317,10 @@ type internal Op = Opcode
 
 type Operand =
   | OpReg of Register
-  | Immediate of Imm
-  | Memory of Base * Offset * AccessLength
-  | Address of JumpTarget
-  | ShiftAmount of Imm
+  | OpImm of Imm
+  | OpMem of Base * Offset * AccessLength
+  | OpAddr of JumpTarget
+  | OpShiftAmount of Imm
   | GoToLabel of Label
 
 and Imm = uint64

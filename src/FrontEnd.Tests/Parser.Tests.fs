@@ -6108,7 +6108,7 @@ module MIPS64 =
 
       test64R2 Op.DADDIU
                (ThreeOperands (OpReg R.R13, OpReg R.R6,
-                               Immediate 0xffffffffffffccd5UL))
+                               OpImm 0xffffffffffffccd5UL))
                [| 0x64uy; 0xcduy; 0xccuy; 0xd5uy |]
 
       test64R2 Op.DSUBU
@@ -6122,17 +6122,17 @@ module MIPS64 =
     member __.``[MIPS64] Shift And Rotate operations Parse Test`` () =
       test64R2 Op.DROTR
                (ThreeOperands (OpReg R.R30, OpReg R.R13,
-                               ShiftAmount 0x1aUL))
+                               OpShiftAmount 0x1aUL))
                [| 0x00uy; 0x2duy; 0xf6uy; 0xbauy |]
 
       test64R2 Op.DSLL
                (ThreeOperands (OpReg R.R29, OpReg R.R14,
-                               ShiftAmount 0x1bUL))
+                               OpShiftAmount 0x1bUL))
                [| 0x00uy; 0x0euy; 0xeeuy; 0xf8uy |]
 
       test64R2 Op.DSLL32
                (ThreeOperands (OpReg R.R28, OpReg R.R17,
-                               ShiftAmount 0x15UL))
+                               OpShiftAmount 0x15UL))
                [| 0x00uy; 0x11uy; 0xe5uy; 0x7cuy |]
 
       test64R2 Op.DSLLV
@@ -6141,12 +6141,12 @@ module MIPS64 =
 
       test64R2 Op.DSRA
                (ThreeOperands (OpReg R.R30, OpReg R.R14,
-                               ShiftAmount 0x1fUL))
+                               OpShiftAmount 0x1fUL))
                [| 0x00uy; 0x0euy; 0xf7uy; 0xfbuy |]
 
       test64R2 Op.DSRA32
                (ThreeOperands (OpReg R.R26, OpReg R.R15,
-                               ShiftAmount 0x7UL))
+                               OpShiftAmount 0x7UL))
                [| 0x00uy; 0x0fuy; 0xd1uy; 0xffuy |]
 
   /// Logical and Bit-Field Operations
@@ -6156,12 +6156,12 @@ module MIPS64 =
     member __.``[MIPS64] Logical and Bit-Field operations Parse Test`` () =
       test64R2 Op.DEXT
                (FourOperands (OpReg R.R29, OpReg R.R10,
-                              Immediate 0x2UL, Immediate 0xeUL))
+                              OpImm 0x2UL, OpImm 0xeUL))
                [| 0x7duy; 0x5duy; 0x68uy; 0x83uy |]
 
       test64R2 Op.DINS
                (FourOperands (OpReg R.R21, OpReg R.R15,
-                              Immediate 0x9UL, Immediate 0x11UL))
+                              OpImm 0x9UL, OpImm 0x11UL))
                [| 0x7duy; 0xf5uy; 0xcauy; 0x47uy |]
 
   /// Multiply and Divide operations
@@ -6187,23 +6187,23 @@ module MIPS64 =
     [<TestMethod>]
     member __.``[MIPS64] Load and Store operations Parse Test`` () =
       test64R2 Op.LD
-               (TwoOperands (OpReg R.R29, Memory (R.R26, 0x2afdL, 64<rt>)))
+               (TwoOperands (OpReg R.R29, OpMem (R.R26, 0x2afdL, 64<rt>)))
                [| 0xdfuy; 0x5duy; 0x2auy; 0xfduy |]
 
       test64R2 Op.LWU
-               (TwoOperands (OpReg R.R17, Memory (R.R24, -0x52ffL, 32<rt>)))
+               (TwoOperands (OpReg R.R17, OpMem (R.R24, -0x52ffL, 32<rt>)))
                [| 0x9fuy; 0x11uy; 0xaduy; 0x01uy |]
 
       test64R2 Op.SD
-               (TwoOperands (OpReg R.R5, Memory (R.R17, 0x380aL, 64<rt>)))
+               (TwoOperands (OpReg R.R5, OpMem (R.R17, 0x380aL, 64<rt>)))
                [| 0xfeuy; 0x25uy; 0x38uy; 0x0auy |]
 
       test64R2 Op.SDL
-               (TwoOperands (OpReg R.R12, Memory (R.R26, 0x3f02L, 64<rt>)))
+               (TwoOperands (OpReg R.R12, OpMem (R.R26, 0x3f02L, 64<rt>)))
                [| 0xb3uy; 0x4cuy; 0x3fuy; 0x02uy |]
 
       test64R2 Op.SDR
-               (TwoOperands (OpReg R.R11, Memory (R.R6, -0x78ebL, 64<rt>)))
+               (TwoOperands (OpReg R.R11, OpMem (R.R6, -0x78ebL, 64<rt>)))
                [| 0xb4uy; 0xcbuy; 0x87uy; 0x15uy |]
 
 module MIPS32 =
@@ -6230,7 +6230,7 @@ module MIPS32 =
     member __.``[MIPS32] Arithmetic Operations Parse Test`` () =
       test32R2 Op.ADDIU None None
                (ThreeOperands (OpReg R.R28, OpReg R.R28,
-                               Immediate 0xffffffffffff85bcUL))
+                               OpImm 0xffffffffffff85bcUL))
                [| 0x27uy; 0x9cuy; 0x85uy; 0xbcuy |]
 
       test32R2 Op.CLZ None None
@@ -6238,7 +6238,7 @@ module MIPS32 =
                [| 0x70uy; 0xe2uy; 0x10uy; 0x20uy |]
 
       test32R2 Op.LUI None None
-               (TwoOperands (OpReg R.R28, Immediate 4UL))
+               (TwoOperands (OpReg R.R28, OpImm 4UL))
                [| 0x3cuy; 0x1cuy; 0x00uy; 0x04uy |]
 
       test32R2 Op.SEB None None
@@ -6255,19 +6255,19 @@ module MIPS32 =
     [<TestMethod>]
     member __.``[MIPS32] Shift And Rotate Operations Parse Test`` () =
       test32R2 Op.ROTR None None
-               (ThreeOperands (OpReg R.R2, OpReg R.R4, ShiftAmount 3UL))
+               (ThreeOperands (OpReg R.R2, OpReg R.R4, OpShiftAmount 3UL))
                [| 0x00uy; 0x24uy; 0x10uy; 0xc2uy |]
 
       test32R2 Op.SLL None None
-               (ThreeOperands (OpReg R.R2, OpReg R.R2, ShiftAmount 2UL))
+               (ThreeOperands (OpReg R.R2, OpReg R.R2, OpShiftAmount 2UL))
                [| 0x00uy; 0x02uy; 0x10uy; 0x80uy |]
 
       test32R2 Op.SRA None None
-               (ThreeOperands (OpReg R.R5, OpReg R.R5, ShiftAmount 2UL))
+               (ThreeOperands (OpReg R.R5, OpReg R.R5, OpShiftAmount 2UL))
                [| 0x00uy; 0x05uy; 0x28uy; 0x83uy |]
 
       test32R2 Op.SRL None None
-               (ThreeOperands (OpReg R.R2, OpReg R.R5, ShiftAmount 31UL))
+               (ThreeOperands (OpReg R.R2, OpReg R.R5, OpShiftAmount 31UL))
                [| 0x00uy; 0x05uy; 0x17uy; 0xc2uy |]
 
 /// Logical And Bit-Field Operations
@@ -6280,17 +6280,17 @@ module MIPS32 =
                [| 0x02uy; 0x62uy; 0x10uy; 0x24uy |]
 
       test32R2 Op.ANDI None None
-               (ThreeOperands (OpReg R.R2, OpReg R.R2, Immediate 1UL))
+               (ThreeOperands (OpReg R.R2, OpReg R.R2, OpImm 1UL))
                [| 0x30uy; 0x42uy; 0x00uy; 0x01uy |]
 
       test32R2 Op.EXT None None
-               (FourOperands (OpReg R.R2, OpReg R.R2, Immediate 6UL,
-                              Immediate 1UL))
+               (FourOperands (OpReg R.R2, OpReg R.R2, OpImm 6UL,
+                              OpImm 1UL))
                [| 0x7cuy; 0x42uy; 0x01uy; 0x80uy |]
 
       test32R2 Op.INS None None
-               (FourOperands (OpReg R.R3, OpReg R.R6, Immediate 6UL,
-                              Immediate 1UL))
+               (FourOperands (OpReg R.R3, OpReg R.R6, OpImm 6UL,
+                              OpImm 1UL))
                [| 0x7cuy; 0xc3uy; 0x31uy; 0x84uy |]
 
       test32R2 Op.NOR None None
@@ -6303,7 +6303,7 @@ module MIPS32 =
 
       test32R2 Op.ORI None None
                (ThreeOperands (OpReg R.R19, OpReg R.R19,
-                               Immediate 65535UL))
+                               OpImm 65535UL))
                [| 0x36uy; 0x73uy; 0xffuy; 0xffuy |]
 
       test32R2 Op.XOR None None
@@ -6311,7 +6311,7 @@ module MIPS32 =
                [| 0x00uy; 0x46uy; 0x10uy; 0x26uy |]
 
       test32R2 Op.XORI None None
-               (ThreeOperands (OpReg R.R2, OpReg R.R19, Immediate 6UL))
+               (ThreeOperands (OpReg R.R2, OpReg R.R19, OpImm 6UL))
                [| 0x3auy; 0x62uy; 0x00uy; 0x06uy |]
 
   /// Condition Testing And Conditional Move Operations
@@ -6332,11 +6332,11 @@ module MIPS32 =
                [| 0x02uy; 0x70uy; 0x10uy; 0x2auy |]
 
       test32R2 Op.SLTI None None
-               (ThreeOperands (OpReg R.R23, OpReg R.R2, Immediate 2UL))
+               (ThreeOperands (OpReg R.R23, OpReg R.R2, OpImm 2UL))
                [| 0x28uy; 0x57uy; 0x00uy; 0x02uy |]
 
       test32R2 Op.SLTIU None None
-               (ThreeOperands (OpReg R.R3, OpReg R.R2, Immediate 275UL))
+               (ThreeOperands (OpReg R.R3, OpReg R.R2, OpImm 275UL))
                [| 0x2cuy; 0x43uy; 0x01uy; 0x13uy |]
 
       test32R2 Op.SLTU None None
@@ -6380,15 +6380,15 @@ module MIPS32 =
     member __.``[MIPS32] Jump And Branches operations Parse Test`` () =
       test32R2 Op.BNE None None
                (ThreeOperands (OpReg R.R2, OpReg R.R0,
-                               Address (Relative 4100L)))
+                               OpAddr (Relative 4100L)))
                [| 0x14uy; 0x40uy; 0x04uy; 0x00uy |]
 
       test32R2 Op.BLEZ None None
-               (TwoOperands (OpReg R.R23, Address (Relative 4444L)))
+               (TwoOperands (OpReg R.R23, OpAddr (Relative 4444L)))
                [| 0x1auy; 0xe0uy; 0x04uy; 0x56uy |]
 
       test32R2 Op.BGTZ None None
-               (TwoOperands (OpReg R.R2, Address (Relative -48L)))
+               (TwoOperands (OpReg R.R2, OpAddr (Relative -48L)))
                [| 0x1cuy; 0x40uy; 0xffuy; 0xf3uy |]
 
       test32R2 Op.JR None None
@@ -6400,15 +6400,15 @@ module MIPS32 =
                [| 0x03uy; 0x20uy; 0xf8uy; 0x09uy |]
 
       test32R2 Op.BAL None None
-               (OneOperand (Address (Relative 63608L)))
+               (OneOperand (OpAddr (Relative 63608L)))
                [| 0x04uy; 0x11uy; 0x3euy; 0x1duy |]
 
       test32R2 Op.BLTZ None None
-               (TwoOperands (OpReg R.R2, Address (Relative 424L)))
+               (TwoOperands (OpReg R.R2, OpAddr (Relative 424L)))
                [| 0x04uy; 0x40uy; 0x00uy; 0x69uy |]
 
       test32R2 Op.BGEZ None None
-               (TwoOperands (OpReg R.R22, Address (Relative 1404L)))
+               (TwoOperands (OpReg R.R22, OpAddr (Relative 1404L)))
                [| 0x06uy; 0xc1uy; 0x01uy; 0x5euy |]
 
   /// Load And Store operations
@@ -6417,39 +6417,39 @@ module MIPS32 =
     [<TestMethod>]
     member __.``[MIPS32] Load And Store operations Parse Test`` () =
       test32R2 Op.LB None None
-               (TwoOperands (OpReg R.R2, Memory (R.R2, 0L, 8<rt>)))
+               (TwoOperands (OpReg R.R2, OpMem (R.R2, 0L, 8<rt>)))
                [| 0x80uy; 0x42uy; 0x00uy; 0x00uy |]
 
       test32R2 Op.LBU None None
-               (TwoOperands (OpReg R.R2, Memory (R.R19, 17432L, 8<rt>)))
+               (TwoOperands (OpReg R.R2, OpMem (R.R19, 17432L, 8<rt>)))
                [| 0x92uy; 0x62uy; 0x44uy; 0x18uy |]
 
       test32R2 Op.LHU None None
-               (TwoOperands (OpReg R.R2, Memory (R.R29, 170L, 16<rt>)))
+               (TwoOperands (OpReg R.R2, OpMem (R.R29, 170L, 16<rt>)))
                [| 0x97uy; 0xa2uy; 0x00uy; 0xaauy |]
 
       test32R2 Op.LW None None
-               (TwoOperands (OpReg R.R2, Memory (R.R28, -032060L, 32<rt>)))
+               (TwoOperands (OpReg R.R2, OpMem (R.R28, -032060L, 32<rt>)))
                [| 0x8fuy; 0x82uy; 0x82uy; 0xc4uy |]
 
       test32R2 Op.SB None None
-               (TwoOperands (OpReg R.R4, Memory (R.R22, 17372L, 8<rt>)))
+               (TwoOperands (OpReg R.R4, OpMem (R.R22, 17372L, 8<rt>)))
                [| 0xa2uy; 0xc4uy; 0x43uy; 0xdcuy |]
 
       test32R2 Op.SH None None
-               (TwoOperands (OpReg R.R2, Memory (R.R29, 184L, 16<rt>)))
+               (TwoOperands (OpReg R.R2, OpMem (R.R29, 184L, 16<rt>)))
                [| 0xa7uy; 0xa2uy; 0x00uy; 0xb8uy |]
 
       test32R2 Op.SW None None
-               (TwoOperands (OpReg R.R28, Memory (R.R29, 16L, 32<rt>)))
+               (TwoOperands (OpReg R.R28, OpMem (R.R29, 16L, 32<rt>)))
                [| 0xafuy; 0xbcuy; 0x00uy; 0x10uy |]
 
       test32R2 Op.SWL None None
-               (TwoOperands (OpReg R.R4, Memory (R.R2, 0L, 32<rt>)))
+               (TwoOperands (OpReg R.R4, OpMem (R.R2, 0L, 32<rt>)))
                [| 0xa8uy; 0x44uy; 0x00uy; 0x00uy |]
 
       test32R2 Op.SWR None None
-               (TwoOperands (OpReg R.R4, Memory (R.R2, 3L, 32<rt>)))
+               (TwoOperands (OpReg R.R4, OpMem (R.R2, 3L, 32<rt>)))
                [| 0xb8uy; 0x44uy; 0x00uy; 0x03uy |]
 
   /// Floating Point operations
@@ -6490,19 +6490,19 @@ module MIPS32 =
                [| 0x44uy; 0x80uy; 0x30uy; 0x00uy |]
 
       test32R2 Op.LDC1 None None
-               (TwoOperands (OpReg R.F4, Memory (R.R2, 2632L, 64<rt>)))
+               (TwoOperands (OpReg R.F4, OpMem (R.R2, 2632L, 64<rt>)))
                [| 0xd4uy; 0x44uy; 0x0auy; 0x48uy |]
 
       test32R2 Op.LWC1 None None
-               (TwoOperands (OpReg R.F0, Memory (R.R3, 8L, 32<rt>)))
+               (TwoOperands (OpReg R.F0, OpMem (R.R3, 8L, 32<rt>)))
                [| 0xc4uy; 0x60uy; 0x00uy; 0x08uy |]
 
       test32R2 Op.SDC1 None None
-               (TwoOperands (OpReg R.F0, Memory (R.R29, 16L, 64<rt>)))
+               (TwoOperands (OpReg R.F0, OpMem (R.R29, 16L, 64<rt>)))
                [| 0xf7uy; 0xa0uy; 0x00uy; 0x10uy |]
 
       test32R2 Op.SWC1 None None
-               (TwoOperands (OpReg R.F0, Memory (R.R4, 4L, 32<rt>)))
+               (TwoOperands (OpReg R.F0, OpMem (R.R4, 4L, 32<rt>)))
                [| 0xe4uy; 0x80uy; 0x00uy; 0x04uy |]
 
       test32R2 Op.C (Some Condition.LT) (Some Fmt.S)
@@ -6535,11 +6535,11 @@ module MIPS32 =
                [| 0x00uy; 0x40uy; 0x01uy; 0xf4uy |]
 
       test32R2 Op.BC1T None None
-               (TwoOperands (Immediate 6UL, Address (Relative 20L)))
+               (TwoOperands (OpImm 6UL, OpAddr (Relative 20L)))
                [| 0x45uy; 0x19uy; 0x00uy; 0x04uy |]
 
       test32R2 Op.BC1F None None
-               (OneOperand (Address (Relative 108L)))
+               (OneOperand (OpAddr (Relative 108L)))
                [| 0x45uy; 0x00uy; 0x00uy; 0x1auy |]
 
 module EVM =

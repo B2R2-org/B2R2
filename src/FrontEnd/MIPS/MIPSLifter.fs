@@ -54,22 +54,22 @@ let bvOfInstrLen (ctxt: TranslationContext) insInfo =
 
 let transOprToExpr insInfo ctxt = function
   | OpReg reg -> getRegVar ctxt reg
-  | Immediate imm
-  | ShiftAmount imm -> ctxt.WordBitSize |> BitVector.ofUInt64 imm |> num
-  | Memory (b, o, sz) ->
+  | OpImm imm
+  | OpShiftAmount imm -> ctxt.WordBitSize |> BitVector.ofUInt64 imm |> num
+  | OpMem (b, o, sz) ->
     loadLE sz (getRegVar ctxt b .+ numI64 o ctxt.WordBitSize)
-  | Address (Relative o) ->
+  | OpAddr (Relative o) ->
     numI64 (int64 insInfo.Address + o + int64 insInfo.NumBytes) ctxt.WordBitSize
     |> loadLE ctxt.WordBitSize
   | GoToLabel _ -> raise InvalidOperandException
 
 let transOprToImm = function
-  | Immediate imm
-  | ShiftAmount imm -> imm
+  | OpImm imm
+  | OpShiftAmount imm -> imm
   | _ -> raise InvalidOperandException
 
 let transOprToBaseOffset ctxt = function
-  | Memory (b, o, _) -> getRegVar ctxt b .+ numI64 o ctxt.WordBitSize
+  | OpMem (b, o, _) -> getRegVar ctxt b .+ numI64 o ctxt.WordBitSize
   | _ -> raise InvalidOperandException
 
 let getOneOpr insInfo =
