@@ -82,7 +82,7 @@ let parseNList acc baseAddr (reader: BinReader) macHdr libs strtab offset =
   let strIdx = reader.PeekInt32 offset
   let nDesc = reader.PeekInt16 (offset + 6)
   let nType = reader.PeekByte (offset + 4) |> int
-  { SymName = ByteArray.extractCString strtab strIdx
+  { SymName = ByteArray.extractCStringFromSpan strtab strIdx
     SymType = nType |> LanguagePrimitives.EnumOfValue
     IsExternal = nType &&& 0x1 = 0x1
     SecNum = reader.PeekByte (offset + 5) |> int
@@ -102,7 +102,7 @@ let rec symTab acc baseAddr reader macHdr libs strtab offset numSymbs =
 let parseSymTable baseAddr (reader: BinReader) macHdr libs symtabs =
   let foldSymTabs acc symtab =
     let strtabSize = Convert.ToInt32 symtab.StrSize
-    let strtab = reader.PeekBytes (strtabSize, symtab.StrOff)
+    let strtab = reader.PeekSpan (strtabSize, symtab.StrOff)
     symTab acc baseAddr reader macHdr libs strtab symtab.SymOff symtab.NumOfSym
   symtabs |> List.fold foldSymTabs [] |> List.rev |> List.toArray
 

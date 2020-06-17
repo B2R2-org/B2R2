@@ -37,8 +37,9 @@ let pltSkipBytes = function
 
 let isThumbPltELFSymbol sAddr (plt: ELFSection) (reader: BinReader) =
   let offset = Convert.ToInt32 (sAddr - plt.SecAddr + plt.SecOffset)
-  let pltThumbStubBytes = [| 0x78uy; 0x47uy; 0xc0uy; 0x46uy |]
-  reader.PeekBytes (4, offset) = pltThumbStubBytes
+  let pltThumbStubBytes = ReadOnlySpan [| 0x78uy; 0x47uy; 0xc0uy; 0x46uy |]
+  let span = reader.PeekSpan (4, offset)
+  span.SequenceEqual pltThumbStubBytes
 
 let findPltSize sAddr plt reader = function
   | Arch.IntelX86

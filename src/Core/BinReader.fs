@@ -24,6 +24,7 @@
 
 namespace B2R2
 
+open System
 open System.Runtime.InteropServices
 
 /// BinReader abstracts away the process of reading byte sequences. This is the
@@ -45,15 +46,21 @@ type BinReader (bytes: byte []) =
   /// Peek a single byte as a uint8 type at the given offset.
   member __.PeekUInt8 (o) = uint8 bytes.[o]
 
+  /// Peek span of bytes of size n at the given offset.
+  member __.PeekSpan (n, o) =
+    let span = ReadOnlySpan bytes
+    span.Slice (o, n)
+
+  /// Peek Memory of size n at the given offset.
+  member __.PeekMem (n, o) =
+    let span = ReadOnlyMemory bytes
+    span.Slice (o, n)
+
   /// Peek byte array of size n at the given offset.
   member __.PeekBytes (n, o) = Array.sub bytes o n
 
-  /// Peek byte array of size n at the given offset.
-  member __.PeekBytes (n: uint64, o: uint64) =
-    __.PeekBytes (System.Convert.ToInt32 n, System.Convert.ToInt32 o)
-
   /// Peek a character array of size n at the given offset.
-  member __.PeekChars (n: int, o: int) = __.PeekBytes (n, o) |> Array.map char
+  member __.PeekChars (n, o) = __.PeekBytes (n, o) |> Array.map char
 
   member inline private __.peekLEB128 (o) cast maxLen =
     let rec readLoop offset count value len =

@@ -24,8 +24,8 @@
 
 module internal B2R2.BinFile.PE.Coff
 
-open System
 open System.Reflection.PortableExecutable
+open System.Runtime.InteropServices
 open B2R2
 open B2R2.BinFile.FileHelper
 
@@ -99,11 +99,12 @@ let getWordSize = function
 let parseLongSymbolName (binReader: BinReader) stroff offset =
   peekCString binReader (stroff + offset)
 
-let parseSymbName binReader stroff (bs: byte []) =
-  if bs.[0..3] = [| 0uy; 0uy; 0uy; 0uy |] then
-    BitConverter.ToInt32 (bs, 4) |> parseLongSymbolName binReader stroff
+let parseSymbName (binReader: BinReader) offset stroff =
+  let bs = binReader.PeekSpan (8, offset)
+  if bs.[0] = 0uy && bs.[1] = 0uy && bs.[2] = 0uy && bs.[3] = 0uy then
+    MemoryMarshal.Read<int> (bs.Slice 4) |> parseLongSymbolName binReader stroff
   else
-    ByteArray.extractCString (Array.append bs [| 0uy |]) 0
+    ByteArray.extractCStringFromSpan bs 0
 
 let parseSymType typ =
   let lsb = typ &&& 0xFs |> byte
@@ -146,8 +147,7 @@ let getSymbols (binReader: BinReader) (coff: CoffHeader) =
       else parse acc (auxcnt - 1) (cnt + 1)
     else
       let offset = tbloff + cnt * 18
-      let name =
-        binReader.PeekBytes (8, offset) |> parseSymbName binReader stroff
+      let name = parseSymbName binReader offset stroff
       let v = binReader.PeekInt32 (offset + 8)
       let secnum = binReader.PeekInt16 (offset + 12) |> int
       let typ = binReader.PeekInt16 (offset + 14) |> parseSymType

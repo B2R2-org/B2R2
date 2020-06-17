@@ -36,7 +36,7 @@ let parseSectionNameContents eHdr (reader: BinReader) =
   let pos = Convert.ToInt32 off + padding
   let struct (strOffset, nextOffset) = readUIntOfType reader eHdr.Class pos
   let size = peekUIntOfType reader eHdr.Class nextOffset
-  reader.PeekBytes (Convert.ToInt32 size, Convert.ToInt32 strOffset)
+  reader.PeekSpan (Convert.ToInt32 size, Convert.ToInt32 strOffset)
 
 let peekSecType (reader: BinReader) offset: SectionType =
   offset + 4 |> reader.PeekUInt32 |> LanguagePrimitives.EnumOfValue
@@ -46,9 +46,9 @@ let peekSecFlags (reader: BinReader) cls offset : SectionFlag =
   |> peekUIntOfType reader cls
   |> LanguagePrimitives.EnumOfValue
 
-let parseSection baseAddr num strBytes cls (reader: BinReader) offset =
+let parseSection baseAddr num names cls (reader: BinReader) offset =
   { SecNum = num
-    SecName = reader.PeekInt32 offset |> ByteArray.extractCString strBytes
+    SecName = ByteArray.extractCStringFromSpan names (reader.PeekInt32 offset)
     SecType = peekSecType reader offset
     SecFlags = peekSecFlags reader cls offset
     SecAddr = peekHeaderNative reader cls offset 12 16 + baseAddr
@@ -99,24 +99,26 @@ let isVerNeed t = t = SectionType.SHTGNUVerNeed
 
 let isVerDef t = t = SectionType.SHTGNUVerDef
 
+let rec parseLoop baseAddr eHdr reader names secByNum info sIdx offset =
+  if int eHdr.SHdrNum = sIdx then
+    { info with SecByNum = List.rev secByNum |> Array.ofList }
+  else
+    let sec = parseSection baseAddr sIdx names eHdr.Class reader offset
+    let secByNum = sec :: secByNum
+    let offset' = nextSecOffset eHdr.Class offset
+    let info' =
+      { info with
+          SecByAddr = addSecToAddrMap baseAddr sec info.SecByAddr
+          SecByName = Map.add sec.SecName sec info.SecByName
+          StaticSymSecNums = accSymbTabNum info.StaticSymSecNums isStatic sec
+          DynSymSecNums = accSymbTabNum info.DynSymSecNums isDynamic sec
+          VerSymSec = updateVerSec isVerSym sec info.VerSymSec
+          VerNeedSec = updateVerSec isVerNeed sec info.VerNeedSec
+          VerDefSec = updateVerSec isVerDef sec info.VerDefSec }
+    parseLoop baseAddr eHdr reader names secByNum info' (sIdx + 1) offset'
+
 let parse baseAddr eHdr reader =
   let nameContents = parseSectionNameContents eHdr reader
-  let rec parseLoop secByNum info sIdx offset =
-    if int eHdr.SHdrNum = sIdx then
-      { info with SecByNum = List.rev secByNum |> Array.ofList }
-    else
-      let sec = parseSection baseAddr sIdx nameContents eHdr.Class reader offset
-      let nextOffset = nextSecOffset eHdr.Class offset
-      let nextInfo =
-        { info with
-            SecByAddr = addSecToAddrMap baseAddr sec info.SecByAddr
-            SecByName = Map.add sec.SecName sec info.SecByName
-            StaticSymSecNums = accSymbTabNum info.StaticSymSecNums isStatic sec
-            DynSymSecNums = accSymbTabNum info.DynSymSecNums isDynamic sec
-            VerSymSec = updateVerSec isVerSym sec info.VerSymSec
-            VerNeedSec = updateVerSec isVerNeed sec info.VerNeedSec
-            VerDefSec = updateVerSec isVerDef sec info.VerDefSec }
-      parseLoop (sec :: secByNum) nextInfo (sIdx + 1) nextOffset
   let emptyInfo =
     { SecByAddr = ARMap.empty
       SecByName = Map.empty
@@ -126,8 +128,8 @@ let parse baseAddr eHdr reader =
       VerSymSec = None
       VerNeedSec = None
       VerDefSec = None }
-  Convert.ToInt32 eHdr.SHdrTblOffset
-  |> parseLoop [] emptyInfo 0
+  let offset = Convert.ToInt32 eHdr.SHdrTblOffset
+  parseLoop baseAddr eHdr reader nameContents [] emptyInfo 0 offset
 
 let parseDynamicSection (reader: BinReader) (sec: ELFSection) =
   let secStart = int sec.SecOffset

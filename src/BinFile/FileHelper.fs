@@ -63,9 +63,8 @@ let peekCString (reader: BinReader) offset =
   ByteArray.extractCString bs 0
 
 let peekCStringOfSize (reader: BinReader) offset (size: int) =
-  let bs = reader.PeekBytes (size, offset)
-  let bs = if bs.[bs.Length - 1] <> 0uy then Array.append bs [| 0uy |] else bs
-  ByteArray.extractCString bs 0
+  let span = reader.PeekSpan (size, offset)
+  ByteArray.extractCStringFromSpan span 0
 
 let addInvRange set saddr eaddr =
   if saddr = eaddr then set

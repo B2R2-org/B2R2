@@ -24,6 +24,7 @@
 
 module internal B2R2.BinFile.ELF.Header
 
+open System
 open B2R2
 open B2R2.BinFile.FileHelper
 
@@ -32,7 +33,8 @@ let private elfMagicNumber = [| 0x7fuy; 0x45uy; 0x4cuy; 0x46uy |]
 /// Check if the file has a valid ELF header.
 let isELF (reader: BinReader) offset =
   reader.Length() > offset + sizeof<uint32> &&
-  reader.PeekBytes (4, offset) = elfMagicNumber
+  let span = reader.PeekSpan (4, offset)
+  span.SequenceEqual (ReadOnlySpan elfMagicNumber)
 
 let peekClass (reader: BinReader) offset =
   match offset + 4 |> reader.PeekByte with

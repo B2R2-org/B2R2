@@ -74,8 +74,8 @@ let parseMainCmd baseAddr (reader: BinReader) offset =
 let readLCStr (reader: BinReader) (size: uint32) offset =
   let strOffset = reader.PeekInt32 (offset + 8)
   let strLen = Convert.ToInt32 size - strOffset
-  let bs = reader.PeekBytes (strLen, offset + strOffset)
-  ByteArray.extractCString bs 0
+  let span = reader.PeekSpan (strLen, offset + strOffset)
+  ByteArray.extractCStringFromSpan span 0
 
 let parseDyLibCmd (reader: BinReader) size offset =
   { DyLibName = readLCStr reader size offset
