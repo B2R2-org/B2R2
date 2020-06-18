@@ -122,7 +122,7 @@ type BinReaderTests () =
         func 0 |> ignore
         false
       with
-        | :? LEB128.LEB128DecodeException -> true
+        | :? LEB128DecodeException -> true
         | _ -> false
 
     let u64Result = Array.map (fun arr ->
