@@ -335,7 +335,9 @@ type FileInfo (baseAddr) =
   /// <returns>
   ///   A sequence of function addresses.
   /// </returns>
-  member __.GetFunctionAddresses () =
+  abstract member GetFunctionAddresses: unit -> seq<Addr>
+
+  default __.GetFunctionAddresses () =
     __.GetFunctionSymbols ()
     |> Seq.map (fun s -> s.Address)
 

@@ -194,3 +194,14 @@ let getNotInFileIntervals elf range =
   IntervalSet.findAll range elf.NotInFileRanges
   |> List.map (FileHelper.trimByRange range)
   |> List.toSeq
+
+let getFunctionAddrs elf addrs =
+  let addrSet = Set.ofSeq addrs
+  elf.ExceptionFrame
+  |> List.fold (fun set cfi ->
+    cfi.FDERecord
+    |> Array.fold (fun set fde ->
+      Set.add fde.PCBegin set
+      ) set
+    ) addrSet
+  |> Set.toSeq
