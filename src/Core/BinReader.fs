@@ -51,6 +51,11 @@ type BinReader (bytes: byte []) =
     let span = ReadOnlySpan bytes
     span.Slice (o, n)
 
+  /// Peek span of bytes at the given offset to the end.
+  member __.PeekSpan (o) =
+    let span = ReadOnlySpan bytes
+    span.Slice (o)
+
   /// Peek Memory of size n at the given offset.
   member __.PeekMem (n, o) =
     let span = ReadOnlyMemory bytes
@@ -131,6 +136,14 @@ type BinReader (bytes: byte []) =
 
   /// My endianness.
   abstract member Endianness: Endian
+
+  /// Return a sub BinReader that serves a subset of the bytes starting at the
+  /// offset (offset) and of the length (len).
+  member __.SubReader offset len =
+    let bs = Array.sub bytes offset len
+    match __.Endianness with
+    | Endian.Little -> BinReaderLE (bs) :> BinReader
+    | _ -> BinReaderBE (bs) :> BinReader
 
   /// Read a character array of size n at the given offset. This function,
   /// unlike PeekChars, will return the next offset.

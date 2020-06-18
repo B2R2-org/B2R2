@@ -114,6 +114,7 @@ let private parseELF baseAddr offset reader =
     RelocInfo = reloc
     PLT = plt
     Globals = globals
+    ExceptionFrame = ExceptionFrames.parse reader cls secs
     InvalidAddrRanges = invRanges cls segs (fun s -> s.PHAddr + s.PHMemSize)
     NotInFileRanges = invRanges cls segs (fun s -> s.PHAddr + s.PHFileSize)
     ExecutableRanges = execRanges segs

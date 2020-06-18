@@ -794,6 +794,30 @@ type ProgramHeader = {
   PHAlignment: uint64
 }
 
+/// CIE. Common Information Entry.
+type CommonInformationEntry = {
+  Version: uint8
+  AugmentationString: string
+  CodeAlignmentFactor: uint64
+  DataAlignmentFactor: int64
+  ReturnAddressRegister: uint64
+  AugmentationData: byte [] option
+  FDEEncoding: ExceptionHeaderValue
+  FDEApplication: ExceptionHeaderApplication
+}
+
+/// FDE. Frame Description Entry.
+type FrameDescriptionEntry = {
+  PCBegin: Addr
+  PCEnd: Addr
+}
+
+/// The main information block of .eh_frame.
+type CallFrameInformation = {
+  CIERecord: CommonInformationEntry
+  FDERecord: FrameDescriptionEntry []
+}
+
 /// Main ELF format representation.
 type ELF = {
   /// ELF header.
@@ -814,6 +838,8 @@ type ELF = {
   PLT: ARMap<ELFSymbol>
   /// Global symbols (such as R_X86_64_GLOB_DAT).
   Globals: Map<Addr, ELFSymbol>
+  /// Exception frame.
+  ExceptionFrame: CallFrameInformation list
   /// Invalid address ranges.
   InvalidAddrRanges: IntervalSet
   /// Not-in-file address ranges.
