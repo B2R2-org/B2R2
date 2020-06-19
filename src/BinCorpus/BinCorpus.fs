@@ -89,8 +89,11 @@ type Apparatus = {
   CallerMap: CallerMap
   /// Callee map.
   CalleeMap: CalleeMap
-  /// Excluded callee addresses.
+  /// Excluded callee addresses, which will not be included in the Apparatus
+  /// when initialized.
   ExcludedCallees: Set<Addr>
+  /// Recovered information about the binary, such as indirect branch map, etc.
+  RecoveredInfo: RecoveredInfo
 }
 
 [<RequireQualifiedAccess>]
@@ -233,25 +236,25 @@ module Apparatus =
       | Some c -> c.IsNoReturn <- true)
     calleeMap
 
-  let private buildApp hdl entries leaders instrMap indMap noRetInfo exclusion =
+  let private buildApp hdl leaders instrMap exclusion recoveredInfo =
     let acc =
       { Labels = Map.empty; ComplexInstrs = HashSet ()
-        Leaders = leaders; FunctionAddrs = entries }
+        Leaders = leaders; FunctionAddrs = recoveredInfo.Entries }
     (* Find all possible leaders by scanning lifted IRs. We need to do this at
        the IR-level because LowUIR may have intra-instruction branches. *)
     let struct (instrMap, acc) =
-      findLeaders hdl acc instrMap (foldStmts hdl indMap exclusion)
+      findLeaders hdl acc instrMap
+        (foldStmts hdl recoveredInfo.IndirectBranchMap exclusion)
     let calleeMap =
       CalleeMap.build hdl acc.FunctionAddrs exclusion instrMap
-      |> updateNoReturnInfo (fst noRetInfo)
-    let recoveredInfo = RecoveredInfo.init entries indMap noRetInfo
-    let callees = calleeMap.Callees |> Seq.choose (fun x -> x.Addr)
+      |> updateNoReturnInfo (fst recoveredInfo.NoReturnInfo)
     { InstrMap = instrMap
       LabelMap = acc.Labels
       LeaderInfos = acc.Leaders
       CallerMap = CallerMap.build calleeMap
       CalleeMap = calleeMap
-      ExcludedCallees = exclusion }, recoveredInfo
+      ExcludedCallees = exclusion
+      RecoveredInfo = recoveredInfo }
 
   let private initApp hdl auxLeaders exclusion bblBound =
     match auxLeaders with
@@ -261,8 +264,9 @@ module Apparatus =
       let entries = leaders |> Seq.map (fun i -> i.Point.Address) |> Set.ofSeq
       (* First, recursively parse all possible instructions. *)
       let instrMap, leaders = InstrMap.build hdl leaders bblBound
-      let noretInfo = Set.empty, Set.empty
-      buildApp hdl entries leaders instrMap Map.empty noretInfo exclusion
+      let noRetInfo = Set.empty, Set.empty
+      let recoveredInfo = RecoveredInfo.init entries Map.empty noRetInfo
+      buildApp hdl leaders instrMap exclusion recoveredInfo
 
   let inline private append seq = Seq.foldBack Set.add seq
 
@@ -271,17 +275,16 @@ module Apparatus =
     |> Seq.fold (fun acc leader ->
       Set.add leader.Point.Address acc) (getFunctionAddrs app |> Set.ofSeq)
 
-  let private updateApp hdl app entries leaders recoveredInfo =
+  let private updateApp hdl app entries leaders =
     let entries =
-      recoveredInfo.Entries
+      app.RecoveredInfo.Entries
       |> Set.map (fun a -> LeaderInfo.Init (hdl, a))
       |> append entries
     let leaders = app.LeaderInfos |> append leaders |> append entries
-    let funcAddrs = computeFuncAddrs app entries
+    let entries = computeFuncAddrs app entries
     let instrMap, _ = InstrMap.update hdl app.InstrMap None leaders
-    let indMap = recoveredInfo.IndirectBranchMap
-    let noRetInfo = recoveredInfo.NoReturnInfo
-    buildApp hdl funcAddrs leaders instrMap indMap noRetInfo app.ExcludedCallees
+    let recoveredInfo = { app.RecoveredInfo with Entries = entries }
+    buildApp hdl leaders instrMap app.ExcludedCallees recoveredInfo
 
   /// Create a binary apparatus from the given BinHandler. The resulting
   /// apparatus will include default entries found by reading the binary file
@@ -302,18 +305,20 @@ module Apparatus =
     updateApp hdl app entries leaders
 
   /// Register newly recovered entries to the apparatus.
-  let registerRecoveredEntries hdl app recoveredInfo entries =
-    updateApp hdl app entries Seq.empty recoveredInfo
+  let registerRecoveredEntries hdl app entries =
+    updateApp hdl app entries Seq.empty
 
   /// Add a resolved indirect branch target.
-  let addIndirectBranchMap hdl app recoveredInfo indmap =
-    let recoveredInfo = { recoveredInfo with IndirectBranchMap = indmap }
+  let addIndirectBranchMap hdl app indmap =
+    let recoveredInfo = { app.RecoveredInfo with IndirectBranchMap = indmap }
+    let app = { app with RecoveredInfo = recoveredInfo }
     let leaders =
       indmap
       |> Map.fold (fun set _ (targets, _) -> Set.union targets set) Set.empty
       |> Set.map (fun addr -> LeaderInfo.Init (hdl, addr))
-    updateApp hdl app Seq.empty leaders recoveredInfo
+    updateApp hdl app Seq.empty leaders
 
-  let addNoReturnInfo hdl app recoveredInfo noretInfo =
-    let recoveredInfo = { recoveredInfo with NoReturnInfo = noretInfo }
-    updateApp hdl app Seq.empty Seq.empty recoveredInfo
+  let addNoReturnInfo hdl app noRetInfo =
+    let recoveredInfo = { app.RecoveredInfo with NoReturnInfo = noRetInfo }
+    let app = { app with RecoveredInfo = recoveredInfo }
+    updateApp hdl app Seq.empty Seq.empty

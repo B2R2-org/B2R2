@@ -36,7 +36,7 @@ module private LibcAnalysisHelper =
     addrs |> List.fold (fun set a ->
       Set.add (LeaderInfo.Init (hdl, a)) set) Set.empty
 
-  let retrieveAddrsForx86 hdl app recoveredInfo st =
+  let retrieveAddrsForx86 hdl app st =
     let esp = (Intel.Register.ESP |> Intel.Register.toRegID)
     match EvalState.GetReg st esp with
     | Def sp ->
@@ -51,13 +51,13 @@ module private LibcAnalysisHelper =
       |> List.choose id
       |> List.filter (fun addr -> app.InstrMap.ContainsKey addr |> not)
       |> function
-        | [] -> app, recoveredInfo
+        | [] -> app
         | addrs ->
           let entries = buildNewEntrySet hdl addrs
-          Apparatus.registerRecoveredEntries hdl app recoveredInfo entries
-    | Undef -> app, recoveredInfo
+          Apparatus.registerRecoveredEntries hdl app entries
+    | Undef -> app
 
-  let retrieveAddrsForx64 hdl app recoveredInfo st =
+  let retrieveAddrsForx64 hdl app st =
     [ readReg st (Intel.Register.RDI |> Intel.Register.toRegID)
       readReg st (Intel.Register.RCX |> Intel.Register.toRegID)
       readReg st (Intel.Register.R8 |> Intel.Register.toRegID)
@@ -66,52 +66,51 @@ module private LibcAnalysisHelper =
     |> List.map BitVector.toUInt64
     |> List.filter (fun addr -> app.InstrMap.ContainsKey addr |> not)
     |> function
-      | [] -> app, recoveredInfo
+      | [] -> app
       | addrs ->
         let entries = buildNewEntrySet hdl addrs
-        Apparatus.registerRecoveredEntries hdl app recoveredInfo entries
+        Apparatus.registerRecoveredEntries hdl app entries
 
-  let retrieveLibcStartAddresses hdl app recoveredInfo = function
-    | None -> app, recoveredInfo
+  let retrieveLibcStartAddresses hdl app = function
+    | None -> app
     | Some st ->
       match hdl.ISA.Arch with
-      | Arch.IntelX86 -> retrieveAddrsForx86 hdl app recoveredInfo st
-      | Arch.IntelX64 -> retrieveAddrsForx64 hdl app recoveredInfo st
-      | _ -> app, recoveredInfo
+      | Arch.IntelX86 -> retrieveAddrsForx86 hdl app st
+      | Arch.IntelX64 -> retrieveAddrsForx64 hdl app st
+      | _ -> app
 
-  let analyzeLibcStartMain hdl (scfg: SCFG) app recoveredInfo callerAddr =
+  let analyzeLibcStartMain hdl (scfg: SCFG) app callerAddr =
     match scfg.FindFunctionVertex callerAddr with
-    | None -> app, recoveredInfo
+    | None -> app
     | Some root ->
       let st = EvalState (memoryReader hdl, true)
       let rootAddr = root.VData.PPoint.Address
       let st = initRegs hdl |> EvalState.PrepareContext st 0 rootAddr
       try
         eval scfg root st (fun last -> last.Address = callerAddr)
-        |> retrieveLibcStartAddresses hdl app recoveredInfo
-      with _ -> app, recoveredInfo
+        |> retrieveLibcStartAddresses hdl app
+      with _ -> app
 
-  let recoverAddrsFromLibcStartMain hdl scfg app recoveredInfo =
+  let recoverAddrsFromLibcStartMain hdl scfg app =
     match app.CalleeMap.Find "__libc_start_main" with
     | Some callee ->
       match List.tryExactlyOne callee.Callers with
-      | None -> app, recoveredInfo
-      | Some caller -> analyzeLibcStartMain hdl scfg app recoveredInfo caller
-    | None -> app, recoveredInfo
+      | None -> app
+      | Some caller -> analyzeLibcStartMain hdl scfg app caller
+    | None -> app
 
-  let recoverLibcEntries hdl scfg app recoveredInfo =
+  let recoverLibcEntries hdl scfg app =
     match hdl.FileInfo.FileFormat with
     | FileFormat.ELFBinary ->
-      let app', recoveredInfo' =
-        recoverAddrsFromLibcStartMain hdl scfg app recoveredInfo
-      match SCFG.Init (hdl, app', recoveredInfo') with
-      | Ok scfg -> scfg, app', recoveredInfo'
+      let app' = recoverAddrsFromLibcStartMain hdl scfg app
+      match SCFG.Init (hdl, app') with
+      | Ok scfg -> scfg, app'
       | Error e -> failwithf "Failed to recover libc due to %A" e
-    | _ -> scfg, app, recoveredInfo
+    | _ -> scfg, app
 
 type LibcAnalysis () =
   interface IAnalysis with
     member __.Name = "LibC Analysis"
 
-    member __.Run hdl scfg app recoveredInfo =
-      LibcAnalysisHelper.recoverLibcEntries hdl scfg app recoveredInfo
+    member __.Run hdl scfg app =
+      LibcAnalysisHelper.recoverLibcEntries hdl scfg app

@@ -80,7 +80,7 @@ module private NoReturnHelper =
       checkExitSyscall reg exitSyscall exitGrpSyscall st
     | _ -> false
 
-  let findSyscalls hdl scfg (root: Vertex<IRBasicBlock>) =
+  let findExitSyscalls hdl scfg (root: Vertex<IRBasicBlock>) =
     let addr = root.VData.PPoint.Address
     let st = EvalState (memoryReader hdl, true)
     let st = initRegs hdl |> EvalState.PrepareContext st 0 addr
@@ -94,8 +94,8 @@ module private NoReturnHelper =
       if isExit then Some !bblAddr else None
     with _ -> None
 
-  let collectSyscallFallThroughs hdl scfg (cfg: IRCFG) root edges =
-    match findSyscalls hdl scfg root with
+  let collectExitSyscallFallThroughs hdl scfg (cfg: IRCFG) root edges =
+    match findExitSyscalls hdl scfg root with
     | Some addr ->
       match cfg.TryFindVertexBy (fun v ->
         not (v.VData.IsFakeBlock ())
@@ -106,7 +106,7 @@ module private NoReturnHelper =
       | Some v -> v.Succs |> List.fold (fun acc w -> (v, w) :: acc) edges
     | None -> edges
 
-  let checkFirstArgumentX86 hdl st =
+  let checkFirstArgumentX86 st =
     let esp = (Intel.Register.ESP |> Intel.Register.toRegID)
     match EvalState.GetReg st esp with
     | Def sp ->
@@ -116,7 +116,7 @@ module private NoReturnHelper =
       | None -> false
     | Undef -> false
 
-  let checkFirstArgumentX64 hdl st =
+  let checkFirstArgumentX64 st =
     match readReg st (Intel.Register.RDI |> Intel.Register.toRegID) with
     | Some bv -> BitVector.toUInt64 bv <> 0UL
     | None -> false
@@ -125,8 +125,8 @@ module private NoReturnHelper =
     | None -> false
     | Some st ->
       match hdl.ISA.Arch with
-      | Arch.IntelX86 -> checkFirstArgumentX86 hdl st
-      | Arch.IntelX64 -> checkFirstArgumentX64 hdl st
+      | Arch.IntelX86 -> checkFirstArgumentX86 st
+      | Arch.IntelX64 -> checkFirstArgumentX64 st
       | _ -> false
 
   let isNoReturnError hdl scfg (v: Vertex<IRBasicBlock>) =
@@ -162,7 +162,7 @@ module private NoReturnHelper =
 
   let collectFallThroughEdges hdl scfg app cfg root noretAddrs =
     []
-    |> collectSyscallFallThroughs hdl scfg cfg root
+    |> collectExitSyscallFallThroughs hdl scfg cfg root
     |> collectErrorFallThroughs hdl scfg app cfg
     |> collectNoRetFallThroughs cfg noretAddrs
 
@@ -211,8 +211,8 @@ module private NoReturnHelper =
         findLoop hdl scfg app (Set.add v noretVertices) (v.Preds @ vs)
       else findLoop hdl scfg app noretVertices vs
 
-  let getNoReturnFunctions app recoveredInfo noretVertices =
-    let noretFuncs = fst recoveredInfo.NoReturnInfo
+  let getNoReturnFunctions app noretVertices =
+    let noretFuncs = fst app.RecoveredInfo.NoReturnInfo
     noretVertices
     |> Set.fold (fun acc (v: Vertex<CallGraphBBlock>) ->
       let addr = v.VData.PPoint.Address
@@ -220,8 +220,8 @@ module private NoReturnHelper =
       | None -> acc
       | Some _ -> Set.add addr acc) noretFuncs
 
-  let getNoReturnEdges hdl (scfg: SCFG) app recoveredInfo noretFuncs =
-    let edges = snd recoveredInfo.NoReturnInfo
+  let getNoReturnEdges hdl (scfg: SCFG) app noretFuncs =
+    let edges = snd app.RecoveredInfo.NoReturnInfo
     Apparatus.getFunctionAddrs app
     |> Seq.fold (fun acc addr ->
       let cfg, root = scfg.GetFunctionCFG (addr, false)
@@ -231,24 +231,23 @@ module private NoReturnHelper =
       |> Set.ofList
       |> Set.union acc) edges
 
-  let findNoReturnEdges hdl (scfg: SCFG) app recoveredInfo =
+  let findNoReturnEdges hdl (scfg: SCFG) app =
     let lens = CallGraphLens.Init (scfg)
     let cg, _ = lens.Filter scfg.Graph [] app
     let noretFuncs =
       cg.FoldVertex (fun acc v ->
         if List.length v.Succs = 0 then v :: acc else acc) []
       |> findLoop hdl scfg app Set.empty
-      |> getNoReturnFunctions app recoveredInfo
-    let edges = getNoReturnEdges hdl scfg app recoveredInfo noretFuncs
-    Apparatus.addNoReturnInfo hdl app recoveredInfo (noretFuncs, edges)
+      |> getNoReturnFunctions app
+    let edges = getNoReturnEdges hdl scfg app noretFuncs
+    Apparatus.addNoReturnInfo hdl app (noretFuncs, edges)
 
 type NoReturnAnalysis () =
   interface IAnalysis with
     member __.Name = "No-Return Analysis"
 
-    member __.Run hdl scfg app recoveredInfo =
-      let app', recoveredInfo' =
-        NoReturnHelper.findNoReturnEdges hdl scfg app recoveredInfo
-      match SCFG.Init (hdl, app', recoveredInfo') with
-      | Ok scfg -> scfg, app', recoveredInfo'
+    member __.Run hdl scfg app =
+      let app' = NoReturnHelper.findNoReturnEdges hdl scfg app
+      match SCFG.Init (hdl, app') with
+      | Ok scfg -> scfg, app'
       | Error e -> failwithf "Failed to run no-return analysis due to %A" e

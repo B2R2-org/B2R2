@@ -37,15 +37,15 @@ exception InvalidFunctionAddressException
 /// than the one from disassembly. That is, a single machine instruction (thus,
 /// a single basic block) may correspond to multiple basic blocks in the
 /// LowUIR-level CFG.
-type SCFG internal (app, recoveredInfo, g, vertices) =
+type SCFG internal (app, g, vertices) =
   let mutable boundaries = IntervalSet.empty
-  let g = SCFGUtils.removeDanglings app recoveredInfo g
+  let g = SCFGUtils.removeDanglings app g
   do boundaries <- SCFGUtils.computeBoundaries app vertices
 
   /// SCFG should be constructed only via this method. The ignoreIllegal
   /// argument indicates we will ignore any illegal vertices/edges during the
   /// creation of an SCFG.
-  static member Init (hdl, app, recoveredInfo, ?ignoreIllegal) =
+  static member Init (hdl, app, ?ignoreIllegal) =
     let g = IRCFG ()
     let ignoreIllegal = defaultArg ignoreIllegal true
     let vertices = SCFGUtils.VMap ()
@@ -55,9 +55,9 @@ type SCFG internal (app, recoveredInfo, g, vertices) =
     |> iter (SCFGUtils.createNode g app vertices leaders)
     |> Result.bind (fun () ->
       [ 0 .. leaders.Length - 1 ]
-      |> iter (SCFGUtils.joinEdges hdl g app recoveredInfo vertices leaders)
+      |> iter (SCFGUtils.joinEdges hdl g app vertices leaders)
       |> Result.bind (fun () ->
-        SCFG (app, recoveredInfo, g, vertices) |> Ok))
+        SCFG (app, g, vertices) |> Ok))
 
   /// The actual graph data structure of the SCFG.
   member __.Graph with get () = g

@@ -207,7 +207,7 @@ let interactiveMain files (opts: BinExplorerOpts) =
               Type --help or --batch to see more info."; exit 1
   else
     let file = List.head files
-    let ess, _ = initBinHdl opts.ISA file |> buildGraph opts
+    let ess = initBinHdl opts.ISA file |> buildGraph opts
     if opts.JsonDumpDir <> "" then dumpJsonFiles opts.JsonDumpDir ess else ()
     let arbiter = Protocol.genArbiter ess opts.LogFile
     startGUI opts arbiter
@@ -251,17 +251,17 @@ let batchRun opts paths fstParam restParams fn =
          fn cmdMap opts file fstParam restParams) arr)
 
 let runCommand cmdMap opts file cmd args =
-  let ess, _ = initBinHdl ISA.DefaultISA file |> buildGraph opts
+  let ess = initBinHdl ISA.DefaultISA file |> buildGraph opts
   Cmd.handle cmdMap ess cmd args
   |> Array.iter System.Console.WriteLine
 
 let dumpSwitch _cmdMap opts file outdir _args =
-  let ess, recoveredInfo = initBinHdl ISA.DefaultISA file |> buildGraph opts
+  let ess = initBinHdl ISA.DefaultISA file |> buildGraph opts
   let file = file.Replace (System.IO.Path.DirectorySeparatorChar, '_')
   let file = file.Replace (':', '_')
   let outpath = System.IO.Path.Combine (outdir, file)
   use writer = System.IO.File.CreateText (outpath)
-  recoveredInfo.IndirectBranchMap
+  ess.Apparatus.RecoveredInfo.IndirectBranchMap
   |> Map.iter (fun fromAddr (targets, _tblInfo) ->
     targets
     |> Set.iter (fun target ->

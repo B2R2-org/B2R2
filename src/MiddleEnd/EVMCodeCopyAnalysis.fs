@@ -46,24 +46,24 @@ type EVMCodeCopyAnalysis () =
         LeaderInfo.Init (pp, ArchOperationMode.NoMode, offset) |> Some
       | _ -> None)
 
-  let recoverCopiedCode hdl app recoveredInfo =
+  let recoverCopiedCode hdl app =
     app.InstrMap
-    |> Seq.fold (fun (app, recoveredInfo) (KeyValue (_, ins)) ->
+    |> Seq.fold (fun app (KeyValue (_, ins)) ->
       match ins.Stmts |> findCodeCopy with
-      | None -> app, recoveredInfo
+      | None -> app
       | Some leader ->
         match app.CalleeMap.Find leader.Point.Address with
         | None ->
           let entrySet = Set.singleton leader
-          Apparatus.registerRecoveredEntries hdl app recoveredInfo entrySet
-        | Some _ -> app, recoveredInfo) (app, recoveredInfo)
+          Apparatus.registerRecoveredEntries hdl app entrySet
+        | Some _ -> app) app
 
   interface IAnalysis with
     member __.Name = "EVM Code Copy Analysis"
 
-    member __.Run hdl scfg app recoveredInfo =
+    member __.Run hdl scfg app =
       match hdl.FileInfo.ISA.Arch with
       | Architecture.EVM ->
-        let app, recoveredInfo = recoverCopiedCode hdl app recoveredInfo
-        scfg, app, recoveredInfo
-      | _ -> scfg, app, recoveredInfo
+        let app = recoverCopiedCode hdl app
+        scfg, app
+      | _ -> scfg, app

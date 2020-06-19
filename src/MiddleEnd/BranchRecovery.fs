@@ -290,10 +290,11 @@ module private BranchRecoveryHelper =
     | JmpTable (_, iAddr, targets, table, rt) ->
       Map.add iAddr (targets, Some (table, rt)) indmap
 
-  let rec recover (noReturn: IAnalysis) hdl scfg app rInfo =
-    let scfg, app, rInfo = noReturn.Run hdl scfg app rInfo
+  let rec recover (noReturn: IAnalysis) hdl scfg app =
+    let scfg, app = noReturn.Run hdl scfg app
     let callees = computeCalleeAddrs hdl app
     let boundaries = computeFunctionBoundary Map.empty callees
+    let rInfo = app.RecoveredInfo
     let indmap = rInfo.IndirectBranchMap
     let branchInfo, jmpTblInfo =
       callees |> List.fold (analyzeBranches hdl app scfg) ([], [])
@@ -301,15 +302,15 @@ module private BranchRecoveryHelper =
       inferGOTIndexedBranchTargets hdl rInfo boundaries jmpTblInfo branchInfo
       |> List.fold updateIndirectBranchMap indmap
     if indmap <> indmap' then
-      let app, rInfo = Apparatus.addIndirectBranchMap hdl app rInfo indmap'
-      match SCFG.Init (hdl, app, rInfo) with
+      let app = Apparatus.addIndirectBranchMap hdl app indmap'
+      match SCFG.Init (hdl, app) with
       | Ok scfg ->
 #if DEBUG
         printfn "[*] Go to the next phase ..."
 #endif
-        recover noReturn hdl scfg app rInfo
+        recover noReturn hdl scfg app
       | Error e -> failwithf "Failed to recover switch due to %A" e
-    else scfg, app, rInfo
+    else scfg, app
 
 type BranchRecovery (enableNoReturn) =
   let noReturn =
@@ -319,5 +320,5 @@ type BranchRecovery (enableNoReturn) =
   interface IAnalysis with
     member __.Name = "Indirect Branch Recovery"
 
-    member __.Run hdl scfg app recoveredInfo =
-      BranchRecoveryHelper.recover noReturn hdl scfg app recoveredInfo
+    member __.Run hdl scfg app =
+      BranchRecoveryHelper.recover noReturn hdl scfg app

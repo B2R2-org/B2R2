@@ -33,13 +33,17 @@ type JmpTargetMap = Map<Addr, Addr list>
 /// Jump table (for switch-case) information: (table range * entry size).
 type JumpTableInfo = AddrRange * RegType
 
+/// Basic-block addresses of callers of no-return function, and program points
+/// of no-return call.
 type NoReturnInfo = Set<Addr> * Set<ProgramPoint>
 
+/// Recovered information about the binary under analysis.
 type RecoveredInfo = {
   /// Recovered function entries.
   Entries: Set<Addr>
   /// Indirect branches' target addresses.
   IndirectBranchMap: Map<Addr, Set<Addr> * JumpTableInfo option>
+  /// No return function addresses and program points.
   NoReturnInfo: NoReturnInfo
 }
 

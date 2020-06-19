@@ -177,8 +177,9 @@ let private addIndirectEdges (g: IRCFG) app recoveredInfo vmap src isCall =
   | false, _ -> addResolvedIndirectEdges g recoveredInfo vmap src srcAddr isCall
   | true, callees -> callees |> Set.iter add
 
-let joinEdges _ (g: IRCFG) app rInfo vmap (leaders: ProgramPoint[]) idx =
+let joinEdges _ (g: IRCFG) app vmap (leaders: ProgramPoint[]) idx =
   let leader = leaders.[idx]
+  let rInfo = app.RecoveredInfo
   match (vmap: VMap).TryGetValue leader with
   | false, _ -> Error EdgeCreationError
   | true, src ->
@@ -277,9 +278,9 @@ let removeInstrs app (v: Vertex<IRBasicBlock>) ranges =
     if List.exists (isContained instr.Address) ranges then
       instrMap.Remove instr.Address |> ignore)
 
-let removeDanglings app recoveredInfo (g: IRCFG) =
+let removeDanglings app (g: IRCFG) =
   let rangeMap = g.FoldVertex buildNodeRangeMap IntervalMap.empty
-  getDanglingNodes recoveredInfo g
+  getDanglingNodes app.RecoveredInfo g
   |> List.iter (fun v ->
     calcInstrRemovalRanges v.VData.Range rangeMap
     |> removeInstrs app v
