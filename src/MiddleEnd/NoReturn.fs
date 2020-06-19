@@ -233,6 +233,7 @@ module private NoReturnHelper =
     |> Seq.fold (fun acc addr ->
       let cfg, root = scfg.GetFunctionCFG (addr, false)
       collectFallThroughEdges hdl scfg app cfg root noretFuncs
+      |> List.filter (fun (src, dst) -> cfg.FindEdgeData src dst <> RetEdge)
       |> List.map (fun (src, _) -> src.VData.PPoint)
       |> Set.ofList
       |> Set.union acc) edges
