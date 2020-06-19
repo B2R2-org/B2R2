@@ -42,22 +42,23 @@ type BinEssence = {
   SCFG: SCFG
 }
 with
-  static member private Analyze hdl scfg app analyses =
+  static member private Analyze hdl scfg app recoveredInfo analyses =
     analyses
-    |> List.fold (fun (scfg, app) (analysis: IAnalysis) ->
+    |> List.fold (fun (scfg, app, recoveredInfo) (analysis: IAnalysis) ->
 #if DEBUG
       printfn "[*] %s started." analysis.Name
 #endif
-      analysis.Run hdl scfg app) (scfg, app)
+      analysis.Run hdl scfg app recoveredInfo) (scfg, app, recoveredInfo)
 
   static member Init hdl postAnalyses =
 #if DEBUG
     let startTime = System.DateTime.Now
 #endif
-    let app = Apparatus.init hdl
-    match SCFG.Init (hdl, app) with
+    let app, recoveredInfo = Apparatus.init hdl
+    match SCFG.Init (hdl, app, recoveredInfo) with
     | Ok scfg ->
-      let scfg, app = BinEssence.Analyze hdl scfg app postAnalyses
+      let scfg, app, recoveredInfo =
+        BinEssence.Analyze hdl scfg app recoveredInfo postAnalyses
 #if DEBUG
       let endTime = System.DateTime.Now
       endTime.Subtract(startTime).TotalSeconds
@@ -65,5 +66,5 @@ with
 #endif
       { BinHandler = hdl
         Apparatus = app
-        SCFG = scfg }
+        SCFG = scfg }, recoveredInfo
     | Error e -> failwithf "Failed to initiate BinEssence due to %A" e

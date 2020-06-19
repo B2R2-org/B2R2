@@ -30,13 +30,6 @@ open B2R2.FrontEnd
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 
-/// A mapping from an instruction address to computed jump targets. This table
-/// stores only "computed" jump targets.
-type JmpTargetMap = Map<Addr, Addr list>
-
-/// Jump table (for switch-case) information: (table range * entry size).
-type JumpTableInfo = AddrRange * RegType
-
 /// <summary>
 ///   Binary apparatus (Apparatus) contains the key components and information
 ///   about our CFG analysis, such as all the parsed instructions from the
@@ -92,14 +85,10 @@ type Apparatus = {
   LabelMap: Map<Symbol, Addr * int>
   /// Leader set.
   LeaderInfos: Set<LeaderInfo>
-  /// Recovered function entries.
-  RecoveredEntries: Set<LeaderInfo>
   /// Caller map.
   CallerMap: CallerMap
   /// Callee map.
   CalleeMap: CalleeMap
-  /// Indirect branches' target addresses.
-  IndirectBranchMap: Map<Addr, Set<Addr> * JumpTableInfo option>
   /// Excluded callee addresses.
   ExcludedCallees: Set<Addr>
 }
@@ -255,14 +244,13 @@ module Apparatus =
     let calleeMap =
       CalleeMap.build hdl acc.FunctionAddrs instrMap
       |> updateNoReturnInfo noRets
+    let recoveredInfo = RecoveredInfo.init entries indMap
     { InstrMap = instrMap
       LabelMap = acc.Labels
       LeaderInfos = acc.Leaders
-      RecoveredEntries = Set.map (fun a -> LeaderInfo.Init (hdl, a)) entries
-      IndirectBranchMap = indMap
       CallerMap = CallerMap.build calleeMap
       CalleeMap = calleeMap
-      ExcludedCallees = exclusion }
+      ExcludedCallees = exclusion }, recoveredInfo
 
   let private initApp hdl auxLeaders exclusion bblBound =
     match auxLeaders with
@@ -281,12 +269,15 @@ module Apparatus =
     |> Seq.fold (fun acc leader ->
       Set.add leader.Point.Address acc) (getFunctionAddrs app |> Set.ofSeq)
 
-  let private updateApp hdl app entries leaders =
-    let entries = Seq.foldBack Set.add entries app.RecoveredEntries
+  let private updateApp hdl app entries leaders recoveredInfo =
+    let entries =
+      recoveredInfo.Entries
+      |> Set.map (fun a -> LeaderInfo.Init (hdl, a))
+      |> append entries
     let leaders = app.LeaderInfos |> append leaders |> append entries
     let funcAddrs = computeFuncAddrs app entries
     let instrMap, _ = InstrMap.update hdl app.InstrMap None leaders
-    let indMap = app.IndirectBranchMap
+    let indMap = recoveredInfo.IndirectBranchMap
     let noRets =
       app.CalleeMap.Callees
       |> Seq.filter (fun callee -> callee.IsNoReturn)
@@ -312,12 +303,14 @@ module Apparatus =
     updateApp hdl app entries leaders
 
   /// Register newly recovered entries to the apparatus.
-  let registerRecoveredEntries hdl app entries =
-    updateApp hdl app entries Seq.empty
+  let registerRecoveredEntries hdl app recoveredInfo entries =
+    updateApp hdl app entries Seq.empty recoveredInfo
 
   /// Add a resolved indirect branch target.
-  let addIndirectBranchMap app indmap =
-    let indmap' =
-      Map.fold (fun acc fromAddr indbranchinfo ->
-        Map.add fromAddr indbranchinfo acc) app.IndirectBranchMap indmap
-    { app with IndirectBranchMap = indmap' }
+  let addIndirectBranchMap hdl app recoveredInfo indmap =
+    let recoveredInfo = { recoveredInfo with IndirectBranchMap = indmap }
+    let leaders =
+      indmap
+      |> Map.fold (fun set _ (targets, _) -> Set.union targets set) Set.empty
+      |> Set.map (fun addr -> LeaderInfo.Init (hdl, addr))
+    updateApp hdl app Seq.empty leaders recoveredInfo

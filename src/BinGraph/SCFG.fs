@@ -44,7 +44,7 @@ type SCFG internal (app, g, vertices) =
   /// SCFG should be constructed only via this method. The ignoreIllegal
   /// argument indicates we will ignore any illegal vertices/edges during the
   /// creation of an SCFG.
-  static member Init (hdl, app, ?ignoreIllegal) =
+  static member Init (hdl, app, recoveredInfo, ?ignoreIllegal) =
     let g = IRCFG ()
     let ignoreIllegal = defaultArg ignoreIllegal true
     let vertices = SCFGUtils.VMap ()
@@ -54,7 +54,7 @@ type SCFG internal (app, g, vertices) =
     |> iter (SCFGUtils.createNode g app vertices leaders)
     |> Result.bind (fun () ->
       [ 0 .. leaders.Length - 1 ]
-      |> iter (SCFGUtils.joinEdges hdl g app vertices leaders)
+      |> iter (SCFGUtils.joinEdges hdl g app recoveredInfo vertices leaders)
       |> Result.bind (fun () ->
         SCFG (app, g, vertices) |> Ok))
 

@@ -36,4 +36,9 @@ type IAnalysis =
   abstract Name: string
 
   /// Run the analysis.
-  abstract Run: BinHandler -> SCFG -> Apparatus -> SCFG * Apparatus
+  abstract Run:
+    BinHandler
+    -> SCFG
+    -> Apparatus
+    -> RecoveredInfo
+    -> SCFG * Apparatus * RecoveredInfo

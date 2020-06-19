@@ -232,8 +232,8 @@ type NoReturnAnalysis () =
   interface IAnalysis with
     member __.Name = "No-Return Analysis"
 
-    member __.Run hdl scfg app =
+    member __.Run hdl scfg app recoveredInfo =
       let app' = NoReturnHelper.findNoReturnEdges hdl scfg app
-      match SCFG.Init (hdl, app') with
-      | Ok scfg -> scfg, app'
+      match SCFG.Init (hdl, app', recoveredInfo) with
+      | Ok scfg -> scfg, app', recoveredInfo
       | Error e -> failwithf "Failed to run no-return analysis due to %A" e

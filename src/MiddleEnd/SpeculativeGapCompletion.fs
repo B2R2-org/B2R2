@@ -45,8 +45,9 @@ module private SpeculativeGapCompletionHelper =
 
   let rec shiftUntilValid hdl scfg entries (gap: AddrRange) =
     let entry = LeaderInfo.Init (hdl, gap.Min) |> Set.singleton
-    let app' = Apparatus.initByEntries hdl entry Set.empty (Some gap.Max)
-    match SCFG.Init (hdl, app', false) with
+    let app', recoveredInfo =
+      Apparatus.initByEntries hdl entry Set.empty (Some gap.Max)
+    match SCFG.Init (hdl, app', recoveredInfo, false) with
     | Error _ ->
       if gap.Min + 1UL = gap.Max then entries
       else
@@ -62,42 +63,44 @@ module private SpeculativeGapCompletionHelper =
   let shiftGaps fn gaps =
     gaps |> List.fold fn []
 
-  let updateResults hdl scfg app (_, resultApp) =
-    let app =
+  let updateResults hdl scfg app recoveredInfo (_, resultApp, _) =
+    let app, recoveredInfo =
       Apparatus.getFunctionAddrs resultApp
       |> Set.ofSeq
       |> Set.map (fun addr -> LeaderInfo.Init (hdl, addr))
-      |> Apparatus.registerRecoveredEntries hdl app
-    match SCFG.Init (hdl, app) with
-    | Ok scfg -> scfg, app
-    | Error _ -> scfg, app
+      |> Apparatus.registerRecoveredEntries hdl app recoveredInfo
+    match SCFG.Init (hdl, app, recoveredInfo) with
+    | Ok scfg -> scfg, app, recoveredInfo
+    | Error _ -> scfg, app, recoveredInfo
 
-  let rec recoverGaps (branchRecovery: IAnalysis) hdl (scfg: SCFG) app gaps =
+  let rec recoverGaps branchRecovery hdl (scfg: SCFG) app rInfo gaps =
     match shiftGaps (shiftUntilValid hdl scfg) gaps with
-    | [] -> scfg, app
+    | [] -> scfg, app, rInfo
     | gaps ->
       let ents =
         gaps |> List.map (fun g -> LeaderInfo.Init (hdl, g.Min)) |> Set.ofList
       let exclusion = Apparatus.getFunctionAddrs app |> Set.ofSeq
-      let partialApp = Apparatus.initByEntries hdl ents exclusion None
-      match SCFG.Init (hdl, partialApp, false) with
+      let partialApp, partialRInfo =
+        Apparatus.initByEntries hdl ents exclusion None
+      match SCFG.Init (hdl, partialApp, partialRInfo, false) with
       | Ok partialCFG ->
-        let scfg, app =
-          branchRecovery.Run hdl partialCFG partialApp
-          |> updateResults hdl scfg app
+        let scfg, app, recoveredInfo =
+          (branchRecovery: IAnalysis).Run hdl partialCFG partialApp partialRInfo
+          |> updateResults hdl scfg app rInfo
         gaps
         |> List.map (fun gap -> findGaps app gap.Min gap.Max)
         |> List.concat
-        |> recoverGaps branchRecovery hdl scfg app
-      | _ -> recoverGaps branchRecovery hdl scfg app (shiftGaps shiftByOne gaps)
+        |> recoverGaps branchRecovery hdl scfg app rInfo
+      | _ ->
+        recoverGaps branchRecovery hdl scfg app rInfo (shiftGaps shiftByOne gaps)
 
-  let run branchRecovery hdl (scfg: SCFG) app =
+  let run branchRecovery hdl (scfg: SCFG) app recoveredInfo =
     hdl.FileInfo.GetTextSections ()
     |> Seq.map (fun sec ->
       let sAddr, eAddr = sec.Address, sec.Address + sec.Size
       findGaps app sAddr eAddr)
     |> List.concat
-    |> recoverGaps branchRecovery hdl scfg app
+    |> recoverGaps branchRecovery hdl scfg app recoveredInfo
 
 type SpeculativeGapCompletion (enableNoReturn) =
   let branchRecovery = BranchRecovery (enableNoReturn) :> IAnalysis
@@ -105,5 +108,5 @@ type SpeculativeGapCompletion (enableNoReturn) =
   interface IAnalysis with
     member __.Name = "Speculative Gap Completion"
 
-    member __.Run hdl scfg app =
-      SpeculativeGapCompletionHelper.run branchRecovery hdl scfg app
+    member __.Run hdl scfg app rInfo =
+      SpeculativeGapCompletionHelper.run branchRecovery hdl scfg app rInfo

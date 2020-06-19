@@ -95,7 +95,7 @@ type CFGTest1 () =
 
   let isa = ISA.Init Architecture.IntelX64 Endian.Little
   let hdl = BinHandler.Init (isa, binary)
-  let ess = BinEssence.Init hdl [ NoReturnAnalysis () ]
+  let ess, _ = BinEssence.Init hdl [ NoReturnAnalysis () ]
 
   [<TestMethod>]
   member __.``Boundary Test: Function Identification`` () =
@@ -243,7 +243,7 @@ type CFGTest2 () =
 
   let isa = ISA.Init Architecture.IntelX86 Endian.Little
   let hdl = BinHandler.Init (isa, binary)
-  let ess = BinEssence.Init hdl [ NoReturnAnalysis () ]
+  let ess, _ = BinEssence.Init hdl [ NoReturnAnalysis () ]
 
   [<TestMethod>]
   member __.``Boundary Test: Function Identification`` () =

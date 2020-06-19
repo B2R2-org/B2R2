@@ -225,8 +225,8 @@ module private BranchRecoveryHelper =
         let fromApp = Set.minElement s
         min fromAnalysis fromApp |> Some
 
-  let computeTableAddrs app =
-    app.IndirectBranchMap
+  let computeTableAddrs recoveredInfo =
+    recoveredInfo.IndirectBranchMap
     |> Map.fold (fun acc _ (_, info) ->
       match info with
       | None -> acc
@@ -237,26 +237,26 @@ module private BranchRecoveryHelper =
     if Set.isEmpty targets then acc
     else JmpTable (lb, iAddr, targets, AddrRange (sAddr, eAddr), t) :: acc
 
-  let checkDefinedTable app iAddr sAddr =
-    app.IndirectBranchMap
+  let checkDefinedTable recoveredInfo iAddr sAddr =
+    recoveredInfo.IndirectBranchMap
     |> Map.exists (fun addr (_, info) ->
       match info with
       | None -> false
       | Some (range, _) -> sAddr = range.Min && iAddr <> addr)
 
-  let inferGOTIndexedBranchTargets hdl app boundaries jmpTblInfo infos =
-    let tableAddrs = computeTableAddrs app
+  let inferGOTIndexedBranchTargets hdl rInfo boundaries jmpTblInfo infos =
+    let tableAddrs = computeTableAddrs rInfo
     let rec infer acc = function
       | [] -> acc
       | [ (entry, iAddr, bAddr, sAddr, t) ] ->
-        if checkDefinedTable app iAddr sAddr then acc
+        if checkDefinedTable rInfo iAddr sAddr then acc
         else
           let lb, ub = Map.find entry boundaries (* function boundaries *)
           let max = getMaxAddr tableAddrs sAddr None
           let targets, eAddr = readTargets hdl lb ub bAddr max sAddr t Set.empty
           accJmpTableInfo acc targets lb iAddr sAddr eAddr t
       | (entry, iAddr, bAddr, s1, t) :: (((_, _, _, s2, _) :: _) as next) ->
-        if checkDefinedTable app iAddr s1 then infer acc next
+        if checkDefinedTable rInfo iAddr s1 then infer acc next
         else
           let lb, ub = Map.find entry boundaries
           let max = getMaxAddr tableAddrs s1 (Some s2)
@@ -284,38 +284,32 @@ module private BranchRecoveryHelper =
       analyzeIndirectBranch ssaCFG cpstate addr constBranches jmpTblInfo
     else constBranches, jmpTblInfo
 
-  let newLeaders hdl indmap =
-    indmap
-    |> Map.fold (fun set _ (targets, _) -> Set.union targets set) Set.empty
-    |> Set.map (fun addr -> LeaderInfo.Init (hdl, addr))
-
   let updateIndirectBranchMap indmap = function
     | ConstJmp (_, iAddr, target) ->
       Map.add iAddr (Set.singleton target, None) indmap
     | JmpTable (_, iAddr, targets, table, rt) ->
       Map.add iAddr (targets, Some (table, rt)) indmap
 
-  let rec recover (noReturn: IAnalysis) hdl scfg app =
-    let scfg, app = noReturn.Run hdl scfg app
+  let rec recover (noReturn: IAnalysis) hdl scfg app rInfo =
+    let scfg, app, rInfo = noReturn.Run hdl scfg app rInfo
     let callees = computeCalleeAddrs hdl app
     let boundaries = computeFunctionBoundary Map.empty callees
-    let indmap = app.IndirectBranchMap
+    let indmap = rInfo.IndirectBranchMap
     let branchInfo, jmpTblInfo =
       callees |> List.fold (analyzeBranches hdl app scfg) ([], [])
     let indmap' =
-      inferGOTIndexedBranchTargets hdl app boundaries jmpTblInfo branchInfo
+      inferGOTIndexedBranchTargets hdl rInfo boundaries jmpTblInfo branchInfo
       |> List.fold updateIndirectBranchMap indmap
     if indmap <> indmap' then
-      let app = Apparatus.addIndirectBranchMap app indmap'
-      let app = Apparatus.update hdl app Seq.empty (newLeaders hdl indmap')
-      match SCFG.Init (hdl, app) with
+      let app, rInfo = Apparatus.addIndirectBranchMap hdl app rInfo indmap'
+      match SCFG.Init (hdl, app, rInfo) with
       | Ok scfg ->
 #if DEBUG
         printfn "[*] Go to the next phase ..."
 #endif
-        recover noReturn hdl scfg app
+        recover noReturn hdl scfg app rInfo
       | Error e -> failwithf "Failed to recover switch due to %A" e
-    else scfg, app
+    else scfg, app, rInfo
 
 type BranchRecovery (enableNoReturn) =
   let noReturn =
@@ -325,5 +319,5 @@ type BranchRecovery (enableNoReturn) =
   interface IAnalysis with
     member __.Name = "Indirect Branch Recovery"
 
-    member __.Run hdl scfg app =
-      BranchRecoveryHelper.recover noReturn hdl scfg app
+    member __.Run hdl scfg app recoveredInfo =
+      BranchRecoveryHelper.recover noReturn hdl scfg app recoveredInfo

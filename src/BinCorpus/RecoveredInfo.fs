@@ -22,9 +22,26 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd
+namespace B2R2.BinCorpus
 
-type NoAnalysis () =
-  interface IAnalysis with
-    member __.Name = "No Analysis"
-    member __.Run _hdl scfg app recoveredInfo = scfg, app, recoveredInfo
+open B2R2
+
+/// A mapping from an instruction address to computed jump targets. This table
+/// stores only "computed" jump targets.
+type JmpTargetMap = Map<Addr, Addr list>
+
+/// Jump table (for switch-case) information: (table range * entry size).
+type JumpTableInfo = AddrRange * RegType
+
+type RecoveredInfo = {
+  /// Recovered function entries.
+  Entries: Set<Addr>
+  /// Indirect branches' target addresses.
+  IndirectBranchMap: Map<Addr, Set<Addr> * JumpTableInfo option>
+}
+
+module RecoveredInfo =
+
+  let init entries indmap =
+    { Entries = entries
+      IndirectBranchMap = indmap }
