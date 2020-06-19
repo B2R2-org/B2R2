@@ -129,6 +129,17 @@ type SCFG internal (app, g, vertices) =
             printfn "[W] Illegal fall-through edge (%x) ignored." fallPp.Address
 #endif
             ()
+      | InterJmpEdge ->
+        match app.CalleeMap.Find (child.VData.PPoint.Address) with
+        | Some _ ->
+          let childPp = child.VData.PPoint
+          let fake = IRBasicBlock ([||], childPp)
+          let child = newGraph.AddVertex fake
+          newGraph.AddEdge parent child CallEdge
+        | _ ->
+          let child = getVertex child.VData.PPoint
+          newGraph.AddEdge parent child e
+          loop child.VData.PPoint
       | _ ->
         let child = getVertex child.VData.PPoint
         newGraph.AddEdge parent child e
