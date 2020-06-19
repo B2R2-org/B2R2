@@ -261,7 +261,8 @@ module Apparatus =
       let entries = leaders |> Seq.map (fun i -> i.Point.Address) |> Set.ofSeq
       (* First, recursively parse all possible instructions. *)
       let instrMap, leaders = InstrMap.build hdl leaders bblBound
-      buildApp hdl entries leaders instrMap Map.empty (Set.empty, []) exclusion
+      let noretInfo = Set.empty, Set.empty
+      buildApp hdl entries leaders instrMap Map.empty noretInfo exclusion
 
   let inline private append seq = Seq.foldBack Set.add seq
 

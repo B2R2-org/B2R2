@@ -119,7 +119,7 @@ let private addInterEdge (g: IRCFG) (vmap: VMap) src addr edgeProp =
 let isNoReturn recoveredInfo (src: Vertex<IRBasicBlock>) =
   recoveredInfo.NoReturnInfo
   |> snd
-  |> List.contains src.VData.PPoint
+  |> Set.contains src.VData.PPoint
 
 let private addFallthroughEdge g recoveredInfo vmap src isPseudo =
   if isNoReturn recoveredInfo src then ()

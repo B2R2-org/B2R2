@@ -33,7 +33,7 @@ type JmpTargetMap = Map<Addr, Addr list>
 /// Jump table (for switch-case) information: (table range * entry size).
 type JumpTableInfo = AddrRange * RegType
 
-type NoReturnInfo = Set<Addr> * ProgramPoint list
+type NoReturnInfo = Set<Addr> * Set<ProgramPoint>
 
 type RecoveredInfo = {
   /// Recovered function entries.

@@ -37,7 +37,7 @@ exception InvalidFunctionAddressException
 /// than the one from disassembly. That is, a single machine instruction (thus,
 /// a single basic block) may correspond to multiple basic blocks in the
 /// LowUIR-level CFG.
-type SCFG internal (app, g, vertices) =
+type SCFG internal (app, recoveredInfo, g, vertices) =
   let mutable boundaries = IntervalSet.empty
   do boundaries <- SCFGUtils.computeBoundaries app vertices
 
@@ -56,7 +56,7 @@ type SCFG internal (app, g, vertices) =
       [ 0 .. leaders.Length - 1 ]
       |> iter (SCFGUtils.joinEdges hdl g app recoveredInfo vertices leaders)
       |> Result.bind (fun () ->
-        SCFG (app, g, vertices) |> Ok))
+        SCFG (app, recoveredInfo, g, vertices) |> Ok))
 
   /// The actual graph data structure of the SCFG.
   member __.Graph with get () = g

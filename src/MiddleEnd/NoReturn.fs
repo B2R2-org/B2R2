@@ -218,22 +218,24 @@ module private NoReturnHelper =
         findLoop hdl scfg app (Set.add v noretVertices) (v.Preds @ vs)
       else findLoop hdl scfg app noretVertices vs
 
-  let getNoReturnFunctions app noretVertices =
+  let getNoReturnFunctions app recoveredInfo noretVertices =
+    let noretFuncs = fst recoveredInfo.NoReturnInfo
     noretVertices
     |> Set.fold (fun acc (v: Vertex<CallGraphBBlock>) ->
       let addr = v.VData.PPoint.Address
       match app.CalleeMap.Find (addr) with
       | None -> acc
-      | Some callee -> Set.add addr acc) Set.empty
+      | Some callee -> Set.add addr acc) noretFuncs
 
-  let getNoReturnEdges hdl (scfg: SCFG) app noretFuncs =
+  let getNoReturnEdges hdl (scfg: SCFG) app recoveredInfo noretFuncs =
+    let edges = snd recoveredInfo.NoReturnInfo
     Apparatus.getFunctionAddrs app
     |> Seq.fold (fun acc addr ->
       let cfg, root = scfg.GetFunctionCFG (addr, false)
-      let edges =
-        collectFallThroughEdges hdl scfg app cfg root noretFuncs
-        |> List.map (fun (src, _) -> src.VData.PPoint)
-      edges @ acc) []
+      collectFallThroughEdges hdl scfg app cfg root noretFuncs
+      |> List.map (fun (src, _) -> src.VData.PPoint)
+      |> Set.ofList
+      |> Set.union acc) edges
 
   let findNoReturnEdges hdl (scfg: SCFG) app recoveredInfo =
     let lens = CallGraphLens.Init (scfg)
@@ -242,8 +244,8 @@ module private NoReturnHelper =
       cg.FoldVertex (fun acc v ->
         if List.length v.Succs = 0 then v :: acc else acc) []
       |> findLoop hdl scfg app Set.empty
-      |> getNoReturnFunctions app
-    let edges = getNoReturnEdges hdl scfg app noretFuncs
+      |> getNoReturnFunctions app recoveredInfo
+    let edges = getNoReturnEdges hdl scfg app recoveredInfo noretFuncs
     Apparatus.addNoReturnInfo hdl app recoveredInfo (noretFuncs, edges)
 
 type NoReturnAnalysis () =
