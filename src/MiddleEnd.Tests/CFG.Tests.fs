@@ -184,26 +184,18 @@ type CFGTest1 () =
   [<TestMethod>]
   member __.``Vertex Test: bar`` () =
     let cfg, _ = ess.SCFG.GetFunctionCFG 0x71UL
-    Assert.AreEqual (2, cfg.Size ())
+    Assert.AreEqual (1, cfg.Size ())
     let vMap = cfg.FoldVertex Utils.foldVertexNoFake Map.empty
-    let leaders = [| ProgramPoint (0x71UL, 0); ProgramPoint (0x81UL, 0) |]
+    let leaders = [| ProgramPoint (0x71UL, 0) |]
     let actual = leaders |> Array.map (fun l -> (Map.find l vMap).VData.Range)
-    let expected = [| AddrRange (0x71UL, 0x81UL); AddrRange (0x81UL, 0x84UL) |]
+    let expected = [| AddrRange (0x71UL, 0x81UL) |]
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
   member __.``Edge Test: bar`` () =
     let cfg, _ = ess.SCFG.GetFunctionCFG 0x71UL
-    let vMap = cfg.FoldVertex Utils.foldVertexNoFake Map.empty
-    let leaders = [| ProgramPoint (0x71UL, 0); ProgramPoint (0x81UL, 0) |]
-    let vertices = leaders |> Array.map (fun l -> Map.find l vMap)
     let eMap = cfg.FoldEdge Utils.foldEdge Map.empty
-    Assert.AreEqual (1, eMap.Count)
-    [ ProgramPoint (0x71UL, 0), ProgramPoint (0x81UL, 0) ]
-    |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x eMap)
-    let actual = [| cfg.FindEdgeData vertices.[0] vertices.[1] |]
-    let expected = [| FallThroughEdge |]
-    CollectionAssert.AreEqual (expected, actual)
+    Assert.AreEqual (0, eMap.Count)
 
   [<TestMethod>]
   member __.``SSAGraph Vertex Test: _start`` () =
