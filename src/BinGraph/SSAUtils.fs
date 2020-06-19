@@ -36,21 +36,22 @@ let collectDefVars defs = function
   | SSA.Def ({ Kind = k }, _) -> Set.add k defs
   | _ -> defs
 
-let findPhiSites defs variable (phiSites, workList) (v: Vertex<SSABBlock>) =
+let findPhiSites defsPerNode variable (phiSites, workList) v =
   if Set.contains v phiSites then phiSites, workList
   else
-    v.VData.InsertPhi variable v.Preds.Length (* Insert Phi for v. *)
+    (* Insert Phi for v *)
+    (v: Vertex<SSABBlock>).VData.InsertPhi variable v.Preds.Length
     let phiSites = Set.add v phiSites
+    let defs = (defsPerNode: DefsPerNode).[v]
     if not <| Set.contains variable defs then phiSites, v :: workList
     else phiSites, workList
 
-let rec iterDefs phiSites (defsPerNode: DefsPerNode) variable = function
+let rec iterDefs phiSites defsPerNode variable = function
   | [] -> phiSites
   | (v: Vertex<SSABBlock>) :: workList ->
-    let defs = defsPerNode.[v]
     let phiSites, workList =
       v.VData.Frontier
-      |> List.fold (findPhiSites defs variable) (phiSites, workList)
+      |> List.fold (findPhiSites defsPerNode variable) (phiSites, workList)
     iterDefs phiSites defsPerNode variable workList
 
 let placePhis (vMap: SSAVMap) (fMap: FakeVMap) (defSites: DefSites) domCtxt =
