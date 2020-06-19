@@ -43,13 +43,6 @@ module private NoReturnHelper =
     | "_exit" -> true
     | _ -> false
 
-  let hasSyscall (v: Vertex<IRBasicBlock>) =
-    if v.VData.IsFakeBlock () then false
-    else
-      match v.VData.GetLastStmt () with
-      | LowUIR.SideEffect SideEffect.SysCall -> true
-      | _ -> false
-
   let hasError app (v: Vertex<IRBasicBlock>) =
     if v.VData.IsFakeBlock () then
       let target = v.VData.PPoint.Address
@@ -153,13 +146,13 @@ module private NoReturnHelper =
       | RetEdge | CallFallThroughEdge -> (pred, v) :: acc
       | _ -> acc) edges
 
-  let collectErrorFallThroughs hdl scfg app (cfg: IRCFG) root edges =
+  let collectErrorFallThroughs hdl scfg app (cfg: IRCFG) edges =
     cfg.FoldVertex (fun acc v ->
       if hasError app v then v :: acc else acc) []
     |> List.fold (fun acc v ->
       if List.exists (isNoReturnError hdl scfg) v.Preds then
-        List.fold (collectEdgesToFallThrough cfg) edges v.Succs
-      else edges) edges
+        List.fold (collectEdgesToFallThrough cfg) acc v.Succs
+      else acc) edges
 
   let collectNoRetFallThroughs (cfg: IRCFG) noretAddrs edges =
     cfg.FoldVertex (fun acc v ->
@@ -170,7 +163,7 @@ module private NoReturnHelper =
   let collectFallThroughEdges hdl scfg app cfg root noretAddrs =
     []
     |> collectSyscallFallThroughs hdl scfg cfg root
-    |> collectErrorFallThroughs hdl scfg app cfg root
+    |> collectErrorFallThroughs hdl scfg app cfg
     |> collectNoRetFallThroughs cfg noretAddrs
 
   let rec removeUnreachables (cfg: IRCFG) root =
@@ -198,7 +191,7 @@ module private NoReturnHelper =
 
   let isNoReturn hdl (scfg: SCFG) app noretAddrs (v: Vertex<CallGraphBBlock>) =
     let addr = v.VData.PPoint.Address
-    if Set.contains addr noretAddrs then false
+    if Set.contains addr noretAddrs then true
     elif v.VData.IsExternal then isKnownNoReturnFunction v.VData.Name
     else
       let cfg = modifyCFG hdl scfg app noretAddrs addr
@@ -225,7 +218,7 @@ module private NoReturnHelper =
       let addr = v.VData.PPoint.Address
       match app.CalleeMap.Find (addr) with
       | None -> acc
-      | Some callee -> Set.add addr acc) noretFuncs
+      | Some _ -> Set.add addr acc) noretFuncs
 
   let getNoReturnEdges hdl (scfg: SCFG) app recoveredInfo noretFuncs =
     let edges = snd recoveredInfo.NoReturnInfo
