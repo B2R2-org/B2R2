@@ -67,7 +67,11 @@ type CalleeMap (map) =
   member __.Contains (addr) = addrCalleeMap.ContainsKey addr
   member __.Contains (name) = strCalleeMap.ContainsKey name
   member __.Find (addr) = addrCalleeMap.TryGetValue addr |> Utils.tupleToOpt
-  member __.Find (name) = Map.tryFind name strCalleeMap
+  member __.Find (name) =
+    Map.tryFind name strCalleeMap
+    |> Monads.OrElse.bind (fun () ->
+      addrCalleeMap.Values
+      |> Seq.tryFind (fun callee -> callee.CalleeName = name))
 
 module CallerMap =
   let private accumulateCallee caller callee (m: CallerMap) =
