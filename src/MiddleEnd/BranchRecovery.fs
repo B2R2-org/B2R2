@@ -212,10 +212,10 @@ module private BranchRecoveryHelper =
           else targets, startAddr
       else targets, startAddr
 
-  let getMaxAddr tableAddrs iAddr startAddr maxAddr =
-    tableAddrs
-    |> Set.filter (fun (addr, _) -> addr <> iAddr)
-    |> Set.map snd
+  let getMaxAddr tableAddrs rInfo iAddr startAddr maxAddr =
+    match Map.tryFind iAddr rInfo.IndirectBranchMap with
+    | Some (_, Some (range, _)) -> tableAddrs |> Set.remove range.Min
+    | _ -> tableAddrs
     |> Set.partition (fun addr -> addr <= startAddr)
     |> snd
     |> fun s ->
@@ -229,10 +229,10 @@ module private BranchRecoveryHelper =
 
   let computeTableAddrs recoveredInfo =
     recoveredInfo.IndirectBranchMap
-    |> Map.fold (fun acc addr (_, info) ->
+    |> Map.fold (fun acc _ (_, info) ->
       match info with
       | None -> acc
-      | Some (range, _) -> Set.add (addr, range.Min) acc
+      | Some (range, _) -> Set.add range.Min acc
       ) Set.empty
 
   let inline accJmpTableInfo acc targets lb iAddr sAddr eAddr t =
@@ -254,14 +254,14 @@ module private BranchRecoveryHelper =
         if checkDefinedTable rInfo iAddr sAddr then acc
         else
           let lb, ub = Map.find entry boundaries (* function boundaries *)
-          let max = getMaxAddr tableAddrs iAddr sAddr None
+          let max = getMaxAddr tableAddrs rInfo iAddr sAddr None
           let targets, eAddr = readTargets hdl lb ub bAddr max sAddr t Set.empty
           accJmpTableInfo acc targets lb iAddr sAddr eAddr t
       | (entry, iAddr, bAddr, s1, t) :: (((_, _, _, s2, _) :: _) as next) ->
         if checkDefinedTable rInfo iAddr s1 then infer acc next
         else
           let lb, ub = Map.find entry boundaries
-          let max = getMaxAddr tableAddrs iAddr s1 (Some s2)
+          let max = getMaxAddr tableAddrs rInfo iAddr s1 (Some s2)
           let targets, eAddr = readTargets hdl lb ub bAddr max s1 t Set.empty
           infer (accJmpTableInfo acc targets lb iAddr s1 eAddr t) next
     jmpTblInfo

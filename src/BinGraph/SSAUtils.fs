@@ -171,6 +171,7 @@ let rec rename domTree count stack (v: Vertex<SSABBlock>) =
   v.Succs |> List.iter (renamePhi stack v)
   traverseChildren domTree count stack (Map.find v domTree)
   v.VData.Stmts |> Array.iter (popStack stack)
+
 and traverseChildren domTree count stack = function
   | child :: rest ->
     rename domTree count stack child

@@ -305,10 +305,10 @@ module Apparatus =
     updateApp hdl app entries leaders
 
   /// Register newly recovered entries to the apparatus.
-  let registerRecoveredEntries hdl app entries =
+  let addRecoveredEntries hdl app entries =
     updateApp hdl app entries Seq.empty
 
-  /// Add a resolved indirect branch target.
+  /// Add a resolved indirect branch target to the app.
   let addIndirectBranchMap hdl app indmap =
     let recoveredInfo = { app.RecoveredInfo with IndirectBranchMap = indmap }
     let app = { app with RecoveredInfo = recoveredInfo }
@@ -318,6 +318,7 @@ module Apparatus =
       |> Set.map (fun addr -> LeaderInfo.Init (hdl, addr))
     updateApp hdl app Seq.empty leaders
 
+  /// Add no-return information to the app.
   let addNoReturnInfo hdl app noRetInfo =
     let recoveredInfo = { app.RecoveredInfo with NoReturnInfo = noRetInfo }
     let app = { app with RecoveredInfo = recoveredInfo }

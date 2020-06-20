@@ -67,7 +67,7 @@ module private SpeculativeGapCompletionHelper =
       Apparatus.getFunctionAddrs resultApp
       |> Set.ofSeq
       |> Set.map (fun addr -> LeaderInfo.Init (hdl, addr))
-      |> Apparatus.registerRecoveredEntries hdl app
+      |> Apparatus.addRecoveredEntries hdl app
     match SCFG.Init (hdl, app) with
     | Ok scfg -> scfg, app
     | Error _ -> scfg, app
