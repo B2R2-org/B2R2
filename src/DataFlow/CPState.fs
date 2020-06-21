@@ -45,6 +45,8 @@ type CPState = {
   /// Executable edges from vid to vid. If there's no element for an edge, that
   /// means the edge is not executable.
   ExecutableEdges: HashSet<VertexID * VertexID>
+  /// Executed edges from vid to vid.
+  ExecutedEdges: HashSet<VertexID * VertexID>
   /// Default word size of the current analysis.
   DefaultWordSize : RegType
   /// Worklist for blocks.
@@ -75,6 +77,7 @@ module CPState =
       RegState = Dictionary () |> initStackRegister hdl
       MemState = Dictionary () |> initMemory
       ExecutableEdges = HashSet ()
+      ExecutedEdges = HashSet ()
       DefaultWordSize = hdl.ISA.WordSize |> WordSize.toRegType
       FlowWorkList = Queue ()
       SSAWorkList = Queue () }
@@ -83,8 +86,8 @@ module CPState =
     if st.ExecutableEdges.Add (src, dst) then st.FlowWorkList.Enqueue (src, dst)
     else ()
 
-  let isExecutable st src dst =
-    st.ExecutableEdges.Contains (src, dst)
+  let isExecuted st src dst =
+    st.ExecutedEdges.Contains (src, dst)
 
   let tryFindReg st r =
     match st.RegState.TryGetValue r with

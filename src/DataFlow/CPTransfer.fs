@@ -178,7 +178,7 @@ let executableSources st (blk: Vertex<_>) srcIDs =
   srcIDs
   |> Array.mapi (fun i srcID ->
     let p = blk.Preds.[i]
-    if not <| CPState.isExecutable st (p.GetID ()) (blk.GetID ()) then None
+    if not <| CPState.isExecuted st (p.GetID ()) (blk.GetID ()) then None
     else Some srcID)
   |> Array.choose id
 

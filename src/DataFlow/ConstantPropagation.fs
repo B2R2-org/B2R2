@@ -33,11 +33,11 @@ type ConstantPropagation (hdl, ssaCFG: SSACFG) =
 
   override __.Top = Undef
 
-  member private __.GetNumIncomingExecutableEdges st (blk: Vertex<SSABBlock>) =
+  member private __.GetNumIncomingExecutedEdges st (blk: Vertex<SSABBlock>) =
     let myid = blk.GetID ()
     blk.Preds
     |> List.map (fun p -> p.GetID (), myid)
-    |> List.filter (fun (src, dst) -> CPState.isExecutable st src dst)
+    |> List.filter (fun (src, dst) -> CPState.isExecuted st src dst)
     |> List.length
 
   member private __.ProcessSSA st =
@@ -48,14 +48,15 @@ type ConstantPropagation (hdl, ssaCFG: SSACFG) =
         uses
         |> Set.iter (fun (vid, idx) ->
           let v = ssaCFG.FindVertexByID vid
-          if __.GetNumIncomingExecutableEdges st v > 0 then
+          if __.GetNumIncomingExecutedEdges st v > 0 then
             CPTransfer.evalStmt st v v.VData.Stmts.[idx]
           else ())
       | None -> ()
 
   member private __.ProcessFlow st =
     if st.FlowWorkList.Count > 0 then
-      let _, myid = st.FlowWorkList.Dequeue ()
+      let parentid, myid = st.FlowWorkList.Dequeue ()
+      st.ExecutedEdges.Add (parentid, myid) |> ignore
       let blk = ssaCFG.FindVertexByID myid
       blk.VData.Stmts
       |> Array.iter (fun stmt -> CPTransfer.evalStmt st blk stmt)
