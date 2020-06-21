@@ -189,10 +189,12 @@ module private NoReturnHelper =
     removeUnreachables cfg root
     cfg
 
+  let isAlreadyVisited noretAddrs (v: Vertex<CallGraphBBlock>) =
+    Set.contains v.VData.PPoint.Address noretAddrs
+
   let isNoReturn hdl (scfg: SCFG) app noretAddrs (v: Vertex<CallGraphBBlock>) =
     let addr = v.VData.PPoint.Address
-    if Set.contains addr noretAddrs then true
-    elif v.VData.IsExternal then isKnownNoReturnFunction v.VData.Name
+    if v.VData.IsExternal then isKnownNoReturnFunction v.VData.Name
     else
       let cfg = modifyCFG hdl scfg app noretAddrs addr
       cfg.FoldVertex (fun acc (v: Vertex<IRBasicBlock>) ->
@@ -207,7 +209,9 @@ module private NoReturnHelper =
       let noretAddrs =
         noretVertices
         |> Set.map (fun (v: Vertex<CallGraphBBlock>) -> v.VData.PPoint.Address)
-      if isNoReturn hdl scfg app noretAddrs v then
+      if isAlreadyVisited noretAddrs v then
+        findLoop hdl scfg app noretVertices vs
+      elif isNoReturn hdl scfg app noretAddrs v then
         findLoop hdl scfg app (Set.add v noretVertices) (v.Preds @ vs)
       else findLoop hdl scfg app noretVertices vs
 
