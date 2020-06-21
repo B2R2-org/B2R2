@@ -86,6 +86,13 @@ module CPState =
   let isExecutable st src dst =
     st.ExecutableEdges.Contains (src, dst)
 
+  let tryFindReg st r =
+    match st.RegState.TryGetValue r with
+    | true, v -> Some v
+    | false, _ ->
+      if r.Identifier = 0 then Some NotAConst
+      else None
+
   let findReg st r =
     match st.RegState.TryGetValue r with
     | true, v -> v

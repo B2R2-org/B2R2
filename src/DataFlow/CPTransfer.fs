@@ -189,7 +189,9 @@ let evalPhi st blk dst srcIDs =
     match dst.Kind with
     | RegVar _ | TempVar _ ->
       executableSrcIDs
-      |> Array.map (fun i -> { dst with Identifier = i } |> CPState.findReg st)
+      |> Array.map (fun i ->
+        { dst with Identifier = i } |> CPState.tryFindReg st)
+      |> Array.choose id
       |> Array.reduce CPValue.meet
       |> fun merged -> updateConst st dst merged
     | MemVar ->
