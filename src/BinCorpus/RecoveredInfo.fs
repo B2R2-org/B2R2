@@ -42,7 +42,7 @@ type RecoveredInfo = {
   /// Recovered function entries.
   Entries: Set<Addr>
   /// Indirect branches' target addresses.
-  IndirectBranchMap: Map<Addr, Set<Addr> * JumpTableInfo option>
+  IndirectBranchMap: Map<Addr, Addr * Set<Addr> * JumpTableInfo option>
   /// No return function addresses and program points.
   NoReturnInfo: NoReturnInfo
 }

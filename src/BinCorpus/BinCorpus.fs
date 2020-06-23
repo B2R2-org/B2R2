@@ -89,9 +89,6 @@ type Apparatus = {
   CallerMap: CallerMap
   /// Callee map.
   CalleeMap: CalleeMap
-  /// Excluded callee addresses, which will not be included in the Apparatus
-  /// when initialized.
-  ExcludedCallees: Set<Addr>
   /// Recovered information about the binary, such as indirect branch map, etc.
   RecoveredInfo: RecoveredInfo
 }
@@ -166,7 +163,7 @@ module Apparatus =
     { acc with FunctionAddrs = Set.add addr acc.FunctionAddrs }
 
   /// Fold all the statements to get the leaders, function entries, etc.
-  let private foldStmts hdl indMap exclusion acc i =
+  let private foldStmts hdl indMap acc i =
     i.Stmts
     |> Array.fold (fun acc stmt ->
       match stmt with
@@ -175,8 +172,7 @@ module Apparatus =
         addLabelLeader s1 i acc |> addLabelLeader s2 i
       | InterJmp (_, Num addr, InterJmpInfo.IsCall) ->
         let addr = BitVector.toUInt64 addr
-        if Set.contains addr exclusion then acc
-        elif hdl.FileInfo.IsValidAddr addr then
+        if hdl.FileInfo.IsValidAddr addr then
           addAddrLeader addr i acc
           |> addAddrLeader
             (i.Instruction.Address + uint64 i.Instruction.Length) i
@@ -206,7 +202,7 @@ module Apparatus =
       | InterJmp (_, _, _) ->
         match Map.tryFind i.Instruction.Address indMap with
         | None -> acc
-        | Some (targets, _) ->
+        | Some (_, targets, _) ->
           targets |> Set.fold (fun acc target -> addAddrLeader target i acc) acc
       | SideEffect (SysCall)
       | SideEffect (Interrupt _) ->
@@ -236,7 +232,7 @@ module Apparatus =
       | Some c -> c.IsNoReturn <- true)
     calleeMap
 
-  let private buildApp hdl leaders instrMap exclusion recoveredInfo =
+  let private buildApp hdl leaders instrMap recoveredInfo =
     let acc =
       { Labels = Map.empty; ComplexInstrs = HashSet ()
         Leaders = leaders; FunctionAddrs = recoveredInfo.Entries }
@@ -244,19 +240,18 @@ module Apparatus =
        the IR-level because LowUIR may have intra-instruction branches. *)
     let struct (instrMap, acc) =
       findLeaders hdl acc instrMap
-        (foldStmts hdl recoveredInfo.IndirectBranchMap exclusion)
+        (foldStmts hdl recoveredInfo.IndirectBranchMap)
     let calleeMap =
-      CalleeMap.build hdl acc.FunctionAddrs exclusion instrMap
+      CalleeMap.build hdl acc.FunctionAddrs instrMap
       |> updateNoReturnInfo (fst recoveredInfo.NoReturnInfo)
     { InstrMap = instrMap
       LabelMap = acc.Labels
       LeaderInfos = acc.Leaders
       CallerMap = CallerMap.build calleeMap
       CalleeMap = calleeMap
-      ExcludedCallees = exclusion
       RecoveredInfo = recoveredInfo }
 
-  let private initApp hdl auxLeaders exclusion bblBound =
+  let private initApp hdl auxLeaders bblBound =
     match auxLeaders with
     | None -> getInitialEntryPoints hdl
     | Some leaders -> leaders
@@ -266,7 +261,7 @@ module Apparatus =
       let instrMap, leaders = InstrMap.build hdl leaders bblBound
       let noRetInfo = Set.empty, Set.empty
       let recoveredInfo = RecoveredInfo.init entries Map.empty noRetInfo
-      buildApp hdl leaders instrMap exclusion recoveredInfo
+      buildApp hdl leaders instrMap recoveredInfo
 
   let inline private append seq = Seq.foldBack Set.add seq
 
@@ -284,20 +279,20 @@ module Apparatus =
     let entries = computeFuncAddrs app entries
     let instrMap, _ = InstrMap.update hdl app.InstrMap None leaders
     let recoveredInfo = { app.RecoveredInfo with Entries = entries }
-    buildApp hdl leaders instrMap app.ExcludedCallees recoveredInfo
+    buildApp hdl leaders instrMap recoveredInfo
 
   /// Create a binary apparatus from the given BinHandler. The resulting
   /// apparatus will include default entries found by reading the binary file
   /// itself (including symbols).
   [<CompiledName("Init")>]
   let init hdl =
-    initApp hdl None Set.empty None
+    initApp hdl None None
 
-  /// Create a binary apparatus soley based on the given leaders and exclusion
-  /// set of callees. The resulting appratus will not include default entries
-  /// found by parsing binary file itself.
-  let initByEntries hdl leaders exclusion bblBound =
-    initApp hdl (Some leaders) exclusion bblBound
+  /// Create a binary apparatus soley based on the given leaders. The resulting
+  /// appratus will not include default entries found by parsing binary file
+  /// itself.
+  let initByEntries hdl leaders bblBound =
+    initApp hdl (Some leaders) bblBound
 
   /// Update instruction info of the given binary apparatus based on the given
   /// function entry addresses and leader infos.
@@ -314,7 +309,7 @@ module Apparatus =
     let app = { app with RecoveredInfo = recoveredInfo }
     let leaders =
       indmap
-      |> Map.fold (fun set _ (targets, _) -> Set.union targets set) Set.empty
+      |> Map.fold (fun set _ (_, targets, _) -> Set.union targets set) Set.empty
       |> Set.map (fun addr -> LeaderInfo.Init (hdl, addr))
     updateApp hdl app Seq.empty leaders
 

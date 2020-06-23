@@ -45,7 +45,7 @@ module private SpeculativeGapCompletionHelper =
 
   let rec shiftUntilValid hdl scfg entries (gap: AddrRange) =
     let entry = LeaderInfo.Init (hdl, gap.Min) |> Set.singleton
-    let app' = Apparatus.initByEntries hdl entry Set.empty (Some gap.Max)
+    let app' = Apparatus.initByEntries hdl entry (Some gap.Max)
     match SCFG.Init (hdl, app', false) with
     | Error _ ->
       if gap.Min + 1UL = gap.Max then entries
@@ -78,12 +78,15 @@ module private SpeculativeGapCompletionHelper =
     | gaps ->
       let ents =
         gaps |> List.map (fun g -> LeaderInfo.Init (hdl, g.Min)) |> Set.ofList
-      let exclusion = Apparatus.getFunctionAddrs app |> Set.ofSeq
-      let partialApp = Apparatus.initByEntries hdl ents exclusion None
+      let partialApp = Apparatus.initByEntries hdl ents None
       match SCFG.Init (hdl, partialApp, false) with
       | Ok partialCFG ->
+        let isTarget addr =
+          app.RecoveredInfo.IndirectBranchMap
+          |> Map.exists (fun _ (entry, _, _) -> entry = addr)
         let scfg, app =
-          (branchRecovery: IAnalysis).Run hdl partialCFG partialApp
+          isTarget
+          |> (branchRecovery: BranchRecovery).RunWith hdl partialCFG partialApp
           |> updateResults hdl scfg app
         gaps
         |> List.map (fun gap -> findGaps app gap.Min gap.Max)
@@ -101,7 +104,7 @@ module private SpeculativeGapCompletionHelper =
     |> recoverGaps branchRecovery hdl scfg app
 
 type SpeculativeGapCompletion (enableNoReturn) =
-  let branchRecovery = BranchRecovery (enableNoReturn) :> IAnalysis
+  let branchRecovery = BranchRecovery (enableNoReturn)
 
   interface IAnalysis with
     member __.Name = "Speculative Gap Completion"

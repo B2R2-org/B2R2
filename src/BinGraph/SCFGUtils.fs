@@ -151,7 +151,7 @@ let private addResolvedIndirectEdges (g: IRCFG) rInfo vmap src srcAddr isCall =
       let dst = g.AddVertex (IRBasicBlock ([||], fakePos))
       g.AddEdge src dst IndirectCallEdge
     else ()
-  | Some (targets, _) ->
+  | Some (_, targets, _) ->
     targets
     |> Set.iter (fun target ->
       let targetAddr = ProgramPoint (target, 0)
