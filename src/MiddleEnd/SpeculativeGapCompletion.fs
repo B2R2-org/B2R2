@@ -68,6 +68,10 @@ module private SpeculativeGapCompletionHelper =
       |> Set.ofSeq
       |> Set.map (fun addr -> LeaderInfo.Init (hdl, addr))
       |> Apparatus.addRecoveredEntries hdl app
+    let app =
+      resultApp.RecoveredInfo.IndirectBranchMap
+      |> Apparatus.addIndirectBranchMap hdl app
+      |> Apparatus.update hdl
     match SCFG.Init (hdl, app) with
     | Ok scfg -> scfg, app
     | Error _ -> scfg, app

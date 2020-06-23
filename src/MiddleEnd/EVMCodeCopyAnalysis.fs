@@ -55,6 +55,7 @@ type EVMCodeCopyAnalysis () =
         match app.CalleeMap.Find leader.Point.Address with
         | None -> Set.singleton leader |> Apparatus.addRecoveredEntries hdl app
         | Some _ -> app) app
+    |> Apparatus.update hdl
 
   interface IAnalysis with
     member __.Name = "EVM Code Copy Analysis"

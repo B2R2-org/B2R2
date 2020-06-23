@@ -247,7 +247,10 @@ let getDanglingNodes recoveredInfo (g: IRCFG) =
   g.FoldVertex (fun acc v ->
     if List.isEmpty v.Preds then v :: acc else acc) []
   |> List.filter (fun v ->
-    Set.contains v.VData.PPoint.Address recoveredInfo.Entries |> not)
+    recoveredInfo.Entries
+    |> Set.map (fun leader -> leader.Point.Address)
+    |> Set.contains v.VData.PPoint.Address
+    |> not)
 
 let calcDifference (a: AddrRange) (b: AddrRange) =
   if a.Min >= b.Min && a.Max <= b.Max then []

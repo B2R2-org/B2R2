@@ -232,54 +232,37 @@ module Apparatus =
       | Some c -> c.IsNoReturn <- true)
     calleeMap
 
-  let private buildApp hdl leaders instrMap recoveredInfo =
+  let private buildApp hdl entries leaders instrMap rInfo =
     let acc =
-      { Labels = Map.empty; ComplexInstrs = HashSet ()
-        Leaders = leaders; FunctionAddrs = recoveredInfo.Entries }
+      { Labels = Map.empty
+        ComplexInstrs = HashSet ()
+        Leaders = leaders
+        FunctionAddrs = Set.map (fun leader -> leader.Point.Address) entries }
     (* Find all possible leaders by scanning lifted IRs. We need to do this at
        the IR-level because LowUIR may have intra-instruction branches. *)
     let struct (instrMap, acc) =
-      findLeaders hdl acc instrMap
-        (foldStmts hdl recoveredInfo.IndirectBranchMap)
+      findLeaders hdl acc instrMap (foldStmts hdl rInfo.IndirectBranchMap)
     let calleeMap =
       CalleeMap.build hdl acc.FunctionAddrs instrMap
-      |> updateNoReturnInfo (fst recoveredInfo.NoReturnInfo)
+      |> updateNoReturnInfo (fst rInfo.NoReturnInfo)
     { InstrMap = instrMap
       LabelMap = acc.Labels
       LeaderInfos = acc.Leaders
       CallerMap = CallerMap.build calleeMap
       CalleeMap = calleeMap
-      RecoveredInfo = recoveredInfo }
+      RecoveredInfo = rInfo }
 
   let private initApp hdl auxLeaders bblBound =
     match auxLeaders with
     | None -> getInitialEntryPoints hdl
     | Some leaders -> leaders
     |> fun leaders ->
-      let entries = leaders |> Seq.map (fun i -> i.Point.Address) |> Set.ofSeq
+      let entries = Set.ofSeq leaders
       (* First, recursively parse all possible instructions. *)
       let instrMap, leaders = InstrMap.build hdl leaders bblBound
-      let noRetInfo = Set.empty, Set.empty
-      let recoveredInfo = RecoveredInfo.init entries Map.empty noRetInfo
-      buildApp hdl leaders instrMap recoveredInfo
-
-  let inline private append seq = Seq.foldBack Set.add seq
-
-  let private computeFuncAddrs app entries =
-    entries
-    |> Seq.fold (fun acc leader ->
-      Set.add leader.Point.Address acc) (getFunctionAddrs app |> Set.ofSeq)
-
-  let private updateApp hdl app entries leaders =
-    let entries =
-      app.RecoveredInfo.Entries
-      |> Set.map (fun a -> LeaderInfo.Init (hdl, a))
-      |> append entries
-    let leaders = app.LeaderInfos |> append leaders |> append entries
-    let entries = computeFuncAddrs app entries
-    let instrMap, _ = InstrMap.update hdl app.InstrMap None leaders
-    let recoveredInfo = { app.RecoveredInfo with Entries = entries }
-    buildApp hdl leaders instrMap recoveredInfo
+      let recoveredInfo =
+        RecoveredInfo.init entries Map.empty (Set.empty, Set.empty)
+      buildApp hdl entries leaders instrMap recoveredInfo
 
   /// Create a binary apparatus from the given BinHandler. The resulting
   /// apparatus will include default entries found by reading the binary file
@@ -294,27 +277,47 @@ module Apparatus =
   let initByEntries hdl leaders bblBound =
     initApp hdl (Some leaders) bblBound
 
+  let inline private append seq = Seq.foldBack Set.add seq
+
+  let private computeFuncAddrs hdl app entries =
+    getFunctionAddrs app
+    |> Set.ofSeq
+    |> Set.map (fun addr -> LeaderInfo.Init (hdl, addr))
+    |> Set.union entries
+
   /// Update instruction info of the given binary apparatus based on the given
   /// function entry addresses and leader infos.
-  let update hdl app entries leaders =
-    updateApp hdl app entries leaders
+  let update hdl app =
+    let rInfo = app.RecoveredInfo
+    let entries = rInfo.Entries
+    let leaders = app.LeaderInfos |> append entries
+    let entries = computeFuncAddrs hdl app entries
+    let instrMap, _ = InstrMap.update hdl app.InstrMap None leaders
+    let rInfo = { rInfo with Entries = entries }
+    buildApp hdl entries leaders instrMap rInfo
 
   /// Register newly recovered entries to the apparatus.
   let addRecoveredEntries hdl app entries =
-    updateApp hdl app entries Seq.empty
+    let rInfo = app.RecoveredInfo
+    let rInfo = { rInfo with Entries = Set.union rInfo.Entries entries }
+    { app with RecoveredInfo = rInfo }
 
   /// Add a resolved indirect branch target to the app.
-  let addIndirectBranchMap hdl app indmap =
-    let recoveredInfo = { app.RecoveredInfo with IndirectBranchMap = indmap }
-    let app = { app with RecoveredInfo = recoveredInfo }
-    let leaders =
-      indmap
-      |> Map.fold (fun set _ (_, targets, _) -> Set.union targets set) Set.empty
-      |> Set.map (fun addr -> LeaderInfo.Init (hdl, addr))
-    updateApp hdl app Seq.empty leaders
+  let addIndirectBranchMap hdl app indMap =
+    let indMap =
+      indMap
+      |> Map.fold (fun acc addr info ->
+        Map.add addr info acc) app.RecoveredInfo.IndirectBranchMap
+    let recoveredInfo =
+      { app.RecoveredInfo with IndirectBranchMap = indMap }
+    { app with RecoveredInfo = recoveredInfo }
 
   /// Add no-return information to the app.
   let addNoReturnInfo hdl app noRetInfo =
-    let recoveredInfo = { app.RecoveredInfo with NoReturnInfo = noRetInfo }
-    let app = { app with RecoveredInfo = recoveredInfo }
-    updateApp hdl app Seq.empty Seq.empty
+    let noRetFuncs, noRetCallSites = noRetInfo
+    let noRetFuncs', noRetCallSites' = app.RecoveredInfo.NoReturnInfo
+    let noRetFuncs = Set.union noRetFuncs noRetFuncs'
+    let noRetCallSites = Set.union noRetCallSites noRetCallSites'
+    let recoveredInfo =
+      { app.RecoveredInfo with NoReturnInfo = noRetFuncs, noRetCallSites }
+    { app with RecoveredInfo = recoveredInfo }

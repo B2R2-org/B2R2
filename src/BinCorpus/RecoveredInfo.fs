@@ -40,7 +40,7 @@ type NoReturnInfo = Set<Addr> * Set<ProgramPoint>
 /// Recovered information about the binary under analysis.
 type RecoveredInfo = {
   /// Recovered function entries.
-  Entries: Set<Addr>
+  Entries: Set<LeaderInfo>
   /// Indirect branches' target addresses.
   IndirectBranchMap: Map<Addr, Addr * Set<Addr> * JumpTableInfo option>
   /// No return function addresses and program points.

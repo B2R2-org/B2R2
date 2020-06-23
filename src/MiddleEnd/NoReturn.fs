@@ -245,6 +245,7 @@ module private NoReturnHelper =
       |> getNoReturnFunctions app
     let edges = getNoReturnEdges hdl scfg app noretFuncs
     Apparatus.addNoReturnInfo hdl app (noretFuncs, edges)
+    |> Apparatus.update hdl
 
 type NoReturnAnalysis () =
   interface IAnalysis with
