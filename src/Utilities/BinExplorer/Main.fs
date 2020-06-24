@@ -261,8 +261,8 @@ let dumpSwitch _cmdMap opts file outdir _args =
   let file = file.Replace (':', '_')
   let outpath = System.IO.Path.Combine (outdir, file)
   use writer = System.IO.File.CreateText (outpath)
-  ess.Apparatus.RecoveredInfo.IndirectBranchMap
-  |> Map.iter (fun fromAddr (_, targets, _tblInfo) ->
+  ess.Apparatus.IndirectBranchMap
+  |> Map.iter (fun fromAddr { TargetAddresses = targets } ->
     targets
     |> Set.iter (fun target ->
       writer.WriteLine (fromAddr.ToString ("X") + "," + target.ToString ("X"))

@@ -160,7 +160,7 @@ module private NoReturnHelper =
     |> List.fold (fun edges v ->
       List.fold (collectEdgesToFallThrough cfg) edges v.Succs) edges
 
-  let collectFallThroughEdges hdl scfg app cfg root noretAddrs =
+  let collectNoRetFallThroughEdges hdl scfg app cfg root noretAddrs =
     []
     |> collectExitSyscallFallThroughs hdl scfg cfg root
     |> collectErrorFallThroughs hdl scfg app cfg
@@ -184,7 +184,7 @@ module private NoReturnHelper =
 
   let modifyCFG hdl (scfg: SCFG) app noretAddrs addr =
     let cfg, root = scfg.GetFunctionCFG (addr, false)
-    collectFallThroughEdges hdl scfg app cfg root noretAddrs
+    collectNoRetFallThroughEdges hdl scfg app cfg root noretAddrs
     |> List.iter (fun (src, dst) -> cfg.RemoveEdge src dst)
     removeUnreachables cfg root
     cfg
@@ -216,7 +216,7 @@ module private NoReturnHelper =
       else findLoop hdl scfg app noretVertices vs
 
   let getNoReturnFunctions app noretVertices =
-    let noretFuncs = fst app.RecoveredInfo.NoReturnInfo
+    let noretFuncs = app.NoReturnInfo.NoReturnFuncs
     noretVertices
     |> Set.fold (fun acc (v: Vertex<CallGraphBBlock>) ->
       let addr = v.VData.PPoint.Address
@@ -224,16 +224,16 @@ module private NoReturnHelper =
       | None -> acc
       | Some _ -> Set.add addr acc) noretFuncs
 
-  let getNoReturnEdges hdl (scfg: SCFG) app noretFuncs =
-    let edges = snd app.RecoveredInfo.NoReturnInfo
+  let getNoReturnCallSites hdl (scfg: SCFG) app noretFuncs =
+    let callsites = app.NoReturnInfo.NoReturnCallSites
     Apparatus.getFunctionAddrs app
     |> Seq.fold (fun acc addr ->
       let cfg, root = scfg.GetFunctionCFG (addr, false)
-      collectFallThroughEdges hdl scfg app cfg root noretFuncs
+      collectNoRetFallThroughEdges hdl scfg app cfg root noretFuncs
       |> List.filter (fun (src, dst) -> cfg.FindEdgeData src dst <> RetEdge)
       |> List.map (fun (src, _) -> src.VData.PPoint)
       |> Set.ofList
-      |> Set.union acc) edges
+      |> Set.union acc) callsites
 
   let findNoReturnEdges hdl (scfg: SCFG) app =
     let lens = CallGraphLens.Init (scfg)
@@ -243,8 +243,8 @@ module private NoReturnHelper =
         if List.length v.Succs = 0 then v :: acc else acc) []
       |> findLoop hdl scfg app Set.empty
       |> getNoReturnFunctions app
-    let edges = getNoReturnEdges hdl scfg app noretFuncs
-    Apparatus.addNoReturnInfo hdl app (noretFuncs, edges)
+    let noretCallsites = getNoReturnCallSites hdl scfg app noretFuncs
+    Apparatus.addNoReturnInfo app noretFuncs noretCallsites
     |> Apparatus.update hdl
 
 type NoReturnAnalysis () =

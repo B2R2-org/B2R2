@@ -116,21 +116,20 @@ let private addInterEdge (g: IRCFG) (vmap: VMap) src addr edgeProp =
   | false, _ -> ()
   | true, dst -> g.AddEdge src dst edgeProp
 
-let isNoReturn recoveredInfo (src: Vertex<IRBasicBlock>) =
-  recoveredInfo.NoReturnInfo
-  |> snd
+let isNoReturn app (src: Vertex<IRBasicBlock>) =
+  app.NoReturnInfo.NoReturnCallSites
   |> Set.contains src.VData.PPoint
 
-let private addFallthroughEdge g recoveredInfo vmap src isPseudo =
-  if isNoReturn recoveredInfo src then ()
+let private addFallthroughEdge g app vmap src isPseudo =
+  if isNoReturn app src then ()
   else
     let last = (src: Vertex<IRBasicBlock>).VData.LastInstruction
     let fallAddr = last.Address + uint64 last.Length
     if isPseudo then CallFallThroughEdge else FallThroughEdge
     |> addInterEdge g vmap src fallAddr
 
-let private handleFallThrough g rInfo vmap src (nextLeader: ProgramPoint) =
-  if nextLeader.Position = 0 then addFallthroughEdge g rInfo vmap src false
+let private handleFallThrough g app vmap src (nextLeader: ProgramPoint) =
+  if nextLeader.Position = 0 then addFallthroughEdge g app vmap src false
   else (g: IRCFG).AddEdge src vmap.[nextLeader] IntraJmpEdge
 
 let private getIndirectDstNode (g: IRCFG) (vmap: VMap) callee =
@@ -143,16 +142,16 @@ let private getIndirectDstNode (g: IRCFG) (vmap: VMap) callee =
     | false, _ -> None
     | true, v -> Some v
 
-let private addResolvedIndirectEdges (g: IRCFG) rInfo vmap src srcAddr isCall =
-  match Map.tryFind srcAddr rInfo.IndirectBranchMap with
+let private addResolvedIndirectEdges (g: IRCFG) app vmap src srcAddr isCall =
+  match Map.tryFind srcAddr app.IndirectBranchMap with
   | None ->
     if isCall then
       let fakePos = ProgramPoint.GetFake ()
       let dst = g.AddVertex (IRBasicBlock ([||], fakePos))
       g.AddEdge src dst IndirectCallEdge
     else ()
-  | Some (_, targets, _) ->
-    targets
+  | Some (indInfo) ->
+    indInfo.TargetAddresses
     |> Set.iter (fun target ->
       let targetAddr = ProgramPoint (target, 0)
       match (vmap: VMap).TryGetValue targetAddr with
@@ -163,7 +162,7 @@ let private addResolvedIndirectEdges (g: IRCFG) rInfo vmap src srcAddr isCall =
 #endif
         ())
 
-let private addIndirectEdges (g: IRCFG) app recoveredInfo vmap src isCall =
+let private addIndirectEdges (g: IRCFG) app vmap src isCall =
   let add callee =
     match getIndirectDstNode g vmap callee with
     | None -> ()
@@ -174,12 +173,11 @@ let private addIndirectEdges (g: IRCFG) app recoveredInfo vmap src isCall =
         g.AddEdge src dst (if isCall then IndirectCallEdge else IndirectJmpEdge)
   let srcAddr = src.VData.LastInstruction.Address
   match app.CallerMap.TryGetValue srcAddr with
-  | false, _ -> addResolvedIndirectEdges g recoveredInfo vmap src srcAddr isCall
+  | false, _ -> addResolvedIndirectEdges g app vmap src srcAddr isCall
   | true, callees -> callees |> Set.iter add
 
 let joinEdges _ (g: IRCFG) app vmap (leaders: ProgramPoint[]) idx =
   let leader = leaders.[idx]
-  let rInfo = app.RecoveredInfo
   match (vmap: VMap).TryGetValue leader with
   | false, _ -> Error EdgeCreationError
   | true, src ->
@@ -194,7 +192,7 @@ let joinEdges _ (g: IRCFG) app vmap (leaders: ProgramPoint[]) idx =
       let target = BitVector.toUInt64 addr
       addInterEdge g vmap src target CallEdge
       if idx + 1 >= leaders.Length then ()
-      else addFallthroughEdge g rInfo vmap src true
+      else addFallthroughEdge g app vmap src true
     | InterJmp (_, Num addr, _) ->
       addInterEdge g vmap src (BitVector.toUInt64 addr) InterJmpEdge
     | InterCJmp (_, _, Num addr1, Num addr2) ->
@@ -206,17 +204,17 @@ let joinEdges _ (g: IRCFG) app vmap (leaders: ProgramPoint[]) idx =
       addInterEdge g vmap src (BitVector.toUInt64 addr) InterCJmpFalseEdge
     | InterJmp (_, _, InterJmpInfo.IsCall) -> (* Indirect call *)
       src.VData.HasIndirectBranch <- true
-      addIndirectEdges g app rInfo vmap src true
+      addIndirectEdges g app vmap src true
       if idx + 1 >= leaders.Length then ()
-      else addFallthroughEdge g rInfo vmap src true
+      else addFallthroughEdge g app vmap src true
     | InterJmp (_)
     | InterCJmp (_) ->
       src.VData.HasIndirectBranch <- true
-      addIndirectEdges g app rInfo vmap src false
+      addIndirectEdges g app vmap src false
     | SideEffect (BinIR.Halt) -> ()
     | _ -> (* Fall through case *)
       if idx + 1 >= leaders.Length then ()
-      else handleFallThrough g rInfo vmap src leaders.[idx + 1]
+      else handleFallThrough g app vmap src leaders.[idx + 1]
     Ok ()
 
 let computeBoundaries app (vmap: VMap) =
@@ -243,14 +241,11 @@ let buildNodeRangeMap map (v: Vertex<IRBasicBlock>) =
   if v.VData.IsFakeBlock () then map
   else IntervalMap.add v.VData.Range v map
 
-let getDanglingNodes recoveredInfo (g: IRCFG) =
+let getDanglingNodes app (g: IRCFG) =
+  let entries = app.Entries |> Set.map (fun leader -> leader.Point.Address)
   g.FoldVertex (fun acc v ->
     if List.isEmpty v.Preds then v :: acc else acc) []
-  |> List.filter (fun v ->
-    recoveredInfo.Entries
-    |> Set.map (fun leader -> leader.Point.Address)
-    |> Set.contains v.VData.PPoint.Address
-    |> not)
+  |> List.filter (fun v -> Set.contains v.VData.PPoint.Address entries |> not)
 
 let calcDifference (a: AddrRange) (b: AddrRange) =
   if a.Min >= b.Min && a.Max <= b.Max then []
@@ -283,7 +278,7 @@ let removeInstrs app (v: Vertex<IRBasicBlock>) ranges =
 
 let removeDanglings app (g: IRCFG) =
   let rangeMap = g.FoldVertex buildNodeRangeMap IntervalMap.empty
-  getDanglingNodes app.RecoveredInfo g
+  getDanglingNodes app g
   |> List.iter (fun v ->
     calcInstrRemovalRanges v.VData.Range rangeMap
     |> removeInstrs app v

@@ -8,7 +8,6 @@
     <Compile Include="Leader.fs" />
     <Compile Include="InstrMap.fs" />
     <Compile Include="CallAnalysis.fs" />
-    <Compile Include="RecoveredInfo.fs" />
     <Compile Include="BinCorpus.fs" />
   </ItemGroup>
 

@@ -62,15 +62,16 @@ module private SpeculativeGapCompletionHelper =
   let shiftGaps fn gaps =
     gaps |> List.fold fn []
 
-  let updateResults hdl scfg app (_, resultApp) =
+  let updateResults branchRecovery hdl scfg app (_, resultApp) =
     let app =
       Apparatus.getFunctionAddrs resultApp
       |> Set.ofSeq
       |> Set.map (fun addr -> LeaderInfo.Init (hdl, addr))
-      |> Apparatus.addRecoveredEntries hdl app
+      |> Apparatus.addRecoveredEntries app
     let app =
-      resultApp.RecoveredInfo.IndirectBranchMap
-      |> Apparatus.addIndirectBranchMap hdl app
+      resultApp.IndirectBranchMap
+      |> Apparatus.addIndirectBranchMap app
+      |> (branchRecovery: BranchRecovery).CalculateTable hdl
       |> Apparatus.update hdl
     match SCFG.Init (hdl, app) with
     | Ok scfg -> scfg, app
@@ -86,12 +87,13 @@ module private SpeculativeGapCompletionHelper =
       match SCFG.Init (hdl, partialApp, false) with
       | Ok partialCFG ->
         let isTarget addr =
-          app.RecoveredInfo.IndirectBranchMap
-          |> Map.exists (fun _ (entry, _, _) -> entry = addr)
+          app.IndirectBranchMap
+          |> Map.exists (fun _ { HostFunctionAddr = entry } -> entry = addr)
+          |> not
         let scfg, app =
           isTarget
           |> (branchRecovery: BranchRecovery).RunWith hdl partialCFG partialApp
-          |> updateResults hdl scfg app
+          |> updateResults branchRecovery hdl scfg app
         gaps
         |> List.map (fun gap -> findGaps app gap.Min gap.Max)
         |> List.concat

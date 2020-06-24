@@ -39,14 +39,6 @@ type IndirectBranchPattern =
   | ConstAddr of insAddr: Addr * targetAddr: Addr
   | UnknownFormat
 
-type BranchInfo =
-  | ConstJmp of entry: Addr * insAddr: Addr * target: Addr
-  | JmpTable of entry: Addr
-              * insAddr: Addr
-              * targets: Set<Addr>
-              * table:AddrRange
-              * rt:RegType
-
 module private BranchRecoveryHelper =
   let filterOutLinkageTables hdl calleeAddrs =
     let tabAddrs =
@@ -180,19 +172,31 @@ module private BranchRecoveryHelper =
     if isCall then computeCallInfo insAddr exp
     else computeJmpInfo insAddr exp
 
-  let partitionIndBranchInfo entry constBranches jmpTblInfo lst =
+  let inline constIndBranchInfo host targets =
+    { HostFunctionAddr = host; TargetAddresses = targets; JumpTableInfo = None }
+
+  let inline tblIndBranchInfo host targets bAddr sAddr eAddr rt =
+    let range = AddrRange (sAddr, eAddr)
+    let tbl = Some <| JumpTableInfo.init bAddr range rt
+    { HostFunctionAddr = host; TargetAddresses = targets; JumpTableInfo = tbl }
+
+  let partitionIndBranchInfo entry constBranches tblBranches lst =
     lst
-    |> List.fold (fun (constBranches, jmpTblInfo) info ->
+    |> List.fold (fun (constBranches, tblBranches) info ->
       match info with
       | ConstAddr (i, t) ->
-        if t <> 0UL then ConstJmp (entry, i, t) :: constBranches, jmpTblInfo
-        else constBranches, jmpTblInfo
+        if t <> 0UL then
+          let info = constIndBranchInfo entry (Set.singleton t)
+          Map.add i info constBranches, tblBranches
+        else constBranches, tblBranches
       | GOTIndexed (instr, bAddr, iAddr, rt) ->
-        constBranches, (entry, instr, bAddr, iAddr, rt) :: jmpTblInfo
+        let info = tblIndBranchInfo entry Set.empty bAddr iAddr (iAddr + 1UL) rt
+        constBranches, Map.add instr info tblBranches
       | FixedTab (instr, iAddr, rt) ->
-        constBranches, (entry, instr, 0UL, iAddr, rt) :: jmpTblInfo
-      | _ -> constBranches, jmpTblInfo
-    ) (constBranches, jmpTblInfo)
+        let info = tblIndBranchInfo entry Set.empty 0UL iAddr (iAddr + 1UL) rt
+        constBranches, Map.add instr info tblBranches
+      | _ -> constBranches, tblBranches
+    ) (constBranches, tblBranches)
 
   /// Read jump targets from a jump table.
   let rec readTargets hdl fStart fEnd baseAddr maxAddr startAddr rt targets =
@@ -212,9 +216,10 @@ module private BranchRecoveryHelper =
           else targets, startAddr
       else targets, startAddr
 
-  let getMaxAddr tableAddrs rInfo iAddr startAddr maxAddr =
-    match Map.tryFind iAddr rInfo.IndirectBranchMap with
-    | Some (_, _, Some (range, _)) -> tableAddrs |> Set.remove range.Min
+  let getMaxAddr tableAddrs app iAddr startAddr maxAddr =
+    match Map.tryFind iAddr app.IndirectBranchMap with
+    | Some ({ JumpTableInfo = Some info }) ->
+      tableAddrs |> Set.remove info.JTRange.Min
     | _ -> tableAddrs
     |> Set.partition (fun addr -> addr <= startAddr)
     |> snd
@@ -227,86 +232,114 @@ module private BranchRecoveryHelper =
         let fromApp = Set.minElement s
         min fromAnalysis fromApp |> Some
 
-  let computeTableAddrs recoveredInfo =
-    recoveredInfo.IndirectBranchMap
-    |> Map.fold (fun acc _ (_, _, info) ->
-      match info with
+  let computeTableAddrs app =
+    app.IndirectBranchMap
+    |> Map.fold (fun acc _ indInfo ->
+      match indInfo.JumpTableInfo with
       | None -> acc
-      | Some (range, _) -> Set.add range.Min acc
+      | Some info -> Set.add info.JTRange.Min acc
       ) Set.empty
 
-  let inline accJmpTableInfo acc targets lb iAddr sAddr eAddr t =
+  let inline accJmpTableInfo acc targets entry iAddr bAddr sAddr eAddr t =
     if Set.isEmpty targets then acc
-    else JmpTable (lb, iAddr, targets, AddrRange (sAddr, eAddr), t) :: acc
+    else
+      let info = tblIndBranchInfo entry targets bAddr sAddr eAddr t
+      Map.add iAddr info acc
 
-  let checkDefinedTable recoveredInfo iAddr sAddr =
-    recoveredInfo.IndirectBranchMap
-    |> Map.exists (fun addr (_, _, info) ->
-      match info with
+  let checkDefinedTable app iAddr sAddr =
+    app.IndirectBranchMap
+    |> Map.exists (fun addr indInfo ->
+      match indInfo.JumpTableInfo with
       | None -> false
-      | Some (range, _) -> sAddr = range.Min && iAddr <> addr)
+      | Some info -> sAddr = info.JTRange.Min && iAddr <> addr)
 
-  let inferGOTIndexedBranchTargets hdl rInfo boundaries jmpTblInfo infos =
-    let tableAddrs = computeTableAddrs rInfo
+  let inferGOTIndexedBranches hdl app boundaries tableBranches constBranches =
+    let tableAddrs = computeTableAddrs app
     let rec infer acc = function
-      | [] -> acc
-      | [ (entry, iAddr, bAddr, sAddr, t) ] ->
-        if checkDefinedTable rInfo iAddr sAddr then acc
+      | [ (iAddr, { HostFunctionAddr = entry ; JumpTableInfo = Some i }) ] ->
+        let bAddr = i.JTBaseAddr
+        let t = i.JTEntrySize
+        if checkDefinedTable app iAddr i.JTRange.Min then acc
         else
+          let sAddr = i.JTRange.Min
           let lb, ub = Map.find entry boundaries (* function boundaries *)
-          let max = getMaxAddr tableAddrs rInfo iAddr sAddr None
+          let max = getMaxAddr tableAddrs app iAddr sAddr None
           let targets, eAddr = readTargets hdl lb ub bAddr max sAddr t Set.empty
-          accJmpTableInfo acc targets lb iAddr sAddr eAddr t
-      | (entry, iAddr, bAddr, s1, t) :: (((_, _, _, s2, _) :: _) as next) ->
-        if checkDefinedTable rInfo iAddr s1 then infer acc next
+          accJmpTableInfo acc targets lb iAddr bAddr sAddr eAddr t
+      | (iAddr, { HostFunctionAddr = entry ; JumpTableInfo = Some i1 }) ::
+          (((_, { JumpTableInfo = Some i2 }) :: _) as next) ->
+        let bAddr = i1.JTBaseAddr
+        let t = i1.JTEntrySize
+        if checkDefinedTable app iAddr i1.JTRange.Min then infer acc next
         else
+          let s1 = i1.JTRange.Min
+          let s2 = i2.JTRange.Min
           let lb, ub = Map.find entry boundaries
-          let max = getMaxAddr tableAddrs rInfo iAddr s1 (Some s2)
+          let max = getMaxAddr tableAddrs app iAddr s1 (Some s2)
           let targets, eAddr = readTargets hdl lb ub bAddr max s1 t Set.empty
-          infer (accJmpTableInfo acc targets lb iAddr s1 eAddr t) next
-    jmpTblInfo
-    |> List.sortBy (fun (_, _, _, i, _) -> i)
-    |> infer infos
+          infer (accJmpTableInfo acc targets lb iAddr bAddr s1 eAddr t) next
+      | _ -> acc
+    tableBranches
+    |> Map.fold (fun acc iAddr info -> (iAddr, info) :: acc) []
+    |> List.sortBy (fun (_, ind) ->
+      let info = Option.get ind.JumpTableInfo
+      info.JTRange.Min)
+    |> infer constBranches
 
-  let analyzeIndirectBranch ssaCFG cpstate entry constBranches jmpTblInfo =
+  let analyzeIndirectBranch ssaCFG cpstate entry constBranches tblBranches =
     extractIndirectBranches ssaCFG
     |> List.map (fun (insAddr, stmt, isCall) ->
       match stmt with
       | Jmp (InterJmp exp) -> computeIndBranchInfo cpstate insAddr isCall exp
       | _ -> UnknownFormat)
-    |> partitionIndBranchInfo entry constBranches jmpTblInfo
+    |> partitionIndBranchInfo entry constBranches tblBranches
 
-  let analyzeBranches hdl app (scfg: SCFG) (constBranches, jmpTblInfo) addr =
+  let analyzeBranches hdl app (scfg: SCFG) (constBranches, tblBranches) addr =
     let irCFG, irRoot = scfg.GetFunctionCFG (addr, false)
     if hasIndirectBranch irCFG then
       let lens = SSALens.Init hdl scfg
       let ssaCFG, ssaRoot = lens.Filter irCFG [irRoot] app
       let cp = ConstantPropagation (hdl, ssaCFG)
       let cpstate = cp.Compute (List.head ssaRoot)
-      analyzeIndirectBranch ssaCFG cpstate addr constBranches jmpTblInfo
-    else constBranches, jmpTblInfo
+      analyzeIndirectBranch ssaCFG cpstate addr constBranches tblBranches
+    else constBranches, tblBranches
 
-  let updateIndirectBranchMap indmap = function
-    | ConstJmp (entry, iAddr, target) ->
-      Map.add iAddr (entry, Set.singleton target, None) indmap
-    | JmpTable (entry, iAddr, targets, table, rt) ->
-      Map.add iAddr (entry, targets, Some (table, rt)) indmap
+  let toBranchInfo indMap =
+    indMap
+    |> Map.fold (fun (constBranches, tblBranches) iAddr indInfo ->
+      match indInfo.JumpTableInfo with
+      | Some _ -> constBranches, Map.add iAddr indInfo tblBranches
+      | None ->
+        Map.add iAddr indInfo constBranches, tblBranches) (Map.empty, Map.empty)
+
+  let inferJumpTableRange hdl app callees constBranches tblBranches =
+    let boundaries = computeFunctionBoundary Map.empty callees
+    inferGOTIndexedBranches hdl app boundaries tblBranches constBranches
+
+  let calculateTable hdl app =
+    let callees = computeCalleeAddrs hdl app
+    app.IndirectBranchMap
+    |> toBranchInfo
+    ||> inferJumpTableRange hdl app callees
+    |> Apparatus.addIndirectBranchMap app
+
+  let filterCalleeAddrs isTarget addrs =
+    match isTarget with
+    | Some isTarget -> addrs |> List.filter isTarget
+    | None -> addrs
 
   let rec recover (noReturn: IAnalysis) hdl scfg app isTarget =
     let scfg, app = noReturn.Run hdl scfg app
-    let callees = computeCalleeAddrs hdl app |> List.filter isTarget
-    let boundaries = computeFunctionBoundary Map.empty callees
-    let rInfo = app.RecoveredInfo
-    let indmap = rInfo.IndirectBranchMap
-    let branchInfo, jmpTblInfo =
-      callees |> List.fold (analyzeBranches hdl app scfg) ([], [])
+    let callees = computeCalleeAddrs hdl app |> filterCalleeAddrs isTarget
+    let indmap = app.IndirectBranchMap
     let indmap' =
-      inferGOTIndexedBranchTargets hdl rInfo boundaries jmpTblInfo branchInfo
-      |> List.fold updateIndirectBranchMap indmap
+      callees
+      |> List.fold (analyzeBranches hdl app scfg) (toBranchInfo indmap)
+      ||> inferJumpTableRange hdl app callees
     let indmap' = Map.fold (fun acc k v -> Map.add k v acc) indmap indmap'
     if indmap <> indmap' then
       let app =
-        Apparatus.addIndirectBranchMap hdl app indmap'
+        Apparatus.addIndirectBranchMap app indmap'
         |> Apparatus.update hdl
       match SCFG.Init (hdl, app) with
       | Ok scfg ->
@@ -322,11 +355,14 @@ type BranchRecovery (enableNoReturn) =
     if enableNoReturn then NoReturnAnalysis () :> IAnalysis
     else NoAnalysis () :> IAnalysis
 
+  member __.CalculateTable hdl app =
+    BranchRecoveryHelper.calculateTable hdl app
+
   member __.RunWith hdl scfg app isTarget =
-    BranchRecoveryHelper.recover noReturn hdl scfg app isTarget
+    BranchRecoveryHelper.recover noReturn hdl scfg app (Some isTarget)
 
   interface IAnalysis with
     member __.Name = "Indirect Branch Recovery"
 
     member __.Run hdl scfg app =
-      BranchRecoveryHelper.recover noReturn hdl scfg app (fun _ -> true)
+      BranchRecoveryHelper.recover noReturn hdl scfg app None

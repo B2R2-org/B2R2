@@ -89,9 +89,45 @@ type Apparatus = {
   CallerMap: CallerMap
   /// Callee map.
   CalleeMap: CalleeMap
-  /// Recovered information about the binary, such as indirect branch map, etc.
-  RecoveredInfo: RecoveredInfo
+  /// Function entries.
+  Entries: Set<LeaderInfo>
+  /// Indirect branches' target addresses.
+  IndirectBranchMap: Map<Addr, IndirectBranchInfo>
+  /// No-return function info.
+  NoReturnInfo: NoReturnInfo
 }
+
+and IndirectBranchInfo = {
+  /// The host function (owner) of the indirect jump.
+  HostFunctionAddr: Addr
+  /// Possible target addresses.
+  TargetAddresses: Set<Addr>
+  /// Information about the corresponding jump table (if exists).
+  JumpTableInfo: JumpTableInfo option
+}
+
+/// Jump table (for switch-case) information.
+and JumpTableInfo = {
+  /// Base address of the jump table.
+  JTBaseAddr: Addr
+  /// The start and the end address of the jump table (AddrRange).
+  JTRange: AddrRange
+  /// Size of each entry of the table.
+  JTEntrySize: RegType
+}
+
+/// No-return function info.
+and NoReturnInfo = {
+  /// No-return function addresses.
+  NoReturnFuncs: Set<Addr>
+  /// Program points of no-return call sites.
+  NoReturnCallSites: Set<ProgramPoint>
+}
+
+[<RequireQualifiedAccess>]
+module JumpTableInfo =
+  let init b range size =
+    { JTBaseAddr = b; JTRange = range; JTEntrySize = size }
 
 [<RequireQualifiedAccess>]
 module Apparatus =
@@ -202,8 +238,9 @@ module Apparatus =
       | InterJmp (_, _, _) ->
         match Map.tryFind i.Instruction.Address indMap with
         | None -> acc
-        | Some (_, targets, _) ->
-          targets |> Set.fold (fun acc target -> addAddrLeader target i acc) acc
+        | Some (indInfo) ->
+          indInfo.TargetAddresses
+          |> Set.fold (fun acc target -> addAddrLeader target i acc) acc
       | SideEffect (SysCall)
       | SideEffect (Interrupt _) ->
         let fallAddr = i.Instruction.Address + uint64 i.Instruction.Length
@@ -232,7 +269,7 @@ module Apparatus =
       | Some c -> c.IsNoReturn <- true)
     calleeMap
 
-  let private buildApp hdl entries leaders instrMap rInfo =
+  let private buildApp hdl entries leaders instrMap indMap noretInfo =
     let acc =
       { Labels = Map.empty
         ComplexInstrs = HashSet ()
@@ -241,16 +278,18 @@ module Apparatus =
     (* Find all possible leaders by scanning lifted IRs. We need to do this at
        the IR-level because LowUIR may have intra-instruction branches. *)
     let struct (instrMap, acc) =
-      findLeaders hdl acc instrMap (foldStmts hdl rInfo.IndirectBranchMap)
+      findLeaders hdl acc instrMap (foldStmts hdl indMap)
     let calleeMap =
       CalleeMap.build hdl acc.FunctionAddrs instrMap
-      |> updateNoReturnInfo (fst rInfo.NoReturnInfo)
+      |> updateNoReturnInfo noretInfo.NoReturnFuncs
     { InstrMap = instrMap
       LabelMap = acc.Labels
       LeaderInfos = acc.Leaders
       CallerMap = CallerMap.build calleeMap
       CalleeMap = calleeMap
-      RecoveredInfo = rInfo }
+      Entries = entries
+      IndirectBranchMap = indMap
+      NoReturnInfo = noretInfo }
 
   let private initApp hdl auxLeaders bblBound =
     match auxLeaders with
@@ -260,9 +299,8 @@ module Apparatus =
       let entries = Set.ofSeq leaders
       (* First, recursively parse all possible instructions. *)
       let instrMap, leaders = InstrMap.build hdl leaders bblBound
-      let recoveredInfo =
-        RecoveredInfo.init entries Map.empty (Set.empty, Set.empty)
-      buildApp hdl entries leaders instrMap recoveredInfo
+      let nrempty = { NoReturnFuncs = Set.empty; NoReturnCallSites = Set.empty}
+      buildApp hdl entries leaders instrMap Map.empty nrempty
 
   /// Create a binary apparatus from the given BinHandler. The resulting
   /// apparatus will include default entries found by reading the binary file
@@ -285,39 +323,33 @@ module Apparatus =
     |> Set.map (fun addr -> LeaderInfo.Init (hdl, addr))
     |> Set.union entries
 
-  /// Update instruction info of the given binary apparatus based on the given
-  /// function entry addresses and leader infos.
+  /// Update the given apparatus based on the auxiliary information stored in
+  /// it. For example, there can be new entries (Entries) or indirect branches
+  /// (IndirectBranchMap). This function makes the given app up-to-date.
   let update hdl app =
-    let rInfo = app.RecoveredInfo
-    let entries = rInfo.Entries
+    let entries = app.Entries
     let leaders = app.LeaderInfos |> append entries
     let entries = computeFuncAddrs hdl app entries
     let instrMap, _ = InstrMap.update hdl app.InstrMap None leaders
-    let rInfo = { rInfo with Entries = entries }
-    buildApp hdl entries leaders instrMap rInfo
+    buildApp hdl entries leaders instrMap app.IndirectBranchMap app.NoReturnInfo
 
   /// Register newly recovered entries to the apparatus.
-  let addRecoveredEntries hdl app entries =
-    let rInfo = app.RecoveredInfo
-    let rInfo = { rInfo with Entries = Set.union rInfo.Entries entries }
-    { app with RecoveredInfo = rInfo }
+  let addRecoveredEntries app entries =
+    { app with Apparatus.Entries = Set.union entries app.Entries }
 
   /// Add a resolved indirect branch target to the app.
-  let addIndirectBranchMap hdl app indMap =
+  let addIndirectBranchMap app indMap =
     let indMap =
       indMap
       |> Map.fold (fun acc addr info ->
-        Map.add addr info acc) app.RecoveredInfo.IndirectBranchMap
-    let recoveredInfo =
-      { app.RecoveredInfo with IndirectBranchMap = indMap }
-    { app with RecoveredInfo = recoveredInfo }
+        Map.add addr info acc) app.IndirectBranchMap
+    { app with IndirectBranchMap = indMap }
 
   /// Add no-return information to the app.
-  let addNoReturnInfo hdl app noRetInfo =
-    let noRetFuncs, noRetCallSites = noRetInfo
-    let noRetFuncs', noRetCallSites' = app.RecoveredInfo.NoReturnInfo
-    let noRetFuncs = Set.union noRetFuncs noRetFuncs'
-    let noRetCallSites = Set.union noRetCallSites noRetCallSites'
-    let recoveredInfo =
-      { app.RecoveredInfo with NoReturnInfo = noRetFuncs, noRetCallSites }
-    { app with RecoveredInfo = recoveredInfo }
+  let addNoReturnInfo app noRetFuncs noRetCallSites =
+    let noRetFuncs' = app.NoReturnInfo.NoReturnFuncs
+    let noRetCallSites' = app.NoReturnInfo.NoReturnCallSites
+    let noretInfo' =
+      { NoReturnFuncs = Set.union noRetFuncs noRetFuncs'
+        NoReturnCallSites = Set.union noRetCallSites noRetCallSites' }
+    { app with NoReturnInfo = noretInfo' }
