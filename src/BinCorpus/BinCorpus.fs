@@ -166,8 +166,10 @@ module Apparatus =
          | _ -> labels) labels
     |> fst
 
-  /// A temporary accumulator for folding all the IR statements.
-  type private StmtAccumulator = {
+  /// A temporary accumulator for calculating leaders.
+  type private LeaderAccumulator = {
+    /// Collection of instructions parsed until now.
+    InstrMap: InstrMap
     /// Label name to a ProgramPoint (Addr * int).
     Labels: Map<Symbol, Addr * int>
     /// Complex instruction set. A complex instruction is an instruction that
@@ -250,18 +252,27 @@ module Apparatus =
         addAddrLeader a i acc
       | _ -> acc) acc
 
-  let rec private findLeaders hdl acc (instrMap: InstrMap) foldStmts =
-    let labels = instrMap |> Seq.fold (findLabels acc.ComplexInstrs) Map.empty
+  let private findLeaders acc foldStmts =
+    let labels =
+      acc.InstrMap |> Seq.fold (findLabels acc.ComplexInstrs) Map.empty
     let acc = { acc with Labels = labels }
-    let acc = instrMap.Values |> Seq.fold foldStmts acc
-    let oldCount = instrMap.Count
+    (* Find all possible leaders by scanning lifted IRs. We need to do this at
+       the IR-level because LowUIR may have intra-instruction branches. *)
+    acc.InstrMap.Values |> Seq.fold foldStmts acc
+
+  let private updateInstrMap hdl acc =
     let instrMap, leaders =
       acc.Leaders
-      |> Set.filter (fun l -> not <| instrMap.ContainsKey l.Point.Address)
-      |> InstrMap.update hdl instrMap None
-    let acc = { acc with Leaders = Set.union acc.Leaders leaders }
-    if oldCount <> instrMap.Count then findLeaders hdl acc instrMap foldStmts
-    else struct (instrMap, acc)
+      |> Set.filter (fun l -> not <| acc.InstrMap.ContainsKey l.Point.Address)
+      |> InstrMap.update hdl acc.InstrMap None
+    { acc with InstrMap = instrMap ; Leaders = Set.union acc.Leaders leaders }
+
+  let rec private updateAcc hdl acc foldStmts =
+    let acc = findLeaders acc foldStmts
+    let oldCount = acc.InstrMap.Count
+    let acc = updateInstrMap hdl acc
+    if oldCount <> acc.InstrMap.Count then updateAcc hdl acc foldStmts
+    else acc
 
   let updateNoReturnInfo oldNoRet (calleeMap: CalleeMap) =
     oldNoRet |> Seq.iter (fun (addr: Addr) ->
@@ -272,18 +283,16 @@ module Apparatus =
 
   let private buildApp hdl entries leaders instrMap indMap noretInfo =
     let acc =
-      { Labels = Map.empty
+      { InstrMap = instrMap
+        Labels = Map.empty
         ComplexInstrs = HashSet ()
         Leaders = leaders
         FunctionAddrs = Set.map (fun leader -> leader.Point.Address) entries }
-    (* Find all possible leaders by scanning lifted IRs. We need to do this at
-       the IR-level because LowUIR may have intra-instruction branches. *)
-    let struct (instrMap, acc) =
-      findLeaders hdl acc instrMap (foldStmts hdl indMap)
+    let acc = updateAcc hdl acc (foldStmts hdl indMap)
     let calleeMap =
-      CalleeMap.build hdl acc.FunctionAddrs instrMap
+      CalleeMap.build hdl acc.FunctionAddrs acc.InstrMap
       |> updateNoReturnInfo noretInfo.NoReturnFuncs
-    { InstrMap = instrMap
+    { InstrMap = acc.InstrMap
       LabelMap = acc.Labels
       LeaderInfos = acc.Leaders
       CallerMap = CallerMap.build calleeMap
