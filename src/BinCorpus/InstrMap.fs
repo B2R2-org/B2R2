@@ -105,10 +105,11 @@ module InstrMap =
   /// through an existing basic block without an explicit branch instruction.
   /// See InstrMap.build for more explanation about our design choice.
   let update (hdl: BinHandler) map bblBound leaders =
+    let newLeaders = Dictionary<Addr, LeaderInfo> ()
     let rec buildLoop leaderSet = function
       | [] -> map, leaderSet
       | leaderInfo :: rest when isExecutableLeader hdl leaderInfo |> not ->
-        buildLoop leaderSet rest
+        buildLoop (Set.remove leaderInfo leaderSet) rest
       | leaderInfo :: rest when isAlreadyParsed map leaderInfo ->
         buildLoop leaderSet rest
       | leaderInfo :: rest ->
@@ -123,9 +124,11 @@ module InstrMap =
             let leaders =
               last.GetNextInstrAddrs ()
               |> updateLeaders hdl map rest leaderInfo.Offset
+            newLeaders.[leaderInfo.Point.Address] <- leaderInfo
             buildLoop leaderSet leaders
-        | _ -> buildLoop leaderSet rest
-    buildLoop leaders (Set.toList leaders)
+        | _ -> buildLoop (Set.remove leaderInfo leaderSet) rest
+    let map, set = buildLoop leaders (Set.toList leaders)
+    map, newLeaders.Values |> Seq.fold (fun set l -> Set.add l set) set
 
   /// Build a mapping from Addr to Instruction. This function recursively parses
   /// the binary, but does not lift it yet. Since GetNextInstrAddrs returns next

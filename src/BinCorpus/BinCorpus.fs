@@ -255,10 +255,11 @@ module Apparatus =
     let acc = { acc with Labels = labels }
     let acc = instrMap.Values |> Seq.fold foldStmts acc
     let oldCount = instrMap.Count
-    let instrMap, _ =
+    let instrMap, leaders =
       acc.Leaders
       |> Set.filter (fun l -> not <| instrMap.ContainsKey l.Point.Address)
       |> InstrMap.update hdl instrMap None
+    let acc = { acc with Leaders = Set.union acc.Leaders leaders }
     if oldCount <> instrMap.Count then findLeaders hdl acc instrMap foldStmts
     else struct (instrMap, acc)
 
@@ -330,7 +331,7 @@ module Apparatus =
     let entries = app.Entries
     let leaders = app.LeaderInfos |> append entries
     let entries = computeFuncAddrs hdl app entries
-    let instrMap, _ = InstrMap.update hdl app.InstrMap None leaders
+    let instrMap, leaders = InstrMap.update hdl app.InstrMap None leaders
     buildApp hdl entries leaders instrMap app.IndirectBranchMap app.NoReturnInfo
 
   /// Register newly recovered entries to the apparatus.
