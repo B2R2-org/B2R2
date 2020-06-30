@@ -59,6 +59,7 @@ let rec private computeUses loc expr acc =
     computeUses loc cond acc |> computeUses loc e1 |> computeUses loc e2
   | SSA.Cast (_, _, e) -> computeUses loc e acc
   | SSA.Extract (e, _, _) -> computeUses loc e acc
+  | SSA.ReturnVal (_, _, v) -> addUse v loc acc
   | _ -> acc
 
 /// Compute SSA edge map (SSA Var -> a set of (VertexID, Stmt idx)). From a
