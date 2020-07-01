@@ -1379,7 +1379,7 @@ let aaa ins insAddr insLen ctxt =
 let aad ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
   let imm8 =
-    getOneOpr ins |> transOneOpr ins insAddr insLen ctxt |>  extractLow 8<rt>
+    getOneOpr ins |> transOneOpr ins insAddr insLen ctxt |> extractLow 8<rt>
   let oprSize = getOperationSize ins
   let al = getRegVar ctxt R.AL
   let ah = getRegVar ctxt R.AH
@@ -1913,7 +1913,7 @@ let cmpsd ins insAddr insLen ctxt =
     let builder = new StmtBuilder (16)
     let dst = transOprToExpr64 ins insAddr insLen ctxt dst
     let src = transOprToExpr64 ins insAddr insLen ctxt src
-    let imm = transOprToExpr ins insAddr insLen ctxt imm
+    let imm = transOprToExpr ins insAddr insLen ctxt imm |> extractLow 8<rt>
     let n num = numI32 num 8<rt>
     let max64 = maxNum 64<rt> |> num
     let isNan expr =
