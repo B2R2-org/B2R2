@@ -157,7 +157,8 @@ with
     | "tms320c6000" -> ISA.Init (Arch.TMS320C6000) Endian.Little
     | _ -> raise InvalidISAException
 
-  static member ArchToString = function
+  static member ArchToString arch =
+    match arch with
     | Arch.IntelX86 -> "x86"
     | Arch.IntelX64 -> "x86-64"
     | Arch.ARMv7 -> "ARMv7"
