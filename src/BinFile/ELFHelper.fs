@@ -47,6 +47,14 @@ let isRelocatable elf =
   && Section.getDynamicSectionEntries elf.BinReader elf.SecInfo
      |> List.exists pred
 
+let getBaseAddr (elf: ELF) =
+  let lowestPH =
+    elf.ProgHeaders
+    |> List.filter (fun ph -> ph.PHType = ProgramHeaderType.PTLoad)
+    |> List.filter(fun ph -> ph.PHFileSize > 0UL && ph.PHMemSize > 0UL)
+    |> List.minBy (fun ph -> ph.PHAddr)
+  lowestPH.PHAddr
+
 let inline getTextStartAddr elf =
   (Map.find ".text" elf.SecInfo.SecByName).SecAddr
 
