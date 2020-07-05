@@ -45,6 +45,7 @@ type ELFFileInfo (bytes, path, baseAddr) =
   override __.IsStripped = not (Map.containsKey ".symtab" elf.SecInfo.SecByName)
   override __.IsNXEnabled = isNXEnabled elf
   override __.IsRelocatable = isRelocatable elf
+  override __.BaseAddress = getBaseAddr elf
   override __.EntryPoint = Some elf.ELFHdr.EntryPoint
   override __.TextStartAddr = getTextStartAddr elf
   override __.TranslateAddress addr = translateAddr addr elf

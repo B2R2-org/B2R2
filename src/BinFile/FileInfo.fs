@@ -81,6 +81,12 @@ type FileInfo (baseAddr) =
   abstract IsRelocatable: bool
 
   /// <summary>
+  ///   The base address of this binary
+  ///   (at which this binary is prefered to be loaded in memory).
+  /// </summary>
+  abstract BaseAddress: Addr
+
+  /// <summary>
   ///   The entry point of this binary (the start address that this binary runs
   ///   at). Note that some binaries (e.g., PE DLL files) do not have a specific
   ///   entry point, and EntryPoint will return None in such a case.

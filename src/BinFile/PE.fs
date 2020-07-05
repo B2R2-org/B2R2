@@ -46,6 +46,7 @@ type PEFileInfo (bytes, path, baseAddr, rawpdb) =
   override __.IsStripped = Array.length pe.SymbolInfo.SymbolArray = 0
   override __.IsNXEnabled = isNXEnabled pe
   override __.IsRelocatable = isRelocatable pe
+  override __.BaseAddress = pe.PEHeaders.PEHeader.ImageBase
   override __.EntryPoint = getEntryPoint pe
   override __.TextStartAddr = getTextStartAddr pe
   override __.TranslateAddress addr = translateAddr pe addr
