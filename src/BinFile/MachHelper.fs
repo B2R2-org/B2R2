@@ -76,6 +76,13 @@ let isNXEnabled mach =
   not (mach.MachHdr.Flags.HasFlag MachFlag.MHAllowStackExecution)
   || mach.MachHdr.Flags.HasFlag MachFlag.MHNoHeapExecution
 
+let getBaseAddr (mach: Mach) =
+  let lowestSegment =
+    mach.Segments
+    |> List.filter (fun seg -> seg.FileSize > 0UL)
+    |> List.minBy (fun seg -> seg.VMAddr)
+  lowestSegment.VMAddr
+
 let inline getTextStartAddr mach =
   (Map.find "__text" mach.Sections.SecByName).SecAddr
 

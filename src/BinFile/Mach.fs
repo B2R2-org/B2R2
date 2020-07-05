@@ -44,6 +44,7 @@ type MachFileInfo (bytes, path, isa) =
   override __.IsStripped = isStripped mach
   override __.IsNXEnabled = isNXEnabled mach
   override __.IsRelocatable = mach.MachHdr.Flags.HasFlag MachFlag.MHPIE
+  override __.BaseAddress = getBaseAddr mach
   override __.EntryPoint = mach.EntryPoint
   override __.TextStartAddr = getTextStartAddr mach
   override __.TranslateAddress addr = translateAddr mach addr
