@@ -50,3 +50,16 @@ module OS =
     if File.Exists progName then true
     else let vars = System.Environment.GetEnvironmentVariable "PATH"
          vars.Split (Path.PathSeparator) |> Array.exists testPath
+
+  let ofString (s: string) =
+    match s.ToLower () with
+    | "windows" | "win" -> OS.Windows
+    | "linux" -> OS.Linux
+    | "macos" | "macosx" | "mac" | "osx" -> OS.MacOSX
+    | _ -> invalidArg "OS" "Unknown OS string"
+
+  let toString = function
+    | OS.Windows -> "Windows"
+    | OS.Linux -> "Linux"
+    | OS.MacOSX -> "Mac"
+    | _ -> invalidArg "OS" "Wrong enum"
