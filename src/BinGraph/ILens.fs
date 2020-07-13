@@ -30,7 +30,7 @@ open B2R2.BinCorpus
 /// B2R2, An IR-level SCFG forms the basis, and we should apply different lenses
 /// to obtain different graphs. For example, we can get disassembly-based CFG by
 /// applying DisasmLens to the SCFG.
-type ILens<'V when 'V :> BasicBlock and 'V: equality> =
+type ILens<'D when 'D :> BasicBlock and 'D: equality> =
   /// <summary>
   /// The main function of the ILens interface, which will essentially convert a
   /// given CFG into another graph.
@@ -41,8 +41,9 @@ type ILens<'V when 'V :> BasicBlock and 'V: equality> =
   /// A converted graph along with its root node.
   /// </returns>
   abstract member Filter:
-       graph: IRCFG
+       irgraphInit: (unit -> DiGraph<IRBasicBlock, CFGEdgeKind>)
+    -> graphInit: (unit -> DiGraph<'D, CFGEdgeKind>)
+    -> graph: DiGraph<IRBasicBlock, CFGEdgeKind>
     -> roots: Vertex<IRBasicBlock> list
     -> app: Apparatus
-    -> ControlFlowGraph<'V, CFGEdgeKind> * Vertex<'V> list
-
+    -> DiGraph<'D, CFGEdgeKind> * Vertex<'D> list

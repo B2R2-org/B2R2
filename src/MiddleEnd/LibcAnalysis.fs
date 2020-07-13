@@ -105,7 +105,7 @@ module private LibcAnalysisHelper =
       let app' =
         recoverAddrsFromLibcStartMain hdl scfg app
         |> Apparatus.update hdl
-      match SCFG.Init (hdl, app') with
+      match SCFG.Init (hdl, app', IRCFG.initImperative) with
       | Ok scfg -> scfg, app'
       | Error e -> failwithf "Failed to recover libc due to %A" e
     | _ -> scfg, app

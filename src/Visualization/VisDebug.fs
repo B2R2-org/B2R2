@@ -40,21 +40,21 @@ module VisDebug =
     fs.Write (bytes, 0, bytes.Length)
     fs.Flush ()
 
-  let private ppNode (vNode: Vertex<VisBBlock>) =
+  let private ppNode vGraph (vNode: Vertex<VisBBlock>) =
     logn "Node {"
     sprintf "\tID: %d" (vNode.GetID ()) |> logn
     sprintf "\tAddr: (%s)" (vNode.VData.PPoint.ToString ()) |> logn
     sprintf "\tLayer: %d" vNode.VData.Layer |> logn
     logn "\tPreds: ["
     List.iter (fun (v: Vertex<VisBBlock>) ->
-      sprintf "%d, " (v.GetID ()) |> logn) vNode.Preds
+      sprintf "%d, " (v.GetID ()) |> logn) <| DiGraph.getPreds vGraph vNode
     logn "]"
     logn "\tSuccss: ["
     List.iter (fun (v: Vertex<VisBBlock>) ->
-      sprintf "%d, " (v.GetID ()) |> logn) vNode.Succs
+      sprintf "%d, " (v.GetID ()) |> logn) <| DiGraph.getSuccs vGraph vNode
     logn "]"
     logn "}"
 
   let pp (vGraph: VisGraph) =
-    vGraph.IterVertex ppNode
+    vGraph.IterVertex (ppNode vGraph)
 #endif

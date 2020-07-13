@@ -55,25 +55,27 @@ let private alignVertices vertices =
 let private generateVLayout vPerLayer =
   Array.map (fun vertices -> alignVertices vertices) vPerLayer
 
-let private baryCenter isDown (v: Vertex<VisBBlock>) =
-  let neighbor = if isDown then v.Preds else v.Succs
+let private baryCenter vGraph isDown (v: Vertex<VisBBlock>) =
+  let neighbor =
+    if isDown then DiGraph.getPreds vGraph v
+    else DiGraph.getSuccs vGraph v
   if List.isEmpty neighbor then System.Double.MaxValue, v
   else
     let xs = neighbor |> List.fold (fun acc v -> acc + v.VData.Index) 0
     float xs / float (List.length neighbor), v
 
-let private bcReorderOneLayer (vLayout: VLayout) isDown layer =
+let private bcReorderOneLayer vGraph (vLayout: VLayout) isDown layer =
   let vertices = vLayout.[layer]
   vertices
-  |> Array.map (baryCenter isDown)
+  |> Array.map (baryCenter vGraph isDown)
   |> Array.sortBy fst
   |> Array.iteri (fun i (_, v) ->
     v.VData.Index <- i
     vertices.[i] <- v)
 
-let private phase1 vLayout isDown from maxLayer =
+let private phase1 vGraph vLayout isDown from maxLayer =
   let layers = if isDown then [from .. maxLayer] else [from .. -1 .. 0]
-  List.iter (bcReorderOneLayer vLayout isDown) layers
+  List.iter (bcReorderOneLayer vGraph vLayout isDown) layers
 
 let rec private calcFirstIndex idx wlen =
   if idx < wlen then calcFirstIndex (idx * 2) wlen else idx
@@ -98,16 +100,18 @@ let private countCross southseq wlen =
       countLoop tree southseq cnt index) (0, tree) southseq
   cnt
 
-let private bilayerCount (vLayout: VLayout) isDown layer =
+let private bilayerCount vGraph (vLayout: VLayout) isDown layer =
   let myLayer = vLayout.[layer]
   let pairs, _ =
     if isDown then
       Array.fold (fun (acc, i) (v: Vertex<VisBBlock>) ->
-        v.Succs |> List.fold (fun acc w -> (i, w.VData.Index) :: acc) acc,
+        DiGraph.getSuccs vGraph v
+        |> List.fold (fun acc w -> (i, w.VData.Index) :: acc) acc,
         i + 1) ([], 0) vLayout.[layer - 1]
     else
       Array.fold (fun (acc, i) (v: Vertex<VisBBlock>) ->
-        v.Preds |> List.fold (fun acc w -> (i, w.VData.Index) :: acc) acc,
+        DiGraph.getPreds vGraph v
+        |> List.fold (fun acc w -> (i, w.VData.Index) :: acc) acc,
         i + 1) ([], 0) vLayout.[layer + 1]
   let pairs = List.sort pairs
   let southseq = List.map snd pairs
@@ -121,35 +125,35 @@ let private collectBaryCenters bcByValues (bc, v) =
 let private reorderVertices (vertices: Vertex<VisBBlock> []) idx (_, vs) =
   List.fold (fun i v -> vertices.[i] <- v; v.VData.Index <- i; i + 1) idx vs
 
-let private reverseOneLayer vLayout isDown maxLayer layer =
-  let count = bilayerCount vLayout isDown layer
+let private reverseOneLayer vGraph vLayout isDown maxLayer layer =
+  let count = bilayerCount vGraph vLayout isDown layer
   if count <> 0 then
     let vertices = vLayout.[layer]
-    let baryCenters = Array.map (baryCenter isDown) vertices
+    let baryCenters = Array.map (baryCenter vGraph isDown) vertices
     let bcByValues = Array.fold collectBaryCenters Map.empty baryCenters
     let isReversed = Map.exists (fun _ vs -> List.length vs > 1) bcByValues
     let bcByValues = Map.toList bcByValues
     let bcByValues = List.sortBy fst bcByValues
     List.fold (reorderVertices vertices) 0 bcByValues |> ignore
-    if isReversed then phase1 vLayout isDown layer maxLayer
+    if isReversed then phase1 vGraph vLayout isDown layer maxLayer
 
-let private phase2 vLayout isDown maxLayer =
+let private phase2 vGraph vLayout isDown maxLayer =
   let layers = if isDown then [1 .. maxLayer] else [maxLayer - 1 .. -1 .. 0]
-  List.iter (reverseOneLayer vLayout isDown maxLayer) layers
+  List.iter (reverseOneLayer vGraph vLayout isDown maxLayer) layers
 
-let rec private sugiyamaReorder vLayout cnt hashSet =
+let rec private sugiyamaReorder vGraph vLayout cnt hashSet =
   if cnt = maxCnt then ()
   else
     let maxLayer = Array.length vLayout - 1
-    phase1 vLayout true 1 maxLayer
-    phase1 vLayout false (maxLayer - 1) maxLayer
-    phase2 vLayout false maxLayer
-    phase2 vLayout true maxLayer
+    phase1 vGraph vLayout true 1 maxLayer
+    phase1 vGraph vLayout false (maxLayer - 1) maxLayer
+    phase2 vGraph vLayout false maxLayer
+    phase2 vGraph vLayout true maxLayer
     let hashCode = vLayout.GetHashCode ()
     if not (Set.contains hashCode hashSet) then
-      sugiyamaReorder vLayout (cnt + 1) (Set.add hashCode hashSet)
+      sugiyamaReorder vGraph vLayout (cnt + 1) (Set.add hashCode hashSet)
 
 let minimizeCrosses vGraph =
   let vLayout = generateVPerLayer vGraph |> generateVLayout
-  sugiyamaReorder vLayout 0 (Set.add (vLayout.GetHashCode ()) Set.empty)
+  sugiyamaReorder vGraph vLayout 0 (Set.add (vLayout.GetHashCode ()) Set.empty)
   vLayout

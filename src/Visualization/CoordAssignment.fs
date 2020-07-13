@@ -48,9 +48,9 @@ let private blockIntervalX = 50.0
 let private blockIntervalY = 100.0
 
 /// Inner segment is an edge between two dummy nodes
-let findIncidentInnerSegmentNode (v: Vertex<VisBBlock>) =
+let findIncidentInnerSegmentNode vGraph (v: Vertex<VisBBlock>) =
   if v.VData.IsDummy then
-    VisGraph.getPreds v |> List.tryFind (fun v -> v.VData.IsDummy)
+    VisGraph.getPreds vGraph v |> List.tryFind (fun v -> v.VData.IsDummy)
   else None
 
 let pairID (u: Vertex<VisBBlock>) (v: Vertex<VisBBlock>) =
@@ -64,36 +64,37 @@ let checkConflict (u: Vertex<VisBBlock>) (v: Vertex<VisBBlock>) conflicts =
   Set.contains (pairID u v) conflicts
 
 /// Type1 conflict means inner segment and non-inner segment are crossing
-let markTypeOneConflict k0 k1 conflicts (v: Vertex<_>) =
+let markTypeOneConflict vGraph k0 k1 conflicts (v: Vertex<_>) =
   let mark conflicts u =
     let k = VisGraph.getIndex u
     if k < k0 || k1 < k then addConflict u v conflicts
     else conflicts
-  List.fold mark conflicts <| VisGraph.getPreds v
+  List.fold mark conflicts <| VisGraph.getPreds vGraph v
 
-let rec findTypeOneConflictLoop upperLen vertices conflicts l k0 l1 =
+let rec findTypeOneConflictLoop vGraph upperLen vertices conflicts l k0 l1 =
   if l1 = Array.length vertices then conflicts
   else
     let v = vertices.[l1]
-    let w = findIncidentInnerSegmentNode v
+    let w = findIncidentInnerSegmentNode vGraph v
     if w.IsSome || l1 = Array.length vertices - 1 then
       let k1 = if w.IsSome then Option.get w |> VisGraph.getIndex else upperLen
       let conflicts =
-        Array.fold (markTypeOneConflict k0 k1) conflicts vertices.[l .. l1]
-      findTypeOneConflictLoop upperLen vertices conflicts (l1 + 1) k1 (l1 + 1)
+        vertices.[l .. l1]
+        |> Array.fold (markTypeOneConflict vGraph k0 k1) conflicts
+      findTypeOneConflictLoop vGraph upperLen vertices conflicts (l1 + 1) k1 (l1 + 1)
     else
-      findTypeOneConflictLoop upperLen vertices conflicts l k0 (l1 + 1)
+      findTypeOneConflictLoop vGraph upperLen vertices conflicts l k0 (l1 + 1)
 
-let findTypeOneConflictAux (vLayout: _ [][]) conflicts (layer, vertices) =
+let findTypeOneConflictAux vGraph (vLayout: _ [][]) conflicts (layer, vertices) =
   if layer > 0 && layer < Array.length vLayout - 1 then
     let nUpperVertices = Array.length vLayout.[layer - 1]
-    findTypeOneConflictLoop nUpperVertices vertices conflicts 0 -1 0
+    findTypeOneConflictLoop vGraph nUpperVertices vertices conflicts 0 -1 0
   else conflicts
 
 /// Alg 1 of Brandes et al.
-let findTypeOneConflict vLayout =
+let findTypeOneConflict vGraph vLayout =
   Array.mapi (fun layer vertices -> layer, vertices) vLayout
-  |> Array.fold (findTypeOneConflictAux vLayout) Set.empty
+  |> Array.fold (findTypeOneConflictAux vGraph vLayout) Set.empty
 
 let getLayerByDirection (vLayout: Vertex<_> [][]) idx = function
   | Leftmost -> vLayout.[idx]
@@ -117,9 +118,9 @@ let vAlign vGraph vLayout maxLayer conflicts vDir hDir =
   let layers, neighborFn =
     match vDir with
     | Topmost ->
-      [0 .. (maxLayer - 1)], (fun (v: Vertex<VisBBlock>) -> v.Preds)
+      [0 .. (maxLayer - 1)], (fun v -> DiGraph.getPreds vGraph v)
     | Bottommost ->
-      [(maxLayer - 1) .. -1 .. 0], (fun (v: Vertex<VisBBlock>) -> v.Succs)
+      [(maxLayer - 1) .. -1 .. 0], (fun v -> DiGraph.getSuccs vGraph v)
   let root = VertexMap ()
   let align = VertexMap ()
   (vGraph: VisGraph).IterVertex (fun v -> root.[v] <- v; align.[v] <- v)
@@ -276,7 +277,7 @@ let averageMedian (xAlignments: FloatMap list) =
 /// Assignment.
 let assignXCoordinates (vGraph: VisGraph) vLayout =
   let maxLayer = Array.length vLayout - 1
-  let conflicts = findTypeOneConflict vLayout
+  let conflicts = findTypeOneConflict vGraph vLayout
   [ alignAndCompact vGraph vLayout maxLayer conflicts Topmost Leftmost
     alignAndCompact vGraph vLayout maxLayer conflicts Topmost Rightmost
     alignAndCompact vGraph vLayout maxLayer conflicts Bottommost Leftmost

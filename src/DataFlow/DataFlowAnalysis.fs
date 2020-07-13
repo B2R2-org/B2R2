@@ -56,8 +56,9 @@ type DataFlowAnalysis<'L, 'V when 'L: equality
 
 /// Classic data-flow analysis with topological worklist algorithm.
 [<AbstractClass>]
-type TopologicalDataFlowAnalysis<'L, 'V when 'L: equality
-                                         and 'V :> VertexData> (direction) =
+type TopologicalDataFlowAnalysis<'L, 'V
+    when 'L: equality
+     and 'V :> VertexData and 'V : equality> (direction) =
   inherit DataFlowAnalysis<'L, 'V> ()
 
   /// Exit lattice per vertex.
@@ -68,26 +69,26 @@ type TopologicalDataFlowAnalysis<'L, 'V when 'L: equality
 
   /// Neighboring vertices to compute dataflow. This is dependent on the
   /// direction of the analysis.
-  let neighbor =
+  let neighbor g =
     match direction with
-    | Forward -> fun (v: Vertex<'V>) -> v.Preds
-    | Backward -> fun (v: Vertex<'V>) -> v.Succs
+    | Forward -> fun (v: Vertex<'V>) -> DiGraph.getPreds g v
+    | Backward -> fun (v: Vertex<'V>) -> DiGraph.getSuccs g v
 
   /// Expand the worklist depending on the direction of the analysis.
-  let addToWorklist =
+  let addToWorklist g =
     match direction with
     | Forward ->
       fun (worklist: Queue<Vertex<'V>>) (v: Vertex<'V>) ->
-        v.Succs |> List.iter worklist.Enqueue
+        DiGraph.getSuccs g v |> List.iter worklist.Enqueue
     | Backward ->
       fun (worklist: Queue<Vertex<'V>>) (v: Vertex<'V>) ->
-        v.Preds |> List.iter worklist.Enqueue
+        DiGraph.getPreds g v |> List.iter worklist.Enqueue
 
   /// Initialize worklist queue. This should be a topologically sorted list to
   /// be efficient.
-  let initWorklist (root: Vertex<'V>) =
+  let initWorklist g (root: Vertex<'V>) =
     let q = Queue<Vertex<'V>> ()
-    Traversal.iterRevPostorder root q.Enqueue
+    Traversal.iterRevPostorder g root q.Enqueue
     q
 
   /// Meet operation of the lattice.
@@ -98,25 +99,25 @@ type TopologicalDataFlowAnalysis<'L, 'V when 'L: equality
   abstract Transfer: 'L -> Vertex<'V> -> 'L
 
   /// Initialize ints and outs.
-  member private __.InitInsOuts (root: Vertex<'V>) =
-    Traversal.iterPreorder root (fun v ->
+  member private __.InitInsOuts g (root: Vertex<'V>) =
+    Traversal.iterPreorder g root (fun v ->
       let blkid = v.GetID ()
       outs.[blkid] <- __.Top
       ins.[blkid] <- __.Top)
 
   /// Compute data-flow with the iterative worklist algorithm.
-  member __.Compute (root: Vertex<'V>) =
-    __.InitInsOuts root
-    let worklist = initWorklist root
+  member __.Compute g (root: Vertex<'V>) =
+    __.InitInsOuts g root
+    let worklist = initWorklist g root
     while worklist.Count <> 0 do
       let blk = worklist.Dequeue ()
       let blkid = blk.GetID ()
       ins.[blkid] <-
-        neighbor blk
+        neighbor g blk
         |> List.fold (fun eff v -> __.Meet eff outs.[v.GetID()]) __.Top
       let outeffect = __.Transfer ins.[blkid] blk
       if outs.[blkid] <> outeffect then
         outs.[blkid] <- outeffect
-        addToWorklist worklist blk
+        addToWorklist g worklist blk
       else ()
     ins, outs

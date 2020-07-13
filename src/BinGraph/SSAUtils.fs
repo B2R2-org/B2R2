@@ -27,36 +27,39 @@ module internal B2R2.BinGraph.SSAUtils
 open B2R2
 open B2R2.BinIR
 
-let computeFrontiers (g: SSACFG) root =
+let computeFrontiers g root =
   let domCtxt = Dominator.initDominatorContext g root
-  g.IterVertex (fun v -> v.VData.Frontier <- Dominator.frontier domCtxt v)
+  DiGraph.iterVertex g (fun (v: SSAVertex) ->
+    v.VData.Frontier <- Dominator.frontier domCtxt v)
   domCtxt
 
 let collectDefVars defs = function
   | SSA.Def ({ Kind = k }, _) -> Set.add k defs
   | _ -> defs
 
-let findPhiSites defsPerNode variable (phiSites, workList) v =
+let findPhiSites g defsPerNode variable (phiSites, workList) v =
   if Set.contains v phiSites then phiSites, workList
   else
     (* Insert Phi for v *)
-    (v: Vertex<SSABBlock>).VData.InsertPhi variable v.Preds.Length
+    DiGraph.getPreds g v
+    |> List.length
+    |> (v: Vertex<SSABBlock>).VData.InsertPhi variable
     let phiSites = Set.add v phiSites
     let defs = (defsPerNode: DefsPerNode).[v]
     if not <| Set.contains variable defs then phiSites, v :: workList
     else phiSites, workList
 
-let rec iterDefs phiSites defsPerNode variable = function
+let rec iterDefs g phiSites defsPerNode variable = function
   | [] -> phiSites
-  | (v: Vertex<SSABBlock>) :: workList ->
+  | (v: SSAVertex) :: workList ->
     let phiSites, workList =
       v.VData.Frontier
-      |> List.fold (findPhiSites defsPerNode variable) (phiSites, workList)
-    iterDefs phiSites defsPerNode variable workList
+      |> List.fold (findPhiSites g defsPerNode variable) (phiSites, workList)
+    iterDefs g phiSites defsPerNode variable workList
 
-let placePhis (vMap: SSAVMap) (fMap: FakeVMap) (defSites: DefSites) domCtxt =
+let placePhis g vMap (fMap: FakeVMap) (defSites: DefSites) domCtxt =
   let defsPerNode = DefsPerNode ()
-  Seq.append vMap.Values fMap.Values
+  Seq.append (vMap: SSAVMap).Values fMap.Values
   |> Seq.iter (fun v ->
     let defs = v.VData.Stmts |> Array.fold collectDefVars Set.empty
     defsPerNode.[v] <- defs
@@ -71,7 +74,7 @@ let placePhis (vMap: SSAVMap) (fMap: FakeVMap) (defSites: DefSites) domCtxt =
       ()
     | _ ->
       Set.toList defs
-      |> iterDefs Set.empty defsPerNode variable
+      |> iterDefs g Set.empty defsPerNode variable
       |> ignore
   domCtxt
 
@@ -151,13 +154,14 @@ let renameStmt count stack = function
 let renamePhiAux (stack: IDStack) preds (parent: Vertex<SSABBlock>) = function
   | SSA.Phi (def, nums) ->
     let idx =
-      List.findIndex (fun (v: Vertex<SSABBlock>) ->
+      List.findIndex (fun (v: SSAVertex) ->
         v.VData = parent.VData) preds
     nums.[idx] <- List.head stack.[def.Kind]
   | _ -> ()
 
-let renamePhi stack (parent: Vertex<SSABBlock>) (succ: Vertex<SSABBlock>) =
-  succ.VData.Stmts |> Array.iter (renamePhiAux stack succ.Preds parent)
+let renamePhi g stack parent (succ: Vertex<SSABBlock>) =
+  succ.VData.Stmts
+  |> Array.iter (renamePhiAux stack (DiGraph.getPreds g succ) parent)
 
 let popStack (stack: IDStack) = function
   | SSA.LMark _
@@ -166,23 +170,23 @@ let popStack (stack: IDStack) = function
   | SSA.Def (def, _)
   | SSA.Phi (def, _) -> stack.[def.Kind] <- List.tail stack.[def.Kind]
 
-let rec rename domTree count stack (v: Vertex<SSABBlock>) =
+let rec rename g domTree count stack (v: Vertex<SSABBlock>) =
   v.VData.Stmts |> Array.iter (renameStmt count stack)
-  v.Succs |> List.iter (renamePhi stack v)
-  traverseChildren domTree count stack (Map.find v domTree)
+  DiGraph.getSuccs g v |> List.iter (renamePhi g stack v)
+  traverseChildren g domTree count stack (Map.find v domTree)
   v.VData.Stmts |> Array.iter (popStack stack)
 
-and traverseChildren domTree count stack = function
+and traverseChildren g domTree count stack = function
   | child :: rest ->
-    rename domTree count stack child
-    traverseChildren domTree count stack rest
+    rename g domTree count stack child
+    traverseChildren g domTree count stack rest
   | [] -> ()
 
-let renameVars (defSites: DefSites) domCtxt =
+let renameVars g (defSites: DefSites) domCtxt =
   let domTree, root = Dominator.dominatorTree domCtxt
   let count = VarCountMap ()
   let stack = IDStack ()
   defSites.Keys |> Seq.iter (fun variable ->
     count.[variable] <- 0
     stack.[variable] <- [0])
-  rename domTree count stack root |> ignore
+  rename g domTree count stack root |> ignore

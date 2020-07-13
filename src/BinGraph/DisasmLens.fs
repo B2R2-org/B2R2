@@ -71,79 +71,99 @@ type DisasmBBlock (instrs: Instruction [], pp, app: Apparatus) =
 /// Disassembly-based CFG, where each node contains disassembly code.
 type DisasmCFG = ControlFlowGraph<DisasmBBlock, CFGEdgeKind>
 
+module DisasmCFG =
+  let initImperative () =
+    let initializer core =
+      DisasmCFG (core) :> DiGraph<DisasmBBlock, CFGEdgeKind>
+    ImperativeCore<DisasmBBlock, CFGEdgeKind> (initializer, UnknownEdge)
+    |> DisasmCFG
+    :> DiGraph<DisasmBBlock, CFGEdgeKind>
+
+  let initPersistent () =
+    let initializer core =
+      DisasmCFG (core) :> DiGraph<DisasmBBlock, CFGEdgeKind>
+    PersistentCore<DisasmBBlock, CFGEdgeKind> (initializer, UnknownEdge)
+    |> DisasmCFG
+    :> DiGraph<DisasmBBlock, CFGEdgeKind>
+
 /// A mapping from an address to a DisasmCFG vertex.
 type DisasmVMap = Dictionary<Addr, Vertex<DisasmBBlock>>
 
 /// A graph lens for obtaining DisasmCFG.
 type DisasmLens (app) =
-  let getVertex g (vMap: DisasmVMap) (oldVertex: Vertex<IRBasicBlock>) addr =
+  let getVertex g (vMap: DisasmVMap) oldVertex addr =
     match vMap.TryGetValue addr with
     | false, _ ->
-      let instrs = oldVertex.VData.GetInstructions ()
+      let instrs = (oldVertex: Vertex<IRBasicBlock>).VData.GetInstructions ()
       let blk = DisasmBBlock (instrs, oldVertex.VData.PPoint, app)
-      let v = (g: DisasmCFG).AddVertex blk
+      let v, g = DiGraph.addVertex g blk
       vMap.Add (addr, v)
-      v
-    | true, v -> v
+      v, g
+    | true, v -> v, g
 
-  let dfs fnMerge fnEdge (ircfg: IRCFG) (roots: Vertex<IRBasicBlock> list) =
+  let dfs fnMerge fnEdge ircfg newGraph (roots: Vertex<IRBasicBlock> list) =
     let visited = HashSet<ProgramPoint> ()
-    let rec traverse = function
-      | [] -> ()
+    let rec traverse newGraph = function
+      | [] -> newGraph
       | (addr, v: Vertex<IRBasicBlock>) :: rest ->
-        if visited.Contains v.VData.PPoint then traverse rest
+        if visited.Contains v.VData.PPoint then traverse newGraph rest
         else
           visited.Add v.VData.PPoint |> ignore
-          let acc = v.Succs |> List.fold (succFold addr v) rest
-          traverse acc
-    and succFold addr v acc succ =
-      match ircfg.FindEdgeData v succ with
+          let acc, newGraph =
+            DiGraph.getSuccs ircfg v
+            |> List.fold (succFold addr v) (rest, newGraph)
+          traverse newGraph acc
+    and succFold addr v (acc, newGraph) succ =
+      match DiGraph.findEdgeData ircfg v succ with
       | ExternalJmpEdge
       | ExternalCallEdge
       | CallEdge
-      | RetEdge -> acc
-      | CallFallThroughEdge when succ.Preds.Length <= 2 ->
+      | RetEdge -> acc, newGraph
+      | CallFallThroughEdge
+          when DiGraph.getPreds ircfg succ |> List.length <= 2 ->
         (* Two edges: (1) RetEdge from a fake node; (2) CallFallThroughEdge. *)
-        fnMerge addr v succ
-        if visited.Contains succ.VData.PPoint then acc
-        else (addr, succ) :: acc
+        let newGraph = fnMerge newGraph addr v succ
+        if visited.Contains succ.VData.PPoint then acc, newGraph
+        else (addr, succ) :: acc, newGraph
       | IntraCJmpTrueEdge
       | IntraCJmpFalseEdge
       | IntraJmpEdge ->
-        fnMerge addr v succ
-        if visited.Contains succ.VData.PPoint then acc
-        else (addr, succ) :: acc
+        let newGraph = fnMerge newGraph addr v succ
+        if visited.Contains succ.VData.PPoint then acc, newGraph
+        else (addr, succ) :: acc, newGraph
       | e ->
-        fnEdge addr v succ e
-        if visited.Contains succ.VData.PPoint then acc
-        else (succ.VData.PPoint.Address, succ) :: acc
+        let newGraph = fnEdge newGraph addr v succ e
+        if visited.Contains succ.VData.PPoint then acc, newGraph
+        else (succ.VData.PPoint.Address, succ) :: acc, newGraph
     roots
     |> List.map (fun r -> r.VData.PPoint.Address, r)
-    |> traverse
+    |> traverse newGraph
 
-  let merge newGraph vMap addr v (succ: Vertex<IRBasicBlock>) =
-    let srcV = getVertex newGraph vMap v addr
+  let merge vMap newGraph addr v (succ: Vertex<IRBasicBlock>) =
+    let srcV, newGraph = getVertex newGraph vMap v addr
     Array.append srcV.VData.Instructions (succ.VData.GetInstructions ())
     |> Array.fold (fun m i -> Map.add i.Address i m) Map.empty
     |> Map.toArray (* Remove overlapping instructions in an inefficient way. *)
     |> Array.map snd
     |> fun instrs -> srcV.VData.Instructions <- instrs
+    newGraph
 
-  let addEdge newGraph vMap sAddr src dst e =
+  let addEdge vMap newGraph sAddr src dst e =
     let dstAddr = (dst: Vertex<IRBasicBlock>).VData.PPoint.Address
-    let srcV = getVertex newGraph vMap src sAddr
-    let dstV = getVertex newGraph vMap dst dstAddr
-    newGraph.AddEdge srcV dstV e
+    let srcV, newGraph = getVertex newGraph vMap src sAddr
+    let dstV, newGraph = getVertex newGraph vMap dst dstAddr
+    DiGraph.addEdge newGraph srcV dstV e
 
   interface ILens<DisasmBBlock> with
-    member __.Filter (g: IRCFG) roots _ =
-      let newGraph = DisasmCFG ()
+    member __.Filter _ initializer g roots _ =
+      let newGraph = initializer ()
       let vMap = DisasmVMap ()
-      let roots' =
+      let roots', newGraph =
         roots (* Add nodes to newGraph. *)
-        |> List.map (fun r -> getVertex newGraph vMap r r.VData.PPoint.Address)
-      dfs (merge newGraph vMap) (addEdge newGraph vMap) g roots
+        |> List.fold (fun (roots, newGraph) r ->
+          let r, newGraph = getVertex newGraph vMap r r.VData.PPoint.Address
+          r :: roots, newGraph) ([], newGraph)
+      let newGraph = dfs (merge vMap) (addEdge vMap) g newGraph roots
       newGraph, roots'
 
   static member Init (app) = DisasmLens (app) :> ILens<DisasmBBlock>
-

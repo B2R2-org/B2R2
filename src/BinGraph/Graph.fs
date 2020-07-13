@@ -24,192 +24,80 @@
 
 namespace B2R2.BinGraph
 
-open System.Collections.Generic
-
-/// Missing vertex.
-exception VertexNotFoundException
-
-/// Multiple vertices found when looking for a vertex containing certain data
-exception MultipleVerticesFoundException
-
-/// Missing edge.
-exception EdgeNotFoundException
-
-/// Trying to access dummy node's data
-exception DummyDataAccessException
-
-/// A unique ID for a vertex.
-type VertexID = int
-
-/// A data type for vertex. A VertexData should have an ID.
 [<AbstractClass>]
-type VertexData (id) =
-  member __.ID: VertexID = id
-
-module VertexData =
-  let private freshID = ref 0
-
-  let genID () = System.Threading.Interlocked.Increment (freshID)
-
-/// Edge ID is a tuple of two node IDs (source node ID, destination node ID).
-type EdgeID = VertexID * VertexID
-
-/// A vertex in a directed graph. The vertex data (v) is optional, and if it is
-/// None, we will consider the vertex as a dummy node. Dummy nodes are useful
-/// for representing entry/exit node in a CFG.
-type Vertex<'V when 'V :> VertexData> (?v: 'V) =
-  member __.VData =
-    match v with
-    | Some v -> v
-    | None -> raise DummyDataAccessException
-
-  /// We sometimes need to access ID of dummy vertex for example calculating
-  /// dominators.
-  member __.GetID () =
-    match v with
-    | Some v -> v.ID
-    | None -> 0
-
-  /// Check whether vertex is dummy node.
-  member __.IsDummy () = Option.isNone v
-
-  /// List of predecessors.
-  member val Preds: Vertex<'V> list = [] with get, set
-
-  /// List of successors.
-  member val Succs: Vertex<'V> list = [] with get, set
-
-  /// Return the ID of the given vertex.
-  static member GetID (v: Vertex<#VertexData>) = v.GetID ()
-
-  // Each vertex has a unique ID, so ID can be used to check equality.
-  override __.Equals obj =
-    match obj with
-    | :? Vertex<'V> as obj ->  __.GetID () = obj.GetID ()
-    | _ -> false
-
-  override __.GetHashCode () = __.GetID ()
-
-  override __.ToString () =
-    match v with
-    | Some v -> sprintf "Vertex<%s>" <| v.ToString ()
-    | None -> "DummyVertex"
-
-  // Each vertex has a unique ID, so ID can be used for comparison.
-  interface System.IComparable with
-    member __.CompareTo obj =
-      match obj with
-      | :? Vertex<'V> as v -> compare (__.GetID ()) (v.GetID ())
-      | _ -> failwith "Invalid comparison"
-
-/// An edge in a directed graph.
-type Edge<'E> = Edge of 'E
-
-/// A directed graph.
-/// Disclaimer: Our graph implementation is imperative.
-[<AbstractClass>]
-type DiGraph<'V, 'E when 'V :> VertexData> () =
-  let unreachables = HashSet<Vertex<'V>> ()
-  let exits = HashSet<Vertex<'V>> ()
-
-  /// A list of unreachable nodes. We always add nodes into this list first, and
-  /// then later remove it from the list when adding edges.
-  member val internal Unreachables = unreachables with get
-
-  /// A list of exit nodes, which do not have any successors.
-  member val internal Exits = exits with get
+type Graph<'D, 'E, 'G
+    when 'D :> VertexData
+     and 'G :> Graph<'D, 'E, 'G>> () =
 
   /// Is this empty? A graph is empty when there is no vertex in the graph.
   abstract IsEmpty: unit -> bool
 
   /// Number of vertices.
-  abstract Size: unit -> int
+  abstract GetSize: unit -> int
 
   /// Add a vertex into the graph, and return a reference to the added vertex.
-  abstract AddVertex: 'V -> Vertex<'V>
+  abstract AddVertex: 'D -> Vertex<'D> * 'G
 
   /// Remove the given vertex from the graph.
-  abstract RemoveVertex: Vertex<'V> -> unit
-
-  /// Add an edge from src to dst.
-  abstract AddEdge: src: Vertex<'V> -> dst: Vertex<'V> -> 'E -> unit
-
-  /// Remove the edge that spans from src to dst.
-  abstract RemoveEdge: src: Vertex<'V> -> dst: Vertex<'V> -> unit
-
-  /// Check the existence of the given vertex from the graph.
-  abstract Exists: Vertex<'V> -> bool
-
-  /// Return a new transposed (i.e., reversed) graph.
-  abstract Reverse: unit -> DiGraph<'V, 'E>
-
-  /// Fold every vertex (the order can be arbitrary).
-  abstract FoldVertex: ('a -> Vertex<'V> -> 'a) -> 'a -> 'a
-
-  /// Iterate every vertex (the order can be arbitrary).
-  abstract IterVertex: (Vertex<'V> -> unit) -> unit
-
-  /// Fold every edge in the graph (the order can be arbitrary).
-  abstract FoldEdge: ('a -> Vertex<'V> -> Vertex<'V> -> 'E -> 'a) -> 'a -> 'a
-
-  /// Fold every edge in the graph (the order can be arbitrary).
-  abstract IterEdge: (Vertex<'V> -> Vertex<'V> -> 'E -> unit) -> unit
+  abstract RemoveVertex: Vertex<'D> -> 'G
 
   /// Get a set of all vertices in the graph.
-  abstract GetVertices: unit -> Set<Vertex<'V>>
+  abstract GetVertices: unit -> Set<Vertex<'D>>
+
+  /// Check the existence of the given vertex from the graph.
+  abstract ExistsVertex: VertexID -> bool
+
+  /// Find a vertex by its VertexID. This function raises an exception when
+  /// there is no such a vertex.
+  abstract FindVertexByID: VertexID -> Vertex<'D>
+
+  /// Find a vertex by its VertexID. This function returns an Option type.
+  abstract TryFindVertexByID: VertexID -> Vertex<'D> option
 
   /// Find a vertex that has the given VertexData from the graph. It will raise
   /// an exception if such a vertex does not exist. Note that this function can
   /// be used only when each vertex always has unique VertexData.
-  abstract FindVertexByData: 'V -> Vertex<'V>
+  abstract FindVertexByData: 'D -> Vertex<'D>
 
   /// Find a vertex that has the given VertexData from the graph. This function
   /// does not raise an exception unlike FindVertexByData.
-  abstract TryFindVertexByData: 'V -> Vertex<'V> option
-
-  /// Find the data of the edge that spans from src to dst.
-  abstract FindEdgeData: src: Vertex<'V> -> dst: Vertex<'V> -> 'E
-
-  /// Find a vertex by its VertexID. This function raises an exception when
-  /// there is no such a vertex.
-  member __.FindVertexByID id =
-    let folder acc (v: Vertex<_>) = if v.GetID () = id then Some v else acc
-    match __.FoldVertex folder None with
-    | Some v -> v
-    | None -> raise VertexNotFoundException
-
-  /// Find a vertex by its VertexID. This function returns an Option type.
-  member __.TryFindVertexByID id =
-    let folder acc (v: Vertex<_>) = if v.GetID () = id then Some v else acc
-    __.FoldVertex folder None
+  abstract TryFindVertexByData: 'D -> Vertex<'D> option
 
   /// Find a vertex by the given function. This function returns the first
   /// element, in which the function returns true. When there is no such an
   /// element, the function raises an exception.
-  member __.FindVertexBy fn =
-    let folder acc (v: Vertex<_>) = if fn v then Some v else acc
-    match __.FoldVertex folder None with
-    | Some v -> v
-    | None -> raise VertexNotFoundException
+  abstract FindVertexBy: (Vertex<'D> -> bool) -> Vertex<'D>
 
   /// Find a vertex by the given function without raising an exception.
-  member __.TryFindVertexBy fn =
-    let folder acc (v: Vertex<_>) = if fn v then Some v else acc
-    __.FoldVertex folder None
+  abstract TryFindVertexBy: (Vertex<'D> -> bool) -> Vertex<'D> option
+
+  /// Add an edge from src to dst.
+  abstract AddEdge: src: Vertex<'D> -> dst: Vertex<'D> -> 'E -> 'G
+
+  /// Remove the edge that spans from src to dst.
+  abstract RemoveEdge: src: Vertex<'D> -> dst: Vertex<'D> -> 'G
+
+  /// Find the data of the edge that spans from src to dst.
+  abstract FindEdgeData: src: Vertex<'D> -> dst: Vertex<'D> -> 'E
+
+  abstract TryFindEdgeData: src: Vertex<'D> -> dst: Vertex<'D> -> 'E option
+
+  /// Fold every vertex (the order can be arbitrary).
+  abstract FoldVertex: ('a -> Vertex<'D> -> 'a) -> 'a -> 'a
+
+  /// Iterate every vertex (the order can be arbitrary).
+  abstract IterVertex: (Vertex<'D> -> unit) -> unit
+
+  /// Fold every edge in the graph (the order can be arbitrary).
+  abstract FoldEdge: ('a -> Vertex<'D> -> Vertex<'D> -> 'E -> 'a) -> 'a -> 'a
+
+  /// Fold every edge in the graph (the order can be arbitrary).
+  abstract IterEdge: (Vertex<'D> -> Vertex<'D> -> 'E -> unit) -> unit
+
+  abstract Clone: unit -> 'G
+
+  abstract SubGraph: Set<Vertex<'D>> -> 'G
 
   /// Return the DOT-representation of this graph.
-  member __.ToDOTStr name vToStrFn (_eToStrFn: Edge<'E> -> string) =
-    let inline strAppend (s: string) (sb: System.Text.StringBuilder) =
-      sb.Append(s)
-    let folder sb src dst _edata =
-      strAppend (vToStrFn src) sb
-      |> strAppend " -> "
-      |> strAppend (vToStrFn dst)
-      |> strAppend " [label=\""
-      |> strAppend "\"];\n"
-    let sb = System.Text.StringBuilder ()
-    let sb = strAppend "digraph " sb |> strAppend name |> strAppend " {\n"
-    let sb = __.FoldEdge folder sb
-    sb.Append("}\n").ToString()
-
-// vim: set tw=80 sts=2 sw=2:
+  abstract ToDOTStr:
+    string -> (Vertex<'D> -> string) -> (Edge<'E> -> string) -> string

@@ -55,7 +55,7 @@ with
     let startTime = System.DateTime.Now
 #endif
     let app = Apparatus.init hdl
-    match SCFG.Init (hdl, app) with
+    match SCFG.Init (hdl, app, IRCFG.initImperative) with
     | Ok scfg ->
       let scfg, app =
         BinEssence.Analyze hdl scfg app postAnalyses

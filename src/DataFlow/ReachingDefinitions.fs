@@ -31,7 +31,7 @@ open System.Collections.Generic
 
 type RDMap = Dictionary<VertexID, Set<VarPoint>>
 
-type ReachingDefinitions (cfg: IRCFG) as this =
+type ReachingDefinitions (cfg: DiGraph<IRBasicBlock, CFGEdgeKind>) as this =
   inherit TopologicalDataFlowAnalysis<Set<VarPoint>, IRBasicBlock> (Forward)
 
   let gens = RDMap ()
@@ -57,7 +57,7 @@ type ReachingDefinitions (cfg: IRCFG) as this =
   member private __.Initialize () =
     let vpPerVar = Dictionary<VarExpr, Set<VarPoint>> ()
     let vpPerVertex = Dictionary<VertexID, VarPoint list> ()
-    cfg.IterVertex (fun v ->
+    DiGraph.iterVertex cfg (fun v ->
       let vid = v.GetID ()
       let defs = __.FindDefs v
       gens.[vid] <- defs |> Set.ofList
@@ -67,7 +67,7 @@ type ReachingDefinitions (cfg: IRCFG) as this =
         else vpPerVar.[v] <- Set.singleton vp
       )
     )
-    cfg.IterVertex (fun v ->
+    DiGraph.iterVertex cfg (fun v ->
       let vid = v.GetID ()
       let vars = vpPerVertex.[vid] |> List.map (fun vp -> vp.VarExpr)
       let vps = vpPerVertex.[vid] |> Set.ofList

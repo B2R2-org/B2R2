@@ -193,9 +193,10 @@ let dumpJsonFiles jsonDir ess =
   Apparatus.getInternalFunctions ess.Apparatus
   |> Seq.iter (fun { CalleeID = id; Addr = addr } ->
     let disasmJsonPath = Printf.sprintf "%s/%s.disasmCFG" jsonDir id
-    let cfg, root = ess.SCFG.GetFunctionCFG (Option.get addr)
+    let cfg, root = ess.SCFG.GetFunctionCFG (Option.get addr, IRCFG.initImperative)
     let lens = DisasmLens.Init ess.Apparatus
-    let disasmcfg, _ = lens.Filter cfg [root] ess.Apparatus
+    let disasmcfg, _ =
+      lens.Filter IRCFG.initImperative DisasmCFG.initImperative cfg [root] ess.Apparatus
     CFGExport.toJson disasmcfg disasmJsonPath)
 
 let initBinHdl isa (name: string) =

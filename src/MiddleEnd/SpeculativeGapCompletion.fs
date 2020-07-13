@@ -46,7 +46,7 @@ module private SpeculativeGapCompletionHelper =
   let rec shiftUntilValid hdl scfg entries (gap: AddrRange) =
     let entry = LeaderInfo.Init (hdl, gap.Min) |> Set.singleton
     let app' = Apparatus.initByEntries hdl entry (Some gap.Max)
-    match SCFG.Init (hdl, app', false) with
+    match SCFG.Init (hdl, app', IRCFG.initImperative, false) with
     | Error _ ->
       if gap.Min + 1UL = gap.Max then entries
       else
@@ -73,7 +73,7 @@ module private SpeculativeGapCompletionHelper =
       |> Apparatus.addIndirectBranchMap app
       |> (branchRecovery: BranchRecovery).CalculateTable hdl
       |> Apparatus.update hdl
-    match SCFG.Init (hdl, app) with
+    match SCFG.Init (hdl, app, IRCFG.initImperative) with
     | Ok scfg -> scfg, app
     | Error _ -> scfg, app
 
@@ -84,7 +84,7 @@ module private SpeculativeGapCompletionHelper =
       let ents =
         gaps |> List.map (fun g -> LeaderInfo.Init (hdl, g.Min)) |> Set.ofList
       let partialApp = Apparatus.initByEntries hdl ents None
-      match SCFG.Init (hdl, partialApp, false) with
+      match SCFG.Init (hdl, partialApp, IRCFG.initImperative, false) with
       | Ok partialCFG ->
         let isTarget addr =
           app.IndirectBranchMap

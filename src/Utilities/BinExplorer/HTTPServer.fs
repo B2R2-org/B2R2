@@ -131,11 +131,13 @@ let cfgToJSON cfgType ess g roots =
     Visualizer.getJSONFromGraph g roots
   | DisasmCFG ->
     let lens = DisasmLens.Init ess.Apparatus
-    let g, roots = lens.Filter g roots ess.Apparatus
+    let g, roots =
+      lens.Filter IRCFG.initImperative DisasmCFG.initImperative g roots ess.Apparatus
     Visualizer.getJSONFromGraph g roots
   | SSACFG ->
     let lens = SSALens.Init ess.BinHandler ess.SCFG
-    let g, roots = lens.Filter g roots ess.Apparatus
+    let g, roots =
+      lens.Filter IRCFG.initImperative SSACFG.initImperative g roots ess.Apparatus
     Visualizer.getJSONFromGraph g roots
   | _ -> failwith "Invalid CFG type"
 
@@ -144,7 +146,7 @@ let handleRegularCFG req resp name (ess: BinEssence) cfgType =
   | None -> answer req resp None
   | Some addr ->
     try
-      let cfg, root = ess.SCFG.GetFunctionCFG addr
+      let cfg, root = ess.SCFG.GetFunctionCFG (addr, IRCFG.initImperative)
       let s = cfgToJSON cfgType ess cfg [root]
       Some (defaultEnc.GetBytes s) |> answer req resp
     with e ->
@@ -161,7 +163,8 @@ let handleCFG req resp arbiter cfgType name =
     try
       let lens = CallGraphLens.Init ess.SCFG
       let cfg = ess.SCFG.Graph
-      let g, roots = lens.Filter cfg [] ess.Apparatus
+      let g, roots =
+        lens.Filter IRCFG.initImperative CallCFG.initImperative cfg [] ess.Apparatus
       let s = Visualizer.getJSONFromGraph g roots
       Some (defaultEnc.GetBytes s) |> answer req resp
     with e ->
@@ -224,7 +227,7 @@ let handleDataflow req resp arbiter (args: string) =
   let addr = args.[1] |> uint64
   let var = args.[2] |> ess.BinHandler.RegisterBay.RegIDFromString
   try
-    let cfg, root = ess.SCFG.GetFunctionCFG entry
+    let cfg, root = ess.SCFG.GetFunctionCFG (entry, IRCFG.initImperative)
     let chain = DataFlowChain.init cfg root true
     let v = { ProgramPoint = ProgramPoint (addr, 0); VarExpr = Regular var }
     computeConnectedVars chain v

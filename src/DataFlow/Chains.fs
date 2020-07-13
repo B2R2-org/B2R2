@@ -60,9 +60,9 @@ module DataFlowChain =
     |> Set.filter (fun d -> d.VarExpr = u)
     |> filterLastDefInBlock
 
-  let private initUDChain (cfg: IRCFG) (ins: RDMap) (outs: RDMap) =
+  let private initUDChain cfg (ins: RDMap) (outs: RDMap) =
     Map.empty
-    |> cfg.FoldVertex (fun map v ->
+    |> DiGraph.foldVertex cfg (fun map (v: Vertex<IRBasicBlock>) ->
       v.VData.GetInsInfos ()
       |> Array.fold (fun map info ->
         info.Stmts
@@ -110,7 +110,7 @@ module DataFlowChain =
   [<CompiledName("Init")>]
   let init cfg root isDisasmLevel =
     let rd = ReachingDefinitions (cfg)
-    let ins, outs = rd.Compute (root)
+    let ins, outs = rd.Compute cfg root
     let udchain = initUDChain cfg ins outs |> filterDisasm isDisasmLevel
     let duchain = initDUChain udchain |> filterDisasm isDisasmLevel
     { UseDefChain = udchain; DefUseChain = duchain }

@@ -28,11 +28,28 @@ open B2R2
 open B2R2.BinIR
 open System.Collections.Generic
 
-/// Disassembly-based CFG, where each node contains disassembly code.
+type SSAVertex = Vertex<SSABBlock>
+
+/// SSA-based CFG, where each node contains disassembly code.
 type SSACFG = ControlFlowGraph<SSABBlock, CFGEdgeKind>
 
+module SSACFG =
+  let initImperative () =
+    let initializer core =
+      SSACFG (core) :> DiGraph<SSABBlock, CFGEdgeKind>
+    ImperativeCore<SSABBlock, CFGEdgeKind> (initializer, UnknownEdge)
+    |> SSACFG
+    :> DiGraph<SSABBlock, CFGEdgeKind>
+
+  let initPersistent () =
+    let initializer core =
+      SSACFG (core) :> DiGraph<SSABBlock, CFGEdgeKind>
+    PersistentCore<SSABBlock, CFGEdgeKind> (initializer, UnknownEdge)
+    |> SSACFG
+    :> DiGraph<SSABBlock, CFGEdgeKind>
+
 /// A mapping from an address to a SSACFG vertex.
-type SSAVMap = Dictionary<ProgramPoint, Vertex<SSABBlock>>
+type SSAVMap = Dictionary<ProgramPoint, SSAVertex>
 
 /// This is a mapping from an edge to a dummy vertex (for external function
 /// calls). We first separately create dummy vertices even if they are
@@ -40,13 +57,13 @@ type SSAVMap = Dictionary<ProgramPoint, Vertex<SSABBlock>>
 /// relationships without introducing incorrect paths or cycles. For
 /// convenience, we will always consider as a key "a return edge" from a fake
 /// vertex to a fall-through vertex.
-type FakeVMap = Dictionary<ProgramPoint * ProgramPoint, Vertex<SSABBlock>>
+type FakeVMap= Dictionary<ProgramPoint * ProgramPoint, SSAVertex>
 
 /// Mapping from a variable to a set of defining SSA basic blocks.
-type DefSites = Dictionary<SSA.VariableKind, Set<Vertex<SSABBlock>>>
+type DefSites = Dictionary<SSA.VariableKind, Set<SSAVertex>>
 
 /// Defined variables per node in a SSACFG.
-type DefsPerNode = Dictionary<Vertex<SSABBlock>, Set<SSA.VariableKind>>
+type DefsPerNode = Dictionary<SSAVertex, Set<SSA.VariableKind>>
 
 /// Counter for each variable.
 type VarCountMap = Dictionary<SSA.VariableKind, int>

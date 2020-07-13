@@ -6,7 +6,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Graph.Tests.fs" />
+    <Compile Include="Types.fs" />
+    <Compile Include="ImperativeGraph.Tests.fs" />
+    <Compile Include="PersistentGraph.Tests.fs" />
   </ItemGroup>
 
   <ItemGroup>

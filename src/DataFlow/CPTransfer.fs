@@ -174,16 +174,16 @@ let evalDef st v e =
   | MemVar -> evalMemDef st v e
   | PCVar _ -> ()
 
-let executableSources st (blk: Vertex<_>) srcIDs =
+let executableSources cfg st (blk: Vertex<_>) srcIDs =
   srcIDs
   |> Array.mapi (fun i srcID ->
-    let p = blk.Preds.[i]
+    let p = DiGraph.getPreds cfg blk |> List.item i
     if not <| CPState.isExecuted st (p.GetID ()) (blk.GetID ()) then None
     else Some srcID)
   |> Array.choose id
 
-let evalPhi st blk dst srcIDs =
-  match executableSources st blk srcIDs with
+let evalPhi cfg st blk dst srcIDs =
+  match executableSources cfg st blk srcIDs with
   | [||] -> ()
   | executableSrcIDs ->
     match dst.Kind with
@@ -200,23 +200,23 @@ let evalPhi st blk dst srcIDs =
       else ()
     | PCVar _ -> ()
 
-let markAllSuccessors st (blk: Vertex<SSABBlock>) =
+let markAllSuccessors cfg st (blk: Vertex<SSABBlock>) =
   let myid = blk.GetID ()
-  blk.Succs
+  DiGraph.getSuccs cfg blk
   |> List.iter (fun succ ->
     let succid = succ.GetID ()
     CPState.markExecutable st myid succid)
 
-let markSuccessorsConditionally st (blk: Vertex<SSABBlock>) cond =
+let markSuccessorsConditionally cfg st (blk: Vertex<SSABBlock>) cond =
   let myid = blk.GetID ()
-  blk.Succs
+  DiGraph.getSuccs cfg blk
   |> List.iter (fun succ ->
     if cond succ then
       let succid = succ.GetID ()
       CPState.markExecutable st myid succid
     else ())
 
-let evalIntraCJmp st blk cond trueLbl falseLbl =
+let evalIntraCJmp cfg st blk cond trueLbl falseLbl =
   match cond with
   | Const bv ->
     (fun (succ: Vertex<SSABBlock>) ->
@@ -224,49 +224,49 @@ let evalIntraCJmp st blk cond trueLbl falseLbl =
       match succ.VData.Stmts.[0] with
       | LMark lbl -> lbl = target
       | _ -> false)
-    |> markSuccessorsConditionally st blk
-  | _ -> markAllSuccessors st blk
+    |> markSuccessorsConditionally cfg st blk
+  | _ -> markAllSuccessors cfg st blk
 
-let evalInterJmp st blk = function
+let evalInterJmp cfg st blk = function
   | Num addr ->
     (fun (succ: Vertex<SSABBlock>) ->
       succ.VData.PPoint.Address = BitVector.toUInt64 addr)
-    |> markSuccessorsConditionally st blk
-  | _ -> markAllSuccessors st blk
+    |> markSuccessorsConditionally cfg st blk
+  | _ -> markAllSuccessors cfg st blk
 
-let evalInterCJmp st blk cond trueExpr falseExpr =
+let evalInterCJmp cfg st blk cond trueExpr falseExpr =
   match cond, trueExpr, falseExpr with
   | Const bv, Num trueAddr, Num falseAddr ->
     (fun (succ: Vertex<SSABBlock>) ->
       let target = if BitVector.isTrue bv then trueAddr else falseAddr
       succ.VData.PPoint.Address = BitVector.toUInt64 target)
-    |> markSuccessorsConditionally st blk
+    |> markSuccessorsConditionally cfg st blk
   | Const bv, Var _, Num falseAddr ->
     (fun (succ: Vertex<SSABBlock>) ->
       if BitVector.isTrue bv then
         succ.VData.PPoint.Address <> BitVector.toUInt64 falseAddr
       else succ.VData.PPoint.Address = BitVector.toUInt64 falseAddr)
-    |> markSuccessorsConditionally st blk
+    |> markSuccessorsConditionally cfg st blk
   | Const bv, Num trueAddr, Var _ ->
     (fun (succ: Vertex<SSABBlock>) ->
       if BitVector.isTrue bv then
         succ.VData.PPoint.Address = BitVector.toUInt64 trueAddr
       else succ.VData.PPoint.Address <> BitVector.toUInt64 trueAddr)
-    |> markSuccessorsConditionally st blk
-  | _ -> markAllSuccessors st blk
+    |> markSuccessorsConditionally cfg st blk
+  | _ -> markAllSuccessors cfg st blk
 
-let evalJmp st blk = function
-  | IntraJmp _ -> markAllSuccessors st blk
+let evalJmp cfg st blk = function
+  | IntraJmp _ -> markAllSuccessors cfg st blk
   | IntraCJmp (cond, trueLbl, falseLbl) ->
     let c = evalExpr st cond
-    evalIntraCJmp st blk c trueLbl falseLbl
-  | InterJmp expr -> evalInterJmp st blk expr
+    evalIntraCJmp cfg st blk c trueLbl falseLbl
+  | InterJmp expr -> evalInterJmp cfg st blk expr
   | InterCJmp (cond, trueExpr, falseExpr) ->
     let c = evalExpr st cond
-    evalInterCJmp st blk c trueExpr falseExpr
+    evalInterCJmp cfg st blk c trueExpr falseExpr
 
-let evalStmt st blk = function
+let evalStmt cfg st blk = function
   | Def (v, e) -> evalDef st v e
-  | Phi (v, ns) -> evalPhi st blk v ns
-  | Jmp jmpTy -> evalJmp st blk jmpTy
+  | Phi (v, ns) -> evalPhi cfg st blk v ns
+  | Jmp jmpTy -> evalJmp cfg st blk jmpTy
   | LMark _ | SideEffect _ -> ()

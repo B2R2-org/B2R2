@@ -22,24 +22,17 @@
   SOFTWARE.
 *)
 
-module B2R2.BinGraph.SCC
+namespace B2R2.BinGraph
 
-/// SCC = a strongly connected component.
-type SCC<'V when 'V :> VertexData> = Set<Vertex<'V>>
+/// Missing edge.
+exception EdgeNotFoundException
 
-type CondensationBlock<'V when 'V :> VertexData> =
-  inherit VertexData
-  new: SCC<'V> -> CondensationBlock<'V>
+/// Edge ID is a tuple of two node IDs (source node ID, destination node ID).
+type EdgeID = VertexID * VertexID
 
-  member SCC: SCC<'V>
+/// An edge in a directed graph.
+type Edge<'E> = Edge of 'E
 
-/// Condensation graph is a directed acyclic graph(DAG), each of its vertex is
-/// corresponding to original graph's SCC.
-type CondensationGraph<'V when 'V :> VertexData> =
-  SimpleDiGraph<CondensationBlock<'V>, unit>
+type E<'E> = Edge<'E>
 
-/// Compute a set of strongly connected components from a given digraph. We use
-/// Tarjan's algorithm.
-val compute: DiGraph<'V, 'E> -> Vertex<'V> -> Set<SCC<'V>> when 'V :> VertexData
-
-val condensation: DiGraph<'V, 'E> -> Vertex<'V> -> CondensationGraph<'V>
+// vim: set tw=80 sts=2 sw=2:

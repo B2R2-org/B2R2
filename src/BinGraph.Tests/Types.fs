@@ -22,15 +22,11 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinGraph
+namespace B2R2.BinGraph.Tests
 
-type DummyEntry =
-  /// Temporarily connect entry dummy node with the given root node. We do not
-  /// touch the Graph, but simply connect two vertices temporarily for the
-  /// convenience of analysis.
-  static member Connect g (root: Vertex<_>) =
-    if root.IsDummy () then root, g
-    else
-      let dummyEntry, g = DiGraph.addDummyVertex g
-      let g = DiGraph.addDummyEdge g dummyEntry root
-      dummyEntry, g
+open B2R2.BinGraph
+
+type V (v, range) =
+  inherit RangedVertexData (range)
+  member __.Val : int = v
+  override __.ToString () = v.ToString ()

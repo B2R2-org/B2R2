@@ -7,10 +7,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Vertices.fs" />
+    <Compile Include="Edges.fs" />
     <Compile Include="Graph.fs" />
-    <Compile Include="SimpleDiGraph.fsi" />
+    <Compile Include="GraphCore.fs" />
+    <Compile Include="DiGraph.fsi" />
+    <Compile Include="DiGraph.fs" />
+    <Compile Include="Imperative.fs" />
+    <Compile Include="Persistent.fs" />
     <Compile Include="SimpleDiGraph.fs" />
-    <Compile Include="RangedDiGraph.fsi" />
     <Compile Include="RangedDiGraph.fs" />
     <Compile Include="DummyVertex.fs" />
     <Compile Include="Traversal.fs" />
@@ -20,10 +25,8 @@
     <Compile Include="VisualBlock.fs" />
     <Compile Include="BasicBlock.fs" />
     <Compile Include="IRBasicBlock.fs" />
-    <Compile Include="ControlFlowGraph.fsi" />
     <Compile Include="ControlFlowGraph.fs" />
     <Compile Include="CFGExport.fs" />
-    <Compile Include="SCC.fsi" />
     <Compile Include="SCC.fs" />
     <Compile Include="SCFGUtils.fs" />
     <Compile Include="SCFG.fs" />

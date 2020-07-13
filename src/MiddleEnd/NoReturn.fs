@@ -94,16 +94,17 @@ module private NoReturnHelper =
       if isExit then Some !bblAddr else None
     with _ -> None
 
-  let collectExitSyscallFallThroughs hdl scfg (cfg: IRCFG) root edges =
+  let collectExitSyscallFallThroughs hdl scfg cfg root edges =
     match findExitSyscalls hdl scfg root with
     | Some addr ->
-      match cfg.TryFindVertexBy (fun v ->
+      match DiGraph.tryFindVertexBy cfg (fun (v: Vertex<IRBasicBlock>) ->
         not (v.VData.IsFakeBlock ())
         && v.VData.PPoint.Address <= addr
         && (v.VData.LastInstruction.Address
           + uint64 v.VData.LastInstruction.Length) > addr) with
       | None -> edges
-      | Some v -> v.Succs |> List.fold (fun acc w -> (v, w) :: acc) edges
+      | Some v ->
+        DiGraph.getSuccs cfg v |> List.fold (fun acc w -> (v, w) :: acc) edges
     | None -> edges
 
   let checkFirstArgumentX86 st =
@@ -139,26 +140,27 @@ module private NoReturnHelper =
       |> checkFirstArgument hdl
     with _ -> false
 
-  let collectEdgesToFallThrough (cfg: IRCFG) edges (v: Vertex<IRBasicBlock>) =
-    v.Preds
+  let collectEdgesToFallThrough cfg edges (v: Vertex<IRBasicBlock>) =
+    DiGraph.getPreds cfg v
     |> List.fold (fun acc pred ->
       match cfg.FindEdgeData pred v with
       | RetEdge | CallFallThroughEdge -> (pred, v) :: acc
       | _ -> acc) edges
 
-  let collectErrorFallThroughs hdl scfg app (cfg: IRCFG) edges =
-    cfg.FoldVertex (fun acc v ->
+  let collectErrorFallThroughs hdl scfg app cfg edges =
+    DiGraph.foldVertex cfg (fun acc v ->
       if hasError app v then v :: acc else acc) []
     |> List.fold (fun acc v ->
-      if List.exists (isNoReturnError hdl scfg) v.Preds then
-        List.fold (collectEdgesToFallThrough cfg) acc v.Succs
+      if List.exists (isNoReturnError hdl scfg) <| DiGraph.getPreds cfg v then
+        List.fold (collectEdgesToFallThrough cfg) acc <| DiGraph.getSuccs cfg v
       else acc) edges
 
-  let collectNoRetFallThroughs (cfg: IRCFG) noretAddrs edges =
-    cfg.FoldVertex (fun acc v ->
+  let collectNoRetFallThroughs cfg noretAddrs edges =
+    DiGraph.foldVertex cfg (fun acc v ->
       if hasNoRet noretAddrs v then v :: acc else acc) []
     |> List.fold (fun edges v ->
-      List.fold (collectEdgesToFallThrough cfg) edges v.Succs) edges
+      DiGraph.getSuccs cfg v
+      |> List.fold (collectEdgesToFallThrough cfg) edges) edges
 
   let collectNoRetFallThroughEdges hdl scfg app cfg root noretAddrs =
     []
@@ -166,28 +168,31 @@ module private NoReturnHelper =
     |> collectErrorFallThroughs hdl scfg app cfg
     |> collectNoRetFallThroughs cfg noretAddrs
 
-  let rec removeUnreachables (cfg: IRCFG) root =
-    let g = cfg.Clone ()
-    g.FoldVertex (fun acc v ->
-      if v.VData.IsFakeBlock () then v :: acc else acc) []
-    |> List.iter g.RemoveVertex
+  let rec removeUnreachables cfg root =
+    let g = DiGraph.clone cfg
+    let g =
+      DiGraph.foldVertex g (fun acc (v: Vertex<IRBasicBlock>) ->
+        if v.VData.IsFakeBlock () then v :: acc else acc) []
+      |> List.fold DiGraph.removeVertex g
     let reachables =
-      Traversal.foldPreorder root (fun acc v -> v :: acc) []
-    g.FoldVertex (fun acc v ->
-      if List.contains v reachables then acc else v :: acc) []
-    |> List.map (fun v -> cfg.FindVertexByData v.VData)
-    |> List.iter cfg.RemoveVertex
-    cfg.FoldVertex (fun acc v ->
-      if v.VData.IsFakeBlock () && List.length v.Preds = 0 then v :: acc
-      else acc) []
-    |> List.iter cfg.RemoveVertex
+      Traversal.foldPreorder cfg root (fun acc v -> v :: acc) []
+    let cfg =
+      DiGraph.foldVertex g (fun acc v ->
+        if List.contains v reachables then acc else v :: acc) []
+      |> List.map (fun v -> DiGraph.findVertexByData cfg v.VData)
+      |> List.fold DiGraph.removeVertex cfg
+    DiGraph.foldVertex cfg (fun acc v ->
+      let isUnreachable =
+        v.VData.IsFakeBlock () && DiGraph.getPreds cfg v |> List.length = 0
+      if isUnreachable then v :: acc else acc) []
+    |> List.fold DiGraph.removeVertex cfg
 
   let modifyCFG hdl (scfg: SCFG) app noretAddrs addr =
-    let cfg, root = scfg.GetFunctionCFG (addr, false)
-    collectNoRetFallThroughEdges hdl scfg app cfg root noretAddrs
-    |> List.iter (fun (src, dst) -> cfg.RemoveEdge src dst)
+    let cfg, root = scfg.GetFunctionCFG (addr, IRCFG.initImperative, false)
+    let cfg =
+      collectNoRetFallThroughEdges hdl scfg app cfg root noretAddrs
+      |> List.fold (fun cfg (src, dst) -> DiGraph.removeEdge cfg src dst) cfg
     removeUnreachables cfg root
-    cfg
 
   let isAlreadyVisited noretAddrs (v: Vertex<CallGraphBBlock>) =
     Set.contains v.VData.PPoint.Address noretAddrs
@@ -198,22 +203,23 @@ module private NoReturnHelper =
     else
       let cfg = modifyCFG hdl scfg app noretAddrs addr
       cfg.FoldVertex (fun acc (v: Vertex<IRBasicBlock>) ->
-        if List.length v.Succs > 0 then acc
+        if List.length <| DiGraph.getSuccs cfg v > 0 then acc
         elif v.VData.IsFakeBlock () then acc
         elif v.VData.LastInstruction.IsInterrupt () then acc
         else false) true
 
-  let rec findLoop hdl scfg app noretVertices = function
+  let rec findLoop hdl scfg cg app noretVertices = function
     | [] -> noretVertices
     | v :: vs ->
       let noretAddrs =
         noretVertices
         |> Set.map (fun (v: Vertex<CallGraphBBlock>) -> v.VData.PPoint.Address)
       if isAlreadyVisited noretAddrs v then
-        findLoop hdl scfg app noretVertices vs
+        findLoop hdl scfg cg app noretVertices vs
       elif isNoReturn hdl scfg app noretAddrs v then
-        findLoop hdl scfg app (Set.add v noretVertices) (v.Preds @ vs)
-      else findLoop hdl scfg app noretVertices vs
+        DiGraph.getPreds cg v @ vs
+        |> findLoop hdl scfg cg app (Set.add v noretVertices)
+      else findLoop hdl scfg cg app noretVertices vs
 
   let getNoReturnFunctions app noretVertices =
     let noretFuncs = app.NoReturnInfo.NoReturnFuncs
@@ -228,7 +234,7 @@ module private NoReturnHelper =
     let callsites = app.NoReturnInfo.NoReturnCallSites
     Apparatus.getFunctionAddrs app
     |> Seq.fold (fun acc addr ->
-      let cfg, root = scfg.GetFunctionCFG (addr, false)
+      let cfg, root = scfg.GetFunctionCFG (addr, IRCFG.initImperative, false)
       collectNoRetFallThroughEdges hdl scfg app cfg root noretFuncs
       |> List.filter (fun (src, dst) -> cfg.FindEdgeData src dst <> RetEdge)
       |> List.map (fun (src, _) -> src.VData.PPoint)
@@ -237,11 +243,12 @@ module private NoReturnHelper =
 
   let findNoReturnEdges hdl (scfg: SCFG) app =
     let lens = CallGraphLens.Init (scfg)
-    let cg, _ = lens.Filter scfg.Graph [] app
+    let cg, _ =
+      lens.Filter IRCFG.initImperative CallCFG.initImperative scfg.Graph [] app
     let noretFuncs =
-      cg.FoldVertex (fun acc v ->
-        if List.length v.Succs = 0 then v :: acc else acc) []
-      |> findLoop hdl scfg app Set.empty
+      DiGraph.foldVertex cg (fun acc v ->
+        if List.length <| DiGraph.getSuccs cg v = 0 then v :: acc else acc) []
+      |> findLoop hdl scfg cg app Set.empty
       |> getNoReturnFunctions app
     let noretCallsites = getNoReturnCallSites hdl scfg app noretFuncs
     Apparatus.addNoReturnInfo app noretFuncs noretCallsites
@@ -253,6 +260,6 @@ type NoReturnAnalysis () =
 
     member __.Run hdl scfg app =
       let app' = NoReturnHelper.findNoReturnEdges hdl scfg app
-      match SCFG.Init (hdl, app') with
+      match SCFG.Init (hdl, app', IRCFG.initImperative) with
       | Ok scfg -> scfg, app'
       | Error e -> failwithf "Failed to run no-return analysis due to %A" e

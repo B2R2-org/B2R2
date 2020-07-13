@@ -57,6 +57,21 @@ type CallGraphBBlock (addr, id, name, isFake, isExternal) =
 /// Call graph, where each node represents a function.
 type CallCFG = ControlFlowGraph<CallGraphBBlock, CFGEdgeKind>
 
+module CallCFG =
+  let initImperative () =
+    let initializer core =
+      CallCFG (core) :> DiGraph<CallGraphBBlock, CFGEdgeKind>
+    ImperativeCore<CallGraphBBlock, CFGEdgeKind> (initializer, UnknownEdge)
+    |> CallCFG
+    :> DiGraph<CallGraphBBlock, CFGEdgeKind>
+
+  let initPersistent () =
+    let initializer core =
+      CallCFG (core) :> DiGraph<CallGraphBBlock, CFGEdgeKind>
+    PersistentCore<CallGraphBBlock, CFGEdgeKind> (initializer, UnknownEdge)
+    |> CallCFG
+    :> DiGraph<CallGraphBBlock, CFGEdgeKind>
+
 /// A mapping from an address to a CallCFG vertex.
 type CallVMap = Dictionary<Addr, Vertex<CallGraphBBlock>>
 
@@ -72,10 +87,11 @@ type CallGraphLens (scfg: SCFG) =
         let id = callee.CalleeID
         let name = callee.CalleeName
         let ext = callee.CalleeKind = ExternalCallee
-        let v = (g: CallCFG).AddVertex (CallGraphBBlock (addr, id, name, fake, ext))
+        let v, g =
+          DiGraph.addVertex g (CallGraphBBlock (addr, id, name, fake, ext))
         vMap.Add (addr, v)
-        Some v
-    | true, v -> Some v
+        Some (v, g)
+    | true, v -> Some (v, g)
 
   let getVertex g vMap (old: Vertex<IRBasicBlock>) app =
     let addr = old.VData.PPoint.Address
@@ -83,8 +99,9 @@ type CallGraphLens (scfg: SCFG) =
     | None -> None
     | Some _ -> getFunctionVertex g vMap old addr app
 
-  let buildCallGraph callCFG (_: IRCFG) vMap app =
-    scfg.Graph.IterEdge (fun src dst e ->
+  let buildCallGraph callCFG _ vMap app =
+    callCFG
+    |> DiGraph.foldEdge scfg.Graph (fun callCFG src dst e ->
       match e with
       | IntraJmpEdge
       | IndirectJmpEdge
@@ -92,22 +109,24 @@ type CallGraphLens (scfg: SCFG) =
       | ExternalJmpEdge
       | ExternalCallEdge
       | CallEdge ->
+        (* XXX: Should be fixed *)
         match scfg.FindFunctionVertex src.VData.PPoint.Address with
-        | None -> ()
+        | None -> callCFG
         | Some src ->
-          let srcV = getVertex callCFG vMap src app
-          let dstV = getVertex callCFG vMap dst app
-          match srcV, dstV with
-          | Some s, Some d -> callCFG.AddEdge s d e
-          | _ -> ()
-      | _ -> ())
+          match getVertex callCFG vMap src app with
+          | None -> callCFG
+          | Some (s, callCFG) ->
+            match getVertex callCFG vMap dst app with
+            | None -> callCFG
+            | Some (d, callCFG) -> DiGraph.addEdge callCFG s d e
+      | _ -> callCFG)
 
   interface ILens<CallGraphBBlock> with
-    member __.Filter (g: IRCFG) _ app =
-      let callCFG = CallCFG ()
+    member __.Filter _ initializer g _ app =
+      let callCFG: DiGraph<CallGraphBBlock, _> = initializer ()
       let vMap = CallVMap ()
-      buildCallGraph callCFG g vMap app
-      callCFG, callCFG.Unreachables |> Seq.toList
+      let callCFG = buildCallGraph callCFG g vMap app
+      callCFG, DiGraph.getUnreachables callCFG |> Seq.toList
 
   static member Init (scfg) =
     CallGraphLens (scfg) :> ILens<CallGraphBBlock>

@@ -45,18 +45,18 @@ type SCFG internal (app, g, vertices) =
   /// SCFG should be constructed only via this method. The ignoreIllegal
   /// argument indicates we will ignore any illegal vertices/edges during the
   /// creation of an SCFG.
-  static member Init (hdl, app, ?ignoreIllegal) =
-    let g = IRCFG ()
+  static member Init (hdl, app, graphInit, ?ignoreIllegal) =
+    let g = graphInit ()
     let ignoreIllegal = defaultArg ignoreIllegal true
     let vertices = SCFGUtils.VMap ()
     let leaders = app.LeaderInfos |> Set.toArray |> Array.map (fun l -> l.Point)
-    let iter = if ignoreIllegal then SCFGUtils.iter else SCFGUtils.iterUntilErr
+    let fold = if ignoreIllegal then SCFGUtils.fold else SCFGUtils.foldUntilErr
     [ 0 .. leaders.Length - 1 ]
-    |> iter (SCFGUtils.createNode g app vertices leaders)
-    |> Result.bind (fun () ->
+    |> fold (SCFGUtils.createNode app vertices leaders) g
+    |> Result.bind (fun g ->
       [ 0 .. leaders.Length - 1 ]
-      |> iter (SCFGUtils.joinEdges hdl g app vertices leaders)
-      |> Result.bind (fun () ->
+      |> fold (SCFGUtils.joinEdges hdl app vertices leaders) g
+      |> Result.bind (fun g ->
         SCFG (app, g, vertices) |> Ok))
 
   /// The actual graph data structure of the SCFG.
@@ -79,36 +79,36 @@ type SCFG internal (app, g, vertices) =
   /// address (addr) from the SCFG, and the root node. When the
   /// preserveRecursiveEdge parameter is false, we create fake blocks for
   /// recursive calls, which is useful for intra-procedural analyses.
-  member __.GetFunctionCFG (addr: Addr,
+  member __.GetFunctionCFG (addr: Addr, graphInit,
                             [<Optional; DefaultParameterValue(true)>]
                             preserveRecursiveEdge) =
-    let newGraph = IRCFG ()
+    let newGraph = graphInit ()
     let vMap = Dictionary<ProgramPoint, Vertex<IRBasicBlock>> ()
     let visited = HashSet<ProgramPoint> ()
-    let rec loop pos =
-      if visited.Contains pos then ()
+    let rec loop newGraph pos =
+      if visited.Contains pos then newGraph
       else
         visited.Add pos |> ignore
-        getVertex pos |> iterSuccessors vertices.[pos]
-    and getVertex pos =
+        getVertex newGraph pos |> foldSuccessors vertices.[pos]
+    and getVertex newGraph pos =
       let origVertex = vertices.[pos]
       match vMap.TryGetValue pos with
       | (false, _) ->
-        let v = newGraph.AddVertex origVertex.VData
+        let v, newGraph = DiGraph.addVertex newGraph origVertex.VData
         vMap.Add (pos, v)
-        v
-      | (true, v) -> v
-    and iterSuccessors origVertex curVertex =
-      origVertex.Succs
-      |> List.iter (fun succ ->
-        g.FindEdgeData origVertex succ |> addEdge curVertex succ)
-    and addEdge parent child e =
+        v, newGraph
+      | (true, v) -> v, newGraph
+    and foldSuccessors origVertex (curVertex, newGraph) =
+      DiGraph.getSuccs g origVertex
+      |> List.fold (fun newGraph succ ->
+        g.FindEdgeData origVertex succ |> addEdge newGraph curVertex succ) newGraph
+    and addEdge newGraph parent child e =
       match e with
-      | ExternalCallEdge | ExternalJmpEdge | RetEdge | ImplicitCallEdge -> ()
+      | ExternalCallEdge | ExternalJmpEdge | RetEdge | ImplicitCallEdge -> newGraph
       | CallEdge
         when preserveRecursiveEdge && child.VData.PPoint.Address = addr ->
-        let child = getVertex child.VData.PPoint
-        newGraph.AddEdge parent child RecursiveCallEdge
+        let child, newGraph = getVertex newGraph child.VData.PPoint
+        DiGraph.addEdge newGraph parent child RecursiveCallEdge
       | CallEdge | IndirectCallEdge ->
         let last = parent.VData.LastInstruction
         let fallPp = ProgramPoint (last.Address + uint64 last.Length, 0)
@@ -116,37 +116,37 @@ type SCFG internal (app, g, vertices) =
           if child.VData.IsFakeBlock () then ProgramPoint.GetFake ()
           else child.VData.PPoint
         let fake = IRBasicBlock ([||], childPp)
-        let child = newGraph.AddVertex fake
-        newGraph.AddEdge parent child e
+        let child, newGraph = DiGraph.addVertex newGraph fake
+        let newGraph = DiGraph.addEdge newGraph parent child e
         match app.CalleeMap.Find childPp.Address with
-        | Some callee when callee.IsNoReturn -> ()
+        | Some callee when callee.IsNoReturn -> newGraph
         | _ ->
           try
-            let fall = getVertex fallPp
-            newGraph.AddEdge child fall RetEdge
+            let fall, newGraph = getVertex newGraph fallPp
+            DiGraph.addEdge newGraph child fall RetEdge
           with :? KeyNotFoundException ->
 #if DEBUG
             printfn "[W] Illegal fall-through edge (%x) ignored." fallPp.Address
 #endif
-            ()
+            newGraph
       | InterJmpEdge ->
         match app.CalleeMap.Find (child.VData.PPoint.Address) with
         | Some _ ->
           let childPp = child.VData.PPoint
           let fake = IRBasicBlock ([||], childPp)
-          let child = newGraph.AddVertex fake
-          newGraph.AddEdge parent child CallEdge
+          let child, newGraph = DiGraph.addVertex newGraph fake
+          DiGraph.addEdge newGraph parent child CallEdge
         | _ ->
-          let child = getVertex child.VData.PPoint
-          newGraph.AddEdge parent child e
-          loop child.VData.PPoint
+          let child, newGraph = getVertex newGraph child.VData.PPoint
+          let newGraph = DiGraph.addEdge newGraph parent child e
+          loop newGraph child.VData.PPoint
       | _ ->
-        let child = getVertex child.VData.PPoint
-        newGraph.AddEdge parent child e
-        loop child.VData.PPoint
+        let child, newGraph = getVertex newGraph child.VData.PPoint
+        let newGraph = DiGraph.addEdge newGraph parent child e
+        loop newGraph child.VData.PPoint
     if app.CalleeMap.Contains addr then
       let rootPos = ProgramPoint (addr, 0)
-      loop rootPos
+      let newGraph = loop newGraph rootPos
       newGraph, vMap.[rootPos]
     else raise InvalidFunctionAddressException
 
@@ -165,7 +165,7 @@ type SCFG internal (app, g, vertices) =
           | true, v ->
             if app.CalleeMap.Contains addr then Some v
             else
-              v.Preds
+              DiGraph.getPreds g v
               |> List.iter (fun v ->
                 let addr = v.VData.PPoint.Address
                 if visited.Contains addr then ()
@@ -202,7 +202,7 @@ type SCFG internal (app, g, vertices) =
 
   /// Retrieve call target addresses.
   member __.CallTargets () =
-    g.FoldEdge (fun acc _ dst e ->
+    [] |> DiGraph.foldEdge g (fun acc _ dst e ->
       match e with
       | CallEdge -> dst.VData.PPoint.Address :: acc
-      | _ -> acc) []
+      | _ -> acc)

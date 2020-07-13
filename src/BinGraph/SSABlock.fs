@@ -59,10 +59,10 @@ module SSABlockHelper =
     |> Set.ofList
 
   /// This is currently intra-procedural.
-  let computeDefinedVars hdl (scfg: SCFG) addr =
+  let computeDefinedVars irgraphInit hdl (scfg: SCFG) addr =
     try
-      let g, _ = scfg.GetFunctionCFG (addr, false)
-      let defs = g.FoldVertex defVarFolder Set.empty
+      let g, _ = scfg.GetFunctionCFG (addr, irgraphInit, false)
+      let defs = DiGraph.foldVertex g defVarFolder Set.empty
       let defs = if Set.isEmpty defs then addDefaultDefs hdl else defs
       if not <| hdl.FileInfo.IsLinkageTable addr then defs
       else Set.add { SSA.Kind = SSA.MemVar; SSA.Identifier = -1 } defs
@@ -70,14 +70,15 @@ module SSABlockHelper =
     with _ -> [||]
 
 /// Basic block type for an SSA-based CFG (SSACFG).
-type SSABBlock private (hdl, scfg, pp, instrs, retPoint, hasIndirectBranch) =
+type SSABBlock private
+    (irgraphInit, hdl, scfg, pp, instrs, retPoint, hasIndirectBranch) =
   inherit BasicBlock ()
 
   let mutable stmts =
     match retPoint with
     | Some (ret: ProgramPoint) ->
       let stmts = (* For a fake block, we check which things can be modified. *)
-        SSABlockHelper.computeDefinedVars hdl scfg (pp: ProgramPoint).Address
+        SSABlockHelper.computeDefinedVars irgraphInit hdl scfg (pp: ProgramPoint).Address
         |> Array.map (fun dst ->
           let src = { SSA.Kind = dst.Kind; SSA.Identifier = -1 }
           SSA.Def (dst, SSA.ReturnVal (pp.Address, ret.Address, src)))
@@ -94,11 +95,11 @@ type SSABBlock private (hdl, scfg, pp, instrs, retPoint, hasIndirectBranch) =
 
   let mutable frontier: Vertex<SSABBlock> list = []
 
-  new (hdl, scfg, pp, instrs, hasIndirectBranch) =
-    SSABBlock (hdl, scfg, pp, instrs, None, hasIndirectBranch)
+  new (graphInit, hdl, scfg, pp, instrs, hasIndirectBranch) =
+    SSABBlock (graphInit, hdl, scfg, pp, instrs, None, hasIndirectBranch)
 
-  new (hdl, scfg, pp, retAddr, hasIndirectBranch) =
-    SSABBlock (hdl, scfg, pp, [||], Some retAddr, hasIndirectBranch)
+  new (graphInit, hdl, scfg, pp, retAddr, hasIndirectBranch) =
+    SSABBlock (graphInit, hdl, scfg, pp, [||], Some retAddr, hasIndirectBranch)
 
   override __.PPoint = pp
 

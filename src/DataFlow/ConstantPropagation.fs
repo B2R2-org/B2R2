@@ -28,14 +28,14 @@ open B2R2.BinIR.SSA
 open B2R2.BinGraph
 
 /// Modified version of sparse conditional constant propagation of Wegman et al.
-type ConstantPropagation (hdl, ssaCFG: SSACFG) =
+type ConstantPropagation (hdl, ssaCFG: DiGraph<SSABBlock, CFGEdgeKind>) =
   inherit DataFlowAnalysis<CPValue, SSABBlock> ()
 
   override __.Top = Undef
 
   member private __.GetNumIncomingExecutedEdges st (blk: Vertex<SSABBlock>) =
     let myid = blk.GetID ()
-    blk.Preds
+    DiGraph.getPreds ssaCFG blk
     |> List.map (fun p -> p.GetID (), myid)
     |> List.filter (fun (src, dst) -> CPState.isExecuted st src dst)
     |> List.length
@@ -47,9 +47,9 @@ type ConstantPropagation (hdl, ssaCFG: SSACFG) =
       | Some uses ->
         uses
         |> Set.iter (fun (vid, idx) ->
-          let v = ssaCFG.FindVertexByID vid
+          let v = DiGraph.findVertexByID ssaCFG vid
           if __.GetNumIncomingExecutedEdges st v > 0 then
-            CPTransfer.evalStmt st v v.VData.Stmts.[idx]
+            CPTransfer.evalStmt ssaCFG st v v.VData.Stmts.[idx]
           else ())
       | None -> ()
 
@@ -57,19 +57,19 @@ type ConstantPropagation (hdl, ssaCFG: SSACFG) =
     if st.FlowWorkList.Count > 0 then
       let parentid, myid = st.FlowWorkList.Dequeue ()
       st.ExecutedEdges.Add (parentid, myid) |> ignore
-      let blk = ssaCFG.FindVertexByID myid
+      let blk = DiGraph.findVertexByID ssaCFG myid
       blk.VData.Stmts
-      |> Array.iter (fun stmt -> CPTransfer.evalStmt st blk stmt)
+      |> Array.iter (fun stmt -> CPTransfer.evalStmt ssaCFG st blk stmt)
       match blk.VData.GetLastStmt () with
       | Jmp _ -> ()
       | _ ->
-        blk.Succs
+        DiGraph.getSuccs ssaCFG blk
         |> List.iter (fun succ ->
           let succid = succ.GetID ()
           CPState.markExecutable st myid succid)
     else ()
 
-  member __.Compute (root: Vertex<SSABBlock>) =
+  member __.Compute (root: Vertex<_>) =
     let st = CPState.initState hdl ssaCFG
     st.FlowWorkList.Enqueue (0, root.GetID ())
     while st.FlowWorkList.Count > 0 || st.SSAWorkList.Count > 0 do

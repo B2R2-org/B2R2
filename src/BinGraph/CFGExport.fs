@@ -47,24 +47,26 @@ type CFGData = {
   Edges: EdgeData []
 }
 
-let toJson (cfg: ControlFlowGraph<_, _>) jsonPath =
+let toJson cfg jsonPath =
   let enc = Encoding.UTF8
   use fs = File.Create (jsonPath)
   use writer =
     JsonReaderWriterFactory.CreateJsonWriter (fs, enc, true, true, "  ")
   let nodes =
-    cfg.FoldVertex (fun acc v ->
-      v.VData.PPoint.Address.ToString ("X") :: acc) []
+    []
+    |> DiGraph.foldVertex cfg (fun acc (v: Vertex<#BasicBlock>) ->
+      v.VData.PPoint.Address.ToString ("X") :: acc)
     |> List.rev
     |> List.toArray
   let edges =
-    cfg.FoldEdge (fun acc f t e ->
+    []
+    |> DiGraph.foldEdge cfg (fun acc f t e ->
       { From = f.VData.PPoint.Address.ToString ("X")
         To = t.VData.PPoint.Address.ToString ("X")
-        Type = e.ToString () } :: acc) []
+        Type = e.ToString () } :: acc)
     |> List.rev
     |> List.toArray
   let data = { Nodes = nodes; Edges = edges }
-  let ser = DataContractJsonSerializer(typedefof<CFGData>)
+  let ser = DataContractJsonSerializer (typedefof<CFGData>)
   ser.WriteObject (writer, data)
   writer.Flush ()

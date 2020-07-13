@@ -41,15 +41,15 @@ let [<Literal>] private lastSegLen = 20.0
 let [<Literal>] private backEdgeMargin = 10.0
 
 let private restoreBackEdge (vGraph: VisGraph) (src, dst, (edge: VisEdge)) =
-  match vGraph.TryFindEdge dst src with
+  match vGraph.TryFindEdgeData dst src with
   | Some eData ->
     if eData.IsBackEdge then
-      vGraph.RemoveEdge dst src
-      vGraph.AddEdge src dst edge
+      vGraph.RemoveEdge dst src |> ignore
+      vGraph.AddEdge src dst edge |> ignore
     else
-      vGraph.AddEdge src dst edge
+      vGraph.AddEdge src dst edge |> ignore
   | None ->
-    vGraph.AddEdge src dst edge
+    vGraph.AddEdge src dst edge |> ignore
 
 let private restoreBackEdges vGraph backEdgeList =
   List.iter (restoreBackEdge vGraph) backEdgeList
@@ -78,9 +78,11 @@ let private computeEdgeEndOffset v neighbors map isPred =
     ) map
   |> fst
 
-let private computeEdgeEndOffsets (predEndOffsets, succEndOffsets) v =
-  let preds = List.sortBy VisGraph.getIndex (v: Vertex<_>).Preds |> List.toArray
-  let succs = List.sortBy VisGraph.getIndex (v: Vertex<_>).Succs |> List.toArray
+let private computeEdgeEndOffsets vGraph (predEndOffsets, succEndOffsets) v =
+  let preds =
+    DiGraph.getPreds vGraph v |> List.sortBy VisGraph.getIndex |> List.toArray
+  let succs =
+    DiGraph.getSuccs vGraph v |> List.sortBy VisGraph.getIndex |> List.toArray
   computeEdgeEndOffset v preds predEndOffsets true,
   computeEdgeEndOffset v succs succEndOffsets false
 
@@ -180,11 +182,11 @@ let private drawEdge vGraph hPerLayer predEndOffsets succEndOffsets p c _ =
 let rec private removeDummyLoop (vGraph: VisGraph) src c points = function
   | p :: lst ->
     let eData = vGraph.FindEdgeData p c
-    vGraph.RemoveEdge p c
+    vGraph.RemoveEdge p c |> ignore
     removeDummyLoop vGraph src p (eData.Points @ points) lst
   | [] ->
     let eData = vGraph.FindEdgeData src c
-    vGraph.RemoveEdge src c
+    vGraph.RemoveEdge src c |> ignore
     eData.Points @ points
 
 let private makeSmooth isBack points =
@@ -209,8 +211,9 @@ let private removeDummy vGraph (src, dst) ((edge: VisEdge), dummies) =
   let newEdge = VisEdge (edge.Type)
   newEdge.IsBackEdge <- edge.IsBackEdge
   newEdge.Points <- points
-  vGraph.AddEdge src dst newEdge
-  List.iter vGraph.RemoveVertex dummies
+  vGraph.AddEdge src dst newEdge |> ignore
+  dummies
+  |> List.iter (fun (v: Vertex<_>) -> vGraph.RemoveVertex v |> ignore)
 
 let private removeDummies (vGraph: VisGraph) dummyMap =
   Map.iter (removeDummy vGraph) dummyMap
@@ -219,6 +222,6 @@ let drawEdges (vGraph: VisGraph) vLayout backEdgeList dummyMap =
   restoreBackEdges vGraph backEdgeList
   let hPerLayer = computeHeightPerLayer vLayout
   let predEndOffsets, succEndOffsets =
-    vGraph.FoldVertex computeEdgeEndOffsets (Map.empty, Map.empty)
+    vGraph.FoldVertex (computeEdgeEndOffsets vGraph) (Map.empty, Map.empty)
   vGraph.IterEdge (drawEdge vGraph hPerLayer predEndOffsets succEndOffsets)
   removeDummies vGraph dummyMap

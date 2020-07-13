@@ -26,63 +26,66 @@ module B2R2.BinGraph.Traversal
 
 open System.Collections.Generic
 
-let inline private prependSuccessors lst (v: Vertex<_>) =
-  v.Succs |> List.fold (fun lst s -> s :: lst) lst
+let inline private prependSuccessors g lst v =
+  DiGraph.getSuccs g v |> List.fold (fun lst s -> s :: lst) lst
+
+let rec foldPreorderLoop visited g fn acc = function
+  | [] -> acc
+  | v: Vertex<_> :: tovisit when v.GetID () |> (visited: HashSet<_>).Contains ->
+    foldPreorderLoop visited g fn acc tovisit
+  | v :: tovisit ->
+    v.GetID () |> visited.Add |> ignore
+    foldPreorderLoop visited g fn (fn acc v) (prependSuccessors g tovisit v)
 
 /// Fold vertices of the graph in a depth-first manner with the preorder
 /// traversal.
-let foldPreorder (v: Vertex<_>) fn acc =
+let foldPreorder g v fn acc =
   let visited = new HashSet<int> ()
-  let rec loop acc = function
-    | [] -> acc
-    | v :: tovisit when Vertex<_>.GetID v |> visited.Contains ->
-      loop acc tovisit
-    | v :: tovisit ->
-      visited.Add (v.GetID ()) |> ignore
-      loop (fn acc v) (prependSuccessors tovisit v)
-  loop acc [v]
+  foldPreorderLoop visited g fn acc [v]
 
 /// Iterate vertices of the graph in a depth-first manner with the preorder
 /// traversal.
-let iterPreorder v fn =
-  foldPreorder v (fun () v -> fn v) ()
+let iterPreorder g v fn =
+  foldPreorder g v (fun () v -> fn v) ()
+
+let rec foldPostorderLoop visited g fn acc vstack = function
+  | [] -> acc
+  | v: Vertex<_> :: tovisit when v.GetID () |> (visited: HashSet<_>).Contains ->
+    foldPostorderLoop visited g fn acc vstack tovisit
+  | v :: tovisit ->
+    v.GetID () |> visited.Add |> ignore
+    let struct (acc, vstack) = consume visited g fn acc (v :: vstack)
+    foldPostorderLoop visited g fn acc vstack (prependSuccessors g tovisit v)
+and consume visited g fn acc = function
+  | [] -> struct (acc, [])
+  | v :: rest ->
+    let allSuccsVisited =
+      DiGraph.getSuccs g v
+      |> List.forall (fun s -> s.GetID () |> visited.Contains)
+    if allSuccsVisited then consume visited g fn (fn acc v) rest
+    else struct (acc, v :: rest)
 
 /// Fold vertices of the graph in a depth-first manner with the postorder
 /// traversal.
-let foldPostorder (v: Vertex<_>) fn acc =
+let foldPostorder g v fn acc =
   let visited = new HashSet<int> ()
-  let rec loop acc vstack = function
-    | [] -> acc
-    | v :: tovisit when Vertex<_>.GetID v |> visited.Contains ->
-      loop acc vstack tovisit
-    | v :: tovisit ->
-      visited.Add (v.GetID ()) |> ignore
-      let struct (acc, vstack) = consume acc (v :: vstack)
-      loop acc vstack (prependSuccessors tovisit v)
-  and consume acc = function
-    | [] -> struct (acc, [])
-    | v :: rest ->
-      if v.Succs |> List.forall (fun s -> s.GetID () |> visited.Contains) then
-        consume (fn acc v) rest
-      else
-        struct (acc, v :: rest)
-  loop acc [] [v]
+  foldPostorderLoop visited g fn acc [] [v]
 
 /// Iterate vertices of the graph in a depth-first manner with the postorder
 /// traversal.
-let iterPostorder (v: Vertex<_>) fn =
-  foldPostorder v (fun () v -> fn v) ()
+let iterPostorder g v fn =
+  foldPostorder g v (fun () v -> fn v) ()
 
 /// Fold vertices of the graph in a depth-first manner with the reverse
 /// postorder traversal.
-let foldRevPostorder (v: Vertex<_>) fn acc =
-  foldPostorder v (fun acc v -> v :: acc) []
+let foldRevPostorder g v fn acc =
+  foldPostorder g v (fun acc v -> v :: acc) []
   |> List.fold fn acc
 
 /// Iterate vertices of the graph in a depth-first manner with the reverse
 /// postorder traversal.
-let iterRevPostorder (v: Vertex<_>) fn =
-  foldPostorder v (fun acc v -> v :: acc) []
+let iterRevPostorder g v fn =
+  foldPostorder g v (fun acc v -> v :: acc) []
   |> List.iter fn
 
 /// Topologically fold every vertex of the given graph. For every unreachable
@@ -92,10 +95,11 @@ let iterRevPostorder (v: Vertex<_>) fn =
 /// We then simply fold the accumulated list. The second parameter (root) is for
 /// providing root vertices in case there is no unreachable node, e.g., when
 /// there is a loop to the root node.
-let foldTopologically (g: DiGraph<_, _>) roots fn acc =
-  g.Unreachables
+let foldTopologically g roots fn acc =
+  let visited = new HashSet<int> ()
+  DiGraph.getUnreachables g
   |> Set.ofSeq
   |> List.foldBack Set.add roots
-  |> Set.fold (fun acc root ->
-    foldPostorder root (fun acc v -> v :: acc) acc) []
+  |> Set.toList
+  |> foldPostorderLoop visited g (fun acc v -> v :: acc) [] []
   |> List.fold fn acc

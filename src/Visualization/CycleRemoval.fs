@@ -30,22 +30,23 @@ let private removeSelfCycle (vGraph: VisGraph) backEdgeList src dst _ =
   if VisGraph.getID src = VisGraph.getID dst then (* Definition of self cycle *)
     let edge = vGraph.FindEdgeData src dst
     edge.IsBackEdge <- true
-    vGraph.RemoveEdge src dst (* We should remove self cycles. *)
+    (* We should remove self cycles. *)
+    vGraph.RemoveEdge src dst |> ignore
     (src, dst, edge) :: backEdgeList
   else backEdgeList
 
 let private removeBackEdge (vGraph: VisGraph) order backEdgeList src dst _ =
   if Map.find src order > Map.find dst order then // BackEdge
-    match vGraph.TryFindEdge dst src with
+    match vGraph.TryFindEdgeData dst src with
     | Some edge -> // exist opposite edges
       edge.IsBackEdge <- true
-      vGraph.RemoveEdge src dst
+      vGraph.RemoveEdge src dst |> ignore
       (src, dst, edge) :: backEdgeList
     | None -> // single backedge
       let edge = vGraph.FindEdgeData src dst
       edge.IsBackEdge <- true
-      vGraph.RemoveEdge src dst
-      vGraph.AddEdge dst src edge
+      vGraph.RemoveEdge src dst |> ignore
+      vGraph.AddEdge dst src edge |> ignore
       (src, dst, edge) :: backEdgeList
   else backEdgeList
 

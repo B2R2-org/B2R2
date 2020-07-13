@@ -31,7 +31,7 @@ open B2R2.BinCorpus
 /// A basic block that consists of IR (LowUIR) statements. It contains all the
 /// InstructionInfo of the basic block.
 type IRBasicBlock (instrs: InstructionInfo [], point: ProgramPoint) =
-  inherit BasicBlock()
+  inherit BasicBlock ()
 
   let mutable hasIndirectBranch = false
 

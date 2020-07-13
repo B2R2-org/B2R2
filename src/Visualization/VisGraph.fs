@@ -31,31 +31,37 @@ open System.Collections.Generic
 type VisGraph = ControlFlowGraph<VisBBlock, VisEdge>
 
 module VisGraph =
-  let ofCFG (g: ControlFlowGraph<#BasicBlock, _>) roots =
-    let newGraph = VisGraph ()
+  let init () =
+    let initializer core =
+      VisGraph (core) :> DiGraph<VisBBlock, VisEdge>
+    ImperativeCore<VisBBlock, VisEdge> (initializer, VisEdge UnknownEdge)
+    |> VisGraph
+
+  let ofCFG g roots =
+    let newGraph = init ()
     let visited = Dictionary<VertexID, Vertex<VisBBlock>> ()
     let getVisBBlock (oldV: Vertex<#BasicBlock>) =
       match visited.TryGetValue (oldV.GetID ()) with
       | false, _ ->
         let blk = VisBBlock (oldV.VData :> BasicBlock, false)
-        let v = newGraph.AddVertex blk
+        let v, _ = newGraph.AddVertex blk
         visited.[oldV.GetID ()] <- v
         v
       | true, v -> v
     (* In case there is no edge in the graph. *)
     let roots = roots |> List.map (getVisBBlock)
-    g.IterEdge (fun src dst e ->
+    DiGraph.iterEdge g (fun src dst e ->
       let srcV = getVisBBlock src
       let dstV = getVisBBlock dst
       let edge = VisEdge (e)
-      newGraph.AddEdge srcV dstV edge)
+      newGraph.AddEdge srcV dstV edge |> ignore)
     newGraph, roots
 
   let getID v = Vertex<VisBBlock>.GetID v
 
-  let getPreds (v: Vertex<VisBBlock>) = v.Preds
+  let getPreds vGraph (v: Vertex<VisBBlock>) = DiGraph.getPreds vGraph v
 
-  let getSuccs (v: Vertex<VisBBlock>) = v.Succs
+  let getSuccs vGraph (v: Vertex<VisBBlock>) = DiGraph.getSuccs vGraph v
 
   let getVData (v: Vertex<VisBBlock>) = v.VData
 

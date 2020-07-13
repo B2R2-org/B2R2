@@ -24,36 +24,25 @@
 
 namespace B2R2.BinGraph
 
-type ControlFlowGraph<'V, 'E when 'V :> BasicBlock and 'V: equality> () =
-  inherit SimpleDiGraph<'V, 'E>()
-
-  member __.Clone (?reverse) =
-    let g = ControlFlowGraph<'V, 'E>()
-    let isReverse = defaultArg reverse false
-    let dict = System.Collections.Generic.Dictionary<VertexID, Vertex<'V>>()
-    let addEdgeNormal (s: Vertex<'V>) (d: Vertex<'V>) e =
-      g.AddEdge dict.[s.GetID ()] dict.[d.GetID ()] e
-    let addEdgeReverse (s: Vertex<'V>) (d: Vertex<'V>) e =
-      g.AddEdge dict.[d.GetID ()] dict.[s.GetID ()] e
-    let addEdge = if isReverse then addEdgeReverse else addEdgeNormal
-    __.IterVertex (fun v -> dict.Add(v.GetID (), g.AddVertex v.VData))
-    __.IterEdge addEdge
-    g
-
-  member __.SubGraph vs =
-    let g = ControlFlowGraph<'V, 'E> ()
-    let vMap =
-      vs
-      |> Set.fold (fun acc (v: Vertex<'V>) ->
-        let v' = g.AddVertex v.VData
-        Map.add v v' acc) Map.empty
-    __.IterEdge (fun src dst e ->
-      if Set.contains src vs && Set.contains dst vs then
-        let src = Map.find src vMap
-        let dst = Map.find dst vMap
-        g.AddEdge src dst e)
-    g
+type ControlFlowGraph<'D, 'E when 'D :> BasicBlock and 'D : equality>
+    (core: GraphCore<'D, 'E, DiGraph<'D, 'E>>) =
+  inherit SimpleDiGraph<'D, 'E> (core)
 
 type IRCFG = ControlFlowGraph<IRBasicBlock, CFGEdgeKind>
+
+module IRCFG =
+  let initImperative () =
+    let initializer core =
+      IRCFG (core) :> DiGraph<IRBasicBlock, CFGEdgeKind>
+    ImperativeCore<IRBasicBlock, CFGEdgeKind> (initializer, UnknownEdge)
+    |> IRCFG
+    :> DiGraph<IRBasicBlock, CFGEdgeKind>
+
+  let initPersistent () =
+    let initializer core =
+      IRCFG (core) :> DiGraph<IRBasicBlock, CFGEdgeKind>
+    PersistentCore<IRBasicBlock, CFGEdgeKind> (initializer, UnknownEdge)
+    |> IRCFG
+    :> DiGraph<IRBasicBlock, CFGEdgeKind>
 
 // vim: set tw=80 sts=2 sw=2:

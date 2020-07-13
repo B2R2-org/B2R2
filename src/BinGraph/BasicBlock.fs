@@ -29,7 +29,7 @@ open B2R2
 /// The base type for basic block.
 [<AbstractClass>]
 type BasicBlock () =
-  inherit VertexData(VertexData.genID ())
+  inherit VertexData (VertexData.genID ())
   /// The start position (ProgramPoint) of the basic block.
   abstract PPoint: ProgramPoint with get
   /// The instruction address range of the basic block.

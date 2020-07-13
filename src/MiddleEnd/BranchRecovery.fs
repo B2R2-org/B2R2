@@ -62,13 +62,13 @@ module private BranchRecoveryHelper =
     |> filterOutLinkageTables hdl
     |> List.sort
 
-  let hasIndirectBranch (cfg: ControlFlowGraph<IRBasicBlock, _>) =
-    cfg.FoldVertex (fun acc v ->
+  let hasIndirectBranch cfg =
+    DiGraph.foldVertex cfg (fun acc (v: Vertex<IRBasicBlock>) ->
       (not <| v.VData.IsFakeBlock () && v.VData.HasIndirectBranch)
       || acc) false
 
-  let extractIndirectBranches (cfg: ControlFlowGraph<SSABBlock, _>) =
-    cfg.FoldVertex (fun acc v ->
+  let extractIndirectBranches cfg =
+    DiGraph.foldVertex cfg (fun acc (v: Vertex<SSABBlock>) ->
       let len = v.VData.InsInfos.Length
       if not <| v.VData.IsFakeBlock ()
         && v.VData.HasIndirectBranch
@@ -295,10 +295,11 @@ module private BranchRecoveryHelper =
     |> partitionIndBranchInfo entry constBranches tblBranches
 
   let analyzeBranches hdl app (scfg: SCFG) (constBranches, tblBranches) addr =
-    let irCFG, irRoot = scfg.GetFunctionCFG (addr, false)
+    let irCFG, irRoot = scfg.GetFunctionCFG (addr, IRCFG.initImperative, false)
     if hasIndirectBranch irCFG then
       let lens = SSALens.Init hdl scfg
-      let ssaCFG, ssaRoot = lens.Filter irCFG [irRoot] app
+      let ssaCFG, ssaRoot =
+        lens.Filter IRCFG.initImperative SSACFG.initImperative irCFG [irRoot] app
       let cp = ConstantPropagation (hdl, ssaCFG)
       let cpstate = cp.Compute (List.head ssaRoot)
       analyzeIndirectBranch ssaCFG cpstate addr constBranches tblBranches
@@ -341,7 +342,7 @@ module private BranchRecoveryHelper =
       let app =
         Apparatus.addIndirectBranchMap app indmap'
         |> Apparatus.update hdl
-      match SCFG.Init (hdl, app) with
+      match SCFG.Init (hdl, app, IRCFG.initImperative) with
       | Ok scfg ->
 #if DEBUG
         printfn "[*] Go to the next phase ..."
