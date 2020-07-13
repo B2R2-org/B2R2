@@ -176,22 +176,24 @@ let accumulateCFIs cfis cie fdes =
   | None -> cfis
 
 let rec parseCallFrameInformation cls reader sAddr cie fdes offset cfis =
-  let struct (len, offset) = readInt reader offset
-  if len = 0 then accumulateCFIs cfis cie fdes
+  if offset >= ((reader: BinReader).Length ()) then accumulateCFIs cfis cie fdes
   else
-    let nextOffset, offset = computeNextOffset len reader offset
-    let struct (id, offset) = readInt reader offset
-    if id = 0 then
-      let cfis = accumulateCFIs cfis cie fdes
-      let cie = parseCIE cls reader offset
-      parseCallFrameInformation cls reader sAddr (Some cie) [] nextOffset cfis
+    let struct (len, offset) = readInt reader offset
+    if len = 0 then accumulateCFIs cfis cie fdes
     else
-      match cie with
-      | Some c ->
-        let fde = parseFDE cls reader sAddr c offset
-        let fdes = fde :: fdes
-        parseCallFrameInformation cls reader sAddr cie fdes nextOffset cfis
-      | None -> invalidArg "parseCallFrameInformation" "CIE not present"
+      let nextOffset, offset = computeNextOffset len reader offset
+      let struct (id, offset) = readInt reader offset
+      if id = 0 then
+        let cfis = accumulateCFIs cfis cie fdes
+        let cie = parseCIE cls reader offset
+        parseCallFrameInformation cls reader sAddr (Some cie) [] nextOffset cfis
+      else
+        match cie with
+        | Some c ->
+          let fde = parseFDE cls reader sAddr c offset
+          let fdes = fde :: fdes
+          parseCallFrameInformation cls reader sAddr cie fdes nextOffset cfis
+        | None -> invalidArg "parseCallFrameInformation" "CIE not present"
 
 let parse (reader: BinReader) cls (secs: SectionInfo) =
   match Map.tryFind ehframe secs.SecByName with
