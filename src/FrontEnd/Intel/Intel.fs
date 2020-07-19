@@ -34,7 +34,6 @@ type IntelTranslationContext (isa) =
   override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
   override __.GetPseudoRegVar id pos =
     __.RegExprs.GetPseudoRegVar (Register.ofRegID id ) pos
-  override __.GetStack () = B2R2.Utils.impossible ()
 
 /// Parser for Intel (x86 or x86-64) instructions. Parser will return a
 /// platform-agnostic instruction type (Instruction).

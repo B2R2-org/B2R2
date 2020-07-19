@@ -32,7 +32,6 @@ type ARM32TranslationContext (isa) =
   member val private RegExprs: RegExprs = RegExprs ()
   override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
   override __.GetPseudoRegVar _id _pos = failwith "Implement" // XXX
-  override __.GetStack () = B2R2.Utils.impossible ()
 
 /// Parser for 32-bit ARM instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).

@@ -77,8 +77,3 @@ type TranslationContext (isa) =
   ///   Returns an IR expression of a pseudo-register.
   /// </returns>
   abstract member GetPseudoRegVar: id: RegisterID -> idx: int -> Expr
-
-  /// <summary>
-  ///   Get the current stack instance.
-  /// </summary>
-  abstract member GetStack: unit -> ExprStack

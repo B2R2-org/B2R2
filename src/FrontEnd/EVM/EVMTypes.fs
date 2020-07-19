@@ -38,6 +38,8 @@ type Register =
   | PC = 0x1
   /// Gas.
   | GAS = 0x2
+  /// Stack pointer.
+  | SP = 0x3
 
 /// Shortcut for Register type.
 type internal R = Register
@@ -60,11 +62,13 @@ module Register =
     match str.ToLower () with
     | "pc" -> R.PC
     | "gas" -> R.GAS
+    | "sp" -> R.SP
     | _ -> Utils.impossible ()
 
   let toString = function
     | R.GAS  -> "gas"
     | R.PC -> "pc"
+    | R.SP -> "sp"
     | _ -> Utils.impossible ()
 
 

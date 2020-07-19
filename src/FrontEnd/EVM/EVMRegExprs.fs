@@ -32,11 +32,13 @@ type internal RegExprs () =
 
   member val PC = var 64<rt> (Register.toRegID Register.PC) "PC" with get
   member val GAS = var 64<rt> (Register.toRegID Register.GAS) "Gas" with get
+  member val SP = var 256<rt> (Register.toRegID Register.SP) "SP" with get
 
   member __.GetRegVar (name) =
     match name with
     | R.PC -> __.PC
     | R.GAS -> __.GAS
+    | R.SP -> __.SP
     | _ -> raise B2R2.FrontEnd.UnhandledRegExprException
 
 // vim: set tw=80 sts=2 sw=2:
