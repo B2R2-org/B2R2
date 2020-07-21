@@ -189,13 +189,15 @@ type PersistentCore<'D, 'E when 'D :> VertexData and 'D: equality>
     edges
     |> Map.iter (fun _ (src, dst, e) -> fn src dst e)
 
-  override __.FindEdgeBy fn =
-    edges
-    |> Map.pick (fun _ (src, dst, e) -> if fn src dst e then Some e else None)
+  override __.FindEdge src dst =
+    match Map.tryFind (src.GetID (), dst.GetID ()) edges with
+    | Some (_, _, e) -> e
+    | None -> raise EdgeNotFoundException
 
-  override __.TryFindEdgeBy fn =
-    edges |> Map.tryPick (fun _ (src, dst, e) ->
-      if fn src dst e then Some e else None)
+  override __.TryFindEdge src dst =
+    match Map.tryFind (src.GetID (), dst.GetID ()) edges with
+    | Some (_, _, e) -> Some e
+    | None -> None
 
   override __.Clone () =
     __ :> GraphCore<'D, 'E, DiGraph<'D, 'E>>
@@ -360,13 +362,15 @@ type PersistentRangedCore<'D, 'E when 'D :> RangedVertexData and 'D: equality>
     edges
     |> Map.iter (fun _ (src, dst, e) -> fn src dst e)
 
-  override __.FindEdgeBy fn =
-    edges
-    |> Map.pick (fun _ (src, dst, e) -> if fn src dst e then Some e else None)
+  override __.FindEdge src dst =
+    match Map.tryFind (src.GetID (), dst.GetID ()) edges with
+    | Some (_, _, e) -> e
+    | None -> raise EdgeNotFoundException
 
-  override __.TryFindEdgeBy fn =
-    edges |> Map.tryPick (fun _ (src, dst, e) ->
-      if fn src dst e then Some e else None)
+  override __.TryFindEdge src dst =
+    match Map.tryFind (src.GetID (), dst.GetID ()) edges with
+    | Some (_, _, e) -> Some e
+    | None -> None
 
   override __.Clone () =
     __ :> GraphCore<'D, 'E, DiGraph<'D, 'E>>

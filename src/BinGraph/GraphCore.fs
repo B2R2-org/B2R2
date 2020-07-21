@@ -73,8 +73,8 @@ type GraphCore<'D, 'E, 'G
 
   abstract IterEdge: (Vertex<'D> -> Vertex<'D> -> 'E -> unit) -> unit
 
-  abstract FindEdgeBy: (Vertex<'D> -> Vertex<'D> -> 'E -> bool) -> 'E
+  abstract FindEdge: Vertex<'D> -> Vertex<'D> -> 'E
 
-  abstract TryFindEdgeBy: (Vertex<'D> -> Vertex<'D> -> 'E -> bool) -> 'E option
+  abstract TryFindEdge: Vertex<'D> -> Vertex<'D> -> 'E option
 
   abstract Clone: unit -> GraphCore<'D, 'E, 'G>

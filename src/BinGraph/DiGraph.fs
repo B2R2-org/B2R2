@@ -76,12 +76,10 @@ type DiGraph<'D, 'E when 'D :> VertexData and 'D : equality>
     core.RemoveEdge __ srcid dstid
 
   override __.FindEdgeData src dst =
-    core.FindEdgeBy (fun s d _ ->
-      src.GetID () = s.GetID () && dst.GetID () = d.GetID ())
+    core.FindEdge src dst
 
   override __.TryFindEdgeData src dst =
-    core.TryFindEdgeBy (fun s d _ ->
-      src.GetID () = s.GetID () && dst.GetID () = d.GetID ())
+    core.TryFindEdge src dst
 
   override __.FoldVertex fn acc =
     core.FoldVertex fn acc

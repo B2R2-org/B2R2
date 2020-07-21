@@ -170,14 +170,17 @@ type ImperativeCore<'D, 'E when 'D :> VertexData and 'D: equality>
     edges.Values
     |> Seq.iter (fun (src, dst, e) -> fn src dst e)
 
-  override __.FindEdgeBy fn =
-    match edges.Values |> Seq.tryFind (fun (src, dst, e) -> fn src dst e) with
-    | Some (_, _, e) -> e
-    | None -> raise EdgeNotFoundException
+  override __.FindEdge src dst =
+    if edges.ContainsKey (src.GetID (), dst.GetID ()) then
+      let _, _, e = edges.[(src.GetID (), dst.GetID ())]
+      e
+    else raise EdgeNotFoundException
 
-  override __.TryFindEdgeBy fn =
-    edges.Values |> Seq.tryFind (fun (src, dst, e) -> fn src dst e)
-    |> Option.bind (fun (_, _, e) -> Some e)
+  override __.TryFindEdge src dst =
+    if edges.ContainsKey (src.GetID (), dst.GetID ()) then
+      let _, _, e = edges.[(src.GetID (), dst.GetID ())]
+      Some e
+    else None
 
   override __.Clone () =
     let g = __.InitGraph None
@@ -323,14 +326,17 @@ type ImperativeRangedCore<'D, 'E when 'D :> RangedVertexData and 'D: equality>
     edges.Values
     |> Seq.iter (fun (src, dst, e) -> fn src dst e)
 
-  override __.FindEdgeBy fn =
-    match edges.Values |> Seq.tryFind (fun (src, dst, e) -> fn src dst e) with
-    | Some (_, _, e) -> e
-    | None -> raise EdgeNotFoundException
+  override __.FindEdge src dst =
+    if edges.ContainsKey (src.GetID (), dst.GetID ()) then
+      let _, _, e = edges.[(src.GetID (), dst.GetID ())]
+      e
+    else raise EdgeNotFoundException
 
-  override __.TryFindEdgeBy fn =
-    edges.Values |> Seq.tryFind (fun (src, dst, e) -> fn src dst e)
-    |> Option.bind (fun (_, _, e) -> Some e)
+  override __.TryFindEdge src dst =
+    if edges.ContainsKey (src.GetID (), dst.GetID ()) then
+      let _, _, e = edges.[(src.GetID (), dst.GetID ())]
+      Some e
+    else None
 
   override __.Clone () =
     let g = __.InitGraph None
