@@ -24,10 +24,11 @@
 
 namespace B2R2.BinGraph
 
+/// GraphCore is an internal representation for the core graph operations, and
+/// this should not be directly accessed by the user.
 [<AbstractClass>]
 type GraphCore<'D, 'E, 'G
-    when 'D :> VertexData
-     and 'G :> Graph<'D, 'E, 'G>> () =
+    when 'D :> VertexData and 'G :> Graph<'D, 'E, 'G>> internal () =
 
   abstract InitGraph: GraphCore<'D, 'E, 'G> option -> 'G
 

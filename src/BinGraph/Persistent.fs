@@ -40,8 +40,9 @@ type PerVertex<'D when 'D :> VertexData> (?v: 'D) =
 
   static member Init data : Vertex<'D> = upcast (PerVertex<'D> (data))
 
+/// Persistent GraphCore for directed graph (DiGraph).
 type PersistentCore<'D, 'E when 'D :> VertexData and 'D: equality>
-    (init, dummyEdge, ?vertices, ?edges, ?preds, ?succs) =
+    (init, edgeData, ?vertices, ?edges, ?preds, ?succs) =
   inherit GraphCore<'D, 'E, DiGraph<'D, 'E>> ()
 
   let vertices = defaultArg vertices Map.empty
@@ -52,7 +53,7 @@ type PersistentCore<'D, 'E when 'D :> VertexData and 'D: equality>
   override __.InitGraph core =
     match core with
     | Some core -> init core
-    | None -> init <| PersistentCore (init, dummyEdge)
+    | None -> init <| PersistentCore (init, edgeData)
 
   override __.Vertices with get () =
     vertices |> Map.fold (fun acc _ v -> Set.add v acc) Set.empty
@@ -76,7 +77,7 @@ type PersistentCore<'D, 'E when 'D :> VertexData and 'D: equality>
     let vertices = Map.add vid v vertices
     let preds = Map.add vid [] preds
     let succs = Map.add vid [] succs
-    let core = PersistentCore (init, dummyEdge, vertices, edges, preds, succs)
+    let core = PersistentCore (init, edgeData, vertices, edges, preds, succs)
     __.InitGraph (Some (upcast core))
 
   override __.AddDummyVertex _g =
@@ -120,7 +121,7 @@ type PersistentCore<'D, 'E when 'D :> VertexData and 'D: equality>
     let vertices = Map.remove vid vertices
     let preds = Map.remove vid preds
     let succs = Map.remove vid succs
-    let core = PersistentCore (init, dummyEdge, vertices, edges, preds, succs)
+    let core = PersistentCore (init, edgeData, vertices, edges, preds, succs)
     __.InitGraph (Some (upcast core))
 
   override __.ContainsVertex vid =
@@ -150,11 +151,11 @@ type PersistentCore<'D, 'E when 'D :> VertexData and 'D: equality>
     let edges = Map.add (srcid, dstid) (src, dst, e) edges
     let preds = Map.add dstid (src :: Map.find dstid preds) preds
     let succs = Map.add srcid (dst :: Map.find srcid succs) succs
-    let core = PersistentCore (init, dummyEdge, vertices, edges, preds, succs)
+    let core = PersistentCore (init, edgeData, vertices, edges, preds, succs)
     __.InitGraph (Some (upcast core))
 
   override __.AddDummyEdge _g src dst =
-    __.InitGraphWithNewEdge src dst dummyEdge
+    __.InitGraphWithNewEdge src dst edgeData
 
   override __.AddEdge _g src dst e =
     __.InitGraphWithNewEdge src dst e
@@ -178,7 +179,7 @@ type PersistentCore<'D, 'E when 'D :> VertexData and 'D: equality>
           List.filter (fun (s: Vertex<'D>) -> s.GetID () <> dstid) ss
         else ss)
     let edges = Map.remove (srcid, dstid) edges
-    let core = PersistentCore (init, dummyEdge, vertices, edges, preds, succs)
+    let core = PersistentCore (init, edgeData, vertices, edges, preds, succs)
     __.InitGraph (Some (upcast core))
 
   override __.FoldEdge fn acc =
@@ -202,8 +203,10 @@ type PersistentCore<'D, 'E when 'D :> VertexData and 'D: equality>
   override __.Clone () =
     __ :> GraphCore<'D, 'E, DiGraph<'D, 'E>>
 
+/// Persistent GraphCore for directed graph (DiGraph) that uses AddrRange as a
+/// key for each vertex. This is useful for handling CFGs of a binary.
 type PersistentRangedCore<'D, 'E when 'D :> RangedVertexData and 'D: equality>
-    (init, dummyEdge, ?vertices, ?rangemap, ?edges, ?preds, ?succs) =
+    (init, edgeData, ?vertices, ?rangemap, ?edges, ?preds, ?succs) =
   inherit GraphCore<'D, 'E, DiGraph<'D, 'E>> ()
 
   let vertices = defaultArg vertices Map.empty
@@ -215,7 +218,7 @@ type PersistentRangedCore<'D, 'E when 'D :> RangedVertexData and 'D: equality>
   override __.InitGraph core =
     match core with
     | Some core -> init core
-    | None -> init <| PersistentRangedCore (init, dummyEdge)
+    | None -> init <| PersistentRangedCore (init, edgeData)
 
   override __.Vertices with get () =
     vertices |> Map.fold (fun acc _ v -> Set.add v acc) Set.empty
@@ -242,8 +245,8 @@ type PersistentRangedCore<'D, 'E when 'D :> RangedVertexData and 'D: equality>
       else IntervalMap.add v.VData.AddrRange v rangemap
     let preds = Map.add vid [] preds
     let succs = Map.add vid [] succs
-    let core =
-      PersistentRangedCore (init, dummyEdge, vertices, rangemap, edges, preds, succs)
+    let core = PersistentRangedCore (init, edgeData,
+                                     vertices, rangemap, edges, preds, succs)
     __.InitGraph (Some (upcast core))
 
   override __.AddDummyVertex _g =
@@ -290,8 +293,8 @@ type PersistentRangedCore<'D, 'E when 'D :> RangedVertexData and 'D: equality>
       else IntervalMap.remove v.VData.AddrRange rangemap
     let preds = Map.remove vid preds
     let succs = Map.remove vid succs
-    let core =
-      PersistentRangedCore (init, dummyEdge, vertices, rangemap, edges, preds, succs)
+    let core = PersistentRangedCore (init, edgeData,
+                                     vertices, rangemap, edges, preds, succs)
     __.InitGraph (Some (upcast core))
 
   override __.ContainsVertex vid =
@@ -321,12 +324,12 @@ type PersistentRangedCore<'D, 'E when 'D :> RangedVertexData and 'D: equality>
     let edges = Map.add (srcid, dstid) (src, dst, e) edges
     let preds = Map.add dstid (src :: Map.find dstid preds) preds
     let succs = Map.add srcid (dst :: Map.find srcid succs) succs
-    let core =
-      PersistentRangedCore (init, dummyEdge, vertices, rangemap, edges, preds, succs)
+    let core = PersistentRangedCore (init, edgeData,
+                                     vertices, rangemap, edges, preds, succs)
     __.InitGraph (Some (upcast core))
 
   override __.AddDummyEdge _g src dst =
-    __.InitGraphWithNewEdge src dst dummyEdge
+    __.InitGraphWithNewEdge src dst edgeData
 
   override __.AddEdge _g src dst e =
     __.InitGraphWithNewEdge src dst e
@@ -350,8 +353,8 @@ type PersistentRangedCore<'D, 'E when 'D :> RangedVertexData and 'D: equality>
           List.filter (fun (s: Vertex<'D>) -> s.GetID () <> dstid) ss
         else ss)
     let edges = Map.remove (srcid, dstid) edges
-    let core =
-      PersistentRangedCore (init, dummyEdge, vertices, rangemap, edges, preds, succs)
+    let core = PersistentRangedCore (init, edgeData,
+                                     vertices, rangemap, edges, preds, succs)
     __.InitGraph (Some (upcast core))
 
   override __.FoldEdge fn acc =

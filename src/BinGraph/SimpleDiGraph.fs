@@ -28,14 +28,14 @@ type SimpleDiGraph<'D, 'E when 'D :> VertexData and 'D : equality> (core) =
   inherit DiGraph<'D, 'E> (core: GraphCore<'D, 'E, DiGraph<'D, 'E>>)
 
 module SimpleDiGraph =
-  let initImperative<'D, 'E when 'D :> VertexData and 'D : equality> dummyEdge =
+  let initImperative<'D, 'E when 'D :> VertexData and 'D : equality> edgeData =
     let initializer core =
       SimpleDiGraph<'D, 'E> (core) :> DiGraph<'D, 'E>
-    let core = ImperativeCore<'D, 'E> (initializer, dummyEdge)
+    let core = ImperativeCore<'D, 'E> (initializer, edgeData)
     SimpleDiGraph<'D, 'E> (core) :> DiGraph<'D, 'E>
 
-  let initPersistent<'D, 'E when 'D :> VertexData and 'D : equality> dummyEdge =
+  let initPersistent<'D, 'E when 'D :> VertexData and 'D : equality> edgeData =
     let initializer core =
       SimpleDiGraph<'D, 'E> (core) :> DiGraph<'D, 'E>
-    let core = PersistentCore<'D, 'E> (initializer, dummyEdge)
+    let core = PersistentCore<'D, 'E> (initializer, edgeData)
     SimpleDiGraph<'D, 'E> (core) :> DiGraph<'D, 'E>

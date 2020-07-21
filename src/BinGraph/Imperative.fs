@@ -44,8 +44,9 @@ type ImpVertex<'D when 'D :> VertexData> (?v: 'D) =
 
   static member Init data : Vertex<'D> = upcast (ImpVertex<'D> (data))
 
+/// Imperative GraphCore for directed graph (DiGraph).
 type ImperativeCore<'D, 'E when 'D :> VertexData and 'D: equality>
-    (init, dummyEdge, ?vertices, ?edges, ?unreachables, ?exits) =
+    (init, edgeData, ?vertices, ?edges, ?unreachables, ?exits) =
   inherit GraphCore<'D, 'E, DiGraph<'D, 'E>> ()
 
   let vertices = defaultArg vertices (HashSet ())
@@ -59,7 +60,7 @@ type ImperativeCore<'D, 'E when 'D :> VertexData and 'D: equality>
   override __.InitGraph core =
     match core with
     | Some core -> init <| core.Clone ()
-    | None -> init <| ImperativeCore (init, dummyEdge)
+    | None -> init <| ImperativeCore (init, edgeData)
 
   override __.Vertices with get () =
     vertices |> Seq.fold (fun acc v -> Set.add v acc) Set.empty
@@ -136,7 +137,7 @@ type ImperativeCore<'D, 'E when 'D :> VertexData and 'D: equality>
     exits.Remove src |> ignore
 
   override __.AddDummyEdge g src dst =
-    __.AddEdgeToCore src dst dummyEdge
+    __.AddEdgeToCore src dst edgeData
     g
 
   override __.AddEdge g src dst e =
@@ -184,7 +185,7 @@ type ImperativeCore<'D, 'E when 'D :> VertexData and 'D: equality>
 
   override __.Clone () =
     let g = __.InitGraph None
-    let core = ImperativeCore (init, dummyEdge) :> GraphCore<_, _, _>
+    let core = ImperativeCore (init, edgeData) :> GraphCore<_, _, _>
     __.IterVertex (fun v -> core.AddVertex g v.VData |> ignore)
     __.IterEdge (fun src dst e ->
       let src = core.GetVertex <| src.GetID ()
@@ -194,8 +195,10 @@ type ImperativeCore<'D, 'E when 'D :> VertexData and 'D: equality>
       core.AddEdge g src dst e |> ignore)
     core
 
+/// Imperative GraphCore for directed graph (DiGraph) that uses AddrRange as key
+/// for each vertex, which is useful for managing CFGs of a binary.
 type ImperativeRangedCore<'D, 'E when 'D :> RangedVertexData and 'D: equality>
-    (init, dummyEdge, ?vertices, ?rangemap, ?edges, ?unreachables, ?exits) =
+    (init, edgeData, ?vertices, ?rangemap, ?edges, ?unreachables, ?exits) =
   inherit GraphCore<'D, 'E, DiGraph<'D, 'E>> ()
 
   let vertices = defaultArg vertices (HashSet ())
@@ -210,7 +213,7 @@ type ImperativeRangedCore<'D, 'E when 'D :> RangedVertexData and 'D: equality>
   override __.InitGraph core =
     match core with
     | Some core -> init <| core.Clone ()
-    | None -> init <| ImperativeRangedCore (init, dummyEdge)
+    | None -> init <| ImperativeRangedCore (init, edgeData)
 
   override __.Vertices with get () =
     vertices |> Seq.fold (fun acc v -> Set.add v acc) Set.empty
@@ -292,7 +295,7 @@ type ImperativeRangedCore<'D, 'E when 'D :> RangedVertexData and 'D: equality>
     exits.Remove src |> ignore
 
   override __.AddDummyEdge g src dst =
-    __.AddEdgeToCore src dst dummyEdge
+    __.AddEdgeToCore src dst edgeData
     g
 
   override __.AddEdge g src dst e =
@@ -340,7 +343,7 @@ type ImperativeRangedCore<'D, 'E when 'D :> RangedVertexData and 'D: equality>
 
   override __.Clone () =
     let g = __.InitGraph None
-    let core = ImperativeRangedCore (init, dummyEdge) :> GraphCore<_, _, _>
+    let core = ImperativeRangedCore (init, edgeData) :> GraphCore<_, _, _>
     __.IterVertex (fun v -> core.AddVertex g v.VData |> ignore)
     __.IterEdge (fun src dst e ->
       let src = core.GetVertex <| src.GetID ()

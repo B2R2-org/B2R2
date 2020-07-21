@@ -25,7 +25,7 @@
 namespace B2R2.BinGraph
 
 type DiGraph<'D, 'E when 'D :> VertexData and 'D : equality>
-    (core: GraphCore<'D, 'E, DiGraph<'D, 'E>>) =
+    internal (core: GraphCore<'D, 'E, DiGraph<'D, 'E>>) =
   inherit Graph<'D, 'E, DiGraph<'D, 'E>> ()
 
   override __.IsEmpty () = core.GetSize () = 0
@@ -157,93 +157,123 @@ type DiGraph<'D, 'E when 'D :> VertexData and 'D : equality>
       let dst = g.FindVertexByID <| dst.GetID ()
       g.AddEdge dst src e)
 
+  [<CompiledName("IsEmpty")>]
   static member isEmpty (g: DiGraph<'D, 'E>) =
     g.IsEmpty ()
 
+  [<CompiledName("GetSize")>]
   static member getSize (g: DiGraph<'D, 'E>) =
     g.GetSize ()
 
+  [<CompiledName("AddDummyVertex")>]
   static member addDummyVertex (g: DiGraph<'D, 'E>) =
     g.AddDummyVertex ()
 
+  [<CompiledName("AddVertex")>]
   static member addVertex (g: DiGraph<'D, 'E>) data =
     g.AddVertex data
 
+  [<CompiledName("RemoveVertex")>]
   static member removeVertex (g: DiGraph<'D, 'E>) (v: Vertex<'D>)=
     g.RemoveVertex v
 
+  [<CompiledName("GetPreds")>]
   static member getPreds (g: DiGraph<'D, 'E>) (v: Vertex<'D>) =
     g.GetPreds v
 
+  [<CompiledName("GetSuccs")>]
   static member getSuccs (g: DiGraph<'D, 'E>) (v: Vertex<'D>) =
     g.GetSuccs v
 
+  [<CompiledName("GetUnreachables")>]
   static member getUnreachables (g: DiGraph<'D, 'E>) =
     g.Unreachables
 
+  [<CompiledName("GetExits")>]
   static member getExits (g: DiGraph<'D, 'E>) =
     g.Exits
 
+  [<CompiledName("GetVertices")>]
   static member getVertices (g: DiGraph<'D, 'E>) =
     g.GetVertices ()
 
+  [<CompiledName("ExistsVertex")>]
   static member existsVertex (g: DiGraph<'D, 'E>) vid =
     g.ExistsVertex vid
 
+  [<CompiledName("FindVertexByID")>]
   static member findVertexByID (g: DiGraph<'D, 'E>) vid =
     g.FindVertexByID vid
 
+  [<CompiledName("TryFindVertexByID")>]
   static member tryFindVertexByID (g: DiGraph<'D, 'E>) vid =
     g.TryFindVertexByID vid
 
+  [<CompiledName("FindVertexByData")>]
   static member findVertexByData (g: DiGraph<'D, 'E>) data =
     g.FindVertexByData data
 
+  [<CompiledName("TryFindVertexByData")>]
   static member tryFindVertexByData (g: DiGraph<'D, 'E>) data =
     g.TryFindVertexByData data
 
+  [<CompiledName("FindVertexBy")>]
   static member findVertexBy (g: DiGraph<'D, 'E>) fn =
     g.FindVertexBy fn
 
+  [<CompiledName("TryFindVertexBy")>]
   static member tryFindVertexBy (g: DiGraph<'D, 'E>) fn =
     g.TryFindVertexBy fn
 
+  [<CompiledName("AddDummyEdge")>]
   static member addDummyEdge (g: DiGraph<'D, 'E>) src dst =
     g.AddDummyEdge src dst
 
+  [<CompiledName("AddEdge")>]
   static member addEdge (g: DiGraph<'D, 'E>) src dst e =
     g.AddEdge src dst e
 
+  [<CompiledName("RemoveEdge")>]
   static member removeEdge (g: DiGraph<'D, 'E>) src dst =
     g.RemoveEdge src dst
 
+  [<CompiledName("FindEdgeData")>]
   static member findEdgeData (g: DiGraph<'D, 'E>) src dst =
     g.FindEdgeData src dst
 
+  [<CompiledName("TryFindEdgeData")>]
   static member tryFindEdgeData (g: DiGraph<'D, 'E>) src dst =
     g.TryFindEdgeData src dst
 
+  [<CompiledName("FoldVertex")>]
   static member foldVertex (g: DiGraph<'D, 'E>) fn acc =
     g.FoldVertex fn acc
 
+  [<CompiledName("IterVertex")>]
   static member iterVertex (g: DiGraph<'D, 'E>) fn =
     g.IterVertex fn
 
+  [<CompiledName("FoldEdge")>]
   static member foldEdge (g: DiGraph<'D, 'E>) fn acc =
     g.FoldEdge fn acc
 
+  [<CompiledName("IterEdge")>]
   static member iterEdge (g: DiGraph<'D, 'E>) fn =
     g.IterEdge fn
 
+  [<CompiledName("Clone")>]
   static member clone (g: DiGraph<'D, 'E>) =
     g.Clone ()
 
+  [<CompiledName("Reverse")>]
   static member reverse (g: DiGraph<'D, 'E>) =
     g.Reverse ()
 
+  [<CompiledName("SubGraph")>]
   static member subGraph (g: DiGraph<'D, 'E>) vs =
     g.SubGraph vs
 
+  [<CompiledName("ToDOTStr")>]
   static member toDOTStr (g: DiGraph<'D, 'E>) name vToStrfn eToStrFn =
     g.ToDOTStr name vToStrfn eToStrFn
 

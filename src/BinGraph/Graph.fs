@@ -24,6 +24,7 @@
 
 namespace B2R2.BinGraph
 
+/// The top-level graph data type. This one can be both directed or undirected.
 [<AbstractClass>]
 type Graph<'D, 'E, 'G
     when 'D :> VertexData
@@ -94,8 +95,10 @@ type Graph<'D, 'E, 'G
   /// Fold every edge in the graph (the order can be arbitrary).
   abstract IterEdge: (Vertex<'D> -> Vertex<'D> -> 'E -> unit) -> unit
 
+  /// Clone the graph and create a new one.
   abstract Clone: unit -> 'G
 
+  /// Return a subgraph that contains only the set of vertices.
   abstract SubGraph: Set<Vertex<'D>> -> 'G
 
   /// Return the DOT-representation of this graph.
