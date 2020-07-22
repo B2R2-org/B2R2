@@ -24,11 +24,20 @@
 
 namespace B2R2.BinGraph
 
+/// Either persistent or imperative graph.
+type GraphImplementationType =
+  | PersistentGraph
+  | ImperativeGraph
+  | DefaultGraph
+
 /// The top-level graph data type. This one can be both directed or undirected.
 [<AbstractClass>]
 type Graph<'D, 'E, 'G
     when 'D :> VertexData
      and 'G :> Graph<'D, 'E, 'G>> () =
+
+  /// Graph implementation type.
+  abstract ImplementationType: GraphImplementationType
 
   /// Is this empty? A graph is empty when there is no vertex in the graph.
   abstract IsEmpty: unit -> bool

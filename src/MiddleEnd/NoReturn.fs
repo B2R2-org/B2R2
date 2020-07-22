@@ -188,7 +188,7 @@ module private NoReturnHelper =
     |> List.fold DiGraph.removeVertex cfg
 
   let modifyCFG hdl (scfg: SCFG) app noretAddrs addr =
-    let cfg, root = scfg.GetFunctionCFG (addr, IRCFG.initImperative, false)
+    let cfg, root = scfg.GetFunctionCFG (addr, false)
     let cfg =
       collectNoRetFallThroughEdges hdl scfg app cfg root noretAddrs
       |> List.fold (fun cfg (src, dst) -> DiGraph.removeEdge cfg src dst) cfg
@@ -234,7 +234,7 @@ module private NoReturnHelper =
     let callsites = app.NoReturnInfo.NoReturnCallSites
     Apparatus.getFunctionAddrs app
     |> Seq.fold (fun acc addr ->
-      let cfg, root = scfg.GetFunctionCFG (addr, IRCFG.initImperative, false)
+      let cfg, root = scfg.GetFunctionCFG (addr, false)
       collectNoRetFallThroughEdges hdl scfg app cfg root noretFuncs
       |> List.filter (fun (src, dst) -> cfg.FindEdgeData src dst <> RetEdge)
       |> List.map (fun (src, _) -> src.VData.PPoint)
@@ -243,8 +243,7 @@ module private NoReturnHelper =
 
   let findNoReturnEdges hdl (scfg: SCFG) app =
     let lens = CallGraphLens.Init (scfg)
-    let cg, _ =
-      lens.Filter IRCFG.initImperative CallCFG.initImperative scfg.Graph [] app
+    let cg, _ = lens.Filter (scfg.Graph, [], app)
     let noretFuncs =
       DiGraph.foldVertex cg (fun acc v ->
         if List.length <| DiGraph.getSuccs cg v = 0 then v :: acc else acc) []
@@ -260,6 +259,6 @@ type NoReturnAnalysis () =
 
     member __.Run hdl scfg app =
       let app' = NoReturnHelper.findNoReturnEdges hdl scfg app
-      match SCFG.Init (hdl, app', IRCFG.initImperative) with
+      match SCFG.Init (hdl, app') with
       | Ok scfg -> scfg, app'
       | Error e -> failwithf "Failed to run no-return analysis due to %A" e

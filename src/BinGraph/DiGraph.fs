@@ -28,6 +28,8 @@ type DiGraph<'D, 'E when 'D :> VertexData and 'D : equality>
     internal (core: GraphCore<'D, 'E, DiGraph<'D, 'E>>) =
   inherit Graph<'D, 'E, DiGraph<'D, 'E>> ()
 
+  override __.ImplementationType = core.ImplementationType
+
   override __.IsEmpty () = core.GetSize () = 0
 
   override __.GetSize () = core.GetSize ()

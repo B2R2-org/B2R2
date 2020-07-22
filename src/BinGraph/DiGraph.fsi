@@ -32,6 +32,7 @@ type DiGraph<'D, 'E when 'D :> VertexData and 'D : equality> =
   inherit Graph<'D, 'E, DiGraph<'D, 'E>>
 
   internal new: GraphCore<'D, 'E, DiGraph<'D, 'E>> -> DiGraph<'D, 'E>
+  override private ImplementationType: GraphImplementationType
   override private IsEmpty: unit -> bool
   override private GetSize: unit -> int
   override private AddVertex: 'D -> Vertex<'D> * DiGraph<'D, 'E>

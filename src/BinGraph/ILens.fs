@@ -41,9 +41,7 @@ type ILens<'D when 'D :> BasicBlock and 'D: equality> =
   /// A converted graph along with its root node.
   /// </returns>
   abstract member Filter:
-       irgraphInit: (unit -> DiGraph<IRBasicBlock, CFGEdgeKind>)
-    -> graphInit: (unit -> DiGraph<'D, CFGEdgeKind>)
-    -> graph: DiGraph<IRBasicBlock, CFGEdgeKind>
-    -> roots: Vertex<IRBasicBlock> list
-    -> app: Apparatus
+      graph: DiGraph<IRBasicBlock, CFGEdgeKind>
+    * roots: Vertex<IRBasicBlock> list
+    * app: Apparatus
     -> DiGraph<'D, CFGEdgeKind> * Vertex<'D> list

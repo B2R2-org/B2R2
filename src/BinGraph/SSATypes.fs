@@ -34,19 +34,24 @@ type SSAVertex = Vertex<SSABBlock>
 type SSACFG = ControlFlowGraph<SSABBlock, CFGEdgeKind>
 
 module SSACFG =
-  let initImperative () =
-    let initializer core =
-      SSACFG (core) :> DiGraph<SSABBlock, CFGEdgeKind>
+  let private initializer core =
+    SSACFG (core) :> DiGraph<SSABBlock, CFGEdgeKind>
+
+  let private initImperative () =
     ImperativeCore<SSABBlock, CFGEdgeKind> (initializer, UnknownEdge)
     |> SSACFG
     :> DiGraph<SSABBlock, CFGEdgeKind>
 
-  let initPersistent () =
-    let initializer core =
-      SSACFG (core) :> DiGraph<SSABBlock, CFGEdgeKind>
+  let private initPersistent () =
     PersistentCore<SSABBlock, CFGEdgeKind> (initializer, UnknownEdge)
     |> SSACFG
     :> DiGraph<SSABBlock, CFGEdgeKind>
+
+  /// Initialize SSACFG based on the implementation type.
+  let init = function
+    | DefaultGraph -> initImperative ()
+    | ImperativeGraph -> initImperative ()
+    | PersistentGraph -> initPersistent ()
 
 /// A mapping from an address to a SSACFG vertex.
 type SSAVMap = Dictionary<ProgramPoint, SSAVertex>

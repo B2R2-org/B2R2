@@ -28,33 +28,33 @@ open B2R2
 
 /// A graph lens for obtaining SSACFG.
 type SSALens (hdl, scfg) =
-  let getVertex irgraphInit g (vMap: SSAVMap) oldSrc =
+  let getVertex g (vMap: SSAVMap) oldSrc =
     let vData = (oldSrc: Vertex<IRBasicBlock>).VData
     let pos = vData.PPoint
     match vMap.TryGetValue pos with
     | false, _ ->
       let instrs = vData.GetInsInfos ()
       let hasIndBranch = vData.HasIndirectBranch
-      let bblock = SSABBlock (irgraphInit, hdl, scfg, pos, instrs, hasIndBranch)
+      let bblock = SSABBlock (hdl, scfg, pos, instrs, hasIndBranch)
       let v, g = DiGraph.addVertex g bblock
       vMap.Add (pos, v)
       v, g
     | true, v -> v, g
 
-  let getFakeVertex irgraphInit g (fMap: FakeVMap) srcPos dstPos =
+  let getFakeVertex g (fMap: FakeVMap) srcPos dstPos =
     let pos = (srcPos, dstPos)
     match fMap.TryGetValue pos with
     | false, _ ->
-      let bblock = SSABBlock (irgraphInit, hdl, scfg, srcPos, dstPos, false)
+      let bblock = SSABBlock (hdl, scfg, srcPos, dstPos, false)
       let v, g = DiGraph.addVertex g bblock
       fMap.Add (pos, v)
       v, g
     | true, v -> v, g
 
-  let convertToSSA irgraphInit irCFG ssaCFG vMap fMap roots =
+  let convertToSSA irCFG ssaCFG vMap fMap roots =
     let roots, ssaCFG =
       roots |> List.fold (fun (roots, ssaCFG) r ->
-        let r, ssaCFG = getVertex irgraphInit ssaCFG vMap r
+        let r, ssaCFG = getVertex ssaCFG vMap r
         r :: roots, ssaCFG) ([], ssaCFG)
     let ssaCFG =
       ssaCFG
@@ -63,28 +63,28 @@ type SSALens (hdl, scfg) =
         if (dst: Vertex<IRBasicBlock>).VData.IsFakeBlock () then
           let last = src.VData.LastInstruction
           let fall = ProgramPoint (last.Address + uint64 last.Length, 0)
-          let srcV, ssaCFG = getVertex irgraphInit ssaCFG vMap src
+          let srcV, ssaCFG = getVertex ssaCFG vMap src
           let dstV, ssaCFG =
-            getFakeVertex irgraphInit ssaCFG fMap dst.VData.PPoint fall
+            getFakeVertex ssaCFG fMap dst.VData.PPoint fall
           DiGraph.addEdge ssaCFG srcV dstV e
         elif src.VData.IsFakeBlock () then
           let srcV, ssaCFG =
-            getFakeVertex irgraphInit ssaCFG fMap src.VData.PPoint dst.VData.PPoint
-          let dstV, ssaCFG = getVertex irgraphInit ssaCFG vMap dst
+            getFakeVertex ssaCFG fMap src.VData.PPoint dst.VData.PPoint
+          let dstV, ssaCFG = getVertex ssaCFG vMap dst
           DiGraph.addEdge ssaCFG srcV dstV e
         else
-          let srcV, ssaCFG = getVertex irgraphInit ssaCFG vMap src
-          let dstV, ssaCFG = getVertex irgraphInit ssaCFG vMap dst
+          let srcV, ssaCFG = getVertex ssaCFG vMap src
+          let dstV, ssaCFG = getVertex ssaCFG vMap dst
           DiGraph.addEdge ssaCFG srcV dstV e)
     ssaCFG, roots
 
   interface ILens<SSABBlock> with
-    member __.Filter irgraphInit graphInit g roots _ =
-      let ssaCFG = graphInit ()
+    member __.Filter (g, roots, _) =
+      let ssaCFG = SSACFG.init g.ImplementationType
       let vMap = SSAVMap ()
       let fMap = FakeVMap ()
       let defSites = DefSites ()
-      let ssaCFG, roots = convertToSSA irgraphInit g ssaCFG vMap fMap roots
+      let ssaCFG, roots = convertToSSA g ssaCFG vMap fMap roots
       let root = List.head roots
       DiGraph.findVertexBy ssaCFG (fun v ->
         v.VData.PPoint = root.VData.PPoint && not <| v.VData.IsFakeBlock ())

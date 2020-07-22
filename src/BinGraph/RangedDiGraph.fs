@@ -31,17 +31,20 @@ type RangedDiGraph<'D, 'E
   member __.FindVertexByRange range =
     core.FindVertexBy (fun (v: Vertex<'D>) -> v.VData.AddrRange = range)
 
+[<RequireQualifiedAccess>]
 module RangedDiGraph =
-  let initImperative dummyEdge =
-    let initializer core =
-      RangedDiGraph<'D, 'E> (core) :> DiGraph<'D, 'E>
-    let core = ImperativeRangedCore<'D, 'E> (initializer, dummyEdge)
+  let private initializer core = RangedDiGraph<'D, 'E> (core) :> DiGraph<'D, 'E>
+
+  let private initImperative edgeData =
+    let core = ImperativeRangedCore<'D, 'E> (initializer, edgeData)
     RangedDiGraph<'D, 'E> (core) :> DiGraph<'D, 'E>
 
-  let initPersistent dummyEdge =
-    let initializer core =
-      RangedDiGraph<'D, 'E> (core) :> DiGraph<'D, 'E>
-    let core = PersistentRangedCore<'D, 'E> (initializer, dummyEdge)
+  let private initPersistent edgeData =
+    let core = PersistentRangedCore<'D, 'E> (initializer, edgeData)
     RangedDiGraph<'D, 'E> (core) :> DiGraph<'D, 'E>
 
-// vim: set tw=80 sts=2 sw=2:
+  /// Initialize RangedDiGraph based on the implementation type.
+  let init edgeData = function
+    | DefaultGraph -> initImperative edgeData
+    | ImperativeGraph -> initImperative edgeData
+    | PersistentGraph -> initPersistent edgeData

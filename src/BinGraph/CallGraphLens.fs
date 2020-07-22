@@ -58,19 +58,24 @@ type CallGraphBBlock (addr, id, name, isFake, isExternal) =
 type CallCFG = ControlFlowGraph<CallGraphBBlock, CFGEdgeKind>
 
 module CallCFG =
-  let initImperative () =
-    let initializer core =
-      CallCFG (core) :> DiGraph<CallGraphBBlock, CFGEdgeKind>
+  let private initializer core =
+    CallCFG (core) :> DiGraph<CallGraphBBlock, CFGEdgeKind>
+
+  let private initImperative () =
     ImperativeCore<CallGraphBBlock, CFGEdgeKind> (initializer, UnknownEdge)
     |> CallCFG
     :> DiGraph<CallGraphBBlock, CFGEdgeKind>
 
-  let initPersistent () =
-    let initializer core =
-      CallCFG (core) :> DiGraph<CallGraphBBlock, CFGEdgeKind>
+  let private initPersistent () =
     PersistentCore<CallGraphBBlock, CFGEdgeKind> (initializer, UnknownEdge)
     |> CallCFG
     :> DiGraph<CallGraphBBlock, CFGEdgeKind>
+
+  /// Initialize CallCFG based on the implementation type.
+  let init = function
+    | DefaultGraph -> initImperative ()
+    | ImperativeGraph -> initImperative ()
+    | PersistentGraph -> initPersistent ()
 
 /// A mapping from an address to a CallCFG vertex.
 type CallVMap = Dictionary<Addr, Vertex<CallGraphBBlock>>
@@ -99,7 +104,7 @@ type CallGraphLens (scfg: SCFG) =
     | None -> None
     | Some _ -> getFunctionVertex g vMap old addr app
 
-  let buildCallGraph callCFG _ vMap app =
+  let buildCG callCFG _ vMap app =
     callCFG
     |> DiGraph.foldEdge scfg.Graph (fun callCFG src dst e ->
       match e with
@@ -122,10 +127,9 @@ type CallGraphLens (scfg: SCFG) =
       | _ -> callCFG)
 
   interface ILens<CallGraphBBlock> with
-    member __.Filter _ initializer g _ app =
-      let callCFG: DiGraph<CallGraphBBlock, _> = initializer ()
+    member __.Filter (g, _, app) =
       let vMap = CallVMap ()
-      let callCFG = buildCallGraph callCFG g vMap app
+      let callCFG = buildCG (CallCFG.init g.ImplementationType) g vMap app
       callCFG, DiGraph.getUnreachables callCFG |> Seq.toList
 
   static member Init (scfg) =

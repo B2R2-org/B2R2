@@ -30,19 +30,25 @@ type ControlFlowGraph<'D, 'E when 'D :> BasicBlock and 'D : equality>
 
 type IRCFG = ControlFlowGraph<IRBasicBlock, CFGEdgeKind>
 
+[<RequireQualifiedAccess>]
 module IRCFG =
-  let initImperative () =
-    let initializer core =
-      IRCFG (core) :> DiGraph<IRBasicBlock, CFGEdgeKind>
+  let private initializer core =
+    IRCFG (core) :> DiGraph<IRBasicBlock, CFGEdgeKind>
+
+  let private initImperative () =
     ImperativeCore<IRBasicBlock, CFGEdgeKind> (initializer, UnknownEdge)
     |> IRCFG
     :> DiGraph<IRBasicBlock, CFGEdgeKind>
 
-  let initPersistent () =
-    let initializer core =
-      IRCFG (core) :> DiGraph<IRBasicBlock, CFGEdgeKind>
+  let private initPersistent () =
     PersistentCore<IRBasicBlock, CFGEdgeKind> (initializer, UnknownEdge)
     |> IRCFG
     :> DiGraph<IRBasicBlock, CFGEdgeKind>
+
+  /// Initialize IRCFG based on the implementation type.
+  let init = function
+    | DefaultGraph -> initImperative ()
+    | ImperativeGraph -> initImperative ()
+    | PersistentGraph -> initPersistent ()
 
 // vim: set tw=80 sts=2 sw=2:

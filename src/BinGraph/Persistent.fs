@@ -50,6 +50,8 @@ type PersistentCore<'D, 'E when 'D :> VertexData and 'D: equality>
   let preds = defaultArg preds Map.empty
   let succs = defaultArg succs Map.empty
 
+  override __.ImplementationType = PersistentGraph
+
   override __.InitGraph core =
     match core with
     | Some core -> init core
@@ -214,6 +216,8 @@ type PersistentRangedCore<'D, 'E when 'D :> RangedVertexData and 'D: equality>
   let edges = defaultArg edges Map.empty
   let preds = defaultArg preds Map.empty
   let succs = defaultArg succs Map.empty
+
+  override __.ImplementationType = PersistentGraph
 
   override __.InitGraph core =
     match core with

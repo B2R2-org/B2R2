@@ -27,15 +27,20 @@ namespace B2R2.BinGraph
 type SimpleDiGraph<'D, 'E when 'D :> VertexData and 'D : equality> (core) =
   inherit DiGraph<'D, 'E> (core: GraphCore<'D, 'E, DiGraph<'D, 'E>>)
 
+[<RequireQualifiedAccess>]
 module SimpleDiGraph =
-  let initImperative<'D, 'E when 'D :> VertexData and 'D : equality> edgeData =
-    let initializer core =
-      SimpleDiGraph<'D, 'E> (core) :> DiGraph<'D, 'E>
+  let private initializer core = SimpleDiGraph<'D, 'E> (core) :> DiGraph<'D, 'E>
+
+  let private initImperative edgeData =
     let core = ImperativeCore<'D, 'E> (initializer, edgeData)
     SimpleDiGraph<'D, 'E> (core) :> DiGraph<'D, 'E>
 
-  let initPersistent<'D, 'E when 'D :> VertexData and 'D : equality> edgeData =
-    let initializer core =
-      SimpleDiGraph<'D, 'E> (core) :> DiGraph<'D, 'E>
+  let private initPersistent edgeData =
     let core = PersistentCore<'D, 'E> (initializer, edgeData)
     SimpleDiGraph<'D, 'E> (core) :> DiGraph<'D, 'E>
+
+  /// Initialize SimpleDiGraph based on the implementation type.
+  let init edgeData = function
+    | DefaultGraph -> initImperative edgeData
+    | ImperativeGraph -> initImperative edgeData
+    | PersistentGraph -> initPersistent edgeData

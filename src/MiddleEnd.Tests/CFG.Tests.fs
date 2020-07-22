@@ -95,7 +95,7 @@ type CFGTest1 () =
 
   let isa = ISA.Init Architecture.IntelX64 Endian.Little
   let hdl = BinHandler.Init (isa, binary)
-  let ess = BinEssence.Init hdl [ NoReturnAnalysis () ]
+  let ess = BinEssence.Init (hdl, [ NoReturnAnalysis () ])
 
   [<TestMethod>]
   member __.``Boundary Test: Function Identification`` () =
@@ -118,7 +118,7 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``Vertex Test: _start`` () =
-    let cfg, _ = ess.SCFG.GetFunctionCFG (0x00UL, IRCFG.initImperative)
+    let cfg, _ = ess.SCFG.GetFunctionCFG (0x00UL)
     Assert.AreEqual (9, DiGraph.getSize cfg)
     let vMap = DiGraph.foldVertex cfg Utils.foldVertexNoFake Map.empty
     Assert.AreEqual (6, vMap.Count)
@@ -135,7 +135,7 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``Edge Test: _start`` () =
-    let cfg, _ = ess.SCFG.GetFunctionCFG (0x00UL, IRCFG.initImperative)
+    let cfg, _ = ess.SCFG.GetFunctionCFG (0x00UL)
     let vMap = DiGraph.foldVertex cfg Utils.foldVertexNoFake Map.empty
     let leaders =
       [| ProgramPoint (0x00UL, 0); ProgramPoint (0x19UL, 0);
@@ -167,7 +167,7 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``Vertex Test: foo`` () =
-    let cfg, _ = ess.SCFG.GetFunctionCFG (0x62UL, IRCFG.initImperative)
+    let cfg, _ = ess.SCFG.GetFunctionCFG (0x62UL)
     Assert.AreEqual (1, DiGraph.getSize cfg)
     let vMap = DiGraph.foldVertex cfg Utils.foldVertexNoFake Map.empty
     let leaders = [| ProgramPoint (0x62UL, 0) |]
@@ -177,13 +177,13 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``Edge Test: foo`` () =
-    let cfg, _ = ess.SCFG.GetFunctionCFG (0x62UL, IRCFG.initImperative)
+    let cfg, _ = ess.SCFG.GetFunctionCFG (0x62UL)
     let eMap = DiGraph.foldEdge cfg Utils.foldEdge Map.empty
     Assert.AreEqual (0, eMap.Count)
 
   [<TestMethod>]
   member __.``Vertex Test: bar`` () =
-    let cfg, _ = ess.SCFG.GetFunctionCFG (0x71UL, IRCFG.initImperative)
+    let cfg, _ = ess.SCFG.GetFunctionCFG (0x71UL)
     Assert.AreEqual (1, DiGraph.getSize cfg)
     let vMap = DiGraph.foldVertex cfg Utils.foldVertexNoFake Map.empty
     let leaders = [| ProgramPoint (0x71UL, 0) |]
@@ -193,16 +193,15 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``Edge Test: bar`` () =
-    let cfg, _ = ess.SCFG.GetFunctionCFG (0x71UL, IRCFG.initImperative)
+    let cfg, _ = ess.SCFG.GetFunctionCFG (0x71UL)
     let eMap = DiGraph.foldEdge cfg Utils.foldEdge Map.empty
     Assert.AreEqual (0, eMap.Count)
 
   [<TestMethod>]
   member __.``SSAGraph Vertex Test: _start`` () =
-    let cfg, root = ess.SCFG.GetFunctionCFG (0x0UL, IRCFG.initImperative)
+    let cfg, root = ess.SCFG.GetFunctionCFG (0x0UL)
     let lens = SSALens.Init hdl ess.SCFG
-    let ssacfg, _ =
-      lens.Filter IRCFG.initImperative SSACFG.initImperative cfg [root] ess.Apparatus
+    let ssacfg, _ = lens.Filter (cfg, [root], ess.Apparatus)
     Assert.AreEqual (9, DiGraph.getSize ssacfg)
 
 [<TestClass>]
@@ -236,7 +235,7 @@ type CFGTest2 () =
 
   let isa = ISA.Init Architecture.IntelX86 Endian.Little
   let hdl = BinHandler.Init (isa, binary)
-  let ess = BinEssence.Init hdl [ NoReturnAnalysis () ]
+  let ess = BinEssence.Init (hdl, [ NoReturnAnalysis () ])
 
   [<TestMethod>]
   member __.``Boundary Test: Function Identification`` () =
@@ -258,7 +257,7 @@ type CFGTest2 () =
 
   [<TestMethod>]
   member __.``Vertex Test: _start`` () =
-    let cfg, _ = ess.SCFG.GetFunctionCFG (0x00UL, IRCFG.initImperative)
+    let cfg, _ = ess.SCFG.GetFunctionCFG (0x00UL)
     Assert.AreEqual (7, DiGraph.getSize cfg)
     let vMap = DiGraph.foldVertex cfg Utils.foldVertexNoFake Map.empty
     let leaders =
@@ -281,7 +280,7 @@ type CFGTest2 () =
 
   [<TestMethod>]
   member __.``Edge Test: _start`` () =
-    let cfg, _ = ess.SCFG.GetFunctionCFG (0x00UL, IRCFG.initImperative)
+    let cfg, _ = ess.SCFG.GetFunctionCFG (0x00UL)
     let vMap = DiGraph.foldVertex cfg Utils.foldVertexNoFake Map.empty
     let leaders =
       [| ProgramPoint (0x00UL, 0); ProgramPoint (0x0CUL, 0);
@@ -313,10 +312,9 @@ type CFGTest2 () =
 
   [<TestMethod>]
   member __.``DisasmLens Test: _start`` () =
-    let cfg, root = ess.SCFG.GetFunctionCFG (0x00UL, IRCFG.initImperative)
+    let cfg, root = ess.SCFG.GetFunctionCFG (0x00UL)
     let lens = DisasmLens.Init ess.Apparatus
-    let cfg, _ =
-      lens.Filter IRCFG.initImperative DisasmCFG.initImperative cfg [root] ess.Apparatus
+    let cfg, _ = lens.Filter (cfg, [root], ess.Apparatus)
     Assert.AreEqual (3, DiGraph.getSize cfg)
     let vMap = DiGraph.foldVertex cfg (fun m v ->
       Map.add v.VData.PPoint.Address v m) Map.empty
@@ -340,8 +338,7 @@ type CFGTest2 () =
 
   [<TestMethod>]
   member __.``SSAGraph Vertex Test: _start`` () =
-    let cfg, root = ess.SCFG.GetFunctionCFG (0x0UL, IRCFG.initImperative)
+    let cfg, root = ess.SCFG.GetFunctionCFG (0x0UL)
     let lens = SSALens.Init hdl ess.SCFG
-    let ssacfg, _ =
-      lens.Filter IRCFG.initImperative SSACFG.initImperative cfg [root] ess.Apparatus
+    let ssacfg, _ = lens.Filter (cfg, [root], ess.Apparatus)
     Assert.AreEqual (7, DiGraph.getSize ssacfg)

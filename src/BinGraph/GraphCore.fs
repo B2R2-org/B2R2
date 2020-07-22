@@ -30,6 +30,8 @@ namespace B2R2.BinGraph
 type GraphCore<'D, 'E, 'G
     when 'D :> VertexData and 'G :> Graph<'D, 'E, 'G>> internal () =
 
+  abstract ImplementationType: GraphImplementationType
+
   abstract InitGraph: GraphCore<'D, 'E, 'G> option -> 'G
 
   abstract Vertices: Set<Vertex<'D>>

@@ -57,6 +57,8 @@ type ImperativeCore<'D, 'E when 'D :> VertexData and 'D: equality>
   member private __.CheckVertexExistence v =
     if not <| vertices.Contains v then raise VertexNotFoundException
 
+  override __.ImplementationType = ImperativeGraph
+
   override __.InitGraph core =
     match core with
     | Some core -> init <| core.Clone ()
@@ -209,6 +211,8 @@ type ImperativeRangedCore<'D, 'E when 'D :> RangedVertexData and 'D: equality>
 
   member private __.CheckVertexExistence v =
     if not <| vertices.Contains v then raise VertexNotFoundException
+
+  override __.ImplementationType = ImperativeGraph
 
   override __.InitGraph core =
     match core with

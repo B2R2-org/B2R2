@@ -37,7 +37,7 @@ exception InvalidFunctionAddressException
 /// than the one from disassembly. That is, a single machine instruction (thus,
 /// a single basic block) may correspond to multiple basic blocks in the
 /// LowUIR-level CFG.
-type SCFG internal (app, g, vertices) =
+type SCFG internal (app, g, vertices, graphImplementationType) =
   let mutable boundaries = IntervalSet.empty
   let g = SCFGUtils.removeDanglings app g
   do boundaries <- SCFGUtils.computeBoundaries app vertices
@@ -45,9 +45,10 @@ type SCFG internal (app, g, vertices) =
   /// SCFG should be constructed only via this method. The ignoreIllegal
   /// argument indicates we will ignore any illegal vertices/edges during the
   /// creation of an SCFG.
-  static member Init (hdl, app, graphInit, ?ignoreIllegal) =
-    let g = graphInit ()
+  static member Init (hdl, app, ?graphImpl, ?ignoreIllegal) =
+    let graphImpl = defaultArg graphImpl DefaultGraph
     let ignoreIllegal = defaultArg ignoreIllegal true
+    let g = IRCFG.init graphImpl
     let vertices = SCFGUtils.VMap ()
     let leaders = app.LeaderInfos |> Set.toArray |> Array.map (fun l -> l.Point)
     let fold = if ignoreIllegal then SCFGUtils.fold else SCFGUtils.foldUntilErr
@@ -57,7 +58,7 @@ type SCFG internal (app, g, vertices) =
       [ 0 .. leaders.Length - 1 ]
       |> fold (SCFGUtils.joinEdges hdl app vertices leaders) g
       |> Result.bind (fun g ->
-        SCFG (app, g, vertices) |> Ok))
+        SCFG (app, g, vertices, graphImpl) |> Ok))
 
   /// The actual graph data structure of the SCFG.
   member __.Graph with get () = g
@@ -79,10 +80,10 @@ type SCFG internal (app, g, vertices) =
   /// address (addr) from the SCFG, and the root node. When the
   /// preserveRecursiveEdge parameter is false, we create fake blocks for
   /// recursive calls, which is useful for intra-procedural analyses.
-  member __.GetFunctionCFG (addr: Addr, graphInit,
+  member __.GetFunctionCFG (addr: Addr,
                             [<Optional; DefaultParameterValue(true)>]
                             preserveRecursiveEdge) =
-    let newGraph = graphInit ()
+    let newGraph = IRCFG.init graphImplementationType
     let vMap = Dictionary<ProgramPoint, Vertex<IRBasicBlock>> ()
     let visited = HashSet<ProgramPoint> ()
     let rec loop newGraph pos =

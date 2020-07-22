@@ -50,12 +50,13 @@ with
 #endif
       analysis.Run hdl scfg app) (scfg, app)
 
-  static member Init hdl postAnalyses =
+  static member Init (hdl, postAnalyses, ?graphImpl) =
 #if DEBUG
     let startTime = System.DateTime.Now
 #endif
     let app = Apparatus.init hdl
-    match SCFG.Init (hdl, app, IRCFG.initImperative) with
+    let graphImpl = defaultArg graphImpl DefaultGraph
+    match SCFG.Init (hdl, app, graphImpl=graphImpl) with
     | Ok scfg ->
       let scfg, app =
         BinEssence.Analyze hdl scfg app postAnalyses

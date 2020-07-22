@@ -71,20 +71,26 @@ type DisasmBBlock (instrs: Instruction [], pp, app: Apparatus) =
 /// Disassembly-based CFG, where each node contains disassembly code.
 type DisasmCFG = ControlFlowGraph<DisasmBBlock, CFGEdgeKind>
 
+[<RequireQualifiedAccess>]
 module DisasmCFG =
-  let initImperative () =
-    let initializer core =
-      DisasmCFG (core) :> DiGraph<DisasmBBlock, CFGEdgeKind>
+  let private initializer core =
+    DisasmCFG (core) :> DiGraph<DisasmBBlock, CFGEdgeKind>
+
+  let private initImperative () =
     ImperativeCore<DisasmBBlock, CFGEdgeKind> (initializer, UnknownEdge)
     |> DisasmCFG
     :> DiGraph<DisasmBBlock, CFGEdgeKind>
 
-  let initPersistent () =
-    let initializer core =
-      DisasmCFG (core) :> DiGraph<DisasmBBlock, CFGEdgeKind>
+  let private initPersistent () =
     PersistentCore<DisasmBBlock, CFGEdgeKind> (initializer, UnknownEdge)
     |> DisasmCFG
     :> DiGraph<DisasmBBlock, CFGEdgeKind>
+
+  /// Initialize IRCFG based on the implementation type.
+  let init = function
+    | DefaultGraph -> initImperative ()
+    | ImperativeGraph -> initImperative ()
+    | PersistentGraph -> initPersistent ()
 
 /// A mapping from an address to a DisasmCFG vertex.
 type DisasmVMap = Dictionary<Addr, Vertex<DisasmBBlock>>
@@ -155,8 +161,8 @@ type DisasmLens (app) =
     DiGraph.addEdge newGraph srcV dstV e
 
   interface ILens<DisasmBBlock> with
-    member __.Filter _ initializer g roots _ =
-      let newGraph = initializer ()
+    member __.Filter (g, roots, _) =
+      let newGraph = DisasmCFG.init g.ImplementationType
       let vMap = DisasmVMap ()
       let roots', newGraph =
         roots (* Add nodes to newGraph. *)

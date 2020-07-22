@@ -45,7 +45,7 @@ type BasicPersistentGraphTest () =
   let v13 = V (13, (AddrRange (13UL, 14UL)))
 
   (* Graph example from Wikipedia. *)
-  let g1 = RangedDiGraph.initPersistent -1
+  let g1 = RangedDiGraph.init -1 PersistentGraph
   let n1, g1 = DiGraph.addVertex g1 v1 // Node 1
   let n2, g1 = DiGraph.addVertex g1 v2 // Node 2
   let n3, g1 = DiGraph.addVertex g1 v3 // Node 3
@@ -63,7 +63,7 @@ type BasicPersistentGraphTest () =
   let ctxt1 = Dominator.initDominatorContext g1 g1root
 
   (* Graph example from Tiger book. *)
-  let g2 = RangedDiGraph.initPersistent -1
+  let g2 = RangedDiGraph.init -1 PersistentGraph
   let n1, g2 = DiGraph.addVertex g2 v1 // Node 1
   let n2, g2 = DiGraph.addVertex g2 v2 // Node 2
   let n3, g2 = DiGraph.addVertex g2 v3 // Node 3
@@ -80,7 +80,7 @@ type BasicPersistentGraphTest () =
   let ctxt2 = Dominator.initDominatorContext g2 g2root
 
   (* Arbitrary graph example *)
-  let g3 = RangedDiGraph.initPersistent -1
+  let g3 = RangedDiGraph.init -1 PersistentGraph
   let n1, g3 = DiGraph.addVertex g3 v1 // Node 1
   let n2, g3 = DiGraph.addVertex g3 v2 // Node 2
   let n3, g3 = DiGraph.addVertex g3 v3 // Node 3
@@ -95,7 +95,7 @@ type BasicPersistentGraphTest () =
   let ctxt3 = Dominator.initDominatorContext g3 g3root
 
   (* Graph example from Tiger book (Fig. 19.5) *)
-  let g4 = RangedDiGraph.initPersistent -1
+  let g4 = RangedDiGraph.init -1 PersistentGraph
   let n1, g4 = DiGraph.addVertex g4 v1
   let n2, g4 = DiGraph.addVertex g4 v2
   let n3, g4 = DiGraph.addVertex g4 v3
@@ -270,7 +270,7 @@ type BasicPersistentGraphTest () =
 
   [<TestMethod;Timeout(1000)>]
   member __.``Root Node Loop Test``() =
-    let g = RangedDiGraph.initPersistent -1
+    let g = RangedDiGraph.init -1 PersistentGraph
     let n1, g = DiGraph.addVertex g v1 // Node 1
     let n2, g = DiGraph.addVertex g v2 // Node 2
     let n3, g = DiGraph.addVertex g v3 // Node 3
@@ -331,7 +331,7 @@ type ExtraPersistentDomTest () =
   let v22 = V (22, (AddrRange (22UL, 23UL)))
   let v23 = V (23, (AddrRange (23UL, 24UL)))
 
-  let g1 = RangedDiGraph.initPersistent -1
+  let g1 = RangedDiGraph.init -1 PersistentGraph
   let n1, g1 = DiGraph.addVertex g1 v1
   let n2, g1 = DiGraph.addVertex g1 v2
   let n3, g1 = DiGraph.addVertex g1 v3
@@ -409,7 +409,7 @@ type PersistentSCCTest () =
   (* Example from article about Bourdoncle Components by Matt Elder *)
   [<TestMethod>]
   member __.``Strongly Connected Component Test1`` () =
-    let g = RangedDiGraph.initPersistent -1
+    let g = RangedDiGraph.init -1 PersistentGraph
     let n1, g = DiGraph.addVertex g v1
     let n2, g = DiGraph.addVertex g v2
     let n3, g = DiGraph.addVertex g v3
@@ -440,7 +440,7 @@ type PersistentSCCTest () =
   (* Example from Wikipedia *)
   [<TestMethod>]
   member __.``Strongly Connected Component Test2`` () =
-    let g = RangedDiGraph.initPersistent -1
+    let g = RangedDiGraph.init -1 PersistentGraph
     let na, g = DiGraph.addVertex g v1
     let nb, g = DiGraph.addVertex g v2
     let nc, g = DiGraph.addVertex g v3

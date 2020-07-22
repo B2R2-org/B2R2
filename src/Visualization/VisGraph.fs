@@ -31,9 +31,9 @@ open System.Collections.Generic
 type VisGraph = ControlFlowGraph<VisBBlock, VisEdge>
 
 module VisGraph =
+  let private initializer core = VisGraph (core) :> DiGraph<VisBBlock, VisEdge>
+
   let init () =
-    let initializer core =
-      VisGraph (core) :> DiGraph<VisBBlock, VisEdge>
     ImperativeCore<VisBBlock, VisEdge> (initializer, VisEdge UnknownEdge)
     |> VisGraph
 
