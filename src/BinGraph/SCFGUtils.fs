@@ -281,10 +281,11 @@ let removeInstrs app (v: Vertex<IRBasicBlock>) ranges =
     if List.exists (isContained instr.Address) ranges then
       instrMap.Remove instr.Address |> ignore)
 
-let removeDanglings app g =
+let removeDanglings app g (vertices: VMap) =
   let rangeMap = DiGraph.foldVertex g buildNodeRangeMap IntervalMap.empty
   getDanglingNodes app g
   |> List.fold (fun g (v: Vertex<IRBasicBlock>) ->
     calcInstrRemovalRanges v.VData.Range rangeMap
     |> removeInstrs app v
+    vertices.Remove v.VData.PPoint |> ignore
     DiGraph.removeVertex g v) g

@@ -39,7 +39,7 @@ exception InvalidFunctionAddressException
 /// LowUIR-level CFG.
 type SCFG internal (app, g, vertices, graphImplementationType) =
   let mutable boundaries = IntervalSet.empty
-  let g = SCFGUtils.removeDanglings app g
+  let g = SCFGUtils.removeDanglings app g vertices
   do boundaries <- SCFGUtils.computeBoundaries app vertices
 
   /// SCFG should be constructed only via this method. The ignoreIllegal
