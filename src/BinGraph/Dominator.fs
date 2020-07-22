@@ -187,18 +187,18 @@ let updateReachMap g exits reachMap =
     not (Map.find (v.GetID ()) reachMap)) exits
   |> loop reachMap
 
-let rec calculateExits fg bg reachMap exits =
+let rec calculateExits bg reachMap exits =
   if Map.forall (fun _ b -> b) reachMap then exits
   else
     let reachMap = updateReachMap bg exits reachMap
     let exits =
       exits
-      |> DiGraph.foldVertex fg (fun acc (v: Vertex<_>) ->
-        let isExit = DiGraph.getSuccs fg v |> List.length = 0
+      |> DiGraph.foldVertex bg (fun acc (v: Vertex<_>) ->
+        let isExit = DiGraph.getPreds bg v |> List.length = 0
         if isExit && not <| Map.find (v.GetID ()) reachMap then
           DiGraph.findVertexByID bg (v.GetID ()) :: acc
         else acc)
-    calculateExits fg bg reachMap exits
+    calculateExits bg reachMap exits
 
 let preparePostDomAnalysis fg root bg =
   let _, orderMap =
@@ -229,7 +229,7 @@ let preparePostDomAnalysis fg root bg =
   let exits =
     DiGraph.getUnreachables bg
     |> Seq.toList
-    |> calculateExits fg bg reachMap
+    |> calculateExits bg reachMap
   // Restore backedges to backward graph
   let bg =
     if List.isEmpty bgUnreachables then
