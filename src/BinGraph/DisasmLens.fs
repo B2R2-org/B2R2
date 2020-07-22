@@ -88,7 +88,7 @@ module DisasmCFG =
 
   /// Initialize IRCFG based on the implementation type.
   let init = function
-    | DefaultGraph -> initImperative ()
+    | DefaultGraph -> initPersistent ()
     | ImperativeGraph -> initImperative ()
     | PersistentGraph -> initPersistent ()
 

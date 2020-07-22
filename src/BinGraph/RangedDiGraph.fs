@@ -45,6 +45,6 @@ module RangedDiGraph =
 
   /// Initialize RangedDiGraph based on the implementation type.
   let init edgeData = function
-    | DefaultGraph -> initImperative edgeData
+    | DefaultGraph -> initPersistent edgeData
     | ImperativeGraph -> initImperative edgeData
     | PersistentGraph -> initPersistent edgeData
