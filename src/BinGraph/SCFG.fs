@@ -121,6 +121,7 @@ type SCFG internal (app, g, vertices, graphImplementationType) =
         let newGraph = DiGraph.addEdge newGraph parent child e
         match app.CalleeMap.Find childPp.Address with
         | Some callee when callee.IsNoReturn -> newGraph
+        | _ when SCFGUtils.isNoReturn app parent -> newGraph
         | _ ->
           try
             let fall, newGraph = getVertex newGraph fallPp
