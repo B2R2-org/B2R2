@@ -15,7 +15,6 @@
     <Compile Include="DiGraph.fs" />
     <Compile Include="Imperative.fs" />
     <Compile Include="Persistent.fs" />
-    <Compile Include="SimpleDiGraph.fs" />
     <Compile Include="RangedDiGraph.fs" />
     <Compile Include="DummyVertex.fs" />
     <Compile Include="Traversal.fs" />

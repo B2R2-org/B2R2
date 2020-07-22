@@ -26,7 +26,7 @@ namespace B2R2.BinGraph
 
 type ControlFlowGraph<'D, 'E when 'D :> BasicBlock and 'D : equality>
     (core: GraphCore<'D, 'E, DiGraph<'D, 'E>>) =
-  inherit SimpleDiGraph<'D, 'E> (core)
+  inherit DiGraph<'D, 'E> (core)
 
 type IRCFG = ControlFlowGraph<IRBasicBlock, CFGEdgeKind>
 

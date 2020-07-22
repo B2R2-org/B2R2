@@ -43,7 +43,7 @@ type CondensationBlock<'D when 'D :> VertexData> (scc: SCC<'D>) =
   member __.SCC = scc
 
 type CondensationGraph<'D when  'D :> VertexData> =
-  SimpleDiGraph<CondensationBlock<'D>, unit>
+  DiGraph<CondensationBlock<'D>, unit>
 
 let initSCCInfo g =
   let len = DiGraph.getSize g + 1
