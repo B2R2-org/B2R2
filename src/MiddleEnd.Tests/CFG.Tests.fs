@@ -109,10 +109,9 @@ type CFGTest1 () =
   member __.``Boundary Test: Leader Identification`` () =
     let vertices = ess.SCFG.Vertices
     let boundaries = ess.SCFG.Boundaries
-    Assert.AreEqual (10, vertices.Count)
+    Assert.AreEqual (8, vertices.Count)
     [ (0x00UL, 0x19UL); (0x19UL, 0x3FUL); (0x3FUL, 0x48UL); (0x48UL, 0x52UL);
-      (0x52UL, 0x55UL); (0x55UL, 0x5FUL); (0x5FUL, 0x62UL); (0x62UL, 0x71UL);
-      (0x71UL, 0x81UL); (0x81UL, 0x84UL); ]
+      (0x52UL, 0x55UL); (0x55UL, 0x5FUL); (0x62UL, 0x71UL); (0x71UL, 0x81UL); ]
     |> List.iter (fun r ->
          Assert.IsTrue <| IntervalSet.contains (AddrRange r) boundaries)
 
