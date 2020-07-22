@@ -68,6 +68,10 @@ type DisasmBBlock (instrs: Instruction [], pp, app: Apparatus) =
     with get () =
       instructions |> Array.map (fun i -> i.Disasm ())
 
+  override __.ToString () =
+    if instrs.Length = 0 then "DisasmBBLK(Dummy)"
+    else "DisasmBBLK(" + __.PPoint.Address.ToString("X") + ")"
+
 /// Disassembly-based CFG, where each node contains disassembly code.
 type DisasmCFG = ControlFlowGraph<DisasmBBlock, CFGEdgeKind>
 

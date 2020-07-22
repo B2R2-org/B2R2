@@ -130,3 +130,7 @@ type SSABBlock private (hdl, scfg, pp, instrs, retPoint, hasIndirectBranch) =
   member __.InsertPhi varKind count =
     let var = { SSA.Kind = varKind; SSA.Identifier = -1 }
     stmts <- Array.append [| SSA.Phi (var, Array.zeroCreate count) |] stmts
+
+  override __.ToString () =
+    if instrs.Length = 0 then "SSABBLK(Dummy)"
+    else "SSABBLK(" + __.PPoint.Address.ToString("X") + ")"
