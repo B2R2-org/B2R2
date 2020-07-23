@@ -187,61 +187,43 @@ let updateReachMap g exits reachMap =
     not (Map.find (v.GetID ()) reachMap)) exits
   |> loop reachMap
 
-let rec calculateExits bg reachMap exits =
+let rec calculateExits (fg: DiGraph<_, _>) bg reachMap exits =
   if Map.forall (fun _ b -> b) reachMap then exits
   else
     let reachMap = updateReachMap bg exits reachMap
     let exits =
-      exits
-      |> DiGraph.foldVertex bg (fun acc (v: Vertex<_>) ->
-        let isExit = DiGraph.getPreds bg v |> List.length = 0
+      fg.FoldVertex (fun acc (v: Vertex<_>) ->
+        let isExit = DiGraph.getSuccs fg v |> List.length = 0
         if isExit && not <| Map.find (v.GetID ()) reachMap then
           DiGraph.findVertexByID bg (v.GetID ()) :: acc
-        else acc)
-    calculateExits bg reachMap exits
+        else acc) exits
+    calculateExits fg bg reachMap exits
 
-let preparePostDomAnalysis fg root bg =
+let preparePostDomAnalysis fg root (bg: DiGraph<_, _>) =
   let _, orderMap =
     Traversal.foldTopologically fg [root] (fun (cnt, map) v ->
       cnt + 1, Map.add v cnt map) (0, Map.empty)
-  let backEdges =
-    []
-    |> DiGraph.foldEdge fg (fun acc (src: Vertex<_>) (dst: Vertex<_>) edge ->
-      if src.GetID () = dst.GetID () then (src, dst, edge) :: acc
-      else acc)
-    |> DiGraph.foldEdge fg (fun acc (src: Vertex<_>) (dst: Vertex<_>) edge ->
+  let fg, backEdges =
+    fg.FoldEdge (fun (fg, acc) (src: Vertex<_>) (dst: Vertex<_>) edge ->
+      if src.GetID () = dst.GetID () then
+        DiGraph.removeEdge fg src dst, (src, dst, edge) :: acc
+      else fg, acc) (fg, [])
+  let fg, backEdges =
+    fg.FoldEdge (fun (fg, acc) (src: Vertex<_>) (dst: Vertex<_>) edge ->
       if Map.find src orderMap > Map.find dst orderMap then
-        (src, dst, edge) :: acc
-      else acc)
-  let bgUnreachables = DiGraph.getUnreachables bg
-  let bg =
-    if List.isEmpty bgUnreachables then
-      backEdges
-      |> List.fold (fun bg (src, dst, _) ->
-        let src = DiGraph.findVertexByID bg <| src.GetID ()
-        let dst = DiGraph.findVertexByID bg <| dst.GetID ()
-        DiGraph.removeEdge bg dst src) bg
-    else bg
+        DiGraph.removeEdge fg src dst, (src, dst, edge) :: acc
+      else fg, acc) (fg, backEdges)
   let reachMap =
-    Map.empty
-    |> DiGraph.foldVertex bg (fun acc (v: Vertex<_>) ->
-      Map.add (v.GetID ()) false acc)
+    bg.FoldVertex (fun acc (v: Vertex<_>) ->
+      Map.add (v.GetID ()) false acc) Map.empty
   let exits =
-    DiGraph.getUnreachables bg
-    |> Seq.toList
-    |> calculateExits bg reachMap
-  // Restore backedges to backward graph
-  let bg =
-    if List.isEmpty bgUnreachables then
-      backEdges
-      |> List.fold (fun bg (src, dst, e) ->
-        let src = DiGraph.findVertexByID bg <| src.GetID ()
-        let dst = DiGraph.findVertexByID bg <| dst.GetID ()
-        DiGraph.addEdge bg dst src e) bg
-    else bg
+    DiGraph.getUnreachables bg |> Seq.toList |> calculateExits fg bg reachMap
+  (* Restore backedges. This is needed for imperative graphs. *)
+  let _ =
+    backEdges
+    |> List.fold (fun fg (src, dst, e) -> DiGraph.addEdge fg src dst e) fg
   let dummy, bg = DiGraph.addDummyVertex bg
-  let bg =
-    exits |> List.fold (fun bg v -> DiGraph.addDummyEdge bg dummy v) bg
+  let bg = exits |> List.fold (fun bg v -> DiGraph.addDummyEdge bg dummy v) bg
   bg, dummy
 
 let initDominatorContext g root =
