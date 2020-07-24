@@ -23,11 +23,11 @@
 *)
 
 [<RequireQualifiedAccess>]
-module B2R2.BinGraph.SCFGUtils
+module B2R2.BinCorpus.SCFGUtils
 
 open B2R2
 open B2R2.BinIR.LowUIR
-open B2R2.BinCorpus
+open B2R2.BinGraph
 open System.Collections.Generic
 
 type SCFGError =

@@ -22,12 +22,12 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinGraph
+namespace B2R2.BinCorpus
 
 open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd
-open B2R2.BinCorpus
+open B2R2.BinGraph
 
 module SSABlockHelper =
   let private updateDefinedVar set = function

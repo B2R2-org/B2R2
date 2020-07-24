@@ -22,11 +22,11 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinGraph
+namespace B2R2.BinCorpus
 
 open B2R2
 open B2R2.FrontEnd
-open B2R2.BinCorpus
+open B2R2.BinGraph
 open System
 open System.Collections.Generic
 

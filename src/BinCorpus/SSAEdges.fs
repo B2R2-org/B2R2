@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.BinGraph.SSAEdges
+module B2R2.BinCorpus.SSAEdges
 
 open B2R2
 open B2R2.BinIR

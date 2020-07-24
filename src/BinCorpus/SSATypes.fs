@@ -22,10 +22,11 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinGraph
+namespace B2R2.BinCorpus
 
 open B2R2
 open B2R2.BinIR
+open B2R2.BinGraph
 open System.Collections.Generic
 
 type SSAVertex = Vertex<SSABBlock>

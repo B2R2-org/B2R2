@@ -25,8 +25,9 @@
 namespace B2R2.DataFlow
 
 open B2R2
-open B2R2.BinGraph
 open B2R2.BinIR.LowUIR
+open B2R2.BinGraph
+open B2R2.BinCorpus
 open System.Collections.Generic
 
 type RDMap = Dictionary<VertexID, Set<VarPoint>>

@@ -22,7 +22,9 @@
   SOFTWARE.
 *)
 
-module B2R2.BinGraph.CFGExport
+module B2R2.BinCorpus.CFGExport
+
+open B2R2.BinGraph
 
 open System.IO
 open System.Text

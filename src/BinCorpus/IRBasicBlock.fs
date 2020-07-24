@@ -22,11 +22,11 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinGraph
+namespace B2R2.BinCorpus
 
 open B2R2
 open B2R2.FrontEnd
-open B2R2.BinCorpus
+open B2R2.BinGraph
 
 /// A basic block that consists of IR (LowUIR) statements. It contains all the
 /// InstructionInfo of the basic block.

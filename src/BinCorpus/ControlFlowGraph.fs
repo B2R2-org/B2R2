@@ -22,26 +22,35 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinGraph
+namespace B2R2.BinCorpus
 
-open B2R2.BinCorpus
+open B2R2.BinGraph
 
-/// The Lens interface, which is a converter from a graph to another graph. In
-/// B2R2, An IR-level SCFG forms the basis, and we should apply different lenses
-/// to obtain different graphs. For example, we can get disassembly-based CFG by
-/// applying DisasmLens to the SCFG.
-type ILens<'D when 'D :> BasicBlock and 'D: equality> =
-  /// <summary>
-  /// The main function of the ILens interface, which will essentially convert a
-  /// given CFG into another graph.
-  /// </summary>
-  /// <param name="graph">The given CFG.</param>
-  /// <param name="root">The list of root nodes of the CFG.</param>
-  /// <returns>
-  /// A converted graph along with its root node.
-  /// </returns>
-  abstract member Filter:
-      graph: DiGraph<IRBasicBlock, CFGEdgeKind>
-    * roots: Vertex<IRBasicBlock> list
-    * app: Apparatus
-    -> DiGraph<'D, CFGEdgeKind> * Vertex<'D> list
+type ControlFlowGraph<'D, 'E when 'D :> BasicBlock and 'D : equality>
+    (core: GraphCore<'D, 'E, DiGraph<'D, 'E>>) =
+  inherit DiGraph<'D, 'E> (core)
+
+type IRCFG = ControlFlowGraph<IRBasicBlock, CFGEdgeKind>
+
+[<RequireQualifiedAccess>]
+module IRCFG =
+  let private initializer core =
+    IRCFG (core) :> DiGraph<IRBasicBlock, CFGEdgeKind>
+
+  let private initImperative () =
+    ImperativeCore<IRBasicBlock, CFGEdgeKind> (initializer, UnknownEdge)
+    |> IRCFG
+    :> DiGraph<IRBasicBlock, CFGEdgeKind>
+
+  let private initPersistent () =
+    PersistentCore<IRBasicBlock, CFGEdgeKind> (initializer, UnknownEdge)
+    |> IRCFG
+    :> DiGraph<IRBasicBlock, CFGEdgeKind>
+
+  /// Initialize IRCFG based on the implementation type.
+  let init = function
+    | DefaultGraph -> initPersistent ()
+    | ImperativeGraph -> initImperative ()
+    | PersistentGraph -> initPersistent ()
+
+// vim: set tw=80 sts=2 sw=2:

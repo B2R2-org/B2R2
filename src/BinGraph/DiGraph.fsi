@@ -31,7 +31,7 @@ namespace B2R2.BinGraph
 type DiGraph<'D, 'E when 'D :> VertexData and 'D : equality> =
   inherit Graph<'D, 'E, DiGraph<'D, 'E>>
 
-  internal new: GraphCore<'D, 'E, DiGraph<'D, 'E>> -> DiGraph<'D, 'E>
+  new: GraphCore<'D, 'E, DiGraph<'D, 'E>> -> DiGraph<'D, 'E>
   override private ImplementationType: GraphImplementationType
   override private IsEmpty: unit -> bool
   override private GetSize: unit -> int

@@ -22,20 +22,26 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinGraph
+namespace B2R2.BinCorpus
 
-open B2R2
+open B2R2.BinGraph
 
-/// The base type for basic block.
-[<AbstractClass>]
-type BasicBlock () =
-  inherit VertexData (VertexData.genID ())
-  /// The start position (ProgramPoint) of the basic block.
-  abstract PPoint: ProgramPoint with get
-  /// The instruction address range of the basic block.
-  abstract Range: AddrRange with get
-  /// Check if this is a fake basic block inserted by our analysis. We create a
-  /// fake block to represent call target vertices in a function-level CFG.
-  abstract IsFakeBlock: unit -> bool
-  /// Convert this basic block to a visual representation.
-  abstract ToVisualBlock: unit -> VisualBlock
+/// The Lens interface, which is a converter from a graph to another graph. In
+/// B2R2, An IR-level SCFG forms the basis, and we should apply different lenses
+/// to obtain different graphs. For example, we can get disassembly-based CFG by
+/// applying DisasmLens to the SCFG.
+type ILens<'D when 'D :> BasicBlock and 'D: equality> =
+  /// <summary>
+  /// The main function of the ILens interface, which will essentially convert a
+  /// given CFG into another graph.
+  /// </summary>
+  /// <param name="graph">The given CFG.</param>
+  /// <param name="root">The list of root nodes of the CFG.</param>
+  /// <returns>
+  /// A converted graph along with its root node.
+  /// </returns>
+  abstract member Filter:
+      graph: DiGraph<IRBasicBlock, CFGEdgeKind>
+    * roots: Vertex<IRBasicBlock> list
+    * app: Apparatus
+    -> DiGraph<'D, CFGEdgeKind> * Vertex<'D> list

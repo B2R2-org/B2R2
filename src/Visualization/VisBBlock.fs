@@ -24,7 +24,7 @@
 
 namespace B2R2.Visualization
 
-open B2R2.BinGraph
+open B2R2.BinCorpus
 
 /// The main vertex type used for visualization.
 type VisBBlock (blk: BasicBlock, isDummy) =

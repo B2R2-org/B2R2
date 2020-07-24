@@ -26,6 +26,7 @@ namespace B2R2.DataFlow
 
 open B2R2.BinIR.SSA
 open B2R2.BinGraph
+open B2R2.BinCorpus
 
 /// Modified version of sparse conditional constant propagation of Wegman et al.
 type ConstantPropagation (hdl, ssaCFG: DiGraph<SSABBlock, CFGEdgeKind>) =

@@ -28,6 +28,7 @@ open B2R2
 open B2R2.FrontEnd
 open B2R2.BinIR.SSA
 open B2R2.BinGraph
+open B2R2.BinCorpus
 open System.Collections.Generic
 
 /// An ID of an SSA memory instance.
