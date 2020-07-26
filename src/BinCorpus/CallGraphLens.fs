@@ -81,11 +81,11 @@ type CallVMap = Dictionary<Addr, Vertex<CallGraphBBlock>>
 
 /// A graph lens for obtaining CallGraph.
 type CallGraphLens (scfg: SCFG) =
-  let getFunctionVertex g vMap (old: Vertex<IRBasicBlock>) addr app =
+  let getFunctionVertex g vMap (old: Vertex<IRBasicBlock>) addr corpus =
     match (vMap: CallVMap).TryGetValue addr with
     | false, _ ->
       let fake = old.VData.IsFakeBlock ()
-      match app.CalleeMap.Find (addr) with
+      match corpus.SCFG.CalleeMap.Find (addr) with
       | None -> None
       | Some callee ->
         let id = callee.CalleeID
@@ -97,13 +97,13 @@ type CallGraphLens (scfg: SCFG) =
         Some (v, g)
     | true, v -> Some (v, g)
 
-  let getVertex g vMap (old: Vertex<IRBasicBlock>) app =
+  let getVertex g vMap (old: Vertex<IRBasicBlock>) corpus =
     let addr = old.VData.PPoint.Address
-    match app.CalleeMap.Find (addr) with
+    match corpus.SCFG.CalleeMap.Find (addr) with
     | None -> None
-    | Some _ -> getFunctionVertex g vMap old addr app
+    | Some _ -> getFunctionVertex g vMap old addr corpus
 
-  let buildCG callCFG _ vMap app =
+  let buildCG callCFG _ vMap corpus =
     callCFG
     |> DiGraph.foldEdge scfg.Graph (fun callCFG src dst e ->
       match e with
@@ -117,18 +117,18 @@ type CallGraphLens (scfg: SCFG) =
         match scfg.FindFunctionVertex src.VData.PPoint.Address with
         | None -> callCFG
         | Some src ->
-          match getVertex callCFG vMap src app with
+          match getVertex callCFG vMap src corpus with
           | None -> callCFG
           | Some (s, callCFG) ->
-            match getVertex callCFG vMap dst app with
+            match getVertex callCFG vMap dst corpus with
             | None -> callCFG
             | Some (d, callCFG) -> DiGraph.addEdge callCFG s d e
       | _ -> callCFG)
 
   interface ILens<CallGraphBBlock> with
-    member __.Filter (g, _, app) =
+    member __.Filter (g, _, corpus) =
       let vMap = CallVMap ()
-      let callCFG = buildCG (CallCFG.init g.ImplementationType) g vMap app
+      let callCFG = buildCG (CallCFG.init g.ImplementationType) g vMap corpus
       callCFG, DiGraph.getUnreachables callCFG |> Seq.toList
 
   static member Init (scfg) =

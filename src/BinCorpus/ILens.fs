@@ -43,5 +43,5 @@ type ILens<'D when 'D :> BasicBlock and 'D: equality> =
   abstract member Filter:
       graph: DiGraph<IRBasicBlock, CFGEdgeKind>
     * roots: Vertex<IRBasicBlock> list
-    * app: Apparatus
+    * corpus: BinCorpus
     -> DiGraph<'D, CFGEdgeKind> * Vertex<'D> list

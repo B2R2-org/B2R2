@@ -55,8 +55,8 @@ module private BranchRecoveryHelper =
       let acc = Map.add addr (addr, next) acc
       computeFunctionBoundary acc (next :: addrs)
 
-  let computeCalleeAddrs hdl app =
-    app.CalleeMap.Callees
+  let computeCalleeAddrs hdl corpus =
+    corpus.SCFG.CalleeMap.Callees
     |> Seq.choose (fun callee -> callee.Addr)
     |> Seq.toList
     |> filterOutLinkageTables hdl
@@ -177,7 +177,7 @@ module private BranchRecoveryHelper =
 
   let inline tblIndBranchInfo host targets bAddr sAddr eAddr rt =
     let range = AddrRange (sAddr, eAddr)
-    let tbl = Some <| JumpTableInfo.init bAddr range rt
+    let tbl = Some <| JumpTableInfo.Init bAddr range rt
     { HostFunctionAddr = host; TargetAddresses = targets; JumpTableInfo = tbl }
 
   let partitionIndBranchInfo entry constBranches tblBranches lst =
@@ -216,8 +216,9 @@ module private BranchRecoveryHelper =
           else targets, startAddr
       else targets, startAddr
 
-  let getMaxAddr tableAddrs app iAddr startAddr maxAddr =
-    match Map.tryFind iAddr app.IndirectBranchMap with
+  let getMaxAddr tableAddrs corpus iAddr startAddr maxAddr =
+    let scfg = corpus.SCFG
+    match Map.tryFind iAddr scfg.IndirectBranchMap with
     | Some ({ JumpTableInfo = Some info }) ->
       tableAddrs |> Set.remove info.JTRange.Min
     | _ -> tableAddrs
@@ -232,8 +233,8 @@ module private BranchRecoveryHelper =
         let fromApp = Set.minElement s
         min fromAnalysis fromApp |> Some
 
-  let computeTableAddrs app =
-    app.IndirectBranchMap
+  let computeTableAddrs corpus =
+    corpus.SCFG.IndirectBranchMap
     |> Map.fold (fun acc _ indInfo ->
       match indInfo.JumpTableInfo with
       | None -> acc
@@ -246,36 +247,36 @@ module private BranchRecoveryHelper =
       let info = tblIndBranchInfo entry targets bAddr sAddr eAddr t
       Map.add iAddr info acc
 
-  let checkDefinedTable app iAddr sAddr =
-    app.IndirectBranchMap
+  let checkDefinedTable corpus iAddr sAddr =
+    corpus.SCFG.IndirectBranchMap
     |> Map.exists (fun addr indInfo ->
       match indInfo.JumpTableInfo with
       | None -> false
       | Some info -> sAddr = info.JTRange.Min && iAddr <> addr)
 
-  let inferGOTIndexedBranches hdl app boundaries tableBranches constBranches =
-    let tableAddrs = computeTableAddrs app
+  let inferGOTIndexedBranches hdl corpus boundaries tableBranches constBranches =
+    let tableAddrs = computeTableAddrs corpus
     let rec infer acc = function
       | [ (iAddr, { HostFunctionAddr = entry ; JumpTableInfo = Some i }) ] ->
         let bAddr = i.JTBaseAddr
         let t = i.JTEntrySize
-        if checkDefinedTable app iAddr i.JTRange.Min then acc
+        if checkDefinedTable corpus iAddr i.JTRange.Min then acc
         else
           let sAddr = i.JTRange.Min
           let lb, ub = Map.find entry boundaries (* function boundaries *)
-          let max = getMaxAddr tableAddrs app iAddr sAddr None
+          let max = getMaxAddr tableAddrs corpus iAddr sAddr None
           let targets, eAddr = readTargets hdl lb ub bAddr max sAddr t Set.empty
           accJmpTableInfo acc targets lb iAddr bAddr sAddr eAddr t
       | (iAddr, { HostFunctionAddr = entry ; JumpTableInfo = Some i1 }) ::
           (((_, { JumpTableInfo = Some i2 }) :: _) as next) ->
         let bAddr = i1.JTBaseAddr
         let t = i1.JTEntrySize
-        if checkDefinedTable app iAddr i1.JTRange.Min then infer acc next
+        if checkDefinedTable corpus iAddr i1.JTRange.Min then infer acc next
         else
           let s1 = i1.JTRange.Min
           let s2 = i2.JTRange.Min
           let lb, ub = Map.find entry boundaries
-          let max = getMaxAddr tableAddrs app iAddr s1 (Some s2)
+          let max = getMaxAddr tableAddrs corpus iAddr s1 (Some s2)
           let targets, eAddr = readTargets hdl lb ub bAddr max s1 t Set.empty
           infer (accJmpTableInfo acc targets lb iAddr bAddr s1 eAddr t) next
       | _ -> acc
@@ -294,11 +295,11 @@ module private BranchRecoveryHelper =
       | _ -> UnknownFormat)
     |> partitionIndBranchInfo entry constBranches tblBranches
 
-  let analyzeBranches hdl app (scfg: SCFG) (constBranches, tblBranches) addr =
-    let irCFG, irRoot = scfg.GetFunctionCFG (addr, false)
+  let analyzeBranches hdl corpus (constBranches, tblBranches) addr =
+    let irCFG, irRoot = corpus.SCFG.GetFunctionCFG (addr, false)
     if hasIndirectBranch irCFG then
-      let lens = SSALens.Init hdl scfg
-      let ssaCFG, ssaRoot = lens.Filter (irCFG, [irRoot], app)
+      let lens = SSALens.Init hdl corpus.SCFG
+      let ssaCFG, ssaRoot = lens.Filter (irCFG, [irRoot], corpus)
       let cp = ConstantPropagation (hdl, ssaCFG)
       let cpstate = cp.Compute (List.head ssaRoot)
       analyzeIndirectBranch ssaCFG cpstate addr constBranches tblBranches
@@ -312,57 +313,52 @@ module private BranchRecoveryHelper =
       | None ->
         Map.add iAddr indInfo constBranches, tblBranches) (Map.empty, Map.empty)
 
-  let inferJumpTableRange hdl app callees constBranches tblBranches =
+  let inferJumpTableRange hdl corpus callees constBranches tblBranches =
     let boundaries = computeFunctionBoundary Map.empty callees
-    inferGOTIndexedBranches hdl app boundaries tblBranches constBranches
+    inferGOTIndexedBranches hdl corpus boundaries tblBranches constBranches
 
-  let calculateTable hdl app =
-    let callees = computeCalleeAddrs hdl app
-    app.IndirectBranchMap
+  let calculateTable hdl corpus =
+    let callees = computeCalleeAddrs hdl corpus
+    corpus.SCFG.IndirectBranchMap
     |> toBranchInfo
-    ||> inferJumpTableRange hdl app callees
-    |> Apparatus.addIndirectBranchMap app
+    ||> inferJumpTableRange hdl corpus callees
+    |> BinCorpus.addIndirectBranchMap corpus
 
   let filterCalleeAddrs isTarget addrs =
     match isTarget with
     | Some isTarget -> addrs |> List.filter isTarget
     | None -> addrs
 
-  let rec recover (noReturn: IAnalysis) hdl scfg app isTarget =
-    let scfg, app = noReturn.Run hdl scfg app
-    let callees = computeCalleeAddrs hdl app |> filterCalleeAddrs isTarget
-    let indmap = app.IndirectBranchMap
+  let rec recover (noReturn: IAnalysis) hdl corpus isTarget =
+    let corpus = noReturn.Run hdl corpus
+    let callees = computeCalleeAddrs hdl corpus |> filterCalleeAddrs isTarget
+    let indmap = corpus.SCFG.IndirectBranchMap
     let indmap' =
       callees
-      |> List.fold (analyzeBranches hdl app scfg) (toBranchInfo indmap)
-      ||> inferJumpTableRange hdl app callees
+      |> List.fold (analyzeBranches hdl corpus) (toBranchInfo indmap)
+      ||> inferJumpTableRange hdl corpus callees
     let indmap' = Map.fold (fun acc k v -> Map.add k v acc) indmap indmap'
     if indmap <> indmap' then
-      let app =
-        Apparatus.addIndirectBranchMap app indmap'
-        |> Apparatus.update hdl
-      match SCFG.Init (hdl, app) with
-      | Ok scfg ->
+      let corpus = BinCorpus.addIndirectBranchMap corpus indmap'
 #if DEBUG
-        printfn "[*] Go to the next phase ..."
+      printfn "[*] Go to the next phase ..."
 #endif
-        recover noReturn hdl scfg app isTarget
-      | Error e -> failwithf "Failed to recover switch due to %A" e
-    else scfg, app
+      recover noReturn hdl corpus isTarget
+    else corpus
 
 type BranchRecovery (enableNoReturn) =
   let noReturn =
     if enableNoReturn then NoReturnAnalysis () :> IAnalysis
     else NoAnalysis () :> IAnalysis
 
-  member __.CalculateTable hdl app =
-    BranchRecoveryHelper.calculateTable hdl app
+  member __.CalculateTable hdl corpus =
+    BranchRecoveryHelper.calculateTable hdl corpus
 
-  member __.RunWith hdl scfg app isTarget =
-    BranchRecoveryHelper.recover noReturn hdl scfg app (Some isTarget)
+  member __.RunWith hdl corpus isTarget =
+    BranchRecoveryHelper.recover noReturn hdl corpus (Some isTarget)
 
   interface IAnalysis with
     member __.Name = "Indirect Branch Recovery"
 
-    member __.Run hdl scfg app =
-      BranchRecoveryHelper.recover noReturn hdl scfg app None
+    member __.Run hdl corpus =
+      BranchRecoveryHelper.recover noReturn hdl corpus None

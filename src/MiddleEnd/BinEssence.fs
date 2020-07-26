@@ -34,38 +34,28 @@ open B2R2.BinGraph
 type BinEssence = {
   /// BInary handler.
   BinHandler: BinHandler
-  /// The apparatus holds crucial machinery about binary code and their lifted
-  /// statements. For example, it provides a convenient mapping from an address
-  /// to the corresponding instruction and IR statements.
-  Apparatus: Apparatus
-  /// Super Control Flow Graph.
-  SCFG: SCFG
+  BinCorpus: BinCorpus
 }
 with
-  static member private Analyze hdl scfg app analyses =
+  static member private Analyze hdl corpus analyses =
     analyses
-    |> List.fold (fun (scfg, app) (analysis: IAnalysis) ->
+    |> List.fold (fun corpus (analysis: IAnalysis) ->
 #if DEBUG
       printfn "[*] %s started." analysis.Name
 #endif
-      analysis.Run hdl scfg app) (scfg, app)
+      analysis.Run hdl corpus) corpus
 
   static member Init (hdl, postAnalyses, ?graphImpl) =
 #if DEBUG
     let startTime = System.DateTime.Now
 #endif
-    let app = Apparatus.init hdl
     let graphImpl = defaultArg graphImpl DefaultGraph
-    match SCFG.Init (hdl, app, graphImpl=graphImpl) with
-    | Ok scfg ->
-      let scfg, app =
-        BinEssence.Analyze hdl scfg app postAnalyses
+    let corpus = BinCorpus.init hdl graphImpl
+    let corpus = BinEssence.Analyze hdl corpus postAnalyses
 #if DEBUG
-      let endTime = System.DateTime.Now
-      endTime.Subtract(startTime).TotalSeconds
-      |> printfn "[*] All done in %f sec."
+    let endTime = System.DateTime.Now
+    endTime.Subtract(startTime).TotalSeconds
+    |> printfn "[*] All done in %f sec."
 #endif
-      { BinHandler = hdl
-        Apparatus = app
-        SCFG = scfg }
-    | Error e -> failwithf "Failed to initiate BinEssence due to %A" e
+    { BinHandler = hdl
+      BinCorpus = corpus }

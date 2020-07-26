@@ -24,11 +24,8 @@
 
 namespace B2R2.BinCorpus
 
-open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd
-open B2R2.BinIR
-open B2R2.BinIR.LowUIR
 
 /// <summary>
 ///   Binary apparatus (Apparatus) contains the key components and information
@@ -78,69 +75,50 @@ open B2R2.BinIR.LowUIR
 ///     our post analayses do not bring a different Apparatus.
 ///   </para>
 /// </remarks>
-type Apparatus = {
-  /// Instruction map.
-  InstrMap: InstrMap
-  /// Label map.
-  LabelMap: Map<Symbol, Addr * int>
-  /// Leader set.
-  LeaderInfos: Set<LeaderInfo>
-  /// Caller map.
-  CallerMap: CallerMap
-  /// Callee map.
-  CalleeMap: CalleeMap
-  /// Function entries.
-  Entries: Set<LeaderInfo>
-  /// Indirect branches' target addresses.
-  IndirectBranchMap: Map<Addr, IndirectBranchInfo>
-  /// No-return function info.
-  NoReturnInfo: NoReturnInfo
+type BinCorpus = {
+  InstrMap : InstrMap
+  SCFG : SCFG
 }
 
-and IndirectBranchInfo = {
-  /// The host function (owner) of the indirect jump.
-  HostFunctionAddr: Addr
-  /// Possible target addresses.
-  TargetAddresses: Set<Addr>
-  /// Information about the corresponding jump table (if exists).
-  JumpTableInfo: JumpTableInfo option
-}
+module BinCorpus =
 
-/// Jump table (for switch-case) information.
-and JumpTableInfo = {
-  /// Base address of the jump table.
-  JTBaseAddr: Addr
-  /// The start and the end address of the jump table (AddrRange).
-  JTRange: AddrRange
-  /// Size of each entry of the table.
-  JTEntrySize: RegType
-}
+  let private initCorpus hdl graphImpl =
+    let acc =
+      { InstrMap = InstrMap ()
+        BasicBlockMap = SCFGUtils.init ()
+        CalleeMap = CalleeMap (hdl)
+        Graph = IRCFG.init graphImpl
+        NoReturnInfo = NoReturnInfo.Init Set.empty Set.empty
+        IndirectBranchMap = Map.empty }
+    let scfg = SCFG (hdl, acc, graphImpl=graphImpl)
+    { InstrMap = acc.InstrMap
+      SCFG = scfg }
 
-/// No-return function info.
-and NoReturnInfo = {
-  /// No-return function addresses.
-  NoReturnFuncs: Set<Addr>
-  /// Program points of no-return call sites.
-  NoReturnCallSites: Set<ProgramPoint>
-}
+  let addEntry hdl corpus parseMode entry =
+    match corpus.SCFG.AddEntry hdl parseMode entry with
+    | Ok (scfg) -> Ok { corpus with SCFG = scfg }
+    | Error () -> Error ()
 
-[<RequireQualifiedAccess>]
-module JumpTableInfo =
-  let init b range size =
-    { JTBaseAddr = b; JTRange = range; JTEntrySize = size }
+  let addEntries hdl corpus parseMode entries =
+    entries
+    |> Set.fold (fun corpus entry ->
+      match corpus with
+      | Ok corpus -> addEntry hdl corpus parseMode entry
+      | _ -> corpus) (Ok corpus)
 
-[<RequireQualifiedAccess>]
-module Apparatus =
+  let addEdge hdl corpus parseMode src dst edgeKind =
+    match corpus.SCFG.AddEdge hdl parseMode src dst edgeKind with
+    | Ok (scfg, hasNewIndBranch) ->
+      Ok ({ corpus with SCFG = scfg }, hasNewIndBranch)
+    | Error () -> Error ()
 
-  /// Return the list of function addresses from the Apparatus.
-  let getFunctionAddrs app =
-    app.CalleeMap.Callees
-    |> Seq.choose (fun c -> c.Addr)
+  let addNoReturnInfo hdl corpus noRetFuncs noRetCallSites =
+    let scfg = corpus.SCFG.AddNoReturnInfo hdl noRetFuncs noRetCallSites
+    { corpus with SCFG = scfg }
 
-  /// Return the list of callees that have a concrete mapping to the binary.
-  let getInternalFunctions app =
-    app.CalleeMap.Callees
-    |> Seq.filter (fun c -> c.Addr.IsSome)
+  let addIndirectBranchMap corpus indMap =
+    let scfg = corpus.SCFG.AddIndirectBranchMap indMap
+    { corpus with SCFG = scfg }
 
   /// This function returns an initial sequence of entry points obtained from
   /// the binary itself (e.g., from its symbol information). Therefore, if the
@@ -149,217 +127,18 @@ module Apparatus =
   let private getInitialEntryPoints hdl =
     let fi = hdl.FileInfo
     fi.GetFunctionAddresses ()
-    |> Seq.map (fun addr -> LeaderInfo.Init (hdl, addr))
     |> Set.ofSeq
     |> fun set ->
       match fi.EntryPoint with
       | None -> set
-      | Some entry -> Set.add (LeaderInfo.Init (hdl, entry)) set
+      | Some entry -> Set.add entry set
 
-  let private findLabels complexInstrs labels (KeyValue (addr, instr)) =
-    instr.Stmts
-    |> Array.foldi (fun labels idx stmt ->
-         match stmt with
-         | LMark (s) ->
-           (complexInstrs: HashSet<Addr>).Add addr |> ignore
-           Map.add s (addr, idx) labels
-         | _ -> labels) labels
-    |> fst
+  let init hdl graphImpl =
+    let corpus = initCorpus hdl graphImpl
+    match getInitialEntryPoints hdl |> addEntries hdl corpus None with
+    | Ok corpus -> corpus
+    | Error _ -> Utils.impossible ()
 
-  /// A temporary accumulator for calculating leaders.
-  type private LeaderAccumulator = {
-    /// Collection of instructions parsed until now.
-    InstrMap: InstrMap
-    /// Label name to a ProgramPoint (Addr * int).
-    Labels: Map<Symbol, Addr * int>
-    /// Complex instruction set. A complex instruction is an instruction that
-    /// contains intra-branches.
-    ComplexInstrs: HashSet<Addr>
-    /// This is a set of leaders, each of which is a tuple of a ProgramPoint and
-    /// an address offset. The offset is used to readjust the address of the
-    /// instruction when parsing it (it is mostly 0 though).
-    Leaders: Set<LeaderInfo>
-    /// Collect all the address that are being a target of a direct call
-    /// instruction (not indirect calls, since we don't know the target at this
-    /// point).
-    FunctionAddrs: Set<Addr>
-  }
-
-  let private addLabelLeader s i acc =
-    let ppoint = Map.find s acc.Labels |> ProgramPoint
-    let leaderInfo = LeaderInfo.Init (ppoint, i.ArchOperationMode, i.Offset)
-    (* Replacement will not be made if the same PPoint exsits in the set. *)
-    { acc with Leaders = Set.add leaderInfo acc.Leaders }
-
-  let private addAddrLeader addr i acc =
-    let leaderInfo =
-      LeaderInfo.Init (ProgramPoint (addr, 0), i.ArchOperationMode, i.Offset)
-    (* Replacement will not be made if the same PPoint exsits in the set. *)
-    { acc with Leaders = Set.add leaderInfo acc.Leaders }
-
-  let private addFunction addr acc =
-    { acc with FunctionAddrs = Set.add addr acc.FunctionAddrs }
-
-  /// Fold all the statements to get the leaders, function entries, etc.
-  let private foldStmts hdl indMap acc i =
-    i.Stmts
-    |> Array.fold (fun acc stmt ->
-      match stmt with
-      | Jmp (Name s) -> addLabelLeader s i acc
-      | CJmp (_, Name s1, Name s2) ->
-        addLabelLeader s1 i acc |> addLabelLeader s2 i
-      | InterJmp (_, Num addr, InterJmpInfo.IsCall) ->
-        let addr = BitVector.toUInt64 addr
-        if hdl.FileInfo.IsValidAddr addr then
-          addAddrLeader addr i acc
-          |> addAddrLeader
-            (i.Instruction.Address + uint64 i.Instruction.Length) i
-          |> addFunction addr
-        else acc
-      | InterJmp (_, Num addr, _) ->
-        let addr = BitVector.toUInt64 addr
-        if hdl.FileInfo.IsValidAddr addr then addAddrLeader addr i acc
-        else acc
-      | InterCJmp (_, _, Num addr1, Num addr2) ->
-        let addr1 = BitVector.toUInt64 addr1
-        let addr2 = BitVector.toUInt64 addr2
-        if hdl.FileInfo.IsValidAddr addr1 && hdl.FileInfo.IsValidAddr addr2 then
-          addAddrLeader addr1 i acc
-          |> addAddrLeader addr2 i
-        else acc
-      | InterCJmp (_, _, Num addr, _)
-      | InterCJmp (_, _, _, Num addr) ->
-        let addr = BitVector.toUInt64 addr
-        if hdl.FileInfo.IsValidAddr addr then addAddrLeader addr i acc
-        else acc
-      | InterJmp (_, _, InterJmpInfo.IsCall) -> (* indirect call *)
-        (* FIXME: we will have to handle newly found callees *)
-        let fallAddr = i.Instruction.Address + uint64 i.Instruction.Length
-        if hdl.FileInfo.IsValidAddr fallAddr then addAddrLeader fallAddr i acc
-        else acc
-      | InterJmp (_, _, _) ->
-        match Map.tryFind i.Instruction.Address indMap with
-        | None -> acc
-        | Some (indInfo) ->
-          indInfo.TargetAddresses
-          |> Set.fold (fun acc target -> addAddrLeader target i acc) acc
-      | SideEffect (SysCall)
-      | SideEffect (Interrupt _) ->
-        let fallAddr = i.Instruction.Address + uint64 i.Instruction.Length
-        if hdl.FileInfo.IsValidAddr fallAddr then addAddrLeader fallAddr i acc
-        else acc
-      | IEMark (a) when acc.ComplexInstrs.Contains i.Instruction.Address ->
-        addAddrLeader a i acc
-      | _ -> acc) acc
-
-  let private findLeaders acc foldStmts =
-    let labels =
-      acc.InstrMap |> Seq.fold (findLabels acc.ComplexInstrs) Map.empty
-    let acc = { acc with Labels = labels }
-    (* Find all possible leaders by scanning lifted IRs. We need to do this at
-       the IR-level because LowUIR may have intra-instruction branches. *)
-    acc.InstrMap.Values |> Seq.fold foldStmts acc
-
-  let private updateInstrMap hdl acc =
-    let instrMap, leaders =
-      acc.Leaders
-      |> Set.filter (fun l -> not <| acc.InstrMap.ContainsKey l.Point.Address)
-      |> InstrMap.update hdl acc.InstrMap None
-    { acc with InstrMap = instrMap ; Leaders = Set.union acc.Leaders leaders }
-
-  let rec private updateAcc hdl acc foldStmts =
-    let acc = findLeaders acc foldStmts
-    let oldCount = acc.InstrMap.Count
-    let acc = updateInstrMap hdl acc
-    if oldCount <> acc.InstrMap.Count then updateAcc hdl acc foldStmts
-    else acc
-
-  let updateNoReturnInfo oldNoRet (calleeMap: CalleeMap) =
-    oldNoRet |> Seq.iter (fun (addr: Addr) ->
-      match calleeMap.Find addr with
-      | None -> ()
-      | Some c -> c.IsNoReturn <- true)
-    calleeMap
-
-  let private buildApp hdl entries leaders instrMap indMap noretInfo =
-    let acc =
-      { InstrMap = instrMap
-        Labels = Map.empty
-        ComplexInstrs = HashSet ()
-        Leaders = leaders
-        FunctionAddrs = Set.map (fun leader -> leader.Point.Address) entries }
-    let acc = updateAcc hdl acc (foldStmts hdl indMap)
-    let calleeMap =
-      CalleeMap.build hdl acc.FunctionAddrs acc.InstrMap
-      |> updateNoReturnInfo noretInfo.NoReturnFuncs
-    { InstrMap = acc.InstrMap
-      LabelMap = acc.Labels
-      LeaderInfos = acc.Leaders
-      CallerMap = CallerMap.build calleeMap
-      CalleeMap = calleeMap
-      Entries = entries
-      IndirectBranchMap = indMap
-      NoReturnInfo = noretInfo }
-
-  let private initApp hdl auxLeaders bblBound =
-    match auxLeaders with
-    | None -> getInitialEntryPoints hdl
-    | Some leaders -> leaders
-    |> fun leaders ->
-      let entries = Set.ofSeq leaders
-      (* First, recursively parse all possible instructions. *)
-      let instrMap, leaders = InstrMap.build hdl leaders bblBound
-      let nrempty = { NoReturnFuncs = Set.empty; NoReturnCallSites = Set.empty}
-      buildApp hdl entries leaders instrMap Map.empty nrempty
-
-  /// Create a binary apparatus from the given BinHandler. The resulting
-  /// apparatus will include default entries found by reading the binary file
-  /// itself (including symbols).
-  [<CompiledName("Init")>]
-  let init hdl =
-    initApp hdl None None
-
-  /// Create a binary apparatus soley based on the given leaders. The resulting
-  /// appratus will not include default entries found by parsing binary file
-  /// itself.
-  let initByEntries hdl leaders bblBound =
-    initApp hdl (Some leaders) bblBound
-
-  let inline private append seq = Seq.foldBack Set.add seq
-
-  let private computeFuncAddrs hdl app entries =
-    getFunctionAddrs app
-    |> Set.ofSeq
-    |> Set.map (fun addr -> LeaderInfo.Init (hdl, addr))
-    |> Set.union entries
-
-  /// Update the given apparatus based on the auxiliary information stored in
-  /// it. For example, there can be new entries (Entries) or indirect branches
-  /// (IndirectBranchMap). This function makes the given app up-to-date.
-  let update hdl app =
-    let entries = app.Entries
-    let leaders = app.LeaderInfos |> append entries
-    let entries = computeFuncAddrs hdl app entries
-    let instrMap, leaders = InstrMap.update hdl app.InstrMap None leaders
-    buildApp hdl entries leaders instrMap app.IndirectBranchMap app.NoReturnInfo
-
-  /// Register newly recovered entries to the apparatus.
-  let addRecoveredEntries app entries =
-    { app with Apparatus.Entries = Set.union entries app.Entries }
-
-  /// Add a resolved indirect branch target to the app.
-  let addIndirectBranchMap app indMap =
-    let indMap =
-      indMap
-      |> Map.fold (fun acc addr info ->
-        Map.add addr info acc) app.IndirectBranchMap
-    { app with IndirectBranchMap = indMap }
-
-  /// Add no-return information to the app.
-  let addNoReturnInfo app noRetFuncs noRetCallSites =
-    let noRetFuncs' = app.NoReturnInfo.NoReturnFuncs
-    let noRetCallSites' = app.NoReturnInfo.NoReturnCallSites
-    let noretInfo' =
-      { NoReturnFuncs = Set.union noRetFuncs noRetFuncs'
-        NoReturnCallSites = Set.union noRetCallSites noRetCallSites' }
-    { app with NoReturnInfo = noretInfo' }
+  let initByEntries hdl graphImpl entries =
+    let corpus = initCorpus hdl graphImpl
+    addEntries hdl corpus None entries

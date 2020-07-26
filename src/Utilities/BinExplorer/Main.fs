@@ -190,12 +190,12 @@ let startGUI (opts: BinExplorerOpts) arbiter =
 let dumpJsonFiles jsonDir ess =
   try System.IO.Directory.Delete(jsonDir, true) with _ -> ()
   System.IO.Directory.CreateDirectory(jsonDir) |> ignore
-  Apparatus.getInternalFunctions ess.Apparatus
+  ess.BinCorpus.SCFG.CalleeMap.InternalCallees
   |> Seq.iter (fun { CalleeID = id; Addr = addr } ->
     let disasmJsonPath = Printf.sprintf "%s/%s.disasmCFG" jsonDir id
-    let cfg, root = ess.SCFG.GetFunctionCFG (Option.get addr)
-    let lens = DisasmLens.Init ess.Apparatus
-    let disasmcfg, _ = lens.Filter (cfg, [root], ess.Apparatus)
+    let cfg, root = ess.BinCorpus.SCFG.GetFunctionCFG (Option.get addr)
+    let lens = DisasmLens.Init ess.BinCorpus
+    let disasmcfg, _ = lens.Filter (cfg, [root], ess.BinCorpus)
     CFGExport.toJson disasmcfg disasmJsonPath)
 
 let initBinHdl isa (name: string) =
@@ -261,7 +261,7 @@ let dumpSwitch _cmdMap opts file outdir _args =
   let file = file.Replace (':', '_')
   let outpath = System.IO.Path.Combine (outdir, file)
   use writer = System.IO.File.CreateText (outpath)
-  ess.Apparatus.IndirectBranchMap
+  ess.BinCorpus.SCFG.IndirectBranchMap
   |> Map.iter (fun fromAddr { TargetAddresses = targets } ->
     targets
     |> Set.iter (fun target ->

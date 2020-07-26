@@ -22,18 +22,39 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd
+namespace B2R2.BinCorpus
 
-open B2R2.FrontEnd
-open B2R2.BinCorpus
-open B2R2.BinGraph
+open B2R2
 
-/// CFG analysis that we perform after constructing the basic SCFG. An analysis
-/// includes no-return analysis, libc start address analysis, switch-case
-/// recovery analysis, etc.
-type IAnalysis =
-  /// Name of the analysis.
-  abstract Name: string
+type IndirectBranchInfo = {
+  /// The host function (owner) of the indirect jump.
+  HostFunctionAddr: Addr
+  /// Possible target addresses.
+  TargetAddresses: Set<Addr>
+  /// Information about the corresponding jump table (if exists).
+  JumpTableInfo: JumpTableInfo option
+}
 
-  /// Run the analysis.
-  abstract Run: BinHandler -> BinCorpus -> BinCorpus
+/// Jump table (for switch-case) information.
+and JumpTableInfo = {
+  /// Base address of the jump table.
+  JTBaseAddr: Addr
+  /// The start and the end address of the jump table (AddrRange).
+  JTRange: AddrRange
+  /// Size of each entry of the table.
+  JTEntrySize: RegType
+}
+with
+  static member Init jtBase jtRange jtEntrySize =
+    { JTBaseAddr = jtBase ; JTRange = jtRange ; JTEntrySize = jtEntrySize }
+
+/// No-return function info.
+type NoReturnInfo = {
+  /// No-return function addresses.
+  NoReturnFuncs: Set<Addr>
+  /// Program points of no-return call sites.
+  NoReturnCallSites: Set<ProgramPoint>
+}
+with
+  static member Init noRetFuncs noRetCallSites =
+    { NoReturnFuncs = noRetFuncs ; NoReturnCallSites = noRetCallSites }

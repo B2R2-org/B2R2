@@ -37,44 +37,27 @@ exception InvalidFunctionAddressException
 /// than the one from disassembly. That is, a single machine instruction (thus,
 /// a single basic block) may correspond to multiple basic blocks in the
 /// LowUIR-level CFG.
-type SCFG internal (app, g, vertices, graphImplementationType) =
-  let mutable boundaries = IntervalSet.empty
-  let g = SCFGUtils.removeDanglings app g vertices
-  do boundaries <- SCFGUtils.computeBoundaries app vertices
+type SCFG (hdl, acc, ?graphImpl, ?ignoreIllegal) =
+  let graphImpl = defaultArg graphImpl DefaultGraph
+  let instrMap = acc.InstrMap
+  let bblMap = acc.BasicBlockMap
+  let calleeMap = acc.CalleeMap
+  let g = acc.Graph
+  let noRetInfo = acc.NoReturnInfo
+  let indMap = acc.IndirectBranchMap
+  let ignoreIllegal = defaultArg ignoreIllegal true
 
-  /// SCFG should be constructed only via this method. The ignoreIllegal
-  /// argument indicates we will ignore any illegal vertices/edges during the
-  /// creation of an SCFG.
-  static member Init (hdl, app, ?graphImpl, ?ignoreIllegal) =
-    let graphImpl = defaultArg graphImpl DefaultGraph
-    let ignoreIllegal = defaultArg ignoreIllegal true
-    let g = IRCFG.init graphImpl
-    let vertices = SCFGUtils.VMap ()
-    let leaders = app.LeaderInfos |> Set.toArray |> Array.map (fun l -> l.Point)
-    let fold = if ignoreIllegal then SCFGUtils.fold else SCFGUtils.foldUntilErr
-    [ 0 .. leaders.Length - 1 ]
-    |> fold (SCFGUtils.createNode app vertices leaders) g
-    |> Result.bind (fun g ->
-      [ 0 .. leaders.Length - 1 ]
-      |> fold (SCFGUtils.joinEdges hdl app vertices leaders) g
-      |> Result.bind (fun g ->
-        SCFG (app, g, vertices, graphImpl) |> Ok))
+  member __.InstrMap with get () = instrMap
 
-  /// The actual graph data structure of the SCFG.
+  member __.BasicBlockMap with get () = bblMap
+
   member __.Graph with get () = g
 
-  /// The set of boundaries (intervals) of the basic blocks.
-  member __.Boundaries with get () = boundaries
+  member __.CalleeMap with get () = calleeMap
 
-  /// A mapping from the start address of a basic block to the vertex in the
-  /// SCFG.
-  member __.Vertices with get () = vertices
+  member __.NoReturnInfo with get () = noRetInfo
 
-  /// Return a vertex located at the given address.
-  member __.GetVertex (addr) =
-    match vertices.TryGetValue (ProgramPoint (addr, 0)) with
-    | false, _ -> raise VertexNotFoundException
-    | true, v -> v
+  member __.IndirectBranchMap with get () = indMap
 
   /// Retrieve an IR-based CFG (subgraph) of a function starting at the given
   /// address (addr) from the SCFG, and the root node. When the
@@ -83,29 +66,32 @@ type SCFG internal (app, g, vertices, graphImplementationType) =
   member __.GetFunctionCFG (addr: Addr,
                             [<Optional; DefaultParameterValue(true)>]
                             preserveRecursiveEdge) =
-    let newGraph = IRCFG.init graphImplementationType
+    let newGraph = IRCFG.init graphImpl
     let vMap = Dictionary<ProgramPoint, Vertex<IRBasicBlock>> ()
     let visited = HashSet<ProgramPoint> ()
     let rec loop newGraph pos =
       if visited.Contains pos then newGraph
       else
         visited.Add pos |> ignore
-        getVertex newGraph pos |> foldSuccessors vertices.[pos]
+        getVertex newGraph pos
+        |> foldSuccessors (Map.find pos bblMap.VertexMap)
     and getVertex newGraph pos =
-      let origVertex = vertices.[pos]
       match vMap.TryGetValue pos with
-      | (false, _) ->
-        let v, newGraph = DiGraph.addVertex newGraph origVertex.VData
-        vMap.Add (pos, v)
+      | true, v -> v, newGraph
+      | false, _ ->
+        let oldV = Map.find pos bblMap.VertexMap
+        let v, newGraph = DiGraph.addVertex newGraph oldV.VData
+        vMap.[pos] <- v
         v, newGraph
-      | (true, v) -> v, newGraph
     and foldSuccessors origVertex (curVertex, newGraph) =
       DiGraph.getSuccs g origVertex
       |> List.fold (fun newGraph succ ->
-        g.FindEdgeData origVertex succ |> addEdge newGraph curVertex succ) newGraph
+        g.FindEdgeData origVertex succ
+        |> addEdge newGraph curVertex succ) newGraph
     and addEdge newGraph parent child e =
       match e with
-      | ExternalCallEdge | ExternalJmpEdge | RetEdge | ImplicitCallEdge -> newGraph
+      | ExternalCallEdge | ExternalJmpEdge | RetEdge | ImplicitCallEdge ->
+        newGraph
       | CallEdge
         when preserveRecursiveEdge && child.VData.PPoint.Address = addr ->
         let child, newGraph = getVertex newGraph child.VData.PPoint
@@ -119,10 +105,8 @@ type SCFG internal (app, g, vertices, graphImplementationType) =
         let fake = IRBasicBlock ([||], childPp)
         let child, newGraph = DiGraph.addVertex newGraph fake
         let newGraph = DiGraph.addEdge newGraph parent child e
-        match app.CalleeMap.Find childPp.Address with
-        | Some callee when callee.IsNoReturn -> newGraph
-        | _ when SCFGUtils.isNoReturn app parent -> newGraph
-        | _ ->
+        if SCFGUtils.isNoReturn noRetInfo parent then newGraph
+        else
           try
             let fall, newGraph = getVertex newGraph fallPp
             DiGraph.addEdge newGraph child fall RetEdge
@@ -132,13 +116,12 @@ type SCFG internal (app, g, vertices, graphImplementationType) =
 #endif
             newGraph
       | InterJmpEdge ->
-        match app.CalleeMap.Find (child.VData.PPoint.Address) with
-        | Some _ ->
+        if calleeMap.Contains child.VData.PPoint.Address then
           let childPp = child.VData.PPoint
           let fake = IRBasicBlock ([||], childPp)
           let child, newGraph = DiGraph.addVertex newGraph fake
           DiGraph.addEdge newGraph parent child CallEdge
-        | _ ->
+        else
           let child, newGraph = getVertex newGraph child.VData.PPoint
           let newGraph = DiGraph.addEdge newGraph parent child e
           loop newGraph child.VData.PPoint
@@ -146,65 +129,91 @@ type SCFG internal (app, g, vertices, graphImplementationType) =
         let child, newGraph = getVertex newGraph child.VData.PPoint
         let newGraph = DiGraph.addEdge newGraph parent child e
         loop newGraph child.VData.PPoint
-    if app.CalleeMap.Contains addr then
+    if calleeMap.Contains addr then
       let rootPos = ProgramPoint (addr, 0)
       let newGraph = loop newGraph rootPos
       newGraph, vMap.[rootPos]
     else raise InvalidFunctionAddressException
 
-  member private __.ReverseLookUp addr =
-    let queue = Queue<Addr> ([ addr ])
-    let visited = HashSet<Addr> ()
+  member private __.ReverseLookUp src =
+    let queue = Queue<Vertex<IRBasicBlock>> ([ src ])
+    let visited = HashSet<Vertex<IRBasicBlock>> ()
     let rec loop () =
       if queue.Count = 0 then None
       else
-        let addr = queue.Dequeue ()
-        if visited.Contains addr then loop ()
+        let v = queue.Dequeue ()
+        if visited.Contains v then loop ()
         else
-          visited.Add addr |> ignore
-          match vertices.TryGetValue (ProgramPoint (addr, 0)) with
-          | false, _ -> loop ()
-          | true, v ->
-            if app.CalleeMap.Contains addr then Some v
-            else
-              DiGraph.getPreds g v
-              |> List.iter (fun v ->
-                let addr = v.VData.PPoint.Address
-                if visited.Contains addr then ()
-                else queue.Enqueue (addr))
-              loop ()
+          visited.Add v |> ignore
+          let addr = v.VData.PPoint.Address
+          if calleeMap.Contains addr then Some v
+          else
+            DiGraph.getPreds g v
+            |> List.iter (fun v ->
+              if visited.Contains v then ()
+              else queue.Enqueue (v))
+            loop ()
     loop ()
 
   /// Find a basic block (vertex) in the SCFG that the given address belongs to.
   member __.FindVertex (addr) =
-    IntervalSet.findAll (AddrRange (addr, addr + 1UL)) __.Boundaries
+    IntervalSet.findAll (AddrRange (addr, addr + 1UL)) bblMap.Boundaries
     |> List.map (fun r -> ProgramPoint (AddrRange.GetMin r, 0))
     |> List.sortBy (fun p -> if p.Address = addr then -1 else 1)
-    |> List.choose (fun p -> vertices.TryGetValue p |> Utils.tupleToOpt)
+    |> List.choose (fun p -> Map.tryFind p bblMap.VertexMap)
     |> List.tryHead
 
   /// For a given address, find the first vertex of a function that the address
   /// belongs to.
   member __.FindFunctionVertex (addr) =
-    IntervalSet.findAll (AddrRange (addr, addr + 1UL)) __.Boundaries
-    |> List.map (fun r -> AddrRange.GetMin r)
+    IntervalSet.findAll (AddrRange (addr, addr + 1UL)) bblMap.Boundaries
+    |> List.map (fun r ->
+      let addr = AddrRange.GetMin r
+      Map.find (ProgramPoint (addr, 0)) bblMap.VertexMap)
     |> List.tryPick __.ReverseLookUp
 
-  /// For a given address, find the address of a function that the address
-  /// belongs to.
-  member __.FindFunctionEntry (addr) =
-    __.FindFunctionVertex (addr)
-    |> Option.map (fun v -> v.VData.PPoint.Address)
+  member __.AddEntry hdl parseMode (entry: Addr) =
+    let calleeMap = calleeMap.AddEntry hdl entry
+    let acc =
+      { InstrMap = instrMap
+        BasicBlockMap = bblMap
+        CalleeMap = calleeMap
+        Graph = g
+        NoReturnInfo = noRetInfo
+        IndirectBranchMap = indMap }
+    match SCFGUtils.updateCFG hdl parseMode acc false [(None, entry)] with
+    | Ok (acc, _) ->
+      SCFG (hdl, acc, graphImpl, ignoreIllegal)
+      |> Ok
+    | Error () -> if ignoreIllegal then Error () else Utils.impossible ()
 
-  /// For a given function name, find the corresponding function address if
-  /// exists.
-  member __.FindFunctionEntryByName (name: string) =
-    app.CalleeMap.Find (name)
-    |> Option.bind (fun callee -> callee.Addr)
+  member __.AddEdge hdl parseMode src dst edgeKind =
+    let acc =
+      { InstrMap = instrMap
+        BasicBlockMap = bblMap
+        CalleeMap = calleeMap
+        Graph = g
+        NoReturnInfo = noRetInfo
+        IndirectBranchMap = indMap }
+    let edgeInfo = Some (ProgramPoint (src, 0), edgeKind), dst
+    match SCFGUtils.updateCFG hdl parseMode acc false [edgeInfo] with
+    | Ok (acc, hasNewIndBranch) ->
+      let scfg =
+        SCFG (hdl, acc, graphImpl, ignoreIllegal)
+      Ok (scfg, hasNewIndBranch)
+    | Error () ->
+      if ignoreIllegal then Error () else Utils.impossible ()
 
-  /// Retrieve call target addresses.
-  member __.CallTargets () =
-    [] |> DiGraph.foldEdge g (fun acc _ dst e ->
-      match e with
-      | CallEdge -> dst.VData.PPoint.Address :: acc
-      | _ -> acc)
+  member __.AddNoReturnInfo hdl noRetFuncs noRetCallSites =
+    let noRetFuncs = Set.union noRetFuncs noRetInfo.NoReturnFuncs
+    let noRetCallSites = Set.union noRetCallSites noRetInfo.NoReturnCallSites
+    let noRetInfo = NoReturnInfo.Init noRetFuncs noRetCallSites
+    let acc = { acc with NoReturnInfo = noRetInfo }
+    let acc = SCFGUtils.removeNoReturnFallThroughs acc
+    SCFG (hdl, acc, graphImpl, ignoreIllegal)
+
+  member __.AddIndirectBranchMap indMap' =
+    let indMap =
+      indMap' |> Map.fold (fun acc addr info -> Map.add addr info acc) indMap
+    let acc = { acc with IndirectBranchMap = indMap }
+    SCFG (hdl, acc, graphImpl, ignoreIllegal)

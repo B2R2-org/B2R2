@@ -27,4 +27,4 @@ namespace B2R2.MiddleEnd
 type NoAnalysis () =
   interface IAnalysis with
     member __.Name = "No Analysis"
-    member __.Run _hdl scfg app = scfg, app
+    member __.Run _hdl corpus = corpus

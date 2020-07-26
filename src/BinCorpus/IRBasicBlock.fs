@@ -50,6 +50,10 @@ type IRBasicBlock (instrs: InstructionInfo [], point: ProgramPoint) =
     if Array.isEmpty instrs then raise DummyDataAccessException
     else instrs.[Array.length instrs - 1].Instruction
 
+  member __.LastInsInfo =
+    if Array.isEmpty instrs then raise DummyDataAccessException
+    else instrs.[Array.length instrs - 1]
+
   /// The position of the basic block.
   override __.PPoint = point
 
