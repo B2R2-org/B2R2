@@ -29,7 +29,6 @@ open B2R2.FrontEnd
 /// Translation context for Ethereum Virtual Machine (EVM) instructions.
 type EVMTranslationContext (isa) =
   inherit TranslationContext (isa)
-  let stack = ExprStack ()
 
   /// Register expressions.
   member val private RegExprs: RegExprs = RegExprs ()
@@ -37,8 +36,6 @@ type EVMTranslationContext (isa) =
   override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
 
   override __.GetPseudoRegVar _id _pos = failwith "Implement"
-
-  override __.GetStack () = stack
 
 /// Parser for EVM instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).

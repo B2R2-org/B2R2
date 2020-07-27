@@ -33,7 +33,6 @@ type MIPSTranslationContext (isa) =
   member val private RegExprs: RegExprs = RegExprs (isa.WordSize)
   override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
   override __.GetPseudoRegVar _id _pos = failwith "Implement"
-  override __.GetStack () = B2R2.Utils.impossible ()
 
 /// Parser for MIPS instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).

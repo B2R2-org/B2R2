@@ -33,7 +33,6 @@ type TMS320C6000TranslationContext (isa) =
   member val private RegExprs: RegExprs = RegExprs (isa.WordSize)
   override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
   override __.GetPseudoRegVar _id _pos = failwith "Implement"
-  override __.GetStack () = B2R2.Utils.impossible ()
 
 /// Parser for TMS320C6000 instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
