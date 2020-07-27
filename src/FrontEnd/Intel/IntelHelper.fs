@@ -66,13 +66,13 @@ let inline ensure64 t =
   if WordSize.is32 t.TWordSize then raise ParsingFailureException else ()
 
 /// Filter out segment-related prefixes.
-let clearSegMask : Prefix = LanguagePrimitives.EnumOfValue 0xFE07
+let clearSegMask : Prefix = LanguagePrimitives.EnumOfValue 0xFC0F
 
 /// Filter out PrxREPNZ, PrxREPZ, and PrxOPSIZE.
-let clearVEXPrefMask : Prefix = LanguagePrimitives.EnumOfValue 0xFDF9
+let clearVEXPrefMask : Prefix = LanguagePrimitives.EnumOfValue 0xFBF9
 
 /// Filter out group 1 prefixes.
-let clearGrp1PrefMask : Prefix = LanguagePrimitives.EnumOfValue 0xFFF8
+let clearGrp1PrefMask : Prefix = LanguagePrimitives.EnumOfValue 0xFFF0
 
 let getSegment pref =
   if (pref &&& Prefix.PrxCS) <> Prefix.PrxNone then Some R.CS

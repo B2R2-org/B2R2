@@ -402,6 +402,11 @@ let parsePrefix (reader: BinReader) pos =
     | _opcode -> struct (acc, pos)
   loop pos Prefix.PrxNone
 
+let inline private pBNDPref t =
+  if Helper.hasREPNZ t.TPrefixes then
+    { t with TPrefixes = Prefix.PrxBND ||| (clearGrp1PrefMask &&& t.TPrefixes) }
+  else t
+
 let inline private getREX (reader: BinReader) pos =
   let rb = reader.PeekByte pos |> int |> LanguagePrimitives.EnumOfValue
   if rb >= REXPrefix.REX && rb <= REXPrefix.REXWRXB then
@@ -1223,7 +1228,7 @@ let parseOpGrpInfo t (reader: BinReader) pos grp oprDescs =
 
 let parseGrpOpcode t reader pos grp oprDescs =
   let (op, oprDescs, szCond), pos = parseOpGrpInfo t reader pos grp oprDescs
-  parseOp t op szCond oprDescs, pos
+  parseOp (if Helper.isBranch op then pBNDPref t else t) op szCond oprDescs, pos
 
 let private rexb =
   RGrpAttr.ARegInOpREX
@@ -1518,6 +1523,7 @@ let private pTwoByteOp t reader pos byte =
   | 0x17uy -> parseVEX t SzDef32 opNor0F17 opVex0F17 dsNor0F17 dsVex0F17, pos
   | 0x1Auy -> parseBND t SzDef32 opNor0F1A dsNor0F1A, pos
   | 0x1Buy -> parseBND t SzDef32 opNor0F1B dsNor0F1B, pos
+  | 0x1Euy -> parseOp t Opcode.NOP SzDef32 Ev, pos
   | 0x1Fuy -> parseOp t Opcode.NOP SzDef32 E0v, pos
   | 0x20uy -> parseOp t Opcode.MOV Sz64 RdCd, pos
   | 0x21uy -> parseOp t Opcode.MOV SzDef32 RdDd, pos
@@ -1603,22 +1609,22 @@ let private pTwoByteOp t reader pos byte =
                                    opEVex0F7FB64 opEVex0F7FB32
                                    dsNor0F7F dsVex0F7F
                                    dsEVex0F7FB64 dsEVex0F7FB32
-  | 0x80uy -> parseOp t Opcode.JO Sz64 Jz, pos
-  | 0x81uy -> parseOp t Opcode.JNO Sz64 Jz, pos
-  | 0x82uy -> parseOp t Opcode.JB Sz64 Jz, pos
-  | 0x83uy -> parseOp t Opcode.JNB Sz64 Jz, pos
-  | 0x84uy -> parseOp t Opcode.JZ Sz64 Jz, pos
-  | 0x85uy -> parseOp t Opcode.JNZ Sz64 Jz, pos
-  | 0x86uy -> parseOp t Opcode.JBE Sz64 Jz, pos
-  | 0x87uy -> parseOp t Opcode.JA Sz64 Jz, pos
-  | 0x88uy -> parseOp t Opcode.JS Sz64 Jz, pos
-  | 0x89uy -> parseOp t Opcode.JNS Sz64 Jz, pos
-  | 0x8Auy -> parseOp t Opcode.JP Sz64 Jz, pos
-  | 0x8Buy -> parseOp t Opcode.JNP Sz64 Jz, pos
-  | 0x8Cuy -> parseOp t Opcode.JL Sz64 Jz, pos
-  | 0x8Duy -> parseOp t Opcode.JNL Sz64 Jz, pos
-  | 0x8Euy -> parseOp t Opcode.JLE Sz64 Jz, pos
-  | 0x8Fuy -> parseOp t Opcode.JG Sz64 Jz, pos
+  | 0x80uy -> parseOp (pBNDPref t) Opcode.JO Sz64 Jz, pos
+  | 0x81uy -> parseOp (pBNDPref t) Opcode.JNO Sz64 Jz, pos
+  | 0x82uy -> parseOp (pBNDPref t) Opcode.JB Sz64 Jz, pos
+  | 0x83uy -> parseOp (pBNDPref t) Opcode.JNB Sz64 Jz, pos
+  | 0x84uy -> parseOp (pBNDPref t) Opcode.JZ Sz64 Jz, pos
+  | 0x85uy -> parseOp (pBNDPref t) Opcode.JNZ Sz64 Jz, pos
+  | 0x86uy -> parseOp (pBNDPref t) Opcode.JBE Sz64 Jz, pos
+  | 0x87uy -> parseOp (pBNDPref t) Opcode.JA Sz64 Jz, pos
+  | 0x88uy -> parseOp (pBNDPref t) Opcode.JS Sz64 Jz, pos
+  | 0x89uy -> parseOp (pBNDPref t) Opcode.JNS Sz64 Jz, pos
+  | 0x8Auy -> parseOp (pBNDPref t) Opcode.JP Sz64 Jz, pos
+  | 0x8Buy -> parseOp (pBNDPref t) Opcode.JNP Sz64 Jz, pos
+  | 0x8Cuy -> parseOp (pBNDPref t) Opcode.JL Sz64 Jz, pos
+  | 0x8Duy -> parseOp (pBNDPref t) Opcode.JNL Sz64 Jz, pos
+  | 0x8Euy -> parseOp (pBNDPref t) Opcode.JLE Sz64 Jz, pos
+  | 0x8Fuy -> parseOp (pBNDPref t) Opcode.JG Sz64 Jz, pos
   | 0x90uy -> parseOp t Opcode.SETO SzDef32 Eb, pos
   | 0x91uy -> parseOp t Opcode.SETNO SzDef32 Eb, pos
   | 0x92uy -> parseOp t Opcode.SETB SzDef32 Eb, pos
@@ -1895,22 +1901,22 @@ let private pOneByteOpcode t reader pos = function
   | 0x6Fuy ->
     if hasOprSz t.TPrefixes then parseOp t Opcode.OUTSW SzDef32 [||], pos
     else parseOp t Opcode.OUTSD SzDef32 [||], pos
-  | 0x70uy -> parseOp t Opcode.JO Sz64 Jb, pos
-  | 0x71uy -> parseOp t Opcode.JNO Sz64 Jb, pos
-  | 0x72uy -> parseOp t Opcode.JB Sz64 Jb, pos
-  | 0x73uy -> parseOp t Opcode.JNB Sz64 Jb, pos
-  | 0x74uy -> parseOp t Opcode.JZ Sz64 Jb, pos
-  | 0x75uy -> parseOp t Opcode.JNZ Sz64 Jb, pos
-  | 0x76uy -> parseOp t Opcode.JBE Sz64 Jb, pos
-  | 0x77uy -> parseOp t Opcode.JA Sz64 Jb, pos
-  | 0x78uy -> parseOp t Opcode.JS Sz64 Jb, pos
-  | 0x79uy -> parseOp t Opcode.JNS Sz64 Jb, pos
-  | 0x7Auy -> parseOp t Opcode.JP Sz64 Jb, pos
-  | 0x7Buy -> parseOp t Opcode.JNP Sz64 Jb, pos
-  | 0x7Cuy -> parseOp t Opcode.JL Sz64 Jb, pos
-  | 0x7Duy -> parseOp t Opcode.JNL Sz64 Jb, pos
-  | 0x7Euy -> parseOp t Opcode.JLE Sz64 Jb, pos
-  | 0x7Fuy -> parseOp t Opcode.JG Sz64 Jb, pos
+  | 0x70uy -> parseOp (pBNDPref t) Opcode.JO Sz64 Jb, pos
+  | 0x71uy -> parseOp (pBNDPref t) Opcode.JNO Sz64 Jb, pos
+  | 0x72uy -> parseOp (pBNDPref t) Opcode.JB Sz64 Jb, pos
+  | 0x73uy -> parseOp (pBNDPref t) Opcode.JNB Sz64 Jb, pos
+  | 0x74uy -> parseOp (pBNDPref t) Opcode.JZ Sz64 Jb, pos
+  | 0x75uy -> parseOp (pBNDPref t) Opcode.JNZ Sz64 Jb, pos
+  | 0x76uy -> parseOp (pBNDPref t) Opcode.JBE Sz64 Jb, pos
+  | 0x77uy -> parseOp (pBNDPref t) Opcode.JA Sz64 Jb, pos
+  | 0x78uy -> parseOp (pBNDPref t) Opcode.JS Sz64 Jb, pos
+  | 0x79uy -> parseOp (pBNDPref t) Opcode.JNS Sz64 Jb, pos
+  | 0x7Auy -> parseOp (pBNDPref t) Opcode.JP Sz64 Jb, pos
+  | 0x7Buy -> parseOp (pBNDPref t) Opcode.JNP Sz64 Jb, pos
+  | 0x7Cuy -> parseOp (pBNDPref t) Opcode.JL Sz64 Jb, pos
+  | 0x7Duy -> parseOp (pBNDPref t) Opcode.JNL Sz64 Jb, pos
+  | 0x7Euy -> parseOp (pBNDPref t) Opcode.JLE Sz64 Jb, pos
+  | 0x7Fuy -> parseOp (pBNDPref t) Opcode.JG Sz64 Jb, pos
   | 0x84uy -> parseOp t Opcode.TEST SzDef32 EbGb, pos
   | 0x85uy -> parseOp t Opcode.TEST SzDef32 EvGv, pos
   | 0x86uy -> parseOp t Opcode.XCHG SzDef32 EbGb, pos
@@ -1941,7 +1947,7 @@ let private pOneByteOpcode t reader pos = function
     if hasOprSz t.TPrefixes then parseOp t Opcode.CWD SzDef32 [||], pos
     elif hasREXW t.TREXPrefix then parseOp t Opcode.CQO SzDef32 [||], pos
     else parseOp t Opcode.CDQ SzDef32 [||], pos
-  | 0x9Auy -> ensure32 t; parseOp t Opcode.CALLFar SzInv64 Ap, pos
+  | 0x9Auy -> ensure32 t; parseOp (pBNDPref t) Opcode.CALLFar SzInv64 Ap, pos
   | 0x9Buy -> parseOp t Opcode.WAIT SzDef32 [||], pos
   | 0x9Cuy ->
     if is64bitWithOprSz t then parseOp t Opcode.PUSHF SzDef64 [||], pos
@@ -2002,14 +2008,14 @@ let private pOneByteOpcode t reader pos = function
   | 0xBDuy -> parseOp t Opcode.MOV SzDef32 (RGvIv RegGrp.RG5), pos
   | 0xBEuy -> parseOp t Opcode.MOV SzDef32 (RGvIv RegGrp.RG6), pos
   | 0xBFuy -> parseOp t Opcode.MOV SzDef32 (RGvIv RegGrp.RG7), pos
-  | 0xC2uy -> parseOp t Opcode.RETNearImm Sz64 Iw, pos
-  | 0xC3uy -> parseOp t Opcode.RETNear Sz64 [||], pos
+  | 0xC2uy -> parseOp (pBNDPref t) Opcode.RETNearImm Sz64 Iw, pos
+  | 0xC3uy -> parseOp (pBNDPref t) Opcode.RETNear Sz64 [||], pos
   | 0xC4uy -> ensure32 t; parseOp t Opcode.LES SzInv64 GzMp, pos
   | 0xC5uy -> ensure32 t; parseOp t Opcode.LDS SzInv64 GzMp, pos
   | 0xC8uy -> parseOp t Opcode.ENTER SzDef32 IwIb, pos
   | 0xC9uy -> parseOp t Opcode.LEAVE SzDef64 [||], pos
-  | 0xCAuy -> parseOp t Opcode.RETFarImm SzDef32 Iw, pos
-  | 0xCBuy -> parseOp t Opcode.RETFar SzDef32 [||], pos
+  | 0xCAuy -> parseOp (pBNDPref t) Opcode.RETFarImm SzDef32 Iw, pos
+  | 0xCBuy -> parseOp (pBNDPref t) Opcode.RETFar SzDef32 [||], pos
   | 0xCCuy -> parseOp t Opcode.INT3 SzDef32 [||], pos
   | 0xCDuy -> parseOp t Opcode.INT SzDef32 Ib, pos
   | 0xCEuy -> ensure32 t; parseOp t Opcode.INTO SzInv64 [||], pos
@@ -2040,10 +2046,10 @@ let private pOneByteOpcode t reader pos = function
   | 0xE5uy -> parseOp t Opcode.IN SzDef32 (RGvIb RegGrp.RG0 false), pos
   | 0xE6uy -> parseOp t Opcode.OUT SzDef32 IbAL, pos
   | 0xE7uy -> parseOp t Opcode.OUT SzDef32 (IbRGv RegGrp.RG0 false), pos
-  | 0xE8uy -> parseOp t Opcode.CALLNear Sz64 Jz, pos
-  | 0xE9uy -> parseOp t Opcode.JMPNear Sz64 Jz, pos
-  | 0xEAuy -> ensure32 t; parseOp t Opcode.JMPFar SzInv64 Ap, pos
-  | 0xEBuy -> parseOp t Opcode.JMPNear Sz64 Jb, pos
+  | 0xE8uy -> parseOp (pBNDPref t) Opcode.CALLNear Sz64 Jz, pos
+  | 0xE9uy -> parseOp (pBNDPref t) Opcode.JMPNear Sz64 Jz, pos
+  | 0xEAuy -> ensure32 t; parseOp (pBNDPref t) Opcode.JMPFar SzInv64 Ap, pos
+  | 0xEBuy -> parseOp (pBNDPref t) Opcode.JMPNear Sz64 Jb, pos
   | 0xECuy -> parseOp t Opcode.IN SzDef32 ALDX, pos
   | 0xEDuy -> parseOp t Opcode.IN SzDef32 RGzDX, pos
   | 0xEEuy -> parseOp t Opcode.OUT SzDef32 DXAL, pos
@@ -2449,7 +2455,7 @@ let parseOperands insInfo descs wordSz modRM oldPos reader pos =
     struct (FourOperands (opr1, opr2, opr3, opr4), nextPos)
   | _ -> raise ParsingFailureException
 
-let inline private newInsInfo addr parsingInfo instrLen wordSize =
+let inline private newInsInfo addr (parsingInfo: InsInfo) instrLen wordSize =
   IntelInstruction (addr, instrLen, parsingInfo, wordSize)
 
 let private hasModRM = function

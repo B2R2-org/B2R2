@@ -965,6 +965,8 @@ let inline buildPref (prefs: Prefix) builder acc =
     builder AsmWordKind.String "repnz " acc
   elif (prefs &&& Prefix.PrxREPZ) <> Prefix.PrxNone then
     builder AsmWordKind.String "repz " acc
+  elif (prefs &&& Prefix.PrxBND) <> Prefix.PrxNone then
+    builder AsmWordKind.String "bnd " acc
   else acc
 
 let inline buildOpcode opcode builder acc =

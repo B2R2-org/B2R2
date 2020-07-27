@@ -40,18 +40,20 @@ type Prefix =
   | PrxLOCK = 0x1       (* Group 1 *)
   /// REPNE/REPNZ prefix is encoded using F2H.
   | PrxREPNZ = 0x2
+  /// Bound prefix is encoded using F2H if the following conditions are true.
+  | PrxBND = 0x4
   /// REP or REPE/REPZ is encoded using F3H.
-  | PrxREPZ = 0x4
-  | PrxCS = 0x8         (* Group 2 *)
-  | PrxSS = 0x10
-  | PrxDS = 0x20
-  | PrxES = 0x40
-  | PrxFS = 0x80
-  | PrxGS = 0x100
+  | PrxREPZ = 0x8
+  | PrxCS = 0x10         (* Group 2 *)
+  | PrxSS = 0x20
+  | PrxDS = 0x40
+  | PrxES = 0x80
+  | PrxFS = 0x100
+  | PrxGS = 0x200
   /// Operand-size override prefix is encoded using 66H.
-  | PrxOPSIZE = 0x200   (* Group 3 *)
+  | PrxOPSIZE = 0x400   (* Group 3 *)
   /// 67H - Address-size override prefix.
-  | PrxADDRSIZE = 0x400 (* Group 4 *)
+  | PrxADDRSIZE = 0x800 (* Group 4 *)
 
 /// REX prefixes.
 type REXPrefix =
