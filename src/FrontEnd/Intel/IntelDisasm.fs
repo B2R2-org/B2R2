@@ -130,6 +130,8 @@ let opCodeToString = function
   | Opcode.DIVSD -> "divsd"
   | Opcode.DIVSS -> "divss"
   | Opcode.EMMS -> "emms"
+  | Opcode.ENDBR32 -> "endbr32"
+  | Opcode.ENDBR64 -> "endbr64"
   | Opcode.ENTER -> "enter"
   | Opcode.F2XM1 -> "f2xm1"
   | Opcode.FABS -> "fabs"

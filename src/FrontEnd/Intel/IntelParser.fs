@@ -1490,6 +1490,15 @@ let private parseThreeByteOp2 t (reader: BinReader) pos =
                                  dsNor0F3AF0 dsVex0F3AF0, pos + 1
   | _ -> raise ParsingFailureException
 
+let private parseEndBr t (reader: BinReader) pos =
+  let opcode =
+    match reader.PeekByte pos with
+    | 0xFAuy -> Opcode.ENDBR64
+    | 0xFBuy -> Opcode.ENDBR32
+    | _ -> raise InvalidOpcodeException
+  let t = { t with TPrefixes = Helper.clearGrp1PrefMask &&& t.TPrefixes }
+  parseOp t opcode SzDef32 [||], pos + 1
+
 let private pTwoByteOp t reader pos byte =
   match byte with
   | 0x02uy -> parseOp t Opcode.LAR SzDef32 GvEw, pos
@@ -1523,7 +1532,8 @@ let private pTwoByteOp t reader pos byte =
   | 0x17uy -> parseVEX t SzDef32 opNor0F17 opVex0F17 dsNor0F17 dsVex0F17, pos
   | 0x1Auy -> parseBND t SzDef32 opNor0F1A dsNor0F1A, pos
   | 0x1Buy -> parseBND t SzDef32 opNor0F1B dsNor0F1B, pos
-  | 0x1Euy -> parseOp t Opcode.NOP SzDef32 Ev, pos
+  | 0x1Euy -> if Helper.hasREPZ t.TPrefixes then parseEndBr t reader pos
+              else raise InvalidOpcodeException
   | 0x1Fuy -> parseOp t Opcode.NOP SzDef32 E0v, pos
   | 0x20uy -> parseOp t Opcode.MOV Sz64 RdCd, pos
   | 0x21uy -> parseOp t Opcode.MOV SzDef32 RdDd, pos
