@@ -66,16 +66,16 @@ let private getSPSize size = numI32 (32 * size) 256<rt>
 let private pushToStack (ctxt: TranslationContext) expr builder =
   let spReg = getRegVar ctxt R.SP
   let tmp = tmpVar (typeOf expr)
-  builder <! (spReg := (spReg .+ (getSPSize 1))) // SP := SP + 32
-  builder <! (tmp := expr)                       // tmp := expr
-  builder <! (Store (Endian.Little, spReg, tmp)) // [SP] := tmp
+  builder <! (spReg := (spReg .+ (getSPSize 1))) (* SP := SP + 32 *)
+  builder <! (tmp := expr)                       (* tmp := expr *)
+  builder <! (Store (Endian.Little, spReg, tmp)) (* [SP] := tmp *)
 
 /// Pops an element from stack and returns the element.
 let private popFromStack (ctxt: TranslationContext) builder =
   let spReg = getRegVar ctxt R.SP
   let tmp = tmpVar OperationSize.regType
-  builder <! (tmp := loadLE (OperationSize.regType) spReg) // tmp := [SP]
-  builder <! (spReg := (spReg .- (getSPSize 1)))           // SP := SP - 32
+  builder <! (tmp := loadLE (OperationSize.regType) spReg) (* tmp := [SP] *)
+  builder <! (spReg := (spReg .- (getSPSize 1)))           (* SP := SP - 32 *)
   tmp
 
 let private peekStack (ctxt: TranslationContext) pos builder =
@@ -461,156 +461,156 @@ let selfdestruct insInfo ctxt =
 
 let translate insInfo (ctxt: TranslationContext) =
   match insInfo.Opcode with
-  | Op.STOP -> sideEffects insInfo Halt
-  | Op.ADD -> add insInfo ctxt
-  | Op.MUL -> mul insInfo ctxt
-  | Op.SUB -> sub insInfo ctxt
-  | Op.DIV -> div insInfo ctxt
-  | Op.SDIV -> sdiv insInfo ctxt
-  | Op.MOD -> modu insInfo ctxt
-  | Op.SMOD -> smod insInfo ctxt
-  | Op.ADDMOD -> addmod insInfo ctxt
-  | Op.MULMOD -> mulmod insInfo ctxt
-  | Op.EXP -> exp insInfo ctxt
-  | Op.SIGNEXTEND -> signextend insInfo ctxt
-  | Op.LT -> lt insInfo ctxt
-  | Op.GT -> gt insInfo ctxt
-  | Op.SLT -> slt insInfo ctxt
-  | Op.SGT -> sgt insInfo ctxt
-  | Op.EQ -> eq insInfo ctxt
-  | Op.ISZERO -> iszero insInfo ctxt
-  | Op.AND -> logAnd insInfo ctxt
-  | Op.OR -> logOr insInfo ctxt
-  | Op.XOR -> xor insInfo ctxt
-  | Op.NOT -> not insInfo ctxt
-  | Op.BYTE -> byte insInfo ctxt
-  | Op.SHL -> shl insInfo ctxt
-  | Op.SHR -> shr insInfo ctxt
-  | Op.SAR -> sar insInfo ctxt
-  | Op.SHA3 -> sha3 insInfo ctxt
-  | Op.CALLER -> obtainInfo insInfo ctxt "msg.caller"
-  | Op.CALLVALUE -> obtainInfo insInfo ctxt "msg.value"
-  | Op.ADDRESS -> address insInfo ctxt
-  | Op.BALANCE -> balance insInfo ctxt
-  | Op.ORIGIN -> obtainInfo insInfo ctxt "tx.origin"
-  | Op.CALLDATALOAD -> calldataload insInfo ctxt
-  | Op.CALLDATASIZE -> obtainInfo insInfo ctxt "msg.data.size"
-  | Op.COINBASE -> obtainInfo insInfo ctxt "block.coinbase"
-  | Op.TIMESTAMP -> obtainInfo insInfo ctxt "block.timestamp"
-  | Op.NUMBER -> obtainInfo insInfo ctxt "block.number"
-  | Op.DIFFICULTY -> obtainInfo insInfo ctxt "block.difficulty"
-  | Op.CALLDATACOPY -> calldatacopy insInfo ctxt
-  | Op.CODECOPY -> codecopy insInfo ctxt
-  | Op.GASPRICE -> obtainInfo insInfo ctxt "tx.gasprice"
-  | Op.CODESIZE -> codesize insInfo ctxt
-  | Op.EXTCODESIZE -> extcodesize insInfo ctxt
-  | Op.EXTCODECOPY -> extcodecopy insInfo ctxt
-  | Op.RETURNDATASIZE -> obtainInfo insInfo ctxt "returndatasize"
-  | Op.RETURNDATACOPY -> returndatacopy insInfo ctxt
-  | Op.BLOCKHASH -> blockhash insInfo ctxt
-  | Op.GASLIMIT -> obtainInfo insInfo ctxt "block.gaslimit"
-  | Op.POP -> pop insInfo ctxt
-  | Op.MLOAD -> mload insInfo ctxt
-  | Op.MSTORE -> mstore insInfo ctxt
-  | Op.MSTORE8 -> mstore8 insInfo ctxt
-  | Op.SLOAD -> sload insInfo ctxt
-  | Op.SSTORE -> sstore insInfo ctxt
-  | Op.JUMP -> jump insInfo ctxt
-  | Op.JUMPI -> jumpi insInfo ctxt
-  | Op.GETPC -> getpc insInfo ctxt
-  | Op.MSIZE -> obtainInfo insInfo ctxt "msize"
-  | Op.GAS -> gas insInfo ctxt
-  | Op.JUMPDEST -> nop insInfo
-  | Op.PUSH1 imm -> push insInfo ctxt imm
-  | Op.PUSH2 imm -> push insInfo ctxt imm
-  | Op.PUSH3 imm -> push insInfo ctxt imm
-  | Op.PUSH4 imm -> push insInfo ctxt imm
-  | Op.PUSH5 imm -> push insInfo ctxt imm
-  | Op.PUSH6 imm -> push insInfo ctxt imm
-  | Op.PUSH7 imm -> push insInfo ctxt imm
-  | Op.PUSH8 imm -> push insInfo ctxt imm
-  | Op.PUSH9 imm -> push insInfo ctxt imm
-  | Op.PUSH10 imm -> push insInfo ctxt imm
-  | Op.PUSH11 imm -> push insInfo ctxt imm
-  | Op.PUSH12 imm -> push insInfo ctxt imm
-  | Op.PUSH13 imm -> push insInfo ctxt imm
-  | Op.PUSH14 imm -> push insInfo ctxt imm
-  | Op.PUSH15 imm -> push insInfo ctxt imm
-  | Op.PUSH16 imm -> push insInfo ctxt imm
-  | Op.PUSH17 imm -> push insInfo ctxt imm
-  | Op.PUSH18 imm -> push insInfo ctxt imm
-  | Op.PUSH19 imm -> push insInfo ctxt imm
-  | Op.PUSH20 imm -> push insInfo ctxt imm
-  | Op.PUSH21 imm -> push insInfo ctxt imm
-  | Op.PUSH22 imm -> push insInfo ctxt imm
-  | Op.PUSH23 imm -> push insInfo ctxt imm
-  | Op.PUSH24 imm -> push insInfo ctxt imm
-  | Op.PUSH25 imm -> push insInfo ctxt imm
-  | Op.PUSH26 imm -> push insInfo ctxt imm
-  | Op.PUSH27 imm -> push insInfo ctxt imm
-  | Op.PUSH28 imm -> push insInfo ctxt imm
-  | Op.PUSH29 imm -> push insInfo ctxt imm
-  | Op.PUSH30 imm -> push insInfo ctxt imm
-  | Op.PUSH31 imm -> push insInfo ctxt imm
-  | Op.PUSH32 imm -> push insInfo ctxt imm
-  | Op.DUP1 -> dup insInfo ctxt 1
-  | Op.DUP2 -> dup insInfo ctxt 2
-  | Op.DUP3 -> dup insInfo ctxt 3
-  | Op.DUP4 -> dup insInfo ctxt 4
-  | Op.DUP5 -> dup insInfo ctxt 5
-  | Op.DUP6 -> dup insInfo ctxt 6
-  | Op.DUP7 -> dup insInfo ctxt 7
-  | Op.DUP8 -> dup insInfo ctxt 8
-  | Op.DUP9 -> dup insInfo ctxt 9
-  | Op.DUP10 -> dup insInfo ctxt 10
-  | Op.DUP11 -> dup insInfo ctxt 11
-  | Op.DUP12 -> dup insInfo ctxt 12
-  | Op.DUP13 -> dup insInfo ctxt 13
-  | Op.DUP14 -> dup insInfo ctxt 14
-  | Op.DUP15 -> dup insInfo ctxt 15
-  | Op.DUP16 -> dup insInfo ctxt 16
-  | Op.SWAP1 -> swap insInfo ctxt 1
-  | Op.SWAP2 -> swap insInfo ctxt 2
-  | Op.SWAP3 -> swap insInfo ctxt 3
-  | Op.SWAP4 -> swap insInfo ctxt 4
-  | Op.SWAP5 -> swap insInfo ctxt 5
-  | Op.SWAP6 -> swap insInfo ctxt 6
-  | Op.SWAP7 -> swap insInfo ctxt 7
-  | Op.SWAP8 -> swap insInfo ctxt 8
-  | Op.SWAP9 -> swap insInfo ctxt 9
-  | Op.SWAP10 -> swap insInfo ctxt 10
-  | Op.SWAP11 -> swap insInfo ctxt 11
-  | Op.SWAP12 -> swap insInfo ctxt 12
-  | Op.SWAP13 -> swap insInfo ctxt 13
-  | Op.SWAP14 -> swap insInfo ctxt 14
-  | Op.SWAP15 -> swap insInfo ctxt 15
-  | Op.SWAP16 -> swap insInfo ctxt 16
-  | Op.RETURN
-  | Op.REVERT -> ret insInfo ctxt
-  | Op.CALL -> call insInfo ctxt "call.gas"
-  | Op.CALLCODE -> call insInfo ctxt "callcode.gas"
-  | Op.LOG0
-  | Op.LOG1
-  | Op.LOG2
-  | Op.LOG3
-  | Op.LOG4
-  | Op.JUMPTO
-  | Op.JUMPIF
-  | Op.JUMPSUB
-  | Op.JUMPSUBV
-  | Op.BEGINSUB
-  | Op.BEGINDATA
-  | Op.RETURNSUB
-  | Op.PUTLOCAL
-  | Op.GETLOCAL
-  | Op.SLOADBYTES
-  | Op.SSTOREBYTES
-  | Op.SSIZE
-  | Op.CREATE
-  | Op.DELEGATECALL
-  | Op.CREATE2
-  | Op.STATICCALL
-  | Op.TXEXECGAS
-  | Op.INVALID
-  | Op.SELFDESTRUCT -> selfdestruct insInfo ctxt
+  | STOP -> sideEffects insInfo Halt
+  | ADD -> add insInfo ctxt
+  | MUL -> mul insInfo ctxt
+  | SUB -> sub insInfo ctxt
+  | DIV -> div insInfo ctxt
+  | SDIV -> sdiv insInfo ctxt
+  | MOD -> modu insInfo ctxt
+  | SMOD -> smod insInfo ctxt
+  | ADDMOD -> addmod insInfo ctxt
+  | MULMOD -> mulmod insInfo ctxt
+  | EXP -> exp insInfo ctxt
+  | SIGNEXTEND -> signextend insInfo ctxt
+  | LT -> lt insInfo ctxt
+  | GT -> gt insInfo ctxt
+  | SLT -> slt insInfo ctxt
+  | SGT -> sgt insInfo ctxt
+  | EQ -> eq insInfo ctxt
+  | ISZERO -> iszero insInfo ctxt
+  | AND -> logAnd insInfo ctxt
+  | OR -> logOr insInfo ctxt
+  | XOR -> xor insInfo ctxt
+  | NOT -> not insInfo ctxt
+  | BYTE -> byte insInfo ctxt
+  | SHL -> shl insInfo ctxt
+  | SHR -> shr insInfo ctxt
+  | SAR -> sar insInfo ctxt
+  | SHA3 -> sha3 insInfo ctxt
+  | CALLER -> obtainInfo insInfo ctxt "msg.caller"
+  | CALLVALUE -> obtainInfo insInfo ctxt "msg.value"
+  | ADDRESS -> address insInfo ctxt
+  | BALANCE -> balance insInfo ctxt
+  | ORIGIN -> obtainInfo insInfo ctxt "tx.origin"
+  | CALLDATALOAD -> calldataload insInfo ctxt
+  | CALLDATASIZE -> obtainInfo insInfo ctxt "msg.data.size"
+  | COINBASE -> obtainInfo insInfo ctxt "block.coinbase"
+  | TIMESTAMP -> obtainInfo insInfo ctxt "block.timestamp"
+  | NUMBER -> obtainInfo insInfo ctxt "block.number"
+  | DIFFICULTY -> obtainInfo insInfo ctxt "block.difficulty"
+  | CALLDATACOPY -> calldatacopy insInfo ctxt
+  | CODECOPY -> codecopy insInfo ctxt
+  | GASPRICE -> obtainInfo insInfo ctxt "tx.gasprice"
+  | CODESIZE -> codesize insInfo ctxt
+  | EXTCODESIZE -> extcodesize insInfo ctxt
+  | EXTCODECOPY -> extcodecopy insInfo ctxt
+  | RETURNDATASIZE -> obtainInfo insInfo ctxt "returndatasize"
+  | RETURNDATACOPY -> returndatacopy insInfo ctxt
+  | BLOCKHASH -> blockhash insInfo ctxt
+  | GASLIMIT -> obtainInfo insInfo ctxt "block.gaslimit"
+  | POP -> pop insInfo ctxt
+  | MLOAD -> mload insInfo ctxt
+  | MSTORE -> mstore insInfo ctxt
+  | MSTORE8 -> mstore8 insInfo ctxt
+  | SLOAD -> sload insInfo ctxt
+  | SSTORE -> sstore insInfo ctxt
+  | JUMP -> jump insInfo ctxt
+  | JUMPI -> jumpi insInfo ctxt
+  | GETPC -> getpc insInfo ctxt
+  | MSIZE -> obtainInfo insInfo ctxt "msize"
+  | GAS -> gas insInfo ctxt
+  | JUMPDEST -> nop insInfo
+  | PUSH1 imm -> push insInfo ctxt imm
+  | PUSH2 imm -> push insInfo ctxt imm
+  | PUSH3 imm -> push insInfo ctxt imm
+  | PUSH4 imm -> push insInfo ctxt imm
+  | PUSH5 imm -> push insInfo ctxt imm
+  | PUSH6 imm -> push insInfo ctxt imm
+  | PUSH7 imm -> push insInfo ctxt imm
+  | PUSH8 imm -> push insInfo ctxt imm
+  | PUSH9 imm -> push insInfo ctxt imm
+  | PUSH10 imm -> push insInfo ctxt imm
+  | PUSH11 imm -> push insInfo ctxt imm
+  | PUSH12 imm -> push insInfo ctxt imm
+  | PUSH13 imm -> push insInfo ctxt imm
+  | PUSH14 imm -> push insInfo ctxt imm
+  | PUSH15 imm -> push insInfo ctxt imm
+  | PUSH16 imm -> push insInfo ctxt imm
+  | PUSH17 imm -> push insInfo ctxt imm
+  | PUSH18 imm -> push insInfo ctxt imm
+  | PUSH19 imm -> push insInfo ctxt imm
+  | PUSH20 imm -> push insInfo ctxt imm
+  | PUSH21 imm -> push insInfo ctxt imm
+  | PUSH22 imm -> push insInfo ctxt imm
+  | PUSH23 imm -> push insInfo ctxt imm
+  | PUSH24 imm -> push insInfo ctxt imm
+  | PUSH25 imm -> push insInfo ctxt imm
+  | PUSH26 imm -> push insInfo ctxt imm
+  | PUSH27 imm -> push insInfo ctxt imm
+  | PUSH28 imm -> push insInfo ctxt imm
+  | PUSH29 imm -> push insInfo ctxt imm
+  | PUSH30 imm -> push insInfo ctxt imm
+  | PUSH31 imm -> push insInfo ctxt imm
+  | PUSH32 imm -> push insInfo ctxt imm
+  | DUP1 -> dup insInfo ctxt 1
+  | DUP2 -> dup insInfo ctxt 2
+  | DUP3 -> dup insInfo ctxt 3
+  | DUP4 -> dup insInfo ctxt 4
+  | DUP5 -> dup insInfo ctxt 5
+  | DUP6 -> dup insInfo ctxt 6
+  | DUP7 -> dup insInfo ctxt 7
+  | DUP8 -> dup insInfo ctxt 8
+  | DUP9 -> dup insInfo ctxt 9
+  | DUP10 -> dup insInfo ctxt 10
+  | DUP11 -> dup insInfo ctxt 11
+  | DUP12 -> dup insInfo ctxt 12
+  | DUP13 -> dup insInfo ctxt 13
+  | DUP14 -> dup insInfo ctxt 14
+  | DUP15 -> dup insInfo ctxt 15
+  | DUP16 -> dup insInfo ctxt 16
+  | SWAP1 -> swap insInfo ctxt 1
+  | SWAP2 -> swap insInfo ctxt 2
+  | SWAP3 -> swap insInfo ctxt 3
+  | SWAP4 -> swap insInfo ctxt 4
+  | SWAP5 -> swap insInfo ctxt 5
+  | SWAP6 -> swap insInfo ctxt 6
+  | SWAP7 -> swap insInfo ctxt 7
+  | SWAP8 -> swap insInfo ctxt 8
+  | SWAP9 -> swap insInfo ctxt 9
+  | SWAP10 -> swap insInfo ctxt 10
+  | SWAP11 -> swap insInfo ctxt 11
+  | SWAP12 -> swap insInfo ctxt 12
+  | SWAP13 -> swap insInfo ctxt 13
+  | SWAP14 -> swap insInfo ctxt 14
+  | SWAP15 -> swap insInfo ctxt 15
+  | SWAP16 -> swap insInfo ctxt 16
+  | RETURN
+  | REVERT -> ret insInfo ctxt
+  | CALL -> call insInfo ctxt "call.gas"
+  | CALLCODE -> call insInfo ctxt "callcode.gas"
+  | LOG0
+  | LOG1
+  | LOG2
+  | LOG3
+  | LOG4
+  | JUMPTO
+  | JUMPIF
+  | JUMPSUB
+  | JUMPSUBV
+  | BEGINSUB
+  | BEGINDATA
+  | RETURNSUB
+  | PUTLOCAL
+  | GETLOCAL
+  | SLOADBYTES
+  | SSTOREBYTES
+  | SSIZE
+  | CREATE
+  | DELEGATECALL
+  | CREATE2
+  | STATICCALL
+  | TXEXECGAS
+  | INVALID
+  | SELFDESTRUCT -> selfdestruct insInfo ctxt
   |> fun builder -> builder.ToStmts ()
