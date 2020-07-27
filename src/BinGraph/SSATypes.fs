@@ -49,7 +49,6 @@ module SSACFG =
 
   /// Initialize SSACFG based on the implementation type.
   let init = function
-    | DefaultGraph -> initPersistent ()
     | ImperativeGraph -> initImperative ()
     | PersistentGraph -> initPersistent ()
 

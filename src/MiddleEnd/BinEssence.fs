@@ -55,7 +55,7 @@ with
     let startTime = System.DateTime.Now
 #endif
     let app = Apparatus.init hdl
-    let graphImpl = defaultArg graphImpl DefaultGraph
+    let graphImpl = defaultArg graphImpl PersistentGraph
     match SCFG.Init (hdl, app, graphImpl=graphImpl) with
     | Ok scfg ->
       let scfg, app =

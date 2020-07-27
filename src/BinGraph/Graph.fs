@@ -28,7 +28,6 @@ namespace B2R2.BinGraph
 type GraphImplementationType =
   | PersistentGraph
   | ImperativeGraph
-  | DefaultGraph
 
 /// The top-level graph data type. This one can be both directed or undirected.
 [<AbstractClass>]

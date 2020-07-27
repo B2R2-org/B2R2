@@ -45,8 +45,7 @@ type SCFG internal (app, g, vertices, graphImplementationType) =
   /// SCFG should be constructed only via this method. The ignoreIllegal
   /// argument indicates we will ignore any illegal vertices/edges during the
   /// creation of an SCFG.
-  static member Init (hdl, app, ?graphImpl, ?ignoreIllegal) =
-    let graphImpl = defaultArg graphImpl DefaultGraph
+  static member Init (hdl, app, graphImpl, ?ignoreIllegal) =
     let ignoreIllegal = defaultArg ignoreIllegal true
     let g = IRCFG.init graphImpl
     let vertices = SCFGUtils.VMap ()
@@ -59,6 +58,8 @@ type SCFG internal (app, g, vertices, graphImplementationType) =
       |> fold (SCFGUtils.joinEdges hdl app vertices leaders) g
       |> Result.bind (fun g ->
         SCFG (app, g, vertices, graphImpl) |> Ok))
+
+  member val GraphImplementationType = graphImplementationType with get
 
   /// The actual graph data structure of the SCFG.
   member __.Graph with get () = g

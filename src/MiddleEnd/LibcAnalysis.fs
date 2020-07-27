@@ -99,13 +99,13 @@ module private LibcAnalysisHelper =
       | Some caller -> analyzeLibcStartMain hdl scfg app caller
     | None -> app
 
-  let recoverLibcEntries hdl scfg app =
+  let recoverLibcEntries hdl (scfg: SCFG) app =
     match hdl.FileInfo.FileFormat with
     | FileFormat.ELFBinary ->
       let app' =
         recoverAddrsFromLibcStartMain hdl scfg app
         |> Apparatus.update hdl
-      match SCFG.Init (hdl, app') with
+      match SCFG.Init (hdl, app', scfg.GraphImplementationType) with
       | Ok scfg -> scfg, app'
       | Error e -> failwithf "Failed to recover libc due to %A" e
     | _ -> scfg, app

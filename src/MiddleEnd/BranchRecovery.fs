@@ -341,7 +341,7 @@ module private BranchRecoveryHelper =
       let app =
         Apparatus.addIndirectBranchMap app indmap'
         |> Apparatus.update hdl
-      match SCFG.Init (hdl, app) with
+      match SCFG.Init (hdl, app, scfg.GraphImplementationType) with
       | Ok scfg ->
 #if DEBUG
         printfn "[*] Go to the next phase ..."

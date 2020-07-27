@@ -43,10 +43,10 @@ module private SpeculativeGapCompletionHelper =
       if nextAddr >= eAddr then gaps
       else AddrRange (nextAddr, eAddr) :: gaps
 
-  let rec shiftUntilValid hdl scfg entries (gap: AddrRange) =
+  let rec shiftUntilValid hdl (scfg: SCFG) entries (gap: AddrRange) =
     let entry = LeaderInfo.Init (hdl, gap.Min) |> Set.singleton
     let app' = Apparatus.initByEntries hdl entry (Some gap.Max)
-    match SCFG.Init (hdl, app', ignoreIllegal=false) with
+    match SCFG.Init (hdl, app', scfg.GraphImplementationType, false) with
     | Error _ ->
       if gap.Min + 1UL = gap.Max then entries
       else
@@ -62,7 +62,7 @@ module private SpeculativeGapCompletionHelper =
   let shiftGaps fn gaps =
     gaps |> List.fold fn []
 
-  let updateResults branchRecovery hdl scfg app (_, resultApp) =
+  let updateResults branchRecovery hdl (scfg: SCFG) app (_, resultApp) =
     let app =
       Apparatus.getFunctionAddrs resultApp
       |> Set.ofSeq
@@ -73,7 +73,7 @@ module private SpeculativeGapCompletionHelper =
       |> Apparatus.addIndirectBranchMap app
       |> (branchRecovery: BranchRecovery).CalculateTable hdl
       |> Apparatus.update hdl
-    match SCFG.Init (hdl, app) with
+    match SCFG.Init (hdl, app, scfg.GraphImplementationType) with
     | Ok scfg -> scfg, app
     | Error _ -> scfg, app
 
@@ -84,7 +84,7 @@ module private SpeculativeGapCompletionHelper =
       let ents =
         gaps |> List.map (fun g -> LeaderInfo.Init (hdl, g.Min)) |> Set.ofList
       let partialApp = Apparatus.initByEntries hdl ents None
-      match SCFG.Init (hdl, partialApp, ignoreIllegal=false) with
+      match SCFG.Init (hdl, partialApp, scfg.GraphImplementationType, false) with
       | Ok partialCFG ->
         let isTarget addr =
           app.IndirectBranchMap

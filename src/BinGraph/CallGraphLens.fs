@@ -73,7 +73,6 @@ module CallCFG =
 
   /// Initialize CallCFG based on the implementation type.
   let init = function
-    | DefaultGraph -> initPersistent ()
     | ImperativeGraph -> initImperative ()
     | PersistentGraph -> initPersistent ()
 
