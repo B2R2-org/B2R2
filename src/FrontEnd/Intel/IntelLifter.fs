@@ -7331,6 +7331,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.DAS -> das ins insAddr insLen ctxt
   | Opcode.DEC -> dec ins insAddr insLen ctxt
   | Opcode.DIV | Opcode.IDIV -> div ins insAddr insLen ctxt
+  | Opcode.ENDBR32 | Opcode.ENDBR64 -> nop insAddr insLen
   | Opcode.ENTER -> enter ins insAddr insLen ctxt
   | Opcode.FXRSTOR | Opcode.FXRSTOR64 -> fxrstor ins insAddr insLen ctxt
   | Opcode.FXSAVE | Opcode.FXSAVE64 -> fxsave ins insAddr insLen ctxt
