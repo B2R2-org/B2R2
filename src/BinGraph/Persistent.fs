@@ -47,8 +47,8 @@ type PersistentCore<'D, 'E when 'D :> VertexData and 'D: equality>
 
   let vertices = defaultArg vertices Map.empty
   let edges = defaultArg edges Map.empty
-  let preds = defaultArg preds Map.empty
-  let succs = defaultArg succs Map.empty
+  let preds: Map<VertexID, Vertex<'D> list> = defaultArg preds Map.empty
+  let succs: Map<VertexID, Vertex<'D> list> = defaultArg succs Map.empty
 
   override __.ImplementationType = PersistentGraph
 
@@ -95,31 +95,27 @@ type PersistentCore<'D, 'E when 'D :> VertexData and 'D: equality>
     | Some v -> v
     | None -> raise VertexNotFoundException
 
+  member inline private __.RemoveEdgeFromMap map srcId dstId =
+    map
+    |> Map.map (fun id ss ->
+      if srcId = id then
+        List.filter (fun (child: Vertex<_>) -> child.GetID () <> dstId) ss
+      else ss)
+
   override __.RemoveVertex _g v =
     let vid = v.GetID ()
-    let ps = Map.find vid preds
-    let ss = Map.find vid succs
-    (* Remove edges from/to it *)
-    let edges =
-      ps |> List.fold (fun edges (p: Vertex<'D>) ->
-        Map.remove (p.GetID (), vid) edges) edges
-    let edges =
-      ss |> List.fold (fun edges (s: Vertex<'D>) ->
-        Map.remove (vid, s.GetID ()) edges) edges
-    (* Update succs *)
-    let succs =
-      ps |> List.fold (fun succs (p: Vertex<_>) ->
-        succs |> Map.map (fun id ss ->
-          if p.GetID () = id then
-            List.filter (fun (s: Vertex<_>) -> s.GetID () <> vid) ss
-          else ss)) succs
-    (* Update preds *)
-    let preds =
-      ss |> List.fold (fun preds (s: Vertex<_>) ->
-        preds |> Map.map (fun id ps ->
-          if s.GetID () = id then
-            List.filter (fun (p: Vertex<_>) -> p.GetID () <> vid) ps
-          else ps)) preds
+    let edges, succs =
+      Map.find vid preds
+      |> List.fold (fun (edges, succs) p ->
+        let p = p.GetID ()
+        Map.remove (p, vid) edges,
+        __.RemoveEdgeFromMap succs p vid) (edges, succs)
+    let edges, preds =
+      Map.find vid succs
+      |> List.fold (fun (edges, preds) s ->
+        let s = s.GetID ()
+        Map.remove (vid, s) edges,
+        __.RemoveEdgeFromMap preds s vid) (edges, preds)
     let vertices = Map.remove vid vertices
     let preds = Map.remove vid preds
     let succs = Map.remove vid succs
@@ -162,24 +158,11 @@ type PersistentCore<'D, 'E when 'D :> VertexData and 'D: equality>
   override __.AddEdge _g src dst e =
     __.InitGraphWithNewEdge src dst e
 
-  override __.GetEdge src dst =
-    match Map.tryFind (src.GetID (), dst.GetID ()) edges with
-    | Some (_, _, e) -> e
-    | _ -> raise EdgeNotFoundException
-
   override __.RemoveEdge _g src dst =
     let srcid = src.GetID ()
     let dstid = dst.GetID ()
-    let preds =
-      preds |> Map.map (fun vid ps ->
-        if vid = dstid then
-          List.filter (fun (p: Vertex<'D>) -> p.GetID () <> srcid) ps
-        else ps)
-    let succs =
-      succs |> Map.map (fun vid ss ->
-        if vid = srcid then
-          List.filter (fun (s: Vertex<'D>) -> s.GetID () <> dstid) ss
-        else ss)
+    let preds = __.RemoveEdgeFromMap preds dstid srcid
+    let succs = __.RemoveEdgeFromMap succs srcid dstid
     let edges = Map.remove (srcid, dstid) edges
     let core = PersistentCore (init, edgeData, vertices, edges, preds, succs)
     __.InitGraph (Some (upcast core))
@@ -214,8 +197,8 @@ type PersistentRangedCore<'D, 'E when 'D :> RangedVertexData and 'D: equality>
   let vertices = defaultArg vertices Map.empty
   let rangemap = defaultArg rangemap IntervalMap.empty
   let edges = defaultArg edges Map.empty
-  let preds = defaultArg preds Map.empty
-  let succs = defaultArg succs Map.empty
+  let preds: Map<VertexID, Vertex<'D> list> = defaultArg preds Map.empty
+  let succs: Map<VertexID, Vertex<'D> list> = defaultArg succs Map.empty
 
   override __.ImplementationType = PersistentGraph
 
@@ -266,31 +249,27 @@ type PersistentRangedCore<'D, 'E when 'D :> RangedVertexData and 'D: equality>
     | Some v -> v
     | None -> raise VertexNotFoundException
 
+  member inline private __.RemoveEdgeFromMap map srcId dstId =
+    map
+    |> Map.map (fun id ss ->
+      if srcId = id then
+        List.filter (fun (child: Vertex<_>) -> child.GetID () <> dstId) ss
+      else ss)
+
   override __.RemoveVertex _g v =
     let vid = v.GetID ()
-    let ps = Map.find vid preds
-    let ss = Map.find vid succs
-    (* Remove edges from/to it *)
-    let edges =
-      ps |> List.fold (fun edges (p: Vertex<'D>) ->
-        Map.remove (p.GetID (), vid) edges) edges
-    let edges =
-      ss |> List.fold (fun edges (s: Vertex<'D>) ->
-        Map.remove (vid, s.GetID ()) edges) edges
-    (* Update succs *)
-    let succs =
-      ps |> List.fold (fun succs (p: Vertex<_>) ->
-        succs |> Map.map (fun id ss ->
-          if p.GetID () = id then
-            List.filter (fun (s: Vertex<_>) -> s.GetID () <> vid) ss
-          else ss)) succs
-    (* Update preds *)
-    let preds =
-      ss |> List.fold (fun preds (s: Vertex<_>) ->
-        preds |> Map.map (fun id ps ->
-          if s.GetID () = id then
-            List.filter (fun (p: Vertex<_>) -> p.GetID () <> vid) ps
-          else ps)) preds
+    let edges, succs =
+      Map.find vid preds
+      |> List.fold (fun (edges, succs) p ->
+        let p = p.GetID ()
+        Map.remove (p, vid) edges,
+        __.RemoveEdgeFromMap succs p vid) (edges, succs)
+    let edges, preds =
+      Map.find vid succs
+      |> List.fold (fun (edges, preds) s ->
+        let s = s.GetID ()
+        Map.remove (vid, s) edges,
+        __.RemoveEdgeFromMap preds s vid) (edges, preds)
     let vertices = Map.remove vid vertices
     let rangemap =
       if v.IsDummy () then rangemap
@@ -338,24 +317,11 @@ type PersistentRangedCore<'D, 'E when 'D :> RangedVertexData and 'D: equality>
   override __.AddEdge _g src dst e =
     __.InitGraphWithNewEdge src dst e
 
-  override __.GetEdge src dst =
-    match Map.tryFind (src.GetID (), dst.GetID ()) edges with
-    | Some (_, _, e) -> e
-    | _ -> raise EdgeNotFoundException
-
   override __.RemoveEdge _g src dst =
     let srcid = src.GetID ()
     let dstid = dst.GetID ()
-    let preds =
-      preds |> Map.map (fun vid ps ->
-        if vid = dstid then
-          List.filter (fun (p: Vertex<'D>) -> p.GetID () <> srcid) ps
-        else ps)
-    let succs =
-      succs |> Map.map (fun vid ss ->
-        if vid = srcid then
-          List.filter (fun (s: Vertex<'D>) -> s.GetID () <> dstid) ss
-        else ss)
+    let preds = __.RemoveEdgeFromMap preds dstid srcid
+    let succs = __.RemoveEdgeFromMap succs srcid dstid
     let edges = Map.remove (srcid, dstid) edges
     let core = PersistentRangedCore (init, edgeData,
                                      vertices, rangemap, edges, preds, succs)

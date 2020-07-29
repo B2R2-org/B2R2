@@ -146,13 +146,6 @@ type ImperativeCore<'D, 'E when 'D :> VertexData and 'D: equality>
     __.AddEdgeToCore src dst e
     g
 
-  override __.GetEdge src dst =
-    __.CheckVertexExistence src
-    __.CheckVertexExistence dst
-    match edges.TryGetValue ((src.GetID (), dst.GetID ())) with
-    | true, (_, _, e) -> e
-    | _ -> raise EdgeNotFoundException
-
   override __.RemoveEdge g src dst =
     __.CheckVertexExistence src
     __.CheckVertexExistence dst
@@ -305,13 +298,6 @@ type ImperativeRangedCore<'D, 'E when 'D :> RangedVertexData and 'D: equality>
   override __.AddEdge g src dst e =
     __.AddEdgeToCore src dst e
     g
-
-  override __.GetEdge src dst =
-    __.CheckVertexExistence src
-    __.CheckVertexExistence dst
-    match edges.TryGetValue ((src.GetID (), dst.GetID ())) with
-    | true, (_, _, e) -> e
-    | _ -> raise EdgeNotFoundException
 
   override __.RemoveEdge g src dst =
     __.CheckVertexExistence src

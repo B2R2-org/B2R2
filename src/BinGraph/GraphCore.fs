@@ -68,8 +68,6 @@ type GraphCore<'D, 'E, 'G
 
   abstract AddEdge: 'G -> Vertex<'D> -> Vertex<'D> -> 'E -> 'G
 
-  abstract GetEdge: Vertex<'D> -> Vertex<'D> -> 'E
-
   abstract RemoveEdge: 'G -> Vertex<'D> -> Vertex<'D> -> 'G
 
   abstract FoldEdge: ('a -> Vertex<'D> -> Vertex<'D> -> 'E -> 'a) -> 'a -> 'a
