@@ -42,13 +42,14 @@ type PerVertex<'D when 'D :> VertexData> (?v: 'D) =
 
 /// Persistent GraphCore for directed graph (DiGraph).
 type PersistentCore<'D, 'E when 'D :> VertexData and 'D: equality>
-    (init, edgeData, ?vertices, ?edges, ?preds, ?succs) =
+    (init, edgeData, ?vertices, ?preds, ?succs) =
   inherit GraphCore<'D, 'E, DiGraph<'D, 'E>> ()
 
   let vertices = defaultArg vertices Map.empty
-  let edges = defaultArg edges Map.empty
-  let preds: Map<VertexID, Vertex<'D> list> = defaultArg preds Map.empty
-  let succs: Map<VertexID, Vertex<'D> list> = defaultArg succs Map.empty
+  let preds: Map<VertexID, (Vertex<'D> * Vertex<'D> * 'E) list> =
+    defaultArg preds Map.empty
+  let succs: Map<VertexID, (Vertex<'D> * Vertex<'D> * 'E) list> =
+    defaultArg succs Map.empty
 
   override __.ImplementationType = PersistentGraph
 
@@ -79,7 +80,7 @@ type PersistentCore<'D, 'E when 'D :> VertexData and 'D: equality>
     let vertices = Map.add vid v vertices
     let preds = Map.add vid [] preds
     let succs = Map.add vid [] succs
-    let core = PersistentCore (init, edgeData, vertices, edges, preds, succs)
+    let core = PersistentCore (init, edgeData, vertices, preds, succs)
     __.InitGraph (Some (upcast core))
 
   override __.AddDummyVertex _g =
@@ -96,30 +97,25 @@ type PersistentCore<'D, 'E when 'D :> VertexData and 'D: equality>
     | None -> raise VertexNotFoundException
 
   member inline private __.RemoveEdgeFromMap map srcId dstId =
+    let isChild (_, child: Vertex<_>, _) = child.GetID () <> dstId
     map
     |> Map.map (fun id ss ->
-      if srcId = id then
-        List.filter (fun (child: Vertex<_>) -> child.GetID () <> dstId) ss
-      else ss)
+      if srcId = id then List.filter isChild ss else ss)
 
   override __.RemoveVertex _g v =
     let vid = v.GetID ()
-    let edges, succs =
+    let succs =
       Map.find vid preds
-      |> List.fold (fun (edges, succs) p ->
-        let p = p.GetID ()
-        Map.remove (p, vid) edges,
-        __.RemoveEdgeFromMap succs p vid) (edges, succs)
-    let edges, preds =
+      |> List.fold (fun succs (_, p, _) ->
+        __.RemoveEdgeFromMap succs (p.GetID ()) vid) succs
+    let preds =
       Map.find vid succs
-      |> List.fold (fun (edges, preds) s ->
-        let s = s.GetID ()
-        Map.remove (vid, s) edges,
-        __.RemoveEdgeFromMap preds s vid) (edges, preds)
+      |> List.fold (fun preds (_, s, _) ->
+        __.RemoveEdgeFromMap preds (s.GetID ()) vid) preds
     let vertices = Map.remove vid vertices
     let preds = Map.remove vid preds
     let succs = Map.remove vid succs
-    let core = PersistentCore (init, edgeData, vertices, edges, preds, succs)
+    let core = PersistentCore (init, edgeData, vertices, preds, succs)
     __.InitGraph (Some (upcast core))
 
   override __.ContainsVertex vid =
@@ -137,19 +133,22 @@ type PersistentCore<'D, 'E when 'D :> VertexData and 'D: equality>
   override __.TryFindVertexBy fn =
     vertices |> Map.tryPick (fun _ v -> if fn v then Some v else None)
 
+  member private __.Snd (_, e, _) = e
+
+  member private __.Thrd (_, _, e) = e
+
   override __.GetPreds v =
-    Map.find (v.GetID ()) preds
+    Map.find (v.GetID ()) preds |> List.map __.Snd
 
   override __.GetSuccs v =
-    Map.find (v.GetID ()) succs
+    Map.find (v.GetID ()) succs |> List.map __.Snd
 
   member private __.InitGraphWithNewEdge (src: Vertex<'D>) (dst: Vertex<'D>) e =
     let srcid = src.GetID ()
     let dstid = dst.GetID ()
-    let edges = Map.add (srcid, dstid) (src, dst, e) edges
-    let preds = Map.add dstid (src :: Map.find dstid preds) preds
-    let succs = Map.add srcid (dst :: Map.find srcid succs) succs
-    let core = PersistentCore (init, edgeData, vertices, edges, preds, succs)
+    let preds = Map.add dstid ((dst, src, e) :: Map.find dstid preds) preds
+    let succs = Map.add srcid ((src, dst, e) :: Map.find srcid succs) succs
+    let core = PersistentCore (init, edgeData, vertices, preds, succs)
     __.InitGraph (Some (upcast core))
 
   override __.AddDummyEdge _g src dst =
@@ -163,27 +162,34 @@ type PersistentCore<'D, 'E when 'D :> VertexData and 'D: equality>
     let dstid = dst.GetID ()
     let preds = __.RemoveEdgeFromMap preds dstid srcid
     let succs = __.RemoveEdgeFromMap succs srcid dstid
-    let edges = Map.remove (srcid, dstid) edges
-    let core = PersistentCore (init, edgeData, vertices, edges, preds, succs)
+    let core = PersistentCore (init, edgeData, vertices, preds, succs)
     __.InitGraph (Some (upcast core))
 
   override __.FoldEdge fn acc =
-    edges
-    |> Map.fold (fun acc _ (src, dst, e) -> fn acc src dst e) acc
+    let folder acc (s, d, e) = fn acc s d e
+    succs
+    |> Map.fold (fun acc _ lst ->
+      lst |> List.fold folder acc) acc
 
   override __.IterEdge fn =
-    edges
-    |> Map.iter (fun _ (src, dst, e) -> fn src dst e)
+    let iterator (s, d, e) = fn s d e
+    succs
+    |> Map.iter (fun _ lst -> lst |> List.iter iterator)
 
   override __.FindEdge src dst =
-    match Map.tryFind (src.GetID (), dst.GetID ()) edges with
-    | Some (_, _, e) -> e
-    | None -> raise EdgeNotFoundException
+    let dstID = dst.GetID ()
+    Map.find (src.GetID ()) succs
+    |> List.find (fun (_, v, _) -> v.GetID () = dstID)
+    |> __.Thrd
 
   override __.TryFindEdge src dst =
-    match Map.tryFind (src.GetID (), dst.GetID ()) edges with
-    | Some (_, _, e) -> Some e
-    | None -> None
+    Map.tryFind (src.GetID ()) succs
+    |> Option.bind (fun lst ->
+      let dstID = dst.GetID ()
+      lst |> List.tryFind (fun (_, v, _) -> v.GetID () = dstID))
+    |> function
+      | Some (_, _, e) -> Some e
+      | None -> None
 
   override __.Clone () =
     __ :> GraphCore<'D, 'E, DiGraph<'D, 'E>>
