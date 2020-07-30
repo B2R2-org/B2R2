@@ -212,7 +212,7 @@ type SCFG (hdl, acc, ?graphImpl, ?ignoreIllegal) =
     let acc = SCFGUtils.removeNoReturnFallThroughs acc
     SCFG (hdl, acc, graphImpl, ignoreIllegal)
 
-  member __.AddIndirectBranchMap indMap' =
+  member __.AddIndirectBranchMap hdl indMap' =
     let indMap =
       indMap' |> Map.fold (fun acc addr info -> Map.add addr info acc) indMap
     let acc = { acc with IndirectBranchMap = indMap }

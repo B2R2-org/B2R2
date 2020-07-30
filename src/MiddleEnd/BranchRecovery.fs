@@ -75,9 +75,8 @@ module private BranchRecoveryHelper =
         && len > 0
       then
         let lastIns = v.VData.InsInfos.[len - 1].Instruction
-        let lastAddr = lastIns.Address
         let isCall = lastIns.IsCall ()
-        (lastAddr, v.VData.GetLastStmt (), isCall) :: acc
+        (lastIns.Address, v.VData.GetLastStmt (), isCall) :: acc
       else acc) []
 
   let rec simplifyBinOp = function
@@ -168,7 +167,7 @@ module private BranchRecoveryHelper =
 
   let computeIndBranchInfo cpstate insAddr isCall exp =
     let exp = extractExp cpstate exp
-    // printfn "%x: %s" insAddr (Pp.expToString exp)
+    //printfn "%x: %s %A" insAddr (Pp.expToString exp) isCall
     if isCall then computeCallInfo insAddr exp
     else computeJmpInfo insAddr exp
 
@@ -180,45 +179,60 @@ module private BranchRecoveryHelper =
     let tbl = Some <| JumpTableInfo.Init bAddr range rt
     { HostFunctionAddr = host; TargetAddresses = targets; JumpTableInfo = tbl }
 
-  let partitionIndBranchInfo entry constBranches tblBranches lst =
+  let partitionIndBranchInfo entry constBranches tblBranches needCPMap lst =
     lst
     |> List.fold (fun (constBranches, tblBranches) info ->
       match info with
-      | ConstAddr (i, t) ->
+      | ConstAddr (b, t) ->
         if t <> 0UL then
           let info = constIndBranchInfo entry (Set.singleton t)
-          Map.add i info constBranches, tblBranches
+          Map.add b info constBranches, tblBranches
         else constBranches, tblBranches
-      | GOTIndexed (instr, bAddr, iAddr, rt) ->
+      | GOTIndexed (insAddr, bAddr, iAddr, rt) ->
         let info = tblIndBranchInfo entry Set.empty bAddr iAddr (iAddr + 1UL) rt
-        constBranches, Map.add instr info tblBranches
-      | FixedTab (instr, iAddr, rt) ->
+        constBranches, Map.add insAddr info tblBranches
+      | FixedTab (insAddr, iAddr, rt) ->
         let info = tblIndBranchInfo entry Set.empty 0UL iAddr (iAddr + 1UL) rt
-        constBranches, Map.add instr info tblBranches
+        constBranches, Map.add insAddr info tblBranches
       | _ -> constBranches, tblBranches
-    ) (constBranches, tblBranches)
+    ) (constBranches, tblBranches), needCPMap
+
+  let hasNewIndirectJump oldCorpus newCorpus =
+    let oldVertexMap = oldCorpus.SCFG.BasicBlockMap.VertexMap
+    let newVertexMap = newCorpus.SCFG.BasicBlockMap.VertexMap
+    newVertexMap
+    |> Map.fold (fun acc ppoint v ->
+      if Map.containsKey ppoint oldVertexMap then acc
+      else Set.add v acc) Set.empty
+    |> Set.exists (fun v -> v.VData.HasIndirectBranch)
 
   /// Read jump targets from a jump table.
-  let rec readTargets hdl fStart fEnd baseAddr maxAddr startAddr rt targets =
+  let rec readTargets hdl corpus fStart fEnd blockAddr baseAddr maxAddr startAddr rt targets =
     match maxAddr with
-    | Some maxAddr when startAddr >= maxAddr -> targets, startAddr
+    | Some maxAddr when startAddr >= maxAddr -> targets, startAddr, corpus
     | _ ->
       if hdl.FileInfo.IsValidAddr startAddr then
         let size = RegType.toByteWidth rt
         match BinHandler.TryReadInt (hdl, startAddr, size) with
-        | None -> targets, startAddr
+        | None -> targets, startAddr, corpus
         | Some offset ->
           let target = baseAddr + uint64 offset
           if target >= fStart && target <= fEnd then
-            let nextAddr = startAddr + uint64 size
-            let targets = Set.add target targets
-            readTargets hdl fStart fEnd baseAddr maxAddr nextAddr rt targets
-          else targets, startAddr
-      else targets, startAddr
+            match BinCorpus.addEdge hdl corpus None blockAddr target IndirectJmpEdge with
+            | Ok (corpus', _) ->
+              let nextAddr = startAddr + uint64 size
+              let targets = Set.add target targets
+              let nextAddr = startAddr + uint64 size
+              if not <| hasNewIndirectJump corpus corpus' then
+                readTargets hdl corpus' fStart fEnd blockAddr baseAddr maxAddr nextAddr rt targets
+              else targets, nextAddr, corpus'
+            | Error _ -> targets, startAddr, corpus
+          else targets, startAddr, corpus
+      else targets, startAddr, corpus
 
-  let getMaxAddr tableAddrs corpus iAddr startAddr maxAddr =
+  let getMaxAddr tableAddrs corpus insAddr startAddr maxAddr =
     let scfg = corpus.SCFG
-    match Map.tryFind iAddr scfg.IndirectBranchMap with
+    match Map.tryFind insAddr scfg.IndirectBranchMap with
     | Some ({ JumpTableInfo = Some info }) ->
       tableAddrs |> Set.remove info.JTRange.Min
     | _ -> tableAddrs
@@ -233,6 +247,10 @@ module private BranchRecoveryHelper =
         let fromApp = Set.minElement s
         min fromAnalysis fromApp |> Some
 
+  let getBlockAddr corpus insAddr =
+    let v = corpus.SCFG.FindVertex insAddr |> Option.get
+    v.VData.PPoint.Address
+
   let computeTableAddrs corpus =
     corpus.SCFG.IndirectBranchMap
     |> Map.fold (fun acc _ indInfo ->
@@ -241,69 +259,98 @@ module private BranchRecoveryHelper =
       | Some info -> Set.add info.JTRange.Min acc
       ) Set.empty
 
-  let inline accJmpTableInfo acc targets entry iAddr bAddr sAddr eAddr t =
+  let inline accJmpTableInfo acc targets entry insAddr bAddr sAddr eAddr t =
     if Set.isEmpty targets then acc
     else
       let info = tblIndBranchInfo entry targets bAddr sAddr eAddr t
-      Map.add iAddr info acc
+      match Map.tryFind insAddr acc with
+      | None -> Map.add insAddr info acc
+      | Some info' -> if info = info' then acc else Map.add insAddr info acc
 
-  let checkDefinedTable corpus iAddr sAddr =
+  let checkDefinedTable corpus insAddr sAddr =
     corpus.SCFG.IndirectBranchMap
     |> Map.exists (fun addr indInfo ->
       match indInfo.JumpTableInfo with
       | None -> false
-      | Some info -> sAddr = info.JTRange.Min && iAddr <> addr)
+      | Some info -> sAddr = info.JTRange.Min && insAddr <> addr)
 
-  let inferGOTIndexedBranches hdl corpus boundaries tableBranches constBranches =
+  let inferGOTIndexedBranches hdl corpus boundaries oldTableBranches tableBranches constBranches needCPMap =
     let tableAddrs = computeTableAddrs corpus
-    let rec infer acc = function
-      | [ (iAddr, { HostFunctionAddr = entry ; JumpTableInfo = Some i }) ] ->
+    let rec infer corpus acc needCPMap = function
+      | [ (insAddr, { HostFunctionAddr = entry ; JumpTableInfo = Some i }) ] ->
         let bAddr = i.JTBaseAddr
         let t = i.JTEntrySize
-        if checkDefinedTable corpus iAddr i.JTRange.Min then acc
+        if checkDefinedTable corpus insAddr i.JTRange.Min then corpus, acc, needCPMap
         else
           let sAddr = i.JTRange.Min
           let lb, ub = Map.find entry boundaries (* function boundaries *)
-          let max = getMaxAddr tableAddrs corpus iAddr sAddr None
-          let targets, eAddr = readTargets hdl lb ub bAddr max sAddr t Set.empty
-          accJmpTableInfo acc targets lb iAddr bAddr sAddr eAddr t
-      | (iAddr, { HostFunctionAddr = entry ; JumpTableInfo = Some i1 }) ::
+          let max = getMaxAddr tableAddrs corpus insAddr sAddr None
+          let block = getBlockAddr corpus insAddr
+          let targets, eAddr, corpus =
+            readTargets hdl corpus lb ub block bAddr max sAddr t Set.empty
+          let acc = accJmpTableInfo acc targets lb insAddr bAddr sAddr eAddr t
+          let hasChanged =
+            match Map.tryFind insAddr oldTableBranches, Map.tryFind insAddr acc with
+            | None, None -> false
+            | Some info, Some info' ->
+              info <> info'
+            | _ -> true
+          let needCPMap =
+            if hasChanged then Map.add entry true needCPMap else needCPMap
+          corpus, acc, needCPMap
+      | (insAddr, { HostFunctionAddr = entry ; JumpTableInfo = Some i1 }) ::
           (((_, { JumpTableInfo = Some i2 }) :: _) as next) ->
         let bAddr = i1.JTBaseAddr
         let t = i1.JTEntrySize
-        if checkDefinedTable corpus iAddr i1.JTRange.Min then infer acc next
+        if checkDefinedTable corpus insAddr i1.JTRange.Min then
+          infer corpus acc needCPMap next
         else
           let s1 = i1.JTRange.Min
           let s2 = i2.JTRange.Min
           let lb, ub = Map.find entry boundaries
-          let max = getMaxAddr tableAddrs corpus iAddr s1 (Some s2)
-          let targets, eAddr = readTargets hdl lb ub bAddr max s1 t Set.empty
-          infer (accJmpTableInfo acc targets lb iAddr bAddr s1 eAddr t) next
-      | _ -> acc
+          let max = getMaxAddr tableAddrs corpus insAddr s1 (Some s2)
+          let block = getBlockAddr corpus insAddr
+          let targets, eAddr, corpus =
+            readTargets hdl corpus lb ub block bAddr max s1 t Set.empty
+          let acc = accJmpTableInfo acc targets lb insAddr bAddr s1 eAddr t
+          let hasChanged =
+            match Map.tryFind insAddr oldTableBranches, Map.tryFind insAddr acc with
+            | None, None -> false
+            | Some info, Some info' ->
+              info <> info'
+            | _ -> true
+          let needCPMap =
+            if hasChanged then Map.add entry true needCPMap else needCPMap
+          infer corpus acc needCPMap next
+      | _ -> corpus, acc, needCPMap
     tableBranches
-    |> Map.fold (fun acc iAddr info -> (iAddr, info) :: acc) []
+    |> Map.fold (fun acc insAddr info -> (insAddr, info) :: acc) []
     |> List.sortBy (fun (_, ind) ->
       let info = Option.get ind.JumpTableInfo
       info.JTRange.Min)
-    |> infer constBranches
+    |> infer corpus constBranches needCPMap
 
-  let analyzeIndirectBranch ssaCFG cpstate entry constBranches tblBranches =
+  let analyzeIndirectBranch ssaCFG cpstate entry constBranches tblBranches needCPMap =
     extractIndirectBranches ssaCFG
     |> List.map (fun (insAddr, stmt, isCall) ->
       match stmt with
       | Jmp (InterJmp exp) -> computeIndBranchInfo cpstate insAddr isCall exp
       | _ -> UnknownFormat)
-    |> partitionIndBranchInfo entry constBranches tblBranches
+    |> partitionIndBranchInfo entry constBranches tblBranches needCPMap
 
-  let analyzeBranches hdl corpus (constBranches, tblBranches) addr =
-    let irCFG, irRoot = corpus.SCFG.GetFunctionCFG (addr, false)
-    if hasIndirectBranch irCFG then
-      let lens = SSALens.Init hdl corpus.SCFG
-      let ssaCFG, ssaRoot = lens.Filter (irCFG, [irRoot], corpus)
-      let cp = ConstantPropagation (hdl, ssaCFG)
-      let cpstate = cp.Compute (List.head ssaRoot)
-      analyzeIndirectBranch ssaCFG cpstate addr constBranches tblBranches
-    else constBranches, tblBranches
+  let analyzeBranches hdl corpus ((constBranches, tblBranches), needCPMap) addr =
+    match Map.tryFind addr needCPMap with
+    | None | Some true ->
+      let needCPMap = Map.add addr false needCPMap
+      let irCFG, irRoot = corpus.SCFG.GetFunctionCFG (addr, false)
+      if hasIndirectBranch irCFG then
+        let lens = SSALens.Init hdl corpus.SCFG
+        let ssaCFG, ssaRoot = lens.Filter (irCFG, [irRoot], corpus)
+        let cp = ConstantPropagation (hdl, ssaCFG)
+        let cpstate = cp.Compute (List.head ssaRoot)
+        analyzeIndirectBranch ssaCFG cpstate addr constBranches tblBranches needCPMap
+      else (constBranches, tblBranches), needCPMap
+    | _ -> (constBranches, tblBranches), needCPMap
 
   let toBranchInfo indMap =
     indMap
@@ -313,37 +360,39 @@ module private BranchRecoveryHelper =
       | None ->
         Map.add iAddr indInfo constBranches, tblBranches) (Map.empty, Map.empty)
 
-  let inferJumpTableRange hdl corpus callees constBranches tblBranches =
+  let inferJumpTableRange hdl corpus callees oldTblBranches (constBranches, tblBranches) needCPMap =
     let boundaries = computeFunctionBoundary Map.empty callees
-    inferGOTIndexedBranches hdl corpus boundaries tblBranches constBranches
+    inferGOTIndexedBranches hdl corpus boundaries oldTblBranches tblBranches constBranches needCPMap
 
   let calculateTable hdl corpus =
     let callees = computeCalleeAddrs hdl corpus
-    corpus.SCFG.IndirectBranchMap
-    |> toBranchInfo
-    ||> inferJumpTableRange hdl corpus callees
-    |> BinCorpus.addIndirectBranchMap corpus
+    let constBranches, tblBranches = toBranchInfo corpus.SCFG.IndirectBranchMap
+    let corpus, indmap, _ =
+      ((constBranches, tblBranches), Map.empty)
+      ||> inferJumpTableRange hdl corpus callees tblBranches
+    BinCorpus.addIndirectBranchMap hdl corpus indmap
 
   let filterCalleeAddrs isTarget addrs =
     match isTarget with
     | Some isTarget -> addrs |> List.filter isTarget
     | None -> addrs
 
-  let rec recover (noReturn: IAnalysis) hdl corpus isTarget =
+  let rec recover (noReturn: IAnalysis) hdl corpus needCPMap isTarget =
     let corpus = noReturn.Run hdl corpus
     let callees = computeCalleeAddrs hdl corpus |> filterCalleeAddrs isTarget
     let indmap = corpus.SCFG.IndirectBranchMap
-    let indmap' =
+    let constBranches, tblBranches = toBranchInfo indmap
+    let corpus, indmap', needCPMap =
       callees
-      |> List.fold (analyzeBranches hdl corpus) (toBranchInfo indmap)
-      ||> inferJumpTableRange hdl corpus callees
+      |> List.fold (analyzeBranches hdl corpus) ((constBranches, tblBranches), needCPMap)
+      ||> inferJumpTableRange hdl corpus callees tblBranches
     let indmap' = Map.fold (fun acc k v -> Map.add k v acc) indmap indmap'
     if indmap <> indmap' then
-      let corpus = BinCorpus.addIndirectBranchMap corpus indmap'
+      let corpus = BinCorpus.addIndirectBranchMap hdl corpus indmap'
 #if DEBUG
       printfn "[*] Go to the next phase ..."
 #endif
-      recover noReturn hdl corpus isTarget
+      recover noReturn hdl corpus needCPMap isTarget
     else corpus
 
 type BranchRecovery (enableNoReturn) =
@@ -355,10 +404,10 @@ type BranchRecovery (enableNoReturn) =
     BranchRecoveryHelper.calculateTable hdl corpus
 
   member __.RunWith hdl corpus isTarget =
-    BranchRecoveryHelper.recover noReturn hdl corpus (Some isTarget)
+    BranchRecoveryHelper.recover noReturn hdl corpus Map.empty (Some isTarget)
 
   interface IAnalysis with
     member __.Name = "Indirect Branch Recovery"
 
     member __.Run hdl corpus =
-      BranchRecoveryHelper.recover noReturn hdl corpus None
+      BranchRecoveryHelper.recover noReturn hdl corpus Map.empty None

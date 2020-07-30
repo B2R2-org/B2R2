@@ -206,8 +206,9 @@ module SCFGUtils =
     if Map.containsKey addr bblMap.LeaderMap then List.rev acc
     else
       let instr = instrMap.[addr].Instruction
-      if instr.IsExit () then List.rev acc
+      if instr.IsExit () then List.rev (addr :: acc)
       else
+        let acc = addr :: acc
         getBlockWithInstrMap instrMap bblMap acc <| addr + uint64 instr.Length
 
   let rec private getBlockWithAddrList bblMap acc = function

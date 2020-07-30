@@ -66,7 +66,7 @@ module private SpeculativeGapCompletionHelper =
     match resultCorpus.SCFG.CalleeMap.Entries |> BinCorpus.addEntries hdl corpus None with
     | Ok corpus ->
       resultCorpus.SCFG.IndirectBranchMap
-      |> BinCorpus.addIndirectBranchMap corpus
+      |> BinCorpus.addIndirectBranchMap hdl corpus
       |> (branchRecovery: BranchRecovery).CalculateTable hdl
     | Error _ -> corpus
 

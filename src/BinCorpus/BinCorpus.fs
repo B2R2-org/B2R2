@@ -116,8 +116,8 @@ module BinCorpus =
     let scfg = corpus.SCFG.AddNoReturnInfo hdl noRetFuncs noRetCallSites
     { corpus with SCFG = scfg }
 
-  let addIndirectBranchMap corpus indMap =
-    let scfg = corpus.SCFG.AddIndirectBranchMap indMap
+  let addIndirectBranchMap hdl corpus indMap =
+    let scfg = corpus.SCFG.AddIndirectBranchMap hdl indMap
     { corpus with SCFG = scfg }
 
   /// This function returns an initial sequence of entry points obtained from
