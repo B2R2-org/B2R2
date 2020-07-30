@@ -60,15 +60,15 @@ module Register =
 
   let ofString (str: string) =
     match str.ToLower () with
-    | "pc" -> R.PC
-    | "gas" -> R.GAS
-    | "sp" -> R.SP
+    | "PC" -> R.PC
+    | "GAS" -> R.GAS
+    | "SP" -> R.SP
     | _ -> Utils.impossible ()
 
   let toString = function
-    | R.GAS  -> "gas"
-    | R.PC -> "pc"
-    | R.SP -> "sp"
+    | R.PC -> "PC"
+    | R.GAS -> "GAS"
+    | R.SP -> "SP"
     | _ -> Utils.impossible ()
 
 
