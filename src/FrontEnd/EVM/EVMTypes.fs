@@ -71,6 +71,12 @@ module Register =
     | R.SP -> "SP"
     | _ -> Utils.impossible ()
 
+  let toRegType = function
+    | R.PC -> 256<rt>
+    | R.GAS -> 64<rt>
+    | R.SP -> 256<rt>
+    | _ -> Utils.impossible ()
+
 
 /// <summary>
 ///   EVM opcodes. This type should be generated using
