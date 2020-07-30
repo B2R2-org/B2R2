@@ -45,13 +45,30 @@ type EVMRegisterBay () =
     | _ -> failwith "not a register expression"
 
   override __.StrToRegExpr _s = Utils.impossible ()
-  override __.RegIDFromString _s = Utils.futureFeature ()
-  override __.RegIDToString _ = Utils.futureFeature ()
-  override __.RegIDToRegType _ = Utils.futureFeature ()
+
+  override __.RegIDFromString str =
+    Register.ofString str |> Register.toRegID
+
+  override __.RegIDToString rid =
+    Register.ofRegID rid |> Register.toString
+
+  override __.RegIDToRegType rid =
+    Register.ofRegID rid |> Register.toRegType
+
   override __.GetRegisterAliases _ = Utils.futureFeature ()
-  override __.ProgramCounter = Utils.futureFeature ()
-  override __.StackPointer = Utils.futureFeature ()
+
+  override __.ProgramCounter =
+    Register.PC |> Register.toRegID
+
+  override __.StackPointer =
+    Register.SP |> Register.toRegID |> Some
+
   override __.FramePointer = Utils.futureFeature ()
-  override __.IsProgramCounter _ = false
-  override __.IsStackPointer _ = false
+
+  override __.IsProgramCounter regid =
+    __.ProgramCounter = regid
+
+  override __.IsStackPointer regid =
+    (__.StackPointer |> Option.get) = regid
+
   override __.IsFramePointer _ = false
