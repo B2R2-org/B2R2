@@ -115,8 +115,10 @@ let evalReturn st addr ret v =
 let rec evalExpr st = function
   | Num bv -> Const bv
   | Var v -> CPState.findReg st v
+  | Nil -> NotAConst
   | Load (m, rt, addr) -> evalExpr st addr |> evalLoad st m rt
   | UnOp (op, _, e) -> evalExpr st e |> evalUnOp op
+  | FuncName _ -> NotAConst
   | BinOp (op, _, e1, e2) ->
     let c1 = evalExpr st e1
     let c2 = evalExpr st e2
