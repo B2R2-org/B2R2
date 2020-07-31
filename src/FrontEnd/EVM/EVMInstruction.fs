@@ -81,6 +81,7 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
     || __.Info.Opcode = Opcode.RETURN
     || __.Info.Opcode = Opcode.SELFDESTRUCT
     || __.Info.Opcode = Opcode.INVALID
+    || __.Info.Opcode = Opcode.STOP
 
   override __.IsExit () =
     __.IsDirectBranch ()
@@ -89,6 +90,7 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
     || __.Info.Opcode = Opcode.RETURN
     || __.Info.Opcode = Opcode.SELFDESTRUCT
     || __.Info.Opcode = Opcode.INVALID
+    || __.Info.Opcode = Opcode.STOP
 
   override __.DirectBranchTarget (addr: byref<Addr>) = false
 
