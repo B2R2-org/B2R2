@@ -29,6 +29,8 @@ namespace B2R2
 type WordSize =
   | Bit32 = 32
   | Bit64 = 64
+  | Bit128 = 128
+  | Bit256 = 256
 
 /// This exception is raised when an invalid WordSize is encountered.
 exception InvalidWordSizeException
@@ -39,6 +41,8 @@ module WordSize =
   let bitTypeOfString = function
     | "32"  -> WordSize.Bit32
     | "64"  -> WordSize.Bit64
+    | "128" -> WordSize.Bit128
+    | "256" -> WordSize.Bit256
     | _ -> failwith "Unknown WordSize."
 
   /// Transform a word size into a byte length.
@@ -46,8 +50,10 @@ module WordSize =
 
   /// Transform a word size into a RegType.
   let toRegType = function
-    | WordSize.Bit32 -> 32<rt>
-    | WordSize.Bit64 -> 64<rt>
+    | WordSize.Bit32  -> 32<rt>
+    | WordSize.Bit64  -> 64<rt>
+    | WordSize.Bit128 -> 128<rt>
+    | WordSize.Bit256 -> 256<rt>
     | _ -> failwith "Unknown WordSize."
 
   /// Is the given word size 32 bit?
@@ -55,3 +61,9 @@ module WordSize =
 
   /// Is the given word size 64 bit?
   let is64 wordSz = wordSz = WordSize.Bit64
+
+  /// Is the given word size 128 bit?
+  let is128 wordSz = wordSz = WordSize.Bit128
+
+  /// Is the given word size 256 bit?
+  let is256 wordSz = wordSz = WordSize.Bit256

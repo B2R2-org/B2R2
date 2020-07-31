@@ -128,8 +128,8 @@ with
     | Arch.MIPS64R2
     | Arch.MIPS64R6 ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit64 }
-    | Arch.EVM -> (* EVM has 256-bit word, but we will use 64-bit here. *)
-      { Arch = arch; Endian = endian; WordSize = WordSize.Bit64 }
+    | Arch.EVM ->
+      { Arch = arch; Endian = endian; WordSize = WordSize.Bit256 }
     | Arch.TMS320C6000 ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit32 }
     | _ -> raise InvalidISAException
