@@ -132,11 +132,15 @@ type ImperativeCore<'D, 'E when 'D :> VertexData and 'D: equality>
   member private __.AddEdgeToCore (src: Vertex<'D>) (dst: Vertex<'D>) e =
     __.CheckVertexExistence src
     __.CheckVertexExistence dst
-    edges.[(src.GetID (), dst.GetID ())] <- (src, dst, e)
-    src.Succs <- dst :: src.Succs
-    dst.Preds <- src :: dst.Preds
-    unreachables.Remove dst |> ignore
-    exits.Remove src |> ignore
+    let srcid = src.GetID ()
+    let dstid = dst.GetID ()
+    if edges.ContainsKey (srcid, dstid) then ()
+    else
+      edges.[(srcid, dstid)] <- (src, dst, e)
+      src.Succs <- dst :: src.Succs
+      dst.Preds <- src :: dst.Preds
+      unreachables.Remove dst |> ignore
+      exits.Remove src |> ignore
 
   override __.AddDummyEdge g src dst =
     __.AddEdgeToCore src dst edgeData
@@ -292,11 +296,15 @@ type ImperativeRangedCore<'D, 'E when 'D :> RangedVertexData and 'D: equality>
     __.CheckVertexExistence dst
     if not <| vertices.Contains src then failwith "No"
     if not <| vertices.Contains dst then failwith "No"
-    edges.[(src.GetID (), dst.GetID ())] <- (src, dst, e)
-    src.Succs <- dst :: src.Succs
-    dst.Preds <- src :: dst.Preds
-    unreachables.Remove dst |> ignore
-    exits.Remove src |> ignore
+    let srcid = src.GetID ()
+    let dstid = dst.GetID ()
+    if edges.ContainsKey (srcid, dstid) then ()
+    else
+      edges.[(src.GetID (), dst.GetID ())] <- (src, dst, e)
+      src.Succs <- dst :: src.Succs
+      dst.Preds <- src :: dst.Preds
+      unreachables.Remove dst |> ignore
+      exits.Remove src |> ignore
 
   override __.AddDummyEdge g src dst =
     __.AddEdgeToCore src dst edgeData
