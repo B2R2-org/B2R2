@@ -58,15 +58,38 @@ module SSABlockHelper =
     |> List.map (fun kind -> { SSA.Kind = kind; SSA.Identifier = -1 })
     |> Set.ofList
 
+  let private isGetPCThunkCode = function
+    | 0xc324048bUL | 0xc3241c8bUL | 0xc3240c8bUL | 0xc324148bUL
+    | 0xc324348bUL | 0xc3243c8bUL | 0xc3242c8bUL -> true
+    | _ -> false
+
+  /// This is a heuristic to discover __x86.get_pc_thunk- family functions.
+  /// 1. If a function name symbol exists and its name matches, then we know it is
+  /// __x86.get_pc_thunk- family
+  /// 2. But there are some cases we don't have symbols for them. In such cases,
+  /// we directly compare first 4 bytes of byte code. Because __x86.get_pc_thunk-
+  /// family only has 4 bytes for its function body and their values are fixed.
+  let private isGetPCThunk hdl addr =
+    match hdl.FileInfo.TryFindFunctionSymbolName addr |> Utils.tupleToOpt with
+    | Some name -> name.StartsWith "__x86.get_pc_thunk"
+    | None -> BinHandler.ReadUInt (hdl, addr, 4) |> isGetPCThunkCode
+
   /// This is currently intra-procedural.
   let computeDefinedVars hdl (scfg: SCFG) addr =
     try
       let g, _ = scfg.GetFunctionCFG (addr, false)
       let defs = DiGraph.foldVertex g defVarFolder Set.empty
       let defs = if Set.isEmpty defs then addDefaultDefs hdl else defs
-      if not <| hdl.FileInfo.IsLinkageTable addr then defs
-      else Set.add { SSA.Kind = SSA.MemVar; SSA.Identifier = -1 } defs
-      |> Set.toArray
+      let defs =
+        if isGetPCThunk hdl addr then defs
+        else
+          let wordSize = hdl.ISA.WordSize |> WordSize.toRegType
+          let r = CallingConvention.returnRegister hdl
+          let retReg = SSA.RegVar (wordSize, r, hdl.RegisterBay.RegIDToString r)
+          if not <| hdl.FileInfo.IsLinkageTable addr then defs
+          else Set.add { SSA.Kind = SSA.MemVar; SSA.Identifier = -1 } defs
+          |> Set.add { SSA.Kind = retReg; SSA.Identifier = -1 }
+      Set.toArray defs
     with _ -> [||]
 
 /// Basic block type for an SSA-based CFG (SSACFG).
