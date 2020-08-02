@@ -204,7 +204,13 @@ module private NoReturnHelper =
       let cfg = modifyCFG hdl corpus noretAddrs addr
       cfg.FoldVertex (fun acc (v: Vertex<IRBasicBlock>) ->
         if List.length <| DiGraph.getSuccs cfg v > 0 then acc
-        elif v.VData.IsFakeBlock () then acc
+        elif v.VData.IsFakeBlock () then
+          let target = v.VData.PPoint.Address
+          let targetV = corpus.SCFG.CalleeMap.Find target |> Option.get
+          if Set.contains target noretAddrs then acc
+          elif isKnownNoReturnFunction targetV.CalleeName then acc
+          elif targetV.CalleeName = "error" then acc
+          else false
         elif v.VData.LastInstruction.IsInterrupt () then acc
         else false) true
 
