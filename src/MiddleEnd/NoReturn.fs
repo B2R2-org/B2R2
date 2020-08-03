@@ -80,22 +80,32 @@ module private NoReturnHelper =
       checkExitSyscall reg exitSyscall exitGrpSyscall st
     | _ -> false
 
-  let findExitSyscalls hdl scfg (root: Vertex<IRBasicBlock>) =
-    let addr = root.VData.PPoint.Address
-    let st = EvalState (memoryReader hdl, true)
-    let st = initRegs hdl |> EvalState.PrepareContext st 0 addr
-    let bblAddr = ref 0UL
-    st.Callbacks.StmtEvalEventHandler <- stmtHandler bblAddr
-    st.Callbacks.SideEffectEventHandler <- sideEffectHandler
-    try
-      let isExit =
-        eval scfg root st (fun last -> last.IsInterrupt ())
-        |> retrieveSyscallState hdl
-      if isExit then Some !bblAddr else None
-    with _ -> None
+  let existSyscall cfg =
+    DiGraph.foldVertex cfg (fun acc (v: Vertex<IRBasicBlock>) ->
+      if v.VData.IsFakeBlock () then acc
+      else
+        match v.VData.GetLastStmt () with
+        | LowUIR.SideEffect SysCall -> true
+        | _ -> acc) false
+
+  let findExitSyscalls hdl scfg cfg (root: Vertex<IRBasicBlock>) =
+    if existSyscall cfg then
+      let addr = root.VData.PPoint.Address
+      let st = EvalState (memoryReader hdl, true)
+      let st = initRegs hdl |> EvalState.PrepareContext st 0 addr
+      let bblAddr = ref 0UL
+      st.Callbacks.StmtEvalEventHandler <- stmtHandler bblAddr
+      st.Callbacks.SideEffectEventHandler <- sideEffectHandler
+      try
+        let isExit =
+          eval scfg root st (fun last -> last.IsInterrupt ())
+          |> retrieveSyscallState hdl
+        if isExit then Some !bblAddr else None
+      with _ -> None
+    else None
 
   let collectExitSyscallFallThroughs hdl scfg cfg root edges =
-    match findExitSyscalls hdl scfg root with
+    match findExitSyscalls hdl scfg cfg root with
     | Some addr ->
       match DiGraph.tryFindVertexBy cfg (fun (v: Vertex<IRBasicBlock>) ->
         not (v.VData.IsFakeBlock ())
