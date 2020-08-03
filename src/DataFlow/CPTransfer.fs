@@ -150,7 +150,10 @@ let evalMemDef st mDst e =
     match addr with
     | Const addr ->
       let addr = BitVector.toUInt64 addr
-      CPState.storeMem st mDst rt addr c
+      if CPState.isDefinedMem st mDst rt addr then
+        let c' = CPState.findMem st mDst rt addr
+        CPState.storeMem st mDst rt addr <| CPValue.meet c c'
+      else CPState.storeMem st mDst rt addr c
     | _ -> ()
   | ReturnVal (_, _, mSrc) ->
     CPState.copyMem st mDst.Identifier mSrc.Identifier

@@ -102,6 +102,15 @@ module CPState =
     | true, v -> v
     | false, _ -> NotAConst
 
+  let isDefinedMem st m rt addr =
+    let mid = m.Identifier
+    let align = RegType.toByteWidth rt |> uint64
+    if st.MemState.ContainsKey mid then
+      if (rt = st.DefaultWordSize) && (addr % align = 0UL) then
+        Map.containsKey addr st.MemState.[mid]
+      else false
+    else false
+
   let findMem st m rt addr =
     let mid = m.Identifier
     let align = RegType.toByteWidth rt |> uint64
