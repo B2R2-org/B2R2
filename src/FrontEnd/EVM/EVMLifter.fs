@@ -65,7 +65,9 @@ let private getSPSize size = numI32 (32 * size) 256<rt>
 /// Pushes an element to stack.
 let private pushToStack (ctxt: TranslationContext) expr builder =
   let spReg = getRegVar ctxt R.SP
-  let tmp = tmpVar (typeOf expr)
+  let tmp = tmpVar OperationSize.regType
+  let expr = if OperationSize.regType = typeOf expr then expr
+             else zExt OperationSize.regType expr
   builder <! (spReg := (spReg .+ (getSPSize 1))) (* SP := SP + 32 *)
   builder <! (tmp := expr)                       (* tmp := expr *)
   builder <! (Store (Endian.Little, spReg, tmp)) (* [SP] := tmp *)
