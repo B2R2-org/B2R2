@@ -2508,6 +2508,38 @@ type OprMode =
   /// The reg field of the ModR/M byte is 0b000
   | E0 = 0x1c
 
+  ///
+  | AL = 0x1d
+  | CL = 0x1e
+  | DX = 0x1f
+  /// RegGrpX, ARegInOpNoREX
+  | RG0F = 0x20
+  | RG1F = 0x21
+  | RG2F = 0x22
+  | RG3F = 0x23
+  | RG4F = 0x24
+  | RG5F = 0x25
+  | RG6F = 0x26
+  | RG7F = 0x27
+  /// RegGrpX, ARegInOpREX
+  | RG0T = 0x30
+  | RG1T = 0x31
+  | RG2T = 0x32
+  | RG3T = 0x33
+  | RG4T = 0x34
+  | RG5T = 0x35
+  | RG6T = 0x36
+  | RG7T = 0x37
+
+  | ES = 0x40
+  | CS = 0x41
+  | SS = 0x42
+  | DS = 0x43
+  | FS = 0x44
+  | GS = 0x45
+
+  | I1 = 0x46
+
 /// Specifies the size of operand. See Appendix A.2 of Volume 2
 type OprSize =
   /// Word/DWord depending on operand-size attribute
@@ -2614,6 +2646,7 @@ type RGrpAttr =
 /// descriptions are found in Appendix A. (Opcode Map) of the manual Vol. 2D. We
 /// also introduce several new descriptors for our own purpose. <para/>
 /// </summary>
+(*
 type OperandDesc =
   /// The most generic operand kind which can be described with OprMode
   /// and OprSize.
@@ -2627,6 +2660,9 @@ type OperandDesc =
   | ODRegGrp of RegGrp * OprSize * RGrpAttr
   /// This operand is represented as an immediate value (of one).
   | ODImmOne
+*)
+
+type OperandDesc = OprMode * OprSize
 
 /// The scale of Scaled Index.
 type Scale =
