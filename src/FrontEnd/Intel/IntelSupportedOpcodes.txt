@@ -499,7 +499,9 @@ IN
 /// Increment by 1.
 INC
 /// Increment the shadow stack pointer (SSP).
-INCSSP
+INCSSPD
+/// Increment the shadow stack pointer (SSP).
+INCSSPQ
 /// Input from Port to String.
 INS
 /// Input from Port to String (byte).
@@ -1193,7 +1195,9 @@ RDRAND
 /// Read Random SEED.
 RDSEED
 /// Read shadow stack point (SSP).
-RDSSP
+RDSSPD
+/// Read shadow stack point (SSP).
+RDSSPQ
 /// Read Time-Stamp Counter.
 RDTSC
 /// Read Time-Stamp Counter and Processor ID.
@@ -2233,9 +2237,13 @@ WRMSR
 /// Write Data to User Page Key Register.
 WRPKRU
 /// Write to a shadow stack.
-WRSS
+WRSSD
+/// Write to a shadow stack.
+WRSSQ
 /// Write to a user mode shadow stack.
-WRUSS
+WRUSSD
+/// Write to a user mode shadow stack.
+WRUSSQ
 /// Transactional Abort.
 XABORT
 /// Prefix hint to the beginning of an HLE transaction region.

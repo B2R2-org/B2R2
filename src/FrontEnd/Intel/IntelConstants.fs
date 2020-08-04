@@ -1028,10 +1028,22 @@ let opNor0F38F0 = [| Opcode.MOVBE; Opcode.MOVBE;
                      Opcode.InvalOP; Opcode.CRC32; Opcode.CRC32 |]
 let opNor0F38F1 = [| Opcode.MOVBE; Opcode.MOVBE;
                      Opcode.InvalOP; Opcode.CRC32; Opcode.CRC32 |]
-let opNor0F38F6 = [| Opcode.InvalOP; Opcode.InvalOP;
-                     Opcode.InvalOP; Opcode.InvalOP |]
-let opVex0F38F6 = [| Opcode.InvalOP; Opcode.InvalOP;
-                     Opcode.InvalOP; Opcode.MULX |]
+let opNor0F38F5W0 = [| Opcode.InvalOP; Opcode.WRUSSD;
+                       Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F38F5W1 = [| Opcode.InvalOP; Opcode.WRUSSQ;
+                       Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F38F5W0 = [| Opcode.InvalOP; Opcode.InvalOP;
+                       Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F38F5W1 = [| Opcode.InvalOP; Opcode.InvalOP;
+                       Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F38F6W0 = [| Opcode.WRSSD; Opcode.InvalOP;
+                       Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F38F6W1 = [| Opcode.WRSSQ; Opcode.InvalOP;
+                       Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F38F6W0 = [| Opcode.InvalOP; Opcode.InvalOP;
+                       Opcode.InvalOP; Opcode.MULX |]
+let opVex0F38F6W1 = [| Opcode.InvalOP; Opcode.InvalOP;
+                       Opcode.InvalOP; Opcode.MULX |]
 let opNor0F38F7 = [| Opcode.InvalOP; Opcode.InvalOP;
                      Opcode.InvalOP; Opcode.InvalOP |]
 let opVex0F38F7 = [| Opcode.InvalOP; Opcode.SHLX;

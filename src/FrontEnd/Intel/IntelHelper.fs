@@ -94,6 +94,12 @@ let isBranch = function
   | Opcode.LOOPNE -> true
   | _ -> false
 
+let isCETInstr = function
+  | Opcode.INCSSPD | Opcode.INCSSPQ | Opcode.RDSSPD | Opcode.RDSSPQ
+  | Opcode.SAVEPREVSSP | Opcode.RSTORSSP | Opcode.WRSSD | Opcode.WRSSQ
+  | Opcode.WRUSSD | Opcode.WRUSSQ | Opcode.SETSSBSY | Opcode.CLRSSBSY -> true
+  | _ -> false
+
 /// Create a temporary instruction information.
 let newTemporaryInfo prefs rexPref vInfo wordSize =
   {

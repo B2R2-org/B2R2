@@ -358,8 +358,14 @@ let private dsNor0F38B9W1 = [| emptyArr; emptyArr; emptyArr; emptyArr |]
 let private dsVex0F38B9W1 = [| emptyArr; VxHxWdqq; emptyArr; emptyArr |]
 let private dsNor0F38F0   = [| GyMy; GwMw; emptyArr; GvEb; GdEb |]
 let private dsNor0F38F1   = [| MyGy; MwGw; emptyArr; GvEy; GdEw |]
-let private dsNor0F38F6   = [| emptyArr; emptyArr; emptyArr; emptyArr |]
-let private dsVex0F38F6   = [| emptyArr; emptyArr; emptyArr; GyByEy |]
+let private dsNor0F38F5W0 = [| emptyArr; EvGv; emptyArr; emptyArr |]
+let private dsNor0F38F5W1 = [| emptyArr; EvGv; emptyArr; emptyArr |]
+let private dsVex0F38F5W0 = [| emptyArr; emptyArr; emptyArr; emptyArr |]
+let private dsVex0F38F5W1 = [| emptyArr; emptyArr; emptyArr; emptyArr |]
+let private dsNor0F38F6W0 = [| EvGv; emptyArr; emptyArr; emptyArr |]
+let private dsNor0F38F6W1 = [| EvGv; emptyArr; emptyArr; emptyArr |]
+let private dsVex0F38F6W0 = [| emptyArr; emptyArr; emptyArr; GyByEy |]
+let private dsVex0F38F6W1 = [| emptyArr; emptyArr; emptyArr; GyByEy |]
 let private dsNor0F38F7   = [| emptyArr; emptyArr; emptyArr; emptyArr |]
 let private dsVex0F38F7   = [| emptyArr; GyEyBy; GyEyBy; GyEyBy |]
 let private dsNor0F3A0F   = [| PqQqIb; VdqWdqIb; emptyArr; emptyArr |]
@@ -1028,8 +1034,8 @@ let grp5Op   = [| Opcode.INC; Opcode.DEC; Opcode.CALLNear; Opcode.CALLFar;
 let grp5Desc = [| Ev; Ev; Ev; Ep; Ev; Mp; Ev |]
 let grp5SCnd = [| SzDef32; SzDef32; Sz64; SzDef32; Sz64; SzDef32; SzDef64 |]
 let grp7Op   = [| Opcode.SGDT; Opcode.SIDT; Opcode.LGDT; Opcode.LIDT;
-                  Opcode.SMSW; Opcode.InvalOP; Opcode.LMSW; Opcode.INVLPG |]
-let grp7Desc = [| Ms; Ms; Ms; Ms; Mw; [||]; Ew; Ew |]
+                  Opcode.SMSW; Opcode.RSTORSSP; Opcode.LMSW; Opcode.INVLPG |]
+let grp7Desc = [| Ms; Ms; Ms; Ms; Mw; Mq; Ew; Ew |]
 let grp8Op   = [| Opcode.InvalOP; Opcode.InvalOP; Opcode.InvalOP;
                   Opcode.InvalOP; Opcode.BT; Opcode.BTS; Opcode.BTR;
                   Opcode.BTC |]
@@ -1077,6 +1083,8 @@ let parseOpAndOprKindByOpGrp7 t pos b regBits =
     | 0b010, 0b101 -> (Opcode.XEND, [||], SzDef32), pos + 1
     | 0b010, 0b110 -> (Opcode.XTEST, [||], SzDef32), pos + 1
     | 0b100, _     -> (Opcode.SMSW, Rv, SzDef32), pos
+    | 0b101, 0b000 -> (Opcode.SETSSBSY, [||], SzDef32), pos + 1
+    | 0b101, 0b010 -> (Opcode.SAVEPREVSSP, [||], SzDef32), pos + 1
     | 0b101, 0b110 -> (Opcode.RDPKRU, [||], SzDef32), pos + 1
     | 0b101, 0b111 -> (Opcode.WRPKRU, [||], SzDef32), pos + 1
     | 0b110, _     -> (Opcode.LMSW, Ew, SzDef32), pos
@@ -1173,13 +1181,13 @@ let getOpAndOprKindByOpGrp14 t b regBits =
 
 let parseOpAndOprKindByOpGrp15 t pos b regBits =
   match modIsMemory b, regBits, hasREPZ t.TPrefixes with
+  | true, 0b110, true -> (Opcode.CLRSSBSY, Mq, SzDef32), pos
   | true,  0b000, false ->
-    let opCode = if hasREXW t.TREXPrefix then Opcode.FXSAVE64 else Opcode.FXSAVE
-    (opCode, Ev, SzDef32), pos
+    let op = if hasREXW t.TREXPrefix then Opcode.FXSAVE64 else Opcode.FXSAVE
+    (op, Ev, SzDef32), pos
   | true,  0b001, false ->
-    let opCode =
-      if hasREXW t.TREXPrefix then Opcode.FXRSTOR64 else Opcode.FXRSTOR
-    (opCode, Ev, SzDef32), pos
+    let op = if hasREXW t.TREXPrefix then Opcode.FXRSTOR64 else Opcode.FXRSTOR
+    (op, Ev, SzDef32), pos
   | true,  0b010, false -> (Opcode.LDMXCSR, Ev, SzDef32), pos
   | true,  0b011, false -> (Opcode.STMXCSR, Ev, SzDef32), pos
   | true,  0b100, false -> (Opcode.XSAVE, Ev, SzDef32), pos
@@ -1193,6 +1201,9 @@ let parseOpAndOprKindByOpGrp15 t pos b regBits =
   | false, 0b001, true  -> (Opcode.RDGSBASE, Ry, SzDef32), pos
   | false, 0b010, true  -> (Opcode.WRFSBASE, Ry, SzDef32), pos
   | false, 0b011, true  -> (Opcode.WRGSBASE, Ry, SzDef32), pos
+  | false, 0b101, true  ->
+    let op = if hasREXW t.TREXPrefix then Opcode.INCSSPQ else Opcode.INCSSPD
+    (op, Ry, SzDef32), pos
   | _ -> raise ParsingFailureException
 
 let parseOpAndOprKindByGrp t reader pos b oprDescs oprGrp =
@@ -1228,7 +1239,12 @@ let parseOpGrpInfo t (reader: BinReader) pos grp oprDescs =
 
 let parseGrpOpcode t reader pos grp oprDescs =
   let (op, oprDescs, szCond), pos = parseOpGrpInfo t reader pos grp oprDescs
-  parseOp (if Helper.isBranch op then pBNDPref t else t) op szCond oprDescs, pos
+  let t =
+    if Helper.isBranch op then pBNDPref t
+    elif Helper.isCETInstr op then
+      { t with TPrefixes = Helper.clearGrp1PrefMask &&& t.TPrefixes }
+    else t
+  parseOp t op szCond oprDescs, pos
 
 let private rexb =
   RGrpAttr.ARegInOpREX
@@ -1458,8 +1474,14 @@ let private parseThreeByteOp1 t (reader: BinReader) pos =
                                         dsVex0F38B9W1 dsVex0F38B9W0
   | 0xF0uy -> parseNonVEX t SzDef32 opNor0F38F0 dsNor0F38F0, pos + 1
   | 0xF1uy -> parseNonVEX t SzDef32 opNor0F38F1 dsNor0F38F1, pos + 1
-  | 0xF6uy -> parseVEX t SzDef32 opNor0F38F6 opVex0F38F6
-                                 dsNor0F38F6 dsVex0F38F6, pos + 1
+  | 0xF5uy -> parseVEXByRex t (pos + 1) opNor0F38F5W1 opNor0F38F5W0
+                                        opVex0F38F5W1 opVex0F38F5W0
+                                        dsNor0F38F5W1 dsNor0F38F5W0
+                                        dsVex0F38F5W1 dsVex0F38F5W0
+  | 0xF6uy -> parseVEXByRex t (pos + 1) opNor0F38F6W1 opNor0F38F6W0
+                                        opVex0F38F6W1 opVex0F38F6W0
+                                        dsNor0F38F6W1 dsNor0F38F6W0
+                                        dsVex0F38F6W1 dsVex0F38F6W0
   | 0xF7uy -> parseVEX t SzDef32 opNor0F38F7 opVex0F38F7
                                  dsNor0F38F7 dsVex0F38F7, pos + 1
   | _ -> raise ParsingFailureException
@@ -1490,14 +1512,17 @@ let private parseThreeByteOp2 t (reader: BinReader) pos =
                                  dsNor0F3AF0 dsVex0F3AF0, pos + 1
   | _ -> raise ParsingFailureException
 
-let private parseEndBr t (reader: BinReader) pos =
-  let opcode =
+let private parseCETInstr t (reader: BinReader) pos =
+  let opcode, oprs, pos =
     match reader.PeekByte pos with
-    | 0xFAuy -> Opcode.ENDBR64
-    | 0xFBuy -> Opcode.ENDBR32
+    | 0xFAuy -> Opcode.ENDBR64, [||], pos + 1
+    | 0xFBuy -> Opcode.ENDBR32, [||], pos + 1
+    | b when getReg b = 0b001 && getMod b = 0b11 ->
+      let op = if hasREXW t.TREXPrefix then Opcode.RDSSPQ else Opcode.RDSSPD
+      op, Ry, pos
     | _ -> raise InvalidOpcodeException
   let t = { t with TPrefixes = Helper.clearGrp1PrefMask &&& t.TPrefixes }
-  parseOp t opcode SzDef32 [||], pos + 1
+  parseOp t opcode SzDef32 oprs, pos
 
 let private pTwoByteOp t reader pos byte =
   match byte with
@@ -1532,7 +1557,7 @@ let private pTwoByteOp t reader pos byte =
   | 0x17uy -> parseVEX t SzDef32 opNor0F17 opVex0F17 dsNor0F17 dsVex0F17, pos
   | 0x1Auy -> parseBND t SzDef32 opNor0F1A dsNor0F1A, pos
   | 0x1Buy -> parseBND t SzDef32 opNor0F1B dsNor0F1B, pos
-  | 0x1Euy -> if Helper.hasREPZ t.TPrefixes then parseEndBr t reader pos
+  | 0x1Euy -> if Helper.hasREPZ t.TPrefixes then parseCETInstr t reader pos
               else raise InvalidOpcodeException
   | 0x1Fuy -> parseOp t Opcode.NOP SzDef32 E0v, pos
   | 0x20uy -> parseOp t Opcode.MOV Sz64 RdCd, pos

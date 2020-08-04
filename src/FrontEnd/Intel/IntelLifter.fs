@@ -7311,8 +7311,9 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.CBW | Opcode.CWDE | Opcode.CDQE -> convBWQ ins insAddr insLen ctxt
   | Opcode.CLC -> clearFlag insAddr insLen ctxt R.CF
   | Opcode.CLD -> clearFlag insAddr insLen ctxt R.DF
-  | Opcode.CLI -> clearFlag insAddr insLen ctxt R.IF
   | Opcode.CLFLUSH -> nop insAddr insLen
+  | Opcode.CLI -> clearFlag insAddr insLen ctxt R.IF
+  | Opcode.CLRSSBSY -> nop insAddr insLen
   | Opcode.CMC -> cmc ins insAddr insLen ctxt
   | Opcode.CMOVO | Opcode.CMOVNO | Opcode.CMOVB | Opcode.CMOVAE
   | Opcode.CMOVZ | Opcode.CMOVNZ | Opcode.CMOVBE | Opcode.CMOVA
@@ -7338,6 +7339,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.HLT -> sideEffects insAddr insLen Halt
   | Opcode.IMUL -> imul ins insAddr insLen ctxt
   | Opcode.INC -> inc ins insAddr insLen ctxt
+  | Opcode.INCSSPD | Opcode.INCSSPQ -> nop insAddr insLen
   | Opcode.INSB | Opcode.INSW | Opcode.INSD -> insinstr ins insAddr insLen ctxt
   | Opcode.INT -> interrupt ins insAddr insLen ctxt
   | Opcode.INT3 -> sideEffects insAddr insLen Breakpoint
@@ -7478,9 +7480,11 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.PXOR -> pxor ins insAddr insLen ctxt
   | Opcode.RCL -> rcl ins insAddr insLen ctxt
   | Opcode.RCR -> rcr ins insAddr insLen ctxt
+  | Opcode.RDMSR | Opcode.RSM -> sideEffects insAddr insLen UnsupportedExtension
   | Opcode.RDPKRU -> rdpkru ins insAddr insLen ctxt
   | Opcode.RDPMC -> sideEffects insAddr insLen UnsupportedExtension
   | Opcode.RDRAND -> sideEffects insAddr insLen UnsupportedExtension
+  | Opcode.RDSSPD | Opcode.RDSSPQ -> nop insAddr insLen
   | Opcode.RDTSC -> sideEffects insAddr insLen ClockCounter
   | Opcode.RDTSCP -> sideEffects insAddr insLen ClockCounter
   | Opcode.RETNear -> ret ins insAddr insLen ctxt false false
@@ -7489,9 +7493,10 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.RETFarImm -> ret ins insAddr insLen ctxt true true
   | Opcode.ROL -> rol ins insAddr insLen ctxt
   | Opcode.ROR -> ror ins insAddr insLen ctxt
-  | Opcode.RDMSR | Opcode.RSM -> sideEffects insAddr insLen UnsupportedExtension
+  | Opcode.RSTORSSP -> nop insAddr insLen
   | Opcode.SAHF -> sahf ins insAddr insLen ctxt
   | Opcode.SAR | Opcode.SHR | Opcode.SHL -> shift ins insAddr insLen ctxt
+  | Opcode.SAVEPREVSSP -> nop insAddr insLen
   | Opcode.SBB -> sbb ins insAddr insLen ctxt
   | Opcode.SCASB | Opcode.SCASW | Opcode.SCASD | Opcode.SCASQ ->
     scas ins insAddr insLen ctxt
@@ -7500,6 +7505,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.SETS | Opcode.SETNS | Opcode.SETP | Opcode.SETNP
   | Opcode.SETL | Opcode.SETNL | Opcode.SETLE | Opcode.SETG ->
     setcc ins insAddr insLen ctxt
+  | Opcode.SETSSBSY -> nop insAddr insLen
   | Opcode.SFENCE -> sideEffects insAddr insLen Fence
   | Opcode.SHLD -> shld ins insAddr insLen ctxt
   | Opcode.SHRD -> shrd ins insAddr insLen ctxt
@@ -7562,6 +7568,8 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.WRFSBASE -> wrfsbase ins insAddr insLen ctxt
   | Opcode.WRGSBASE -> wrgsbase ins insAddr insLen ctxt
   | Opcode.WRPKRU -> wrpkru ins insAddr insLen ctxt
+  | Opcode.WRSSD | Opcode.WRSSQ -> nop insAddr insLen
+  | Opcode.WRUSSD | Opcode.WRUSSQ -> nop insAddr insLen
   | Opcode.XABORT -> sideEffects insAddr insLen UnsupportedExtension
   | Opcode.XADD -> xadd ins insAddr insLen ctxt
   | Opcode.XBEGIN -> sideEffects insAddr insLen UnsupportedExtension
