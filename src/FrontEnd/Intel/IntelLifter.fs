@@ -5472,11 +5472,9 @@ let shufpd ins insAddr insLen ctxt =
   let imm = transOprToExpr ins insAddr insLen ctxt imm
   let cond1 = extractLow 1<rt> imm
   let cond2 = extract imm 1<rt> 1
-  let tmp = tmpVar 64<rt>
   startMark insAddr insLen builder
-  builder <! (tmp := ite cond1 src2 src1)
-  builder <! (dst2 := ite cond2 dst2 dst1)
-  builder <! (dst1 := tmp)
+  builder <! (dst1 := ite cond1 dst2 dst1)
+  builder <! (dst2 := ite cond2 src2 src1)
   endMark insAddr insLen builder
 
 let shufps ins insAddr insLen ctxt =
