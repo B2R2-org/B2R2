@@ -326,6 +326,9 @@ module private BranchRecoveryHelper =
     |> List.map (fun (insAddr, stmt, isCall) ->
       match stmt with
       | Jmp (InterJmp exp) -> computeIndBranchInfo cpstate insAddr isCall exp
+      | Jmp (InterCJmp (_, Num _, exp))
+      | Jmp (InterCJmp (_, exp, Num _)) ->
+        computeIndBranchInfo cpstate insAddr isCall exp
       | _ -> UnknownFormat)
     |> partitionIndBranchInfo entry constBranches tblBranches needCPMap
 
