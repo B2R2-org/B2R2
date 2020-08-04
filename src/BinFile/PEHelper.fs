@@ -136,20 +136,6 @@ let getSymbolKindBySectionIndex pe idx =
   if ch.HasFlag SectionCharacteristics.MemExecute then SymbolKind.FunctionType
   else SymbolKind.ObjectType
 
-let getExportSymbols pe =
-  let conv acc addr exp =
-    let rva = int (addr - pe.BaseAddr)
-    match pe.FindSectionIdxFromRVA rva with
-    | -1 -> acc
-    | idx ->
-      { Address = addr
-        Name = exp
-        Kind = getSymbolKindBySectionIndex pe idx
-        Target = TargetKind.DynamicSymbol
-        LibraryName = "" } :: acc
-  pe.ExportMap
-  |> Map.fold conv []
-
 let getImportSymbols pe =
   let conv acc rva imp =
     match imp with
@@ -168,6 +154,20 @@ let getImportSymbols pe =
   pe.ImportMap
   |> Map.fold conv []
   |> List.rev
+
+let getExportSymbols pe =
+  let conv acc addr exp =
+    let rva = int (addr - pe.BaseAddr)
+    match pe.FindSectionIdxFromRVA rva with
+    | -1 -> acc
+    | idx ->
+      { Address = addr
+        Name = exp
+        Kind = getSymbolKindBySectionIndex pe idx
+        Target = TargetKind.DynamicSymbol
+        LibraryName = "" } :: acc
+  pe.ExportMap
+  |> Map.fold conv []
 
 let getAllDynamicSymbols pe =
   let isym = getImportSymbols pe

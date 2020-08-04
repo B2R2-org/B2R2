@@ -158,27 +158,26 @@ let parseENPT (binReader: BinReader) secs edt =
     let offset2 = edt.OrdinalTableRVA |> getRawOffset secs
     loop [] edt.NumNamePointers offset1 offset2
 
-let buildExportTable binReader (headers: PEHeaders) secs range edt =
+let buildExportTable binReader baseAddr secs range edt =
   let addrtbl = parseEAT binReader secs range edt
   let folder map (name, ord) =
     match addrtbl.[int ord] with
     | ExportRVA rva ->
-      let addr = addrFromRVA headers.PEHeader.ImageBase rva
+      let addr = addrFromRVA baseAddr rva
       Map.add addr name map
     | _ -> map
   parseENPT binReader secs edt
   |> List.fold folder Map.empty
 
-let parseExports binReader (headers: PEHeaders) secs =
+let parseExports baseAddr binReader (headers: PEHeaders) secs =
   match headers.PEHeader.ExportTableDirectory.RelativeVirtualAddress with
   | 0 -> Map.empty
   | rva ->
-    let idx = findSectionIndex secs rva
     let size = headers.PEHeader.ExportTableDirectory.Size
     let range = (rva, rva + size)
     getRawOffset secs rva
     |> readExportDirectoryTableEntry binReader secs
-    |> buildExportTable binReader headers secs range
+    |> buildExportTable binReader baseAddr secs range
 
 let buildRelocBlock (binReader: BinReader) headerOffset =
   let blockSize = binReader.PeekInt32 (headerOffset + 4)
@@ -284,7 +283,7 @@ let parseImage execpath rawpdb baseAddr binReader (hdrs: PEHeaders) =
     BaseAddr = baseAddr
     SectionHeaders = secs
     ImportMap= parseImports binReader hdrs secs wordSize
-    ExportMap = parseExports binReader hdrs secs
+    ExportMap = parseExports baseAddr binReader hdrs secs
     RelocBlocks = parseRelocation binReader hdrs secs
     WordSize = wordSize
     SymbolInfo = getPDBSymbols execpath rawpdb |> buildPDBInfo baseAddr secs

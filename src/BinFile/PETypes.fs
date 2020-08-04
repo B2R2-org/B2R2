@@ -248,7 +248,7 @@ type PE = {
   SectionHeaders: SectionHeader []
   /// RVA to import information.
   ImportMap: Map<int, ImportInfo>
-  /// Address to exported function name.
+  /// Address (VA) to exported function name.
   ExportMap: Map<Addr, string>
   /// List of relocation blocks
   RelocBlocks: RelocBlock list
