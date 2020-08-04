@@ -236,7 +236,13 @@ let evalInterJmp cfg st blk = function
     (fun (succ: Vertex<SSABBlock>) ->
       succ.VData.PPoint.Address = BitVector.toUInt64 addr)
     |> markSuccessorsConditionally cfg st blk
-  | _ -> markAllSuccessors cfg st blk
+  | _ ->
+    let insInfos = blk.VData.InsInfos
+    if insInfos.[Array.length insInfos - 1].Instruction.IsCall () then
+      (fun (succ: Vertex<SSABBlock>) ->
+        succ.VData.PPoint |> ProgramPoint.IsFake)
+      |> markSuccessorsConditionally cfg st blk
+    else markAllSuccessors cfg st blk
 
 let evalInterCJmp cfg st blk cond trueExpr falseExpr =
   match cond, trueExpr, falseExpr with

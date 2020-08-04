@@ -90,7 +90,7 @@ module SSABlockHelper =
           else Set.add { SSA.Kind = SSA.MemVar; SSA.Identifier = -1 } defs
           |> Set.add { SSA.Kind = retReg; SSA.Identifier = -1 }
       Set.toArray defs
-    with _ -> [||]
+    with _ -> addDefaultDefs hdl |> Set.toArray
 
 /// Basic block type for an SSA-based CFG (SSACFG).
 type SSABBlock private (hdl, scfg, pp, instrs, retPoint, hasIndirectBranch) =
