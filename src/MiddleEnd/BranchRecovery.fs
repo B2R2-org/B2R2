@@ -197,15 +197,6 @@ module private BranchRecoveryHelper =
       | _ -> constBranches, tblBranches
     ) (constBranches, tblBranches), needCPMap
 
-  let hasNewIndirectJump oldCorpus newCorpus =
-    let oldVertexMap = oldCorpus.SCFG.BasicBlockMap.VertexMap
-    let newVertexMap = newCorpus.SCFG.BasicBlockMap.VertexMap
-    newVertexMap
-    |> Map.fold (fun acc ppoint v ->
-      if Map.containsKey ppoint oldVertexMap then acc
-      else Set.add v acc) Set.empty
-    |> Set.exists (fun v -> v.VData.HasIndirectBranch)
-
   /// Read jump targets from a jump table.
   let rec readTargets hdl corpus fStart fEnd blockAddr baseAddr maxAddr startAddr rt targets =
     match maxAddr with
@@ -219,11 +210,10 @@ module private BranchRecoveryHelper =
           let target = baseAddr + uint64 offset
           if target >= fStart && target <= fEnd then
             match BinCorpus.addEdge hdl corpus None blockAddr target IndirectJmpEdge with
-            | Ok (corpus', _) ->
-              let nextAddr = startAddr + uint64 size
+            | Ok (corpus', hasNewIndirectJump) ->
               let targets = Set.add target targets
               let nextAddr = startAddr + uint64 size
-              if not <| hasNewIndirectJump corpus corpus' then
+              if not hasNewIndirectJump then
                 readTargets hdl corpus' fStart fEnd blockAddr baseAddr maxAddr nextAddr rt targets
               else targets, nextAddr, corpus'
             | Error _ -> targets, startAddr, corpus
