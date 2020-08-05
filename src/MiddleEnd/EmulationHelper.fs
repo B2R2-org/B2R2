@@ -28,7 +28,7 @@ open B2R2
 open B2R2.FrontEnd
 open B2R2.ConcEval
 open B2R2.BinGraph
-open B2R2.BinCorpus
+open B2R2.BinEssence
 open System.Collections.Generic
 
 let defZero t = Def (BitVector.zero t)

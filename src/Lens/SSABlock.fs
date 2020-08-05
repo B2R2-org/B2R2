@@ -28,7 +28,7 @@ open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd
 open B2R2.BinGraph
-open B2R2.BinCorpus
+open B2R2.BinEssence
 
 module SSABlockHelper =
   let private updateDefinedVar set = function

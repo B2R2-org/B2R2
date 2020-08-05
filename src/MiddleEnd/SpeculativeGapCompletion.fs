@@ -26,17 +26,17 @@ namespace B2R2.MiddleEnd
 
 open B2R2
 open B2R2.FrontEnd
-open B2R2.BinCorpus
+open B2R2.BinEssence
 open B2R2.BinGraph
 
 module private SpeculativeGapCompletionHelper =
   /// XXX: Should be fixed
-  let findGaps (corpus: BinCorpus) sAddr eAddr =
-    corpus.InstrMap.Keys
+  let findGaps (ess: BinEssence) sAddr eAddr =
+    ess.InstrMap.Keys
     |> Seq.filter (fun addr -> addr >= sAddr && addr < eAddr)
     |> Seq.sort
     |> Seq.fold (fun (gaps, prevAddr) addr ->
-      let nextAddr = addr + uint64 corpus.InstrMap.[addr].Instruction.Length
+      let nextAddr = addr + uint64 ess.InstrMap.[addr].Instruction.Length
       if prevAddr >= addr then gaps, nextAddr
       else AddrRange (prevAddr, addr) :: gaps, nextAddr
       ) ([], sAddr)
@@ -44,15 +44,15 @@ module private SpeculativeGapCompletionHelper =
       if nextAddr >= eAddr then gaps
       else AddrRange (nextAddr, eAddr) :: gaps
 
-  let rec shiftUntilValid hdl corpus entries (gap: AddrRange) =
+  let rec shiftUntilValid ess entries (gap: AddrRange) =
     let entry = Set.singleton gap.Min
-    match BinCorpus.initByEntries hdl PersistentGraph entry with
+    match BinEssence.initByEntries ess.BinHandler PersistentGraph entry with
     | Ok _ -> AddrRange (gap.Min, gap.Max) :: entries
     | Error _ ->
       if gap.Min + 1UL = gap.Max then entries
       else
         let gap' = AddrRange (gap.Min + 1UL, gap.Max)
-        shiftUntilValid hdl corpus entries gap'
+        shiftUntilValid ess entries gap'
 
   let shiftByOne entries (gap: AddrRange) =
     let nextAddr = gap.Min + 1UL
@@ -62,44 +62,44 @@ module private SpeculativeGapCompletionHelper =
   let shiftGaps fn gaps =
     gaps |> List.fold fn []
 
-  let updateResults branchRecovery hdl corpus resultCorpus =
-    match resultCorpus.SCFG.CalleeMap.Entries |> BinCorpus.addEntries hdl corpus None with
-    | Ok corpus ->
+  let updateResults branchRecovery ess resultCorpus =
+    match resultCorpus.SCFG.CalleeMap.Entries |> BinEssence.addEntries ess None with
+    | Ok ess ->
       resultCorpus.SCFG.IndirectBranchMap
-      |> BinCorpus.addIndirectBranchMap hdl corpus
-      |> (branchRecovery: BranchRecovery).CalculateTable hdl
-    | Error _ -> corpus
+      |> BinEssence.addIndirectBranchMap ess
+      |> (branchRecovery: BranchRecovery).CalculateTable
+    | Error _ -> ess
 
-  let rec recoverGaps branchRecovery hdl corpus gaps =
-    match shiftGaps (shiftUntilValid hdl corpus) gaps with
-    | [] -> corpus
+  let rec recoverGaps branchRecovery ess gaps =
+    match shiftGaps (shiftUntilValid ess) gaps with
+    | [] -> ess
     | gaps ->
       let ents =
         gaps |> List.map (fun g -> g.Min) |> Set.ofList
-      match BinCorpus.initByEntries hdl PersistentGraph ents with
+      match BinEssence.initByEntries ess.BinHandler PersistentGraph ents with
       | Ok partialCorpus ->
         let isTarget addr =
-          corpus.SCFG.IndirectBranchMap
+          ess.SCFG.IndirectBranchMap
           |> Map.exists (fun _ { HostFunctionAddr = entry } -> entry = addr)
           |> not
-        let corpus =
+        let ess =
           isTarget
-          |> (branchRecovery: BranchRecovery).RunWith hdl partialCorpus
-          |> updateResults branchRecovery hdl corpus
+          |> (branchRecovery: BranchRecovery).RunWith partialCorpus
+          |> updateResults branchRecovery ess
         gaps
-        |> List.map (fun gap -> findGaps corpus gap.Min gap.Max)
+        |> List.map (fun gap -> findGaps ess gap.Min gap.Max)
         |> List.concat
-        |> recoverGaps branchRecovery hdl corpus
+        |> recoverGaps branchRecovery ess
       | Error _ ->
-        recoverGaps branchRecovery hdl corpus (shiftGaps shiftByOne gaps)
+        recoverGaps branchRecovery ess (shiftGaps shiftByOne gaps)
 
-  let run branchRecovery hdl corpus =
-    hdl.FileInfo.GetTextSections ()
+  let run branchRecovery ess =
+    ess.BinHandler.FileInfo.GetTextSections ()
     |> Seq.map (fun sec ->
       let sAddr, eAddr = sec.Address, sec.Address + sec.Size
-      findGaps corpus sAddr eAddr)
+      findGaps ess sAddr eAddr)
     |> List.concat
-    |> recoverGaps branchRecovery hdl corpus
+    |> recoverGaps branchRecovery ess
 
 type SpeculativeGapCompletion (enableNoReturn) =
   let branchRecovery = BranchRecovery (enableNoReturn)
@@ -107,5 +107,5 @@ type SpeculativeGapCompletion (enableNoReturn) =
   interface IAnalysis with
     member __.Name = "Speculative Gap Completion"
 
-    member __.Run hdl corpus =
-      SpeculativeGapCompletionHelper.run branchRecovery hdl corpus
+    member __.Run ess =
+      SpeculativeGapCompletionHelper.run branchRecovery ess

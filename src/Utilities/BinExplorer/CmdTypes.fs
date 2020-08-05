@@ -24,7 +24,7 @@
 
 namespace B2R2.Utilities.BinExplorer
 
-open B2R2.MiddleEnd
+open B2R2.BinEssence
 
 /// Raised when there are duplicate commands with the same name or alias.
 exception DuplicateCommandException

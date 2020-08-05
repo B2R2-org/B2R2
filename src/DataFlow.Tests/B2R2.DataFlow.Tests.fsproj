@@ -18,7 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DataFlow\B2R2.DataFlow.fsproj" />
-    <ProjectReference Include="..\BinCorpus\B2R2.BinCorpus.fsproj" />
+    <ProjectReference Include="..\BinEssence\B2R2.BinEssence.fsproj" />
     <ProjectReference Include="..\MiddleEnd\B2R2.MiddleEnd.fsproj" />
   </ItemGroup>
 

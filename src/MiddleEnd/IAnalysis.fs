@@ -25,8 +25,7 @@
 namespace B2R2.MiddleEnd
 
 open B2R2.FrontEnd
-open B2R2.BinCorpus
-open B2R2.BinGraph
+open B2R2.BinEssence
 
 /// CFG analysis that we perform after constructing the basic SCFG. An analysis
 /// includes no-return analysis, libc start address analysis, switch-case
@@ -36,4 +35,24 @@ type IAnalysis =
   abstract Name: string
 
   /// Run the analysis.
-  abstract Run: BinHandler -> BinCorpus -> BinCorpus
+  abstract Run: BinEssence -> BinEssence
+
+module IAnalysis =
+
+  let analyze ess analyses =
+    #if DEBUG
+      let startTime = System.DateTime.Now
+    #endif
+      let ess =
+        analyses
+        |> List.fold (fun ess (analysis: IAnalysis) ->
+    #if DEBUG
+          printfn "[*] %s started." analysis.Name
+    #endif
+          analysis.Run ess) ess
+    #if DEBUG
+      let endTime = System.DateTime.Now
+      endTime.Subtract(startTime).TotalSeconds
+      |> printfn "[*] All done in %f sec."
+    #endif
+      ess

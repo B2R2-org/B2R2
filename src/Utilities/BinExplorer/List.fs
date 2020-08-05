@@ -27,8 +27,7 @@ namespace B2R2.Utilities.BinExplorer
 open B2R2
 open B2R2.BinFile
 open B2R2.FrontEnd
-open B2R2.BinCorpus
-open B2R2.MiddleEnd
+open B2R2.BinEssence
 
 type CmdList () =
   inherit Cmd ()
@@ -36,11 +35,11 @@ type CmdList () =
   let createFuncString hdl (addr, name) =
     Addr.toString hdl.ISA.WordSize addr + ": " + name
 
-  let listFunctions hdl corpus =
-    corpus.SCFG.CalleeMap.InternalCallees
+  let listFunctions ess =
+    ess.SCFG.CalleeMap.InternalCallees
     |> Seq.map (fun c -> Option.get c.Addr, c.CalleeID)
     |> Seq.sortBy fst
-    |> Seq.map (createFuncString hdl)
+    |> Seq.map (createFuncString ess.BinHandler)
     |> Seq.toArray
 
   let createSegmentString handler (seg: Segment) =
@@ -88,7 +87,7 @@ type CmdList () =
   override __.CallBack _ (ess: BinEssence) args =
     match args with
     | "functions" :: _
-    | "funcs" :: _ -> listFunctions ess.BinHandler ess.BinCorpus
+    | "funcs" :: _ -> listFunctions ess
     | "segments" :: _
     | "segs" :: _ -> listSegments ess.BinHandler
     | "sections" :: _

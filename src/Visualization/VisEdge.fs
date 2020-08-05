@@ -24,7 +24,7 @@
 
 namespace B2R2.Visualization
 
-open B2R2.BinCorpus
+open B2R2.BinEssence
 
 /// The main edge data type for visualization.
 type VisEdge (ty) =

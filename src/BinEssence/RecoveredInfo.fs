@@ -22,27 +22,39 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinCorpus
+namespace B2R2.BinEssence
 
 open B2R2
-open B2R2.FrontEnd
 
-/// A visual line of a basic block.
-type VisualLine = AsmWord []
+type IndirectBranchInfo = {
+  /// The host function (owner) of the indirect jump.
+  HostFunctionAddr: Addr
+  /// Possible target addresses.
+  TargetAddresses: Set<Addr>
+  /// Information about the corresponding jump table (if exists).
+  JumpTableInfo: JumpTableInfo option
+}
 
-module VisualLine =
-  [<CompiledName("LineWidth")>]
-  let lineWidth terms =
-    terms |> Array.fold (fun width term -> width + AsmWord.Width term) 0
+/// Jump table (for switch-case) information.
+and JumpTableInfo = {
+  /// Base address of the jump table.
+  JTBaseAddr: Addr
+  /// The start and the end address of the jump table (AddrRange).
+  JTRange: AddrRange
+  /// Size of each entry of the table.
+  JTEntrySize: RegType
+}
+with
+  static member Init jtBase jtRange jtEntrySize =
+    { JTBaseAddr = jtBase ; JTRange = jtRange ; JTEntrySize = jtEntrySize }
 
-  [<CompiledName("ToString")>]
-  let toString terms =
-    terms |> Array.map AsmWord.ToString |> String.concat " "
-
-/// A visual representation of a basic block.
-type VisualBlock = VisualLine []
-
-module VisualBlock =
-  let empty (addr: Addr): VisualBlock =
-    [| [|{ AsmWordKind = AsmWordKind.String
-           AsmWordValue = "# fake block @ " + (addr.ToString ("X")) }|] |]
+/// No-return function info.
+type NoReturnInfo = {
+  /// No-return function addresses.
+  NoReturnFuncs: Set<Addr>
+  /// Program points of no-return call sites.
+  NoReturnCallSites: Set<ProgramPoint>
+}
+with
+  static member Init noRetFuncs noRetCallSites =
+    { NoReturnFuncs = noRetFuncs ; NoReturnCallSites = noRetCallSites }

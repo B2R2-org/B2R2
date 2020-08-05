@@ -26,7 +26,8 @@ module B2R2.Utilities.BinExplorer.Main
 
 open B2R2
 open B2R2.FrontEnd
-open B2R2.BinCorpus
+open B2R2.BinGraph
+open B2R2.BinEssence
 open B2R2.Lens
 open B2R2.MiddleEnd
 open B2R2.Visualization
@@ -179,7 +180,8 @@ let spec =
   ]
 
 let buildGraph (opts: BinExplorerOpts) handle =
-  BinEssence.Init (handle, opts.GetAnalyses ())
+  let ess = BinEssence.init handle PersistentGraph
+  IAnalysis.analyze ess <| opts.GetAnalyses ()
 
 let startGUI (opts: BinExplorerOpts) arbiter =
   HTTPServer.startServer arbiter opts.IP opts.Port opts.Verbose
@@ -190,12 +192,12 @@ let startGUI (opts: BinExplorerOpts) arbiter =
 let dumpJsonFiles jsonDir ess =
   try System.IO.Directory.Delete(jsonDir, true) with _ -> ()
   System.IO.Directory.CreateDirectory(jsonDir) |> ignore
-  ess.BinCorpus.SCFG.CalleeMap.InternalCallees
+  ess.SCFG.CalleeMap.InternalCallees
   |> Seq.iter (fun { CalleeID = id; Addr = addr } ->
     let disasmJsonPath = Printf.sprintf "%s/%s.disasmCFG" jsonDir id
-    let cfg, root = ess.BinCorpus.SCFG.GetFunctionCFG (Option.get addr)
-    let lens = DisasmLens.Init ess.BinCorpus
-    let disasmcfg, _ = lens.Filter (cfg, [root], ess.BinCorpus)
+    let cfg, root = ess.SCFG.GetFunctionCFG (Option.get addr)
+    let lens = DisasmLens.Init ess
+    let disasmcfg, _ = lens.Filter (cfg, [root], ess)
     CFGExport.toJson disasmcfg disasmJsonPath)
 
 let initBinHdl isa (name: string) =
@@ -261,7 +263,7 @@ let dumpSwitch _cmdMap opts file outdir _args =
   let file = file.Replace (':', '_')
   let outpath = System.IO.Path.Combine (outdir, file)
   use writer = System.IO.File.CreateText (outpath)
-  ess.BinCorpus.SCFG.IndirectBranchMap
+  ess.SCFG.IndirectBranchMap
   |> Map.iter (fun fromAddr { TargetAddresses = targets } ->
     targets
     |> Set.iter (fun target ->

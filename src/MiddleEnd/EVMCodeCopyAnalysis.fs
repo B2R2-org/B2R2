@@ -28,7 +28,7 @@ open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
-open B2R2.BinCorpus
+open B2R2.BinEssence
 
 type EVMCodeCopyAnalysis () =
   let findCodeCopy stmts =
@@ -45,23 +45,23 @@ type EVMCodeCopyAnalysis () =
         (srcAddr, Some (ArchOperationMode.NoMode, offset)) |> Some
       | _ -> None)
 
-  let recoverCopiedCode hdl (corpus: BinCorpus) =
-    corpus.InstrMap
-    |> Seq.fold (fun corpus (KeyValue (_, ins)) ->
+  let recoverCopiedCode (ess: BinEssence) =
+    ess.InstrMap
+    |> Seq.fold (fun ess (KeyValue (_, ins)) ->
       match ins.Stmts |> findCodeCopy with
-      | None -> corpus
+      | None -> ess
       | Some (addr, parseMode) ->
-        match corpus.SCFG.CalleeMap.Find addr with
+        match ess.SCFG.CalleeMap.Find addr with
         | None ->
-          match BinCorpus.addEntry hdl corpus parseMode addr with
-          | Ok corpus -> corpus
+          match BinEssence.addEntry ess parseMode addr with
+          | Ok ess -> ess
           | Error _ -> Utils.impossible ()
-        | Some _ -> corpus) corpus
+        | Some _ -> ess) ess
 
   interface IAnalysis with
     member __.Name = "EVM Code Copy Analysis"
 
-    member __.Run hdl corpus =
-      match hdl.FileInfo.ISA.Arch with
-      | Architecture.EVM -> recoverCopiedCode hdl corpus
-      | _ -> corpus
+    member __.Run ess =
+      match ess.BinHandler.FileInfo.ISA.Arch with
+      | Architecture.EVM -> recoverCopiedCode ess
+      | _ -> ess

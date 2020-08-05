@@ -25,7 +25,7 @@
 namespace B2R2.Utilities.BinExplorer
 
 open System
-open B2R2.MiddleEnd
+open B2R2.BinEssence
 
 type CmdHexDump () =
   inherit Cmd ()

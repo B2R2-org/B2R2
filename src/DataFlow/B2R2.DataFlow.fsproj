@@ -18,7 +18,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Core\B2R2.Core.fsproj" />
     <ProjectReference Include="..\BinGraph\B2R2.BinGraph.fsproj" />
-    <ProjectReference Include="..\BinCorpus\B2R2.BinCorpus.fsproj" />
+    <ProjectReference Include="..\BinEssence\B2R2.BinEssence.fsproj" />
     <ProjectReference Include="..\Lens\B2R2.Lens.fsproj" />
   </ItemGroup>
 

@@ -26,7 +26,7 @@ namespace B2R2.Lens
 
 open B2R2
 open B2R2.BinGraph
-open B2R2.BinCorpus
+open B2R2.BinEssence
 
 /// A graph lens for obtaining SSACFG.
 type SSALens (hdl, scfg) =

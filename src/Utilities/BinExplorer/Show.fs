@@ -27,7 +27,7 @@ namespace B2R2.Utilities.BinExplorer
 open System
 open System.Text
 open B2R2
-open B2R2.BinCorpus
+open B2R2.BinEssence
 open B2R2.MiddleEnd
 
 type CmdShow () =
@@ -66,7 +66,7 @@ type CmdShow () =
   member __.ShowCaller ess = function
     | (expr: string) :: _ ->
       let addr = CmdUtils.convHexString expr |> Option.defaultValue 0UL
-      match Map.tryFind addr ess.BinCorpus.SCFG.CalleeMap.CallerMap with
+      match Map.tryFind addr ess.SCFG.CalleeMap.CallerMap with
       | None -> [| "[*] Not found." |]
       | Some callees ->
         let sb = StringBuilder ()
@@ -74,7 +74,7 @@ type CmdShow () =
         let sb =
           callees
           |> Set.fold (fun sb (addr: Addr) ->
-            match ess.BinCorpus.SCFG.CalleeMap.Find addr with
+            match ess.SCFG.CalleeMap.Find addr with
             | Some callee -> __.CalleeToSimpleString "  - " sb callee
             | None -> sb) sb
         [| sb.ToString () |]
@@ -84,8 +84,8 @@ type CmdShow () =
     | (expr: string) :: _ ->
       let addr = CmdUtils.convHexString expr |> Option.defaultValue 0UL
       let sb = StringBuilder ()
-      if Char.IsDigit expr.[0] then ess.BinCorpus.SCFG.CalleeMap.Find (addr)
-      else ess.BinCorpus.SCFG.CalleeMap.Find (expr)
+      if Char.IsDigit expr.[0] then ess.SCFG.CalleeMap.Find (addr)
+      else ess.SCFG.CalleeMap.Find (expr)
       |> Option.map (fun callee -> (__.CalleeToString sb callee).ToString ())
       |> Option.defaultValue "[*] Not found."
       |> Array.singleton

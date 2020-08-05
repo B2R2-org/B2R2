@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinCorpus
+namespace B2R2.BinEssence
 
 open B2R2
 open B2R2.BinGraph

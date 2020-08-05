@@ -26,12 +26,12 @@ namespace B2R2.MiddleEnd
 
 open B2R2
 open B2R2.FrontEnd
-open B2R2.BinCorpus
+open B2R2.BinEssence
 open B2R2.ConcEval
 open B2R2.MiddleEnd.EmulationHelper
 
 module private LibcAnalysisHelper =
-  let retrieveAddrsForx86 hdl (corpus: BinCorpus) st =
+  let retrieveAddrsForx86 (ess: BinEssence) st =
     let esp = (Intel.Register.ESP |> Intel.Register.toRegID)
     match EvalState.GetReg st esp with
     | Def sp ->
@@ -44,66 +44,67 @@ module private LibcAnalysisHelper =
         readMem st p5 Endian.Little 32<rt>
         readMem st p6 Endian.Little 32<rt> ]
       |> List.choose id
-      |> List.filter (fun addr -> corpus.InstrMap.ContainsKey addr |> not)
+      |> List.filter (fun addr -> ess.InstrMap.ContainsKey addr |> not)
       |> function
-        | [] -> corpus
+        | [] -> ess
         | addrs ->
-          match addrs |> Set.ofList |> BinCorpus.addEntries hdl corpus None with
-          | Ok corpus -> corpus
+          match addrs |> Set.ofList |> BinEssence.addEntries ess None with
+          | Ok ess -> ess
           | _ -> Utils.impossible ()
-    | Undef -> corpus
+    | Undef -> ess
 
-  let retrieveAddrsForx64 hdl (corpus: BinCorpus) st =
+  let retrieveAddrsForx64 (ess: BinEssence) st =
     [ readReg st (Intel.Register.RDI |> Intel.Register.toRegID)
       readReg st (Intel.Register.RCX |> Intel.Register.toRegID)
       readReg st (Intel.Register.R8 |> Intel.Register.toRegID)
       readReg st (Intel.Register.R9 |> Intel.Register.toRegID) ]
     |> List.choose id
     |> List.map BitVector.toUInt64
-    |> List.filter (fun addr -> corpus.InstrMap.ContainsKey addr |> not)
+    |> List.filter (fun addr -> ess.InstrMap.ContainsKey addr |> not)
     |> function
-      | [] -> corpus
+      | [] -> ess
       | addrs ->
-        match addrs |> Set.ofList |> BinCorpus.addEntries hdl corpus None with
-        | Ok corpus -> corpus
+        match addrs |> Set.ofList |> BinEssence.addEntries ess None with
+        | Ok ess -> ess
         | _ -> Utils.impossible ()
 
-  let retrieveLibcStartAddresses hdl corpus = function
-    | None -> corpus
+  let retrieveLibcStartAddresses ess = function
+    | None -> ess
     | Some st ->
-      match hdl.ISA.Arch with
-      | Arch.IntelX86 -> retrieveAddrsForx86 hdl corpus st
-      | Arch.IntelX64 -> retrieveAddrsForx64 hdl corpus st
-      | _ -> corpus
+      match ess.BinHandler.ISA.Arch with
+      | Arch.IntelX86 -> retrieveAddrsForx86 ess st
+      | Arch.IntelX64 -> retrieveAddrsForx64 ess st
+      | _ -> ess
 
-  let analyzeLibcStartMain hdl corpus callerAddr =
-    match corpus.SCFG.FindFunctionVertex callerAddr with
-    | None -> corpus
+  let analyzeLibcStartMain ess callerAddr =
+    match ess.SCFG.FindFunctionVertex callerAddr with
+    | None -> ess
     | Some root ->
+      let hdl = ess.BinHandler
       let st = EvalState (memoryReader hdl, true)
       let rootAddr = root.VData.PPoint.Address
       let st = initRegs hdl |> EvalState.PrepareContext st 0 rootAddr
       try
-        eval corpus.SCFG root st (fun last -> last.Address = callerAddr)
-        |> retrieveLibcStartAddresses hdl corpus
-      with _ -> corpus
+        eval ess.SCFG root st (fun last -> last.Address = callerAddr)
+        |> retrieveLibcStartAddresses ess
+      with _ -> ess
 
-  let recoverAddrsFromLibcStartMain hdl corpus =
-    match corpus.SCFG.CalleeMap.Find "__libc_start_main" with
+  let recoverAddrsFromLibcStartMain ess =
+    match ess.SCFG.CalleeMap.Find "__libc_start_main" with
     | Some callee ->
       match List.tryExactlyOne <| Set.toList callee.Callers with
-      | None -> corpus
-      | Some caller -> analyzeLibcStartMain hdl corpus caller
-    | None -> corpus
+      | None -> ess
+      | Some caller -> analyzeLibcStartMain ess caller
+    | None -> ess
 
-  let recoverLibcEntries hdl corpus =
-    match hdl.FileInfo.FileFormat with
-    | FileFormat.ELFBinary -> recoverAddrsFromLibcStartMain hdl corpus
-    | _ -> corpus
+  let recoverLibcEntries ess =
+    match ess.BinHandler.FileInfo.FileFormat with
+    | FileFormat.ELFBinary -> recoverAddrsFromLibcStartMain ess
+    | _ -> ess
 
 type LibcAnalysis () =
   interface IAnalysis with
     member __.Name = "LibC Analysis"
 
-    member __.Run hdl corpus =
-      LibcAnalysisHelper.recoverLibcEntries hdl corpus
+    member __.Run ess =
+      LibcAnalysisHelper.recoverLibcEntries ess

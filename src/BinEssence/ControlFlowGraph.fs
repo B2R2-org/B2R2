@@ -22,21 +22,34 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinCorpus
+namespace B2R2.BinEssence
 
-open B2R2
 open B2R2.BinGraph
 
-/// The base type for basic block.
-[<AbstractClass>]
-type BasicBlock () =
-  inherit VertexData (VertexData.genID ())
-  /// The start position (ProgramPoint) of the basic block.
-  abstract PPoint: ProgramPoint with get
-  /// The instruction address range of the basic block.
-  abstract Range: AddrRange with get
-  /// Check if this is a fake basic block inserted by our analysis. We create a
-  /// fake block to represent call target vertices in a function-level CFG.
-  abstract IsFakeBlock: unit -> bool
-  /// Convert this basic block to a visual representation.
-  abstract ToVisualBlock: unit -> VisualBlock
+type ControlFlowGraph<'D, 'E when 'D :> BasicBlock and 'D : equality>
+    (core: GraphCore<'D, 'E, DiGraph<'D, 'E>>) =
+  inherit DiGraph<'D, 'E> (core)
+
+type IRCFG = ControlFlowGraph<IRBasicBlock, CFGEdgeKind>
+
+[<RequireQualifiedAccess>]
+module IRCFG =
+  let private initializer core =
+    IRCFG (core) :> DiGraph<IRBasicBlock, CFGEdgeKind>
+
+  let private initImperative () =
+    ImperativeCore<IRBasicBlock, CFGEdgeKind> (initializer, UnknownEdge)
+    |> IRCFG
+    :> DiGraph<IRBasicBlock, CFGEdgeKind>
+
+  let private initPersistent () =
+    PersistentCore<IRBasicBlock, CFGEdgeKind> (initializer, UnknownEdge)
+    |> IRCFG
+    :> DiGraph<IRBasicBlock, CFGEdgeKind>
+
+  /// Initialize IRCFG based on the implementation type.
+  let init = function
+    | ImperativeGraph -> initImperative ()
+    | PersistentGraph -> initPersistent ()
+
+// vim: set tw=80 sts=2 sw=2:

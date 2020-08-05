@@ -28,7 +28,7 @@ open System
 open System.Text.RegularExpressions
 open B2R2
 open B2R2.FrontEnd
-open B2R2.MiddleEnd
+open B2R2.BinEssence
 
 type PrintFormat =
   | Hexadecimal

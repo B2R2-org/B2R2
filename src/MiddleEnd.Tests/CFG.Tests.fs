@@ -27,7 +27,7 @@ namespace B2R2.MiddleEnd.Tests
 open B2R2
 open B2R2.FrontEnd
 open B2R2.BinGraph
-open B2R2.BinCorpus
+open B2R2.BinEssence
 open B2R2.Lens
 open B2R2.BinIR.LowUIR
 open B2R2.MiddleEnd
@@ -96,11 +96,12 @@ type CFGTest1 () =
 
   let isa = ISA.Init Architecture.IntelX64 Endian.Little
   let hdl = BinHandler.Init (isa, binary)
-  let ess = BinEssence.Init (hdl, [ NoReturnAnalysis () ])
+  let ess = BinEssence.init hdl PersistentGraph
+  let ess = IAnalysis.analyze ess [ NoReturnAnalysis () ]
 
   [<TestMethod>]
   member __.``Boundary Test: Function Identification`` () =
-    let funcs = ess.BinCorpus.SCFG.CalleeMap.Entries
+    let funcs = ess.SCFG.CalleeMap.Entries
     Assert.AreEqual (3, Seq.length funcs)
     let expected = [ 0UL; 0x62UL; 0x71UL ] |> List.toArray
     let actual = Seq.toArray funcs
@@ -108,7 +109,7 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``Boundary Test: Leader Identification`` () =
-    let bblMap = ess.BinCorpus.SCFG.BasicBlockMap
+    let bblMap = ess.SCFG.BasicBlockMap
     let boundaries = bblMap.Boundaries
     Assert.AreEqual (8, bblMap.VertexMap.Count)
     [ (0x00UL, 0x19UL); (0x19UL, 0x3FUL); (0x3FUL, 0x48UL); (0x48UL, 0x52UL);
@@ -118,7 +119,7 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``Vertex Test: _start`` () =
-    let cfg, _ = ess.BinCorpus.SCFG.GetFunctionCFG (0x00UL)
+    let cfg, _ = ess.SCFG.GetFunctionCFG (0x00UL)
     Assert.AreEqual (9, DiGraph.getSize cfg)
     let vMap = DiGraph.foldVertex cfg Utils.foldVertexNoFake Map.empty
     Assert.AreEqual (6, vMap.Count)
@@ -135,7 +136,7 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``Edge Test: _start`` () =
-    let cfg, _ = ess.BinCorpus.SCFG.GetFunctionCFG (0x00UL)
+    let cfg, _ = ess.SCFG.GetFunctionCFG (0x00UL)
     let vMap = DiGraph.foldVertex cfg Utils.foldVertexNoFake Map.empty
     let leaders =
       [| ProgramPoint (0x00UL, 0); ProgramPoint (0x19UL, 0);
@@ -167,7 +168,7 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``Vertex Test: foo`` () =
-    let cfg, _ = ess.BinCorpus.SCFG.GetFunctionCFG (0x62UL)
+    let cfg, _ = ess.SCFG.GetFunctionCFG (0x62UL)
     Assert.AreEqual (1, DiGraph.getSize cfg)
     let vMap = DiGraph.foldVertex cfg Utils.foldVertexNoFake Map.empty
     let leaders = [| ProgramPoint (0x62UL, 0) |]
@@ -177,13 +178,13 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``Edge Test: foo`` () =
-    let cfg, _ = ess.BinCorpus.SCFG.GetFunctionCFG (0x62UL)
+    let cfg, _ = ess.SCFG.GetFunctionCFG (0x62UL)
     let eMap = DiGraph.foldEdge cfg Utils.foldEdge Map.empty
     Assert.AreEqual (0, eMap.Count)
 
   [<TestMethod>]
   member __.``Vertex Test: bar`` () =
-    let cfg, _ = ess.BinCorpus.SCFG.GetFunctionCFG (0x71UL)
+    let cfg, _ = ess.SCFG.GetFunctionCFG (0x71UL)
     Assert.AreEqual (1, DiGraph.getSize cfg)
     let vMap = DiGraph.foldVertex cfg Utils.foldVertexNoFake Map.empty
     let leaders = [| ProgramPoint (0x71UL, 0) |]
@@ -193,15 +194,15 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``Edge Test: bar`` () =
-    let cfg, _ = ess.BinCorpus.SCFG.GetFunctionCFG (0x71UL)
+    let cfg, _ = ess.SCFG.GetFunctionCFG (0x71UL)
     let eMap = DiGraph.foldEdge cfg Utils.foldEdge Map.empty
     Assert.AreEqual (0, eMap.Count)
 
   [<TestMethod>]
   member __.``SSAGraph Vertex Test: _start`` () =
-    let cfg, root = ess.BinCorpus.SCFG.GetFunctionCFG (0x0UL)
-    let lens = SSALens.Init hdl ess.BinCorpus.SCFG
-    let ssacfg, _ = lens.Filter (cfg, [root], ess.BinCorpus)
+    let cfg, root = ess.SCFG.GetFunctionCFG (0x0UL)
+    let lens = SSALens.Init ess.BinHandler ess.SCFG
+    let ssacfg, _ = lens.Filter (cfg, [root], ess)
     Assert.AreEqual (9, DiGraph.getSize ssacfg)
 
 [<TestClass>]
@@ -235,11 +236,12 @@ type CFGTest2 () =
 
   let isa = ISA.Init Architecture.IntelX86 Endian.Little
   let hdl = BinHandler.Init (isa, binary)
-  let ess = BinEssence.Init (hdl, [ NoReturnAnalysis () ])
+  let ess = BinEssence.init hdl PersistentGraph
+  let ess = IAnalysis.analyze ess [ NoReturnAnalysis () ]
 
   [<TestMethod>]
   member __.``Boundary Test: Function Identification`` () =
-    let funcs = ess.BinCorpus.SCFG.CalleeMap.Entries
+    let funcs = ess.SCFG.CalleeMap.Entries
     Assert.AreEqual (2, Seq.length funcs)
     let expected = [ 0UL; 0x24UL ] |> List.toArray
     let actual = Seq.toArray funcs
@@ -247,7 +249,7 @@ type CFGTest2 () =
 
   [<TestMethod>]
   member __.``Boundary Test: Leader Identification`` () =
-    let bblMap = ess.BinCorpus.SCFG.BasicBlockMap
+    let bblMap = ess.SCFG.BasicBlockMap
     let boundaries = bblMap.Boundaries
     Assert.AreEqual (7, bblMap.VertexMap.Count)
     [ (0x00UL, 0x0CUL); (0x0CUL, 0x1CUL); (0x1CUL, 0x1EUL); (0x1CUL, 0x1EUL);
@@ -258,7 +260,7 @@ type CFGTest2 () =
 
   [<TestMethod>]
   member __.``Vertex Test: _start`` () =
-    let cfg, _ = ess.BinCorpus.SCFG.GetFunctionCFG (0x00UL)
+    let cfg, _ = ess.SCFG.GetFunctionCFG (0x00UL)
     Assert.AreEqual (7, DiGraph.getSize cfg)
     let vMap = DiGraph.foldVertex cfg Utils.foldVertexNoFake Map.empty
     let leaders =
@@ -281,7 +283,7 @@ type CFGTest2 () =
 
   [<TestMethod>]
   member __.``Edge Test: _start`` () =
-    let cfg, _ = ess.BinCorpus.SCFG.GetFunctionCFG (0x00UL)
+    let cfg, _ = ess.SCFG.GetFunctionCFG (0x00UL)
     let vMap = DiGraph.foldVertex cfg Utils.foldVertexNoFake Map.empty
     let leaders =
       [| ProgramPoint (0x00UL, 0); ProgramPoint (0x0CUL, 0);
@@ -313,9 +315,9 @@ type CFGTest2 () =
 
   [<TestMethod>]
   member __.``DisasmLens Test: _start`` () =
-    let cfg, root = ess.BinCorpus.SCFG.GetFunctionCFG (0x00UL)
-    let lens = DisasmLens.Init ess.BinCorpus
-    let cfg, _ = lens.Filter (cfg, [root], ess.BinCorpus)
+    let cfg, root = ess.SCFG.GetFunctionCFG (0x00UL)
+    let lens = DisasmLens.Init ess
+    let cfg, _ = lens.Filter (cfg, [root], ess)
     Assert.AreEqual (3, DiGraph.getSize cfg)
     let vMap = DiGraph.foldVertex cfg (fun m v ->
       Map.add v.VData.PPoint.Address v m) Map.empty
@@ -339,7 +341,7 @@ type CFGTest2 () =
 
   [<TestMethod>]
   member __.``SSAGraph Vertex Test: _start`` () =
-    let cfg, root = ess.BinCorpus.SCFG.GetFunctionCFG (0x0UL)
-    let lens = SSALens.Init hdl ess.BinCorpus.SCFG
-    let ssacfg, _ = lens.Filter (cfg, [root], ess.BinCorpus)
+    let cfg, root = ess.SCFG.GetFunctionCFG (0x0UL)
+    let lens = SSALens.Init ess.BinHandler ess.SCFG
+    let ssacfg, _ = lens.Filter (cfg, [root], ess)
     Assert.AreEqual (7, DiGraph.getSize ssacfg)

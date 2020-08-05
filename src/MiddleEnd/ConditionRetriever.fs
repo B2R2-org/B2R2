@@ -29,7 +29,7 @@ open B2R2.FrontEnd
 open B2R2.BinIR
 open B2R2.BinIR.SSA
 open B2R2.BinGraph
-open B2R2.BinCorpus
+open B2R2.BinEssence
 open B2R2.Lens
 
 /// How do we compare vars? For example, in x86, there are two comparison
@@ -50,7 +50,7 @@ type ConditionRetriever () =
   /// Find the corresponding comparison instruction from the given variable, and
   /// return its operands.
   abstract member FindComparison:
-    BinCorpus
+    BinEssence
     -> Vertex<SSABBlock>
     -> Variable
     -> IntermediateComparisonInfo option
@@ -170,11 +170,11 @@ and IntelConditionRetriever () =
     | _ :: stmts -> findTwoOperands addr isTarget first stmts
     | [] -> Utils.impossible ()
 
-  override __.FindComparison corpus v condVar =
+  override __.FindComparison ess v condVar =
     let ppoint = v.VData.PPoint
     let stmts = Array.toList v.VData.Stmts
     let addr = __.FindAddr condVar ppoint.Address stmts
-    let ins = corpus.InstrMap.[addr].Instruction :?> Intel.IntelInstruction
+    let ins = ess.InstrMap.[addr].Instruction :?> Intel.IntelInstruction
     match ins.Info.Opcode, ins.Info.Operands with
     | Intel.Opcode.CMP, Intel.TwoOperands (Intel.OprMem _, Intel.OprImm _)
     | Intel.Opcode.CMP, Intel.TwoOperands (Intel.OprReg _, Intel.OprImm _)

@@ -27,7 +27,7 @@ namespace B2R2.Lens
 open B2R2
 open B2R2.FrontEnd
 open B2R2.BinGraph
-open B2R2.BinCorpus
+open B2R2.BinEssence
 open System.Collections.Generic
 
 /// Basic block type for a call graph (CallCFG).
@@ -81,11 +81,11 @@ type CallVMap = Dictionary<Addr, Vertex<CallGraphBBlock>>
 
 /// A graph lens for obtaining CallGraph.
 type CallGraphLens (scfg: SCFG) =
-  let getFunctionVertex g vMap (old: Vertex<IRBasicBlock>) addr corpus =
+  let getFunctionVertex g vMap (old: Vertex<IRBasicBlock>) addr ess =
     match (vMap: CallVMap).TryGetValue addr with
     | false, _ ->
       let fake = old.VData.IsFakeBlock ()
-      match corpus.SCFG.CalleeMap.Find (addr) with
+      match ess.SCFG.CalleeMap.Find (addr) with
       | None -> None
       | Some callee ->
         let id = callee.CalleeID
@@ -97,13 +97,13 @@ type CallGraphLens (scfg: SCFG) =
         Some (v, g)
     | true, v -> Some (v, g)
 
-  let getVertex g vMap (old: Vertex<IRBasicBlock>) corpus =
+  let getVertex g vMap (old: Vertex<IRBasicBlock>) ess =
     let addr = old.VData.PPoint.Address
-    match corpus.SCFG.CalleeMap.Find (addr) with
+    match ess.SCFG.CalleeMap.Find (addr) with
     | None -> None
-    | Some _ -> getFunctionVertex g vMap old addr corpus
+    | Some _ -> getFunctionVertex g vMap old addr ess
 
-  let buildCG callCFG _ vMap corpus =
+  let buildCG callCFG _ vMap ess =
     callCFG
     |> DiGraph.foldEdge scfg.Graph (fun callCFG src dst e ->
       match e with
@@ -117,18 +117,18 @@ type CallGraphLens (scfg: SCFG) =
         match scfg.FindFunctionVertex src.VData.PPoint.Address with
         | None -> callCFG
         | Some src ->
-          match getVertex callCFG vMap src corpus with
+          match getVertex callCFG vMap src ess with
           | None -> callCFG
           | Some (s, callCFG) ->
-            match getVertex callCFG vMap dst corpus with
+            match getVertex callCFG vMap dst ess with
             | None -> callCFG
             | Some (d, callCFG) -> DiGraph.addEdge callCFG s d e
       | _ -> callCFG)
 
   interface ILens<CallGraphBBlock> with
-    member __.Filter (g, _, corpus) =
+    member __.Filter (g, _, ess) =
       let vMap = CallVMap ()
-      let callCFG = buildCG (CallCFG.init g.ImplementationType) g vMap corpus
+      let callCFG = buildCG (CallCFG.init g.ImplementationType) g vMap ess
       callCFG, DiGraph.getUnreachables callCFG |> Seq.toList
 
   static member Init (scfg) =

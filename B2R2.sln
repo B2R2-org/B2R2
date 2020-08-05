@@ -44,7 +44,7 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.BinFile", "src\BinFile
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.BinFile.Tests", "src\BinFile.Tests\B2R2.BinFile.Tests.fsproj", "{960663A9-F17E-4F94-AC5B-E581A6171028}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.BinCorpus", "src\BinCorpus\B2R2.BinCorpus.fsproj", "{6E0693DF-23FE-41EF-AA97-8310AF5120E9}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.BinEssence", "src\BinEssence\B2R2.BinEssence.fsproj", "{6E0693DF-23FE-41EF-AA97-8310AF5120E9}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Lens", "src\Lens\B2R2.Lens.fsproj", "{4FE21337-C76D-431E-B0A8-7726D1A335DC}"
 EndProject

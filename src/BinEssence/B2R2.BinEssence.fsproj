@@ -16,7 +16,7 @@
     <Compile Include="CFGExport.fs" />
     <Compile Include="SCFGUtils.fs" />
     <Compile Include="SCFG.fs" />
-    <Compile Include="BinCorpus.fs" />
+    <Compile Include="BinEssence.fs" />
   </ItemGroup>
 
   <ItemGroup>

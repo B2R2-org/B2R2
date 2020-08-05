@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinCorpus
+namespace B2R2.BinEssence
 
 open B2R2
 open B2R2.FrontEnd
@@ -75,14 +75,15 @@ open B2R2.FrontEnd
 ///     our post analayses do not bring a different Apparatus.
 ///   </para>
 /// </remarks>
-type BinCorpus = {
+type BinEssence = {
+  BinHandler : BinHandler
   InstrMap : InstrMap
   SCFG : SCFG
 }
 
-module BinCorpus =
+module BinEssence =
 
-  let private initCorpus hdl graphImpl =
+  let private initEssence hdl graphImpl =
     let acc =
       { InstrMap = InstrMap ()
         BasicBlockMap = SCFGUtils.init ()
@@ -91,34 +92,35 @@ module BinCorpus =
         NoReturnInfo = NoReturnInfo.Init Set.empty Set.empty
         IndirectBranchMap = Map.empty }
     let scfg = SCFG (hdl, acc, graphImpl=graphImpl)
-    { InstrMap = acc.InstrMap
+    { BinHandler = hdl
+      InstrMap = acc.InstrMap
       SCFG = scfg }
 
-  let addEntry hdl corpus parseMode entry =
-    match corpus.SCFG.AddEntry hdl parseMode entry with
-    | Ok (scfg) -> Ok { corpus with SCFG = scfg }
+  let addEntry ess parseMode entry =
+    match ess.SCFG.AddEntry ess.BinHandler parseMode entry with
+    | Ok (scfg) -> Ok { ess with SCFG = scfg }
     | Error () -> Error ()
 
-  let addEntries hdl corpus parseMode entries =
+  let addEntries ess parseMode entries =
     entries
-    |> Set.fold (fun corpus entry ->
-      match corpus with
-      | Ok corpus -> addEntry hdl corpus parseMode entry
-      | _ -> corpus) (Ok corpus)
+    |> Set.fold (fun ess entry ->
+      match ess with
+      | Ok ess -> addEntry ess parseMode entry
+      | _ -> ess) (Ok ess)
 
-  let addEdge hdl corpus parseMode src dst edgeKind =
-    match corpus.SCFG.AddEdge hdl parseMode src dst edgeKind with
+  let addEdge ess parseMode src dst edgeKind =
+    match ess.SCFG.AddEdge ess.BinHandler parseMode src dst edgeKind with
     | Ok (scfg, hasNewIndBranch) ->
-      Ok ({ corpus with SCFG = scfg }, hasNewIndBranch)
+      Ok ({ ess with SCFG = scfg }, hasNewIndBranch)
     | Error () -> Error ()
 
-  let addNoReturnInfo hdl corpus noRetFuncs noRetCallSites =
-    let scfg = corpus.SCFG.AddNoReturnInfo hdl noRetFuncs noRetCallSites
-    { corpus with SCFG = scfg }
+  let addNoReturnInfo ess noRetFuncs noRetCallSites =
+    let scfg = ess.SCFG.AddNoReturnInfo ess.BinHandler noRetFuncs noRetCallSites
+    { ess with SCFG = scfg }
 
-  let addIndirectBranchMap hdl corpus indMap =
-    let scfg = corpus.SCFG.AddIndirectBranchMap hdl indMap
-    { corpus with SCFG = scfg }
+  let addIndirectBranchMap ess indMap =
+    let scfg = ess.SCFG.AddIndirectBranchMap ess.BinHandler indMap
+    { ess with SCFG = scfg }
 
   /// This function returns an initial sequence of entry points obtained from
   /// the binary itself (e.g., from its symbol information). Therefore, if the
@@ -134,11 +136,11 @@ module BinCorpus =
       | Some entry -> Set.add entry set
 
   let init hdl graphImpl =
-    let corpus = initCorpus hdl graphImpl
-    match getInitialEntryPoints hdl |> addEntries hdl corpus None with
-    | Ok corpus -> corpus
+    let ess = initEssence hdl graphImpl
+    match getInitialEntryPoints hdl |> addEntries ess None with
+    | Ok ess -> ess
     | Error _ -> Utils.impossible ()
 
   let initByEntries hdl graphImpl entries =
-    let corpus = initCorpus hdl graphImpl
-    addEntries hdl corpus None entries
+    let ess = initEssence hdl graphImpl
+    addEntries ess None entries

@@ -30,12 +30,12 @@ open System.IO
 type SendMsg =
   | GetBinEssence
   | LogString of string
-  | UpdateBinEssence of MiddleEnd.BinEssence
+  | UpdateBinEssence of BinEssence.BinEssence
   | Terminate
 
 type ReplyMsg =
   | Ack
-  | ReplyBinEssence of MiddleEnd.BinEssence
+  | ReplyBinEssence of BinEssence.BinEssence
   | ReplyExitStatus of bool (* Either success (true) or failure (false) *)
 
 type Msg =
