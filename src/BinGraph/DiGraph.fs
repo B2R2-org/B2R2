@@ -24,6 +24,7 @@
 
 namespace B2R2.BinGraph
 
+[<AbstractClass>]
 type DiGraph<'D, 'E when 'D :> VertexData and 'D : equality>
     (core: GraphCore<'D, 'E, DiGraph<'D, 'E>>) =
   inherit Graph<'D, 'E, DiGraph<'D, 'E>> ()

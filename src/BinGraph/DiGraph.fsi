@@ -28,6 +28,7 @@ namespace B2R2.BinGraph
 /// graph algorithms, such as the dominator algorithm. We only expose static
 /// members here to make code consistent for both persistent and imperative
 /// graphs.
+[<AbstractClass>]
 type DiGraph<'D, 'E when 'D :> VertexData and 'D : equality> =
   inherit Graph<'D, 'E, DiGraph<'D, 'E>>
 
