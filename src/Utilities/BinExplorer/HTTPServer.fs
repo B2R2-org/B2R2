@@ -31,7 +31,7 @@ open System.Runtime.Serialization.Json
 open B2R2
 open B2R2.FrontEnd
 open B2R2.BinCorpus
-open B2R2.BinGraph
+open B2R2.Lens
 open B2R2.MiddleEnd
 open B2R2.DataFlow
 open B2R2.Visualization

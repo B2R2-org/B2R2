@@ -27,7 +27,7 @@ module B2R2.Utilities.BinExplorer.Main
 open B2R2
 open B2R2.FrontEnd
 open B2R2.BinCorpus
-open B2R2.BinGraph
+open B2R2.Lens
 open B2R2.MiddleEnd
 open B2R2.Visualization
 open B2R2.Utilities

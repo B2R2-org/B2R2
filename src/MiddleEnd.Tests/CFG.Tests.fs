@@ -26,8 +26,9 @@ namespace B2R2.MiddleEnd.Tests
 
 open B2R2
 open B2R2.FrontEnd
-open B2R2.BinCorpus
 open B2R2.BinGraph
+open B2R2.BinCorpus
+open B2R2.Lens
 open B2R2.BinIR.LowUIR
 open B2R2.MiddleEnd
 open Microsoft.VisualStudio.TestTools.UnitTesting

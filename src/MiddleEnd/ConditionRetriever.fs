@@ -30,6 +30,7 @@ open B2R2.BinIR
 open B2R2.BinIR.SSA
 open B2R2.BinGraph
 open B2R2.BinCorpus
+open B2R2.Lens
 
 /// How do we compare vars? For example, in x86, there are two comparison
 /// instructions: CMP vs. TEST.

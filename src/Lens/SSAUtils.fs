@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module internal B2R2.BinCorpus.SSAUtils
+module internal B2R2.Lens.SSAUtils
 
 open B2R2
 open B2R2.BinIR

@@ -22,9 +22,10 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinCorpus
+namespace B2R2.Lens
 
 open B2R2.BinGraph
+open B2R2.BinCorpus
 
 /// The Lens interface, which is a converter from a graph to another graph. In
 /// B2R2, An IR-level SCFG forms the basis, and we should apply different lenses

@@ -17,14 +17,6 @@
     <Compile Include="SCFGUtils.fs" />
     <Compile Include="SCFG.fs" />
     <Compile Include="BinCorpus.fs" />
-    <Compile Include="ILens.fs" />
-    <Compile Include="DisasmLens.fs" />
-    <Compile Include="SSABlock.fs" />
-    <Compile Include="SSATypes.fs" />
-    <Compile Include="SSAUtils.fs" />
-    <Compile Include="SSAEdges.fs" />
-    <Compile Include="SSALens.fs" />
-    <Compile Include="CallGraphLens.fs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -31,6 +31,7 @@ open B2R2.BinIR
 open B2R2.BinIR.SSA
 open B2R2.BinGraph
 open B2R2.BinCorpus
+open B2R2.Lens
 open B2R2.DataFlow
 
 type IndirectBranchPattern =
