@@ -22,18 +22,21 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd
+namespace B2R2.BinCorpus
 
-open B2R2.FrontEnd
-open B2R2.BinCorpus
+open B2R2
 open B2R2.BinGraph
 
-/// CFG analysis that we perform after constructing the basic SCFG. An analysis
-/// includes no-return analysis, libc start address analysis, switch-case
-/// recovery analysis, etc.
-type IAnalysis =
-  /// Name of the analysis.
-  abstract Name: string
-
-  /// Run the analysis.
-  abstract Run: BinHandler -> BinCorpus -> BinCorpus
+/// The base type for basic block.
+[<AbstractClass>]
+type BasicBlock () =
+  inherit VertexData (VertexData.genID ())
+  /// The start position (ProgramPoint) of the basic block.
+  abstract PPoint: ProgramPoint with get
+  /// The instruction address range of the basic block.
+  abstract Range: AddrRange with get
+  /// Check if this is a fake basic block inserted by our analysis. We create a
+  /// fake block to represent call target vertices in a function-level CFG.
+  abstract IsFakeBlock: unit -> bool
+  /// Convert this basic block to a visual representation.
+  abstract ToVisualBlock: unit -> VisualBlock

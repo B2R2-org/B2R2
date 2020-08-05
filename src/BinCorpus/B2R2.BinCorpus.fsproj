@@ -5,10 +5,26 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Leader.fs" />
     <Compile Include="InstrMap.fs" />
-    <Compile Include="CallAnalysis.fs" />
+    <Compile Include="CalleeMap.fs" />
+    <Compile Include="RecoveredInfo.fs" />
+    <Compile Include="CFGEdgeKind.fs" />
+    <Compile Include="VisualBlock.fs" />
+    <Compile Include="BasicBlock.fs" />
+    <Compile Include="IRBasicBlock.fs" />
+    <Compile Include="ControlFlowGraph.fs" />
+    <Compile Include="CFGExport.fs" />
+    <Compile Include="SCFGUtils.fs" />
+    <Compile Include="SCFG.fs" />
     <Compile Include="BinCorpus.fs" />
+    <Compile Include="ILens.fs" />
+    <Compile Include="DisasmLens.fs" />
+    <Compile Include="SSABlock.fs" />
+    <Compile Include="SSATypes.fs" />
+    <Compile Include="SSAUtils.fs" />
+    <Compile Include="SSAEdges.fs" />
+    <Compile Include="SSALens.fs" />
+    <Compile Include="CallGraphLens.fs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -17,6 +33,7 @@
     <ProjectReference Include="..\FrontEnd\Library\B2R2.FrontEnd.Library.fsproj" />
     <ProjectReference Include="..\FrontEnd\Optimizer\B2R2.FrontEnd.Optimizer.fsproj" />
     <ProjectReference Include="..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\BinGraph\B2R2.BinGraph.fsproj" />
   </ItemGroup>
 
 </Project>

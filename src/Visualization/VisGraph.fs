@@ -25,6 +25,7 @@
 namespace B2R2.Visualization
 
 open B2R2.BinGraph
+open B2R2.BinCorpus
 open System.Collections.Generic
 
 /// The main graph type for visualization.

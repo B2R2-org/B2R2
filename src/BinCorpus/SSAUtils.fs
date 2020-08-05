@@ -22,10 +22,11 @@
   SOFTWARE.
 *)
 
-module internal B2R2.BinGraph.SSAUtils
+module internal B2R2.BinCorpus.SSAUtils
 
 open B2R2
 open B2R2.BinIR
+open B2R2.BinGraph
 
 let computeFrontiers g root =
   let domCtxt = Dominator.initDominatorContext g root

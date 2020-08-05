@@ -28,6 +28,7 @@ open B2R2
 open B2R2.FrontEnd
 open B2R2.BinIR
 open B2R2.BinGraph
+open B2R2.BinCorpus
 open B2R2.BinIR.SSA
 
 let private isGetPCThunkCode = function
@@ -149,7 +150,10 @@ let evalMemDef st mDst e =
     match addr with
     | Const addr ->
       let addr = BitVector.toUInt64 addr
-      CPState.storeMem st mDst rt addr c
+      if CPState.isDefinedMem st mDst rt addr then
+        let c' = CPState.findMem st mDst rt addr
+        CPState.storeMem st mDst rt addr <| CPValue.meet c c'
+      else CPState.storeMem st mDst rt addr c
     | _ -> ()
   | ReturnVal (_, _, mSrc) ->
     CPState.copyMem st mDst.Identifier mSrc.Identifier
@@ -232,7 +236,13 @@ let evalInterJmp cfg st blk = function
     (fun (succ: Vertex<SSABBlock>) ->
       succ.VData.PPoint.Address = BitVector.toUInt64 addr)
     |> markSuccessorsConditionally cfg st blk
-  | _ -> markAllSuccessors cfg st blk
+  | _ ->
+    let insInfos = blk.VData.InsInfos
+    if insInfos.[Array.length insInfos - 1].Instruction.IsCall () then
+      (fun (succ: Vertex<SSABBlock>) ->
+        succ.VData.PPoint |> ProgramPoint.IsFake)
+      |> markSuccessorsConditionally cfg st blk
+    else markAllSuccessors cfg st blk
 
 let evalInterCJmp cfg st blk cond trueExpr falseExpr =
   match cond, trueExpr, falseExpr with

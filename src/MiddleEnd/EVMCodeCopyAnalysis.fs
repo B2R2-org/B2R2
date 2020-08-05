@@ -42,27 +42,26 @@ type EVMCodeCopyAnalysis () =
         let dstAddr = BitVector.toUInt64 dst
         let srcAddr = BitVector.toUInt64 src
         let offset = srcAddr - dstAddr
-        let pp = ProgramPoint (srcAddr, 0)
-        LeaderInfo.Init (pp, ArchOperationMode.NoMode, offset) |> Some
+        (srcAddr, Some (ArchOperationMode.NoMode, offset)) |> Some
       | _ -> None)
 
-  let recoverCopiedCode hdl app =
-    app.InstrMap
-    |> Seq.fold (fun app (KeyValue (_, ins)) ->
+  let recoverCopiedCode hdl (corpus: BinCorpus) =
+    corpus.InstrMap
+    |> Seq.fold (fun corpus (KeyValue (_, ins)) ->
       match ins.Stmts |> findCodeCopy with
-      | None -> app
-      | Some leader ->
-        match app.CalleeMap.Find leader.Point.Address with
-        | None -> Set.singleton leader |> Apparatus.addRecoveredEntries app
-        | Some _ -> app) app
-    |> Apparatus.update hdl
+      | None -> corpus
+      | Some (addr, parseMode) ->
+        match corpus.SCFG.CalleeMap.Find addr with
+        | None ->
+          match BinCorpus.addEntry hdl corpus parseMode addr with
+          | Ok corpus -> corpus
+          | Error _ -> Utils.impossible ()
+        | Some _ -> corpus) corpus
 
   interface IAnalysis with
     member __.Name = "EVM Code Copy Analysis"
 
-    member __.Run hdl scfg app =
+    member __.Run hdl corpus =
       match hdl.FileInfo.ISA.Arch with
-      | Architecture.EVM ->
-        let app = recoverCopiedCode hdl app
-        scfg, app
-      | _ -> scfg, app
+      | Architecture.EVM -> recoverCopiedCode hdl corpus
+      | _ -> corpus

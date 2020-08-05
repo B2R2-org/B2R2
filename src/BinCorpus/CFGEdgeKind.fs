@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinGraph
+namespace B2R2.BinCorpus
 
 /// We distinguish edges of a CFG by classifying them into several kinds.
 type CFGEdgeKind =

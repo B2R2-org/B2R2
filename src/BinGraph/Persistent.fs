@@ -146,10 +146,14 @@ type PersistentCore<'D, 'E when 'D :> VertexData and 'D: equality>
   member private __.InitGraphWithNewEdge (src: Vertex<'D>) (dst: Vertex<'D>) e =
     let srcid = src.GetID ()
     let dstid = dst.GetID ()
-    let preds = Map.add dstid ((dst, src, e) :: Map.find dstid preds) preds
-    let succs = Map.add srcid ((src, dst, e) :: Map.find srcid succs) succs
-    let core = PersistentCore (init, edgeData, vertices, preds, succs)
-    __.InitGraph (Some (upcast core))
+    let existsEdge (src', dst', _) = src = src' && dst = dst'
+    match Map.tryFind srcid succs with
+    | Some ss when List.exists existsEdge ss -> __.InitGraph (Some (upcast __))
+    | _ ->
+      let preds = Map.add dstid ((dst, src, e) :: Map.find dstid preds) preds
+      let succs = Map.add srcid ((src, dst, e) :: Map.find srcid succs) succs
+      let core = PersistentCore (init, edgeData, vertices, preds, succs)
+      __.InitGraph (Some (upcast core))
 
   override __.AddDummyEdge _g src dst =
     __.InitGraphWithNewEdge src dst edgeData
@@ -310,12 +314,14 @@ type PersistentRangedCore<'D, 'E when 'D :> RangedVertexData and 'D: equality>
   member private __.InitGraphWithNewEdge (src: Vertex<'D>) (dst: Vertex<'D>) e =
     let srcid = src.GetID ()
     let dstid = dst.GetID ()
-    let edges = Map.add (srcid, dstid) (src, dst, e) edges
-    let preds = Map.add dstid (src :: Map.find dstid preds) preds
-    let succs = Map.add srcid (dst :: Map.find srcid succs) succs
-    let core = PersistentRangedCore (init, edgeData,
-                                     vertices, rangemap, edges, preds, succs)
-    __.InitGraph (Some (upcast core))
+    if Map.containsKey (srcid, dstid) edges then __.InitGraph (Some (upcast __))
+    else
+      let edges = Map.add (srcid, dstid) (src, dst, e) edges
+      let preds = Map.add dstid (src :: Map.find dstid preds) preds
+      let succs = Map.add srcid (dst :: Map.find srcid succs) succs
+      let core = PersistentRangedCore (init, edgeData,
+                                       vertices, rangemap, edges, preds, succs)
+      __.InitGraph (Some (upcast core))
 
   override __.AddDummyEdge _g src dst =
     __.InitGraphWithNewEdge src dst edgeData

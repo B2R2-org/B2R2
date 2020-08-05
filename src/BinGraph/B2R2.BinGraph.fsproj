@@ -20,23 +20,7 @@
     <Compile Include="Traversal.fs" />
     <Compile Include="Dominator.fsi" />
     <Compile Include="Dominator.fs" />
-    <Compile Include="CFGEdgeKind.fs" />
-    <Compile Include="VisualBlock.fs" />
-    <Compile Include="BasicBlock.fs" />
-    <Compile Include="IRBasicBlock.fs" />
-    <Compile Include="ControlFlowGraph.fs" />
-    <Compile Include="CFGExport.fs" />
     <Compile Include="SCC.fs" />
-    <Compile Include="SCFGUtils.fs" />
-    <Compile Include="SCFG.fs" />
-    <Compile Include="ILens.fs" />
-    <Compile Include="DisasmLens.fs" />
-    <Compile Include="SSABlock.fs" />
-    <Compile Include="SSATypes.fs" />
-    <Compile Include="SSAUtils.fs" />
-    <Compile Include="SSAEdges.fs" />
-    <Compile Include="SSALens.fs" />
-    <Compile Include="CallGraphLens.fs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -50,7 +34,6 @@
     <ProjectReference Include="..\FrontEnd\MIPS\B2R2.FrontEnd.MIPS.fsproj" />
     <ProjectReference Include="..\FrontEnd\Library\B2R2.FrontEnd.Library.fsproj" />
     <ProjectReference Include="..\FrontEnd\Optimizer\B2R2.FrontEnd.Optimizer.fsproj" />
-    <ProjectReference Include="..\BinCorpus\B2R2.BinCorpus.fsproj" />
   </ItemGroup>
 
 </Project>

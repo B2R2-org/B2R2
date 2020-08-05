@@ -22,16 +22,16 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinGraph
+namespace B2R2.BinCorpus
 
 open B2R2
 open B2R2.FrontEnd
-open B2R2.BinCorpus
+open B2R2.BinGraph
 open System
 open System.Collections.Generic
 
 /// Basic block type for a disassembly-based CFG (DisasmCFG).
-type DisasmBBlock (instrs: Instruction [], pp, app: Apparatus) =
+type DisasmBBlock (instrs: Instruction [], pp, corpus: BinCorpus) =
   inherit BasicBlock()
 
   let mutable instructions = instrs
@@ -40,7 +40,7 @@ type DisasmBBlock (instrs: Instruction [], pp, app: Apparatus) =
     let last = words.[words.Length - 1]
     if ins.IsBranch () && last.AsmWordKind = AsmWordKind.Value then
       let addr = Convert.ToUInt64 (last.AsmWordValue, 16)
-      match app.CalleeMap.Find (addr) with
+      match corpus.SCFG.CalleeMap.Find (addr) with
       | Some callee ->
         words.[words.Length - 1] <-
           { AsmWordKind = AsmWordKind.Value; AsmWordValue = callee.CalleeID }
@@ -99,12 +99,12 @@ module DisasmCFG =
 type DisasmVMap = Dictionary<Addr, Vertex<DisasmBBlock>>
 
 /// A graph lens for obtaining DisasmCFG.
-type DisasmLens (app) =
+type DisasmLens (corpus) =
   let getVertex g (vMap: DisasmVMap) oldVertex addr =
     match vMap.TryGetValue addr with
     | false, _ ->
       let instrs = (oldVertex: Vertex<IRBasicBlock>).VData.GetInstructions ()
-      let blk = DisasmBBlock (instrs, oldVertex.VData.PPoint, app)
+      let blk = DisasmBBlock (instrs, oldVertex.VData.PPoint, corpus)
       let v, g = DiGraph.addVertex g blk
       vMap.Add (addr, v)
       v, g
@@ -175,4 +175,4 @@ type DisasmLens (app) =
       let newGraph = dfs (merge vMap) (addEdge vMap) g newGraph roots
       newGraph, roots'
 
-  static member Init (app) = DisasmLens (app) :> ILens<DisasmBBlock>
+  static member Init (corpus) = DisasmLens (corpus) :> ILens<DisasmBBlock>

@@ -22,32 +22,39 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinGraph
+namespace B2R2.BinCorpus
 
-type ControlFlowGraph<'D, 'E when 'D :> BasicBlock and 'D : equality>
-    (core: GraphCore<'D, 'E, DiGraph<'D, 'E>>) =
-  inherit DiGraph<'D, 'E> (core)
+open B2R2
 
-type IRCFG = ControlFlowGraph<IRBasicBlock, CFGEdgeKind>
+type IndirectBranchInfo = {
+  /// The host function (owner) of the indirect jump.
+  HostFunctionAddr: Addr
+  /// Possible target addresses.
+  TargetAddresses: Set<Addr>
+  /// Information about the corresponding jump table (if exists).
+  JumpTableInfo: JumpTableInfo option
+}
 
-[<RequireQualifiedAccess>]
-module IRCFG =
-  let private initializer core =
-    IRCFG (core) :> DiGraph<IRBasicBlock, CFGEdgeKind>
+/// Jump table (for switch-case) information.
+and JumpTableInfo = {
+  /// Base address of the jump table.
+  JTBaseAddr: Addr
+  /// The start and the end address of the jump table (AddrRange).
+  JTRange: AddrRange
+  /// Size of each entry of the table.
+  JTEntrySize: RegType
+}
+with
+  static member Init jtBase jtRange jtEntrySize =
+    { JTBaseAddr = jtBase ; JTRange = jtRange ; JTEntrySize = jtEntrySize }
 
-  let private initImperative () =
-    ImperativeCore<IRBasicBlock, CFGEdgeKind> (initializer, UnknownEdge)
-    |> IRCFG
-    :> DiGraph<IRBasicBlock, CFGEdgeKind>
-
-  let private initPersistent () =
-    PersistentCore<IRBasicBlock, CFGEdgeKind> (initializer, UnknownEdge)
-    |> IRCFG
-    :> DiGraph<IRBasicBlock, CFGEdgeKind>
-
-  /// Initialize IRCFG based on the implementation type.
-  let init = function
-    | ImperativeGraph -> initImperative ()
-    | PersistentGraph -> initPersistent ()
-
-// vim: set tw=80 sts=2 sw=2:
+/// No-return function info.
+type NoReturnInfo = {
+  /// No-return function addresses.
+  NoReturnFuncs: Set<Addr>
+  /// Program points of no-return call sites.
+  NoReturnCallSites: Set<ProgramPoint>
+}
+with
+  static member Init noRetFuncs noRetCallSites =
+    { NoReturnFuncs = noRetFuncs ; NoReturnCallSites = noRetCallSites }

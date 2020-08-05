@@ -64,7 +64,7 @@ module IntervalSet =
       let z = (s.Monoid :> IMonoid<InterMonoid<Addr>>).Zero
       let (_, x, _) =
         Op.SplitTree (fun (e: InterMonoid<Addr>) -> Prio il < e.GetMax()) z s
-      x.Min <= ih
+      x.Min < ih
     else false
 
   /// Find all overlapping intervals.
@@ -104,6 +104,20 @@ module IntervalSet =
         if i.Min = x.Min then containLoop xs
         else false
     containLoop r
+
+  let remove (i: AddrRange) (IntervalSet s) =
+    let l, r =
+      Op.Split (fun (e: InterMonoid<Addr>) -> Key i.Min <= e.GetMin ()) s
+    let rec rmLoop l r =
+      match Op.ViewL r with
+      | Nil -> raise InvalidAddrRangeException
+      | Cons (x: IntervalSetElem, xs)
+        when x.Min = i.Min && x.Max = i.Max ->
+        Op.Concat l xs
+      | Cons (x, xs) ->
+        if i.Min = x.Min then rmLoop (Op.Snoc l x) xs
+        else raise InvalidAddrRangeException
+    IntervalSet <| rmLoop l r
 
   /// Fold the set.
   let fold fn acc (IntervalSet s) =

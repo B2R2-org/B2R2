@@ -49,7 +49,7 @@ type ConditionRetriever () =
   /// Find the corresponding comparison instruction from the given variable, and
   /// return its operands.
   abstract member FindComparison:
-    Apparatus
+    BinCorpus
     -> Vertex<SSABBlock>
     -> Variable
     -> IntermediateComparisonInfo option
@@ -169,11 +169,11 @@ and IntelConditionRetriever () =
     | _ :: stmts -> findTwoOperands addr isTarget first stmts
     | [] -> Utils.impossible ()
 
-  override __.FindComparison app v condVar =
+  override __.FindComparison corpus v condVar =
     let ppoint = v.VData.PPoint
     let stmts = Array.toList v.VData.Stmts
     let addr = __.FindAddr condVar ppoint.Address stmts
-    let ins = app.InstrMap.[addr].Instruction :?> Intel.IntelInstruction
+    let ins = corpus.InstrMap.[addr].Instruction :?> Intel.IntelInstruction
     match ins.Info.Opcode, ins.Info.Operands with
     | Intel.Opcode.CMP, Intel.TwoOperands (Intel.OprMem _, Intel.OprImm _)
     | Intel.Opcode.CMP, Intel.TwoOperands (Intel.OprReg _, Intel.OprImm _)

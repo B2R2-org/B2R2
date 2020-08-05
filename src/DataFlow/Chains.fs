@@ -26,6 +26,7 @@ namespace B2R2.DataFlow
 
 open B2R2
 open B2R2.BinGraph
+open B2R2.BinCorpus
 
 type DataFlowChain = {
   UseDefChain: Map<VarPoint, Set<VarPoint>>

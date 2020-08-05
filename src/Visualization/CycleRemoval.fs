@@ -26,36 +26,36 @@ module internal B2R2.Visualization.CycleRemoval
 
 open B2R2.BinGraph
 
-let private removeSelfCycle (vGraph: VisGraph) backEdgeList src dst _ =
+let private collectSelfCycle backEdgeList src dst edge =
   if VisGraph.getID src = VisGraph.getID dst then (* Definition of self cycle *)
-    let edge = vGraph.FindEdgeData src dst
-    edge.IsBackEdge <- true
-    (* We should remove self cycles. *)
-    vGraph.RemoveEdge src dst |> ignore
-    (src, dst, edge) :: backEdgeList
+    (edge: VisEdge).IsBackEdge <- true
+    (src, dst, edge, false) :: backEdgeList
   else backEdgeList
 
-let private removeBackEdge (vGraph: VisGraph) order backEdgeList src dst _ =
+let private collectBackEdge (vGraph: VisGraph) order backEdgeList src dst edge =
   if Map.find src order > Map.find dst order then // BackEdge
     match vGraph.TryFindEdgeData dst src with
-    | Some edge -> // exist opposite edges
-      edge.IsBackEdge <- true
-      vGraph.RemoveEdge src dst |> ignore
-      (src, dst, edge) :: backEdgeList
+    | Some _ -> // exist opposite edges
+      (edge: VisEdge).IsBackEdge <- true
+      (src, dst, edge, false) :: backEdgeList
     | None -> // single backedge
-      let edge = vGraph.FindEdgeData src dst
       edge.IsBackEdge <- true
-      vGraph.RemoveEdge src dst |> ignore
-      vGraph.AddEdge dst src edge |> ignore
-      (src, dst, edge) :: backEdgeList
+      (src, dst, edge, true) :: backEdgeList
   else backEdgeList
 
-let private dfsRemoveCycles vGraph roots backEdgeList =
+let removeBackEdge (vGraph: VisGraph) (src, dst, edge, addReverse) =
+  vGraph.RemoveEdge src dst |> ignore
+  if addReverse then vGraph.AddEdge dst src edge |> ignore
+
+let private dfsCollectBackEdges vGraph roots backEdgeList =
   let _, orderMap =
     Traversal.foldTopologically vGraph roots (fun (cnt, map) v ->
       cnt + 1, Map.add v cnt map) (0, Map.empty)
-  vGraph.FoldEdge (removeBackEdge vGraph orderMap) backEdgeList
+  vGraph.FoldEdge (collectBackEdge vGraph orderMap) backEdgeList
 
 let removeCycles (vGraph: VisGraph) roots =
-  let backEdgeList = vGraph.FoldEdge (removeSelfCycle vGraph) []
-  dfsRemoveCycles vGraph roots backEdgeList
+  let backEdgeList =
+    vGraph.FoldEdge collectSelfCycle []
+    |> dfsCollectBackEdges vGraph roots
+  backEdgeList |> List.iter (removeBackEdge vGraph)
+  backEdgeList |> List.map (fun (src, dst, edge, _) -> (src, dst, edge))

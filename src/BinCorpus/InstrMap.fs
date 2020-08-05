@@ -26,6 +26,7 @@ namespace B2R2.BinCorpus
 
 open B2R2
 open B2R2.FrontEnd
+open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open System.Collections.Generic
 
@@ -34,6 +35,8 @@ open System.Collections.Generic
 type InstructionInfo = {
   Instruction: Instruction
   Stmts: Stmt []
+  Labels: Map<Symbol, ProgramPoint>
+  IRLeaders: Set<ProgramPoint>
   ArchOperationMode: ArchOperationMode
   /// Instruction itself contains its address, but we may want to place this
   /// instruction in a different location in a virtual address space. This field
@@ -42,20 +45,26 @@ type InstructionInfo = {
   Offset: Addr
 }
 
-/// Address to an InstructionInfo mapping.
+/// Address to an InstructionInfo mapping. InstrMap contains both valid and
+/// bogus instructions so do not use InstrMap directly for analyses.
 type InstrMap = Dictionary<Addr, InstructionInfo>
 
 [<RequireQualifiedAccess>]
 module InstrMap =
-  let private updateLeaders hdl (map: InstrMap) leaders offset newTargets =
-    let rec loop leaders = function
-      | [] -> leaders
-      | (addr, mode) :: rest ->
-        if map.ContainsKey addr then loop leaders rest
-        else
-          let info = LeaderInfo.Init (hdl, addr, mode, offset)
-          loop (info :: leaders) rest
-    Seq.toList newTargets |> loop leaders
+
+  let private updateParseMode hdl parseMode leader =
+    match parseMode with
+    | Some (mode, offset) ->
+      hdl.ParsingContext.ArchOperationMode <- mode
+      hdl.ParsingContext.CodeOffset <- offset
+    | None ->
+      match hdl.ISA.Arch with
+      | Arch.ARMv7 when leader &&& 1UL <> 0UL ->
+        hdl.ParsingContext.ArchOperationMode <- ArchOperationMode.ThumbMode
+      | _ -> ()
+    match hdl.ParsingContext.ArchOperationMode with
+    | ArchOperationMode.ThumbMode when leader &&& 1UL <> 0UL -> leader - 1UL
+    | _ -> leader
 
   /// Remove unnecessary IEMark to ease the analysis.
   let private trimIEMark (stmts: Stmt []) =
@@ -72,75 +81,59 @@ module InstrMap =
     BinHandler.Optimize stmts
     |> trimIEMark
 
+  let private findLabels addr stmts =
+    stmts
+    |> Array.foldi (fun labels idx stmt ->
+      match stmt with
+      | LMark (s) ->
+        Map.add s (ProgramPoint (addr, idx)) labels
+      | _ -> labels) Map.empty
+    |> fst
+
+  let private findIRLeaders labels stmts =
+    stmts
+    |> Array.fold (fun targets stmt ->
+      match stmt with
+      | Jmp (Name s) -> Set.add (Map.find s labels) targets
+      | CJmp (_, Name t, Name f) ->
+        targets |> Set.add (Map.find t labels) |> Set.add (Map.find f labels)
+      | InterJmp (_, Num bv, _) ->
+        let ppoint = ProgramPoint (BitVector.toUInt64 bv, 0)
+        Set.add ppoint targets
+      | InterCJmp (_, _, Num tBv, Num fBv) ->
+        let tPpoint = ProgramPoint (BitVector.toUInt64 tBv, 0)
+        let fPpoint = ProgramPoint (BitVector.toUInt64 fBv, 0)
+        targets |> Set.add tPpoint |> Set.add fPpoint
+      | InterCJmp (_, _, Num tBv, _) ->
+        let tPpoint = ProgramPoint (BitVector.toUInt64 tBv, 0)
+        Set.add tPpoint targets
+      | InterCJmp (_, _, _, Num fBv) ->
+        let fPpoint = ProgramPoint (BitVector.toUInt64 fBv, 0)
+        Set.add fPpoint targets
+      | _ -> targets) Set.empty
+
   let private newInstructionInfo hdl (ins: Instruction) =
+    let stmts = BinHandler.LiftInstr hdl ins |> trim
+    let labels = findLabels ins.Address stmts
     { Instruction = ins
-      Stmts = BinHandler.LiftInstr hdl ins |> trim
+      Stmts = stmts
+      Labels = labels
+      IRLeaders = findIRLeaders labels stmts
       ArchOperationMode = hdl.ParsingContext.ArchOperationMode
       Offset = hdl.ParsingContext.CodeOffset }
 
-  let rec private updateInstrMapAndGetTheLastInstr hdl (map: InstrMap) insList =
-    match (insList: Instruction list) with
-    | [] -> failwith "Fatal error: an empty block encountered."
-    | last :: [] ->
-      try map.[last.Address] <- newInstructionInfo hdl last with _ -> ()
-      last
-    | instr :: rest ->
-      try map.[instr.Address] <- newInstructionInfo hdl instr with _ -> ()
-      updateInstrMapAndGetTheLastInstr hdl map rest
+  let rec private updateInstrMap hdl (instrMap: InstrMap) (instr: Instruction) =
+    instrMap.[instr.Address] <- newInstructionInfo hdl instr
+    instrMap
 
-  let inline private isExecutableLeader hdl leaderInfo =
-    hdl.FileInfo.IsExecutableAddr leaderInfo.Point.Address
-
-  let inline private isAlreadyParsed (map: InstrMap) leaderInfo =
-    map.ContainsKey leaderInfo.Point.Address
-
-  let inline private isMeetBound bblBound instrs =
-    match bblBound with
-    | Some bblBound ->
-      instrs |> List.exists (fun (i: Instruction) -> i.Address = bblBound)
-    | None -> false
-
-  /// Update the map (InstrMap) from the given leaders, and returns both
-  /// InstrMap and a set of leaders. The set may change when a leader falls
-  /// through an existing basic block without an explicit branch instruction.
-  /// See InstrMap.build for more explanation about our design choice.
-  let update (hdl: BinHandler) map bblBound leaders =
-    let newLeaders = Dictionary<Addr, LeaderInfo> ()
-    let rec buildLoop leaderSet = function
-      | [] -> map, leaderSet
-      | leaderInfo :: rest when isExecutableLeader hdl leaderInfo |> not ->
-        buildLoop (Set.remove leaderInfo leaderSet) rest
-      | leaderInfo :: rest when isAlreadyParsed map leaderInfo ->
-        buildLoop leaderSet rest
-      | leaderInfo :: rest ->
-        hdl.ParsingContext.ArchOperationMode <- leaderInfo.Mode
-        hdl.ParsingContext.CodeOffset <- leaderInfo.Offset
-        match BinHandler.ParseBBlock hdl leaderInfo.Point.Address with
-        | Ok instrs ->
-          if isMeetBound bblBound instrs then
-            buildLoop (Set.remove leaderInfo leaderSet) rest
-          else
-            let last = updateInstrMapAndGetTheLastInstr hdl map instrs
-            let leaders =
-              last.GetNextInstrAddrs ()
-              |> updateLeaders hdl map rest leaderInfo.Offset
-            newLeaders.[leaderInfo.Point.Address] <- leaderInfo
-            buildLoop leaderSet leaders
-        | _ -> buildLoop (Set.remove leaderInfo leaderSet) rest
-    let map, set = buildLoop leaders (Set.toList leaders)
-    map, newLeaders.Values |> Seq.fold (fun set l -> Set.add l set) set
-
-  /// Build a mapping from Addr to Instruction. This function recursively parses
-  /// the binary, but does not lift it yet. Since GetNextInstrAddrs returns next
-  /// concrete target addresses, this function does *not* reveal all reachable
-  /// instructions. Such uncovered instructions should be handled in the next
-  /// phase. If the bblBound parameter is given, this function will exclude any
-  /// block that falls to the bblBound address without having an explicit branch
-  /// instruction. This means, we discard any block that starts with no-op(s)
-  /// followed by a known valid basic block, as this is against the definition
-  /// of basic block. Note, however, we do not exclude overlapping basic blocks
-  /// that appear in obfuscated code. In other words, we do *include* cases
-  /// where a block falls through the middle of another block.
-  let build (hdl: BinHandler) leaders bblBound =
-    let map = InstrMap ()
-    update hdl map bblBound leaders
+  /// InstrMap will only have this api: to update InstrMap, developer should use
+  /// use this function. Removing instruction from InstrMap should be prohibited.
+  let parse hdl parseMode instrMap leader =
+    let leader = updateParseMode hdl parseMode leader
+    match BinHandler.ParseBBlock hdl leader with
+    | Ok [] -> failwith "Fatal error: an empty block encountered."
+    | Ok instrs ->
+      let instrMap = List.fold (updateInstrMap hdl) instrMap instrs
+      let addrs = List.map (fun (instr: Instruction) -> instr.Address) instrs
+      Ok (instrMap, addrs)
+    | Error _ -> Error ()

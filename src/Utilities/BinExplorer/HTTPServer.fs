@@ -130,21 +130,21 @@ let cfgToJSON cfgType ess g roots =
   | IRCFG ->
     Visualizer.getJSONFromGraph g roots
   | DisasmCFG ->
-    let lens = DisasmLens.Init ess.Apparatus
-    let g, roots = lens.Filter (g, roots, ess.Apparatus)
+    let lens = DisasmLens.Init ess.BinCorpus
+    let g, roots = lens.Filter (g, roots, ess.BinCorpus)
     Visualizer.getJSONFromGraph g roots
   | SSACFG ->
-    let lens = SSALens.Init ess.BinHandler ess.SCFG
-    let g, roots = lens.Filter (g, roots, ess.Apparatus)
+    let lens = SSALens.Init ess.BinHandler ess.BinCorpus.SCFG
+    let g, roots = lens.Filter (g, roots, ess.BinCorpus)
     Visualizer.getJSONFromGraph g roots
   | _ -> failwith "Invalid CFG type"
 
-let handleRegularCFG req resp name (ess: BinEssence) cfgType =
-  match ess.SCFG.FindFunctionEntryByName name with
+let handleRegularCFG req resp (name: string) (ess: BinEssence) cfgType =
+  match ess.BinCorpus.SCFG.CalleeMap.Find name with
   | None -> answer req resp None
-  | Some addr ->
+  | Some callee ->
     try
-      let cfg, root = ess.SCFG.GetFunctionCFG (addr)
+      let cfg, root = ess.BinCorpus.SCFG.GetFunctionCFG (callee.Addr.Value)
       let s = cfgToJSON cfgType ess cfg [root]
       Some (defaultEnc.GetBytes s) |> answer req resp
     with e ->
@@ -159,9 +159,9 @@ let handleCFG req resp arbiter cfgType name =
   match cfgType with
   | CallCFG ->
     try
-      let lens = CallGraphLens.Init ess.SCFG
-      let cfg = ess.SCFG.Graph
-      let g, roots = lens.Filter (cfg, [], ess.Apparatus)
+      let lens = CallGraphLens.Init ess.BinCorpus.SCFG
+      let cfg = ess.BinCorpus.SCFG.Graph
+      let g, roots = lens.Filter (cfg, [], ess.BinCorpus)
       let s = Visualizer.getJSONFromGraph g roots
       Some (defaultEnc.GetBytes s) |> answer req resp
     with e ->
@@ -175,7 +175,7 @@ let handleCFG req resp arbiter cfgType name =
 let handleFunctions req resp arbiter =
   let ess = Protocol.getBinEssence arbiter
   let names =
-    Apparatus.getInternalFunctions ess.Apparatus
+    ess.BinCorpus.SCFG.CalleeMap.InternalCallees
     |> Seq.map (fun c -> { FuncID = c.CalleeID; FuncName = c.CalleeName })
     |> Seq.toArray
   Some (json<(JsonFuncInfo) []> names |> defaultEnc.GetBytes)
@@ -224,7 +224,7 @@ let handleDataflow req resp arbiter (args: string) =
   let addr = args.[1] |> uint64
   let var = args.[2] |> ess.BinHandler.RegisterBay.RegIDFromString
   try
-    let cfg, root = ess.SCFG.GetFunctionCFG (entry)
+    let cfg, root = ess.BinCorpus.SCFG.GetFunctionCFG (entry)
     let chain = DataFlowChain.init cfg root true
     let v = { ProgramPoint = ProgramPoint (addr, 0); VarExpr = Regular var }
     computeConnectedVars chain v

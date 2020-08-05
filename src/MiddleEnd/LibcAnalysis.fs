@@ -28,15 +28,10 @@ open B2R2
 open B2R2.FrontEnd
 open B2R2.BinCorpus
 open B2R2.ConcEval
-open B2R2.BinGraph
 open B2R2.MiddleEnd.EmulationHelper
 
 module private LibcAnalysisHelper =
-  let buildNewEntrySet hdl addrs =
-    addrs |> List.fold (fun set a ->
-      Set.add (LeaderInfo.Init (hdl, a)) set) Set.empty
-
-  let retrieveAddrsForx86 hdl app st =
+  let retrieveAddrsForx86 hdl (corpus: BinCorpus) st =
     let esp = (Intel.Register.ESP |> Intel.Register.toRegID)
     match EvalState.GetReg st esp with
     | Def sp ->
@@ -49,70 +44,66 @@ module private LibcAnalysisHelper =
         readMem st p5 Endian.Little 32<rt>
         readMem st p6 Endian.Little 32<rt> ]
       |> List.choose id
-      |> List.filter (fun addr -> app.InstrMap.ContainsKey addr |> not)
+      |> List.filter (fun addr -> corpus.InstrMap.ContainsKey addr |> not)
       |> function
-        | [] -> app
+        | [] -> corpus
         | addrs ->
-          let entries = buildNewEntrySet hdl addrs
-          Apparatus.addRecoveredEntries app entries
-    | Undef -> app
+          match addrs |> Set.ofList |> BinCorpus.addEntries hdl corpus None with
+          | Ok corpus -> corpus
+          | _ -> Utils.impossible ()
+    | Undef -> corpus
 
-  let retrieveAddrsForx64 hdl app st =
+  let retrieveAddrsForx64 hdl (corpus: BinCorpus) st =
     [ readReg st (Intel.Register.RDI |> Intel.Register.toRegID)
       readReg st (Intel.Register.RCX |> Intel.Register.toRegID)
       readReg st (Intel.Register.R8 |> Intel.Register.toRegID)
       readReg st (Intel.Register.R9 |> Intel.Register.toRegID) ]
     |> List.choose id
     |> List.map BitVector.toUInt64
-    |> List.filter (fun addr -> app.InstrMap.ContainsKey addr |> not)
+    |> List.filter (fun addr -> corpus.InstrMap.ContainsKey addr |> not)
     |> function
-      | [] -> app
+      | [] -> corpus
       | addrs ->
-        let entries = buildNewEntrySet hdl addrs
-        Apparatus.addRecoveredEntries app entries
+        match addrs |> Set.ofList |> BinCorpus.addEntries hdl corpus None with
+        | Ok corpus -> corpus
+        | _ -> Utils.impossible ()
 
-  let retrieveLibcStartAddresses hdl app = function
-    | None -> app
+  let retrieveLibcStartAddresses hdl corpus = function
+    | None -> corpus
     | Some st ->
       match hdl.ISA.Arch with
-      | Arch.IntelX86 -> retrieveAddrsForx86 hdl app st
-      | Arch.IntelX64 -> retrieveAddrsForx64 hdl app st
-      | _ -> app
+      | Arch.IntelX86 -> retrieveAddrsForx86 hdl corpus st
+      | Arch.IntelX64 -> retrieveAddrsForx64 hdl corpus st
+      | _ -> corpus
 
-  let analyzeLibcStartMain hdl (scfg: SCFG) app callerAddr =
-    match scfg.FindFunctionVertex callerAddr with
-    | None -> app
+  let analyzeLibcStartMain hdl corpus callerAddr =
+    match corpus.SCFG.FindFunctionVertex callerAddr with
+    | None -> corpus
     | Some root ->
       let st = EvalState (memoryReader hdl, true)
       let rootAddr = root.VData.PPoint.Address
       let st = initRegs hdl |> EvalState.PrepareContext st 0 rootAddr
       try
-        eval scfg root st (fun last -> last.Address = callerAddr)
-        |> retrieveLibcStartAddresses hdl app
-      with _ -> app
+        eval corpus.SCFG root st (fun last -> last.Address = callerAddr)
+        |> retrieveLibcStartAddresses hdl corpus
+      with _ -> corpus
 
-  let recoverAddrsFromLibcStartMain hdl scfg app =
-    match app.CalleeMap.Find "__libc_start_main" with
+  let recoverAddrsFromLibcStartMain hdl corpus =
+    match corpus.SCFG.CalleeMap.Find "__libc_start_main" with
     | Some callee ->
-      match List.tryExactlyOne callee.Callers with
-      | None -> app
-      | Some caller -> analyzeLibcStartMain hdl scfg app caller
-    | None -> app
+      match List.tryExactlyOne <| Set.toList callee.Callers with
+      | None -> corpus
+      | Some caller -> analyzeLibcStartMain hdl corpus caller
+    | None -> corpus
 
-  let recoverLibcEntries hdl (scfg: SCFG) app =
+  let recoverLibcEntries hdl corpus =
     match hdl.FileInfo.FileFormat with
-    | FileFormat.ELFBinary ->
-      let app' =
-        recoverAddrsFromLibcStartMain hdl scfg app
-        |> Apparatus.update hdl
-      match SCFG.Init (hdl, app', scfg.GraphImplementationType) with
-      | Ok scfg -> scfg, app'
-      | Error e -> failwithf "Failed to recover libc due to %A" e
-    | _ -> scfg, app
+    | FileFormat.ELFBinary -> recoverAddrsFromLibcStartMain hdl corpus
+    | _ -> corpus
 
 type LibcAnalysis () =
   interface IAnalysis with
     member __.Name = "LibC Analysis"
 
-    member __.Run hdl scfg app =
-      LibcAnalysisHelper.recoverLibcEntries hdl scfg app
+    member __.Run hdl corpus =
+      LibcAnalysisHelper.recoverLibcEntries hdl corpus

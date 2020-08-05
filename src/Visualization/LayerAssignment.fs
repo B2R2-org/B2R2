@@ -128,28 +128,35 @@ let rec addDummy (g: VisGraph) (backEdges, dummies) k (src: Vertex<_>) (dst: Ver
     let dummies = Map.add k (eData, dummy :: vertices) dummies
     addDummy g (backEdges, dummies) k dummy dst e (cnt - 1)
 
-let addDummyNodes (vGraph: VisGraph) (backEdges, dummies) src dst _ =
+let chooseBackEdgesWithDummy (backEdges, withDummy) src dst edge =
   let delta = VisGraph.getLayer dst - VisGraph.getLayer src
   if delta > 1 then
-    let edge = vGraph.FindEdgeData src dst
     let backEdges =
-      if edge.IsBackEdge then List.filter (fun (_, _, e) -> e <> edge) backEdges
+      if (edge: VisEdge).IsBackEdge then
+        List.filter (fun (_, _, e) -> e <> edge) backEdges
       else backEdges
-    vGraph.RemoveEdge src dst |> ignore
-    let k = if edge.IsBackEdge then dst, src else src, dst
-    let dummies = Map.add k (edge, []) dummies
-    let backEdges, dummies =
-      addDummy vGraph (backEdges, dummies) k src dst edge (delta - 1)
-    let dummies =
-      if edge.IsBackEdge then
-        let eData, vertices = Map.find k dummies
-        Map.add k (eData, List.rev vertices) dummies
-      else dummies
-    backEdges, dummies
-  else backEdges, dummies
+    let withDummy = (src, dst, edge, delta) :: withDummy
+    backEdges, withDummy
+  else backEdges, withDummy
+
+let addDummyNodes vGraph (backEdges, dummies) (src, dst, edge, delta) =
+  (vGraph: VisGraph).RemoveEdge src dst |> ignore
+  let k = if (edge: VisEdge).IsBackEdge then dst, src else src, dst
+  let dummies = Map.add k (edge, []) dummies
+  let backEdges, dummies =
+    addDummy vGraph (backEdges, dummies) k src dst edge (delta - 1)
+  let dummies =
+    if edge.IsBackEdge then
+      let eData, vertices = Map.find k dummies
+      Map.add k (eData, List.rev vertices) dummies
+    else dummies
+  backEdges, dummies
 
 let assignDummyNodes (vGraph: VisGraph) backEdgeList =
-  vGraph.FoldEdge (addDummyNodes vGraph) (backEdgeList, Map.empty)
+  let backEdgeList, withDummy =
+    vGraph.FoldEdge (chooseBackEdgesWithDummy) (backEdgeList, [])
+  withDummy
+  |> List.fold (addDummyNodes vGraph) (backEdgeList, Map.empty)
 
 let assignLayers vGraph backEdgeList =
   /// XXX: We'll make an option argument to select layer assignment algorithm

@@ -28,6 +28,7 @@ open B2R2
 open B2R2.FrontEnd
 open B2R2.BinIR.SSA
 open B2R2.BinGraph
+open B2R2.BinCorpus
 open System.Collections.Generic
 
 /// An ID of an SSA memory instance.
@@ -100,6 +101,15 @@ module CPState =
     match st.RegState.TryGetValue r with
     | true, v -> v
     | false, _ -> NotAConst
+
+  let isDefinedMem st m rt addr =
+    let mid = m.Identifier
+    let align = RegType.toByteWidth rt |> uint64
+    if st.MemState.ContainsKey mid then
+      if (rt = st.DefaultWordSize) && (addr % align = 0UL) then
+        Map.containsKey addr st.MemState.[mid]
+      else false
+    else false
 
   let findMem st m rt addr =
     let mid = m.Identifier
