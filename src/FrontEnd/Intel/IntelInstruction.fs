@@ -96,6 +96,7 @@ type IntelInstruction (addr, numBytes, insInfo, wordSz) =
     || __.Info.Opcode = Opcode.SYSENTER
     || __.Info.Opcode = Opcode.SYSEXIT
     || __.Info.Opcode = Opcode.SYSRET
+    || __.Info.Opcode = Opcode.UD2
 
   override __.DirectBranchTarget (addr: byref<Addr>) =
     if __.IsBranch () then
@@ -132,6 +133,7 @@ type IntelInstruction (addr, numBytes, insInfo, wordSz) =
       if __.IsCondBranch () then acc |> __.AddBranchTargetIfExist
       else __.AddBranchTargetIfExist Seq.empty
     elif __.Info.Opcode = Opcode.HLT then Seq.empty
+    elif __.Info.Opcode = Opcode.UD2 then Seq.empty
     else acc
 
   override __.InterruptNum (num: byref<int64>) =

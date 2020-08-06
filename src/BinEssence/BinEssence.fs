@@ -364,7 +364,8 @@ module BinEssence =
       match stmts.[stmts.Length - 1] with
       | InterJmp (_, _, InterJmpInfo.IsCall) -> false
       | InterJmp (_, _, _)
-      | SideEffect (BinIR.Halt) -> true
+      | SideEffect (BinIR.Halt)
+      | SideEffect (BinIR.UndefinedInstr) -> true
       | _ -> false
     else false
 
@@ -518,9 +519,9 @@ module BinEssence =
     | InterCJmp (_) ->
       src.VData.HasIndirectBranch <- true
       ess, getIndirectEdges ess.IndirectBranchMap src false edges
-    | SideEffect (BinIR.Halt) -> ess, edges
-    | SideEffect (BinIR.SysCall) when ess.IsNoReturn src ->
-      ess, edges
+    | SideEffect (BinIR.SysCall) when ess.IsNoReturn src -> ess, edges
+    | SideEffect (BinIR.Halt)
+    | SideEffect (BinIR.UndefinedInstr) -> ess, edges
     | _ -> (* Fall through case *)
       let next = getNextPPoint src
       if next.Position = 0 then
