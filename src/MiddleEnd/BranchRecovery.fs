@@ -57,7 +57,7 @@ module private BranchRecoveryHelper =
       computeFunctionBoundary acc (next :: addrs)
 
   let computeCalleeAddrs ess =
-    ess.SCFG.CalleeMap.Callees
+    ess.CalleeMap.Callees
     |> Seq.choose (fun callee -> callee.Addr)
     |> Seq.toList
     |> filterOutLinkageTables ess.BinHandler
@@ -223,8 +223,7 @@ module private BranchRecoveryHelper =
       else targets, startAddr, ess
 
   let getMaxAddr tableAddrs ess insAddr startAddr maxAddr =
-    let scfg = ess.SCFG
-    match Map.tryFind insAddr scfg.IndirectBranchMap with
+    match Map.tryFind insAddr ess.IndirectBranchMap with
     | Some ({ JumpTableInfo = Some info }) ->
       tableAddrs |> Set.remove info.JTRange.Min
     | _ -> tableAddrs
@@ -239,12 +238,12 @@ module private BranchRecoveryHelper =
         let fromApp = Set.minElement s
         min fromAnalysis fromApp |> Some
 
-  let getBlockAddr ess insAddr =
-    let v = ess.SCFG.FindVertex insAddr |> Option.get
+  let getBlockAddr (ess: BinEssence) insAddr =
+    let v = ess.FindVertex insAddr |> Option.get
     v.VData.PPoint.Address
 
   let computeTableAddrs ess =
-    ess.SCFG.IndirectBranchMap
+    ess.IndirectBranchMap
     |> Map.fold (fun acc _ indInfo ->
       match indInfo.JumpTableInfo with
       | None -> acc
@@ -260,7 +259,7 @@ module private BranchRecoveryHelper =
       | Some info' -> if info = info' then acc else Map.add insAddr info acc
 
   let checkDefinedTable ess insAddr sAddr =
-    ess.SCFG.IndirectBranchMap
+    ess.IndirectBranchMap
     |> Map.exists (fun addr indInfo ->
       match indInfo.JumpTableInfo with
       | None -> false
@@ -334,13 +333,14 @@ module private BranchRecoveryHelper =
     match Map.tryFind addr needCPMap with
     | None | Some true ->
       let needCPMap = Map.add addr false needCPMap
-      let irCFG, irRoot = ess.SCFG.GetFunctionCFG (addr, false)
+      let irCFG, irRoot = (ess: BinEssence).GetFunctionCFG (addr, false)
       if hasIndirectBranch irCFG then
-        let lens = SSALens.Init ess.BinHandler ess.SCFG
+        let lens = SSALens.Init ess
         let ssaCFG, ssaRoot = lens.Filter (irCFG, [irRoot], ess)
         let cp = ConstantPropagation (ess.BinHandler, ssaCFG)
         let cpstate = cp.Compute (List.head ssaRoot)
-        analyzeIndirectBranch ssaCFG cpstate addr constBranches tblBranches needCPMap
+        analyzeIndirectBranch
+          ssaCFG cpstate addr constBranches tblBranches needCPMap
       else (constBranches, tblBranches), needCPMap
     | _ -> (constBranches, tblBranches), needCPMap
 
@@ -358,7 +358,8 @@ module private BranchRecoveryHelper =
 
   let calculateTable ess =
     let callees = computeCalleeAddrs ess
-    let constBranches, tblBranches = toBranchInfo ess.SCFG.IndirectBranchMap
+    let constBranches, tblBranches =
+      toBranchInfo ess.IndirectBranchMap
     let ess, indmap, _ =
       ((constBranches, tblBranches), Map.empty)
       ||> inferJumpTableRange ess callees tblBranches
@@ -372,11 +373,12 @@ module private BranchRecoveryHelper =
   let rec recover (noReturn: IAnalysis) ess needCPMap isTarget =
     let ess = noReturn.Run ess
     let callees = computeCalleeAddrs ess |> filterCalleeAddrs isTarget
-    let indmap = ess.SCFG.IndirectBranchMap
+    let indmap = ess.IndirectBranchMap
     let constBranches, tblBranches = toBranchInfo indmap
     let ess, indmap', needCPMap =
       callees
-      |> List.fold (analyzeBranches ess) ((constBranches, tblBranches), needCPMap)
+      |> List.fold (analyzeBranches ess)
+        ((constBranches, tblBranches), needCPMap)
       ||> inferJumpTableRange ess callees tblBranches
     let indmap' = Map.fold (fun acc k v -> Map.add k v acc) indmap indmap'
     if indmap <> indmap' then

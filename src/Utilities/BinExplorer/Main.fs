@@ -180,8 +180,8 @@ let spec =
   ]
 
 let buildGraph (opts: BinExplorerOpts) handle =
-  let ess = BinEssence.init handle
-  IAnalysis.analyze ess <| opts.GetAnalyses ()
+  BinEssence.init handle
+  |> Analyzer.run (opts.GetAnalyses ())
 
 let startGUI (opts: BinExplorerOpts) arbiter =
   HTTPServer.startServer arbiter opts.IP opts.Port opts.Verbose
@@ -192,10 +192,10 @@ let startGUI (opts: BinExplorerOpts) arbiter =
 let dumpJsonFiles jsonDir ess =
   try System.IO.Directory.Delete(jsonDir, true) with _ -> ()
   System.IO.Directory.CreateDirectory(jsonDir) |> ignore
-  ess.SCFG.CalleeMap.InternalCallees
+  ess.CalleeMap.InternalCallees
   |> Seq.iter (fun { CalleeID = id; Addr = addr } ->
     let disasmJsonPath = Printf.sprintf "%s/%s.disasmCFG" jsonDir id
-    let cfg, root = ess.SCFG.GetFunctionCFG (Option.get addr)
+    let cfg, root = ess.GetFunctionCFG (Option.get addr)
     let lens = DisasmLens.Init ess
     let disasmcfg, _ = lens.Filter (cfg, [root], ess)
     CFGExport.toJson disasmcfg disasmJsonPath)
@@ -263,7 +263,7 @@ let dumpSwitch _cmdMap opts file outdir _args =
   let file = file.Replace (':', '_')
   let outpath = System.IO.Path.Combine (outdir, file)
   use writer = System.IO.File.CreateText (outpath)
-  ess.SCFG.IndirectBranchMap
+  ess.IndirectBranchMap
   |> Map.iter (fun fromAddr { TargetAddresses = targets } ->
     targets
     |> Set.iter (fun target ->

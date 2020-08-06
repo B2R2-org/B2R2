@@ -32,7 +32,6 @@ open B2R2
 open B2R2.FrontEnd
 open B2R2.BinEssence
 open B2R2.Lens
-open B2R2.MiddleEnd
 open B2R2.DataFlow
 open B2R2.Visualization
 
@@ -134,17 +133,17 @@ let cfgToJSON cfgType ess g roots =
     let g, roots = lens.Filter (g, roots, ess)
     Visualizer.getJSONFromGraph g roots
   | SSACFG ->
-    let lens = SSALens.Init ess.BinHandler ess.SCFG
+    let lens = SSALens.Init ess
     let g, roots = lens.Filter (g, roots, ess)
     Visualizer.getJSONFromGraph g roots
   | _ -> failwith "Invalid CFG type"
 
 let handleRegularCFG req resp (name: string) (ess: BinEssence) cfgType =
-  match ess.SCFG.CalleeMap.Find name with
+  match ess.CalleeMap.Find name with
   | None -> answer req resp None
   | Some callee ->
     try
-      let cfg, root = ess.SCFG.GetFunctionCFG (callee.Addr.Value)
+      let cfg, root = ess.GetFunctionCFG (callee.Addr.Value)
       let s = cfgToJSON cfgType ess cfg [root]
       Some (defaultEnc.GetBytes s) |> answer req resp
     with e ->
@@ -159,9 +158,8 @@ let handleCFG req resp arbiter cfgType name =
   match cfgType with
   | CallCFG ->
     try
-      let lens = CallGraphLens.Init ess.SCFG
-      let cfg = ess.SCFG.Graph
-      let g, roots = lens.Filter (cfg, [], ess)
+      let lens = CallGraphLens.Init ()
+      let g, roots = lens.Filter (ess.SCFG, [], ess)
       let s = Visualizer.getJSONFromGraph g roots
       Some (defaultEnc.GetBytes s) |> answer req resp
     with e ->
@@ -175,7 +173,7 @@ let handleCFG req resp arbiter cfgType name =
 let handleFunctions req resp arbiter =
   let ess = Protocol.getBinEssence arbiter
   let names =
-    ess.SCFG.CalleeMap.InternalCallees
+    ess.CalleeMap.InternalCallees
     |> Seq.map (fun c -> { FuncID = c.CalleeID; FuncName = c.CalleeName })
     |> Seq.toArray
   Some (json<(JsonFuncInfo) []> names |> defaultEnc.GetBytes)
@@ -224,7 +222,7 @@ let handleDataflow req resp arbiter (args: string) =
   let addr = args.[1] |> uint64
   let var = args.[2] |> ess.BinHandler.RegisterBay.RegIDFromString
   try
-    let cfg, root = ess.SCFG.GetFunctionCFG (entry)
+    let cfg, root = ess.GetFunctionCFG (entry)
     let chain = DataFlowChain.init cfg root true
     let v = { ProgramPoint = ProgramPoint (addr, 0); VarExpr = Regular var }
     computeConnectedVars chain v

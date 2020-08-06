@@ -82,11 +82,11 @@ type PersistentDataFlowTests () =
   let isa = ISA.Init Architecture.IntelX86 Endian.Little
   let hdl = BinHandler.Init (isa, binary)
   let ess = BinEssence.init hdl
-  let ess = IAnalysis.analyze ess [ NoReturnAnalysis () ]
+  let ess = Analyzer.run [ NoReturnAnalysis () ] ess
 
   [<TestMethod>]
   member __.``Reaching Definitions Test 1``() =
-    let cfg, root = ess.SCFG.GetFunctionCFG (0UL)
+    let cfg, root = ess.GetFunctionCFG (0UL)
     let rd = ReachingDefinitions (cfg)
     let ins, _outs = rd.Compute cfg root
     let v = cfg.FindVertexBy (fun b -> b.VData.PPoint.Address = 0xEUL) (* 2nd *)
@@ -131,7 +131,7 @@ type PersistentDataFlowTests () =
 
   [<TestMethod>]
   member __.``Use-Def Test 1``() =
-    let cfg, root = ess.SCFG.GetFunctionCFG (0UL)
+    let cfg, root = ess.GetFunctionCFG (0UL)
     let chain = DataFlowChain.init cfg root false
     let vp =
       { ProgramPoint = ProgramPoint (0xEUL, 1)
@@ -144,7 +144,7 @@ type PersistentDataFlowTests () =
 
   [<TestMethod>]
   member __.``Use-Def Test 2``() =
-    let cfg, root = ess.SCFG.GetFunctionCFG (0UL)
+    let cfg, root = ess.GetFunctionCFG (0UL)
     let chain = DataFlowChain.init cfg root true
     let vp =
       { ProgramPoint = ProgramPoint (0xEUL, 0)
@@ -157,7 +157,7 @@ type PersistentDataFlowTests () =
 
   [<TestMethod>]
   member __.``Use-Def Test 3``() =
-    let cfg, root = ess.SCFG.GetFunctionCFG (0UL)
+    let cfg, root = ess.GetFunctionCFG (0UL)
     let chain = DataFlowChain.init cfg root false
     let vp =
       { ProgramPoint = ProgramPoint (0x1AUL, 1)

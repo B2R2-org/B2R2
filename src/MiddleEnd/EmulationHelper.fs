@@ -55,7 +55,7 @@ let memoryReader hdl _pc addr =
     Some <| v.[0]
   else None
 
-let eval (scfg: SCFG) (blk: Vertex<IRBasicBlock>) st stopFn =
+let eval (ess: BinEssence) (blk: Vertex<IRBasicBlock>) st stopFn =
   let visited = HashSet<ProgramPoint> ()
   let rec evalLoop (blk: Vertex<IRBasicBlock>) st stopFn =
     if visited.Contains blk.VData.PPoint then None
@@ -67,7 +67,7 @@ let eval (scfg: SCFG) (blk: Vertex<IRBasicBlock>) st stopFn =
         |> Evaluator.evalBlock st 0
       if stopFn blk.VData.LastInstruction then Some st'
       else
-        match scfg.FindVertex st'.PC with
+        match ess.FindVertex st'.PC with
         | None -> None
         | Some v -> evalLoop v st' stopFn
   evalLoop blk st stopFn

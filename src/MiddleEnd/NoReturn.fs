@@ -47,7 +47,7 @@ module private NoReturnHelper =
   let hasError ess (v: Vertex<IRBasicBlock>) =
     if v.VData.IsFakeBlock () then
       let target = v.VData.PPoint.Address
-      match ess.SCFG.CalleeMap.Find target with
+      match ess.CalleeMap.Find target with
       | Some callee when callee.CalleeName = "error" -> true
       | _ -> false
     else false
@@ -89,7 +89,7 @@ module private NoReturnHelper =
         | LowUIR.SideEffect SysCall -> true
         | _ -> acc) false
 
-  let findExitSyscalls hdl scfg cfg (root: Vertex<IRBasicBlock>) =
+  let findExitSyscalls hdl ess cfg (root: Vertex<IRBasicBlock>) =
     if existSyscall cfg then
       let addr = root.VData.PPoint.Address
       let st = EvalState (memoryReader hdl, true)
@@ -99,7 +99,7 @@ module private NoReturnHelper =
       st.Callbacks.SideEffectEventHandler <- sideEffectHandler
       try
         let isExit =
-          eval scfg root st (fun last -> last.IsInterrupt ())
+          eval ess root st (fun last -> last.IsInterrupt ())
           |> retrieveSyscallState hdl
         if isExit then Some !bblAddr else None
       with _ -> None
@@ -107,8 +107,7 @@ module private NoReturnHelper =
 
   let collectExitSyscallFallThroughs ess cfg root edges =
     let hdl = ess.BinHandler
-    let scfg = ess.SCFG
-    match findExitSyscalls hdl scfg cfg root with
+    match findExitSyscalls hdl ess cfg root with
     | Some addr ->
       match DiGraph.tryFindVertexBy cfg (fun (v: Vertex<IRBasicBlock>) ->
         not (v.VData.IsFakeBlock ())
@@ -145,13 +144,12 @@ module private NoReturnHelper =
 
   let isNoReturnError ess (v: Vertex<IRBasicBlock>) =
     let hdl = ess.BinHandler
-    let scfg = ess.SCFG
     let st = EvalState (memoryReader hdl, true)
     let addr = v.VData.PPoint.Address
     let lastAddr = v.VData.LastInstruction.Address
     let st = initRegs hdl |> EvalState.PrepareContext st 0 addr
     try
-      eval scfg v st (fun last -> last.Address = lastAddr)
+      eval ess v st (fun last -> last.Address = lastAddr)
       |> checkFirstArgument hdl
     with _ -> false
 
@@ -202,8 +200,8 @@ module private NoReturnHelper =
       if isUnreachable then v :: acc else acc) []
     |> List.fold DiGraph.removeVertex cfg
 
-  let modifyCFG ess noretAddrs addr =
-    let cfg, root = ess.SCFG.GetFunctionCFG (addr, false)
+  let modifyCFG (ess: BinEssence) noretAddrs addr =
+    let cfg, root = ess.GetFunctionCFG (addr, false)
     let cfg =
       collectNoRetFallThroughEdges ess cfg root noretAddrs
       |> List.fold (fun cfg (src, dst) -> DiGraph.removeEdge cfg src dst) cfg
@@ -221,7 +219,7 @@ module private NoReturnHelper =
         if List.length <| DiGraph.getSuccs cfg v > 0 then acc
         elif v.VData.IsFakeBlock () then
           let target = v.VData.PPoint.Address
-          let targetV = ess.SCFG.CalleeMap.Find target |> Option.get
+          let targetV = ess.CalleeMap.Find target |> Option.get
           if Set.contains target noretAddrs then acc
           elif isKnownNoReturnFunction targetV.CalleeName then acc
           elif targetV.CalleeName = "error" then acc
@@ -243,20 +241,19 @@ module private NoReturnHelper =
       else findLoop ess cg noretVertices vs
 
   let getNoReturnFunctions ess noretVertices =
-    let noretFuncs = ess.SCFG.NoReturnInfo.NoReturnFuncs
+    let noretFuncs = ess.NoReturnInfo.NoReturnFuncs
     noretVertices
     |> Set.fold (fun acc (v: Vertex<CallGraphBBlock>) ->
       let addr = v.VData.PPoint.Address
-      match ess.SCFG.CalleeMap.Find (addr) with
+      match ess.CalleeMap.Find (addr) with
       | None -> acc
       | Some _ -> Set.add addr acc) noretFuncs
 
   let getNoReturnCallSites ess noretFuncs =
-    let scfg = ess.SCFG
-    let callsites = scfg.NoReturnInfo.NoReturnCallSites
-    scfg.CalleeMap.Entries
+    let callsites = ess.NoReturnInfo.NoReturnCallSites
+    ess.CalleeMap.Entries
     |> Set.fold (fun acc addr ->
-      let cfg, root = scfg.GetFunctionCFG (addr, false)
+      let cfg, root = ess.GetFunctionCFG (addr, false)
       collectNoRetFallThroughEdges ess cfg root noretFuncs
       |> List.filter (fun (src, dst) -> cfg.FindEdgeData src dst <> RetEdge)
       |> List.map (fun (src, _) -> src.VData.PPoint)
@@ -264,9 +261,8 @@ module private NoReturnHelper =
       |> Set.union acc) callsites
 
   let findNoReturnEdges ess =
-    let scfg = ess.SCFG
-    let lens = CallGraphLens.Init (scfg)
-    let cg, _ = lens.Filter (scfg.Graph, [], ess)
+    let lens = CallGraphLens.Init ()
+    let cg, _ = lens.Filter (ess.SCFG, [], ess)
     let noretFuncs =
       DiGraph.foldVertex cg (fun acc v ->
         if List.length <| DiGraph.getSuccs cg v = 0 then v :: acc else acc) []

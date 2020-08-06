@@ -14,6 +14,7 @@
     <Compile Include="ConditionRetriever.fs" />
     <Compile Include="BranchRecovery.fs" />
     <Compile Include="SpeculativeGapCompletion.fs" />
+    <Compile Include="Analyzer.fs" />
   </ItemGroup>
 
   <ItemGroup>

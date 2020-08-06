@@ -44,7 +44,8 @@ module private LibcAnalysisHelper =
         readMem st p5 Endian.Little 32<rt>
         readMem st p6 Endian.Little 32<rt> ]
       |> List.choose id
-      |> List.filter (fun addr -> ess.SCFG.InstrMap.ContainsKey addr |> not)
+      |> List.filter (fun addr ->
+        ess.InstrMap.ContainsKey addr |> not)
       |> function
         | [] -> ess
         | addrs ->
@@ -60,7 +61,8 @@ module private LibcAnalysisHelper =
       readReg st (Intel.Register.R9 |> Intel.Register.toRegID) ]
     |> List.choose id
     |> List.map BitVector.toUInt64
-    |> List.filter (fun addr -> ess.SCFG.InstrMap.ContainsKey addr |> not)
+    |> List.filter (fun addr ->
+      ess.InstrMap.ContainsKey addr |> not)
     |> function
       | [] -> ess
       | addrs ->
@@ -76,8 +78,8 @@ module private LibcAnalysisHelper =
       | Arch.IntelX64 -> retrieveAddrsForx64 ess st
       | _ -> ess
 
-  let analyzeLibcStartMain ess callerAddr =
-    match ess.SCFG.FindFunctionVertex callerAddr with
+  let analyzeLibcStartMain (ess: BinEssence) callerAddr =
+    match ess.FindFunctionVertex callerAddr with
     | None -> ess
     | Some root ->
       let hdl = ess.BinHandler
@@ -85,12 +87,12 @@ module private LibcAnalysisHelper =
       let rootAddr = root.VData.PPoint.Address
       let st = initRegs hdl |> EvalState.PrepareContext st 0 rootAddr
       try
-        eval ess.SCFG root st (fun last -> last.Address = callerAddr)
+        eval ess root st (fun last -> last.Address = callerAddr)
         |> retrieveLibcStartAddresses ess
       with _ -> ess
 
   let recoverAddrsFromLibcStartMain ess =
-    match ess.SCFG.CalleeMap.Find "__libc_start_main" with
+    match ess.CalleeMap.Find "__libc_start_main" with
     | Some callee ->
       match List.tryExactlyOne <| Set.toList callee.Callers with
       | None -> ess

@@ -36,7 +36,7 @@ type CmdList () =
     Addr.toString hdl.ISA.WordSize addr + ": " + name
 
   let listFunctions ess =
-    ess.SCFG.CalleeMap.InternalCallees
+    ess.CalleeMap.InternalCallees
     |> Seq.map (fun c -> Option.get c.Addr, c.CalleeID)
     |> Seq.sortBy fst
     |> Seq.map (createFuncString ess.BinHandler)

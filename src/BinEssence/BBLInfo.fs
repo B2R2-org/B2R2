@@ -22,16 +22,29 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd
+namespace B2R2.BinEssence
 
-open B2R2.BinEssence
+open B2R2
+open B2R2.BinGraph
 
-/// CFG analysis that we perform in the middle-end. An analysis includes
-/// no-return analysis, libc start address analysis, switch-case recovery
-/// analysis, etc.
-type IAnalysis =
-  /// Name of the analysis.
-  abstract Name: string
+/// Represents instruction-level basic block leader.
+type LeaderInfo = {
+  /// Instruction-level basic block boundary
+  Boundary: AddrRange
+  /// IR-level basic block leaders that are belonging to this basic block
+  IRLeaders: Set<ProgramPoint>
+}
 
-  /// Run the analysis.
-  abstract Run: BinEssence -> BinEssence
+/// Basic-block information.
+type BBLInfo = {
+  /// Addr to LeaderInfo.
+  LeaderMap: Map<Addr, LeaderInfo>
+  /// Represent area covered by SCFG
+  Boundaries: IntervalSet
+  VertexMap: Map<ProgramPoint, Vertex<IRBasicBlock>>
+}
+with
+  static member Init () =
+    { LeaderMap = Map.empty
+      Boundaries = IntervalSet.empty
+      VertexMap = Map.empty }

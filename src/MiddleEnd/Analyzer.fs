@@ -22,16 +22,22 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd
+module B2R2.MiddleEnd.Analyzer
 
-open B2R2.BinEssence
-
-/// CFG analysis that we perform in the middle-end. An analysis includes
-/// no-return analysis, libc start address analysis, switch-case recovery
-/// analysis, etc.
-type IAnalysis =
-  /// Name of the analysis.
-  abstract Name: string
-
-  /// Run the analysis.
-  abstract Run: BinEssence -> BinEssence
+let run analyses ess =
+  #if DEBUG
+    let startTime = System.DateTime.Now
+  #endif
+    let ess =
+      analyses
+      |> List.fold (fun ess (analysis: IAnalysis) ->
+  #if DEBUG
+        printfn "[*] %s started." analysis.Name
+  #endif
+        analysis.Run ess) ess
+  #if DEBUG
+    let endTime = System.DateTime.Now
+    endTime.Subtract(startTime).TotalSeconds
+    |> printfn "[*] All done in %f sec."
+  #endif
+    ess

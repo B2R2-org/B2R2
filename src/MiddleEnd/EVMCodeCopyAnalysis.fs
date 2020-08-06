@@ -46,12 +46,12 @@ type EVMCodeCopyAnalysis () =
       | _ -> None)
 
   let recoverCopiedCode (ess: BinEssence) =
-    ess.SCFG.InstrMap
+    ess.InstrMap
     |> Seq.fold (fun ess (KeyValue (_, ins)) ->
       match ins.Stmts |> findCodeCopy with
       | None -> ess
       | Some (addr, parseMode) ->
-        match ess.SCFG.CalleeMap.Find addr with
+        match ess.CalleeMap.Find addr with
         | None ->
           match BinEssence.addEntry ess parseMode addr with
           | Ok ess -> ess

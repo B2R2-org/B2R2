@@ -27,7 +27,6 @@ namespace B2R2.BinEssence
 open B2R2
 open B2R2.BinFile
 open B2R2.FrontEnd
-open System.Collections.Generic
 
 /// Callee can be either external or internal.
 type CalleeKind =

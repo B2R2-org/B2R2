@@ -31,11 +31,12 @@ open B2R2.BinEssence
 module private SpeculativeGapCompletionHelper =
   /// XXX: Should be fixed
   let findGaps (ess: BinEssence) sAddr eAddr =
-    ess.SCFG.InstrMap.Keys
+    ess.InstrMap.Keys
     |> Seq.filter (fun addr -> addr >= sAddr && addr < eAddr)
     |> Seq.sort
     |> Seq.fold (fun (gaps, prevAddr) addr ->
-      let nextAddr = addr + uint64 ess.SCFG.InstrMap.[addr].Instruction.Length
+      let nextAddr =
+        addr + uint64 ess.InstrMap.[addr].Instruction.Length
       if prevAddr >= addr then gaps, nextAddr
       else AddrRange (prevAddr, addr) :: gaps, nextAddr
       ) ([], sAddr)
@@ -61,10 +62,11 @@ module private SpeculativeGapCompletionHelper =
   let shiftGaps fn gaps =
     gaps |> List.fold fn []
 
-  let updateResults branchRecovery ess resultCorpus =
-    match resultCorpus.SCFG.CalleeMap.Entries |> BinEssence.addEntries ess None with
+  let updateResults branchRecovery ess ess' =
+    let entries = ess'.CalleeMap.Entries
+    match  BinEssence.addEntries ess None entries with
     | Ok ess ->
-      resultCorpus.SCFG.IndirectBranchMap
+      ess'.IndirectBranchMap
       |> BinEssence.addIndirectBranchMap ess
       |> (branchRecovery: BranchRecovery).CalculateTable
     | Error _ -> ess
@@ -76,14 +78,14 @@ module private SpeculativeGapCompletionHelper =
       let ents =
         gaps |> List.map (fun g -> g.Min) |> Set.ofList
       match BinEssence.initByEntries ess.BinHandler ents with
-      | Ok partialCorpus ->
+      | Ok partial ->
         let isTarget addr =
-          ess.SCFG.IndirectBranchMap
+          ess.IndirectBranchMap
           |> Map.exists (fun _ { HostFunctionAddr = entry } -> entry = addr)
           |> not
         let ess =
           isTarget
-          |> (branchRecovery: BranchRecovery).RunWith partialCorpus
+          |> (branchRecovery: BranchRecovery).RunWith partial
           |> updateResults branchRecovery ess
         gaps
         |> List.map (fun gap -> findGaps ess gap.Min gap.Max)

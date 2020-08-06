@@ -66,7 +66,7 @@ type CmdShow () =
   member __.ShowCaller ess = function
     | (expr: string) :: _ ->
       let addr = CmdUtils.convHexString expr |> Option.defaultValue 0UL
-      match Map.tryFind addr ess.SCFG.CalleeMap.CallerMap with
+      match Map.tryFind addr ess.CalleeMap.CallerMap with
       | None -> [| "[*] Not found." |]
       | Some callees ->
         let sb = StringBuilder ()
@@ -74,7 +74,7 @@ type CmdShow () =
         let sb =
           callees
           |> Set.fold (fun sb (addr: Addr) ->
-            match ess.SCFG.CalleeMap.Find addr with
+            match ess.CalleeMap.Find addr with
             | Some callee -> __.CalleeToSimpleString "  - " sb callee
             | None -> sb) sb
         [| sb.ToString () |]
@@ -84,8 +84,8 @@ type CmdShow () =
     | (expr: string) :: _ ->
       let addr = CmdUtils.convHexString expr |> Option.defaultValue 0UL
       let sb = StringBuilder ()
-      if Char.IsDigit expr.[0] then ess.SCFG.CalleeMap.Find (addr)
-      else ess.SCFG.CalleeMap.Find (expr)
+      if Char.IsDigit expr.[0] then ess.CalleeMap.Find (addr)
+      else ess.CalleeMap.Find (expr)
       |> Option.map (fun callee -> (__.CalleeToString sb callee).ToString ())
       |> Option.defaultValue "[*] Not found."
       |> Array.singleton

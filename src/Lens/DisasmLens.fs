@@ -41,7 +41,7 @@ type DisasmBBlock (instrs: Instruction [], pp, ess: BinEssence) =
     let last = words.[words.Length - 1]
     if ins.IsBranch () && last.AsmWordKind = AsmWordKind.Value then
       let addr = Convert.ToUInt64 (last.AsmWordValue, 16)
-      match ess.SCFG.CalleeMap.Find (addr) with
+      match ess.CalleeMap.Find (addr) with
       | Some callee ->
         words.[words.Length - 1] <-
           { AsmWordKind = AsmWordKind.Value; AsmWordValue = callee.CalleeID }

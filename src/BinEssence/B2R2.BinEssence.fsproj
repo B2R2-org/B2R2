@@ -14,8 +14,7 @@
     <Compile Include="IRBasicBlock.fs" />
     <Compile Include="ControlFlowGraph.fs" />
     <Compile Include="CFGExport.fs" />
-    <Compile Include="SCFGUtils.fs" />
-    <Compile Include="SCFG.fs" />
+    <Compile Include="BBLInfo.fs" />
     <Compile Include="BinEssence.fs" />
   </ItemGroup>
 

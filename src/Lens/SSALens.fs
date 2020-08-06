@@ -29,7 +29,7 @@ open B2R2.BinGraph
 open B2R2.BinEssence
 
 /// A graph lens for obtaining SSACFG.
-type SSALens (hdl, scfg) =
+type SSALens (ess) =
   let getVertex g (vMap: SSAVMap) oldSrc =
     let vData = (oldSrc: Vertex<IRBasicBlock>).VData
     let pos = vData.PPoint
@@ -37,7 +37,7 @@ type SSALens (hdl, scfg) =
     | false, _ ->
       let instrs = vData.GetInsInfos ()
       let hasIndBranch = vData.HasIndirectBranch
-      let bblock = SSABBlock (hdl, scfg, pos, instrs, hasIndBranch)
+      let bblock = SSABBlock (ess, pos, instrs, hasIndBranch)
       let v, g = DiGraph.addVertex g bblock
       vMap.Add (pos, v)
       v, g
@@ -47,7 +47,7 @@ type SSALens (hdl, scfg) =
     let pos = (srcPos, dstPos)
     match fMap.TryGetValue pos with
     | false, _ ->
-      let bblock = SSABBlock (hdl, scfg, srcPos, dstPos, false)
+      let bblock = SSABBlock (ess, srcPos, dstPos, false)
       let v, g = DiGraph.addVertex g bblock
       fMap.Add (pos, v)
       v, g
@@ -95,5 +95,5 @@ type SSALens (hdl, scfg) =
       |> SSAUtils.renameVars ssaCFG defSites
       ssaCFG, roots
 
-  static member Init hdl scfg =
-    SSALens (hdl, scfg) :> ILens<SSABBlock>
+  static member Init ess =
+    SSALens (ess) :> ILens<SSABBlock>

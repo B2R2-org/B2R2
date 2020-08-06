@@ -76,9 +76,10 @@ module SSABlockHelper =
     | None -> BinHandler.ReadUInt (hdl, addr, 4) |> isGetPCThunkCode
 
   /// This is currently intra-procedural.
-  let computeDefinedVars hdl (scfg: SCFG) addr =
+  let computeDefinedVars (ess: BinEssence) addr =
+    let hdl = ess.BinHandler
     try
-      let g, _ = scfg.GetFunctionCFG (addr, false)
+      let g, _ = ess.GetFunctionCFG (addr, false)
       let defs = DiGraph.foldVertex g defVarFolder Set.empty
       let defs = if Set.isEmpty defs then addDefaultDefs hdl else defs
       let defs =
@@ -94,18 +95,18 @@ module SSABlockHelper =
     with _ -> addDefaultDefs hdl |> Set.toArray
 
 /// Basic block type for an SSA-based CFG (SSACFG).
-type SSABBlock private (hdl, scfg, pp, instrs, retPoint, hasIndirectBranch) =
+type SSABBlock private (ess, pp, instrs, retPoint, hasIndirectBranch) =
   inherit BasicBlock ()
 
   let mutable stmts =
     match retPoint with
     | Some (ret: ProgramPoint) ->
       let stmts = (* For a fake block, we check which things can be modified. *)
-        SSABlockHelper.computeDefinedVars hdl scfg (pp: ProgramPoint).Address
+        SSABlockHelper.computeDefinedVars ess (pp: ProgramPoint).Address
         |> Array.map (fun dst ->
           let src = { SSA.Kind = dst.Kind; SSA.Identifier = -1 }
           SSA.Def (dst, SSA.ReturnVal (pp.Address, ret.Address, src)))
-      let wordSize = hdl.ISA.WordSize |> WordSize.toRegType
+      let wordSize = ess.BinHandler.ISA.WordSize |> WordSize.toRegType
       let fallThrough = BitVector.ofUInt64 ret.Address wordSize
       let jmpToFallThrough = SSA.Jmp (SSA.InterJmp (SSA.Num fallThrough))
       Array.append stmts [| jmpToFallThrough |]
@@ -118,11 +119,11 @@ type SSABBlock private (hdl, scfg, pp, instrs, retPoint, hasIndirectBranch) =
 
   let mutable frontier: Vertex<SSABBlock> list = []
 
-  new (hdl, scfg, pp, instrs, hasIndirectBranch) =
-    SSABBlock (hdl, scfg, pp, instrs, None, hasIndirectBranch)
+  new (ess, pp, instrs, hasIndirectBranch) =
+    SSABBlock (ess, pp, instrs, None, hasIndirectBranch)
 
-  new (hdl, scfg, pp, retAddr, hasIndirectBranch) =
-    SSABBlock (hdl, scfg, pp, [||], Some retAddr, hasIndirectBranch)
+  new (ess, pp, retAddr, hasIndirectBranch) =
+    SSABBlock (ess, pp, [||], Some retAddr, hasIndirectBranch)
 
   override __.PPoint = pp
 

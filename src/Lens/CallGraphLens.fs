@@ -80,12 +80,12 @@ module CallCFG =
 type CallVMap = Dictionary<Addr, Vertex<CallGraphBBlock>>
 
 /// A graph lens for obtaining CallGraph.
-type CallGraphLens (scfg: SCFG) =
+type CallGraphLens () =
   let getFunctionVertex g vMap (old: Vertex<IRBasicBlock>) addr ess =
     match (vMap: CallVMap).TryGetValue addr with
     | false, _ ->
       let fake = old.VData.IsFakeBlock ()
-      match ess.SCFG.CalleeMap.Find (addr) with
+      match ess.CalleeMap.Find (addr) with
       | None -> None
       | Some callee ->
         let id = callee.CalleeID
@@ -99,13 +99,13 @@ type CallGraphLens (scfg: SCFG) =
 
   let getVertex g vMap (old: Vertex<IRBasicBlock>) ess =
     let addr = old.VData.PPoint.Address
-    match ess.SCFG.CalleeMap.Find (addr) with
+    match ess.CalleeMap.Find (addr) with
     | None -> None
     | Some _ -> getFunctionVertex g vMap old addr ess
 
-  let buildCG callCFG _ vMap ess =
+  let buildCG callCFG vMap ess =
     callCFG
-    |> DiGraph.foldEdge scfg.Graph (fun callCFG src dst e ->
+    |> DiGraph.foldEdge ess.SCFG (fun callCFG src dst e ->
       match e with
       | IntraJmpEdge
       | IndirectJmpEdge
@@ -114,7 +114,7 @@ type CallGraphLens (scfg: SCFG) =
       | ExternalCallEdge
       | CallEdge ->
         (* XXX: Should be fixed *)
-        match scfg.FindFunctionVertex src.VData.PPoint.Address with
+        match ess.FindFunctionVertex src.VData.PPoint.Address with
         | None -> callCFG
         | Some src ->
           match getVertex callCFG vMap src ess with
@@ -128,8 +128,8 @@ type CallGraphLens (scfg: SCFG) =
   interface ILens<CallGraphBBlock> with
     member __.Filter (g, _, ess) =
       let vMap = CallVMap ()
-      let callCFG = buildCG (CallCFG.init g.ImplementationType) g vMap ess
+      let callCFG = buildCG (CallCFG.init g.ImplementationType) vMap ess
       callCFG, DiGraph.getUnreachables callCFG |> Seq.toList
 
-  static member Init (scfg) =
-    CallGraphLens (scfg) :> ILens<CallGraphBBlock>
+  static member Init () =
+    CallGraphLens () :> ILens<CallGraphBBlock>
