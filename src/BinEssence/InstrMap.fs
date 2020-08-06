@@ -97,6 +97,10 @@ module InstrMap =
       | Jmp (Name s) -> Set.add (Map.find s labels) targets
       | CJmp (_, Name t, Name f) ->
         targets |> Set.add (Map.find t labels) |> Set.add (Map.find f labels)
+      | CJmp (_, Name t, Undefined _) ->
+        Set.add (Map.find t labels) targets
+      | CJmp (_, Undefined _, Name f) ->
+        Set.add (Map.find f labels) targets
       | InterJmp (_, Num bv, _) ->
         let ppoint = ProgramPoint (BitVector.toUInt64 bv, 0)
         Set.add ppoint targets

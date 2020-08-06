@@ -389,33 +389,22 @@ module BinEssence =
         Some i', nextLeader
 
   let rec private gatherBB instrMap boundary leaders acc ppoint nextIdx =
-    if nextIdx >= (leaders: ProgramPoint []).Length then
-      (* No more leaders after the current. *)
-      match (instrMap: InstrMap).TryGetValue (ppoint: ProgramPoint).Address with
-      | false, _ -> List.rev acc |> List.toArray
-      | true, i ->
-        let acc = i :: acc
-        let nextInsAddr = i.Instruction.Address + uint64 i.Instruction.Length
-        let withinBoundary =
-          (boundary: AddrRange).Min <= nextInsAddr && nextInsAddr < boundary.Max
-        if withinBoundary then
-          let nextPoint = ProgramPoint (nextInsAddr, 0)
-          gatherBB instrMap boundary leaders acc nextPoint nextIdx
-        else List.rev acc |> List.toArray
-    else
-      let nextLeader = leaders.[nextIdx]
-      if nextLeader > ppoint then
-        match constructInfo instrMap ppoint nextLeader with
-        | None, _ -> [||]
-        | Some info, nextPoint ->
-          let acc = info :: acc
-          if hasNoFallThrough info.Stmts then List.rev acc |> List.toArray
-          else gatherBB instrMap boundary leaders acc nextPoint nextIdx
-      elif nextLeader = ppoint then List.rev acc |> List.toArray
-      (* Next point is beyond the next leader's point. This is possible when two
-         control flows divide an instruction into two parts. This typically
-         happens in obfuscated code. *)
-      else gatherBB instrMap boundary leaders acc ppoint (nextIdx + 1)
+    let nextLeader =
+      if nextIdx >= (leaders: ProgramPoint []).Length then
+        ProgramPoint ((boundary: AddrRange).Max, 0)
+      else leaders.[nextIdx]
+    if nextLeader > ppoint then
+      match constructInfo instrMap ppoint nextLeader with
+      | None, _ -> [||]
+      | Some info, nextPoint ->
+        let acc = info :: acc
+        if hasNoFallThrough info.Stmts then List.rev acc |> List.toArray
+        else gatherBB instrMap boundary leaders acc nextPoint nextIdx
+    elif nextLeader = ppoint then List.rev acc |> List.toArray
+    (* Next point is beyond the next leader's point. This is possible when two
+       control flows divide an instruction into two parts. This typically
+       happens in obfuscated code. *)
+    else gatherBB instrMap boundary leaders acc ppoint (nextIdx + 1)
 
   let private createNode instrMap boundary leaders bbls idx leader =
     let instrs = gatherBB instrMap boundary leaders [] leader (idx + 1)
@@ -481,6 +470,10 @@ module BinEssence =
         |> getIntraEdge src s1 IntraCJmpTrueEdge
         |> getIntraEdge src s2 IntraCJmpFalseEdge
       ess, edges
+    | CJmp (_, Name s1, Undefined _) ->
+      ess, getIntraEdge src s1 IntraCJmpTrueEdge edges
+    | CJmp (_, Undefined _, Name s2) ->
+      ess, getIntraEdge src s2 IntraCJmpFalseEdge edges
     | InterJmp (_, _, InterJmpInfo.IsRet) ->
       ess, edges (* Connect ret edges later. *)
     | InterJmp (_, Num addr, InterJmpInfo.IsCall) ->
