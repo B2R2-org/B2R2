@@ -2505,14 +2505,13 @@ type OprMode =
   | X = 0x1a
   /// Memory addressed by the ES:rDI register pair.
   | Y = 0x1b
-  /// The reg field of the ModR/M byte is 0b000
+  /// The reg field of the ModR/M byte is 0b000.
   | E0 = 0x1c
-
-  ///
+  /// Fixed registers.
   | AL = 0x1d
   | CL = 0x1e
   | DX = 0x1f
-  /// RegGrpX, ARegInOpNoREX
+  /// RegGrpX, ARegInOpNoREX.
   | RG0F = 0x20
   | RG1F = 0x21
   | RG2F = 0x22
@@ -2521,7 +2520,7 @@ type OprMode =
   | RG5F = 0x25
   | RG6F = 0x26
   | RG7F = 0x27
-  /// RegGrpX, ARegInOpREX
+  /// RegGrpX, ARegInOpREX.
   | RG0T = 0x30
   | RG1T = 0x31
   | RG2T = 0x32
@@ -2530,14 +2529,14 @@ type OprMode =
   | RG5T = 0x35
   | RG6T = 0x36
   | RG7T = 0x37
-
+  /// Fixed segment registers.
   | ES = 0x40
   | CS = 0x41
   | SS = 0x42
   | DS = 0x43
   | FS = 0x44
   | GS = 0x45
-
+  /// An immediate value is 1.
   | I1 = 0x46
 
 /// Specifies the size of operand. See Appendix A.2 of Volume 2
@@ -2661,7 +2660,6 @@ type OperandDesc =
   /// This operand is represented as an immediate value (of one).
   | ODImmOne
 *)
-
 type OperandDesc = OprMode * OprSize
 
 /// The scale of Scaled Index.
