@@ -28,13 +28,13 @@ open B2R2
 open B2R2.FrontEnd
 
 /// <summary>
-///   Binary apparatus (Apparatus) contains the key components and information
-///   about our CFG analysis, such as all the parsed instructions from the
-///   target binary as well as the positions of all the leaders found. This will
-///   be updated through our CFG analyses.
+///   BinEssence contains the key components and information about a target
+///   binary, such as all the parsed instructions as well as the positions of
+///   all the leaders found. This will be updated through our middle-end
+///   analyses.
 /// </summary>
 /// <remarks>
-///   <para>B2R2's CFG analyses roughly work as follows.</para>
+///   <para>B2R2's middle-end analyses roughly work as follows.</para>
 ///   <para>
 ///     In the very first stage, we recursively parse (and lift) binary
 ///     instructions starting from the given entry point. In this stage, we
@@ -76,24 +76,22 @@ open B2R2.FrontEnd
 ///   </para>
 /// </remarks>
 type BinEssence = {
-  BinHandler : BinHandler
-  InstrMap : InstrMap
-  SCFG : SCFG
+  BinHandler: BinHandler
+  SCFG: SCFG
 }
 
 module BinEssence =
 
-  let private initEssence hdl graphImpl =
+  let private initEssence hdl =
     let acc =
       { InstrMap = InstrMap ()
         BasicBlockMap = SCFGUtils.init ()
         CalleeMap = CalleeMap (hdl)
-        Graph = IRCFG.init graphImpl
+        Graph = IRCFG.init BinGraph.PersistentGraph
         NoReturnInfo = NoReturnInfo.Init Set.empty Set.empty
         IndirectBranchMap = Map.empty }
-    let scfg = SCFG (hdl, acc, graphImpl=graphImpl)
+    let scfg = SCFG (acc)
     { BinHandler = hdl
-      InstrMap = acc.InstrMap
       SCFG = scfg }
 
   let addEntry ess parseMode entry =
@@ -135,12 +133,13 @@ module BinEssence =
       | None -> set
       | Some entry -> Set.add entry set
 
-  let init hdl graphImpl =
-    let ess = initEssence hdl graphImpl
+  [<CompiledName("Init")>]
+  let init hdl =
+    let ess = initEssence hdl
     match getInitialEntryPoints hdl |> addEntries ess None with
     | Ok ess -> ess
     | Error _ -> Utils.impossible ()
 
-  let initByEntries hdl graphImpl entries =
-    let ess = initEssence hdl graphImpl
+  let initByEntries hdl entries =
+    let ess = initEssence hdl
     addEntries ess None entries

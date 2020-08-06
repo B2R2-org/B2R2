@@ -27,16 +27,15 @@ namespace B2R2.MiddleEnd
 open B2R2
 open B2R2.FrontEnd
 open B2R2.BinEssence
-open B2R2.BinGraph
 
 module private SpeculativeGapCompletionHelper =
   /// XXX: Should be fixed
   let findGaps (ess: BinEssence) sAddr eAddr =
-    ess.InstrMap.Keys
+    ess.SCFG.InstrMap.Keys
     |> Seq.filter (fun addr -> addr >= sAddr && addr < eAddr)
     |> Seq.sort
     |> Seq.fold (fun (gaps, prevAddr) addr ->
-      let nextAddr = addr + uint64 ess.InstrMap.[addr].Instruction.Length
+      let nextAddr = addr + uint64 ess.SCFG.InstrMap.[addr].Instruction.Length
       if prevAddr >= addr then gaps, nextAddr
       else AddrRange (prevAddr, addr) :: gaps, nextAddr
       ) ([], sAddr)
@@ -46,7 +45,7 @@ module private SpeculativeGapCompletionHelper =
 
   let rec shiftUntilValid ess entries (gap: AddrRange) =
     let entry = Set.singleton gap.Min
-    match BinEssence.initByEntries ess.BinHandler PersistentGraph entry with
+    match BinEssence.initByEntries ess.BinHandler entry with
     | Ok _ -> AddrRange (gap.Min, gap.Max) :: entries
     | Error _ ->
       if gap.Min + 1UL = gap.Max then entries
@@ -76,7 +75,7 @@ module private SpeculativeGapCompletionHelper =
     | gaps ->
       let ents =
         gaps |> List.map (fun g -> g.Min) |> Set.ofList
-      match BinEssence.initByEntries ess.BinHandler PersistentGraph ents with
+      match BinEssence.initByEntries ess.BinHandler ents with
       | Ok partialCorpus ->
         let isTarget addr =
           ess.SCFG.IndirectBranchMap

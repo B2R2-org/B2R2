@@ -96,7 +96,7 @@ type CFGTest1 () =
 
   let isa = ISA.Init Architecture.IntelX64 Endian.Little
   let hdl = BinHandler.Init (isa, binary)
-  let ess = BinEssence.init hdl PersistentGraph
+  let ess = BinEssence.init hdl
   let ess = IAnalysis.analyze ess [ NoReturnAnalysis () ]
 
   [<TestMethod>]
@@ -236,7 +236,7 @@ type CFGTest2 () =
 
   let isa = ISA.Init Architecture.IntelX86 Endian.Little
   let hdl = BinHandler.Init (isa, binary)
-  let ess = BinEssence.init hdl PersistentGraph
+  let ess = BinEssence.init hdl
   let ess = IAnalysis.analyze ess [ NoReturnAnalysis () ]
 
   [<TestMethod>]

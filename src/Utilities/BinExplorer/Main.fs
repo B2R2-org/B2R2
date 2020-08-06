@@ -180,7 +180,7 @@ let spec =
   ]
 
 let buildGraph (opts: BinExplorerOpts) handle =
-  let ess = BinEssence.init handle PersistentGraph
+  let ess = BinEssence.init handle
   IAnalysis.analyze ess <| opts.GetAnalyses ()
 
 let startGUI (opts: BinExplorerOpts) arbiter =

@@ -37,8 +37,7 @@ exception InvalidFunctionAddressException
 /// than the one from disassembly. That is, a single machine instruction (thus,
 /// a single basic block) may correspond to multiple basic blocks in the
 /// LowUIR-level CFG.
-type SCFG (hdl, acc, ?graphImpl, ?ignoreIllegal) =
-  let graphImpl = defaultArg graphImpl PersistentGraph
+type SCFG (acc, ?ignoreIllegal) =
   let instrMap = acc.InstrMap
   let bblMap = acc.BasicBlockMap
   let calleeMap = acc.CalleeMap
@@ -66,7 +65,7 @@ type SCFG (hdl, acc, ?graphImpl, ?ignoreIllegal) =
   member __.GetFunctionCFG (addr: Addr,
                             [<Optional; DefaultParameterValue(true)>]
                             preserveRecursiveEdge) =
-    let newGraph = IRCFG.init graphImpl
+    let newGraph = IRCFG.init PersistentGraph
     let vMap = Dictionary<ProgramPoint, Vertex<IRBasicBlock>> ()
     let visited = HashSet<ProgramPoint> ()
     let rec loop newGraph pos =
@@ -183,7 +182,7 @@ type SCFG (hdl, acc, ?graphImpl, ?ignoreIllegal) =
         IndirectBranchMap = indMap }
     match SCFGUtils.updateCFG hdl parseMode acc false [(None, entry)] with
     | Ok (acc, _) ->
-      SCFG (hdl, acc, graphImpl, ignoreIllegal)
+      SCFG (acc, ignoreIllegal)
       |> Ok
     | Error () -> if ignoreIllegal then Error () else Utils.impossible ()
 
@@ -198,9 +197,7 @@ type SCFG (hdl, acc, ?graphImpl, ?ignoreIllegal) =
     let edgeInfo = Some (ProgramPoint (src, 0), edgeKind), dst
     match SCFGUtils.updateCFG hdl parseMode acc false [edgeInfo] with
     | Ok (acc, hasNewIndBranch) ->
-      let scfg =
-        SCFG (hdl, acc, graphImpl, ignoreIllegal)
-      Ok (scfg, hasNewIndBranch)
+      Ok (SCFG (acc, ignoreIllegal), hasNewIndBranch)
     | Error () ->
       if ignoreIllegal then Error () else Utils.impossible ()
 
@@ -210,10 +207,10 @@ type SCFG (hdl, acc, ?graphImpl, ?ignoreIllegal) =
     let noRetInfo = NoReturnInfo.Init noRetFuncs noRetCallSites
     let acc = { acc with NoReturnInfo = noRetInfo }
     let acc = SCFGUtils.removeNoReturnFallThroughs acc
-    SCFG (hdl, acc, graphImpl, ignoreIllegal)
+    SCFG (acc, ignoreIllegal)
 
   member __.AddIndirectBranchMap hdl indMap' =
     let indMap =
       indMap' |> Map.fold (fun acc addr info -> Map.add addr info acc) indMap
     let acc = { acc with IndirectBranchMap = indMap }
-    SCFG (hdl, acc, graphImpl, ignoreIllegal)
+    SCFG (acc, ignoreIllegal)
