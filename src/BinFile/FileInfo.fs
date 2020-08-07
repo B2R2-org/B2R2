@@ -239,7 +239,7 @@ type FileInfo () =
   abstract member IsValidAddr: Addr -> bool
 
   /// <summary>
-  ///   Check if the given address range is valid. This functino returns true
+  ///   Check if the given address range is valid. This function returns true
   ///   only if the whole range of the addressess are valid (for every address
   ///   in the range, IsValidAddr should return true).
   /// </summary>
@@ -267,7 +267,7 @@ type FileInfo () =
 
   /// <summary>
   ///   Check if the given address range is valid and there exists a
-  ///   corresponding region in the actual binary file. This functino returns
+  ///   corresponding region in the actual binary file. This function returns
   ///   true only if the whole range of the addressess are valid (for every
   ///   address in the range, IsInFileAddr should return true).
   /// </summary>

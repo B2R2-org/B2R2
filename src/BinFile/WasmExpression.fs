@@ -22,38 +22,30 @@
   SOFTWARE.
 *)
 
-namespace B2R2
+module internal B2R2.BinFile.Wasm.Expression
 
-/// Types of binary file format.
-type FileFormat =
-  /// Raw binary without any specific file format: a sequence of bytes.
-  | RawBinary = 1
-  /// ELF binary.
-  | ELFBinary = 2
-  /// PE binary.
-  | PEBinary = 3
-  /// Mach-O binary.
-  | MachBinary = 4
-  /// Wasm binary.
-  | WasmBinary = 5
+open B2R2
+open B2R2.BinFile
+open System
 
-/// A helper module for FileFormat type.
-module FileFormat =
-  let ofString (str: string) =
-    match str.ToLower () with
-    | "elf" -> FileFormat.ELFBinary
-    | "pe" -> FileFormat.PEBinary
-    | "mach" | "mach-o" -> FileFormat.MachBinary
-    | "wasm" -> FileFormat.WasmBinary
-    | _ -> FileFormat.RawBinary
-
-  let toString = function
-    | FileFormat.RawBinary -> "Raw"
-    | FileFormat.ELFBinary -> "ELF"
-    | FileFormat.PEBinary -> "PE"
-    | FileFormat.MachBinary -> "Mach-O"
-    | FileFormat.WasmBinary -> "Wasm"
-    | _ -> invalidArg "FileFormat" "Unknown FileFormat used."
-
-  /// Check whether the given format is ELF.
-  let isELF fmt = fmt = FileFormat.ELFBinary
+let peekConstExpr (reader: BinReader) offset =
+  let evt =
+    reader.PeekUInt8 offset
+    |> LanguagePrimitives.EnumOfValue
+  let offset' = offset + 1
+  match evt with
+  | ConstExprValueType.i32 ->
+    let v, len = reader.PeekUInt32LEB128 offset'
+    I32 (v), offset' + len + 1
+  | ConstExprValueType.i64 ->
+    let v, len = reader.PeekUInt64LEB128 offset'
+    I64 (v), offset' + len + 1
+  | ConstExprValueType.f32 ->
+    let b = reader.PeekBytes (4, offset')
+    let v = BitConverter.ToSingle (b, 0)
+    F32 (v), offset' + 4 + 1
+  | ConstExprValueType.f64 ->
+    let b = reader.PeekBytes (8, offset')
+    let v = BitConverter.ToDouble (b, 0)
+    F64 (v), offset' + 8 + 1
+  | _ -> raise InvalidFileTypeException

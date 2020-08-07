@@ -40,6 +40,10 @@ let private machBinary reader =
   if Mach.Header.isMach reader 0 then Some FileFormat.MachBinary
   else None
 
+let private wasmBinary reader =
+  if Wasm.Header.isWasm reader 0 then Some FileFormat.WasmBinary
+  else None
+
 /// <summary>
 ///   Given a byte array, identify its file format and return B2R2.FileFormat.
 /// </summary>
@@ -50,6 +54,7 @@ let detectBuffer bytes =
     yield! elfBinary reader
     yield! peBinary bytes
     yield! machBinary reader
+    yield! wasmBinary reader
     yield! Some FileFormat.RawBinary
   } |> Option.get
 

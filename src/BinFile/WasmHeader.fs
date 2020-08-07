@@ -22,38 +22,19 @@
   SOFTWARE.
 *)
 
-namespace B2R2
+module internal B2R2.BinFile.Wasm.Header
 
-/// Types of binary file format.
-type FileFormat =
-  /// Raw binary without any specific file format: a sequence of bytes.
-  | RawBinary = 1
-  /// ELF binary.
-  | ELFBinary = 2
-  /// PE binary.
-  | PEBinary = 3
-  /// Mach-O binary.
-  | MachBinary = 4
-  /// Wasm binary.
-  | WasmBinary = 5
+open B2R2
 
-/// A helper module for FileFormat type.
-module FileFormat =
-  let ofString (str: string) =
-    match str.ToLower () with
-    | "elf" -> FileFormat.ELFBinary
-    | "pe" -> FileFormat.PEBinary
-    | "mach" | "mach-o" -> FileFormat.MachBinary
-    | "wasm" -> FileFormat.WasmBinary
-    | _ -> FileFormat.RawBinary
+let wasmMagic = 0x6D736100u
 
-  let toString = function
-    | FileFormat.RawBinary -> "Raw"
-    | FileFormat.ELFBinary -> "ELF"
-    | FileFormat.PEBinary -> "PE"
-    | FileFormat.MachBinary -> "Mach-O"
-    | FileFormat.WasmBinary -> "Wasm"
-    | _ -> invalidArg "FileFormat" "Unknown FileFormat used."
+let isWasm (reader: BinReader) offset =
+  if reader.Length() >= offset + 8
+  then reader.PeekUInt32 offset = wasmMagic
+  else false
 
-  /// Check whether the given format is ELF.
-  let isELF fmt = fmt = FileFormat.ELFBinary
+let peekFormatVersion (reader: BinReader) offset =
+  let version: WasmFormatVersion =
+    reader.PeekUInt32 offset
+    |> LanguagePrimitives.EnumOfValue
+  version
