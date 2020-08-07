@@ -410,7 +410,6 @@ module ELF =
       checkSymbol fi 0x00022320UL "unsetenv"
 
 module Wasm =
-  //open B2R2.BinFile.Wasm
   let wasmBasicFileName = "wasm_basic"
 
   let parseFile fileName =
@@ -418,7 +417,6 @@ module Wasm =
     let file = fileName + ".wasm"
     let bytes =
       ZIPReader.readFileFromZipFile FileFormat.WasmBinary zip file
-    //Parser.parse bytes
     new WasmFileInfo (bytes, "")
 
   [<TestClass>]
@@ -433,17 +431,3 @@ module Wasm =
       Assert.AreEqual (9, fi.GetSymbols () |> Seq.length)
       Assert.AreEqual (12, fi.GetSections () |> Seq.length)
       Assert.AreEqual (4, fi.GetLinkageTableEntries () |> Seq.length)
-      //let wm = parseFile wasmBasicFileName
-      //Assert.AreEqual (WasmFormatVersion.One, wm.FormatVersion)
-      //Assert.AreEqual(1, List.length wm.CustomSections)
-      //Assert.IsTrue (wm.TypeSection.IsSome)
-      //Assert.IsTrue (wm.ImportSection.IsSome)
-      //Assert.IsTrue (wm.FunctionSection.IsSome)
-      //Assert.IsTrue (wm.TableSection.IsSome)
-      //Assert.IsTrue (wm.MemorySection.IsSome)
-      //Assert.IsTrue (wm.GlobalSection.IsSome)
-      //Assert.IsTrue (wm.ExportSection.IsSome)
-      //Assert.IsTrue (wm.StartSection.IsSome)
-      //Assert.IsTrue (wm.ElementSection.IsSome)
-      //Assert.IsTrue (wm.CodeSection.IsSome)
-      //Assert.IsTrue (wm.DataSection.IsSome)
