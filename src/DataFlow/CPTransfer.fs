@@ -150,10 +150,7 @@ let evalMemDef st mDst e =
     match addr with
     | Const addr ->
       let addr = BitVector.toUInt64 addr
-      if CPState.isDefinedMem st mDst rt addr then
-        let c' = CPState.findMem st mDst rt addr
-        CPState.storeMem st mDst rt addr <| CPValue.meet c c'
-      else CPState.storeMem st mDst rt addr c
+      CPState.storeMem st mDst rt addr c
     | _ -> ()
   | ReturnVal (_, _, mSrc) ->
     CPState.copyMem st mDst.Identifier mSrc.Identifier
@@ -167,10 +164,14 @@ let evalMemDef st mDst e =
   | _ ->  Utils.impossible ()
 
 let inline updateConst st r v =
-  if not (st.RegState.ContainsKey r) || CPValue.goingDown st.RegState.[r] v then
+  if not (st.RegState.ContainsKey r) then
     st.RegState.[r] <- v
     st.SSAWorkList.Enqueue r
-  else ()
+  elif st.RegState.[r] = v then ()
+  elif CPValue.goingUp st.RegState.[r] v then ()
+  else
+    st.RegState.[r] <- CPValue.meet st.RegState.[r] v
+    st.SSAWorkList.Enqueue r
 
 let evalDef st v e =
   match v.Kind with

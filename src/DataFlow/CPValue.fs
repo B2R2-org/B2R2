@@ -163,13 +163,13 @@ module CPValue =
   let extract c rt pos =
     unOp (fun bv -> BitVector.extract bv rt pos) c
 
-  let goingDown a b =
+  let goingUp a b =
     match a, b with
-    | Undef, Const _
-    | Undef, PCThunk _
-    | Undef, GOT _
-    | Undef, NotAConst
-    | Const _, NotAConst
-    | PCThunk _, NotAConst
-    | GOT _, NotAConst -> true
+    | Const _, Undef
+    | PCThunk _, Undef
+    | GOT _, Undef
+    | NotAConst, Undef
+    | NotAConst, Const _
+    | NotAConst, PCThunk _
+    | NotAConst, GOT _ -> true
     | _ -> false

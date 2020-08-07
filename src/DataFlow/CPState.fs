@@ -132,7 +132,7 @@ module CPState =
     if (rt = st.DefaultWordSize) && (addr % align = 0UL) then
       let dstid = mDst.Identifier
       match Map.tryFind addr st.MemState.[dstid] with
-      | Some old when not <| CPValue.goingDown old c -> ()
+      | Some old when CPValue.goingUp old c || old = c -> ()
       | _ ->
         st.MemState.[dstid] <- Map.add addr c st.MemState.[dstid]
         st.SSAWorkList.Enqueue mDst
