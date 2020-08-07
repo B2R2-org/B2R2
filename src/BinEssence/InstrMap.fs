@@ -52,6 +52,7 @@ type InstrMap = Dictionary<Addr, InstructionInfo>
 [<RequireQualifiedAccess>]
 module InstrMap =
 
+#if false
   let private updateParseMode hdl parseMode leader =
     match parseMode with
     | Some (mode, offset) ->
@@ -65,6 +66,7 @@ module InstrMap =
     match hdl.ParsingContext.ArchOperationMode with
     | ArchOperationMode.ThumbMode when leader &&& 1UL <> 0UL -> leader - 1UL
     | _ -> leader
+#endif
 
   /// Remove unnecessary IEMark to ease the analysis.
   let private trimIEMark (stmts: Stmt []) =
@@ -123,20 +125,21 @@ module InstrMap =
       Stmts = stmts
       Labels = labels
       IRLeaders = findIRLeaders labels stmts
-      ArchOperationMode = hdl.ParsingContext.ArchOperationMode
-      Offset = hdl.ParsingContext.CodeOffset }
+      ArchOperationMode = hdl.DefaultParsingContext.ArchOperationMode
+      Offset = hdl.DefaultParsingContext.CodeOffset }
 
   let rec private updateInstrMap hdl (instrMap: InstrMap) (instr: Instruction) =
     instrMap.[instr.Address] <- newInstructionInfo hdl instr
     instrMap
 
-  /// InstrMap will only have this api: to update InstrMap, developer should use
-  /// use this function. Removing instruction from InstrMap should be prohibited.
-  let parse hdl parseMode instrMap leader =
-    let leader = updateParseMode hdl parseMode leader
-    match BinHandler.ParseBBlock hdl leader with
-    | Ok [] -> failwith "Fatal error: an empty block encountered."
-    | Ok instrs ->
+  /// InstrMap will only have this API. Removing instructions from InstrMap is
+  /// not allowed.
+  let parse hdl parseMode instrMap leaderAddr =
+    // FIXME
+    // let leaderAddr = updateParseMode hdl parseMode leaderAddr
+    match BinHandler.ParseBBlock hdl hdl.DefaultParsingContext leaderAddr with
+    | Ok ([], _) -> failwith "Fatal error: an empty block encountered."
+    | Ok (instrs, _ctxt) ->
       let instrMap = List.fold (updateInstrMap hdl) instrMap instrs
       let addrs = List.map (fun (instr: Instruction) -> instr.Address) instrs
       Ok (instrMap, addrs)

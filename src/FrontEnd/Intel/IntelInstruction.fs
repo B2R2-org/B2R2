@@ -33,8 +33,12 @@ open System.Text
 type IntelInstruction (addr, numBytes, insInfo, wordSz) =
   inherit Instruction (addr, numBytes, wordSz)
 
+  let defaultCtxt = ParsingContext.Init ()
+
   /// Basic instruction info.
   member val Info: InsInfo = insInfo
+
+  override __.NextParsingContext with get() = defaultCtxt
 
   override __.IsBranch () =
     Helper.isBranch __.Info.Opcode

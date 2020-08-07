@@ -54,11 +54,12 @@ type AsmInterface (isa: ISA, startAddress) =
     else
       let bs = __.AssembleBin asm |> Array.concat
       let handler = BinHandler.UpdateCode handler startAddress bs
-      let rec loop addr acc =
-        match BinHandler.TryParseInstr handler addr with
+      let rec loop ctxt addr acc =
+        match BinHandler.TryParseInstr handler ctxt addr with
         | None -> List.rev acc
         | Some ins ->
           let stmts = BinHandler.LiftInstr handler ins
-          loop (addr + uint64 ins.Length) (stmts :: acc)
-      loop 0UL []
+          let ctxt = ins.NextParsingContext
+          loop ctxt (addr + uint64 ins.Length) (stmts :: acc)
+      loop handler.DefaultParsingContext 0UL []
       |> Array.concat

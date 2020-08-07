@@ -25,8 +25,6 @@
 namespace B2R2.FrontEnd
 
 open System
-open System.Runtime.InteropServices
-open System.Threading.Tasks
 open B2R2
 open B2R2.BinFile
 open B2R2.FrontEnd
@@ -35,7 +33,7 @@ open B2R2.FrontEnd.BinHandlerHelper
 type BinHandler = {
   ISA: ISA
   FileInfo: FileInfo
-  ParsingContext: ParsingContext
+  DefaultParsingContext: ParsingContext
   TranslationContext: TranslationContext
   Parser: Parser
   RegisterBay: RegisterBay
@@ -50,7 +48,7 @@ with
     let ctxt, parser, regbay = initHelpers isa
     { ISA = isa
       FileInfo = fi
-      ParsingContext = ParsingContext (mode)
+      DefaultParsingContext = ParsingContext.Init (mode)
       TranslationContext = ctxt
       Parser = parser
       RegisterBay = regbay }
@@ -158,91 +156,65 @@ with
     let bs = fi.TranslateAddress addr |> loop []
     ByteArray.extractCString bs 0
 
-  static member ParseInstr (hdl: BinHandler) addr =
+  static member ParseInstr (hdl: BinHandler) ctxt addr =
     hdl.FileInfo.TranslateAddress addr
-    |> hdl.Parser.Parse hdl.FileInfo.BinReader hdl.ParsingContext addr
+    |> hdl.Parser.Parse hdl.FileInfo.BinReader ctxt addr
 
-  static member TryParseInstr handler addr =
-    try BinHandler.ParseInstr handler addr |> Some
+  static member TryParseInstr hdl ctxt addr =
+    try BinHandler.ParseInstr hdl ctxt addr |> Some
     with _ -> None
 
-  static member ParseBBlock handle addr =
-    let rec parseLoop acc pc =
-      match BinHandler.TryParseInstr handle pc with
+  static member ParseBBlock handle ctxt addr =
+    let rec parseLoop ctxt acc pc =
+      match BinHandler.TryParseInstr handle ctxt pc with
       | Some ins ->
-        if ins.IsExit () then Ok <| List.rev (ins :: acc)
-        else parseLoop (ins :: acc) (pc + uint64 ins.Length)
+        let ctxt = ins.NextParsingContext
+        if ins.IsExit () then Ok (List.rev (ins :: acc), ctxt)
+        else parseLoop ctxt (ins :: acc) (pc + uint64 ins.Length)
       | None -> Error <| List.rev acc
-    parseLoop [] addr
-
-  static member ParseBBlockWithAddr (handle, addr) =
-    let rec parseLoop acc pc =
-      match BinHandler.TryParseInstr handle pc with
-      | Some ins ->
-        if ins.IsExit () then Ok (List.rev (ins :: acc)), pc + uint64 ins.Length
-        else parseLoop (ins :: acc) (pc + uint64 ins.Length)
-      | None -> Error (List.rev acc), pc
-    parseLoop [] addr
+    parseLoop ctxt [] addr
 
   static member inline LiftInstr (handle: BinHandler) (ins: Instruction) =
     ins.Translate handle.TranslationContext
 
-  static member LiftBBlock (handler: BinHandler) addr =
-    match BinHandler.ParseBBlock handler addr with
-    | Ok bbl -> lift handler.TranslationContext addr bbl |> Ok
-    | Error bbl -> lift handler.TranslationContext addr bbl |> Error
+  static member LiftBBlock (hdl: BinHandler) ctxt addr =
+    match BinHandler.ParseBBlock hdl ctxt addr with
+    | Ok (bbl, ctxt) ->
+      let struct (stmts, addr) = lift hdl.TranslationContext addr bbl
+      Ok (stmts, addr, ctxt)
+    | Error bbl ->
+      let struct (stmts, addr) = lift hdl.TranslationContext addr bbl
+      Error (stmts, addr)
 
-  static member LiftIRBBlock (handler: BinHandler) addr =
-    let rec liftLoop acc pc =
-      match BinHandler.TryParseInstr handler pc with
+  static member LiftIRBBlock (hdl: BinHandler) ctxt addr =
+    let rec liftLoop ctxt acc pc =
+      match BinHandler.TryParseInstr hdl ctxt pc with
       | Some ins ->
-        let stmts = ins.Translate handler.TranslationContext
+        let stmts = ins.Translate hdl.TranslationContext
         let acc = (ins, stmts) :: acc
         let pc = pc + uint64 ins.Length
         let lastStmt = stmts.[stmts.Length - 1]
-        if BinIR.Utils.isBBEnd lastStmt then Ok (List.rev acc, pc)
-        else liftLoop acc pc
+        if BinIR.Utils.isBBEnd lastStmt then
+          Ok (List.rev acc, ctxt, pc)
+        else liftLoop ins.NextParsingContext acc pc
       | None -> Error []
-    liftLoop [] addr
+    liftLoop ctxt [] addr
 
-  static member inline DisasmInstr handler showAddr resolve (ins: Instruction) =
-    ins.Disasm (showAddr, resolve, handler.FileInfo)
+  static member inline DisasmInstr hdl showAddr resolve (ins: Instruction) =
+    ins.Disasm (showAddr, resolve, hdl.FileInfo)
 
   static member inline DisasmInstrSimple (ins: Instruction) =
     ins.Disasm ()
 
-  static member DisasmBBlock handler showAddr resolve addr =
-    match BinHandler.ParseBBlock handler addr with
-    | Ok bbl -> disasm showAddr resolve handler.FileInfo addr bbl |> Ok
-    | Error bbl -> disasm showAddr resolve handler.FileInfo addr bbl |> Error
+  static member DisasmBBlock hdl ctxt showAddr resolve addr =
+    match BinHandler.ParseBBlock hdl ctxt addr with
+    | Ok (bbl, ctxt) ->
+      let struct (str, addr) = disasm showAddr resolve hdl.FileInfo addr bbl
+      Ok (str, addr, ctxt)
+    | Error bbl ->
+      let struct (str, addr) = disasm showAddr resolve hdl.FileInfo addr bbl
+      Error (str, addr)
 
   static member Optimize stmts = LocalOptimizer.Optimize stmts
-
-  static member LiftInstList (handler: BinHandler) insts success =
-    List.map (fun (ins: Instruction) ->
-                ins.Translate handler.TranslationContext) insts |> Array.concat,
-    success
-
-  static member LiftOptInstList (handler: BinHandler) insts success =
-    List.map (fun (ins: Instruction) ->
-                ins.Translate handler.TranslationContext) insts |> Array.concat
-    |> LocalOptimizer.Optimize, success
-
-  static member BuildTask func = new Task<BinIR.LowUIR.Stmt [] * bool> (func)
-
-  static member CreateLiftBBlockTask
-    (handler, addr, [<Optional;DefaultParameterValue(true)>] optimize: bool,
-     [<Out>] nxt: byref<Addr>) =
-    match BinHandler.ParseBBlockWithAddr (handler, addr) with
-    | Ok (is), next ->
-      nxt <- next
-      if optimize then (fun () -> BinHandler.LiftOptInstList handler is true)
-                  else (fun () -> BinHandler.LiftInstList handler is true)
-      |> BinHandler.BuildTask
-    | Error (is), stop ->
-      nxt <- stop + 1UL // FIXME: next address, its Intel
-      if optimize then (fun () -> BinHandler.LiftOptInstList handler is false)
-                  else (fun () -> BinHandler.LiftInstList handler is false)
-      |> BinHandler.BuildTask
 
 // vim: set tw=80 sts=2 sw=2:

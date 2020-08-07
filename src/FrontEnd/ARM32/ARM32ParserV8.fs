@@ -992,7 +992,7 @@ let parseGroup110v8 cond bin =
   opcode, None, operands
 
 /// ARM Architecture Reference Manual ARMv8-A ARM DDI 0487A.k
-let parseV8A32ARM bin =
+let parseV8A32ARM ctxt bin =
   let op = concat (extract bin 27u 25u) (pickBit bin 4u) 1
   let cond = extract bin 31u 28u |> byte |> parseCond
   let opcode, SIMDTyp, operands =
@@ -1007,6 +1007,6 @@ let parseV8A32ARM bin =
     | op when op &&& 0b1110u = 0b1100u -> parseGroup110v8 cond bin
     | op when op &&& 0b1110u = 0b1110u -> raise UnallocatedException
     | _ -> failwith "Wrong group specified."
-  opcode, Some cond, 0uy, None, None, SIMDTyp, operands, None
+  opcode, Some cond, 0uy, None, None, SIMDTyp, operands, None, ctxt
 
 // vim: set tw=80 sts=2 sw=2:

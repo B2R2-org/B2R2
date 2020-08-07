@@ -43,25 +43,10 @@ let isARMv8 = function
   | Arch.AARCH32 -> true
   | _ -> false
 
-let getThumbParser ctxt bin = function
+let parseThumb ctxt bin = function
   | 2u -> Parserv7.parseV7Thumb16 ctxt bin
   | 4u -> Parserv7.parseV7Thumb32 ctxt bin
   | _ -> failwith "Invalid instruction length"
-
-let inline private newInsInfo addr c opcode it w q simd oprs iLen mode cflag =
-  let insInfo =
-    { Address = addr
-      NumBytes = iLen
-      Condition  = c
-      Opcode = opcode
-      Operands = oprs
-      ITState = it
-      WriteBack = w
-      Qualifier = q
-      SIMDTyp = simd
-      Mode = mode
-      Cflag = cflag }
-  ARM32Instruction (addr, iLen, insInfo)
 
 let parse reader (ctxt: ParsingContext) arch addr pos =
   let mode = ctxt.ArchOperationMode
@@ -71,15 +56,27 @@ let parse reader (ctxt: ParsingContext) arch addr pos =
     | ArchOperationMode.ARMMode -> reader.ReadUInt32 pos
     | _-> raise InvalidTargetArchModeException
   let len = nextPos - pos |> uint32
-  let opcode, cond, itState, wback, qualifier, simdt, oprs, cflg =
+  let opcode, cond, itState, wback, qualifier, simdt, oprs, cflag, ctxt' =
     match ctxt.ArchOperationMode with
     | ArchOperationMode.ARMMode ->
-      if isARMv7 arch then Parserv7.parseV7ARM bin
-      else Parserv8.parseV8A32ARM bin // XXX
+      if isARMv7 arch then Parserv7.parseV7ARM ctxt bin
+      else Parserv8.parseV8A32ARM ctxt bin // XXX
     | ArchOperationMode.ThumbMode ->
-      if isARMv7 arch then getThumbParser ctxt bin len
+      if isARMv7 arch then parseThumb ctxt bin len
       else raise UnallocatedException
     | _ -> raise InvalidTargetArchModeException
-  newInsInfo addr cond opcode itState wback qualifier simdt oprs len mode cflg
+  let insInfo =
+    { Address = addr
+      NumBytes = len
+      Condition  = cond
+      Opcode = opcode
+      Operands = oprs
+      ITState = itState
+      WriteBack = wback
+      Qualifier = qualifier
+      SIMDTyp = simdt
+      Mode = mode
+      Cflag = cflag }
+  ARM32Instruction (addr, len, insInfo, ctxt')
 
 // vim: set tw=80 sts=2 sw=2:

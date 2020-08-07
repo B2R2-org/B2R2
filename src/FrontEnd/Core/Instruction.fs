@@ -55,6 +55,17 @@ type Instruction (addr, numBytes, wordSize) =
   member val WordSize: WordSize = wordSize
 
   /// <summary>
+  ///   Parsing context of the next instruction. Sometimes the way we parse a
+  ///   binary instruction chanages based on prior instructions we observed so
+  ///   far. We propagate such information through Instructions. The next
+  ///   instruction here means either the fall-through instruction or the jump
+  ///   target instruction. That is, we always follow the control flow and refer
+  ///   to the previous instruction from the control flow to decide the parsing
+  ///   behavior.
+  /// </summary>
+  abstract member NextParsingContext: ParsingContext
+
+  /// <summary>
   ///   Is this a branch instruction? A branch instruction includes any kinds of
   ///   jump instructions, such as CALL/RET instructions, indirect/direct jump
   ///   instructions, and conditional jump instructions.
@@ -135,8 +146,8 @@ type Instruction (addr, numBytes, wordSize) =
   ///   system call instructions as an exit instruction.
   /// </summary>
   /// <returns>
-  ///   Returns true if this instruction is at the end of the corresponding
-  ///   basic block.
+  ///   Returns true if this instruction should be at the end of the
+  ///   corresponding basic block.
   /// </returns>
   abstract member IsExit: unit -> bool
 

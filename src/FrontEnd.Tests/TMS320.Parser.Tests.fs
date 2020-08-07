@@ -31,7 +31,7 @@ open B2R2.FrontEnd.TMS320C6000
 
 let private test opcode unit oprs bytes =
   let reader = BinReader.Init (bytes, Endian.Little)
-  let ctxt = new ParsingContext (ArchOperationMode.NoMode)
+  let ctxt = ParsingContext.Init (ArchOperationMode.NoMode)
   let ins = Parser.parse reader ctxt 0UL 0
   Assert.AreEqual (ins.Info.Opcode, opcode)
   Assert.AreEqual (ins.Info.FunctionalUnit, unit)

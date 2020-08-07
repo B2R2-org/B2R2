@@ -1494,7 +1494,7 @@ module ARMv7 =
 
   let private test arch endian cond op w (q: Qualifier option) simd oprs bytes =
     let reader = BinReader.Init (bytes, endian)
-    let ctxt = new ParsingContext (ArchOperationMode.ARMMode)
+    let ctxt = ParsingContext.Init (ArchOperationMode.ARMMode)
     let ins = Parser.parse reader ctxt arch 0UL 0
     let cond' = ins.Info.Condition
     let opcode' = ins.Info.Opcode
@@ -5311,7 +5311,7 @@ module ARMThumb =
 
   let private test arch endian cond op w q (simd: SIMDDataType option) oprs bs =
     let reader = BinReader.Init (bs, endian)
-    let ctxt = new ParsingContext (ArchOperationMode.ThumbMode)
+    let ctxt = ParsingContext.Init (ArchOperationMode.ThumbMode)
     let ins = Parser.parse reader ctxt arch 0UL 0
     let cond' = ins.Info.Condition
     let opcode' = ins.Info.Opcode
@@ -6547,7 +6547,7 @@ module EVM =
 
   let private test opcode bytes =
     let reader = BinReader.Init (bytes, Endian.Little)
-    let ctxt = new ParsingContext (ArchOperationMode.NoMode)
+    let ctxt = ParsingContext.Init (ArchOperationMode.NoMode)
     let ins = Parser.parse reader ctxt WordSize.Bit64 0UL 0
     let opcode' = ins.Info.Opcode
     Assert.AreEqual (opcode', opcode)
