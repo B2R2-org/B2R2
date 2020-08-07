@@ -10,6 +10,13 @@
     <Compile Include="FileInfo.fs" />
     <Compile Include="FileHelper.fs" />
     <Compile Include="RawBinary.fs" />
+    <Compile Include="WasmTypes.fs" />
+    <Compile Include="WasmHeader.fs" />
+    <Compile Include="WasmExpression.fs" />
+    <Compile Include="WasmSection.fs" />
+    <Compile Include="WasmParser.fs" />
+    <Compile Include="WasmHelper.fs" />
+    <Compile Include="Wasm.fs" />
     <Compile Include="ELFDwarfTypes.fs" />
     <Compile Include="ELFTypes.fs" />
     <Compile Include="ELFExceptionFrames.fs" />
