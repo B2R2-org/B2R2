@@ -86,7 +86,16 @@ let peekCustomSecContents reader offset =
   { Name = name; Size = rawLen }
 
 let parseCustomSec (reader: BinReader) offset =
-  parseSection reader offset peekCustomSecContents
+  let sec = parseSection reader offset peekCustomSecContents
+  let conts' =
+    match sec.Contents with
+    | Some conts ->
+      Some { conts with Size = sec.Size }
+    | None -> sec.Contents
+  {
+    sec with
+      Contents = conts'
+  }
 
 let peekValTypeVec (reader: BinReader) offset =
   let pvt (r: BinReader) (o: int) =
