@@ -56,7 +56,7 @@ let textStartAddrOf wm =
   match wm.CodeSection with
   | Some cs ->
     uint64 cs.Offset
-  | None -> 0UL//8UL//FAKE
+  | None -> 0UL
 
 let importDescToSymKind desc =
   match desc with
