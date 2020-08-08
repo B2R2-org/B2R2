@@ -32,10 +32,11 @@ open B2R2.BinFile.Wasm.Helper
 ///   This class represents a Web Assembly
 ///   (Wasm Module) binary file.
 /// </summary>
-type WasmFileInfo (bytes, path) =
-  inherit FileInfo ()
+type WasmFileInfo (bytes, path, baseAddr) =
+  inherit FileInfo (baseAddr)
   let wm = Parser.parse bytes
 
+  new (bytes, path) = WasmFileInfo (bytes, path, 0UL)
   override __.BinReader = wm.BinReader
   override __.FileFormat = FileFormat.WasmBinary
   override __.ISA = defaultISA
@@ -56,8 +57,10 @@ type WasmFileInfo (bytes, path) =
   override __.GetSections () = getSections wm
   override __.GetSections (addr) = getSectionsByAddr wm addr
   override __.GetSections (name) = getSectionsByName wm name
+  override __.GetTextSections () = Utils.futureFeature () // FIXME
   override __.GetSegments (_isLoadable) = Seq.empty
   override __.GetLinkageTableEntries () = getImports wm
+  override __.IsLinkageTable _addr = Utils.futureFeature () // FIXME
   override __.TryFindFunctionSymbolName (addr, n) = tryFindFunSymName wm addr &n
   override __.IsValidAddr (addr) =
     addr >= 0UL && addr < (uint64 bytes.LongLength)
@@ -65,5 +68,6 @@ type WasmFileInfo (bytes, path) =
     __.IsValidAddr range.Min && __.IsValidAddr range.Max
   override __.IsInFileAddr addr = __.IsValidAddr addr
   override __.IsInFileRange range = __.IsValidRange range
+  override __.IsExecutableAddr _addr = Utils.futureFeature () // FIXME
   override __.GetNotInFileIntervals range =
     getNotInFileIntervals range bytes.LongLength
