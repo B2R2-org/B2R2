@@ -48,7 +48,7 @@ let sectionIdToName (secId: SectionId) (off: int) =
 let private summerizeSections (reader: BinReader) offset =
   let rec loop (acc: _ list) no =
     if reader.IsOutOfRange no then
-      acc
+      List.rev acc
     else
       let id, size, len = peekSectionHeader reader no
       let headerSize = len + 1
@@ -60,7 +60,7 @@ let private summerizeSections (reader: BinReader) offset =
         HeaderSize = uint32 headerSize
         ContentsSize = size
       }
-      loop (acc @ [summary]) no'
+      loop (summary :: acc) no'
   loop [] offset
 
 let private idLtId id1 id2 =
@@ -109,98 +109,62 @@ let updateSection wm id updateRec parseSec (secsSumm: SectionSummary list) =
 
 let updateCustomSection wasmModule secsSummary =
   let ur wm sec =
-    {
-      wm with
-        CustomSections = wm.CustomSections @ [ sec ]
-    }
+    { wm with CustomSections = wm.CustomSections @ [ sec ] }
   updateSection wasmModule SectionId.Custom ur parseCustomSec secsSummary
 
 let updateTypeSection wasmModule secsSummary =
   let ur wm sec =
-    {
-      wm with
-        TypeSection = Some sec
-    }
+    { wm with TypeSection = Some sec }
   updateSection wasmModule SectionId.Type ur parseTypeSec secsSummary
 
 let updateImportSection wasmModule secsSummary =
   let ur wm sec =
-    {
-      wm with
-        ImportSection = Some sec
-    }
+    { wm with ImportSection = Some sec }
   updateSection wasmModule SectionId.Import ur parseImportSec secsSummary
 
 let updateFunctionSection wasmModule secsSummary =
   let ur wm sec =
-    {
-      wm with
-        FunctionSection = Some sec
-    }
+    { wm with FunctionSection = Some sec }
   updateSection wasmModule SectionId.Function ur parseFunctionSec secsSummary
 
 let updateTableSection wasmModule secsSummary =
   let ur wm sec =
-    {
-      wm with
-        TableSection = Some sec
-    }
+    { wm with TableSection = Some sec }
   updateSection wasmModule SectionId.Table ur parseTableSec secsSummary
 
 let updateMemorySection wasmModule secsSummary =
   let ur wm sec =
-    {
-      wm with
-        MemorySection = Some sec
-    }
+    { wm with MemorySection = Some sec }
   updateSection wasmModule SectionId.Memory ur parseMemorySec secsSummary
 
 let updateGlobalSection wasmModule secsSummary =
   let ur wm sec =
-    {
-      wm with
-        GlobalSection = Some sec
-    }
+    { wm with GlobalSection = Some sec }
   updateSection wasmModule SectionId.Global ur parseGlobalSec secsSummary
 
 let updateExportSection wasmModule secsSummary =
   let ur wm sec =
-    {
-      wm with
-        ExportSection = Some sec
-    }
+    { wm with ExportSection = Some sec }
   updateSection wasmModule SectionId.Export ur parseExportSec secsSummary
 
 let updateStartSection wasmModule secsSummary =
   let ur wm sec =
-    {
-      wm with
-        StartSection = Some sec
-    }
+    { wm with StartSection = Some sec }
   updateSection wasmModule SectionId.Start ur parseStartSec secsSummary
 
 let updateElementSection wasmModule secsSummary =
   let ur wm sec =
-    {
-      wm with
-        ElementSection = Some sec
-    }
+    { wm with ElementSection = Some sec }
   updateSection wasmModule SectionId.Element ur parseElementSec secsSummary
 
 let updateCodeSection wasmModule secsSummary =
   let ur wm sec =
-    {
-      wm with
-        CodeSection = Some sec
-    }
+    { wm with CodeSection = Some sec }
   updateSection wasmModule SectionId.Code ur parseCodeSec secsSummary
 
 let updateDataSection wasmModule secsSummary =
   let ur wm sec =
-    {
-      wm with
-        DataSection = Some sec
-    }
+    { wm with DataSection = Some sec }
   updateSection wasmModule SectionId.Data ur parseDataSec secsSummary
 
 let renameSecSumm (sm: SectionSummary) (secConts: CustomContents option) =
@@ -209,10 +173,7 @@ let renameSecSumm (sm: SectionSummary) (secConts: CustomContents option) =
     | Some conts ->
       conts.Name
     | None -> sm.Name
-  {
-    sm with
-      Name = name
-  }
+  { sm with Name = name }
 
 let addSecSummToAddrMap (secSumm: SectionSummary) map =
   let startAddr = uint64 secSumm.Offset
@@ -328,9 +289,9 @@ let buildFuncIndexMap (wm: WasmModule) =
       | None -> [||], 0
     | None -> [||], 0
   let lastIdx =
-    let len1 = Array.length importedFuncs
-    if len1 = 0 then 0u
-    else uint32 (len1 - 1)
+    let len = Array.length importedFuncs
+    if len = 0 then 0u
+    else uint32 (len - 1)
   let impFuncsIdxMap =
     importedFuncs
     |> Array.map2 (fun idx ifun ->
