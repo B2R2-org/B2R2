@@ -42,7 +42,7 @@ type CPState = {
   /// SSA var values.
   RegState : Dictionary<Variable, CPValue>
   /// SSA mem values. Only store values of constant addresses.
-  MemState : Dictionary<SSAMemID, Map<Addr, CPValue>>
+  MemState : Dictionary<SSAMemID, Map<Addr, CPValue * SSAMemID>>
   /// Executable edges from vid to vid. If there's no element for an edge, that
   /// means the edge is not executable.
   ExecutableEdges: HashSet<VertexID * VertexID>
@@ -102,15 +102,6 @@ module CPState =
     | true, v -> v
     | false, _ -> NotAConst
 
-  let isDefinedMem st m rt addr =
-    let mid = m.Identifier
-    let align = RegType.toByteWidth rt |> uint64
-    if st.MemState.ContainsKey mid then
-      if (rt = st.DefaultWordSize) && (addr % align = 0UL) then
-        Map.containsKey addr st.MemState.[mid]
-      else false
-    else false
-
   let findMem st m rt addr =
     let mid = m.Identifier
     let align = RegType.toByteWidth rt |> uint64
@@ -118,7 +109,7 @@ module CPState =
     else st.MemState.[mid] <- Map.empty
     if (rt = st.DefaultWordSize) && (addr % align = 0UL) then
       match Map.tryFind addr st.MemState.[mid] with
-      | Some c -> c
+      | Some (c, _) -> c
       | None -> NotAConst
     else NotAConst
 
@@ -132,18 +123,22 @@ module CPState =
     if (rt = st.DefaultWordSize) && (addr % align = 0UL) then
       let dstid = mDst.Identifier
       match Map.tryFind addr st.MemState.[dstid] with
-      | Some old when CPValue.goingUp old c || old = c -> ()
+      | Some (_, origin) when origin <> dstid ->
+        st.MemState.[dstid] <- Map.add addr (c, dstid) st.MemState.[dstid]
+        st.SSAWorkList.Enqueue mDst
+      | Some (old, _) when CPValue.goingUp old c || old = c -> ()
       | _ ->
-        st.MemState.[dstid] <- Map.add addr c st.MemState.[dstid]
+        st.MemState.[dstid] <- Map.add addr (c, dstid) st.MemState.[dstid]
         st.SSAWorkList.Enqueue mDst
     else ()
 
-  let private mergeMemAux st1 st2 =
+  let private mergeMemAux origin st1 st2 =
     st1
-    |> Map.fold (fun acc v c ->
-      match Map.tryFind v acc with
-      | Some c' -> Map.add v (CPValue.meet c c') acc
-      | None -> Map.add v c acc) st2
+    |> Map.map (fun _ (c, _) -> c, origin)
+    |> Map.fold (fun acc addr (c, _) ->
+      match Map.tryFind addr acc with
+      | Some (c', _) -> Map.add addr (CPValue.meet c c', origin) acc
+      | None -> Map.add addr (c, origin) acc) st2
 
   /// Merge memory mapping and return true if changed.
   let mergeMem st dstid srcids =
@@ -152,7 +147,7 @@ module CPState =
     |> function
       | [||] -> false
       | arr ->
-        let merged = Array.reduce mergeMemAux arr
+        let merged = Array.reduce (mergeMemAux dstid) arr
         if not (st.MemState.ContainsKey dstid)
           || st.MemState.[dstid] <> merged
         then st.MemState.[dstid] <- merged; true

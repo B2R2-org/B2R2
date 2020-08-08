@@ -142,25 +142,26 @@ let rec evalExpr st = function
   | _ -> Utils.impossible ()
 
 let evalMemDef st mDst e =
+  let dstid = mDst.Identifier
   match e with
   | Store (mSrc, rt, addr, v) ->
     let c = evalExpr st v
     let addr = evalExpr st addr
-    CPState.copyMem st mDst.Identifier mSrc.Identifier
+    CPState.copyMem st dstid mSrc.Identifier
     match addr with
     | Const addr ->
       let addr = BitVector.toUInt64 addr
       CPState.storeMem st mDst rt addr c
     | _ -> ()
   | ReturnVal (_, _, mSrc) ->
-    CPState.copyMem st mDst.Identifier mSrc.Identifier
+    CPState.copyMem st dstid mSrc.Identifier
     let dstMem =
-      st.MemState.[mDst.Identifier]
+      st.MemState.[dstid]
       |> Map.map (fun _ v ->
         match v with
-        | GOT _ -> v
-        | _ -> NotAConst)
-    st.MemState.[mDst.Identifier] <- dstMem
+        | (GOT _ as c), _ -> c, dstid
+        | _ -> NotAConst, dstid)
+    st.MemState.[dstid] <- dstMem
   | _ ->  Utils.impossible ()
 
 let inline updateConst st r v =
