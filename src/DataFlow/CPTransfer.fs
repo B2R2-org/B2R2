@@ -43,9 +43,11 @@ let private isGetPCThunkCode = function
 /// we directly compare first 4 bytes of byte code. Because __x86.get_pc_thunk-
 /// family only has 4 bytes for its function body and their values are fixed.
 let private isGetPCThunk hdl addr =
-  match hdl.FileInfo.TryFindFunctionSymbolName addr |> Utils.tupleToOpt with
-  | Some name -> name.StartsWith "__x86.get_pc_thunk"
-  | None -> BinHandler.ReadUInt (hdl, addr, 4) |> isGetPCThunkCode
+  if addr = 0UL then false
+  else
+    match hdl.FileInfo.TryFindFunctionSymbolName addr |> Utils.tupleToOpt with
+    | Some name -> name.StartsWith "__x86.get_pc_thunk"
+    | None -> BinHandler.ReadUInt (hdl, addr, 4) |> isGetPCThunkCode
 
 let evalLoad st m rt addr =
   match addr with
