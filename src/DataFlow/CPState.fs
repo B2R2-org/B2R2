@@ -133,12 +133,14 @@ module CPState =
     else ()
 
   let private mergeMemAux origin st1 st2 =
-    st1
-    |> Map.map (fun _ (c, _) -> c, origin)
-    |> Map.fold (fun acc addr (c, _) ->
-      match Map.tryFind addr acc with
-      | Some (c', _) -> Map.add addr (CPValue.meet c c', origin) acc
-      | None -> Map.add addr (c, origin) acc) st2
+    let addrs = Map.fold (fun acc addr _ -> Set.add addr acc) Set.empty st1
+    let addrs = Map.fold (fun acc addr _ -> Set.add addr acc) addrs st2
+    addrs
+    |> Set.fold (fun acc addr ->
+      match Map.tryFind addr st1, Map.tryFind addr st2 with
+      | Some (c, _), Some (c', _) ->
+        Map.add addr (CPValue.meet c c', origin) acc
+      | _ -> Map.add addr (NotAConst, origin) acc) Map.empty
 
   /// Merge memory mapping and return true if changed.
   let mergeMem st dstid srcids =
