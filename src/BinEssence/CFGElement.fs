@@ -25,18 +25,9 @@
 namespace B2R2.BinEssence
 
 open B2R2
-open B2R2.BinGraph
+open B2R2.FrontEnd
 
-/// The base type for basic block.
-[<AbstractClass>]
-type BasicBlock (pp: ProgramPoint) =
-  inherit VertexData (VertexData.genID ())
-  /// The start position (ProgramPoint) of the basic block.
-  member __.PPoint with get() = pp
-  /// The instruction address range of the basic block.
-  abstract Range: AddrRange with get
-  /// Check if this is a fake basic block inserted by our analysis. We create a
-  /// fake block to represent call target vertices in a function-level CFG.
-  abstract IsFakeBlock: unit -> bool
-  /// Convert this basic block to a visual representation.
-  abstract ToVisualBlock: unit -> VisualBlock
+/// Internally used to indicate CFG elements: either a vertex or an edge.
+type internal CFGElement =
+  | CFGEntry of Addr * ParsingContext
+  | CFGEdge of src: ProgramPoint * CFGEdgeKind * dst: Addr

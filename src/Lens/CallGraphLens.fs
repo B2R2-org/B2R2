@@ -32,15 +32,13 @@ open System.Collections.Generic
 
 /// Basic block type for a call graph (CallCFG).
 type CallGraphBBlock (addr, id, name, isFake, isExternal) =
-  inherit BasicBlock ()
+  inherit BasicBlock (ProgramPoint (addr, 0))
 
   member __.ID with get () = id
 
   member __.Name with get () = name
 
   member __.IsExternal with get () = isExternal
-
-  override __.PPoint = ProgramPoint (addr, 0)
 
   override __.Range = AddrRange (addr, addr + 1UL)
 

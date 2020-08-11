@@ -109,9 +109,9 @@ type CFGTest1 () =
 
   [<TestMethod>]
   member __.``Boundary Test: Leader Identification`` () =
-    let bblInfo = ess.BBLInfo
-    let boundaries = bblInfo.Boundaries
-    Assert.AreEqual (8, bblInfo.VertexMap.Count)
+    let bbls = ess.BBLStore
+    let boundaries = bbls.Boundaries
+    Assert.AreEqual (8, bbls.VertexMap.Count)
     [ (0x00UL, 0x19UL); (0x19UL, 0x3FUL); (0x3FUL, 0x48UL); (0x48UL, 0x52UL);
       (0x52UL, 0x55UL); (0x55UL, 0x5FUL); (0x62UL, 0x71UL); (0x71UL, 0x81UL); ]
     |> List.iter (fun r ->
@@ -249,9 +249,9 @@ type CFGTest2 () =
 
   [<TestMethod>]
   member __.``Boundary Test: Leader Identification`` () =
-    let bblInfo = ess.BBLInfo
-    let boundaries = bblInfo.Boundaries
-    Assert.AreEqual (7, bblInfo.VertexMap.Count)
+    let bbls = ess.BBLStore
+    let boundaries = bbls.Boundaries
+    Assert.AreEqual (7, bbls.VertexMap.Count)
     [ (0x00UL, 0x0CUL); (0x0CUL, 0x1CUL); (0x1CUL, 0x1EUL); (0x1CUL, 0x1EUL);
       (0x1CUL, 0x1EUL); (0x1EUL, 0x24UL); (0x24UL, 0x28UL); ]
     |> List.iter (fun r ->

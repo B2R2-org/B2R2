@@ -65,6 +65,9 @@ with
   static member InitDSP (ctxt: ParsingContext, flag) =
     ParsingContext (ctxt.ArchOperationMode, ctxt.ITState, ctxt.CodeOffset, flag)
 
+  static member InitEVM (offset) =
+    ParsingContext (ArchOperationMode.NoMode, [], offset, false)
+
 /// A high-level interface for the translation context, which stores several
 /// states for translating/lifting instructions.
 [<AbstractClass>]

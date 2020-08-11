@@ -28,7 +28,7 @@ open B2R2.BinEssence
 
 /// The main vertex type used for visualization.
 type VisBBlock (blk: BasicBlock, isDummy) =
-  inherit BasicBlock ()
+  inherit BasicBlock (blk.PPoint)
 
   let mutable layer = -1
 
@@ -60,8 +60,6 @@ type VisBBlock (blk: BasicBlock, isDummy) =
   /// current font.
   let height =
     if isDummy then 0.0 else float numLines * 14.0 + tSpanOffset + padding * 2.0
-
-  override __.PPoint with get () = blk.PPoint
 
   override __.Range with get () = blk.Range
 

@@ -78,7 +78,7 @@ exception InvalidFunctionAddressException
 type BinEssence = {
   BinHandler: BinHandler
   InstrMap: InstrMap
-  BBLInfo: BBLInfo
+  BBLStore: BBLStore
   CalleeMap: CalleeMap
   SCFG: DiGraph<IRBasicBlock, CFGEdgeKind>
   NoReturnInfo: NoReturnInfo
@@ -105,12 +105,12 @@ with
       else
         visited.Add pos |> ignore
         getVertex newGraph pos
-        |> foldSuccessors (Map.find pos __.BBLInfo.VertexMap)
+        |> foldSuccessors (Map.find pos __.BBLStore.VertexMap)
     and getVertex newGraph pos =
       match vMap.TryGetValue pos with
       | true, v -> v, newGraph
       | false, _ ->
-        let oldV = Map.find pos __.BBLInfo.VertexMap
+        let oldV = Map.find pos __.BBLStore.VertexMap
         let v, newGraph = DiGraph.addVertex newGraph oldV.VData
         vMap.[pos] <- v
         v, newGraph
@@ -188,176 +188,151 @@ with
 
   /// Find a basic block (vertex) in the SCFG that the given address belongs to.
   member __.FindVertex (addr) =
-    let bblInfo = __.BBLInfo
-    bblInfo.Boundaries
+    let bbls = __.BBLStore
+    bbls.Boundaries
     |> IntervalSet.findAll (AddrRange (addr, addr + 1UL))
     |> List.map (fun r -> ProgramPoint (AddrRange.GetMin r, 0))
     |> List.sortBy (fun p -> if p.Address = addr then -1 else 1)
-    |> List.choose (fun p -> Map.tryFind p bblInfo.VertexMap)
+    |> List.choose (fun p -> Map.tryFind p bbls.VertexMap)
     |> List.tryHead
 
   /// For a given address, find the first vertex of a function that the address
   /// belongs to.
   member __.FindFunctionVertex (addr) =
-    let bblInfo = __.BBLInfo
-    IntervalSet.findAll (AddrRange (addr, addr + 1UL)) bblInfo.Boundaries
+    let bbls = __.BBLStore
+    IntervalSet.findAll (AddrRange (addr, addr + 1UL)) bbls.Boundaries
     |> List.map (fun r ->
       let addr = AddrRange.GetMin r
-      Map.find (ProgramPoint (addr, 0)) bblInfo.VertexMap)
+      Map.find (ProgramPoint (addr, 0)) bbls.VertexMap)
     |> List.tryPick __.ReverseLookUp
 
 [<RequireQualifiedAccess>]
 module BinEssence =
 
-  let private getBoundary bblInfo addr =
-    match IntervalSet.tryFindByAddr addr bblInfo.Boundaries with
+  let private getBoundary bbls addr =
+    match IntervalSet.tryFindByAddr addr bbls.Boundaries with
     | Some range -> range
     | None -> Utils.impossible ()
 
-  let private addLeaderInfo leaderInfo bblInfo =
-    let boundary = leaderInfo.Boundary
-    { bblInfo with
-        LeaderMap = Map.add boundary.Min leaderInfo bblInfo.LeaderMap
-        Boundaries = IntervalSet.add boundary bblInfo.Boundaries }
+  let private removeBBLInfo addr bbls =
+    let boundary = getBoundary bbls addr
+    let bblInfo = Map.find boundary.Min bbls.BBLMap
+    let bbls =
+      { bbls with
+          BBLMap = Map.remove boundary.Min bbls.BBLMap
+          Boundaries = IntervalSet.remove boundary bbls.Boundaries }
+    struct (bblInfo, bbls)
 
-  let private removeLeaderInfoByAddr addr bblInfo =
-    let boundary = getBoundary bblInfo addr
-    let leaderInfo = Map.find boundary.Min bblInfo.LeaderMap
-    let bblInfo =
-      { bblInfo with
-          LeaderMap = Map.remove boundary.Min bblInfo.LeaderMap
-          Boundaries = IntervalSet.remove boundary bblInfo.Boundaries }
-    leaderInfo, bblInfo
+  let private addBBLInfo bblInfo bbls =
+    let boundary = bblInfo.Boundary
+    { bbls with
+        BBLMap = Map.add boundary.Min bblInfo bbls.BBLMap
+        Boundaries = IntervalSet.add boundary bbls.Boundaries }
 
-  let inline private alreadyHasLeader bblInfo leader =
-    Map.containsKey leader bblInfo.LeaderMap
+  let inline private bblExists bbls addr =
+    Map.containsKey addr bbls.BBLMap
 
-  let inline private isExecutableLeader hdl leader =
-    hdl.FileInfo.IsExecutableAddr leader
+  let inline private isExecutableLeader hdl addr =
+    hdl.FileInfo.IsExecutableAddr addr
 
-  /// If a leader points already covered area but not a starting address of an
-  /// instruction, then it means overlap.
-  let inline private isOverlap (instrMap: InstrMap) bblInfo leader =
-    not <| instrMap.ContainsKey leader &&
-      IntervalSet.containsAddr leader bblInfo.Boundaries
+  let inline private isIntruding bbls leader =
+    IntervalSet.containsAddr leader bbls.Boundaries
 
-  let inline private needToSplit (instrMap: InstrMap) bblInfo leader =
-    (* Maybe this condition is redundant because of isOverlap*)
-    instrMap.ContainsKey leader &&
-      IntervalSet.containsAddr leader bblInfo.Boundaries
-
-  let inline private isAlreadyParsed (instrMap: InstrMap) leader =
+  let inline private isKnownInstruction (instrMap: InstrMap) leader =
     instrMap.ContainsKey leader
 
-  let private splitLeaderInfo prevLeaderInfo leaderPoint =
-    let prevIRLeaders, newIRLeaders =
-      prevLeaderInfo.IRLeaders
-      |> Set.add leaderPoint
-      |> Set.partition (fun ppoint -> ppoint < leaderPoint)
-    let oldBoundary = prevLeaderInfo.Boundary
-    let prevBoundary = AddrRange (oldBoundary.Min, leaderPoint.Address)
-    let newBoundary = AddrRange (leaderPoint.Address, oldBoundary.Max)
-    let prevInfo = { Boundary = prevBoundary; IRLeaders = prevIRLeaders }
-    let newInfo = { Boundary = newBoundary; IRLeaders = newIRLeaders }
-    prevInfo, newInfo
+  let private computeNeighbors g targetV =
+    let incomings, cycleEdge =
+      DiGraph.getPreds g targetV
+      |> List.fold (fun (incomings, cycleEdge) p ->
+        let e = DiGraph.findEdgeData g p targetV
+        if p.GetID () = targetV.GetID () then incomings, Some e
+        else (p, e) :: incomings, cycleEdge) ([], None)
+    let outgoings =
+      DiGraph.getSuccs g targetV
+      |> List.fold (fun outgoings s ->
+        let e = DiGraph.findEdgeData g targetV s
+        if s.GetID () = targetV.GetID () then outgoings
+        else (s, e) :: outgoings) []
+    struct (incomings, outgoings, cycleEdge)
 
-  let private modifyGraph bblInfo g prevLeaderInfo leaderPoint =
-    let irLeaders = prevLeaderInfo.IRLeaders
-    (* Nothing to do *)
-    if Set.contains leaderPoint prevLeaderInfo.IRLeaders then None, bblInfo, g
+  let splitIRBBlock g targetV (splitPoint: ProgramPoint) =
+    let insInfos = (targetV: Vertex<IRBasicBlock>).VData.GetInsInfos ()
+    let srcInfos, dstInfos =
+      insInfos
+      |> Array.partition (fun insInfo ->
+        insInfo.Instruction.Address < splitPoint.Address)
+    let srcBlk = IRBasicBlock (srcInfos, targetV.VData.PPoint)
+    let dstBlk = IRBasicBlock (dstInfos, splitPoint)
+    let src, g = DiGraph.addVertex g srcBlk
+    let dst, g = DiGraph.addVertex g dstBlk
+    let g = DiGraph.addEdge g src dst FallThroughEdge
+    struct (src, dst, g)
+
+  let private updateIRCFG bbls g prevBBL splitPoint target =
+    if Set.contains splitPoint prevBBL.Leaders then
+      (* The split point was one of the known IR-level leaders. So, we don't
+         need to further split the vertex. *)
+      struct (None, bbls, g)
     else
-      let target =
-        Set.partition (fun ppoint -> ppoint < leaderPoint) irLeaders
-        |> fst |> Set.maxElement
-      let targetV = Map.find target bblInfo.VertexMap
-      let incomings, cycleEdge =
-        DiGraph.getPreds g targetV
-        |> List.fold (fun (incomings, cycleEdge) p ->
-          let e = DiGraph.findEdgeData g p targetV
-          if p.GetID () = targetV.GetID () then incomings, Some e
-          else
-            (p, e) :: incomings, cycleEdge) ([], None)
-      let outgoings, cycleEdge =
-        DiGraph.getSuccs g targetV
-        |> List.fold (fun (outgoings, cycleEdge) s ->
-          let e = DiGraph.findEdgeData g targetV s
-          if s.GetID () = targetV.GetID () then outgoings, Some e
-          else
-            (s, e) :: outgoings, cycleEdge) ([], cycleEdge)
-      (* Remove Vertex *)
+      let targetV = Map.find target bbls.VertexMap
+      let struct (ins, outs, cycleEdge) = computeNeighbors g targetV
       let g = DiGraph.removeVertex g targetV
-      let bblInfo =
-        { bblInfo with
-            VertexMap = Map.remove target bblInfo.VertexMap }
-      (* Split insInfo *)
-      let insInfos = targetV.VData.GetInsInfos ()
-      let srcInfos, dstInfos =
-        insInfos
-        |> Array.partition (fun insInfo ->
-          insInfo.Instruction.Address < leaderPoint.Address)
-      let srcData = IRBasicBlock (srcInfos, target)
-      let dstData = IRBasicBlock (dstInfos, leaderPoint)
-      (* Add vertices *)
-      let src, g = DiGraph.addVertex g srcData
-      let dst, g = DiGraph.addVertex g dstData
-      (* Add Edges *)
-      let g = DiGraph.addEdge g src dst FallThroughEdge
-      let g =
-        incomings |> List.fold (fun g (p, e) -> DiGraph.addEdge g p src e) g
-      let g =
-        outgoings |> List.fold (fun g (s, e) -> DiGraph.addEdge g dst s e) g
+      let bbls = { bbls with VertexMap = Map.remove target bbls.VertexMap }
+      let struct (src, dst, g) = splitIRBBlock g targetV splitPoint
+      let g = ins |> List.fold (fun g (p, e) -> DiGraph.addEdge g p src e) g
+      let g = outs |> List.fold (fun g (s, e) -> DiGraph.addEdge g dst s e) g
       let g =
         match cycleEdge with
         | Some e -> DiGraph.addEdge g dst src e
         | None -> g
       let vertexMap =
-        bblInfo.VertexMap |> Map.add target src |> Map.add leaderPoint dst
-      let bblInfo = { bblInfo with VertexMap = vertexMap }
-      Some (src.VData.PPoint), bblInfo, g
+        bbls.VertexMap |> Map.add target src |> Map.add splitPoint dst
+      let bbls = { bbls with VertexMap = vertexMap }
+      struct (Some target, bbls, g)
 
-  let private splitBlock ess leader edgeInfos =
-    (* 1. Remove previous block from bblInfo *)
-    let prevLeaderInfo, bblInfo = removeLeaderInfoByAddr leader ess.BBLInfo
-    let leaderPoint = ProgramPoint (leader, 0)
-    (* 2. Update Graph *)
-    let srcPoint, bblInfo, g =
-      modifyGraph bblInfo ess.SCFG prevLeaderInfo leaderPoint
-    (* 3. Split leaderInfo *)
-    let prevInfo, newInfo = splitLeaderInfo prevLeaderInfo leaderPoint
-    (* 4. Add leaderInfos *)
-    let bblInfo = bblInfo |> addLeaderInfo prevInfo |> addLeaderInfo newInfo
+  let private splitBBLInfo prevBBL fsts snds splitAddr bbls =
+    let oldBoundary = prevBBL.Boundary
+    let prevBoundary = AddrRange (oldBoundary.Min, splitAddr)
+    let newBoundary = AddrRange (splitAddr, oldBoundary.Max)
+    let prevInfo = { Boundary = prevBoundary; Leaders = fsts }
+    let newInfo = { Boundary = newBoundary; Leaders = snds }
+    bbls
+    |> addBBLInfo prevInfo
+    |> addBBLInfo newInfo
+
+  let private updateCalleeMap ess bbls splitPoint fstLeader =
+    let v = Map.find splitPoint bbls.VertexMap
+    match v.VData.GetLastStmt (), (fstLeader: ProgramPoint option) with
+    | InterJmp (_, Num addr, InterJmpInfo.IsCall), Some fstLeader ->
+      let target = BitVector.toUInt64 addr
+      ess.CalleeMap.ReplaceCaller
+        ess.BinHandler fstLeader.Address splitPoint.Address target
+    | _ -> ess.CalleeMap
+
+  /// Split a block into two (by the given leader address).
+  let private splitBlock ess leader elms =
+    let splitPoint = ProgramPoint (leader, 0)
+    (* 1. Remove previous block from bbls *)
+    let struct (prevBBL, bbls) = removeBBLInfo leader ess.BBLStore
+    (* 2. Split IR-level leaders into two: fsts (first leaders) and snds. *)
+    let fsts, snds = Set.partition (fun pp -> pp < splitPoint) prevBBL.Leaders
+    let snds = Set.add splitPoint snds
+    (* 3. Update IR-level Graph *)
+    let struct (fstLeader, bbls, g) =
+      updateIRCFG bbls ess.SCFG prevBBL splitPoint (Set.maxElement fsts)
+    (* 4. Split bblInfo *)
+    let bbls = splitBBLInfo prevBBL fsts snds splitPoint.Address bbls
     (* 5. Update calleeMap *)
-    let v = Map.find leaderPoint bblInfo.VertexMap
-    let calleeMap =
-      match v.VData.GetLastStmt (), srcPoint with
-      | InterJmp (_, Num addr, InterJmpInfo.IsCall), Some srcPoint ->
-        let target = BitVector.toUInt64 addr
-        ess.CalleeMap.ReplaceCaller
-          ess.BinHandler srcPoint.Address leader target
-      | _ -> ess.CalleeMap
-    let ess =
-      { ess with BBLInfo = bblInfo; SCFG = g; CalleeMap = calleeMap }
-    let edgeInfos =
-      List.map (fun (edge, dst) ->
-        match edge, srcPoint with
-        | Some (srcPoint', edgeKind), Some srcPoint when srcPoint = srcPoint' ->
-          Some (leaderPoint, edgeKind), dst
-        | _ -> edge, dst) edgeInfos
-    ess, edgeInfos
-
-  let rec private getBlockWithInstrMap ess addrs addr =
-    if Map.containsKey addr ess.BBLInfo.LeaderMap then List.rev addrs
-    else
-      let instr = ess.InstrMap.[addr].Instruction
-      if instr.IsExit () then List.rev (addr :: addrs)
-      else
-        getBlockWithInstrMap ess (addr :: addrs) <| addr + uint64 instr.Length
-
-  let rec private getBlockWithAddrList leaderMap acc = function
-    | [] -> List.rev acc
-    | addr :: addrs ->
-      if Map.containsKey addr leaderMap then List.rev acc
-      else getBlockWithAddrList leaderMap (addr :: acc) addrs
+    let calleeMap = updateCalleeMap ess bbls splitPoint fstLeader
+    let ess = { ess with BBLStore = bbls; SCFG = g; CalleeMap = calleeMap }
+    let elms =
+      List.map (fun elm ->
+        match elm, fstLeader with
+        | CFGEdge (src, edge, dst), Some fstLeader when fstLeader = src ->
+          CFGEdge (splitPoint, edge, dst)
+        | elm, _ -> elm) elms
+    ess, elms
 
   let private hasNoFallThrough (stmts: Stmt []) =
     if stmts.Length > 0 then
@@ -409,13 +384,11 @@ module BinEssence =
 
   let private createNode instrMap boundary leaders bbls idx leader =
     let instrs = gatherBB instrMap boundary leaders [] leader (idx + 1)
-    let b = IRBasicBlock (instrs, leader)
-    Map.add leader b bbls
+    IRBasicBlock (instrs, leader) :: bbls
 
-  let private buildVertices instrMap leaderInfo =
-    let irLeaders = Set.toArray leaderInfo.IRLeaders
-    irLeaders
-    |> Array.foldi (createNode instrMap leaderInfo.Boundary irLeaders) Map.empty
+  let private buildVertices instrMap bblInfo =
+    let pps = Set.toArray bblInfo.Leaders
+    Array.foldi (createNode instrMap bblInfo.Boundary pps) [] pps
     |> fst
 
   let getIntraEdge src symbol edgeProp edges =
@@ -449,7 +422,7 @@ module BinEssence =
         (src.VData.PPoint, targetPoint, edge) :: edges) edges
 
   let private getNextPPoint (src: Vertex<IRBasicBlock>) =
-    let ppoints = src.VData.LastInsInfo.IRLeaders
+    let ppoints = src.VData.LastInsInfo.ReachablePPs
     if Set.isEmpty ppoints then
       let last = src.VData.LastInstruction
       ProgramPoint (last.Address + uint64 last.Length, 0)
@@ -528,124 +501,134 @@ module BinEssence =
         ess, getFallthroughEdge src false edges
       else ess, (src.VData.PPoint, next, IntraJmpEdge) :: edges
 
-  let rec addEdgeLoop ess edgeInfos = function
-    | [] -> ess, edgeInfos
+  let rec internal addEdgeLoop ess elms = function
+    | [] -> ess, elms
     | (srcPoint, dstPoint, e) :: edges when ProgramPoint.IsFake dstPoint ->
-      let src = Map.find srcPoint ess.BBLInfo.VertexMap
+      let src = Map.find srcPoint ess.BBLStore.VertexMap
       let bbl = IRBasicBlock ([||], dstPoint)
       let dst, g = DiGraph.addVertex ess.SCFG bbl
       let g = DiGraph.addEdge g src dst e
-      addEdgeLoop { ess with SCFG = g } edgeInfos edges
+      addEdgeLoop { ess with SCFG = g } elms edges
     | (srcPoint, dstPoint, e) :: edges ->
-      match Map.tryFind dstPoint ess.BBLInfo.VertexMap with
+      match Map.tryFind dstPoint ess.BBLStore.VertexMap with
       | Some dst ->
-        let src = Map.find srcPoint ess.BBLInfo.VertexMap
+        let src = Map.find srcPoint ess.BBLStore.VertexMap
         let g = DiGraph.addEdge ess.SCFG src dst e
         let ess = { ess with SCFG = g }
         if DiGraph.getSuccs g dst |> List.isEmpty then
           let ess, edges = getEdges ess edges dst
-          addEdgeLoop ess edgeInfos edges
-        else addEdgeLoop ess edgeInfos edges
+          addEdgeLoop ess elms edges
+        else addEdgeLoop ess elms edges
       | None ->
-        if dstPoint.Position <> 0 then Utils.impossible ()
-        let edgeInfos = (Some (srcPoint, e), dstPoint.Address) :: edgeInfos
-        addEdgeLoop ess edgeInfos edges
+        if dstPoint.Position <> 0 then Utils.impossible () else ()
+        let elms = CFGEdge (srcPoint, e, dstPoint.Address) :: elms
+        addEdgeLoop ess elms edges
 
-  let private buildBlock ess leader addrs foundIndJmp edgeInfos edge =
-    let lastAddr = List.rev addrs |> List.head
+  let private connectEdges ess elms vertices edges foundIndJmp =
+    let ess, elms = addEdgeLoop ess elms edges
+    let foundIndJmp =
+      if List.exists (fun (bbl: IRBasicBlock) -> bbl.HasIndirectBranch) vertices
+      then true
+      else foundIndJmp
+    Ok <| struct (ess, foundIndJmp, elms)
+
+  let private extractLeaders ess (boundary: AddrRange) fstLeader addrs =
+    addrs
+    |> List.fold (fun pps addr ->
+      let insInfo = ess.InstrMap.[addr]
+      let pps' =
+        Set.filter (fun (ppoint: ProgramPoint) ->
+          let addr = ppoint.Address
+          boundary.Min <= addr && addr < boundary.Max) insInfo.ReachablePPs
+      Set.union pps pps') (Set.singleton fstLeader)
+
+  let private buildBlock ess leader addrs lastAddr foundIndJmp elms edge =
     let last = ess.InstrMap.[lastAddr].Instruction
     let boundary = AddrRange (leader, lastAddr + uint64 last.Length)
-    let leaderPoint = ProgramPoint (leader, 0)
-    let irLeaders =
-      addrs
-      |> List.fold (fun irLeaders addr ->
-        let insInfo = ess.InstrMap.[addr]
-        let leaders =
-          Set.filter (fun (ppoint: ProgramPoint) ->
-            let addr = ppoint.Address
-            boundary.Min <= addr && addr < boundary.Max) insInfo.IRLeaders
-        Set.union irLeaders leaders) (Set.singleton leaderPoint)
-    let leaderInfo = { Boundary = boundary; IRLeaders = irLeaders }
-    let bblInfo = addLeaderInfo leaderInfo ess.BBLInfo
-    let vertices = buildVertices ess.InstrMap leaderInfo
+    let leader = ProgramPoint (leader, 0)
+    let pps = extractLeaders ess boundary leader addrs
+    let bblInfo = { Boundary = boundary; Leaders = pps }
+    let bbls = addBBLInfo bblInfo ess.BBLStore
+    let vertices = buildVertices ess.InstrMap bblInfo
     let vertexMap, g =
       vertices
-      |> Map.fold (fun (vertexMap, g) ppoint bbl ->
+      |> List.fold (fun (vertexMap, g) bbl ->
         let v, g = DiGraph.addVertex g bbl
-        Map.add ppoint v vertexMap, g) (bblInfo.VertexMap, ess.SCFG)
-    let bblInfo = { bblInfo with VertexMap = vertexMap }
-    let ess = { ess with BBLInfo = bblInfo; SCFG = g }
-    let hasIndBranch (bbl: IRBasicBlock) = bbl.HasIndirectBranch
+        Map.add bbl.PPoint v vertexMap, g) (bbls.VertexMap, ess.SCFG)
+    let bbls = { bbls with VertexMap = vertexMap }
+    let ess = { ess with BBLStore = bbls; SCFG = g }
     match edge with
     | Some (src, e) ->
-      let ess, edgeInfos = addEdgeLoop ess edgeInfos [(src, leaderPoint, e)]
-      let foundIndJmp =
-        if Map.exists (fun _ bbl  -> hasIndBranch bbl) vertices then true
-        else foundIndJmp
-      Ok (ess, foundIndJmp, edgeInfos)
+      connectEdges ess elms vertices [(src, leader, e)] foundIndJmp
     | None ->
-      let ess, edges =
-        getEdges ess [] (Map.find leaderPoint ess.BBLInfo.VertexMap)
-      let ess, edgeInfos = addEdgeLoop ess edgeInfos edges
-      let foundIndJmp =
-        if Map.exists (fun _ bbl -> hasIndBranch bbl) vertices then true
-        else foundIndJmp
-      Ok (ess, foundIndJmp, edgeInfos)
+      let ess, edges = getEdges ess [] (Map.find leader ess.BBLStore.VertexMap)
+      connectEdges ess elms vertices edges foundIndJmp
 
-  /// First prepare target basic block, then connect it with src block
-  let connectLeader ess parseMode foundIndJmp edgeInfo leader edgeInfos =
-    (* BBL was already made *)
-    if alreadyHasLeader ess.BBLInfo leader then
-      match edgeInfo with
-      | Some (src, e) ->
-        let ess, edgeInfos =
-          addEdgeLoop ess edgeInfos [(src, ProgramPoint (leader, 0), e)]
-        Ok (ess, foundIndJmp, edgeInfos)
-      | None -> Ok (ess, foundIndJmp, edgeInfos)
-    elif not <| isExecutableLeader ess.BinHandler leader then Error ()
-    elif isOverlap ess.InstrMap ess.BBLInfo leader then Error ()
-    (* We need to split BBL *)
-    elif needToSplit ess.InstrMap ess.BBLInfo leader then
-      let ess, edgeInfos = splitBlock ess leader edgeInfos
-      match edgeInfo with
-      | Some (srcPoint, e) ->
-        let src = Map.find srcPoint ess.BBLInfo.VertexMap
-        let dst =
-          Map.find (ProgramPoint (leader, 0)) ess.BBLInfo.VertexMap
-        let g = DiGraph.addEdge ess.SCFG src dst e
+  let internal parseNewBBL ess foundIndJmp elms ctxt addr edgeInfo =
+    match InstrMap.parse ess.BinHandler ctxt ess.InstrMap ess.BBLStore addr with
+    | Ok (instrMap, block, lastAddr) ->
+      let ess = { ess with InstrMap = instrMap }
+      buildBlock ess addr block lastAddr foundIndJmp elms edgeInfo
+    | Error _ -> Error ()
+
+  let rec private getBlockAddressesWithInstrMap ess addrs addr =
+    let ins = ess.InstrMap.[addr].Instruction
+    let nextAddr = addr + uint64 ins.Length
+    if ins.IsExit () || Map.containsKey nextAddr ess.BBLStore.BBLMap then
+      struct (List.rev (addr :: addrs), ins.Address)
+    else getBlockAddressesWithInstrMap ess (addr :: addrs) nextAddr
+
+  let internal updateCFGWithVertex ess foundIndJmp elms addr ctxt =
+    if bblExists ess.BBLStore addr then Ok <| struct (ess, foundIndJmp, elms)
+    elif not <| isExecutableLeader ess.BinHandler addr then Error ()
+    elif isIntruding ess.BBLStore addr then
+      if isKnownInstruction ess.InstrMap addr then (* Need to split *)
+        let ess, elms = splitBlock ess addr elms
+        Ok <| struct (ess, foundIndJmp, elms)
+      else Error ()
+    elif isKnownInstruction ess.InstrMap addr then
+      let struct (block, lastAddr) = getBlockAddressesWithInstrMap ess [] addr
+      buildBlock ess addr block lastAddr foundIndJmp elms None
+    else parseNewBBL ess foundIndJmp elms ctxt addr None
+
+  let internal updateCFGWithEdge ess foundIndJmp elms src edge dst =
+    if bblExists ess.BBLStore dst then
+      let ess, elms = addEdgeLoop ess elms [(src, ProgramPoint (dst, 0), edge)]
+      Ok <| struct (ess, foundIndJmp, elms)
+    elif not <| isExecutableLeader ess.BinHandler dst then Error ()
+    elif isIntruding ess.BBLStore dst then
+      if isKnownInstruction ess.InstrMap dst then (* Need to split *)
+        let ess, elms = splitBlock ess dst elms
+        let src = Map.find src ess.BBLStore.VertexMap
+        let dst = Map.find (ProgramPoint (dst, 0)) ess.BBLStore.VertexMap
+        let g = DiGraph.addEdge ess.SCFG src dst edge
         let ess = { ess with SCFG = g }
-        Ok (ess, foundIndJmp, edgeInfos)
-      | None -> Ok (ess, foundIndJmp, edgeInfos)
-    (* BBL was built before, but it was removed because it was unreachable. In
-       this case, we need to reconstruct BBL again *)
-    elif isAlreadyParsed ess.InstrMap leader then
-      (* Collect instructions to next leader *)
-      let block = getBlockWithInstrMap ess [] leader
-      buildBlock ess leader block foundIndJmp edgeInfos edgeInfo
-    (* Need to parse from leader *)
+        Ok <| struct (ess, foundIndJmp, elms)
+      else Error ()
+    elif isKnownInstruction ess.InstrMap dst then
+      let struct (block, lastAddr) = getBlockAddressesWithInstrMap ess [] dst
+      buildBlock ess dst block lastAddr foundIndJmp elms (Some (src, edge))
     else
-      match InstrMap.parse ess.BinHandler parseMode ess.InstrMap leader with
-      | Ok (instrMap, addrs) ->
-        let ess = { ess with InstrMap = instrMap }
-        (* Filter addresses because they may overlap with existing basic block
-           - fall-through to existing bbl case - *)
-        let block = getBlockWithAddrList ess.BBLInfo.LeaderMap [] addrs
-        buildBlock ess leader block foundIndJmp edgeInfos edgeInfo
-      | Error _ -> Error ()
+      let prevVertex = Map.find src ess.BBLStore.VertexMap
+      let ctxt = prevVertex.VData.LastInstruction.NextParsingContext
+      parseNewBBL ess foundIndJmp elms ctxt dst (Some (src, edge))
 
-  let rec updateCFG ess parseMode foundIndJmp = function
+  let rec internal updateCFG ess foundIndJmp = function
     | [] -> Ok (ess, foundIndJmp)
-    | (edge, addr) :: edgeInfos ->
-      match connectLeader ess parseMode foundIndJmp edge addr edgeInfos with
-      | Ok (ess, foundIndJmp, edgeInfos) ->
-        updateCFG ess parseMode foundIndJmp edgeInfos
+    | CFGEntry (addr, ctxt) :: elms ->
+      match updateCFGWithVertex ess foundIndJmp elms addr ctxt with
+      | Ok (ess, foundIndJmp, elms) -> updateCFG ess foundIndJmp elms
+      | Error () -> Error ()
+    | CFGEdge (src, edge, dst) :: elms ->
+      match updateCFGWithEdge ess foundIndJmp elms src edge dst with
+      | Ok (ess, foundIndJmp, elms) -> updateCFG ess foundIndJmp elms
       | Error () -> Error ()
 
   let private removeNoReturnFallThroughEdges ess =
-    let bblInfo = ess.BBLInfo
+    let bbls = ess.BBLStore
     ess.NoReturnInfo.NoReturnCallSites
     |> Set.fold (fun g ppoint ->
-      match Map.tryFind ppoint bblInfo.VertexMap with
+      match Map.tryFind ppoint bbls.VertexMap with
       | None -> g
       | Some v ->
         DiGraph.getSuccs g v
@@ -657,29 +640,29 @@ module BinEssence =
         |> List.fold (fun g (src, dst) ->
           DiGraph.removeEdge g src dst) g) ess.SCFG
 
-  let private getUnreachables bblInfo (calleeMap: CalleeMap) g =
+  let private getUnreachables bbls (calleeMap: CalleeMap) g =
     let reachables =
       calleeMap.Entries
       |> Set.fold (fun acc entry ->
         let ppoint = ProgramPoint (entry, 0)
-        let v = Map.find ppoint bblInfo.VertexMap
+        let v = Map.find ppoint bbls.VertexMap
         let acc = Set.add ppoint acc
         Traversal.foldPostorder g v (fun acc v ->
           Set.add v.VData.PPoint acc) acc) Set.empty
     let ppoints =
-      bblInfo.VertexMap
+      bbls.VertexMap
       |> Map.fold (fun acc ppoint _ -> Set.add ppoint acc) Set.empty
     Set.difference ppoints reachables
 
   let private removeNoReturnFallThroughs ess =
-    let bblInfo = ess.BBLInfo
+    let bbls = ess.BBLStore
     let g = removeNoReturnFallThroughEdges ess
-    let unreachables = getUnreachables bblInfo ess.CalleeMap g
+    let unreachables = getUnreachables bbls ess.CalleeMap g
     (* Update calleeMap here *)
     let calleeMap, g =
       unreachables
       |> Set.fold (fun (calleeMap: CalleeMap, g) ppoint ->
-        let v = Map.find ppoint bblInfo.VertexMap
+        let v = Map.find ppoint bbls.VertexMap
         let calleeMap =
           match v.VData.GetLastStmt () with
           | InterJmp (_, Num addr, InterJmpInfo.IsCall) ->
@@ -691,45 +674,45 @@ module BinEssence =
           | _ -> calleeMap
         let g = DiGraph.removeVertex g v
         calleeMap, g) (ess.CalleeMap, g)
-    let bblInfo =
+    let bbls =
       unreachables
-      |> Set.fold (fun bblInfo ppoint ->
+      |> Set.fold (fun bbls ppoint ->
         let addr = ppoint.Address
-        match Map.tryFind addr bblInfo.LeaderMap with
-        | Some leaderInfo ->
-          let boundary = leaderInfo.Boundary
-          let newLeaderMap = Map.remove addr bblInfo.LeaderMap
-          let newBoundaries = IntervalSet.remove boundary bblInfo.Boundaries
-          let newVertexMap = Map.remove ppoint bblInfo.VertexMap
-          { bblInfo with
-              LeaderMap = newLeaderMap
+        match Map.tryFind addr bbls.BBLMap with
+        | Some bblInfo ->
+          let boundary = bblInfo.Boundary
+          let newBBLMap = Map.remove addr bbls.BBLMap
+          let newBoundaries = IntervalSet.remove boundary bbls.Boundaries
+          let newVertexMap = Map.remove ppoint bbls.VertexMap
+          { bbls with
+              BBLMap = newBBLMap
               Boundaries = newBoundaries
               VertexMap = newVertexMap }
         | None ->
-          { bblInfo with
-              VertexMap = Map.remove ppoint bblInfo.VertexMap }) bblInfo
-    { ess with BBLInfo = bblInfo; CalleeMap = calleeMap; SCFG = g }
+          { bbls with
+              VertexMap = Map.remove ppoint bbls.VertexMap }) bbls
+    { ess with BBLStore = bbls; CalleeMap = calleeMap; SCFG = g }
 
   [<CompiledName("AddEntry")>]
-  let addEntry ess parseMode entry =
+  let addEntry ess (addr, ctxt) =
     let ess =
-      { ess with CalleeMap = ess.CalleeMap.AddEntry ess.BinHandler entry }
-    match updateCFG ess parseMode false [(None, entry)] with
+      { ess with CalleeMap = ess.CalleeMap.AddEntry ess.BinHandler addr }
+    match updateCFG ess false [ CFGEntry (addr, ctxt) ] with
     | Ok (ess, _) -> Ok ess
     | Error () -> if ess.IgnoreIllegal then Error () else Utils.impossible ()
 
   [<CompiledName("AddEntries")>]
-  let addEntries ess parseMode entries =
+  let addEntries ess entries =
     entries
     |> Set.fold (fun ess entry ->
       match ess with
-      | Ok ess -> addEntry ess parseMode entry
+      | Ok ess -> addEntry ess entry
       | _ -> ess) (Ok ess)
 
   [<CompiledName("AddEdge")>]
-  let addEdge ess parseMode src dst edgeKind =
-    let edgeInfo = Some (ProgramPoint (src, 0), edgeKind), dst
-    match updateCFG ess parseMode false [edgeInfo] with
+  let addEdge ess src dst edgeKind =
+    let edgeInfo = [ CFGEdge (ProgramPoint (src, 0), edgeKind, dst) ]
+    match updateCFG ess false edgeInfo with
     | Ok (ess, hasNewIndBranch) -> Ok (ess, hasNewIndBranch)
     | Error () -> if ess.IgnoreIllegal then Error () else Utils.impossible ()
 
@@ -754,17 +737,24 @@ module BinEssence =
   /// to expand it during the other analyses.
   let private getInitialEntryPoints hdl =
     let fi = hdl.FileInfo
-    fi.GetFunctionAddresses ()
-    |> Set.ofSeq
-    |> fun set ->
-      match fi.EntryPoint with
-      | None -> set
-      | Some entry -> Set.add entry set
+    let entries = fi.GetFunctionAddresses () |> Set.ofSeq
+    let entries =
+      fi.EntryPoint
+      |> Option.fold (fun acc addr -> Set.add addr acc) entries
+    match hdl.ISA.Arch with
+    | Arch.ARMv7 ->
+      let thumbCtxt = ParsingContext.Init ArchOperationMode.ThumbMode
+      let armCtxt = ParsingContext.Init ArchOperationMode.ARMMode
+      Set.map (fun addr ->
+        if addr &&& 1UL = 1UL then addr - 1UL, thumbCtxt
+        else addr, armCtxt) entries
+    | _ ->
+      Set.map (fun addr -> addr, hdl.DefaultParsingContext) entries
 
   let private initialize hdl ignoreIllegal =
     { BinHandler = hdl
       InstrMap = InstrMap ()
-      BBLInfo = BBLInfo.Init ()
+      BBLStore = BBLStore.Init ()
       CalleeMap = CalleeMap (hdl)
       SCFG = IRCFG.init PersistentGraph
       NoReturnInfo = NoReturnInfo.Init Set.empty Set.empty
@@ -774,11 +764,11 @@ module BinEssence =
   [<CompiledName("Init")>]
   let init hdl =
     let ess = initialize hdl None
-    match getInitialEntryPoints hdl |> addEntries ess None with
+    match getInitialEntryPoints hdl |> addEntries ess with
     | Ok ess -> ess
     | Error _ -> Utils.impossible ()
 
   [<CompiledName("InitByEntries")>]
   let initByEntries hdl entries =
     let ess = initialize hdl None
-    addEntries ess None entries
+    addEntries ess entries

@@ -22,46 +22,29 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd
+namespace B2R2.BinEssence
 
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd
-open B2R2.BinEssence
 
-type EVMCodeCopyAnalysis () =
-  let findCodeCopy stmts =
-    stmts
-    |> Array.tryPick (fun stmt ->
-      match stmt with
-      | Store (_, Num dst,
-                  BinOp (BinOpType.APP, _len,
-                         FuncName "code",
-                         BinOp (BinOpType.CONS, _, Num src, _, _, _), _, _)) ->
-        let dstAddr = BitVector.toUInt64 dst
-        let srcAddr = BitVector.toUInt64 src
-        let offset = srcAddr - dstAddr
-        (srcAddr, ParsingContext.InitEVM offset) |> Some
-      | _ -> None)
-
-  let recoverCopiedCode (ess: BinEssence) =
-    ess.InstrMap
-    |> Seq.fold (fun ess (KeyValue (_, ins)) ->
-      match ins.Stmts |> findCodeCopy with
-      | None -> ess
-      | Some (addr, ctxt) ->
-        match ess.CalleeMap.Find addr with
-        | None ->
-          match BinEssence.addEntry ess (addr, ctxt) with
-          | Ok ess -> ess
-          | Error _ -> Utils.impossible ()
-        | Some _ -> ess) ess
-
-  interface IAnalysis with
-    member __.Name = "EVM Code Copy Analysis"
-
-    member __.Run ess =
-      match ess.BinHandler.FileInfo.ISA.Arch with
-      | Architecture.EVM -> recoverCopiedCode ess
-      | _ -> ess
+/// Abstract information about the instruction and its corresponding IR
+/// statements.
+type InstructionInfo = {
+  /// Instruction.
+  Instruction: Instruction
+  /// IR.
+  Stmts: Stmt []
+  /// Labels.
+  Labels: Map<Symbol, ProgramPoint>
+  /// Reachable program points (jump targets) from the instruction.
+  ReachablePPs: Set<ProgramPoint>
+  /// Operation mode.
+  ArchOperationMode: ArchOperationMode
+  /// Instruction itself contains its address, but we may want to place this
+  /// instruction in a different location in a virtual address space. This field
+  /// is useful in such cases to give a specific offset to the instruction. This
+  /// field is zero in most cases (except EVM) though.
+  Offset: Addr
+}

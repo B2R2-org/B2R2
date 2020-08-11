@@ -28,23 +28,24 @@ open B2R2
 open B2R2.BinGraph
 
 /// Represents instruction-level basic block leader.
-type LeaderInfo = {
+type BBLInfo = {
   /// Instruction-level basic block boundary
   Boundary: AddrRange
-  /// IR-level basic block leaders that are belonging to this basic block
-  IRLeaders: Set<ProgramPoint>
+  /// IR-level leaders (program points) within the bbl.
+  Leaders: Set<ProgramPoint>
 }
 
-/// Basic-block information.
-type BBLInfo = {
-  /// Addr to LeaderInfo.
-  LeaderMap: Map<Addr, LeaderInfo>
-  /// Represent area covered by SCFG
+/// Collection of basic-block information.
+type BBLStore = {
+  /// Addr to BBLInfo.
+  BBLMap: Map<Addr, BBLInfo>
+  /// Instruciton-level basic block boundaries.
   Boundaries: IntervalSet
+  /// Vertices.
   VertexMap: Map<ProgramPoint, Vertex<IRBasicBlock>>
 }
 with
   static member Init () =
-    { LeaderMap = Map.empty
+    { BBLMap = Map.empty
       Boundaries = IntervalSet.empty
       VertexMap = Map.empty }
