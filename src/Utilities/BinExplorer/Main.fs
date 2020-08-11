@@ -65,7 +65,7 @@ type BinExplorerOpts (isa) =
   member val EnableBranchRecovery = true with get, set
 
   /// Enable branch recovery analysis.
-  member val EnableGapComp = true with get, set
+  member val EnableGapComp = false with get, set
 
   /// List of analyses to perform.
   member __.GetAnalyses () =
