@@ -73,8 +73,17 @@ let parseAugmentationData (reader: BinReader) offset augstr =
     Some arr, offset + int len
   else None, offset
 
-let rec parseEncodingLoop (data: byte []) offset = function
-  | 'L' :: rest -> parseEncodingLoop data (offset + 1) rest
+let personalityRoutinePointerSize addrSize = function
+  | 2uy -> 2
+  | 3uy -> 4
+  | 4uy -> 8
+  | _ -> addrSize
+
+let rec parseEncodingLoop addrSize (data: byte []) offset = function
+  | 'L' :: rest -> parseEncodingLoop addrSize data (offset + 1) rest
+  | 'P' :: rest ->
+    let psz = data.[offset] &&& 7uy |> personalityRoutinePointerSize addrSize
+    parseEncodingLoop addrSize data (offset + psz + 1) rest
   | 'R' :: _ ->
     let d = data.[offset]
     let v =
@@ -86,7 +95,7 @@ let rec parseEncodingLoop (data: byte []) offset = function
     v, app
   | _ -> raise UnhandledAugString
 
-let parseEncodingAndApp (augstr: string) augdata =
+let parseEncodingAndApp addrSize (augstr: string) augdata =
   match augdata with
   | None ->
     ExceptionHeaderValue.DW_EH_PE_absptr,
@@ -94,22 +103,21 @@ let parseEncodingAndApp (augstr: string) augdata =
   | Some (data: byte []) ->
     augstr.[1..]
     |> Seq.toList
-    |> parseEncodingLoop data 0
+    |> parseEncodingLoop addrSize data 0
 
 let parseCIE cls (reader: BinReader) offset =
   let struct (version, offset) = reader.ReadByte offset
   if version = 1uy || version = 3uy then
     let span = reader.PeekSpan offset
     let augstr = ByteArray.extractCStringFromSpan span 0
+    let addrSize = WordSize.toByteWidth cls
     let offset = offset + augstr.Length + 1
-    let offset =
-      if augstr.Contains "eh" then offset + WordSize.toByteWidth cls
-      else offset
+    let offset = if augstr.Contains "eh" then offset + addrSize else offset
     let codeAlignmentFactor, offset = parseULEB128 reader offset
     let dataAlignmentFactor, offset = parseSLEB128 reader offset
     let retReg, offset = parseReturnRegister reader version offset
     let augdata, _ = parseAugmentationData reader offset augstr
-    let enc, app = parseEncodingAndApp augstr augdata
+    let enc, app = parseEncodingAndApp addrSize augstr augdata
     { Version = version
       AugmentationString = augstr
       CodeAlignmentFactor = codeAlignmentFactor
