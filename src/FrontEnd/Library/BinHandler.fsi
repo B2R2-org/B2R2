@@ -24,18 +24,17 @@
 
 namespace B2R2.FrontEnd
 
-open System.Threading.Tasks
 open B2R2
 open B2R2.BinFile
 open B2R2.BinIR
 
-/// The main handler for reading/parsing a binary code. BinHandler essentially
+/// The main hdl for reading/parsing a binary code. BinHandler essentially
 /// represents a chunk of binary code either from a string or from an actual
 /// binary file.
 type BinHandler = {
   ISA: ISA
   FileInfo: FileInfo
-  ParsingContext: ParsingContext
+  DefaultParsingContext: ParsingContext
   TranslationContext: TranslationContext
   Parser: Parser
   RegisterBay: RegisterBay
@@ -200,45 +199,45 @@ with
   ///   Update BinHandler to have new code at a new address (addr). BinHandler
   ///   is immutable.
   /// </summary>
-  /// <param name="handler">The new address to use.</param>
+  /// <param name="hdl">The new address to use.</param>
   /// <param name="addr">The new address to use.</param>
   /// <param name="bs">The new address to use.</param>
   /// <returns>New BinHandler.</returns>
   static member UpdateCode:
-    handler: BinHandler -> addr: Addr -> bs: byte [] -> BinHandler
+    hdl: BinHandler -> addr: Addr -> bs: byte [] -> BinHandler
 
   /// <summary>
   ///   Return the byte array of size (nBytes) at the addr from the given
   ///   BinHandler. The return value is an option type. When the given address
   ///   is invalid, this function returns None.
   /// </summary>
-  /// <param name="handler">BinHandler.</param>
+  /// <param name="hdl">BinHandler.</param>
   /// <param name="addr">The address.</param>
   /// <param name="nBytes">The size of the byte array (in bytes).</param>
   /// <returns>
   ///   Return (Some bytes) if succeeded, (None) otherwise.
   /// </returns>
   static member TryReadBytes:
-    handler: BinHandler * addr: Addr * nBytes: int -> byte [] option
+    hdl: BinHandler * addr: Addr * nBytes: int -> byte [] option
 
   /// <summary>
   ///   Return the byte array of size (nBytes) at the addr from the given
   ///   BinHandler.
   /// </summary>
-  /// <param name="handler">BinHandler.</param>
+  /// <param name="hdl">BinHandler.</param>
   /// <param name="addr">The address.</param>
   /// <param name="nBytes">The size of the byte array (in bytes).</param>
   /// <returns>
   ///   Return the byte array if succeed. Otherwise, raise an exception.
   /// </returns>
   static member ReadBytes:
-    handler: BinHandler * addr: Addr * nBytes: int -> byte []
+    hdl: BinHandler * addr: Addr * nBytes: int -> byte []
 
   /// <summary>
   ///   Return the corresponding integer option value at the addr of the size
   ///   from the given BinHandler.
   /// </summary>
-  /// <param name="handler">BinHandler.</param>
+  /// <param name="hdl">BinHandler.</param>
   /// <param name="addr">The address.</param>
   /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
   /// possible.</param>
@@ -247,13 +246,13 @@ with
   ///   is valid. Otherwise None.
   /// </returns>
   static member TryReadInt:
-    handler: BinHandler * addr: Addr * size: int -> int64 option
+    hdl: BinHandler * addr: Addr * size: int -> int64 option
 
   /// <summary>
   ///   Return the corresponding integer value at the addr of the size from the
   ///   given BinHandler.
   /// </summary>
-  /// <param name="handler">BinHandler.</param>
+  /// <param name="hdl">BinHandler.</param>
   /// <param name="addr">The address.</param>
   /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
   /// possible.</param>
@@ -261,13 +260,13 @@ with
   ///   Return the corresponding integer (int64).
   /// </returns>
   static member ReadInt:
-    handler: BinHandler * addr: Addr * size: int -> int64
+    hdl: BinHandler * addr: Addr * size: int -> int64
 
   /// <summary>
   ///   Return the corresponding unsigned integer option value at the addr of
   ///   the size from the given BinHandler.
   /// </summary>
-  /// <param name="handler">BinHandler.</param>
+  /// <param name="hdl">BinHandler.</param>
   /// <param name="addr">The address.</param>
   /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
   /// possible.</param>
@@ -276,13 +275,13 @@ with
   ///   and the size is valid. Otherwise, None.
   /// </returns>
   static member TryReadUInt:
-    handler: BinHandler * addr: Addr * size: int -> uint64 option
+    hdl: BinHandler * addr: Addr * size: int -> uint64 option
 
   /// <summary>
   ///   Return the corresponding unsigned integer value at the addr of the size
   ///   from the given BinHandler.
   /// </summary>
-  /// <param name="handler">BinHandler.</param>
+  /// <param name="hdl">BinHandler.</param>
   /// <param name="addr">The address.</param>
   /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
   /// possible.</param>
@@ -290,73 +289,69 @@ with
   ///   Return the corresponding unsigned integer (uint64).
   /// </returns>
   static member ReadUInt:
-    handler: BinHandler * addr: Addr * size: int -> uint64
+    hdl: BinHandler * addr: Addr * size: int -> uint64
 
   /// <summary>
   ///   Return the ASCII string at the addr from the given BinHandler.
   /// </summary>
-  /// <param name="handler">BinHandler.</param>
+  /// <param name="hdl">BinHandler.</param>
   /// <param name="addr">The address.</param>
   /// <returns>
   ///   Return the corresponding ASCII string.
   /// </returns>
   static member ReadASCII:
-    handler: BinHandler * addr: Addr -> string
+    hdl: BinHandler * addr: Addr -> string
 
   /// <summary>
   ///   Parse one instruction at the given address (addr) from the BinHandler,
   ///   and return the corresponding instruction. This function raises an
   ///   exception if the parsing process failed.
   /// </summary>
-  /// <param name="handler">BinHandler.</param>
+  /// <param name="hdl">BinHandler.</param>
   /// <param name="addr">The address.</param>
   /// <returns>
   ///   Parsed instruction.
   /// </returns>
   static member ParseInstr:
-    handler: BinHandler -> addr: Addr -> Instruction
+    hdl: BinHandler -> ParsingContext -> addr: Addr -> Instruction
 
   /// <summary>
   ///   Parse one instruction at the given address (addr) from the BinHandler,
   ///   and return the corresponding instruction. This function does not raise
   ///   an exception, but returns an option type.
   /// </summary>
-  /// <param name="handler">BinHandler.</param>
+  /// <param name="hdl">BinHandler.</param>
   /// <param name="addr">The address.</param>
   /// <returns>
   ///   Parsed instruction (option type).
   /// </returns>
   static member TryParseInstr:
-    handler: BinHandler -> addr: Addr -> Instruction option
+    hdl: BinHandler -> ParsingContext -> addr: Addr -> Instruction option
 
   /// Parse a basic block from the given address, and return the sequence of the
   /// instructions of the basic block. This function may return an incomplete
-  /// basic block as an Error type.
+  /// basic block as an Error type. This function can be safely used for any
+  /// ISAs, and thus, this should be the main parsing function.
   static member ParseBBlock:
        BinHandler
+    -> ParsingContext
     -> addr:Addr
-    -> Result<Instruction list, Instruction list>
-
-  /// Parse a basic block from the given address, and return the sequence of the
-  /// instructions of the basic block and next address to parse. This function
-  /// may return an incomplete basic block as an Error type with error address.
-  static member ParseBBlockWithAddr:
-      BinHandler
-    * addr: Addr
-    -> Result<Instruction list, Instruction list> * Addr
+    -> Result<Instruction list * ParsingContext, Instruction list>
 
   /// Lift a parsed instruction (Instruction) to produce an array of IR
   /// statements from a given BinHandler.
   static member inline LiftInstr:
-    handler: BinHandler -> ins: Instruction -> LowUIR.Stmt []
+    hdl: BinHandler -> ins: Instruction -> LowUIR.Stmt []
 
   /// Return the lifted IR (an array of statements) of a basic block at the
   /// given address. This function returns a partial bblock with Error, if the
   /// parsing of the bblock was not successful.
   static member LiftBBlock:
-       handler: BinHandler
+       hdl: BinHandler
+    -> ParsingContext
     -> addr: Addr
-    -> Result<(LowUIR.Stmt [] * Addr), (LowUIR.Stmt [] * Addr)>
+    -> Result<(LowUIR.Stmt [] * Addr * ParsingContext),
+              (LowUIR.Stmt [] * Addr)>
 
   /// Return the lifted IR (an array of statements) of a basic block at the
   /// given address. This function returns a partial bblock with Error, if the
@@ -366,14 +361,16 @@ with
   /// control flows within complex instructions like rep are reflected in
   /// splitting basic blocks.
   static member LiftIRBBlock:
-        handler: BinHandler
-     -> addr: Addr
-     -> Result<(Instruction * LowUIR.Stmt []) list * Addr, 'a list>
+       hdl: BinHandler
+    -> ParsingContext
+    -> addr: Addr
+    -> Result<((Instruction * LowUIR.Stmt []) list * ParsingContext * Addr),
+              'a list>
 
   /// <summary>
   ///   Return a disassembled string from the parsed instruction.
   /// </summary>
-  /// <param name="handler">BinHandler.</param>
+  /// <param name="hdl">BinHandler.</param>
   /// <param name="showAddr">Whether to show the instruction address or
   /// not.</param>
   /// <param name="resolveSymbol">Whether to resolve symbols while disassembling
@@ -383,7 +380,7 @@ with
   ///   Disassembled string.
   /// </returns>
   static member inline DisasmInstr:
-       handler: BinHandler
+       hdl: BinHandler
     -> showAddr: bool
     -> resolveSymbol: bool
     -> ins: Instruction
@@ -394,7 +391,7 @@ with
   ///   returns a simplified disassembly, which does not contain the instruction
   ///   address nor symbols.
   /// </summary>
-  /// <param name="handler">BinHandler.</param>
+  /// <param name="hdl">BinHandler.</param>
   /// <param name="ins">The instruction to disassemble.</param>
   /// <returns>
   ///   Disassembled string.
@@ -408,27 +405,16 @@ with
   ///   successful.
   /// </summary>
   static member DisasmBBlock:
-       handler: BinHandler
+       hdl: BinHandler
+    -> ParsingContext
     -> showAddr:bool
     -> resolveSymbol: bool
     -> addr: Addr
-    -> Result<(string * Addr), (string * Addr)>
+    -> Result<(string * Addr * ParsingContext), (string * Addr)>
 
   /// <summary>
   /// Return optimized statements from the given statements.
   /// </summary>
   static member Optimize: stmts: LowUIR.Stmt [] -> LowUIR.Stmt []
-
-  /// <summary>
-  /// Return the task that lift a basic block and next address.
-  /// The task return the lifted IR (an array of statements) and boolean value
-  /// that indicate whether parsing of the bblock was successful or not.
-  /// </summary>
-  static member CreateLiftBBlockTask:
-       handler: BinHandler
-     * addr: Addr
-     * optimize: bool
-     * nxt: byref<Addr>
-     -> Task<LowUIR.Stmt [] * bool>
 
 // vim: set tw=80 sts=2 sw=2:

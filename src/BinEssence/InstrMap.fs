@@ -26,24 +26,8 @@ namespace B2R2.BinEssence
 
 open B2R2
 open B2R2.FrontEnd
-open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open System.Collections.Generic
-
-/// Abstract information about the instruction and its corresponding IR
-/// statements.
-type InstructionInfo = {
-  Instruction: Instruction
-  Stmts: Stmt []
-  Labels: Map<Symbol, ProgramPoint>
-  IRLeaders: Set<ProgramPoint>
-  ArchOperationMode: ArchOperationMode
-  /// Instruction itself contains its address, but we may want to place this
-  /// instruction in a different location in a virtual address space. This field
-  /// is useful in such cases to give a specific offset to the instruction. This
-  /// field is zero in most cases (except EVM) though.
-  Offset: Addr
-}
 
 /// Address to an InstructionInfo mapping. InstrMap contains both valid and
 /// bogus instructions so do not use InstrMap directly for analyses.
@@ -51,20 +35,6 @@ type InstrMap = Dictionary<Addr, InstructionInfo>
 
 [<RequireQualifiedAccess>]
 module InstrMap =
-
-  let private updateParseMode hdl parseMode leader =
-    match parseMode with
-    | Some (mode, offset) ->
-      hdl.ParsingContext.ArchOperationMode <- mode
-      hdl.ParsingContext.CodeOffset <- offset
-    | None ->
-      match hdl.ISA.Arch with
-      | Arch.ARMv7 when leader &&& 1UL <> 0UL ->
-        hdl.ParsingContext.ArchOperationMode <- ArchOperationMode.ThumbMode
-      | _ -> ()
-    match hdl.ParsingContext.ArchOperationMode with
-    | ArchOperationMode.ThumbMode when leader &&& 1UL <> 0UL -> leader - 1UL
-    | _ -> leader
 
   /// Remove unnecessary IEMark to ease the analysis.
   let private trimIEMark (stmts: Stmt []) =
@@ -90,7 +60,7 @@ module InstrMap =
       | _ -> labels) Map.empty
     |> fst
 
-  let private findIRLeaders labels stmts =
+  let private findReachablePPs labels stmts =
     stmts
     |> Array.fold (fun targets stmt ->
       match stmt with
@@ -122,22 +92,30 @@ module InstrMap =
     { Instruction = ins
       Stmts = stmts
       Labels = labels
-      IRLeaders = findIRLeaders labels stmts
-      ArchOperationMode = hdl.ParsingContext.ArchOperationMode
-      Offset = hdl.ParsingContext.CodeOffset }
+      ReachablePPs = findReachablePPs labels stmts
+      ArchOperationMode = hdl.DefaultParsingContext.ArchOperationMode
+      Offset = hdl.DefaultParsingContext.CodeOffset }
 
   let rec private updateInstrMap hdl (instrMap: InstrMap) (instr: Instruction) =
     instrMap.[instr.Address] <- newInstructionInfo hdl instr
-    instrMap
 
-  /// InstrMap will only have this api: to update InstrMap, developer should use
-  /// use this function. Removing instruction from InstrMap should be prohibited.
-  let parse hdl parseMode instrMap leader =
-    let leader = updateParseMode hdl parseMode leader
-    match BinHandler.ParseBBlock hdl leader with
-    | Ok [] -> failwith "Fatal error: an empty block encountered."
-    | Ok instrs ->
-      let instrMap = List.fold (updateInstrMap hdl) instrMap instrs
+  let rec private parseBBL hdl ctxt bblMap acc pc =
+    match BinHandler.TryParseInstr hdl ctxt pc with
+    | Some ins ->
+      let ctxt = ins.NextParsingContext
+      let nextAddr = pc + uint64 ins.Length
+      if ins.IsExit () || Map.containsKey nextAddr bblMap then
+        Ok <| struct (List.rev (ins :: acc), ins.Address)
+      else parseBBL hdl ctxt bblMap (ins :: acc) nextAddr
+    | None -> Error <| List.rev acc
+
+  /// InstrMap will only have this API. Removing instructions from InstrMap is
+  /// not allowed.
+  let parse hdl ctxt instrMap bblStore leaderAddr =
+    match parseBBL hdl ctxt bblStore.BBLMap [] leaderAddr with
+    | Ok ([], _) -> failwith "Fatal error: an empty block encountered."
+    | Ok (instrs, lastAddr) ->
+      List.iter (updateInstrMap hdl instrMap) instrs
       let addrs = List.map (fun (instr: Instruction) -> instr.Address) instrs
-      Ok (instrMap, addrs)
+      Ok <| struct (instrMap, addrs, lastAddr)
     | Error _ -> Error ()

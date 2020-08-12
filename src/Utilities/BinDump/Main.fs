@@ -233,44 +233,50 @@ let printIllegal () =
 
 let inline printIfNotEmpty s = match s with "" -> () | _ -> Console.WriteLine s
 
-let inline parseUntil hdl sAddr eAddr =
-  let rec loop pc acc =
+let inline parseUntil hdl ctxt sAddr eAddr =
+  let rec loop hdl ctxt pc acc =
     if pc < eAddr then
-      let r = BinHandler.TryParseInstr hdl pc
-      match r with
-      | Some ins -> loop (pc + uint64 ins.Length) (r :: acc)
-      | None -> loop (getNextAddr hdl pc) (r :: acc)
+      let res = BinHandler.TryParseInstr hdl ctxt pc
+      match res with
+      | Some ins ->
+        let ctxt = ins.NextParsingContext
+        loop hdl ctxt (pc + uint64 ins.Length) (res :: acc)
+      | None -> loop hdl ctxt (getNextAddr hdl pc) (res :: acc)
     else List.rev acc
-  loop sAddr []
+  loop hdl ctxt sAddr []
 
-let pickNext hdl eAddr untilFn bbFn sAddr r =
-  match r with
-  | Error (res, nextAddr) when nextAddr = eAddr -> bbFn res; None
-  | Ok (_, nextAddr) | Error (_, nextAddr) when nextAddr > eAddr ->
+let pickNext hdl eAddr untilFn bbFn sAddr = function
+  | Error (res, nextAddr) when nextAddr = eAddr ->
+    bbFn res; None
+  | Ok (_, nextAddr, _) | Error (_, nextAddr) when nextAddr > eAddr ->
     untilFn sAddr |> ignore; None
-  | Ok (res, nextAddr) -> bbFn res; Some nextAddr
+  | Ok (res, nextAddr, ctxt) -> bbFn res; Some (nextAddr, ctxt)
   | Error (res, nextAddr) ->
-    bbFn res; printIllegal (); getNextAddr hdl nextAddr |> Some
+    bbFn res
+    printIllegal ()
+    Some (getNextAddr hdl nextAddr, hdl.DefaultParsingContext)
 
 let printDisasmUntil hdl showAddr showSymbs sAddr eAddr =
   let printFn = function
     | Some ins ->
       BinHandler.DisasmInstr hdl showAddr showSymbs ins |> Console.WriteLine
     | None -> printIllegal ()
-  parseUntil hdl sAddr eAddr |> List.iter printFn
+  parseUntil hdl hdl.DefaultParsingContext sAddr eAddr |> List.iter printFn
 
 let printDisasm result = printIfNotEmpty result
 
 let printBlkDisasm showAddr showSymbs hdl sA eA =
   let untilFn sA = printDisasmUntil hdl showAddr showSymbs sA eA
   let digest = pickNext hdl eA untilFn printDisasm
-  let rec loop sA =
+  let rec loop sA hdl ctxt =
     if sA >= eA then ()
     else
-      match BinHandler.DisasmBBlock hdl showAddr showSymbs sA |> digest sA with
-      | Some n -> loop n
-      | None -> ()
-  loop sA
+      BinHandler.DisasmBBlock hdl ctxt showAddr showSymbs sA
+      |> digest sA
+      |> function
+        | Some (n, ctxt) -> loop n hdl ctxt
+        | None -> ()
+  loop sA hdl hdl.DefaultParsingContext
 
 let printLowUIRUntil hdl sAddr eAddr =
   let printFn = function
@@ -279,63 +285,18 @@ let printLowUIRUntil hdl sAddr eAddr =
       |> LowUIR.Pp.stmtsToString
       |> Console.WriteLine
     | None -> printIllegal ()
-  parseUntil hdl sAddr eAddr |> List.iter printFn
+  parseUntil hdl hdl.DefaultParsingContext sAddr eAddr |> List.iter printFn
 
 let printLowUIR = LowUIR.Pp.stmtsToString >> printIfNotEmpty
 
 let printBlkLowUIR opt hdl sAddr eAddr =
   let untilFn sAddr = printLowUIRUntil hdl sAddr eAddr
   let digest = pickNext hdl eAddr untilFn (opt >> printLowUIR)
-  let rec loop sAddr =
+  let rec loop sAddr hdl ctxt =
     if sAddr >= eAddr then ()
-    else let r = BinHandler.LiftBBlock hdl sAddr |> digest sAddr
-         match r with Some n -> loop n | None -> ()
-  loop sAddr
-
-let parPrinter = function
-  | Ok r -> printIfNotEmpty r
-  | Error r -> printIfNotEmpty r; printIllegal ()
-
-
-let [<Literal>] parMaxThres = 64
-
-let parOptAndPrint hdl =
-  let lift = BinHandler.LiftInstr hdl
-  let asyncBuilder x =
-    async {
-      return match x with
-             | Ok (r) -> List.map lift r
-                         |> Array.concat
-                         |> BinHandler.Optimize
-                         |> LowUIR.Pp.stmtsToString
-                         |> Ok
-             | Error (r) -> List.map lift r
-                            |> Array.concat
-                            |> BinHandler.Optimize
-                            |> LowUIR.Pp.stmtsToString
-                            |> Error }
-  fun results ->
-    List.map asyncBuilder results
-    |> Async.Parallel
-    |> Async.RunSynchronously
-    |> Seq.iter parPrinter
-
-let parPrintOptBlkLowUIR hdl sAddr eAddr =
-  let optPrinter = parOptAndPrint hdl
-  let rec loop sAddr acc len =
-    if len >= parMaxThres then optPrinter (List.rev acc); loop sAddr [] 0
-    elif sAddr >= eAddr then optPrinter (List.rev acc)
-    else let (r, nAddr) = BinHandler.ParseBBlockWithAddr (hdl, sAddr)
-         match r with
-         | Ok _ when nAddr > eAddr ->
-           optPrinter (List.rev acc)
-           printLowUIRUntil hdl sAddr eAddr
-         | Error _ when getNextAddr hdl nAddr > eAddr ->
-           optPrinter (List.rev acc)
-           printLowUIRUntil hdl sAddr eAddr
-         | Ok (_) -> loop nAddr (r :: acc) (len + 1)
-         | Error (_) -> loop (getNextAddr hdl nAddr) (r :: acc) (len + 1)
-  loop sAddr [] 0
+    else let r = BinHandler.LiftBBlock hdl ctxt sAddr |> digest sAddr
+         match r with Some (n, ctxt) -> loop n hdl ctxt | None -> ()
+  loop sAddr hdl hdl.DefaultParsingContext
 
 let getSectionRanges handle =
   let folder acc (section: Section) =
@@ -349,7 +310,7 @@ let getActor action showAddr showSymbs hdl opt =
   | Disassemble, _     -> printBlkDisasm showAddr showSymbs hdl
   | LowUIRLift, NoOpt  -> printBlkLowUIR (fun x -> x) hdl
   | LowUIRLift, Opt    -> printBlkLowUIR (BinHandler.Optimize) hdl
-  | LowUIRLift, OptPar -> parPrintOptBlkLowUIR hdl
+  | LowUIRLift, OptPar -> Utils.futureFeature ()
 
 let cmdErrExit () =
   eprintfn "Either a string or a file should be given.\n\n\

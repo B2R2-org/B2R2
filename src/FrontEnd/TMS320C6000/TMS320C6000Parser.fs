@@ -1982,7 +1982,7 @@ let parse (reader: BinReader) (ctxt: ParsingContext) addr pos =
       OperationSize = 32<rt> // FIXME
       IsParallel = ctxt.InParallel
       EffectiveAddress = 0UL }
-  ctxt.InParallel <- pBit bin <> 0u (* Update the parallel exec information *)
-  TMS320C6000Instruction (addr, instrLen, insInfo)
+  let ctxt' = ParsingContext.InitDSP (ctxt, pBit bin <> 0u)
+  TMS320C6000Instruction (addr, instrLen, insInfo, ctxt')
 
 // vim: set tw=80 sts=2 sw=2:

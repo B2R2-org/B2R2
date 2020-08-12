@@ -33,7 +33,7 @@ open System.Collections.Generic
 
 /// Basic block type for a disassembly-based CFG (DisasmCFG).
 type DisasmBBlock (instrs: Instruction [], pp, ess: BinEssence) =
-  inherit BasicBlock()
+  inherit BasicBlock (pp)
 
   let mutable instructions = instrs
 
@@ -48,8 +48,6 @@ type DisasmBBlock (instrs: Instruction [], pp, ess: BinEssence) =
       | None -> ()
       words
     else words
-
-  override __.PPoint = pp
 
   override __.Range =
     let last = instructions.[instructions.Length - 1]

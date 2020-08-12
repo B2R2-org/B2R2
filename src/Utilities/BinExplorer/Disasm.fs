@@ -39,18 +39,22 @@ type CmdDisasm () =
     try Ok (count, Convert.ToUInt64 (str, 16))
     with _ -> Error "[*] Invalid address is given."
 
-  let rec disasmLoop acc (ess: BinEssence) addr count =
+  let rec disasmLoop acc ctxt hdl addr count =
     if count <= 0 then List.rev acc |> List.toArray
     else
-      match BinHandler.TryParseInstr ess.BinHandler addr with
+      match BinHandler.TryParseInstr hdl ctxt addr with
       | Some ins ->
-        let d = ins.Disasm (true, true, ess.BinHandler.FileInfo)
-        disasmLoop (d :: acc) ess (addr + uint64 ins.Length) (count - 1)
+        let d = ins.Disasm (true, true, hdl.FileInfo)
+        let ctxt = ins.NextParsingContext
+        disasmLoop (d :: acc) ctxt hdl (addr + uint64 ins.Length) (count - 1)
       | None ->
-        disasmLoop ("(invalid)" :: acc) ess (addr + 1UL) (count - 1)
+        let ctxt = hdl.DefaultParsingContext
+        disasmLoop ("(invalid)" :: acc) ctxt hdl (addr + 1UL) (count - 1)
 
   let render (ess: BinEssence) = function
-    | Ok (count, addr: uint64) -> disasmLoop [] ess addr count
+    | Ok (count, addr: uint64) ->
+      let hdl = ess.BinHandler
+      disasmLoop [] hdl.DefaultParsingContext hdl addr count
     | Error str -> [| str |]
 
   let disasm ess count addr =

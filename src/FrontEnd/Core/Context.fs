@@ -29,25 +29,44 @@ open B2R2.BinIR.LowUIR
 
 /// A high-level interface for the parsing context, which stores several states
 /// for parsing machine instructions.
-type ParsingContext (archMode) =
-  /// Target architecture mode (e.g., ARM/thumb mode).
-  member val ArchOperationMode: ArchOperationMode = archMode with get, set
+type ParsingContext =
+  struct
+    /// Target architecture mode (e.g., ARM/thumb mode).
+    val ArchOperationMode: ArchOperationMode
 
-  /// ITState for ARM.
-  member val ITState: byte list = [] with get, set
+    /// ITState for ARM.
+    val ITState: byte list
 
-  /// Indicate whether an ITblock (in ARM) is started. This is true only when an
-  /// IT hint instruction is encountered.
-  member val ITBlockStarted = false with get, set
+    /// Indicate the address offset of the code. This is used in several
+    /// architectures, such as EVM, to correctly resolve jump offsets in a
+    /// dynamically generated code snippet.
+    val CodeOffset: uint64
 
-  /// Indicate the address offset of the code. This is used in several
-  /// architectures, such as EVM, to correctly resolve jump offsets in a
-  /// dynamically generated code snippet.
-  member val CodeOffset = 0UL with get, set
+    /// Indicate whether the next instruction should be executed in parallel.
+    /// This is used by DSP architectures.
+    val InParallel: bool
 
-  /// Indicate whether the next instruction should be executed in parallel. This
-  /// is used by DSP architectures.
-  member val InParallel = false with get, set
+    private new (archMode, itstate, offset, inParallel) =
+      { ArchOperationMode = archMode
+        ITState = itstate
+        CodeOffset = offset
+        InParallel = inParallel }
+  end
+with
+  static member Init () =
+    ParsingContext (ArchOperationMode.NoMode, [], 0UL, false)
+
+  static member Init (mode) =
+    ParsingContext (mode, [], 0UL, false)
+
+  static member InitThumb (archMode, itstate) =
+    ParsingContext (archMode, itstate, 0UL, false)
+
+  static member InitDSP (ctxt: ParsingContext, flag) =
+    ParsingContext (ctxt.ArchOperationMode, ctxt.ITState, ctxt.CodeOffset, flag)
+
+  static member InitEVM (offset) =
+    ParsingContext (ArchOperationMode.NoMode, [], offset, false)
 
 /// A high-level interface for the translation context, which stores several
 /// states for translating/lifting instructions.

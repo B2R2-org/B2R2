@@ -96,7 +96,7 @@ module SSABlockHelper =
 
 /// Basic block type for an SSA-based CFG (SSACFG).
 type SSABBlock private (ess, pp, instrs, retPoint, hasIndirectBranch) =
-  inherit BasicBlock ()
+  inherit BasicBlock (pp)
 
   let mutable stmts =
     match retPoint with
@@ -124,8 +124,6 @@ type SSABBlock private (ess, pp, instrs, retPoint, hasIndirectBranch) =
 
   new (ess, pp, retAddr, hasIndirectBranch) =
     SSABBlock (ess, pp, [||], Some retAddr, hasIndirectBranch)
-
-  override __.PPoint = pp
 
   override __.Range =
     let last = instrs.[instrs.Length - 1].Instruction

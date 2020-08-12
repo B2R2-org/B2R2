@@ -49,7 +49,9 @@ module private LibcAnalysisHelper =
       |> function
         | [] -> ess
         | addrs ->
-          match addrs |> Set.ofList |> BinEssence.addEntries ess None with
+          let ctxt = ess.BinHandler.DefaultParsingContext
+          let entries = addrs |> List.map (fun addr -> addr, ctxt) |> Set.ofList
+          match BinEssence.addEntries ess entries with
           | Ok ess -> ess
           | _ -> Utils.impossible ()
     | Undef -> ess
@@ -66,7 +68,9 @@ module private LibcAnalysisHelper =
     |> function
       | [] -> ess
       | addrs ->
-        match addrs |> Set.ofList |> BinEssence.addEntries ess None with
+        let ctxt = ess.BinHandler.DefaultParsingContext
+        let entries = addrs |> List.map (fun addr -> addr, ctxt) |> Set.ofList
+        match BinEssence.addEntries ess entries with
         | Ok ess -> ess
         | _ -> Utils.impossible ()
 

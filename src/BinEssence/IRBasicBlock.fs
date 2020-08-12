@@ -31,7 +31,7 @@ open B2R2.BinGraph
 /// A basic block that consists of IR (LowUIR) statements. It contains all the
 /// InstructionInfo of the basic block.
 type IRBasicBlock (instrs: InstructionInfo [], point: ProgramPoint) =
-  inherit BasicBlock ()
+  inherit BasicBlock (point)
 
   let mutable hasIndirectBranch = false
 
@@ -53,9 +53,6 @@ type IRBasicBlock (instrs: InstructionInfo [], point: ProgramPoint) =
   member __.LastInsInfo =
     if Array.isEmpty instrs then raise DummyDataAccessException
     else instrs.[Array.length instrs - 1]
-
-  /// The position of the basic block.
-  override __.PPoint = point
 
   /// The address range of the basic block. Even if the block contains a partial
   /// IR statements of an instruction, we include the instruction to compute the

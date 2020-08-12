@@ -211,7 +211,7 @@ module private BranchRecoveryHelper =
         | Some offset ->
           let target = baseAddr + uint64 offset
           if target >= fStart && target <= fEnd then
-            match BinEssence.addEdge ess None blockAddr target IndirectJmpEdge with
+            match BinEssence.addEdge ess blockAddr target IndirectJmpEdge with
             | Ok (ess', hasNewIndirectJump) ->
               let targets = Set.add target targets
               let nextAddr = startAddr + uint64 size

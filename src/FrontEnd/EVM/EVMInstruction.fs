@@ -33,8 +33,12 @@ open System.Text
 type EVMInstruction (addr, numBytes, insInfo, wordSize) =
   inherit Instruction (addr, numBytes, wordSize)
 
+  let defaultCtxt = ParsingContext.Init ()
+
   /// Basic instruction information.
   member val Info: InsInfo = insInfo
+
+  override __.NextParsingContext = defaultCtxt
 
   override __.IsBranch () =
     match __.Info.Opcode with

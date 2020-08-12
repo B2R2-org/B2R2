@@ -30,11 +30,13 @@ open System.Text
 
 /// The internal representation for a TMS320C6000 instruction used by our
 /// disassembler and lifter.
-type TMS320C6000Instruction (addr, numBytes, insInfo) =
+type TMS320C6000Instruction (addr, numBytes, insInfo, ctxt) =
   inherit Instruction (addr, numBytes, WordSize.Bit32)
 
   /// Basic instruction information.
   member val Info: InsInfo = insInfo
+
+  override __.NextParsingContext = ctxt
 
   override __.IsBranch () =
     match __.Info.Opcode with

@@ -86,7 +86,7 @@ let inline lift translator addr bbl =
   let liftFolder (stmts, nextAddr) (ins: Instruction) =
     ins.Translate translator :: stmts, nextAddr + uint64 ins.Length
   let stmts, addr = List.fold liftFolder ([], addr) bbl
-  List.rev stmts |> Array.concat, addr
+  struct (List.rev stmts |> Array.concat, addr)
 
 let inline disasm showAddr resolveSymbol fileInfo addr bbl =
   let disasmFolder (sb: StringBuilder, nextAddr) (ins: Instruction) =
@@ -94,7 +94,7 @@ let inline disasm showAddr resolveSymbol fileInfo addr bbl =
     let s = if sb.Length = 0 then s else System.Environment.NewLine + s
     sb.Append(s), nextAddr + uint64 ins.Length
   let sb, addr = List.fold disasmFolder (StringBuilder (), addr) bbl
-  sb.ToString (), addr
+  struct (sb.ToString (), addr)
 
 /// Classify ranges to be either in-file or not-in-file. The second parameter
 /// (notinfiles) is a sequence of (exclusive) ranges within the myrange, which
