@@ -69,8 +69,8 @@ let compute ssaCFG =
   emptyInfo
   |> DiGraph.foldVertex ssaCFG (fun acc (v: Vertex<SSABBlock>) ->
     let vid = v.GetID ()
-    v.VData.Stmts
-    |> Array.foldi (fun acc idx stmt ->
+    v.VData.SSAStmtInfos
+    |> Array.foldi (fun acc idx (_, stmt) ->
       match stmt with
       | SSA.LMark _
       | SSA.SideEffect _ -> acc

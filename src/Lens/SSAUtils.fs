@@ -34,7 +34,8 @@ let computeFrontiers g root =
     v.VData.Frontier <- Dominator.frontier domCtxt v)
   domCtxt
 
-let collectDefVars defs = function
+let collectDefVars defs (_, stmt) =
+  match stmt with
   | SSA.Def ({ Kind = k }, _) -> Set.add k defs
   | _ -> defs
 
@@ -62,7 +63,7 @@ let placePhis g vMap (fMap: FakeVMap) (defSites: DefSites) domCtxt =
   let defsPerNode = DefsPerNode ()
   Seq.append (vMap: SSAVMap).Values fMap.Values
   |> Seq.iter (fun v ->
-    let defs = v.VData.Stmts |> Array.fold collectDefVars Set.empty
+    let defs = v.VData.SSAStmtInfos |> Array.fold collectDefVars Set.empty
     defsPerNode.[v] <- defs
     defs |> Set.iter (fun d ->
       if defSites.ContainsKey d then defSites.[d] <- Set.add v defSites.[d]
@@ -142,7 +143,8 @@ let introduceDef (count: VarCountMap) (stack: IDStack) (v: SSA.Variable) =
     stack.[v.Kind] <- i :: stack.[v.Kind]
     v.Identifier <- i
 
-let renameStmt count stack = function
+let renameStmt count stack (_, stmt) =
+  match stmt with
   | SSA.LMark _
   | SSA.SideEffect _ -> ()
   | SSA.Jmp jmpTy -> renameJmp stack jmpTy
@@ -152,7 +154,8 @@ let renameStmt count stack = function
   | SSA.Phi (def, _) ->
     introduceDef count stack def
 
-let renamePhiAux (stack: IDStack) preds (parent: Vertex<SSABBlock>) = function
+let renamePhiAux (stack: IDStack) preds (parent: Vertex<SSABBlock>) (_, stmt) =
+  match stmt with
   | SSA.Phi (def, nums) ->
     let idx =
       List.findIndex (fun (v: SSAVertex) ->
@@ -161,10 +164,11 @@ let renamePhiAux (stack: IDStack) preds (parent: Vertex<SSABBlock>) = function
   | _ -> ()
 
 let renamePhi g stack parent (succ: Vertex<SSABBlock>) =
-  succ.VData.Stmts
+  succ.VData.SSAStmtInfos
   |> Array.iter (renamePhiAux stack (DiGraph.getPreds g succ) parent)
 
-let popStack (stack: IDStack) = function
+let popStack (stack: IDStack) (_, stmt) =
+  match stmt with
   | SSA.LMark _
   | SSA.SideEffect _
   | SSA.Jmp _ -> ()
@@ -172,10 +176,10 @@ let popStack (stack: IDStack) = function
   | SSA.Phi (def, _) -> stack.[def.Kind] <- List.tail stack.[def.Kind]
 
 let rec rename g domTree count stack (v: Vertex<SSABBlock>) =
-  v.VData.Stmts |> Array.iter (renameStmt count stack)
+  v.VData.SSAStmtInfos |> Array.iter (renameStmt count stack)
   DiGraph.getSuccs g v |> List.iter (renamePhi g stack v)
   traverseChildren g domTree count stack (Map.find v domTree)
-  v.VData.Stmts |> Array.iter (popStack stack)
+  v.VData.SSAStmtInfos |> Array.iter (popStack stack)
 
 and traverseChildren g domTree count stack = function
   | child :: rest ->

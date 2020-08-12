@@ -26,6 +26,7 @@ namespace B2R2.Lens
 
 open B2R2
 open B2R2.BinIR
+open B2R2.BinIR.SSA
 open B2R2.FrontEnd
 open B2R2.BinGraph
 open B2R2.BinEssence
@@ -94,11 +95,20 @@ module SSABlockHelper =
       Set.toArray defs
     with _ -> addDefaultDefs hdl |> Set.toArray
 
+  let computeNextPPoint (ppoint: ProgramPoint) = function
+    | Def (v, Num bv) ->
+      match v.Kind with
+      | PCVar _ -> ProgramPoint (BitVector.toUInt64 bv, 0)
+      | _ -> ProgramPoint (ppoint.Address, ppoint.Position + 1)
+    | _ -> ProgramPoint (ppoint.Address, ppoint.Position + 1)
+
+type SSAStmtInfo = ProgramPoint * Stmt
+
 /// Basic block type for an SSA-based CFG (SSACFG).
 type SSABBlock private (ess, pp, instrs, retPoint, hasIndirectBranch) =
   inherit BasicBlock (pp)
 
-  let mutable stmts =
+  let mutable stmts: SSAStmtInfo [] =
     match retPoint with
     | Some (ret: ProgramPoint) ->
       let stmts = (* For a fake block, we check which things can be modified. *)
@@ -110,12 +120,15 @@ type SSABBlock private (ess, pp, instrs, retPoint, hasIndirectBranch) =
       let fallThrough = BitVector.ofUInt64 ret.Address wordSize
       let jmpToFallThrough = SSA.Jmp (SSA.InterJmp (SSA.Num fallThrough))
       Array.append stmts [| jmpToFallThrough |]
+      |> Array.map (fun s -> ProgramPoint.GetFake (), s)
     | None ->
       (instrs: InstructionInfo [])
       |> Array.map (fun i ->
         let wordSize = i.Instruction.WordSize |> WordSize.toRegType
-        i.Stmts |> SSA.AST.translateStmts wordSize i.Instruction.Address)
+        i.Stmts
+        |> SSA.AST.translateStmts wordSize i.Instruction.Address)
       |> Array.concat
+      |> Array.map (fun s -> ProgramPoint.GetFake (), s)
 
   let mutable frontier: Vertex<SSABBlock> list = []
 
@@ -132,8 +145,8 @@ type SSABBlock private (ess, pp, instrs, retPoint, hasIndirectBranch) =
   override __.IsFakeBlock () = Array.isEmpty instrs
 
   override __.ToVisualBlock () =
-    __.Stmts
-    |> Array.map (fun stmt ->
+    __.SSAStmtInfos
+    |> Array.map (fun (_, stmt) ->
       [| { AsmWordKind = AsmWordKind.String
            AsmWordValue = SSA.Pp.stmtToString stmt } |])
 
@@ -142,9 +155,9 @@ type SSABBlock private (ess, pp, instrs, retPoint, hasIndirectBranch) =
 
   /// Get the last statement of the bblock.
   member __.GetLastStmt () =
-    stmts.[stmts.Length - 1]
+    snd stmts.[stmts.Length - 1]
 
-  member __.Stmts with get () = stmts and set (v) = stmts <- v
+  member __.SSAStmtInfos with get () = stmts
 
   member __.InsInfos with get () = instrs
 
@@ -152,7 +165,16 @@ type SSABBlock private (ess, pp, instrs, retPoint, hasIndirectBranch) =
 
   member __.InsertPhi varKind count =
     let var = { SSA.Kind = varKind; SSA.Identifier = -1 }
-    stmts <- Array.append [| SSA.Phi (var, Array.zeroCreate count) |] stmts
+    let ppoint = ProgramPoint.GetFake ()
+    stmts <-
+      Array.append [| ppoint, SSA.Phi (var, Array.zeroCreate count) |] stmts
+
+  member __.AddressStmts () =
+    stmts
+    |> Array.foldi (fun ppoint idx (_, stmt) ->
+      stmts.[idx] <- (ppoint, stmt)
+      SSABlockHelper.computeNextPPoint ppoint stmt) pp
+    |> ignore
 
   override __.ToString () =
     if instrs.Length = 0 then "SSABBLK(Dummy)"

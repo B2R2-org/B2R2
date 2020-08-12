@@ -51,7 +51,8 @@ type ConstantPropagation (hdl, ssaCFG: DiGraph<SSABBlock, CFGEdgeKind>) =
         |> Set.iter (fun (vid, idx) ->
           let v = DiGraph.findVertexByID ssaCFG vid
           if __.GetNumIncomingExecutedEdges st v > 0 then
-            CPTransfer.evalStmt ssaCFG st v v.VData.Stmts.[idx]
+            let ppoint, stmt = v.VData.SSAStmtInfos.[idx]
+            CPTransfer.evalStmt ssaCFG st v ppoint stmt
           else ())
       | None -> ()
 
@@ -60,8 +61,10 @@ type ConstantPropagation (hdl, ssaCFG: DiGraph<SSABBlock, CFGEdgeKind>) =
       let parentid, myid = st.FlowWorkList.Dequeue ()
       st.ExecutedEdges.Add (parentid, myid) |> ignore
       let blk = DiGraph.findVertexByID ssaCFG myid
-      blk.VData.Stmts
-      |> Array.iter (fun stmt -> CPTransfer.evalStmt ssaCFG st blk stmt)
+      blk.VData.SSAStmtInfos
+      |> Array.iter (fun (ppoint, stmt) ->
+        CPTransfer.evalStmt ssaCFG st blk ppoint stmt)
+      |> ignore
       match blk.VData.GetLastStmt () with
       | Jmp _ -> ()
       | _ ->
