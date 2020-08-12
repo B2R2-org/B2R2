@@ -66,6 +66,17 @@ type Instruction (addr, numBytes, wordSize) =
   abstract member NextParsingContext: ParsingContext
 
   /// <summary>
+  ///   Auxiliary parsing context that can be used to parse the next
+  ///   instruction. This is particularly useful when an instruction has two
+  ///   different parsing context depending on the jump target. For example, BLX
+  ///   instruction of ARM produces two CFG edges, and each edge should have
+  ///   different ArchOperationMode (one is Thumb and the other is ARM). In this
+  ///   case, AuxParsingContext contains the parsing context when we follow the
+  ///   fall-through edge.
+  /// </summary>
+  abstract member AuxParsingContext: ParsingContext option
+
+  /// <summary>
   ///   Is this a branch instruction? A branch instruction includes any kinds of
   ///   jump instructions, such as CALL/RET instructions, indirect/direct jump
   ///   instructions, and conditional jump instructions.

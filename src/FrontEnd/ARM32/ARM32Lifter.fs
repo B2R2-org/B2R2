@@ -468,11 +468,10 @@ let selectInstrSet ctxt builder = function
 /// Write value to R.PC, without interworking, on page A2-47.
 /// function : BranchWritePC()
 let branchWritePC ctxt (insInfo: InsInfo) addr jmpInfo =
-  let addr1 = zMaskAnd addr 32<rt> 1
-  let addr2 = zMaskAnd addr 32<rt> 2
+  let addr = zMaskAnd addr 32<rt> 1
   match insInfo.Mode with
-  | ArchOperationMode.ARMMode -> InterJmp (getPC ctxt, addr1, jmpInfo)
-  | _ -> InterJmp (getPC ctxt, addr2, jmpInfo)
+  | ArchOperationMode.ARMMode -> InterJmp (getPC ctxt, addr, jmpInfo)
+  | _ -> InterJmp (getPC ctxt, addr, jmpInfo)
 
 let disableITStateForCondBranches ctxt isUnconditional (builder: StmtBuilder) =
   if isUnconditional then ()

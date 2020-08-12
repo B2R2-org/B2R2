@@ -40,6 +40,8 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
 
   override __.NextParsingContext = defaultCtxt
 
+  override __.AuxParsingContext with get() = None
+
   override __.IsBranch () =
     match __.Info.Opcode with
     | Opcode.JUMP

@@ -40,6 +40,8 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
 
   override __.NextParsingContext with get() = defaultCtxt
 
+  override __.AuxParsingContext with get() = None
+
   override __.IsBranch () =
     match __.Info.Opcode with
     (* Conditional branch *)

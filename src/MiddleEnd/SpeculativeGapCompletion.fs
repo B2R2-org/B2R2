@@ -45,7 +45,7 @@ module private SpeculativeGapCompletionHelper =
       else AddrRange (nextAddr, eAddr) :: gaps
 
   let rec shiftUntilValid ess entries (gap: AddrRange) =
-    let entry = Set.singleton (gap.Min, ess.BinHandler.DefaultParsingContext)
+    let entry = [ gap.Min, ess.BinHandler.DefaultParsingContext ]
     match BinEssence.initByEntries ess.BinHandler entry with
     | Ok _ -> AddrRange (gap.Min, gap.Max) :: entries
     | Error _ ->
@@ -64,7 +64,8 @@ module private SpeculativeGapCompletionHelper =
 
   let updateResults branchRecovery ess ess' =
     let ctxt = ess'.BinHandler.DefaultParsingContext
-    let entries = ess'.CalleeMap.Entries |> Set.map (fun a -> a, ctxt)
+    let entries =
+      ess'.CalleeMap.Entries |> Set.toList |> List.map (fun a -> a, ctxt)
     match BinEssence.addEntries ess entries with
     | Ok ess ->
       ess'.IndirectBranchMap
@@ -77,7 +78,7 @@ module private SpeculativeGapCompletionHelper =
     | [] -> ess
     | gaps ->
       let ctxt = ess.BinHandler.DefaultParsingContext
-      let ents = gaps |> List.map (fun g -> g.Min, ctxt) |> Set.ofList
+      let ents = gaps |> List.map (fun g -> g.Min, ctxt)
       match BinEssence.initByEntries ess.BinHandler ents with
       | Ok partial ->
         let isTarget addr =

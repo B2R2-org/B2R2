@@ -29,30 +29,22 @@ open B2R2.BinIR.LowUIR
 
 /// A high-level interface for the parsing context, which stores several states
 /// for parsing machine instructions.
-type ParsingContext =
-  struct
-    /// Target architecture mode (e.g., ARM/thumb mode).
-    val ArchOperationMode: ArchOperationMode
+type ParsingContext private (archMode, itstate, offset, inParallel) =
+  /// Target architecture mode (e.g., ARM/thumb mode).
+  member __.ArchOperationMode with get(): ArchOperationMode = archMode
 
-    /// ITState for ARM.
-    val ITState: byte list
+  /// ITState for ARM.
+  member __.ITState with get(): byte list = itstate
 
-    /// Indicate the address offset of the code. This is used in several
-    /// architectures, such as EVM, to correctly resolve jump offsets in a
-    /// dynamically generated code snippet.
-    val CodeOffset: uint64
+  /// Indicate the address offset of the code. This is used in several
+  /// architectures, such as EVM, to correctly resolve jump offsets in a
+  /// dynamically generated code snippet.
+  member __.CodeOffset with get(): uint64 = offset
 
-    /// Indicate whether the next instruction should be executed in parallel.
-    /// This is used by DSP architectures.
-    val InParallel: bool
+  /// Indicate whether the next instruction should be executed in parallel.
+  /// This is used by DSP architectures.
+  member __.InParallel with get(): bool = inParallel
 
-    private new (archMode, itstate, offset, inParallel) =
-      { ArchOperationMode = archMode
-        ITState = itstate
-        CodeOffset = offset
-        InParallel = inParallel }
-  end
-with
   static member Init () =
     ParsingContext (ArchOperationMode.NoMode, [], 0UL, false)
 
@@ -67,6 +59,14 @@ with
 
   static member InitEVM (offset) =
     ParsingContext (ArchOperationMode.NoMode, [], offset, false)
+
+  static member ARMSwitchOperationMode (ctxt: ParsingContext) =
+    match ctxt.ArchOperationMode with
+    | ArchOperationMode.ARMMode ->
+      ParsingContext.Init (ArchOperationMode.ThumbMode)
+    | ArchOperationMode.ThumbMode ->
+      ParsingContext.Init (ArchOperationMode.ARMMode)
+    | _ -> Utils.impossible ()
 
 /// A high-level interface for the translation context, which stores several
 /// states for translating/lifting instructions.

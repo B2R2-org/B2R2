@@ -48,6 +48,11 @@ let parseThumb ctxt bin = function
   | 4u -> Parserv7.parseV7Thumb32 ctxt bin
   | _ -> failwith "Invalid instruction length"
 
+let computeContext opcode ctxt =
+  match opcode with
+  | Op.BLX -> struct (ParsingContext.ARMSwitchOperationMode ctxt, Some ctxt)
+  | _ -> struct (ctxt, None)
+
 let parse reader (ctxt: ParsingContext) arch addr pos =
   let mode = ctxt.ArchOperationMode
   let struct (bin, nextPos) =
@@ -56,7 +61,7 @@ let parse reader (ctxt: ParsingContext) arch addr pos =
     | ArchOperationMode.ARMMode -> reader.ReadUInt32 pos
     | _-> raise InvalidTargetArchModeException
   let len = nextPos - pos |> uint32
-  let opcode, cond, itState, wback, qualifier, simdt, oprs, cflag, ctxt' =
+  let opcode, cond, itState, wback, qualifier, simdt, oprs, cflag, ctxt =
     match ctxt.ArchOperationMode with
     | ArchOperationMode.ARMMode ->
       if isARMv7 arch then Parserv7.parseV7ARM ctxt bin
@@ -77,6 +82,7 @@ let parse reader (ctxt: ParsingContext) arch addr pos =
       SIMDTyp = simdt
       Mode = mode
       Cflag = cflag }
-  ARM32Instruction (addr, len, insInfo, ctxt')
+  let struct (ctxt, aux) = computeContext opcode ctxt
+  ARM32Instruction (addr, len, insInfo, ctxt, aux)
 
 // vim: set tw=80 sts=2 sw=2:

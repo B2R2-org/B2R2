@@ -30,12 +30,14 @@ open System.Text
 
 /// The internal representation for an ARM32 instruction used by our
 /// disassembler and lifter.
-type ARM32Instruction (addr, numBytes, insInfo, ctxt) =
+type ARM32Instruction (addr, numBytes, insInfo, ctxt, auxctxt) =
   inherit Instruction (addr, numBytes, WordSize.Bit32)
 
   member val Info: InsInfo = insInfo
 
   override __.NextParsingContext = ctxt
+
+  override __.AuxParsingContext = auxctxt
 
   override __.IsBranch () =
     match __.Info.Opcode with

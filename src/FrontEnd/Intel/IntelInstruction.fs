@@ -40,6 +40,8 @@ type IntelInstruction (addr, numBytes, insInfo, wordSz) =
 
   override __.NextParsingContext with get() = defaultCtxt
 
+  override __.AuxParsingContext with get() = None
+
   override __.IsBranch () =
     Helper.isBranch __.Info.Opcode
 

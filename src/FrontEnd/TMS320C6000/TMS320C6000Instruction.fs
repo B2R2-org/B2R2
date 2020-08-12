@@ -38,6 +38,8 @@ type TMS320C6000Instruction (addr, numBytes, insInfo, ctxt) =
 
   override __.NextParsingContext = ctxt
 
+  override __.AuxParsingContext with get() = None
+
   override __.IsBranch () =
     match __.Info.Opcode with
     | _ -> false

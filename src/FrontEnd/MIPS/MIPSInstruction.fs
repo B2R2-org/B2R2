@@ -40,6 +40,8 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
 
   override __.NextParsingContext with get() = defaultCtxt
 
+  override __.AuxParsingContext with get() = None
+
   override __.IsBranch () =
     match __.Info.Opcode with
     | Opcode.B | Opcode.BAL | Opcode.BEQ | Opcode.BGEZ | Opcode.BGEZAL
