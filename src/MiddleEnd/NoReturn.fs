@@ -227,18 +227,27 @@ module private NoReturnHelper =
         elif v.VData.LastInstruction.IsInterrupt () then acc
         else false) true
 
-  let rec findLoop ess cg noretVertices = function
-    | [] -> noretVertices
+  let rec findLoop ess cg visited noretVertices = function
+    | [] ->
+      let fresh =
+        DiGraph.foldVertex cg (fun acc v ->
+          if Set.contains v visited then acc else v :: acc) []
+      if List.isEmpty fresh then noretVertices
+      else findLoop ess cg visited noretVertices fresh
     | v :: vs ->
       let noretAddrs =
         noretVertices
         |> Set.map (fun (v: Vertex<CallGraphBBlock>) -> v.VData.PPoint.Address)
       if isAlreadyVisited noretAddrs v then
-        findLoop ess cg noretVertices vs
+        let visited = Set.add v visited
+        findLoop ess cg visited noretVertices vs
       elif isNoReturn ess noretAddrs v then
+        let visited = Set.add v visited
         DiGraph.getPreds cg v @ vs
-        |> findLoop ess cg (Set.add v noretVertices)
-      else findLoop ess cg noretVertices vs
+        |> findLoop ess cg visited (Set.add v noretVertices)
+      else
+        let visited = Set.add v visited
+        findLoop ess cg visited noretVertices vs
 
   let getNoReturnFunctions ess noretVertices =
     let noretFuncs = ess.NoReturnInfo.NoReturnFuncs
@@ -266,7 +275,7 @@ module private NoReturnHelper =
     let noretFuncs =
       DiGraph.foldVertex cg (fun acc v ->
         if List.length <| DiGraph.getSuccs cg v = 0 then v :: acc else acc) []
-      |> findLoop ess cg Set.empty
+      |> findLoop ess cg Set.empty Set.empty
       |> getNoReturnFunctions ess
     let noretCallsites = getNoReturnCallSites ess noretFuncs
     BinEssence.addNoReturnInfo ess noretFuncs noretCallsites
