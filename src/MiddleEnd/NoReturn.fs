@@ -41,7 +41,8 @@ module private NoReturnHelper =
     | "abort"
     | "_abort"
     | "exit"
-    | "_exit" -> true
+    | "_exit"
+    | "__longjmp_chk" -> true
     | _ -> false
 
   let hasError ess (v: Vertex<IRBasicBlock>) =
