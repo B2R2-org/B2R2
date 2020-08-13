@@ -3949,8 +3949,8 @@ let minMaxSD ins insAddr insLen ctxt compare =
 let minMaxSS ins insAddr insLen ctxt compare =
   let builder = new StmtBuilder (4)
   let dst, src = getTwoOprs ins
-  let dst = transOprToExpr64 ins insAddr insLen ctxt dst |> extractLow 32<rt>
-  let src = transOprToExpr64 ins insAddr insLen ctxt src |> extractLow 32<rt>
+  let dst = transOprToExpr32 ins insAddr insLen ctxt dst
+  let src = transOprToExpr32 ins insAddr insLen ctxt src
   let tmp = tmpVar 32<rt>
   startMark insAddr insLen builder
   builder <! (tmp := ite (compare dst src) dst src)
