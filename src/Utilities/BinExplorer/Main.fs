@@ -26,7 +26,6 @@ module B2R2.Utilities.BinExplorer.Main
 
 open B2R2
 open B2R2.FrontEnd
-open B2R2.BinGraph
 open B2R2.BinEssence
 open B2R2.Lens
 open B2R2.MiddleEnd
@@ -71,8 +70,10 @@ type BinExplorerOpts (isa) =
   member __.GetAnalyses () =
     [ yield LibcAnalysis () :> IAnalysis
       yield EVMCodeCopyAnalysis () :> IAnalysis
+      if __.EnableNoReturn then
+        yield NoReturnAnalysis () :> IAnalysis
       if __.EnableBranchRecovery then
-        yield BranchRecovery (__.EnableNoReturn) :> IAnalysis
+        yield SpeculativeBranchRecovery (__.EnableNoReturn) :> IAnalysis
       if __.EnableGapComp then
         yield SpeculativeGapCompletion (__.EnableNoReturn) :> IAnalysis ]
 

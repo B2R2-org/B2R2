@@ -12,7 +12,7 @@
     <Compile Include="EVMCodeCopyAnalysis.fs" />
     <Compile Include="NoReturn.fs" />
     <Compile Include="ConditionRetriever.fs" />
-    <Compile Include="BranchRecovery.fs" />
+    <Compile Include="SpeculativeBranchRecovery.fs" />
     <Compile Include="SpeculativeGapCompletion.fs" />
     <Compile Include="Analyzer.fs" />
   </ItemGroup>

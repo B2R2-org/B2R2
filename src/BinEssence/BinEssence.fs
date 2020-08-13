@@ -724,10 +724,7 @@ module BinEssence =
     removeNoReturnFallThroughs { ess with NoReturnInfo = noRetInfo }
 
   [<CompiledName("AddIndirectBranchMap")>]
-  let addIndirectBranchMap ess indMap' =
-    let indMap = ess.IndirectBranchMap
-    let indMap =
-      indMap' |> Map.fold (fun m addr info -> Map.add addr info m) indMap
+  let addIndirectBranchMap ess indMap =
     { ess with IndirectBranchMap = indMap }
 
   /// This function returns an initial sequence of entry points obtained from

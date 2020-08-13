@@ -70,7 +70,7 @@ module private SpeculativeGapCompletionHelper =
     | Ok ess ->
       ess'.IndirectBranchMap
       |> BinEssence.addIndirectBranchMap ess
-      |> (branchRecovery: BranchRecovery).CalculateTable
+      |> (branchRecovery: SpeculativeBranchRecovery).CalculateTable
     | Error _ -> ess
 
   let rec recoverGaps branchRecovery ess gaps =
@@ -87,7 +87,7 @@ module private SpeculativeGapCompletionHelper =
           |> not
         let ess =
           isTarget
-          |> (branchRecovery: BranchRecovery).RunWith partial
+          |> (branchRecovery: SpeculativeBranchRecovery).RunWith partial
           |> updateResults branchRecovery ess
         gaps
         |> List.map (fun gap -> findGaps ess gap.Min gap.Max)
@@ -105,7 +105,7 @@ module private SpeculativeGapCompletionHelper =
     |> recoverGaps branchRecovery ess
 
 type SpeculativeGapCompletion (enableNoReturn) =
-  let branchRecovery = BranchRecovery (enableNoReturn)
+  let branchRecovery = SpeculativeBranchRecovery (enableNoReturn)
 
   interface IAnalysis with
     member __.Name = "Speculative Gap Completion"
