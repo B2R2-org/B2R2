@@ -29,8 +29,7 @@ open B2R2
 type CPValue =
   | NotAConst
   | Const of BitVector
-  | PCThunk of BitVector
-  | GOT of BitVector
+  | Pointer of BitVector
   | Undef
 
 module CPValue =
@@ -38,15 +37,13 @@ module CPValue =
   let meet c1 c2 =
     match c1, c2 with
     | Undef, c | c, Undef -> c
-    | PCThunk bv, PCThunk _ -> PCThunk bv
-    | GOT bv, GOT _ -> GOT bv
     | Const bv1, Const bv2 -> if bv1 = bv2 then c1 else NotAConst
+    | Pointer bv1, Pointer bv2 -> if bv1 = bv2 then c1 else NotAConst
     | _ -> NotAConst
 
   let unOp op = function
     | Const bv -> Const (op bv)
-    | PCThunk bv -> Const (op bv)
-    | GOT bv -> Const (op bv)
+    | Pointer bv -> Const (op bv)
     | c -> c
 
   let neg c = unOp BitVector.neg c
@@ -56,28 +53,18 @@ module CPValue =
   let binOp op c1 c2 =
     match c1, c2 with
     | Undef, _ | _, Undef -> Undef
-    | PCThunk bv1, PCThunk bv2
-    | PCThunk bv1, GOT bv2
-    | PCThunk bv1, Const bv2
-    | GOT bv1, GOT bv2
-    | GOT bv1, PCThunk bv2
-    | GOT bv1, Const bv2
-    | Const bv1, PCThunk bv2
-    | Const bv1, GOT bv2
+    | Pointer bv1, Pointer bv2
+    | Pointer bv1, Const bv2
+    | Const bv1, Pointer bv2
     | Const bv1, Const bv2 -> Const (op bv1 bv2)
     | _ -> NotAConst
 
   let add c1 c2 =
     match c1, c2 with
     | Undef, _ | _, Undef -> Undef
-    | PCThunk bv1, Const bv2
-    | Const bv1, PCThunk bv2 -> GOT (BitVector.add bv1 bv2)
-    | PCThunk bv1, PCThunk bv2
-    | PCThunk bv1, GOT bv2
-    | GOT bv1, GOT bv2
-    | GOT bv1, PCThunk bv2
-    | GOT bv1, Const bv2
-    | Const bv1, GOT bv2
+    | Pointer bv1, Const bv2
+    | Const bv1, Pointer bv2 -> Pointer (BitVector.add bv1 bv2)
+    | Pointer bv1, Pointer bv2
     | Const bv1, Const bv2 -> Const (BitVector.add bv1 bv2)
     | _ -> NotAConst
 
@@ -88,14 +75,9 @@ module CPValue =
   let divAux divop c1 c2 =
     match c1, c2 with
     | Undef, _ | _, Undef -> Undef
-    | PCThunk bv1, PCThunk bv2
-    | PCThunk bv1, GOT bv2
-    | PCThunk bv1, Const bv2
-    | GOT bv1, GOT bv2
-    | GOT bv1, PCThunk bv2
-    | GOT bv1, Const bv2
-    | Const bv1, PCThunk bv2
-    | Const bv1, GOT bv2
+    | Pointer bv1, Pointer bv2
+    | Pointer bv1, Const bv2
+    | Const bv1, Pointer bv2
     | Const bv1, Const bv2 ->
       if BitVector.isZero bv2 then NotAConst
       else Const (divop bv1 bv2)
@@ -148,8 +130,7 @@ module CPValue =
   let ite cond c1 c2 =
     match cond with
     | Undef -> Undef
-    | PCThunk bv
-    | GOT bv
+    | Pointer bv
     | Const bv -> if BitVector.isZero bv then c2 else c1
     | NotAConst -> meet c1 c2
 
@@ -166,10 +147,8 @@ module CPValue =
   let goingUp a b =
     match a, b with
     | Const _, Undef
-    | PCThunk _, Undef
-    | GOT _, Undef
+    | Pointer _, Undef
     | NotAConst, Undef
     | NotAConst, Const _
-    | NotAConst, PCThunk _
-    | NotAConst, GOT _ -> true
+    | NotAConst, Pointer _ -> true
     | _ -> false

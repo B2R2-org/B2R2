@@ -93,6 +93,7 @@ type SSALens (ess) =
       |> SSAUtils.computeFrontiers ssaCFG
       |> SSAUtils.placePhis ssaCFG vMap fMap defSites
       |> SSAUtils.renameVars ssaCFG defSites
+      DiGraph.iterVertex ssaCFG (fun v -> v.VData.AddressStmts ())
       ssaCFG, roots
 
   static member Init ess =

@@ -82,8 +82,8 @@ type ConditionRetriever () =
   /// Find an address where myVar is defined.
   member __.FindAddr myVar addr stmts =
     match stmts with
-    | Def (v, _) :: _ when myVar = v -> addr
-    | Def (v, Num bv) :: stmts ->
+    | (_, Def (v, _)) :: _ when myVar = v -> addr
+    | (_, Def (v, Num bv)) :: stmts ->
       if Variable.IsPC v then
         __.FindAddr myVar (BitVector.toUInt64 bv) stmts
       else
@@ -155,14 +155,14 @@ and IntelConditionRetriever () =
   /// XXX: Two operands used to compare are first two expressions appeared at
   /// specific address
   let rec findTwoOperands addr isTarget first = function
-    | Def (v, Num bv) :: stmts ->
+    | (_, Def (v, Num bv)) :: stmts ->
       (* The second operand should be bitvector *)
       if isTarget && Option.isSome first then Option.get first, bv
       elif Variable.IsPC v then
         let addr_ = BitVector.toUInt64 bv
         findTwoOperands addr (addr = addr_) first stmts
       else findTwoOperands addr isTarget first stmts
-    | Def (_, e) :: stmts ->
+    | (_, Def (_, e)) :: stmts ->
       (* We are at a right address, but none of operands are found until now *)
       if isTarget && Option.isNone first then
         findTwoOperands addr isTarget (Some e) stmts
@@ -172,7 +172,7 @@ and IntelConditionRetriever () =
 
   override __.FindComparison ess v condVar =
     let ppoint = v.VData.PPoint
-    let stmts = Array.toList v.VData.Stmts
+    let stmts = Array.toList v.VData.SSAStmtInfos
     let addr = __.FindAddr condVar ppoint.Address stmts
     let ins = ess.InstrMap.[addr].Instruction :?> Intel.IntelInstruction
     match ins.Info.Opcode, ins.Info.Operands with

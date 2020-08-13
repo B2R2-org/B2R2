@@ -26,8 +26,10 @@ module B2R2.DataFlow.CPTransfer
 
 open B2R2
 open B2R2.FrontEnd
+open B2R2.FrontEnd.Intel
 open B2R2.BinIR
 open B2R2.BinGraph
+open B2R2.BinEssence
 open B2R2.Lens
 open B2R2.BinIR.SSA
 
@@ -43,9 +45,11 @@ let private isGetPCThunkCode = function
 /// we directly compare first 4 bytes of byte code. Because __x86.get_pc_thunk-
 /// family only has 4 bytes for its function body and their values are fixed.
 let private isGetPCThunk hdl addr =
-  match hdl.FileInfo.TryFindFunctionSymbolName addr |> Utils.tupleToOpt with
-  | Some name -> name.StartsWith "__x86.get_pc_thunk"
-  | None -> BinHandler.ReadUInt (hdl, addr, 4) |> isGetPCThunkCode
+  if addr = 0UL then false
+  else
+    match hdl.FileInfo.TryFindFunctionSymbolName addr |> Utils.tupleToOpt with
+    | Some name -> name.StartsWith "__x86.get_pc_thunk"
+    | None -> BinHandler.ReadUInt (hdl, addr, 4) |> isGetPCThunkCode
 
 let evalLoad st m rt addr =
   match addr with
@@ -96,7 +100,7 @@ let evalCast op rt c =
   | CastKind.ZeroExt -> CPValue.zeroExt rt c
   | _ -> NotAConst
 
-let evalReturn st addr ret v =
+let evalReturn (st: CPState) addr ret v =
   match v.Kind with
   | RegVar (rt, rid, _) ->
     let hdl = st.BinHandler
@@ -106,7 +110,7 @@ let evalReturn st addr ret v =
       let wordSize = Const (BitVector.ofUInt64 wordByte rt)
       evalBinOp BinOpType.ADD c wordSize
     elif isGetPCThunk hdl addr then
-      PCThunk (BitVector.ofUInt64 ret rt)
+      Pointer (BitVector.ofUInt64 ret rt)
     elif CallingConvention.isNonVolatile hdl rid then
       CPState.findReg st v
     else NotAConst
@@ -144,25 +148,26 @@ let rec evalExpr st = function
   | _ -> Utils.impossible ()
 
 let evalMemDef st mDst e =
+  let dstid = mDst.Identifier
   match e with
   | Store (mSrc, rt, addr, v) ->
     let c = evalExpr st v
     let addr = evalExpr st addr
-    CPState.copyMem st mDst.Identifier mSrc.Identifier
+    CPState.copyMem st dstid mSrc.Identifier
     match addr with
     | Const addr ->
       let addr = BitVector.toUInt64 addr
       CPState.storeMem st mDst rt addr c
     | _ -> ()
   | ReturnVal (_, _, mSrc) ->
-    CPState.copyMem st mDst.Identifier mSrc.Identifier
+    CPState.copyMem st dstid mSrc.Identifier
     let dstMem =
-      st.MemState.[mDst.Identifier]
+      st.MemState.[dstid]
       |> Map.map (fun _ v ->
         match v with
-        | GOT _ -> v
-        | _ -> NotAConst)
-    st.MemState.[mDst.Identifier] <- dstMem
+        | (Pointer _ as c), _ -> c, dstid
+        | _ -> NotAConst, dstid)
+    st.MemState.[dstid] <- dstMem
   | _ ->  Utils.impossible ()
 
 let inline updateConst st r v =
@@ -175,11 +180,28 @@ let inline updateConst st r v =
     st.RegState.[r] <- CPValue.meet st.RegState.[r] v
     st.SSAWorkList.Enqueue r
 
-let evalDef st v e =
-  match v.Kind with
-  | RegVar _ | TempVar _ -> evalExpr st e |> updateConst st v
-  | MemVar -> evalMemDef st v e
-  | PCVar _ -> ()
+let loadPointerToReg hdl (blk: Vertex<SSABBlock>) addr =
+  let info =
+    blk.VData.InsInfos
+    |> Array.find (fun (i: InstructionInfo) -> i.Instruction.Address = addr)
+  let ins = info.Instruction
+  match hdl.FileInfo.ISA.Arch with
+  | Arch.IntelX64 ->
+    match (ins :?> IntelInstruction).Info.Operands with
+    | TwoOperands (_, OprMem (Some reg, None, Some _, _)) -> reg = Register.RIP
+    | _ -> false
+  | _ -> false
+
+let evalDef (st: CPState) blk (ppoint: ProgramPoint) v e =
+  match v.Kind, e with
+  | RegVar _, Num _ when loadPointerToReg st.BinHandler blk ppoint.Address ->
+    match evalExpr st e with
+    | Const c -> Pointer c
+    | c -> c
+    |> updateConst st v
+  | RegVar _, _ | TempVar _, _ -> evalExpr st e |> updateConst st v
+  | MemVar, _ -> evalMemDef st v e
+  | PCVar _, _ -> ()
 
 let executableSources cfg st (blk: Vertex<_>) srcIDs =
   srcIDs
@@ -228,8 +250,8 @@ let evalIntraCJmp cfg st blk cond trueLbl falseLbl =
   | Const bv ->
     (fun (succ: Vertex<SSABBlock>) ->
       let target = if BitVector.isTrue bv then trueLbl else falseLbl
-      match succ.VData.Stmts.[0] with
-      | LMark lbl -> lbl = target
+      match succ.VData.SSAStmtInfos.[0] with
+      | _, LMark lbl -> lbl = target
       | _ -> false)
     |> markSuccessorsConditionally cfg st blk
   | _ -> markAllSuccessors cfg st blk
@@ -278,8 +300,8 @@ let evalJmp cfg st blk = function
     let c = evalExpr st cond
     evalInterCJmp cfg st blk c trueExpr falseExpr
 
-let evalStmt cfg st blk = function
-  | Def (v, e) -> evalDef st v e
+let evalStmt cfg st blk ppoint = function
+  | Def (v, e) -> evalDef st blk ppoint v e
   | Phi (v, ns) -> evalPhi cfg st blk v ns
   | Jmp jmpTy -> evalJmp cfg st blk jmpTy
   | LMark _ | SideEffect _ -> ()
