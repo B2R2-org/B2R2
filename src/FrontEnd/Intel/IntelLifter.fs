@@ -5081,7 +5081,7 @@ let pslldq ins insAddr insLen ctxt = shiftDQ ins insAddr insLen ctxt (<<)
 let psrldq ins insAddr insLen ctxt = shiftDQ ins insAddr insLen ctxt (>>)
 
 let opShiftPackedDataRightArith oprSize packSz src1 src2 =
-  let count = concatExprs src2
+  let count = concatExprs src2 |> zExt oprSize
   let cond = gt count (numI32 ((int packSz) - 1) oprSize)
   let count = ite cond (numI32 (int packSz) oprSize) count
   let shifted expr = extract ((sExt oprSize expr) ?>> count) packSz 0
