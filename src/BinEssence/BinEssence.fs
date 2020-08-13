@@ -472,13 +472,13 @@ module BinEssence =
       ess, edges
     | InterCJmp (_, _, Num addr, _) ->
       src.VData.HasIndirectBranch <- true
-      (* Need to connect indirect edge here also *)
+      let edges = getIndirectEdges ess.IndirectBranchMap src false edges
       let edges =
         getInterEdge src (BitVector.toUInt64 addr) InterCJmpTrueEdge edges
       ess, edges
     | InterCJmp (_, _, _, Num addr) ->
       src.VData.HasIndirectBranch <- true
-      (* Need to connect indirect edge here also *)
+      let edges = getIndirectEdges ess.IndirectBranchMap src false edges
       let edges =
         getInterEdge src (BitVector.toUInt64 addr) InterCJmpFalseEdge edges
       ess, edges
