@@ -622,16 +622,22 @@ module BinEssence =
       let ctxt = computeNextParsingContext ess src edge
       parseNewBBL ess foundIndJmp elms ctxt dst (Some (src, edge))
 
-  let rec internal updateCFG ess foundIndJmp = function
-    | [] -> Ok (ess, foundIndJmp)
+  let rec internal updateCFG ess success foundIndJmp = function
     | CFGEntry (addr, ctxt) :: elms ->
       match updateCFGWithVertex ess foundIndJmp elms addr ctxt with
-      | Ok (ess, foundIndJmp, elms) -> updateCFG ess foundIndJmp elms
-      | Error () -> Error ()
+      | Ok (ess, foundIndJmp, elms) -> updateCFG ess success foundIndJmp elms
+      | Error () ->
+        if ess.IgnoreIllegal then updateCFG ess false foundIndJmp elms
+        else Error (ess, foundIndJmp)
     | CFGEdge (src, edge, dst) :: elms ->
       match updateCFGWithEdge ess foundIndJmp elms src edge dst with
-      | Ok (ess, foundIndJmp, elms) -> updateCFG ess foundIndJmp elms
-      | Error () -> Error ()
+      | Ok (ess, foundIndJmp, elms) -> updateCFG ess success foundIndJmp elms
+      | Error () ->
+        if ess.IgnoreIllegal then updateCFG ess false foundIndJmp elms
+        else Error (ess, foundIndJmp)
+    | [] ->
+      if success then Ok (ess, foundIndJmp)
+      else Error (ess, foundIndJmp)
 
   let private removeNoReturnFallThroughEdges ess =
     let bbls = ess.BBLStore
@@ -706,24 +712,26 @@ module BinEssence =
   let addEntry ess (addr, ctxt) =
     let ess =
       { ess with CalleeMap = ess.CalleeMap.AddEntry ess.BinHandler addr }
-    match updateCFG ess false [ CFGEntry (addr, ctxt) ] with
+    match updateCFG ess true false [ CFGEntry (addr, ctxt) ] with
     | Ok (ess, _) -> Ok ess
-    | Error () -> if ess.IgnoreIllegal then Error () else Utils.impossible ()
+    | Error (ess, _) -> Error ess
 
   [<CompiledName("AddEntries")>]
   let addEntries ess entries =
     entries
-    |> List.fold (fun res entry ->
-      match res with
-      | Ok ess -> addEntry ess entry
-      | _ -> res) (Ok ess)
+    |> List.fold (fun (ess, success) entry ->
+      match addEntry ess entry with
+      | Ok ess -> ess, success
+      | Error ess -> ess, false) (ess, true)
+    |> fun (ess, success) ->
+      if success then Ok ess else Error ess
 
   [<CompiledName("AddEdge")>]
   let addEdge ess src dst edgeKind =
     let edgeInfo = [ CFGEdge (ProgramPoint (src, 0), edgeKind, dst) ]
-    match updateCFG ess false edgeInfo with
+    match updateCFG ess true false edgeInfo with
     | Ok (ess, hasNewIndBranch) -> Ok (ess, hasNewIndBranch)
-    | Error () -> if ess.IgnoreIllegal then Error () else Utils.impossible ()
+    | Error (_, _) -> Error ()
 
   [<CompiledName("AddNoReturnInfo")>]
   let addNoReturnInfo ess noRetFuncs noRetCallSites =
@@ -775,8 +783,8 @@ module BinEssence =
   let init hdl =
     let ess = initialize hdl None
     match getInitialEntryPoints hdl |> addEntries ess with
-    | Ok ess -> ess
-    | Error _ -> Utils.impossible ()
+    | Ok ess
+    | Error ess -> { ess with IgnoreIllegal = false }
 
   [<CompiledName("InitByEntries")>]
   let initByEntries hdl entries =

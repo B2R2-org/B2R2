@@ -26,7 +26,6 @@ namespace B2R2.Lens
 
 open B2R2
 open B2R2.BinIR
-open B2R2.BinIR.SSA
 open B2R2.FrontEnd
 open B2R2.BinGraph
 open B2R2.BinEssence
@@ -66,11 +65,12 @@ module SSABlockHelper =
     | _ -> false
 
   /// This is a heuristic to discover __x86.get_pc_thunk- family functions.
-  /// 1. If a function name symbol exists and its name matches, then we know it is
-  /// __x86.get_pc_thunk- family
+  /// 1. If a function name symbol exists and its name matches, then we know it
+  /// is __x86.get_pc_thunk- family
   /// 2. But there are some cases we don't have symbols for them. In such cases,
-  /// we directly compare first 4 bytes of byte code. Because __x86.get_pc_thunk-
-  /// family only has 4 bytes for its function body and their values are fixed.
+  /// we directly compare first 4 bytes of byte code. Because
+  /// __x86.get_pc_thunk- family only has 4 bytes for its function body and
+  /// their values are fixed.
   let private isGetPCThunk hdl addr =
     match hdl.FileInfo.TryFindFunctionSymbolName addr |> Utils.tupleToOpt with
     | Some name -> name.StartsWith "__x86.get_pc_thunk"
@@ -96,13 +96,13 @@ module SSABlockHelper =
     with _ -> addDefaultDefs hdl |> Set.toArray
 
   let computeNextPPoint (ppoint: ProgramPoint) = function
-    | Def (v, Num bv) ->
+    | SSA.Def (v, SSA.Num bv) ->
       match v.Kind with
-      | PCVar _ -> ProgramPoint (BitVector.toUInt64 bv, 0)
+      | SSA.PCVar _ -> ProgramPoint (BitVector.toUInt64 bv, 0)
       | _ -> ProgramPoint (ppoint.Address, ppoint.Position + 1)
     | _ -> ProgramPoint (ppoint.Address, ppoint.Position + 1)
 
-type SSAStmtInfo = ProgramPoint * Stmt
+type SSAStmtInfo = ProgramPoint * SSA.Stmt
 
 /// Basic block type for an SSA-based CFG (SSACFG).
 type SSABBlock private (ess, pp, instrs, retPoint, hasIndirectBranch) =
