@@ -98,12 +98,10 @@ module private NoReturnHelper =
       let bblAddr = ref 0UL
       st.Callbacks.StmtEvalEventHandler <- stmtHandler bblAddr
       st.Callbacks.SideEffectEventHandler <- sideEffectHandler
-      try
-        let isExit =
-          eval ess root st (fun last -> last.IsInterrupt ())
-          |> retrieveSyscallState hdl
-        if isExit then Some !bblAddr else None
-      with _ -> None
+      let isExit =
+        eval ess root st (fun last -> last.IsInterrupt ())
+        |> retrieveSyscallState hdl
+      if isExit then Some !bblAddr else None
     else None
 
   let collectExitSyscallFallThroughs ess cfg root edges =
@@ -149,10 +147,8 @@ module private NoReturnHelper =
     let addr = v.VData.PPoint.Address
     let lastAddr = v.VData.LastInstruction.Address
     let st = initRegs hdl |> EvalState.PrepareContext st 0 addr
-    try
-      eval ess v st (fun last -> last.Address = lastAddr)
-      |> checkFirstArgument hdl
-    with _ -> false
+    eval ess v st (fun last -> last.Address = lastAddr)
+    |> checkFirstArgument hdl
 
   let collectEdgesToFallThrough cfg edges (v: Vertex<IRBasicBlock>) =
     DiGraph.getPreds cfg v

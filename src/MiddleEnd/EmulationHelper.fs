@@ -62,15 +62,18 @@ let eval (ess: BinEssence) (blk: Vertex<IRBasicBlock>) st stopFn =
     if visited.Contains blk.VData.PPoint then None
     else
       visited.Add blk.VData.PPoint |> ignore
-      let st' =
+      let result =
         blk.VData.GetIRStatements ()
         |> Array.concat
-        |> Evaluator.evalBlock st 0
-      if stopFn blk.VData.LastInstruction then Some st'
-      else
-        match ess.FindVertex st'.PC with
-        | None -> None
-        | Some v -> evalLoop v st' stopFn
+        |> SafeEvaluator.evalBlock st 0
+      match result with
+      | Ok st' ->
+        if stopFn blk.VData.LastInstruction then Some st'
+        else
+          match ess.FindVertex st'.PC with
+          | None -> None
+          | Some v -> evalLoop v st' stopFn
+      | Error _ -> None
   evalLoop blk st stopFn
 
 let readMem (st: EvalState) addr endian size =

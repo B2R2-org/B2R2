@@ -90,10 +90,8 @@ module private LibcAnalysisHelper =
       let st = EvalState (memoryReader hdl, true)
       let rootAddr = root.VData.PPoint.Address
       let st = initRegs hdl |> EvalState.PrepareContext st 0 rootAddr
-      try
-        eval ess root st (fun last -> last.Address = callerAddr)
-        |> retrieveLibcStartAddresses ess
-      with _ -> ess
+      eval ess root st (fun last -> last.Address = callerAddr)
+      |> retrieveLibcStartAddresses ess
 
   let recoverAddrsFromLibcStartMain ess =
     match ess.CalleeMap.Find "__libc_start_main" with
