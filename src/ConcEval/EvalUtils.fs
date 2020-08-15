@@ -22,24 +22,18 @@
   SOFTWARE.
 *)
 
-namespace B2R2.ConcEval
+module internal B2R2.ConcEval.EvalUtils
 
 open B2R2
+open B2R2.BinIR.LowUIR
 
-/// Raised when undefined expression is encountered.
-exception UndefExpException
+let tr = BitVector.one 1<rt>
 
-/// Raised when an invalid memory access.
-exception InvalidMemException
-
-/// Errors encountered during concrete evaluation.
-type EvalError =
-  /// Undefined expression is encountered.
-  | InvalidExprError
-  /// Invalid memory is accessed.
-  | InvalidMemError
-
-/// A value is either defined or undefined.
-type EvalValue =
-  | Undef
-  | Def of BitVector
+let rec gotoNextInstr stmts st =
+  let ctxt = EvalState.GetCurrentContext st
+  let idx = ctxt.StmtIdx
+  if EvalState.IsInstrTerminated st && Array.length stmts > idx && idx >= 0 then
+    match stmts.[idx] with
+    | ISMark (pc, _) -> EvalState.StartInstr st pc
+    | _ -> gotoNextInstr stmts (EvalState.NextStmt st)
+  else st

@@ -34,17 +34,31 @@ type Memory () =
   member val Reader: Addr -> Addr -> byte option = fun _ _ -> None with get, set
 
   member private __.Load (pc: Addr) addr =
-    if mem.ContainsKey (addr) then mem.[addr]
+    if mem.ContainsKey (addr) then Some mem.[addr]
+    else __.Reader pc addr
+
+  member private __.ReadLE acc pc addr i =
+    if i <= 0UL then Ok acc
     else
-      match __.Reader pc addr with
-      | None -> raise InvalidMemException
-      | Some b -> b
+      match __.Load pc (addr + i - 1UL) with
+      | Some b -> __.ReadLE (b :: acc) pc addr (i - 1UL)
+      | None -> Error InvalidMemError
+
+  member private __.ReadBE acc pc len addr i =
+    if i >= len - 1UL then Ok acc
+    else
+      match __.Load pc (addr + i) with
+      | Some b -> __.ReadBE (b :: acc) pc len addr (i + 1UL)
+      | None -> Error InvalidMemError
 
   member __.Read pc addr endian typ =
-    let len = RegType.toByteWidth typ
-    let v = [ for i = 0 to len - 1 do yield __.Load pc (addr + uint64 i) ]
-    Array.ofList (if endian = Endian.Little then v else List.rev v)
-    |> BitVector.ofArr
+    let len = RegType.toByteWidth typ |> uint64
+    match endian with
+    | Endian.Little -> __.ReadLE [] pc addr len
+    | _ -> __.ReadBE [] pc len addr 0UL
+    |> function
+      | Ok lst -> Array.ofList lst |> BitVector.ofArr |> Ok
+      | Error e -> Error e
 
   member __.Write addr v endian =
     let len = BitVector.getType v |> RegType.toByteWidth |> int

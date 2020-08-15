@@ -50,9 +50,10 @@ let initRegs hdl =
 
 let memoryReader hdl _pc addr =
   let fileInfo = hdl.FileInfo
-  if fileInfo.IsValidAddr addr then
-    let v = BinHandler.ReadBytes (hdl, addr, 1)
-    Some <| v.[0]
+  if addr < System.UInt64.MaxValue && fileInfo.IsValidAddr addr then
+    match BinHandler.TryReadBytes (hdl, addr, 1) with
+    | Some v -> Some v.[0]
+    | None -> None
   else None
 
 let eval (ess: BinEssence) (blk: Vertex<IRBasicBlock>) st stopFn =
@@ -74,8 +75,9 @@ let eval (ess: BinEssence) (blk: Vertex<IRBasicBlock>) st stopFn =
 
 let readMem (st: EvalState) addr endian size =
   let addr = BitVector.toUInt64 addr
-  try st.Memory.Read st.PC addr endian size |> BitVector.toUInt64 |> Some
-  with InvalidMemException -> None
+  match st.Memory.Read st.PC addr endian size with
+  | Ok bs -> BitVector.toUInt64 bs |> Some
+  | Error _ -> None
 
 let readReg st regID =
   match EvalState.GetReg st regID with

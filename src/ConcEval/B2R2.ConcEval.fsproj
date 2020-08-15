@@ -10,6 +10,8 @@
     <Compile Include="Variables.fs" />
     <Compile Include="Labels.fs" />
     <Compile Include="EvalState.fs" />
+    <Compile Include="EvalUtils.fs" />
+    <Compile Include="SafeEvaluator.fs" />
     <Compile Include="Evaluator.fs" />
   </ItemGroup>
 

@@ -22,8 +22,10 @@
   SOFTWARE.
 *)
 
-/// ConcEval.Evaluator is a concrete evaluation module for LowUIR.
-module B2R2.ConcEval.Evaluator
+/// ConcEval.SafeEvaluator is a safe concrete evaluation module for LowUIR.
+/// Unlike ConcEval.Evaluator, it does not raise exceptions, but it is slower
+/// than ConcEval.Evaluator.
+module B2R2.ConcEval.SafeEvaluator
 
 open B2R2
 open B2R2.BinIR
@@ -31,52 +33,59 @@ open B2R2.BinIR.LowUIR
 open B2R2.ConcEval.EvalUtils
 
 let private map1 fn p1 = function
-  | Def bv -> Def (fn bv p1)
-  | Undef -> raise UndefExpException
+  | Ok (Def bv) -> Def (fn bv p1) |> Ok
+  | _ -> Error InvalidExprError
 
 let private map2 fn p1 p2 = function
-  | Def bv -> Def (fn bv p1 p2)
-  | Undef -> raise UndefExpException
+  | Ok (Def bv) -> Def (fn bv p1 p2) |> Ok
+  | _ -> Error InvalidExprError
 
 let private unwrap = function
-  | Def bv -> bv
-  | Undef -> raise UndefExpException
+  | Ok (Def bv) -> Ok bv
+  | _ -> Error InvalidExprError
 
 let rec evalConcrete st e =
   match e with
-  | Num n -> Def n
-  | Var (_, n, _, _) -> EvalState.GetReg st n
-  | PCVar (t, _) -> BitVector.ofUInt64 st.PC t |> Def
-  | TempVar (_, n) -> EvalState.GetTmp st n
-  | UnOp (t, e, _, _) -> evalUnOp st e t |> Def
-  | BinOp (t, _, e1, e2, _, _) -> evalBinOp st e1 e2 t |> Def
-  | RelOp (t, e1, e2, _, _) -> evalRelOp st e1 e2 t |> Def
-  | Load (endian, t, addr, _, _) -> evalLoad st endian t addr |> Def
+  | Num n -> Def n |> Ok
+  | Var (_, n, _, _) -> EvalState.GetReg st n |> Ok
+  | PCVar (t, _) -> BitVector.ofUInt64 st.PC t |> Def |> Ok
+  | TempVar (_, n) -> EvalState.GetTmp st n |> Ok
+  | UnOp (t, e, _, _) -> evalUnOp st e t
+  | BinOp (t, _, e1, e2, _, _) -> evalBinOp st e1 e2 t
+  | RelOp (t, e1, e2, _, _) -> evalRelOp st e1 e2 t
+  | Load (endian, t, addr, _, _) -> evalLoad st endian t addr
   | Ite (cond, e1, e2, _, _) -> evalIte st cond e1 e2
   | Cast (kind, t, e, _, _) -> evalCast st t e kind
   | Extract (e, t, p, _, _) -> evalConcrete st e |> map2 BitVector.extract t p
-  | Undefined (_) -> Undef
-  | _ -> raise InvalidExprException
+  | Undefined (_) -> Ok Undef
+  | _ -> Error InvalidExprError
 
 and private evalLoad st endian t addr =
   let pc = st.PC
-  let addr = evalConcrete st addr |> unwrap |> BitVector.toUInt64
-  match st.Memory.Read pc addr endian t with
-  | Ok v ->
-    st.Callbacks.OnLoad pc addr v
-    v
-  | Error _ -> raise InvalidMemException
+  match evalConcrete st addr |> unwrap |> Result.map BitVector.toUInt64 with
+  | Ok addr ->
+    match st.Memory.Read pc addr endian t with
+    | Ok v ->
+      st.Callbacks.OnLoad pc addr v
+      Ok (Def v)
+    | Error e -> Error e
+  | Error e -> Error e
 
 and private evalIte st cond e1 e2 =
-  let cond = evalConcrete st cond |> unwrap
-  if cond = tr then evalConcrete st e1 else evalConcrete st e2
+  match evalConcrete st cond |> unwrap with
+  | Ok cond ->
+    if cond = tr then evalConcrete st e1 else evalConcrete st e2
+  | Error e -> Error e
 
 and private evalBinOpConc st e1 e2 fn =
   let e1 = evalConcrete st e1 |> unwrap
   let e2 = evalConcrete st e2 |> unwrap
-  fn e1 e2
+  match e1, e2 with
+  | Ok e1, Ok e2 -> fn e1 e2 |> Def |> Ok
+  | Error e, _ | _, Error e -> Error e
 
-and private evalUnOpConc st e fn = evalConcrete st e |> unwrap |> fn
+and private evalUnOpConc st e fn =
+  evalConcrete st e |> unwrap |> Result.map (fn >> Def)
 
 and private evalCast st t e = function
   | CastKind.SignExt -> evalConcrete st e |> map1 BitVector.sext t
@@ -140,70 +149,87 @@ and private evalRelOp st e1 e2 = function
   | _ -> raise IllegalASTTypeException
 
 let private evalPut st lhs rhs =
-  try
-    let v = evalConcrete st rhs
+  match evalConcrete st rhs with
+  | (Ok v) as res ->
     st.Callbacks.OnPut st.PC v
     match lhs with
-    | Var (_, n, _, _) -> EvalState.SetReg st n v
-    | PCVar (_) -> unwrap v |> BitVector.toUInt64 |> EvalState.SetPC st
-    | TempVar (_, n) -> EvalState.SetTmp st n v
-    | _ -> raise InvalidExprException
-  with UndefExpException ->
-    st (* Do not store undefined value *)
+    | Var (_, n, _, _) -> EvalState.SetReg st n v |> Ok
+    | PCVar (_) ->
+      unwrap res
+      |> Result.map BitVector.toUInt64
+      |> Result.map (EvalState.SetPC st)
+    | TempVar (_, n) -> EvalState.SetTmp st n v |> Ok
+    | _ -> Error InvalidExprError
+  | Error e -> Error e
 
 let private evalStore st endian addr v =
-  let addr = evalConcrete st addr |> unwrap |> BitVector.toUInt64
+  let addr = evalConcrete st addr |> unwrap |> Result.map BitVector.toUInt64
   let v = evalConcrete st v |> unwrap
-  st.Callbacks.OnStore st.PC addr v
-  st.Memory.Write addr v endian
-  st
+  match addr, v with
+  | Ok addr, Ok v ->
+    st.Callbacks.OnStore st.PC addr v
+    st.Memory.Write addr v endian
+    Ok st
+  | Error e, _ | _, Error e -> Error e
 
 let private evalJmp st target =
   match target with
-  | Name n -> EvalState.GoToLabel st n
-  | _ -> raise InvalidExprException
+  | Name n -> EvalState.GoToLabel st n |> Ok
+  | _ -> Error InvalidExprError
 
 let private evalCJmp st cond t f =
-  let cond = evalConcrete st cond |> unwrap
-  if cond = tr then evalJmp st t else evalJmp st f
+  match evalConcrete st cond |> unwrap with
+  | Ok cond ->
+    if cond = tr then evalJmp st t else evalJmp st f
+  | Error e -> Error e
 
 let private evalIntCJmp st cond pc t f =
-  let cond = evalConcrete st cond |> unwrap
-  evalPut st pc (if cond = tr then t else f)
+  match evalConcrete st cond |> unwrap with
+  | Ok cond ->
+    evalPut st pc (if cond = tr then t else f)
+  | Error e -> Error e
 
 let evalStmt st = function
-  | ISMark (pc, _) -> EvalState.StartInstr st pc |> EvalState.NextStmt
-  | IEMark (addr) -> EvalState.SetPC st addr |> EvalState.AbortInstr
-  | LMark _ -> EvalState.NextStmt st
-  | Put (lhs, rhs) -> evalPut st lhs rhs |> EvalState.NextStmt
-  | Store (e, addr, v) -> evalStore st e addr v |> EvalState.NextStmt
+  | ISMark (pc, _) -> EvalState.StartInstr st pc |> EvalState.NextStmt |> Ok
+  | IEMark (addr) -> EvalState.SetPC st addr |> EvalState.AbortInstr |> Ok
+  | LMark _ -> EvalState.NextStmt st |> Ok
+  | Put (lhs, rhs) -> evalPut st lhs rhs |> Result.map EvalState.NextStmt
+  | Store (e, addr, v) -> evalStore st e addr v |> Result.map EvalState.NextStmt
   | Jmp target -> evalJmp st target
   | CJmp (cond, t, f) -> evalCJmp st cond t f
-  | InterJmp (pc, target, _) -> evalPut st pc target |> EvalState.AbortInstr
-  | InterCJmp (c, pc, t, f) -> evalIntCJmp st c pc t f |> EvalState.AbortInstr
-  | SideEffect eff -> st.Callbacks.OnSideEffect eff st
+  | InterJmp (pc, target, _) ->
+    evalPut st pc target |> Result.map EvalState.AbortInstr
+  | InterCJmp (c, pc, t, f) ->
+    evalIntCJmp st c pc t f |> Result.map EvalState.AbortInstr
+  | SideEffect eff -> st.Callbacks.OnSideEffect eff st |> Ok
 
 let internal tryEvaluate stmt st =
-  try evalStmt st stmt with
-  | UndefExpException
-  | InvalidMemException ->
-    if st.IgnoreUndef then EvalState.NextStmt st
-    else raise UndefExpException
+  match evalStmt st stmt with
+  | Ok st -> Ok st
+  | Error e ->
+    if st.IgnoreUndef then EvalState.NextStmt st |> Ok
+    else Error e
 
-let rec internal evalLoop stmts st =
-  let ctxt = EvalState.GetCurrentContext st
-  let idx = ctxt.StmtIdx
-  let st = if idx = 0 then st.Callbacks.OnInstr st else st
-  if Array.length stmts > idx && idx >= 0 then
-    let stmt = stmts.[idx]
-    st.Callbacks.OnStmtEval stmt
-    evalLoop stmts (tryEvaluate stmt st |> gotoNextInstr stmts)
-  else st
+let rec internal evalLoop stmts result =
+  match result with
+  | Ok st ->
+    let ctxt = EvalState.GetCurrentContext st
+    let idx = ctxt.StmtIdx
+    let st = if idx = 0 then st.Callbacks.OnInstr st else st
+    if Array.length stmts > idx && idx >= 0 then
+      let stmt = stmts.[idx]
+      st.Callbacks.OnStmtEval stmt
+      evalLoop stmts (tryEvaluate stmt st |> Result.map (gotoNextInstr stmts))
+    else Ok st
+  | Error _ -> result
 
 /// Evaluate a block of statements. The block may represent a machine
 /// instruction, or a basic block.
 let evalBlock (st: EvalState) tid stmts =
   if st.ThreadId <> tid then EvalState.ContextSwitch tid st else st
   |> EvalState.PrepareBlockEval stmts
+  |> Ok
   |> evalLoop stmts
-  |> EvalState.CleanUp
+  |> function
+    | Ok st -> EvalState.CleanUp st |> Ok
+    | Error e -> Error e
