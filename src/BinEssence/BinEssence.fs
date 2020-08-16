@@ -280,6 +280,8 @@ module BinEssence =
       let g = DiGraph.removeVertex g targetV
       let bbls = { bbls with VertexMap = Map.remove target bbls.VertexMap }
       let struct (src, dst, g) = splitIRBBlock g targetV splitPoint
+      if targetV.VData.HasIndirectBranch then
+        dst.VData.HasIndirectBranch <- true
       let g = ins |> List.fold (fun g (p, e) -> DiGraph.addEdge g p src e) g
       let g = outs |> List.fold (fun g (s, e) -> DiGraph.addEdge g dst s e) g
       let g =
