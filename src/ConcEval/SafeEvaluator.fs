@@ -34,15 +34,15 @@ open B2R2.ConcEval.EvalUtils
 
 let private map1 fn p1 = function
   | Ok (Def bv) -> Def (fn bv p1) |> Ok
-  | _ -> Error InvalidExprError
+  | _ -> Error ErrorCase.InvalidExprEvaluation
 
 let private map2 fn p1 p2 = function
   | Ok (Def bv) -> Def (fn bv p1 p2) |> Ok
-  | _ -> Error InvalidExprError
+  | _ -> Error ErrorCase.InvalidExprEvaluation
 
 let private unwrap = function
   | Ok (Def bv) -> Ok bv
-  | _ -> Error InvalidExprError
+  | _ -> Error ErrorCase.InvalidExprEvaluation
 
 let rec evalConcrete st e =
   match e with
@@ -58,7 +58,7 @@ let rec evalConcrete st e =
   | Cast (kind, t, e, _, _) -> evalCast st t e kind
   | Extract (e, t, p, _, _) -> evalConcrete st e |> map2 BitVector.extract t p
   | Undefined (_) -> Ok Undef
-  | _ -> Error InvalidExprError
+  | _ -> Error ErrorCase.InvalidExprEvaluation
 
 and private evalLoad st endian t addr =
   let pc = st.PC
@@ -159,7 +159,7 @@ let private evalPut st lhs rhs =
       |> Result.map BitVector.toUInt64
       |> Result.map (EvalState.SetPC st)
     | TempVar (_, n) -> EvalState.SetTmp st n v |> Ok
-    | _ -> Error InvalidExprError
+    | _ -> Error ErrorCase.InvalidExprEvaluation
   | Error e -> Error e
 
 let private evalStore st endian addr v =
@@ -175,7 +175,7 @@ let private evalStore st endian addr v =
 let private evalJmp st target =
   match target with
   | Name n -> EvalState.GoToLabel st n |> Ok
-  | _ -> Error InvalidExprError
+  | _ -> Error ErrorCase.InvalidExprEvaluation
 
 let private evalCJmp st cond t f =
   match evalConcrete st cond |> unwrap with

@@ -205,8 +205,7 @@ module private BranchRecoveryHelper =
       if hdl.FileInfo.IsValidAddr startAddr then
         let size = RegType.toByteWidth rt
         match BinHandler.TryReadInt (hdl, startAddr, size) with
-        | None -> targets, startAddr, ess
-        | Some offset ->
+        | Ok offset ->
           let target = baseAddr + uint64 offset
           if target >= fStart && target <= fEnd then
             match BinEssence.addEdge ess blockAddr target IndirectJmpEdge with
@@ -218,6 +217,7 @@ module private BranchRecoveryHelper =
               else targets, nextAddr, ess'
             | Error _ -> targets, startAddr, ess
           else targets, startAddr, ess
+        | Error _ -> targets, startAddr, ess
       else targets, startAddr, ess
 
   let getMaxAddr tableAddrs ess insAddr startAddr maxAddr =

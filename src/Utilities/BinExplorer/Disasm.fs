@@ -43,11 +43,11 @@ type CmdDisasm () =
     if count <= 0 then List.rev acc |> List.toArray
     else
       match BinHandler.TryParseInstr hdl ctxt addr with
-      | Some ins ->
+      | Ok ins ->
         let d = ins.Disasm (true, true, hdl.FileInfo)
         let ctxt = ins.NextParsingContext
         disasmLoop (d :: acc) ctxt hdl (addr + uint64 ins.Length) (count - 1)
-      | None ->
+      | Error _ ->
         let ctxt = hdl.DefaultParsingContext
         disasmLoop ("(invalid)" :: acc) ctxt hdl (addr + 1UL) (count - 1)
 

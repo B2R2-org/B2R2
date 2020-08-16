@@ -52,9 +52,9 @@ let memoryReader hdl _pc addr =
   let fileInfo = hdl.FileInfo
   if addr < System.UInt64.MaxValue && fileInfo.IsValidAddr addr then
     match BinHandler.TryReadBytes (hdl, addr, 1) with
-    | Some v -> Some v.[0]
-    | None -> None
-  else None
+    | Ok v -> Ok v.[0]
+    | Error e -> Error e
+  else Error ErrorCase.InvalidMemoryRead
 
 let eval (ess: BinEssence) (blk: Vertex<IRBasicBlock>) st stopFn =
   let visited = HashSet<ProgramPoint> ()

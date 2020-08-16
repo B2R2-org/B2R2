@@ -22,17 +22,13 @@
   SOFTWARE.
 *)
 
-namespace B2R2.ConcEval
+namespace B2R2
 
-open B2R2
-
-/// Raised when undefined expression is encountered.
-exception UndefExpException
-
-/// Raised when an invalid memory access.
-exception InvalidMemException
-
-/// A value is either defined or undefined.
-type EvalValue =
-  | Undef
-  | Def of BitVector
+/// Error cases and corresponding numbers for B2R2.
+type ErrorCase =
+  /// Failed to parse instruction(s).
+  | ParsingFailure = 0
+  /// Invalid access to memory.
+  | InvalidMemoryRead = 1
+  /// Invalid expression is evaluated.
+  | InvalidExprEvaluation = 2

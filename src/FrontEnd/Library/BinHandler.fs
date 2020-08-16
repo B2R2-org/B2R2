@@ -89,7 +89,7 @@ with
   static member TryReadBytes ({ FileInfo = fi }, addr, nBytes) =
     let range = AddrRange (addr, addr + uint64 nBytes)
     if fi.IsInFileRange range then
-      fi.BinReader.PeekBytes (nBytes, fi.TranslateAddress addr) |> Some
+      fi.BinReader.PeekBytes (nBytes, fi.TranslateAddress addr) |> Ok
     elif fi.IsValidRange range then
       fi.GetNotInFileIntervals range
       |> classifyRanges range
@@ -101,32 +101,33 @@ with
              |> Array.append bs
            else Array.create len 0uy |> Array.append bs
          ) [||]
-      |> Some
-    else None
+      |> Ok
+    else Error ErrorCase.InvalidMemoryRead
 
   static member ReadBytes (hdl, addr, nBytes) =
     match BinHandler.TryReadBytes (hdl, addr, nBytes) with
-    | Some bs -> bs
-    | None -> invalidArg "ReadBytes" "Invalid size given."
+    | Ok bs -> bs
+    | Error _ -> invalidArg "ReadBytes" "Invalid size given."
 
   member __.ReadInt (addr, nBytes) =
     BinHandler.ReadInt (__, addr, nBytes)
 
   static member TryReadInt ({ FileInfo = fi }, addr, nBytes) =
     let pos = fi.TranslateAddress addr
-    if pos >= fi.BinReader.Bytes.Length || pos < 0 then None
+    if pos >= fi.BinReader.Bytes.Length || pos < 0 then
+      Error ErrorCase.InvalidMemoryRead
     else
       match nBytes with
-      | 1 -> fi.BinReader.PeekInt8 pos |> int64 |> Some
-      | 2 -> fi.BinReader.PeekInt16 pos |> int64 |> Some
-      | 4 -> fi.BinReader.PeekInt32 pos |> int64 |> Some
-      | 8 -> fi.BinReader.PeekInt64 pos |> Some
-      | _ -> None
+      | 1 -> fi.BinReader.PeekInt8 pos |> int64 |> Ok
+      | 2 -> fi.BinReader.PeekInt16 pos |> int64 |> Ok
+      | 4 -> fi.BinReader.PeekInt32 pos |> int64 |> Ok
+      | 8 -> fi.BinReader.PeekInt64 pos |> Ok
+      | _ -> Error ErrorCase.InvalidMemoryRead
 
   static member ReadInt (hdl, addr, nBytes) =
     match BinHandler.TryReadInt (hdl, addr, nBytes) with
-    | Some i -> i
-    | None -> invalidArg "ReadInt" "Invalid size given."
+    | Ok i -> i
+    | Error _ -> invalidArg "ReadInt" "Invalid size given."
 
   member __.ReadUInt (addr, nBytes) =
     BinHandler.ReadUInt (__, addr, nBytes)
@@ -134,16 +135,16 @@ with
   static member TryReadUInt ({ FileInfo = fi }, addr, nBytes) =
     let pos = fi.TranslateAddress addr
     match nBytes with
-    | 1 -> fi.BinReader.PeekUInt8 pos |> uint64 |> Some
-    | 2 -> fi.BinReader.PeekUInt16 pos |> uint64 |> Some
-    | 4 -> fi.BinReader.PeekUInt32 pos |> uint64 |> Some
-    | 8 -> fi.BinReader.PeekUInt64 pos |> Some
-    | _ -> None
+    | 1 -> fi.BinReader.PeekUInt8 pos |> uint64 |> Ok
+    | 2 -> fi.BinReader.PeekUInt16 pos |> uint64 |> Ok
+    | 4 -> fi.BinReader.PeekUInt32 pos |> uint64 |> Ok
+    | 8 -> fi.BinReader.PeekUInt64 pos |> Ok
+    | _ -> Error ErrorCase.InvalidMemoryRead
 
   static member ReadUInt (hdl, addr, nBytes) =
     match BinHandler.TryReadUInt (hdl, addr, nBytes) with
-    | Some i -> i
-    | None -> invalidArg "ReadUInt" "Invalid size given."
+    | Ok i -> i
+    | Error _ -> invalidArg "ReadUInt" "Invalid size given."
 
   member __.ReadASCII (addr) =
     BinHandler.ReadASCII (__, addr)
@@ -161,17 +162,17 @@ with
     |> hdl.Parser.Parse hdl.FileInfo.BinReader ctxt addr
 
   static member TryParseInstr hdl ctxt addr =
-    try BinHandler.ParseInstr hdl ctxt addr |> Some
-    with _ -> None
+    try BinHandler.ParseInstr hdl ctxt addr |> Ok
+    with _ -> Error ErrorCase.ParsingFailure
 
   static member ParseBBlock handle ctxt addr =
     let rec parseLoop ctxt acc pc =
       match BinHandler.TryParseInstr handle ctxt pc with
-      | Some ins ->
+      | Ok ins ->
         let ctxt = ins.NextParsingContext
         if ins.IsExit () then Ok (List.rev (ins :: acc), ctxt)
         else parseLoop ctxt (ins :: acc) (pc + uint64 ins.Length)
-      | None -> Error <| List.rev acc
+      | Error _ -> Error <| List.rev acc
     parseLoop ctxt [] addr
 
   static member inline LiftInstr (handle: BinHandler) (ins: Instruction) =
@@ -189,7 +190,7 @@ with
   static member LiftIRBBlock (hdl: BinHandler) ctxt addr =
     let rec liftLoop ctxt acc pc =
       match BinHandler.TryParseInstr hdl ctxt pc with
-      | Some ins ->
+      | Ok ins ->
         let stmts = ins.Translate hdl.TranslationContext
         let acc = (ins, stmts) :: acc
         let pc = pc + uint64 ins.Length
@@ -197,7 +198,7 @@ with
         if BinIR.Utils.isBBEnd lastStmt then
           Ok (List.rev acc, ctxt, pc)
         else liftLoop ins.NextParsingContext acc pc
-      | None -> Error []
+      | Error _ -> Error []
     liftLoop ctxt [] addr
 
   static member inline DisasmInstr hdl showAddr resolve (ins: Instruction) =

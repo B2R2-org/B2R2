@@ -238,10 +238,10 @@ let inline parseUntil hdl ctxt sAddr eAddr =
     if pc < eAddr then
       let res = BinHandler.TryParseInstr hdl ctxt pc
       match res with
-      | Some ins ->
+      | Ok ins ->
         let ctxt = ins.NextParsingContext
         loop hdl ctxt (pc + uint64 ins.Length) (res :: acc)
-      | None -> loop hdl ctxt (getNextAddr hdl pc) (res :: acc)
+      | Error _ -> loop hdl ctxt (getNextAddr hdl pc) (res :: acc)
     else List.rev acc
   loop hdl ctxt sAddr []
 
@@ -258,9 +258,9 @@ let pickNext hdl eAddr untilFn bbFn sAddr = function
 
 let printDisasmUntil hdl showAddr showSymbs sAddr eAddr =
   let printFn = function
-    | Some ins ->
+    | Ok ins ->
       BinHandler.DisasmInstr hdl showAddr showSymbs ins |> Console.WriteLine
-    | None -> printIllegal ()
+    | Error _ -> printIllegal ()
   parseUntil hdl hdl.DefaultParsingContext sAddr eAddr |> List.iter printFn
 
 let printDisasm result = printIfNotEmpty result
@@ -280,11 +280,11 @@ let printBlkDisasm showAddr showSymbs hdl sA eA =
 
 let printLowUIRUntil hdl sAddr eAddr =
   let printFn = function
-    | Some ins ->
+    | Ok ins ->
       BinHandler.LiftInstr hdl ins
       |> LowUIR.Pp.stmtsToString
       |> Console.WriteLine
-    | None -> printIllegal ()
+    | Error _ -> printIllegal ()
   parseUntil hdl hdl.DefaultParsingContext sAddr eAddr |> List.iter printFn
 
 let printLowUIR = LowUIR.Pp.stmtsToString >> printIfNotEmpty
