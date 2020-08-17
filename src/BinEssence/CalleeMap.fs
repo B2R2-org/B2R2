@@ -97,7 +97,7 @@ type CalleeMap (hdl, ?linkMap, ?strCalleeMap, ?addrCalleeMap, ?callerMap) =
     addrCalleeMap |> Map.toSeq |> Seq.map snd
     |> Seq.filter (fun c -> c.Addr.IsSome)
 
-  member private __.AddCallee hdl entry =
+  member private __.AddCallee entry =
     if Map.containsKey entry addrCalleeMap then strCalleeMap, addrCalleeMap
     else
       let callee =
@@ -107,12 +107,12 @@ type CalleeMap (hdl, ?linkMap, ?strCalleeMap, ?addrCalleeMap, ?callerMap) =
       let addrCalleeMap = Map.add entry callee addrCalleeMap
       strCalleeMap, addrCalleeMap
 
-  member __.AddEntry hdl entry =
-    let strCalleeMap, addrCalleeMap = __.AddCallee hdl entry
+  member __.AddEntry entry =
+    let strCalleeMap, addrCalleeMap = __.AddCallee entry
     CalleeMap (hdl, linkMap, strCalleeMap, addrCalleeMap, callerMap)
 
-  member __.AddCaller hdl callerAddr calleeAddr =
-    let strCalleeMap, addrCalleeMap = __.AddCallee hdl calleeAddr
+  member __.AddCaller callerAddr calleeAddr =
+    let strCalleeMap, addrCalleeMap = __.AddCallee calleeAddr
     (* Update calleeMap *)
     let callee =
       Map.find calleeAddr addrCalleeMap |> Callee.AddCaller callerAddr
@@ -125,7 +125,7 @@ type CalleeMap (hdl, ?linkMap, ?strCalleeMap, ?addrCalleeMap, ?callerMap) =
       | None -> Map.add callerAddr (Set.singleton calleeAddr) callerMap
     CalleeMap (hdl, linkMap, strCalleeMap, addrCalleeMap, callerMap)
 
-  member __.ReplaceCaller hdl oldCaller newCaller calleeAddr =
+  member __.ReplaceCaller oldCaller newCaller calleeAddr =
     (* Update calleeMap *)
     let callee =
       Map.find calleeAddr addrCalleeMap
