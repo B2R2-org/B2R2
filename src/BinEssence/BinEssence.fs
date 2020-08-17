@@ -385,12 +385,16 @@ module BinEssence =
     else gatherBB instrMap boundary leaders acc ppoint (nextIdx + 1)
 
   let private createNode instrMap boundary leaders bbls idx leader =
-    let instrs = gatherBB instrMap boundary leaders [] leader (idx + 1)
-    IRBasicBlock (instrs, leader) :: bbls
+    match bbls with
+    | Ok bbls ->
+      let instrs = gatherBB instrMap boundary leaders [] leader (idx + 1)
+      if Array.isEmpty instrs then Error ()
+      else Ok (IRBasicBlock (instrs, leader) :: bbls)
+    | _ -> Error ()
 
   let private buildVertices instrMap bblInfo =
     let pps = Set.toArray bblInfo.Leaders
-    Array.foldi (createNode instrMap bblInfo.Boundary pps) [] pps
+    Array.foldi (createNode instrMap bblInfo.Boundary pps) (Ok []) pps
     |> fst
 
   let getIntraEdge src symbol edgeProp edges =
@@ -551,20 +555,22 @@ module BinEssence =
     let pps = extractLeaders ess boundary leader addrs
     let bblInfo = { Boundary = boundary; Leaders = pps }
     let bbls = addBBLInfo bblInfo ess.BBLStore
-    let vertices = buildVertices ess.InstrMap bblInfo
-    let vertexMap, g =
-      vertices
-      |> List.fold (fun (vertexMap, g) bbl ->
-        let v, g = DiGraph.addVertex g bbl
-        Map.add bbl.PPoint v vertexMap, g) (bbls.VertexMap, ess.SCFG)
-    let bbls = { bbls with VertexMap = vertexMap }
-    let ess = { ess with BBLStore = bbls; SCFG = g }
-    match edgeInfo with
-    | Some (src, e) ->
-      connectEdges ess elms vertices [(src, leader, e)] foundIndJmp
-    | None ->
-      let ess, edges = getEdges ess [] (Map.find leader ess.BBLStore.VertexMap)
-      connectEdges ess elms vertices edges foundIndJmp
+    match buildVertices ess.InstrMap bblInfo with
+    | Ok vertices ->
+      let vertexMap, g =
+        vertices
+        |> List.fold (fun (vertexMap, g) bbl ->
+          let v, g = DiGraph.addVertex g bbl
+          Map.add bbl.PPoint v vertexMap, g) (bbls.VertexMap, ess.SCFG)
+      let bbls = { bbls with VertexMap = vertexMap }
+      let ess = { ess with BBLStore = bbls; SCFG = g }
+      match edgeInfo with
+      | Some (src, e) ->
+        connectEdges ess elms vertices [(src, leader, e)] foundIndJmp
+      | None ->
+        let ess, edges = getEdges ess [] (Map.find leader ess.BBLStore.VertexMap)
+        connectEdges ess elms vertices edges foundIndJmp
+    | Error _ -> Error ()
 
   let internal parseNewBBL ess foundIndJmp elms ctxt addr edgeInfo =
     match InstrMap.parse ess.BinHandler ctxt ess.InstrMap ess.BBLStore addr with
