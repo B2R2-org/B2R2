@@ -238,6 +238,13 @@ module BinEssence =
   let inline private isIntruding bbls leader =
     IntervalSet.containsAddr leader bbls.Boundaries
 
+  let inline private needSplitting bbls leader =
+    match IntervalSet.tryFindByAddr leader bbls.Boundaries with
+    | Some range ->
+      let bblInfo = Map.find range.Min bbls.BBLMap
+      Set.contains leader bblInfo.InstrLeaders
+    | None -> false
+
   let inline private isKnownInstruction (instrMap: InstrMap) leader =
     instrMap.ContainsKey leader
 
@@ -270,7 +277,7 @@ module BinEssence =
     struct (src, dst, g)
 
   let private updateIRCFG bbls g prevBBL splitPoint target =
-    if Set.contains splitPoint prevBBL.Leaders then
+    if Set.contains splitPoint prevBBL.IRLeaders then
       (* The split point was one of the known IR-level leaders. So, we don't
          need to further split the vertex. *)
       struct (None, bbls, g)
@@ -297,8 +304,12 @@ module BinEssence =
     let oldBoundary = prevBBL.Boundary
     let prevBoundary = AddrRange (oldBoundary.Min, splitAddr)
     let newBoundary = AddrRange (splitAddr, oldBoundary.Max)
-    let prevInfo = { Boundary = prevBoundary; Leaders = fsts }
-    let newInfo = { Boundary = newBoundary; Leaders = snds }
+    let fstAddrs, fstPps = fsts
+    let sndAddrs, sndPps = snds
+    let prevInfo =
+      { Boundary = prevBoundary; InstrLeaders = fstAddrs; IRLeaders = fstPps }
+    let newInfo =
+      { Boundary = newBoundary; InstrLeaders = sndAddrs; IRLeaders = sndPps }
     bbls
     |> addBBLInfo prevInfo
     |> addBBLInfo newInfo
@@ -318,13 +329,19 @@ module BinEssence =
     (* 1. Remove previous block from bbls *)
     let struct (prevBBL, bbls) = removeBBLInfo leader ess.BBLStore
     (* 2. Split IR-level leaders into two: fsts (first leaders) and snds. *)
-    let fsts, snds = Set.partition (fun pp -> pp < splitPoint) prevBBL.Leaders
-    let snds = Set.add splitPoint snds
+    let fstAddrs, sndAddrs =
+      Set.partition (fun addr -> addr < leader) prevBBL.InstrLeaders
+    let fstPps, sndPps =
+      Set.partition (fun pp -> pp < splitPoint) prevBBL.IRLeaders
+    let sndPps = Set.add splitPoint sndPps
     (* 3. Update IR-level Graph *)
     let struct (fstLeader, bbls, g) =
-      updateIRCFG bbls ess.SCFG prevBBL splitPoint (Set.maxElement fsts)
+      updateIRCFG bbls ess.SCFG prevBBL splitPoint (Set.maxElement fstPps)
     (* 4. Split bblInfo *)
-    let bbls = splitBBLInfo prevBBL fsts snds splitPoint.Address bbls
+    let fstLeaders = (fstAddrs, fstPps)
+    let sndLeaders = (sndAddrs, sndPps)
+    let bbls =
+      splitBBLInfo prevBBL fstLeaders sndLeaders splitPoint.Address bbls
     (* 5. Update calleeMap *)
     let calleeMap = updateCalleeMap ess bbls splitPoint fstLeader
     let ess = { ess with BBLStore = bbls; SCFG = g; CalleeMap = calleeMap }
@@ -393,7 +410,7 @@ module BinEssence =
     | _ -> Error ()
 
   let private buildVertices instrMap bblInfo =
-    let pps = Set.toArray bblInfo.Leaders
+    let pps = Set.toArray bblInfo.IRLeaders
     Array.foldi (createNode instrMap bblInfo.Boundary pps) (Ok []) pps
     |> fst
 
@@ -553,7 +570,8 @@ module BinEssence =
     let boundary = AddrRange (leader, lastAddr + uint64 last.Length)
     let leader = ProgramPoint (leader, 0)
     let pps = extractLeaders ess boundary leader addrs
-    let bblInfo = { Boundary = boundary; Leaders = pps }
+    let bblInfo =
+      { Boundary = boundary; InstrLeaders = Set.ofList addrs; IRLeaders = pps }
     let bbls = addBBLInfo bblInfo ess.BBLStore
     match buildVertices ess.InstrMap bblInfo with
     | Ok vertices ->
@@ -589,11 +607,10 @@ module BinEssence =
   let internal updateCFGWithVertex ess foundIndJmp elms addr ctxt =
     if bblExists ess.BBLStore addr then Ok <| struct (ess, foundIndJmp, elms)
     elif not <| isExecutableLeader ess.BinHandler addr then Error ()
-    elif isIntruding ess.BBLStore addr then
-      if isKnownInstruction ess.InstrMap addr then (* Need to split *)
-        let ess, elms = splitBlock ess addr elms
-        Ok <| struct (ess, foundIndJmp, elms)
-      else Error ()
+    elif needSplitting ess.BBLStore addr then
+      let ess, elms = splitBlock ess addr elms
+      Ok <| struct (ess, foundIndJmp, elms)
+    elif isIntruding ess.BBLStore addr then Error ()
     elif isKnownInstruction ess.InstrMap addr then
       let struct (block, lastAddr) = getBlockAddressesWithInstrMap ess [] addr
       buildBlock ess addr block lastAddr foundIndJmp elms None
@@ -614,15 +631,14 @@ module BinEssence =
       let ess, elms = addEdgeLoop ess elms [(src, ProgramPoint (dst, 0), edge)]
       Ok <| struct (ess, foundIndJmp, elms)
     elif not <| isExecutableLeader ess.BinHandler dst then Error ()
-    elif isIntruding ess.BBLStore dst then
-      if isKnownInstruction ess.InstrMap dst then (* Need to split *)
-        let ess, elms = splitBlock ess dst elms
-        let src = Map.find src ess.BBLStore.VertexMap
-        let dst = Map.find (ProgramPoint (dst, 0)) ess.BBLStore.VertexMap
-        let g = DiGraph.addEdge ess.SCFG src dst edge
-        let ess = { ess with SCFG = g }
-        Ok <| struct (ess, foundIndJmp, elms)
-      else Error ()
+    elif needSplitting ess.BBLStore dst then
+      let ess, elms = splitBlock ess dst elms
+      let src = Map.find src ess.BBLStore.VertexMap
+      let dst = Map.find (ProgramPoint (dst, 0)) ess.BBLStore.VertexMap
+      let g = DiGraph.addEdge ess.SCFG src dst edge
+      let ess = { ess with SCFG = g }
+      Ok <| struct (ess, foundIndJmp, elms)
+    elif isIntruding ess.BBLStore dst then Error ()
     elif isKnownInstruction ess.InstrMap dst then
       let struct (block, lastAddr) = getBlockAddressesWithInstrMap ess [] dst
       buildBlock ess dst block lastAddr foundIndJmp elms (Some (src, edge))
