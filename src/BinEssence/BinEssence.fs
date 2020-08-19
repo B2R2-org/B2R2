@@ -752,6 +752,9 @@ module BinEssence =
 
   [<CompiledName("AddEdge")>]
   let addEdge ess src dst edgeKind =
+    let funcV = (ess: BinEssence).FindFunctionVertex src |> Option.get
+    let callee = ess.CalleeMap.Get funcV.VData.PPoint.Address
+    callee.NeedNoReturn <- true
     let edgeInfo = [ CFGEdge (ProgramPoint (src, 0), edgeKind, dst) ]
     match updateCFG ess true false edgeInfo with
     | Ok (ess, hasNewIndBranch) -> Ok (ess, hasNewIndBranch)
