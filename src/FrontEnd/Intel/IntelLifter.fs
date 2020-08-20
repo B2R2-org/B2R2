@@ -3657,10 +3657,11 @@ let fyl2x _ins insAddr insLen ctxt =
   let st0 = fpuRegValue ctxt R.ST0
   let st1 = fpuRegValue ctxt R.ST1
   let flt2 = numI32 2 32<rt> |> cast CastKind.IntToFloat 80<rt>
-  let tmp = tmpVar 80<rt>
+  let t1, t2 = tmpVars2 80<rt>
   startMark insAddr insLen builder
-  builder <! (tmp := flog flt2 st0)
-  builder <! (st1 := fmul st1 tmp)
+  builder <! (t1 := flog flt2 st0)
+  builder <! (t2 := fmul st1 t1)
+  assignFPUReg R.ST1 t2 ctxt builder
   popFPUStack ctxt builder
   checkC1Flag ctxt builder R.FTW6
   cflagsUndefined023 ctxt builder
