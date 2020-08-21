@@ -4,6 +4,7 @@
 # Current Developers (alphabetical order)
 
 - Jaeseung Choi <jschoi17@kaist.ac.kr>
+- Cheonhoo Jeon <allweather@kaist.ac.kr>
 - Seung Il Jung <sijung@kaist.ac.kr>
 - Soomin Kim <soomink@kaist.ac.kr>
 
