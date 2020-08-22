@@ -88,7 +88,7 @@ type BinEssence = {
 with
   member __.IsNoReturn (src: Vertex<IRBasicBlock>) =
     __.NoReturnInfo.NoReturnCallSites
-    |> Set.contains src.VData.PPoint
+    |> Set.exists (fun (ppoint, _) -> ppoint = src.VData.PPoint)
 
   /// Retrieve an IR-based CFG (subgraph) of a function starting at the given
   /// address (addr) from the SCFG, and the root node. When the
@@ -137,6 +137,7 @@ with
         let child, newGraph = DiGraph.addVertex newGraph fake
         let newGraph = DiGraph.addEdge newGraph parent child e
         if __.IsNoReturn parent then newGraph
+        elif __.CalleeMap.Contains fallPp.Address then newGraph
         else
           try
             let fall, newGraph = getVertex newGraph fallPp
@@ -157,9 +158,11 @@ with
           let newGraph = DiGraph.addEdge newGraph parent child e
           loop newGraph child.VData.PPoint
       | _ ->
-        let child, newGraph = getVertex newGraph child.VData.PPoint
-        let newGraph = DiGraph.addEdge newGraph parent child e
-        loop newGraph child.VData.PPoint
+        if __.CalleeMap.Contains child.VData.PPoint.Address then newGraph
+        else
+          let child, newGraph = getVertex newGraph child.VData.PPoint
+          let newGraph = DiGraph.addEdge newGraph parent child e
+          loop newGraph child.VData.PPoint
     if __.CalleeMap.Contains addr then
       let rootPos = ProgramPoint (addr, 0)
       let newGraph = loop newGraph rootPos
@@ -663,41 +666,40 @@ module BinEssence =
       if success then Ok (ess, foundIndJmp)
       else Error (ess, foundIndJmp)
 
-  let private removeNoReturnFallThroughEdges ess =
-    let bbls = ess.BBLStore
-    ess.NoReturnInfo.NoReturnCallSites
-    |> Set.fold (fun g ppoint ->
-      match Map.tryFind ppoint bbls.VertexMap with
-      | None -> g
-      | Some v ->
-        DiGraph.getSuccs g v
-        |> List.fold (fun acc s ->
-          if DiGraph.findEdgeData g v s = FallThroughEdge then (v, s) :: acc
-          elif DiGraph.findEdgeData g v s = CallFallThroughEdge then
-            (v, s) :: acc
-          else acc) []
-        |> List.fold (fun g (src, dst) ->
-          DiGraph.removeEdge g src dst) g) ess.SCFG
+  let private classifyNoReturnEdges noRetCallSites =
+    noRetCallSites
+    |> Set.fold (fun acc (ppoint, entry) ->
+      if Map.containsKey entry acc then
+        let callSites = Map.find entry acc
+        Map.add entry (Set.add ppoint callSites) acc
+      else Map.add entry (Set.singleton ppoint) acc) Map.empty
 
-  let private getUnreachables bbls (calleeMap: CalleeMap) g =
+  let private removeNoReturnEdgesAndUnreachables ess entry callSites =
+    let cfg, root = (ess: BinEssence).GetFunctionCFG (entry, false)
+    let bbls = ess.BBLStore
+    let cfg =
+      callSites
+      |> Set.fold (fun g ppoint ->
+        match Map.tryFind ppoint bbls.VertexMap with
+        | None -> g
+        | Some v ->
+          DiGraph.getSuccs g v
+          |> List.fold (fun acc s ->
+            match DiGraph.findEdgeData g v s with
+            | FallThroughEdge
+            | CallFallThroughEdge -> (v, s) :: acc
+            | _ -> acc) []
+          |> List.fold (fun g (src, dst) ->
+            DiGraph.removeEdge g src dst) g) cfg
     let reachables =
-      calleeMap.Entries
-      |> Set.fold (fun acc entry ->
-        let ppoint = ProgramPoint (entry, 0)
-        let v = Map.find ppoint bbls.VertexMap
-        let acc = Set.add ppoint acc
-        Traversal.foldPostorder g v (fun acc v ->
-          Set.add v.VData.PPoint acc) acc) Set.empty
+      Traversal.foldPostorder cfg root (fun acc v ->
+        if v.VData.IsFakeBlock () then acc
+        else Set.add v.VData.PPoint acc) Set.empty
     let ppoints =
-      bbls.VertexMap
-      |> Map.fold (fun acc ppoint _ -> Set.add ppoint acc) Set.empty
-    Set.difference ppoints reachables
-
-  let private removeNoReturnFallThroughs ess =
-    let bbls = ess.BBLStore
-    let g = removeNoReturnFallThroughEdges ess
-    let unreachables = getUnreachables bbls ess.CalleeMap g
-    (* Update calleeMap here *)
+      DiGraph.foldVertex cfg (fun acc v ->
+        if v.VData.IsFakeBlock () then acc
+        else Set.add v.VData.PPoint acc) Set.empty
+    let unreachables = Set.difference ppoints reachables
     let calleeMap, g =
       unreachables
       |> Set.fold (fun (calleeMap: CalleeMap, g) ppoint ->
@@ -712,7 +714,7 @@ module BinEssence =
             calleeMap
           | _ -> calleeMap
         let g = DiGraph.removeVertex g v
-        calleeMap, g) (ess.CalleeMap, g)
+        calleeMap, g) (ess.CalleeMap, ess.SCFG)
     let bbls =
       unreachables
       |> Set.fold (fun bbls ppoint ->
@@ -731,6 +733,10 @@ module BinEssence =
           { bbls with
               VertexMap = Map.remove ppoint bbls.VertexMap }) bbls
     { ess with BBLStore = bbls; CalleeMap = calleeMap; SCFG = g }
+
+  let private removeNoReturnFallThroughs ess =
+    classifyNoReturnEdges ess.NoReturnInfo.NoReturnCallSites
+    |> Map.fold removeNoReturnEdgesAndUnreachables ess
 
   [<CompiledName("AddEntry")>]
   let addEntry ess (addr, ctxt) =
@@ -762,9 +768,6 @@ module BinEssence =
 
   [<CompiledName("AddNoReturnInfo")>]
   let addNoReturnInfo ess noRetFuncs noRetCallSites =
-    let noRetInfo = ess.NoReturnInfo
-    let noRetFuncs = Set.union noRetFuncs noRetInfo.NoReturnFuncs
-    let noRetCallSites = Set.union noRetCallSites noRetInfo.NoReturnCallSites
     let noRetInfo = NoReturnInfo.Init noRetFuncs noRetCallSites
     removeNoReturnFallThroughs { ess with NoReturnInfo = noRetInfo }
 

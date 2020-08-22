@@ -215,12 +215,14 @@ module private NoReturnHelper =
       cfg.FoldVertex (fun acc (v: Vertex<IRBasicBlock>) ->
         if List.length <| DiGraph.getSuccs cfg v > 0 then acc
         elif v.VData.IsFakeBlock () then
-          let target = v.VData.PPoint.Address
-          let targetV = ess.CalleeMap.Find target |> Option.get
-          if Set.contains target noretAddrs then acc
-          elif isKnownNoReturnFunction targetV.CalleeName then acc
-          elif targetV.CalleeName = "error" then acc
-          else false
+          if ProgramPoint.IsFake v.VData.PPoint then false
+          else
+            let target = v.VData.PPoint.Address
+            let targetV = ess.CalleeMap.Find target |> Option.get
+            if Set.contains target noretAddrs then acc
+            elif isKnownNoReturnFunction targetV.CalleeName then acc
+            elif targetV.CalleeName = "error" then acc
+            else false
         elif v.VData.LastInstruction.IsInterrupt () then acc
         else false) true
 
@@ -254,7 +256,7 @@ module private NoReturnHelper =
       let cfg, root = ess.GetFunctionCFG (addr, false)
       collectNoRetFallThroughEdges ess cfg root noretFuncs
       |> List.filter (fun (src, dst) -> cfg.FindEdgeData src dst <> RetEdge)
-      |> List.map (fun (src, _) -> src.VData.PPoint)
+      |> List.map (fun (src, _) -> src.VData.PPoint, addr)
       |> Set.ofList
       |> Set.union acc) callsites
 
