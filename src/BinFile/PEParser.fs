@@ -55,6 +55,13 @@ let isNULLImportDir tbl =
   && tbl.ImportDLLName = ""
   && tbl.ImportAddressTableRVA = 0
 
+let decodeForwardInfo (str: string) =
+  let strInfo = str.Split('.')
+  let dllName, funStr = strInfo.[0], strInfo.[1]
+  match funStr.[0] with
+  | '#' -> ForwardByOrdinal (Int16.Parse(funStr.[1..]), dllName)
+  | _ -> ForwardByName (funStr, dllName)
+
 let readIDTEntry (binReader: BinReader) secs pos =
   { ImportLookupTableRVA = binReader.PeekInt32 pos
     ForwarderChain = binReader.PeekInt32 (pos + 8)
@@ -160,18 +167,21 @@ let parseENPT (binReader: BinReader) secs edt =
 
 let buildExportTable binReader baseAddr secs range edt =
   let addrtbl = parseEAT binReader secs range edt
-  let folder map (name, ord) =
+  let folder (expMap, forwMap) (name, ord) =
     match addrtbl.[int ord] with
     | ExportRVA rva ->
       let addr = addrFromRVA baseAddr rva
-      Map.add addr name map
-    | _ -> map
+      Map.add addr name expMap, forwMap
+    | ForwarderRVA rva ->
+      let forwardStr = readStr secs binReader rva
+      let forwardInfo = decodeForwardInfo forwardStr
+      expMap, Map.add name forwardInfo forwMap
   parseENPT binReader secs edt
-  |> List.fold folder Map.empty
+  |> List.fold folder (Map.empty, Map.empty)
 
 let parseExports baseAddr binReader (headers: PEHeaders) secs =
   match headers.PEHeader.ExportTableDirectory.RelativeVirtualAddress with
-  | 0 -> Map.empty
+  | 0 -> Map.empty, Map.empty
   | rva ->
     let size = headers.PEHeader.ExportTableDirectory.Size
     let range = (rva, rva + size)
@@ -279,11 +289,13 @@ let parseImage execpath rawpdb baseAddr binReader (hdrs: PEHeaders) =
   let wordSize = magicToWordSize hdrs.PEHeader.Magic
   let baseAddr = hdrs.PEHeader.ImageBase + baseAddr
   let secs = hdrs.SectionHeaders |> Seq.toArray
+  let exportAddressMaps = parseExports baseAddr binReader hdrs secs
   { PEHeaders = hdrs
     BaseAddr = baseAddr
     SectionHeaders = secs
     ImportMap= parseImports binReader hdrs secs wordSize
-    ExportMap = parseExports baseAddr binReader hdrs secs
+    ExportMap = fst exportAddressMaps
+    ForwardMap = snd exportAddressMaps
     RelocBlocks = parseRelocation binReader hdrs secs
     WordSize = wordSize
     SymbolInfo = getPDBSymbols execpath rawpdb |> buildPDBInfo baseAddr secs
@@ -304,6 +316,7 @@ let parseCoff baseAddr binReader (hdrs: PEHeaders) =
     SectionHeaders = secs
     ImportMap= Map.empty
     ExportMap = Map.empty
+    ForwardMap = Map.empty
     RelocBlocks = []
     WordSize = wordSize
     SymbolInfo = Coff.getSymbols binReader coff
