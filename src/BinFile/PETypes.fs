@@ -82,6 +82,11 @@ type ImportInfo =
   /// Import by name.
   | ImportByName of hint: int16 * funname: string * dllname: string
 
+/// Forwarder Information
+type ForwardInfo =
+  | ForwardByName of funname: string * dllname: string
+  | ForwardByOrdinal of ordinal: int16 * dllname: string
+
 /// The export directory table contains address information that is used to
 /// resolve imports to the entry points within this image.
 type ExportDirectoryTable = {
@@ -250,6 +255,8 @@ type PE = {
   ImportMap: Map<int, ImportInfo>
   /// Address (VA) to exported function name.
   ExportMap: Map<Addr, string>
+  /// Forward target symbol name to Forwarded function info.
+  ForwardMap: Map<string, ForwardInfo>
   /// List of relocation blocks
   RelocBlocks: RelocBlock list
   /// Word size for the binary.
