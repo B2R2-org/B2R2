@@ -78,7 +78,7 @@ let rec buildBackward hdl minAddr curAddr lastAddr map =
   if curAddr < minAddr || (curAddr + 1UL) = 0UL then map
   else
     match BinHandler.TryParseInstr hdl hdl.DefaultParsingContext curAddr with
-    | Some ins ->
+    | Ok ins ->
       let nextAddr = curAddr + (uint64 ins.Length)
       if ins.IsExit () then
         if nextAddr < lastAddr then map
@@ -89,7 +89,7 @@ let rec buildBackward hdl minAddr curAddr lastAddr map =
           let minAddr' = curAddr - instrMaxLen hdl
           buildBackward hdl minAddr' (curAddr - 1UL) curAddr map
         | None -> buildBackward hdl minAddr (curAddr - 1UL) lastAddr map
-    | None -> buildBackward hdl minAddr (curAddr - 1UL) lastAddr map
+    | Error _ -> buildBackward hdl minAddr (curAddr - 1UL) lastAddr map
 
 let parseTail hdl addr bytes =
   let lastAddr = (Array.length bytes |> uint64) + addr

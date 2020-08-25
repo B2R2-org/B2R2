@@ -90,7 +90,7 @@ type EvalCallBacks () =
 /// encountered during the course of execution.
 and EvalState (?reader, ?ignoreundef) =
   /// Memory reader.
-  let reader = defaultArg reader (fun _ _ -> None)
+  let reader = defaultArg reader (fun _ _ -> Error ErrorCase.InvalidMemoryRead)
 
   /// The current thread ID. We use thread IDs starting from zero. We assign new
   /// thread IDs by incrementing it by one at a time. The first thread is 0, the
@@ -106,7 +106,7 @@ and EvalState (?reader, ?ignoreundef) =
   member val Contexts: Context [] = [||] with get, set
 
   /// Memory.
-  member val Memory = Memory (Reader = reader) with get
+  member val Memory = Memory (reader) with get
 
   /// Callback functions.
   member val Callbacks = EvalCallBacks () with get

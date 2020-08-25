@@ -27,29 +27,31 @@ namespace B2R2.ConcEval
 open B2R2
 open System.Collections.Generic
 
-type Memory () =
+type Memory (reader: Addr -> Addr -> Result<byte, ErrorCase>) =
   /// Store memory contents (byte-level).
   let mem = Dictionary<Addr, byte> ()
 
-  member val Reader: Addr -> Addr -> byte option = fun _ _ -> None with get, set
+  let mutable reader = reader
+
+  member __.Reader with get() = reader and set(f) = reader <- f
 
   member private __.Load (pc: Addr) addr =
-    if mem.ContainsKey (addr) then Some mem.[addr]
+    if mem.ContainsKey (addr) then Ok mem.[addr]
     else __.Reader pc addr
 
   member private __.ReadLE acc pc addr i =
     if i <= 0UL then Ok acc
     else
       match __.Load pc (addr + i - 1UL) with
-      | Some b -> __.ReadLE (b :: acc) pc addr (i - 1UL)
-      | None -> Error InvalidMemError
+      | Ok b -> __.ReadLE (b :: acc) pc addr (i - 1UL)
+      | Error e -> Error e
 
   member private __.ReadBE acc pc len addr i =
     if i >= len - 1UL then Ok acc
     else
       match __.Load pc (addr + i) with
-      | Some b -> __.ReadBE (b :: acc) pc len addr (i + 1UL)
-      | None -> Error InvalidMemError
+      | Ok b -> __.ReadBE (b :: acc) pc len addr (i + 1UL)
+      | Error e -> Error e
 
   member __.Read pc addr endian typ =
     let len = RegType.toByteWidth typ |> uint64

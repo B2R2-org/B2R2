@@ -215,10 +215,10 @@ with
   /// <param name="addr">The address.</param>
   /// <param name="nBytes">The size of the byte array (in bytes).</param>
   /// <returns>
-  ///   Return (Some bytes) if succeeded, (None) otherwise.
+  ///   Return (byte []) if succeeded, (ErrorCase) otherwise.
   /// </returns>
   static member TryReadBytes:
-    hdl: BinHandler * addr: Addr * nBytes: int -> byte [] option
+    hdl: BinHandler * addr: Addr * nBytes: int -> Result<byte [], ErrorCase>
 
   /// <summary>
   ///   Return the byte array of size (nBytes) at the addr from the given
@@ -242,11 +242,11 @@ with
   /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
   /// possible.</param>
   /// <returns>
-  ///   Return the corresponding value (Some int64) if the address and the size
-  ///   is valid. Otherwise None.
+  ///   Return the corresponding value (int64) if the address and the size is
+  ///   valid. Otherwise ErrorCase.
   /// </returns>
   static member TryReadInt:
-    hdl: BinHandler * addr: Addr * size: int -> int64 option
+    hdl: BinHandler * addr: Addr * size: int -> Result<int64, ErrorCase>
 
   /// <summary>
   ///   Return the corresponding integer value at the addr of the size from the
@@ -271,11 +271,11 @@ with
   /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
   /// possible.</param>
   /// <returns>
-  ///   Return the corresponding unsigned integer (Some uint64) if the address
-  ///   and the size is valid. Otherwise, None.
+  ///   Return the corresponding unsigned integer (uint64) if the address and
+  ///   the size is valid. Otherwise, ErrorCase.
   /// </returns>
   static member TryReadUInt:
-    hdl: BinHandler * addr: Addr * size: int -> uint64 option
+    hdl: BinHandler * addr: Addr * size: int -> Result<uint64, ErrorCase>
 
   /// <summary>
   ///   Return the corresponding unsigned integer value at the addr of the size
@@ -326,7 +326,10 @@ with
   ///   Parsed instruction (option type).
   /// </returns>
   static member TryParseInstr:
-    hdl: BinHandler -> ParsingContext -> addr: Addr -> Instruction option
+       hdl: BinHandler
+    -> ParsingContext
+    -> addr: Addr
+    -> Result<Instruction, ErrorCase>
 
   /// Parse a basic block from the given address, and return the sequence of the
   /// instructions of the basic block. This function may return an incomplete

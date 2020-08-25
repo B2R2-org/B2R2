@@ -101,13 +101,13 @@ module InstrMap =
 
   let rec private parseBBL hdl ctxt bblMap acc pc =
     match BinHandler.TryParseInstr hdl ctxt pc with
-    | Some ins ->
+    | Ok ins ->
       let ctxt = ins.NextParsingContext
       let nextAddr = pc + uint64 ins.Length
       if ins.IsExit () || Map.containsKey nextAddr bblMap then
         Ok <| struct (List.rev (ins :: acc), ins.Address)
       else parseBBL hdl ctxt bblMap (ins :: acc) nextAddr
-    | None -> Error <| List.rev acc
+    | Error _ -> Error <| List.rev acc
 
   /// InstrMap will only have this API. Removing instructions from InstrMap is
   /// not allowed.

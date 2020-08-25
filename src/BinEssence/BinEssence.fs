@@ -322,8 +322,7 @@ module BinEssence =
     match v.VData.GetLastStmt (), (fstLeader: ProgramPoint option) with
     | InterJmp (_, Num addr, InterJmpInfo.IsCall), Some fstLeader ->
       let target = BitVector.toUInt64 addr
-      ess.CalleeMap.ReplaceCaller
-        ess.BinHandler fstLeader.Address splitPoint.Address target
+      ess.CalleeMap.ReplaceCaller fstLeader.Address splitPoint.Address target
     | _ -> ess.CalleeMap
 
   /// Split a block into two (by the given leader address).
@@ -478,10 +477,9 @@ module BinEssence =
       ess, edges (* Connect ret edges later. *)
     | InterJmp (_, Num addr, InterJmpInfo.IsCall) ->
       let target = BitVector.toUInt64 addr
-      let calleeMap = ess.CalleeMap.AddEntry ess.BinHandler target
+      let calleeMap = ess.CalleeMap.AddEntry target
       let edges = getInterEdge src target CallEdge edges
-      let calleeMap =
-        calleeMap.AddCaller ess.BinHandler src.VData.PPoint.Address target
+      let calleeMap = calleeMap.AddCaller src.VData.PPoint.Address target
       let ess = { ess with CalleeMap = calleeMap }
       if ess.IsNoReturn src then ess, edges
       else ess, getFallthroughEdge src true edges
@@ -740,8 +738,7 @@ module BinEssence =
 
   [<CompiledName("AddEntry")>]
   let addEntry ess (addr, ctxt) =
-    let ess =
-      { ess with CalleeMap = ess.CalleeMap.AddEntry ess.BinHandler addr }
+    let ess = { ess with CalleeMap = ess.CalleeMap.AddEntry addr }
     match updateCFG ess true false [ CFGEntry (addr, ctxt) ] with
     | Ok (ess, _) -> Ok ess
     | Error (ess, _) -> Error ess
