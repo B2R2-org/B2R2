@@ -425,17 +425,29 @@ let parseREX wordSize reader pos =
 
 let inline private isRegOpr oprDesc =
   match oprDesc with
-  | ODReg _
-  | ODRegGrp _
-  | ODModeSize (struct(OprMode.G, _))
-  | ODModeSize (struct(OprMode.N, _))
-  | ODModeSize (struct(OprMode.P, _))
-  | ODModeSize (struct(OprMode.R, _))
-  | ODModeSize (struct(OprMode.V, _))
-  | ODModeSize (struct(OprMode.VZ, _)) -> true
+  /// ODReg
+  | struct (OprMode.AL, _) | struct (OprMode.DX, _) | struct (OprMode.CL, _)
+  | struct (OprMode.ES, _) | struct (OprMode.CS, _) | struct (OprMode.SS, _)
+  | struct (OprMode.DS, _) | struct (OprMode.FS, _) | struct (OprMode.GS, _)
+  /// ODRegGrp
+  | struct (OprMode.RG0F, _) | struct (OprMode.RG1F, _)
+  | struct (OprMode.RG2F, _) | struct (OprMode.RG3F, _)
+  | struct (OprMode.RG4F, _) | struct (OprMode.RG5F, _)
+  | struct (OprMode.RG6F, _) | struct (OprMode.RG7F, _)
+  | struct (OprMode.RG0T, _) | struct (OprMode.RG1T, _)
+  | struct (OprMode.RG2T, _) | struct (OprMode.RG3T, _)
+  | struct (OprMode.RG4T, _) | struct (OprMode.RG5T, _)
+  | struct (OprMode.RG6T, _) | struct (OprMode.RG7T, _)
+  /// ODModeSize
+  | struct (OprMode.G, _)
+  | struct (OprMode.N, _)
+  | struct (OprMode.P, _)
+  | struct (OprMode.R, _)
+  | struct (OprMode.V, _)
+  | struct (OprMode.VZ, _) -> true
   | _ -> false
 
-let private getOperationSize regSize oprSize opCode (oprDescs: OperandDesc []) =
+let private getOperationSize regSize oprSize opCode oprDescs =
   match opCode with
   | Opcode.PUSH | Opcode.POP -> oprSize
   | Opcode.MOVSB | Opcode.INSB
@@ -501,24 +513,56 @@ let private getSizeBySzDesc t effOprSz szKind =
     else struct (effOprSz, effOprSz)
   | _ -> struct (effOprSz, effOprSz)
 
-let isODRegGrp = function
-  | ODRegGrp _ -> true
+let isRegGrp = function
+  /// ODRegGrp
+  | struct (OprMode.RG0F, _) | struct (OprMode.RG1F, _)
+  | struct (OprMode.RG2F, _) | struct (OprMode.RG3F, _)
+  | struct (OprMode.RG4F, _) | struct (OprMode.RG5F, _)
+  | struct (OprMode.RG6F, _) | struct (OprMode.RG7F, _)
+  | struct (OprMode.RG0T, _) | struct (OprMode.RG1T, _)
+  | struct (OprMode.RG2T, _) | struct (OprMode.RG3T, _)
+  | struct (OprMode.RG4T, _) | struct (OprMode.RG5T, _)
+  | struct (OprMode.RG6T, _) | struct (OprMode.RG7T, _) -> true
   | _ -> false
 
 let private convRegSize t effOprSz oprDesc oprDescs =
   match oprDesc with
-  | ODModeSize (OprMode.G, sz) | ODModeSize (OprMode.N , sz)
-  | ODModeSize (OprMode.P, sz) | ODModeSize (OprMode.R , sz)
-  | ODModeSize (OprMode.V, sz) | ODModeSize (OprMode.VZ, sz) ->
+  | struct (OprMode.G, sz) | struct (OprMode.N, sz)
+  | struct (OprMode.P, sz) | struct (OprMode.R, sz)
+  | struct (OprMode.V, sz) | struct (OprMode.VZ, sz) ->
     let (struct (x, _)) = getSizeBySzDesc t effOprSz sz in x
+  (*
   | ODReg _ when (Array.length oprDescs > 1 && isODRegGrp (oprDescs.[1])) ->
     0<rt>
-  | ODReg reg -> Register.toRegType reg
-  | ODRegGrp (_, sz, _) ->
+  *)
+  | struct (OprMode.AL, _) | struct (OprMode.DX, _) | struct (OprMode.CL, _)
+  | struct (OprMode.ES, _) | struct (OprMode.CS, _) | struct (OprMode.SS, _)
+  | struct (OprMode.DS, _) | struct (OprMode.FS, _) | struct (OprMode.GS, _)
+    when (Array.length oprDescs > 1 && isRegGrp (oprDescs.[1])) -> 0<rt>
+  /// ODReg
+  | struct (OprMode.AL, _) -> Register.toRegType R.AL
+  | struct (OprMode.DX, _) -> Register.toRegType R.DX
+  | struct (OprMode.CL, _) -> Register.toRegType R.CL
+  | struct (OprMode.ES, _) -> Register.toRegType R.ES
+  | struct (OprMode.CS, _) -> Register.toRegType R.CS
+  | struct (OprMode.SS, _) -> Register.toRegType R.SS
+  | struct (OprMode.DS, _) -> Register.toRegType R.DS
+  | struct (OprMode.FS, _) -> Register.toRegType R.FS
+  | struct (OprMode.GS, _) -> Register.toRegType R.GS
+  /// ODRegGrp
+  | struct (OprMode.RG0F, sz) | struct (OprMode.RG1F, sz)
+  | struct (OprMode.RG2F, sz) | struct (OprMode.RG3F, sz)
+  | struct (OprMode.RG4F, sz) | struct (OprMode.RG5F, sz)
+  | struct (OprMode.RG6F, sz) | struct (OprMode.RG7F, sz)
+  | struct (OprMode.RG0T, sz) | struct (OprMode.RG1T, sz)
+  | struct (OprMode.RG2T, sz) | struct (OprMode.RG3T, sz)
+  | struct (OprMode.RG4T, sz) | struct (OprMode.RG5T, sz)
+  | struct (OprMode.RG6T, sz) | struct (OprMode.RG7T, sz) ->
     let (struct (x, _)) = getSizeBySzDesc t effOprSz sz in x
   | _ -> 0<rt>
 
-let rec private findRegSize idx (oprDescs: OperandDesc []) t effOprSz ret =
+let rec private findRegSize idx (oprDescs: struct (OprMode * OprSize) []) t
+                            effOprSz ret =
   let v = convRegSize t effOprSz oprDescs.[idx] oprDescs
   if v <> 0<rt> then v
   elif idx = (Array.length oprDescs) - 1 then ret
@@ -531,17 +575,17 @@ let inline private getRegSize t oprDescs effOprSz =
 
 let inline convMemSize descs =
   match descs with
-  | ODModeSize (struct (OprMode.BndM, sz))
-  | ODModeSize (struct (OprMode.E, sz))
-  | ODModeSize (struct (OprMode.M, sz))
-  | ODModeSize (struct (OprMode.MZ, sz))
-  | ODModeSize (struct (OprMode.O, sz))
-  | ODModeSize (struct (OprMode.Q, sz))
-  | ODModeSize (struct (OprMode.U, sz))
-  | ODModeSize (struct (OprMode.W, sz))
-  | ODModeSize (struct (OprMode.WZ, sz))
-  | ODModeSize (struct (OprMode.X, sz))
-  | ODModeSize (struct (OprMode.Y, sz)) -> Some sz
+  | struct (OprMode.BndM, sz)
+  | struct (OprMode.E, sz)
+  | struct (OprMode.M, sz)
+  | struct (OprMode.MZ, sz)
+  | struct (OprMode.O, sz)
+  | struct (OprMode.Q, sz)
+  | struct (OprMode.U, sz)
+  | struct (OprMode.W, sz)
+  | struct (OprMode.WZ, sz)
+  | struct (OprMode.X, sz)
+  | struct (OprMode.Y, sz) -> Some sz
   | _ -> None
 
 (* Obtain both the effective operand size and the effective address size
@@ -678,7 +722,8 @@ let parseVEXInfo wordSize (reader: BinReader) pos =
   | _ -> struct (None, pos)
 
 /// Select based on the prefix: None, 66, F3, or F2.
-let private selectOpInfo prefs (opc: Opcode []) (opr: OperandDesc [][]) =
+let private selectOpInfo prefs (opc: Opcode [])
+                         (opr: struct (OprMode * OprSize) [][]) =
   if hasOprSz prefs then opc.[1], opr.[1]
   elif hasREPZ prefs then opc.[2], opr.[2]
   elif hasREPNZ prefs then opc.[3], opr.[3]
@@ -704,7 +749,8 @@ let private parseVEX t sizeCond opNorArr opVEXArr dsNorArr dsVEXArr =
     selectVEXOpInfo opNorArr opVEXArr dsNorArr dsVEXArr t
   parseOp t opCode sizeCond descs
 
-let inline private selectNonVEXOt prefs (oc: Opcode []) (od: OperandDesc [][]) =
+let inline private selectNonVEXOt prefs (oc: Opcode [])
+                                  (od: struct (OprMode * OprSize) [][]) =
   if hasOprSz prefs && hasREPNZ prefs then oc.[4], od.[4]
   else selectOpInfo prefs oc od
 
@@ -1676,14 +1722,14 @@ let private pTwoByteOp t reader pos byte =
   | 0x9Duy -> parseOp t Opcode.SETNL SzDef32 Eb, pos
   | 0x9Euy -> parseOp t Opcode.SETLE SzDef32 Eb, pos
   | 0x9Fuy -> parseOp t Opcode.SETG SzDef32 Eb, pos
-  | 0xA0uy -> parseOp t Opcode.PUSH SzDef64 (ORSR R.FS), pos
-  | 0xA1uy -> parseOp t Opcode.POP SzDef64 (ORSR R.FS), pos
+  | 0xA0uy -> parseOp t Opcode.PUSH SzDef64 FS, pos
+  | 0xA1uy -> parseOp t Opcode.POP SzDef64 FS, pos
   | 0xA2uy -> parseOp t Opcode.CPUID SzDef32 [||], pos
   | 0xA3uy -> parseOp t Opcode.BT SzDef32 EvGv, pos
   | 0xA4uy -> parseOp t Opcode.SHLD SzDef32 EvGvIb, pos
   | 0xA5uy -> parseOp t Opcode.SHLD SzDef32 EvGvCL, pos
-  | 0xA8uy -> parseOp t Opcode.PUSH SzDef64 (ORSR R.GS), pos
-  | 0xA9uy -> parseOp t Opcode.POP SzDef64 (ORSR R.GS), pos
+  | 0xA8uy -> parseOp t Opcode.PUSH SzDef64 GS, pos
+  | 0xA9uy -> parseOp t Opcode.POP SzDef64 GS, pos
   | 0xAAuy -> parseOp t Opcode.RSM SzDef32 [||], pos
   | 0xABuy -> parseOp t Opcode.BTS SzDef32 EvGv, pos
   | 0xACuy -> parseOp t Opcode.SHRD SzDef32 EvGvIb, pos
@@ -1715,21 +1761,21 @@ let private pTwoByteOp t reader pos byte =
   | 0xC5uy -> parseVEX t SzDef32 opNor0FC5 opVex0FC5 dsNor0FC5 dsVex0FC5, pos
   | 0xC6uy -> parseVEX t SzDef32 opNor0FC6 opVex0FC6 dsNor0FC6 dsVex0FC6, pos
   | 0xC8uy ->
-    parseOp (ignOpSz t) Opcode.BSWAP SzDef32 (RGz RegGrp.RG0 true), pos
+    parseOp (ignOpSz t) Opcode.BSWAP SzDef32 RG0Tz, pos
   | 0xC9uy ->
-    parseOp (ignOpSz t) Opcode.BSWAP SzDef32 (RGz RegGrp.RG1 true), pos
+    parseOp (ignOpSz t) Opcode.BSWAP SzDef32 RG1Tz, pos
   | 0xCAuy ->
-    parseOp (ignOpSz t) Opcode.BSWAP SzDef32 (RGz RegGrp.RG2 true), pos
+    parseOp (ignOpSz t) Opcode.BSWAP SzDef32 RG2Tz, pos
   | 0xCBuy ->
-    parseOp (ignOpSz t) Opcode.BSWAP SzDef32 (RGz RegGrp.RG3 true), pos
+    parseOp (ignOpSz t) Opcode.BSWAP SzDef32 RG3Tz, pos
   | 0xCCuy ->
-    parseOp (ignOpSz t) Opcode.BSWAP SzDef32 (RGz RegGrp.RG4 true), pos
+    parseOp (ignOpSz t) Opcode.BSWAP SzDef32 RG4Tz, pos
   | 0xCDuy ->
-    parseOp (ignOpSz t) Opcode.BSWAP SzDef32 (RGz RegGrp.RG5 true), pos
+    parseOp (ignOpSz t) Opcode.BSWAP SzDef32 RG5Tz, pos
   | 0xCEuy ->
-    parseOp (ignOpSz t) Opcode.BSWAP SzDef32 (RGz RegGrp.RG6 true), pos
+    parseOp (ignOpSz t) Opcode.BSWAP SzDef32 RG6Tz, pos
   | 0xCFuy ->
-    parseOp (ignOpSz t) Opcode.BSWAP SzDef32 (RGz RegGrp.RG7 true), pos
+    parseOp (ignOpSz t) Opcode.BSWAP SzDef32 RG7Tz, pos
   | 0xD1uy -> parseVEX t SzDef32 opNor0FD1 opVex0FD1 dsNor0FD1 dsVex0FD1, pos
   | 0xD2uy -> parseVEX t SzDef32 opNor0FD2 opVex0FD2 dsNor0FD2 dsVex0FD2, pos
   | 0xD3uy -> parseVEX t SzDef32 opNor0FD3 opVex0FD3 dsNor0FD3 dsVex0FD3, pos
@@ -1798,9 +1844,6 @@ let private pTwoByteOp t reader pos byte =
 let private parseTwoByteOpcode t (reader: BinReader) pos =
   reader.PeekByte pos |> pTwoByteOp t reader (pos + 1)
 
-let inline private getDescForRegGrp t regGrp =
-  int regGrp |> findReg 8<rt> RGrpAttr.AMod11 t.TREXPrefix |> RegIb
-
 let private pOneByteOpcode t reader pos = function
   | 0x00uy -> parseOp t Opcode.ADD SzDef32 EbGb, pos
   | 0x01uy -> parseOp t Opcode.ADD SzDef32 EvGv, pos
@@ -1808,31 +1851,31 @@ let private pOneByteOpcode t reader pos = function
   | 0x03uy -> parseOp t Opcode.ADD SzDef32 GvEv, pos
   | 0x04uy -> parseOp t Opcode.ADD SzDef32 ALIb, pos
   | 0x05uy -> parseOp t Opcode.ADD SzDef32 RGvSIz, pos
-  | 0x06uy -> ensure32 t; parseOp t Opcode.PUSH SzInv64 (ORSR R.ES), pos
-  | 0x07uy -> ensure32 t; parseOp t Opcode.POP SzInv64 (ORSR R.ES), pos
+  | 0x06uy -> ensure32 t; parseOp t Opcode.PUSH SzInv64 ES, pos
+  | 0x07uy -> ensure32 t; parseOp t Opcode.POP SzInv64 ES, pos
   | 0x08uy -> parseOp t Opcode.OR SzDef32 EbGb, pos
   | 0x09uy -> parseOp t Opcode.OR SzDef32 EvGv, pos
   | 0x0Auy -> parseOp t Opcode.OR SzDef32 GbEb, pos
   | 0x0Buy -> parseOp t Opcode.OR SzDef32 GvEv, pos
   | 0x0Cuy -> parseOp t Opcode.OR SzDef32 ALIb, pos
   | 0x0Duy -> parseOp t Opcode.OR SzDef32 RGvSIz, pos
-  | 0x0Euy -> ensure32 t; parseOp t Opcode.PUSH SzInv64 (ORSR R.CS), pos
+  | 0x0Euy -> ensure32 t; parseOp t Opcode.PUSH SzInv64 CS, pos
   | 0x10uy -> parseOp t Opcode.ADC SzDef32 EbGb, pos
   | 0x11uy -> parseOp t Opcode.ADC SzDef32 EvGv, pos
   | 0x12uy -> parseOp t Opcode.ADC SzDef32 GbEb, pos
   | 0x13uy -> parseOp t Opcode.ADC SzDef32 GvEv, pos
   | 0x14uy -> parseOp t Opcode.ADC SzDef32 ALIb, pos
   | 0x15uy -> parseOp t Opcode.ADC SzDef32 RGvSIz, pos
-  | 0x16uy -> ensure32 t; parseOp t Opcode.PUSH SzInv64 (ORSR R.SS), pos
-  | 0x17uy -> ensure32 t; parseOp t Opcode.POP SzInv64 (ORSR R.SS), pos
+  | 0x16uy -> ensure32 t; parseOp t Opcode.PUSH SzInv64 SS, pos
+  | 0x17uy -> ensure32 t; parseOp t Opcode.POP SzInv64 SS, pos
   | 0x18uy -> parseOp t Opcode.SBB SzDef32 EbGb, pos
   | 0x19uy -> parseOp t Opcode.SBB SzDef32 EvGv, pos
   | 0x1Auy -> parseOp t Opcode.SBB SzDef32 GbEb, pos
   | 0x1Buy -> parseOp t Opcode.SBB SzDef32 GvEv, pos
   | 0x1Cuy -> parseOp t Opcode.SBB SzDef32 ALIb, pos
   | 0x1Duy -> parseOp t Opcode.SBB SzDef32 RGvSIz, pos
-  | 0x1Euy -> ensure32 t; parseOp t Opcode.PUSH SzInv64 (ORSR R.DS), pos
-  | 0x1Fuy -> ensure32 t; parseOp t Opcode.POP SzInv64 (ORSR R.DS), pos
+  | 0x1Euy -> ensure32 t; parseOp t Opcode.PUSH SzInv64 DS, pos
+  | 0x1Fuy -> ensure32 t; parseOp t Opcode.POP SzInv64 DS, pos
   | 0x20uy -> parseOp t Opcode.AND SzDef32 EbGb, pos
   | 0x21uy -> parseOp t Opcode.AND SzDef32 EvGv, pos
   | 0x22uy -> parseOp t Opcode.AND SzDef32 GbEb, pos
@@ -1860,56 +1903,39 @@ let private pOneByteOpcode t reader pos = function
   | 0x3Buy -> parseOp t Opcode.CMP SzDef32 GvEv, pos
   | 0x3Cuy -> parseOp t Opcode.CMP SzDef32 ALIb, pos
   | 0x3Duy -> parseOp t Opcode.CMP SzDef32 RGvSIz, pos
-  | 0x3Fuy ->
-    ensure32 t; parseOp t Opcode.AAS SzInv64 [||], pos
-  | 0x40uy ->
-    ensure32 t; parseOp t Opcode.INC SzInv64 (RGz RegGrp.RG0 false), pos
-  | 0x41uy ->
-    ensure32 t; parseOp t Opcode.INC SzInv64 (RGz RegGrp.RG1 false), pos
-  | 0x42uy ->
-    ensure32 t; parseOp t Opcode.INC SzInv64 (RGz RegGrp.RG2 false), pos
-  | 0x43uy ->
-    ensure32 t; parseOp t Opcode.INC SzInv64 (RGz RegGrp.RG3 false), pos
-  | 0x44uy ->
-    ensure32 t; parseOp t Opcode.INC SzInv64 (RGz RegGrp.RG4 false), pos
-  | 0x45uy ->
-    ensure32 t; parseOp t Opcode.INC SzInv64 (RGz RegGrp.RG5 false), pos
-  | 0x46uy ->
-    ensure32 t; parseOp t Opcode.INC SzInv64 (RGz RegGrp.RG6 false), pos
-  | 0x47uy ->
-    ensure32 t; parseOp t Opcode.INC SzInv64 (RGz RegGrp.RG7 false), pos
-  | 0x48uy ->
-    ensure32 t; parseOp t Opcode.DEC SzInv64 (RGz RegGrp.RG0 false), pos
-  | 0x49uy ->
-    ensure32 t; parseOp t Opcode.DEC SzInv64 (RGz RegGrp.RG1 false), pos
-  | 0x4Auy ->
-    ensure32 t; parseOp t Opcode.DEC SzInv64 (RGz RegGrp.RG2 false), pos
-  | 0x4Buy ->
-    ensure32 t; parseOp t Opcode.DEC SzInv64 (RGz RegGrp.RG3 false), pos
-  | 0x4Cuy ->
-    ensure32 t; parseOp t Opcode.DEC SzInv64 (RGz RegGrp.RG4 false), pos
-  | 0x4Duy ->
-    ensure32 t; parseOp t Opcode.DEC SzInv64 (RGz RegGrp.RG5 false), pos
-  | 0x4Euy ->
-    ensure32 t; parseOp t Opcode.DEC SzInv64 (RGz RegGrp.RG6 false), pos
-  | 0x4Fuy ->
-    ensure32 t; parseOp t Opcode.DEC SzInv64 (RGz RegGrp.RG7 false), pos
-  | 0x50uy -> parseOp t Opcode.PUSH SzDef64 (RGv RegGrp.RG0), pos
-  | 0x51uy -> parseOp t Opcode.PUSH SzDef64 (RGv RegGrp.RG1), pos
-  | 0x52uy -> parseOp t Opcode.PUSH SzDef64 (RGv RegGrp.RG2), pos
-  | 0x53uy -> parseOp t Opcode.PUSH SzDef64 (RGv RegGrp.RG3), pos
-  | 0x54uy -> parseOp t Opcode.PUSH SzDef64 (RGv RegGrp.RG4), pos
-  | 0x55uy -> parseOp t Opcode.PUSH SzDef64 (RGv RegGrp.RG5), pos
-  | 0x56uy -> parseOp t Opcode.PUSH SzDef64 (RGv RegGrp.RG6), pos
-  | 0x57uy -> parseOp t Opcode.PUSH SzDef64 (RGv RegGrp.RG7), pos
-  | 0x58uy -> parseOp t Opcode.POP SzDef64 (RGv RegGrp.RG0), pos
-  | 0x59uy -> parseOp t Opcode.POP SzDef64 (RGv RegGrp.RG1), pos
-  | 0x5Auy -> parseOp t Opcode.POP SzDef64 (RGv RegGrp.RG2), pos
-  | 0x5Buy -> parseOp t Opcode.POP SzDef64 (RGv RegGrp.RG3), pos
-  | 0x5Cuy -> parseOp t Opcode.POP SzDef64 (RGv RegGrp.RG4), pos
-  | 0x5Duy -> parseOp t Opcode.POP SzDef64 (RGv RegGrp.RG5), pos
-  | 0x5Euy -> parseOp t Opcode.POP SzDef64 (RGv RegGrp.RG6), pos
-  | 0x5Fuy -> parseOp t Opcode.POP SzDef64 (RGv RegGrp.RG7), pos
+  | 0x3Fuy -> ensure32 t; parseOp t Opcode.AAS SzInv64 [||], pos
+  | 0x40uy -> ensure32 t; parseOp t Opcode.INC SzInv64 RG0Fz, pos
+  | 0x41uy -> ensure32 t; parseOp t Opcode.INC SzInv64 RG1Fz, pos
+  | 0x42uy -> ensure32 t; parseOp t Opcode.INC SzInv64 RG2Fz, pos
+  | 0x43uy -> ensure32 t; parseOp t Opcode.INC SzInv64 RG3Fz, pos
+  | 0x44uy -> ensure32 t; parseOp t Opcode.INC SzInv64 RG4Fz, pos
+  | 0x45uy -> ensure32 t; parseOp t Opcode.INC SzInv64 RG5Fz, pos
+  | 0x46uy -> ensure32 t; parseOp t Opcode.INC SzInv64 RG6Fz, pos
+  | 0x47uy -> ensure32 t; parseOp t Opcode.INC SzInv64 RG7Fz, pos
+  | 0x48uy -> ensure32 t; parseOp t Opcode.DEC SzInv64 RG0Fz, pos
+  | 0x49uy -> ensure32 t; parseOp t Opcode.DEC SzInv64 RG1Fz, pos
+  | 0x4Auy -> ensure32 t; parseOp t Opcode.DEC SzInv64 RG2Fz, pos
+  | 0x4Buy -> ensure32 t; parseOp t Opcode.DEC SzInv64 RG3Fz, pos
+  | 0x4Cuy -> ensure32 t; parseOp t Opcode.DEC SzInv64 RG4Fz, pos
+  | 0x4Duy -> ensure32 t; parseOp t Opcode.DEC SzInv64 RG5Fz, pos
+  | 0x4Euy -> ensure32 t; parseOp t Opcode.DEC SzInv64 RG6Fz, pos
+  | 0x4Fuy -> ensure32 t; parseOp t Opcode.DEC SzInv64 RG7Fz, pos
+  | 0x50uy -> parseOp t Opcode.PUSH SzDef64 RG0Tv, pos
+  | 0x51uy -> parseOp t Opcode.PUSH SzDef64 RG1Tv, pos
+  | 0x52uy -> parseOp t Opcode.PUSH SzDef64 RG2Tv, pos
+  | 0x53uy -> parseOp t Opcode.PUSH SzDef64 RG3Tv, pos
+  | 0x54uy -> parseOp t Opcode.PUSH SzDef64 RG4Tv, pos
+  | 0x55uy -> parseOp t Opcode.PUSH SzDef64 RG5Tv, pos
+  | 0x56uy -> parseOp t Opcode.PUSH SzDef64 RG6Tv, pos
+  | 0x57uy -> parseOp t Opcode.PUSH SzDef64 RG7Tv, pos
+  | 0x58uy -> parseOp t Opcode.POP SzDef64 RG0Tv, pos
+  | 0x59uy -> parseOp t Opcode.POP SzDef64 RG1Tv, pos
+  | 0x5Auy -> parseOp t Opcode.POP SzDef64 RG2Tv, pos
+  | 0x5Buy -> parseOp t Opcode.POP SzDef64 RG3Tv, pos
+  | 0x5Cuy -> parseOp t Opcode.POP SzDef64 RG4Tv, pos
+  | 0x5Duy -> parseOp t Opcode.POP SzDef64 RG5Tv, pos
+  | 0x5Euy -> parseOp t Opcode.POP SzDef64 RG6Tv, pos
+  | 0x5Fuy -> parseOp t Opcode.POP SzDef64 RG7Tv, pos
   | 0x60uy ->
     ensure32 t
     if hasOprSz t.TPrefixes then parseOp t Opcode.PUSHA SzInv64 [||], pos
@@ -1966,14 +1992,14 @@ let private pOneByteOpcode t reader pos = function
   | 0x90uy ->
     if hasNoPrefNoREX t then parseOp t Opcode.NOP SzDef32 [||], pos
     elif hasREPZ t.TPrefixes then parseOp t Opcode.PAUSE SzDef32 [||], pos
-    else parseOp t Opcode.XCHG SzDef32 RGzRGz, pos
-  | 0x91uy -> parseOp t Opcode.XCHG SzDef32 (RGvRGv RegGrp.RG1), pos
-  | 0x92uy -> parseOp t Opcode.XCHG SzDef32 (RGvRGv RegGrp.RG2), pos
-  | 0x93uy -> parseOp t Opcode.XCHG SzDef32 (RGvRGv RegGrp.RG3), pos
-  | 0x94uy -> parseOp t Opcode.XCHG SzDef32 (RGvRGv RegGrp.RG4), pos
-  | 0x95uy -> parseOp t Opcode.XCHG SzDef32 (RGvRGv RegGrp.RG5), pos
-  | 0x96uy -> parseOp t Opcode.XCHG SzDef32 (RGvRGv RegGrp.RG6), pos
-  | 0x97uy -> parseOp t Opcode.XCHG SzDef32 (RGvRGv RegGrp.RG7), pos
+    else parseOp t Opcode.XCHG SzDef32 RG0FzRG0Tz, pos
+  | 0x91uy -> parseOp t Opcode.XCHG SzDef32 RG0FvRG1Tv, pos
+  | 0x92uy -> parseOp t Opcode.XCHG SzDef32 RG0FvRG2Tv, pos
+  | 0x93uy -> parseOp t Opcode.XCHG SzDef32 RG0FvRG3Tv, pos
+  | 0x94uy -> parseOp t Opcode.XCHG SzDef32 RG0FvRG4Tv, pos
+  | 0x95uy -> parseOp t Opcode.XCHG SzDef32 RG0FvRG5Tv, pos
+  | 0x96uy -> parseOp t Opcode.XCHG SzDef32 RG0FvRG6Tv, pos
+  | 0x97uy -> parseOp t Opcode.XCHG SzDef32 RG0FvRG7Tv, pos
   | 0x98uy ->
     if hasOprSz t.TPrefixes then parseOp t Opcode.CBW SzDef32 [||], pos
     elif hasREXW t.TREXPrefix then parseOp t Opcode.CDQE SzDef32 [||], pos
@@ -1997,9 +2023,9 @@ let private pOneByteOpcode t reader pos = function
   | 0x9Euy -> parseOp t Opcode.SAHF SzDef32 [||], pos
   | 0x9Fuy -> parseOp t Opcode.LAHF SzDef32 [||], pos
   | 0xA0uy -> parseOp t Opcode.MOV SzDef32 ALOb, pos
-  | 0xA1uy -> parseOp t Opcode.MOV SzDef32 (RGvOv RegGrp.RG0 false), pos
+  | 0xA1uy -> parseOp t Opcode.MOV SzDef32 RG0FvOv, pos
   | 0xA2uy -> parseOp t Opcode.MOV SzDef32 ObAL, pos
-  | 0xA3uy -> parseOp t Opcode.MOV SzDef32 (OvRGv RegGrp.RG0 false), pos
+  | 0xA3uy -> parseOp t Opcode.MOV SzDef32 OvRG0Fv, pos
   | 0xA4uy -> parseOp t Opcode.MOVSB SzDef32 [||], pos
   | 0xA5uy ->
     if hasOprSz t.TPrefixes then parseOp t Opcode.MOVSW SzDef32 [||], pos
@@ -2027,22 +2053,22 @@ let private pOneByteOpcode t reader pos = function
     if hasOprSz t.TPrefixes then parseOp t Opcode.SCASW SzDef32 [||], pos
     elif hasREXW t.TREXPrefix then parseOp t Opcode.SCASQ SzDef32 [||], pos
     else parseOp t Opcode.SCASD SzDef32 [||], pos
-  | 0xB0uy -> parseOp t Opcode.MOV SzDef32 (getDescForRegGrp t RegGrp.RG0), pos
-  | 0xB1uy -> parseOp t Opcode.MOV SzDef32 (getDescForRegGrp t RegGrp.RG1), pos
-  | 0xB2uy -> parseOp t Opcode.MOV SzDef32 (getDescForRegGrp t RegGrp.RG2), pos
-  | 0xB3uy -> parseOp t Opcode.MOV SzDef32 (getDescForRegGrp t RegGrp.RG3), pos
-  | 0xB4uy -> parseOp t Opcode.MOV SzDef32 (getDescForRegGrp t RegGrp.RG4), pos
-  | 0xB5uy -> parseOp t Opcode.MOV SzDef32 (getDescForRegGrp t RegGrp.RG5), pos
-  | 0xB6uy -> parseOp t Opcode.MOV SzDef32 (getDescForRegGrp t RegGrp.RG6), pos
-  | 0xB7uy -> parseOp t Opcode.MOV SzDef32 (getDescForRegGrp t RegGrp.RG7), pos
-  | 0xB8uy -> parseOp t Opcode.MOV SzDef32 (RGvIv RegGrp.RG0), pos
-  | 0xB9uy -> parseOp t Opcode.MOV SzDef32 (RGvIv RegGrp.RG1), pos
-  | 0xBAuy -> parseOp t Opcode.MOV SzDef32 (RGvIv RegGrp.RG2), pos
-  | 0xBBuy -> parseOp t Opcode.MOV SzDef32 (RGvIv RegGrp.RG3), pos
-  | 0xBCuy -> parseOp t Opcode.MOV SzDef32 (RGvIv RegGrp.RG4), pos
-  | 0xBDuy -> parseOp t Opcode.MOV SzDef32 (RGvIv RegGrp.RG5), pos
-  | 0xBEuy -> parseOp t Opcode.MOV SzDef32 (RGvIv RegGrp.RG6), pos
-  | 0xBFuy -> parseOp t Opcode.MOV SzDef32 (RGvIv RegGrp.RG7), pos
+  | 0xB0uy -> parseOp t Opcode.MOV SzDef32 RG0Ib, pos
+  | 0xB1uy -> parseOp t Opcode.MOV SzDef32 RG1Ib, pos
+  | 0xB2uy -> parseOp t Opcode.MOV SzDef32 RG2Ib, pos
+  | 0xB3uy -> parseOp t Opcode.MOV SzDef32 RG3Ib, pos
+  | 0xB4uy -> parseOp t Opcode.MOV SzDef32 RG4Ib, pos
+  | 0xB5uy -> parseOp t Opcode.MOV SzDef32 RG5Ib, pos
+  | 0xB6uy -> parseOp t Opcode.MOV SzDef32 RG6Ib, pos
+  | 0xB7uy -> parseOp t Opcode.MOV SzDef32 RG7Ib, pos
+  | 0xB8uy -> parseOp t Opcode.MOV SzDef32 RG0TvIv, pos
+  | 0xB9uy -> parseOp t Opcode.MOV SzDef32 RG1TvIv, pos
+  | 0xBAuy -> parseOp t Opcode.MOV SzDef32 RG2TvIv, pos
+  | 0xBBuy -> parseOp t Opcode.MOV SzDef32 RG3TvIv, pos
+  | 0xBCuy -> parseOp t Opcode.MOV SzDef32 RG4TvIv, pos
+  | 0xBDuy -> parseOp t Opcode.MOV SzDef32 RG5TvIv, pos
+  | 0xBEuy -> parseOp t Opcode.MOV SzDef32 RG6TvIv, pos
+  | 0xBFuy -> parseOp t Opcode.MOV SzDef32 RG7TvIv, pos
   | 0xC2uy -> parseOp (pBNDPref t) Opcode.RETNearImm Sz64 Iw, pos
   | 0xC3uy -> parseOp (pBNDPref t) Opcode.RETNear Sz64 [||], pos
   | 0xC4uy -> ensure32 t; parseOp t Opcode.LES SzInv64 GzMp, pos
@@ -2078,9 +2104,9 @@ let private pOneByteOpcode t reader pos = function
     elif is64bit t then parseOp t Opcode.JRCXZ Sz64 Jb, pos
     else parseOp t Opcode.JECXZ Sz64 Jb, pos
   | 0xE4uy -> parseOp t Opcode.IN SzDef32 ALIb, pos
-  | 0xE5uy -> parseOp t Opcode.IN SzDef32 (RGvIb RegGrp.RG0 false), pos
+  | 0xE5uy -> parseOp t Opcode.IN SzDef32 RG0FvIb, pos
   | 0xE6uy -> parseOp t Opcode.OUT SzDef32 IbAL, pos
-  | 0xE7uy -> parseOp t Opcode.OUT SzDef32 (IbRGv RegGrp.RG0 false), pos
+  | 0xE7uy -> parseOp t Opcode.OUT SzDef32 IbRG0Fv, pos
   | 0xE8uy -> parseOp (pBNDPref t) Opcode.CALLNear Sz64 Jz, pos
   | 0xE9uy -> parseOp (pBNDPref t) Opcode.JMPNear Sz64 Jz, pos
   | 0xEAuy -> ensure32 t; parseOp (pBNDPref t) Opcode.JMPFar SzInv64 Ap, pos
@@ -2105,7 +2131,7 @@ let private pOneByteOpcode t reader pos = function
   | 0x83uy -> parseGrpOpcode t reader pos OpGroup.G1 EvSIb
   | 0x8Fuy -> parseGrpOpcode t reader pos OpGroup.G1A Ev
   | 0xC0uy -> parseGrpOpcode t reader pos OpGroup.G2 EbIb
-  | 0xC1uy -> parseGrpOpcode t reader pos OpGroup.G2 EvIb
+  | 0xC1uy -> parseGrpOpcode t reader pos OpGroup.G2 EvIb // FIXME
   | 0xD0uy -> parseGrpOpcode t reader pos OpGroup.G2 Eb1L
   | 0xD1uy -> parseGrpOpcode t reader pos OpGroup.G2 Ev1L
   | 0xD2uy -> parseGrpOpcode t reader pos OpGroup.G2 EbCL
@@ -2447,22 +2473,52 @@ let parseOprOnlyDisp insInfo reader pos =
   parseOprMem insInfo reader pos None None (Some dispSz)
 
 let parseOperand insInfo wordSz modRM oldPos reader pos oprDesc =
+  let getOprRGrpT rg =
+    struct (getOprFromRegGrp (int rg) RGrpAttr.ARegInOpREX insInfo, pos)
+  let getOprRGrpF rg =
+    struct (getOprFromRegGrp (int rg) RGrpAttr.ARegInOpNoREX insInfo, pos)
   match oprDesc with
-  | ODRegGrp (rGrp, _, attr) ->
-    struct (getOprFromRegGrp (int rGrp) attr insInfo, pos)
-  | ODReg r -> struct (OprReg r, pos)
-  | ODImmOne -> struct (OprImm 1L, pos)
-  | ODModeSize (struct (OprMode.A, _)) ->
+  /// ODRegGrp
+  | struct (OprMode.RG0F, _) -> getOprRGrpF RegGrp.RG0
+  | struct (OprMode.RG1F, _) -> getOprRGrpF RegGrp.RG1
+  | struct (OprMode.RG2F, _) -> getOprRGrpF RegGrp.RG2
+  | struct (OprMode.RG3F, _) -> getOprRGrpF RegGrp.RG3
+  | struct (OprMode.RG4F, _) -> getOprRGrpF RegGrp.RG4
+  | struct (OprMode.RG5F, _) -> getOprRGrpF RegGrp.RG5
+  | struct (OprMode.RG6F, _) -> getOprRGrpF RegGrp.RG6
+  | struct (OprMode.RG7F, _) -> getOprRGrpF RegGrp.RG7
+  | struct (OprMode.RG0T, _) -> getOprRGrpT RegGrp.RG0
+  | struct (OprMode.RG1T, _) -> getOprRGrpT RegGrp.RG1
+  | struct (OprMode.RG2T, _) -> getOprRGrpT RegGrp.RG2
+  | struct (OprMode.RG3T, _) -> getOprRGrpT RegGrp.RG3
+  | struct (OprMode.RG4T, _) -> getOprRGrpT RegGrp.RG4
+  | struct (OprMode.RG5T, _) -> getOprRGrpT RegGrp.RG5
+  | struct (OprMode.RG6T, _) -> getOprRGrpT RegGrp.RG6
+  | struct (OprMode.RG7T, _) -> getOprRGrpT RegGrp.RG7
+  /// ODReg
+  | struct (OprMode.AL, OprSize.B) -> struct (OprReg R.AL, pos)
+  | struct (OprMode.DX, OprSize.W) -> struct (OprReg R.DX, pos)
+  | struct (OprMode.CL, OprSize.B) -> struct (OprReg R.CL, pos)
+  | struct (OprMode.ES, OprSize.W) -> struct (OprReg R.ES, pos)
+  | struct (OprMode.CS, OprSize.W) -> struct (OprReg R.CS, pos)
+  | struct (OprMode.SS, OprSize.W) -> struct (OprReg R.SS, pos)
+  | struct (OprMode.DS, OprSize.W) -> struct (OprReg R.DS, pos)
+  | struct (OprMode.FS, OprSize.W) -> struct (OprReg R.FS, pos)
+  | struct (OprMode.GS, OprSize.W) -> struct (OprReg R.GS, pos)
+  /// ODImmOne
+  | struct (OprMode.I1, OprSize.B) -> struct (OprImm 1L, pos)
+  /// ODModeSize
+  | struct (OprMode.A, _) ->
     parseOprForDirectJmp insInfo reader pos
-  | ODModeSize (struct (OprMode.J, sKnd)) ->
+  | struct (OprMode.J, sKnd) ->
     parseOprForRelJmp insInfo oldPos reader pos sKnd
-  | ODModeSize (struct (OprMode.O, _)) ->
+  | struct (OprMode.O, _) ->
     parseOprOnlyDisp insInfo reader pos
-  | ODModeSize (struct (OprMode.I, sKnd)) ->
+  | struct (OprMode.I, sKnd) ->
     parseOprImm insInfo reader pos sKnd
-  | ODModeSize (struct (OprMode.SI, sKnd)) ->
+  | struct (OprMode.SI, sKnd) ->
     parseOprSImm insInfo reader pos sKnd
-  | ODModeSize (struct (m, _)) ->
+  | struct (m, _) ->
     parseWithModRM insInfo wordSz reader pos (Option.get modRM) m
 
 let parseOperands insInfo descs wordSz modRM oldPos reader pos =
@@ -2494,24 +2550,42 @@ let inline private newInsInfo addr (parsingInfo: InsInfo) instrLen wordSize =
   IntelInstruction (addr, instrLen, parsingInfo, wordSize)
 
 let private hasModRM = function
-  | ODModeSize (struct (OprMode.A, _)) | ODModeSize (struct (OprMode.I,_ ))
-  | ODModeSize (struct (OprMode.SI, _)) | ODModeSize (struct (OprMode.J, _))
-  | ODModeSize (struct (OprMode.O, _)) -> false
-  | ODModeSize _ -> true
-  | _ -> false
+  /// ODModeSize
+  | struct (OprMode.A, _) | struct (OprMode.I,_ )
+  | struct (OprMode.SI, _) | struct (OprMode.J, _)
+  | struct (OprMode.O, _)
+  /// ODReg
+  | struct (OprMode.AL, OprSize.B) | struct (OprMode.DX, OprSize.W)
+  | struct (OprMode.I, OprSize.B) | struct (OprMode.CL, OprSize.B)
+  | struct (OprMode.ES, OprSize.W) | struct (OprMode.CS, OprSize.W)
+  | struct (OprMode.SS, OprSize.W) | struct (OprMode.DS, OprSize.W)
+  | struct (OprMode.FS, OprSize.W) | struct (OprMode.GS, OprSize.W)
+  /// ODRegGrp
+  | struct (OprMode.RG0T, OprSize.B) | struct (OprMode.RG1T, OprSize.B)
+  | struct (OprMode.RG2T, OprSize.B) | struct (OprMode.RG3T, OprSize.B)
+  | struct (OprMode.RG4T, OprSize.B) | struct (OprMode.RG5T, OprSize.B)
+  | struct (OprMode.RG6T, OprSize.B) | struct (OprMode.RG7T, OprSize.B)
+  | struct (OprMode.RG0T, OprSize.Z) | struct (OprMode.RG1T, OprSize.Z)
+  | struct (OprMode.RG2T, OprSize.Z) | struct (OprMode.RG3T, OprSize.Z)
+  | struct (OprMode.RG4T, OprSize.Z) | struct (OprMode.RG5T, OprSize.Z)
+  | struct (OprMode.RG6T, OprSize.Z) | struct (OprMode.RG7T, OprSize.Z)
+  | struct (OprMode.RG0F, OprSize.Z) | struct (OprMode.RG1F, OprSize.Z)
+  | struct (OprMode.RG2F, OprSize.Z) | struct (OprMode.RG3F, OprSize.Z)
+  | struct (OprMode.RG4F, OprSize.Z) | struct (OprMode.RG5F, OprSize.Z)
+  | struct (OprMode.RG6F, OprSize.Z) | struct (OprMode.RG7F, OprSize.Z)
+  | struct (OprMode.RG0F, OprSize.V)
+  | struct (OprMode.RG0T, OprSize.V) | struct (OprMode.RG1T, OprSize.V)
+  | struct (OprMode.RG2T, OprSize.V) | struct (OprMode.RG3T, OprSize.V)
+  | struct (OprMode.RG4T, OprSize.V) | struct (OprMode.RG5T, OprSize.V)
+  | struct (OprMode.RG6T, OprSize.V) | struct (OprMode.RG7T, OprSize.V) -> false
+  | _ -> true
 
 let parseModRM oprDescs (reader: BinReader) pos =
   if (Array.isEmpty oprDescs |> not) && (hasModRM oprDescs.[0]) then
     struct (reader.PeekByte pos |> Some, pos + 1)
   else struct (None, pos)
 
-let parse (reader: BinReader) wordSz addr pos =
-  let struct (prefs, nextPos) = parsePrefix reader pos
-  let struct (rexPref, nextPos) = parseREX wordSz reader nextPos
-  let struct (vInfo, nextPos) = parseVEXInfo wordSz reader nextPos
-  let t = newTemporaryInfo prefs rexPref vInfo wordSz
-  let ins, nextPos = parseOpcode t reader nextPos
-  match ins with
+let parseInstr reader wordSz addr pos nextPos = function
   | None
   | Some (struct ({ Opcode = Opcode.InvalOP }, _) ) ->
     raise ParsingFailureException
@@ -2524,5 +2598,16 @@ let parse (reader: BinReader) wordSz addr pos =
       parseOperands insInfo oprDescs wordSz modRM pos reader nextPos
     let len = nextPos - pos |> uint32
     newInsInfo addr { insInfo with Operands = oprs } len wordSz
+
+let private parseInstruction t (reader: BinReader) wordSz addr pos nextPos =
+  let ins, nextPos = parseOpcode t reader nextPos
+  parseInstr reader wordSz addr pos nextPos ins
+
+let parse (reader: BinReader) wordSz addr pos =
+  let struct (prefs, nextPos) = parsePrefix reader pos
+  let struct (rexPref, nextPos) = parseREX wordSz reader nextPos
+  let struct (vInfo, nextPos) = parseVEXInfo wordSz reader nextPos
+  let t = newTemporaryInfo prefs rexPref vInfo wordSz
+  parseInstruction t reader wordSz addr pos nextPos
 
 // vim: set tw=80 sts=2 sw=2:
