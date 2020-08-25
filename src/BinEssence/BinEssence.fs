@@ -88,7 +88,7 @@ type BinEssence = {
 with
   member __.IsNoReturn (src: Vertex<IRBasicBlock>) =
     __.NoReturnInfo.NoReturnCallSites
-    |> Set.contains src.VData.PPoint
+    |> Set.exists (fun (ppoint, _) -> ppoint = src.VData.PPoint)
 
   /// Retrieve an IR-based CFG (subgraph) of a function starting at the given
   /// address (addr) from the SCFG, and the root node. When the
@@ -137,6 +137,7 @@ with
         let child, newGraph = DiGraph.addVertex newGraph fake
         let newGraph = DiGraph.addEdge newGraph parent child e
         if __.IsNoReturn parent then newGraph
+        elif __.CalleeMap.Contains fallPp.Address then newGraph
         else
           try
             let fall, newGraph = getVertex newGraph fallPp
@@ -157,9 +158,11 @@ with
           let newGraph = DiGraph.addEdge newGraph parent child e
           loop newGraph child.VData.PPoint
       | _ ->
-        let child, newGraph = getVertex newGraph child.VData.PPoint
-        let newGraph = DiGraph.addEdge newGraph parent child e
-        loop newGraph child.VData.PPoint
+        if __.CalleeMap.Contains child.VData.PPoint.Address then newGraph
+        else
+          let child, newGraph = getVertex newGraph child.VData.PPoint
+          let newGraph = DiGraph.addEdge newGraph parent child e
+          loop newGraph child.VData.PPoint
     if __.CalleeMap.Contains addr then
       let rootPos = ProgramPoint (addr, 0)
       let newGraph = loop newGraph rootPos
@@ -238,6 +241,13 @@ module BinEssence =
   let inline private isIntruding bbls leader =
     IntervalSet.containsAddr leader bbls.Boundaries
 
+  let inline private needSplitting bbls leader =
+    match IntervalSet.tryFindByAddr leader bbls.Boundaries with
+    | Some range ->
+      let bblInfo = Map.find range.Min bbls.BBLMap
+      Set.contains leader bblInfo.InstrLeaders
+    | None -> false
+
   let inline private isKnownInstruction (instrMap: InstrMap) leader =
     instrMap.ContainsKey leader
 
@@ -270,7 +280,7 @@ module BinEssence =
     struct (src, dst, g)
 
   let private updateIRCFG bbls g prevBBL splitPoint target =
-    if Set.contains splitPoint prevBBL.Leaders then
+    if Set.contains splitPoint prevBBL.IRLeaders then
       (* The split point was one of the known IR-level leaders. So, we don't
          need to further split the vertex. *)
       struct (None, bbls, g)
@@ -280,6 +290,8 @@ module BinEssence =
       let g = DiGraph.removeVertex g targetV
       let bbls = { bbls with VertexMap = Map.remove target bbls.VertexMap }
       let struct (src, dst, g) = splitIRBBlock g targetV splitPoint
+      if targetV.VData.HasIndirectBranch then
+        dst.VData.HasIndirectBranch <- true
       let g = ins |> List.fold (fun g (p, e) -> DiGraph.addEdge g p src e) g
       let g = outs |> List.fold (fun g (s, e) -> DiGraph.addEdge g dst s e) g
       let g =
@@ -295,8 +307,12 @@ module BinEssence =
     let oldBoundary = prevBBL.Boundary
     let prevBoundary = AddrRange (oldBoundary.Min, splitAddr)
     let newBoundary = AddrRange (splitAddr, oldBoundary.Max)
-    let prevInfo = { Boundary = prevBoundary; Leaders = fsts }
-    let newInfo = { Boundary = newBoundary; Leaders = snds }
+    let fstAddrs, fstPps = fsts
+    let sndAddrs, sndPps = snds
+    let prevInfo =
+      { Boundary = prevBoundary; InstrLeaders = fstAddrs; IRLeaders = fstPps }
+    let newInfo =
+      { Boundary = newBoundary; InstrLeaders = sndAddrs; IRLeaders = sndPps }
     bbls
     |> addBBLInfo prevInfo
     |> addBBLInfo newInfo
@@ -316,13 +332,19 @@ module BinEssence =
     (* 1. Remove previous block from bbls *)
     let struct (prevBBL, bbls) = removeBBLInfo leader ess.BBLStore
     (* 2. Split IR-level leaders into two: fsts (first leaders) and snds. *)
-    let fsts, snds = Set.partition (fun pp -> pp < splitPoint) prevBBL.Leaders
-    let snds = Set.add splitPoint snds
+    let fstAddrs, sndAddrs =
+      Set.partition (fun addr -> addr < leader) prevBBL.InstrLeaders
+    let fstPps, sndPps =
+      Set.partition (fun pp -> pp < splitPoint) prevBBL.IRLeaders
+    let sndPps = Set.add splitPoint sndPps
     (* 3. Update IR-level Graph *)
     let struct (fstLeader, bbls, g) =
-      updateIRCFG bbls ess.SCFG prevBBL splitPoint (Set.maxElement fsts)
+      updateIRCFG bbls ess.SCFG prevBBL splitPoint (Set.maxElement fstPps)
     (* 4. Split bblInfo *)
-    let bbls = splitBBLInfo prevBBL fsts snds splitPoint.Address bbls
+    let fstLeaders = (fstAddrs, fstPps)
+    let sndLeaders = (sndAddrs, sndPps)
+    let bbls =
+      splitBBLInfo prevBBL fstLeaders sndLeaders splitPoint.Address bbls
     (* 5. Update calleeMap *)
     let calleeMap = updateCalleeMap ess bbls splitPoint fstLeader
     let ess = { ess with BBLStore = bbls; SCFG = g; CalleeMap = calleeMap }
@@ -383,12 +405,16 @@ module BinEssence =
     else gatherBB instrMap boundary leaders acc ppoint (nextIdx + 1)
 
   let private createNode instrMap boundary leaders bbls idx leader =
-    let instrs = gatherBB instrMap boundary leaders [] leader (idx + 1)
-    IRBasicBlock (instrs, leader) :: bbls
+    match bbls with
+    | Ok bbls ->
+      let instrs = gatherBB instrMap boundary leaders [] leader (idx + 1)
+      if Array.isEmpty instrs then Error ()
+      else Ok (IRBasicBlock (instrs, leader) :: bbls)
+    | _ -> Error ()
 
   let private buildVertices instrMap bblInfo =
-    let pps = Set.toArray bblInfo.Leaders
-    Array.foldi (createNode instrMap bblInfo.Boundary pps) [] pps
+    let pps = Set.toArray bblInfo.IRLeaders
+    Array.foldi (createNode instrMap bblInfo.Boundary pps) (Ok []) pps
     |> fst
 
   let getIntraEdge src symbol edgeProp edges =
@@ -547,22 +573,25 @@ module BinEssence =
     let boundary = AddrRange (leader, lastAddr + uint64 last.Length)
     let leader = ProgramPoint (leader, 0)
     let pps = extractLeaders ess boundary leader addrs
-    let bblInfo = { Boundary = boundary; Leaders = pps }
+    let bblInfo =
+      { Boundary = boundary; InstrLeaders = Set.ofList addrs; IRLeaders = pps }
     let bbls = addBBLInfo bblInfo ess.BBLStore
-    let vertices = buildVertices ess.InstrMap bblInfo
-    let vertexMap, g =
-      vertices
-      |> List.fold (fun (vertexMap, g) bbl ->
-        let v, g = DiGraph.addVertex g bbl
-        Map.add bbl.PPoint v vertexMap, g) (bbls.VertexMap, ess.SCFG)
-    let bbls = { bbls with VertexMap = vertexMap }
-    let ess = { ess with BBLStore = bbls; SCFG = g }
-    match edgeInfo with
-    | Some (src, e) ->
-      connectEdges ess elms vertices [(src, leader, e)] foundIndJmp
-    | None ->
-      let ess, edges = getEdges ess [] (Map.find leader ess.BBLStore.VertexMap)
-      connectEdges ess elms vertices edges foundIndJmp
+    match buildVertices ess.InstrMap bblInfo with
+    | Ok vertices ->
+      let vertexMap, g =
+        vertices
+        |> List.fold (fun (vertexMap, g) bbl ->
+          let v, g = DiGraph.addVertex g bbl
+          Map.add bbl.PPoint v vertexMap, g) (bbls.VertexMap, ess.SCFG)
+      let bbls = { bbls with VertexMap = vertexMap }
+      let ess = { ess with BBLStore = bbls; SCFG = g }
+      match edgeInfo with
+      | Some (src, e) ->
+        connectEdges ess elms vertices [(src, leader, e)] foundIndJmp
+      | None ->
+        let ess, edges = getEdges ess [] (Map.find leader ess.BBLStore.VertexMap)
+        connectEdges ess elms vertices edges foundIndJmp
+    | Error _ -> Error ()
 
   let internal parseNewBBL ess foundIndJmp elms ctxt addr edgeInfo =
     match InstrMap.parse ess.BinHandler ctxt ess.InstrMap ess.BBLStore addr with
@@ -581,11 +610,10 @@ module BinEssence =
   let internal updateCFGWithVertex ess foundIndJmp elms addr ctxt =
     if bblExists ess.BBLStore addr then Ok <| struct (ess, foundIndJmp, elms)
     elif not <| isExecutableLeader ess.BinHandler addr then Error ()
-    elif isIntruding ess.BBLStore addr then
-      if isKnownInstruction ess.InstrMap addr then (* Need to split *)
-        let ess, elms = splitBlock ess addr elms
-        Ok <| struct (ess, foundIndJmp, elms)
-      else Error ()
+    elif needSplitting ess.BBLStore addr then
+      let ess, elms = splitBlock ess addr elms
+      Ok <| struct (ess, foundIndJmp, elms)
+    elif isIntruding ess.BBLStore addr then Error ()
     elif isKnownInstruction ess.InstrMap addr then
       let struct (block, lastAddr) = getBlockAddressesWithInstrMap ess [] addr
       buildBlock ess addr block lastAddr foundIndJmp elms None
@@ -606,15 +634,14 @@ module BinEssence =
       let ess, elms = addEdgeLoop ess elms [(src, ProgramPoint (dst, 0), edge)]
       Ok <| struct (ess, foundIndJmp, elms)
     elif not <| isExecutableLeader ess.BinHandler dst then Error ()
-    elif isIntruding ess.BBLStore dst then
-      if isKnownInstruction ess.InstrMap dst then (* Need to split *)
-        let ess, elms = splitBlock ess dst elms
-        let src = Map.find src ess.BBLStore.VertexMap
-        let dst = Map.find (ProgramPoint (dst, 0)) ess.BBLStore.VertexMap
-        let g = DiGraph.addEdge ess.SCFG src dst edge
-        let ess = { ess with SCFG = g }
-        Ok <| struct (ess, foundIndJmp, elms)
-      else Error ()
+    elif needSplitting ess.BBLStore dst then
+      let ess, elms = splitBlock ess dst elms
+      let src = Map.find src ess.BBLStore.VertexMap
+      let dst = Map.find (ProgramPoint (dst, 0)) ess.BBLStore.VertexMap
+      let g = DiGraph.addEdge ess.SCFG src dst edge
+      let ess = { ess with SCFG = g }
+      Ok <| struct (ess, foundIndJmp, elms)
+    elif isIntruding ess.BBLStore dst then Error ()
     elif isKnownInstruction ess.InstrMap dst then
       let struct (block, lastAddr) = getBlockAddressesWithInstrMap ess [] dst
       buildBlock ess dst block lastAddr foundIndJmp elms (Some (src, edge))
@@ -639,41 +666,40 @@ module BinEssence =
       if success then Ok (ess, foundIndJmp)
       else Error (ess, foundIndJmp)
 
-  let private removeNoReturnFallThroughEdges ess =
-    let bbls = ess.BBLStore
-    ess.NoReturnInfo.NoReturnCallSites
-    |> Set.fold (fun g ppoint ->
-      match Map.tryFind ppoint bbls.VertexMap with
-      | None -> g
-      | Some v ->
-        DiGraph.getSuccs g v
-        |> List.fold (fun acc s ->
-          if DiGraph.findEdgeData g v s = FallThroughEdge then (v, s) :: acc
-          elif DiGraph.findEdgeData g v s = CallFallThroughEdge then
-            (v, s) :: acc
-          else acc) []
-        |> List.fold (fun g (src, dst) ->
-          DiGraph.removeEdge g src dst) g) ess.SCFG
+  let private classifyNoReturnEdges noRetCallSites =
+    noRetCallSites
+    |> Set.fold (fun acc (ppoint, entry) ->
+      if Map.containsKey entry acc then
+        let callSites = Map.find entry acc
+        Map.add entry (Set.add ppoint callSites) acc
+      else Map.add entry (Set.singleton ppoint) acc) Map.empty
 
-  let private getUnreachables bbls (calleeMap: CalleeMap) g =
+  let private removeNoReturnEdgesAndUnreachables ess entry callSites =
+    let cfg, root = (ess: BinEssence).GetFunctionCFG (entry, false)
+    let bbls = ess.BBLStore
+    let cfg =
+      callSites
+      |> Set.fold (fun g ppoint ->
+        match Map.tryFind ppoint bbls.VertexMap with
+        | None -> g
+        | Some v ->
+          DiGraph.getSuccs g v
+          |> List.fold (fun acc s ->
+            match DiGraph.findEdgeData g v s with
+            | FallThroughEdge
+            | CallFallThroughEdge -> (v, s) :: acc
+            | _ -> acc) []
+          |> List.fold (fun g (src, dst) ->
+            DiGraph.removeEdge g src dst) g) cfg
     let reachables =
-      calleeMap.Entries
-      |> Set.fold (fun acc entry ->
-        let ppoint = ProgramPoint (entry, 0)
-        let v = Map.find ppoint bbls.VertexMap
-        let acc = Set.add ppoint acc
-        Traversal.foldPostorder g v (fun acc v ->
-          Set.add v.VData.PPoint acc) acc) Set.empty
+      Traversal.foldPostorder cfg root (fun acc v ->
+        if v.VData.IsFakeBlock () then acc
+        else Set.add v.VData.PPoint acc) Set.empty
     let ppoints =
-      bbls.VertexMap
-      |> Map.fold (fun acc ppoint _ -> Set.add ppoint acc) Set.empty
-    Set.difference ppoints reachables
-
-  let private removeNoReturnFallThroughs ess =
-    let bbls = ess.BBLStore
-    let g = removeNoReturnFallThroughEdges ess
-    let unreachables = getUnreachables bbls ess.CalleeMap g
-    (* Update calleeMap here *)
+      DiGraph.foldVertex cfg (fun acc v ->
+        if v.VData.IsFakeBlock () then acc
+        else Set.add v.VData.PPoint acc) Set.empty
+    let unreachables = Set.difference ppoints reachables
     let calleeMap, g =
       unreachables
       |> Set.fold (fun (calleeMap: CalleeMap, g) ppoint ->
@@ -688,7 +714,7 @@ module BinEssence =
             calleeMap
           | _ -> calleeMap
         let g = DiGraph.removeVertex g v
-        calleeMap, g) (ess.CalleeMap, g)
+        calleeMap, g) (ess.CalleeMap, ess.SCFG)
     let bbls =
       unreachables
       |> Set.fold (fun bbls ppoint ->
@@ -707,6 +733,10 @@ module BinEssence =
           { bbls with
               VertexMap = Map.remove ppoint bbls.VertexMap }) bbls
     { ess with BBLStore = bbls; CalleeMap = calleeMap; SCFG = g }
+
+  let private removeNoReturnFallThroughs ess =
+    classifyNoReturnEdges ess.NoReturnInfo.NoReturnCallSites
+    |> Map.fold removeNoReturnEdgesAndUnreachables ess
 
   [<CompiledName("AddEntry")>]
   let addEntry ess (addr, ctxt) =
@@ -728,6 +758,9 @@ module BinEssence =
 
   [<CompiledName("AddEdge")>]
   let addEdge ess src dst edgeKind =
+    let funcV = (ess: BinEssence).FindFunctionVertex src |> Option.get
+    let callee = ess.CalleeMap.Get funcV.VData.PPoint.Address
+    callee.NeedNoReturn <- true
     let edgeInfo = [ CFGEdge (ProgramPoint (src, 0), edgeKind, dst) ]
     match updateCFG ess true false edgeInfo with
     | Ok (ess, hasNewIndBranch) -> Ok (ess, hasNewIndBranch)
@@ -735,9 +768,6 @@ module BinEssence =
 
   [<CompiledName("AddNoReturnInfo")>]
   let addNoReturnInfo ess noRetFuncs noRetCallSites =
-    let noRetInfo = ess.NoReturnInfo
-    let noRetFuncs = Set.union noRetFuncs noRetInfo.NoReturnFuncs
-    let noRetCallSites = Set.union noRetCallSites noRetInfo.NoReturnCallSites
     let noRetInfo = NoReturnInfo.Init noRetFuncs noRetCallSites
     removeNoReturnFallThroughs { ess with NoReturnInfo = noRetInfo }
 

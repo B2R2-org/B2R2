@@ -115,7 +115,14 @@ module InstrMap =
     match parseBBL hdl ctxt bblStore.BBLMap [] leaderAddr with
     | Ok ([], _) -> failwith "Fatal error: an empty block encountered."
     | Ok (instrs, lastAddr) ->
-      List.iter (updateInstrMap hdl instrMap) instrs
-      let addrs = List.map (fun (instr: Instruction) -> instr.Address) instrs
-      Ok <| struct (instrMap, addrs, lastAddr)
+      try
+        List.iter (updateInstrMap hdl instrMap) instrs
+        let addrs = List.map (fun (instr: Instruction) -> instr.Address) instrs
+        Ok <| struct (instrMap, addrs, lastAddr)
+      with
+        | _ ->
+#if DEBUG
+          printfn "Not Implemented IR starting from %x" leaderAddr
+#endif
+          Error ()
     | Error _ -> Error ()

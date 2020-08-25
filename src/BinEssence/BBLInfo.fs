@@ -31,8 +31,9 @@ open B2R2.BinGraph
 type BBLInfo = {
   /// Instruction-level basic block boundary
   Boundary: AddrRange
+  InstrLeaders: Set<Addr>
   /// IR-level leaders (program points) within the bbl.
-  Leaders: Set<ProgramPoint>
+  IRLeaders: Set<ProgramPoint>
 }
 
 /// Collection of basic-block information.

@@ -215,36 +215,30 @@ module private NoReturnHelper =
       cfg.FoldVertex (fun acc (v: Vertex<IRBasicBlock>) ->
         if List.length <| DiGraph.getSuccs cfg v > 0 then acc
         elif v.VData.IsFakeBlock () then
-          let target = v.VData.PPoint.Address
-          let targetV = ess.CalleeMap.Find target |> Option.get
-          if Set.contains target noretAddrs then acc
-          elif isKnownNoReturnFunction targetV.CalleeName then acc
-          elif targetV.CalleeName = "error" then acc
-          else false
+          if ProgramPoint.IsFake v.VData.PPoint then false
+          else
+            let target = v.VData.PPoint.Address
+            let targetV = ess.CalleeMap.Find target |> Option.get
+            if Set.contains target noretAddrs then acc
+            elif isKnownNoReturnFunction targetV.CalleeName then acc
+            elif targetV.CalleeName = "error" then acc
+            else false
         elif v.VData.LastInstruction.IsInterrupt () then acc
         else false) true
 
-  let rec findLoop ess cg visited noretVertices = function
-    | [] ->
-      let fresh =
-        DiGraph.foldVertex cg (fun acc v ->
-          if Set.contains v visited then acc else v :: acc) []
-      if List.isEmpty fresh then noretVertices
-      else findLoop ess cg visited noretVertices fresh
+  let rec findLoop ess cg noretVertices = function
+    | [] -> noretVertices
     | v :: vs ->
       let noretAddrs =
         noretVertices
         |> Set.map (fun (v: Vertex<CallGraphBBlock>) -> v.VData.PPoint.Address)
       if isAlreadyVisited noretAddrs v then
-        let visited = Set.add v visited
-        findLoop ess cg visited noretVertices vs
+        findLoop ess cg noretVertices vs
       elif isNoReturn ess noretAddrs v then
-        let visited = Set.add v visited
         DiGraph.getPreds cg v @ vs
-        |> findLoop ess cg visited (Set.add v noretVertices)
+        |> findLoop ess cg (Set.add v noretVertices)
       else
-        let visited = Set.add v visited
-        findLoop ess cg visited noretVertices vs
+        findLoop ess cg noretVertices vs
 
   let getNoReturnFunctions ess noretVertices =
     let noretFuncs = ess.NoReturnInfo.NoReturnFuncs
@@ -262,7 +256,7 @@ module private NoReturnHelper =
       let cfg, root = ess.GetFunctionCFG (addr, false)
       collectNoRetFallThroughEdges ess cfg root noretFuncs
       |> List.filter (fun (src, dst) -> cfg.FindEdgeData src dst <> RetEdge)
-      |> List.map (fun (src, _) -> src.VData.PPoint)
+      |> List.map (fun (src, _) -> src.VData.PPoint, addr)
       |> Set.ofList
       |> Set.union acc) callsites
 
@@ -271,9 +265,13 @@ module private NoReturnHelper =
     let cg, _ = lens.Filter (ess.SCFG, [], ess)
     let noretFuncs =
       DiGraph.foldVertex cg (fun acc v ->
-        if List.length <| DiGraph.getSuccs cg v = 0 then v :: acc else acc) []
-      |> findLoop ess cg Set.empty Set.empty
+        let callee = ess.CalleeMap.Get v.VData.PPoint.Address
+        if callee.NeedNoReturn then v :: acc else acc) []
+      |> findLoop ess cg Set.empty
       |> getNoReturnFunctions ess
+    DiGraph.iterVertex cg (fun v ->
+      let callee = ess.CalleeMap.Get v.VData.PPoint.Address
+      callee.NeedNoReturn <- false)
     let noretCallsites = getNoReturnCallSites ess noretFuncs
     BinEssence.addNoReturnInfo ess noretFuncs noretCallsites
 

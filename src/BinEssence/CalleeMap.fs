@@ -47,6 +47,7 @@ type Callee = {
   Callers: Set<Addr>
   /// Is this callee a no-return function such as "exit"?
   mutable IsNoReturn: bool
+  mutable NeedNoReturn: bool
 }
 with
   static member private obtainFuncIDAndName (hdl: BinHandler) (addr: Addr) =
@@ -62,7 +63,8 @@ with
       Addr = Some addr
       CalleeKind = calleeKind
       Callers = Set.empty
-      IsNoReturn = false }
+      IsNoReturn = false
+      NeedNoReturn = true }
 
   static member AddCaller callerAddr callee =
     { callee with Callers = Set.add callerAddr callee.Callers }
@@ -92,6 +94,7 @@ type CalleeMap (hdl, ?linkMap, ?strCalleeMap, ?addrCalleeMap, ?callerMap) =
   member __.Find (name) =
     Map.tryFind name strCalleeMap
     |> Option.bind (fun addr -> Map.tryFind addr addrCalleeMap)
+  member __.Get (addr) = Map.find addr addrCalleeMap
 
   member __.InternalCallees with get () =
     addrCalleeMap |> Map.toSeq |> Seq.map snd

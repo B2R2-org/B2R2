@@ -53,7 +53,7 @@ type NoReturnInfo = {
   /// No-return function addresses.
   NoReturnFuncs: Set<Addr>
   /// Program points of no-return call sites.
-  NoReturnCallSites: Set<ProgramPoint>
+  NoReturnCallSites: Set<ProgramPoint * Addr>
 }
 with
   static member Init noRetFuncs noRetCallSites =
