@@ -42,22 +42,25 @@ module SSABlockHelper =
     v.VData.GetIRStatements ()
     |> Array.fold (fun acc stmts -> Array.fold updateDefinedVar acc stmts) acc
 
-  let private getStackPtrDef (hdl: BinHandler) wordSize =
+  let private buildRegVar hdl reg =
+    let wordSize = hdl.ISA.WordSize |> WordSize.toRegType
+    SSA.RegVar (wordSize, reg, hdl.RegisterBay.RegIDToString reg)
+
+  let private addReturnValDef hdl defs =
+    let reg = CallingConvention.returnRegister hdl |> buildRegVar hdl
+    let def = { SSA.Kind = reg; SSA.Identifier = -1 }
+    Set.add def defs
+
+  let private addStackDef hdl defs =
     match hdl.RegisterBay.StackPointer with
     | Some sp ->
-      SSA.RegVar (wordSize, sp, hdl.RegisterBay.RegIDToString sp) |> Some
-    | None -> None
+      let def = { SSA.Kind = buildRegVar hdl sp; SSA.Identifier = -1 }
+      Set.add def defs
+    | None -> defs
 
-  let private getReturnValDef (hdl: BinHandler) wordSize =
-    let r = CallingConvention.returnRegister hdl
-    SSA.RegVar (wordSize, r, hdl.RegisterBay.RegIDToString r) |> Some
-
-  let private addDefaultDefs hdl =
-    let wordSize = hdl.ISA.WordSize |> WordSize.toRegType
-    [ getStackPtrDef hdl wordSize; getReturnValDef hdl wordSize ]
-    |> List.choose id
-    |> List.map (fun kind -> { SSA.Kind = kind; SSA.Identifier = -1 })
-    |> Set.ofList
+  let private addMemDef defs =
+    let def = { SSA.Kind = SSA.MemVar; SSA.Identifier = - 1 }
+    Set.add def defs
 
   let private isGetPCThunkCode = function
     | 0xc324048bUL | 0xc3241c8bUL | 0xc3240c8bUL | 0xc324148bUL
@@ -79,21 +82,17 @@ module SSABlockHelper =
   /// This is currently intra-procedural.
   let computeDefinedVars (ess: BinEssence) addr =
     let hdl = ess.BinHandler
+    let defs = addStackDef hdl Set.empty
     try
       let g, _ = ess.GetFunctionCFG (addr, false)
-      let defs = DiGraph.foldVertex g defVarFolder Set.empty
-      let defs = if Set.isEmpty defs then addDefaultDefs hdl else defs
-      let defs =
+      if hdl.FileInfo.IsLinkageTable addr then
+        defs |> addReturnValDef hdl |> addMemDef |> Set.toArray
+      else
+        let defs = DiGraph.foldVertex g defVarFolder defs
         if isGetPCThunk hdl addr then defs
-        else
-          let wordSize = hdl.ISA.WordSize |> WordSize.toRegType
-          let r = CallingConvention.returnRegister hdl
-          let retReg = SSA.RegVar (wordSize, r, hdl.RegisterBay.RegIDToString r)
-          if not <| hdl.FileInfo.IsLinkageTable addr then defs
-          else Set.add { SSA.Kind = SSA.MemVar; SSA.Identifier = -1 } defs
-          |> Set.add { SSA.Kind = retReg; SSA.Identifier = -1 }
-      Set.toArray defs
-    with _ -> addDefaultDefs hdl |> Set.toArray
+        else defs |> addReturnValDef hdl
+        |> Set.toArray
+    with _ -> defs |> addReturnValDef hdl |> Set.toArray
 
   let computeNextPPoint (ppoint: ProgramPoint) = function
     | SSA.Def (v, SSA.Num bv) ->
@@ -111,7 +110,7 @@ type SSABBlock private (ess, pp, instrs, retPoint, hasIndirectBranch) =
   let mutable stmts: SSAStmtInfo [] =
     match retPoint with
     | Some (ret: ProgramPoint) ->
-      let stmts = (* For a fake block, we check which things can be modified. *)
+      let stmts = (* For a fake block, we check which can be modified. *)
         SSABlockHelper.computeDefinedVars ess (pp: ProgramPoint).Address
         |> Array.map (fun dst ->
           let src = { SSA.Kind = dst.Kind; SSA.Identifier = -1 }
