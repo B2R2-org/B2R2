@@ -508,6 +508,8 @@ let opCodeToString = function
   | Opcode.RORX -> "rorx"
   | Opcode.ROUNDSD -> "roundsd"
   | Opcode.RSM -> "rsm"
+  | Opcode.RSQRTPS -> "rsqrtps"
+  | Opcode.RSQRTSS -> "rsqrtss"
   | Opcode.RSTORSSP -> "rstorssp"
   | Opcode.SAHF -> "sahf"
   | Opcode.SAR -> "sar"

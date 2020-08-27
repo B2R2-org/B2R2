@@ -77,6 +77,8 @@ let private dsNor0F50     = [| GyUdq; GyUdq; emptyArr; emptyArr |]
 let private dsVex0F50     = [| GyUps; GyUpd; emptyArr; emptyArr |]
 let private dsNor0F51     = [| VdqWdq; VdqWdq; VdqWdqd; VdqWdqq |]
 let private dsVex0F51     = [| VpsWps; VpdWpd; VssHssWss; VsdHsdWsd |]
+let private dsNor0F52     = [| VdqWdq; emptyArr; VdqWdqd; emptyArr |]
+let private dsVex0F52     = [| emptyArr; emptyArr; emptyArr; emptyArr |]
 let private dsNor0F54     = [| VdqWdq; VdqWdq; emptyArr; emptyArr |]
 let private dsVex0F54     = [| VpsHpsWps; VpdHpdWpd; emptyArr; emptyArr |]
 let private dsNor0F55     = [| VdqWdq; VdqWdq; emptyArr; emptyArr |]
@@ -1643,6 +1645,7 @@ let private pTwoByteOp t reader pos byte =
   | 0x4Fuy -> parseOp t Opcode.CMOVG SzDef32 GvEv, pos
   | 0x50uy -> parseVEX t SzDef32 opNor0F50 opVex0F50 dsNor0F50 dsVex0F50, pos
   | 0x51uy -> parseVEX t SzDef32 opNor0F51 opVex0F51 dsNor0F51 dsVex0F51, pos
+  | 0x52uy -> parseVEX t SzDef32 opNor0F52 opVex0F52 dsNor0F52 dsVex0F52, pos
   | 0x54uy -> parseVEX t SzDef32 opNor0F54 opVex0F54 dsNor0F54 dsVex0F54, pos
   | 0x55uy -> parseVEX t SzDef32 opNor0F55 opVex0F55 dsNor0F55 dsVex0F55, pos
   | 0x56uy -> parseVEX t SzDef32 opNor0F56 opVex0F56 dsNor0F56 dsVex0F56, pos
