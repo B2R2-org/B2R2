@@ -42,7 +42,9 @@ module private NoReturnHelper =
     | "_abort"
     | "exit"
     | "_exit"
-    | "__longjmp_chk" -> true
+    | "__longjmp_chk"
+    | "__cxa_throw"
+    | "_gfortran_stop_numeric" -> true
     | _ -> false
 
   let hasError ess (v: Vertex<IRBasicBlock>) =
