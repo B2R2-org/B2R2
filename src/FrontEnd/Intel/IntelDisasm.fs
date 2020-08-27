@@ -489,6 +489,8 @@ let opCodeToString = function
   | Opcode.PUSHFQ -> "pushfq"
   | Opcode.PXOR -> "pxor"
   | Opcode.RCL -> "rcl"
+  | Opcode.RCPPS -> "rcpps"
+  | Opcode.RCPSS -> "rcpss"
   | Opcode.RCR -> "rcr"
   | Opcode.RDFSBASE -> "rdfsbase"
   | Opcode.RDGSBASE -> "rdgsbase"
