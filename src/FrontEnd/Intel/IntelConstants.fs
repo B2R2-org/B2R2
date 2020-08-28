@@ -576,6 +576,14 @@ let opNor0F51 = [| Opcode.SQRTPS; Opcode.SQRTPD;
                    Opcode.SQRTSS; Opcode.SQRTSD |]
 let opVex0F51 = [| Opcode.VSQRTPS; Opcode.VSQRTPD;
                    Opcode.VSQRTSS; Opcode.VSQRTSD |]
+let opNor0F52 = [| Opcode.RSQRTPS; Opcode.InvalOP;
+                   Opcode.RSQRTSS; Opcode.InvalOP |]
+let opVex0F52 = [| Opcode.InvalOP; Opcode.InvalOP;
+                   Opcode.InvalOP; Opcode.InvalOP |]
+let opNor0F53 = [| Opcode.RCPPS; Opcode.InvalOP;
+                   Opcode.RCPSS; Opcode.InvalOP |]
+let opVex0F53 = [| Opcode.InvalOP; Opcode.InvalOP;
+                   Opcode.InvalOP; Opcode.InvalOP |]
 let opNor0F54 = [| Opcode.ANDPS; Opcode.ANDPD;
                    Opcode.InvalOP; Opcode.InvalOP |]
 let opVex0F54 = [| Opcode.VANDPS; Opcode.VANDPD;

@@ -5436,6 +5436,35 @@ let ror ins insAddr insLen ctxt =
     extractHigh 1<rt> dst <+> extract dst 1<rt> 1
   rotate ins insAddr insLen ctxt (>>) (<<) extractHigh ofFn
 
+let rcpps ins insAddr insLen ctxt =
+  let builder = new StmtBuilder(8)
+  let opr1, opr2 = getTwoOprs ins
+  let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt opr1
+  let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt opr2
+  let dst1b, dst1a = extractHigh 32<rt> dst1, extractLow 32<rt> dst1
+  let dst2b, dst2a = extractHigh 32<rt> dst2, extractLow 32<rt> dst2
+  let src1b, src1a = extractHigh 32<rt> src1, extractLow 32<rt> src1
+  let src2b, src2a = extractHigh 32<rt> src2, extractLow 32<rt> src2
+  let tmp = tmpVar 32<rt>
+  let flt1 = BitVector.ofInt32 0x3f800000 32<rt> |> Num
+  startMark insAddr insLen builder
+  builder <! (dst1a := fdiv flt1 src1a)
+  builder <! (dst1b := fdiv flt1 src1b)
+  builder <! (dst2a := fdiv flt1 src2a)
+  builder <! (dst2b := fdiv flt1 src2b)
+  endMark insAddr insLen builder
+
+let rcpss ins insAddr insLen ctxt =
+  let builder = new StmtBuilder(4)
+  let opr1, opr2 = getTwoOprs ins
+  let dst = transOprToExpr32 ins insAddr insLen ctxt opr1
+  let src = transOprToExpr32 ins insAddr insLen ctxt opr2
+  let tmp = tmpVar 32<rt>
+  let flt1 = BitVector.ofInt32 0x3f800000 32<rt> |> Num
+  startMark insAddr insLen builder
+  builder <! (dst := fdiv flt1 src)
+  endMark insAddr insLen builder
+
 let roundsd ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
   let dst, src, imm = getThreeOprs ins
@@ -5452,6 +5481,40 @@ let roundsd ins insAddr insLen ctxt =
   builder <! (dst := ite (tmp == num1 2<rt>) (cster CastKind.FtoIFloor) dst)
   builder <! (dst := ite (tmp == numI32 2 2<rt>) (cster CastKind.FtoICeil) dst)
   builder <! (dst := ite (tmp == numI32 3 2<rt>) (cster CastKind.FtoITrunc) dst)
+  endMark insAddr insLen builder
+
+let rsqrtps ins insAddr insLen ctxt =
+  let builder = new StmtBuilder(16)
+  let opr1, opr2 = getTwoOprs ins
+  let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt opr1
+  let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt opr2
+  let dst1b, dst1a = extractHigh 32<rt> dst1, extractLow 32<rt> dst1
+  let dst2b, dst2a = extractHigh 32<rt> dst2, extractLow 32<rt> dst2
+  let src1b, src1a = extractHigh 32<rt> src1, extractLow 32<rt> src1
+  let src2b, src2a = extractHigh 32<rt> src2, extractLow 32<rt> src2
+  let tmp = tmpVar 32<rt>
+  let flt1 = BitVector.ofInt32 0x3f800000 32<rt> |> Num
+  startMark insAddr insLen builder
+  builder <! (tmp := unop UnOpType.FSQRT src1a)
+  builder <! (dst1a := fdiv flt1 tmp)
+  builder <! (tmp := unop UnOpType.FSQRT src1b)
+  builder <! (dst1b := fdiv flt1 tmp)
+  builder <! (tmp := unop UnOpType.FSQRT src2a)
+  builder <! (dst2a := fdiv flt1 tmp)
+  builder <! (tmp := unop UnOpType.FSQRT src2b)
+  builder <! (dst2b := fdiv flt1 tmp)
+  endMark insAddr insLen builder
+
+let rsqrtss ins insAddr insLen ctxt =
+  let builder = new StmtBuilder(4)
+  let opr1, opr2 = getTwoOprs ins
+  let dst = transOprToExpr32 ins insAddr insLen ctxt opr1
+  let src = transOprToExpr32 ins insAddr insLen ctxt opr2
+  let tmp = tmpVar 32<rt>
+  let flt1 = BitVector.ofInt32 0x3f800000 32<rt> |> Num
+  startMark insAddr insLen builder
+  builder <! (tmp := unop UnOpType.FSQRT src)
+  builder <! (dst := fdiv flt1 tmp)
   endMark insAddr insLen builder
 
 let sahf ins insAddr insLen ctxt =
@@ -7749,7 +7812,11 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.MINPS -> minps ins insAddr insLen ctxt
   | Opcode.MINSD -> minsd ins insAddr insLen ctxt
   | Opcode.MINSS -> minss ins insAddr insLen ctxt
+  | Opcode.RCPSS -> rcpss ins insAddr insLen ctxt
+  | Opcode.RCPPS -> rcpps ins insAddr insLen ctxt
   | Opcode.ROUNDSD -> roundsd ins insAddr insLen ctxt
+  | Opcode.RSQRTSS -> rsqrtss ins insAddr insLen ctxt
+  | Opcode.RSQRTPS -> rsqrtps ins insAddr insLen ctxt
   | Opcode.SHUFPD -> shufpd ins insAddr insLen ctxt
   | Opcode.SHUFPS -> shufps ins insAddr insLen ctxt
   | Opcode.UCOMISD | Opcode.VUCOMISD -> ucomisd ins insAddr insLen ctxt
