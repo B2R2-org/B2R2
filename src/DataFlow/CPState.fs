@@ -42,7 +42,7 @@ type CPState = {
   /// SSA var values.
   RegState : Dictionary<Variable, CPValue>
   /// SSA mem values. Only store values of constant addresses.
-  MemState : Dictionary<SSAMemID, Map<Addr, CPValue * SSAMemID>>
+  MemState : Dictionary<SSAMemID, Map<Addr, CPValue> * Set<Addr>>
   /// Executable edges from vid to vid. If there's no element for an edge, that
   /// means the edge is not executable.
   ExecutableEdges: HashSet<VertexID * VertexID>
@@ -52,9 +52,10 @@ type CPState = {
   DefaultWordSize : RegType
   /// Worklist for blocks.
   FlowWorkList: Queue<VertexID * VertexID>
-  /// Worklist for SSA stmt, this queue stores a list of def variables, and we
+  /// Worklist for SSA stmt, this stack stores a list of def variables, and we
   /// will use SSAEdges to find all related SSA statements.
-  SSAWorkList: Queue<Variable>
+  SSAWorkList: Stack<Variable>
+  UndefinedMemories: HashSet<Addr>
 }
 
 module CPState =
@@ -69,7 +70,7 @@ module CPState =
     | None -> dict
 
   let private initMemory (dict: Dictionary<_, _>) =
-    dict.[0] <- Map.empty
+    dict.[0] <- (Map.empty, Set.empty)
     dict
 
   let initState hdl ssaCfg =
@@ -81,7 +82,8 @@ module CPState =
       ExecutedEdges = HashSet ()
       DefaultWordSize = hdl.ISA.WordSize |> WordSize.toRegType
       FlowWorkList = Queue ()
-      SSAWorkList = Queue () }
+      SSAWorkList = Stack ()
+      UndefinedMemories = HashSet () }
 
   let markExecutable st src dst =
     if st.ExecutableEdges.Add (src, dst) then st.FlowWorkList.Enqueue (src, dst)
@@ -106,51 +108,95 @@ module CPState =
     let mid = m.Identifier
     let align = RegType.toByteWidth rt |> uint64
     if st.MemState.ContainsKey mid then ()
-    else st.MemState.[mid] <- Map.empty
+    else st.MemState.[mid] <- (Map.empty, Set.empty)
     if (rt = st.DefaultWordSize) && (addr % align = 0UL) then
-      match Map.tryFind addr st.MemState.[mid] with
-      | Some (c, _) -> c
-      | None -> NotAConst
+      match Map.tryFind addr <| fst st.MemState.[mid] with
+      | Some c -> c
+      | None ->
+        let mem, updated = st.MemState.[mid]
+        let mem = Map.add addr NotAConst mem
+        st.MemState.[mid] <- (mem, updated)
+        st.UndefinedMemories.Add addr |> ignore
+        NotAConst
     else NotAConst
 
   let copyMem st dstid srcid =
-    if st.MemState.ContainsKey srcid then ()
-    else st.MemState.[srcid] <- Map.empty
     st.MemState.[dstid] <- st.MemState.[srcid]
 
-  let storeMem st mDst rt addr c =
+  let storeToFreshMem st mDst rt addr c =
     let align = RegType.toByteWidth rt |> uint64
+    let dstid = mDst.Identifier
+    let mem, updated = st.MemState.[dstid]
     if (rt = st.DefaultWordSize) && (addr % align = 0UL) then
-      let dstid = mDst.Identifier
-      match Map.tryFind addr st.MemState.[dstid] with
-      | Some (_, origin) when origin <> dstid ->
-        st.MemState.[dstid] <- Map.add addr (c, dstid) st.MemState.[dstid]
-        st.SSAWorkList.Enqueue mDst
-      | Some (old, _) when CPValue.goingUp old c || old = c -> ()
-      | _ ->
-        st.MemState.[dstid] <- Map.add addr (c, dstid) st.MemState.[dstid]
-        st.SSAWorkList.Enqueue mDst
-    else ()
+      let mem = Map.add addr c mem
+      st.MemState.[dstid] <- (mem, updated)
+      st.SSAWorkList.Push mDst
+    elif not <| Set.isEmpty updated then st.SSAWorkList.Push mDst
 
-  let private mergeMemAux origin st1 st2 =
-    let addrs = Map.fold (fun acc addr _ -> Set.add addr acc) Set.empty st1
-    let addrs = Map.fold (fun acc addr _ -> Set.add addr acc) addrs st2
+  let storeToDefinedMem oldMem st mDst rt addr c =
+    let align = RegType.toByteWidth rt |> uint64
+    let dstid = mDst.Identifier
+    let mem, updated = st.MemState.[dstid]
+    if (rt = st.DefaultWordSize) && (addr % align = 0UL) then
+      match Map.tryFind addr oldMem with
+      | Some c' when CPValue.goingUp c' c || c' = c ->
+        let mem = Map.add addr c mem
+        let updated = Set.remove addr updated
+        st.MemState.[dstid] <- (mem, updated)
+        if not <| Set.isEmpty updated then st.SSAWorkList.Push mDst
+      | Some c' ->
+        let mem = Map.add addr (CPValue.meet c c') mem
+        let updated = Set.add addr updated
+        st.MemState.[dstid] <- (mem, updated)
+        st.SSAWorkList.Push mDst
+      | _ ->
+        let mem = Map.add addr c mem
+        let updated = Set.add addr updated
+        st.MemState.[dstid] <- (mem, updated)
+        st.SSAWorkList.Push mDst
+    elif not <| Set.isEmpty updated then st.SSAWorkList.Push mDst
+
+  let merge st mem1 mem2 addr =
+    match Map.tryFind addr mem1, Map.tryFind addr mem2 with
+    | Some c, Some c' when c = c' -> Some c
+    | Some c, Some c' -> Some <| CPValue.meet c c'
+    | Some _, None when st.UndefinedMemories.Contains addr -> Some NotAConst
+    | Some c, None -> Some c
+    | None, Some _ when st.UndefinedMemories.Contains addr -> Some NotAConst
+    | None, Some c -> Some c
+    | None, None when st.UndefinedMemories.Contains addr -> Some NotAConst
+    | _ -> None
+
+  let private mergeMemAux st accMem (mem, _) =
+    let addrs = Map.fold (fun acc addr _ -> Set.add addr acc) Set.empty accMem
+    let addrs = Map.fold (fun acc addr _ -> Set.add addr acc) addrs mem
     addrs
-    |> Set.fold (fun acc addr ->
-      match Map.tryFind addr st1, Map.tryFind addr st2 with
-      | Some (c, _), Some (c', _) ->
-        Map.add addr (CPValue.meet c c', origin) acc
-      | _ -> Map.add addr (NotAConst, origin) acc) Map.empty
+    |> Set.fold (fun newMem addr ->
+      match merge st newMem mem addr with
+      | Some c -> Map.add addr c newMem
+      | None -> newMem) accMem
 
   /// Merge memory mapping and return true if changed.
-  let mergeMem st dstid srcids =
+  let mergeMem st oldMem mDst srcids =
+    let dstid = mDst.Identifier
     srcids
-    |> Array.choose (fun mid -> st.MemState.TryGetValue mid |> Utils.tupleToOpt)
+    |> Array.choose (fun mid ->
+      if mid = dstid then oldMem
+      else st.MemState.TryGetValue mid |> Utils.tupleToOpt)
     |> function
-      | [||] -> false
+      | [||] -> ()
       | arr ->
-        let merged = Array.reduce (mergeMemAux dstid) arr
-        if not (st.MemState.ContainsKey dstid)
-          || st.MemState.[dstid] <> merged
-        then st.MemState.[dstid] <- merged; true
-        else false
+        let mem =
+          Array.fold (mergeMemAux st) Map.empty arr
+        let updated, needEnqueue =
+          mem
+          |> Map.fold (fun (newUpdated, needEnqueue) addr c ->
+            match oldMem with
+            | Some (oldMem, _) ->
+              match Map.tryFind addr oldMem with
+              | Some c' when c = c' -> Set.remove addr newUpdated, needEnqueue
+              | Some _ -> Set.add addr newUpdated, true
+              | None -> Set.add addr newUpdated, true
+            | None -> newUpdated, true) (Set.empty, false)
+        st.MemState.[dstid] <- (mem, updated)
+        if needEnqueue then st.SSAWorkList.Push mDst

@@ -44,7 +44,7 @@ type ConstantPropagation (hdl, ssaCFG: DiGraph<SSABBlock, CFGEdgeKind>) =
 
   member private __.ProcessSSA st =
     while st.SSAWorkList.Count > 0 do
-      let def = st.SSAWorkList.Dequeue ()
+      let def = st.SSAWorkList.Pop ()
       match Map.tryFind def st.SSAEdges.Uses with
       | Some uses ->
         uses
@@ -64,7 +64,6 @@ type ConstantPropagation (hdl, ssaCFG: DiGraph<SSABBlock, CFGEdgeKind>) =
       blk.VData.SSAStmtInfos
       |> Array.iter (fun (ppoint, stmt) ->
         CPTransfer.evalStmt ssaCFG st blk ppoint stmt)
-      |> ignore
       match blk.VData.GetLastStmt () with
       | Jmp _ -> ()
       | _ ->

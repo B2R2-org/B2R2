@@ -147,38 +147,77 @@ let rec evalExpr st = function
     evalReturn st addr ret v
   | _ -> Utils.impossible ()
 
+let invalidateValuesWithFreshMemory st mDst =
+  let dstid = mDst.Identifier
+  let mem, updated = st.MemState.[dstid]
+  let mem, needPush =
+    mem
+    |> Map.fold (fun (mem, needPush) addr v ->
+      match v with
+      | Pointer _ | NotAConst -> Map.add addr v mem, needPush
+      | _ -> Map.add addr NotAConst mem, true) (mem, false)
+  st.MemState.[dstid] <- (mem, updated)
+  if needPush then st.SSAWorkList.Push mDst
+
+let invalidateValuesWithDefinedMemory oldMem st mDst =
+  let dstid = mDst.Identifier
+  let mem, updated = st.MemState.[dstid]
+  let mem, updated, needPush =
+    mem
+    |> Map.fold (fun (mem, updated, needPush) addr v ->
+      match v, Map.tryFind addr oldMem with
+      | Pointer p1, Some (Pointer p2) when p1 = p2 ->
+        Map.add addr v mem, updated, needPush
+      | Pointer _, Some (Pointer _) ->
+        Map.add addr v mem, Set.add addr updated, true
+      | Pointer _, None ->
+        Map.add addr v mem, Set.add addr updated, true
+      | NotAConst, Some NotAConst ->
+        Map.add addr v mem, updated, needPush
+      | NotAConst, None ->
+        Map.add addr v mem, Set.add addr updated, true
+      | _, Some NotAConst ->
+        Map.add addr NotAConst mem, updated, needPush
+      | _, _ ->
+        Map.add addr NotAConst mem, Set.add addr updated, true
+      ) (mem, updated, false)
+  st.MemState.[dstid] <- (mem, updated)
+  if needPush then st.SSAWorkList.Push mDst
+
 let evalMemDef st mDst e =
   let dstid = mDst.Identifier
   match e with
   | Store (mSrc, rt, addr, v) ->
     let c = evalExpr st v
     let addr = evalExpr st addr
+    let oldMem = st.MemState.TryGetValue dstid |> Utils.tupleToOpt
     CPState.copyMem st dstid mSrc.Identifier
     match addr with
     | Const addr ->
       let addr = BitVector.toUInt64 addr
-      CPState.storeMem st mDst rt addr c
-    | _ -> ()
+      match oldMem with
+      | Some (oldMem, _) -> CPState.storeToDefinedMem oldMem st mDst rt addr c
+      | None -> CPState.storeToFreshMem st mDst rt addr c
+    | _ ->
+      if st.MemState.[dstid] |> snd |> Set.isEmpty |> not then
+        st.SSAWorkList.Push mDst
   | ReturnVal (_, _, mSrc) ->
+    let oldMem = st.MemState.TryGetValue dstid |> Utils.tupleToOpt
     CPState.copyMem st dstid mSrc.Identifier
-    let dstMem =
-      st.MemState.[dstid]
-      |> Map.map (fun _ v ->
-        match v with
-        | (Pointer _ as c), _ -> c, dstid
-        | _ -> NotAConst, dstid)
-    st.MemState.[dstid] <- dstMem
+    match oldMem with
+    | Some (oldMem, _) -> invalidateValuesWithDefinedMemory oldMem st mDst
+    | None -> invalidateValuesWithFreshMemory st mDst
   | _ ->  Utils.impossible ()
 
 let inline updateConst st r v =
   if not (st.RegState.ContainsKey r) then
     st.RegState.[r] <- v
-    st.SSAWorkList.Enqueue r
+    st.SSAWorkList.Push r
   elif st.RegState.[r] = v then ()
   elif CPValue.goingUp st.RegState.[r] v then ()
   else
     st.RegState.[r] <- CPValue.meet st.RegState.[r] v
-    st.SSAWorkList.Enqueue r
+    st.SSAWorkList.Push r
 
 let loadPointerToReg hdl (blk: Vertex<SSABBlock>) addr =
   let info =
@@ -224,9 +263,9 @@ let evalPhi cfg st blk dst srcIDs =
       |> Array.reduce CPValue.meet
       |> fun merged -> updateConst st dst merged
     | MemVar ->
-      if CPState.mergeMem st dst.Identifier executableSrcIDs then
-        st.SSAWorkList.Enqueue dst
-      else ()
+      let dstid = dst.Identifier
+      let oldMem = st.MemState.TryGetValue dstid |> Utils.tupleToOpt
+      CPState.mergeMem st oldMem dst executableSrcIDs
     | PCVar _ -> ()
 
 let markAllSuccessors cfg st (blk: Vertex<SSABBlock>) =
