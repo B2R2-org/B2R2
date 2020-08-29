@@ -47,7 +47,7 @@ type Memory (reader: Addr -> Addr -> Result<byte, ErrorCase>) =
       | Error e -> Error e
 
   member private __.ReadBE acc pc len addr i =
-    if i >= len - 1UL then Ok acc
+    if i >= len then Ok acc
     else
       match __.Load pc (addr + i) with
       | Ok b -> __.ReadBE (b :: acc) pc len addr (i + 1UL)
