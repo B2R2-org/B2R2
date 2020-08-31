@@ -70,5 +70,6 @@ type CmdBinInfo () =
        sprintf "- Number of Dynamic Symbols: %d" dynamicSymNum
        sprintf "- NX bit: %s" nx
     |]
+    |> Array.map Normal
 
 // vim: set tw=80 sts=2 sw=2:

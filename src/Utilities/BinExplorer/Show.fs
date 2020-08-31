@@ -101,5 +101,6 @@ type CmdShow () =
     match args with
     | [] -> [| __.CmdHelp |]
     | c :: opts -> c.ToLower () |> __.CmdHandle ess opts
+    |> Array.map Normal
 
 // vim: set tw=80 sts=2 sw=2:

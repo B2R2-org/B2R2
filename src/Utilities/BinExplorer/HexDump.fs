@@ -42,35 +42,44 @@ type CmdHexDump () =
     try (addr, binEssence.BinHandler.ReadBytes (addr, count)) |> Ok
     with _ -> Error "[*] Failed to read bytes."
 
-  let addSpace idx =
+  let padSpace (arr: ColoredString []) =
+    let m = arr.Length % 16
+    if m = 0 then arr
+    else (Array.create (16 - m) (ColoredString (NoColor, "  ")))
+         |> Array.append arr
+
+  let addSpace idx cs =
+    let c, s = cs
     match idx with
-    | 0 -> ""
-    | 8 -> "  "
-    | _ -> " "
+    | 0 -> c, s
+    | 8 -> c, "  " + s
+    | _ -> c, " " + s
+    |> ColoredString
 
   let dumpHex (bytes: byte []) =
     bytes
-    |> Array.mapi (fun i b -> addSpace i + b.ToString ("X2"))
-    |> String.concat ""
-
-  let isPrintable b = b >= 32uy && b <= 126uy
+    |> Array.map (ColoredString.convertByte ColoredString.mapHex)
+    |> padSpace
+    |> Array.mapi addSpace
 
   let dumpASCII (bytes: byte []) =
     bytes
-    |> Array.map (fun b -> if isPrintable b then (char b).ToString () else ".")
-    |> String.concat ""
+    |> Array.map (ColoredString.convertByte ColoredString.mapAscii)
 
   let dumpLine addr linenum bytes =
-    let addr = addr + uint64 (linenum * 16)
-    let hex = dumpHex bytes
-    let ascii = dumpASCII bytes
-    addr.ToString ("X16") + ": " + hex + " | " + ascii
+    let addr = (addr + uint64 (linenum * 16)).ToString ("X16")
+    dumpASCII bytes
+    |> Array.append [| ColoredString (NoColor, " | ") |]
+    |> Array.append (dumpHex bytes)
+    |> Array.append [| ColoredString (NoColor, addr + ": ") |]
+    |> List.ofArray
+    |> ColoredString.reduceColoredString (NoColor, "") []
 
   let hexdump = function
     | Ok (addr, bytes: byte []) ->
       Array.chunkBySize 16 bytes
       |> Array.mapi (dumpLine addr)
-    | Error e -> [| e |]
+    | Error e -> [| [ ColoredString (NoColor, e) ] |]
 
   override __.CmdName = "hexdump"
 
@@ -91,6 +100,7 @@ type CmdHexDump () =
       |> Result.bind (parseCount cnt)
       |> Result.bind (readBytes binEssence)
       |> hexdump
-    | _ -> [| __.CmdHelp |]
+      |> Array.map Colored
+    | _ -> [| __.CmdHelp |] |> Array.map Normal
 
 // vim: set tw=80 sts=2 sw=2:

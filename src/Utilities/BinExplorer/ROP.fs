@@ -44,6 +44,7 @@ type CmdGadgetSearch () =
   override __.CallBack _ ess _args =
     let hdl = ess.BinHandler
     [| Galileo.findGadgets hdl |> GadgetMap.toString hdl |]
+    |> Array.map Normal
 
 type CmdROP () =
   inherit Cmd ()
@@ -74,8 +75,10 @@ type CmdROP () =
     | Architecture.IntelX86 ->
       let rop = ROPHandle.init hdl 0UL
       __.HandleSubCmd hdl rop args
+      |> Array.map Normal
     | arch ->
       [| "[*] We currently do not support " + (ISA.ArchToString arch) |]
+      |> Array.map Normal
 
   member private __.HandleSubCmd hdl rop args =
     match args with

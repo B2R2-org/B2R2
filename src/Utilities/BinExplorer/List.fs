@@ -93,5 +93,6 @@ type CmdList () =
     | "sections" :: _
     | "secs" :: _ -> listSections ess.BinHandler
     | _ -> [| "[*] Unknown list cmd is given." |]
+    |> Array.map Normal
 
 // vim: set tw=80 sts=2 sw=2:

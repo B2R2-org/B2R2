@@ -81,5 +81,6 @@ type CmdDisasm () =
     | cnt :: addr :: _ -> disasm ess cnt addr
     | addr :: _ -> disasm ess "1" addr
     | _ -> [| __.CmdHelp |]
+    |> Array.map Normal
 
 // vim: set tw=80 sts=2 sw=2:

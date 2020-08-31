@@ -50,11 +50,23 @@ type JsonFuncInfo = {
 }
 
 [<DataContract>]
+type DataColoredHexAscii = {
+  [<field: DataMember(Name = "color")>]
+  Color: string
+  [<field: DataMember(Name = "hex")>]
+  Hex: string
+  [<field: DataMember(Name = "ascii")>]
+  Ascii: string
+}
+
+[<DataContract>]
 type JsonSegInfo = {
   [<field: DataMember(Name = "addr")>]
   SegAddr: Addr
   [<field: DataMember(Name = "bytes")>]
   SegBytes: byte []
+  [<field: DataMember(Name = "coloredHexAscii")>]
+  SegColoredHexAscii: DataColoredHexAscii []
 }
 
 [<DataContract>]
@@ -184,13 +196,29 @@ let handleHexview req resp arbiter =
   ess.BinHandler.FileInfo.GetSegments ()
   |> Seq.map (fun seg ->
     let bs = BinHandler.ReadBytes (ess.BinHandler, seg.Address, int (seg.Size))
-    { SegAddr = seg.Address; SegBytes = bs })
+    let coloredHex =
+      bs |> Array.map (ColoredString.convertByte ColoredString.mapHex)
+    let coloredAscii =
+      bs |> Array.map (ColoredString.convertByte ColoredString.mapAscii)
+    let cha = (* DataColoredHexAscii *)
+      Array.map2 (fun (c, h) (_, a) ->
+        { Color = Color.toString c
+          Hex = h
+          Ascii = a }) coloredHex coloredAscii
+    { SegAddr = seg.Address; SegBytes = bs; SegColoredHexAscii = cha })
   |> json<seq<JsonSegInfo>>
   |> defaultEnc.GetBytes
   |> Some
   |> answer req resp
 
-let jsonPrinter _ acc line = acc + line + "\n"
+let jsonPrinter _ acc output =
+  let result =
+    match output with
+    | Normal s -> acc + s
+    | Colored coloredStringList ->
+      coloredStringList
+      |> List.fold (fun acc (_, s) -> acc + s) acc
+  result + Environment.NewLine
 
 let handleCommand req resp arbiter cmdMap (args: string) =
   let result = CLI.handle cmdMap arbiter args "" jsonPrinter

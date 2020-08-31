@@ -41,5 +41,6 @@ type CmdCredits () =
 
   override __.CallBack _ _ _args =
     [| Attribution.copyright; |]
+    |> Array.map Normal
 
 // vim: set tw=80 sts=2 sw=2:
