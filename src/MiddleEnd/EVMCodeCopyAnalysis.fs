@@ -61,7 +61,9 @@ type EVMCodeCopyAnalysis () =
   interface IAnalysis with
     member __.Name = "EVM Code Copy Analysis"
 
-    member __.Run ess =
-      match ess.BinHandler.FileInfo.ISA.Arch with
-      | Architecture.EVM -> recoverCopiedCode ess
-      | _ -> ess
+    member __.Run ess hint =
+      let ess =
+        match ess.BinHandler.FileInfo.ISA.Arch with
+        | Architecture.EVM -> recoverCopiedCode ess
+        | _ -> ess
+      ess, hint

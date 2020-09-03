@@ -110,5 +110,5 @@ type LibcAnalysis () =
   interface IAnalysis with
     member __.Name = "LibC Analysis"
 
-    member __.Run ess =
-      LibcAnalysisHelper.recoverLibcEntries ess
+    member __.Run ess hint =
+      LibcAnalysisHelper.recoverLibcEntries ess, hint

@@ -262,24 +262,26 @@ module private NoReturnHelper =
       |> Set.ofList
       |> Set.union acc) callsites
 
-  let findNoReturnEdges ess =
+  let findNoReturnEdges ess hint =
     let lens = CallGraphLens.Init ()
     let cg, _ = lens.Filter (ess.SCFG, [], ess)
     let noretFuncs =
       DiGraph.foldVertex cg (fun acc v ->
-        let callee = ess.CalleeMap.Get v.VData.PPoint.Address
-        if callee.NeedNoReturn then v :: acc else acc) []
+        let entry = v.VData.PPoint.Address
+        if Set.contains entry hint.NoReturnPerformed then acc else v :: acc) []
       |> findLoop ess cg Set.empty
       |> getNoReturnFunctions ess
-    DiGraph.iterVertex cg (fun v ->
-      let callee = ess.CalleeMap.Get v.VData.PPoint.Address
-      callee.NeedNoReturn <- false)
+    let hint =
+      DiGraph.foldVertex cg (fun hint v ->
+        let entry = v.VData.PPoint.Address
+        { hint with NoReturnPerformed = Set.add entry hint.NoReturnPerformed }
+        ) hint
     let noretCallsites = getNoReturnCallSites ess noretFuncs
-    BinEssence.addNoReturnInfo ess noretFuncs noretCallsites
+    BinEssence.addNoReturnInfo ess noretFuncs noretCallsites, hint
 
 type NoReturnAnalysis () =
   interface IAnalysis with
     member __.Name = "No-Return Analysis"
 
-    member __.Run ess =
-      NoReturnHelper.findNoReturnEdges ess
+    member __.Run ess hint =
+      NoReturnHelper.findNoReturnEdges ess hint

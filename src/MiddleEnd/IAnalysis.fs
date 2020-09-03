@@ -34,4 +34,7 @@ type IAnalysis =
   abstract Name: string
 
   /// Run the analysis.
-  abstract Run: BinEssence -> BinEssence
+  abstract Run:
+       BinEssence
+    -> AnalysisHint
+    -> BinEssence * AnalysisHint

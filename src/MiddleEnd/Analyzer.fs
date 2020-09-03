@@ -25,19 +25,20 @@
 module B2R2.MiddleEnd.Analyzer
 
 let run analyses ess =
-  #if DEBUG
-    let startTime = System.DateTime.Now
-  #endif
-    let ess =
-      analyses
-      |> List.fold (fun ess (analysis: IAnalysis) ->
-  #if DEBUG
-        printfn "[*] %s started." analysis.Name
-  #endif
-        analysis.Run ess) ess
-  #if DEBUG
-    let endTime = System.DateTime.Now
-    endTime.Subtract(startTime).TotalSeconds
-    |> printfn "[*] All done in %f sec."
-  #endif
-    ess
+#if DEBUG
+  let startTime = System.DateTime.Now
+#endif
+  let hint = AnalysisHint.Init ()
+  let ess, _ =
+    analyses
+    |> List.fold (fun (ess, hint) (analysis: IAnalysis) ->
+#if DEBUG
+      printfn "[*] %s started." analysis.Name
+#endif
+      analysis.Run ess hint) (ess, hint)
+#if DEBUG
+  let endTime = System.DateTime.Now
+  endTime.Subtract(startTime).TotalSeconds
+  |> printfn "[*] All done in %f sec."
+#endif
+  ess

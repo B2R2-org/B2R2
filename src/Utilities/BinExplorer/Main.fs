@@ -73,7 +73,7 @@ type BinExplorerOpts (isa) =
       if __.EnableNoReturn then
         yield NoReturnAnalysis () :> IAnalysis
       if __.EnableBranchRecovery then
-        yield SpeculativeBranchRecovery (__.EnableNoReturn) :> IAnalysis
+        yield BranchRecovery (__.EnableNoReturn) :> IAnalysis
       if __.EnableGapComp then
         yield SpeculativeGapCompletion (__.EnableNoReturn) :> IAnalysis ]
 

@@ -47,7 +47,6 @@ type Callee = {
   Callers: Set<Addr>
   /// Is this callee a no-return function such as "exit"?
   mutable IsNoReturn: bool
-  mutable NeedNoReturn: bool
 }
 with
   static member private obtainFuncIDAndName (hdl: BinHandler) (addr: Addr) =
@@ -63,8 +62,7 @@ with
       Addr = Some addr
       CalleeKind = calleeKind
       Callers = Set.empty
-      IsNoReturn = false
-      NeedNoReturn = true }
+      IsNoReturn = false }
 
   static member AddCaller callerAddr callee =
     { callee with Callers = Set.add callerAddr callee.Callers }

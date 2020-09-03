@@ -24,7 +24,15 @@
 
 namespace B2R2.MiddleEnd
 
-type NoAnalysis () =
-  interface IAnalysis with
-    member __.Name = "No Analysis"
-    member __.Run ess hint = ess, hint
+open B2R2
+
+type AnalysisHint = {
+  NoReturnPerformed: Set<Addr>
+  BranchRecoveryPerformed: Set<Addr>
+  TableHint: Set<Addr * Addr>
+}
+with
+  static member Init () =
+    { NoReturnPerformed = Set.empty
+      BranchRecoveryPerformed = Set.empty
+      TableHint = Set.empty }

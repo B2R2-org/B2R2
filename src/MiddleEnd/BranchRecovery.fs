@@ -1,46 +1,166 @@
 (*
-  B2R2 - the Next-Generation Reversing Platform
+B2R2 - the Next-Generation Reversing Platform
 
-  Copyright (c) SoftSec Lab. @ KAIST, since 2016
+Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
-  Permission is hereby granted, free of charge, to any person obtaining a copy
-  of this software and associated documentation files (the "Software"), to deal
-  in the Software without restriction, including without limitation the rights
-  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-  copies of the Software, and to permit persons to whom the Software is
-  furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-  The above copyright notice and this permission notice shall be included in all
-  copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-  SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 *)
 
 namespace B2R2.MiddleEnd
 
 open B2R2
-open B2R2.BinFile
 open B2R2.FrontEnd
 open B2R2.BinIR
 open B2R2.BinIR.SSA
 open B2R2.BinGraph
 open B2R2.BinEssence
-open B2R2.Lens
 open B2R2.DataFlow
+open B2R2.Lens
 
-type IndirectBranchPattern =
-  | GOTIndexed of insAddr: Addr * baseAddr: Addr * indexAddr: Addr * rt: RegType
-  | FixedTab of insAddr: Addr * indexAddr: Addr * rt: RegType
-  | ConstAddr of insAddr: Addr * targetAddr: Addr
-  | UnknownFormat
+type BranchPattern =
+  | FromTable of baseAddr: Addr * indexAddr: Addr * rt: RegType
+  | FromConst of targetAddr: Addr
+  | UnknownPattern
 
-module private BranchRecoveryHelper =
+type ConstantBranchInfo = {
+  CalleeEntry: Addr
+  TargetAddr: Addr
+}
+with
+  static member Init entry addr =
+    { CalleeEntry = entry; TargetAddr = addr }
+
+type TableBranchInfo = {
+  CalleeStart: Addr
+  CalleeEnd: Addr
+  BlockAddr: Addr
+  InsAddr: Addr
+  JTBaseAddr: Addr
+  JTRange: AddrRange
+  JTEntrySize: RegType
+  TargetAddresses: Set<Addr>
+}
+with
+  static member Init fStart fEnd block ins bAddr sAddr rt =
+    { CalleeStart = fStart
+      CalleeEnd = fEnd
+      BlockAddr = block
+      InsAddr = ins
+      JTBaseAddr = bAddr
+      JTRange = AddrRange (sAddr, sAddr + 1UL)
+      JTEntrySize = rt
+      TargetAddresses = Set.empty }
+
+type BranchRecoveryState = {
+  ResolvedCallees: Set<Addr>
+  ConstantBranches: Map<Addr, ConstantBranchInfo>
+  TableBranches: Map<Addr, TableBranchInfo>
+}
+with
+  static member Init () =
+    { ResolvedCallees = Set.empty
+      ConstantBranches = Map.empty;
+      TableBranches = Map.empty }
+
+  static member UpdateTableBranches st jmpInfoMap =
+    let tableBranches =
+      jmpInfoMap
+      |> Map.fold (fun acc addr jmpInfo ->
+        Map.add addr jmpInfo acc) st.TableBranches
+    { st with TableBranches = tableBranches }
+
+  static member UpdateConstantBranches st jmpInfoMap =
+    let constBranches =
+      jmpInfoMap
+      |> Map.fold (fun acc addr jmpInfo ->
+        Map.add addr jmpInfo acc) st.ConstantBranches
+    { st with ConstantBranches = constBranches }
+
+type TableRecoveryInfo =
+  | Done of TableBranchInfo
+  | Continue of TableBranchInfo * Addr
+
+type TableBranchKnowledge = {
+  Bases: Set<Addr>
+  TableBoundaries: Map<Addr, AddrRange>
+  TableInfos: Map<Addr, TableRecoveryInfo>
+}
+with
+  static member ComputeBoundaries hint addrs =
+    let rec loop acc = function
+      | [] | [ _ ] -> acc
+      | addr :: ((addr' :: _) as next) ->
+        let acc =
+          if Set.contains addr addrs then
+            Map.add addr (AddrRange (addr, addr')) acc
+          else acc
+        loop acc next
+    Set.map snd hint.TableHint
+    |> Set.union addrs |> Set.toList |> loop Map.empty
+
+  static member AddNewInformation hint knowledge jtInfo =
+    let newBase = jtInfo.JTRange.Min
+    let bases = Set.add newBase knowledge.Bases
+    let boundaries = TableBranchKnowledge.ComputeBoundaries hint bases
+    let info = Continue (jtInfo, newBase)
+    let tableInfos = Map.add jtInfo.InsAddr info knowledge.TableInfos
+    let hint =
+      { hint with TableHint = Set.add (jtInfo.InsAddr, jtInfo.JTRange.Min) hint.TableHint}
+    let knowledge =
+      { Bases = bases; TableBoundaries = boundaries; TableInfos = tableInfos }
+    hint, knowledge
+
+  static member RemoveInformation hint knowledge jtInfo =
+    let bAddr = jtInfo.JTRange.Min
+    let bases = Set.remove bAddr knowledge.Bases
+    let boundaries = TableBranchKnowledge.ComputeBoundaries hint bases
+    let tableInfos = Map.remove jtInfo.InsAddr knowledge.TableInfos
+    let hint =
+      { hint with
+          TableHint =
+            hint.TableHint
+            |> Set.filter (fun (ins, addr) ->
+              ins <> jtInfo.InsAddr && addr <> jtInfo.JTRange.Min) }
+    let knowledge =
+      { Bases = bases; TableBoundaries = boundaries; TableInfos = tableInfos }
+    hint, knowledge
+
+  static member UpdateBoundary hint knowledge =
+    let boundaries = TableBranchKnowledge.ComputeBoundaries hint knowledge.Bases
+    { knowledge with TableBoundaries = boundaries }
+
+  static member ResetTableRanges knowledge =
+    let tableInfos =
+      knowledge.TableInfos
+      |> Map.map (fun _ info ->
+        match info with
+        | Done jtInfo | Continue (jtInfo, _) ->
+          let range = jtInfo.JTRange
+          let jtInfo =
+            { jtInfo with
+                JTRange = AddrRange (range.Min, range.Min + 1UL)
+                TargetAddresses = Set.empty }
+          Continue (jtInfo, range.Min))
+    { knowledge with TableInfos = tableInfos }
+
+module BranchRecoveryHelper =
+
   let filterOutLinkageTables hdl calleeAddrs =
     let tabAddrs =
       hdl.FileInfo.GetLinkageTableEntries ()
@@ -49,13 +169,6 @@ module private BranchRecoveryHelper =
     calleeAddrs
     |> List.filter (fun addr -> not <| Set.contains addr tabAddrs)
 
-  let rec computeFunctionBoundary acc = function
-    | [] -> acc
-    | [ addr ] -> Map.add addr (addr, 0UL) acc
-    | addr :: next :: addrs ->
-      let acc = Map.add addr (addr, next) acc
-      computeFunctionBoundary acc (next :: addrs)
-
   let computeCalleeAddrs ess =
     ess.CalleeMap.Callees
     |> Seq.choose (fun callee -> callee.Addr)
@@ -63,21 +176,38 @@ module private BranchRecoveryHelper =
     |> filterOutLinkageTables ess.BinHandler
     |> List.sort
 
-  let hasIndirectBranch cfg =
+  let rec computeFunctionBoundaries acc = function
+    | [] -> acc
+    | [ addr ] -> Map.add addr (addr, 0UL) acc
+    | addr :: ((next :: _) as addrs) ->
+      let acc = Map.add addr (addr, next) acc
+      computeFunctionBoundaries acc addrs
+
+  let hasIndirectBranch (ess: BinEssence) entry =
+    let cfg, _ = ess.GetFunctionCFG (entry, false)
     DiGraph.foldVertex cfg (fun acc (v: Vertex<IRBasicBlock>) ->
       (not <| v.VData.IsFakeBlock () && v.VData.HasIndirectBranch)
       || acc) false
 
-  let extractIndirectBranches cfg =
+  let computeConstantPropagation ess entry =
+    let irCFG, irRoot = (ess: BinEssence).GetFunctionCFG (entry, false)
+    let lens = SSALens.Init ess
+    let ssaCFG, ssaRoots = lens.Filter (irCFG, [irRoot], ess)
+    let cp = ConstantPropagation (ess.BinHandler, ssaCFG)
+    let ssaRoot = List.head ssaRoots
+    cp.Compute (ssaRoot), ssaCFG
+
+  let extractBranches cfg =
     DiGraph.foldVertex cfg (fun acc (v: Vertex<SSABBlock>) ->
       let len = v.VData.InsInfos.Length
       if not <| v.VData.IsFakeBlock ()
         && v.VData.HasIndirectBranch
         && len > 0
       then
+        let addr = v.VData.PPoint.Address
         let lastIns = v.VData.InsInfos.[len - 1].Instruction
         let isCall = lastIns.IsCall ()
-        (lastIns.Address, v.VData.GetLastStmt (), isCall) :: acc
+        (addr, lastIns.Address, v.VData.GetLastStmt (), isCall) :: acc
       else acc) []
 
   let rec simplifyBinOp = function
@@ -146,261 +276,487 @@ module private BranchRecoveryHelper =
     | Num idx -> Some (BitVector.toUInt64 idx)
     | _ -> None
 
-  let computeCallInfo insAddr = function
-    | Num addr -> ConstAddr (insAddr, BitVector.toUInt64 addr)
-    | _ -> UnknownFormat
+  let computeBranchPattern isCall expr =
+    match expr, isCall with
+    | Num addr, _ -> FromConst (BitVector.toUInt64 addr)
+    | _, true -> UnknownPattern
+    | BinOp (BinOpType.ADD, _, Load (_, t, idx), Num tbase), _
+    | BinOp (BinOpType.ADD, _, Num tbase, Load (_, t, idx)), _
+    | BinOp (BinOpType.ADD, _, Cast (_, _, Load (_, t, idx)), Num tbase), _
+    | BinOp (BinOpType.ADD, _, Num tbase, Cast (_, _, Load (_, t, idx))), _ ->
+      match computeIndexAddr idx with
+      | Some tindex -> FromTable (BitVector.toUInt64 tbase, tindex, t)
+      | None -> UnknownPattern
+    | _ -> UnknownPattern
 
-  let computeJmpInfo insAddr = function
-    | BinOp (BinOpType.ADD, _, Load (_, t, idxExpr), Num tbase)
-    | BinOp (BinOpType.ADD, _, Num tbase, Load (_, t, idxExpr))
-    | BinOp (BinOpType.ADD, _, Cast (_, _, Load (_, t, idxExpr)), Num tbase)
-    | BinOp (BinOpType.ADD, _, Num tbase, Cast (_, _, Load (_, t, idxExpr))) ->
-      match computeIndexAddr idxExpr with
-      | Some tindex -> GOTIndexed (insAddr, BitVector.toUInt64 tbase, tindex, t)
-      | None -> UnknownFormat
-    | Load (_, t, (BinOp (BinOpType.ADD, _, Num i, _)))
-    | Load (_, t, (BinOp (BinOpType.ADD, _, _, Num i))) ->
-      FixedTab (insAddr, BitVector.toUInt64 i, t)
-    | Num addr -> ConstAddr (insAddr, BitVector.toUInt64 addr)
-    | _ -> UnknownFormat
+  let classifyBranch cpState isCall = function
+    | Jmp (InterJmp exp)
+    | Jmp (InterCJmp (_, exp, Num _))
+    | Jmp (InterCJmp (_, Num _, exp)) ->
+      extractExp cpState exp |> computeBranchPattern isCall
+    | _ -> UnknownPattern
 
-  let computeIndBranchInfo cpstate insAddr isCall exp =
-    let exp = extractExp cpstate exp
-    //printfn "%x: %s %A" insAddr (Pp.expToString exp) isCall
-    if isCall then computeCallInfo insAddr exp
-    else computeJmpInfo insAddr exp
+  let findConstBranches ess entry =
+    let cpState, ssaCFG = computeConstantPropagation ess entry
+    extractBranches ssaCFG
+    |> List.fold (fun acc (blockAddr, insAddr, stmt, isCall) ->
+      match classifyBranch cpState isCall stmt with
+      | FromConst target ->
+        let constJmpInfo = ConstantBranchInfo.Init entry target
+        (blockAddr, insAddr, constJmpInfo, isCall) :: acc
+      | _ -> acc) []
 
-  let inline constIndBranchInfo host targets =
-    { HostFunctionAddr = host; TargetAddresses = targets; JumpTableInfo = None }
+  let addConstJmpEdge ess blockAddr jmpInfo isCall =
+    let target = (jmpInfo: ConstantBranchInfo).TargetAddr
+    if isCall then
+      [ (target, (ess: BinEssence).BinHandler.DefaultParsingContext) ]
+      |> BinEssence.addEntries ess
+    else Ok ess
+    |> Result.bind (fun ess ->
+      if isCall then IndirectCallEdge else IndirectJmpEdge
+      |> BinEssence.addEdge ess blockAddr target)
+    |> (fun ess ->
+      match ess with
+      | Ok ess -> ess
+      | _ -> Utils.impossible ())
 
-  let inline tblIndBranchInfo host targets bAddr sAddr eAddr rt =
-    let range = AddrRange (sAddr, eAddr)
-    let tbl = Some <| JumpTableInfo.Init bAddr range rt
-    { HostFunctionAddr = host; TargetAddresses = targets; JumpTableInfo = tbl }
+  let recoverConstJmpsOfCallee noReturn (entry, _) ess hint st =
+    match findConstBranches ess entry with
+    | [] -> ess, hint, st
+    | constBranches ->
+      let ess, jmpAddrs =
+        constBranches
+        |> List.fold (fun (ess, jmpAddrs) (block, ins, jmpInfo, isCall) ->
+          let ess = addConstJmpEdge ess block jmpInfo isCall
+          ess, Map.add ins jmpInfo jmpAddrs) (ess, Map.empty)
+      let ess, hint = (noReturn: IAnalysis).Run ess hint
+      let st = BranchRecoveryState.UpdateConstantBranches st jmpAddrs
+      ess, hint, st
 
-  let partitionIndBranchInfo entry constBranches tblBranches needCPMap lst =
-    lst
-    |> List.fold (fun (constBranches, tblBranches) info ->
-      match info with
-      | ConstAddr (b, t) ->
-        if t <> 0UL then
-          let info = constIndBranchInfo entry (Set.singleton t)
-          Map.add b info constBranches, tblBranches
-        else constBranches, tblBranches
-      | GOTIndexed (insAddr, bAddr, iAddr, rt) ->
-        let info = tblIndBranchInfo entry Set.empty bAddr iAddr (iAddr + 1UL) rt
-        constBranches, Map.add insAddr info tblBranches
-      | FixedTab (insAddr, iAddr, rt) ->
-        let info = tblIndBranchInfo entry Set.empty 0UL iAddr (iAddr + 1UL) rt
-        constBranches, Map.add insAddr info tblBranches
-      | _ -> constBranches, tblBranches
-    ) (constBranches, tblBranches), needCPMap
+  let findTableBranches (fStart, fEnd) (cpState, ssaCFG) =
+    extractBranches ssaCFG
+    |> List.fold (fun acc (block, ins, stmt, isCall) ->
+      match classifyBranch cpState isCall stmt with
+      | FromTable (bAddr, iAddr, rt) ->
+        TableBranchInfo.Init fStart fEnd block ins bAddr iAddr rt :: acc
+      | _ -> acc) []
 
-  /// Read jump targets from a jump table.
-  let rec readTargets ess fStart fEnd blockAddr baseAddr maxAddr startAddr rt targets =
+  let withinCallee jmpInfo addr =
+    jmpInfo.CalleeStart <= addr && addr < jmpInfo.CalleeEnd
+
+  let readTarget ess jmpInfo sAddr =
     let hdl = (ess: BinEssence).BinHandler
-    match maxAddr with
-    | Some maxAddr when startAddr >= maxAddr -> targets, startAddr, ess
-    | _ ->
-      if hdl.FileInfo.IsValidAddr startAddr then
-        let size = RegType.toByteWidth rt
-        match BinHandler.TryReadInt (hdl, startAddr, size) with
-        | Ok offset ->
-          let target = baseAddr + uint64 offset
-          if target >= fStart && target <= fEnd then
-            match BinEssence.addEdge ess blockAddr target IndirectJmpEdge with
-            | Ok ess' ->
-              let targets = Set.add target targets
-              let nextAddr = startAddr + uint64 size
-              readTargets ess' fStart fEnd blockAddr baseAddr maxAddr nextAddr rt targets
-            | Error _ -> targets, startAddr, ess
-          else targets, startAddr, ess
-        | Error _ -> targets, startAddr, ess
-      else targets, startAddr, ess
+    if hdl.FileInfo.IsValidAddr sAddr then
+      let size = RegType.toByteWidth jmpInfo.JTEntrySize
+      match BinHandler.TryReadInt (hdl, sAddr, size) with
+      | Error _ -> Error ()
+      | Ok offset ->
+        let target = jmpInfo.JTBaseAddr + uint64 offset
+        if withinCallee jmpInfo target then
+          let block = jmpInfo.BlockAddr
+          match BinEssence.addEdge ess block target IndirectJmpEdge with
+          | Ok ess' ->
+            let next = sAddr + uint64 size
+            let jmpInfo =
+              { jmpInfo with
+                  JTRange = AddrRange (jmpInfo.JTRange.Min, next)
+                  TargetAddresses = Set.add target jmpInfo.TargetAddresses }
+            Ok (ess', jmpInfo)
+          | Error _ -> Error ()
+        else Error ()
+    else Error ()
 
-  let getMaxAddr tableAddrs ess insAddr startAddr maxAddr =
-    match Map.tryFind insAddr ess.IndirectBranchMap with
-    | Some ({ JumpTableInfo = Some info }) ->
-      tableAddrs |> Set.remove info.JTRange.Min
-    | _ -> tableAddrs
-    |> Set.partition (fun addr -> addr <= startAddr)
-    |> snd
-    |> fun s ->
-      match Set.isEmpty s, maxAddr with
-      | true, None -> None
-      | false, None -> Set.minElement s |> Some
-      | true, Some _ -> maxAddr
-      | false, Some fromAnalysis ->
-        let fromApp = Set.minElement s
-        min fromAnalysis fromApp |> Some
+  let recoverInitialTables ((fStart, _) as fnBdry) ess acc =
+    let cpInfo = computeConstantPropagation ess fStart
+    match findTableBranches fnBdry cpInfo with
+    | [] -> acc
+    | tableBranches ->
+      let minBase =
+        List.map (fun jmpInfo -> jmpInfo.JTRange.Min) tableBranches |> List.min
+      Map.add fStart (tableBranches, minBase, cpInfo) acc
 
-  let getBlockAddr (ess: BinEssence) insAddr =
-    let v = ess.FindVertex insAddr |> Option.get
-    v.VData.PPoint.Address
+  let rec computeTableBoundaries tableBdrys = function
+    | [] -> Utils.impossible ()
+    | [ _ ] -> tableBdrys
+    | addr :: ((addr' :: _) as rest) ->
+      let tableBdrys = Map.add addr (AddrRange (addr, addr')) tableBdrys
+      computeTableBoundaries tableBdrys rest
 
-  let computeTableAddrs ess =
-    ess.IndirectBranchMap
-    |> Map.fold (fun acc _ indInfo ->
-      match indInfo.JumpTableInfo with
-      | None -> acc
-      | Some info -> Set.add info.JTRange.Min acc
-      ) Set.empty
+  let initializeKnowledge hint knowledgeMap entry tableBranches max cpInfo =
+    let tableHint =
+      tableBranches
+      |> List.fold (fun tableHint jtInfo ->
+        Set.add (jtInfo.InsAddr, jtInfo.JTRange.Min) tableHint) hint.TableHint
+    let hint = { hint with TableHint = tableHint }
+    let bases =
+      tableBranches
+      |> List.fold (fun bases jmpInfo ->
+        Set.add jmpInfo.JTRange.Min bases) Set.empty
+      |> Set.add max
+    let tableBdrys = computeTableBoundaries Map.empty <| Set.toList bases
+    let tableInfos =
+      tableBranches
+      |> List.fold (fun tableInfos jtInfo ->
+        let info = Continue (jtInfo, jtInfo.JTRange.Min)
+        Map.add jtInfo.InsAddr info tableInfos) Map.empty
+    let knowledge =
+      { Bases = bases; TableBoundaries = tableBdrys; TableInfos = tableInfos }
+    hint, Map.add entry (knowledge, cpInfo) knowledgeMap
 
-  let inline accJmpTableInfo acc targets entry insAddr bAddr sAddr eAddr t =
-    if Set.isEmpty targets then acc
+  let rec initializeKnowledgeMap hint knowledgeMap = function
+    | [] -> hint, Map.empty
+    | [ (entry, (tableBranches, _, cpInfo)) ] ->
+      let dummyMax = 0xFFFFFFFFFFFFFFFFUL
+      initializeKnowledge hint knowledgeMap entry tableBranches dummyMax cpInfo
+    | (entry, (tableBranches, _, cpInfo)) :: (((_, (_, minBase, _)) :: _) as rest) ->
+      let hint, knowledgeMap =
+        initializeKnowledge hint knowledgeMap entry tableBranches minBase cpInfo
+      initializeKnowledgeMap hint knowledgeMap rest
+
+  let prepareTableRecovery fnBdrys ess hint callees =
+    callees
+    |> List.fold (fun acc entry ->
+      let fnBdry = Map.find entry fnBdrys
+      recoverInitialTables fnBdry ess acc) Map.empty
+    |> Map.toList
+    |> List.sortBy (fun (_, (_, minBase, _)) -> minBase)
+    |> initializeKnowledgeMap hint Map.empty
+
+  let collectIndirectJumps (ess: BinEssence) entry =
+    let cfg, root = ess.GetFunctionCFG (entry, false)
+    Traversal.foldPostorder cfg root (fun acc (v: Vertex<IRBasicBlock>) ->
+      if not <| v.VData.IsFakeBlock () && v.VData.HasIndirectBranch then
+        let addr = v.VData.PPoint.Address
+        if v.VData.LastInstruction.IsCall () then acc
+        else Set.add addr acc
+      else acc) Set.empty
+
+  let rec readTargets ess jmpInfo sAddr max =
+    if sAddr >= max then Error jmpInfo
     else
-      let info = tblIndBranchInfo entry targets bAddr sAddr eAddr t
-      match Map.tryFind insAddr acc with
-      | None -> Map.add insAddr info acc
-      | Some info' -> if info = info' then acc else Map.add insAddr info acc
+      let oldJmps = collectIndirectJumps ess jmpInfo.CalleeStart
+      match readTarget ess jmpInfo sAddr with
+      | Ok (ess, jmpInfo) ->
+        let newJmps = collectIndirectJumps ess jmpInfo.CalleeStart
+        let diff = Set.difference newJmps oldJmps
+        if Set.isEmpty diff then
+          let next = jmpInfo.JTRange.Max
+          readTargets ess jmpInfo next max
+        else Ok (ess, jmpInfo)
+      | Error _ -> Error jmpInfo
 
-  let checkDefinedTable ess insAddr sAddr =
-    ess.IndirectBranchMap
-    |> Map.exists (fun addr indInfo ->
-      match indInfo.JumpTableInfo with
-      | None -> false
-      | Some info -> sAddr = info.JTRange.Min && insAddr <> addr)
+  let rec readTargetsUntil ess jmpInfo sAddr max =
+    if sAddr >= max then ess, jmpInfo
+    else
+      match readTarget ess jmpInfo sAddr with
+      | Ok (ess', jmpInfo) ->
+        let next = jmpInfo.JTRange.Max
+        readTargetsUntil ess' jmpInfo next max
+      | Error _ -> ess, jmpInfo
 
-  let inferGOTIndexedBranches ess boundaries oldTableBranches tableBranches constBranches needCPMap =
-    let tableAddrs = computeTableAddrs ess
-    let rec infer ess acc needCPMap = function
-      | [ (insAddr, { HostFunctionAddr = entry ; JumpTableInfo = Some i }) ] ->
-        let bAddr = i.JTBaseAddr
-        let t = i.JTEntrySize
-        if checkDefinedTable ess insAddr i.JTRange.Min then ess, acc, needCPMap
-        else
-          let sAddr = i.JTRange.Min
-          let lb, ub = Map.find entry boundaries (* function boundaries *)
-          let max = getMaxAddr tableAddrs ess insAddr sAddr None
-          let block = getBlockAddr ess insAddr
-          let targets, eAddr, ess =
-            readTargets ess lb ub block bAddr max sAddr t Set.empty
-          let acc = accJmpTableInfo acc targets lb insAddr bAddr sAddr eAddr t
-          let hasChanged =
-            match Map.tryFind insAddr oldTableBranches, Map.tryFind insAddr acc with
-            | None, None -> false
-            | Some info, Some info' ->
-              info <> info'
-            | _ -> true
-          let needCPMap =
-            if hasChanged then Map.add entry true needCPMap else needCPMap
-          ess, acc, needCPMap
-      | (insAddr, { HostFunctionAddr = entry ; JumpTableInfo = Some i1 }) ::
-          (((_, { JumpTableInfo = Some i2 }) :: _) as next) ->
-        let bAddr = i1.JTBaseAddr
-        let t = i1.JTEntrySize
-        if checkDefinedTable ess insAddr i1.JTRange.Min then
-          infer ess acc needCPMap next
-        else
-          let s1 = i1.JTRange.Min
-          let s2 = i2.JTRange.Min
-          let lb, ub = Map.find entry boundaries
-          let max = getMaxAddr tableAddrs ess insAddr s1 (Some s2)
-          let block = getBlockAddr ess insAddr
-          let targets, eAddr, ess =
-            readTargets ess lb ub block bAddr max s1 t Set.empty
-          let acc = accJmpTableInfo acc targets lb insAddr bAddr s1 eAddr t
-          let hasChanged =
-            match Map.tryFind insAddr oldTableBranches, Map.tryFind insAddr acc with
-            | None, None -> false
-            | Some info, Some info' ->
-              info <> info'
-            | _ -> true
-          let needCPMap =
-            if hasChanged then Map.add entry true needCPMap else needCPMap
-          infer ess acc needCPMap next
-      | _ -> ess, acc, needCPMap
-    tableBranches
-    |> Map.fold (fun acc insAddr info -> (insAddr, info) :: acc) []
-    |> List.sortBy (fun (_, ind) ->
-      let info = Option.get ind.JumpTableInfo
-      info.JTRange.Min)
-    |> infer ess constBranches needCPMap
+  let tryRecoverTable noReturn ess hint knowledge (discover, recover) jtInfo =
+    let ins = jtInfo.InsAddr
+    match Map.find ins knowledge.TableInfos with
+    | Done _ -> discover, recover
+    | Continue (jtInfo, minAddr) ->
+      let tableBase = jtInfo.JTRange.Min
+      let tableBdry = Map.find tableBase knowledge.TableBoundaries
+      let ess, jtInfo = readTargetsUntil ess jtInfo tableBase minAddr
+      match readTargets ess jtInfo minAddr tableBdry.Max with
+      | Ok (ess, jtInfo) ->
+        let ess, _ = (noReturn: IAnalysis).Run ess hint
+        Map.add ins (ess, jtInfo) discover, recover
+      | Error jtInfo -> discover, Map.add ins jtInfo recover
 
-  let analyzeIndirectBranch ssaCFG cpstate entry constBranches tblBranches needCPMap =
-    extractIndirectBranches ssaCFG
-    |> List.map (fun (insAddr, stmt, isCall) ->
-      match stmt with
-      | Jmp (InterJmp exp) -> computeIndBranchInfo cpstate insAddr isCall exp
-      | Jmp (InterCJmp (_, Num _, exp))
-      | Jmp (InterCJmp (_, exp, Num _)) ->
-        computeIndBranchInfo cpstate insAddr isCall exp
-      | _ -> UnknownFormat)
-    |> partitionIndBranchInfo entry constBranches tblBranches needCPMap
+  let isAlreadyFound knowledge jtInfo =
+    Map.containsKey jtInfo.InsAddr knowledge.TableInfos
 
-  let analyzeBranches ess ((constBranches, tblBranches), needCPMap) addr =
-    match Map.tryFind addr needCPMap with
-    | None | Some true ->
-      let needCPMap = Map.add addr false needCPMap
-      let irCFG, irRoot = (ess: BinEssence).GetFunctionCFG (addr, false)
-      if hasIndirectBranch irCFG then
-        let lens = SSALens.Init ess
-        let ssaCFG, ssaRoot = lens.Filter (irCFG, [irRoot], ess)
-        let cp = ConstantPropagation (ess.BinHandler, ssaCFG)
-        let cpstate = cp.Compute (List.head ssaRoot)
-        analyzeIndirectBranch
-          ssaCFG cpstate addr constBranches tblBranches needCPMap
-      else (constBranches, tblBranches), needCPMap
-    | _ -> (constBranches, tblBranches), needCPMap
+  let hasDuplicatedBase knowledge jtInfo =
+    Map.containsKey jtInfo.JTRange.Min knowledge.TableBoundaries
 
-  let toBranchInfo indMap =
-    indMap
-    |> Map.fold (fun (constBranches, tblBranches) iAddr indInfo ->
-      match indInfo.JumpTableInfo with
-      | Some _ -> constBranches, Map.add iAddr indInfo tblBranches
+  let discoverNewBranches fnBdry hint knowledge jtInfo cpInfo =
+    let newBranches, hasDuplicated =
+      findTableBranches fnBdry cpInfo
+      |> List.fold (fun (acc, hasDuplicated) jtInfo ->
+        if isAlreadyFound knowledge jtInfo then (acc, hasDuplicated)
+        elif hasDuplicatedBase knowledge jtInfo then (acc, true)
+        else jtInfo :: acc, hasDuplicated) ([], false)
+    if List.isEmpty newBranches then
+      if hasDuplicated then Error knowledge
+      else
+        let ins = jtInfo.InsAddr
+        let info = Continue (jtInfo, jtInfo.JTRange.Max)
+        { knowledge with TableInfos = Map.add ins info knowledge.TableInfos }
+        |> Error
+    else
+      newBranches
+      |> List.fold (fun (hint, knowledge) jtInfo ->
+        TableBranchKnowledge.AddNewInformation hint knowledge jtInfo
+        ) (hint, knowledge)
+      |> Ok
+
+  let checkOverlap knowledge =
+    knowledge.TableInfos
+    |> Map.exists (fun _ jtInfo ->
+      match jtInfo with
+      | Done jtInfo | Continue (jtInfo, _) ->
+        let range = jtInfo.JTRange
+        let tableBoundary = Map.find range.Min knowledge.TableBoundaries
+        range.Max > tableBoundary.Max)
+
+  let recoverTableUntilNewBranch (ess, knowledge) ins (_, jtInfo) =
+    let range = jtInfo.JTRange
+    let tblBdry = Map.find range.Min knowledge.TableBoundaries
+    let ess, jtInfo = readTargetsUntil ess jtInfo range.Min range.Max
+    let info =
+      if jtInfo.JTRange = tblBdry then Done jtInfo
+      else Continue (jtInfo, jtInfo.JTRange.Max)
+    let knowledge =
+      { knowledge with TableInfos = Map.add ins info knowledge.TableInfos }
+    ess, knowledge
+
+  let recoverTableUntilBoundary (ess, knowledge) ins jtInfo =
+    let range = jtInfo.JTRange
+    let tblBdry = Map.find range.Min knowledge.TableBoundaries
+    if range.Max > tblBdry.Max then ess, knowledge
+    else
+      let ess, jtInfo = readTargetsUntil ess jtInfo range.Min range.Max
+      let info = Done jtInfo
+      let knowledge =
+        { knowledge with TableInfos = Map.add ins info knowledge.TableInfos }
+      ess, knowledge
+
+  let updateBinEssenceWithKnowledge ess knowledge discover recover =
+    if not <| Map.isEmpty discover then
+      discover |> Map.fold recoverTableUntilNewBranch (ess, knowledge)
+    elif not <| Map.isEmpty recover then
+      recover |> Map.fold recoverTableUntilBoundary (ess, knowledge)
+    else ess, knowledge
+
+  let updateKnowledgeWithNewBinEssence fnBdry knowledge cpInfo =
+    findTableBranches fnBdry cpInfo
+    |> List.fold (fun knowledge jtInfo ->
+      let ins = jtInfo.InsAddr
+      if not <| Map.containsKey ins knowledge.TableInfos then knowledge
+      else
+        match Map.find ins knowledge.TableInfos with
+        | Done jtInfo' ->
+          let jtInfo' = { jtInfo' with BlockAddr = jtInfo.BlockAddr }
+          let info = Done jtInfo'
+          { knowledge with TableInfos = Map.add ins info knowledge.TableInfos }
+        | Continue (jtInfo', minAddr) ->
+          let jtInfo' = { jtInfo' with BlockAddr = jtInfo.BlockAddr }
+          let info = Continue (jtInfo', minAddr)
+          { knowledge with TableInfos = Map.add ins info knowledge.TableInfos })
+      knowledge
+
+  let checkTableConflictAndUpdateKnowledge hint acc knowledge info jtInfo =
+    match info with
+    | Done jtInfo' | Continue (jtInfo', _) ->
+      if jtInfo.JTRange.Min < jtInfo'.JTRange.Min then
+        let hint, knowledge =
+          TableBranchKnowledge.RemoveInformation hint knowledge jtInfo'
+        TableBranchKnowledge.AddNewInformation hint knowledge jtInfo
+        |> Error
+      else
+        match acc with
+        | Ok _ -> Ok (hint, knowledge)
+        | Error _ -> Error (hint, knowledge)
+
+  let recoverNewBranches fnBdry hint knowledge cpInfo =
+    findTableBranches fnBdry cpInfo
+    |> List.fold (fun acc jtInfo ->
+      let hint, knowledge =
+        match acc with
+        | Ok (hint, knowledge) | Error (hint, knowledge) -> (hint, knowledge)
+      let ins = jtInfo.InsAddr
+      match Map.tryFind ins knowledge.TableInfos with
       | None ->
-        Map.add iAddr indInfo constBranches, tblBranches) (Map.empty, Map.empty)
+        match discoverNewBranches fnBdry hint knowledge jtInfo cpInfo with
+        | Ok (hint, knowledge) ->
+          match acc with
+          | Ok _ -> Ok (hint, knowledge)
+          | Error _ -> Error (hint, knowledge)
+        | Error knowledge ->
+          match acc with
+          | Ok _ -> Ok (hint, knowledge)
+          | Error _ -> Error (hint, knowledge)
+      | Some info ->
+        checkTableConflictAndUpdateKnowledge hint acc knowledge info jtInfo
+      ) (Ok (hint, knowledge))
 
-  let inferJumpTableRange ess callees oldTblBranches (constBranches, tblBranches) needCPMap =
-    let boundaries = computeFunctionBoundary Map.empty callees
-    inferGOTIndexedBranches ess boundaries oldTblBranches tblBranches constBranches needCPMap
+  let checkAllDone knowledge =
+    knowledge.TableInfos
+    |> Map.forall (fun _ info ->
+      match info with
+      | Done _ -> true
+      | _ -> false)
 
-  let calculateTable ess =
+  let rec recoverTableBranchesLoop noReturn fnBdry oldEss ess hint knowledge cpInfo =
+    let discover, recover =
+      findTableBranches fnBdry cpInfo
+      |> List.fold (tryRecoverTable noReturn ess hint knowledge) (Map.empty, Map.empty)
+    let hint, knowledge, discover =
+      discover
+      |> Map.fold (fun (hint, knowledge, discover) ins (ess, jtInfo) ->
+        let cpInfo = computeConstantPropagation ess <| fst fnBdry
+        match discoverNewBranches fnBdry hint knowledge jtInfo cpInfo with
+        | Ok (hint, knowledge) -> hint, knowledge, Map.add ins (ess, jtInfo) discover
+        | Error knowledge -> hint, knowledge, discover) (hint, knowledge, Map.empty)
+    if checkOverlap knowledge then
+      rollBackWithKnowledge noReturn fnBdry oldEss hint knowledge
+    else
+      let ess, knowledge =
+        updateBinEssenceWithKnowledge ess knowledge discover recover
+      if checkOverlap knowledge then
+        rollBackWithKnowledge noReturn fnBdry oldEss hint knowledge
+      else
+        let candidates =
+          computeConstantPropagation ess <| fst fnBdry
+          |> findTableBranches fnBdry
+          |> List.fold (fun acc jtInfo ->
+            if Map.containsKey jtInfo.InsAddr knowledge.TableInfos then acc
+            else
+              Set.add (jtInfo.InsAddr, jtInfo.JTRange.Min) acc) Set.empty
+        let ess, hint = (noReturn: IAnalysis).Run ess hint
+        let cpInfo = computeConstantPropagation ess <| fst fnBdry
+        let knowledge = updateKnowledgeWithNewBinEssence fnBdry knowledge cpInfo
+        match recoverNewBranches fnBdry hint knowledge cpInfo with
+        | Ok (hint, knowledge) ->
+          let tableHint = Set.union candidates hint.TableHint
+          let tableHint =
+            knowledge.TableInfos
+            |> Map.fold (fun acc _ info ->
+              match info with
+              | Done jtInfo | Continue (jtInfo, _) ->
+                acc
+                |> Set.filter (fun (ins, addr) ->
+                  ins <> jtInfo.InsAddr && addr <> jtInfo.JTRange.Min)) tableHint
+          let hint = { hint with TableHint = tableHint }
+          if checkAllDone knowledge then ess, hint, knowledge
+          else
+            let tableHint = Set.union candidates hint.TableHint
+            let tableHint =
+              knowledge.TableInfos
+              |> Map.fold (fun acc _ info ->
+                match info with
+                | Done jtInfo | Continue (jtInfo, _) ->
+                  acc
+                  |> Set.filter (fun (ins, addr) ->
+                    ins <> jtInfo.InsAddr && addr <> jtInfo.JTRange.Min)) tableHint
+            let hint = { hint with TableHint = tableHint }
+            let knowledge = TableBranchKnowledge.UpdateBoundary hint knowledge
+            recoverTableBranchesLoop noReturn fnBdry oldEss ess hint knowledge cpInfo
+        | Error (hint, knowledge) ->
+          let tableHint = Set.union candidates hint.TableHint
+          let tableHint =
+            knowledge.TableInfos
+            |> Map.fold (fun acc _ info ->
+              match info with
+              | Done jtInfo | Continue (jtInfo, _) ->
+                acc
+                |> Set.filter (fun (ins, addr) ->
+                  ins <> jtInfo.InsAddr && addr <> jtInfo.JTRange.Min)) tableHint
+          let hint = { hint with TableHint = tableHint }
+          let knowledge = TableBranchKnowledge.UpdateBoundary hint knowledge
+          rollBackWithKnowledge noReturn fnBdry oldEss hint knowledge
+
+  and rollBackWithKnowledge noReturn fnBdry ess hint knowledge =
+    let cpInfo = computeConstantPropagation ess <| fst fnBdry
+    let knowledge = updateKnowledgeWithNewBinEssence fnBdry knowledge cpInfo
+    let knowledge = TableBranchKnowledge.ResetTableRanges knowledge
+    recoverTableBranchesLoop noReturn fnBdry ess ess hint knowledge cpInfo
+
+  let recoverTableBranches noReturn fnBdrys (ess, hint, st) entry initInfo =
+    let fnBdry = Map.find entry fnBdrys
+    let knowledge, cpInfo = initInfo
+    let ess, hint, knowledge =
+      recoverTableBranchesLoop noReturn fnBdry ess ess hint knowledge cpInfo
+    let tableInfos =
+      knowledge.TableInfos
+      |> Map.fold (fun acc ins info ->
+        match info with
+        | Done jtInfo -> Map.add ins jtInfo acc
+        | _ -> acc) Map.empty
+    let st = BranchRecoveryState.UpdateTableBranches st tableInfos
+    ess, hint, st
+
+  let toIndMap st =
+    let acc =
+      st.ConstantBranches
+      |> Map.fold (fun acc insAddr info ->
+        let info =
+          { HostFunctionAddr = info.CalleeEntry
+            TargetAddresses = Set.singleton info.TargetAddr
+            JumpTableInfo = None }
+        Map.add insAddr info acc) Map.empty
+    let acc =
+      st.TableBranches
+      |> Map.fold (fun acc insAddr info ->
+        if Set.isEmpty info.TargetAddresses then acc
+        else
+          let jtInfo =
+            JumpTableInfo.Init info.JTBaseAddr info.JTRange info.JTEntrySize
+          let info =
+            { HostFunctionAddr = info.CalleeStart
+              TargetAddresses = info.TargetAddresses
+              JumpTableInfo = Some jtInfo }
+          Map.add insAddr info acc) acc
+    acc
+
+  let filterCallees ess (hint, st, acc) entry =
+    if Set.contains entry hint.BranchRecoveryPerformed then hint, st, acc
+    elif hasIndirectBranch ess entry then hint, st, entry :: acc
+    else
+      let brPerformed = hint.BranchRecoveryPerformed
+      let hint =
+        { hint with BranchRecoveryPerformed = Set.add entry brPerformed }
+      hint, st, acc
+
+  let recoverTableJmps noReturn fnBdrys ess hint st callees =
+    let hint, knowledge = prepareTableRecovery fnBdrys ess hint callees
+    Map.fold (recoverTableBranches noReturn fnBdrys) (ess, hint, st) knowledge
+
+  let recoverConstJmps noReturn boundaries (ess, hint, st) entry =
+    let boundary = Map.find entry boundaries
+    recoverConstJmpsOfCallee noReturn boundary ess hint st
+
+  let rec recover noReturn ess hint st =
+    let oldCJmps, oldTJmps = st.ConstantBranches, st.TableBranches
     let callees = computeCalleeAddrs ess
-    let constBranches, tblBranches =
-      toBranchInfo ess.IndirectBranchMap
-    let ess, indmap, _ =
-      ((constBranches, tblBranches), Map.empty)
-      ||> inferJumpTableRange ess callees tblBranches
-    BinEssence.addIndirectBranchMap ess indmap
-
-  let filterCalleeAddrs isTarget addrs =
-    match isTarget with
-    | Some isTarget -> addrs |> List.filter isTarget
-    | None -> addrs
-
-  let rec recover (noReturn: IAnalysis) ess needCPMap isTarget =
-    let ess = noReturn.Run ess
-    let callees = computeCalleeAddrs ess |> filterCalleeAddrs isTarget
-    let indmap = ess.IndirectBranchMap
-    let constBranches, tblBranches = toBranchInfo indmap
-    let ess, indmap', needCPMap =
+    let fnBdrys = computeFunctionBoundaries Map.empty callees
+    let hint, st, callees = List.fold (filterCallees ess) (hint, st, []) callees
+    let callees = List.rev callees
+    let ess, hint, st = recoverTableJmps noReturn fnBdrys ess hint st callees
+    let ess, hint, st =
+      callees |> List.fold (recoverConstJmps noReturn fnBdrys) (ess, hint, st)
+    let hint =
       callees
-      |> List.fold (analyzeBranches ess)
-        ((constBranches, tblBranches), needCPMap)
-      ||> inferJumpTableRange ess callees tblBranches
-    let indmap' = Map.fold (fun acc k v -> Map.add k v acc) indmap indmap'
-    if indmap <> indmap' then
-      let ess = BinEssence.addIndirectBranchMap ess indmap'
+      |> List.fold (fun hint entry ->
+        let brPerformed = hint.BranchRecoveryPerformed
+        { hint with BranchRecoveryPerformed = Set.add entry brPerformed }) hint
+    let newCJmps, newTJmps = st.ConstantBranches, st.TableBranches
+    let indMap = toIndMap st
+    let ess = BinEssence.addIndirectBranchMap ess indMap
+    if oldCJmps = newCJmps && oldTJmps = newTJmps then ess, hint
+    else
 #if DEBUG
-      printfn "[*] Go to the next phase ..."
+      printfn "[*] Go to next phase..."
 #endif
-      recover noReturn ess needCPMap isTarget
-    else ess
+      recover noReturn ess hint st
 
 type BranchRecovery (enableNoReturn) =
   let noReturn =
     if enableNoReturn then NoReturnAnalysis () :> IAnalysis
     else NoAnalysis () :> IAnalysis
 
-  member __.CalculateTable ess =
-    BranchRecoveryHelper.calculateTable ess
+  member __.RunWith _ = Utils.futureFeature ()
 
-  member __.RunWith ess isTarget =
-    BranchRecoveryHelper.recover noReturn ess Map.empty (Some isTarget)
+  member __.CalculateTable _ = Utils.futureFeature ()
 
   interface IAnalysis with
     member __.Name = "Indirect Branch Recovery"
 
-    member __.Run ess =
-      BranchRecoveryHelper.recover noReturn ess Map.empty None
+    member __.Run ess hint =
+      let st = BranchRecoveryState.Init ()
+      BranchRecoveryHelper.recover noReturn ess hint st
