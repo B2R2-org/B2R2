@@ -68,7 +68,7 @@ type ELFFileInfo (bytes, path, baseAddr) =
   override __.IsExecutableAddr addr = isExecutableAddr elf addr
   override __.GetNotInFileIntervals range = getNotInFileIntervals elf range
   override __.GetFunctionAddresses () =
-    base.GetFunctionAddresses () |> getFunctionAddrs elf
+    base.GetFunctionAddresses () |> addExtraFunctionAddrs elf
   member __.ELF with get() = elf
 
 // vim: set tw=80 sts=2 sw=2:
