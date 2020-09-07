@@ -1766,22 +1766,14 @@ let private pTwoByteOp t reader pos byte =
   | 0xC4uy -> parseVEX t SzDef32 opNor0FC4 opVex0FC4 dsNor0FC4 dsVex0FC4, pos
   | 0xC5uy -> parseVEX t SzDef32 opNor0FC5 opVex0FC5 dsNor0FC5 dsVex0FC5, pos
   | 0xC6uy -> parseVEX t SzDef32 opNor0FC6 opVex0FC6 dsNor0FC6 dsVex0FC6, pos
-  | 0xC8uy ->
-    parseOp (ignOpSz t) Opcode.BSWAP SzDef32 RG0Tz, pos
-  | 0xC9uy ->
-    parseOp (ignOpSz t) Opcode.BSWAP SzDef32 RG1Tz, pos
-  | 0xCAuy ->
-    parseOp (ignOpSz t) Opcode.BSWAP SzDef32 RG2Tz, pos
-  | 0xCBuy ->
-    parseOp (ignOpSz t) Opcode.BSWAP SzDef32 RG3Tz, pos
-  | 0xCCuy ->
-    parseOp (ignOpSz t) Opcode.BSWAP SzDef32 RG4Tz, pos
-  | 0xCDuy ->
-    parseOp (ignOpSz t) Opcode.BSWAP SzDef32 RG5Tz, pos
-  | 0xCEuy ->
-    parseOp (ignOpSz t) Opcode.BSWAP SzDef32 RG6Tz, pos
-  | 0xCFuy ->
-    parseOp (ignOpSz t) Opcode.BSWAP SzDef32 RG7Tz, pos
+  | 0xC8uy -> parseOp (ignOpSz t) Opcode.BSWAP SzDef32 RG0Tv, pos
+  | 0xC9uy -> parseOp (ignOpSz t) Opcode.BSWAP SzDef32 RG1Tv, pos
+  | 0xCAuy -> parseOp (ignOpSz t) Opcode.BSWAP SzDef32 RG2Tv, pos
+  | 0xCBuy -> parseOp (ignOpSz t) Opcode.BSWAP SzDef32 RG3Tv, pos
+  | 0xCCuy -> parseOp (ignOpSz t) Opcode.BSWAP SzDef32 RG4Tv, pos
+  | 0xCDuy -> parseOp (ignOpSz t) Opcode.BSWAP SzDef32 RG5Tv, pos
+  | 0xCEuy -> parseOp (ignOpSz t) Opcode.BSWAP SzDef32 RG6Tv, pos
+  | 0xCFuy -> parseOp (ignOpSz t) Opcode.BSWAP SzDef32 RG7Tv, pos
   | 0xD1uy -> parseVEX t SzDef32 opNor0FD1 opVex0FD1 dsNor0FD1 dsVex0FD1, pos
   | 0xD2uy -> parseVEX t SzDef32 opNor0FD2 opVex0FD2 dsNor0FD2 dsVex0FD2, pos
   | 0xD3uy -> parseVEX t SzDef32 opNor0FD3 opVex0FD3 dsNor0FD3 dsVex0FD3, pos
@@ -1998,7 +1990,7 @@ let private pOneByteOpcode t reader pos = function
   | 0x90uy ->
     if hasNoPrefNoREX t then parseOp t Opcode.NOP SzDef32 [||], pos
     elif hasREPZ t.TPrefixes then parseOp t Opcode.PAUSE SzDef32 [||], pos
-    else parseOp t Opcode.XCHG SzDef32 RG0FzRG0Tz, pos
+    else parseOp t Opcode.XCHG SzDef32 RG0FvRG0Tv, pos
   | 0x91uy -> parseOp t Opcode.XCHG SzDef32 RG0FvRG1Tv, pos
   | 0x92uy -> parseOp t Opcode.XCHG SzDef32 RG0FvRG2Tv, pos
   | 0x93uy -> parseOp t Opcode.XCHG SzDef32 RG0FvRG3Tv, pos
