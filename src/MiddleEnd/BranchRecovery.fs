@@ -213,7 +213,12 @@ module BranchRecoveryHelper =
   let rec simplifyBinOp = function
     | BinOp (BinOpType.ADD, _, Num v1, Num v2) -> Num (BitVector.add v1 v2)
     | BinOp (BinOpType.SUB, _, Num v1, Num v2) -> Num (BitVector.sub v1 v2)
-    | BinOp (BinOpType.MUL, _, Num v1, Num v2) -> Num (BitVector.mul v1 v2)
+    | BinOp (BinOpType.MUL, _, Num v1, Num v2) ->
+      let v1 =
+        if BitVector.toUInt64 v2 = 4UL && not <| BitVector.isZero v1 then
+          BitVector.zero <| BitVector.getType v1
+        else v1
+      Num (BitVector.mul v1 v2)
     | BinOp (BinOpType.ADD, rt, Num v1, BinOp (BinOpType.ADD, _, Num v2, e))
     | BinOp (BinOpType.ADD, rt, Num v1, BinOp (BinOpType.ADD, _, e, Num v2))
     | BinOp (BinOpType.ADD, rt, BinOp (BinOpType.ADD, _, Num v2, e), Num v1)
