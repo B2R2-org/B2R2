@@ -548,13 +548,9 @@ module BinEssence =
         let elms = CFGEdge (srcPoint, e, dstPoint.Address) :: elms
         addEdgeLoop ess elms edges
 
-  let private connectEdges ess elms vertices edges foundIndJmp =
+  let private connectEdges ess elms edges =
     let ess, elms = addEdgeLoop ess elms edges
-    let foundIndJmp =
-      if List.exists (fun (bbl: IRBasicBlock) -> bbl.HasIndirectBranch) vertices
-      then true
-      else foundIndJmp
-    Ok <| struct (ess, foundIndJmp, elms)
+    Ok <| struct (ess, elms)
 
   let private extractLeaders ess (boundary: AddrRange) fstLeader addrs =
     addrs
@@ -566,7 +562,7 @@ module BinEssence =
           boundary.Min <= addr && addr < boundary.Max) insInfo.ReachablePPs
       Set.union pps pps') (Set.singleton fstLeader)
 
-  let private buildBlock ess leader addrs lastAddr foundIndJmp elms edgeInfo =
+  let private buildBlock ess leader addrs lastAddr elms edgeInfo =
     let last = ess.InstrMap.[lastAddr].Instruction
     let boundary = AddrRange (leader, lastAddr + uint64 last.Length)
     let leader = ProgramPoint (leader, 0)
@@ -585,17 +581,17 @@ module BinEssence =
       let ess = { ess with BBLStore = bbls; SCFG = g }
       match edgeInfo with
       | Some (src, e) ->
-        connectEdges ess elms vertices [(src, leader, e)] foundIndJmp
+        connectEdges ess elms [(src, leader, e)]
       | None ->
         let ess, edges = getEdges ess [] (Map.find leader ess.BBLStore.VertexMap)
-        connectEdges ess elms vertices edges foundIndJmp
+        connectEdges ess elms edges
     | Error _ -> Error ()
 
-  let internal parseNewBBL ess foundIndJmp elms ctxt addr edgeInfo =
+  let internal parseNewBBL ess elms ctxt addr edgeInfo =
     match InstrMap.parse ess.BinHandler ctxt ess.InstrMap ess.BBLStore addr with
     | Ok (instrMap, block, lastAddr) ->
       let ess = { ess with InstrMap = instrMap }
-      buildBlock ess addr block lastAddr foundIndJmp elms edgeInfo
+      buildBlock ess addr block lastAddr elms edgeInfo
     | Error _ -> Error ()
 
   let rec private getBlockAddressesWithInstrMap ess addrs addr =
@@ -605,17 +601,17 @@ module BinEssence =
       struct (List.rev (addr :: addrs), ins.Address)
     else getBlockAddressesWithInstrMap ess (addr :: addrs) nextAddr
 
-  let internal updateCFGWithVertex ess foundIndJmp elms addr ctxt =
-    if bblExists ess.BBLStore addr then Ok <| struct (ess, foundIndJmp, elms)
+  let internal updateCFGWithVertex ess elms addr ctxt =
+    if bblExists ess.BBLStore addr then Ok <| struct (ess, elms)
     elif not <| isExecutableLeader ess.BinHandler addr then Error ()
     elif needSplitting ess.BBLStore addr then
       let ess, elms = splitBlock ess addr elms
-      Ok <| struct (ess, foundIndJmp, elms)
+      Ok <| struct (ess, elms)
     elif isIntruding ess.BBLStore addr then Error ()
     elif isKnownInstruction ess.InstrMap addr then
       let struct (block, lastAddr) = getBlockAddressesWithInstrMap ess [] addr
-      buildBlock ess addr block lastAddr foundIndJmp elms None
-    else parseNewBBL ess foundIndJmp elms ctxt addr None
+      buildBlock ess addr block lastAddr elms None
+    else parseNewBBL ess elms ctxt addr None
 
   let private computeNextParsingContext ess src edge =
     let prevVertex = Map.find src ess.BBLStore.VertexMap
@@ -627,10 +623,10 @@ module BinEssence =
       | _ -> ctxt
     | _ -> ctxt
 
-  let internal updateCFGWithEdge ess foundIndJmp elms src edge dst =
+  let internal updateCFGWithEdge ess elms src edge dst =
     if bblExists ess.BBLStore dst then
       let ess, elms = addEdgeLoop ess elms [(src, ProgramPoint (dst, 0), edge)]
-      Ok <| struct (ess, foundIndJmp, elms)
+      Ok <| struct (ess, elms)
     elif not <| isExecutableLeader ess.BinHandler dst then Error ()
     elif needSplitting ess.BBLStore dst then
       let ess, elms = splitBlock ess dst elms
@@ -638,31 +634,31 @@ module BinEssence =
       let dst = Map.find (ProgramPoint (dst, 0)) ess.BBLStore.VertexMap
       let g = DiGraph.addEdge ess.SCFG src dst edge
       let ess = { ess with SCFG = g }
-      Ok <| struct (ess, foundIndJmp, elms)
+      Ok <| struct (ess, elms)
     elif isIntruding ess.BBLStore dst then Error ()
     elif isKnownInstruction ess.InstrMap dst then
       let struct (block, lastAddr) = getBlockAddressesWithInstrMap ess [] dst
-      buildBlock ess dst block lastAddr foundIndJmp elms (Some (src, edge))
+      buildBlock ess dst block lastAddr elms (Some (src, edge))
     else
       let ctxt = computeNextParsingContext ess src edge
-      parseNewBBL ess foundIndJmp elms ctxt dst (Some (src, edge))
+      parseNewBBL ess elms ctxt dst (Some (src, edge))
 
-  let rec internal updateCFG ess success foundIndJmp = function
+  let rec internal updateCFG ess success = function
     | CFGEntry (addr, ctxt) :: elms ->
-      match updateCFGWithVertex ess foundIndJmp elms addr ctxt with
-      | Ok (ess, foundIndJmp, elms) -> updateCFG ess success foundIndJmp elms
+      match updateCFGWithVertex ess elms addr ctxt with
+      | Ok (ess, elms) -> updateCFG ess success elms
       | Error () ->
-        if ess.IgnoreIllegal then updateCFG ess false foundIndJmp elms
-        else Error (ess, foundIndJmp)
+        if ess.IgnoreIllegal then updateCFG ess false elms
+        else Error ess
     | CFGEdge (src, edge, dst) :: elms ->
-      match updateCFGWithEdge ess foundIndJmp elms src edge dst with
-      | Ok (ess, foundIndJmp, elms) -> updateCFG ess success foundIndJmp elms
+      match updateCFGWithEdge ess elms src edge dst with
+      | Ok (ess, elms) -> updateCFG ess success elms
       | Error () ->
-        if ess.IgnoreIllegal then updateCFG ess false foundIndJmp elms
-        else Error (ess, foundIndJmp)
+        if ess.IgnoreIllegal then updateCFG ess false elms
+        else Error ess
     | [] ->
-      if success then Ok (ess, foundIndJmp)
-      else Error (ess, foundIndJmp)
+      if success then Ok ess
+      else Error ess
 
   let private classifyNoReturnEdges noRetCallSites =
     noRetCallSites
@@ -676,8 +672,7 @@ module BinEssence =
     (v: Vertex<IRBasicBlock>).VData.PPoint = ppoint
 
   let private removeNoReturnEdgesAndUnreachables ess entry callSites =
-    let cfg, root = (ess: BinEssence).GetFunctionCFG (entry, false)
-    let bbls = ess.BBLStore
+    let cfg, _ = (ess: BinEssence).GetFunctionCFG (entry, false)
     let g =
       callSites
       |> Set.fold (fun g ppoint ->
@@ -697,10 +692,11 @@ module BinEssence =
 
   [<CompiledName("AddEntry")>]
   let addEntry ess (addr, ctxt) =
-    let ess = { ess with CalleeMap = ess.CalleeMap.AddEntry addr }
-    match updateCFG ess true false [ CFGEntry (addr, ctxt) ] with
-    | Ok (ess, _) -> Ok ess
-    | Error (ess, _) -> Error ess
+    let ess =
+      { ess with CalleeMap = ess.CalleeMap.AddEntry addr }
+    match updateCFG ess true [ CFGEntry (addr, ctxt) ] with
+    | Ok ess -> Ok ess
+    | Error ess -> Error ess
 
   [<CompiledName("AddEntries")>]
   let addEntries ess entries =
@@ -718,9 +714,9 @@ module BinEssence =
     let callee = ess.CalleeMap.Get funcV.VData.PPoint.Address
     callee.NeedNoReturn <- true
     let edgeInfo = [ CFGEdge (ProgramPoint (src, 0), edgeKind, dst) ]
-    match updateCFG ess true false edgeInfo with
-    | Ok (ess, hasNewIndBranch) -> Ok (ess, hasNewIndBranch)
-    | Error (_, _) -> Error ()
+    match updateCFG ess true edgeInfo with
+    | Ok ess -> Ok ess
+    | Error _ -> Error ess
 
   [<CompiledName("AddNoReturnInfo")>]
   let addNoReturnInfo ess noRetFuncs noRetCallSites =
