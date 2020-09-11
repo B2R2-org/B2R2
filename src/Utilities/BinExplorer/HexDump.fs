@@ -42,11 +42,10 @@ type CmdHexDump () =
     try (addr, binEssence.BinHandler.ReadBytes (addr, count)) |> Ok
     with _ -> Error "[*] Failed to read bytes."
 
-  let padSpace (arr: ColoredString []) =
+  let padSpace (arr: ColoredSegment []) =
     let m = arr.Length % 16
     if m = 0 then arr
-    else (Array.create (16 - m) (ColoredString (NoColor, "  ")))
-         |> Array.append arr
+    else Array.create (16 - m) (NoColor, "  ") |> Array.append arr
 
   let addSpace idx cs =
     let c, s = cs
@@ -54,32 +53,31 @@ type CmdHexDump () =
     | 0 -> c, s
     | 8 -> c, "  " + s
     | _ -> c, " " + s
-    |> ColoredString
 
   let dumpHex (bytes: byte []) =
     bytes
-    |> Array.map (ColoredString.convertByte ColoredString.mapHex)
+    |> Array.map ColoredSegment.byteToHex
     |> padSpace
     |> Array.mapi addSpace
 
   let dumpASCII (bytes: byte []) =
     bytes
-    |> Array.map (ColoredString.convertByte ColoredString.mapAscii)
+    |> Array.map ColoredSegment.byteToAscii
 
   let dumpLine addr linenum bytes =
     let addr = (addr + uint64 (linenum * 16)).ToString ("X16")
     dumpASCII bytes
-    |> Array.append [| ColoredString (NoColor, " | ") |]
+    |> Array.append [| ColoredSegment (NoColor, " | ") |]
     |> Array.append (dumpHex bytes)
-    |> Array.append [| ColoredString (NoColor, addr + ": ") |]
+    |> Array.append [| ColoredSegment (NoColor, addr + ": ") |]
     |> List.ofArray
-    |> ColoredString.reduceColoredString (NoColor, "") []
+    |> ColoredString.map
 
   let hexdump = function
     | Ok (addr, bytes: byte []) ->
       Array.chunkBySize 16 bytes
       |> Array.mapi (dumpLine addr)
-    | Error e -> [| [ ColoredString (NoColor, e) ] |]
+    | Error e -> [| [ ColoredSegment (NoColor, e) ] |]
 
   override __.CmdName = "hexdump"
 

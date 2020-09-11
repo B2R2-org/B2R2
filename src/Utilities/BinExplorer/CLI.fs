@@ -32,9 +32,9 @@ let consolePrinter output =
   | Colored coloredStringList ->
     coloredStringList
     |> List.iter (fun (c, s) ->
-      ColoredString.setConsoleColor c
+      Console.setColor c
       System.Console.Write s)
-    ColoredString.setConsoleColor NoColor
+    Console.setColor NoColor
     System.Console.Write System.Environment.NewLine
 
 let logPrinter output =

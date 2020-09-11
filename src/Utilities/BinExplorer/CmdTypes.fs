@@ -32,7 +32,7 @@ exception DuplicateCommandException
 /// This is a output for printers of console, log, json or others.
 type CmdOutput =
   | Normal of string
-  | Colored of ColoredString list
+  | Colored of ColoredString
 
 /// Cmd represents a command that can be invoked within B2R2's CLI.
 [<AbstractClass>]

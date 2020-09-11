@@ -196,10 +196,8 @@ let handleHexview req resp arbiter =
   ess.BinHandler.FileInfo.GetSegments ()
   |> Seq.map (fun seg ->
     let bs = BinHandler.ReadBytes (ess.BinHandler, seg.Address, int (seg.Size))
-    let coloredHex =
-      bs |> Array.map (ColoredString.convertByte ColoredString.mapHex)
-    let coloredAscii =
-      bs |> Array.map (ColoredString.convertByte ColoredString.mapAscii)
+    let coloredHex = bs |> Array.map ColoredSegment.byteToHex
+    let coloredAscii = bs |> Array.map ColoredSegment.byteToAscii
     let cha = (* DataColoredHexAscii *)
       Array.map2 (fun (c, h) (_, a) ->
         { Color = Color.toString c

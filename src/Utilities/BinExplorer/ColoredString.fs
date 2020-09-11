@@ -29,69 +29,61 @@ open System
 type Color = Red | Green | Yellow | Blue | NoColor
 
 module Color =
-  let toString color =
-    match color with
+  let toString = function
     | NoColor -> "nocolor"
     | Red -> "red"
     | Green -> "green"
     | Yellow -> "yellow"
     | Blue -> "blue"
 
-type RepresentationGroup = Null | Printable | Whitespace | Control | Else
+type ColoredSegment = Color * string
 
-type ColoredString = Color * string
+module ColoredSegment =
+  let private isNull b = b = 0uy
 
-module ColoredString =
-  let isNull b = b = 0uy
+  let private isPrintable b = b >= 33uy && b <= 126uy
 
-  let isPrintable b = b >= 33uy && b <= 126uy
+  let private isWhitespace b = b = 32uy || (b >= 9uy && b <= 13uy)
 
-  let isWhitespace b = b = 32uy || (b >= 9uy && b <= 13uy)
-
-  let isControl b =
+  let private isControl b =
     b = 127uy || (b >= 1uy && b <= 8uy) || (b >= 14uy && b <= 31uy)
 
-  let getColor b =
+  let private getColor b =
     if isNull b then NoColor
     elif isPrintable b then Green
     elif isWhitespace b then Blue
     elif isControl b then Red
     else Yellow
 
-  let mapHex (b: byte) _ = b.ToString ("X2")
+  let private getRepresentation b =
+    if isNull b then "0"
+    elif isPrintable b then (char b).ToString ()
+    elif isWhitespace b then "_"
+    elif isControl b then "*"
+    else "."
 
-  let mapAscii (b: byte) grp =
-    match grp with
-    | Null -> "0"
-    | Printable -> (char b).ToString ()
-    | Whitespace -> "_"
-    | Control -> "*"
-    | Else -> "."
+  let byteToHex b =
+    getColor b, b.ToString ("X2")
 
-  let getRepresentation mapper b =
-    if isNull b then Null
-    elif isPrintable b then Printable
-    elif isWhitespace b then Whitespace
-    elif isControl b then Control
-    else Else
-    |> mapper b
+  let byteToAscii b =
+    getColor b, getRepresentation b
 
-  let convertByte mapper b =
-    (getColor b, getRepresentation mapper b) |> ColoredString
+type ColoredString = ColoredSegment list
 
-  let rec reduceColoredString (prev: ColoredString) acc list =
-    let reduce pc ps s =
-      ColoredString (pc, ps + s)
-    match list with
-    | [] -> prev :: acc |> List.rev
-    | c, s as cur :: t ->
-      let pc, ps = prev
-      if prev = (NoColor, "") then reduceColoredString cur acc t
-      elif c = pc then reduceColoredString (reduce pc ps s) acc t
-      else reduceColoredString cur (prev :: acc) t
+module ColoredString =
+  let map (s: ColoredString): ColoredString =
+    let rec loop prev acc = function
+      | [] -> prev :: acc |> List.rev |> List.choose id
+      | col, str as cur :: rest ->
+        match prev with
+        | Some (prevCol, prevStr) when prevCol = col ->
+          loop (Some (prevCol, prevStr + str)) acc rest
+        | Some (prevCol, prevStr) -> loop (Some cur) (prev :: acc) rest
+        | None -> loop (Some cur) acc rest
+    loop None [] s
 
-  let setConsoleColor color =
-    match color with
+module Console =
+  let setColor = function
     | NoColor -> Console.ResetColor ()
     | Red -> Console.ForegroundColor <- ConsoleColor.Red
     | Green -> Console.ForegroundColor <- ConsoleColor.Green
