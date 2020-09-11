@@ -64,7 +64,7 @@ type CmdHelp () =
     match args with
     | [] -> generalHelp cmdMap
     | cmd :: _ -> specificHelp cmd cmdMap
-
+    |> Array.map Normal
 
 type CmdExit () =
   inherit Cmd ()

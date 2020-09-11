@@ -138,3 +138,4 @@ type CmdEvalExpr (name, alias, descrSuffix, helpSuffix, outFormat) =
     match args with
     | [] -> [| __.CmdHelp |]
     | _ -> evaluator.Run args outFormat
+    |> Array.map Normal

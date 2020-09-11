@@ -45,3 +45,4 @@ type CmdDemangle () =
     match Demangler.Demangle mangled |> Utils.tupleToOpt with
     | None -> [| "[*] Invalid input." |]
     | Some s -> [| s |]
+    |> Array.map Normal

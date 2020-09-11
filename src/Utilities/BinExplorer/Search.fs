@@ -75,5 +75,6 @@ type CmdSearch () =
     | []
     | _ :: [] -> [| __.CmdHelp |]
     | t :: pattern :: _ -> t.ToLower () |> __.CmdHandle ess.BinHandler pattern
+    |> Array.map Normal
 
 // vim: set tw=80 sts=2 sw=2:

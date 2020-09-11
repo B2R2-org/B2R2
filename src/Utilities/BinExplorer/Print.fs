@@ -186,5 +186,6 @@ type CmdPrint () =
       |> Result.bind (parseAddr addr)
       |> validateRequest binEssence
     | _ -> [| __.CmdHelp |]
+    |> Array.map Normal
 
 // vim: set tw=80 sts=2 sw=2:
