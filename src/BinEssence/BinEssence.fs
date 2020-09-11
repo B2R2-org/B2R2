@@ -678,69 +678,18 @@ module BinEssence =
   let private removeNoReturnEdgesAndUnreachables ess entry callSites =
     let cfg, root = (ess: BinEssence).GetFunctionCFG (entry, false)
     let bbls = ess.BBLStore
-    let cfg, edges =
+    let g =
       callSites
-      |> Set.fold (fun (g, edges) ppoint ->
-        match DiGraph.tryFindVertexBy g (findVertexByPPoint ppoint) with
-        | None -> g, edges
+      |> Set.fold (fun g ppoint ->
+        match DiGraph.tryFindVertexBy cfg (fun v -> v.VData.PPoint = ppoint) with
+        | None -> g
         | Some v ->
           DiGraph.getSuccs g v
-          |> List.fold (fun acc s ->
+          |> List.fold (fun g s ->
             match DiGraph.findEdgeData g v s with
-            | FallThroughEdge
-            | CallFallThroughEdge -> (v, s) :: acc
-            | _ -> acc) []
-          |> List.fold (fun (g, edges) (src, dst) ->
-            let g = DiGraph.removeEdge g src dst
-            let edges = (src.GetID (), dst.GetID ()) :: edges
-            g, edges) (g, edges)) (cfg, [])
-    let reachables =
-      Traversal.foldPostorder cfg root (fun acc v ->
-        if v.VData.IsFakeBlock () then acc
-        else Set.add v.VData.PPoint acc) Set.empty
-    let ppoints =
-      DiGraph.foldVertex cfg (fun acc v ->
-        if v.VData.IsFakeBlock () then acc
-        else Set.add v.VData.PPoint acc) Set.empty
-    let unreachables = Set.difference ppoints reachables
-    let g =
-      List.fold (fun g (srcid, dstid) ->
-        let src = DiGraph.findVertexByID g srcid
-        let dst = DiGraph.findVertexByID g dstid
-        DiGraph.removeEdge g src dst) ess.SCFG edges
-    let calleeMap, g =
-      unreachables
-      |> Set.fold (fun (calleeMap: CalleeMap, g) ppoint ->
-        let v = Map.find ppoint bbls.VertexMap
-        let calleeMap =
-          match v.VData.GetLastStmt () with
-          | InterJmp (_, Num addr, InterJmpInfo.IsCall) ->
-            let target = BitVector.toUInt64 addr
-            calleeMap.RemoveCaller v.VData.PPoint.Address target
-          | InterJmp (_, _, InterJmpInfo.IsCall) -> (* Indirect call *)
-            (* XXX: Update callInfo here *)
-            calleeMap
-          | _ -> calleeMap
-        let g = DiGraph.removeVertex g v
-        calleeMap, g) (ess.CalleeMap, g)
-    let bbls =
-      unreachables
-      |> Set.fold (fun bbls ppoint ->
-        let addr = ppoint.Address
-        match Map.tryFind addr bbls.BBLMap with
-        | Some bblInfo ->
-          let boundary = bblInfo.Boundary
-          let newBBLMap = Map.remove addr bbls.BBLMap
-          let newBoundaries = IntervalSet.remove boundary bbls.Boundaries
-          let newVertexMap = Map.remove ppoint bbls.VertexMap
-          { bbls with
-              BBLMap = newBBLMap
-              Boundaries = newBoundaries
-              VertexMap = newVertexMap }
-        | None ->
-          { bbls with
-              VertexMap = Map.remove ppoint bbls.VertexMap }) bbls
-    { ess with BBLStore = bbls; CalleeMap = calleeMap; SCFG = g }
+            | FallThroughEdge | CallFallThroughEdge -> DiGraph.removeEdge g v s
+            | _ -> g) g) ess.SCFG
+    { ess with SCFG = g }
 
   let private removeNoReturnFallThroughs ess =
     classifyNoReturnEdges ess.NoReturnInfo.NoReturnCallSites

@@ -111,9 +111,10 @@ type CFGTest1 () =
   member __.``Boundary Test: Leader Identification`` () =
     let bbls = ess.BBLStore
     let boundaries = bbls.Boundaries
-    Assert.AreEqual (8, bbls.VertexMap.Count)
+    Assert.AreEqual (10, bbls.VertexMap.Count)
     [ (0x00UL, 0x19UL); (0x19UL, 0x3FUL); (0x3FUL, 0x48UL); (0x48UL, 0x52UL);
-      (0x52UL, 0x55UL); (0x55UL, 0x5FUL); (0x62UL, 0x71UL); (0x71UL, 0x81UL); ]
+      (0x52UL, 0x55UL); (0x55UL, 0x5FUL); (0x5FUL, 0x62UL); (0x62UL, 0x71UL);
+      (0x71UL, 0x81UL); (0x81UL, 0x84UL) ]
     |> List.iter (fun r ->
          Assert.IsTrue <| IntervalSet.contains (AddrRange r) boundaries)
 

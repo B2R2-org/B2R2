@@ -56,6 +56,8 @@ let memoryReader hdl _pc addr =
     | Error e -> Error e
   else Error ErrorCase.InvalidMemoryRead
 
+let emptyMemoryReader _ _ _ = Error ErrorCase.InvalidMemoryRead
+
 let eval (ess: BinEssence) (blk: Vertex<IRBasicBlock>) st stopFn =
   let visited = HashSet<ProgramPoint> ()
   let rec evalLoop (blk: Vertex<IRBasicBlock>) st stopFn =

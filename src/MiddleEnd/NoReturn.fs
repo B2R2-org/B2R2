@@ -145,7 +145,7 @@ module private NoReturnHelper =
 
   let isNoReturnError ess (v: Vertex<IRBasicBlock>) =
     let hdl = ess.BinHandler
-    let st = EvalState (memoryReader hdl, true)
+    let st = EvalState (emptyMemoryReader hdl, true)
     let addr = v.VData.PPoint.Address
     let lastAddr = v.VData.LastInstruction.Address
     let st = initRegs hdl |> EvalState.PrepareContext st 0 addr
@@ -214,7 +214,7 @@ module private NoReturnHelper =
     if v.VData.IsExternal then isKnownNoReturnFunction v.VData.Name
     else
       let cfg = modifyCFG ess noretAddrs addr
-      cfg.FoldVertex (fun acc (v: Vertex<IRBasicBlock>) ->
+      DiGraph.foldVertex cfg (fun acc (v: Vertex<IRBasicBlock>) ->
         if List.length <| DiGraph.getSuccs cfg v > 0 then acc
         elif v.VData.IsFakeBlock () then
           if ProgramPoint.IsFake v.VData.PPoint then false
