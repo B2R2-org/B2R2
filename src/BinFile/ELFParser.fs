@@ -49,11 +49,22 @@ let findPltSize sAddr plt reader = function
   | Arch.AARCH64 -> 0x10UL
   | _ -> failwith "Implement"
 
+let updateSecondPLT arch sndAddr symb map =
+  match sndAddr with
+  | None -> map, sndAddr
+  | Some addr ->
+    let nextAddr = addr + pltSkipBytes arch
+    let r = AddrRange (addr, nextAddr)
+    ARMap.add r symb map, Some nextAddr
+
 let parsePLT arch sections (reloc: RelocInfo) reader =
+  let sndStartAddr =
+    Map.tryFind ".plt.sec" sections.SecByName
+    |> Option.map (fun plt -> plt.SecAddr)
   match Map.tryFind ".plt" sections.SecByName with
   | Some plt ->
     let pltStartAddr = plt.SecAddr + pltSkipBytes arch
-    let folder (map, sAddr) _ (rel: RelocationEntry) =
+    let folder (map, sAddr, sndAddr) _ (rel: RelocationEntry) =
       match rel.RelType with
       | RelocationX86 RelocationX86.Reloc386JmpSlot
       | RelocationX64 RelocationX64.RelocX64JmpSlot
@@ -63,9 +74,12 @@ let parsePLT arch sections (reloc: RelocInfo) reader =
         let addrRange = AddrRange (sAddr, nextStartAddr)
         let symb = Option.get rel.RelSymbol
         let symb = { symb with Addr = rel.RelOffset }
-        ARMap.add addrRange symb map, nextStartAddr
-      | _ -> map, sAddr
-    Map.fold folder (ARMap.empty, pltStartAddr) reloc.RelocByAddr |> fst
+        let map = ARMap.add addrRange symb map
+        let map, nextSndAddr = updateSecondPLT arch sndAddr symb map
+        map, nextStartAddr, nextSndAddr
+      | _ -> map, sAddr, sndAddr
+    Map.fold folder (ARMap.empty, pltStartAddr, sndStartAddr) reloc.RelocByAddr
+    |> function (m, _, _) -> m
   | None -> ARMap.empty
 
 let parseGlobalSymbols reloc =

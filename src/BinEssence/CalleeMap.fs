@@ -79,7 +79,7 @@ type CalleeMap (hdl, ?linkMap, ?strCalleeMap, ?addrCalleeMap, ?callerMap) =
     |> Seq.fold (fun map entry ->
       Map.add entry.TableAddress entry.FuncName map
       |> Map.add entry.TrampolineAddress entry.FuncName) Map.empty
-  let linkMap = defaultArg linkMap <| buildLinkMap hdl
+  let linkMap = linkMap |> Option.defaultWith (fun () -> buildLinkMap hdl)
   let strCalleeMap = defaultArg strCalleeMap Map.empty
   let addrCalleeMap = defaultArg addrCalleeMap Map.empty
   let callerMap = defaultArg callerMap Map.empty
