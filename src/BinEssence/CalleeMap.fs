@@ -107,6 +107,7 @@ type CalleeMap (hdl, ?linkMap, ?strCalleeMap, ?addrCalleeMap, ?callerMap) =
         if Map.containsKey entry linkMap then ExternalCallee else InternalCallee
         |> Callee.Init hdl entry
       let strCalleeMap = Map.add callee.CalleeID entry strCalleeMap
+      let strCalleeMap = Map.add callee.CalleeName entry strCalleeMap
       let addrCalleeMap = Map.add entry callee addrCalleeMap
       strCalleeMap, addrCalleeMap
 
