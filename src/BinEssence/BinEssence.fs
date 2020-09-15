@@ -672,14 +672,17 @@ module BinEssence =
         Map.add entry (Set.add ppoint callSites) acc
       else Map.add entry (Set.singleton ppoint) acc) Map.empty
 
+  let findVertexByPPoint ppoint v =
+    (v: Vertex<IRBasicBlock>).VData.PPoint = ppoint
+
   let private removeNoReturnEdgesAndUnreachables ess entry callSites =
     let cfg, root = (ess: BinEssence).GetFunctionCFG (entry, false)
     let bbls = ess.BBLStore
-    let cfg =
+    let cfg, edges =
       callSites
-      |> Set.fold (fun g ppoint ->
-        match Map.tryFind ppoint bbls.VertexMap with
-        | None -> g
+      |> Set.fold (fun (g, edges) ppoint ->
+        match DiGraph.tryFindVertexBy g (findVertexByPPoint ppoint) with
+        | None -> g, edges
         | Some v ->
           DiGraph.getSuccs g v
           |> List.fold (fun acc s ->
@@ -687,8 +690,10 @@ module BinEssence =
             | FallThroughEdge
             | CallFallThroughEdge -> (v, s) :: acc
             | _ -> acc) []
-          |> List.fold (fun g (src, dst) ->
-            DiGraph.removeEdge g src dst) g) cfg
+          |> List.fold (fun (g, edges) (src, dst) ->
+            let g = DiGraph.removeEdge g src dst
+            let edges = (src.GetID (), dst.GetID ()) :: edges
+            g, edges) (g, edges)) (cfg, [])
     let reachables =
       Traversal.foldPostorder cfg root (fun acc v ->
         if v.VData.IsFakeBlock () then acc
@@ -698,6 +703,11 @@ module BinEssence =
         if v.VData.IsFakeBlock () then acc
         else Set.add v.VData.PPoint acc) Set.empty
     let unreachables = Set.difference ppoints reachables
+    let g =
+      List.fold (fun g (srcid, dstid) ->
+        let src = DiGraph.findVertexByID g srcid
+        let dst = DiGraph.findVertexByID g dstid
+        DiGraph.removeEdge g src dst) ess.SCFG edges
     let calleeMap, g =
       unreachables
       |> Set.fold (fun (calleeMap: CalleeMap, g) ppoint ->
@@ -712,7 +722,7 @@ module BinEssence =
             calleeMap
           | _ -> calleeMap
         let g = DiGraph.removeVertex g v
-        calleeMap, g) (ess.CalleeMap, ess.SCFG)
+        calleeMap, g) (ess.CalleeMap, g)
     let bbls =
       unreachables
       |> Set.fold (fun bbls ppoint ->
