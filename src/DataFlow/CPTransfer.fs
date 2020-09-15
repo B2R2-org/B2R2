@@ -229,6 +229,10 @@ let loadPointerToReg hdl (blk: Vertex<SSABBlock>) addr =
     match (ins :?> IntelInstruction).Info.Operands with
     | TwoOperands (_, OprMem (Some reg, None, Some _, _)) -> reg = Register.RIP
     | _ -> false
+  | Arch.IntelX86 ->
+    match (ins :?> IntelInstruction).Info.Operands with
+    | TwoOperands (_, OprMem (None, None, Some _, _)) -> true
+    | _ -> false
   | _ -> false
 
 let evalDef (st: CPState) blk (ppoint: ProgramPoint) v e =
