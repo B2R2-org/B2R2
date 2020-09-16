@@ -28,7 +28,7 @@ let run analyses ess =
 #if DEBUG
   let startTime = System.DateTime.Now
 #endif
-  let hint = AnalysisHint.Init ()
+  let hint = AnalysisHint.empty ()
   let ess, _ =
     analyses
     |> List.fold (fun (ess, hint) (analysis: IAnalysis) ->

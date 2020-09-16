@@ -26,16 +26,26 @@ namespace B2R2.MiddleEnd
 
 open B2R2
 
+/// AnalysisHint stores inter-analysis information that survive through
+/// analyses. It can potentially improve the speed and quality of the analyses.
 type AnalysisHint = {
+  /// Addresses of functions where no-return analysis has been performed.
   NoReturnPerformed: Set<Addr>
+  /// Addresses of functions where branch recovery has been performed.
   BranchRecoveryPerformed: Set<Addr>
-  TableHint: Set<Addr * Addr>
+  /// Pairs of an indirect jump instruction addr and its jump table address.
+  /// This involves all observed jump-table-based indirect jumps  before
+  /// connecting indirect edges. These branches are currently unreachable, and
+  /// will be deleted from the set when they become reachable.
+  PotentialTableIndBranches: Set<Addr * Addr>
 }
 with
-  static member Init () =
+  /// Empty hint.
+  [<CompiledName("Empty")>]
+  static member empty () =
     { NoReturnPerformed = Set.empty
       BranchRecoveryPerformed = Set.empty
-      TableHint = Set.empty }
+      PotentialTableIndBranches = Set.empty }
 
   static member markNoReturn entry hint =
     { hint with NoReturnPerformed = Set.add entry hint.NoReturnPerformed }

@@ -68,8 +68,7 @@ module private SpeculativeGapCompletionHelper =
       ess'.CalleeMap.Entries |> Set.toList |> List.map (fun a -> a, ctxt)
     match BinEssence.addEntries ess entries with
     | Ok ess ->
-      ess'.IndirectBranchMap
-      |> BinEssence.addIndirectBranchMap ess
+      { ess with IndirectBranchMap = ess'.IndirectBranchMap }
       |> (branchRecovery: BranchRecovery).CalculateTable
     | Error _ -> ess
 
