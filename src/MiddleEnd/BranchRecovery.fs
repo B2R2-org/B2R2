@@ -311,19 +311,21 @@ module BranchRecoveryHelper =
         (blockAddr, insAddr, constJmpInfo, isCall) :: acc
       | _ -> acc) []
 
-  let addConstJmpEdge ess blockAddr jmpInfo isCall =
+  let addConstJmpEdge (ess: BinEssence) blockAddr jmpInfo isCall =
     let target = (jmpInfo: ConstantBranchInfo).TargetAddr
-    if isCall then
-      [ (target, (ess: BinEssence).BinHandler.DefaultParsingContext) ]
-      |> BinEssence.addEntries ess
-    else Ok ess
-    |> Result.bind (fun ess ->
-      if isCall then IndirectCallEdge else IndirectJmpEdge
-      |> BinEssence.addEdge ess blockAddr target)
-    |> (fun ess ->
-      match ess with
-      | Ok ess -> ess
-      | _ -> Utils.impossible ())
+    if ess.BinHandler.FileInfo.IsExecutableAddr target then
+      if isCall then
+        [ (target, ess.BinHandler.DefaultParsingContext) ]
+        |> BinEssence.addEntries ess
+      else Ok ess
+      |> Result.bind (fun ess ->
+        if isCall then IndirectCallEdge else IndirectJmpEdge
+        |> BinEssence.addEdge ess blockAddr target)
+      |> (fun ess ->
+        match ess with
+        | Ok ess -> ess
+        | _ -> Utils.impossible ())
+    else ess
 
   let recoverConstJmpsOfCallee noReturn (entry, _) ess hint st =
     match findConstBranches ess entry with
