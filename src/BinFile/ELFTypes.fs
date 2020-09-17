@@ -818,6 +818,42 @@ type CallFrameInformation = {
   FDERecord: FrameDescriptionEntry []
 }
 
+/// Language Specific Data Area Header.
+type Header = {
+  /// This is the format of the landing pad pointers.
+  LPFormat: ExceptionHeaderValue
+  /// The start of the function.
+  LPStart: byte option
+  /// This is the format of types table entry.
+  TTFormat: ExceptionHeaderValue
+  /// The base of types table
+  TTBase: byte option
+  // This is the format of the call site offsets.
+  CallSiteFormat: ExceptionHeaderValue
+  // The size of call site table.
+  CallSiteTableSize: byte []
+}
+
+type CallSiteRecord = {
+  Position: byte []
+  Length: byte []
+  LandingPad: byte []
+  Action: byte []
+}
+
+type Action = {
+  TypeFilter: byte
+  NextAction: byte
+}
+
+/// LSDA. Language Specific Data Area.
+type LanguageSpecificDataArea = {
+  Header: Header
+  CallSiteTable: CallSiteRecord list
+  ActionTable: Action list
+  TypeTable: Type list
+}
+
 /// Main ELF format representation.
 type ELF = {
   /// ELF header.
@@ -840,6 +876,8 @@ type ELF = {
   Globals: Map<Addr, ELFSymbol>
   /// Exception frame.
   ExceptionFrame: CallFrameInformation list
+  /// GccExceptTable.
+  GccExceptTable: LanguageSpecificDataArea list option
   /// Invalid address ranges.
   InvalidAddrRanges: IntervalSet
   /// Not-in-file address ranges.
