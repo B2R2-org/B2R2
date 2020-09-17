@@ -88,7 +88,7 @@ type BinEssence = {
 with
   member __.IsNoReturn (src: Vertex<IRBasicBlock>) =
     __.NoReturnInfo.NoReturnCallSites
-    |> Set.exists (fun (ppoint, _) -> ppoint = src.VData.PPoint)
+    |> Set.exists (fun ppoint -> ppoint = src.VData.PPoint)
 
   /// Retrieve an IR-based CFG (subgraph) of a function starting at the given
   /// address (addr) from the SCFG, and the root node. When the
@@ -660,36 +660,6 @@ module BinEssence =
       if success then Ok ess
       else Error ess
 
-  let private classifyNoReturnEdges noRetCallSites =
-    noRetCallSites
-    |> Set.fold (fun acc (ppoint, entry) ->
-      if Map.containsKey entry acc then
-        let callSites = Map.find entry acc
-        Map.add entry (Set.add ppoint callSites) acc
-      else Map.add entry (Set.singleton ppoint) acc) Map.empty
-
-  let findVertexByPPoint ppoint v =
-    (v: Vertex<IRBasicBlock>).VData.PPoint = ppoint
-
-  let private removeNoReturnEdgesAndUnreachables ess entry callSites =
-    let cfg, _ = (ess: BinEssence).GetFunctionCFG (entry, false)
-    let g =
-      callSites
-      |> Set.fold (fun g ppoint ->
-        match DiGraph.tryFindVertexBy cfg (fun v -> v.VData.PPoint = ppoint) with
-        | None -> g
-        | Some v ->
-          DiGraph.getSuccs g v
-          |> List.fold (fun g s ->
-            match DiGraph.findEdgeData g v s with
-            | FallThroughEdge | CallFallThroughEdge -> DiGraph.removeEdge g v s
-            | _ -> g) g) ess.SCFG
-    { ess with SCFG = g }
-
-  let private removeNoReturnFallThroughs ess =
-    classifyNoReturnEdges ess.NoReturnInfo.NoReturnCallSites
-    |> Map.fold removeNoReturnEdgesAndUnreachables ess
-
   [<CompiledName("AddEntry")>]
   let addEntry ess (addr, ctxt) =
     let ess =
@@ -715,14 +685,19 @@ module BinEssence =
     | Ok ess -> Ok ess
     | Error _ -> Error ess
 
-  [<CompiledName("AddNoReturnInfo")>]
-  let addNoReturnInfo ess noRetFuncs noRetCallSites =
-    let noRetInfo = NoReturnInfo.Init noRetFuncs noRetCallSites
-    removeNoReturnFallThroughs { ess with NoReturnInfo = noRetInfo }
-
   [<CompiledName("AddIndirectBranchMap")>]
   let addIndirectBranchMap ess indMap =
     { ess with IndirectBranchMap = indMap }
+
+  [<CompiledName("AddNoReturnFunction")>]
+  let addNoReturnFunction ess entry =
+    { ess with
+        NoReturnInfo = NoReturnInfo.AddNoReturnFunction ess.NoReturnInfo entry }
+
+  [<CompiledName("AddNoReturnCallSite")>]
+  let addNoReturnCallSite ess site =
+    { ess with
+        NoReturnInfo = NoReturnInfo.AddNoReturnCallSite ess.NoReturnInfo site }
 
   /// This function returns an initial sequence of entry points obtained from
   /// the binary itself (e.g., from its symbol information). Therefore, if the

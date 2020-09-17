@@ -53,8 +53,14 @@ type NoReturnInfo = {
   /// No-return function addresses.
   NoReturnFuncs: Set<Addr>
   /// Program points of no-return call sites.
-  NoReturnCallSites: Set<ProgramPoint * Addr>
+  NoReturnCallSites: Set<ProgramPoint>
 }
 with
   static member Init noRetFuncs noRetCallSites =
     { NoReturnFuncs = noRetFuncs ; NoReturnCallSites = noRetCallSites }
+
+  static member AddNoReturnFunction info addr =
+    { info with NoReturnFuncs = Set.add addr info.NoReturnFuncs }
+
+  static member AddNoReturnCallSite info ppoint =
+    { info with NoReturnCallSites = Set.add ppoint info.NoReturnCallSites }

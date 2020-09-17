@@ -336,6 +336,7 @@ module BranchRecoveryHelper =
         |> List.fold (fun (ess, jmpAddrs) (block, ins, jmpInfo, isCall) ->
           let ess = addConstJmpEdge ess block jmpInfo isCall
           ess, Map.add ins jmpInfo jmpAddrs) (ess, Map.empty)
+      let hint = AnalysisHint.unmarkNoReturn entry hint
       let ess, hint = (noReturn: IAnalysis).Run ess hint
       let st = BranchRecoveryState.UpdateConstantBranches st jmpAddrs
       ess, hint, st
@@ -471,6 +472,7 @@ module BranchRecoveryHelper =
       let ess, jtInfo = readTargetsUntil ess jtInfo tableBase minAddr
       match readTargets ess jtInfo minAddr tableBdry.Max with
       | Ok (ess, jtInfo) ->
+        let hint = AnalysisHint.unmarkNoReturn jtInfo.CalleeStart hint
         let ess, _ = (noReturn: IAnalysis).Run ess hint
         Map.add ins (ess, jtInfo) discover, recover
       | Error jtInfo -> discover, Map.add ins jtInfo recover
@@ -625,6 +627,7 @@ module BranchRecoveryHelper =
             if Map.containsKey jtInfo.InsAddr knowledge.TableInfos then acc
             else
               Set.add (jtInfo.InsAddr, jtInfo.JTRange.Min) acc) Set.empty
+        let hint = AnalysisHint.unmarkNoReturn (fst fnBdry) hint
         let ess, hint = (noReturn: IAnalysis).Run ess hint
         let cpInfo = computeConstantPropagation ess <| fst fnBdry
         let knowledge = updateKnowledgeWithNewBinEssence fnBdry knowledge cpInfo
@@ -714,11 +717,7 @@ module BranchRecoveryHelper =
   let filterCallees ess (hint, st, acc) entry =
     if Set.contains entry hint.BranchRecoveryPerformed then hint, st, acc
     elif hasIndirectBranch ess entry then hint, st, entry :: acc
-    else
-      let brPerformed = hint.BranchRecoveryPerformed
-      let hint =
-        { hint with BranchRecoveryPerformed = Set.add entry brPerformed }
-      hint, st, acc
+    else AnalysisHint.markBranchRecovery entry hint, st, acc
 
   let recoverTableJmps noReturn fnBdrys ess hint st callees =
     let hint, knowledge = prepareTableRecovery fnBdrys ess hint callees
@@ -740,8 +739,7 @@ module BranchRecoveryHelper =
     let hint =
       callees
       |> List.fold (fun hint entry ->
-        let brPerformed = hint.BranchRecoveryPerformed
-        { hint with BranchRecoveryPerformed = Set.add entry brPerformed }) hint
+        AnalysisHint.markBranchRecovery entry hint) hint
     let newCJmps, newTJmps = st.ConstantBranches, st.TableBranches
     let indMap = toIndMap st
     let ess = BinEssence.addIndirectBranchMap ess indMap

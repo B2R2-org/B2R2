@@ -36,3 +36,13 @@ with
     { NoReturnPerformed = Set.empty
       BranchRecoveryPerformed = Set.empty
       TableHint = Set.empty }
+
+  static member markNoReturn entry hint =
+    { hint with NoReturnPerformed = Set.add entry hint.NoReturnPerformed }
+
+  static member unmarkNoReturn entry hint =
+    { hint with NoReturnPerformed = Set.remove entry hint.NoReturnPerformed }
+
+  static member markBranchRecovery entry hint =
+    { hint with
+        BranchRecoveryPerformed = Set.add entry hint.BranchRecoveryPerformed }
