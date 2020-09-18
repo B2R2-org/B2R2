@@ -22,11 +22,12 @@
   SOFTWARE.
 *)
 
+[<RequireQualifiedAccess>]
 module internal B2R2.BinFile.ELF.ExceptionFrames
 
 open System
 open B2R2
-open B2R2.BinFile
+open B2R2.BinFile.ELF.ExceptionHeaderEncoding
 
 /// Raised when an unhandled eh_frame version is encountered.
 exception UnhandledExceptionHandlingFrameVersion
@@ -34,8 +35,8 @@ exception UnhandledExceptionHandlingFrameVersion
 /// Raised when an unhandled augment string is encountered.
 exception UnhandledAugString
 
-/// Raised when an unhandled encoding is encountered.
-exception UnhandledEncoding
+/// Raised when CIE is not found by FDE
+exception CIENotFoundByFDE
 
 let [<Literal>] ehframe = ".eh_frame"
 
@@ -50,16 +51,6 @@ let computeNextOffset len (reader: BinReader) offset =
     let struct (len, offset) = readUInt64 reader offset
     int len + offset, offset
   else len + offset, offset
-
-let parseULEB128 (reader: BinReader) offset =
-  let span = reader.PeekSpan (offset)
-  let v, cnt = LEB128.DecodeUInt64 span
-  v, offset + cnt
-
-let parseSLEB128 (reader: BinReader) offset =
-  let span = reader.PeekSpan (offset)
-  let v, cnt = LEB128.DecodeSInt64 span
-  v, offset + cnt
 
 let parseReturnRegister (reader: BinReader) version offset =
   if version = 1uy then reader.PeekByte offset |> uint64, offset + 1
@@ -79,33 +70,46 @@ let personalityRoutinePointerSize addrSize = function
   | 4uy -> 8
   | _ -> addrSize
 
-let rec parseEncodingLoop addrSize (data: byte []) offset = function
-  | 'L' :: rest -> parseEncodingLoop addrSize data (offset + 1) rest
+let rec parseEncodingLoop acc addrSize (data: byte []) offset = function
+  | [] -> List.rev acc
+  | 'L' :: rest ->
+    let v, app = parseEncoding data.[offset]
+    let acc = { Format = Some 'L'
+                ValueEncoding = v
+                ApplicationEncoding = app
+                PersonalityRoutionPointer = None } :: acc
+    parseEncodingLoop acc addrSize data (offset + 1) rest
   | 'P' :: rest ->
+    let v, app = parseEncoding data.[offset]
     let psz = data.[offset] &&& 7uy |> personalityRoutinePointerSize addrSize
-    parseEncodingLoop addrSize data (offset + psz + 1) rest
-  | 'R' :: _ ->
-    let d = data.[offset]
-    let v =
-      int (d &&& 0x0Fuy)
-      |> LanguagePrimitives.EnumOfValue<int, ExceptionHeaderValue>
-    let app =
-      int (d &&& 0xF0uy)
-      |> LanguagePrimitives.EnumOfValue<int, ExceptionHeaderApplication>
-    v, app
+    let prp = Some data.[ offset + 1 .. offset + psz ]
+    let acc = { Format = Some 'P'
+                ValueEncoding = v
+                ApplicationEncoding = app
+                PersonalityRoutionPointer = prp } :: acc
+    parseEncodingLoop acc addrSize data (offset + psz + 1) rest
+  | 'R' :: rest ->
+    let v, app = parseEncoding data.[offset]
+    let acc = { Format = Some 'R'
+                ValueEncoding = v
+                ApplicationEncoding = app
+                PersonalityRoutionPointer = None } :: acc
+    parseEncodingLoop acc addrSize data (offset + 1) rest
   | _ -> raise UnhandledAugString
 
-let parseEncodingAndApp addrSize (augstr: string) augdata =
+let getAugmentations addrSize (augstr: string) augdata =
   match augdata with
   | None ->
-    ExceptionHeaderValue.DW_EH_PE_absptr,
-    ExceptionHeaderApplication.DW_EH_PE_absptr
+    [ { Format = None
+        ValueEncoding = ExceptionHeaderValue.DW_EH_PE_absptr
+        ApplicationEncoding = ExceptionHeaderApplication.DW_EH_PE_absptr
+        PersonalityRoutionPointer = None } ]
   | Some (data: byte []) ->
-    augstr.[1..]
+    augstr.[ 1 .. ]
     |> Seq.toList
-    |> parseEncodingLoop addrSize data 0
+    |> parseEncodingLoop [] addrSize data 0
 
-let parseCIE cls (reader: BinReader) offset =
+let parseCIE cls (reader: BinReader) cieAddr offset =
   let struct (version, offset) = reader.ReadByte offset
   if version = 1uy || version = 3uy then
     let span = reader.PeekSpan offset
@@ -117,64 +121,64 @@ let parseCIE cls (reader: BinReader) offset =
     let dataAlignmentFactor, offset = parseSLEB128 reader offset
     let retReg, offset = parseReturnRegister reader version offset
     let augdata, _ = parseAugmentationData reader offset augstr
-    let enc, app = parseEncodingAndApp addrSize augstr augdata
-    { Version = version
+    let augs = getAugmentations addrSize augstr augdata
+    { CIEAddr = cieAddr
+      Version = version
       AugmentationString = augstr
       CodeAlignmentFactor = codeAlignmentFactor
       DataAlignmentFactor = dataAlignmentFactor
       ReturnAddressRegister = retReg
       AugmentationData = augdata
-      FDEEncoding = enc
-      FDEApplication = app }
+      Augmentations = augs }
   else
     raise UnhandledExceptionHandlingFrameVersion
 
-let computePCInfo cls (reader: BinReader) cie offset =
-  match cie.FDEEncoding with
-  | ExceptionHeaderValue.DW_EH_PE_absptr ->
-    let struct (addr, offset) = FileHelper.readUIntOfType reader cls offset
-    let struct (len, _) = FileHelper.readUIntOfType reader cls offset
-    addr, len
-  | ExceptionHeaderValue.DW_EH_PE_uleb128 ->
-    let addr, offset = parseULEB128 reader offset
-    let len, _ = parseULEB128 reader offset
-    addr, len
-  | ExceptionHeaderValue.DW_EH_PE_udata2 ->
-    let struct (addr, offset) = reader.ReadUInt16 offset
-    let struct (len, _) = reader.ReadUInt16 offset
-    uint64 addr, uint64 len
-  | ExceptionHeaderValue.DW_EH_PE_sdata2 ->
-    let struct (addr, offset) = reader.ReadInt16 offset
-    let struct (len, _) = reader.ReadInt16 offset
-    uint64 addr, uint64 len
-  | ExceptionHeaderValue.DW_EH_PE_udata4 ->
-    let struct (addr, offset) = reader.ReadUInt32 offset
-    let struct (len, _) = reader.ReadUInt32 offset
-    uint64 addr, uint64 len
-  | ExceptionHeaderValue.DW_EH_PE_sdata4 ->
-    let struct (addr, offset) = reader.ReadInt32 offset
-    let struct (len, _) = reader.ReadInt32 offset
-    uint64 addr, uint64 len
-  | ExceptionHeaderValue.DW_EH_PE_udata8 ->
-    let struct (addr, offset) = reader.ReadUInt64 offset
-    let struct (len, _) = reader.ReadUInt64 offset
-    addr, len
-  | ExceptionHeaderValue.DW_EH_PE_sdata8 ->
-    let struct (addr, offset) = reader.ReadInt64 offset
-    let struct (len, _) = reader.ReadInt64 offset
-    uint64 addr, uint64 len
-  | _ -> raise UnhandledEncoding
+let tryFindCIE cieAddr cies =
+  cies
+  |> List.tryFind (fun cie ->
+    if cieAddr = cie.CIEAddr then true
+    else false)
 
-let adjustPCAddr cie myAddr addr =
-  match cie.FDEApplication with
+let adjustAddr app myAddr addr =
+  match app with
   | ExceptionHeaderApplication.DW_EH_PE_pcrel -> addr + myAddr
   | _ -> addr
 
-let parseFDE cls (reader: BinReader) sAddr cie offset =
-  let myAddr = sAddr + uint64 offset
-  let addr, len = computePCInfo cls reader cie offset
-  let addr = adjustPCAddr cie myAddr addr
-  { PCBegin = addr; PCEnd = addr + len }
+let rec addPCInfo cls reader fde sAddr augs offset =
+  match augs with
+  | [] -> fde, offset
+  | aug :: rest ->
+    if aug.Format = Some 'R' then
+      let myAddr = sAddr + uint64 offset
+      let struct (addr, offset) =
+        computeValue cls reader aug.ValueEncoding offset
+      let struct (range, offset) =
+        computeValue cls reader aug.ValueEncoding offset
+      let beginAddr = adjustAddr aug.ApplicationEncoding myAddr addr
+      { fde with PCBegin = beginAddr; PCEnd = beginAddr + range }, offset
+    else addPCInfo cls reader fde sAddr rest offset
+
+let rec addLSDA cls reader fde sAddr augs offset =
+  match augs with
+  | [] -> fde
+  | aug :: rest ->
+    if aug.Format = Some 'L' then
+      let _, offset = parseSLEB128 reader offset
+      let myAddr = sAddr + uint64 offset
+      let struct (addr, _) = computeValue cls reader aug.ValueEncoding offset
+      let lsdaPointer = adjustAddr aug.ApplicationEncoding myAddr addr
+      { fde with LSDAPointer = Some lsdaPointer }
+    else addLSDA cls reader fde sAddr rest offset
+
+let parseFDE cls reader sAddr cies cieAddr offset =
+  match tryFindCIE cieAddr cies with
+  | Some cie ->
+    let fde = { PCBegin = uint64 0
+                PCEnd = uint64 0
+                LSDAPointer = None }
+    let fde, offset = addPCInfo cls reader fde sAddr cie.Augmentations offset
+    addLSDA cls reader fde sAddr cie.Augmentations offset
+  | None -> raise CIENotFoundByFDE
 
 let accumulateCFIs cfis cie fdes =
   match cie with
@@ -183,25 +187,25 @@ let accumulateCFIs cfis cie fdes =
       FDERecord = List.rev fdes |> List.toArray } :: cfis
   | None -> cfis
 
-let rec parseCallFrameInformation cls reader sAddr cie fdes offset cfis =
+let rec parseCFI cls reader sAddr cie cies fdes offset cfis =
   if offset >= ((reader: BinReader).Length ()) then accumulateCFIs cfis cie fdes
   else
+    let cieAddr = sAddr + uint64 offset
     let struct (len, offset) = readInt reader offset
     if len = 0 then accumulateCFIs cfis cie fdes
     else
       let nextOffset, offset = computeNextOffset len reader offset
+      let curAddr = sAddr + uint64 offset
       let struct (id, offset) = readInt reader offset
       if id = 0 then
         let cfis = accumulateCFIs cfis cie fdes
-        let cie = parseCIE cls reader offset
-        parseCallFrameInformation cls reader sAddr (Some cie) [] nextOffset cfis
+        let cie = parseCIE cls reader cieAddr offset
+        let cies = cie :: cies
+        parseCFI cls reader sAddr (Some cie) cies [] nextOffset cfis
       else
-        match cie with
-        | Some c ->
-          let fde = parseFDE cls reader sAddr c offset
-          let fdes = fde :: fdes
-          parseCallFrameInformation cls reader sAddr cie fdes nextOffset cfis
-        | None -> invalidArg "parseCallFrameInformation" "CIE not present"
+        let fde = parseFDE cls reader sAddr cies (curAddr - uint64 id) offset
+        let fdes = fde :: fdes
+        parseCFI cls reader sAddr cie cies fdes nextOffset cfis
 
 let parse (reader: BinReader) cls (secs: SectionInfo) =
   match Map.tryFind ehframe secs.SecByName with
@@ -209,5 +213,6 @@ let parse (reader: BinReader) cls (secs: SectionInfo) =
     let size = Convert.ToInt32 sec.SecSize
     let offset = Convert.ToInt32 sec.SecOffset
     let reader = reader.SubReader offset size
-    parseCallFrameInformation cls reader sec.SecAddr None [] 0 []
+    parseCFI cls reader sec.SecAddr None [] [] 0 []
+    |> List.rev
   | None -> []
