@@ -126,6 +126,7 @@ type DisasmLens (ess) =
       | ExternalJmpEdge
       | ExternalCallEdge
       | CallEdge
+      | IndirectCallEdge
       | RetEdge -> acc, newGraph
       | CallFallThroughEdge
           when DiGraph.getPreds ircfg succ |> List.length <= 2 ->
