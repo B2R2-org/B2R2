@@ -28,7 +28,7 @@ open B2R2.BinIR.SSA
 open B2R2.FrontEnd.BinInterface
 open System.Collections.Generic
 
-module TaintState =
+module UDPropState =
 
   let initRegister hdl (dict: Dictionary<_, _>) =
     match hdl.RegisterBay.StackPointer with
@@ -45,18 +45,18 @@ module TaintState =
     dict
 
 /// Modified version of sparse conditional constant propagation of Wegman et al.
-type SimpleTaintAnalysis (ssaCFG, tState) =
-  inherit ConstantPropagation<TaintValue> (ssaCFG, tState)
+type UndefPropagation (ssaCFG, tState) =
+  inherit ConstantPropagation<UDPropValue> (ssaCFG, tState)
 
   static member Init hdl ssaCFG spState =
     let tState =
       CPState.initState hdl
                         ssaCFG
-                        (TaintState.initRegister hdl)
-                        TaintState.initMemory
+                        (UDPropState.initRegister hdl)
+                        UDPropState.initMemory
                         Undef
                         Untainted
-                        TaintValue.goingUp
-                        TaintValue.meet
-                        (TaintTransfer.evalStmt spState)
-    SimpleTaintAnalysis (ssaCFG, tState)
+                        UDPropValue.goingUp
+                        UDPropValue.meet
+                        (UDPropTransfer.evalStmt spState)
+    UndefPropagation (ssaCFG, tState)

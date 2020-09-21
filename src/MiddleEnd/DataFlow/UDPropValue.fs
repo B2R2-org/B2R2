@@ -27,16 +27,16 @@ namespace B2R2.MiddleEnd.DataFlow
 open B2R2
 open B2R2.BinIR.SSA
 
-type TaintTag =
+type UDPropTag =
   | RegisterTag of Variable
   | MemoryTag of Addr
 
-type TaintValue =
+type UDPropValue =
   | Undef
-  | Tainted of TaintTag
+  | Tainted of UDPropTag
   | Untainted
 
-module TaintValue =
+module UDPropValue =
 
   let meet c1 c2 =
     match c1, c2 with

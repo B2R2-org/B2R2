@@ -24,9 +24,9 @@
     <Compile Include="CopyValue.fs" />
     <Compile Include="CopyTransfer.fs" />
     <Compile Include="ConstantCopyPropagation.fs" />
-    <Compile Include="TaintValue.fs" />
-    <Compile Include="TaintTransfer.fs" />
-    <Compile Include="SimpleTaintAnalysis.fs" />
+    <Compile Include="UDPropValue.fs" />
+    <Compile Include="UDPropTransfer.fs" />
+    <Compile Include="UndefPropagation.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath=""/>
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
   </ItemGroup>

@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.MiddleEnd.DataFlow.TaintTransfer
+module B2R2.MiddleEnd.DataFlow.UDPropTransfer
 
 open B2R2
 open B2R2.BinIR
@@ -36,7 +36,7 @@ let evalLoad st m rt addr =
   | StackValue.Const addr -> BitVector.toUInt64 addr |> CPState.findMem st m rt
   | _ -> Untainted
 
-let evalReturn (st: CPState<TaintValue>) addr ret v =
+let evalReturn (st: CPState<UDPropValue>) addr ret v =
   match v.Kind with
   | RegVar _ -> CPState.findReg st v
   | _ -> Utils.impossible ()
@@ -84,9 +84,9 @@ let inline updateConst st r v =
     st.RegState.[r] <- v
     st.SSAWorkList.Push r
   elif st.RegState.[r] = v then ()
-  elif TaintValue.goingUp st.RegState.[r] v then ()
+  elif UDPropValue.goingUp st.RegState.[r] v then ()
   else
-    st.RegState.[r] <- TaintValue.meet st.RegState.[r] v
+    st.RegState.[r] <- UDPropValue.meet st.RegState.[r] v
     st.SSAWorkList.Push r
 
 let evalDef stackSt st v e =
@@ -113,7 +113,7 @@ let evalPhi cfg st blk dst srcIDs =
       |> Array.map (fun i ->
         { dst with Identifier = i } |> CPState.tryFindReg st)
       |> Array.choose id
-      |> Array.reduce TaintValue.meet
+      |> Array.reduce UDPropValue.meet
       |> fun merged -> updateConst st dst merged
     | MemVar ->
       let dstid = dst.Identifier
