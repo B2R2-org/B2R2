@@ -11,6 +11,7 @@
   <ItemGroup>
     <Compile Include="DataFlowAnalysis.fs" />
     <Compile Include="ReachingDefinitions.fs" />
+    <Compile Include="SSAReachingDefinitions.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="Chains.fs" />
     <Compile Include="CPState.fs" />
