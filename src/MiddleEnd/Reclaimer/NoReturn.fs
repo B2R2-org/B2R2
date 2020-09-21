@@ -178,40 +178,33 @@ module private NoReturnHelper =
       elif v.VData.LastInstruction.IsInterrupt () then acc
       else false) true
 
-  let rec analysisLoop ess cg = function
-    | [] -> ess
+  let rec analysisLoop ess hint = function
+    | [] -> ess, hint
     | (v: Vertex<CallGraphBBlock>) :: vs ->
       let entry = v.VData.PPoint.Address
-      if isKnownNoReturnFunction ess entry then
-        analysisLoop ess cg vs
-      elif v.VData.IsExternal then
+      let hint = AnalysisHint.markNoReturn entry hint
+      if v.VData.IsExternal then
         if isExternalNoReturnFunction v.VData.Name then
           let ess = BinEssence.addNoReturnFunction ess entry UnconditionalNoRet
-          DiGraph.getPreds cg v @ vs
-          |> analysisLoop ess cg
-        else analysisLoop ess cg vs
+          analysisLoop ess hint vs
+        else analysisLoop ess hint vs
       else
         let entry = v.VData.PPoint.Address
         let ess = removeFallThroughEdges ess entry
         if checkNoReturnCondition ess entry then
           let ess = BinEssence.addNoReturnFunction ess entry UnconditionalNoRet
-          DiGraph.getPreds cg v @ vs
-          |> analysisLoop ess cg
-        else analysisLoop ess cg vs
+          analysisLoop ess hint vs
+        else analysisLoop ess hint vs
 
-  let getTargetFunctions hint cg =
-    DiGraph.foldVertex cg (fun acc (v: Vertex<CallGraphBBlock>) ->
-      let entry = v.VData.PPoint.Address
-      if Set.contains entry hint.NoReturnPerformed then acc else v :: acc) []
+  let getTargetFunction hint (v: Vertex<CallGraphBBlock>) =
+    Set.contains v.VData.PPoint.Address hint.NoReturnPerformed |> not
 
   let findNoReturnEdges ess hint =
     let lens = CallGraphLens.Init ()
-    let cg, _ = lens.Filter (ess.SCFG, [], ess)
-    let ess = getTargetFunctions hint cg |> analysisLoop ess cg
-    let hint =
-      DiGraph.foldVertex cg (fun hint v ->
-        AnalysisHint.markNoReturn v.VData.PPoint.Address hint) hint
-    ess, hint
+    let cg, roots = lens.Filter (ess.SCFG, [], ess)
+    Traversal.foldTopologically cg roots (fun acc v -> v :: acc) []
+    |> List.filter (getTargetFunction hint)
+    |> analysisLoop ess hint
 
 type NoReturnAnalysis () =
   interface IAnalysis with
