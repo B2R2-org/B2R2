@@ -51,7 +51,7 @@ module private NoReturnHelper =
     | _ -> false
 
   let isKnownNoReturnFunction ess entry =
-    Set.contains entry ess.NoReturnInfo.NoReturnFuncs
+    Map.containsKey entry ess.NoReturnInfo.NoReturnFuncs
 
   let sideEffectHandler _eff st =
     EvalState.NextStmt st
@@ -172,7 +172,7 @@ module private NoReturnHelper =
         else
           let target = v.VData.PPoint.Address
           let callee = ess.CalleeMap.Get target
-          if Set.contains target ess.NoReturnInfo.NoReturnFuncs then acc
+          if isKnownNoReturnFunction ess target then acc
           elif isExternalNoReturnFunction callee.CalleeName then acc
           else false
       elif v.VData.LastInstruction.IsInterrupt () then acc
@@ -181,11 +181,12 @@ module private NoReturnHelper =
   let rec analysisLoop ess cg = function
     | [] -> ess
     | (v: Vertex<CallGraphBBlock>) :: vs ->
-      if isKnownNoReturnFunction ess v.VData.PPoint.Address then
+      let entry = v.VData.PPoint.Address
+      if isKnownNoReturnFunction ess entry then
         analysisLoop ess cg vs
       elif v.VData.IsExternal then
         if isExternalNoReturnFunction v.VData.Name then
-          let ess = BinEssence.addNoReturnFunction ess v.VData.PPoint.Address
+          let ess = BinEssence.addNoReturnFunction ess entry UnconditionalNoRet
           DiGraph.getPreds cg v @ vs
           |> analysisLoop ess cg
         else analysisLoop ess cg vs
@@ -193,7 +194,7 @@ module private NoReturnHelper =
         let entry = v.VData.PPoint.Address
         let ess = removeFallThroughEdges ess entry
         if checkNoReturnCondition ess entry then
-          let ess = BinEssence.addNoReturnFunction ess v.VData.PPoint.Address
+          let ess = BinEssence.addNoReturnFunction ess entry UnconditionalNoRet
           DiGraph.getPreds cg v @ vs
           |> analysisLoop ess cg
         else analysisLoop ess cg vs

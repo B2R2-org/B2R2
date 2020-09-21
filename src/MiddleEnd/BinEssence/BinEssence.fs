@@ -702,9 +702,9 @@ module BinEssence =
     { ess with IndirectBranchMap = indMap }
 
   [<CompiledName("AddNoReturnFunction")>]
-  let addNoReturnFunction ess entry =
-    { ess with
-        NoReturnInfo = NoReturnInfo.AddNoReturnFunction ess.NoReturnInfo entry }
+  let addNoReturnFunction ess entry cond =
+    let info = ess.NoReturnInfo
+    { ess with NoReturnInfo = NoReturnInfo.AddNoReturnFunction info entry cond }
 
   [<CompiledName("AddNoReturnCallSite")>]
   let addNoReturnCallSite ess site =
@@ -733,12 +733,13 @@ module BinEssence =
       List.map (fun addr -> addr, hdl.DefaultParsingContext) entries
 
   let private initialize hdl ignoreIllegal =
+    let noretInfo = { NoReturnFuncs = Map.empty; NoReturnCallSites = Set.empty }
     { BinHandle = hdl
       InstrMap = InstrMap ()
       BBLStore = BBLStore.Init ()
       CalleeMap = CalleeMap (hdl)
       SCFG = IRCFG.init PersistentGraph
-      NoReturnInfo = NoReturnInfo.Init Set.empty Set.empty
+      NoReturnInfo = noretInfo
       IndirectBranchMap = Map.empty
       IgnoreIllegal = defaultArg ignoreIllegal true }
 
