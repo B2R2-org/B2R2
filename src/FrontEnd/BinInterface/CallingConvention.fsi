@@ -26,6 +26,9 @@ module B2R2.FrontEnd.BinInterface.CallingConvention
 
 open B2R2
 
+[<CompiledName("VolatileRegisters")>]
+val volatileRegisters: BinHandle -> RegisterID list
+
 /// Obtain the register ID used for storing syscall return values.
 [<CompiledName("ReturnRegister")>]
 val returnRegister: BinHandle -> RegisterID
