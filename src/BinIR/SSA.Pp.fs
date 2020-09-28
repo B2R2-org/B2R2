@@ -58,12 +58,14 @@ let rec private expToStringAux expr (sb: StringBuilder) =
     sb.Append (" ") |> ignore
     expToStringAux e2 sb
     sb.Append (")") |> ignore
-  | Load (_endian, typ, e) ->
+  | Load (v, typ, e) ->
+    sb.Append (Variable.toString v) |> ignore
     sb.Append ("[") |> ignore
     expToStringAux e sb
     sb.Append ("]:") |> ignore
     sb.Append (RegType.toString typ) |> ignore
-  | Store (_, _, addr, e) ->
+  | Store (v, _, addr, e) ->
+    sb.Append (Variable.toString v) |> ignore
     sb.Append ("[") |> ignore
     expToStringAux addr sb
     sb.Append (" <- ") |> ignore
