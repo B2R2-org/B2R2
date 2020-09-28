@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.DataFlow.CPTransfer
+module B2R2.DataFlow.SCCPTransfer
 
 open B2R2
 open B2R2.FrontEnd
@@ -58,49 +58,49 @@ let evalLoad st m rt addr =
 
 let evalUnOp op c =
   match op with
-  | UnOpType.NEG -> CPValue.neg c
-  | UnOpType.NOT -> CPValue.not c
+  | UnOpType.NEG -> SCCPValue.neg c
+  | UnOpType.NOT -> SCCPValue.not c
   | _ -> NotAConst
 
 let evalBinOp op c1 c2 =
   match op with
-  | BinOpType.ADD -> CPValue.add c1 c2
-  | BinOpType.SUB -> CPValue.sub c1 c2
-  | BinOpType.MUL -> CPValue.mul c1 c2
-  | BinOpType.DIV -> CPValue.div c1 c2
-  | BinOpType.SDIV -> CPValue.sdiv c1 c2
-  | BinOpType.MOD -> CPValue.``mod`` c1 c2
-  | BinOpType.SMOD -> CPValue.smod c1 c2
-  | BinOpType.SHL -> CPValue.shl c1 c2
-  | BinOpType.SHR -> CPValue.shr c1 c2
-  | BinOpType.SAR -> CPValue.sar c1 c2
-  | BinOpType.AND -> CPValue.``and`` c1 c2
-  | BinOpType.OR -> CPValue.``or`` c1 c2
-  | BinOpType.XOR -> CPValue.xor c1 c2
-  | BinOpType.CONCAT -> CPValue.concat c1 c2
+  | BinOpType.ADD -> SCCPValue.add c1 c2
+  | BinOpType.SUB -> SCCPValue.sub c1 c2
+  | BinOpType.MUL -> SCCPValue.mul c1 c2
+  | BinOpType.DIV -> SCCPValue.div c1 c2
+  | BinOpType.SDIV -> SCCPValue.sdiv c1 c2
+  | BinOpType.MOD -> SCCPValue.``mod`` c1 c2
+  | BinOpType.SMOD -> SCCPValue.smod c1 c2
+  | BinOpType.SHL -> SCCPValue.shl c1 c2
+  | BinOpType.SHR -> SCCPValue.shr c1 c2
+  | BinOpType.SAR -> SCCPValue.sar c1 c2
+  | BinOpType.AND -> SCCPValue.``and`` c1 c2
+  | BinOpType.OR -> SCCPValue.``or`` c1 c2
+  | BinOpType.XOR -> SCCPValue.xor c1 c2
+  | BinOpType.CONCAT -> SCCPValue.concat c1 c2
   | _ -> NotAConst
 
 let evalRelOp op c1 c2 =
   match op with
-  | RelOpType.EQ -> CPValue.eq c1 c2
-  | RelOpType.NEQ -> CPValue.neq c1 c2
-  | RelOpType.GT -> CPValue.gt c1 c2
-  | RelOpType.GE -> CPValue.ge c1 c2
-  | RelOpType.SGT -> CPValue.sgt c1 c2
-  | RelOpType.SGE -> CPValue.sge c1 c2
-  | RelOpType.LT -> CPValue.lt c1 c2
-  | RelOpType.LE -> CPValue.le c1 c2
-  | RelOpType.SLT -> CPValue.slt c1 c2
-  | RelOpType.SLE -> CPValue.sle c1 c2
+  | RelOpType.EQ -> SCCPValue.eq c1 c2
+  | RelOpType.NEQ -> SCCPValue.neq c1 c2
+  | RelOpType.GT -> SCCPValue.gt c1 c2
+  | RelOpType.GE -> SCCPValue.ge c1 c2
+  | RelOpType.SGT -> SCCPValue.sgt c1 c2
+  | RelOpType.SGE -> SCCPValue.sge c1 c2
+  | RelOpType.LT -> SCCPValue.lt c1 c2
+  | RelOpType.LE -> SCCPValue.le c1 c2
+  | RelOpType.SLT -> SCCPValue.slt c1 c2
+  | RelOpType.SLE -> SCCPValue.sle c1 c2
   | _ -> NotAConst
 
 let evalCast op rt c =
   match op with
-  | CastKind.SignExt -> CPValue.signExt rt c
-  | CastKind.ZeroExt -> CPValue.zeroExt rt c
+  | CastKind.SignExt -> SCCPValue.signExt rt c
+  | CastKind.ZeroExt -> SCCPValue.zeroExt rt c
   | _ -> NotAConst
 
-let evalReturn (st: CPState) addr ret v =
+let evalReturn (st: CPState<SCCPValue>) addr ret v =
   match v.Kind with
   | RegVar (rt, rid, _) ->
     let hdl = st.BinHandler
@@ -135,13 +135,13 @@ let rec evalExpr st = function
     let c1 = evalExpr st e1
     let c2 = evalExpr st e2
     let c3 = evalExpr st e3
-    CPValue.ite c1 c2 c3
+    SCCPValue.ite c1 c2 c3
   | Cast (op, rt, e) ->
     let c = evalExpr st e
     evalCast op rt c
   | Extract (e, rt, pos) ->
     let c = evalExpr st e
-    CPValue.extract c rt pos
+    SCCPValue.extract c rt pos
   | Undefined _ -> NotAConst
   | ReturnVal (addr, ret, v) ->
     evalReturn st addr ret v
@@ -214,9 +214,9 @@ let inline updateConst st r v =
     st.RegState.[r] <- v
     st.SSAWorkList.Push r
   elif st.RegState.[r] = v then ()
-  elif CPValue.goingUp st.RegState.[r] v then ()
+  elif st.GoingUp st.RegState.[r] v then ()
   else
-    st.RegState.[r] <- CPValue.meet st.RegState.[r] v
+    st.RegState.[r] <- st.Meet st.RegState.[r] v
     st.SSAWorkList.Push r
 
 let loadPointerToReg hdl (blk: Vertex<SSABBlock>) addr =
@@ -235,7 +235,7 @@ let loadPointerToReg hdl (blk: Vertex<SSABBlock>) addr =
     | _ -> false
   | _ -> false
 
-let evalDef (st: CPState) blk (ppoint: ProgramPoint) v e =
+let evalDef (st: CPState<SCCPValue>) blk (ppoint: ProgramPoint) v e =
   match v.Kind, e with
   | RegVar _, Num _ when loadPointerToReg st.BinHandler blk ppoint.Address ->
     match evalExpr st e with
@@ -264,7 +264,7 @@ let evalPhi cfg st blk dst srcIDs =
       |> Array.map (fun i ->
         { dst with Identifier = i } |> CPState.tryFindReg st)
       |> Array.choose id
-      |> Array.reduce CPValue.meet
+      |> Array.reduce st.Meet
       |> fun merged -> updateConst st dst merged
     | MemVar ->
       let dstid = dst.Identifier

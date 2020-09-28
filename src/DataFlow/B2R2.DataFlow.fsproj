@@ -9,10 +9,17 @@
     <Compile Include="ReachingDefinitions.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="Chains.fs" />
-    <Compile Include="CPValue.fs" />
     <Compile Include="CPState.fs" />
-    <Compile Include="CPTransfer.fs" />
     <Compile Include="ConstantPropagation.fs" />
+    <Compile Include="SCCPValue.fs" />
+    <Compile Include="SCCPTransfer.fs" />
+    <Compile Include="SparseConditionalConstantPropagation.fs" />
+    <Compile Include="StackValue.fs" />
+    <Compile Include="StackTransfer.fs" />
+    <Compile Include="StackPointerPropagation.fs" />
+    <Compile Include="CopyValue.fs" />
+    <Compile Include="CopyTransfer.fs" />
+    <Compile Include="ConstantCopyPropagation.fs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -24,16 +24,18 @@
 
 namespace B2R2.DataFlow
 
+open B2R2
 open B2R2.BinIR.SSA
 open B2R2.BinGraph
 open B2R2.BinEssence
 open B2R2.Lens
 
 /// Modified version of sparse conditional constant propagation of Wegman et al.
-type ConstantPropagation (hdl, ssaCFG: DiGraph<SSABBlock, CFGEdgeKind>) =
-  inherit DataFlowAnalysis<CPValue, SSABBlock> ()
+type ConstantPropagation<'L when 'L: equality>
+    (ssaCFG: DiGraph<SSABBlock, CFGEdgeKind>, st: CPState<'L>) =
+  inherit DataFlowAnalysis<'L, SSABBlock> ()
 
-  override __.Top = Undef
+  override __.Top: 'L = st.Top
 
   member private __.GetNumIncomingExecutedEdges st (blk: Vertex<SSABBlock>) =
     let myid = blk.GetID ()
@@ -52,7 +54,7 @@ type ConstantPropagation (hdl, ssaCFG: DiGraph<SSABBlock, CFGEdgeKind>) =
           let v = DiGraph.findVertexByID ssaCFG vid
           if __.GetNumIncomingExecutedEdges st v > 0 then
             let ppoint, stmt = v.VData.SSAStmtInfos.[idx]
-            CPTransfer.evalStmt ssaCFG st v ppoint stmt
+            st.TransferFn ssaCFG st v ppoint stmt
           else ())
       | None -> ()
 
@@ -63,7 +65,7 @@ type ConstantPropagation (hdl, ssaCFG: DiGraph<SSABBlock, CFGEdgeKind>) =
       let blk = DiGraph.findVertexByID ssaCFG myid
       blk.VData.SSAStmtInfos
       |> Array.iter (fun (ppoint, stmt) ->
-        CPTransfer.evalStmt ssaCFG st blk ppoint stmt)
+        st.TransferFn ssaCFG st blk ppoint stmt)
       match blk.VData.GetLastStmt () with
       | Jmp _ -> ()
       | _ ->
@@ -74,7 +76,6 @@ type ConstantPropagation (hdl, ssaCFG: DiGraph<SSABBlock, CFGEdgeKind>) =
     else ()
 
   member __.Compute (root: Vertex<_>) =
-    let st = CPState.initState hdl ssaCFG
     st.FlowWorkList.Enqueue (0, root.GetID ())
     while st.FlowWorkList.Count > 0 || st.SSAWorkList.Count > 0 do
       __.ProcessFlow st

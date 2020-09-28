@@ -26,13 +26,13 @@ namespace B2R2.DataFlow
 
 open B2R2
 
-type CPValue =
+type SCCPValue =
   | NotAConst
   | Const of BitVector
   | Pointer of BitVector
   | Undef
 
-module CPValue =
+module SCCPValue =
 
   let meet c1 c2 =
     match c1, c2 with

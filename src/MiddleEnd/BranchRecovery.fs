@@ -103,74 +103,59 @@ with
       TargetAddresses = Set.empty
       RecoveryStatus = Continue }
 
-/// Per-function jump table info, which maps an indirect jump instruction
-/// address to its jump table info. This map exists per function.
-type FunctionLevelJumpTableInfo = Map<Addr, JmpTableIndirectBranch>
+/// Per-function jump tables, which map an indirect jump instruction address to
+/// its jump table info. This map exists per function.
+type FunctionLevelJmpTables = Map<Addr, JmpTableIndirectBranch>
 
-module FunctionLevelJumpTableInfo =
-  let private computeBoundaries hint (inf: FunctionLevelJumpTableInfo) map =
-    let rec loop inf = function
-      | (_, Some br) :: (((addr', _) :: _) as next) ->
-        loop (Map.add br.InsAddr { br with JTMaxEnd = addr' } inf) next
-      | (_, None) :: next -> loop inf next
-      | [ (_, Some br) ] ->
-        loop (Map.add br.InsAddr { br with JTMaxEnd = UInt64.MaxValue } inf) []
-      | _ -> inf
-    let map, lo, hi =
-      map
-      |> Map.fold (fun (acc, lo, hi) addr br ->
-        Map.add addr (Some br) acc, min lo br.JTStartAddr, max hi br.JTMaxEnd
-      ) (Map.empty, UInt64.MaxValue, 0UL)
-    hint.PotentialTableIndBranches
-    |> Set.fold (fun map (_, addr) ->
-      if addr > lo && addr < hi then Map.add addr None map else map) map
-    |> Map.toList
-    |> loop inf
-
-  let addBranch hint jtInfo br =
-    let newTblAddr = br.JTStartAddr
-    let tableInfos =
-      jtInfo
-      |> Map.fold (fun acc _ br -> Map.add br.JTStartAddr br acc) Map.empty
-      |> Map.add newTblAddr { br with RecoveryStatus = Continue }
-      |> computeBoundaries hint jtInfo
-    let p = Set.add (br.InsAddr, br.JTStartAddr) hint.PotentialTableIndBranches
-    let hint = { hint with PotentialTableIndBranches = p }
-    hint, tableInfos
-
-  let removeBranch hint jtInfo br =
-    let tableInfos = Map.remove br.InsAddr jtInfo
-    let p =
-      hint.PotentialTableIndBranches
-      |> Set.filter (fun (insAddr, tblAddr) ->
-        insAddr <> br.InsAddr && tblAddr <> br.JTStartAddr)
-    { hint with PotentialTableIndBranches = p }, tableInfos
-
-  let updateBoundary hint jtInfo =
-    jtInfo
-    |> Map.fold (fun acc _ br -> Map.add br.JTStartAddr br acc) Map.empty
-    |> computeBoundaries hint jtInfo
-
-  let resetTableRanges jtInfo =
-    jtInfo
-    |> Map.map (fun _ br ->
-      let s = br.JTStartAddr
-      { br with JTStartAddr = s
-                JTFixedEnd = s
-                TargetAddresses = Set.empty
-                RecoveryStatus = Continue })
-
-/// Function-level indirect branch recovery state. This state exists for every
-/// function that has a jump-table indirect branch.
-type FunctionLevelJmpTableRecoveryState = {
+/// Function-level jump table info. This exists for every function that has a
+/// jump-table indirect branch.
+type FunctionLevelJmpTableInfo = {
+  /// The entry of the function.
   FunctionEntry: Addr
   /// The function boundary.
   FunctionBoundary: Addr * Addr
   /// Map from an indirect branch instruction address to its jump table.
-  JumpTableInfo: FunctionLevelJumpTableInfo
+  JumpTables: FunctionLevelJmpTables
+  /// The maximum possible jump table entry address for this function.
+  TableMax: Addr
   /// Constant propagation state and the current SSA graph.
-  CPInfo: CPState * DiGraph<SSABBlock, CFGEdgeKind>
+  CPInfo: CPState<CopyValue> * DiGraph<SSABBlock, CFGEdgeKind>
 }
+
+module FunctionLevelJumpTableState =
+  let private computeBoundaries hint info tblMax map =
+    let rec loop info = function
+      | (_, Some br) :: (((addr', _) :: _) as next) ->
+        loop (Map.add br.InsAddr { br with JTMaxEnd = addr' } info) next
+      | (_, None) :: next -> loop info next
+      | [ (_, Some br) ] ->
+        loop (Map.add br.InsAddr { br with JTMaxEnd = tblMax } info) []
+      | _ -> info
+    let map, lo =
+      map
+      |> Map.fold (fun (acc, lo) addr br ->
+        Map.add addr (Some br) acc, min lo br.JTStartAddr
+      ) (Map.empty, UInt64.MaxValue)
+    hint.PotentialTableIndBranches
+    |> Set.fold (fun map (_, addr) ->
+      if addr >= lo || addr < tblMax then Map.add addr None map else map) map
+    |> Map.toList
+    |> loop info
+
+  let addBranch hint info br =
+    let p =
+      hint.PotentialTableIndBranches
+      |> Set.filter (fun (insAddr, tblAddr) ->
+        insAddr <> br.InsAddr && tblAddr <> br.JTStartAddr)
+    let hint = { hint with PotentialTableIndBranches = p }
+    hint, { info with JumpTables = Map.add br.InsAddr br info.JumpTables }
+
+  let updateBoundary hint info =
+    let jtbls =
+      info.JumpTables
+      |> Map.fold (fun acc _ br -> Map.add br.JTStartAddr br acc) Map.empty
+      |> computeBoundaries hint info.JumpTables info.TableMax
+    { info with JumpTables = jtbls }
 
 module BranchRecoveryHelper =
   let private filterOutLinkageTables hdl calleeAddrs =
@@ -215,9 +200,12 @@ module BranchRecoveryHelper =
     let irCFG, irRoot = (ess: BinEssence).GetFunctionCFG (entry, false)
     let lens = SSALens.Init ess
     let ssaCFG, ssaRoots = lens.Filter (irCFG, [irRoot], ess)
-    let cp = ConstantPropagation (ess.BinHandler, ssaCFG)
     let ssaRoot = List.head ssaRoots
-    cp.Compute (ssaRoot), ssaCFG
+    let stackProp = StackPointerPropagation.Init ess.BinHandler ssaCFG
+    let stackSt = stackProp.Compute (ssaRoot)
+    let copyProp = ConstantCopyPropagation.Init ess.BinHandler ssaCFG stackSt
+    let copySt = copyProp.Compute (ssaRoot)
+    copySt, ssaCFG
 
   let private extractIndirectBranches cfg =
     DiGraph.foldVertex cfg (fun acc (v: Vertex<SSABBlock>) ->
@@ -258,8 +246,7 @@ module BranchRecoveryHelper =
     | Num _ -> expr
     | Var v ->
       match CPState.findReg cpstate v with
-      | Const bv -> Num bv
-      | Pointer bv -> Num bv
+      | CopyValue.Const bv -> Num bv
       | _ ->
         match Map.tryFind v cpstate.SSAEdges.Defs with
         | Some (Def (_, e)) -> extractExp cpstate e
@@ -269,8 +256,7 @@ module BranchRecoveryHelper =
       | Num bv ->
         let addr = BitVector.toUInt64 bv
         match CPState.findMem cpstate mem rt addr with
-        | Const bv -> Num bv
-        | Pointer bv -> Num bv
+        | CopyValue.Const bv -> Num bv
         | _ -> Load (mem, rt, Num bv)
       | expr -> Load (mem, rt, expr)
     | UnOp (op, rt, e) ->
@@ -361,22 +347,29 @@ module BranchRecoveryHelper =
 
   let private createState hint fnBnd brs tblMax cpInfo =
     let hint = addPotentialTableIndBranches hint brs
-    let jtInfo = computeJumpTableInfo tblMax brs
-    let st =
-      { FunctionEntry = fst fnBnd
-        FunctionBoundary = fnBnd
-        JumpTableInfo = jtInfo
-        CPInfo = cpInfo }
-    struct (hint, st)
+    let jtbls = computeJumpTableInfo tblMax brs
+    let potentials =
+      jtbls
+      |> Map.fold (fun p _ br ->
+        Set.filter (fun (insAddr, tblAddr) ->
+          insAddr <> br.InsAddr && tblAddr <> br.JTStartAddr) p
+      ) hint.PotentialTableIndBranches
+    let hint = { hint with PotentialTableIndBranches = potentials }
+    let info = { FunctionEntry = fst fnBnd
+                 FunctionBoundary = fnBnd
+                 JumpTables = jtbls
+                 TableMax = tblMax
+                 CPInfo = cpInfo }
+    struct (hint, info)
 
   let rec private initializeFunctionLevelJmpTblStates hint acc = function
     | [] -> hint, acc
     | [ (fnBnd, brs, _, cpInfo) ] ->
-      let struct (hint, st) = createState hint fnBnd brs UInt64.MaxValue cpInfo
-      hint, List.rev (st :: acc)
+      let struct (hint, i) = createState hint fnBnd brs UInt64.MaxValue cpInfo
+      hint, List.rev (i :: acc)
     | (fnBnd, brs, _, cpInfo) :: (((_, _, minTbl, _) :: _) as rest) ->
-      let struct (hint, st) = createState hint fnBnd brs minTbl cpInfo
-      initializeFunctionLevelJmpTblStates hint (st :: acc) rest
+      let struct (hint, info) = createState hint fnBnd brs minTbl cpInfo
+      initializeFunctionLevelJmpTblStates hint (info :: acc) rest
 
   let private prepareJmpTableRecovery fnBnds ess hint =
     fnBnds
@@ -388,15 +381,57 @@ module BranchRecoveryHelper =
     let cfg, root = ess.GetFunctionCFG (entry, false)
     Traversal.foldPostorder cfg root (fun acc (v: Vertex<IRBasicBlock>) ->
       if not <| v.VData.IsFakeBlock () && v.VData.HasIndirectBranch then
-        let addr = v.VData.PPoint.Address
+        let addr = v.VData.LastInstruction.Address
         if v.VData.LastInstruction.IsCall () then acc
         else Set.add addr acc
       else acc) Set.empty
 
-  let inline private withinCallee br addr =
+  let private runNoReturn noret ess hint entry =
+    let hint = AnalysisHint.unmarkNoReturn entry hint
+    (noret: IAnalysis).Run ess hint
+
+  let inline private hasDuplicatedBase jtbls br =
+    jtbls |> Map.exists (fun _ br' -> br'.JTStartAddr = br.JTStartAddr)
+
+  /// Check if there exist new valid indirect jumps after recovering one entry.
+  let private checkNewlyFoundIndJump noret oldJmps ess hint info br =
+    let newJmps = collectIndirectJumps ess br.HostFunctionStart
+    let diff = Set.difference newJmps oldJmps
+    (* First, check if there EXIST new indirect jumps in recovered cfg. *)
+    if Set.isEmpty diff then Error (ess, hint)
+    else
+      let ess, hint = runNoReturn noret ess hint br.HostFunctionStart
+      let newJmps = collectIndirectJumps ess br.HostFunctionStart
+      let diff = Set.difference newJmps oldJmps
+      (* Next, check if new indirect jumps still exist after noret-analysis. *)
+      if Set.isEmpty diff then Error (ess, hint)
+      else
+        let cpInfo = computeConstantPropagation ess info.FunctionEntry
+        let newJmps =
+          findPotentialJmpTableIndBranches info.FunctionBoundary cpInfo
+          |> List.fold (fun acc br ->
+            if hasDuplicatedBase info.JumpTables br then acc
+            else Set.add br.InsAddr acc) Set.empty
+        let diff = Set.difference newJmps oldJmps
+        (* Finally, check if new indirect jumps can be successfully analyzed. *)
+        if Set.isEmpty diff then Error (ess, hint)
+        else Ok ess
+
+  let inline private isWithinHostFunction br addr =
     br.HostFunctionStart <= addr && addr < br.HostFunctionEnd
 
-  let readTarget ess (br: JmpTableIndirectBranch) sAddr =
+  let inline private addIndBranchTargetFromJmpTbl ess br sAddr size target =
+    match BinEssence.addEdge ess br.BBLAddr target IndirectJmpEdge with
+    | Ok ess ->
+      let br =
+        { br with JTFixedEnd = sAddr + uint64 size
+                  TargetAddresses = Set.add target br.TargetAddresses }
+      Ok (ess, br)
+    | Error _ -> Error ()
+
+  /// Recover one entry from the jump table of the indirect branch (br).
+  let private recoverJmpTblEntry ess (br: JmpTableIndirectBranch) =
+    let sAddr = br.JTFixedEnd
     let hdl = (ess: BinEssence).BinHandler
     if hdl.FileInfo.IsValidAddr sAddr then
       let size = RegType.toByteWidth br.JTEntrySize
@@ -404,258 +439,170 @@ module BranchRecoveryHelper =
       | Error _ -> Error ()
       | Ok offset ->
         let target = br.BranchBaseAddr + uint64 offset
-        if withinCallee br target then
-          let block = br.BBLAddr
-          match BinEssence.addEdge ess block target IndirectJmpEdge with
-          | Ok ess' ->
-            let next = sAddr + uint64 size
-            let br =
-              { br with
-                  JTStartAddr = br.JTStartAddr
-                  JTFixedEnd = next
-                  TargetAddresses = Set.add target br.TargetAddresses }
-            Ok (ess', br)
-          | Error _ -> Error ()
+        if isWithinHostFunction br target then
+          addIndBranchTargetFromJmpTbl ess br sAddr size target
         else Error ()
     else Error ()
 
-  let rec readTargets ess br sAddr max =
-    if sAddr >= max then Error br
+  let rec private findPromisingBranch noret ess hint info br max =
+    if br.JTFixedEnd >= max then Error br
     else
-      let oldJmps = collectIndirectJumps ess br.HostFunctionStart
-      match readTarget ess br sAddr with
-      | Ok (ess, br) ->
-        let newJmps = collectIndirectJumps ess br.HostFunctionStart
-        let diff = Set.difference newJmps oldJmps
-        if Set.isEmpty diff then readTargets ess br br.JTFixedEnd max
-        else Ok (ess, br)
+      match recoverJmpTblEntry ess br with
+      | Ok (ess', br) ->
+        let oldJmps = collectIndirectJumps ess br.HostFunctionStart
+        match checkNewlyFoundIndJump noret oldJmps ess' hint info br with
+        | Ok ess' -> Ok (ess', br)
+        | Error (ess', hint) -> findPromisingBranch noret ess' hint info br max
       | Error _ -> Error br
 
-  let rec readTargetsUntil ess br sAddr max =
-    if sAddr >= max then ess, br
+  let private foldPromisingIndBranch noret ess hint info promisingBrs _ br =
+    match br.RecoveryStatus with
+    | Done -> promisingBrs
+    | Continue ->
+      match findPromisingBranch noret ess hint info br br.JTMaxEnd with
+      | Ok (ess, br) -> (ess, br) :: promisingBrs
+      | Error _ -> promisingBrs
+
+  /// Promising indirect branch here means a newly recovered indirect branch
+  /// that we can potentially trust. If a newly found indirect branch of a valid
+  /// address has a valid JTStartAddr, then we say it is a promising indirect
+  /// branch. However, even a promising indirect branch may become invalid later
+  /// on, in which case we may have to roll-back.
+  let private findPromisingIndBranches noret ess hint info =
+    let promisingBrs =
+      info.JumpTables
+      |> Map.fold (foldPromisingIndBranch noret ess hint info) []
+    hint, info, promisingBrs
+
+  /// Recover jump table entries until meeting the max address (maxAddr).
+  let rec private recoverJmpTblEntries ess br maxAddr =
+    if br.JTFixedEnd >= maxAddr then ess, br
     else
-      match readTarget ess br sAddr with
-      | Ok (ess', br) -> readTargetsUntil ess' br br.JTFixedEnd max
+      match recoverJmpTblEntry ess br with
+      | Ok (ess', br) -> recoverJmpTblEntries ess' br maxAddr
       | Error _ -> ess, br
 
-  let tryRecover noret ess hint st (discovered, recovered) br =
-    let insAddr = br.InsAddr // XXX: no need to pass br here.
-    let br = Map.find insAddr st.JumpTableInfo
-    match br.RecoveryStatus with
-    | Done -> discovered, recovered
-    | Continue ->
-      let ess, br = readTargetsUntil ess br br.JTStartAddr br.JTFixedEnd // XXX
-      match readTargets ess br br.JTFixedEnd br.JTMaxEnd with
-      | Ok (ess, br) ->
-        let hint = AnalysisHint.unmarkNoReturn br.HostFunctionStart hint
-        let ess, _ = (noret: IAnalysis).Run ess hint
-        Map.add insAddr (ess, br) discovered, recovered
-      | Error br -> discovered, Map.add insAddr br recovered
-
-  let inline private isAlreadyFound jtInfo br =
-    Map.containsKey br.InsAddr jtInfo
-
-  let inline private hasDuplicatedBase jtInfo br =
-    jtInfo |> Map.exists (fun _ br' -> br'.JTStartAddr = br.JTStartAddr)
-
-  let discoverNewBranches hint st br cpInfo =
-    let newBranches, hasDuplicated =
-      findPotentialJmpTableIndBranches st.FunctionBoundary cpInfo
-      |> List.fold (fun (acc, hasDuplicated) br ->
-        if isAlreadyFound st.JumpTableInfo br then (acc, hasDuplicated)
-        elif hasDuplicatedBase st.JumpTableInfo br then (acc, true)
-        else br :: acc, hasDuplicated) ([], false)
-    if List.isEmpty newBranches then
-      if hasDuplicated then Error st
-      else
-        let insAddr = br.InsAddr
-        let inf = { br with RecoveryStatus = Continue }
-        { st with JumpTableInfo = Map.add insAddr inf st.JumpTableInfo }
-        |> Error
-    else
-      newBranches
-      |> List.fold (fun (hint, st) br ->
-        let hint, jtInfo =
-          FunctionLevelJumpTableInfo.addBranch hint st.JumpTableInfo br
-        hint, { st with JumpTableInfo = jtInfo }) (hint, st)
-      |> Ok
-
-  let inline private checkOverlap jtInfo =
-    jtInfo |> Map.exists (fun _ br -> br.JTFixedEnd > br.JTMaxEnd)
-
-  let recoverTableUntilNewBranch (ess, st: FunctionLevelJmpTableRecoveryState) insAddr (_, br) =
-    let ess, br = readTargetsUntil ess br br.JTStartAddr br.JTFixedEnd
-    let info =
+  let private recoverPromisingBr (ess, info) (_, promising) =
+    let br = Map.find promising.InsAddr info.JumpTables
+    let ess, br = recoverJmpTblEntries ess br promising.JTFixedEnd
+    let br =
       if br.JTMaxEnd = br.JTFixedEnd then { br with RecoveryStatus = Done }
       else { br with RecoveryStatus = Continue }
-    ess, { st with JumpTableInfo = Map.add insAddr info st.JumpTableInfo }
+    ess, { info with JumpTables = Map.add br.InsAddr br info.JumpTables }
 
-  let recoverTableUntilBoundary (ess, st: FunctionLevelJmpTableRecoveryState) insAddr br =
-    if br.JTFixedEnd > br.JTMaxEnd then ess, st
-    else
-      let ess, br = readTargetsUntil ess br br.JTStartAddr br.JTFixedEnd
-      ess, { st with JumpTableInfo = Map.add insAddr { br with RecoveryStatus = Done } st.JumpTableInfo }
+  let private seemsDuplicatedIndBranch jtbls br =
+    jtbls
+    |> Map.exists (fun _ br' ->
+      br.InsAddr = br'.InsAddr || br.JTStartAddr = br'.JTStartAddr)
 
-  let updateBinEssenceWithKnowledge ess st discovered recovered =
-    if not <| Map.isEmpty discovered then
-      discovered |> Map.fold recoverTableUntilNewBranch (ess, st)
-    elif not <| Map.isEmpty recovered then
-      recovered |> Map.fold recoverTableUntilBoundary (ess, st)
-    else ess, st
+  let private addPotentialIndBranchesToHint ess (hint: AnalysisHint) info =
+    let potentialTableBranches =
+      computeConstantPropagation ess info.FunctionEntry
+      |> findPotentialJmpTableIndBranches info.FunctionBoundary
+      |> List.fold (fun acc br ->
+        if seemsDuplicatedIndBranch info.JumpTables br then
+          Set.remove (br.InsAddr, br.JTStartAddr) acc
+        else Set.add (br.InsAddr, br.JTStartAddr) acc
+        ) hint.PotentialTableIndBranches
+    { hint with PotentialTableIndBranches = potentialTableBranches }
 
-  let updateKnowledgeWithNewBinEssence st cpInfo =
-    findPotentialJmpTableIndBranches st.FunctionBoundary cpInfo
-    |> List.fold (fun st br ->
+  let private restorePromisings noret ess hint info promisingBrs =
+    let ess, info = List.fold recoverPromisingBr (ess, info) promisingBrs
+    let hint = addPotentialIndBranchesToHint ess hint info
+    let ess, hint = runNoReturn noret ess hint info.FunctionEntry
+    ess, hint, info
+
+  let inline private isAlreadyFound jtbls br =
+    Map.containsKey br.InsAddr jtbls
+
+  /// Update info.JumpTables since CFG is updated and new ind jumps are found.
+  let private updateJmpTblInfo ess hint info =
+    let cpInfo = computeConstantPropagation ess info.FunctionEntry
+    findPotentialJmpTableIndBranches info.FunctionBoundary cpInfo
+    |> List.fold (fun (hint, info) br ->
+      if isAlreadyFound info.JumpTables br then hint, info
+      elif hasDuplicatedBase info.JumpTables br then hint, info
+      else FunctionLevelJumpTableState.addBranch hint info br) (hint, info)
+    |> fun (hint, info) -> hint, { info with CPInfo = cpInfo }
+
+  /// Once BinEssence is updated, basic blocks in the CFG can change due to the
+  /// basic block splitting. So we sync JumpTables with new CFG.
+  let private syncBBLAddr info =
+    findPotentialJmpTableIndBranches info.FunctionBoundary info.CPInfo
+    |> List.fold (fun info br ->
       let insAddr = br.InsAddr
-      if not <| Map.containsKey insAddr st.JumpTableInfo then st
-      else
-        let br' = Map.find insAddr st.JumpTableInfo
-        match br'.RecoveryStatus with
-        | Done ->
-          let info = { br' with BBLAddr = br.BBLAddr; RecoveryStatus = Done }
-          { st with JumpTableInfo = Map.add insAddr info st.JumpTableInfo }
-        | Continue ->
-          let info = { br' with BBLAddr = br.BBLAddr
-                                RecoveryStatus = Continue }
-          { st with JumpTableInfo = Map.add insAddr info st.JumpTableInfo }) st
-
-  let checkTableConflictAndUpdateKnowledge hint acc st br br' =
-    if br.JTStartAddr < br'.JTStartAddr then
-      let hint, jtInfo = FunctionLevelJumpTableInfo.removeBranch hint st.JumpTableInfo br'
-      let hint, jtInfo = FunctionLevelJumpTableInfo.addBranch hint jtInfo br
-      (hint, { st with JumpTableInfo = jtInfo }) |> Error
-    else
-      match acc with
-      | Ok _ -> Ok (hint, st)
-      | Error _ -> Error (hint, st)
-
-  let recoverNewBranches hint st cpInfo =
-    findPotentialJmpTableIndBranches st.FunctionBoundary cpInfo
-    |> List.fold (fun acc br ->
-      let hint, st =
-        match acc with
-        | Ok (hint, st) | Error (hint, st) -> hint, st
-      let insAddr = br.InsAddr
-      match Map.tryFind insAddr st.JumpTableInfo with
-      | None ->
-        match discoverNewBranches hint st br cpInfo with
-        | Ok (hint, st) ->
-          match acc with
-          | Ok _ -> Ok (hint, st)
-          | Error _ -> Error (hint, st)
-        | Error st ->
-          match acc with
-          | Ok _ -> Ok (hint, st)
-          | Error _ -> Error (hint, st)
+      match Map.tryFind insAddr info.JumpTables with
       | Some br' ->
-        checkTableConflictAndUpdateKnowledge hint acc st br br'
-      ) (Ok (hint, st))
+        let br' = { br' with BBLAddr = br.BBLAddr }
+        { info with JumpTables = Map.add insAddr br' info.JumpTables }
+      | None -> info) info
 
-  let checkAllDone jtInfo =
-    jtInfo
-    |> Map.forall (fun _ br ->
-      match br.RecoveryStatus with
-      | Done -> true
-      | _ -> false)
-
-  let private tryRecoverOneLevel noret ess hint st =
-    let discovered, recovered =
-      findPotentialJmpTableIndBranches st.FunctionBoundary st.CPInfo
-      |> List.fold (tryRecover noret ess hint st) (Map.empty, Map.empty)
-    discovered
-    |> Map.fold (fun (struct (hint, st, discovered, recovered)) insAddr (ess, br) ->
-      let cpInfo = computeConstantPropagation ess st.FunctionEntry
-      match discoverNewBranches hint st br cpInfo with
-      | Ok (hint, st) ->
-        struct (hint, st, Map.add insAddr (ess, br) discovered, recovered)
-      | Error st ->
-        struct (hint, st, discovered, recovered)) (struct (hint, st, Map.empty, recovered))
-
-  let rec recoverLoop noret oldEss ess hint st =
-    let struct (hint, st, discovered, recovered) = tryRecoverOneLevel noret ess hint st
-    if checkOverlap st.JumpTableInfo then
-      rollBackWithKnowledge noret oldEss hint st
+  let private restoreJmpTbl (ess, info) _ br =
+    if br.JTFixedEnd > br.JTMaxEnd then Utils.impossible ()
     else
-      let ess, st = updateBinEssenceWithKnowledge ess st discovered recovered
-      if checkOverlap st.JumpTableInfo then
-        rollBackWithKnowledge noret oldEss hint st
-      else
-        let candidates =
-          computeConstantPropagation ess st.FunctionEntry
-          |> findPotentialJmpTableIndBranches st.FunctionBoundary
-          |> List.fold (fun acc br ->
-            if Map.containsKey br.InsAddr st.JumpTableInfo then acc
-            else Set.add (br.InsAddr, br.JTStartAddr) acc) Set.empty
-        let hint = AnalysisHint.unmarkNoReturn st.FunctionEntry hint
-        let ess, hint = (noret: IAnalysis).Run ess hint
-        let cpInfo = computeConstantPropagation ess st.FunctionEntry
-        let st = updateKnowledgeWithNewBinEssence st cpInfo
-        match recoverNewBranches hint st cpInfo with
-        | Ok (hint, st) ->
-          let unreachables =
-            Set.union candidates hint.PotentialTableIndBranches
-          let unreachables =
-            st.JumpTableInfo
-            |> Map.fold (fun acc _ br ->
-              Set.filter (fun (insAddr, addr) ->
-                insAddr <> br.InsAddr && addr <> br.JTStartAddr) acc
-            ) unreachables
-          let hint = { hint with PotentialTableIndBranches = unreachables }
-          if checkAllDone st.JumpTableInfo then ess, hint, st
-          else
-            let unreachables =
-              Set.union candidates hint.PotentialTableIndBranches
-            let unreachables =
-              st.JumpTableInfo
-              |> Map.fold (fun acc _ br ->
-                Set.filter (fun (insAddr, addr) ->
-                  insAddr <> br.InsAddr && addr <> br.JTStartAddr) acc
-              ) unreachables
-            let hint = { hint with PotentialTableIndBranches = unreachables }
-            let jtInfo = FunctionLevelJumpTableInfo.updateBoundary hint st.JumpTableInfo
-            recoverLoop noret oldEss ess hint
-              { st with JumpTableInfo = jtInfo; CPInfo = cpInfo }
-        | Error (hint, st) ->
-          let unreachables =
-            Set.union candidates hint.PotentialTableIndBranches
-          let unreachables =
-            st.JumpTableInfo
-            |> Map.fold (fun acc _ br ->
-              Set.filter (fun (insAddr, addr) ->
-                insAddr <> br.InsAddr && addr <> br.JTStartAddr) acc
-            ) unreachables
-          let hint = { hint with PotentialTableIndBranches = unreachables }
-          let st = { st with JumpTableInfo = FunctionLevelJumpTableInfo.updateBoundary hint st.JumpTableInfo }
-          rollBackWithKnowledge noret oldEss hint st
+      let ess, br = recoverJmpTblEntries ess br br.JTMaxEnd
+      let br = { br with RecoveryStatus = Done }
+      ess, { info with JumpTables = Map.add br.InsAddr br info.JumpTables }
 
-  and rollBackWithKnowledge noret ess hint st =
-    let cpInfo = computeConstantPropagation ess st.FunctionEntry
-    let st = updateKnowledgeWithNewBinEssence st cpInfo
-    let jtInfo = FunctionLevelJumpTableInfo.resetTableRanges st.JumpTableInfo
-    recoverLoop noret ess ess hint
-      { st with JumpTableInfo = jtInfo; CPInfo = cpInfo }
+  let inline private finalizeRecovery noret ess hint info =
+    let ess, info = Map.fold restoreJmpTbl (ess, info) info.JumpTables
+    let ess, hint = runNoReturn noret ess hint info.FunctionEntry
+    ess, hint, info
 
-  let recoverJmpTablesForFunction noret (ess, hint) st =
-    let ess, hint, st = recoverLoop noret ess ess hint st
-    st.JumpTableInfo
-    |> Map.fold (fun acc insAddr br ->
+  let inline private checkOverlap jtbls =
+    jtbls |> Map.exists (fun _ br -> br.JTFixedEnd > br.JTMaxEnd)
+
+  let rec private recoverLoop noret oldEss ess hint info =
+    let hint, info, promisingBrs = findPromisingIndBranches noret ess hint info
+    if List.length promisingBrs > 0 then
+      let ess, hint, info = restorePromisings noret ess hint info promisingBrs
+      let hint, info = updateJmpTblInfo ess hint info
+      let info = FunctionLevelJumpTableState.updateBoundary hint info
+      if checkOverlap info.JumpTables then rollBack noret oldEss hint info
+      else recoverLoop noret oldEss ess hint <| syncBBLAddr info
+    else finalizeRecovery noret ess hint info
+
+  and private rollBack noret ess hint info =
+    (* Move currently recovered jumptable info into PotentialTableIndBranches *)
+    let potentials =
+      info.JumpTables
+      |> Map.fold (fun p ins info ->
+        Set.add (ins, info.JTStartAddr) p) hint.PotentialTableIndBranches
+    let cpInfo = computeConstantPropagation ess info.FunctionEntry
+    (* Take initial jumptable info *)
+    let jtbls, potentials =
+      cpInfo
+      |> findPotentialJmpTableIndBranches info.FunctionBoundary
+      |> List.fold (fun (acc, p) br ->
+        Map.add br.InsAddr br acc, Set.remove (br.InsAddr, br.JTStartAddr) p
+        ) (Map.empty, potentials)
+    let hint = { hint with PotentialTableIndBranches = potentials }
+    let info = { info with JumpTables = jtbls; CPInfo = cpInfo }
+    let info = FunctionLevelJumpTableState.updateBoundary hint info
+    recoverLoop noret ess ess hint info
+
+  let private updateIndirectBranchMap ess info =
+    info.JumpTables
+    |> Map.fold (fun map insAddr br ->
       match br.RecoveryStatus with
-      | Done ->
-        if Set.isEmpty br.TargetAddresses then acc
-        else
-          let range = AddrRange (br.JTStartAddr, br.JTFixedEnd)
-          let jtInfo = JumpTableInfo.Init br.BranchBaseAddr range br.JTEntrySize
-          let info =
-            { HostFunctionAddr = br.HostFunctionStart
-              TargetAddresses = br.TargetAddresses
-              JumpTableInfo = Some jtInfo }
-          Map.add insAddr info acc
-      | _ -> acc) ess.IndirectBranchMap
-    |> fun indMap -> { ess with IndirectBranchMap = indMap }, hint
+      | Done when not (Set.isEmpty br.TargetAddresses) ->
+        let range = AddrRange (br.JTStartAddr, br.JTFixedEnd)
+        let jtInfo = JumpTableInfo.Init br.BranchBaseAddr range br.JTEntrySize
+        let indBranchInfo =
+          { HostFunctionAddr = br.HostFunctionStart
+            TargetAddresses = br.TargetAddresses
+            JumpTableInfo = Some jtInfo }
+        Map.add insAddr indBranchInfo map
+      | _ -> map) ess.IndirectBranchMap
+
+  let private recoverJmpTablesForFunction noret (ess, hint) info =
+    let ess, hint, info = recoverLoop noret ess ess hint info
+    let indBrMap = updateIndirectBranchMap ess info
+    { ess with IndirectBranchMap = indBrMap }, hint
 
   let private recoverTableJmps noret fnBnds ess hint =
-    let hint, states = prepareJmpTableRecovery fnBnds ess hint
-    List.fold (recoverJmpTablesForFunction noret) (ess, hint) states
+    let hint, infos = prepareJmpTableRecovery fnBnds ess hint
+    List.fold (recoverJmpTablesForFunction noret) (ess, hint) infos
 
   let findConstBranches ess entry =
     let cpState, ssaCFG = computeConstantPropagation ess entry
@@ -668,8 +615,13 @@ module BranchRecoveryHelper =
         (blockAddr, insAddr, br , isCall) :: acc
       | _ -> acc) []
 
+  let isContainedInTextSection hdl addr =
+    hdl.FileInfo.GetTextSections ()
+    |> Seq.exists (fun sec ->
+      sec.Address <= addr && addr < sec.Address + sec.Size)
+
   let addConstJmpEdge (ess: BinEssence) blockAddr target isCall =
-    if ess.BinHandler.FileInfo.IsExecutableAddr target then
+    if isContainedInTextSection ess.BinHandler target then
       if isCall then
         [ (target, (ess: BinEssence).BinHandler.DefaultParsingContext) ]
         |> BinEssence.addEntries ess
@@ -697,8 +649,7 @@ module BranchRecoveryHelper =
               JumpTableInfo = None }
           let indMap = Map.add insAddr info ess.IndirectBranchMap
           { ess with IndirectBranchMap = indMap }) ess
-      let hint = AnalysisHint.unmarkNoReturn entry hint
-      (noret: IAnalysis).Run ess hint
+      runNoReturn noret ess hint entry
 
   let private recoverConstJmps noret fnBnds ess hint =
     fnBnds |> List.fold (recoverConstJmpsOfFunc noret) (ess, hint)

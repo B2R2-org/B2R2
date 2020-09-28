@@ -28,21 +28,22 @@ open B2R2
 open B2R2.FrontEnd
 open B2R2.BinIR.SSA
 open B2R2.BinGraph
+open B2R2.BinEssence
 open B2R2.Lens
 open System.Collections.Generic
 
 /// An ID of an SSA memory instance.
 type SSAMemID = int
 
-type CPState = {
+type CPState<'L when 'L: equality> = {
   /// BinHandler of the current binary.
   BinHandler: BinHandler
   /// SSA edges
   SSAEdges: SSAEdges.EdgeInfo
   /// SSA var values.
-  RegState : Dictionary<Variable, CPValue>
+  RegState : Dictionary<Variable, 'L>
   /// SSA mem values. Only store values of constant addresses.
-  MemState : Dictionary<SSAMemID, Map<Addr, CPValue> * Set<Addr>>
+  MemState : Dictionary<SSAMemID, Map<Addr, 'L> * Set<Addr>>
   /// Executable edges from vid to vid. If there's no element for an edge, that
   /// means the edge is not executable.
   ExecutableEdges: HashSet<VertexID * VertexID>
@@ -56,34 +57,39 @@ type CPState = {
   /// will use SSAEdges to find all related SSA statements.
   SSAWorkList: Stack<Variable>
   UndefinedMemories: HashSet<Addr>
+  Top: 'L
+  Bottom: 'L
+  GoingUp: 'L -> 'L -> bool
+  Meet: 'L -> 'L -> 'L
+  TransferFn: TransferFn<'L>
 }
 
+and TransferFn<'L when 'L: equality> =
+  DiGraph<SSABBlock, CFGEdgeKind>
+    -> CPState<'L>
+    -> Vertex<SSABBlock>
+    -> ProgramPoint
+    -> Stmt
+    -> unit
+
 module CPState =
-  let private initStackRegister hdl (dict: Dictionary<_, _>) =
-    match hdl.RegisterBay.StackPointer with
-    | Some sp ->
-      let rt = hdl.RegisterBay.RegIDToRegType sp
-      let str = hdl.RegisterBay.RegIDToString sp
-      let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
-      dict.[var] <- Const (BitVector.ofUInt64 0x80000000UL rt)
-      dict
-    | None -> dict
 
-  let private initMemory (dict: Dictionary<_, _>) =
-    dict.[0] <- (Map.empty, Set.empty)
-    dict
-
-  let initState hdl ssaCfg =
+  let initState hdl ssaCfg initRegister initMemory top bottom goingUp meet fn =
     { BinHandler = hdl
       SSAEdges = SSAEdges.compute ssaCfg
-      RegState = Dictionary () |> initStackRegister hdl
+      RegState = Dictionary () |> initRegister
       MemState = Dictionary () |> initMemory
       ExecutableEdges = HashSet ()
       ExecutedEdges = HashSet ()
       DefaultWordSize = hdl.ISA.WordSize |> WordSize.toRegType
       FlowWorkList = Queue ()
       SSAWorkList = Stack ()
-      UndefinedMemories = HashSet () }
+      UndefinedMemories = HashSet ()
+      Top = top
+      Bottom = bottom
+      GoingUp = goingUp
+      Meet = meet
+      TransferFn = fn }
 
   let markExecutable st src dst =
     if st.ExecutableEdges.Add (src, dst) then st.FlowWorkList.Enqueue (src, dst)
@@ -96,13 +102,13 @@ module CPState =
     match st.RegState.TryGetValue r with
     | true, v -> Some v
     | false, _ ->
-      if r.Identifier = 0 then Some NotAConst
+      if r.Identifier = 0 then Some st.Bottom
       else None
 
   let findReg st r =
     match st.RegState.TryGetValue r with
     | true, v -> v
-    | false, _ -> NotAConst
+    | false, _ -> st.Bottom
 
   let findMem st m rt addr =
     let mid = m.Identifier
@@ -114,11 +120,11 @@ module CPState =
       | Some c -> c
       | None ->
         let mem, updated = st.MemState.[mid]
-        let mem = Map.add addr NotAConst mem
+        let mem = Map.add addr st.Bottom mem
         st.MemState.[mid] <- (mem, updated)
         st.UndefinedMemories.Add addr |> ignore
-        NotAConst
-    else NotAConst
+        st.Bottom
+    else st.Bottom
 
   let copyMem st dstid srcid =
     st.MemState.[dstid] <- st.MemState.[srcid]
@@ -139,13 +145,13 @@ module CPState =
     let mem, updated = st.MemState.[dstid]
     if (rt = st.DefaultWordSize) && (addr % align = 0UL) then
       match Map.tryFind addr oldMem with
-      | Some c' when CPValue.goingUp c' c || c' = c ->
+      | Some c' when st.GoingUp c' c || c' = c ->
         let mem = Map.add addr c mem
         let updated = Set.remove addr updated
         st.MemState.[dstid] <- (mem, updated)
         if not <| Set.isEmpty updated then st.SSAWorkList.Push mDst
       | Some c' ->
-        let mem = Map.add addr (CPValue.meet c c') mem
+        let mem = Map.add addr (st.Meet c c') mem
         let updated = Set.add addr updated
         st.MemState.[dstid] <- (mem, updated)
         st.SSAWorkList.Push mDst
@@ -159,12 +165,12 @@ module CPState =
   let merge st mem1 mem2 addr =
     match Map.tryFind addr mem1, Map.tryFind addr mem2 with
     | Some c, Some c' when c = c' -> Some c
-    | Some c, Some c' -> Some <| CPValue.meet c c'
-    | Some _, None when st.UndefinedMemories.Contains addr -> Some NotAConst
+    | Some c, Some c' -> Some <| st.Meet c c'
+    | Some _, None when st.UndefinedMemories.Contains addr -> Some st.Bottom
     | Some c, None -> Some c
-    | None, Some _ when st.UndefinedMemories.Contains addr -> Some NotAConst
+    | None, Some _ when st.UndefinedMemories.Contains addr -> Some st.Bottom
     | None, Some c -> Some c
-    | None, None when st.UndefinedMemories.Contains addr -> Some NotAConst
+    | None, None when st.UndefinedMemories.Contains addr -> Some st.Bottom
     | _ -> None
 
   let private mergeMemAux st accMem (mem, _) =
