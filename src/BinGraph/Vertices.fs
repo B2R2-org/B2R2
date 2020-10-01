@@ -57,6 +57,11 @@ type RangedVertexData (range: AddrRange) =
 /// representing entry/exit node in a CFG.
 [<AbstractClass>]
 type Vertex<'V when 'V :> VertexData> (v: 'V option) =
+  let myid =
+    match v with
+    | Some v -> v.ID
+    | None -> 0
+
   /// Create a dummy vertex.
   new () = Vertex (None)
   /// Create a regular vertex.
@@ -76,10 +81,7 @@ type Vertex<'V when 'V :> VertexData> (v: 'V option) =
 
   /// Each vertex has a unique ID attached to it. We sometimes need to access ID
   /// of dummy vertex for example calculating dominators.
-  member __.GetID () =
-    match v with
-    | Some v -> v.ID
-    | None -> 0
+  member __.GetID () = myid
 
   /// Return the ID of the given vertex.
   static member GetID (v: Vertex<#VertexData>) = v.GetID ()
