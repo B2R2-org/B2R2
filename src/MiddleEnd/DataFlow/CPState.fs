@@ -65,7 +65,8 @@ type CPState<'L when 'L: equality> = {
 }
 
 and TransferFn<'L when 'L: equality> =
-  DiGraph<SSABBlock, CFGEdgeKind>
+  BinEssence
+    -> DiGraph<SSABBlock, CFGEdgeKind>
     -> CPState<'L>
     -> Vertex<SSABBlock>
     -> ProgramPoint

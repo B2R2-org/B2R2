@@ -315,9 +315,9 @@ module private NoReturnHelper =
     let ssaCFG, ssaRoots = lens.Filter (cfg, [root], ess)
     let ssaRoot = List.head ssaRoots
     let sp = StackPointerPropagation.Init ess.BinHandle ssaCFG
-    let spState = sp.Compute ssaRoot
+    let spState = sp.Compute ess ssaRoot
     let udProp = UndefPropagation.Init ess.BinHandle ssaCFG spState
-    let udState = udProp.Compute ssaRoot
+    let udState = udProp.Compute ess ssaRoot
     let ssaRD = SSAReachingDefinitions (ssaCFG)
     let rdIns, _ = ssaRD.Compute ssaCFG ssaRoot
     callers
