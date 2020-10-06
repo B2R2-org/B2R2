@@ -794,22 +794,68 @@ type ProgramHeader = {
   PHAlignment: uint64
 }
 
+/// Language Specific Data Area header.
+type LSDAHeader = {
+  /// This is the format of the landing pad pointers.
+  LPFormat: ExceptionHeaderValue * ExceptionHeaderApplication
+  /// The base of the landing pad pointers.
+  LPStart: Addr option
+  /// This is the format of types table entry.
+  TTFormat: ExceptionHeaderValue * ExceptionHeaderApplication
+  /// The end of types table.
+  TTEnd: Addr option
+  // This is the format of the call site offsets.
+  CallSiteFormat: ExceptionHeaderValue * ExceptionHeaderApplication
+  // The size of call site table.
+  CallSiteTableSize: uint64
+}
+
+type CallSiteRecord = {
+  Position: uint64
+  Length: uint64
+  LandingPad: uint64
+  Action: uint64
+}
+
+type ActionRecord = {
+  TypeFilter: int64
+  NextAction: int64
+}
+
+/// LSDA. Language Specific Data Area.
+type LanguageSpecificDataArea = {
+  LSDAAddr: Addr
+  Header: LSDAHeader
+  CallSiteTable: CallSiteRecord list
+  ActionTable: ActionRecord list
+  TypeTable: uint64 list
+}
+
+/// This tells how augmetation data is handled
+type Augmentation = {
+  Format: char option
+  ValueEncoding: ExceptionHeaderValue
+  ApplicationEncoding: ExceptionHeaderApplication
+  PersonalityRoutionPointer: byte [] option
+}
+
 /// CIE. Common Information Entry.
 type CommonInformationEntry = {
+  CIEAddr: Addr
   Version: uint8
   AugmentationString: string
   CodeAlignmentFactor: uint64
   DataAlignmentFactor: int64
   ReturnAddressRegister: uint64
   AugmentationData: byte [] option
-  FDEEncoding: ExceptionHeaderValue
-  FDEApplication: ExceptionHeaderApplication
+  Augmentations: Augmentation list
 }
 
 /// FDE. Frame Description Entry.
 type FrameDescriptionEntry = {
   PCBegin: Addr
   PCEnd: Addr
+  LSDAPointer: Addr option
 }
 
 /// The main information block of .eh_frame.
@@ -840,6 +886,8 @@ type ELF = {
   Globals: Map<Addr, ELFSymbol>
   /// Exception frame.
   ExceptionFrame: CallFrameInformation list
+  /// Exception table.
+  ExceptionTable: Map<Addr, ARMap<Addr>>
   /// Invalid address ranges.
   InvalidAddrRanges: IntervalSet
   /// Not-in-file address ranges.

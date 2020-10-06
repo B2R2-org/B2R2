@@ -20,6 +20,7 @@
     <Compile Include="ELFDwarfTypes.fs" />
     <Compile Include="ELFTypes.fs" />
     <Compile Include="ELFExceptionFrames.fs" />
+    <Compile Include="ELFGccExceptTable.fs" />
     <Compile Include="ELFHeader.fs" />
     <Compile Include="ELFSection.fs" />
     <Compile Include="ELFProgHeader.fs" />

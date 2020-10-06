@@ -24,6 +24,13 @@
 
 namespace B2R2.BinFile.ELF
 
+open LanguagePrimitives
+open B2R2
+open B2R2.BinFile
+
+/// Raised when an unhandled encoding is encountered.
+exception UnhandledEncoding
+
 type ExceptionHeaderValue =
   /// No value is present.
   | DW_EH_PE_omit = 0xff
@@ -55,3 +62,55 @@ type ExceptionHeaderApplication =
   | DW_EH_PE_datarel = 0x30
   /// No value is present.
   | DW_EH_PE_omit = 0xff
+
+module ExceptionHeaderEncoding =
+  let parseULEB128 (reader: BinReader) offset =
+    let span = reader.PeekSpan (offset)
+    let v, cnt = LEB128.DecodeUInt64 span
+    v, offset + cnt
+
+  let parseSLEB128 (reader: BinReader) offset =
+    let span = reader.PeekSpan (offset)
+    let v, cnt = LEB128.DecodeSInt64 span
+    v, offset + cnt
+
+  let computeValue cls (reader: BinReader) venc offset =
+    match venc with
+    | ExceptionHeaderValue.DW_EH_PE_absptr ->
+      FileHelper.readUIntOfType reader cls offset
+    | ExceptionHeaderValue.DW_EH_PE_uleb128 ->
+      let cv, offset = parseULEB128 reader offset
+      struct (cv, offset)
+    | ExceptionHeaderValue.DW_EH_PE_sleb128 ->
+      let cv, offset = parseSLEB128 reader offset
+      struct (uint64 cv, offset)
+    | ExceptionHeaderValue.DW_EH_PE_udata2 ->
+      let struct (cv, offset) = reader.ReadUInt16 offset
+      struct (uint64 cv, offset)
+    | ExceptionHeaderValue.DW_EH_PE_sdata2 ->
+      let struct (cv, offset) = reader.ReadInt16 offset
+      struct (uint64 cv, offset)
+    | ExceptionHeaderValue.DW_EH_PE_udata4 ->
+      let struct (cv, offset) = reader.ReadUInt32 offset
+      struct (uint64 cv, offset)
+    | ExceptionHeaderValue.DW_EH_PE_sdata4 ->
+      let struct (cv, offset) = reader.ReadInt32 offset
+      struct (uint64 cv, offset)
+    | ExceptionHeaderValue.DW_EH_PE_udata8 ->
+      reader.ReadUInt64 offset
+    | ExceptionHeaderValue.DW_EH_PE_sdata8 ->
+      let struct (cv, offset) = reader.ReadInt64 offset
+      struct (uint64 cv, offset)
+    | _ -> raise UnhandledEncoding
+
+  let parseEncoding b =
+    if b &&& 0xFFuy = 255uy then
+      let v = EnumOfValue<int, ExceptionHeaderValue> 0xff
+      let app = EnumOfValue<int, ExceptionHeaderApplication> 0xff
+      v, app
+    else
+      let v = int (b &&& 0x0Fuy)
+              |> EnumOfValue<int, ExceptionHeaderValue>
+      let app = int (b &&& 0xF0uy)
+                |> EnumOfValue<int, ExceptionHeaderApplication>
+      v, app

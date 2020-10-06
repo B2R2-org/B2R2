@@ -91,6 +91,43 @@ let parseGlobalSymbols reloc =
     | _ -> map
   reloc.RelocByAddr |> Map.fold folder Map.empty
 
+let rec loadCallSiteTable lsdaPointer = function
+  | [] -> []
+  | lsda :: rest ->
+    if lsdaPointer = lsda.LSDAAddr then lsda.CallSiteTable
+    else loadCallSiteTable lsdaPointer rest
+
+let rec loopCallSiteTable fde acc = function
+  | [] -> acc
+  | rcrd :: rest ->
+    let acc =
+      let landingPad =
+        if rcrd.LandingPad = uint64 0 then rcrd.LandingPad
+        else fde.PCBegin + rcrd.LandingPad
+      let blockStart = fde.PCBegin + rcrd.Position
+      let blockEnd = fde.PCBegin + rcrd.Position + rcrd.Length
+      ARMap.add (AddrRange (blockStart, blockEnd)) landingPad acc
+    loopCallSiteTable fde acc rest
+
+let buildExceptionTable fde gccexctbl tbl =
+  match fde.LSDAPointer with
+  | None -> tbl
+  | Some lsdaPointer ->
+    loopCallSiteTable fde tbl (loadCallSiteTable lsdaPointer gccexctbl)
+
+let accumulateExceptionTableInfo fde gccexctbl map =
+  fde
+  |> Array.fold (fun map fde ->
+     let functionStart = fde.PCBegin
+     let exceptTable = buildExceptionTable fde gccexctbl ARMap.empty
+     if ARMap.isEmpty exceptTable then map
+     else Map.add functionStart exceptTable map) map
+
+let computeExceptionTable excframes gccexctbl =
+  excframes
+  |> List.fold (fun map frame ->
+    accumulateExceptionTableInfo frame.FDERecord gccexctbl map) Map.empty
+
 let invRanges wordSize segs getNextStartAddr =
   segs
   |> List.sortBy (fun seg -> seg.PHAddr)
@@ -119,6 +156,9 @@ let private parseELF baseAddr offset reader =
   let plt = parsePLT eHdr.MachineType secs reloc reader
   let globals = parseGlobalSymbols reloc
   let symbs = Symbol.updatePLTSymbols plt symbs |> Symbol.updateGlobals globals
+  let excframes = ExceptionFrames.parse reader cls secs
+  let gccexctbl = ELFGccExceptTable.parse reader cls secs
+  let exctbls = computeExceptionTable excframes gccexctbl
   { ELFHdr = eHdr
     ProgHeaders = proghdrs
     LoadableSegments = segs
@@ -128,7 +168,8 @@ let private parseELF baseAddr offset reader =
     RelocInfo = reloc
     PLT = plt
     Globals = globals
-    ExceptionFrame = ExceptionFrames.parse reader cls secs
+    ExceptionFrame = excframes
+    ExceptionTable = exctbls
     InvalidAddrRanges = invRanges cls segs (fun s -> s.PHAddr + s.PHMemSize)
     NotInFileRanges = invRanges cls segs (fun s -> s.PHAddr + s.PHFileSize)
     ExecutableRanges = execRanges segs
