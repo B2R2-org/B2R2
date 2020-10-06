@@ -118,15 +118,15 @@ let buildExceptionTable fde gccexctbl tbl =
 let accumulateExceptionTableInfo fde gccexctbl map =
   fde
   |> Array.fold (fun map fde ->
-     let functionStart = fde.PCBegin
+     let functionRange = AddrRange (fde.PCBegin, fde.PCEnd)
      let exceptTable = buildExceptionTable fde gccexctbl ARMap.empty
      if ARMap.isEmpty exceptTable then map
-     else Map.add functionStart exceptTable map) map
+     else ARMap.add functionRange exceptTable map) map
 
 let computeExceptionTable excframes gccexctbl =
   excframes
   |> List.fold (fun map frame ->
-    accumulateExceptionTableInfo frame.FDERecord gccexctbl map) Map.empty
+    accumulateExceptionTableInfo frame.FDERecord gccexctbl map) ARMap.empty
 
 let computeUnwindingTable excframes =
   excframes

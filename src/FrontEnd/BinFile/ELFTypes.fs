@@ -890,7 +890,7 @@ type ELF = {
   /// Exception frame.
   ExceptionFrame: CallFrameInformation list
   /// Exception table.
-  ExceptionTable: Map<Addr, ARMap<Addr>>
+  ExceptionTable: ARMap<ARMap<Addr>>
   /// Invalid address ranges.
   InvalidAddrRanges: IntervalSet
   /// Not-in-file address ranges.
