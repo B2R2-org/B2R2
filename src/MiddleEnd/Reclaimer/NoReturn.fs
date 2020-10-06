@@ -97,7 +97,8 @@ module private NoReturnHelper =
     DiGraph.getPreds cfg v
     |> List.fold (fun acc pred ->
       match cfg.FindEdgeData pred v with
-      | RetEdge | CallFallThroughEdge -> (pred, v) :: acc
+      | RetEdge | CallFallThroughEdge ->
+        (pred, v) :: acc
       | _ -> acc) edges
 
   let collectFunctionCallFallThroughs ess cfg (v: Vertex<IRBasicBlock>) edges =
