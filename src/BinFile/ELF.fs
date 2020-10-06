@@ -61,6 +61,7 @@ type ELFFileInfo (bytes, path, baseAddr) =
   override __.GetLinkageTableEntries () = getPLT elf
   override __.IsLinkageTable addr = isPLT elf addr
   override __.TryFindFunctionSymbolName (addr, n) = tryFindFuncSymb elf addr &n
+  override __.ExceptionTable = elf.ExceptionTable
   override __.IsValidAddr addr = isValidAddr elf addr
   override __.IsValidRange range = isValidRange elf range
   override __.IsInFileAddr addr = isInFileAddr elf addr

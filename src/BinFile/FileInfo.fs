@@ -250,6 +250,13 @@ type FileInfo (baseAddr) =
     -> bool
 
   /// <summary>
+  ///   An exception table, which is a mapping from a function address to a set
+  ///   of landing pads. The landing pads are mappings from a range of
+  ///   instruction addresses to a landing pad address.
+  /// </summary>
+  abstract member ExceptionTable: Map<Addr, ARMap<Addr>>
+
+  /// <summary>
   ///   Check if the given address is valid for this binary. We say a given
   ///   address is valid for the binary if the address is within the range of
   ///   statically computable segment ranges.

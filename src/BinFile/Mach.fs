@@ -61,6 +61,7 @@ type MachFileInfo (bytes, path, isa, baseAddr) =
   override __.GetLinkageTableEntries () = getPLT mach
   override __.IsLinkageTable addr = isPLT mach addr
   override __.TryFindFunctionSymbolName (addr, n) = tryFindFuncSymb mach addr &n
+  override __.ExceptionTable = Map.empty
   override __.IsValidAddr addr = isValidAddr mach addr
   override __.IsValidRange range = isValidRange mach range
   override __.IsInFileAddr addr = isInFileAddr mach addr

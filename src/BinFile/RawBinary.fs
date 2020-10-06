@@ -94,6 +94,8 @@ type RawFileInfo (bytes: byte [], isa, baseAddr) =
 
   override __.TryFindFunctionSymbolName (_addr, _) = false
 
+  override __.ExceptionTable = Map.empty
+
   override __.IsValidAddr (addr) =
     addr >= baseAddr && addr < (baseAddr + uint64 bytes.LongLength)
 

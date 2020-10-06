@@ -62,6 +62,7 @@ type PEFileInfo (bytes, path, baseAddr, rawpdb) =
   override __.GetLinkageTableEntries () = getImportTable pe
   override __.IsLinkageTable addr = isImportTable pe addr
   override __.TryFindFunctionSymbolName (addr, n) = tryFindFuncSymb pe addr &n
+  override __.ExceptionTable = Map.empty
   override __.IsValidAddr addr = isValidAddr pe addr
   override __.IsValidRange range = isValidRange pe range
   override __.IsInFileAddr addr = isInFileAddr pe addr
