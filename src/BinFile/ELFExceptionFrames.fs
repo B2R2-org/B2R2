@@ -135,49 +135,46 @@ let parseCIE cls (reader: BinReader) cieAddr offset =
 
 let tryFindCIE cieAddr cies =
   cies
-  |> List.tryFind (fun cie ->
-    if cieAddr = cie.CIEAddr then true
-    else false)
+  |> List.tryFind (fun cie -> if cieAddr = cie.CIEAddr then true else false)
+
+let tryFindAugmentation cie format =
+  cie.Augmentations
+  |> List.tryFind (fun aug -> if aug.Format = Some format then true else false)
 
 let adjustAddr app myAddr addr =
   match app with
   | ExceptionHeaderApplication.DW_EH_PE_pcrel -> addr + myAddr
   | _ -> addr
 
-let rec addPCInfo cls reader fde sAddr augs offset =
-  match augs with
-  | [] -> fde, offset
-  | aug :: rest ->
-    if aug.Format = Some 'R' then
-      let myAddr = sAddr + uint64 offset
-      let struct (addr, offset) =
-        computeValue cls reader aug.ValueEncoding offset
-      let struct (range, offset) =
-        computeValue cls reader aug.ValueEncoding offset
-      let beginAddr = adjustAddr aug.ApplicationEncoding myAddr addr
-      { fde with PCBegin = beginAddr; PCEnd = beginAddr + range }, offset
-    else addPCInfo cls reader fde sAddr rest offset
+let parsePCInfo cls reader sAddr venc aenc offset =
+  let myAddr = sAddr + uint64 offset
+  let struct (addr, offset) = computeValue cls reader venc offset
+  let struct (range, offset) = computeValue cls reader venc offset
+  let beginAddr = adjustAddr aenc myAddr addr
+  let endAddr = beginAddr + range
+  beginAddr, endAddr, offset
 
-let rec addLSDA cls reader fde sAddr augs offset =
-  match augs with
-  | [] -> fde
-  | aug :: rest ->
-    if aug.Format = Some 'L' then
-      let _, offset = parseSLEB128 reader offset
-      let myAddr = sAddr + uint64 offset
-      let struct (addr, _) = computeValue cls reader aug.ValueEncoding offset
-      let lsdaPointer = adjustAddr aug.ApplicationEncoding myAddr addr
-      { fde with LSDAPointer = Some lsdaPointer }
-    else addLSDA cls reader fde sAddr rest offset
+let parseLSDA cls reader sAddr aug offset =
+  let _, offset = parseULEB128 reader offset
+  let myAddr = sAddr + uint64 offset
+  let struct (addr, _) = computeValue cls reader aug.ValueEncoding offset
+  Some (adjustAddr aug.ApplicationEncoding myAddr addr)
 
 let parseFDE cls reader sAddr cies cieAddr offset =
   match tryFindCIE cieAddr cies with
   | Some cie ->
-    let fde = { PCBegin = uint64 0
-                PCEnd = uint64 0
-                LSDAPointer = None }
-    let fde, offset = addPCInfo cls reader fde sAddr cie.Augmentations offset
-    addLSDA cls reader fde sAddr cie.Augmentations offset
+    let venc, aenc =
+      match tryFindAugmentation cie 'R' with
+      | Some aug -> aug.ValueEncoding, aug.ApplicationEncoding
+      | None -> ExceptionHeaderValue.DW_EH_PE_absptr,
+                ExceptionHeaderApplication.DW_EH_PE_absptr
+    let beginAddr, endAddr, offset =
+      parsePCInfo cls reader sAddr venc aenc offset
+    let lsdaPointer =
+      match tryFindAugmentation cie 'L' with
+      | Some aug -> parseLSDA cls reader sAddr aug offset
+      | None -> None
+    { PCBegin = beginAddr; PCEnd = endAddr; LSDAPointer = lsdaPointer }
   | None -> raise CIENotFoundByFDE
 
 let accumulateCFIs cfis cie fdes =
