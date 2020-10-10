@@ -56,60 +56,47 @@ let parseReturnRegister (reader: BinReader) version offset =
   if version = 1uy then reader.PeekByte offset |> uint64, offset + 1
   else parseULEB128 reader offset
 
-let parseAugmentationData (reader: BinReader) offset augstr =
-  if (augstr: string).StartsWith ('z') then
-    let len, offset = parseULEB128 reader offset
-    let span = reader.PeekSpan (int len, offset)
-    let arr = span.ToArray ()
-    Some arr, offset + int len
-  else None, offset
-
 let personalityRoutinePointerSize addrSize = function
   | 2uy -> 2
   | 3uy -> 4
   | 4uy -> 8
   | _ -> addrSize
 
-let rec parseEncodingLoop acc addrSize (data: byte []) offset = function
-  | [] -> List.rev acc
-  | 'L' :: rest ->
-    let v, app = parseEncoding data.[offset]
-    let acc = { Format = Some 'L'
-                ValueEncoding = v
-                ApplicationEncoding = app
-                PersonalityRoutionPointer = None } :: acc
-    parseEncodingLoop acc addrSize data (offset + 1) rest
-  | 'P' :: rest ->
-    let v, app = parseEncoding data.[offset]
-    let psz = data.[offset] &&& 7uy |> personalityRoutinePointerSize addrSize
-    let prp = Some data.[ offset + 1 .. offset + psz ]
-    let acc = { Format = Some 'P'
-                ValueEncoding = v
-                ApplicationEncoding = app
-                PersonalityRoutionPointer = prp } :: acc
-    parseEncodingLoop acc addrSize data (offset + psz + 1) rest
-  | 'R' :: rest ->
-    let v, app = parseEncoding data.[offset]
-    let acc = { Format = Some 'R'
-                ValueEncoding = v
-                ApplicationEncoding = app
-                PersonalityRoutionPointer = None } :: acc
-    parseEncodingLoop acc addrSize data (offset + 1) rest
+let obtainAugData addrSize (arr: byte []) data offset = function
+  | 'L' ->
+    let v, app = parseEncoding arr.[offset]
+    { Format = 'L'
+      ValueEncoding = v
+      ApplicationEncoding = app
+      PersonalityRoutionPointer = [||] } :: data, offset + 1
+  | 'P' ->
+    let v, app = parseEncoding arr.[offset]
+    let psz = arr.[offset] &&& 7uy |> personalityRoutinePointerSize addrSize
+    let prp = arr.[ offset + 1 .. offset + psz ]
+    { Format = 'P'
+      ValueEncoding = v
+      ApplicationEncoding = app
+      PersonalityRoutionPointer = prp } :: data, offset + psz + 1
+  | 'R' ->
+    let v, app = parseEncoding arr.[offset]
+    { Format = 'R'
+      ValueEncoding = v
+      ApplicationEncoding = app
+      PersonalityRoutionPointer = [||] } :: data, offset + 1
   | _ -> raise UnhandledAugString
 
-let getAugmentations addrSize (augstr: string) augdata =
-  match augdata with
-  | None ->
-    [ { Format = None
-        ValueEncoding = ExceptionHeaderValue.DW_EH_PE_absptr
-        ApplicationEncoding = ExceptionHeaderApplication.DW_EH_PE_absptr
-        PersonalityRoutionPointer = None } ]
-  | Some (data: byte []) ->
-    augstr.[ 1 .. ]
-    |> Seq.toList
-    |> parseEncodingLoop [] addrSize data 0
+let parseAugmentationData (reader: BinReader) offset addrSize augstr =
+  if (augstr: string).StartsWith ('z') then
+    let len, offset = parseULEB128 reader offset
+    let span = reader.PeekSpan (int len, offset)
+    let arr = span.ToArray ()
+    augstr.[ 1.. ]
+    |> Seq.fold (fun (data, idx) ch ->
+      obtainAugData addrSize arr data idx ch) ([], 0)
+    |> fst |> List.rev, offset + int len
+  else [], offset
 
-let parseCIE cls (reader: BinReader) cieAddr offset =
+let parseCIE cls (reader: BinReader) offset =
   let struct (version, offset) = reader.ReadByte offset
   if version = 1uy || version = 3uy then
     let span = reader.PeekSpan offset
@@ -120,26 +107,18 @@ let parseCIE cls (reader: BinReader) cieAddr offset =
     let codeAlignmentFactor, offset = parseULEB128 reader offset
     let dataAlignmentFactor, offset = parseSLEB128 reader offset
     let retReg, offset = parseReturnRegister reader version offset
-    let augdata, _ = parseAugmentationData reader offset augstr
-    let augs = getAugmentations addrSize augstr augdata
-    { CIEAddr = cieAddr
-      Version = version
+    let augs, _ = parseAugmentationData reader offset addrSize augstr
+    { Version = version
       AugmentationString = augstr
       CodeAlignmentFactor = codeAlignmentFactor
       DataAlignmentFactor = dataAlignmentFactor
       ReturnAddressRegister = retReg
-      AugmentationData = augdata
       Augmentations = augs }
   else
     raise UnhandledExceptionHandlingFrameVersion
 
-let tryFindCIE cieAddr cies =
-  cies
-  |> List.tryFind (fun cie -> if cieAddr = cie.CIEAddr then true else false)
-
 let tryFindAugmentation cie format =
-  cie.Augmentations
-  |> List.tryFind (fun aug -> if aug.Format = Some format then true else false)
+  cie.Augmentations |> List.tryFind (fun aug -> aug.Format = format)
 
 let adjustAddr app myAddr addr =
   match app with
@@ -160,8 +139,8 @@ let parseLSDA cls reader sAddr aug offset =
   let struct (addr, _) = computeValue cls reader aug.ValueEncoding offset
   Some (adjustAddr aug.ApplicationEncoding myAddr addr)
 
-let parseFDE cls reader sAddr cies cieAddr offset =
-  match tryFindCIE cieAddr cies with
+let parseFDE cls reader sAddr cie offset =
+  match cie with
   | Some cie ->
     let venc, aenc =
       match tryFindAugmentation cie 'R' with
@@ -187,20 +166,21 @@ let accumulateCFIs cfis cie fdes =
 let rec parseCFI cls reader sAddr cie cies fdes offset cfis =
   if offset >= ((reader: BinReader).Length ()) then accumulateCFIs cfis cie fdes
   else
-    let cieAddr = sAddr + uint64 offset
+    let originalOffset = offset
     let struct (len, offset) = readInt reader offset
     if len = 0 then accumulateCFIs cfis cie fdes
     else
       let nextOffset, offset = computeNextOffset len reader offset
-      let curAddr = sAddr + uint64 offset
+      let mybase = offset
       let struct (id, offset) = readInt reader offset
       if id = 0 then
         let cfis = accumulateCFIs cfis cie fdes
-        let cie = parseCIE cls reader cieAddr offset
-        let cies = cie :: cies
+        let cie = parseCIE cls reader offset
+        let cies = Map.add originalOffset cie cies
         parseCFI cls reader sAddr (Some cie) cies [] nextOffset cfis
       else
-        let fde = parseFDE cls reader sAddr cies (curAddr - uint64 id) offset
+        let cieOffset = mybase - id (* id = a CIE pointer, when id <> 0 *)
+        let fde = parseFDE cls reader sAddr (Map.tryFind cieOffset cies) offset
         let fdes = fde :: fdes
         parseCFI cls reader sAddr cie cies fdes nextOffset cfis
 
@@ -210,6 +190,6 @@ let parse (reader: BinReader) cls (secs: SectionInfo) =
     let size = Convert.ToInt32 sec.SecSize
     let offset = Convert.ToInt32 sec.SecOffset
     let reader = reader.SubReader offset size
-    parseCFI cls reader sec.SecAddr None [] [] 0 []
+    parseCFI cls reader sec.SecAddr None Map.empty [] 0 []
     |> List.rev
   | None -> []

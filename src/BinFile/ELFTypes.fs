@@ -831,23 +831,21 @@ type LanguageSpecificDataArea = {
   TypeTable: uint64 list
 }
 
-/// This tells how augmetation data is handled
+/// This tells how augmetation data is handled.
 type Augmentation = {
-  Format: char option
+  Format: char
   ValueEncoding: ExceptionHeaderValue
   ApplicationEncoding: ExceptionHeaderApplication
-  PersonalityRoutionPointer: byte [] option
+  PersonalityRoutionPointer: byte []
 }
 
 /// CIE. Common Information Entry.
 type CommonInformationEntry = {
-  CIEAddr: Addr
   Version: uint8
   AugmentationString: string
   CodeAlignmentFactor: uint64
   DataAlignmentFactor: int64
   ReturnAddressRegister: uint64
-  AugmentationData: byte [] option
   Augmentations: Augmentation list
 }
 
