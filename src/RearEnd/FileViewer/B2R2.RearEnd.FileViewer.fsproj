@@ -8,7 +8,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Helper.fs" />
     <Compile Include="CmdOptions.fs" />
+    <Compile Include="ELFViewer.fs" />
+    <Compile Include="MachViewer.fs" />
+    <Compile Include="PEViewer.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 

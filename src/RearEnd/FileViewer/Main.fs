@@ -34,7 +34,7 @@ let dumpBasic (fi: FileInfo) =
   printfn "- Format       : %s" <| FileFormat.toString fi.FileFormat
   printfn "- Architecture : %s" <| ISA.ArchToString fi.ISA.Arch
   printfn "- Endianness   : %s" <| Endian.toString fi.ISA.Endian
-  printfn "- Word size    : %d bit" <| WordSize.toRegType fi.ISA.WordSize
+  printfn "- Word size    : %d bit" <| WordSize.toRegType fi.WordSize
   printfn "- File type    : %s" <| FileInfo.FileTypeToString fi.FileType
   printfn "- Entry point  : %s" <| FileInfo.EntryPointToString fi.EntryPoint
   printfn ""
@@ -46,96 +46,155 @@ let dumpSecurity (fi: FileInfo) =
   printfn "- Relocatable (PIE): %b" fi.IsRelocatable
   printfn ""
 
-let dumpSections (fi: FileInfo) addrToString =
+let dumpFileHeader (fi: FileInfo) (opts: CmdOptions.FileViewerOpts) =
+  printfn "## File Header"
+  match fi with
+  | :? ELFFileInfo as fi -> ELFViewer.dumpFileHeader fi opts
+  | :? PEFileInfo as fi -> PEViewer.dumpFileHeader fi opts
+  | :? MachFileInfo as fi -> MachViewer.dumpFileHeader fi opts
+  | _ -> printfn "Not supported format"
+  printfn ""
+
+let dumpSections (fi: FileInfo) (opts: CmdOptions.FileViewerOpts) =
   printfn "## Section Information"
-  fi.GetSections ()
-  |> Seq.iteri (fun idx s ->
-       printfn "%2d. %s:%s [%s]"
-        idx
-        (addrToString s.Address)
-        (addrToString (s.Address + s.Size))
-        s.Name)
+  match fi with
+  | :? ELFFileInfo as fi -> ELFViewer.dumpSections fi opts
+  | :? PEFileInfo as fi -> PEViewer.dumpSections fi opts
+  | :? MachFileInfo as fi -> MachViewer.dumpSections fi opts
+  | _ -> printfn "Not supported format"
   printfn ""
 
-let dumpSegments (fi: FileInfo) addrToString =
+let dumpTextSection (fi: FileInfo) (opts: CmdOptions.FileViewerOpts) =
+  printfn "## Text Section"
+  if Seq.isEmpty <| fi.GetTextSections () then
+    printfn "- Not found"
+  else
+    fi.GetTextSections ()
+    |> Seq.iter (fun s ->
+      printfn "- Start address : %s"
+        <| Helper.addrToString fi.WordSize s.Address
+      printfn "- End address   : %s"
+        <| Helper.addrToString fi.WordSize (s.Address + s.Size)
+      printfn "- Size: %d" s.Size
+      printfn "")
+    match fi with
+    | :? ELFFileInfo as fi -> ELFViewer.dumpTextSection fi opts
+    | :? PEFileInfo as fi -> PEViewer.dumpTextSection fi opts
+    | :? MachFileInfo as fi -> MachViewer.dumpTextSection fi opts
+    | _ -> printfn "Not supported format"
+    printfn ""
+
+let dumpSectionDetails (fi: FileInfo) (opts: CmdOptions.FileViewerOpts) =
+  printfn "## Section Details"
+  let sections = fi.GetSections opts.DisplayTargets.["d"].[0]
+  if Seq.isEmpty sections then
+    printfn "- Not found"
+  else
+    sections
+    |> Seq.iter (fun s ->
+      printfn "- Start address : %s"
+        <| Helper.addrToString fi.WordSize s.Address
+      printfn "- End address   : %s"
+        <| Helper.addrToString fi.WordSize (s.Address + s.Size)
+      printfn "- Size: %d" s.Size
+      printfn "")
+    match fi with
+    | :? ELFFileInfo as fi -> ELFViewer.dumpSectionDetails fi opts
+    | :? PEFileInfo as fi -> PEViewer.dumpSectionDetails fi opts
+    | :? MachFileInfo as fi -> MachViewer.dumpSectionDetails fi opts
+    | _ -> printfn "Not supported format"
+  printfn ""
+
+let dumpSegments (fi: FileInfo) (opts: CmdOptions.FileViewerOpts) =
   printfn "## Segment Information"
-  fi.GetSegments ()
-  |> Seq.iteri (fun idx s ->
-    printfn "%2d. %s:%s [%s]"
-      idx
-      (addrToString s.Address)
-      (addrToString (s.Address + s.Size))
-      (FileInfo.PermissionToString s.Permission))
+  match fi with
+  | :? ELFFileInfo as fi -> ELFViewer.dumpSegments fi opts
+  | :? PEFileInfo as fi -> PEViewer.dumpSegments fi opts
+  | :? MachFileInfo as fi -> MachViewer.dumpSegments fi opts
+  | _ -> printfn "Not supported format"
   printfn ""
 
-let targetString s =
-  match s.Target with
-  | TargetKind.StaticSymbol -> "(s)"
-  | TargetKind.DynamicSymbol -> "(d)"
-  | _ -> failwith "Invalid symbol target kind."
-
-let dumpSymbols (fi: FileInfo) addrToString dumpAll =
-  let lib s = if System.String.IsNullOrWhiteSpace s then "" else " @ " + s
-  let name (s: Symbol) = if s.Name.Length > 0 then " " + s.Name else ""
-  let filterNoType (s: Symbol) =
-    s.Target = TargetKind.DynamicSymbol
-    || (s.Kind <> SymbolKind.NoType && s.Name.Length > 0)
-  printfn "## Symbol Information (s: static / d: dynamic)"
-  fi.GetSymbols ()
-  |> (fun symbs -> if dumpAll then symbs else Seq.filter filterNoType symbs)
-  |> Seq.sortBy (fun s -> s.Name)
-  |> Seq.sortBy (fun s -> s.Address)
-  |> Seq.sortBy (fun s -> s.Target)
-  |> Seq.iter (fun s ->
-       printfn "- %s %s%s%s"
-        (targetString s) (addrToString s.Address) (name s) (lib s.LibraryName))
+let dumpSymbols (fi: FileInfo) (opts: CmdOptions.FileViewerOpts) =
+  printfn "## Symbol Information"
+  match fi with
+  | :? ELFFileInfo as fi -> ELFViewer.dumpSymbols fi opts
+  | :? PEFileInfo as fi -> PEViewer.dumpSymbols fi opts
+  | :? MachFileInfo as fi -> MachViewer.dumpSymbols fi opts
+  | _ -> printfn "Not supported format"
   printfn ""
 
-let dumpRelocs (fi: FileInfo) addrToString =
+let dumpRelocs (fi: FileInfo) (opts: CmdOptions.FileViewerOpts) =
   printfn "## Relocation Information"
-  fi.GetRelocationSymbols ()
-  |> Seq.sortBy (fun s -> s.Address)
-  |> Seq.iter (fun r ->
-    printfn "- (%d) %s: %s%s"
-      (int r.Kind)
-      (addrToString r.Address)
-      r.Name
-      (if r.LibraryName = "" then "" else " @ " + r.LibraryName))
+  match fi with
+  | :? ELFFileInfo as fi -> ELFViewer.dumpRelocs fi opts
+  | :? PEFileInfo as fi -> PEViewer.dumpRelocs fi opts
+  | :? MachFileInfo as fi -> MachViewer.dumpRelocs fi opts
+  | _ -> printfn "Not supported format"
   printfn ""
 
-let dumpIfNotEmpty s =
-  if System.String.IsNullOrEmpty s then "" else "@" + s
-
-let dumpLinkageTable (fi: FileInfo) addrToString =
-  printfn "## Linkage Table (PLT -> GOT) Information"
-  fi.GetLinkageTableEntries ()
-  |> Seq.iter (fun a ->
-       printfn "- %s -> %s %s%s"
-        (addrToString a.TrampolineAddress)
-        (addrToString a.TableAddress)
-        a.FuncName
-        (dumpIfNotEmpty a.LibraryName))
+let dumpFunctions (fi: FileInfo) (opts: CmdOptions.FileViewerOpts) =
+  printfn "## Functions Information"
+  match fi with
+  | :? ELFFileInfo as fi -> ELFViewer.dumpFunctions fi opts
+  | :? PEFileInfo as fi -> PEViewer.dumpFunctions fi opts
+  | :? MachFileInfo as fi -> MachViewer.dumpFunctions fi opts
+  | _ -> printfn "Not supported format"
   printfn ""
 
-let dumpFunctions (fi: FileInfo) addrToString =
-  printfn "## Functions"
-  fi.GetFunctionSymbols ()
-  |> Seq.iter (fun s -> printfn "- %s: %s" (addrToString s.Address) s.Name)
+let dumpLinkageTable (fi: FileInfo) (opts: CmdOptions.FileViewerOpts) =
+  printfn "## Linkage Table Information"
+  match fi with
+  | :? ELFFileInfo as fi -> ELFViewer.dumpLinkageTable fi opts
+  | :? PEFileInfo as fi -> PEViewer.dumpLinkageTable fi opts
+  | :? MachFileInfo as fi -> MachViewer.dumpLinkageTable fi opts
+  | _ -> printfn "Not supported format"
+  printfn ""
 
 let dumpFile (opts: CmdOptions.FileViewerOpts) (filepath: string) =
   let hdl = BinHandle.Init (opts.ISA, opts.BaseAddress, filepath)
+  let displayTargets = opts.DisplayTargets
   let fi = hdl.FileInfo
-  let addrToString = Addr.toString hdl.ISA.WordSize
   printfn "# %s" fi.FilePath
   printfn ""
-  dumpBasic fi
-  dumpSecurity fi
-  dumpSections fi addrToString
-  dumpSegments fi addrToString
-  dumpSymbols fi addrToString opts.Verbose
-  dumpRelocs fi addrToString
-  dumpLinkageTable fi addrToString
-  dumpFunctions fi addrToString
+
+  if displayTargets.ContainsKey "a" then
+    dumpBasic fi
+    dumpSecurity fi
+    dumpFileHeader fi opts
+    dumpSections fi opts
+    dumpSegments fi opts
+    dumpSymbols fi opts
+    dumpRelocs fi opts
+    dumpFunctions fi opts
+    dumpLinkageTable fi opts
+  else
+    if displayTargets.ContainsKey "e" then
+      dumpFileHeader fi opts
+      dumpSections fi opts
+      dumpSegments fi opts
+    else
+      if displayTargets.ContainsKey "B" then
+        dumpBasic fi
+        dumpSecurity fi
+      if displayTargets.ContainsKey "f" then
+        dumpFileHeader fi opts
+      if displayTargets.ContainsKey "S" then
+        dumpSections fi opts
+      if displayTargets.ContainsKey "T" then
+        dumpTextSection fi opts
+      if displayTargets.ContainsKey "d" then
+        dumpSectionDetails fi opts
+      if displayTargets.ContainsKey "p" then
+        dumpSegments fi opts
+      if displayTargets.ContainsKey "s" then
+        dumpSymbols fi opts
+      if displayTargets.ContainsKey "r" then
+        dumpRelocs fi opts
+      if displayTargets.ContainsKey "F" then
+        dumpFunctions fi opts
+      if displayTargets.ContainsKey "L" then
+        dumpLinkageTable fi opts
+
 #if false
   let fi = fi :?> ELFFileInfo
   fi.ELF.ExceptionFrame
