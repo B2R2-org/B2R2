@@ -32,3 +32,5 @@ type ErrorCase =
   | InvalidMemoryRead = 1
   /// Invalid expression is evaluated.
   | InvalidExprEvaluation = 2
+  /// Symbol does not exist.
+  | SymbolNotFound = 3

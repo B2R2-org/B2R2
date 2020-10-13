@@ -174,7 +174,7 @@ let getImports wm =
     | None -> Seq.empty
   | None -> Seq.empty
 
-let tryFindFunSymName wm addr (name: byref<string>) =
+let tryFindFunSymName wm addr =
   let sym =
     getSymbols wm
     |> Seq.filter (fun s ->
@@ -184,8 +184,8 @@ let tryFindFunSymName wm addr (name: byref<string>) =
       )
     |> Seq.tryHead
   match sym with
-  | Some s -> name <- s.Name; true
-  | None -> false
+  | Some s -> Ok s.Name
+  | None -> Error ErrorCase.SymbolNotFound
 
 let getNotInFileIntervals (range: AddrRange) (len: int64) =
   let maxAddr = uint64 len

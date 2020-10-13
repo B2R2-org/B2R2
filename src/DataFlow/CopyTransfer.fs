@@ -26,7 +26,6 @@ module B2R2.DataFlow.CopyTransfer
 
 open B2R2
 open B2R2.FrontEnd
-open B2R2.FrontEnd.Intel
 open B2R2.BinIR
 open B2R2.BinGraph
 open B2R2.BinEssence
@@ -47,9 +46,9 @@ let private isGetPCThunkCode = function
 let private isGetPCThunk hdl addr =
   if addr = 0UL then false
   else
-    match hdl.FileInfo.TryFindFunctionSymbolName addr |> Utils.tupleToOpt with
-    | Some name -> name.StartsWith "__x86.get_pc_thunk"
-    | None -> BinHandler.ReadUInt (hdl, addr, 4) |> isGetPCThunkCode
+    match hdl.FileInfo.TryFindFunctionSymbolName addr with
+    | Ok name -> name.StartsWith "__x86.get_pc_thunk"
+    | Error _ -> BinHandler.ReadUInt (hdl, addr, 4) |> isGetPCThunkCode
 
 let evalLoad st m rt addr =
   match addr with

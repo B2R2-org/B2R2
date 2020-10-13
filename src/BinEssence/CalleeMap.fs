@@ -51,9 +51,9 @@ type Callee = {
 with
   static member private obtainFuncIDAndName (hdl: BinHandler) (addr: Addr) =
     let id = "func_" + addr.ToString ("X")
-    match hdl.FileInfo.TryFindFunctionSymbolName addr |> Utils.tupleToOpt with
-    | None -> id, id
-    | Some name -> id, name
+    match hdl.FileInfo.TryFindFunctionSymbolName addr with
+    | Error _ -> id, id
+    | Ok name -> id, name
 
   static member Init hdl addr calleeKind =
     let id, name = Callee.obtainFuncIDAndName hdl addr

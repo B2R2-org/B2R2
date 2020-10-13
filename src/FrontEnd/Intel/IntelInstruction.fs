@@ -30,10 +30,11 @@ open System.Text
 
 /// The internal representation for an Intel instruction used by our
 /// disassembler and lifter.
-type IntelInstruction (addr, numBytes, insInfo, wordSz) =
-  inherit Instruction (addr, numBytes, wordSz)
+type IntelInstruction (addr, len, insInfo, wordSz) =
+  inherit Instruction (addr, len, wordSz)
 
   let defaultCtxt = ParsingContext.Init ()
+  let dummyHelper = DisasmHelper ()
 
   /// Basic instruction info.
   member val Info: InsInfo = insInfo
@@ -155,20 +156,20 @@ type IntelInstruction (addr, numBytes, insInfo, wordSz) =
     __.Info.Opcode = Opcode.NOP
 
   override __.Translate ctxt =
-    Lifter.translate __.Info addr numBytes ctxt
+    Lifter.translate __.Info addr len ctxt
 
   member private __.StrBuilder _ (str: string) (sb: StringBuilder) =
     sb.Append str
 
-  override __.Disasm (showAddr, resolveSymbol, fileInfo) =
-    let file = if resolveSymbol then Some fileInfo else None
+  override __.Disasm (showAddr, resolveSymbol, disasmHelper) =
+    let helper = if resolveSymbol then disasmHelper else dummyHelper
     StringBuilder ()
-    |> Disasm.disasm showAddr wordSz file __.Info addr numBytes __.StrBuilder
+    |> Disasm.disasm showAddr wordSz helper __.Info addr len __.StrBuilder
     |> fun sb -> sb.ToString ()
 
   override __.Disasm () =
     StringBuilder ()
-    |> Disasm.disasm false wordSz None __.Info addr numBytes __.StrBuilder
+    |> Disasm.disasm false wordSz dummyHelper __.Info addr len __.StrBuilder
     |> fun sb -> sb.ToString ()
 
   member private __.WordBuilder kind str (acc: AsmWordBuilder) =
@@ -176,7 +177,7 @@ type IntelInstruction (addr, numBytes, insInfo, wordSz) =
 
   override __.Decompose () =
     AsmWordBuilder (8)
-    |> Disasm.disasm true wordSz None __.Info addr numBytes __.WordBuilder
+    |> Disasm.disasm true wordSz dummyHelper __.Info addr len __.WordBuilder
     |> fun b -> b.Finish ()
 
 // vim: set tw=80 sts=2 sw=2:

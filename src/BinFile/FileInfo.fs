@@ -243,11 +243,10 @@ type FileInfo (baseAddr) =
   ///   Find the symbol name for a given address.
   /// </summary>
   /// <returns>
-  ///   Returns true if a symbol exists, otherwise returns false.
+  ///   Returns a symbol as an Ok value if a symbol exists, otherwise returns
+  ///   an Error value.
   /// </returns>
-  abstract member TryFindFunctionSymbolName:
-    Addr * [<Out>] name: byref<string>
-    -> bool
+  abstract member TryFindFunctionSymbolName: Addr -> Result<string, ErrorCase>
 
   /// <summary>
   ///   An exception table, which is a mapping from a function address to a set

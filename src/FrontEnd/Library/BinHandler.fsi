@@ -34,6 +34,7 @@ open B2R2.BinIR
 type BinHandler = {
   ISA: ISA
   FileInfo: FileInfo
+  DisasmHelper: DisasmHelper
   DefaultParsingContext: ParsingContext
   TranslationContext: TranslationContext
   Parser: Parser

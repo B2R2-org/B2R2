@@ -15,6 +15,7 @@
     <ProjectReference Include="..\..\FrontEnd\Core\B2R2.FrontEnd.Core.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\Library\B2R2.FrontEnd.Library.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\Optimizer\B2R2.FrontEnd.Optimizer.fsproj" />
+    <ProjectReference Include="..\..\BinFile\B2R2.BinFile.fsproj" />
     <ProjectReference Include="..\Core\B2R2.Utilities.Core.fsproj" />
   </ItemGroup>
 

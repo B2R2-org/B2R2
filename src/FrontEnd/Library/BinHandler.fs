@@ -33,6 +33,7 @@ open B2R2.FrontEnd.BinHandlerHelper
 type BinHandler = {
   ISA: ISA
   FileInfo: FileInfo
+  DisasmHelper: DisasmHelper
   DefaultParsingContext: ParsingContext
   TranslationContext: TranslationContext
   Parser: Parser
@@ -48,6 +49,7 @@ with
     let ctxt, parser, regbay = initHelpers isa
     { ISA = isa
       FileInfo = fi
+      DisasmHelper = DisasmHelper (fi.TryFindFunctionSymbolName)
       DefaultParsingContext = ParsingContext.Init (mode)
       TranslationContext = ctxt
       Parser = parser
@@ -202,7 +204,7 @@ with
     liftLoop ctxt [] addr
 
   static member inline DisasmInstr hdl showAddr resolve (ins: Instruction) =
-    ins.Disasm (showAddr, resolve, hdl.FileInfo)
+    ins.Disasm (showAddr, resolve, hdl.DisasmHelper)
 
   static member inline DisasmInstrSimple (ins: Instruction) =
     ins.Disasm ()
@@ -210,10 +212,10 @@ with
   static member DisasmBBlock hdl ctxt showAddr resolve addr =
     match BinHandler.ParseBBlock hdl ctxt addr with
     | Ok (bbl, ctxt) ->
-      let struct (str, addr) = disasm showAddr resolve hdl.FileInfo addr bbl
+      let struct (str, addr) = disasm showAddr resolve hdl.DisasmHelper addr bbl
       Ok (str, addr, ctxt)
     | Error bbl ->
-      let struct (str, addr) = disasm showAddr resolve hdl.FileInfo addr bbl
+      let struct (str, addr) = disasm showAddr resolve hdl.DisasmHelper addr bbl
       Error (str, addr)
 
   static member Optimize stmts = LocalOptimizer.Optimize stmts

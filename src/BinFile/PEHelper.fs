@@ -267,20 +267,19 @@ let private findSymFromEAT addr pe () =
   | Some n -> Some n
   | _ -> None
 
-let tryFindSymbolFromBinary pe addr (name: byref<string>) =
+let tryFindSymbolFromBinary pe addr =
   match findSymFromIAT addr pe |> OrElse.bind (findSymFromEAT addr pe) with
-  | None -> false
-  | Some s -> name <- s; true
+  | None -> Error ErrorCase.SymbolNotFound
+  | Some s -> Ok s
 
-let tryFindSymbolFromPDB pe addr (name: byref<string>) =
+let tryFindSymbolFromPDB pe addr =
   match Map.tryFind addr pe.SymbolInfo.SymbolByAddr with
-  | None -> false
-  | Some s -> name <- s.Name; true
+  | None -> Error ErrorCase.SymbolNotFound
+  | Some s -> Ok s.Name
 
-let tryFindFuncSymb pe addr (name: byref<string>) =
-  if pe.SymbolInfo.SymbolArray.Length = 0 then
-    tryFindSymbolFromBinary pe addr &name
-  else tryFindSymbolFromPDB pe addr &name
+let tryFindFuncSymb pe addr =
+  if pe.SymbolInfo.SymbolArray.Length = 0 then tryFindSymbolFromBinary pe addr
+  else tryFindSymbolFromPDB pe addr
 
 let inline isValidAddr pe addr =
   IntervalSet.containsAddr addr pe.InvalidAddrRanges |> not

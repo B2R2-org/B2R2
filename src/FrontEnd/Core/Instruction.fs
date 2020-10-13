@@ -34,7 +34,7 @@ open System.Runtime.InteropServices
 ///   useful information about the instruction.
 /// </summary>
 [<AbstractClass>]
-type Instruction (addr, numBytes, wordSize) =
+type Instruction (addr, len, wordSize) =
   /// <summary>
   ///   The address of this instruction.
   /// </summary>
@@ -43,7 +43,7 @@ type Instruction (addr, numBytes, wordSize) =
   /// <summary>
   ///   The length of this instruction in bytes.
   /// </summary>
-  member val Length: uint32 = numBytes
+  member val Length: uint32 = len
 
   /// <summary>
   ///   The word size used for translating this instruction. Some architectures
@@ -225,8 +225,8 @@ type Instruction (addr, numBytes, wordSize) =
   ///   show the target function name if this parameter is true, and the symbol
   ///   information exists.
   /// </param>
-  /// <param name="fileInfo">
-  ///   File information that this instruction resides in.
+  /// <param name="disasmHelper">
+  ///   The helper allows our disassembler to resolve symbols.
   /// </param>
   /// <returns>
   ///   Returns a disassembled string.
@@ -234,7 +234,7 @@ type Instruction (addr, numBytes, wordSize) =
   abstract member Disasm:
     showAddr: bool
     * resolveSymbol: bool
-    * fileInfo: BinFile.FileInfo
+    * disasmHelper: DisasmHelper
     -> string
 
   /// <summary>

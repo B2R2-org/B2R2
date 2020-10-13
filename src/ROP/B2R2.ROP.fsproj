@@ -25,6 +25,7 @@
     <ProjectReference Include="..\FrontEnd\ARM64\B2R2.FrontEnd.ARM64.fsproj" />
     <ProjectReference Include="..\FrontEnd\MIPS\B2R2.FrontEnd.MIPS.fsproj" />
     <ProjectReference Include="..\FrontEnd\Library\B2R2.FrontEnd.Library.fsproj" />
+    <ProjectReference Include="..\BinFile\B2R2.BinFile.fsproj" />
   </ItemGroup>
 
 </Project>

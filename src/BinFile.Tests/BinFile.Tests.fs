@@ -70,9 +70,9 @@ module PE =
     new PEFileInfo (bytes, file, pdbBytes)
 
   let checkSymbol (fileInfo : PEFileInfo) addr symName =
-    let found, n = fileInfo.TryFindFunctionSymbolName addr
-    Assert.IsTrue (found)
-    Assert.AreEqual(n, symName)
+    match fileInfo.TryFindFunctionSymbolName addr with
+    | Ok n -> Assert.AreEqual (n, symName)
+    | Error _ -> Assert.Fail ()
 
   [<TestClass>]
   type TestClass () =
@@ -117,9 +117,9 @@ module Mach =
     new MachFileInfo (bytes, fileName, isa)
 
   let checkSymbol (fileInfo : MachFileInfo) addr symName =
-    let found, n = fileInfo.TryFindFunctionSymbolName addr
-    Assert.IsTrue (found)
-    Assert.AreEqual(symName, n)
+    match fileInfo.TryFindFunctionSymbolName addr with
+    | Ok n -> Assert.AreEqual (n, symName)
+    | Error _ -> Assert.Fail ()
 
   [<TestClass>]
   type TestClass () =
@@ -194,9 +194,9 @@ module ELF =
     new ELFFileInfo (bytes, fileName)
 
   let checkSymbol (fileInfo : ELFFileInfo) addr symName =
-    let found, n = fileInfo.TryFindFunctionSymbolName addr
-    Assert.IsTrue (found)
-    Assert.AreEqual(n, symName)
+    match fileInfo.TryFindFunctionSymbolName addr with
+    | Ok n -> Assert.AreEqual (n, symName)
+    | Error _ -> Assert.Fail ()
 
   [<TestClass>]
   type TestClass () =

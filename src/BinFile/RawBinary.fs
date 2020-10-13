@@ -92,7 +92,7 @@ type RawFileInfo (bytes: byte [], isa, baseAddr) =
 
   override __.IsLinkageTable _ = false
 
-  override __.TryFindFunctionSymbolName (_addr, _) = false
+  override __.TryFindFunctionSymbolName (_addr) = Error ErrorCase.SymbolNotFound
 
   override __.ExceptionTable = Map.empty
 

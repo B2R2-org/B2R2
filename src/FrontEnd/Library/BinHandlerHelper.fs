@@ -88,9 +88,9 @@ let inline lift translator addr bbl =
   let stmts, addr = List.fold liftFolder ([], addr) bbl
   struct (List.rev stmts |> Array.concat, addr)
 
-let inline disasm showAddr resolveSymbol fileInfo addr bbl =
+let inline disasm showAddr resolveSymbol disasmHelper addr bbl =
   let disasmFolder (sb: StringBuilder, nextAddr) (ins: Instruction) =
-    let s = ins.Disasm (showAddr, resolveSymbol, fileInfo)
+    let s = ins.Disasm (showAddr, resolveSymbol, disasmHelper)
     let s = if sb.Length = 0 then s else System.Environment.NewLine + s
     sb.Append(s), nextAddr + uint64 ins.Length
   let sb, addr = List.fold disasmFolder (StringBuilder (), addr) bbl

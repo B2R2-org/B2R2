@@ -87,12 +87,12 @@ let translateAddr addr elf =
 let isFuncSymb s =
   s.SymType = SymbolType.STTFunc || s.SymType = SymbolType.STTGNUIFunc
 
-let inline tryFindFuncSymb elf addr (name: byref<string>) =
+let inline tryFindFuncSymb elf addr =
   match Map.tryFind addr elf.SymInfo.AddrToSymbTable with
-  | None -> false
+  | None -> Error ErrorCase.SymbolNotFound
   | Some s ->
-    if isFuncSymb s then name <- s.SymName; true
-    else false
+    if isFuncSymb s then Ok s.SymName
+    else Error ErrorCase.SymbolNotFound
 
 let getStaticSymbols elf =
   Symbol.getStaticSymArray elf

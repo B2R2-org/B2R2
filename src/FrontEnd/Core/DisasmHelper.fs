@@ -26,6 +26,14 @@ namespace B2R2.FrontEnd
 
 open B2R2
 
+type DisasmHelper (?fn: Addr -> Result<string, ErrorCase>) =
+  let helper =
+    match fn with
+    | Some fn -> fn
+    | None -> fun _ -> Error ErrorCase.SymbolNotFound
+
+  member __.FindFunctionSymbol (addr: Addr) = helper addr
+
 module DisasmBuilder =
   let inline addr (addr: Addr) wordSize showAddress builder acc =
     if not showAddress then acc

@@ -25,7 +25,6 @@
 module internal B2R2.FrontEnd.Intel.Disasm
 
 open B2R2
-open B2R2.BinFile
 open B2R2.FrontEnd
 
 let opCodeToString = function
@@ -899,19 +898,15 @@ let mToString wordSz (ins: InsInfo) b si d oprSz builder acc =
     |> memAddrToStr b si d wordSz builder
     |> builder AsmWordKind.String "]"
 
-let commentWithSymbol (fi: FileInfo option) targetAddr builder acc =
-  match fi with
-  | Some fi ->
-    match fi.TryFindFunctionSymbolName (targetAddr) with
-    | false, _ ->
-      builder AsmWordKind.String " ; " acc |> uToHexStr targetAddr builder
-    | true, "" -> acc
-    | true, name ->
-      builder AsmWordKind.String " ; <" acc
-      |> builder AsmWordKind.Value name
-      |> builder AsmWordKind.String ">"
-  | None ->
+let commentWithSymbol (helper: DisasmHelper) targetAddr builder acc =
+  match helper.FindFunctionSymbol (targetAddr) with
+  | Error _ ->
     builder AsmWordKind.String " ; " acc |> uToHexStr targetAddr builder
+  | Ok "" -> acc
+  | Ok name ->
+    builder AsmWordKind.String " ; <" acc
+    |> builder AsmWordKind.Value name
+    |> builder AsmWordKind.String ">"
 
 let inline relToString pc offset fi builder acc =
   (if offset < 0L then builder AsmWordKind.String "-" acc

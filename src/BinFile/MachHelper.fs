@@ -150,10 +150,10 @@ let isPLT mach addr =
   mach.SymInfo.LinkageTable
   |> List.exists (fun entry -> entry.TrampolineAddress = addr)
 
-let inline tryFindFuncSymb mach addr (name: byref<string>) =
+let inline tryFindFuncSymb mach addr =
   match Map.tryFind addr mach.SymInfo.SymbolMap with
-  | Some s -> name <- s.SymName; true
-  | None -> false
+  | Some s -> Ok s.SymName
+  | None -> Error ErrorCase.SymbolNotFound
 
 let inline isValidAddr mach addr =
   IntervalSet.containsAddr addr mach.InvalidAddrRanges |> not
