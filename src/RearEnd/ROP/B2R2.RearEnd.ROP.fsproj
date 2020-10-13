@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Gadget.fs" />
+    <Compile Include="Simplify.fs" />
+    <Compile Include="State.fs" />
+    <Compile Include="Summary.fs" />
+    <Compile Include="Galileo.fs" />
+    <Compile Include="ROPValue.fs" />
+    <Compile Include="ROPPayload.fs" />
+    <Compile Include="Chain.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\BinFile\B2R2.FrontEnd.BinFile.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\BinLifter\Core\B2R2.FrontEnd.BinLifter.Core.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\BinLifter\Intel\B2R2.FrontEnd.BinLifter.Intel.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\BinLifter\ARM32\B2R2.FrontEnd.BinLifter.ARM32.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\BinLifter\ARM64\B2R2.FrontEnd.BinLifter.ARM64.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\BinLifter\MIPS\B2R2.FrontEnd.BinLifter.MIPS.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\BinHandle\B2R2.FrontEnd.BinHandle.fsproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="ILens.fs" />
+    <Compile Include="DisasmLens.fs" />
+    <Compile Include="SSABlock.fs" />
+    <Compile Include="SSATypes.fs" />
+    <Compile Include="SSAUtils.fs" />
+    <Compile Include="SSAEdges.fs" />
+    <Compile Include="SSALens.fs" />
+    <Compile Include="CallGraphLens.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BinGraph\B2R2.MiddleEnd.BinGraph.fsproj" />
+    <ProjectReference Include="..\BinEssence\B2R2.MiddleEnd.BinEssence.fsproj" />
+  </ItemGroup>
+
+</Project>

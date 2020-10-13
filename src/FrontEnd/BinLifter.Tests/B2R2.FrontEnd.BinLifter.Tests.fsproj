@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Lifter.Tests.fs" />
+    <Compile Include="Parser.Tests.fs" />
+    <Compile Include="TMS320.Parser.Tests.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.2.0" />
+    <PackageReference Include="MSTest.TestAdapter" Version="1.4.0" />
+    <PackageReference Include="MSTest.TestFramework" Version="1.4.0" />
+    <PackageReference Include="coverlet.collector" Version="1.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\BinFile\B2R2.FrontEnd.BinFile.fsproj" />
+    <ProjectReference Include="..\BinLifter\EVM\B2R2.FrontEnd.BinLifter.EVM.fsproj" />
+    <ProjectReference Include="..\BinLifter\Intel\B2R2.FrontEnd.BinLifter.Intel.fsproj" />
+    <ProjectReference Include="..\BinLifter\ARM32\B2R2.FrontEnd.BinLifter.ARM32.fsproj" />
+    <ProjectReference Include="..\BinLifter\ARM64\B2R2.FrontEnd.BinLifter.ARM64.fsproj" />
+    <ProjectReference Include="..\BinLifter\MIPS\B2R2.FrontEnd.BinLifter.MIPS.fsproj" />
+    <ProjectReference Include="..\BinLifter\TMS320C6000\B2R2.FrontEnd.BinLifter.TMS320C6000.fsproj" />
+    <ProjectReference Include="..\BinHandle\B2R2.FrontEnd.BinHandle.fsproj" />
+  </ItemGroup>
+
+</Project>

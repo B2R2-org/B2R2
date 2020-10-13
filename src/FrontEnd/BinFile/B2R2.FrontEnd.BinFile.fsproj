@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="FileTypes.fs" />
+    <Compile Include="FileInfo.fs" />
+    <Compile Include="FileHelper.fs" />
+    <Compile Include="RawBinary.fs" />
+    <Compile Include="WasmTypes.fs" />
+    <Compile Include="WasmHeader.fs" />
+    <Compile Include="WasmExpression.fs" />
+    <Compile Include="WasmSection.fs" />
+    <Compile Include="WasmParser.fs" />
+    <Compile Include="WasmHelper.fs" />
+    <Compile Include="Wasm.fs" />
+    <Compile Include="ELFDwarfTypes.fs" />
+    <Compile Include="ELFTypes.fs" />
+    <Compile Include="ELFExceptionFrames.fs" />
+    <Compile Include="ELFGccExceptTable.fs" />
+    <Compile Include="ELFHeader.fs" />
+    <Compile Include="ELFSection.fs" />
+    <Compile Include="ELFProgHeader.fs" />
+    <Compile Include="ELFSymbol.fs" />
+    <Compile Include="ELFRelocs.fs" />
+    <Compile Include="ELFHelper.fs" />
+    <Compile Include="ELFParser.fs" />
+    <Compile Include="ELF.fs" />
+    <Compile Include="MachTypes.fs" />
+    <Compile Include="MachLoadCommands.fs" />
+    <Compile Include="MachHeader.fs" />
+    <Compile Include="MachFat.fs" />
+    <Compile Include="MachSegment.fs" />
+    <Compile Include="MachSection.fs" />
+    <Compile Include="MachReloc.fs" />
+    <Compile Include="MachSymbol.fs" />
+    <Compile Include="MachHelper.fs" />
+    <Compile Include="MachParser.fs" />
+    <Compile Include="Mach.fs" />
+    <Compile Include="PETypes.fs" />
+    <Compile Include="PEPDB.fs" />
+    <Compile Include="PEHelper.fs" />
+    <Compile Include="PECoff.fs" />
+    <Compile Include="PEParser.fs" />
+    <Compile Include="PE.fs" />
+    <Compile Include="FormatDetector.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Reflection.Metadata" Version="1.6.0" />
+  </ItemGroup>
+</Project>

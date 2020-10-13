@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="MIPSParserHelper.fs" />
+    <Compile Include="MIPSSecondPass.fs" />
+    <Compile Include="MIPSAsmParser.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FParsec" Version="1.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\FrontEnd\BinLifter\MIPS\B2R2.FrontEnd.BinLifter.MIPS.fsproj" />
+  </ItemGroup>
+
+</Project>

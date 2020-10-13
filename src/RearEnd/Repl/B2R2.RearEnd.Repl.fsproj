@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="ReplOpts.fs" />
+    <Compile Include="ReplCommand.fs" />
+    <Compile Include="ReplState.fs" />
+    <Compile Include="ReplDisplay.fs" />
+    <Compile Include="Main.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="B2R2.FsReadLine" Version="0.1.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
+    <ProjectReference Include="..\..\Peripheral\Assembly\LowUIR\B2R2.Peripheral.Assembly.LowUIR.fsproj" />
+    <ProjectReference Include="..\..\Peripheral\Assembly\Assembler\B2R2.Peripheral.Assembly.Assembler.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\BinLifter\Core\B2R2.FrontEnd.BinLifter.Core.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\BinLifter\ARM32\B2R2.FrontEnd.BinLifter.ARM32.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\BinLifter\ARM64\B2R2.FrontEnd.BinLifter.ARM64.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\BinLifter\Intel\B2R2.FrontEnd.BinLifter.Intel.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\BinLifter\MIPS\B2R2.FrontEnd.BinLifter.MIPS.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\BinHandle\B2R2.FrontEnd.BinHandle.fsproj" />
+    <ProjectReference Include="..\..\MiddleEnd\ConcEval\B2R2.MiddleEnd.ConcEval.fsproj" />
+    <ProjectReference Include="..\Core\B2R2.RearEnd.Core.fsproj" />
+  </ItemGroup>
+
+</Project>

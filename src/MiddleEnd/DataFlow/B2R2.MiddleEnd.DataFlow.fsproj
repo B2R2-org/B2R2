@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="DataFlowAnalysis.fs" />
+    <Compile Include="ReachingDefinitions.fs" />
+    <Compile Include="Utils.fs" />
+    <Compile Include="Chains.fs" />
+    <Compile Include="CPState.fs" />
+    <Compile Include="ConstantPropagation.fs" />
+    <Compile Include="SCCPValue.fs" />
+    <Compile Include="SCCPTransfer.fs" />
+    <Compile Include="SparseConditionalConstantPropagation.fs" />
+    <Compile Include="StackValue.fs" />
+    <Compile Include="StackTransfer.fs" />
+    <Compile Include="StackPointerPropagation.fs" />
+    <Compile Include="CopyValue.fs" />
+    <Compile Include="CopyTransfer.fs" />
+    <Compile Include="ConstantCopyPropagation.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
+    <ProjectReference Include="..\BinGraph\B2R2.MiddleEnd.BinGraph.fsproj" />
+    <ProjectReference Include="..\BinEssence\B2R2.MiddleEnd.BinEssence.fsproj" />
+    <ProjectReference Include="..\Lens\B2R2.MiddleEnd.Lens.fsproj" />
+  </ItemGroup>
+
+</Project>

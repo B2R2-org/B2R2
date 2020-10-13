@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <IsPackable>true</IsPackable>
+    <IsTestProject>false</IsTestProject>
+    <PackageId>B2R2.FrontEnd</PackageId>
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageIcon>b2r2-240x240.png</PackageIcon>
+    <RepositoryUrl>https://github.com/B2R2-org/B2R2</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Helper.fs" />
+    <Compile Include="BinHandle.fsi" />
+    <Compile Include="BinHandle.fs" />
+    <Compile Include="CallingConvention.fsi" />
+    <Compile Include="CallingConvention.fs" />
+    <None Include="b2r2-240x240.png" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\B2R2.Core.fsproj"/>
+    <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj"/>
+    <ProjectReference Include="..\BinFile\B2R2.FrontEnd.BinFile.fsproj"/>
+    <ProjectReference Include="..\BinLifter\Core\B2R2.FrontEnd.BinLifter.Core.fsproj"/>
+    <ProjectReference Include="..\BinLifter\Intel\B2R2.FrontEnd.BinLifter.Intel.fsproj"/>
+    <ProjectReference Include="..\BinLifter\ARM32\B2R2.FrontEnd.BinLifter.ARM32.fsproj"/>
+    <ProjectReference Include="..\BinLifter\ARM64\B2R2.FrontEnd.BinLifter.ARM64.fsproj"/>
+    <ProjectReference Include="..\BinLifter\MIPS\B2R2.FrontEnd.BinLifter.MIPS.fsproj"/>
+    <ProjectReference Include="..\BinLifter\EVM\B2R2.FrontEnd.BinLifter.EVM.fsproj"/>
+    <ProjectReference Include="..\BinLifter\TMS320C6000\B2R2.FrontEnd.BinLifter.TMS320C6000.fsproj"/>
+    <ProjectReference Include="..\BinLifter\Optimizer\B2R2.FrontEnd.BinLifter.Optimizer.fsproj"/>
+    <ProjectReference Include="..\..\MiddleEnd\ConcEval\B2R2.MiddleEnd.ConcEval.fsproj"/>
+    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath=""/>
+  </ItemGroup>
+</Project>

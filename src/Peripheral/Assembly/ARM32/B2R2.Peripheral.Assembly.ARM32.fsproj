@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="ARM32ParserHelper.fs" />
+    <Compile Include="ARM32SecondPass.fs" />
+    <Compile Include="ARM32AsmParser.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\B2R2.Core.fsproj" />
+    <ProjectReference Include="..\..\..\FrontEnd\BinLifter\ARM32\B2R2.FrontEnd.BinLifter.ARM32.fsproj" />
+  </ItemGroup>
+
+</Project>

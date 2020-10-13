@@ -54,7 +54,7 @@ decisions. We also have our own back-end tools such as symbolic executor, but we
 are *not* planning to open-source them yet. Nevertheless, B2R2 includes several
 useful middle-end or back-end features such as ROP chain compilation, CFG
 building, and automatic graph drawing, and etc. B2R2 also comes with a simple
-command-line utility that we call [`BinExplorer`](src/Utilities/BinExplorer),
+command-line utility that we call [`BinExplorer`](src/RearEnd/BinExplorer),
 which can help explore such features using a simple command line interface.
 
 Dependencies?

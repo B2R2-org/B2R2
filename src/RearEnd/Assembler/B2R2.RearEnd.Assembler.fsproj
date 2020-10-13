@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Main.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Peripheral\Assembly\ARM32\B2R2.Peripheral.Assembly.ARM32.fsproj" />
+    <ProjectReference Include="..\..\Peripheral\Assembly\Intel\B2R2.Peripheral.Assembly.Intel.fsproj" />
+    <ProjectReference Include="..\..\Peripheral\Assembly\LowUIR\B2R2.Peripheral.Assembly.LowUIR.fsproj" />
+    <ProjectReference Include="..\..\Peripheral\Assembly\MIPS\B2R2.Peripheral.Assembly.MIPS.fsproj" />
+    <ProjectReference Include="..\..\Peripheral\Assembly\Assembler\B2R2.Peripheral.Assembly.Assembler.fsproj" />
+    <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\BinLifter\Intel\B2R2.FrontEnd.BinLifter.Intel.fsproj" />
+    <ProjectReference Include="..\BinDump\B2R2.RearEnd.BinDump.fsproj" />
+    <ProjectReference Include="..\Core\B2R2.RearEnd.Core.fsproj" />
+  </ItemGroup>
+
+</Project>
