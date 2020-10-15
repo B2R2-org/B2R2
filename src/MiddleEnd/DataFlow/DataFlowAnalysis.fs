@@ -88,7 +88,7 @@ type TopologicalDataFlowAnalysis<'L, 'V
   /// be efficient.
   let initWorklist g (root: Vertex<'V>) =
     let q = Queue<Vertex<'V>> ()
-    Traversal.iterRevPostorder g root q.Enqueue
+    Traversal.iterRevPostorder g [root] q.Enqueue
     q
 
   /// Meet operation of the lattice.
@@ -100,7 +100,7 @@ type TopologicalDataFlowAnalysis<'L, 'V
 
   /// Initialize ints and outs.
   member private __.InitInsOuts g (root: Vertex<'V>) =
-    Traversal.iterPreorder g root (fun v ->
+    Traversal.iterPreorder g [root] (fun v ->
       let blkid = v.GetID ()
       outs.[blkid] <- __.Top
       ins.[blkid] <- __.Top)

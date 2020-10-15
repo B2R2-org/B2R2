@@ -139,9 +139,9 @@ type BasicPersistentGraphTest () =
 
   [<TestMethod>]
   member __.``RangedDiGraph Traversal Test 1``() =
-    let s1 = Traversal.foldPostorder g1 g1root sum 0
-    let s2 = Traversal.foldRevPostorder g1 g1root sum 0
-    let s3 = Traversal.foldPreorder g1 g1root sum 0
+    let s1 = Traversal.foldPostorder g1 [g1root] sum 0
+    let s2 = Traversal.foldRevPostorder g1 [g1root] sum 0
+    let s3 = Traversal.foldPreorder g1 [g1root] sum 0
     let s4 = DiGraph.foldVertex g1 sum 0
     let s5 = DiGraph.foldEdge g1 inc 0
     Assert.AreEqual (21, s1)
@@ -153,16 +153,16 @@ type BasicPersistentGraphTest () =
   [<TestMethod>]
   member __.``RangedDiGraph Traversal Test 2``() =
     let s1 =
-      Traversal.foldPostorder g1 g1root (fun acc v -> v.VData.Val :: acc) []
+      Traversal.foldPostorder g1 [g1root] (fun acc v -> v.VData.Val :: acc) []
       |> List.rev |> List.toArray
     let s2 =
-      Traversal.foldPreorder g1 g1root (fun acc v -> v.VData.Val :: acc) []
+      Traversal.foldPreorder g1 [g1root] (fun acc v -> v.VData.Val :: acc) []
       |> List.rev |> List.toArray
     let s3 =
-      Traversal.foldPostorder g3 g3root (fun acc v -> v.VData.Val :: acc) []
+      Traversal.foldPostorder g3 [g3root] (fun acc v -> v.VData.Val :: acc) []
       |> List.rev |> List.toArray
     let s4 =
-      Traversal.foldPreorder g3 g3root (fun acc v -> v.VData.Val :: acc) []
+      Traversal.foldPreorder g3 [g3root] (fun acc v -> v.VData.Val :: acc) []
       |> List.rev |> List.toArray
     CollectionAssert.AreEqual ([| 5; 3; 4; 6; 2; 1 |], s1)
     CollectionAssert.AreEqual ([| 1; 2; 3; 5; 4; 6 |], s2)
@@ -176,8 +176,8 @@ type BasicPersistentGraphTest () =
     let g2 =
       (g2 :?> RangedDiGraph<_, _>).FindVertexByRange (AddrRange (3UL, 4UL))
       |> DiGraph.removeVertex g2
-    let s1 = Traversal.foldPreorder g1 g1root sum 0
-    let s2 = Traversal.foldPreorder g2 g2root sum 0
+    let s1 = Traversal.foldPreorder g1 [g1root] sum 0
+    let s2 = Traversal.foldPreorder g2 [g2root] sum 0
     Assert.AreEqual (6, DiGraph.getSize g1)
     Assert.AreEqual (5, DiGraph.getSize g2)
     Assert.AreEqual (21, s1)
@@ -187,8 +187,8 @@ type BasicPersistentGraphTest () =
   member __.``Graph Transposition Test``() =
     let g2 = DiGraph.reverse g1
     let g2root = DiGraph.findVertexByData g2 v6
-    let s1 = Traversal.foldPreorder g1 g1root sum 0
-    let s2 = Traversal.foldPreorder g2 g2root sum 0
+    let s1 = Traversal.foldPreorder g1 [g1root] sum 0
+    let s2 = Traversal.foldPreorder g2 [g2root] sum 0
     let lst =
       g2.FoldEdge (fun acc s d _ -> (s.VData.Val, d.VData.Val) :: acc) []
     let edges = List.sort lst |> List.toArray

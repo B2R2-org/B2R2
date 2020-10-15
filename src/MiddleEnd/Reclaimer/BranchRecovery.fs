@@ -378,8 +378,8 @@ module BranchRecoveryHelper =
     |> initializeFunctionLevelJmpTblStates hint []
 
   let private collectIndirectJumps (ess: BinEssence) entry =
-    let cfg, root = ess.GetFunctionCFG (entry, false)
-    Traversal.foldPostorder cfg root (fun acc (v: Vertex<IRBasicBlock>) ->
+    let cfg, _ = ess.GetFunctionCFG (entry, false)
+    DiGraph.foldVertex cfg (fun acc (v: Vertex<IRBasicBlock>) ->
       if not <| v.VData.IsFakeBlock () && v.VData.HasIndirectBranch then
         let addr = v.VData.LastInstruction.Address
         if v.VData.LastInstruction.IsCall () then acc
