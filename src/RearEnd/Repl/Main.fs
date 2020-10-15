@@ -25,7 +25,7 @@
 module B2R2.RearEnd.Repl.Main
 
 open B2R2
-open B2R2.FrontEnd.BinHandleNS
+open B2R2.FrontEnd.BinInterface
 open B2R2.Peripheral.Assembly
 
 let cmds =

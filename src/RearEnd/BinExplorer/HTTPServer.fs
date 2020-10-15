@@ -29,8 +29,8 @@ open System.Net
 open System.Runtime.Serialization
 open System.Runtime.Serialization.Json
 open B2R2
-open B2R2.FrontEnd.BinHandleNS
-open B2R2.MiddleEnd.BinEssenceNS
+open B2R2.FrontEnd.BinInterface
+open B2R2.MiddleEnd.BinEssence
 open B2R2.MiddleEnd.Lens
 open B2R2.MiddleEnd.DataFlow
 open B2R2.RearEnd.Visualization

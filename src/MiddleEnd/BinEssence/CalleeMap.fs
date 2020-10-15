@@ -22,11 +22,11 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.BinEssenceNS
+namespace B2R2.MiddleEnd.BinEssence
 
 open B2R2
 open B2R2.FrontEnd.BinFile
-open B2R2.FrontEnd.BinHandleNS
+open B2R2.FrontEnd.BinInterface
 
 /// Callee can be either external or internal.
 type CalleeKind =

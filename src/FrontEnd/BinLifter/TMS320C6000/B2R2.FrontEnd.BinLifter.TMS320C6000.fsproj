@@ -2,8 +2,10 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
-    <IsPackable>false</IsPackable>
-    <IsTestProject>false</IsTestProject>
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageIcon>b2r2-240x240.png</PackageIcon>
+    <RepositoryUrl>https://github.com/B2R2-org/B2R2</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,6 +20,8 @@
     <Compile Include="TMS320C6000Parser.fsi" />
     <Compile Include="TMS320C6000Parser.fs" />
     <Compile Include="TMS320C6000.fs" />
+    <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath=""/>
+    <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
   </ItemGroup>
 
   <ItemGroup>

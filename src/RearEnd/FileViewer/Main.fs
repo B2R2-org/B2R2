@@ -26,7 +26,7 @@ module B2R2.RearEnd.FileViewer.Main
 
 open B2R2
 open B2R2.FrontEnd.BinFile
-open B2R2.FrontEnd.BinHandleNS
+open B2R2.FrontEnd.BinInterface
 open B2R2.RearEnd
 
 let dumpBasic (fi: FileInfo) =

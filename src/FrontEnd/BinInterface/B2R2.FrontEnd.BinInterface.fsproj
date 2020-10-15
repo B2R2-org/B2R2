@@ -2,9 +2,6 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
-    <IsPackable>true</IsPackable>
-    <IsTestProject>false</IsTestProject>
-    <PackageId>B2R2.FrontEnd</PackageId>
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
     <PackageIcon>b2r2-240x240.png</PackageIcon>
     <RepositoryUrl>https://github.com/B2R2-org/B2R2</RepositoryUrl>
@@ -17,7 +14,8 @@
     <Compile Include="BinHandle.fs" />
     <Compile Include="CallingConvention.fsi" />
     <Compile Include="CallingConvention.fs" />
-    <None Include="b2r2-240x240.png" Pack="true" PackagePath="" />
+    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath=""/>
+    <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
   </ItemGroup>
 
   <ItemGroup>
@@ -33,6 +31,5 @@
     <ProjectReference Include="..\BinLifter\TMS320C6000\B2R2.FrontEnd.BinLifter.TMS320C6000.fsproj"/>
     <ProjectReference Include="..\BinLifter\Optimizer\B2R2.FrontEnd.BinLifter.Optimizer.fsproj"/>
     <ProjectReference Include="..\..\MiddleEnd\ConcEval\B2R2.MiddleEnd.ConcEval.fsproj"/>
-    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath=""/>
   </ItemGroup>
 </Project>

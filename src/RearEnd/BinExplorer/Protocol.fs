@@ -24,7 +24,7 @@
 
 namespace B2R2.RearEnd.BinExplorer
 
-open B2R2.MiddleEnd.BinEssenceNS
+open B2R2.MiddleEnd.BinEssence
 open System.IO
 
 type SendMsg =

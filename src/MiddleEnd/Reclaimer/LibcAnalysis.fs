@@ -22,13 +22,13 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ReclaimerNS
+namespace B2R2.MiddleEnd.Reclaimer
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.MiddleEnd.BinEssenceNS
+open B2R2.MiddleEnd.BinEssence
 open B2R2.MiddleEnd.ConcEval
-open B2R2.MiddleEnd.ReclaimerNS.EmulationHelper
+open B2R2.MiddleEnd.Reclaimer.EmulationHelper
 
 module private LibcAnalysisHelper =
   let retrieveAddrsForx86 (ess: BinEssence) st =

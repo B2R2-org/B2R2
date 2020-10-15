@@ -25,11 +25,11 @@
 module B2R2.MiddleEnd.DataFlow.SCCPTransfer
 
 open B2R2
-open B2R2.FrontEnd.BinHandleNS
+open B2R2.FrontEnd.BinInterface
 open B2R2.FrontEnd.BinLifter.Intel
 open B2R2.BinIR
 open B2R2.MiddleEnd.BinGraph
-open B2R2.MiddleEnd.BinEssenceNS
+open B2R2.MiddleEnd.BinEssence
 open B2R2.MiddleEnd.Lens
 open B2R2.BinIR.SSA
 

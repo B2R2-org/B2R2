@@ -27,7 +27,7 @@ namespace B2R2.RearEnd.BinExplorer
 open System
 open System.Text
 open B2R2
-open B2R2.MiddleEnd.BinEssenceNS
+open B2R2.MiddleEnd.BinEssence
 
 type CmdShow () =
   inherit Cmd ()

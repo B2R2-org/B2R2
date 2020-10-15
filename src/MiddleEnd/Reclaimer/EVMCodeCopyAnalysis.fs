@@ -22,13 +22,13 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ReclaimerNS
+namespace B2R2.MiddleEnd.Reclaimer
 
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
-open B2R2.MiddleEnd.BinEssenceNS
+open B2R2.MiddleEnd.BinEssence
 
 type EVMCodeCopyAnalysis () =
   let findCodeCopy stmts =

@@ -1,7 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageIcon>b2r2-240x240.png</PackageIcon>
+    <RepositoryUrl>https://github.com/B2R2-org/B2R2</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
+
   <ItemGroup>
     <Compile Include="FileTypes.fs" />
     <Compile Include="FileInfo.fs" />
@@ -44,7 +49,10 @@
     <Compile Include="PEParser.fs" />
     <Compile Include="PE.fs" />
     <Compile Include="FormatDetector.fs" />
+    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath=""/>
+    <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
   </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
     <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
@@ -55,6 +63,7 @@
     <ProjectReference Include="..\BinLifter\EVM\B2R2.FrontEnd.BinLifter.EVM.fsproj" />
     <ProjectReference Include="..\BinLifter\TMS320C6000\B2R2.FrontEnd.BinLifter.TMS320C6000.fsproj" />
   </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="System.Reflection.Metadata" Version="1.6.0" />
   </ItemGroup>

@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.BinHandleNS.CallingConvention
+module B2R2.FrontEnd.BinInterface.CallingConvention
 
 open B2R2
 open B2R2.FrontEnd.BinLifter

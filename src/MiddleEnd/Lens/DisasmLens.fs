@@ -27,7 +27,7 @@ namespace B2R2.MiddleEnd.Lens
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.BinGraph
-open B2R2.MiddleEnd.BinEssenceNS
+open B2R2.MiddleEnd.BinEssence
 open System
 open System.Collections.Generic
 

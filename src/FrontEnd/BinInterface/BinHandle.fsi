@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinHandleNS
+namespace B2R2.FrontEnd.BinInterface
 
 open B2R2
 open B2R2.BinIR

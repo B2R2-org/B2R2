@@ -25,10 +25,10 @@
 module B2R2.RearEnd.BinExplorer.Main
 
 open B2R2
-open B2R2.FrontEnd.BinHandleNS
-open B2R2.MiddleEnd.BinEssenceNS
+open B2R2.FrontEnd.BinInterface
+open B2R2.MiddleEnd.BinEssence
 open B2R2.MiddleEnd.Lens
-open B2R2.MiddleEnd.ReclaimerNS
+open B2R2.MiddleEnd.Reclaimer
 open B2R2.RearEnd
 open B2R2.RearEnd.Visualization
 

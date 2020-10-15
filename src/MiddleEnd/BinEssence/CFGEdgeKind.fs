@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.BinEssenceNS
+namespace B2R2.MiddleEnd.BinEssence
 
 /// We distinguish edges of a CFG by classifying them into several kinds.
 type CFGEdgeKind =

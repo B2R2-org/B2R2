@@ -16,7 +16,7 @@
     <ProjectReference Include="..\..\FrontEnd\BinFile\B2R2.FrontEnd.BinFile.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\BinLifter\Core\B2R2.FrontEnd.BinLifter.Core.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\BinLifter\Optimizer\B2R2.FrontEnd.BinLifter.Optimizer.fsproj" />
-    <ProjectReference Include="..\..\FrontEnd\BinHandle\B2R2.FrontEnd.BinHandle.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\BinInterface\B2R2.FrontEnd.BinInterface.fsproj" />
     <ProjectReference Include="..\Core\B2R2.RearEnd.Core.fsproj" />
   </ItemGroup>
 

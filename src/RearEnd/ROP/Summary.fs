@@ -27,7 +27,7 @@ namespace B2R2.RearEnd.ROP
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
-open B2R2.FrontEnd.BinHandleNS
+open B2R2.FrontEnd.BinInterface
 open B2R2.FrontEnd.BinLifter.Intel
 
 type Summary = {

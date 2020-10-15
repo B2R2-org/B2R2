@@ -26,7 +26,7 @@ namespace B2R2.MiddleEnd.Lens
 
 open B2R2
 open B2R2.MiddleEnd.BinGraph
-open B2R2.MiddleEnd.BinEssenceNS
+open B2R2.MiddleEnd.BinEssence
 
 /// A graph lens for obtaining SSACFG.
 type SSALens (ess) =

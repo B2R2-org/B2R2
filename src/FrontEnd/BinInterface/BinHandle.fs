@@ -22,13 +22,13 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinHandleNS
+namespace B2R2.FrontEnd.BinInterface
 
 open System
 open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinHandleNS.Helper
+open B2R2.FrontEnd.BinInterface.Helper
 
 type BinHandle = {
   ISA: ISA

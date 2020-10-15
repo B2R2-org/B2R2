@@ -25,7 +25,7 @@
     <ProjectReference Include="..\..\FrontEnd\BinLifter\ARM32\B2R2.FrontEnd.BinLifter.ARM32.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\BinLifter\ARM64\B2R2.FrontEnd.BinLifter.ARM64.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\BinLifter\MIPS\B2R2.FrontEnd.BinLifter.MIPS.fsproj" />
-    <ProjectReference Include="..\..\FrontEnd\BinHandle\B2R2.FrontEnd.BinHandle.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\BinInterface\B2R2.FrontEnd.BinInterface.fsproj" />
   </ItemGroup>
 
 </Project>

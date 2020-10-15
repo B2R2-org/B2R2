@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.Tests
 open Microsoft.VisualStudio.TestTools.UnitTesting
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinHandleNS
+open B2R2.FrontEnd.BinInterface
 
 module Intel =
   open B2R2.FrontEnd.BinLifter.Intel

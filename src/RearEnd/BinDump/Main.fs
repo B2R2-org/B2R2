@@ -27,7 +27,7 @@ module B2R2.RearEnd.BinDump
 open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd.BinFile
-open B2R2.FrontEnd.BinHandleNS
+open B2R2.FrontEnd.BinInterface
 open System
 
 type DumpMethod =

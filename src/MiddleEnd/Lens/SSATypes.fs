@@ -27,7 +27,7 @@ namespace B2R2.MiddleEnd.Lens
 open B2R2
 open B2R2.BinIR
 open B2R2.MiddleEnd.BinGraph
-open B2R2.MiddleEnd.BinEssenceNS
+open B2R2.MiddleEnd.BinEssence
 open System.Collections.Generic
 
 type SSAVertex = Vertex<SSABBlock>

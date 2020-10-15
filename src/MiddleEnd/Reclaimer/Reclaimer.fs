@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.MiddleEnd.ReclaimerNS.Reclaimer
+module B2R2.MiddleEnd.Reclaimer.Reclaimer
 
 let run analyses ess =
 #if DEBUG

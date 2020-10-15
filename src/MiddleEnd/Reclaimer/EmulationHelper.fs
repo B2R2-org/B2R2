@@ -22,13 +22,13 @@
   SOFTWARE.
 *)
 
-module B2R2.MiddleEnd.ReclaimerNS.EmulationHelper
+module B2R2.MiddleEnd.Reclaimer.EmulationHelper
 
 open B2R2
-open B2R2.FrontEnd.BinHandleNS
+open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.ConcEval
 open B2R2.MiddleEnd.BinGraph
-open B2R2.MiddleEnd.BinEssenceNS
+open B2R2.MiddleEnd.BinEssence
 open System.Collections.Generic
 
 let defZero t = Def (BitVector.zero t)

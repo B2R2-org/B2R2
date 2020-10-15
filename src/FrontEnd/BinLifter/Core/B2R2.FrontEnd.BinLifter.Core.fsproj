@@ -2,8 +2,10 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
-    <IsPackable>false</IsPackable>
-    <IsTestProject>false</IsTestProject>
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageIcon>b2r2-240x240.png</PackageIcon>
+    <RepositoryUrl>https://github.com/B2R2-org/B2R2</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,6 +19,8 @@
     <Compile Include="Instruction.fs" />
     <Compile Include="Parser.fs" />
     <Compile Include="ParseUtils.fs" />
+    <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath=""/>
+    <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
   </ItemGroup>
 
   <ItemGroup>

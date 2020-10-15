@@ -22,14 +22,14 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ReclaimerNS
+namespace B2R2.MiddleEnd.Reclaimer
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR
 open B2R2.BinIR.SSA
 open B2R2.MiddleEnd.BinGraph
-open B2R2.MiddleEnd.BinEssenceNS
+open B2R2.MiddleEnd.BinEssence
 open B2R2.MiddleEnd.Lens
 
 /// How do we compare vars? For example, in x86, there are two comparison

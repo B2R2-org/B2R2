@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.BinHandleNS.Helper
+module internal B2R2.FrontEnd.BinInterface.Helper
 
 open B2R2
 open B2R2.FrontEnd.BinFile

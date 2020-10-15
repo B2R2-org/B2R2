@@ -25,11 +25,11 @@
 module B2R2.MiddleEnd.DataFlow.CopyTransfer
 
 open B2R2
-open B2R2.FrontEnd.BinHandleNS
+open B2R2.FrontEnd.BinInterface
 open B2R2.BinIR
 open B2R2.BinIR.SSA
 open B2R2.MiddleEnd.BinGraph
-open B2R2.MiddleEnd.BinEssenceNS
+open B2R2.MiddleEnd.BinEssence
 open B2R2.MiddleEnd.Lens
 
 let private isGetPCThunkCode = function

@@ -22,11 +22,11 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.BinEssenceNS
+namespace B2R2.MiddleEnd.BinEssence
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinHandleNS
+open B2R2.FrontEnd.BinInterface
 open B2R2.BinIR.LowUIR
 open System.Collections.Generic
 

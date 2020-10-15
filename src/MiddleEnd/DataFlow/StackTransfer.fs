@@ -27,7 +27,7 @@ module B2R2.MiddleEnd.DataFlow.StackTransfer
 open B2R2
 open B2R2.BinIR
 open B2R2.MiddleEnd.BinGraph
-open B2R2.MiddleEnd.BinEssenceNS
+open B2R2.MiddleEnd.BinEssence
 open B2R2.MiddleEnd.Lens
 open B2R2.BinIR.SSA
 

@@ -27,7 +27,7 @@ namespace B2R2.MiddleEnd.DataFlow
 open B2R2
 open B2R2.BinIR.SSA
 open B2R2.MiddleEnd.BinGraph
-open B2R2.MiddleEnd.BinEssenceNS
+open B2R2.MiddleEnd.BinEssence
 open B2R2.MiddleEnd.Lens
 
 /// Modified version of sparse conditional constant propagation of Wegman et al.

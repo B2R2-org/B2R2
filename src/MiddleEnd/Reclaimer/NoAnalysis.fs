@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ReclaimerNS
+namespace B2R2.MiddleEnd.Reclaimer
 
 type NoAnalysis () =
   interface IAnalysis with

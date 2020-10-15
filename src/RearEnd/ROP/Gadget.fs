@@ -26,7 +26,7 @@ namespace B2R2.RearEnd.ROP
 
 open System
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinHandleNS
+open B2R2.FrontEnd.BinInterface
 
 /// Tail is a instruction sequence that needs to be placed at the end of each
 /// ROP gadget.

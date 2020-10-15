@@ -22,9 +22,9 @@
   SOFTWARE.
 *)
 
-namespace B2R2.MiddleEnd.ReclaimerNS
+namespace B2R2.MiddleEnd.Reclaimer
 
-open B2R2.MiddleEnd.BinEssenceNS
+open B2R2.MiddleEnd.BinEssence
 
 /// CFG analysis that we perform in the middle-end. An analysis includes
 /// no-return analysis, libc start address analysis, switch-case recovery

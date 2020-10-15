@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageIcon>b2r2-240x240.png</PackageIcon>
+    <RepositoryUrl>https://github.com/B2R2-org/B2R2</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
   <Target Name="BuildStdBuf" BeforeTargets="BeforeBuild"
@@ -44,5 +48,7 @@
     <Compile Include="Utils.fsi" />
     <Compile Include="Utils.fs" />
     <Compile Include="Attribution.fs" />
+    <None Include="..\..\LICENSE.md" Pack="true" PackagePath=""/>
+    <None Include="..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
   </ItemGroup>
 </Project>

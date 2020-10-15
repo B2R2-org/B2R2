@@ -28,10 +28,10 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinHandleNS
-open B2R2.MiddleEnd.BinEssenceNS
+open B2R2.FrontEnd.BinInterface
+open B2R2.MiddleEnd.BinEssence
 open B2R2.MiddleEnd.DataFlow
-open B2R2.MiddleEnd.ReclaimerNS
+open B2R2.MiddleEnd.Reclaimer
 
 [<TestClass>]
 type PersistentDataFlowTests () =

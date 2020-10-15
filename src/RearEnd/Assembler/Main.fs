@@ -26,7 +26,7 @@ module B2R2.RearEnd.Assembler
 
 open B2R2
 open B2R2.Peripheral.Assembly
-open B2R2.FrontEnd.BinHandleNS
+open B2R2.FrontEnd.BinInterface
 open System
 
 type AssemblerOpts (isa) =

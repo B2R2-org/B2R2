@@ -26,7 +26,7 @@ module B2R2.RearEnd.ROP.Galileo
 
 open B2R2
 open B2R2.FrontEnd.BinFile
-open B2R2.FrontEnd.BinHandleNS
+open B2R2.FrontEnd.BinInterface
 open B2R2.BinIR.LowUIR
 
 let filter = function
