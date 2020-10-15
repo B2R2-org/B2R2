@@ -136,6 +136,33 @@ let dumpFile (opts: CmdOptions.FileViewerOpts) (filepath: string) =
   dumpRelocs fi addrToString
   dumpLinkageTable fi addrToString
   dumpFunctions fi addrToString
+#if false
+  let fi = fi :?> ELFFileInfo
+  fi.ELF.ExceptionFrame
+  |> List.iter (fun cfi ->
+    printfn "CIE: %x \"%s\" cf=%d df=%d"
+      cfi.CIERecord.Version
+      cfi.CIERecord.AugmentationString
+      cfi.CIERecord.CodeAlignmentFactor
+      cfi.CIERecord.DataAlignmentFactor
+    cfi.FDERecord
+    |> Array.iter (fun fde ->
+      printfn "  FDE: %x..%x (%x)"
+        fde.PCBegin
+        fde.PCEnd
+        (if fde.LSDAPointer.IsNone then 0UL else fde.LSDAPointer.Value)
+      fde.UnwindingInfo |> List.iter (fun i ->
+        printfn "%x; %s; %s"
+          i.Location
+          (ELF.CanonicalFrameAddress.toString fi.RegisterBay i.CanonicalFrameAddress)
+          (i.Rule |> Map.fold (fun s k v ->
+                      match k with
+                      | ELF.ReturnAddress -> s + "(ra:" + ELF.Action.toString v + ")"
+                      | ELF.NormalReg rid -> s + "(" + fi.RegisterBay.RegIDToString rid + ":" + ELF.Action.toString v + ")") ""))
+
+      )
+    )
+#endif
 
 let dump files opts =
   files |> List.iter (dumpFile opts)

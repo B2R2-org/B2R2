@@ -34,30 +34,24 @@ let initHelpers isa =
   | Arch.IntelX64
   | Arch.IntelX86 ->
     Intel.IntelTranslationContext (isa) :> TranslationContext,
-    Intel.IntelParser (isa.WordSize) :> Parser,
-    Intel.IntelRegisterBay (isa.WordSize) :> RegisterBay
+    Intel.IntelParser (isa.WordSize) :> Parser
   | Arch.ARMv7 ->
     ARM32.ARM32TranslationContext (isa) :> TranslationContext,
-    ARM32.ARM32Parser (isa.Arch) :> Parser,
-    ARM32.ARM32RegisterBay () :> RegisterBay
+    ARM32.ARM32Parser (isa.Arch) :> Parser
   | Arch.AARCH64 ->
     ARM64.ARM64TranslationContext (isa) :> TranslationContext,
-    ARM64.ARM64Parser () :> Parser,
-    ARM64.ARM64RegisterBay () :> RegisterBay
+    ARM64.ARM64Parser () :> Parser
   | Arch.MIPS1 | Arch.MIPS2 | Arch.MIPS3 | Arch.MIPS4 | Arch.MIPS5
   | Arch.MIPS32 | Arch.MIPS32R2 | Arch.MIPS32R6
   | Arch.MIPS64 | Arch.MIPS64R2 | Arch.MIPS64R6 ->
     MIPS.MIPSTranslationContext (isa) :> TranslationContext,
-    MIPS.MIPSParser (isa.WordSize, isa.Arch) :> Parser,
-    MIPS.MIPSRegisterBay (isa.WordSize) :> RegisterBay
+    MIPS.MIPSParser (isa.WordSize, isa.Arch) :> Parser
   | Arch.EVM ->
     EVM.EVMTranslationContext (isa) :> TranslationContext,
-    EVM.EVMParser (isa.WordSize) :> Parser,
-    EVM.EVMRegisterBay () :> RegisterBay
+    EVM.EVMParser (isa.WordSize) :> Parser
   | Arch.TMS320C6000 ->
     TMS320C6000.TMS320C6000TranslationContext (isa) :> TranslationContext,
-    TMS320C6000.TMS320C6000Parser () :> Parser,
-    TMS320C6000.TMS320C6000RegisterBay () :> RegisterBay
+    TMS320C6000.TMS320C6000Parser () :> Parser
   | _ -> Utils.futureFeature ()
 
 let newFileInfo bs (baddr: Addr) path isa autoDetect =

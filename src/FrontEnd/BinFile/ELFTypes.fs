@@ -27,6 +27,7 @@ namespace B2R2.FrontEnd.BinFile.ELF
 open System
 open B2R2
 open B2R2.FrontEnd.BinFile
+open B2R2.FrontEnd.BinLifter
 
 /// File type.
 type ELFFileType =
@@ -845,7 +846,10 @@ type CommonInformationEntry = {
   AugmentationString: string
   CodeAlignmentFactor: uint64
   DataAlignmentFactor: int64
-  ReturnAddressRegister: uint64
+  ReturnAddressRegister: byte
+  InitialRule: Rule
+  InitialCFARegister: byte
+  InitialCFA: CanonicalFrameAddress
   Augmentations: Augmentation list
 }
 
@@ -854,6 +858,7 @@ type FrameDescriptionEntry = {
   PCBegin: Addr
   PCEnd: Addr
   LSDAPointer: Addr option
+  UnwindingInfo: UnwindingEntry list
 }
 
 /// The main information block of .eh_frame.
@@ -892,6 +897,12 @@ type ELF = {
   NotInFileRanges: IntervalSet
   /// Executable address ranges.
   ExecutableRanges: IntervalSet
-  /// BinReader
+  /// BinReader.
   BinReader: BinReader
+  /// ISA.
+  ISA: ISA
+  /// Register bay.
+  RegisterBay: RegisterBay
+  /// Unwinding info table.
+  UnwindingTbl: Map<Addr, UnwindingEntry>
 }

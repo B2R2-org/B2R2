@@ -44,6 +44,7 @@ type TMS320C6000RegisterBay () =
     | PCVar (_, _) -> Register.toRegID Register.PCE1
     | _ -> failwith "not a register expression"
 
+  override __.RegIDToRegExpr (id) = Utils.futureFeature ()
   override __.StrToRegExpr _s = Utils.futureFeature ()
   override __.RegIDFromString _s = Utils.futureFeature ()
   override __.RegIDToString _ = Utils.futureFeature ()

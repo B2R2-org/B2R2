@@ -33,13 +33,17 @@ open B2R2.FrontEnd.BinFile.PE.Helper
 type PEFileInfo (bytes, path, baseAddr, rawpdb) =
   inherit FileInfo (baseAddr)
   let pe = PE.Parser.parse bytes path baseAddr rawpdb
+  let isa = getISA pe
+  let regbay = FileHelper.initRegisterBay isa
 
   new (bytes, path) = PEFileInfo (bytes, path, 0UL, [||])
   new (bytes, path, baseAddr) = PEFileInfo (bytes, path, baseAddr, [||])
   new (bytes, path, rawpdb) = PEFileInfo (bytes, path, 0UL, rawpdb)
+
   override __.BinReader = pe.BinReader
   override __.FileFormat = FileFormat.PEBinary
-  override __.ISA = getISA pe
+  override __.ISA = isa
+  override __.RegisterBay = regbay
   override __.FileType = getFileType pe
   override __.FilePath = path
   override __.WordSize = getWordSize pe

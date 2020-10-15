@@ -33,11 +33,15 @@ open B2R2
 type RawFileInfo (bytes: byte [], isa, baseAddr) =
   inherit FileInfo (baseAddr)
 
+  let regbay = FileHelper.initRegisterBay isa
+
   override __.BinReader = BinReader.Init (bytes, isa.Endian)
 
   override __.FileFormat = FileFormat.RawBinary
 
   override __.ISA = isa
+
+  override __.RegisterBay = regbay
 
   override __.FileType = FileType.UnknownFile
 

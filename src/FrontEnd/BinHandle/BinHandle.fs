@@ -46,14 +46,14 @@ with
     let isa = fi.ISA
     let needCheckThumb = mode = ArchOperationMode.NoMode && isARM isa
     let mode = if needCheckThumb then detectThumb fi.EntryPoint isa else mode
-    let ctxt, parser, regbay = initHelpers isa
+    let ctxt, parser = initHelpers isa
     { ISA = isa
       FileInfo = fi
       DisasmHelper = DisasmHelper (fi.TryFindFunctionSymbolName)
       DefaultParsingContext = ParsingContext.Init (mode)
       TranslationContext = ctxt
       Parser = parser
-      RegisterBay = regbay }
+      RegisterBay = fi.RegisterBay }
 
   static member Init (isa, archMode, autoDetect, baseAddr, bytes) =
     BinHandle.Init (isa, archMode, autoDetect, baseAddr, bytes, "")

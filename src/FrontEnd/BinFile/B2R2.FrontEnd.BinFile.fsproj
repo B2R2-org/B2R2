@@ -3,9 +3,6 @@
     <TargetFramework>netstandard2.1</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
-  </ItemGroup>
-  <ItemGroup>
     <Compile Include="FileTypes.fs" />
     <Compile Include="FileInfo.fs" />
     <Compile Include="FileHelper.fs" />
@@ -47,6 +44,16 @@
     <Compile Include="PEParser.fs" />
     <Compile Include="PE.fs" />
     <Compile Include="FormatDetector.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
+    <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\BinLifter\Intel\B2R2.FrontEnd.BinLifter.Intel.fsproj" />
+    <ProjectReference Include="..\BinLifter\ARM32\B2R2.FrontEnd.BinLifter.ARM32.fsproj" />
+    <ProjectReference Include="..\BinLifter\ARM64\B2R2.FrontEnd.BinLifter.ARM64.fsproj" />
+    <ProjectReference Include="..\BinLifter\MIPS\B2R2.FrontEnd.BinLifter.MIPS.fsproj" />
+    <ProjectReference Include="..\BinLifter\EVM\B2R2.FrontEnd.BinLifter.EVM.fsproj" />
+    <ProjectReference Include="..\BinLifter\TMS320C6000\B2R2.FrontEnd.BinLifter.TMS320C6000.fsproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="System.Reflection.Metadata" Version="1.6.0" />

@@ -51,6 +51,9 @@ type RegisterBay () =
   /// Return RegID from a given RegExpr.
   abstract member RegIDFromRegExpr: Expr -> RegisterID
 
+  /// Return RegExpr from a given RegID.
+  abstract member RegIDToRegExpr: RegisterID -> Expr
+
   /// Return RegExpr from a string.
   abstract member StrToRegExpr: string -> Expr
 

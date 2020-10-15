@@ -34,11 +34,13 @@ open B2R2.FrontEnd.BinFile.Mach.Helper
 type MachFileInfo (bytes, path, isa, baseAddr) =
   inherit FileInfo (baseAddr)
   let mach = Parser.parse baseAddr bytes isa
+  let regbay = FileHelper.initRegisterBay isa
 
   new (bytes, path, isa) = MachFileInfo (bytes, path, isa, 0UL)
   override __.BinReader = mach.BinReader
   override __.FileFormat = FileFormat.MachBinary
   override __.ISA = getISA mach
+  override __.RegisterBay = regbay
   override __.FileType = convFileType mach.MachHdr.FileType
   override __.FilePath = path
   override __.WordSize = mach.MachHdr.Class

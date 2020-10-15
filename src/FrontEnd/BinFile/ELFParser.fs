@@ -128,6 +128,14 @@ let computeExceptionTable excframes gccexctbl =
   |> List.fold (fun map frame ->
     accumulateExceptionTableInfo frame.FDERecord gccexctbl map) Map.empty
 
+let computeUnwindingTable excframes =
+  excframes
+  |> List.fold (fun tbl (f: CallFrameInformation) ->
+    f.FDERecord |> Array.fold (fun tbl fde ->
+      fde.UnwindingInfo |> List.fold (fun tbl i ->
+        Map.add i.Location i tbl) tbl
+      ) tbl) Map.empty
+
 let invRanges wordSize segs getNextStartAddr =
   segs
   |> List.sortBy (fun seg -> seg.PHAddr)
@@ -156,9 +164,12 @@ let private parseELF baseAddr offset reader =
   let plt = parsePLT eHdr.MachineType secs reloc reader
   let globals = parseGlobalSymbols reloc
   let symbs = Symbol.updatePLTSymbols plt symbs |> Symbol.updateGlobals globals
-  let excframes = ExceptionFrames.parse reader cls secs
+  let isa = ISA.Init eHdr.MachineType eHdr.Endian
+  let regbay = FileHelper.initRegisterBay isa
+  let excframes = ExceptionFrames.parse reader cls secs isa regbay
   let gccexctbl = ELFGccExceptTable.parse reader cls secs
   let exctbls = computeExceptionTable excframes gccexctbl
+  let unwindings = computeUnwindingTable excframes
   { ELFHdr = eHdr
     ProgHeaders = proghdrs
     LoadableSegments = segs
@@ -173,7 +184,10 @@ let private parseELF baseAddr offset reader =
     InvalidAddrRanges = invRanges cls segs (fun s -> s.PHAddr + s.PHMemSize)
     NotInFileRanges = invRanges cls segs (fun s -> s.PHAddr + s.PHFileSize)
     ExecutableRanges = execRanges segs
-    BinReader = reader }
+    BinReader = reader
+    ISA = isa
+    RegisterBay = regbay
+    UnwindingTbl = unwindings }
 
 let parse baseAddr bytes =
   let reader = BinReader.Init (bytes, Endian.Little)

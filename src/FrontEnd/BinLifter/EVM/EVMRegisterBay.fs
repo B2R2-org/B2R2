@@ -44,6 +44,8 @@ type EVMRegisterBay () =
     | PCVar (_, _) -> Register.toRegID Register.PC
     | _ -> failwith "not a register expression"
 
+  override __.RegIDToRegExpr (id) = Utils.impossible ()
+
   override __.StrToRegExpr _s = Utils.impossible ()
 
   override __.RegIDFromString str =

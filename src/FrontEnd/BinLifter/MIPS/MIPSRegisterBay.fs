@@ -58,6 +58,9 @@ type MIPSRegisterBay (wordSize) =
     | PCVar (_, _) -> Register.toRegID Register.PC
     | _ -> failwith "not a register expression"
 
+  override __.RegIDToRegExpr (id) =
+    Register.ofRegID id |> R.GetRegVar
+
   override __.StrToRegExpr s =
     match s with
     | "HI" -> R.HI

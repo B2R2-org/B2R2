@@ -80,6 +80,9 @@ type IntelRegisterBay (wordSize) =
       else Register.toRegID Register.RIP
     | _ -> failwith "not a register expression"
 
+  override __.RegIDToRegExpr (id) =
+    Register.ofRegID id |> R.GetRegVar
+
   override __.StrToRegExpr s =
     match s with
     | "RAX" -> R.RAX

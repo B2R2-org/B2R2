@@ -35,11 +35,14 @@ open B2R2.FrontEnd.BinFile.Wasm.Helper
 type WasmFileInfo (bytes, path, baseAddr) =
   inherit FileInfo (baseAddr)
   let wm = Parser.parse bytes
+  let isa = defaultISA
+  let regbay = FileHelper.initRegisterBay isa
 
   new (bytes, path) = WasmFileInfo (bytes, path, 0UL)
   override __.BinReader = wm.BinReader
   override __.FileFormat = FileFormat.WasmBinary
   override __.ISA = defaultISA
+  override __.RegisterBay = regbay
   override __.FileType = fileTypeOf wm
   override __.FilePath = path
   override __.WordSize = WordSize.Bit32

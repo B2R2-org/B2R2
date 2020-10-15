@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinFile
 
 open B2R2
+open B2R2.FrontEnd.BinLifter
 open System.Runtime.InteropServices
 
 /// FileInfo describes a binary file in a format-agnostic way.
@@ -44,6 +45,12 @@ type FileInfo (baseAddr) =
   ///   The ISA that this file expects to run on.
   /// </summary>
   abstract ISA: ISA
+
+  /// <summary>
+  ///   Architecture-specific registers are defined by the RegisterBay in order
+  ///   to describe stack unwinding information.
+  /// <summary>
+  abstract member RegisterBay: RegisterBay
 
   /// <summary>
   ///   What kind of binary is this?
