@@ -196,9 +196,26 @@ module BranchRecoveryHelper =
     |> List.fold (filterFunctions ess) (hint, [])
     |> fun (hint, bnds) -> hint, List.rev bnds
 
+  let private getNecessarySubGraph irCFG =
+    let rev = DiGraph.reverse irCFG
+    (* Collect vertices with indirect branches *)
+    let indBranches =
+      DiGraph.foldVertex irCFG (fun acc (v: Vertex<IRBasicBlock>) ->
+        if (not <| v.VData.IsFakeBlock () && v.VData.HasIndirectBranch) then
+          v :: acc
+        else acc) []
+      |> List.map (fun v -> DiGraph.findVertexByID rev <| v.GetID ())
+    (* Use DFS to get necessary-to-analysis vertices *)
+    let vertices =
+      Set.empty
+      |> Traversal.foldPostorder rev indBranches (fun acc v ->
+        Set.add (DiGraph.findVertexByID irCFG <| v.GetID ()) acc)
+    DiGraph.subGraph irCFG vertices
+
   let private computeConstantPropagation ess entry =
     let irCFG, irRoot = (ess: BinEssence).GetFunctionCFG (entry, false)
     let lens = SSALens.Init ess
+    let irCFG = getNecessarySubGraph irCFG
     let ssaCFG, ssaRoots = lens.Filter (irCFG, [irRoot], ess)
     let ssaRoot = List.head ssaRoots
     let stackProp = StackPointerPropagation.Init ess.BinHandle ssaCFG
