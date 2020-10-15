@@ -31,15 +31,14 @@ open B2R2.FrontEnd.BinFile.ELF.Helper
 /// <summary>
 ///   This class represents an ELF binary file.
 /// </summary>
-type ELFFileInfo (bytes, path, baseAddr) =
+type ELFFileInfo (bytes, path, baseAddr, regbay) =
   inherit FileInfo (baseAddr)
-  let elf = Parser.parse baseAddr bytes
+  let elf = Parser.parse bytes baseAddr regbay
 
-  new (bytes, path) = ELFFileInfo (bytes, path, 0UL)
+  new (bytes, path) = ELFFileInfo (bytes, path, 0UL, None)
   override __.BinReader = elf.BinReader
   override __.FileFormat = FileFormat.ELFBinary
   override __.ISA = elf.ISA
-  override __.RegisterBay = elf.RegisterBay
   override __.FileType = convFileType elf.ELFHdr.ELFFileType
   override __.FilePath = path
   override __.WordSize = elf.ELFHdr.Class

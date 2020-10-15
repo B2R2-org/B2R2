@@ -27,10 +27,10 @@ namespace B2R2.FrontEnd.BinLifter.ARM64
 open B2R2.FrontEnd.BinLifter
 
 /// Translation context for 64-bit ARM instructions.
-type ARM64TranslationContext (isa) =
+type ARM64TranslationContext internal (isa, regexprs) =
   inherit TranslationContext (isa)
   /// Register expressions.
-  member val private RegExprs : RegExprs = RegExprs ()
+  member val private RegExprs: RegExprs = regexprs
   override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
   override __.GetPseudoRegVar _id _pos = failwith "Implement"
 
@@ -40,5 +40,14 @@ type ARM64Parser () =
   inherit Parser ()
   override __.Parse binReader _ctxt addr pos =
     Parser.parse binReader addr pos :> Instruction
+
+module Basis =
+  let init isa =
+    let regexprs = RegExprs ()
+    struct (
+      ARM64TranslationContext (isa, regexprs) :> TranslationContext,
+      ARM64Parser () :> Parser,
+      ARM64RegisterBay (regexprs) :> RegisterBay
+    )
 
 // vim: set tw=80 sts=2 sw=2:

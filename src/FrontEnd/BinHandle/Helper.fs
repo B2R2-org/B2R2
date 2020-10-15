@@ -29,42 +29,34 @@ open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 open System.Text
 
-let initHelpers isa =
+let initBasis isa =
   match isa.Arch with
   | Arch.IntelX64
-  | Arch.IntelX86 ->
-    Intel.IntelTranslationContext (isa) :> TranslationContext,
-    Intel.IntelParser (isa.WordSize) :> Parser
-  | Arch.ARMv7 ->
-    ARM32.ARM32TranslationContext (isa) :> TranslationContext,
-    ARM32.ARM32Parser (isa.Arch) :> Parser
-  | Arch.AARCH64 ->
-    ARM64.ARM64TranslationContext (isa) :> TranslationContext,
-    ARM64.ARM64Parser () :> Parser
+  | Arch.IntelX86 -> Intel.Basis.init isa
+  | Arch.ARMv7 -> ARM32.Basis.init isa
+  | Arch.AARCH64 -> ARM64.Basis.init isa
   | Arch.MIPS1 | Arch.MIPS2 | Arch.MIPS3 | Arch.MIPS4 | Arch.MIPS5
   | Arch.MIPS32 | Arch.MIPS32R2 | Arch.MIPS32R6
-  | Arch.MIPS64 | Arch.MIPS64R2 | Arch.MIPS64R6 ->
-    MIPS.MIPSTranslationContext (isa) :> TranslationContext,
-    MIPS.MIPSParser (isa.WordSize, isa.Arch) :> Parser
-  | Arch.EVM ->
-    EVM.EVMTranslationContext (isa) :> TranslationContext,
-    EVM.EVMParser (isa.WordSize) :> Parser
-  | Arch.TMS320C6000 ->
-    TMS320C6000.TMS320C6000TranslationContext (isa) :> TranslationContext,
-    TMS320C6000.TMS320C6000Parser () :> Parser
+  | Arch.MIPS64 | Arch.MIPS64R2 | Arch.MIPS64R6 -> MIPS.Basis.init isa
+  | Arch.EVM -> EVM.Basis.init isa
+  | Arch.TMS320C6000 -> TMS320C6000.Basis.init isa
   | _ -> Utils.futureFeature ()
 
-let newFileInfo bs (baddr: Addr) path isa autoDetect =
+let identifyFormatAndISA bytes path isa autoDetect =
   if autoDetect then
-    if System.IO.File.Exists path
-    then FormatDetector.detect path
-    else FormatDetector.detectBuffer bs
-    |> function
-      | FileFormat.ELFBinary -> ELFFileInfo (bs, path, baddr) :> FileInfo
-      | FileFormat.PEBinary -> PEFileInfo (bs, path, baddr) :> FileInfo
-      | FileFormat.MachBinary -> MachFileInfo (bs, path, isa, baddr) :> FileInfo
-      | _ -> new RawFileInfo (bs, isa, baddr) :> FileInfo
-  else new RawFileInfo (bs, isa, baddr) :> FileInfo
+    if System.IO.File.Exists path then FormatDetector.identifyFromFile path isa
+    else FormatDetector.identifyFromBuffer bytes isa
+  else FileFormat.RawBinary, isa
+
+let newFileInfo bytes (baddr: Addr) path fmt isa regbay =
+  match fmt with
+  | FileFormat.ELFBinary ->
+    ELFFileInfo (bytes, path, baddr, Some regbay) :> FileInfo
+  | FileFormat.PEBinary ->
+    PEFileInfo (bytes, path, baddr) :> FileInfo
+  | FileFormat.MachBinary ->
+    MachFileInfo (bytes, path, isa, baddr) :> FileInfo
+  | _ -> new RawFileInfo (bytes, isa, baddr) :> FileInfo
 
 let detectThumb entryPoint (isa: ISA) =
   match entryPoint, isa.Arch with

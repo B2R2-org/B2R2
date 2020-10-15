@@ -47,12 +47,6 @@ type FileInfo (baseAddr) =
   abstract ISA: ISA
 
   /// <summary>
-  ///   Architecture-specific registers are defined by the RegisterBay in order
-  ///   to describe stack unwinding information.
-  /// <summary>
-  abstract member RegisterBay: RegisterBay
-
-  /// <summary>
   ///   What kind of binary is this?
   /// </summary>
   abstract FileType: FileType

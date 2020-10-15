@@ -24,13 +24,14 @@
 
 namespace B2R2.FrontEnd.BinLifter.Intel
 
+open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Translation context for Intel (x86 or x86-64) instructions.
-type IntelTranslationContext (isa) =
+type IntelTranslationContext internal (isa, regexprs) =
   inherit TranslationContext (isa)
   /// Register expressions.
-  member val private RegExprs: RegExprs = RegExprs (isa.WordSize)
+  member val private RegExprs: RegExprs = regexprs
   override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
   override __.GetPseudoRegVar id pos =
     __.RegExprs.GetPseudoRegVar (Register.ofRegID id ) pos
@@ -41,5 +42,18 @@ type IntelParser (wordSize) =
   inherit Parser ()
   override __.Parse binReader _ctxt addr pos =
     Parser.parse binReader wordSize addr pos :> Instruction
+
+module Basis =
+  let init (isa: ISA) =
+    let regexprs = RegExprs (isa.WordSize)
+    struct (
+      IntelTranslationContext (isa, regexprs) :> TranslationContext,
+      IntelParser (isa.WordSize) :> Parser,
+      IntelRegisterBay (isa.WordSize, regexprs) :> RegisterBay
+    )
+
+  let initRegBay wordSize =
+    let regexprs = RegExprs (wordSize)
+    IntelRegisterBay (wordSize, regexprs) :> RegisterBay
 
 // vim: set tw=80 sts=2 sw=2:

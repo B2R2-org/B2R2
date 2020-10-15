@@ -24,13 +24,14 @@
 
 namespace B2R2.FrontEnd.BinLifter.TMS320C6000
 
+open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Translation context for TMS320C6000 instructions.
-type TMS320C6000TranslationContext (isa) =
+type TMS320C6000TranslationContext internal (isa, regexprs) =
   inherit TranslationContext (isa)
   /// Register expressions.
-  member val private RegExprs: RegExprs = RegExprs (isa.WordSize)
+  member val private RegExprs: RegExprs = regexprs
   override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
   override __.GetPseudoRegVar _id _pos = failwith "Implement"
 
@@ -40,5 +41,14 @@ type TMS320C6000Parser () =
   inherit Parser ()
   override __.Parse binReader ctxt addr pos =
     Parser.parse binReader ctxt addr pos :> Instruction
+
+module Basis =
+  let init (isa: ISA) =
+    let regexprs = RegExprs (isa.WordSize)
+    struct (
+      TMS320C6000TranslationContext (isa, regexprs) :> TranslationContext,
+      TMS320C6000Parser () :> Parser,
+      TMS320C6000RegisterBay () :> RegisterBay
+    )
 
 // vim: set tw=80 sts=2 sw=2:

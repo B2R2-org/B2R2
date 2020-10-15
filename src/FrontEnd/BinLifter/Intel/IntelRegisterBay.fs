@@ -28,11 +28,9 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
-type IntelRegisterBay (wordSize) =
+type IntelRegisterBay internal (wordSize, R: RegExprs) =
 
   inherit RegisterBay ()
-
-  let R = RegExprs (wordSize)
 
   override __.GetAllRegExprs () =
     if WordSize.is32 wordSize then

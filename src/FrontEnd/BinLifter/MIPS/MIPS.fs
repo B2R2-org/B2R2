@@ -24,13 +24,14 @@
 
 namespace B2R2.FrontEnd.BinLifter.MIPS
 
+open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Translation context for MIPS instructions.
-type MIPSTranslationContext (isa) =
+type MIPSTranslationContext internal (isa, regexprs) =
   inherit TranslationContext (isa)
   /// Register expressions.
-  member val private RegExprs: RegExprs = RegExprs (isa.WordSize)
+  member val private RegExprs: RegExprs = regexprs
   override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
   override __.GetPseudoRegVar _id _pos = failwith "Implement"
 
@@ -40,5 +41,14 @@ type MIPSParser (wordSize, arch) =
   inherit Parser ()
   override __.Parse binReader _ctxt addr pos =
     Parser.parse binReader arch wordSize addr pos :> Instruction
+
+module Basis =
+  let init (isa: ISA) =
+    let regexprs = RegExprs (isa.WordSize)
+    struct (
+      MIPSTranslationContext (isa, regexprs) :> TranslationContext,
+      MIPSParser (isa.WordSize, isa.Arch) :> Parser,
+      MIPSRegisterBay (isa.WordSize, regexprs) :> RegisterBay
+    )
 
 // vim: set tw=80 sts=2 sw=2:

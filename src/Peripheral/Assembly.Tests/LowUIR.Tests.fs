@@ -32,7 +32,7 @@ open B2R2.Peripheral.Assembly.LowUIR
 
 [<TestClass>]
 type LowUIRTests () =
-  let regbay = Intel.IntelRegisterBay (WordSize.Bit64) :> RegisterBay
+  let regbay = Intel.Basis.initRegBay (WordSize.Bit64)
   let p = LowUIRParser (ISA.DefaultISA, regbay)
   let size1Num = BitVector.T
   let size64Num = BitVector.cast size1Num 64<rt>

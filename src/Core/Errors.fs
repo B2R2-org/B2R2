@@ -34,3 +34,5 @@ type ErrorCase =
   | InvalidExprEvaluation = 2
   /// Symbol does not exist.
   | SymbolNotFound = 3
+  /// Invalid file format.
+  | InvalidFileFormat = 4

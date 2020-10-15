@@ -559,10 +559,11 @@ let rec parseCFI cls isa regbay reader sAddr cie cies fdes offset cfis =
 
 let parse (reader: BinReader) cls (secs: SectionInfo) isa regbay =
   match Map.tryFind ehframe secs.SecByName with
-  | Some sec ->
+  | Some sec when Option.isSome regbay ->
     let size = Convert.ToInt32 sec.SecSize
     let offset = Convert.ToInt32 sec.SecOffset
     let reader = reader.SubReader offset size
+    let regbay = Option.get regbay
     parseCFI cls isa regbay reader sec.SecAddr None Map.empty [] 0 []
     |> List.rev
-  | None -> []
+  | _ -> []

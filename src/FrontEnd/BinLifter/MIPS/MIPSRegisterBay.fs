@@ -28,10 +28,8 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
 
-type MIPSRegisterBay (wordSize) =
+type MIPSRegisterBay internal (wordSize, R: RegExprs) =
   inherit RegisterBay ()
-
-  let R = RegExprs (wordSize)
 
   override __.GetAllRegExprs () =
     [ R.HI; R.LO; R.PC; R.R0; R.R1; R.R2; R.R3; R.R4; R.R5; R.R6; R.R7; R.R8;

@@ -301,14 +301,15 @@ let inline getNotInFileIntervals pe range =
   |> List.map (FileHelper.trimByRange range)
   |> List.toSeq
 
-let isPE bytes offset =
+/// Return Architecture from the PE header. If the given binary is invalid,
+/// return an Error.
+let getPEArch bytes offset =
   try
     let bs = Array.sub bytes offset (Array.length bytes - offset)
     use stream = new IO.MemoryStream (bs)
     use reader = new PEReader (stream, PEStreamOptions.Default)
-    reader.PEHeaders.CoffHeader.Machine |> machineToArch |> ignore
-    true
+    reader.PEHeaders.CoffHeader.Machine |> machineToArch |> Ok
   with _ ->
-    false
+    Error ErrorCase.InvalidFileFormat
 
 // vim: set tw=80 sts=2 sw=2:

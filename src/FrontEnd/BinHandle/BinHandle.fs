@@ -42,18 +42,19 @@ type BinHandle = {
 with
   static member private Init (isa, mode, autoDetect, baseAddr, bytes, path) =
     let path = try IO.Path.GetFullPath path with _ -> ""
-    let fi = newFileInfo bytes baseAddr path isa autoDetect
-    let isa = fi.ISA
+    let fmt, isa = identifyFormatAndISA bytes path isa autoDetect
+    let struct (ctxt, parser, regbay) = initBasis isa
+    let fi = newFileInfo bytes baseAddr path fmt isa regbay
+    assert (isa = fi.ISA)
     let needCheckThumb = mode = ArchOperationMode.NoMode && isARM isa
     let mode = if needCheckThumb then detectThumb fi.EntryPoint isa else mode
-    let ctxt, parser = initHelpers isa
     { ISA = isa
       FileInfo = fi
       DisasmHelper = DisasmHelper (fi.TryFindFunctionSymbolName)
       DefaultParsingContext = ParsingContext.Init (mode)
       TranslationContext = ctxt
       Parser = parser
-      RegisterBay = fi.RegisterBay }
+      RegisterBay = regbay }
 
   static member Init (isa, archMode, autoDetect, baseAddr, bytes) =
     BinHandle.Init (isa, archMode, autoDetect, baseAddr, bytes, "")

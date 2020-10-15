@@ -152,8 +152,9 @@ let execRanges segs =
     IntervalSet.add (AddrRange (seg.PHAddr, seg.PHAddr + seg.PHMemSize)) set
     ) IntervalSet.empty
 
-let private parseELF baseAddr offset reader =
+let private parseELF baseAddr regbay offset reader =
   let eHdr = Header.parse baseAddr offset reader
+  let isa = ISA.Init eHdr.MachineType eHdr.Endian
   let cls = eHdr.Class
   let secs = Section.parse baseAddr eHdr reader
   let proghdrs = ProgHeader.parse baseAddr eHdr reader
@@ -164,8 +165,6 @@ let private parseELF baseAddr offset reader =
   let plt = parsePLT eHdr.MachineType secs reloc reader
   let globals = parseGlobalSymbols reloc
   let symbs = Symbol.updatePLTSymbols plt symbs |> Symbol.updateGlobals globals
-  let isa = ISA.Init eHdr.MachineType eHdr.Endian
-  let regbay = FileHelper.initRegisterBay isa
   let excframes = ExceptionFrames.parse reader cls secs isa regbay
   let gccexctbl = ELFGccExceptTable.parse reader cls secs
   let exctbls = computeExceptionTable excframes gccexctbl
@@ -186,13 +185,12 @@ let private parseELF baseAddr offset reader =
     ExecutableRanges = execRanges segs
     BinReader = reader
     ISA = isa
-    RegisterBay = regbay
     UnwindingTbl = unwindings }
 
-let parse baseAddr bytes =
+let parse bytes baseAddr regbay =
   let reader = BinReader.Init (bytes, Endian.Little)
   if Header.isELF reader 0 then ()
   else raise FileFormatMismatchException
   Header.peekEndianness reader 0
   |> BinReader.RenewReader reader
-  |> parseELF baseAddr 0
+  |> parseELF baseAddr regbay 0

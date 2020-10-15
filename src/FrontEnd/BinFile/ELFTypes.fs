@@ -901,8 +901,6 @@ type ELF = {
   BinReader: BinReader
   /// ISA.
   ISA: ISA
-  /// Register bay.
-  RegisterBay: RegisterBay
   /// Unwinding info table.
   UnwindingTbl: Map<Addr, UnwindingEntry>
 }

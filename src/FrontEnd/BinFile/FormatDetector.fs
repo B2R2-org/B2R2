@@ -23,51 +23,71 @@
 *)
 
 /// Binary file format detector.
+[<RequireQualifiedAccess>]
 module B2R2.FrontEnd.BinFile.FormatDetector
 
 open System.IO
 open B2R2
 
-let private elfBinary reader =
-  if ELF.Header.isELF reader 0 then Some FileFormat.ELFBinary
+let private identifyELF reader =
+  if ELF.Header.isELF reader 0 then
+    let cls = ELF.Header.peekClass reader 0
+    let arch = ELF.Header.peekArch reader cls 0
+    let endian = ELF.Header.peekEndianness reader 0
+    let isa = ISA.Init arch endian
+    Some (FileFormat.ELFBinary, isa)
   else None
 
-let private peBinary bytes =
-  if PE.Helper.isPE bytes 0 then Some FileFormat.PEBinary
+let private identifyPE bytes =
+  match PE.Helper.getPEArch bytes 0 with
+  | Ok arch ->
+    let isa = ISA.Init arch Endian.Little
+    Some (FileFormat.PEBinary, isa)
+  | Error _ -> None
+
+let private identifyMach reader isa =
+  if Mach.Header.isMach reader 0 then
+    if Mach.Header.isFat reader 0 then
+      Some (FileFormat.MachBinary, isa)
+    else
+      let arch = Mach.Header.peekArch reader 0
+      let endian = Mach.Header.peekEndianness reader 0
+      let isa = ISA.Init arch endian
+      Some (FileFormat.MachBinary, isa)
   else None
 
-let private machBinary reader =
-  if Mach.Header.isMach reader 0 then Some FileFormat.MachBinary
-  else None
-
-let private wasmBinary reader =
-  if Wasm.Header.isWasm reader 0 then Some FileFormat.WasmBinary
+let private identifyWASM reader isa =
+  if Wasm.Header.isWasm reader 0 then
+    Some (FileFormat.WasmBinary, isa)
   else None
 
 /// <summary>
-///   Given a byte array, identify its file format and return B2R2.FileFormat.
+///   Given a byte array, identify its binary file format and return
+///   B2R2.FileFormat and B2R2.ISA.
 /// </summary>
-[<CompiledName("Detect")>]
-let detectBuffer bytes =
+[<CompiledName("Identify")>]
+let identifyFromBuffer bytes isa =
   let reader = BinReader.Init (bytes)
   Monads.OrElse.orElse {
-    yield! elfBinary reader
-    yield! peBinary bytes
-    yield! machBinary reader
-    yield! wasmBinary reader
-    yield! Some FileFormat.RawBinary
+    yield! identifyELF reader
+    yield! identifyPE bytes
+    yield! identifyMach reader isa
+    yield! identifyWASM reader isa
+    yield! Some (FileFormat.RawBinary, ISA.DefaultISA)
   } |> Option.get
+
+(* This is more than enough for all the file formats. *)
+let [<Literal>] private maxBytes = 2048
 
 /// <summary>
 ///   Given a binary file path, identify its file format and return
-///   B2R2.FileFormat.
+///   B2R2.FileFormat and B2R2.ISA.
 /// </summary>
-[<CompiledName("Detect")>]
-let detect file =
+[<CompiledName("Identify")>]
+let identifyFromFile file isa =
   use f = File.OpenRead (file)
-  let maxBytes = 2048 (* This is more than enough for all the file formats. *)
   let bytes = Array.create maxBytes 0uy
   f.Read (bytes, 0, maxBytes) |> ignore
-  detectBuffer bytes
+  identifyFromBuffer bytes isa
 
 // vim: set tw=80 sts=2 sw=2:
