@@ -45,6 +45,8 @@ module private NoReturnHelper =
     | "_exit"
     | "__longjmp_chk"
     | "__cxa_throw"
+    | "_Unwind_Resume"
+    | "_ZSt20__throw_length_errorPKc"
     | "_gfortran_stop_numeric" -> true
     | _ -> false
 
