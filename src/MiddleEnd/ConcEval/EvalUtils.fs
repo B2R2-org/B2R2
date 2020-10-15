@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module internal B2R2.ConcEval.EvalUtils
+module internal B2R2.MiddleEnd.ConcEval.EvalUtils
 
 open B2R2
 open B2R2.BinIR.LowUIR

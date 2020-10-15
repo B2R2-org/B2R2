@@ -26,7 +26,7 @@ module B2R2.MiddleEnd.ReclaimerNS.EmulationHelper
 
 open B2R2
 open B2R2.FrontEnd.BinHandleNS
-open B2R2.ConcEval
+open B2R2.MiddleEnd.ConcEval
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.BinEssenceNS
 open System.Collections.Generic

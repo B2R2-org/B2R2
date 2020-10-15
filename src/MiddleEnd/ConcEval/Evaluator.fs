@@ -23,12 +23,12 @@
 *)
 
 /// ConcEval.Evaluator is a concrete evaluation module for LowUIR.
-module B2R2.ConcEval.Evaluator
+module B2R2.MiddleEnd.ConcEval.Evaluator
 
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
-open B2R2.ConcEval.EvalUtils
+open B2R2.MiddleEnd.ConcEval.EvalUtils
 
 let private map1 fn p1 = function
   | Def bv -> Def (fn bv p1)

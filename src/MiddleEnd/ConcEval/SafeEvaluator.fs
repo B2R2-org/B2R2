@@ -25,12 +25,12 @@
 /// ConcEval.SafeEvaluator is a safe concrete evaluation module for LowUIR.
 /// Unlike ConcEval.Evaluator, it does not raise exceptions, but it is slower
 /// than ConcEval.Evaluator.
-module B2R2.ConcEval.SafeEvaluator
+module B2R2.MiddleEnd.ConcEval.SafeEvaluator
 
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
-open B2R2.ConcEval.EvalUtils
+open B2R2.MiddleEnd.ConcEval.EvalUtils
 
 let private map1 fn p1 = function
   | Ok (Def bv) -> Def (fn bv p1) |> Ok

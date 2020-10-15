@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-namespace B2R2.ConcEval
+namespace B2R2.MiddleEnd.ConcEval
 
 open B2R2
 

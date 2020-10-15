@@ -27,7 +27,7 @@ namespace B2R2.MiddleEnd.ReclaimerNS
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.BinEssenceNS
-open B2R2.ConcEval
+open B2R2.MiddleEnd.ConcEval
 open B2R2.MiddleEnd.ReclaimerNS.EmulationHelper
 
 module private LibcAnalysisHelper =

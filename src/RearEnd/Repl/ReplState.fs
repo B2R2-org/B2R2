@@ -27,7 +27,7 @@ namespace B2R2.RearEnd.Repl
 open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd.BinLifter
-open B2R2.ConcEval
+open B2R2.MiddleEnd.ConcEval
 
 type ParserState =
   | LowUIRParser

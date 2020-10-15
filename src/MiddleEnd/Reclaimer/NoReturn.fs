@@ -28,7 +28,7 @@ open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinHandleNS
-open B2R2.ConcEval
+open B2R2.MiddleEnd.ConcEval
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.BinEssenceNS
 open B2R2.MiddleEnd.Lens
