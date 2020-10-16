@@ -129,7 +129,7 @@ type DisasmLens (ess) =
       | IndirectCallEdge
       | RetEdge -> acc, newGraph
       | CallFallThroughEdge
-          when DiGraph.getPreds ircfg succ |> List.length <= 2 ->
+          when DiGraph.getSuccs ircfg v |> List.length <= 2 ->
         (* Two edges: (1) RetEdge from a fake node; (2) CallFallThroughEdge. *)
         let newGraph = fnMerge newGraph addr v succ
         if visited.Contains succ.VData.PPoint then acc, newGraph
