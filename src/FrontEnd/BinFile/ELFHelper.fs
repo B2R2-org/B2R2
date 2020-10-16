@@ -203,23 +203,25 @@ let getNotInFileIntervals elf range =
   |> List.map (FileHelper.trimByRange range)
   |> List.toSeq
 
-let getFunctionAddrsFromSection elf s =
+let getFunctionAddrsFromLibcArray elf s =
   let offset = int s.SecOffset
   let entrySize = int s.SecEntrySize
   let readType: WordSize = LanguagePrimitives.EnumOfValue (entrySize * 8)
   let size = int s.SecSize
-  [| offset .. entrySize .. offset + size - entrySize |]
-  |> Array.map (FileHelper.peekUIntOfType elf.BinReader readType)
-  |> Seq.ofArray
+  if entrySize = 0 then Seq.empty
+  else
+    [| offset .. entrySize .. offset + size - entrySize |]
+    |> Array.map (FileHelper.peekUIntOfType elf.BinReader readType)
+    |> Seq.ofArray
 
 let getAddrsFromInitArray elf =
   match Map.tryFind ".init_array" elf.SecInfo.SecByName with
-  | Some s -> getFunctionAddrsFromSection elf s
+  | Some s -> getFunctionAddrsFromLibcArray elf s
   | None -> Seq.empty
 
 let getAddrsFromFiniArray elf =
   match Map.tryFind ".fini_array" elf.SecInfo.SecByName with
-  | Some s -> getFunctionAddrsFromSection elf s
+  | Some s -> getFunctionAddrsFromLibcArray elf s
   | None -> Seq.empty
 
 let addExtraFunctionAddrs elf addrs =
