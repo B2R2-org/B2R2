@@ -3212,6 +3212,7 @@ let fptan _ins insAddr insLen ctxt =
   let lblOutOfRange = lblSymbol "IsOutOfRange"
   let lblInRange = lblSymbol "IsInRange"
   let tmp = tmpVar 80<rt>
+  let tmp64 = tmpVar 64<rt>
   startMark insAddr insLen builder
   builder <! (tmp := st0 .& float80SignUnmask)
   builder <! (CJmp (flt tmp maxFloat, Name lblInRange, Name lblOutOfRange ))
@@ -3227,7 +3228,8 @@ let fptan _ins insAddr insLen ctxt =
   builder <! (c0 := undefC0)
   builder <! (c1 := undefC1)
   builder <! (c3 := undefC3)
-  builder <! (tmp := numI64 4607182418800017408L 64<rt>)
+  builder <! (tmp64 := numI64 4607182418800017408L 64<rt>)
+  builder <! (tmp := cast CastKind.FloatExt 80<rt> tmp64)
   checkFPUOnLoad ctxt builder
   shiftFPUStackDown ctxt builder
   assignFPUReg R.ST0 tmp ctxt builder
