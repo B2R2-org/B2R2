@@ -6254,6 +6254,19 @@ let buildVectorMove ins insAddr insLen ctxt =
     builder <! (dstB := srcB)
     builder <! (dstC := srcC)
     builder <! (dstD := srcD)
+  elif oprSize = 512<rt> then
+    let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
+      transOprToExpr512 ins insAddr insLen ctxt dst
+    let srcH, srcG, srcF, srcE, srcD, srcC, srcB, srcA =
+      transOprToExpr512 ins insAddr insLen ctxt src
+    builder <! (dstA := srcA)
+    builder <! (dstB := srcB)
+    builder <! (dstC := srcC)
+    builder <! (dstD := srcD)
+    builder <! (dstE := srcE)
+    builder <! (dstF := srcF)
+    builder <! (dstG := srcG)
+    builder <! (dstH := srcH)
   else raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
