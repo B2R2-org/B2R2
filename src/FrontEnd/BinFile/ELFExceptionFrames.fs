@@ -91,6 +91,7 @@ let obtainAugData addrSize (arr: byte []) data offset = function
       ValueEncoding = v
       ApplicationEncoding = app
       PersonalityRoutionPointer = [||] } :: data, offset + 1
+  | 'S' -> data, offset (* This is a signal frame. *)
   | _ -> raise UnhandledAugString
 
 let parseAugmentationData (reader: BinReader) offset addrSize augstr =
@@ -141,195 +142,264 @@ let parseLoad isa exprs =
   let rt = isa.WordSize |> WordSize.toRegType
   AST.loadLE rt addr :: exprs
 
-let rec parseExprs isa regbay exprs (span: ReadOnlySpan<byte>) idx maxIdx =
-  if idx >= maxIdx then
+let rec parseExprs isa regbay exprs (span: ReadOnlySpan<byte>) i maxIdx =
+  if i >= maxIdx then
     match exprs with
     | [ exp ] -> exp
     | _ -> raise InvalidDWInstructionExpression
   else
-    match span.[idx] |> DWOperation.parse with
+    match span.[i] |> DWOperation.parse with
     | DWOperation.DW_OP_breg0 ->
-      let struct (exprs, idx') = parseOpBReg isa regbay exprs span (idx + 1) 0uy
-      parseExprs isa regbay exprs span idx' maxIdx
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 0uy
+      parseExprs isa regbay exprs span i' maxIdx
     | DWOperation.DW_OP_breg1 ->
-      let struct (exprs, idx') = parseOpBReg isa regbay exprs span (idx + 1) 1uy
-      parseExprs isa regbay exprs span idx' maxIdx
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 1uy
+      parseExprs isa regbay exprs span i' maxIdx
     | DWOperation.DW_OP_breg2 ->
-      let struct (exprs, idx') = parseOpBReg isa regbay exprs span (idx + 1) 2uy
-      parseExprs isa regbay exprs span idx' maxIdx
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 2uy
+      parseExprs isa regbay exprs span i' maxIdx
     | DWOperation.DW_OP_breg3 ->
-      let struct (exprs, idx') = parseOpBReg isa regbay exprs span (idx + 1) 3uy
-      parseExprs isa regbay exprs span idx' maxIdx
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 3uy
+      parseExprs isa regbay exprs span i' maxIdx
     | DWOperation.DW_OP_breg4 ->
-      let struct (exprs, idx') = parseOpBReg isa regbay exprs span (idx + 1) 4uy
-      parseExprs isa regbay exprs span idx' maxIdx
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 4uy
+      parseExprs isa regbay exprs span i' maxIdx
     | DWOperation.DW_OP_breg5 ->
-      let struct (exprs, idx') = parseOpBReg isa regbay exprs span (idx + 1) 5uy
-      parseExprs isa regbay exprs span idx' maxIdx
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 5uy
+      parseExprs isa regbay exprs span i' maxIdx
     | DWOperation.DW_OP_breg6 ->
-      let struct (exprs, idx') = parseOpBReg isa regbay exprs span (idx + 1) 6uy
-      parseExprs isa regbay exprs span idx' maxIdx
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 6uy
+      parseExprs isa regbay exprs span i' maxIdx
     | DWOperation.DW_OP_breg7 ->
-      let struct (exprs, idx') = parseOpBReg isa regbay exprs span (idx + 1) 7uy
-      parseExprs isa regbay exprs span idx' maxIdx
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 7uy
+      parseExprs isa regbay exprs span i' maxIdx
     | DWOperation.DW_OP_breg8 ->
-      let struct (exprs, idx') = parseOpBReg isa regbay exprs span (idx + 1) 8uy
-      parseExprs isa regbay exprs span idx' maxIdx
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 8uy
+      parseExprs isa regbay exprs span i' maxIdx
+    | DWOperation.DW_OP_breg9 ->
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 9uy
+      parseExprs isa regbay exprs span i' maxIdx
+    | DWOperation.DW_OP_breg10 ->
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 10uy
+      parseExprs isa regbay exprs span i' maxIdx
+    | DWOperation.DW_OP_breg11 ->
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 11uy
+      parseExprs isa regbay exprs span i' maxIdx
+    | DWOperation.DW_OP_breg12 ->
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 12uy
+      parseExprs isa regbay exprs span i' maxIdx
+    | DWOperation.DW_OP_breg13 ->
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 13uy
+      parseExprs isa regbay exprs span i' maxIdx
+    | DWOperation.DW_OP_breg14 ->
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 14uy
+      parseExprs isa regbay exprs span i' maxIdx
+    | DWOperation.DW_OP_breg15 ->
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 15uy
+      parseExprs isa regbay exprs span i' maxIdx
+    | DWOperation.DW_OP_breg16 ->
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 16uy
+      parseExprs isa regbay exprs span i' maxIdx
+    | DWOperation.DW_OP_breg17 ->
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 17uy
+      parseExprs isa regbay exprs span i' maxIdx
+    | DWOperation.DW_OP_breg18 ->
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 18uy
+      parseExprs isa regbay exprs span i' maxIdx
+    | DWOperation.DW_OP_breg19 ->
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 19uy
+      parseExprs isa regbay exprs span i' maxIdx
+    | DWOperation.DW_OP_breg20 ->
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 20uy
+      parseExprs isa regbay exprs span i' maxIdx
+    | DWOperation.DW_OP_breg21 ->
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 21uy
+      parseExprs isa regbay exprs span i' maxIdx
+    | DWOperation.DW_OP_breg22 ->
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 22uy
+      parseExprs isa regbay exprs span i' maxIdx
+    | DWOperation.DW_OP_breg23 ->
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 23uy
+      parseExprs isa regbay exprs span i' maxIdx
+    | DWOperation.DW_OP_breg24 ->
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 24uy
+      parseExprs isa regbay exprs span i' maxIdx
+    | DWOperation.DW_OP_breg25 ->
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 25uy
+      parseExprs isa regbay exprs span i' maxIdx
+    | DWOperation.DW_OP_breg26 ->
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 26uy
+      parseExprs isa regbay exprs span i' maxIdx
+    | DWOperation.DW_OP_breg27 ->
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 27uy
+      parseExprs isa regbay exprs span i' maxIdx
+    | DWOperation.DW_OP_breg28 ->
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 28uy
+      parseExprs isa regbay exprs span i' maxIdx
+    | DWOperation.DW_OP_breg29 ->
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 29uy
+      parseExprs isa regbay exprs span i' maxIdx
+    | DWOperation.DW_OP_breg30 ->
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 30uy
+      parseExprs isa regbay exprs span i' maxIdx
+    | DWOperation.DW_OP_breg31 ->
+      let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 31uy
+      parseExprs isa regbay exprs span i' maxIdx
     | DWOperation.DW_OP_const1u ->
-      let exprs = num isa (uint64 span.[idx + 1]) :: exprs
-      parseExprs isa regbay exprs span (idx + 2) maxIdx
+      let exprs = num isa (uint64 span.[i + 1]) :: exprs
+      parseExprs isa regbay exprs span (i + 2) maxIdx
     | DWOperation.DW_OP_const2u ->
-      let c = MemoryMarshal.Read<uint16> (span.Slice (idx + 1))
+      let c = MemoryMarshal.Read<uint16> (span.Slice (i + 1))
       let exprs = num isa (uint64 c) :: exprs
-      parseExprs isa regbay exprs span (idx + 3) maxIdx
+      parseExprs isa regbay exprs span (i + 3) maxIdx
     | DWOperation.DW_OP_const4u ->
-      let c = MemoryMarshal.Read<uint32> (span.Slice (idx + 1))
+      let c = MemoryMarshal.Read<uint32> (span.Slice (i + 1))
       let exprs = num isa (uint64 c) :: exprs
-      parseExprs isa regbay exprs span (idx + 5) maxIdx
+      parseExprs isa regbay exprs span (i + 5) maxIdx
     | DWOperation.DW_OP_lit0 ->
       let exprs = num isa 0UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit1 ->
       let exprs = num isa 1UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit2 ->
       let exprs = num isa 2UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit3 ->
       let exprs = num isa 3UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit4 ->
       let exprs = num isa 4UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit5 ->
       let exprs = num isa 5UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit6 ->
       let exprs = num isa 6UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit7 ->
       let exprs = num isa 7UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit8 ->
       let exprs = num isa 8UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit9 ->
       let exprs = num isa 9UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit10 ->
       let exprs = num isa 10UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit11 ->
       let exprs = num isa 11UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit12 ->
       let exprs = num isa 12UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit13 ->
       let exprs = num isa 13UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit14 ->
       let exprs = num isa 14UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit15 ->
       let exprs = num isa 15UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit16 ->
       let exprs = num isa 16UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit17 ->
       let exprs = num isa 17UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit18 ->
       let exprs = num isa 18UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit19 ->
       let exprs = num isa 19UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit20 ->
       let exprs = num isa 20UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit21 ->
       let exprs = num isa 21UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit22 ->
       let exprs = num isa 22UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit23 ->
       let exprs = num isa 23UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit24 ->
       let exprs = num isa 24UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit25 ->
       let exprs = num isa 25UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit26 ->
       let exprs = num isa 26UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit27 ->
       let exprs = num isa 27UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit28 ->
       let exprs = num isa 28UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit29 ->
       let exprs = num isa 29UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit30 ->
       let exprs = num isa 30UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lit31 ->
       let exprs = num isa 31UL :: exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_and ->
       let exprs = parseBinop BinOpType.AND exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_or ->
       let exprs = parseBinop BinOpType.OR exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_xor ->
       let exprs = parseBinop BinOpType.XOR exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_div ->
       let exprs = parseBinop BinOpType.DIV exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_minus ->
       let exprs = parseBinop BinOpType.SUB exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_plus ->
       let exprs = parseBinop BinOpType.ADD exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_shl ->
       let exprs = parseBinop BinOpType.SHL exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_shr ->
       let exprs = parseBinop BinOpType.SHR exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_shra ->
       let exprs = parseBinop BinOpType.SAR exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_le ->
       let exprs = parseRel isa RelOpType.LE exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_ge ->
       let exprs = parseRel isa RelOpType.GE exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_eq ->
       let exprs = parseRel isa RelOpType.EQ exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_lt ->
       let exprs = parseRel isa RelOpType.LT exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_gt ->
       let exprs = parseRel isa RelOpType.GT exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_ne ->
       let exprs = parseRel isa RelOpType.NEQ exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_deref ->
       let exprs = parseLoad isa exprs
-      parseExprs isa regbay exprs span (idx + 1) maxIdx
+      parseExprs isa regbay exprs span (i + 1) maxIdx
     | op -> printfn "TODO: %A" op; Utils.futureFeature ()
 
 let extractOldOffset = function
@@ -380,6 +450,39 @@ let rec getUnwind acc cfa irule rst rule isa rbay lr cf df rr span i loc =
       let v, cnt = LEB128.DecodeUInt64 (span.Slice i)
       let offset = int64 v * df
       let target, action = Rule.offset isa rbay rr oparg offset
+      let rule = Map.add target action rule
+      getUnwind acc cfa irule rst rule isa rbay lr cf df rr span (i + cnt) loc
+    | DWCFAInstruction.DW_CFA_offset_extended ->
+      let reg, cnt = LEB128.DecodeUInt64 (span.Slice i)
+      let reg = byte reg
+      let i = i + cnt
+      let offset, cnt = LEB128.DecodeUInt64 (span.Slice i)
+      let target, action = Rule.offset isa rbay rr reg (int64 offset)
+      let rule = Map.add target action rule
+      getUnwind acc cfa irule rst rule isa rbay lr cf df rr span (i + cnt) loc
+    | DWCFAInstruction.DW_CFA_offset_extended_sf ->
+      let reg, cnt = LEB128.DecodeUInt64 (span.Slice i)
+      let reg = byte reg
+      let i = i + cnt
+      let v, cnt = LEB128.DecodeSInt64 (span.Slice i)
+      let offset = v * df
+      let target, action = Rule.offset isa rbay rr reg offset
+      let rule = Map.add target action rule
+      getUnwind acc cfa irule rst rule isa rbay lr cf df rr span (i + cnt) loc
+    | DWCFAInstruction.DW_CFA_undefined ->
+      let reg, cnt = LEB128.DecodeUInt64 (span.Slice i)
+      let reg = byte reg
+      let target = Rule.getTarget isa rbay rr reg
+      let rule = Map.remove target rule
+      getUnwind acc cfa irule rst rule isa rbay reg cf df rr span (i + cnt) loc
+    | DWCFAInstruction.DW_CFA_register ->
+      let reg1, cnt = LEB128.DecodeUInt64 (span.Slice i)
+      let reg1 = byte reg1
+      let i = i + cnt
+      let reg2, cnt = LEB128.DecodeUInt64 (span.Slice i)
+      let reg2 = byte reg2
+      let target = Rule.getTarget isa rbay rr reg1
+      let action = Register (DWRegister.toRegID isa rbay reg2)
       let rule = Map.add target action rule
       getUnwind acc cfa irule rst rule isa rbay lr cf df rr span (i + cnt) loc
     | DWCFAInstruction.DW_CFA_expression ->
