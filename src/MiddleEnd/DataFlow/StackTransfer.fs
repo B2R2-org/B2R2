@@ -134,9 +134,9 @@ let markSuccessorsConditionally cfg st (blk: Vertex<SSABBlock>) cond =
     else ())
 
 let evalInterJmp cfg st blk = function
-  | Num addr ->
+  | Num _ ->
     (fun (succ: Vertex<SSABBlock>) ->
-      succ.VData.PPoint.Address = BitVector.toUInt64 addr)
+      DiGraph.findEdgeData cfg blk succ <> CallFallThroughEdge)
     |> markSuccessorsConditionally cfg st blk
   | _ ->
     let insInfos = blk.VData.InsInfos

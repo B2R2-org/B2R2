@@ -254,7 +254,7 @@ type FileInfo (baseAddr) =
   ///   of landing pads. The landing pads are mappings from a range of
   ///   instruction addresses to a landing pad address.
   /// </summary>
-  abstract member ExceptionTable: Map<Addr, ARMap<Addr>>
+  abstract member ExceptionTable: ARMap<ARMap<Addr>>
 
   /// <summary>
   ///   Check if the given address is valid for this binary. We say a given

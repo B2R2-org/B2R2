@@ -69,5 +69,6 @@ type CFGEdgeKind =
   /// callee that calls a function, then we create an implicit edge from a
   /// caller to any of the callees.
   | ImplicitCallEdge
+  | ExceptionFallThroughEdge
   /// Unknown edge type. This should be an error case.
   | UnknownEdge

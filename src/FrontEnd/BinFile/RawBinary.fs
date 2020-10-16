@@ -94,7 +94,7 @@ type RawFileInfo (bytes: byte [], isa, baseAddr) =
 
   override __.TryFindFunctionSymbolName (_addr) = Error ErrorCase.SymbolNotFound
 
-  override __.ExceptionTable = Map.empty
+  override __.ExceptionTable = ARMap.empty
 
   override __.IsValidAddr (addr) =
     addr >= baseAddr && addr < (baseAddr + uint64 bytes.LongLength)

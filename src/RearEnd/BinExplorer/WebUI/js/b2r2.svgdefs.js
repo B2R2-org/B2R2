@@ -38,6 +38,7 @@ class SVGDefs {
     SVGDefs.setMarkerArrow(defs, "IntraCJmpFalseEdge");
     SVGDefs.setMarkerArrow(defs, "FallThroughEdge");
     SVGDefs.setMarkerArrow(defs, "CallFallThroughEdge");
+    SVGDefs.setMarkerArrow(defs, "ExceptionFallThroughEdge");
     SVGDefs.setMarkerArrow(defs, "RecursiveCallEdge");
     SVGDefs.setMarkerArrow(defs, "CallEdge");
     SVGDefs.setMarkerArrow(defs, "RetEdge");

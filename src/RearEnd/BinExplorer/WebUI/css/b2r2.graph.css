@@ -132,6 +132,10 @@
   stroke: var(--graph-edge-fallthrough-stroke);
 }
 
+.c-graph__exceptionfallthroughedge {
+  stroke: var(--graph-edge-fallthrough-stroke);
+}
+
 /* Arrow */
 .c-arrow-interjmpedge {
   fill: var(--graph-edge-interjmp-stroke);
@@ -182,6 +186,10 @@
 }
 
 .c-arrow-callfallthroughedge {
+  fill: var(--graph-edge-fallthrough-stroke);
+}
+
+.c-arrow-exceptionfallthroughedge {
   fill: var(--graph-edge-fallthrough-stroke);
 }
 

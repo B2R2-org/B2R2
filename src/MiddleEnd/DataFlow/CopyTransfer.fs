@@ -169,21 +169,10 @@ let markSuccessorsConditionally cfg st (blk: Vertex<SSABBlock>) cond =
       CPState.markExecutable st myid succid
     else ())
 
-let evalIntraCJmp cfg st blk cond trueLbl falseLbl =
-  match cond with
-  | Const bv ->
-    (fun (succ: Vertex<SSABBlock>) ->
-      let target = if BitVector.isTrue bv then trueLbl else falseLbl
-      match succ.VData.SSAStmtInfos.[0] with
-      | _, LMark lbl -> lbl = target
-      | _ -> false)
-    |> markSuccessorsConditionally cfg st blk
-  | _ -> markAllSuccessors cfg st blk
-
 let evalInterJmp cfg st blk = function
-  | Num addr ->
+  | Num _ ->
     (fun (succ: Vertex<SSABBlock>) ->
-      succ.VData.PPoint.Address = BitVector.toUInt64 addr)
+      DiGraph.findEdgeData cfg blk succ <> CallFallThroughEdge)
     |> markSuccessorsConditionally cfg st blk
   | _ ->
     let insInfos = blk.VData.InsInfos
@@ -192,27 +181,6 @@ let evalInterJmp cfg st blk = function
         succ.VData.PPoint |> ProgramPoint.IsFake)
       |> markSuccessorsConditionally cfg st blk
     else markAllSuccessors cfg st blk
-
-let evalInterCJmp cfg st blk cond trueExpr falseExpr =
-  match cond, trueExpr, falseExpr with
-  | Const bv, Num trueAddr, Num falseAddr ->
-    (fun (succ: Vertex<SSABBlock>) ->
-      let target = if BitVector.isTrue bv then trueAddr else falseAddr
-      succ.VData.PPoint.Address = BitVector.toUInt64 target)
-    |> markSuccessorsConditionally cfg st blk
-  | Const bv, Var _, Num falseAddr ->
-    (fun (succ: Vertex<SSABBlock>) ->
-      if BitVector.isTrue bv then
-        succ.VData.PPoint.Address <> BitVector.toUInt64 falseAddr
-      else succ.VData.PPoint.Address = BitVector.toUInt64 falseAddr)
-    |> markSuccessorsConditionally cfg st blk
-  | Const bv, Num trueAddr, Var _ ->
-    (fun (succ: Vertex<SSABBlock>) ->
-      if BitVector.isTrue bv then
-        succ.VData.PPoint.Address = BitVector.toUInt64 trueAddr
-      else succ.VData.PPoint.Address <> BitVector.toUInt64 trueAddr)
-    |> markSuccessorsConditionally cfg st blk
-  | _ -> markAllSuccessors cfg st blk
 
 let evalJmp cfg st blk = function
   | InterJmp expr -> evalInterJmp cfg st blk expr

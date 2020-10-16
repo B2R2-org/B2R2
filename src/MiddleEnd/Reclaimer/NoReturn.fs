@@ -45,6 +45,8 @@ module private NoReturnHelper =
     | "_exit"
     | "__longjmp_chk"
     | "__cxa_throw"
+    | "_Unwind_Resume"
+    | "_ZSt20__throw_length_errorPKc"
     | "_gfortran_stop_numeric" -> true
     | _ -> false
 
@@ -97,7 +99,8 @@ module private NoReturnHelper =
     DiGraph.getPreds cfg v
     |> List.fold (fun acc pred ->
       match cfg.FindEdgeData pred v with
-      | RetEdge | CallFallThroughEdge -> (pred, v) :: acc
+      | RetEdge | CallFallThroughEdge ->
+        (pred, v) :: acc
       | _ -> acc) edges
 
   let collectFunctionCallFallThroughs ess cfg (v: Vertex<IRBasicBlock>) edges =

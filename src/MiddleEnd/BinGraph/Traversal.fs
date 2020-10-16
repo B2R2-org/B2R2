@@ -39,14 +39,14 @@ let rec foldPreorderLoop visited g fn acc = function
 
 /// Fold vertices of the graph in a depth-first manner with the preorder
 /// traversal.
-let foldPreorder g v fn acc =
+let foldPreorder g vs fn acc =
   let visited = new HashSet<int> ()
-  foldPreorderLoop visited g fn acc [v]
+  foldPreorderLoop visited g fn acc vs
 
 /// Iterate vertices of the graph in a depth-first manner with the preorder
 /// traversal.
-let iterPreorder g v fn =
-  foldPreorder g v (fun () v -> fn v) ()
+let iterPreorder g vs fn =
+  foldPreorder g vs (fun () v -> fn v) ()
 
 let rec foldPostorderLoop visited g fn acc vstack = function
   | [] -> acc
@@ -67,25 +67,25 @@ and consume visited g fn acc = function
 
 /// Fold vertices of the graph in a depth-first manner with the postorder
 /// traversal.
-let foldPostorder g v fn acc =
+let foldPostorder g vs fn acc =
   let visited = new HashSet<int> ()
-  foldPostorderLoop visited g fn acc [] [v]
+  foldPostorderLoop visited g fn acc [] vs
 
 /// Iterate vertices of the graph in a depth-first manner with the postorder
 /// traversal.
-let iterPostorder g v fn =
-  foldPostorder g v (fun () v -> fn v) ()
+let iterPostorder g vs fn =
+  foldPostorder g vs (fun () v -> fn v) ()
 
 /// Fold vertices of the graph in a depth-first manner with the reverse
 /// postorder traversal.
-let foldRevPostorder g v fn acc =
-  foldPostorder g v (fun acc v -> v :: acc) []
+let foldRevPostorder g vs fn acc =
+  foldPostorder g vs (fun acc v -> v :: acc) []
   |> List.fold fn acc
 
 /// Iterate vertices of the graph in a depth-first manner with the reverse
 /// postorder traversal.
-let iterRevPostorder g v fn =
-  foldPostorder g v (fun acc v -> v :: acc) []
+let iterRevPostorder g vs fn =
+  foldPostorder g vs (fun acc v -> v :: acc) []
   |> List.iter fn
 
 /// Topologically fold every vertex of the given graph. For every unreachable

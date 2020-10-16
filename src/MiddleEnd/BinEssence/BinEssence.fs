@@ -447,6 +447,18 @@ module BinEssence =
         let targetPoint = ProgramPoint (target, 0)
         (src.VData.PPoint, targetPoint, edge) :: edges) edges
 
+  let getExceptionFallThrough hdl (src: Vertex<IRBasicBlock>) edges =
+    let lastAddr = src.VData.LastInstruction.Address
+    match ARMap.tryFindByAddr lastAddr hdl.FileInfo.ExceptionTable with
+    | Some map ->
+      match ARMap.tryFindByAddr lastAddr map with
+      | Some target when target = 0UL -> edges
+      | Some target ->
+        let targetPoint = ProgramPoint (target, 0)
+        (src.VData.PPoint, targetPoint, ExceptionFallThroughEdge) :: edges
+      | None -> edges
+    | None -> edges
+
   let private getNextPPoint (src: Vertex<IRBasicBlock>) =
     let ppoints = src.VData.LastInsInfo.ReachablePPs
     if Set.isEmpty ppoints then
@@ -479,7 +491,9 @@ module BinEssence =
     | InterJmp (_, Num addr, InterJmpInfo.IsCall) ->
       let target = BitVector.toUInt64 addr
       let calleeMap = ess.CalleeMap.AddEntry target
-      let edges = getInterEdge src target CallEdge edges
+      let edges =
+        getInterEdge src target CallEdge edges
+        |> getExceptionFallThrough ess.BinHandle src
       let calleeMap = calleeMap.AddCaller src.VData.PPoint.Address target
       let ess = { ess with CalleeMap = calleeMap }
       if ess.IsNoReturn src then ess, edges
@@ -509,7 +523,9 @@ module BinEssence =
       ess, edges
     | InterJmp (_, _, InterJmpInfo.IsCall) -> (* Indirect call *)
       src.VData.HasIndirectBranch <- true
-      let edges = getIndirectEdges ess.IndirectBranchMap src true edges
+      let edges =
+        getIndirectEdges ess.IndirectBranchMap src true edges
+        |> getExceptionFallThrough ess.BinHandle src
       (* XXX: Update callInfo here *)
       if ess.IsNoReturn src then ess, edges
       else ess, getFallthroughEdge src true edges
