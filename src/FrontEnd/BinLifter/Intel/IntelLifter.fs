@@ -6228,6 +6228,12 @@ let vmovddup ins insAddr insLen ctxt =
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
+let getEVEXPrx = function
+  | Some v -> match v.EVEXPrx with
+              | Some ev -> ev
+              | None -> raise InvalidPrefixException
+  | None -> raise InvalidPrefixException
+
 let buildVectorMove ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
   let dst, src = getTwoOprs ins
@@ -6255,18 +6261,65 @@ let buildVectorMove ins insAddr insLen ctxt =
     builder <! (dstC := srcC)
     builder <! (dstD := srcD)
   elif oprSize = 512<rt> then
-    let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
-      transOprToExpr512 ins insAddr insLen ctxt dst
-    let srcH, srcG, srcF, srcE, srcD, srcC, srcB, srcA =
-      transOprToExpr512 ins insAddr insLen ctxt src
-    builder <! (dstA := srcA)
-    builder <! (dstB := srcB)
-    builder <! (dstC := srcC)
-    builder <! (dstD := srcD)
-    builder <! (dstE := srcE)
-    builder <! (dstF := srcF)
-    builder <! (dstG := srcG)
-    builder <! (dstH := srcH)
+    let ePrx = getEVEXPrx ins.VEXInfo
+    let k = getRegVar ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
+    let masking dst =
+      match ePrx.Z with
+      | Zeroing -> num0 32<rt>
+      | Merging -> dst
+    let cond idx =
+      (* no write mask *)
+      let noWritemask = if ePrx.AAA = 0uy then num1 1<rt> else num0 1<rt>
+      extract k 1<rt> idx .| noWritemask
+    let kl, vl = 16, 512
+    match dst with
+    | OprReg _ ->
+      let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
+        transOprToExpr512 ins insAddr insLen ctxt dst
+      let srcH, srcG, srcF, srcE, srcD, srcC, srcB, srcA =
+        transOprToExpr512 ins insAddr insLen ctxt src
+      let ite i src dst extFn =
+        ite (cond i) (extFn 32<rt> src) (masking (extFn 32<rt> dst))
+      builder <! (extractLow 32<rt> dstA := ite 0 srcA dstA extractLow)
+      builder <! (extractHigh 32<rt> dstA := ite 1 srcA dstA extractHigh)
+      builder <! (extractLow 32<rt> dstB := ite 2 srcB dstB extractLow)
+      builder <! (extractHigh 32<rt> dstB := ite 3 srcB dstB extractHigh)
+      builder <! (extractLow 32<rt> dstC := ite 4 srcC dstC extractLow)
+      builder <! (extractHigh 32<rt> dstC := ite 5 srcC dstC extractHigh)
+      builder <! (extractLow 32<rt> dstD := ite 6 srcD dstD extractLow)
+      builder <! (extractHigh 32<rt> dstD := ite 7 srcD dstD extractHigh)
+      builder <! (extractLow 32<rt> dstE := ite 8 srcE dstE extractLow)
+      builder <! (extractHigh 32<rt> dstE := ite 9 srcE dstE extractHigh)
+      builder <! (extractLow 32<rt> dstF := ite 10 srcF dstF extractLow)
+      builder <! (extractHigh 32<rt> dstF := ite 11 srcF dstF extractHigh)
+      builder <! (extractLow 32<rt> dstG := ite 12 srcG dstG extractLow)
+      builder <! (extractHigh 32<rt> dstG := ite 13 srcG dstG extractHigh)
+      builder <! (extractLow 32<rt> dstH := ite 14 srcH dstH extractLow)
+      builder <! (extractHigh 32<rt> dstH := ite 15 srcH dstH extractHigh)
+    | OprMem _ ->
+      let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
+        transOprToExpr512 ins insAddr insLen ctxt dst
+      let srcH, srcG, srcF, srcE, srcD, srcC, srcB, srcA =
+        transOprToExpr512 ins insAddr insLen ctxt src
+      let ite i src dst extFn =
+        ite (cond i) (extFn 32<rt> src) (extFn 32<rt> dst)
+      builder <! (extractLow 32<rt> dstA := ite 0 srcA dstA extractLow)
+      builder <! (extractHigh 32<rt> dstA := ite 1 srcA dstA extractHigh)
+      builder <! (extractLow 32<rt> dstB := ite 2 srcB dstB extractLow)
+      builder <! (extractHigh 32<rt> dstB := ite 3 srcB dstB extractHigh)
+      builder <! (extractLow 32<rt> dstC := ite 4 srcC dstC extractLow)
+      builder <! (extractHigh 32<rt> dstC := ite 5 srcC dstC extractHigh)
+      builder <! (extractLow 32<rt> dstD := ite 6 srcD dstD extractLow)
+      builder <! (extractHigh 32<rt> dstD := ite 7 srcD dstD extractHigh)
+      builder <! (extractLow 32<rt> dstE := ite 8 srcE dstE extractLow)
+      builder <! (extractHigh 32<rt> dstE := ite 9 srcE dstE extractHigh)
+      builder <! (extractLow 32<rt> dstF := ite 10 srcF dstF extractLow)
+      builder <! (extractHigh 32<rt> dstF := ite 11 srcF dstF extractHigh)
+      builder <! (extractLow 32<rt> dstG := ite 12 srcG dstG extractLow)
+      builder <! (extractHigh 32<rt> dstG := ite 13 srcG dstG extractHigh)
+      builder <! (extractLow 32<rt> dstH := ite 14 srcH dstH extractLow)
+      builder <! (extractHigh 32<rt> dstH := ite 15 srcH dstH extractHigh)
+    | _ -> raise InvalidOperandException
   else raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
@@ -6279,12 +6332,6 @@ let vmovntdq ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 16
 let vmovntpd ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 16
 
 let vmovntps ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 16
-
-let getEVEXPrx = function
-  | Some v -> match v.EVEXPrx with
-              | Some ev -> ev
-              | None -> raise InvalidPrefixException
-  | None -> raise InvalidPrefixException
 
 let vmovdqu64 ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
