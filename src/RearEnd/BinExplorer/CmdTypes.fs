@@ -25,14 +25,10 @@
 namespace B2R2.RearEnd.BinExplorer
 
 open B2R2.MiddleEnd.BinEssence
+open B2R2.RearEnd
 
 /// Raised when there are duplicate commands with the same name or alias.
 exception DuplicateCommandException
-
-/// This is a output for printers of console, log, json or others.
-type CmdOutput =
-  | Normal of string
-  | Colored of ColoredString
 
 /// Cmd represents a command that can be invoked within B2R2's CLI.
 [<AbstractClass>]
@@ -55,7 +51,7 @@ type Cmd () =
 
   /// A command callback function. This function takes in an Agent (arbiter), a
   /// CmdMap, and a list of arguments as input, and produces some side effects.
-  abstract member CallBack: CmdMap -> BinEssence -> string list -> CmdOutput []
+  abstract member CallBack: CmdMap -> BinEssence -> string list -> OutString []
 
 /// This is a mapping from a command name to the corresponding command (Cmd).
 and CmdMap = {
@@ -72,7 +68,7 @@ module internal Cmd =
 
   let handle cmdMap binEssence cmd args =
     match Map.tryFind cmd cmdMap.CmdMap with
-    | None -> warnUnknown cmd |> Array.map Normal
+    | None -> warnUnknown cmd |> Array.map OutputNormal
     | Some cmd -> cmd.CallBack cmdMap binEssence args
 
 module internal CmdMap =

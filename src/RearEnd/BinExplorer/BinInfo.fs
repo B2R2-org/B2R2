@@ -25,8 +25,9 @@
 namespace B2R2.RearEnd.BinExplorer
 
 open B2R2
-open B2R2.MiddleEnd.BinEssence
 open B2R2.FrontEnd.BinFile
+open B2R2.MiddleEnd.BinEssence
+open B2R2.RearEnd
 
 type CmdBinInfo () =
   inherit Cmd ()
@@ -71,6 +72,6 @@ type CmdBinInfo () =
        sprintf "- Number of Dynamic Symbols: %d" dynamicSymNum
        sprintf "- NX bit: %s" nx
     |]
-    |> Array.map Normal
+    |> Array.map OutputNormal
 
 // vim: set tw=80 sts=2 sw=2:

@@ -108,7 +108,7 @@ let initAsmString (opts: AssemblerOpts) =
   if opts.InputStr.Length = 0 then IO.File.ReadAllText opts.InputFile
   else opts.InputStr
 
-let private printLine hdl (addr, ctxt) bs =
+let private println hdl (addr, ctxt) bs =
   let bCode = (BitConverter.ToString (bs)).Replace ("-", "")
   let hdl = BinHandle.UpdateCode hdl addr bs
   let ins = BinHandle.ParseInstr hdl ctxt addr
@@ -122,7 +122,7 @@ let asmMain _ (opts: AssemblerOpts) =
   let assembler = Assembler (opts.ISA, opts.BaseAddress)
   initAsmString opts
   |> assembler.AssembleBin
-  |> List.fold (printLine hdl) (opts.BaseAddress, ctxt)
+  |> List.fold (println hdl) (opts.BaseAddress, ctxt)
   |> ignore
 
 [<EntryPoint>]

@@ -23,11 +23,13 @@
 *)
 
 namespace B2R2.RearEnd.BinExplorer
+
 open FParsec
 open System.Numerics
 open SimpleArithHelper
 open SimpleArithConverter
 open B2R2
+open B2R2.RearEnd
 
 type SimpleArithEvaluator () =
   /// Concatenating given array of strings. Returning place of error when there
@@ -138,4 +140,4 @@ type CmdEvalExpr (name, alias, descrSuffix, helpSuffix, outFormat) =
     match args with
     | [] -> [| __.CmdHelp |]
     | _ -> evaluator.Run args outFormat
-    |> Array.map Normal
+    |> Array.map OutputNormal

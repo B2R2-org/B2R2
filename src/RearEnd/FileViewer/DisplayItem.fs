@@ -22,36 +22,44 @@
   SOFTWARE.
 *)
 
-module B2R2.Utils
+namespace B2R2.RearEnd.FileViewer
 
-open System
+/// Display items for ELF.
+type ELFDisplayItem =
+  | ELFDisplayProgramHeader
+  | ELFDisplaySectionHeader
+  | ELFDisplaySectionDetails of string
+  | ELFDisplayRelocations
+  | ELFDisplayPLT
+  | ELFDisplayEHFrame
+  | ELFDisplayNotes
 
-let assertEqual a b exn = if a = b then () else raise exn
+/// Display items for PE.
+type PEDisplayItem =
+  | PEDisplayCLRHeader
+  | PEDisplayDependents
 
-let assertByCond cond exn = if cond then () else raise exn
+/// Display items for Mach-O.
+type MachDisplayItem =
+  | MachDisplayArchiveHeader
+  | MachDisplayUniversalHeader
+  | MachDisplayLoadCommands
+  | MachDisplaySharedLibs
+  | MachDisplayRelocations
 
-let futureFeature () =
-  let trace = Diagnostics.StackTrace (true)
-  printfn "FATAL ERROR: NOT IMPLEMENTED FEATURE."
-  trace.ToString () |> printfn "%s"
-  raise <| NotImplementedException ()
-
-let impossible () =
-  let trace = Diagnostics.StackTrace (true)
-  printfn "FATAL ERROR: THIS IS INVALID AND SHOULD NEVER HAPPEN."
-  trace.ToString () |> printfn "%s"
-  raise <| InvalidOperationException ()
-
-let inline tap (f: 'a -> unit) (v: 'a) : 'a =
-  f v; v
-
-let inline curry f a b = f (a, b)
-
-let inline uncurry f (a, b) = f a b
-
-let inline (===) a b = LanguagePrimitives.PhysicalEquality a b
-
-let inline tupleToOpt result =
-  match result with
-  | false, _ -> None
-  | true, a -> Some a
+/// Display items for FileViewer.
+type DisplayItem =
+  /// Special item that represents all items.
+  | DisplayAll
+  /// Basic file header information.
+  | DisplayFileHeader
+  /// Symbols.
+  | DisplaySymbols
+  /// Functions.
+  | DisplayFunctions
+  /// ELF-specific item.
+  | DisplayELFSpecific of ELFDisplayItem
+  /// PE-specific item.
+  | DisplayPESpecific of PEDisplayItem
+  /// Mach-specific item.
+  | DisplayMachSpecific of MachDisplayItem

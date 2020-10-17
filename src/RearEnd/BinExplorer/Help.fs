@@ -24,6 +24,8 @@
 
 namespace B2R2.RearEnd.BinExplorer
 
+open B2R2.RearEnd
+
 type CmdHelp () =
   inherit Cmd ()
 
@@ -64,7 +66,7 @@ type CmdHelp () =
     match args with
     | [] -> generalHelp cmdMap
     | cmd :: _ -> specificHelp cmd cmdMap
-    |> Array.map Normal
+    |> Array.map OutputNormal
 
 type CmdExit () =
   inherit Cmd ()

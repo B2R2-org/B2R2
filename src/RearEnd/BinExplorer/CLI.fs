@@ -25,35 +25,18 @@
 module internal B2R2.RearEnd.BinExplorer.CLI
 
 open B2R2
+open B2R2.RearEnd
 
-let consolePrinter output =
-  match output with
-  | Normal s -> System.Console.WriteLine s
-  | Colored coloredStringList ->
-    coloredStringList
-    |> List.iter (fun (c, s) ->
-      Console.setColor c
-      System.Console.Write s)
-    Console.setColor NoColor
-    System.Console.Write System.Environment.NewLine
-
-let logPrinter output =
-  match output with
-  | Normal s -> s
-  | Colored coloredStringList ->
-    coloredStringList
-    |> List.fold (fun acc (_, s) -> acc + s) ""
-
-let cliPrinter arbiter () (output: CmdOutput) =
-  consolePrinter output
-  logPrinter output |> Protocol.logString arbiter
+let cliPrinter arbiter () (output: OutString) =
+  Printer.println output
+  OutString.toString output |> Protocol.logString arbiter
 
 let handle cmds arbiter (line: string) acc printer =
   match line.Split (' ') |> Array.toList with
   | cmd :: args ->
     let ess = Protocol.getBinEssence arbiter
     let acc = Cmd.handle cmds ess cmd args |> Array.fold (printer arbiter) acc
-    printer arbiter acc (Normal "")
+    printer arbiter acc (OutputNormal "")
   | [] -> acc
 
 let rec cliLoop cmds arbiter (console: FsReadLine.Console) =

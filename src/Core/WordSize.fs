@@ -56,6 +56,9 @@ module WordSize =
     | WordSize.Bit256 -> 256<rt>
     | _ -> failwith "Unknown WordSize."
 
+  /// Transform a word size into a string.
+  let toString wordSz = (toRegType wordSz).ToString ()
+
   /// Is the given word size 32 bit?
   let is32 wordSz = wordSz = WordSize.Bit32
 

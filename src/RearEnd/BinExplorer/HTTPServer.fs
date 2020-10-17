@@ -33,6 +33,7 @@ open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.BinEssence
 open B2R2.MiddleEnd.Lens
 open B2R2.MiddleEnd.DataFlow
+open B2R2.RearEnd
 open B2R2.RearEnd.Visualization
 
 type CFGType =
@@ -209,17 +210,11 @@ let handleHexview req resp arbiter =
   |> Some
   |> answer req resp
 
-let jsonPrinter _ acc output =
-  let result =
-    match output with
-    | Normal s -> acc + s
-    | Colored coloredStringList ->
-      coloredStringList
-      |> List.fold (fun acc (_, s) -> acc + s) acc
-  result + Environment.NewLine
+let private myprinter _ acc output =
+  acc + OutString.toString output + Environment.NewLine
 
 let handleCommand req resp arbiter cmdMap (args: string) =
-  let result = CLI.handle cmdMap arbiter args "" jsonPrinter
+  let result = CLI.handle cmdMap arbiter args "" myprinter
   Some (json<string> result  |> defaultEnc.GetBytes) |> answer req resp
 
 let computeConnectedVars chain v =

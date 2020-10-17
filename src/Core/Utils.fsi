@@ -52,6 +52,3 @@ val inline (===) : 'a -> 'a -> bool when 'a : not struct
 /// Convert a tuple result to an option type. The tuple result is obtained from
 /// the TryGetValue pattern, e.g., IDictionary.
 val inline tupleToOpt: bool * 'a -> 'a option
-
-/// Write B2R2 logo to console. We can selectively append a new line at the end.
-val writeB2R2: newLine: bool -> unit

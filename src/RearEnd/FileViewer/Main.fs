@@ -28,146 +28,136 @@ open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinInterface
 open B2R2.RearEnd
+open B2R2.RearEnd.FileViewer.Helper
 
 let dumpBasic (fi: FileInfo) =
-  printfn "## Basic Information"
-  printfn "- Format       : %s" <| FileFormat.toString fi.FileFormat
-  printfn "- Architecture : %s" <| ISA.ArchToString fi.ISA.Arch
-  printfn "- Endianness   : %s" <| Endian.toString fi.ISA.Endian
-  printfn "- Word size    : %d bit" <| WordSize.toRegType fi.ISA.WordSize
-  printfn "- File type    : %s" <| FileInfo.FileTypeToString fi.FileType
-  printfn "- Entry point  : %s" <| FileInfo.EntryPointToString fi.EntryPoint
-  printfn ""
+  printSectionTitle "Basic Information"
+  printTwoCols "File format:" (FileFormat.toString fi.FileFormat)
+  printTwoCols "Architecture:" (ISA.ArchToString fi.ISA.Arch)
+  printTwoCols "Endianness:" (Endian.toString fi.ISA.Endian)
+  printTwoCols "Word size:" (WordSize.toString fi.WordSize + " bit")
+  printTwoCols "File type:" (FileInfo.FileTypeToString fi.FileType)
+  printTwoColsHi "Entry point:" (FileInfo.EntryPointToString fi.EntryPoint)
+  Printer.println ()
 
 let dumpSecurity (fi: FileInfo) =
-  printfn "## Security Information"
-  printfn "- Stripped binary  : %b" fi.IsStripped
-  printfn "- DEP (NX) enabled : %b" fi.IsNXEnabled
-  printfn "- Relocatable (PIE): %b" fi.IsRelocatable
-  printfn ""
+  printSectionTitle "Security Information"
+  printTwoCols "Stripped binary:" (fi.IsStripped.ToString ())
+  printTwoCols "DEP (NX) enabled:" (fi.IsNXEnabled.ToString ())
+  printTwoCols "Relocatable (PIE):" (fi.IsRelocatable.ToString ())
+  Printer.println ()
 
-let dumpSections (fi: FileInfo) addrToString =
-  printfn "## Section Information"
-  fi.GetSections ()
-  |> Seq.iteri (fun idx s ->
-       printfn "%2d. %s:%s [%s]"
-        idx
-        (addrToString s.Address)
-        (addrToString (s.Address + s.Size))
-        s.Name)
-  printfn ""
+let dumpSpecific opts (fi: FileInfo) title elf pe mach =
+  printSectionTitle title
+  match fi with
+  | :? ELFFileInfo as fi -> elf opts fi
+  | :? PEFileInfo as fi -> pe opts fi
+  | :? MachFileInfo as fi -> mach opts fi
+  | _ -> Utils.futureFeature ()
+  Printer.println ()
 
-let dumpSegments (fi: FileInfo) addrToString =
-  printfn "## Segment Information"
-  fi.GetSegments ()
-  |> Seq.iteri (fun idx s ->
-    printfn "%2d. %s:%s [%s]"
-      idx
-      (addrToString s.Address)
-      (addrToString (s.Address + s.Size))
-      (FileInfo.PermissionToString s.Permission))
-  printfn ""
+let dumpFileHeader (opts: FileViewerOpts) (fi: FileInfo) =
+  dumpSpecific opts fi "File Header"
+    ELFViewer.dumpFileHeader
+    PEViewer.dumpFileHeader
+    MachViewer.dumpFileHeader
 
-let targetString s =
-  match s.Target with
-  | TargetKind.StaticSymbol -> "(s)"
-  | TargetKind.DynamicSymbol -> "(d)"
-  | _ -> failwith "Invalid symbol target kind."
+let dumpSymbols (opts: FileViewerOpts) (fi: FileInfo) =
+  dumpSpecific opts fi "Symbol Information"
+    ELFViewer.dumpSymbols
+    PEViewer.dumpSymbols
+    MachViewer.dumpSymbols
 
-let dumpSymbols (fi: FileInfo) addrToString dumpAll =
-  let lib s = if System.String.IsNullOrWhiteSpace s then "" else " @ " + s
-  let name (s: Symbol) = if s.Name.Length > 0 then " " + s.Name else ""
-  let filterNoType (s: Symbol) =
-    s.Target = TargetKind.DynamicSymbol
-    || (s.Kind <> SymbolKind.NoType && s.Name.Length > 0)
-  printfn "## Symbol Information (s: static / d: dynamic)"
-  fi.GetSymbols ()
-  |> (fun symbs -> if dumpAll then symbs else Seq.filter filterNoType symbs)
-  |> Seq.sortBy (fun s -> s.Name)
-  |> Seq.sortBy (fun s -> s.Address)
-  |> Seq.sortBy (fun s -> s.Target)
-  |> Seq.iter (fun s ->
-       printfn "- %s %s%s%s"
-        (targetString s) (addrToString s.Address) (name s) (lib s.LibraryName))
-  printfn ""
+let dumpFunctions (opts: FileViewerOpts) (fi: FileInfo) =
+  dumpSpecific opts fi "Functions Information"
+    ELFViewer.dumpFunctions
+    PEViewer.dumpFunctions
+    MachViewer.dumpFunctions
 
-let dumpRelocs (fi: FileInfo) addrToString =
-  printfn "## Relocation Information"
-  fi.GetRelocationSymbols ()
-  |> Seq.sortBy (fun s -> s.Address)
-  |> Seq.iter (fun r ->
-    printfn "- (%d) %s: %s%s"
-      (int r.Kind)
-      (addrToString r.Address)
-      r.Name
-      (if r.LibraryName = "" then "" else " @ " + r.LibraryName))
-  printfn ""
+let dumpSections (opts: FileViewerOpts) (fi: FileInfo) =
+  dumpSpecific opts fi "Section Information"
+    ELFViewer.dumpSections
+    PEViewer.dumpSections
+    MachViewer.dumpSections
 
-let dumpIfNotEmpty s =
-  if System.String.IsNullOrEmpty s then "" else "@" + s
+let dumpSectionDetails (secname: string) (fi: FileInfo) =
+  dumpSpecific secname fi "Section Details"
+    ELFViewer.dumpSectionDetails
+    PEViewer.dumpSectionDetails
+    MachViewer.dumpSectionDetails
 
-let dumpLinkageTable (fi: FileInfo) addrToString =
-  printfn "## Linkage Table (PLT -> GOT) Information"
-  fi.GetLinkageTableEntries ()
-  |> Seq.iter (fun a ->
-       printfn "- %s -> %s %s%s"
-        (addrToString a.TrampolineAddress)
-        (addrToString a.TableAddress)
-        a.FuncName
-        (dumpIfNotEmpty a.LibraryName))
-  printfn ""
+let dumpSegments (opts: FileViewerOpts) (fi: FileInfo) =
+  dumpSpecific opts fi "Segment Information"
+    ELFViewer.dumpSegments
+    PEViewer.dumpSegments
+    MachViewer.dumpSegments
 
-let dumpFunctions (fi: FileInfo) addrToString =
-  printfn "## Functions"
-  fi.GetFunctionSymbols ()
-  |> Seq.iter (fun s -> printfn "- %s: %s" (addrToString s.Address) s.Name)
+let dumpRelocs (opts: FileViewerOpts) (fi: FileInfo) =
+  dumpSpecific opts fi "Relocation Information"
+    ELFViewer.dumpRelocs
+    PEViewer.dumpRelocs
+    MachViewer.dumpRelocs
 
-let dumpFile (opts: CmdOptions.FileViewerOpts) (filepath: string) =
-  let hdl = BinHandle.Init (opts.ISA, opts.BaseAddress, filepath)
-  let fi = hdl.FileInfo
-  let addrToString = Addr.toString hdl.ISA.WordSize
-  printfn "# %s" fi.FilePath
-  printfn ""
+let dumpLinkageTable (opts: FileViewerOpts) (fi: FileInfo) =
+  dumpSpecific opts fi "Linkage Table Information"
+    ELFViewer.dumpLinkageTable
+    PEViewer.dumpLinkageTable
+    MachViewer.dumpLinkageTable
+
+let dumpEHFrame hdl (fi: FileInfo) =
+  dumpSpecific hdl fi ".eh_frame Information"
+    ELFViewer.dumpEHFrame PEViewer.badAccess MachViewer.badAccess
+
+let printFileName filepath =
+  [ Green, "["; Yellow, filepath; Green, "]" ] |> Printer.println
+  Printer.println ()
+
+let printBasic fi =
   dumpBasic fi
   dumpSecurity fi
-  dumpSections fi addrToString
-  dumpSegments fi addrToString
-  dumpSymbols fi addrToString opts.Verbose
-  dumpRelocs fi addrToString
-  dumpLinkageTable fi addrToString
-  dumpFunctions fi addrToString
-#if false
-  let fi = fi :?> ELFFileInfo
-  fi.ELF.ExceptionFrame
-  |> List.iter (fun cfi ->
-    printfn "CIE: %x \"%s\" cf=%d df=%d"
-      cfi.CIERecord.Version
-      cfi.CIERecord.AugmentationString
-      cfi.CIERecord.CodeAlignmentFactor
-      cfi.CIERecord.DataAlignmentFactor
-    cfi.FDERecord
-    |> Array.iter (fun fde ->
-      printfn "  FDE: %x..%x (%x)"
-        fde.PCBegin
-        fde.PCEnd
-        (if fde.LSDAPointer.IsNone then 0UL else fde.LSDAPointer.Value)
-      fde.UnwindingInfo |> List.iter (fun i ->
-        printfn "%x; %s; %s"
-          i.Location
-          (ELF.CanonicalFrameAddress.toString fi.RegisterBay i.CanonicalFrameAddress)
-          (i.Rule |> Map.fold (fun s k v ->
-                      match k with
-                      | ELF.ReturnAddress -> s + "(ra:" + ELF.Action.toString v + ")"
-                      | ELF.NormalReg rid -> s + "(" + fi.RegisterBay.RegIDToString rid + ":" + ELF.Action.toString v + ")") ""))
 
-      )
-    )
-#endif
+let printAll opts (fi: FileInfo) =
+  dumpBasic fi
+  dumpSecurity fi
+  dumpFileHeader opts fi
+  dumpSections opts fi
+  dumpSegments opts fi
+  dumpSymbols opts fi
+  dumpRelocs opts fi
+  dumpFunctions opts fi
+  dumpLinkageTable opts fi
+
+let printSelectively hdl opts fi = function
+  | DisplayAll -> Utils.impossible ()
+  | DisplayFileHeader -> dumpFileHeader opts fi
+  | DisplaySymbols -> dumpSymbols opts fi
+  | DisplayFunctions -> dumpFunctions opts fi
+  | DisplayELFSpecific ELFDisplayProgramHeader -> dumpSegments opts fi
+  | DisplayELFSpecific ELFDisplaySectionHeader -> dumpSections opts fi
+  | DisplayELFSpecific (ELFDisplaySectionDetails s) -> dumpSectionDetails s fi
+  | DisplayELFSpecific ELFDisplayRelocations -> dumpRelocs opts fi
+  | DisplayELFSpecific ELFDisplayPLT -> dumpLinkageTable opts fi
+  | DisplayELFSpecific ELFDisplayEHFrame -> dumpEHFrame hdl fi
+  | _ -> Utils.futureFeature ()
+
+let dumpFile (opts: FileViewerOpts) (filepath: string) =
+  let hdl = BinHandle.Init (opts.ISA, opts.BaseAddress, filepath)
+  let fi = hdl.FileInfo
+  printFileName fi.FilePath
+  if opts.DisplayItems.Count = 0 then printBasic fi
+  elif opts.DisplayItems.Contains DisplayAll then printAll opts fi
+  else opts.DisplayItems |> Seq.iter (printSelectively hdl opts fi)
+
+let [<Literal>] private usageTail = "<binary file(s)>"
 
 let dump files opts =
-  files |> List.iter (dumpFile opts)
+  match files with
+  | [] ->
+    printError "File(s) must be given."
+    CmdOpts.PrintUsage usageTail Cmd.spec
+  | files -> files |> List.iter (dumpFile opts)
 
 [<EntryPoint>]
 let main args =
-  let opts = CmdOptions.FileViewerOpts ()
-  CmdOpts.ParseAndRun dump "<binary file(s)>" CmdOptions.spec opts args
+  let opts = FileViewerOpts ()
+  CmdOpts.ParseAndRun dump usageTail Cmd.spec opts args

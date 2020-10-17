@@ -28,6 +28,7 @@ open System
 open System.Text
 open B2R2
 open B2R2.MiddleEnd.BinEssence
+open B2R2.RearEnd
 
 type CmdShow () =
   inherit Cmd ()
@@ -100,6 +101,6 @@ type CmdShow () =
     match args with
     | [] -> [| __.CmdHelp |]
     | c :: opts -> c.ToLower () |> __.CmdHandle ess opts
-    |> Array.map Normal
+    |> Array.map OutputNormal
 
 // vim: set tw=80 sts=2 sw=2:

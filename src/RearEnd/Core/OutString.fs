@@ -22,36 +22,28 @@
   SOFTWARE.
 *)
 
-module B2R2.Utils
+namespace B2R2.RearEnd
 
 open System
 
-let assertEqual a b exn = if a = b then () else raise exn
+/// OutString represents an output string generated from rear-end applications.
+type OutString =
+  | OutputNormal of string
+  | OutputColored of ColoredString
+  | OutputNewLine
 
-let assertByCond cond exn = if cond then () else raise exn
+module OutString =
+  let internal toConsole = function
+    | OutputNormal s -> Console.WriteLine s
+    | OutputColored s -> ColoredString.toConsole s
+    | OutputNewLine -> Console.WriteLine ()
 
-let futureFeature () =
-  let trace = Diagnostics.StackTrace (true)
-  printfn "FATAL ERROR: NOT IMPLEMENTED FEATURE."
-  trace.ToString () |> printfn "%s"
-  raise <| NotImplementedException ()
+  let internal toConsoleLine outstring =
+    toConsole outstring
+    Console.WriteLine ()
 
-let impossible () =
-  let trace = Diagnostics.StackTrace (true)
-  printfn "FATAL ERROR: THIS IS INVALID AND SHOULD NEVER HAPPEN."
-  trace.ToString () |> printfn "%s"
-  raise <| InvalidOperationException ()
-
-let inline tap (f: 'a -> unit) (v: 'a) : 'a =
-  f v; v
-
-let inline curry f a b = f (a, b)
-
-let inline uncurry f (a, b) = f a b
-
-let inline (===) a b = LanguagePrimitives.PhysicalEquality a b
-
-let inline tupleToOpt result =
-  match result with
-  | false, _ -> None
-  | true, a -> Some a
+  let toString = function
+    | OutputNormal s -> s
+    | OutputColored segs ->
+      segs |> List.fold (fun acc (_, s) -> acc + s) ""
+    | OutputNewLine -> Environment.NewLine

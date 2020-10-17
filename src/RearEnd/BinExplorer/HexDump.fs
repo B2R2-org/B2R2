@@ -26,6 +26,7 @@ namespace B2R2.RearEnd.BinExplorer
 
 open System
 open B2R2.MiddleEnd.BinEssence
+open B2R2.RearEnd
 
 type CmdHexDump () =
   inherit Cmd ()
@@ -71,7 +72,7 @@ type CmdHexDump () =
     |> Array.append (dumpHex bytes)
     |> Array.append [| ColoredSegment (NoColor, addr + ": ") |]
     |> List.ofArray
-    |> ColoredString.map
+    |> ColoredString.compile
 
   let hexdump = function
     | Ok (addr, bytes: byte []) ->
@@ -98,7 +99,7 @@ type CmdHexDump () =
       |> Result.bind (parseCount cnt)
       |> Result.bind (readBytes binEssence)
       |> hexdump
-      |> Array.map Colored
-    | _ -> [| __.CmdHelp |] |> Array.map Normal
+      |> Array.map OutputColored
+    | _ -> [| __.CmdHelp |] |> Array.map OutputNormal
 
 // vim: set tw=80 sts=2 sw=2:
