@@ -24,32 +24,34 @@ SOFTWARE.
 
 module B2R2.RearEnd.FileViewer.PEViewer
 
-open B2R2
 open B2R2.FrontEnd.BinFile
 
-let dumpFileHeader (fi: PEFileInfo) (opts: CmdOptions.FileViewerOpts) =
+let badAccess _ _ =
+  raise InvalidFileTypeException
+
+let dumpFileHeader (opts: FileViewerOpts) (fi: PEFileInfo) =
   printfn "pe dumpFileHeader"
 
-let dumpSections (fi: PEFileInfo) (opts: CmdOptions.FileViewerOpts) =
+let dumpSections (opts: FileViewerOpts) (fi: PEFileInfo) =
   printfn "pe dumpSections"
 
-let dumpTextSection (fi: PEFileInfo) (opts: CmdOptions.FileViewerOpts) =
+let dumpTextSection (opts: FileViewerOpts) (fi: PEFileInfo) =
   printfn "pe dumpTextSection"
 
-let dumpSectionDetails (fi: PEFileInfo) (opts: CmdOptions.FileViewerOpts) =
+let dumpSectionDetails (secname: string) (fi: PEFileInfo) =
   printfn "pe dumpSectionDetails"
 
-let dumpSegments (fi: PEFileInfo) (opts: CmdOptions.FileViewerOpts) =
+let dumpSegments (opts: FileViewerOpts) (fi: PEFileInfo) =
   printfn "pe dumpSegments"
 
-let dumpSymbols (fi: PEFileInfo) (opts: CmdOptions.FileViewerOpts) =
+let dumpSymbols (opts: FileViewerOpts) (fi: PEFileInfo) =
   printfn "pe dumpSymbols"
 
-let dumpRelocs (fi: PEFileInfo) (opts: CmdOptions.FileViewerOpts) =
+let dumpRelocs (opts: FileViewerOpts) (fi: PEFileInfo) =
   printfn "pe dumpRelocs"
 
-let dumpFunctions (fi: PEFileInfo) (opts: CmdOptions.FileViewerOpts) =
+let dumpFunctions (opts: FileViewerOpts) (fi: PEFileInfo) =
   printfn "pe dumpFunctions"
 
-let dumpLinkageTable (fi: PEFileInfo) (opts: CmdOptions.FileViewerOpts) =
+let dumpLinkageTable (opts: FileViewerOpts) (fi: PEFileInfo) =
   printfn "pe dumpLinkageTable"

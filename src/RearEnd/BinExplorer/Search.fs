@@ -28,6 +28,7 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinInterface
+open B2R2.RearEnd
 
 type CmdSearch () =
   inherit Cmd ()
@@ -75,6 +76,6 @@ type CmdSearch () =
     | []
     | _ :: [] -> [| __.CmdHelp |]
     | t :: pattern :: _ -> t.ToLower () |> __.CmdHandle ess.BinHandle pattern
-    |> Array.map Normal
+    |> Array.map OutputNormal
 
 // vim: set tw=80 sts=2 sw=2:

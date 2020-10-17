@@ -25,6 +25,7 @@
 namespace B2R2.RearEnd.BinExplorer
 
 open B2R2
+open B2R2.RearEnd
 open B2R2.RearEnd.ROP
 
 type CmdGadgetSearch () =
@@ -44,7 +45,7 @@ type CmdGadgetSearch () =
   override __.CallBack _ ess _args =
     let hdl = ess.BinHandle
     [| Galileo.findGadgets hdl |> GadgetMap.toString hdl |]
-    |> Array.map Normal
+    |> Array.map OutputNormal
 
 type CmdROP () =
   inherit Cmd ()
@@ -75,10 +76,10 @@ type CmdROP () =
     | Architecture.IntelX86 ->
       let rop = ROPHandle.init hdl 0UL
       __.HandleSubCmd hdl rop args
-      |> Array.map Normal
+      |> Array.map OutputNormal
     | arch ->
       [| "[*] We currently do not support " + (ISA.ArchToString arch) |]
-      |> Array.map Normal
+      |> Array.map OutputNormal
 
   member private __.HandleSubCmd hdl rop args =
     match args with

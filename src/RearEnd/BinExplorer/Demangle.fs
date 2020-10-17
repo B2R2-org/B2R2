@@ -26,6 +26,7 @@ namespace B2R2.RearEnd.BinExplorer
 
 open B2R2
 open B2R2.FrontEnd.NameMangling
+open B2R2.RearEnd
 
 type CmdDemangle () =
   inherit Cmd ()
@@ -45,4 +46,4 @@ type CmdDemangle () =
     match Demangler.Demangle mangled |> Utils.tupleToOpt with
     | None -> [| "[*] Invalid input." |]
     | Some s -> [| s |]
-    |> Array.map Normal
+    |> Array.map OutputNormal

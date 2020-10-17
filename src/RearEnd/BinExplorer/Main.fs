@@ -256,7 +256,7 @@ let batchRun opts paths fstParam restParams fn =
 let runCommand cmdMap opts file cmd args =
   let ess = initBinHdl ISA.DefaultISA file |> buildGraph opts
   Cmd.handle cmdMap ess cmd args
-  |> Array.iter System.Console.WriteLine
+  |> Array.iter Printer.print
 
 let dumpSwitch _cmdMap opts file outdir _args =
   let ess = initBinHdl ISA.DefaultISA file |> buildGraph opts

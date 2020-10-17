@@ -9,7 +9,6 @@
 
   <ItemGroup>
     <Compile Include="Protocol.fs" />
-    <Compile Include="ColoredString.fs" />
     <Compile Include="CmdTypes.fs" />
     <Compile Include="CmdUtils.fs" />
     <Compile Include="BinInfo.fs" />

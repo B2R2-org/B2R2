@@ -28,6 +28,7 @@ open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.BinEssence
+open B2R2.RearEnd
 
 type CmdList () =
   inherit Cmd ()
@@ -93,6 +94,6 @@ type CmdList () =
     | "sections" :: _
     | "secs" :: _ -> listSections ess.BinHandle
     | _ -> [| "[*] Unknown list cmd is given." |]
-    |> Array.map Normal
+    |> Array.map OutputNormal
 
 // vim: set tw=80 sts=2 sw=2:

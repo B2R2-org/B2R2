@@ -25,172 +25,177 @@ SOFTWARE.
 module B2R2.RearEnd.FileViewer.ELFViewer
 
 open B2R2
+open B2R2.FrontEnd.BinInterface
 open B2R2.FrontEnd.BinFile
+open B2R2.RearEnd
+open B2R2.RearEnd.FileViewer.Helper
 
-let dumpFileHeader (fi: ELFFileInfo) (opts: CmdOptions.FileViewerOpts) =
+let badAccess _ _ =
+  raise InvalidFileTypeException
+
+let computeMagicBytes (fi: ELFFileInfo) =
+  fi.ELF.BinReader.PeekBytes (16, 0) |> colorBytes
+
+let dumpFileHeader (_: FileViewerOpts) (fi: ELFFileInfo) =
   let hdr = fi.ELF.ELFHdr
-  let magic =
-    fi.ELF.BinReader.PeekBytes (16, 0)
-    |> Array.fold (fun s b -> s + b.ToString ("X2") + " ") ""
-  printfn " <ELF Header>"
-  printfn " - Magic                       : %s" magic
-  printfn " - Class                       : %s" <| match int hdr.Class with
-                                                   | 32 -> "ELF32"
-                                                   | 64 -> "ELF64"
-                                                   | _  -> ""
-  printfn " - Data                        : %s" <| Endian.toString hdr.Endian
-  printfn " - Version                     : %s" <| hdr.Version.ToString ()
-  printfn " - ABI                         : %s" <| hdr.OSABI.ToString ()
-  printfn " - ABI Version                 : %s" <| hdr.OSABIVersion.ToString ()
-  printfn " - Type                        : %s" <| hdr.ELFFileType.ToString ()
-  printfn " - Machine                     : %s" <| hdr.MachineType.ToString ()
-  printfn " - Entry Point                 : 0x%s"
-    <| hdr.EntryPoint.ToString ("X")
-  printfn " - Program Headers Offset      : 0x%s"
-    <| hdr.PHdrTblOffset.ToString ()
-  printfn " - Section Headers Offset      : 0x%s"
-    <| hdr.SHdrTblOffset.ToString ()
-  printfn " - Flags                       : %s" <| hdr.ELFFlags.ToString ()
-  printfn " - Header Size                 : %s (bytes)"
-    <| hdr.HeaderSize.ToString ()
-  printfn " - Program Header Entry Size   : %s (bytes)"
-    <| hdr.PHdrEntrySize.ToString ()
-  printfn " - Program Header Entry Num    : %s" <| hdr.PHdrNum.ToString ()
-  printfn " - Section Header Entry Size   : %s (bytes)"
-    <| hdr.SHdrEntrySize.ToString ()
-  printfn " - Section Header Entry Num    : %s" <| hdr.SHdrNum.ToString ()
-  printfn " - Section Header String Index : %s" <| hdr.SHdrStrIdx.ToString ()
-  if opts.HexDump then
-    printfn "hexdump"
+  printTwoColsWithCS "Magic:" (computeMagicBytes fi)
+  printTwoCols "Class:" ("ELF" + WordSize.toString hdr.Class)
+  printTwoCols "Data:" (Endian.toString hdr.Endian + " endian")
+  printTwoCols "Version:" (hdr.Version.ToString ())
+  printTwoCols "ABI:" (hdr.OSABI.ToString ())
+  printTwoCols "ABI version:" (hdr.OSABIVersion.ToString ())
+  printTwoCols "Type:" (hdr.ELFFileType.ToString ())
+  printTwoCols "Machine:" (hdr.MachineType.ToString ())
+  printTwoColsHi "Entry point:" (toHexString hdr.EntryPoint)
+  printTwoCols "PHdr table offset:" (toHexString hdr.PHdrTblOffset)
+  printTwoCols "SHdr table offset:" (toHexString hdr.SHdrTblOffset)
+  printTwoCols "Flags:" (toHexString (uint64 hdr.ELFFlags))
+  printTwoCols "Header size:" (toNBytes (uint64 hdr.HeaderSize))
+  printTwoCols "PHdr Entry Size:" (toNBytes (uint64 hdr.PHdrEntrySize))
+  printTwoCols "PHdr Entry Num:" (hdr.PHdrNum.ToString ())
+  printTwoCols "SHdr Entry Size:" (toNBytes (uint64 (hdr.SHdrEntrySize)))
+  printTwoCols "SHdr Entry Num:" (hdr.SHdrNum.ToString ())
+  printTwoCols "SHdr string index:" (hdr.SHdrStrIdx.ToString ())
 
-let dumpSections (fi: ELFFileInfo) (opts: CmdOptions.FileViewerOpts) =
-  printfn " <ELF Section Headers>"
+let columnWidthOfAddr (fi: ELFFileInfo) =
+  if fi.ELF.ELFHdr.Class = WordSize.Bit32 then 8 else 16
+
+let dumpSections (opts: FileViewerOpts) (fi: ELFFileInfo) =
   if opts.Verbose then
-    printfn "verbose"
+    Utils.futureFeature ()
   else
-    printfn " %s %-16s %-16s %-s"
-      "Num." "Start Address" "End Address" "Name"
+    let addrColumn = columnWidthOfAddr fi |> LeftAligned
+    let cfg = [ RightAligned 5; addrColumn; addrColumn; LeftAligned 24 ]
+    Printer.printrow cfg ["Num."; "Start"; "End"; "Name" ]
     fi.GetSections ()
     |> Seq.iteri (fun idx s ->
-      printfn " %3d. %16s %16s %s"
-        idx
-        (Helper.addrToString fi.WordSize s.Address)
-        (Helper.addrToString fi.WordSize (s.Address + s.Size))
-        s.Name)
-  if opts.HexDump then
-    printfn "hexdump"
+      Printer.printrow cfg
+        [ idx.ToString ()
+          (addrToString fi.WordSize s.Address)
+          (addrToString fi.WordSize (s.Address + s.Size))
+          normalizeEmpty s.Name ])
 
 let printSectionInfo (section: ELF.ELFSection) =
-  printfn " - Num        : %d" section.SecNum
-  printfn " - Name       : %s" section.SecName
-  printfn " - Type       : %s" <| section.SecType.ToString ()
-  printfn " - Address    : %s" <| section.SecAddr.ToString ("X")
-  printfn " - Offset     : %s" <| section.SecOffset.ToString ("X")
-  printfn " - Size       : %s" <| section.SecSize.ToString ("X")
-  printfn " - Entry Size : %s" <| section.SecEntrySize.ToString ("X")
-  printfn " - Flag       : %s" <| section.SecFlags.ToString ()
-  printfn " - Link       : %s" <| section.SecLink.ToString ()
-  printfn " - Info       : %s" <| section.SecInfo.ToString ()
-  printfn " - Alignment  : %s" <| section.SecAlignment.ToString ("X")
+  printTwoCols "Section number:" (section.SecNum.ToString ())
+  printTwoCols "Section name:" section.SecName
+  printTwoCols "Type:" (section.SecType.ToString ())
+  printTwoCols "Address:" (toHexString section.SecAddr)
+  printTwoCols "Offset:" (toHexString section.SecOffset)
+  printTwoCols "Size:" (toHexString section.SecSize)
+  printTwoCols "Entry Size:" (toHexString section.SecEntrySize)
+  printTwoCols "Flag:" (section.SecFlags.ToString ())
+  printTwoCols "Link:" (section.SecLink.ToString ())
+  printTwoCols "Info:" (section.SecInfo.ToString ())
+  printTwoCols "Alignment:" (toHexString section.SecAlignment)
 
-let dumpTextSection (fi: ELFFileInfo) (opts: CmdOptions.FileViewerOpts) =
-  printfn " <ELF Text Section>"
-  fi.GetTextSections ()
-  |> Seq.iter (fun s ->
-    printSectionInfo fi.ELF.SecInfo.SecByName.[s.Name])
-  if opts.HexDump then
-    printfn "hexdump"
+let dumpSectionDetails (secname: string) (fi: ELFFileInfo) =
+  printSectionInfo fi.ELF.SecInfo.SecByName.[secname]
 
-let dumpSectionDetails (fi: ELFFileInfo) (opts: CmdOptions.FileViewerOpts) =
-  printfn " <ELF Section Details>"
-  printSectionInfo fi.ELF.SecInfo.SecByName.[opts.DisplayTargets.["d"].[0]]
-  if opts.HexDump then
-    printfn "Hex dump:"
-
-let dumpSegments (fi: ELFFileInfo) (opts: CmdOptions.FileViewerOpts) =
-  printfn " <ELF Program Segment Headers>"
+let dumpSegments (opts: FileViewerOpts) (fi: ELFFileInfo) =
   if opts.Verbose then
-    printfn "verbose"
+    Utils.futureFeature ()
   else
-    printfn " Those are only loadable segments"
-    printfn " %s  %-16s  %-16s  %-s"
-      "Num." "Start Address" "End Address" "Permission"
+    let addrColumn = columnWidthOfAddr fi |> LeftAligned
+    let cfg = [ RightAligned 5; addrColumn; addrColumn; LeftAligned 10 ]
+    Printer.println "Those are only loadable segments."
+    Printer.println ()
+    Printer.printrow cfg [ "Num."; "Start"; "End"; "Permission" ]
     fi.GetSegments ()
     |> Seq.iteri (fun idx s ->
-      printfn " %3d.  %16s  %16s  [%s]"
-        idx
-        (Helper.addrToString fi.WordSize s.Address)
-        (Helper.addrToString fi.WordSize (s.Address + s.Size))
-        (FileInfo.PermissionToString s.Permission))
-  if opts.HexDump then
-    printfn "hexdump"
+      Printer.printrow cfg
+        [ idx.ToString ()
+          (addrToString fi.WordSize s.Address)
+          (addrToString fi.WordSize (s.Address + s.Size))
+          (FileInfo.PermissionToString s.Permission) ])
 
-let printSymbolInfo (fi: ELFFileInfo) (symbols: seq<Symbol>) =
-  let targetString s =
-    match s.Target with
-    | TargetKind.StaticSymbol -> "(s)"
-    | TargetKind.DynamicSymbol -> "(d)"
-    | _ -> failwith "Invalid symbol target kind."
-  let name (s: Symbol) = if s.Name.Length > 0 then s.Name else ""
-  printfn " s: static, d: dynamic"
-  printfn " %s  %-16s  %-80s  %-s"
-   "Kind" "Address" "Name" "LibraryName"
+let targetString s =
+  match s.Target with
+  | TargetKind.StaticSymbol -> "(s)"
+  | TargetKind.DynamicSymbol -> "(d)"
+  | _ -> Utils.impossible ()
+
+let toLibString (s: string) =
+  if System.String.IsNullOrEmpty s then s else "@ " + s
+
+let printSymbolInfo isVerbose (fi: ELFFileInfo) (symbols: seq<Symbol>) =
+  let addrColumn = columnWidthOfAddr fi |> LeftAligned
+  let cfg = [ LeftAligned 5; addrColumn; LeftAligned 30; LeftAligned 15 ]
+  Printer.printrow cfg [ "Kind"; "Address"; "Name"; "LibraryName" ]
   symbols
   |> Seq.sortBy (fun s -> s.Name)
   |> Seq.sortBy (fun s -> s.Address)
   |> Seq.sortBy (fun s -> s.Target)
   |> Seq.iter (fun s ->
-    printfn " %4s  %16s  %-80s  %-s"
-      (targetString s) (Helper.addrToString fi.WordSize s.Address)
-      (name s) (Helper.dumpIfNotEmpty s.LibraryName))
+    Printer.printrow cfg
+      [ targetString s
+        addrToString fi.WordSize s.Address
+        normalizeEmpty s.Name
+        (toLibString >> normalizeEmpty) s.LibraryName ])
 
-let dumpSymbols (fi: ELFFileInfo) (opts: CmdOptions.FileViewerOpts) =
-  printfn " <ELF Symbols>"
-  let filterNoType (s: Symbol) =
-    s.Target = TargetKind.DynamicSymbol
-    || (s.Kind <> SymbolKind.NoType && s.Name.Length > 0)
-  if opts.Verbose then
-    printfn "verbose"
-  else
-    fi.GetSymbols ()
-    |> (fun symbs -> Seq.filter filterNoType symbs)
-    |> printSymbolInfo fi
-  if opts.HexDump then
-    printfn "hexdump"
+let dumpSymbols (opts: FileViewerOpts) (fi: ELFFileInfo) =
+  fi.GetSymbols ()
+  |> printSymbolInfo opts.Verbose fi
 
-let dumpRelocs (fi: ELFFileInfo) (opts: CmdOptions.FileViewerOpts) =
-  printfn " <ELF Relocation Symbols>"
-  if opts.Verbose then
-    printfn "verbose"
-  else
-    fi.GetRelocationSymbols ()
-    |> printSymbolInfo fi
-  if opts.HexDump then
-    printfn "hexdump"
+let dumpRelocs (opts: FileViewerOpts) (fi: ELFFileInfo) =
+  fi.GetRelocationSymbols ()
+  |> printSymbolInfo opts.Verbose fi
 
-let dumpFunctions (fi: ELFFileInfo) (opts: CmdOptions.FileViewerOpts) =
-  printfn " <ELF Function Symbols>"
-  if opts.Verbose then
-    printfn "verbose"
-  else
-    fi.GetFunctionSymbols ()
-    |> printSymbolInfo fi
-  if opts.HexDump then
-    printfn "hexdump"
+let dumpFunctions (opts: FileViewerOpts) (fi: ELFFileInfo) =
+  fi.GetFunctionSymbols ()
+  |> printSymbolInfo opts.Verbose fi
 
-let dumpLinkageTable (fi: ELFFileInfo) (opts: CmdOptions.FileViewerOpts) =
-  printfn " <ELF Linkage Table (PLT -> GOT) Information>"
+let dumpLinkageTable (opts: FileViewerOpts) (fi: ELFFileInfo) =
   if opts.Verbose then
-    printfn "verbose"
+    Utils.futureFeature ()
   else
-    printfn " %-16s  %-16s  %-20s  %-s"
-      "PLT" "GOT" "FunctionName" "LibraryName"
+    let addrColumn = columnWidthOfAddr fi |> LeftAligned
+    let cfg = [ addrColumn; addrColumn; LeftAligned 30; LeftAligned 15 ]
+    Printer.printrow cfg [ "PLT"; "GOT"; "FunctionName"; "LibraryName" ]
     fi.GetLinkageTableEntries ()
-     |> Seq.iter (fun a ->
-       printfn " %16s  %16s  %-20s  %-s"
-         (Helper.addrToString fi.WordSize a.TrampolineAddress)
-         (Helper.addrToString fi.WordSize a.TableAddress)
-         a.FuncName
-         (Helper.dumpIfNotEmpty a.LibraryName))
-  if opts.HexDump then
-    printfn "hexdump"
+    |> Seq.iter (fun e ->
+      Printer.printrow cfg
+        [ (addrToString fi.WordSize e.TrampolineAddress)
+          (addrToString fi.WordSize e.TableAddress)
+          normalizeEmpty e.FuncName
+          (toLibString >> normalizeEmpty) e.LibraryName ])
+
+let cfaToString (hdl: BinHandle) cfa =
+  ELF.CanonicalFrameAddress.toString hdl.RegisterBay cfa
+
+let ruleToString (hdl: BinHandle) (rule: ELF.Rule) =
+  rule
+  |> Map.fold (fun s k v ->
+    match k with
+    | ELF.ReturnAddress -> s + "(ra:" + ELF.Action.toString v + ")"
+    | ELF.NormalReg rid ->
+      let reg = hdl.RegisterBay.RegIDToString rid
+      s + "(" + reg + ":" + ELF.Action.toString v + ")") ""
+
+let dumpEHFrame hdl (fi: ELFFileInfo) =
+  let addrColumn = columnWidthOfAddr fi |> LeftAligned
+  let cfg = [ addrColumn; LeftAligned 10; LeftAligned 50 ]
+  fi.ELF.ExceptionFrame
+  |> List.iter (fun cfi ->
+    Printer.println ("- CIE: \"{0}\" cf={1} df={2}",
+      cfi.CIERecord.AugmentationString,
+      cfi.CIERecord.CodeAlignmentFactor.ToString ("+0;-#"),
+      cfi.CIERecord.DataAlignmentFactor.ToString ("+0;-#"))
+    Printer.println ()
+    cfi.FDERecord
+    |> Array.iter (fun fde ->
+      Printer.println ("  FDE pc={0}..{1}",
+        toHexString fde.PCBegin,
+        toHexString fde.PCEnd)
+      if fde.UnwindingInfo.IsEmpty then ()
+      else
+        Printer.println "  ---"
+        Printer.printrow cfg [ "Location"; "CFA"; "Rules" ]
+      fde.UnwindingInfo
+      |> List.iter (fun i ->
+        Printer.printrow cfg
+          [ toHexString i.Location
+            cfaToString hdl i.CanonicalFrameAddress
+            ruleToString hdl i.Rule ])
+      Printer.println ()
+    )
+  )

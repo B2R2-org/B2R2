@@ -25,6 +25,7 @@
 namespace B2R2.RearEnd.BinExplorer
 
 open B2R2
+open B2R2.RearEnd
 
 type CmdCredits () =
   inherit Cmd ()
@@ -41,6 +42,6 @@ type CmdCredits () =
 
   override __.CallBack _ _ _args =
     [| Attribution.copyright; |]
-    |> Array.map Normal
+    |> Array.map OutputNormal
 
 // vim: set tw=80 sts=2 sw=2:

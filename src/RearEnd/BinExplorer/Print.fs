@@ -29,6 +29,7 @@ open System.Text.RegularExpressions
 open B2R2
 open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.BinEssence
+open B2R2.RearEnd
 
 type PrintFormat =
   | Hexadecimal
@@ -186,6 +187,6 @@ type CmdPrint () =
       |> Result.bind (parseAddr addr)
       |> validateRequest binEssence
     | _ -> [| __.CmdHelp |]
-    |> Array.map Normal
+    |> Array.map OutputNormal
 
 // vim: set tw=80 sts=2 sw=2:

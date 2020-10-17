@@ -24,32 +24,34 @@ SOFTWARE.
 
 module B2R2.RearEnd.FileViewer.MachViewer
 
-open B2R2
 open B2R2.FrontEnd.BinFile
 
-let dumpFileHeader (fi: MachFileInfo) (opts: CmdOptions.FileViewerOpts) =
+let badAccess _ _ =
+  raise InvalidFileTypeException
+
+let dumpFileHeader (opts: FileViewerOpts) (fi: MachFileInfo) =
   printfn "mach dumpFileHeader"
 
-let dumpSections (fi: MachFileInfo) (opts: CmdOptions.FileViewerOpts) =
+let dumpSections (opts: FileViewerOpts) (fi: MachFileInfo) =
   printfn "mach dumpSections"
 
-let dumpTextSection (fi: MachFileInfo) (opts: CmdOptions.FileViewerOpts) =
+let dumpTextSection (opts: FileViewerOpts) (fi: MachFileInfo) =
   printfn "mach dumpTextSection"
 
-let dumpSectionDetails (fi: MachFileInfo) (opts: CmdOptions.FileViewerOpts) =
+let dumpSectionDetails (secname: string) (fi: MachFileInfo) =
   printfn "mach dumpSectionDetails"
 
-let dumpSegments (fi: MachFileInfo) (opts: CmdOptions.FileViewerOpts) =
+let dumpSegments (opts: FileViewerOpts) (fi: MachFileInfo) =
   printfn "mach dumpSegments"
 
-let dumpSymbols (fi: MachFileInfo) (opts: CmdOptions.FileViewerOpts) =
+let dumpSymbols (opts: FileViewerOpts) (fi: MachFileInfo) =
   printfn "mach dumpSymbols"
 
-let dumpRelocs (fi: MachFileInfo) (opts: CmdOptions.FileViewerOpts) =
+let dumpRelocs (opts: FileViewerOpts) (fi: MachFileInfo) =
   printfn "mach dumpRelocs"
 
-let dumpFunctions (fi: MachFileInfo) (opts: CmdOptions.FileViewerOpts) =
+let dumpFunctions (opts: FileViewerOpts) (fi: MachFileInfo) =
   printfn "mach dumpFunctions"
 
-let dumpLinkageTable (fi: MachFileInfo) (opts: CmdOptions.FileViewerOpts) =
+let dumpLinkageTable (opts: FileViewerOpts) (fi: MachFileInfo) =
   printfn "mach dumpLinkageTable"

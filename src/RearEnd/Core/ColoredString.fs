@@ -1,4 +1,4 @@
-﻿(*
+(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -22,11 +22,11 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd.BinExplorer
+namespace B2R2.RearEnd
 
 open System
 
-type Color = Red | Green | Yellow | Blue | NoColor
+type Color = Red | Green | Yellow | Blue | DarkCyan | DarkYellow | NoColor
 
 module Color =
   let toString = function
@@ -35,9 +35,12 @@ module Color =
     | Green -> "green"
     | Yellow -> "yellow"
     | Blue -> "blue"
+    | DarkCyan -> "darkcyan"
+    | DarkYellow -> "darkyellow"
 
 type ColoredSegment = Color * string
 
+[<RequireQualifiedAccess>]
 module ColoredSegment =
   let private isNull b = b = 0uy
 
@@ -65,27 +68,52 @@ module ColoredSegment =
   let byteToHex b =
     getColor b, b.ToString ("X2")
 
+  let byteToHexWithTail b tail =
+    getColor b, (b.ToString ("X2") + tail)
+
   let byteToAscii b =
     getColor b, getRepresentation b
 
+  let inline nocolor str: ColoredSegment = NoColor, str
+  let inline red str: ColoredSegment = Red, str
+  let inline green str: ColoredSegment = Green, str
+  let inline yellow str: ColoredSegment = Yellow, str
+  let inline blue str: ColoredSegment = Blue, str
+  let inline dcyan str: ColoredSegment = DarkCyan, str
+  let inline dyellow str: ColoredSegment = DarkYellow, str
+
 type ColoredString = ColoredSegment list
 
+[<RequireQualifiedAccess>]
 module ColoredString =
-  let map (s: ColoredString): ColoredString =
+  /// Set the color.
+  let private setColor = function
+    | NoColor -> Console.ResetColor ()
+    | Red -> Console.ForegroundColor <- ConsoleColor.Red
+    | Green -> Console.ForegroundColor <- ConsoleColor.Green
+    | Yellow -> Console.ForegroundColor <- ConsoleColor.Yellow
+    | Blue -> Console.ForegroundColor <- ConsoleColor.Blue
+    | DarkCyan -> Console.ForegroundColor <- ConsoleColor.DarkCyan
+    | DarkYellow -> Console.ForegroundColor <- ConsoleColor.DarkYellow
+
+  let compile (s: ColoredString): ColoredString =
     let rec loop prev acc = function
       | [] -> prev :: acc |> List.rev |> List.choose id
       | col, str as cur :: rest ->
         match prev with
         | Some (prevCol, prevStr) when prevCol = col ->
           loop (Some (prevCol, prevStr + str)) acc rest
-        | Some (prevCol, prevStr) -> loop (Some cur) (prev :: acc) rest
+        | Some (_, _) -> loop (Some cur) (prev :: acc) rest
         | None -> loop (Some cur) acc rest
     loop None [] s
 
-module Console =
-  let setColor = function
-    | NoColor -> Console.ResetColor ()
-    | Red -> Console.ForegroundColor <- ConsoleColor.Red
-    | Green -> Console.ForegroundColor <- ConsoleColor.Green
-    | Yellow -> Console.ForegroundColor <- ConsoleColor.Yellow
-    | Blue -> Console.ForegroundColor <- ConsoleColor.Blue
+  let internal toConsole (s: ColoredString) =
+    s
+    |> List.iter (fun (c, s) ->
+      setColor c
+      Console.Write s)
+    Console.ResetColor ()
+
+  let internal toConsoleLine s =
+    toConsole s
+    Console.WriteLine ()

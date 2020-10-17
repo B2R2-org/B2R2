@@ -22,184 +22,155 @@
   SOFTWARE.
 *)
 
-module B2R2.RearEnd.FileViewer.CmdOptions
+namespace B2R2.RearEnd.FileViewer
 
 open B2R2
 open B2R2.RearEnd
 open System
+open System.Collections.Generic
 
 type FileViewerOpts () =
   inherit CmdOpts ()
 
-  /// Specify ISA. This is only meaningful for universal (fat) binaries because
+  let items = HashSet<DisplayItem> ()
+
+  /// Display items.
+  member val DisplayItems = items with get
+
+  /// Specific ISA. This is only meaningful for universal (fat) binaries because
   /// BinHandler will automatically detect file format by default. When a fat
   /// binary is given, we need to choose which architecture to explorer with
   /// this option.
   member val ISA = ISA.DefaultISA with get, set
 
-  /// Base address
+  /// Base address to use. By default, it is zero (0).
   member val BaseAddress: Addr = 0UL with get, set
-
-  /// Display targets
-  member val DisplayTargets = Map.empty with get, set
-
-  /// Hexdump
-  member val HexDump = false with get, set
 
   static member private ToThis (opts: CmdOpts) =
     match opts with
     | :? FileViewerOpts as opts -> opts
     | _ -> failwith "Invalid Opts."
 
-  /// "-i" or "--isa" option for specifying ISA.
-  static member OptISA () =
-    let cb (opts: #CmdOpts) (arg: string []) =
-      (FileViewerOpts.ToThis opts).ISA <- ISA.OfString arg.[0]; opts
-    CmdOpts.New ( descr = "Specify <ISA> (e.g., x86) for fat binaries",
-                  extra = 1, callback = cb, short = "-i", long= "--isa" )
+  static member private AddOpt (opts: #CmdOpts) item =
+    (FileViewerOpts.ToThis opts).DisplayItems.Add item |> ignore
+    opts
+
+  /// "-h" or "--help" option.
+  static member OptHelp () =
+    CmdOpts.New (descr = "Show this usage", help = true, long = "--help")
 
   /// "-b" or "--base-addr" option for specifying a base address.
   static member OptBaseAddr () =
-    let cb (opts: #CmdOpts) (arg: string []) =
+    let cb opts (arg: string []) =
       (FileViewerOpts.ToThis opts).BaseAddress <- Convert.ToUInt64 (arg.[0], 16)
       opts
-    CmdOpts.New ( descr = "Specify the base <address> in hex (default=0)",
-                  extra = 1, callback = cb, short = "-b", long = "--base-addr" )
-
-  /// "-x" or "--hexdump" option for displaying the additional hexdump.
-  static member OptHexdump () =
-    let cb (opts: #CmdOpts) _ =
-      let targets = (FileViewerOpts.ToThis opts).DisplayTargets
-      (FileViewerOpts.ToThis opts).HexDump <- true
-      opts
-    CmdOpts.New ( descr = "Display the additional hexdump",
-                  callback = cb, short = "-x", long = "--hexdump" )
+    CmdOpts.New (descr = "Specify the base <address> in hex (default=0)",
+                 extra = 1, callback = cb, short = "-b", long = "--base-addr")
 
   /// "-a" or "--all" option for displaying all the file information.
   static member OptAll () =
-    let cb (opts: #CmdOpts) _ =
-      let targets = (FileViewerOpts.ToThis opts).DisplayTargets
-      (FileViewerOpts.ToThis opts).DisplayTargets <- Map.add "a" [||] targets
-      opts
-    CmdOpts.New ( descr = "Display all the file information",
-                  callback = cb, short = "-a", long = "--all" )
+    let cb opts _ = FileViewerOpts.AddOpt opts DisplayAll
+    CmdOpts.New (descr = "Display all the file information",
+                 callback = cb, short = "-a", long = "--all")
 
-  /// "-B" or "--basic" option for displaying the basic file information.
-  static member OptBasic () =
-    let cb (opts: #CmdOpts) _ =
-      let targets = (FileViewerOpts.ToThis opts).DisplayTargets
-      (FileViewerOpts.ToThis opts).DisplayTargets <- Map.add "B" [||] targets
-      opts
-    CmdOpts.New ( descr = "Display the basic file information",
-                  callback = cb, short = "-B", long = "--basic" )
-
-  /// "-e" or "--headers" option for displaying all the headers.
-  static member OptHeaders () =
-    let cb (opts: #CmdOpts) _ =
-      let targets = (FileViewerOpts.ToThis opts).DisplayTargets
-      (FileViewerOpts.ToThis opts).DisplayTargets <- Map.add "e" [||] targets
-      opts
-    CmdOpts.New ( descr = "Display all the headers",
-                  callback = cb, short = "-e", long = "--headers" )
-
-  /// "-f" or "--file-header" option for displaying the file header.
+  /// "-h" or "--file-header" option for displaying the file header.
   static member OptFileHeader () =
-    let cb (opts: #CmdOpts) _ =
-      let targets = (FileViewerOpts.ToThis opts).DisplayTargets
-      (FileViewerOpts.ToThis opts).DisplayTargets <- Map.add "f" [||] targets
-      opts
-    CmdOpts.New ( descr = "Display the file header",
-                  callback = cb, short = "-f", long = "--file-header" )
-
-  /// "-p" or "--program-headers" option for displaying the program headers.
-  static member OptProgramHeaders () =
-    let cb (opts: #CmdOpts) _ =
-      let targets = (FileViewerOpts.ToThis opts).DisplayTargets
-      (FileViewerOpts.ToThis opts).DisplayTargets <- Map.add "p" [||] targets
-      opts
-    CmdOpts.New ( descr = "Display the program headers",
-                  callback = cb, short = "-p", long = "--program-headers" )
-
-  /// "-S" or "--section-headers" option for displaying the section headers.
-  static member OptSectionHeaders () =
-    let cb (opts: #CmdOpts) _ =
-      let targets = (FileViewerOpts.ToThis opts).DisplayTargets
-      (FileViewerOpts.ToThis opts).DisplayTargets <- Map.add "S" [||] targets
-      opts
-    CmdOpts.New ( descr = "Display the section headers",
-                  callback = cb, short = "-S", long = "--section-headers" )
-
-  /// "-d" or "--section-details" option for displaying the target section
-  /// details.
-  static member OptSectionDetails () =
-    let cb (opts: #CmdOpts) (arg: string []) =
-      let targets = (FileViewerOpts.ToThis opts).DisplayTargets
-      (FileViewerOpts.ToThis opts).DisplayTargets
-        <- Map.add "d" arg targets
-      opts
-    CmdOpts.New ( descr = "Display the <name> section details", extra = 1,
-                  callback = cb, short = "-d", long = "--section-details" )
-
-  /// "-T" or "--text" option for displaying the text section.
-  static member OptTextSection () =
-    let cb (opts: #CmdOpts) _ =
-      let targets = (FileViewerOpts.ToThis opts).DisplayTargets
-      (FileViewerOpts.ToThis opts).DisplayTargets <- Map.add "T" [||] targets
-      opts
-    CmdOpts.New ( descr = "Display the text section",
-                  callback = cb, short = "-T", long = "--text" )
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts DisplayFileHeader
+    CmdOpts.New (descr = "Display the file header",
+                 callback = cb, short = "-h", long = "--file-header")
 
   /// "-s" or "--symbols" option for displaying the symbols.
   static member OptSymbols () =
-    let cb (opts: #CmdOpts) _ =
-      let targets = (FileViewerOpts.ToThis opts).DisplayTargets
-      (FileViewerOpts.ToThis opts).DisplayTargets <- Map.add "s" [||] targets
-      opts
-    CmdOpts.New ( descr = "Display the symbols",
-                  callback = cb, short = "-s", long = "--symbols" )
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts DisplaySymbols
+    CmdOpts.New (descr = "Display the symbols",
+                 callback = cb, short = "-s", long = "--symbols")
 
-  /// "-r" or "--relocs" option for displaying the relocation section.
-  static member OptRelocs () =
-    let cb (opts: #CmdOpts) _ =
-      let targets = (FileViewerOpts.ToThis opts).DisplayTargets
-      (FileViewerOpts.ToThis opts).DisplayTargets <- Map.add "r" [||] targets
-      opts
-    CmdOpts.New ( descr = "Display the relocation section",
-                  callback = cb, short = "-r", long = "--relocs" )
-
-  /// "-F" or "--functions" option for displaying the functions.
+  /// "-f" or "--functions" option for displaying the symbols.
   static member OptFunctions () =
-    let cb (opts: #CmdOpts) _ =
-      let targets = (FileViewerOpts.ToThis opts).DisplayTargets
-      (FileViewerOpts.ToThis opts).DisplayTargets <- Map.add "F" [||] targets
-      opts
-    CmdOpts.New ( descr = "Display the functions",
-                  callback = cb, short = "-F", long = "--functions" )
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts DisplayFunctions
+    CmdOpts.New (descr = "Display the function symbols",
+                 callback = cb, short = "-f", long = "--functions")
 
-  /// "-L" or "--linkage-table" option for displaying the linkage table.
-  static member OptLinkageTable () =
-    let cb (opts: #CmdOpts) _ =
-      let targets = (FileViewerOpts.ToThis opts).DisplayTargets
-      (FileViewerOpts.ToThis opts).DisplayTargets <- Map.add "L" [||] targets
-      opts
-    CmdOpts.New ( descr = "Display the linkage table",
-                  callback = cb, short = "-L", long = "--linkage-table" )
+  /// "--program-headers" option for displaying the program headers.
+  static member OptProgramHeaders () =
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts (DisplayELFSpecific ELFDisplayProgramHeader)
+    CmdOpts.New (descr = "Display the program headers",
+                 callback = cb, long = "--program-headers")
 
-let spec: FileViewerOpts FsOptParse.Option list =
-  [ FileViewerOpts.OptISA ()
-    FileViewerOpts.OptBaseAddr ()
-    FileViewerOpts.OptHexdump ()
-    FileViewerOpts.OptAll ()
-    FileViewerOpts.OptBasic ()
-    FileViewerOpts.OptHeaders ()
-    FileViewerOpts.OptFileHeader ()
-    FileViewerOpts.OptProgramHeaders ()
-    FileViewerOpts.OptSectionHeaders ()
-    FileViewerOpts.OptSectionDetails ()
-    FileViewerOpts.OptTextSection ()
-    FileViewerOpts.OptSymbols ()
-    FileViewerOpts.OptRelocs ()
-    FileViewerOpts.OptFunctions ()
-    FileViewerOpts.OptLinkageTable ()
-    CmdOpts.OptVerbose ()
-    CmdOpts.OptHelp () ]
+  /// "--section-headers" option for displaying the section headers.
+  static member OptSectionHeaders () =
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts (DisplayELFSpecific ELFDisplaySectionHeader)
+    CmdOpts.New (descr = "Display the section headers",
+                 callback = cb, long = "--section-headers")
+
+  /// "--section-details" option for displaying the target section
+  /// details.
+  static member OptSectionDetails () =
+    let cb opts (arg: string []) =
+      DisplayELFSpecific (ELFDisplaySectionDetails arg.[0])
+      |> FileViewerOpts.AddOpt opts
+    CmdOpts.New (descr = "Display the <name> section details", extra = 1,
+                 callback = cb, long = "--section-details")
+
+  /// "--relocs" option for displaying the relocation section.
+  static member OptRelocs () =
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts (DisplayELFSpecific ELFDisplayRelocations)
+    CmdOpts.New (descr = "Display the relocation section",
+                 callback = cb, long = "--relocations")
+
+  /// "--plt" option for displaying the PLT.
+  static member OptPLT () =
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts (DisplayELFSpecific ELFDisplayPLT)
+    CmdOpts.New (descr = "Display the PLT-GOT information",
+                 callback = cb, long = "--plt")
+
+  /// "--ehframe" option for displaying the eh_frame section information.
+  static member OptEHFrame () =
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts (DisplayELFSpecific ELFDisplayEHFrame)
+    CmdOpts.New (descr = "Display the eh_frame information",
+                 callback = cb, long = "--ehframe")
+
+  /// "-i" or "--isa" option for specifying ISA.
+  static member OptISA () =
+    let cb opts (arg: string []) =
+      (FileViewerOpts.ToThis opts).ISA <- ISA.OfString arg.[0]; opts
+    CmdOpts.New (descr = "Specify <ISA> (e.g., x86) for fat binaries",
+                 extra = 1, callback = cb, short = "-i", long= "--isa")
+
+[<RequireQualifiedAccess>]
+module Cmd =
+  let spec: FileViewerOpts FsOptParse.Option list =
+    [ CmdOpts.New (descr = "[General options]", dummy = true)
+      CmdOpts.New (descr = "", dummy = true)
+
+      FileViewerOpts.OptHelp ()
+      CmdOpts.OptVerbose ()
+      FileViewerOpts.OptBaseAddr ()
+      FileViewerOpts.OptAll ()
+      FileViewerOpts.OptFileHeader ()
+      FileViewerOpts.OptSymbols ()
+      FileViewerOpts.OptFunctions ()
+
+      CmdOpts.New (descr = "", dummy = true)
+      CmdOpts.New (descr = "[ELF options]", dummy = true)
+      CmdOpts.New (descr = "", dummy = true)
+
+      FileViewerOpts.OptProgramHeaders ()
+      FileViewerOpts.OptSectionHeaders ()
+      FileViewerOpts.OptSectionDetails ()
+      FileViewerOpts.OptRelocs ()
+      FileViewerOpts.OptPLT ()
+      FileViewerOpts.OptEHFrame ()
+
+      CmdOpts.New (descr = "", dummy = true)
+      CmdOpts.New (descr = "[Mach-O options]", dummy = true)
+      CmdOpts.New (descr = "", dummy = true)
+      FileViewerOpts.OptISA () ]
