@@ -196,7 +196,7 @@ let dumpJsonFiles jsonDir ess =
   ess.CalleeMap.InternalCallees
   |> Seq.iter (fun { CalleeID = id; Addr = addr } ->
     let disasmJsonPath = Printf.sprintf "%s/%s.disasmCFG" jsonDir id
-    let cfg, root = ess.GetFunctionCFG (Option.get addr)
+    let cfg, root = ess.GetFunctionCFG (Option.get addr) |> Result.get
     let lens = DisasmLens.Init ess
     let disasmcfg, _ = lens.Filter (cfg, [root], ess)
     CFGExport.toJson disasmcfg disasmJsonPath)

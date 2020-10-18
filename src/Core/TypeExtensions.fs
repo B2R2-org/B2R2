@@ -75,4 +75,12 @@ module Option =
     | Some v -> v
     | None -> raise exn
 
+/// Extended Result.
+module Result =
+  /// Get the result assuming that there is no error.
+  let inline get res =
+    match res with
+    | Ok (r) -> r
+    | Error _ -> invalidOp "The Result type had an Error, but not handled."
+
 // vim: set tw=80 sts=2 sw=2:

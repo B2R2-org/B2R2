@@ -36,3 +36,5 @@ type ErrorCase =
   | SymbolNotFound = 3
   /// Invalid file format.
   | InvalidFileFormat = 4
+  /// Invalid function address is encountered during a CFG analysis.
+  | InvalidFunctionAddress = 5

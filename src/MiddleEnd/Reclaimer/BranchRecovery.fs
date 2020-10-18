@@ -180,7 +180,7 @@ module BranchRecoveryHelper =
       computeFunctionBoundaries ((addr, next) :: acc) addrs
 
   let private hasIndirectBranch (ess: BinEssence) entry =
-    let cfg, _ = ess.GetFunctionCFG (entry, false)
+    let cfg, _ = ess.GetFunctionCFG (entry, false) |> Result.get
     DiGraph.foldVertex cfg (fun acc (v: Vertex<IRBasicBlock>) ->
       (not <| v.VData.IsFakeBlock () && v.VData.HasIndirectBranch)
       || acc) false
@@ -213,7 +213,8 @@ module BranchRecoveryHelper =
     DiGraph.subGraph irCFG vertices
 
   let private computeConstantPropagation ess entry =
-    let irCFG, irRoot = (ess: BinEssence).GetFunctionCFG (entry, false)
+    let irCFG, irRoot =
+      (ess: BinEssence).GetFunctionCFG (entry, false) |> Result.get
     let lens = SSALens.Init ess
     let irCFG = getNecessarySubGraph irCFG
     let ssaCFG, ssaRoots = lens.Filter (irCFG, [irRoot], ess)
@@ -395,7 +396,7 @@ module BranchRecoveryHelper =
     |> initializeFunctionLevelJmpTblStates hint []
 
   let private collectIndirectJumps (ess: BinEssence) entry =
-    let cfg, _ = ess.GetFunctionCFG (entry, false)
+    let cfg, _ = ess.GetFunctionCFG (entry, false) |> Result.get
     DiGraph.foldVertex cfg (fun acc (v: Vertex<IRBasicBlock>) ->
       if not <| v.VData.IsFakeBlock () && v.VData.HasIndirectBranch then
         let addr = v.VData.LastInstruction.Address

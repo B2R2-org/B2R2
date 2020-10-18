@@ -32,9 +32,6 @@ open B2R2.MiddleEnd.BinGraph
 open System.Collections.Generic
 open System.Runtime.InteropServices
 
-/// Raised when the given address is not a start address of a function.
-exception InvalidFunctionAddressException
-
 /// <summary>
 ///   BinEssence is the main corpus of binary, which contains all the essential
 ///   information about parsed binary instructions, basic blocks, CFGs, as well
@@ -67,13 +64,11 @@ exception InvalidFunctionAddressException
 ///   </para>
 ///   <para>
 ///     Once we obtained basic information, i.e., BinEssence, to work with, we
-///     perform some post analyses to improve the information. For example, we
+///     perform some post-analyses to improve the information. For example, we
 ///     remove unnecessary edges from the SCFG by disconnecting return edges
 ///     from a function that termiates the process (e.g., exit function), and we
 ///     recover indirect branch targets to discover more instructions. After the
-///     post analyses, we may or may not have an updated Apparatus, in which
-///     case we rerun the above steps to update our SCFG (with newly found
-///     instructions, etc.).
+///     post analyses, we may or may not have an updated BinEssence.
 ///   </para>
 /// </remarks>
 type BinEssence = {
@@ -167,8 +162,8 @@ with
     if __.CalleeMap.Contains addr then
       let rootPos = ProgramPoint (addr, 0)
       let newGraph = loop newGraph rootPos
-      newGraph, vMap.[rootPos]
-    else raise InvalidFunctionAddressException
+      Ok (newGraph, vMap.[rootPos])
+    else Error ErrorCase.InvalidFunctionAddress
 
   member private __.ReverseLookUp src =
     let queue = Queue<Vertex<IRBasicBlock>> ([ src ])

@@ -85,14 +85,16 @@ module SSABlockHelper =
     let hdl = ess.BinHandle
     let defs = addStackDef hdl Set.empty
     try
-      let g, _ = ess.GetFunctionCFG (addr, false)
-      if hdl.FileInfo.IsLinkageTable addr then
-        defs |> addReturnValDef hdl |> addMemDef |> Set.toArray
-      else
-        let defs = DiGraph.foldVertex g defVarFolder defs
-        if isGetPCThunk hdl addr then defs
-        else defs |> addReturnValDef hdl
-        |> Set.toArray
+      match ess.GetFunctionCFG (addr, false) with
+      | Ok (g, _) ->
+        if hdl.FileInfo.IsLinkageTable addr then
+          defs |> addReturnValDef hdl |> addMemDef |> Set.toArray
+        else
+          let defs = DiGraph.foldVertex g defVarFolder defs
+          if isGetPCThunk hdl addr then defs
+          else defs |> addReturnValDef hdl
+          |> Set.toArray
+      | Error _ -> defs |> addReturnValDef hdl |> Set.toArray
     with _ -> defs |> addReturnValDef hdl |> Set.toArray
 
   let computeNextPPoint (ppoint: ProgramPoint) = function

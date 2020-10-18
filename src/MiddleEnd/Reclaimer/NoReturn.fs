@@ -150,7 +150,7 @@ module private NoReturnHelper =
       else collectSyscallFallThroughs ess cfg v edges)
 
   let removeFallThroughEdges (ess: BinEssence) entry =
-    let cfg, _ = ess.GetFunctionCFG (entry, false)
+    let cfg, _ = ess.GetFunctionCFG (entry, false) |> Result.get
     let ess, scfg =
       collectEdgesToRemove ess cfg
       |> List.fold (fun (ess, scfg) (src, dst) ->
@@ -164,7 +164,7 @@ module private NoReturnHelper =
     { ess with SCFG = scfg }
 
   let checkNoReturnCondition (ess: BinEssence) entry =
-    let cfg, _ = ess.GetFunctionCFG (entry, false)
+    let cfg, _ = ess.GetFunctionCFG (entry, false) |> Result.get
     DiGraph.getExits cfg
     |> List.fold (fun acc (v: Vertex<IRBasicBlock>) ->
       if v.VData.IsFakeBlock () then
