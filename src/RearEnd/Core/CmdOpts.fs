@@ -57,7 +57,8 @@ type CmdOpts () =
     CmdOpts.New (descr = "Show this usage",
                  help = true, short = "-h", long = "--help")
 
-  /// Write B2R2 logo to console. We can selectively append a new line at the end.
+  /// Write B2R2 logo to console. We can selectively append a new line at the
+  /// end.
   static member WriteB2R2 newLine =
     [ CS.dcyan "B"; CS.dyellow "2"; CS.dcyan "R"; CS.dyellow "2" ]
     |> Printer.print
@@ -68,18 +69,18 @@ type CmdOpts () =
     Printer.println (", the Next-Generation Reversing Platform")
     Printer.println (Attribution.copyright + Environment.NewLine)
 
-  static member private CreateUsageGetter usageTail =
+  static member private CreateUsageGetter tool usageTail =
     fun () ->
       CmdOpts.WriteIntro ()
       let tail = if String.IsNullOrEmpty usageTail then "" else " " + usageTail
-      String.Format ("[Usage]{0}{0}dotnet run -- %o{1}",
-                     Environment.NewLine, tail)
+      String.Format ("[Usage]{0}{0}dotnet b2r2 {1} %o{2}",
+                     Environment.NewLine, tool, tail)
 
   static member private TermFunction () = exit 1
 
-  static member private parseCmdOpts spec defaultOpts argv usageTail =
+  static member private parseCmdOpts spec defaultOpts argv tool usageTail =
     let prog = Environment.GetCommandLineArgs().[0]
-    let usageGetter = CmdOpts.CreateUsageGetter usageTail
+    let usageGetter = CmdOpts.CreateUsageGetter tool usageTail
     try
       optParse spec usageGetter prog argv defaultOpts
     with
@@ -93,14 +94,14 @@ type CmdOpts () =
       eprintfn "Fatal error: %s" e.Message
       usagePrint spec prog usageGetter CmdOpts.TermFunction
 
-  static member PrintUsage usageTail optSpec =
+  static member PrintUsage tool usageTail spec =
     let prog = Environment.GetCommandLineArgs().[0]
-    let usageGetter = CmdOpts.CreateUsageGetter usageTail
-    usagePrint optSpec prog usageGetter CmdOpts.TermFunction
+    let usageGetter = CmdOpts.CreateUsageGetter tool usageTail
+    usagePrint spec prog usageGetter CmdOpts.TermFunction
 
   /// Parse command line arguments, and run the mainFn
-  static member ParseAndRun mainFn usageTail optSpec (opts: #CmdOpts) args =
-    let rest, opts = CmdOpts.parseCmdOpts optSpec opts args usageTail
+  static member ParseAndRun mainFn tool usageTail spec (opts: #CmdOpts) args =
+    let rest, opts = CmdOpts.parseCmdOpts spec opts args tool usageTail
     if opts.Verbose then CmdOpts.WriteIntro () else ()
     try mainFn rest opts; 0
     with e -> eprintfn "Error: %s" e.Message

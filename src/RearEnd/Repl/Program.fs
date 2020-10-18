@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.RearEnd.Repl.Main
+module B2R2.RearEnd.Repl.Program
 
 open B2R2
 open B2R2.FrontEnd.BinInterface
@@ -74,4 +74,4 @@ let runRepl _args (opts: ReplOpts) =
 [<EntryPoint>]
 let main args =
   let opts = ReplOpts ()
-  ReplOpts.ParseAndRun runRepl "" ReplOpts.spec opts args
+  ReplOpts.ParseAndRun runRepl "repl" "" ReplOpts.spec opts args

@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.RearEnd.BinExplorer.Main
+module B2R2.RearEnd.BinExplorer.Program
 
 open B2R2
 open B2R2.FrontEnd.BinInterface
@@ -272,6 +272,8 @@ let dumpSwitch _cmdMap opts file outdir _args =
     )
   )
 
+let [<Literal>] private toolName = "binexplore"
+
 let batchMain opts paths args =
   match args with
   | "visualize" :: infile :: outfile :: _ -> visualizeGraph infile outfile
@@ -285,13 +287,14 @@ let batchMain opts paths args =
 let parseAndRunBatchMode opts (beforeOpts, afterOpts) =
   CmdOpts.ParseAndRun (fun rest opts ->
     batchMain opts rest (Array.tail afterOpts |> Array.toList)
-  ) "" spec opts beforeOpts
+  ) toolName "" spec opts beforeOpts
 
 [<EntryPoint>]
 let main args =
   let opts = BinExplorerOpts (ISA.DefaultISA)
   match Array.tryFindIndex (fun a -> a = "--batch") args with
   | Some idx -> Array.splitAt idx args |> parseAndRunBatchMode opts
-  | None -> CmdOpts.ParseAndRun interactiveMain "<binary file>" spec opts args
+  | None ->
+    CmdOpts.ParseAndRun interactiveMain toolName "<binfile>" spec opts args
 
 // vim: set tw=80 sts=2 sw=2:

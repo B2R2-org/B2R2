@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>b2r2</ToolCommandName>
+    <PackageOutputPath>../../../build</PackageOutputPath>
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageIcon>b2r2-240x240.png</PackageIcon>
+    <RepositoryUrl>https://github.com/B2R2-org/B2R2</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Program.fs" />
+    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
+    <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Core\B2R2.RearEnd.Core.fsproj" />
+    <ProjectReference Include="..\FileViewer\B2R2.RearEnd.FileViewer.fsproj" />
+    <ProjectReference Include="..\BinDump\B2R2.RearEnd.BinDump.fsproj" />
+    <ProjectReference Include="..\BinExplorer\B2R2.RearEnd.BinExplorer.fsproj" />
+    <ProjectReference Include="..\Repl\B2R2.RearEnd.Repl.fsproj" />
+    <ProjectReference Include="..\Assembler\B2R2.RearEnd.Assembler.fsproj" />
+  </ItemGroup>
+
+</Project>

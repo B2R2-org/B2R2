@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.RearEnd.FileViewer.Main
+module B2R2.RearEnd.FileViewer.Program
 
 open B2R2
 open B2R2.FrontEnd.BinFile
@@ -148,16 +148,17 @@ let dumpFile (opts: FileViewerOpts) (filepath: string) =
   elif opts.DisplayItems.Contains DisplayAll then printAll opts fi
   else opts.DisplayItems |> Seq.iter (printSelectively hdl opts fi)
 
+let [<Literal>] private toolName = "fileview"
 let [<Literal>] private usageTail = "<binary file(s)>"
 
 let dump files opts =
   match files with
   | [] ->
     printError "File(s) must be given."
-    CmdOpts.PrintUsage usageTail Cmd.spec
+    CmdOpts.PrintUsage toolName usageTail Cmd.spec
   | files -> files |> List.iter (dumpFile opts)
 
 [<EntryPoint>]
 let main args =
   let opts = FileViewerOpts ()
-  CmdOpts.ParseAndRun dump usageTail Cmd.spec opts args
+  CmdOpts.ParseAndRun dump toolName usageTail Cmd.spec opts args

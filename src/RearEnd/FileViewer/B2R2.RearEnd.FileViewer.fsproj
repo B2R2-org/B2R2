@@ -13,7 +13,7 @@
     <Compile Include="ELFViewer.fs" />
     <Compile Include="MachViewer.fs" />
     <Compile Include="PEViewer.fs" />
-    <Compile Include="Main.fs" />
+    <Compile Include="Program.fs" />
   </ItemGroup>
 
   <ItemGroup>

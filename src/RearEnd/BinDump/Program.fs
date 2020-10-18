@@ -22,12 +22,13 @@
   SOFTWARE.
 *)
 
-module B2R2.RearEnd.BinDump
+module B2R2.RearEnd.BinDump.Program
 
 open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinInterface
+open B2R2.RearEnd
 open System
 
 type DumpMethod =
@@ -333,6 +334,6 @@ let dump _ (opts: BinDumpOpts) =
 [<EntryPoint>]
 let main args =
   let opts = BinDumpOpts (true, ISA.Init (Arch.IntelX86) Endian.Little)
-  CmdOpts.ParseAndRun dump "" spec opts args
+  CmdOpts.ParseAndRun dump "bindump" "" spec opts args
 
 // vim: set tw=80 sts=2 sw=2:

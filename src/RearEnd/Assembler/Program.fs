@@ -22,11 +22,12 @@
   SOFTWARE.
 *)
 
-module B2R2.RearEnd.Assembler
+module B2R2.RearEnd.Assembler.Program
 
 open B2R2
 open B2R2.Peripheral.Assembly
 open B2R2.FrontEnd.BinInterface
+open B2R2.RearEnd
 open System
 
 type AssemblerOpts (isa) =
@@ -128,6 +129,6 @@ let asmMain _ (opts: AssemblerOpts) =
 [<EntryPoint>]
 let main args =
   let opts = AssemblerOpts (ISA.Init (Arch.IntelX86) Endian.Little)
-  CmdOpts.ParseAndRun asmMain "" spec opts args
+  CmdOpts.ParseAndRun asmMain "assembler" "" spec opts args
 
 // vim: set tw=80 sts=2 sw=2:
