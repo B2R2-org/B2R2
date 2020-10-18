@@ -53,7 +53,7 @@ type Prio<'a when 'a : comparison> =
 /// A monoid that represents a priority.
 type Priority<'a when 'a : comparison> (p) =
   new () = Priority (MInfty)
-  member __.Value: Prio<'a> = p
+  member inline __.Value: Prio<'a> = p
   override __.ToString () =
     match p with
     | MInfty -> ""
@@ -62,9 +62,9 @@ type Priority<'a when 'a : comparison> (p) =
     member __.Zero = Priority (MInfty)
     member __.Assoc (rhs: Priority<'a>) =
       match __.Value, rhs.Value with
+      | Prio m, Prio n -> Priority (Prio (if m > n then m else n))
       | MInfty, p
       | p, MInfty -> Priority (p)
-      | Prio m, Prio n -> Priority (Prio (max m n))
 
 type Key<'a when 'a : comparison> =
   | NoKey
@@ -73,7 +73,7 @@ type Key<'a when 'a : comparison> =
 /// A monoid that represents ordering.
 type Ordered<'a when 'a : comparison> (k) =
   new () = Ordered (NoKey)
-  member __.Key: Key<'a> = k
+  member inline __.Key: Key<'a> = k
   override __.ToString () =
     match k with
     | NoKey -> ""
@@ -81,14 +81,15 @@ type Ordered<'a when 'a : comparison> (k) =
   interface IMonoid<Ordered<'a>> with
     member __.Zero = Ordered (NoKey)
     member __.Assoc (rhs: Ordered<'a>) =
-      match k, rhs.Key with
-      | a, NoKey -> Ordered (a)
-      | _, b -> Ordered (b)
+      match rhs.Key with
+      | NoKey -> Ordered (k)
+      | b -> Ordered (b)
 
 /// A monoid that represents an interval (uint64 * uint64).
 type InterMonoid<'a when 'a : comparison> (o, p) =
+  let v = o, p
   new () = InterMonoid<'a> (new Ordered<'a>(), new Priority<'a>())
-  member __.Value : Ordered<'a> * Priority<'a> = o, p
+  member inline __.Value: Ordered<'a> * Priority<'a> = v
   member __.GetMin () = o.Key
   member __.GetMax () = p.Value
   override __.ToString () = "(" + o.ToString () + "," + p.ToString () + ")"
@@ -96,8 +97,9 @@ type InterMonoid<'a when 'a : comparison> (o, p) =
     member __.Zero =
       InterMonoid (new Ordered<'a>(), new Priority<'a>())
     member __.Assoc (rhs: InterMonoid<'a>) =
-      match __.Value, rhs.Value with
-      | (a1, b1), (a2, b2) -> InterMonoid (a1 ++ a2, b1 ++ b2)
+      let a1, b1 = __.Value
+      let a2, b2 = rhs.Value
+      InterMonoid (a1 ++ a2, b1 ++ b2)
 
 /// A size monoid for random access.
 type Size (s) =
@@ -162,10 +164,10 @@ with
   interface IMeasured<'v> with
     member this.Measurement: 'v =
       match this with
-      | One (a) -> calib a
-      | Two (a, b) -> calib a ++ calib b
       | Three (a, b, c) -> calib a ++ calib b ++ calib c
+      | Two (a, b) -> calib a ++ calib b
       | Four (a, b, c, d) -> calib a ++ calib b ++ calib c ++ calib d
+      | One (a) -> calib a
 
   static member Foldr fn digit acc =
     match digit with
