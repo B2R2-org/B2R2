@@ -174,10 +174,11 @@ module CPState =
     | _ -> None
 
   let private mergeMemAux st accMem (mem, _) =
-    let addrs = Map.fold (fun acc addr _ -> Set.add addr acc) Set.empty accMem
-    let addrs = Map.fold (fun acc addr _ -> Set.add addr acc) addrs mem
+    let addrs = HashSet<Addr> ()
+    Map.iter (fun addr _ -> addrs.Add addr |> ignore) accMem
+    Map.iter (fun addr _ -> addrs.Add addr |> ignore) mem
     addrs
-    |> Set.fold (fun newMem addr ->
+    |> Seq.fold (fun newMem addr ->
       match merge st newMem mem addr with
       | Some c -> Map.add addr c newMem
       | None -> newMem) accMem
