@@ -137,21 +137,13 @@ let markSuccessorsConditionally cfg st (blk: Vertex<SSABBlock>) cond =
       CPState.markExecutable st myid succid
     else ())
 
-let evalInterJmp cfg st blk = function
-  | Num addr ->
-    (fun (succ: Vertex<SSABBlock>) ->
-      DiGraph.findEdgeData cfg blk succ <> CallFallThroughEdge)
-    |> markSuccessorsConditionally cfg st blk
-  | _ ->
-    let insInfos = blk.VData.InsInfos
-    if insInfos.[Array.length insInfos - 1].Instruction.IsCall () then
-      (fun (succ: Vertex<SSABBlock>) ->
-        succ.VData.PPoint |> ProgramPoint.IsFake)
-      |> markSuccessorsConditionally cfg st blk
-    else markAllSuccessors cfg st blk
+let evalInterJmp cfg st blk =
+  (fun (succ: Vertex<SSABBlock>) ->
+    DiGraph.findEdgeData cfg blk succ <> CallFallThroughEdge)
+  |> markSuccessorsConditionally cfg st blk
 
 let evalJmp cfg st blk = function
-  | InterJmp expr -> evalInterJmp cfg st blk expr
+  | InterJmp _ -> evalInterJmp cfg st blk
   | _ -> markAllSuccessors cfg st blk
 
 let evalStmt stackSt cfg st blk ppoint = function
