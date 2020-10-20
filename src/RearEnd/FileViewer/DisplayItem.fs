@@ -27,17 +27,17 @@ namespace B2R2.RearEnd.FileViewer
 /// Display items for ELF.
 type ELFDisplayItem =
   | ELFDisplayProgramHeader
-  | ELFDisplaySectionHeader
-  | ELFDisplaySectionDetails of string
-  | ELFDisplayRelocations
   | ELFDisplayPLT
   | ELFDisplayEHFrame
   | ELFDisplayNotes
 
 /// Display items for PE.
 type PEDisplayItem =
+  | PEDisplayImports
+  | PEDisplayExports
+  | PEDisplayOptionalHeader
   | PEDisplayCLRHeader
-  | PEDisplayDependents
+  | PEDisplayDependencies
 
 /// Display items for Mach-O.
 type MachDisplayItem =
@@ -53,8 +53,14 @@ type DisplayItem =
   | DisplayAll
   /// Basic file header information.
   | DisplayFileHeader
+  /// Section headers
+  | DisplaySectionHeaders
+  /// Section details
+  | DisplaySectionDetails of string
   /// Symbols.
   | DisplaySymbols
+  /// Relocations
+  | DisplayRelocations
   /// Functions.
   | DisplayFunctions
   /// ELF-specific item.
