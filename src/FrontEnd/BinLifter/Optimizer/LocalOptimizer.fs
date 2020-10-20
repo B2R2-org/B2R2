@@ -119,6 +119,8 @@ module internal DeadCodeEliminator =
           let ei2 = AST.getExprInfo e2
           loop (idx - 1) len (updateUse3 ei ei1 ei2 drc)
         (* Update ctx *)
+        | Put (v, e) when v = e ->
+          useInfo.[idx] <- false; loop (idx - 1) (len - 1) drc
         | Put (Var (_, n, nn, rs), rhs) ->
           let isUsed = RegisterSet.exist n drc.UseRegisters
           let drc = if isUsed then removeUse n drc else drc
