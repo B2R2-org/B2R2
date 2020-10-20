@@ -31,6 +31,8 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.BinEssence
 open B2R2.MiddleEnd.DataFlow
+open B2R2.BinIR.LowUIR
+open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.Reclaimer
 
 [<TestClass>]
@@ -100,19 +102,19 @@ type PersistentDataFlowTests () =
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) }
       { ProgramPoint = ProgramPoint (4UL, 2)
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.ESP) }
-      { ProgramPoint = ProgramPoint (5UL, 2)
+      { ProgramPoint = ProgramPoint (5UL, 1)
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.ESI) }
-      { ProgramPoint = ProgramPoint (5UL, 3)
+      { ProgramPoint = ProgramPoint (5UL, 2)
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.OF) }
-      { ProgramPoint = ProgramPoint (5UL, 4)
+      { ProgramPoint = ProgramPoint (5UL, 3)
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.CF) }
-      { ProgramPoint = ProgramPoint (5UL, 5)
+      { ProgramPoint = ProgramPoint (5UL, 4)
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.SF) }
-      { ProgramPoint = ProgramPoint (5UL, 6)
+      { ProgramPoint = ProgramPoint (5UL, 5)
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.ZF) }
-      { ProgramPoint = ProgramPoint (5UL, 9)
+      { ProgramPoint = ProgramPoint (5UL, 6)
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.PF) }
-      { ProgramPoint = ProgramPoint (5UL, 10)
+      { ProgramPoint = ProgramPoint (5UL, 7)
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.AF) }
       { ProgramPoint = ProgramPoint (7UL, 1)
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.ECX) }
@@ -165,8 +167,8 @@ type PersistentDataFlowTests () =
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) }
     let res = chain.UseDefChain |> Map.find vp |> Set.toArray
     let solution = [|
-      { ProgramPoint = ProgramPoint (0x12UL, 4)
+      { ProgramPoint = ProgramPoint (0x12UL, 3)
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) }
-      { ProgramPoint = ProgramPoint (0x1AUL, 4)
+      { ProgramPoint = ProgramPoint (0x1AUL, 3)
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.EDX) } |]
     CollectionAssert.AreEqual (solution, res)
