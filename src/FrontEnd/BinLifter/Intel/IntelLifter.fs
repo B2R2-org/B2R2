@@ -7366,12 +7366,13 @@ let xadd ins insAddr insLen ctxt =
 let xchg ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
-  let oprSize = getOperationSize ins
-  let t = tmpVar oprSize
   startMark insAddr insLen builder
-  builder <! (t := dst)
-  builder <! (dstAssign oprSize dst src)
-  builder <! (dstAssign oprSize src t)
+  if dst <> src then
+    let oprSize = getOperationSize ins
+    let t = tmpVar oprSize
+    builder <! (t := dst)
+    builder <! (dstAssign oprSize dst src)
+    builder <! (dstAssign oprSize src t)
   endMark insAddr insLen builder
 
 let xlatb ins insAddr insLen ctxt =
