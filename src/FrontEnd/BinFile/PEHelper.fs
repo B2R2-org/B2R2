@@ -83,10 +83,6 @@ let secFlagToSectionKind (flags: SectionCharacteristics) =
   else
     SectionKind.ExtraSection
 
-let forwardInfoToStr = function
-  | ForwardByName (name, dll) -> dll + "!" + name
-  | ForwardByOrdinal (ord, dll) -> dll + "!#" + string ord
-
 /// Some PE files have a section header indicating that the corresponding
 /// section's size is zero even if it contains actual data, i.e.,
 /// sHdr.VirtualSize = 0, but sHdr.SizeOfRawData <> 0. Thus, we should use this
@@ -160,24 +156,24 @@ let getImportSymbols pe =
   |> List.rev
 
 let getExportSymbols pe =
-  let localExportFolder acc addr exp =
+  let localExportFolder acc addr name =
     let rva = int (addr - pe.BaseAddr)
     match pe.FindSectionIdxFromRVA rva with
     | -1 -> acc
     | idx ->
       { Address = addr
-        Name = exp
+        Name = name
         Kind = getSymbolKindBySectionIndex pe idx
         Target = TargetKind.DynamicSymbol
         LibraryName = "" } :: acc
-  let forwardedExportFolder acc name forwardInfo =
+  let forwardedExportFolder acc name (fwdBin, fwdFunc) =
     { Address = 0UL
       Name = name
-      Kind = SymbolKind.FunctionType
+      Kind = SymbolKind.ForwardType (fwdBin, fwdFunc)
       Target = TargetKind.DynamicSymbol
-      LibraryName = forwardInfoToStr forwardInfo } :: acc
-  let temp = Map.fold localExportFolder [] pe.ExportMap
-  Map.fold forwardedExportFolder temp pe.ForwardMap
+      LibraryName = "" } :: acc
+  Map.fold localExportFolder [] pe.ExportMap
+  |> Map.fold forwardedExportFolder <| pe.ForwardMap
 
 let getAllDynamicSymbols pe =
   let isym = getImportSymbols pe

@@ -57,10 +57,8 @@ let isNULLImportDir tbl =
 
 let decodeForwardInfo (str: string) =
   let strInfo = str.Split('.')
-  let dllName, funStr = strInfo.[0], strInfo.[1]
-  match funStr.[0] with
-  | '#' -> ForwardByOrdinal (Int16.Parse(funStr.[1..]), dllName)
-  | _ -> ForwardByName (funStr, dllName)
+  let dllName, funcName = strInfo.[0], strInfo.[1]
+  (dllName, funcName)
 
 let readIDTEntry (binReader: BinReader) secs pos =
   { ImportLookupTableRVA = binReader.PeekInt32 pos
@@ -289,13 +287,13 @@ let parseImage execpath rawpdb baseAddr binReader (hdrs: PEHeaders) =
   let wordSize = magicToWordSize hdrs.PEHeader.Magic
   let baseAddr = hdrs.PEHeader.ImageBase + baseAddr
   let secs = hdrs.SectionHeaders |> Seq.toArray
-  let exportAddressMaps = parseExports baseAddr binReader hdrs secs
+  let exportMap, forwardMap = parseExports baseAddr binReader hdrs secs
   { PEHeaders = hdrs
     BaseAddr = baseAddr
     SectionHeaders = secs
     ImportMap= parseImports binReader hdrs secs wordSize
-    ExportMap = fst exportAddressMaps
-    ForwardMap = snd exportAddressMaps
+    ExportMap = exportMap
+    ForwardMap = forwardMap
     RelocBlocks = parseRelocation binReader hdrs secs
     WordSize = wordSize
     SymbolInfo = getPDBSymbols execpath rawpdb |> buildPDBInfo baseAddr secs

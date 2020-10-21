@@ -38,19 +38,21 @@ exception InvalidFileTypeException
 /// Kinds of a symbol.
 type SymbolKind =
   /// The symbol type is not specified.
-  | NoType = 0
+  | NoType
   /// The symbol is associated with a data object, such as a variable.
-  | ObjectType = 1
+  | ObjectType
   /// The symbol is associated with a general function.
-  | FunctionType = 2
+  | FunctionType
   /// The symbol is associated with an external (imported) function.
-  | ExternFunctionType = 3
+  | ExternFunctionType
   /// The symbol is associated with a trampoline instruction, such as PLT.
-  | TrampolineType = 4
+  | TrampolineType
   /// The symbol is associated with a section.
-  | SectionType = 5
+  | SectionType
   /// The symbol gives the name of the source file associated with the obj file.
-  | FileType = 6
+  | FileType
+  /// The symbol is associated with a forwarding entry.
+  | ForwardType of bin: string * func: string
 
 /// Is the symbol used for static target (static link editor) or dynamic target
 /// (dynamic linker)?
