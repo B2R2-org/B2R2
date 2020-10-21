@@ -75,6 +75,8 @@ val pdoms: DominatorContext<'D, 'E> -> Vertex<'D> -> Vertex<'D> list
 
 val frontier: DominatorContext<'D, 'E> -> Vertex<'D> -> Vertex<'D> list
 
+val frontiers: DominatorContext<'D, 'E> -> Vertex<'D> list []
+
 val dominatorTree:
   DominatorContext<'D, 'E> -> Map<Vertex<'D>, Vertex<'D> list> * Vertex<'D>
 

@@ -30,8 +30,10 @@ open B2R2.MiddleEnd.BinGraph
 
 let computeFrontiers g root =
   let domCtxt = Dominator.initDominatorContext g root
+  let frontiers = Dominator.frontiers domCtxt
   DiGraph.iterVertex g (fun (v: SSAVertex) ->
-    v.VData.Frontier <- Dominator.frontier domCtxt v)
+    let dfnum = domCtxt.ForwardDomInfo.DFNumMap.[v.GetID ()]
+    v.VData.Frontier <- frontiers.[dfnum])
   domCtxt
 
 let collectDefVars defs (_, stmt) =
