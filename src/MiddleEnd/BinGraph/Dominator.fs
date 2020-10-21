@@ -312,6 +312,15 @@ let frontier ctxt v =
   computeDF domTree frontiers g ctxt root
   frontiers.[dfnum ctxt v]
 
+let frontiers ctxt =
+  let g = ctxt.ForwardGraph
+  let root = ctxt.ForwardRoot
+  let ctxt = ctxt.ForwardDomInfo
+  let frontiers = Array.create ctxt.MaxLength []
+  let domTree = computeDomTree g ctxt
+  computeDF domTree frontiers g ctxt root
+  frontiers
+
 let dominatorTree ctxt =
   let g = ctxt.ForwardGraph
   let info = ctxt.ForwardDomInfo
