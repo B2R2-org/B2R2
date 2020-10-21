@@ -46,16 +46,28 @@ B2R2?
 Features?
 ---------
 
-Currently, our focus is on the front-end of binary analysis, which includes
-binary parser, lifter, and optimizer. B2R2 natively supports parallel lifting,
-which is a new technique we introduced in 2019 NDSS Bar. Please refer to our
-[paper](#citation) for more details about the technique as well as our design
-decisions. We also have our own back-end tools such as symbolic executor, but we
-are *not* planning to open-source them yet. Nevertheless, B2R2 includes several
-useful middle-end or back-end features such as ROP chain compilation, CFG
-building, and automatic graph drawing, and etc. B2R2 also comes with a simple
-command-line utility that we call [`BinExplorer`](src/RearEnd/BinExplorer),
-which can help explore such features using a simple command line interface.
+B2R2 supports instruction parsing, binary disassembly, assembly, control-flow
+recovery, and many more. B2R2 also comes with several user-level command-line
+tools that are similar to readelf and objdump, although our tools are
+platform-agnostic. B2R2 currently supports four binary file formats: ELF, PE,
+Mach-O, and WebAssembly.
+
+Below is a list of features that we currently support. Some of them are work in
+progress, but we look forward to your contributions! Feel free to write a PR
+(Pull Request) while making sure that you have read our [contribution
+guideline](CONTRIBUTING.md).
+
+| Feature               | x86         | x86-64               | ARMv7 (& Thumb) | ARMv8                | MIPS32               | MIPS64               | EVM         | TMS320C600  | PPC        |
+|-----------------------|:-----------:|:--------------------:|:---------------:|:--------------------:|:--------------------:|:--------------------:|:-----------:|:-----------:|:----------:|
+| Instruction Parsing   | :full_moon: | :full_moon:          | :full_moon:     | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :new_moon: |
+| Disassembly           | :full_moon: | :full_moon:          | :full_moon:     | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :new_moon: |
+| Lifting               | :full_moon: | :full_moon:          | :full_moon:     | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :new_moon: |
+| CFG Recovery          | :full_moon: | :full_moon:          | :full_moon:     | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :full_moon: | :new_moon:  | :new_moon: |
+| Data-Flow             | :full_moon: | :full_moon:          | :full_moon:     | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :new_moon: |
+| Instruction Emulation | :full_moon: | :full_moon:          | :full_moon:     | :full_moon:          | :full_moon:          | :full_moon:          | :new_moon:  | :new_moon:  | :new_moon: |
+| Assembly              | :full_moon: | :first_quarter_moon: | :new_moon:      | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon: |
+| REPL                  | :full_moon: | :full_moon:          | :new_moon:      | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon: |
+| ROP Compilation       | :full_moon: | :new_moon:           | :new_moon:      | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon: |
 
 Dependencies?
 -------------
@@ -94,7 +106,7 @@ Let's try to use B2R2 APIs.
 1. Add our nuget package *B2R2.FrontEnd* to the project:
 
     ```
-    $ dotnet add package B2R2.FrontEnd
+    $ dotnet add package B2R2.FrontEnd.BinInterface
     ```
 
 1. Modify the `Program.fs` file with your favorite editor as follows:
@@ -107,9 +119,9 @@ Let's try to use B2R2 APIs.
     let main argv =
       let isa = ISA.OfString "amd64"
       let bytes = [| 0x65uy; 0xffuy; 0x15uy; 0x10uy; 0x00uy; 0x00uy; 0x00uy |]
-      let handler = BinHandler.Init (isa, bytes)
-      let ins = BinHandler.ParseInstr handler 0UL
-      ins.Translate handler.TranslationContext |> printfn "%A"
+      let hdl = BinHandle.Init (isa, bytes)
+      let ins = BinHandle.ParseInstr hdl 0UL
+      ins.Translate hdl.TranslationContext |> printfn "%A"
       0
     ```
 
@@ -139,23 +151,10 @@ There are many other great tools available, but we wanted to build a
 *functional-first* binary analysis platform that is painless to install and runs
 on any platform without any hassle. B2R2 is in its *infancy* stage, but we
 believe it provides a rich set of library functions for binary analysis. It also
-has a strong front-end that is easily adaptable and extendible! Currently it
+has a strong front-end that is easily adaptable and extendable! Currently it
 reliably supports x86 and x86-64, meaning that we have heavily tested them; and
 it partially supports ARMv7 (and Thumb), ARMv8, MIPS32, MIPS64, and EVM meaning
-that they work, but we haven't tested them thorougly yet.
-
-
-Features to be Added?
----------------------
-
-Below is a list of features that we plan to add in the future: the list is
-totally incomplete. Some of them are work in progress, but we look forward your
-contributions! Feel free to write a PR (Pull Requst) while making sure that you
-have read our [contribution guideline](CONTRIBUTING.md).
-
-- Implement CFG recovery algorithms.
-- Implement assembler for currently supported ISAs using a parser combinator.
-- Support for more architectures such as PPC.
+that they work, but we haven't tested them thoroughly yet.
 
 Credits
 -------
