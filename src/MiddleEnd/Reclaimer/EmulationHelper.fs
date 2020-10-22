@@ -70,7 +70,7 @@ let eval (ess: BinEssence) (blk: Vertex<IRBasicBlock>) st stopFn =
         |> SafeEvaluator.evalBlock st 0
       match result with
       | Ok st' ->
-        if stopFn blk.VData.LastInstruction then Some st'
+        if stopFn blk then Some st'
         else
           match ess.FindVertex st'.PC with
           | None -> None

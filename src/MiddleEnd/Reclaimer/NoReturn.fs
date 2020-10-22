@@ -62,10 +62,9 @@ module private NoReturnHelper =
     let hdl = ess.BinHandle
     let st = EvalState (emptyMemoryReader hdl, true)
     let addr = v.VData.PPoint.Address
-    let lastAddr = v.VData.LastInstruction.Address
     let st = initRegs hdl |> EvalState.PrepareContext st 0 addr
     st.Callbacks.SideEffectEventHandler <- sideEffectHandler
-    eval ess v st (fun last -> last.Address = lastAddr)
+    eval ess v st (fun blk -> blk.VData.PPoint.Address = addr)
 
   let checkArgumentsX86 isOk args st =
     let esp = (Intel.Register.ESP |> Intel.Register.toRegID)
