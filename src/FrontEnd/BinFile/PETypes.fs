@@ -249,7 +249,7 @@ type PE = {
   /// RVA to import information.
   ImportMap: Map<int, ImportInfo>
   /// Address (VA) to exported function name.
-  ExportMap: Map<Addr, string>
+  ExportMap: Map<Addr, string list>
   /// Forward target symbol name to a (binary * function) tuple.
   ForwardMap: Map<string, string * string>
   /// List of relocation blocks

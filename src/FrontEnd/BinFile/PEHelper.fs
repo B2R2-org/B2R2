@@ -156,22 +156,28 @@ let getImportSymbols pe =
   |> List.rev
 
 let getExportSymbols pe =
-  let localExportFolder acc addr name =
-    let rva = int (addr - pe.BaseAddr)
-    match pe.FindSectionIdxFromRVA rva with
-    | -1 -> acc
-    | idx ->
-      { Address = addr
-        Name = name
-        Kind = getSymbolKindBySectionIndex pe idx
-        Target = TargetKind.DynamicSymbol
-        LibraryName = "" } :: acc
-  let forwardedExportFolder acc name (fwdBin, fwdFunc) =
+  let makeLocalExportSymbol addr kind name =
+    { Address = addr
+      Name = name
+      Kind = kind
+      Target = TargetKind.DynamicSymbol
+      LibraryName = "" }
+  let makeForwardedExportSymbol name (fwdBin, fwdFunc) =
     { Address = 0UL
       Name = name
       Kind = SymbolKind.ForwardType (fwdBin, fwdFunc)
       Target = TargetKind.DynamicSymbol
-      LibraryName = "" } :: acc
+      LibraryName = "" }
+  let localExportFolder accSymbols addr names =
+    let rva = int (addr - pe.BaseAddr)
+    match pe.FindSectionIdxFromRVA rva with
+    | -1 -> accSymbols
+    | idx ->
+      let kind = getSymbolKindBySectionIndex pe idx
+      let innerFolder acc name = makeLocalExportSymbol addr kind name :: acc
+      List.fold innerFolder accSymbols names
+  let forwardedExportFolder accSymbols name (fwdBin, fwdFunc) =
+    makeForwardedExportSymbol name (fwdBin, fwdFunc) :: accSymbols
   Map.fold localExportFolder [] pe.ExportMap
   |> Map.fold forwardedExportFolder <| pe.ForwardMap
 
@@ -260,8 +266,9 @@ let private findSymFromIAT addr pe =
 
 let private findSymFromEAT addr pe () =
   match Map.tryFind addr pe.ExportMap with
-  | Some n -> Some n
-  | _ -> None
+  | None -> None
+  | Some [] -> None
+  | Some (n :: _) -> Some n
 
 let tryFindSymbolFromBinary pe addr =
   match findSymFromIAT addr pe |> OrElse.bind (findSymFromEAT addr pe) with

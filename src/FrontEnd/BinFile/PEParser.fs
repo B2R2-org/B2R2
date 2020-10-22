@@ -169,11 +169,15 @@ let buildExportTable binReader baseAddr secs range edt =
     match addrtbl.[int ord] with
     | ExportRVA rva ->
       let addr = addrFromRVA baseAddr rva
-      Map.add addr name expMap, forwMap
+      let expMap =
+        if not (Map.containsKey addr expMap) then Map.add addr [name] expMap
+        else Map.add addr (name :: Map.find addr expMap) expMap
+      expMap, forwMap
     | ForwarderRVA rva ->
       let forwardStr = readStr secs binReader rva
       let forwardInfo = decodeForwardInfo forwardStr
-      expMap, Map.add name forwardInfo forwMap
+      let forwMap = Map.add name forwardInfo forwMap
+      expMap, forwMap
   parseENPT binReader secs edt
   |> List.fold folder (Map.empty, Map.empty)
 
