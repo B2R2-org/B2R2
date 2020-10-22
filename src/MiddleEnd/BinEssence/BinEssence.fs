@@ -82,9 +82,22 @@ type BinEssence = {
   IgnoreIllegal: bool
 }
 with
-  member __.IsNoReturn (src: Vertex<IRBasicBlock>) =
+  member __.IsNoReturn (src: Vertex<IRBasicBlock>) isCall =
+    let checkKnownNoReturn () =
+      let lastIns = src.VData.LastInstruction
+      match lastIns.DirectBranchTarget () |> Utils.tupleToOpt with
+      | None -> false
+      | Some addr ->
+        match __.CalleeMap.Find addr with
+        | None -> false
+        | Some callee ->
+          List.contains callee.CalleeName __.NoReturnInfo.KnownNoReturnFuncNames
     __.NoReturnInfo.NoReturnCallSites
     |> Set.exists (fun ppoint -> ppoint = src.VData.PPoint)
+    |> (fun b ->
+      if b then true
+      elif isCall then checkKnownNoReturn ()
+      else false)
 
   /// Retrieve an IR-based CFG (subgraph) of a function starting at the given
   /// address (addr) from the SCFG, and the root node. When the
@@ -132,7 +145,7 @@ with
         let fake = IRBasicBlock ([||], childPp)
         let child, newGraph = DiGraph.addVertex newGraph fake
         let newGraph = DiGraph.addEdge newGraph parent child e
-        if __.IsNoReturn parent then newGraph
+        if __.IsNoReturn parent true then newGraph
         elif __.CalleeMap.Contains fallPp.Address then newGraph
         else
           try
@@ -491,7 +504,7 @@ module BinEssence =
         |> getExceptionFallThrough ess.BinHandle src
       let calleeMap = calleeMap.AddCaller src.VData.PPoint.Address target
       let ess = { ess with CalleeMap = calleeMap }
-      if ess.IsNoReturn src then ess, edges
+      if ess.IsNoReturn src true then ess, edges
       else ess, getFallthroughEdge src true edges
     | InterJmp (_, Num addr, _) ->
       let edges = getInterEdge src (BitVector.toUInt64 addr) InterJmpEdge edges
@@ -522,13 +535,13 @@ module BinEssence =
         getIndirectEdges ess.IndirectBranchMap src true edges
         |> getExceptionFallThrough ess.BinHandle src
       (* XXX: Update callInfo here *)
-      if ess.IsNoReturn src then ess, edges
+      if ess.IsNoReturn src true then ess, edges
       else ess, getFallthroughEdge src true edges
     | InterJmp (_)
     | InterCJmp (_) ->
       src.VData.HasIndirectBranch <- true
       ess, getIndirectEdges ess.IndirectBranchMap src false edges
-    | SideEffect (BinIR.SysCall) when ess.IsNoReturn src -> ess, edges
+    | SideEffect (BinIR.SysCall) when ess.IsNoReturn src false -> ess, edges
     | SideEffect (BinIR.Halt)
     | SideEffect (BinIR.UndefinedInstr) -> ess, edges
     | _ -> (* Fall through case *)
@@ -733,7 +746,7 @@ module BinEssence =
       List.map (fun addr -> addr, hdl.DefaultParsingContext) entries
 
   let private initialize hdl ignoreIllegal =
-    let noretInfo = { NoReturnFuncs = Map.empty; NoReturnCallSites = Set.empty }
+    let noretInfo = NoReturnInfo.Init Map.empty Set.empty
     { BinHandle = hdl
       InstrMap = InstrMap ()
       BBLStore = BBLStore.Init ()

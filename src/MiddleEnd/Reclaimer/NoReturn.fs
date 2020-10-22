@@ -38,19 +38,8 @@ open System.Collections.Generic
 
 module private NoReturnHelper =
 
-  let isExternalNoReturnFunction = function
-    | "__assert_fail"
-    | "__stack_chk_fail"
-    | "abort"
-    | "_abort"
-    | "exit"
-    | "_exit"
-    | "__longjmp_chk"
-    | "__cxa_throw"
-    | "_Unwind_Resume"
-    | "_ZSt20__throw_length_errorPKc"
-    | "_gfortran_stop_numeric" -> true
-    | _ -> false
+  let isExternalNoReturnFunction ess name =
+    List.contains name ess.NoReturnInfo.KnownNoReturnFuncNames
 
   let isKnownNoReturnFunction ess entry =
     Map.containsKey entry ess.NoReturnInfo.NoReturnFuncs
@@ -173,7 +162,10 @@ module private NoReturnHelper =
     let ess, scfg =
       collectEdgesToRemove ess cfg
       |> List.fold (fun (ess, scfg) (src, dst) ->
-        if src.VData.IsFakeBlock () then ess, scfg
+        if src.VData.IsFakeBlock () then
+          let p = DiGraph.getPreds cfg src |> List.head
+          let ess = BinEssence.addNoReturnCallSite ess p.VData.PPoint
+          ess, scfg
         else
           let src = Map.find src.VData.PPoint ess.BBLStore.VertexMap
           let dst = Map.find dst.VData.PPoint ess.BBLStore.VertexMap
@@ -340,7 +332,7 @@ module private NoReturnHelper =
     else Some UnconditionalNoRet
 
   let addNoReturnFunctionFromExternal ess (v: Vertex<CallGraphBBlock>) entry =
-    if isExternalNoReturnFunction v.VData.Name then
+    if isExternalNoReturnFunction ess v.VData.Name then
       BinEssence.addNoReturnFunction ess entry UnconditionalNoRet
     elif v.VData.Name = "error" || v.VData.Name = "error_at_line" then
       let cond = Set.singleton 1

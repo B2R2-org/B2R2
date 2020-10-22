@@ -58,12 +58,30 @@ type NoReturnCond =
 
 /// No-return function info.
 type NoReturnInfo = {
+  KnownNoReturnFuncNames: string list
   /// No-return function addresses.
   NoReturnFuncs: Map<Addr, NoReturnCond>
   /// Program points of no-return call sites.
   NoReturnCallSites: Set<ProgramPoint>
 }
 with
+  static member Init noRetFuncs noRetCallSites =
+    let knownNoReturnFuncs =
+      [ "__assert_fail"
+        "__stack_chk_fail"
+        "abort"
+        "_abort"
+        "exit"
+        "_exit"
+        "__longjmp_chk"
+        "__cxa_throw"
+        "_Unwind_Resume"
+        "_ZSt20__throw_length_errorPKc"
+        "_gfortran_stop_numeric" ]
+    { KnownNoReturnFuncNames = knownNoReturnFuncs
+      NoReturnFuncs = noRetFuncs
+      NoReturnCallSites = noRetCallSites }
+
   static member AddNoReturnFunction info addr cond =
     { info with NoReturnFuncs = Map.add addr cond info.NoReturnFuncs }
 
