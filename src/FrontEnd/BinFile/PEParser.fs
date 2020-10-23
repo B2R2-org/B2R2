@@ -57,10 +57,8 @@ let isNULLImportDir tbl =
 
 let decodeForwardInfo (str: string) =
   let strInfo = str.Split('.')
-  let dllName, funStr = strInfo.[0], strInfo.[1]
-  match funStr.[0] with
-  | '#' -> ForwardByOrdinal (Int16.Parse(funStr.[1..]), dllName)
-  | _ -> ForwardByName (funStr, dllName)
+  let dllName, funcName = strInfo.[0], strInfo.[1]
+  (dllName, funcName)
 
 let readIDTEntry (binReader: BinReader) secs pos =
   { ImportLookupTableRVA = binReader.PeekInt32 pos
@@ -165,19 +163,33 @@ let parseENPT (binReader: BinReader) secs edt =
     let offset2 = edt.OrdinalTableRVA |> getRawOffset secs
     loop [] edt.NumNamePointers offset1 offset2
 
+/// Decide the name of an exported address. The address may have been exported
+/// only with ordinal, and does not have a corresponding name in export name
+/// pointer table. In such case, consider its name as "#<Ordinal>".
+let private decideNameWithTable nameTbl ordBase idx =
+  match List.tryFind (fun (_, ord) -> int16 idx = ord) nameTbl with
+  | None -> sprintf "#%d" (int16 idx + ordBase) // Exported with an ordinal.
+  | Some (name, _) -> name // ENTP has a corresponding name for this entry.
+
 let buildExportTable binReader baseAddr secs range edt =
-  let addrtbl = parseEAT binReader secs range edt
-  let folder (expMap, forwMap) (name, ord) =
-    match addrtbl.[int ord] with
+  let addrTbl = parseEAT binReader secs range edt
+  let nameTbl = parseENPT binReader secs edt
+  let ordinalBase = int16 edt.OrdinalBase
+  let folder (expMap, forwMap) idx = function
     | ExportRVA rva ->
       let addr = addrFromRVA baseAddr rva
-      Map.add addr name expMap, forwMap
+      let name = decideNameWithTable nameTbl ordinalBase idx
+      let expMap =
+        if not (Map.containsKey addr expMap) then Map.add addr [name] expMap
+        else Map.add addr (name :: Map.find addr expMap) expMap
+      expMap, forwMap
     | ForwarderRVA rva ->
+      let name = decideNameWithTable nameTbl ordinalBase idx
       let forwardStr = readStr secs binReader rva
       let forwardInfo = decodeForwardInfo forwardStr
-      expMap, Map.add name forwardInfo forwMap
-  parseENPT binReader secs edt
-  |> List.fold folder (Map.empty, Map.empty)
+      let forwMap = Map.add name forwardInfo forwMap
+      expMap, forwMap
+  Array.foldi folder (Map.empty, Map.empty) addrTbl |> fst
 
 let parseExports baseAddr binReader (headers: PEHeaders) secs =
   match headers.PEHeader.ExportTableDirectory.RelativeVirtualAddress with
@@ -289,13 +301,13 @@ let parseImage execpath rawpdb baseAddr binReader (hdrs: PEHeaders) =
   let wordSize = magicToWordSize hdrs.PEHeader.Magic
   let baseAddr = hdrs.PEHeader.ImageBase + baseAddr
   let secs = hdrs.SectionHeaders |> Seq.toArray
-  let exportAddressMaps = parseExports baseAddr binReader hdrs secs
+  let exportMap, forwardMap = parseExports baseAddr binReader hdrs secs
   { PEHeaders = hdrs
     BaseAddr = baseAddr
     SectionHeaders = secs
     ImportMap= parseImports binReader hdrs secs wordSize
-    ExportMap = fst exportAddressMaps
-    ForwardMap = snd exportAddressMaps
+    ExportMap = exportMap
+    ForwardMap = forwardMap
     RelocBlocks = parseRelocation binReader hdrs secs
     WordSize = wordSize
     SymbolInfo = getPDBSymbols execpath rawpdb |> buildPDBInfo baseAddr secs

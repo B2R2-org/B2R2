@@ -133,10 +133,12 @@ type FileInfo (baseAddr) =
   /// <summary>
   ///   Return a list of all the dynamic symbols from the binary. Dynamic
   ///   symbols are the ones that are required to run the binary. The
-  ///   "excludeImported" argument indicates whether to return only internally
-  ///   defined symbols (i.e., disregard external symbols that are imported from
-  ///   other files). In "excludeImported" argument is not given, this function
-  ///   will simply return all possible dynamic symbols.
+  ///   "excludeImported" argument indicates whether to exclude external symbols
+  ///   that are imported from other files. However, even if "excludeImported"
+  ///   is true, returned symbols may include a forwarding entry that redirects
+  ///   to another function in an external file (cf. SymbolKind.ForwardType).
+  ///   When "excludeImported" argument is not given, this function will simply
+  ///   return all possible dynamic symbols.
   /// </summary>
   /// <returns>
   ///   A sequence of dynamic symbols.

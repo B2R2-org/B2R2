@@ -83,10 +83,6 @@ let secFlagToSectionKind (flags: SectionCharacteristics) =
   else
     SectionKind.ExtraSection
 
-let forwardInfoToStr = function
-  | ForwardByName (name, dll) -> dll + "!" + name
-  | ForwardByOrdinal (ord, dll) -> dll + "!#" + string ord
-
 /// Some PE files have a section header indicating that the corresponding
 /// section's size is zero even if it contains actual data, i.e.,
 /// sHdr.VirtualSize = 0, but sHdr.SizeOfRawData <> 0. Thus, we should use this
@@ -143,9 +139,9 @@ let getSymbolKindBySectionIndex pe idx =
 let getImportSymbols pe =
   let conv acc rva imp =
     match imp with
-    | ImportByOrdinal (_, dllname) ->
+    | ImportByOrdinal (ord, dllname) ->
       { Address = addrFromRVA pe.BaseAddr rva
-        Name = ""
+        Name = "#" + ord.ToString()
         Kind = SymbolKind.ExternFunctionType
         Target = TargetKind.DynamicSymbol
         LibraryName = dllname } :: acc
@@ -160,24 +156,30 @@ let getImportSymbols pe =
   |> List.rev
 
 let getExportSymbols pe =
-  let localExportFolder acc addr exp =
-    let rva = int (addr - pe.BaseAddr)
-    match pe.FindSectionIdxFromRVA rva with
-    | -1 -> acc
-    | idx ->
-      { Address = addr
-        Name = exp
-        Kind = getSymbolKindBySectionIndex pe idx
-        Target = TargetKind.DynamicSymbol
-        LibraryName = "" } :: acc
-  let forwardedExportFolder acc name forwardInfo =
+  let makeLocalExportSymbol addr kind name =
+    { Address = addr
+      Name = name
+      Kind = kind
+      Target = TargetKind.DynamicSymbol
+      LibraryName = "" }
+  let makeForwardedExportSymbol name (fwdBin, fwdFunc) =
     { Address = 0UL
       Name = name
-      Kind = SymbolKind.FunctionType
+      Kind = SymbolKind.ForwardType (fwdBin, fwdFunc)
       Target = TargetKind.DynamicSymbol
-      LibraryName = forwardInfoToStr forwardInfo } :: acc
-  let temp = Map.fold localExportFolder [] pe.ExportMap
-  Map.fold forwardedExportFolder temp pe.ForwardMap
+      LibraryName = "" }
+  let localExportFolder accSymbols addr names =
+    let rva = int (addr - pe.BaseAddr)
+    match pe.FindSectionIdxFromRVA rva with
+    | -1 -> accSymbols
+    | idx ->
+      let kind = getSymbolKindBySectionIndex pe idx
+      let innerFolder acc name = makeLocalExportSymbol addr kind name :: acc
+      List.fold innerFolder accSymbols names
+  let forwardedExportFolder accSymbols name (fwdBin, fwdFunc) =
+    makeForwardedExportSymbol name (fwdBin, fwdFunc) :: accSymbols
+  Map.fold localExportFolder [] pe.ExportMap
+  |> Map.fold forwardedExportFolder <| pe.ForwardMap
 
 let getAllDynamicSymbols pe =
   let isym = getImportSymbols pe
@@ -225,8 +227,8 @@ let getImportTable pe =
   pe.ImportMap
   |> Map.fold (fun acc addr info ->
        match info with
-       | ImportByOrdinal (_, dllname) ->
-         { FuncName = ""
+       | ImportByOrdinal (ord, dllname) ->
+         { FuncName = "#" + ord.ToString()
            LibraryName = dllname
            TrampolineAddress = 0UL
            TableAddress = addrFromRVA pe.BaseAddr addr } :: acc
@@ -264,8 +266,9 @@ let private findSymFromIAT addr pe =
 
 let private findSymFromEAT addr pe () =
   match Map.tryFind addr pe.ExportMap with
-  | Some n -> Some n
-  | _ -> None
+  | None -> None
+  | Some [] -> None
+  | Some (n :: _) -> Some n
 
 let tryFindSymbolFromBinary pe addr =
   match findSymFromIAT addr pe |> OrElse.bind (findSymFromEAT addr pe) with
