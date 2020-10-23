@@ -139,9 +139,9 @@ let getSymbolKindBySectionIndex pe idx =
 let getImportSymbols pe =
   let conv acc rva imp =
     match imp with
-    | ImportByOrdinal (_, dllname) ->
+    | ImportByOrdinal (ord, dllname) ->
       { Address = addrFromRVA pe.BaseAddr rva
-        Name = ""
+        Name = "#" + ord.ToString()
         Kind = SymbolKind.ExternFunctionType
         Target = TargetKind.DynamicSymbol
         LibraryName = dllname } :: acc
@@ -227,8 +227,8 @@ let getImportTable pe =
   pe.ImportMap
   |> Map.fold (fun acc addr info ->
        match info with
-       | ImportByOrdinal (_, dllname) ->
-         { FuncName = ""
+       | ImportByOrdinal (ord, dllname) ->
+         { FuncName = "#" + ord.ToString()
            LibraryName = dllname
            TrampolineAddress = 0UL
            TableAddress = addrFromRVA pe.BaseAddr addr } :: acc

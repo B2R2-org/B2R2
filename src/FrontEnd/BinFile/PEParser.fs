@@ -163,23 +163,33 @@ let parseENPT (binReader: BinReader) secs edt =
     let offset2 = edt.OrdinalTableRVA |> getRawOffset secs
     loop [] edt.NumNamePointers offset1 offset2
 
+/// Decide the name of an exported address. The address may have been exported
+/// only with ordinal, and does not have a corresponding name in export name
+/// pointer table. In such case, consider its name as "#<Ordinal>".
+let private decideNameWithTable nameTbl ordBase idx =
+  match List.tryFind (fun (_, ord) -> int16 idx = ord) nameTbl with
+  | None -> sprintf "#%d" (int16 idx + ordBase) // Exported with an ordinal.
+  | Some (name, _) -> name // ENTP has a corresponding name for this entry.
+
 let buildExportTable binReader baseAddr secs range edt =
-  let addrtbl = parseEAT binReader secs range edt
-  let folder (expMap, forwMap) (name, ord) =
-    match addrtbl.[int ord] with
+  let addrTbl = parseEAT binReader secs range edt
+  let nameTbl = parseENPT binReader secs edt
+  let ordinalBase = int16 edt.OrdinalBase
+  let folder (expMap, forwMap) idx = function
     | ExportRVA rva ->
       let addr = addrFromRVA baseAddr rva
+      let name = decideNameWithTable nameTbl ordinalBase idx
       let expMap =
         if not (Map.containsKey addr expMap) then Map.add addr [name] expMap
         else Map.add addr (name :: Map.find addr expMap) expMap
       expMap, forwMap
     | ForwarderRVA rva ->
+      let name = decideNameWithTable nameTbl ordinalBase idx
       let forwardStr = readStr secs binReader rva
       let forwardInfo = decodeForwardInfo forwardStr
       let forwMap = Map.add name forwardInfo forwMap
       expMap, forwMap
-  parseENPT binReader secs edt
-  |> List.fold folder (Map.empty, Map.empty)
+  Array.foldi folder (Map.empty, Map.empty) addrTbl |> fst
 
 let parseExports baseAddr binReader (headers: PEHeaders) secs =
   match headers.PEHeader.ExportTableDirectory.RelativeVirtualAddress with
