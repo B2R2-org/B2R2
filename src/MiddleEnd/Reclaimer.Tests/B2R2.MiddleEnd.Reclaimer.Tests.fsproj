@@ -17,7 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\BinGraph\B2R2.BinGraph.fsproj" />
+    <ProjectReference Include="..\BinGraph\B2R2.MiddleEnd.BinGraph.fsproj" />
     <ProjectReference Include="..\Reclaimer\B2R2.MiddleEnd.Reclaimer.fsproj" />
   </ItemGroup>
 

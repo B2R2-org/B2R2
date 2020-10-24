@@ -38,7 +38,7 @@ type FileViewerOpts () =
   member val DisplayItems = items with get
 
   /// Specific ISA. This is only meaningful for universal (fat) binaries because
-  /// BinHandler will automatically detect file format by default. When a fat
+  /// BinHandle will automatically detect file format by default. When a fat
   /// binary is given, we need to choose which architecture to explorer with
   /// this option.
   member val ISA = ISA.DefaultISA with get, set

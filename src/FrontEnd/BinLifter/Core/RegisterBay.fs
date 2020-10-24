@@ -59,14 +59,14 @@ type RegisterBay () =
 
   /// <summary>
   /// Return RegisterID from a given register string. Depending on the
-  /// underlying architecture of the BinHandler, we may have different
+  /// underlying architecture of the BinHandle, we may have different
   /// RegisterID.
   /// </summary>
   abstract member RegIDFromString: string -> RegisterID
 
   /// <summary>
   /// Return a register string from a given RegisterID. Depending on the
-  /// underlying architecture of the BinHandler, we may have a different string
+  /// underlying architecture of the BinHandle, we may have a different string
   /// result.
   /// </summary>
   abstract member RegIDToString: RegisterID -> string
@@ -78,22 +78,22 @@ type RegisterBay () =
 
   /// <summary>
   /// Return an array of aliases of a given register based on the current
-  /// architecture of BinHandler.
+  /// architecture of BinHandle.
   /// </summary>
   abstract member GetRegisterAliases: RegisterID -> RegisterID []
 
   /// <summary>
-  /// Return a program counter register for a given BinHandler.
+  /// Return a program counter register for a given BinHandle.
   /// </summary>
   abstract member ProgramCounter: RegisterID
 
   /// <summary>
-  /// Return a stack pointer register for a given BinHandler.
+  /// Return a stack pointer register for a given BinHandle.
   /// </summary>
   abstract member StackPointer: RegisterID option
 
   /// <summary>
-  /// Return a frame pointer register for a given BinHandler.
+  /// Return a frame pointer register for a given BinHandle.
   /// </summary>
   abstract member FramePointer: RegisterID option
 
