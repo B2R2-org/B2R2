@@ -6333,6 +6333,89 @@ let vmovntpd ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 16
 
 let vmovntps ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 16
 
+let vmovdqa64 ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (8)
+  let dst, src = getTwoOprs ins
+  let oprSize = getOperationSize ins
+  let ePrx = getEVEXPrx ins.VEXInfo
+  let k = getRegVar ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
+  let masking dst =
+    match ePrx.Z with
+    | Zeroing -> num0 64<rt>
+    | Merging -> dst
+  let cond idx =
+    (* no write mask *)
+    let noWritemask = if ePrx.AAA = 0uy then num1 1<rt> else num0 1<rt>
+    extract k 1<rt> idx .| noWritemask
+  startMark insAddr insLen builder
+  match oprSize with
+  | 128<rt> ->
+    let kl, vl = 2, 128
+    match dst with
+    | OprReg _ ->
+      let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+      let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
+      builder <! (dstA := ite (cond 0) srcA (masking dstA))
+      builder <! (dstB := ite (cond 1) srcB (masking dstB))
+      fillZeroFromVLToMaxVL ctxt dst vl 512 builder
+    | OprMem _ ->
+      let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+      let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
+      builder <! (dstA := ite (cond 0) srcA dstA)
+      builder <! (dstB := ite (cond 1) srcB dstB)
+    | _ -> raise InvalidOperandException
+  | 256<rt> ->
+    let kl, vl = 4, 256
+    match dst with
+    | OprReg _ ->
+      let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
+      let srcD, srcC, srcB, srcA = transOprToExpr256 ins insAddr insLen ctxt src
+      builder <! (dstA := ite (cond 0) srcA (masking dstA))
+      builder <! (dstB := ite (cond 1) srcB (masking dstB))
+      builder <! (dstC := ite (cond 2) srcC (masking dstC))
+      builder <! (dstD := ite (cond 3) srcD (masking dstD))
+      fillZeroFromVLToMaxVL ctxt dst vl 512 builder
+    | OprMem _ ->
+      let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
+      let srcD, srcC, srcB, srcA = transOprToExpr256 ins insAddr insLen ctxt src
+      builder <! (dstA := ite (cond 0) srcA dstA)
+      builder <! (dstB := ite (cond 1) srcB dstB)
+      builder <! (dstC := ite (cond 2) srcC dstC)
+      builder <! (dstD := ite (cond 3) srcD dstD)
+    | _ -> raise InvalidOperandException
+  | 512<rt> ->
+    let kl, vl = 8, 512
+    match dst with
+    | OprReg _ ->
+      let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
+        transOprToExpr512 ins insAddr insLen ctxt dst
+      let srcH, srcG, srcF, srcE, srcD, srcC, srcB, srcA =
+        transOprToExpr512 ins insAddr insLen ctxt src
+      builder <! (dstA := ite (cond 0) srcA (masking dstA))
+      builder <! (dstB := ite (cond 1) srcB (masking dstB))
+      builder <! (dstC := ite (cond 2) srcC (masking dstC))
+      builder <! (dstD := ite (cond 3) srcD (masking dstD))
+      builder <! (dstE := ite (cond 4) srcE (masking dstE))
+      builder <! (dstF := ite (cond 5) srcF (masking dstF))
+      builder <! (dstG := ite (cond 6) srcG (masking dstG))
+      builder <! (dstH := ite (cond 7) srcH (masking dstH))
+    | OprMem _ ->
+      let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
+        transOprToExpr512 ins insAddr insLen ctxt dst
+      let srcH, srcG, srcF, srcE, srcD, srcC, srcB, srcA =
+        transOprToExpr512 ins insAddr insLen ctxt src
+      builder <! (dstA := ite (cond 0) srcA dstA)
+      builder <! (dstB := ite (cond 1) srcB dstB)
+      builder <! (dstC := ite (cond 2) srcC dstC)
+      builder <! (dstD := ite (cond 3) srcD dstD)
+      builder <! (dstE := ite (cond 4) srcE dstE)
+      builder <! (dstF := ite (cond 5) srcF dstF)
+      builder <! (dstG := ite (cond 6) srcG dstG)
+      builder <! (dstH := ite (cond 7) srcH dstH)
+    | _ -> raise InvalidOperandException
+  | _ -> raise InvalidOperandSizeException
+  endMark insAddr insLen builder
+
 let vmovdqu64 ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
   let dst, src = getTwoOprs ins
@@ -7650,6 +7733,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.VINSERTI128 -> vinserti128 ins insAddr insLen ctxt
   | Opcode.VMOVD -> vmovd ins insAddr insLen ctxt
   | Opcode.VMOVDQA -> vmovdqa ins insAddr insLen ctxt
+  | Opcode.VMOVDQA64 -> vmovdqa64 ins insAddr insLen ctxt
   | Opcode.VMOVDQU -> vmovdqu ins insAddr insLen ctxt
   | Opcode.VMOVDQU64 -> vmovdqu64 ins insAddr insLen ctxt
   | Opcode.VMOVNTDQ -> vmovntdq ins insAddr insLen ctxt
