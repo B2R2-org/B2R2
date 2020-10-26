@@ -26,7 +26,10 @@ module B2R2.MiddleEnd.DataFlow.SCCPTransfer
 
 open B2R2
 open B2R2.FrontEnd.BinInterface
+open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.Intel
+open B2R2.FrontEnd.BinFile
+open B2R2.FrontEnd.BinFile.ELF
 open B2R2.BinIR
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.BinEssence
@@ -100,14 +103,81 @@ let evalCast op rt c =
   | CastKind.ZeroExt -> SCCPValue.zeroExt rt c
   | _ -> NotAConst
 
-let evalReturn (st: CPState<SCCPValue>) addr ret v =
+let checkStackAdjustFromIns ess acc (ins: Instruction) =
+  match ess.BinHandle.ISA.Arch with
+  | Arch.IntelX86 ->
+    let ins = ins :?> IntelInstruction
+    if ins.IsRET () then
+      match ins.Info.Opcode with
+      | Opcode.RETNearImm ->
+        match ins.Info.Operands with
+        | OneOperand (OprImm n) -> uint64 n
+        | _ -> acc
+      | _ -> acc
+    else acc
+  | _ -> acc
+
+let computeStackAdjustFromTargetFunction (ess: BinEssence) (entry: Addr) =
+  if ess.CalleeMap.Contains entry then
+    let ircfg, _ = ess.GetFunctionCFG (entry, false) |> Result.get
+    DiGraph.getExits ircfg
+    |> List.fold (fun acc v ->
+      if v.VData.IsFakeBlock () then acc
+      else
+        let ins = v.VData.LastInstruction
+        checkStackAdjustFromIns ess acc ins) 0UL
+  else 0UL
+
+let findStackOffset hdl tbl addr =
+  match Map.tryFind addr tbl with
+  | None -> None
+  | Some entry ->
+    match entry.CanonicalFrameAddress with
+    | RegPlusOffset (rid, n) ->
+      if hdl.RegisterBay.IsStackPointer rid then Some n
+      else None
+    | _ -> None
+
+let computeStackAdjustFromUnwindingTable ess cfg (blk: Vertex<SSABBlock>) tbl c =
+  let caller =
+    DiGraph.getPreds cfg blk
+    |> List.find (fun p ->
+      let e = DiGraph.findEdgeData cfg p blk
+      e = CallEdge || e = IndirectCallEdge)
+  let ftAddr = caller.VData.Range.Max
+  let hdl = ess.BinHandle
+  match c, findStackOffset hdl tbl ftAddr with
+  | NotAConst, _ -> 0UL
+  | Const bv, Some n -> 0x80000000UL - uint64 n - BitVector.toUInt64 bv
+  | _ -> 0UL
+
+let isNoReturn ess cfg blk entry =
+  match Map.tryFind entry ess.NoReturnInfo.NoReturnFuncs with
+  | None -> false
+  | Some UnconditionalNoRet -> true
+  | Some (ConditionalNoRet _) -> DiGraph.getSuccs cfg blk |> List.length = 0
+
+let computeStackAdjust (ess: BinEssence) cfg blk entry c =
+  if isNoReturn ess cfg blk entry then 0UL
+  else
+    let fi = ess.BinHandle.FileInfo
+    match fi.FileFormat with
+    | FileFormat.ELFBinary ->
+      let elf = (fi :?> ELFFileInfo).ELF
+      if Map.isEmpty elf.UnwindingTbl then
+        computeStackAdjustFromTargetFunction ess entry
+      else computeStackAdjustFromUnwindingTable ess cfg blk elf.UnwindingTbl c
+    | _ -> computeStackAdjustFromTargetFunction ess entry
+
+let evalReturn ess cfg (st: CPState<SCCPValue>) blk addr ret v =
   match v.Kind with
   | RegVar (rt, rid, _) ->
     let hdl = st.BinHandle
     if hdl.RegisterBay.IsStackPointer rid then
       let c = CPState.findReg st v
       let wordByte = RegType.toByteWidth rt |> uint64
-      let wordSize = Const (BitVector.ofUInt64 wordByte rt)
+      let adjust = computeStackAdjust ess cfg blk addr c
+      let wordSize = Const (BitVector.ofUInt64 (wordByte + adjust) rt)
       evalBinOp BinOpType.ADD c wordSize
     elif isGetPCThunk hdl addr then
       Pointer (BitVector.ofUInt64 ret rt)
@@ -116,35 +186,35 @@ let evalReturn (st: CPState<SCCPValue>) addr ret v =
     else NotAConst
   | _ -> Utils.impossible ()
 
-let rec evalExpr st = function
+let rec evalExpr ess cfg st blk = function
   | Num bv -> Const bv
   | Var v -> CPState.findReg st v
   | Nil -> NotAConst
-  | Load (m, rt, addr) -> evalExpr st addr |> evalLoad st m rt
-  | UnOp (op, _, e) -> evalExpr st e |> evalUnOp op
+  | Load (m, rt, addr) -> evalExpr ess cfg st blk addr |> evalLoad st m rt
+  | UnOp (op, _, e) -> evalExpr ess cfg st blk e |> evalUnOp op
   | FuncName _ -> NotAConst
   | BinOp (op, _, e1, e2) ->
-    let c1 = evalExpr st e1
-    let c2 = evalExpr st e2
+    let c1 = evalExpr ess cfg st blk e1
+    let c2 = evalExpr ess cfg st blk e2
     evalBinOp op c1 c2
   | RelOp (op, _, e1, e2) ->
-    let c1 = evalExpr st e1
-    let c2 = evalExpr st e2
+    let c1 = evalExpr ess cfg st blk e1
+    let c2 = evalExpr ess cfg st blk e2
     evalRelOp op c1 c2
   | Ite (e1, _, e2, e3) ->
-    let c1 = evalExpr st e1
-    let c2 = evalExpr st e2
-    let c3 = evalExpr st e3
+    let c1 = evalExpr ess cfg st blk e1
+    let c2 = evalExpr ess cfg st blk e2
+    let c3 = evalExpr ess cfg st blk e3
     SCCPValue.ite c1 c2 c3
   | Cast (op, rt, e) ->
-    let c = evalExpr st e
+    let c = evalExpr ess cfg st blk e
     evalCast op rt c
   | Extract (e, rt, pos) ->
-    let c = evalExpr st e
+    let c = evalExpr ess cfg st blk e
     SCCPValue.extract c rt pos
   | Undefined _ -> NotAConst
   | ReturnVal (addr, ret, v) ->
-    evalReturn st addr ret v
+    evalReturn ess cfg st blk addr ret v
   | _ -> Utils.impossible ()
 
 let invalidateValuesWithFreshMemory st mDst =
@@ -184,12 +254,12 @@ let invalidateValuesWithDefinedMemory oldMem st mDst =
   st.MemState.[dstid] <- (mem, updated)
   if needPush then st.SSAWorkList.Push mDst
 
-let evalMemDef st mDst e =
+let evalMemDef ess cfg st blk mDst e =
   let dstid = mDst.Identifier
   match e with
   | Store (mSrc, rt, addr, v) ->
-    let c = evalExpr st v
-    let addr = evalExpr st addr
+    let c = evalExpr ess cfg st blk v
+    let addr = evalExpr ess cfg st blk addr
     let oldMem = st.MemState.TryGetValue dstid |> Utils.tupleToOpt
     CPState.copyMem st dstid mSrc.Identifier
     match addr with
@@ -235,15 +305,15 @@ let loadPointerToReg hdl (blk: Vertex<SSABBlock>) addr =
     | _ -> false
   | _ -> false
 
-let evalDef (st: CPState<SCCPValue>) blk (ppoint: ProgramPoint) v e =
+let evalDef ess cfg (st: CPState<SCCPValue>) blk (ppoint: ProgramPoint) v e =
   match v.Kind, e with
   | RegVar _, Num _ when loadPointerToReg st.BinHandle blk ppoint.Address ->
-    match evalExpr st e with
+    match evalExpr ess cfg st blk e with
     | Const c -> Pointer c
     | c -> c
     |> updateConst st v
-  | RegVar _, _ | TempVar _, _ -> evalExpr st e |> updateConst st v
-  | MemVar, _ -> evalMemDef st v e
+  | RegVar _, _ | TempVar _, _ -> evalExpr ess cfg st blk e |> updateConst st v
+  | MemVar, _ -> evalMemDef ess cfg st blk v e
   | PCVar _, _ -> ()
 
 let executableSources cfg st (blk: Vertex<_>) srcIDs =
@@ -333,18 +403,18 @@ let evalInterCJmp cfg st blk cond trueExpr falseExpr =
     |> markSuccessorsConditionally cfg st blk
   | _ -> markAllSuccessors cfg st blk
 
-let evalJmp cfg st blk = function
+let evalJmp ess cfg st blk = function
   | IntraJmp _ -> markAllSuccessors cfg st blk
   | IntraCJmp (cond, trueLbl, falseLbl) ->
-    let c = evalExpr st cond
+    let c = evalExpr ess cfg st blk cond
     evalIntraCJmp cfg st blk c trueLbl falseLbl
   | InterJmp expr -> evalInterJmp cfg st blk expr
   | InterCJmp (cond, trueExpr, falseExpr) ->
-    let c = evalExpr st cond
+    let c = evalExpr ess cfg st blk cond
     evalInterCJmp cfg st blk c trueExpr falseExpr
 
-let evalStmt cfg st blk ppoint = function
-  | Def (v, e) -> evalDef st blk ppoint v e
+let evalStmt ess cfg st blk ppoint = function
+  | Def (v, e) -> evalDef ess cfg st blk ppoint v e
   | Phi (v, ns) -> evalPhi cfg st blk v ns
-  | Jmp jmpTy -> evalJmp cfg st blk jmpTy
+  | Jmp jmpTy -> evalJmp ess cfg st blk jmpTy
   | LMark _ | SideEffect _ -> ()

@@ -220,9 +220,9 @@ module BranchRecoveryHelper =
     let ssaCFG, ssaRoots = lens.Filter (irCFG, [irRoot], ess)
     let ssaRoot = List.head ssaRoots
     let stackProp = StackPointerPropagation.Init ess.BinHandle ssaCFG
-    let stackSt = stackProp.Compute (ssaRoot)
+    let stackSt = stackProp.Compute ess ssaRoot
     let copyProp = ConstantCopyPropagation.Init ess.BinHandle ssaCFG stackSt
-    let copySt = copyProp.Compute (ssaRoot)
+    let copySt = copyProp.Compute ess ssaRoot
     copySt, ssaCFG
 
   let private extractIndirectBranches cfg =

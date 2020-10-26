@@ -44,7 +44,7 @@ type ConstantPropagation<'L when 'L: equality>
     |> List.filter (fun (src, dst) -> CPState.isExecuted st src dst)
     |> List.length
 
-  member private __.ProcessSSA st =
+  member private __.ProcessSSA ess st =
     while st.SSAWorkList.Count > 0 do
       let def = st.SSAWorkList.Pop ()
       match Map.tryFind def st.SSAEdges.Uses with
@@ -54,18 +54,18 @@ type ConstantPropagation<'L when 'L: equality>
           let v = DiGraph.findVertexByID ssaCFG vid
           if __.GetNumIncomingExecutedEdges st v > 0 then
             let ppoint, stmt = v.VData.SSAStmtInfos.[idx]
-            st.TransferFn ssaCFG st v ppoint stmt
+            st.TransferFn ess ssaCFG st v ppoint stmt
           else ())
       | None -> ()
 
-  member private __.ProcessFlow st =
+  member private __.ProcessFlow ess st =
     if st.FlowWorkList.Count > 0 then
       let parentid, myid = st.FlowWorkList.Dequeue ()
       st.ExecutedEdges.Add (parentid, myid) |> ignore
       let blk = DiGraph.findVertexByID ssaCFG myid
       blk.VData.SSAStmtInfos
       |> Array.iter (fun (ppoint, stmt) ->
-        st.TransferFn ssaCFG st blk ppoint stmt)
+        st.TransferFn ess ssaCFG st blk ppoint stmt)
       match blk.VData.GetLastStmt () with
       | Jmp _ -> ()
       | _ ->
@@ -75,9 +75,9 @@ type ConstantPropagation<'L when 'L: equality>
           CPState.markExecutable st myid succid)
     else ()
 
-  member __.Compute (root: Vertex<_>) =
+  member __.Compute ess (root: Vertex<_>) =
     st.FlowWorkList.Enqueue (0, root.GetID ())
     while st.FlowWorkList.Count > 0 || st.SSAWorkList.Count > 0 do
-      __.ProcessFlow st
-      __.ProcessSSA st
+      __.ProcessFlow ess st
+      __.ProcessSSA ess st
     st

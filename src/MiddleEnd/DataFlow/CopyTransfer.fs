@@ -71,17 +71,17 @@ let evalReturn (st: CPState<CopyValue>) addr ret v =
     else NotAConst
   | _ -> Utils.impossible ()
 
-let rec evalExpr stackSt st = function
+let rec evalExpr ess cfg stackSt st blk = function
   | Num bv -> Const bv
   | Var v -> CPState.findReg st v
   | Nil -> NotAConst
   | Load (m, rt, addr) ->
-    StackTransfer.evalExpr stackSt addr |> evalLoad st m rt
+    StackTransfer.evalExpr ess cfg stackSt blk addr |> evalLoad st m rt
   | UnOp _ -> NotAConst
   | FuncName _ -> NotAConst
   | BinOp (op, _, e1, e2) ->
-    let c1 = evalExpr stackSt st e1
-    let c2 = evalExpr stackSt st e2
+    let c1 = evalExpr ess cfg stackSt st blk e1
+    let c2 = evalExpr ess cfg stackSt st blk e2
     evalBinOp op c1 c2
   | RelOp _ -> NotAConst
   | Ite _ -> NotAConst
@@ -91,12 +91,12 @@ let rec evalExpr stackSt st = function
   | ReturnVal (addr, ret, v) -> evalReturn st addr ret v
   | _ -> Utils.impossible ()
 
-let evalMemDef stackSt st mDst e =
+let evalMemDef ess cfg stackSt st blk mDst e =
   let dstid = mDst.Identifier
   match e with
   | Store (mSrc, rt, addr, v) ->
-    let c = evalExpr stackSt st v
-    let addr = StackTransfer.evalExpr stackSt addr
+    let c = evalExpr ess cfg stackSt st blk v
+    let addr = StackTransfer.evalExpr ess cfg stackSt blk addr
     let oldMem = st.MemState.TryGetValue dstid |> Utils.tupleToOpt
     CPState.copyMem st dstid mSrc.Identifier
     match addr with
@@ -121,10 +121,11 @@ let inline updateConst st r v =
     st.RegState.[r] <- st.Meet st.RegState.[r] v
     st.SSAWorkList.Push r
 
-let evalDef stackSt (st: CPState<CopyValue>) v e =
+let evalDef ess cfg stackSt (st: CPState<CopyValue>) blk v e =
   match v.Kind with
-  | RegVar _ | TempVar _ -> evalExpr stackSt st e |> updateConst st v
-  | MemVar -> evalMemDef stackSt st v e
+  | RegVar _ | TempVar _ ->
+    evalExpr ess cfg stackSt st blk e |> updateConst st v
+  | MemVar -> evalMemDef ess cfg stackSt st blk v e
   | PCVar _ -> ()
 
 let executableSources cfg st (blk: Vertex<_>) srcIDs =
@@ -169,25 +170,17 @@ let markSuccessorsConditionally cfg st (blk: Vertex<SSABBlock>) cond =
       CPState.markExecutable st myid succid
     else ())
 
-let evalInterJmp cfg st blk = function
-  | Num _ ->
-    (fun (succ: Vertex<SSABBlock>) ->
-      DiGraph.findEdgeData cfg blk succ <> CallFallThroughEdge)
-    |> markSuccessorsConditionally cfg st blk
-  | _ ->
-    let insInfos = blk.VData.InsInfos
-    if insInfos.[Array.length insInfos - 1].Instruction.IsCall () then
-      (fun (succ: Vertex<SSABBlock>) ->
-        succ.VData.PPoint |> ProgramPoint.IsFake)
-      |> markSuccessorsConditionally cfg st blk
-    else markAllSuccessors cfg st blk
+let evalInterJmp cfg st blk =
+  (fun (succ: Vertex<SSABBlock>) ->
+    DiGraph.findEdgeData cfg blk succ <> CallFallThroughEdge)
+  |> markSuccessorsConditionally cfg st blk
 
 let evalJmp cfg st blk = function
-  | InterJmp expr -> evalInterJmp cfg st blk expr
+  | InterJmp _ -> evalInterJmp cfg st blk
   | _ -> markAllSuccessors cfg st blk
 
-let evalStmt stackSt cfg st blk _ppoint = function
-  | Def (v, e) -> evalDef stackSt st v e
+let evalStmt stackSt ess cfg st blk _ppoint = function
+  | Def (v, e) -> evalDef ess cfg stackSt st blk v e
   | Phi (v, ns) -> evalPhi cfg st blk v ns
   | Jmp jmpTy -> evalJmp cfg st blk jmpTy
   | LMark _ | SideEffect _ -> ()
