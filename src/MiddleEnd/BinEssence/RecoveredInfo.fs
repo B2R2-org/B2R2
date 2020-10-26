@@ -48,19 +48,24 @@ with
   static member Init jtBase jtRange jtEntrySize =
     { JTBaseAddr = jtBase ; JTRange = jtRange ; JTEntrySize = jtEntrySize }
 
+/// State a function is no-return under which conditions
+type NoReturnCond =
+  /// Unconditionally (always) no-return
+  | UnconditionalNoRet
+  /// Conditionally no-return, if n-th arguments (starting from one) specified
+  /// in the set are all non-zero.
+  | ConditionalNoRet of Set<int>
+
 /// No-return function info.
 type NoReturnInfo = {
   /// No-return function addresses.
-  NoReturnFuncs: Set<Addr>
+  NoReturnFuncs: Map<Addr, NoReturnCond>
   /// Program points of no-return call sites.
   NoReturnCallSites: Set<ProgramPoint>
 }
 with
-  static member Init noRetFuncs noRetCallSites =
-    { NoReturnFuncs = noRetFuncs ; NoReturnCallSites = noRetCallSites }
-
-  static member AddNoReturnFunction info addr =
-    { info with NoReturnFuncs = Set.add addr info.NoReturnFuncs }
+  static member AddNoReturnFunction info addr cond =
+    { info with NoReturnFuncs = Map.add addr cond info.NoReturnFuncs }
 
   static member AddNoReturnCallSite info ppoint =
     { info with NoReturnCallSites = Set.add ppoint info.NoReturnCallSites }

@@ -148,6 +148,11 @@ and private evalRelOp st e1 e2 = function
   | RelOpType.FGE -> evalBinOpConc st e1 e2 BitVector.fge
   | _ -> raise IllegalASTTypeException
 
+let private markUndefAfterFailure st lhs =
+  match lhs with
+  | Var (_, n, _, _) -> EvalState.SetReg st n Undef |> ignore
+  | _ -> ()
+
 let private evalPut st lhs rhs =
   match evalConcrete st rhs with
   | (Ok v) as res ->
@@ -160,7 +165,9 @@ let private evalPut st lhs rhs =
       |> Result.map (EvalState.SetPC st)
     | TempVar (_, n) -> EvalState.SetTmp st n v |> Ok
     | _ -> Error ErrorCase.InvalidExprEvaluation
-  | Error e -> Error e
+  | Error e ->
+    markUndefAfterFailure st lhs
+    Error e
 
 let private evalStore st endian addr v =
   let addr = evalConcrete st addr |> unwrap |> Result.map BitVector.toUInt64

@@ -97,9 +97,15 @@ let iterRevPostorder g vs fn =
 /// there is a loop to the root node.
 let foldTopologically g roots fn acc =
   let visited = new HashSet<int> ()
-  DiGraph.getUnreachables g
-  |> Set.ofSeq
-  |> List.foldBack Set.add roots
+  let vs =
+    DiGraph.getUnreachables g
+    |> Set.ofSeq
+    |> List.foldBack Set.add roots
+    |> Set.toList
+    |> foldPostorderLoop visited g (fun acc v -> v :: acc) [] []
+  (* Consider unreachable loop components. For those vertices, the order is
+     random *)
+  DiGraph.getVertices g
   |> Set.toList
-  |> foldPostorderLoop visited g (fun acc v -> v :: acc) [] []
+  |> foldPostorderLoop visited g (fun acc v -> v :: acc) vs []
   |> List.fold fn acc

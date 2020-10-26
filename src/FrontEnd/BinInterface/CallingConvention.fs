@@ -27,6 +27,24 @@ module B2R2.FrontEnd.BinInterface.CallingConvention
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
+[<CompiledName("VolatileRegisters")>]
+let volatileRegisters handler =
+  match handler.ISA.Arch with
+  | Arch.IntelX86 ->
+    [ Intel.Register.EAX; Intel.Register.ECX; Intel.Register.EDX ]
+    |> List.map Intel.Register.toRegID
+  | Arch.IntelX64 ->
+    [ Intel.Register.RAX; Intel.Register.RCX; Intel.Register.RDX;
+      Intel.Register.R8; Intel.Register.R9; Intel.Register.R10;
+      Intel.Register.R11 ]
+    |> List.map Intel.Register.toRegID
+  | Arch.ARMv7
+  | Arch.AARCH32 ->
+    [ ARM32.Register.R0; ARM32.Register.R1; ARM32.Register.R2;
+      ARM32.Register.R3 ]
+    |> List.map ARM32.Register.toRegID
+  | _ -> Utils.futureFeature ()
+
 [<CompiledName("ReturnRegister")>]
 let returnRegister handler =
   match handler.ISA.Arch with

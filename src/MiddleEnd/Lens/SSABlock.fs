@@ -47,6 +47,13 @@ module SSABlockHelper =
     let wordSize = hdl.ISA.WordSize |> WordSize.toRegType
     SSA.RegVar (wordSize, reg, hdl.RegisterBay.RegIDToString reg)
 
+  let private addVolatileDefs hdl defs =
+    CallingConvention.volatileRegisters hdl
+    |> List.fold (fun defs rid ->
+      let reg = buildRegVar hdl rid
+      let def = { SSA.Kind = reg; SSA.Identifier = -1 }
+      Set.add def defs) defs
+
   let private addReturnValDef hdl defs =
     let reg = CallingConvention.returnRegister hdl |> buildRegVar hdl
     let def = { SSA.Kind = reg; SSA.Identifier = -1 }
