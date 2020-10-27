@@ -5438,6 +5438,20 @@ let ror ins insAddr insLen ctxt =
     extractHigh 1<rt> dst <+> extract dst 1<rt> 1
   rotate ins insAddr insLen ctxt (>>) (<<) extractHigh ofFn
 
+let rorx ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (8)
+  let dst, src, imm =
+    getThreeOprs ins |> transThreeOprs ins insAddr insLen ctxt
+  let oprSize = getOperationSize ins
+  let y = tmpVar oprSize
+  if oprSize = 32<rt> then
+    builder <! (y := imm .& (numI32 0x1F oprSize))
+    builder <! (dst := (src >> y) .| (src << (numI32 32 oprSize .- y)))
+  else (* OperandSize = 64 *)
+    builder <! (y := imm .& (numI32 0x3F oprSize))
+    builder <! (dst := (src >> y) .| (src << (numI32 64 oprSize .- y)))
+  endMark insAddr insLen builder
+
 let rcpps ins insAddr insLen ctxt =
   let builder = new StmtBuilder(8)
   let opr1, opr2 = getTwoOprs ins
@@ -5706,6 +5720,20 @@ let shld ins insAddr insLen ctxt =
 
 let shrd ins insAddr insLen ctxt =
   shiftDblPrec ins insAddr insLen ctxt (>>) (<<) false
+
+let shlx ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (8)
+  let dst, src1, src2 =
+    getThreeOprs ins |> transThreeOprs ins insAddr insLen ctxt
+  let oprSize = getOperationSize ins
+  let temp = tmpVar oprSize
+  let countMask = if is64REXW ctxt ins then 0x3F else 0x1F // FIXME: CS.L = 1
+  let count = src2 .& (numI32 countMask oprSize)
+  startMark insAddr insLen builder
+  builder <! (temp := src1)
+  builder <! (extractHigh 1<rt> dst := extractHigh 1<rt> temp)
+  builder <! (dst := dst << count)
+  endMark insAddr insLen builder
 
 let stmxcsr ins insAddr insLen ctxt =
   let builder = new StmtBuilder (4)
@@ -7745,6 +7773,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.RETFarImm -> ret ins insAddr insLen ctxt true true
   | Opcode.ROL -> rol ins insAddr insLen ctxt
   | Opcode.ROR -> ror ins insAddr insLen ctxt
+  | Opcode.RORX -> rorx ins insAddr insLen ctxt
   | Opcode.RSTORSSP -> nop insAddr insLen
   | Opcode.SAHF -> sahf ins insAddr insLen ctxt
   | Opcode.SAR | Opcode.SHR | Opcode.SHL -> shift ins insAddr insLen ctxt
@@ -7760,6 +7789,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.SETSSBSY -> nop insAddr insLen
   | Opcode.SFENCE -> sideEffects insAddr insLen Fence
   | Opcode.SHLD -> shld ins insAddr insLen ctxt
+  | Opcode.SHLX -> shlx ins insAddr insLen ctxt
   | Opcode.SHRD -> shrd ins insAddr insLen ctxt
   | Opcode.STC -> stc insAddr insLen ctxt
   | Opcode.STD -> std insAddr insLen ctxt
