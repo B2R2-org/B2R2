@@ -6938,6 +6938,50 @@ let vpshufb ins insAddr insLen ctxt =
     builder <!
       (dstC := extract tDst 64<rt> (RegType.toBitWidth (typeOf tDst) - 64))
     builder <! (dstD := extractHigh 64<rt> tDst)
+  | 512<rt> ->
+    let kl, vl = 64, 512
+    let ePrx = getEVEXPrx ins.VEXInfo
+    let k = getRegVar ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
+    let cond idx =
+      if ePrx.AAA = 0uy then num0 1<rt> (* no write mask *)
+      else extract k 1<rt> idx
+    let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
+      transOprToExpr512 ins insAddr insLen ctxt dst
+    let src1H, src1G, src1F, src1E, src1D, src1C, src1B, src1A =
+      transOprToExpr512 ins insAddr insLen ctxt src1
+    let src2H, src2G, src2F, src2E, src2D, src2C, src2B, src2A =
+      transOprToExpr512 ins insAddr insLen ctxt src2
+    builder <!
+      (tSrc1 := concat (concat (concat src1H src1G) (concat src1F src1E))
+                       (concat (concat src1D src1C) (concat src1B src1A)))
+    builder <!
+      (tSrc2 := concat (concat (concat src2H src2G) (concat src2F src2E))
+                       (concat (concat src2D src2C) (concat src2B src2A)))
+    let num0F = numU32 0x0Fu 8<rt>
+    let jmask = tmpVar 8<rt>
+    let tmps = Array.init kl (fun _ -> tmpVar 8<rt>)
+    builder <! (jmask := numI32 (kl - 1) 8<rt> .& (AST.not num0F))
+    for i in 0 .. kl - 1 do
+      let cond idx =
+        (* no write mask *)
+        let noWritemask = if ePrx.AAA = 0uy then num1 1<rt> else num0 1<rt>
+        extract k 1<rt> idx .| noWritemask
+      let index1 = extract tSrc2 8<rt> (i * 8)
+      let index2 = (index1 .& num0F) .+ (numI32 i 8<rt> .& jmask)
+      let src1 =
+        extractLow 8<rt> (tSrc1 >> (zExt oprSize (index2 .* numI32 8 8<rt>)))
+      builder <! (tmps.[i] := ite (cond i) (ite (extractHigh 1<rt> index1)
+                                                (num0 8<rt>) src1) (num0 8<rt>))
+    done
+    builder <! (tDst := concatExprs tmps)
+    builder <! (dstA := extract tDst 64<rt> 0)
+    builder <! (dstB := extract tDst 64<rt> 64)
+    builder <! (dstC := extract tDst 64<rt> 128)
+    builder <! (dstD := extract tDst 64<rt> 192)
+    builder <! (dstE := extract tDst 64<rt> 256)
+    builder <! (dstF := extract tDst 64<rt> 320)
+    builder <! (dstG := extract tDst 64<rt> 384)
+    builder <! (dstH := extract tDst 64<rt> 448)
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
