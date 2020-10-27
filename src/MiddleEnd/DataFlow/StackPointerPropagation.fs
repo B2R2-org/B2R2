@@ -25,8 +25,10 @@
 namespace B2R2.MiddleEnd.DataFlow
 
 open B2R2
-open B2R2.FrontEnd.BinInterface
 open B2R2.BinIR.SSA
+open B2R2.FrontEnd.BinInterface
+open B2R2.MiddleEnd.BinGraph
+open B2R2.MiddleEnd.Lens
 open System.Collections.Generic
 
 module StackState =
@@ -40,6 +42,65 @@ module StackState =
       dict.[var] <- Const (BitVector.ofUInt64 0x80000000UL rt)
       dict
     | None -> dict
+
+  let private collectDefAddrs ess cfg st v addrs = function
+    | _, Def (_, Store (_, rt, addr, _)) ->
+      match StackTransfer.evalExpr ess cfg st v addr with
+      | Const bv ->
+        let addr = BitVector.toUInt64 bv
+        let align = RegType.toByteWidth rt |> uint64
+        if (rt = st.DefaultWordSize) && (addr % align = 0UL) then
+          Set.add addr addrs
+        else addrs
+      | _ -> addrs
+    | _ -> addrs
+
+  let private recordMergePoint mergePoints v addr =
+    match Map.tryFind v mergePoints with
+    | Some addrs -> Map.add v (Set.add addr addrs) mergePoints
+    | None -> Map.add v (Set.singleton addr) mergePoints
+
+  let private updateMergePoint addrsPerNode addr (mps, visited, workList) v =
+    if Set.contains v visited then mps, visited, workList
+    else
+      let mps = recordMergePoint mps v addr
+      let visited = Set.add v visited
+      let addrs = (addrsPerNode: Dictionary<SSAVertex, Set<Addr>>).[v]
+      if not <| Set.contains addr addrs then mps, visited, v :: workList
+      else mps, visited, workList
+
+  let rec private foldVertices mergePoints visited addrsPerNode addr = function
+    | [] -> mergePoints
+    | (v: SSAVertex) :: workList ->
+      let mergePoints, visited, workList =
+        v.VData.Frontier
+        |> List.fold (updateMergePoint addrsPerNode addr)
+                      (mergePoints, visited, workList)
+      foldVertices mergePoints visited addrsPerNode addr workList
+
+  /// Memory merge point means an address of which the merging operation should
+  /// be performed. Mempory merge point is necessary for dataflow analysis on
+  /// SSA. Without this, every time we meet a phi statement of a memory, we
+  /// should iterate memories and merge values at all exisitng addresses.
+  let computeMemoryMergePoints ess cfg st =
+    let defSites = Dictionary ()
+    let defsPerNode = Dictionary ()
+    DiGraph.iterVertex cfg (fun (v: Vertex<SSABBlock>) ->
+      if v.VData.IsFakeBlock () then ()
+      else
+        let defs =
+          v.VData.SSAStmtInfos
+          |> Array.fold (collectDefAddrs ess cfg st v) Set.empty
+        defsPerNode.[v] <- defs
+        defs
+        |> Set.iter (fun d ->
+          if defSites.ContainsKey d then defSites.[d] <- Set.add v defSites.[d]
+          else defSites.[d] <- Set.singleton v))
+    defSites
+    |> Seq.fold (fun mergePoints (KeyValue (addr, defs)) ->
+      Set.toList defs
+      |> foldVertices mergePoints Set.empty defsPerNode addr
+      ) Map.empty
 
 /// Variant of Constant Propagation. It only cares stack-related registers:
 /// stack pointer and frame pointer.
