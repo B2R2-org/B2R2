@@ -221,7 +221,8 @@ module BranchRecoveryHelper =
     let ssaRoot = List.head ssaRoots
     let stackProp = StackPointerPropagation.Init ess.BinHandle ssaCFG
     let stackSt = stackProp.Compute ess ssaRoot
-    let copyProp = ConstantCopyPropagation.Init ess.BinHandle ssaCFG stackSt
+    let mps = StackState.computeMemoryMergePoints ess ssaCFG stackSt
+    let copyProp = ConstantCopyPropagation.Init ess.BinHandle ssaCFG stackSt mps
     let copySt = copyProp.Compute ess ssaRoot
     copySt, ssaCFG
 

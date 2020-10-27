@@ -339,7 +339,7 @@ let evalPhi cfg st blk dst srcIDs =
     | MemVar ->
       let dstid = dst.Identifier
       let oldMem = st.MemState.TryGetValue dstid |> Utils.tupleToOpt
-      CPState.mergeMem st oldMem dst executableSrcIDs
+      CPState.mergeMemWithoutMergePoints st oldMem dst executableSrcIDs
     | PCVar _ -> ()
 
 let markAllSuccessors cfg st (blk: Vertex<SSABBlock>) =

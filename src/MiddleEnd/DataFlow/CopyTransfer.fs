@@ -137,7 +137,7 @@ let executableSources cfg st (blk: Vertex<_>) srcIDs =
     else Some srcID)
   |> Array.choose id
 
-let evalPhi cfg st blk dst srcIDs =
+let evalPhi mergePointMap cfg st blk dst srcIDs =
   match executableSources cfg st blk srcIDs with
   | [||] -> ()
   | executableSrcIDs ->
@@ -155,7 +155,11 @@ let evalPhi cfg st blk dst srcIDs =
     | MemVar ->
       let dstid = dst.Identifier
       let oldMem = st.MemState.TryGetValue dstid |> Utils.tupleToOpt
-      CPState.mergeMem st oldMem dst executableSrcIDs
+      let mergePoints =
+        match Map.tryFind blk mergePointMap with
+        | Some mergePoints -> mergePoints
+        | None -> Set.empty
+      CPState.mergeMemWithMergePoints st oldMem mergePoints dst executableSrcIDs
     | PCVar _ -> ()
 
 let markAllSuccessors cfg st (blk: Vertex<SSABBlock>) =
@@ -183,8 +187,8 @@ let evalJmp cfg st blk = function
   | InterJmp _ -> evalInterJmp cfg st blk
   | _ -> markAllSuccessors cfg st blk
 
-let evalStmt stackSt ess cfg st blk _ppoint = function
+let evalStmt stackSt mergePointMap ess cfg st blk _ppoint = function
   | Def (v, e) -> evalDef ess cfg stackSt st blk v e
-  | Phi (v, ns) -> evalPhi cfg st blk v ns
+  | Phi (v, ns) -> evalPhi mergePointMap cfg st blk v ns
   | Jmp jmpTy -> evalJmp cfg st blk jmpTy
   | LMark _ | SideEffect _ -> ()

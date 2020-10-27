@@ -163,29 +163,20 @@ module CPState =
         st.SSAWorkList.Push mDst
     elif not <| Set.isEmpty updated then st.SSAWorkList.Push mDst
 
-  let merge st mem1 mem2 addr =
-    match Map.tryFind addr mem1, Map.tryFind addr mem2 with
-    | Some c, Some c' when c = c' -> Some c
-    | Some c, Some c' -> Some <| st.Meet c c'
-    | Some _, None when st.UndefinedMemories.Contains addr -> Some st.Bottom
-    | Some c, None -> Some c
-    | None, Some _ when st.UndefinedMemories.Contains addr -> Some st.Bottom
-    | None, Some c -> Some c
-    | None, None when st.UndefinedMemories.Contains addr -> Some st.Bottom
-    | _ -> None
-
-  let private mergeMemAux st accMem (mem, _) =
-    let addrs = HashSet<Addr> ()
-    Map.iter (fun addr _ -> addrs.Add addr |> ignore) accMem
-    Map.iter (fun addr _ -> addrs.Add addr |> ignore) mem
-    addrs
-    |> Seq.fold (fun newMem addr ->
-      match merge st newMem mem addr with
-      | Some c -> Map.add addr c newMem
-      | None -> newMem) accMem
+  let freshMerge st mems =
+    mems
+    |> Array.reduce (fun mem1 mem2 ->
+      mem2
+      |> Map.fold (fun acc addr v2 ->
+        if st.UndefinedMemories.Contains addr then Map.add addr st.Bottom acc
+        else
+          match Map.tryFind addr mem1 with
+          | Some v1 when v1 = v2 -> acc
+          | Some v1 -> Map.add addr (st.Meet v1 v2) acc
+          | None -> Map.add addr v2 acc) mem1)
 
   /// Merge memory mapping and return true if changed.
-  let mergeMem st oldMem mDst srcids =
+  let mergeMemWithoutMergePoints st oldMem mDst srcids =
     let dstid = mDst.Identifier
     srcids
     |> Array.choose (fun mid ->
@@ -194,8 +185,7 @@ module CPState =
     |> function
       | [||] -> ()
       | arr ->
-        let mem =
-          Array.fold (mergeMemAux st) Map.empty arr
+        let mem = Array.map fst arr |> freshMerge st
         let updated, needEnqueue =
           mem
           |> Map.fold (fun (newUpdated, needEnqueue) addr c ->
@@ -206,5 +196,46 @@ module CPState =
               | Some _ -> Set.add addr newUpdated, true
               | None -> Set.add addr newUpdated, true
             | None -> newUpdated, true) (Set.empty, false)
+        st.MemState.[dstid] <- (mem, updated)
+        if needEnqueue then st.SSAWorkList.Push mDst
+
+  let mergeWithMergePoints st mergePoints oldMem mems =
+    mergePoints
+    |> Set.fold (fun (acc, updated, needEnqueue) addr ->
+      if st.UndefinedMemories.Contains addr then
+        Map.add addr st.Bottom acc, updated, needEnqueue
+      else
+        match Map.tryFind addr oldMem with
+        | Some v when v = st.Bottom ->
+          Map.add addr st.Bottom acc, updated, needEnqueue
+        | v ->
+          let v' =
+            mems
+            |> Array.map (fun mem -> Map.tryFind addr mem)
+            |> Array.choose id
+            |> fun arr ->
+              if Array.isEmpty arr then st.Bottom else Array.reduce st.Meet arr
+          match v with
+          | Some v when v = v' -> Map.add addr v acc, updated, needEnqueue
+          | Some v ->
+            Map.add addr (st.Meet v v') acc, Set.add addr updated, true
+          | None -> Map.add addr v' acc, Set.add addr updated, true
+        ) (oldMem, Set.empty, false)
+
+  /// Merge memory with pre-calculated merge points
+  let mergeMemWithMergePoints st oldMem mergePoints mDst srcids =
+    let dstid = mDst.Identifier
+    srcids
+    |> Array.choose (fun mid ->
+      if mid = dstid then oldMem
+      else st.MemState.TryGetValue mid |> Utils.tupleToOpt)
+    |> function
+      | [||] -> ()
+      | arr ->
+        let arr = Array.map fst arr
+        let mem, updated, needEnqueue =
+          match oldMem with
+          | None -> freshMerge st arr, Set.empty, true
+          | Some (oldMem, _) -> mergeWithMergePoints st mergePoints oldMem arr
         st.MemState.[dstid] <- (mem, updated)
         if needEnqueue then st.SSAWorkList.Push mDst

@@ -48,7 +48,7 @@ module UDPropState =
 type UndefPropagation (ssaCFG, tState) =
   inherit ConstantPropagation<UDPropValue> (ssaCFG, tState)
 
-  static member Init hdl ssaCFG spState =
+  static member Init hdl ssaCFG spState mergePointMap =
     let tState =
       CPState.initState hdl
                         ssaCFG
@@ -58,5 +58,5 @@ type UndefPropagation (ssaCFG, tState) =
                         Untainted
                         UDPropValue.goingUp
                         UDPropValue.meet
-                        (UDPropTransfer.evalStmt spState)
+                        (UDPropTransfer.evalStmt spState mergePointMap)
     UndefPropagation (ssaCFG, tState)

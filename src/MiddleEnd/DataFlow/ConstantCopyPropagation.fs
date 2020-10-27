@@ -38,7 +38,7 @@ module CopyState =
 type ConstantCopyPropagation (ssaCFG, ccState) =
   inherit ConstantPropagation<CopyValue> (ssaCFG, ccState)
 
-  static member Init hdl ssaCFG spState =
+  static member Init hdl ssaCFG spState mergePointMap =
     let ccState =
       CPState.initState hdl
                         ssaCFG
@@ -48,5 +48,5 @@ type ConstantCopyPropagation (ssaCFG, ccState) =
                         NotAConst
                         CopyValue.goingUp
                         CopyValue.meet
-                        (CopyTransfer.evalStmt spState)
+                        (CopyTransfer.evalStmt spState mergePointMap)
     ConstantCopyPropagation (ssaCFG, ccState)
