@@ -5438,6 +5438,20 @@ let ror ins insAddr insLen ctxt =
     extractHigh 1<rt> dst <+> extract dst 1<rt> 1
   rotate ins insAddr insLen ctxt (>>) (<<) extractHigh ofFn
 
+let rorx ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (8)
+  let dst, src, imm =
+    getThreeOprs ins |> transThreeOprs ins insAddr insLen ctxt
+  let oprSize = getOperationSize ins
+  let y = tmpVar oprSize
+  if oprSize = 32<rt> then
+    builder <! (y := imm .& (numI32 0x1F oprSize))
+    builder <! (dst := (src >> y) .| (src << (numI32 32 oprSize .- y)))
+  else (* OperandSize = 64 *)
+    builder <! (y := imm .& (numI32 0x3F oprSize))
+    builder <! (dst := (src >> y) .| (src << (numI32 64 oprSize .- y)))
+  endMark insAddr insLen builder
+
 let rcpps ins insAddr insLen ctxt =
   let builder = new StmtBuilder(8)
   let opr1, opr2 = getTwoOprs ins
@@ -7759,6 +7773,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.RETFarImm -> ret ins insAddr insLen ctxt true true
   | Opcode.ROL -> rol ins insAddr insLen ctxt
   | Opcode.ROR -> ror ins insAddr insLen ctxt
+  | Opcode.RORX -> rorx ins insAddr insLen ctxt
   | Opcode.RSTORSSP -> nop insAddr insLen
   | Opcode.SAHF -> sahf ins insAddr insLen ctxt
   | Opcode.SAR | Opcode.SHR | Opcode.SHL -> shift ins insAddr insLen ctxt
