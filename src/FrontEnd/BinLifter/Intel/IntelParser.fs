@@ -2406,6 +2406,8 @@ let inline private parseMemOrReg modRM insInfo wordSz reader pos =
 let inline private parseXMMReg insInfo =
   match insInfo.VEXInfo with
   | None -> raise ParsingFailureException
+  | Some vInfo when vInfo.VectorLength = 512<rt> ->
+    Register.make (int vInfo.VVVV) Register.Kind.ZMM |> OprReg
   | Some vInfo when vInfo.VectorLength = 256<rt> ->
     Register.make (int vInfo.VVVV) Register.Kind.YMM |> OprReg
   | Some vInfo ->
