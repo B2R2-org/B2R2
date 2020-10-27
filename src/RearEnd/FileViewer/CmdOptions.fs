@@ -178,6 +178,34 @@ type FileViewerOpts () =
     CmdOpts.New (descr = "Display the dependencies",
                  callback = cb, long = "--dependencies")
 
+  /// "--archive-header" option for displaying the archive header.
+  static member OptArchiveHeader () =
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts (DisplayMachSpecific MachDisplayArchiveHeader)
+    CmdOpts.New (descr = "Display the archive header",
+                callback = cb, long = "--archive-header")
+
+  /// "--universal-header" option for displaying the universal header.
+  static member OptUniversalHeader () =
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts (DisplayMachSpecific MachDisplayUniversalHeader)
+    CmdOpts.New (descr = "Display the universal header",
+                callback = cb, long = "--universal-header")
+
+  /// "--load-commands" option for displaying the load commands.
+  static member OptLoadCommands () =
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts (DisplayMachSpecific MachDisplayLoadCommands)
+    CmdOpts.New (descr = "Display the load commands",
+                callback = cb, long = "--load-commands")
+
+  /// "--shared-libs" option for displaying the shared libraries.
+  static member OptSharedLibs () =
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts (DisplayMachSpecific MachDisplaySharedLibs)
+    CmdOpts.New (descr = "Display the shared libraries",
+                callback = cb, long = "--shared-libs")
+
   /// "-i" or "--isa" option for specifying ISA.
   static member OptISA () =
     let cb opts (arg: string []) =
@@ -224,4 +252,10 @@ module Cmd =
       CmdOpts.New (descr = "", dummy = true)
       CmdOpts.New (descr = "[Mach-O options]", dummy = true)
       CmdOpts.New (descr = "", dummy = true)
+
+      FileViewerOpts.OptArchiveHeader ()
+      FileViewerOpts.OptUniversalHeader ()
+      FileViewerOpts.OptLoadCommands ()
+      FileViewerOpts.OptSharedLibs ()
+
       FileViewerOpts.OptISA () ]

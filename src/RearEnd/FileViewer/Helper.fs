@@ -40,6 +40,9 @@ let [<Literal>] private colWidth = 48
 let toHexString (v: uint64) =
   "0x" + v.ToString ("x")
 
+let toHexString32 (v: uint32) =
+  "0x" + v.ToString ("x")
+
 let toNBytes (v: uint64) =
   v.ToString () + " bytes"
 
@@ -60,7 +63,7 @@ let targetString s =
   | _ -> Utils.impossible ()
 
 let toLibString s =
-  if System.String.IsNullOrEmpty s then s else "@ " + s
+  if System.String.IsNullOrEmpty s then s else "@" + s
 
 let wrapParen s =
   "(" + s + ")"

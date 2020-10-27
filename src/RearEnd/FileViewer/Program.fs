@@ -94,15 +94,11 @@ let dumpFunctions (opts: FileViewerOpts) (fi: FileInfo) =
 
 let dumpSegments (opts: FileViewerOpts) (fi: FileInfo) =
   dumpSpecific opts fi "Segment Information"
-    ELFViewer.dumpSegments
-    PEViewer.dumpSegments
-    MachViewer.dumpSegments
+    ELFViewer.dumpSegments PEViewer.badAccess MachViewer.badAccess
 
 let dumpLinkageTable (opts: FileViewerOpts) (fi: FileInfo) =
   dumpSpecific opts fi "Linkage Table Information"
-    ELFViewer.dumpLinkageTable
-    PEViewer.dumpLinkageTable
-    MachViewer.dumpLinkageTable
+    ELFViewer.dumpLinkageTable PEViewer.badAccess MachViewer.badAccess
 
 let dumpEHFrame hdl (fi: FileInfo) =
   dumpSpecific hdl fi ".eh_frame Information"
@@ -132,6 +128,22 @@ let dumpDependencies (opts: FileViewerOpts) (fi: FileInfo) =
   dumpSpecific opts fi "Dependencies Information"
     ELFViewer.badAccess PEViewer.dumpDependencies MachViewer.badAccess
 
+let dumpArchiveHeader (opts: FileViewerOpts) (fi: FileInfo) =
+  dumpSpecific opts fi "Archive Header Information"
+    ELFViewer.badAccess PEViewer.badAccess MachViewer.dumpArchiveHeader
+
+let dumpUniversalHeader (opts: FileViewerOpts) (fi: FileInfo) =
+  dumpSpecific opts fi "Universal Header Information"
+    ELFViewer.badAccess PEViewer.badAccess MachViewer.dumpUniversalHeader
+
+let dumpLoadCommands (opts: FileViewerOpts) (fi: FileInfo) =
+  dumpSpecific opts fi "Load Commands Information"
+    ELFViewer.badAccess PEViewer.badAccess MachViewer.dumpLoadCommands
+
+let dumpSharedLibs (opts: FileViewerOpts) (fi: FileInfo) =
+  dumpSpecific opts fi "Shared Libs Information"
+    ELFViewer.badAccess PEViewer.badAccess MachViewer.dumpSharedLibs
+
 let printFileName filepath =
   [ Green, "["; Yellow, filepath; Green, "]" ] |> Printer.println
   Printer.println ()
@@ -160,7 +172,8 @@ let printAll opts hdl (fi: FileInfo) =
      dumpCLRHeader opts fi
      dumpDependencies opts fi
    | :? MachFileInfo as fi ->
-     Utils.futureFeature ()
+     dumpLoadCommands opts fi
+     dumpSharedLibs opts fi
    | _ -> Utils.futureFeature ()
 
 let printSelectively hdl opts fi = function
@@ -180,7 +193,10 @@ let printSelectively hdl opts fi = function
   | DisplayPESpecific PEDisplayOptionalHeader -> dumpOptionalHeader opts fi
   | DisplayPESpecific PEDisplayCLRHeader -> dumpCLRHeader opts fi
   | DisplayPESpecific PEDisplayDependencies -> dumpDependencies opts fi
-  | _ -> Utils.futureFeature ()
+  | DisplayMachSpecific MachDisplayArchiveHeader -> dumpArchiveHeader opts fi
+  | DisplayMachSpecific MachDisplayUniversalHeader -> dumpUniversalHeader opts fi
+  | DisplayMachSpecific MachDisplayLoadCommands -> dumpLoadCommands opts fi
+  | DisplayMachSpecific MachDisplaySharedLibs -> dumpSharedLibs opts fi
 
 let dumpFile (opts: FileViewerOpts) (filepath: string) =
   let hdl = BinHandle.Init (opts.ISA, opts.BaseAddress, filepath)

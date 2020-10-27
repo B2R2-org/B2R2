@@ -322,6 +322,8 @@ type LoadCommand =
 
 /// Segment command.
 and SegCmd = {
+  Cmd: LoadCmdType
+  CmdSize: uint32
   /// The offset of the sections in the segment. If the segment has sections
   /// then the section structures directly follow the segment command and their
   /// size is in the size of the command.
@@ -348,6 +350,8 @@ and SegCmd = {
 
 /// Symbol table command.
 and SymTabCmd = {
+  Cmd: LoadCmdType
+  CmdSize: uint32
   /// An integer containing the byte offset from the start of the file to the
   /// location of the symbol table entries.
   SymOff: int
@@ -362,6 +366,8 @@ and SymTabCmd = {
 
 /// Dynamic symbol table command.
 and DySymTabCmd = {
+  Cmd: LoadCmdType
+  CmdSize: uint32
   /// An integer indicating the index of the first symbol in the group of local
   /// symbols.
   IdxLocalSym: uint32
@@ -416,6 +422,8 @@ and DySymTabCmd = {
 
 /// DYLD information command (dyld_info_command).
 and DyLdInfoCmd = {
+  Cmd: LoadCmdType
+  CmdSize: uint32
   /// File offset to rebase info.
   RebaseOff: int
   /// The size of rebase info.
@@ -440,12 +448,16 @@ and DyLdInfoCmd = {
 
 /// Function starts command (LC_FUNCTION_STARTS).
 and FuncStartsCmd = {
+  Cmd: LoadCmdType
+  CmdSize: uint32
   DataOffset: int
   DataSize: uint32
 }
 
 /// Main command.
 and MainCmd = {
+  Cmd: LoadCmdType
+  CmdSize: uint32
   /// Offset of main().
   EntryOff: Addr
   /// Initial stack size, if not zero.
@@ -455,6 +467,8 @@ and MainCmd = {
 /// Dynamic library command: the data used by the dynamic linker to match a
 /// shared library against the files that have linked to it.
 and DyLibCmd = {
+  Cmd: LoadCmdType
+  CmdSize: uint32
   /// Library's path name.
   DyLibName: string
   /// Library's build time stamp.
@@ -723,6 +737,8 @@ type Mach = {
   SegmentMap: ARMap<SegCmd>
   /// Sections.
   Sections: SectionInfo
+  /// Load Commands
+  Cmds: LoadCommand list
   /// Symbol info.
   SymInfo: SymInfo
   /// Text section index.

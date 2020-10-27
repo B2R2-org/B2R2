@@ -85,6 +85,7 @@ let parseMach baseAddr reader  =
     Sections = secs
     SecText = secText
     Relocations = relocs
+    Cmds = cmds
     InvalidAddrRanges = invRanges cls segs (fun s -> s.VMAddr + s.VMSize)
     NotInFileRanges = invRanges cls segs (fun s -> s.VMAddr + s.FileSize)
     ExecutableRanges = execRanges segs

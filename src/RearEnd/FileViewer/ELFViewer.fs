@@ -142,7 +142,7 @@ let printSymbolInfo isVerbose (fi: ELFFileInfo) (symbols: seq<Symbol>) =
       [ targetString s
         addrToString fi.WordSize s.Address
         normalizeEmpty s.Name
-        (normalizeEmpty >> toLibString) s.LibraryName ]
+        (toLibString >> normalizeEmpty) s.LibraryName ]
     if isVerbose then
       match fi.ELF.SymInfo.AddrToSymbTable.TryFind s.Address with
       | Some elfSymbol ->
@@ -216,7 +216,7 @@ let dumpLinkageTable (opts: FileViewerOpts) (fi: ELFFileInfo) =
       [ (addrToString fi.WordSize e.TrampolineAddress)
         (addrToString fi.WordSize e.TableAddress)
         normalizeEmpty e.FuncName
-        (normalizeEmpty >> toLibString) e.LibraryName ]
+        (toLibString >> normalizeEmpty) e.LibraryName ]
     if opts.Verbose then
       match fi.ELF.RelocInfo.RelocByAddr.TryFind e.TableAddress with
       | Some reloc ->

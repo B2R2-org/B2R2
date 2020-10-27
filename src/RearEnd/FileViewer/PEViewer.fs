@@ -33,19 +33,19 @@ open System.Reflection.PortableExecutable
 let badAccess _ _ =
   raise InvalidFileTypeException
 
-let translateChracteristics c =
-  let ec =
+let translateChracteristics chars =
+  let enumChars =
     System.Enum.GetValues (typeof<Characteristics>)
     :?> Characteristics []
     |> Array.toList
-  let rec loop acc c = function
+  let rec loop acc chars = function
     | [] -> List.rev acc
-    | ec :: t ->
-      if uint64 ec &&& c = uint64 ec then
-        loop ((" - " + ec.ToString ()) :: acc) c t
+    | enumChar :: tail ->
+      if uint64 enumChar &&& chars = uint64 enumChar then
+        loop ((" - " + enumChar.ToString ()) :: acc) chars tail
       else
-        loop acc c t
-  loop [] c ec
+        loop acc chars tail
+  loop [] chars enumChars
 
 let dumpFileHeader _ (fi: PEFileInfo) =
   let hdr = fi.PE.PEHeaders.CoffHeader
@@ -68,24 +68,25 @@ let dumpFileHeader _ (fi: PEFileInfo) =
     "Characteristics:"
     (toHexString (uint64 hdr.Characteristics))
   translateChracteristics (uint64 hdr.Characteristics)
-  |> List.iter (fun s -> printTwoCols "" s)
+  |> List.iter (fun str -> printTwoCols "" str)
 
-let translateSectionChracteristics c =
-  let ec =
+let translateSectionChracteristics chars =
+  let enumChars =
     System.Enum.GetValues (typeof<SectionCharacteristics>)
     :?> SectionCharacteristics []
     |> Array.toList
-  if c = uint64 0 then
+  if chars = uint64 0 then
     [ " - TypeReg" ]
   else
-    let rec loop acc c = function
+    let rec loop acc chars = function
       | [] -> List.rev acc
-      | ec :: t ->
-        if uint64 ec &&& c = uint64 ec && not (uint64 ec = uint64 0) then
-          loop ((" - " + ec.ToString ()) :: acc) c t
+      | enumChar :: t ->
+        if uint64 enumChar &&& chars = uint64 enumChar
+          && not (uint64 enumChar = uint64 0) then
+          loop ((" - " + enumChar.ToString ()) :: acc) chars t
         else
-          loop acc c t
-    loop [] c ec
+          loop acc chars t
+    loop [] chars enumChars
 
 let dumpSectionHeaders (opts: FileViewerOpts) (fi: PEFileInfo) =
   if opts.Verbose then
@@ -175,7 +176,7 @@ let dumpSectionDetails (secname: string) (fi: PEFileInfo) =
       "Characteristics:"
       (toHexString characteristics)
     translateSectionChracteristics characteristics
-    |> List.iter (fun s -> printTwoCols "" s)
+    |> List.iter (fun str -> printTwoCols "" str)
   | None -> printTwoCols "Not found." ""
 
 let printSymbolInfo (fi: PEFileInfo) (symbols: seq<Symbol>) =
@@ -192,7 +193,7 @@ let printSymbolInfo (fi: PEFileInfo) (symbols: seq<Symbol>) =
       [ targetString s
         addrToString fi.WordSize s.Address
         normalizeEmpty s.Name
-        (normalizeEmpty >> toLibString) s.LibraryName ])
+        (toLibString >> normalizeEmpty) s.LibraryName ])
 
 let dumpSymbols _ (fi: PEFileInfo) =
    fi.GetSymbols ()
@@ -205,10 +206,6 @@ let dumpRelocs _ (fi: PEFileInfo) =
 let dumpFunctions _ (fi: PEFileInfo) =
   fi.GetFunctionSymbols ()
   |> printSymbolInfo fi
-
-let dumpSegments _ _ = ()
-
-let dumpLinkageTable _ _ = ()
 
 let inline addrFromRVA baseAddr rva =
   uint64 rva + baseAddr
@@ -253,23 +250,23 @@ let dumpExports _ (fi: PEFileInfo) =
   |> Map.iter (fun name (bin, func) ->
     Printer.printrow true cfg [ name; bin + "!" + func ])
 
-let translateDllChracteristcs c =
-  let ec =
+let translateDllChracteristcs chars =
+  let enumChars =
     System.Enum.GetValues (typeof<DllCharacteristics>)
     :?> DllCharacteristics []
     |> Array.toList
-  let rec loop acc c = function
+  let rec loop acc chars = function
     | [] -> List.rev acc
-    | ec :: t as a ->
-      if uint64 ec &&& c = uint64 ec then
-        loop ((" - " + ec.ToString ()) :: acc) c t
-      elif uint64 0x0080 &&& c = uint64 0x0080 then
-        loop (" - ForceIntegrity" :: acc) (c ^^^ uint64 0x0080) a
-      elif uint64 0x4000 &&& c = uint64 0x4000 then
-        loop (" - ControlFlowGuard" :: acc) (c ^^^ uint64 0x4000) a
+    | enumChar :: tail as all ->
+      if uint64 enumChar &&& chars = uint64 enumChar then
+        loop ((" - " + enumChar.ToString ()) :: acc) chars tail
+      elif uint64 0x0080 &&& chars = uint64 0x0080 then
+        loop (" - ForceIntegrity" :: acc) (chars ^^^ uint64 0x0080) all
+      elif uint64 0x4000 &&& chars = uint64 0x4000 then
+        loop (" - ControlFlowGuard" :: acc) (chars ^^^ uint64 0x4000) all
       else
-        loop acc c t
-  loop [] c ec
+        loop acc chars tail
+  loop [] chars enumChars
 
 let dumpOptionalHeader _ (fi: PEFileInfo) =
   let hdr = fi.PE.PEHeaders.PEHeader
@@ -352,7 +349,7 @@ let dumpOptionalHeader _ (fi: PEFileInfo) =
     "DLL characteristics:"
     (toHexString (uint64 hdr.DllCharacteristics))
   translateDllChracteristcs (uint64 hdr.DllCharacteristics)
-  |> List.iter (fun s -> printTwoCols "" s)
+  |> List.iter (fun str -> printTwoCols "" str)
   printTwoCols
     "Size of stack reserve:"
     (toHexString (uint64 hdr.SizeOfStackReserve))
@@ -435,19 +432,19 @@ let dumpOptionalHeader _ (fi: PEFileInfo) =
     "RVA[size] of Reserved Directory:"
     "0x0[0x0]"
 
-let translateCorFlags f =
-  let ef =
+let translateCorFlags flags =
+  let enumFlags =
     System.Enum.GetValues (typeof<CorFlags>)
     :?> CorFlags []
     |> Array.toList
-  let rec loop acc f = function
+  let rec loop acc flags = function
     | [] -> List.rev acc
-    | ef :: t ->
-      if uint64 ef &&& f = uint64 ef then
-        loop ((" - " + ef.ToString ()) :: acc) f t
+    | enumFlag :: tail ->
+      if uint64 enumFlag &&& flags = uint64 enumFlag then
+        loop ((" - " + enumFlag.ToString ()) :: acc) flags tail
       else
-        loop acc f t
-  loop [] f ef
+        loop acc flags tail
+  loop [] flags enumFlags
 
 let dumpCLRHeader _ (fi: PEFileInfo) =
   let hdr = fi.PE.PEHeaders.CorHeader
@@ -473,7 +470,7 @@ let dumpCLRHeader _ (fi: PEFileInfo) =
       "Flags:"
       (toHexString (uint64 hdr.Flags))
     translateCorFlags (uint64 hdr.Flags)
-    |> List.iter (fun s -> printTwoCols "" s)
+    |> List.iter (fun str -> printTwoCols "" str)
     printTwoCols
       "RVA[size] of Resources Directory:"
       (toHexString (uint64 resourcesDir.RelativeVirtualAddress)

@@ -45,7 +45,6 @@ type MachDisplayItem =
   | MachDisplayUniversalHeader
   | MachDisplayLoadCommands
   | MachDisplaySharedLibs
-  | MachDisplayRelocations
 
 /// Display items for FileViewer.
 type DisplayItem =
