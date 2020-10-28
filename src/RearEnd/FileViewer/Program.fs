@@ -57,28 +57,16 @@ let dumpSpecific opts (fi: FileInfo) title elf pe mach =
   Printer.println ()
 
 let dumpFileHeader (opts: FileViewerOpts) (fi: FileInfo) =
-  dumpSpecific opts fi "File Header"
+  dumpSpecific opts fi "File Header Information"
     ELFViewer.dumpFileHeader
     PEViewer.dumpFileHeader
     MachViewer.dumpFileHeader
 
-let dumpSymbols (opts: FileViewerOpts) (fi: FileInfo) =
-  dumpSpecific opts fi "Symbol Information"
-    ELFViewer.dumpSymbols
-    PEViewer.dumpSymbols
-    MachViewer.dumpSymbols
-
-let dumpFunctions (opts: FileViewerOpts) (fi: FileInfo) =
-  dumpSpecific opts fi "Functions Information"
-    ELFViewer.dumpFunctions
-    PEViewer.dumpFunctions
-    MachViewer.dumpFunctions
-
-let dumpSections (opts: FileViewerOpts) (fi: FileInfo) =
-  dumpSpecific opts fi "Section Information"
-    ELFViewer.dumpSections
-    PEViewer.dumpSections
-    MachViewer.dumpSections
+let dumpSectionHeaders (opts: FileViewerOpts) (fi: FileInfo) =
+  dumpSpecific opts fi "Section Header Information"
+    ELFViewer.dumpSectionHeaders
+    PEViewer.dumpSectionHeaders
+    MachViewer.dumpSectionHeaders
 
 let dumpSectionDetails (secname: string) (fi: FileInfo) =
   dumpSpecific secname fi "Section Details"
@@ -86,11 +74,11 @@ let dumpSectionDetails (secname: string) (fi: FileInfo) =
     PEViewer.dumpSectionDetails
     MachViewer.dumpSectionDetails
 
-let dumpSegments (opts: FileViewerOpts) (fi: FileInfo) =
-  dumpSpecific opts fi "Segment Information"
-    ELFViewer.dumpSegments
-    PEViewer.dumpSegments
-    MachViewer.dumpSegments
+let dumpSymbols (opts: FileViewerOpts) (fi: FileInfo) =
+  dumpSpecific opts fi "Symbol Information"
+    ELFViewer.dumpSymbols
+    PEViewer.dumpSymbols
+    MachViewer.dumpSymbols
 
 let dumpRelocs (opts: FileViewerOpts) (fi: FileInfo) =
   dumpSpecific opts fi "Relocation Information"
@@ -98,15 +86,63 @@ let dumpRelocs (opts: FileViewerOpts) (fi: FileInfo) =
     PEViewer.dumpRelocs
     MachViewer.dumpRelocs
 
+let dumpFunctions (opts: FileViewerOpts) (fi: FileInfo) =
+  dumpSpecific opts fi "Function Information"
+    ELFViewer.dumpFunctions
+    PEViewer.dumpFunctions
+    MachViewer.dumpFunctions
+
+let dumpSegments (opts: FileViewerOpts) (fi: FileInfo) =
+  dumpSpecific opts fi "Segment Information"
+    ELFViewer.dumpSegments PEViewer.badAccess MachViewer.badAccess
+
 let dumpLinkageTable (opts: FileViewerOpts) (fi: FileInfo) =
   dumpSpecific opts fi "Linkage Table Information"
-    ELFViewer.dumpLinkageTable
-    PEViewer.dumpLinkageTable
-    MachViewer.dumpLinkageTable
+    ELFViewer.dumpLinkageTable PEViewer.badAccess MachViewer.badAccess
 
 let dumpEHFrame hdl (fi: FileInfo) =
   dumpSpecific hdl fi ".eh_frame Information"
     ELFViewer.dumpEHFrame PEViewer.badAccess MachViewer.badAccess
+
+let dumpNotes hdl (fi: FileInfo) =
+  dumpSpecific hdl fi ".notes Information"
+    ELFViewer.dumpNotes PEViewer.badAccess MachViewer.badAccess
+
+let dumpImports (opts: FileViewerOpts) (fi: FileInfo) =
+  dumpSpecific opts fi "Import table Information"
+    ELFViewer.badAccess PEViewer.dumpImports MachViewer.badAccess
+
+let dumpExports (opts: FileViewerOpts) (fi: FileInfo) =
+  dumpSpecific opts fi "Export table Information"
+    ELFViewer.badAccess PEViewer.dumpExports MachViewer.badAccess
+
+let dumpOptionalHeader (opts: FileViewerOpts) (fi: FileInfo) =
+  dumpSpecific opts fi "Optional Header Information"
+    ELFViewer.badAccess PEViewer.dumpOptionalHeader MachViewer.badAccess
+
+let dumpCLRHeader (opts: FileViewerOpts) (fi: FileInfo) =
+  dumpSpecific opts fi "CLR Header Information"
+    ELFViewer.badAccess PEViewer.dumpCLRHeader MachViewer.badAccess
+
+let dumpDependencies (opts: FileViewerOpts) (fi: FileInfo) =
+  dumpSpecific opts fi "Dependencies Information"
+    ELFViewer.badAccess PEViewer.dumpDependencies MachViewer.badAccess
+
+let dumpArchiveHeader (opts: FileViewerOpts) (fi: FileInfo) =
+  dumpSpecific opts fi "Archive Header Information"
+    ELFViewer.badAccess PEViewer.badAccess MachViewer.dumpArchiveHeader
+
+let dumpUniversalHeader (opts: FileViewerOpts) (fi: FileInfo) =
+  dumpSpecific opts fi "Universal Header Information"
+    ELFViewer.badAccess PEViewer.badAccess MachViewer.dumpUniversalHeader
+
+let dumpLoadCommands (opts: FileViewerOpts) (fi: FileInfo) =
+  dumpSpecific opts fi "Load Commands Information"
+    ELFViewer.badAccess PEViewer.badAccess MachViewer.dumpLoadCommands
+
+let dumpSharedLibs (opts: FileViewerOpts) (fi: FileInfo) =
+  dumpSpecific opts fi "Shared Libs Information"
+    ELFViewer.badAccess PEViewer.badAccess MachViewer.dumpSharedLibs
 
 let printFileName filepath =
   [ Green, "["; Yellow, filepath; Green, "]" ] |> Printer.println
@@ -116,36 +152,58 @@ let printBasic fi =
   dumpBasic fi
   dumpSecurity fi
 
-let printAll opts (fi: FileInfo) =
+let printAll opts hdl (fi: FileInfo) =
   dumpBasic fi
   dumpSecurity fi
   dumpFileHeader opts fi
-  dumpSections opts fi
-  dumpSegments opts fi
+  dumpSectionHeaders opts fi
   dumpSymbols opts fi
   dumpRelocs opts fi
   dumpFunctions opts fi
-  dumpLinkageTable opts fi
+  match fi with
+   | :? ELFFileInfo as fi ->
+     dumpSegments opts fi
+     dumpLinkageTable opts fi
+     dumpEHFrame hdl fi
+   | :? PEFileInfo as fi ->
+     dumpImports opts fi
+     dumpExports opts fi
+     dumpOptionalHeader opts fi
+     dumpCLRHeader opts fi
+     dumpDependencies opts fi
+   | :? MachFileInfo as fi ->
+     dumpLoadCommands opts fi
+     dumpSharedLibs opts fi
+   | _ -> Utils.futureFeature ()
 
 let printSelectively hdl opts fi = function
   | DisplayAll -> Utils.impossible ()
   | DisplayFileHeader -> dumpFileHeader opts fi
+  | DisplaySectionHeaders -> dumpSectionHeaders opts fi
+  | DisplaySectionDetails s -> dumpSectionDetails s fi
   | DisplaySymbols -> dumpSymbols opts fi
+  | DisplayRelocations -> dumpRelocs opts fi
   | DisplayFunctions -> dumpFunctions opts fi
   | DisplayELFSpecific ELFDisplayProgramHeader -> dumpSegments opts fi
-  | DisplayELFSpecific ELFDisplaySectionHeader -> dumpSections opts fi
-  | DisplayELFSpecific (ELFDisplaySectionDetails s) -> dumpSectionDetails s fi
-  | DisplayELFSpecific ELFDisplayRelocations -> dumpRelocs opts fi
   | DisplayELFSpecific ELFDisplayPLT -> dumpLinkageTable opts fi
   | DisplayELFSpecific ELFDisplayEHFrame -> dumpEHFrame hdl fi
-  | _ -> Utils.futureFeature ()
+  | DisplayELFSpecific ELFDisplayNotes -> dumpNotes hdl fi
+  | DisplayPESpecific PEDisplayImports -> dumpImports opts fi
+  | DisplayPESpecific PEDisplayExports -> dumpExports opts fi
+  | DisplayPESpecific PEDisplayOptionalHeader -> dumpOptionalHeader opts fi
+  | DisplayPESpecific PEDisplayCLRHeader -> dumpCLRHeader opts fi
+  | DisplayPESpecific PEDisplayDependencies -> dumpDependencies opts fi
+  | DisplayMachSpecific MachDisplayArchiveHeader -> dumpArchiveHeader opts fi
+  | DisplayMachSpecific MachDisplayUniversalHeader -> dumpUniversalHeader opts fi
+  | DisplayMachSpecific MachDisplayLoadCommands -> dumpLoadCommands opts fi
+  | DisplayMachSpecific MachDisplaySharedLibs -> dumpSharedLibs opts fi
 
 let dumpFile (opts: FileViewerOpts) (filepath: string) =
   let hdl = BinHandle.Init (opts.ISA, opts.BaseAddress, filepath)
   let fi = hdl.FileInfo
   printFileName fi.FilePath
   if opts.DisplayItems.Count = 0 then printBasic fi
-  elif opts.DisplayItems.Contains DisplayAll then printAll opts fi
+  elif opts.DisplayItems.Contains DisplayAll then printAll opts hdl fi
   else opts.DisplayItems |> Seq.iter (printSelectively hdl opts fi)
 
 let [<Literal>] private toolName = "fileview"

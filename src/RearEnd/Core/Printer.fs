@@ -71,9 +71,11 @@ type Printer =
     Console.WriteLine ()
 
   [<CompiledName "PrintRow">]
-  static member printrow (cfg: TableConfig) (strs: string list) =
+  static member printrow indent (cfg: TableConfig) (strs: string list) =
     let lastIdx = List.length cfg - 1
     List.zip cfg strs
     |> List.iteri (fun i (c, s) ->
+      if indent then
+        Console.Write ("  ")
       Console.Write (TableColumn.ofPaddedString (i = lastIdx) s c))
     Console.WriteLine ()

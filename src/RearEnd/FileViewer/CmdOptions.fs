@@ -80,6 +80,20 @@ type FileViewerOpts () =
     CmdOpts.New (descr = "Display the file header",
                  callback = cb, short = "-h", long = "--file-header")
 
+  /// "--section-headers" option for displaying the section headers.
+  static member OptSectionHeaders () =
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts DisplaySectionHeaders
+    CmdOpts.New (descr = "Display the section headers",
+                 callback = cb, short = "-S", long = "--section-headers")
+
+  /// "--section-details" option for displaying the target section details.
+  static member OptSectionDetails () =
+    let cb opts (arg: string []) =
+      FileViewerOpts.AddOpt opts (DisplaySectionDetails arg.[0])
+    CmdOpts.New (descr = "Display the <name> section details", extra = 1,
+                 callback = cb, short = "-d", long = "--section-details")
+
   /// "-s" or "--symbols" option for displaying the symbols.
   static member OptSymbols () =
     let cb opts _ =
@@ -87,7 +101,14 @@ type FileViewerOpts () =
     CmdOpts.New (descr = "Display the symbols",
                  callback = cb, short = "-s", long = "--symbols")
 
-  /// "-f" or "--functions" option for displaying the symbols.
+  /// "--relocs" option for displaying the relocation section.
+  static member OptRelocs () =
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts DisplayRelocations
+    CmdOpts.New (descr = "Display the relocation section",
+                 callback = cb, short = "-r", long = "--relocations")
+
+  /// "-f" or "--functions" option for displaying the functions.
   static member OptFunctions () =
     let cb opts _ =
       FileViewerOpts.AddOpt opts DisplayFunctions
@@ -100,29 +121,6 @@ type FileViewerOpts () =
       FileViewerOpts.AddOpt opts (DisplayELFSpecific ELFDisplayProgramHeader)
     CmdOpts.New (descr = "Display the program headers",
                  callback = cb, long = "--program-headers")
-
-  /// "--section-headers" option for displaying the section headers.
-  static member OptSectionHeaders () =
-    let cb opts _ =
-      FileViewerOpts.AddOpt opts (DisplayELFSpecific ELFDisplaySectionHeader)
-    CmdOpts.New (descr = "Display the section headers",
-                 callback = cb, long = "--section-headers")
-
-  /// "--section-details" option for displaying the target section
-  /// details.
-  static member OptSectionDetails () =
-    let cb opts (arg: string []) =
-      DisplayELFSpecific (ELFDisplaySectionDetails arg.[0])
-      |> FileViewerOpts.AddOpt opts
-    CmdOpts.New (descr = "Display the <name> section details", extra = 1,
-                 callback = cb, long = "--section-details")
-
-  /// "--relocs" option for displaying the relocation section.
-  static member OptRelocs () =
-    let cb opts _ =
-      FileViewerOpts.AddOpt opts (DisplayELFSpecific ELFDisplayRelocations)
-    CmdOpts.New (descr = "Display the relocation section",
-                 callback = cb, long = "--relocations")
 
   /// "--plt" option for displaying the PLT.
   static member OptPLT () =
@@ -137,6 +135,76 @@ type FileViewerOpts () =
       FileViewerOpts.AddOpt opts (DisplayELFSpecific ELFDisplayEHFrame)
     CmdOpts.New (descr = "Display the eh_frame information",
                  callback = cb, long = "--ehframe")
+
+  /// "--notes" option for displaying the notes section information.
+  static member OptNotes () =
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts (DisplayELFSpecific ELFDisplayNotes)
+    CmdOpts.New (descr = "Display the notes information",
+                 callback = cb, long = "--notes")
+
+  /// "--imports" option for displaying the import table.
+  static member OptImports () =
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts (DisplayPESpecific PEDisplayImports)
+    CmdOpts.New (descr = "Display the import table",
+                 callback = cb, long = "--imports")
+
+  /// "--exports" option for displaying the export table.
+  static member OptExports () =
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts (DisplayPESpecific PEDisplayExports)
+    CmdOpts.New (descr = "Display the export table",
+                 callback = cb, long = "--exports")
+
+  /// "--optional-header" option for displaying the optional header.
+  static member OptOptionalHeader () =
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts (DisplayPESpecific PEDisplayOptionalHeader)
+    CmdOpts.New (descr = "Display the optional header",
+                 callback = cb, long = "--optional-header")
+
+  /// "--clr-header" option for displaying the CLR header.
+  static member OptCLRHeader () =
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts (DisplayPESpecific PEDisplayCLRHeader)
+    CmdOpts.New (descr = "Display the CLR header",
+                 callback = cb, long = "--clr-header")
+
+  /// "--dependencies" option for displaying the dependencies.
+  static member OptDependencies () =
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts (DisplayPESpecific PEDisplayDependencies)
+    CmdOpts.New (descr = "Display the dependencies",
+                 callback = cb, long = "--dependencies")
+
+  /// "--archive-header" option for displaying the archive header.
+  static member OptArchiveHeader () =
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts (DisplayMachSpecific MachDisplayArchiveHeader)
+    CmdOpts.New (descr = "Display the archive header",
+                callback = cb, long = "--archive-header")
+
+  /// "--universal-header" option for displaying the universal header.
+  static member OptUniversalHeader () =
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts (DisplayMachSpecific MachDisplayUniversalHeader)
+    CmdOpts.New (descr = "Display the universal header",
+                callback = cb, long = "--universal-header")
+
+  /// "--load-commands" option for displaying the load commands.
+  static member OptLoadCommands () =
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts (DisplayMachSpecific MachDisplayLoadCommands)
+    CmdOpts.New (descr = "Display the load commands",
+                callback = cb, long = "--load-commands")
+
+  /// "--shared-libs" option for displaying the shared libraries.
+  static member OptSharedLibs () =
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts (DisplayMachSpecific MachDisplaySharedLibs)
+    CmdOpts.New (descr = "Display the shared libraries",
+                callback = cb, long = "--shared-libs")
 
   /// "-i" or "--isa" option for specifying ISA.
   static member OptISA () =
@@ -156,7 +224,10 @@ module Cmd =
       FileViewerOpts.OptBaseAddr ()
       FileViewerOpts.OptAll ()
       FileViewerOpts.OptFileHeader ()
+      FileViewerOpts.OptSectionHeaders ()
+      FileViewerOpts.OptSectionDetails ()
       FileViewerOpts.OptSymbols ()
+      FileViewerOpts.OptRelocs ()
       FileViewerOpts.OptFunctions ()
 
       CmdOpts.New (descr = "", dummy = true)
@@ -164,13 +235,27 @@ module Cmd =
       CmdOpts.New (descr = "", dummy = true)
 
       FileViewerOpts.OptProgramHeaders ()
-      FileViewerOpts.OptSectionHeaders ()
-      FileViewerOpts.OptSectionDetails ()
-      FileViewerOpts.OptRelocs ()
       FileViewerOpts.OptPLT ()
       FileViewerOpts.OptEHFrame ()
+      FileViewerOpts.OptNotes ()
+
+      CmdOpts.New (descr = "", dummy = true)
+      CmdOpts.New (descr = "[PE options]", dummy = true)
+      CmdOpts.New (descr = "", dummy = true)
+
+      FileViewerOpts.OptImports ()
+      FileViewerOpts.OptExports ()
+      FileViewerOpts.OptOptionalHeader ()
+      FileViewerOpts.OptCLRHeader ()
+      FileViewerOpts.OptDependencies ()
 
       CmdOpts.New (descr = "", dummy = true)
       CmdOpts.New (descr = "[Mach-O options]", dummy = true)
       CmdOpts.New (descr = "", dummy = true)
+
+      FileViewerOpts.OptArchiveHeader ()
+      FileViewerOpts.OptUniversalHeader ()
+      FileViewerOpts.OptLoadCommands ()
+      FileViewerOpts.OptSharedLibs ()
+
       FileViewerOpts.OptISA () ]
