@@ -129,9 +129,10 @@ let evalDef ess cfg stackSt (st: CPState<CopyValue>) blk v e =
   | PCVar _ -> ()
 
 let executableSources cfg st (blk: Vertex<_>) srcIDs =
+  let preds = DiGraph.getPreds cfg blk
   srcIDs
   |> Array.mapi (fun i srcID ->
-    let p = DiGraph.getPreds cfg blk |> List.item i
+    let p = List.item i preds
     if not <| CPState.isExecuted st (p.GetID ()) (blk.GetID ()) then None
     else Some srcID)
   |> Array.choose id
