@@ -111,12 +111,15 @@ let evalPhi cfg st blk dst srcIDs =
   | executableSrcIDs ->
     match dst.Kind with
     | RegVar _ | TempVar _ ->
-      executableSrcIDs
-      |> Array.map (fun i ->
-        { dst with Identifier = i } |> CPState.tryFindReg st)
-      |> Array.choose id
-      |> Array.reduce UDPropValue.meet
-      |> fun merged -> updateConst st dst merged
+      match CPState.tryFindReg st dst with
+      | Some Untainted -> ()
+      | _ ->
+        executableSrcIDs
+        |> Array.map (fun i ->
+          { dst with Identifier = i } |> CPState.tryFindReg st)
+        |> Array.choose id
+        |> Array.reduce UDPropValue.meet
+        |> fun merged -> updateConst st dst merged
     | MemVar ->
       let dstid = dst.Identifier
       let oldMem = st.MemState.TryGetValue dstid |> Utils.tupleToOpt
