@@ -89,12 +89,16 @@ let translateSectionChracteristics chars =
     loop [] chars enumChars
 
 let dumpSectionHeaders (opts: FileViewerOpts) (fi: PEFileInfo) =
+  let addrColumn = columnWidthOfAddr fi |> LeftAligned
   if opts.Verbose then
-    let cfg = [ LeftAligned 28; LeftAligned 20; LeftAligned 20; LeftAligned 24 ]
-    Printer.printrow true cfg [ "Num"; "Start"; "End"; "Name" ]
-    Printer.printrow true cfg [ "VirtSize"; "VirtAddr"; "RawSize"; "RawPtr" ]
-    Printer.printrow true cfg [ "RelocPtr"; "LineNPtr"; "RelocNum"; "LineNNum" ]
-    Printer.printrow true cfg [ "Characteristics"; ""; ""; "" ]
+    let cfg = [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 24
+                LeftAligned 8; LeftAligned 8; LeftAligned 8; LeftAligned 8
+                LeftAligned 8; LeftAligned 8; LeftAligned 8; LeftAligned 8
+                LeftAligned 8 ]
+    Printer.printrow true cfg [ "Num"; "Start"; "End"; "Name"
+                                "VirtSize"; "VirtAddr"; "RawSize"; "RawPtr"
+                                "RelocPtr"; "LineNPtr"; "RelocNum"; "LineNNum"
+                                "Characteristics" ]
     Printer.println "  ---"
     fi.PE.SectionHeaders
     |> Array.iteri (fun idx s ->
@@ -106,23 +110,21 @@ let dumpSectionHeaders (opts: FileViewerOpts) (fi: PEFileInfo) =
         [ wrapSqrdBrac (idx.ToString ())
           (addrToString fi.WordSize startAddr)
           (addrToString fi.WordSize (startAddr + size - uint64 1))
-          normalizeEmpty s.Name ]
-      Printer.printrow true cfg
-        [ toHexString (uint64 s.VirtualSize)
+          normalizeEmpty s.Name
+          toHexString (uint64 s.VirtualSize)
           toHexString (uint64 s.VirtualAddress)
           toHexString (uint64 s.SizeOfRawData)
-          toHexString (uint64 s.PointerToRawData) ]
-      Printer.printrow true cfg
-        [ toHexString (uint64 s.PointerToRelocations)
+          toHexString (uint64 s.PointerToRawData)
+          toHexString (uint64 s.PointerToRelocations)
           toHexString (uint64 s.PointerToLineNumbers)
           s.NumberOfRelocations.ToString ()
-          s.NumberOfLineNumbers.ToString () ]
-      Printer.printrow true cfg
-        [ toHexString characteristics; ""; ""; "" ]
+          s.NumberOfLineNumbers.ToString ()
+          toHexString characteristics ]
       translateSectionChracteristics characteristics
-      |> List.iter (fun str -> Printer.printrow true cfg [ str; ""; ""; "" ]))
+      |> List.iter (fun str ->
+        Printer.printrow true cfg [ ""; ""; ""; ""; ""; ""; ""
+                                    ""; ""; ""; ""; ""; str ]))
   else
-    let addrColumn = columnWidthOfAddr fi |> LeftAligned
     let cfg = [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 24 ]
     Printer.printrow true cfg [ "Num"; "Start"; "End"; "Name" ]
     Printer.println "  ---"
@@ -177,7 +179,7 @@ let dumpSectionDetails (secname: string) (fi: PEFileInfo) =
       (toHexString characteristics)
     translateSectionChracteristics characteristics
     |> List.iter (fun str -> printTwoCols "" str)
-  | None -> printTwoCols "Not found." ""
+  | None -> printTwoCols "" "Not found."
 
 let printSymbolInfo (fi: PEFileInfo) (symbols: seq<Symbol>) =
   let addrColumn = columnWidthOfAddr fi |> LeftAligned
@@ -449,7 +451,7 @@ let translateCorFlags flags =
 let dumpCLRHeader _ (fi: PEFileInfo) =
   let hdr = fi.PE.PEHeaders.CorHeader
   if isNull hdr then
-    printTwoCols "Not found." ""
+    printTwoCols "" "Not found."
   else
     let metaDataDir = hdr.MetadataDirectory
     let resourcesDir = hdr.ResourcesDirectory

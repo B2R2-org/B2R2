@@ -84,6 +84,12 @@ let printSectionTitle title =
   |> Printer.println
   Printer.println ()
 
+let printSubsectionTitle (str: string) =
+  Printer.println ("    - " + str)
+
+let printSubsubsectionTitle (str: string) =
+  Printer.println ("         * " + str)
+
 let printTwoCols (col1: string) (col2: string) =
   Printer.print (col1.PadLeft colWidth + " ")
   Printer.println col2
