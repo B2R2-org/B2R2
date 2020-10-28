@@ -35,10 +35,11 @@ type ByteArrayTests () =
   member __.``ByteArray Test`` () =
     let hexString = "68656c6c6f"
     let newArray = ByteArray.ofHexString hexString
-    CollectionAssert.AreEqual ([| 0x68uy; 0x65uy; 0x6cuy; 0x6cuy; 0x6fuy |], newArray)
+    let expectation = [| 0x68uy; 0x65uy; 0x6cuy; 0x6cuy; 0x6fuy |]
+    CollectionAssert.AreEqual (expectation, newArray)
     let hexString = "68656C6C6F"
     let newArray = ByteArray.ofHexString hexString
-    CollectionAssert.AreEqual ([| 0x68uy; 0x65uy; 0x6cuy; 0x6cuy; 0x6fuy |], newArray)
+    CollectionAssert.AreEqual (expectation, newArray)
 
   [<TestMethod>]
   member __.``CString Extraction Test`` () =
@@ -58,6 +59,12 @@ type ByteArrayTests () =
   member __.``Pattern Matching Test`` () =
     let buf = "hellotexthellotexthellotexthellopencilfsharptesttext"B
     let pattern = "text"B
-    let offset = uint64 0
-    let indexList = ByteArray.findIdxs offset pattern buf
+    let indexList = ByteArray.findIdxs 0UL pattern buf
     Assert.AreEqual([48UL; 23UL; 14UL; 5UL], indexList)
+
+  [<TestMethod>]
+  member __.``Pattern Matching Test 2`` () =
+    let buf = [| 0uy; 1uy; 2uy; 3uy; 4uy; 5uy; 6uy |]
+    let pattern = [| 0uy; 1uy |]
+    let indexList = ByteArray.findIdxs 0UL pattern buf
+    Assert.AreEqual([ 0UL ], indexList)
