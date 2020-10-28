@@ -238,7 +238,7 @@ module private NoReturnHelper =
     |> Set.toList
     |> List.find (fun v -> v.Kind = def)
 
-  let transformArgX86 v spState udState rdIns arg =
+  let transformArgX86 v spState uvState rdIns arg =
     let sp =
       SSA.RegVar (32<rt>, Intel.Register.ESP |> Intel.Register.toRegID, "ESP")
       |> findRecentDef v rdIns
@@ -246,8 +246,8 @@ module private NoReturnHelper =
     match spState.RegState.[sp] with
     | StackValue.Const bv ->
       let addr = BitVector.toUInt64 bv + uint64 (4 * arg)
-      match CPState.findMem udState mem 32<rt> addr with
-      | Tainted (MemoryTag from) when from >= 0x80000004UL ->
+      match CPState.findMem uvState mem 32<rt> addr with
+      | Untouched (MemoryTag from) when from >= 0x80000004UL ->
         (from - 0x80000000UL) / 4UL |> int |> Some
       | _ -> None
     | _ -> None
@@ -262,7 +262,7 @@ module private NoReturnHelper =
     | SSA.RegVar (_, _, "R9") -> Some 6
     | _ -> None
 
-  let transformArgX64 v udState rdIns arg =
+  let transformArgX64 v uvState rdIns arg =
     let reg = tryGetArgX64 arg
     match reg with
     | None -> None
@@ -270,23 +270,23 @@ module private NoReturnHelper =
       let rid = Intel.Register.toRegID reg
       let name = Intel.Register.toString reg
       let reg = SSA.RegVar (64<rt>, rid, name) |> findRecentDef v rdIns
-      match CPState.findReg udState reg with
-      | Tainted (RegisterTag r) -> ssaRegToArgX64 r
+      match CPState.findReg uvState reg with
+      | Untouched (RegisterTag r) -> ssaRegToArgX64 r
       | _ -> None
 
-  let transformArg hdl v spState udState rdIns arg =
+  let transformArg hdl v spState uvState rdIns arg =
     match hdl.ISA.Arch with
-    | Arch.IntelX86 -> transformArgX86 v spState udState rdIns arg
-    | Arch.IntelX64 -> transformArgX64 v udState rdIns arg
+    | Arch.IntelX86 -> transformArgX86 v spState uvState rdIns arg
+    | Arch.IntelX64 -> transformArgX64 v uvState rdIns arg
     | _ -> None
 
-  let transformArgs hdl v spState udState rdIns args =
+  let transformArgs hdl v spState uvState rdIns args =
     args
     |> Set.fold (fun acc arg ->
       match acc with
       | None -> None
       | Some acc ->
-        match transformArg hdl v spState udState rdIns arg with
+        match transformArg hdl v spState uvState rdIns arg with
         | None -> None
         | Some arg -> Set.add arg acc |> Some) (Some Set.empty)
     |> fun set ->
@@ -294,18 +294,18 @@ module private NoReturnHelper =
       | None -> Set.empty
       | Some set -> set
 
-  let accumulateNoReturnCondition ess spState udState rdIns cond v =
+  let accumulateNoReturnCondition ess spState uvState rdIns cond v =
     let target = (v: Vertex<SSABBlock>).VData.PPoint.Address
     match cond, Map.tryFind target ess.NoReturnInfo.NoReturnFuncs with
     | None, _ -> cond
     | _, None -> None
     | _, Some UnconditionalNoRet -> cond
     | Some UnconditionalNoRet, Some (ConditionalNoRet args) ->
-      let args = transformArgs ess.BinHandle v spState udState rdIns args
+      let args = transformArgs ess.BinHandle v spState uvState rdIns args
       if Set.isEmpty args then None
       else ConditionalNoRet args |> Some
     | Some (ConditionalNoRet args), Some (ConditionalNoRet args') ->
-      let args' = transformArgs ess.BinHandle v spState udState rdIns args'
+      let args' = transformArgs ess.BinHandle v spState uvState rdIns args'
       let args = Set.intersect args args'
       if Set.isEmpty args then None
       else ConditionalNoRet args |> Some
@@ -317,8 +317,8 @@ module private NoReturnHelper =
     let sp = StackPointerPropagation.Init ess.BinHandle ssaCFG
     let spState = sp.Compute ess ssaRoot
     let mps = StackState.computeMemoryMergePoints ess ssaCFG spState
-    let udProp = UndefPropagation.Init ess.BinHandle ssaCFG spState mps
-    let udState = udProp.Compute ess ssaRoot
+    let uvProp = UntouchedValuePropagation.Init ess.BinHandle ssaCFG spState mps
+    let uvState = uvProp.Compute ess ssaRoot
     let ssaRD = SSAReachingDefinitions (ssaCFG)
     let rdIns, _ = ssaRD.Compute ssaCFG ssaRoot
     callers
@@ -326,7 +326,7 @@ module private NoReturnHelper =
       DiGraph.findVertexBy ssaCFG (fun w -> w.VData.PPoint = v.VData.PPoint)
       |> DiGraph.getSuccs ssaCFG
       |> List.filter (fun v -> v.VData.IsFakeBlock ())
-      |> List.fold (accumulateNoReturnCondition ess spState udState rdIns) acc
+      |> List.fold (accumulateNoReturnCondition ess spState uvState rdIns) acc
       ) (Some UnconditionalNoRet)
 
   let checkNoReturnCondition (ess: BinEssence) entry =

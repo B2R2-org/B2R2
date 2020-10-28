@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.MiddleEnd.DataFlow.UDPropTransfer
+module B2R2.MiddleEnd.DataFlow.UVPropTransfer
 
 open B2R2
 open B2R2.BinIR
@@ -34,27 +34,27 @@ open B2R2.BinIR.SSA
 let evalLoad st m rt addr =
   match addr with
   | StackValue.Const addr -> BitVector.toUInt64 addr |> CPState.findMem st m rt
-  | _ -> Untainted
+  | _ -> Touched
 
-let evalReturn (st: CPState<UDPropValue>) addr ret v =
+let evalReturn (st: CPState<UVPropValue>) addr ret v =
   match v.Kind with
   | RegVar _ -> CPState.findReg st v
   | _ -> Utils.impossible ()
 
 let rec evalExpr ess cfg stackSt st blk = function
-  | Num _ -> Untainted
+  | Num _ -> Touched
   | Var v -> CPState.findReg st v
-  | Nil -> Untainted
+  | Nil -> Touched
   | Load (m, rt, addr) ->
     StackTransfer.evalExpr ess cfg stackSt blk addr |> evalLoad st m rt
-  | UnOp _ -> Untainted
-  | FuncName _ -> Untainted
-  | BinOp _ -> Untainted
-  | RelOp _ -> Untainted
-  | Ite _ -> Untainted
-  | Cast _ -> Untainted
-  | Extract _ -> Untainted
-  | Undefined _ -> Untainted
+  | UnOp _ -> Touched
+  | FuncName _ -> Touched
+  | BinOp _ -> Touched
+  | RelOp _ -> Touched
+  | Ite _ -> Touched
+  | Cast _ -> Touched
+  | Extract _ -> Touched
+  | Undefined _ -> Touched
   | ReturnVal (addr, ret, v) -> evalReturn st addr ret v
   | _ -> Utils.impossible ()
 
@@ -84,9 +84,9 @@ let inline updateConst st r v =
     st.RegState.[r] <- v
     st.SSAWorkList.Push r
   elif st.RegState.[r] = v then ()
-  elif UDPropValue.goingUp st.RegState.[r] v then ()
+  elif UVPropValue.goingUp st.RegState.[r] v then ()
   else
-    st.RegState.[r] <- UDPropValue.meet st.RegState.[r] v
+    st.RegState.[r] <- UVPropValue.meet st.RegState.[r] v
     st.SSAWorkList.Push r
 
 let evalDef ess cfg stackSt st blk v e =
@@ -112,13 +112,13 @@ let evalPhi mergePointMap cfg st blk dst srcIDs =
     match dst.Kind with
     | RegVar _ | TempVar _ ->
       match CPState.tryFindReg st dst with
-      | Some Untainted -> ()
+      | Some Touched -> ()
       | _ ->
         executableSrcIDs
         |> Array.map (fun i ->
           { dst with Identifier = i } |> CPState.tryFindReg st)
         |> Array.choose id
-        |> Array.reduce UDPropValue.meet
+        |> Array.reduce UVPropValue.meet
         |> fun merged -> updateConst st dst merged
     | MemVar ->
       let dstid = dst.Identifier

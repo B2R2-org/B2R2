@@ -28,7 +28,7 @@ open B2R2.BinIR.SSA
 open B2R2.FrontEnd.BinInterface
 open System.Collections.Generic
 
-module UDPropState =
+module UVPropState =
 
   let initRegister hdl (dict: Dictionary<_, _>) =
     match hdl.RegisterBay.StackPointer with
@@ -36,7 +36,7 @@ module UDPropState =
       let rt = hdl.RegisterBay.RegIDToRegType sp
       let str = hdl.RegisterBay.RegIDToString sp
       let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
-      dict.[var] <- Untainted
+      dict.[var] <- Touched
       dict
     | None -> dict
 
@@ -45,18 +45,18 @@ module UDPropState =
     dict
 
 /// Modified version of sparse conditional constant propagation of Wegman et al.
-type UndefPropagation (ssaCFG, tState) =
-  inherit ConstantPropagation<UDPropValue> (ssaCFG, tState)
+type UntouchedValuePropagation (ssaCFG, tState) =
+  inherit ConstantPropagation<UVPropValue> (ssaCFG, tState)
 
   static member Init hdl ssaCFG spState mergePointMap =
     let tState =
       CPState.initState hdl
                         ssaCFG
-                        (UDPropState.initRegister hdl)
-                        UDPropState.initMemory
+                        (UVPropState.initRegister hdl)
+                        UVPropState.initMemory
                         Undef
-                        Untainted
-                        UDPropValue.goingUp
-                        UDPropValue.meet
-                        (UDPropTransfer.evalStmt spState mergePointMap)
-    UndefPropagation (ssaCFG, tState)
+                        Touched
+                        UVPropValue.goingUp
+                        UVPropValue.meet
+                        (UVPropTransfer.evalStmt spState mergePointMap)
+    UntouchedValuePropagation (ssaCFG, tState)

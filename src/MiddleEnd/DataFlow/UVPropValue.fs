@@ -27,27 +27,27 @@ namespace B2R2.MiddleEnd.DataFlow
 open B2R2
 open B2R2.BinIR.SSA
 
-type UDPropTag =
+type UVPropTag =
   | RegisterTag of Variable
   | MemoryTag of Addr
 
-type UDPropValue =
+type UVPropValue =
   | Undef
-  | Tainted of UDPropTag
-  | Untainted
+  | Untouched of UVPropTag
+  | Touched
 
-module UDPropValue =
+module UVPropValue =
 
   let meet c1 c2 =
     match c1, c2 with
     | Undef, c | c, Undef -> c
-    | Tainted t1, Tainted t2 when t1 = t2 -> c1
-    | Tainted _, Tainted _ -> Untainted
-    | _ -> Untainted
+    | Untouched t1, Untouched t2 when t1 = t2 -> c1
+    | Untouched _, Untouched _ -> Touched
+    | _ -> Touched
 
   let goingUp a b =
     match a, b with
-    | Tainted _, Undef
-    | Untainted, Undef
-    | Untainted, Tainted _ -> true
+    | Untouched _, Undef
+    | Touched, Undef
+    | Touched, Untouched _ -> true
     | _ -> false
