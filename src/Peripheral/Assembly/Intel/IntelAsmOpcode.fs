@@ -1534,21 +1534,9 @@ let jmp (ctxt: EncContext) ins =
   | OneOperand (OprDirAddr (Relative rel)) when isInt8 rel ->
     encD ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0xEBuy |] rel 8<rt>
-  | OneOperand (OprDirAddr (Relative rel))
-    when isInt16 rel && ctxt.Arch = Arch.IntelX86 ->
-    encD ins ctxt.Arch
-      ctxt.Pref66 ctxt.RexNormal [| 0xE9uy |] rel 16<rt>
   | OneOperand (OprDirAddr (Relative rel)) when isInt32 rel ->
     encD ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0xE9uy |] rel 32<rt>
-  | OneOperand (OprReg r) when isReg16 r ->
-    no64Arch ctxt.Arch (* N.S. *)
-    encR ins ctxt.Arch
-      ctxt.Pref66 ctxt.RexNormal [| 0xFFuy |] r 0b100uy
-  | OneOperand (OprMem (b, s, d, 16<rt>)) ->
-    no64Arch ctxt.Arch (* N.S. *)
-    encM ins ctxt.Arch
-      ctxt.Pref66 ctxt.RexNormal [| 0xFFuy |] b s d 0b100uy
   | OneOperand (OprReg r) when isReg32 r ->
     no64Arch ctxt.Arch (* N.S. *)
     encR ins ctxt.Arch
