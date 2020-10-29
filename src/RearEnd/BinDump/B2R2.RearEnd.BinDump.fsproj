@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -8,6 +8,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Helper.fs" />
+    <Compile Include="DisplayItem.fs" />
+    <Compile Include="CmdOption.fs" />
+    <Compile Include="ELFDump.fs" />
+    <Compile Include="MachDump.fs" />
+    <Compile Include="PEDump.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
