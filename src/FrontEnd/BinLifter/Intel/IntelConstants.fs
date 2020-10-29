@@ -85,6 +85,7 @@ let _Qd = struct (OprMode.Q, OprSize.D)
 let _Qpi = struct (OprMode.Q, OprSize.PI)
 let _Qq = struct (OprMode.Q, OprSize.Q)
 let _Rd = struct (OprMode.R, OprSize.D)
+let _Rq = struct (OprMode.R, OprSize.Q)
 let _Rv = struct (OprMode.R, OprSize.V)
 let _Ry = struct (OprMode.R, OprSize.Y)
 let _SIb = struct (OprMode.SI, OprSize.B)
@@ -365,6 +366,7 @@ let VssWss = [| _Vss; _Wss |]
 let VssWssd = [| _Vss; _Wssd |]
 let VxMd = [| _Vx; _Md |]
 let VxMx = [| _Vx; _Mx |]
+let VxWdqd = [| _Vx; _Wdqd |]
 let VxWdqdq = [| _Vx; _Wdqdq |]
 let VxWdqqdq = [| _Vx; _Wdqqdq |]
 let VxWdqwd = [| _Vx; _Wdqwd |]
@@ -373,6 +375,8 @@ let VxWssd = [| _Vx; _Wssd |]
 let VxWssq = [| _Vx; _Wssq |]
 let VxWx = [| _Vx; _Wx |]
 let VyEy = [| _Vy; _Ey |]
+let VZxzRd = [| _VZxz; _Rd |]
+let VZxzRq = [| _VZxz; _Rq |]
 let VZxzWdqd = [| _VZxz; _Wdqd |]
 let VZxzWZxz = [| _VZxz; _WZxz |]
 let WdqdVdq = [| _Wdqd; _Vdq |]
@@ -454,6 +458,7 @@ let VdqHdqUdq = [| _Vdq; _Hdq; _Udq |]
 let VdqWdqIb = [| _Vdq; _Wdq; _Ib |]
 let VpdHpdWpd = [| _Vpd; _Hpd; _Wpd |]
 let VpsHpsWps = [| _Vps; _Hps; _Wps |]
+let VqqWZxzIb = [| _Vqq; _WZxz; _Ib |]
 let VsdHsdEy = [| _Vsd; _Hsd; _Ey |]
 let VsdHsdWsd = [| _Vsd; _Hsd; _Wsd |]
 let VsdHsdWsdq = [| _Vsd; _Hsd; _Wsdq |]
@@ -476,6 +481,7 @@ let WssHxVss = [| _Wss; _Hx; _Vss |]
 
 let VdqHdqEdbIb = [| _Vdq; _Hdq; _Edb; _Ib |]
 let VdqHdqEdwIb = [| _Vdq; _Hdq; _Edw; _Ib |]
+let VdqHdqEyIb = [| _Vdq; _Hdq; _Ey; _Ib |]
 let VpsHpsWpsIb = [| _Vps; _Hps; _Wps; _Ib |]
 let VqqHqqWdqIb = [| _Vqq; _Hqq; _Wdq; _Ib |]
 let VxHxWxIb = [| _Vx; _Hx; _Wx; _Ib |]
@@ -1102,6 +1108,10 @@ let opNor0F3841 = [| Opcode.InvalOP; Opcode.PHMINPOSUW;
                      Opcode.InvalOP; Opcode.InvalOP |]
 let opVex0F3841 = [| Opcode.InvalOP; Opcode.VPHMINPOSUW;
                      Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3858W0 = [| Opcode.InvalOP; Opcode.VPBROADCASTD;
+                       Opcode.InvalOP; Opcode.InvalOP |]
+let opEVex0F3858W0 = [| Opcode.InvalOP; Opcode.VPBROADCASTD;
+                        Opcode.InvalOP; Opcode.InvalOP |]
 let opNor0F385A = [| Opcode.InvalOP; Opcode.InvalOP;
                      Opcode.InvalOP; Opcode.InvalOP |]
 let opVex0F385A = [| Opcode.InvalOP; Opcode.VBROADCASTI128;
@@ -1110,6 +1120,10 @@ let opNor0F3878 = [| Opcode.InvalOP; Opcode.InvalOP;
                      Opcode.InvalOP; Opcode.InvalOP |]
 let opVex0F3878 = [| Opcode.InvalOP; Opcode.VPBROADCASTB;
                      Opcode.InvalOP; Opcode.InvalOP |]
+let opEVex0F387CW0 = [| Opcode.InvalOP; Opcode.VPBROADCASTD;
+                        Opcode.InvalOP; Opcode.InvalOP |]
+let opEVex0F387CW1 = [| Opcode.InvalOP; Opcode.VPBROADCASTQ;
+                        Opcode.InvalOP; Opcode.InvalOP |]
 let opNor0F3899W0 = [| Opcode.InvalOP; Opcode.InvalOP;
                        Opcode.InvalOP; Opcode.InvalOP |]
 let opNor0F3899W1 = [| Opcode.InvalOP; Opcode.InvalOP;
@@ -1170,10 +1184,22 @@ let opNor0F3A20 = [| Opcode.InvalOP; Opcode.PINSRB;
                      Opcode.InvalOP; Opcode.InvalOP |]
 let opVex0F3A20 = [| Opcode.InvalOP; Opcode.VPINSRB;
                      Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3A22W0 = [| Opcode.InvalOP; Opcode.VPINSRD;
+                        Opcode.InvalOP; Opcode.InvalOP |]
+let opVex0F3A22W1 = [| Opcode.InvalOP; Opcode.VPINSRQ;
+                        Opcode.InvalOP; Opcode.InvalOP |]
+let opEVex0F3A22W0 = [| Opcode.InvalOP; Opcode.VPINSRD;
+                        Opcode.InvalOP; Opcode.InvalOP |]
+let opEVex0F3A22W1 = [| Opcode.InvalOP; Opcode.VPINSRQ;
+                        Opcode.InvalOP; Opcode.InvalOP |]
 let opNor0F3A38 = [| Opcode.InvalOP; Opcode.InvalOP;
                      Opcode.InvalOP; Opcode.InvalOP |]
 let opVex0F3A38 = [| Opcode.InvalOP; Opcode.VINSERTI128;
                      Opcode.InvalOP; Opcode.InvalOP |]
+let opEVex0F3A3BW0 = [| Opcode.InvalOP; Opcode.VEXTRACTI32X8;
+                        Opcode.InvalOP; Opcode.InvalOP |]
+let opEVex0F3A3BW1 = [| Opcode.InvalOP; Opcode.VEXTRACTI64X4;
+                        Opcode.InvalOP; Opcode.InvalOP |]
 let opNor0F3A60 = [| Opcode.InvalOP; Opcode.PCMPESTRM;
                      Opcode.InvalOP; Opcode.InvalOP |]
 let opVex0F3A60 = [| Opcode.InvalOP; Opcode.VPCMPESTRM;
