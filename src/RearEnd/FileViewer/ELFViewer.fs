@@ -28,13 +28,14 @@ open B2R2
 open B2R2.FrontEnd.BinInterface
 open B2R2.FrontEnd.BinFile
 open B2R2.RearEnd
+open B2R2.RearEnd.Printer
 open B2R2.RearEnd.FileViewer.Helper
 
 let badAccess _ _ =
   raise InvalidFileTypeException
 
 let computeMagicBytes (fi: ELFFileInfo) =
-  fi.ELF.BinReader.PeekBytes (16, 0) |> colorBytes
+  fi.ELF.BinReader.PeekBytes (16, 0) |> ColoredSegment.colorBytes
 
 let dumpFileHeader (_: FileViewerOpts) (fi: ELFFileInfo) =
   let hdr = fi.ELF.ELFHdr

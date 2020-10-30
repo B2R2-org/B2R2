@@ -58,7 +58,7 @@ module ColoredSegment =
     elif isControl b then Red
     else Yellow
 
-  let private getRepresentation b =
+  let getRepresentation b =
     if isNull b then "0"
     elif isPrintable b then (char b).ToString ()
     elif isWhitespace b then "_"
@@ -73,6 +73,14 @@ module ColoredSegment =
 
   let byteToAscii b =
     getColor b, getRepresentation b
+
+  let colorBytes (bs: byte []) =
+    let lastIdx = bs.Length - 1
+    bs
+    |> Array.mapi (fun i b ->
+      if i = lastIdx then byteToHex b
+      else byteToHexWithTail b " ")
+    |> Array.toList
 
   let inline nocolor str: ColoredSegment = NoColor, str
   let inline red str: ColoredSegment = Red, str

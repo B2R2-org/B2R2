@@ -29,47 +29,67 @@ open B2R2.RearEnd
 
 module CS = ColoredSegment
 
-let addrToString size addr = Addr.toString size addr
+let padSpaceColored chuckSize (arr: ColoredSegment []) =
+  let m = arr.Length % chuckSize
+  if m = 0 then arr
+  else Array.create (chuckSize - m) (NoColor, "  ") |> Array.append arr
 
-let normalizeEmpty s =
-  if System.String.IsNullOrEmpty s then "(n/a)" else s
+let addSpaceColored idx cs =
+  let c, s = cs
+  match idx with
+  | 0 -> c, s
+  | 8 | 16 | 24 -> c, "  " + s
+  | _ -> c, " " + s
 
-let [<Literal>] private colWidth = 24
+let dumpHexColored chuckSize (bytes: byte []) =
+  bytes
+  |> Array.map CS.byteToHex
+  |> padSpaceColored chuckSize
+  |> Array.mapi addSpaceColored
 
-let toHexString (v: uint64) =
-  "0x" + v.ToString ("x")
+let dumpASCIIColored (bytes: byte []) = bytes |> Array.map CS.byteToAscii
 
-let toNBytes (v: uint64) =
-  v.ToString () + " bytes"
+let dumpLineColored chuckSize wordSize addr linenum bytes =
+  let addrStr = Addr.toString wordSize (addr + uint64 (linenum * chuckSize))
+  dumpASCIIColored bytes
+  |> Array.append [| ColoredSegment (NoColor, " | ") |]
+  |> Array.append (dumpHexColored chuckSize bytes)
+  |> Array.append [| ColoredSegment (NoColor, addrStr + ": ") |]
+  |> List.ofArray
+  |> ColoredString.compile
 
-let colorBytes (bs: byte []) =
-  let lastIdx = bs.Length - 1
-  bs
-  |> Array.mapi (fun i b ->
-    if i = lastIdx then CS.byteToHex b
-    else CS.byteToHexWithTail b " ")
-  |> Array.toList
+let hexdumpColored chuckSize wordSize addr bytes =
+  Array.chunkBySize chuckSize bytes
+  |> Array.mapi (dumpLineColored chuckSize wordSize addr)
 
-let printSectionTitle title =
-  [ CS.red "# "; CS.nocolor title ]
-  |> Printer.println
-  Printer.println ()
+let padSpace chuckSize (arr: string []) =
+  let m = arr.Length % chuckSize
+  if m = 0 then arr else Array.create (chuckSize - m) "  " |> Array.append arr
 
-let printTwoCols (col1: string) (col2: string) =
-  Printer.print (col1.PadLeft colWidth + " ")
-  Printer.println col2
+let addSpace idx s =
+  match idx with
+  | 0 -> s
+  | 8 | 16 | 24 -> "  " + s
+  | _ -> " " + s
 
-/// Print a two-column row while highlighting the second col.
-let printTwoColsHi (col1: string) (col2: string) =
-  Printer.print (col1.PadLeft colWidth + " ")
-  Printer.println [ CS.green col2 ]
+let dumpHex chuckSize (bytes: byte []) =
+  bytes
+  |> Array.map (fun b -> b.ToString ("X2"))
+  |> padSpace chuckSize
+  |> Array.mapi addSpace
+  |> Array.fold (fun hex s -> hex + s) ""
 
-/// Print a two-column row where the second column is represented as a
-/// ColoredString.
-let printTwoColsWithCS (col1: string) (col2: ColoredString) =
-  Printer.print (col1.PadLeft colWidth + " ")
-  Printer.println col2
+let dumpASCII (bytes: byte []) =
+  bytes
+  |> Array.map (fun b -> CS.getRepresentation b)
+  |> Array.fold (fun ascii s -> ascii + s) ""
 
-let printError str =
-  [ CS.nocolor "[*] Error: "; CS.red str ] |> Printer.println
-  Printer.println ()
+let dumpLine chuckSize wordSize addr linenum bytes =
+  let addrStr = Addr.toString wordSize (addr + uint64 (linenum * chuckSize))
+  let hex = dumpHex chuckSize bytes
+  let ascii = dumpASCII bytes
+  OutputNormal (addrStr + ": " + hex + " | " + ascii)
+
+let hexdump chuckSize wordSize addr bytes =
+  Array.chunkBySize chuckSize bytes
+  |> Array.mapi (dumpLine chuckSize wordSize addr)

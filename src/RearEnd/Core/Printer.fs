@@ -79,3 +79,38 @@ type Printer =
         Console.Write ("  ")
       Console.Write (TableColumn.ofPaddedString (i = lastIdx) s c))
     Console.WriteLine ()
+
+module CS = ColoredSegment
+
+module Printer =
+  let [<Literal>] private colWidth = 24
+
+  let printSectionTitle title =
+    [ CS.red "# "; CS.nocolor title ]
+    |> Printer.println
+    Printer.println ()
+
+  let printSubsectionTitle (str: string) =
+    Printer.println ("    - " + str)
+
+  let printSubsubsectionTitle (str: string) =
+    Printer.println ("         * " + str)
+
+  let printTwoCols (col1: string) (col2: string) =
+    Printer.print (col1.PadLeft colWidth + " ")
+    Printer.println col2
+
+  /// Print a two-column row while highlighting the second col.
+  let printTwoColsHi (col1: string) (col2: string) =
+    Printer.print (col1.PadLeft colWidth + " ")
+    Printer.println [ CS.green col2 ]
+
+  /// Print a two-column row where the second column is represented as a
+  /// ColoredString.
+  let printTwoColsWithCS (col1: string) (col2: ColoredString) =
+    Printer.print (col1.PadLeft colWidth + " ")
+    Printer.println col2
+
+  let printError str =
+    [ CS.nocolor "[*] Error: "; CS.red str ] |> Printer.println
+    Printer.println ()

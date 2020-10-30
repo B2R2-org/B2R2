@@ -27,11 +27,6 @@ namespace B2R2.RearEnd.BinDump
 open B2R2
 open B2R2.RearEnd
 open System
-open System.Collections.Generic
-
-type DumpMethod =
-  | Disassemble
-  | LowUIRLift (* Default *)
 
 type OptOption =
   | NoOpt
@@ -40,20 +35,17 @@ type OptOption =
 
 type BinDumpOpts () =
   inherit CmdOpts()
-
-  let items = HashSet<DisplayItem> ()
-
-  /// Display items.
-  member val DisplayItems = items with get
-
   /// ISA
   member val ISA = ISA.Init (Arch.IntelX86) Endian.Little with get, set
 
   /// Base address
   member val BaseAddress: Addr = 0UL with get, set
 
-  /// Input string from command line.
-  member val InputStr: byte [] = [||] with get, set
+  /// Input section name from command line.
+  member val InputSecName: string option = None with get, set
+
+  /// Input hexstring from command line.
+  member val InputHexStr: byte [] = [||] with get, set
 
   /// ArchOperationMode
   member val ArchOperationMode = ArchOperationMode.NoMode with get, set
@@ -64,8 +56,14 @@ type BinDumpOpts () =
   /// Show symbols or not?
   member val ShowSymbols = false with get, set
 
-  /// Disassemble or IR-translate?
-  member val DumpMethod = LowUIRLift with get, set
+  /// Show LowUIR or not?
+  member val ShowLowUIR = false with get, set
+
+  /// Show hexdump widely or not, 32 bytes (default 16 bytes)
+  member val ShowWide = false with get, set
+
+  /// Show hexdump colored or not, just for files not hexstring
+  member val ShowColor = false with get, set
 
   /// Perform basic block optimization or not?
   member val DoOptimization = NoOpt with get, set
@@ -78,10 +76,6 @@ type BinDumpOpts () =
     | :? BinDumpOpts as opts -> opts
     | _ -> failwith "Invalid Opts."
 
-  static member private AddOpt (opts: #CmdOpts) item =
-    (BinDumpOpts.ToThis opts).DisplayItems.Add item |> ignore
-    opts
-
   /// "-h" or "--help" option.
   static member OptHelp () =
     CmdOpts.New (descr = "Show this usage", help = true, long = "--help")
@@ -91,8 +85,8 @@ type BinDumpOpts () =
     let cb opts (arg: string []) =
       (BinDumpOpts.ToThis opts).ISA <- ISA.OfString arg.[0]
       opts
-    CmdOpts.New ( descr = "Specify <ISA> (e.g., x86) from command line",
-                  extra = 1, callback = cb, short = "-i", long= "--isa" )
+    CmdOpts.New (descr = "Specify <ISA> (e.g., x86) from command line",
+                 extra = 1, callback = cb, short = "-i", long = "--isa")
 
   /// "-r" or "--base-addr" option for specifying a base address.
   static member OptBaseAddr () =
@@ -100,32 +94,25 @@ type BinDumpOpts () =
       (BinDumpOpts.ToThis opts).BaseAddress <- Convert.ToUInt64 (arg.[0], 16)
       (BinDumpOpts.ToThis opts).ShowAddress <- true
       opts
-    CmdOpts.New ( descr = "Specify the base <address> in hex (default=0)",
-                  extra = 1, callback = cb, short = "-r", long = "--base-addr" )
+    CmdOpts.New (descr = "Specify the base <address> in hex (default=0)",
+                 extra = 1, callback = cb, short = "-r", long = "--base-addr")
 
-  /// "-s" or "--full-contents" option for displaying contents of all sections.
-  static member OptDumpSections () =
-    let cb opts _ =
-      BinDumpOpts.AddOpt opts DisplayDumpSections
-    CmdOpts.New (
-      descr = "Display contents of all sections",
-      extra = 1, callback = cb, short = "-s", long= "--full-contents" )
-
-  /// "-j" or "--section" for displaying contents of a specific section.
+  /// "-S" or "--section" for displaying contents of a specific section.
   static member OptDumpSection () =
     let cb opts (arg: string []) =
-      BinDumpOpts.AddOpt opts (DisplayDumpSection arg.[0])
+      (BinDumpOpts.ToThis opts).InputSecName <- Some arg.[0]
+      opts
     CmdOpts.New (
       descr = "Display contents of a specific section",
-      extra = 1, callback = cb, short = "-j", long= "--section" )
+      extra = 1, callback = cb, short = "-S", long = "--section")
 
-  /// "-S" option for specifying an input string.
-  static member OptInputString () =
+  /// "-s" option for specifying an input hexstring.
+  static member OptInputHexString () =
     let cb opts (arg: string []) =
-      (BinDumpOpts.ToThis opts).InputStr <- ByteArray.ofHexString arg.[0]
+      (BinDumpOpts.ToThis opts).InputHexStr <- ByteArray.ofHexString arg.[0]
       opts
-    CmdOpts.New ( descr = "Specify an input <hexstring> from command line",
-                  extra = 1, callback = cb, short = "-S" )
+    CmdOpts.New (descr = "Specify an input <hexstring> from command line",
+                 extra = 1, callback = cb, short = "-s")
 
   /// "-m" or "--mode" option for specifying ArchOperationMode.
   static member OptArchMode () =
@@ -135,57 +122,68 @@ type BinDumpOpts () =
       opts
     CmdOpts.New (
       descr = "Specify <operation mode> (e.g., thumb/arm) from cmdline",
-      extra = 1, callback = cb, short = "-m", long= "--mode" )
+      extra = 1, callback = cb, short = "-m", long = "--mode")
 
-  /// "--show-addr" option decides whether to show addresses in disassembly.
+  /// "--show-addr" option decides whether to show addresses of hexstring.
   static member OptShowAddr () =
     let cb opts _ =
       (BinDumpOpts.ToThis opts).ShowAddress <- true
       opts
-    CmdOpts.New ( descr = "Show addresses in disassembly",
-                  callback = cb, long = "--show-addr" )
+    CmdOpts.New (descr = "Show addresses of hexstring",
+                 callback = cb, long = "--show-addr")
 
+  /// "--show-symbols" option decides whether to show symbols in disassembly.
   static member OptShowSymbols () =
     let cb opts _ =
       (BinDumpOpts.ToThis opts).ShowSymbols <- true
       opts
-    CmdOpts.New ( descr = "Show symbols while disassembling binary",
-                  callback = cb, long = "--show-symbols")
+    CmdOpts.New (descr = "Show symbols while disassembling binary",
+                 callback = cb, long = "--show-symbols")
 
-  static member OptDisasm () =
+  /// "--show-wide" option decides whether to show hexdump with 32 bytes.
+  static member OptShowWide () =
     let cb opts _ =
-      (BinDumpOpts.ToThis opts).DumpMethod <- Disassemble
+      (BinDumpOpts.ToThis opts).ShowWide <- true
       opts
-    CmdOpts.New ( descr = "Disassemble binary (linear sweep)",
-                  callback = cb, long = "--disasm")
+    CmdOpts.New (descr = "Show hexdump with 32 bytes long",
+                 callback = cb, long = "--show-wide")
 
-  static member OptTransIR () =
+  /// "--show-color" option decides whether to show colored hexdump.
+  static member OptShowColor () =
     let cb opts _ =
-      (BinDumpOpts.ToThis opts).DumpMethod <- LowUIRLift
+      (BinDumpOpts.ToThis opts).ShowColor <- true
       opts
-    CmdOpts.New ( descr = "Translate a binary into an IL (default mode)",
-                  callback = cb, long = "--translate")
+    CmdOpts.New (descr = "Show colored hexdump",
+                 callback = cb, long = "--show-color")
+
+  /// "--lift" option decides whether to show LowUIR of excutable sections.
+  static member OptShowLowUIR () =
+    let cb opts _ =
+      (BinDumpOpts.ToThis opts).ShowLowUIR <- true
+      opts
+    CmdOpts.New (descr = "Show LowUIR of excutable sections",
+                 callback = cb, long = "--lift")
 
   static member OptTransOptimization () =
     let cb opts _ =
       (BinDumpOpts.ToThis opts).DoOptimization <- Opt
       opts
-    CmdOpts.New ( descr = "Perform bblock optimization for IL",
-                  callback = cb, long = "--optimize")
+    CmdOpts.New (descr = "Perform bblock optimization for IL",
+                 callback = cb, long = "--optimize")
 
   static member OptTransParOptimization () =
     let cb opts _ =
       (BinDumpOpts.ToThis opts).DoOptimization <- OptPar
       opts
-    CmdOpts.New ( descr = "Perform parallel bblock optimization for IL",
-                  callback = cb, long = "--par-optimize")
+    CmdOpts.New (descr = "Perform parallel bblock optimization for IL",
+                 callback = cb, long = "--par-optimize")
 
   static member OptRawBinary () =
     let cb opts _ =
       (BinDumpOpts.ToThis opts).AutoDetect <- false
       opts
-    CmdOpts.New ( descr = "Turn off file format detection",
-                  callback = cb, long = "--raw-binary" )
+    CmdOpts.New (descr = "Turn off file format detection",
+                 callback = cb, long = "--raw-binary")
 
 [<RequireQualifiedAccess>]
 module Cmd =
@@ -198,25 +196,24 @@ module Cmd =
       BinDumpOpts.OptISA ()
       BinDumpOpts.OptBaseAddr ()
 
-      BinDumpOpts.OptDumpSections ()
-      BinDumpOpts.OptDumpSection ()
-
       CmdOpts.New (descr = "", dummy = true)
       CmdOpts.New (descr = "[Input Configuration]", dummy = true)
       CmdOpts.New (descr = "", dummy = true)
 
-      BinDumpOpts.OptInputString ()
-      BinDumpOpts.OptArchMode ()
+      BinDumpOpts.OptDumpSection ()
+      BinDumpOpts.OptInputHexString ()
       BinDumpOpts.OptRawBinary ()
+      BinDumpOpts.OptArchMode ()
 
       CmdOpts.New (descr = "", dummy = true)
       CmdOpts.New (descr = "[Output Configuration]", dummy = true)
       CmdOpts.New (descr = "", dummy = true)
 
-      BinDumpOpts.OptDisasm ()
-      BinDumpOpts.OptTransIR ()
       BinDumpOpts.OptShowAddr ()
       BinDumpOpts.OptShowSymbols ()
+      BinDumpOpts.OptShowWide ()
+      BinDumpOpts.OptShowColor ()
+      BinDumpOpts.OptShowLowUIR ()
 
       CmdOpts.New (descr = "", dummy = true)
       CmdOpts.New (descr = "[Optional Configuration]", dummy = true)

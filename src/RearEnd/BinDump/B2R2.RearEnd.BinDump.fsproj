@@ -9,11 +9,8 @@
 
   <ItemGroup>
     <Compile Include="Helper.fs" />
-    <Compile Include="DisplayItem.fs" />
     <Compile Include="CmdOption.fs" />
-    <Compile Include="ELFDump.fs" />
-    <Compile Include="MachDump.fs" />
-    <Compile Include="PEDump.fs" />
+    <Compile Include="DisasmLiftHelper.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
