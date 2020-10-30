@@ -125,6 +125,7 @@ let _Wss = struct (OprMode.W, OprSize.SS)
 let _Wssd = struct (OprMode.W, OprSize.SSD)
 let _Wssq = struct (OprMode.W, OprSize.SSQ)
 let _Wx = struct (OprMode.W, OprSize.X)
+let _WZqq = struct (OprMode.WZ, OprSize.QQ)
 let _WZxz = struct (OprMode.WZ, OprSize.XZ)
 let _Xb = struct (OprMode.X, OprSize.B)
 let _Xv = struct (OprMode.X, OprSize.V)
@@ -478,6 +479,7 @@ let VxHxWx = [| _Vx; _Hx; _Wx |]
 let VxWxIb = [| _Vx; _Wx; _Ib |]
 let WsdHxVsd = [| _Wsd; _Hx; _Vsd |]
 let WssHxVss = [| _Wss; _Hx; _Vss |]
+let WZqqVZxzIb = [| _WZqq; _VZxz; _Ib |]
 
 let VdqHdqEdbIb = [| _Vdq; _Hdq; _Edb; _Ib |]
 let VdqHdqEdwIb = [| _Vdq; _Hdq; _Edw; _Ib |]
@@ -485,6 +487,7 @@ let VdqHdqEyIb = [| _Vdq; _Hdq; _Ey; _Ib |]
 let VpsHpsWpsIb = [| _Vps; _Hps; _Wps; _Ib |]
 let VqqHqqWdqIb = [| _Vqq; _Hqq; _Wdq; _Ib |]
 let VxHxWxIb = [| _Vx; _Hx; _Wx; _Ib |]
+let VZxzHxWZxzIb = [| _VZxz; _Hx; _WZxz; _Ib |]
 
 let opNor0F1A = [| Opcode.InvalOP; Opcode.BNDMOV;
                    Opcode.InvalOP; Opcode.InvalOP |]
@@ -699,9 +702,9 @@ let opNor0F6F = [| Opcode.MOVQ; Opcode.MOVDQA;
 let opVex0F6F = [| Opcode.InvalOP; Opcode.VMOVDQA;
                    Opcode.VMOVDQU; Opcode.InvalOP |]
 let opEVex0F6FB64 = [| Opcode.InvalOP; Opcode.VMOVDQA64;
-                       Opcode.VMOVDQU64; Opcode.InvalOP |]
+                       Opcode.VMOVDQU64; Opcode.VMOVDQU16 |]
 let opEVex0F6FB32 = [| Opcode.InvalOP; Opcode.VMOVDQA32;
-                       Opcode.VMOVDQU32; Opcode.InvalOP |]
+                       Opcode.VMOVDQU32; Opcode.VMOVDQU8 |]
 let opNor0F70 = [| Opcode.PSHUFW; Opcode.PSHUFD;
                    Opcode.PSHUFHW; Opcode.PSHUFLW |]
 let opVex0F70 = [| Opcode.InvalOP; Opcode.VPSHUFD;
@@ -735,9 +738,9 @@ let opNor0F7F = [| Opcode.MOVQ; Opcode.MOVDQA;
 let opVex0F7F = [| Opcode.InvalOP; Opcode.VMOVDQA;
                    Opcode.VMOVDQU; Opcode.InvalOP |]
 let opEVex0F7FB64 = [| Opcode.InvalOP; Opcode.VMOVDQA64;
-                       Opcode.InvalOP; Opcode.InvalOP |]
+                       Opcode.InvalOP; Opcode.VMOVDQU16 |]
 let opEVex0F7FB32 = [| Opcode.InvalOP; Opcode.VMOVDQA32;
-                       Opcode.InvalOP; Opcode.InvalOP |]
+                       Opcode.InvalOP; Opcode.VMOVDQU8 |]
 let opNor0FC2 = [| Opcode.CMPPS; Opcode.CMPPD;
                    Opcode.CMPSS; Opcode.CMPSD |]
 let opVex0FC2 = [| Opcode.InvalOP; Opcode.InvalOP;
@@ -1180,6 +1183,10 @@ let opNor0F3A15 = [| Opcode.InvalOP; Opcode.PEXTRW;
                      Opcode.InvalOP; Opcode.InvalOP |]
 let opVex0F3A15 = [| Opcode.InvalOP; Opcode.VPEXTRW;
                      Opcode.InvalOP; Opcode.InvalOP |]
+let opEVex0F3A1BW0 = [| Opcode.InvalOP; Opcode.VEXTRACTF32X8;
+                        Opcode.InvalOP; Opcode.InvalOP |]
+let opEVex0F3A1BW1 = [| Opcode.InvalOP; Opcode.InvalOP;
+                        Opcode.InvalOP; Opcode.InvalOP |]
 let opNor0F3A20 = [| Opcode.InvalOP; Opcode.PINSRB;
                      Opcode.InvalOP; Opcode.InvalOP |]
 let opVex0F3A20 = [| Opcode.InvalOP; Opcode.VPINSRB;
@@ -1199,6 +1206,10 @@ let opVex0F3A38 = [| Opcode.InvalOP; Opcode.VINSERTI128;
 let opEVex0F3A3BW0 = [| Opcode.InvalOP; Opcode.VEXTRACTI32X8;
                         Opcode.InvalOP; Opcode.InvalOP |]
 let opEVex0F3A3BW1 = [| Opcode.InvalOP; Opcode.VEXTRACTI64X4;
+                        Opcode.InvalOP; Opcode.InvalOP |]
+let opEVex0F3A43W0 = [| Opcode.InvalOP; Opcode.VSHUFI32X4;
+                        Opcode.InvalOP; Opcode.InvalOP |]
+let opEVex0F3A43W1 = [| Opcode.InvalOP; Opcode.VSHUFI64X2;
                         Opcode.InvalOP; Opcode.InvalOP |]
 let opNor0F3A60 = [| Opcode.InvalOP; Opcode.PCMPESTRM;
                      Opcode.InvalOP; Opcode.InvalOP |]
@@ -1226,6 +1237,5 @@ let opVex0F3AF0 = [| Opcode.InvalOP; Opcode.InvalOP;
                      Opcode.InvalOP; Opcode.RORX |]
 let opEmpty = [| Opcode.InvalOP; Opcode.InvalOP;
                  Opcode.InvalOP; Opcode.InvalOP |]
-
 
 // vim: set tw=80 sts=2 sw=2:
