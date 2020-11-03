@@ -2213,194 +2213,198 @@ type Opcode =
   | VPUNPCKLWD = 1049
   /// Logical Exclusive OR.
   | VPXOR = 1050
+  /// Bitwise XOR of packed doubleword integers.
+  | VPXORD = 1051
+  /// Bitwise XOR of packed quadword integers.
+  | VPXORQ = 1052
   /// Range Restriction Calculation For Packed Pairs of Float64 Values.
-  | VRANGEPD = 1051
+  | VRANGEPD = 1053
   /// Range Restriction Calculation For Packed Pairs of Float32 Values.
-  | VRANGEPS = 1052
+  | VRANGEPS = 1054
   /// Range Restriction Calculation From a pair of Scalar Float64 Values.
-  | VRANGESD = 1053
+  | VRANGESD = 1055
   /// Range Restriction Calculation From a Pair of Scalar Float32 Values.
-  | VRANGESS = 1054
+  | VRANGESS = 1056
   /// Compute Approximate Reciprocals of Packed Float64 Values.
-  | VRCP14PD = 1055
+  | VRCP14PD = 1057
   /// Compute Approximate Reciprocals of Packed Float32 Values.
-  | VRCP14PS = 1056
+  | VRCP14PS = 1058
   /// Compute Approximate Reciprocal of Scalar Float64 Value.
-  | VRCP14SD = 1057
+  | VRCP14SD = 1059
   /// Compute Approximate Reciprocal of Scalar Float32 Value.
-  | VRCP14SS = 1058
+  | VRCP14SS = 1060
   /// Computes the reciprocal approximation of the float64 values.
-  | VRCP28PD = 1059
+  | VRCP28PD = 1061
   /// Computes the reciprocal approximation of the float32 values.
-  | VRCP28PS = 1060
+  | VRCP28PS = 1062
   /// Computes the reciprocal approximation of the low float64 value.
-  | VRCP28SD = 1061
+  | VRCP28SD = 1063
   /// Computes the reciprocal approximation of the low float32 value.
-  | VRCP28SS = 1062
+  | VRCP28SS = 1064
   /// Perform Reduction Transformation on Packed Float64 Values.
-  | VREDUCEPD = 1063
+  | VREDUCEPD = 1065
   /// Perform Reduction Transformation on Packed Float32 Values.
-  | VREDUCEPS = 1064
+  | VREDUCEPS = 1066
   /// Perform a Reduction Transformation on a Scalar Float64 Value.
-  | VREDUCESD = 1065
+  | VREDUCESD = 1067
   /// Perform a Reduction Transformation on a Scalar Float32 Value.
-  | VREDUCESS = 1066
+  | VREDUCESS = 1068
   /// Round Packed Float64 Values To Include A Given Number Of Fraction Bits.
-  | VRNDSCALEPD = 1067
+  | VRNDSCALEPD = 1069
   /// Round Packed Float32 Values To Include A Given Number Of Fraction Bits.
-  | VRNDSCALEPS = 1068
+  | VRNDSCALEPS = 1070
   /// Round Scalar Float64 Value To Include A Given Number Of Fraction Bits.
-  | VRNDSCALESD = 1069
+  | VRNDSCALESD = 1071
   /// Round Scalar Float32 Value To Include A Given Number Of Fraction Bits.
-  | VRNDSCALESS = 1070
+  | VRNDSCALESS = 1072
   /// Compute Approximate Reciprocals of Square Roots of Packed Float64 Values.
-  | VRSQRT14PD = 1071
+  | VRSQRT14PD = 1073
   /// Compute Approximate Reciprocals of Square Roots of Packed Float32 Values.
-  | VRSQRT14PS = 1072
+  | VRSQRT14PS = 1074
   /// Compute Approximate Reciprocal of Square Root of Scalar Float64 Value.
-  | VRSQRT14SD = 1073
+  | VRSQRT14SD = 1075
   /// Compute Approximate Reciprocal of Square Root of Scalar Float32 Value.
-  | VRSQRT14SS = 1074
+  | VRSQRT14SS = 1076
   /// Computes the reciprocal square root of the float64 values.
-  | VRSQRT28PD = 1075
+  | VRSQRT28PD = 1077
   /// Computes the reciprocal square root of the float32 values.
-  | VRSQRT28PS = 1076
+  | VRSQRT28PS = 1078
   /// Computes the reciprocal square root of the low float64 value.
-  | VRSQRT28SD = 1077
+  | VRSQRT28SD = 1079
   /// Computes the reciprocal square root of the low float32 value.
-  | VRSQRT28SS = 1078
+  | VRSQRT28SS = 1080
   /// Multiply packed DP FP elements of a vector by powers.
-  | VSCALEPD = 1079
+  | VSCALEPD = 1081
   /// Multiply packed SP FP elements of a vector by powers.
-  | VSCALEPS = 1080
+  | VSCALEPS = 1082
   /// Multiply the low DP FP element of a vector by powers.
-  | VSCALESD = 1081
+  | VSCALESD = 1083
   /// Multiply the low SP FP element of a vector by powers.
-  | VSCALESS = 1082
+  | VSCALESS = 1084
   /// Scatter SP/DP FP elements in a vector to memory using dword indices.
-  | VSCATTERDD = 1083
+  | VSCATTERDD = 1085
   /// Scatter SP/DP FP elements in a vector to memory using dword indices.
-  | VSCATTERDQ = 1084
+  | VSCATTERDQ = 1086
   /// Scatter SP/DP FP elements in a vector to memory using qword indices.
-  | VSCATTERQD = 1085
+  | VSCATTERQD = 1087
   /// Scatter SP/DP FP elements in a vector to memory using qword indices.
-  | VSCATTERQQ = 1086
+  | VSCATTERQQ = 1088
   /// Shuffle 128-bit lanes of a vector with 32 bit granular conditional update.
-  | VSHUFF32X4 = 1087
+  | VSHUFF32X4 = 1089
   /// Shuffle 128-bit lanes of a vector with 64 bit granular conditional update.
-  | VSHUFF64X2 = 1088
+  | VSHUFF64X2 = 1090
   /// Shuffle 128-bit lanes of a vector with 32 bit granular conditional update.
-  | VSHUFI32X4 = 1089
+  | VSHUFI32X4 = 1091
   /// Shuffle 128-bit lanes of a vector with 64 bit granular conditional update.
-  | VSHUFI64X2 = 1090
+  | VSHUFI64X2 = 1092
   /// Shuffle Packed Double-Precision Floating-Point Values.
-  | VSHUFPD = 1091
+  | VSHUFPD = 1093
   /// Shuffle Packed Single-Precision Floating-Point Values.
-  | VSHUFPS = 1092
+  | VSHUFPS = 1094
   /// Compute packed square roots of packed double-precision FP values.
-  | VSQRTPD = 1093
+  | VSQRTPD = 1095
   /// Compute square roots of packed single-precision floating-point values.
-  | VSQRTPS = 1094
+  | VSQRTPS = 1096
   /// Compute scalar square root of scalar double-precision FP values.
-  | VSQRTSD = 1095
+  | VSQRTSD = 1097
   /// Compute square root of scalar single-precision floating-point values.
-  | VSQRTSS = 1096
+  | VSQRTSS = 1098
   /// Subtract Packed Double-Precision Floating-Point Values.
-  | VSUBPD = 1097
+  | VSUBPD = 1099
   /// Subtract Packed Single-Precision Floating-Point Values.
-  | VSUBPS = 1098
+  | VSUBPS = 1100
   /// Subtract Scalar Double-Precision Floating-Point Values.
-  | VSUBSD = 1099
+  | VSUBSD = 1101
   /// Subtract Scalar Single-Precision Floating-Point Values.
-  | VSUBSS = 1100
+  | VSUBSS = 1102
   /// Unordered Compare Scalar Double-Precision FP Values and Set EFLAGS.
-  | VUCOMISD = 1101
+  | VUCOMISD = 1103
   /// Unordered Compare Scalar Single-Precision FPValues and Set EFLAGS.
-  | VUCOMISS = 1102
+  | VUCOMISS = 1104
   /// Unpack and Interleave High Packed Double-Precision Floating-Point Values.
-  | VUNPCKHPD = 1103
+  | VUNPCKHPD = 1105
   /// Unpack and Interleave High Packed Single-Precision Floating-Point Values.
-  | VUNPCKHPS = 1104
+  | VUNPCKHPS = 1106
   /// Unpack and Interleave Low Packed Double-Precision Floating-Point Values.
-  | VUNPCKLPD = 1105
+  | VUNPCKLPD = 1107
   /// Unpack and Interleave Low Packed Single-Precision Floating-Point Values.
-  | VUNPCKLPS = 1106
+  | VUNPCKLPS = 1108
   /// Bitwise Logical XOR for Double-Precision Floating-Point Values.
-  | VXORPD = 1107
+  | VXORPD = 1109
   /// Bitwise Logical XOR for Single-Precision Floating-Point Values.
-  | VXORPS = 1108
+  | VXORPS = 1110
   /// Zero Upper Bits of YMM Registers.
-  | VZEROUPPER = 1109
+  | VZEROUPPER = 1111
   /// Wait.
-  | WAIT = 1110
+  | WAIT = 1112
   /// Write Back and Invalidate Cache.
-  | WBINVD = 1111
+  | WBINVD = 1113
   /// Write FS Segment Base.
-  | WRFSBASE = 1112
+  | WRFSBASE = 1114
   /// Write GS Segment Base.
-  | WRGSBASE = 1113
+  | WRGSBASE = 1115
   /// Write to Model Specific Register.
-  | WRMSR = 1114
+  | WRMSR = 1116
   /// Write Data to User Page Key Register.
-  | WRPKRU = 1115
+  | WRPKRU = 1117
   /// Write to a shadow stack.
-  | WRSSD = 1116
+  | WRSSD = 1118
   /// Write to a shadow stack.
-  | WRSSQ = 1117
+  | WRSSQ = 1119
   /// Write to a user mode shadow stack.
-  | WRUSSD = 1118
+  | WRUSSD = 1120
   /// Write to a user mode shadow stack.
-  | WRUSSQ = 1119
+  | WRUSSQ = 1121
   /// Transactional Abort.
-  | XABORT = 1120
+  | XABORT = 1122
   /// Prefix hint to the beginning of an HLE transaction region.
-  | XACQUIRE = 1121
+  | XACQUIRE = 1123
   /// Exchange and Add.
-  | XADD = 1122
+  | XADD = 1124
   /// Transactional Begin.
-  | XBEGIN = 1123
+  | XBEGIN = 1125
   /// Exchange Register/Memory with Register.
-  | XCHG = 1124
+  | XCHG = 1126
   /// Transactional End.
-  | XEND = 1125
+  | XEND = 1127
   /// Value of Extended Control Register.
-  | XGETBV = 1126
+  | XGETBV = 1128
   /// Table lookup translation.
-  | XLAT = 1127
+  | XLAT = 1129
   /// Table Look-up Translation.
-  | XLATB = 1128
+  | XLATB = 1130
   /// Logical Exclusive OR.
-  | XOR = 1129
+  | XOR = 1131
   /// Bitwise Logical XOR for Double-Precision Floating-Point Values.
-  | XORPD = 1130
+  | XORPD = 1132
   /// Bitwise Logical XOR for Single-Precision Floating-Point Values.
-  | XORPS = 1131
+  | XORPS = 1133
   /// Prefix hint to the end of an HLE transaction region.
-  | XRELEASE = 1132
+  | XRELEASE = 1134
   /// Restore Processor Extended States.
-  | XRSTOR = 1133
+  | XRSTOR = 1135
   /// Restore processor supervisor-mode extended states from memory.
-  | XRSTORS = 1134
+  | XRSTORS = 1136
   /// Restore processor supervisor-mode extended states from memory.
-  | XRSTORS64 = 1135
+  | XRSTORS64 = 1137
   /// Save Processor Extended States.
-  | XSAVE = 1136
+  | XSAVE = 1138
   /// Save processor extended states with compaction to memory.
-  | XSAVEC = 1137
+  | XSAVEC = 1139
   /// Save processor extended states with compaction to memory.
-  | XSAVEC64 = 1138
+  | XSAVEC64 = 1140
   /// Save Processor Extended States Optimized.
-  | XSAVEOPT = 1139
+  | XSAVEOPT = 1141
   /// Save processor supervisor-mode extended states to memory.
-  | XSAVES = 1140
+  | XSAVES = 1142
   /// Save processor supervisor-mode extended states to memory.
-  | XSAVES64 = 1141
+  | XSAVES64 = 1143
   /// Set Extended Control Register.
-  | XSETBV = 1142
+  | XSETBV = 1144
   /// Test If In Transactional Execution.
-  | XTEST = 1143
+  | XTEST = 1145
   /// Invalid Opcode.
-  | InvalOP = 1144
+  | InvalOP = 1146
 
 /// We define 8 different RegGrp types. Intel instructions use an integer value
 /// such as a REG field of a ModR/M value.
