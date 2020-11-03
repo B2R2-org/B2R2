@@ -6144,6 +6144,107 @@ let vdivsd ins insAddr insLen ctxt =
 let vdivss ins insAddr insLen ctxt =
   vexedScalarFPBinOp ins insAddr insLen ctxt 32<rt> fdiv
 
+let getEVEXPrx = function
+  | Some v -> match v.EVEXPrx with
+              | Some ev -> ev
+              | None -> raise InvalidPrefixException
+  | None -> raise InvalidPrefixException
+
+let vextracti32x8 ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (8)
+  let dst, src, imm = getThreeOprs ins
+  let oprSize = getOperationSize ins
+  let ePrx = getEVEXPrx ins.VEXInfo
+  let k = getRegVar ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
+  let masking dst =
+    match ePrx.Z with
+    | Zeroing -> num0 32<rt>
+    | Merging -> dst
+  let cond idx =
+    (* no write mask *)
+    let noWritemask = if ePrx.AAA = 0uy then num1 1<rt> else num0 1<rt>
+    extract k 1<rt> idx .| noWritemask
+  let tDest = tmpVar 256<rt>
+  let vl = 512
+  let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
+  let srcH, srcG, srcF, srcE, srcD, srcC, srcB, srcA =
+    transOprToExpr512 ins insAddr insLen ctxt src
+  let imm = transOprToExpr ins insAddr insLen ctxt imm
+  startMark insAddr insLen builder
+  let srcLow = concat (concat srcD srcC) (concat srcB srcA)
+  let srcHigh = concat (concat srcH srcG) (concat srcF srcE)
+  builder <! (tDest := ite (extractLow 1<rt> imm) srcHigh srcLow)
+  match dst with
+  | OprReg _ ->
+    let tmps = Array.init 2 (fun _ -> tmpVar 32<rt>)
+    let assign dst src idx =
+      for i in 0 .. 1 do
+        let dstPos = i * 32
+        let srcPos = 32 * (idx + i)
+        let dst = extract dst 32<rt> dstPos
+        let src = extract src 32<rt> srcPos
+        builder <!
+          (tmps.[i] := ite (cond (idx + i)) src (masking dst))
+      concatExprs tmps
+    builder <! (dstA := assign dstA tDest 0)
+    builder <! (dstB := assign dstB tDest 2)
+    builder <! (dstC := assign dstC tDest 4)
+    builder <! (dstD := assign dstD tDest 6)
+  | OprMem _ ->
+    let tmps = Array.init 2 (fun _ -> tmpVar 32<rt>)
+    let assign dst src idx =
+      for i in 0 .. 1 do
+        let dstPos = i * 32
+        let srcPos = 32 * (idx + i)
+        let dst = extract dst 32<rt> dstPos
+        builder <!
+          (tmps.[i] := ite (cond (idx + i)) (extract src 32<rt> srcPos) dst)
+      concatExprs tmps
+    builder <! (dstA := assign dstA tDest 0)
+    builder <! (dstB := assign dstB tDest 2)
+    builder <! (dstC := assign dstC tDest 4)
+    builder <! (dstD := assign dstD tDest 6)
+  | _ -> raise InvalidOperandException
+  endMark insAddr insLen builder
+
+let vextracti64x4 ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (8)
+  let dst, src, imm = getThreeOprs ins
+  let oprSize = getOperationSize ins
+  let ePrx = getEVEXPrx ins.VEXInfo
+  let k = getRegVar ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
+  let masking dst =
+    match ePrx.Z with
+    | Zeroing -> num0 64<rt>
+    | Merging -> dst
+  let cond idx =
+    (* no write mask *)
+    let noWritemask = if ePrx.AAA = 0uy then num1 1<rt> else num0 1<rt>
+    extract k 1<rt> idx .| noWritemask
+  let tDest = tmpVar 256<rt>
+  let vl = 512
+  let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
+  let srcH, srcG, srcF, srcE, srcD, srcC, srcB, srcA =
+    transOprToExpr512 ins insAddr insLen ctxt src
+  let imm = transOprToExpr ins insAddr insLen ctxt imm
+  startMark insAddr insLen builder
+  let srcLow = concat (concat srcD srcC) (concat srcB srcA)
+  let srcHigh = concat (concat srcH srcG) (concat srcF srcE)
+  builder <! (tDest := ite (extractLow 1<rt> imm) srcHigh srcLow)
+  match dst with
+  | OprReg _ ->
+    builder <! (dstA := ite (cond 0) (extract tDest 64<rt> 0) (masking dstA))
+    builder <! (dstB := ite (cond 1) (extract tDest 64<rt> 64) (masking dstB))
+    builder <! (dstC := ite (cond 2) (extract tDest 64<rt> 128) (masking dstC))
+    builder <! (dstD := ite (cond 3) (extract tDest 64<rt> 192) (masking dstD))
+  | OprMem _ ->
+    builder <! (dstA := ite (cond 0) (extract tDest 64<rt> 0) dstA)
+    builder <! (dstB := ite (cond 1) (extract tDest 64<rt> 64) dstB)
+    builder <! (dstC := ite (cond 2) (extract tDest 64<rt> 128) dstC)
+    builder <! (dstD := ite (cond 3) (extract tDest 64<rt> 192) dstD)
+  | _ -> raise InvalidOperandException
+  endMark insAddr insLen builder
+
 let vfmadd132sd ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
   let dst, src2, src3 = getThreeOprs ins
@@ -6255,12 +6356,6 @@ let vmovddup ins insAddr insLen ctxt =
     builder <! (dst4 := src3)
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
-
-let getEVEXPrx = function
-  | Some v -> match v.EVEXPrx with
-              | Some ev -> ev
-              | None -> raise InvalidPrefixException
-  | None -> raise InvalidPrefixException
 
 let buildVectorMove ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
@@ -6440,6 +6535,167 @@ let vmovdqa64 ins insAddr insLen ctxt =
       builder <! (dstF := ite (cond 5) srcF dstF)
       builder <! (dstG := ite (cond 6) srcG dstG)
       builder <! (dstH := ite (cond 7) srcH dstH)
+    | _ -> raise InvalidOperandException
+  | _ -> raise InvalidOperandSizeException
+  endMark insAddr insLen builder
+
+let vmovdqu16 ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (8)
+  let dst, src = getTwoOprs ins
+  let oprSize = getOperationSize ins
+  let ePrx = getEVEXPrx ins.VEXInfo
+  let k = getRegVar ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
+  let masking dst =
+    match ePrx.Z with
+    | Zeroing -> num0 16<rt>
+    | Merging -> dst
+  let cond idx =
+    (* no write mask *)
+    let noWritemask = if ePrx.AAA = 0uy then num1 1<rt> else num0 1<rt>
+    extract k 1<rt> idx .| noWritemask
+  startMark insAddr insLen builder
+  match oprSize with
+  | 128<rt> ->
+    let kl, vl = 8, 128
+    match dst with
+    | OprReg _ ->
+      let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+      let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
+      let assign dst src idx =
+        let pos = (idx % 4) * 16
+        let dst = extract dst 16<rt> pos
+        dst := ite (cond idx) (extract src 16<rt> pos) (masking dst)
+      builder <! (assign dstA srcA 0)
+      builder <! (assign dstA srcA 1)
+      builder <! (assign dstA srcA 2)
+      builder <! (assign dstA srcA 3)
+      builder <! (assign dstB srcB 4)
+      builder <! (assign dstB srcB 5)
+      builder <! (assign dstB srcB 6)
+      builder <! (assign dstB srcB 7)
+      fillZeroFromVLToMaxVL ctxt dst vl 512 builder
+    | OprMem _ ->
+      let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+      let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
+      let tmps = Array.init 4 (fun _ -> tmpVar 16<rt>)
+      let assign dst src idx =
+        for i in 0 .. 3 do
+          let pos = i * 16
+          let dst = extract dst 16<rt> pos
+          builder <!
+            (tmps.[i] := ite (cond (idx + i)) (extract src 16<rt> pos) dst)
+        concatExprs tmps
+      builder <! (dstA := assign dstA srcA 0)
+      builder <! (dstB := assign dstB srcB 4)
+    | _ -> raise InvalidOperandException
+  | 256<rt> ->
+    let kl, vl = 16, 256
+    match dst with
+    | OprReg _ ->
+      let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
+      let srcD, srcC, srcB, srcA = transOprToExpr256 ins insAddr insLen ctxt src
+      let assign dst src idx =
+        let pos = (idx % 4) * 16
+        let dst = extract dst 16<rt> pos
+        dst := ite (cond idx) (extract src 16<rt> pos) (masking dst)
+      builder <! (assign dstA srcA 0)
+      builder <! (assign dstA srcA 1)
+      builder <! (assign dstA srcA 2)
+      builder <! (assign dstA srcA 3)
+      builder <! (assign dstB srcB 4)
+      builder <! (assign dstB srcB 5)
+      builder <! (assign dstB srcB 6)
+      builder <! (assign dstB srcB 7)
+      builder <! (assign dstC srcA 8)
+      builder <! (assign dstC srcA 9)
+      builder <! (assign dstC srcA 10)
+      builder <! (assign dstC srcA 11)
+      builder <! (assign dstD srcB 12)
+      builder <! (assign dstD srcB 13)
+      builder <! (assign dstD srcB 14)
+      builder <! (assign dstD srcB 15)
+      fillZeroFromVLToMaxVL ctxt dst vl 512 builder
+    | OprMem _ ->
+      let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
+      let srcD, srcC, srcB, srcA = transOprToExpr256 ins insAddr insLen ctxt src
+      let tmps = Array.init 4 (fun _ -> tmpVar 16<rt>)
+      let assign dst src idx =
+        for i in 0 .. 3 do
+          let pos = i * 16
+          let dst = extract dst 16<rt> pos
+          builder <!
+            (tmps.[i] := ite (cond (idx + i)) (extract src 16<rt> pos) dst)
+        concatExprs tmps
+      builder <! (dstA := assign dstA srcA 0)
+      builder <! (dstB := assign dstB srcB 4)
+      builder <! (dstC := assign dstC srcC 8)
+      builder <! (dstD := assign dstD srcD 12)
+    | _ -> raise InvalidOperandException
+  | 512<rt> ->
+    let kl, vl = 32, 512
+    match dst with
+    | OprReg _ ->
+      let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
+        transOprToExpr512 ins insAddr insLen ctxt dst
+      let srcH, srcG, srcF, srcE, srcD, srcC, srcB, srcA =
+        transOprToExpr512 ins insAddr insLen ctxt src
+      let assign dst src idx =
+        let pos = (idx % 4) * 16
+        let dst = extract dst 16<rt> pos
+        dst := ite (cond idx) (extract src 16<rt> pos) (masking dst)
+      builder <! (assign dstA srcA 0)
+      builder <! (assign dstA srcA 1)
+      builder <! (assign dstA srcA 2)
+      builder <! (assign dstA srcA 3)
+      builder <! (assign dstB srcB 4)
+      builder <! (assign dstB srcB 5)
+      builder <! (assign dstB srcB 6)
+      builder <! (assign dstB srcB 7)
+      builder <! (assign dstC srcA 8)
+      builder <! (assign dstC srcA 9)
+      builder <! (assign dstC srcA 10)
+      builder <! (assign dstC srcA 11)
+      builder <! (assign dstD srcB 12)
+      builder <! (assign dstD srcB 13)
+      builder <! (assign dstD srcB 14)
+      builder <! (assign dstD srcB 15)
+      builder <! (assign dstF srcA 16)
+      builder <! (assign dstF srcA 17)
+      builder <! (assign dstF srcA 18)
+      builder <! (assign dstF srcA 19)
+      builder <! (assign dstG srcB 20)
+      builder <! (assign dstG srcB 21)
+      builder <! (assign dstG srcB 22)
+      builder <! (assign dstG srcB 23)
+      builder <! (assign dstH srcA 24)
+      builder <! (assign dstH srcA 25)
+      builder <! (assign dstH srcA 26)
+      builder <! (assign dstH srcA 27)
+      builder <! (assign dstG srcB 28)
+      builder <! (assign dstG srcB 29)
+      builder <! (assign dstG srcB 30)
+      builder <! (assign dstG srcB 31)
+    | OprMem _ ->
+      let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
+        transOprToExpr512 ins insAddr insLen ctxt dst
+      let srcH, srcG, srcF, srcE, srcD, srcC, srcB, srcA =
+        transOprToExpr512 ins insAddr insLen ctxt src
+      let tmps = Array.init 4 (fun _ -> tmpVar 16<rt>)
+      let assign dst src idx =
+        for i in 0 .. 3 do
+          let pos = i * 16
+          let dst = extract dst 16<rt> pos
+          builder <!
+            (tmps.[i] := ite (cond (idx + i)) (extract src 16<rt> pos) dst)
+        concatExprs tmps
+      builder <! (dstA := assign dstA srcA 0)
+      builder <! (dstB := assign dstB srcB 4)
+      builder <! (dstC := assign dstC srcC 8)
+      builder <! (dstD := assign dstD srcD 12)
+      builder <! (dstE := assign dstE srcE 16)
+      builder <! (dstF := assign dstF srcF 20)
+      builder <! (dstG := assign dstG srcG 24)
+      builder <! (dstH := assign dstH srcH 28)
     | _ -> raise InvalidOperandException
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
@@ -6889,6 +7145,68 @@ let vpbroadcastb ins insAddr insLen ctxt =
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
+let vpbroadcastd ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (8)
+  let dst, src = getTwoOprs ins
+  let oprSize = getOperationSize ins
+  let temp = tmpVar 32<rt>
+  let src =
+    match src with
+    | OprReg _ -> transOprToExpr128 ins insAddr insLen ctxt src |> snd
+    | OprMem _ -> transOprToExpr ins insAddr insLen ctxt src
+    | _ -> raise InvalidOperandException
+    |> extractLow 32<rt>
+  startMark insAddr insLen builder
+  builder <! (temp := src)
+  match oprSize with
+  | 128<rt> ->
+    let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+    builder <! (dstA := temp)
+    builder <! (dstB := temp)
+    fillZeroFromVLToMaxVL ctxt dst 128 512 builder
+  | 256<rt> ->
+    let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
+    builder <! (dstA := temp)
+    builder <! (dstB := temp)
+    builder <! (dstC := temp)
+    builder <! (dstD := temp)
+    fillZeroFromVLToMaxVL ctxt dst 256 512 builder
+  | 512<rt> ->
+    let kl, vl = 16, 512
+    let ePrx = getEVEXPrx ins.VEXInfo
+    let k = getRegVar ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
+    let masking dst =
+      match ePrx.Z with
+      | Zeroing -> num0 32<rt>
+      | Merging -> dst
+    let cond idx =
+      (* no write mask *)
+      let noWritemask = if ePrx.AAA = 0uy then num1 1<rt> else num0 1<rt>
+      extract k 1<rt> idx .| noWritemask
+    let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
+      transOprToExpr512 ins insAddr insLen ctxt dst
+    let assign dst idx sPos =
+      let extDst = extract dst 32<rt> sPos
+      extDst := ite (cond idx) temp (masking extDst)
+    builder <! (assign dstA 0 0)
+    builder <! (assign dstA 1 32)
+    builder <! (assign dstB 2 0)
+    builder <! (assign dstB 3 32)
+    builder <! (assign dstC 4 0)
+    builder <! (assign dstC 5 32)
+    builder <! (assign dstD 6 0)
+    builder <! (assign dstD 7 32)
+    builder <! (assign dstE 8 0)
+    builder <! (assign dstE 9 32)
+    builder <! (assign dstF 10 0)
+    builder <! (assign dstF 11 32)
+    builder <! (assign dstG 12 0)
+    builder <! (assign dstG 13 32)
+    builder <! (assign dstH 14 0)
+    builder <! (assign dstH 15 32)
+  | _ -> raise InvalidOperandSizeException
+  endMark insAddr insLen builder
+
 let vpcmpeqb ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 8<rt> opPcmpeqb 64
 
@@ -6900,6 +7218,26 @@ let vpcmpeqq ins insAddr insLen ctxt =
 
 let vpcmpgtb ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 8<rt> opPcmpgtb 64
+
+let vpinsrd ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (8)
+  let dst, src1, src2, imm = getFourOprs ins
+  let oprSize = getOperationSize ins
+  let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+  let src1B, src1A = transOprToExpr128 ins insAddr insLen ctxt src1
+  let src2 = transOprToExpr ins insAddr insLen ctxt src2
+  let imm = transOprToExpr ins insAddr insLen ctxt imm
+  let sel, mask, temp, tDst = tmpVars4 128<rt>
+  startMark insAddr insLen builder (* write_d_element *)
+  builder <! (sel := zExt 128<rt> (extractLow 2<rt> imm))
+  builder <! (mask := numU64 0xFFFFFFFFUL 128<rt> << (sel .* numI32 32 128<rt>))
+  builder <!
+    (temp := ((zExt 128<rt> src2) << (sel .* numI32 32 128<rt>)) .& mask)
+  builder <! (tDst := (((concat src1B src1A) .& AST.not mask) .| temp))
+  builder <! (dstA := extract tDst 64<rt> 0)
+  builder <! (dstB := extract tDst 64<rt> 64)
+  fillZeroFromVLToMaxVL ctxt dst 128 512 builder
+  endMark insAddr insLen builder
 
 let vpminub ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 8<rt> opPminub 64
@@ -7167,6 +7505,108 @@ let vpxor ins insAddr insLen ctxt =
     builder <! (dstB := src1B <+> src2B)
     builder <! (dstA := src1A <+> src2A)
   | _ -> raise InvalidOperandSizeException
+  endMark insAddr insLen builder
+
+let vshufi32x4 ins insAddr insLen ctxt =
+  let builder = new StmtBuilder (16)
+  let dst, src1, src2, imm = getFourOprs ins
+  let oprSize = getOperationSize ins
+  let ePrx = getEVEXPrx ins.VEXInfo
+  let k = getRegVar ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
+  let masking dst =
+    match ePrx.Z with
+    | Zeroing -> num0 32<rt>
+    | Merging -> dst
+  let cond idx =
+    (* no write mask *)
+    let noWritemask = if ePrx.AAA = 0uy then num1 1<rt> else num0 1<rt>
+    extract k 1<rt> idx .| noWritemask
+  let imm = transOprToExpr ins insAddr insLen ctxt imm
+  let tmpDest, tmp = tmpVars2 oprSize
+  startMark insAddr insLen builder
+  match oprSize with
+  | 256<rt> ->
+    let kl, vl = 8, 256
+    let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
+    let src1D, src1C, src1B, src1A =
+      transOprToExpr256 ins insAddr insLen ctxt src1
+    let src2D, src2C, src2B, src2A =
+      transOprToExpr256 ins insAddr insLen ctxt src2
+    let conSrc1 = concat (concat src1D src1C) (concat src1B src1A)
+    let conSrc2 = concat (concat src2D src2C) (concat src2B src2A)
+    let srcLow src = extract src 128<rt> 0
+    let srcHigh src = extract src 128<rt> 128
+    let select2 src pos = ite (extract imm 1<rt> pos) (srcHigh src) (srcLow src)
+    builder <! (extract tmpDest 128<rt> 0 := select2 conSrc1 0)
+    builder <! (extract tmpDest 128<rt> 128 := select2 conSrc2 1)
+    let assign dst idx dstPos tmpPos =
+      let dst = extract dst 32<rt> dstPos
+      dst := ite (cond idx) (extract tmpDest 32<rt> tmpPos) (masking dst)
+    builder <! (assign dstA 0 0 0)
+    builder <! (assign dstA 1 32 32)
+    builder <! (assign dstB 2 0 64)
+    builder <! (assign dstB 3 32 96)
+    builder <! (assign dstC 4 0 128)
+    builder <! (assign dstC 5 32 160)
+    builder <! (assign dstD 6 0 192)
+    builder <! (assign dstD 7 32 224)
+  | 512<rt> ->
+    let kl, vl = 16, 512
+    let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
+      transOprToExpr512 ins insAddr insLen ctxt dst
+    let src1H, src1G, src1F, src1E, src1D, src1C, src1B, src1A =
+      transOprToExpr512 ins insAddr insLen ctxt src1
+    let src2H, src2G, src2F, src2E, src2D, src2C, src2B, src2A =
+      transOprToExpr512 ins insAddr insLen ctxt src2
+    let conSrc1 = concat (concat (concat src1H src1G) (concat src1F src1E))
+                         (concat (concat src1D src1C) (concat src1B src1A))
+    let conSrc2 = concat (concat (concat src2H src2G) (concat src2F src2E))
+                         (concat (concat src2D src2C) (concat src2B src2A))
+    let src128 src = extract src 128<rt> 0
+    let src256 src = extract src 128<rt> 128
+    let src384 src = extract src 128<rt> 256
+    let src512 src = extract src 128<rt> 384
+    let num0 = num0 2<rt>
+    let num1 = num1 2<rt>
+    let num2 = numI32 2 2<rt>
+    let control pos = extract imm 2<rt> pos
+    let select4 src pos =
+      let control = control pos
+      ite (control == num0) (src128 src)
+       (ite (control == num1) (src256 src) (ite (control == num2) (src384 src)
+                                             (src512 src)))
+    let tmpSrc2 = Array.init kl (fun _ -> tmpVar 32<rt>)
+    for i in 0 .. kl - 1 do
+      let tSrc2 =
+        match src2 with
+          | OprMem _ when ePrx.B = 1uy -> extract src2A 32<rt> 0
+          | _ -> extract conSrc2 32<rt> (i * 32)
+      builder <! (tmpSrc2.[i] := tSrc2)
+    let tmpSrc2 = concatExprs tmpSrc2
+    builder <! (extract tmpDest 128<rt> 0 := select4 conSrc1 0)
+    builder <! (extract tmpDest 128<rt> 128 := select4 conSrc2 2)
+    builder <! (extract tmpDest 128<rt> 256 := select4 tmpSrc2 4)
+    builder <! (extract tmpDest 128<rt> 384 := select4 tmpSrc2 6)
+    let assign dst idx dstPos tmpPos =
+      let dst = extract dst 32<rt> dstPos
+      dst := ite (cond idx) (extract tmpDest 32<rt> tmpPos) (masking dst)
+    builder <! (assign dstA 0 0 0)
+    builder <! (assign dstA 1 32 32)
+    builder <! (assign dstB 2 0 64)
+    builder <! (assign dstB 3 32 96)
+    builder <! (assign dstC 4 0 128)
+    builder <! (assign dstC 5 32 160)
+    builder <! (assign dstD 6 0 192)
+    builder <! (assign dstD 7 32 224)
+    builder <! (assign dstE 8 0 256)
+    builder <! (assign dstE 9 32 288)
+    builder <! (assign dstF 10 0 320)
+    builder <! (assign dstF 11 32 352)
+    builder <! (assign dstG 12 0 384)
+    builder <! (assign dstG 13 32 416)
+    builder <! (assign dstH 14 0 448)
+    builder <! (assign dstH 15 32 480)
+  | _ -> raise InvalidOperandException
   endMark insAddr insLen builder
 
 let vshufpd ins insAddr insLen ctxt =
@@ -7804,11 +8244,14 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.TZCNT -> tzcnt ins insAddr insLen ctxt
   | Opcode.UD2 -> sideEffects insAddr insLen UndefinedInstr
   | Opcode.VBROADCASTI128 -> vbroadcasti128 ins insAddr insLen ctxt
+  | Opcode.VEXTRACTF32X8 -> vextracti32x8 ins insAddr insLen ctxt
+  | Opcode.VEXTRACTI64X4 -> vextracti64x4 ins insAddr insLen ctxt
   | Opcode.VINSERTI128 -> vinserti128 ins insAddr insLen ctxt
   | Opcode.VMOVD -> vmovd ins insAddr insLen ctxt
   | Opcode.VMOVDQA -> vmovdqa ins insAddr insLen ctxt
   | Opcode.VMOVDQA64 -> vmovdqa64 ins insAddr insLen ctxt
   | Opcode.VMOVDQU -> vmovdqu ins insAddr insLen ctxt
+  | Opcode.VMOVDQU16 -> vmovdqu16 ins insAddr insLen ctxt
   | Opcode.VMOVDQU64 -> vmovdqu64 ins insAddr insLen ctxt
   | Opcode.VMOVNTDQ -> vmovntdq ins insAddr insLen ctxt
   | Opcode.VMOVQ -> vmovq ins insAddr insLen ctxt
@@ -7821,12 +8264,14 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.VPAND -> vpand ins insAddr insLen ctxt
   | Opcode.VPANDN -> vpandn ins insAddr insLen ctxt
   | Opcode.VPBROADCASTB -> vpbroadcastb ins insAddr insLen ctxt
+  | Opcode.VPBROADCASTD -> vpbroadcastd ins insAddr insLen ctxt
   | Opcode.VPCMPEQB -> vpcmpeqb ins insAddr insLen ctxt
   | Opcode.VPCMPEQD -> vpcmpeqd ins insAddr insLen ctxt
   | Opcode.VPCMPEQQ -> vpcmpeqq ins insAddr insLen ctxt
   | Opcode.VPCMPESTRI | Opcode.VPCMPESTRM | Opcode.VPCMPISTRI
   | Opcode.VPCMPISTRM -> pcmpstr ins insAddr insLen ctxt
   | Opcode.VPCMPGTB -> vpcmpgtb ins insAddr insLen ctxt
+  | Opcode.VPINSRD -> vpinsrd ins insAddr insLen ctxt
   | Opcode.VPMINUB -> vpminub ins insAddr insLen ctxt
   | Opcode.VPMINUD -> vpminud ins insAddr insLen ctxt
   | Opcode.VPMOVMSKB -> pmovmskb ins insAddr insLen ctxt
@@ -7847,6 +8292,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.VPUNPCKLDQ -> vpunpckldq ins insAddr insLen ctxt
   | Opcode.VPUNPCKLQDQ -> vpunpcklqdq ins insAddr insLen ctxt
   | Opcode.VPXOR -> vpxor ins insAddr insLen ctxt
+  | Opcode.VSHUFI32X4 -> vshufi32x4 ins insAddr insLen ctxt
   | Opcode.VZEROUPPER -> vzeroupper ins insAddr insLen ctxt
   | Opcode.WRFSBASE -> wrfsbase ins insAddr insLen ctxt
   | Opcode.WRGSBASE -> wrgsbase ins insAddr insLen ctxt

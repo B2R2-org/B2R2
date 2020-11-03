@@ -1534,12 +1534,16 @@ VEXPANDPD
 VEXPANDPS
 /// Extract a vector from a full-length vector with 32-bit granular update.
 VEXTRACTF32X4
+/// Extract a vector from a full-length vector with 32-bit granular update.
+VEXTRACTF32X8
 /// Extract a vector from a full-length vector with 64-bit granular update.
 VEXTRACTF64X2
 /// Extract a vector from a full-length vector with 64-bit granular update.
 VEXTRACTF64X4
 /// Extract a vector from a full-length vector with 32-bit granular update.
 VEXTRACTI32X4
+/// Extract a vector from a full-length vector with 32-bit granular update.
+VEXTRACTI32X8
 /// Extract a vector from a full-length vector with 64-bit granular update.
 VEXTRACTI64X2
 /// Extract a vector from a full-length vector with 64-bit granular update.
@@ -1844,8 +1848,12 @@ VPHSUBSW
 VPHSUBW
 /// Insert Byte.
 VPINSRB
+/// Insert Dword.
+VPINSRD
 /// Insert Word.
 VPINSRW
+/// Insert Qword.
+VPINSRQ
 /// Count the number of leading zero bits of packed dword elements.
 VPLZCNTD
 /// Count the number of leading zero bits of packed qword elements.

@@ -349,7 +349,7 @@ module AST =
       let shift = (num <| BitVector.ofInt32 pos t)
       let src = binop BinOpType.SHL src shift
       Put (e1, binop BinOpType.OR (binop BinOpType.AND e1 mask) src)
-    | _ -> raise InvalidAssignmentException
+    | e -> printfn "%A" e; raise InvalidAssignmentException
 
   let (:=) e1 e2 = (* Assignment *)
 #if DEBUG
