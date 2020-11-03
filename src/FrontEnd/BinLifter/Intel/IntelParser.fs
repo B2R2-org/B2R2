@@ -231,6 +231,7 @@ let private dsNor0FEE     = [| PqQq; VdqWdq; emptyArr; emptyArr |]
 let private dsVex0FEE     = [| emptyArr; VxHxWx; emptyArr; emptyArr |]
 let private dsNor0FEF     = [| PqQq; VdqWdq; emptyArr; emptyArr |]
 let private dsVex0FEF     = [| emptyArr; VxHxWx; emptyArr; emptyArr |]
+let private dsEVex0FEF    = [| emptyArr; VZxzHxWZxz; emptyArr; emptyArr |]
 let private dsNor0FF0     = [| emptyArr; emptyArr; emptyArr; VdqMdq |]
 let private dsVex0FF0     = [| emptyArr; emptyArr; emptyArr; VxMx |]
 let private dsNor0FF1     = [| PqQq; VdqWdq; emptyArr; emptyArr |]
@@ -386,7 +387,7 @@ let private dsVex0F3A20   = [| emptyArr; VdqHdqEdbIb; emptyArr; emptyArr |]
 let private dsEVex0F3A22  = [| emptyArr; VdqHdqEyIb; emptyArr; emptyArr |]
 let private dsNor0F3A38   = [| emptyArr; emptyArr; emptyArr; emptyArr |]
 let private dsVex0F3A38   = [| emptyArr; VqqHqqWdqIb; emptyArr; emptyArr |]
-let private dsEVex0F3A3B  = [| emptyArr; VqqWZxzIb; emptyArr; emptyArr |]
+let private dsEVex0F3A3B  = [| emptyArr; WqqVZxzIb; emptyArr; emptyArr |]
 let private dsEVex0F3A43  = [| emptyArr; VZxzHxWZxzIb; emptyArr; emptyArr |]
 let private dsNor0F3A60   = [| emptyArr; VdqWdqIb; emptyArr; emptyArr |]
 let private dsVex0F3A60   = [| emptyArr; VdqWdqIb; emptyArr; emptyArr |]
@@ -1846,7 +1847,10 @@ let private pTwoByteOp t reader pos byte =
   | 0xECuy -> parseVEX t SzDef32 opNor0FEC opVex0FEC dsNor0FEC dsVex0FEC, pos
   | 0xEDuy -> parseVEX t SzDef32 opNor0FED opVex0FED dsNor0FED dsVex0FED, pos
   | 0xEEuy -> parseVEX t SzDef32 opNor0FEE opVex0FEE dsNor0FEE dsVex0FEE, pos
-  | 0xEFuy -> parseVEX t SzDef32 opNor0FEF opVex0FEF dsNor0FEF dsVex0FEF, pos
+  | 0xEFuy -> parseEVEXByRex t pos opNor0FEF opVex0FEF
+                                   opEVex0FEFW1 opEVex0FEFW0
+                                   dsNor0FEF dsVex0FEF
+                                   dsEVex0FEF dsEVex0FEF
   | 0xF0uy -> parseVEX t SzDef32 opNor0FF0 opVex0FF0 dsNor0FF0 dsVex0FF0, pos
   | 0xF1uy -> parseVEX t SzDef32 opNor0FF1 opVex0FF1 dsNor0FF1 dsVex0FF1, pos
   | 0xF2uy -> parseVEX t SzDef32 opNor0FF2 opVex0FF2 dsNor0FF2 dsVex0FF2, pos

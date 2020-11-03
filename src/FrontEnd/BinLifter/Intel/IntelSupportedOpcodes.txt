@@ -2114,6 +2114,10 @@ VPUNPCKLQDQ
 VPUNPCKLWD
 /// Logical Exclusive OR.
 VPXOR
+/// Bitwise XOR of packed doubleword integers.
+VPXORD
+/// Bitwise XOR of packed quadword integers.
+VPXORQ
 /// Range Restriction Calculation For Packed Pairs of Float64 Values.
 VRANGEPD
 /// Range Restriction Calculation For Packed Pairs of Float32 Values.

@@ -781,6 +781,8 @@ let opCodeToString = function
   | Opcode.VPUNPCKLQDQ -> "vpunpcklqdq"
   | Opcode.VPUNPCKLWD -> "vpunpcklwd"
   | Opcode.VPXOR -> "vpxor"
+  | Opcode.VPXORD -> "vpxord"
+  | Opcode.VPXORQ -> "vpxorq"
   | Opcode.VSHUFI64X2 -> "vshufi64x2"
   | Opcode.VSHUFI32X4 -> "vshufi32x4"
   | Opcode.VSHUFPD -> "vshufpd"

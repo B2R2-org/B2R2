@@ -119,6 +119,7 @@ let _Wdqwd = struct (OprMode.W, OprSize.DQWD)
 let _Wpd = struct (OprMode.W, OprSize.PD)
 let _Wps = struct (OprMode.W, OprSize.PS)
 let _Wpsq = struct (OprMode.W, OprSize.PSQ)
+let _Wqq = struct (OprMode.W, OprSize.QQ)
 let _Wsd = struct (OprMode.W, OprSize.SD)
 let _Wsdq = struct (OprMode.W, OprSize.SDQ)
 let _Wss = struct (OprMode.W, OprSize.SS)
@@ -459,7 +460,6 @@ let VdqHdqUdq = [| _Vdq; _Hdq; _Udq |]
 let VdqWdqIb = [| _Vdq; _Wdq; _Ib |]
 let VpdHpdWpd = [| _Vpd; _Hpd; _Wpd |]
 let VpsHpsWps = [| _Vps; _Hps; _Wps |]
-let VqqWZxzIb = [| _Vqq; _WZxz; _Ib |]
 let VsdHsdEy = [| _Vsd; _Hsd; _Ey |]
 let VsdHsdWsd = [| _Vsd; _Hsd; _Wsd |]
 let VsdHsdWsdq = [| _Vsd; _Hsd; _Wsdq |]
@@ -477,6 +477,8 @@ let VxHxWsd = [| _Vx; _Hx; _Wsd |]
 let VxHxWss = [| _Vx; _Hx; _Wss |]
 let VxHxWx = [| _Vx; _Hx; _Wx |]
 let VxWxIb = [| _Vx; _Wx; _Ib |]
+let VZxzHxWZxz = [| _VZxz; _Hx; _WZxz |]
+let WqqVZxzIb = [| _Wqq; _VZxz; _Ib |]
 let WsdHxVsd = [| _Wsd; _Hx; _Vsd |]
 let WssHxVss = [| _Wss; _Hx; _Vss |]
 let WZqqVZxzIb = [| _WZqq; _VZxz; _Ib |]
@@ -885,6 +887,10 @@ let opNor0FEF = [| Opcode.PXOR; Opcode.PXOR;
                    Opcode.InvalOP; Opcode.InvalOP |]
 let opVex0FEF = [| Opcode.InvalOP; Opcode.VPXOR;
                    Opcode.InvalOP; Opcode.InvalOP |]
+let opEVex0FEFW0 = [| Opcode.InvalOP; Opcode.VPXORD;
+                      Opcode.InvalOP; Opcode.InvalOP |]
+let opEVex0FEFW1 = [| Opcode.InvalOP; Opcode.VPXORQ;
+                      Opcode.InvalOP; Opcode.InvalOP |]
 let opNor0FF0 = [| Opcode.InvalOP; Opcode.InvalOP;
                    Opcode.InvalOP; Opcode.LDDQU |]
 let opVex0FF0 = [| Opcode.InvalOP; Opcode.InvalOP;
