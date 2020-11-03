@@ -710,10 +710,11 @@ let private getEVEXInfo (reader: BinReader) pos =
   let b2 = reader.PeekByte (pos + 1)
   let l'l = reader.PeekByte (pos + 2) >>> 5 &&& 0b011uy
   let vLen = getVLen l'l
+  let aaa = reader.PeekByte (pos + 2) &&& 0b111uy
   let z = if (reader.PeekByte (pos + 2) >>> 7 &&& 0b1uy) = 0uy then Zeroing
           else Merging
-  let aaa = reader.PeekByte (pos + 2) &&& 0b111uy
-  let e = Some { Z = z; AAA = aaa }
+  let b = (reader.PeekByte (pos + 2) >>> 4) &&& 0b1uy
+  let e = Some { AAA = aaa; Z = z; B = b }
   { VVVV = getVVVV b2; VectorLength = vLen;
     VEXType = pickVEXType b1 ||| VEXType.EVEX
     VPrefixes = getVPrefs b2; VREXPrefix = getVREXPref b1 b2; EVEXPrx = e }

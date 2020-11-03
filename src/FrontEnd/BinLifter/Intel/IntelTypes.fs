@@ -2778,8 +2778,9 @@ type ZeroingOrMerging =
   | Merging
 
 type EVEXPrefix = {
-  Z   : ZeroingOrMerging
-  AAA : uint8 (* Embedded opmask register specifier *)
+  AAA : uint8 (* Embedded opmask register specifier, P[18:16] *)
+  Z   : ZeroingOrMerging (* Zeroing/Merging, P[23] *)
+  B   : uint8 (* Broadcast/RC/SAE Context, P[20] *)
 }
 
 /// Information about Intel vector extension.
