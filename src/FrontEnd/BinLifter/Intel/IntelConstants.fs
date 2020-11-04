@@ -380,6 +380,7 @@ let VyEy = [| _Vy; _Ey |]
 let VZxzRd = [| _VZxz; _Rd |]
 let VZxzRq = [| _VZxz; _Rq |]
 let VZxzWdqd = [| _VZxz; _Wdqd |]
+let VZxzWqq = [| _VZxz; _Wqq |]
 let VZxzWZxz = [| _VZxz; _WZxz |]
 let WdqdVdq = [| _Wdqd; _Vdq |]
 let WdqqVdq = [| _Wdqq; _Vdq |]
@@ -1069,6 +1070,8 @@ let opNor0F3833 = [| Opcode.InvalOP; Opcode.PMOVZXWD;
                      Opcode.InvalOP; Opcode.InvalOP |]
 let opVex0F3833 = [| Opcode.InvalOP; Opcode.VPMOVZXWD;
                      Opcode.InvalOP; Opcode.InvalOP |]
+let opEVex0F3833 = [| Opcode.InvalOP; Opcode.VPMOVZXWD;
+                      Opcode.InvalOP; Opcode.InvalOP |]
 let opNor0F3834 = [| Opcode.InvalOP; Opcode.PMOVZXWQ;
                      Opcode.InvalOP; Opcode.InvalOP |]
 let opVex0F3834 = [| Opcode.InvalOP; Opcode.VPMOVZXWQ;

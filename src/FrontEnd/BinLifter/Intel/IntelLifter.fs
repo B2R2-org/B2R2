@@ -6019,7 +6019,9 @@ let vaddpd ins insAddr insLen ctxt =
   vexedPackedFPBinOp64 ins insAddr insLen ctxt fadd
 
 let vaddps ins insAddr insLen ctxt =
-  vexedPackedFPBinOp32 ins insAddr insLen ctxt fadd
+  match getOperationSize ins with
+  | 512<rt> -> nop insAddr insLen
+  | _ -> vexedPackedFPBinOp32 ins insAddr insLen ctxt fadd
 
 let vaddsd ins insAddr insLen ctxt =
   vexedScalarFPBinOp ins insAddr insLen ctxt 64<rt> fadd
@@ -6079,6 +6081,7 @@ let vbroadcastss ins insAddr insLen ctxt =
     builder <! (extractHigh 32<rt> dst3 := tmp)
     builder <! (extractLow 32<rt> dst4 := tmp)
     builder <! (extractHigh 32<rt> dst4 := tmp)
+  | 512<rt> -> ()
   | _ -> raise InvalidOperandException
   endMark insAddr insLen builder
 
@@ -6149,6 +6152,10 @@ let getEVEXPrx = function
               | Some ev -> ev
               | None -> raise InvalidPrefixException
   | None -> raise InvalidPrefixException
+
+let haveEVEXPrx = function
+  | Some v -> Option.isSome v.EVEXPrx
+  | None -> false
 
 let vextracti32x8 ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
@@ -6426,22 +6433,16 @@ let buildVectorMove ins insAddr insLen ctxt =
         transOprToExpr512 ins insAddr insLen ctxt src
       let ite i src dst extFn =
         ite (cond i) (extFn 32<rt> src) (extFn 32<rt> dst)
-      builder <! (extractLow 32<rt> dstA := ite 0 srcA dstA extractLow)
-      builder <! (extractHigh 32<rt> dstA := ite 1 srcA dstA extractHigh)
-      builder <! (extractLow 32<rt> dstB := ite 2 srcB dstB extractLow)
-      builder <! (extractHigh 32<rt> dstB := ite 3 srcB dstB extractHigh)
-      builder <! (extractLow 32<rt> dstC := ite 4 srcC dstC extractLow)
-      builder <! (extractHigh 32<rt> dstC := ite 5 srcC dstC extractHigh)
-      builder <! (extractLow 32<rt> dstD := ite 6 srcD dstD extractLow)
-      builder <! (extractHigh 32<rt> dstD := ite 7 srcD dstD extractHigh)
-      builder <! (extractLow 32<rt> dstE := ite 8 srcE dstE extractLow)
-      builder <! (extractHigh 32<rt> dstE := ite 9 srcE dstE extractHigh)
-      builder <! (extractLow 32<rt> dstF := ite 10 srcF dstF extractLow)
-      builder <! (extractHigh 32<rt> dstF := ite 11 srcF dstF extractHigh)
-      builder <! (extractLow 32<rt> dstG := ite 12 srcG dstG extractLow)
-      builder <! (extractHigh 32<rt> dstG := ite 13 srcG dstG extractHigh)
-      builder <! (extractLow 32<rt> dstH := ite 14 srcH dstH extractLow)
-      builder <! (extractHigh 32<rt> dstH := ite 15 srcH dstH extractHigh)
+      let evAssign src dst idx =
+        concat (ite (idx + 1) src dst extractHigh) (ite idx src dst extractLow)
+      builder <! (dstA := evAssign srcA dstA 0)
+      builder <! (dstB := evAssign srcB dstB 2)
+      builder <! (dstC := evAssign srcC dstB 4)
+      builder <! (dstD := evAssign srcD dstB 6)
+      builder <! (dstE := evAssign srcE dstB 8)
+      builder <! (dstF := evAssign srcF dstB 10)
+      builder <! (dstG := evAssign srcG dstB 12)
+      builder <! (dstH := evAssign srcH dstB 14)
     | _ -> raise InvalidOperandException
   else raise InvalidOperandSizeException
   endMark insAddr insLen builder
@@ -6787,15 +6788,17 @@ let vmovhpd ins insAddr insLen ctxt =
   startMark insAddr insLen builder
   match ins.Operands with
   | TwoOperands (dst, src) ->
-    let dst = transOprToExpr64 ins insAddr insLen ctxt dst
-    let src2, _src1 = transOprToExpr128 ins insAddr insLen ctxt src
-    builder <! (dst := src2)
+    if haveEVEXPrx ins.VEXInfo then ()
+    else
+      let dst = transOprToExpr64 ins insAddr insLen ctxt dst
+      let src2, _src1 = transOprToExpr128 ins insAddr insLen ctxt src
+      builder <! (dst := src2)
   | ThreeOperands (dst, src1, src2)->
     let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
     let _src1B, src1A = transOprToExpr128 ins insAddr insLen ctxt src1
-    let _src2B, src2A = transOprToExpr128 ins insAddr insLen ctxt src2
+    let src2 = transOprToExpr64 ins insAddr insLen ctxt src2
     builder <! (dstA := src1A)
-    builder <! (dstB := src2A)
+    builder <! (dstB := src2)
     fillZeroHigh128 ctxt dst builder
   | _ -> raise InvalidOperandException
   endMark insAddr insLen builder
@@ -7196,7 +7199,12 @@ let vpbroadcastd ins insAddr insLen ctxt =
   let temp = tmpVar 32<rt>
   let src =
     match src with
-    | OprReg _ -> transOprToExpr128 ins insAddr insLen ctxt src |> snd
+    | OprReg r ->
+      match Register.getKind r with
+      | Register.Kind.XMM ->
+        transOprToExpr128 ins insAddr insLen ctxt src |> snd
+      | Register.Kind.GP -> transOprToExpr ins insAddr insLen ctxt src
+      | _ -> raise InvalidOperandException
     | OprMem _ -> transOprToExpr ins insAddr insLen ctxt src
     | _ -> raise InvalidOperandException
     |> extractLow 32<rt>
@@ -7297,7 +7305,9 @@ let vpmuludq ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 64<rt> opVpmuludq 16
 
 let vpor ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 64<rt> opPor 8
+  match getOperationSize ins with
+  | 512<rt> -> nop insAddr insLen
+  | _ -> buildPackedInstr ins insAddr insLen ctxt 64<rt> opPor 8
 
 let vpshufb ins insAddr insLen ctxt =
   let dst, src1, src2 = getThreeOprs ins
@@ -7447,7 +7457,9 @@ let opShiftVpackedDataLogical oprSize packSz shift src1 (src2: Expr []) =
 let opVpslld oprSize = opShiftVpackedDataLogical oprSize 32<rt> (<<)
 
 let vpslld ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 32<rt> opVpslld 16
+  match getOperationSize ins with
+  | 512<rt> -> nop insAddr insLen
+  | _ -> buildPackedInstr ins insAddr insLen ctxt 32<rt> opVpslld 16
 
 let opVpsrld oprSize = opShiftVpackedDataLogical oprSize 32<rt> (<<)
 
@@ -7867,7 +7879,9 @@ let vsubpd ins insAddr insLen ctxt =
   vexedPackedFPBinOp64 ins insAddr insLen ctxt fsub
 
 let vsubps ins insAddr insLen ctxt =
-  vexedPackedFPBinOp32 ins insAddr insLen ctxt fsub
+  match getOperationSize ins with
+  | 512<rt> -> nop insAddr insLen
+  | _ -> vexedPackedFPBinOp32 ins insAddr insLen ctxt fsub
 
 let vsubsd ins insAddr insLen ctxt =
   vexedScalarFPBinOp ins insAddr insLen ctxt 64<rt> fsub
@@ -8451,8 +8465,8 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.VPXORD -> vpxord ins insAddr insLen ctxt
   | Opcode.VSHUFI32X4 -> vshufi32x4 ins insAddr insLen ctxt
   | Opcode.VZEROUPPER -> vzeroupper ins insAddr insLen ctxt
-  | Opcode.VINSERTI64X4 | Opcode.VPMOVWB | Opcode.VMOVDQU32 ->
-    nop insAddr insLen (* FIXME: #196 *)
+  | Opcode.VINSERTI64X4 | Opcode.VPMOVWB | Opcode.VMOVDQU32 | Opcode.VPMOVZXWD
+  | Opcode.VPSRLW | Opcode.VFMADD213SS -> nop insAddr insLen (* FIXME: #196 *)
   | Opcode.WRFSBASE -> wrfsbase ins insAddr insLen ctxt
   | Opcode.WRGSBASE -> wrgsbase ins insAddr insLen ctxt
   | Opcode.WRPKRU -> wrpkru ins insAddr insLen ctxt
@@ -8675,7 +8689,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.VMOVAPD -> vmovdqu ins insAddr insLen ctxt
   | Opcode.VMOVDDUP -> vmovddup ins insAddr insLen ctxt
   | Opcode.VMOVHLPS -> vmovhlps ins insAddr insLen ctxt
-  | Opcode.VMOVHPD | Opcode.VMOVHPS-> vmovhpd ins insAddr insLen ctxt
+  | Opcode.VMOVHPD | Opcode.VMOVHPS -> vmovhpd ins insAddr insLen ctxt
   | Opcode.VMOVLHPS -> vmovlhps ins insAddr insLen ctxt
   | Opcode.VMOVLPD | Opcode.VMOVLPS -> vmovlpd ins insAddr insLen ctxt
   | Opcode.VMOVMSKPD -> vmovmskpd ins insAddr insLen ctxt
