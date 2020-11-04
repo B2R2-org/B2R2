@@ -1600,8 +1600,12 @@ VINSERTF64X2
 VINSERTF64X4
 /// Insert Packed Integer Values.
 VINSERTI128
+/// Insert 256 bits of packed doubleword integer values.
+VINSERTI32X8
 /// Insert Packed Floating-Point Values.
 VINSERTI64X2
+/// Insert 256 bits of packed quadword integer values.
+VINSERTI64X4
 /// Load Unaligned Integer 128 Bits.
 VLDDQU
 /// Call to VM Monitor.

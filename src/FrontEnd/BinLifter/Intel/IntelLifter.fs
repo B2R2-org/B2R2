@@ -8451,6 +8451,8 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.VPXORD -> vpxord ins insAddr insLen ctxt
   | Opcode.VSHUFI32X4 -> vshufi32x4 ins insAddr insLen ctxt
   | Opcode.VZEROUPPER -> vzeroupper ins insAddr insLen ctxt
+  | Opcode.VINSERTI64X4 | Opcode.VPMOVWB | Opcode.VMOVDQU32 ->
+    nop insAddr insLen (* FIXME: #196 *)
   | Opcode.WRFSBASE -> wrfsbase ins insAddr insLen ctxt
   | Opcode.WRGSBASE -> wrgsbase ins insAddr insLen ctxt
   | Opcode.WRPKRU -> wrpkru ins insAddr insLen ctxt

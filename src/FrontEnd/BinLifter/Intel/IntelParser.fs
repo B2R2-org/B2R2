@@ -157,8 +157,8 @@ let private dsVex0F7EB64  = [| emptyArr; EyVdq; VdqWdqq; emptyArr |]
 let private dsVex0F7EB32  = [| emptyArr; EyVdq; VdqWdqq; emptyArr |]
 let private dsNor0F7F     = [| QqPq; WdqVdq; WdqVdq; emptyArr |]
 let private dsVex0F7F     = [| emptyArr; WxVx; WxVx; emptyArr |]
-let private dsEVex0F7FB64 = [| emptyArr; WZxzVZxz; emptyArr; WZxzVZxz |]
-let private dsEVex0F7FB32 = [| emptyArr; WZxzVZxz; emptyArr; WZxzVZxz |]
+let private dsEVex0F7FW1  = [| emptyArr; WZxzVZxz; WZxzVZxz; WZxzVZxz |]
+let private dsEVex0F7FW0  = [| emptyArr; WZxzVZxz; WZxzVZxz; WZxzVZxz |]
 let private dsNor0FC2     = [| VdqWdqIb; VdqWdqIb; VssWssdIb; VsdWsdqIb |]
 let private dsVex0FC2     = [| emptyArr; emptyArr; emptyArr; emptyArr |]
 let private dsNor0FC4     = [| PqEdwIb; VdqEdwIb; emptyArr; emptyArr |]
@@ -313,6 +313,7 @@ let private dsNor0F382B   = [| emptyArr; VdqWdq; emptyArr; emptyArr |]
 let private dsVex0F382B   = [| emptyArr; VxHxWx; emptyArr; emptyArr |]
 let private dsNor0F3830   = [| emptyArr; VdqWdqq; emptyArr; emptyArr |]
 let private dsVex0F3830   = [| emptyArr; VxWdqqdq; emptyArr; emptyArr |]
+let private dsEVex0F3830  = [| emptyArr; emptyArr; WqqVZxz; emptyArr |]
 let private dsNor0F3831   = [| emptyArr; VdqWdqd; emptyArr; emptyArr |]
 let private dsVex0F3831   = [| emptyArr; VxWdqdq; emptyArr; emptyArr |]
 let private dsNor0F3832   = [| emptyArr; VdqWdqw; emptyArr; emptyArr |]
@@ -387,6 +388,7 @@ let private dsVex0F3A20   = [| emptyArr; VdqHdqEdbIb; emptyArr; emptyArr |]
 let private dsEVex0F3A22  = [| emptyArr; VdqHdqEyIb; emptyArr; emptyArr |]
 let private dsNor0F3A38   = [| emptyArr; emptyArr; emptyArr; emptyArr |]
 let private dsVex0F3A38   = [| emptyArr; VqqHqqWdqIb; emptyArr; emptyArr |]
+let private dsEVex0F3A3A  = [| emptyArr; VZxzHxWqqIb; emptyArr; emptyArr |]
 let private dsEVex0F3A3B  = [| emptyArr; WqqVZxzIb; emptyArr; emptyArr |]
 let private dsEVex0F3A43  = [| emptyArr; VZxzHxWZxzIb; emptyArr; emptyArr |]
 let private dsNor0F3A60   = [| emptyArr; VdqWdqIb; emptyArr; emptyArr |]
@@ -1488,8 +1490,9 @@ let private parseThreeByteOp1 t (reader: BinReader) pos =
                                  dsNor0F3829 dsVex0F3829, pos + 1
   | 0x2buy -> parseVEX t SzDef32 opNor0F382B opVex0F382B
                                  dsNor0F382B dsVex0F382B, pos + 1
-  | 0x30uy -> parseVEX t SzDef32 opNor0F3830 opVex0F3830
-                                 dsNor0F3830 dsVex0F3830, pos + 1
+  | 0x30uy -> parseEVEXByRex t (pos + 1) opNor0F3830 opVex0F3830 opEmpty
+                                         opEVex0F3830 dsNor0F3830
+                                         dsVex0F3830 dsEmpty dsEVex0F3830
   | 0x31uy -> parseVEX t SzDef32 opNor0F3831 opVex0F3831
                                  dsNor0F3831 dsVex0F3831, pos + 1
   | 0x32uy -> parseVEX t SzDef32 opNor0F3832 opVex0F3832
@@ -1580,6 +1583,10 @@ let private parseThreeByteOp2 t (reader: BinReader) pos =
                                              dsEVex0F3A22 dsEVex0F3A22
   | 0x38uy -> parseVEX t SzDef32 opNor0F3A38 opVex0F3A38
                                  dsNor0F3A38 dsVex0F3A38, pos + 1
+  | 0x3Auy -> parseEVEXOnlyByRex t (pos + 1) opEmpty opEmpty
+                                             opEVex0F3A3AW1 opEVex0F3A3AW0
+                                             dsEmpty dsEmpty
+                                             dsEVex0F3A3A dsEVex0F3A3A
   | 0x3Buy -> parseEVEXByRex t (pos + 1) opEmpty opEmpty opEVex0F3A3BW1
                                          opEVex0F3A3BW0 dsEmpty dsEmpty
                                          dsEVex0F3A3B dsEVex0F3A3B
@@ -1719,7 +1726,7 @@ let private pTwoByteOp t reader pos byte =
                                   dsNor0F6EB64 dsNor0F6EB32
                                   dsVex0F6EB64 dsVex0F6EB32
   | 0x6Fuy -> parseEVEXByRex t pos opNor0F6F opVex0F6F
-                                   opEVex0F6FB64 opEVex0F6FB32
+                                   opEVex0F6FW1 opEVex0F6FW0
                                    dsNor0F6F dsVex0F6F
                                    dsEVex0F6FB64 dsEVex0F6FB32
   | 0x70uy -> parseVEX t SzDef32 opNor0F70 opVex0F70 dsNor0F70 dsVex0F70, pos
@@ -1732,9 +1739,9 @@ let private pTwoByteOp t reader pos byte =
                                   dsNor0F7EB64 dsNor0F7EB32
                                   dsVex0F7EB64 dsVex0F7EB32
   | 0x7Fuy -> parseEVEXByRex t pos opNor0F7F opVex0F7F
-                                   opEVex0F7FB64 opEVex0F7FB32
+                                   opEVex0F7FW1 opEVex0F7FW0
                                    dsNor0F7F dsVex0F7F
-                                   dsEVex0F7FB64 dsEVex0F7FB32
+                                   dsEVex0F7FW1 dsEVex0F7FW0
   | 0x80uy -> parseOp (pBNDPref t) Opcode.JO Sz64 Jz, pos
   | 0x81uy -> parseOp (pBNDPref t) Opcode.JNO Sz64 Jz, pos
   | 0x82uy -> parseOp (pBNDPref t) Opcode.JB Sz64 Jz, pos
