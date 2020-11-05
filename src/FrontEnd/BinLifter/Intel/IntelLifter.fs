@@ -7164,32 +7164,35 @@ let vpbroadcastb ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
   let dst, src = getTwoOprs ins
   let oprSize = getOperationSize ins
-  let src =
-    match src with
-    | OprReg _ -> transOprToExpr128 ins insAddr insLen ctxt src |> snd
-    | OprMem _ -> transOprToExpr ins insAddr insLen ctxt src
-    | _ -> raise InvalidOperandException
-    |> extractLow 8<rt>
-  let tSrc = tmpVar 8<rt>
-  startMark insAddr insLen builder
-  builder <! (tSrc := src)
-  let tmps = Array.init 8 (fun _ -> tmpVar 8<rt>)
-  for i in 0 .. 7 do builder <! (tmps.[i] := tSrc) done
-  let t = tmpVar 64<rt>
-  builder <! (t := concatExprs tmps)
   match oprSize with
-  | 128<rt> ->
-    let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
-    builder <! (dstA := t)
-    builder <! (dstB := t)
-    fillZeroHigh128 ctxt dst builder
-  | 256<rt> ->
-    let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
-    builder <! (dstA := t)
-    builder <! (dstB := t)
-    builder <! (dstC := t)
-    builder <! (dstD := t)
-  | _ -> raise InvalidOperandSizeException
+  | 512<rt> -> () (* FIXME: #196 *)
+  | _ ->
+    let src =
+      match src with
+      | OprReg _ -> transOprToExpr128 ins insAddr insLen ctxt src |> snd
+      | OprMem _ -> transOprToExpr ins insAddr insLen ctxt src
+      | _ -> raise InvalidOperandException
+      |> extractLow 8<rt>
+    let tSrc = tmpVar 8<rt>
+    startMark insAddr insLen builder
+    builder <! (tSrc := src)
+    let tmps = Array.init 8 (fun _ -> tmpVar 8<rt>)
+    for i in 0 .. 7 do builder <! (tmps.[i] := tSrc) done
+    let t = tmpVar 64<rt>
+    builder <! (t := concatExprs tmps)
+    match oprSize with
+    | 128<rt> ->
+      let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
+      builder <! (dstA := t)
+      builder <! (dstB := t)
+      fillZeroHigh128 ctxt dst builder
+    | 256<rt> ->
+      let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
+      builder <! (dstA := t)
+      builder <! (dstB := t)
+      builder <! (dstC := t)
+      builder <! (dstD := t)
+    | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
 let vpbroadcastd ins insAddr insLen ctxt =
@@ -8184,6 +8187,16 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.ADD -> add ins insAddr insLen ctxt
   | Opcode.ADDPD -> addpd ins insAddr insLen ctxt
   | Opcode.AND -> logAnd ins insAddr insLen ctxt
+  | Opcode.ANDN | Opcode.VBROADCASTSD | Opcode.VCVTDQ2PD | Opcode.VCVTPD2PS
+  | Opcode.VCVTPS2PD | Opcode.VEXTRACTF64X2 | Opcode.VEXTRACTF64X4
+  | Opcode.VFMADD132PD | Opcode.VFMADD213PS | Opcode.VFMADD231PD
+  | Opcode.VFMSUB132SS | Opcode.VFMSUB231SD | Opcode.VFNMADD132PD
+  | Opcode.VFNMADD231PD | Opcode.VFNMADD132SD | Opcode.VFNMADD213SD
+  | Opcode.VFNMADD231SD | Opcode.VINSERTF128 | Opcode.VINSERTF64X4
+  | Opcode.VMAXPS | Opcode.VMAXSD | Opcode.VMAXSS | Opcode.VMINSS
+  | Opcode.VPERMI2D | Opcode.VPERMI2PD | Opcode.VPERMI2W | Opcode.VPMOVWB
+  | Opcode.VPTERNLOGD | Opcode.VCMPPD | Opcode.VCMPPS | Opcode.VGATHERDPS
+  | Opcode.VPGATHERDD -> nop insAddr insLen (* FIXME: #196 !211 *)
   | Opcode.ANDNPD -> andnpd ins insAddr insLen ctxt
   | Opcode.ANDPS -> andps ins insAddr insLen ctxt
   | Opcode.ARPL -> arpl ins insAddr insLen ctxt
