@@ -7263,7 +7263,9 @@ let vpbroadcastd ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let vpcmpeqb ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 8<rt> opPcmpeqb 64
+  match getOperationSize ins with
+  | 512<rt> -> nop insAddr insLen (* FIXME: #197 *)
+  | _ -> buildPackedInstr ins insAddr insLen ctxt 8<rt> opPcmpeqb 64
 
 let vpcmpeqd ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 32<rt> opPcmpeqd 32
