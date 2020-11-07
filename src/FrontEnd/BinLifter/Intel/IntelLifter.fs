@@ -6136,7 +6136,9 @@ let vcvtsi2ss ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let vdivpd ins insAddr insLen ctxt =
-  vexedPackedFPBinOp64 ins insAddr insLen ctxt fdiv
+  match getOperationSize ins with
+  | 512<rt> -> nop insAddr insLen (* FIXME: #196 *)
+  | _ -> vexedPackedFPBinOp64 ins insAddr insLen ctxt fdiv
 
 let vdivps ins insAddr insLen ctxt =
   vexedPackedFPBinOp32 ins insAddr insLen ctxt fdiv
@@ -7450,6 +7452,7 @@ let vpshufd ins insAddr insLen ctxt =
     builder <! (dstC := extract tDst 64<rt> 128)
     builder <! (dstD := extract tDst 64<rt> 192)
     fillZeroHigh256 ctxt dst builder
+  | 512<rt> -> () (* FIXME: #196 *)
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
