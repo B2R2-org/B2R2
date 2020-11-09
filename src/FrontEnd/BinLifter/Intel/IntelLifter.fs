@@ -8201,7 +8201,8 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | Opcode.VMAXPS | Opcode.VMAXSD | Opcode.VMAXSS | Opcode.VMINSS
   | Opcode.VPERMI2D | Opcode.VPERMI2PD | Opcode.VPERMI2W | Opcode.VPMOVWB
   | Opcode.VPTERNLOGD | Opcode.VCMPPD | Opcode.VCMPPS | Opcode.VGATHERDPS
-  | Opcode.VPGATHERDD -> nop insAddr insLen (* FIXME: #196 !211 *)
+  | Opcode.VPGATHERDD | Opcode.VMOVDQU8 ->
+    nop insAddr insLen (* FIXME: #196 !211 *)
   | Opcode.ANDNPD -> andnpd ins insAddr insLen ctxt
   | Opcode.ANDPS -> andps ins insAddr insLen ctxt
   | Opcode.ARPL -> arpl ins insAddr insLen ctxt
