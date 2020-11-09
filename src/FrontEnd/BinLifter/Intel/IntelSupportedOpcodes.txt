@@ -1428,6 +1428,8 @@ VBLENDMPD
 VBLENDMPS
 /// Broadcast 128 bits of int data in mem to low and high 128-bits in ymm1.
 VBROADCASTI128
+/// Broadcast low double-precision floating-point element.
+VBROADCASTSD
 /// Broadcast Floating-Point Data.
 VBROADCASTSS
 /// Compare Scalar Ordered Double-Precision FP Values and Set EFLAGS.
@@ -1438,6 +1440,14 @@ VCOMISS
 VCOMPRESSPD
 /// Compress packed SP elements of a vector.
 VCOMPRESSPS
+/// Compare Packed Double-Precision Floating-Point Values.
+VCMPPD
+/// Compare Packed Single-Precision Floating-Point Values.
+VCMPPS
+/// Convert two packed signed doubleword integers.
+VCVTDQ2PD
+/// Convert two packed double-precision floating-point values.
+VCVTPD2PS
 /// Convert Packed Double-Precision FP Values to Packed Quadword Integers.
 VCVTPD2QQ
 /// Convert Packed DP FP Values to Packed Unsigned DWord Integers.
@@ -1446,6 +1456,8 @@ VCVTPD2UDQ
 VCVTPD2UQQ
 /// Convert 16-bit FP values to Single-Precision FP values.
 VCVTPH2PS
+/// Convert Packed Single-Precision FP Values to Packed Dbl-Precision FP Values.
+VCVTPS2PD
 /// Convert Single-Precision FP value to 16-bit FP value.
 VCVTPS2PH
 /// Convert Packed SP FP Values to Packed Signed QWord Int Values.
@@ -1560,14 +1572,34 @@ VFIXUPIMMSS
 VFMADD132SD
 /// Fused Multiply-Add of Scalar Single-Precision Floating-Point Values.
 VFMADD132SS
+/// Fused Multiply-Add of Packed Double-Precision Floating-Point Values.
+VFMADD132PD
+/// Fused Multiply-Add of Packed Single-Precision Floating-Point Values.
+VFMADD213PS
 /// Fused Multiply-Add of Scalar Double-Precision Floating-Point Values.
 VFMADD213SD
 /// Fused Multiply-Add of Scalar Single-Precision Floating-Point Values.
 VFMADD213SS
+/// Fused Multiply-Add of Packed Double-Precision Floating-Point Value.
+VFMADD231PD
 /// Fused Multiply-Add of Scalar Double-Precision Floating-Point Values.
 VFMADD231SD
 /// Fused Multiply-Add of Scalar Single-Precision Floating-Point Values.
 VFMADD231SS
+/// Fused Multiply-Subtract of Scalar Single-Precision Floating-Point Values.
+VFMSUB132SS
+/// Fused Multiply-Subtract of Scalar Double-Precision Floating-Point Values.
+VFMSUB231SD
+/// Fused Negative Multiply-Add of Packed Double-Precision FP Values.
+VFNMADD132PD
+/// Fused Negative Multiply-Add of Packed Double-Precision FP Values.
+VFNMADD231PD
+/// Fused Negative Multiply-Add of Scalar Double-Precision FP Values.
+VFNMADD132SD
+/// Fused Negative Multiply-Add of Scalar Double-Precision FP Values.
+VFNMADD213SD
+/// Fused Negative Multiply-Add of Scalar Double-Precision FP Values.
+VFNMADD231SD
 /// Tests Types Of a Packed Float64 Values.
 VFPCLASSPD
 /// Tests Types Of a Packed Float32 Values.
@@ -1576,6 +1608,8 @@ VFPCLASSPS
 VFPCLASSSD
 /// Tests Types Of a Scalar Float32 Values.
 VFPCLASSSS
+/// Gather Packed SP FP values Using Signed Dword/Qword Indices.
+VGATHERDPS
 /// Convert Exponents of Packed DP FP Values to DP FP Values.
 VGETEXPPD
 /// Convert Exponents of Packed SP FP Values to SP FP Values.
@@ -1593,6 +1627,8 @@ VGETMANTSD
 /// Extract Float32 Vector of Normalized Mantissa from Float32 Vector.
 VGETMANTSS
 /// Insert Packed Floating-Point Values.
+VINSERTF128
+/// Insert Packed Floating-Point Values.
 VINSERTF32X4
 /// Insert Packed Floating-Point Values.
 VINSERTF64X2
@@ -1600,10 +1636,22 @@ VINSERTF64X2
 VINSERTF64X4
 /// Insert Packed Integer Values.
 VINSERTI128
+/// Insert 256 bits of packed doubleword integer values.
+VINSERTI32X8
 /// Insert Packed Floating-Point Values.
 VINSERTI64X2
+/// Insert 256 bits of packed quadword integer values.
+VINSERTI64X4
 /// Load Unaligned Integer 128 Bits.
 VLDDQU
+/// Maximum of Packed Single-Precision Floating-Point Values.
+VMAXPS
+/// Return Maximum Scalar Double-Precision Floating-Point Value.
+VMAXSD
+/// Return Maximum Scalar Single-Precision Floating-Point Value.
+VMAXSS
+/// Return Minimum Scalar Single-Precision Floating-Point Value.
+VMINSS
 /// Call to VM Monitor.
 VMCALL
 /// Clear Virtual-Machine Control Structure.
@@ -1832,6 +1880,8 @@ VPEXPANDD
 VPEXPANDQ
 /// Extract Word.
 VPEXTRW
+/// Gather packed dword values using signed Dword/Qword indices.
+VPGATHERDD
 /// Packed Horizontal Add (32-bit).
 VPHADDD
 /// Packed Horizontal Add and Saturate (16-bit).
@@ -2078,6 +2128,8 @@ VPSUBW
 VPTERLOGD
 /// Perform bitwise ternary logic operation of three vectors.
 VPTERLOGQ
+/// Bitwise Ternary Logic.
+VPTERNLOGD
 /// Logical Compare.
 VPTEST
 /// Perform bitwise AND of byte elems of two vecs and write results to opmask.
