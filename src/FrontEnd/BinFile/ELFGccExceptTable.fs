@@ -97,10 +97,11 @@ let rec parseTypeTable acc cls reader sAddr header offset =
   let ttv, _ = header.TTFormat
   match header.TTEnd with
   | Some ttend ->
-    let struct (t, offset) = computeValue cls reader ttv offset
     if ttend = sAddr + uint64 (offset - 1) then
       acc, offset
-    else parseTypeTable (t :: acc) cls reader sAddr header offset
+    else
+      let struct (t, offset) = computeValue cls reader ttv offset
+      parseTypeTable (t :: acc) cls reader sAddr header offset
   | None -> raise TTEndNotFoundException
 
 let rec removePadding (reader: BinReader) offset =
