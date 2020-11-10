@@ -106,16 +106,16 @@ type NonEmptyRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
   override  __.S = s
   override __.Remove id =
     match __.Project id with
-    | -1 -> __.New __.EmptyArr (Set.remove id s)
+    | -1 -> __.New bitArray (Set.remove id s)
     | id ->
       let bucket, index = NonEmptyRegisterSet.GetBI id
       let newArr = Array.copy bitArray
       newArr.[bucket] <- newArr.[bucket] &&& ~~~(1UL <<< index)
-      __.New newArr Set.empty
+      __.New newArr s
 
   override __.Add id =
     match __.Project id with
-    | -1 -> __.New __.EmptyArr (Set.add id s)
+    | -1 -> __.New bitArray (Set.add id s)
     | id ->
       let bucket, index = NonEmptyRegisterSet.GetBI id
       let newArr = Array.copy bitArray
@@ -126,19 +126,15 @@ type NonEmptyRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     if other.Tag = RegisterSetTag.Empty then __ :> RegisterSet
     else
       __.CheckTag other
-      let newArr = Array.copy bitArray
-      let otherArr = other.BitArray
-      for i = 0 to __.ArrSize - 1 do newArr.[i] <- newArr.[i] ||| otherArr.[i]
+      let newArr = Array.mapi (fun i e -> e ||| other.BitArray.[i]) bitArray
       __.New newArr <| Set.union __.S other.S
 
   override __.Intersect (other: RegisterSet) =
     if other.Tag = RegisterSetTag.Empty then __.Empty
     else
       __.CheckTag other
-      let newArr = Array.copy bitArray
-      let otherArr = other.BitArray
-      for i = 0 to __.ArrSize - 1 do newArr.[i] <- newArr.[i] &&& otherArr.[i]
-      __.New newArr <| Set.union __.S other.S
+      let newArr = Array.mapi (fun i e -> e &&& other.BitArray.[i]) bitArray
+      __.New newArr <| Set.intersect __.S other.S
 
   override  __.Exists id =
     match __.Project id with
