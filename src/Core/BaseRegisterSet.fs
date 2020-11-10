@@ -71,25 +71,28 @@ type RegisterSet () =
   /// RegisterID. For example, when writing a symbolic executor, we may
   /// encounter unknown variables, i.e., fresh symbolic variables. We store them
   /// in this set.
-  abstract member S         : Set<RegisterID>
+  abstract member S               : Set<RegisterID>
 
   /// Add a register to the set.
-  abstract member Add       : RegisterID -> RegisterSet
+  abstract member Add             : RegisterID -> RegisterSet
 
   /// Remove a register from the set.
-  abstract member Remove    : RegisterID -> RegisterSet
+  abstract member Remove          : RegisterID -> RegisterSet
 
   /// Union of two register sets.
-  abstract member Union     : RegisterSet -> RegisterSet
+  abstract member Union           : RegisterSet -> RegisterSet
 
   /// Intersection of two register sets.
-  abstract member Intersect : RegisterSet -> RegisterSet
+  abstract member Intersect       : RegisterSet -> RegisterSet
 
   /// Check if a register exists in the set.
-  abstract member Exists    : RegisterID -> bool
+  abstract member Exists          : RegisterID -> bool
 
   /// Check if the set is empty.
-  abstract member IsEmpty   : unit -> bool
+  abstract member IsEmpty         : unit -> bool
+
+  /// Convert to set of RegisterID
+  abstract member GetProjectedSet : unit -> Set<int>
 
 [<AbstractClass>]
 type NonEmptyRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
@@ -146,6 +149,17 @@ type NonEmptyRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
   override __.IsEmpty () =
     (Array.exists (fun x -> x <> 0UL) bitArray |> not) && Set.isEmpty __.S
 
+  override __.GetProjectedSet () =
+    let isIndexSet ind x = x &&& (1UL <<< ind) <> 0UL
+    let getId index bucket = index + bucket * 64
+    let folder acc bucketInd content =
+      let folder acc bitInd =
+        if isIndexSet bitInd content then Set.add (getId bitInd bucketInd) acc
+        else acc
+      if content = 0UL then acc
+      else [| 0..63 |] |> Array.fold folder acc
+    Array.foldi folder Set.empty bitArray |> fst
+
 type EmptyRegisterSet () =
   inherit RegisterSet ()
   static member Instance = EmptyRegisterSet () :> RegisterSet
@@ -163,6 +177,7 @@ type EmptyRegisterSet () =
   override __.Intersect o = o.Empty
   override __.Exists _ = false
   override __.IsEmpty () = true
+  override __.GetProjectedSet () = Set.empty
 
 /// A helper module for building a RegisterSet.
 module RegisterSetBuilder =
