@@ -87,7 +87,7 @@ type IntelRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     | R.MM2 -> 43
     | R.MM3 -> 44
     | R.MM4 -> 45
-    | R.MM5 -> 45
+    | R.MM5 -> 46
     | R.MM6 -> 47
     | R.MM7 -> 48
     | R.ZMM0A -> 49
