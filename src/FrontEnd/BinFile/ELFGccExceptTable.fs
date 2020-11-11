@@ -29,9 +29,6 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinFile.ELF.ExceptionHeaderEncoding
 
-/// Raised when types table end address not found.
-exception TTEndNotFoundException
-
 let [<Literal>] gccExceptTable = ".gcc_except_table"
 
 let parseHeader cls (reader: BinReader) sAddr offset =
@@ -41,14 +38,14 @@ let parseHeader cls (reader: BinReader) sAddr offset =
     if lpv = ExceptionHeaderValue.DW_EH_PE_omit then struct (None, offset)
     else
       let struct (cv, offset) = computeValue cls reader lpv offset
-      struct (Some (sAddr + uint64 (offset - 1) + cv), offset)
+      struct (Some (sAddr + uint64 offset + cv), offset)
   let struct (b, offset) = reader.ReadByte offset
   let ttv, ttapp = parseEncoding b
   let struct (ttend, offset) =
     if ttv = ExceptionHeaderValue.DW_EH_PE_omit then struct (None, offset)
     else
       let cv, offset = parseULEB128 reader offset
-      struct (Some (sAddr + uint64 (offset - 1) + cv), offset)
+      struct (Some (sAddr + uint64 offset + cv), offset)
   let struct (b, offset) = reader.ReadByte offset
   let csv, csapp = parseEncoding b
   let cstsz, offset = parseULEB128 reader offset
@@ -59,8 +56,8 @@ let parseHeader cls (reader: BinReader) sAddr offset =
     CallSiteFormat = csv, csapp
     CallSiteTableSize = cstsz }, offset
 
-let rec parseCallSiteTable acc cls (reader: BinReader) offset csformat =
-  if offset >= (reader.Length ()) then List.rev acc
+let rec parseCallSiteTable acc cls (reader: BinReader) offset csformat actIdx =
+  if offset >= (reader.Length ()) then List.rev acc, actIdx
   else
     let csv, _ = csformat
     let struct (start, offset) = computeValue cls reader csv offset
@@ -71,38 +68,46 @@ let rec parseCallSiteTable acc cls (reader: BinReader) offset csformat =
                 Length = length
                 LandingPad = landingPad
                 Action = action } :: acc
-    parseCallSiteTable acc cls reader offset csformat
+    let curActIdx = if action > uint64 actIdx then int action else actIdx
+    parseCallSiteTable acc cls reader offset csformat curActIdx
 
-let validAction lastIdx curIdx =
-  if curIdx > 0uy then
-    lastIdx + 1uy = curIdx
-  else
-    lastIdx - 1uy = curIdx
-
-let rec parseActionTable acc (reader: BinReader) lastIdx offset =
-  let curIdx = reader.PeekByte offset
-  if curIdx = 0uy then
-    acc, offset
-  else
-    if validAction lastIdx curIdx then
+let rec parseActionTable acc reader offset actIdx negIdx =
+    if actIdx < 0 then
+      let offset =
+        if offset % 4 = 0 then offset
+        else offset + 4 - offset % 4
+      acc, negIdx, offset
+    else
       let filter, offset = parseSLEB128 reader offset
+      let actIdx = actIdx - 1
+      let negIdx =
+        if int filter < 0 && int filter < negIdx then int filter
+        else negIdx
       let next, offset = parseSLEB128 reader offset
+      let actIdx = actIdx - 1
       let acc =
         { TypeFilter = filter
           NextAction = next } :: acc
-      parseActionTable acc reader curIdx offset
-    else acc, offset
+      parseActionTable acc reader offset actIdx negIdx
 
-let rec parseTypeTable acc cls reader sAddr header offset =
+let rec readUntilNull (reader: BinReader) offset =
+  if reader.PeekByte offset = 0uy then offset
+  else readUntilNull reader (offset + 1)
+
+let rec parseTypeTable acc cls reader sAddr header offset negIdx =
   let ttv, _ = header.TTFormat
   match header.TTEnd with
   | Some ttend ->
-    if ttend = sAddr + uint64 (offset - 1) then
-      acc, offset
+    if ttend <= sAddr + uint64 offset then
+      if negIdx = 0 then
+        acc, offset
+      else
+        let offset = readUntilNull reader offset
+        parseTypeTable acc cls reader sAddr header offset (negIdx + 1)
     else
       let struct (t, offset) = computeValue cls reader ttv offset
-      parseTypeTable (t :: acc) cls reader sAddr header offset
-  | None -> raise TTEndNotFoundException
+      parseTypeTable (t :: acc) cls reader sAddr header offset negIdx
+  | None -> [], offset
 
 let rec removePadding (reader: BinReader) offset =
   if offset >= (reader.Length ()) then offset
@@ -118,22 +123,15 @@ let rec parseLSDA cls (reader: BinReader) sAddr offset lsdas =
     let lsdaAddr = sAddr + uint64 offset
     let header, offset = parseHeader cls reader sAddr offset
     let subrdr = reader.SubReader offset (int header.CallSiteTableSize)
-    let callsites =
-      parseCallSiteTable [] cls subrdr 0 header.CallSiteFormat
+    let callsites, actIdx =
+      parseCallSiteTable [] cls subrdr 0 header.CallSiteFormat 0
     let offset = offset + int header.CallSiteTableSize
-    let actions, offset =
-      if List.forall (fun record -> record.Action = uint64 0) callsites then
-        [], offset
+    let actions, negIdx, offset =
+      if actIdx = 0 then [], 0, offset
       else
-        parseActionTable [] reader 0uy offset
+        parseActionTable [] reader offset actIdx 0
     let types, offset =
-      if fst header.TTFormat = ExceptionHeaderValue.DW_EH_PE_omit then
-        [], offset
-      else
-        let offset =
-          if offset % 4 = 0 then offset
-          else offset + 4 - offset % 4
-        parseTypeTable [] cls reader sAddr header offset
+      parseTypeTable [] cls reader sAddr header offset negIdx
     let offset = removePadding reader offset
     let lsdas = { LSDAAddr = lsdaAddr
                   Header = header
