@@ -344,6 +344,22 @@ module DWRegister =
     | 14uy -> regbay.RegIDFromString "R14"
     | 15uy -> regbay.RegIDFromString "R15"
     | 16uy -> regbay.RegIDFromString "RIP"
+    | 17uy -> regbay.RegIDFromString "XMM0"
+    | 18uy -> regbay.RegIDFromString "XMM1"
+    | 19uy -> regbay.RegIDFromString "XMM2"
+    | 20uy -> regbay.RegIDFromString "XMM3"
+    | 21uy -> regbay.RegIDFromString "XMM4"
+    | 22uy -> regbay.RegIDFromString "XMM5"
+    | 23uy -> regbay.RegIDFromString "XMM6"
+    | 24uy -> regbay.RegIDFromString "XMM7"
+    | 25uy -> regbay.RegIDFromString "XMM8"
+    | 26uy -> regbay.RegIDFromString "XMM9"
+    | 27uy -> regbay.RegIDFromString "XMM10"
+    | 28uy -> regbay.RegIDFromString "XMM11"
+    | 29uy -> regbay.RegIDFromString "XMM12"
+    | 30uy -> regbay.RegIDFromString "XMM13"
+    | 31uy -> regbay.RegIDFromString "XMM14"
+    | 32uy -> regbay.RegIDFromString "XMM15"
     | _ -> Utils.futureFeature ()
 
   let toRegID isa regbay regnum =
