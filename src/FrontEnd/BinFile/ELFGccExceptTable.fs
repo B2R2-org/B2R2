@@ -71,12 +71,13 @@ let rec parseCallSiteTable acc cls (reader: BinReader) offset csformat actIdx =
     let curActIdx = if action > uint64 actIdx then int action else actIdx
     parseCallSiteTable acc cls reader offset csformat curActIdx
 
+let handleAlign offset =
+  if offset % 4 = 0 then offset
+  else offset + 4 - offset % 4
+
 let rec parseActionTable acc reader offset actIdx negIdx =
     if actIdx < 0 then
-      let offset =
-        if offset % 4 = 0 then offset
-        else offset + 4 - offset % 4
-      acc, negIdx, offset
+      acc, negIdx, handleAlign offset
     else
       let filter, offset = parseSLEB128 reader offset
       let actIdx = actIdx - 1
@@ -127,7 +128,10 @@ let rec parseLSDA cls (reader: BinReader) sAddr offset lsdas =
       parseCallSiteTable [] cls subrdr 0 header.CallSiteFormat 0
     let offset = offset + int header.CallSiteTableSize
     let actions, negIdx, offset =
-      if actIdx = 0 then [], 0, offset
+      if actIdx = 0 then
+        match header.TTEnd with
+        | Some _ -> [], 0, handleAlign offset
+        | None -> [], 0, offset
       else
         parseActionTable [] reader offset actIdx 0
     let types, offset =
