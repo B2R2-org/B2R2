@@ -132,6 +132,16 @@ module State =
     let value = evalExpr state value
     { state with Mems = updateMems addr value state.Mems }
 
+  let private evalCJmp state condE trueE falseE =
+    let trueE = getEvalExpr state trueE
+    let falseE = getEvalExpr state falseE
+    match getEvalExpr state condE with
+    | e when e = AST.b1 -> trueE
+    | e when e = AST.b0 -> falseE
+    | e -> AST.ite e trueE falseE
+    // FIXME: Do not assume EIP
+    |> evalPutVar state "EIP"
+
   let private evalSideEff (state: State) = function
     | SysCall | Interrupt 0x80 ->
       let nEAX =
@@ -148,7 +158,7 @@ module State =
     | Put (Var (_, _, reg, _), value) -> evalPutVar state reg value
     | Put (TempVar (_, reg), value) -> evalPutTemp state reg value
     | Store (endian, addr, value) -> evalStore state endian addr value
+    | CJmp (condE, trueE, falseE) -> evalCJmp state condE trueE falseE
     | InterJmp (PCVar (_, pc), value, _) -> evalPutVar state pc value
     | Stmt.SideEffect eff -> evalSideEff state eff
     | e -> failwithf "evalStmt fail %A" e
-
