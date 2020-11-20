@@ -57,8 +57,13 @@ module ROPHandle =
   }
 
   let private getSummary (hdl: ROPHandle) (gadget: Gadget) =
-    hdl.Summaries.GetOrAdd (gadget.Offset,
-                            (fun _ -> Summary.summary hdl.BinHdl gadget))
+    try
+      hdl.Summaries.GetOrAdd (gadget.Offset,
+                              (fun _ -> Summary.summary hdl.BinHdl gadget))
+      |> Ok
+    with
+    | B2R2.BinIR.InvalidExprException as e -> Error <| sprintf "%A" e
+    | e -> raise e
 
   let private getSetterMap hdl =
     let folder acc info =

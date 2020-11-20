@@ -145,11 +145,15 @@ module Summary =
       | _, _ -> None
     else None
 
-  let isSysCall (sum: Summary) =
+  let isSysCall = function
+    | Error _ -> false
+    | Ok sum ->
     sum.SideEff && sum.InRegs = Set.empty && sum.InMems = Set.empty
                 && sum.OutRegs = syscallOutRegs && sum.OutMems = Map.empty
 
-  let isEspAdder min (sum: Summary) =
+  let isEspAdder min = function
+    | Error _ -> (false, None)
+    | Ok sum ->
     if not sum.SideEff && sum.OutMems = Map.empty && isStackMems sum.InMems then
       match Map.tryFind "EIP" (getRegsStackOff sum) with
       | Some eip ->
@@ -183,7 +187,9 @@ module Summary =
       | _ -> None
     | _ -> None
 
-  let isSetter (sum: Summary) =
+  let isSetter = function
+    | Error _ -> (false, None)
+    | Ok sum ->
     if not sum.SideEff && sum.OutMems = Map.empty && isStackMems sum.InMems then
       let regMap = getRegsStackOff sum
       let regSet = getRegs sum.OutRegs |> Set.remove "ESP"
@@ -197,7 +203,9 @@ module Summary =
       else (true, None)
     else (false, None)
 
-  let isMemWriter regs (sum: Summary) =
+  let isMemWriter regs = function
+    | Error _ -> (false, None)
+    | Ok sum ->
     if not sum.SideEff && isStackMems sum.InMems then
       match Map.tryFind "EIP" (getRegsStackOff sum), getMemWriter regs sum with
       | Some eip, Some writer -> (true, Some (eip, writer))
@@ -205,7 +213,9 @@ module Summary =
       | None, _ -> (false, None)
     else (false, None)
 
-  let isStackPivotor regs (sum: Summary) =
+  let isStackPivotor regs = function
+    | Error _ -> (false, None)
+    | Ok sum ->
     if not sum.SideEff then
       match getLinear "ESP" sum, getLinearLoad "EIP" sum with
       | Some (r, o), Some eip when r <> "ESP" && eip = (r, o - 4u) ->
@@ -255,7 +265,9 @@ module Summary =
       && readMemStr sum ebx |> System.IO.Path.GetFullPath = "/bin/sh"
     | None -> false
 
-  let isShellCode (sum: Summary) =
+  let isShellCode = function
+    | Error _ -> false
+    | Ok sum ->
     match sum.SysCall with
     | [sum] when checkShellCode sum -> true
     | _ -> false
