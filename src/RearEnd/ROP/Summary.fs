@@ -54,9 +54,10 @@ module Summary =
   let private syscallOutRegs =
     Map.ofList [("EAX", Undefined (32<rt>, "EAX0") |> Value)]
 
-  let rec getInput = function
+  let getInput (state: State) e =
+    let rec getInput = function
     | Var (_, _, n, _) -> (Set.empty.Add (n), Set.empty)
-    | TempVar (_, n) -> failwithf "getInput fail: T_%d" n
+    | TempVar (_, n) -> getInput <| (Map.find n state.TempRegs).GetExpr ()
     | UnOp (_, expr, _, _) -> getInput expr
     | BinOp (_, _, lExpr, rExpr, _, _) | RelOp (_, lExpr, rExpr, _, _) ->
       mergeInput (getInput lExpr) (getInput rExpr)
@@ -65,14 +66,15 @@ module Summary =
     | Ite (cExpr, tExpr, fExpr, _, _) ->
       mergeInput (getInput cExpr) (getInput tExpr)
       |> mergeInput (getInput fExpr)
-    | Cast (_, _, expr, _, _) -> getInput expr
-    | expr -> emptyInput // Num, Name, PCVar
+    | Cast (_, _, expr, _, _) | Extract (expr, _, _, _, _) -> getInput expr
+    | _ -> emptyInput // Num, Name, PCVar
+    getInput e
 
   let private getInputAll state =
     Set.empty
     |> Map.foldBack (fun _ v acc -> Set.add v acc) state.Regs
     |> Map.foldBack (fun k v acc -> Set.add k acc |> Set.add v) state.Mems
-    |> Set.fold (fun acc v -> v.GetExpr () |> getInput |> mergeInput acc)
+    |> Set.fold (fun acc v -> v.GetExpr () |> getInput state |> mergeInput acc)
                 emptyInput
 
   let rec private getSummary (state: State) =
