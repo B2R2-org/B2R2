@@ -35,7 +35,10 @@ type Reg = string
 type Value (expr) =
   let expr = simplify expr
   override __.GetHashCode () = expr.GetHashCode ()
-  override this.Equals other = expr.Equals other
+  override this.Equals x =
+    match x with
+    | :? Value as x -> expr.Equals <| x.GetExpr ()
+    | _ -> false
   interface IComparable with
     override this.CompareTo other = this.GetHashCode () - other.GetHashCode ()
 
