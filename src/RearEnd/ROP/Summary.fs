@@ -46,7 +46,8 @@ module Summary =
 
   // FIXME
   let private ESP =
-    Var (32<rt>, Register.toRegID Register.ESP, "ESP", RegisterSet.empty)
+    let regID = Register.toRegID Register.ESP
+    Var (32<rt>, regID, "ESP", IntelRegisterSet.singleton regID)
 
   let private REGS =
     [| "EIP"; "ESP"; "EBP"; "EAX"; "EBX"; "ECX"; "EDX"; "ESI"; "EDI" |]
