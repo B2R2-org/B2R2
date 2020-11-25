@@ -1,4 +1,4 @@
-﻿(*
+(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -27,6 +27,7 @@ module B2R2.RearEnd.FileViewer.PEViewer
 open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.RearEnd
+open B2R2.RearEnd.StringUtils
 open B2R2.RearEnd.FileViewer.Helper
 open System.Reflection.PortableExecutable
 
@@ -49,26 +50,26 @@ let translateChracteristics chars =
 
 let dumpFileHeader _ (fi: PEFileInfo) =
   let hdr = fi.PE.PEHeaders.CoffHeader
-  printTwoCols
+  Printer.printTwoCols
     "Machine:"
-    (toHexString (uint64 hdr.Machine) + wrapParen (hdr.Machine.ToString ()))
-  printTwoCols
+    (u64ToHexString (uint64 hdr.Machine) + wrapParen (hdr.Machine.ToString ()))
+  Printer.printTwoCols
     "Number of sections:"
     (hdr.NumberOfSections.ToString ())
-  printTwoCols
+  Printer.printTwoCols
     "Time date stamp:"
     (hdr.TimeDateStamp.ToString ())
-  printTwoCols
+  Printer.printTwoCols
     "Pointer to symbol table:"
-    (toHexString (uint64 hdr.PointerToSymbolTable))
-  printTwoCols
+    (u64ToHexString (uint64 hdr.PointerToSymbolTable))
+  Printer.printTwoCols
     "Size of optional header:"
-    (toHexString (uint64 hdr.SizeOfOptionalHeader))
-  printTwoCols
+    (u64ToHexString (uint64 hdr.SizeOfOptionalHeader))
+  Printer.printTwoCols
     "Characteristics:"
-    (toHexString (uint64 hdr.Characteristics))
+    (u64ToHexString (uint64 hdr.Characteristics))
   translateChracteristics (uint64 hdr.Characteristics)
-  |> List.iter (fun str -> printTwoCols "" str)
+  |> List.iter (fun str -> Printer.printTwoCols "" str)
 
 let translateSectionChracteristics chars =
   let enumChars =
@@ -95,10 +96,11 @@ let dumpSectionHeaders (opts: FileViewerOpts) (fi: PEFileInfo) =
                 LeftAligned 8; LeftAligned 8; LeftAligned 8; LeftAligned 8
                 LeftAligned 8; LeftAligned 8; LeftAligned 8; LeftAligned 8
                 LeftAligned 8 ]
-    Printer.printrow true cfg [ "Num"; "Start"; "End"; "Name"
-                                "VirtSize"; "VirtAddr"; "RawSize"; "RawPtr"
-                                "RelocPtr"; "LineNPtr"; "RelocNum"; "LineNNum"
-                                "Characteristics" ]
+    Printer.printrow (true, cfg,
+      [ "Num"; "Start"; "End"; "Name"
+        "VirtSize"; "VirtAddr"; "RawSize"; "RawPtr"
+        "RelocPtr"; "LineNPtr"; "RelocNum"; "LineNNum"
+        "Characteristics" ])
     Printer.println "  ---"
     fi.PE.SectionHeaders
     |> Array.iteri (fun idx s ->
@@ -106,35 +108,35 @@ let dumpSectionHeaders (opts: FileViewerOpts) (fi: PEFileInfo) =
       let size =
         uint64 (if s.VirtualSize = 0 then s.SizeOfRawData else s.VirtualSize)
       let characteristics = uint64 s.SectionCharacteristics
-      Printer.printrow true cfg
+      Printer.printrow (true, cfg,
         [ wrapSqrdBrac (idx.ToString ())
           (addrToString fi.WordSize startAddr)
           (addrToString fi.WordSize (startAddr + size - uint64 1))
           normalizeEmpty s.Name
-          toHexString (uint64 s.VirtualSize)
-          toHexString (uint64 s.VirtualAddress)
-          toHexString (uint64 s.SizeOfRawData)
-          toHexString (uint64 s.PointerToRawData)
-          toHexString (uint64 s.PointerToRelocations)
-          toHexString (uint64 s.PointerToLineNumbers)
+          u64ToHexString (uint64 s.VirtualSize)
+          u64ToHexString (uint64 s.VirtualAddress)
+          u64ToHexString (uint64 s.SizeOfRawData)
+          u64ToHexString (uint64 s.PointerToRawData)
+          u64ToHexString (uint64 s.PointerToRelocations)
+          u64ToHexString (uint64 s.PointerToLineNumbers)
           s.NumberOfRelocations.ToString ()
           s.NumberOfLineNumbers.ToString ()
-          toHexString characteristics ]
+          u64ToHexString characteristics ])
       translateSectionChracteristics characteristics
       |> List.iter (fun str ->
-        Printer.printrow true cfg [ ""; ""; ""; ""; ""; ""; ""
-                                    ""; ""; ""; ""; ""; str ]))
+        Printer.printrow (true, cfg, [ ""; ""; ""; ""; ""; ""; ""
+                                       ""; ""; ""; ""; ""; str ])))
   else
     let cfg = [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 24 ]
-    Printer.printrow true cfg [ "Num"; "Start"; "End"; "Name" ]
+    Printer.printrow (true, cfg, [ "Num"; "Start"; "End"; "Name" ])
     Printer.println "  ---"
     fi.GetSections ()
     |> Seq.iteri (fun idx s ->
-      Printer.printrow true cfg
+      Printer.printrow (true, cfg,
         [ wrapSqrdBrac (idx.ToString ())
           (addrToString fi.WordSize s.Address)
           (addrToString fi.WordSize (s.Address + s.Size - uint64 1))
-          normalizeEmpty s.Name ])
+          normalizeEmpty s.Name ]))
 
 let dumpSectionDetails (secname: string) (fi: PEFileInfo) =
   let idx =
@@ -144,58 +146,58 @@ let dumpSectionDetails (secname: string) (fi: PEFileInfo) =
   | Some idx ->
     let section = fi.PE.SectionHeaders.[idx]
     let characteristics = uint64 section.SectionCharacteristics
-    printTwoCols
+    Printer.printTwoCols
       "Section number:"
       (wrapSqrdBrac (idx.ToString ()))
-    printTwoCols
+    Printer.printTwoCols
       "Section name:"
       section.Name
-    printTwoCols
+    Printer.printTwoCols
       "Virtual size:"
-      (toHexString (uint64 section.VirtualSize))
-    printTwoCols
+      (u64ToHexString (uint64 section.VirtualSize))
+    Printer.printTwoCols
       "Virtual address:"
-      (toHexString (uint64 section.VirtualAddress))
-    printTwoCols
+      (u64ToHexString (uint64 section.VirtualAddress))
+    Printer.printTwoCols
       "Size of raw data:"
-      (toHexString (uint64 section.SizeOfRawData))
-    printTwoCols
+      (u64ToHexString (uint64 section.SizeOfRawData))
+    Printer.printTwoCols
       "Pointer to raw data:"
-      (toHexString (uint64 section.PointerToRawData))
-    printTwoCols
+      (u64ToHexString (uint64 section.PointerToRawData))
+    Printer.printTwoCols
       "Pointer to relocations:"
-      (toHexString (uint64 section.PointerToRelocations))
-    printTwoCols
+      (u64ToHexString (uint64 section.PointerToRelocations))
+    Printer.printTwoCols
       "Pointer to line numbers:"
-      (toHexString (uint64 section.PointerToLineNumbers))
-    printTwoCols
+      (u64ToHexString (uint64 section.PointerToLineNumbers))
+    Printer.printTwoCols
       "Number of relocations:"
       (section.NumberOfRelocations.ToString ())
-    printTwoCols
+    Printer.printTwoCols
       "Number of line numbers:"
       (section.NumberOfLineNumbers.ToString ())
-    printTwoCols
+    Printer.printTwoCols
       "Characteristics:"
-      (toHexString characteristics)
+      (u64ToHexString characteristics)
     translateSectionChracteristics characteristics
-    |> List.iter (fun str -> printTwoCols "" str)
-  | None -> printTwoCols "" "Not found."
+    |> List.iter (fun str -> Printer.printTwoCols "" str)
+  | None -> Printer.printTwoCols "" "Not found."
 
 let printSymbolInfo (fi: PEFileInfo) (symbols: seq<Symbol>) =
   let addrColumn = columnWidthOfAddr fi |> LeftAligned
   let cfg = [ LeftAligned 5; addrColumn; LeftAligned 50; LeftAligned 15 ]
-  Printer.printrow true cfg [ "Kind"; "Address"; "Name"; "LibraryName" ]
+  Printer.printrow (true, cfg, [ "Kind"; "Address"; "Name"; "LibraryName" ])
   Printer.println "  ---"
   symbols
   |> Seq.sortBy (fun s -> s.Name)
   |> Seq.sortBy (fun s -> s.Address)
   |> Seq.sortBy (fun s -> s.Target)
   |> Seq.iter (fun s ->
-    Printer.printrow true cfg
+    Printer.printrow (true, cfg,
       [ targetString s
         addrToString fi.WordSize s.Address
         normalizeEmpty s.Name
-        (toLibString >> normalizeEmpty) s.LibraryName ])
+        (toLibString >> normalizeEmpty) s.LibraryName ]))
 
 let dumpSymbols _ (fi: PEFileInfo) =
    fi.GetSymbols ()
@@ -214,26 +216,26 @@ let inline addrFromRVA baseAddr rva =
 
 let dumpImports _ (fi: PEFileInfo) =
   let cfg = [ LeftAligned 50; LeftAligned 50; LeftAligned 20 ]
-  Printer.printrow true cfg [ "FunctionName"; "LibraryName"; "TableAddress" ]
+  Printer.printrow (true, cfg,
+    [ "FunctionName"; "LibraryName"; "TableAddress" ])
   Printer.println "  ---"
   fi.PE.ImportMap
   |> Map.iter (fun addr info ->
     match info with
     | PE.ImportInfo.ImportByOrdinal (ordinal, dllname) ->
-      Printer.printrow true cfg
+      Printer.printrow (true, cfg,
         [ "#" + ordinal.ToString ()
           dllname
-          toHexString (addrFromRVA fi.PE.BaseAddr addr) ]
+          u64ToHexString (addrFromRVA fi.PE.BaseAddr addr) ])
     | PE.ImportInfo.ImportByName (_, fname, dllname) ->
-      Printer.printrow true cfg
+      Printer.printrow (true, cfg,
         [ fname
           dllname
-          toHexString (addrFromRVA fi.PE.BaseAddr addr) ])
+          u64ToHexString (addrFromRVA fi.PE.BaseAddr addr) ]))
 
 let dumpExports _ (fi: PEFileInfo) =
   let cfg = [ LeftAligned 45; LeftAligned 20 ]
-  Printer.printrow true cfg
-    [ "FunctionName"; "TableAddress" ]
+  Printer.printrow (true, cfg, [ "FunctionName"; "TableAddress" ])
   Printer.println "  ---"
   fi.PE.ExportMap
   |> Map.iter (fun addr names ->
@@ -243,14 +245,13 @@ let dumpExports _ (fi: PEFileInfo) =
     | idx ->
       names
       |> List.iter (fun name ->
-        Printer.printrow true cfg [ name; toHexString addr ]))
+        Printer.printrow (true, cfg, [ name; u64ToHexString addr ])))
   Printer.println ""
-  Printer.printrow true cfg
-    [ "FunctionName"; "ForwardName" ]
+  Printer.printrow (true, cfg, [ "FunctionName"; "ForwardName" ])
   Printer.println "  ---"
   fi.PE.ForwardMap
   |> Map.iter (fun name (bin, func) ->
-    Printer.printrow true cfg [ name; bin + "!" + func ])
+    Printer.printrow (true, cfg, [ name; bin + "!" + func ]))
 
 let translateDllChracteristcs chars =
   let enumChars =
@@ -274,9 +275,9 @@ let dumpOptionalHeader _ (fi: PEFileInfo) =
   let hdr = fi.PE.PEHeaders.PEHeader
   let imageBase = hdr.ImageBase
   let sizeOfImage = uint64 hdr.SizeOfImage
-  let entryPoint = toHexString (imageBase + uint64 hdr.AddressOfEntryPoint)
-  let startImage = toHexString imageBase
-  let endImage = toHexString (imageBase + sizeOfImage - uint64 1)
+  let entryPoint = u64ToHexString (imageBase + uint64 hdr.AddressOfEntryPoint)
+  let startImage = u64ToHexString imageBase
+  let endImage = u64ToHexString (imageBase + sizeOfImage - uint64 1)
   let exportDir = hdr.ExportTableDirectory
   let importDir = hdr.ImportTableDirectory
   let resourceDir = hdr.ResourceTableDirectory
@@ -292,145 +293,146 @@ let dumpOptionalHeader _ (fi: PEFileInfo) =
   let importAddrDir = hdr.ImportAddressTableDirectory
   let delayImpDir = hdr.DelayImportTableDirectory
   let comDescDir = hdr.CorHeaderTableDirectory
-  printTwoCols
+  Printer.printTwoCols
     "Magic:"
-    (toHexString (uint64 hdr.Magic) + wrapParen (hdr.Magic.ToString ()))
-  printTwoCols
+    (u64ToHexString (uint64 hdr.Magic) + wrapParen (hdr.Magic.ToString ()))
+  Printer.printTwoCols
     "Linker version:"
     (hdr.MajorLinkerVersion.ToString ()
     + "." + hdr.MinorLinkerVersion.ToString ())
-  printTwoCols
+  Printer.printTwoCols
     "Size of code:"
-    (toHexString (uint64 hdr.SizeOfCode))
-  printTwoCols
+    (u64ToHexString (uint64 hdr.SizeOfCode))
+  Printer.printTwoCols
     "Size of initialized data:"
-    (toHexString (uint64 hdr.SizeOfInitializedData))
-  printTwoCols
+    (u64ToHexString (uint64 hdr.SizeOfInitializedData))
+  Printer.printTwoCols
     "Size of uninitialized data:"
-    (toHexString (uint64 hdr.SizeOfUninitializedData))
-  printTwoCols
+    (u64ToHexString (uint64 hdr.SizeOfUninitializedData))
+  Printer.printTwoCols
     "Entry point:"
     entryPoint
-  printTwoCols
+  Printer.printTwoCols
     "Base of code:"
-    (toHexString (uint64 hdr.BaseOfCode))
-  printTwoCols
+    (u64ToHexString (uint64 hdr.BaseOfCode))
+  Printer.printTwoCols
     "Image base:"
-    (toHexString imageBase + wrapParen (startImage + " to " + endImage))
-  printTwoCols
+    (u64ToHexString imageBase + wrapParen (startImage + " to " + endImage))
+  Printer.printTwoCols
     "Section alignment:"
-    (toHexString (uint64 hdr.SectionAlignment))
-  printTwoCols
+    (u64ToHexString (uint64 hdr.SectionAlignment))
+  Printer.printTwoCols
     "File Alignment:"
-    (toHexString (uint64 hdr.FileAlignment))
-  printTwoCols
+    (u64ToHexString (uint64 hdr.FileAlignment))
+  Printer.printTwoCols
     "Operating system version:"
     (hdr.MajorOperatingSystemVersion.ToString ()
      + "." + hdr.MinorOperatingSystemVersion.ToString ())
-  printTwoCols
+  Printer.printTwoCols
     "Image version:"
     (hdr.MajorImageVersion.ToString ()
      + "." + hdr.MinorImageVersion.ToString ())
-  printTwoCols
+  Printer.printTwoCols
     "Subsystem version:"
     (hdr.MajorSubsystemVersion.ToString ()
      + "." + hdr.MinorSubsystemVersion.ToString ())
-  printTwoCols
+  Printer.printTwoCols
     "Size of image:"
-    (toHexString sizeOfImage)
-  printTwoCols
+    (u64ToHexString sizeOfImage)
+  Printer.printTwoCols
     "Size of headers:"
-    (toHexString (uint64 hdr.SizeOfHeaders))
-  printTwoCols
+    (u64ToHexString (uint64 hdr.SizeOfHeaders))
+  Printer.printTwoCols
     "Checksum:"
-    (toHexString (uint64 hdr.CheckSum))
-  printTwoCols
+    (u64ToHexString (uint64 hdr.CheckSum))
+  Printer.printTwoCols
     "Subsystem:"
-    (toHexString (uint64 hdr.Subsystem) + wrapParen (hdr.Subsystem.ToString ()))
-  printTwoCols
+    (u64ToHexString (uint64 hdr.Subsystem)
+      + wrapParen (hdr.Subsystem.ToString ()))
+  Printer.printTwoCols
     "DLL characteristics:"
-    (toHexString (uint64 hdr.DllCharacteristics))
+    (u64ToHexString (uint64 hdr.DllCharacteristics))
   translateDllChracteristcs (uint64 hdr.DllCharacteristics)
-  |> List.iter (fun str -> printTwoCols "" str)
-  printTwoCols
+  |> List.iter (fun str -> Printer.printTwoCols "" str)
+  Printer.printTwoCols
     "Size of stack reserve:"
-    (toHexString (uint64 hdr.SizeOfStackReserve))
-  printTwoCols
+    (u64ToHexString (uint64 hdr.SizeOfStackReserve))
+  Printer.printTwoCols
     "Size of stack commit:"
-    (toHexString (uint64 hdr.SizeOfStackCommit))
-  printTwoCols
+    (u64ToHexString (uint64 hdr.SizeOfStackCommit))
+  Printer.printTwoCols
     "Size of heap reserve:"
-    (toHexString (uint64 hdr.SizeOfHeapReserve))
-  printTwoCols
+    (u64ToHexString (uint64 hdr.SizeOfHeapReserve))
+  Printer.printTwoCols
     "Size of heap commit:"
-    (toHexString (uint64 hdr.SizeOfHeapCommit))
-  printTwoCols
+    (u64ToHexString (uint64 hdr.SizeOfHeapCommit))
+  Printer.printTwoCols
     "Loader flags (reserved):"
     "0x0"
-  printTwoCols
+  Printer.printTwoCols
     "Number of directories:"
     (hdr.NumberOfRvaAndSizes.ToString ())
-  printTwoCols
+  Printer.printTwoCols
     "RVA[size] of Export Table Directory:"
-    (toHexString (uint64 exportDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (toHexString (uint64 exportDir.Size)))
-  printTwoCols
+    (u64ToHexString (uint64 exportDir.RelativeVirtualAddress)
+    + wrapSqrdBrac (u64ToHexString (uint64 exportDir.Size)))
+  Printer.printTwoCols
     "RVA[size] of Import Table Directory:"
-    (toHexString (uint64 importDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (toHexString (uint64 importDir.Size)))
-  printTwoCols
+    (u64ToHexString (uint64 importDir.RelativeVirtualAddress)
+    + wrapSqrdBrac (u64ToHexString (uint64 importDir.Size)))
+  Printer.printTwoCols
     "RVA[size] of Resource Table Directory:"
-    (toHexString (uint64 resourceDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (toHexString (uint64 resourceDir.Size)))
-  printTwoCols
+    (u64ToHexString (uint64 resourceDir.RelativeVirtualAddress)
+    + wrapSqrdBrac (u64ToHexString (uint64 resourceDir.Size)))
+  Printer.printTwoCols
     "RVA[size] of Exception Table Directory:"
-    (toHexString (uint64 exceptionDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (toHexString (uint64 exceptionDir.Size)))
-  printTwoCols
+    (u64ToHexString (uint64 exceptionDir.RelativeVirtualAddress)
+    + wrapSqrdBrac (u64ToHexString (uint64 exceptionDir.Size)))
+  Printer.printTwoCols
     "RVA[size] of Certificate Table Directory:"
-    (toHexString (uint64 certificateDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (toHexString (uint64 certificateDir.Size)))
-  printTwoCols
+    (u64ToHexString (uint64 certificateDir.RelativeVirtualAddress)
+    + wrapSqrdBrac (u64ToHexString (uint64 certificateDir.Size)))
+  Printer.printTwoCols
     "RVA[size] of Base Relocation Table Directory:"
-    (toHexString (uint64 baseRelocDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (toHexString (uint64 baseRelocDir.Size)))
-  printTwoCols
+    (u64ToHexString (uint64 baseRelocDir.RelativeVirtualAddress)
+    + wrapSqrdBrac (u64ToHexString (uint64 baseRelocDir.Size)))
+  Printer.printTwoCols
     "RVA[size] of Debug Table Directory:"
-    (toHexString (uint64 debugDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (toHexString (uint64 debugDir.Size)))
-  printTwoCols
+    (u64ToHexString (uint64 debugDir.RelativeVirtualAddress)
+    + wrapSqrdBrac (u64ToHexString (uint64 debugDir.Size)))
+  Printer.printTwoCols
     "RVA[size] of Architecture Table Directory:"
-    (toHexString (uint64 architectureDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (toHexString (uint64 architectureDir.Size)))
-  printTwoCols
+    (u64ToHexString (uint64 architectureDir.RelativeVirtualAddress)
+    + wrapSqrdBrac (u64ToHexString (uint64 architectureDir.Size)))
+  Printer.printTwoCols
     "RVA[size] of Global Pointer Table Directory:"
-    (toHexString (uint64 globalPtrDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (toHexString (uint64 globalPtrDir.Size)))
-  printTwoCols
+    (u64ToHexString (uint64 globalPtrDir.RelativeVirtualAddress)
+    + wrapSqrdBrac (u64ToHexString (uint64 globalPtrDir.Size)))
+  Printer.printTwoCols
     "RVA[size] of Thread Storage Table Directory:"
-    (toHexString (uint64 threadLoStorDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (toHexString (uint64 threadLoStorDir.Size)))
-  printTwoCols
+    (u64ToHexString (uint64 threadLoStorDir.RelativeVirtualAddress)
+    + wrapSqrdBrac (u64ToHexString (uint64 threadLoStorDir.Size)))
+  Printer.printTwoCols
     "RVA[size] of Load Configuration Table Directory:"
-    (toHexString (uint64 loadConfigDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (toHexString (uint64 loadConfigDir.Size)))
-  printTwoCols
+    (u64ToHexString (uint64 loadConfigDir.RelativeVirtualAddress)
+    + wrapSqrdBrac (u64ToHexString (uint64 loadConfigDir.Size)))
+  Printer.printTwoCols
     "RVA[size] of Bound Import Table Directory:"
-    (toHexString (uint64 boundImpDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (toHexString (uint64 boundImpDir.Size)))
-  printTwoCols
+    (u64ToHexString (uint64 boundImpDir.RelativeVirtualAddress)
+    + wrapSqrdBrac (u64ToHexString (uint64 boundImpDir.Size)))
+  Printer.printTwoCols
     "RVA[size] of Import Address Table Directory:"
-    (toHexString (uint64 importAddrDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (toHexString (uint64 importAddrDir.Size)))
-  printTwoCols
+    (u64ToHexString (uint64 importAddrDir.RelativeVirtualAddress)
+    + wrapSqrdBrac (u64ToHexString (uint64 importAddrDir.Size)))
+  Printer.printTwoCols
     "RVA[size] of Delay Import Table Directory:"
-    (toHexString (uint64 delayImpDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (toHexString (uint64 delayImpDir.Size)))
-  printTwoCols
+    (u64ToHexString (uint64 delayImpDir.RelativeVirtualAddress)
+    + wrapSqrdBrac (u64ToHexString (uint64 delayImpDir.Size)))
+  Printer.printTwoCols
     "RVA[size] of COM Descriptor Table Directory:"
-    (toHexString (uint64 comDescDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (toHexString (uint64 comDescDir.Size)))
-  printTwoCols
+    (u64ToHexString (uint64 comDescDir.RelativeVirtualAddress)
+    + wrapSqrdBrac (u64ToHexString (uint64 comDescDir.Size)))
+  Printer.printTwoCols
     "RVA[size] of Reserved Directory:"
     "0x0[0x0]"
 
@@ -451,7 +453,7 @@ let translateCorFlags flags =
 let dumpCLRHeader _ (fi: PEFileInfo) =
   let hdr = fi.PE.PEHeaders.CorHeader
   if isNull hdr then
-    printTwoCols "" "Not found."
+    Printer.printTwoCols "" "Not found."
   else
     let metaDataDir = hdr.MetadataDirectory
     let resourcesDir = hdr.ResourcesDirectory
@@ -460,46 +462,46 @@ let dumpCLRHeader _ (fi: PEFileInfo) =
     let vTableFixups = hdr.VtableFixupsDirectory
     let exportAddrTblJmps = hdr.ExportAddressTableJumpsDirectory
     let managedNativeHdr = hdr.ManagedNativeHeaderDirectory
-    printTwoCols
+    Printer.printTwoCols
       "Runtime version:"
       (hdr.MajorRuntimeVersion.ToString ()
       + "." + hdr.MinorRuntimeVersion.ToString ())
-    printTwoCols
+    Printer.printTwoCols
       "RVA[size] of Meta Data Directory:"
-      (toHexString (uint64 metaDataDir.RelativeVirtualAddress)
-      + wrapSqrdBrac (toHexString (uint64 metaDataDir.Size)))
-    printTwoCols
+      (u64ToHexString (uint64 metaDataDir.RelativeVirtualAddress)
+      + wrapSqrdBrac (u64ToHexString (uint64 metaDataDir.Size)))
+    Printer.printTwoCols
       "Flags:"
-      (toHexString (uint64 hdr.Flags))
+      (u64ToHexString (uint64 hdr.Flags))
     translateCorFlags (uint64 hdr.Flags)
-    |> List.iter (fun str -> printTwoCols "" str)
-    printTwoCols
+    |> List.iter (fun str -> Printer.printTwoCols "" str)
+    Printer.printTwoCols
       "RVA[size] of Resources Directory:"
-      (toHexString (uint64 resourcesDir.RelativeVirtualAddress)
-      + wrapSqrdBrac (toHexString (uint64 resourcesDir.Size)))
-    printTwoCols
+      (u64ToHexString (uint64 resourcesDir.RelativeVirtualAddress)
+      + wrapSqrdBrac (u64ToHexString (uint64 resourcesDir.Size)))
+    Printer.printTwoCols
       "RVA[size] of Strong Name Signature Directory:"
-      (toHexString (uint64 strongNameSigDir.RelativeVirtualAddress)
-      + wrapSqrdBrac (toHexString (uint64 strongNameSigDir.Size)))
-    printTwoCols
+      (u64ToHexString (uint64 strongNameSigDir.RelativeVirtualAddress)
+      + wrapSqrdBrac (u64ToHexString (uint64 strongNameSigDir.Size)))
+    Printer.printTwoCols
       "RVA[size] of Code Manager Table Directory:"
-      (toHexString (uint64 codeMgrTblDir.RelativeVirtualAddress)
-      + wrapSqrdBrac (toHexString (uint64 codeMgrTblDir.Size)))
-    printTwoCols
+      (u64ToHexString (uint64 codeMgrTblDir.RelativeVirtualAddress)
+      + wrapSqrdBrac (u64ToHexString (uint64 codeMgrTblDir.Size)))
+    Printer.printTwoCols
       "RVA[size] of VTable Fixups Directory:"
-      (toHexString (uint64 vTableFixups.RelativeVirtualAddress)
-      + wrapSqrdBrac (toHexString (uint64 vTableFixups.Size)))
-    printTwoCols
+      (u64ToHexString (uint64 vTableFixups.RelativeVirtualAddress)
+      + wrapSqrdBrac (u64ToHexString (uint64 vTableFixups.Size)))
+    Printer.printTwoCols
       "RVA[size] of Export Address Table Jumps Directory:"
-      (toHexString (uint64 exportAddrTblJmps.RelativeVirtualAddress)
-      + wrapSqrdBrac (toHexString (uint64 exportAddrTblJmps.Size)))
-    printTwoCols
+      (u64ToHexString (uint64 exportAddrTblJmps.RelativeVirtualAddress)
+      + wrapSqrdBrac (u64ToHexString (uint64 exportAddrTblJmps.Size)))
+    Printer.printTwoCols
       "RVA[size] of Managed Native Header Directory:"
-      (toHexString (uint64 managedNativeHdr.RelativeVirtualAddress)
-      + wrapSqrdBrac (toHexString (uint64 managedNativeHdr.Size)))
+      (u64ToHexString (uint64 managedNativeHdr.RelativeVirtualAddress)
+      + wrapSqrdBrac (u64ToHexString (uint64 managedNativeHdr.Size)))
 
 let dumpDependencies _ (fi: PEFileInfo) =
   fi.GetLinkageTableEntries ()
   |> Seq.map (fun e -> e.LibraryName)
   |> Set.ofSeq
-  |> Set.iter (fun s -> printTwoCols s "")
+  |> Set.iter (fun s -> Printer.printTwoCols s "")

@@ -28,33 +28,34 @@ open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinInterface
 open B2R2.RearEnd
-open B2R2.RearEnd.Printer
+
+type private P = Printer
 
 let dumpBasic (fi: FileInfo) =
-  printSectionTitle "Basic Information"
-  printTwoCols "File format:" (FileFormat.toString fi.FileFormat)
-  printTwoCols "Architecture:" (ISA.ArchToString fi.ISA.Arch)
-  printTwoCols "Endianness:" (Endian.toString fi.ISA.Endian)
-  printTwoCols "Word size:" (WordSize.toString fi.WordSize + " bit")
-  printTwoCols "File type:" (FileInfo.FileTypeToString fi.FileType)
-  printTwoColsHi "Entry point:" (FileInfo.EntryPointToString fi.EntryPoint)
-  Printer.println ()
+  P.printSectionTitle "Basic Information"
+  P.printTwoCols "File format:" (FileFormat.toString fi.FileFormat)
+  P.printTwoCols "Architecture:" (ISA.ArchToString fi.ISA.Arch)
+  P.printTwoCols "Endianness:" (Endian.toString fi.ISA.Endian)
+  P.printTwoCols "Word size:" (WordSize.toString fi.WordSize + " bit")
+  P.printTwoCols "File type:" (FileInfo.FileTypeToString fi.FileType)
+  P.printTwoColsHi "Entry point:" (FileInfo.EntryPointToString fi.EntryPoint)
+  P.println ()
 
 let dumpSecurity (fi: FileInfo) =
-  printSectionTitle "Security Information"
-  printTwoCols "Stripped binary:" (fi.IsStripped.ToString ())
-  printTwoCols "DEP (NX) enabled:" (fi.IsNXEnabled.ToString ())
-  printTwoCols "Relocatable (PIE):" (fi.IsRelocatable.ToString ())
-  Printer.println ()
+  P.printSectionTitle "Security Information"
+  P.printTwoCols "Stripped binary:" (fi.IsStripped.ToString ())
+  P.printTwoCols "DEP (NX) enabled:" (fi.IsNXEnabled.ToString ())
+  P.printTwoCols "Relocatable (PIE):" (fi.IsRelocatable.ToString ())
+  P.println ()
 
 let dumpSpecific opts (fi: FileInfo) title elf pe mach =
-  printSectionTitle title
+  P.printSectionTitle title
   match fi with
   | :? ELFFileInfo as fi -> elf opts fi
   | :? PEFileInfo as fi -> pe opts fi
   | :? MachFileInfo as fi -> mach opts fi
   | _ -> Utils.futureFeature ()
-  Printer.println ()
+  P.println ()
 
 let dumpFileHeader (opts: FileViewerOpts) (fi: FileInfo) =
   dumpSpecific opts fi "File Header Information"
@@ -145,8 +146,8 @@ let dumpSharedLibs (opts: FileViewerOpts) (fi: FileInfo) =
     ELFViewer.badAccess PEViewer.badAccess MachViewer.dumpSharedLibs
 
 let printFileName filepath =
-  [ Green, "["; Yellow, filepath; Green, "]" ] |> Printer.println
-  Printer.println ()
+  [ Green, "["; Yellow, filepath; Green, "]" ] |> P.println
+  P.println ()
 
 let printBasic fi =
   dumpBasic fi
@@ -210,9 +211,10 @@ let [<Literal>] private toolName = "fileview"
 let [<Literal>] private usageTail = "<binary file(s)>"
 
 let dump files opts =
+  CmdOpts.SanitizeRestArgs files
   match files with
   | [] ->
-    printError "File(s) must be given."
+    P.printError "File(s) must be given."
     CmdOpts.PrintUsage toolName usageTail Cmd.spec
   | files -> files |> List.iter (dumpFile opts)
 

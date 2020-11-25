@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -8,7 +8,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Helper.fs" />
     <Compile Include="CmdOption.fs" />
     <Compile Include="DisasmLiftHelper.fs" />
     <Compile Include="Program.fs" />

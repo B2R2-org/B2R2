@@ -57,7 +57,7 @@ type DisasmBBlock (instrs: Instruction [], pp, ess: BinEssence) =
 
   override __.ToVisualBlock () =
     instructions
-    |> Array.map (fun i -> i.Decompose () |> symbolize i)
+    |> Array.map (fun i -> i.Decompose (true) |> symbolize i)
 
   member __.Instructions
     with get () = instructions

@@ -25,201 +25,150 @@
 module B2R2.RearEnd.BinDump.Program
 
 open B2R2
-open B2R2.BinIR
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinInterface
 open B2R2.RearEnd
-open B2R2.RearEnd.Printer
-open B2R2.RearEnd.BinDump.Helper
 open B2R2.RearEnd.BinDump.DisasmLiftHelper
 
-let printFileName filepath =
-  [ Green, "["; Yellow, filepath; Green, "]" ] |> Printer.println
+let [<Literal>] private toolName = "bindump"
+let [<Literal>] private usageTail = "<binary file(s) | -s hexstring>"
+
+let printFileName (filepath: string) =
+  Printer.println (StringUtils.wrapSqrdBrac filepath)
   Printer.println ()
 
-let dumpRawBinary (hdl: BinHandle) (opts: BinDumpOpts) =
-  let addrRange =
-    AddrRange (0UL, uint64 (hdl.FileInfo.BinReader.Bytes.Length))
-  if opts.ShowLowUIR then
-    printSubsectionTitle ("Disassembly of raw binary")
-    Printer.println ""
-    printBlkDisasm hdl opts addrRange
-    Printer.println ""
+let private getTableConfig hdl isLift =
+  if isLift then [ LeftAligned 10 ]
   else
-    printSectionTitle ("LowUIR of raw binary")
-    Printer.println ""
-    printBlkLowUIR hdl opts addrRange
-    Printer.println ""
+    let addrWidth = WordSize.toByteWidth hdl.ISA.WordSize * 2
+    let binaryWidth =
+      match hdl.ISA.Arch with
+      | Arch.IntelX86 | Arch.IntelX64 -> 36
+      | _ -> 16
+    [ LeftAligned addrWidth; LeftAligned binaryWidth; LeftAligned 10 ]
 
-let printHexdump (opts: BinDumpOpts) size offset addr (fi: FileInfo) =
-  let bytes =
-    fi.BinReader.PeekBytes (size, offset)
+let private dumpRawBinary (hdl: BinHandle) (opts: BinDumpOpts) cfg =
+  let addrRange = AddrRange (0UL, uint64 (hdl.FileInfo.BinReader.Bytes.Length))
+  let optimizer = getOptimizer opts
+  if opts.ShowLowUIR then printBlkLowUIR hdl cfg optimizer addrRange
+  else printBlkDisasm hdl cfg opts addrRange
+  Printer.println ()
+
+let printHexdump (opts: BinDumpOpts) size addr (fi: FileInfo) =
+  let offset = fi.TranslateAddress addr
+  let bytes = fi.BinReader.PeekBytes (size, offset)
   let chunkSize = if opts.ShowWide then 32 else 16
-  if opts.ShowColor then
-    hexdumpColored chunkSize fi.WordSize addr bytes
-    |> Array.iter Printer.println
-  else
-    hexdump chunkSize fi.WordSize addr bytes
-    |> Array.iter Printer.print
+  HexDumper.dump chunkSize fi.WordSize opts.ShowColor addr bytes
+  |> Array.iter Printer.println
 
-let dumpHex (opts: BinDumpOpts) secname (fi: FileInfo) =
+let hasNoContent (sec: Section) (fi: FileInfo) =
   match fi with
   | :? ELFFileInfo as fi ->
-    match fi.ELF.SecInfo.SecByName.TryFind secname with
-    | Some section ->
-      printSubsectionTitle ("Contents of section " + section.SecName + ":")
-      Printer.println ""
-      if section.SecType = ELF.SectionType.SHTNoBits then
-        printTwoCols "" "Not found in this file (NOBITS)"
-      else
-        let size = int section.SecSize
-        let offset = int section.SecOffset
-        let addr = section.SecAddr
-        printHexdump opts size offset addr fi
-    | None -> printTwoCols "" "Not found."
-  | :? PEFileInfo as fi ->
-    match fi.PE.SectionHeaders |> Array.tryFind (fun s -> s.Name = secname) with
-    | Some section ->
-      printSubsectionTitle ("Contents of section " + section.Name + ":")
-      Printer.println ""
-      let size = section.VirtualSize
-      let offset = section.PointerToRawData
-      let addr = fi.BaseAddress + uint64 section.VirtualAddress
-      printHexdump opts size offset addr fi
-    | None -> printTwoCols "" "Not found."
-  | :? MachFileInfo as fi ->
-    match fi.Mach.Sections.SecByName.TryFind secname with
-    | Some section ->
-      printSubsectionTitle ("Contents of section " + section.SecName + ":")
-      Printer.println ""
-      let size = int section.SecSize
-      let offset = int section.SecOffset
-      let addr = section.SecAddr
-      printHexdump opts size offset addr fi
-    | None -> printTwoCols "" "Not found."
-  | _ -> Utils.futureFeature ()
+    match fi.ELF.SecInfo.SecByName.TryFind sec.Name with
+    | Some section -> section.SecType = ELF.SectionType.SHTNoBits
+    | None -> true
+  | _ -> false
 
-let dumpSection hdl (opts: BinDumpOpts) (secname: string) =
-  printSectionTitle "Dump a section"
-  let section = hdl.FileInfo.GetSections (secname)
-  if Seq.isEmpty section then
-     printTwoCols "" "Not found."
-     Printer.println ""
-  else
-    section
-    |> Seq.iter (fun s ->
-      if s.Size > 0UL then
-        match s.Kind with
-        | SectionKind.ExecutableSection
-        | SectionKind.LinkageTableSection ->
-          if opts.ShowLowUIR then
-            printSubsectionTitle ("LowUIR of section " + s.Name + ":")
-            Printer.println ""
-            printBlkLowUIR hdl opts (s.ToAddrRange ())
-            Printer.println ""
-          else
-            printSubsectionTitle ("Disassembly of section " + s.Name + ":")
-            Printer.println ""
-            printBlkDisasm hdl opts (s.ToAddrRange ())
-            Printer.println ""
-        | _ ->
-          dumpHex opts secname hdl.FileInfo
-          Printer.println ""
-      else
-        printTwoCols "" "Empty section."
-        Printer.println "")
+let dumpHex (opts: BinDumpOpts) (sec: Section) (fi: FileInfo) =
+  Printer.printSectionTitle ("Contents of section " + sec.Name + ":")
+  if hasNoContent sec fi then Printer.printTwoCols "" "NOBITS section."
+  else printHexdump opts (int sec.Size) sec.Address fi
+  Printer.println ()
 
-let dumpAllSections hdl (opts: BinDumpOpts) =
-  printSectionTitle "Dump all sections"
-  hdl.FileInfo.GetSections ()
+let private createBinHandleFromPath (opts: BinDumpOpts) filepath forceRawBinary =
+  BinHandle.Init (
+    opts.ISA,
+    opts.ArchOperationMode,
+    (if forceRawBinary then false else opts.AutoDetect),
+    opts.BaseAddress,
+    fileName=filepath)
+
+let private isRawBinary hdl =
+  match hdl.FileInfo.FileFormat with
+  | FileFormat.ELFBinary
+  | FileFormat.MachBinary
+  | FileFormat.PEBinary -> false
+  | _ -> true
+
+let private irDumper hdl _opts cfg optimizer (sec: Section) =
+  Printer.printSectionTitle ("LowUIR of section " + sec.Name + ":")
+  printBlkLowUIR hdl cfg optimizer (sec.ToAddrRange ())
+  Printer.println ()
+
+let private disasDumper hdl opts cfg _optimizer (sec: Section) =
+  Printer.printSectionTitle ("Disassembly of section " + sec.Name + ":")
+  printBlkDisasm hdl cfg opts (sec.ToAddrRange ())
+  Printer.println ()
+
+let private dumpSections hdl (opts: BinDumpOpts) (sections: seq<Section>) cfg =
+  let optimizer = getOptimizer opts
+  let dumper = if opts.ShowLowUIR then irDumper else disasDumper
+  sections
   |> Seq.iter (fun s ->
     if s.Size > 0UL then
       match s.Kind with
       | SectionKind.ExecutableSection
-      | SectionKind.LinkageTableSection ->
-        if opts.ShowLowUIR then
-          printSubsectionTitle ("LowUIR of section " + s.Name + ":")
-          Printer.println ""
-          printBlkLowUIR hdl opts (s.ToAddrRange ())
-          Printer.println ""
-        else
-          printSubsectionTitle ("Disassembly of section " + s.Name + ":")
-          Printer.println ""
-          printBlkDisasm hdl opts (s.ToAddrRange ())
-          Printer.println ""
-      | _ ->
-        dumpHex opts s.Name hdl.FileInfo
-        Printer.println ""
-      Printer.println "")
+      | SectionKind.LinkageTableSection -> dumper hdl opts cfg optimizer s
+      | _ -> dumpHex opts s hdl.FileInfo
+    else ())
 
-let dumpFile (opts: BinDumpOpts) (filepath: string) =
+let private dumpRegularFile hdl (opts: BinDumpOpts) cfg =
+  match opts.InputSecName with
+  | Some secname ->
+    dumpSections hdl opts (hdl.FileInfo.GetSections (secname)) cfg
+  | None ->
+    dumpSections hdl opts (hdl.FileInfo.GetSections ()) cfg
+
+let dumpFile (opts: BinDumpOpts) filepath =
   opts.ShowAddress <- true
-  let hdl =
-    BinHandle.Init (opts.ISA,
-                    opts.ArchOperationMode,
-                    opts.AutoDetect,
-                    opts.BaseAddress,
-                    filepath)
+  let hdl = createBinHandleFromPath opts filepath false
   printFileName hdl.FileInfo.FilePath
-  let isRawBinary =
-    match hdl.FileInfo with
-    | :? ELFFileInfo | :? PEFileInfo | :? MachFileInfo -> false
-    | _ -> true
-  if isRawBinary then dumpRawBinary hdl opts
+  if isRawBinary hdl then
+    let hdl = createBinHandleFromPath opts filepath true
+    let cfg = getTableConfig hdl opts.ShowLowUIR
+    dumpRawBinary hdl opts cfg
   else
-    match opts.InputSecName with
-    | Some secname -> dumpSection hdl opts secname
-    | None -> dumpAllSections hdl opts
+    let cfg = getTableConfig hdl opts.ShowLowUIR
+    dumpRegularFile hdl opts cfg
 
-let dumpHexString (opts: BinDumpOpts) =
+let dumpFileMode files (opts: BinDumpOpts) =
+  match List.partition System.IO.File.Exists files with
+  | [], [] ->
+    Printer.printError "File(s) must be given."
+    CmdOpts.PrintUsage toolName usageTail Cmd.spec
+  | files, [] -> files |> List.iter (dumpFile opts)
+  | _, errs -> Printer.printError ("File(s) " + errs.ToString() + " not found!")
+
+let private assertBinaryLength hdl hexstr =
+  let multiplier = getInstructionAlignment hdl
+  if (Array.length hexstr) % multiplier = 0 then ()
+  else
+    Printer.printError <|
+      "The hex string length must be multiple of " + multiplier.ToString ()
+    exit 1
+
+let dumpHexStringMode (opts: BinDumpOpts) =
   opts.ShowSymbols <- false
-  let hdl =
-    BinHandle.Init (opts.ISA,
-                    opts.ArchOperationMode,
-                    false,
-                    opts.BaseAddress,
-                    opts.InputHexStr)
-  let leastHexLen =
-    match opts.ISA.Arch with
-    | Arch.IntelX86 | Arch.IntelX64 -> 1
-    | Arch.ARMv7 ->
-      match hdl.DefaultParsingContext.ArchOperationMode with
-      | ArchOperationMode.ARMMode -> 4
-      | ArchOperationMode.ThumbMode -> 2
-      | _ -> 4
-    | Arch.AARCH32 | Arch.AARCH64 -> 4
-    | _ -> 4
-  if Array.length opts.InputHexStr % leastHexLen = 0 then
-    if opts.ShowLowUIR then
-      printSectionTitle ("LowUIR of hexstring")
-      let addrRange = AddrRange (0UL, uint64 (opts.InputHexStr.Length))
-      printBlkLowUIR hdl opts addrRange
-    else
-      opts.ShowAddress <- true
-      printSectionTitle ("Disassembly of hexstring")
-      let addrRange = AddrRange (0UL, uint64 (opts.InputHexStr.Length))
-      printBlkDisasm hdl opts addrRange
-  else
-    Printer.println
-      ("The hexstring is invalid in length, must be multiple of "
-        + leastHexLen.ToString ())
-  Printer.println ""
+  opts.ShowColor <- true
+  let hdl = BinHandle.Init (opts.ISA,
+                            opts.ArchOperationMode,
+                            false,
+                            opts.BaseAddress,
+                            opts.InputHexStr)
+  let cfg = getTableConfig hdl opts.ShowLowUIR
+  let optimizer = getOptimizer opts
+  assertBinaryLength hdl opts.InputHexStr
+  let addrRange = AddrRange (0UL, uint64 (opts.InputHexStr.Length))
+  if opts.ShowLowUIR then printBlkLowUIR hdl cfg optimizer addrRange
+  else printBlkDisasm hdl cfg opts addrRange
+  Printer.println ()
 
-let [<Literal>] private toolName = "bindump"
-let [<Literal>] private usageTail = "<binary file(s)>"
-
-let dump files (opts: BinDumpOpts) =
-  if Array.isEmpty opts.InputHexStr then
-    match files with
-    | [] ->
-      printError "File(s) must be given."
-      CmdOpts.PrintUsage toolName usageTail Cmd.spec
-    | files -> files |> List.iter (dumpFile opts)
-  else
-    dumpHexString opts
+let private dump files (opts: BinDumpOpts) =
+  CmdOpts.SanitizeRestArgs files
+  if Array.isEmpty opts.InputHexStr then dumpFileMode files opts
+  else dumpHexStringMode opts
 
 [<EntryPoint>]
 let main args =
   let opts = BinDumpOpts ()
   CmdOpts.ParseAndRun dump toolName usageTail Cmd.spec opts args
-// vim: set tw=80 sts=2 sw=2:

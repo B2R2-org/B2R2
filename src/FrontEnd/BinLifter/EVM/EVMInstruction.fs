@@ -127,9 +127,9 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
   member private __.WordBuilder kind str (acc: AsmWordBuilder) =
     acc.Append ({ AsmWordKind = kind; AsmWordValue = str })
 
-  override __.Decompose () =
+  override __.Decompose (showAddr) =
     AsmWordBuilder (8)
-    |> Disasm.disasm true __.Info __.WordBuilder
+    |> Disasm.disasm showAddr __.Info __.WordBuilder
     |> fun b -> b.Finish ()
 
 // vim: set tw=80 sts=2 sw=2:

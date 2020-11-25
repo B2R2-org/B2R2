@@ -29,14 +29,13 @@ open B2R2.RearEnd
 open System
 
 type OptOption =
-  | NoOpt
-  | Opt
-  | OptPar
+  | NoOptimize
+  | Optimize
 
 type BinDumpOpts () =
   inherit CmdOpts()
   /// ISA
-  member val ISA = ISA.Init (Arch.IntelX86) Endian.Little with get, set
+  member val ISA = ISA.DefaultISA with get, set
 
   /// Base address
   member val BaseAddress: Addr = 0UL with get, set
@@ -66,7 +65,7 @@ type BinDumpOpts () =
   member val ShowColor = false with get, set
 
   /// Perform basic block optimization or not?
-  member val DoOptimization = NoOpt with get, set
+  member val DoOptimization = NoOptimize with get, set
 
   /// Discover binary file format or not?
   member val AutoDetect = true with get, set
@@ -166,17 +165,10 @@ type BinDumpOpts () =
 
   static member OptTransOptimization () =
     let cb opts _ =
-      (BinDumpOpts.ToThis opts).DoOptimization <- Opt
+      (BinDumpOpts.ToThis opts).DoOptimization <- Optimize
       opts
     CmdOpts.New (descr = "Perform bblock optimization for IL",
                  callback = cb, long = "--optimize")
-
-  static member OptTransParOptimization () =
-    let cb opts _ =
-      (BinDumpOpts.ToThis opts).DoOptimization <- OptPar
-      opts
-    CmdOpts.New (descr = "Perform parallel bblock optimization for IL",
-                 callback = cb, long = "--par-optimize")
 
   static member OptRawBinary () =
     let cb opts _ =
@@ -220,10 +212,7 @@ module Cmd =
       CmdOpts.New (descr = "", dummy = true)
 
       BinDumpOpts.OptTransOptimization ()
-      BinDumpOpts.OptTransParOptimization()
 
-      CmdOpts.New (descr = "", dummy = true)
-      CmdOpts.New (descr = "[Extra]", dummy = true)
       CmdOpts.New (descr = "", dummy = true) ]
 
 // vim: set tw=80 sts=2 sw=2:
