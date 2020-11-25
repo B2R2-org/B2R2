@@ -251,6 +251,6 @@ type Instruction (addr, len, wordSize) =
   /// <returns>
   ///   Returns an array of AsmWords.
   /// </returns>
-  abstract member Decompose: unit -> AsmWord []
+  abstract member Decompose: bool -> AsmWord []
 
 // vim: set tw=80 sts=2 sw=2:

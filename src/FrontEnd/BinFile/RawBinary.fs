@@ -30,7 +30,7 @@ open B2R2
 ///   This class represents a raw binary file (containing only binary code and
 ///   data without file format)
 /// </summary>
-type RawFileInfo (bytes: byte [], isa, baseAddr) =
+type RawFileInfo (bytes: byte [], path, isa, baseAddr) =
   inherit FileInfo (baseAddr)
 
   override __.BinReader = BinReader.Init (bytes, isa.Endian)
@@ -41,7 +41,7 @@ type RawFileInfo (bytes: byte [], isa, baseAddr) =
 
   override __.FileType = FileType.UnknownFile
 
-  override __.FilePath = ""
+  override __.FilePath = path
 
   override __.WordSize = isa.WordSize
 

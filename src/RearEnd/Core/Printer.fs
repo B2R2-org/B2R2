@@ -38,6 +38,11 @@ with
 /// Define a output configuration of a table.
 type TableConfig = TableColumn list
 
+module CS = ColoredSegment
+
+module private PrinterConst =
+  let [<Literal>] colWidth = 24
+
 /// Our rear-end applications should *not* use System.Console or `printfn` to
 /// directly output strings. Instead, they should resort to Printer to
 /// "indirectly" print out strings to console.
@@ -71,7 +76,20 @@ type Printer =
     Console.WriteLine ()
 
   [<CompiledName "PrintRow">]
-  static member printrow indent (cfg: TableConfig) (strs: string list) =
+  static member printrow (indent, cfg: TableConfig, css: ColoredString list) =
+    let lastIdx = List.length cfg - 1
+    List.zip cfg css
+    |> List.iteri (fun i (col, cs) ->
+      if indent then Console.Write ("  ") else ()
+      match cs with
+      | (c, s) :: rest ->
+        (c, TableColumn.ofPaddedString (i = lastIdx) s col) :: rest
+        |> Printer.print
+      | [] -> ())
+    Console.WriteLine ()
+
+  [<CompiledName "PrintRow">]
+  static member printrow (indent, cfg: TableConfig, strs: string list) =
     let lastIdx = List.length cfg - 1
     List.zip cfg strs
     |> List.iteri (fun i (c, s) ->
@@ -79,3 +97,40 @@ type Printer =
         Console.Write ("  ")
       Console.Write (TableColumn.ofPaddedString (i = lastIdx) s c))
     Console.WriteLine ()
+
+  [<CompiledName "PrintSectionTitle">]
+  static member printSectionTitle title =
+    [ CS.red "# "; CS.nocolor title ]
+    |> Printer.println
+    Printer.println ()
+
+  [<CompiledName "PrintSubsectionTitle">]
+  static member printSubsectionTitle (str: string) =
+    Printer.println ("    - " + str)
+
+  [<CompiledName "PrintSubsubsectionTitle">]
+  static member printSubsubsectionTitle (str: string) =
+    Printer.println ("         * " + str)
+
+  [<CompiledName "PrintTwoCols">]
+  static member printTwoCols (col1: string) (col2: string) =
+    Printer.print (col1.PadLeft PrinterConst.colWidth + " ")
+    Printer.println col2
+
+  /// Print a two-column row while highlighting the second col.
+  [<CompiledName "PrintTwoColsHi">]
+  static member printTwoColsHi (col1: string) (col2: string) =
+    Printer.print (col1.PadLeft PrinterConst.colWidth + " ")
+    Printer.println [ CS.green col2 ]
+
+  /// Print a two-column row where the second column is represented as a
+  /// ColoredString.
+  [<CompiledName "PrintTwoColsWithCS">]
+  static member printTwoColsWithCS (col1: string) (col2: ColoredString) =
+    Printer.print (col1.PadLeft PrinterConst.colWidth + " ")
+    Printer.println col2
+
+  [<CompiledName "PrintError">]
+  static member printError str =
+    [ CS.nocolor "[*] Error: "; CS.red str ] |> Printer.println
+    Printer.println ()

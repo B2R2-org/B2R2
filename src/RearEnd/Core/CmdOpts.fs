@@ -107,4 +107,16 @@ type CmdOpts () =
     with e -> eprintfn "Error: %s" e.Message
               eprintfn "%s" (if opts.Verbose then e.StackTrace else ""); 1
 
+  /// Check if the rest args contain an option string. If so, exit the program.
+  /// Otherwise, do nothing.
+  static member SanitizeRestArgs args =
+    let rec sanitize = function
+      | (arg: string) :: rest ->
+        if arg.StartsWith ('-') then
+          Printer.printError <| sprintf "Invalid argument (%s) is used" arg
+          exit 1
+        else sanitize rest
+      | [] -> ()
+    sanitize args
+
 // vim: set tw=80 sts=2 sw=2:

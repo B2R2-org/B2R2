@@ -22,28 +22,21 @@
   SOFTWARE.
 *)
 
-namespace B2R2.RearEnd
+module B2R2.RearEnd.StringUtils
 
-open System
+open B2R2
 
-/// OutString represents an output string generated from rear-end applications.
-type OutString =
-  | OutputNormal of string
-  | OutputColored of ColoredString
-  | OutputNewLine
+let wrapParen s =
+  "(" + s + ")"
 
-module OutString =
-  let internal toConsole = function
-    | OutputNormal s -> Console.Write s
-    | OutputColored s -> ColoredString.toConsole s
-    | OutputNewLine -> Console.WriteLine ()
+let wrapSqrdBrac s =
+  "[" + s + "]"
 
-  let internal toConsoleLine outstring =
-    toConsole outstring
-    Console.WriteLine ()
+let addrToString size addr =
+  Addr.toString size addr
 
-  let toString = function
-    | OutputNormal s -> s
-    | OutputColored segs ->
-      segs |> List.fold (fun acc (_, s) -> acc + s) ""
-    | OutputNewLine -> Environment.NewLine
+let u32ToHexString (v: uint32) =
+  "0x" + v.ToString ("x")
+
+let u64ToHexString (v: uint64) =
+  "0x" + v.ToString ("x")

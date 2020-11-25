@@ -56,7 +56,7 @@ let newFileInfo bytes (baddr: Addr) path fmt isa regbay =
     PEFileInfo (bytes, path, baddr) :> FileInfo
   | FileFormat.MachBinary ->
     MachFileInfo (bytes, path, isa, baddr) :> FileInfo
-  | _ -> new RawFileInfo (bytes, isa, baddr) :> FileInfo
+  | _ -> new RawFileInfo (bytes, path, isa, baddr) :> FileInfo
 
 let detectThumb entryPoint (isa: ISA) =
   match entryPoint, isa.Arch with

@@ -84,7 +84,7 @@ with
   static member Init (isa) = BinHandle.Init (isa, [||])
 
   static member UpdateCode h addr bs =
-    { h with FileInfo = new RawFileInfo (bs, h.ISA, addr) :> FileInfo }
+    { h with FileInfo = RawFileInfo (bs, "", h.ISA, addr) :> FileInfo }
 
   member __.ReadBytes (addr, nBytes) =
     BinHandle.ReadBytes (__, addr, nBytes)

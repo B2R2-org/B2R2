@@ -1,4 +1,4 @@
-﻿(*
+(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -28,15 +28,17 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.RearEnd
+open B2R2.RearEnd.StringUtils
 open B2R2.RearEnd.FileViewer.Helper
+
+type P = Printer
 
 let badAccess _ _ =
   raise InvalidFileTypeException
 
 let translateFlags flags =
   let enumFlags =
-    System.Enum.GetValues (typeof<Mach.MachFlag>)
-    :?> Mach.MachFlag []
+    Enum.GetValues (typeof<Mach.MachFlag>) :?> Mach.MachFlag []
     |> Array.toList
   let rec loop acc flags = function
     | [] -> List.rev acc
@@ -49,29 +51,29 @@ let translateFlags flags =
 
 let dumpFileHeader _ (fi: MachFileInfo) =
   let hdr = fi.Mach.MachHdr
-  printTwoCols
+  P.printTwoCols
     "Magic:"
-    (toHexString (uint64 hdr.Magic) + wrapParen (hdr.Magic.ToString ()))
-  printTwoCols
+    (u64ToHexString (uint64 hdr.Magic) + wrapParen (hdr.Magic.ToString ()))
+  P.printTwoCols
     "Cpu type:"
     (hdr.CPUType.ToString ())
-  printTwoCols
+  P.printTwoCols
     "Cpu subtype:"
-    (toHexString32 (uint32 hdr.CPUSubType))
-  printTwoCols
+    (u32ToHexString (uint32 hdr.CPUSubType))
+  P.printTwoCols
     "File type:"
     (hdr.FileType.ToString ())
-  printTwoCols
+  P.printTwoCols
     "Number of commands:"
     (hdr.NumCmds.ToString ())
-  printTwoCols
+  P.printTwoCols
     "Size of commands:"
     (hdr.SizeOfCmds.ToString ())
-  printTwoCols
+  P.printTwoCols
     "Flags:"
-    (toHexString (uint64 hdr.Flags))
+    (u64ToHexString (uint64 hdr.Flags))
   translateFlags (uint64 hdr.Flags)
-  |> List.iter (fun str -> printTwoCols "" str)
+  |> List.iter (fun str -> P.printTwoCols "" str)
 
 let translateAttribs attribs =
   let enumAttribs =
@@ -94,87 +96,87 @@ let dumpSectionHeaders (opts: FileViewerOpts) (fi: MachFileInfo) =
                 LeftAligned 8; LeftAligned 8; LeftAligned 8; LeftAligned 8
                 LeftAligned 10; LeftAligned 6; LeftAligned 22
                 LeftAligned 4; LeftAligned 4; LeftAligned 8 ]
-    Printer.printrow true cfg [ "Num"; "Start"; "End"; "Name"
-                                "SegName"; "Size"; "Offset"; "Align"
-                                "SecRelOff"; "#Reloc"; "Type"
-                                "Res1"; "Res2"; "Attrib" ]
-    Printer.println "  ---"
+    P.printrow (true, cfg, [ "Num"; "Start"; "End"; "Name"
+                             "SegName"; "Size"; "Offset"; "Align"
+                             "SecRelOff"; "#Reloc"; "Type"
+                             "Res1"; "Res2"; "Attrib" ])
+    P.println "  ---"
     fi.Mach.Sections.SecByNum
     |> Array.iteri (fun idx s ->
-      Printer.printrow true cfg
+      P.printrow (true, cfg,
         [ wrapSqrdBrac (idx.ToString ())
           (addrToString fi.WordSize s.SecAddr)
           (addrToString fi.WordSize (s.SecAddr + s.SecSize - uint64 1))
           normalizeEmpty s.SecName
           normalizeEmpty s.SegName
-          toHexString s.SecSize
-          toHexString (uint64 s.SecOffset)
-          toHexString (uint64 s.SecAlignment)
+          u64ToHexString s.SecSize
+          u64ToHexString (uint64 s.SecOffset)
+          u64ToHexString (uint64 s.SecAlignment)
           s.SecRelOff.ToString ()
           s.SecNumOfReloc.ToString ()
           s.SecType.ToString ()
           s.SecReserved1.ToString ()
           s.SecReserved2.ToString ()
-          toHexString32 (uint32 s.SecAttrib) ]
+          u32ToHexString (uint32 s.SecAttrib) ])
       translateAttribs (uint64 s.SecAttrib)
       |> List.iter (fun str ->
-        Printer.printrow true cfg [ ""; ""; ""; ""; ""; ""; ""; ""; ""
-                                    ""; ""; ""; ""; str ])
-          )
+        P.printrow (true, cfg, [ ""; ""; ""; ""; ""; ""; ""; ""; ""
+                                 ""; ""; ""; ""; str ]))
+    )
   else
     let cfg = [ LeftAligned 4; addrColumn; addrColumn; LeftAligned 24 ]
-    Printer.printrow true cfg [ "Num"; "Start"; "End"; "Name" ]
-    Printer.println "  ---"
+    P.printrow (true, cfg, [ "Num"; "Start"; "End"; "Name" ])
+    P.println "  ---"
     fi.GetSections ()
     |> Seq.iteri (fun idx s ->
-      Printer.printrow true cfg
+      P.printrow (true, cfg,
         [ wrapSqrdBrac (idx.ToString ())
           (addrToString fi.WordSize s.Address)
           (addrToString fi.WordSize (s.Address + s.Size - uint64 1))
-          normalizeEmpty s.Name ])
+          normalizeEmpty s.Name ]))
 
 let dumpSectionDetails (secname: string) (fi: MachFileInfo) =
   match fi.Mach.Sections.SecByName.TryFind secname with
   | Some section ->
-    printTwoCols
+    P.printTwoCols
       "SecName:"
       section.SecName
-    printTwoCols
+    P.printTwoCols
       "SegName:"
       section.SegName
-    printTwoCols
+    P.printTwoCols
       "SecAddr:"
-      (toHexString section.SecAddr)
-    printTwoCols
+      (u64ToHexString section.SecAddr)
+    P.printTwoCols
       "SecSize:"
-      (toHexString section.SecSize)
-    printTwoCols
+      (u64ToHexString section.SecSize)
+    P.printTwoCols
       "SecOffset:"
-      (toHexString (uint64 section.SecOffset))
-    printTwoCols
+      (u64ToHexString (uint64 section.SecOffset))
+    P.printTwoCols
       "SecAlignment:"
-      (toHexString (uint64 section.SecAlignment))
-    printTwoCols
+      (u64ToHexString (uint64 section.SecAlignment))
+    P.printTwoCols
       "SecRelOff:"
-      (toHexString (uint64 section.SecRelOff))
-    printTwoCols
+      (u64ToHexString (uint64 section.SecRelOff))
+    P.printTwoCols
       "SecNumOfReloc:"
       (section.SecNumOfReloc.ToString ())
-    printTwoCols
+    P.printTwoCols
       "SecType:"
       (section.SecType.ToString ())
-    printTwoCols
+    P.printTwoCols
       "SecAttrib:"
-      (toHexString32 (uint32 section.SecAttrib))
+      (u32ToHexString (uint32 section.SecAttrib))
     translateAttribs (uint64 section.SecAttrib)
-    |> List.iter (fun str -> printTwoCols "" str )
-    printTwoCols
+    |> List.iter (fun str -> P.printTwoCols "" str )
+    P.printTwoCols
       "SecReserved1:"
       (section.SecReserved1.ToString ())
-    printTwoCols
+    P.printTwoCols
       "SecReserved2:"
       (section.SecReserved2.ToString ())
-  | None -> Printer.println "Not found."
+  | None -> P.println "Not found."
 
 let toVersionString (v: uint32) =
   let major = (v &&& uint32 0xFFFF0000) >>> 16
@@ -191,7 +193,7 @@ let printSymbolInfoVerbose fi s (machSymbol: Mach.MachSymbol) cfg =
         "compatibility version " + toVersionString info.DyLibCmpVer + ", "
         + "current version" + toVersionString info.DyLibCurVer
     | None -> "(n/a)"
-  Printer.printrow true cfg
+  P.printrow (true, cfg,
     [ targetString s
       addrToString (fi: MachFileInfo).WordSize s.Address
       normalizeEmpty s.Name
@@ -200,15 +202,15 @@ let printSymbolInfoVerbose fi s (machSymbol: Mach.MachSymbol) cfg =
       machSymbol.SymDesc.ToString ()
       machSymbol.IsExternal.ToString ()
       externLibVerinfo
-      wrapSqrdBrac (machSymbol.SecNum.ToString ()); ""; ""; "" ]
+      wrapSqrdBrac (machSymbol.SecNum.ToString ()); ""; ""; "" ])
 
 let printSymbolInfoNone fi s cfg =
-  Printer.printrow true cfg
+  P.printrow (true, cfg,
     [ targetString s
       addrToString (fi: MachFileInfo).WordSize s.Address
       normalizeEmpty s.Name
       (toLibString >> normalizeEmpty) s.LibraryName
-      "(n/a)"; "(n/a)"; "(n/a)"; "(n/a)"; "(n/a)" ]
+      "(n/a)"; "(n/a)"; "(n/a)"; "(n/a)"; "(n/a)" ])
 
 let printSymbolInfo isVerbose (fi: MachFileInfo) (symbols: seq<Symbol>) =
   let addrColumn = columnWidthOfAddr fi |> LeftAligned
@@ -216,10 +218,10 @@ let printSymbolInfo isVerbose (fi: MachFileInfo) (symbols: seq<Symbol>) =
     let cfg = [ LeftAligned 10; addrColumn; LeftAligned 40; LeftAligned 35
                 LeftAligned 8; LeftAligned 8; LeftAligned 8; LeftAligned 8
                 LeftAligned 8 ]
-    Printer.printrow true cfg [ "Kind"; "Address"; "Name"; "LibraryName"
-                                "Type"; "Description"; "External"; "Version"
-                                "SectionIndex" ]
-    Printer.println "  ---"
+    P.printrow (true, cfg, [ "Kind"; "Address"; "Name"; "LibraryName"
+                             "Type"; "Description"; "External"; "Version"
+                             "SectionIndex" ])
+    P.println "  ---"
     symbols
     |> Seq.sortBy (fun s -> s.Name)
     |> Seq.sortBy (fun s -> s.Address)
@@ -230,18 +232,18 @@ let printSymbolInfo isVerbose (fi: MachFileInfo) (symbols: seq<Symbol>) =
       | None -> printSymbolInfoNone fi s cfg)
   else
     let cfg = [ LeftAligned 10; addrColumn; LeftAligned 55; LeftAligned 15 ]
-    Printer.printrow true cfg [ "Kind"; "Address"; "Name"; "LibraryName" ]
-    Printer.println "  ---"
+    P.printrow (true, cfg, [ "Kind"; "Address"; "Name"; "LibraryName" ])
+    P.println "  ---"
     symbols
     |> Seq.sortBy (fun s -> s.Name)
     |> Seq.sortBy (fun s -> s.Address)
     |> Seq.sortBy (fun s -> s.Target)
     |> Seq.iter (fun s ->
-      Printer.printrow true cfg
+      P.printrow (true, cfg,
         [ targetString s
           addrToString fi.WordSize s.Address
           normalizeEmpty s.Name
-          (toLibString >> normalizeEmpty) s.LibraryName ])
+          (toLibString >> normalizeEmpty) s.LibraryName ]))
 
 let dumpSymbols (opts: FileViewerOpts) (fi: MachFileInfo) =
   fi.GetSymbols ()
@@ -262,95 +264,95 @@ let dumpUniversalHeader (opts: FileViewerOpts) (fi: MachFileInfo) =
   Utils.futureFeature ()
 
 let printSegCmd (segCmd: Mach.SegCmd) idx =
-  printSubsectionTitle ("Load command " + idx.ToString ())
-  printTwoCols "Cmd:" (segCmd.Cmd.ToString ())
-  printTwoCols "CmdSize:" (segCmd.CmdSize.ToString ())
-  printTwoCols "SegCmdName:" segCmd.SegCmdName
-  printTwoCols "VMAddr:" (toHexString segCmd.VMAddr)
-  printTwoCols "VMSize:" (toHexString segCmd.VMSize)
-  printTwoCols "FileOff:" (segCmd.FileOff.ToString ())
-  printTwoCols "FileSize:" (segCmd.FileSize.ToString ())
-  printTwoCols "MaxProt:" (toHexString (uint64 segCmd.MaxProt))
-  printTwoCols "InitProt:" (toHexString (uint64 segCmd.InitProt))
-  printTwoCols "NumSecs:" (segCmd.NumSecs.ToString ())
-  printTwoCols "SegFlag:" (toHexString (uint64 segCmd.SegFlag))
+  P.printSubsectionTitle ("Load command " + idx.ToString ())
+  P.printTwoCols "Cmd:" (segCmd.Cmd.ToString ())
+  P.printTwoCols "CmdSize:" (segCmd.CmdSize.ToString ())
+  P.printTwoCols "SegCmdName:" segCmd.SegCmdName
+  P.printTwoCols "VMAddr:" (u64ToHexString segCmd.VMAddr)
+  P.printTwoCols "VMSize:" (u64ToHexString segCmd.VMSize)
+  P.printTwoCols "FileOff:" (segCmd.FileOff.ToString ())
+  P.printTwoCols "FileSize:" (segCmd.FileSize.ToString ())
+  P.printTwoCols "MaxProt:" (u64ToHexString (uint64 segCmd.MaxProt))
+  P.printTwoCols "InitProt:" (u64ToHexString (uint64 segCmd.InitProt))
+  P.printTwoCols "NumSecs:" (segCmd.NumSecs.ToString ())
+  P.printTwoCols "SegFlag:" (u64ToHexString (uint64 segCmd.SegFlag))
 
 let printSymTabCmd (symTabCmd: Mach.SymTabCmd) idx =
-  printSubsectionTitle ("Load command " + idx.ToString ())
-  printTwoCols "Cmd:" (symTabCmd.Cmd.ToString ())
-  printTwoCols "CmdSize:" (symTabCmd.CmdSize.ToString ())
-  printTwoCols "SymOff:" (toHexString (uint64 symTabCmd.SymOff))
-  printTwoCols "NumOfSym:" (symTabCmd.NumOfSym.ToString ())
-  printTwoCols "StrOff:" (toHexString (uint64 symTabCmd.StrOff))
-  printTwoCols "StrSize:" (toNBytes (uint64 symTabCmd.StrSize))
+  P.printSubsectionTitle ("Load command " + idx.ToString ())
+  P.printTwoCols "Cmd:" (symTabCmd.Cmd.ToString ())
+  P.printTwoCols "CmdSize:" (symTabCmd.CmdSize.ToString ())
+  P.printTwoCols "SymOff:" (u64ToHexString (uint64 symTabCmd.SymOff))
+  P.printTwoCols "NumOfSym:" (symTabCmd.NumOfSym.ToString ())
+  P.printTwoCols "StrOff:" (u64ToHexString (uint64 symTabCmd.StrOff))
+  P.printTwoCols "StrSize:" (toNBytes (uint64 symTabCmd.StrSize))
 
 let printDySymTabCmd (dySymTabCmd: Mach.DySymTabCmd) idx =
-  printSubsectionTitle ("Load command " + idx.ToString ())
-  printTwoCols "Cmd:" (dySymTabCmd.Cmd.ToString ())
-  printTwoCols "CmdSize:" (dySymTabCmd.CmdSize.ToString ())
-  printTwoCols "IdxLocalSym:" (dySymTabCmd.IdxLocalSym.ToString ())
-  printTwoCols "NumLocalSym:" (dySymTabCmd.NumLocalSym.ToString ())
-  printTwoCols "IdxExtSym:" (dySymTabCmd.IdxExtSym.ToString ())
-  printTwoCols "NumExtSym:" (dySymTabCmd.NumExtSym.ToString ())
-  printTwoCols "IdxUndefSym:" (dySymTabCmd.IdxUndefSym.ToString ())
-  printTwoCols "NumUndefSym:" (dySymTabCmd.NumUndefSym.ToString ())
-  printTwoCols "TOCOffset:" (dySymTabCmd.TOCOffset.ToString ())
-  printTwoCols "NumTOCContents:" (dySymTabCmd.NumTOCContents.ToString ())
-  printTwoCols "ModTabOff:" (dySymTabCmd.ModTabOff.ToString ())
-  printTwoCols "NumModTab:" (dySymTabCmd.NumModTab.ToString ())
-  printTwoCols "ExtRefSymOff:" (dySymTabCmd.ExtRefSymOff.ToString ())
-  printTwoCols "NumExtRefSym:" (dySymTabCmd.NumExtRefSym.ToString ())
-  printTwoCols "IndirectSymOff:" (dySymTabCmd.IndirectSymOff.ToString ())
-  printTwoCols "NumIndirectSym:" (dySymTabCmd.NumIndirectSym.ToString ())
-  printTwoCols "ExtRelOff:" (dySymTabCmd.ExtRelOff.ToString ())
-  printTwoCols "NumExtRel:" (dySymTabCmd.NumExtRel.ToString ())
-  printTwoCols "LocalRelOff:" (dySymTabCmd.LocalRelOff.ToString ())
-  printTwoCols "NumLocalRel:" (dySymTabCmd.NumLocalRel.ToString ())
+  P.printSubsectionTitle ("Load command " + idx.ToString ())
+  P.printTwoCols "Cmd:" (dySymTabCmd.Cmd.ToString ())
+  P.printTwoCols "CmdSize:" (dySymTabCmd.CmdSize.ToString ())
+  P.printTwoCols "IdxLocalSym:" (dySymTabCmd.IdxLocalSym.ToString ())
+  P.printTwoCols "NumLocalSym:" (dySymTabCmd.NumLocalSym.ToString ())
+  P.printTwoCols "IdxExtSym:" (dySymTabCmd.IdxExtSym.ToString ())
+  P.printTwoCols "NumExtSym:" (dySymTabCmd.NumExtSym.ToString ())
+  P.printTwoCols "IdxUndefSym:" (dySymTabCmd.IdxUndefSym.ToString ())
+  P.printTwoCols "NumUndefSym:" (dySymTabCmd.NumUndefSym.ToString ())
+  P.printTwoCols "TOCOffset:" (dySymTabCmd.TOCOffset.ToString ())
+  P.printTwoCols "NumTOCContents:" (dySymTabCmd.NumTOCContents.ToString ())
+  P.printTwoCols "ModTabOff:" (dySymTabCmd.ModTabOff.ToString ())
+  P.printTwoCols "NumModTab:" (dySymTabCmd.NumModTab.ToString ())
+  P.printTwoCols "ExtRefSymOff:" (dySymTabCmd.ExtRefSymOff.ToString ())
+  P.printTwoCols "NumExtRefSym:" (dySymTabCmd.NumExtRefSym.ToString ())
+  P.printTwoCols "IndirectSymOff:" (dySymTabCmd.IndirectSymOff.ToString ())
+  P.printTwoCols "NumIndirectSym:" (dySymTabCmd.NumIndirectSym.ToString ())
+  P.printTwoCols "ExtRelOff:" (dySymTabCmd.ExtRelOff.ToString ())
+  P.printTwoCols "NumExtRel:" (dySymTabCmd.NumExtRel.ToString ())
+  P.printTwoCols "LocalRelOff:" (dySymTabCmd.LocalRelOff.ToString ())
+  P.printTwoCols "NumLocalRel:" (dySymTabCmd.NumLocalRel.ToString ())
 
 let toTimeStampString (v: uint32) =
   ((DateTime.UnixEpoch.AddSeconds (float v)).ToLocalTime ()).ToString ()
   + TimeZoneInfo.Local.ToString ()
 
 let printDyLibCmd (dyLibCmd: Mach.DyLibCmd) idx =
-  printSubsectionTitle ("Load command " + idx.ToString ())
-  printTwoCols "Cmd:" (dyLibCmd.Cmd.ToString ())
-  printTwoCols "CmdSize:" (dyLibCmd.CmdSize.ToString ())
-  printTwoCols "DyLibName:" dyLibCmd.DyLibName
-  printTwoCols "DyLibTimeStamp:" (toTimeStampString dyLibCmd.DyLibTimeStamp)
-  printTwoCols "DyLibCurVer:" (toVersionString dyLibCmd.DyLibCurVer)
-  printTwoCols "DyLibCmpVer:" (toVersionString dyLibCmd.DyLibCmpVer)
+  P.printSubsectionTitle ("Load command " + idx.ToString ())
+  P.printTwoCols "Cmd:" (dyLibCmd.Cmd.ToString ())
+  P.printTwoCols "CmdSize:" (dyLibCmd.CmdSize.ToString ())
+  P.printTwoCols "DyLibName:" dyLibCmd.DyLibName
+  P.printTwoCols "DyLibTimeStamp:" (toTimeStampString dyLibCmd.DyLibTimeStamp)
+  P.printTwoCols "DyLibCurVer:" (toVersionString dyLibCmd.DyLibCurVer)
+  P.printTwoCols "DyLibCmpVer:" (toVersionString dyLibCmd.DyLibCmpVer)
 
 let printDyLdInfoCmd (dyLdInfoCmd: Mach.DyLdInfoCmd) idx =
-  printSubsectionTitle ("Load command " + idx.ToString ())
-  printTwoCols "Cmd:" (dyLdInfoCmd.Cmd.ToString ())
-  printTwoCols "CmdSize:" (dyLdInfoCmd.CmdSize.ToString ())
-  printTwoCols "RebaseOff:" (dyLdInfoCmd.RebaseOff.ToString ())
-  printTwoCols "RebaseSize:" (dyLdInfoCmd.RebaseSize.ToString ())
-  printTwoCols "BindOff:" (dyLdInfoCmd.BindOff.ToString ())
-  printTwoCols "BindSize:" (dyLdInfoCmd.BindSize.ToString ())
-  printTwoCols "WeakBindOff:" (dyLdInfoCmd.WeakBindOff.ToString ())
-  printTwoCols "WeakBindSize:" (dyLdInfoCmd.WeakBindSize.ToString ())
-  printTwoCols "LazyBindOff:" (dyLdInfoCmd.LazyBindOff.ToString ())
-  printTwoCols "LazyBindSize:" (dyLdInfoCmd.LazyBindSize.ToString ())
-  printTwoCols "ExportOff:" (dyLdInfoCmd.ExportOff.ToString ())
-  printTwoCols "ExportSize:" (dyLdInfoCmd.ExportSize.ToString ())
+  P.printSubsectionTitle ("Load command " + idx.ToString ())
+  P.printTwoCols "Cmd:" (dyLdInfoCmd.Cmd.ToString ())
+  P.printTwoCols "CmdSize:" (dyLdInfoCmd.CmdSize.ToString ())
+  P.printTwoCols "RebaseOff:" (dyLdInfoCmd.RebaseOff.ToString ())
+  P.printTwoCols "RebaseSize:" (dyLdInfoCmd.RebaseSize.ToString ())
+  P.printTwoCols "BindOff:" (dyLdInfoCmd.BindOff.ToString ())
+  P.printTwoCols "BindSize:" (dyLdInfoCmd.BindSize.ToString ())
+  P.printTwoCols "WeakBindOff:" (dyLdInfoCmd.WeakBindOff.ToString ())
+  P.printTwoCols "WeakBindSize:" (dyLdInfoCmd.WeakBindSize.ToString ())
+  P.printTwoCols "LazyBindOff:" (dyLdInfoCmd.LazyBindOff.ToString ())
+  P.printTwoCols "LazyBindSize:" (dyLdInfoCmd.LazyBindSize.ToString ())
+  P.printTwoCols "ExportOff:" (dyLdInfoCmd.ExportOff.ToString ())
+  P.printTwoCols "ExportSize:" (dyLdInfoCmd.ExportSize.ToString ())
 
 let printFuncStartsCmd (funcStartsCmd: Mach.FuncStartsCmd) idx =
-  printSubsectionTitle ("Load command " + idx.ToString ())
-  printTwoCols "DataOffset:" (funcStartsCmd.DataOffset.ToString ())
-  printTwoCols "DataSize:" (funcStartsCmd.DataSize.ToString ())
+  P.printSubsectionTitle ("Load command " + idx.ToString ())
+  P.printTwoCols "DataOffset:" (funcStartsCmd.DataOffset.ToString ())
+  P.printTwoCols "DataSize:" (funcStartsCmd.DataSize.ToString ())
 
 let printMainCmd (mainCmd: Mach.MainCmd) idx =
-  printSubsectionTitle ("Load command " + idx.ToString ())
-  printTwoCols "Cmd:" (mainCmd.Cmd.ToString ())
-  printTwoCols "CmdSize:" (mainCmd.CmdSize.ToString ())
-  printTwoCols "EntryOff:" (mainCmd.EntryOff.ToString ())
-  printTwoCols "StackSize:" (mainCmd.StackSize.ToString ())
+  P.printSubsectionTitle ("Load command " + idx.ToString ())
+  P.printTwoCols "Cmd:" (mainCmd.Cmd.ToString ())
+  P.printTwoCols "CmdSize:" (mainCmd.CmdSize.ToString ())
+  P.printTwoCols "EntryOff:" (mainCmd.EntryOff.ToString ())
+  P.printTwoCols "StackSize:" (mainCmd.StackSize.ToString ())
 
 let printUnhandledCmd (unhandledCmd: Mach.UnhandledCommand) idx =
-  printSubsectionTitle ("Load command " + idx.ToString ())
-  printTwoCols "Cmd:" (unhandledCmd.Cmd.ToString ())
-  printTwoCols "CmdSize:" (unhandledCmd.CmdSize.ToString ())
+  P.printSubsectionTitle ("Load command " + idx.ToString ())
+  P.printTwoCols "Cmd:" (unhandledCmd.Cmd.ToString ())
+  P.printTwoCols "CmdSize:" (unhandledCmd.CmdSize.ToString ())
 
 let dumpLoadCommands _ (fi: MachFileInfo) =
   fi.Mach.Cmds
@@ -361,8 +363,8 @@ let dumpLoadCommands _ (fi: MachFileInfo) =
       fi.Mach.Sections.SecByNum
       |> Array.iter (fun s ->
         if s.SegName = segCmd.SegCmdName then
-          Printer.println ()
-          printSubsubsectionTitle (wrapSqrdBrac "Section")
+          P.println ()
+          P.printSubsubsectionTitle (wrapSqrdBrac "Section")
           dumpSectionDetails s.SecName fi)
     | Mach.SymTab symTabCmd -> printSymTabCmd symTabCmd idx
     | Mach.DySymTab dySymTabCmd -> printDySymTabCmd dySymTabCmd idx
@@ -371,17 +373,17 @@ let dumpLoadCommands _ (fi: MachFileInfo) =
     | Mach.FuncStarts funcStartsCmd -> printFuncStartsCmd funcStartsCmd idx
     | Mach.Main mainCmd -> printMainCmd mainCmd idx
     | Mach.Unhandled unhandledCmd -> printUnhandledCmd unhandledCmd idx
-    Printer.println ())
+    P.println ())
 
 let dumpSharedLibs _ (fi: MachFileInfo) =
   let cfg = [ LeftAligned 35; LeftAligned 15; LeftAligned 15 ]
-  Printer.printrow true cfg [ "LibraryName"; "CurVersion"; "CompatVersion" ]
+  P.printrow (true, cfg, [ "LibraryName"; "CurVersion"; "CompatVersion" ])
   fi.Mach.Cmds
   |> List.iter (fun cmd ->
     match cmd with
     | Mach.DyLib dyLibCmd ->
-      Printer.printrow true cfg
+      P.printrow (true, cfg,
         [ dyLibCmd.DyLibName
           toVersionString dyLibCmd.DyLibCurVer
-          toVersionString dyLibCmd.DyLibCmpVer ]
+          toVersionString dyLibCmd.DyLibCmpVer ])
     | _ -> ())

@@ -8,6 +8,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="CmdOption.fs" />
+    <Compile Include="DisasmLiftHelper.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

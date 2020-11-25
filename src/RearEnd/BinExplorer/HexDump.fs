@@ -43,43 +43,6 @@ type CmdHexDump () =
     try (addr, binEssence.BinHandle.ReadBytes (addr, count)) |> Ok
     with _ -> Error "[*] Failed to read bytes."
 
-  let padSpace (arr: ColoredSegment []) =
-    let m = arr.Length % 16
-    if m = 0 then arr
-    else Array.create (16 - m) (NoColor, "  ") |> Array.append arr
-
-  let addSpace idx cs =
-    let c, s = cs
-    match idx with
-    | 0 -> c, s
-    | 8 -> c, "  " + s
-    | _ -> c, " " + s
-
-  let dumpHex (bytes: byte []) =
-    bytes
-    |> Array.map ColoredSegment.byteToHex
-    |> padSpace
-    |> Array.mapi addSpace
-
-  let dumpASCII (bytes: byte []) =
-    bytes
-    |> Array.map ColoredSegment.byteToAscii
-
-  let dumpLine addr linenum bytes =
-    let addr = (addr + uint64 (linenum * 16)).ToString ("X16")
-    dumpASCII bytes
-    |> Array.append [| ColoredSegment (NoColor, " | ") |]
-    |> Array.append (dumpHex bytes)
-    |> Array.append [| ColoredSegment (NoColor, addr + ": ") |]
-    |> List.ofArray
-    |> ColoredString.compile
-
-  let hexdump = function
-    | Ok (addr, bytes: byte []) ->
-      Array.chunkBySize 16 bytes
-      |> Array.mapi (dumpLine addr)
-    | Error e -> [| [ ColoredSegment (NoColor, e) ] |]
-
   override __.CmdName = "hexdump"
 
   override __.CmdAlias = [ "hd" ]
@@ -95,11 +58,14 @@ type CmdHexDump () =
   override __.CallBack _ binEssence args =
     match args with
     | addr :: cnt :: _ ->
-      parseAddr addr
-      |> Result.bind (parseCount cnt)
-      |> Result.bind (readBytes binEssence)
-      |> hexdump
-      |> Array.map OutputColored
+      let result =
+        parseAddr addr
+        |> Result.bind (parseCount cnt)
+        |> Result.bind (readBytes binEssence)
+      match result with
+      | Ok (addr, bytes: byte []) ->
+        HexDumper.dump 16 binEssence.BinHandle.ISA.WordSize true addr bytes
+      | Error e -> [| OutputColored [ ColoredSegment (NoColor, e) ] |]
     | _ -> [| __.CmdHelp |] |> Array.map OutputNormal
 
 // vim: set tw=80 sts=2 sw=2:
