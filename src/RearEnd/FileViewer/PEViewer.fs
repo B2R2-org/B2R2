@@ -109,7 +109,7 @@ let dumpSectionHeaders (opts: FileViewerOpts) (fi: PEFileInfo) =
         uint64 (if s.VirtualSize = 0 then s.SizeOfRawData else s.VirtualSize)
       let characteristics = uint64 s.SectionCharacteristics
       Printer.printrow (true, cfg,
-        [ wrapSqrdBrac (idx.ToString ())
+        [ wrapSqrdBracket (idx.ToString ())
           (addrToString fi.WordSize startAddr)
           (addrToString fi.WordSize (startAddr + size - uint64 1))
           normalizeEmpty s.Name
@@ -133,7 +133,7 @@ let dumpSectionHeaders (opts: FileViewerOpts) (fi: PEFileInfo) =
     fi.GetSections ()
     |> Seq.iteri (fun idx s ->
       Printer.printrow (true, cfg,
-        [ wrapSqrdBrac (idx.ToString ())
+        [ wrapSqrdBracket (idx.ToString ())
           (addrToString fi.WordSize s.Address)
           (addrToString fi.WordSize (s.Address + s.Size - uint64 1))
           normalizeEmpty s.Name ]))
@@ -148,7 +148,7 @@ let dumpSectionDetails (secname: string) (fi: PEFileInfo) =
     let characteristics = uint64 section.SectionCharacteristics
     Printer.printTwoCols
       "Section number:"
-      (wrapSqrdBrac (idx.ToString ()))
+      (wrapSqrdBracket (idx.ToString ()))
     Printer.printTwoCols
       "Section name:"
       section.Name
@@ -375,63 +375,63 @@ let dumpOptionalHeader _ (fi: PEFileInfo) =
   Printer.printTwoCols
     "RVA[size] of Export Table Directory:"
     (u64ToHexString (uint64 exportDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (u64ToHexString (uint64 exportDir.Size)))
+    + wrapSqrdBracket (u64ToHexString (uint64 exportDir.Size)))
   Printer.printTwoCols
     "RVA[size] of Import Table Directory:"
     (u64ToHexString (uint64 importDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (u64ToHexString (uint64 importDir.Size)))
+    + wrapSqrdBracket (u64ToHexString (uint64 importDir.Size)))
   Printer.printTwoCols
     "RVA[size] of Resource Table Directory:"
     (u64ToHexString (uint64 resourceDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (u64ToHexString (uint64 resourceDir.Size)))
+    + wrapSqrdBracket (u64ToHexString (uint64 resourceDir.Size)))
   Printer.printTwoCols
     "RVA[size] of Exception Table Directory:"
     (u64ToHexString (uint64 exceptionDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (u64ToHexString (uint64 exceptionDir.Size)))
+    + wrapSqrdBracket (u64ToHexString (uint64 exceptionDir.Size)))
   Printer.printTwoCols
     "RVA[size] of Certificate Table Directory:"
     (u64ToHexString (uint64 certificateDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (u64ToHexString (uint64 certificateDir.Size)))
+    + wrapSqrdBracket (u64ToHexString (uint64 certificateDir.Size)))
   Printer.printTwoCols
     "RVA[size] of Base Relocation Table Directory:"
     (u64ToHexString (uint64 baseRelocDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (u64ToHexString (uint64 baseRelocDir.Size)))
+    + wrapSqrdBracket (u64ToHexString (uint64 baseRelocDir.Size)))
   Printer.printTwoCols
     "RVA[size] of Debug Table Directory:"
     (u64ToHexString (uint64 debugDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (u64ToHexString (uint64 debugDir.Size)))
+    + wrapSqrdBracket (u64ToHexString (uint64 debugDir.Size)))
   Printer.printTwoCols
     "RVA[size] of Architecture Table Directory:"
     (u64ToHexString (uint64 architectureDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (u64ToHexString (uint64 architectureDir.Size)))
+    + wrapSqrdBracket (u64ToHexString (uint64 architectureDir.Size)))
   Printer.printTwoCols
     "RVA[size] of Global Pointer Table Directory:"
     (u64ToHexString (uint64 globalPtrDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (u64ToHexString (uint64 globalPtrDir.Size)))
+    + wrapSqrdBracket (u64ToHexString (uint64 globalPtrDir.Size)))
   Printer.printTwoCols
     "RVA[size] of Thread Storage Table Directory:"
     (u64ToHexString (uint64 threadLoStorDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (u64ToHexString (uint64 threadLoStorDir.Size)))
+    + wrapSqrdBracket (u64ToHexString (uint64 threadLoStorDir.Size)))
   Printer.printTwoCols
     "RVA[size] of Load Configuration Table Directory:"
     (u64ToHexString (uint64 loadConfigDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (u64ToHexString (uint64 loadConfigDir.Size)))
+    + wrapSqrdBracket (u64ToHexString (uint64 loadConfigDir.Size)))
   Printer.printTwoCols
     "RVA[size] of Bound Import Table Directory:"
     (u64ToHexString (uint64 boundImpDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (u64ToHexString (uint64 boundImpDir.Size)))
+    + wrapSqrdBracket (u64ToHexString (uint64 boundImpDir.Size)))
   Printer.printTwoCols
     "RVA[size] of Import Address Table Directory:"
     (u64ToHexString (uint64 importAddrDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (u64ToHexString (uint64 importAddrDir.Size)))
+    + wrapSqrdBracket (u64ToHexString (uint64 importAddrDir.Size)))
   Printer.printTwoCols
     "RVA[size] of Delay Import Table Directory:"
     (u64ToHexString (uint64 delayImpDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (u64ToHexString (uint64 delayImpDir.Size)))
+    + wrapSqrdBracket (u64ToHexString (uint64 delayImpDir.Size)))
   Printer.printTwoCols
     "RVA[size] of COM Descriptor Table Directory:"
     (u64ToHexString (uint64 comDescDir.RelativeVirtualAddress)
-    + wrapSqrdBrac (u64ToHexString (uint64 comDescDir.Size)))
+    + wrapSqrdBracket (u64ToHexString (uint64 comDescDir.Size)))
   Printer.printTwoCols
     "RVA[size] of Reserved Directory:"
     "0x0[0x0]"
@@ -469,7 +469,7 @@ let dumpCLRHeader _ (fi: PEFileInfo) =
     Printer.printTwoCols
       "RVA[size] of Meta Data Directory:"
       (u64ToHexString (uint64 metaDataDir.RelativeVirtualAddress)
-      + wrapSqrdBrac (u64ToHexString (uint64 metaDataDir.Size)))
+      + wrapSqrdBracket (u64ToHexString (uint64 metaDataDir.Size)))
     Printer.printTwoCols
       "Flags:"
       (u64ToHexString (uint64 hdr.Flags))
@@ -478,27 +478,27 @@ let dumpCLRHeader _ (fi: PEFileInfo) =
     Printer.printTwoCols
       "RVA[size] of Resources Directory:"
       (u64ToHexString (uint64 resourcesDir.RelativeVirtualAddress)
-      + wrapSqrdBrac (u64ToHexString (uint64 resourcesDir.Size)))
+      + wrapSqrdBracket (u64ToHexString (uint64 resourcesDir.Size)))
     Printer.printTwoCols
       "RVA[size] of Strong Name Signature Directory:"
       (u64ToHexString (uint64 strongNameSigDir.RelativeVirtualAddress)
-      + wrapSqrdBrac (u64ToHexString (uint64 strongNameSigDir.Size)))
+      + wrapSqrdBracket (u64ToHexString (uint64 strongNameSigDir.Size)))
     Printer.printTwoCols
       "RVA[size] of Code Manager Table Directory:"
       (u64ToHexString (uint64 codeMgrTblDir.RelativeVirtualAddress)
-      + wrapSqrdBrac (u64ToHexString (uint64 codeMgrTblDir.Size)))
+      + wrapSqrdBracket (u64ToHexString (uint64 codeMgrTblDir.Size)))
     Printer.printTwoCols
       "RVA[size] of VTable Fixups Directory:"
       (u64ToHexString (uint64 vTableFixups.RelativeVirtualAddress)
-      + wrapSqrdBrac (u64ToHexString (uint64 vTableFixups.Size)))
+      + wrapSqrdBracket (u64ToHexString (uint64 vTableFixups.Size)))
     Printer.printTwoCols
       "RVA[size] of Export Address Table Jumps Directory:"
       (u64ToHexString (uint64 exportAddrTblJmps.RelativeVirtualAddress)
-      + wrapSqrdBrac (u64ToHexString (uint64 exportAddrTblJmps.Size)))
+      + wrapSqrdBracket (u64ToHexString (uint64 exportAddrTblJmps.Size)))
     Printer.printTwoCols
       "RVA[size] of Managed Native Header Directory:"
       (u64ToHexString (uint64 managedNativeHdr.RelativeVirtualAddress)
-      + wrapSqrdBrac (u64ToHexString (uint64 managedNativeHdr.Size)))
+      + wrapSqrdBracket (u64ToHexString (uint64 managedNativeHdr.Size)))
 
 let dumpDependencies _ (fi: PEFileInfo) =
   fi.GetLinkageTableEntries ()

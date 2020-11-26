@@ -73,7 +73,7 @@ let dumpSectionHeaders (opts: FileViewerOpts) (fi: ELFFileInfo) =
     fi.ELF.SecInfo.SecByNum
     |> Array.iteri (fun idx s ->
       Printer.printrow (true, cfg,
-        [ wrapSqrdBrac (idx.ToString ())
+        [ wrapSqrdBracket (idx.ToString ())
           (addrToString fi.WordSize s.SecAddr)
           (addrToString fi.WordSize (s.SecAddr + s.SecSize - uint64 1))
           normalizeEmpty s.SecName
@@ -92,7 +92,7 @@ let dumpSectionHeaders (opts: FileViewerOpts) (fi: ELFFileInfo) =
     fi.GetSections ()
     |> Seq.iteri (fun idx s ->
       Printer.printrow (true, cfg,
-        [ wrapSqrdBrac (idx.ToString ())
+        [ wrapSqrdBracket (idx.ToString ())
           (addrToString fi.WordSize s.Address)
           (addrToString fi.WordSize (s.Address + s.Size - uint64 1))
           normalizeEmpty s.Name ]))
@@ -127,7 +127,7 @@ let printSymbolInfoVerbose (fi: ELFFileInfo) s (elfSymbol: ELF.ELFSymbol) cfg =
       elfSymbol.SymType.ToString ()
       elfSymbol.Bind.ToString ()
       elfSymbol.Vis.ToString ()
-      wrapSqrdBrac sectionIndex ])
+      wrapSqrdBracket sectionIndex ])
 
 let printSymbolInfoNone (fi: ELFFileInfo) s cfg =
   Printer.printrow (true, cfg,
@@ -201,7 +201,7 @@ let dumpSegments (opts: FileViewerOpts) (fi: ELFFileInfo) =
     fi.ELF.ProgHeaders
     |> List.iteri (fun idx ph ->
       Printer.printrow (true, cfg,
-        [ wrapSqrdBrac (idx.ToString ())
+        [ wrapSqrdBracket (idx.ToString ())
           (addrToString fi.WordSize ph.PHAddr)
           (addrToString fi.WordSize (ph.PHAddr + ph.PHMemSize - uint64 1))
           (FileInfo.PermissionToString ph.PHFlags)
@@ -219,7 +219,7 @@ let dumpSegments (opts: FileViewerOpts) (fi: ELFFileInfo) =
     fi.GetSegments ()
     |> Seq.iteri (fun idx s ->
       Printer.printrow (true, cfg,
-        [ wrapSqrdBrac (idx.ToString ())
+        [ wrapSqrdBracket (idx.ToString ())
           (addrToString fi.WordSize s.Address)
           (addrToString fi.WordSize (s.Address + s.Size - uint64 1))
           (FileInfo.PermissionToString s.Permission) ]))

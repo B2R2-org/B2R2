@@ -33,8 +33,8 @@ open B2R2.RearEnd.BinDump.DisasmLiftHelper
 let [<Literal>] private toolName = "bindump"
 let [<Literal>] private usageTail = "<binary file(s) | -s hexstring>"
 
-let printFileName (filepath: string) =
-  Printer.println (StringUtils.wrapSqrdBrac filepath)
+let private printFileName (filepath: string) =
+  Printer.println (StringUtils.wrapSqrdBracket filepath)
   Printer.println ()
 
 let private getTableConfig hdl isLift =
@@ -51,7 +51,7 @@ let private dumpRawBinary (hdl: BinHandle) (opts: BinDumpOpts) cfg =
   let addrRange = AddrRange (0UL, uint64 (hdl.FileInfo.BinReader.Bytes.Length))
   let optimizer = getOptimizer opts
   if opts.ShowLowUIR then printBlkLowUIR hdl cfg optimizer addrRange
-  else printBlkDisasm hdl cfg opts addrRange
+  else printBlkDisasm hdl cfg opts addrRange None
   Printer.println ()
 
 let printHexdump (opts: BinDumpOpts) size addr (fi: FileInfo) =
@@ -61,7 +61,7 @@ let printHexdump (opts: BinDumpOpts) size addr (fi: FileInfo) =
   HexDumper.dump chunkSize fi.WordSize opts.ShowColor addr bytes
   |> Array.iter Printer.println
 
-let hasNoContent (sec: Section) (fi: FileInfo) =
+let private hasNoContent (sec: Section) (fi: FileInfo) =
   match fi with
   | :? ELFFileInfo as fi ->
     match fi.ELF.SecInfo.SecByName.TryFind sec.Name with
@@ -70,7 +70,6 @@ let hasNoContent (sec: Section) (fi: FileInfo) =
   | _ -> false
 
 let dumpHex (opts: BinDumpOpts) (sec: Section) (fi: FileInfo) =
-  Printer.printSectionTitle ("Contents of section " + sec.Name + ":")
   if hasNoContent sec fi then Printer.printTwoCols "" "NOBITS section."
   else printHexdump opts (int sec.Size) sec.Address fi
   Printer.println ()
@@ -90,26 +89,64 @@ let private isRawBinary hdl =
   | FileFormat.PEBinary -> false
   | _ -> true
 
-let private irDumper hdl _opts cfg optimizer (sec: Section) =
-  Printer.printSectionTitle ("LowUIR of section " + sec.Name + ":")
+let private irDumper hdl _opts cfg optimizer _funcs (sec: Section) =
   printBlkLowUIR hdl cfg optimizer (sec.ToAddrRange ())
   Printer.println ()
 
-let private disasDumper hdl opts cfg _optimizer (sec: Section) =
-  Printer.printSectionTitle ("Disassembly of section " + sec.Name + ":")
-  printBlkDisasm hdl cfg opts (sec.ToAddrRange ())
+let private disasDumper hdl opts cfg _optimizer funcs (sec: Section) =
+  printBlkDisasm hdl cfg opts (sec.ToAddrRange ()) funcs
   Printer.println ()
+
+let private getTblEntrySize hdl =
+  match hdl.FileInfo.FileFormat, hdl.ISA.Arch with
+  | FileFormat.ELFBinary, Architecture.IntelX86
+  | FileFormat.ELFBinary, Architecture.IntelX64 -> 16
+  | FileFormat.ELFBinary, Architecture.ARMv7
+  | FileFormat.ELFBinary, Architecture.AARCH32 -> 12
+  | _ -> Utils.futureFeature ()
+
+let private tblIter (sec: Section) entrySize fn =
+  Printer.println (StringUtils.wrapAngleBracket sec.Name)
+  let endAddr = sec.Address + sec.Size
+  let rec loop addr =
+    if addr < endAddr then
+      let nextAddr = addr + uint64 entrySize
+      fn (AddrRange (addr, nextAddr))
+      loop nextAddr
+    else ()
+  loop sec.Address
+
+let private irTblDumper hdl _opts cfg optimizer (sec: Section) =
+  let entrySize = getTblEntrySize hdl
+  tblIter sec entrySize (fun range -> printBlkLowUIR hdl cfg optimizer range)
+
+let private disasTblDumper hdl opts cfg _optimizer (sec: Section) =
+  let entrySize = getTblEntrySize hdl
+  let funcs = createLinkageTableSymbolDic hdl |> Some
+  tblIter sec entrySize (fun range -> printBlkDisasm hdl cfg opts range funcs)
+
+let private printTitle action name =
+  Printer.printSectionTitle (action + " of section " + name + ":")
 
 let private dumpSections hdl (opts: BinDumpOpts) (sections: seq<Section>) cfg =
   let optimizer = getOptimizer opts
-  let dumper = if opts.ShowLowUIR then irDumper else disasDumper
+  let struct (codeDump, tblDump, action) =
+    if opts.ShowLowUIR then struct (irDumper, irTblDumper, "LowUIR")
+    else struct (disasDumper, disasTblDumper, "Disassembly")
+  let funcs = Some (createFuncSymbolDic hdl)
   sections
   |> Seq.iter (fun s ->
     if s.Size > 0UL then
       match s.Kind with
-      | SectionKind.ExecutableSection
-      | SectionKind.LinkageTableSection -> dumper hdl opts cfg optimizer s
-      | _ -> dumpHex opts s hdl.FileInfo
+      | SectionKind.ExecutableSection ->
+        printTitle action s.Name
+        codeDump hdl opts cfg optimizer funcs s
+      | SectionKind.LinkageTableSection ->
+        printTitle action s.Name
+        tblDump hdl opts cfg optimizer s
+      | _ ->
+        printTitle "Contents" s.Name
+        dumpHex opts s hdl.FileInfo
     else ())
 
 let private dumpRegularFile hdl (opts: BinDumpOpts) cfg =
@@ -160,7 +197,7 @@ let dumpHexStringMode (opts: BinDumpOpts) =
   assertBinaryLength hdl opts.InputHexStr
   let addrRange = AddrRange (0UL, uint64 (opts.InputHexStr.Length))
   if opts.ShowLowUIR then printBlkLowUIR hdl cfg optimizer addrRange
-  else printBlkDisasm hdl cfg opts addrRange
+  else printBlkDisasm hdl cfg opts addrRange None
   Printer.println ()
 
 let private dump files (opts: BinDumpOpts) =

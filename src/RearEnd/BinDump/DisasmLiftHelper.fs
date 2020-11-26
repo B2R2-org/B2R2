@@ -40,6 +40,20 @@ let getOptimizer (opts: BinDumpOpts) =
   | NoOptimize -> id
   | Optimize -> BinHandle.Optimize
 
+let createFuncSymbolDic hdl =
+  let funcs = Dictionary ()
+  hdl.FileInfo.GetFunctionSymbols ()
+  |> Seq.iter (fun s -> funcs.Add (s.Address, s.Name) |> ignore)
+  funcs
+
+let createLinkageTableSymbolDic hdl =
+  let funcs = Dictionary ()
+  hdl.FileInfo.GetLinkageTableEntries ()
+  |> Seq.iter (fun e ->
+    if e.TrampolineAddress = 0UL then ()
+    else funcs.Add (e.TrampolineAddress, e.FuncName) |> ignore)
+  funcs
+
 let getInstructionAlignment hdl =
   match hdl.ISA.Arch with
   | Arch.IntelX86 | Arch.IntelX64 -> 1
@@ -56,25 +70,28 @@ let convertToHexStr bytes =
     else s + " " + b.ToString ("X2")) ""
 
 let printLowUIR (lowUIRStr: string) bytes cfg =
-  let hexStr = convertToHexStr bytes |> wrapSqrdBrac
+  let hexStr = convertToHexStr bytes |> wrapSqrdBracket
   Printer.printrow (false, cfg, [ hexStr ])
   Printer.printrow (false, cfg, [ lowUIRStr ])
+
+let inline printFuncSymbol (symDict: Dictionary<Addr, string>) addr =
+  match symDict.TryGetValue (addr) with
+  | false, _ -> ()
+  | true, name ->
+    Printer.println ()
+    Printer.println (wrapAngleBracket name)
 
 let printRegularDisasm disasmStr wordSize addr bytes cfg =
   let hexStr = convertToHexStr bytes
   let addrStr = addrToString wordSize addr + ":"
   Printer.printrow (false, cfg, [ addrStr; hexStr; disasmStr ])
 
-let rec regularDisPrinter (hdl: BinHandle) showSymbs addr bbl cfg =
-  match bbl with
-  | [] -> addr
-  | (ins: Instruction) :: tail ->
-    let disasmStr = BinHandle.DisasmInstr hdl false showSymbs ins
-    let wordSize = hdl.FileInfo.WordSize
-    let bytes = BinHandle.ReadBytes (hdl, ins.Address, int ins.Length)
-    let nextAddr = ins.Address + uint64 ins.Length
-    printRegularDisasm disasmStr wordSize addr bytes cfg
-    regularDisPrinter hdl showSymbs nextAddr tail cfg
+let regularDisPrinter (hdl: BinHandle) showSymbs addr ins cfg =
+  let disasmStr = BinHandle.DisasmInstr hdl false showSymbs ins
+  let wordSize = hdl.FileInfo.WordSize
+  let bytes = BinHandle.ReadBytes (hdl, ins.Address, int ins.Length)
+  let nextAddr = ins.Address + uint64 ins.Length
+  printRegularDisasm disasmStr wordSize addr bytes cfg
 
 let convertToDisasmStr (words: AsmWord []) =
   words
@@ -94,16 +111,11 @@ let printColorDisasm words wordSize addr bytes cfg =
   Printer.printrow (false, cfg,
     [ [ Green, addrStr ]; [ NoColor, hexStr ]; disasStr ])
 
-let rec colorDisPrinter (hdl: BinHandle) showSymbs addr bbl cfg =
-  match bbl with
-  | [] -> addr
-  | (ins: Instruction) :: tail ->
-    let words = ins.Decompose (false)
-    let wordSize = hdl.FileInfo.WordSize
-    let bytes = BinHandle.ReadBytes (hdl, ins.Address, int ins.Length)
-    let nextAddr = ins.Address + uint64 ins.Length
-    printColorDisasm words wordSize addr bytes cfg
-    colorDisPrinter hdl showSymbs nextAddr tail cfg
+let colorDisPrinter (hdl: BinHandle) showSymbs addr (ins: Instruction) cfg =
+  let words = ins.Decompose (false)
+  let wordSize = hdl.FileInfo.WordSize
+  let bytes = BinHandle.ReadBytes (hdl, ins.Address, int ins.Length)
+  printColorDisasm words wordSize addr bytes cfg
 
 let handleInvalidIns (hdl: BinHandle) addr isLift cfg =
   let wordSize = hdl.FileInfo.WordSize
@@ -113,27 +125,22 @@ let handleInvalidIns (hdl: BinHandle) addr isLift cfg =
   else printRegularDisasm illegalStr wordSize addr bytes cfg
   addr + uint64 align
 
-let inline printSymbol (funcs: Dictionary<Addr, string>) addr =
-  match funcs.TryGetValue (addr) with
-  | false, _ -> ()
-  | true, name -> Printer.println (wrapSqrdBrac name)
-
-let printBlkDisasm hdl cfg (opts: BinDumpOpts) (addrRange: AddrRange) =
+let printBlkDisasm hdl cfg (opts: BinDumpOpts) (addrRange: AddrRange) funcs =
   let showSymbs = opts.ShowSymbols
+  let align = getInstructionAlignment hdl |> uint64
   let printer = if opts.ShowColor then colorDisPrinter else regularDisPrinter
-  let funcs = Dictionary ()
-  hdl.FileInfo.GetFunctionSymbols ()
-  |> Seq.iter (fun s -> funcs.Add (s.Address, s.Name) |> ignore)
+  let funcs = Option.defaultWith (fun () -> Dictionary ()) funcs
   let rec loop hdl ctxt addr =
     if addr < addrRange.Max then
-      printSymbol funcs addr
-      match BinHandle.ParseBBlock hdl ctxt addr with
-      | Ok (bbl, _) ->
-        loop hdl ctxt (printer hdl showSymbs addr bbl cfg)
-      | Error bbl ->
-        let nextAddr = printer hdl showSymbs addr bbl cfg
-        if nextAddr < addrRange.Max then
-          loop hdl ctxt (handleInvalidIns hdl nextAddr false cfg)
+      printFuncSymbol funcs addr
+      match BinHandle.TryParseInstr hdl ctxt addr with
+      | Ok (ins) ->
+        printer hdl showSymbs addr ins cfg
+        loop hdl ctxt (addr + uint64 ins.Length)
+      | Error _ ->
+        let nextAddr = addr + align
+        loop hdl ctxt (handleInvalidIns hdl nextAddr false cfg)
+    else ()
   loop hdl hdl.DefaultParsingContext addrRange.Min
 
 let rec lift hdl cfg optimizer addr = function

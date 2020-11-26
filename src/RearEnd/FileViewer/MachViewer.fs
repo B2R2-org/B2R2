@@ -104,7 +104,7 @@ let dumpSectionHeaders (opts: FileViewerOpts) (fi: MachFileInfo) =
     fi.Mach.Sections.SecByNum
     |> Array.iteri (fun idx s ->
       P.printrow (true, cfg,
-        [ wrapSqrdBrac (idx.ToString ())
+        [ wrapSqrdBracket (idx.ToString ())
           (addrToString fi.WordSize s.SecAddr)
           (addrToString fi.WordSize (s.SecAddr + s.SecSize - uint64 1))
           normalizeEmpty s.SecName
@@ -130,7 +130,7 @@ let dumpSectionHeaders (opts: FileViewerOpts) (fi: MachFileInfo) =
     fi.GetSections ()
     |> Seq.iteri (fun idx s ->
       P.printrow (true, cfg,
-        [ wrapSqrdBrac (idx.ToString ())
+        [ wrapSqrdBracket (idx.ToString ())
           (addrToString fi.WordSize s.Address)
           (addrToString fi.WordSize (s.Address + s.Size - uint64 1))
           normalizeEmpty s.Name ]))
@@ -202,7 +202,7 @@ let printSymbolInfoVerbose fi s (machSymbol: Mach.MachSymbol) cfg =
       machSymbol.SymDesc.ToString ()
       machSymbol.IsExternal.ToString ()
       externLibVerinfo
-      wrapSqrdBrac (machSymbol.SecNum.ToString ()); ""; ""; "" ])
+      wrapSqrdBracket (machSymbol.SecNum.ToString ()); ""; ""; "" ])
 
 let printSymbolInfoNone fi s cfg =
   P.printrow (true, cfg,
@@ -364,7 +364,7 @@ let dumpLoadCommands _ (fi: MachFileInfo) =
       |> Array.iter (fun s ->
         if s.SegName = segCmd.SegCmdName then
           P.println ()
-          P.printSubsubsectionTitle (wrapSqrdBrac "Section")
+          P.printSubsubsectionTitle (wrapSqrdBracket "Section")
           dumpSectionDetails s.SecName fi)
     | Mach.SymTab symTabCmd -> printSymTabCmd symTabCmd idx
     | Mach.DySymTab dySymTabCmd -> printDySymTabCmd dySymTabCmd idx

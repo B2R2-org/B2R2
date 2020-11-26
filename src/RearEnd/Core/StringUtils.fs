@@ -29,8 +29,11 @@ open B2R2
 let wrapParen s =
   "(" + s + ")"
 
-let wrapSqrdBrac s =
+let wrapSqrdBracket s =
   "[" + s + "]"
+
+let wrapAngleBracket s =
+  "<" + s + ">"
 
 let addrToString size addr =
   Addr.toString size addr

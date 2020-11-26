@@ -33,7 +33,7 @@ type OptOption =
   | Optimize
 
 type BinDumpOpts () =
-  inherit CmdOpts()
+  inherit CmdOpts ()
   /// ISA
   member val ISA = ISA.DefaultISA with get, set
 
