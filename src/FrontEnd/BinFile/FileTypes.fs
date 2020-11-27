@@ -92,6 +92,8 @@ type SectionKind =
 type Section = {
   /// Address of the section.
   Address: Addr
+  /// File offset of the seciton.
+  FileOffset: uint64
   /// Section kind.
   Kind: SectionKind
   /// Size of the section.

@@ -137,6 +137,7 @@ let secFlagToSectionKind flag entrySize =
 
 let elfSectionToSection sec =
   { Address = sec.SecAddr
+    FileOffset = sec.SecOffset
     Kind = secFlagToSectionKind sec.SecFlags sec.SecEntrySize
     Size = sec.SecSize
     Name = sec.SecName }

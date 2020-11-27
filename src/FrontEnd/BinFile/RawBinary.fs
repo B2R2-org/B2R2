@@ -69,6 +69,7 @@ type RawFileInfo (bytes: byte [], path, isa, baseAddr) =
 
   override __.GetSections () =
     Seq.singleton { Address = baseAddr
+                    FileOffset = 0UL
                     Kind = SectionKind.ExecutableSection
                     Size = uint64 bytes.LongLength
                     Name = "" }

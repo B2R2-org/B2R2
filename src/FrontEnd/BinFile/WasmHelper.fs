@@ -66,13 +66,11 @@ let importDescToSymKind desc =
   | ImpGlobal _ -> SymbolKind.ObjectType
 
 let importEntryToSymbol (importEntry: Import) =
-  {
-    Address = uint64 importEntry.Offset
+  { Address = uint64 importEntry.Offset
     Name = importEntry.Name
     Kind = importDescToSymKind importEntry.Desc
     Target = TargetKind.DynamicSymbol
-    LibraryName = importEntry.ModuleName
-  }
+    LibraryName = importEntry.ModuleName }
 
 let exportDescToSymKind desc =
   match desc with
@@ -82,13 +80,11 @@ let exportDescToSymKind desc =
   | ExpGlobal _ -> SymbolKind.ObjectType
 
 let exportEntryToSymbol (exportEntry: Export) =
-  {
-    Address = uint64 exportEntry.Offset
+  { Address = uint64 exportEntry.Offset
     Name = exportEntry.Name
     Kind = exportDescToSymKind exportEntry.Desc
     Target = TargetKind.DynamicSymbol
-    LibraryName = ""
-  }
+    LibraryName = "" }
 
 let getDynamicSymbols wm excludeImported =
   let excludeImported = defaultArg excludeImported false
@@ -127,12 +123,11 @@ let sectionIdToKind id =
   | _ -> SectionKind.ExtraSection
 
 let secSummaryToGenericSection (secSumm: SectionSummary) =
-  {
-    Address = uint64 secSumm.Offset
+  { Address = uint64 secSumm.Offset
+    FileOffset = uint64 secSumm.Offset
     Kind = sectionIdToKind secSumm.Id
     Size = uint64 (secSumm.HeaderSize + secSumm.ContentsSize)
-    Name = secSumm.Name
-  }
+    Name = secSumm.Name }
 
 let getSections wm =
   wm.SectionsInfo.SecArray

@@ -25,7 +25,6 @@
 namespace B2R2.FrontEnd.BinFile
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
 open System.Runtime.InteropServices
 
 /// FileInfo describes a binary file in a format-agnostic way.

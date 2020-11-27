@@ -117,6 +117,7 @@ let machSectionToSection segMap (sec: MachSection) =
   let perm: Permission = seg.InitProt |> LanguagePrimitives.EnumOfValue
   let isExecutable = perm.HasFlag Permission.Executable
   { Address = sec.SecAddr
+    FileOffset = uint64 sec.SecOffset
     Kind = secFlagToSectionKind isExecutable sec.SecType
     Size = sec.SecSize
     Name = sec.SecName }
