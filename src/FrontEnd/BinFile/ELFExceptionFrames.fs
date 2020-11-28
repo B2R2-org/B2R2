@@ -442,14 +442,14 @@ let rec getUnwind acc cfa irule rst rule isa rbay lr cf df rr span i loc =
     | DWCFAInstruction.DW_CFA_def_cfa_register ->
       let reg, cnt = LEB128.DecodeUInt64 (span.Slice i)
       let reg = byte reg
-      let rid = DWRegister.toRegID isa rbay reg
+      let rid = DWRegister.toRegID isa reg
       let oldOffset = extractOldOffset cfa
       let cfa = RegPlusOffset (rid, oldOffset)
       getUnwind acc cfa irule rst rule isa rbay reg cf df rr span (i + cnt) loc
     | DWCFAInstruction.DW_CFA_offset ->
       let v, cnt = LEB128.DecodeUInt64 (span.Slice i)
       let offset = int64 v * df
-      let target, action = Rule.offset isa rbay rr oparg offset
+      let target, action = Rule.offset isa rr oparg offset
       let rule = Map.add target action rule
       getUnwind acc cfa irule rst rule isa rbay lr cf df rr span (i + cnt) loc
     | DWCFAInstruction.DW_CFA_offset_extended ->
@@ -457,7 +457,7 @@ let rec getUnwind acc cfa irule rst rule isa rbay lr cf df rr span i loc =
       let reg = byte reg
       let i = i + cnt
       let offset, cnt = LEB128.DecodeUInt64 (span.Slice i)
-      let target, action = Rule.offset isa rbay rr reg (int64 offset)
+      let target, action = Rule.offset isa rr reg (int64 offset)
       let rule = Map.add target action rule
       getUnwind acc cfa irule rst rule isa rbay lr cf df rr span (i + cnt) loc
     | DWCFAInstruction.DW_CFA_offset_extended_sf ->
@@ -466,13 +466,13 @@ let rec getUnwind acc cfa irule rst rule isa rbay lr cf df rr span i loc =
       let i = i + cnt
       let v, cnt = LEB128.DecodeSInt64 (span.Slice i)
       let offset = v * df
-      let target, action = Rule.offset isa rbay rr reg offset
+      let target, action = Rule.offset isa rr reg offset
       let rule = Map.add target action rule
       getUnwind acc cfa irule rst rule isa rbay lr cf df rr span (i + cnt) loc
     | DWCFAInstruction.DW_CFA_undefined ->
       let reg, cnt = LEB128.DecodeUInt64 (span.Slice i)
       let reg = byte reg
-      let target = Rule.getTarget isa rbay rr reg
+      let target = Rule.getTarget isa rr reg
       let rule = Map.remove target rule
       getUnwind acc cfa irule rst rule isa rbay reg cf df rr span (i + cnt) loc
     | DWCFAInstruction.DW_CFA_register ->
@@ -481,8 +481,8 @@ let rec getUnwind acc cfa irule rst rule isa rbay lr cf df rr span i loc =
       let i = i + cnt
       let reg2, cnt = LEB128.DecodeUInt64 (span.Slice i)
       let reg2 = byte reg2
-      let target = Rule.getTarget isa rbay rr reg1
-      let action = Register (DWRegister.toRegID isa rbay reg2)
+      let target = Rule.getTarget isa rr reg1
+      let action = Register (DWRegister.toRegID isa reg2)
       let rule = Map.add target action rule
       getUnwind acc cfa irule rst rule isa rbay lr cf df rr span (i + cnt) loc
     | DWCFAInstruction.DW_CFA_expression ->
@@ -492,7 +492,7 @@ let rec getUnwind acc cfa irule rst rule isa rbay lr cf df rr span i loc =
       let v, cnt = LEB128.DecodeUInt64 (span.Slice i)
       let i = i + cnt
       let nextIdx = int v + i
-      let target = Rule.getTarget isa rbay rr reg
+      let target = Rule.getTarget isa rr reg
       let action = parseExprs isa rbay [] span i nextIdx |> ActionExpr
       let rule = Map.add target action rule
       getUnwind acc cfa irule rst rule isa rbay reg cf df rr span nextIdx loc
@@ -523,7 +523,7 @@ let rec getUnwind acc cfa irule rst rule isa rbay lr cf df rr span i loc =
       let rst = (cfa, rule) :: rst
       getUnwind acc cfa irule rst rule isa rbay lr cf df rr span i loc
     | DWCFAInstruction.DW_CFA_restore ->
-      let target = Rule.getTarget isa rbay rr oparg
+      let target = Rule.getTarget isa rr oparg
       let rule = restoreOne irule rule target
       getUnwind acc cfa irule rst rule isa rbay lr cf df rr span i loc
     | DWCFAInstruction.DW_CFA_restore_state ->

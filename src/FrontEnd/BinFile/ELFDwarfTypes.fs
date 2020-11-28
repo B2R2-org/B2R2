@@ -314,62 +314,62 @@ module DWOperation =
   let parse (b: byte) = EnumOfValue<byte, DWOperation> b
 
 module DWRegister =
-  let private toIntelx86Register (regbay: RegisterBay) = function
-    | 0uy -> regbay.RegIDFromString "EAX"
-    | 1uy -> regbay.RegIDFromString "ECX"
-    | 2uy -> regbay.RegIDFromString "EDX"
-    | 3uy -> regbay.RegIDFromString "EBX"
-    | 4uy -> regbay.RegIDFromString "ESP"
-    | 5uy -> regbay.RegIDFromString "EBP"
-    | 6uy -> regbay.RegIDFromString "ESI"
-    | 7uy -> regbay.RegIDFromString "EDI"
-    | 8uy -> regbay.RegIDFromString "EIP"
+  let private toIntelx86Register = function
+    | 0uy -> Intel.Register.toRegID Intel.Register.EAX
+    | 1uy -> Intel.Register.toRegID Intel.Register.ECX
+    | 2uy -> Intel.Register.toRegID Intel.Register.EDX
+    | 3uy -> Intel.Register.toRegID Intel.Register.EBX
+    | 4uy -> Intel.Register.toRegID Intel.Register.ESP
+    | 5uy -> Intel.Register.toRegID Intel.Register.EBP
+    | 6uy -> Intel.Register.toRegID Intel.Register.ESI
+    | 7uy -> Intel.Register.toRegID Intel.Register.EDI
+    | 8uy -> Intel.Register.toRegID Intel.Register.EIP
     | _ -> Utils.futureFeature ()
 
-  let private toIntelx64Register (regbay: RegisterBay) = function
-    | 0uy -> regbay.RegIDFromString "RAX"
-    | 1uy -> regbay.RegIDFromString "RDX"
-    | 2uy -> regbay.RegIDFromString "RCX"
-    | 3uy -> regbay.RegIDFromString "RBX"
-    | 4uy -> regbay.RegIDFromString "RSI"
-    | 5uy -> regbay.RegIDFromString "RDI"
-    | 6uy -> regbay.RegIDFromString "RBP"
-    | 7uy -> regbay.RegIDFromString "RSP"
-    | 8uy -> regbay.RegIDFromString "R8"
-    | 9uy -> regbay.RegIDFromString "R9"
-    | 10uy -> regbay.RegIDFromString "R10"
-    | 11uy -> regbay.RegIDFromString "R11"
-    | 12uy -> regbay.RegIDFromString "R12"
-    | 13uy -> regbay.RegIDFromString "R13"
-    | 14uy -> regbay.RegIDFromString "R14"
-    | 15uy -> regbay.RegIDFromString "R15"
-    | 16uy -> regbay.RegIDFromString "RIP"
-    | 17uy -> regbay.RegIDFromString "XMM0"
-    | 18uy -> regbay.RegIDFromString "XMM1"
-    | 19uy -> regbay.RegIDFromString "XMM2"
-    | 20uy -> regbay.RegIDFromString "XMM3"
-    | 21uy -> regbay.RegIDFromString "XMM4"
-    | 22uy -> regbay.RegIDFromString "XMM5"
-    | 23uy -> regbay.RegIDFromString "XMM6"
-    | 24uy -> regbay.RegIDFromString "XMM7"
-    | 25uy -> regbay.RegIDFromString "XMM8"
-    | 26uy -> regbay.RegIDFromString "XMM9"
-    | 27uy -> regbay.RegIDFromString "XMM10"
-    | 28uy -> regbay.RegIDFromString "XMM11"
-    | 29uy -> regbay.RegIDFromString "XMM12"
-    | 30uy -> regbay.RegIDFromString "XMM13"
-    | 31uy -> regbay.RegIDFromString "XMM14"
-    | 32uy -> regbay.RegIDFromString "XMM15"
+  let private toIntelx64Register = function
+    | 0uy -> Intel.Register.toRegID Intel.Register.RAX
+    | 1uy -> Intel.Register.toRegID Intel.Register.RDX
+    | 2uy -> Intel.Register.toRegID Intel.Register.RCX
+    | 3uy -> Intel.Register.toRegID Intel.Register.RBX
+    | 4uy -> Intel.Register.toRegID Intel.Register.RSI
+    | 5uy -> Intel.Register.toRegID Intel.Register.RDI
+    | 6uy -> Intel.Register.toRegID Intel.Register.RBP
+    | 7uy -> Intel.Register.toRegID Intel.Register.RSP
+    | 8uy -> Intel.Register.toRegID Intel.Register.R8
+    | 9uy -> Intel.Register.toRegID Intel.Register.R9
+    | 10uy -> Intel.Register.toRegID Intel.Register.R10
+    | 11uy -> Intel.Register.toRegID Intel.Register.R11
+    | 12uy -> Intel.Register.toRegID Intel.Register.R12
+    | 13uy -> Intel.Register.toRegID Intel.Register.R13
+    | 14uy -> Intel.Register.toRegID Intel.Register.R14
+    | 15uy -> Intel.Register.toRegID Intel.Register.R15
+    | 16uy -> Intel.Register.toRegID Intel.Register.RIP
+    | 17uy -> Intel.Register.toRegID Intel.Register.XMM0
+    | 18uy -> Intel.Register.toRegID Intel.Register.XMM1
+    | 19uy -> Intel.Register.toRegID Intel.Register.XMM2
+    | 20uy -> Intel.Register.toRegID Intel.Register.XMM3
+    | 21uy -> Intel.Register.toRegID Intel.Register.XMM4
+    | 22uy -> Intel.Register.toRegID Intel.Register.XMM5
+    | 23uy -> Intel.Register.toRegID Intel.Register.XMM6
+    | 24uy -> Intel.Register.toRegID Intel.Register.XMM7
+    | 25uy -> Intel.Register.toRegID Intel.Register.XMM8
+    | 26uy -> Intel.Register.toRegID Intel.Register.XMM9
+    | 27uy -> Intel.Register.toRegID Intel.Register.XMM10
+    | 28uy -> Intel.Register.toRegID Intel.Register.XMM11
+    | 29uy -> Intel.Register.toRegID Intel.Register.XMM12
+    | 30uy -> Intel.Register.toRegID Intel.Register.XMM13
+    | 31uy -> Intel.Register.toRegID Intel.Register.XMM14
+    | 32uy -> Intel.Register.toRegID Intel.Register.XMM15
     | _ -> Utils.futureFeature ()
 
-  let toRegID isa regbay regnum =
+  let toRegID isa regnum =
     match isa.Arch with
-    | Architecture.IntelX86 -> toIntelx86Register regbay regnum
-    | Architecture.IntelX64 -> toIntelx64Register regbay regnum
+    | Architecture.IntelX86 -> toIntelx86Register regnum
+    | Architecture.IntelX64 -> toIntelx64Register regnum
     | _ -> Utils.futureFeature ()
 
-  let toRegisterExpr isa regbay regnum =
-    toRegID isa regbay regnum |> regbay.RegIDToRegExpr
+  let toRegisterExpr isa (regbay: RegisterBay) regnum =
+    toRegID isa regnum |> regbay.RegIDToRegExpr
 
 /// The CFA. Machine-independent representation of the current frame address.
 /// For example, (esp+8) on x86.
@@ -380,7 +380,7 @@ type CanonicalFrameAddress =
 
 module CanonicalFrameAddress =
   let regPlusOffset isa regbay regnum offset =
-    RegPlusOffset (DWRegister.toRegID isa regbay regnum, offset)
+    RegPlusOffset (DWRegister.toRegID isa regnum, offset)
 
   let toString (regbay: RegisterBay) = function
   | RegPlusOffset (rid, offset) ->
@@ -426,12 +426,12 @@ type Target =
 type Rule = Map<Target, Action>
 
 module Rule =
-  let getTarget isa regbay returnAddressReg (reg: byte) =
+  let getTarget isa returnAddressReg (reg: byte) =
     if returnAddressReg = reg then ReturnAddress
-    else DWRegister.toRegID isa regbay reg |> NormalReg
+    else DWRegister.toRegID isa reg |> NormalReg
 
-  let offset isa regbay rr reg v =
-    getTarget isa regbay rr reg, Offset v
+  let offset isa rr reg v =
+    getTarget isa rr reg, Offset v
 
 /// An entry (a row) of the call frame information table (unwinding table).
 type UnwindingEntry = {
