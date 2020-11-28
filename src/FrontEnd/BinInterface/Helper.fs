@@ -119,7 +119,9 @@ let inline tryParseInstrFromAddr (fi: FileInfo) (parser: Parser) ctxt addr =
   with _ -> Error ErrorCase.ParsingFailure
 
 let inline parseInstrFromBinPtr (fi: FileInfo) parser ctxt (bp: BinaryPointer) =
-  (parser: Parser).Parse fi.BinReader ctxt bp.Addr bp.Offset
+  let ins = (parser: Parser).Parse fi.BinReader ctxt bp.Addr bp.Offset
+  if BinaryPointer.IsValidAccess bp (int ins.Length) then ins
+  else raise ParsingFailureException
 
 let inline tryParseInstrFromBinPtr (fi: FileInfo) (parser: Parser) ctxt bp =
   try parseInstrFromBinPtr fi parser ctxt bp |> Ok

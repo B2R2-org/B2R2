@@ -28,6 +28,17 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinFile
 
+/// Mach-specific virtual memory permission (for maxprot and initprot). Note
+/// that these values are different than the B2R2.Permission type.
+[<FlagsAttribute>]
+type MachVMProt =
+  /// File is readable.
+  | Readable = 1
+  /// File is writable.
+  | Writable = 2
+  /// File is executable.
+  | Executable = 4
+
 let getISA mach =
   let cputype = mach.MachHdr.CPUType
   let cpusubtype = mach.MachHdr.CPUSubType
@@ -114,8 +125,8 @@ let secFlagToSectionKind isExecutable = function
 
 let machSectionToSection segMap (sec: MachSection) =
   let seg = ARMap.findByAddr sec.SecAddr segMap
-  let perm: Permission = seg.InitProt |> LanguagePrimitives.EnumOfValue
-  let isExecutable = perm.HasFlag Permission.Executable
+  let perm: MachVMProt = seg.InitProt |> LanguagePrimitives.EnumOfValue
+  let isExecutable = perm.HasFlag MachVMProt.Executable
   { Address = sec.SecAddr
     FileOffset = uint64 sec.SecOffset
     Kind = secFlagToSectionKind isExecutable sec.SecType

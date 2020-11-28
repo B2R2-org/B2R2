@@ -137,9 +137,9 @@ type FileType =
 [<System.FlagsAttribute>]
 type Permission =
   /// File is readable.
-  | Readable   = 4
+  | Readable = 4
   /// File is writable.
-  | Writable   = 2
+  | Writable = 2
   /// File is executable.
   | Executable = 1
 

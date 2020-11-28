@@ -51,7 +51,7 @@ let createLinkageTableSymbolDic hdl =
   hdl.FileInfo.GetLinkageTableEntries ()
   |> Seq.iter (fun e ->
     if e.TrampolineAddress = 0UL then ()
-    else funcs.Add (e.TrampolineAddress, e.FuncName) |> ignore)
+    else funcs.TryAdd (e.TrampolineAddress, e.FuncName) |> ignore)
   funcs
 
 let getInstructionAlignment hdl =

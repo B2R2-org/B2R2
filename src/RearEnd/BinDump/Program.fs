@@ -104,6 +104,8 @@ let private getTblEntrySize hdl =
   | FileFormat.ELFBinary, Architecture.IntelX64 -> 16
   | FileFormat.ELFBinary, Architecture.ARMv7
   | FileFormat.ELFBinary, Architecture.AARCH32 -> 12
+  | FileFormat.MachBinary, Architecture.IntelX86
+  | FileFormat.MachBinary, Architecture.IntelX64 -> 6
   | _ -> Utils.futureFeature ()
 
 let private tblIter (sec: Section) entrySize fn =
@@ -123,6 +125,7 @@ let private disasTblDumper hdl opts cfg _optimizer (sec: Section) =
   let entrySize = getTblEntrySize hdl
   let funcs = createLinkageTableSymbolDic hdl |> Some
   tblIter sec entrySize (fun range -> printBlkDisasm hdl cfg opts range funcs)
+  Printer.println ()
 
 let private printTitle action name =
   Printer.printSectionTitle (action + " of section " + name + ":")
