@@ -30,8 +30,10 @@ open B2R2.BinIR
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinInterface
-open B2R2.RearEnd
 open B2R2.RearEnd.StringUtils
+
+/// The console printer.
+let internal out = ConsolePrinter () :> Printer
 
 let [<Literal>] illegalStr = "(illegal)"
 
@@ -71,20 +73,20 @@ let convertToHexStr bytes =
 
 let printLowUIR (lowUIRStr: string) bytes cfg =
   let hexStr = convertToHexStr bytes |> wrapSqrdBracket
-  Printer.printrow (false, cfg, [ hexStr ])
-  Printer.printrow (false, cfg, [ lowUIRStr ])
+  out.PrintRow (false, cfg, [ hexStr ])
+  out.PrintRow (false, cfg, [ lowUIRStr ])
 
 let inline printFuncSymbol (symDict: Dictionary<Addr, string>) addr =
   match symDict.TryGetValue (addr) with
   | false, _ -> ()
   | true, name ->
-    Printer.println ()
-    Printer.println (wrapAngleBracket name)
+    out.PrintLine ()
+    out.PrintLine (wrapAngleBracket name)
 
 let printRegularDisasm disasmStr wordSize addr bytes cfg =
   let hexStr = convertToHexStr bytes
   let addrStr = addrToString wordSize addr + ":"
-  Printer.printrow (false, cfg, [ addrStr; hexStr; disasmStr ])
+  out.PrintRow (false, cfg, [ addrStr; hexStr; disasmStr ])
 
 let regularDisPrinter (hdl: BinHandle) showSymbs bp ins cfg =
   let disasmStr = BinHandle.DisasmInstr hdl false showSymbs ins
@@ -107,7 +109,7 @@ let printColorDisasm words wordSize addr bytes cfg =
   let hexStr = convertToHexStr bytes
   let addrStr = addrToString wordSize addr + ":"
   let disasStr = convertToDisasmStr words
-  Printer.printrow (false, cfg,
+  out.PrintRow (false, cfg,
     [ [ Green, addrStr ]; [ NoColor, hexStr ]; disasStr ])
 
 let colorDisPrinter (hdl: BinHandle) _ bp (ins: Instruction) cfg =

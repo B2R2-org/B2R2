@@ -8,9 +8,6 @@
 
   <ItemGroup>
     <Compile Include="StringUtils.fs" />
-    <Compile Include="ColoredString.fs" />
-    <Compile Include="OutString.fs" />
-    <Compile Include="Printer.fs" />
     <Compile Include="HexDumper.fs" />
     <Compile Include="CmdOpts.fs" />
   </ItemGroup>

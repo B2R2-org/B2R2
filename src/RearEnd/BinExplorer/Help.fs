@@ -24,7 +24,7 @@
 
 namespace B2R2.RearEnd.BinExplorer
 
-open B2R2.RearEnd
+open B2R2
 
 type CmdHelp () =
   inherit Cmd ()

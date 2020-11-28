@@ -25,9 +25,9 @@
 namespace B2R2.RearEnd.BinExplorer
 
 open System
+open B2R2
 open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.BinEssence
-open B2R2.RearEnd
 
 type CmdDisasm () =
   inherit Cmd ()

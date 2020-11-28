@@ -28,7 +28,7 @@ exception InvalidWhiteningException
 
 exception KeyNotFoundException
 
-type Color =
+type internal RBColor =
   /// Red
   | R
   /// Black
@@ -39,8 +39,8 @@ type Color =
   | NB
 
 type ARMap<'V> =
-  | Leaf of Color
-  | Node of Color * AddrRange * 'V * ARMap<'V> * ARMap<'V>
+  | Leaf of RBColor
+  | Node of RBColor * AddrRange * 'V * ARMap<'V> * ARMap<'V>
 
 [<RequireQualifiedAccess>]
 module ARMap =

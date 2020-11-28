@@ -31,6 +31,7 @@ open B2R2.MiddleEnd.Lens
 open B2R2.MiddleEnd.Reclaimer
 open B2R2.RearEnd
 open B2R2.RearEnd.Visualization
+open B2R2.RearEnd.BinExplorer.CmdUtils
 
 type BinExplorerOpts (isa) =
   inherit CmdOpts()
@@ -256,7 +257,7 @@ let batchRun opts paths fstParam restParams fn =
 let runCommand cmdMap opts file cmd args =
   let ess = initBinHdl ISA.DefaultISA file |> buildGraph opts
   Cmd.handle cmdMap ess cmd args
-  |> Array.iter Printer.print
+  |> Array.iter out.Print
 
 let dumpSwitch _cmdMap opts file outdir _args =
   let ess = initBinHdl ISA.DefaultISA file |> buildGraph opts

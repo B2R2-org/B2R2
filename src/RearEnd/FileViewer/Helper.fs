@@ -27,6 +27,9 @@ module B2R2.RearEnd.FileViewer.Helper
 open B2R2
 open B2R2.FrontEnd.BinFile
 
+/// The console printer.
+let internal out = ConsolePrinter () :> Printer
+
 let normalizeEmpty s =
   if System.String.IsNullOrEmpty s then "(n/a)" else s
 

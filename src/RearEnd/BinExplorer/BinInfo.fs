@@ -27,7 +27,6 @@ namespace B2R2.RearEnd.BinExplorer
 open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.MiddleEnd.BinEssence
-open B2R2.RearEnd
 
 type CmdBinInfo () =
   inherit Cmd ()

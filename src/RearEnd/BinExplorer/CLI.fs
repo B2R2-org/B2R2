@@ -25,10 +25,10 @@
 module internal B2R2.RearEnd.BinExplorer.CLI
 
 open B2R2
-open B2R2.RearEnd
+open B2R2.RearEnd.BinExplorer.CmdUtils
 
 let cliPrinter arbiter () (output: OutString) =
-  Printer.println output
+  out.PrintLine output
   OutString.toString output |> Protocol.logString arbiter
 
 let handle cmds arbiter (line: string) acc printer =

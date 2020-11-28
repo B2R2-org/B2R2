@@ -61,13 +61,13 @@ type CmdOpts () =
   /// end.
   static member WriteB2R2 newLine =
     [ CS.dcyan "B"; CS.dyellow "2"; CS.dcyan "R"; CS.dyellow "2" ]
-    |> Printer.print
-    if newLine then Printer.println () else ()
+    |> Printer.printToConsole
+    if newLine then Printer.printToConsoleLine () else ()
 
   static member private WriteIntro () =
     CmdOpts.WriteB2R2 false
-    Printer.println (", the Next-Generation Reversing Platform")
-    Printer.println (Attribution.copyright + Environment.NewLine)
+    Printer.printToConsoleLine (", the Next-Generation Reversing Platform")
+    Printer.printToConsoleLine (Attribution.copyright + Environment.NewLine)
 
   static member private CreateUsageGetter tool usageTail =
     fun () ->
@@ -113,7 +113,8 @@ type CmdOpts () =
     let rec sanitize = function
       | (arg: string) :: rest ->
         if arg.StartsWith ('-') then
-          Printer.printError <| sprintf "Invalid argument (%s) is used" arg
+          Printer.printErrorToConsole
+          <| sprintf "Invalid argument (%s) is used" arg
           exit 1
         else sanitize rest
       | [] -> ()

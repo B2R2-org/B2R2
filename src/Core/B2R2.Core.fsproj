@@ -16,6 +16,9 @@
     <Compile Include="TypeExtensions.fs" />
     <Compile Include="Monads.fs" />
     <Compile Include="Errors.fs" />
+    <Compile Include="ColoredString.fs" />
+    <Compile Include="OutString.fs" />
+    <Compile Include="Printer.fs" />
     <Compile Include="RegType.fs" />
     <Compile Include="RegisterID.fs" />
     <Compile Include="BaseRegisterSet.fs" />

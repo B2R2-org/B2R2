@@ -34,8 +34,8 @@ let [<Literal>] private toolName = "bindump"
 let [<Literal>] private usageTail = "<binary file(s) | -s hexstring>"
 
 let private printFileName (filepath: string) =
-  Printer.println (StringUtils.wrapSqrdBracket filepath)
-  Printer.println ()
+  out.PrintLine (StringUtils.wrapSqrdBracket filepath)
+  out.PrintLine ()
 
 let private getTableConfig hdl isLift =
   if isLift then [ LeftAligned 10 ]
@@ -52,14 +52,14 @@ let private dumpRawBinary (hdl: BinHandle) (opts: BinDumpOpts) cfg =
   let optimizer = getOptimizer opts
   if opts.ShowLowUIR then printBlkLowUIR hdl cfg optimizer bp
   else printBlkDisasm hdl cfg opts bp None
-  Printer.println ()
+  out.PrintLine ()
 
 let printHexdump (opts: BinDumpOpts) sec hdl =
   let bp = BinaryPointer.OfSection sec
   let bytes = BinHandle.ReadBytes (hdl, bp=bp, nBytes=int sec.Size)
   let chunkSize = if opts.ShowWide then 32 else 16
   HexDumper.dump chunkSize hdl.FileInfo.WordSize opts.ShowColor bp.Addr bytes
-  |> Array.iter Printer.println
+  |> Array.iter out.PrintLine
 
 let private hasNoContent (sec: Section) (fi: FileInfo) =
   match fi with
@@ -71,9 +71,9 @@ let private hasNoContent (sec: Section) (fi: FileInfo) =
 
 let dumpHex (opts: BinDumpOpts) (sec: Section) hdl =
   if hasNoContent sec hdl.FileInfo then
-    Printer.printTwoCols "" "NOBITS section."
+    out.PrintTwoCols "" "NOBITS section."
   else printHexdump opts sec hdl
-  Printer.println ()
+  out.PrintLine ()
 
 let private createBinHandleFromPath (opts: BinDumpOpts) filepath forceRawBin =
   BinHandle.Init (
@@ -92,11 +92,11 @@ let private isRawBinary hdl =
 
 let private irDumper hdl _opts cfg optimizer _funcs sec =
   printBlkLowUIR hdl cfg optimizer (BinaryPointer.OfSection sec)
-  Printer.println ()
+  out.PrintLine ()
 
 let private disasDumper hdl opts cfg _optimizer funcs sec =
   printBlkDisasm hdl cfg opts (BinaryPointer.OfSection sec) funcs
-  Printer.println ()
+  out.PrintLine ()
 
 let private getTblEntrySize hdl =
   match hdl.FileInfo.FileFormat, hdl.ISA.Arch with
@@ -109,7 +109,7 @@ let private getTblEntrySize hdl =
   | _ -> Utils.futureFeature ()
 
 let private tblIter (sec: Section) entrySize fn =
-  Printer.println (StringUtils.wrapAngleBracket sec.Name)
+  out.PrintLine (StringUtils.wrapAngleBracket sec.Name)
   let rec loop bp =
     if BinaryPointer.IsValid bp then
       fn (BinaryPointer (bp.Addr, bp.Offset, bp.Offset + entrySize))
@@ -125,10 +125,10 @@ let private disasTblDumper hdl opts cfg _optimizer (sec: Section) =
   let entrySize = getTblEntrySize hdl
   let funcs = createLinkageTableSymbolDic hdl |> Some
   tblIter sec entrySize (fun range -> printBlkDisasm hdl cfg opts range funcs)
-  Printer.println ()
+  out.PrintLine ()
 
 let private printTitle action name =
-  Printer.printSectionTitle (action + " of section " + name + ":")
+  out.PrintSectionTitle (action + " of section " + name + ":")
 
 let private dumpSections hdl (opts: BinDumpOpts) (sections: seq<Section>) cfg =
   let optimizer = getOptimizer opts
@@ -173,16 +173,17 @@ let dumpFile (opts: BinDumpOpts) filepath =
 let dumpFileMode files (opts: BinDumpOpts) =
   match List.partition System.IO.File.Exists files with
   | [], [] ->
-    Printer.printError "File(s) must be given."
+    Printer.printErrorToConsole "File(s) must be given."
     CmdOpts.PrintUsage toolName usageTail Cmd.spec
   | files, [] -> files |> List.iter (dumpFile opts)
-  | _, errs -> Printer.printError ("File(s) " + errs.ToString() + " not found!")
+  | _, errs ->
+    Printer.printErrorToConsole ("File(s) " + errs.ToString() + " not found!")
 
 let private assertBinaryLength hdl hexstr =
   let multiplier = getInstructionAlignment hdl
   if (Array.length hexstr) % multiplier = 0 then ()
   else
-    Printer.printError <|
+    Printer.printErrorToConsole <|
       "The hex string length must be multiple of " + multiplier.ToString ()
     exit 1
 
@@ -200,15 +201,18 @@ let dumpHexStringMode (opts: BinDumpOpts) =
   let bp = BinaryPointer (0UL, 0, opts.InputHexStr.Length)
   if opts.ShowLowUIR then printBlkLowUIR hdl cfg optimizer bp
   else printBlkDisasm hdl cfg opts bp None
-  Printer.println ()
+  out.PrintLine ()
 
 let private dump files (opts: BinDumpOpts) =
 #if DEBUG
   let sw = System.Diagnostics.Stopwatch.StartNew ()
 #endif
   CmdOpts.SanitizeRestArgs files
-  if Array.isEmpty opts.InputHexStr then dumpFileMode files opts
-  else dumpHexStringMode opts
+  try
+    if Array.isEmpty opts.InputHexStr then dumpFileMode files opts
+    else dumpHexStringMode opts
+  finally
+    out.Flush ()
 #if DEBUG
   sw.Stop ()
   eprintfn "Total dump time: %f sec." sw.Elapsed.TotalSeconds

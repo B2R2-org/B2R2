@@ -25,6 +25,10 @@
 module B2R2.RearEnd.BinExplorer.CmdUtils
 
 open System
+open B2R2
+
+/// The console printer.
+let internal out = ConsolePrinter () :> Printer
 
 let convHexString (str: string) =
   try Convert.ToUInt64 (str, 16) |> Some

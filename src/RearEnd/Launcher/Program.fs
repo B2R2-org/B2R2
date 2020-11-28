@@ -29,7 +29,7 @@ open B2R2
 open B2R2.RearEnd
 
 let showUsage () =
-  Printer.println """
+  Printer.printToConsole """
          ''''''''''
       .;'          ';.
      ;' o      o     ';           888888b.           8888888b.
@@ -96,7 +96,7 @@ let printMyVersion () =
   let asm = Assembly.GetEntryAssembly ()
   let attr = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute> ()
   attr.InformationalVersion.ToString ()
-  |> Printer.println
+  |> Printer.printToConsole
 
 let handleCommands (cmd: string) (rest: string []) =
   match cmd.ToLower () with
