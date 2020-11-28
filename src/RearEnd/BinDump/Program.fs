@@ -200,9 +200,16 @@ let dumpHexStringMode (opts: BinDumpOpts) =
   Printer.println ()
 
 let private dump files (opts: BinDumpOpts) =
+#if DEBUG
+  let sw = System.Diagnostics.Stopwatch.StartNew ()
+#endif
   CmdOpts.SanitizeRestArgs files
   if Array.isEmpty opts.InputHexStr then dumpFileMode files opts
   else dumpHexStringMode opts
+#if DEBUG
+  sw.Stop ()
+  eprintfn "Total dump time: %f sec." sw.Elapsed.TotalSeconds
+#endif
 
 [<EntryPoint>]
 let main args =
