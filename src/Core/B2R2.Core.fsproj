@@ -7,11 +7,6 @@
     <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
-  <Target Name="BuildStdBuf" BeforeTargets="BeforeBuild"
-          Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true' And $(DefineConstants.Contains(LIBFPU))">
-    <Exec Command="make -C ../../lib/libfpu" />
-  </Target>
-
   <ItemGroup>
     <Compile Include="TypeExtensions.fs" />
     <Compile Include="Monads.fs" />
