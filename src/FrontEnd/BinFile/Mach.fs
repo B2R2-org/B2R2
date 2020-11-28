@@ -63,6 +63,10 @@ type MachFileInfo (bytes, path, isa, baseAddr) =
   override __.IsLinkageTable addr = isPLT mach addr
   override __.TryFindFunctionSymbolName (addr) = tryFindFuncSymb mach addr
   override __.ExceptionTable = ARMap.empty
+  override __.ToBinaryPointer addr =
+    BinaryPointer.OfSectionOpt (getSectionsByAddr mach addr |> Seq.tryHead)
+  override __.ToBinaryPointer name =
+    BinaryPointer.OfSectionOpt (getSectionsByName mach name |> Seq.tryHead)
   override __.IsValidAddr addr = isValidAddr mach addr
   override __.IsValidRange range = isValidRange mach range
   override __.IsInFileAddr addr = isInFileAddr mach addr

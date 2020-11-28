@@ -54,6 +54,17 @@ with
   member ReadBytes: addr: Addr * nBytes: int -> byte []
 
   /// <summary>
+  ///   Return the byte array of size (nBytes) pointed to by the binary pointer
+  ///   (bp).
+  /// </summary>
+  /// <param name="bp">BInaryPointer.</param>
+  /// <param name="nBytes">The size of the byte array (in bytes).</param>
+  /// <returns>
+  ///   Return the byte array if succeed. Otherwise, raise an exception.
+  /// </returns>
+  member ReadBytes: bp: BinaryPointer * nBytes: int -> byte []
+
+  /// <summary>
   ///   Return the corresponding integer value at the addr of the size from the
   ///   current binary.
   /// </summary>
@@ -64,6 +75,18 @@ with
   ///   Return the corresponding integer (int64).
   /// </returns>
   member ReadInt: addr: Addr * size: int -> int64
+
+  /// <summary>
+  ///   Return the corresponding integer value of the size from the current
+  ///   binary, which is pointed to by the binary pointer (bp).
+  /// </summary>
+  /// <param name="addr">The address.</param>
+  /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
+  /// possible.</param>
+  /// <returns>
+  ///   Return the corresponding integer (int64).
+  /// </returns>
+  member ReadInt: bp: BinaryPointer * size: int -> int64
 
   /// <summary>
   ///   Return the corresponding unsigned integer value at the addr of the size
@@ -78,9 +101,31 @@ with
   member ReadUInt: addr: Addr * size: int -> uint64
 
   /// <summary>
+  ///   Return the corresponding unsigned integer value of the size from the
+  ///   binary, which is pointed to by the binary pointer (bp).
+  /// </summary>
+  /// <param name="bp">BinaryPointer.</param>
+  /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
+  /// possible.</param>
+  /// <returns>
+  ///   Return the corresponding unsigned integer (uint64).
+  /// </returns>
+  member ReadUInt: bp: BinaryPointer * size: int -> uint64
+
+  /// <summary>
   ///   Return the ASCII string at the addr from the given BinHandle.
   /// </summary>
   /// <param name="addr">The address.</param>
+  /// <returns>
+  ///   Return the corresponding ASCII string.
+  /// </returns>
+  member ReadASCII: addr: Addr -> string
+
+  /// <summary>
+  ///   Return the ASCII string pointed to by the binary pointer from the given
+  ///   BinHandle.
+  /// </summary>
+  /// <param name="bp">BinaryPointer.</param>
   /// <returns>
   ///   Return the corresponding ASCII string.
   /// </returns>
@@ -199,7 +244,7 @@ with
 
   /// <summary>
   ///   Update BinHandle to have new code at a new address (addr). BinHandle
-  ///   is immutable.
+  ///   is *immutable*.
   /// </summary>
   /// <param name="hdl">The new address to use.</param>
   /// <param name="addr">The new address to use.</param>
@@ -210,8 +255,8 @@ with
 
   /// <summary>
   ///   Return the byte array of size (nBytes) at the addr from the given
-  ///   BinHandle. The return value is an option type. When the given address
-  ///   is invalid, this function returns None.
+  ///   BinHandle (hdl). The return value is an option type. When the given
+  ///   address is invalid, this function returns None.
   /// </summary>
   /// <param name="hdl">BinHandle.</param>
   /// <param name="addr">The address.</param>
@@ -221,6 +266,21 @@ with
   /// </returns>
   static member TryReadBytes:
     hdl: BinHandle * addr: Addr * nBytes: int -> Result<byte [], ErrorCase>
+
+  /// <summary>
+  ///   Return the byte array of size (nBytes) from the BinHandler (hdl), which
+  ///   is pointed to by the BinaryPointer (bp). The return value is an option
+  ///   type. When the given address is invalid, this function returns None.
+  /// </summary>
+  /// <param name="hdl">BinHandle.</param>
+  /// <param name="bp">BinaryPointer.</param>
+  /// <param name="nBytes">The size of the byte array (in bytes).</param>
+  /// <returns>
+  ///   Return (byte []) if succeeded, (ErrorCase) otherwise.
+  /// </returns>
+  static member TryReadBytes:
+    hdl: BinHandle * bp: BinaryPointer * nBytes: int
+    -> Result<byte [], ErrorCase>
 
   /// <summary>
   ///   Return the byte array of size (nBytes) at the addr from the given
@@ -234,6 +294,19 @@ with
   /// </returns>
   static member ReadBytes:
     hdl: BinHandle * addr: Addr * nBytes: int -> byte []
+
+  /// <summary>
+  ///   Return the byte array of size (nBytes) from the given BinHandle, which
+  ///   is pointed to by the BinaryPointer (bp).
+  /// </summary>
+  /// <param name="hdl">BinHandle.</param>
+  /// <param name="bp">BinaryPointer.</param>
+  /// <param name="nBytes">The size of the byte array (in bytes).</param>
+  /// <returns>
+  ///   Return the byte array if succeed. Otherwise, raise an exception.
+  /// </returns>
+  static member ReadBytes:
+    hdl: BinHandle * bp: BinaryPointer * nBytes: int -> byte []
 
   /// <summary>
   ///   Return the corresponding integer option value at the addr of the size
@@ -251,6 +324,21 @@ with
     hdl: BinHandle * addr: Addr * size: int -> Result<int64, ErrorCase>
 
   /// <summary>
+  ///   Return the corresponding integer option value of the size from the given
+  ///   BinHandle (hdl), which is pointed to by the binary pointer (bp).
+  /// </summary>
+  /// <param name="hdl">BinHandle.</param>
+  /// <param name="bp">BinaryPointer.</param>
+  /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
+  /// possible.</param>
+  /// <returns>
+  ///   Return the corresponding value (int64) if the address and the size is
+  ///   valid. Otherwise ErrorCase.
+  /// </returns>
+  static member TryReadInt:
+    hdl: BinHandle * bp: BinaryPointer * size: int -> Result<int64, ErrorCase>
+
+  /// <summary>
   ///   Return the corresponding integer value at the addr of the size from the
   ///   given BinHandle.
   /// </summary>
@@ -263,6 +351,20 @@ with
   /// </returns>
   static member ReadInt:
     hdl: BinHandle * addr: Addr * size: int -> int64
+
+  /// <summary>
+  ///   Return the corresponding integer value of the size from the given
+  ///   BinHandle (hdl), which is pointed to by the binary pointer (bp).
+  /// </summary>
+  /// <param name="hdl">BinHandle.</param>
+  /// <param name="bp">BinaryPointer.</param>
+  /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
+  /// possible.</param>
+  /// <returns>
+  ///   Return the corresponding integer (int64).
+  /// </returns>
+  static member ReadInt:
+    hdl: BinHandle * bp: BinaryPointer * size: int -> int64
 
   /// <summary>
   ///   Return the corresponding unsigned integer option value at the addr of
@@ -280,6 +382,22 @@ with
     hdl: BinHandle * addr: Addr * size: int -> Result<uint64, ErrorCase>
 
   /// <summary>
+  ///   Return the corresponding unsigned integer option value of the size from
+  ///   the given BinHandle (hdl), which is pointed to by the binary pointer
+  ///   (bp).
+  /// </summary>
+  /// <param name="hdl">BinHandle.</param>
+  /// <param name="bp">BinaryPointer.</param>
+  /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
+  /// possible.</param>
+  /// <returns>
+  ///   Return the corresponding unsigned integer (uint64) if the address and
+  ///   the size is valid. Otherwise, ErrorCase.
+  /// </returns>
+  static member TryReadUInt:
+    hdl: BinHandle * bp: BinaryPointer * size: int -> Result<uint64, ErrorCase>
+
+  /// <summary>
   ///   Return the corresponding unsigned integer value at the addr of the size
   ///   from the given BinHandle.
   /// </summary>
@@ -294,6 +412,20 @@ with
     hdl: BinHandle * addr: Addr * size: int -> uint64
 
   /// <summary>
+  ///   Return the corresponding unsigned integer value of the size from the
+  ///   given BinHandle (hdl), which is pointed to by the binary pointer (bp).
+  /// </summary>
+  /// <param name="hdl">BinHandle.</param>
+  /// <param name="bp">BinaryPointer.</param>
+  /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
+  /// possible.</param>
+  /// <returns>
+  ///   Return the corresponding unsigned integer (uint64).
+  /// </returns>
+  static member ReadUInt:
+    hdl: BinHandle * bp: BinaryPointer * size: int -> uint64
+
+  /// <summary>
   ///   Return the ASCII string at the addr from the given BinHandle.
   /// </summary>
   /// <param name="hdl">BinHandle.</param>
@@ -303,6 +435,18 @@ with
   /// </returns>
   static member ReadASCII:
     hdl: BinHandle * addr: Addr -> string
+
+  /// <summary>
+  ///   Return the ASCII string pointed to by the binary pointer from the given
+  ///   BinHandle.
+  /// </summary>
+  /// <param name="hdl">BinHandle.</param>
+  /// <param name="bp">BinaryPointer.</param>
+  /// <returns>
+  ///   Return the corresponding ASCII string.
+  /// </returns>
+  static member ReadASCII:
+    hdl: BinHandle * bp: BinaryPointer -> string
 
   /// <summary>
   ///   Parse one instruction at the given address (addr) from the BinHandle,
@@ -315,7 +459,20 @@ with
   ///   Parsed instruction.
   /// </returns>
   static member ParseInstr:
-    hdl: BinHandle -> ParsingContext -> addr: Addr -> Instruction
+    hdl: BinHandle * ParsingContext * addr: Addr -> Instruction
+
+  /// <summary>
+  ///   Parse one instruction pointed to by binary pointer (bp) from the
+  ///   BinHandle, and return the corresponding instruction. This function
+  ///   raises an exception if the parsing process failed.
+  /// </summary>
+  /// <param name="hdl">BinHandle.</param>
+  /// <param name="bp">BinaryPointer.</param>
+  /// <returns>
+  ///   Parsed instruction.
+  /// </returns>
+  static member ParseInstr:
+    hdl: BinHandle * ParsingContext * bp: BinaryPointer -> Instruction
 
   /// <summary>
   ///   Parse one instruction at the given address (addr) from the BinHandle,
@@ -328,9 +485,21 @@ with
   ///   Parsed instruction (option type).
   /// </returns>
   static member TryParseInstr:
-       hdl: BinHandle
-    -> ParsingContext
-    -> addr: Addr
+    hdl: BinHandle * ParsingContext * addr: Addr
+    -> Result<Instruction, ErrorCase>
+
+  /// <summary>
+  ///   Parse one instruction pointed to by the binary pointer (bp) from the
+  ///   BinHandle, and return the corresponding instruction. This function does
+  ///   not raise an exception, but returns an option type.
+  /// </summary>
+  /// <param name="hdl">BinHandle.</param>
+  /// <param name="bp">BinaryPointer.</param>
+  /// <returns>
+  ///   Parsed instruction (option type).
+  /// </returns>
+  static member TryParseInstr:
+       hdl: BinHandle * ParsingContext * bp: BinaryPointer
     -> Result<Instruction, ErrorCase>
 
   /// Parse a basic block from the given address, and return the sequence of the
@@ -338,9 +507,15 @@ with
   /// basic block as an Error type. This function can be safely used for any
   /// ISAs, and thus, this should be the main parsing function.
   static member ParseBBlock:
-       BinHandle
-    -> ParsingContext
-    -> addr:Addr
+       BinHandle * ParsingContext * addr: Addr
+    -> Result<Instruction list * ParsingContext, Instruction list>
+
+  /// Parse a basic block pointed to by the binary pointer (bp), and return the
+  /// sequence of the instructions of the basic block. This function may return
+  /// an incomplete basic block as an Error type. This function can be safely
+  /// used for any ISAs, and thus, this should be the main parsing function.
+  static member ParseBBlock:
+       BinHandle * ParsingContext * bp: BinaryPointer
     -> Result<Instruction list * ParsingContext, Instruction list>
 
   /// Lift a parsed instruction (Instruction) to produce an array of IR
@@ -352,25 +527,17 @@ with
   /// given address. This function returns a partial bblock with Error, if the
   /// parsing of the bblock was not successful.
   static member LiftBBlock:
-       hdl: BinHandle
-    -> ParsingContext
-    -> addr: Addr
+       hdl: BinHandle * ParsingContext * addr: Addr
     -> Result<(LowUIR.Stmt [] * Addr * ParsingContext),
               (LowUIR.Stmt [] * Addr)>
 
-  /// Return the lifted IR (an array of statements) of a basic block at the
-  /// given address. This function returns a partial bblock with Error, if the
-  /// parsing of the bblock was not successful. Unlike liftBBlock where the end
-  /// of a basic block is decided by insInfo, liftIRBBlock decides the end of a
-  /// basic block when any branch IR statement is encountered. This means that
-  /// control flows within complex instructions like rep are reflected in
-  /// splitting basic blocks.
-  static member LiftIRBBlock:
-       hdl: BinHandle
-    -> ParsingContext
-    -> addr: Addr
-    -> Result<((Instruction * LowUIR.Stmt []) list * ParsingContext * Addr),
-              'a list>
+  /// Return the lifted IR (an array of statements) of a basic block pointed to
+  /// by the binary pointer (bp). This function returns a partial bblock with
+  /// Error, if the parsing of the bblock was not successful.
+  static member LiftBBlock:
+       hdl: BinHandle * ParsingContext * bp: BinaryPointer
+    -> Result<(LowUIR.Stmt [] * BinaryPointer * ParsingContext),
+              (LowUIR.Stmt [] * BinaryPointer)>
 
   /// <summary>
   ///   Return a disassembled string from the parsed instruction.
@@ -410,12 +577,27 @@ with
   ///   successful.
   /// </summary>
   static member DisasmBBlock:
-       hdl: BinHandle
-    -> ParsingContext
-    -> showAddr:bool
-    -> resolveSymbol: bool
-    -> addr: Addr
+    hdl: BinHandle
+    * ParsingContext
+    * showAddr:bool
+    * resolveSymbol: bool
+    * addr: Addr
     -> Result<(string * Addr * ParsingContext), (string * Addr)>
+
+  /// <summary>
+  ///   Return the disassembled string for a basic block starting at address
+  ///   pointed to by the binary pointer (bp) along with the fall-through
+  ///   address of the block. This function returns a partial disassembly if
+  ///   parsing of the bblock was not successful.
+  /// </summary>
+  static member DisasmBBlock:
+    hdl: BinHandle
+    * ParsingContext
+    * showAddr:bool
+    * resolveSymbol: bool
+    * bp: BinaryPointer
+    -> Result<(string * BinaryPointer * ParsingContext),
+              (string * BinaryPointer)>
 
   /// <summary>
   /// Return optimized statements from the given statements.

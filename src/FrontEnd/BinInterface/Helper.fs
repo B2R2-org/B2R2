@@ -69,20 +69,6 @@ let isARM (isa: ISA) =
   | Arch.ARMv7 | Arch.AARCH32 | Arch.AARCH64 -> true
   | _ -> false
 
-let inline lift translator addr bbl =
-  let liftFolder (stmts, nextAddr) (ins: Instruction) =
-    ins.Translate translator :: stmts, nextAddr + uint64 ins.Length
-  let stmts, addr = List.fold liftFolder ([], addr) bbl
-  struct (List.rev stmts |> Array.concat, addr)
-
-let inline disasm showAddr resolveSymbol disasmHelper addr bbl =
-  let disasmFolder (sb: StringBuilder, nextAddr) (ins: Instruction) =
-    let s = ins.Disasm (showAddr, resolveSymbol, disasmHelper)
-    let s = if sb.Length = 0 then s else System.Environment.NewLine + s
-    sb.Append(s), nextAddr + uint64 ins.Length
-  let sb, addr = List.fold disasmFolder (StringBuilder (), addr) bbl
-  struct (sb.ToString (), addr)
-
 /// Classify ranges to be either in-file or not-in-file. The second parameter
 /// (notinfiles) is a sequence of (exclusive) ranges within the myrange, which
 /// represent the not-in-file ranges. This function will simply divide the
@@ -100,3 +86,118 @@ let classifyRanges myrange notinfiles =
        if saddr = myrange.Max then infiles
        else ((AddrRange (saddr, myrange.Max), true) :: infiles))
   |> List.rev
+
+let inline readIntBySize (fi: FileInfo) pos size =
+  match size with
+  | 1 -> fi.BinReader.PeekInt8 pos |> int64 |> Ok
+  | 2 -> fi.BinReader.PeekInt16 pos |> int64 |> Ok
+  | 4 -> fi.BinReader.PeekInt32 pos |> int64 |> Ok
+  | 8 -> fi.BinReader.PeekInt64 pos |> Ok
+  | _ -> Error ErrorCase.InvalidMemoryRead
+
+let inline readUIntBySize (fi: FileInfo) pos size =
+  match size with
+  | 1 -> fi.BinReader.PeekUInt8 pos |> uint64 |> Ok
+  | 2 -> fi.BinReader.PeekUInt16 pos |> uint64 |> Ok
+  | 4 -> fi.BinReader.PeekUInt32 pos |> uint64 |> Ok
+  | 8 -> fi.BinReader.PeekUInt64 pos |> Ok
+  | _ -> Error ErrorCase.InvalidMemoryRead
+
+let inline readASCII (fi: FileInfo) pos =
+  let rec loop acc pos =
+    let b = fi.BinReader.PeekByte pos
+    if b = 0uy then List.rev (b :: acc) |> List.toArray
+    else loop (b :: acc) (pos + 1)
+  loop [] pos
+
+let inline parseInstrFromAddr (fi: FileInfo) (parser: Parser) ctxt addr =
+  fi.TranslateAddress addr
+  |> parser.Parse fi.BinReader ctxt addr
+
+let inline tryParseInstrFromAddr (fi: FileInfo) (parser: Parser) ctxt addr =
+  try parseInstrFromAddr fi parser ctxt addr |> Ok
+  with _ -> Error ErrorCase.ParsingFailure
+
+let inline parseInstrFromBinPtr (fi: FileInfo) parser ctxt (bp: BinaryPointer) =
+  (parser: Parser).Parse fi.BinReader ctxt bp.Addr bp.Offset
+
+let inline tryParseInstrFromBinPtr (fi: FileInfo) (parser: Parser) ctxt bp =
+  try parseInstrFromBinPtr fi parser ctxt bp |> Ok
+  with _ -> Error ErrorCase.ParsingFailure
+
+let advanceAddr addr len =
+  addr + uint64 len
+
+let rec parseBBLAux fi parser ctxt tryParseFn advanceFn pos acc =
+  match tryParseFn fi parser ctxt pos with
+  | Ok (ins: Instruction) ->
+    let ctxt = ins.NextParsingContext
+    if ins.IsExit () then Ok (List.rev (ins :: acc), ctxt)
+    else
+      let pos = advanceFn pos (int ins.Length)
+      parseBBLAux fi parser ctxt tryParseFn advanceFn pos (ins :: acc)
+  | Error _ -> Error <| List.rev acc
+
+let inline parseBBLFromAddr (fi: FileInfo) (parser: Parser) ctxt addr =
+  parseBBLAux fi parser ctxt tryParseInstrFromAddr advanceAddr addr []
+
+let inline parseBBLFromBinPtr (fi: FileInfo) (parser: Parser) ctxt bp =
+  parseBBLAux fi parser ctxt tryParseInstrFromBinPtr BinaryPointer.Advance bp []
+
+let rec liftBBLAux acc advanceFn trctxt pos = function
+  | (ins: Instruction) :: rest ->
+    let pos = advanceFn pos (int ins.Length)
+    liftBBLAux (ins.Translate trctxt :: acc) advanceFn trctxt pos rest
+  | [] -> struct (List.rev acc |> Array.concat, pos)
+
+let inline liftBBLFromAddr fi parser trctxt pctxt addr =
+  match parseBBLFromAddr fi parser pctxt addr with
+  | Ok (bbl, ctxt) ->
+    let struct (stmts, addr) = liftBBLAux [] advanceAddr trctxt addr bbl
+    Ok (stmts, addr, ctxt)
+  | Error bbl ->
+    let struct (stmts, addr) = liftBBLAux [] advanceAddr trctxt addr bbl
+    Error (stmts, addr)
+
+let inline liftBBLFromBinPtr fi parser trctxt pctxt bp =
+  match parseBBLFromBinPtr fi parser pctxt bp with
+  | Ok (bbl, ctxt) ->
+    let struct (stmts, bp) = liftBBLAux [] BinaryPointer.Advance trctxt bp bbl
+    Ok (stmts, bp, ctxt)
+  | Error bbl ->
+    let struct (stmts, bp) = liftBBLAux [] BinaryPointer.Advance trctxt bp bbl
+    Error (stmts, bp)
+
+let rec disasmBBLAux sb advanceFn showAddr resolve hlp pos = function
+  | (ins: Instruction) :: rest ->
+    let s = ins.Disasm (showAddr, resolve, hlp)
+    let s =
+      if (sb: StringBuilder).Length = 0 then s
+      else System.Environment.NewLine + s
+    let pos = advanceFn pos (int ins.Length)
+    disasmBBLAux (sb.Append (s)) advanceFn showAddr resolve hlp pos rest
+  | [] -> struct (sb.ToString (), pos)
+
+let disasmBBLFromAddr fi parser hlp showAddr resolve ctxt addr =
+  match parseBBLFromAddr fi parser ctxt addr with
+  | Ok (bbl, ctxt) ->
+    let struct (str, addr) =
+      disasmBBLAux (StringBuilder ()) advanceAddr showAddr resolve hlp addr bbl
+    Ok (str, addr, ctxt)
+  | Error bbl ->
+    let struct (str, addr) =
+      disasmBBLAux (StringBuilder ()) advanceAddr showAddr resolve hlp addr bbl
+    Error (str, addr)
+
+let disasmBBLFromBinPtr fi parser hlp showAddr resolve ctxt bp =
+  match parseBBLFromBinPtr fi parser ctxt bp with
+  | Ok (bbl, ctxt) ->
+    let struct (str, addr) =
+      disasmBBLAux (StringBuilder ())
+        BinaryPointer.Advance showAddr resolve hlp bp bbl
+    Ok (str, addr, ctxt)
+  | Error bbl ->
+    let struct (str, addr) =
+      disasmBBLAux (StringBuilder ())
+        BinaryPointer.Advance showAddr resolve hlp bp bbl
+    Error (str, addr)

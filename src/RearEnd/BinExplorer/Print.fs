@@ -114,11 +114,11 @@ type CmdPrint () =
   let print handler sz fmt addr =
     match fmt with
     | Hexadecimal ->
-      BinHandle.ReadUInt (handler, addr, sz) |> hexPrint sz
+      BinHandle.ReadUInt (handler, addr=addr, size=sz) |> hexPrint sz
     | UnsignedDecimal ->
-      BinHandle.ReadUInt(handler, addr, sz).ToString ()
+      BinHandle.ReadUInt(handler, addr=addr, size=sz).ToString ()
     | Decimal ->
-      BinHandle.ReadInt(handler, addr, sz).ToString ()
+      BinHandle.ReadInt(handler, addr=addr, size=sz).ToString ()
     | _ -> failwith "This is impossible"
 
   let getAddressPrefix handler (addr: uint64) =
@@ -137,7 +137,8 @@ type CmdPrint () =
   let rec printStrings handler addr cnt acc =
     if cnt <= 0 then List.rev acc |> List.toArray
     else
-      let s = try BinHandle.ReadASCII (handler, addr) |> Some with _ -> None
+      let s =
+        try BinHandle.ReadASCII (handler, addr=addr) |> Some with _ -> None
       match s with
       | None -> printStrings handler addr 0 acc
       | Some s ->

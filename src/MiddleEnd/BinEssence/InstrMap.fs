@@ -101,7 +101,7 @@ module InstrMap =
     instrMap.[instr.Address] <- newInstructionInfo hdl instr
 
   let rec private parseBBL hdl ctxt bblMap acc pc =
-    match BinHandle.TryParseInstr hdl ctxt pc with
+    match BinHandle.TryParseInstr (hdl, ctxt, addr=pc) with
     | Ok ins ->
       let ctxt = ins.NextParsingContext
       let nextAddr = pc + uint64 ins.Length

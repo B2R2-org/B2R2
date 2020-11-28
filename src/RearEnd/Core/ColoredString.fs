@@ -59,7 +59,7 @@ module ColoredSegment =
     else Yellow
 
   let getRepresentation b =
-    if isNull b then "0"
+    if isNull b then "."
     elif isPrintable b then (char b).ToString ()
     elif isWhitespace b then "_"
     elif isControl b then "*"

@@ -48,17 +48,17 @@ let private getTableConfig hdl isLift =
     [ LeftAligned addrWidth; LeftAligned binaryWidth; LeftAligned 10 ]
 
 let private dumpRawBinary (hdl: BinHandle) (opts: BinDumpOpts) cfg =
-  let addrRange = AddrRange (0UL, uint64 (hdl.FileInfo.BinReader.Bytes.Length))
+  let bp = hdl.FileInfo.ToBinaryPointer hdl.FileInfo.BaseAddr
   let optimizer = getOptimizer opts
-  if opts.ShowLowUIR then printBlkLowUIR hdl cfg optimizer addrRange
-  else printBlkDisasm hdl cfg opts addrRange None
+  if opts.ShowLowUIR then printBlkLowUIR hdl cfg optimizer bp
+  else printBlkDisasm hdl cfg opts bp None
   Printer.println ()
 
-let printHexdump (opts: BinDumpOpts) size addr (fi: FileInfo) =
-  let offset = fi.TranslateAddress addr
-  let bytes = fi.BinReader.PeekBytes (size, offset)
+let printHexdump (opts: BinDumpOpts) sec hdl =
+  let bp = BinaryPointer.OfSection sec
+  let bytes = BinHandle.ReadBytes (hdl, bp=bp, nBytes=int sec.Size)
   let chunkSize = if opts.ShowWide then 32 else 16
-  HexDumper.dump chunkSize fi.WordSize opts.ShowColor addr bytes
+  HexDumper.dump chunkSize hdl.FileInfo.WordSize opts.ShowColor bp.Addr bytes
   |> Array.iter Printer.println
 
 let private hasNoContent (sec: Section) (fi: FileInfo) =
@@ -69,16 +69,17 @@ let private hasNoContent (sec: Section) (fi: FileInfo) =
     | None -> true
   | _ -> false
 
-let dumpHex (opts: BinDumpOpts) (sec: Section) (fi: FileInfo) =
-  if hasNoContent sec fi then Printer.printTwoCols "" "NOBITS section."
-  else printHexdump opts (int sec.Size) sec.Address fi
+let dumpHex (opts: BinDumpOpts) (sec: Section) hdl =
+  if hasNoContent sec hdl.FileInfo then
+    Printer.printTwoCols "" "NOBITS section."
+  else printHexdump opts sec hdl
   Printer.println ()
 
-let private createBinHandleFromPath (opts: BinDumpOpts) filepath forceRawBinary =
+let private createBinHandleFromPath (opts: BinDumpOpts) filepath forceRawBin =
   BinHandle.Init (
     opts.ISA,
     opts.ArchOperationMode,
-    (if forceRawBinary then false else opts.AutoDetect),
+    (if forceRawBin then false else opts.AutoDetect),
     opts.BaseAddress,
     fileName=filepath)
 
@@ -89,12 +90,12 @@ let private isRawBinary hdl =
   | FileFormat.PEBinary -> false
   | _ -> true
 
-let private irDumper hdl _opts cfg optimizer _funcs (sec: Section) =
-  printBlkLowUIR hdl cfg optimizer (sec.ToAddrRange ())
+let private irDumper hdl _opts cfg optimizer _funcs sec =
+  printBlkLowUIR hdl cfg optimizer (BinaryPointer.OfSection sec)
   Printer.println ()
 
-let private disasDumper hdl opts cfg _optimizer funcs (sec: Section) =
-  printBlkDisasm hdl cfg opts (sec.ToAddrRange ()) funcs
+let private disasDumper hdl opts cfg _optimizer funcs sec =
+  printBlkDisasm hdl cfg opts (BinaryPointer.OfSection sec) funcs
   Printer.println ()
 
 let private getTblEntrySize hdl =
@@ -107,14 +108,12 @@ let private getTblEntrySize hdl =
 
 let private tblIter (sec: Section) entrySize fn =
   Printer.println (StringUtils.wrapAngleBracket sec.Name)
-  let endAddr = sec.Address + sec.Size
-  let rec loop addr =
-    if addr < endAddr then
-      let nextAddr = addr + uint64 entrySize
-      fn (AddrRange (addr, nextAddr))
-      loop nextAddr
+  let rec loop bp =
+    if BinaryPointer.IsValid bp then
+      fn (BinaryPointer (bp.Addr, bp.Offset, bp.Offset + entrySize))
+      loop (BinaryPointer.Advance bp entrySize)
     else ()
-  loop sec.Address
+  loop (BinaryPointer.OfSection sec)
 
 let private irTblDumper hdl _opts cfg optimizer (sec: Section) =
   let entrySize = getTblEntrySize hdl
@@ -146,7 +145,7 @@ let private dumpSections hdl (opts: BinDumpOpts) (sections: seq<Section>) cfg =
         tblDump hdl opts cfg optimizer s
       | _ ->
         printTitle "Contents" s.Name
-        dumpHex opts s hdl.FileInfo
+        dumpHex opts s hdl
     else ())
 
 let private dumpRegularFile hdl (opts: BinDumpOpts) cfg =
@@ -195,9 +194,9 @@ let dumpHexStringMode (opts: BinDumpOpts) =
   let cfg = getTableConfig hdl opts.ShowLowUIR
   let optimizer = getOptimizer opts
   assertBinaryLength hdl opts.InputHexStr
-  let addrRange = AddrRange (0UL, uint64 (opts.InputHexStr.Length))
-  if opts.ShowLowUIR then printBlkLowUIR hdl cfg optimizer addrRange
-  else printBlkDisasm hdl cfg opts addrRange None
+  let bp = BinaryPointer (0UL, 0, opts.InputHexStr.Length)
+  if opts.ShowLowUIR then printBlkLowUIR hdl cfg optimizer bp
+  else printBlkDisasm hdl cfg opts bp None
   Printer.println ()
 
 let private dump files (opts: BinDumpOpts) =

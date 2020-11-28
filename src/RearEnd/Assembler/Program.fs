@@ -112,7 +112,7 @@ let initAsmString (opts: AssemblerOpts) =
 let private println hdl (addr, ctxt) bs =
   let bCode = (BitConverter.ToString (bs)).Replace ("-", "")
   let hdl = BinHandle.UpdateCode hdl addr bs
-  let ins = BinHandle.ParseInstr hdl ctxt addr
+  let ins = BinHandle.ParseInstr (hdl, ctxt, addr)
   printfn "%08x: %-20s     %s" addr bCode (ins.Disasm ())
   addr + uint64 (Array.length bs), ins.NextParsingContext
 

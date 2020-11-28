@@ -56,7 +56,7 @@ type Assembler (isa: ISA, startAddress) =
       let bs = __.AssembleBin asm |> Array.concat
       let hdl = BinHandle.UpdateCode hdl startAddress bs
       let rec loop ctxt addr acc =
-        match BinHandle.TryParseInstr hdl ctxt addr with
+        match BinHandle.TryParseInstr (hdl, ctxt, addr=addr) with
         | Ok ins ->
           let stmts = BinHandle.LiftInstr hdl ins
           let ctxt = ins.NextParsingContext

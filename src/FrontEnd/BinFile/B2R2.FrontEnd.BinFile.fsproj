@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <Compile Include="FileTypes.fs" />
+    <Compile Include="BinaryPointer.fs" />
     <Compile Include="FileInfo.fs" />
     <Compile Include="FileHelper.fs" />
     <Compile Include="RawBinary.fs" />

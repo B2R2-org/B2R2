@@ -258,6 +258,18 @@ type FileInfo (baseAddr) =
   abstract member ExceptionTable: ARMap<ARMap<Addr>>
 
   /// <summary>
+  ///   Convert the section at the address (Addr) into a binary pointer, which
+  ///   can exclusively point to binary contents of the section.
+  /// </summary>
+  abstract member ToBinaryPointer: Addr -> BinaryPointer
+
+  /// <summary>
+  ///   Convert the section of the name (string) into a binary pointer, which
+  ///   can exclusively point to binary contents of the section.
+  /// </summary>
+  abstract member ToBinaryPointer: string -> BinaryPointer
+
+  /// <summary>
   ///   Check if the given address is valid for this binary. We say a given
   ///   address is valid for the binary if the address is within the range of
   ///   statically computable segment ranges.
@@ -317,7 +329,7 @@ type FileInfo (baseAddr) =
   abstract member IsExecutableAddr: Addr -> bool
 
   /// <summary>
-  ///   Given a range r, return a list of address ragnes (intervals) that are
+  ///   Given a range r, return a list of address ranges (intervals) that are
   ///   within r, and that are not in-file.
   /// </summary>
   /// <returns>

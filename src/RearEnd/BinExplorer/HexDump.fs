@@ -40,7 +40,7 @@ type CmdHexDump () =
     with _ -> Error "[*] Invalid byte count given."
 
   let readBytes (binEssence: BinEssence) (addr, count) =
-    try (addr, binEssence.BinHandle.ReadBytes (addr, count)) |> Ok
+    try (addr, binEssence.BinHandle.ReadBytes (addr=addr, nBytes=count)) |> Ok
     with _ -> Error "[*] Failed to read bytes."
 
   override __.CmdName = "hexdump"

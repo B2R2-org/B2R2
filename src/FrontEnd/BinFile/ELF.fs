@@ -62,6 +62,10 @@ type ELFFileInfo (bytes, path, baseAddr, regbay) =
   override __.IsLinkageTable addr = isPLT elf addr
   override __.TryFindFunctionSymbolName (addr) = tryFindFuncSymb elf addr
   override __.ExceptionTable = elf.ExceptionTable
+  override __.ToBinaryPointer addr =
+    BinaryPointer.OfSectionOpt (getSectionsByAddr elf addr |> Seq.tryHead)
+  override __.ToBinaryPointer name =
+    BinaryPointer.OfSectionOpt (getSectionsByName elf name |> Seq.tryHead)
   override __.IsValidAddr addr = isValidAddr elf addr
   override __.IsValidRange range = isValidRange elf range
   override __.IsInFileAddr addr = isInFileAddr elf addr

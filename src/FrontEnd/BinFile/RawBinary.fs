@@ -97,6 +97,12 @@ type RawFileInfo (bytes: byte [], path, isa, baseAddr) =
 
   override __.ExceptionTable = ARMap.empty
 
+  override __.ToBinaryPointer addr =
+    if addr = baseAddr then BinaryPointer (baseAddr, 0, bytes.Length)
+    else BinaryPointer.Null
+
+  override __.ToBinaryPointer (_name: string) = BinaryPointer.Null
+
   override __.IsValidAddr (addr) =
     addr >= baseAddr && addr < (baseAddr + uint64 bytes.LongLength)
 

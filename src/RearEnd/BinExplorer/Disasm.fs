@@ -43,7 +43,7 @@ type CmdDisasm () =
   let rec disasmLoop acc ctxt hdl addr count =
     if count <= 0 then List.rev acc |> List.toArray
     else
-      match BinHandle.TryParseInstr hdl ctxt addr with
+      match BinHandle.TryParseInstr (hdl, ctxt, addr=addr) with
       | Ok ins ->
         let d = ins.Disasm (true, true, hdl.DisasmHelper)
         let ctxt = ins.NextParsingContext

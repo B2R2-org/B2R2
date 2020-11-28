@@ -86,12 +86,11 @@ let printRegularDisasm disasmStr wordSize addr bytes cfg =
   let addrStr = addrToString wordSize addr + ":"
   Printer.printrow (false, cfg, [ addrStr; hexStr; disasmStr ])
 
-let regularDisPrinter (hdl: BinHandle) showSymbs addr ins cfg =
+let regularDisPrinter (hdl: BinHandle) showSymbs bp ins cfg =
   let disasmStr = BinHandle.DisasmInstr hdl false showSymbs ins
   let wordSize = hdl.FileInfo.WordSize
-  let bytes = BinHandle.ReadBytes (hdl, ins.Address, int ins.Length)
-  let nextAddr = ins.Address + uint64 ins.Length
-  printRegularDisasm disasmStr wordSize addr bytes cfg
+  let bytes = BinHandle.ReadBytes (hdl, bp=bp, nBytes=int ins.Length)
+  printRegularDisasm disasmStr wordSize bp.Addr bytes cfg
 
 let convertToDisasmStr (words: AsmWord []) =
   words
@@ -111,56 +110,55 @@ let printColorDisasm words wordSize addr bytes cfg =
   Printer.printrow (false, cfg,
     [ [ Green, addrStr ]; [ NoColor, hexStr ]; disasStr ])
 
-let colorDisPrinter (hdl: BinHandle) showSymbs addr (ins: Instruction) cfg =
+let colorDisPrinter (hdl: BinHandle) _ bp (ins: Instruction) cfg =
   let words = ins.Decompose (false)
   let wordSize = hdl.FileInfo.WordSize
-  let bytes = BinHandle.ReadBytes (hdl, ins.Address, int ins.Length)
-  printColorDisasm words wordSize addr bytes cfg
+  let bytes = BinHandle.ReadBytes (hdl, bp=bp, nBytes=int ins.Length)
+  printColorDisasm words wordSize bp.Addr bytes cfg
 
-let handleInvalidIns (hdl: BinHandle) addr isLift cfg =
+let handleInvalidIns (hdl: BinHandle) bp isLift cfg =
   let wordSize = hdl.FileInfo.WordSize
   let align = getInstructionAlignment hdl
-  let bytes = BinHandle.ReadBytes (hdl, addr, align)
+  let bytes = BinHandle.ReadBytes (hdl, bp=bp, nBytes=align)
   if isLift then printLowUIR illegalStr bytes cfg
-  else printRegularDisasm illegalStr wordSize addr bytes cfg
-  addr + uint64 align
+  else printRegularDisasm illegalStr wordSize bp.Addr bytes cfg
+  BinaryPointer.Advance bp align
 
-let printBlkDisasm hdl cfg (opts: BinDumpOpts) (addrRange: AddrRange) funcs =
+let printBlkDisasm hdl cfg (opts: BinDumpOpts) (bp: BinaryPointer) funcs =
   let showSymbs = opts.ShowSymbols
-  let align = getInstructionAlignment hdl |> uint64
+  let align = getInstructionAlignment hdl
   let printer = if opts.ShowColor then colorDisPrinter else regularDisPrinter
   let funcs = Option.defaultWith (fun () -> Dictionary ()) funcs
-  let rec loop hdl ctxt addr =
-    if addr < addrRange.Max then
-      printFuncSymbol funcs addr
-      match BinHandle.TryParseInstr hdl ctxt addr with
+  let rec loop hdl ctxt bp =
+    if BinaryPointer.IsValid bp then
+      printFuncSymbol funcs bp.Addr
+      match BinHandle.TryParseInstr (hdl, ctxt, bp=bp) with
       | Ok (ins) ->
-        printer hdl showSymbs addr ins cfg
-        loop hdl ctxt (addr + uint64 ins.Length)
-      | Error _ ->
-        let nextAddr = addr + align
-        loop hdl ctxt (handleInvalidIns hdl nextAddr false cfg)
+        printer hdl showSymbs bp ins cfg
+        loop hdl ctxt (BinaryPointer.Advance bp (int ins.Length))
+      | Error _ -> loop hdl ctxt (handleInvalidIns hdl bp false cfg)
     else ()
-  loop hdl hdl.DefaultParsingContext addrRange.Min
+  loop hdl hdl.DefaultParsingContext bp
 
-let rec lift hdl cfg optimizer addr = function
-  | [] -> addr
+let rec lift hdl cfg optimizer bp = function
+  | [] -> bp
   | (ins: Instruction) :: tail ->
     let stmts = optimizer (BinHandle.LiftInstr hdl ins)
     let lowUIRStr = LowUIR.Pp.stmtsToString stmts
-    let bytes = BinHandle.ReadBytes (hdl, ins.Address, int ins.Length)
-    let nextAddr = ins.Address + uint64 ins.Length
+    let nBytes = int ins.Length
+    let bytes = BinHandle.ReadBytes (hdl, bp=bp, nBytes=nBytes)
+    let nextbp = BinaryPointer.Advance bp nBytes
     printLowUIR lowUIRStr bytes cfg
-    lift hdl cfg optimizer nextAddr tail
+    lift hdl cfg optimizer nextbp tail
 
-let printBlkLowUIR hdl cfg optimizer (addrRange: AddrRange) =
-  let rec loop hdl ctxt addr =
-    if addr < addrRange.Max then
-      match BinHandle.ParseBBlock hdl ctxt addr with
+let printBlkLowUIR hdl cfg optimizer (bp: BinaryPointer) =
+  let rec loop hdl ctxt bp =
+    if BinaryPointer.IsValid bp then
+      match BinHandle.ParseBBlock (hdl, ctxt, bp=bp) with
       | Ok (bbl, _) ->
-        loop hdl ctxt (lift hdl cfg optimizer addr bbl)
+        loop hdl ctxt (lift hdl cfg optimizer bp bbl)
       | Error bbl ->
-        let nextAddr = lift hdl cfg optimizer addr bbl
-        if nextAddr < addrRange.Max then
-          loop hdl ctxt (handleInvalidIns hdl nextAddr true cfg)
-  loop hdl hdl.DefaultParsingContext addrRange.Min
+        let nextbp = lift hdl cfg optimizer bp bbl
+        if nextbp.Offset < bp.MaxOffset then
+          loop hdl ctxt (handleInvalidIns hdl nextbp true cfg)
+  loop hdl hdl.DefaultParsingContext bp
