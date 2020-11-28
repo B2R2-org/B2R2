@@ -132,8 +132,8 @@ Let's try to use B2R2 APIs.
 Build
 -----
 
-Building B2R2 is fun and easy. All you need to do is to install .NET Core SDK
-3.0 or above. Yea, that's it!
+Building B2R2 is fun and easy. All you need to do is to install .NET 5 SDK or
+above. Yea, that's it!
 
 - To build B2R2 in release mode, type ```make release``` or ```dotnet build -c
   Release``` in the source root.
