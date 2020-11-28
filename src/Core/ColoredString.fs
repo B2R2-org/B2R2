@@ -125,3 +125,6 @@ module ColoredString =
   let internal toConsoleLine s =
     toConsole s
     Console.WriteLine ()
+
+  let toString (s: ColoredString) =
+    s |> List.map snd |> String.concat ""

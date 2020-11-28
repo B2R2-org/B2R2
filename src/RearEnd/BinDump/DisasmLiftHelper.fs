@@ -32,8 +32,11 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinInterface
 open B2R2.RearEnd.StringUtils
 
-/// The console printer.
-let internal out = ConsolePrinter () :> Printer
+/// The monotonic console printer.
+let internal out = ConsoleCachedPrinter () :> Printer
+
+/// The colorful console printer.
+let internal colorout = ConsolePrinter () :> Printer
 
 let [<Literal>] illegalStr = "(illegal)"
 
@@ -80,7 +83,7 @@ let inline printFuncSymbol (symDict: Dictionary<Addr, string>) addr =
   match symDict.TryGetValue (addr) with
   | false, _ -> ()
   | true, name ->
-    out.PrintLine ()
+    out.PrintLineIfPrevLineWasNotEmpty ()
     out.PrintLine (wrapAngleBracket name)
 
 let printRegularDisasm disasmStr wordSize addr bytes cfg =
@@ -109,7 +112,7 @@ let printColorDisasm words wordSize addr bytes cfg =
   let hexStr = convertToHexStr bytes
   let addrStr = addrToString wordSize addr + ":"
   let disasStr = convertToDisasmStr words
-  out.PrintRow (false, cfg,
+  colorout.PrintRow (false, cfg,
     [ [ Green, addrStr ]; [ NoColor, hexStr ]; disasStr ])
 
 let colorDisPrinter (hdl: BinHandle) _ bp (ins: Instruction) cfg =
@@ -128,7 +131,6 @@ let handleInvalidIns (hdl: BinHandle) bp isLift cfg =
 
 let printBlkDisasm hdl cfg (opts: BinDumpOpts) (bp: BinaryPointer) funcs =
   let showSymbs = opts.ShowSymbols
-  let align = getInstructionAlignment hdl
   let printer = if opts.ShowColor then colorDisPrinter else regularDisPrinter
   let funcs = Option.defaultWith (fun () -> Dictionary ()) funcs
   let rec loop hdl ctxt bp =

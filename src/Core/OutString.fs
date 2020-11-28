@@ -44,6 +44,5 @@ module OutString =
 
   let toString = function
     | OutputNormal s -> s
-    | OutputColored segs ->
-      segs |> List.fold (fun acc (_, s) -> acc + s) ""
+    | OutputColored cs -> ColoredString.toString cs
     | OutputNewLine -> Environment.NewLine

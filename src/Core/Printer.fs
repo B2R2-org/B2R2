@@ -25,13 +25,15 @@
 namespace B2R2
 
 open System
+open System.Text
 
 /// Define a column of a table with a specified width in bytes (# of chars).
 type TableColumn =
   | RightAligned of width: int
   | LeftAligned of width: int
 with
-  static member ofPaddedString isLast (s: string) = function
+  static member ofPaddedString isLast (s: string) column =
+    match column with
     | RightAligned w -> let s = s.PadLeft (w) in if isLast then s else s + " "
     | LeftAligned w -> if isLast then s else s.PadRight (w) + " "
 
@@ -68,6 +70,12 @@ type Printer () =
 
   /// Print out a newline.
   abstract PrintLine: unit -> unit
+
+  /// Print out a newline only if the previous output was not empty (i.e., a
+  /// line with only a newline). In other words, this function will not output
+  /// anything if the previous output was an empty line. This is to make sure we
+  /// output only one single empty line in some situations.
+  abstract PrintLineIfPrevLineWasNotEmpty: unit -> unit
 
   /// Print out table row for the given ColoredString list.
   abstract PrintRow: bool * TableConfig * ColoredString list -> unit
@@ -125,6 +133,8 @@ type Printer () =
 type ConsolePrinter () =
   inherit Printer ()
 
+  let mutable lastLineWasEmpty = false
+
   override __.Print s =
     OutString.toConsole s
 
@@ -136,15 +146,24 @@ type ConsolePrinter () =
 
   override __.PrintLine s =
     OutString.toConsoleLine s
+    lastLineWasEmpty <- false
 
   override __.PrintLine s =
     ColoredString.toConsoleLine s
+    lastLineWasEmpty <- false
 
   override __.PrintLine (s: string, [<ParamArray>] args) =
     Console.WriteLine (s, args)
+    lastLineWasEmpty <- s.Length = 0
 
   override __.PrintLine () =
     Console.WriteLine ()
+    lastLineWasEmpty <- true
+
+  override __.PrintLineIfPrevLineWasNotEmpty () =
+    if lastLineWasEmpty then ()
+    else Console.WriteLine ()
+    lastLineWasEmpty <- true
 
   override __.PrintRow (indent, cfg: TableConfig, css: ColoredString list) =
     let lastIdx = List.length cfg - 1
@@ -157,6 +176,7 @@ type ConsolePrinter () =
         |> __.Print
       | [] -> ())
     Console.WriteLine ()
+    lastLineWasEmpty <- false
 
   override __.PrintRow (indent, cfg: TableConfig, strs: string list) =
     let lastIdx = List.length cfg - 1
@@ -166,24 +186,123 @@ type ConsolePrinter () =
         Console.Write ("  ")
       Console.Write (TableColumn.ofPaddedString (i = lastIdx) s c))
     Console.WriteLine ()
+    lastLineWasEmpty <- false
 
   override __.PrintSectionTitle title =
     [ CS.red "# "; CS.nocolor title ]
     |> __.PrintLine
     __.PrintLine ()
+    lastLineWasEmpty <- true
 
   override __.PrintSubsectionTitle (str: string) =
     __.PrintLine ("    - " + str)
+    lastLineWasEmpty <- false
 
   override __.PrintSubsubsectionTitle (str: string) =
     __.PrintLine ("         * " + str)
+    lastLineWasEmpty <- false
 
   override __.PrintTwoCols (col1: string) (col2: string) =
     __.Print (col1.PadLeft PrinterConst.colWidth + " ")
     __.PrintLine col2
+    lastLineWasEmpty <- false
 
   override __.PrintTwoColsWithColorOnSnd (col1: string) (col2: ColoredString) =
     __.Print (col1.PadLeft PrinterConst.colWidth + " ")
     __.PrintLine col2
+    lastLineWasEmpty <- false
 
   override __.Flush () = ()
+
+/// ConsoleCachedPrinter prints out non-colored strings only when the Flush
+/// method is called. All the colored strings will be normalized to plain
+/// strings. It will simply stack up all the output candidates before Flush is
+/// called. This is useful for performance-critical applications.
+type ConsoleCachedPrinter () =
+  inherit Printer ()
+
+  let mutable lastLineWasEmpty = false
+  let cache = StringBuilder ()
+  let add (s: string) = cache.Append (s) |> ignore
+
+  override __.Print s =
+    OutString.toString s |> add
+
+  override __.Print s =
+    ColoredString.toString s |> add
+
+  override __.Print (s: string, [<ParamArray>] args) =
+    String.Format (s, args) |> add
+
+  override __.PrintLine s =
+    OutString.toString s + Environment.NewLine |> add
+    lastLineWasEmpty <- false
+
+  override __.PrintLine s =
+    ColoredString.toString s + Environment.NewLine |> add
+    lastLineWasEmpty <- false
+
+  override __.PrintLine (s: string, [<ParamArray>] args) =
+    String.Format (s, args) + Environment.NewLine |> add
+    lastLineWasEmpty <- s.Length = 0
+
+  override __.PrintLine () =
+    add Environment.NewLine
+    lastLineWasEmpty <- true
+
+  override __.PrintLineIfPrevLineWasNotEmpty () =
+    if lastLineWasEmpty then ()
+    else add Environment.NewLine
+    lastLineWasEmpty <- true
+
+  override __.PrintRow (indent, cfg: TableConfig, css: ColoredString list) =
+    let lastIdx = List.length cfg - 1
+    List.zip cfg css
+    |> List.iteri (fun i (col, cs) ->
+      if indent then add ("  ") else ()
+      match cs with
+      | (_, s) :: rest ->
+        (TableColumn.ofPaddedString (i = lastIdx) s col
+        + ColoredString.toString rest)
+        |> add
+      | [] -> ())
+    add Environment.NewLine
+    lastLineWasEmpty <- false
+
+  override __.PrintRow (indent, cfg: TableConfig, strs: string list) =
+    let lastIdx = List.length cfg - 1
+    List.zip cfg strs
+    |> List.iteri (fun i (c, s) ->
+      if indent then add ("  ")
+      TableColumn.ofPaddedString (i = lastIdx) s c |> add)
+    add Environment.NewLine
+    lastLineWasEmpty <- false
+
+  override __.PrintSectionTitle title =
+    "# " + title + Environment.NewLine + Environment.NewLine |> add
+    lastLineWasEmpty <- true
+
+  override __.PrintSubsectionTitle (str: string) =
+    ("    - " + str) |> add
+    add Environment.NewLine
+    lastLineWasEmpty <- false
+
+  override __.PrintSubsubsectionTitle (str: string) =
+    ("         * " + str) |> add
+    add Environment.NewLine
+    lastLineWasEmpty <- false
+
+  override __.PrintTwoCols (col1: string) (col2: string) =
+    col1.PadLeft PrinterConst.colWidth + " " |> add
+    col2 |> add
+    add Environment.NewLine
+    lastLineWasEmpty <- false
+
+  override __.PrintTwoColsWithColorOnSnd (col1: string) (col2: ColoredString) =
+    col1.PadLeft PrinterConst.colWidth + " " |> add
+    ColoredString.toString col2 |> add
+    add Environment.NewLine
+    lastLineWasEmpty <- false
+
+  override __.Flush () =
+    cache.ToString () |> Console.Write
