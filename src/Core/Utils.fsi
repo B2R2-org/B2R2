@@ -52,3 +52,12 @@ val inline (===) : 'a -> 'a -> bool when 'a : not struct
 /// Convert a tuple result to an option type. The tuple result is obtained from
 /// the TryGetValue pattern, e.g., IDictionary.
 val inline tupleToOpt: bool * 'a -> 'a option
+
+/// Return the first item of a triple.
+val inline tripleFst: ('a * 'b * 'c) -> 'a
+
+/// Return the second item of a triple.
+val inline tripleSnd: ('a * 'b * 'c) -> 'b
+
+/// Return the third item of a triple.
+val inline tripleThd: ('a * 'b * 'c) -> 'c

@@ -133,15 +133,11 @@ type PersistentCore<'D, 'E when 'D :> VertexData and 'D: equality>
   override __.TryFindVertexBy fn =
     vertices |> Map.tryPick (fun _ v -> if fn v then Some v else None)
 
-  member private __.Snd (_, e, _) = e
-
-  member private __.Thrd (_, _, e) = e
-
   override __.GetPreds v =
-    Map.find (v.GetID ()) preds |> List.map __.Snd
+    Map.find (v.GetID ()) preds |> List.map Utils.tripleSnd
 
   override __.GetSuccs v =
-    Map.find (v.GetID ()) succs |> List.map __.Snd
+    Map.find (v.GetID ()) succs |> List.map Utils.tripleSnd
 
   member private __.InitGraphWithNewEdge (src: Vertex<'D>) (dst: Vertex<'D>) e =
     let srcid = src.GetID ()
@@ -184,7 +180,7 @@ type PersistentCore<'D, 'E when 'D :> VertexData and 'D: equality>
     let dstID = dst.GetID ()
     Map.find (src.GetID ()) succs
     |> List.find (fun (_, v, _) -> v.GetID () = dstID)
-    |> __.Thrd
+    |> Utils.tripleThd
 
   override __.TryFindEdge src dst =
     Map.tryFind (src.GetID ()) succs

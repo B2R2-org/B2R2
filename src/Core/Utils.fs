@@ -55,3 +55,9 @@ let inline tupleToOpt result =
   match result with
   | false, _ -> None
   | true, a -> Some a
+
+let inline tripleFst (a, _, _) = a
+
+let inline tripleSnd (_, a, _) = a
+
+let inline tripleThd (_, _, a) = a
