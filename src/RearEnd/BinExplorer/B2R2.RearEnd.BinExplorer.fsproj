@@ -49,7 +49,7 @@
 
   <ItemGroup>
     <PackageReference Include="B2R2.FsReadLine" Version="0.1.5" />
-    <PackageReference Include="FParsec" Version="1.0.3" />
+    <PackageReference Include="FParsec" Version="1.1.1" />
   </ItemGroup>
 
 </Project>

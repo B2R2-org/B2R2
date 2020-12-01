@@ -11,12 +11,12 @@
   <ItemGroup>
     <Compile Include="LowUIRParserUtils.fs" />
     <Compile Include="LowUIRParser.fs" />
-    <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath=""/>
+    <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FParsec" Version="1.0.3" />
+    <PackageReference Include="FParsec" Version="1.1.1" />
   </ItemGroup>
 
   <ItemGroup>
