@@ -26,73 +26,6 @@ module internal B2R2.RearEnd.Visualization.LayerAssignment
 
 open B2R2.MiddleEnd.BinGraph
 
-let assignLayerFromSucc vGraph v =
-  let succs = VisGraph.getSuccs vGraph v
-  match succs with
-  | [] -> VisGraph.setLayer v 0
-  | succs ->
-    let succLayers = List.map VisGraph.getLayer succs
-    VisGraph.setLayer v <| List.max succLayers + 1
-
-let adjustLayerByMax maxLayer v =
-  VisGraph.setLayer v <| maxLayer - VisGraph.getLayer v
-
-let adjustLayer topoOrdered =
-  let maxLayer = Array.map VisGraph.getLayer topoOrdered |> Array.max
-  Array.iter (adjustLayerByMax maxLayer) topoOrdered
-
-let longestPathAssignLayers vGraph root =
-  let _, orderMap =
-    Traversal.foldTopologically vGraph [root] (fun (cnt, map) v ->
-      cnt + 1, Map.add v cnt map) (0, Map.empty)
-  let topoOrdered = Array.zeroCreate <| vGraph.GetSize ()
-  Map.iter (fun v i -> Array.set topoOrdered i v) orderMap
-  let topoOrdered = Array.rev topoOrdered
-  Array.iter (assignLayerFromSucc vGraph) topoOrdered
-  adjustLayer topoOrdered
-
-let rec promote vGraph (layerArr: int []) v =
-  let preds = VisGraph.getPreds vGraph v
-  let succs = VisGraph.getSuccs vGraph v
-  let dummyDiff, layerArr = List.fold (promotePred vGraph v) (0, layerArr) preds
-  layerArr.[v.GetID ()] <- layerArr.[v.GetID ()] - 1
-  dummyDiff - List.length preds + List.length succs, layerArr
-
-and promotePred vGraph v (dummyDiff, layerArr) p =
-  // Check only immediate predecessors
-  if layerArr.[p.GetID ()] = layerArr.[v.GetID ()] - 1 then
-    let dummyDiff_, layerArr = promote vGraph layerArr p
-    dummyDiff + dummyDiff_, layerArr
-  else dummyDiff, layerArr
-
-let rec promoteVerticesLoop (vGraph: VisGraph) root layerArr backUp =
-  let promotion, layerArr, _ =
-    let folder (acc, layerArr, backUp) v =
-      if List.length <| VisGraph.getPreds vGraph v > 0 then
-        let promotion, layerArr = promote vGraph layerArr v
-        // If promotion is negative, we preserve the result
-        if promotion < 0 then acc + 1, layerArr, Array.copy layerArr
-        // otherwise, restore previous layout
-        else acc, backUp, Array.copy backUp
-      else acc, layerArr, backUp
-    Traversal.foldPreorder vGraph root folder (0, layerArr, backUp)
-  // If there exists at least one vertex promoted, this process should be done
-  // one more time
-  if promotion <> 0 then
-    promoteVerticesLoop vGraph root layerArr <| Array.copy layerArr
-  else layerArr
-
-let promoteVertices (vGraph: VisGraph) root =
-  let folder (layerArr: int []) (v: Vertex<VisBBlock>) =
-    layerArr.[v.GetID ()] <- VisGraph.getLayer v; layerArr
-  let layerArr = Array.zeroCreate (vGraph.GetSize ())
-  let layerArr = vGraph.FoldVertex folder layerArr
-  let layerArr = promoteVerticesLoop vGraph root layerArr <| Array.copy layerArr
-  let minLayer = Array.min layerArr
-  // Set layer from the result of vertex promotion
-  Array.iteri (fun id layer ->
-    VisGraph.setLayer (vGraph.FindVertexByID id) (layer - minLayer)) layerArr
-
 let assignLayerFromPred (vGraph: VisGraph) vData =
   let v = vGraph.FindVertexByData vData
   let preds = VisGraph.getPreds vGraph v
@@ -107,7 +40,7 @@ let kahnAssignLayers (vGraph: VisGraph) =
   |> List.rev
   |> List.iter (assignLayerFromPred vGraph)
 
-let rec addDummy (g: VisGraph) (backEdges, dummies) k (src: Vertex<_>) (dst: Vertex<_>) (e: VisEdge) cnt =
+let rec addDummy (g: VisGraph) (backEdges, dummies) k src dst (e: VisEdge) cnt =
   if cnt = 0 then
     let edge = VisEdge (e.Type)
     edge.IsBackEdge <- e.IsBackEdge
@@ -128,16 +61,17 @@ let rec addDummy (g: VisGraph) (backEdges, dummies) k (src: Vertex<_>) (dst: Ver
     let dummies = Map.add k (eData, dummy :: vertices) dummies
     addDummy g (backEdges, dummies) k dummy dst e (cnt - 1)
 
-let chooseBackEdgesWithDummy (backEdges, withDummy) src dst edge =
+let siftBackEdgesAndPickLongEdges (backEdges, longEdges) src dst edge =
   let delta = VisGraph.getLayer dst - VisGraph.getLayer src
   if delta > 1 then
+    (* Backedge in forward direction = Extra edge added in the cycle removal. *)
     let backEdges =
       if (edge: VisEdge).IsBackEdge then
         List.filter (fun (_, _, e) -> e <> edge) backEdges
       else backEdges
-    let withDummy = (src, dst, edge, delta) :: withDummy
-    backEdges, withDummy
-  else backEdges, withDummy
+    let longEdges = (src, dst, edge, delta) :: longEdges
+    backEdges, longEdges
+  else backEdges, longEdges
 
 let addDummyNodes vGraph (backEdges, dummies) (src, dst, edge, delta) =
   (vGraph: VisGraph).RemoveEdge src dst |> ignore
@@ -146,21 +80,19 @@ let addDummyNodes vGraph (backEdges, dummies) (src, dst, edge, delta) =
   let backEdges, dummies =
     addDummy vGraph (backEdges, dummies) k src dst edge (delta - 1)
   let dummies =
-    if edge.IsBackEdge then
+    if not edge.IsBackEdge then
       let eData, vertices = Map.find k dummies
       Map.add k (eData, List.rev vertices) dummies
     else dummies
   backEdges, dummies
 
-let assignDummyNodes (vGraph: VisGraph) backEdgeList =
-  let backEdgeList, withDummy =
-    vGraph.FoldEdge (chooseBackEdgesWithDummy) (backEdgeList, [])
-  withDummy
-  |> List.fold (addDummyNodes vGraph) (backEdgeList, Map.empty)
+let assignDummyNodes (vGraph: VisGraph) backEdges =
+  let backEdges, longEdges =
+    vGraph.FoldEdge siftBackEdgesAndPickLongEdges (backEdges, [])
+  longEdges
+  |> List.fold (addDummyNodes vGraph) (backEdges, Map.empty)
 
-let assignLayers vGraph backEdgeList =
-  /// XXX: We'll make an option argument to select layer assignment algorithm
-  /// longestPathAssignLayers vGraph
-  /// promoteVertices vGraph root
+/// Assign layers to each node. The root node should be layer zero (0).
+let assignLayers vGraph backEdges =
   kahnAssignLayers vGraph
-  assignDummyNodes vGraph backEdgeList
+  assignDummyNodes vGraph backEdges

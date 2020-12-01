@@ -33,19 +33,16 @@ let private collectSelfCycle backEdgeList src dst edge =
   else backEdgeList
 
 let private collectBackEdge (vGraph: VisGraph) order backEdgeList src dst edge =
-  if Map.find src order > Map.find dst order then // BackEdge
+  if Map.find src order > Map.find dst order then (* BackEdge *)
+    (edge: VisEdge).IsBackEdge <- true
     match vGraph.TryFindEdgeData dst src with
-    | Some _ -> // exist opposite edges
-      (edge: VisEdge).IsBackEdge <- true
-      (src, dst, edge, false) :: backEdgeList
-    | None -> // single backedge
-      edge.IsBackEdge <- true
-      (src, dst, edge, true) :: backEdgeList
+    | Some _ -> (src, dst, edge, false) :: backEdgeList
+    | None -> (src, dst, edge, true) :: backEdgeList
   else backEdgeList
 
-let removeBackEdge (vGraph: VisGraph) (src, dst, edge, addReverse) =
+let removeBackEdge (vGraph: VisGraph) src dst edge needToAddReverse =
   vGraph.RemoveEdge src dst |> ignore
-  if addReverse then vGraph.AddEdge dst src edge |> ignore
+  if needToAddReverse then vGraph.AddEdge dst src edge |> ignore
 
 let private dfsCollectBackEdges vGraph roots backEdgeList =
   let _, orderMap =
@@ -54,8 +51,8 @@ let private dfsCollectBackEdges vGraph roots backEdgeList =
   vGraph.FoldEdge (collectBackEdge vGraph orderMap) backEdgeList
 
 let removeCycles (vGraph: VisGraph) roots =
-  let backEdgeList =
-    vGraph.FoldEdge collectSelfCycle []
-    |> dfsCollectBackEdges vGraph roots
-  backEdgeList |> List.iter (removeBackEdge vGraph)
-  backEdgeList |> List.map (fun (src, dst, edge, _) -> (src, dst, edge))
+  vGraph.FoldEdge collectSelfCycle []
+  |> dfsCollectBackEdges vGraph roots
+  |> List.map (fun (src, dst, edge, needToAddReverse) ->
+    removeBackEdge vGraph src dst edge needToAddReverse
+    (src, dst, edge))
