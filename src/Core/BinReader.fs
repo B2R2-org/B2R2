@@ -225,7 +225,7 @@ type BinReader (bytes: byte []) =
     match endian with
     | Endian.Little -> BinReaderLE (bytes) :> BinReader
     | Endian.Big -> BinReaderBE (bytes) :> BinReader
-    | _ -> invalidArg "BinReader.init" "Invalid endian is given."
+    | _ -> invalidArg (nameof endian) "Invalid endian is given."
 
   /// Return a new BinReader of the given endianness. This function will return
   /// the same reader if the given endianness is the same as the endianness of

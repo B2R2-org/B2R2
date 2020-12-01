@@ -822,10 +822,11 @@ let iFlagToString = function
   | IF -> "if"
   | AIF -> "aif"
 
-let endToString = function
+let endToString endian =
+  match endian with
   | Endian.Little -> "le"
   | Endian.Big -> "be"
-  | _ -> invalidArg "Endian" "Invalid endian is given."
+  | _ -> invalidArg (nameof endian) "Invalid endian is given."
 
 let oprToString i addr operand delim builder acc =
   match operand with

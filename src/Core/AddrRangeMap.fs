@@ -104,14 +104,14 @@ module ARMap =
   let replace k v tree = fnAdd k v tree true
 
   let rec private findLoop isExact k = function
-    | Leaf _ -> None
+    | Leaf _ -> Error ErrorCase.ItemNotFound
     | Node (_, k', v', l, r) ->
-      if k = k' then Some (k', v')
+      if k = k' then Ok (k', v')
       elif k.Min < k'.Min && k.Max <= k'.Min then findLoop isExact k l
       elif k.Min >= k'.Max && k.Max > k'.Max then findLoop isExact k r
       elif (not isExact)
-            && k.Min >= k'.Min && k.Max <= k'.Max then Some (k', v')
-      else None
+            && k.Min >= k'.Min && k.Max <= k'.Max then Ok (k', v')
+      else Error ErrorCase.ItemNotFound
 
   let rec private del isExact k = function
     | Leaf _ -> raise KeyNotFoundException
@@ -149,8 +149,8 @@ module ARMap =
     del true range tree |> toBlack
 
   [<CompiledName("RemoveAddr")>]
-  let removeAddr k tree =
-    del false (AddrRange (k, k + 1UL)) tree
+  let removeAddr addr tree =
+    del false (AddrRange (addr, addr + 1UL)) tree
 
   [<CompiledName("Empty")>]
   let empty = Leaf B
@@ -162,30 +162,37 @@ module ARMap =
     | _ -> false
 
   [<CompiledName("ContainsAddr")>]
-  let containsAddr k tree =
-    findLoop false (AddrRange (k, k + 1UL)) tree |> Option.isSome
+  let containsAddr addr tree =
+    findLoop false (AddrRange (addr, addr + 1UL)) tree |> Result.isOk
 
   [<CompiledName("ContainsRange")>]
   let containsRange range tree =
-    findLoop true range tree |> Option.isSome
+    findLoop true range tree |> Result.isOk
 
   [<CompiledName("Find")>]
-  let find range tree = findLoop true range tree |> Option.get |> snd
+  let find range tree = findLoop true range tree |> Result.get |> snd
 
   [<CompiledName("TryFindKey")>]
   let tryFindKey addr tree =
-    findLoop false (AddrRange (addr, addr + 1UL)) tree |> Option.map fst
+    match findLoop false (AddrRange (addr, addr + 1UL)) tree with
+    | Ok (k, _) -> Some k
+    | _ -> None
 
   [<CompiledName("TryFind")>]
   let tryFind range tree =
-    findLoop true range tree |> Option.map snd
+    match findLoop true range tree with
+    | Ok (_, v) -> Some v
+    | _ -> None
 
   [<CompiledName("TryFindByAddr")>]
-  let tryFindByAddr k tree =
-    findLoop false (AddrRange (k, k + 1UL)) tree |> Option.map snd
+  let tryFindByAddr addr tree =
+    match findLoop false (AddrRange (addr, addr + 1UL)) tree with
+    | Ok (_, v) -> Some v
+    | _ -> None
 
   [<CompiledName("FindByAddr")>]
-  let findByAddr k tree = tryFindByAddr k tree |> Option.get
+  let findByAddr addr tree =
+    findLoop false (AddrRange (addr, addr + 1UL)) tree |> Result.get |> snd
 
   let rec private sizeAux acc tree =
     match tree with
@@ -196,7 +203,8 @@ module ARMap =
   let count tree = sizeAux 0 tree
 
   [<CompiledName("Iterate")>]
-  let rec iter fn = function
+  let rec iter fn tree =
+    match tree with
     | Leaf _ -> ()
     | Node (_, k, v, l, r) -> iter fn l; fn k v; iter fn r
 

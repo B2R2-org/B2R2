@@ -49,10 +49,10 @@ type ProgramPoint (addr, pos) =
     ProgramPoint (p.Address, p.Position + 1)
 
   interface System.IComparable with
-    member __.CompareTo (o) =
-      match o with
-      | :? ProgramPoint as o ->
+    member __.CompareTo (rhs) =
+      match rhs with
+      | :? ProgramPoint as rhs ->
         (* To lexicographically sort leaders. Being too pedantic here. *)
-        if __.Address = o.Address then compare __.Position o.Position
-        else compare __.Address o.Address
-      | _ -> invalidArg "ProgramPoint" "Invalid comparison"
+        if __.Address = rhs.Address then compare __.Position rhs.Position
+        else compare __.Address rhs.Address
+      | _ -> invalidArg (nameof rhs) "Invalid comparison"

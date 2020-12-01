@@ -47,13 +47,14 @@ module FileFormat =
     | "wasm" -> FileFormat.WasmBinary
     | _ -> FileFormat.RawBinary
 
-  let toString = function
+  let toString fmt =
+    match fmt with
     | FileFormat.RawBinary -> "Raw"
     | FileFormat.ELFBinary -> "ELF"
     | FileFormat.PEBinary -> "PE"
     | FileFormat.MachBinary -> "Mach-O"
     | FileFormat.WasmBinary -> "Wasm"
-    | _ -> invalidArg "FileFormat" "Unknown FileFormat used."
+    | _ -> invalidArg (nameof fmt) "Unknown FileFormat used."
 
   /// Check whether the given format is ELF.
   let isELF fmt = fmt = FileFormat.ELFBinary

@@ -680,7 +680,7 @@ with
     | Architecture.MIPS64R2
     | Architecture.MIPS64R6 ->
       RelocationMIPS <| LanguagePrimitives.EnumOfValue n
-    | _ -> invalidArg "Architecture" "Unsupported architecture for relocation."
+    | _ -> invalidArg (nameof arch) "Unsupported architecture for relocation."
 
 /// Relocation entry.
 type RelocationEntry = {

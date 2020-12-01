@@ -34,17 +34,21 @@ type ErrorCase =
   | InvalidExprEvaluation = 2
   /// Symbol does not exist.
   | SymbolNotFound = 3
+  /// Item does not exist.
+  | ItemNotFound = 4
   /// Invalid file format.
-  | InvalidFileFormat = 4
+  | InvalidFileFormat = 5
   /// Invalid function address is encountered during a CFG analysis.
-  | InvalidFunctionAddress = 5
+  | InvalidFunctionAddress = 6
 
 module ErrorCase =
-  let toString = function
+  let toString errCase =
+    match errCase with
     | ErrorCase.ParsingFailure -> "Failed to parse."
     | ErrorCase.InvalidMemoryRead -> "Read invalid memory."
     | ErrorCase.InvalidExprEvaluation -> "Attempted to evalute invalid expr."
     | ErrorCase.SymbolNotFound -> "Symbol not found."
+    | ErrorCase.ItemNotFound -> "Item not found."
     | ErrorCase.InvalidFileFormat -> "Given invalid file format."
     | ErrorCase.InvalidFunctionAddress -> "Given invalid function address."
-    | _ -> invalidArg "ErrorCase.toString" "Unknown error case."
+    | _ -> invalidArg (nameof errCase) "Unknown error case."

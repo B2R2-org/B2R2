@@ -118,12 +118,12 @@ with
   static member ReadBytes (hdl, addr: Addr, nBytes) =
     match BinHandle.TryReadBytes (hdl, addr, nBytes) with
     | Ok bs -> bs
-    | Error e -> invalidArg "ReadBytes" (ErrorCase.toString e)
+    | Error e -> invalidArg (nameof addr) (ErrorCase.toString e)
 
   static member ReadBytes (hdl, bp: BinaryPointer, nBytes) =
     match BinHandle.TryReadBytes (hdl, bp, nBytes) with
     | Ok bs -> bs
-    | Error e -> invalidArg "ReadBytes" (ErrorCase.toString e)
+    | Error e -> invalidArg (nameof bp) (ErrorCase.toString e)
 
   member __.ReadInt (addr: Addr, nBytes) =
     BinHandle.ReadInt (__, addr, nBytes)
@@ -145,12 +145,12 @@ with
   static member ReadInt (hdl, addr: Addr, nBytes) =
     match BinHandle.TryReadInt (hdl, addr, nBytes) with
     | Ok i -> i
-    | Error e -> invalidArg "ReadInt" (ErrorCase.toString e)
+    | Error e -> invalidArg (nameof addr) (ErrorCase.toString e)
 
   static member ReadInt (hdl, bp: BinaryPointer, nBytes) =
     match BinHandle.TryReadInt (hdl, bp, nBytes) with
     | Ok i -> i
-    | Error e -> invalidArg "ReadInt" (ErrorCase.toString e)
+    | Error e -> invalidArg (nameof bp) (ErrorCase.toString e)
 
   member __.ReadUInt (addr: Addr, nBytes) =
     BinHandle.ReadUInt (__, addr, nBytes)
@@ -172,12 +172,12 @@ with
   static member ReadUInt (hdl, addr: Addr, nBytes) =
     match BinHandle.TryReadUInt (hdl, addr, nBytes) with
     | Ok i -> i
-    | Error e -> invalidArg "ReadUInt" (ErrorCase.toString e)
+    | Error e -> invalidArg (nameof addr) (ErrorCase.toString e)
 
   static member ReadUInt (hdl, bp: BinaryPointer, nBytes) =
     match BinHandle.TryReadUInt (hdl, bp, nBytes) with
     | Ok i -> i
-    | Error e -> invalidArg "ReadUInt" (ErrorCase.toString e)
+    | Error e -> invalidArg (nameof bp) (ErrorCase.toString e)
 
   member __.ReadASCII (addr: Addr) =
     BinHandle.ReadASCII (__, addr)

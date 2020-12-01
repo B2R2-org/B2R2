@@ -56,10 +56,11 @@ module OS =
     | "windows" | "win" -> OS.Windows
     | "linux" -> OS.Linux
     | "macos" | "macosx" | "mac" | "osx" -> OS.MacOSX
-    | _ -> invalidArg "OS" "Unknown OS string"
+    | _ -> invalidArg (nameof s) "Unknown OS string"
 
-  let toString = function
+  let toString os =
+    match os with
     | OS.Windows -> "Windows"
     | OS.Linux -> "Linux"
     | OS.MacOSX -> "Mac"
-    | _ -> invalidArg "OS" "Wrong enum"
+    | _ -> invalidArg (nameof os) "Wrong enum"

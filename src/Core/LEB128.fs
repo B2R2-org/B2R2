@@ -44,7 +44,7 @@ module private LEB128Helper =
       | b :: rest ->
         let v' = v ||| (cast (b &&& 0x7fuy) <<< (offset * 7))
         convLoop v' (offset + 1) rest
-    if bytes.Length = 0 then invalidArg "decode" "Invalid buffer length"
+    if bytes.Length = 0 then invalidArg (nameof bytes) "Invalid buffer length"
     else
       let len = if bytes.Length > maxLen then maxLen else bytes.Length
       let bs, offset = decodeLoop [] bytes 0 bytes.[0] len

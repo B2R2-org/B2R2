@@ -83,4 +83,10 @@ module Result =
     | Ok (r) -> r
     | Error _ -> invalidOp "The Result type had an Error, but not handled."
 
+  /// Is the result Ok?
+  let inline isOk res =
+    match res with
+    | Ok _ -> true
+    | _ -> false
+
 // vim: set tw=80 sts=2 sw=2:
