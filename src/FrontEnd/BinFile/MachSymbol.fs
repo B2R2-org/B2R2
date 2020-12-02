@@ -111,7 +111,7 @@ let addFuncs secTxt starts symbols =
   Set.difference starts symbolAddrs
   |> Set.toArray
   |> Array.map (fun addr ->
-    { SymName = "func_" + addr.ToString ("X")
+    { SymName = Addr.toFuncName addr
       SymType = SymbolType.NSect
       IsExternal = false
       SecNum = secTxt + 1

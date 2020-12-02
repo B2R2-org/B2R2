@@ -50,7 +50,7 @@ type Callee = {
 }
 with
   static member private obtainFuncIDAndName (hdl: BinHandle) (addr: Addr) =
-    let id = "func_" + addr.ToString ("X")
+    let id = Addr.toFuncName addr
     match hdl.FileInfo.TryFindFunctionSymbolName addr with
     | Error _ -> id, id
     | Ok name -> id, name

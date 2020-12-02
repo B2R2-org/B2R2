@@ -352,7 +352,7 @@ type FileInfo (baseAddr) =
       if dict.ContainsKey s.Address then () else dict.[s.Address] <- s)
     dict
     |> Seq.map (fun (KeyValue (_, s)) -> s)
-    |> Seq.filter (fun s -> s.Kind = SymbolKind.FunctionType)
+    |> Seq.filter (fun s -> s.Kind = FunctionType)
 
   /// <summary>
   ///   Returns a sequence of local function addresses (excluding external

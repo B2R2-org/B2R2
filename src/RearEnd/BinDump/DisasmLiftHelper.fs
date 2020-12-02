@@ -49,6 +49,10 @@ let createFuncSymbolDic hdl =
   let funcs = Dictionary ()
   hdl.FileInfo.GetFunctionSymbols ()
   |> Seq.iter (fun s -> funcs.Add (s.Address, s.Name) |> ignore)
+  hdl.FileInfo.GetFunctionAddresses ()
+  |> Seq.iter (fun a ->
+    if funcs.ContainsKey a then ()
+    else funcs.[a] <- Addr.toFuncName a)
   funcs
 
 let createLinkageTableSymbolDic hdl =

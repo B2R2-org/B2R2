@@ -24,38 +24,15 @@
 
 namespace B2R2
 
-/// Raised when two address ranges overlap in an ARMap, which does not allow
-/// overlapping intervals.
-exception RangeOverlapException
+/// Addresses are represented with a 64-bit integer in B2R2.
+type Addr = uint64
 
-/// Raised when creating/handling AddrRange that has wrong interval, i.e., Min
-/// value is larger than Max value.
-exception InvalidAddrRangeException
+module Addr =
+  let [<Literal>] private functionPrefix = "func_"
 
-type AddrRange =
-  val Min: Addr
-  val Max: Addr
+  let toString wordSize (addr: Addr) =
+    if wordSize = WordSize.Bit32 then addr.ToString ("X8")
+    else addr.ToString ("X16")
 
-  new (min, max) =
-    if min >= max then raise InvalidAddrRangeException else ()
-    { Min = min; Max = max }
-
-  override __.ToString () =
-    __.Min.ToString ("X") + " -- " + __.Max.ToString ("X")
-
-  override __.Equals (rhs: obj) =
-    match rhs with
-    | :? AddrRange as r -> __.Min = r.Min && __.Max = r.Max
-    | _ -> raise InvalidAddrRangeException
-
-  override __.GetHashCode () =
-    hash ( __.Min, __.Max )
-
-  member __.ToTuple () =
-    __.Min, __.Max
-
-  static member inline GetMin (range: AddrRange) = range.Min
-
-  static member inline GetMax (range: AddrRange) = range.Max
-
-// vim: set tw=80 sts=2 sw=2:
+  let toFuncName (addr: Addr) =
+    functionPrefix + addr.ToString ("X")
