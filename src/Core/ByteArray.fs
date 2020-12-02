@@ -27,6 +27,7 @@ module B2R2.ByteArray
 open System
 open System.Text
 open System.Globalization
+open System.Runtime.InteropServices
 
 let ofHexString (s: string) =
   Seq.windowed 2 s
@@ -35,6 +36,16 @@ let ofHexString (s: string) =
   |> Seq.map (fun (_, j) -> Byte.Parse(String(j),
                                        NumberStyles.AllowHexSpecifier))
   |> Array.ofSeq
+
+let toReadOnlySpan (bs: byte []) =
+  ReadOnlySpan (bs)
+
+let readInt32 (bs: byte []) offset =
+  try
+    let span = ReadOnlySpan (bs, offset, 4)
+    MemoryMarshal.Read<int> span |> Ok
+  with _ ->
+    Error ErrorCase.InvalidMemoryRead
 
 let rec private extractCStringFromSpanAux span (acc: StringBuilder) offset =
   if offset >= (span: ReadOnlySpan<byte>).Length then acc.ToString ()

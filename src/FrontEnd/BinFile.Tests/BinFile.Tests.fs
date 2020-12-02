@@ -211,7 +211,7 @@ module ELF =
       Assert.AreEqual (fi.GetSections () |> Seq.length, 31)
       Assert.AreEqual (fi.GetStaticSymbols () |> Seq.length, 793)
       Assert.AreEqual (fi.GetDynamicSymbols () |> Seq.length, 131)
-      Assert.AreEqual (fi.GetLinkageTableEntries () |> Seq.length, 113)
+      Assert.AreEqual (fi.GetLinkageTableEntries () |> Seq.length, 114)
       Assert.AreEqual (fi.TextStartAddr, 0x8049CD0UL)
       Assert.AreEqual (fi.WordSize, WordSize.Bit32)
       checkSymbol fi 0x080495b0UL "unsetenv"
@@ -227,7 +227,7 @@ module ELF =
       Assert.AreEqual (fi.GetSections () |> Seq.length, 29)
       Assert.AreEqual (fi.GetStaticSymbols () |> Seq.length, 0)
       Assert.AreEqual (fi.GetDynamicSymbols () |> Seq.length, 131)
-      Assert.AreEqual (fi.GetLinkageTableEntries () |> Seq.length, 113)
+      Assert.AreEqual (fi.GetLinkageTableEntries () |> Seq.length, 114)
       Assert.AreEqual (fi.TextStartAddr, 0x8049CD0UL)
       Assert.AreEqual (fi.WordSize, WordSize.Bit32)
       checkSymbol fi 0x080495b0UL "unsetenv"
@@ -243,7 +243,7 @@ module ELF =
       Assert.AreEqual (fi.GetSections () |> Seq.length, 38)
       Assert.AreEqual (fi.GetStaticSymbols () |> Seq.length, 635)
       Assert.AreEqual (fi.GetDynamicSymbols () |> Seq.length, 126)
-      Assert.AreEqual (fi.GetLinkageTableEntries () |> Seq.length, 109)
+      Assert.AreEqual (fi.GetLinkageTableEntries () |> Seq.length, 110)
       Assert.AreEqual (fi.TextStartAddr, 0x4027C0UL)
       Assert.AreEqual (fi.WordSize, WordSize.Bit64)
       checkSymbol fi 0x004020e0UL "__ctype_toupper_loc"
@@ -259,7 +259,7 @@ module ELF =
       Assert.AreEqual (fi.GetSections () |> Seq.length, 29)
       Assert.AreEqual (fi.GetStaticSymbols () |> Seq.length, 0)
       Assert.AreEqual (fi.GetDynamicSymbols () |> Seq.length, 126)
-      Assert.AreEqual (fi.GetLinkageTableEntries () |> Seq.length, 109)
+      Assert.AreEqual (fi.GetLinkageTableEntries () |> Seq.length, 110)
       Assert.AreEqual (fi.TextStartAddr, 0x4027C0UL)
       Assert.AreEqual (fi.WordSize, WordSize.Bit64)
       checkSymbol fi 0x004020e0UL "__ctype_toupper_loc"

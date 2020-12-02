@@ -24,63 +24,8 @@
 
 module internal B2R2.FrontEnd.BinFile.ELF.Parser
 
-open System
 open B2R2
 open B2R2.FrontEnd.BinFile
-
-let pltSkipBytes = function
-  | Arch.IntelX86
-  | Arch.IntelX64 -> 0x10UL
-  | Arch.ARMv7 -> 0x14UL
-  | Arch.AARCH64 -> 0x20UL
-  | _ -> Utils.futureFeature ()
-
-let isThumbPltELFSymbol sAddr (plt: ELFSection) (reader: BinReader) =
-  let offset = Convert.ToInt32 (sAddr - plt.SecAddr + plt.SecOffset)
-  let pltThumbStubBytes = ReadOnlySpan [| 0x78uy; 0x47uy; 0xc0uy; 0x46uy |]
-  let span = reader.PeekSpan (4, offset)
-  span.SequenceEqual pltThumbStubBytes
-
-let findPltSize sAddr plt reader = function
-  | Arch.IntelX86
-  | Arch.IntelX64 -> 0x10UL
-  | Arch.ARMv7 ->
-    if isThumbPltELFSymbol sAddr plt reader then 0x10UL else 0x0CUL
-  | Arch.AARCH64 -> 0x10UL
-  | _ -> failwith "Implement"
-
-let updateSecondPLT arch sndAddr symb map =
-  match sndAddr with
-  | None -> map, sndAddr
-  | Some addr ->
-    let nextAddr = addr + pltSkipBytes arch
-    let r = AddrRange (addr, nextAddr)
-    ARMap.add r symb map, Some nextAddr
-
-let parsePLT arch sections (reloc: RelocInfo) reader =
-  let sndStartAddr =
-    Map.tryFind ".plt.sec" sections.SecByName
-    |> Option.map (fun plt -> plt.SecAddr)
-  match Map.tryFind ".plt" sections.SecByName with
-  | Some plt ->
-    let pltStartAddr = plt.SecAddr + pltSkipBytes arch
-    let folder (map, sAddr, sndAddr) _ (rel: RelocationEntry) =
-      match rel.RelType with
-      | RelocationX86 RelocationX86.Reloc386JmpSlot
-      | RelocationX64 RelocationX64.RelocX64JmpSlot
-      | RelocationARMv7 RelocationARMv7.RelocARMJmpSlot
-      | RelocationARMv8 RelocationARMv8.RelocAARCH64JmpSlot ->
-        let nextStartAddr = sAddr + findPltSize sAddr plt reader arch
-        let addrRange = AddrRange (sAddr, nextStartAddr)
-        let symb = Option.get rel.RelSymbol
-        let symb = { symb with Addr = rel.RelOffset }
-        let map = ARMap.add addrRange symb map
-        let map, nextSndAddr = updateSecondPLT arch sndAddr symb map
-        map, nextStartAddr, nextSndAddr
-      | _ -> map, sAddr, sndAddr
-    Map.fold folder (ARMap.empty, pltStartAddr, sndStartAddr) reloc.RelocByAddr
-    |> function (m, _, _) -> m
-  | None -> ARMap.empty
 
 let parseGlobalSymbols reloc =
   let folder map addr (rel: RelocationEntry) =
@@ -162,7 +107,7 @@ let private parseELF baseAddr regbay offset reader =
   let loadableSecNums = ProgHeader.getLoadableSecNums secs segs
   let symbs = Symbol.parse baseAddr eHdr secs reader
   let reloc = Relocs.parse baseAddr eHdr secs symbs reader
-  let plt = parsePLT eHdr.MachineType secs reloc reader
+  let plt = PLT.parse eHdr.MachineType secs reloc reader
   let globals = parseGlobalSymbols reloc
   let symbs = Symbol.updatePLTSymbols plt symbs |> Symbol.updateGlobals globals
   let excframes = ExceptionFrames.parse reader cls secs isa regbay

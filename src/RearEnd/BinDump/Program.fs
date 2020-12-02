@@ -98,33 +98,13 @@ let private disasDumper hdl opts cfg _optimizer funcs sec =
   printBlkDisasm hdl cfg opts (BinaryPointer.OfSection sec) funcs
   out.PrintLine ()
 
-let private getTblEntrySize hdl =
-  match hdl.FileInfo.FileFormat, hdl.ISA.Arch with
-  | FileFormat.ELFBinary, Architecture.IntelX86
-  | FileFormat.ELFBinary, Architecture.IntelX64 -> 16
-  | FileFormat.ELFBinary, Architecture.ARMv7
-  | FileFormat.ELFBinary, Architecture.AARCH32 -> 12
-  | FileFormat.MachBinary, Architecture.IntelX86
-  | FileFormat.MachBinary, Architecture.IntelX64 -> 6
-  | _ -> Utils.futureFeature ()
+let private irTblDumper hdl _opts cfg optimizer sec =
+  printBlkLowUIR hdl cfg optimizer (BinaryPointer.OfSection sec)
+  out.PrintLine ()
 
-let private tblIter (sec: Section) entrySize fn =
-  out.PrintLine (StringUtils.wrapAngleBracket sec.Name)
-  let rec loop bp =
-    if BinaryPointer.IsValid bp then
-      fn (BinaryPointer (bp.Addr, bp.Offset, bp.Offset + entrySize))
-      loop (BinaryPointer.Advance bp entrySize)
-    else ()
-  loop (BinaryPointer.OfSection sec)
-
-let private irTblDumper hdl _opts cfg optimizer (sec: Section) =
-  let entrySize = getTblEntrySize hdl
-  tblIter sec entrySize (fun range -> printBlkLowUIR hdl cfg optimizer range)
-
-let private disasTblDumper hdl opts cfg _optimizer (sec: Section) =
-  let entrySize = getTblEntrySize hdl
+let private disasTblDumper hdl opts cfg _optimizer sec =
   let funcs = createLinkageTableSymbolDic hdl |> Some
-  tblIter sec entrySize (fun range -> printBlkDisasm hdl cfg opts range funcs)
+  printBlkDisasm hdl cfg opts (BinaryPointer.OfSection sec) funcs
   out.PrintLine ()
 
 let private printTitle action name =

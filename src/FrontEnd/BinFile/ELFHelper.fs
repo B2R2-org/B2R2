@@ -126,11 +126,11 @@ let getRelocSymbols elf =
   |> Map.toSeq
   |> Seq.choose translate
 
-let secFlagToSectionKind flag entrySize =
-  if flag &&& SectionFlag.SHFExecInstr = SectionFlag.SHFExecInstr then
-    if entrySize > 0UL then SectionKind.LinkageTableSection
+let secFlagToSectionKind sec =
+  if sec.SecFlags &&& SectionFlag.SHFExecInstr = SectionFlag.SHFExecInstr then
+    if PLT.isPLTSectionName sec.SecName then SectionKind.LinkageTableSection
     else SectionKind.ExecutableSection
-  elif flag &&& SectionFlag.SHFWrite = SectionFlag.SHFWrite then
+  elif sec.SecFlags &&& SectionFlag.SHFWrite = SectionFlag.SHFWrite then
     SectionKind.WritableSection
   else
     SectionKind.ExtraSection
@@ -138,7 +138,7 @@ let secFlagToSectionKind flag entrySize =
 let elfSectionToSection sec =
   { Address = sec.SecAddr
     FileOffset = sec.SecOffset
-    Kind = secFlagToSectionKind sec.SecFlags sec.SecEntrySize
+    Kind = secFlagToSectionKind sec
     Size = sec.SecSize
     Name = sec.SecName }
 
@@ -181,7 +181,7 @@ let getPLT elf =
   |> List.sortBy (fun entry -> entry.TrampolineAddress)
   |> List.toSeq
 
-let isPLT elf addr =
+let isInPLT elf addr =
   ARMap.containsAddr addr elf.PLT
 
 let inline isValidAddr elf addr =

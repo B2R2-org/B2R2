@@ -29,6 +29,7 @@
     <Compile Include="ELFProgHeader.fs" />
     <Compile Include="ELFSymbol.fs" />
     <Compile Include="ELFRelocs.fs" />
+    <Compile Include="ELFPLT.fs" />
     <Compile Include="ELFHelper.fs" />
     <Compile Include="ELFParser.fs" />
     <Compile Include="ELF.fs" />
