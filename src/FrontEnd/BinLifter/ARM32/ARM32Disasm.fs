@@ -862,7 +862,7 @@ let oprToString i addr operand delim builder acc =
     |> builder AsmWordKind.String (condToString (Some c))
   | GoToLabel _ -> acc
 
-let buildOprs ins pc builder acc =
+let buildOprs _hlp ins pc builder acc =
   match ins.Operands with
   | NoOperand -> acc
   | OneOperand opr ->
@@ -893,8 +893,8 @@ let buildOprs ins pc builder acc =
     |> oprToString ins pc opr5 (Some ", ") builder
     |> oprToString ins pc opr6 (Some ", ") builder
 
-let disasm showAddr ins builder acc =
+let disasm showAddr hlp ins builder acc =
   let pc = ins.Address
   DisasmBuilder.addr pc WordSize.Bit32 showAddr builder acc
   |> buildOpcode ins builder
-  |> buildOprs ins pc builder
+  |> buildOprs hlp ins pc builder

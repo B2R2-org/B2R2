@@ -121,31 +121,29 @@ let private isRawBinary hdl =
   | FileFormat.PEBinary -> false
   | _ -> true
 
-let private printTitle action name =
-  out.PrintSectionTitle (action + " of section " + name + ":")
+let private printCodeOrTable (printer: BinPrinter) sec =
+  printer.Print (BinaryPointer.OfSection sec)
+  out.PrintLine ()
 
 let private dumpSections hdl (opts: BinDumpOpts) (sections: seq<Section>) cfg =
-  let action = if opts.ShowLowUIR then "LowUIR" else "Disassembly"
   let codeprn = makeCodePrinter hdl cfg opts
   let tableprn = makeTablePrinter hdl cfg opts
   sections
   |> Seq.iter (fun s ->
     if s.Size > 0UL then
+      out.PrintSectionTitle (StringUtils.wrapParen s.Name)
       match s.Kind with
       | SectionKind.ExecutableSection ->
-        printTitle action s.Name
-        codeprn.Print (BinaryPointer.OfSection s)
-        out.PrintLine ()
+        printCodeOrTable codeprn s
       | SectionKind.LinkageTableSection ->
-        printTitle action s.Name
-        tableprn.Print (BinaryPointer.OfSection s)
-        out.PrintLine ()
+        printCodeOrTable tableprn s
       | _ ->
-        printTitle "Contents" s.Name
-        dumpHex opts s hdl
+        if opts.OnlyDisasm then printCodeOrTable codeprn s
+        else dumpHex opts s hdl
     else ())
 
 let private dumpRegularFile hdl (opts: BinDumpOpts) cfg =
+  opts.ShowSymbols <- true
   match opts.InputSecName with
   | Some secname ->
     dumpSections hdl opts (hdl.FileInfo.GetSections (secname)) cfg
@@ -174,7 +172,7 @@ let dumpFileMode files (opts: BinDumpOpts) =
     Printer.printErrorToConsole ("File(s) " + errs.ToString() + " not found!")
 
 let private assertBinaryLength hdl hexstr =
-  let multiplier = getInstructionAlignment hdl
+  let multiplier = getInstructionAlignment hdl hdl.DefaultParsingContext
   if (Array.length hexstr) % multiplier = 0 then ()
   else
     Printer.printErrorToConsole <|

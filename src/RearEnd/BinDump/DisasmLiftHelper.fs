@@ -76,11 +76,11 @@ let makeArchModeDic hdl =
   | _ -> ()
   modes
 
-let getInstructionAlignment hdl =
+let getInstructionAlignment hdl (ctxt: ParsingContext) =
   match hdl.ISA.Arch with
   | Arch.IntelX86 | Arch.IntelX64 -> 1
   | Arch.ARMv7 | Arch.AARCH32 ->
-    match hdl.DefaultParsingContext.ArchOperationMode with
+    match ctxt.ArchOperationMode with
     | ArchOperationMode.ThumbMode -> 2
     | _ -> 4
   | _ -> 4
@@ -137,9 +137,9 @@ let colorDisPrinter (hdl: BinHandle) _ bp (ins: Instruction) cfg =
   let bytes = BinHandle.ReadBytes (hdl, bp=bp, nBytes=int ins.Length)
   printColorDisasm words wordSize bp.Addr bytes cfg
 
-let handleInvalidIns (hdl: BinHandle) bp isLift cfg =
+let handleInvalidIns (hdl: BinHandle) ctxt bp isLift cfg =
   let wordSize = hdl.FileInfo.WordSize
-  let align = getInstructionAlignment hdl
+  let align = getInstructionAlignment hdl ctxt
   let bytes = BinHandle.ReadBytes (hdl, bp=bp, nBytes=align)
   if isLift then printLowUIR illegalStr bytes cfg
   else printRegularDisasm illegalStr wordSize bp.Addr bytes cfg
@@ -183,7 +183,7 @@ type BinPrinter (hdl, cfg) =
         let bp' = BinaryPointer.Advance bp (int ins.Length)
         __.Print bp'
       | Error _ ->
-        __.Print (handleInvalidIns hdl bp false cfg)
+        __.Print (handleInvalidIns hdl ctxt bp false cfg)
     else ()
 
 [<AbstractClass>]

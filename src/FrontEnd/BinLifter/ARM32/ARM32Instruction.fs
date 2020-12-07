@@ -33,6 +33,8 @@ open System.Text
 type ARM32Instruction (addr, numBytes, insInfo, ctxt, auxctxt) =
   inherit Instruction (addr, numBytes, WordSize.Bit32)
 
+  let dummyHelper = DisasmHelper ()
+
   member val Info: InsInfo = insInfo
 
   override __.NextParsingContext = ctxt
@@ -155,14 +157,15 @@ type ARM32Instruction (addr, numBytes, insInfo, ctxt, auxctxt) =
   member private __.StrBuilder _ (str: string) (acc: StringBuilder) =
     acc.Append (str)
 
-  override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
+  override __.Disasm (showAddr, resolveSymbol, disasmHelper) =
+    let helper = if resolveSymbol then disasmHelper else dummyHelper
     let acc = StringBuilder ()
-    let acc = Disasm.disasm showAddr __.Info __.StrBuilder acc
+    let acc = Disasm.disasm showAddr helper __.Info __.StrBuilder acc
     acc.ToString ()
 
   override __.Disasm () =
     let acc = StringBuilder ()
-    let acc = Disasm.disasm false __.Info __.StrBuilder acc
+    let acc = Disasm.disasm false dummyHelper __.Info __.StrBuilder acc
     acc.ToString ()
 
   member private __.WordBuilder kind str (acc: AsmWordBuilder) =
@@ -170,7 +173,7 @@ type ARM32Instruction (addr, numBytes, insInfo, ctxt, auxctxt) =
 
   override __.Decompose (showAddr) =
     AsmWordBuilder (8)
-    |> Disasm.disasm showAddr __.Info __.WordBuilder
+    |> Disasm.disasm showAddr dummyHelper __.Info __.WordBuilder
     |> fun b -> b.Finish ()
 
 // vim: set tw=80 sts=2 sw=2:

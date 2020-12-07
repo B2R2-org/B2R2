@@ -952,11 +952,11 @@ let commentWithSymbol (helper: DisasmHelper) targetAddr builder acc =
     |> builder AsmWordKind.Value name
     |> builder AsmWordKind.String ">"
 
-let inline relToString pc offset fi builder acc =
+let inline relToString pc offset hlp builder acc =
   (if offset < 0L then builder AsmWordKind.String "-" acc
    else builder AsmWordKind.String "+" acc)
   |> iToHexStr (abs offset) builder
-  |> commentWithSymbol fi (pc + uint64 offset) builder
+  |> commentWithSymbol hlp (pc + uint64 offset) builder
 
 let inline absToString selector (offset: Addr) builder acc =
   uToHexStr (uint64 selector) builder acc
@@ -1001,7 +1001,7 @@ let inline private getMask sz =
   | 32<rt> -> 0xFFFFFFFFL
   | _ -> 0xFFFFFFFFFFFFFFFFL
 
-let oprToString wordSz ins insAddr fi opr isFstOpr builder acc =
+let oprToString wordSz ins insAddr hlp opr isFstOpr builder acc =
   match opr with
   | OprReg reg ->
     let acc = builder AsmWordKind.Variable (Register.toString reg) acc
@@ -1012,7 +1012,7 @@ let oprToString wordSz ins insAddr fi opr isFstOpr builder acc =
   | OprImm imm ->
     iToHexStr (imm &&& getMask ins.InsSize.OperationSize) builder acc
   | OprDirAddr (Absolute (sel, offset, _)) -> absToString sel offset builder acc
-  | OprDirAddr (Relative (offset)) -> relToString insAddr offset fi builder acc
+  | OprDirAddr (Relative (offset)) -> relToString insAddr offset hlp builder acc
   | Label _ -> Utils.impossible ()
 
 let inline buildPref (prefs: Prefix) builder acc =
@@ -1037,52 +1037,52 @@ let recomputeRIPRel pc disp (ins: InsInfo) (insLen: uint32) builder acc =
   |> uToHexStr (pc + uint64 disp + uint64 insLen) builder
   |> builder AsmWordKind.String "]"
 
-let buildOprs ins insLen pc fi wordSz builder acc =
+let buildOprs ins insLen pc hlp wordSz builder acc =
   match ins.Operands with
   | NoOperand -> acc
   | OneOperand (OprMem (Some Register.RIP, None, Some off, 64<rt>)) ->
     builder AsmWordKind.String (" ") acc
     |> mToString wordSz ins (Some Register.RIP) None (Some off) 64<rt> builder
-    |> commentWithSymbol fi (pc + uint64 insLen + uint64 off) builder
+    |> commentWithSymbol hlp (pc + uint64 insLen + uint64 off) builder
   | OneOperand opr ->
     builder AsmWordKind.String " " acc
-    |> oprToString wordSz ins pc fi opr true builder
+    |> oprToString wordSz ins pc hlp opr true builder
   | TwoOperands (OprMem (Some R.RIP, None, Some disp, _), opr) ->
     builder AsmWordKind.String " " acc
     |> recomputeRIPRel pc disp ins insLen builder
     |> builder AsmWordKind.String ", "
-    |> oprToString wordSz ins pc fi opr false builder
+    |> oprToString wordSz ins pc hlp opr false builder
   | TwoOperands (opr, OprMem (Some R.RIP, None, Some disp, _)) ->
     builder AsmWordKind.String " " acc
-    |> oprToString wordSz ins pc fi opr true builder
+    |> oprToString wordSz ins pc hlp opr true builder
     |> builder AsmWordKind.String ", "
     |> recomputeRIPRel pc disp ins insLen builder
   | TwoOperands (opr1, opr2) ->
     builder AsmWordKind.String " " acc
-    |> oprToString wordSz ins pc fi opr1 true builder
+    |> oprToString wordSz ins pc hlp opr1 true builder
     |> builder AsmWordKind.String ", "
-    |> oprToString wordSz ins pc fi opr2 false builder
+    |> oprToString wordSz ins pc hlp opr2 false builder
   | ThreeOperands (opr1, opr2, opr3) ->
     builder AsmWordKind.String " " acc
-    |> oprToString wordSz ins pc fi opr1 true builder
+    |> oprToString wordSz ins pc hlp opr1 true builder
     |> builder AsmWordKind.String ", "
-    |> oprToString wordSz ins pc fi opr2 false builder
+    |> oprToString wordSz ins pc hlp opr2 false builder
     |> builder AsmWordKind.String ", "
-    |> oprToString wordSz ins pc fi opr3 false builder
+    |> oprToString wordSz ins pc hlp opr3 false builder
   | FourOperands (opr1, opr2, opr3, opr4) ->
     builder AsmWordKind.String " " acc
-    |> oprToString wordSz ins pc fi opr1 true builder
+    |> oprToString wordSz ins pc hlp opr1 true builder
     |> builder AsmWordKind.String ", "
-    |> oprToString wordSz ins pc fi opr2 false builder
+    |> oprToString wordSz ins pc hlp opr2 false builder
     |> builder AsmWordKind.String ", "
-    |> oprToString wordSz ins pc fi opr3 false builder
+    |> oprToString wordSz ins pc hlp opr3 false builder
     |> builder AsmWordKind.String ", "
-    |> oprToString wordSz ins pc fi opr4 false builder
+    |> oprToString wordSz ins pc hlp opr4 false builder
 
-let disasm showAddr wordSize fi ins pc insLen builder acc =
+let disasm showAddr wordSize hlp ins pc insLen builder acc =
   DisasmBuilder.addr pc wordSize showAddr builder acc
   |> buildPref ins.Prefixes builder
   |> buildOpcode ins.Opcode builder
-  |> buildOprs ins insLen pc fi wordSize builder
+  |> buildOprs ins insLen pc hlp wordSize builder
 
 // vim: set tw=80 sts=2 sw=2:

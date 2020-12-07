@@ -64,6 +64,9 @@ type BinDumpOpts () =
   /// Show hexdump colored or not, just for files not hexstring
   member val ShowColor = false with get, set
 
+  /// Display only disassembly.
+  member val OnlyDisasm = false with get, set
+
   /// Perform basic block optimization or not?
   member val DoOptimization = NoOptimize with get, set
 
@@ -96,13 +99,23 @@ type BinDumpOpts () =
     CmdOpts.New (descr = "Specify the base <address> in hex (default=0)",
                  extra = 1, callback = cb, short = "-r", long = "--base-addr")
 
+  /// "--only-disasm" option for forcefully showing disassembly for all
+  /// sections.
+  static member OptOnlyDisasm () =
+    let cb opts (arg: string []) =
+      (BinDumpOpts.ToThis opts).OnlyDisasm <- true
+      opts
+    CmdOpts.New (
+      descr = "Always display disassembly for all sections.",
+      callback = cb, long = "--only-disasm")
+
   /// "-S" or "--section" for displaying contents of a specific section.
   static member OptDumpSection () =
     let cb opts (arg: string []) =
       (BinDumpOpts.ToThis opts).InputSecName <- Some arg.[0]
       opts
     CmdOpts.New (
-      descr = "Display contents of a specific section",
+      descr = "Display the contents of a specific section",
       extra = 1, callback = cb, short = "-S", long = "--section")
 
   /// "-s" option for specifying an input hexstring.
@@ -192,15 +205,16 @@ module Cmd =
       CmdOpts.New (descr = "[Input Configuration]", dummy = true)
       CmdOpts.New (descr = "", dummy = true)
 
-      BinDumpOpts.OptDumpSection ()
       BinDumpOpts.OptInputHexString ()
-      BinDumpOpts.OptRawBinary ()
       BinDumpOpts.OptArchMode ()
+      BinDumpOpts.OptRawBinary ()
 
       CmdOpts.New (descr = "", dummy = true)
       CmdOpts.New (descr = "[Output Configuration]", dummy = true)
       CmdOpts.New (descr = "", dummy = true)
 
+      BinDumpOpts.OptDumpSection ()
+      BinDumpOpts.OptOnlyDisasm ()
       BinDumpOpts.OptShowAddr ()
       BinDumpOpts.OptShowSymbols ()
       BinDumpOpts.OptShowWide ()
