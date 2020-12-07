@@ -47,11 +47,42 @@ let private getTableConfig hdl isLift =
       | _ -> 16
     [ LeftAligned addrWidth; LeftAligned binaryWidth; LeftAligned 10 ]
 
+let private isARM32 hdl =
+  match hdl.ISA.Arch with
+  | Arch.ARMv7
+  | Arch.AARCH32 -> true
+  | _ -> false
+
+let private makeCodePrinter hdl cfg (opts: BinDumpOpts) =
+  let opti = getOptimizer opts
+  if isARM32 hdl then
+    if opts.ShowLowUIR then
+      ContextSensitiveCodeIRPrinter (hdl, cfg, opti) :> BinPrinter
+    else
+      let showSymb, showColor = opts.ShowSymbols, opts.ShowColor
+      ContextSensitiveCodeDisasmPrinter (hdl, cfg, showSymb, showColor)
+      :> BinPrinter
+  else
+    if opts.ShowLowUIR then BinCodeIRPrinter (hdl, cfg, opti) :> BinPrinter
+    else
+      let showSymb, showColor = opts.ShowSymbols, opts.ShowColor
+      BinCodeDisasmPrinter (hdl, cfg, showSymb, showColor) :> BinPrinter
+
+let private makeTablePrinter hdl cfg (opts: BinDumpOpts) =
+  let opti = getOptimizer opts
+  if isARM32 hdl then
+    if opts.ShowLowUIR then
+      ContextSensitiveTableIRPrinter (hdl, cfg, opti) :> BinPrinter
+    else
+      ContextSensitiveTableDisasmPrinter (hdl, cfg) :> BinPrinter
+  else
+    if opts.ShowLowUIR then BinTableIRPrinter (hdl, cfg, opti) :> BinPrinter
+    else BinTableDisasmPrinter (hdl, cfg) :> BinPrinter
+
 let private dumpRawBinary (hdl: BinHandle) (opts: BinDumpOpts) cfg =
   let bp = hdl.FileInfo.ToBinaryPointer hdl.FileInfo.BaseAddr
-  let optimizer = getOptimizer opts
-  if opts.ShowLowUIR then printBlkLowUIR hdl cfg optimizer bp
-  else printBlkDisasm hdl cfg opts bp None
+  let prn = makeCodePrinter hdl cfg opts
+  prn.Print bp
   out.PrintLine ()
 
 let printHexdump (opts: BinDumpOpts) sec hdl =
@@ -90,42 +121,25 @@ let private isRawBinary hdl =
   | FileFormat.PEBinary -> false
   | _ -> true
 
-let private irDumper hdl _opts cfg optimizer _funcs sec =
-  printBlkLowUIR hdl cfg optimizer (BinaryPointer.OfSection sec)
-  out.PrintLine ()
-
-let private disasDumper hdl opts cfg _optimizer funcs sec =
-  printBlkDisasm hdl cfg opts (BinaryPointer.OfSection sec) funcs
-  out.PrintLine ()
-
-let private irTblDumper hdl _opts cfg optimizer sec =
-  printBlkLowUIR hdl cfg optimizer (BinaryPointer.OfSection sec)
-  out.PrintLine ()
-
-let private disasTblDumper hdl opts cfg _optimizer sec =
-  let funcs = createLinkageTableSymbolDic hdl |> Some
-  printBlkDisasm hdl cfg opts (BinaryPointer.OfSection sec) funcs
-  out.PrintLine ()
-
 let private printTitle action name =
   out.PrintSectionTitle (action + " of section " + name + ":")
 
 let private dumpSections hdl (opts: BinDumpOpts) (sections: seq<Section>) cfg =
-  let optimizer = getOptimizer opts
-  let struct (codeDump, tblDump, action) =
-    if opts.ShowLowUIR then struct (irDumper, irTblDumper, "LowUIR")
-    else struct (disasDumper, disasTblDumper, "Disassembly")
-  let funcs = Some (createFuncSymbolDic hdl)
+  let action = if opts.ShowLowUIR then "LowUIR" else "Disassembly"
+  let codeprn = makeCodePrinter hdl cfg opts
+  let tableprn = makeTablePrinter hdl cfg opts
   sections
   |> Seq.iter (fun s ->
     if s.Size > 0UL then
       match s.Kind with
       | SectionKind.ExecutableSection ->
         printTitle action s.Name
-        codeDump hdl opts cfg optimizer funcs s
+        codeprn.Print (BinaryPointer.OfSection s)
+        out.PrintLine ()
       | SectionKind.LinkageTableSection ->
         printTitle action s.Name
-        tblDump hdl opts cfg optimizer s
+        tableprn.Print (BinaryPointer.OfSection s)
+        out.PrintLine ()
       | _ ->
         printTitle "Contents" s.Name
         dumpHex opts s hdl
@@ -168,19 +182,17 @@ let private assertBinaryLength hdl hexstr =
     exit 1
 
 let dumpHexStringMode (opts: BinDumpOpts) =
-  opts.ShowSymbols <- false
-  opts.ShowColor <- true
   let hdl = BinHandle.Init (opts.ISA,
                             opts.ArchOperationMode,
                             false,
                             opts.BaseAddress,
                             opts.InputHexStr)
   let cfg = getTableConfig hdl opts.ShowLowUIR
-  let optimizer = getOptimizer opts
   assertBinaryLength hdl opts.InputHexStr
+  opts.ShowColor <- true
+  let printer = makeCodePrinter hdl cfg opts
   let bp = BinaryPointer (0UL, 0, opts.InputHexStr.Length)
-  if opts.ShowLowUIR then printBlkLowUIR hdl cfg optimizer bp
-  else printBlkDisasm hdl cfg opts bp None
+  printer.Print bp
   out.PrintLine ()
 
 let private dump files (opts: BinDumpOpts) =

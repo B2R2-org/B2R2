@@ -68,7 +68,8 @@ let toSymbol symbols secs reloc =
     Name = translateRelocSymbol symbols secs reloc
     Kind = SymbolKind.NoType (* FIXME *)
     Target = TargetKind.DynamicSymbol
-    LibraryName = "" }
+    LibraryName = ""
+    ArchOperationMode = ArchOperationMode.NoMode }
 
 let parseRelocs binReader secs =
   secs

@@ -125,7 +125,8 @@ let pdbSymbolToSymbol (sym: PESymbol) =
     Name = sym.Name
     Kind = pdbTypeToSymbKind sym.Flags
     Target = TargetKind.StaticSymbol
-    LibraryName = "" }
+    LibraryName = ""
+    ArchOperationMode = ArchOperationMode.NoMode }
 
 let inline getStaticSymbols pe =
   pe.SymbolInfo.SymbolArray
@@ -145,13 +146,15 @@ let getImportSymbols pe =
         Name = "#" + ord.ToString()
         Kind = SymbolKind.ExternFunctionType
         Target = TargetKind.DynamicSymbol
-        LibraryName = dllname } :: acc
+        LibraryName = dllname
+        ArchOperationMode = ArchOperationMode.NoMode } :: acc
     | ImportByName (_, funname, dllname) ->
       { Address = addrFromRVA pe.BaseAddr rva
         Name = funname
         Kind = SymbolKind.ExternFunctionType
         Target = TargetKind.DynamicSymbol
-        LibraryName = dllname } :: acc
+        LibraryName = dllname
+        ArchOperationMode = ArchOperationMode.NoMode } :: acc
   pe.ImportMap
   |> Map.fold conv []
   |> List.rev
@@ -162,13 +165,15 @@ let getExportSymbols pe =
       Name = name
       Kind = kind
       Target = TargetKind.DynamicSymbol
-      LibraryName = "" }
+      LibraryName = ""
+      ArchOperationMode = ArchOperationMode.NoMode }
   let makeForwardedExportSymbol name (fwdBin, fwdFunc) =
     { Address = 0UL
       Name = name
       Kind = SymbolKind.ForwardType (fwdBin, fwdFunc)
       Target = TargetKind.DynamicSymbol
-      LibraryName = "" }
+      LibraryName = ""
+      ArchOperationMode = ArchOperationMode.NoMode }
   let localExportFolder accSymbols addr names =
     let rva = int (addr - pe.BaseAddr)
     match pe.FindSectionIdxFromRVA rva with
@@ -207,7 +212,7 @@ let getRelocationSymbols pe =
     Kind = SymbolKind.NoType
     Target = TargetKind.DynamicSymbol
     LibraryName = String.Empty
-  })
+    ArchOperationMode = ArchOperationMode.NoMode })
 
 let getSections pe =
   pe.SectionHeaders

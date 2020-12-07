@@ -71,7 +71,8 @@ let machSymbolToSymbol secText target sym =
     Name = sym.SymName
     Kind = machTypeToSymbKind sym secText
     Target = target
-    LibraryName = Symbol.getSymbolLibName sym }
+    LibraryName = Symbol.getSymbolLibName sym
+    ArchOperationMode = ArchOperationMode.NoMode }
 
 let getStaticSymbols mach =
   mach.SymInfo.Symbols

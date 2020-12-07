@@ -425,6 +425,8 @@ type ELFSymbol = {
   ParentSection: ELFSection option
   /// Version information.
   VerInfo: SymVerInfo option
+  /// ArchOperationMode.
+  ArchOperationMode: ArchOperationMode
 }
 
 /// Relocation type for x86.

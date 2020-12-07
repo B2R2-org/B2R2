@@ -70,7 +70,8 @@ let importEntryToSymbol (importEntry: Import) =
     Name = importEntry.Name
     Kind = importDescToSymKind importEntry.Desc
     Target = TargetKind.DynamicSymbol
-    LibraryName = importEntry.ModuleName }
+    LibraryName = importEntry.ModuleName
+    ArchOperationMode = ArchOperationMode.NoMode }
 
 let exportDescToSymKind desc =
   match desc with
@@ -84,7 +85,8 @@ let exportEntryToSymbol (exportEntry: Export) =
     Name = exportEntry.Name
     Kind = exportDescToSymKind exportEntry.Desc
     Target = TargetKind.DynamicSymbol
-    LibraryName = "" }
+    LibraryName = ""
+    ArchOperationMode = ArchOperationMode.NoMode }
 
 let getDynamicSymbols wm excludeImported =
   let excludeImported = defaultArg excludeImported false

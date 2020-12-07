@@ -74,6 +74,9 @@ type Symbol = {
   Target: TargetKind
   /// Corresponding library name.
   LibraryName: string
+  /// Corresponding ArchOperationMode for this symbol, which is only meaningful
+  /// for ARM.
+  ArchOperationMode: ArchOperationMode
 }
 
 /// Kinds of sections.

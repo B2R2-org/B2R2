@@ -50,7 +50,8 @@ let toB2R2Symbol target (symb: ELFSymbol) =
     Name = symb.SymName
     Kind = getSymbKind symb.SecHeaderIndex symb.SymType
     Target = target
-    LibraryName = versionToLibName symb.VerInfo }
+    LibraryName = versionToLibName symb.VerInfo
+    ArchOperationMode = symb.ArchOperationMode }
 
 let verName (strTab: ReadOnlySpan<byte>) vnaNameOffset =
   if vnaNameOffset >= strTab.Length then ""
@@ -136,8 +137,19 @@ let readSymSize (reader: BinReader) cls offset =
   let symSizeOffset = if cls = WordSize.Bit32 then 8 else 16
   offset + symSizeOffset |> peekUIntOfType reader cls
 
-let symb baseAddr secs strTab vtbl cls reader txt symIdx pos =
+let computeArchOpMode eHdr symbolName =
+  if eHdr.MachineType = Architecture.ARMv7
+    || eHdr.MachineType = Architecture.AARCH32
+  then
+    if symbolName = "$a" then ArchOperationMode.ARMMode
+    elif symbolName = "$t" then ArchOperationMode.ThumbMode
+    else ArchOperationMode.NoMode
+  else ArchOperationMode.NoMode
+
+let getSymbol baseAddr secs strTab vtbl eHdr reader txt symIdx pos =
+  let cls = eHdr.Class
   let nameIdx = (reader: BinReader).PeekUInt32 pos
+  let sname = ByteArray.extractCStringFromSpan strTab (Convert.ToInt32 nameIdx)
   let info = peekHeaderB reader cls pos 12 4
   let other = peekHeaderB reader cls pos 13 5
   let ndx =  peekHeaderU16 reader cls pos 14 6 |> int
@@ -146,38 +158,40 @@ let symb baseAddr secs strTab vtbl cls reader txt symIdx pos =
   let vssec = secs.VerSymSec
   let verInfo = vssec >>= parseVersData reader symIdx >>= retrieveVer vtbl
   { Addr = readSymAddr baseAddr reader cls parent txt pos
-    SymName = ByteArray.extractCStringFromSpan strTab (Convert.ToInt32 nameIdx)
+    SymName = sname
     Size = readSymSize reader cls pos
     Bind = info >>> 4 |> LanguagePrimitives.EnumOfValue
     SymType = info &&& 0xfuy |> LanguagePrimitives.EnumOfValue
     Vis = other &&& 0x3uy |> LanguagePrimitives.EnumOfValue
     SecHeaderIndex = secIdx
     ParentSection = parent
-    VerInfo = verInfo }
+    VerInfo = verInfo
+    ArchOperationMode = computeArchOpMode eHdr sname }
 
 let getVerSymSection symTblSec secByType =
   if symTblSec.SecType = SectionType.SHTDynSym then
     Map.tryFind SectionType.SHTGNUVerSym secByType
   else None
 
-let nextSymOffset cls offset =
-  offset + if cls = WordSize.Bit32 then 16 else 24
+let nextSymOffset eHdr offset =
+  offset + if eHdr.Class = WordSize.Bit32 then 16 else 24
 
 let getTextSectionOffset secs =
   match Map.tryFind ".text" secs.SecByName with
   | None -> 0UL
   | Some sec -> sec.SecOffset
 
-let rec parseSymLoop baseAddr cls secs reader txt vtbl stbl cnt max offset acc =
+let rec parseSymAux baseAddr eHdr secs reader txt vtbl stbl cnt max offset acc =
   if cnt = max then List.rev acc
   else
-    let sym = symb baseAddr secs stbl vtbl cls reader txt cnt offset
+    let sym = getSymbol baseAddr secs stbl vtbl eHdr reader txt cnt offset
     let cnt = cnt + 1UL
-    let offset = nextSymOffset cls offset
+    let offset = nextSymOffset eHdr offset
     let acc = sym :: acc
-    parseSymLoop baseAddr cls secs reader txt vtbl stbl cnt max offset acc
+    parseSymAux baseAddr eHdr secs reader txt vtbl stbl cnt max offset acc
 
-let parseSymbols baseAddr cls secs (reader: BinReader) vtbl acc symTblSec =
+let parseSymbols baseAddr eHdr secs (reader: BinReader) vtbl acc symTblSec =
+  let cls = eHdr.Class
   let ss = secs.SecByNum.[Convert.ToInt32 symTblSec.SecLink] (* Get the sec. *)
   let size = Convert.ToInt32 ss.SecSize
   let offset = Convert.ToInt32 ss.SecOffset
@@ -185,7 +199,7 @@ let parseSymbols baseAddr cls secs (reader: BinReader) vtbl acc symTblSec =
   let txt = getTextSectionOffset secs
   let stbl = reader.PeekSpan (size, offset) (* Get the str table *)
   let offset = Convert.ToInt32 symTblSec.SecOffset
-  parseSymLoop baseAddr cls secs reader txt vtbl stbl 0UL max offset acc
+  parseSymAux baseAddr eHdr secs reader txt vtbl stbl 0UL max offset acc
 
 let getMergedSymbolTbl numbers symTbls =
   numbers
@@ -211,12 +225,11 @@ let buildSymbolMap staticSymArr dynamicSymArr =
   dynamicSymArr |> Array.fold folder map
 
 let parse baseAddr eHdr secs reader =
-  let cls = eHdr.Class
   let vtbl = parseVersionTable secs reader
   let symTabNumbers = List.append secs.StaticSymSecNums secs.DynSymSecNums
   let getSymTables sec =
     List.fold (fun map (n, symTblSec) ->
-      let symbols = parseSymbols baseAddr cls secs reader vtbl [] symTblSec
+      let symbols = parseSymbols baseAddr eHdr secs reader vtbl [] symTblSec
       Map.add n (Array.ofList symbols) map) Map.empty sec
   let symTbls =
     List.map (fun n -> n, secs.SecByNum.[n]) symTabNumbers |> getSymTables
