@@ -306,3 +306,40 @@ type ConsoleCachedPrinter () =
 
   override __.Flush () =
     cache.ToString () |> Console.Write
+
+/// ConsoleCachedPrinter does not print anything. This is the same as
+/// redirecting outputs to /dev/null.
+type ConsoleNullPrinter () =
+  inherit Printer ()
+
+  override __.Print (_: OutString) = ()
+
+  override __.Print (_: ColoredString) = ()
+
+  override __.Print (_: string, [<ParamArray>] _args) = ()
+
+  override __.PrintLine (_: OutString) = ()
+
+  override __.PrintLine (_: ColoredString) = ()
+
+  override __.PrintLine (_: string, [<ParamArray>] _args) = ()
+
+  override __.PrintLine () = ()
+
+  override __.PrintLineIfPrevLineWasNotEmpty () = ()
+
+  override __.PrintRow (_: bool, _: TableConfig, _: ColoredString list) = ()
+
+  override __.PrintRow (_: bool, _: TableConfig, _: string list) = ()
+
+  override __.PrintSectionTitle _ = ()
+
+  override __.PrintSubsectionTitle (_: string) = ()
+
+  override __.PrintSubsubsectionTitle (_: string) = ()
+
+  override __.PrintTwoCols (_: string) (_: string) = ()
+
+  override __.PrintTwoColsWithColorOnSnd (_: string) (_: ColoredString) = ()
+
+  override __.Flush () = ()
