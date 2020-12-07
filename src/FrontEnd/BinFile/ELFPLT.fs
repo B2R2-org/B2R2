@@ -348,12 +348,12 @@ let private parsePLT gotBase typ reloc (reader: BinReader) (s: ELFSection) map =
       let nextAddr = info.NextEntryAddr
       let ar = AddrRange (addr, nextAddr)
       match Map.tryFind info.EntryRelocAddr reloc.RelocByAddr with
-      | Some r ->
+      | Some r when r.RelSymbol.IsSome ->
         let symb = Option.get r.RelSymbol
         let symb = { symb with Addr = r.RelOffset }
         let map = ARMap.add ar symb map
         parseLoop (idx + 1) map nextAddr
-      | None -> parseLoop (idx + 1) map nextAddr
+      | _ -> parseLoop (idx + 1) map nextAddr
   parseLoop 0 map startAddr
 
 let parse arch sections reloc (reader: BinReader) =
