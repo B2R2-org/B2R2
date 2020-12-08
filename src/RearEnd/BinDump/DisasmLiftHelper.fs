@@ -145,6 +145,12 @@ let handleInvalidIns (hdl: BinHandle) ctxt bp isLift cfg =
   else printRegularDisasm illegalStr wordSize bp.Addr bytes cfg
   BinaryPointer.Advance bp align
 
+let initTableParsingContext hdl =
+  match hdl.ISA.Arch with
+  | Arch.ARMv7 (* For ARM PLTs, we just assume the ARM mode (if no symbol). *)
+  | Arch.AARCH32 -> ParsingContext.Init ArchOperationMode.ARMMode
+  | _ -> hdl.DefaultParsingContext
+
 let printFuncSymbol (dict: Dictionary<Addr, string>) addr =
   match (dict: Dictionary<Addr, string>).TryGetValue (addr) with
   | true, name ->
@@ -166,8 +172,8 @@ type IInstrPrinter =
   abstract member PrintInstr: BinHandle -> BinaryPointer -> Instruction -> unit
 
 [<AbstractClass>]
-type BinPrinter (hdl, cfg) =
-  let mutable ctxt = hdl.DefaultParsingContext
+type BinPrinter (hdl, cfg, ?ctxt) =
+  let mutable ctxt = defaultArg ctxt hdl.DefaultParsingContext
 
   abstract member PrintFuncSymbol: Addr -> unit
   abstract member PrintInstr: BinHandle -> BinaryPointer -> Instruction -> unit
@@ -194,7 +200,7 @@ type BinFuncPrinter (hdl, cfg) =
 
 [<AbstractClass>]
 type BinTablePrinter (hdl, cfg) =
-  inherit BinPrinter (hdl, cfg)
+  inherit BinPrinter (hdl, cfg, initTableParsingContext hdl)
   let dict = makeLinkageTblSymbolDic hdl
   override _.PrintFuncSymbol addr = printFuncSymbol dict addr
 

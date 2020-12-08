@@ -268,14 +268,17 @@ let x64IBT (reader: BinReader) sec =
   else None
 
 let computeARMPLTEntrySize (reader: BinReader) sec headerSize delta =
-  let offset = int sec.SecOffset + int headerSize + delta
-  let size = if reader.PeekInt16 offset = 0x4778s then 4 else 0
-  let offset = offset + size
-  let ins = reader.PeekInt32 offset
-  if (headerSize = 16UL && ins = 0xe28fc600) || ins = 0xe28fc200 then
-    Ok (size + 16)
-  elif ins = 0xe28fc600 then Ok (size + 12)
-  else Error ErrorCase.InvalidFileFormat
+  if reader.PeekInt32 (int sec.SecOffset) = 0xf8dfb500 then (* THUMB-only *)
+    Ok 16
+  else
+    let offset = int sec.SecOffset + int headerSize + delta
+    let size = if reader.PeekInt16 offset = 0x4778s then 4 else 0
+    let offset = offset + size
+    let ins = reader.PeekInt32 offset &&& 0xffffff00 (* strip immediate *)
+    if (headerSize = 16UL && ins = 0xe28fc600) || ins = 0xe28fc200 then
+      Ok (size + 16)
+    elif ins = 0xe28fc600 then Ok (size + 12)
+    else Error ErrorCase.InvalidFileFormat
 
 /// Get the size of the header of PLT (PLT Zero)
 let computeARMPLTHeaderSize (reader: BinReader) sec =
@@ -294,7 +297,7 @@ let armv7Getter addr idx typ reader sec gotBase =
   | Ok entSize ->
     { EntryRelocAddr = gotBase + uint64 (idx * 4)
       NextEntryAddr = addr + uint64 entSize } |> Ok
-  | Error e -> (* Just ignore this entry using the default entry size 16. *)
+  | Error _ -> (* Just ignore this entry using the default entry size 16. *)
     { EntryRelocAddr = 0UL; NextEntryAddr = addr + 16UL } |> Ok
 
 let armv7PLT reader sec =

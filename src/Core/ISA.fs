@@ -97,6 +97,12 @@ module ArchOperationMode =
     | "thumb" -> ArchOperationMode.ThumbMode
     | _ -> ArchOperationMode.NoMode
 
+  let toString mode =
+    match mode with
+    | ArchOperationMode.ARMMode -> "arm"
+    | ArchOperationMode.ThumbMode -> "thumb"
+    | _ -> "nomode"
+
 /// Instruction Set Architecture (ISA).
 type ISA = {
   Arch       : Architecture
