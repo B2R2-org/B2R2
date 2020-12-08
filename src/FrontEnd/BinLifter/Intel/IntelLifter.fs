@@ -288,6 +288,15 @@ let getMemExprs expr =
       AST.load e 64<rt> (expr .+ numI32 8 (AST.typeOf expr));
       AST.load e 64<rt> (expr .+ numI32 16 (AST.typeOf expr));
       AST.load e 64<rt> (expr .+ numI32 24 (AST.typeOf expr)); ]
+  | Load (e, 512<rt>, expr, _, _) ->
+    [ AST.load e 64<rt> expr
+      AST.load e 64<rt> (expr .+ numI32 8 (AST.typeOf expr));
+      AST.load e 64<rt> (expr .+ numI32 16 (AST.typeOf expr));
+      AST.load e 64<rt> (expr .+ numI32 24 (AST.typeOf expr));
+      AST.load e 64<rt> (expr .+ numI32 32 (AST.typeOf expr));
+      AST.load e 64<rt> (expr .+ numI32 40 (AST.typeOf expr));
+      AST.load e 64<rt> (expr .+ numI32 48 (AST.typeOf expr));
+      AST.load e 64<rt> (expr .+ numI32 56 (AST.typeOf expr)); ]
   | _ -> raise InvalidOperandException
 
 let getPseudoRegVar128 ctxt r =
@@ -308,6 +317,10 @@ let getPseudoRegVars ctxt r =
   | Register.Kind.XMM -> [ getPseudoRegVar ctxt r 1; getPseudoRegVar ctxt r 2 ]
   | Register.Kind.YMM -> [ getPseudoRegVar ctxt r 1; getPseudoRegVar ctxt r 2
                            getPseudoRegVar ctxt r 3; getPseudoRegVar ctxt r 4 ]
+  | Register.Kind.ZMM -> [ getPseudoRegVar ctxt r 1; getPseudoRegVar ctxt r 2
+                           getPseudoRegVar ctxt r 3; getPseudoRegVar ctxt r 4
+                           getPseudoRegVar ctxt r 5; getPseudoRegVar ctxt r 6
+                           getPseudoRegVar ctxt r 7; getPseudoRegVar ctxt r 8 ]
   | _ -> raise InvalidOperandException
 
 let getFPUPseudoRegVars ctxt r =
