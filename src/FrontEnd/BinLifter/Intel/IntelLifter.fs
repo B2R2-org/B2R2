@@ -5197,15 +5197,15 @@ let vptest ins insAddr insLen ctxt =
     let t1, t2, t3, t4 = tmpVars4 64<rt>
     let t5, t6, t7, t8 = tmpVars4 64<rt>
     startMark insAddr insLen builder
-    builder <! (t1 := src1A .& src2A)
-    builder <! (t2 := src1B .& src2B)
-    builder <! (t3 := src1C .& src2C)
-    builder <! (t4 := src1D .& src2D)
+    builder <! (t1 := src2A .& src1A)
+    builder <! (t2 := src2B .& src1B)
+    builder <! (t3 := src2C .& src1C)
+    builder <! (t4 := src2D .& src1D)
     builder <! (getRegVar ctxt R.ZF := (t1 .| t2 .| t3 .| t4) == (num0 64<rt>))
-    builder <! (t5 := src1A .& AST.not src2A)
-    builder <! (t6 := src1B .& AST.not src2B)
-    builder <! (t7 := src1C .& AST.not src2C)
-    builder <! (t8 := src1D .& AST.not src2D)
+    builder <! (t5 := src2A .& AST.not src1A)
+    builder <! (t6 := src2B .& AST.not src1B)
+    builder <! (t7 := src2C .& AST.not src1C)
+    builder <! (t8 := src2D .& AST.not src1D)
     builder <! (getRegVar ctxt R.CF := (t5 .| t6 .| t7 .| t8) == (num0 64<rt>))
     builder <! (getRegVar ctxt R.AF := b0)
     builder <! (getRegVar ctxt R.OF := b0)
