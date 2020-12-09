@@ -299,7 +299,7 @@ let execRanges baseAddr secs =
 
 let parseImage execpath rawpdb baseAddr binReader (hdrs: PEHeaders) =
   let wordSize = magicToWordSize hdrs.PEHeader.Magic
-  let baseAddr = hdrs.PEHeader.ImageBase + baseAddr
+  let baseAddr = defaultArg baseAddr hdrs.PEHeader.ImageBase
   let secs = hdrs.SectionHeaders |> Seq.toArray
   let exportMap, forwardMap = parseExports baseAddr binReader hdrs secs
   { PEHeaders = hdrs
@@ -319,6 +319,7 @@ let parseImage execpath rawpdb baseAddr binReader (hdrs: PEHeaders) =
 
 let parseCoff baseAddr binReader (hdrs: PEHeaders) =
   let coff = hdrs.CoffHeader
+  let baseAddr = defaultArg baseAddr 0UL
   let wordSize = Coff.getWordSize coff.Machine
   let secs = hdrs.SectionHeaders |> Seq.toArray
   let idx = secs |> Array.findIndex (fun s -> s.Name.StartsWith ".text")

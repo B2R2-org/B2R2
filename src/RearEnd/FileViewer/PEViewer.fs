@@ -503,4 +503,4 @@ let dumpDependencies _ (fi: PEFileInfo) =
   fi.GetLinkageTableEntries ()
   |> Seq.map (fun e -> e.LibraryName)
   |> Set.ofSeq
-  |> Set.iter (fun s -> out.PrintTwoCols s "")
+  |> Set.iter (fun s -> out.PrintTwoCols "" s)

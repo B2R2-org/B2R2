@@ -729,6 +729,8 @@ type SymInfo = {
 type Mach = {
   /// Entry point.
   EntryPoint: Addr option
+  /// Preferred base address.
+  BaseAddr: Addr
   /// Header.
   MachHdr: MachHeader
   /// Segments.

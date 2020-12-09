@@ -44,7 +44,7 @@ type FileViewerOpts () =
   member val ISA = ISA.DefaultISA with get, set
 
   /// Base address to use. By default, it is zero (0).
-  member val BaseAddress: Addr = 0UL with get, set
+  member val BaseAddress: Addr option = None with get, set
 
   static member private ToThis (opts: CmdOpts) =
     match opts with
@@ -62,7 +62,8 @@ type FileViewerOpts () =
   /// "-b" or "--base-addr" option for specifying a base address.
   static member OptBaseAddr () =
     let cb opts (arg: string []) =
-      (FileViewerOpts.ToThis opts).BaseAddress <- Convert.ToUInt64 (arg.[0], 16)
+      (FileViewerOpts.ToThis opts).BaseAddress <-
+        Some (Convert.ToUInt64 (arg.[0], 16))
       opts
     CmdOpts.New (descr = "Specify the base <address> in hex (default=0)",
                  extra = 1, callback = cb, short = "-b", long = "--base-addr")

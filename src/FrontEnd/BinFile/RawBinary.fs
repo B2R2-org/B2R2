@@ -31,7 +31,8 @@ open B2R2
 ///   data without file format)
 /// </summary>
 type RawFileInfo (bytes: byte [], path, isa, baseAddr) =
-  inherit FileInfo (baseAddr)
+  inherit FileInfo ()
+  let baseAddr = defaultArg baseAddr 0UL
 
   override __.BinReader = BinReader.Init (bytes, isa.Endian)
 

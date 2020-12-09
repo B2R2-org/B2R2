@@ -48,7 +48,7 @@ let identifyFormatAndISA bytes path isa autoDetect =
     else FormatDetector.identifyFromBuffer bytes isa
   else FileFormat.RawBinary, isa
 
-let newFileInfo bytes (baddr: Addr) path fmt isa regbay =
+let newFileInfo bytes (baddr: Addr option) path fmt isa regbay =
   match fmt with
   | FileFormat.ELFBinary ->
     ELFFileInfo (bytes, path, baddr, Some regbay) :> FileInfo

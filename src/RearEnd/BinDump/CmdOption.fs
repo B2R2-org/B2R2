@@ -38,7 +38,7 @@ type BinDumpOpts () =
   member val ISA = ISA.DefaultISA with get, set
 
   /// Base address
-  member val BaseAddress: Addr = 0UL with get, set
+  member val BaseAddress: Addr option = None with get, set
 
   /// Input section name from command line.
   member val InputSecName: string option = None with get, set
@@ -93,7 +93,8 @@ type BinDumpOpts () =
   /// "-r" or "--base-addr" option for specifying a base address.
   static member OptBaseAddr () =
     let cb opts (arg: string []) =
-      (BinDumpOpts.ToThis opts).BaseAddress <- Convert.ToUInt64 (arg.[0], 16)
+      (BinDumpOpts.ToThis opts).BaseAddress <-
+        Some (Convert.ToUInt64 (arg.[0], 16))
       (BinDumpOpts.ToThis opts).ShowAddress <- true
       opts
     CmdOpts.New (descr = "Specify the base <address> in hex (default=0)",

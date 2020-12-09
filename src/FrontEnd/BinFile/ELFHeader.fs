@@ -80,15 +80,21 @@ let peekArch (reader: BinReader) cls offset =
   | 0x0as -> getMIPSISA reader cls offset
   | _ -> Arch.UnknownISA
 
+let computeNewBaseAddr ftype baseAddr =
+  match ftype with
+  | ELFFileType.Executable -> 0UL (* Non-pie executable must have zero base. *)
+  | _ -> defaultArg baseAddr 0UL
+
 let parse baseAddr offset (reader: BinReader) =
   let cls = peekClass reader offset
-  {
-    Class = cls
+  let ftype = peekELFFileType reader offset
+  let baseAddr = computeNewBaseAddr ftype baseAddr
+  { Class = cls
     Endian = peekEndianness reader offset
     Version = peekHeaderU32 reader cls offset 6 6
     OSABI = offset + 7 |> reader.PeekByte |> LanguagePrimitives.EnumOfValue
     OSABIVersion = offset + 8 |> reader.PeekByte |> uint32
-    ELFFileType = peekELFFileType reader offset
+    ELFFileType = ftype
     MachineType = peekArch reader cls offset
     EntryPoint = peekHeaderNative reader cls offset 24 24 + baseAddr
     PHdrTblOffset = peekHeaderNative reader cls offset 28 32
@@ -99,5 +105,4 @@ let parse baseAddr offset (reader: BinReader) =
     PHdrNum = peekHeaderU16 reader cls offset 44 56
     SHdrEntrySize = peekHeaderU16 reader cls offset 46 58
     SHdrNum = peekHeaderU16 reader cls offset 48 60
-    SHdrStrIdx = peekHeaderU16 reader cls offset 50 62
-  }
+    SHdrStrIdx = peekHeaderU16 reader cls offset 50 62 }, baseAddr

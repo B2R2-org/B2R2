@@ -65,8 +65,13 @@ let execRanges segs =
     IntervalSet.add (AddrRange (seg.VMAddr, seg.VMAddr + seg.VMSize)) set
     ) IntervalSet.empty
 
+let computeBaseAddr machHdr baseAddr =
+  if machHdr.Flags.HasFlag MachFlag.MHPIE then defaultArg baseAddr 0UL
+  else 0UL
+
 let parseMach baseAddr reader  =
   let machHdr = Header.parse reader 0
+  let baseAddr = computeBaseAddr machHdr baseAddr
   let cls = machHdr.Class
   let cmds = LoadCommands.parse baseAddr reader machHdr
   let segs = Segment.extract cmds
@@ -78,6 +83,7 @@ let parseMach baseAddr reader  =
     Reloc.parseRelocs reader secs.SecByNum
     |> Array.map (Reloc.toSymbol symInfo.Symbols secs.SecByNum)
   { EntryPoint = computeEntryPoint segs cmds
+    BaseAddr = baseAddr
     SymInfo = symInfo
     MachHdr = machHdr
     Segments = segs

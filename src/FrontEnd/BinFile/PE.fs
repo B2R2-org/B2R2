@@ -31,13 +31,13 @@ open B2R2.FrontEnd.BinFile.PE.Helper
 ///   This class represents a PE binary file.
 /// </summary>
 type PEFileInfo (bytes, path, baseAddr, rawpdb) =
-  inherit FileInfo (baseAddr)
+  inherit FileInfo ()
   let pe = PE.Parser.parse bytes path baseAddr rawpdb
   let isa = getISA pe
 
-  new (bytes, path) = PEFileInfo (bytes, path, 0UL, [||])
+  new (bytes, path) = PEFileInfo (bytes, path, None, [||])
   new (bytes, path, baseAddr) = PEFileInfo (bytes, path, baseAddr, [||])
-  new (bytes, path, rawpdb) = PEFileInfo (bytes, path, 0UL, rawpdb)
+  new (bytes, path, rawpdb) = PEFileInfo (bytes, path, None, rawpdb)
 
   override __.BinReader = pe.BinReader
   override __.FileFormat = FileFormat.PEBinary
@@ -48,7 +48,7 @@ type PEFileInfo (bytes, path, baseAddr, rawpdb) =
   override __.IsStripped = Array.length pe.SymbolInfo.SymbolArray = 0
   override __.IsNXEnabled = isNXEnabled pe
   override __.IsRelocatable = isRelocatable pe
-  override __.BaseAddress = pe.PEHeaders.PEHeader.ImageBase
+  override __.BaseAddress = pe.BaseAddr
   override __.EntryPoint = getEntryPoint pe
   override __.TextStartAddr = getTextStartAddr pe
   override __.TranslateAddress addr = translateAddr pe addr

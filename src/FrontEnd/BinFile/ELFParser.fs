@@ -98,7 +98,7 @@ let execRanges segs =
     ) IntervalSet.empty
 
 let private parseELF baseAddr regbay offset reader =
-  let eHdr = Header.parse baseAddr offset reader
+  let eHdr, baseAddr = Header.parse baseAddr offset reader
   let isa = ISA.Init eHdr.MachineType eHdr.Endian
   let cls = eHdr.Class
   let secs = Section.parse baseAddr eHdr reader
@@ -115,6 +115,7 @@ let private parseELF baseAddr regbay offset reader =
   let exctbls = computeExceptionTable excframes gccexctbl
   let unwindings = computeUnwindingTable excframes
   { ELFHdr = eHdr
+    BaseAddr = baseAddr
     ProgHeaders = proghdrs
     LoadableSegments = segs
     LoadableSecNums = loadableSecNums

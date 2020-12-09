@@ -32,10 +32,10 @@ open B2R2.FrontEnd.BinFile.ELF.Helper
 ///   This class represents an ELF binary file.
 /// </summary>
 type ELFFileInfo (bytes, path, baseAddr, regbay) =
-  inherit FileInfo (baseAddr)
+  inherit FileInfo ()
   let elf = Parser.parse bytes baseAddr regbay
 
-  new (bytes, path) = ELFFileInfo (bytes, path, 0UL, None)
+  new (bytes, path) = ELFFileInfo (bytes, path, None, None)
   override __.BinReader = elf.BinReader
   override __.FileFormat = FileFormat.ELFBinary
   override __.ISA = elf.ISA
@@ -45,7 +45,7 @@ type ELFFileInfo (bytes, path, baseAddr, regbay) =
   override __.IsStripped = not (Map.containsKey ".symtab" elf.SecInfo.SecByName)
   override __.IsNXEnabled = isNXEnabled elf
   override __.IsRelocatable = isRelocatable elf
-  override __.BaseAddress = getBaseAddr elf
+  override __.BaseAddress = elf.BaseAddr
   override __.EntryPoint = Some elf.ELFHdr.EntryPoint
   override __.TextStartAddr = getTextStartAddr elf
   override __.TranslateAddress addr = translateAddr addr elf

@@ -33,7 +33,7 @@ open B2R2.FrontEnd.BinFile.Wasm.Helper
 ///   (Wasm Module) binary file.
 /// </summary>
 type WasmFileInfo (bytes, path, baseAddr) =
-  inherit FileInfo (baseAddr)
+  inherit FileInfo ()
   let wm = Parser.parse bytes
 
   new (bytes, path) = WasmFileInfo (bytes, path, 0UL)
@@ -46,7 +46,7 @@ type WasmFileInfo (bytes, path, baseAddr) =
   override __.IsStripped = List.length wm.CustomSections = 0
   override __.IsNXEnabled = true
   override __.IsRelocatable = false
-  override __.BaseAddress = 0UL
+  override __.BaseAddress = baseAddr
   override __.EntryPoint = entryPointOf wm
   override __.TextStartAddr = textStartAddrOf wm
   override __.TranslateAddress addr = int addr

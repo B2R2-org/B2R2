@@ -80,7 +80,7 @@ let private makeTablePrinter hdl cfg (opts: BinDumpOpts) =
     else BinTableDisasmPrinter (hdl, cfg) :> BinPrinter
 
 let private dumpRawBinary (hdl: BinHandle) (opts: BinDumpOpts) cfg =
-  let bp = hdl.FileInfo.ToBinaryPointer hdl.FileInfo.BaseAddr
+  let bp = hdl.FileInfo.ToBinaryPointer hdl.FileInfo.BaseAddress
   let prn = makeCodePrinter hdl cfg opts
   prn.Print bp
   out.PrintLine ()

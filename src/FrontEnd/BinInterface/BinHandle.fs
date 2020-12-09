@@ -69,22 +69,22 @@ with
     BinHandle.Init (isa, defaultMode, true, baseAddr, bytes, fileName)
 
   static member Init (isa, fileName) =
-    BinHandle.Init (isa=isa, baseAddr=0UL, fileName=fileName)
+    BinHandle.Init (isa=isa, baseAddr=None, fileName=fileName)
 
   static member Init (isa, baseAddr, bytes) =
     let defaultMode = ArchOperationMode.NoMode
     BinHandle.Init (isa, defaultMode, false, baseAddr, bytes, "")
 
   static member Init (isa, bytes) =
-    BinHandle.Init (isa=isa, baseAddr=0UL, bytes=bytes)
+    BinHandle.Init (isa=isa, baseAddr=None, bytes=bytes)
 
   static member Init (isa, archMode) =
-    BinHandle.Init (isa, archMode, false, 0UL, [||], "")
+    BinHandle.Init (isa, archMode, false, None, [||], "")
 
   static member Init (isa) = BinHandle.Init (isa, [||])
 
   static member UpdateCode h addr bs =
-    { h with FileInfo = RawFileInfo (bs, "", h.ISA, addr) :> FileInfo }
+    { h with FileInfo = RawFileInfo (bs, "", h.ISA, Some addr) :> FileInfo }
 
   member __.ReadBytes (addr: Addr, nBytes) =
     BinHandle.ReadBytes (__, addr, nBytes)

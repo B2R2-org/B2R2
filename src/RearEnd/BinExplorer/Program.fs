@@ -203,7 +203,7 @@ let dumpJsonFiles jsonDir ess =
     CFGExport.toJson disasmcfg disasmJsonPath)
 
 let initBinHdl isa (name: string) =
-  BinHandle.Init (isa, ArchOperationMode.NoMode, true, 0UL, name)
+  BinHandle.Init (isa, ArchOperationMode.NoMode, true, None, name)
 
 let interactiveMain files (opts: BinExplorerOpts) =
   if List.length files = 0 then

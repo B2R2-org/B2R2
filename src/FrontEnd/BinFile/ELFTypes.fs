@@ -872,6 +872,8 @@ type CallFrameInformation = {
 type ELF = {
   /// ELF header.
   ELFHdr: ELFHeader
+  /// Preferred base address.
+  BaseAddr: Addr
   /// Segment information.
   ProgHeaders: ProgramHeader list
   /// Loadable segments.

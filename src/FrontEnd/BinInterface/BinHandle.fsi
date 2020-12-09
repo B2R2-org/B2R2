@@ -149,7 +149,7 @@ with
       isa: ISA
     * archMode: ArchOperationMode
     * autoDetect: bool
-    * baseAddr: Addr
+    * baseAddr: Addr option
     * bytes: byte []
     -> BinHandle
 
@@ -170,7 +170,7 @@ with
       isa: ISA
     * archMode: ArchOperationMode
     * autoDetect: bool
-    * baseAddr: Addr
+    * baseAddr: Addr option
     * fileName: string
     -> BinHandle
 
@@ -184,7 +184,8 @@ with
   /// <param name="baseAddr">Base address.</param>
   /// <param name="fileName">Binary file path.</param>
   /// <returns>BinHandle.</returns>
-  static member Init: isa: ISA * baseAddr: Addr * fileName: string -> BinHandle
+  static member Init:
+    isa: ISA * baseAddr: Addr option * fileName: string -> BinHandle
 
   /// <summary>
   ///   Initialize a BinHandle from an ISA and a byte sequence, assuming that
@@ -196,7 +197,8 @@ with
   /// <param name="baseAddr">Base address.</param>
   /// <param name="bytes">Byte sequence.</param>
   /// <returns>BinHandle.</returns>
-  static member Init: isa: ISA * baseAddr: Addr * bytes: byte [] -> BinHandle
+  static member Init:
+    isa: ISA * baseAddr: Addr option * bytes: byte [] -> BinHandle
 
   /// <summary>
   ///   Initialize a BinHandle from an ISA and a binary file path, assuming
