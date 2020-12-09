@@ -227,19 +227,19 @@ module BinEssence =
     | None -> Utils.impossible ()
 
   let private removeBBLInfo addr bbls =
-    let boundary = getBoundary bbls addr
-    let bblInfo = Map.find boundary.Min bbls.BBLMap
+    let blkRange = getBoundary bbls addr
+    let bblInfo = Map.find blkRange.Min bbls.BBLMap
     let bbls =
       { bbls with
-          BBLMap = Map.remove boundary.Min bbls.BBLMap
-          Boundaries = IntervalSet.remove boundary bbls.Boundaries }
+          BBLMap = Map.remove blkRange.Min bbls.BBLMap
+          Boundaries = IntervalSet.remove blkRange bbls.Boundaries }
     struct (bblInfo, bbls)
 
   let private addBBLInfo bblInfo bbls =
-    let boundary = bblInfo.Boundary
+    let blkRange = bblInfo.BlkRange
     { bbls with
-        BBLMap = Map.add boundary.Min bblInfo bbls.BBLMap
-        Boundaries = IntervalSet.add boundary bbls.Boundaries }
+        BBLMap = Map.add blkRange.Min bblInfo bbls.BBLMap
+        Boundaries = IntervalSet.add blkRange bbls.Boundaries }
 
   let inline private bblExists bbls addr =
     Map.containsKey addr bbls.BBLMap
@@ -254,7 +254,7 @@ module BinEssence =
     match IntervalSet.tryFindByAddr leader bbls.Boundaries with
     | Some range ->
       let bblInfo = Map.find range.Min bbls.BBLMap
-      Set.contains leader bblInfo.InstrLeaders
+      Set.contains leader bblInfo.InstrAddrs
     | None -> false
 
   let inline private isKnownInstruction (instrMap: InstrMap) leader =
@@ -313,15 +313,15 @@ module BinEssence =
       struct (Some target, bbls, g)
 
   let private splitBBLInfo prevBBL fsts snds splitAddr bbls =
-    let oldBoundary = prevBBL.Boundary
+    let oldBoundary = prevBBL.BlkRange
     let prevBoundary = AddrRange (oldBoundary.Min, splitAddr)
     let newBoundary = AddrRange (splitAddr, oldBoundary.Max)
     let fstAddrs, fstPps = fsts
     let sndAddrs, sndPps = snds
     let prevInfo =
-      { Boundary = prevBoundary; InstrLeaders = fstAddrs; IRLeaders = fstPps }
+      { BlkRange = prevBoundary; InstrAddrs = fstAddrs; IRLeaders = fstPps }
     let newInfo =
-      { Boundary = newBoundary; InstrLeaders = sndAddrs; IRLeaders = sndPps }
+      { BlkRange = newBoundary; InstrAddrs = sndAddrs; IRLeaders = sndPps }
     bbls
     |> addBBLInfo prevInfo
     |> addBBLInfo newInfo
@@ -341,7 +341,7 @@ module BinEssence =
     let struct (prevBBL, bbls) = removeBBLInfo leader ess.BBLStore
     (* 2. Split IR-level leaders into two: fsts (first leaders) and snds. *)
     let fstAddrs, sndAddrs =
-      Set.partition (fun addr -> addr < leader) prevBBL.InstrLeaders
+      Set.partition (fun addr -> addr < leader) prevBBL.InstrAddrs
     let fstPps, sndPps =
       Set.partition (fun pp -> pp < splitPoint) prevBBL.IRLeaders
     let sndPps = Set.add splitPoint sndPps
@@ -374,7 +374,7 @@ module BinEssence =
       | _ -> false
     else false
 
-  /// Construct an InstructionInfo for the given program point (myPoint).
+  /// Construct an InstructionInfo for the given program point (ppoint).
   let private constructInfo (instrMap: InstrMap) ppoint nextLeader =
     match instrMap.TryGetValue ((ppoint: ProgramPoint).Address) with
     | false, _ -> None, nextLeader
@@ -394,10 +394,10 @@ module BinEssence =
         let i' = { i with Stmts = Array.sub i.Stmts ppoint.Position delta }
         Some i', nextLeader
 
-  let rec private gatherBB instrMap boundary leaders acc ppoint nextIdx =
+  let rec private gatherBB acc instrMap blkRange leaders ppoint nextIdx =
     let nextLeader =
       if nextIdx >= (leaders: ProgramPoint []).Length then
-        ProgramPoint ((boundary: AddrRange).Max, 0)
+        ProgramPoint ((blkRange: AddrRange).Max, 0)
       else leaders.[nextIdx]
     if nextLeader > ppoint then
       match constructInfo instrMap ppoint nextLeader with
@@ -405,24 +405,24 @@ module BinEssence =
       | Some info, nextPoint ->
         let acc = info :: acc
         if hasNoFallThrough info.Stmts then List.rev acc |> List.toArray
-        else gatherBB instrMap boundary leaders acc nextPoint nextIdx
+        else gatherBB acc instrMap blkRange leaders nextPoint nextIdx
     elif nextLeader = ppoint then List.rev acc |> List.toArray
     (* Next point is beyond the next leader's point. This is possible when two
        control flows divide an instruction into two parts. This typically
        happens in obfuscated code. *)
-    else gatherBB instrMap boundary leaders acc ppoint (nextIdx + 1)
+    else gatherBB acc instrMap blkRange leaders ppoint (nextIdx + 1)
 
-  let private createNode instrMap boundary leaders bbls idx leader =
+  let private createNode instrMap blkRange leaders bbls idx leader =
     match bbls with
     | Ok bbls ->
-      let instrs = gatherBB instrMap boundary leaders [] leader (idx + 1)
+      let instrs = gatherBB [] instrMap blkRange leaders leader (idx + 1)
       if Array.isEmpty instrs then Error ()
       else Ok (IRBasicBlock (instrs, leader) :: bbls)
     | _ -> Error ()
 
   let private buildVertices instrMap bblInfo =
-    let pps = Set.toArray bblInfo.IRLeaders
-    Array.foldi (createNode instrMap bblInfo.Boundary pps) (Ok []) pps
+    let leaders = Set.toArray bblInfo.IRLeaders
+    Array.foldi (createNode instrMap bblInfo.BlkRange leaders) (Ok []) leaders
     |> fst
 
   let getIntraEdge src symbol edgeProp edges =
@@ -577,25 +577,25 @@ module BinEssence =
     let ess, elms = addEdgeLoop ess elms edges
     Ok <| struct (ess, elms)
 
-  let private extractLeaders ess (boundary: AddrRange) fstLeader addrs =
+  let private extractLeaders ess (blkRange: AddrRange) fstLeader addrs =
     addrs
     |> List.fold (fun pps addr ->
       let insInfo = ess.InstrMap.[addr]
       let pps' =
         Set.filter (fun (ppoint: ProgramPoint) ->
           let addr = ppoint.Address
-          boundary.Min <= addr && addr < boundary.Max) insInfo.ReachablePPs
+          blkRange.Min <= addr && addr < blkRange.Max) insInfo.ReachablePPs
       Set.union pps pps') (Set.singleton fstLeader)
 
   let private buildBlock ess leader addrs lastAddr elms edgeInfo =
     let last = ess.InstrMap.[lastAddr].Instruction
-    let boundary = AddrRange (leader, lastAddr + uint64 last.Length)
+    let blkRange = AddrRange (leader, lastAddr + uint64 last.Length)
     let leader = ProgramPoint (leader, 0)
-    let pps = extractLeaders ess boundary leader addrs
-    let bblInfo =
-      { Boundary = boundary; InstrLeaders = Set.ofList addrs; IRLeaders = pps }
-    let bbls = addBBLInfo bblInfo ess.BBLStore
-    match buildVertices ess.InstrMap bblInfo with
+    let pps = extractLeaders ess blkRange leader addrs
+    let bbl =
+      { BlkRange = blkRange; InstrAddrs = Set.ofList addrs; IRLeaders = pps }
+    let bbls = addBBLInfo bbl ess.BBLStore
+    match buildVertices ess.InstrMap bbl with
     | Ok vertices ->
       let vertexMap, g =
         vertices
@@ -608,7 +608,8 @@ module BinEssence =
       | Some (src, e) ->
         connectEdges ess elms [(src, leader, e)]
       | None ->
-        let ess, edges = getEdges ess [] (Map.find leader ess.BBLStore.VertexMap)
+        let ess, edges =
+          getEdges ess [] (Map.find leader ess.BBLStore.VertexMap)
         connectEdges ess elms edges
     | Error _ -> Error ()
 
@@ -669,7 +670,7 @@ module BinEssence =
       parseNewBBL ess elms ctxt dst (Some (src, edge))
 
   let rec internal updateCFG ess success = function
-    | CFGEntry (addr, ctxt) :: elms ->
+    | CFGVertex (addr, ctxt) :: elms ->
       match updateCFGWithVertex ess elms addr ctxt with
       | Ok (ess, elms) -> updateCFG ess success elms
       | Error () ->
@@ -689,7 +690,7 @@ module BinEssence =
   let addEntry ess (addr, ctxt) =
     let ess =
       { ess with CalleeMap = ess.CalleeMap.AddEntry addr }
-    match updateCFG ess true [ CFGEntry (addr, ctxt) ] with
+    match updateCFG ess true [ CFGVertex (addr, ctxt) ] with
     | Ok ess -> Ok ess
     | Error ess -> Error ess
 

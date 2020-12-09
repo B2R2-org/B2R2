@@ -48,7 +48,7 @@ module InstrMap =
       Array.sub stmts 0 (stmts.Length - 1)
     | _ -> stmts
 
-  let private trim stmts =
+  let private transform stmts =
     BinHandle.Optimize stmts
     |> trimIEMark
 
@@ -88,7 +88,7 @@ module InstrMap =
       | _ -> targets) Set.empty
 
   let private newInstructionInfo hdl (ins: Instruction) =
-    let stmts = BinHandle.LiftInstr hdl ins |> trim
+    let stmts = BinHandle.LiftInstr hdl ins |> transform
     let labels = findLabels ins.Address stmts
     { Instruction = ins
       Stmts = stmts

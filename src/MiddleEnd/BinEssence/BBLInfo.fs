@@ -29,9 +29,10 @@ open B2R2.MiddleEnd.BinGraph
 
 /// Represents instruction-level basic block leader.
 type BBLInfo = {
-  /// Instruction-level basic block boundary
-  Boundary: AddrRange
-  InstrLeaders: Set<Addr>
+  /// The range (start addr, end addr) of the basic block.
+  BlkRange: AddrRange
+  /// Instruction addresses in the basic block.
+  InstrAddrs: Set<Addr>
   /// IR-level leaders (program points) within the bbl.
   IRLeaders: Set<ProgramPoint>
 }

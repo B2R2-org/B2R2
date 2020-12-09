@@ -163,36 +163,41 @@ module AST =
   open ConcreteEvaluator
 
   let private emptyInfo =
-    { HasLoad = false; VarInfo = RegisterSet.empty; TempVarInfo = Set.empty }
+    { HasLoad = false; VarsUsed = RegisterSet.empty; TempVarsUsed = Set.empty }
 
   let getExprInfo = function
     | Num _ | PCVar _ | Nil | Name _ | FuncName _ | Undefined _ -> emptyInfo
-    | Var (_, _, _, x) ->
-      { HasLoad = false; VarInfo = x; TempVarInfo = Set.empty }
-    | TempVar (_, name) -> { HasLoad = false
-                             VarInfo = RegisterSet.empty
-                             TempVarInfo = Set.singleton name }
-    | UnOp (_, _, ei, _) | BinOp (_, _, _, _, ei, _) | RelOp (_, _, _, ei, _)
-    | Load (_, _, _, ei, _) | Ite (_, _, _, ei, _) | Cast (_, _, _, ei, _)
+    | Var (_, _, _, rs) ->
+      { HasLoad = false; VarsUsed = rs; TempVarsUsed = Set.empty }
+    | TempVar (_, name) ->
+      { HasLoad = false
+        VarsUsed = RegisterSet.empty
+        TempVarsUsed = Set.singleton name }
+    | UnOp (_, _, ei, _)
+    | BinOp (_, _, _, _, ei, _)
+    | RelOp (_, _, _, ei, _)
+    | Load (_, _, _, ei, _)
+    | Ite (_, _, _, ei, _)
+    | Cast (_, _, _, ei, _)
     | Extract (_, _, _, ei, _) -> ei
 
   let mergeTwoInfo e1 e2 =
     let ei1 = getExprInfo e1
     let ei2 = getExprInfo e2
     { HasLoad = ei1.HasLoad || ei2.HasLoad
-      VarInfo = RegisterSet.union ei1.VarInfo ei2.VarInfo
-      TempVarInfo = Set.union ei1.TempVarInfo ei2.TempVarInfo }
+      VarsUsed = RegisterSet.union ei1.VarsUsed ei2.VarsUsed
+      TempVarsUsed = Set.union ei1.TempVarsUsed ei2.TempVarsUsed }
 
   let mergeThreeInfo e1 e2 e3 =
     let ei1 = getExprInfo e1
     let ei2 = getExprInfo e2
     let ei3 = getExprInfo e3
-    let vInfo = RegisterSet.union ei1.VarInfo ei2.VarInfo
-                |> RegisterSet.union ei3.VarInfo
-    let tvInfo = Set.union ei1.TempVarInfo ei2.TempVarInfo
-                 |> Set.union ei3.TempVarInfo
+    let vInfo = RegisterSet.union ei1.VarsUsed ei2.VarsUsed
+                |> RegisterSet.union ei3.VarsUsed
+    let tvInfo = Set.union ei1.TempVarsUsed ei2.TempVarsUsed
+                 |> Set.union ei3.TempVarsUsed
     { HasLoad = ei1.HasLoad || ei2.HasLoad || ei3.HasLoad
-      VarInfo = vInfo; TempVarInfo = tvInfo }
+      VarsUsed = vInfo; TempVarsUsed = tvInfo }
 
   let num (num: BitVector) = Num (num)
 

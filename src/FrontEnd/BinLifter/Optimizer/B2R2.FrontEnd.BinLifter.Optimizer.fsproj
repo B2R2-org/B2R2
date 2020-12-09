@@ -9,7 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="ExprWalker.fs" />
+    <Compile Include="ConstantFolding.fs" />
+    <Compile Include="DeadCodeElimination.fs" />
     <Compile Include="LocalOptimizer.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath=""/>
     <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />

@@ -38,16 +38,19 @@ type [<System.Flags>] InterJmpInfo =
 
 [<Struct>]
 type ConsInfo = {
-  Tag  : int64
-  Hash : int
+  Tag: int64
+  Hash: int
 }
 
 /// ExprInfo summarizes several abstract information about the Expr. This is
 /// useful for writing an efficient post analyses.
 type ExprInfo = {
-  HasLoad     : bool
-  VarInfo     : RegisterSet
-  TempVarInfo : Set<int>
+  /// Is this expression contains memory load(s).
+  HasLoad: bool
+  /// A set of registers (their regids) used in this expression.
+  VarsUsed: RegisterSet
+  /// A set of temp variables (their IDs) used in this expression.
+  TempVarsUsed: Set<int>
 }
 
 /// IR Expressions.
