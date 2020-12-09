@@ -35,8 +35,9 @@ open B2R2.FrontEnd.BinFile.Wasm.Helper
 type WasmFileInfo (bytes, path, baseAddr) =
   inherit FileInfo ()
   let wm = Parser.parse bytes
+  let baseAddr = defaultArg baseAddr 0UL
 
-  new (bytes, path) = WasmFileInfo (bytes, path, 0UL)
+  new (bytes, path) = WasmFileInfo (bytes, path, None)
   override __.BinReader = wm.BinReader
   override __.FileFormat = FileFormat.WasmBinary
   override __.ISA = defaultISA

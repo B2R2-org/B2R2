@@ -248,12 +248,25 @@ with
   ///   Update BinHandle to have new code at a new address (addr). BinHandle
   ///   is *immutable*.
   /// </summary>
-  /// <param name="hdl">The new address to use.</param>
+  /// <param name="hdl">The BinHandle to update.</param>
   /// <param name="addr">The new address to use.</param>
-  /// <param name="bs">The new address to use.</param>
+  /// <param name="bs">The new code in bytes.</param>
   /// <returns>New BinHandle.</returns>
   static member UpdateCode:
     hdl: BinHandle -> addr: Addr -> bs: byte [] -> BinHandle
+
+  /// <summary>
+  ///   Update BinHandle to patch the code at the address (addr). BinHandle
+  ///   is *immutable*.
+  /// </summary>
+  /// <param name="hdl">The BinHandle to update.</param>
+  /// <param name="addr">The new address to use.</param>
+  /// <param name="bs">The new code in bytes.</param>
+  /// <returns>
+  ///   Return (BinHandle) if succeeded, (ErrorCase) otherwise.
+  /// </returns>
+  static member PatchCode:
+    hdl: BinHandle -> addr: Addr -> bs: byte [] -> Result<BinHandle, ErrorCase>
 
   /// <summary>
   ///   Return the byte array of size (nBytes) at the addr from the given

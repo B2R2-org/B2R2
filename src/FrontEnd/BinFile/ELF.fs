@@ -75,5 +75,6 @@ type ELFFileInfo (bytes, path, baseAddr, regbay) =
   override __.GetFunctionAddresses () =
     base.GetFunctionAddresses () |> addExtraFunctionAddrs elf
   member __.ELF with get() = elf
+  member __.RegisterBay = regbay
 
 // vim: set tw=80 sts=2 sw=2:

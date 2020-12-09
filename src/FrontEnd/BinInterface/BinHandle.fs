@@ -86,6 +86,45 @@ with
   static member UpdateCode h addr bs =
     { h with FileInfo = RawFileInfo (bs, "", h.ISA, Some addr) :> FileInfo }
 
+  static member private UpdateFileInfo h fi =
+    { h with FileInfo = fi }
+
+  static member PatchCode h addr (bs: byte []) =
+    let fi = h.FileInfo
+    let reader = fi.BinReader
+    let idx = int <| addr - fi.BaseAddress
+    let lastIdx = idx + bs.Length - 1
+    if reader.IsOutOfRange idx || reader.IsOutOfRange lastIdx then
+      Error ErrorCase.InvalidMemoryRead
+    else
+      let bs =
+        reader.Bytes.[ idx + Array.length bs .. ]
+        |> Array.append bs
+        |> Array.append reader.Bytes.[ .. idx - 1 ]
+      match fi with
+      | :? RawFileInfo ->
+        RawFileInfo (bs, fi.FilePath, fi.ISA, Some fi.BaseAddress) :> FileInfo
+        |> BinHandle.UpdateFileInfo h
+        |> Ok
+      | :? ELFFileInfo as fi ->
+        ELFFileInfo (bs, fi.FilePath, Some fi.BaseAddress, fi.RegisterBay)
+        :> FileInfo
+        |> BinHandle.UpdateFileInfo h
+        |> Ok
+      | :? MachFileInfo ->
+        MachFileInfo (bs, fi.FilePath, fi.ISA, Some fi.BaseAddress) :> FileInfo
+        |> BinHandle.UpdateFileInfo h
+        |> Ok
+      | :? PEFileInfo as fi ->
+        PEFileInfo (bs, fi.FilePath, Some fi.BaseAddress, fi.RawPDB) :> FileInfo
+        |> BinHandle.UpdateFileInfo h
+        |> Ok
+      | :? WasmFileInfo ->
+        WasmFileInfo (bs, fi.FilePath, Some fi.BaseAddress) :> FileInfo
+        |> BinHandle.UpdateFileInfo h
+        |> Ok
+      | _ -> Error ErrorCase.InvalidFileFormat
+
   member __.ReadBytes (addr: Addr, nBytes) =
     BinHandle.ReadBytes (__, addr, nBytes)
 

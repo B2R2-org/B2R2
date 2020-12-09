@@ -76,5 +76,6 @@ type PEFileInfo (bytes, path, baseAddr, rawpdb) =
   override __.IsExecutableAddr addr = isExecutableAddr pe addr
   override __.GetNotInFileIntervals range = getNotInFileIntervals pe range
   member __.PE with get() = pe
+  member __.RawPDB = rawpdb
 
 // vim: set tw=80 sts=2 sw=2:
