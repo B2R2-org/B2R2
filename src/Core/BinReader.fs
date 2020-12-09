@@ -217,7 +217,7 @@ type BinReader (bytes: byte []) =
   member __.Length () = Array.length bytes
 
   /// Is the given offset points to a position out of the range of the file?
-  member __.IsOutOfRange (o) = Array.length bytes <= o
+  member __.IsOutOfRange (o) = o < 0 || Array.length bytes <= o
 
   /// Instantiate BinReader from a given byte array and endianness.
   static member Init
