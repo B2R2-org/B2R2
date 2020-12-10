@@ -24,6 +24,7 @@
 
 module B2R2.MiddleEnd.BinEssence.CFGExport
 
+open B2R2
 open B2R2.MiddleEnd.BinGraph
 open System.IO
 open System.Text
@@ -56,14 +57,14 @@ let toJson cfg jsonPath =
   let nodes =
     []
     |> DiGraph.foldVertex cfg (fun acc (v: Vertex<#BasicBlock>) ->
-      v.VData.PPoint.Address.ToString ("X") :: acc)
+      String.u64ToHexNoPrefix v.VData.PPoint.Address :: acc)
     |> List.rev
     |> List.toArray
   let edges =
     []
     |> DiGraph.foldEdge cfg (fun acc f t e ->
-      { From = f.VData.PPoint.Address.ToString ("X")
-        To = t.VData.PPoint.Address.ToString ("X")
+      { From = String.u64ToHexNoPrefix f.VData.PPoint.Address
+        To = String.u64ToHexNoPrefix t.VData.PPoint.Address
         Type = e.ToString () } :: acc)
     |> List.rev
     |> List.toArray

@@ -24,6 +24,7 @@
 
 module internal B2R2.FrontEnd.BinLifter.MIPS.Disasm
 
+open B2R2
 open B2R2.FrontEnd.BinLifter
 
 let condToString = function
@@ -184,7 +185,7 @@ let inline buildOpcode ins builder acc =
 
 let inline relToString pc offset builder acc =
   let targetAddr = pc + uint64 offset
-  builder AsmWordKind.Value ("0x" + targetAddr.ToString("X")) acc
+  builder AsmWordKind.Value (String.u64ToHex targetAddr) acc
 
 let oprToString insInfo opr delim builder acc =
   match opr with
@@ -194,7 +195,7 @@ let oprToString insInfo opr delim builder acc =
   | OpImm imm
   | OpShiftAmount imm ->
     builder AsmWordKind.String delim acc
-    |> builder AsmWordKind.Value ("0x" + imm.ToString ("X"))
+    |> builder AsmWordKind.Value (String.u64ToHex imm)
   | OpMem (b, off, _) ->
     builder AsmWordKind.String delim acc
     |> builder AsmWordKind.Value (off.ToString ("D"))

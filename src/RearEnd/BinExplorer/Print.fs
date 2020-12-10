@@ -109,7 +109,7 @@ type CmdPrint () =
     with _ -> Error "[*] Invalid address given."
 
   let hexPrint sz (i: uint64) =
-    i.ToString ("X" + (sz * 2).ToString ())
+    i.ToString ("x" + (sz * 2).ToString ())
 
   let print handler sz fmt addr =
     match fmt with
@@ -123,7 +123,7 @@ type CmdPrint () =
 
   let getAddressPrefix handler (addr: uint64) =
     let hexWidth = WordSize.toByteWidth handler.ISA.WordSize * 2
-    addr.ToString ("X" + hexWidth.ToString ()) + ": "
+    addr.ToString ("x" + hexWidth.ToString ()) + ": "
 
   let rec iter handler sz fmt addr endAddr acc =
     if addr >= endAddr then List.rev acc |> List.toArray

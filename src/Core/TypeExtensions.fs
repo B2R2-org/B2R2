@@ -42,6 +42,39 @@ module String =
   /// Convert a byte array to a string.
   let fromBytes (bs: byte []) = Array.map char bs |> System.String
 
+  let wrapParen s =
+    "(" + s + ")"
+
+  let wrapSqrdBracket s =
+    "[" + s + "]"
+
+  let wrapAngleBracket s =
+    "<" + s + ">"
+
+  let i32ToHex (v: int32) =
+    "0x" + v.ToString ("x")
+
+  let u32ToHex (v: uint32) =
+    "0x" + v.ToString ("x")
+
+  let u64ToHex (v: uint64) =
+    "0x" + v.ToString ("x")
+
+  let i64ToHex (v: int64) =
+    "0x" + v.ToString ("x")
+
+  let inline i32ToHexNoPrefix (v: int32) =
+    v.ToString ("x")
+
+  let inline u32ToHexNoPrefix (v: uint32) =
+    v.ToString ("x")
+
+  let inline u64ToHexNoPrefix (v: uint64) =
+    v.ToString ("x")
+
+  let inline i64ToHexNoPrefix (v: int64) =
+    v.ToString ("x")
+
 /// Extended BigInteger.
 module BigInteger =
   /// Bitmask of size 128 bits.

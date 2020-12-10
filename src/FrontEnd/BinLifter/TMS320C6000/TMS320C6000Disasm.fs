@@ -339,7 +339,7 @@ let oprToString insInfo opr delim builder acc =
     |> memToString builder baseR modification offset
   | Immediate imm ->
     builder AsmWordKind.String delim acc
-    |> builder AsmWordKind.Value ("0x" + imm.ToString ("X"))
+    |> builder AsmWordKind.Value (String.u64ToHex imm)
 
 let buildOprs insInfo builder acc =
   match insInfo.Operands with

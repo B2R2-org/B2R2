@@ -44,5 +44,8 @@ type VisualBlock = VisualLine []
 
 module VisualBlock =
   let empty (addr: Addr): VisualBlock =
-    [| [|{ AsmWordKind = AsmWordKind.String
-           AsmWordValue = "# fake block @ " + (addr.ToString ("X")) }|] |]
+    [|
+      [| { AsmWordKind = AsmWordKind.String
+           AsmWordValue = "# fake block @ " + (String.u64ToHexNoPrefix addr) }
+      |]
+    |]

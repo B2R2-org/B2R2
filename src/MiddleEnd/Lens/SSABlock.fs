@@ -187,4 +187,4 @@ type SSABBlock private (ess, pp, instrs, retPoint, hasIndirectBranch) =
 
   override __.ToString () =
     if instrs.Length = 0 then "SSABBLK(Dummy)"
-    else "SSABBLK(" + __.PPoint.Address.ToString("X") + ")"
+    else "SSABBLK(" + String.u64ToHexNoPrefix __.PPoint.Address + ")"

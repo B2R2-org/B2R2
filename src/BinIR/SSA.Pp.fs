@@ -99,15 +99,15 @@ let rec private expToStringAux expr (sb: StringBuilder) =
     sb.Append (")") |> ignore
   | ReturnVal (addr, ret, _) ->
     sb.Append ("RetFromFunc(") |> ignore
-    sb.Append (addr.ToString ("X")) |> ignore
+    sb.Append (String.u64ToHexNoPrefix addr) |> ignore
     sb.Append (",") |> ignore
-    sb.Append (ret.ToString ("X")) |> ignore
+    sb.Append (String.u64ToHexNoPrefix ret) |> ignore
     sb.Append (")") |> ignore
 
 let private labelToString (addr: Addr, symb) (sb: StringBuilder) =
   sb.Append (Symbol.getName symb) |> ignore
   sb.Append (" @ ") |> ignore
-  sb.Append (addr.ToString ("X")) |> ignore
+  sb.Append (String.u64ToHexNoPrefix addr) |> ignore
 
 let private stmtToStringAux stmt (sb: StringBuilder) =
   match stmt with

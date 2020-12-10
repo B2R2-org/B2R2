@@ -34,7 +34,7 @@ let [<Literal>] private toolName = "bindump"
 let [<Literal>] private usageTail = "<binary file(s) | -s hexstring>"
 
 let private printFileName (filepath: string) =
-  out.PrintLine (StringUtils.wrapSqrdBracket filepath)
+  out.PrintLine (String.wrapSqrdBracket filepath)
   out.PrintLine ()
 
 let private getTableConfig hdl isLift =
@@ -131,7 +131,7 @@ let private dumpSections hdl (opts: BinDumpOpts) (sections: seq<Section>) cfg =
   sections
   |> Seq.iter (fun s ->
     if s.Size > 0UL then
-      out.PrintSectionTitle (StringUtils.wrapParen s.Name)
+      out.PrintSectionTitle (String.wrapParen s.Name)
       match s.Kind with
       | SectionKind.ExecutableSection ->
         printCodeOrTable codeprn s

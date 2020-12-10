@@ -28,7 +28,6 @@ open System
 open System.Text
 open B2R2
 open B2R2.MiddleEnd.BinEssence
-open B2R2.RearEnd
 
 type CmdShow () =
   inherit Cmd ()
@@ -49,7 +48,7 @@ type CmdShow () =
   override __.SubCommands = []
 
   member private __.CallerToString (sb: StringBuilder) (addr: Addr) =
-    sb.Append ("  - referenced by " + addr.ToString("X") + "\n")
+    sb.Append ("  - referenced by " + String.u64ToHexNoPrefix addr + "\n")
 
   member private __.CalleeToSimpleString prefix (sb: StringBuilder) callee =
     let noret = if callee.IsNoReturn then " [no return]" else ""
@@ -57,7 +56,7 @@ type CmdShow () =
     | None -> sb.Append (prefix + callee.CalleeName + noret + "\n")
     | Some addr ->
       sb.Append (prefix + callee.CalleeName
-               + noret + " @ " + addr.ToString("X") + "\n")
+               + noret + " @ " + String.u64ToHexNoPrefix addr + "\n")
 
   member private __.CalleeToString (sb: StringBuilder) callee =
     __.CalleeToSimpleString "" sb callee

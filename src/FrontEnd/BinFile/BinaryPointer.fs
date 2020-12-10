@@ -68,6 +68,6 @@ with
     BinaryPointer (bp.Addr + uint64 amount, bp.Offset + amount, bp.MaxOffset)
 
   override __.ToString () =
-    __.Addr.ToString ("X")
-    + " (" + __.Offset.ToString ("X")
-    + " of " + __.MaxOffset.ToString ("X") + ")"
+    String.u64ToHexNoPrefix __.Addr
+    + " (" + String.i32ToHexNoPrefix __.Offset
+    + " of " + String.i32ToHexNoPrefix __.MaxOffset + ")"

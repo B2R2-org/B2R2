@@ -269,7 +269,8 @@ let dumpSwitch _cmdMap opts file outdir _args =
   |> Map.iter (fun fromAddr { TargetAddresses = targets } ->
     targets
     |> Set.iter (fun target ->
-      writer.WriteLine (fromAddr.ToString ("X") + "," + target.ToString ("X"))
+      writer.WriteLine (String.u64ToHexNoPrefix fromAddr + ","
+                      + String.u64ToHexNoPrefix target)
     )
   )
 

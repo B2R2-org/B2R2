@@ -867,10 +867,10 @@ let opCodeToString = function
   | _ -> raise InvalidOpcodeException
 
 let inline private iToHexStr (i: int64) builder acc =
-  builder AsmWordKind.Value ("0x" + i.ToString("X")) acc
+  builder AsmWordKind.Value (String.i64ToHex i) acc
 
 let inline private uToHexStr (i: uint64) builder acc =
-  builder AsmWordKind.Value ("0x" + i.ToString("X")) acc
+  builder AsmWordKind.Value (String.u64ToHex i) acc
 
 let inline private ptrDirectiveString isFar = function
   | 1 -> "byte ptr"

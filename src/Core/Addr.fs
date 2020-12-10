@@ -31,8 +31,8 @@ module Addr =
   let [<Literal>] private functionPrefix = "func_"
 
   let toString wordSize (addr: Addr) =
-    if wordSize = WordSize.Bit32 then addr.ToString ("X8")
-    else addr.ToString ("X16")
+    if wordSize = WordSize.Bit32 then (uint32 addr).ToString ("x8")
+    else addr.ToString ("x16")
 
   let toFuncName (addr: Addr) =
-    functionPrefix + addr.ToString ("X")
+    functionPrefix + addr.ToString ("x")

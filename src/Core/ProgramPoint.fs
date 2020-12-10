@@ -37,7 +37,7 @@ type ProgramPoint (addr, pos) =
     | :? ProgramPoint as o -> o.Address = __.Address && o.Position = __.Position
     | _ -> false
   override __.GetHashCode () = hash (__.Address, __.Position)
-  override __.ToString () = addr.ToString ("X") + ":" + pos.ToString ()
+  override __.ToString () = String.u64ToHexNoPrefix addr + ":" + pos.ToString ()
 
   /// Get a fake program point to represent a fake vertex, which does not exist
   /// in a CFG. Fake vertices are useful for representing external function

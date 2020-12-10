@@ -65,9 +65,9 @@ type BitVector =
     __.ValToString () + ":" + RegType.toString __.Length
 
   member __.ValToString () =
-    if __.Length <= 64<rt> then "0x" + __.Num.ToString ("X")
+    if __.Length <= 64<rt> then String.u64ToHex __.Num
     elif __.Num = 0UL && __.BigNum = 0I then "0x0"
-    else "0x" + __.BigNum.ToString("X").TrimStart('0')
+    else "0x" + __.BigNum.ToString("x").TrimStart('0')
 
   static member inline BOp (v: BitVector) (b: uint64) op bigop =
     let a = v.Num

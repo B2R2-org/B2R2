@@ -69,7 +69,7 @@ type DisasmBBlock (instrs: Instruction [], pp, ess: BinEssence) =
 
   override __.ToString () =
     if instrs.Length = 0 then "DisasmBBLK(Dummy)"
-    else "DisasmBBLK(" + __.PPoint.Address.ToString("X") + ")"
+    else "DisasmBBLK(" + String.u64ToHexNoPrefix __.PPoint.Address + ")"
 
 /// Disassembly-based CFG, where each node contains disassembly code.
 type DisasmCFG = ControlFlowGraph<DisasmBBlock, CFGEdgeKind>

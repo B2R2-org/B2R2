@@ -604,9 +604,9 @@ let simdToString simdOprs builder acc =
     |> builder AsmWordKind.String " }"
     |> finalSIMDOpr s1 builder
 
-let immToString (imm: int64) builder acc =
+let immToString imm builder acc =
   builder AsmWordKind.String "#" acc
-  |> builder AsmWordKind.String ("0x" + imm.ToString "X")
+  |> builder AsmWordKind.String (String.i64ToHex imm)
 
 let fpImmToString (fp: float) builder acc =
   builder AsmWordKind.String "#" acc
@@ -614,7 +614,7 @@ let fpImmToString (fp: float) builder acc =
 
 let nzcvToString (imm: uint8) builder acc =
   builder AsmWordKind.String "#" acc
-  |> builder AsmWordKind.String ("0x" + imm.ToString "X")
+  |> builder AsmWordKind.String ("0x" + imm.ToString "x")
 
 let amountToString amount builder acc =
   match amount with
@@ -656,7 +656,7 @@ let extRegToString regOff delim builder acc =
     prependDelimiter delim builder acc
     |> builder AsmWordKind.String (extToString ext)
     |> builder AsmWordKind.String " #"
-    |> builder AsmWordKind.Value (i.ToString ("X"))
+    |> builder AsmWordKind.Value (i.ToString ("x"))
 
 let regOffString regOff delim builder acc =
   match regOff with
@@ -682,7 +682,7 @@ let immOffsetToString i addr mode offset builder acc =
     |> immToString imm builder
   | Lbl imm ->
     let addr = processAddrExn64 i addr
-    builder AsmWordKind.Value ("0x" + (int64 addr + imm).ToString ("X")) acc
+    builder AsmWordKind.Value (String.i64ToHex (int64 addr + imm)) acc
 
 let regOffsetToString mode offset builder acc =
   match offset with

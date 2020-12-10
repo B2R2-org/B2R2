@@ -25,7 +25,6 @@
 namespace B2R2.RearEnd
 
 open B2R2
-open B2R2.RearEnd
 
 module CS = ColoredSegment
 

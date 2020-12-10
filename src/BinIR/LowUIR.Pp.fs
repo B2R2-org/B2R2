@@ -101,11 +101,11 @@ let private stmtToStringAux stmt (sb: StringBuilder) =
   match stmt with
   | ISMark (addr, _) ->
     sb.Append ("=== ISMark (") |> ignore
-    sb.Append (addr.ToString("X")) |> ignore
+    sb.Append (String.u64ToHexNoPrefix addr) |> ignore
     sb.Append (")") |> ignore
   | IEMark (addr) ->
     sb.Append ("=== IEMark (pc := ") |> ignore
-    sb.Append (addr.ToString("X")) |> ignore
+    sb.Append (String.u64ToHexNoPrefix addr) |> ignore
     sb.Append (")") |> ignore
   | LMark lbl ->
     sb.Append ("=== LMark (") |> ignore
@@ -155,7 +155,8 @@ let stmtToString expr =
 
 let stmtsToString stmts =
   let sb = StringBuilder()
-  Array.iter (fun stmt -> stmtToStringAux stmt sb
-                          sb.Append (Environment.NewLine) |> ignore) stmts
+  Array.iter (fun stmt ->
+    stmtToStringAux stmt sb
+    sb.Append (Environment.NewLine) |> ignore) stmts
   sb.ToString ()
 

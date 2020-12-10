@@ -670,17 +670,17 @@ let signToString = function
   | Some Plus -> ""
   | Some Minus -> "-"
 
-let immToString (imm: int64) sign builder acc =
+let immToString imm sign builder acc =
   builder AsmWordKind.String "#" acc
   |> builder AsmWordKind.String (signToString sign)
-  |> builder AsmWordKind.Value ("0x" + imm.ToString ("X"))
+  |> builder AsmWordKind.Value (String.i64ToHex imm)
 
 let fpImmToString (fp: float) builder acc =
   builder AsmWordKind.String "#" acc
   |> builder AsmWordKind.Value (fp.ToString ("N8"))
 
 let optionToString (opt: int64) builder acc =
-  builder AsmWordKind.Value ("0x" + opt.ToString ("X")) acc
+  builder AsmWordKind.Value (String.i64ToHex opt) acc
 
 let srTypeToString = function
   | SRTypeLSL -> "lsl"

@@ -87,4 +87,4 @@ type IRBasicBlock (instrs: InstructionInfo [], point: ProgramPoint) =
 
   override __.ToString () =
     if instrs.Length = 0 then "IRBBLK(Dummy)"
-    else "IRBBLK(" + __.PPoint.Address.ToString("X") + ")"
+    else "IRBBLK(" + String.u64ToHexNoPrefix __.PPoint.Address + ")"

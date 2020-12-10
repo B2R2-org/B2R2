@@ -28,7 +28,6 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinInterface
-open B2R2.RearEnd
 
 type CmdSearch () =
   inherit Cmd ()
@@ -39,7 +38,7 @@ type CmdSearch () =
                          |> ByteArray.findIdxs 0UL pattern
                          |> List.map (fun idx -> idx + s.Address))
     |> Seq.concat
-    |> Seq.map (fun idx -> "Found @ " + idx.ToString("X"))
+    |> Seq.map (fun idx -> "Found @ " + String.u64ToHexNoPrefix idx)
     |> Seq.toList
 
   override __.CmdName = "search"

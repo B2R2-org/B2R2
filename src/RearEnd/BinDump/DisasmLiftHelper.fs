@@ -30,7 +30,6 @@ open B2R2.BinIR
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinInterface
-open B2R2.RearEnd.StringUtils
 
 /// The monotonic console printer.
 let internal out = ConsoleCachedPrinter () :> Printer
@@ -92,13 +91,13 @@ let convertToHexStr bytes =
     else s + " " + b.ToString ("X2")) ""
 
 let printLowUIR (lowUIRStr: string) bytes cfg =
-  let hexStr = convertToHexStr bytes |> wrapSqrdBracket
+  let hexStr = convertToHexStr bytes |> String.wrapSqrdBracket
   out.PrintRow (false, cfg, [ hexStr ])
   out.PrintRow (false, cfg, [ lowUIRStr ])
 
 let printRegularDisasm disasmStr wordSize addr bytes cfg =
   let hexStr = convertToHexStr bytes
-  let addrStr = addrToString wordSize addr + ":"
+  let addrStr = Addr.toString wordSize addr + ":"
   out.PrintRow (false, cfg, [ addrStr; hexStr; disasmStr ])
 
 let regularDisPrinter (hdl: BinHandle) showSymbs bp ins cfg =
@@ -126,7 +125,7 @@ let convertToDisasmStr (words: AsmWord []) =
 
 let printColorDisasm words wordSize addr bytes cfg =
   let hexStr = convertToHexStr bytes
-  let addrStr = addrToString wordSize addr + ":"
+  let addrStr = Addr.toString wordSize addr + ":"
   let disasStr = convertToDisasmStr words
   colorout.PrintRow (false, cfg,
     [ [ Green, addrStr ]; [ NoColor, hexStr ]; disasStr ])
@@ -155,7 +154,7 @@ let printFuncSymbol (dict: Dictionary<Addr, string>) addr =
   match (dict: Dictionary<Addr, string>).TryGetValue (addr) with
   | true, name ->
     out.PrintLineIfPrevLineWasNotEmpty ()
-    out.PrintLine (wrapAngleBracket name)
+    out.PrintLine (String.wrapAngleBracket name)
   | false, _ -> ()
 
 let getContext dict (ctxt: ParsingContext) addr =

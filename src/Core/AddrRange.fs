@@ -41,7 +41,7 @@ type AddrRange =
     { Min = min; Max = max }
 
   override __.ToString () =
-    __.Min.ToString ("X") + " -- " + __.Max.ToString ("X")
+    String.u64ToHexNoPrefix __.Min + " -- " + String.u64ToHexNoPrefix __.Max
 
   override __.Equals (rhs: obj) =
     match rhs with
