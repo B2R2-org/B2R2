@@ -7231,15 +7231,21 @@ let vpbroadcastd ins insAddr insLen ctxt =
   match oprSize with
   | 128<rt> ->
     let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
-    builder <! (dstA := temp)
-    builder <! (dstB := temp)
+    builder <! (extract dstA 32<rt> 0 := temp)
+    builder <! (extract dstA 32<rt> 32 := temp)
+    builder <! (extract dstB 32<rt> 0 := temp)
+    builder <! (extract dstB 32<rt> 32 := temp)
     fillZeroFromVLToMaxVL ctxt dst 128 512 builder
   | 256<rt> ->
     let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
-    builder <! (dstA := temp)
-    builder <! (dstB := temp)
-    builder <! (dstC := temp)
-    builder <! (dstD := temp)
+    builder <! (extract dstA 32<rt> 0 := temp)
+    builder <! (extract dstA 32<rt> 32 := temp)
+    builder <! (extract dstB 32<rt> 0 := temp)
+    builder <! (extract dstB 32<rt> 32 := temp)
+    builder <! (extract dstC 32<rt> 0 := temp)
+    builder <! (extract dstC 32<rt> 32 := temp)
+    builder <! (extract dstD 32<rt> 0 := temp)
+    builder <! (extract dstD 32<rt> 32 := temp)
     fillZeroFromVLToMaxVL ctxt dst 256 512 builder
   | 512<rt> ->
     let kl, vl = 16, 512
