@@ -12,13 +12,13 @@
     <Compile Include="TypeExtensions.fs" />
     <Compile Include="Monads.fs" />
     <Compile Include="Errors.fs" />
+    <Compile Include="Utils.fsi" />
+    <Compile Include="Utils.fs" />
     <Compile Include="ColoredString.fs" />
     <Compile Include="OutString.fs" />
     <Compile Include="Printer.fs" />
     <Compile Include="RegType.fs" />
     <Compile Include="RegisterID.fs" />
-    <Compile Include="BaseRegisterSet.fs" />
-    <Compile Include="RegisterSet.fsi" />
     <Compile Include="RegisterSet.fs" />
     <Compile Include="WordSize.fs" />
     <Compile Include="Endian.fs" />
@@ -46,8 +46,6 @@
     <Compile Include="ConcurrentLRU.fs" />
     <Compile Include="ConcurrentWeakReferenceTable.fs" />
     <Compile Include="Logger.fs" />
-    <Compile Include="Utils.fsi" />
-    <Compile Include="Utils.fs" />
     <Compile Include="Attribution.fs" />
     <None Include="..\..\LICENSE.md" Pack="true" PackagePath=""/>
     <None Include="..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />

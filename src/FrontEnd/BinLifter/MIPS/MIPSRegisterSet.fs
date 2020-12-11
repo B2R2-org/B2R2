@@ -26,21 +26,24 @@ namespace B2R2.FrontEnd.BinLifter.MIPS
 
 open B2R2
 
+module private RegisterSetLiteral =
+  let [<Literal>] arrLen = 2
+
+open RegisterSetLiteral
+
 type MIPSRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
   inherit NonEmptyRegisterSet (bitArray, s)
 
-  static let defaultSize = 2
-  static let emptyArr = Array.init defaultSize (fun _ -> 0UL)
-  static member EmptySet =
-    new MIPSRegisterSet (emptyArr, Set.empty) :> RegisterSet
+  new () = MIPSRegisterSet (RegisterSet.MakeInternalBitArray arrLen, Set.empty)
 
   override __.Tag = RegisterSetTag.MIPS
-  override __.ArrSize = defaultSize
-  override __.New x s = new MIPSRegisterSet (x, s) :> RegisterSet
-  override __.Empty = MIPSRegisterSet.EmptySet
-  override __.EmptyArr = emptyArr
-  override __.Project x =
-    match Register.ofRegID x with
+
+  override __.ArrSize = arrLen
+
+  override __.New arr s = new MIPSRegisterSet (arr, s) :> RegisterSet
+
+  override __.RegIDToIndex rid =
+    match Register.ofRegID rid with
     | R.R0 -> 0
     | R.R1 -> 1
     | R.R2 -> 2
@@ -110,10 +113,82 @@ type MIPSRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     | R.PC -> 66
     | _ -> -1
 
+  override __.IndexToRegID index =
+    match index with
+    | 0 -> R.R0
+    | 1 -> R.R1
+    | 2 -> R.R2
+    | 3 -> R.R3
+    | 4 -> R.R4
+    | 5 -> R.R5
+    | 6 -> R.R6
+    | 7 -> R.R7
+    | 8 -> R.R8
+    | 9 -> R.R9
+    | 10 -> R.R10
+    | 11 -> R.R11
+    | 12 -> R.R12
+    | 13 -> R.R13
+    | 14 -> R.R14
+    | 15 -> R.R15
+    | 16 -> R.R16
+    | 17 -> R.R17
+    | 18 -> R.R18
+    | 19 -> R.R19
+    | 20 -> R.R20
+    | 21 -> R.R21
+    | 22 -> R.R22
+    | 23 -> R.R23
+    | 24 -> R.R24
+    | 25 -> R.R25
+    | 26 -> R.R26
+    | 27 -> R.R27
+    | 28 -> R.R28
+    | 29 -> R.R29
+    | 30 -> R.R30
+    | 31 -> R.R31
+    | 32 -> R.F0
+    | 33 -> R.F1
+    | 34 -> R.F2
+    | 35 -> R.F3
+    | 36 -> R.F4
+    | 37 -> R.F5
+    | 38 -> R.F6
+    | 39 -> R.F7
+    | 40 -> R.F8
+    | 41 -> R.F9
+    | 42 -> R.F10
+    | 43 -> R.F11
+    | 44 -> R.F12
+    | 45 -> R.F13
+    | 46 -> R.F14
+    | 47 -> R.F15
+    | 48 -> R.F16
+    | 49 -> R.F17
+    | 50 -> R.F18
+    | 51 -> R.F19
+    | 52 -> R.F20
+    | 53 -> R.F21
+    | 54 -> R.F22
+    | 55 -> R.F23
+    | 56 -> R.F24
+    | 57 -> R.F25
+    | 58 -> R.F26
+    | 59 -> R.F27
+    | 60 -> R.F28
+    | 61 -> R.F29
+    | 62 -> R.F30
+    | 63 -> R.F31
+    | 64 -> R.HI
+    | 65 -> R.LO
+    | 66 -> R.PC
+    | _ -> Utils.impossible ()
+    |> Register.toRegID
+
   override __.ToString () =
     sprintf "MIPSRegisterSet<%x, %x>" __.BitArray.[0] __.BitArray.[1]
 
 [<RequireQualifiedAccess>]
 module MIPSRegisterSet =
-  let singleton = RegisterSetBuilder.singletonBuilder MIPSRegisterSet.EmptySet
-  let empty = MIPSRegisterSet.EmptySet
+  let singleton rid = MIPSRegisterSet().Add(rid)
+  let empty = MIPSRegisterSet () :> RegisterSet

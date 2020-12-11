@@ -26,27 +26,34 @@ namespace B2R2.FrontEnd.BinLifter.TMS320C6000
 
 open B2R2
 
+module private RegisterSetLiteral =
+  let [<Literal>] arrLen = 2
+
+open RegisterSetLiteral
+
 type TMS320C6000RegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
   inherit NonEmptyRegisterSet (bitArray, s)
 
-  static let defaultSize = 2
-  static let emptyArr = Array.init defaultSize (fun _ -> 0UL)
-  static member EmptySet =
-    new TMS320C6000RegisterSet (emptyArr, Set.empty) :> RegisterSet
+  new () =
+    TMS320C6000RegisterSet (RegisterSet.MakeInternalBitArray arrLen, Set.empty)
 
   override __.Tag = RegisterSetTag.TMS320C6000
-  override __.ArrSize = defaultSize
-  override __.New x s = new TMS320C6000RegisterSet (x, s) :> RegisterSet
-  override __.Empty = TMS320C6000RegisterSet.EmptySet
-  override __.EmptyArr = emptyArr
-  override __.Project x =
-    match Register.ofRegID x with
-    | _ -> -1
+
+  override __.ArrSize = arrLen
+
+  override __.New arr s = new TMS320C6000RegisterSet (arr, s) :> RegisterSet
+
+  override __.RegIDToIndex rid =
+    match Register.ofRegID rid with
+    | _ -> Utils.futureFeature ()
+
+  override __.IndexToRegID _index: RegisterID =
+    Utils.futureFeature ()
 
   override __.ToString () =
     sprintf "TMS320C6000RegisterSet<%x, %x>" __.BitArray.[0] __.BitArray.[1]
 
 [<RequireQualifiedAccess>]
 module TMS320C6000RegisterSet =
-  let singleton = RegisterSetBuilder.singletonBuilder TMS320C6000RegisterSet.EmptySet
-  let empty = TMS320C6000RegisterSet.EmptySet
+  let singleton rid = TMS320C6000RegisterSet().Add(rid)
+  let empty = TMS320C6000RegisterSet () :> RegisterSet

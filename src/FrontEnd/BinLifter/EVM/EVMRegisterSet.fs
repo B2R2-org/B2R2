@@ -26,28 +26,36 @@ namespace B2R2.FrontEnd.BinLifter.EVM
 
 open B2R2
 
+module private RegisterSetLiteral =
+  let [<Literal>] arrLen = 2
+
+open RegisterSetLiteral
+
 type EVMRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
   inherit NonEmptyRegisterSet (bitArray, s)
 
-  static let defaultSize = 2
-  static let emptyArr = Array.init defaultSize (fun _ -> 0UL)
-  static member EmptySet =
-    new EVMRegisterSet (emptyArr, Set.empty) :> RegisterSet
+  new () = EVMRegisterSet (RegisterSet.MakeInternalBitArray arrLen, Set.empty)
 
   override __.Tag = RegisterSetTag.EVM
-  override __.ArrSize = defaultSize
-  override __.New x s = new EVMRegisterSet (x, s) :> RegisterSet
-  override __.Empty = EVMRegisterSet.EmptySet
-  override __.EmptyArr = emptyArr
-  override __.Project x =
-    match Register.ofRegID x with
+
+  override __.ArrSize = arrLen
+
+  override __.New arr s = new EVMRegisterSet (arr, s) :> RegisterSet
+
+  override __.RegIDToIndex rid =
+    match Register.ofRegID rid with
     | R.GAS -> 1
     | _ -> -1
+
+  override __.IndexToRegID index =
+    match index with
+    | 1 -> R.GAS |> Register.toRegID
+    | _ -> Utils.impossible ()
 
   override __.ToString () =
     sprintf "EVMReisterSet<%x, %x>" __.BitArray.[0] __.BitArray.[1]
 
 [<RequireQualifiedAccess>]
 module EVMRegisterSet =
-  let singleton = RegisterSetBuilder.singletonBuilder EVMRegisterSet.EmptySet
-  let empty = EVMRegisterSet.EmptySet
+  let singleton rid = EVMRegisterSet().Add(rid)
+  let empty = EVMRegisterSet () :> RegisterSet
