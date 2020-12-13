@@ -23,7 +23,7 @@
     <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
     <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
     <ProjectReference Include="..\..\Peripheral\Assembly\LowUIR\B2R2.Peripheral.Assembly.LowUIR.fsproj" />
-    <ProjectReference Include="..\..\Peripheral\Assembly\Assembler\B2R2.Peripheral.Assembly.Assembler.fsproj" />
+    <ProjectReference Include="..\..\Peripheral\Assembly\AsmInterface\B2R2.Peripheral.Assembly.AsmInterface.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\BinLifter\Core\B2R2.FrontEnd.BinLifter.Core.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\BinLifter\ARM32\B2R2.FrontEnd.BinLifter.ARM32.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\BinLifter\ARM64\B2R2.FrontEnd.BinLifter.ARM64.fsproj" />

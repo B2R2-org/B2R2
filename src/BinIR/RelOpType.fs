@@ -72,3 +72,20 @@ module RelOpType =
     | RelOpType.FLT -> "<."
     | RelOpType.FLE -> "<=."
     | _ -> raise IllegalASTTypeException
+
+  let ofString = function
+    | "=" -> RelOpType.EQ
+    | "!=" -> RelOpType.NEQ
+    | ">" -> RelOpType.GT
+    | ">=" -> RelOpType.GE
+    | "?>" -> RelOpType.SGT
+    | "?>=" -> RelOpType.SGE
+    | "<" -> RelOpType.LT
+    | "<=" -> RelOpType.LE
+    | "?<" -> RelOpType.SLT
+    | "?<=" -> RelOpType.SLE
+    | ">." -> RelOpType.FGT
+    | ">=." -> RelOpType.FGE
+    | "<." -> RelOpType.FLT
+    | "<=." -> RelOpType.FLE
+    | _ -> raise IllegalASTTypeException

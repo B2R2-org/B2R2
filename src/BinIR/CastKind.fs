@@ -54,3 +54,14 @@ module CastKind =
     | CastKind.FtoITrunc -> "trunc"
     | CastKind.FloatExt -> "fext"
     | _ -> raise IllegalASTTypeException
+
+  let ofString = function
+    | "sext" -> CastKind.SignExt
+    | "zext" -> CastKind.ZeroExt
+    | "itof" -> CastKind.IntToFloat
+    | "round" -> CastKind.FtoIRound
+    | "ceil" -> CastKind.FtoICeil
+    | "floor" -> CastKind.FtoIFloor
+    | "trunc" -> CastKind.FtoITrunc
+    | "fext" -> CastKind.FloatExt
+    | _ -> raise IllegalASTTypeException

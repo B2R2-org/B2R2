@@ -24,7 +24,7 @@
     <ProjectReference Include="..\Assembly\ARM32\B2R2.Peripheral.Assembly.ARM32.fsproj" />
     <ProjectReference Include="..\Assembly\Intel\B2R2.Peripheral.Assembly.Intel.fsproj" />
     <ProjectReference Include="..\Assembly\MIPS\B2R2.Peripheral.Assembly.MIPS.fsproj" />
-    <ProjectReference Include="..\Assembly\Assembler\B2R2.Peripheral.Assembly.Assembler.fsproj" />
+    <ProjectReference Include="..\Assembly\AsmInterface\B2R2.Peripheral.Assembly.AsmInterface.fsproj" />
   </ItemGroup>
 
 </Project>

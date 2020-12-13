@@ -25,213 +25,301 @@
 namespace B2R2.Peripheral.Assembly.LowUIR
 
 open FParsec
+open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.BinIR
 open B2R2.BinIR.LowUIR
-open B2R2.Peripheral.Assembly.LowUIR.Utils
+open B2R2.Peripheral.Assembly.Utils
+open B2R2.Peripheral.Assembly.LowUIR.Helper
 
-type ExpectedType = RegType
-
-type Parser<'t> = Parser<'t, ExpectedType>
+type Parser<'t> = Parser<'t, RegType>
 
 type LowUIRParser (isa, regbay: RegisterBay) =
-  let makeExpectedType c =
-    updateUserState (fun _ -> AST.typeOf c)
-    >>. preturn c
 
-  /// Parses name that can be used as a variable or register Name.
-  let pNormalString =
-    many1 (digit <|> letter) |>> (Seq.map string) |>> String.concat ""
-  let pHexToUInt64 =
-     many (digit <|> anyOf "ABCDEF") |>> (Seq.map string) |>> String.concat ""
-     |>> (fun str -> uint64 ( "0x" + str))
+  let pIdentifier =
+    let isAllowedFirstChar c = isAsciiLetter c
+    let isAllowedChar c = isAsciiLetter c || isDigit c
+    many1Satisfy2L isAllowedFirstChar isAllowedChar "identifier"
 
-  let pCaseString (s: string) =
-    pstring s <|> (pstring ( s.ToLower () ) >>. preturn s) <?> s
+  let pHexUInt64 =
+     many hex
+     |>> (Seq.map string)
+     |>> String.concat ""
+     |>> (fun s -> Convert.ToUInt64 (s, 16))
 
-  let numberFormat =     NumberLiteralOptions.AllowMinusSign
-                     ||| NumberLiteralOptions.AllowBinary
-                     ||| NumberLiteralOptions.AllowHexadecimal
-                     ||| NumberLiteralOptions.AllowOctal
-                     ||| NumberLiteralOptions.AllowPlusSign
+  let ws = spaces
 
-  let pnumber : Parser<int64> =
-      numberLiteral numberFormat "number"
-      |>> fun nl ->
-              int64 nl.String
+  let numberFormat =
+    NumberLiteralOptions.AllowMinusSign |||
+    NumberLiteralOptions.AllowBinary |||
+    NumberLiteralOptions.AllowHexadecimal |||
+    NumberLiteralOptions.AllowOctal |||
+    NumberLiteralOptions.AllowPlusSign
 
-  (*---------------------------Primitives.-----------------------------*)
+  let pNumber =
+    numberLiteral numberFormat "number"
+    |>> fun n -> int64 n.String
 
   let pRegType =
-    (anyOf "IiFf" ) >>. pint32 |>> RegType.fromBitWidth
+    (anyOf "IiFf") >>. pint32 |>> RegType.fromBitWidth
 
   let pBitVector =
-    pnumber .>> spaces
-    .>>. (opt (pchar ':' >>. spaces >>. pRegType))
+    pNumber
+    .>>. opt (pchar ':' >>. ws >>. pRegType)
     >>= (fun (n, typ) ->
-           if typ.IsNone then getUserState |>> (fun t -> BitVector.ofInt64 n t)
-           else preturn (BitVector.ofInt64 n typ.Value))
+      match typ with
+      | None -> getUserState |>> (fun t -> BitVector.ofInt64 n t)
+      | Some typ -> preturn (BitVector.ofInt64 n typ))
 
   let pUnaryOperator =
     [ "-"; "~"; "sqrt"; "cos"; "sin"; "tan"; "atan" ]
-    |> List.map pstring |> List.map attempt |> choice |>> unOpFromString
+    |> List.map pstring |> List.map attempt |> choice |>> UnOpType.ofString
 
-  let pBinaryOperator =
-    [ "-|"; "++"; "+"; "-"; "*"; "/"; "?/"; "%"; "?%"; "<<" ; ">>"; "?>>";
-      "&"; "|"; "^"; "::"; ".+"; ".-"; ".*"; "./"; ".^"; "lg" ]
-    |> List.map pstring |> List.map attempt |> choice |>> binOpFromString
-
-  let pRelativeOperator =
-    [ "="; "!=" ; ">"; ">="; "?>"; "<"; "<="; "?<="; "?<" ]
-    |> List.map pstring |> List.map attempt |> choice |>> relOpFromString
-
-  let pCastType = //pstring "sext" <|> pstring "zext" |>> castTypeFromString
+  let pCastType =
     [ "sext"; "zext"; "itof"; "round"; "ceil"; "floor"; "trunc"; "fext" ]
-    |> List.map pstring |> List.map attempt |> choice |>> castTypeFromString
+    |> List.map pstring |> List.map attempt |> choice |>> CastKind.ofString
 
-  (*---------------------------Expressions.----------------------------*)
-
-  (*Reference to Expression parser created here.*)
   let pExpr, pExprRef = createParserForwardedToRef ()
 
-  let pNumE = pBitVector |>> AST.num
+  let pNum = pBitVector |>> AST.num
 
   let regnames = regbay.GetAllRegNames ()
 
-  let pVarE =
-    List.map pCaseString regnames |> List.map attempt
-    |> choice |>> regbay.StrToRegExpr
+  let pVar =
+    List.map pstringCI regnames
+    |> List.map attempt
+    |> choice
+    |>> regbay.StrToRegExpr
 
-  let pTempVarE =
-    spaces >>. pstring "T_" >>. pint32 .>> spaces .>> pchar ':' .>> spaces
-    .>>. pRegType |>> (fun (num, typ) -> TempVar (typ, num))
+  let pTempVar =
+    pstring "T_" >>. pint32 .>> ws
+    .>> pchar ':' .>> ws .>>. pRegType
+    |>> (fun (num, typ) -> TempVar (typ, num))
 
-  let pUnOpE =
-    pchar '(' >>. spaces >>. pUnaryOperator
-    .>> spaces .>>. pExpr .>> spaces .>> pchar ')'
+  let pUnOp =
+    pUnaryOperator .>> ws .>>. pExpr
     |>> (fun (op, e1) -> AST.unop op e1)
 
-  let pBinOpE =
-    pchar '(' >>. spaces >>. pExpr .>> spaces .>>. pBinaryOperator .>> spaces
-    .>>. pExpr .>> spaces .>> pchar ')'
-    |>> (fun ((e1, op), e2 )-> AST.binop op e1 e2)
-
-  let pRelOpE =
-    pchar '(' >>. spaces >>. pExpr .>> spaces .>>. pRelativeOperator .>> spaces
-    .>>. pExpr .>> spaces .>> pchar ')'
-    |>> (fun ((e1, op), e2 )-> AST.relop op e1 e2)
-
-  let pLoadE =
-    pchar '[' >>. pExpr .>> spaces .>> pchar ']' .>> spaces .>> pchar ':'
-    .>> spaces .>>. pRegType
+  let pLoad =
+    pchar '[' >>. pExpr .>> ws .>> pchar ']' .>> ws
+    .>> pchar ':' .>> ws .>>. pRegType
     |>> (fun (e, typ) -> AST.load isa.Endian typ e)
 
-  let pIteE =
-    pchar '(' >>. pstring "ite" >>. spaces >>. pchar '(' >>. spaces
-    >>. pExpr .>> spaces .>> pchar ')' .>> spaces .>> pchar '(' .>> spaces
-    .>>. pExpr .>> spaces .>> pchar ')' .>> spaces .>> pchar '(' .>> spaces
-    .>>. pExpr .>> pchar ')' .>> spaces .>> pchar ')'
-    |>> (fun ((cond, e1), e2) -> AST.ite cond e1 e2)
-
-  let pCastE =
-    pCastType .>> spaces .>> pchar ':' .>> spaces .>>. pRegType .>> spaces
-    .>> pchar '(' .>> spaces .>>. pExpr .>> spaces .>> pchar ')'
+  let pCast =
+    pCastType .>> ws .>> pchar ':' .>> ws .>>. pRegType .>> ws
+    .>> pchar '(' .>> ws .>>. pExpr .>> ws .>> pchar ')'
     |>> (fun ((kind, typ), expr) -> AST.cast kind typ expr)
 
-  let pExtractE =
-    pchar '(' .>> spaces >>. pExpr .>> spaces .>> pchar '[' .>> spaces
-    .>>. pint32 .>> spaces .>> pchar ':' .>> spaces .>>. pint32 .>> spaces
-    .>> pchar ']' .>> spaces .>> pchar ')'
-    |>> (fun ((expr, n), pos) ->
-           AST.extract expr (RegType.fromBitWidth (n + 1 - pos)) pos)
+  let toExtractExpr ((expr, n), pos) =
+    AST.extract expr (RegType.fromBitWidth (n + 1 - pos)) pos
 
-  let pUndefinedExprE =
-    pstring "Undefined expression (" .>> spaces >>. pNormalString .>> spaces
-    .>> pchar ')' |>> AST.unDef dummyRegType
-  do
-    pExprRef :=
-      pNumE
-      <|> attempt pTempVarE
-      <|> attempt pUnOpE
-      <|> attempt pBinOpE <|> attempt pRelOpE <|> attempt pLoadE
-      <|> attempt pIteE <|> attempt pCastE <|> attempt pExtractE
-      <|> attempt pUndefinedExprE
-      <|> pVarE
+  let pExtractVar =
+    (pVar <|> pTempVar) .>> ws .>> pchar '[' .>> ws
+    .>>. pint32 .>> ws .>> pchar ':' .>> ws .>>. pint32 .>> ws
+    .>> pchar ']'
+    |>> toExtractExpr
 
-  (*-----------------------------Statements.---------------------------*)
+  let pExtractExpr =
+    pBetweenParen pExpr .>> ws .>> pchar '[' .>> ws
+    .>>. pint32 .>> ws .>> pchar ':' .>> ws .>>. pint32 .>> ws
+    .>> pchar ']'
+    |>> toExtractExpr
+
+  let pExtract =
+    (attempt pExtractVar) <|> (attempt pExtractExpr)
+
+  let pComment =
+    let isComment c =
+      isLetter c || isDigit c || Char.IsWhiteSpace c || c = '.'
+    many1Satisfy isComment
+
+  let pUndefinedExpr =
+    pstring "??" >>. ws
+    >>. pchar '(' >>. ws >>. pComment .>> ws .>> pchar ')'
+    >>= fun comment ->
+      getUserState |>> (fun rt -> AST.unDef rt comment)
+
+  let pPrimaryValue =
+    [ attempt pExtract .>> ws
+      pVar .>> ws
+      pTempVar .>> ws
+      pUnOp .>> ws
+      pLoad .>> ws
+      pNum .>> ws
+      pCast .>> ws
+      pUndefinedExpr .>> ws ] |> choice
+
+  let pFLog =
+    pstring "lg" >>. ws
+    >>. pchar '(' >>. ws
+    >>. pExpr .>> ws .>> pchar ',' .>> ws
+    .>>. pExpr .>> ws .>> pchar ')'
+    |>> (fun (e1, e2) -> AST.binop BinOpType.FLOG e1 e2)
+
+  let initInfix (opp: OperatorPrecedenceParser<_, _, _>) ops =
+    ops |> List.iter (fun (initializer, op, prec, assoc) ->
+      opp.AddOperator (InfixOperator(op, ws, prec, assoc, initializer)))
+
+  let initTernary (opp: OperatorPrecedenceParser<_, _, _>) args =
+    args |> fun (initializer, opl, opr, assoc) ->
+      opp.AddOperator (TernaryOperator(opl, ws, opr, ws, 1, assoc, initializer))
+
+  let opp = OperatorPrecedenceParser<Expr, _, RegType> ()
+  let pOps = opp.ExpressionParser
+  let term =
+    pPrimaryValue
+    <|> pFLog
+    <|> pBetweenParen pOps
+
+  let () =
+    opp.TermParser <- term
+    pExprRef := pOps
+
+    [ AST.binop BinOpType.ADD, "+", 3, Associativity.Left
+      AST.binop BinOpType.SUB, "-", 3, Associativity.Left
+      AST.binop BinOpType.MUL, "*", 4, Associativity.Left
+      AST.binop BinOpType.DIV, "/", 4, Associativity.Left
+      AST.binop BinOpType.SDIV, "?/", 4, Associativity.Left
+      AST.binop BinOpType.MOD, "%", 4, Associativity.Left
+      AST.binop BinOpType.SMOD, "?%", 4, Associativity.Left
+      AST.binop BinOpType.SHL, "<<", 4, Associativity.Left
+      AST.binop BinOpType.SHR, ">>", 4, Associativity.Left
+      AST.binop BinOpType.SAR, "?>>", 4, Associativity.Left
+      AST.binop BinOpType.AND, "&", 4, Associativity.Left
+      AST.binop BinOpType.OR, "|", 4, Associativity.Left
+      AST.binop BinOpType.XOR, "^", 4, Associativity.Left
+      AST.binop BinOpType.CONCAT, "++", 4, Associativity.Left
+      AST.binop BinOpType.APP, "-|", 5, Associativity.Right
+      AST.binop BinOpType.CONS, "::", 4, Associativity.Right
+      AST.binop BinOpType.FADD, "+.", 4, Associativity.Left
+      AST.binop BinOpType.FSUB, "-.", 4, Associativity.Left
+      AST.binop BinOpType.FMUL, "*.", 4, Associativity.Left
+      AST.binop BinOpType.FDIV, "/.", 4, Associativity.Left
+      AST.binop BinOpType.FPOW, "^^", 4, Associativity.Left ]
+    |> initInfix opp
+
+    [ AST.relop RelOpType.EQ, "=", 1, Associativity.Left
+      AST.relop RelOpType.NEQ, "!=", 1, Associativity.Left
+      AST.relop RelOpType.GT, ">", 2, Associativity.Left
+      AST.relop RelOpType.GE, ">=", 2, Associativity.Left
+      AST.relop RelOpType.SGT, "?>", 2, Associativity.Left
+      AST.relop RelOpType.SGE, "?>=", 2, Associativity.Left
+      AST.relop RelOpType.LT, "<", 2, Associativity.Left
+      AST.relop RelOpType.LE, "<=", 2, Associativity.Left
+      AST.relop RelOpType.SLT, "?<", 2, Associativity.Left
+      AST.relop RelOpType.SLE, "?<=", 2, Associativity.Left
+      AST.relop RelOpType.FGT, ">.", 2, Associativity.Left
+      AST.relop RelOpType.FGE, ">=.", 2, Associativity.Left
+      AST.relop RelOpType.FLT, "<.", 2, Associativity.Left
+      AST.relop RelOpType.FLE, "<=.", 2, Associativity.Left ]
+    |> initInfix opp
+
+    (AST.ite, "?", ":", Associativity.Right)
+    |> initTernary opp
 
   let pISMark =
-    pstring "SMark" >>. spaces >>. pchar '(' >>. spaces >>. pHexToUInt64
-    .>> spaces .>> pchar ')'
-    |>> (fun addr -> ISMark (addr, 0u))
+    ws
+    >>. pchar '('
+    >>. ws >>. pHexUInt64
+    .>> ws .>> pchar ';' .>> ws
+    .>>. puint32 .>> ws
+    .>> pchar ')'
+    .>> ws .>> pchar '{'
+    |>> ISMark
 
   let pIEMark =
-    pstring "EMark" >>. spaces >>. pchar '(' >>. spaces
-    >>. pstring "pc">>. spaces >>. pstring ":=" >>. spaces
-    >>. pHexToUInt64 .>> spaces .>> pchar ')' |>> IEMark
-
-  /// Parses ISMark or IEMark.
-  let pStartOrEndMark =
-    spaces >>. pstring "===" >>. spaces >>. pchar 'I'
-    >>. (pISMark <|> pIEMark)
+    ws
+    >>. pchar '}' >>. ws
+    >>. pstring "//" >>. ws >>. pHexUInt64 .>> ws
+    |>> IEMark
 
   let pLMark =
-    spaces >>. pstring "===" >>. spaces >>. pstring "LMark" >>. spaces
-    >>. pchar '(' >>. spaces >>. pNormalString .>> spaces .>> pchar ')'
-    |>> AST.lblSymbol |>> LMark
+    ws >>. pchar ':' >>. pIdentifier
+    |>> (AST.lblSymbol >> LMark)
 
   let pPut =
-    (attempt pTempVarE <|> pVarE >>= makeExpectedType) .>> spaces
-    .>> pstring ":=" .>> spaces .>>. pExpr
+    ws
+    >>. ((attempt pTempVar <|> pVar) >>= updateExpectedType)
+    .>> ws .>> pstring ":=" .>> ws .>>. pExpr
     |>> (fun (dest, value) -> AST.(:=) dest value)
 
-  let pJmp =
-    pstring "JmpLbl" .>> spaces >>. pExpr |>> Jmp
-
-  let pInterJmp =
-    pstring "Jmp" .>> spaces >>. pExpr
-    |>> (fun expr -> InterJmp (dummyExpr, expr, dummyInterJmpInfo))
-
   let pStore =
-    pchar '[' .>> spaces >>. pExpr .>> spaces .>> pchar ']' .>> spaces
-    .>> pstring ":=" .>> spaces .>>. pExpr
-    |>> (fun (expr1, expr2) -> Store (isa.Endian, expr1, expr2))
+    ws
+    >>. pchar '[' .>> ws >>. pExpr .>> ws .>> pchar ']' .>> ws
+    .>> pstring ":=" .>> ws .>>. pExpr
+    |>> (fun (e1, e2) -> Store (isa.Endian, e1, e2))
+
+  let pJmp =
+    ws >>. pstring "jmp" >>. ws >>. pExpr |>> Jmp
 
   let pCJmp =
-    pstring "if" .>> spaces >>. pExpr .>> spaces .>> pstring "then" .>> spaces
-    .>> pstring "JmpLbl" .>> spaces .>>. pExpr .>> spaces .>> pstring "else"
-    .>> spaces .>> pstring "JmpLbl" .>> spaces .>>. pExpr
+    ws
+    >>. pstring "if" .>> ws >>. pExpr .>> ws
+    .>> pstring "then" .>> ws
+    .>> pstring "jmp" .>> ws .>>. pExpr .>> ws
+    .>> pstring "else" .>> ws .>> pstring "jmp" .>> ws .>>. pExpr
     |>> (fun ((cond, tExpr), fExpr) -> CJmp (cond, tExpr, fExpr))
 
+  let pInterJmp =
+    pstring "ijmp" .>> ws >>. pExpr
+    |>> (fun expr ->
+      let rt = AST.typeOf expr
+      InterJmp (dummyExpr rt, expr, InterJmpInfo.Base))
+
   let pInterCJmp =
-    pstring "if" .>> spaces >>. pExpr .>> spaces .>> pstring "then" .>> spaces
-    .>> pstring "Jmp" .>> spaces .>>. pExpr .>> spaces .>> pstring "else"
-    .>> spaces .>> pstring "Jmp" .>> spaces .>>. pExpr
-    |>> (fun ((cond, tExp), fExp) -> InterCJmp (cond, dummyExpr, tExp, fExp))
+    ws
+    >>. pstring "if" .>> ws >>. pExpr .>> ws
+    .>> pstring "then" .>> ws
+    .>> pstring "ijmp" .>> ws .>>. pExpr .>> ws
+    .>> pstring "else" .>> ws .>> pstring "ijmp" .>> ws .>>. pExpr
+    |>> (fun ((cond, tExp), fExp) ->
+      let rt = AST.typeOf tExp
+      InterCJmp (cond, dummyExpr rt, tExp, fExp))
 
   let pSideEffect =
-    pstring "SideEffect" .>> spaces >>. pNormalString
-    |>> (fun str -> sideEffectFromString str |> SideEffect)
+    ws
+    >>. pstring "!!" .>> ws >>. pIdentifier
+    |>> (fun str -> SideEffect.ofString str |> SideEffect)
 
-  let statement =
-    attempt pStartOrEndMark
-    <|> pLMark
+  let pStatement =
+    attempt pISMark
+    <|> attempt pIEMark
+    <|> attempt pLMark
     <|> attempt pPut
-    <|> attempt pInterJmp
-    <|> attempt pJmp
     <|> attempt pStore
-    <|> attempt pInterCJmp
+    <|> attempt pJmp
     <|> attempt pCJmp
+    <|> attempt pInterJmp
+    <|> attempt pInterCJmp
     <|> attempt pSideEffect
-    >>= typeCheckR
+    >>= typeCheck
 
-  member __.Run str =
-    match runParserOnString statement 0<rt> "" str with
-    | Success (result, _, pos) ->
-      if pos.Column <> int64 (str.Length + 1) then
-        printfn "Invalid characters at the end of input"
-        [||]
-      else [| result |]
-    | Failure (str, _, _) ->
-      printfn "%s" str
-      [||]
+  let pLines =
+    sepBy (restOfLine false) newline
+
+  member private __.SeparateLines str =
+    match run pLines str with
+    | Success (lines, _, _) -> Result.Ok lines
+    | Failure (errStr, _, _) -> Result.Error (errStr)
+
+  member private __.TryParseStmt line =
+    try runParserOnString pStatement 0<rt> "" line
+    with e ->
+      let dummyPos = Position ("", 0L, 0L, 0L)
+      let msg = e.Message + Environment.NewLine + "> " + line
+      Failure (msg, ParserError (dummyPos, 0<rt>, unexpected ""), 0<rt>)
+
+  member private __.ParseLines acc lines =
+    match lines with
+    | line :: rest ->
+      if String.length line = 0 then __.ParseLines acc rest
+      else (* A LowUIR stmt always occupies a single line. *)
+        match __.TryParseStmt line with
+        | Success (stmt, _, _pos) -> __.ParseLines (stmt :: acc) rest
+        | Failure (errStr, _, _) -> Result.Error (errStr)
+    | [] -> Result.Ok (List.rev acc |> List.toArray)
+
+  member __.Parse str =
+    __.SeparateLines str
+    |> Result.bind (__.ParseLines [])

@@ -28,15 +28,13 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinInterface
 
-type Assembler (isa: ISA, startAddress) =
-  let hdl = BinHandle.Init (isa)
+type AsmInterface (hdl: BinHandle, startAddress) =
 
-  /// Parse the given string input, and assemble a list of byte arrays, where
-  /// each array corresponds to a binary instruction.
-  member __.AssembleBin asm =
-    match isa.Arch with
+  let asmParser =
+    match hdl.ISA.Arch with
     | Architecture.IntelX64
-    | Architecture.IntelX86 -> Intel.AsmParser(isa, startAddress).Run asm
+    | Architecture.IntelX86 ->
+      Intel.IntelAsmParser (hdl.ISA, startAddress) :> AsmParser
     | Architecture.MIPS1
     | Architecture.MIPS2
     | Architecture.MIPS3
@@ -48,19 +46,18 @@ type Assembler (isa: ISA, startAddress) =
     | Architecture.MIPS64
     | _ -> raise InvalidISAException
 
-  /// Parse the given string input, and assemble an array of IR statements.
-  member __.AssembleLowUIR isFromLowUIR asm =
-    if isFromLowUIR then
-      LowUIR.LowUIRParser(isa, hdl.RegisterBay).Run asm
-    else
-      let bs = __.AssembleBin asm |> Array.concat
-      let hdl = BinHandle.UpdateCode hdl startAddress bs
-      let rec loop ctxt addr acc =
-        match BinHandle.TryParseInstr (hdl, ctxt, addr=addr) with
-        | Ok ins ->
-          let stmts = BinHandle.LiftInstr hdl ins
-          let ctxt = ins.NextParsingContext
-          loop ctxt (addr + uint64 ins.Length) (stmts :: acc)
-        | Error _ -> List.rev acc
-      loop hdl.DefaultParsingContext 0UL []
-      |> Array.concat
+  let uirParser = LowUIR.LowUIRParser (hdl.ISA, hdl.RegisterBay)
+
+  new (isa: ISA, startAddress) =
+    AsmInterface (BinHandle.Init (isa), startAddress)
+
+  /// Parse the given assembly input, and assemble a list of byte arrays, where
+  /// each array corresponds to a binary instruction.
+  member __.AssembleBin asm = asmParser.Assemble asm
+
+  /// Parse the given string input, and lift it to an array of LowUIR
+  /// statements. If the given string represents LowUIR instructions, then we
+  /// simply parse the assembly instructions and return the corresponding AST.
+  member __.LiftLowUIR isFromLowUIR asm =
+    if isFromLowUIR then uirParser.Parse asm
+    else asmParser.Lift hdl asm startAddress

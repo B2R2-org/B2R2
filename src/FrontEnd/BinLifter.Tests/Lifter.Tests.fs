@@ -49,6 +49,6 @@ module Lifter =
       let e = AST.load Endian.Little 32<rt> e0
       Assert.AreEqual (Pp.expToString e, "[T_0:I32]:I32")
       let e = AST.ite (AST.tmpVar 1<rt>) e0 e1
-      Assert.AreEqual (Pp.expToString e, "(ite (T_2:I1) (T_0:I32) (T_1:I32))")
+      Assert.AreEqual (Pp.expToString e, "((T_2:I1) ? (T_0:I32) : (T_1:I32))")
 
 // vim: set tw=80 sts=2 sw=2:

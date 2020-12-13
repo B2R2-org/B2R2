@@ -215,9 +215,9 @@ module AST =
 
   let private lblCnt = ref -1
 
-  let lblSymbol n : Symbol =
+  let lblSymbol n =
     let i = System.Threading.Interlocked.Increment (lblCnt)
-    if i >= 0 then (n, i)
+    if i >= 0 then Symbol (n, i)
     else failwith "label counter wrapped around"
 
   let inline unopBuilder (t: UnOpType) e proc =

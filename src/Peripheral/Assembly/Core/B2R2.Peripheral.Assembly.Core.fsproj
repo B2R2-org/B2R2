@@ -10,11 +10,17 @@
 
   <ItemGroup>
     <Compile Include="AsmParser.fs" />
+    <Compile Include="Utils.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath=""/>
     <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="FParsec" Version="1.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\FrontEnd\BinInterface\B2R2.FrontEnd.BinInterface.fsproj" />
     <ProjectReference Include="..\..\..\Core\B2R2.Core.fsproj" />
   </ItemGroup>
 

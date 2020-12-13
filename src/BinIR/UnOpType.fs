@@ -53,4 +53,14 @@ module UnOpType =
     | UnOpType.FATAN -> "atan"
     | _ -> raise IllegalASTTypeException
 
+  let ofString = function
+    | "-" -> UnOpType.NEG
+    | "~" -> UnOpType.NOT
+    | "sqrt" -> UnOpType.FSQRT
+    | "cos" -> UnOpType.FCOS
+    | "sin" -> UnOpType.FSIN
+    | "tan" -> UnOpType.FTAN
+    | "atan" -> UnOpType.FATAN
+    | _ -> raise IllegalASTTypeException
+
 // vim: set tw=80 sts=2 sw=2:

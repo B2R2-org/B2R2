@@ -65,7 +65,7 @@ guideline](CONTRIBUTING.md).
 | CFG Recovery          | :full_moon: | :full_moon:          | :full_moon:     | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :full_moon: | :new_moon:  | :new_moon: |
 | Data-Flow             | :full_moon: | :full_moon:          | :full_moon:     | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :new_moon: |
 | Instruction Emulation | :full_moon: | :full_moon:          | :full_moon:     | :full_moon:          | :full_moon:          | :full_moon:          | :new_moon:  | :new_moon:  | :new_moon: |
-| Assembly              | :full_moon: | :first_quarter_moon: | :new_moon:      | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon: |
+| Assembly              | :full_moon: | :full_moon:          | :new_moon:      | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon: |
 | REPL                  | :full_moon: | :full_moon:          | :new_moon:      | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon: |
 | ROP Compilation       | :full_moon: | :new_moon:           | :new_moon:      | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon: |
 

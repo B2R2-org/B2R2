@@ -34,28 +34,28 @@ type IntelRegisterBay internal (wordSize, R: RegExprs) =
 
   override __.GetAllRegExprs () =
     if WordSize.is32 wordSize then
-      [ R.EAX; R.EBX; R.ECX; R.EDX; R.ESP; R.EBP; R.ESI; R.EDI; R.EIP; R.CS;
-        R.DS; R.ES; R.FS; R.GS; R.SS; R.CSBase; R.DSBase; R.ESBase; R.FSBase;
-        R.GSBase; R.SSBase; R.CR0; R.CR2; R.CR3; R.CR4; R.OF; R.DF; R.IF; R.TF;
-        R.SF; R.ZF; R.AF; R.PF; R.CF; R.FCW; R.FSW; R.FTW; R.FOP; R.FIP; R.FCS;
-        R.FDP; R.FDS; R.MXCSR; R.MXCSRMASK; R.PKRU; R.K0; R.K1; R.K2; R.K3;
-        R.K4; R.K5; R.K6; R.K7; R.ST0A; R.ST0B; R.ST1A; R.ST1B; R.ST2A; R.ST2B;
-        R.ST3A; R.ST3B; R.ST4A; R.ST4B; R.ST5A; R.ST5B; R.ST6A; R.ST6B; R.ST7A;
-        R.ST7B; R.ZMM0A; R.ZMM0B; R.ZMM1A; R.ZMM1B; R.ZMM2A; R.ZMM2B; R.ZMM3A;
-        R.ZMM3B; R.ZMM4A; R.ZMM4B; R.ZMM5A; R.ZMM5B; R.ZMM6A; R.ZMM6B; R.ZMM7A;
-        R.ZMM7B; R.ZMM8A; R.ZMM8B ]
+      [ R.EAX; R.EBX; R.ECX; R.EDX; R.ESP; R.EBP; R.ESI; R.EDI; R.EIP; R.CSBase;
+        R.DSBase; R.ESBase; R.FSBase; R.GSBase; R.SSBase; R.CR0; R.CR2; R.CR3;
+        R.CR4; R.OF; R.DF; R.IF; R.TF; R.SF; R.ZF; R.AF; R.PF; R.CF; R.FCW;
+        R.FSW; R.FTW; R.FOP; R.FIP; R.FCS; R.FDP; R.FDS; R.MXCSR; R.MXCSRMASK;
+        R.PKRU; R.K0; R.K1; R.K2; R.K3; R.K4; R.K5; R.K6; R.K7; R.ST0A; R.ST0B;
+        R.ST1A; R.ST1B; R.ST2A; R.ST2B; R.ST3A; R.ST3B; R.ST4A; R.ST4B; R.ST5A;
+        R.ST5B; R.ST6A; R.ST6B; R.ST7A; R.ST7B; R.ZMM0A; R.ZMM0B; R.ZMM1A;
+        R.ZMM1B; R.ZMM2A; R.ZMM2B; R.ZMM3A; R.ZMM3B; R.ZMM4A; R.ZMM4B; R.ZMM5A;
+        R.ZMM5B; R.ZMM6A; R.ZMM6B; R.ZMM7A; R.ZMM7B; R.ZMM8A; R.ZMM8B; R.CS;
+        R.DS; R.ES; R.FS; R.GS; R.SS ]
     else
       [ R.RAX; R.RBX; R.RCX; R.RDX; R.RSP; R.RBP; R.RSI; R.RDI; R.R8; R.R9;
-        R.R10; R.R11; R.R12; R.R13; R.R14; R.R15; R.RIP; R.CS; R.DS; R.ES; R.FS;
-        R.GS; R.SS; R.CSBase; R.DSBase; R.ESBase; R.FSBase; R.GSBase; R.SSBase;
-        R.CR0;R.CR2; R.CR3; R.CR4; R.CR8; R.OF; R.DF; R.IF; R.TF; R.SF; R.ZF;
-        R.AF; R.PF; R.CF; R.FCW; R.FSW; R.FTW; R.FOP; R.FIP; R.FCS; R.FDP;
-        R.FDS; R.MXCSR; R.MXCSRMASK; R.PKRU; R.K0; R.K1; R.K2; R.K3; R.K4; R.K5;
-        R.K6; R.K7; R.ST0A; R.ST0B; R.ST1A; R.ST1B; R.ST2A; R.ST2B; R.ST3A;
-        R.ST3B; R.ST4A; R.ST4B; R.ST5A; R.ST5B; R.ST6A; R.ST6B; R.ST7A; R.ST7B;
-        R.ZMM0A; R.ZMM0B; R.ZMM1A; R.ZMM1B; R.ZMM2A; R.ZMM2B; R.ZMM3A; R.ZMM3B;
-        R.ZMM4A; R.ZMM4B; R.ZMM5A; R.ZMM5B; R.ZMM6A; R.ZMM6B; R.ZMM7A; R.ZMM7B;
-        R.ZMM8A; R.ZMM8B ]
+        R.R10; R.R11; R.R12; R.R13; R.R14; R.R15; R.RIP; R.CSBase; R.DSBase;
+        R.ESBase; R.FSBase; R.GSBase; R.SSBase; R.CR0;R.CR2; R.CR3; R.CR4;
+        R.CR8; R.OF; R.DF; R.IF; R.TF; R.SF; R.ZF; R.AF; R.PF; R.CF; R.FCW;
+        R.FSW; R.FTW; R.FOP; R.FIP; R.FCS; R.FDP; R.FDS; R.MXCSR; R.MXCSRMASK;
+        R.PKRU; R.K0; R.K1; R.K2; R.K3; R.K4; R.K5; R.K6; R.K7; R.ST0A; R.ST0B;
+        R.ST1A; R.ST1B; R.ST2A; R.ST2B; R.ST3A; R.ST3B; R.ST4A; R.ST4B; R.ST5A;
+        R.ST5B; R.ST6A; R.ST6B; R.ST7A; R.ST7B; R.ZMM0A; R.ZMM0B; R.ZMM1A;
+        R.ZMM1B; R.ZMM2A; R.ZMM2B; R.ZMM3A; R.ZMM3B; R.ZMM4A; R.ZMM4B; R.ZMM5A;
+        R.ZMM5B; R.ZMM6A; R.ZMM6B; R.ZMM7A; R.ZMM7B; R.ZMM8A; R.ZMM8B; R.CS;
+        R.DS; R.ES; R.FS; R.GS; R.SS ]
 
   override __.GetAllRegNames () =
     __.GetAllRegExprs ()
@@ -81,8 +81,8 @@ type IntelRegisterBay internal (wordSize, R: RegExprs) =
   override __.RegIDToRegExpr (id) =
     Register.ofRegID id |> R.GetRegVar
 
-  override __.StrToRegExpr s =
-    match s with
+  override __.StrToRegExpr (s: string) =
+    match s.ToUpper () with
     | "RAX" -> R.RAX
     | "RBX" -> R.RBX
     | "RCX" -> R.RCX
@@ -167,12 +167,12 @@ type IntelRegisterBay internal (wordSize, R: RegExprs) =
     | "ES" -> R.ES
     | "FS" -> R.FS
     | "GS" -> R.GS
-    | "CSBase" -> R.CSBase
-    | "DSBase" -> R.DSBase
-    | "ESBase" -> R.ESBase
-    | "FSBase" -> R.FSBase
-    | "GSBase" -> R.GSBase
-    | "SSBase" -> R.SSBase
+    | "CSBASE" -> R.CSBase
+    | "DSBASE" -> R.DSBase
+    | "ESBASE" -> R.ESBase
+    | "FSBASE" -> R.FSBase
+    | "GSBASE" -> R.GSBase
+    | "SSBASE" -> R.SSBase
     | "CR0" -> R.CR0
     | "CR2" -> R.CR2
     | "CR3" -> R.CR3

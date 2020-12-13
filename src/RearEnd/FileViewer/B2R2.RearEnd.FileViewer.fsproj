@@ -7,9 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Helper.fs" />
     <Compile Include="DisplayItem.fs" />
-    <Compile Include="CmdOptions.fs" />
+    <Compile Include="Cmd.fs" />
+    <Compile Include="Helper.fs" />
     <Compile Include="ELFViewer.fs" />
     <Compile Include="MachViewer.fs" />
     <Compile Include="PEViewer.fs" />

@@ -26,6 +26,7 @@ namespace B2R2.Peripheral.Assembly.Intel
 
 open B2R2
 open B2R2.FrontEnd.BinLifter.Intel
+open B2R2.Peripheral.Assembly
 open B2R2.Peripheral.Assembly.Intel.ParserHelper
 open B2R2.Peripheral.Assembly.Intel.AsmMain
 open FParsec
@@ -34,7 +35,8 @@ open System
 /// Label name to relative index of instructions.
 type LabelDefs = Map<string, int>
 
-type AsmParser (isa, baseAddr: Addr) =
+type IntelAsmParser (isa, baseAddr: Addr) =
+  inherit AsmParser ()
 
   let mutable inferredPrefix = Prefix.PrxNone
   let defaultRegType = isa.WordSize |> WordSize.toRegType
@@ -219,10 +221,10 @@ type AsmParser (isa, baseAddr: Addr) =
 
   let statements = sepEndBy statement terminator .>> (eof <?> "")
 
-  member __.Run assembly =
+  override __.Assemble assembly =
     let st = { LabelMap = Map.empty; CurIndex = -1 }
-    match runParserOnString statements st "IntelAsm" assembly with
+    match runParserOnString statements st "" assembly with
     | Success (result, us, _) ->
-      filterInstructionLines result |> assemble us isa baseAddr
+      filterInstructionLines result |> assemble us isa baseAddr |> Result.Ok
     | Failure (str, _, _) ->
-      failwithf "Assembly failed: %s" str
+      Result.Error (str)

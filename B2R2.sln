@@ -94,7 +94,7 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.MI
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.LowUIR", "src\Peripheral\Assembly\LowUIR\B2R2.Peripheral.Assembly.LowUIR.fsproj", "{DF0B3D4E-2365-4D4F-82BD-0DC0E98ABA83}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.Assembler", "src\Peripheral\Assembly\Assembler\B2R2.Peripheral.Assembly.Assembler.fsproj", "{A2A4BF9A-485B-4C39-9E13-E2B908BF1B4D}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.AsmInterface", "src\Peripheral\Assembly\AsmInterface\B2R2.Peripheral.Assembly.AsmInterface.fsproj", "{A2A4BF9A-485B-4C39-9E13-E2B908BF1B4D}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.Tests", "src\Peripheral\Assembly.Tests\B2R2.Peripheral.Assembly.Tests.fsproj", "{3FDFC8B9-AD97-4FD6-B1B9-D9E498BC34B5}"
 EndProject

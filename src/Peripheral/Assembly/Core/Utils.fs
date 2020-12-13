@@ -22,27 +22,20 @@
   SOFTWARE.
 *)
 
-namespace B2R2.Peripheral.Assembly
+module B2R2.Peripheral.Assembly.Utils
 
-open B2R2.FrontEnd.BinInterface
+open FParsec
 
-/// Assembly code parser interface.
-[<AbstractClass>]
-type AsmParser () =
-  /// Run parsing from a given assembly string, and assemble binary code.
-  abstract Assemble: string -> Result<byte [] list, string>
+#if DEBUG
+/// This is a useful function to debug parsers.
+let (<!>) (p: Parser<_,_>) label : Parser<_,_> =
+  fun stream ->
+    printfn "%A: Entering %s" stream.Position label
+    let reply = p stream
+    printfn "%A: Leaving %s (%A)" stream.Position label reply.Status
+    if reply.Status = ReplyStatus.Ok then printfn "%A" reply.Result else ()
+    reply
+#endif
 
-  /// Run parsing from a given assembly string, and lift it to LowUIR code.
-  member __.Lift hdl asm addr =
-    __.Assemble asm
-    |> Result.bind (fun bins ->
-      bins
-      |> List.fold (fun (acc, ctxt) bs ->
-        let hdl = BinHandle.UpdateCode hdl addr bs
-        let ins = BinHandle.ParseInstr (hdl, ctxt, addr)
-        BinHandle.LiftInstr hdl ins :: acc, ins.NextParsingContext
-      ) ([], hdl.DefaultParsingContext)
-      |> fst
-      |> List.rev
-      |> Array.concat
-      |> Ok)
+let pBetweenParen p =
+  between (pchar '(' >>. spaces) (spaces .>> pchar ')' .>> spaces) p

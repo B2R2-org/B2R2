@@ -60,13 +60,16 @@ type Printer () =
   abstract Print: string * [<ParamArray>] args: obj [] -> unit
 
   /// Print out the given OutString with newline.
-  abstract PrintLine: OutString -> unit
+  abstract PrintLine: os: OutString -> unit
 
   /// Print out the given ColoredString with newline.
-  abstract PrintLine: ColoredString -> unit
+  abstract PrintLine: cs: ColoredString -> unit
 
   /// Print out the formated string with newline.
-  abstract PrintLine: string * [<ParamArray>] args: obj [] -> unit
+  abstract PrintLine: s: string -> unit
+
+  /// Print out the formated string with newline.
+  abstract PrintLine: fmt: string * [<ParamArray>] args: obj [] -> unit
 
   /// Print out a newline.
   abstract PrintLine: unit -> unit
@@ -144,17 +147,21 @@ type ConsolePrinter () =
   override __.Print (s: string, [<ParamArray>] args) =
     Console.Write (s, args)
 
-  override __.PrintLine s =
-    OutString.toConsoleLine s
+  override __.PrintLine os =
+    OutString.toConsoleLine os
     lastLineWasEmpty <- false
 
-  override __.PrintLine s =
-    ColoredString.toConsoleLine s
+  override __.PrintLine cs =
+    ColoredString.toConsoleLine cs
     lastLineWasEmpty <- false
 
-  override __.PrintLine (s: string, [<ParamArray>] args) =
-    Console.WriteLine (s, args)
-    lastLineWasEmpty <- s.Length = 0
+  override __.PrintLine (s: string) =
+    Console.WriteLine (s)
+    lastLineWasEmpty <- false
+
+  override __.PrintLine (fmt: string, [<ParamArray>] args) =
+    Console.WriteLine (fmt, args)
+    lastLineWasEmpty <- fmt.Length = 0
 
   override __.PrintLine () =
     Console.WriteLine ()
@@ -234,17 +241,21 @@ type ConsoleCachedPrinter () =
   override __.Print (s: string, [<ParamArray>] args) =
     String.Format (s, args) |> add
 
-  override __.PrintLine s =
-    OutString.toString s + Environment.NewLine |> add
+  override __.PrintLine os =
+    OutString.toString os + Environment.NewLine |> add
     lastLineWasEmpty <- false
 
-  override __.PrintLine s =
-    ColoredString.toString s + Environment.NewLine |> add
+  override __.PrintLine cs =
+    ColoredString.toString cs + Environment.NewLine |> add
     lastLineWasEmpty <- false
 
-  override __.PrintLine (s: string, [<ParamArray>] args) =
-    String.Format (s, args) + Environment.NewLine |> add
-    lastLineWasEmpty <- s.Length = 0
+  override __.PrintLine (s: string) =
+    s + Environment.NewLine |> add
+    lastLineWasEmpty <- false
+
+  override __.PrintLine (fmt: string, [<ParamArray>] args) =
+    String.Format (fmt, args) + Environment.NewLine |> add
+    lastLineWasEmpty <- fmt.Length = 0
 
   override __.PrintLine () =
     add Environment.NewLine
@@ -321,6 +332,8 @@ type ConsoleNullPrinter () =
   override __.PrintLine (_: OutString) = ()
 
   override __.PrintLine (_: ColoredString) = ()
+
+  override __.PrintLine (_: string) = ()
 
   override __.PrintLine (_: string, [<ParamArray>] _args) = ()
 

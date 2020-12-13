@@ -16,13 +16,14 @@
     <Compile Include="IntelAsmOpcode.fs" />
     <Compile Include="IntelAsmMain.fs" />
     <Compile Include="IntelAsmParser.fs" />
-    <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath=""/>
+    <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\FrontEnd\BinLifter\Intel\B2R2.FrontEnd.BinLifter.Intel.fsproj" />
     <ProjectReference Include="..\..\..\FrontEnd\BinInterface\B2R2.FrontEnd.BinInterface.fsproj" />
+    <ProjectReference Include="..\Core\B2R2.Peripheral.Assembly.Core.fsproj" />
   </ItemGroup>
 
 </Project>

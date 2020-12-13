@@ -35,13 +35,13 @@ let cmds =
 
 let console = FsReadLine.Console ("B2R2> ", cmds)
 
-let assemble (state: ReplState) (asm: Assembler) (input: string) =
+let assemble (state: ReplState) (asm: AsmInterface) (input: string) =
   let isLowUIRParser =
     match state.CurrentParser with
     | LowUIRParser -> true
     | _ -> false
-  try asm.AssembleLowUIR isLowUIRParser (input.Trim ())
-  with exc -> printfn "%s" exc.Message; [||]
+  try asm.LiftLowUIR isLowUIRParser (input.Trim ())
+  with exc -> Error exc.Message
 
 let rec run showTemporary (state: ReplState) asm =
   let input = console.ReadLine ()
@@ -56,9 +56,11 @@ let rec run showTemporary (state: ReplState) asm =
     Display.printRegisters showTemporary state []
     run showTemporary state asm
   | StmtInput input ->
-    let stmts = assemble state asm input
-    if Array.isEmpty stmts then run showTemporary state asm
-    else
+    match assemble state asm input with
+    | Error msg ->
+      printfn "%s" msg
+      run showTemporary state asm
+    | Ok stmts ->
       let regdelta = state.Update stmts
       Display.printRegisters showTemporary state regdelta
       run showTemporary state asm
@@ -66,7 +68,7 @@ let rec run showTemporary (state: ReplState) asm =
 let runRepl _args (opts: ReplOpts) =
   let binhandler = BinHandle.Init (opts.ISA)
   let state = ReplState (opts.ISA, binhandler.RegisterBay, not opts.Verbose)
-  let asm = Assembler (opts.ISA, 0UL)
+  let asm = AsmInterface (opts.ISA, 0UL)
   Display.printBlue "Welcome to B2R2 REPL\n"
   state.ConsolePrompt |> console.UpdatePrompt
   run opts.ShowTemp state asm

@@ -31,7 +31,7 @@ open B2R2.Peripheral.Assembly.Intel
 [<TestClass>]
 type X86Tests () =
   let isa = ISA.Init Arch.IntelX86 Endian.Little
-  let asm = AsmParser (isa, 0UL)
+  let asm = IntelAsmParser (isa, 0UL)
 
   [<TestMethod>]
   member __.``Basic Test``() =
@@ -46,7 +46,7 @@ cond:
 done:
   ret
 """
-    let result = asm.Run str
+    let result = asm.Assemble str |> Result.get
     let expectation =
       [ [| 0x3buy; 0xc9uy |]
         [| 0x75uy; 0x04uy |]

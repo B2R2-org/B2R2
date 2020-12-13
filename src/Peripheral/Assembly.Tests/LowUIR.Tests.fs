@@ -39,7 +39,7 @@ type LowUIRTests () =
 
   [<TestMethod>]
   member __.``[IntelAssemblerLowUIR] Test Register Assignment ``() =
-    let result = p.Run "RAX := 0x1:I64" |> Array.head
+    let result = p.Parse "RAX := 0x1:I64" |> Result.get |> Array.head
     let regID = Intel.Register.toRegID (Intel.Register.RAX)
     let answer =
       Put (Var(64<rt>, regID, "RAX", EmptyRegisterSet ()),Num size64Num)
@@ -47,19 +47,20 @@ type LowUIRTests () =
 
   [<TestMethod>]
   member __.``[IntelAssemblerLowUIR] Test IEMark ``() =
-    let result = p.Run "=== IEMark (pc := 1)" |> Array.head
+    let result = p.Parse "} // 1" |> Result.get |> Array.head
     let answer = IEMark 1UL
     Assert.AreEqual (answer, result)
 
   [<TestMethod>]
   member __.``[IntelAssemblerLowUIR] Test Temporary Registers``() =
-    let result = p.Run "T_2:I1 := 1" |> Array.head
+    let result = p.Parse "T_2:I1 := 1" |> Result.get |> Array.head
     let answer = Put (TempVar(1<rt>,2), Num size1Num)
     Assert.AreEqual (answer, result)
 
   [<TestMethod>]
   member __.``[IntelAssemblerLowUIR] Test Operation in Expression``() =
-    let result = p.Run "RAX := (0x1:I64 - 0x1:I64)" |> Array.head
+    let result =
+      p.Parse "RAX := (0x1:I64 - 0x1:I64)" |> Result.get |> Array.head
     let regID = Intel.Register.toRegID (Intel.Register.RAX)
     let answer =
       Put (Var (64<rt>, regID, "RAX", RegisterSet.empty),

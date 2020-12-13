@@ -24,111 +24,84 @@
 
 module B2R2.RearEnd.Assembler.Program
 
+open System
 open B2R2
-open B2R2.Peripheral.Assembly
 open B2R2.FrontEnd.BinInterface
 open B2R2.RearEnd
-open System
+open B2R2.BinIR.LowUIR
+open B2R2.Peripheral.Assembly
 
-type AssemblerOpts (isa) =
-  inherit CmdOpts()
+/// The console printer.
+let internal out = ConsolePrinter () :> Printer
 
-  /// Input file path.
-  member val InputFile = "" with get, set
+let [<Literal>] private normalPrompt = "> "
 
-  /// Input string from command line.
-  member val InputStr: string = "" with get, set
-
-  /// ISA
-  member val ISA = isa with get, set
-
-  /// Base address
-  member val BaseAddress: Addr = 0UL with get, set
-
-  static member private ToThis (opts: CmdOpts) =
-    match opts with
-    | :? AssemblerOpts as opts -> opts
-    | _ -> failwith "Invalid Opts."
-
-  /// "-a" or "--isa" option for specifying ISA.
-  static member OptISA () =
-    let cb (opts: #CmdOpts) (arg: string []) =
-      (AssemblerOpts.ToThis opts).ISA <- ISA.OfString arg.[0]; opts
-    CmdOpts.New ( descr = "Specify <ISA> (e.g., x86) from command line",
-                  extra = 1, callback = cb, short = "-a", long= "--isa" )
-
-  /// "-i" option for specifying an input file.
-  static member OptInputFile () =
-    let cb (opts: #CmdOpts) (arg: string []) =
-      (AssemblerOpts.ToThis opts).InputFile <- arg.[0]; opts
-    CmdOpts.New ( descr = "Specify an input <file>",
-                  extra = 1, callback = cb, short = "-i" )
-
-  /// "-s" option for specifying an input string.
-  static member OptInputString () =
-    let cb (opts: #CmdOpts) (arg: string []) =
-      (AssemblerOpts.ToThis opts).InputStr <- arg.[0]; opts
-    CmdOpts.New ( descr = "Specify an input <string> from command line",
-                  extra = 1, callback = cb, short = "-s" )
-
-  /// "-r" or "--base-addr" option for specifying a base address.
-  static member OptBaseAddr () =
-    let cb (opts: #CmdOpts) (arg: string []) =
-      (AssemblerOpts.ToThis opts).BaseAddress <- Convert.ToUInt64 (arg.[0], 16)
-      opts
-    CmdOpts.New ( descr = "Specify the base <address> in hex (default=0)",
-                  extra = 1, callback = cb, short = "-r", long = "--base-addr" )
-
-let spec =
-  [ CmdOpts.New (descr = "[Input Configuration]\n", dummy = true)
-
-    AssemblerOpts.OptInputFile ()
-    AssemblerOpts.OptInputString ()
-    AssemblerOpts.OptISA ()
-
-    CmdOpts.New (descr = "\n[Optional Configuration]\n", dummy = true)
-
-    AssemblerOpts.OptBaseAddr ()
-
-    CmdOpts.New (descr = "\n[Extra]\n", dummy = true)
-
-    CmdOpts.OptVerbose ()
-    CmdOpts.OptHelp () ]
-
-let isInvalidCmdLine (opts: AssemblerOpts) =
-  String.IsNullOrEmpty opts.InputStr && String.IsNullOrEmpty opts.InputFile
-
-let inline printIfNotEmpty s = match s with "" -> () | _ -> Console.WriteLine s
-
-let cmdErrExit () =
-  eprintfn "Either a string or a file should be given.\n\n\
-            See assembler --help for more info."
-  exit 1
-
-let initAsmString (opts: AssemblerOpts) =
-  if opts.InputStr.Length = 0 then IO.File.ReadAllText opts.InputFile
-  else opts.InputStr
-
-let private println hdl (addr, ctxt) bs =
+let private printIns hdl (addr, ctxt) bs =
   let bCode = (BitConverter.ToString (bs)).Replace ("-", "")
   let hdl = BinHandle.UpdateCode hdl addr bs
   let ins = BinHandle.ParseInstr (hdl, ctxt, addr)
-  printfn "%08x: %-20s     %s" addr bCode (ins.Disasm ())
+  out.PrintLine (sprintf "%08x: %-20s     %s" addr bCode (ins.Disasm ()))
   addr + uint64 (Array.length bs), ins.NextParsingContext
 
-let asmMain _ (opts: AssemblerOpts) =
-  if isInvalidCmdLine opts then cmdErrExit () else ()
-  let hdl = BinHandle.Init (opts.ISA)
-  let ctxt = hdl.DefaultParsingContext
-  let assembler = Assembler (opts.ISA, opts.BaseAddress)
-  initAsmString opts
-  |> assembler.AssembleBin
-  |> List.fold (println hdl) (opts.BaseAddress, ctxt)
-  |> ignore
+let inline private printResult fn = function
+  | Ok res -> fn res
+  | Error err -> Printer.printErrorToConsole err
+
+let getAssemblyPrinter (opts: AssemblerOpts) =
+  match opts.Mode with
+  | GeneralMode (isa) ->
+    let hdl = BinHandle.Init (isa)
+    let baseAddr = opts.BaseAddress
+    let asm = AsmInterface (hdl, baseAddr)
+    fun str ->
+      asm.AssembleBin str
+      |> printResult (fun res ->
+        List.fold (printIns hdl) (baseAddr, hdl.DefaultParsingContext) res
+        |> ignore)
+  | LowUIRMode (isa) ->
+    let asm = AsmInterface (isa, opts.BaseAddress)
+    fun str ->
+      asm.LiftLowUIR true str
+      |> printResult (Array.iter (Pp.stmtToString >> out.PrintLine))
+
+let rec private asmFromStdin (console: FsReadLine.Console) printer str =
+  match console.ReadLine () with
+  | "" -> asmFromStdin console printer str
+  | input when isNull input || input = "q" || input = "quit" ->
+    out.PrintLine ("Bye!")
+    out.Flush ()
+  | input ->
+    let input = input.Trim ()
+    let str =
+      if input.EndsWith (";;") then
+        console.UpdatePrompt normalPrompt
+        printer <| str + input.TrimEnd (';')
+        ""
+      else
+        console.UpdatePrompt " "
+        str + input + Environment.NewLine
+    asmFromStdin console printer str
+
+let showBasicInfo (opts: AssemblerOpts) =
+  match opts.Mode with
+  | GeneralMode (isa) ->
+    out.PrintLine [ Blue, ISA.ArchToString isa.Arch; Green, " General Mode" ]
+  | LowUIRMode (isa) ->
+    out.PrintLine [ Blue, ISA.ArchToString isa.Arch ; Green, " LowUIR Mode" ]
+
+let private asmFromFiles files printer =
+  files
+  |> List.iter (fun file -> IO.File.ReadAllText file |> printer)
+
+let asmMain files opts =
+  let printer = getAssemblyPrinter opts
+  if List.isEmpty files then
+    let console = FsReadLine.Console (normalPrompt, ["quit"])
+    showBasicInfo opts
+    asmFromStdin console printer ""
+  else asmFromFiles files printer
 
 [<EntryPoint>]
 let main args =
-  let opts = AssemblerOpts (ISA.Init (Arch.IntelX86) Endian.Little)
-  CmdOpts.ParseAndRun asmMain "assembler" "" spec opts args
-
-// vim: set tw=80 sts=2 sw=2:
+  let opts = AssemblerOpts ()
+  CmdOpts.ParseAndRun asmMain "assembler" "" Cmd.spec opts args

@@ -71,3 +71,22 @@ module SideEffect =
     | UnsupportedPrivInstr -> "PrivInstr"
     | UnsupportedFAR -> "FAR"
     | UnsupportedExtension -> "CPU extension"
+
+  let ofString (s: string) =
+    match s.ToLower () with
+    | "breakpoint" -> Breakpoint
+    | "clk" -> ClockCounter
+    | "fence" -> Fence
+    | "halt" -> Halt
+    | "lock" -> Lock
+    | "pause" -> Pause
+    | "pid" -> ProcessorID
+    | "syscall" -> SysCall
+    | "undef" -> UndefinedInstr
+    | "fp" -> UnsupportedFP
+    | "privinstr" -> UnsupportedPrivInstr
+    | "far" -> UnsupportedFAR
+    | "cpu extension" -> UnsupportedExtension
+    | s when s.StartsWith "int " && s.Length >= 5 ->
+      int s.[4 ..] |> Interrupt
+    | _ -> B2R2.Utils.impossible ()

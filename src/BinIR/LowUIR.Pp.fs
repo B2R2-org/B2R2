@@ -49,6 +49,12 @@ let rec private expToStringAux expr (sb: StringBuilder) =
     sb.Append (" ") |> ignore
     expToStringAux e sb
     sb.Append (")") |> ignore
+  | BinOp (BinOpType.FLOG, _typ, e1, e2, _, _) -> (* The only prefix operator *)
+    sb.Append ("(lg (") |> ignore
+    expToStringAux e1 sb
+    sb.Append (", ") |> ignore
+    expToStringAux e2 sb
+    sb.Append ("))") |> ignore
   | BinOp (op, _typ, e1, e2, _, _) ->
     sb.Append ("(") |> ignore
     expToStringAux e1 sb
@@ -71,11 +77,11 @@ let rec private expToStringAux expr (sb: StringBuilder) =
     sb.Append ("]:") |> ignore
     sb.Append (RegType.toString typ) |> ignore
   | Ite (cond, e1, e2, _, _) ->
-    sb.Append ("(ite (") |> ignore
+    sb.Append ("((") |> ignore
     expToStringAux cond sb
-    sb.Append (") (") |> ignore
+    sb.Append (") ? (") |> ignore
     expToStringAux e1 sb
-    sb.Append (") (") |> ignore
+    sb.Append (") : (") |> ignore
     expToStringAux e2 sb
     sb.Append ("))") |> ignore
   | Cast (cast, typ, e, _, _) ->
@@ -93,33 +99,33 @@ let rec private expToStringAux expr (sb: StringBuilder) =
     sb.Append ("]") |> ignore
     sb.Append (")") |> ignore
   | Undefined (_, reason) ->
-    sb.Append ("Undefined expression (") |> ignore
+    sb.Append ("?? (") |> ignore
     sb.Append (reason) |> ignore
     sb.Append (")") |> ignore
 
 let private stmtToStringAux stmt (sb: StringBuilder) =
   match stmt with
-  | ISMark (addr, _) ->
-    sb.Append ("=== ISMark (") |> ignore
+  | ISMark (addr, len) ->
+    sb.Append ("(") |> ignore
     sb.Append (String.u64ToHexNoPrefix addr) |> ignore
-    sb.Append (")") |> ignore
+    sb.Append ("; ") |> ignore
+    sb.Append (len.ToString ()) |> ignore
+    sb.Append (") {") |> ignore
   | IEMark (addr) ->
-    sb.Append ("=== IEMark (pc := ") |> ignore
+    sb.Append ("} // ") |> ignore
     sb.Append (String.u64ToHexNoPrefix addr) |> ignore
-    sb.Append (")") |> ignore
   | LMark lbl ->
-    sb.Append ("=== LMark (") |> ignore
+    sb.Append (":") |> ignore
     sb.Append (Symbol.getName lbl) |> ignore
-    sb.Append (")") |> ignore
   | Put (exp1, exp2) ->
     expToStringAux exp1 sb
     sb.Append (" := ") |> ignore
     expToStringAux exp2 sb
   | Jmp exp ->
-    sb.Append ("JmpLbl ") |> ignore
+    sb.Append ("jmp ") |> ignore
     expToStringAux exp sb
   | InterJmp (_pc, exp, _) ->
-    sb.Append ("Jmp ") |> ignore
+    sb.Append ("ijmp ") |> ignore
     expToStringAux exp sb
   | Store (_endian, exp1, exp2) ->
     sb.Append ("[") |> ignore
@@ -129,19 +135,19 @@ let private stmtToStringAux stmt (sb: StringBuilder) =
   | CJmp (cond, t, f) ->
     sb.Append ("if ") |> ignore
     expToStringAux cond sb
-    sb.Append (" then JmpLbl ") |> ignore
+    sb.Append (" then jmp ") |> ignore
     expToStringAux t sb
-    sb.Append (" else JmpLbl ") |> ignore
+    sb.Append (" else jmp ") |> ignore
     expToStringAux f sb
   | InterCJmp (cond, _pc, t, f) ->
     sb.Append ("if ") |> ignore
     expToStringAux cond sb
-    sb.Append (" then Jmp ") |> ignore
+    sb.Append (" then ijmp ") |> ignore
     expToStringAux t sb
-    sb.Append (" else Jmp ") |> ignore
+    sb.Append (" else ijmp ") |> ignore
     expToStringAux f sb
   | SideEffect eff ->
-    sb.Append ("SideEffect " + SideEffect.toString eff) |> ignore
+    sb.Append ("!!" + SideEffect.toString eff) |> ignore
 
 let expToString expr =
   let sb = new StringBuilder ()
@@ -159,4 +165,3 @@ let stmtsToString stmts =
     stmtToStringAux stmt sb
     sb.Append (Environment.NewLine) |> ignore) stmts
   sb.ToString ()
-

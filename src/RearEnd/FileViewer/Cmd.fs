@@ -189,7 +189,8 @@ type FileViewerOpts () =
   /// "--universal-header" option for displaying the universal header.
   static member OptUniversalHeader () =
     let cb opts _ =
-      FileViewerOpts.AddOpt opts (DisplayMachSpecific MachDisplayUniversalHeader)
+      FileViewerOpts.AddOpt opts
+        (DisplayMachSpecific MachDisplayUniversalHeader)
     CmdOpts.New (descr = "Display the universal header",
                 callback = cb, long = "--universal-header")
 
