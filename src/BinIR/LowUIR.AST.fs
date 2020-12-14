@@ -326,6 +326,8 @@ module AST =
   let b0 = num0 1<rt>
   let b1 = num1 1<rt>
 
+  let nil = Nil
+
   let concat e1 e2 = binop BinOpType.CONCAT e1 e2
 
   /// Concatenate an array of expressions.

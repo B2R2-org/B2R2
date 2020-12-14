@@ -95,6 +95,9 @@ module AST = begin
   /// Num expression for a one-bit number one.
   val b1 : Expr
 
+  /// Nil.
+  val nil: Expr
+
   /// An assignment statement.
   val (:=) : Expr -> Expr -> Stmt
 

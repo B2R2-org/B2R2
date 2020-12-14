@@ -140,6 +140,8 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     >>= fun comment ->
       getUserState |>> (fun rt -> AST.unDef rt comment)
 
+  let pNil = pstringCI "nil" |>> (fun _ -> AST.nil)
+
   let pPrimaryValue =
     [ attempt pExtract .>> ws
       pVar .>> ws
@@ -148,7 +150,8 @@ type LowUIRParser (isa, regbay: RegisterBay) =
       pLoad .>> ws
       pNum .>> ws
       pCast .>> ws
-      pUndefinedExpr .>> ws ] |> choice
+      pUndefinedExpr .>> ws
+      pNil .>> ws ] |> choice
 
   let pFLog =
     pstring "lg" >>. ws
