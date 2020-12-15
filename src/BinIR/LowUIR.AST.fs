@@ -486,7 +486,8 @@ module AST =
     | Cast (CastKind.SignExt, t, e, _, _)
     | Cast (CastKind.ZeroExt, t, e, _, _) -> typeCheckExpr e && t >= typeOf e
     | Extract (e, t, p, _, _) ->
-      typeCheckExpr e && ((t + RegType.fromBitWidth p) <= typeOf e)
+      typeCheckExpr e
+      && ((t + LanguagePrimitives.Int32WithMeasure p) <= typeOf e)
     | _ -> true
 
   let typeCheck = function

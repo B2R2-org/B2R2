@@ -58,7 +58,7 @@ module CastKind =
   let ofString = function
     | "sext" -> CastKind.SignExt
     | "zext" -> CastKind.ZeroExt
-    | "itof" -> CastKind.IntToFloat
+    | "float" -> CastKind.IntToFloat
     | "round" -> CastKind.FtoIRound
     | "ceil" -> CastKind.FtoICeil
     | "floor" -> CastKind.FtoIFloor

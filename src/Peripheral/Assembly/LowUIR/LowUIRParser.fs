@@ -77,7 +77,7 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     |> List.map pstring |> List.map attempt |> choice |>> UnOpType.ofString
 
   let pCastType =
-    [ "sext"; "zext"; "itof"; "round"; "ceil"; "floor"; "trunc"; "fext" ]
+    [ "sext"; "zext"; "float"; "round"; "ceil"; "floor"; "trunc"; "fext" ]
     |> List.map pstring |> List.map attempt |> choice |>> CastKind.ofString
 
   let pExpr, pExprRef = createParserForwardedToRef ()
@@ -260,9 +260,12 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     ws
     >>. pstring "if" .>> ws >>. pExpr .>> ws
     .>> pstring "then" .>> ws
-    .>> pstring "jmp" .>> ws .>>. pExpr .>> ws
-    .>> pstring "else" .>> ws .>> pstring "jmp" .>> ws .>>. pExpr
-    |>> (fun ((cond, tExpr), fExpr) -> CJmp (cond, tExpr, fExpr))
+    .>> pstring "jmp" .>> ws .>>. pIdentifier .>> ws
+    .>> pstring "else" .>> ws .>> pstring "jmp" .>> ws .>>. pIdentifier
+    |>> (fun ((cond, tlab), flab) ->
+      let tlab = Name <| AST.lblSymbol tlab
+      let flab = Name <| AST.lblSymbol flab
+      CJmp (cond, tlab, flab))
 
   let pInterJmp =
     pstring "ijmp" .>> ws >>. pExpr
@@ -310,7 +313,8 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     try runParserOnString pStatement 0<rt> "" line
     with e ->
       let dummyPos = Position ("", 0L, 0L, 0L)
-      let msg = e.Message + Environment.NewLine + "> " + line
+      let nl = Environment.NewLine
+      let msg = e.Message + nl + e.StackTrace + nl + nl + "> " + line
       Failure (msg, ParserError (dummyPos, 0<rt>, unexpected ""), 0<rt>)
 
   member private __.ParseLines acc lines =
