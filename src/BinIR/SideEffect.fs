@@ -36,6 +36,8 @@ type SideEffect =
   | Halt
   /// Interrupt, e.g., INT on x86.
   | Interrupt of int
+  /// Trap (or exception).
+  | Trap of string
   /// Locking, e.g., LOCK prefix on x86.
   | Lock
   /// Give a hint about a spin-wait loop, e.g., PAUSE on x86.
@@ -61,7 +63,8 @@ module SideEffect =
     | ClockCounter -> "CLK"
     | Fence -> "Fence"
     | Halt -> "Halt"
-    | Interrupt (n) -> "Int " + n.ToString ()
+    | Interrupt (n) -> "Int" + n.ToString ()
+    | Trap s -> "Trap(" + s + ")"
     | Lock -> "Lock"
     | Pause -> "Pause"
     | ProcessorID -> "PID"
@@ -72,8 +75,8 @@ module SideEffect =
     | UnsupportedFAR -> "FAR"
     | UnsupportedExtension -> "CPU extension"
 
-  let ofString (s: string) =
-    match s.ToLower () with
+  let ofString (input: string) =
+    match input.ToLower () with
     | "breakpoint" -> Breakpoint
     | "clk" -> ClockCounter
     | "fence" -> Fence
@@ -87,6 +90,8 @@ module SideEffect =
     | "privinstr" -> UnsupportedPrivInstr
     | "far" -> UnsupportedFAR
     | "cpu extension" -> UnsupportedExtension
-    | s when s.StartsWith "int " && s.Length >= 5 ->
+    | s when s.StartsWith "trap(" && s.Length >= 6 && s.EndsWith ")" ->
+      input.[ 5 .. input.Length - 2 ] |> Trap
+    | s when s.StartsWith "int" && s.Length >= 5 ->
       int s.[4 ..] |> Interrupt
     | _ -> B2R2.Utils.impossible ()

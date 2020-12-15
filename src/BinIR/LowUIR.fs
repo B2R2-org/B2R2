@@ -113,9 +113,10 @@ type Expr =
   /// the start position.
   | Extract of Expr * RegType * StartPos * ExprInfo * ConsInfo option
 
-  /// Undefined expression. It is a fatal error when we encounter this
-  /// expression while evaluating a program. This expression is useful when we
-  /// encode a label that should not really jump to (e.g., divide-by-zero case).
+  /// Undefined expression. This is rarely used, and it is a fatal error when we
+  /// encounter this expression while evaluating a program. Some CPU manuals
+  /// explicitly say that a register value is undefined after a certain
+  /// operation. We model such cases with this expression.
   | Undefined of RegType * string
 
   member inline private __.DoHash v phash = (phash * 16777619) ^^^ v

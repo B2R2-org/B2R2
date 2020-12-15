@@ -2390,18 +2390,20 @@ let div ins insAddr insLen ctxt =
   let builder = new StmtBuilder (16)
   let lblAssign = lblSymbol "Assign"
   let lblChk = lblSymbol "Check"
-  let errExp = unDef 1<rt> "Divide Error"
+  let lblErr = lblSymbol "DivErr"
   let divisor = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   startMark insAddr insLen builder
-  builder <! (CJmp (divisor == num0 oprSize, errExp, Name lblChk))
+  builder <! (CJmp (divisor == num0 oprSize, Name lblErr, Name lblChk))
+  builder <! (LMark lblErr)
+  builder <! SideEffect (Trap "DivErr")
   builder <! (LMark lblChk)
   let dividend = getDividend ctxt oprSize
   let sz = AST.typeOf dividend
   let quotient = tmpVar sz
   let remainder = tmpVar sz
   let checkQuotientDIV q =
-    CJmp (extractHigh oprSize q == num0 oprSize, Name lblAssign, errExp)
+    CJmp (extractHigh oprSize q == num0 oprSize, Name lblAssign, Name lblErr)
   let checkQuotientIDIV q =
     let amount =
       num (BitVector.ofInt32 (RegType.toBitWidth oprSize - 1) oprSize)
@@ -2410,7 +2412,7 @@ let div ins insAddr insLen ctxt =
     let negRes = lt q (zExt sz mask)
     let posRes = gt q (zExt sz (mask .- (num1 oprSize)))
     let cond = ite (msb == b1) negRes posRes
-    CJmp (cond, errExp, Name lblAssign)
+    CJmp (cond, Name lblErr, Name lblAssign)
   match ins.Opcode with
   | Opcode.DIV -> let divisor = zExt sz divisor
                   builder <! (quotient := dividend ./ divisor)
@@ -5388,14 +5390,16 @@ let rcr ins insAddr insLen ctxt =
 
 let rdpkru ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
-  let errExp = unDef 1<rt> "#GP(0) error"
   let lblSucc = lblSymbol "Succ"
+  let lblErr = lblSymbol "Err"
   let oprSize = getOperationSize ins
   let ecx = getRegVar ctxt R.ECX
   let eax = getRegOfSize ctxt ctxt.WordBitSize GrpEAX
   let edx = getRegOfSize ctxt ctxt.WordBitSize GrpEDX
   startMark insAddr insLen builder
-  builder <! (CJmp (ecx == num0 oprSize, Name lblSucc, errExp))
+  builder <! (CJmp (ecx == num0 oprSize, Name lblSucc, Name lblErr))
+  builder <! (LMark lblErr)
+  builder <! SideEffect (Trap "GP")
   builder <! (LMark lblSucc)
   builder <! (eax := zExt ctxt.WordBitSize (getRegVar ctxt R.PKRU))
   builder <! (edx := num0 ctxt.WordBitSize)
@@ -8131,14 +8135,16 @@ let wrgsbase ins insAddr insLen ctxt =
 
 let wrpkru ins insAddr insLen ctxt =
   let builder = new StmtBuilder (8)
-  let errExp = unDef 1<rt> "#GP(0) error"
   let lblSucc = lblSymbol "Succ"
+  let lblErr = lblSymbol "Err"
   let oprSize = getOperationSize ins
   let ecxIsZero = getRegVar ctxt R.ECX == num0 oprSize
   let edxIsZero = getRegVar ctxt R.EDX == num0 oprSize
   let cond = ecxIsZero .& edxIsZero
   startMark insAddr insLen builder
-  builder <! (CJmp (cond, Name lblSucc, errExp))
+  builder <! (CJmp (cond, Name lblSucc, Name lblErr))
+  builder <! (LMark lblErr)
+  builder <! SideEffect (Trap "GP")
   builder <! (LMark lblSucc)
   builder <! (getRegVar ctxt R.PKRU := getRegVar ctxt R.EAX)
   endMark insAddr insLen builder
