@@ -37,10 +37,12 @@ type Parser<'t> = Parser<'t, RegType>
 
 type LowUIRParser (isa, regbay: RegisterBay) =
 
+  let isAllowedFirstCharForID c = isAsciiLetter c
+
+  let isAllowedCharForID c = isAsciiLetter c || isDigit c
+
   let pIdentifier =
-    let isAllowedFirstChar c = isAsciiLetter c
-    let isAllowedChar c = isAsciiLetter c || isDigit c
-    many1Satisfy2L isAllowedFirstChar isAllowedChar "identifier"
+    many1Satisfy2L isAllowedFirstCharForID isAllowedCharForID "identifier"
 
   let pHexUInt64 =
      many hex
@@ -59,7 +61,7 @@ type LowUIRParser (isa, regbay: RegisterBay) =
 
   let pNumber =
     numberLiteral numberFormat "number"
-    |>> fun n -> int64 n.String
+    |>> fun n -> uint64 n.String
 
   let pRegType =
     (anyOf "IiFf") >>. pint32 |>> RegType.fromBitWidth
@@ -69,8 +71,8 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     .>>. opt (pchar ':' >>. ws >>. pRegType)
     >>= (fun (n, typ) ->
       match typ with
-      | None -> getUserState |>> (fun t -> BitVector.ofInt64 n t)
-      | Some typ -> preturn (BitVector.ofInt64 n typ))
+      | None -> getUserState |>> (fun t -> BitVector.ofUInt64 n t)
+      | Some typ -> preturn (BitVector.ofUInt64 n typ))
 
   let pUnaryOperator =
     [ "-"; "~"; "sqrt"; "cos"; "sin"; "tan"; "atan" ]
@@ -283,9 +285,13 @@ type LowUIRParser (isa, regbay: RegisterBay) =
       let rt = AST.typeOf tExp
       InterCJmp (cond, dummyExpr rt, tExp, fExp))
 
+  let pSideEffectIdentifier =
+    let isAllowedChar c = isAllowedCharForID c || c = '(' || c = ')'
+    many1Satisfy2L isAllowedFirstCharForID isAllowedChar "identifier"
+
   let pSideEffect =
     ws
-    >>. pstring "!!" .>> ws >>. pIdentifier
+    >>. pstring "!!" .>> ws >>. pSideEffectIdentifier
     |>> (fun str -> SideEffect.ofString str |> SideEffect)
 
   let pStatement =

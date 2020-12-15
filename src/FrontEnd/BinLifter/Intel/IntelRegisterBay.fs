@@ -229,6 +229,7 @@ type IntelRegisterBay internal (wordSize, R: RegExprs) =
     | "ZMM7B" -> R.ZMM7B
     | "ZMM8A" -> R.ZMM8A
     | "ZMM8B" -> R.ZMM8B
+    | "PKRU" -> R.PKRU
     | _ -> raise UnhandledRegExprException
 
   override __.RegIDFromString str =

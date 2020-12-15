@@ -1169,7 +1169,7 @@ module Register = begin
     | "k5" -> R.K5
     | "k6" -> R.K6
     | "k7" -> R.K7
-    | _ -> failwith "Invalid reg"
+    | _ -> Utils.impossible ()
 
   let toString = function
     | R.RAX -> "RAX"
@@ -1517,7 +1517,8 @@ module Register = begin
     | R.K5 -> "K5"
     | R.K6 -> "K6"
     | R.K7 -> "K7"
-    | _ -> "UnknownReg"
+    | R.PKRU -> "PKRU"
+    | _ -> Utils.impossible ()
 
   let toRegType = function
     | R.MM0 | R.MM1 | R.MM2 | R.MM3 | R.MM4 | R.MM5 | R.MM6 | R.MM7
