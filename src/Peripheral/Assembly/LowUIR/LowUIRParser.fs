@@ -26,6 +26,8 @@ namespace B2R2.Peripheral.Assembly.LowUIR
 
 open FParsec
 open System
+open System.Numerics
+open System.Globalization
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR
@@ -61,7 +63,12 @@ type LowUIRParser (isa, regbay: RegisterBay) =
 
   let pNumber =
     numberLiteral numberFormat "number"
-    |>> fun n -> uint64 n.String
+    |>> fun n ->
+      let s = n.String
+      if s.StartsWith ("0x") then
+        BigInteger.Parse ("0" + s.Substring (2), NumberStyles.AllowHexSpecifier)
+      else BigInteger.Parse (s)
+      |> BitVector.ofUBInt
 
   let pRegType =
     (anyOf "IiFf") >>. pint32 |>> RegType.fromBitWidth
@@ -69,10 +76,10 @@ type LowUIRParser (isa, regbay: RegisterBay) =
   let pBitVector =
     pNumber
     .>>. opt (pchar ':' >>. ws >>. pRegType)
-    >>= (fun (n, typ) ->
+    >>= (fun (toBV, typ) ->
       match typ with
-      | None -> getUserState |>> (fun t -> BitVector.ofUInt64 n t)
-      | Some typ -> preturn (BitVector.ofUInt64 n typ))
+      | None -> getUserState |>> (fun t -> toBV t)
+      | Some typ -> preturn (toBV typ))
 
   let pUnaryOperator =
     [ "-"; "~"; "sqrt"; "cos"; "sin"; "tan"; "atan" ]
@@ -116,20 +123,12 @@ type LowUIRParser (isa, regbay: RegisterBay) =
   let toExtractExpr ((expr, n), pos) =
     AST.extract expr (RegType.fromBitWidth (n + 1 - pos)) pos
 
-  let pExtractVar =
-    (pVar <|> pTempVar) .>> ws .>> pchar '[' .>> ws
+  let pExtractNoParen =
+    (pVar <|> pTempVar <|> pLoad <|> pNum <|> pCast)
+    .>> ws .>> pchar '[' .>> ws
     .>>. pint32 .>> ws .>> pchar ':' .>> ws .>>. pint32 .>> ws
     .>> pchar ']'
     |>> toExtractExpr
-
-  let pExtractExpr =
-    pBetweenParen pExpr .>> ws .>> pchar '[' .>> ws
-    .>>. pint32 .>> ws .>> pchar ':' .>> ws .>>. pint32 .>> ws
-    .>> pchar ']'
-    |>> toExtractExpr
-
-  let pExtract =
-    (attempt pExtractVar) <|> (attempt pExtractExpr)
 
   let pComment =
     let isComment c =
@@ -145,7 +144,7 @@ type LowUIRParser (isa, regbay: RegisterBay) =
   let pNil = pstringCI "nil" |>> (fun _ -> AST.nil)
 
   let pPrimaryValue =
-    [ attempt pExtract .>> ws
+    [ attempt pExtractNoParen .>> ws
       pVar .>> ws
       pTempVar .>> ws
       pUnOp .>> ws
@@ -172,10 +171,24 @@ type LowUIRParser (isa, regbay: RegisterBay) =
 
   let opp = OperatorPrecedenceParser<Expr, _, RegType> ()
   let pOps = opp.ExpressionParser
+
+  let pExtractPattern =
+    pchar '[' >>. ws
+    >>. pint32 .>> ws .>> pchar ':' .>> ws .>>. pint32 .>> ws
+    .>> pchar ']'
+
+  let pParenOrExtract =
+    pBetweenParen pOps .>>. opt pExtractPattern
+    |>> (fun (e, extract) ->
+      match extract with
+      | Some (n, pos) ->
+        AST.extract e (RegType.fromBitWidth (n + 1 - pos)) pos
+      | None -> e)
+
   let term =
-    pPrimaryValue
+    attempt pParenOrExtract
+    <|> pPrimaryValue
     <|> pFLog
-    <|> pBetweenParen pOps
 
   let () =
     opp.TermParser <- term
@@ -256,7 +269,8 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     |>> (fun (e1, e2) -> Store (isa.Endian, e1, e2))
 
   let pJmp =
-    ws >>. pstring "jmp" >>. ws >>. pExpr |>> Jmp
+    ws >>. pstring "jmp" >>. ws >>. pIdentifier
+    |>> (fun lab -> Jmp (Name <| AST.lblSymbol lab))
 
   let pCJmp =
     ws
