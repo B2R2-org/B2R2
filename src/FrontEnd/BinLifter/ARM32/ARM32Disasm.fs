@@ -72,7 +72,7 @@ let opCodeToString = function
   | Op.ADR -> "adr"
   | Op.MRS -> "mrs"
   | Op.MSR -> "msr"
-  | Op.BX  -> "bx"
+  | Op.BX -> "bx"
   | Op.CLZ -> "clz"
   | Op.BXJ -> "bxj"
   | Op.BLX -> "blx"
@@ -772,7 +772,19 @@ let processAddrExn32 ins addr =
   | Op.ADR -> ParseUtils.align pc 4UL
   | _ -> addr
 
-let memHead ins addr addrMode builder acc =
+let calculateRelativePC lbl addr = int32 addr + int32 lbl |> uint64
+
+let commentWithSymbol (helper: DisasmHelper) addr addrStr builder acc =
+  match helper.FindFunctionSymbol (addr) with
+  | Error _ ->
+    builder AsmWordKind.String addrStr acc
+  | Ok "" -> acc
+  | Ok name ->
+    builder AsmWordKind.String (addrStr + " ; <") acc
+    |> builder AsmWordKind.Value name
+    |> builder AsmWordKind.String ">"
+
+let memHead hlp ins addr addrMode builder acc =
   match addrMode with
   | OffsetMode offset | PreIdxMode offset | PostIdxMode offset ->
     builder AsmWordKind.String "[" acc
@@ -783,9 +795,13 @@ let memHead ins addr addrMode builder acc =
     |> builder AsmWordKind.String "], {"
     |> optionToString opt builder
   | LiteralMode lbl ->
-    let addr = processAddrExn32 ins addr
-    let str = "0x" + ((int32 addr) + (int32 lbl)).ToString ("x")
-    builder AsmWordKind.String str acc
+    let addr = processAddrExn32 ins addr |> calculateRelativePC lbl
+    let addrStr = "0x" + addr.ToString ("x")
+    match ins.Opcode with
+    | Op.BL | Op.BLX ->
+      commentWithSymbol hlp addr addrStr builder acc
+    | _ ->
+      builder AsmWordKind.String addrStr acc
 
 let memTail addrMode builder acc =
   match addrMode with
@@ -795,8 +811,8 @@ let memTail addrMode builder acc =
   | UnIdxMode _ -> builder AsmWordKind.String "}" acc
   | LiteralMode _ -> acc
 
-let memToString ins addr addrMode builder acc =
-  memHead ins addr addrMode builder acc
+let memToString hlp ins addr addrMode builder acc =
+  memHead hlp ins addr addrMode builder acc
   |> memTail addrMode builder
 
 let optToString = function
@@ -828,16 +844,16 @@ let endToString endian =
   | Endian.Big -> "be"
   | _ -> invalidArg (nameof endian) "Invalid endian is given."
 
-let oprToString i addr operand delim builder acc =
+let oprToString hlp ins addr operand delim builder acc =
   match operand with
   | OprReg reg ->
-    prependDelimiter delim builder acc |> buildReg i false reg builder
+    prependDelimiter delim builder acc |> buildReg ins false reg builder
   | OprSpecReg (reg, pFlag) ->
-    prependDelimiter delim builder acc |> specRegToString i reg pFlag builder
+    prependDelimiter delim builder acc |> specRegToString ins reg pFlag builder
   | OprRegList regList ->
-    prependDelimiter delim builder acc |> regListToString i regList builder
+    prependDelimiter delim builder acc |> regListToString ins regList builder
   | OprSIMD simd ->
-    prependDelimiter delim builder acc |> simdOprToString i simd builder
+    prependDelimiter delim builder acc |> simdOprToString ins simd builder
   | OprImm imm ->
     prependDelimiter delim builder acc |> immToString imm None builder
   | OprFPImm fp ->
@@ -845,9 +861,10 @@ let oprToString i addr operand delim builder acc =
   | OprShift s ->
     shiftToString s delim builder acc
   | OprRegShift (s, r) ->
-    prependDelimiter delim builder acc |> regShiftToString i s r builder
+    prependDelimiter delim builder acc |> regShiftToString ins s r builder
   | OprMemory addrMode ->
-    prependDelimiter delim builder acc |> memToString i addr addrMode builder
+    prependDelimiter delim builder acc
+    |> memToString hlp ins addr addrMode builder
   | OprOption opt ->
     prependDelimiter delim builder acc
     |> builder AsmWordKind.String (optToString opt)
@@ -862,36 +879,36 @@ let oprToString i addr operand delim builder acc =
     |> builder AsmWordKind.String (condToString (Some c))
   | GoToLabel _ -> acc
 
-let buildOprs _hlp ins pc builder acc =
+let buildOprs hlp ins pc builder acc =
   match ins.Operands with
   | NoOperand -> acc
   | OneOperand opr ->
-    oprToString ins pc opr (Some " ") builder acc
+    oprToString hlp ins pc opr (Some " ") builder acc
   | TwoOperands (opr1, opr2) ->
-    oprToString ins pc opr1 (Some " ") builder acc
-    |> oprToString ins pc opr2 (Some ", ") builder
+    oprToString hlp ins pc opr1 (Some " ") builder acc
+    |> oprToString hlp ins pc opr2 (Some ", ") builder
   | ThreeOperands (opr1, opr2, opr3) ->
-    oprToString ins pc opr1 (Some " ") builder acc
-    |> oprToString ins pc opr2 (Some ", ") builder
-    |> oprToString ins pc opr3 (Some ", ") builder
+    oprToString hlp ins pc opr1 (Some " ") builder acc
+    |> oprToString hlp ins pc opr2 (Some ", ") builder
+    |> oprToString hlp ins pc opr3 (Some ", ") builder
   | FourOperands (opr1, opr2, opr3, opr4) ->
-    oprToString ins pc opr1 (Some " ") builder acc
-    |> oprToString ins pc opr2 (Some ", ") builder
-    |> oprToString ins pc opr3 (Some ", ") builder
-    |> oprToString ins pc opr4 (Some ", ") builder
+    oprToString hlp ins pc opr1 (Some " ") builder acc
+    |> oprToString hlp ins pc opr2 (Some ", ") builder
+    |> oprToString hlp ins pc opr3 (Some ", ") builder
+    |> oprToString hlp ins pc opr4 (Some ", ") builder
   | FiveOperands (opr1, opr2, opr3, opr4, opr5) ->
-    oprToString ins pc opr1 (Some " ") builder acc
-    |> oprToString ins pc opr2 (Some ", ") builder
-    |> oprToString ins pc opr3 (Some ", ") builder
-    |> oprToString ins pc opr4 (Some ", ") builder
-    |> oprToString ins pc opr5 (Some ", ") builder
+    oprToString hlp ins pc opr1 (Some " ") builder acc
+    |> oprToString hlp ins pc opr2 (Some ", ") builder
+    |> oprToString hlp ins pc opr3 (Some ", ") builder
+    |> oprToString hlp ins pc opr4 (Some ", ") builder
+    |> oprToString hlp ins pc opr5 (Some ", ") builder
   | SixOperands (opr1, opr2, opr3, opr4, opr5, opr6) ->
-    oprToString ins pc opr1 (Some " ") builder acc
-    |> oprToString ins pc opr2 (Some ", ") builder
-    |> oprToString ins pc opr3 (Some ", ") builder
-    |> oprToString ins pc opr4 (Some ", ") builder
-    |> oprToString ins pc opr5 (Some ", ") builder
-    |> oprToString ins pc opr6 (Some ", ") builder
+    oprToString hlp ins pc opr1 (Some " ") builder acc
+    |> oprToString hlp ins pc opr2 (Some ", ") builder
+    |> oprToString hlp ins pc opr3 (Some ", ") builder
+    |> oprToString hlp ins pc opr4 (Some ", ") builder
+    |> oprToString hlp ins pc opr5 (Some ", ") builder
+    |> oprToString hlp ins pc opr6 (Some ", ") builder
 
 let disasm showAddr hlp ins builder acc =
   let pc = ins.Address
