@@ -171,7 +171,7 @@ type IInstrPrinter =
   abstract member PrintInstr: BinHandle -> BinaryPointer -> Instruction -> unit
 
 [<AbstractClass>]
-type BinPrinter (hdl, cfg, ?ctxt) =
+type BinPrinter (hdl, cfg, isLift, ?ctxt) =
   let mutable ctxt = defaultArg ctxt hdl.DefaultParsingContext
 
   abstract member PrintFuncSymbol: Addr -> unit
@@ -188,63 +188,63 @@ type BinPrinter (hdl, cfg, ?ctxt) =
         let bp' = BinaryPointer.Advance bp (int ins.Length)
         __.Print bp'
       | Error _ ->
-        __.Print (handleInvalidIns hdl ctxt bp false cfg)
+        __.Print (handleInvalidIns hdl ctxt bp isLift cfg)
     else ()
 
 [<AbstractClass>]
-type BinFuncPrinter (hdl, cfg) =
-  inherit BinPrinter (hdl, cfg)
+type BinFuncPrinter (hdl, cfg, isLift) =
+  inherit BinPrinter (hdl, cfg, isLift)
   let dict = makeFuncSymbolDic hdl
   override _.PrintFuncSymbol addr = printFuncSymbol dict addr
 
 [<AbstractClass>]
-type BinTablePrinter (hdl, cfg) =
-  inherit BinPrinter (hdl, cfg, initTableParsingContext hdl)
+type BinTablePrinter (hdl, cfg, isLift) =
+  inherit BinPrinter (hdl, cfg, isLift, initTableParsingContext hdl)
   let dict = makeLinkageTblSymbolDic hdl
   override _.PrintFuncSymbol addr = printFuncSymbol dict addr
 
 type BinCodeDisasmPrinter (hdl, cfg, showSym, showColor) =
-  inherit BinFuncPrinter (hdl, cfg)
+  inherit BinFuncPrinter (hdl, cfg, false)
   let disPrinter = if showColor then colorDisPrinter else regularDisPrinter
   override _.PrintInstr hdl bp ins = disPrinter hdl showSym bp ins cfg
   override _.GetContext ctxt _ = ctxt
 
 type BinCodeIRPrinter (hdl, cfg, optimizer) =
-  inherit BinFuncPrinter (hdl, cfg)
+  inherit BinFuncPrinter (hdl, cfg, true)
   override _.PrintInstr hdl bp ins = regularIRPrinter hdl optimizer bp ins cfg
   override _.GetContext ctxt _ = ctxt
 
 type BinTableDisasmPrinter (hdl, cfg) =
-  inherit BinTablePrinter (hdl, cfg)
+  inherit BinTablePrinter (hdl, cfg, false)
   override _.PrintInstr hdl bp ins = regularDisPrinter hdl true bp ins cfg
   override _.GetContext ctxt _ = ctxt
 
 type BinTableIRPrinter (hdl, cfg, optimizer) =
-  inherit BinTablePrinter (hdl, cfg)
+  inherit BinTablePrinter (hdl, cfg, true)
   override _.PrintInstr hdl bp ins = regularIRPrinter hdl optimizer bp ins cfg
   override _.GetContext ctxt _ = ctxt
 
 type ContextSensitiveCodeDisasmPrinter (hdl, cfg, showSym, showColor) =
-  inherit BinFuncPrinter (hdl, cfg)
+  inherit BinFuncPrinter (hdl, cfg, false)
   let disPrinter = if showColor then colorDisPrinter else regularDisPrinter
   let archmodes = makeArchModeDic hdl
   override _.PrintInstr hdl bp ins = disPrinter hdl showSym bp ins cfg
   override _.GetContext ctxt addr = getContext archmodes ctxt addr
 
 type ContextSensitiveCodeIRPrinter (hdl, cfg, optimizer) =
-  inherit BinFuncPrinter (hdl, cfg)
+  inherit BinFuncPrinter (hdl, cfg, true)
   let archmodes = makeArchModeDic hdl
   override _.PrintInstr hdl bp ins = regularIRPrinter hdl optimizer bp ins cfg
   override _.GetContext ctxt addr = getContext archmodes ctxt addr
 
 type ContextSensitiveTableDisasmPrinter (hdl, cfg) =
-  inherit BinTablePrinter (hdl, cfg)
+  inherit BinTablePrinter (hdl, cfg, false)
   let archmodes = makeArchModeDic hdl
   override _.PrintInstr hdl bp ins = regularDisPrinter hdl true bp ins cfg
   override _.GetContext ctxt addr = getContext archmodes ctxt addr
 
 type ContextSensitiveTableIRPrinter (hdl, cfg, optimizer) =
-  inherit BinTablePrinter (hdl, cfg)
+  inherit BinTablePrinter (hdl, cfg, true)
   let archmodes = makeArchModeDic hdl
   override _.PrintInstr hdl bp ins = regularIRPrinter hdl optimizer bp ins cfg
   override _.GetContext ctxt addr = getContext archmodes ctxt addr
