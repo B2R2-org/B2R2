@@ -11,8 +11,8 @@
   <ItemGroup>
     <Compile Include="Exceptions.fs" />
     <Compile Include="StmtBuilder.fs" />
-    <Compile Include="Stack.fs" />
-    <Compile Include="Context.fs" />
+    <Compile Include="ParsingContext.fs" />
+    <Compile Include="TranslationContext.fs" />
     <Compile Include="AsmWord.fs" />
     <Compile Include="RegisterBay.fs" />
     <Compile Include="DisasmHelper.fs" />

@@ -25,7 +25,6 @@
 namespace B2R2.FrontEnd.BinLifter
 
 open B2R2
-open B2R2.BinIR.LowUIR
 
 /// A high-level interface for the parsing context, which stores several states
 /// for parsing machine instructions.
@@ -67,32 +66,3 @@ type ParsingContext private (archMode, itstate, offset, inParallel) =
     | ArchOperationMode.ThumbMode ->
       ParsingContext.Init (ArchOperationMode.ARMMode)
     | _ -> Utils.impossible ()
-
-/// A high-level interface for the translation context, which stores several
-/// states for translating/lifting instructions.
-[<AbstractClass>]
-type TranslationContext (isa) =
-  /// Word size in bits (RegType).
-  member val WordBitSize: RegType = WordSize.toRegType isa.WordSize
-
-  /// The endianness.
-  member val Endianness: Endian = isa.Endian
-
-  /// <summary>
-  ///   Get register expression from a given register ID.
-  /// </summary>
-  /// <param name="id">Register ID.</param>
-  /// <returns>
-  ///   Returns an IR expression of a register.
-  /// </returns>
-  abstract member GetRegVar: id: RegisterID -> Expr
-
-  /// <summary>
-  ///   Get pseudo register expression from a given register ID and an index.
-  /// </summary>
-  /// <param name="id">Register ID.</param>
-  /// <param name="idx">Register index.</param>
-  /// <returns>
-  ///   Returns an IR expression of a pseudo-register.
-  /// </returns>
-  abstract member GetPseudoRegVar: id: RegisterID -> idx: int -> Expr

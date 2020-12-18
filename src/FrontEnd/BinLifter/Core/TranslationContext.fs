@@ -24,18 +24,34 @@
 
 namespace B2R2.FrontEnd.BinLifter
 
-/// Stack for stack-based languages, such as EVM.
-type ExprStack () =
-  let mutable stack: B2R2.BinIR.LowUIR.Expr list = []
+open B2R2
+open B2R2.BinIR.LowUIR
 
-  member __.Push e =
-    stack <- e :: stack
+/// A high-level interface for the translation context, which stores several
+/// states for translating/lifting instructions.
+[<AbstractClass>]
+type TranslationContext (isa) =
+  /// Word size in bits (RegType).
+  member val WordBitSize: RegType = WordSize.toRegType isa.WordSize
 
-  member __.Pop () =
-    let ret = stack.Head
-    stack <- stack.Tail
-    ret
+  /// The endianness.
+  member val Endianness: Endian = isa.Endian
 
-  member __.Peek n = List.item (n - 1) stack
+  /// <summary>
+  ///   Get register expression from a given register ID.
+  /// </summary>
+  /// <param name="id">Register ID.</param>
+  /// <returns>
+  ///   Returns an IR expression of a register.
+  /// </returns>
+  abstract member GetRegVar: id: RegisterID -> Expr
 
-  member __.Clear () = stack <- []
+  /// <summary>
+  ///   Get pseudo register expression from a given register ID and an index.
+  /// </summary>
+  /// <param name="id">Register ID.</param>
+  /// <param name="idx">Register index.</param>
+  /// <returns>
+  ///   Returns an IR expression of a pseudo-register.
+  /// </returns>
+  abstract member GetPseudoRegVar: id: RegisterID -> idx: int -> Expr
