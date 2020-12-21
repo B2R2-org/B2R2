@@ -653,6 +653,9 @@ let getRegAK b = (concat (extract b 15u 12u) (pickBit b 22u) 1) + 1u |> byte
 let getRegAL b =
   let regSize = if pickBit b 8u = 0u then 32 else 64
   getVReg (pickBit b 22u) (extract b 15u 12u) regSize |> sVReg
+let getRegAL' b =
+  let regSize = if pickBit b 8u = 0u then 64 else 32
+  getVReg (pickBit b 22u) (extract b 15u 12u) regSize |> sVReg
 let getRegAM b =
   let regSize = if pickBit b 8u = 0u then 32 else 64
   getVReg (pickBit b 7u) (extract b 19u 16u) regSize |> sVReg

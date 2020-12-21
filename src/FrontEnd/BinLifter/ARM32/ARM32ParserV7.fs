@@ -1363,7 +1363,7 @@ let parseOtherVFP bin =
   | 0b010111u ->
     Op.VCMPE, None, getOneDtAF bin, p2Oprs bin dummyChk (getRegAL, getImm0)
   | 0b011111u ->
-    Op.VCVT, None, getTwoDtD bin, p2Oprs bin dummyChk (getRegAL, getRegAN)
+    Op.VCVT, None, getTwoDtD bin, p2Oprs bin dummyChk (getRegAL', getRegAN)
   | op when op &&& 0b111101u = 0b100001u ->
     Op.VCVT, None, getTwoDtF bin, p2Oprs bin dummyChk (getRegAP, getRegAQ)
   | op when op &&& 0b111001u = 0b101001u ->
