@@ -79,16 +79,12 @@ let prefixFromRegString (str: string) =
 
 let dummyRegType = 0<rt>
 
-let dummyMemorySize =
-  { EffOprSize = dummyRegType
-    EffAddrSize = dummyRegType
-    EffRegSize = dummyRegType }
-
 let dummyInsSize =
-  { MemSize = dummyMemorySize
+  { MemEffOprSize = dummyRegType
+    MemEffAddrSize = dummyRegType
+    MemEffRegSize = dummyRegType
     RegSize = dummyRegType
-    OperationSize = dummyRegType
-    SizeCond = Sz64 }
+    OperationSize = dummyRegType }
 
 let newInfo prfxs rexPrfx vexInfo opc operands size =
   { Prefixes = prfxs

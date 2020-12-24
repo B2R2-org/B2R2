@@ -1455,7 +1455,11 @@ module Intel =
   [<TestClass>]
   type ExceptionTestClass () =
     [<TestMethod>]
+#if DEBUG
     [<ExpectedException(typedefof<ParsingFailureException>)>]
+#else
+    [<ExpectedException(typedefof<System.IndexOutOfRangeException>)>]
+#endif
     member __.``Size cond ParsingFailure Test`` () =
       test64 Opcode.AAA NoOperand 1ul [| 0x37uy |]
 

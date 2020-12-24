@@ -45,7 +45,10 @@ let opCodeToString = function
   | Opcode.ANDPD -> "andpd"
   | Opcode.ANDPS -> "andps"
   | Opcode.ARPL -> "arpl"
+  | Opcode.BNDCL -> "bndcl"
+  | Opcode.BNDMK -> "bndmk"
   | Opcode.BNDMOV -> "bndmov"
+  | Opcode.BNDSTX -> "bndstx"
   | Opcode.BOUND -> "bound"
   | Opcode.BSF -> "bsf"
   | Opcode.BSR -> "bsr"
@@ -388,6 +391,7 @@ let opCodeToString = function
   | Opcode.PCMPGTW -> "pcmpgtw"
   | Opcode.PCMPISTRI -> "pcmpistri"
   | Opcode.PCMPISTRM -> "pcmpistrm"
+  | Opcode.PEXT -> "pext"
   | Opcode.PEXTRW -> "pextrw"
   | Opcode.PHADDD -> "phaddd"
   | Opcode.PHADDSW -> "phaddsw"
@@ -1030,7 +1034,7 @@ let inline buildOpcode opcode builder acc =
   builder AsmWordKind.Mnemonic (opCodeToString opcode) acc
 
 let recomputeRIPRel pc disp (ins: InsInfo) (insLen: uint32) builder acc =
-  let oprSize = RegType.toByteWidth ins.InsSize.MemSize.EffOprSize
+  let oprSize = RegType.toByteWidth ins.InsSize.MemEffOprSize
   let dir = ptrDirectiveString false oprSize
   builder AsmWordKind.String dir acc
   |> builder AsmWordKind.String " ["

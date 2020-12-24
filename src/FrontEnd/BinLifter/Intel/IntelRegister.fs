@@ -1733,26 +1733,211 @@ end
 
 /// This module defines sets of registers that are frequently grouped by Intel.
 module internal RegGroup = begin
-  let GrpEAX = [| R.AL; R.AX; R.EAX; R.RAX; R.XMM0; R.YMM0; R.ZMM0 |] (* Grp0 *)
-  let GrpECX = [| R.CL; R.CX; R.ECX; R.RCX; R.XMM1; R.YMM1; R.ZMM1 |] (* Grp1 *)
-  let GrpEDX = [| R.DL; R.DX; R.EDX; R.RDX; R.XMM2; R.YMM2; R.ZMM2 |] (* Grp2 *)
-  let GrpEBX = [| R.BL; R.BX; R.EBX; R.RBX; R.XMM3; R.YMM3; R.ZMM3 |] (* Grp3 *)
-  let GrpAH  = [| R.AH; R.SP; R.ESP; R.RSP; R.XMM4; R.YMM4; R.ZMM4 |] (* Grp4 *)
-  let GrpCH  = [| R.CH; R.BP; R.EBP; R.RBP; R.XMM5; R.YMM5; R.ZMM5 |] (* Grp5 *)
-  let GrpDH  = [| R.DH; R.SI; R.ESI; R.RSI; R.XMM6; R.YMM6; R.ZMM6 |] (* Grp6 *)
-  let GrpBH  = [| R.BH; R.DI; R.EDI; R.RDI; R.XMM7; R.YMM7; R.ZMM7 |] (* Grp7 *)
+  /// Grp 0.
+  let grpEAX = function
+    | 0 -> R.AL
+    | 1 -> R.AX
+    | 2 -> R.EAX
+    | 3 -> R.RAX
+    | 4 -> R.XMM0
+    | 5 -> R.YMM0
+    | 6 -> R.ZMM0
+    | _ -> Utils.impossible ()
 
-  let GrpESP = [| R.SPL; R.SP; R.ESP; R.RSP; R.XMM4; R.YMM4; R.ZMM4 |]
-  let GrpEBP = [| R.BPL; R.BP; R.EBP; R.RBP; R.XMM5; R.YMM5; R.ZMM5 |]
-  let GrpESI = [| R.SIL; R.SI; R.ESI; R.RSI; R.XMM6; R.YMM6; R.ZMM6 |]
-  let GrpEDI = [| R.DIL; R.DI; R.EDI; R.RDI; R.XMM7; R.YMM7; R.ZMM7 |]
+  /// Grp 1.
+  let grpECX = function
+    | 0 -> R.CL
+    | 1 -> R.CX
+    | 2 -> R.ECX
+    | 3 -> R.RCX
+    | 4 -> R.XMM1
+    | 5 -> R.YMM1
+    | 6 -> R.ZMM1
+    | _ -> Utils.impossible ()
 
-  let GrpR8  = [| R.R8L; R.R8W; R.R8D; R.R8; R.XMM8; R.YMM8; R.ZMM8 |]
-  let GrpR9  = [| R.R9L; R.R9W; R.R9D; R.R9; R.XMM9; R.YMM9; R.ZMM9 |]
-  let GrpR10 = [| R.R10L; R.R10W; R.R10D; R.R10; R.XMM10; R.YMM10; R.ZMM10 |]
-  let GrpR11 = [| R.R11L; R.R11W; R.R11D; R.R11; R.XMM11; R.YMM11; R.ZMM11 |]
-  let GrpR12 = [| R.R12L; R.R12W; R.R12D; R.R12; R.XMM12; R.YMM12; R.ZMM12 |]
-  let GrpR13 = [| R.R13L; R.R13W; R.R13D; R.R13; R.XMM13; R.YMM13; R.ZMM13 |]
-  let GrpR14 = [| R.R14L; R.R14W; R.R14D; R.R14; R.XMM14; R.YMM14; R.ZMM14 |]
-  let GrpR15 = [| R.R15L; R.R15W; R.R15D; R.R15; R.XMM15; R.YMM15; R.ZMM15 |]
+  /// Grp 2.
+  let grpEDX = function
+    | 0 -> R.DL
+    | 1 -> R.DX
+    | 2 -> R.EDX
+    | 3 -> R.RDX
+    | 4 -> R.XMM2
+    | 5 -> R.YMM2
+    | 6 -> R.ZMM2
+    | _ -> Utils.impossible ()
+
+  /// Grp 3.
+  let grpEBX = function
+    | 0 -> R.BL
+    | 1 -> R.BX
+    | 2 -> R.EBX
+    | 3 -> R.RBX
+    | 4 -> R.XMM3
+    | 5 -> R.YMM3
+    | 6 -> R.ZMM3
+    | _ -> Utils.impossible ()
+
+  /// Grp 4.
+  let grpAH  = function
+    | 0 -> R.AH
+    | 1 -> R.SP
+    | 2 -> R.ESP
+    | 3 -> R.RSP
+    | 4 -> R.XMM4
+    | 5 -> R.YMM4
+    | 6 -> R.ZMM4
+    | _ -> Utils.impossible ()
+
+  /// Grp 5.
+  let grpCH = function
+    | 0 -> R.CH
+    | 1 -> R.BP
+    | 2 -> R.EBP
+    | 3 -> R.RBP
+    | 4 -> R.XMM5
+    | 5 -> R.YMM5
+    | 6 -> R.ZMM5
+    | _ -> Utils.impossible ()
+
+  /// Grp 6.
+  let grpDH  = function
+    | 0 -> R.DH
+    | 1 -> R.SI
+    | 2 -> R.ESI
+    | 3 -> R.RSI
+    | 4 -> R.XMM6
+    | 5 -> R.YMM6
+    | 6 -> R.ZMM6
+    | _ -> Utils.impossible ()
+
+  /// Grp 7.
+  let grpBH  = function
+    | 0 -> R.BH
+    | 1 -> R.DI
+    | 2 -> R.EDI
+    | 3 -> R.RDI
+    | 4 -> R.XMM7
+    | 5 -> R.YMM7
+    | 6 -> R.ZMM7
+    | _ -> Utils.impossible ()
+
+  let grpESP = function
+    | 0 -> R.SPL
+    | 1 -> R.SP
+    | 2 -> R.ESP
+    | 3 -> R.RSP
+    | 4 -> R.XMM4
+    | 5 -> R.YMM4
+    | 6 -> R.ZMM4
+    | _ -> Utils.impossible ()
+
+  let grpEBP = function
+    | 0 -> R.BPL
+    | 1 -> R.BP
+    | 2 -> R.EBP
+    | 3 -> R.RBP
+    | 4 -> R.XMM5
+    | 5 -> R.YMM5
+    | 6 -> R.ZMM5
+    | _ -> Utils.impossible ()
+
+  let grpESI = function
+    | 0 -> R.SIL
+    | 1 -> R.SI
+    | 2 -> R.ESI
+    | 3 -> R.RSI
+    | 4 -> R.XMM6
+    | 5 -> R.YMM6
+    | 6 -> R.ZMM6
+    | _ -> Utils.impossible ()
+
+  let grpEDI = function
+    | 0 -> R.DIL
+    | 1 -> R.DI
+    | 2 -> R.EDI
+    | 3 -> R.RDI
+    | 4 -> R.XMM7
+    | 5 -> R.YMM7
+    | 6 -> R.ZMM7
+    | _ -> Utils.impossible ()
+
+  let grpR8  = function
+    | 0 -> R.R8L
+    | 1 -> R.R8W
+    | 2 -> R.R8D
+    | 3 -> R.R8
+    | 4 -> R.XMM8
+    | 5 -> R.YMM8
+    | 6 -> R.ZMM8
+    | _ -> Utils.impossible ()
+
+  let grpR9  = function
+    | 0 -> R.R9L
+    | 1 -> R.R9W
+    | 2 -> R.R9D
+    | 3 -> R.R9
+    | 4 -> R.XMM9
+    | 5 -> R.YMM9
+    | 6 -> R.ZMM9
+    | _ -> Utils.impossible ()
+
+  let grpR10 = function
+    | 0 -> R.R10L
+    | 1 -> R.R10W
+    | 2 -> R.R10D
+    | 3 -> R.R10
+    | 4 -> R.XMM10
+    | 5 -> R.YMM10
+    | 6 -> R.ZMM10
+    | _ -> Utils.impossible ()
+
+  let grpR11 = function
+    | 0 -> R.R11L
+    | 1 -> R.R11W
+    | 2 -> R.R11D
+    | 3 -> R.R11
+    | 4 -> R.XMM11
+    | 5 -> R.YMM11
+    | 6 -> R.ZMM11
+    | _ -> Utils.impossible ()
+
+  let grpR12 = function
+    | 0 -> R.R12L
+    | 1 -> R.R12W
+    | 2 -> R.R12D
+    | 3 -> R.R12
+    | 4 -> R.XMM12
+    | 5 -> R.YMM12
+    | 6 -> R.ZMM12
+    | _ -> Utils.impossible ()
+
+  let grpR13 = function
+    | 0 -> R.R13L
+    | 1 -> R.R13W
+    | 2 -> R.R13D
+    | 3 -> R.R13
+    | 4 -> R.XMM13
+    | 5 -> R.YMM13
+    | 6 -> R.ZMM13
+    | _ -> Utils.impossible ()
+
+  let grpR14 = function
+    | 0 -> R.R14L
+    | 1 -> R.R14W
+    | 2 -> R.R14D
+    | 3 -> R.R14
+    | 4 -> R.XMM14
+    | 5 -> R.YMM14
+    | 6 -> R.ZMM14
+    | _ -> Utils.impossible ()
+
+  let grpR15 = function
+    | 0 -> R.R15L
+    | 1 -> R.R15W
+    | 2 -> R.R15D
+    | 3 -> R.R15
+    | 4 -> R.XMM15
+    | 5 -> R.YMM15
+    | 6 -> R.ZMM15
+    | _ -> Utils.impossible ()
 end

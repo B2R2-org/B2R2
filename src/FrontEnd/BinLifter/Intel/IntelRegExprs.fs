@@ -27,6 +27,10 @@ namespace B2R2.FrontEnd.BinLifter.Intel
 open B2R2
 open B2R2.BinIR.LowUIR.AST
 
+/// This is a fatal error that happens when B2R2 tries to access non-existing
+/// register symbol. This exception should not happen in general.
+exception internal InvalidRegAccessException
+
 type internal RegExprs (wordSize) =
   let var sz t name = var sz t name (IntelRegisterSet.singleton t)
 

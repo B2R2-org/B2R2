@@ -106,11 +106,11 @@ let dumpHex (opts: BinDumpOpts) (sec: Section) hdl =
   else printHexdump opts sec hdl
   out.PrintLine ()
 
-let private createBinHandleFromPath (opts: BinDumpOpts) filepath forceRawBin =
+let private createBinHandleFromPath (opts: BinDumpOpts) filepath =
   BinHandle.Init (
     opts.ISA,
     opts.ArchOperationMode,
-    (if forceRawBin then false else opts.AutoDetect),
+    opts.AutoDetect,
     opts.BaseAddress,
     fileName=filepath)
 
@@ -152,15 +152,11 @@ let private dumpRegularFile hdl (opts: BinDumpOpts) cfg =
 
 let dumpFile (opts: BinDumpOpts) filepath =
   opts.ShowAddress <- true
-  let hdl = createBinHandleFromPath opts filepath false
+  let hdl = createBinHandleFromPath opts filepath
+  let cfg = getTableConfig hdl opts.ShowLowUIR
   printFileName hdl.FileInfo.FilePath
-  if isRawBinary hdl then
-    let hdl = createBinHandleFromPath opts filepath true
-    let cfg = getTableConfig hdl opts.ShowLowUIR
-    dumpRawBinary hdl opts cfg
-  else
-    let cfg = getTableConfig hdl opts.ShowLowUIR
-    dumpRegularFile hdl opts cfg
+  if isRawBinary hdl then dumpRawBinary hdl opts cfg
+  else dumpRegularFile hdl opts cfg
 
 let dumpFileMode files (opts: BinDumpOpts) =
   match List.partition System.IO.File.Exists files with

@@ -98,6 +98,15 @@ let inline is64bit (ctxt: TranslationContext) = ctxt.WordBitSize = 64<rt>
 let is64REXW ctxt (ins: InsInfo) =
   is64bit ctxt && hasREXW ins.REXPrefix
 
+let segRegToBase = function
+  | R.CS -> R.CSBase
+  | R.DS -> R.DSBase
+  | R.ES -> R.ESBase
+  | R.FS -> R.FSBase
+  | R.GS -> R.GSBase
+  | R.SS -> R.SSBase
+  | _ -> Utils.impossible ()
+
 let inline private addSeg ctxt expr (ins: InsInfo) =
   match getSegment ins.Prefixes with
   | Some s -> getRegVar ctxt (segRegToBase s) .+ expr
@@ -159,7 +168,7 @@ let inline private tmpVars3 t = tmpVar t, tmpVar t, tmpVar t
 let inline private tmpVars4 t = tmpVar t, tmpVar t, tmpVar t, tmpVar t
 
 let inline private getOperationSize (i: InsInfo) = i.InsSize.OperationSize
-let inline private getEffAddrSz (i: InsInfo) = i.InsSize.MemSize.EffAddrSize
+let inline private getEffAddrSz (i: InsInfo) = i.InsSize.MemEffAddrSize
 let inline private (<!) (builder: StmtBuilder) (s) = builder.Append (s)
 
 let getCFlagOnAdd e1 _ r = lt r e1
@@ -423,12 +432,12 @@ let castNum newType = function
 let getInstrPtr ctxt = getRegVar ctxt (if is64bit ctxt then R.RIP else R.EIP)
 let getStackPtr ctxt = getRegVar ctxt (if is64bit ctxt then R.RSP else R.ESP)
 let getBasePtr ctxt = getRegVar ctxt (if is64bit ctxt then R.RBP else R.EBP)
-let getRegOfSize ctxt oprSize (regGrp: Register []) =
+let getRegOfSize ctxt oprSize regGrp =
   getRegVar ctxt <| match oprSize with
-                    | 8<rt> -> regGrp.[0]
-                    | 16<rt> -> regGrp.[1]
-                    | 32<rt> -> regGrp.[2]
-                    | 64<rt> -> regGrp.[3]
+                    | 8<rt> -> regGrp 0
+                    | 16<rt> -> regGrp 1
+                    | 32<rt> -> regGrp 2
+                    | 64<rt> -> regGrp 3
                     | _ -> raise InvalidOperandSizeException
 
 let getFstOperand = function
@@ -534,7 +543,7 @@ let auxPop oprSize ctxt dst builder =
 
 let getCondOfJcc (ins: InsInfo) (ctxt: TranslationContext) oprSize =
   if ctxt.WordBitSize = 64<rt> && oprSize = 16<rt>
-  then raise InvalidOn64Exception
+  then Utils.impossible ()
   match ins.Opcode with
   | Opcode.JO -> getRegVar ctxt R.OF
   | Opcode.JNO -> getRegVar ctxt R.OF == b0
@@ -856,8 +865,8 @@ let oneOperandImul ins insAddr insLen ctxt oprSize builder =
     builder <! (t := sExt mulSize (getRegVar ctxt R.AL) .* sExt mulSize src)
     builder <! (dstAssign oprSize (getRegVar ctxt R.AX) t)
   | 16<rt> | 32<rt> | 64<rt> ->
-    let r1 = getRegOfSize ctxt oprSize GrpEDX
-    let r2 = getRegOfSize ctxt oprSize GrpEAX
+    let r1 = getRegOfSize ctxt oprSize grpEDX
+    let r2 = getRegOfSize ctxt oprSize grpEAX
     builder <! (t := sExt mulSize r2 .* sExt mulSize src)
     builder <! (dstAssign oprSize r1 (extractHigh oprSize t))
     builder <! (dstAssign oprSize r2 (extractLow oprSize t))
@@ -1601,7 +1610,7 @@ let andps ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 32<rt> opPand 16
 
 let arpl ins insAddr insLen ctxt =
-  if is64bit ctxt then raise InvalidOn64Exception
+  if is64bit ctxt then Utils.impossible () else ()
   let builder = new StmtBuilder (8)
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let t1, t2 = tmpVars2 16<rt>
@@ -1981,7 +1990,7 @@ let cmpxchg ins insAddr insLen ctxt =
   let t = tmpVar oprSize
   builder <! (t := dst)
   let r = tmpVar oprSize
-  let acc = getRegOfSize ctxt oprSize GrpEAX
+  let acc = getRegOfSize ctxt oprSize grpEAX
   let cond = tmpVar 1<rt>
   builder <! (r := acc .- t)
   builder <! (cond := acc == t)
@@ -2061,10 +2070,10 @@ let compareExchangeBytes ins insAddr insLen ctxt =
   match oprSize with
   | 64<rt> ->
     let dst = transOneOpr ins insAddr insLen ctxt dst
-    let edx = getRegOfSize ctxt 32<rt> GrpEDX
-    let eax = getRegOfSize ctxt 32<rt> GrpEAX
-    let ecx = getRegOfSize ctxt 32<rt> GrpECX
-    let ebx = getRegOfSize ctxt 32<rt> GrpEBX
+    let edx = getRegOfSize ctxt 32<rt> grpEDX
+    let eax = getRegOfSize ctxt 32<rt> grpEAX
+    let ecx = getRegOfSize ctxt 32<rt> grpECX
+    let ebx = getRegOfSize ctxt 32<rt> grpEBX
     let t = tmpVar oprSize
     builder <! (t := dst)
     builder <! (cond := concat edx eax == t)
@@ -2074,10 +2083,10 @@ let compareExchangeBytes ins insAddr insLen ctxt =
     builder <! (dst := ite cond (concat ecx ebx) t)
   | 128<rt> ->
     let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
-    let rdx = getRegOfSize ctxt 64<rt> GrpEDX
-    let rax = getRegOfSize ctxt 64<rt> GrpEAX
-    let rcx = getRegOfSize ctxt 64<rt> GrpECX
-    let rbx = getRegOfSize ctxt 64<rt> GrpEBX
+    let rdx = getRegOfSize ctxt 64<rt> grpEDX
+    let rax = getRegOfSize ctxt 64<rt> grpEAX
+    let rcx = getRegOfSize ctxt 64<rt> grpECX
+    let rbx = getRegOfSize ctxt 64<rt> grpEBX
     builder <! (cond := (dstB == rdx) .& (dstA == rax))
     builder <! (zf := cond)
     builder <! (rax := ite cond rax dstA)
@@ -2429,8 +2438,8 @@ let div ins insAddr insLen ctxt =
     builder <! (getRegVar ctxt R.AL := extractLow oprSize quotient)
     builder <! (getRegVar ctxt R.AH := extractLow oprSize remainder)
   | 16<rt> | 32<rt> | 64<rt> ->
-    let q = getRegOfSize ctxt oprSize GrpEAX
-    let r = getRegOfSize ctxt oprSize GrpEDX
+    let q = getRegOfSize ctxt oprSize grpEAX
+    let r = getRegOfSize ctxt oprSize grpEDX
     builder <! (dstAssign oprSize q (extractLow oprSize quotient))
     builder <! (dstAssign oprSize r (extractLow oprSize remainder))
   | _ -> raise InvalidOperandSizeException
@@ -3784,7 +3793,7 @@ let insinstr ins insAddr insLen ctxt =
     builder <! (di := ite df (di .- amount) (di .+ amount))
   if hasREPZ ins.Prefixes then
     strRepeat ctxt body None insAddr insLen builder
-  elif hasREPNZ ins.Prefixes then raise InvalidPrefixException
+  elif hasREPNZ ins.Prefixes then Utils.impossible ()
   else body ()
   endMark insAddr insLen builder
 
@@ -3848,13 +3857,13 @@ let lods ins insAddr insLen ctxt =
     let oprSize = getOperationSize ins
     let df = getRegVar ctxt R.DF
     let di = getRegVar ctxt (if is64bit ctxt then R.RDI else R.EDI)
-    let dst = getRegOfSize ctxt oprSize GrpEAX
+    let dst = getRegOfSize ctxt oprSize grpEAX
     builder <! (dst := loadLE oprSize di)
     let amount = numI32 (RegType.toByteWidth oprSize) ctxt.WordBitSize
     builder <! (di := ite df (di .- amount) (di .+ amount))
   if hasREPZ ins.Prefixes then
     strRepeat ctxt body None insAddr insLen builder
-  elif hasREPNZ ins.Prefixes then raise InvalidPrefixException
+  elif hasREPNZ ins.Prefixes then Utils.impossible ()
   else body ()
   endMark insAddr insLen builder
 
@@ -4193,7 +4202,7 @@ let movs ins insAddr insLen ctxt =
     builder <! (di := ite df (di .- amount) (di .+ amount))
   if hasREPZ ins.Prefixes then
     strRepeat ctxt body None insAddr insLen builder
-  elif hasREPNZ ins.Prefixes then raise InvalidPrefixException
+  elif hasREPNZ ins.Prefixes then Utils.impossible ()
   else body ()
   endMark insAddr insLen builder
 
@@ -4295,7 +4304,7 @@ let mul ins insAddr insLen ctxt =
   let builder = new StmtBuilder (16)
   let oprSize = getOperationSize ins
   let dblWidth = RegType.double oprSize
-  let src1 = zExt dblWidth (getRegOfSize ctxt oprSize GrpEAX)
+  let src1 = zExt dblWidth (getRegOfSize ctxt oprSize grpEAX)
   let src2 = zExt dblWidth (getOneOpr ins |> transOneOpr ins insAddr insLen ctxt)
   let t = tmpVar dblWidth
   startMark insAddr insLen builder
@@ -4304,8 +4313,8 @@ let mul ins insAddr insLen ctxt =
   match oprSize with
   | 8<rt> -> builder <! (getRegVar ctxt R.AX := t)
   | 16<rt> | 32<rt> | 64<rt> ->
-    builder <! (getRegOfSize ctxt oprSize GrpEDX := extractHigh oprSize t)
-    builder <! (getRegOfSize ctxt oprSize GrpEAX := extractLow oprSize t)
+    builder <! (getRegOfSize ctxt oprSize grpEDX := extractHigh oprSize t)
+    builder <! (getRegOfSize ctxt oprSize grpEAX := extractLow oprSize t)
   | _ -> raise InvalidOperandSizeException
   builder <! (cond := extractHigh oprSize t != (num0 oprSize))
   builder <! (getRegVar ctxt R.CF := cond)
@@ -4387,7 +4396,7 @@ let outs ins insAddr insLen ctxt =
     | _ -> raise InvalidOperandSizeException
   if hasREPZ ins.Prefixes then
     strRepeat ctxt body None insAddr insLen builder
-  elif hasREPNZ ins.Prefixes then raise InvalidPrefixException
+  elif hasREPNZ ins.Prefixes then Utils.impossible ()
   else body ()
   endMark insAddr insLen builder
 
@@ -5394,8 +5403,8 @@ let rdpkru ins insAddr insLen ctxt =
   let lblErr = lblSymbol "Err"
   let oprSize = getOperationSize ins
   let ecx = getRegVar ctxt R.ECX
-  let eax = getRegOfSize ctxt ctxt.WordBitSize GrpEAX
-  let edx = getRegOfSize ctxt ctxt.WordBitSize GrpEDX
+  let eax = getRegOfSize ctxt ctxt.WordBitSize grpEAX
+  let edx = getRegOfSize ctxt ctxt.WordBitSize grpEDX
   startMark insAddr insLen builder
   builder <! (CJmp (ecx == num0 oprSize, Name lblSucc, Name lblErr))
   builder <! (LMark lblErr)
@@ -5680,7 +5689,7 @@ let scas ins insAddr insLen ctxt =
     let oprSize = getOperationSize ins
     let t = tmpVar oprSize
     let df = getRegVar ctxt R.DF
-    let ax = getRegOfSize ctxt oprSize GrpEAX
+    let ax = getRegOfSize ctxt oprSize grpEAX
     let di = getRegVar ctxt (if is64bit ctxt then R.RDI else R.EDI)
     let tSrc = tmpVar oprSize
     builder <! (tSrc := loadLE oprSize di)
@@ -5776,13 +5785,13 @@ let stos ins insAddr insLen ctxt =
     let oprSize = getOperationSize ins
     let df = getRegVar ctxt R.DF
     let di = getRegVar ctxt (if is64bit ctxt then R.RDI else R.EDI)
-    let src = getRegOfSize ctxt oprSize GrpEAX
+    let src = getRegOfSize ctxt oprSize grpEAX
     builder <! (loadLE oprSize di := src)
     let amount = numI32 (RegType.toByteWidth oprSize) ctxt.WordBitSize
     builder <! (di := ite df (di .- amount) (di .+ amount))
   if hasREPZ ins.Prefixes then
     strRepeat ctxt body None insAddr insLen builder
-  elif hasREPNZ ins.Prefixes then raise InvalidPrefixException
+  elif hasREPNZ ins.Prefixes then Utils.impossible ()
   else body ()
   endMark insAddr insLen builder
 
@@ -6169,8 +6178,8 @@ let vdivss ins insAddr insLen ctxt =
 let getEVEXPrx = function
   | Some v -> match v.EVEXPrx with
               | Some ev -> ev
-              | None -> raise InvalidPrefixException
-  | None -> raise InvalidPrefixException
+              | None -> Utils.impossible ()
+  | None -> Utils.impossible ()
 
 let haveEVEXPrx = function
   | Some v -> Option.isSome v.EVEXPrx
@@ -8177,7 +8186,7 @@ let xlatb ins insAddr insLen ctxt =
   let builder = new StmtBuilder (4)
   let addressSize = getEffAddrSz ins
   let al = zExt addressSize (getRegVar ctxt R.AL)
-  let bx = getRegOfSize ctxt addressSize GrpEBX
+  let bx = getRegOfSize ctxt addressSize grpEBX
   startMark insAddr insLen builder
   builder <! (getRegVar ctxt R.AL := loadLE 8<rt> (al .+ bx))
   endMark insAddr insLen builder

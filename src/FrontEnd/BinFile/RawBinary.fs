@@ -33,8 +33,11 @@ open B2R2
 type RawFileInfo (bytes: byte [], path, isa, baseAddr) =
   inherit FileInfo ()
   let baseAddr = defaultArg baseAddr 0UL
+  let size = bytes.Length
+  let usize = uint64 size
+  let reader = BinReader.Init (bytes, isa.Endian)
 
-  override __.BinReader = BinReader.Init (bytes, isa.Endian)
+  override __.BinReader = reader
 
   override __.FileFormat = FileFormat.RawBinary
 
@@ -72,11 +75,11 @@ type RawFileInfo (bytes: byte [], path, isa, baseAddr) =
     Seq.singleton { Address = baseAddr
                     FileOffset = 0UL
                     Kind = SectionKind.ExecutableSection
-                    Size = uint64 bytes.LongLength
+                    Size = usize
                     Name = "" }
 
   override __.GetSections (addr: Addr) =
-    if addr >= baseAddr && addr < (baseAddr + uint64 bytes.LongLength) then
+    if addr >= baseAddr && addr < (baseAddr + usize) then
       __.GetSections ()
     else
       Seq.empty
@@ -87,7 +90,7 @@ type RawFileInfo (bytes: byte [], path, isa, baseAddr) =
 
   override __.GetSegments (_isLoadable) =
     Seq.singleton { Address = baseAddr
-                    Size = uint64 bytes.LongLength
+                    Size = usize
                     Permission = Permission.Readable ||| Permission.Executable }
 
   override __.GetLinkageTableEntries () = Seq.empty
@@ -99,13 +102,13 @@ type RawFileInfo (bytes: byte [], path, isa, baseAddr) =
   override __.ExceptionTable = ARMap.empty
 
   override __.ToBinaryPointer addr =
-    if addr = baseAddr then BinaryPointer (baseAddr, 0, bytes.Length)
+    if addr = baseAddr then BinaryPointer (baseAddr, 0, size)
     else BinaryPointer.Null
 
   override __.ToBinaryPointer (_name: string) = BinaryPointer.Null
 
   override __.IsValidAddr (addr) =
-    addr >= baseAddr && addr < (baseAddr + uint64 bytes.LongLength)
+    addr >= baseAddr && addr < (baseAddr + usize)
 
   override __.IsValidRange (range) =
     __.IsValidAddr range.Min && __.IsValidAddr (range.Max - 1UL)
@@ -117,7 +120,7 @@ type RawFileInfo (bytes: byte [], path, isa, baseAddr) =
   override __.IsExecutableAddr addr = __.IsValidAddr addr
 
   override __.GetNotInFileIntervals range =
-    let lastAddr = baseAddr + uint64 bytes.LongLength
+    let lastAddr = baseAddr + usize
     if range.Max <= baseAddr then Seq.singleton range
     elif range.Max <= lastAddr && range.Min < baseAddr then
       Seq.singleton (AddrRange (range.Min, baseAddr))

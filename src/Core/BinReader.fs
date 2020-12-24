@@ -81,8 +81,8 @@ type BinReader (bytes: byte []) =
 
   member inline private __.extendSign b offset currentValue bitmask maxLen =
     if b &&& 0x40uy <> 0uy then
-        let shiftOffset = if offset < (maxLen - 1) then offset + 1 else offset
-        bitmask <<< (7 * (shiftOffset)) ||| currentValue
+      let shiftOffset = if offset < (maxLen - 1) then offset + 1 else offset
+      bitmask <<< (7 * (shiftOffset)) ||| currentValue
     else
       currentValue
 

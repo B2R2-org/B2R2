@@ -73,7 +73,7 @@ let identifyFromBuffer bytes isa =
     yield! identifyPE bytes
     yield! identifyMach reader isa
     yield! identifyWASM reader isa
-    yield! Some (FileFormat.RawBinary, ISA.DefaultISA)
+    yield! Some (FileFormat.RawBinary, isa)
   } |> Option.get
 
 (* This is more than enough for all the file formats. *)
