@@ -26,7 +26,6 @@ namespace B2R2.FrontEnd.BinLifter.TMS320C6000
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open System.Text
 
 /// The internal representation for a TMS320C6000 instruction used by our
 /// disassembler and lifter.
@@ -66,38 +65,32 @@ type TMS320C6000Instruction (addr, numBytes, insInfo, ctxt) =
     __.IsDirectBranch () ||
     __.IsIndirectBranch ()
 
-  override __.DirectBranchTarget (addr: byref<Addr>) = Utils.futureFeature ()
+  override __.DirectBranchTarget (_addr: byref<Addr>) = Utils.futureFeature ()
 
-  override __.IndirectTrampolineAddr (addr: byref<Addr>) =
+  override __.IndirectTrampolineAddr (_addr: byref<Addr>) =
     Utils.futureFeature ()
 
   override __.GetNextInstrAddrs () = Utils.futureFeature ()
 
-  override __.InterruptNum (num: byref<int64>) = Utils.futureFeature ()
+  override __.InterruptNum (_num: byref<int64>) = Utils.futureFeature ()
 
   override __.IsNop () = Utils.futureFeature ()
 
   override __.Translate ctxt = Utils.futureFeature ()
 
-  member private __.StrBuilder _ (str: string) (acc: StringBuilder) =
-    acc.Append (str)
-
   override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
-    let acc = StringBuilder ()
-    let acc = Disasm.disasm showAddr __.Info __.StrBuilder acc
-    acc.ToString ()
+    let builder = DisasmStringBuilder ()
+    Disasm.disasm showAddr __.Info builder
+    builder.Finalize ()
 
   override __.Disasm () =
-    let acc = StringBuilder ()
-    let acc = Disasm.disasm false __.Info __.StrBuilder acc
-    acc.ToString ()
-
-  member private __.WordBuilder kind str (acc: AsmWordBuilder) =
-    acc.Append ({ AsmWordKind = kind; AsmWordValue = str })
+    let builder = DisasmStringBuilder ()
+    Disasm.disasm false __.Info builder
+    builder.Finalize ()
 
   override __.Decompose (showAddr) =
-    AsmWordBuilder (8)
-    |> Disasm.disasm showAddr __.Info __.WordBuilder
-    |> fun b -> b.Finish ()
+    let builder = DisasmWordBuilder (8)
+    Disasm.disasm showAddr __.Info builder
+    builder.Finalize ()
 
 // vim: set tw=80 sts=2 sw=2:

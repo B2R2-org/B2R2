@@ -277,91 +277,89 @@ let inline appendUnit insInfo opcode =
   | D2XUnit -> opcode + ".D2X"
   | NoUnit -> opcode
 
-let buildParallelPipe ins builder acc =
-  if ins.IsParallel then builder AsmWordKind.String "|| " acc
-  else acc
+let buildParallelPipe ins (builder: DisasmBuilder<_>) =
+  if ins.IsParallel then builder.Accumulate AsmWordKind.String "|| " else ()
 
-let inline buildOpcode ins builder acc =
+let inline buildOpcode ins (builder: DisasmBuilder<_>) =
   let str = opCodeToString ins.Opcode |> appendUnit ins
-  builder AsmWordKind.Mnemonic str acc
+  builder.Accumulate AsmWordKind.Mnemonic str
 
-let buildMemBase builder baseR acc = function
+let buildMemBase (builder: DisasmBuilder<_>) baseR = function
   | NegativeOffset ->
-    builder AsmWordKind.String "-" acc
-    |> builder AsmWordKind.Variable (Register.toString baseR)
+    builder.Accumulate AsmWordKind.String "-"
+    builder.Accumulate AsmWordKind.Variable (Register.toString baseR)
   | PositiveOffset ->
-    builder AsmWordKind.String "+" acc
-    |> builder AsmWordKind.Variable (Register.toString baseR)
+    builder.Accumulate AsmWordKind.String "+"
+    builder.Accumulate AsmWordKind.Variable (Register.toString baseR)
   | PreDecrement ->
-    builder AsmWordKind.String "--" acc
-    |> builder AsmWordKind.Variable (Register.toString baseR)
+    builder.Accumulate AsmWordKind.String "--"
+    builder.Accumulate AsmWordKind.Variable (Register.toString baseR)
   | PreIncrement ->
-    builder AsmWordKind.String "++" acc
-    |> builder AsmWordKind.Variable (Register.toString baseR)
+    builder.Accumulate AsmWordKind.String "++"
+    builder.Accumulate AsmWordKind.Variable (Register.toString baseR)
   | PostDecrement ->
-    builder AsmWordKind.Variable (Register.toString baseR) acc
-    |> builder AsmWordKind.String "--"
+    builder.Accumulate AsmWordKind.Variable (Register.toString baseR)
+    builder.Accumulate AsmWordKind.String "--"
   | PostIncrement ->
-    builder AsmWordKind.Variable (Register.toString baseR) acc
-    |> builder AsmWordKind.String "++"
+    builder.Accumulate AsmWordKind.Variable (Register.toString baseR)
+    builder.Accumulate AsmWordKind.String "++"
 
-let private offsetToString builder offset acc =
+let private offsetToString (builder: DisasmBuilder<_>) offset =
   match offset with
-  | UCst5 i -> builder AsmWordKind.Value (i.ToString()) acc
-  | UCst15 i -> builder AsmWordKind.Value (i.ToString()) acc
-  | OffsetR reg -> builder AsmWordKind.Variable (Register.toString reg) acc
+  | UCst5 i -> builder.Accumulate AsmWordKind.Value (i.ToString())
+  | UCst15 i -> builder.Accumulate AsmWordKind.Value (i.ToString())
+  | OffsetR r -> builder.Accumulate AsmWordKind.Variable (Register.toString r)
 
-let private buildMemOffset builder offset acc =
+let private buildMemOffset (builder: DisasmBuilder<_>) offset =
   match offset with
-  | UCst5 0UL -> acc
+  | UCst5 0UL -> ()
   | offset ->
-    builder AsmWordKind.String "[" acc
-    |> offsetToString builder offset
-    |> builder AsmWordKind.String "]"
+    builder.Accumulate AsmWordKind.String "["
+    offsetToString builder offset
+    builder.Accumulate AsmWordKind.String "]"
 
-let memToString builder baseR modification offset acc =
-  buildMemBase builder baseR acc modification
-  |> buildMemOffset builder offset
+let memToString builder baseR modification offset =
+  buildMemBase builder baseR modification
+  buildMemOffset builder offset
 
-let oprToString insInfo opr delim builder acc =
+let oprToString opr delim (builder: DisasmBuilder<_>) =
   match opr with
   | OpReg reg ->
-    builder AsmWordKind.String delim acc
-    |> builder AsmWordKind.Variable (Register.toString reg)
+    builder.Accumulate AsmWordKind.String delim
+    builder.Accumulate AsmWordKind.Variable (Register.toString reg)
   | RegisterPair (r1, r2) ->
-    builder AsmWordKind.String delim acc
-    |> builder AsmWordKind.Variable (Register.toString r1)
-    |> builder AsmWordKind.String ":"
-    |> builder AsmWordKind.Variable (Register.toString r2)
+    builder.Accumulate AsmWordKind.String delim
+    builder.Accumulate AsmWordKind.Variable (Register.toString r1)
+    builder.Accumulate AsmWordKind.String ":"
+    builder.Accumulate AsmWordKind.Variable (Register.toString r2)
   | OprMem (baseR, modification, offset) ->
-    builder AsmWordKind.String delim acc
-    |> builder AsmWordKind.String " *"
-    |> memToString builder baseR modification offset
+    builder.Accumulate AsmWordKind.String delim
+    builder.Accumulate AsmWordKind.String " *"
+    memToString builder baseR modification offset
   | Immediate imm ->
-    builder AsmWordKind.String delim acc
-    |> builder AsmWordKind.Value (String.u64ToHex imm)
+    builder.Accumulate AsmWordKind.String delim
+    builder.Accumulate AsmWordKind.Value (String.u64ToHex imm)
 
-let buildOprs insInfo builder acc =
+let buildOprs insInfo builder =
   match insInfo.Operands with
-  | NoOperand -> acc
+  | NoOperand -> ()
   | OneOperand opr ->
-    oprToString insInfo opr " " builder acc
+    oprToString opr " " builder
   | TwoOperands (opr1, opr2) ->
-    oprToString insInfo opr1 " " builder acc
-    |> oprToString insInfo opr2 ", " builder
+    oprToString opr1 " " builder
+    oprToString opr2 ", " builder
   | ThreeOperands (opr1, opr2, opr3) ->
-    oprToString insInfo opr1 " " builder acc
-    |> oprToString insInfo opr2 ", " builder
-    |> oprToString insInfo opr3 ", " builder
+    oprToString opr1 " " builder
+    oprToString opr2 ", " builder
+    oprToString opr3 ", " builder
   | FourOperands (opr1, opr2, opr3, opr4) ->
-    oprToString insInfo opr1 " " builder acc
-    |> oprToString insInfo opr2 ", " builder
-    |> oprToString insInfo opr3 ", " builder
-    |> oprToString insInfo opr4 ", " builder
+    oprToString opr1 " " builder
+    oprToString opr2 ", " builder
+    oprToString opr3 ", " builder
+    oprToString opr4 ", " builder
 
-let disasm showAddr insInfo builder acc =
-  let pc = insInfo.Address
-  DisasmBuilder.addr pc WordSize.Bit32 showAddr builder acc
-  |> buildParallelPipe insInfo builder
-  |> buildOpcode insInfo builder
-  |> buildOprs insInfo builder
+let disasm showAddr insInfo (builder: DisasmBuilder<_>) =
+  builder.AccumulateAddr insInfo.Address WordSize.Bit32 showAddr
+  buildParallelPipe insInfo builder
+  buildOpcode insInfo builder
+  buildOprs insInfo builder

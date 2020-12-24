@@ -26,20 +26,20 @@ namespace B2R2.FrontEnd.BinLifter.Intel
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open System.Text
+
+module private Dummy =
+  let ctxt = ParsingContext.Init ()
+  let helper = DisasmHelper ()
 
 /// The internal representation for an Intel instruction used by our
 /// disassembler and lifter.
 type IntelInstruction (addr, len, insInfo, wordSz) =
   inherit Instruction (addr, len, wordSz)
 
-  let defaultCtxt = ParsingContext.Init ()
-  let dummyHelper = DisasmHelper ()
-
   /// Basic instruction info.
   member val Info: InsInfo = insInfo
 
-  override __.NextParsingContext with get() = defaultCtxt
+  override __.NextParsingContext with get() = Dummy.ctxt
 
   override __.AuxParsingContext with get() = None
 
@@ -108,7 +108,7 @@ type IntelInstruction (addr, len, insInfo, wordSz) =
   override __.DirectBranchTarget (addr: byref<Addr>) =
     if __.IsBranch () then
       match __.Info.Operands with
-      | OneOperand (OprDirAddr (Absolute (_))) -> failwith "Implement" // XXX
+      | OneOperand (OprDirAddr (Absolute (_))) -> Utils.futureFeature ()
       | OneOperand (OprDirAddr (Relative offset)) ->
         addr <- (int64 __.Address + offset) |> uint64
         true
@@ -158,26 +158,20 @@ type IntelInstruction (addr, len, insInfo, wordSz) =
   override __.Translate ctxt =
     Lifter.translate __.Info addr len ctxt
 
-  member private __.StrBuilder _ (str: string) (sb: StringBuilder) =
-    sb.Append str
-
   override __.Disasm (showAddr, resolveSymbol, disasmHelper) =
-    let helper = if resolveSymbol then disasmHelper else dummyHelper
-    StringBuilder ()
-    |> Disasm.disasm showAddr wordSz helper __.Info addr len __.StrBuilder
-    |> fun sb -> sb.ToString ()
+    let helper = if resolveSymbol then disasmHelper else Dummy.helper
+    let builder = DisasmStringBuilder ()
+    Disasm.disasm showAddr wordSz helper __.Info addr len builder
+    builder.Finalize ()
 
   override __.Disasm () =
-    StringBuilder ()
-    |> Disasm.disasm false wordSz dummyHelper __.Info addr len __.StrBuilder
-    |> fun sb -> sb.ToString ()
-
-  member private __.WordBuilder kind str (acc: AsmWordBuilder) =
-    acc.Append ({ AsmWordKind = kind; AsmWordValue = str })
+    let builder = DisasmStringBuilder ()
+    Disasm.disasm false wordSz Dummy.helper __.Info addr len builder
+    builder.Finalize ()
 
   override __.Decompose (showAddr) =
-    AsmWordBuilder (8)
-    |> Disasm.disasm showAddr wordSz dummyHelper __.Info addr len __.WordBuilder
-    |> fun b -> b.Finish ()
+    let builder = DisasmWordBuilder (8)
+    Disasm.disasm showAddr wordSz Dummy.helper __.Info addr len builder
+    builder.Finalize ()
 
 // vim: set tw=80 sts=2 sw=2:

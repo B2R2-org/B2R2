@@ -1518,7 +1518,11 @@ module Register = begin
     | R.K6 -> "K6"
     | R.K7 -> "K7"
     | R.PKRU -> "PKRU"
+#if DEBUG
     | _ -> Utils.impossible ()
+#else
+    | _ -> "?"
+#endif
 
   let toRegType = function
     | R.MM0 | R.MM1 | R.MM2 | R.MM3 | R.MM4 | R.MM5 | R.MM6 | R.MM7

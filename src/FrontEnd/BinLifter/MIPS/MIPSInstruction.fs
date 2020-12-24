@@ -26,7 +26,6 @@ namespace B2R2.FrontEnd.BinLifter.MIPS
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open System.Text
 
 /// The internal representation for a MIPS instruction used by our
 /// disassembler and lifter.
@@ -94,13 +93,13 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
       | _ -> false
     else false
 
-  override __.IndirectTrampolineAddr (addr: byref<Addr>) =
+  override __.IndirectTrampolineAddr (_addr: byref<Addr>) =
     if __.IsBranch () then Utils.futureFeature ()
     else false
 
   override __.GetNextInstrAddrs () = Utils.futureFeature ()
 
-  override __.InterruptNum (num: byref<int64>) = Utils.futureFeature ()
+  override __.InterruptNum (_num: byref<int64>) = Utils.futureFeature ()
 
   override __.IsNop () =
     __.Info.Opcode = Opcode.NOP
@@ -108,25 +107,19 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
   override __.Translate ctxt =
     Lifter.translate __.Info ctxt
 
-  member private __.StrBuilder _ (str: string) (acc: StringBuilder) =
-    acc.Append (str)
-
   override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
-    let acc = StringBuilder ()
-    let acc = Disasm.disasm showAddr wordSize __.Info __.StrBuilder acc
-    acc.ToString ()
+    let builder = DisasmStringBuilder ()
+    Disasm.disasm showAddr wordSize __.Info builder
+    builder.Finalize ()
 
   override __.Disasm () =
-    let acc = StringBuilder ()
-    let acc = Disasm.disasm false wordSize __.Info __.StrBuilder acc
-    acc.ToString ()
-
-  member private __.WordBuilder kind str (acc: AsmWordBuilder) =
-    acc.Append ({ AsmWordKind = kind; AsmWordValue = str })
+    let builder = DisasmStringBuilder ()
+    Disasm.disasm false wordSize __.Info builder
+    builder.Finalize ()
 
   override __.Decompose (showAddr) =
-    AsmWordBuilder (8)
-    |> Disasm.disasm showAddr wordSize __.Info __.WordBuilder
-    |> fun b -> b.Finish ()
+    let builder = DisasmWordBuilder (8)
+    Disasm.disasm showAddr wordSize __.Info builder
+    builder.Finalize ()
 
 // vim: set tw=80 sts=2 sw=2:

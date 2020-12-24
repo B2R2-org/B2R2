@@ -26,7 +26,6 @@ namespace B2R2.FrontEnd.BinLifter.ARM32
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open System.Text
 
 /// The internal representation for an ARM32 instruction used by our
 /// disassembler and lifter.
@@ -146,7 +145,7 @@ type ARM32Instruction (addr, numBytes, insInfo, ctxt, auxctxt) =
     elif __.Info.Opcode = Opcode.HLT then Seq.empty
     else acc
 
-  override __.InterruptNum (num: byref<int64>) = Utils.futureFeature ()
+  override __.InterruptNum (_num: byref<int64>) = Utils.futureFeature ()
 
   override __.IsNop () =
     __.Info.Opcode = Op.NOP
@@ -154,26 +153,20 @@ type ARM32Instruction (addr, numBytes, insInfo, ctxt, auxctxt) =
   override __.Translate ctxt =
     Lifter.translate __.Info ctxt
 
-  member private __.StrBuilder _ (str: string) (acc: StringBuilder) =
-    acc.Append (str)
-
   override __.Disasm (showAddr, resolveSymbol, disasmHelper) =
     let helper = if resolveSymbol then disasmHelper else dummyHelper
-    let acc = StringBuilder ()
-    let acc = Disasm.disasm showAddr helper __.Info __.StrBuilder acc
-    acc.ToString ()
+    let builder = DisasmStringBuilder ()
+    Disasm.disasm showAddr helper __.Info builder
+    builder.Finalize ()
 
   override __.Disasm () =
-    let acc = StringBuilder ()
-    let acc = Disasm.disasm false dummyHelper __.Info __.StrBuilder acc
-    acc.ToString ()
-
-  member private __.WordBuilder kind str (acc: AsmWordBuilder) =
-    acc.Append ({ AsmWordKind = kind; AsmWordValue = str })
+    let builder = DisasmStringBuilder ()
+    Disasm.disasm false dummyHelper __.Info builder
+    builder.Finalize ()
 
   override __.Decompose (showAddr) =
-    AsmWordBuilder (8)
-    |> Disasm.disasm showAddr dummyHelper __.Info __.WordBuilder
-    |> fun b -> b.Finish ()
+    let builder = DisasmWordBuilder (8)
+    Disasm.disasm showAddr dummyHelper __.Info builder
+    builder.Finalize ()
 
 // vim: set tw=80 sts=2 sw=2:

@@ -93,7 +93,7 @@ module RegType =
   let toByteWidth t =
     let t = toBitWidth t
     if t % 8 = 0 then t / 8
-    else failwith "Failed to get byte width."
+    else Utils.impossible ()
 
   /// <summary>
   ///   Get the corresponding integer RegType from the given bit width. When a

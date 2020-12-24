@@ -26,7 +26,6 @@ namespace B2R2.FrontEnd.BinLifter.EVM
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
-open System.Text
 
 /// The internal representation for a EVM instruction used by our
 /// disassembler and lifter.
@@ -92,9 +91,9 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
     || __.Info.Opcode = Opcode.INVALID
     || __.Info.Opcode = Opcode.STOP
 
-  override __.DirectBranchTarget (addr: byref<Addr>) = false
+  override __.DirectBranchTarget (_addr: byref<Addr>) = false
 
-  override __.IndirectTrampolineAddr (addr: byref<Addr>) =
+  override __.IndirectTrampolineAddr (_addr: byref<Addr>) =
     // FIXME
     false
 
@@ -104,32 +103,26 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
     if __.IsHaltingInstruction () then Seq.empty
     else acc
 
-  override __.InterruptNum (num: byref<int64>) = Utils.futureFeature ()
+  override __.InterruptNum (_num: byref<int64>) = Utils.futureFeature ()
 
   override __.IsNop () = false
 
   override __.Translate ctxt =
     Lifter.translate __.Info ctxt
 
-  member private __.StrBuilder _ (str: string) (acc: StringBuilder) =
-    acc.Append (str)
-
   override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
-    StringBuilder ()
-    |> Disasm.disasm showAddr __.Info __.StrBuilder
-    |> fun acc -> acc.ToString ()
+    let builder = DisasmStringBuilder ()
+    Disasm.disasm showAddr __.Info builder
+    builder.Finalize ()
 
   override __.Disasm () =
-    StringBuilder ()
-    |> Disasm.disasm false __.Info __.StrBuilder
-    |> fun acc -> acc.ToString ()
-
-  member private __.WordBuilder kind str (acc: AsmWordBuilder) =
-    acc.Append ({ AsmWordKind = kind; AsmWordValue = str })
+    let builder = DisasmStringBuilder ()
+    Disasm.disasm false __.Info builder
+    builder.Finalize ()
 
   override __.Decompose (showAddr) =
-    AsmWordBuilder (8)
-    |> Disasm.disasm showAddr __.Info __.WordBuilder
-    |> fun b -> b.Finish ()
+    let builder = DisasmWordBuilder (8)
+    Disasm.disasm showAddr __.Info builder
+    builder.Finalize ()
 
 // vim: set tw=80 sts=2 sw=2:
