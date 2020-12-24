@@ -37,7 +37,7 @@ type IntelInstruction (addr, len, insInfo, wordSz) =
   inherit Instruction (addr, len, wordSz)
 
   /// Basic instruction info.
-  member val Info: InsInfo = insInfo
+  member __.Info with get(): InsInfo = insInfo
 
   override __.NextParsingContext with get() = Dummy.ctxt
 

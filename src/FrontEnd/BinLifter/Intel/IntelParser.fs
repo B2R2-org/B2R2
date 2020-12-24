@@ -31,6 +31,14 @@ open B2R2.FrontEnd.BinLifter.Intel.RegGroup
 open B2R2.FrontEnd.BinLifter.Intel.Helper
 open B2R2.FrontEnd.BinLifter.Intel.Constants
 
+#if !EMULATION
+let inline ensure32 (t: TemporaryInfo) =
+  if WordSize.is64 t.TWordSize then raise ParsingFailureException else ()
+
+let inline ensure64 (t: TemporaryInfo) =
+  if WordSize.is32 t.TWordSize then raise ParsingFailureException else ()
+#endif
+
 let rec prefixLoop (reader: BinReader) pos acc =
   let nextPos = pos + 1
   match reader.PeekByte pos with
@@ -77,12 +85,6 @@ let selectREX vexInfo rexPref =
   | Some v -> v.VREXPrefix
 
 let inline is64bit t = t.TWordSize = WordSize.Bit64
-
-let is64bitWithOprSz t =
-  is64bit t && hasOprSz t.TPrefixes
-
-let is64bitWithAddrSz t =
-  is64bit t && hasAddrSz t.TPrefixes
 
 let hasNoPref t = (int t.TPrefixes) = 0
 
@@ -4605,7 +4607,7 @@ let parseOpAndOprKindByOpGrp7 t (rhlp: ReadHelper) b regBits =
       rhlp.IncPos (); struct (Opcode.WRPKRU, opNo, szDef, SzCond.Nor)
     | 0b110, _     -> struct (Opcode.LMSW, opMem, szMemW, SzCond.Nor)
     | 0b111, 0b000 ->
-#if DEBUG
+#if !EMULATION
       ensure32 t
 #endif
       rhlp.IncPos (); struct (Opcode.SWAPGS, opNo, szDef, SzCond.Nor)
@@ -4757,7 +4759,7 @@ let parseOpAndOprKindByGrp t (rhlp: ReadHelper) fnOpr fnSize oprGrp =
   match oprGrp with
   | OpGroup.G1 -> struct (grp1Op r, fnOpr, fnSize, SzCond.Nor)
   | OpGroup.G1Inv64 ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     struct (grp1Op r, fnOpr, fnSize, SzCond.Nor)
@@ -5058,13 +5060,13 @@ let pTwoByteOp t (rhlp: ReadHelper) byte =
   | 0x02uy -> render t rhlp Opcode.LAR SzCond.Nor opGprRm szWV
   | 0x03uy -> render t rhlp Opcode.LSL SzCond.Nor opGprRm szWV
   | 0x05uy ->
-#if DEBUG
+#if !EMULATION
     ensure64 t
 #endif
     render t rhlp Opcode.SYSCALL SzCond.Nor opNo szDef
   | 0x06uy -> render t rhlp Opcode.CLTS SzCond.Nor opNo szDef
   | 0x07uy ->
-#if DEBUG
+#if !EMULATION
     ensure64 t
 #endif
     render t rhlp Opcode.SYSRET SzCond.Nor opNo szDef
@@ -5311,12 +5313,12 @@ let pOneByteOpcode t rhlp byte =
   | 0x04uy -> render t rhlp Opcode.ADD SzCond.Nor opRegImm8 szByte
   | 0x05uy -> render t rhlp Opcode.ADD SzCond.Nor opRegImm szDef
   | 0x06uy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.PUSH SzCond.Nor opEs szRegW
   | 0x07uy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.POP SzCond.Nor opEs szRegW
@@ -5327,7 +5329,7 @@ let pOneByteOpcode t rhlp byte =
   | 0x0Cuy -> render t rhlp Opcode.OR SzCond.Nor opRegImm8 szByte
   | 0x0Duy -> render t rhlp Opcode.OR SzCond.Nor opRegImm szDef
   | 0x0Euy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.PUSH SzCond.Nor opCs szRegW
@@ -5338,12 +5340,12 @@ let pOneByteOpcode t rhlp byte =
   | 0x14uy -> render t rhlp Opcode.ADC SzCond.Nor opRegImm8 szByte
   | 0x15uy -> render t rhlp Opcode.ADC SzCond.Nor opRegImm szDef
   | 0x16uy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.PUSH SzCond.Nor opSs szRegW
   | 0x17uy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.POP SzCond.Nor opSs szRegW
@@ -5354,12 +5356,12 @@ let pOneByteOpcode t rhlp byte =
   | 0x1Cuy -> render t rhlp Opcode.SBB SzCond.Nor opRegImm8 szByte
   | 0x1Duy -> render t rhlp Opcode.SBB SzCond.Nor opRegImm szDef
   | 0x1Euy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.PUSH SzCond.Nor opDs szRegW
   | 0x1Fuy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.POP SzCond.Nor opDs szRegW
@@ -5370,7 +5372,7 @@ let pOneByteOpcode t rhlp byte =
   | 0x24uy -> render t rhlp Opcode.AND SzCond.Nor opRegImm8 szByte
   | 0x25uy -> render t rhlp Opcode.AND SzCond.Nor opRegImm szDef
   | 0x27uy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.DAA SzCond.Nor opNo szDef
@@ -5381,7 +5383,7 @@ let pOneByteOpcode t rhlp byte =
   | 0x2Cuy -> render t rhlp Opcode.SUB SzCond.Nor opRegImm8 szByte
   | 0x2Duy -> render t rhlp Opcode.SUB SzCond.Nor opRegImm szDef
   | 0x2Fuy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.DAS SzCond.Nor opNo szDef
@@ -5392,7 +5394,7 @@ let pOneByteOpcode t rhlp byte =
   | 0x34uy -> render t rhlp Opcode.XOR SzCond.Nor opRegImm8 szByte
   | 0x35uy -> render t rhlp Opcode.XOR SzCond.Nor opRegImm szDef
   | 0x37uy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.AAA SzCond.Nor opNo szDef
@@ -5403,87 +5405,87 @@ let pOneByteOpcode t rhlp byte =
   | 0x3Cuy -> render t rhlp Opcode.CMP SzCond.Nor opRegImm8 szByte
   | 0x3Duy -> render t rhlp Opcode.CMP SzCond.Nor opRegImm szDef
   | 0x3Fuy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.AAS SzCond.Nor opNo szDef
   | 0x40uy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.INC SzCond.Nor opEax szDef
   | 0x41uy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.INC SzCond.Nor opEcx szDef
   | 0x42uy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.INC SzCond.Nor opEdx szDef
   | 0x43uy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.INC SzCond.Nor opEbx szDef
   | 0x44uy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.INC SzCond.Nor opEsp szDef
   | 0x45uy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.INC SzCond.Nor opEbp szDef
   | 0x46uy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.INC SzCond.Nor opEsi szDef
   | 0x47uy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.INC SzCond.Nor opEdi szDef
   | 0x48uy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.DEC SzCond.Nor opEax szDef
   | 0x49uy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.DEC SzCond.Nor opEcx szDef
   | 0x4Auy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.DEC SzCond.Nor opEdx szDef
   | 0x4Buy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.DEC SzCond.Nor opEbx szDef
   | 0x4Cuy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.DEC SzCond.Nor opEsp szDef
   | 0x4Duy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.DEC SzCond.Nor opEbp szDef
   | 0x4Euy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.DEC SzCond.Nor opEsi szDef
   | 0x4Fuy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.DEC SzCond.Nor opEdi szDef
@@ -5504,28 +5506,28 @@ let pOneByteOpcode t rhlp byte =
   | 0x5Euy -> render t rhlp Opcode.POP SzCond.D64 opRsi szD64
   | 0x5Fuy -> render t rhlp Opcode.POP SzCond.D64 opRdi szD64
   | 0x60uy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     if hasOprSz t.TPrefixes then
       render t rhlp Opcode.PUSHA SzCond.Nor opNo szDef
     else render t rhlp Opcode.PUSHAD SzCond.Nor opNo szDef
   | 0x61uy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     if hasOprSz t.TPrefixes then
       render t rhlp Opcode.POPA SzCond.Nor opNo szDef
     else render t rhlp Opcode.POPAD SzCond.Nor opNo szDef
   | 0x62uy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.BOUND SzCond.Nor opGprM szDef
   | 0x63uy ->
-    if is64bit t && not (hasREXW t.TREXPrefix) then
-      raise ParsingFailureException
-    elif is64bit t then render t rhlp Opcode.MOVSXD SzCond.Nor opGprRm szDV
+    if is64bit t then
+      if not (hasREXW t.TREXPrefix) then raise ParsingFailureException
+      else render t rhlp Opcode.MOVSXD SzCond.Nor opGprRm szDV
     else render t rhlp Opcode.ARPL SzCond.Nor opRmGpr szWord
   | 0x68uy -> render t rhlp Opcode.PUSH SzCond.D64 opImm szDef
   | 0x69uy -> render t rhlp Opcode.IMUL SzCond.Nor opGprRmImm szDef
@@ -5593,23 +5595,21 @@ let pOneByteOpcode t rhlp byte =
       render t rhlp Opcode.CQO SzCond.Nor opNo szDef
     else render t rhlp Opcode.CDQ SzCond.Nor opNo szDef
   | 0x9Auy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render (addBND t) rhlp Opcode.CALLFar SzCond.Nor opDir szP
   | 0x9Buy -> render t rhlp Opcode.WAIT SzCond.Nor opNo szDef
   | 0x9Cuy ->
-    if is64bitWithOprSz t then
-      render t rhlp Opcode.PUSHF SzCond.D64 opNo szDef
-    elif hasOprSz t.TPrefixes then
-      render t rhlp Opcode.PUSHF SzCond.Nor opNo szDef
+    if hasOprSz t.TPrefixes then
+      let szcond = if is64bit t then SzCond.D64 else SzCond.Nor
+      render t rhlp Opcode.PUSHF szcond opNo szDef
     elif is64bit t then render t rhlp Opcode.PUSHFQ SzCond.D64 opNo szDef
     else render t rhlp Opcode.PUSHFD SzCond.Nor opNo szDef
   | 0x9Duy ->
-    if is64bitWithOprSz t then
-      render t rhlp Opcode.POPF SzCond.D64 opNo szDef
-    elif hasOprSz t.TPrefixes then
-      render t rhlp Opcode.POPF SzCond.Nor opNo szDef
+    if hasOprSz t.TPrefixes then
+      let szcond = if is64bit t then SzCond.D64 else SzCond.Nor
+      render t rhlp Opcode.POPF szcond opNo szDef
     elif is64bit t then render t rhlp Opcode.POPFQ SzCond.D64 opNo szDef
     else render t rhlp Opcode.POPFD SzCond.Nor opNo szDef
   | 0x9Euy -> render t rhlp Opcode.SAHF SzCond.Nor opNo szDef
@@ -5675,12 +5675,12 @@ let pOneByteOpcode t rhlp byte =
     render (addBND t) rhlp Opcode.RETNearImm SzCond.F64 opImm16 szDef
   | 0xC3uy -> render (addBND t) rhlp Opcode.RETNear SzCond.F64 opNo szDef
   | 0xC4uy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.LES SzCond.Nor opGprM szPZ
   | 0xC5uy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.LDS SzCond.Nor opGprM szPZ
@@ -5691,7 +5691,7 @@ let pOneByteOpcode t rhlp byte =
   | 0xCCuy -> render t rhlp Opcode.INT3 SzCond.Nor opNo szDef
   | 0xCDuy -> render t rhlp Opcode.INT SzCond.Nor opImm8 szDef
   | 0xCEuy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.INTO SzCond.Nor opNo szDef
@@ -5702,12 +5702,12 @@ let pOneByteOpcode t rhlp byte =
       render t rhlp Opcode.IRETQ SzCond.Nor opNo szDef
     else render t rhlp Opcode.IRETD SzCond.Nor opNo szDef
   | 0xD4uy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.AAM SzCond.Nor opImm8 szDef
   | 0xD5uy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render t rhlp Opcode.AAD SzCond.Nor opImm8 szDef
@@ -5724,10 +5724,9 @@ let pOneByteOpcode t rhlp byte =
   | 0xE1uy -> render t rhlp Opcode.LOOPE SzCond.F64 opRel8 szByte
   | 0xE2uy -> render t rhlp Opcode.LOOP SzCond.F64 opRel8 szByte
   | 0xE3uy ->
-    if is64bitWithAddrSz t then
-      render t rhlp Opcode.JECXZ SzCond.F64 opRel8 szByte
-    elif hasAddrSz t.TPrefixes then
-      render t rhlp Opcode.JCXZ SzCond.F64 opRel8 szByte
+    if hasAddrSz t.TPrefixes then
+      let opcode = if is64bit t then Opcode.JECXZ else Opcode.JCXZ
+      render t rhlp opcode SzCond.F64 opRel8 szByte
     elif is64bit t then render t rhlp Opcode.JRCXZ SzCond.F64 opRel8 szByte
     else render t rhlp Opcode.JECXZ SzCond.F64 opRel8 szByte
   | 0xE4uy -> render t rhlp Opcode.IN SzCond.Nor opRegImm8 szByte
@@ -5737,7 +5736,7 @@ let pOneByteOpcode t rhlp byte =
   | 0xE8uy -> render (addBND t) rhlp Opcode.CALLNear SzCond.F64 opRel szD64
   | 0xE9uy -> render (addBND t) rhlp Opcode.JMPNear SzCond.F64 opRel szD64
   | 0xEAuy ->
-#if DEBUG
+#if !EMULATION
     ensure32 t
 #endif
     render (addBND t) rhlp Opcode.JMPFar SzCond.Nor opDir szP

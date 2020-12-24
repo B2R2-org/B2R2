@@ -1455,7 +1455,7 @@ module Intel =
   [<TestClass>]
   type ExceptionTestClass () =
     [<TestMethod>]
-#if DEBUG
+#if !EMULATION
     [<ExpectedException(typedefof<ParsingFailureException>)>]
 #else
     [<ExpectedException(typedefof<System.IndexOutOfRangeException>)>]

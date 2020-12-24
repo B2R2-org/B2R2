@@ -76,14 +76,6 @@ type ReadHelper (r, addr, ipos, cpos) =
   member inline __.ReadUInt64 () = let v = r.PeekUInt64 cpos in __.ModCPos 8; v
   member inline __.ParsedLen () = cpos - ipos
 
-#if DEBUG
-let inline ensure32 (t: TemporaryInfo) =
-  if WordSize.is64 t.TWordSize then raise ParsingFailureException else ()
-
-let inline ensure64 (t: TemporaryInfo) =
-  if WordSize.is32 t.TWordSize then raise ParsingFailureException else ()
-#endif
-
 let inline hasREXW rexPref = rexPref &&& REXPrefix.REXW = REXPrefix.REXW
 
 let inline hasREXR rexPref = rexPref &&& REXPrefix.REXR = REXPrefix.REXR
