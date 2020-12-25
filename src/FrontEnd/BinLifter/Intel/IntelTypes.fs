@@ -269,6 +269,21 @@ type InstrSize = {
   OperationSize: RegType
 }
 
+/// Mandatory prefixes. The 66H, F2H, and F3H prefixes are mandatory for opcode
+/// extensions.
+type MPref =
+  /// Indicates the use of 66/F2/F3 prefixes (beyond those already part of the
+  /// instructions opcode) are not allowed with the instruction.
+  | MPrxNP = 0
+  /// 66 prefix.
+  | MPrx66 = 1
+  /// F3 prefix.
+  | MPrxF3 = 2
+  /// F2 prefix.
+  | MPrxF2 = 3
+  /// 66 & F2 prefix.
+  | MPrx66F2 = 4
+
 /// Basic information obtained by parsing an Intel instruction.
 [<NoComparison; CustomEquality>]
 type InsInfo = {

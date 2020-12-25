@@ -16,7 +16,6 @@
     <Compile Include="IntelRegExprs.fs" />
     <Compile Include="IntelRegisterBay.fs" />
     <Compile Include="IntelHelper.fs" />
-    <Compile Include="IntelConstants.fs" />
     <Compile Include="IntelDisasm.fs" />
     <Compile Include="IntelLifter.fs" />
     <Compile Include="IntelInstruction.fs" />

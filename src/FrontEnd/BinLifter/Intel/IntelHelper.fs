@@ -90,6 +90,24 @@ let inline hasREPNZ p = p &&& Prefix.PrxREPNZ = Prefix.PrxREPNZ
 
 let inline hasLock p = p &&& Prefix.PrxLOCK = Prefix.PrxLOCK
 
+let inline is64bit t = t.TWordSize = WordSize.Bit64
+
+let inline hasNoPref t = (int t.TPrefixes) = 0
+
+let inline hasNoREX t = t.TREXPrefix = REXPrefix.NOREX
+
+let inline getMod (byte: byte) = (int byte >>> 6) &&& 0b11
+
+let inline getReg (byte: byte) = (int byte >>> 3) &&& 0b111
+
+let inline getRM (byte: byte) = (int byte) &&& 0b111
+
+let inline getSTReg n = Register.make n Register.Kind.FPU |> OprReg
+
+let inline modIsMemory b = (getMod b) <> 0b11
+
+let inline modIsReg b = (getMod b) = 0b11
+
 /// Filter out segment-related prefixes.
 let [<Literal>] clearSegMask: Prefix = EnumOfValue 0xFC0F
 

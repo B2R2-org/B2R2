@@ -29,7 +29,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.Intel
 open B2R2.FrontEnd.BinLifter.Intel.RegGroup
 open B2R2.FrontEnd.BinLifter.Intel.Helper
-open B2R2.FrontEnd.BinLifter.Intel.Constants
+open LanguagePrimitives
 
 #if !EMULATION
 let inline ensure32 (t: TemporaryInfo) =
@@ -37,6 +37,11 @@ let inline ensure32 (t: TemporaryInfo) =
 
 let inline ensure64 (t: TemporaryInfo) =
   if WordSize.is32 t.TWordSize then raise ParsingFailureException else ()
+
+let inline ensureVEX128 (t: TemporaryInfo) =
+  match t.TVEXInfo with
+  | Some { VectorLength = 256<rt> } -> raise ParsingFailureException
+  | _ -> ()
 #endif
 
 let rec prefixLoop (reader: BinReader) pos acc =
@@ -69,28 +74,96 @@ let rec prefixLoop (reader: BinReader) pos acc =
 let inline parsePrefix reader pos =
   prefixLoop reader pos Prefix.PrxNone
 
-let getREX (reader: BinReader) pos =
-  let rb = reader.PeekByte pos |> int |> LanguagePrimitives.EnumOfValue
-  if rb >= REXPrefix.REX && rb <= REXPrefix.REXWRXB then
-    struct (rb, pos + 1)
-  else struct (REXPrefix.NOREX, pos)
-
-let parseREX wordSize reader pos =
+let inline parseREX wordSize (reader: BinReader) pos =
   if wordSize = WordSize.Bit32 then struct (REXPrefix.NOREX, pos)
-  else getREX reader pos
+  else
+    let rb = reader.PeekByte pos |> int
+    if rb &&& 0b11110000 = 0b01000000 then struct (EnumOfValue rb, pos + 1)
+    else struct (REXPrefix.NOREX, pos)
 
-let selectREX vexInfo rexPref =
-  match vexInfo with
-  | None -> rexPref (* t.TREXPrefix *)
-  | Some v -> v.VREXPrefix
+let inline getVVVV b = (b >>> 3) &&& 0b01111uy
 
-let inline is64bit t = t.TWordSize = WordSize.Bit64
+let getVPrefs b =
+  match b &&& 0b00000011uy with
+  | 0b01uy -> Prefix.PrxOPSIZE
+  | 0b10uy -> Prefix.PrxREPZ
+  | 0b11uy -> Prefix.PrxREPNZ
+  | _ -> Prefix.PrxNone
 
-let hasNoPref t = (int t.TPrefixes) = 0
+let getTwoVEXInfo (reader: BinReader) pos =
+  let b = reader.PeekByte pos
+  let rexPref = if (b >>> 7) = 0uy then REXPrefix.REXR else REXPrefix.NOREX
+  let vLen = if ((b >>> 2) &&& 0b000001uy) = 0uy then 128<rt> else 256<rt>
+  { VVVV = getVVVV b
+    VectorLength = vLen
+    VEXType = VEXType.VEXTwoByteOp
+    VPrefixes = getVPrefs b
+    VREXPrefix = rexPref
+    EVEXPrx = None }
 
-let hasNoREX t = t.TREXPrefix = REXPrefix.NOREX
+let pickVEXType b1 =
+  match b1 &&& 0b00011uy with
+  | 0b01uy -> VEXType.VEXTwoByteOp
+  | 0b10uy -> VEXType.VEXThreeByteOpOne
+  | 0b11uy -> VEXType.VEXThreeByteOpTwo
+  | _ -> raise ParsingFailureException
 
-let hasNoPrefNoREX t = hasNoPref t && hasNoREX t
+let getVREXPref (b1: byte) b2 =
+  let w = (b2 &&& 0b10000000uy) >>> 4
+  let rxb = (~~~ b1) >>> 5
+  let rex = w ||| rxb ||| 0b1000000uy
+  if rex &&& 0b1111uy = 0uy then REXPrefix.NOREX
+  else EnumOfValue (int rex)
+
+let getThreeVEXInfo (reader: BinReader) pos =
+  let b1 = reader.PeekByte pos
+  let b2 = reader.PeekByte (pos + 1)
+  let vLen = if ((b2 >>> 2) &&& 0b000001uy) = 0uy then 128<rt> else 256<rt>
+  { VVVV = getVVVV b2
+    VectorLength = vLen
+    VEXType = pickVEXType b1
+    VPrefixes = getVPrefs b2
+    VREXPrefix = getVREXPref b1 b2
+    EVEXPrx = None }
+
+let getVLen = function
+  | 0b00uy -> 128<rt>
+  | 0b01uy -> 256<rt>
+  | 0b10uy -> 512<rt>
+  | 0b11uy -> raise ParsingFailureException
+  | _ -> raise ParsingFailureException
+
+let getEVEXInfo (reader: BinReader) pos =
+  let b1 = reader.PeekByte pos
+  let b2 = reader.PeekByte (pos + 1)
+  let l'l = reader.PeekByte (pos + 2) >>> 5 &&& 0b011uy
+  let vLen = getVLen l'l
+  let aaa = reader.PeekByte (pos + 2) &&& 0b111uy
+  let z = if (reader.PeekByte (pos + 2) >>> 7 &&& 0b1uy) = 0uy then Zeroing
+          else Merging
+  let b = (reader.PeekByte (pos + 2) >>> 4) &&& 0b1uy
+  let e = Some { AAA = aaa; Z = z; B = b }
+  { VVVV = getVVVV b2
+    VectorLength = vLen
+    VEXType = pickVEXType b1 ||| VEXType.EVEX
+    VPrefixes = getVPrefs b2
+    VREXPrefix = getVREXPref b1 b2
+    EVEXPrx = e }
+
+let inline isVEX (reader: BinReader) wordSize pos =
+  (wordSize = WordSize.Bit64) || (reader.PeekByte pos >= 0xC0uy)
+
+/// Parse the VEX prefix (VEXInfo).
+let inline parseVEXInfo wordSize (reader: BinReader) pos =
+  let nextPos = pos + 1
+  match reader.PeekByte pos with
+  | 0xC5uy when isVEX reader wordSize nextPos ->
+    struct (Some <| getTwoVEXInfo reader nextPos, nextPos + 1)
+  | 0xC4uy when isVEX reader wordSize nextPos ->
+    struct (Some <| getThreeVEXInfo reader nextPos, nextPos + 2)
+  | 0x62uy when isVEX reader wordSize nextPos ->
+    struct (Some <| getEVEXInfo reader nextPos, nextPos + 3)
+  | _ -> struct (None, pos)
 
 let getOprSize size sizeCond =
   if sizeCond = SzCond.F64 ||
@@ -118,95 +191,42 @@ let getSize64 prefs rexPref sizeCond =
         struct (getOprSize 32<rt> sizeCond, 32<rt>)
       else struct (getOprSize 32<rt> sizeCond, 64<rt>)
 
-let getSize t sizeCond =
+let inline selectREX t =
+  match t.TVEXInfo with
+  | None -> t.TREXPrefix
+  | Some v -> v.VREXPrefix
+
+let inline getSize t sizeCond =
   if t.TWordSize = WordSize.Bit32 then getSize32 t.TPrefixes
-  else getSize64 t.TPrefixes (selectREX t.TVEXInfo t.TREXPrefix) sizeCond
+  else getSize64 t.TPrefixes (selectREX t) sizeCond
 
-let getVLen = function
-  | 0b00uy -> 128<rt>
-  | 0b01uy -> 256<rt>
-  | 0b10uy -> 512<rt>
-  | 0b11uy -> raise ParsingFailureException
-  | _ -> raise ParsingFailureException
+let exceptionalOperationSize opcode insSize =
+  match opcode with
+  | Opcode.PUSH | Opcode.POP ->
+    { insSize with OperationSize = insSize.MemEffOprSize }
+  | Opcode.MOVSB | Opcode.INSB
+  | Opcode.STOSB | Opcode.LODSB
+  | Opcode.OUTSB | Opcode.SCASB -> { insSize with OperationSize = 8<rt> }
+  | Opcode.OUTSW -> { insSize with OperationSize = 16<rt> }
+  | Opcode.OUTSD -> { insSize with OperationSize = 32<rt> }
+  | _ -> insSize
 
-let getVPrefs b =
-  match b &&& 0b00000011uy with
-  | 0b01uy -> Prefix.PrxOPSIZE
-  | 0b10uy -> Prefix.PrxREPZ
-  | 0b11uy -> Prefix.PrxREPNZ
-  | _ -> Prefix.PrxNone
+let newInsInfo t (rhlp: ReadHelper) opcode oprs insSize =
+  let ins =
+    { Prefixes = t.TPrefixes
+      REXPrefix = t.TREXPrefix
+      VEXInfo = t.TVEXInfo
+      Opcode = opcode
+      Operands = oprs
+      InsSize = insSize }
+  IntelInstruction (rhlp.InsAddr, uint32 (rhlp.ParsedLen ()), ins, t.TWordSize)
 
-let getVVVV b = (b >>> 3) &&& 0b01111uy
-
-let getVREXPref (b1: byte) b2 =
-  let w = (b2 &&& 0b10000000uy) >>> 4
-  let rxb = (~~~ b1) >>> 5
-  let rex = w ||| rxb ||| 0b1000000uy
-  if rex &&& 0b1111uy = 0uy then REXPrefix.NOREX
-  else LanguagePrimitives.EnumOfValue (int rex)
-
-let getTwoVEXInfo (reader: BinReader) pos =
-  let b = reader.PeekByte pos
-  let rexPref = if (b >>> 7) = 0uy then REXPrefix.REXR else REXPrefix.NOREX
-  let vLen = if ((b >>> 2) &&& 0b000001uy) = 0uy then 128<rt> else 256<rt>
-  { VVVV = getVVVV b; VectorLength = vLen; VEXType = VEXType.VEXTwoByteOp
-    VPrefixes = getVPrefs b; VREXPrefix = rexPref; EVEXPrx = None }
-
-let pickVEXType b1 =
-  match b1 &&& 0b00011uy with
-  | 0b01uy -> VEXType.VEXTwoByteOp
-  | 0b10uy -> VEXType.VEXThreeByteOpOne
-  | 0b11uy -> VEXType.VEXThreeByteOpTwo
-  | _ -> raise ParsingFailureException
-
-let getThreeVEXInfo (reader: BinReader) pos =
-  let b1 = reader.PeekByte pos
-  let b2 = reader.PeekByte (pos + 1)
-  let vLen = if ((b2 >>> 2) &&& 0b000001uy) = 0uy then 128<rt> else 256<rt>
-  { VVVV = getVVVV b2; VectorLength = vLen; VEXType = pickVEXType b1
-    VPrefixes = getVPrefs b2; VREXPrefix = getVREXPref b1 b2; EVEXPrx = None }
-
-let getEVEXInfo (reader: BinReader) pos =
-  let b1 = reader.PeekByte pos
-  let b2 = reader.PeekByte (pos + 1)
-  let l'l = reader.PeekByte (pos + 2) >>> 5 &&& 0b011uy
-  let vLen = getVLen l'l
-  let aaa = reader.PeekByte (pos + 2) &&& 0b111uy
-  let z = if (reader.PeekByte (pos + 2) >>> 7 &&& 0b1uy) = 0uy then Zeroing
-          else Merging
-  let b = (reader.PeekByte (pos + 2) >>> 4) &&& 0b1uy
-  let e = Some { AAA = aaa; Z = z; B = b }
-  { VVVV = getVVVV b2; VectorLength = vLen;
-    VEXType = pickVEXType b1 ||| VEXType.EVEX
-    VPrefixes = getVPrefs b2; VREXPrefix = getVREXPref b1 b2; EVEXPrx = e }
-
-let isVEX (reader: BinReader) wordSize pos =
-  not (wordSize = WordSize.Bit32 && reader.PeekByte pos < 0xC0uy)
-
-/// Parse the VEX prefix (VEXInfo).
-let parseVEXInfo wordSize (reader: BinReader) pos =
-  let nextPos = pos + 1
-  match reader.PeekByte pos with
-  | 0xC5uy when isVEX reader wordSize nextPos ->
-    struct (Some <| getTwoVEXInfo reader nextPos, nextPos + 1)
-  | 0xC4uy when isVEX reader wordSize nextPos ->
-    struct (Some <| getThreeVEXInfo reader nextPos, nextPos + 2)
-  | 0x62uy when isVEX reader wordSize nextPos ->
-    struct (Some <| getEVEXInfo reader nextPos, nextPos + 3)
-  | _ -> struct (None, pos)
-
-let assertVEX128 = function
-  | Some vInfo ->
-    if vInfo.VectorLength = 256<rt> then raise ParsingFailureException else ()
-  | _ -> ()
-
-let inline getMod (byte: byte) = (int byte >>> 6) &&& 0b11
-
-let inline getReg (byte: byte) = (int byte >>> 3) &&& 0b111
-
-let inline getRM (byte: byte) = (int byte) &&& 0b111
-
-let inline getSTReg n = Register.make n Register.Kind.FPU |> OprReg
+let render t (rhlp: ReadHelper) opcode szCond fnOperand fnSize =
+  let struct (effOprSize, effAddrSize) = getSize t szCond
+  let insSize = fnSize t effOprSize effAddrSize
+  let insSize = exceptionalOperationSize opcode insSize
+  let struct (oprs, insSize) = fnOperand t rhlp insSize
+  newInsInfo t rhlp opcode oprs insSize
 
 (* Table A-7/15 of Volume 2
    (D8/DC Opcode Map When ModR/M Byte is within 00H to BFH) *)
@@ -221,6 +241,7 @@ let getD8OpWithin00toBF b =
   | 0b110 -> Opcode.FDIV
   | 0b111 -> Opcode.FDIVR
   | _ -> raise ParsingFailureException
+
 let getDCOpWithin00toBF b = getD8OpWithin00toBF b
 
 (* Table A-8 of Volume 2
@@ -296,6 +317,7 @@ let getDAOpWithin00toBF b =
   | 0b110 -> Opcode.FIDIV
   | 0b111 -> Opcode.FIDIVR
   | _ -> raise ParsingFailureException
+
 let getDEOpWithin00toBF b = getDAOpWithin00toBF b
 
 (* Table A-12 of Volume 2
@@ -469,10 +491,6 @@ let getEscEffOprSizeByESCOp = function
   | 0xDEuy -> 16<rt> (* word-integer *)
   | _ -> raise ParsingFailureException
 
-let inline modIsMemory b = (getMod b) <> 0b11
-
-let inline modIsReg b = (getMod b) = 0b11
-
 let selectPrefix t =
   match t.TVEXInfo with
   | None -> t.TPrefixes
@@ -596,8 +614,7 @@ let getOpCode0F0D (rhlp: ReadHelper) =
   | true, 0b010 -> Opcode.PREFETCHWT1
   | _ -> raise ParsingFailureException
 
-let ignOpSz t =
-  { t with TPrefixes = t.TPrefixes &&& LanguagePrimitives.EnumOfValue 0xFDFF }
+let ignOpSz t = { t with TPrefixes = t.TPrefixes &&& EnumOfValue 0xFDFF }
 
 let getOprFromRegGrp rgrp attr t insSize =
   findReg insSize.RegSize attr t.TREXPrefix rgrp |> OprReg
@@ -688,32 +705,32 @@ let tbl16bitMem = function
 /// not, then it represents the reg group of the base reigster.
 let tbl32bitMem = function
   (* Mod 00b *)
-  | 0 ->   struct (NOSIB (Some RegGrp.RG0), None)
-  | 1 ->   struct (NOSIB (Some RegGrp.RG1), None)
-  | 2 ->   struct (NOSIB (Some RegGrp.RG2), None)
-  | 3 ->   struct (NOSIB (Some RegGrp.RG3), None)
-  | 4 ->   struct (SIB,                     None)
-  | 5 ->   struct (NOSIB (None),            Some 4)
-  | 6 ->   struct (NOSIB (Some RegGrp.RG6), None)
-  | 7 ->   struct (NOSIB (Some RegGrp.RG7), None)
+  | 0 -> struct (NOSIB (Some RegGrp.RG0), None)
+  | 1 -> struct (NOSIB (Some RegGrp.RG1), None)
+  | 2 -> struct (NOSIB (Some RegGrp.RG2), None)
+  | 3 -> struct (NOSIB (Some RegGrp.RG3), None)
+  | 4 -> struct (SIB,                     None)
+  | 5 -> struct (NOSIB (None),            Some 4)
+  | 6 -> struct (NOSIB (Some RegGrp.RG6), None)
+  | 7 -> struct (NOSIB (Some RegGrp.RG7), None)
   (* Mod 01b *)
-  | 8 ->   struct (NOSIB (Some RegGrp.RG0), Some 1)
-  | 9 ->   struct (NOSIB (Some RegGrp.RG1), Some 1)
-  | 10 ->  struct (NOSIB (Some RegGrp.RG2), Some 1)
-  | 11 ->  struct (NOSIB (Some RegGrp.RG3), Some 1)
-  | 12 ->  struct (SIB,                     Some 1)
-  | 13 ->  struct (NOSIB (Some RegGrp.RG5), Some 1)
-  | 14 ->  struct (NOSIB (Some RegGrp.RG6), Some 1)
-  | 15 ->  struct (NOSIB (Some RegGrp.RG7), Some 1)
+  | 8 -> struct (NOSIB (Some RegGrp.RG0), Some 1)
+  | 9 -> struct (NOSIB (Some RegGrp.RG1), Some 1)
+  | 10 -> struct (NOSIB (Some RegGrp.RG2), Some 1)
+  | 11 -> struct (NOSIB (Some RegGrp.RG3), Some 1)
+  | 12 -> struct (SIB,                     Some 1)
+  | 13 -> struct (NOSIB (Some RegGrp.RG5), Some 1)
+  | 14 -> struct (NOSIB (Some RegGrp.RG6), Some 1)
+  | 15 -> struct (NOSIB (Some RegGrp.RG7), Some 1)
   (* Mod 10b *)
-  | 16 ->  struct (NOSIB (Some RegGrp.RG0), Some 4)
-  | 17 ->  struct (NOSIB (Some RegGrp.RG1), Some 4)
-  | 18 ->  struct (NOSIB (Some RegGrp.RG2), Some 4)
-  | 19 ->  struct (NOSIB (Some RegGrp.RG3), Some 4)
-  | 20 ->  struct (SIB,                     Some 4)
-  | 21 ->  struct (NOSIB (Some RegGrp.RG5), Some 4)
-  | 22 ->  struct (NOSIB (Some RegGrp.RG6), Some 4)
-  | 23 ->  struct (NOSIB (Some RegGrp.RG7), Some 4)
+  | 16 -> struct (NOSIB (Some RegGrp.RG0), Some 4)
+  | 17 -> struct (NOSIB (Some RegGrp.RG1), Some 4)
+  | 18 -> struct (NOSIB (Some RegGrp.RG2), Some 4)
+  | 19 -> struct (NOSIB (Some RegGrp.RG3), Some 4)
+  | 20 -> struct (SIB,                     Some 4)
+  | 21 -> struct (NOSIB (Some RegGrp.RG5), Some 4)
+  | 22 -> struct (NOSIB (Some RegGrp.RG6), Some 4)
+  | 23 -> struct (NOSIB (Some RegGrp.RG7), Some 4)
   | _ -> raise ParsingFailureException
 
 /// Table for scales (of SIB). This tbl is indexbed by the scale value of SIB.
@@ -731,7 +748,7 @@ let parseMEM16 insSize t rhlp modRM =
   match tbl16bitMem mrm with
   | struct (b, si, disp) -> parseOprMem insSize t rhlp b si disp
 
-let hasREXX rexPref = rexPref &&& REXPrefix.REXX = REXPrefix.REXX
+let inline hasREXX rexPref = rexPref &&& REXPrefix.REXX = REXPrefix.REXX
 
 let getScaledIndex s i insSize rexPref =
   if i = 0b100 && (not <| hasREXX rexPref) then None
@@ -748,7 +765,7 @@ let getSIB b =
 
 let parseSIB insSize t (rhlp: ReadHelper) modValue =
   let struct (s, i, b) = rhlp.ReadByte () |> int |> getSIB
-  let rexPref = selectREX t.TVEXInfo t.TREXPrefix
+  let rexPref = selectREX t
   let si = getScaledIndex s i insSize rexPref
   let baseReg = getBaseReg b insSize modValue rexPref
   struct (si, baseReg, b)
@@ -780,7 +797,7 @@ let parseOprRIPRelativeMem insSize t rhlp disp =
   else parseOprMem insSize t rhlp None None disp
 
 let getBaseRMReg insSize t regGrp =
-  let rexPref = selectREX t.TVEXInfo t.TREXPrefix
+  let rexPref = selectREX t
   let regSz = insSize.MemEffAddrSize
   findReg regSz RGrpAttr.ABaseRM rexPref (int regGrp) |> Some
 
@@ -801,8 +818,7 @@ let parseMemory modRM insSize t rhlp =
   else parseMEM32 insSize t rhlp insSize.MemEffOprSize modRM
 
 let parseReg rGrp sz attr t =
-  let rexPref = selectREX t.TVEXInfo t.TREXPrefix
-  findReg sz attr rexPref rGrp |> OprReg
+  findReg sz attr (selectREX t) rGrp |> OprReg
 
 let parseMemOrReg modRM insSize t rhlp =
   if getMod modRM = 0b11 then
@@ -839,21 +855,6 @@ let parseDebugReg n = Register.make n Register.Kind.Debug |> OprReg
 let parseOprOnlyDisp t rhlp insSize =
   let dispSz = RegType.toByteWidth insSize.MemEffAddrSize
   parseOprMem insSize t rhlp None None (Some dispSz)
-
-let excepOperationSz insSize opcode =
-  match opcode with
-  | Opcode.PUSH | Opcode.POP -> insSize.MemEffOprSize
-  | Opcode.MOVSB | Opcode.INSB
-  | Opcode.STOSB | Opcode.LODSB
-  | Opcode.OUTSB | Opcode.SCASB -> 8<rt>
-  | Opcode.OUTSW -> 16<rt>
-  | Opcode.OUTSD -> 32<rt>
-  | _ -> insSize.OperationSize
-
-let getInsSize t opcode szCond fnSize =
-  let struct (effOprSize, effAddrSize) = getSize t szCond
-  let insSize = fnSize t effOprSize effAddrSize
-  { insSize with OperationSize = excepOperationSz insSize opcode }
 
 let getImmZ insSize =
   if insSize.MemEffOprSize = 64<rt>
@@ -4540,7 +4541,7 @@ let grp16Op = function
   | 3 -> Opcode.PREFETCHT2
   | _ -> raise ParsingFailureException
 
-let getOpAndOprKindByOpGrp3 fnOpr fnSize oprGrp regBits =
+let getGrp3OpKind fnOpr fnSize oprGrp regBits =
   match regBits with
   | 0b000 when oprGrp = OpGroup.G3A ->
     struct (Opcode.TEST, opRmImm8, szByte, SzCond.Nor)
@@ -4554,7 +4555,7 @@ let getOpAndOprKindByOpGrp3 fnOpr fnSize oprGrp regBits =
   | 0b111 -> struct (Opcode.IDIV, fnOpr, fnSize, SzCond.Nor)
   | _ -> raise ParsingFailureException
 
-let getOpAndOprKindByOpGrp6 b regBits =
+let getGrp6OpKind b regBits =
   match modIsMemory b, regBits with
   | true, 0b000 -> struct (Opcode.SLDT, opMem, szMemW, SzCond.Nor)
   | false, 0b000 -> struct (Opcode.SLDT, opMem, szDef, SzCond.Nor)
@@ -4566,7 +4567,7 @@ let getOpAndOprKindByOpGrp6 b regBits =
   | _, 0b101 -> struct (Opcode.VERW, opMem, szMemW, SzCond.Nor)
   | _ -> raise ParsingFailureException
 
-let parseOpAndOprKindByOpGrp7 t (rhlp: ReadHelper) b regBits =
+let parseGrp7OpKind t (rhlp: ReadHelper) b regBits =
   if modIsMemory b then grp7 regBits
   else
     match regBits, getRM b with
@@ -4615,7 +4616,7 @@ let parseOpAndOprKindByOpGrp7 t (rhlp: ReadHelper) b regBits =
       rhlp.IncPos (); struct (Opcode.RDTSCP, opNo, szDef, SzCond.Nor)
     | _ -> raise ParsingFailureException
 
-let getOpAndOprKindByOpGrp9 t b regBits =
+let getGrp9OpKind t b regBits =
   let hasOprSzPref = hasOprSz t.TPrefixes
   let hasREPZPref = hasREPZ t.TPrefixes
   let hasREXWPref = hasREXW t.TREXPrefix
@@ -4652,7 +4653,7 @@ let getOpAndOprKindByOpGrp9 t b regBits =
     struct (Opcode.RDSEED, opMem, szDef, SzCond.Nor)
   | _ -> raise ParsingFailureException
 
-let getOpAndOprKindByOpGrp11 rhlp op fnOpr1 sz1 b reg fnOpr2 sz2 =
+let getGrp11OpKind rhlp op fnOpr1 sz1 b reg fnOpr2 sz2 =
   match reg with
   | 0b000 -> struct (Opcode.MOV, fnOpr2, sz2, SzCond.Nor)
   | 0b111 when modIsMemory b -> raise ParsingFailureException
@@ -4662,7 +4663,7 @@ let getOpAndOprKindByOpGrp11 rhlp op fnOpr1 sz1 b reg fnOpr2 sz2 =
     else raise ParsingFailureException
   | _ -> raise ParsingFailureException
 
-let getOpAndOprKindByOpGrp12 t b regBits =
+let getGrp12OpKind t b regBits =
   match modIsMemory b, regBits, hasOprSz (selectPrefix t) with
   | false, 0b010, false -> struct (Opcode.PSRLW, opMmxImm8, szQ, SzCond.Nor)
   | false, 0b010, true  ->
@@ -4681,7 +4682,7 @@ let getOpAndOprKindByOpGrp12 t b regBits =
     else struct (Opcode.VPSLLW, opVvRmImm8, szVecDef, SzCond.Nor)
   | _ -> raise ParsingFailureException
 
-let getOpAndOprKindByOpGrp13 t b regBits =
+let getGrp13OpKind t b regBits =
   match modIsMemory b, regBits, hasOprSz (selectPrefix t) with
   | false, 0b010, false -> struct (Opcode.PSRLD, opMmxImm8, szQ, SzCond.Nor)
   | false, 0b010, true  ->
@@ -4700,7 +4701,7 @@ let getOpAndOprKindByOpGrp13 t b regBits =
     else struct (Opcode.VPSLLD, opVvRmImm8, szVecDef, SzCond.Nor)
   | _ -> raise ParsingFailureException
 
-let getOpAndOprKindByOpGrp14 t b regBits =
+let getGrp14OpKind t b regBits =
   match modIsMemory b, regBits, hasOprSz (selectPrefix t) with
   | false, 0b010, false ->
     struct (Opcode.PSRLQ, opMmxImm8, szQ, SzCond.Nor)
@@ -4723,7 +4724,7 @@ let getOpAndOprKindByOpGrp14 t b regBits =
     else struct (Opcode.VPSLLDQ, opVvRmImm8, szVecDef, SzCond.Nor)
   | _ -> raise ParsingFailureException
 
-let parseOpAndOprKindByOpGrp15 (rhlp: ReadHelper) t b regBits =
+let parseGrp15OpKind (rhlp: ReadHelper) t b regBits =
   match modIsMemory b, regBits, hasREPZ t.TPrefixes with
   | true,  0b110, true -> struct (Opcode.CLRSSBSY, opMem, szQ, SzCond.Nor)
   | true,  0b000, false ->
@@ -4753,7 +4754,7 @@ let parseOpAndOprKindByOpGrp15 (rhlp: ReadHelper) t b regBits =
     struct (op, opGpr, szDef, SzCond.Nor)
   | _ -> raise ParsingFailureException
 
-let parseOpAndOprKindByGrp t (rhlp: ReadHelper) fnOpr fnSize oprGrp =
+let parseGrpOpKind t (rhlp: ReadHelper) fnOpr fnSize oprGrp =
   let b = rhlp.PeekByte ()
   let r = getReg b
   match oprGrp with
@@ -4766,40 +4767,25 @@ let parseOpAndOprKindByGrp t (rhlp: ReadHelper) fnOpr fnSize oprGrp =
   | OpGroup.G1A -> struct (Opcode.POP, fnOpr, fnSize, SzCond.D64)
   | OpGroup.G2 when r = 0b110 -> raise ParsingFailureException
   | OpGroup.G2 -> struct (grp2Op r, fnOpr, fnSize, SzCond.Nor)
-  | OpGroup.G3A | OpGroup.G3B -> getOpAndOprKindByOpGrp3 fnOpr fnSize oprGrp r
+  | OpGroup.G3A | OpGroup.G3B -> getGrp3OpKind fnOpr fnSize oprGrp r
   | OpGroup.G4 -> struct (grp4Op r, opMem, szByte, SzCond.Nor)
   | OpGroup.G5 -> grp5 r
-  | OpGroup.G6 -> getOpAndOprKindByOpGrp6 b r
-  | OpGroup.G7 -> parseOpAndOprKindByOpGrp7 t rhlp b r
+  | OpGroup.G6 -> getGrp6OpKind b r
+  | OpGroup.G7 -> parseGrp7OpKind t rhlp b r
   | OpGroup.G8 -> struct (grp8Op r, fnOpr, fnSize, SzCond.Nor)
-  | OpGroup.G9 -> getOpAndOprKindByOpGrp9 t b r
+  | OpGroup.G9 -> getGrp9OpKind t b r
   | OpGroup.G11A ->
-    getOpAndOprKindByOpGrp11 rhlp Opcode.XABORT opImm8 szDef b r fnOpr fnSize
+    getGrp11OpKind rhlp Opcode.XABORT opImm8 szDef b r fnOpr fnSize
   | OpGroup.G11B ->
-    getOpAndOprKindByOpGrp11 rhlp Opcode.XBEGIN opRel szD64 b r fnOpr fnSize
-  | OpGroup.G12 -> getOpAndOprKindByOpGrp12 t b r
-  | OpGroup.G13 -> getOpAndOprKindByOpGrp13 t b r
-  | OpGroup.G14 -> getOpAndOprKindByOpGrp14 t b r
-  | OpGroup.G15 -> parseOpAndOprKindByOpGrp15 rhlp t b r
+    getGrp11OpKind rhlp Opcode.XBEGIN opRel szD64 b r fnOpr fnSize
+  | OpGroup.G12 -> getGrp12OpKind t b r
+  | OpGroup.G13 -> getGrp13OpKind t b r
+  | OpGroup.G14 -> getGrp14OpKind t b r
+  | OpGroup.G15 -> parseGrp15OpKind rhlp t b r
   | OpGroup.G16 -> struct (grp16Op r, fnOpr, fnSize, SzCond.Nor)
-  | OpGroup.G10 | OpGroup.G17 | _ ->
+  | OpGroup.G10 | OpGroup.G17
+  | _ ->
     raise ParsingFailureException (* Not implemented yet *)
-
-let newInsInfo t (rhlp: ReadHelper) opcode oprs insSize =
-  let ins = {
-    Prefixes = t.TPrefixes
-    REXPrefix = t.TREXPrefix
-    VEXInfo = t.TVEXInfo
-    Opcode = opcode
-    Operands = oprs
-    InsSize = insSize }
-  IntelInstruction (rhlp.InsAddr, uint32 (rhlp.ParsedLen ()), ins, t.TWordSize)
-
-let render t (rhlp: ReadHelper) opcode szCond fnOperand fnSize =
-  let struct (oprs, insSize) =
-    let insSize = getInsSize t opcode szCond fnSize
-    fnOperand t rhlp insSize
-  newInsInfo t rhlp opcode oprs insSize
 
 /// Add BND prefix (Intel MPX extension).
 let addBND t =
@@ -4809,9 +4795,8 @@ let addBND t =
 
 /// Parse group Opcodes: Vol.2C A-19 Table A-6. Opcode Extensions for One- and
 /// Two-byte Opcodes by Group Number.
-let parseGrpOpAndOprs t rhlp grp fnOpr sz =
-  let struct (op, fnOpr, sz, szCond) =
-    parseOpAndOprKindByGrp t rhlp fnOpr sz grp
+let parseGrpOp t rhlp grp fnOpr sz =
+  let struct (op, fnOpr, sz, szCond) = parseGrpOpKind t rhlp fnOpr sz grp
   let t =
     if isBranch op then addBND t
     elif isCETInstr op then
@@ -4819,31 +4804,36 @@ let parseGrpOpAndOprs t rhlp grp fnOpr sz =
     else t
   render t rhlp op szCond fnOpr sz
 
-let getMandPrx prefs =
-  if hasREPNZ prefs && hasOprSz prefs then MPref.MPrx66F2
-  elif hasOprSz prefs then MPref.MPrx66
-  elif hasREPZ prefs then MPref.MPrxF3
-  elif hasREPNZ prefs then MPref.MPrxF2
-  else MPref.MPrxNP
-
-let filterPrefs (prefs: Prefix) = prefs &&& clearVEXPrefMask
+let inline getMandPrx (prefix: Prefix) =
+  match int prefix &&& 0x40a with
+  | 0x402 -> MPref.MPrx66F2
+  | 0x2 -> MPref.MPrxF2
+  | 0x400 -> MPref.MPrx66
+  | 0x8 -> MPref.MPrxF3
+  | 0x0 -> MPref.MPrxNP
+  | _ -> raise ParsingFailureException
 
 /// Some instructions use 66/F2/F3 prefix as a mandatory prefix. When both
 /// VEX.pp and old-style prefix are used, the VEX.pp is used to select the
 /// opcodes. But if VEX.pp does not exist, then we have to use the old-style
-/// prefix, and we have to filter out the prefixes because they are not going
-/// to be used as a normal prefixes. They will only be used as a mandatory
-/// prefix that decides the opcode.
-let getInstr prefs fnInstr = fnInstr <| getMandPrx prefs
+/// prefix, and we have to filter out the prefixes because they are not going to
+/// be used as a normal prefixes. They will only be used as a mandatory prefix
+/// to decide the opcode.
+let inline filterPrefs (prefix: Prefix) = prefix &&& clearVEXPrefMask
 
-/// Normal, VEX
-let selectVEX t fnNor fnVex =
+let getInstr prefix fnInstr = fnInstr (getMandPrx prefix)
+
+/// Normal/VEX
+let parseVEX t rhlp fnNor fnVex =
   match t.TVEXInfo with
   | None ->
-    getInstr t.TPrefixes fnNor, { t with TPrefixes = filterPrefs t.TPrefixes }
-  | Some v -> getInstr v.VPrefixes fnVex, t
+    let struct (op, fnOpr, fnSize) = fnNor (getMandPrx t.TPrefixes)
+    let t = { t with TPrefixes = filterPrefs t.TPrefixes }
+    render t rhlp op SzCond.Nor fnOpr fnSize
+  | Some v ->
+    let struct (op, fnOpr, fnSize) = fnVex (getMandPrx v.VPrefixes)
+    render t rhlp op SzCond.Nor fnOpr fnSize
 
-/// Normal(REX.W), VEX(REX.W)
 let selectVEXW t fnNorW0 fnNorW1 fnVexW0 fnVexW1 =
   match t.TVEXInfo with
   | None ->
@@ -4854,6 +4844,13 @@ let selectVEXW t fnNorW0 fnNorW1 fnVexW0 fnVexW1 =
     let fnVex = if hasREXW v.VREXPrefix then fnVexW1 else fnVexW0
     getInstr v.VPrefixes fnVex, t
 
+/// Normal/VEX (Both REX.W)
+let parseVEXW t rhlp fnNorW0 fnNorW1 fnVexW0 fnVexW1 =
+  let (struct (op, fnOpr, fnSize)), t =
+    selectVEXW t fnNorW0 fnNorW1 fnVexW0 fnVexW1
+  render t rhlp op SzCond.Nor fnOpr fnSize
+
+/// Normal(REX.W), VEX(REX.W)
 /// Normal, VEX, EVEX(REX.W)
 let selectEVEX t fnNor fnVex fnEVexW0 fnEVexW1 =
   match t.TVEXInfo with
@@ -4864,6 +4861,12 @@ let selectEVEX t fnNor fnVex fnEVexW0 fnEVexW1 =
       let fnEVex = if hasREXW v.VREXPrefix then fnEVexW1 else fnEVexW0
       getInstr v.VPrefixes fnEVex, t
     else getInstr v.VPrefixes fnVex, t
+
+/// Normal/VEX/EVEX (EVEX REX.W)
+let parseEVEX t rhlp fnNor fnVex fnEVexW0 fnEVexW1 =
+  let (struct (op, fnOpr, fnSize)), t =
+    selectEVEX t fnNor fnVex fnEVexW0 fnEVexW1
+  render t rhlp op SzCond.Nor fnOpr fnSize
 
 /// VEX(REX.W), EVEX(REX.W)
 let selectEVEXW t fnVexW0 fnVexW1 fnEVexW0 fnEVexW1 =
@@ -4876,23 +4879,6 @@ let selectEVEXW t fnVexW0 fnVexW1 fnEVexW0 fnEVexW1 =
     else
       let fnVex = if hasREXW v.VREXPrefix then fnVexW1 else fnVexW0
       getInstr v.VPrefixes fnVex, t
-
-/// Normal/VEX
-let parseVEX t rhlp fnNor fnVex =
-  let (struct (op, fnOpr, fnSize)), t = selectVEX t fnNor fnVex
-  render t rhlp op SzCond.Nor fnOpr fnSize
-
-/// Normal/VEX (Both REX.W)
-let parseVEXW t rhlp fnNorW0 fnNorW1 fnVexW0 fnVexW1 =
-  let (struct (op, fnOpr, fnSize)), t =
-    selectVEXW t fnNorW0 fnNorW1 fnVexW0 fnVexW1
-  render t rhlp op SzCond.Nor fnOpr fnSize
-
-/// Normal/VEX/EVEX (EVEX REX.W)
-let parseEVEX t rhlp fnNor fnVex fnEVexW0 fnEVexW1 =
-  let (struct (op, fnOpr, fnSize)), t =
-    selectEVEX t fnNor fnVex fnEVexW0 fnEVexW1
-  render t rhlp op SzCond.Nor fnOpr fnSize
 
 /// VEX/EVEX (Both REX.W)
 let parseEVEXW t rhlp fnVexW0 fnVexW1 fnEVexW0 fnEVexW1 =
@@ -4933,7 +4919,8 @@ let parseCETInstr t (rhlp: ReadHelper) =
 
 let parseESCOp t (rhlp: ReadHelper) escFlag getOpIn getOpOut =
   let modRM = rhlp.ReadByte ()
-  let insSize = getInsSize t Opcode.InvalOP SzCond.Nor szDef (* Mz *)
+  let struct (effOprSize, effAddrSize) = getSize t SzCond.Nor
+  let insSize = szDef t effOprSize effAddrSize
   if modRM <= 0xBFuy then
     let op = getOpIn modRM
     let effOprSize =
@@ -5246,8 +5233,11 @@ let pTwoByteOp t (rhlp: ReadHelper) byte =
   | 0xD3uy -> parseVEX t rhlp nor0FD3 vex0FD3
   | 0xD4uy -> parseVEX t rhlp nor0FD4 vex0FD4
   | 0xD5uy -> parseVEX t rhlp nor0FD5 vex0FD5
-  | 0xD6uy -> assertVEX128 t.TVEXInfo
-              parseVEX t rhlp nor0FD6 vex0FD6
+  | 0xD6uy ->
+#if !EMULATION
+    ensureVEX128 t
+#endif
+    parseVEX t rhlp nor0FD6 vex0FD6
   | 0xD7uy -> parseVEX t rhlp nor0FD7 vex0FD7
   | 0xD8uy -> parseVEX t rhlp nor0FD8 vex0FD8
   | 0xD9uy -> parseVEX t rhlp nor0FD9 vex0FD9
@@ -5287,15 +5277,15 @@ let pTwoByteOp t (rhlp: ReadHelper) byte =
   | 0xFCuy -> parseVEX t rhlp nor0FFC vex0FFC
   | 0xFDuy -> parseVEX t rhlp nor0FFD vex0FFD
   | 0xFEuy -> parseVEX t rhlp nor0FFE vex0FFE
-  | 0x00uy -> parseGrpOpAndOprs t rhlp OpGroup.G6 opNo szDef
-  | 0x01uy -> parseGrpOpAndOprs t rhlp OpGroup.G7 opNo szDef
-  | 0xBAuy -> parseGrpOpAndOprs t rhlp OpGroup.G8 opRmImm8 szDef
-  | 0xC7uy -> parseGrpOpAndOprs t rhlp OpGroup.G9 opNo szDef
-  | 0x71uy -> parseGrpOpAndOprs t rhlp OpGroup.G12 opNo szDef
-  | 0x72uy -> parseGrpOpAndOprs t rhlp OpGroup.G13 opNo szDef
-  | 0x73uy -> parseGrpOpAndOprs t rhlp OpGroup.G14 opNo szDef
-  | 0xAEuy -> parseGrpOpAndOprs t rhlp OpGroup.G15 opNo szDef
-  | 0x18uy -> parseGrpOpAndOprs t rhlp OpGroup.G16 opMem szDef
+  | 0x00uy -> parseGrpOp t rhlp OpGroup.G6 opNo szDef
+  | 0x01uy -> parseGrpOp t rhlp OpGroup.G7 opNo szDef
+  | 0xBAuy -> parseGrpOp t rhlp OpGroup.G8 opRmImm8 szDef
+  | 0xC7uy -> parseGrpOp t rhlp OpGroup.G9 opNo szDef
+  | 0x71uy -> parseGrpOp t rhlp OpGroup.G12 opNo szDef
+  | 0x72uy -> parseGrpOp t rhlp OpGroup.G13 opNo szDef
+  | 0x73uy -> parseGrpOp t rhlp OpGroup.G14 opNo szDef
+  | 0xAEuy -> parseGrpOp t rhlp OpGroup.G15 opNo szDef
+  | 0x18uy -> parseGrpOp t rhlp OpGroup.G16 opMem szDef
   | 0x38uy -> parseThreeByteOp1 t rhlp
   | 0x3Auy -> parseThreeByteOp2 t rhlp
   | _ -> raise ParsingFailureException
@@ -5571,7 +5561,8 @@ let pOneByteOpcode t rhlp byte =
   | 0x8Duy -> render t rhlp Opcode.LEA SzCond.Nor opGprM szDef
   | 0x8Euy -> render t rhlp Opcode.MOV SzCond.Nor opSegRm szWord
   | 0x90uy ->
-    if hasNoPrefNoREX t then render t rhlp Opcode.NOP SzCond.Nor opNo szDef
+    if hasNoPref t && hasNoREX t then
+      render t rhlp Opcode.NOP SzCond.Nor opNo szDef
     elif hasREPZ t.TPrefixes then
       render t rhlp Opcode.PAUSE SzCond.Nor opNo szDef
     else render t rhlp Opcode.XCHG SzCond.Nor opRaxRax szDef
@@ -5753,23 +5744,23 @@ let pOneByteOpcode t rhlp byte =
   | 0xFBuy -> render t rhlp Opcode.STI SzCond.F64 opNo szDef
   | 0xFCuy -> render t rhlp Opcode.CLD SzCond.F64 opNo szDef
   | 0xFDuy -> render t rhlp Opcode.STD SzCond.F64 opNo szDef
-  | 0x80uy -> parseGrpOpAndOprs t rhlp OpGroup.G1 opRmImm8 szByte
-  | 0x81uy -> parseGrpOpAndOprs t rhlp OpGroup.G1 opRmImm szDef
-  | 0x82uy -> parseGrpOpAndOprs t rhlp OpGroup.G1Inv64 opRmImm8 szByte
-  | 0x83uy -> parseGrpOpAndOprs t rhlp OpGroup.G1 opRmImm8 szDef
-  | 0x8Fuy -> parseGrpOpAndOprs t rhlp OpGroup.G1A opMem szDef
-  | 0xC0uy -> parseGrpOpAndOprs t rhlp OpGroup.G2 opRmImm8 szByte
-  | 0xC1uy -> parseGrpOpAndOprs t rhlp OpGroup.G2 opRmImm8 szDef
-  | 0xD0uy -> parseGrpOpAndOprs t rhlp OpGroup.G2 opM1 szByte
-  | 0xD1uy -> parseGrpOpAndOprs t rhlp OpGroup.G2 opM1 szDef
-  | 0xD2uy -> parseGrpOpAndOprs t rhlp OpGroup.G2 opRmCL szByte
-  | 0xD3uy -> parseGrpOpAndOprs t rhlp OpGroup.G2 opRmCL szDef
-  | 0xF6uy -> parseGrpOpAndOprs t rhlp OpGroup.G3A opMem szByte
-  | 0xF7uy -> parseGrpOpAndOprs t rhlp OpGroup.G3B opMem szDef
-  | 0xFEuy -> parseGrpOpAndOprs t rhlp OpGroup.G4 opNo szDef
-  | 0xFFuy -> parseGrpOpAndOprs t rhlp OpGroup.G5 opNo szDef
-  | 0xC6uy -> parseGrpOpAndOprs t rhlp OpGroup.G11A opRmImm8 szByte
-  | 0xC7uy -> parseGrpOpAndOprs t rhlp OpGroup.G11B opRmImm szDef
+  | 0x80uy -> parseGrpOp t rhlp OpGroup.G1 opRmImm8 szByte
+  | 0x81uy -> parseGrpOp t rhlp OpGroup.G1 opRmImm szDef
+  | 0x82uy -> parseGrpOp t rhlp OpGroup.G1Inv64 opRmImm8 szByte
+  | 0x83uy -> parseGrpOp t rhlp OpGroup.G1 opRmImm8 szDef
+  | 0x8Fuy -> parseGrpOp t rhlp OpGroup.G1A opMem szDef
+  | 0xC0uy -> parseGrpOp t rhlp OpGroup.G2 opRmImm8 szByte
+  | 0xC1uy -> parseGrpOp t rhlp OpGroup.G2 opRmImm8 szDef
+  | 0xD0uy -> parseGrpOp t rhlp OpGroup.G2 opM1 szByte
+  | 0xD1uy -> parseGrpOp t rhlp OpGroup.G2 opM1 szDef
+  | 0xD2uy -> parseGrpOp t rhlp OpGroup.G2 opRmCL szByte
+  | 0xD3uy -> parseGrpOp t rhlp OpGroup.G2 opRmCL szDef
+  | 0xF6uy -> parseGrpOp t rhlp OpGroup.G3A opMem szByte
+  | 0xF7uy -> parseGrpOp t rhlp OpGroup.G3B opMem szDef
+  | 0xFEuy -> parseGrpOp t rhlp OpGroup.G4 opNo szDef
+  | 0xFFuy -> parseGrpOp t rhlp OpGroup.G5 opNo szDef
+  | 0xC6uy -> parseGrpOp t rhlp OpGroup.G11A opRmImm8 szByte
+  | 0xC7uy -> parseGrpOp t rhlp OpGroup.G11B opRmImm szDef
   | 0x0Fuy -> parseTwoByteOpcode t rhlp
   | _ -> raise ParsingFailureException
 

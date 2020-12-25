@@ -95,6 +95,7 @@ let bvOfOprSize = function
   | _ -> raise InvalidOperandSizeException
 
 let inline is64bit (ctxt: TranslationContext) = ctxt.WordBitSize = 64<rt>
+
 let is64REXW ctxt (ins: InsInfo) =
   is64bit ctxt && hasREXW ins.REXPrefix
 
