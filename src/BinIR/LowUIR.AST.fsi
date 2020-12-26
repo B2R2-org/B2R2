@@ -27,154 +27,149 @@ namespace B2R2.BinIR.LowUIR
 open B2R2
 open B2R2.BinIR
 
-module TypeCheck = begin
-
-  val typeOf : Expr -> RegType
-
-end
-
 /// This module defines functions for handling the AST of LowUIR.
+[<RequireQualifiedAccess>]
 module AST = begin
   /// Get Expression Information
-  val getExprInfo : Expr -> ExprInfo
+  val getExprInfo: Expr -> ExprInfo
 
   /// Construct a number (Num).
-  val num : BitVector -> Expr
+  val num: BitVector -> Expr
 
   /// Construct a variable (Var).
-  val var : RegType -> RegisterID -> string -> RegisterSet -> Expr
+  val var: RegType -> RegisterID -> string -> RegisterSet -> Expr
 
   /// Construct a pc variable (PCVar).
-  val pcVar : RegType -> string -> Expr
+  val pcvar: RegType -> string -> Expr
 
   /// Construct a temporary variable (TempVar).
-  val tmpVar : RegType -> Expr
+  val tmpvar: RegType -> Expr
 
   /// Construct a symbol (for a label) from a string.
-  val lblSymbol : string -> Symbol
+  val symbol: string -> Symbol
 
   /// Construct an unary operator (UnOp).
-  val unop : UnOpType -> Expr -> Expr
+  val unop: UnOpType -> Expr -> Expr
 
   /// Construct a binary operator (BinOp).
-  val binop : BinOpType -> Expr -> Expr -> Expr
+  val binop: BinOpType -> Expr -> Expr -> Expr
 
   /// Consing two expr
   val cons: Expr -> Expr -> Expr
 
   /// Construct a app
-  val app : string -> Expr list -> RegType -> Expr
+  val app: string -> Expr list -> RegType -> Expr
 
   /// Construct a relative operator (RelOp).
-  val relop : RelOpType -> Expr -> Expr -> Expr
+  val relop: RelOpType -> Expr -> Expr -> Expr
 
   /// Construct a load expression (Load).
-  val load : Endian -> RegType -> Expr -> Expr
+  val load: Endian -> RegType -> Expr -> Expr
 
   /// Construct an ITE (if-then-else) expression (Ite).
-  val ite : Expr -> Expr -> Expr -> Expr
+  val ite: Expr -> Expr -> Expr -> Expr
 
   /// Construct a cast expression (Cast).
-  val cast : CastKind -> RegType -> Expr -> Expr
+  val cast: CastKind -> RegType -> Expr -> Expr
 
   /// Construct a extract expression (Extract).
-  val extract : Expr -> RegType -> StartPos -> Expr
+  val extract: Expr -> RegType -> StartPos -> Expr
 
   /// Undefined expression.
-  val unDef : RegType -> string -> Expr
+  val undef: RegType -> string -> Expr
 
   /// Construct a (Num 0) of size t.
-  val num0 : t: RegType -> Expr
+  val num0: t: RegType -> Expr
 
   /// Construct a (Num 1) of size t.
-  val num1 : t: RegType -> Expr
+  val num1: t: RegType -> Expr
 
   /// Num expression for a one-bit number zero.
-  val b0 : Expr
+  val b0: Expr
 
   /// Num expression for a one-bit number one.
-  val b1 : Expr
+  val b1: Expr
 
   /// Nil.
   val nil: Expr
 
   /// An assignment statement.
-  val (:=) : Expr -> Expr -> Stmt
+  val assign: Expr -> Expr -> Stmt
 
   /// Add two expressions.
-  val (.+) : Expr -> Expr -> Expr
+  val add: Expr -> Expr -> Expr
 
   /// Subtract two expressions.
-  val (.-) : Expr -> Expr -> Expr
+  val sub: Expr -> Expr -> Expr
 
   /// Multiplication.
-  val (.*) : Expr -> Expr -> Expr
+  val mul: Expr -> Expr -> Expr
 
   /// Unsigned division.
-  val (./) : Expr -> Expr -> Expr
+  val div: Expr -> Expr -> Expr
 
   /// Signed division.
-  val (?/) : Expr -> Expr -> Expr
+  val sdiv: Expr -> Expr -> Expr
 
   /// Unsigned modulus.
-  val (.%) : Expr -> Expr -> Expr
+  val ``mod``: Expr -> Expr -> Expr
 
   /// Signed modulus.
-  val (?%) : Expr -> Expr -> Expr
+  val smod: Expr -> Expr -> Expr
 
   /// Equal.
-  val (==) : Expr -> Expr -> Expr
+  val eq: Expr -> Expr -> Expr
 
   /// Not equal.
-  val (!=) : Expr -> Expr -> Expr
+  val neq: Expr -> Expr -> Expr
 
   /// Unsigned greater than.
-  val gt : Expr -> Expr -> Expr
+  val gt: Expr -> Expr -> Expr
 
   /// Unsigned greater than or equal.
-  val ge : Expr -> Expr -> Expr
+  val ge: Expr -> Expr -> Expr
 
   /// Signed greater than.
-  val sgt : Expr -> Expr -> Expr
+  val sgt: Expr -> Expr -> Expr
 
   /// Signed greater than or equal.
-  val sge : Expr -> Expr -> Expr
+  val sge: Expr -> Expr -> Expr
 
   /// Unsigned less than.
-  val lt : Expr -> Expr -> Expr
+  val lt: Expr -> Expr -> Expr
 
   /// Unsigned less than or equal.
-  val le : Expr -> Expr -> Expr
+  val le: Expr -> Expr -> Expr
 
   /// Signed less than.
-  val slt : Expr -> Expr -> Expr
+  val slt: Expr -> Expr -> Expr
 
   /// Signed less than or equal.
-  val sle : Expr -> Expr -> Expr
+  val sle: Expr -> Expr -> Expr
 
   /// Bitwise AND.
-  val (.&) : Expr -> Expr -> Expr
+  val ``and``: Expr -> Expr -> Expr
 
   /// Bitwise OR.
-  val (.|) : Expr -> Expr -> Expr
+  val ``or``: Expr -> Expr -> Expr
 
   /// Bitwise XOR.
-  val (<+>) : Expr -> Expr -> Expr
+  val xor: Expr -> Expr -> Expr
 
   /// Shift arithmetic right.
-  val (?>>) : Expr -> Expr -> Expr
+  val sar: Expr -> Expr -> Expr
 
   /// Shift logical right.
-  val (>>) : Expr -> Expr -> Expr
+  val shr: Expr -> Expr -> Expr
 
   /// Shift logical left.
-  val (<<) : Expr -> Expr -> Expr
+  val shl: Expr -> Expr -> Expr
 
   /// Negation (Two's complement).
-  val neg : Expr -> Expr
+  val neg: Expr -> Expr
 
   /// Logical not.
-  val not : Expr -> Expr
+  val not: Expr -> Expr
 
   /// Floating point add two expressions.
   val fadd: Expr -> Expr -> Expr
@@ -183,73 +178,151 @@ module AST = begin
   val fsub: Expr -> Expr -> Expr
 
   /// Floating point multiplication.
-  val fmul : Expr -> Expr -> Expr
+  val fmul: Expr -> Expr -> Expr
 
   /// Floating point division.
-  val fdiv : Expr -> Expr -> Expr
+  val fdiv: Expr -> Expr -> Expr
 
   /// Floating point greater than.
-  val fgt : Expr -> Expr -> Expr
+  val fgt: Expr -> Expr -> Expr
 
   /// Floating point greater than or equal.
-  val fge : Expr -> Expr -> Expr
+  val fge: Expr -> Expr -> Expr
 
   /// Floating point less than.
-  val flt : Expr -> Expr -> Expr
+  val flt: Expr -> Expr -> Expr
 
   /// Floating point less than or equal.
-  val fle : Expr -> Expr -> Expr
+  val fle: Expr -> Expr -> Expr
 
   /// Floating point power.
-  val fpow : Expr -> Expr -> Expr
+  val fpow: Expr -> Expr -> Expr
 
   /// Floating point logarithm.
-  val flog : Expr -> Expr -> Expr
+  val flog: Expr -> Expr -> Expr
 
   /// Floating point square root.
-  val fSqrt : Expr -> Expr
+  val fsqrt: Expr -> Expr
 
   /// Floating point cosine.
-  val fCos : Expr -> Expr
+  val fcos: Expr -> Expr
 
   /// Floating point sine.
-  val fSin : Expr -> Expr
+  val fsin: Expr -> Expr
 
   /// Floating point tangent.
-  val fTan : Expr -> Expr
+  val ftan: Expr -> Expr
 
   /// Floating point arc tangent.
-  val fAtan : Expr -> Expr
+  val fatan: Expr -> Expr
 
   /// Concatenation.
-  val concat : Expr -> Expr -> Expr
+  val concat: Expr -> Expr -> Expr
 
   /// Concatenate an array of expressions.
-  val concatExprs : Expr[] -> Expr
+  val concatArr: Expr[] -> Expr
 
   /// Unwrap (casted) expression.
-  val unwrapExpr : Expr -> Expr
+  val unwrap: Expr -> Expr
 
   /// Zero-extend an expression.
-  val zExt : RegType -> Expr -> Expr
+  val zext: RegType -> Expr -> Expr
 
   /// Sign-extend an expression.
-  val sExt : RegType -> Expr -> Expr
+  val sext: RegType -> Expr -> Expr
 
   /// Take the low half bits of an expression.
-  val extractLow : RegType -> Expr -> Expr
+  val xtlo: RegType -> Expr -> Expr
 
   /// Take the high half bits of an expression.
-  val extractHigh : RegType -> Expr -> Expr
+  val xthi: RegType -> Expr -> Expr
 
   /// Load expression in little-endian.
-  val loadLE : RegType -> Expr -> Expr
+  val loadLE: RegType -> Expr -> Expr
+
+  /// Load expression in big-endian.
+  val loadBE: RegType -> Expr -> Expr
 
   /// Get the type of an expression.
-  val typeOf : Expr -> RegType
+  val typeOf: Expr -> RegType
 
   /// Return true if the given statement type checks.
-  val typeCheck : Stmt -> bool
+  val typeCheck: Stmt -> bool
+
+  /// Infix operator for LowUIR.
+  module InfixOp = begin
+    /// An assignment statement.
+    val (:=): Expr -> Expr -> Stmt
+
+    /// Add two expressions.
+    val (.+): Expr -> Expr -> Expr
+
+    /// Subtract two expressions.
+    val (.-): Expr -> Expr -> Expr
+
+    /// Multiplication.
+    val (.*): Expr -> Expr -> Expr
+
+    /// Unsigned division.
+    val (./): Expr -> Expr -> Expr
+
+    /// Signed division.
+    val (?/): Expr -> Expr -> Expr
+
+    /// Unsigned modulus.
+    val (.%): Expr -> Expr -> Expr
+
+    /// Signed modulus.
+    val (?%): Expr -> Expr -> Expr
+
+    /// Equal.
+    val (==): Expr -> Expr -> Expr
+
+    /// Not equal.
+    val (!=): Expr -> Expr -> Expr
+
+    /// Unsigned greater than.
+    val (.>): Expr -> Expr -> Expr
+
+    /// Unsigned greater than or equal.
+    val (.>=): Expr -> Expr -> Expr
+
+    /// Signed greater than.
+    val (?>): Expr -> Expr -> Expr
+
+    /// Signed greater than or equal.
+    val (?>=): Expr -> Expr -> Expr
+
+    /// Unsigned less than.
+    val (.<): Expr -> Expr -> Expr
+
+    /// Unsigned less than or equal.
+    val (.<=): Expr -> Expr -> Expr
+
+    /// Signed less than.
+    val (?<): Expr -> Expr -> Expr
+
+    /// Signed less than or equal.
+    val (?<=): Expr -> Expr -> Expr
+
+    /// Bitwise AND.
+    val (.&): Expr -> Expr -> Expr
+
+    /// Bitwise OR.
+    val (.|): Expr -> Expr -> Expr
+
+    /// Bitwise XOR.
+    val (<+>): Expr -> Expr -> Expr
+
+    /// Shift arithmetic right.
+    val (?>>): Expr -> Expr -> Expr
+
+    /// Shift logical right.
+    val (>>): Expr -> Expr -> Expr
+
+    /// Shift logical left.
+    val (<<): Expr -> Expr -> Expr
+  end
 
 end
 
@@ -259,37 +332,37 @@ module HashCons = begin
   exception TagNotExistException
 
   /// Return true if the given expression is hash-consable.
-  val isHashConsable : Expr -> bool
+  val isHashConsable: Expr -> bool
 
   /// Return true if the given expression is hash-consed.
-  val isHashConsed : Expr -> bool
+  val isHashConsed: Expr -> bool
 
   /// Return the tag of hash-consed expression.
-  val getTag : Expr -> int64
+  val getTag: Expr -> int64
 
   /// Hash-consed UnOp constructor.
-  val unop : UnOpType -> Expr -> Expr
+  val unop: UnOpType -> Expr -> Expr
 
   /// Hash-consed BinOp constructor.
-  val binop : BinOpType -> Expr -> Expr -> Expr
+  val binop: BinOpType -> Expr -> Expr -> Expr
 
   /// Hash-consed App constructor.
-  val app : string -> Expr list -> RegType -> Expr
+  val app: string -> Expr list -> RegType -> Expr
 
   /// Hash-consed RelOp constructor.
-  val relop : RelOpType -> Expr -> Expr -> Expr
+  val relop: RelOpType -> Expr -> Expr -> Expr
 
   /// Hash-consed Load constructor.
-  val load : Endian -> RegType -> Expr -> Expr
+  val load: Endian -> RegType -> Expr -> Expr
 
   /// Hash-consed Ite constructor.
-  val ite : Expr -> Expr -> Expr -> Expr
+  val ite: Expr -> Expr -> Expr -> Expr
 
   /// Hash-consed Cast constructor. N.B. Type checking is not performed.
-  val cast : CastKind -> RegType -> Expr -> Expr
+  val cast: CastKind -> RegType -> Expr -> Expr
 
   /// Hash-consed Extract constructor.
-  val extract : Expr -> RegType -> StartPos -> Expr
+  val extract: Expr -> RegType -> StartPos -> Expr
 
 end
 

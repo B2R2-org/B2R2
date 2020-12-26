@@ -61,7 +61,7 @@ let rec translateExpr = function
   | (LowUIR.PCVar _ as e)
   | (LowUIR.TempVar _ as e) -> Var <| translateDest e
   | LowUIR.UnOp (op, e, _, _) ->
-    let ty = LowUIR.TypeCheck.typeOf e
+    let ty = LowUIR.AST.typeOf e
     UnOp (op, ty, translateExpr e)
   | LowUIR.FuncName s -> FuncName s
   | LowUIR.BinOp (op, ty, e1, e2, _, _) ->
@@ -71,7 +71,7 @@ let rec translateExpr = function
   | LowUIR.Load (_, ty, e, _, _) ->
     Load ({ Kind = MemVar; Identifier = -1 }, ty, translateExpr e)
   | LowUIR.Ite (e1, e2, e3, _, _) ->
-    let ty = LowUIR.TypeCheck.typeOf e2
+    let ty = LowUIR.AST.typeOf e2
     Ite (translateExpr e1, ty, translateExpr e2, translateExpr e3)
   | LowUIR.Cast (op, ty, e, _, _) -> Cast (op, ty, translateExpr e)
   | LowUIR.Extract (e, ty, pos, _, _) -> Extract (translateExpr e, ty, pos)
@@ -92,7 +92,7 @@ let rec internal translateStmtAux defaultRegType addr = function
     let expr = translateExpr expr
     Def (dest, expr) |> Some
   | LowUIR.Store (_, addr, expr) ->
-    let ty = LowUIR.TypeCheck.typeOf expr
+    let ty = LowUIR.AST.typeOf expr
     let addr = translateExpr addr
     let expr = translateExpr expr
     let srcMem = { Kind = MemVar; Identifier = -1 }

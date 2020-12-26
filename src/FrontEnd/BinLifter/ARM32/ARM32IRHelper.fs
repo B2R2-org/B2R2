@@ -27,82 +27,82 @@ module B2R2.FrontEnd.BinLifter.ARM32.IRHelper
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.BinIR.LowUIR
-open B2R2.BinIR.LowUIR.AST
+open B2R2.BinIR.LowUIR.AST.InfixOp
 
 let getRegVar (ctxt: TranslationContext) name =
   Register.toRegID name |> ctxt.GetRegVar
 
 /// Returns TRUE if the implementation includes the Security Extensions,
 /// on page B1-1157. function : HaveSecurityExt()
-let haveSecurityExt () = b0
+let haveSecurityExt () = AST.b0
 
 /// Returns TRUE if the implementation includes the Virtualization Extensions,
 /// on page AppxP-2660. function : HaveVirtExt()
-let haveVirtExt () = b0
+let haveVirtExt () = AST.b0
 
 /// Gets the mask bits for fetching the condition flag bits from the PSR.
 /// PSR bit[31:28]
-let maskPSRForCondbits = num <| BitVector.ofUBInt 4026531840I 32<rt>
+let maskPSRForCondbits = AST.num <| BitVector.ofUBInt 4026531840I 32<rt>
 
 /// Gets the mask bits for fetching the N condition flag from the PSR.
 /// PSR bit[31]
-let maskPSRForNbit = num <| BitVector.ofUBInt 2147483648I 32<rt>
+let maskPSRForNbit = AST.num <| BitVector.ofUBInt 2147483648I 32<rt>
 
 /// Gets the mask bits for fetching the Z condition flag from the PSR.
 /// PSR bits[30]
-let maskPSRForZbit = num <| BitVector.ofUBInt 1073741824I 32<rt>
+let maskPSRForZbit = AST.num <| BitVector.ofUBInt 1073741824I 32<rt>
 
 /// Gets the mask bits for fetching the C condition flag from the PSR.
 /// PSR bit[29]
-let maskPSRForCbit = num <| BitVector.ofUBInt 536870912I 32<rt>
+let maskPSRForCbit = AST.num <| BitVector.ofUBInt 536870912I 32<rt>
 
 /// Gets the mask bits for fetching the V condition flag from the PSR.
 /// PSR bit[28]
-let maskPSRForVbit = num <| BitVector.ofUBInt 268435456I 32<rt>
+let maskPSRForVbit = AST.num <| BitVector.ofUBInt 268435456I 32<rt>
 
 /// Gets the mask bits for fetching the Q bit from the PSR.
 /// PSR bit[27]
-let maskPSRForQbit = num <| BitVector.ofUBInt 134217728I 32<rt>
+let maskPSRForQbit = AST.num <| BitVector.ofUBInt 134217728I 32<rt>
 
 /// Gets the mask bits for fetching the IT[1:0] bits from the PSR.
 /// PSR bits[26:25]
-let maskPSRForIT10bits = num <| BitVector.ofUBInt 100663296I 32<rt>
+let maskPSRForIT10bits = AST.num <| BitVector.ofUBInt 100663296I 32<rt>
 
 /// Gets the mask bits for fetching the J bit from the PSR.
 /// PSR bit[24]
-let maskPSRForJbit = num <| BitVector.ofUBInt 16777216I 32<rt>
+let maskPSRForJbit = AST.num <| BitVector.ofUBInt 16777216I 32<rt>
 
 /// Gets the mask bits for fetching the GE[3:0] bits from the PSR.
 /// PSR bits[19:16]
-let maskPSRForGEbits = num <| BitVector.ofUBInt 983040I 32<rt>
+let maskPSRForGEbits = AST.num <| BitVector.ofUBInt 983040I 32<rt>
 
 /// Gets the mask bits for fetching the IT[7:2] bits from the PSR.
 /// PSR bits[15:10]
-let maskPSRForIT72bits = num <| BitVector.ofUBInt 64512I 32<rt>
+let maskPSRForIT72bits = AST.num <| BitVector.ofUBInt 64512I 32<rt>
 
 /// Gets the mask bits for fetching the E bit from the PSR.
 /// PSR bit[9]
-let maskPSRForEbit = num <| BitVector.ofUBInt 512I 32<rt>
+let maskPSRForEbit = AST.num <| BitVector.ofUBInt 512I 32<rt>
 
 /// Gets the mask bits for fetching the A bit from the PSR.
 /// PSR bit[8]
-let maskPSRForAbit = num <| BitVector.ofUBInt 256I 32<rt>
+let maskPSRForAbit = AST.num <| BitVector.ofUBInt 256I 32<rt>
 
 /// Gets the mask bits for fetching the I bit from the PSR.
 /// PSR bit[7]
-let maskPSRForIbit = num <| BitVector.ofUBInt 128I 32<rt>
+let maskPSRForIbit = AST.num <| BitVector.ofUBInt 128I 32<rt>
 
 /// Gets the mask bits for fetching the F bit from the PSR.
 /// PSR bit[6]
-let maskPSRForFbit = num <| BitVector.ofUBInt 64I 32<rt>
+let maskPSRForFbit = AST.num <| BitVector.ofUBInt 64I 32<rt>
 
 /// Gets the mask bits for fetching the T bit from the PSR.
 /// PSR bit[5]
-let maskPSRForTbit = num <| BitVector.ofUBInt 32I 32<rt>
+let maskPSRForTbit = AST.num <| BitVector.ofUBInt 32I 32<rt>
 
 /// Gets the mask bits for fetching the M[4:0] bits from the PSR.
 /// PSR bits[4:0]
-let maskPSRForMbits = num <| BitVector.ofUBInt 31I 32<rt>
+let maskPSRForMbits = AST.num <| BitVector.ofUBInt 31I 32<rt>
 
 /// Get PSR bits without shifting it.
 let internal getPSR ctxt reg psrType =
@@ -136,47 +136,49 @@ let isSetCPSR_M ctxt = getPSR ctxt R.CPSR PSR_M == maskPSRForMbits
 /// Test whether mode number is valid, on page B1-1142.
 /// function : BadMode()
 let isBadMode modeM =
-  let cond1 = modeM == (num <| BitVector.ofInt32 0b10000 32<rt>)
-  let cond2 = modeM == (num <| BitVector.ofInt32 0b10001 32<rt>)
-  let cond3 = modeM == (num <| BitVector.ofInt32 0b10010 32<rt>)
-  let cond4 = modeM == (num <| BitVector.ofInt32 0b10011 32<rt>)
-  let cond5 = modeM == (num <| BitVector.ofInt32 0b10110 32<rt>)
-  let cond6 = modeM == (num <| BitVector.ofInt32 0b10111 32<rt>)
-  let cond7 = modeM == (num <| BitVector.ofInt32 0b11010 32<rt>)
-  let cond8 = modeM == (num <| BitVector.ofInt32 0b11011 32<rt>)
-  let cond9 = modeM == (num <| BitVector.ofInt32 0b11111 32<rt>)
-  let ite1 = ite cond9 b0 b1
-  let ite2 = ite cond8 b0 ite1
-  let ite3 = ite cond7 (haveVirtExt () |> not) ite2
-  let ite4 = ite cond6 b0 ite3
-  let ite5 = ite cond5 (haveSecurityExt () |> not) ite4
-  let ite6 = ite cond4 b0 ite5
-  let ite7 = ite cond3 b0 ite6
-  let ite8 = ite cond2 b0 ite7
-  ite cond1 b0 ite8
+  let cond1 = modeM == (AST.num <| BitVector.ofInt32 0b10000 32<rt>)
+  let cond2 = modeM == (AST.num <| BitVector.ofInt32 0b10001 32<rt>)
+  let cond3 = modeM == (AST.num <| BitVector.ofInt32 0b10010 32<rt>)
+  let cond4 = modeM == (AST.num <| BitVector.ofInt32 0b10011 32<rt>)
+  let cond5 = modeM == (AST.num <| BitVector.ofInt32 0b10110 32<rt>)
+  let cond6 = modeM == (AST.num <| BitVector.ofInt32 0b10111 32<rt>)
+  let cond7 = modeM == (AST.num <| BitVector.ofInt32 0b11010 32<rt>)
+  let cond8 = modeM == (AST.num <| BitVector.ofInt32 0b11011 32<rt>)
+  let cond9 = modeM == (AST.num <| BitVector.ofInt32 0b11111 32<rt>)
+  let ite1 = AST.ite cond9 AST.b0 AST.b1
+  let ite2 = AST.ite cond8 AST.b0 ite1
+  let ite3 = AST.ite cond7 (haveVirtExt () |> AST.not) ite2
+  let ite4 = AST.ite cond6 AST.b0 ite3
+  let ite5 = AST.ite cond5 (haveSecurityExt () |> AST.not) ite4
+  let ite6 = AST.ite cond4 AST.b0 ite5
+  let ite7 = AST.ite cond3 AST.b0 ite6
+  let ite8 = AST.ite cond2 AST.b0 ite7
+  AST.ite cond1 AST.b0 ite8
 
 /// Returns TRUE if current mode is User or System mode, on page B1-1142.
 /// function : CurrentModeIsUserOrSystem()
 let currentModeIsUserOrSystem ctxt =
   let modeM = getPSR ctxt R.CPSR PSR_M
   let modeCond = isBadMode modeM
-  let ite1 = modeM == (num <| BitVector.ofInt32 0b11111 32<rt>)
-  let ite2 = ite (modeM == (num <| BitVector.ofInt32 0b10000 32<rt>)) b1 ite1
-  ite modeCond (Expr.Undefined (1<rt>, "UNPREDICTABLE")) ite2
+  let ite1 = modeM == (AST.num <| BitVector.ofInt32 0b11111 32<rt>)
+  let ite2 =
+    AST.ite (modeM == (AST.num <| BitVector.ofInt32 0b10000 32<rt>)) AST.b1 ite1
+  AST.ite modeCond (Expr.Undefined (1<rt>, "UNPREDICTABLE")) ite2
 
 /// Returns TRUE if current mode is Hyp mode, on page B1-1142.
 /// function : CurrentModeIsHyp()
 let currentModeIsHyp ctxt =
   let modeM = getPSR ctxt R.CPSR PSR_M
   let modeCond = isBadMode modeM
-  let ite1 = modeM == (num <| BitVector.ofInt32 0b11010 32<rt>)
-  ite modeCond (Expr.Undefined (1<rt>, "UNPREDICTABLE")) ite1
+  let ite1 = modeM == (AST.num <| BitVector.ofInt32 0b11010 32<rt>)
+  AST.ite modeCond (Expr.Undefined (1<rt>, "UNPREDICTABLE")) ite1
 
 /// Is this ARM instruction set, on page A2-51.
-let isInstrSetARM ctxt = not (isSetCPSR_J ctxt) .& not (isSetCPSR_T ctxt)
+let isInstrSetARM ctxt =
+  AST.not (isSetCPSR_J ctxt) .& AST.not (isSetCPSR_T ctxt)
 
 /// Is this Thumb instruction set, on page A2-51.
-let isInstrSetThumb ctxt = not (isSetCPSR_J ctxt) .& (isSetCPSR_T ctxt)
+let isInstrSetThumb ctxt = AST.not (isSetCPSR_J ctxt) .& (isSetCPSR_T ctxt)
 
 /// Is this ThumbEE instruction set, on page A2-51.
 let isInstrSetThumbEE ctxt = (isSetCPSR_J ctxt) .& (isSetCPSR_T ctxt)

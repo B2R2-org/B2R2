@@ -27,7 +27,8 @@ namespace B2R2.BinIR.LowUIR
 open B2R2
 open B2R2.BinIR
 
-module TypeCheck =
+[<RequireQualifiedAccess>]
+module private TypeCheck =
 
   let rec typeOf = function
     | Num n -> BitVector.getType n
@@ -38,39 +39,42 @@ module TypeCheck =
     | BinOp (_, t, _, _, _, _) -> t
     | RelOp (_) -> 1<rt>
     | Load (_, t, _, _, _) -> t
-    | Ite (_, e1, _e2, _, _) -> typeOf e1
+    | Ite (_, e1, _, _, _) -> typeOf e1
     | Cast (_, t, _, _, _) -> t
     | Extract (_, t, _, _, _) -> t
     | Undefined (t, _) -> t
     | FuncName (_) | Name (_) | Nil -> raise InvalidExprException
 
-  let concatType e1 e2 = typeOf e1 + typeOf e2
-
-  let checkTypeIsBool e =
+#if DEBUG
+  let bool e =
     let t = typeOf e
     if t <> 1<rt> then
       raise <| TypeCheckException (Pp.expToString e + "must be boolean.")
+    else ()
+#endif
 
-  let checkTypeIsEquivalent t1 t2 =
+  let inline checkEquivalence t1 t2 =
     if t1 = t2 then ()
     else raise <| TypeCheckException "Inconsistent types."
 
-  let getCommonType e1 e2 =
+  let concat e1 e2 = typeOf e1 + typeOf e2
+
+  let binop e1 e2 =
     let t1 = typeOf e1
     let t2 = typeOf e2
-    checkTypeIsEquivalent t1 t2
+    checkEquivalence t1 t2
     t1
 
-  let castErr (newType: RegType) (oldType: RegType) =
+  let private castErr (newType: RegType) (oldType: RegType) =
     let errMsg =
       "Cannot cast from " + oldType.ToString () + " to " + newType.ToString ()
     raise <| TypeCheckException errMsg
 
-  let isFloatValid = function
+  let private isFloatValid = function
   | 32<rt> | 64<rt> | 80<rt> -> true
   | _ -> false
 
-  let isCastingValid kind newType e =
+  let cast kind newType e =
     let oldType = typeOf e
     match kind with
     | CastKind.SignExt
@@ -85,17 +89,13 @@ module TypeCheck =
       else raise InvalidFloatTypeException
     | _ -> true
 
-  let extractTypeCheck (t: RegType) pos (t2: RegType) =
+  let extract (t: RegType) pos (t2: RegType) =
     if (RegType.toBitWidth t + pos) <= RegType.toBitWidth t2 && pos >= 0 then ()
     else raise <| TypeCheckException "Inconsistent types."
 
-module ConcreteEvaluator =
-  let takeHigh n t =
-    let vTyp = BitVector.getType n
-    let shiftAmount = (RegType.toBitWidth vTyp) - (RegType.toBitWidth t)
-    BitVector.cast (BitVector.shr n (BitVector.ofInt32 shiftAmount vTyp)) t
-
-  let inline evalUnOp n = function
+[<RequireQualifiedAccess>]
+module private ValueOpt =
+  let inline unop n = function
     | UnOpType.NEG -> BitVector.neg n |> Num
     | UnOpType.NOT -> BitVector.bnot n |> Num
     | UnOpType.FSQRT -> BitVector.fsqrt n |> Num
@@ -103,9 +103,9 @@ module ConcreteEvaluator =
     | UnOpType.FSIN -> BitVector.fsin n |> Num
     | UnOpType.FTAN -> BitVector.ftan n |> Num
     | UnOpType.FATAN -> BitVector.fatan n |> Num
-    | _ -> failwith "Invalid"
+    | _ -> Utils.impossible ()
 
-  let inline evalBinOp n1 n2 = function
+  let inline binop n1 n2 = function
     | BinOpType.ADD  -> BitVector.add n1 n2 |> Num
     | BinOpType.SUB  -> BitVector.sub n1 n2 |> Num
     | BinOpType.MUL  -> BitVector.mul n1 n2 |> Num
@@ -126,9 +126,9 @@ module ConcreteEvaluator =
     | BinOpType.FDIV -> BitVector.fdiv n1 n2 |> Num
     | BinOpType.FPOW -> BitVector.fpow n1 n2 |> Num
     | BinOpType.FLOG -> BitVector.flog n1 n2 |> Num
-    | _ -> failwith "Invalid"
+    | _ -> Utils.impossible ()
 
-  let inline evalRelOp n1 n2 = function
+  let inline relop n1 n2 = function
     | RelOpType.EQ  -> BitVector.eq n1 n2 |> Num
     | RelOpType.NEQ -> BitVector.neq n1 n2 |> Num
     | RelOpType.GT  -> BitVector.gt n1 n2 |> Num
@@ -143,9 +143,9 @@ module ConcreteEvaluator =
     | RelOpType.FLE -> BitVector.fle n1 n2 |> Num
     | RelOpType.FGT -> BitVector.fgt n1 n2 |> Num
     | RelOpType.FGE -> BitVector.fge n1 n2 |> Num
-    | _ -> failwith "Invalid"
+    | _ -> Utils.impossible ()
 
-  let inline evalCast t n = function
+  let inline cast t n = function
     | CastKind.SignExt -> BitVector.sext n t |> Num
     | CastKind.ZeroExt -> BitVector.zext n t |> Num
     | CastKind.FloatExt -> BitVector.fext n t |> Num
@@ -154,14 +154,12 @@ module ConcreteEvaluator =
     | CastKind.FtoIFloor -> BitVector.ftoifloor n t |> Num
     | CastKind.FtoIRound -> BitVector.ftoiround n t |> Num
     | CastKind.FtoITrunc -> BitVector.ftoitrunc n t |> Num
-    | _ -> failwith "Invalid"
+    | _ -> Utils.impossible ()
 
-  let inline evalExtract e t pos = BitVector.extract e t pos |> Num
+  let inline extract e t pos = BitVector.extract e t pos |> Num
 
+[<RequireQualifiedAccess>]
 module AST =
-  open TypeCheck
-  open ConcreteEvaluator
-
   let private emptyInfo =
     { HasLoad = false; VarsUsed = RegisterSet.empty; TempVarsUsed = Set.empty }
 
@@ -204,59 +202,55 @@ module AST =
   let var (t: RegType) (id: RegisterID) (name: string) (rs: RegisterSet) =
     Var (t, id, name, rs)
 
-  let pcVar (t: RegType) (name: string) = PCVar (t, name)
+  let pcvar (t: RegType) (name: string) = PCVar (t, name)
 
   let private varCnt = ref -1
 
-  let tmpVar (t: RegType) =
+  let tmpvar (t: RegType) =
     let i = System.Threading.Interlocked.Increment (varCnt)
     if i >= 0 then TempVar (t, i)
-    else failwith "temporary variable counter wrapped around"
+    else Utils.impossible ()
 
   let private lblCnt = ref -1
 
-  let lblSymbol n =
+  let symbol n =
     let i = System.Threading.Interlocked.Increment (lblCnt)
     if i >= 0 then Symbol (n, i)
-    else failwith "label counter wrapped around"
+    else Utils.impossible ()
 
   let inline unopBuilder (t: UnOpType) e proc =
     match e with
-    | Num n -> evalUnOp n t
+    | Num n -> ValueOpt.unop n t
     | _ -> UnOp (t, e, getExprInfo e, None) |> proc
 
   let unop (t: UnOpType) e = unopBuilder t e (fun x -> x)
 
-  let binopErr () = failwith "BinOp typecheck failure"
-
   let inline (===) e1 e2 = LanguagePrimitives.PhysicalEquality e1 e2
 
   let inline binopBuilder (op: BinOpType) e1 e2 proc =
+    let t =
+      match op with
+      | BinOpType.CONCAT -> TypeCheck.concat e1 e2
+      | _ ->
 #if DEBUG
-    let t =
-      match op with
-      | BinOpType.CONCAT -> concatType e1 e2
-      | _ -> getCommonType e1 e2
+        TypeCheck.binop e1 e2
 #else
-    let t =
-      match op with
-      | BinOpType.CONCAT -> concatType e1 e2
-      | _ -> typeOf e1
+        TypeCheck.typeOf e1
 #endif
     match op, e1, e2 with
-    | _, Num n1, Num n2 -> evalBinOp n1 n2 op
+    | _, Num n1, Num n2 -> ValueOpt.binop n1 n2 op
     | BinOpType.XOR, _, _ when e1 === e2 -> BitVector.zero t |> Num
     (* TODO: add more cases for optimization *)
     | _ -> BinOp (op, t, e1, e2, mergeTwoInfo e1 e2, None) |> proc
 
-  let binop op e1 e2 = binopBuilder op e1 e2 (fun x -> x)
+  let binop op e1 e2 = binopBuilder op e1 e2 id
 
   let cons a b =
     match b with
     | Nil ->
-      BinOp (BinOpType.CONS, typeOf a, a, b, getExprInfo a, None)
+      BinOp (BinOpType.CONS, TypeCheck.typeOf a, a, b, getExprInfo a, None)
     | _ ->
-      let t = getCommonType a b
+      let t = TypeCheck.binop a b
       BinOp (BinOpType.CONS, t, a, b, mergeTwoInfo a b, None)
 
   let app name args retType =
@@ -267,10 +261,10 @@ module AST =
 
   let inline relopBuilder (op: RelOpType) e1 e2 proc =
 #if DEBUG
-    getCommonType e1 e2 |> ignore
+    TypeCheck.binop e1 e2 |> ignore
 #endif
     match e1, e2 with
-    | Num n1, Num n2 -> evalRelOp n1 n2 op
+    | Num n1, Num n2 -> ValueOpt.relop n1 n2 op
     | _ -> RelOp (op, e1, e2, mergeTwoInfo e1 e2, None) |> proc
 
   let relop (op: RelOpType) e1 e2 = relopBuilder op e1 e2 (fun x -> x)
@@ -289,8 +283,8 @@ module AST =
 
   let inline iteBuilder cond e1 e2 proc =
 #if DEBUG
-    checkTypeIsBool cond
-    checkTypeIsEquivalent (typeOf e1) (typeOf e2)
+    TypeCheck.bool cond
+    TypeCheck.checkEquivalence (TypeCheck.typeOf e1) (TypeCheck.typeOf e2)
 #endif
     match cond with
     | Num (n) -> if BitVector.isOne n then e1 else e2 (* Assume valid cond *)
@@ -300,27 +294,28 @@ module AST =
 
   let inline castBuilder kind (t: RegType) (e: Expr) proc =
     match e with
-    | Num n -> evalCast t n kind
-    | _ when isCastingValid kind t e ->
+    | Num n -> ValueOpt.cast t n kind
+    | _ when TypeCheck.cast kind t e ->
       Cast (kind, t, e, getExprInfo e, None) |> proc
     | _ -> e
 
   let cast kind (t: RegType) (e: Expr) = castBuilder kind t e (fun x -> x)
 
   let inline extractBuilder (expr: Expr) (t: RegType) (pos: StartPos) proc =
-    extractTypeCheck t pos (typeOf expr)
+    TypeCheck.extract t pos (TypeCheck.typeOf expr)
     match expr with
-    | Num n -> evalExtract n t pos
+    | Num n -> ValueOpt.extract n t pos
     | Extract (e, _, p, ei, _) -> Extract (e, t, p + pos, ei, None) |> proc
     | _ -> Extract (expr, t, pos, getExprInfo expr, None) |> proc
 
   let extract (expr: Expr) (t: RegType) (pos: StartPos) =
     extractBuilder expr t pos (fun x -> x)
 
-  let unDef (t: RegType) (s: string) =
+  let undef (t: RegType) (s: string) =
     Undefined (t, s)
 
   let num0 t = num <| BitVector.zero t
+
   let num1 t = num <| BitVector.one t
 
   let b0 = num0 1<rt>
@@ -330,14 +325,13 @@ module AST =
 
   let concat e1 e2 = binop BinOpType.CONCAT e1 e2
 
-  /// Concatenate an array of expressions.
-  let concatExprs (arr: Expr []) =
+  let concatArr (arr: Expr []) =
     let rec concatLoop sPos ePos =
       let diff = ePos - sPos
       if diff > 0 then concat (concatLoop (sPos + diff / 2 + 1) ePos)
                               (concatLoop sPos (sPos + diff / 2))
       elif diff = 0 then arr.[sPos]
-      else failwith "Invalid positions."
+      else Utils.impossible ()
     concatLoop 0 (Array.length arr - 1)
 
   let assignForExtractDst e1 e2 =
@@ -358,9 +352,9 @@ module AST =
       Put (e1, binop BinOpType.OR (binop BinOpType.AND e1 mask) src)
     | e -> printfn "%A" e; raise InvalidAssignmentException
 
-  let (:=) e1 e2 = (* Assignment *)
+  let assign e1 e2 =
 #if DEBUG
-    checkTypeIsEquivalent (typeOf e1) (typeOf e2)
+    TypeCheck.checkEquivalence (TypeCheck.typeOf e1) (TypeCheck.typeOf e2)
 #endif
     match e1 with
     | Load (_, _, e, _, _) -> Store (Endian.Little, e, e2)
@@ -368,23 +362,23 @@ module AST =
     | Extract (_) as e1 -> assignForExtractDst e1 e2
     | _ -> raise InvalidAssignmentException
 
-  let (.+) e1 e2 = binop BinOpType.ADD e1 e2
+  let add e1 e2 = binop BinOpType.ADD e1 e2
 
-  let (.-) e1 e2 = binop BinOpType.SUB e1 e2
+  let sub e1 e2 = binop BinOpType.SUB e1 e2
 
-  let (.*) e1 e2 = binop BinOpType.MUL e1 e2
+  let mul e1 e2 = binop BinOpType.MUL e1 e2
 
-  let (./) e1 e2 = binop BinOpType.DIV e1 e2
+  let div e1 e2 = binop BinOpType.DIV e1 e2
 
-  let (?/) e1 e2 = binop BinOpType.SDIV e1 e2
+  let sdiv e1 e2 = binop BinOpType.SDIV e1 e2
 
-  let (.%) e1 e2 = binop BinOpType.MOD e1 e2
+  let ``mod`` e1 e2 = binop BinOpType.MOD e1 e2
 
-  let (?%) e1 e2 = binop BinOpType.SMOD e1 e2
+  let smod e1 e2 = binop BinOpType.SMOD e1 e2
 
-  let (==) e1 e2 = relop RelOpType.EQ e1 e2
+  let eq e1 e2 = relop RelOpType.EQ e1 e2
 
-  let (!=) e1 e2 = relop RelOpType.NEQ e1 e2
+  let neq e1 e2 = relop RelOpType.NEQ e1 e2
 
   let gt e1 e2 = relop RelOpType.GT e1 e2
 
@@ -402,17 +396,17 @@ module AST =
 
   let sle e1 e2 = relop RelOpType.SLE e1 e2
 
-  let (.&) e1 e2 = binop BinOpType.AND e1 e2
+  let ``and`` e1 e2 = binop BinOpType.AND e1 e2
 
-  let (.|) e1 e2 = binop BinOpType.OR e1 e2
+  let ``or`` e1 e2 = binop BinOpType.OR e1 e2
 
-  let (<+>) e1 e2 = binop BinOpType.XOR e1 e2
+  let xor e1 e2 = binop BinOpType.XOR e1 e2
 
-  let (?>>) e1 e2 = binop BinOpType.SAR e1 e2
+  let sar e1 e2 = binop BinOpType.SAR e1 e2
 
-  let (>>) e1 e2 = binop BinOpType.SHR e1 e2
+  let shr e1 e2 = binop BinOpType.SHR e1 e2
 
-  let (<<) e1 e2 = binop BinOpType.SHL e1 e2
+  let shl e1 e2 = binop BinOpType.SHL e1 e2
 
   let neg e = unop UnOpType.NEG e
 
@@ -438,45 +432,42 @@ module AST =
 
   let fle e1 e2 = relop RelOpType.FLE e1 e2
 
-  let fSqrt e = unop UnOpType.FSQRT e
+  let fsqrt e = unop UnOpType.FSQRT e
 
-  let fSin e = unop UnOpType.FSIN e
+  let fsin e = unop UnOpType.FSIN e
 
-  let fCos e = unop UnOpType.FCOS e
+  let fcos e = unop UnOpType.FCOS e
 
-  let fTan e = unop UnOpType.FTAN e
+  let ftan e = unop UnOpType.FTAN e
 
-  let fAtan e = unop UnOpType.FATAN e
+  let fatan e = unop UnOpType.FATAN e
 
-  let rec unwrapExpr = function
+  let rec unwrap = function
     | Cast (_, _, e, _, _)
-    | Extract (e, _, _, _, _) -> unwrapExpr e
+    | Extract (e, _, _, _, _) -> unwrap e
     | e -> e
 
-  /// Zero padding (extension).
-  let zExt addrSize expr = cast CastKind.ZeroExt addrSize expr
+  let zext addrSize expr = cast CastKind.ZeroExt addrSize expr
 
-  /// Sign extension.
-  let sExt addrSize expr = cast CastKind.SignExt addrSize expr
+  let sext addrSize expr = cast CastKind.SignExt addrSize expr
 
-  /// Take low.
-  let extractLow addrSize expr = extract expr addrSize 0
+  let xtlo addrSize expr = extract expr addrSize 0
 
-  /// Take high.
-  let extractHigh addrSize expr =
-    extract expr addrSize (int (typeOf expr - addrSize))
+  let xthi addrSize expr =
+    extract expr addrSize (int (TypeCheck.typeOf expr - addrSize))
 
-  /// Load expression in little-endian.
   let loadLE t expr = load Endian.Little t expr
+
+  let loadBE t expr = load Endian.Big t expr
 
   let typeOf e = TypeCheck.typeOf e
 
   let rec private typeCheckExpr = function
     | UnOp (_, e, _, _) -> typeCheckExpr e
     | BinOp (BinOpType.CONCAT, t, e1, e2, _, _) ->
-      typeCheckExpr e1 && typeCheckExpr e2 && concatType e1 e2 = t
+      typeCheckExpr e1 && typeCheckExpr e2 && TypeCheck.concat e1 e2 = t
     | BinOp (_, t, e1, e2, _, _) ->
-      typeCheckExpr e1 && typeCheckExpr e2 && getCommonType e1 e2 = t
+      typeCheckExpr e1 && typeCheckExpr e2 && TypeCheck.binop e1 e2 = t
     | RelOp (_, e1, e2, _, _) ->
       typeCheckExpr e1 && typeCheckExpr e2 && typeOf e1 = typeOf e2
     | Load (_, _, addr, _, _) -> typeCheckExpr addr
@@ -501,6 +492,34 @@ module AST =
       typeCheckExpr cond && typeCheckExpr pc
       && typeCheckExpr a1 && typeCheckExpr a2
     | _ -> true
+
+  /// AST.InfixOp
+  module InfixOp = begin
+    let (:=) e1 e2 = assign e1 e2
+    let (.+) e1 e2 = binop BinOpType.ADD e1 e2
+    let (.-) e1 e2 = binop BinOpType.SUB e1 e2
+    let (.*) e1 e2 = binop BinOpType.MUL e1 e2
+    let (./) e1 e2 = binop BinOpType.DIV e1 e2
+    let (?/) e1 e2 = binop BinOpType.SDIV e1 e2
+    let (.%) e1 e2 = binop BinOpType.MOD e1 e2
+    let (?%) e1 e2 = binop BinOpType.SMOD e1 e2
+    let (==) e1 e2 = relop RelOpType.EQ e1 e2
+    let (!=) e1 e2 = relop RelOpType.NEQ e1 e2
+    let (.>) e1 e2 = relop RelOpType.GT e1 e2
+    let (.>=) e1 e2 = relop RelOpType.GE e1 e2
+    let (?>) e1 e2 = relop RelOpType.SGT e1 e2
+    let (?>=) e1 e2 = relop RelOpType.SGE e1 e2
+    let (.<) e1 e2 = relop RelOpType.LT e1 e2
+    let (.<=) e1 e2 = relop RelOpType.LE e1 e2
+    let (?<) e1 e2 = relop RelOpType.SLT e1 e2
+    let (?<=) e1 e2 = relop RelOpType.SLE e1 e2
+    let (.&) e1 e2 = binop BinOpType.AND e1 e2
+    let (.|) e1 e2 = binop BinOpType.OR e1 e2
+    let (<+>) e1 e2 = binop BinOpType.XOR e1 e2
+    let (?>>) e1 e2 = binop BinOpType.SAR e1 e2
+    let (>>) e1 e2 = binop BinOpType.SHR e1 e2
+    let (<<) e1 e2 = binop BinOpType.SHL e1 e2
+  end
 
 module HashCons =
   exception ConsistencyFailException of string

@@ -27,7 +27,7 @@ module internal B2R2.FrontEnd.BinLifter.MIPS.Lifter
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
-open B2R2.BinIR.LowUIR.AST
+open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.MIPS
 
@@ -42,10 +42,10 @@ let startMark insInfo (builder: StmtBuilder) =
 let endMark insInfo (builder: StmtBuilder) =
   builder <! (IEMark (uint64 insInfo.NumBytes + insInfo.Address)); builder
 
-let inline numU32 n t = BitVector.ofUInt32 n t |> num
-let inline numI32 n t = BitVector.ofInt32 n t |> num
-let inline numU64 n t = BitVector.ofUInt64 n t |> num
-let inline numI64 n t = BitVector.ofInt64 n t |> num
+let inline numU32 n t = BitVector.ofUInt32 n t |> AST.num
+let inline numI32 n t = BitVector.ofInt32 n t |> AST.num
+let inline numU64 n t = BitVector.ofUInt64 n t |> AST.num
+let inline numI64 n t = BitVector.ofInt64 n t |> AST.num
 
 let bvOfBaseAddr (ctxt: TranslationContext) addr = numU64 addr ctxt.WordBitSize
 
@@ -55,12 +55,12 @@ let bvOfInstrLen (ctxt: TranslationContext) insInfo =
 let transOprToExpr insInfo ctxt = function
   | OpReg reg -> getRegVar ctxt reg
   | OpImm imm
-  | OpShiftAmount imm -> ctxt.WordBitSize |> BitVector.ofUInt64 imm |> num
+  | OpShiftAmount imm -> ctxt.WordBitSize |> BitVector.ofUInt64 imm |> AST.num
   | OpMem (b, o, sz) ->
-    loadLE sz (getRegVar ctxt b .+ numI64 o ctxt.WordBitSize)
+    AST.loadLE sz (getRegVar ctxt b .+ numI64 o ctxt.WordBitSize)
   | OpAddr (Relative o) ->
     numI64 (int64 insInfo.Address + o + int64 insInfo.NumBytes) ctxt.WordBitSize
-    |> loadLE ctxt.WordBitSize
+    |> AST.loadLE ctxt.WordBitSize
   | GoToLabel _ -> raise InvalidOperandException
 
 let transOprToImm = function
@@ -104,27 +104,27 @@ let transThreeOprs insInfo ctxt (o1, o2, o3) =
   transOprToExpr insInfo ctxt o3
 
 let sideEffects insInfo name =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   startMark insInfo builder
   builder <! (SideEffect name)
   endMark insInfo builder
 
 let checkOverfolwOnAdd e1 e2 r =
-  let e1High = extract e1 1<rt> 31
-  let e2High = extract e2 1<rt> 31
-  let rHigh = extract r 1<rt> 31
+  let e1High = AST.extract e1 1<rt> 31
+  let e2High = AST.extract e2 1<rt> 31
+  let rHigh = AST.extract r 1<rt> 31
   (e1High == e2High) .& (e1High <+> rHigh)
 
 let notWordValue v =
-  (extractHigh 32<rt> v) != sExt 32<rt> (extract v 1<rt> 31)
+  (AST.xthi 32<rt> v) != AST.sext 32<rt> (AST.extract v 1<rt> 31)
 
 let add insInfo ctxt =
-  let builder = new StmtBuilder (8)
-  let lblL0 = lblSymbol "L0"
-  let lblL1 = lblSymbol "L1"
-  let lblEnd = lblSymbol "End"
+  let builder = StmtBuilder (8)
+  let lblL0 = AST.symbol "L0"
+  let lblL1 = AST.symbol "L1"
+  let lblEnd = AST.symbol "End"
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let result = tmpVar 32<rt>
+  let result = AST.tmpvar 32<rt>
   let cond = checkOverfolwOnAdd rs rt result
   startMark insInfo builder
   builder <! (result := rs .+ rt)
@@ -138,14 +138,14 @@ let add insInfo ctxt =
   endMark insInfo builder
 
 let add64 insInfo ctxt =
-  let builder = new StmtBuilder (16)
-  let lblL0 = lblSymbol "L0"
-  let lblL1 = lblSymbol "L1"
-  let lblL2 = lblSymbol "L2"
-  let lblL3 = lblSymbol "L3"
-  let lblEnd = lblSymbol "End"
+  let builder = StmtBuilder (16)
+  let lblL0 = AST.symbol "L0"
+  let lblL1 = AST.symbol "L1"
+  let lblL2 = AST.symbol "L2"
+  let lblL3 = AST.symbol "L3"
+  let lblEnd = AST.symbol "End"
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let result = tmpVar 32<rt>
+  let result = AST.tmpvar 32<rt>
   let cond = notWordValue rs .| notWordValue rt
   let cond2 = checkOverfolwOnAdd rs rt result
   startMark insInfo builder
@@ -154,32 +154,32 @@ let add64 insInfo ctxt =
   builder <! (SideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
   builder <! (Jmp (Name lblEnd))
   builder <! (LMark lblL1)
-  builder <! (result := extractLow 32<rt> rs .+ extractLow 32<rt> rt)
+  builder <! (result := AST.xtlo 32<rt> rs .+ AST.xtlo 32<rt> rt)
   builder <! (CJmp (cond2, Name lblL2, Name lblL3))
   builder <! (LMark lblL0)
   builder <! (SideEffect UndefinedInstr) (* FIXME: (SignalException(IntegerOverflow)) *)
   builder <! (Jmp (Name lblEnd))
   builder <! (LMark lblL1)
-  builder <! (rd := sExt 64<rt> result)
+  builder <! (rd := AST.sext 64<rt> result)
   builder <! (LMark lblEnd)
   endMark insInfo builder
 
 let addiu insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let result = tmpVar 32<rt>
+  let result = AST.tmpvar 32<rt>
   startMark insInfo builder
   builder <! (result := rs .+ imm)
   builder <! (rt := result)
   endMark insInfo builder
 
 let addiu64 insInfo ctxt =
-  let builder = new StmtBuilder (16)
-  let lblL0 = lblSymbol "L0"
-  let lblL1 = lblSymbol "L1"
-  let lblEnd = lblSymbol "End"
+  let builder = StmtBuilder (16)
+  let lblL0 = AST.symbol "L0"
+  let lblL1 = AST.symbol "L1"
+  let lblEnd = AST.symbol "End"
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let result = tmpVar 64<rt>
+  let result = AST.tmpvar 64<rt>
   let cond = notWordValue rs
   startMark insInfo builder
   builder <! (CJmp (cond, Name lblL0, Name lblL1))
@@ -188,24 +188,24 @@ let addiu64 insInfo ctxt =
   builder <! (Jmp (Name lblEnd))
   builder <! (LMark lblL1)
   builder <! (result := rs .+ imm)
-  builder <! (rt := sExt 64<rt> (extractLow 32<rt> result))
+  builder <! (rt := AST.sext 64<rt> (AST.xtlo 32<rt> result))
   builder <! (LMark lblEnd)
   endMark insInfo builder
 
 let addu insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := rs .+ rt)
   endMark insInfo builder
 
 let addu64 insInfo ctxt =
-  let builder = new StmtBuilder (16)
-  let lblL0 = lblSymbol "L0"
-  let lblL1 = lblSymbol "L1"
-  let lblEnd = lblSymbol "End"
+  let builder = StmtBuilder (16)
+  let lblL0 = AST.symbol "L0"
+  let lblL1 = AST.symbol "L1"
+  let lblEnd = AST.symbol "End"
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let result = tmpVar 64<rt>
+  let result = AST.tmpvar 64<rt>
   let cond = notWordValue rs .| notWordValue rt
   startMark insInfo builder
   builder <! (CJmp (cond, Name lblL0, Name lblL1))
@@ -214,26 +214,26 @@ let addu64 insInfo ctxt =
   builder <! (Jmp (Name lblEnd))
   builder <! (LMark lblL1)
   builder <! (result := rs .+ rt)
-  builder <! (rd := sExt 64<rt> (extractLow 32<rt> result))
+  builder <! (rd := AST.sext 64<rt> (AST.xtlo 32<rt> result))
   builder <! (LMark lblEnd)
   endMark insInfo builder
 
 let logAnd insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := rs .& rt)
   endMark insInfo builder
 
 let andi insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rt := rs .& imm)
   endMark insInfo builder
 
 let aui insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let imm = imm << numI32 16 ctxt.WordBitSize
   startMark insInfo builder
@@ -241,7 +241,7 @@ let aui insInfo ctxt =
   endMark insInfo builder
 
 let b insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let offset = getOneOpr insInfo |> transOneOpr insInfo ctxt
   let pc = getRegVar ctxt R.PC
   startMark insInfo builder
@@ -249,7 +249,7 @@ let b insInfo ctxt =
   endMark insInfo builder
 
 let bal insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let offset = getOneOpr insInfo |> transOneOpr insInfo ctxt
   let pc = getRegVar ctxt R.PC
   startMark insInfo builder
@@ -258,7 +258,7 @@ let bal insInfo ctxt =
   endMark insInfo builder
 
 let beq insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rs, rt, offset = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let pc = getRegVar ctxt R.PC
   let cond = rs == rt
@@ -269,10 +269,10 @@ let beq insInfo ctxt =
   endMark insInfo builder
 
 let blez insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rs, offset = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let pc = getRegVar ctxt R.PC
-  let cond = le rs (num0 ctxt.WordBitSize)
+  let cond = AST.le rs (AST.num0 ctxt.WordBitSize)
   let fallThrough =
     bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
   startMark insInfo builder
@@ -280,10 +280,10 @@ let blez insInfo ctxt =
   endMark insInfo builder
 
 let bltz insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rs, offset = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let pc = getRegVar ctxt R.PC
-  let cond = lt rs (num0 ctxt.WordBitSize)
+  let cond = AST.lt rs (AST.num0 ctxt.WordBitSize)
   let fallThrough =
     bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
   startMark insInfo builder
@@ -291,10 +291,10 @@ let bltz insInfo ctxt =
   endMark insInfo builder
 
 let bgez insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rs, offset = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let pc = getRegVar ctxt R.PC
-  let cond = ge rs (num0 ctxt.WordBitSize)
+  let cond = AST.ge rs (AST.num0 ctxt.WordBitSize)
   let fallThrough =
     bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
   startMark insInfo builder
@@ -302,10 +302,10 @@ let bgez insInfo ctxt =
   endMark insInfo builder
 
 let bgtz insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rs, offset = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let pc = getRegVar ctxt R.PC
-  let cond = gt rs (num0 ctxt.WordBitSize)
+  let cond = AST.gt rs (AST.num0 ctxt.WordBitSize)
   let fallThrough =
     bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
   startMark insInfo builder
@@ -313,7 +313,7 @@ let bgtz insInfo ctxt =
   endMark insInfo builder
 
 let bne insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rs, rt, offset = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let pc = getRegVar ctxt R.PC
   let cond = rs != rt
@@ -324,74 +324,74 @@ let bne insInfo ctxt =
   endMark insInfo builder
 
 let clz insInfo (ctxt: TranslationContext) =
-  let builder = new StmtBuilder (16)
-  let lblLoop = lblSymbol "Loop"
-  let lblContinue = lblSymbol "Continue"
-  let lblUpdate = lblSymbol "update"
-  let lblEnd = lblSymbol "End"
+  let builder = StmtBuilder (16)
+  let lblLoop = AST.symbol "Loop"
+  let lblContinue = AST.symbol "Continue"
+  let lblUpdate = AST.symbol "update"
+  let lblEnd = AST.symbol "End"
   let wordSz = ctxt.WordBitSize
   let rd, rs = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let t = tmpVar wordSz
+  let t = AST.tmpvar wordSz
   let tmp = numI32 (32 - 1) wordSz
   startMark insInfo builder
   builder <! (t := tmp)
   builder <! (LMark lblLoop)
-  builder <! (CJmp (rs >> t == num1 wordSz, Name lblEnd, Name lblContinue))
+  builder <! (CJmp (rs >> t == AST.num1 wordSz, Name lblEnd, Name lblContinue))
   builder <! (LMark lblContinue)
-  builder <! (CJmp (t == num0 wordSz, Name lblEnd, Name lblUpdate))
+  builder <! (CJmp (t == AST.num0 wordSz, Name lblEnd, Name lblUpdate))
   builder <! (LMark lblUpdate)
-  builder <! (t := t .- num1 wordSz)
+  builder <! (t := t .- AST.num1 wordSz)
   builder <! (Jmp (Name lblLoop))
   builder <! (LMark lblEnd)
   builder <! (rd := t)
   endMark insInfo builder
 
 let daddiu insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let result = tmpVar 64<rt>
+  let result = AST.tmpvar 64<rt>
   startMark insInfo builder
   builder <! (result := rs .+ imm)
   builder <! (rt := result)
   endMark insInfo builder
 
 let dclz insInfo (ctxt: TranslationContext) =
-  let builder = new StmtBuilder (16)
-  let lblLoop = lblSymbol "Loop"
-  let lblContinue = lblSymbol "Continue"
-  let lblUpdate = lblSymbol "update"
-  let lblEnd = lblSymbol "End"
+  let builder = StmtBuilder (16)
+  let lblLoop = AST.symbol "Loop"
+  let lblContinue = AST.symbol "Continue"
+  let lblUpdate = AST.symbol "update"
+  let lblEnd = AST.symbol "End"
   let wordSz = ctxt.WordBitSize
   let rd, rs = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let t = tmpVar wordSz
+  let t = AST.tmpvar wordSz
   let tmp = numI32 (64 - 1) wordSz
   startMark insInfo builder
   builder <! (t := tmp)
   builder <! (LMark lblLoop)
-  builder <! (CJmp (rs >> t == num1 wordSz, Name lblEnd, Name lblContinue))
+  builder <! (CJmp (rs >> t == AST.num1 wordSz, Name lblEnd, Name lblContinue))
   builder <! (LMark lblContinue)
-  builder <! (CJmp (t == num0 wordSz, Name lblEnd, Name lblUpdate))
+  builder <! (CJmp (t == AST.num0 wordSz, Name lblEnd, Name lblUpdate))
   builder <! (LMark lblUpdate)
-  builder <! (t := t .- num1 wordSz)
+  builder <! (t := t .- AST.num1 wordSz)
   builder <! (Jmp (Name lblLoop))
   builder <! (LMark lblEnd)
   builder <! (rd := t)
   endMark insInfo builder
 
 let ddivu insInfo ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   startMark insInfo builder
   let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let q = tmpVar 128<rt>
-  let r = tmpVar 128<rt>
+  let q = AST.tmpvar 128<rt>
+  let r = AST.tmpvar 128<rt>
   let hi = getRegVar ctxt R.HI
   let lo = getRegVar ctxt R.LO
-  let rs = zExt 128<rt> rs
-  let rt = zExt 128<rt> rt
+  let rs = AST.zext 128<rt> rs
+  let rt = AST.zext 128<rt> rt
   builder <! (q := rs ./ rt)
   builder <! (r := rs .% rt)
-  builder <! (lo := extractLow 64<rt> q)
-  builder <! (hi := extractLow 64<rt> r)
+  builder <! (lo := AST.xtlo 64<rt> q)
+  builder <! (hi := AST.xtlo 64<rt> r)
   endMark insInfo builder
 
 let checkDEXTPosSize pos size =
@@ -402,7 +402,7 @@ let checkDEXTPosSize pos size =
   else  raise InvalidOperandException
 
 let dext insInfo ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   startMark insInfo builder
   let rt, rs, pos, size = getFourOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
@@ -431,7 +431,7 @@ let checkDEXTUPosSize pos size =
   else  raise InvalidOperandException
 
 let dextx insInfo posSizeCheckFn ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   startMark insInfo builder
   let rt, rs, pos, size = getFourOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
@@ -455,7 +455,7 @@ let checkINSorExtPosSize pos size =
   else raise InvalidOperandException
 
 let dins insInfo ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   startMark insInfo builder
   let rt, rs, pos, size = getFourOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
@@ -468,8 +468,9 @@ let dins insInfo ctxt =
     let posExpr = numI32 pos ctxt.WordBitSize
     let getMask size = (1L <<< size) - 1L
     let mask = numI64 (getMask size) ctxt.WordBitSize
-    let rs', rt' = if pos = 0 then rs .& mask, rt .& (not mask)
-                    else (rs .& mask) << posExpr, rt .& (not (mask << posExpr))
+    let rs', rt' =
+      if pos = 0 then rs .& mask, rt .& (AST.not mask)
+      else (rs .& mask) << posExpr, rt .& (AST.not (mask << posExpr))
     builder <! (rt := rt' .| rs')
   endMark insInfo builder
 
@@ -488,7 +489,7 @@ let checkDINSUPosSize pos size =
   else raise InvalidOperandException
 
 let dinsx insInfo posSizeCheckFn ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   startMark insInfo builder
   let rt, rs, pos, size = getFourOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
@@ -501,23 +502,24 @@ let dinsx insInfo posSizeCheckFn ctxt =
     let posExpr = numI32 pos ctxt.WordBitSize
     let getMask size = (1L <<< size) - 1L
     let mask = numI64 (getMask size) ctxt.WordBitSize
-    let rs', rt' = if pos = 0 then rs .& mask, rt .& (not mask)
-                    else (rs .& mask) << posExpr, rt .& (not (mask << posExpr))
+    let rs', rt' =
+      if pos = 0 then rs .& mask, rt .& (AST.not mask)
+      else (rs .& mask) << posExpr, rt .& (AST.not (mask << posExpr))
     builder <! (rt := rt' .| rs')
   endMark insInfo builder
 
 let divu insInfo ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   startMark insInfo builder
   let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let q = tmpVar 64<rt>
-  let r = tmpVar 64<rt>
+  let q = AST.tmpvar 64<rt>
+  let r = AST.tmpvar 64<rt>
   let hi = getRegVar ctxt R.HI
   let lo = getRegVar ctxt R.LO
   if ctxt.WordBitSize = 64<rt> then
-    let lblL0 = lblSymbol "L0"
-    let lblL1 = lblSymbol "L1"
-    let lblEnd = lblSymbol "End"
+    let lblL0 = AST.symbol "L0"
+    let lblL1 = AST.symbol "L1"
+    let lblEnd = AST.symbol "End"
     let cond = notWordValue rs .| notWordValue rt
     let mask = numI64 0xFFFFFFFFL 64<rt>
     let rs = rs .& mask
@@ -529,44 +531,44 @@ let divu insInfo ctxt =
     builder <! (LMark lblL1)
     builder <! (q := rs ./ rt)
     builder <! (r := rs .% rt)
-    builder <! (lo := sExt 64<rt> (extractLow 32<rt> q))
-    builder <! (hi := sExt 64<rt> (extractLow 32<rt> r))
+    builder <! (lo := AST.sext 64<rt> (AST.xtlo 32<rt> q))
+    builder <! (hi := AST.sext 64<rt> (AST.xtlo 32<rt> r))
     builder <! (LMark lblEnd)
   else
-    let rs = zExt 64<rt> rs
-    let rt = zExt 64<rt> rt
+    let rs = AST.zext 64<rt> rs
+    let rt = AST.zext 64<rt> rt
     builder <! (q := rs ./ rt)
     builder <! (r := rs .% rt)
-    builder <! (lo := extractLow 32<rt> q)
-    builder <! (hi := extractLow 32<rt> r)
+    builder <! (lo := AST.xtlo 32<rt> q)
+    builder <! (hi := AST.xtlo 32<rt> r)
   endMark insInfo builder
 
 let dmult insInfo ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   startMark insInfo builder
   let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let result = tmpVar 128<rt>
+  let result = AST.tmpvar 128<rt>
   let hi = getRegVar ctxt R.HI
   let lo = getRegVar ctxt R.LO
-  builder <! (result := (sExt 128<rt> rs) .* (sExt 128<rt> rt))
-  builder <! (lo := extractLow 64<rt> result)
-  builder <! (hi := extractHigh 64<rt> result)
+  builder <! (result := (AST.sext 128<rt> rs) .* (AST.sext 128<rt> rt))
+  builder <! (lo := AST.xtlo 64<rt> result)
+  builder <! (hi := AST.xthi 64<rt> result)
   endMark insInfo builder
 
 let dmultu insInfo ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   startMark insInfo builder
   let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let result = tmpVar 128<rt>
+  let result = AST.tmpvar 128<rt>
   let hi = getRegVar ctxt R.HI
   let lo = getRegVar ctxt R.LO
-  builder <! (result := (zExt 128<rt> rs) .* (zExt 128<rt> rt))
-  builder <! (lo := extractLow 64<rt> result)
-  builder <! (hi := extractHigh 64<rt> result)
+  builder <! (result := (AST.zext 128<rt> rs) .* (AST.zext 128<rt> rt))
+  builder <! (lo := AST.xtlo 64<rt> result)
+  builder <! (hi := AST.xthi 64<rt> result)
   endMark insInfo builder
 
 let drotr insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let size = numI32 64 64<rt>
   startMark insInfo builder
@@ -574,15 +576,15 @@ let drotr insInfo ctxt =
   endMark insInfo builder
 
 let dsll insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
-  if sa = num0 ctxt.WordBitSize then builder <! (rd := rt)
+  if sa = AST.num0 ctxt.WordBitSize then builder <! (rd := rt)
   else builder <! (rd := rt << sa)
   endMark insInfo builder
 
 let dsll32 insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let sa = sa .+ numI32 32 64<rt>
   startMark insInfo builder
@@ -590,22 +592,22 @@ let dsll32 insInfo ctxt =
   endMark insInfo builder
 
 let dsllv insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rd, rt, rs = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := rt << (rs .& numI32 63 64<rt>))
   endMark insInfo builder
 
 let dsra insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
-  if sa = num0 ctxt.WordBitSize then builder <! (rd := rt)
+  if sa = AST.num0 ctxt.WordBitSize then builder <! (rd := rt)
   else builder <! (rd := rt ?>> sa)
   endMark insInfo builder
 
 let dsra32 insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let sa = sa .+ numI32 32 64<rt>
   startMark insInfo builder
@@ -613,15 +615,15 @@ let dsra32 insInfo ctxt =
   endMark insInfo builder
 
 let dsrl insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
-  if sa = num0 ctxt.WordBitSize then builder <! (rd := rt)
+  if sa = AST.num0 ctxt.WordBitSize then builder <! (rd := rt)
   else builder <! (rd := rt >> sa)
   endMark insInfo builder
 
 let dsrl32 insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let sa = sa .+ numI32 32 64<rt>
   startMark insInfo builder
@@ -629,14 +631,14 @@ let dsrl32 insInfo ctxt =
   endMark insInfo builder
 
 let dsrlv insInfo ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let rd, rt, rs = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := rt >> (rs .& numI32 63 64<rt>))
   endMark insInfo builder
 
 let ins insInfo ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   startMark insInfo builder
   let rt, rs, pos, size = getFourOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
@@ -649,13 +651,14 @@ let ins insInfo ctxt =
     let posExpr = numI32 pos ctxt.WordBitSize
     let getMask size = (1L <<< size) - 1L
     let mask = numI64 (getMask size) ctxt.WordBitSize
-    let rs', rt' = if pos = 0 then rs .& mask, rt .& (not mask)
-                   else (rs .& mask) << posExpr, rt .& (not (mask << posExpr))
+    let rs', rt' =
+      if pos = 0 then rs .& mask, rt .& (AST.not mask)
+      else (rs .& mask) << posExpr, rt .& (AST.not (mask << posExpr))
     builder <! (rt := rt' .| rs')
   endMark insInfo builder
 
 let ins64 insInfo ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   startMark insInfo builder
   let rt, rs, pos, size = getFourOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
@@ -665,9 +668,9 @@ let ins64 insInfo ctxt =
   checkINSorExtPosSize pos size
   let posExpr = numI32 pos ctxt.WordBitSize
   let getMask size = (1L <<< size) - 1L
-  let lblL0 = lblSymbol "L0"
-  let lblL1 = lblSymbol "L1"
-  let lblEnd = lblSymbol "End"
+  let lblL0 = AST.symbol "L0"
+  let lblL1 = AST.symbol "L1"
+  let lblEnd = AST.symbol "End"
   let cond = notWordValue rs .| notWordValue rt
   builder <! (CJmp (cond, Name lblL0, Name lblL1))
   builder <! (LMark lblL0)
@@ -675,8 +678,8 @@ let ins64 insInfo ctxt =
   builder <! (Jmp (Name lblEnd))
   builder <! (LMark lblL1)
   let mask = numI64 (getMask size) ctxt.WordBitSize
-  let rs', rt' = if pos = 0 then rs .& mask, rt .& (not mask)
-                  else (rs .& mask) << posExpr, rt .& (not (mask << posExpr))
+  let rs', rt' = if pos = 0 then rs .& mask, rt .& (AST.not mask)
+                 else (rs .& mask) << posExpr, rt .& (AST.not (mask << posExpr))
   builder <! (rt := rt' .| rs')
   builder <! (LMark lblEnd)
   endMark insInfo builder
@@ -689,7 +692,7 @@ let getJALROprs insInfo ctxt =
   | _ -> raise InvalidOperandException
 
 let jalr insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rd, rs = getJALROprs insInfo ctxt
   let pc = getRegVar ctxt R.PC
   let r = bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
@@ -699,7 +702,7 @@ let jalr insInfo ctxt =
   endMark insInfo builder
 
 let jr insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rs = getOneOpr insInfo |> transOneOpr insInfo ctxt
   let pc = getRegVar ctxt R.PC
   startMark insInfo builder
@@ -707,21 +710,21 @@ let jr insInfo ctxt =
   endMark insInfo builder
 
 let load insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
-  builder <! (rt := sExt ctxt.WordBitSize mem)
+  builder <! (rt := AST.sext ctxt.WordBitSize mem)
   endMark insInfo builder
 
 let loadu insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
-  builder <! (rt := zExt ctxt.WordBitSize mem)
+  builder <! (rt := AST.zext ctxt.WordBitSize mem)
   endMark insInfo builder
 
 let ext insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   startMark insInfo builder
   let rt, rs, pos, size = getFourOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
@@ -736,7 +739,7 @@ let ext insInfo ctxt =
   endMark insInfo builder
 
 let ext64 insInfo ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   startMark insInfo builder
   let rt, rs, pos, size = getFourOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
@@ -745,9 +748,9 @@ let ext64 insInfo ctxt =
   let size = int32 (transOprToImm size)
   let getMask size = (1L <<< size) - 1L
   checkINSorExtPosSize pos size
-  let lblL0 = lblSymbol "L0"
-  let lblL1 = lblSymbol "L1"
-  let lblEnd = lblSymbol "End"
+  let lblL0 = AST.symbol "L0"
+  let lblL1 = AST.symbol "L1"
+  let lblEnd = AST.symbol "End"
   let cond = notWordValue rs
   builder <! (CJmp (cond, Name lblL0, Name lblL1))
   builder <! (LMark lblL0)
@@ -761,28 +764,28 @@ let ext64 insInfo ctxt =
   endMark insInfo builder
 
 let lui insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rt, imm = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
   if ctxt.WordBitSize = 64<rt> then
     builder <!
-      (rt := sExt 64<rt> (concat (extractLow 16<rt> imm) (num0 16<rt>)))
-  else builder <! (rt := concat (extractLow 16<rt> imm) (num0 16<rt>))
+      (rt := AST.sext 64<rt> (AST.concat (AST.xtlo 16<rt> imm) (AST.num0 16<rt>)))
+  else builder <! (rt := AST.concat (AST.xtlo 16<rt> imm) (AST.num0 16<rt>))
   endMark insInfo builder
 
 let madd insInfo ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   startMark insInfo builder
   let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let result = tmpVar 64<rt>
+  let result = AST.tmpvar 64<rt>
   let hi = getRegVar ctxt R.HI
   let lo = getRegVar ctxt R.LO
   if ctxt.WordBitSize = 64<rt> then
-    let lblL0 = lblSymbol "L0"
-    let lblL1 = lblSymbol "L1"
-    let lblEnd = lblSymbol "End"
+    let lblL0 = AST.symbol "L0"
+    let lblL1 = AST.symbol "L1"
+    let lblEnd = AST.symbol "End"
     let cond = notWordValue rs .| notWordValue rt
-    let hilo = concat (extractLow 32<rt> hi) (extractLow 32<rt> lo)
+    let hilo = AST.concat (AST.xtlo 32<rt> hi) (AST.xtlo 32<rt> lo)
     let mask = numU32 0xFFFFu 64<rt>
     builder <! (CJmp (cond, Name lblL0, Name lblL1))
     builder <! (LMark lblL0)
@@ -790,56 +793,56 @@ let madd insInfo ctxt =
     builder <! (Jmp (Name lblEnd))
     builder <! (LMark lblL1)
     builder <! (result := hilo .+ ((rs .& mask) .* (rt .& mask)))
-    builder <! (hi := sExt 64<rt> (extractHigh 32<rt> result))
-    builder <! (lo := sExt 64<rt> (extractLow 32<rt> result))
+    builder <! (hi := AST.sext 64<rt> (AST.xthi 32<rt> result))
+    builder <! (lo := AST.sext 64<rt> (AST.xtlo 32<rt> result))
     builder <! (LMark lblEnd)
   else
-    builder <! (result := (concat hi lo) .+ (sExt 64<rt> rs .* sExt 64<rt> rt))
-    builder <! (hi := extractHigh 32<rt> result)
-    builder <! (lo := extractLow 32<rt> result)
+    builder <! (result := (AST.concat hi lo) .+ (AST.sext 64<rt> rs .* AST.sext 64<rt> rt))
+    builder <! (hi := AST.xthi 32<rt> result)
+    builder <! (lo := AST.xtlo 32<rt> result)
   endMark insInfo builder
 
 let mfhi insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rd = getOneOpr insInfo |> transOneOpr insInfo ctxt
   startMark insInfo builder
   builder <! (rd := getRegVar ctxt R.HI)
   endMark insInfo builder
 
 let mflo insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rd = getOneOpr insInfo |> transOneOpr insInfo ctxt
   startMark insInfo builder
   builder <! (rd := getRegVar ctxt R.LO)
   endMark insInfo builder
 
 let movz insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let cond = rt == num0 ctxt.WordBitSize
+  let cond = rt == AST.num0 ctxt.WordBitSize
   startMark insInfo builder
-  builder <! (rd := ite cond rs rd)
+  builder <! (rd := AST.ite cond rs rd)
   endMark insInfo builder
 
 let movn insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let cond = rt != num0 ctxt.WordBitSize
+  let cond = rt != AST.num0 ctxt.WordBitSize
   startMark insInfo builder
-  builder <! (rd := ite cond rs rd)
+  builder <! (rd := AST.ite cond rs rd)
   endMark insInfo builder
 
 let mul insInfo ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   startMark insInfo builder
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let result = tmpVar 64<rt>
+  let result = AST.tmpvar 64<rt>
   let hi = getRegVar ctxt R.HI
   let lo = getRegVar ctxt R.LO
   if ctxt.WordBitSize = 64<rt> then
-    let lblL0 = lblSymbol "L0"
-    let lblL1 = lblSymbol "L1"
-    let lblEnd = lblSymbol "End"
+    let lblL0 = AST.symbol "L0"
+    let lblL1 = AST.symbol "L1"
+    let lblEnd = AST.symbol "End"
     let cond = notWordValue rs .| notWordValue rt
     builder <! (CJmp (cond, Name lblL0, Name lblL1))
     builder <! (LMark lblL0)
@@ -847,26 +850,26 @@ let mul insInfo ctxt =
     builder <! (Jmp (Name lblEnd))
     builder <! (LMark lblL1)
     builder <! (result := rs .* rt)
-    builder <! (rd := sExt 64<rt> (extractLow 32<rt> result))
+    builder <! (rd := AST.sext 64<rt> (AST.xtlo 32<rt> result))
     builder <! (LMark lblEnd)
   else
-    builder <! (result := (sExt 64<rt> rs .* sExt 64<rt> rt))
-    builder <! (rd := extractLow 32<rt> result)
+    builder <! (result := (AST.sext 64<rt> rs .* AST.sext 64<rt> rt))
+    builder <! (rd := AST.xtlo 32<rt> result)
   builder <! (hi := Expr.Undefined (ctxt.WordBitSize, "UNPREDICTABLE"))
   builder <! (lo := Expr.Undefined (ctxt.WordBitSize, "UNPREDICTABLE"))
   endMark insInfo builder
 
 let mult insInfo ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   startMark insInfo builder
   let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let result = tmpVar 64<rt>
+  let result = AST.tmpvar 64<rt>
   let hi = getRegVar ctxt R.HI
   let lo = getRegVar ctxt R.LO
   if ctxt.WordBitSize = 64<rt> then
-    let lblL0 = lblSymbol "L0"
-    let lblL1 = lblSymbol "L1"
-    let lblEnd = lblSymbol "End"
+    let lblL0 = AST.symbol "L0"
+    let lblL1 = AST.symbol "L1"
+    let lblEnd = AST.symbol "End"
     let cond = notWordValue rs .| notWordValue rt
     let mask = numI64 0xFFFFFFFFL 64<rt>
     builder <! (CJmp (cond, Name lblL0, Name lblL1))
@@ -875,26 +878,26 @@ let mult insInfo ctxt =
     builder <! (Jmp (Name lblEnd))
     builder <! (LMark lblL1)
     builder <! (result := (rs .& mask) .* (rt .& mask))
-    builder <! (lo := sExt 64<rt> (extractLow 32<rt> result))
-    builder <! (hi := sExt 64<rt> (extractHigh 32<rt> result))
+    builder <! (lo := AST.sext 64<rt> (AST.xtlo 32<rt> result))
+    builder <! (hi := AST.sext 64<rt> (AST.xthi 32<rt> result))
     builder <! (LMark lblEnd)
   else
-    builder <! (result := (sExt 64<rt> rs .* sExt 64<rt> rt))
-    builder <! (lo := extractLow 32<rt> result)
-    builder <! (hi := extractHigh 32<rt> result)
+    builder <! (result := (AST.sext 64<rt> rs .* AST.sext 64<rt> rt))
+    builder <! (lo := AST.xtlo 32<rt> result)
+    builder <! (hi := AST.xthi 32<rt> result)
   endMark insInfo builder
 
 let multu insInfo ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   startMark insInfo builder
   let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let result = tmpVar 64<rt>
+  let result = AST.tmpvar 64<rt>
   let hi = getRegVar ctxt R.HI
   let lo = getRegVar ctxt R.LO
   if ctxt.WordBitSize = 64<rt> then
-    let lblL0 = lblSymbol "L0"
-    let lblL1 = lblSymbol "L1"
-    let lblEnd = lblSymbol "End"
+    let lblL0 = AST.symbol "L0"
+    let lblL1 = AST.symbol "L1"
+    let lblEnd = AST.symbol "End"
     let cond = notWordValue rs .| notWordValue rt
     let mask = numI64 0xFFFFFFFFL 64<rt>
     builder <! (CJmp (cond, Name lblL0, Name lblL1))
@@ -903,94 +906,94 @@ let multu insInfo ctxt =
     builder <! (Jmp (Name lblEnd))
     builder <! (LMark lblL1)
     builder <! (result := (rs .& mask) .* (rt .& mask))
-    builder <! (lo := sExt 64<rt> (extractLow 32<rt> result))
-    builder <! (hi := sExt 64<rt> (extractHigh 32<rt> result))
+    builder <! (lo := AST.sext 64<rt> (AST.xtlo 32<rt> result))
+    builder <! (hi := AST.sext 64<rt> (AST.xthi 32<rt> result))
     builder <! (LMark lblEnd)
   else
-    builder <! (result := (zExt 64<rt> rs .* zExt 64<rt> rt))
-    builder <! (lo := extractLow 32<rt> result)
-    builder <! (hi := extractHigh 32<rt> result)
+    builder <! (result := (AST.zext 64<rt> rs .* AST.zext 64<rt> rt))
+    builder <! (lo := AST.xtlo 32<rt> result)
+    builder <! (hi := AST.xthi 32<rt> result)
   endMark insInfo builder
 
 let nop insInfo =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   startMark insInfo builder
   endMark insInfo builder
 
 let nor insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
-  builder <! (rd := not (rs .| rt))
+  builder <! (rd := AST.not (rs .| rt))
   endMark insInfo builder
 
 let logOr insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := rs .| rt)
   endMark insInfo builder
 
 let ori insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rt := rs .| imm)
   endMark insInfo builder
 
 let rotr insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rd, rt, sa = getThreeOprs insInfo
   let rd, rt = transTwoOprs insInfo ctxt (rd, rt)
   let sa = numI32 (int32 (transOprToImm sa)) 32<rt>
   let size = numI32 32 32<rt>
   startMark insInfo builder
   if ctxt.WordBitSize = 64<rt> then
-    let t1 = tmpVar 32<rt>
-    builder <! (t1 := extractLow 32<rt> rt)
-    builder <! (rd := sExt 64<rt> ((t1 << (size .- sa)) .| (t1 >> sa)))
+    let t1 = AST.tmpvar 32<rt>
+    builder <! (t1 := AST.xtlo 32<rt> rt)
+    builder <! (rd := AST.sext 64<rt> ((t1 << (size .- sa)) .| (t1 >> sa)))
   else
     builder <! (rd := (rt << (size .- sa)) .| (rt >> sa))
   endMark insInfo builder
 
 let sb insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
-  builder <! (mem := extractLow 8<rt> rt)
+  builder <! (mem := AST.xtlo 8<rt> rt)
   endMark insInfo builder
 
 let sd insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
-  builder <! (mem := extractLow 64<rt> rt)
+  builder <! (mem := AST.xtlo 64<rt> rt)
   endMark insInfo builder
 
 let sdl insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rt, mem = getTwoOprs insInfo
   let baseOffset = transOprToBaseOffset ctxt mem
   let rt, mem = transTwoOprs insInfo ctxt (rt, mem)
-  let t1 = tmpVar 64<rt>
-  let t2 = tmpVar 64<rt>
+  let t1 = AST.tmpvar 64<rt>
+  let t2 = AST.tmpvar 64<rt>
   let getMask size = (1L <<< size) - 1L
   let mask3 = numI64 (getMask 3) 64<rt>
   let vaddr0To2 = baseOffset .& mask3
   let num8 = numI32 8 64<rt>
   startMark insInfo builder
   builder <! (t1 := (numI32 7 64<rt> .- vaddr0To2) .* num8)
-  builder <! (t2 := (num1 64<rt> .+ vaddr0To2) .* num8)
+  builder <! (t2 := (AST.num1 64<rt> .+ vaddr0To2) .* num8)
   builder <! (mem := (rt >> t1) .| ((mem >> t2) << t2))
   endMark insInfo builder
 
 let sdr insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rt, mem = getTwoOprs insInfo
   let baseOffset = transOprToBaseOffset ctxt mem
   let rt, mem = transTwoOprs insInfo ctxt (rt, mem)
-  let t1 = tmpVar 64<rt>
-  let t2 = tmpVar 64<rt>
+  let t1 = AST.tmpvar 64<rt>
+  let t2 = AST.tmpvar 64<rt>
   let getMask size = (1L <<< size) - 1L
   let mask3 = numI64 (getMask 3) ctxt.WordBitSize
   let vaddr0To2 = baseOffset .& mask3
@@ -1002,51 +1005,51 @@ let sdr insInfo ctxt =
   endMark insInfo builder
 
 let sh insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
-  builder <! (mem := extractLow 16<rt> rt)
+  builder <! (mem := AST.xtlo 16<rt> rt)
   endMark insInfo builder
 
 let sw insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
-  builder <! (mem := extractLow 32<rt> rt)
+  builder <! (mem := AST.xtlo 32<rt> rt)
   endMark insInfo builder
 
 let swl insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rt, mem = getTwoOprs insInfo
   let baseOffset = transOprToBaseOffset ctxt mem
   let rt, mem = transTwoOprs insInfo ctxt (rt, mem)
-  let t1 = tmpVar 32<rt>
-  let t2 = tmpVar 32<rt>
+  let t1 = AST.tmpvar 32<rt>
+  let t2 = AST.tmpvar 32<rt>
   let getMask size = (1L <<< size) - 1L
   let mask2 = numI64 (getMask 2) 32<rt>
   let baseOffset = if ctxt.WordBitSize = 32<rt> then baseOffset
-                   else extractLow 32<rt> baseOffset
-  let rt = if ctxt.WordBitSize = 32<rt> then rt else extractLow 32<rt> rt
+                   else AST.xtlo 32<rt> baseOffset
+  let rt = if ctxt.WordBitSize = 32<rt> then rt else AST.xtlo 32<rt> rt
   let vaddr0To2 = baseOffset .& mask2
   let num8 = numI32 8 32<rt>
   startMark insInfo builder
   builder <! (t1 := (numI32 3 32<rt> .- vaddr0To2) .* num8)
-  builder <! (t2 := (num1 32<rt> .+ vaddr0To2) .* num8)
+  builder <! (t2 := (AST.num1 32<rt> .+ vaddr0To2) .* num8)
   builder <! (mem := (rt >> t1) .| ((mem >> t2) << t2))
   endMark insInfo builder
 
 let swr insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rt, mem = getTwoOprs insInfo
   let baseOffset = transOprToBaseOffset ctxt mem
   let rt, mem = transTwoOprs insInfo ctxt (rt, mem)
-  let t1 = tmpVar 32<rt>
-  let t2 = tmpVar 32<rt>
+  let t1 = AST.tmpvar 32<rt>
+  let t2 = AST.tmpvar 32<rt>
   let getMask size = (1L <<< size) - 1L
   let mask2 = numI64 (getMask 2) 32<rt>
   let baseOffset = if ctxt.WordBitSize = 32<rt> then baseOffset
-                   else extractLow 32<rt> baseOffset
-  let rt = if ctxt.WordBitSize = 32<rt> then rt else extractLow 32<rt> rt
+                   else AST.xtlo 32<rt> baseOffset
+  let rt = if ctxt.WordBitSize = 32<rt> then rt else AST.xtlo 32<rt> rt
   let vaddr0To2 = baseOffset .& mask2
   let num8 = numI32 8 32<rt>
   startMark insInfo builder
@@ -1056,189 +1059,189 @@ let swr insInfo ctxt =
   endMark insInfo builder
 
 let seb insInfo ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let rd, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
   if ctxt.WordBitSize = 64<rt> then
-    let lblL0 = lblSymbol "L0"
-    let lblL1 = lblSymbol "L1"
-    let lblEnd = lblSymbol "End"
+    let lblL0 = AST.symbol "L0"
+    let lblL1 = AST.symbol "L1"
+    let lblEnd = AST.symbol "End"
     let cond = notWordValue rt
     builder <! (CJmp (cond, Name lblL0, Name lblL1))
     builder <! (LMark lblL0)
     builder <! (SideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
     builder <! (Jmp (Name lblEnd))
     builder <! (LMark lblL1)
-    builder <! (rd := sExt 64<rt> (extract rt 8<rt> 0))
+    builder <! (rd := AST.sext 64<rt> (AST.extract rt 8<rt> 0))
     builder <! (LMark lblEnd)
   else
-    builder <! (rd := sExt 32<rt> (extract rt 8<rt> 0))
+    builder <! (rd := AST.sext 32<rt> (AST.extract rt 8<rt> 0))
   endMark insInfo builder
 
 let seh insInfo ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let rd, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
   if ctxt.WordBitSize = 64<rt> then
-    let lblL0 = lblSymbol "L0"
-    let lblL1 = lblSymbol "L1"
-    let lblEnd = lblSymbol "End"
+    let lblL0 = AST.symbol "L0"
+    let lblL1 = AST.symbol "L1"
+    let lblEnd = AST.symbol "End"
     let cond = notWordValue rt
     builder <! (CJmp (cond, Name lblL0, Name lblL1))
     builder <! (LMark lblL0)
     builder <! (SideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
     builder <! (Jmp (Name lblEnd))
     builder <! (LMark lblL1)
-    builder <! (rd := sExt 64<rt> (extract rt 16<rt> 0))
+    builder <! (rd := AST.sext 64<rt> (AST.extract rt 16<rt> 0))
     builder <! (LMark lblEnd)
   else
-    builder <! (rd := sExt 32<rt> (extract rt 16<rt> 0))
+    builder <! (rd := AST.sext 32<rt> (AST.extract rt 16<rt> 0))
   endMark insInfo builder
 
 let sll insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   if ctxt.WordBitSize = 64<rt> then
-    let rt = extractLow 32<rt> rt
-    builder <! (rd := sExt 64<rt> (rt << extractLow 32<rt> sa))
+    let rt = AST.xtlo 32<rt> rt
+    builder <! (rd := AST.sext 64<rt> (rt << AST.xtlo 32<rt> sa))
   else
     builder <! (rd := rt << sa)
   endMark insInfo builder
 
 let sllv insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rd, rt, rs = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let mask = numI32 31 32<rt>
   startMark insInfo builder
   if ctxt.WordBitSize = 64<rt> then
-    let rt = extractLow 32<rt> rt
-    builder <! (rd := sExt 64<rt> (rt << (extractLow 32<rt> rs .& mask)))
+    let rt = AST.xtlo 32<rt> rt
+    builder <! (rd := AST.sext 64<rt> (rt << (AST.xtlo 32<rt> rs .& mask)))
   else
     builder <! (rd := rt << (rs .& mask))
   endMark insInfo builder
 
 let slt insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let cond = lt rs rt
-  let rtVal = ite cond (num1 ctxt.WordBitSize) (num0 ctxt.WordBitSize)
+  let cond = AST.lt rs rt
+  let rtVal = AST.ite cond (AST.num1 ctxt.WordBitSize) (AST.num0 ctxt.WordBitSize)
   startMark insInfo builder
   builder <! (rd := rtVal)
   endMark insInfo builder
 
 let slti insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let cond = lt rs imm
-  let rtVal = ite cond (num1 ctxt.WordBitSize) (num0 ctxt.WordBitSize)
+  let cond = AST.lt rs imm
+  let rtVal = AST.ite cond (AST.num1 ctxt.WordBitSize) (AST.num0 ctxt.WordBitSize)
   startMark insInfo builder
   builder <! (rt := rtVal)
   endMark insInfo builder
 
 let sltiu insInfo (ctxt: TranslationContext) =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let wordSz = ctxt.WordBitSize
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let cond = lt (zExt (wordSz * 2) rs) (zExt (wordSz * 2) imm)
-  let rtVal = ite cond (num1 ctxt.WordBitSize) (num0 ctxt.WordBitSize)
+  let cond = AST.lt (AST.zext (wordSz * 2) rs) (AST.zext (wordSz * 2) imm)
+  let rtVal = AST.ite cond (AST.num1 ctxt.WordBitSize) (AST.num0 ctxt.WordBitSize)
   startMark insInfo builder
   builder <! (rt := rtVal)
   endMark insInfo builder
 
 let sltu insInfo (ctxt: TranslationContext) =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let wordSz = ctxt.WordBitSize
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let cond = lt (zExt (wordSz * 2) rs) (zExt (wordSz * 2) rt)
-  let rtVal = ite cond (num1 ctxt.WordBitSize) (num0 ctxt.WordBitSize)
+  let cond = AST.lt (AST.zext (wordSz * 2) rs) (AST.zext (wordSz * 2) rt)
+  let rtVal = AST.ite cond (AST.num1 ctxt.WordBitSize) (AST.num0 ctxt.WordBitSize)
   startMark insInfo builder
   builder <! (rd := rtVal)
   endMark insInfo builder
 
 let sra insInfo ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let rd, rt, sa = getThreeOprs insInfo
   let rd, rt = transTwoOprs insInfo ctxt (rd, rt)
   let sa = numI32 (int32 (transOprToImm sa)) 32<rt>
   startMark insInfo builder
   if ctxt.WordBitSize = 64<rt> then
-    let lblL0 = lblSymbol "L0"
-    let lblL1 = lblSymbol "L1"
-    let lblEnd = lblSymbol "End"
+    let lblL0 = AST.symbol "L0"
+    let lblL1 = AST.symbol "L1"
+    let lblEnd = AST.symbol "End"
     let cond = notWordValue rt
-    let t1 = tmpVar 32<rt>
+    let t1 = AST.tmpvar 32<rt>
     builder <! (CJmp (cond, Name lblL0, Name lblL1))
     builder <! (LMark lblL0)
     builder <! (SideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
     builder <! (Jmp (Name lblEnd))
     builder <! (LMark lblL1)
-    builder <! (t1 := extractLow 32<rt> rt)
-    builder <! (rd := sExt 64<rt> (t1 ?>> sa))
+    builder <! (t1 := AST.xtlo 32<rt> rt)
+    builder <! (rd := AST.sext 64<rt> (t1 ?>> sa))
     builder <! (LMark lblEnd)
   else
     builder <! (rd := rt ?>> sa)
   endMark insInfo builder
 
 let srl insInfo ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let rd, rt, sa = getThreeOprs insInfo
   let rd, rt = transTwoOprs insInfo ctxt (rd, rt)
   let sa = numI32 (int32 (transOprToImm sa)) 32<rt>
   startMark insInfo builder
   if ctxt.WordBitSize = 64<rt> then
-    let lblL0 = lblSymbol "L0"
-    let lblL1 = lblSymbol "L1"
-    let lblEnd = lblSymbol "End"
+    let lblL0 = AST.symbol "L0"
+    let lblL1 = AST.symbol "L1"
+    let lblEnd = AST.symbol "End"
     let cond = notWordValue rt
-    let t1 = tmpVar 32<rt>
+    let t1 = AST.tmpvar 32<rt>
     builder <! (CJmp (cond, Name lblL0, Name lblL1))
     builder <! (LMark lblL0)
     builder <! (SideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
     builder <! (Jmp (Name lblEnd))
     builder <! (LMark lblL1)
-    builder <! (t1 := extractLow 32<rt> rt)
-    builder <! (rd := sExt 64<rt> (t1 >> sa))
+    builder <! (t1 := AST.xtlo 32<rt> rt)
+    builder <! (rd := AST.sext 64<rt> (t1 >> sa))
     builder <! (LMark lblEnd)
   else
     builder <! (rd := rt >> sa)
   endMark insInfo builder
 
 let srlv insInfo ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let rd, rt, rs = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let mask = numI32 31 32<rt>
   startMark insInfo builder
   if ctxt.WordBitSize = 64<rt> then
-    let lblL0 = lblSymbol "L0"
-    let lblL1 = lblSymbol "L1"
-    let lblEnd = lblSymbol "End"
+    let lblL0 = AST.symbol "L0"
+    let lblL1 = AST.symbol "L1"
+    let lblEnd = AST.symbol "End"
     let cond = notWordValue rt
-    let t1 = tmpVar 32<rt>
+    let t1 = AST.tmpvar 32<rt>
     builder <! (CJmp (cond, Name lblL0, Name lblL1))
     builder <! (LMark lblL0)
     builder <! (SideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
     builder <! (Jmp (Name lblEnd))
     builder <! (LMark lblL1)
-    builder <! (t1 := extractLow 32<rt> rt)
-    builder <! (rd := sExt 64<rt> (t1 >> (extractLow 32<rt> rs .& mask)))
+    builder <! (t1 := AST.xtlo 32<rt> rt)
+    builder <! (rd := AST.sext 64<rt> (t1 >> (AST.xtlo 32<rt> rs .& mask)))
     builder <! (LMark lblEnd)
   else
     builder <! (rd := rt >> (rs .& mask))
   endMark insInfo builder
 
 let subu insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := rs .- rt)
   endMark insInfo builder
 
 let subu64 insInfo ctxt =
-  let builder = new StmtBuilder (16)
-  let lblL0 = lblSymbol "L0"
-  let lblL1 = lblSymbol "L1"
-  let lblEnd = lblSymbol "End"
+  let builder = StmtBuilder (16)
+  let lblL0 = AST.symbol "L0"
+  let lblL1 = AST.symbol "L1"
+  let lblEnd = AST.symbol "End"
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = notWordValue rs .| notWordValue rt
   startMark insInfo builder
@@ -1252,9 +1255,9 @@ let subu64 insInfo ctxt =
   endMark insInfo builder
 
 let teq insInfo ctxt =
-  let builder = new StmtBuilder (4)
-  let lblL0 = lblSymbol "L0"
-  let lblEnd = lblSymbol "End"
+  let builder = StmtBuilder (4)
+  let lblL0 = AST.symbol "L0"
+  let lblEnd = AST.symbol "End"
   let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
   builder <! (CJmp ((rs == rt), Name lblL0, Name lblEnd))
@@ -1264,14 +1267,14 @@ let teq insInfo ctxt =
   endMark insInfo builder
 
 let logXor insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := rs <+> rt)
   endMark insInfo builder
 
 let xori insInfo ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rt := rs <+> imm)

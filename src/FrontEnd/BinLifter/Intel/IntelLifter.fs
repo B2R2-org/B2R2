@@ -27,7 +27,7 @@ module internal B2R2.FrontEnd.BinLifter.Intel.Lifter
 open B2R2
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
-open B2R2.BinIR.LowUIR.AST
+open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.Intel
 open B2R2.FrontEnd.BinLifter.Intel.RegGroup
@@ -79,19 +79,21 @@ let inline getPseudoRegVar (ctxt: TranslationContext) name pos =
 let inline getRegVar (ctxt: TranslationContext) name =
   Register.toRegID name |> ctxt.GetRegVar
 
-let inline numU32 n t = BitVector.ofUInt32 n t |> num
-let inline numI32 n t = BitVector.ofInt32 n t |> num
-let inline numU64 n t = BitVector.ofUInt64 n t |> num
-let inline numI64 n t = BitVector.ofInt64 n t |> num
+let inline numU32 n t = BitVector.ofUInt32 n t |> AST.num
 
-let bvOfBaseAddr addr (ctxt: TranslationContext) = numU64 addr ctxt.WordBitSize
+let inline numI32 n t = BitVector.ofInt32 n t |> AST.num
 
-let bvOfInstrLen insLen (ctxt: TranslationContext) =
-  numU32 insLen ctxt.WordBitSize
+let inline numU64 n t = BitVector.ofUInt64 n t |> AST.num
 
-let bvOfOprSize = function
-  | 8<rt> | 16<rt> | 32<rt> | 64<rt> | 128<rt> | 256<rt> | 512<rt> as x ->
-    numI32 (int x) x
+let inline numI64 n t = BitVector.ofInt64 n t |> AST.num
+
+let numAddr addr (ctxt: TranslationContext) = numU64 addr ctxt.WordBitSize
+
+let numInsLen insLen (ctxt: TranslationContext) = numU32 insLen ctxt.WordBitSize
+
+let numOprSize = function
+  | 8<rt> | 16<rt> | 32<rt> | 64<rt> | 128<rt> | 256<rt> | 512<rt> as rt ->
+    numI32 (int rt) rt
   | _ -> raise InvalidOperandSizeException
 
 let inline is64bit (ctxt: TranslationContext) = ctxt.WordBitSize = 64<rt>
@@ -99,7 +101,7 @@ let inline is64bit (ctxt: TranslationContext) = ctxt.WordBitSize = 64<rt>
 let is64REXW ctxt (ins: InsInfo) =
   is64bit ctxt && hasREXW ins.REXPrefix
 
-let segRegToBase = function
+let private segRegToBase = function
   | R.CS -> R.CSBase
   | R.DS -> R.DSBase
   | R.ES -> R.ESBase
@@ -108,13 +110,11 @@ let segRegToBase = function
   | R.SS -> R.SSBase
   | _ -> Utils.impossible ()
 
-let inline private addSeg ctxt expr (ins: InsInfo) =
-  match getSegment ins.Prefixes with
-  | Some s -> getRegVar ctxt (segRegToBase s) .+ expr
-  | None -> expr
-
 let inline private ldMem ins ctxt oprSize e =
-  loadLE oprSize <| addSeg ctxt e ins
+  match getSegment ins.Prefixes with
+  | Some s -> getRegVar ctxt (segRegToBase s) .+ e
+  | None -> e
+  |> AST.loadLE oprSize
 
 let inline private numOfAddrSz (ins: InsInfo) (ctxt: TranslationContext) n =
   let pref = ins.Prefixes
@@ -130,15 +130,15 @@ let transMem ins insAddr insLen ctxt b index (disp: Disp option) oprSize =
   match b, index, disp with
   | None, None, Some d ->
     numOfAddrSz ins ctxt d
-    |> zExt ctxt.WordBitSize
+    |> AST.zext ctxt.WordBitSize
     |> ldMem ins ctxt oprSize
   | None, Some i, Some d ->
     (sIdx ins ctxt i) .+ (numOfAddrSz ins ctxt d)
-    |> zExt ctxt.WordBitSize
+    |> AST.zext ctxt.WordBitSize
     |> ldMem ins ctxt oprSize
   | Some b, None, None ->
     getRegVar ctxt b
-    |> zExt ctxt.WordBitSize
+    |> AST.zext ctxt.WordBitSize
     |> ldMem ins ctxt oprSize
   | Some R.RIP, None, Some d -> (* RIP-relative addressing *)
     int64 insAddr + d + int64 insLen
@@ -146,66 +146,72 @@ let transMem ins insAddr insLen ctxt b index (disp: Disp option) oprSize =
     |> ldMem ins ctxt oprSize
   | Some b, None, Some d ->
     getRegVar ctxt b .+ (numOfAddrSz ins ctxt d)
-    |> zExt ctxt.WordBitSize
+    |> AST.zext ctxt.WordBitSize
     |> ldMem ins ctxt oprSize
   | Some b, Some i, None ->
     getRegVar ctxt b .+ (sIdx ins ctxt i)
-    |> zExt ctxt.WordBitSize
+    |> AST.zext ctxt.WordBitSize
     |> ldMem ins ctxt oprSize
   | Some b, Some i, Some d ->
     getRegVar ctxt b .+ (sIdx ins ctxt i) .+ (numOfAddrSz ins ctxt d)
-    |> zExt ctxt.WordBitSize
+    |> AST.zext ctxt.WordBitSize
     |> ldMem ins ctxt oprSize
   | _, _, _ -> raise InvalidOperandException
 
 let transDirAddr wordSize (addr: Addr) = function
   | Absolute (_, addr, _) -> numU64 addr wordSize
-  | Relative (offset) -> let offset = numI64 offset wordSize |> sExt wordSize
-                         let addr = numU64 addr wordSize
-                         offset .+ addr
+  | Relative (offset) ->
+    let offset = numI64 offset wordSize |> AST.sext wordSize
+    let addr = numU64 addr wordSize
+    offset .+ addr
 
-let inline private tmpVars2 t = tmpVar t, tmpVar t
-let inline private tmpVars3 t = tmpVar t, tmpVar t, tmpVar t
-let inline private tmpVars4 t = tmpVar t, tmpVar t, tmpVar t, tmpVar t
+let inline private tmpVars2 t =
+  AST.tmpvar t, AST.tmpvar t
+
+let inline private tmpVars3 t =
+  AST.tmpvar t, AST.tmpvar t, AST.tmpvar t
+
+let inline private tmpVars4 t =
+  AST.tmpvar t, AST.tmpvar t, AST.tmpvar t, AST.tmpvar t
 
 let inline private getOperationSize (i: InsInfo) = i.InsSize.OperationSize
 let inline private getEffAddrSz (i: InsInfo) = i.InsSize.MemEffAddrSize
 let inline private (<!) (builder: StmtBuilder) (s) = builder.Append (s)
 
-let getCFlagOnAdd e1 _ r = lt r e1
-let getCFlagOnSub e1 e2 _ = lt e1 e2
+let getCFlagOnAdd e1 _ r = AST.lt r e1
+let getCFlagOnSub e1 e2 _ = AST.lt e1 e2
 
 let getOFlagOnAdd e1 e2 r =
-  let e1High = extractHigh 1<rt> e1
-  let e2High = extractHigh 1<rt> e2
-  let rHigh = extractHigh 1<rt> r
+  let e1High = AST.xthi 1<rt> e1
+  let e2High = AST.xthi 1<rt> e2
+  let rHigh = AST.xthi 1<rt> r
   (e1High == e2High) .& (e1High <+> rHigh)
 
 let getOFlagOnSub e1 e2 r =
-  extractHigh 1<rt> (binop BinOpType.AND (e1 <+> e2) (e1 <+> r))
+  AST.xthi 1<rt> (AST.binop BinOpType.AND (e1 <+> e2) (e1 <+> r))
 
 let buildAF ctxt e1 e2 r size =
   let t1 = r <+> e1
   let t2 = t1 <+> e2
-  let t3 = binop BinOpType.SHL (num1 size) (numU32 4ul size)
+  let t3 = AST.binop BinOpType.SHL (AST.num1 size) (numU32 4ul size)
   let t4 = t2 .& t3
   getRegVar ctxt R.AF := t4 == t3
 
 let buildPF ctxt r size cond builder =
   let t1, t2 = tmpVars2 size
-  let s2 = r <+> (binop BinOpType.SHR r (zExt size (numU32 4ul 8<rt>)))
-  let s4 = s2 <+> (binop BinOpType.SHR t1 (zExt size (numU32 2ul 8<rt>)))
-  let s5 = s4 <+> (binop BinOpType.SHR t2 (zExt size (num1 8<rt>)))
+  let s2 = r <+> (AST.binop BinOpType.SHR r (AST.zext size (numU32 4ul 8<rt>)))
+  let s4 = s2 <+> (AST.binop BinOpType.SHR t1 (AST.zext size (numU32 2ul 8<rt>)))
+  let s5 = s4 <+> (AST.binop BinOpType.SHR t2 (AST.zext size (AST.num1 8<rt>)))
   builder <! (t1 := s2)
   builder <! (t2 := s4)
-  let pf = unop UnOpType.NOT (extractLow 1<rt> s5)
+  let pf = AST.unop UnOpType.NOT (AST.xtlo 1<rt> s5)
   match cond with
   | None -> builder <! (getRegVar ctxt R.PF := pf)
   | Some condFn -> builder <! (getRegVar ctxt R.PF := condFn pf)
 
 let enumSZPFlags ctxt r size builder =
-  builder <! (getRegVar ctxt R.SF := extractHigh 1<rt> r)
-  builder <! (getRegVar ctxt R.ZF := r == (num0 size))
+  builder <! (getRegVar ctxt R.SF := AST.xthi 1<rt> r)
+  builder <! (getRegVar ctxt R.ZF := r == (AST.num0 size))
   buildPF ctxt r size None builder
 
 let enumASZPFlags ctxt e1 e2 r size builder =
@@ -216,20 +222,20 @@ let enumEFLAGS ctxt e1 e2 e3 size cfGetter ofGetter builder =
   builder <! (getRegVar ctxt R.CF := cfGetter e1 e2 e3)
   builder <! (getRegVar ctxt R.OF := ofGetter e1 e2 e3)
   builder <! (buildAF ctxt e1 e2 e3 size)
-  builder <! (getRegVar ctxt R.SF := extractHigh 1<rt> e3)
-  builder <! (getRegVar ctxt R.ZF := e3 == (num0 size))
+  builder <! (getRegVar ctxt R.SF := AST.xthi 1<rt> e3)
+  builder <! (getRegVar ctxt R.ZF := e3 == (AST.num0 size))
   buildPF ctxt e3 size None builder
 
-let undefCF = unDef 1<rt> "CF is undefined."
-let undefOF = unDef 1<rt> "OF is undefined."
-let undefAF = unDef 1<rt> "AF is undefined."
-let undefSF = unDef 1<rt> "SF is undefined."
-let undefZF = unDef 1<rt> "ZF is undefined."
-let undefPF = unDef 1<rt> "PF is undefined."
-let undefC0 = unDef 1<rt> "C0 is undefined."
-let undefC1 = unDef 1<rt> "C1 is undefined."
-let undefC2 = unDef 1<rt> "C2 is undefined."
-let undefC3 = unDef 1<rt> "C3 is undefined."
+let undefCF = AST.undef 1<rt> "CF is undefined."
+let undefOF = AST.undef 1<rt> "OF is undefined."
+let undefAF = AST.undef 1<rt> "AF is undefined."
+let undefSF = AST.undef 1<rt> "SF is undefined."
+let undefZF = AST.undef 1<rt> "ZF is undefined."
+let undefPF = AST.undef 1<rt> "PF is undefined."
+let undefC0 = AST.undef 1<rt> "C0 is undefined."
+let undefC1 = AST.undef 1<rt> "C1 is undefined."
+let undefC2 = AST.undef 1<rt> "C2 is undefined."
+let undefC3 = AST.undef 1<rt> "C3 is undefined."
 
 let allEFLAGSUndefined ctxt builder =
   builder <! (getRegVar ctxt R.CF := undefCF)
@@ -254,7 +260,7 @@ let transOprToExpr ins insAddr insLen ctxt = function
   | OprReg reg -> getRegVar ctxt reg
   | OprMem (b, index, disp, oprSize) ->
     transMem ins insAddr insLen ctxt b index disp oprSize
-  | OprImm imm -> getOperationSize ins |> BitVector.ofInt64 imm |> num
+  | OprImm imm -> numI64 imm (getOperationSize ins)
   | OprDirAddr jumpTarget ->
     transDirAddr ctxt.WordBitSize insAddr jumpTarget
   | _ -> Utils.impossible ()
@@ -341,13 +347,13 @@ let transOprToExprVec ins insAddr insLen ctxt opr =
   | OprReg r -> getPseudoRegVars ctxt r
   | OprMem (b, index, disp, oprSize) ->
     transMem ins insAddr insLen ctxt b index disp oprSize |> getMemExprs
-  | OprImm imm -> [ getOperationSize ins |> BitVector.ofInt64 imm |> num ]
+  | OprImm imm -> [ numI64 imm (getOperationSize ins) ]
   | _ -> raise InvalidOperandException
 
 let transOprToExpr32 ins insAddr insLen ctxt opr =
   match opr with
   | OprReg r when Register.toRegType r > 64<rt> ->
-    getPseudoRegVar ctxt r 1 |> extractLow 32<rt>
+    getPseudoRegVar ctxt r 1 |> AST.xtlo 32<rt>
   | OprReg r -> getRegVar ctxt r
   | OprMem (b, index, disp, 32<rt>) ->
     transMem ins insAddr insLen ctxt b index disp 32<rt>
@@ -386,12 +392,12 @@ let transOprToFloat80 ins insAddr insLen ctxt opr =
   match opr with
   | OprReg r when Register.toRegType r = 80<rt> -> getRegVar ctxt r
   | OprReg r ->
-    getRegVar ctxt r |> cast CastKind.FloatExt 80<rt>
+    getRegVar ctxt r |> AST.cast CastKind.FloatExt 80<rt>
   | OprMem (b, index, disp, 80<rt>) ->
     transMem ins insAddr insLen ctxt b index disp 80<rt>
   | OprMem (b, index, disp, len) ->
     transMem ins insAddr insLen ctxt b index disp len
-    |> cast CastKind.FloatExt 80<rt>
+    |> AST.cast CastKind.FloatExt 80<rt>
   | _ -> raise InvalidOperandException
 
 let getOneOpr (ins: InsInfo) =
@@ -427,7 +433,7 @@ let transThreeOprs ins insAddr insLen ctxt (o1, o2, o3) =
   transOprToExpr ins insAddr insLen ctxt o3
 
 let castNum newType = function
-  | Num num -> Num <| BitVector.cast num newType
+  | Num n -> Num <| BitVector.cast n newType
   | _ -> raise InvalidOperandException
 
 let getInstrPtr ctxt = getRegVar ctxt (if is64bit ctxt then R.RIP else R.EIP)
@@ -466,48 +472,49 @@ let getSndOperand = function
 let dstAssign oprSize dst src =
   match oprSize with
   | 8<rt> | 16<rt> -> dst := src (* No extension for 8- and 16-bit operands *)
-  | _ -> let dst = unwrapExpr dst
+  | _ -> let dst = AST.unwrap dst
          let dstOrigSz = dst |> AST.typeOf
          let oprBitSize = RegType.toBitWidth oprSize
          let dstBitSize = RegType.toBitWidth dstOrigSz
-         if dstBitSize > oprBitSize then dst := zExt dstOrigSz src
+         if dstBitSize > oprBitSize then dst := AST.zext dstOrigSz src
          elif dstBitSize = oprBitSize then dst := src
          else raise InvalidOperandSizeException
 
 let getDividend ctxt = function
   | 8<rt> -> getRegVar ctxt R.AX
-  | 16<rt> -> concat (getRegVar ctxt R.DX) (getRegVar ctxt R.AX)
-  | 32<rt> -> concat (getRegVar ctxt R.EDX) (getRegVar ctxt R.EAX)
-  | 64<rt> -> concat (getRegVar ctxt R.RDX) (getRegVar ctxt R.RAX)
+  | 16<rt> -> AST.concat (getRegVar ctxt R.DX) (getRegVar ctxt R.AX)
+  | 32<rt> -> AST.concat (getRegVar ctxt R.EDX) (getRegVar ctxt R.EAX)
+  | 64<rt> -> AST.concat (getRegVar ctxt R.RDX) (getRegVar ctxt R.RAX)
   | _ -> raise InvalidOperandSizeException
 
-let maxNum = function
+let maxNum rt =
+  match rt with
   | 8<rt> -> BitVector.maxNum8
   | 16<rt> -> BitVector.maxNum16
   | 32<rt> -> BitVector.maxNum32
   | 64<rt> -> BitVector.maxNum64
   | _ -> raise InvalidOperandSizeException
+  |> AST.num
 
 let packCmp cmp typ e1 e2 oprSize unitWidth builder =
   let maxIdx = RegType.toBitWidth oprSize / unitWidth
   let unitSz = RegType.fromBitWidth unitWidth
   let t1, t2 = tmpVars2 oprSize
-  let tmps = [| for _ in 1 .. maxIdx -> tmpVar unitSz |]
-  let getSrc s idx = extract s unitSz (unitWidth * idx)
+  let tmps = [| for _ in 1 .. maxIdx -> AST.tmpvar unitSz |]
+  let getSrc s idx = AST.extract s unitSz (unitWidth * idx)
   let packMask e1 e2 unitSz cmp =
-    let zero = num0 unitSz
-    let maxVal = num <| maxNum unitSz
-    ite (cmp e1 e2) maxVal zero
+    let zero = AST.num0 unitSz
+    AST.ite (cmp e1 e2) (maxNum unitSz) zero
   let getDst idx =
     let src1 = getSrc t1 idx
     let src2 = getSrc t2 idx
     match typ with
     | PackMask -> packMask src1 src2 unitSz cmp
-    | PackSelect -> ite (cmp src1 src2) src1 src2
+    | PackSelect -> AST.ite (cmp src1 src2) src1 src2
   builder <! (t1 := e1)
   builder <! (t2 := e2)
   Array.iteri (fun i e -> builder <! (e := getDst i)) tmps
-  concatExprs tmps
+  AST.concatArr tmps
 
 let inline padPushExpr oprSize opr =
   let isSegReg = function
@@ -516,19 +523,19 @@ let inline padPushExpr oprSize opr =
     | _ -> false
   match opr with
   | Var (_, s, _, _) ->
-    if isSegReg <| Register.ofRegID s then zExt oprSize opr else opr
-  | Num (_) -> sExt oprSize opr
+    if isSegReg <| Register.ofRegID s then AST.zext oprSize opr else opr
+  | Num (_) -> AST.sext oprSize opr
   | _ -> opr
 
 let inline getStackWidth wordSize oprSize =
   numI32 (RegType.toByteWidth oprSize) wordSize
 
 let auxPush oprSize ctxt expr builder =
-  let t = tmpVar oprSize
+  let t = AST.tmpvar oprSize
   let sp = getStackPtr ctxt
   builder <! (t := expr)
   builder <! (sp := sp .- (getStackWidth ctxt.WordBitSize oprSize))
-  builder <! (loadLE oprSize sp := t)
+  builder <! (AST.loadLE oprSize sp := t)
 
 let auxPop oprSize ctxt dst builder =
   let sp = getStackPtr ctxt
@@ -539,7 +546,7 @@ let auxPop oprSize ctxt dst builder =
   let handleSegPop oprSize = function
     | Var (_, x, _, _) when isSegReg <| Register.ofRegID x -> 16<rt>
     | _ -> oprSize
-  builder <! (dst := loadLE (handleSegPop oprSize dst) sp)
+  builder <! (dst := AST.loadLE (handleSegPop oprSize dst) sp)
   builder <! (sp := sp .+ (getStackWidth ctxt.WordBitSize oprSize))
 
 let getCondOfJcc (ins: InsInfo) (ctxt: TranslationContext) oprSize =
@@ -547,75 +554,75 @@ let getCondOfJcc (ins: InsInfo) (ctxt: TranslationContext) oprSize =
   then Utils.impossible ()
   match ins.Opcode with
   | Opcode.JO -> getRegVar ctxt R.OF
-  | Opcode.JNO -> getRegVar ctxt R.OF == b0
+  | Opcode.JNO -> getRegVar ctxt R.OF == AST.b0
   | Opcode.JB -> getRegVar ctxt R.CF
-  | Opcode.JNB -> getRegVar ctxt R.CF == b0
+  | Opcode.JNB -> getRegVar ctxt R.CF == AST.b0
   | Opcode.JZ -> getRegVar ctxt R.ZF
-  | Opcode.JNZ -> getRegVar ctxt R.ZF == b0
+  | Opcode.JNZ -> getRegVar ctxt R.ZF == AST.b0
   | Opcode.JBE -> (getRegVar ctxt R.CF) .| (getRegVar ctxt R.ZF)
-  | Opcode.JA -> ((getRegVar ctxt R.CF) .| (getRegVar ctxt R.ZF)) == b0
+  | Opcode.JA -> ((getRegVar ctxt R.CF) .| (getRegVar ctxt R.ZF)) == AST.b0
   | Opcode.JS -> getRegVar ctxt R.SF
-  | Opcode.JNS -> getRegVar ctxt R.SF == b0
+  | Opcode.JNS -> getRegVar ctxt R.SF == AST.b0
   | Opcode.JP -> getRegVar ctxt R.PF
-  | Opcode.JNP -> getRegVar ctxt R.PF == b0
+  | Opcode.JNP -> getRegVar ctxt R.PF == AST.b0
   | Opcode.JL -> getRegVar ctxt R.SF != getRegVar ctxt R.OF
   | Opcode.JNL -> getRegVar ctxt R.SF == getRegVar ctxt R.OF
   | Opcode.JLE -> (getRegVar ctxt R.ZF) .|
                   (getRegVar ctxt R.SF != getRegVar ctxt R.OF)
-  | Opcode.JG -> (getRegVar ctxt R.ZF == b0) .&
+  | Opcode.JG -> (getRegVar ctxt R.ZF == AST.b0) .&
                  (getRegVar ctxt R.SF == getRegVar ctxt R.OF)
-  | Opcode.JCXZ -> (getRegVar ctxt R.CX) == (num0 ctxt.WordBitSize)
+  | Opcode.JCXZ -> (getRegVar ctxt R.CX) == (AST.num0 ctxt.WordBitSize)
   | Opcode.JECXZ ->
     let addrSize = ctxt.WordBitSize
-    (cast CastKind.ZeroExt addrSize (getRegVar ctxt R.ECX)) == (num0 addrSize)
-  | Opcode.JRCXZ -> (getRegVar ctxt R.RCX) == (num0 ctxt.WordBitSize)
+    (AST.cast CastKind.ZeroExt addrSize (getRegVar ctxt R.ECX)) == (AST.num0 addrSize)
+  | Opcode.JRCXZ -> (getRegVar ctxt R.RCX) == (AST.num0 ctxt.WordBitSize)
   | _ -> raise InvalidOpcodeException
 
 let getCondOfSet (ins: InsInfo) ctxt =
   match ins.Opcode with
   | Opcode.SETO   -> getRegVar ctxt R.OF
-  | Opcode.SETNO  -> getRegVar ctxt R.OF == b0
+  | Opcode.SETNO  -> getRegVar ctxt R.OF == AST.b0
   | Opcode.SETB   -> getRegVar ctxt R.CF
-  | Opcode.SETNB  -> getRegVar ctxt R.CF == b0
+  | Opcode.SETNB  -> getRegVar ctxt R.CF == AST.b0
   | Opcode.SETZ   -> getRegVar ctxt R.ZF
-  | Opcode.SETNZ  -> getRegVar ctxt R.ZF == b0
+  | Opcode.SETNZ  -> getRegVar ctxt R.ZF == AST.b0
   | Opcode.SETBE  -> (getRegVar ctxt R.CF) .| (getRegVar ctxt R.ZF)
-  | Opcode.SETA   -> ((getRegVar ctxt R.CF) .| (getRegVar ctxt R.ZF)) == b0
+  | Opcode.SETA   -> ((getRegVar ctxt R.CF) .| (getRegVar ctxt R.ZF)) == AST.b0
   | Opcode.SETS   -> getRegVar ctxt R.SF
-  | Opcode.SETNS  -> getRegVar ctxt R.SF == b0
+  | Opcode.SETNS  -> getRegVar ctxt R.SF == AST.b0
   | Opcode.SETP   -> getRegVar ctxt R.PF
-  | Opcode.SETNP  -> getRegVar ctxt R.PF == b0
+  | Opcode.SETNP  -> getRegVar ctxt R.PF == AST.b0
   | Opcode.SETL   -> getRegVar ctxt R.SF != getRegVar ctxt R.OF
   | Opcode.SETNL  -> getRegVar ctxt R.SF == getRegVar ctxt R.OF
   | Opcode.SETLE  -> getRegVar ctxt R.ZF .|
                      (getRegVar ctxt R.SF != getRegVar ctxt R.OF)
-  | Opcode.SETG   -> (getRegVar ctxt R.ZF == b0) .&
+  | Opcode.SETG   -> (getRegVar ctxt R.ZF == AST.b0) .&
                      (getRegVar ctxt R.SF == getRegVar ctxt R.OF)
   | _ -> raise InvalidOpcodeException
 
 let convertSrc = function
   | Load (_, _, expr, _, _) -> expr
-  | _ -> failwith "Does not apply.(convert SRC)"
+  | _ -> Utils.impossible ()
 
 let getCondOfCMov (ins: InsInfo) ctxt =
   match ins.Opcode with
   | Opcode.CMOVO   -> getRegVar ctxt R.OF
-  | Opcode.CMOVNO  -> getRegVar ctxt R.OF == b0
+  | Opcode.CMOVNO  -> getRegVar ctxt R.OF == AST.b0
   | Opcode.CMOVB   -> getRegVar ctxt R.CF
-  | Opcode.CMOVAE  -> getRegVar ctxt R.CF == b0
+  | Opcode.CMOVAE  -> getRegVar ctxt R.CF == AST.b0
   | Opcode.CMOVZ   -> getRegVar ctxt R.ZF
-  | Opcode.CMOVNZ  -> getRegVar ctxt R.ZF == b0
+  | Opcode.CMOVNZ  -> getRegVar ctxt R.ZF == AST.b0
   | Opcode.CMOVBE  -> (getRegVar ctxt R.CF) .| (getRegVar ctxt R.ZF)
-  | Opcode.CMOVA   -> ((getRegVar ctxt R.CF) .| (getRegVar ctxt R.ZF)) == b0
+  | Opcode.CMOVA   -> ((getRegVar ctxt R.CF) .| (getRegVar ctxt R.ZF)) == AST.b0
   | Opcode.CMOVS   -> getRegVar ctxt R.SF
-  | Opcode.CMOVNS  -> getRegVar ctxt R.SF == b0
+  | Opcode.CMOVNS  -> getRegVar ctxt R.SF == AST.b0
   | Opcode.CMOVP   -> getRegVar ctxt R.PF
-  | Opcode.CMOVNP  -> getRegVar ctxt R.PF == b0
+  | Opcode.CMOVNP  -> getRegVar ctxt R.PF == AST.b0
   | Opcode.CMOVL   -> getRegVar ctxt R.SF != getRegVar ctxt R.OF
   | Opcode.CMOVGE  -> getRegVar ctxt R.SF == getRegVar ctxt R.OF
   | Opcode.CMOVLE  -> getRegVar ctxt R.ZF .|
                       (getRegVar ctxt R.SF != getRegVar ctxt R.OF)
-  | Opcode.CMOVG   -> getRegVar ctxt R.ZF == b0 .&
+  | Opcode.CMOVG   -> getRegVar ctxt R.ZF == AST.b0 .&
                       (getRegVar ctxt R.SF == getRegVar ctxt R.OF)
   | _ -> raise InvalidOpcodeException
 
@@ -623,65 +630,65 @@ let movqRegToReg ctxt r1 r2 builder =
   match Register.getKind r1, Register.getKind r2 with
   | Register.Kind.XMM, Register.Kind.XMM ->
     builder <! (getPseudoRegVar ctxt r1 1 := getPseudoRegVar ctxt r2 1 )
-    builder <! (getPseudoRegVar ctxt r1 2 := num0 64<rt>)
+    builder <! (getPseudoRegVar ctxt r1 2 := AST.num0 64<rt>)
   | Register.Kind.XMM, _ ->
     builder <! (getPseudoRegVar ctxt r1 1 := getRegVar ctxt r2)
-    builder <! (getPseudoRegVar ctxt r1 2 := num0 64<rt>)
+    builder <! (getPseudoRegVar ctxt r1 2 := AST.num0 64<rt>)
   | Register.Kind.GP, Register.Kind.XMM ->
     builder <! (getRegVar ctxt r1 := getPseudoRegVar ctxt r2 1)
   | Register.Kind.MMX, Register.Kind.MMX
   | Register.Kind.MMX, Register.Kind.GP
   | Register.Kind.GP, Register.Kind.MMX ->
     builder <! (getRegVar ctxt r1 := getRegVar ctxt r2)
-  | _, _ -> failwith "Not a Register to Register."
+  | _, _ -> Utils.impossible ()
 
 let movqRegToMem ctxt dst r builder =
   match Register.getKind r with
   | Register.Kind.XMM -> builder <! (dst := getPseudoRegVar ctxt r 1)
   | Register.Kind.MMX -> builder <! (dst := getRegVar ctxt r)
-  | _ -> failwith "Not a Register to Memory."
+  | _ -> Utils.impossible ()
 
 let movqMemToReg ctxt src r builder =
   match Register.getKind r with
   | Register.Kind.XMM ->
     builder <! (getPseudoRegVar ctxt r 1 := src)
-    builder <! (getPseudoRegVar ctxt r 2 := num0 64<rt>)
+    builder <! (getPseudoRegVar ctxt r 2 := AST.num0 64<rt>)
   | Register.Kind.MMX -> builder <! (getRegVar ctxt r := src)
-  | _ -> failwith "Not a Memory to Register."
+  | _ -> Utils.impossible ()
 
 let movdRegToReg ctxt r1 r2 builder =
-  let tmp = tmpVar 32<rt>
+  let tmp = AST.tmpvar 32<rt>
   match Register.getKind r1, Register.getKind r2 with
   | Register.Kind.XMM, _ ->
-    builder <! (getPseudoRegVar ctxt r1 1 := zExt 64<rt> (getRegVar ctxt r2))
-    builder <! (getPseudoRegVar ctxt r1 2 := num0 64<rt>)
+    builder <! (getPseudoRegVar ctxt r1 1 := AST.zext 64<rt> (getRegVar ctxt r2))
+    builder <! (getPseudoRegVar ctxt r1 2 := AST.num0 64<rt>)
   | _, Register.Kind.XMM ->
-    builder <! (tmp := extractLow 32<rt> (getPseudoRegVar ctxt r2 1))
+    builder <! (tmp := AST.xtlo 32<rt> (getPseudoRegVar ctxt r2 1))
     builder <! (dstAssign 32<rt> (getRegVar ctxt r1) tmp)
   | Register.Kind.MMX, _ ->
-    builder <! (getRegVar ctxt r1 := zExt 64<rt> (getRegVar ctxt r2))
+    builder <! (getRegVar ctxt r1 := AST.zext 64<rt> (getRegVar ctxt r2))
   | _, Register.Kind.MMX ->
-    builder <! (tmp := extractLow 32<rt> (getRegVar ctxt r2))
+    builder <! (tmp := AST.xtlo 32<rt> (getRegVar ctxt r2))
     builder <! (dstAssign 32<rt> (getRegVar ctxt r1) tmp)
-  | _, _ -> failwith "Not a Register to Register."
+  | _, _ -> Utils.impossible ()
 
 let movdRegToMem ctxt dst r builder =
   match Register.getKind r with
   | Register.Kind.XMM ->
-    builder <! (dst := extractLow 32<rt> (getPseudoRegVar ctxt r 1))
-  | Register.Kind.MMX -> builder <! (dst := extractLow 32<rt> (getRegVar ctxt r))
-  | _ -> failwith "Not a Register to Memory."
+    builder <! (dst := AST.xtlo 32<rt> (getPseudoRegVar ctxt r 1))
+  | Register.Kind.MMX -> builder <! (dst := AST.xtlo 32<rt> (getRegVar ctxt r))
+  | _ -> Utils.impossible ()
 
 let movdMemToReg ctxt src r builder =
   match Register.getKind r with
   | Register.Kind.XMM ->
-    builder <! (getPseudoRegVar ctxt r 1 := zExt 64<rt> src)
-    builder <! (getPseudoRegVar ctxt r 2 := num0 64<rt>)
-  | Register.Kind.MMX -> builder <! (getRegVar ctxt r := zExt 64<rt> src)
-  | _ -> failwith "Not a Register to Memory."
+    builder <! (getPseudoRegVar ctxt r 1 := AST.zext 64<rt> src)
+    builder <! (getPseudoRegVar ctxt r 2 := AST.num0 64<rt>)
+  | Register.Kind.MMX -> builder <! (getRegVar ctxt r := AST.zext 64<rt> src)
+  | _ -> Utils.impossible ()
 
 let maskOffset offset oprSize =
-  let offset = zExt oprSize offset
+  let offset = AST.zext oprSize offset
   match oprSize with
   | 16<rt> -> offset .& numU32 0xFu 16<rt>
   | 32<rt> -> offset .& numU32 0x1Fu 32<rt>
@@ -694,7 +701,7 @@ let rec isVar = function
   | _ -> false
 
 let calculateOffset offset oprSize =
-  let offset = zExt oprSize offset
+  let offset = AST.zext oprSize offset
   match oprSize with
   | 16<rt> -> numU32 2u 16<rt> .* (offset ./ numU32 16u 16<rt>),
               offset .& numU32 15u 16<rt>
@@ -709,10 +716,10 @@ let bit ins bitBase bitOffset oprSize =
   | Load (e, t, expr, _, _) ->
     let effAddrSz = getEffAddrSz ins
     let addrOffset, bitOffset = calculateOffset bitOffset oprSize
-    let addrOffset = zExt effAddrSz addrOffset
-    extractLow 1<rt> ((AST.load e t (expr .+ addrOffset)) >> bitOffset)
+    let addrOffset = AST.zext effAddrSz addrOffset
+    AST.xtlo 1<rt> ((AST.load e t (expr .+ addrOffset)) >> bitOffset)
   | _ -> if isVar bitBase
-         then extractLow 1<rt> (bitBase >> maskOffset bitOffset oprSize)
+         then AST.xtlo 1<rt> (bitBase >> maskOffset bitOffset oprSize)
          else raise InvalidExprException
 
 let getMask oprSize =
@@ -728,7 +735,7 @@ let setBit ins bitBase bitOffset oprSize setValue =
   | Load (e, t, expr, _, _) ->
     let effAddrSz = getEffAddrSz ins
     let addrOffset, bitOffset = calculateOffset bitOffset oprSize
-    let addrOffset = zExt effAddrSz addrOffset
+    let addrOffset = AST.zext effAddrSz addrOffset
     let mask = setValue << bitOffset
     let loadMem = AST.load e t (expr .+ addrOffset)
     loadMem := (loadMem .& (getMask oprSize .- mask)) .| mask
@@ -748,42 +755,42 @@ let isFPUStackOpr = function
 let checkC1Flag ctxt builder topTagReg =
   let c1 = getRegVar ctxt R.FSWC1
   let tagV = getRegVar ctxt topTagReg
-  let rc = extract (getRegVar ctxt R.FCW) 2<rt> 10
-  builder <! (c1 := ite (rc == numI32 2 2<rt>) b1 b0)
-  builder <! (c1 := ite (tagV == numI32 3 2<rt>) b0 c1)
+  let rc = AST.extract (getRegVar ctxt R.FCW) 2<rt> 10
+  builder <! (c1 := AST.ite (rc == numI32 2 2<rt>) AST.b1 AST.b0)
+  builder <! (c1 := AST.ite (tagV == numI32 3 2<rt>) AST.b0 c1)
 
 let checkFPUOnLoad ctxt builder =
   let top = getRegVar ctxt R.FTOP
   let c1Flag = getRegVar ctxt R.FSWC1
   let cond1, cond2 = tmpVars2 1<rt>
-  builder <! (cond1 := top == num0 3<rt>)
-  builder <! (cond2 := (getRegVar ctxt R.FTW0 .+ num1 2<rt>) != num0 2<rt>)
-  builder <! (c1Flag := ite (cond1 .& cond2) b1 b0)
+  builder <! (cond1 := top == AST.num0 3<rt>)
+  builder <! (cond2 := (getRegVar ctxt R.FTW0 .+ AST.num1 2<rt>) != AST.num0 2<rt>)
+  builder <! (c1Flag := AST.ite (cond1 .& cond2) AST.b1 AST.b0)
   builder <! (getRegVar ctxt R.FSWC0 := undefC0)
   builder <! (getRegVar ctxt R.FSWC2 := undefC2)
   builder <! (getRegVar ctxt R.FSWC3 := undefC3)
-  builder <! (top := top .- num1 3<rt>)
+  builder <! (top := top .- AST.num1 3<rt>)
 
 let fpuRegValue ctxt reg =
   let stb, sta = getFPUPseudoRegVars ctxt reg
-  concat stb sta
+  AST.concat stb sta
 
 let assignFPUReg reg expr80 ctxt builder =
   let stb, sta = getFPUPseudoRegVars ctxt reg
-  builder <! (sta := extractLow 64<rt> expr80)
-  builder <! (stb := extractHigh 16<rt> expr80)
+  builder <! (sta := AST.xtlo 64<rt> expr80)
+  builder <! (stb := AST.xthi 16<rt> expr80)
 
 let getTagValueOnLoad ctxt builder =
-  let tmp = tmpVar 2<rt>
+  let tmp = AST.tmpvar 2<rt>
   let st0 = fpuRegValue ctxt R.ST0
-  let exponent = extract st0 11<rt> 52
-  let zero = num0 11<rt>
-  let max = BitVector.unsignedMax 11<rt> |> num
-  let cond0 = (extractLow 63<rt> st0) == num0 63<rt>
+  let exponent = AST.extract st0 11<rt> 52
+  let zero = AST.num0 11<rt>
+  let max = BitVector.unsignedMax 11<rt> |> AST.num
+  let cond0 = (AST.xtlo 63<rt> st0) == AST.num0 63<rt>
   let condSpecial = (exponent == zero) .| (exponent == max)
-  builder <! (tmp := num0 2<rt>)
-  builder <! (tmp := ite condSpecial (BitVector.ofInt32 2 2<rt> |> num) tmp)
-  builder <! (tmp := ite cond0 (num1 2<rt>) tmp)
+  builder <! (tmp := AST.num0 2<rt>)
+  builder <! (tmp := AST.ite condSpecial (BitVector.ofInt32 2 2<rt> |> AST.num) tmp)
+  builder <! (tmp := AST.ite cond0 (AST.num1 2<rt>) tmp)
   tmp
 
 let updateTagWordOnLoad ctxt builder =
@@ -791,22 +798,22 @@ let updateTagWordOnLoad ctxt builder =
   let tagWord = getRegVar ctxt R.FTW
   let top16, mask, shifter, tagValue16 = tmpVars4 16<rt>
   let tagValue = getTagValueOnLoad ctxt builder
-  let value3 = BitVector.ofInt32 3 16<rt> |> num
-  builder <! (top16 := cast CastKind.ZeroExt 16<rt> top)
-  builder <! (shifter := (BitVector.ofInt32 2 16<rt> |> num) .* top16)
-  builder <! (tagValue16 := cast CastKind.ZeroExt 16<rt> tagValue)
+  let value3 = BitVector.ofInt32 3 16<rt> |> AST.num
+  builder <! (top16 := AST.cast CastKind.ZeroExt 16<rt> top)
+  builder <! (shifter := (BitVector.ofInt32 2 16<rt> |> AST.num) .* top16)
+  builder <! (tagValue16 := AST.cast CastKind.ZeroExt 16<rt> tagValue)
   builder <! (tagValue16 := (tagValue16 << shifter))
   builder <! (mask := value3 << shifter)
-  builder <! (tagWord := tagWord .& (not mask))
+  builder <! (tagWord := tagWord .& (AST.not mask))
   builder <! (tagWord := tagWord .| tagValue16)
 
 let updateTagWordOnPop ctxt builder =
   let top = getRegVar ctxt R.FTOP
   let tagWord = getRegVar ctxt R.FTW
   let top16, mask, shifter, tagValue16 = tmpVars4 16<rt>
-  let value3 = BitVector.ofInt32 3 16<rt> |> num
-  builder <! (top16 := cast CastKind.ZeroExt 16<rt> top)
-  builder <! (shifter := (BitVector.ofInt32 2 16<rt> |> num) .* top16)
+  let value3 = BitVector.ofInt32 3 16<rt> |> AST.num
+  builder <! (top16 := AST.cast CastKind.ZeroExt 16<rt> top)
+  builder <! (shifter := (BitVector.ofInt32 2 16<rt> |> AST.num) .* top16)
   builder <! (mask := value3 << shifter)
   builder <! (tagWord := tagWord .| mask)
 
@@ -830,51 +837,51 @@ let popFPUStack ctxt builder =
   assignFPUReg R.ST4 (fpuRegValue ctxt R.ST5) ctxt builder
   assignFPUReg R.ST5 (fpuRegValue ctxt R.ST6) ctxt builder
   assignFPUReg R.ST6 (fpuRegValue ctxt R.ST7) ctxt builder
-  assignFPUReg R.ST7 (num0 80<rt>) ctxt builder
-  builder <! (cond1 := top == num0 3<rt>)
-  builder <! (cond2 := (getRegVar ctxt R.FTW7 .+ num1 2<rt>) == num0 2<rt>)
-  builder <! (c1Flag := ite (cond1 .& cond2) (b0) (c1Flag))
+  assignFPUReg R.ST7 (AST.num0 80<rt>) ctxt builder
+  builder <! (cond1 := top == AST.num0 3<rt>)
+  builder <! (cond2 := (getRegVar ctxt R.FTW7 .+ AST.num1 2<rt>) == AST.num0 2<rt>)
+  builder <! (c1Flag := AST.ite (cond1 .& cond2) (AST.b0) (c1Flag))
   builder <! (getRegVar ctxt R.FSWC0 := undefC0)
   builder <! (getRegVar ctxt R.FSWC2 := undefC2)
   builder <! (getRegVar ctxt R.FSWC3 := undefC3)
   updateTagWordOnPop ctxt builder
-  builder <! (top := top .+ num1 3<rt>)
+  builder <! (top := top .+ AST.num1 3<rt>)
 
 let rec subPackedByte opFn s1 s2 (tDstArr: Expr []) oprSz sepSz idx sz builder =
   let tS1, tS2 = tmpVars2 sepSz
   if sz = 0 then ()
-  else builder <! (tS1 := extract s1 sepSz (idx * 8))
-       builder <! (tS2 := extract s2 sepSz (idx * 8))
+  else builder <! (tS1 := AST.extract s1 sepSz (idx * 8))
+       builder <! (tS2 := AST.extract s2 sepSz (idx * 8))
        builder <! (tDstArr.[int idx] := opFn tS1 tS2)
        subPackedByte opFn s1 s2 tDstArr oprSz sepSz (idx + 1) (sz - 1) builder
 
 let getPsubbExpr src1 src2 oprSize builder =
   let size = RegType.toByteWidth oprSize
-  let tDstArr = [| for _ in 1 .. size -> tmpVar 8<rt> |]
+  let tDstArr = [| for _ in 1 .. size -> AST.tmpvar 8<rt> |]
   subPackedByte (.-) src1 src2 tDstArr oprSize 8<rt> 0 size builder
-  concatExprs tDstArr
+  AST.concatArr tDstArr
 
 let oneOperandImul ins insAddr insLen ctxt oprSize builder =
   let src = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
   let sF = getRegVar ctxt R.SF
   let shiftNum = RegType.toBitWidth oprSize
   let mulSize = RegType.double oprSize
-  let t = tmpVar mulSize
-  let cond = sExt mulSize (extractLow oprSize t) == t
+  let t = AST.tmpvar mulSize
+  let cond = AST.sext mulSize (AST.xtlo oprSize t) == t
   match oprSize with
   | 8<rt> ->
-    builder <! (t := sExt mulSize (getRegVar ctxt R.AL) .* sExt mulSize src)
+    builder <! (t := AST.sext mulSize (getRegVar ctxt R.AL) .* AST.sext mulSize src)
     builder <! (dstAssign oprSize (getRegVar ctxt R.AX) t)
   | 16<rt> | 32<rt> | 64<rt> ->
     let r1 = getRegOfSize ctxt oprSize grpEDX
     let r2 = getRegOfSize ctxt oprSize grpEAX
-    builder <! (t := sExt mulSize r2 .* sExt mulSize src)
-    builder <! (dstAssign oprSize r1 (extractHigh oprSize t))
-    builder <! (dstAssign oprSize r2 (extractLow oprSize t))
+    builder <! (t := AST.sext mulSize r2 .* AST.sext mulSize src)
+    builder <! (dstAssign oprSize r1 (AST.xthi oprSize t))
+    builder <! (dstAssign oprSize r2 (AST.xtlo oprSize t))
   | _ -> raise InvalidOperandSizeException
-  builder <! (sF := extract t 1<rt> (shiftNum - 1))
-  builder <! (getRegVar ctxt R.CF := cond == b0)
-  builder <! (getRegVar ctxt R.OF := cond == b0)
+  builder <! (sF := AST.extract t 1<rt> (shiftNum - 1))
+  builder <! (getRegVar ctxt R.CF := cond == AST.b0)
+  builder <! (getRegVar ctxt R.OF := cond == AST.b0)
 
 let operandsImul (ins: InsInfo) insAddr insLen ctxt oprSize builder =
   let dst, src1, src2 =
@@ -886,11 +893,11 @@ let operandsImul (ins: InsInfo) insAddr insLen ctxt oprSize builder =
       getThreeOprs ins |> transThreeOprs ins insAddr insLen ctxt
     | _ -> raise InvalidOperandException
   let doubleWidth = RegType.double oprSize
-  let t = tmpVar doubleWidth
-  let cond = (sExt doubleWidth dst) != t
-  builder <! (t := sExt doubleWidth src1 .* sExt doubleWidth src2)
-  builder <! (dstAssign oprSize dst (extractLow oprSize t))
-  builder <! (getRegVar ctxt R.SF := extractHigh 1<rt> dst)
+  let t = AST.tmpvar doubleWidth
+  let cond = (AST.sext doubleWidth dst) != t
+  builder <! (t := AST.sext doubleWidth src1 .* AST.sext doubleWidth src2)
+  builder <! (dstAssign oprSize dst (AST.xtlo oprSize t))
+  builder <! (getRegVar ctxt R.SF := AST.xthi 1<rt> dst)
   builder <! (getRegVar ctxt R.CF := cond)
   builder <! (getRegVar ctxt R.OF := cond)
 
@@ -909,13 +916,13 @@ let getPcmpstrInfo opCode (imm: Expr) =
             | v when v = 1I -> Ranges
             | v when v = 2I -> EqualEach
             | v when v = 3I -> EqualOrdered
-            | _ -> failwith "Invalid value"
+            | _ -> Utils.impossible ()
   let pol = match (immByte >>> 4) &&& 3I with
             | v when v = 0I -> PosPolarity
             | v when v = 1I -> NegPolarity
             | v when v = 2I -> PosMasked
             | v when v = 3I -> NegMasked
-            | _ -> failwith "Invalid value"
+            | _ -> Utils.impossible ()
   let size, nElem =
     if immByte &&& 1I = 0I then 8<rt>, 16u else 16<rt>, 8u
   let len, ret =
@@ -946,7 +953,7 @@ let getIntRes2 e ctrInfo (booRes: Expr []) =
     List.fold (fun acc i ->
       let e1 = e .& numI32 (pown 2 i) elemSz
       let e2 = (AST.not e) .& numI32 (pown 2 i) elemSz
-      (ite (booRes.[i]) e2 e1) :: acc) [] [0 .. elemCnt - 1]
+      (AST.ite (booRes.[i]) e2 e1) :: acc) [] [0 .. elemCnt - 1]
     |> List.reduce (.|)
 
 let rec genOutput ctrl e acc i =
@@ -955,30 +962,30 @@ let rec genOutput ctrl e acc i =
   let e' = e >> numI32 i elemSz
   let next = if isSmallOut then i - 1 else i + 1
   let cond = if isSmallOut then i = 0 else i = int ctrl.NumElems - 1
-  if cond then ite (extractLow 1<rt> e') (numI32 i elemSz) acc
-  else genOutput ctrl e (ite (extractLow 1<rt> e') (numI32 i elemSz) acc) next
+  if cond then AST.ite (AST.xtlo 1<rt> e') (numI32 i elemSz) acc
+  else genOutput ctrl e (AST.ite (AST.xtlo 1<rt> e') (numI32 i elemSz) acc) next
 
 let implicitValidCheck ctrl srcB srcA builder =
   let unitWidth = RegType.toBitWidth ctrl.PackSize
-  let tmps = [| for _ in 1u .. ctrl.NumElems -> tmpVar 1<rt> |]
-  let getSrc idx e = extract e ctrl.PackSize (unitWidth * idx)
+  let tmps = [| for _ in 1u .. ctrl.NumElems -> AST.tmpvar 1<rt> |]
+  let getSrc idx e = AST.extract e ctrl.PackSize (unitWidth * idx)
   let rec getValue idx =
     if idx = int ctrl.NumElems then ()
     else
       let half = int ctrl.NumElems / 2
       let e, amount = if idx < half then srcA, idx else srcB, idx - half
-      let v e = tmps.[idx - 1] .& (getSrc amount e != num0 ctrl.PackSize)
+      let v e = tmps.[idx - 1] .& (getSrc amount e != AST.num0 ctrl.PackSize)
       builder <! (tmps.[idx] := v e)
       getValue (idx + 1)
-  builder <! (tmps.[0] := b1 .& (getSrc 0 srcA != num0 ctrl.PackSize))
+  builder <! (tmps.[0] := AST.b1 .& (getSrc 0 srcA != AST.num0 ctrl.PackSize))
   getValue 1
   tmps
 
 let explicitValidCheck ctrl reg rSz builder =
-  let tmps = [| for _ in 1u .. ctrl.NumElems -> tmpVar 1<rt> |]
+  let tmps = [| for _ in 1u .. ctrl.NumElems -> AST.tmpvar 1<rt> |]
   let checkNum = numU32 ctrl.NumElems rSz
   let rec getValue idx =
-    let v = lt (numU32 idx rSz) (ite (lt checkNum reg) checkNum reg)
+    let v = AST.lt (numU32 idx rSz) (AST.ite (AST.lt checkNum reg) checkNum reg)
     if idx = ctrl.NumElems then ()
     else builder <! (tmps.[int idx] := v)
          getValue (idx + 1u)
@@ -1008,42 +1015,42 @@ let genBoolRes ins insAddr insLen // XXX
     let unitWidth = RegType.toBitWidth ctrl.PackSize
     let amount = unitWidth * idx
     let amount = if amount < 64 then amount else amount - 64
-    extract s ctrl.PackSize amount
+    AST.extract s ctrl.PackSize amount
   let b =
     let e1 = if j < int ctrl.NumElems / 2 then src1A else src1B
     let e2 = if i < int ctrl.NumElems / 2 then src2A else src2B
-    (ite (cmp (getSrc e1 j) (getSrc e2 i)) (num1 elemSz) (num0 elemSz))
+    (AST.ite (cmp (getSrc e1 j) (getSrc e2 i)) (AST.num1 elemSz) (AST.num0 elemSz))
   match ctrl.Agg with
   | EqualAny | Ranges ->
-    ite (AST.not ck1.[j] .& AST.not ck2.[i]) (num0 elemSz)
-      (ite (AST.not ck1.[j] .| AST.not ck2.[i]) (num0 elemSz) b)
+    AST.ite (AST.not ck1.[j] .& AST.not ck2.[i]) (AST.num0 elemSz)
+      (AST.ite (AST.not ck1.[j] .| AST.not ck2.[i]) (AST.num0 elemSz) b)
   | EqualEach ->
-    ite (AST.not ck1.[i] .& AST.not ck2.[i]) (num1 elemSz)
-      (ite (AST.not ck1.[i] .| AST.not ck2.[i]) (num0 elemSz) b)
+    AST.ite (AST.not ck1.[i] .& AST.not ck2.[i]) (AST.num1 elemSz)
+      (AST.ite (AST.not ck1.[i] .| AST.not ck2.[i]) (AST.num0 elemSz) b)
   | EqualOrdered ->
-    ite (AST.not ck1.[j] .& AST.not ck2.[i]) (num1 elemSz)
-      (ite (AST.not ck1.[j] .& ck2.[i]) (num1 elemSz)
-        (ite (ck1.[j] .& AST.not ck2.[i]) (num0 elemSz) b))
+    AST.ite (AST.not ck1.[j] .& AST.not ck2.[i]) (AST.num1 elemSz)
+      (AST.ite (AST.not ck1.[j] .& ck2.[i]) (AST.num1 elemSz)
+        (AST.ite (ck1.[j] .& AST.not ck2.[i]) (AST.num0 elemSz) b))
 
 let sideEffects insAddr insLen name =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   startMark insAddr insLen builder
   builder <! (SideEffect name)
   endMark insAddr insLen builder
 
 let strRepeat (ctxt: TranslationContext) body cond insAddr insLen builder =
-  let lblExit = lblSymbol "Exit"
-  let lblCont = lblSymbol "Continue"
-  let lblNext = lblSymbol "Next"
-  let n0 = num0 ctxt.WordBitSize
+  let lblExit = AST.symbol "Exit"
+  let lblCont = AST.symbol "Continue"
+  let lblNext = AST.symbol "Next"
+  let n0 = AST.num0 ctxt.WordBitSize
   let cx = getRegVar ctxt (if is64bit ctxt then R.RCX else R.ECX)
   let pc = getInstrPtr ctxt
-  let cinstAddr = bvOfBaseAddr insAddr ctxt
-  let ninstAddr = cinstAddr .+ bvOfInstrLen insLen ctxt
+  let cinstAddr = numAddr insAddr ctxt
+  let ninstAddr = cinstAddr .+ numInsLen insLen ctxt
   builder <! (CJmp (cx == n0, Name lblExit, Name lblCont))
   builder <! (LMark lblCont)
   body ()
-  builder <! (cx := cx .- num1 ctxt.WordBitSize)
+  builder <! (cx := cx .- AST.num1 ctxt.WordBitSize)
   match cond with
   | None -> builder <! (InterJmp (pc, cinstAddr, InterJmpInfo.Base))
   | Some cond ->
@@ -1119,7 +1126,7 @@ let fillZeroHigh ins ctxt dst builder =
   | 128<rt> ->
     let dst = r128to256 dst
     let dstC, dstD = getPseudoRegVar ctxt dst 3, getPseudoRegVar ctxt dst 4
-    let n0 = num0 64<rt>
+    let n0 = AST.num0 64<rt>
     builder <! (dstC := n0)
     builder <! (dstD := n0)
   | 256<rt> ->
@@ -1127,7 +1134,7 @@ let fillZeroHigh ins ctxt dst builder =
     let dstE, dstF, dstG, dstH =
       getPseudoRegVar ctxt dst 3, getPseudoRegVar ctxt dst 4,
       getPseudoRegVar ctxt dst 5, getPseudoRegVar ctxt dst 6
-    let n0 = num0 64<rt>
+    let n0 = AST.num0 64<rt>
     builder <! (dstE := n0)
     builder <! (dstF := n0)
     builder <! (dstG := n0)
@@ -1137,7 +1144,7 @@ let fillZeroHigh ins ctxt dst builder =
 let fillZeroHigh128 ctxt dst builder =
   let dst = r128to256 dst
   let dstC, dstD = getPseudoRegVar ctxt dst 3, getPseudoRegVar ctxt dst 4
-  let n0 = num0 64<rt>
+  let n0 = AST.num0 64<rt>
   builder <! (dstC := n0)
   builder <! (dstD := n0)
 
@@ -1146,14 +1153,14 @@ let fillZeroHigh256 ctxt dst builder =
   let dstE, dstF, dstG, dstH =
     getPseudoRegVar ctxt dst 3, getPseudoRegVar ctxt dst 4,
     getPseudoRegVar ctxt dst 5, getPseudoRegVar ctxt dst 6
-  let n0 = num0 64<rt>
+  let n0 = AST.num0 64<rt>
   builder <! (dstE := n0)
   builder <! (dstF := n0)
   builder <! (dstG := n0)
   builder <! (dstH := n0)
 
 let fillZeroFromVLToMaxVL ctxt dst vl maxVl builder =
-  let n0 = num0 64<rt>
+  let n0 = AST.num0 64<rt>
   match maxVl, vl with
   | 512, 128 ->
     let dst = r128to512 dst
@@ -1176,59 +1183,59 @@ let fillZeroFromVLToMaxVL ctxt dst vl maxVl builder =
     builder <! (dstF := n0)
     builder <! (dstG := n0)
     builder <! (dstH := n0)
-  | _ -> failwith "Invalid MAX Vector Length"
+  | _ -> Utils.impossible ()
 
 let saturateSignedWordToSignedByte expr =
-  let checkMin = slt expr (numI32 -128 16<rt>)
-  let checkMax = sgt expr (numI32 127 16<rt>)
+  let checkMin = AST.slt expr (numI32 -128 16<rt>)
+  let checkMax = AST.sgt expr (numI32 127 16<rt>)
   let minNum = numI32 -128 8<rt>
   let maxNum = numI32 127 8<rt>
-  ite checkMin minNum (ite checkMax maxNum (extractLow 8<rt> expr))
+  AST.ite checkMin minNum (AST.ite checkMax maxNum (AST.xtlo 8<rt> expr))
 
 let saturateSignedDwordToSignedWord expr =
-  let checkMin = slt expr (numI32 -32768 32<rt>)
-  let checkMax = sgt expr (numI32 32767 32<rt>)
+  let checkMin = AST.slt expr (numI32 -32768 32<rt>)
+  let checkMax = AST.sgt expr (numI32 32767 32<rt>)
   let minNum = numI32 -32768 16<rt>
   let maxNum = numI32 32767 16<rt>
-  ite checkMin minNum (ite checkMax maxNum (extractLow 16<rt> expr))
+  AST.ite checkMin minNum (AST.ite checkMax maxNum (AST.xtlo 16<rt> expr))
 
 let saturateSignedWordToUnsignedByte expr =
-  let checkMin = slt expr (numI32 0 16<rt>)
-  let checkMax = sgt expr (numI32 255 16<rt>)
+  let checkMin = AST.slt expr (numI32 0 16<rt>)
+  let checkMax = AST.sgt expr (numI32 255 16<rt>)
   let minNum = numU32 0u 8<rt>
   let maxNum = numU32 0xffu 8<rt>
-  ite checkMin minNum (ite checkMax maxNum (extractLow 8<rt> expr))
+  AST.ite checkMin minNum (AST.ite checkMax maxNum (AST.xtlo 8<rt> expr))
 
 let saturateToSignedByte expr =
-  let checkMin = slt expr (numI32 -128 8<rt>)
-  let checkMax = sgt expr (numI32 127 8<rt>)
+  let checkMin = AST.slt expr (numI32 -128 8<rt>)
+  let checkMax = AST.sgt expr (numI32 127 8<rt>)
   let minNum = numI32 -128 8<rt>
   let maxNum = numI32 127 8<rt>
-  ite checkMin minNum (ite checkMax maxNum expr)
+  AST.ite checkMin minNum (AST.ite checkMax maxNum expr)
 
 let saturateToSignedWord expr =
-  let checkMin = slt expr (numI32 -32768 16<rt>)
-  let checkMax = sgt expr (numI32 32767 16<rt>)
+  let checkMin = AST.slt expr (numI32 -32768 16<rt>)
+  let checkMax = AST.sgt expr (numI32 32767 16<rt>)
   let minNum = numI32 -32768 16<rt>
   let maxNum = numI32 32767 16<rt>
-  ite checkMin minNum (ite checkMax maxNum expr)
+  AST.ite checkMin minNum (AST.ite checkMax maxNum expr)
 
 let saturateToUnsignedByte expr =
-  let checkMin = lt expr (numU32 0u 8<rt>)
-  let checkMax = gt expr (numU32 0xffu 8<rt>)
+  let checkMin = AST.lt expr (numU32 0u 8<rt>)
+  let checkMax = AST.gt expr (numU32 0xffu 8<rt>)
   let minNum = numU32 0u 8<rt>
   let maxNum = numU32 0xffu 8<rt>
-  ite checkMin minNum (ite checkMax maxNum expr)
+  AST.ite checkMin minNum (AST.ite checkMax maxNum expr)
 
 let saturateToUnsignedWord expr =
-  let checkMin = lt expr (numU32 0u 16<rt>)
-  let checkMax = gt expr (numU32 0xffffu 16<rt>)
+  let checkMin = AST.lt expr (numU32 0u 16<rt>)
+  let checkMax = AST.gt expr (numU32 0xffffu 16<rt>)
   let minNum = numU32 0u 16<rt>
   let maxNum = numU32 0xffu 16<rt>
-  ite checkMin minNum (ite checkMax maxNum expr)
+  AST.ite checkMin minNum (AST.ite checkMax maxNum expr)
 
 let buildMove ins insAddr insLen ctxt bufSize =
-  let builder = new StmtBuilder (bufSize)
+  let builder = StmtBuilder (bufSize)
   let dst, src = getTwoOprs ins
   let oprSize = getOperationSize ins
   startMark insAddr insLen builder
@@ -1244,13 +1251,13 @@ let buildMove ins insAddr insLen ctxt bufSize =
   endMark insAddr insLen builder
 
 let makeSrc builder packSize packNum src =
-  let tSrc = Array.init packNum (fun _ -> tmpVar packSize)
+  let tSrc = Array.init packNum (fun _ -> AST.tmpvar packSize)
   for i in 0 .. packNum - 1 do
-    builder <! (tSrc.[i] := extract src packSize (i * (int packSize)))
+    builder <! (tSrc.[i] := AST.extract src packSize (i * (int packSize)))
   tSrc
 
 let buildPackedInstrTwoOprs ins insAddr insLen ctxt packSz opFn bufSz dst src =
-  let builder = new StmtBuilder (bufSz)
+  let builder = StmtBuilder (bufSz)
   let oprSize = getOperationSize ins
   let packNum = oprSize / packSz
   let makeSrc = makeSrc builder packSz
@@ -1262,7 +1269,7 @@ let buildPackedInstrTwoOprs ins insAddr insLen ctxt packSz opFn bufSz dst src =
     let src2 = match src with
                | Load (_, rt, _, _, _) -> makeSrc (rt / packSz) src
                | _ -> makeSrc packNum src
-    builder <! (dst := opFn oprSize src1 src2 |> concatExprs)
+    builder <! (dst := opFn oprSize src1 src2 |> AST.concatArr)
   | 128<rt> ->
     let packNum = packNum / (oprSize / 64<rt>)
     let srcAppend src =
@@ -1272,13 +1279,13 @@ let buildPackedInstrTwoOprs ins insAddr insLen ctxt packSz opFn bufSz dst src =
     let dst = transOprToExprVec ins insAddr insLen ctxt dst
     let packNum = Array.length tSrc / List.length dst
     let assign idx dst =
-      builder <! (dst := Array.sub tSrc (packNum * idx) packNum |> concatExprs)
+      builder <! (dst := Array.sub tSrc (packNum * idx) packNum |> AST.concatArr)
     List.iteri assign dst
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
 let buildPackedInstrThreeOprs ins iAddr iLen ctxt packSz opFn bufSz dst s1 s2 =
-  let builder = new StmtBuilder (bufSz)
+  let builder = StmtBuilder (bufSz)
   let oprSize = getOperationSize ins
   let packNum = oprSize / packSz
   let makeSrc = makeSrc builder packSz
@@ -1288,7 +1295,7 @@ let buildPackedInstrThreeOprs ins iAddr iLen ctxt packSz opFn bufSz dst s1 s2 =
     let dst, src1, src2 = transThreeOprs ins iAddr iLen ctxt (dst, s1, s2)
     let src1 = makeSrc packNum src1
     let src2 = makeSrc packNum src2
-    builder <! (dst := opFn oprSize src1 src2 |> concatExprs)
+    builder <! (dst := opFn oprSize src1 src2 |> AST.concatArr)
   | 128<rt> | 256<rt> ->
     let packNum = packNum / (oprSize / 64<rt>)
     let dst = transOprToExprVec ins iAddr iLen ctxt dst
@@ -1297,7 +1304,7 @@ let buildPackedInstrThreeOprs ins iAddr iLen ctxt packSz opFn bufSz dst s1 s2 =
       List.map (makeSrc packNum) src |> List.fold Array.append [||]
     let tSrc = opFn oprSize (srcAppend s1) (srcAppend s2)
     let assign idx dst =
-      builder <! (dst := Array.sub tSrc (packNum * idx) packNum |> concatExprs)
+      builder <! (dst := Array.sub tSrc (packNum * idx) packNum |> AST.concatArr)
     List.iteri assign dst
   | _ -> raise InvalidOperandSizeException
   endMark iAddr iLen builder
@@ -1316,7 +1323,7 @@ let getTwoSrcOperands = function
   | _ -> raise InvalidOperandException
 
 let handleScalarFPOp ins insAddr insLen ctxt sz op =
-  let builder = new StmtBuilder(8)
+  let builder = StmtBuilder(8)
   let _dst2, dst1 =
     ins.Operands |> getFstOperand |> transOprToExpr128 ins insAddr insLen ctxt
   let src1, src2 = getTwoSrcOperands ins.Operands
@@ -1325,7 +1332,7 @@ let handleScalarFPOp ins insAddr insLen ctxt sz op =
     if sz = 32<rt> then transOprToExpr32 ins insAddr insLen ctxt src2
     else transOprToExpr64 ins insAddr insLen ctxt src2
   let dst1, src1 =
-    if sz = 32<rt> then extractLow 32<rt> dst1, extractLow 32<rt> src1
+    if sz = 32<rt> then AST.xtlo 32<rt> dst1, AST.xtlo 32<rt> src1
     else dst1, src1
   let t1, t2, t3 = tmpVars3 sz
   startMark insAddr insLen builder
@@ -1338,10 +1345,10 @@ let handleScalarFPOp ins insAddr insLen ctxt sz op =
 
 let bcdToInt intgr bcd builder =
   let getDigit startPos =
-    extract bcd 4<rt> startPos |> sExt 64<rt>
+    AST.extract bcd 4<rt> startPos |> AST.sext 64<rt>
   let n num =
     numI64 num 64<rt>
-  builder <! (intgr := num0 64<rt>)
+  builder <! (intgr := AST.num0 64<rt>)
   builder <! (intgr := intgr .+ getDigit 0)
   builder <! (intgr := intgr .+ (getDigit 4 .* n 10L))
   builder <! (intgr := intgr .+ (getDigit 8 .* n 100L))
@@ -1363,8 +1370,8 @@ let bcdToInt intgr bcd builder =
 
 let intTobcd bcd intgr builder =
   let n10 = numI32 10 64<rt>
-  let mod10 = intgr .% n10 |> zExt 4<rt>
-  let digitAt startPos = extract bcd 4<rt> startPos
+  let mod10 = intgr .% n10 |> AST.zext 4<rt>
+  let digitAt startPos = AST.extract bcd 4<rt> startPos
   let rec doAssign startPos =
     if startPos >= 72 then ()
     else
@@ -1373,25 +1380,24 @@ let intTobcd bcd intgr builder =
       doAssign (startPos + 4)
   doAssign 0
 
-/// A module for all x86-IR translation functions
 let aaa ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let oprSize = getOperationSize ins
   let al = getRegVar ctxt R.AL
   let af = getRegVar ctxt R.AF
   let ax = getRegVar ctxt R.AX
   let cf = getRegVar ctxt R.CF
   let alAnd0f = al .& numI32 0x0f 8<rt>
-  let cond1 = gt alAnd0f (numI32 9 8<rt>)
-  let cond2 = af == b1
-  let cond = tmpVar 1<rt>
+  let cond1 = AST.gt alAnd0f (numI32 9 8<rt>)
+  let cond2 = af == AST.b1
+  let cond = AST.tmpvar 1<rt>
   startMark insAddr insLen builder
   if oprSize = 64<rt> then ()
   else
     builder <! (cond := cond1 .| cond2)
-    builder <! (ax := ite cond (ax .+ numI32 0x106 16<rt>) ax)
-    builder <! (af := ite cond b1 b0)
-    builder <! (cf := ite cond b1 b0)
+    builder <! (ax := AST.ite cond (ax .+ numI32 0x106 16<rt>) ax)
+    builder <! (af := AST.ite cond AST.b1 AST.b0)
+    builder <! (cf := AST.ite cond AST.b1 AST.b0)
     builder <! (al := alAnd0f)
     builder <! (getRegVar ctxt R.OF := undefOF)
     builder <! (getRegVar ctxt R.SF := undefSF)
@@ -1400,9 +1406,9 @@ let aaa ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let aad ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let imm8 =
-    getOneOpr ins |> transOneOpr ins insAddr insLen ctxt |> extractLow 8<rt>
+    getOneOpr ins |> transOneOpr ins insAddr insLen ctxt |> AST.xtlo 8<rt>
   let oprSize = getOperationSize ins
   let al = getRegVar ctxt R.AL
   let ah = getRegVar ctxt R.AH
@@ -1410,7 +1416,7 @@ let aad ins insAddr insLen ctxt =
   if oprSize = 64<rt> then ()
   else
     builder <! (al := (al .+ (ah .* imm8)) .& (numI32 0xff 8<rt>))
-    builder <! (ah := num0 8<rt>)
+    builder <! (ah := AST.num0 8<rt>)
     enumSZPFlags ctxt al 8<rt> builder
     builder <! (getRegVar ctxt R.OF := undefOF)
     builder <! (getRegVar ctxt R.AF := undefAF)
@@ -1418,9 +1424,9 @@ let aad ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let aam ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let imm8 =
-    getOneOpr ins |> transOneOpr ins insAddr insLen ctxt |>  extractLow 8<rt>
+    getOneOpr ins |> transOneOpr ins insAddr insLen ctxt |>  AST.xtlo 8<rt>
   let oprSize = getOperationSize ins
   let al = getRegVar ctxt R.AL
   let ah = getRegVar ctxt R.AH
@@ -1436,7 +1442,7 @@ let aam ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let aas ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (14)
+  let builder = StmtBuilder (14)
   let oprSize = getOperationSize ins
   let ax = getRegVar ctxt R.AX
   let al = getRegVar ctxt R.AL
@@ -1444,39 +1450,39 @@ let aas ins insAddr insLen ctxt =
   let cf = getRegVar ctxt R.CF
   let ah = getRegVar ctxt R.AH
   let alAnd0f = al .& numI32 0x0f 8<rt>
-  let cond1 = gt alAnd0f (numI32 9 8<rt>)
-  let cond2 = af == b1
-  let cond = tmpVar 1<rt>
+  let cond1 = AST.gt alAnd0f (numI32 9 8<rt>)
+  let cond2 = af == AST.b1
+  let cond = AST.tmpvar 1<rt>
   startMark insAddr insLen builder
   if oprSize = 64<rt> then ()
   else
     builder <! (cond := cond1 .| cond2)
-    builder <! (ax := ite cond (ax .- numI32 6 16<rt>) ax)
-    builder <! (ah := ite cond (ah .- num1 8<rt>) ah)
-    builder <! (af := ite cond b1 b0)
-    builder <! (cf := ite cond b1 b0)
+    builder <! (ax := AST.ite cond (ax .- numI32 6 16<rt>) ax)
+    builder <! (ah := AST.ite cond (ah .- AST.num1 8<rt>) ah)
+    builder <! (af := AST.ite cond AST.b1 AST.b0)
+    builder <! (cf := AST.ite cond AST.b1 AST.b0)
     builder <! (al := alAnd0f)
   endMark insAddr insLen builder
 
 let adc ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   let cf = getRegVar ctxt R.CF
   let t1, t2, t3, t4 = tmpVars4 oprSize
   startMark insAddr insLen builder
   builder <! (t1 := dst)
-  builder <! (t2 := sExt oprSize src)
-  builder <! (t3 := t2 .+ zExt oprSize cf)
+  builder <! (t2 := AST.sext oprSize src)
+  builder <! (t3 := t2 .+ AST.zext oprSize cf)
   builder <! (t4 := t1 .+ t3)
   builder <! (dstAssign oprSize dst t4)
-  builder <! (cf := lt t3 t2 .| lt t4 t1)
+  builder <! (cf := AST.lt t3 t2 .| AST.lt t4 t1)
   builder <! (getRegVar ctxt R.OF := getOFlagOnAdd t1 t2 t4)
   enumASZPFlags ctxt t1 t2 t4 oprSize builder
   endMark insAddr insLen builder
 
 let add ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   let t1, t2, t3 = tmpVars3 oprSize
@@ -1491,105 +1497,105 @@ let add ins insAddr insLen ctxt =
 let opP op _ = Array.map2 (op)
 
 let addpd ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 64<rt> (opP fadd) 8
+  buildPackedInstr ins insAddr insLen ctxt 64<rt> (opP AST.fadd) 8
 
 let addps ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 32<rt> (opP fadd) 8
+  buildPackedInstr ins insAddr insLen ctxt 32<rt> (opP AST.fadd) 8
 
 let addsd ins insAddr insLen ctxt =
-  handleScalarFPOp ins insAddr insLen ctxt 64<rt> fadd
+  handleScalarFPOp ins insAddr insLen ctxt 64<rt> AST.fadd
 
 let addss ins insAddr insLen ctxt =
-  handleScalarFPOp ins insAddr insLen ctxt 32<rt> fadd
+  handleScalarFPOp ins insAddr insLen ctxt 32<rt> AST.fadd
 
 let divpd ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 64<rt> (opP fdiv) 8
+  buildPackedInstr ins insAddr insLen ctxt 64<rt> (opP AST.fdiv) 8
 
 let divps ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 32<rt> (opP fdiv) 8
+  buildPackedInstr ins insAddr insLen ctxt 32<rt> (opP AST.fdiv) 8
 
 let divsd ins insAddr insLen ctxt =
-  handleScalarFPOp ins insAddr insLen ctxt 64<rt> fdiv
+  handleScalarFPOp ins insAddr insLen ctxt 64<rt> AST.fdiv
 
 let divss ins insAddr insLen ctxt =
-  handleScalarFPOp ins insAddr insLen ctxt 32<rt> fdiv
+  handleScalarFPOp ins insAddr insLen ctxt 32<rt> AST.fdiv
 
 let mulpd ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 64<rt> (opP fmul) 8
+  buildPackedInstr ins insAddr insLen ctxt 64<rt> (opP AST.fmul) 8
 
 let mulps ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 32<rt> (opP fmul) 8
+  buildPackedInstr ins insAddr insLen ctxt 32<rt> (opP AST.fmul) 8
 
 let mulsd ins insAddr insLen ctxt =
-  handleScalarFPOp ins insAddr insLen ctxt 64<rt> fmul
+  handleScalarFPOp ins insAddr insLen ctxt 64<rt> AST.fmul
 
 let mulss ins insAddr insLen ctxt =
-  handleScalarFPOp ins insAddr insLen ctxt 32<rt> fmul
+  handleScalarFPOp ins insAddr insLen ctxt 32<rt> AST.fmul
 
 let subps ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 32<rt> (opP fsub) 8
+  buildPackedInstr ins insAddr insLen ctxt 32<rt> (opP AST.fsub) 8
 
 let subsd ins insAddr insLen ctxt =
-  handleScalarFPOp ins insAddr insLen ctxt 64<rt> fsub
+  handleScalarFPOp ins insAddr insLen ctxt 64<rt> AST.fsub
 
 let subss ins insAddr insLen ctxt =
-  handleScalarFPOp ins insAddr insLen ctxt 32<rt> fsub
+  handleScalarFPOp ins insAddr insLen ctxt 32<rt> AST.fsub
 
 let sqrtpd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let opr1, opr2 = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt opr1
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt opr2
   startMark insAddr insLen builder
-  builder <! (dst1 := unop UnOpType.FSQRT src1)
-  builder <! (dst2 := unop UnOpType.FSQRT src2)
+  builder <! (dst1 := AST.unop UnOpType.FSQRT src1)
+  builder <! (dst2 := AST.unop UnOpType.FSQRT src2)
   endMark insAddr insLen builder
 
 let sqrtps ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let opr1, opr2 = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt opr1
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt opr2
   let tmp1, tmp2, tmp3, tmp4 = tmpVars4 32<rt>
   startMark insAddr insLen builder
-  builder <! (tmp1 := extractLow 32<rt> src1)
-  builder <! (tmp2 := extractHigh 32<rt> src1)
-  builder <! (tmp3 := extractLow 32<rt> src2)
-  builder <! (tmp4 := extractHigh 32<rt> src2)
-  builder <! (extractLow 32<rt> dst1 := unop UnOpType.FSQRT tmp1)
-  builder <! (extractHigh 32<rt> dst1 := unop UnOpType.FSQRT tmp2)
-  builder <! (extractLow 32<rt> dst2 := unop UnOpType.FSQRT tmp3)
-  builder <! (extractHigh 32<rt> dst2 := unop UnOpType.FSQRT tmp4)
+  builder <! (tmp1 := AST.xtlo 32<rt> src1)
+  builder <! (tmp2 := AST.xthi 32<rt> src1)
+  builder <! (tmp3 := AST.xtlo 32<rt> src2)
+  builder <! (tmp4 := AST.xthi 32<rt> src2)
+  builder <! (AST.xtlo 32<rt> dst1 := AST.unop UnOpType.FSQRT tmp1)
+  builder <! (AST.xthi 32<rt> dst1 := AST.unop UnOpType.FSQRT tmp2)
+  builder <! (AST.xtlo 32<rt> dst2 := AST.unop UnOpType.FSQRT tmp3)
+  builder <! (AST.xthi 32<rt> dst2 := AST.unop UnOpType.FSQRT tmp4)
   endMark insAddr insLen builder
 
 let sqrtsd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let opr1, opr2 = getTwoOprs ins
   let dst = transOprToExpr64 ins insAddr insLen ctxt opr1
   let src = transOprToExpr64 ins insAddr insLen ctxt opr2
   startMark insAddr insLen builder
-  builder <! (dst := unop UnOpType.FSQRT src)
+  builder <! (dst := AST.unop UnOpType.FSQRT src)
   endMark insAddr insLen builder
 
 let sqrtss ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let opr1, opr2 = getTwoOprs ins
   let dst = transOprToExpr32 ins insAddr insLen ctxt opr1
   let src = transOprToExpr32 ins insAddr insLen ctxt opr2
   startMark insAddr insLen builder
-  builder <! (dst := unop UnOpType.FSQRT src)
+  builder <! (dst := AST.unop UnOpType.FSQRT src)
   endMark insAddr insLen builder
 
 let logAnd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
-  let t = tmpVar oprSize
+  let t = AST.tmpvar oprSize
   startMark insAddr insLen builder
-  builder <! (t := dst .& sExt oprSize src)
+  builder <! (t := dst .& AST.sext oprSize src)
   builder <! (dstAssign oprSize dst t)
-  builder <! (getRegVar ctxt R.OF := b0)
-  builder <! (getRegVar ctxt R.CF := b0)
+  builder <! (getRegVar ctxt R.OF := AST.b0)
+  builder <! (getRegVar ctxt R.CF := AST.b0)
   builder <! (getRegVar ctxt R.AF := undefAF)
   enumSZPFlags ctxt t oprSize builder
   endMark insAddr insLen builder
@@ -1612,7 +1618,7 @@ let andps ins insAddr insLen ctxt =
 
 let arpl ins insAddr insLen ctxt =
   if is64bit ctxt then Utils.impossible () else ()
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let t1, t2 = tmpVars2 16<rt>
   let mask = numI32 0xfffc 16<rt>
@@ -1620,12 +1626,12 @@ let arpl ins insAddr insLen ctxt =
   startMark insAddr insLen builder
   builder <! (t1 := dst .& numI32 0x3 16<rt>)
   builder <! (t2 := src .& numI32 0x3 16<rt>)
-  builder <! (dst := ite (lt t1 t2) ((dst .& mask) .| t2) dst)
-  builder <! (zF := lt t1 t2)
+  builder <! (dst := AST.ite (AST.lt t1 t2) ((dst .& mask) .| t2) dst)
+  builder <! (zF := AST.lt t1 t2)
   endMark insAddr insLen builder
 
 let bndmov ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   startMark insAddr insLen builder
   if is64bit ctxt then
@@ -1639,42 +1645,42 @@ let bndmov ins insAddr insLen ctxt =
     | OprReg _, OprMem _ ->
       let dst1, dst2 = transOprToExpr128 ins insAddr insLen ctxt dst
       let src = transOprToExpr ins insAddr insLen ctxt src
-      builder <! (dst1 := extractHigh 32<rt> src |> zExt 64<rt>)
-      builder <! (dst2 := extractLow 32<rt> src |> zExt 64<rt>)
+      builder <! (dst1 := AST.xthi 32<rt> src |> AST.zext 64<rt>)
+      builder <! (dst2 := AST.xtlo 32<rt> src |> AST.zext 64<rt>)
     | OprMem _, OprReg _ ->
       let src1, src2 = transOprToExpr128 ins insAddr insLen ctxt src
       let dst = transOprToExpr ins insAddr insLen ctxt dst
-      builder <! (extractHigh 32<rt> dst := extractLow 32<rt> src1)
-      builder <! (extractLow 32<rt> dst := extractLow 32<rt> src2)
+      builder <! (AST.xthi 32<rt> dst := AST.xtlo 32<rt> src1)
+      builder <! (AST.xtlo 32<rt> dst := AST.xtlo 32<rt> src2)
     | _ -> raise InvalidOperandException
   endMark insAddr insLen builder
 
 let bsf ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (32)
-  let lblL0 = lblSymbol "L0"
-  let lblL1 = lblSymbol "L1"
-  let lblEnd = lblSymbol "End"
-  let lblLoopCond = lblSymbol "LoopCond"
-  let lblLoopEnd = lblSymbol "LoopEnd"
-  let lblLoop = lblSymbol "Loop"
+  let builder = StmtBuilder (32)
+  let lblL0 = AST.symbol "L0"
+  let lblL1 = AST.symbol "L1"
+  let lblEnd = AST.symbol "End"
+  let lblLoopCond = AST.symbol "LoopCond"
+  let lblLoopEnd = AST.symbol "LoopEnd"
+  let lblLoop = AST.symbol "Loop"
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
-  let cond = src == num0 oprSize
-  let t = tmpVar oprSize
+  let cond = src == AST.num0 oprSize
+  let t = AST.tmpvar oprSize
   startMark insAddr insLen builder
   builder <! (CJmp (cond, Name lblL0, Name lblL1))
   builder <! (LMark lblL0)
-  builder <! (getRegVar ctxt R.ZF := b1)
-  builder <! (dst := unDef oprSize "DEST is undefined.")
+  builder <! (getRegVar ctxt R.ZF := AST.b1)
+  builder <! (dst := AST.undef oprSize "DEST is undefined.")
   builder <! (Jmp (Name lblEnd))
   builder <! (LMark lblL1)
-  builder <! (getRegVar ctxt R.ZF := b0)
-  builder <! (t := num0 oprSize)
+  builder <! (getRegVar ctxt R.ZF := AST.b0)
+  builder <! (t := AST.num0 oprSize)
   builder <! (LMark lblLoopCond)
   builder <!
-    (CJmp ((extractLow 1<rt> (src >> t)) == b0, Name lblLoop, Name lblLoopEnd))
+    (CJmp ((AST.xtlo 1<rt> (src >> t)) == AST.b0, Name lblLoop, Name lblLoopEnd))
   builder <! (LMark lblLoop)
-  builder <! (t := t .+ num1 oprSize)
+  builder <! (t := t .+ AST.num1 oprSize)
   builder <! (Jmp (Name lblLoopCond))
   builder <! (LMark lblLoopEnd)
   builder <! (dstAssign oprSize dst t)
@@ -1687,31 +1693,31 @@ let bsf ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let bsr ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (32)
-  let lblL0 = lblSymbol "L0"
-  let lblL1 = lblSymbol "L1"
-  let lblEnd = lblSymbol "End"
-  let lblLoopCond = lblSymbol "LoopCond"
-  let lblLoopE = lblSymbol "LoopEnd"
-  let lblLoop = lblSymbol "Loop"
+  let builder = StmtBuilder (32)
+  let lblL0 = AST.symbol "L0"
+  let lblL1 = AST.symbol "L1"
+  let lblEnd = AST.symbol "End"
+  let lblLoopCond = AST.symbol "LoopCond"
+  let lblLoopE = AST.symbol "LoopEnd"
+  let lblLoop = AST.symbol "Loop"
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
-  let cond = src == num0 oprSize
-  let t = tmpVar oprSize
+  let cond = src == AST.num0 oprSize
+  let t = AST.tmpvar oprSize
   startMark insAddr insLen builder
   builder <! (CJmp (cond, Name lblL0, Name lblL1))
   builder <! (LMark lblL0)
-  builder <! (getRegVar ctxt R.ZF := b1)
-  builder <! (dst := unDef oprSize "DEST is undefined.")
+  builder <! (getRegVar ctxt R.ZF := AST.b1)
+  builder <! (dst := AST.undef oprSize "DEST is undefined.")
   builder <! (Jmp (Name lblEnd))
   builder <! (LMark lblL1)
-  builder <! (getRegVar ctxt R.ZF := b0)
-  builder <! (t := bvOfOprSize oprSize .- num1 oprSize)
+  builder <! (getRegVar ctxt R.ZF := AST.b0)
+  builder <! (t := numOprSize oprSize .- AST.num1 oprSize)
   builder <! (LMark lblLoopCond)
   builder <!
-    (CJmp ((extractLow 1<rt> (src >> t)) == b0, Name lblLoop, Name lblLoopE))
+    (CJmp ((AST.xtlo 1<rt> (src >> t)) == AST.b0, Name lblLoop, Name lblLoopE))
   builder <! (LMark lblLoop)
-  builder <! (t := t .- num1 oprSize)
+  builder <! (t := t .- AST.num1 oprSize)
   builder <! (Jmp (Name lblLoopCond))
   builder <! (LMark lblLoopE)
   builder <! (dst := t)
@@ -1726,20 +1732,20 @@ let bsr ins insAddr insLen ctxt =
 let bswap ins insAddr insLen ctxt =
   let dst = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
-  let t = tmpVar oprSize
+  let t = AST.tmpvar oprSize
   let cnt = RegType.toByteWidth oprSize |> int
-  let tmps = Array.init cnt (fun _ -> tmpVar 8<rt>)
-  let builder = new StmtBuilder (2 * cnt)
+  let tmps = Array.init cnt (fun _ -> AST.tmpvar 8<rt>)
+  let builder = StmtBuilder (2 * cnt)
   startMark insAddr insLen builder
   builder <! (t := dst)
   for i in 0 .. cnt - 1 do
-    builder <! (tmps.[i] := extract t 8<rt> (i * 8))
+    builder <! (tmps.[i] := AST.extract t 8<rt> (i * 8))
   done
-  builder <! (dstAssign oprSize dst (concatExprs (Array.rev tmps)))
+  builder <! (dstAssign oprSize dst (AST.concatArr (Array.rev tmps)))
   endMark insAddr insLen builder
 
 let bt ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let bitBase, bitOffset =
     getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
@@ -1752,11 +1758,11 @@ let bt ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let bitTest ins insAddr insLen ctxt setValue =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let bitBase, bitOffset =
     getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
-  let setValue = zExt oprSize setValue
+  let setValue = AST.zext oprSize setValue
   startMark insAddr insLen builder
   builder <! (getRegVar ctxt R.CF := bit ins bitBase bitOffset oprSize)
   builder <! (setBit ins bitBase bitOffset oprSize setValue)
@@ -1767,51 +1773,51 @@ let bitTest ins insAddr insLen ctxt setValue =
   endMark insAddr insLen builder
 
 let btc ins insAddr insLen ctxt =
-  bitTest ins insAddr insLen ctxt (getRegVar ctxt R.CF |> not)
-let btr ins insAddr insLen ctxt = bitTest ins insAddr insLen ctxt b0
-let bts ins insAddr insLen ctxt = bitTest ins insAddr insLen ctxt b1
+  bitTest ins insAddr insLen ctxt (getRegVar ctxt R.CF |> AST.not)
+let btr ins insAddr insLen ctxt = bitTest ins insAddr insLen ctxt AST.b0
+let bts ins insAddr insLen ctxt = bitTest ins insAddr insLen ctxt AST.b1
 
 let call ins insAddr insLen ctxt isFar =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   match isFar with
   | false ->
     let pc = getInstrPtr ctxt
-    let target = tmpVar ctxt.WordBitSize
+    let target = AST.tmpvar ctxt.WordBitSize
     let oprSize = getOperationSize ins
     startMark insAddr insLen builder
     builder <! (target := getOneOpr ins |> transOneOpr ins insAddr insLen ctxt)
-    let r = (bvOfBaseAddr insAddr ctxt .+ bvOfInstrLen insLen ctxt)
+    let r = (numAddr insAddr ctxt .+ numInsLen insLen ctxt)
     auxPush oprSize ctxt r builder
     builder <! (InterJmp (pc, target, InterJmpInfo.IsCall))
     endMark insAddr insLen builder
   | true -> sideEffects insAddr insLen UnsupportedFAR
 
 let convBWQ ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let oprSize = getOperationSize ins
   let opr = getRegVar ctxt (if is64bit ctxt then R.RAX else R.EAX)
   startMark insAddr insLen builder
   match oprSize with
   | 16<rt> ->
-    builder <! (extractLow 16<rt> opr := sExt 16<rt> (extractLow 8<rt> opr))
+    builder <! (AST.xtlo 16<rt> opr := AST.sext 16<rt> (AST.xtlo 8<rt> opr))
   | 32<rt> ->
-    builder <! (extractLow 32<rt> opr := sExt 32<rt> (extractLow 16<rt> opr))
+    builder <! (AST.xtlo 32<rt> opr := AST.sext 32<rt> (AST.xtlo 16<rt> opr))
   | 64<rt> ->
-    builder <! (opr := sExt 64<rt> (extractLow 32<rt> opr))
+    builder <! (opr := AST.sext 64<rt> (AST.xtlo 32<rt> opr))
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
 let clearFlag insAddr insLen ctxt flagReg =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   startMark insAddr insLen builder
-  builder <! (getRegVar ctxt flagReg := b0)
+  builder <! (getRegVar ctxt flagReg := AST.b0)
   endMark insAddr insLen builder
 
 let cmc ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let cf = getRegVar ctxt R.CF
   startMark insAddr insLen builder
-  builder <! (cf := not cf)
+  builder <! (cf := AST.not cf)
   builder <! (getRegVar ctxt R.OF := undefOF)
   builder <! (getRegVar ctxt R.AF := undefAF)
   builder <! (getRegVar ctxt R.SF := undefSF)
@@ -1820,90 +1826,90 @@ let cmc ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let cmovcc ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   startMark insAddr insLen builder
-  builder <! (dstAssign oprSize dst (ite (getCondOfCMov ins ctxt) src dst))
+  builder <! (dstAssign oprSize dst (AST.ite (getCondOfCMov ins ctxt) src dst))
   endMark insAddr insLen builder
 
 let cmp ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let src1, src2 = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
-  let s1 = tmpVar oprSize
+  let s1 = AST.tmpvar oprSize
   let r, ext = tmpVars2 oprSize
   startMark insAddr insLen builder
   builder <! (s1 := src1)
-  builder <! (ext := sExt oprSize src2)
+  builder <! (ext := AST.sext oprSize src2)
   builder <! (r := s1 .- ext)
   enumEFLAGS ctxt s1 ext r oprSize getCFlagOnSub getOFlagOnSub builder
   endMark insAddr insLen builder
 
 let cmppd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (32)
+  let builder = StmtBuilder (32)
   let op1, op2, op3 = getThreeOprs ins
   let dst1, dst2 = transOprToExpr128 ins insAddr insLen ctxt op1
   let src1, src2 = transOprToExpr128 ins insAddr insLen ctxt op2
   let imm = transOprToExpr ins insAddr insLen ctxt op3
   let isNan expr =
-    (extract expr 11<rt> 52  == num (BitVector.unsignedMax 11<rt>))
-     .& (extractLow 52<rt> expr != num0 52<rt>)
+    (AST.extract expr 11<rt> 52  == AST.num (BitVector.unsignedMax 11<rt>))
+     .& (AST.xtlo 52<rt> expr != AST.num0 52<rt>)
   let cmpCond c expr1 expr2 =
-    builder <! (c := b0)
-    builder <! (c := ite (imm == num0 3<rt>) (expr1 == expr2) c)
-    builder <! (c := ite (imm == num1 3<rt>) (flt expr1  expr2) c)
-    builder <! (c := ite (imm == numI32 2 3<rt>) (fle expr1 expr2) c)
-    builder <! (c := ite (imm == numI32 3 3<rt>) (isNan expr1 .| isNan expr2) c)
-    builder <! (c := ite (imm == numI32 4 3<rt>) (expr1 != expr2) c)
-    builder <! (c := ite (imm == numI32 5 3<rt>) (flt expr1 expr2 |> not) c)
-    builder <! (c := ite (imm == numI32 6 3<rt>) (fle expr1 expr2 |> not) c)
+    builder <! (c := AST.b0)
+    builder <! (c := AST.ite (imm == AST.num0 3<rt>) (expr1 == expr2) c)
+    builder <! (c := AST.ite (imm == AST.num1 3<rt>) (AST.flt expr1  expr2) c)
+    builder <! (c := AST.ite (imm == numI32 2 3<rt>) (AST.fle expr1 expr2) c)
+    builder <! (c := AST.ite (imm == numI32 3 3<rt>) (isNan expr1 .| isNan expr2) c)
+    builder <! (c := AST.ite (imm == numI32 4 3<rt>) (expr1 != expr2) c)
+    builder <! (c := AST.ite (imm == numI32 5 3<rt>) (AST.flt expr1 expr2 |> AST.not) c)
+    builder <! (c := AST.ite (imm == numI32 6 3<rt>) (AST.fle expr1 expr2 |> AST.not) c)
     builder <!
-      (c := ite (imm == numI32 7 3<rt>) (isNan expr1 .| isNan expr2 |> not) c)
+      (c := AST.ite (imm == numI32 7 3<rt>) (isNan expr1 .| isNan expr2 |> AST.not) c)
   let cond1, cond2 = tmpVars2 1<rt>
   startMark insAddr insLen builder
   cmpCond cond1 dst1 src1
   cmpCond cond2 dst2 src2
-  builder <! (dst1 := ite cond1 (maxNum 64<rt> |> num) (num0 64<rt>))
-  builder <! (dst2 := ite cond2 (maxNum 64<rt> |> num) (num0 64<rt>))
+  builder <! (dst1 := AST.ite cond1 (maxNum 64<rt>) (AST.num0 64<rt>))
+  builder <! (dst2 := AST.ite cond2 (maxNum 64<rt>) (AST.num0 64<rt>))
   endMark insAddr insLen builder
 
 let cmpps ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (64)
+  let builder = StmtBuilder (64)
   let op1, op2, op3 = getThreeOprs ins
   let dst1, dst2 = transOprToExpr128 ins insAddr insLen ctxt op1
   let src1, src2 = transOprToExpr128 ins insAddr insLen ctxt op2
-  let dst1A, dst1B = extractLow 32<rt> dst1, extractHigh 32<rt> dst1
-  let dst2A, dst2B = extractLow 32<rt> dst2, extractHigh 32<rt> dst2
+  let dst1A, dst1B = AST.xtlo 32<rt> dst1, AST.xthi 32<rt> dst1
+  let dst2A, dst2B = AST.xtlo 32<rt> dst2, AST.xthi 32<rt> dst2
   let imm = transOprToExpr ins insAddr insLen ctxt op3
   let isNan expr =
-    (extract expr 8<rt> 23  == num (BitVector.unsignedMax 8<rt>))
-     .& (extractLow 23<rt> expr != num0 23<rt>)
+    (AST.extract expr 8<rt> 23  == AST.num (BitVector.unsignedMax 8<rt>))
+     .& (AST.xtlo 23<rt> expr != AST.num0 23<rt>)
   let cmpCond c expr1 expr2 =
-    builder <! (c := b0)
-    builder <! (c := ite (imm == num0 3<rt>) (expr1 == expr2) c)
-    builder <! (c := ite (imm == num1 3<rt>) (flt expr1  expr2) c)
-    builder <! (c := ite (imm == numI32 2 3<rt>) (fle expr1 expr2) c)
-    builder <! (c := ite (imm == numI32 3 3<rt>) (isNan expr1 .| isNan expr2) c)
-    builder <! (c := ite (imm == numI32 4 3<rt>) (expr1 != expr2) c)
-    builder <! (c := ite (imm == numI32 5 3<rt>) (flt expr1 expr2 |> not) c)
-    builder <! (c := ite (imm == numI32 6 3<rt>) (fle expr1 expr2 |> not) c)
+    builder <! (c := AST.b0)
+    builder <! (c := AST.ite (imm == AST.num0 3<rt>) (expr1 == expr2) c)
+    builder <! (c := AST.ite (imm == AST.num1 3<rt>) (AST.flt expr1  expr2) c)
+    builder <! (c := AST.ite (imm == numI32 2 3<rt>) (AST.fle expr1 expr2) c)
+    builder <! (c := AST.ite (imm == numI32 3 3<rt>) (isNan expr1 .| isNan expr2) c)
+    builder <! (c := AST.ite (imm == numI32 4 3<rt>) (expr1 != expr2) c)
+    builder <! (c := AST.ite (imm == numI32 5 3<rt>) (AST.flt expr1 expr2 |> AST.not) c)
+    builder <! (c := AST.ite (imm == numI32 6 3<rt>) (AST.fle expr1 expr2 |> AST.not) c)
     builder <!
-      (c := ite (imm == numI32 7 3<rt>) (isNan expr1 .| isNan expr2 |> not) c)
+      (c := AST.ite (imm == numI32 7 3<rt>) (isNan expr1 .| isNan expr2 |> AST.not) c)
   let cond1, cond2, cond3, cond4 = tmpVars4 1<rt>
   startMark insAddr insLen builder
-  cmpCond cond1 dst1A (extractLow 32<rt> src1)
-  cmpCond cond2 dst1B (extractHigh 32<rt> src1)
-  cmpCond cond3 dst2A (extractLow 32<rt> src2)
-  cmpCond cond4 dst2B (extractHigh 32<rt> src2)
-  builder <! (dst1A := ite cond1 (maxNum 32<rt> |> num) (num0 32<rt>))
-  builder <! (dst1B := ite cond2 (maxNum 32<rt> |> num) (num0 32<rt>))
-  builder <! (dst2A := ite cond3 (maxNum 32<rt> |> num) (num0 32<rt>))
-  builder <! (dst2B := ite cond4 (maxNum 32<rt> |> num) (num0 32<rt>))
+  cmpCond cond1 dst1A (AST.xtlo 32<rt> src1)
+  cmpCond cond2 dst1B (AST.xthi 32<rt> src1)
+  cmpCond cond3 dst2A (AST.xtlo 32<rt> src2)
+  cmpCond cond4 dst2B (AST.xthi 32<rt> src2)
+  builder <! (dst1A := AST.ite cond1 (maxNum 32<rt>) (AST.num0 32<rt>))
+  builder <! (dst1B := AST.ite cond2 (maxNum 32<rt>) (AST.num0 32<rt>))
+  builder <! (dst2A := AST.ite cond3 (maxNum 32<rt>) (AST.num0 32<rt>))
+  builder <! (dst2B := AST.ite cond4 (maxNum 32<rt>) (AST.num0 32<rt>))
   endMark insAddr insLen builder
 
 let cmps ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (32)
+  let builder = StmtBuilder (32)
   startMark insAddr insLen builder
   let pref = ins.Prefixes
   let body () =
@@ -1911,19 +1917,19 @@ let cmps ins insAddr insLen ctxt =
     let df = getRegVar ctxt R.DF
     let si = getRegVar ctxt (if is64bit ctxt then R.RSI else R.ESI)
     let di = getRegVar ctxt (if is64bit ctxt then R.RDI else R.EDI)
-    let src1 = loadLE oprSize si
-    let src2 = loadLE oprSize di
+    let src1 = AST.loadLE oprSize si
+    let src2 = AST.loadLE oprSize di
     let t1, t2, t3 = tmpVars3 oprSize
     builder <! (t1 := src1)
     builder <! (t2 := src2)
     builder <! (t3 := t1 .- t2)
     let amount = numI32 (RegType.toByteWidth oprSize) ctxt.WordBitSize
-    builder <! (si := ite df (si .- amount) (si .+ amount))
-    builder <! (di := ite df (di .- amount) (di .+ amount))
+    builder <! (si := AST.ite df (si .- amount) (si .+ amount))
+    builder <! (di := AST.ite df (di .- amount) (di .+ amount))
     enumEFLAGS ctxt t1 t2 t3 oprSize getCFlagOnSub getOFlagOnSub builder
   let zf = getRegVar ctxt R.ZF
   if hasREPZ pref then
-    strRepeat ctxt body (Some (zf == b0)) insAddr insLen builder
+    strRepeat ctxt body (Some (zf == AST.b0)) insAddr insLen builder
   elif hasREPNZ pref then
     strRepeat ctxt body (Some (zf)) insAddr insLen builder
   else body ()
@@ -1933,140 +1939,140 @@ let cmpsd ins insAddr insLen ctxt =
   match ins.Operands with
   | NoOperand -> cmps ins insAddr insLen ctxt
   | ThreeOperands (dst, src, imm) ->
-    let builder = new StmtBuilder (16)
+    let builder = StmtBuilder (16)
     let dst = transOprToExpr64 ins insAddr insLen ctxt dst
     let src = transOprToExpr64 ins insAddr insLen ctxt src
-    let imm = transOprToExpr ins insAddr insLen ctxt imm |> extractLow 8<rt>
-    let n num = numI32 num 8<rt>
-    let max64 = maxNum 64<rt> |> num
+    let imm = transOprToExpr ins insAddr insLen ctxt imm |> AST.xtlo 8<rt>
+    let n i = numI32 i 8<rt>
+    let max64 = maxNum 64<rt>
     let isNan expr =
-      (extract expr 11<rt> 52  == num (BitVector.unsignedMax 11<rt>))
-       .& (extractLow 52<rt> expr != num0 52<rt>)
-    let cond = tmpVar 1<rt>
+      (AST.extract expr 11<rt> 52  == AST.num (BitVector.unsignedMax 11<rt>))
+       .& (AST.xtlo 52<rt> expr != AST.num0 52<rt>)
+    let cond = AST.tmpvar 1<rt>
     startMark insAddr insLen builder
     builder <! (cond := (dst == src))
-    builder <! (cond := ite (imm == n 1) (flt dst src) cond)
-    builder <! (cond := ite (imm == n 2) (fle dst src) cond)
-    builder <! (cond := ite (imm == n 3) ((isNan dst) .| (isNan src)) cond)
-    builder <! (cond := ite (imm == n 4) (dst != src) cond)
-    builder <! (cond := ite (imm == n 5) (flt dst src |> not) cond)
-    builder <! (cond := ite (imm == n 6) (fle dst src |> not) cond)
-    builder <! (cond := ite (imm == n 7)
-                            ((isNan dst) .| (isNan src) |> not) cond)
-    builder <! (dst := ite cond max64 (num0 64<rt>))
+    builder <! (cond := AST.ite (imm == n 1) (AST.flt dst src) cond)
+    builder <! (cond := AST.ite (imm == n 2) (AST.fle dst src) cond)
+    builder <! (cond := AST.ite (imm == n 3) ((isNan dst) .| (isNan src)) cond)
+    builder <! (cond := AST.ite (imm == n 4) (dst != src) cond)
+    builder <! (cond := AST.ite (imm == n 5) (AST.flt dst src |> AST.not) cond)
+    builder <! (cond := AST.ite (imm == n 6) (AST.fle dst src |> AST.not) cond)
+    builder <! (cond := AST.ite (imm == n 7)
+                            ((isNan dst) .| (isNan src) |> AST.not) cond)
+    builder <! (dst := AST.ite cond max64 (AST.num0 64<rt>))
     endMark insAddr insLen builder
   | _ -> raise InvalidOperandException
 
 let cmpss ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst, src, imm = getThreeOprs ins
   let dst = transOprToExpr32 ins insAddr insLen ctxt dst
   let src = transOprToExpr32 ins insAddr insLen ctxt src
-  let imm = transOprToExpr ins insAddr insLen ctxt imm |> extractLow 8<rt>
+  let imm = transOprToExpr ins insAddr insLen ctxt imm |> AST.xtlo 8<rt>
   let n num = numI32 num 8<rt>
-  let max32 = maxNum 32<rt> |> num
+  let max32 = maxNum 32<rt>
   let isNan expr =
-    (extract expr 8<rt> 23  == num (BitVector.unsignedMax 8<rt>))
-     .& (extractLow 23<rt> expr != num0 23<rt>)
-  let cond = tmpVar 1<rt>
+    (AST.extract expr 8<rt> 23  == AST.num (BitVector.unsignedMax 8<rt>))
+     .& (AST.xtlo 23<rt> expr != AST.num0 23<rt>)
+  let cond = AST.tmpvar 1<rt>
   startMark insAddr insLen builder
   builder <! (cond := (dst == src))
-  builder <! (cond := ite (imm == n 1) (flt dst src) cond)
-  builder <! (cond := ite (imm == n 2) (fle dst src) cond)
-  builder <! (cond := ite (imm == n 3) ((isNan dst) .| (isNan src)) cond)
-  builder <! (cond := ite (imm == n 4) (dst != src) cond)
-  builder <! (cond := ite (imm == n 5) (flt dst src |> not) cond)
-  builder <! (cond := ite (imm == n 6) (fle dst src |> not) cond)
-  builder <! (cond := ite (imm == n 7)
-                          ((isNan dst) .| (isNan src) |> not) cond)
-  builder <! (dst := ite cond max32 (num0 32<rt>))
+  builder <! (cond := AST.ite (imm == n 1) (AST.flt dst src) cond)
+  builder <! (cond := AST.ite (imm == n 2) (AST.fle dst src) cond)
+  builder <! (cond := AST.ite (imm == n 3) ((isNan dst) .| (isNan src)) cond)
+  builder <! (cond := AST.ite (imm == n 4) (dst != src) cond)
+  builder <! (cond := AST.ite (imm == n 5) (AST.flt dst src |> AST.not) cond)
+  builder <! (cond := AST.ite (imm == n 6) (AST.fle dst src |> AST.not) cond)
+  builder <! (cond := AST.ite (imm == n 7)
+                          ((isNan dst) .| (isNan src) |> AST.not) cond)
+  builder <! (dst := AST.ite cond max32 (AST.num0 32<rt>))
   endMark insAddr insLen builder
 
 let cmpxchg ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (32)
+  let builder = StmtBuilder (32)
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   startMark insAddr insLen builder
   if hasLock ins.Prefixes then builder <! (SideEffect Lock)
-  let t = tmpVar oprSize
+  let t = AST.tmpvar oprSize
   builder <! (t := dst)
-  let r = tmpVar oprSize
+  let r = AST.tmpvar oprSize
   let acc = getRegOfSize ctxt oprSize grpEAX
-  let cond = tmpVar 1<rt>
+  let cond = AST.tmpvar 1<rt>
   builder <! (r := acc .- t)
   builder <! (cond := acc == t)
-  builder <! (getRegVar ctxt R.ZF := ite cond b1 b0)
-  builder <! (dstAssign oprSize dst (ite cond src t))
-  builder <! (dstAssign oprSize acc (ite cond acc t))
+  builder <! (getRegVar ctxt R.ZF := AST.ite cond AST.b1 AST.b0)
+  builder <! (dstAssign oprSize dst (AST.ite cond src t))
+  builder <! (dstAssign oprSize acc (AST.ite cond acc t))
   builder <! (getRegVar ctxt R.OF := getOFlagOnSub acc t r)
-  builder <! (getRegVar ctxt R.SF := extractHigh 1<rt> r)
+  builder <! (getRegVar ctxt R.SF := AST.xthi 1<rt> r)
   builder <! (buildAF ctxt acc t r oprSize)
   buildPF ctxt r oprSize None builder
-  builder <! (getRegVar ctxt R.CF := lt (acc .+ t) acc)
+  builder <! (getRegVar ctxt R.CF := AST.lt (acc .+ t) acc)
   endMark insAddr insLen builder
 
 let comisd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let opr1, opr2 = getTwoOprs ins
   let opr1 = transOprToExpr64 ins insAddr insLen ctxt opr1
   let opr2 = transOprToExpr64 ins insAddr insLen ctxt opr2
-  let lblNan = lblSymbol "IsNan"
-  let lblExit = lblSymbol "Exit"
+  let lblNan = AST.symbol "IsNan"
+  let lblExit = AST.symbol "Exit"
   let zf = getRegVar ctxt R.ZF
   let pf = getRegVar ctxt R.PF
   let cf = getRegVar ctxt R.CF
   startMark insAddr insLen builder
-  builder <! (zf := ite (opr1 == opr2) b1 b0)
-  builder <! (pf := b0)
-  builder <! (cf := ite (flt opr1 opr2) b1 b0)
+  builder <! (zf := AST.ite (opr1 == opr2) AST.b1 AST.b0)
+  builder <! (pf := AST.b0)
+  builder <! (cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0)
   let isNan expr =
-    (extract expr 11<rt> 52  == num (BitVector.unsignedMax 11<rt>))
-     .& (extractLow 52<rt> expr != num0 52<rt>)
+    (AST.extract expr 11<rt> 52  == AST.num (BitVector.unsignedMax 11<rt>))
+     .& (AST.xtlo 52<rt> expr != AST.num0 52<rt>)
   builder <! (CJmp (isNan opr1 .| isNan opr2, Name lblNan, Name lblExit))
   builder <! (LMark lblNan)
-  builder <! (zf := b1)
-  builder <! (pf := b1)
-  builder <! (cf := b1)
+  builder <! (zf := AST.b1)
+  builder <! (pf := AST.b1)
+  builder <! (cf := AST.b1)
   builder <! (LMark lblExit)
-  builder <! (getRegVar ctxt R.OF := b0)
-  builder <! (getRegVar ctxt R.AF := b0)
-  builder <! (getRegVar ctxt R.SF := b0)
+  builder <! (getRegVar ctxt R.OF := AST.b0)
+  builder <! (getRegVar ctxt R.AF := AST.b0)
+  builder <! (getRegVar ctxt R.SF := AST.b0)
   endMark insAddr insLen builder
 
 let comiss ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let opr1, opr2 = getTwoOprs ins
   let opr1 = transOprToExpr32 ins insAddr insLen ctxt opr1
   let opr2 = transOprToExpr32 ins insAddr insLen ctxt opr2
-  let lblNan = lblSymbol "IsNan"
-  let lblExit = lblSymbol "Exit"
+  let lblNan = AST.symbol "IsNan"
+  let lblExit = AST.symbol "Exit"
   let zf = getRegVar ctxt R.ZF
   let pf = getRegVar ctxt R.PF
   let cf = getRegVar ctxt R.CF
   startMark insAddr insLen builder
-  builder <! (zf := ite (opr1 == opr2) b1 b0)
-  builder <! (pf := b0)
-  builder <! (cf := ite (flt opr1 opr2) b1 b0)
+  builder <! (zf := AST.ite (opr1 == opr2) AST.b1 AST.b0)
+  builder <! (pf := AST.b0)
+  builder <! (cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0)
   let isNan expr =
-    (extract expr 8<rt> 23  == num (BitVector.unsignedMax 8<rt>))
-     .& (extractLow 23<rt> expr != num0 23<rt>)
+    (AST.extract expr 8<rt> 23  == AST.num (BitVector.unsignedMax 8<rt>))
+     .& (AST.xtlo 23<rt> expr != AST.num0 23<rt>)
   builder <! (CJmp (isNan opr1 .| isNan opr2, Name lblNan, Name lblExit))
   builder <! (LMark lblNan)
-  builder <! (zf := b1)
-  builder <! (pf := b1)
-  builder <! (cf := b1)
+  builder <! (zf := AST.b1)
+  builder <! (pf := AST.b1)
+  builder <! (cf := AST.b1)
   builder <! (LMark lblExit)
-  builder <! (getRegVar ctxt R.OF := b0)
-  builder <! (getRegVar ctxt R.AF := b0)
-  builder <! (getRegVar ctxt R.SF := b0)
+  builder <! (getRegVar ctxt R.OF := AST.b0)
+  builder <! (getRegVar ctxt R.AF := AST.b0)
+  builder <! (getRegVar ctxt R.SF := AST.b0)
   endMark insAddr insLen builder
 
 let compareExchangeBytes ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst = getOneOpr ins
   let oprSize = getOperationSize ins
   let zf = getRegVar ctxt R.ZF
-  let cond = tmpVar 1<rt>
+  let cond = AST.tmpvar 1<rt>
   startMark insAddr insLen builder
   match oprSize with
   | 64<rt> ->
@@ -2075,13 +2081,13 @@ let compareExchangeBytes ins insAddr insLen ctxt =
     let eax = getRegOfSize ctxt 32<rt> grpEAX
     let ecx = getRegOfSize ctxt 32<rt> grpECX
     let ebx = getRegOfSize ctxt 32<rt> grpEBX
-    let t = tmpVar oprSize
+    let t = AST.tmpvar oprSize
     builder <! (t := dst)
-    builder <! (cond := concat edx eax == t)
+    builder <! (cond := AST.concat edx eax == t)
     builder <! (zf := cond)
-    builder <! (eax := ite cond eax (extract t 32<rt> 0))
-    builder <! (edx := ite cond edx (extract t 32<rt> 32))
-    builder <! (dst := ite cond (concat ecx ebx) t)
+    builder <! (eax := AST.ite cond eax (AST.extract t 32<rt> 0))
+    builder <! (edx := AST.ite cond edx (AST.extract t 32<rt> 32))
+    builder <! (dst := AST.ite cond (AST.concat ecx ebx) t)
   | 128<rt> ->
     let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
     let rdx = getRegOfSize ctxt 64<rt> grpEDX
@@ -2090,306 +2096,306 @@ let compareExchangeBytes ins insAddr insLen ctxt =
     let rbx = getRegOfSize ctxt 64<rt> grpEBX
     builder <! (cond := (dstB == rdx) .& (dstA == rax))
     builder <! (zf := cond)
-    builder <! (rax := ite cond rax dstA)
-    builder <! (rdx := ite cond rdx dstB)
-    builder <! (dstA := ite cond rbx dstA)
-    builder <! (dstB := ite cond rcx dstB)
+    builder <! (rax := AST.ite cond rax dstA)
+    builder <! (rdx := AST.ite cond rdx dstB)
+    builder <! (dstA := AST.ite cond rbx dstA)
+    builder <! (dstB := AST.ite cond rcx dstB)
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
 let convWDQ ins insAddr insLen (ctxt: TranslationContext) =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let oprSize = getOperationSize ins
   startMark insAddr insLen builder
   match oprSize, ctxt.WordBitSize with
   | 16<rt>, _ ->
-    let t = tmpVar 32<rt>
+    let t = AST.tmpvar 32<rt>
     let ax = getRegVar ctxt R.AX
     let dx = getRegVar ctxt R.DX
-    builder <! (t := sExt 32<rt> ax)
-    builder <! (dx := extractHigh 16<rt> t)
-    builder <! (ax := extractLow 16<rt> t)
+    builder <! (t := AST.sext 32<rt> ax)
+    builder <! (dx := AST.xthi 16<rt> t)
+    builder <! (ax := AST.xtlo 16<rt> t)
   | 32<rt>, _ ->
-    let t = tmpVar 64<rt>
+    let t = AST.tmpvar 64<rt>
     let eax = getRegVar ctxt R.EAX
     let edx = getRegVar ctxt R.EDX
-    builder <! (t := sExt 64<rt> eax)
-    builder <! (edx := extractHigh 32<rt> t)
-    builder <! (eax := extractLow 32<rt> t)
+    builder <! (t := AST.sext 64<rt> eax)
+    builder <! (edx := AST.xthi 32<rt> t)
+    builder <! (eax := AST.xtlo 32<rt> t)
   | 64<rt>, 64<rt> ->
-    let t = tmpVar 128<rt>
+    let t = AST.tmpvar 128<rt>
     let rdx = getRegVar ctxt R.RDX
     let rax = getRegVar ctxt R.RAX
-    builder <! (t := sExt 128<rt> rax)
-    builder <! (rdx := extractHigh 64<rt> t)
-    builder <! (rax := extractLow 64<rt> t)
+    builder <! (t := AST.sext 128<rt> rax)
+    builder <! (rdx := AST.xthi 64<rt> t)
+    builder <! (rax := AST.xtlo 64<rt> t)
   | _, _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
 let cvtdq2pd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src = transOprToExpr64 ins insAddr insLen ctxt src
   let tmp1, tmp2 = tmpVars2 32<rt>
   startMark insAddr insLen builder
-  builder <! (tmp1 := extractLow 32<rt> src)
-  builder <! (tmp2 := extractHigh 32<rt> src)
-  builder <! (dst1 := cast CastKind.IntToFloat 64<rt> tmp1)
-  builder <! (dst2 := cast CastKind.IntToFloat 64<rt> tmp2)
+  builder <! (tmp1 := AST.xtlo 32<rt> src)
+  builder <! (tmp2 := AST.xthi 32<rt> src)
+  builder <! (dst1 := AST.cast CastKind.IntToFloat 64<rt> tmp1)
+  builder <! (dst2 := AST.cast CastKind.IntToFloat 64<rt> tmp2)
   endMark insAddr insLen builder
 
 let cvtdq2ps ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst, src = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
   let tmp1, tmp2, tmp3, tmp4 = tmpVars4 32<rt>
   startMark insAddr insLen builder
-  builder <! (tmp1 := extractLow 32<rt> src1)
-  builder <! (tmp2 := extractHigh 32<rt> src1)
-  builder <! (tmp3 := extractLow 32<rt> src2)
-  builder <! (tmp4 := extractHigh 32<rt> src2)
-  builder <! (extractLow 32<rt> dst1 := cast CastKind.IntToFloat 32<rt> tmp1)
-  builder <! (extractHigh 32<rt> dst1 := cast CastKind.IntToFloat 32<rt> tmp2)
-  builder <! (extractLow 32<rt> dst2 := cast CastKind.IntToFloat 32<rt> tmp3)
-  builder <! (extractHigh 32<rt> dst2 := cast CastKind.IntToFloat 32<rt> tmp4)
+  builder <! (tmp1 := AST.xtlo 32<rt> src1)
+  builder <! (tmp2 := AST.xthi 32<rt> src1)
+  builder <! (tmp3 := AST.xtlo 32<rt> src2)
+  builder <! (tmp4 := AST.xthi 32<rt> src2)
+  builder <! (AST.xtlo 32<rt> dst1 := AST.cast CastKind.IntToFloat 32<rt> tmp1)
+  builder <! (AST.xthi 32<rt> dst1 := AST.cast CastKind.IntToFloat 32<rt> tmp2)
+  builder <! (AST.xtlo 32<rt> dst2 := AST.cast CastKind.IntToFloat 32<rt> tmp3)
+  builder <! (AST.xthi 32<rt> dst2 := AST.cast CastKind.IntToFloat 32<rt> tmp4)
   endMark insAddr insLen builder
 
 let cvtpd2dq ins insAddr insLen ctxt rounded =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
   let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
   startMark insAddr insLen builder
-  builder <! (extractLow 32<rt> dst1 := cast castKind 32<rt> src1)
-  builder <! (extractHigh 32<rt> dst1 := cast castKind 32<rt> src2)
-  builder <! (dst2 := num0 64<rt>)
+  builder <! (AST.xtlo 32<rt> dst1 := AST.cast castKind 32<rt> src1)
+  builder <! (AST.xthi 32<rt> dst1 := AST.cast castKind 32<rt> src2)
+  builder <! (dst2 := AST.num0 64<rt>)
   endMark insAddr insLen builder
 
 let cvtpd2pi ins insAddr insLen ctxt rounded =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   let dst = transOprToExpr ins insAddr insLen ctxt dst
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
   let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
   startMark insAddr insLen builder
-  builder <! (extractLow 32<rt> dst := cast castKind 32<rt> src1)
-  builder <! (extractHigh 32<rt> dst := cast castKind 32<rt> src2)
+  builder <! (AST.xtlo 32<rt> dst := AST.cast castKind 32<rt> src1)
+  builder <! (AST.xthi 32<rt> dst := AST.cast castKind 32<rt> src2)
   endMark insAddr insLen builder
 
 let cvtpd2ps ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
   startMark insAddr insLen builder
-  builder <! (extractLow 32<rt> dst1 := cast CastKind.FloatExt 32<rt> src1)
-  builder <! (extractHigh 32<rt> dst1 := cast CastKind.FloatExt 32<rt> src2)
-  builder <! (dst2 := num0 64<rt>)
+  builder <! (AST.xtlo 32<rt> dst1 := AST.cast CastKind.FloatExt 32<rt> src1)
+  builder <! (AST.xthi 32<rt> dst1 := AST.cast CastKind.FloatExt 32<rt> src2)
+  builder <! (dst2 := AST.num0 64<rt>)
   endMark insAddr insLen builder
 
 let cvtpi2pd ins insAddr insLen ctxt = cvtdq2pd ins insAddr insLen ctxt
 
 let cvtpi2ps ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src = getTwoOprs ins
   let dst = transOprToExpr64 ins insAddr insLen ctxt dst
   let src = transOprToExpr64 ins insAddr insLen ctxt src
   let tmp2, tmp1 = tmpVars2 32<rt>
   startMark insAddr insLen builder
-  builder <! (tmp1 := extractLow 32<rt> src)
-  builder <! (tmp2 := extractHigh 32<rt> src)
-  builder <! (extractLow 32<rt> dst := cast CastKind.IntToFloat 32<rt> tmp1)
-  builder <! (extractHigh 32<rt> dst := cast CastKind.IntToFloat 32<rt> tmp2)
+  builder <! (tmp1 := AST.xtlo 32<rt> src)
+  builder <! (tmp2 := AST.xthi 32<rt> src)
+  builder <! (AST.xtlo 32<rt> dst := AST.cast CastKind.IntToFloat 32<rt> tmp1)
+  builder <! (AST.xthi 32<rt> dst := AST.cast CastKind.IntToFloat 32<rt> tmp2)
   endMark insAddr insLen builder
 
 let cvtps2dq ins insAddr insLen ctxt rounded =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst, src = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
   let tmp1, tmp2, tmp3, tmp4 = tmpVars4 32<rt>
   let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
   startMark insAddr insLen builder
-  builder <! (tmp1 := extractLow 32<rt> src1)
-  builder <! (tmp2 := extractHigh 32<rt> src1)
-  builder <! (tmp3 := extractLow 32<rt> src2)
-  builder <! (tmp4 := extractHigh 32<rt> src2)
-  builder <! (extractLow 32<rt> dst1 := cast castKind 32<rt> tmp1)
-  builder <! (extractHigh 32<rt> dst1 := cast castKind 32<rt> tmp2)
-  builder <! (extractLow 32<rt> dst2 := cast castKind 32<rt> tmp3)
-  builder <! (extractHigh 32<rt> dst2 := cast castKind 32<rt> tmp4)
+  builder <! (tmp1 := AST.xtlo 32<rt> src1)
+  builder <! (tmp2 := AST.xthi 32<rt> src1)
+  builder <! (tmp3 := AST.xtlo 32<rt> src2)
+  builder <! (tmp4 := AST.xthi 32<rt> src2)
+  builder <! (AST.xtlo 32<rt> dst1 := AST.cast castKind 32<rt> tmp1)
+  builder <! (AST.xthi 32<rt> dst1 := AST.cast castKind 32<rt> tmp2)
+  builder <! (AST.xtlo 32<rt> dst2 := AST.cast castKind 32<rt> tmp3)
+  builder <! (AST.xthi 32<rt> dst2 := AST.cast castKind 32<rt> tmp4)
   endMark insAddr insLen builder
 
 let cvtps2pd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src = transOprToExpr64 ins insAddr insLen ctxt src
   let tmp1, tmp2 = tmpVars2 32<rt>
   startMark insAddr insLen builder
-  builder <! (tmp1 := extractLow 32<rt> src)
-  builder <! (tmp2 := extractHigh 32<rt> src)
-  builder <! (dst1 := cast CastKind.FloatExt 64<rt> tmp1)
-  builder <! (dst2 := cast CastKind.FloatExt 64<rt> tmp2)
+  builder <! (tmp1 := AST.xtlo 32<rt> src)
+  builder <! (tmp2 := AST.xthi 32<rt> src)
+  builder <! (dst1 := AST.cast CastKind.FloatExt 64<rt> tmp1)
+  builder <! (dst2 := AST.cast CastKind.FloatExt 64<rt> tmp2)
   endMark insAddr insLen builder
 
 let cvtps2pi ins insAddr insLen ctxt rounded =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src = getTwoOprs ins
   let dst = transOprToExpr ins insAddr insLen ctxt dst
   let src = transOprToExpr64 ins insAddr insLen ctxt src
   let tmp1, tmp2 = tmpVars2 32<rt>
   let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
   startMark insAddr insLen builder
-  builder <! (tmp1 := extractLow 32<rt> src)
-  builder <! (tmp2 := extractHigh 32<rt> src)
-  builder <! (extractLow 32<rt> dst := cast castKind 32<rt> tmp1)
-  builder <! (extractHigh 32<rt> dst := cast castKind 32<rt> tmp2)
+  builder <! (tmp1 := AST.xtlo 32<rt> src)
+  builder <! (tmp2 := AST.xthi 32<rt> src)
+  builder <! (AST.xtlo 32<rt> dst := AST.cast castKind 32<rt> tmp1)
+  builder <! (AST.xthi 32<rt> dst := AST.cast castKind 32<rt> tmp2)
   endMark insAddr insLen builder
 
 let cvtsd2si ins insAddr insLen ctxt rounded =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let oprSize = getOperationSize ins
   let dst, src = getTwoOprs ins
   let dst = transOprToExpr ins insAddr insLen ctxt dst
   let src = transOprToExpr64 ins insAddr insLen ctxt src
   let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
-  let tmp = tmpVar 32<rt>
+  let tmp = AST.tmpvar 32<rt>
   startMark insAddr insLen builder
   if is64bit ctxt && oprSize = 64<rt> then
-    builder <! (dst := cast castKind 64<rt> src)
+    builder <! (dst := AST.cast castKind 64<rt> src)
   else
-    builder <! (tmp := cast castKind 32<rt> src)
+    builder <! (tmp := AST.cast castKind 32<rt> src)
     builder <! dstAssign 32<rt> dst tmp
   endMark insAddr insLen builder
 
 let cvtsd2ss ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   let dst = transOprToExpr64 ins insAddr insLen ctxt dst
   let src = transOprToExpr64 ins insAddr insLen ctxt src
   startMark insAddr insLen builder
-  builder <! (extractLow 32<rt> dst := cast CastKind.FloatExt 32<rt> src)
+  builder <! (AST.xtlo 32<rt> dst := AST.cast CastKind.FloatExt 32<rt> src)
   endMark insAddr insLen builder
 
 let cvtsi2sd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   let dst = transOprToExpr64 ins insAddr insLen ctxt dst
   let src = transOprToExpr ins insAddr insLen ctxt src
   startMark insAddr insLen builder
-  builder <! (dst := cast CastKind.IntToFloat 64<rt> src)
+  builder <! (dst := AST.cast CastKind.IntToFloat 64<rt> src)
   endMark insAddr insLen builder
 
 let cvtsi2ss ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   let dst = transOprToExpr64 ins insAddr insLen ctxt dst
   let src = transOprToExpr ins insAddr insLen ctxt src
   startMark insAddr insLen builder
-  builder <! (extractLow 32<rt> dst := cast CastKind.IntToFloat 32<rt> src)
+  builder <! (AST.xtlo 32<rt> dst := AST.cast CastKind.IntToFloat 32<rt> src)
   endMark insAddr insLen builder
 
 let cvtss2sd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   let dst = transOprToExpr64 ins insAddr insLen ctxt dst
   let src = transOprToExpr32 ins insAddr insLen ctxt src
   startMark insAddr insLen builder
-  builder <! (dst := cast CastKind.FloatExt 64<rt> src)
+  builder <! (dst := AST.cast CastKind.FloatExt 64<rt> src)
   endMark insAddr insLen builder
 
 let cvtss2si ins insAddr insLen ctxt rounded =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let oprSize = getOperationSize ins
   let dst, src = getTwoOprs ins
   let dst = transOprToExpr ins insAddr insLen ctxt dst
   let src = transOprToExpr32 ins insAddr insLen ctxt src
-  let tmp = tmpVar 32<rt>
+  let tmp = AST.tmpvar 32<rt>
   let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
   startMark insAddr insLen builder
   if is64bit ctxt && oprSize = 64<rt> then
-    builder <! (dst := cast castKind 64<rt> src)
+    builder <! (dst := AST.cast castKind 64<rt> src)
   else
-    builder <! (tmp := cast castKind 32<rt> src)
+    builder <! (tmp := AST.cast castKind 32<rt> src)
     builder <! (dstAssign 32<rt> dst tmp)
   endMark insAddr insLen builder
 
 let daa ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let oprSize = getOperationSize ins
   let al = getRegVar ctxt R.AL
   let cf = getRegVar ctxt R.CF
   let af = getRegVar ctxt R.AF
-  let oldAl = tmpVar 8<rt>
-  let oldCf = tmpVar 1<rt>
+  let oldAl = AST.tmpvar 8<rt>
+  let oldCf = AST.tmpvar 1<rt>
   let alAnd0f = al .& numI32 0x0f 8<rt>
-  let subCond1 = gt alAnd0f (numI32 9 8<rt>)
-  let subCond2 = af == b1
-  let cond1 = tmpVar 1<rt>
-  let subCond3 = gt oldAl (numI32 0x99 8<rt>)
-  let subCond4 = oldCf == b1
-  let cond2 = tmpVar 1<rt>
+  let subCond1 = AST.gt alAnd0f (numI32 9 8<rt>)
+  let subCond2 = af == AST.b1
+  let cond1 = AST.tmpvar 1<rt>
+  let subCond3 = AST.gt oldAl (numI32 0x99 8<rt>)
+  let subCond4 = oldCf == AST.b1
+  let cond2 = AST.tmpvar 1<rt>
   startMark insAddr insLen builder
   if oprSize = 64<rt> then ()
   else
     builder <! (oldAl := al)
     builder <! (oldCf := cf)
-    builder <! (cf := b0)
+    builder <! (cf := AST.b0)
     builder <! (cond1 := subCond1 .| subCond2)
-    builder <! (al := ite cond1 (al .+ numI32 6 8<rt>) al)
-    builder <! (cf := ite cond1 oldCf cf)
+    builder <! (al := AST.ite cond1 (al .+ numI32 6 8<rt>) al)
+    builder <! (cf := AST.ite cond1 oldCf cf)
     builder <! (af := cond1)
     builder <! (cond2 := subCond3 .| subCond4)
-    builder <! (al := ite cond2 (al .+ numI32 0x60 8<rt>) al)
+    builder <! (al := AST.ite cond2 (al .+ numI32 0x60 8<rt>) al)
     builder <! (cf := cond2)
     enumSZPFlags ctxt al 8<rt> builder
     builder <! (getRegVar ctxt R.OF := undefOF)
   endMark insAddr insLen builder
 
 let das ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let oprSize = getOperationSize ins
   let al = getRegVar ctxt R.AL
   let cf = getRegVar ctxt R.CF
   let af = getRegVar ctxt R.AF
-  let oldAl = tmpVar 8<rt>
-  let oldCf = tmpVar 1<rt>
+  let oldAl = AST.tmpvar 8<rt>
+  let oldCf = AST.tmpvar 1<rt>
   let alAnd0f = al .& numI32 0x0f 8<rt>
-  let subCond1 = gt alAnd0f (numI32 9 8<rt>)
-  let subCond2 = af == b1
-  let cond1 = tmpVar 1<rt>
-  let subCond3 = gt oldAl (numI32 0x99 8<rt>)
-  let subCond4 = oldCf == b1
-  let cond2 = tmpVar 1<rt>
+  let subCond1 = AST.gt alAnd0f (numI32 9 8<rt>)
+  let subCond2 = af == AST.b1
+  let cond1 = AST.tmpvar 1<rt>
+  let subCond3 = AST.gt oldAl (numI32 0x99 8<rt>)
+  let subCond4 = oldCf == AST.b1
+  let cond2 = AST.tmpvar 1<rt>
   startMark insAddr insLen builder
   if oprSize = 64<rt> then ()
   else
     builder <! (oldAl := al)
     builder <! (oldCf := cf)
-    builder <! (cf := b0)
+    builder <! (cf := AST.b0)
     builder <! (cond1 := subCond1 .| subCond2)
-    builder <! (al := ite cond1 (al .- numI32 6 8<rt>) al)
-    builder <! (cf := ite cond1 oldCf cf)
+    builder <! (al := AST.ite cond1 (al .- numI32 6 8<rt>) al)
+    builder <! (cf := AST.ite cond1 oldCf cf)
     builder <! (af := cond1)
     builder <! (cond2 := subCond3 .| subCond4)
-    builder <! (al := ite cond2 (al .- numI32 0x60 8<rt>) al)
+    builder <! (al := AST.ite cond2 (al .- numI32 0x60 8<rt>) al)
     builder <! (cf := cond2)
     enumSZPFlags ctxt al 8<rt> builder
     builder <! (getRegVar ctxt R.OF := undefOF)
   endMark insAddr insLen builder
 
 let dec ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   let t1, t2, t3 = tmpVars3 oprSize
   startMark insAddr insLen builder
   builder <! (t1 := dst)
-  builder <! (t2 := num1 oprSize)
+  builder <! (t2 := AST.num1 oprSize)
   builder <! (t3 := (t1 .- t2))
   builder <! (dstAssign oprSize dst t3)
   builder <! (getRegVar ctxt R.OF := getOFlagOnSub t1 t2 t3)
@@ -2397,38 +2403,38 @@ let dec ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let div ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
-  let lblAssign = lblSymbol "Assign"
-  let lblChk = lblSymbol "Check"
-  let lblErr = lblSymbol "DivErr"
+  let builder = StmtBuilder (16)
+  let lblAssign = AST.symbol "Assign"
+  let lblChk = AST.symbol "Check"
+  let lblErr = AST.symbol "DivErr"
   let divisor = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   startMark insAddr insLen builder
-  builder <! (CJmp (divisor == num0 oprSize, Name lblErr, Name lblChk))
+  builder <! (CJmp (divisor == AST.num0 oprSize, Name lblErr, Name lblChk))
   builder <! (LMark lblErr)
   builder <! SideEffect (Trap "DivErr")
   builder <! (LMark lblChk)
   let dividend = getDividend ctxt oprSize
   let sz = AST.typeOf dividend
-  let quotient = tmpVar sz
-  let remainder = tmpVar sz
+  let quotient = AST.tmpvar sz
+  let remainder = AST.tmpvar sz
   let checkQuotientDIV q =
-    CJmp (extractHigh oprSize q == num0 oprSize, Name lblAssign, Name lblErr)
+    CJmp (AST.xthi oprSize q == AST.num0 oprSize, Name lblAssign, Name lblErr)
   let checkQuotientIDIV q =
     let amount =
-      num (BitVector.ofInt32 (RegType.toBitWidth oprSize - 1) oprSize)
-    let mask = num1 oprSize << amount
-    let msb = extractHigh 1<rt> q
-    let negRes = lt q (zExt sz mask)
-    let posRes = gt q (zExt sz (mask .- (num1 oprSize)))
-    let cond = ite (msb == b1) negRes posRes
+      AST.num (BitVector.ofInt32 (RegType.toBitWidth oprSize - 1) oprSize)
+    let mask = AST.num1 oprSize << amount
+    let msb = AST.xthi 1<rt> q
+    let negRes = AST.lt q (AST.zext sz mask)
+    let posRes = AST.gt q (AST.zext sz (mask .- (AST.num1 oprSize)))
+    let cond = AST.ite (msb == AST.b1) negRes posRes
     CJmp (cond, Name lblErr, Name lblAssign)
   match ins.Opcode with
-  | Opcode.DIV -> let divisor = zExt sz divisor
+  | Opcode.DIV -> let divisor = AST.zext sz divisor
                   builder <! (quotient := dividend ./ divisor)
                   builder <! (remainder := dividend .% divisor)
                   builder <! (checkQuotientDIV quotient)
-  | Opcode.IDIV -> let divisor = sExt sz divisor
+  | Opcode.IDIV -> let divisor = AST.sext sz divisor
                    builder <! (quotient := dividend ?/ divisor)
                    builder <! (remainder := dividend ?% divisor)
                    builder <! (checkQuotientIDIV quotient)
@@ -2436,35 +2442,35 @@ let div ins insAddr insLen ctxt =
   builder <! (LMark lblAssign)
   match oprSize with
   | 8<rt> ->
-    builder <! (getRegVar ctxt R.AL := extractLow oprSize quotient)
-    builder <! (getRegVar ctxt R.AH := extractLow oprSize remainder)
+    builder <! (getRegVar ctxt R.AL := AST.xtlo oprSize quotient)
+    builder <! (getRegVar ctxt R.AH := AST.xtlo oprSize remainder)
   | 16<rt> | 32<rt> | 64<rt> ->
     let q = getRegOfSize ctxt oprSize grpEAX
     let r = getRegOfSize ctxt oprSize grpEDX
-    builder <! (dstAssign oprSize q (extractLow oprSize quotient))
-    builder <! (dstAssign oprSize r (extractLow oprSize remainder))
+    builder <! (dstAssign oprSize q (AST.xtlo oprSize quotient))
+    builder <! (dstAssign oprSize r (AST.xtlo oprSize remainder))
   | _ -> raise InvalidOperandSizeException
   allEFLAGSUndefined ctxt builder
   endMark insAddr insLen builder
 
 let emms _ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   startMark insAddr insLen builder
-  builder <! (getRegVar ctxt R.FTW := maxNum 16<rt> |> num)
+  builder <! (getRegVar ctxt R.FTW := maxNum 16<rt>)
   endMark insAddr insLen builder
 
 let enter ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let imm16, imm8 = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oSz = getOperationSize ins
   let allocSize, nestingLevel, cnt = tmpVars3 oSz
   let frameTemp, addrSize = tmpVars2 ctxt.WordBitSize
   let bp = getBasePtr ctxt
   let sp = getStackPtr ctxt
-  let lblLoop = lblSymbol "Loop"
-  let lblCont = lblSymbol "Continue"
-  let lblLevelCheck = lblSymbol "NestingLevelCheck"
-  let lblLv1 = lblSymbol "NestingLevel1"
+  let lblLoop = AST.symbol "Loop"
+  let lblCont = AST.symbol "Continue"
+  let lblLevelCheck = AST.symbol "NestingLevelCheck"
+  let lblLv1 = AST.symbol "NestingLevel1"
   let getAddrSize bitSize =
     if bitSize = 64<rt> then numI32 8 bitSize else numI32 4 bitSize
   startMark insAddr insLen builder
@@ -2473,27 +2479,27 @@ let enter ins insAddr insLen ctxt =
   auxPush ctxt.WordBitSize ctxt bp builder
   builder <! (frameTemp := sp)
   builder <! (addrSize := getAddrSize ctxt.WordBitSize)
-  builder <! (CJmp (nestingLevel == num0 oSz, Name lblCont, Name lblLevelCheck))
+  builder <! (CJmp (nestingLevel == AST.num0 oSz, Name lblCont, Name lblLevelCheck))
   builder <! (LMark lblLevelCheck)
-  builder <! (cnt := nestingLevel .- num1 oSz)
-  builder <! (CJmp (gt nestingLevel (num1 oSz), Name lblLoop, Name lblLv1))
+  builder <! (cnt := nestingLevel .- AST.num1 oSz)
+  builder <! (CJmp (AST.gt nestingLevel (AST.num1 oSz), Name lblLoop, Name lblLv1))
   builder <! (LMark lblLoop)
   builder <! (bp := bp .- addrSize)
-  auxPush ctxt.WordBitSize ctxt (loadLE ctxt.WordBitSize bp) builder
-  builder <! (cnt := cnt .- num1 oSz)
-  builder <! (CJmp (cnt == num0 oSz, Name lblCont, Name lblLoop))
+  auxPush ctxt.WordBitSize ctxt (AST.loadLE ctxt.WordBitSize bp) builder
+  builder <! (cnt := cnt .- AST.num1 oSz)
+  builder <! (CJmp (cnt == AST.num0 oSz, Name lblCont, Name lblLoop))
   builder <! (LMark lblLv1)
   auxPush ctxt.WordBitSize ctxt frameTemp builder
   builder <! (LMark lblCont)
   builder <! (bp := frameTemp)
-  builder <! (sp := sp .- zExt ctxt.WordBitSize allocSize)
+  builder <! (sp := sp .- AST.zext ctxt.WordBitSize allocSize)
   endMark insAddr insLen builder
 
 let getBaseReg = function
   | Load (_, _, BinOp (_, _, BinOp (_, _, reg, _, _, _), _, _, _), _, _) -> reg
   | Load (_, _, BinOp (_, _, e, _, _, _), _, _) -> e
   | Load (_, _, expr, _, _) -> expr
-  | _ -> failwith "Invalid memory"
+  | _ -> Utils.impossible ()
 
 let updateAddrByOffset addr offset =
   match addr with
@@ -2503,12 +2509,12 @@ let updateAddrByOffset addr offset =
   | Load (_, _, BinOp (_, _, e, _, _, _), _, _) ->
     e := e .+ offset (* Displacemnt *)
   | Load (_, _, expr, _, _) -> expr := expr .+ offset
-  | _ -> failwith "Invalid memory"
+  | _ -> Utils.impossible ()
 
 let extendAddr src regType =
   match src with
   | Load (e, _, expr, _, _) -> AST.load e regType expr
-  | _ -> failwith "Invalid memory"
+  | _ -> Utils.impossible ()
 
 let getAddrRegSize = function
   (* Save *)
@@ -2516,17 +2522,17 @@ let getAddrRegSize = function
   | Load (_, _, BinOp (_, t, _, _, _, _), _, _) -> t
   (* Load *)
   | TempVar (t, _) -> t
-  | _ -> failwith "Invalid memory"
+  | _ -> Utils.impossible ()
 
 let saveFxsaveMMX addr offset grv builder =
-  let r64 = num0 64<rt>
+  let r64 = AST.num0 64<rt>
   let mRegs = [ r64; grv R.MM0; r64; grv R.MM1; r64; grv R.MM2; r64; grv R.MM3;
                 r64; grv R.MM4; r64; grv R.MM5; r64; grv R.MM6; r64; grv R.MM7 ]
   List.iter (fun reg -> builder <! (updateAddrByOffset addr offset)
                         builder <! (addr := reg)) mRegs
 
 let loadFxrstorMMX addr grv builder =
-  let offset = num (BitVector.ofInt32 16 (getAddrRegSize addr))
+  let offset = AST.num (BitVector.ofInt32 16 (getAddrRegSize addr))
   let mRegs = [ R.MM0; R.MM1; R.MM2; R.MM3; R.MM4; R.MM5; R.MM6; R.MM7 ]
   List.iter (fun reg -> builder <! (updateAddrByOffset addr (offset))
                         builder <! (grv reg := addr)) mRegs
@@ -2540,28 +2546,28 @@ let saveFxsaveXMM ctxt addr offset xRegs builder =
 
 let loadFxrstorXMM ctxt addr xRegs builder =
   let pv r = getPseudoRegVar128 ctxt r
-  let offset = num (BitVector.ofInt32 8 (getAddrRegSize addr))
+  let offset = AST.num (BitVector.ofInt32 8 (getAddrRegSize addr))
   let exprs =
     List.fold (fun acc r -> let r2, r1 = pv r in r1 :: (r2 :: acc)) [] xRegs
   List.iter (fun reg -> builder <! (updateAddrByOffset addr offset)
                         builder <! (reg := addr)) exprs
 
 let save64BitPromotedFxsave ctxt dst builder =
-  let reserved8 = num0 8<rt>
+  let reserved8 = AST.num0 8<rt>
   let num3 = numI32 3 2<rt>
   let v r = getRegVar ctxt r
   let t0, t1, t2, t3 = tmpVars4 1<rt>
   let t4, t5, t6, t7 = tmpVars4 1<rt>
-  let abrTagW = tmpVar 8<rt>
-  let offset = num (BitVector.ofInt32 8 (getAddrRegSize dst))
-  let regSave = tmpVar (getAddrRegSize dst)
+  let abrTagW = AST.tmpvar 8<rt>
+  let offset = AST.num (BitVector.ofInt32 8 (getAddrRegSize dst))
+  let regSave = AST.tmpvar (getAddrRegSize dst)
   let baseReg = getBaseReg dst
   let xRegs =
     [ R.XMM0; R.XMM1; R.XMM2; R.XMM3; R.XMM4; R.XMM5; R.XMM6; R.XMM7;
       R.XMM8; R.XMM9; R.XMM10; R.XMM11; R.XMM12; R.XMM13; R.XMM14; R.XMM15 ]
   builder <! (regSave := baseReg)
-  builder <! (abrTagW := concat (concat (concat t7 t6) (concat t5 t4))
-                                (concat (concat t3 t2) (concat t1 t0)))
+  builder <! (abrTagW := AST.concat (AST.concat (AST.concat t7 t6) (AST.concat t5 t4))
+                                (AST.concat (AST.concat t3 t2) (AST.concat t1 t0)))
   builder <! (t0 := (v R.FTW0 != num3))
   builder <! (t1 := (v R.FTW1 != num3))
   builder <! (t2 := (v R.FTW2 != num3))
@@ -2570,28 +2576,28 @@ let save64BitPromotedFxsave ctxt dst builder =
   builder <! (t5 := (v R.FTW5 != num3))
   builder <! (t6 := (v R.FTW6 != num3))
   builder <! (t7 := (v R.FTW7 != num3))
-  builder <! (dst := concat (concat (v R.FOP) (concat reserved8 abrTagW))
-                            (concat (v R.FSW) (v R.FCW)))
+  builder <! (dst := AST.concat (AST.concat (v R.FOP) (AST.concat reserved8 abrTagW))
+                            (AST.concat (v R.FSW) (v R.FCW)))
   builder <! (updateAddrByOffset dst offset)
   builder <! (dst := v R.FIP)
   builder <! (updateAddrByOffset dst offset)
   builder <! (dst := v R.FDP)
   builder <! (updateAddrByOffset dst offset)
-  builder <! (dst := concat (v R.MXCSRMASK) (v R.MXCSR))
+  builder <! (dst := AST.concat (v R.MXCSRMASK) (v R.MXCSR))
   saveFxsaveMMX dst offset v builder
   saveFxsaveXMM ctxt dst offset (List.rev xRegs) builder
   builder <! (baseReg := regSave)
 
 let save64BitDefaultFxsave ctxt dst builder =
-  let reserved8 = num0 8<rt>
-  let reserved16 = num0 16<rt>
+  let reserved8 = AST.num0 8<rt>
+  let reserved16 = AST.num0 16<rt>
   let num3 = numI32 3 2<rt>
   let v r = getRegVar ctxt r
   let t0, t1, t2, t3 = tmpVars4 1<rt>
   let t4, t5, t6, t7 = tmpVars4 1<rt>
-  let abrTagW = tmpVar 8<rt>
-  let offset = num (BitVector.ofInt32 8 (getAddrRegSize dst))
-  let regSave = tmpVar (getAddrRegSize dst)
+  let abrTagW = AST.tmpvar 8<rt>
+  let offset = AST.num (BitVector.ofInt32 8 (getAddrRegSize dst))
+  let regSave = AST.tmpvar (getAddrRegSize dst)
   let baseReg = getBaseReg dst
   let xRegs =
     [ R.XMM0; R.XMM1; R.XMM2; R.XMM3; R.XMM4; R.XMM5; R.XMM6; R.XMM7;
@@ -2605,32 +2611,32 @@ let save64BitDefaultFxsave ctxt dst builder =
   builder <! (t5 := (v R.FTW5 != num3))
   builder <! (t6 := (v R.FTW6 != num3))
   builder <! (t7 := (v R.FTW7 != num3))
-  builder <! (abrTagW := concat (concat (concat t7 t6) (concat t5 t4))
-                                (concat (concat t3 t2) (concat t1 t0)))
-  builder <! (dst := concat (concat (v R.FOP) (concat reserved8 abrTagW))
-                            (concat (v R.FSW) (v R.FCW)))
+  builder <! (abrTagW := AST.concat (AST.concat (AST.concat t7 t6) (AST.concat t5 t4))
+                                (AST.concat (AST.concat t3 t2) (AST.concat t1 t0)))
+  builder <! (dst := AST.concat (AST.concat (v R.FOP) (AST.concat reserved8 abrTagW))
+                            (AST.concat (v R.FSW) (v R.FCW)))
   builder <! (updateAddrByOffset dst offset)
-  builder <! (dst := concat (extractLow 32<rt> (v R.FIP))
-                            (concat (v R.FCS) reserved16))
+  builder <! (dst := AST.concat (AST.xtlo 32<rt> (v R.FIP))
+                            (AST.concat (v R.FCS) reserved16))
   builder <! (updateAddrByOffset dst offset)
-  builder <! (dst := concat (extractLow 32<rt> (v R.FDP))
-                            (concat (v R.FDS) reserved16))
+  builder <! (dst := AST.concat (AST.xtlo 32<rt> (v R.FDP))
+                            (AST.concat (v R.FDS) reserved16))
   builder <! (updateAddrByOffset dst offset)
-  builder <! (dst := concat (v R.MXCSRMASK) (v R.MXCSR))
+  builder <! (dst := AST.concat (v R.MXCSRMASK) (v R.MXCSR))
   saveFxsaveMMX dst offset v builder
   saveFxsaveXMM ctxt dst offset (List.rev xRegs) builder
   builder <! (baseReg := regSave)
 
 let saveLegacyFxsave ctxt dst builder =
-  let reserved8 = num0 8<rt>
-  let reserved16 = num0 16<rt>
+  let reserved8 = AST.num0 8<rt>
+  let reserved16 = AST.num0 16<rt>
   let num3 = numI32 3 2<rt>
   let v r = getRegVar ctxt r
   let t0, t1, t2, t3 = tmpVars4 1<rt>
   let t4, t5, t6, t7 = tmpVars4 1<rt>
-  let abrTagW = tmpVar 8<rt>
-  let offset = num (BitVector.ofInt32 8 (getAddrRegSize dst))
-  let regSave = tmpVar (getAddrRegSize dst)
+  let abrTagW = AST.tmpvar 8<rt>
+  let offset = AST.num (BitVector.ofInt32 8 (getAddrRegSize dst))
+  let regSave = AST.tmpvar (getAddrRegSize dst)
   let baseReg = getBaseReg dst
   let xRegs = [ R.XMM0; R.XMM1; R.XMM2; R.XMM3; R.XMM4; R.XMM5; R.XMM6; R.XMM7 ]
   builder <! (regSave := baseReg)
@@ -2642,34 +2648,34 @@ let saveLegacyFxsave ctxt dst builder =
   builder <! (t5 := (v R.FTW5 != num3))
   builder <! (t6 := (v R.FTW6 != num3))
   builder <! (t7 := (v R.FTW7 != num3))
-  builder <! (abrTagW := concat (concat (concat t7 t6) (concat t5 t4))
-                                (concat (concat t3 t2) (concat t1 t0)))
-  builder <! (dst := concat (concat (v R.FOP) (concat reserved8 abrTagW))
-                            (concat (v R.FSW) (v R.FCW)))
+  builder <! (abrTagW := AST.concat (AST.concat (AST.concat t7 t6) (AST.concat t5 t4))
+                                (AST.concat (AST.concat t3 t2) (AST.concat t1 t0)))
+  builder <! (dst := AST.concat (AST.concat (v R.FOP) (AST.concat reserved8 abrTagW))
+                            (AST.concat (v R.FSW) (v R.FCW)))
   builder <! (updateAddrByOffset dst offset)
   builder <!
-    (dst := concat (extractLow 32<rt> (v R.FIP)) (concat (v R.FCS) reserved16))
+    (dst := AST.concat (AST.xtlo 32<rt> (v R.FIP)) (AST.concat (v R.FCS) reserved16))
   builder <! (updateAddrByOffset dst offset)
-  builder <! (dst := concat (extractLow 32<rt> (v R.FDP))
-                            (concat (v R.FDS) reserved16))
+  builder <! (dst := AST.concat (AST.xtlo 32<rt> (v R.FDP))
+                            (AST.concat (v R.FDS) reserved16))
   builder <! (updateAddrByOffset dst offset)
-  builder <! (dst := concat (v R.MXCSRMASK) (v R.MXCSR))
+  builder <! (dst := AST.concat (v R.MXCSRMASK) (v R.MXCSR))
   saveFxsaveMMX dst offset v builder
   saveFxsaveXMM ctxt dst offset (List.rev xRegs) builder
   builder <! (baseReg := regSave)
 
 let load64BitPromotedFxrstor ctxt src builder =
   let grv r = getRegVar ctxt r
-  let offset = num (BitVector.ofInt32 8 (getAddrRegSize src))
+  let offset = AST.num (BitVector.ofInt32 8 (getAddrRegSize src))
   let xRegs =
     [ R.XMM0; R.XMM1; R.XMM2; R.XMM3; R.XMM4; R.XMM5; R.XMM6; R.XMM7;
       R.XMM8; R.XMM9; R.XMM10; R.XMM11; R.XMM12; R.XMM13; R.XMM14; R.XMM15 ]
-  let tSrc = tmpVar 64<rt>
+  let tSrc = AST.tmpvar 64<rt>
   builder <! (tSrc := src)
-  builder <! (grv R.FCW := extractLow 16<rt> tSrc)
-  builder <! (grv R.FSW := extract tSrc 16<rt> 16)
-  builder <! (grv R.FTW := extract tSrc 8<rt> 32)
-  builder <! (grv R.FOP := extract tSrc 16<rt> 48)
+  builder <! (grv R.FCW := AST.xtlo 16<rt> tSrc)
+  builder <! (grv R.FSW := AST.extract tSrc 16<rt> 16)
+  builder <! (grv R.FTW := AST.extract tSrc 8<rt> 32)
+  builder <! (grv R.FOP := AST.extract tSrc 16<rt> 48)
   builder <! (updateAddrByOffset src offset)
   builder <! (tSrc := src)
   builder <! (grv R.FIP := tSrc)
@@ -2678,80 +2684,80 @@ let load64BitPromotedFxrstor ctxt src builder =
   builder <! (grv R.FDP := tSrc)
   builder <! (updateAddrByOffset src offset)
   builder <! (tSrc := src)
-  builder <! (grv R.MXCSR := extractLow 32<rt> tSrc)
-  builder <! (grv R.MXCSRMASK := extractHigh 32<rt> tSrc)
+  builder <! (grv R.MXCSR := AST.xtlo 32<rt> tSrc)
+  builder <! (grv R.MXCSRMASK := AST.xthi 32<rt> tSrc)
   loadFxrstorMMX src grv builder
   loadFxrstorXMM ctxt src xRegs builder
 
 let load64BitDefaultFxrstor ctxt src builder =
   let grv r = getRegVar ctxt r
-  let offset = num (BitVector.ofInt32 8 (getAddrRegSize src))
-  let regSave = tmpVar (getAddrRegSize src)
+  let offset = AST.num (BitVector.ofInt32 8 (getAddrRegSize src))
+  let regSave = AST.tmpvar (getAddrRegSize src)
   let baseReg = getBaseReg src
   let t0, t1, t2, t3 = tmpVars4 2<rt>
   let t4, t5, t6, t7 = tmpVars4 2<rt>
-  let tmp8 = tmpVar 8<rt>
-  let zero2 = num0 2<rt>
+  let tmp8 = AST.tmpvar 8<rt>
+  let zero2 = AST.num0 2<rt>
   let three2 = numI32 3 2<rt>
   let xRegs =
     [ R.XMM0; R.XMM1; R.XMM2; R.XMM3; R.XMM4; R.XMM5; R.XMM6; R.XMM7;
       R.XMM8; R.XMM9; R.XMM10; R.XMM11; R.XMM12; R.XMM13; R.XMM14; R.XMM15 ]
   builder <! (regSave := baseReg)
-  builder <! (tmp8 := extract src 8<rt> 32)
-  builder <! (t0 := ite (extractLow 1<rt> tmp8) zero2 three2)
-  builder <! (t1 := ite (extract tmp8 1<rt> 1) zero2 three2)
-  builder <! (t2 := ite (extract tmp8 1<rt> 2) zero2 three2)
-  builder <! (t3 := ite (extract tmp8 1<rt> 3) zero2 three2)
-  builder <! (t4 := ite (extract tmp8 1<rt> 4) zero2 three2)
-  builder <! (t5 := ite (extract tmp8 1<rt> 5) zero2 three2)
-  builder <! (t6 := ite (extract tmp8 1<rt> 6) zero2 three2)
-  builder <! (t7 := ite (extract tmp8 1<rt> 7) zero2 three2)
-  builder <! (grv R.FCW := extractLow 16<rt> src)
-  builder <! (grv R.FSW := extract src 16<rt> 16)
-  builder <! (grv R.FTW := concat (concat (concat t7 t6) (concat t5 t4))
-                                  (concat (concat t3 t2) (concat t1 t0)))
-  builder <! (grv R.FOP := extract src 16<rt> 48)
+  builder <! (tmp8 := AST.extract src 8<rt> 32)
+  builder <! (t0 := AST.ite (AST.xtlo 1<rt> tmp8) zero2 three2)
+  builder <! (t1 := AST.ite (AST.extract tmp8 1<rt> 1) zero2 three2)
+  builder <! (t2 := AST.ite (AST.extract tmp8 1<rt> 2) zero2 three2)
+  builder <! (t3 := AST.ite (AST.extract tmp8 1<rt> 3) zero2 three2)
+  builder <! (t4 := AST.ite (AST.extract tmp8 1<rt> 4) zero2 three2)
+  builder <! (t5 := AST.ite (AST.extract tmp8 1<rt> 5) zero2 three2)
+  builder <! (t6 := AST.ite (AST.extract tmp8 1<rt> 6) zero2 three2)
+  builder <! (t7 := AST.ite (AST.extract tmp8 1<rt> 7) zero2 three2)
+  builder <! (grv R.FCW := AST.xtlo 16<rt> src)
+  builder <! (grv R.FSW := AST.extract src 16<rt> 16)
+  builder <! (grv R.FTW := AST.concat (AST.concat (AST.concat t7 t6) (AST.concat t5 t4))
+                                  (AST.concat (AST.concat t3 t2) (AST.concat t1 t0)))
+  builder <! (grv R.FOP := AST.extract src 16<rt> 48)
   builder <! (updateAddrByOffset src offset)
-  builder <! (extractLow 32<rt> (grv R.FIP) := extractLow 32<rt> src)
-  builder <! (grv R.FCS := extract src 16<rt> 32)
+  builder <! (AST.xtlo 32<rt> (grv R.FIP) := AST.xtlo 32<rt> src)
+  builder <! (grv R.FCS := AST.extract src 16<rt> 32)
   builder <! (updateAddrByOffset src offset)
-  builder <! (extractLow 32<rt> (grv R.FDP) := extractLow 32<rt> src)
-  builder <! (grv R.FDS := extract src 16<rt> 32)
+  builder <! (AST.xtlo 32<rt> (grv R.FDP) := AST.xtlo 32<rt> src)
+  builder <! (grv R.FDS := AST.extract src 16<rt> 32)
   builder <! (updateAddrByOffset src offset)
-  builder <! (grv R.MXCSR := extractLow 32<rt> src)
-  builder <! (grv R.MXCSRMASK := extractHigh 32<rt> src)
+  builder <! (grv R.MXCSR := AST.xtlo 32<rt> src)
+  builder <! (grv R.MXCSRMASK := AST.xthi 32<rt> src)
   loadFxrstorMMX src grv builder
   loadFxrstorXMM ctxt src (List.rev xRegs) builder
   builder <! (baseReg := regSave)
 
 let loadLegacyFxrstor ctxt src builder =
   let grv r = getRegVar ctxt r
-  let offset = num (BitVector.ofInt32 8 (getAddrRegSize src))
+  let offset = AST.num (BitVector.ofInt32 8 (getAddrRegSize src))
   let xRegs = [ R.XMM0; R.XMM1; R.XMM2; R.XMM3; R.XMM4; R.XMM5; R.XMM6; R.XMM7 ]
-  let tSrc = tmpVar 64<rt>
+  let tSrc = AST.tmpvar 64<rt>
   builder <! (tSrc := src)
-  builder <! (grv R.FCW := extractLow 16<rt> tSrc)
-  builder <! (grv R.FSW := extract tSrc 16<rt> 16)
-  builder <! (grv R.FTW := extract tSrc 8<rt> 32)
-  builder <! (grv R.FOP := extract tSrc 16<rt> 48)
+  builder <! (grv R.FCW := AST.xtlo 16<rt> tSrc)
+  builder <! (grv R.FSW := AST.extract tSrc 16<rt> 16)
+  builder <! (grv R.FTW := AST.extract tSrc 8<rt> 32)
+  builder <! (grv R.FOP := AST.extract tSrc 16<rt> 48)
   builder <! (updateAddrByOffset src offset)
   builder <! (tSrc := src)
-  builder <! (extractLow 32<rt> (grv R.FIP) := extractLow 32<rt> tSrc)
-  builder <! (grv R.FCS := extract tSrc 16<rt> 32)
+  builder <! (AST.xtlo 32<rt> (grv R.FIP) := AST.xtlo 32<rt> tSrc)
+  builder <! (grv R.FCS := AST.extract tSrc 16<rt> 32)
   builder <! (updateAddrByOffset src offset)
   builder <! (tSrc := src)
-  builder <! (extractLow 32<rt> (grv R.FDP) := extractLow 32<rt> tSrc)
-  builder <! (grv R.FDS := extract tSrc 16<rt> 32)
+  builder <! (AST.xtlo 32<rt> (grv R.FDP) := AST.xtlo 32<rt> tSrc)
+  builder <! (grv R.FDS := AST.extract tSrc 16<rt> 32)
   builder <! (updateAddrByOffset src offset)
   builder <! (tSrc := src)
-  builder <! (grv R.MXCSR := extractLow 32<rt> tSrc)
-  builder <! (grv R.MXCSRMASK := extractHigh 32<rt>tSrc)
+  builder <! (grv R.MXCSR := AST.xtlo 32<rt> tSrc)
+  builder <! (grv R.MXCSRMASK := AST.xthi 32<rt>tSrc)
   loadFxrstorMMX src grv builder
   loadFxrstorXMM ctxt src xRegs builder
 
 let fpuFBinOp ins insAddr insLen ctxt binOp doPop leftToRight =
-  let builder = new StmtBuilder (64)
-  let res = tmpVar 80<rt>
+  let builder = StmtBuilder (64)
+  let res = AST.tmpvar 80<rt>
   startMark insAddr insLen builder
   match ins.Operands with
   | NoOperand ->
@@ -2779,69 +2785,69 @@ let fpuFBinOp ins insAddr insLen ctxt binOp doPop leftToRight =
   endMark insAddr insLen builder
 
 let fpuIntOp ins insAddr insLen ctxt binOp leftToRight =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let st0 = fpuRegValue ctxt R.ST0
   let oprExpr = getOneOpr ins |> transOprToExpr ins insAddr insLen ctxt
-  let tmp = tmpVar 80<rt>
+  let tmp = AST.tmpvar 80<rt>
   startMark insAddr insLen builder
-  builder <! (tmp := cast CastKind.IntToFloat 80<rt> oprExpr)
+  builder <! (tmp := AST.cast CastKind.IntToFloat 80<rt> oprExpr)
   if leftToRight then builder <! (tmp := binOp st0 tmp)
   else builder <! (tmp := binOp tmp st0)
   assignFPUReg R.ST0 tmp ctxt builder
   endMark insAddr insLen builder
 
 let fabs _ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let st0b, _st0a = getFPUPseudoRegVars ctxt R.ST0
   startMark insAddr insLen builder
-  builder <! (extract st0b 1<rt> 15 := b1)
-  builder <! (getRegVar ctxt R.FSWC1 := b0)
+  builder <! (AST.extract st0b 1<rt> 15 := AST.b1)
+  builder <! (getRegVar ctxt R.FSWC1 := AST.b0)
   builder <! (getRegVar ctxt R.FSWC0 := undefC0)
   builder <! (getRegVar ctxt R.FSWC2 := undefC2)
   builder <! (getRegVar ctxt R.FSWC3 := undefC3)
   endMark insAddr insLen builder
 
 let fcmov ins insAddr insLen ctxt cond =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let _dst, src = getTwoOprs ins
   let src = transOprToExpr ins insAddr insLen ctxt src
   let st0b, st0a = getFPUPseudoRegVars ctxt R.ST0
   startMark insAddr insLen builder
-  builder <! (st0a := ite cond (extractLow 64<rt> src) st0a)
-  builder <! (st0b := ite cond (extractHigh 16<rt> src) st0b)
+  builder <! (st0a := AST.ite cond (AST.xtlo 64<rt> src) st0a)
+  builder <! (st0b := AST.ite cond (AST.xthi 16<rt> src) st0b)
   builder <! (getRegVar ctxt R.FSWC0 := undefC0)
   builder <! (getRegVar ctxt R.FSWC2 := undefC2)
   builder <! (getRegVar ctxt R.FSWC3 := undefC3)
   endMark insAddr insLen builder
 
 let f2xm1 _isn insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let st0 = fpuRegValue ctxt R.ST0
-  let flt1 = num1 32<rt> |> cast CastKind.IntToFloat 80<rt>
-  let flt2 = numI32 2 32<rt> |> cast CastKind.IntToFloat 80<rt>
-  let tmp = tmpVar 80<rt>
+  let flt1 = AST.num1 32<rt> |> AST.cast CastKind.IntToFloat 80<rt>
+  let flt2 = numI32 2 32<rt> |> AST.cast CastKind.IntToFloat 80<rt>
+  let tmp = AST.tmpvar 80<rt>
   startMark insAddr insLen builder
-  builder <! (tmp := fpow flt2 st0)
-  builder <! (tmp := fsub tmp flt1)
+  builder <! (tmp := AST.fpow flt2 st0)
+  builder <! (tmp := AST.fsub tmp flt1)
   assignFPUReg R.ST0 tmp ctxt builder
   checkC1Flag ctxt builder R.FTW7
   cflagsUndefined023 ctxt builder
   endMark insAddr insLen builder
 
 let fpuadd ins insAddr insLen ctxt doPop =
-  fpuFBinOp ins insAddr insLen ctxt fadd doPop true
+  fpuFBinOp ins insAddr insLen ctxt AST.fadd doPop true
 
 let fbld ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (64)
+  let builder = StmtBuilder (64)
   let src = getOneOpr ins |> transOprToExpr ins insAddr insLen ctxt
-  let sign = extractHigh 1<rt> src
-  let intgr = tmpVar 64<rt>
-  let bcdNum = tmpVar 72<rt>
-  let tmp = tmpVar 80<rt>
+  let sign = AST.xthi 1<rt> src
+  let intgr = AST.tmpvar 64<rt>
+  let bcdNum = AST.tmpvar 72<rt>
+  let tmp = AST.tmpvar 80<rt>
   startMark insAddr insLen builder
   bcdToInt intgr bcdNum builder
-  builder <! (extractHigh 1<rt> intgr := sign)
-  builder <! (tmp := cast CastKind.IntToFloat 80<rt> intgr)
+  builder <! (AST.xthi 1<rt> intgr := sign)
+  builder <! (tmp := AST.cast CastKind.IntToFloat 80<rt> intgr)
   checkFPUOnLoad ctxt builder
   shiftFPUStackDown ctxt builder
   assignFPUReg R.ST0 tmp ctxt builder
@@ -2849,19 +2855,19 @@ let fbld ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let fbstp ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (64)
+  let builder = StmtBuilder (64)
   let dst = getOneOpr ins |> transOprToExpr ins insAddr insLen ctxt
   let st0 = fpuRegValue ctxt R.ST0
-  let sign = extractHigh 1<rt> st0
-  let intgr = tmpVar 64<rt>
-  let bcdNum = tmpVar 72<rt>
-  let tmp = tmpVar 80<rt>
+  let sign = AST.xthi 1<rt> st0
+  let intgr = AST.tmpvar 64<rt>
+  let bcdNum = AST.tmpvar 72<rt>
+  let tmp = AST.tmpvar 80<rt>
   startMark insAddr insLen builder
-  builder <! (intgr := cast CastKind.FtoIRound 64<rt> st0)
+  builder <! (intgr := AST.cast CastKind.FtoIRound 64<rt> st0)
   intTobcd bcdNum intgr builder
-  builder <! (tmp := num0 80<rt>)
-  builder <! (extractHigh 1<rt> tmp := sign)
-  builder <! (extractLow 72<rt> tmp := bcdNum)
+  builder <! (tmp := AST.num0 80<rt>)
+  builder <! (AST.xthi 1<rt> tmp := sign)
+  builder <! (AST.xtlo 72<rt> tmp := bcdNum)
   builder <! (dst := tmp)
   endMark insAddr insLen builder
 
@@ -2878,38 +2884,38 @@ let fcmovu ins insAddr insLen ctxt =
   getRegVar ctxt R.PF |> fcmov ins insAddr insLen ctxt
 
 let fcmovnb ins insAddr insLen ctxt =
-  getRegVar ctxt R.CF |> not |> fcmov ins insAddr insLen ctxt
+  getRegVar ctxt R.CF |> AST.not |> fcmov ins insAddr insLen ctxt
 
 let fcmovne ins insAddr insLen ctxt =
-  getRegVar ctxt R.ZF |> not |> fcmov ins insAddr insLen ctxt
+  getRegVar ctxt R.ZF |> AST.not |> fcmov ins insAddr insLen ctxt
 
 let fcmovnbe ins insAddr insLen ctxt =
-  let cond1 = getRegVar ctxt R.CF |> not
-  let cond2 = getRegVar ctxt R.ZF |> not
+  let cond1 = getRegVar ctxt R.CF |> AST.not
+  let cond2 = getRegVar ctxt R.ZF |> AST.not
   cond1 .& cond2 |> fcmov ins insAddr insLen ctxt
 
 let fcmovnu ins insAddr insLen ctxt =
-  getRegVar ctxt R.PF |> not |> fcmov ins insAddr insLen ctxt
+  getRegVar ctxt R.PF |> AST.not |> fcmov ins insAddr insLen ctxt
 
 let fchs _ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let st0b, _st0a = getFPUPseudoRegVars ctxt R.ST0
-  let tmp = tmpVar 1<rt>
+  let tmp = AST.tmpvar 1<rt>
   startMark insAddr insLen builder
-  builder <! (tmp := extractHigh 1<rt> st0b)
-  builder <! (extractHigh 1<rt> st0b := not tmp)
-  builder <! (getRegVar ctxt R.FSWC1 := b0)
+  builder <! (tmp := AST.xthi 1<rt> st0b)
+  builder <! (AST.xthi 1<rt> st0b := AST.not tmp)
+  builder <! (getRegVar ctxt R.FSWC1 := AST.b0)
   builder <! (getRegVar ctxt R.FSWC0 := undefC0)
   builder <! (getRegVar ctxt R.FSWC2 := undefC2)
   builder <! (getRegVar ctxt R.FSWC3 := undefC3)
   endMark insAddr insLen builder
 
 let fclex _ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let stsWrd = getRegVar ctxt R.FSW
   startMark insAddr insLen builder
-  builder <! (extractLow 7<rt> stsWrd := num0 7<rt>)
-  builder <! (extractHigh 1<rt> stsWrd := b0)
+  builder <! (AST.xtlo 7<rt> stsWrd := AST.num0 7<rt>)
+  builder <! (AST.xthi 1<rt> stsWrd := AST.b0)
   builder <! (getRegVar ctxt R.FSWC0 := undefC0)
   builder <! (getRegVar ctxt R.FSWC1 := undefC1)
   builder <! (getRegVar ctxt R.FSWC2 := undefC2)
@@ -2917,13 +2923,13 @@ let fclex _ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let fcom ins insAddr insLen ctxt nPop unordered =
-  let builder = new StmtBuilder (64)
-  let lblNan = lblSymbol "IsNan"
-  let lblExit = lblSymbol "Exit"
+  let builder = StmtBuilder (64)
+  let lblNan = AST.symbol "IsNan"
+  let lblExit = AST.symbol "Exit"
   let c0 = getRegVar ctxt R.FSWC0
   let c2 = getRegVar ctxt R.FSWC2
   let c3 = getRegVar ctxt R.FSWC3
-  let im = getRegVar ctxt R.FCW |> extractLow 1<rt>
+  let im = getRegVar ctxt R.FCW |> AST.xtlo 1<rt>
   let tmp1, tmp2 = tmpVars2 80<rt>
   startMark insAddr insLen builder
   match ins.Operands with
@@ -2935,182 +2941,182 @@ let fcom ins insAddr insLen ctxt nPop unordered =
     builder <! (tmp1 := fpuRegValue ctxt R.ST0)
     builder <! (tmp2 := oprExpr)
   | _ -> raise InvalidOperandException
-  builder <! (c0 := ite (flt tmp1 tmp2) b1 b0)
-  builder <! (c2 := b0)
-  builder <! (c3 := ite (tmp1 == tmp2) b1 b0)
+  builder <! (c0 := AST.ite (AST.flt tmp1 tmp2) AST.b1 AST.b0)
+  builder <! (c2 := AST.b0)
+  builder <! (c3 := AST.ite (tmp1 == tmp2) AST.b1 AST.b0)
   let isNan expr =
-    (extract expr 15<rt> 64  == num (BitVector.unsignedMax 15<rt>))
-     .& (extractLow 62<rt> expr != num0 62<rt>)
+    (AST.extract expr 15<rt> 64  == AST.num (BitVector.unsignedMax 15<rt>))
+     .& (AST.xtlo 62<rt> expr != AST.num0 62<rt>)
   let cond =
     if unordered then
-        let tmp1qNanCond = isNan tmp1 .& (extract tmp1 1<rt> 62 == b1)
-        let tmp2qNanCond = isNan tmp2 .& (extract tmp2 1<rt> 62 == b1)
-        tmp1qNanCond .| tmp2qNanCond .& (im == b0)
-    else isNan tmp1 .| isNan tmp2 .& (im == b0)
+        let tmp1qNanCond = isNan tmp1 .& (AST.extract tmp1 1<rt> 62 == AST.b1)
+        let tmp2qNanCond = isNan tmp2 .& (AST.extract tmp2 1<rt> 62 == AST.b1)
+        tmp1qNanCond .| tmp2qNanCond .& (im == AST.b0)
+    else isNan tmp1 .| isNan tmp2 .& (im == AST.b0)
   builder <! (CJmp (cond, Name lblNan, Name lblExit))
   builder <! (LMark lblNan)
-  builder <! (c0 := b1)
-  builder <! (c2 := b1)
-  builder <! (c3 := b1)
+  builder <! (c0 := AST.b1)
+  builder <! (c2 := AST.b1)
+  builder <! (c3 := AST.b1)
   builder <! (LMark lblExit)
-  builder <! (getRegVar ctxt R.FSWC1 := b0)
+  builder <! (getRegVar ctxt R.FSWC1 := AST.b0)
   if nPop > 0 then popFPUStack ctxt builder else ()
   if nPop = 2 then popFPUStack ctxt builder else ()
   endMark insAddr insLen builder
 
 let fcomi ins insAddr insLen ctxt doPop =
-  let builder = new StmtBuilder (64)
+  let builder = StmtBuilder (64)
   let opr1, opr2 = getTwoOprs ins
   let opr1 = transOprToExpr ins insAddr insLen ctxt opr1
   let opr2 = transOprToExpr ins insAddr insLen ctxt opr2
-  let im = getRegVar ctxt R.FCW |> extractLow 1<rt>
-  let lblQNan = lblSymbol "IsQNan"
-  let lblNan = lblSymbol "IsNan"
-  let lblExit = lblSymbol "Exit"
-  let lblCond = lblSymbol "IsNanCond"
+  let im = getRegVar ctxt R.FCW |> AST.xtlo 1<rt>
+  let lblQNan = AST.symbol "IsQNan"
+  let lblNan = AST.symbol "IsNan"
+  let lblExit = AST.symbol "Exit"
+  let lblCond = AST.symbol "IsNanCond"
   let zf = getRegVar ctxt R.ZF
   let pf = getRegVar ctxt R.PF
   let cf = getRegVar ctxt R.CF
   startMark insAddr insLen builder
-  builder <! (zf := ite (opr1 == opr2) b1 b0)
-  builder <! (pf := b0)
-  builder <! (cf := ite (flt opr1 opr2) b1 b0)
+  builder <! (zf := AST.ite (opr1 == opr2) AST.b1 AST.b0)
+  builder <! (pf := AST.b0)
+  builder <! (cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0)
   let opr1NanCond =
-    (extract opr1 15<rt> 64  == num (BitVector.unsignedMax 15<rt>))
-      .& (extractLow 62<rt> opr1 != num0 62<rt>)
+    (AST.extract opr1 15<rt> 64  == AST.num (BitVector.unsignedMax 15<rt>))
+      .& (AST.xtlo 62<rt> opr1 != AST.num0 62<rt>)
   let opr2NanCond =
-    (extract opr2 15<rt> 64 == num (BitVector.unsignedMax 15<rt>))
-      .& (extractLow 62<rt> opr2 != num0 62<rt>)
-  let cond = opr1NanCond .| opr2NanCond .& (im == b0)
+    (AST.extract opr2 15<rt> 64 == AST.num (BitVector.unsignedMax 15<rt>))
+      .& (AST.xtlo 62<rt> opr2 != AST.num0 62<rt>)
+  let cond = opr1NanCond .| opr2NanCond .& (im == AST.b0)
   match ins.Opcode with
   | Opcode.FCOMI | Opcode.FCOMIP ->
     builder <! (CJmp (cond, Name lblNan, Name lblExit))
   | Opcode.FUCOMI | Opcode.FUCOMIP ->
-    let opr1qNanCond = opr1NanCond .& (extract opr1 1<rt> 62 == b1)
-    let opr2qNanCond = opr2NanCond .& (extract opr2 1<rt> 62 == b1)
+    let opr1qNanCond = opr1NanCond .& (AST.extract opr1 1<rt> 62 == AST.b1)
+    let opr2qNanCond = opr2NanCond .& (AST.extract opr2 1<rt> 62 == AST.b1)
     builder <! (CJmp (opr1qNanCond .| opr2qNanCond, Name lblQNan, Name lblCond))
     builder <! (LMark lblQNan)
-    builder <! (zf:= b1)
-    builder <! (pf := b1)
-    builder <! (cf := b1)
+    builder <! (zf:= AST.b1)
+    builder <! (pf := AST.b1)
+    builder <! (cf := AST.b1)
     builder <! (Jmp (Name lblExit))
     builder <! (LMark lblCond)
     builder <! (CJmp (cond, Name lblNan, Name lblExit))
   | _ -> raise InvalidOpcodeException
   builder <! (LMark lblNan)
-  builder <! (zf := b1)
-  builder <! (pf := b1)
-  builder <! (cf := b1)
+  builder <! (zf := AST.b1)
+  builder <! (pf := AST.b1)
+  builder <! (cf := AST.b1)
   builder <! (LMark lblExit)
   if doPop then popFPUStack ctxt builder else ()
   endMark insAddr insLen builder
 
 let ftrig _ins insAddr insLen ctxt trigFunc =
-  let builder = new StmtBuilder (32)
+  let builder = StmtBuilder (32)
   let st0 = fpuRegValue ctxt R.ST0
-  let tmp = tmpVar 80<rt>
-  let float80SignUnmask = BitVector.signedMax 80<rt> |> num
+  let tmp = AST.tmpvar 80<rt>
+  let float80SignUnmask = BitVector.signedMax 80<rt> |> AST.num
   let maxLimit = numI64 (1L <<< 63) 64<rt>
-  let maxFloat = cast CastKind.IntToFloat 80<rt> maxLimit
-  let num3 = BitVector.ofInt32 3 2<rt> |> num
+  let maxFloat = AST.cast CastKind.IntToFloat 80<rt> maxLimit
+  let num3 = BitVector.ofInt32 3 2<rt> |> AST.num
   let c0 = getRegVar ctxt R.FSWC0
   let c1 = getRegVar ctxt R.FSWC1
   let c2 = getRegVar ctxt R.FSWC2
   let c3 = getRegVar ctxt R.FSWC3
-  let lblOutOfRange = lblSymbol "IsOutOfRange"
-  let lblInRange = lblSymbol "IsInRange"
-  let tmp = tmpVar 80<rt>
+  let lblOutOfRange = AST.symbol "IsOutOfRange"
+  let lblInRange = AST.symbol "IsInRange"
+  let tmp = AST.tmpvar 80<rt>
   startMark insAddr insLen builder
   builder <! (tmp := st0 .& float80SignUnmask)
-  builder <! (CJmp (flt tmp maxFloat, Name lblInRange, Name lblOutOfRange ))
+  builder <! (CJmp (AST.flt tmp maxFloat, Name lblInRange, Name lblOutOfRange ))
   builder <! (LMark lblInRange)
   builder <! (tmp := trigFunc st0)
   assignFPUReg R.ST0 tmp ctxt builder
-  builder <! (c1 := ite (getRegVar ctxt R.FTW7 == num3) b0 c1)
-  builder <! (c2 := b0)
+  builder <! (c1 := AST.ite (getRegVar ctxt R.FTW7 == num3) AST.b0 c1)
+  builder <! (c2 := AST.b0)
   builder <! (c0 := undefC0)
   builder <! (c3 := undefC3)
   builder <! (LMark lblOutOfRange)
-  builder <! (c2 := b1)
+  builder <! (c2 := AST.b1)
   builder <! (c0 := undefC0)
   builder <! (c1 := undefC1)
   builder <! (c3 := undefC3)
   endMark insAddr insLen builder
 
 let fcos ins insAddr insLen ctxt =
-  ftrig ins insAddr insLen ctxt fCos
+  ftrig ins insAddr insLen ctxt AST.fcos
 
 let fdecstp _ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let top = getRegVar ctxt R.FTOP
   startMark insAddr insLen builder
-  builder <! (top := top .+ num1 3<rt>)
-  builder <! (getRegVar ctxt R.FSWC1 := b0)
+  builder <! (top := top .+ AST.num1 3<rt>)
+  builder <! (getRegVar ctxt R.FSWC1 := AST.b0)
   builder <! (getRegVar ctxt R.FSWC0 := undefC0)
   builder <! (getRegVar ctxt R.FSWC2 := undefC2)
   builder <! (getRegVar ctxt R.FSWC3 := undefC3)
   endMark insAddr insLen builder
 
 let fpudiv ins insAddr insLen ctxt doPop =
-  fpuFBinOp ins insAddr insLen ctxt fdiv doPop true
+  fpuFBinOp ins insAddr insLen ctxt AST.fdiv doPop true
 
 let fdivr ins insAddr insLen ctxt doPop =
-  fpuFBinOp ins insAddr insLen ctxt fdiv doPop false
+  fpuFBinOp ins insAddr insLen ctxt AST.fdiv doPop false
 
 let ffree ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let top = getRegVar ctxt R.FTOP
   let tagWord = getRegVar ctxt R.FTW
   let top16,shifter, tagValue = tmpVars3 16<rt>
-  let value3 = BitVector.ofInt32 3 16<rt> |> num
+  let value3 = BitVector.ofInt32 3 16<rt> |> AST.num
   let offset =
     match getOneOpr ins with
-    | OprReg R.ST0 -> BitVector.ofInt32 0 16<rt> |> num
-    | OprReg R.ST1 -> BitVector.ofInt32 1 16<rt> |> num
-    | OprReg R.ST2 -> BitVector.ofInt32 2 16<rt> |> num
-    | OprReg R.ST3 -> BitVector.ofInt32 3 16<rt> |> num
-    | OprReg R.ST4 -> BitVector.ofInt32 4 16<rt> |> num
-    | OprReg R.ST5 -> BitVector.ofInt32 5 16<rt> |> num
-    | OprReg R.ST6 -> BitVector.ofInt32 6 16<rt> |> num
-    | OprReg R.ST7 -> BitVector.ofInt32 7 16<rt> |> num
+    | OprReg R.ST0 -> BitVector.ofInt32 0 16<rt> |> AST.num
+    | OprReg R.ST1 -> BitVector.ofInt32 1 16<rt> |> AST.num
+    | OprReg R.ST2 -> BitVector.ofInt32 2 16<rt> |> AST.num
+    | OprReg R.ST3 -> BitVector.ofInt32 3 16<rt> |> AST.num
+    | OprReg R.ST4 -> BitVector.ofInt32 4 16<rt> |> AST.num
+    | OprReg R.ST5 -> BitVector.ofInt32 5 16<rt> |> AST.num
+    | OprReg R.ST6 -> BitVector.ofInt32 6 16<rt> |> AST.num
+    | OprReg R.ST7 -> BitVector.ofInt32 7 16<rt> |> AST.num
     | _ -> raise InvalidOperandException
   startMark insAddr insLen builder
-  builder <! (top16 := cast CastKind.ZeroExt 16<rt> top)
+  builder <! (top16 := AST.cast CastKind.ZeroExt 16<rt> top)
   builder <! (top16 := top16 .+ offset)
-  builder <! (shifter := (BitVector.ofInt32 2 16<rt> |> num) .* top16)
+  builder <! (shifter := (BitVector.ofInt32 2 16<rt> |> AST.num) .* top16)
   builder <! (tagValue := (value3 << shifter))
   builder <! (tagWord := tagWord .| tagValue)
   endMark insAddr insLen builder
 
 let fiadd ins insAddr insLen ctxt =
-  fpuIntOp ins insAddr insLen ctxt fadd true
+  fpuIntOp ins insAddr insLen ctxt AST.fadd true
 
 let ficom ins insAddr insLen ctxt doPop =
-  let builder = new StmtBuilder (32)
+  let builder = StmtBuilder (32)
   let oprExpr = getOneOpr ins |> transOprToExpr ins insAddr insLen ctxt
   let st0 = fpuRegValue ctxt R.ST0
-  let tmp = tmpVar 80<rt>
+  let tmp = AST.tmpvar 80<rt>
   startMark insAddr insLen builder
-  builder <! (tmp := cast CastKind.IntToFloat 80<rt> oprExpr)
-  builder <! (getRegVar ctxt R.FSWC0 := ite (flt st0 tmp) b1 b0)
-  builder <! (getRegVar ctxt R.FSWC2 := b0)
-  builder <! (getRegVar ctxt R.FSWC3 := ite (st0 == tmp) b1 b0)
-  builder <! (getRegVar ctxt R.FSWC1 := b0)
+  builder <! (tmp := AST.cast CastKind.IntToFloat 80<rt> oprExpr)
+  builder <! (getRegVar ctxt R.FSWC0 := AST.ite (AST.flt st0 tmp) AST.b1 AST.b0)
+  builder <! (getRegVar ctxt R.FSWC2 := AST.b0)
+  builder <! (getRegVar ctxt R.FSWC3 := AST.ite (st0 == tmp) AST.b1 AST.b0)
+  builder <! (getRegVar ctxt R.FSWC1 := AST.b0)
   if doPop then popFPUStack ctxt builder else ()
   endMark insAddr insLen builder
 
 let fidiv ins insAddr insLen ctxt =
-  fpuIntOp ins insAddr insLen ctxt fdiv true
+  fpuIntOp ins insAddr insLen ctxt AST.fdiv true
 
 let fidivr ins insAddr insLen ctxt =
-  fpuIntOp ins insAddr insLen ctxt fdiv false
+  fpuIntOp ins insAddr insLen ctxt AST.fdiv false
 
 let fild ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (32)
+  let builder = StmtBuilder (32)
   let oprExpr = getOneOpr ins |> transOprToExpr ins insAddr insLen ctxt
-  let tmp = tmpVar 80<rt>
+  let tmp = AST.tmpvar 80<rt>
   startMark insAddr insLen builder
-  builder <! (tmp := cast CastKind.IntToFloat 80<rt> oprExpr)
+  builder <! (tmp := AST.cast CastKind.IntToFloat 80<rt> oprExpr)
   checkFPUOnLoad ctxt builder
   shiftFPUStackDown ctxt builder
   assignFPUReg R.ST0 tmp ctxt builder
@@ -3118,14 +3124,14 @@ let fild ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let fimul ins insAddr insLen ctxt =
-  fpuIntOp ins insAddr insLen ctxt fmul true
+  fpuIntOp ins insAddr insLen ctxt AST.fmul true
 
 let fincstp _ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let top = getRegVar ctxt R.FTOP
   startMark insAddr insLen builder
-  builder <! (top := top .+ num1 3<rt>)
-  builder <! (getRegVar ctxt R.FSWC1 := b0)
+  builder <! (top := top .+ AST.num1 3<rt>)
+  builder <! (getRegVar ctxt R.FSWC1 := AST.b0)
   builder <! (getRegVar ctxt R.FSWC0 := undefC0)
   builder <! (getRegVar ctxt R.FSWC2 := undefC2)
   builder <! (getRegVar ctxt R.FSWC3 := undefC3)
@@ -3135,48 +3141,48 @@ let fincstp _ins insAddr insLen ctxt =
 let checkFPUExceptions ctxt builder = ()
 
 let clearFPU ctxt builder =
-  let cw = BitVector.ofInt32 895 16<rt> |> num
-  let tw = BitVector.maxNum16 |> num
+  let cw = BitVector.ofInt32 895 16<rt> |> AST.num
+  let tw = BitVector.maxNum16 |> AST.num
   builder <! (getRegVar ctxt R.FCW := cw)
-  builder <! (getRegVar ctxt R.FSW := num0 16<rt>)
+  builder <! (getRegVar ctxt R.FSW := AST.num0 16<rt>)
   builder <! (getRegVar ctxt R.FTW := tw)
 
 let finit _ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (32)
+  let builder = StmtBuilder (32)
   startMark insAddr insLen builder
   checkFPUExceptions ctxt builder
   clearFPU ctxt builder
   endMark insAddr insLen builder
 
 let fist ins insAddr insLen ctxt doPop =
-  let builder = new StmtBuilder (32)
+  let builder = StmtBuilder (32)
   let oprExpr = getOneOpr ins |> transOprToExpr ins insAddr insLen ctxt
   let sz = AST.typeOf oprExpr
   let st0 = fpuRegValue ctxt R.ST0
-  let tmp1 = tmpVar sz
-  let tmp2 = tmpVar 2<rt>
+  let tmp1 = AST.tmpvar sz
+  let tmp2 = AST.tmpvar 2<rt>
   let num2 = numI32 2 2<rt>
-  let cstK castKind = cast castKind sz st0
+  let cstK castKind = AST.cast castKind sz st0
   startMark insAddr insLen builder
-  builder <! (tmp2 := extract (getRegVar ctxt R.FCW) 2<rt> 10)
-  builder <! (tmp1 := ite (tmp2 == num0 2<rt>)
+  builder <! (tmp2 := AST.extract (getRegVar ctxt R.FCW) 2<rt> 10)
+  builder <! (tmp1 := AST.ite (tmp2 == AST.num0 2<rt>)
     (cstK CastKind.FtoIRound) (cstK CastKind.FtoITrunc))
-  builder <! (tmp1 := ite (tmp2 == num1 2<rt>) (cstK CastKind.FtoIFloor) tmp1)
-  builder <! (tmp1 := ite (tmp2 == num2) (cstK CastKind.FtoICeil) tmp1)
+  builder <! (tmp1 := AST.ite (tmp2 == AST.num1 2<rt>) (cstK CastKind.FtoIFloor) tmp1)
+  builder <! (tmp1 := AST.ite (tmp2 == num2) (cstK CastKind.FtoICeil) tmp1)
   builder <! (oprExpr := tmp1)
-  builder <! (getRegVar ctxt R.FSWC1 := ite (tmp2 == num2) b1 b0)
+  builder <! (getRegVar ctxt R.FSWC1 := AST.ite (tmp2 == num2) AST.b1 AST.b0)
   cflagsUndefined023 ctxt builder
   if doPop then popFPUStack ctxt builder else ()
   endMark insAddr insLen builder
 
 let fisttp ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (64)
+  let builder = StmtBuilder (64)
   let oprExpr = getOneOpr ins |> transOprToExpr ins insAddr insLen ctxt
   let sz = AST.typeOf oprExpr
   let st0 = fpuRegValue ctxt R.ST0
   startMark insAddr insLen builder
-  builder <! (oprExpr := cast CastKind.FtoICeil sz st0)
-  builder <! (getRegVar ctxt R.FSWC1 := b0)
+  builder <! (oprExpr := AST.cast CastKind.FtoICeil sz st0)
+  builder <! (getRegVar ctxt R.FSWC1 := AST.b0)
   builder <! (getRegVar ctxt R.FSWC0 := undefC0)
   builder <! (getRegVar ctxt R.FSWC2 := undefC2)
   builder <! (getRegVar ctxt R.FSWC3 := undefC3)
@@ -3184,19 +3190,19 @@ let fisttp ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let fninit _ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   startMark insAddr insLen builder
   clearFPU ctxt builder
   endMark insAddr insLen builder
 
 let fnop _ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   startMark insAddr insLen builder
   allCFlagsUndefined ctxt builder
   endMark insAddr insLen builder
 
 let fnstcw ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let oprExpr = getOneOpr ins |> transOprToExpr ins insAddr insLen ctxt
   startMark insAddr insLen builder
   builder <! (oprExpr := getRegVar ctxt R.FCW)
@@ -3204,7 +3210,7 @@ let fnstcw ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let fnstsw ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let oprExpr = getOneOpr ins |> transOprToExpr ins insAddr insLen ctxt
   startMark insAddr insLen builder
   builder <! (oprExpr := getRegVar ctxt R.FSW)
@@ -3212,49 +3218,49 @@ let fnstsw ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let fpatan _ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let c1 = getRegVar ctxt R.FSWC1
-  let tmp = tmpVar 80<rt>
+  let tmp = AST.tmpvar 80<rt>
   startMark insAddr insLen builder
   builder <! (tmp := fpuRegValue ctxt R.ST1 ./ fpuRegValue ctxt R.ST0)
-  builder <! (tmp := fAtan tmp)
+  builder <! (tmp := AST.fatan tmp)
   assignFPUReg R.ST1 tmp ctxt builder
-  builder <! (c1 := b0)
+  builder <! (c1 := AST.b0)
   cflagsUndefined023 ctxt builder
   endMark insAddr insLen builder
 
 let fptan _ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (64)
+  let builder = StmtBuilder (64)
   let st0 = fpuRegValue ctxt R.ST0
-  let float80SignUnmask = BitVector.signedMax 80<rt> |> num
+  let float80SignUnmask = BitVector.signedMax 80<rt> |> AST.num
   let maxLimit = numI64 (1L <<< 63) 64<rt>
-  let maxFloat = cast CastKind.IntToFloat 80<rt> maxLimit
-  let num3 = BitVector.ofInt32 3 2<rt> |> num
+  let maxFloat = AST.cast CastKind.IntToFloat 80<rt> maxLimit
+  let num3 = BitVector.ofInt32 3 2<rt> |> AST.num
   let c0 = getRegVar ctxt R.FSWC0
   let c1 = getRegVar ctxt R.FSWC1
   let c2 = getRegVar ctxt R.FSWC2
   let c3 = getRegVar ctxt R.FSWC3
-  let lblOutOfRange = lblSymbol "IsOutOfRange"
-  let lblInRange = lblSymbol "IsInRange"
-  let tmp = tmpVar 80<rt>
-  let tmp64 = tmpVar 64<rt>
+  let lblOutOfRange = AST.symbol "IsOutOfRange"
+  let lblInRange = AST.symbol "IsInRange"
+  let tmp = AST.tmpvar 80<rt>
+  let tmp64 = AST.tmpvar 64<rt>
   startMark insAddr insLen builder
   builder <! (tmp := st0 .& float80SignUnmask)
-  builder <! (CJmp (flt tmp maxFloat, Name lblInRange, Name lblOutOfRange ))
+  builder <! (CJmp (AST.flt tmp maxFloat, Name lblInRange, Name lblOutOfRange ))
   builder <! (LMark lblInRange)
-  builder <! (tmp := fTan st0)
+  builder <! (tmp := AST.ftan st0)
   assignFPUReg R.ST0 tmp ctxt builder
-  builder <! (c1 := ite (getRegVar ctxt R.FTW7 == num3) b0 c1)
-  builder <! (c2 := b0)
+  builder <! (c1 := AST.ite (getRegVar ctxt R.FTW7 == num3) AST.b0 c1)
+  builder <! (c2 := AST.b0)
   builder <! (c0 := undefC0)
   builder <! (c3 := undefC3)
   builder <! (LMark lblOutOfRange)
-  builder <! (c2 := b1)
+  builder <! (c2 := AST.b1)
   builder <! (c0 := undefC0)
   builder <! (c1 := undefC1)
   builder <! (c3 := undefC3)
   builder <! (tmp64 := numI64 4607182418800017408L 64<rt>)
-  builder <! (tmp := cast CastKind.FloatExt 80<rt> tmp64)
+  builder <! (tmp := AST.cast CastKind.FloatExt 80<rt> tmp64)
   checkFPUOnLoad ctxt builder
   shiftFPUStackDown ctxt builder
   assignFPUReg R.ST0 tmp ctxt builder
@@ -3262,114 +3268,114 @@ let fptan _ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let fisub ins insAddr insLen ctxt =
-  fpuIntOp ins insAddr insLen ctxt fsub true
+  fpuIntOp ins insAddr insLen ctxt AST.fsub true
 
 let fisubr ins insAddr insLen ctxt =
-  fpuIntOp ins insAddr insLen ctxt fsub false
+  fpuIntOp ins insAddr insLen ctxt AST.fsub false
 
 let fpumul ins insAddr insLen ctxt doPop =
-  fpuFBinOp ins insAddr insLen ctxt fmul doPop true
+  fpuFBinOp ins insAddr insLen ctxt AST.fmul doPop true
 
 let fprem _ins insAddr insLen ctxt round =
-  let builder = new StmtBuilder (32)
+  let builder = StmtBuilder (32)
   let st0 = fpuRegValue ctxt R.ST0
   let st1 = fpuRegValue ctxt R.ST1
   let caster = if round then CastKind.FtoIRound else CastKind.FtoITrunc
-  let lblLT64 = lblSymbol "ExpDiffInRange"
-  let lblGT64 = lblSymbol "ExpDiffOutOfRange"
-  let lblExit = lblSymbol "Exit"
-  let expDiff = tmpVar 15<rt>
+  let lblLT64 = AST.symbol "ExpDiffInRange"
+  let lblGT64 = AST.symbol "ExpDiffOutOfRange"
+  let lblExit = AST.symbol "Exit"
+  let expDiff = AST.tmpvar 15<rt>
   let tmp80A, tmp80B, tmpres = tmpVars3 80<rt>
-  let tmp64 = tmpVar 64<rt>
+  let tmp64 = AST.tmpvar 64<rt>
   startMark insAddr insLen builder
-  builder <! (expDiff := extract st0 15<rt> 64 .- extract st1 15<rt> 64)
-  builder <! (CJmp (lt expDiff (numI32 64 15<rt>), Name lblLT64, Name lblGT64))
+  builder <! (expDiff := AST.extract st0 15<rt> 64 .- AST.extract st1 15<rt> 64)
+  builder <! (CJmp (AST.lt expDiff (numI32 64 15<rt>), Name lblLT64, Name lblGT64))
   builder <! (LMark lblLT64)
-  builder <! (tmp80A := fdiv st0 st1)
-  builder <! (tmp64 := cast caster 64<rt> tmp80A)
-  builder <! (tmp80B := fmul st1 (cast CastKind.IntToFloat 80<rt> tmp64))
-  builder <! (tmpres := fsub st0 tmp80B)
+  builder <! (tmp80A := AST.fdiv st0 st1)
+  builder <! (tmp64 := AST.cast caster 64<rt> tmp80A)
+  builder <! (tmp80B := AST.fmul st1 (AST.cast CastKind.IntToFloat 80<rt> tmp64))
+  builder <! (tmpres := AST.fsub st0 tmp80B)
   assignFPUReg R.ST0 tmpres ctxt builder
-  builder <! (getRegVar ctxt R.FSWC2 := b0)
-  builder <! (getRegVar ctxt R.FSWC1 := extractLow 1<rt> tmp64)
-  builder <! (getRegVar ctxt R.FSWC3 := extract tmp64 1<rt> 1)
-  builder <! (getRegVar ctxt R.FSWC0 := extract tmp64 1<rt> 2)
+  builder <! (getRegVar ctxt R.FSWC2 := AST.b0)
+  builder <! (getRegVar ctxt R.FSWC1 := AST.xtlo 1<rt> tmp64)
+  builder <! (getRegVar ctxt R.FSWC3 := AST.extract tmp64 1<rt> 1)
+  builder <! (getRegVar ctxt R.FSWC0 := AST.extract tmp64 1<rt> 2)
   builder <! (Jmp (Name lblExit))
   builder <! (LMark lblGT64)
-  builder <! (getRegVar ctxt R.FSWC2 := b1)
-  builder <! (tmp64 := (zExt 64<rt> expDiff) .- numI32 63 64<rt>)
+  builder <! (getRegVar ctxt R.FSWC2 := AST.b1)
+  builder <! (tmp64 := (AST.zext 64<rt> expDiff) .- numI32 63 64<rt>)
   builder <! (tmp64 := tmp64 .* numI32 2 64<rt>)
-  builder <! (tmp80B := cast CastKind.IntToFloat 80<rt> tmp64)
-  builder <! (tmp80A := fdiv (fdiv st0 st1) tmp80B)
-  builder <! (tmp64 := cast CastKind.FtoITrunc 64<rt> tmp80A)
-  builder <! (tmp80A := cast CastKind.IntToFloat 80<rt> tmp64)
-  builder <! (tmp80A := fsub st0 (fmul st1 (fmul tmp80A tmp80B)))
+  builder <! (tmp80B := AST.cast CastKind.IntToFloat 80<rt> tmp64)
+  builder <! (tmp80A := AST.fdiv (AST.fdiv st0 st1) tmp80B)
+  builder <! (tmp64 := AST.cast CastKind.FtoITrunc 64<rt> tmp80A)
+  builder <! (tmp80A := AST.cast CastKind.IntToFloat 80<rt> tmp64)
+  builder <! (tmp80A := AST.fsub st0 (AST.fmul st1 (AST.fmul tmp80A tmp80B)))
   assignFPUReg R.ST0 tmp80A ctxt builder
   builder <! (LMark lblExit)
   endMark insAddr insLen builder
 
 let frndint _ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (32)
+  let builder = StmtBuilder (32)
   let st0 = fpuRegValue ctxt R.ST0
-  let tmp = tmpVar 80<rt>
-  let tmp1 = tmpVar 64<rt>
-  let tmp2 = tmpVar 2<rt>
+  let tmp = AST.tmpvar 80<rt>
+  let tmp1 = AST.tmpvar 64<rt>
+  let tmp2 = AST.tmpvar 2<rt>
   let num2 = numI32 2 2<rt>
-  let cstK castKind = cast castKind 64<rt> st0
+  let cstK castKind = AST.cast castKind 64<rt> st0
   startMark insAddr insLen builder
-  builder <! (tmp2 := extract (getRegVar ctxt R.FCW) 2<rt> 10)
-  builder <! (tmp1 := ite (tmp2 == num0 2<rt>)
+  builder <! (tmp2 := AST.extract (getRegVar ctxt R.FCW) 2<rt> 10)
+  builder <! (tmp1 := AST.ite (tmp2 == AST.num0 2<rt>)
     (cstK CastKind.FtoIRound) (cstK CastKind.FtoITrunc))
-  builder <! (tmp1 := ite (tmp2 == num1 2<rt>) (cstK CastKind.FtoIFloor) tmp1)
-  builder <! (tmp1 := ite (tmp2 == num2) (cstK CastKind.FtoICeil) tmp1)
-  builder <! (tmp := cast CastKind.IntToFloat 80<rt> tmp1)
+  builder <! (tmp1 := AST.ite (tmp2 == AST.num1 2<rt>) (cstK CastKind.FtoIFloor) tmp1)
+  builder <! (tmp1 := AST.ite (tmp2 == num2) (cstK CastKind.FtoICeil) tmp1)
+  builder <! (tmp := AST.cast CastKind.IntToFloat 80<rt> tmp1)
   assignFPUReg R.ST0 tmp ctxt builder
-  builder <! (getRegVar ctxt R.FSWC1 := ite (tmp2 == num2) b1 b0)
+  builder <! (getRegVar ctxt R.FSWC1 := AST.ite (tmp2 == num2) AST.b1 AST.b0)
   cflagsUndefined023 ctxt builder
   endMark insAddr insLen builder
 
 let fscale _ins insAddr insLen ctxt =
   let builder = StmtBuilder (16)
   let tmp1, tmp2 = tmpVars2 64<rt>
-  let tmp3 = tmpVar 80<rt>
+  let tmp3 = AST.tmpvar 80<rt>
   let st0 = fpuRegValue ctxt R.ST0
   let st1 = fpuRegValue ctxt R.ST1
   startMark insAddr insLen builder
-  builder <! (tmp1 := cast CastKind.FtoITrunc 64<rt> st1)
+  builder <! (tmp1 := AST.cast CastKind.FtoITrunc 64<rt> st1)
   builder <! (tmp2 := numI32 1 64<rt> << tmp1)
-  builder <! (tmp3 := cast CastKind.IntToFloat 80<rt> tmp2)
-  builder <! (tmp3 := fmul st0 tmp3)
+  builder <! (tmp3 := AST.cast CastKind.IntToFloat 80<rt> tmp2)
+  builder <! (tmp3 := AST.fmul st0 tmp3)
   assignFPUReg R.ST0 tmp3 ctxt builder
   checkC1Flag ctxt builder R.FTW6
   cflagsUndefined023 ctxt builder
   endMark insAddr insLen builder
 
 let fsin ins insAddr insLen ctxt =
-  ftrig ins insAddr insLen ctxt fSin
+  ftrig ins insAddr insLen ctxt AST.fsin
 
 let fsincos _ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (64)
+  let builder = StmtBuilder (64)
   let st0 = fpuRegValue ctxt R.ST0
   let c0 = getRegVar ctxt R.FSWC0
   let c1 = getRegVar ctxt R.FSWC1
   let c2 = getRegVar ctxt R.FSWC2
   let c3 = getRegVar ctxt R.FSWC3
-  let float80SignUnmask = BitVector.signedMax 80<rt> |> num
+  let float80SignUnmask = BitVector.signedMax 80<rt> |> AST.num
   let maxLimit = numI64 (1L <<< 63) 64<rt>
-  let maxFloat = cast CastKind.IntToFloat 80<rt> maxLimit
-  let num3 = BitVector.ofInt32 3 2<rt> |> num
-  let lblOutOfRange = lblSymbol "IsOutOfRange"
-  let lblInRange = lblSymbol "IsInRange"
+  let maxFloat = AST.cast CastKind.IntToFloat 80<rt> maxLimit
+  let num3 = BitVector.ofInt32 3 2<rt> |> AST.num
+  let lblOutOfRange = AST.symbol "IsOutOfRange"
+  let lblInRange = AST.symbol "IsInRange"
   let tmp1, tmp2 = tmpVars2 80<rt>
   startMark insAddr insLen builder
   builder <! (tmp1 := st0 .& float80SignUnmask)
-  builder <! (CJmp (flt tmp1 maxFloat, Name lblInRange, Name lblOutOfRange ))
+  builder <! (CJmp (AST.flt tmp1 maxFloat, Name lblInRange, Name lblOutOfRange ))
   builder <! (LMark lblInRange)
-  builder <! (tmp1 := fCos st0)
-  builder <! (tmp2 := fSin st0)
+  builder <! (tmp1 := AST.fcos st0)
+  builder <! (tmp2 := AST.fsin st0)
   assignFPUReg R.ST0 tmp2 ctxt builder
-  builder <! (c1 := ite (getRegVar ctxt R.FTW7 == num3) b0 c1)
-  builder <! (c2 := b0)
+  builder <! (c1 := AST.ite (getRegVar ctxt R.FTW7 == num3) AST.b0 c1)
+  builder <! (c2 := AST.b0)
   builder <! (c0 := undefC0)
   builder <! (c3 := undefC3)
   checkFPUOnLoad ctxt builder
@@ -3377,21 +3383,21 @@ let fsincos _ins insAddr insLen ctxt =
   assignFPUReg R.ST0 tmp1 ctxt builder
   updateTagWordOnLoad ctxt builder
   builder <! (LMark lblOutOfRange)
-  builder <! (c2 := b1)
+  builder <! (c2 := AST.b1)
   builder <! (c0 := undefC0)
   builder <! (c1 := undefC1)
   builder <! (c3 := undefC3)
   endMark insAddr insLen builder
 
 let ffst ins insAddr insLen ctxt doPop =
-  let builder = new StmtBuilder (32)
+  let builder = StmtBuilder (32)
   let opr = getOneOpr ins
   let oprExpr = transOprToExpr ins insAddr insLen ctxt opr
   let st0 = fpuRegValue ctxt R.ST0
   let sz = AST.typeOf oprExpr
-  let tmp = tmpVar sz
+  let tmp = AST.tmpvar sz
   startMark insAddr insLen builder
-  builder <! (tmp := cast CastKind.FloatExt sz st0)
+  builder <! (tmp := AST.cast CastKind.FloatExt sz st0)
   match opr with
   | OprReg r -> assignFPUReg r tmp ctxt builder
   | _ -> builder <! (oprExpr := tmp)
@@ -3401,7 +3407,7 @@ let ffst ins insAddr insLen ctxt doPop =
   endMark insAddr insLen builder
 
 let fstcw ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let oprExpr = getOneOpr ins |> transOprToExpr ins insAddr insLen ctxt
   startMark insAddr insLen builder
   checkFPUExceptions ctxt builder
@@ -3410,7 +3416,7 @@ let fstcw ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let fstsw ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let oprExpr = getOneOpr ins |> transOprToExpr ins insAddr insLen ctxt
   startMark insAddr insLen builder
   checkFPUExceptions ctxt builder
@@ -3419,52 +3425,52 @@ let fstsw ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let ftst _ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let st0 = fpuRegValue ctxt R.ST0
-  let num0V = num0 80<rt>
+  let num0V = AST.num0 80<rt>
   let c0 = getRegVar ctxt R.FSWC0
   let c2 = getRegVar ctxt R.FSWC2
   let c3 = getRegVar ctxt R.FSWC3
-  let lblNan = lblSymbol "IsNan"
-  let lblExit = lblSymbol "Exit"
+  let lblNan = AST.symbol "IsNan"
+  let lblExit = AST.symbol "Exit"
   startMark insAddr insLen builder
-  builder <! (c0 := ite (flt st0 num0V) b1 b0)
-  builder <! (c2 := b0)
-  builder <! (c3 := ite (st0 == num0V) b1 b0)
-  let st0Exponent = extract st0 15<rt> 64
+  builder <! (c0 := AST.ite (AST.flt st0 num0V) AST.b1 AST.b0)
+  builder <! (c2 := AST.b0)
+  builder <! (c3 := AST.ite (st0 == num0V) AST.b1 AST.b0)
+  let st0Exponent = AST.extract st0 15<rt> 64
   let st0NanCond =
-    (st0Exponent == num (BitVector.unsignedMax 15<rt>))
-     .& (extractLow 62<rt> st0 != num0 62<rt>)
+    (st0Exponent == AST.num (BitVector.unsignedMax 15<rt>))
+     .& (AST.xtlo 62<rt> st0 != AST.num0 62<rt>)
   builder <! (CJmp (st0NanCond, Name lblNan, Name lblExit))
   builder <! (LMark lblNan)
-  builder <! (c0 := b1)
-  builder <! (c2 := b1)
-  builder <! (c3 := b1)
+  builder <! (c0 := AST.b1)
+  builder <! (c2 := AST.b1)
+  builder <! (c3 := AST.b1)
   builder <! (LMark lblExit)
-  builder <! (getRegVar ctxt R.FSWC1 := b0)
+  builder <! (getRegVar ctxt R.FSWC1 := AST.b0)
   endMark insAddr insLen builder
 
 let fsqrt _ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let st0 = fpuRegValue ctxt R.ST0
-  let tmp = tmpVar 80<rt>
+  let tmp = AST.tmpvar 80<rt>
   startMark insAddr insLen builder
-  builder <! (tmp := unop UnOpType.FSQRT st0)
+  builder <! (tmp := AST.unop UnOpType.FSQRT st0)
   assignFPUReg R.ST0 tmp ctxt builder
   checkC1Flag ctxt builder R.FTW7
   endMark insAddr insLen builder
 
 let fpusub ins insAddr insLen ctxt doPop =
-  fpuFBinOp ins insAddr insLen ctxt fsub doPop true
+  fpuFBinOp ins insAddr insLen ctxt AST.fsub doPop true
 
 let fsubr ins insAddr insLen ctxt doPop =
-  fpuFBinOp ins insAddr insLen ctxt fsub doPop false
+  fpuFBinOp ins insAddr insLen ctxt AST.fsub doPop false
 
 let fpuLoad insAddr insLen ctxt oprExpr =
-  let builder = new StmtBuilder (64)
-  let tmp = tmpVar 80<rt>
+  let builder = StmtBuilder (64)
+  let tmp = AST.tmpvar 80<rt>
   startMark insAddr insLen builder
-  builder <! (tmp := cast CastKind.FloatExt 80<rt> oprExpr)
+  builder <! (tmp := AST.cast CastKind.FloatExt 80<rt> oprExpr)
   checkFPUOnLoad ctxt builder
   shiftFPUStackDown ctxt builder
   assignFPUReg R.ST0 tmp ctxt builder
@@ -3477,11 +3483,11 @@ let fld ins insAddr insLen ctxt =
   fpuLoad insAddr insLen ctxt oprExpr
 
 let fld1 _ins insAddr insLen ctxt =
-  let oprExpr = BitVector.ofUInt64 0x3FF0000000000000UL 64<rt> |> num
+  let oprExpr = BitVector.ofUInt64 0x3FF0000000000000UL 64<rt> |> AST.num
   fpuLoad insAddr insLen ctxt oprExpr
 
 let fldcw ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let oprExpr = getOneOpr ins |> transOprToExpr ins insAddr insLen ctxt
   startMark insAddr insLen builder
   builder <! (getRegVar ctxt R.FCW := oprExpr)
@@ -3492,105 +3498,105 @@ let fldcw ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let fldl2t _ins insAddr insLen ctxt =
-  let oprExpr = BitVector.ofUInt64 4614662735865160561UL 64<rt> |> num
+  let oprExpr = BitVector.ofUInt64 4614662735865160561UL 64<rt> |> AST.num
   fpuLoad insAddr insLen ctxt oprExpr
 
 let fldl2e _ins insAddr insLen ctxt =
-  let oprExpr = BitVector.ofUInt64 4599094494223104509UL 64<rt> |> num
+  let oprExpr = BitVector.ofUInt64 4599094494223104509UL 64<rt> |> AST.num
   fpuLoad insAddr insLen ctxt oprExpr
 
 let fldpi _ins insAddr insLen ctxt =
-  let oprExpr = BitVector.ofUInt64 4614256656552045848UL 64<rt> |> num
+  let oprExpr = BitVector.ofUInt64 4614256656552045848UL 64<rt> |> AST.num
   fpuLoad insAddr insLen ctxt oprExpr
 
 let fldlg2 _ins insAddr insLen ctxt =
-  let oprExpr = BitVector.ofUInt64 4599094494223104511UL 64<rt> |> num
+  let oprExpr = BitVector.ofUInt64 4599094494223104511UL 64<rt> |> AST.num
   fpuLoad insAddr insLen ctxt oprExpr
 
 let fldln2 _ins insAddr insLen ctxt =
-  let oprExpr = BitVector.ofUInt64 4604418534313441775UL 64<rt> |> num
+  let oprExpr = BitVector.ofUInt64 4604418534313441775UL 64<rt> |> AST.num
   fpuLoad insAddr insLen ctxt oprExpr
 
 let fldz _ins insAddr insLen ctxt =
-  let oprExpr = num0 64<rt>
+  let oprExpr = AST.num0 64<rt>
   fpuLoad insAddr insLen ctxt oprExpr
 
 let m14Stenv dst ctxt builder =
   let v r = getRegVar ctxt r
-  let tmp = tmpVar 112<rt>
-  builder <! (tmp := num0 112<rt>)
-  builder <! (extractLow 48<rt> tmp := concat (v R.FCW)
-                                        (concat (v R.FSW) (v R.FTW)))
-  builder <! (extract tmp 16<rt> 48 := extractLow 16<rt> (v R.FIP))
-  builder <! (extract tmp 11<rt> 64 := extractLow 11<rt> (v R.FOP))
-  builder <! (extract tmp 4<rt> 76 := extract (v R.FIP) 4<rt> 16)
-  builder <! (extract tmp 16<rt> 80 := extractLow 16<rt> (v R.FDP))
-  builder <! (extractHigh 4<rt> tmp := extract (v R.FDP) 4<rt> 16)
+  let tmp = AST.tmpvar 112<rt>
+  builder <! (tmp := AST.num0 112<rt>)
+  builder <! (AST.xtlo 48<rt> tmp := AST.concat (v R.FCW)
+                                        (AST.concat (v R.FSW) (v R.FTW)))
+  builder <! (AST.extract tmp 16<rt> 48 := AST.xtlo 16<rt> (v R.FIP))
+  builder <! (AST.extract tmp 11<rt> 64 := AST.xtlo 11<rt> (v R.FOP))
+  builder <! (AST.extract tmp 4<rt> 76 := AST.extract (v R.FIP) 4<rt> 16)
+  builder <! (AST.extract tmp 16<rt> 80 := AST.xtlo 16<rt> (v R.FDP))
+  builder <! (AST.xthi 4<rt> tmp := AST.extract (v R.FDP) 4<rt> 16)
   builder <! (dst := tmp)
 
 let m14fldenv src ctxt builder =
   let v r = getRegVar ctxt r
-  let tmp = tmpVar 112<rt>
+  let tmp = AST.tmpvar 112<rt>
   builder <! (tmp := src)
-  builder <! (v R.FCW := extractLow 16<rt> tmp)
-  builder <! (v R.FSW := extract tmp 16<rt> 16)
-  builder <! (v R.FTW := extract tmp 16<rt> 32)
-  builder <! (extractLow 16<rt> (v R.FIP) := extract tmp 16<rt> 48)
-  builder <! (extractLow 11<rt> (v R.FOP) := extract tmp 11<rt> 64)
-  builder <! (extract (v R.FIP) 4<rt> 16 := extract tmp 4<rt> 76)
-  builder <! (extractLow 16<rt> (v R.FDP) := extract tmp 16<rt> 80)
-  builder <! (extract (v R.FDP) 4<rt> 16 := extractHigh 4<rt> tmp)
+  builder <! (v R.FCW := AST.xtlo 16<rt> tmp)
+  builder <! (v R.FSW := AST.extract tmp 16<rt> 16)
+  builder <! (v R.FTW := AST.extract tmp 16<rt> 32)
+  builder <! (AST.xtlo 16<rt> (v R.FIP) := AST.extract tmp 16<rt> 48)
+  builder <! (AST.xtlo 11<rt> (v R.FOP) := AST.extract tmp 11<rt> 64)
+  builder <! (AST.extract (v R.FIP) 4<rt> 16 := AST.extract tmp 4<rt> 76)
+  builder <! (AST.xtlo 16<rt> (v R.FDP) := AST.extract tmp 16<rt> 80)
+  builder <! (AST.extract (v R.FDP) 4<rt> 16 := AST.xthi 4<rt> tmp)
 
 let m28fldenv src ctxt builder =
   let v r = getRegVar ctxt r
-  let tmp = tmpVar 224<rt>
+  let tmp = AST.tmpvar 224<rt>
   builder <! (tmp := src)
-  builder <! (v R.FCW := extractLow 16<rt> tmp)
-  builder <! (v R.FSW := extract tmp 16<rt> 32)
-  builder <! (v R.FTW := extract tmp 16<rt> 64)
-  builder <! (extractLow 16<rt> (v R.FIP) := extract tmp 16<rt> 96)
-  builder <! (extractLow 11<rt> (v R.FOP) := extract tmp 11<rt> 128)
-  builder <! (extract (v R.FIP) 16<rt> 16 := extract tmp 16<rt> 139)
-  builder <! (extractLow 16<rt> (v R.FDP) := extract tmp 16<rt> 160)
-  builder <! (extract (v R.FDP) 16<rt> 16 := extract tmp 16<rt> 204)
+  builder <! (v R.FCW := AST.xtlo 16<rt> tmp)
+  builder <! (v R.FSW := AST.extract tmp 16<rt> 32)
+  builder <! (v R.FTW := AST.extract tmp 16<rt> 64)
+  builder <! (AST.xtlo 16<rt> (v R.FIP) := AST.extract tmp 16<rt> 96)
+  builder <! (AST.xtlo 11<rt> (v R.FOP) := AST.extract tmp 11<rt> 128)
+  builder <! (AST.extract (v R.FIP) 16<rt> 16 := AST.extract tmp 16<rt> 139)
+  builder <! (AST.xtlo 16<rt> (v R.FDP) := AST.extract tmp 16<rt> 160)
+  builder <! (AST.extract (v R.FDP) 16<rt> 16 := AST.extract tmp 16<rt> 204)
 
 let m28fstenv dst ctxt builder =
   let v r = getRegVar ctxt r
-  let tmp = tmpVar 224<rt>
-  builder <! (tmp := num0 224<rt>)
-  builder <! (extractLow 16<rt> tmp := v R.FCW)
-  builder <! (extract tmp 16<rt> 32 := v R.FSW)
-  builder <! (extract tmp 16<rt> 64 := v R.FTW)
-  builder <! (extract tmp 16<rt> 96 := extractLow 16<rt> (v R.FIP))
-  builder <! (extract tmp 11<rt> 128 := extractLow 11<rt> (v R.FOP))
-  builder <! (extract tmp 16<rt> 139 := extract (v R.FIP) 16<rt> 16)
-  builder <! (extract tmp 16<rt> 160 := extractLow 16<rt> (v R.FDP))
-  builder <! (extract tmp 16<rt> 204 := extract (v R.FDP) 16<rt> 16)
+  let tmp = AST.tmpvar 224<rt>
+  builder <! (tmp := AST.num0 224<rt>)
+  builder <! (AST.xtlo 16<rt> tmp := v R.FCW)
+  builder <! (AST.extract tmp 16<rt> 32 := v R.FSW)
+  builder <! (AST.extract tmp 16<rt> 64 := v R.FTW)
+  builder <! (AST.extract tmp 16<rt> 96 := AST.xtlo 16<rt> (v R.FIP))
+  builder <! (AST.extract tmp 11<rt> 128 := AST.xtlo 11<rt> (v R.FOP))
+  builder <! (AST.extract tmp 16<rt> 139 := AST.extract (v R.FIP) 16<rt> 16)
+  builder <! (AST.extract tmp 16<rt> 160 := AST.xtlo 16<rt> (v R.FDP))
+  builder <! (AST.extract tmp 16<rt> 204 := AST.extract (v R.FDP) 16<rt> 16)
   builder <! (dst := tmp)
 
 let ldSts src ctxt builder =
-  assignFPUReg R.ST0 (extractLow 80<rt> src) ctxt builder
-  assignFPUReg R.ST1 (extract src 80<rt> 80) ctxt builder
-  assignFPUReg R.ST2 (extract src 80<rt> 160) ctxt builder
-  assignFPUReg R.ST3 (extract src 80<rt> 240) ctxt builder
-  assignFPUReg R.ST4 (extract src 80<rt> 320) ctxt builder
-  assignFPUReg R.ST5 (extract src 80<rt> 400) ctxt builder
-  assignFPUReg R.ST6 (extract src 80<rt> 480) ctxt builder
-  assignFPUReg R.ST7 (extract src 80<rt> 560) ctxt builder
+  assignFPUReg R.ST0 (AST.xtlo 80<rt> src) ctxt builder
+  assignFPUReg R.ST1 (AST.extract src 80<rt> 80) ctxt builder
+  assignFPUReg R.ST2 (AST.extract src 80<rt> 160) ctxt builder
+  assignFPUReg R.ST3 (AST.extract src 80<rt> 240) ctxt builder
+  assignFPUReg R.ST4 (AST.extract src 80<rt> 320) ctxt builder
+  assignFPUReg R.ST5 (AST.extract src 80<rt> 400) ctxt builder
+  assignFPUReg R.ST6 (AST.extract src 80<rt> 480) ctxt builder
+  assignFPUReg R.ST7 (AST.extract src 80<rt> 560) ctxt builder
 
 let stSts dst ctxt builder =
   let v r = getRegVar ctxt r
-  builder <! (extractLow 80<rt> dst := v R.ST0)
-  builder <! (extract dst 80<rt> 80 := v R.ST1)
-  builder <! (extract dst 80<rt> 160 := v R.ST2)
-  builder <! (extract dst 80<rt> 240 := v R.ST3)
-  builder <! (extract dst 80<rt> 320 := v R.ST4)
-  builder <! (extract dst 80<rt> 400 := v R.ST5)
-  builder <! (extract dst 80<rt> 480 := v R.ST6)
-  builder <! (extract dst 80<rt> 560 := v R.ST7)
+  builder <! (AST.xtlo 80<rt> dst := v R.ST0)
+  builder <! (AST.extract dst 80<rt> 80 := v R.ST1)
+  builder <! (AST.extract dst 80<rt> 160 := v R.ST2)
+  builder <! (AST.extract dst 80<rt> 240 := v R.ST3)
+  builder <! (AST.extract dst 80<rt> 320 := v R.ST4)
+  builder <! (AST.extract dst 80<rt> 400 := v R.ST5)
+  builder <! (AST.extract dst 80<rt> 480 := v R.ST6)
+  builder <! (AST.extract dst 80<rt> 560 := v R.ST7)
 
 let fldenv ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let src = getOneOpr ins |> transOprToExpr ins insAddr insLen ctxt
   startMark insAddr insLen builder
   match AST.typeOf src with
@@ -3600,35 +3606,35 @@ let fldenv ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let frstor ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (32)
+  let builder = StmtBuilder (32)
   let src = getOneOpr ins |> transOprToExpr ins insAddr insLen ctxt
   startMark insAddr insLen builder
   match AST.typeOf src with
   | 752<rt> ->
-    m14fldenv (extractLow 112<rt> src) ctxt builder
+    m14fldenv (AST.xtlo 112<rt> src) ctxt builder
   | 864<rt> ->
-    m28fldenv (extractLow 224<rt> src) ctxt builder
+    m28fldenv (AST.xtlo 224<rt> src) ctxt builder
   | _ -> raise InvalidOperandSizeException
-  ldSts (extractHigh 640<rt> src) ctxt builder
+  ldSts (AST.xthi 640<rt> src) ctxt builder
   endMark insAddr insLen builder
 
 let fsave ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (32)
+  let builder = StmtBuilder (32)
   let dst = getOneOpr ins |> transOprToExpr ins insAddr insLen ctxt
   let v r = getRegVar ctxt r
   startMark insAddr insLen builder
-  m14Stenv (extractLow 112<rt> dst) ctxt builder
-  stSts (extractHigh 640<rt> dst) ctxt builder
+  m14Stenv (AST.xtlo 112<rt> dst) ctxt builder
+  stSts (AST.xthi 640<rt> dst) ctxt builder
   builder <! (v R.FCW := numI32 0x037F 16<rt>)
-  builder <! (v R.FSW := num0 16<rt>)
+  builder <! (v R.FSW := AST.num0 16<rt>)
   builder <! (v R.FTW := numI32 0xFFFF 16<rt>)
-  builder <! (v R.FDP := num0 16<rt>)
-  builder <! (v R.FIP := num0 16<rt>)
-  builder <! (v R.FOP := num0 16<rt>)
+  builder <! (v R.FDP := AST.num0 16<rt>)
+  builder <! (v R.FIP := AST.num0 16<rt>)
+  builder <! (v R.FOP := AST.num0 16<rt>)
   endMark insAddr insLen builder
 
 let fstenv ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst = getOneOpr ins |> transOprToExpr ins insAddr insLen ctxt
   startMark insAddr insLen builder
   match AST.typeOf dst with
@@ -3638,38 +3644,38 @@ let fstenv ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let fxam _ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let st0 = fpuRegValue ctxt R.ST0
-  let exponent = extract st0 15<rt> 64
-  let maxExponent = BitVector.unsignedMax 15<rt> |> num
+  let exponent = AST.extract st0 15<rt> 64
+  let maxExponent = BitVector.unsignedMax 15<rt> |> AST.num
   let tag7 = getRegVar ctxt R.FTW7
   let nanCond =
-    (exponent == maxExponent) .& (extractLow 62<rt> st0 != num0 62<rt>)
-  let c3Cond1 = (tag7 == numI32 3 2<rt>) .| (exponent == num0 15<rt>)
-  let c2Cond0 = (tag7 == numI32 3 2<rt>) .| (st0 == num0 80<rt>) .| nanCond
+    (exponent == maxExponent) .& (AST.xtlo 62<rt> st0 != AST.num0 62<rt>)
+  let c3Cond1 = (tag7 == numI32 3 2<rt>) .| (exponent == AST.num0 15<rt>)
+  let c2Cond0 = (tag7 == numI32 3 2<rt>) .| (st0 == AST.num0 80<rt>) .| nanCond
   let c0Cond1 = (tag7 == numI32 3 2<rt>) .| (exponent == maxExponent)
   startMark insAddr insLen builder
-  builder <! (getRegVar ctxt R.FSWC1 := extractHigh 1<rt> st0)
-  builder <! (getRegVar ctxt R.FSWC3 := ite (c3Cond1) b1 b0)
-  builder <! (getRegVar ctxt R.FSWC2 := ite (c2Cond0) b0 b1)
-  builder <! (getRegVar ctxt R.FSWC0 := ite (c0Cond1) b1 b0)
+  builder <! (getRegVar ctxt R.FSWC1 := AST.xthi 1<rt> st0)
+  builder <! (getRegVar ctxt R.FSWC3 := AST.ite (c3Cond1) AST.b1 AST.b0)
+  builder <! (getRegVar ctxt R.FSWC2 := AST.ite (c2Cond0) AST.b0 AST.b1)
+  builder <! (getRegVar ctxt R.FSWC0 := AST.ite (c0Cond1) AST.b1 AST.b0)
   endMark insAddr insLen builder
 
 let fxtract _ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (64)
+  let builder = StmtBuilder (64)
   let st0 = fpuRegValue ctxt R.ST0
-  let tmp = tmpVar 80<rt>
-  let exponent = tmpVar 64<rt>
-  let significand = tmpVar 80<rt>
+  let tmp = AST.tmpvar 80<rt>
+  let exponent = AST.tmpvar 64<rt>
+  let significand = AST.tmpvar 80<rt>
   startMark insAddr insLen builder
-  builder <! (exponent := num0 64<rt>)
-  builder <! (significand := num0 80<rt>)
-  builder <! (extractLow 64<rt> significand := extractLow 64<rt> st0)
-  builder <! (extractHigh 1<rt> significand := extractHigh 1<rt> st0)
-  builder <! (extract significand 15<rt> 64 := numI32 16383 15<rt>)
-  builder <! (extractLow 15<rt> exponent := extract st0 15<rt> 64)
+  builder <! (exponent := AST.num0 64<rt>)
+  builder <! (significand := AST.num0 80<rt>)
+  builder <! (AST.xtlo 64<rt> significand := AST.xtlo 64<rt> st0)
+  builder <! (AST.xthi 1<rt> significand := AST.xthi 1<rt> st0)
+  builder <! (AST.extract significand 15<rt> 64 := numI32 16383 15<rt>)
+  builder <! (AST.xtlo 15<rt> exponent := AST.extract st0 15<rt> 64)
   builder <! (exponent := exponent .- numI32 16383 64<rt>)
-  builder <! (tmp := cast CastKind.IntToFloat 80<rt> exponent)
+  builder <! (tmp := AST.cast CastKind.IntToFloat 80<rt> exponent)
   assignFPUReg R.ST0 tmp ctxt builder
   checkFPUOnLoad ctxt builder
   shiftFPUStackDown ctxt builder
@@ -3680,14 +3686,14 @@ let fxtract _ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let fyl2x _ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (64)
+  let builder = StmtBuilder (64)
   let st0 = fpuRegValue ctxt R.ST0
   let st1 = fpuRegValue ctxt R.ST1
-  let flt2 = numI32 2 32<rt> |> cast CastKind.IntToFloat 80<rt>
+  let flt2 = numI32 2 32<rt> |> AST.cast CastKind.IntToFloat 80<rt>
   let t1, t2 = tmpVars2 80<rt>
   startMark insAddr insLen builder
-  builder <! (t1 := flog flt2 st0)
-  builder <! (t2 := fmul st1 t1)
+  builder <! (t1 := AST.flog flt2 st0)
+  builder <! (t2 := AST.fmul st1 t1)
   assignFPUReg R.ST1 t2 ctxt builder
   popFPUStack ctxt builder
   checkC1Flag ctxt builder R.FTW6
@@ -3695,15 +3701,15 @@ let fyl2x _ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let fyl2xp1 _ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (64)
+  let builder = StmtBuilder (64)
   let st0 = fpuRegValue ctxt R.ST0
   let st1 = fpuRegValue ctxt R.ST1
-  let flt2 = numI32 2 32<rt> |> cast CastKind.IntToFloat 80<rt>
-  let f1 = numI32 1 32<rt> |> cast CastKind.IntToFloat 80<rt>
-  let tmp = tmpVar 80<rt>
+  let flt2 = numI32 2 32<rt> |> AST.cast CastKind.IntToFloat 80<rt>
+  let f1 = numI32 1 32<rt> |> AST.cast CastKind.IntToFloat 80<rt>
+  let tmp = AST.tmpvar 80<rt>
   startMark insAddr insLen builder
-  builder <! (tmp := fadd f1 (flog flt2 st0))
-  builder <! (tmp := fmul st1 tmp)
+  builder <! (tmp := AST.fadd f1 (AST.flog flt2 st0))
+  builder <! (tmp := AST.fmul st1 tmp)
   assignFPUReg R.ST1 tmp ctxt builder
   popFPUStack ctxt builder
   checkC1Flag ctxt builder R.FTW6
@@ -3711,7 +3717,7 @@ let fyl2xp1 _ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let fxrstor ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (128)
+  let builder = StmtBuilder (128)
   let src = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
   let eSrc = extendAddr src 64<rt>
   startMark insAddr insLen builder
@@ -3722,8 +3728,8 @@ let fxrstor ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let fxch ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
-  let tmp = tmpVar 80<rt>
+  let builder = StmtBuilder (16)
+  let tmp = AST.tmpvar 80<rt>
   let st0 = fpuRegValue ctxt R.ST0
   startMark insAddr insLen builder
   match ins.Operands with
@@ -3738,12 +3744,12 @@ let fxch ins insAddr insLen ctxt =
       assignFPUReg R.ST0 st1 ctxt builder
       assignFPUReg R.ST1 tmp ctxt builder
   | _ -> raise InvalidOperandException
-  builder <! (getRegVar ctxt R.FSWC1 := b0)
+  builder <! (getRegVar ctxt R.FSWC1 := AST.b0)
   cflagsUndefined023 ctxt builder
   endMark insAddr insLen builder
 
 let fxsave ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (128)
+  let builder = StmtBuilder (128)
   let dst = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
   let eDst = extendAddr dst 64<rt>
   startMark insAddr insLen builder
@@ -3754,7 +3760,7 @@ let fxsave ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let imul ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let oprSize = getOperationSize ins
   startMark insAddr insLen builder
   match ins.Operands with
@@ -3768,13 +3774,13 @@ let imul ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let inc ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   let t1, t2, t3 = tmpVars3 oprSize
   startMark insAddr insLen builder
   builder <! (t1 := dst)
-  builder <! (t2 := num1 oprSize)
+  builder <! (t2 := AST.num1 oprSize)
   builder <! (t3 := (t1 .+ t2))
   builder <! (dstAssign oprSize dst t3)
   builder <! (getRegVar ctxt R.OF := getOFlagOnAdd t1 t2 t3)
@@ -3782,16 +3788,16 @@ let inc ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let insinstr ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   startMark insAddr insLen builder
   let body () =
     let oprSize = getOperationSize ins
     let df = getRegVar ctxt R.DF
     let di = getRegVar ctxt (if is64bit ctxt then R.RDI else R.EDI)
-    let src = zExt ctxt.WordBitSize (getRegVar ctxt R.DX)
-    builder <! (loadLE ctxt.WordBitSize di := src)
+    let src = AST.zext ctxt.WordBitSize (getRegVar ctxt R.DX)
+    builder <! (AST.loadLE ctxt.WordBitSize di := src)
     let amount = numI32 (RegType.toByteWidth oprSize) ctxt.WordBitSize
-    builder <! (di := ite df (di .- amount) (di .+ amount))
+    builder <! (di := AST.ite df (di .- amount) (di .+ amount))
   if hasREPZ ins.Prefixes then
     strRepeat ctxt body None insAddr insLen builder
   elif hasREPNZ ins.Prefixes then Utils.impossible ()
@@ -3804,19 +3810,19 @@ let interrupt ins insAddr insLen ctxt =
   | _ -> raise InvalidOperandException
 
 let jcc ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let pc = getInstrPtr ctxt
   let jmpTarget = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   let cond = getCondOfJcc ins ctxt oprSize
   let fallThrough =
-    bvOfBaseAddr insAddr ctxt .+ bvOfInstrLen insLen ctxt
+    numAddr insAddr ctxt .+ numInsLen insLen ctxt
   startMark insAddr insLen builder
   builder <! (InterCJmp (cond, pc, jmpTarget, fallThrough))
   endMark insAddr insLen builder
 
 let jmp ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let opr = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
   let pc = getInstrPtr ctxt
   startMark insAddr insLen builder
@@ -3826,7 +3832,7 @@ let jmp ins insAddr insLen ctxt =
 let lddqu ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
 
 let lea ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   let src = convertSrc src
@@ -3836,14 +3842,14 @@ let lea ins insAddr insLen ctxt =
   | 16<rt>, 16<rt> | 32<rt>, 32<rt> | 64<rt>, 64<rt> ->
     builder <! (dstAssign oprSize dst src)
   | 16<rt>, 32<rt> | 16<rt>, 64<rt> ->
-    builder <! (dstAssign oprSize dst (extractLow 16<rt> src))
-  | 32<rt>, 16<rt> -> builder <! (dstAssign oprSize dst (zExt 32<rt> src))
-  | 32<rt>, 64<rt> -> builder <! (dstAssign oprSize dst (extractLow 32<rt> src))
+    builder <! (dstAssign oprSize dst (AST.xtlo 16<rt> src))
+  | 32<rt>, 16<rt> -> builder <! (dstAssign oprSize dst (AST.zext 32<rt> src))
+  | 32<rt>, 64<rt> -> builder <! (dstAssign oprSize dst (AST.xtlo 32<rt> src))
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
 let leave ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let sp = getStackPtr ctxt
   let bp = getBasePtr ctxt
   startMark insAddr insLen builder
@@ -3852,16 +3858,16 @@ let leave ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let lods ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   startMark insAddr insLen builder
   let body () =
     let oprSize = getOperationSize ins
     let df = getRegVar ctxt R.DF
     let di = getRegVar ctxt (if is64bit ctxt then R.RDI else R.EDI)
     let dst = getRegOfSize ctxt oprSize grpEAX
-    builder <! (dst := loadLE oprSize di)
+    builder <! (dst := AST.loadLE oprSize di)
     let amount = numI32 (RegType.toByteWidth oprSize) ctxt.WordBitSize
-    builder <! (di := ite df (di .- amount) (di .+ amount))
+    builder <! (di := AST.ite df (di .- amount) (di .+ amount))
   if hasREPZ ins.Prefixes then
     strRepeat ctxt body None insAddr insLen builder
   elif hasREPNZ ins.Prefixes then Utils.impossible ()
@@ -3869,14 +3875,14 @@ let lods ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let ldmxcsr ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let src = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
   startMark insAddr insLen builder
   builder <! (getRegVar ctxt R.MXCSR := src)
   endMark insAddr insLen builder
 
 let loop ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
   let addrSize = getEffAddrSz ins
   let oprSize = getOperationSize ins
@@ -3887,42 +3893,42 @@ let loop ins insAddr insLen ctxt =
     else getRegVar ctxt R.CX, 16<rt>
   let zf = getRegVar ctxt R.ZF
   startMark insAddr insLen builder
-  builder <! (count := count .- num1 cntSize)
+  builder <! (count := count .- AST.num1 cntSize)
   let branchCond =
     match ins.Opcode with
-    | Opcode.LOOP -> count != num0 cntSize
-    | Opcode.LOOPE -> (zf == b1) .& (count != num0 cntSize)
-    | Opcode.LOOPNE -> (zf == b0) .& (count != num0 cntSize)
+    | Opcode.LOOP -> count != AST.num0 cntSize
+    | Opcode.LOOPE -> (zf == AST.b1) .& (count != AST.num0 cntSize)
+    | Opcode.LOOPNE -> (zf == AST.b0) .& (count != AST.num0 cntSize)
     | _ -> raise InvalidOpcodeException
-  let fallThrough = bvOfBaseAddr insAddr ctxt .+ bvOfInstrLen insLen ctxt
+  let fallThrough = numAddr insAddr ctxt .+ numInsLen insLen ctxt
   let jumpTarget = if oprSize = 16<rt> then pc .& numI32 0xFFFF 32<rt>
-                   else sExt oprSize dst
+                   else AST.sext oprSize dst
   builder <! (InterCJmp (branchCond, pc, jumpTarget, fallThrough))
   endMark insAddr insLen builder
 
 let lzcnt ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
-  let lblLoop = lblSymbol "Loop"
-  let lblExit = lblSymbol "Exit"
-  let lblLoopCond = lblSymbol "LoopCond"
+  let builder = StmtBuilder (16)
+  let lblLoop = AST.symbol "Loop"
+  let lblExit = AST.symbol "Exit"
+  let lblLoopCond = AST.symbol "LoopCond"
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
-  let num0 = num0 oprSize
+  let n = AST.num0 oprSize
   startMark insAddr insLen builder
-  let temp = tmpVar oprSize
+  let temp = AST.tmpvar oprSize
   builder <! (temp := numI32 (RegType.toBitWidth oprSize - 1) oprSize)
-  builder <! (dst := num0)
+  builder <! (dst := n)
   builder <! (LMark lblLoopCond)
-  let cond1 = (ge temp num0) .& ((extractLow 1<rt> (src >> temp)) == b0)
+  let cond1 = (AST.ge temp n) .& ((AST.xtlo 1<rt> (src >> temp)) == AST.b0)
   builder <! (CJmp (cond1, Name lblLoop, Name lblExit))
   builder <! (LMark lblLoop)
-  builder <! (temp := temp .- num1 oprSize)
-  builder <! (dst := dst .+ num1 oprSize)
+  builder <! (temp := temp .- AST.num1 oprSize)
+  builder <! (dst := dst .+ AST.num1 oprSize)
   builder <! (Jmp (Name lblLoopCond))
   builder <! (LMark lblExit)
   let oprSize = numI32 (RegType.toBitWidth oprSize) oprSize
   builder <! (getRegVar ctxt R.CF := dst == oprSize)
-  builder <! (getRegVar ctxt R.ZF := dst == num0)
+  builder <! (getRegVar ctxt R.ZF := dst == n)
   builder <! (getRegVar ctxt R.OF := undefOF)
   builder <! (getRegVar ctxt R.SF := undefSF)
   builder <! (getRegVar ctxt R.PF := undefPF)
@@ -3930,33 +3936,33 @@ let lzcnt ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let minMaxPD ins insAddr insLen ctxt compare =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
   let val2, val1 = tmpVars2 64<rt>
   startMark insAddr insLen builder
-  builder <! (val1 := ite (compare dst1 src1) dst1 src1)
-  builder <! (val2 := ite (compare dst2 src2) dst2 src2)
+  builder <! (val1 := AST.ite (compare dst1 src1) dst1 src1)
+  builder <! (val2 := AST.ite (compare dst2 src2) dst2 src2)
   builder <! (dst1 := val1)
   builder <! (dst2 := val2)
   endMark insAddr insLen builder
 
 let minMaxPS ins insAddr insLen ctxt compare =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst, src = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
-  let dst1A, dst1B = extractLow 32<rt> dst1, extractHigh 32<rt> dst1
-  let dst2A, dst2B = extractLow 32<rt> dst2, extractHigh 32<rt> dst2
-  let src1A, src1B = extractLow 32<rt> src1, extractHigh 32<rt> src1
-  let src2A, src2B = extractLow 32<rt> src2, extractHigh 32<rt> src2
+  let dst1A, dst1B = AST.xtlo 32<rt> dst1, AST.xthi 32<rt> dst1
+  let dst2A, dst2B = AST.xtlo 32<rt> dst2, AST.xthi 32<rt> dst2
+  let src1A, src1B = AST.xtlo 32<rt> src1, AST.xthi 32<rt> src1
+  let src2A, src2B = AST.xtlo 32<rt> src2, AST.xthi 32<rt> src2
   let val4, val3, val2, val1 = tmpVars4 32<rt>
   startMark insAddr insLen builder
-  builder <! (val1 := ite (compare dst1A src1A) dst1A src1A)
-  builder <! (val2 := ite (compare dst1B src1B) dst1B src1B)
-  builder <! (val3 := ite (compare dst2A src2A) dst2A src2A)
-  builder <! (val4 := ite (compare dst2B src2B) dst2B src2B)
+  builder <! (val1 := AST.ite (compare dst1A src1A) dst1A src1A)
+  builder <! (val2 := AST.ite (compare dst1B src1B) dst1B src1B)
+  builder <! (val3 := AST.ite (compare dst2A src2A) dst2A src2A)
+  builder <! (val4 := AST.ite (compare dst2B src2B) dst2B src2B)
   builder <! (dst1A := val1)
   builder <! (dst1B := val2)
   builder <! (dst2A := val3)
@@ -3964,57 +3970,57 @@ let minMaxPS ins insAddr insLen ctxt compare =
   endMark insAddr insLen builder
 
 let minMaxSD ins insAddr insLen ctxt compare =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   let dst = transOprToExpr64 ins insAddr insLen ctxt dst
   let src = transOprToExpr64 ins insAddr insLen ctxt src
-  let tmp = tmpVar 64<rt>
+  let tmp = AST.tmpvar 64<rt>
   startMark insAddr insLen builder
-  builder <! (tmp := ite (compare dst src) dst src)
+  builder <! (tmp := AST.ite (compare dst src) dst src)
   builder <! (dst := tmp)
   endMark insAddr insLen builder
 
 let minMaxSS ins insAddr insLen ctxt compare =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   let dst = transOprToExpr32 ins insAddr insLen ctxt dst
   let src = transOprToExpr32 ins insAddr insLen ctxt src
-  let tmp = tmpVar 32<rt>
+  let tmp = AST.tmpvar 32<rt>
   startMark insAddr insLen builder
-  builder <! (tmp := ite (compare dst src) dst src)
+  builder <! (tmp := AST.ite (compare dst src) dst src)
   builder <! (dst := tmp)
   endMark insAddr insLen builder
 
 let maxpd ins insAddr insLen ctxt =
-  minMaxPD ins insAddr insLen ctxt fgt
+  minMaxPD ins insAddr insLen ctxt AST.fgt
 
 let maxps ins insAddr insLen ctxt =
-  minMaxPS ins insAddr insLen ctxt fgt
+  minMaxPS ins insAddr insLen ctxt AST.fgt
 
 let maxsd ins insAddr insLen ctxt =
-  minMaxSD ins insAddr insLen ctxt fgt
+  minMaxSD ins insAddr insLen ctxt AST.fgt
 
 let maxss ins insAddr insLen ctxt =
-  minMaxSS ins insAddr insLen ctxt fgt
+  minMaxSS ins insAddr insLen ctxt AST.fgt
 
 let minpd ins insAddr insLen ctxt =
-  minMaxPD ins insAddr insLen ctxt flt
+  minMaxPD ins insAddr insLen ctxt AST.flt
 
 let minps ins insAddr insLen ctxt =
-  minMaxPS ins insAddr insLen ctxt flt
+  minMaxPS ins insAddr insLen ctxt AST.flt
 
 let minsd ins insAddr insLen ctxt =
-  minMaxSD ins insAddr insLen ctxt flt
+  minMaxSD ins insAddr insLen ctxt AST.flt
 
 let minss ins insAddr insLen ctxt =
-  minMaxSS ins insAddr insLen ctxt flt
+  minMaxSS ins insAddr insLen ctxt AST.flt
 
 let mov ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   startMark insAddr insLen builder
-  builder <! (dstAssign oprSize dst (zExt oprSize src))
+  builder <! (dstAssign oprSize dst (AST.zext oprSize src))
   endMark insAddr insLen builder
 
 let movapd ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
@@ -4023,20 +4029,20 @@ let movaps ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
 let movbe ins insAddr insLen ctxt =
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
-  let t = tmpVar oprSize
+  let t = AST.tmpvar oprSize
   let cnt = RegType.toByteWidth oprSize |> int
-  let tmps = Array.init cnt (fun _ -> tmpVar 8<rt>)
-  let builder = new StmtBuilder (2 * cnt)
+  let tmps = Array.init cnt (fun _ -> AST.tmpvar 8<rt>)
+  let builder = StmtBuilder (2 * cnt)
   startMark insAddr insLen builder
   builder <! (t := src)
   for i in 0 .. cnt - 1 do
-    builder <! (tmps.[i] := extract t 8<rt> (i * 8))
+    builder <! (tmps.[i] := AST.extract t 8<rt> (i * 8))
   done
-  builder <! (dstAssign oprSize dst (concatExprs (Array.rev tmps)))
+  builder <! (dstAssign oprSize dst (AST.concatArr (Array.rev tmps)))
   endMark insAddr insLen builder
 
 let movd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src = getTwoOprs ins
   startMark insAddr insLen builder
   match dst, src  with
@@ -4049,7 +4055,7 @@ let movd ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let movddup ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   let dst1, dst0 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src = transOprToExpr64 ins insAddr insLen ctxt src
@@ -4059,7 +4065,7 @@ let movddup ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let movdq2q ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   let dst = transOprToExpr ins insAddr insLen ctxt dst
   let _, srcA = transOprToExpr128 ins insAddr insLen ctxt src
@@ -4071,7 +4077,7 @@ let movdqa ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
 let movdqu ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
 
 let movhpd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   startMark insAddr insLen builder
   match dst, src with
@@ -4085,7 +4091,7 @@ let movhpd ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let movhlps ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   let dst = transOprToExpr128 ins insAddr insLen ctxt dst |> snd
   let src = transOprToExpr128 ins insAddr insLen ctxt src |> fst
@@ -4094,7 +4100,7 @@ let movhlps ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let movhps ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   startMark insAddr insLen builder
   match dst, src with
@@ -4108,7 +4114,7 @@ let movhps ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let movlhps ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   let dst = transOprToExpr128 ins insAddr insLen ctxt dst |> fst
   let src = transOprToExpr128 ins insAddr insLen ctxt src |> snd
@@ -4117,7 +4123,7 @@ let movlhps ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let movlpd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   startMark insAddr insLen builder
   match dst, src with
@@ -4133,27 +4139,27 @@ let movlpd ins insAddr insLen ctxt =
 let movlps ins insAddr insLen ctxt = movlpd ins insAddr insLen ctxt
 
 let movmskpd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   let dst = transOprToExpr ins insAddr insLen ctxt dst
   let src1, src2 = transOprToExpr128 ins insAddr insLen ctxt src
   let oprSize = getOperationSize ins
   startMark insAddr insLen builder
-  let src63 = sExt oprSize (extractHigh 1<rt> src2)
-  let src127 = (sExt oprSize (extractHigh 1<rt> src1)) << num1 oprSize
+  let src63 = AST.sext oprSize (AST.xthi 1<rt> src2)
+  let src127 = (AST.sext oprSize (AST.xthi 1<rt> src1)) << AST.num1 oprSize
   builder <! (dst := src63 .| src127)
   endMark insAddr insLen builder
 
 let movmskps ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src = getTwoOprs ins
   let dst = transOprToExpr ins insAddr insLen ctxt dst
   let srcB, srcA= transOprToExpr128 ins insAddr insLen ctxt src
   let oprSize = getOperationSize ins
   startMark insAddr insLen builder
-  let srcA = concat (extract srcA 1<rt> 63) (extract srcA 1<rt> 31)
-  let srcB = concat (extract srcB 1<rt> 63) (extract srcB 1<rt> 31)
-  builder <! (dst := zExt oprSize <| concat srcB srcA)
+  let srcA = AST.concat (AST.extract srcA 1<rt> 63) (AST.extract srcA 1<rt> 31)
+  let srcB = AST.concat (AST.extract srcB 1<rt> 63) (AST.extract srcB 1<rt> 31)
+  builder <! (dst := AST.zext oprSize <| AST.concat srcB srcA)
   endMark insAddr insLen builder
 
 let movntdq ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
@@ -4167,7 +4173,7 @@ let movnti ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
 let movntq ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
 
 let movq ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   startMark insAddr insLen builder
   match dst, src with
@@ -4180,27 +4186,27 @@ let movq ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let movq2dq ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
   let src = transOprToExpr ins insAddr insLen ctxt src
   startMark insAddr insLen builder
   builder <! (dstA := src)
-  builder <! (dstB := num0 64<rt>)
+  builder <! (dstB := AST.num0 64<rt>)
   endMark insAddr insLen builder
 
 let movs ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   startMark insAddr insLen builder
   let body () =
     let oprSize = getOperationSize ins
     let df = getRegVar ctxt R.DF
     let si = getRegVar ctxt (if is64bit ctxt then R.RSI else R.ESI)
     let di = getRegVar ctxt (if is64bit ctxt then R.RDI else R.EDI)
-    builder <! (loadLE oprSize di := loadLE oprSize si)
+    builder <! (AST.loadLE oprSize di := AST.loadLE oprSize si)
     let amount = numI32 (RegType.toByteWidth oprSize) ctxt.WordBitSize
-    builder <! (si := ite df (si .- amount) (si .+ amount))
-    builder <! (di := ite df (di .- amount) (di .+ amount))
+    builder <! (si := AST.ite df (si .- amount) (si .+ amount))
+    builder <! (di := AST.ite df (di .- amount) (di .+ amount))
   if hasREPZ ins.Prefixes then
     strRepeat ctxt body None insAddr insLen builder
   elif hasREPNZ ins.Prefixes then Utils.impossible ()
@@ -4208,7 +4214,7 @@ let movs ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let movsd (ins: InsInfo) insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   if ins.Operands = Operands.NoOperand then movs ins insAddr insLen ctxt
   else
     let dst, src = getTwoOprs ins
@@ -4222,7 +4228,7 @@ let movsd (ins: InsInfo) insAddr insLen ctxt =
       let dst2, dst1 = getPseudoRegVar128 ctxt r1
       let src = transOprToExpr ins insAddr insLen ctxt src
       builder <! (dst1 := src)
-      builder <! (dst2 := num0 64<rt>)
+      builder <! (dst2 := AST.num0 64<rt>)
     | OprMem _ , OprReg r1 ->
       let dst = transOprToExpr ins insAddr insLen ctxt dst
       let src = getPseudoRegVar ctxt r1 1
@@ -4231,62 +4237,62 @@ let movsd (ins: InsInfo) insAddr insLen ctxt =
     endMark insAddr insLen builder
 
 let movss (ins: InsInfo) insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   startMark insAddr insLen builder
   match dst, src with
   | OprReg r1, OprReg r2 ->
-    let dst = getPseudoRegVar ctxt r1 1 |> extractLow 32<rt>
-    let src = getPseudoRegVar ctxt r2 1 |> extractLow 32<rt>
+    let dst = getPseudoRegVar ctxt r1 1 |> AST.xtlo 32<rt>
+    let src = getPseudoRegVar ctxt r2 1 |> AST.xtlo 32<rt>
     builder <! (dst := src)
   | OprReg r1, OprMem _ ->
     let dst2, dst1 = getPseudoRegVar128 ctxt r1
     let src = transOprToExpr ins insAddr insLen ctxt src
     builder <! (dstAssign 32<rt> dst1 src)
-    builder <! (dst2 := num0 64<rt>)
+    builder <! (dst2 := AST.num0 64<rt>)
   | OprMem _ , OprReg r1 ->
     let dst = transOprToExpr ins insAddr insLen ctxt dst
-    let src = getPseudoRegVar ctxt r1 1 |> extractLow 32<rt>
+    let src = getPseudoRegVar ctxt r1 1 |> AST.xtlo 32<rt>
     builder <! (dstAssign 32<rt> dst src)
   | _ -> raise InvalidOperandException
   endMark insAddr insLen builder
 
 let movshdup ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
   let tmp1, tmp2 = tmpVars2 32<rt>
   startMark insAddr insLen builder
-  builder <! (tmp1 := extractHigh 32<rt> src1)
-  builder <! (tmp2 := extractHigh 32<rt> src2)
-  builder <! (extractLow 32<rt> dst1 := tmp1)
-  builder <! (extractHigh 32<rt> dst1 := tmp1)
-  builder <! (extractLow 32<rt> dst2 := tmp2)
-  builder <! (extractHigh 32<rt> dst2 := tmp2)
+  builder <! (tmp1 := AST.xthi 32<rt> src1)
+  builder <! (tmp2 := AST.xthi 32<rt> src2)
+  builder <! (AST.xtlo 32<rt> dst1 := tmp1)
+  builder <! (AST.xthi 32<rt> dst1 := tmp1)
+  builder <! (AST.xtlo 32<rt> dst2 := tmp2)
+  builder <! (AST.xthi 32<rt> dst2 := tmp2)
   endMark insAddr insLen builder
 
 let movsldup ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
   let tmp1, tmp2 = tmpVars2 32<rt>
   startMark insAddr insLen builder
-  builder <! (tmp1 := extractLow 32<rt> src1)
-  builder <! (tmp2 := extractLow 32<rt> src2)
-  builder <! (extractLow 32<rt> dst1 := tmp1)
-  builder <! (extractHigh 32<rt> dst1 := tmp1)
-  builder <! (extractLow 32<rt> dst2 := tmp2)
-  builder <! (extractHigh 32<rt> dst2 := tmp2)
+  builder <! (tmp1 := AST.xtlo 32<rt> src1)
+  builder <! (tmp2 := AST.xtlo 32<rt> src2)
+  builder <! (AST.xtlo 32<rt> dst1 := tmp1)
+  builder <! (AST.xthi 32<rt> dst1 := tmp1)
+  builder <! (AST.xtlo 32<rt> dst2 := tmp2)
+  builder <! (AST.xthi 32<rt> dst2 := tmp2)
   endMark insAddr insLen builder
 
 let movsx ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   startMark insAddr insLen builder
-  builder <! (dstAssign oprSize dst (sExt oprSize src))
+  builder <! (dstAssign oprSize dst (AST.sext oprSize src))
   endMark insAddr insLen builder
 
 let movupd ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
@@ -4294,30 +4300,30 @@ let movupd ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
 let movups ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
 
 let movzx ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   startMark insAddr insLen builder
-  builder <! (dstAssign oprSize dst (zExt oprSize src))
+  builder <! (dstAssign oprSize dst (AST.zext oprSize src))
   endMark insAddr insLen builder
 
 let mul ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let oprSize = getOperationSize ins
   let dblWidth = RegType.double oprSize
-  let src1 = zExt dblWidth (getRegOfSize ctxt oprSize grpEAX)
-  let src2 = zExt dblWidth (getOneOpr ins |> transOneOpr ins insAddr insLen ctxt)
-  let t = tmpVar dblWidth
+  let src1 = AST.zext dblWidth (getRegOfSize ctxt oprSize grpEAX)
+  let src2 = AST.zext dblWidth (getOneOpr ins |> transOneOpr ins insAddr insLen ctxt)
+  let t = AST.tmpvar dblWidth
   startMark insAddr insLen builder
   builder <! (t := src1 .* src2)
-  let cond = tmpVar 1<rt>
+  let cond = AST.tmpvar 1<rt>
   match oprSize with
   | 8<rt> -> builder <! (getRegVar ctxt R.AX := t)
   | 16<rt> | 32<rt> | 64<rt> ->
-    builder <! (getRegOfSize ctxt oprSize grpEDX := extractHigh oprSize t)
-    builder <! (getRegOfSize ctxt oprSize grpEAX := extractLow oprSize t)
+    builder <! (getRegOfSize ctxt oprSize grpEDX := AST.xthi oprSize t)
+    builder <! (getRegOfSize ctxt oprSize grpEAX := AST.xtlo oprSize t)
   | _ -> raise InvalidOperandSizeException
-  builder <! (cond := extractHigh oprSize t != (num0 oprSize))
+  builder <! (cond := AST.xthi oprSize t != (AST.num0 oprSize))
   builder <! (getRegVar ctxt R.CF := cond)
   builder <! (getRegVar ctxt R.OF := cond)
   builder <! (getRegVar ctxt R.SF := undefSF)
@@ -4327,42 +4333,42 @@ let mul ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let neg ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
-  let t = tmpVar oprSize
-  let oFCond = t == (num1 oprSize << (numU32 31u oprSize) )
+  let t = AST.tmpvar oprSize
+  let oFCond = t == (AST.num1 oprSize << (numU32 31u oprSize) )
   startMark insAddr insLen builder
   builder <! (t := dst)
-  builder <! (dstAssign oprSize dst (neg t))
-  builder <! (getRegVar ctxt R.CF := t != num0 oprSize)
+  builder <! (dstAssign oprSize dst (AST.neg t))
+  builder <! (getRegVar ctxt R.CF := t != AST.num0 oprSize)
   builder <! (getRegVar ctxt R.OF := oFCond)
-  enumASZPFlags ctxt t (num0 oprSize) dst oprSize builder
+  enumASZPFlags ctxt t (AST.num0 oprSize) dst oprSize builder
   endMark insAddr insLen builder
 
 let nop insAddr insLen =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   startMark insAddr insLen builder
   endMark insAddr insLen builder
 
 let not ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   startMark insAddr insLen builder
-  builder <! (dstAssign oprSize dst (unop UnOpType.NOT dst))
+  builder <! (dstAssign oprSize dst (AST.unop UnOpType.NOT dst))
   endMark insAddr insLen builder
 
 let logOr ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
-  let t = tmpVar oprSize
+  let t = AST.tmpvar oprSize
   startMark insAddr insLen builder
-  builder <! (t := (dst .| sExt oprSize src))
+  builder <! (t := (dst .| AST.sext oprSize src))
   builder <! (dstAssign oprSize dst t)
-  builder <! (getRegVar ctxt R.CF := b0)
-  builder <! (getRegVar ctxt R.OF := b0)
+  builder <! (getRegVar ctxt R.CF := AST.b0)
+  builder <! (getRegVar ctxt R.OF := AST.b0)
   builder <! (getRegVar ctxt R.AF := undefAF)
   enumSZPFlags ctxt t oprSize builder
   endMark insAddr insLen builder
@@ -4376,7 +4382,7 @@ let orps ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 32<rt> opPor 16
 
 let outs ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   startMark insAddr insLen builder
   let body () =
     let oprSize = getOperationSize ins
@@ -4386,14 +4392,14 @@ let outs ins insAddr insLen ctxt =
     let amount = numI32 (RegType.toByteWidth oprSize) ctxt.WordBitSize
     match oprSize with
     | 8<rt> ->
-      builder <! (src := zExt 16<rt> (loadLE oprSize si))
-      builder <! (si := ite df (si .- amount) (si .+ amount))
+      builder <! (src := AST.zext 16<rt> (AST.loadLE oprSize si))
+      builder <! (si := AST.ite df (si .- amount) (si .+ amount))
     | 16<rt> ->
-      builder <! (src := loadLE oprSize si)
-      builder <! (si := ite df (si .- amount) (si .+ amount))
+      builder <! (src := AST.loadLE oprSize si)
+      builder <! (si := AST.ite df (si .- amount) (si .+ amount))
     | 32<rt> ->
-      builder <! (si := ite df (si .- amount) (si .+ amount))
-      builder <! (src := extractLow 16<rt> (loadLE oprSize si))
+      builder <! (si := AST.ite df (si .- amount) (si .+ amount))
+      builder <! (src := AST.xtlo 16<rt> (AST.loadLE oprSize si))
     | _ -> raise InvalidOperandSizeException
   if hasREPZ ins.Prefixes then
     strRepeat ctxt body None insAddr insLen builder
@@ -4456,7 +4462,7 @@ let paddw ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 16<rt> (opP (.+)) 8
 
 let palignr ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src, imm = getThreeOprs ins
   let imm = transOprToExpr ins insAddr insLen ctxt imm
   startMark insAddr insLen builder
@@ -4464,20 +4470,20 @@ let palignr ins insAddr insLen ctxt =
   | 64<rt> ->
     let dst = transOprToExpr ins insAddr insLen ctxt dst
     let src = transOprToExpr ins insAddr insLen ctxt src
-    let t = tmpVar 128<rt>
+    let t = AST.tmpvar 128<rt>
     builder <!
-      (t := (concat dst src) >> (zExt 128<rt> (imm .* numU32 8u 64<rt>)))
-    builder <! (dst := extractLow 64<rt> t)
+      (t := (AST.concat dst src) >> (AST.zext 128<rt> (imm .* numU32 8u 64<rt>)))
+    builder <! (dst := AST.xtlo 64<rt> t)
   | 128<rt> ->
     let dst1, dst2 = transOprToExpr128 ins insAddr insLen ctxt dst
     let src1, src2 = transOprToExpr128 ins insAddr insLen ctxt src
-    let dst = concat dst1 dst2
-    let src = concat src1 src2
-    let t = tmpVar 256<rt>
+    let dst = AST.concat dst1 dst2
+    let src = AST.concat src1 src2
+    let t = AST.tmpvar 256<rt>
     builder <!
-      (t := (concat dst src) >> (zExt 256<rt> (imm .* numU32 8u 128<rt>)))
-    builder <! (dst1 := extract t 64<rt> 64)
-    builder <! (dst2 := extractLow 64<rt> t)
+      (t := (AST.concat dst src) >> (AST.zext 256<rt> (imm .* numU32 8u 128<rt>)))
+    builder <! (dst1 := AST.extract t 64<rt> 64)
+    builder <! (dst2 := AST.xtlo 64<rt> t)
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
@@ -4489,8 +4495,8 @@ let pandn ins insAddr insLen ctxt =
 
 let opAveragePackedInt (packSz: int<rt>) =
   let dblSz = packSz * 2
-  let dblExt expr = zExt dblSz expr
-  let avg e1 e2 = extract (dblExt e1 .+ dblExt e2 .+ num1 dblSz) packSz 1
+  let dblExt expr = AST.zext dblSz expr
+  let avg e1 e2 = AST.extract (dblExt e1 .+ dblExt e2 .+ AST.num1 dblSz) packSz 1
   Array.map2 avg
 
 let opPavgb _ = opAveragePackedInt 8<rt>
@@ -4504,15 +4510,15 @@ let pavgw ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 16<rt> opPavgw 32
 
 let opPcmp packSz cmpOp =
-  Array.map2 (fun e1 e2 -> ite (cmpOp e1 e2) (getMask packSz) (num0 packSz))
+  Array.map2 (fun e1 e2 -> AST.ite (cmpOp e1 e2) (getMask packSz) (AST.num0 packSz))
 
 let opPcmpeqb _ = opPcmp 8<rt> (==)
 let opPcmpeqd _ = opPcmp 32<rt> (==)
 let opPcmpeqq _ = opPcmp 64<rt> (==)
 let opPcmpeqw _ = opPcmp 16<rt> (==)
-let opPcmpgtb _ = opPcmp 8<rt> sgt
-let opPcmpgtd _ = opPcmp 32<rt> sgt
-let opPcmpgtw _ = opPcmp 16<rt> sgt
+let opPcmpgtb _ = opPcmp 8<rt> AST.sgt
+let opPcmpgtd _ = opPcmp 32<rt> AST.sgt
+let opPcmpgtw _ = opPcmp 16<rt> AST.sgt
 
 let pcmpeqb ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 8<rt> opPcmpeqb 32
@@ -4542,13 +4548,16 @@ let aggOpr ins insAddr insLen
   let boolRes = genBoolRes ins insAddr insLen ctrl ctxt src2 src1 ck2 ck1
   let rangesCmp idx =
     match ctrl.Sign, idx % 2 = 0 with
-    | Signed, true -> sge | Signed, _ -> sle | _, true -> ge | _, _ -> le
+    | Signed, true -> AST.sge
+    | Signed, _ -> AST.sle
+    | _, true -> AST.ge
+    | _, _ -> AST.le
   match ctrl.Agg with
   | EqualAny ->
     for j in 0 .. nElem - 1 do
-      let tRes = [| for _ in 1 .. nElem -> tmpVar elemSz |]
+      let tRes = [| for _ in 1 .. nElem -> AST.tmpvar elemSz |]
       let boolRes i = boolRes j i (==)
-      builder <! (tRes.[0] := num0 elemSz .| boolRes 0)
+      builder <! (tRes.[0] := AST.num0 elemSz .| boolRes 0)
       for i in 1 .. nElem - 1 do
         builder <! (tRes.[i] := tRes.[i - 1] .| boolRes i)
       done
@@ -4561,7 +4570,7 @@ let aggOpr ins insAddr insLen
     done
   | EqualOrdered ->
     for j in 0 .. nElem - 1 do
-      let tRes = [| for _ in 1 .. nElem -> tmpVar elemSz |]
+      let tRes = [| for _ in 1 .. nElem -> AST.tmpvar elemSz |]
       let boolRes k i = boolRes k i (==)
       builder <! (tRes.[0] := numI32 -1 elemSz .& boolRes j 0)
       for i in 1 .. nElem - 1 - j do
@@ -4572,10 +4581,10 @@ let aggOpr ins insAddr insLen
     done
   | Ranges ->
     for j in 0 .. nElem - 1 do
-      let tRes = [| for _ in 1 .. nElem -> tmpVar elemSz |]
+      let tRes = [| for _ in 1 .. nElem -> AST.tmpvar elemSz |]
       let cmp i = rangesCmp i
       let boolRes i = boolRes j i (cmp i)
-      builder <! (tRes.[0] := num0 elemSz .| (boolRes 0 .& boolRes 1))
+      builder <! (tRes.[0] := AST.num0 elemSz .| (boolRes 0 .& boolRes 1))
       for i in 2 .. 2 .. nElem - 1 do
         builder <!
           (tRes.[i] := tRes.[i - 1] .| (boolRes i .& boolRes (i + 1)))
@@ -4588,7 +4597,7 @@ let getZSFForPCMPSTR ins insAddr insLen ctrl ctxt src1 src2 builder =
   let src2B, src2A = transOprToExpr128 ins insAddr insLen ctxt src2
   let getExZSFlag r =
     let reg = getRegVar ctxt r
-    lt (ite (extractHigh 1<rt> reg) (AST.neg reg) reg)
+    AST.lt (AST.ite (AST.xthi 1<rt> reg) (AST.neg reg) reg)
        (numU32 ctrl.NumElems 32<rt>)
   let rec getImZSFlag acc srcB srcA idx =
     let packSz = ctrl.PackSize
@@ -4597,15 +4606,15 @@ let getZSFForPCMPSTR ins insAddr insLen ctrl ctxt src1 src2 builder =
     let e, amount = if idx < half then srcA, idx else srcB, idx - half
     let v e = e >> numI32 (amount * packWidth) 64<rt>
     let next, cond = idx - 1, idx = 0
-    if cond then ite (extractLow packSz (v e) == num0 packSz) b1 acc
-    else let acc = ite (extractLow packSz (v e) == num0 packSz) b1 acc
+    if cond then AST.ite (AST.xtlo packSz (v e) == AST.num0 packSz) AST.b1 acc
+    else let acc = AST.ite (AST.xtlo packSz (v e) == AST.num0 packSz) AST.b1 acc
          getImZSFlag acc srcB srcA next
   match ctrl.Len with
   | Implicit ->
     builder <! (getRegVar ctxt R.ZF :=
-      getImZSFlag b0 src2B src2A (ctrl.NumElems - 1u |> int))
+      getImZSFlag AST.b0 src2B src2A (ctrl.NumElems - 1u |> int))
     builder <! (getRegVar ctxt R.SF :=
-      getImZSFlag b0 src1B src1A (ctrl.NumElems - 1u |> int))
+      getImZSFlag AST.b0 src1B src1A (ctrl.NumElems - 1u |> int))
   | Explicit ->
     builder <! (getRegVar ctxt R.ZF := getExZSFlag R.EDX)
     builder <! (getRegVar ctxt R.SF := getExZSFlag R.EAX)
@@ -4620,23 +4629,23 @@ let pcmpStrRet (ins: InsInfo) info ctxt intRes2 builder =
     let cx = getRegVar ctxt cx
     let nMaxSz = numI32 nElem elemSz
     let idx = if info.OutSelect = Least then nElem - 1 else 0
-    let out = zExt outSz <| genOutput info intRes2 nMaxSz idx
+    let out = AST.zext outSz <| genOutput info intRes2 nMaxSz idx
     builder <! (dstAssign outSz cx out)
   | Mask ->
     let xmmB, xmmA = getPseudoRegVar128 ctxt Register.XMM0
     let loop (acc1, acc2) i =
-      let src = extract intRes2 1<rt> i
-      if (i < nElem / 2) then (acc1, (zExt info.PackSize src) :: acc2)
-      else ((zExt info.PackSize src) :: acc1, acc2)
+      let src = AST.extract intRes2 1<rt> i
+      if (i < nElem / 2) then (acc1, (AST.zext info.PackSize src) :: acc2)
+      else ((AST.zext info.PackSize src) :: acc1, acc2)
     if info.OutSelect = Least then
-      builder <! (xmmA := zExt 64<rt> intRes2)
-      builder <! (xmmB := num0 64<rt>)
+      builder <! (xmmA := AST.zext 64<rt> intRes2)
+      builder <! (xmmB := AST.num0 64<rt>)
     else let r1, r2 = List.fold loop ([], []) [0 .. nElem - 1]
-         builder <! (xmmB := concatExprs (List.toArray r1))
-         builder <! (xmmA := concatExprs (List.toArray r2))
+         builder <! (xmmB := AST.concatArr (List.toArray r1))
+         builder <! (xmmA := AST.concatArr (List.toArray r2))
 
 let pcmpstr ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (64)
+  let builder = StmtBuilder (64)
   startMark insAddr insLen builder
   let src1, src2, imm = getThreeOprs ins
   let imm = transOprToExpr ins insAddr insLen ctxt imm
@@ -4645,25 +4654,25 @@ let pcmpstr ins insAddr insLen ctxt =
   let elemSz = RegType.fromBitWidth <| nElem
   let ck1, ck2 = genValidCheck ins insAddr insLen ctxt ctrl src1 src2 builder
   let intRes1, intRes2 = tmpVars2 elemSz
-  let res1 = [| for _ in 1 .. nElem -> tmpVar elemSz |]
+  let res1 = [| for _ in 1 .. nElem -> AST.tmpvar elemSz |]
   aggOpr ins insAddr insLen ctxt ctrl src1 src2 ck1 ck2 res1 builder
   builder <! (intRes1 := Array.reduce (.|) res1)
   builder <! (intRes2 := getIntRes2 intRes1 ctrl ck2)
   pcmpStrRet ins ctrl ctxt intRes2 builder
-  builder <! (getRegVar ctxt R.CF := intRes2 != num0 elemSz)
+  builder <! (getRegVar ctxt R.CF := intRes2 != AST.num0 elemSz)
   getZSFForPCMPSTR ins insAddr insLen ctrl ctxt src1 src2 builder
-  builder <! (getRegVar ctxt R.OF := extractLow 1<rt> intRes2)
-  builder <! (getRegVar ctxt R.AF := b0)
-  builder <! (getRegVar ctxt R.PF := b0)
+  builder <! (getRegVar ctxt R.OF := AST.xtlo 1<rt> intRes2)
+  builder <! (getRegVar ctxt R.AF := AST.b0)
+  builder <! (getRegVar ctxt R.PF := AST.b0)
   endMark insAddr insLen builder
 
 let pextrw ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src, count = getThreeOprs ins
   let dst = transOprToExpr ins insAddr insLen ctxt dst
   let count =
     transOprToExpr ins insAddr insLen ctxt count
-    |> extractLow 8<rt> .& numU32 7u 8<rt>
+    |> AST.xtlo 8<rt> .& numU32 7u 8<rt>
   let oprSize = getOperationSize ins
   startMark insAddr insLen builder
   match src with
@@ -4671,25 +4680,25 @@ let pextrw ins insAddr insLen ctxt =
     match Register.getKind reg with
     | Register.Kind.MMX ->
       let src = transOprToExpr ins insAddr insLen ctxt src
-      let srcOffset = tmpVar 64<rt>
-      builder <! (srcOffset := zExt 64<rt> count)
+      let srcOffset = AST.tmpvar 64<rt>
+      builder <! (srcOffset := AST.zext 64<rt> count)
       let t = (src >> (srcOffset .* numU32 16u 64<rt>)) .& numU32 0xFFFFu 64<rt>
-      builder <! (dstAssign oprSize dst (extractLow oprSize t))
+      builder <! (dstAssign oprSize dst (AST.xtlo oprSize t))
     | Register.Kind.XMM ->
       let srcB, srcA = getPseudoRegVar128 ctxt reg
-      let tSrc = tmpVar 128<rt>
-      let srcOffset = tmpVar 128<rt>
-      builder <! (srcOffset := zExt 128<rt> count)
-      builder <! (tSrc := concat srcB srcA)
+      let tSrc = AST.tmpvar 128<rt>
+      let srcOffset = AST.tmpvar 128<rt>
+      builder <! (srcOffset := AST.zext 128<rt> count)
+      builder <! (tSrc := AST.concat srcB srcA)
       let t = (tSrc >> (srcOffset .* numU32 16u 128<rt>)) .&
               numU32 0xFFFFu 128<rt>
-      builder <! (dstAssign oprSize dst (extractLow oprSize t))
+      builder <! (dstAssign oprSize dst (AST.xtlo oprSize t))
     | _ -> raise InvalidRegisterException
   | _ -> raise InvalidOperandException
   endMark insAddr insLen builder
 
 let pinsrb ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src, count = getThreeOprs ins
   let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
   let src, count = transTwoOprs ins insAddr insLen ctxt (src, count)
@@ -4699,17 +4708,17 @@ let pinsrb ins insAddr insLen ctxt =
   startMark insAddr insLen builder
   builder <! (sel := count .& numI32 0xf oprSize)
   builder <! (mask := (numI32 0x0ff oprSize) << sel8)
-  builder <! (temp := (zExt oprSize (extract src 8<rt> 0) << sel8) .& mask)
-  builder <! (tDst := ((concat dstB dstA) .& (AST.not mask)) .| temp)
-  builder <! (dstA := extractLow 64<rt> tDst)
-  builder <! (dstB := extractHigh 64<rt> tDst)
+  builder <! (temp := (AST.zext oprSize (AST.extract src 8<rt> 0) << sel8) .& mask)
+  builder <! (tDst := ((AST.concat dstB dstA) .& (AST.not mask)) .| temp)
+  builder <! (dstA := AST.xtlo 64<rt> tDst)
+  builder <! (dstB := AST.xthi 64<rt> tDst)
   endMark insAddr insLen builder
 
 let pinsrw ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src, count = getThreeOprs ins
   let src = transOprToExpr ins insAddr insLen ctxt src
-  let sel = tmpVar 64<rt>
+  let sel = AST.tmpvar 64<rt>
   let getImm = function
     | OprImm imm -> imm
     | _ -> raise InvalidOperandException
@@ -4718,33 +4727,33 @@ let pinsrw ins insAddr insLen ctxt =
   | 64<rt> ->
     let dst = transOprToExpr ins insAddr insLen ctxt dst
     let count = transOprToExpr ins insAddr insLen ctxt count
-    let mask = tmpVar 64<rt>
+    let mask = AST.tmpvar 64<rt>
     builder <! (sel := count .| numI64 3L 64<rt>)
     let pos = sel .* numU64 0x10UL 64<rt>
     builder <! (mask := (numU64 0xffffUL 64<rt>) << pos)
     builder <!
-      (dst := (dst .& (AST.not mask)) .| (zExt 64<rt> src << pos .& mask))
+      (dst := (dst .& (AST.not mask)) .| (AST.zext 64<rt> src << pos .& mask))
   | 128<rt> ->
     let dst1, dst2 = transOprToExpr128 ins insAddr insLen ctxt dst
-    let mask = tmpVar 64<rt>
+    let mask = AST.tmpvar 64<rt>
     let count = getImm count
     builder <! (sel := numI64 count 64<rt> .| numI64 7L 64<rt>)
     if count > 3L then
       let pos = (sel .- numI32 4 64<rt>) .* numI32 16 64<rt>
       builder <! (mask := (numU64 0xffffUL 64<rt>) << pos)
       builder <! (dst1 := (dst1 .& (AST.not mask))
-                          .| (zExt 64<rt> src << pos .& mask))
+                          .| (AST.zext 64<rt> src << pos .& mask))
     else
       let pos = sel .* numI32 16 64<rt>
       builder <! (mask := (numU64 0xffffUL 64<rt>) << pos)
       builder <! (dst2 := (dst2 .& (AST.not mask))
-                          .| (zExt 64<rt> src << pos .& mask))
+                          .| (AST.zext 64<rt> src << pos .& mask))
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
 let opPmaddwd _ =
-  let lowAndSExt expr = extractLow 16<rt> expr |> sExt 32<rt>
-  let highAndSExt expr = extractHigh 16<rt> expr |> sExt 32<rt>
+  let lowAndSExt expr = AST.xtlo 16<rt> expr |> AST.sext 32<rt>
+  let highAndSExt expr = AST.xthi 16<rt> expr |> AST.sext 32<rt>
   let mulLow e1 e2 = lowAndSExt e1 .* lowAndSExt e2
   let mulHigh e1 e2 = highAndSExt e1 .* highAndSExt e2
   let packAdd e1 e2 = mulLow e1 e2 .+ mulHigh e1 e2
@@ -4753,58 +4762,58 @@ let opPmaddwd _ =
 let pmaddwd ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 32<rt> opPmaddwd 16
 
-let opMaxMinPacked cmp = Array.map2 (fun e1 e2 -> ite (cmp e1 e2) e1 e2)
+let opMaxMinPacked cmp = Array.map2 (fun e1 e2 -> AST.ite (cmp e1 e2) e1 e2)
 
-let opPmaxsb _ = opMaxMinPacked sgt
+let opPmaxsb _ = opMaxMinPacked AST.sgt
 
 let pmaxsb ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 8<rt> opPmaxsb 64
 
-let opPmaxsw _ = opMaxMinPacked sgt
+let opPmaxsw _ = opMaxMinPacked AST.sgt
 
 let pmaxsw ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 16<rt> opPmaxsw 32
 
-let opPmaxub _ = opMaxMinPacked gt
+let opPmaxub _ = opMaxMinPacked AST.gt
 
 let pmaxub ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 8<rt> opPmaxub 64
 
-let opPminsb _ = opMaxMinPacked slt
+let opPminsb _ = opMaxMinPacked AST.slt
 
 let pminsb ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 8<rt> opPminsb 32
 
-let opPminsw _ = opMaxMinPacked slt
+let opPminsw _ = opMaxMinPacked AST.slt
 
 let pminsw ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 16<rt> opPminsw 32
 
-let opPminub _ = opMaxMinPacked lt
+let opPminub _ = opMaxMinPacked AST.lt
 
 let pminub ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 8<rt> opPminub 64
 
-let opPminud _ = opMaxMinPacked lt
+let opPminud _ = opMaxMinPacked AST.lt
 
 let pminud ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 32<rt> opPminud 32
 
 let pmovmskb ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   let oprSize = getOperationSize ins
   startMark insAddr insLen builder
   let r = match src with | OprReg r -> r | _ -> raise InvalidOperandException
   let arrayInit cnt src =
-    Array.init cnt (fun i -> extract src 1<rt> (i * 8 + 7))
+    Array.init cnt (fun i -> AST.extract src 1<rt> (i * 8 + 7))
   match Register.getKind r with
   | Register.Kind.MMX ->
     let dst, src = transTwoOprs ins insAddr insLen ctxt (dst, src)
     let srcSize = AST.typeOf src
     let cnt = RegType.toByteWidth srcSize
     let tmps = arrayInit cnt src
-    builder <! (dstAssign oprSize dst <| zExt oprSize (concatExprs tmps))
+    builder <! (dstAssign oprSize dst <| AST.zext oprSize (AST.concatArr tmps))
   | Register.Kind.XMM ->
     let dst = transOprToExpr ins insAddr insLen ctxt dst
     let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
@@ -4812,8 +4821,8 @@ let pmovmskb ins insAddr insLen ctxt =
     let cnt = RegType.toByteWidth srcSize
     let tmpsA = arrayInit cnt srcA
     let tmpsB = arrayInit cnt srcB
-    let tmps = concat (concatExprs tmpsB) (concatExprs tmpsA)
-    builder <! (dstAssign oprSize dst <| zExt oprSize tmps)
+    let tmps = AST.concat (AST.concatArr tmpsB) (AST.concatArr tmpsA)
+    builder <! (dstAssign oprSize dst <| AST.zext oprSize tmps)
   | Register.Kind.YMM ->
     let dst = transOprToExpr ins insAddr insLen ctxt dst
     let srcD, srcC, srcB, srcA = transOprToExpr256 ins insAddr insLen ctxt src
@@ -4823,9 +4832,9 @@ let pmovmskb ins insAddr insLen ctxt =
     let tmpsB = arrayInit cnt srcB
     let tmpsC = arrayInit cnt srcC
     let tmpsD = arrayInit cnt srcD
-    let tmps = concat (concat (concatExprs tmpsD) (concatExprs tmpsC))
-                      (concat (concatExprs tmpsB) (concatExprs tmpsA))
-    builder <! (dstAssign oprSize dst <| zExt oprSize tmps)
+    let tmps = AST.concat (AST.concat (AST.concatArr tmpsD) (AST.concatArr tmpsC))
+                      (AST.concat (AST.concatArr tmpsB) (AST.concatArr tmpsA))
+    builder <! (dstAssign oprSize dst <| AST.zext oprSize tmps)
   | _ -> raise InvalidOperandException
   endMark insAddr insLen builder
 
@@ -4833,17 +4842,17 @@ let opPmul resType extr extSz packSz src1 src2 =
   Array.map2 (fun e1 e2 -> extr extSz e1 .* extr extSz e2) src1 src2
   |> Array.map (resType packSz)
 
-let opPmulhw _ = opPmul extractHigh sExt 32<rt> 16<rt>
+let opPmulhw _ = opPmul AST.xthi AST.sext 32<rt> 16<rt>
 
 let pmulhw ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 16<rt> opPmulhw 32
 
-let opPmulhuw _ = opPmul extractHigh zExt 32<rt> 16<rt>
+let opPmulhuw _ = opPmul AST.xthi AST.zext 32<rt> 16<rt>
 
 let pmulhuw ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 16<rt> opPmulhuw 32
 
-let opPmullw _ = opPmul extractLow sExt 32<rt> 16<rt>
+let opPmullw _ = opPmul AST.xtlo AST.sext 32<rt> 16<rt>
 
 let pmullw ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 16<rt> opPmullw 32
@@ -4856,7 +4865,7 @@ let pmuludq ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 64<rt> opPmuludq 8
 
 let pop ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   startMark insAddr insLen builder
@@ -4864,7 +4873,7 @@ let pop ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let popa ins insAddr insLen ctxt oprSize =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let sp = getRegVar ctxt R.ESP
   let di = if oprSize = 32<rt> then R.EDI else R.DI
   let si = if oprSize = 32<rt> then R.ESI else R.SI
@@ -4885,57 +4894,57 @@ let popa ins insAddr insLen ctxt oprSize =
   endMark insAddr insLen builder
 
 let popcnt ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
-  let lblLoop = lblSymbol "Loop"
-  let lblExit = lblSymbol "Exit"
-  let lblLoopCond = lblSymbol "LoopCond"
+  let builder = StmtBuilder (16)
+  let lblLoop = AST.symbol "Loop"
+  let lblExit = AST.symbol "Exit"
+  let lblLoopCond = AST.symbol "LoopCond"
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   let max = numI32 (RegType.toBitWidth oprSize) oprSize
   startMark insAddr insLen builder
-  let i = tmpVar oprSize
-  let count = tmpVar oprSize
-  builder <! (i := num0 oprSize)
-  builder <! (count := num0 oprSize)
+  let i = AST.tmpvar oprSize
+  let count = AST.tmpvar oprSize
+  builder <! (i := AST.num0 oprSize)
+  builder <! (count := AST.num0 oprSize)
   builder <! (LMark lblLoopCond)
-  builder <! (CJmp (lt i max, Name lblLoop, Name lblExit))
+  builder <! (CJmp (AST.lt i max, Name lblLoop, Name lblExit))
   builder <! (LMark lblLoop)
-  let cond = (extractLow 1<rt> (src >> i)) == b1
-  builder <! (count := ite cond (count .+ num1 oprSize) count)
-  builder <! (i := i .+ num1 oprSize)
+  let cond = (AST.xtlo 1<rt> (src >> i)) == AST.b1
+  builder <! (count := AST.ite cond (count .+ AST.num1 oprSize) count)
+  builder <! (i := i .+ AST.num1 oprSize)
   builder <! (Jmp (Name lblLoopCond))
   builder <! (LMark lblExit)
   builder <! (dstAssign oprSize dst count)
-  builder <! (getRegVar ctxt R.OF := b0)
-  builder <! (getRegVar ctxt R.SF := b0)
-  builder <! (getRegVar ctxt R.ZF := src == num0 oprSize)
-  builder <! (getRegVar ctxt R.AF := b0)
-  builder <! (getRegVar ctxt R.CF := b0)
-  builder <! (getRegVar ctxt R.PF := b0)
+  builder <! (getRegVar ctxt R.OF := AST.b0)
+  builder <! (getRegVar ctxt R.SF := AST.b0)
+  builder <! (getRegVar ctxt R.ZF := src == AST.num0 oprSize)
+  builder <! (getRegVar ctxt R.AF := AST.b0)
+  builder <! (getRegVar ctxt R.CF := AST.b0)
+  builder <! (getRegVar ctxt R.PF := AST.b0)
   endMark insAddr insLen builder
 
 let popf ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let oprSize = getOperationSize ins
-  let t = tmpVar oprSize
+  let t = AST.tmpvar oprSize
   startMark insAddr insLen builder
   auxPop oprSize ctxt t builder
-  builder <! (getRegVar ctxt R.OF := extract t 1<rt> 11)
-  builder <! (getRegVar ctxt R.DF := extract t 1<rt> 10)
-  builder <! (getRegVar ctxt R.IF := extract t 1<rt> 9)
-  builder <! (getRegVar ctxt R.TF := extract t 1<rt> 8)
-  builder <! (getRegVar ctxt R.SF := extract t 1<rt> 7)
-  builder <! (getRegVar ctxt R.ZF := extract t 1<rt> 6)
-  builder <! (getRegVar ctxt R.AF := extract t 1<rt> 4)
-  builder <! (getRegVar ctxt R.PF := extract t 1<rt> 2)
-  builder <! (getRegVar ctxt R.CF := extractLow 1<rt> t)
+  builder <! (getRegVar ctxt R.OF := AST.extract t 1<rt> 11)
+  builder <! (getRegVar ctxt R.DF := AST.extract t 1<rt> 10)
+  builder <! (getRegVar ctxt R.IF := AST.extract t 1<rt> 9)
+  builder <! (getRegVar ctxt R.TF := AST.extract t 1<rt> 8)
+  builder <! (getRegVar ctxt R.SF := AST.extract t 1<rt> 7)
+  builder <! (getRegVar ctxt R.ZF := AST.extract t 1<rt> 6)
+  builder <! (getRegVar ctxt R.AF := AST.extract t 1<rt> 4)
+  builder <! (getRegVar ctxt R.PF := AST.extract t 1<rt> 2)
+  builder <! (getRegVar ctxt R.CF := AST.xtlo 1<rt> t)
   endMark insAddr insLen builder
 
 let por ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 64<rt> opPor 8
 
 let opPsadbw _ =
-  let abs expr = ite (lt expr (num0 8<rt>)) (AST.neg expr) (expr)
+  let abs expr = AST.ite (AST.lt expr (AST.num0 8<rt>)) (AST.neg expr) (expr)
   Array.map2 (fun e1 e2 -> abs (e1 .- e2))
 
 let psadbw ins insAddr insLen ctxt =
@@ -4945,34 +4954,34 @@ let pshufb ins insAddr insLen ctxt =
   let dst, src = getTwoOprs ins
   let oprSize = getOperationSize ins
   let cnt = RegType.toBitWidth oprSize / 8
-  let builder = new StmtBuilder (2 * cnt)
+  let builder = StmtBuilder (2 * cnt)
   startMark insAddr insLen builder
-  let tmps = Array.init cnt (fun _ -> tmpVar 8<rt>)
+  let tmps = Array.init cnt (fun _ -> AST.tmpvar 8<rt>)
   let mask = numI32 (cnt - 1) 8<rt>
   let genTmps dst src =
     for i in 0 .. cnt - 1 do
-      let cond = extract src 1<rt> (i * 8 + 7)
-      let idx = (extract src 8<rt> (i * 8)) .& mask
-      let numShift = zExt oprSize idx .* numI32 8 oprSize
+      let cond = AST.extract src 1<rt> (i * 8 + 7)
+      let idx = (AST.extract src 8<rt> (i * 8)) .& mask
+      let numShift = AST.zext oprSize idx .* numI32 8 oprSize
       builder <!
-        (tmps.[i] := ite cond (num0 8<rt>) (extractLow 8<rt> (dst >> numShift)))
+        (tmps.[i] := AST.ite cond (AST.num0 8<rt>) (AST.xtlo 8<rt> (dst >> numShift)))
     done
   match oprSize with
   | 64<rt> ->
     let dst, src = transTwoOprs ins insAddr insLen ctxt (dst, src)
     genTmps dst src
-    builder <! (dst := concatExprs tmps)
+    builder <! (dst := AST.concatArr tmps)
   | 128<rt> ->
     let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
     let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
     let conDst, conSrc = tmpVars2 oprSize
-    let tDst = tmpVar oprSize
-    builder <! (conDst := concat dstB dstA)
-    builder <! (conSrc := concat srcB srcA)
+    let tDst = AST.tmpvar oprSize
+    builder <! (conDst := AST.concat dstB dstA)
+    builder <! (conSrc := AST.concat srcB srcA)
     genTmps conDst conSrc
-    builder <! (tDst := concatExprs tmps)
-    builder <! (dstA := extractLow 64<rt> tDst)
-    builder <! (dstB := extractHigh 64<rt> tDst)
+    builder <! (tDst := AST.concatArr tmps)
+    builder <! (dstA := AST.xtlo 64<rt> tDst)
+    builder <! (dstB := AST.xthi 64<rt> tDst)
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
@@ -4983,23 +4992,23 @@ let pshufd ins insAddr insLen ctxt =
   let ord = transOprToExpr ins insAddr insLen ctxt ord
   let oprSize = getOperationSize ins
   let cnt = RegType.toBitWidth oprSize / 32
-  let builder = new StmtBuilder (2 * cnt)
+  let builder = StmtBuilder (2 * cnt)
   startMark insAddr insLen builder
-  let tmps = Array.init cnt (fun _ -> tmpVar 32<rt>)
+  let tmps = Array.init cnt (fun _ -> AST.tmpvar 32<rt>)
   let n32 = numI32 32 oprSize
   let mask2 = numI32 3 32<rt> (* 2-bit mask *)
-  let tSrc = tmpVar oprSize
-  let tDst = tmpVar oprSize
-  builder <! (tSrc := concat srcB srcA)
+  let tSrc = AST.tmpvar oprSize
+  let tDst = AST.tmpvar oprSize
+  builder <! (tSrc := AST.concat srcB srcA)
   for i in 1 .. cnt do
     let order =
-      ((extractLow 32<rt> ord) >> (numI32 ((i - 1) * 2) 32<rt>)) .& mask2
-    let order' = zExt oprSize order
-    builder <! (tmps.[i - 1] := extractLow 32<rt> (tSrc >> (order' .* n32)))
+      ((AST.xtlo 32<rt> ord) >> (numI32 ((i - 1) * 2) 32<rt>)) .& mask2
+    let order' = AST.zext oprSize order
+    builder <! (tmps.[i - 1] := AST.xtlo 32<rt> (tSrc >> (order' .* n32)))
   done
-  builder <! (tDst := concatExprs tmps)
-  builder <! (dstA := extractLow 64<rt> tDst)
-  builder <! (dstB := extractHigh 64<rt> tDst)
+  builder <! (tDst := AST.concatArr tmps)
+  builder <! (dstA := AST.xtlo 64<rt> tDst)
+  builder <! (dstB := AST.xthi 64<rt> tDst)
   endMark insAddr insLen builder
 
 let pshufhw ins insAddr insLen ctxt =
@@ -5007,36 +5016,36 @@ let pshufhw ins insAddr insLen ctxt =
   let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
   let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
   let imm = transOprToExpr ins insAddr insLen ctxt imm
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   startMark insAddr insLen builder
-  let tmps = Array.init 4 (fun _ -> tmpVar 16<rt>)
+  let tmps = Array.init 4 (fun _ -> AST.tmpvar 16<rt>)
   let n16 = numI32 16 64<rt>
   let mask2 = numI32 3 64<rt> (* 2-bit mask *)
   for i in 1 .. 4 do
     let imm =
-      ((extractLow 64<rt> imm) >> (numI32 ((i - 1) * 2) 64<rt>)) .& mask2
-    builder <! (tmps.[i - 1] := extractLow 16<rt> (srcB >> (imm .* n16)))
+      ((AST.xtlo 64<rt> imm) >> (numI32 ((i - 1) * 2) 64<rt>)) .& mask2
+    builder <! (tmps.[i - 1] := AST.xtlo 16<rt> (srcB >> (imm .* n16)))
   done
   builder <! (dstA := srcA)
-  builder <! (dstB := concatExprs tmps)
+  builder <! (dstB := AST.concatArr tmps)
   endMark insAddr insLen builder
 
 let pshuflw ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src, imm = getThreeOprs ins
   let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
   let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
   let imm = transOprToExpr ins insAddr insLen ctxt imm
   startMark insAddr insLen builder
-  let tmps = Array.init 4 (fun _ -> tmpVar 16<rt>)
+  let tmps = Array.init 4 (fun _ -> AST.tmpvar 16<rt>)
   let n16 = numI32 16 64<rt>
   let mask2 = numI32 3 64<rt> (* 2-bit mask *)
   for i in 1 .. 4 do
     let imm =
-      ((extractLow 64<rt> imm) >> (numI32 ((i - 1) * 2) 64<rt>)) .& mask2
-    builder <! (tmps.[i - 1] := extractLow 16<rt> (srcA >> (imm .* n16)))
+      ((AST.xtlo 64<rt> imm) >> (numI32 ((i - 1) * 2) 64<rt>)) .& mask2
+    builder <! (tmps.[i - 1] := AST.xtlo 16<rt> (srcA >> (imm .* n16)))
   done
-  builder <! (dstA := concatExprs tmps)
+  builder <! (dstA := AST.concatArr tmps)
   builder <! (dstB := srcB)
   endMark insAddr insLen builder
 
@@ -5044,35 +5053,35 @@ let pshufw ins insAddr insLen ctxt =
   let dst, src, ord = getThreeOprs ins |> transThreeOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   let cnt = RegType.toBitWidth oprSize / 16
-  let builder = new StmtBuilder (2 * cnt)
+  let builder = StmtBuilder (2 * cnt)
   startMark insAddr insLen builder
-  let tmps = Array.init cnt (fun _ -> tmpVar 16<rt>)
+  let tmps = Array.init cnt (fun _ -> AST.tmpvar 16<rt>)
   let n16 = numI32 16 oprSize
   let mask2 = numI32 3 16<rt> (* 2-bit mask *)
   for i in 1 .. cnt do
     let order =
-      ((extractLow 16<rt> ord) >> (numI32 ((i - 1) * 2) 16<rt>)) .& mask2
-    let order' = zExt oprSize order
-    builder <! (tmps.[i - 1] := extractLow 16<rt> (src >> (order' .* n16)))
+      ((AST.xtlo 16<rt> ord) >> (numI32 ((i - 1) * 2) 16<rt>)) .& mask2
+    let order' = AST.zext oprSize order
+    builder <! (tmps.[i - 1] := AST.xtlo 16<rt> (src >> (order' .* n16)))
   done
-  builder <! (dst := concatExprs tmps)
+  builder <! (dst := AST.concatArr tmps)
   endMark insAddr insLen builder
 
 let logicalLeftShiftDwords oprSize src cntSrc builder =
-  let cntSrc = zExt oprSize cntSrc
+  let cntSrc = AST.zext oprSize cntSrc
   let tCnt = int oprSize / 32
-  let tmps = Array.init tCnt (fun _ -> tmpVar (oprSize / tCnt))
+  let tmps = Array.init tCnt (fun _ -> AST.tmpvar (oprSize / tCnt))
   for i in 0 .. tCnt - 1 do
-    let t = zExt oprSize ((src >> numI32 (i * 32) oprSize) << cntSrc)
-    builder <! (tmps.[i] := extractLow 32<rt> t)
+    let t = AST.zext oprSize ((src >> numI32 (i * 32) oprSize) << cntSrc)
+    builder <! (tmps.[i] := AST.xtlo 32<rt> t)
   done
-  ite (gt cntSrc (numU32 31u oprSize)) (num0 oprSize) (concatExprs tmps)
+  AST.ite (AST.gt cntSrc (numU32 31u oprSize)) (AST.num0 oprSize) (AST.concatArr tmps)
 
 let opShiftPackedDataLogical oprSize packSz shift src1 src2 =
-  let count = concatExprs src2 |> zExt oprSize
-  let cond = gt count (numI32 ((int packSz) - 1) oprSize)
-  let shifted expr = extract (shift (zExt oprSize expr) count) packSz 0
-  Array.map (fun e -> ite cond (num0 packSz) (shifted e)) src1
+  let count = AST.concatArr src2 |> AST.zext oprSize
+  let cond = AST.gt count (numI32 ((int packSz) - 1) oprSize)
+  let shifted expr = AST.extract (shift (AST.zext oprSize expr) count) packSz 0
+  Array.map (fun e -> AST.ite cond (AST.num0 packSz) (shifted e)) src1
 
 let opPslld oprSize = opShiftPackedDataLogical oprSize 32<rt> (<<)
 
@@ -5090,29 +5099,29 @@ let psllw ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 16<rt> opPsllw 8
 
 let shiftDQ ins insAddr insLen ctxt shift =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, cnt = getTwoOprs ins
   let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
   let cnt = transOprToExpr ins insAddr insLen ctxt cnt |> castNum 8<rt>
   let oprSize = getOperationSize ins
-  let t1 = tmpVar 8<rt>
+  let t1 = AST.tmpvar 8<rt>
   let t2, tDst = tmpVars2 oprSize
   startMark insAddr insLen builder
-  builder <! (t1 := ite (lt (numU32 15u 8<rt>) cnt) (numU32 16u 8<rt>) cnt)
-  builder <! (t2 := concat dstB dstA)
-  builder <! (tDst := (shift t2 (zExt oprSize (t1 .* numU32 8u 8<rt>))))
-  builder <! (dstA := extractLow 64<rt> tDst)
-  builder <! (dstB := extractHigh 64<rt> tDst)
+  builder <! (t1 := AST.ite (AST.lt (numU32 15u 8<rt>) cnt) (numU32 16u 8<rt>) cnt)
+  builder <! (t2 := AST.concat dstB dstA)
+  builder <! (tDst := (shift t2 (AST.zext oprSize (t1 .* numU32 8u 8<rt>))))
+  builder <! (dstA := AST.xtlo 64<rt> tDst)
+  builder <! (dstB := AST.xthi 64<rt> tDst)
   endMark insAddr insLen builder
 
 let pslldq ins insAddr insLen ctxt = shiftDQ ins insAddr insLen ctxt (<<)
 let psrldq ins insAddr insLen ctxt = shiftDQ ins insAddr insLen ctxt (>>)
 
 let opShiftPackedDataRightArith oprSize packSz src1 src2 =
-  let count = concatExprs src2 |> zExt oprSize
-  let cond = gt count (numI32 ((int packSz) - 1) oprSize)
-  let count = ite cond (numI32 (int packSz) oprSize) count
-  let shifted expr = extract ((sExt oprSize expr) ?>> count) packSz 0
+  let count = AST.concatArr src2 |> AST.zext oprSize
+  let cond = AST.gt count (numI32 ((int packSz) - 1) oprSize)
+  let count = AST.ite cond (numI32 (int packSz) oprSize) count
+  let shifted expr = AST.extract ((AST.sext oprSize expr) ?>> count) packSz 0
   Array.map shifted src1
 
 let opPsrad oprSize = opShiftPackedDataRightArith oprSize 32<rt>
@@ -5179,7 +5188,7 @@ let psubusw ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 16<rt> opPsubusw 8
 
 let ptest ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let src1, src2 = getTwoOprs ins
   let src1B, src1A = transOprToExpr128 ins insAddr insLen ctxt src1
   let src2B, src2A = transOprToExpr128 ins insAddr insLen ctxt src2
@@ -5187,20 +5196,20 @@ let ptest ins insAddr insLen ctxt =
   startMark insAddr insLen builder
   builder <! (t1 := src2A .& src1A)
   builder <! (t2 := src2B .& src1B)
-  builder <! (getRegVar ctxt R.ZF := (t1 .| t2) == (num0 64<rt>))
+  builder <! (getRegVar ctxt R.ZF := (t1 .| t2) == (AST.num0 64<rt>))
   builder <! (t3 := src2A .& AST.not src1A)
   builder <! (t4 := src2B .& AST.not src1B)
-  builder <! (getRegVar ctxt R.CF := (t3 .| t4) == (num0 64<rt>))
-  builder <! (getRegVar ctxt R.AF := b0)
-  builder <! (getRegVar ctxt R.OF := b0)
-  builder <! (getRegVar ctxt R.PF := b0)
-  builder <! (getRegVar ctxt R.SF := b0)
+  builder <! (getRegVar ctxt R.CF := (t3 .| t4) == (AST.num0 64<rt>))
+  builder <! (getRegVar ctxt R.AF := AST.b0)
+  builder <! (getRegVar ctxt R.OF := AST.b0)
+  builder <! (getRegVar ctxt R.PF := AST.b0)
+  builder <! (getRegVar ctxt R.SF := AST.b0)
   endMark insAddr insLen builder
 
 let vptest ins insAddr insLen ctxt =
   if getOperationSize ins = 128<rt> then ptest ins insAddr insLen ctxt
   else
-    let builder = new StmtBuilder (16)
+    let builder = StmtBuilder (16)
     let src1, src2 = getTwoOprs ins
     let src1D, src1C, src1B, src1A =
       transOprToExpr256 ins insAddr insLen ctxt src1
@@ -5213,16 +5222,16 @@ let vptest ins insAddr insLen ctxt =
     builder <! (t2 := src2B .& src1B)
     builder <! (t3 := src2C .& src1C)
     builder <! (t4 := src2D .& src1D)
-    builder <! (getRegVar ctxt R.ZF := (t1 .| t2 .| t3 .| t4) == (num0 64<rt>))
+    builder <! (getRegVar ctxt R.ZF := (t1 .| t2 .| t3 .| t4) == (AST.num0 64<rt>))
     builder <! (t5 := src2A .& AST.not src1A)
     builder <! (t6 := src2B .& AST.not src1B)
     builder <! (t7 := src2C .& AST.not src1C)
     builder <! (t8 := src2D .& AST.not src1D)
-    builder <! (getRegVar ctxt R.CF := (t5 .| t6 .| t7 .| t8) == (num0 64<rt>))
-    builder <! (getRegVar ctxt R.AF := b0)
-    builder <! (getRegVar ctxt R.OF := b0)
-    builder <! (getRegVar ctxt R.PF := b0)
-    builder <! (getRegVar ctxt R.SF := b0)
+    builder <! (getRegVar ctxt R.CF := (t5 .| t6 .| t7 .| t8) == (AST.num0 64<rt>))
+    builder <! (getRegVar ctxt R.AF := AST.b0)
+    builder <! (getRegVar ctxt R.OF := AST.b0)
+    builder <! (getRegVar ctxt R.PF := AST.b0)
+    builder <! (getRegVar ctxt R.SF := AST.b0)
     endMark insAddr insLen builder
 
 let opPunpck oprSize src1 src2 isHigh =
@@ -5281,7 +5290,7 @@ let punpcklwd ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 16<rt> opPunpckLow 32
 
 let push ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let src = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   startMark insAddr insLen builder
@@ -5289,8 +5298,8 @@ let push ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let pusha ins insAddr insLen ctxt oprSize =
-  let builder = new StmtBuilder (16)
-  let t = tmpVar oprSize
+  let builder = StmtBuilder (16)
+  let t = AST.tmpvar oprSize
   let sp = if oprSize = 32<rt> then R.ESP else R.SP
   let ax = if oprSize = 32<rt> then R.EAX else R.AX
   let cx = if oprSize = 32<rt> then R.ECX else R.CX
@@ -5312,18 +5321,18 @@ let pusha ins insAddr insLen ctxt oprSize =
   endMark insAddr insLen builder
 
 let pushf ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let oprSize = getOperationSize ins
-  let e = zExt oprSize <| getRegVar ctxt R.CF
+  let e = AST.zext oprSize <| getRegVar ctxt R.CF
   (* We only consider 9 flags (we ignore system flags). *)
-  let e = e .| ((zExt oprSize (getRegVar ctxt R.PF)) << numI32 2 oprSize)
-  let e = e .| ((zExt oprSize (getRegVar ctxt R.AF)) << numI32 4 oprSize)
-  let e = e .| ((zExt oprSize (getRegVar ctxt R.ZF)) << numI32 6 oprSize)
-  let e = e .| ((zExt oprSize (getRegVar ctxt R.SF)) << numI32 7 oprSize)
-  let e = e .| ((zExt oprSize (getRegVar ctxt R.TF)) << numI32 8 oprSize)
-  let e = e .| ((zExt oprSize (getRegVar ctxt R.IF)) << numI32 9 oprSize)
-  let e = e .| ((zExt oprSize (getRegVar ctxt R.DF)) << numI32 10 oprSize)
-  let e = e .| ((zExt oprSize (getRegVar ctxt R.OF)) << numI32 11 oprSize)
+  let e = e .| ((AST.zext oprSize (getRegVar ctxt R.PF)) << numI32 2 oprSize)
+  let e = e .| ((AST.zext oprSize (getRegVar ctxt R.AF)) << numI32 4 oprSize)
+  let e = e .| ((AST.zext oprSize (getRegVar ctxt R.ZF)) << numI32 6 oprSize)
+  let e = e .| ((AST.zext oprSize (getRegVar ctxt R.SF)) << numI32 7 oprSize)
+  let e = e .| ((AST.zext oprSize (getRegVar ctxt R.TF)) << numI32 8 oprSize)
+  let e = e .| ((AST.zext oprSize (getRegVar ctxt R.IF)) << numI32 9 oprSize)
+  let e = e .| ((AST.zext oprSize (getRegVar ctxt R.DF)) << numI32 10 oprSize)
+  let e = e .| ((AST.zext oprSize (getRegVar ctxt R.OF)) << numI32 11 oprSize)
   let e = match oprSize with
           | 16<rt> -> e
           | 32<rt> -> e .& (numI32 0xfcffff 32<rt>)
@@ -5334,7 +5343,7 @@ let pushf ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let pxor ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   let oprSize = getOperationSize ins
   startMark insAddr insLen builder
@@ -5351,14 +5360,14 @@ let pxor ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let rcl ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, count = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   let cF = getRegVar ctxt R.CF
   let oF = getRegVar ctxt R.OF
-  let tmpCount = tmpVar oprSize
+  let tmpCount = AST.tmpvar oprSize
   let size = numI32 (RegType.toBitWidth oprSize) oprSize
-  let count = zExt oprSize count
+  let count = AST.zext oprSize count
   let cnt =
     match oprSize with
     | 8<rt> -> (count .& numI32 0x1f oprSize) .% numI32 9 oprSize
@@ -5366,23 +5375,23 @@ let rcl ins insAddr insLen ctxt =
     | 32<rt> -> count .& numI32 0x1f oprSize
     | 64<rt> -> count .& numI32 0x3f oprSize
     | _ -> raise InvalidOperandSizeException
-  let cond = count == num1 oprSize
+  let cond = count == AST.num1 oprSize
   startMark insAddr insLen builder
   builder <! (tmpCount := cnt)
   builder <! (dst := (dst << tmpCount) .| (dst >> (size .- tmpCount)))
-  builder <! (cF := extractHigh 1<rt> dst)
-  builder <! (oF := ite cond (extractHigh 1<rt> dst <+> cF) undefOF)
+  builder <! (cF := AST.xthi 1<rt> dst)
+  builder <! (oF := AST.ite cond (AST.xthi 1<rt> dst <+> cF) undefOF)
   endMark insAddr insLen builder
 
 let rcr ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, count = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   let cF = getRegVar ctxt R.CF
   let oF = getRegVar ctxt R.OF
-  let tmpCount = tmpVar oprSize
+  let tmpCount = AST.tmpvar oprSize
   let size = numI32 (RegType.toBitWidth oprSize) oprSize
-  let count = zExt oprSize count
+  let count = AST.zext oprSize count
   let cnt =
     match oprSize with
     | 8<rt> -> (count .& numI32 0x1f oprSize) .% numI32 9 oprSize
@@ -5390,35 +5399,35 @@ let rcr ins insAddr insLen ctxt =
     | 32<rt> -> count .& numI32 0x1f oprSize
     | 64<rt> -> count .& numI32 0x3f oprSize
     | _ -> raise InvalidOperandSizeException
-  let cond = count == num1 oprSize
+  let cond = count == AST.num1 oprSize
   startMark insAddr insLen builder
   builder <! (tmpCount := cnt)
-  builder <! (oF := ite cond (extractHigh 1<rt> dst <+> cF) undefOF)
+  builder <! (oF := AST.ite cond (AST.xthi 1<rt> dst <+> cF) undefOF)
   builder <! (dst := (dst >> tmpCount) .| (dst << (size .- tmpCount)))
-  builder <! (cF := extractHigh 1<rt> dst)
+  builder <! (cF := AST.xthi 1<rt> dst)
   endMark insAddr insLen builder
 
 let rdpkru ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
-  let lblSucc = lblSymbol "Succ"
-  let lblErr = lblSymbol "Err"
+  let builder = StmtBuilder (8)
+  let lblSucc = AST.symbol "Succ"
+  let lblErr = AST.symbol "Err"
   let oprSize = getOperationSize ins
   let ecx = getRegVar ctxt R.ECX
   let eax = getRegOfSize ctxt ctxt.WordBitSize grpEAX
   let edx = getRegOfSize ctxt ctxt.WordBitSize grpEDX
   startMark insAddr insLen builder
-  builder <! (CJmp (ecx == num0 oprSize, Name lblSucc, Name lblErr))
+  builder <! (CJmp (ecx == AST.num0 oprSize, Name lblSucc, Name lblErr))
   builder <! (LMark lblErr)
   builder <! SideEffect (Trap "GP")
   builder <! (LMark lblSucc)
-  builder <! (eax := zExt ctxt.WordBitSize (getRegVar ctxt R.PKRU))
-  builder <! (edx := num0 ctxt.WordBitSize)
+  builder <! (eax := AST.zext ctxt.WordBitSize (getRegVar ctxt R.PKRU))
+  builder <! (edx := AST.num0 ctxt.WordBitSize)
   endMark insAddr insLen builder
 
 let ret ins insAddr insLen ctxt isFar isImm =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let oprSize = getOperationSize ins
-  let t = tmpVar oprSize
+  let t = AST.tmpvar oprSize
   let pc = getInstrPtr ctxt
   let sp = getStackPtr ctxt
   match isFar, isImm with
@@ -5426,7 +5435,7 @@ let ret ins insAddr insLen ctxt isFar isImm =
     let src = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
     startMark insAddr insLen builder
     auxPop oprSize ctxt t builder
-    builder <! (sp := sp .+ (zExt oprSize src))
+    builder <! (sp := sp .+ (AST.zext oprSize src))
     builder <! (InterJmp (pc, t, InterJmpInfo.IsRet))
     endMark insAddr insLen builder
   | false, false ->
@@ -5438,7 +5447,7 @@ let ret ins insAddr insLen ctxt isFar isImm =
   | true, false -> sideEffects insAddr insLen UnsupportedFAR
 
 let rotate ins insAddr insLen ctxt lfn hfn cfFn ofFn =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, count = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   let cF = getRegVar ctxt R.CF
@@ -5446,31 +5455,31 @@ let rotate ins insAddr insLen ctxt lfn hfn cfFn ofFn =
   let countMask = if is64REXW ctxt ins then numU32 0x3Fu oprSize
                   else numU32 0x1Fu oprSize
   let size = numI32 (RegType.toBitWidth oprSize) oprSize
-  let orgCount = tmpVar oprSize
-  let cond1 = orgCount == num0 oprSize
-  let cond2 = orgCount == num1 oprSize
+  let orgCount = AST.tmpvar oprSize
+  let cond1 = orgCount == AST.num0 oprSize
+  let cond2 = orgCount == AST.num1 oprSize
   startMark insAddr insLen builder
-  builder <! (orgCount := (zExt oprSize count .& countMask))
+  builder <! (orgCount := (AST.zext oprSize count .& countMask))
   builder <! (dst := (lfn dst orgCount) .| (hfn dst (size .- orgCount)))
-  builder <! (cF := ite cond1 cF (cfFn 1<rt> dst))
-  builder <! (oF := ite cond2 (ofFn dst cF) undefOF)
+  builder <! (cF := AST.ite cond1 cF (cfFn 1<rt> dst))
+  builder <! (oF := AST.ite cond2 (ofFn dst cF) undefOF)
   endMark insAddr insLen builder
 
 let rol ins insAddr insLen ctxt =
-  let ofFn dst cF = cF <+> extractHigh 1<rt> dst
-  rotate ins insAddr insLen ctxt (<<) (>>) extractLow ofFn
+  let ofFn dst cF = cF <+> AST.xthi 1<rt> dst
+  rotate ins insAddr insLen ctxt (<<) (>>) AST.xtlo ofFn
 
 let ror ins insAddr insLen ctxt =
   let ofFn dst _cF =
-    extractHigh 1<rt> dst <+> extract dst 1<rt> 1
-  rotate ins insAddr insLen ctxt (>>) (<<) extractHigh ofFn
+    AST.xthi 1<rt> dst <+> AST.extract dst 1<rt> 1
+  rotate ins insAddr insLen ctxt (>>) (<<) AST.xthi ofFn
 
 let rorx ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src, imm =
     getThreeOprs ins |> transThreeOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
-  let y = tmpVar oprSize
+  let y = AST.tmpvar oprSize
   if oprSize = 32<rt> then
     builder <! (y := imm .& (numI32 0x1F oprSize))
     builder <! (dst := (src >> y) .| (src << (numI32 32 oprSize .- y)))
@@ -5480,130 +5489,130 @@ let rorx ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let rcpps ins insAddr insLen ctxt =
-  let builder = new StmtBuilder(8)
+  let builder = StmtBuilder(8)
   let opr1, opr2 = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt opr1
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt opr2
-  let dst1b, dst1a = extractHigh 32<rt> dst1, extractLow 32<rt> dst1
-  let dst2b, dst2a = extractHigh 32<rt> dst2, extractLow 32<rt> dst2
-  let src1b, src1a = extractHigh 32<rt> src1, extractLow 32<rt> src1
-  let src2b, src2a = extractHigh 32<rt> src2, extractLow 32<rt> src2
-  let tmp = tmpVar 32<rt>
+  let dst1b, dst1a = AST.xthi 32<rt> dst1, AST.xtlo 32<rt> dst1
+  let dst2b, dst2a = AST.xthi 32<rt> dst2, AST.xtlo 32<rt> dst2
+  let src1b, src1a = AST.xthi 32<rt> src1, AST.xtlo 32<rt> src1
+  let src2b, src2a = AST.xthi 32<rt> src2, AST.xtlo 32<rt> src2
+  let tmp = AST.tmpvar 32<rt>
   let flt1 = BitVector.ofInt32 0x3f800000 32<rt> |> Num
   startMark insAddr insLen builder
-  builder <! (dst1a := fdiv flt1 src1a)
-  builder <! (dst1b := fdiv flt1 src1b)
-  builder <! (dst2a := fdiv flt1 src2a)
-  builder <! (dst2b := fdiv flt1 src2b)
+  builder <! (dst1a := AST.fdiv flt1 src1a)
+  builder <! (dst1b := AST.fdiv flt1 src1b)
+  builder <! (dst2a := AST.fdiv flt1 src2a)
+  builder <! (dst2b := AST.fdiv flt1 src2b)
   endMark insAddr insLen builder
 
 let rcpss ins insAddr insLen ctxt =
-  let builder = new StmtBuilder(4)
+  let builder = StmtBuilder(4)
   let opr1, opr2 = getTwoOprs ins
   let dst = transOprToExpr32 ins insAddr insLen ctxt opr1
   let src = transOprToExpr32 ins insAddr insLen ctxt opr2
-  let tmp = tmpVar 32<rt>
+  let tmp = AST.tmpvar 32<rt>
   let flt1 = BitVector.ofInt32 0x3f800000 32<rt> |> Num
   startMark insAddr insLen builder
-  builder <! (dst := fdiv flt1 src)
+  builder <! (dst := AST.fdiv flt1 src)
   endMark insAddr insLen builder
 
 let roundsd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src, imm = getThreeOprs ins
   let dst = transOprToExpr64 ins insAddr insLen ctxt dst
   let src = transOprToExpr64 ins insAddr insLen ctxt src
   let imm = transOprToExpr ins insAddr insLen ctxt imm
-  let rc = extract (getRegVar ctxt R.FCW) 2<rt> 10
-  let tmp = tmpVar 2<rt>
-  let cster castKind = cast castKind 64<rt> src
+  let rc = AST.extract (getRegVar ctxt R.FCW) 2<rt> 10
+  let tmp = AST.tmpvar 2<rt>
+  let cster castKind = AST.cast castKind 64<rt> src
   startMark insAddr insLen builder
-  builder <! (tmp := ite (extract imm 1<rt> 2) rc (extractLow 2<rt> imm))
-  builder <! (dst := num0 64<rt>)
-  builder <! (dst := ite (tmp == num0 2<rt>) (cster CastKind.FtoIRound) dst)
-  builder <! (dst := ite (tmp == num1 2<rt>) (cster CastKind.FtoIFloor) dst)
-  builder <! (dst := ite (tmp == numI32 2 2<rt>) (cster CastKind.FtoICeil) dst)
-  builder <! (dst := ite (tmp == numI32 3 2<rt>) (cster CastKind.FtoITrunc) dst)
+  builder <! (tmp := AST.ite (AST.extract imm 1<rt> 2) rc (AST.xtlo 2<rt> imm))
+  builder <! (dst := AST.num0 64<rt>)
+  builder <! (dst := AST.ite (tmp == AST.num0 2<rt>) (cster CastKind.FtoIRound) dst)
+  builder <! (dst := AST.ite (tmp == AST.num1 2<rt>) (cster CastKind.FtoIFloor) dst)
+  builder <! (dst := AST.ite (tmp == numI32 2 2<rt>) (cster CastKind.FtoICeil) dst)
+  builder <! (dst := AST.ite (tmp == numI32 3 2<rt>) (cster CastKind.FtoITrunc) dst)
   endMark insAddr insLen builder
 
 let rsqrtps ins insAddr insLen ctxt =
-  let builder = new StmtBuilder(16)
+  let builder = StmtBuilder(16)
   let opr1, opr2 = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt opr1
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt opr2
-  let dst1b, dst1a = extractHigh 32<rt> dst1, extractLow 32<rt> dst1
-  let dst2b, dst2a = extractHigh 32<rt> dst2, extractLow 32<rt> dst2
-  let src1b, src1a = extractHigh 32<rt> src1, extractLow 32<rt> src1
-  let src2b, src2a = extractHigh 32<rt> src2, extractLow 32<rt> src2
-  let tmp = tmpVar 32<rt>
+  let dst1b, dst1a = AST.xthi 32<rt> dst1, AST.xtlo 32<rt> dst1
+  let dst2b, dst2a = AST.xthi 32<rt> dst2, AST.xtlo 32<rt> dst2
+  let src1b, src1a = AST.xthi 32<rt> src1, AST.xtlo 32<rt> src1
+  let src2b, src2a = AST.xthi 32<rt> src2, AST.xtlo 32<rt> src2
+  let tmp = AST.tmpvar 32<rt>
   let flt1 = BitVector.ofInt32 0x3f800000 32<rt> |> Num
   startMark insAddr insLen builder
-  builder <! (tmp := unop UnOpType.FSQRT src1a)
-  builder <! (dst1a := fdiv flt1 tmp)
-  builder <! (tmp := unop UnOpType.FSQRT src1b)
-  builder <! (dst1b := fdiv flt1 tmp)
-  builder <! (tmp := unop UnOpType.FSQRT src2a)
-  builder <! (dst2a := fdiv flt1 tmp)
-  builder <! (tmp := unop UnOpType.FSQRT src2b)
-  builder <! (dst2b := fdiv flt1 tmp)
+  builder <! (tmp := AST.unop UnOpType.FSQRT src1a)
+  builder <! (dst1a := AST.fdiv flt1 tmp)
+  builder <! (tmp := AST.unop UnOpType.FSQRT src1b)
+  builder <! (dst1b := AST.fdiv flt1 tmp)
+  builder <! (tmp := AST.unop UnOpType.FSQRT src2a)
+  builder <! (dst2a := AST.fdiv flt1 tmp)
+  builder <! (tmp := AST.unop UnOpType.FSQRT src2b)
+  builder <! (dst2b := AST.fdiv flt1 tmp)
   endMark insAddr insLen builder
 
 let rsqrtss ins insAddr insLen ctxt =
-  let builder = new StmtBuilder(4)
+  let builder = StmtBuilder(4)
   let opr1, opr2 = getTwoOprs ins
   let dst = transOprToExpr32 ins insAddr insLen ctxt opr1
   let src = transOprToExpr32 ins insAddr insLen ctxt opr2
-  let tmp = tmpVar 32<rt>
+  let tmp = AST.tmpvar 32<rt>
   let flt1 = BitVector.ofInt32 0x3f800000 32<rt> |> Num
   startMark insAddr insLen builder
-  builder <! (tmp := unop UnOpType.FSQRT src)
-  builder <! (dst := fdiv flt1 tmp)
+  builder <! (tmp := AST.unop UnOpType.FSQRT src)
+  builder <! (dst := AST.fdiv flt1 tmp)
   endMark insAddr insLen builder
 
 let sahf ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let ah = getRegVar ctxt R.AH
   startMark insAddr insLen builder
-  builder <! (getRegVar ctxt R.CF := extractLow 1<rt> ah)
-  builder <! (getRegVar ctxt R.PF := extract ah 1<rt> 2)
-  builder <! (getRegVar ctxt R.AF := extract ah 1<rt> 4)
-  builder <! (getRegVar ctxt R.ZF := extract ah 1<rt> 6)
-  builder <! (getRegVar ctxt R.SF := extract ah 1<rt> 7)
+  builder <! (getRegVar ctxt R.CF := AST.xtlo 1<rt> ah)
+  builder <! (getRegVar ctxt R.PF := AST.extract ah 1<rt> 2)
+  builder <! (getRegVar ctxt R.AF := AST.extract ah 1<rt> 4)
+  builder <! (getRegVar ctxt R.ZF := AST.extract ah 1<rt> 6)
+  builder <! (getRegVar ctxt R.SF := AST.extract ah 1<rt> 7)
   endMark insAddr insLen builder
 
 let shufpd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src, imm = getThreeOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
   let imm = transOprToExpr ins insAddr insLen ctxt imm
-  let cond1 = extractLow 1<rt> imm
-  let cond2 = extract imm 1<rt> 1
+  let cond1 = AST.xtlo 1<rt> imm
+  let cond2 = AST.extract imm 1<rt> 1
   startMark insAddr insLen builder
-  builder <! (dst1 := ite cond1 dst2 dst1)
-  builder <! (dst2 := ite cond2 src2 src1)
+  builder <! (dst1 := AST.ite cond1 dst2 dst1)
+  builder <! (dst2 := AST.ite cond2 src2 src1)
   endMark insAddr insLen builder
 
 let shufps ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (32)
+  let builder = StmtBuilder (32)
   let dst, src, imm = getThreeOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
   let imm = transOprToExpr ins insAddr insLen ctxt imm
-  let dst1A, dst1B = extractLow 32<rt> dst1, extractHigh 32<rt> dst1
-  let dst2A, dst2B = extractLow 32<rt> dst2, extractHigh 32<rt> dst2
-  let src1A, src1B = extractLow 32<rt> src1, extractHigh 32<rt> src1
-  let src2A, src2B = extractLow 32<rt> src2, extractHigh 32<rt> src2
+  let dst1A, dst1B = AST.xtlo 32<rt> dst1, AST.xthi 32<rt> dst1
+  let dst2A, dst2B = AST.xtlo 32<rt> dst2, AST.xthi 32<rt> dst2
+  let src1A, src1B = AST.xtlo 32<rt> src1, AST.xthi 32<rt> src1
+  let src2A, src2B = AST.xtlo 32<rt> src2, AST.xthi 32<rt> src2
   let doShuf cond dst e0 e1 e2 e3 =
-    builder <! (dst := num0 32<rt>)
-    builder <! (dst := ite (cond == num0 2<rt>) e0 dst)
-    builder <! (dst := ite (cond == num1 2<rt>) e1 dst)
-    builder <! (dst := ite (cond == numI32 2 2<rt>) e2 dst)
-    builder <! (dst := ite (cond == numI32 3 2<rt>) e3 dst)
-  let cond1 = extractLow 2<rt> imm
-  let cond2 = extract imm 2<rt> 2
-  let cond3 = extract imm 2<rt> 4
-  let cond4 = extract imm 2<rt> 6
+    builder <! (dst := AST.num0 32<rt>)
+    builder <! (dst := AST.ite (cond == AST.num0 2<rt>) e0 dst)
+    builder <! (dst := AST.ite (cond == AST.num1 2<rt>) e1 dst)
+    builder <! (dst := AST.ite (cond == numI32 2 2<rt>) e2 dst)
+    builder <! (dst := AST.ite (cond == numI32 3 2<rt>) e3 dst)
+  let cond1 = AST.xtlo 2<rt> imm
+  let cond2 = AST.extract imm 2<rt> 2
+  let cond3 = AST.extract imm 2<rt> 4
+  let cond4 = AST.extract imm 2<rt> 6
   let tmp1, tmp2, tmp3, tmp4 = tmpVars4 32<rt>
   startMark insAddr insLen builder
   doShuf cond1 tmp1 dst1A dst1B dst2A dst2B
@@ -5617,14 +5626,14 @@ let shufps ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let shift ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
-  let n0 = num0 oprSize
-  let n1 = num1 oprSize
+  let n0 = AST.num0 oprSize
+  let n1 = AST.num1 oprSize
   let countMask = if is64REXW ctxt ins then numU32 0x3Fu oprSize
                   else numU32 0x1Fu oprSize
-  let cnt = (zExt oprSize src) .& countMask
+  let cnt = (AST.zext oprSize src) .& countMask
   let cond1 = cnt == n1
   let cond2 = cnt == n0
   let oF = getRegVar ctxt R.OF
@@ -5632,113 +5641,113 @@ let shift ins insAddr insLen ctxt =
   let sF = getRegVar ctxt R.SF
   let zF = getRegVar ctxt R.ZF
   let aF = getRegVar ctxt R.AF
-  let tDst = tmpVar oprSize
-  let tCnt = tmpVar oprSize
+  let tDst = AST.tmpvar oprSize
+  let tCnt = AST.tmpvar oprSize
   startMark insAddr insLen builder
   builder <! (tDst := dst)
   match ins.Opcode with
   | Opcode.SAR ->
     builder <! (dst := dst ?>> cnt)
     builder <! (tCnt := cnt .- n1)
-    let prevLBit = extractLow 1<rt> (tDst ?>> tCnt)
-    builder <! (cF := ite cond2 cF prevLBit)
-    builder <! (oF := ite cond1 b0 (ite cond2 oF undefOF))
+    let prevLBit = AST.xtlo 1<rt> (tDst ?>> tCnt)
+    builder <! (cF := AST.ite cond2 cF prevLBit)
+    builder <! (oF := AST.ite cond1 AST.b0 (AST.ite cond2 oF undefOF))
   | Opcode.SHL ->
     builder <! (dstAssign oprSize dst (dst << cnt))
     builder <! (tCnt := cnt .- n1)
-    let prevHBit = extractHigh 1<rt> (tDst << tCnt)
-    builder <! (cF := ite cond2 cF prevHBit)
-    let of1 = extractHigh 1<rt> dst <+> cF
-    builder <! (oF := ite cond1 of1 (ite cond2 oF undefOF))
+    let prevHBit = AST.xthi 1<rt> (tDst << tCnt)
+    builder <! (cF := AST.ite cond2 cF prevHBit)
+    let of1 = AST.xthi 1<rt> dst <+> cF
+    builder <! (oF := AST.ite cond1 of1 (AST.ite cond2 oF undefOF))
   | Opcode.SHR ->
     builder <! (dstAssign oprSize dst (dst >> cnt))
     builder <! (tCnt := cnt .- n1)
-    let prevLBit = extractLow 1<rt> (tDst ?>> tCnt)
-    builder <! (cF := ite cond2 cF prevLBit)
+    let prevLBit = AST.xtlo 1<rt> (tDst ?>> tCnt)
+    builder <! (cF := AST.ite cond2 cF prevLBit)
     builder <!
-      (oF := ite cond1 (extractHigh 1<rt> tDst) (ite cond2 oF undefOF))
+      (oF := AST.ite cond1 (AST.xthi 1<rt> tDst) (AST.ite cond2 oF undefOF))
   | _ -> raise InvalidOpcodeException
-  builder <! (sF := ite cond2 sF (extractHigh 1<rt> dst))
-  let cbPF computedPF = ite cond2 (getRegVar ctxt R.PF) computedPF
+  builder <! (sF := AST.ite cond2 sF (AST.xthi 1<rt> dst))
+  let cbPF computedPF = AST.ite cond2 (getRegVar ctxt R.PF) computedPF
   buildPF ctxt dst oprSize (Some cbPF) builder
-  builder <! (zF := ite cond2 zF (dst == n0))
-  builder <! (aF := ite cond2 aF undefAF)
+  builder <! (zF := AST.ite cond2 zF (dst == n0))
+  builder <! (aF := AST.ite cond2 aF undefAF)
   endMark insAddr insLen builder
 
 let sbb ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   let t1, t2, t3, t4 = tmpVars4 oprSize
   let cf = getRegVar ctxt R.CF
   startMark insAddr insLen builder
   builder <! (t1 := dst)
-  builder <! (t2 := sExt oprSize src)
-  builder <! (t3 := t2 .+ zExt oprSize cf)
+  builder <! (t2 := AST.sext oprSize src)
+  builder <! (t3 := t2 .+ AST.zext oprSize cf)
   builder <! (t4 := t1 .- t3)
   builder <! (dstAssign oprSize dst t4)
-  builder <! (cf := (lt t1 t3) .| (lt t3 t2))
+  builder <! (cf := (AST.lt t1 t3) .| (AST.lt t3 t2))
   builder <! (getRegVar ctxt R.OF := getOFlagOnSub t1 t2 t4)
   enumASZPFlags ctxt t1 t2 t4 oprSize builder
   endMark insAddr insLen builder
 
 let scas ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (32)
+  let builder = StmtBuilder (32)
   startMark insAddr insLen builder
   let pref = ins.Prefixes
   let body () =
     let oprSize = getOperationSize ins
-    let t = tmpVar oprSize
+    let t = AST.tmpvar oprSize
     let df = getRegVar ctxt R.DF
     let ax = getRegOfSize ctxt oprSize grpEAX
     let di = getRegVar ctxt (if is64bit ctxt then R.RDI else R.EDI)
-    let tSrc = tmpVar oprSize
-    builder <! (tSrc := loadLE oprSize di)
+    let tSrc = AST.tmpvar oprSize
+    builder <! (tSrc := AST.loadLE oprSize di)
     builder <! (t := ax .- tSrc)
     enumEFLAGS ctxt ax tSrc t oprSize getCFlagOnSub getOFlagOnSub builder
     let amount = numI32 (RegType.toByteWidth oprSize) ctxt.WordBitSize
-    builder <! (di := ite df (di .- amount) (di .+ amount))
+    builder <! (di := AST.ite df (di .- amount) (di .+ amount))
   let zfCond n = Some (getRegVar ctxt R.ZF == n)
-  if hasREPZ pref then strRepeat ctxt body (zfCond b0) insAddr insLen builder
-  elif hasREPNZ pref then strRepeat ctxt body (zfCond b1) insAddr insLen builder
+  if hasREPZ pref then strRepeat ctxt body (zfCond AST.b0) insAddr insLen builder
+  elif hasREPNZ pref then strRepeat ctxt body (zfCond AST.b1) insAddr insLen builder
   else body ()
   endMark insAddr insLen builder
 
 let setcc ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
-  let cond = getCondOfSet ins ctxt |> zExt oprSize
+  let cond = getCondOfSet ins ctxt |> AST.zext oprSize
   startMark insAddr insLen builder
   builder <! (dstAssign oprSize dst cond)
   endMark insAddr insLen builder
 
 let inline shiftDblPrec ins insAddr insLen ctxt fnDst fnSrc isShl =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst, src, cnt = getThreeOprs ins |> transThreeOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
-  let orig = tmpVar oprSize
-  let c = tmpVar oprSize
-  let cond1 = c == num0 oprSize
-  let cond2 = c == num1 oprSize
+  let orig = AST.tmpvar oprSize
+  let c = AST.tmpvar oprSize
+  let cond1 = c == AST.num0 oprSize
+  let cond2 = c == AST.num1 oprSize
   let cF = getRegVar ctxt R.CF
   let oF = getRegVar ctxt R.OF
   let aF = getRegVar ctxt R.AF
   startMark insAddr insLen builder
   builder <! (orig := dst)
   let maxSz = numI32 (if is64REXW ctxt ins then 64 else 32) oprSize
-  builder <! (c := (zExt oprSize cnt) .% maxSz)
-  let final = ite cond1 orig ((fnDst orig c) .| (fnSrc src (maxSz .- c)))
+  builder <! (c := (AST.zext oprSize cnt) .% maxSz)
+  let final = AST.ite cond1 orig ((fnDst orig c) .| (fnSrc src (maxSz .- c)))
   builder <! (dstAssign oprSize dst final)
   if isShl then
-    builder <! (cF := ite cond1 cF (extractLow 1<rt> (orig >> (maxSz .- c))))
+    builder <! (cF := AST.ite cond1 cF (AST.xtlo 1<rt> (orig >> (maxSz .- c))))
   else
     builder <!
-      (cF := ite cond1 cF (extractLow 1<rt> (orig >> (c .- num1 oprSize))))
+      (cF := AST.ite cond1 cF (AST.xtlo 1<rt> (orig >> (c .- AST.num1 oprSize))))
   builder <!
-    (oF := ite cond1 oF
-               (ite cond2 (extractHigh 1<rt> (orig <+> dst)) undefOF))
-  builder <! (aF := ite cond1 aF undefAF)
+    (oF := AST.ite cond1 oF
+               (AST.ite cond2 (AST.xthi 1<rt> (orig <+> dst)) undefOF))
+  builder <! (aF := AST.ite cond1 aF undefAF)
   enumSZPFlags ctxt dst oprSize builder
   endMark insAddr insLen builder
 
@@ -5749,30 +5758,30 @@ let shrd ins insAddr insLen ctxt =
   shiftDblPrec ins insAddr insLen ctxt (>>) (<<) false
 
 let shlx ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src1, src2 =
     getThreeOprs ins |> transThreeOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
-  let temp = tmpVar oprSize
+  let temp = AST.tmpvar oprSize
   let countMask = if is64REXW ctxt ins then 0x3F else 0x1F // FIXME: CS.L = 1
   let count = src2 .& (numI32 countMask oprSize)
   startMark insAddr insLen builder
   builder <! (temp := src1)
-  builder <! (extractHigh 1<rt> dst := extractHigh 1<rt> temp)
+  builder <! (AST.xthi 1<rt> dst := AST.xthi 1<rt> temp)
   builder <! (dst := dst << count)
   endMark insAddr insLen builder
 
 let stmxcsr ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
   startMark insAddr insLen builder
   builder <! (dst := getRegVar ctxt R.MXCSR)
   endMark insAddr insLen builder
 
 let setFlag insAddr insLen ctxt flag =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   startMark insAddr insLen builder
-  builder <! (getRegVar ctxt flag := b1)
+  builder <! (getRegVar ctxt flag := AST.b1)
   endMark insAddr insLen builder
 
 let stc insAddr insLen ctxt = setFlag insAddr insLen ctxt R.CF
@@ -5780,16 +5789,16 @@ let std insAddr insLen ctxt = setFlag insAddr insLen ctxt R.DF
 let sti insAddr insLen ctxt = setFlag insAddr insLen ctxt R.IF
 
 let stos ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   startMark insAddr insLen builder
   let body () =
     let oprSize = getOperationSize ins
     let df = getRegVar ctxt R.DF
     let di = getRegVar ctxt (if is64bit ctxt then R.RDI else R.EDI)
     let src = getRegOfSize ctxt oprSize grpEAX
-    builder <! (loadLE oprSize di := src)
+    builder <! (AST.loadLE oprSize di := src)
     let amount = numI32 (RegType.toByteWidth oprSize) ctxt.WordBitSize
-    builder <! (di := ite df (di .- amount) (di .+ amount))
+    builder <! (di := AST.ite df (di .- amount) (di .+ amount))
   if hasREPZ ins.Prefixes then
     strRepeat ctxt body None insAddr insLen builder
   elif hasREPNZ ins.Prefixes then Utils.impossible ()
@@ -5797,7 +5806,7 @@ let stos ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let sub ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   let t1, t2, t3 = tmpVars3 oprSize
@@ -5810,7 +5819,7 @@ let sub ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let subpd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   startMark insAddr insLen builder
   let dst1, dst2 = transOprToExpr128 ins insAddr insLen ctxt dst
@@ -5820,41 +5829,41 @@ let subpd ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let test ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let src1, src2 = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
-  let t = tmpVar oprSize
+  let t = AST.tmpvar oprSize
   startMark insAddr insLen builder
   builder <! (t := src1 .& src2)
-  builder <! (getRegVar ctxt R.SF := extractHigh 1<rt> t)
-  builder <! (getRegVar ctxt R.ZF := t == (num0 oprSize))
+  builder <! (getRegVar ctxt R.SF := AST.xthi 1<rt> t)
+  builder <! (getRegVar ctxt R.ZF := t == (AST.num0 oprSize))
   buildPF ctxt t oprSize None builder
-  builder <! (getRegVar ctxt R.CF := b0)
-  builder <! (getRegVar ctxt R.OF := b0)
+  builder <! (getRegVar ctxt R.CF := AST.b0)
+  builder <! (getRegVar ctxt R.OF := AST.b0)
   builder <! (getRegVar ctxt R.AF := undefAF)
   endMark insAddr insLen builder
 
 let tzcnt ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
-  let lblLoop = lblSymbol "Loop"
-  let lblExit = lblSymbol "Exit"
-  let lblLoopCond = lblSymbol "LoopCond"
+  let builder = StmtBuilder (16)
+  let lblLoop = AST.symbol "Loop"
+  let lblExit = AST.symbol "Exit"
+  let lblLoopCond = AST.symbol "LoopCond"
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   let max = numI32 (RegType.toBitWidth oprSize) oprSize
   startMark insAddr insLen builder
-  let t1 = tmpVar oprSize
-  builder <! (t1 := num0 oprSize)
+  let t1 = AST.tmpvar oprSize
+  builder <! (t1 := AST.num0 oprSize)
   builder <! (LMark lblLoopCond)
-  let cond = (lt t1 max) .& (extractLow 1<rt> (src >> t1) == b0)
+  let cond = (AST.lt t1 max) .& (AST.xtlo 1<rt> (src >> t1) == AST.b0)
   builder <! (CJmp (cond, Name lblLoop, Name lblExit))
   builder <! (LMark lblLoop)
-  builder <! (t1 := t1 .+ num1 oprSize)
+  builder <! (t1 := t1 .+ AST.num1 oprSize)
   builder <! (Jmp (Name lblLoopCond))
   builder <! (LMark lblExit)
   builder <! (dstAssign oprSize dst t1)
   builder <! (getRegVar ctxt R.CF := dst == max)
-  builder <! (getRegVar ctxt R.ZF := dst == num0 oprSize)
+  builder <! (getRegVar ctxt R.ZF := dst == AST.num0 oprSize)
   builder <! (getRegVar ctxt R.OF := undefOF)
   builder <! (getRegVar ctxt R.SF := undefSF)
   builder <! (getRegVar ctxt R.PF := undefPF)
@@ -5862,63 +5871,63 @@ let tzcnt ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let ucomisd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let opr1, opr2 = getTwoOprs ins
   let opr1 = transOprToExpr64 ins insAddr insLen ctxt opr1
   let opr2 = transOprToExpr64 ins insAddr insLen ctxt opr2
-  let lblNan = lblSymbol "IsNan"
-  let lblExit = lblSymbol "Exit"
+  let lblNan = AST.symbol "IsNan"
+  let lblExit = AST.symbol "Exit"
   let zf = getRegVar ctxt R.ZF
   let pf = getRegVar ctxt R.PF
   let cf = getRegVar ctxt R.CF
   startMark insAddr insLen builder
-  builder <! (zf := ite (opr1 == opr2) b1 b0)
-  builder <! (pf := b0)
-  builder <! (cf := ite (flt opr1 opr2) b1 b0)
+  builder <! (zf := AST.ite (opr1 == opr2) AST.b1 AST.b0)
+  builder <! (pf := AST.b0)
+  builder <! (cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0)
   let isNan expr =
-    (extract expr 11<rt> 52  == num (BitVector.unsignedMax 11<rt>))
-     .& (extractLow 52<rt> expr != num0 52<rt>)
+    (AST.extract expr 11<rt> 52  == AST.num (BitVector.unsignedMax 11<rt>))
+     .& (AST.xtlo 52<rt> expr != AST.num0 52<rt>)
   builder <! (CJmp (isNan opr1 .| isNan opr2, Name lblNan, Name lblExit))
   builder <! (LMark lblNan)
-  builder <! (zf := b1)
-  builder <! (pf := b1)
-  builder <! (cf := b1)
+  builder <! (zf := AST.b1)
+  builder <! (pf := AST.b1)
+  builder <! (cf := AST.b1)
   builder <! (LMark lblExit)
-  builder <! (getRegVar ctxt R.OF := b0)
-  builder <! (getRegVar ctxt R.AF := b0)
-  builder <! (getRegVar ctxt R.SF := b0)
+  builder <! (getRegVar ctxt R.OF := AST.b0)
+  builder <! (getRegVar ctxt R.AF := AST.b0)
+  builder <! (getRegVar ctxt R.SF := AST.b0)
   endMark insAddr insLen builder
 
 let ucomiss ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let opr1, opr2 = getTwoOprs ins
   let opr1 = transOprToExpr32 ins insAddr insLen ctxt opr1
   let opr2 = transOprToExpr32 ins insAddr insLen ctxt opr2
-  let lblNan = lblSymbol "IsNan"
-  let lblExit = lblSymbol "Exit"
+  let lblNan = AST.symbol "IsNan"
+  let lblExit = AST.symbol "Exit"
   let zf = getRegVar ctxt R.ZF
   let pf = getRegVar ctxt R.PF
   let cf = getRegVar ctxt R.CF
   startMark insAddr insLen builder
-  builder <! (zf := ite (opr1 == opr2) b1 b0)
-  builder <! (pf := b0)
-  builder <! (cf := ite (flt opr1 opr2) b1 b0)
+  builder <! (zf := AST.ite (opr1 == opr2) AST.b1 AST.b0)
+  builder <! (pf := AST.b0)
+  builder <! (cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0)
   let isNan expr =
-    (extract expr 8<rt> 23  == num (BitVector.unsignedMax 8<rt>))
-     .& (extractLow 23<rt> expr != num0 23<rt>)
+    (AST.extract expr 8<rt> 23  == AST.num (BitVector.unsignedMax 8<rt>))
+     .& (AST.xtlo 23<rt> expr != AST.num0 23<rt>)
   builder <! (CJmp (isNan opr1 .| isNan opr2, Name lblNan, Name lblExit))
   builder <! (LMark lblNan)
-  builder <! (zf := b1)
-  builder <! (pf := b1)
-  builder <! (cf := b1)
+  builder <! (zf := AST.b1)
+  builder <! (pf := AST.b1)
+  builder <! (cf := AST.b1)
   builder <! (LMark lblExit)
-  builder <! (getRegVar ctxt R.OF := b0)
-  builder <! (getRegVar ctxt R.AF := b0)
-  builder <! (getRegVar ctxt R.SF := b0)
+  builder <! (getRegVar ctxt R.OF := AST.b0)
+  builder <! (getRegVar ctxt R.AF := AST.b0)
+  builder <! (getRegVar ctxt R.SF := AST.b0)
   endMark insAddr insLen builder
 
 let unpckhpd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2, _src1 = transOprToExpr128 ins insAddr insLen ctxt src
@@ -5928,13 +5937,13 @@ let unpckhpd ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let unpckhps ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2, _src1 = transOprToExpr128 ins insAddr insLen ctxt src
-  let dst1A, dst1B = extractLow 32<rt> dst1, extractHigh 32<rt> dst1
-  let dst2A, dst2B = extractLow 32<rt> dst2, extractHigh 32<rt> dst2
-  let src2A, src2B = extractLow 32<rt> src2, extractHigh 32<rt> src2
+  let dst1A, dst1B = AST.xtlo 32<rt> dst1, AST.xthi 32<rt> dst1
+  let dst2A, dst2B = AST.xtlo 32<rt> dst2, AST.xthi 32<rt> dst2
+  let src2A, src2B = AST.xtlo 32<rt> src2, AST.xthi 32<rt> src2
   startMark insAddr insLen builder
   builder <! (dst1A := dst2A)
   builder <! (dst1B := src2A)
@@ -5943,7 +5952,7 @@ let unpckhps ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let unpcklpd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let _src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
@@ -5952,13 +5961,13 @@ let unpcklpd ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let unpcklps ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let _src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
-  let dst1A, dst1B = extractLow 32<rt> dst1, extractHigh 32<rt> dst1
-  let dst2A, dst2B = extractLow 32<rt> dst2, extractHigh 32<rt> dst2
-  let src1A, src1B = extractLow 32<rt> src1, extractHigh 32<rt> src1
+  let dst1A, dst1B = AST.xtlo 32<rt> dst1, AST.xthi 32<rt> dst1
+  let dst2A, dst2B = AST.xtlo 32<rt> dst2, AST.xthi 32<rt> dst2
+  let src1A, src1B = AST.xtlo 32<rt> src1, AST.xthi 32<rt> src1
   startMark insAddr insLen builder
   builder <! (dst2A := dst1B)
   builder <! (dst1B := src1A)
@@ -5966,7 +5975,7 @@ let unpcklps ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let vexedPackedFPBinOp64 ins insAddr insLen ctxt op =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst, src1, src2 = getThreeOprs ins
   let oprSz = getOperationSize ins
   startMark insAddr insLen builder
@@ -5990,13 +5999,13 @@ let vexedPackedFPBinOp64 ins insAddr insLen ctxt op =
   endMark insAddr insLen builder
 
 let vexedPackedFPBinOp32 ins insAddr insLen ctxt op =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst, src1, src2 = getThreeOprs ins
   let oprSz = getOperationSize ins
   let do32PackedOp dst64 src1 src2 builder =
-    let dstA, dstB = extractLow 32<rt> dst64, extractHigh 32<rt> dst64
-    let src1A, src1B = extractLow 32<rt> src1, extractHigh 32<rt> src1
-    let src2A, src2B = extractLow 32<rt> src2, extractHigh 32<rt> src2
+    let dstA, dstB = AST.xtlo 32<rt> dst64, AST.xthi 32<rt> dst64
+    let src1A, src1B = AST.xtlo 32<rt> src1, AST.xthi 32<rt> src1
+    let src2A, src2B = AST.xtlo 32<rt> src2, AST.xthi 32<rt> src2
     builder <! (dstA := op src1A src2A)
     builder <! (dstB := op src1B src2B)
   startMark insAddr insLen builder
@@ -6020,7 +6029,7 @@ let vexedPackedFPBinOp32 ins insAddr insLen ctxt op =
   endMark insAddr insLen builder
 
 let vexedScalarFPBinOp ins insAddr insLen ctxt sz op =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src1, src2 = getThreeOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src1B, src1A = transOprToExpr128 ins insAddr insLen ctxt src1
@@ -6028,8 +6037,8 @@ let vexedScalarFPBinOp ins insAddr insLen ctxt sz op =
   match sz with
   | 32<rt> ->
     let src2 = transOprToExpr32 ins insAddr insLen ctxt src2
-    builder <! (extractLow 32<rt> dst1 := op (extractLow 32<rt> src1A) src2)
-    builder <! (extractHigh 32<rt> dst1 := extractHigh 32<rt> src1A)
+    builder <! (AST.xtlo 32<rt> dst1 := op (AST.xtlo 32<rt> src1A) src2)
+    builder <! (AST.xthi 32<rt> dst1 := AST.xthi 32<rt> src1A)
   | 64<rt> ->
     let src2 = transOprToExpr64 ins insAddr insLen ctxt src2
     builder <! (dst1 := op src1A src2)
@@ -6043,18 +6052,18 @@ let isEvexEncoded = function
   | _ -> false
 
 let vaddpd ins insAddr insLen ctxt =
-  vexedPackedFPBinOp64 ins insAddr insLen ctxt fadd
+  vexedPackedFPBinOp64 ins insAddr insLen ctxt AST.fadd
 
 let vaddps ins insAddr insLen ctxt =
   match getOperationSize ins with
   | 512<rt> -> nop insAddr insLen
-  | _ -> vexedPackedFPBinOp32 ins insAddr insLen ctxt fadd
+  | _ -> vexedPackedFPBinOp32 ins insAddr insLen ctxt AST.fadd
 
 let vaddsd ins insAddr insLen ctxt =
-  vexedScalarFPBinOp ins insAddr insLen ctxt 64<rt> fadd
+  vexedScalarFPBinOp ins insAddr insLen ctxt 64<rt> AST.fadd
 
 let vaddss ins insAddr insLen ctxt =
-  vexedScalarFPBinOp ins insAddr insLen ctxt 32<rt> fadd
+  vexedScalarFPBinOp ins insAddr insLen ctxt 32<rt> AST.fadd
 
 let vandpd ins insAddr insLen ctxt =
   vexedPackedFPBinOp64 ins insAddr insLen ctxt (.&)
@@ -6071,7 +6080,7 @@ let vandnps ins insAddr insLen ctxt =
   vexedPackedFPBinOp32 ins insAddr insLen ctxt andnpdOp
 
 let vbroadcasti128 ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src = getTwoOprs ins
   let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
   let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
@@ -6083,81 +6092,81 @@ let vbroadcasti128 ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let vbroadcastss ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (32)
+  let builder = StmtBuilder (32)
   let dst, src = getTwoOprs ins
   let src = transOprToExpr32 ins insAddr insLen ctxt src
-  let tmp = tmpVar 32<rt>
+  let tmp = AST.tmpvar 32<rt>
   startMark insAddr insLen builder
   match getOperationSize ins with
   | 128<rt> ->
     let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
     builder <! (tmp := src)
-    builder <! (extractLow 32<rt> dst1 := tmp)
-    builder <! (extractHigh 32<rt> dst1 := tmp)
-    builder <! (extractLow 32<rt> dst2 := tmp)
-    builder <! (extractHigh 32<rt> dst2 := tmp)
+    builder <! (AST.xtlo 32<rt> dst1 := tmp)
+    builder <! (AST.xthi 32<rt> dst1 := tmp)
+    builder <! (AST.xtlo 32<rt> dst2 := tmp)
+    builder <! (AST.xthi 32<rt> dst2 := tmp)
     fillZeroHigh128 ctxt dst builder
   | 256<rt> ->
     let dst4, dst3, dst2, dst1 = transOprToExpr256 ins insAddr insLen ctxt dst
     builder <! (tmp := src)
-    builder <! (extractLow 32<rt> dst1 := tmp)
-    builder <! (extractHigh 32<rt> dst1 := tmp)
-    builder <! (extractLow 32<rt> dst2 := tmp)
-    builder <! (extractHigh 32<rt> dst2 := tmp)
-    builder <! (extractLow 32<rt> dst3 := tmp)
-    builder <! (extractHigh 32<rt> dst3 := tmp)
-    builder <! (extractLow 32<rt> dst4 := tmp)
-    builder <! (extractHigh 32<rt> dst4 := tmp)
+    builder <! (AST.xtlo 32<rt> dst1 := tmp)
+    builder <! (AST.xthi 32<rt> dst1 := tmp)
+    builder <! (AST.xtlo 32<rt> dst2 := tmp)
+    builder <! (AST.xthi 32<rt> dst2 := tmp)
+    builder <! (AST.xtlo 32<rt> dst3 := tmp)
+    builder <! (AST.xthi 32<rt> dst3 := tmp)
+    builder <! (AST.xtlo 32<rt> dst4 := tmp)
+    builder <! (AST.xthi 32<rt> dst4 := tmp)
   | 512<rt> -> ()
   | _ -> raise InvalidOperandException
   endMark insAddr insLen builder
 
 let vcvtsd2ss ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src1, src2 = getThreeOprs ins
   let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
   let src1B, src1A = transOprToExpr128 ins insAddr insLen ctxt src1
   let src2 = transOprToExpr64 ins insAddr insLen ctxt src2
   startMark insAddr insLen builder
-  builder <! (extractLow 32<rt> dstA := cast CastKind.FloatExt 32<rt> src2)
-  builder <! (extractHigh 32<rt> dstA := extractHigh 32<rt> src1A)
+  builder <! (AST.xtlo 32<rt> dstA := AST.cast CastKind.FloatExt 32<rt> src2)
+  builder <! (AST.xthi 32<rt> dstA := AST.xthi 32<rt> src1A)
   builder <! (dstB := src1B)
   fillZeroHigh128 ctxt dst builder
   endMark insAddr insLen builder
 
 let vcvtss2sd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src1, src2 = getThreeOprs ins
   let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
   let src1B, _src1A = transOprToExpr128 ins insAddr insLen ctxt src1
   let src2 = transOprToExpr32 ins insAddr insLen ctxt src2
   startMark insAddr insLen builder
-  builder <! (dstA := cast CastKind.FloatExt 64<rt> src2)
+  builder <! (dstA := AST.cast CastKind.FloatExt 64<rt> src2)
   builder <! (dstB := src1B)
   fillZeroHigh128 ctxt dst builder
   endMark insAddr insLen builder
 
 let vcvtsi2sd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src1, src2 = getThreeOprs ins
   let dstB , dstA = transOprToExpr128 ins insAddr insLen ctxt dst
   let src1B, _src1A = transOprToExpr128 ins insAddr insLen ctxt src1
   let src2 = transOprToExpr ins insAddr insLen ctxt src2
   startMark insAddr insLen builder
-  builder <! (dstA := cast CastKind.IntToFloat 64<rt> src2)
+  builder <! (dstA := AST.cast CastKind.IntToFloat 64<rt> src2)
   builder <! (dstB := src1B)
   fillZeroHigh128 ctxt dst builder
   endMark insAddr insLen builder
 
 let vcvtsi2ss ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src1, src2 = getThreeOprs ins
   let dstB , dstA = transOprToExpr128 ins insAddr insLen ctxt dst
   let src1B, src1A = transOprToExpr128 ins insAddr insLen ctxt src1
   let src2 = transOprToExpr ins insAddr insLen ctxt src2
   startMark insAddr insLen builder
-  builder <! (extractLow 32<rt> dstA := cast CastKind.IntToFloat 32<rt> src2)
-  builder <! (extractHigh 32<rt> dstA := extractHigh 32<rt> src1A)
+  builder <! (AST.xtlo 32<rt> dstA := AST.cast CastKind.IntToFloat 32<rt> src2)
+  builder <! (AST.xthi 32<rt> dstA := AST.xthi 32<rt> src1A)
   builder <! (dstB := src1B)
   fillZeroHigh128 ctxt dst builder
   endMark insAddr insLen builder
@@ -6165,16 +6174,16 @@ let vcvtsi2ss ins insAddr insLen ctxt =
 let vdivpd ins insAddr insLen ctxt =
   match getOperationSize ins with
   | 512<rt> -> nop insAddr insLen (* FIXME: #196 *)
-  | _ -> vexedPackedFPBinOp64 ins insAddr insLen ctxt fdiv
+  | _ -> vexedPackedFPBinOp64 ins insAddr insLen ctxt AST.fdiv
 
 let vdivps ins insAddr insLen ctxt =
-  vexedPackedFPBinOp32 ins insAddr insLen ctxt fdiv
+  vexedPackedFPBinOp32 ins insAddr insLen ctxt AST.fdiv
 
 let vdivsd ins insAddr insLen ctxt =
-  vexedScalarFPBinOp ins insAddr insLen ctxt 64<rt> fdiv
+  vexedScalarFPBinOp ins insAddr insLen ctxt 64<rt> AST.fdiv
 
 let vdivss ins insAddr insLen ctxt =
-  vexedScalarFPBinOp ins insAddr insLen ctxt 32<rt> fdiv
+  vexedScalarFPBinOp ins insAddr insLen ctxt 32<rt> AST.fdiv
 
 let getEVEXPrx = function
   | Some v -> match v.EVEXPrx with
@@ -6187,55 +6196,55 @@ let haveEVEXPrx = function
   | None -> false
 
 let vextracti32x8 ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src, imm = getThreeOprs ins
   let oprSize = getOperationSize ins
   let ePrx = getEVEXPrx ins.VEXInfo
   let k = getRegVar ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
   let masking dst =
     match ePrx.Z with
-    | Zeroing -> num0 32<rt>
+    | Zeroing -> AST.num0 32<rt>
     | Merging -> dst
   let cond idx =
     (* no write mask *)
-    let noWritemask = if ePrx.AAA = 0uy then num1 1<rt> else num0 1<rt>
-    extract k 1<rt> idx .| noWritemask
-  let tDest = tmpVar 256<rt>
+    let noWritemask = if ePrx.AAA = 0uy then AST.num1 1<rt> else AST.num0 1<rt>
+    AST.extract k 1<rt> idx .| noWritemask
+  let tDest = AST.tmpvar 256<rt>
   let vl = 512
   let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
   let srcH, srcG, srcF, srcE, srcD, srcC, srcB, srcA =
     transOprToExpr512 ins insAddr insLen ctxt src
   let imm = transOprToExpr ins insAddr insLen ctxt imm
   startMark insAddr insLen builder
-  let srcLow = concat (concat srcD srcC) (concat srcB srcA)
-  let srcHigh = concat (concat srcH srcG) (concat srcF srcE)
-  builder <! (tDest := ite (extractLow 1<rt> imm) srcHigh srcLow)
+  let srcLow = AST.concat (AST.concat srcD srcC) (AST.concat srcB srcA)
+  let srcHigh = AST.concat (AST.concat srcH srcG) (AST.concat srcF srcE)
+  builder <! (tDest := AST.ite (AST.xtlo 1<rt> imm) srcHigh srcLow)
   match dst with
   | OprReg _ ->
-    let tmps = Array.init 2 (fun _ -> tmpVar 32<rt>)
+    let tmps = Array.init 2 (fun _ -> AST.tmpvar 32<rt>)
     let assign dst src idx =
       for i in 0 .. 1 do
         let dstPos = i * 32
         let srcPos = 32 * (idx + i)
-        let dst = extract dst 32<rt> dstPos
-        let src = extract src 32<rt> srcPos
+        let dst = AST.extract dst 32<rt> dstPos
+        let src = AST.extract src 32<rt> srcPos
         builder <!
-          (tmps.[i] := ite (cond (idx + i)) src (masking dst))
-      concatExprs tmps
+          (tmps.[i] := AST.ite (cond (idx + i)) src (masking dst))
+      AST.concatArr tmps
     builder <! (dstA := assign dstA tDest 0)
     builder <! (dstB := assign dstB tDest 2)
     builder <! (dstC := assign dstC tDest 4)
     builder <! (dstD := assign dstD tDest 6)
   | OprMem _ ->
-    let tmps = Array.init 2 (fun _ -> tmpVar 32<rt>)
+    let tmps = Array.init 2 (fun _ -> AST.tmpvar 32<rt>)
     let assign dst src idx =
       for i in 0 .. 1 do
         let dstPos = i * 32
         let srcPos = 32 * (idx + i)
-        let dst = extract dst 32<rt> dstPos
+        let dst = AST.extract dst 32<rt> dstPos
         builder <!
-          (tmps.[i] := ite (cond (idx + i)) (extract src 32<rt> srcPos) dst)
-      concatExprs tmps
+          (tmps.[i] := AST.ite (cond (idx + i)) (AST.extract src 32<rt> srcPos) dst)
+      AST.concatArr tmps
     builder <! (dstA := assign dstA tDest 0)
     builder <! (dstB := assign dstB tDest 2)
     builder <! (dstC := assign dstC tDest 4)
@@ -6244,104 +6253,104 @@ let vextracti32x8 ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let vextracti64x4 ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src, imm = getThreeOprs ins
   let oprSize = getOperationSize ins
   let ePrx = getEVEXPrx ins.VEXInfo
   let k = getRegVar ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
   let masking dst =
     match ePrx.Z with
-    | Zeroing -> num0 64<rt>
+    | Zeroing -> AST.num0 64<rt>
     | Merging -> dst
   let cond idx =
     (* no write mask *)
-    let noWritemask = if ePrx.AAA = 0uy then num1 1<rt> else num0 1<rt>
-    extract k 1<rt> idx .| noWritemask
-  let tDest = tmpVar 256<rt>
+    let noWritemask = if ePrx.AAA = 0uy then AST.num1 1<rt> else AST.num0 1<rt>
+    AST.extract k 1<rt> idx .| noWritemask
+  let tDest = AST.tmpvar 256<rt>
   let vl = 512
   let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
   let srcH, srcG, srcF, srcE, srcD, srcC, srcB, srcA =
     transOprToExpr512 ins insAddr insLen ctxt src
   let imm = transOprToExpr ins insAddr insLen ctxt imm
   startMark insAddr insLen builder
-  let srcLow = concat (concat srcD srcC) (concat srcB srcA)
-  let srcHigh = concat (concat srcH srcG) (concat srcF srcE)
-  builder <! (tDest := ite (extractLow 1<rt> imm) srcHigh srcLow)
+  let srcLow = AST.concat (AST.concat srcD srcC) (AST.concat srcB srcA)
+  let srcHigh = AST.concat (AST.concat srcH srcG) (AST.concat srcF srcE)
+  builder <! (tDest := AST.ite (AST.xtlo 1<rt> imm) srcHigh srcLow)
   match dst with
   | OprReg _ ->
-    builder <! (dstA := ite (cond 0) (extract tDest 64<rt> 0) (masking dstA))
-    builder <! (dstB := ite (cond 1) (extract tDest 64<rt> 64) (masking dstB))
-    builder <! (dstC := ite (cond 2) (extract tDest 64<rt> 128) (masking dstC))
-    builder <! (dstD := ite (cond 3) (extract tDest 64<rt> 192) (masking dstD))
+    builder <! (dstA := AST.ite (cond 0) (AST.extract tDest 64<rt> 0) (masking dstA))
+    builder <! (dstB := AST.ite (cond 1) (AST.extract tDest 64<rt> 64) (masking dstB))
+    builder <! (dstC := AST.ite (cond 2) (AST.extract tDest 64<rt> 128) (masking dstC))
+    builder <! (dstD := AST.ite (cond 3) (AST.extract tDest 64<rt> 192) (masking dstD))
   | OprMem _ ->
-    builder <! (dstA := ite (cond 0) (extract tDest 64<rt> 0) dstA)
-    builder <! (dstB := ite (cond 1) (extract tDest 64<rt> 64) dstB)
-    builder <! (dstC := ite (cond 2) (extract tDest 64<rt> 128) dstC)
-    builder <! (dstD := ite (cond 3) (extract tDest 64<rt> 192) dstD)
+    builder <! (dstA := AST.ite (cond 0) (AST.extract tDest 64<rt> 0) dstA)
+    builder <! (dstB := AST.ite (cond 1) (AST.extract tDest 64<rt> 64) dstB)
+    builder <! (dstC := AST.ite (cond 2) (AST.extract tDest 64<rt> 128) dstC)
+    builder <! (dstD := AST.ite (cond 3) (AST.extract tDest 64<rt> 192) dstD)
   | _ -> raise InvalidOperandException
   endMark insAddr insLen builder
 
 let vfmadd132sd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src2, src3 = getThreeOprs ins
   let _dstB , dstA = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2 = transOprToExpr64 ins insAddr insLen ctxt src2
   let src3 = transOprToExpr64 ins insAddr insLen ctxt src3
-  let tmp = tmpVar 64<rt>
+  let tmp = AST.tmpvar 64<rt>
   startMark insAddr insLen builder
-  builder <! (tmp := fmul dstA src3)
-  builder <! (dstA := fadd tmp src2)
+  builder <! (tmp := AST.fmul dstA src3)
+  builder <! (dstA := AST.fadd tmp src2)
   fillZeroHigh128 ctxt dst builder
   endMark insAddr insLen builder
 
 let vfmadd213sd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src2, src3 = getThreeOprs ins
   let _dstB , dstA = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2 = transOprToExpr64 ins insAddr insLen ctxt src2
   let src3 = transOprToExpr64 ins insAddr insLen ctxt src3
-  let tmp = tmpVar 64<rt>
+  let tmp = AST.tmpvar 64<rt>
   startMark insAddr insLen builder
-  builder <! (tmp := fmul dstA src2)
-  builder <! (dstA := fadd tmp src3)
+  builder <! (tmp := AST.fmul dstA src2)
+  builder <! (dstA := AST.fadd tmp src3)
   fillZeroHigh128 ctxt dst builder
   endMark insAddr insLen builder
 
 let vfmadd231sd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src2, src3 = getThreeOprs ins
   let _dstB , dstA = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2 = transOprToExpr64 ins insAddr insLen ctxt src2
   let src3 = transOprToExpr64 ins insAddr insLen ctxt src3
-  let tmp = tmpVar 64<rt>
+  let tmp = AST.tmpvar 64<rt>
   startMark insAddr insLen builder
-  builder <! (tmp := fmul src2 src3)
-  builder <! (dstA := fadd dstA tmp)
+  builder <! (tmp := AST.fmul src2 src3)
+  builder <! (dstA := AST.fadd dstA tmp)
   fillZeroHigh128 ctxt dst builder
   endMark insAddr insLen builder
 
 let vinserti128 ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src1, src2, imm = getFourOprs ins
   let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
   let src1D, src1C, src1B, src1A = transOprToExpr256 ins insAddr insLen ctxt src1
   let src2B, src2A = transOprToExpr128 ins insAddr insLen ctxt src2
   let imm = transOprToExpr ins insAddr insLen ctxt imm
-  let cond = tmpVar 1<rt>
+  let cond = AST.tmpvar 1<rt>
   startMark insAddr insLen builder
-  builder <! (cond := extractLow 1<rt> imm)
-  builder <! (dstA := ite cond src1A src2A)
-  builder <! (dstB := ite cond src1B src2B)
-  builder <! (dstC := ite cond src2A src1C)
-  builder <! (dstD := ite cond src2B src1D)
+  builder <! (cond := AST.xtlo 1<rt> imm)
+  builder <! (dstA := AST.ite cond src1A src2A)
+  builder <! (dstB := AST.ite cond src1B src2B)
+  builder <! (dstC := AST.ite cond src2A src1C)
+  builder <! (dstD := AST.ite cond src2B src1D)
   endMark insAddr insLen builder
 
 let vmovd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src = getTwoOprs ins
   let oprSize = getOperationSize ins
   startMark insAddr insLen builder
-  let n0 = num0 64<rt>
+  let n0 = AST.num0 64<rt>
   let regToReg r1 r2 =
     match Register.getKind r1, Register.getKind r2 with
     | Register.Kind.XMM, Register.Kind.GP ->
@@ -6354,7 +6363,7 @@ let vmovd ins insAddr insLen ctxt =
     | Register.Kind.GP, Register.Kind.XMM ->
       let dst = getRegVar ctxt r1
       let srcA = getPseudoRegVar ctxt r2 1
-      builder <! (dstAssign oprSize dst (extractLow 32<rt> srcA))
+      builder <! (dstAssign oprSize dst (AST.xtlo 32<rt> srcA))
     | _ -> raise InvalidOperandException
   match dst, src with
   | OprReg r1, OprReg r2 -> regToReg r1 r2
@@ -6368,12 +6377,12 @@ let vmovd ins insAddr insLen ctxt =
   | OprMem _, OprReg r ->
     let dst = transOprToExpr ins insAddr insLen ctxt dst
     let srcA = getPseudoRegVar ctxt r 1
-    builder <! (dst := extractLow 32<rt> srcA)
+    builder <! (dst := AST.xtlo 32<rt> srcA)
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
 let vmovddup ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src = getTwoOprs ins
   startMark insAddr insLen builder
   match getOperationSize ins with
@@ -6394,7 +6403,7 @@ let vmovddup ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let buildVectorMove ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src = getTwoOprs ins
   let oprSize = getOperationSize ins
   startMark insAddr insLen builder
@@ -6424,12 +6433,12 @@ let buildVectorMove ins insAddr insLen ctxt =
     let k = getRegVar ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
     let masking dst =
       match ePrx.Z with
-      | Zeroing -> num0 32<rt>
+      | Zeroing -> AST.num0 32<rt>
       | Merging -> dst
     let cond idx =
       (* no write mask *)
-      let noWritemask = if ePrx.AAA = 0uy then num1 1<rt> else num0 1<rt>
-      extract k 1<rt> idx .| noWritemask
+      let noWritemask = if ePrx.AAA = 0uy then AST.num1 1<rt> else AST.num0 1<rt>
+      AST.extract k 1<rt> idx .| noWritemask
     let kl, vl = 16, 512
     match dst with
     | OprReg _ ->
@@ -6438,32 +6447,32 @@ let buildVectorMove ins insAddr insLen ctxt =
       let srcH, srcG, srcF, srcE, srcD, srcC, srcB, srcA =
         transOprToExpr512 ins insAddr insLen ctxt src
       let ite i src dst extFn =
-        ite (cond i) (extFn 32<rt> src) (masking (extFn 32<rt> dst))
-      builder <! (extractLow 32<rt> dstA := ite 0 srcA dstA extractLow)
-      builder <! (extractHigh 32<rt> dstA := ite 1 srcA dstA extractHigh)
-      builder <! (extractLow 32<rt> dstB := ite 2 srcB dstB extractLow)
-      builder <! (extractHigh 32<rt> dstB := ite 3 srcB dstB extractHigh)
-      builder <! (extractLow 32<rt> dstC := ite 4 srcC dstC extractLow)
-      builder <! (extractHigh 32<rt> dstC := ite 5 srcC dstC extractHigh)
-      builder <! (extractLow 32<rt> dstD := ite 6 srcD dstD extractLow)
-      builder <! (extractHigh 32<rt> dstD := ite 7 srcD dstD extractHigh)
-      builder <! (extractLow 32<rt> dstE := ite 8 srcE dstE extractLow)
-      builder <! (extractHigh 32<rt> dstE := ite 9 srcE dstE extractHigh)
-      builder <! (extractLow 32<rt> dstF := ite 10 srcF dstF extractLow)
-      builder <! (extractHigh 32<rt> dstF := ite 11 srcF dstF extractHigh)
-      builder <! (extractLow 32<rt> dstG := ite 12 srcG dstG extractLow)
-      builder <! (extractHigh 32<rt> dstG := ite 13 srcG dstG extractHigh)
-      builder <! (extractLow 32<rt> dstH := ite 14 srcH dstH extractLow)
-      builder <! (extractHigh 32<rt> dstH := ite 15 srcH dstH extractHigh)
+        AST.ite (cond i) (extFn 32<rt> src) (masking (extFn 32<rt> dst))
+      builder <! (AST.xtlo 32<rt> dstA := ite 0 srcA dstA AST.xtlo)
+      builder <! (AST.xthi 32<rt> dstA := ite 1 srcA dstA AST.xthi)
+      builder <! (AST.xtlo 32<rt> dstB := ite 2 srcB dstB AST.xtlo)
+      builder <! (AST.xthi 32<rt> dstB := ite 3 srcB dstB AST.xthi)
+      builder <! (AST.xtlo 32<rt> dstC := ite 4 srcC dstC AST.xtlo)
+      builder <! (AST.xthi 32<rt> dstC := ite 5 srcC dstC AST.xthi)
+      builder <! (AST.xtlo 32<rt> dstD := ite 6 srcD dstD AST.xtlo)
+      builder <! (AST.xthi 32<rt> dstD := ite 7 srcD dstD AST.xthi)
+      builder <! (AST.xtlo 32<rt> dstE := ite 8 srcE dstE AST.xtlo)
+      builder <! (AST.xthi 32<rt> dstE := ite 9 srcE dstE AST.xthi)
+      builder <! (AST.xtlo 32<rt> dstF := ite 10 srcF dstF AST.xtlo)
+      builder <! (AST.xthi 32<rt> dstF := ite 11 srcF dstF AST.xthi)
+      builder <! (AST.xtlo 32<rt> dstG := ite 12 srcG dstG AST.xtlo)
+      builder <! (AST.xthi 32<rt> dstG := ite 13 srcG dstG AST.xthi)
+      builder <! (AST.xtlo 32<rt> dstH := ite 14 srcH dstH AST.xtlo)
+      builder <! (AST.xthi 32<rt> dstH := ite 15 srcH dstH AST.xthi)
     | OprMem _ ->
       let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
         transOprToExpr512 ins insAddr insLen ctxt dst
       let srcH, srcG, srcF, srcE, srcD, srcC, srcB, srcA =
         transOprToExpr512 ins insAddr insLen ctxt src
       let ite i src dst extFn =
-        ite (cond i) (extFn 32<rt> src) (extFn 32<rt> dst)
+        AST.ite (cond i) (extFn 32<rt> src) (extFn 32<rt> dst)
       let evAssign src dst idx =
-        concat (ite (idx + 1) src dst extractHigh) (ite idx src dst extractLow)
+        AST.concat (ite (idx + 1) src dst AST.xthi) (ite idx src dst AST.xtlo)
       builder <! (dstA := evAssign srcA dstA 0)
       builder <! (dstB := evAssign srcB dstB 2)
       builder <! (dstC := evAssign srcC dstB 4)
@@ -6487,19 +6496,19 @@ let vmovntpd ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 16
 let vmovntps ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 16
 
 let vmovdqa64 ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src = getTwoOprs ins
   let oprSize = getOperationSize ins
   let ePrx = getEVEXPrx ins.VEXInfo
   let k = getRegVar ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
   let masking dst =
     match ePrx.Z with
-    | Zeroing -> num0 64<rt>
+    | Zeroing -> AST.num0 64<rt>
     | Merging -> dst
   let cond idx =
     (* no write mask *)
-    let noWritemask = if ePrx.AAA = 0uy then num1 1<rt> else num0 1<rt>
-    extract k 1<rt> idx .| noWritemask
+    let noWritemask = if ePrx.AAA = 0uy then AST.num1 1<rt> else AST.num0 1<rt>
+    AST.extract k 1<rt> idx .| noWritemask
   startMark insAddr insLen builder
   match oprSize with
   | 128<rt> ->
@@ -6508,14 +6517,14 @@ let vmovdqa64 ins insAddr insLen ctxt =
     | OprReg _ ->
       let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
       let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
-      builder <! (dstA := ite (cond 0) srcA (masking dstA))
-      builder <! (dstB := ite (cond 1) srcB (masking dstB))
+      builder <! (dstA := AST.ite (cond 0) srcA (masking dstA))
+      builder <! (dstB := AST.ite (cond 1) srcB (masking dstB))
       fillZeroFromVLToMaxVL ctxt dst vl 512 builder
     | OprMem _ ->
       let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
       let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
-      builder <! (dstA := ite (cond 0) srcA dstA)
-      builder <! (dstB := ite (cond 1) srcB dstB)
+      builder <! (dstA := AST.ite (cond 0) srcA dstA)
+      builder <! (dstB := AST.ite (cond 1) srcB dstB)
     | _ -> raise InvalidOperandException
   | 256<rt> ->
     let kl, vl = 4, 256
@@ -6523,18 +6532,18 @@ let vmovdqa64 ins insAddr insLen ctxt =
     | OprReg _ ->
       let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
       let srcD, srcC, srcB, srcA = transOprToExpr256 ins insAddr insLen ctxt src
-      builder <! (dstA := ite (cond 0) srcA (masking dstA))
-      builder <! (dstB := ite (cond 1) srcB (masking dstB))
-      builder <! (dstC := ite (cond 2) srcC (masking dstC))
-      builder <! (dstD := ite (cond 3) srcD (masking dstD))
+      builder <! (dstA := AST.ite (cond 0) srcA (masking dstA))
+      builder <! (dstB := AST.ite (cond 1) srcB (masking dstB))
+      builder <! (dstC := AST.ite (cond 2) srcC (masking dstC))
+      builder <! (dstD := AST.ite (cond 3) srcD (masking dstD))
       fillZeroFromVLToMaxVL ctxt dst vl 512 builder
     | OprMem _ ->
       let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
       let srcD, srcC, srcB, srcA = transOprToExpr256 ins insAddr insLen ctxt src
-      builder <! (dstA := ite (cond 0) srcA dstA)
-      builder <! (dstB := ite (cond 1) srcB dstB)
-      builder <! (dstC := ite (cond 2) srcC dstC)
-      builder <! (dstD := ite (cond 3) srcD dstD)
+      builder <! (dstA := AST.ite (cond 0) srcA dstA)
+      builder <! (dstB := AST.ite (cond 1) srcB dstB)
+      builder <! (dstC := AST.ite (cond 2) srcC dstC)
+      builder <! (dstD := AST.ite (cond 3) srcD dstD)
     | _ -> raise InvalidOperandException
   | 512<rt> ->
     let kl, vl = 8, 512
@@ -6544,45 +6553,45 @@ let vmovdqa64 ins insAddr insLen ctxt =
         transOprToExpr512 ins insAddr insLen ctxt dst
       let srcH, srcG, srcF, srcE, srcD, srcC, srcB, srcA =
         transOprToExpr512 ins insAddr insLen ctxt src
-      builder <! (dstA := ite (cond 0) srcA (masking dstA))
-      builder <! (dstB := ite (cond 1) srcB (masking dstB))
-      builder <! (dstC := ite (cond 2) srcC (masking dstC))
-      builder <! (dstD := ite (cond 3) srcD (masking dstD))
-      builder <! (dstE := ite (cond 4) srcE (masking dstE))
-      builder <! (dstF := ite (cond 5) srcF (masking dstF))
-      builder <! (dstG := ite (cond 6) srcG (masking dstG))
-      builder <! (dstH := ite (cond 7) srcH (masking dstH))
+      builder <! (dstA := AST.ite (cond 0) srcA (masking dstA))
+      builder <! (dstB := AST.ite (cond 1) srcB (masking dstB))
+      builder <! (dstC := AST.ite (cond 2) srcC (masking dstC))
+      builder <! (dstD := AST.ite (cond 3) srcD (masking dstD))
+      builder <! (dstE := AST.ite (cond 4) srcE (masking dstE))
+      builder <! (dstF := AST.ite (cond 5) srcF (masking dstF))
+      builder <! (dstG := AST.ite (cond 6) srcG (masking dstG))
+      builder <! (dstH := AST.ite (cond 7) srcH (masking dstH))
     | OprMem _ ->
       let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
         transOprToExpr512 ins insAddr insLen ctxt dst
       let srcH, srcG, srcF, srcE, srcD, srcC, srcB, srcA =
         transOprToExpr512 ins insAddr insLen ctxt src
-      builder <! (dstA := ite (cond 0) srcA dstA)
-      builder <! (dstB := ite (cond 1) srcB dstB)
-      builder <! (dstC := ite (cond 2) srcC dstC)
-      builder <! (dstD := ite (cond 3) srcD dstD)
-      builder <! (dstE := ite (cond 4) srcE dstE)
-      builder <! (dstF := ite (cond 5) srcF dstF)
-      builder <! (dstG := ite (cond 6) srcG dstG)
-      builder <! (dstH := ite (cond 7) srcH dstH)
+      builder <! (dstA := AST.ite (cond 0) srcA dstA)
+      builder <! (dstB := AST.ite (cond 1) srcB dstB)
+      builder <! (dstC := AST.ite (cond 2) srcC dstC)
+      builder <! (dstD := AST.ite (cond 3) srcD dstD)
+      builder <! (dstE := AST.ite (cond 4) srcE dstE)
+      builder <! (dstF := AST.ite (cond 5) srcF dstF)
+      builder <! (dstG := AST.ite (cond 6) srcG dstG)
+      builder <! (dstH := AST.ite (cond 7) srcH dstH)
     | _ -> raise InvalidOperandException
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
 let vmovdqu16 ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src = getTwoOprs ins
   let oprSize = getOperationSize ins
   let ePrx = getEVEXPrx ins.VEXInfo
   let k = getRegVar ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
   let masking dst =
     match ePrx.Z with
-    | Zeroing -> num0 16<rt>
+    | Zeroing -> AST.num0 16<rt>
     | Merging -> dst
   let cond idx =
     (* no write mask *)
-    let noWritemask = if ePrx.AAA = 0uy then num1 1<rt> else num0 1<rt>
-    extract k 1<rt> idx .| noWritemask
+    let noWritemask = if ePrx.AAA = 0uy then AST.num1 1<rt> else AST.num0 1<rt>
+    AST.extract k 1<rt> idx .| noWritemask
   startMark insAddr insLen builder
   match oprSize with
   | 128<rt> ->
@@ -6593,8 +6602,8 @@ let vmovdqu16 ins insAddr insLen ctxt =
       let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
       let assign dst src idx =
         let pos = (idx % 4) * 16
-        let dst = extract dst 16<rt> pos
-        dst := ite (cond idx) (extract src 16<rt> pos) (masking dst)
+        let dst = AST.extract dst 16<rt> pos
+        dst := AST.ite (cond idx) (AST.extract src 16<rt> pos) (masking dst)
       builder <! (assign dstA srcA 0)
       builder <! (assign dstA srcA 1)
       builder <! (assign dstA srcA 2)
@@ -6607,14 +6616,14 @@ let vmovdqu16 ins insAddr insLen ctxt =
     | OprMem _ ->
       let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
       let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
-      let tmps = Array.init 4 (fun _ -> tmpVar 16<rt>)
+      let tmps = Array.init 4 (fun _ -> AST.tmpvar 16<rt>)
       let assign dst src idx =
         for i in 0 .. 3 do
           let pos = i * 16
-          let dst = extract dst 16<rt> pos
+          let dst = AST.extract dst 16<rt> pos
           builder <!
-            (tmps.[i] := ite (cond (idx + i)) (extract src 16<rt> pos) dst)
-        concatExprs tmps
+            (tmps.[i] := AST.ite (cond (idx + i)) (AST.extract src 16<rt> pos) dst)
+        AST.concatArr tmps
       builder <! (dstA := assign dstA srcA 0)
       builder <! (dstB := assign dstB srcB 4)
     | _ -> raise InvalidOperandException
@@ -6626,8 +6635,8 @@ let vmovdqu16 ins insAddr insLen ctxt =
       let srcD, srcC, srcB, srcA = transOprToExpr256 ins insAddr insLen ctxt src
       let assign dst src idx =
         let pos = (idx % 4) * 16
-        let dst = extract dst 16<rt> pos
-        dst := ite (cond idx) (extract src 16<rt> pos) (masking dst)
+        let dst = AST.extract dst 16<rt> pos
+        dst := AST.ite (cond idx) (AST.extract src 16<rt> pos) (masking dst)
       builder <! (assign dstA srcA 0)
       builder <! (assign dstA srcA 1)
       builder <! (assign dstA srcA 2)
@@ -6648,14 +6657,14 @@ let vmovdqu16 ins insAddr insLen ctxt =
     | OprMem _ ->
       let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
       let srcD, srcC, srcB, srcA = transOprToExpr256 ins insAddr insLen ctxt src
-      let tmps = Array.init 4 (fun _ -> tmpVar 16<rt>)
+      let tmps = Array.init 4 (fun _ -> AST.tmpvar 16<rt>)
       let assign dst src idx =
         for i in 0 .. 3 do
           let pos = i * 16
-          let dst = extract dst 16<rt> pos
+          let dst = AST.extract dst 16<rt> pos
           builder <!
-            (tmps.[i] := ite (cond (idx + i)) (extract src 16<rt> pos) dst)
-        concatExprs tmps
+            (tmps.[i] := AST.ite (cond (idx + i)) (AST.extract src 16<rt> pos) dst)
+        AST.concatArr tmps
       builder <! (dstA := assign dstA srcA 0)
       builder <! (dstB := assign dstB srcB 4)
       builder <! (dstC := assign dstC srcC 8)
@@ -6671,8 +6680,8 @@ let vmovdqu16 ins insAddr insLen ctxt =
         transOprToExpr512 ins insAddr insLen ctxt src
       let assign dst src idx =
         let pos = (idx % 4) * 16
-        let dst = extract dst 16<rt> pos
-        dst := ite (cond idx) (extract src 16<rt> pos) (masking dst)
+        let dst = AST.extract dst 16<rt> pos
+        dst := AST.ite (cond idx) (AST.extract src 16<rt> pos) (masking dst)
       builder <! (assign dstA srcA 0)
       builder <! (assign dstA srcA 1)
       builder <! (assign dstA srcA 2)
@@ -6710,14 +6719,14 @@ let vmovdqu16 ins insAddr insLen ctxt =
         transOprToExpr512 ins insAddr insLen ctxt dst
       let srcH, srcG, srcF, srcE, srcD, srcC, srcB, srcA =
         transOprToExpr512 ins insAddr insLen ctxt src
-      let tmps = Array.init 4 (fun _ -> tmpVar 16<rt>)
+      let tmps = Array.init 4 (fun _ -> AST.tmpvar 16<rt>)
       let assign dst src idx =
         for i in 0 .. 3 do
           let pos = i * 16
-          let dst = extract dst 16<rt> pos
+          let dst = AST.extract dst 16<rt> pos
           builder <!
-            (tmps.[i] := ite (cond (idx + i)) (extract src 16<rt> pos) dst)
-        concatExprs tmps
+            (tmps.[i] := AST.ite (cond (idx + i)) (AST.extract src 16<rt> pos) dst)
+        AST.concatArr tmps
       builder <! (dstA := assign dstA srcA 0)
       builder <! (dstB := assign dstB srcB 4)
       builder <! (dstC := assign dstC srcC 8)
@@ -6731,18 +6740,18 @@ let vmovdqu16 ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let vmovdqu64 ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src = getTwoOprs ins
   let oprSize = getOperationSize ins
   let ePrx = getEVEXPrx ins.VEXInfo
   let k = getRegVar ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
   let masking dst =
     match ePrx.Z with
-    | Zeroing -> num0 64<rt>
+    | Zeroing -> AST.num0 64<rt>
     | Merging -> dst
   let cond idx =
-    if ePrx.AAA = 0uy then num0 1<rt> (* no write mask *)
-    else extract k 1<rt> idx
+    if ePrx.AAA = 0uy then AST.num0 1<rt> (* no write mask *)
+    else AST.extract k 1<rt> idx
   startMark insAddr insLen builder
   match oprSize with
   | 128<rt> ->
@@ -6751,14 +6760,14 @@ let vmovdqu64 ins insAddr insLen ctxt =
     | OprReg _ ->
       let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
       let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
-      builder <! (dstA := ite (cond 0) srcA (masking dstA))
-      builder <! (dstB := ite (cond 1) srcB (masking dstB))
+      builder <! (dstA := AST.ite (cond 0) srcA (masking dstA))
+      builder <! (dstB := AST.ite (cond 1) srcB (masking dstB))
       fillZeroFromVLToMaxVL ctxt dst vl 512 builder
     | OprMem _ ->
       let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
       let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
-      builder <! (dstA := ite (cond 0) srcA dstA)
-      builder <! (dstB := ite (cond 1) srcB dstB)
+      builder <! (dstA := AST.ite (cond 0) srcA dstA)
+      builder <! (dstB := AST.ite (cond 1) srcB dstB)
     | _ -> raise InvalidOperandException
   | 256<rt> ->
     let kl, vl = 8, 256
@@ -6766,18 +6775,18 @@ let vmovdqu64 ins insAddr insLen ctxt =
     | OprReg _ ->
       let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
       let srcD, srcC, srcB, srcA = transOprToExpr256 ins insAddr insLen ctxt src
-      builder <! (dstA := ite (cond 0) srcA (masking dstA))
-      builder <! (dstB := ite (cond 1) srcB (masking dstB))
-      builder <! (dstC := ite (cond 2) srcC (masking dstC))
-      builder <! (dstD := ite (cond 3) srcD (masking dstD))
+      builder <! (dstA := AST.ite (cond 0) srcA (masking dstA))
+      builder <! (dstB := AST.ite (cond 1) srcB (masking dstB))
+      builder <! (dstC := AST.ite (cond 2) srcC (masking dstC))
+      builder <! (dstD := AST.ite (cond 3) srcD (masking dstD))
       fillZeroFromVLToMaxVL ctxt dst vl 512 builder
     | OprMem _ ->
       let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
       let srcD, srcC, srcB, srcA = transOprToExpr256 ins insAddr insLen ctxt src
-      builder <! (dstA := ite (cond 0) srcA dstA)
-      builder <! (dstB := ite (cond 1) srcB dstB)
-      builder <! (dstC := ite (cond 2) srcC dstC)
-      builder <! (dstD := ite (cond 3) srcD dstD)
+      builder <! (dstA := AST.ite (cond 0) srcA dstA)
+      builder <! (dstB := AST.ite (cond 1) srcB dstB)
+      builder <! (dstC := AST.ite (cond 2) srcC dstC)
+      builder <! (dstD := AST.ite (cond 3) srcD dstD)
     | _ -> raise InvalidOperandException
   | 512<rt> ->
     let kl, vl = 16, 512
@@ -6787,33 +6796,33 @@ let vmovdqu64 ins insAddr insLen ctxt =
         transOprToExpr512 ins insAddr insLen ctxt dst
       let srcH, srcG, srcF, srcE, srcD, srcC, srcB, srcA =
         transOprToExpr512 ins insAddr insLen ctxt src
-      builder <! (dstA := ite (cond 0) srcA (masking dstA))
-      builder <! (dstB := ite (cond 1) srcB (masking dstB))
-      builder <! (dstC := ite (cond 2) srcC (masking dstC))
-      builder <! (dstD := ite (cond 3) srcD (masking dstD))
-      builder <! (dstE := ite (cond 4) srcE (masking dstE))
-      builder <! (dstF := ite (cond 5) srcF (masking dstF))
-      builder <! (dstG := ite (cond 6) srcG (masking dstG))
-      builder <! (dstH := ite (cond 7) srcH (masking dstH))
+      builder <! (dstA := AST.ite (cond 0) srcA (masking dstA))
+      builder <! (dstB := AST.ite (cond 1) srcB (masking dstB))
+      builder <! (dstC := AST.ite (cond 2) srcC (masking dstC))
+      builder <! (dstD := AST.ite (cond 3) srcD (masking dstD))
+      builder <! (dstE := AST.ite (cond 4) srcE (masking dstE))
+      builder <! (dstF := AST.ite (cond 5) srcF (masking dstF))
+      builder <! (dstG := AST.ite (cond 6) srcG (masking dstG))
+      builder <! (dstH := AST.ite (cond 7) srcH (masking dstH))
     | OprMem _ ->
       let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
         transOprToExpr512 ins insAddr insLen ctxt dst
       let srcH, srcG, srcF, srcE, srcD, srcC, srcB, srcA =
         transOprToExpr512 ins insAddr insLen ctxt src
-      builder <! (dstA := ite (cond 0) srcA dstA)
-      builder <! (dstB := ite (cond 1) srcB dstB)
-      builder <! (dstC := ite (cond 2) srcC dstC)
-      builder <! (dstD := ite (cond 3) srcD dstD)
-      builder <! (dstE := ite (cond 4) srcE dstE)
-      builder <! (dstF := ite (cond 5) srcF dstF)
-      builder <! (dstG := ite (cond 6) srcG dstG)
-      builder <! (dstH := ite (cond 7) srcH dstH)
+      builder <! (dstA := AST.ite (cond 0) srcA dstA)
+      builder <! (dstB := AST.ite (cond 1) srcB dstB)
+      builder <! (dstC := AST.ite (cond 2) srcC dstC)
+      builder <! (dstD := AST.ite (cond 3) srcD dstD)
+      builder <! (dstE := AST.ite (cond 4) srcE dstE)
+      builder <! (dstF := AST.ite (cond 5) srcF dstF)
+      builder <! (dstG := AST.ite (cond 6) srcG dstG)
+      builder <! (dstH := AST.ite (cond 7) srcH dstH)
     | _ -> raise InvalidOperandException
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
 let vmovhpd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   startMark insAddr insLen builder
   match ins.Operands with
   | TwoOperands (dst, src) ->
@@ -6833,7 +6842,7 @@ let vmovhpd ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let vmovhlps ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src1, src2 = getThreeOprs ins
   let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
   let src1B, _src1A = transOprToExpr128 ins insAddr insLen ctxt src1
@@ -6845,7 +6854,7 @@ let vmovhlps ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let vmovlhps ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src1, src2 = getThreeOprs ins
   let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
   let _src1B, src1A = transOprToExpr128 ins insAddr insLen ctxt src1
@@ -6857,7 +6866,7 @@ let vmovlhps ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let vmovlpd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   startMark insAddr insLen builder
   match ins.Operands with
   | TwoOperands (dst, src) ->
@@ -6875,20 +6884,20 @@ let vmovlpd ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let vmovmskpd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   let dst = transOprToExpr ins insAddr insLen ctxt dst
-  let dstSz = typeOf dst
+  let dstSz = AST.typeOf dst
   let mskpd r =
     match Register.getKind r with
     | Register.Kind.XMM -> movmskpd ins insAddr insLen ctxt
     | Register.Kind.YMM ->
       startMark insAddr insLen builder
       let src4, src3, src2, src1 = transOprToExpr256 ins insAddr insLen ctxt src
-      let src63 = sExt dstSz (extractHigh 1<rt> src1)
-      let src127 = (sExt dstSz (extractHigh 1<rt> src2)) << num1 dstSz
-      let src191 = (sExt dstSz (extractHigh 1<rt> src3)) << numI32 2 dstSz
-      let src255 = (sExt dstSz (extractHigh 1<rt> src4)) << numI32 3 dstSz
+      let src63 = AST.sext dstSz (AST.xthi 1<rt> src1)
+      let src127 = (AST.sext dstSz (AST.xthi 1<rt> src2)) << AST.num1 dstSz
+      let src191 = (AST.sext dstSz (AST.xthi 1<rt> src3)) << numI32 2 dstSz
+      let src255 = (AST.sext dstSz (AST.xthi 1<rt> src4)) << numI32 3 dstSz
       builder <! (dst := src63 .| src127 .| src191 .| src255)
       endMark insAddr insLen builder
     | _ -> raise InvalidOperandException
@@ -6897,28 +6906,28 @@ let vmovmskpd ins insAddr insLen ctxt =
   | _ -> raise InvalidOperandSizeException
 
 let vmovmskps ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   let dst = transOprToExpr ins insAddr insLen ctxt dst
-  let dstSz = typeOf dst
+  let dstSz = AST.typeOf dst
   let mskpd r =
     match Register.getKind r with
     | Register.Kind.XMM -> movmskps ins insAddr insLen ctxt
     | Register.Kind.YMM ->
       startMark insAddr insLen builder
       let src4, src3, src2, src1 = transOprToExpr256 ins insAddr insLen ctxt src
-      let src1A, src1B = extractLow 32<rt> src1, extractHigh 32<rt> src1
-      let src2A, src2B = extractLow 32<rt> src2, extractHigh 32<rt> src2
-      let src3A, src3B = extractLow 32<rt> src3, extractHigh 32<rt> src3
-      let src4A, src4B = extractLow 32<rt> src4, extractHigh 32<rt> src4
-      let src31 = sExt dstSz (extractHigh 1<rt> src1A)
-      let src63 = sExt dstSz (extractHigh 1<rt> src1B) << num1 dstSz
-      let src95 = (sExt dstSz (extractHigh 1<rt> src2A)) << numI32 2 dstSz
-      let src127 = (sExt dstSz (extractHigh 1<rt> src2B)) << numI32 3 dstSz
-      let src159 = (sExt dstSz (extractHigh 1<rt> src3A)) << numI32 4 dstSz
-      let src191 = (sExt dstSz (extractHigh 1<rt> src3B)) << numI32 5 dstSz
-      let src223 = (sExt dstSz (extractHigh 1<rt> src4A)) << numI32 6 dstSz
-      let src255 = (sExt dstSz (extractHigh 1<rt> src4B)) << numI32 7 dstSz
+      let src1A, src1B = AST.xtlo 32<rt> src1, AST.xthi 32<rt> src1
+      let src2A, src2B = AST.xtlo 32<rt> src2, AST.xthi 32<rt> src2
+      let src3A, src3B = AST.xtlo 32<rt> src3, AST.xthi 32<rt> src3
+      let src4A, src4B = AST.xtlo 32<rt> src4, AST.xthi 32<rt> src4
+      let src31 = AST.sext dstSz (AST.xthi 1<rt> src1A)
+      let src63 = AST.sext dstSz (AST.xthi 1<rt> src1B) << AST.num1 dstSz
+      let src95 = (AST.sext dstSz (AST.xthi 1<rt> src2A)) << numI32 2 dstSz
+      let src127 = (AST.sext dstSz (AST.xthi 1<rt> src2B)) << numI32 3 dstSz
+      let src159 = (AST.sext dstSz (AST.xthi 1<rt> src3A)) << numI32 4 dstSz
+      let src191 = (AST.sext dstSz (AST.xthi 1<rt> src3B)) << numI32 5 dstSz
+      let src223 = (AST.sext dstSz (AST.xthi 1<rt> src4A)) << numI32 6 dstSz
+      let src255 = (AST.sext dstSz (AST.xthi 1<rt> src4B)) << numI32 7 dstSz
       builder <! (dst := src31 .| src63 .| src95 .| src127)
       builder <! (dst := dst .| src159 .| src191 .| src223 .| src255)
       endMark insAddr insLen builder
@@ -6928,10 +6937,10 @@ let vmovmskps ins insAddr insLen ctxt =
   | _ -> raise InvalidOperandSizeException
 
 let vmovq ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let dst, src = getTwoOprs ins
   startMark insAddr insLen builder
-  let n0 = num0 64<rt>
+  let n0 = AST.num0 64<rt>
   let regToReg r1 r2 =
     match Register.getKind r1, Register.getKind r2 with
     | Register.Kind.XMM, Register.Kind.XMM ->
@@ -6970,7 +6979,7 @@ let vmovq ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let vmovsd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   startMark insAddr insLen builder
   match ins.Operands with
   | TwoOperands (OprMem _ , _) -> movsd ins insAddr insLen ctxt
@@ -6978,7 +6987,7 @@ let vmovsd ins insAddr insLen ctxt =
     let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
     let src = transOprToExpr64 ins insAddr insLen ctxt src
     builder <! (dst1 := src)
-    builder <! (dst2 := num0 64<rt>)
+    builder <! (dst2 := AST.num0 64<rt>)
     fillZeroHigh128 ctxt dst builder
     endMark insAddr insLen builder
   | ThreeOperands (dst, src1, src2)->
@@ -6992,78 +7001,78 @@ let vmovsd ins insAddr insLen ctxt =
   | _ -> raise InvalidOperandException
 
 let vmovshdup ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst, src = getTwoOprs ins
   startMark insAddr insLen builder
   match getOperationSize ins with
   | 128<rt> ->
     let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
     let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
-    builder <! (extractLow 32<rt> dst1 := extractHigh 32<rt> src1)
-    builder <! (extractHigh 32<rt> dst1 := extractHigh 32<rt> src1)
-    builder <! (extractLow 32<rt> dst2 := extractHigh 32<rt> src2)
-    builder <! (extractHigh 32<rt> dst2 := extractHigh 32<rt> src2)
+    builder <! (AST.xtlo 32<rt> dst1 := AST.xthi 32<rt> src1)
+    builder <! (AST.xthi 32<rt> dst1 := AST.xthi 32<rt> src1)
+    builder <! (AST.xtlo 32<rt> dst2 := AST.xthi 32<rt> src2)
+    builder <! (AST.xthi 32<rt> dst2 := AST.xthi 32<rt> src2)
     fillZeroHigh128 ctxt dst builder
   | 256<rt> ->
     let dst4, dst3, dst2, dst1 = transOprToExpr256 ins insAddr insLen ctxt dst
     let src4, src3, src2, src1 = transOprToExpr256 ins insAddr insLen ctxt src
-    builder <! (extractLow 32<rt> dst1 := extractHigh 32<rt> src1)
-    builder <! (extractHigh 32<rt> dst1 := extractHigh 32<rt> src1)
-    builder <! (extractLow 32<rt> dst2 := extractHigh 32<rt> src2)
-    builder <! (extractHigh 32<rt> dst2 := extractHigh 32<rt> src2)
-    builder <! (extractLow 32<rt> dst3 := extractHigh 32<rt> src3)
-    builder <! (extractHigh 32<rt> dst3 := extractHigh 32<rt> src3)
-    builder <! (extractLow 32<rt> dst4 := extractHigh 32<rt> src4)
-    builder <! (extractHigh 32<rt> dst4 := extractHigh 32<rt> src4)
+    builder <! (AST.xtlo 32<rt> dst1 := AST.xthi 32<rt> src1)
+    builder <! (AST.xthi 32<rt> dst1 := AST.xthi 32<rt> src1)
+    builder <! (AST.xtlo 32<rt> dst2 := AST.xthi 32<rt> src2)
+    builder <! (AST.xthi 32<rt> dst2 := AST.xthi 32<rt> src2)
+    builder <! (AST.xtlo 32<rt> dst3 := AST.xthi 32<rt> src3)
+    builder <! (AST.xthi 32<rt> dst3 := AST.xthi 32<rt> src3)
+    builder <! (AST.xtlo 32<rt> dst4 := AST.xthi 32<rt> src4)
+    builder <! (AST.xthi 32<rt> dst4 := AST.xthi 32<rt> src4)
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
 let vmovsldup ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst, src = getTwoOprs ins
   startMark insAddr insLen builder
   match getOperationSize ins with
   | 128<rt> ->
     let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
     let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
-    builder <! (extractLow 32<rt> dst1 := extractLow 32<rt> src1)
-    builder <! (extractHigh 32<rt> dst1 := extractLow 32<rt> src1)
-    builder <! (extractLow 32<rt> dst2 := extractLow 32<rt> src2)
-    builder <! (extractHigh 32<rt> dst2 := extractLow 32<rt> src2)
+    builder <! (AST.xtlo 32<rt> dst1 := AST.xtlo 32<rt> src1)
+    builder <! (AST.xthi 32<rt> dst1 := AST.xtlo 32<rt> src1)
+    builder <! (AST.xtlo 32<rt> dst2 := AST.xtlo 32<rt> src2)
+    builder <! (AST.xthi 32<rt> dst2 := AST.xtlo 32<rt> src2)
     fillZeroHigh128 ctxt dst builder
   | 256<rt> ->
     let dst4, dst3, dst2, dst1 = transOprToExpr256 ins insAddr insLen ctxt dst
     let src4, src3, src2, src1 = transOprToExpr256 ins insAddr insLen ctxt src
-    builder <! (extractLow 32<rt> dst1 := extractLow 32<rt> src1)
-    builder <! (extractHigh 32<rt> dst1 := extractLow 32<rt> src1)
-    builder <! (extractLow 32<rt> dst2 := extractLow 32<rt> src2)
-    builder <! (extractHigh 32<rt> dst2 := extractLow 32<rt> src2)
-    builder <! (extractLow 32<rt> dst3 := extractLow 32<rt> src3)
-    builder <! (extractHigh 32<rt> dst3 := extractLow 32<rt> src3)
-    builder <! (extractLow 32<rt> dst4 := extractLow 32<rt> src4)
-    builder <! (extractHigh 32<rt> dst4 := extractLow 32<rt> src4)
+    builder <! (AST.xtlo 32<rt> dst1 := AST.xtlo 32<rt> src1)
+    builder <! (AST.xthi 32<rt> dst1 := AST.xtlo 32<rt> src1)
+    builder <! (AST.xtlo 32<rt> dst2 := AST.xtlo 32<rt> src2)
+    builder <! (AST.xthi 32<rt> dst2 := AST.xtlo 32<rt> src2)
+    builder <! (AST.xtlo 32<rt> dst3 := AST.xtlo 32<rt> src3)
+    builder <! (AST.xthi 32<rt> dst3 := AST.xtlo 32<rt> src3)
+    builder <! (AST.xtlo 32<rt> dst4 := AST.xtlo 32<rt> src4)
+    builder <! (AST.xthi 32<rt> dst4 := AST.xtlo 32<rt> src4)
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
 let vmovss ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   startMark insAddr insLen builder
   match ins.Operands with
   | TwoOperands (OprMem _ , _) -> movss ins insAddr insLen ctxt
   | TwoOperands (OprReg _ as dst, src) ->
     let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
     let src = transOprToExpr32 ins insAddr insLen ctxt src
-    builder <! (extractLow 32<rt> dst1 := src)
-    builder <! (extractHigh 32<rt> dst1 := num0 32<rt>)
-    builder <! (dst2 := num0 64<rt>)
+    builder <! (AST.xtlo 32<rt> dst1 := src)
+    builder <! (AST.xthi 32<rt> dst1 := AST.num0 32<rt>)
+    builder <! (dst2 := AST.num0 64<rt>)
     fillZeroHigh128 ctxt dst builder
     endMark insAddr insLen builder
   | ThreeOperands (dst, src1, src2)->
     let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
     let src1B, src1A = transOprToExpr128 ins insAddr insLen ctxt src1
     let _src2B, src2A = transOprToExpr128 ins insAddr insLen ctxt src2
-    builder <! (extractLow 32<rt> dstA := extractLow 32<rt> src2A)
-    builder <! (extractHigh 32<rt> dstA := extractHigh 32<rt> src1A)
+    builder <! (AST.xtlo 32<rt> dstA := AST.xtlo 32<rt> src2A)
+    builder <! (AST.xthi 32<rt> dstA := AST.xthi 32<rt> src1A)
     builder <! (dstB := src1B)
     fillZeroHigh128 ctxt dst builder
     endMark insAddr insLen builder
@@ -7074,16 +7083,16 @@ let vmovups ins insAddr insLen ctxt = buildVectorMove ins insAddr insLen ctxt
 let vmovupd ins insAddr insLen ctxt = buildVectorMove ins insAddr insLen ctxt
 
 let vmulpd ins insAddr insLen ctxt =
-  vexedPackedFPBinOp64 ins insAddr insLen ctxt fmul
+  vexedPackedFPBinOp64 ins insAddr insLen ctxt AST.fmul
 
 let vmulps ins insAddr insLen ctxt =
-  vexedPackedFPBinOp32 ins insAddr insLen ctxt fmul
+  vexedPackedFPBinOp32 ins insAddr insLen ctxt AST.fmul
 
 let vmulsd ins insAddr insLen ctxt =
-  vexedScalarFPBinOp ins insAddr insLen ctxt 64<rt> fmul
+  vexedScalarFPBinOp ins insAddr insLen ctxt 64<rt> AST.fmul
 
 let vmulss ins insAddr insLen ctxt =
-  vexedScalarFPBinOp ins insAddr insLen ctxt 32<rt> fmul
+  vexedScalarFPBinOp ins insAddr insLen ctxt 32<rt> AST.fmul
 
 let vorpd ins insAddr insLen ctxt =
   vexedPackedFPBinOp64 ins insAddr insLen ctxt (.|)
@@ -7097,32 +7106,32 @@ let vpaddb ins insAddr insLen ctxt =
 let vpaddd ins insAddr insLen ctxt =
   match getOperationSize ins with
   | 512<rt> ->
-    let builder = new StmtBuilder (16)
+    let builder = StmtBuilder (16)
     let dst, src1, src2 = getThreeOprs ins
     startMark insAddr insLen builder
     let ePrx = getEVEXPrx ins.VEXInfo
     let k = getRegVar ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
     let masking dst =
       match ePrx.Z with
-      | Zeroing -> num0 32<rt>
+      | Zeroing -> AST.num0 32<rt>
       | Merging -> dst
     let cond idx =
       (* no write mask *)
-      let noWritemask = if ePrx.AAA = 0uy then num1 1<rt> else num0 1<rt>
-      extract k 1<rt> idx .| noWritemask
-    let tmpDest = Array.init 2 (fun _ -> tmpVar 32<rt>)
+      let noWritemask = if ePrx.AAA = 0uy then AST.num1 1<rt> else AST.num0 1<rt>
+      AST.extract k 1<rt> idx .| noWritemask
+    let tmpDest = Array.init 2 (fun _ -> AST.tmpvar 32<rt>)
     let evAssign dst s1 s2 src2A idx =
       for i in 0 .. 1 do
-        let s1 = extract s1 32<rt> (i * 32)
-        let s2 = extract s2 32<rt> (i * 32)
-        let dst = extract dst 32<rt> (i * 32)
+        let s1 = AST.extract s1 32<rt> (i * 32)
+        let s2 = AST.extract s2 32<rt> (i * 32)
+        let dst = AST.extract dst 32<rt> (i * 32)
         let tSrc =
           match src2 with
           | OprMem _ when ePrx.AAA (* B *) = 1uy ->
-            s1 .+ (extract src2A 32<rt> 0)
+            s1 .+ (AST.extract src2A 32<rt> 0)
           | _ -> s1 .+ s2
-        builder <! (tmpDest.[i] := ite (cond (idx + i)) tSrc (masking dst))
-      concatExprs tmpDest
+        builder <! (tmpDest.[i] := AST.ite (cond (idx + i)) tSrc (masking dst))
+      AST.concatArr tmpDest
     let kl, vl = 16, 512
     let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
       transOprToExpr512 ins insAddr insLen ctxt dst
@@ -7145,24 +7154,24 @@ let vpaddq ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 64<rt> (opP (.+)) 16
 
 let vpalignr ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst, src1, src2, imm = getFourOprs ins
   let oprSize = getOperationSize ins
   let imm = transOprToExpr ins insAddr insLen ctxt imm
   let n8 = numU32 8u 256<rt>
-  let imm = zExt 256<rt> imm
+  let imm = AST.zext 256<rt> imm
   startMark insAddr insLen builder
   if oprSize = 128<rt> then
     let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
     let src1B, src1A = transOprToExpr128 ins insAddr insLen ctxt src1
     let src2B, src2A = transOprToExpr128 ins insAddr insLen ctxt src2
-    let t = tmpVar 256<rt>
+    let t = AST.tmpvar 256<rt>
     let tSrc1, tSrc2 = tmpVars2 oprSize
-    builder <! (tSrc1 := concat src1B src1A)
-    builder <! (tSrc2 := concat src2B src2A)
-    builder <! (t := (concat tSrc1 tSrc2) >> (imm .* n8))
-    builder <! (dstA := extractLow 64<rt> t)
-    builder <! (dstB := extractHigh 64<rt> (extractLow 128<rt> t))
+    builder <! (tSrc1 := AST.concat src1B src1A)
+    builder <! (tSrc2 := AST.concat src2B src2A)
+    builder <! (t := (AST.concat tSrc1 tSrc2) >> (imm .* n8))
+    builder <! (dstA := AST.xtlo 64<rt> t)
+    builder <! (dstB := AST.xthi 64<rt> (AST.xtlo 128<rt> t))
     fillZeroHigh128 ctxt dst builder
   elif oprSize = 256<rt> then
     let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
@@ -7170,16 +7179,16 @@ let vpalignr ins insAddr insLen ctxt =
     let src2D, src2C, src2B, src2A = transOprToExpr256 ins insAddr insLen ctxt src2
     let t1, t2 = tmpVars2 256<rt>
     let tSrc1High, tSrc1Low, tSrc2High, tSrc2Low = tmpVars4 128<rt>
-    builder <! (tSrc1Low := concat src1B src1A)
-    builder <! (tSrc1High := concat src1D src1C)
-    builder <! (tSrc2Low := concat src2B src2A)
-    builder <! (tSrc2High := concat src2D src2C)
-    builder <! (t1 := (concat tSrc1Low tSrc2Low) >> (imm .* n8))
-    builder <! (dstA := extractLow 64<rt> t1)
-    builder <! (dstB := extractHigh 64<rt> (extractLow 128<rt> t1))
-    builder <! (t2 := (concat tSrc1High tSrc2High) >> (imm .* n8))
-    builder <! (dstC := extractLow 64<rt> t2)
-    builder <! (dstD := extractHigh 64<rt> (extractLow 128<rt> t2))
+    builder <! (tSrc1Low := AST.concat src1B src1A)
+    builder <! (tSrc1High := AST.concat src1D src1C)
+    builder <! (tSrc2Low := AST.concat src2B src2A)
+    builder <! (tSrc2High := AST.concat src2D src2C)
+    builder <! (t1 := (AST.concat tSrc1Low tSrc2Low) >> (imm .* n8))
+    builder <! (dstA := AST.xtlo 64<rt> t1)
+    builder <! (dstB := AST.xthi 64<rt> (AST.xtlo 128<rt> t1))
+    builder <! (t2 := (AST.concat tSrc1High tSrc2High) >> (imm .* n8))
+    builder <! (dstC := AST.xtlo 64<rt> t2)
+    builder <! (dstD := AST.xthi 64<rt> (AST.xtlo 128<rt> t2))
   else raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
@@ -7190,7 +7199,7 @@ let vpandn ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 64<rt> opPandn 16
 
 let vpbroadcastb ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src = getTwoOprs ins
   let oprSize = getOperationSize ins
   match oprSize with
@@ -7201,14 +7210,14 @@ let vpbroadcastb ins insAddr insLen ctxt =
       | OprReg _ -> transOprToExpr128 ins insAddr insLen ctxt src |> snd
       | OprMem _ -> transOprToExpr ins insAddr insLen ctxt src
       | _ -> raise InvalidOperandException
-      |> extractLow 8<rt>
-    let tSrc = tmpVar 8<rt>
+      |> AST.xtlo 8<rt>
+    let tSrc = AST.tmpvar 8<rt>
     startMark insAddr insLen builder
     builder <! (tSrc := src)
-    let tmps = Array.init 8 (fun _ -> tmpVar 8<rt>)
+    let tmps = Array.init 8 (fun _ -> AST.tmpvar 8<rt>)
     for i in 0 .. 7 do builder <! (tmps.[i] := tSrc) done
-    let t = tmpVar 64<rt>
-    builder <! (t := concatExprs tmps)
+    let t = AST.tmpvar 64<rt>
+    builder <! (t := AST.concatArr tmps)
     match oprSize with
     | 128<rt> ->
       let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
@@ -7225,10 +7234,10 @@ let vpbroadcastb ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let vpbroadcastd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src = getTwoOprs ins
   let oprSize = getOperationSize ins
-  let temp = tmpVar 32<rt>
+  let temp = AST.tmpvar 32<rt>
   let src =
     match src with
     | OprReg r ->
@@ -7239,27 +7248,27 @@ let vpbroadcastd ins insAddr insLen ctxt =
       | _ -> raise InvalidOperandException
     | OprMem _ -> transOprToExpr ins insAddr insLen ctxt src
     | _ -> raise InvalidOperandException
-    |> extractLow 32<rt>
+    |> AST.xtlo 32<rt>
   startMark insAddr insLen builder
   builder <! (temp := src)
   match oprSize with
   | 128<rt> ->
     let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
-    builder <! (extract dstA 32<rt> 0 := temp)
-    builder <! (extract dstA 32<rt> 32 := temp)
-    builder <! (extract dstB 32<rt> 0 := temp)
-    builder <! (extract dstB 32<rt> 32 := temp)
+    builder <! (AST.extract dstA 32<rt> 0 := temp)
+    builder <! (AST.extract dstA 32<rt> 32 := temp)
+    builder <! (AST.extract dstB 32<rt> 0 := temp)
+    builder <! (AST.extract dstB 32<rt> 32 := temp)
     fillZeroFromVLToMaxVL ctxt dst 128 512 builder
   | 256<rt> ->
     let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
-    builder <! (extract dstA 32<rt> 0 := temp)
-    builder <! (extract dstA 32<rt> 32 := temp)
-    builder <! (extract dstB 32<rt> 0 := temp)
-    builder <! (extract dstB 32<rt> 32 := temp)
-    builder <! (extract dstC 32<rt> 0 := temp)
-    builder <! (extract dstC 32<rt> 32 := temp)
-    builder <! (extract dstD 32<rt> 0 := temp)
-    builder <! (extract dstD 32<rt> 32 := temp)
+    builder <! (AST.extract dstA 32<rt> 0 := temp)
+    builder <! (AST.extract dstA 32<rt> 32 := temp)
+    builder <! (AST.extract dstB 32<rt> 0 := temp)
+    builder <! (AST.extract dstB 32<rt> 32 := temp)
+    builder <! (AST.extract dstC 32<rt> 0 := temp)
+    builder <! (AST.extract dstC 32<rt> 32 := temp)
+    builder <! (AST.extract dstD 32<rt> 0 := temp)
+    builder <! (AST.extract dstD 32<rt> 32 := temp)
     fillZeroFromVLToMaxVL ctxt dst 256 512 builder
   | 512<rt> ->
     let kl, vl = 16, 512
@@ -7267,17 +7276,17 @@ let vpbroadcastd ins insAddr insLen ctxt =
     let k = getRegVar ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
     let masking dst =
       match ePrx.Z with
-      | Zeroing -> num0 32<rt>
+      | Zeroing -> AST.num0 32<rt>
       | Merging -> dst
     let cond idx =
       (* no write mask *)
-      let noWritemask = if ePrx.AAA = 0uy then num1 1<rt> else num0 1<rt>
-      extract k 1<rt> idx .| noWritemask
+      let noWritemask = if ePrx.AAA = 0uy then AST.num1 1<rt> else AST.num0 1<rt>
+      AST.extract k 1<rt> idx .| noWritemask
     let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
       transOprToExpr512 ins insAddr insLen ctxt dst
     let assign dst idx sPos =
-      let extDst = extract dst 32<rt> sPos
-      extDst := ite (cond idx) temp (masking extDst)
+      let extDst = AST.extract dst 32<rt> sPos
+      extDst := AST.ite (cond idx) temp (masking extDst)
     builder <! (assign dstA 0 0)
     builder <! (assign dstA 1 32)
     builder <! (assign dstB 2 0)
@@ -7312,7 +7321,7 @@ let vpcmpgtb ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 8<rt> opPcmpgtb 64
 
 let vpinsrd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src1, src2, imm = getFourOprs ins
   let oprSize = getOperationSize ins
   let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
@@ -7321,13 +7330,13 @@ let vpinsrd ins insAddr insLen ctxt =
   let imm = transOprToExpr ins insAddr insLen ctxt imm
   let sel, mask, temp, tDst = tmpVars4 128<rt>
   startMark insAddr insLen builder (* write_d_element *)
-  builder <! (sel := zExt 128<rt> (extractLow 2<rt> imm))
+  builder <! (sel := AST.zext 128<rt> (AST.xtlo 2<rt> imm))
   builder <! (mask := numU64 0xFFFFFFFFUL 128<rt> << (sel .* numI32 32 128<rt>))
   builder <!
-    (temp := ((zExt 128<rt> src2) << (sel .* numI32 32 128<rt>)) .& mask)
-  builder <! (tDst := (((concat src1B src1A) .& AST.not mask) .| temp))
-  builder <! (dstA := extract tDst 64<rt> 0)
-  builder <! (dstB := extract tDst 64<rt> 64)
+    (temp := ((AST.zext 128<rt> src2) << (sel .* numI32 32 128<rt>)) .& mask)
+  builder <! (tDst := (((AST.concat src1B src1A) .& AST.not mask) .| temp))
+  builder <! (dstA := AST.extract tDst 64<rt> 0)
+  builder <! (dstB := AST.extract tDst 64<rt> 64)
   fillZeroFromVLToMaxVL ctxt dst 128 512 builder
   endMark insAddr insLen builder
 
@@ -7353,7 +7362,7 @@ let vpshufb ins insAddr insLen ctxt =
   let dst, src1, src2 = getThreeOprs ins
   let oprSize = getOperationSize ins
   let cnt = if oprSize = 128<rt> then 16 else 32
-  let builder = new StmtBuilder (2 * cnt)
+  let builder = StmtBuilder (2 * cnt)
   let tDst, tSrc1, tSrc2 = tmpVars3 oprSize
   startMark insAddr insLen builder
   match oprSize with
@@ -7361,50 +7370,50 @@ let vpshufb ins insAddr insLen ctxt =
     let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
     let src1B, src1A = transOprToExpr128 ins insAddr insLen ctxt src1
     let src2B, src2A = transOprToExpr128 ins insAddr insLen ctxt src2
-    builder <! (tSrc1 := concat src1B src1A)
-    builder <! (tSrc2 := concat src2B src2A)
-    let tmps = Array.init cnt (fun _ -> tmpVar 8<rt>)
+    builder <! (tSrc1 := AST.concat src1B src1A)
+    builder <! (tSrc2 := AST.concat src2B src2A)
+    let tmps = Array.init cnt (fun _ -> AST.tmpvar 8<rt>)
     let mask = numU32 0x0Fu 8<rt>
     for i in 0 .. cnt - 1 do
-      let cond = extract tSrc2 1<rt> (i * 8 + 7)
-      let idx = (extract tSrc2 8<rt> (i * 8)) .& mask
-      let s = zExt oprSize idx .* numI32 8 oprSize
+      let cond = AST.extract tSrc2 1<rt> (i * 8 + 7)
+      let idx = (AST.extract tSrc2 8<rt> (i * 8)) .& mask
+      let s = AST.zext oprSize idx .* numI32 8 oprSize
       builder <!
-        (tmps.[i] := ite cond (num0 8<rt>) (extractLow 8<rt> (tSrc1 >> s)))
+        (tmps.[i] := AST.ite cond (AST.num0 8<rt>) (AST.xtlo 8<rt> (tSrc1 >> s)))
     done
-    builder <! (tDst := concatExprs tmps)
-    builder <! (dstA := extractLow 64<rt> tDst)
-    builder <! (dstB := extractHigh 64<rt> tDst)
+    builder <! (tDst := AST.concatArr tmps)
+    builder <! (dstA := AST.xtlo 64<rt> tDst)
+    builder <! (dstB := AST.xthi 64<rt> tDst)
   | 256<rt> ->
     let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
     let src1D, src1C, src1B, src1A =
       transOprToExpr256 ins insAddr insLen ctxt src1
     let src2D, src2C, src2B, src2A =
       transOprToExpr256 ins insAddr insLen ctxt src2
-    builder <! (tSrc1 := concat (concat src1D src1C) (concat src1B src1A))
-    builder <! (tSrc2 := concat (concat src2D src2C) (concat src2B src2A))
-    let tmps = Array.init cnt (fun _ -> tmpVar 8<rt>)
+    builder <! (tSrc1 := AST.concat (AST.concat src1D src1C) (AST.concat src1B src1A))
+    builder <! (tSrc2 := AST.concat (AST.concat src2D src2C) (AST.concat src2B src2A))
+    let tmps = Array.init cnt (fun _ -> AST.tmpvar 8<rt>)
     let mask = numU32 0x0Fu 8<rt>
     for i in 0 .. cnt - 1 do
-      let cond = extract tSrc2 1<rt> (i * 8 + 7)
-      let idx = (extract tSrc2 8<rt> (i * 8)) .& mask
-      let s = zExt oprSize idx .* numI32 8 oprSize
+      let cond = AST.extract tSrc2 1<rt> (i * 8 + 7)
+      let idx = (AST.extract tSrc2 8<rt> (i * 8)) .& mask
+      let s = AST.zext oprSize idx .* numI32 8 oprSize
       builder <!
-        (tmps.[i] := ite cond (num0 8<rt>) (extractLow 8<rt> (tSrc1 >> s)))
+        (tmps.[i] := AST.ite cond (AST.num0 8<rt>) (AST.xtlo 8<rt> (tSrc1 >> s)))
     done
-    builder <! (tDst := concatExprs tmps)
-    builder <! (dstA := extractLow 64<rt> tDst)
-    builder <! (dstB := extract tDst 64<rt> 64)
+    builder <! (tDst := AST.concatArr tmps)
+    builder <! (dstA := AST.xtlo 64<rt> tDst)
+    builder <! (dstB := AST.extract tDst 64<rt> 64)
     builder <!
-      (dstC := extract tDst 64<rt> (RegType.toBitWidth (typeOf tDst) - 64))
-    builder <! (dstD := extractHigh 64<rt> tDst)
+      (dstC := AST.extract tDst 64<rt> (RegType.toBitWidth (AST.typeOf tDst) - 64))
+    builder <! (dstD := AST.xthi 64<rt> tDst)
   | 512<rt> ->
     let kl, vl = 64, 512
     let ePrx = getEVEXPrx ins.VEXInfo
     let k = getRegVar ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
     let cond idx =
-      if ePrx.AAA = 0uy then num0 1<rt> (* no write mask *)
-      else extract k 1<rt> idx
+      if ePrx.AAA = 0uy then AST.num0 1<rt> (* no write mask *)
+      else AST.extract k 1<rt> idx
     let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
       transOprToExpr512 ins insAddr insLen ctxt dst
     let src1H, src1G, src1F, src1E, src1D, src1C, src1B, src1A =
@@ -7412,36 +7421,36 @@ let vpshufb ins insAddr insLen ctxt =
     let src2H, src2G, src2F, src2E, src2D, src2C, src2B, src2A =
       transOprToExpr512 ins insAddr insLen ctxt src2
     builder <!
-      (tSrc1 := concat (concat (concat src1H src1G) (concat src1F src1E))
-                       (concat (concat src1D src1C) (concat src1B src1A)))
+      (tSrc1 := AST.concat (AST.concat (AST.concat src1H src1G) (AST.concat src1F src1E))
+                       (AST.concat (AST.concat src1D src1C) (AST.concat src1B src1A)))
     builder <!
-      (tSrc2 := concat (concat (concat src2H src2G) (concat src2F src2E))
-                       (concat (concat src2D src2C) (concat src2B src2A)))
+      (tSrc2 := AST.concat (AST.concat (AST.concat src2H src2G) (AST.concat src2F src2E))
+                       (AST.concat (AST.concat src2D src2C) (AST.concat src2B src2A)))
     let num0F = numU32 0x0Fu 8<rt>
-    let jmask = tmpVar 8<rt>
-    let tmps = Array.init kl (fun _ -> tmpVar 8<rt>)
+    let jmask = AST.tmpvar 8<rt>
+    let tmps = Array.init kl (fun _ -> AST.tmpvar 8<rt>)
     builder <! (jmask := numI32 (kl - 1) 8<rt> .& (AST.not num0F))
     for i in 0 .. kl - 1 do
       let cond idx =
         (* no write mask *)
-        let noWritemask = if ePrx.AAA = 0uy then num1 1<rt> else num0 1<rt>
-        extract k 1<rt> idx .| noWritemask
-      let index1 = extract tSrc2 8<rt> (i * 8)
+        let noWritemask = if ePrx.AAA = 0uy then AST.num1 1<rt> else AST.num0 1<rt>
+        AST.extract k 1<rt> idx .| noWritemask
+      let index1 = AST.extract tSrc2 8<rt> (i * 8)
       let index2 = (index1 .& num0F) .+ (numI32 i 8<rt> .& jmask)
       let src1 =
-        extractLow 8<rt> (tSrc1 >> (zExt oprSize (index2 .* numI32 8 8<rt>)))
-      builder <! (tmps.[i] := ite (cond i) (ite (extractHigh 1<rt> index1)
-                                                (num0 8<rt>) src1) (num0 8<rt>))
+        AST.xtlo 8<rt> (tSrc1 >> (AST.zext oprSize (index2 .* numI32 8 8<rt>)))
+      builder <! (tmps.[i] := AST.ite (cond i) (AST.ite (AST.xthi 1<rt> index1)
+                                               (AST.num0 8<rt>) src1) (AST.num0 8<rt>))
     done
-    builder <! (tDst := concatExprs tmps)
-    builder <! (dstA := extract tDst 64<rt> 0)
-    builder <! (dstB := extract tDst 64<rt> 64)
-    builder <! (dstC := extract tDst 64<rt> 128)
-    builder <! (dstD := extract tDst 64<rt> 192)
-    builder <! (dstE := extract tDst 64<rt> 256)
-    builder <! (dstF := extract tDst 64<rt> 320)
-    builder <! (dstG := extract tDst 64<rt> 384)
-    builder <! (dstH := extract tDst 64<rt> 448)
+    builder <! (tDst := AST.concatArr tmps)
+    builder <! (dstA := AST.extract tDst 64<rt> 0)
+    builder <! (dstB := AST.extract tDst 64<rt> 64)
+    builder <! (dstC := AST.extract tDst 64<rt> 128)
+    builder <! (dstD := AST.extract tDst 64<rt> 192)
+    builder <! (dstE := AST.extract tDst 64<rt> 256)
+    builder <! (dstF := AST.extract tDst 64<rt> 320)
+    builder <! (dstG := AST.extract tDst 64<rt> 384)
+    builder <! (dstH := AST.extract tDst 64<rt> 448)
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
@@ -7450,50 +7459,50 @@ let vpshufd ins insAddr insLen ctxt =
   let ord = transOprToExpr ins insAddr insLen ctxt ord
   let oprSize = getOperationSize ins
   let cnt = RegType.toBitWidth oprSize / 32
-  let builder = new StmtBuilder (2 * cnt)
-  let tmps = Array.init cnt (fun _ -> tmpVar 32<rt>)
+  let builder = StmtBuilder (2 * cnt)
+  let tmps = Array.init cnt (fun _ -> AST.tmpvar 32<rt>)
   let n32 = numI32 32 oprSize
   let mask2 = numI32 3 32<rt> (* 2-bit mask *)
-  let tSrc = tmpVar oprSize
-  let tDst = tmpVar oprSize
+  let tSrc = AST.tmpvar oprSize
+  let tDst = AST.tmpvar oprSize
   let shuffleDword src =
     for i in 1 .. cnt do
       let order =
-        ((extractLow 32<rt> ord) >> (numI32 ((i - 1) * 2) 32<rt>)) .& mask2
-      let order' = zExt oprSize order
-      builder <! (tmps.[i - 1] := extractLow 32<rt> (src >> (order' .* n32)))
+        ((AST.xtlo 32<rt> ord) >> (numI32 ((i - 1) * 2) 32<rt>)) .& mask2
+      let order' = AST.zext oprSize order
+      builder <! (tmps.[i - 1] := AST.xtlo 32<rt> (src >> (order' .* n32)))
     done
   startMark insAddr insLen builder
   match oprSize with
   | 128<rt> ->
     let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
     let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
-    builder <! (tSrc := concat srcB srcA)
+    builder <! (tSrc := AST.concat srcB srcA)
     shuffleDword tSrc
-    builder <! (tDst := concatExprs tmps)
-    builder <! (dstA := extract tDst 64<rt> 0)
-    builder <! (dstB := extract tDst 64<rt> 64)
+    builder <! (tDst := AST.concatArr tmps)
+    builder <! (dstA := AST.extract tDst 64<rt> 0)
+    builder <! (dstB := AST.extract tDst 64<rt> 64)
     fillZeroHigh128 ctxt dst builder
   | 256<rt> ->
     let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
     let srcD, srcC, srcB, srcA = transOprToExpr256 ins insAddr insLen ctxt src
-    builder <! (tSrc := concat (concat srcD srcC) (concat srcB srcA))
+    builder <! (tSrc := AST.concat (AST.concat srcD srcC) (AST.concat srcB srcA))
     shuffleDword tSrc
-    builder <! (tDst := concatExprs tmps)
-    builder <! (dstA := extract tDst 64<rt> 0)
-    builder <! (dstB := extract tDst 64<rt> 64)
-    builder <! (dstC := extract tDst 64<rt> 128)
-    builder <! (dstD := extract tDst 64<rt> 192)
+    builder <! (tDst := AST.concatArr tmps)
+    builder <! (dstA := AST.extract tDst 64<rt> 0)
+    builder <! (dstB := AST.extract tDst 64<rt> 64)
+    builder <! (dstC := AST.extract tDst 64<rt> 128)
+    builder <! (dstD := AST.extract tDst 64<rt> 192)
     fillZeroHigh256 ctxt dst builder
   | 512<rt> -> () (* FIXME: #196 *)
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
 let opShiftVpackedDataLogical oprSize packSz shift src1 (src2: Expr []) =
-  let count = src2.[0] |> zExt oprSize
-  let cond = gt count (numI32 ((int packSz) - 1) oprSize)
-  let shifted expr = extract (shift (zExt oprSize expr) count) packSz 0
-  Array.map (fun e -> ite cond (num0 packSz) (shifted e)) src1
+  let count = src2.[0] |> AST.zext oprSize
+  let cond = AST.gt count (numI32 ((int packSz) - 1) oprSize)
+  let shifted expr = AST.extract (shift (AST.zext oprSize expr) count) packSz 0
+  Array.map (fun e -> AST.ite cond (AST.num0 packSz) (shifted e)) src1
 
 let opVpslld oprSize = opShiftVpackedDataLogical oprSize 32<rt> (<<)
 
@@ -7508,35 +7517,35 @@ let vpsrld ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 32<rt> opVpsrld 16
 
 let shiftVDQ ins insAddr insLen ctxt shift =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src, cnt = getThreeOprs ins
   let cnt = transOprToExpr ins insAddr insLen ctxt cnt |> castNum 8<rt>
   let oprSize = getOperationSize ins
-  let t = tmpVar 8<rt>
+  let t = AST.tmpvar 8<rt>
   startMark insAddr insLen builder
-  builder <! (t := ite (lt (numU32 15u 8<rt>) cnt) (numU32 16u 8<rt>) cnt)
+  builder <! (t := AST.ite (AST.lt (numU32 15u 8<rt>) cnt) (numU32 16u 8<rt>) cnt)
   match oprSize with
   | 128<rt> ->
     let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
     let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
     let tDst, tSrc = tmpVars2 128<rt>
-    builder <! (tDst := concat dstB dstA)
-    builder <! (tSrc := concat srcB srcA)
-    builder <! (tDst := (shift tSrc (zExt oprSize (t .* numU32 8u 8<rt>))))
-    builder <! (dstA := extractLow 64<rt> tDst)
-    builder <! (dstB := extractHigh 64<rt> tDst)
+    builder <! (tDst := AST.concat dstB dstA)
+    builder <! (tSrc := AST.concat srcB srcA)
+    builder <! (tDst := (shift tSrc (AST.zext oprSize (t .* numU32 8u 8<rt>))))
+    builder <! (dstA := AST.xtlo 64<rt> tDst)
+    builder <! (dstB := AST.xthi 64<rt> tDst)
     fillZeroHigh128 ctxt dst builder
   | 256<rt> ->
     let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
     let srcD, srcC, srcB, srcA = transOprToExpr256 ins insAddr insLen ctxt src
     let tDst, tSrc = tmpVars2 256<rt>
-    builder <! (tDst := concat (concat dstD dstC) (concat dstB dstA))
-    builder <! (tSrc := concat (concat srcD srcC) (concat srcB srcA))
-    builder <! (tDst := (shift tSrc (zExt oprSize (t .* numU32 8u 8<rt>))))
-    builder <! (dstA := extractLow 64<rt> tDst)
-    builder <! (dstB := extractLow 64<rt> tDst)
-    builder <! (dstC := extract tDst 64<rt> 128)
-    builder <! (dstD := extractHigh 64<rt> tDst)
+    builder <! (tDst := AST.concat (AST.concat dstD dstC) (AST.concat dstB dstA))
+    builder <! (tSrc := AST.concat (AST.concat srcD srcC) (AST.concat srcB srcA))
+    builder <! (tDst := (shift tSrc (AST.zext oprSize (t .* numU32 8u 8<rt>))))
+    builder <! (dstA := AST.xtlo 64<rt> tDst)
+    builder <! (dstB := AST.xtlo 64<rt> tDst)
+    builder <! (dstC := AST.extract tDst 64<rt> 128)
+    builder <! (dstD := AST.xthi 64<rt> tDst)
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
@@ -7579,7 +7588,7 @@ let vpunpcklqdq ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 64<rt> opPunpckLow 16
 
 let vpxor ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src1, src2 = getThreeOprs ins
   let oprSize = getOperationSize ins
   startMark insAddr insLen builder
@@ -7605,7 +7614,7 @@ let vpxor ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let vpxord ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src1, src2 = getThreeOprs ins
   let oprSize = getOperationSize ins
   startMark insAddr insLen builder
@@ -7613,25 +7622,25 @@ let vpxord ins insAddr insLen ctxt =
   let k = getRegVar ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
   let masking dst =
     match ePrx.Z with
-    | Zeroing -> num0 32<rt>
+    | Zeroing -> AST.num0 32<rt>
     | Merging -> dst
   let cond idx =
     (* no write mask *)
-    let noWritemask = if ePrx.AAA = 0uy then num1 1<rt> else num0 1<rt>
-    extract k 1<rt> idx .| noWritemask
-  let tmpDest = Array.init 2 (fun _ -> tmpVar 32<rt>)
+    let noWritemask = if ePrx.AAA = 0uy then AST.num1 1<rt> else AST.num0 1<rt>
+    AST.extract k 1<rt> idx .| noWritemask
+  let tmpDest = Array.init 2 (fun _ -> AST.tmpvar 32<rt>)
   let evAssign dst s1 s2 src2A dstA idx =
     for i in 0 .. 1 do
-      let s1 = extract s1 32<rt> (i * 32)
-      let s2 = extract s2 32<rt> (i * 32)
-      let dst = extract dstA 32<rt> 0
+      let s1 = AST.extract s1 32<rt> (i * 32)
+      let s2 = AST.extract s2 32<rt> (i * 32)
+      let dst = AST.extract dstA 32<rt> 0
       let tSrc =
         match src2 with
         | OprMem _ when ePrx.AAA (* B *) = 1uy ->
-          s1 <+> (extract src2A 32<rt> 0)
+          s1 <+> (AST.extract src2A 32<rt> 0)
         | _ -> s1 <+> s2
-      builder <! (tmpDest.[i] := ite (cond (idx + i)) tSrc (masking dst))
-    concatExprs tmpDest
+      builder <! (tmpDest.[i] := AST.ite (cond (idx + i)) tSrc (masking dst))
+    AST.concatArr tmpDest
   match oprSize with
   | 128<rt> ->
     let kl, vl = 4, 128
@@ -7673,19 +7682,19 @@ let vpxord ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let vshufi32x4 ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst, src1, src2, imm = getFourOprs ins
   let oprSize = getOperationSize ins
   let ePrx = getEVEXPrx ins.VEXInfo
   let k = getRegVar ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
   let masking dst =
     match ePrx.Z with
-    | Zeroing -> num0 32<rt>
+    | Zeroing -> AST.num0 32<rt>
     | Merging -> dst
   let cond idx =
     (* no write mask *)
-    let noWritemask = if ePrx.AAA = 0uy then num1 1<rt> else num0 1<rt>
-    extract k 1<rt> idx .| noWritemask
+    let noWritemask = if ePrx.AAA = 0uy then AST.num1 1<rt> else AST.num0 1<rt>
+    AST.extract k 1<rt> idx .| noWritemask
   let imm = transOprToExpr ins insAddr insLen ctxt imm
   let tmpDest, tmp = tmpVars2 oprSize
   startMark insAddr insLen builder
@@ -7697,16 +7706,16 @@ let vshufi32x4 ins insAddr insLen ctxt =
       transOprToExpr256 ins insAddr insLen ctxt src1
     let src2D, src2C, src2B, src2A =
       transOprToExpr256 ins insAddr insLen ctxt src2
-    let conSrc1 = concat (concat src1D src1C) (concat src1B src1A)
-    let conSrc2 = concat (concat src2D src2C) (concat src2B src2A)
-    let srcLow src = extract src 128<rt> 0
-    let srcHigh src = extract src 128<rt> 128
-    let select2 src pos = ite (extract imm 1<rt> pos) (srcHigh src) (srcLow src)
-    builder <! (extract tmpDest 128<rt> 0 := select2 conSrc1 0)
-    builder <! (extract tmpDest 128<rt> 128 := select2 conSrc2 1)
+    let conSrc1 = AST.concat (AST.concat src1D src1C) (AST.concat src1B src1A)
+    let conSrc2 = AST.concat (AST.concat src2D src2C) (AST.concat src2B src2A)
+    let srcLow src = AST.extract src 128<rt> 0
+    let srcHigh src = AST.extract src 128<rt> 128
+    let select2 src pos = AST.ite (AST.extract imm 1<rt> pos) (srcHigh src) (srcLow src)
+    builder <! (AST.extract tmpDest 128<rt> 0 := select2 conSrc1 0)
+    builder <! (AST.extract tmpDest 128<rt> 128 := select2 conSrc2 1)
     let assign dst idx dstPos tmpPos =
-      let dst = extract dst 32<rt> dstPos
-      dst := ite (cond idx) (extract tmpDest 32<rt> tmpPos) (masking dst)
+      let dst = AST.extract dst 32<rt> dstPos
+      dst := AST.ite (cond idx) (AST.extract tmpDest 32<rt> tmpPos) (masking dst)
     builder <! (assign dstA 0 0 0)
     builder <! (assign dstA 1 32 32)
     builder <! (assign dstB 2 0 64)
@@ -7723,38 +7732,38 @@ let vshufi32x4 ins insAddr insLen ctxt =
       transOprToExpr512 ins insAddr insLen ctxt src1
     let src2H, src2G, src2F, src2E, src2D, src2C, src2B, src2A =
       transOprToExpr512 ins insAddr insLen ctxt src2
-    let conSrc1 = concat (concat (concat src1H src1G) (concat src1F src1E))
-                         (concat (concat src1D src1C) (concat src1B src1A))
-    let conSrc2 = concat (concat (concat src2H src2G) (concat src2F src2E))
-                         (concat (concat src2D src2C) (concat src2B src2A))
-    let src128 src = extract src 128<rt> 0
-    let src256 src = extract src 128<rt> 128
-    let src384 src = extract src 128<rt> 256
-    let src512 src = extract src 128<rt> 384
-    let num0 = num0 2<rt>
-    let num1 = num1 2<rt>
-    let num2 = numI32 2 2<rt>
-    let control pos = extract imm 2<rt> pos
+    let conSrc1 = AST.concat (AST.concat (AST.concat src1H src1G) (AST.concat src1F src1E))
+                         (AST.concat (AST.concat src1D src1C) (AST.concat src1B src1A))
+    let conSrc2 = AST.concat (AST.concat (AST.concat src2H src2G) (AST.concat src2F src2E))
+                         (AST.concat (AST.concat src2D src2C) (AST.concat src2B src2A))
+    let src128 src = AST.extract src 128<rt> 0
+    let src256 src = AST.extract src 128<rt> 128
+    let src384 src = AST.extract src 128<rt> 256
+    let src512 src = AST.extract src 128<rt> 384
+    let n0 = AST.num0 2<rt>
+    let n1 = AST.num1 2<rt>
+    let n2 = numI32 2 2<rt>
+    let control pos = AST.extract imm 2<rt> pos
     let select4 src pos =
       let control = control pos
-      ite (control == num0) (src128 src)
-       (ite (control == num1) (src256 src) (ite (control == num2) (src384 src)
+      AST.ite (control == n0) (src128 src)
+       (AST.ite (control == n1) (src256 src) (AST.ite (control == n2) (src384 src)
                                              (src512 src)))
-    let tmpSrc2 = Array.init kl (fun _ -> tmpVar 32<rt>)
+    let tmpSrc2 = Array.init kl (fun _ -> AST.tmpvar 32<rt>)
     for i in 0 .. kl - 1 do
       let tSrc2 =
         match src2 with
-          | OprMem _ when ePrx.B = 1uy -> extract src2A 32<rt> 0
-          | _ -> extract conSrc2 32<rt> (i * 32)
+          | OprMem _ when ePrx.B = 1uy -> AST.extract src2A 32<rt> 0
+          | _ -> AST.extract conSrc2 32<rt> (i * 32)
       builder <! (tmpSrc2.[i] := tSrc2)
-    let tmpSrc2 = concatExprs tmpSrc2
-    builder <! (extract tmpDest 128<rt> 0 := select4 conSrc1 0)
-    builder <! (extract tmpDest 128<rt> 128 := select4 conSrc2 2)
-    builder <! (extract tmpDest 128<rt> 256 := select4 tmpSrc2 4)
-    builder <! (extract tmpDest 128<rt> 384 := select4 tmpSrc2 6)
+    let tmpSrc2 = AST.concatArr tmpSrc2
+    builder <! (AST.extract tmpDest 128<rt> 0 := select4 conSrc1 0)
+    builder <! (AST.extract tmpDest 128<rt> 128 := select4 conSrc2 2)
+    builder <! (AST.extract tmpDest 128<rt> 256 := select4 tmpSrc2 4)
+    builder <! (AST.extract tmpDest 128<rt> 384 := select4 tmpSrc2 6)
     let assign dst idx dstPos tmpPos =
-      let dst = extract dst 32<rt> dstPos
-      dst := ite (cond idx) (extract tmpDest 32<rt> tmpPos) (masking dst)
+      let dst = AST.extract dst 32<rt> dstPos
+      dst := AST.ite (cond idx) (AST.extract tmpDest 32<rt> tmpPos) (masking dst)
     builder <! (assign dstA 0 0 0)
     builder <! (assign dstA 1 32 32)
     builder <! (assign dstB 2 0 64)
@@ -7775,75 +7784,75 @@ let vshufi32x4 ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let vshufpd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src1, src2, imm = getFourOprs ins
   let imm = transOprToExpr ins insAddr insLen ctxt imm
-  let cond1 = extractLow 1<rt> imm
-  let cond2 = extract imm 1<rt> 1
-  let cond3 = extract imm 1<rt> 2
-  let cond4 = extract imm 1<rt> 3
+  let cond1 = AST.xtlo 1<rt> imm
+  let cond2 = AST.extract imm 1<rt> 1
+  let cond3 = AST.extract imm 1<rt> 2
+  let cond4 = AST.extract imm 1<rt> 3
   startMark insAddr insLen builder
   match getOperationSize ins with
   | 128<rt> ->
     let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
     let src1B, src1A = transOprToExpr128 ins insAddr insLen ctxt src1
     let src2B, src2A = transOprToExpr128 ins insAddr insLen ctxt src2
-    builder <! (dstA := ite cond1 src1B src1A)
-    builder <! (dstB := ite cond2 src2B src2A)
+    builder <! (dstA := AST.ite cond1 src1B src1A)
+    builder <! (dstB := AST.ite cond2 src2B src2A)
     fillZeroHigh128 ctxt dst builder
   | 256<rt> ->
     let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
     let sr1D, sr1C, sr1B, sr1A = transOprToExpr256 ins insAddr insLen ctxt src1
     let sr2D, sr2C, sr2B, sr2A = transOprToExpr256 ins insAddr insLen ctxt src2
-    builder <! (dstA := ite cond1 sr1B sr1A)
-    builder <! (dstB := ite cond2 sr2B sr2A)
-    builder <! (dstC := ite cond3 sr1C sr1D)
-    builder <! (dstB := ite cond4 sr2C sr2D)
+    builder <! (dstA := AST.ite cond1 sr1B sr1A)
+    builder <! (dstB := AST.ite cond2 sr2B sr2A)
+    builder <! (dstC := AST.ite cond3 sr1C sr1D)
+    builder <! (dstB := AST.ite cond4 sr2C sr2D)
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
 let vshufps ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (32)
+  let builder = StmtBuilder (32)
   let dst, src1, src2, imm = getFourOprs ins
   let imm = transOprToExpr ins insAddr insLen ctxt imm
-  let cond1 = extractLow 2<rt> imm
-  let cond2 = extract imm 2<rt> 2
-  let cond3 = extract imm 2<rt> 4
-  let cond4 = extract imm 2<rt> 6
+  let cond1 = AST.xtlo 2<rt> imm
+  let cond2 = AST.extract imm 2<rt> 2
+  let cond3 = AST.extract imm 2<rt> 4
+  let cond4 = AST.extract imm 2<rt> 6
   let doShuf cond dst e1 e2 =
-    builder <! (dst := num0 32<rt>)
-    builder <! (dst := ite (cond == num0 2<rt>) (extractLow 32<rt> e1) dst)
-    builder <! (dst := ite (cond == num1 2<rt>) (extractHigh 32<rt> e1) dst)
-    builder <! (dst := ite (cond == numI32 2 2<rt>) (extractLow 32<rt> e2) dst)
-    builder <! (dst := ite (cond == numI32 3 2<rt>) (extractHigh 32<rt> e2) dst)
+    builder <! (dst := AST.num0 32<rt>)
+    builder <! (dst := AST.ite (cond == AST.num0 2<rt>) (AST.xtlo 32<rt> e1) dst)
+    builder <! (dst := AST.ite (cond == AST.num1 2<rt>) (AST.xthi 32<rt> e1) dst)
+    builder <! (dst := AST.ite (cond == numI32 2 2<rt>) (AST.xtlo 32<rt> e2) dst)
+    builder <! (dst := AST.ite (cond == numI32 3 2<rt>) (AST.xthi 32<rt> e2) dst)
   startMark insAddr insLen builder
   match getOperationSize ins with
   | 128<rt> ->
     let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
     let sr1B, sr1A = transOprToExpr128 ins insAddr insLen ctxt src1
     let sr2B, sr2A = transOprToExpr128 ins insAddr insLen ctxt src2
-    doShuf cond1 (extractLow 32<rt> dstA) sr1A sr1B
-    doShuf cond2 (extractHigh 32<rt> dstA) sr1A sr1B
-    doShuf cond3 (extractLow 32<rt> dstB) sr2A sr2B
-    doShuf cond4 (extractHigh 32<rt> dstB) sr2A sr2B
+    doShuf cond1 (AST.xtlo 32<rt> dstA) sr1A sr1B
+    doShuf cond2 (AST.xthi 32<rt> dstA) sr1A sr1B
+    doShuf cond3 (AST.xtlo 32<rt> dstB) sr2A sr2B
+    doShuf cond4 (AST.xthi 32<rt> dstB) sr2A sr2B
     fillZeroHigh128 ctxt dst builder
   | 256<rt> ->
     let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
     let sr1D, sr1C, sr1B, sr1A = transOprToExpr256 ins insAddr insLen ctxt src1
     let sr2D, sr2C, sr2B, sr2A = transOprToExpr256 ins insAddr insLen ctxt src2
-    doShuf cond1 (extractLow 32<rt> dstA) sr1A sr1B
-    doShuf cond2 (extractHigh 32<rt> dstA) sr1A sr1B
-    doShuf cond3 (extractLow 32<rt> dstB) sr2A sr2B
-    doShuf cond4 (extractHigh 32<rt> dstB) sr2A sr2B
-    doShuf cond1 (extractLow 32<rt> dstC) sr1C sr1D
-    doShuf cond2 (extractHigh 32<rt> dstC) sr1C sr1D
-    doShuf cond3 (extractLow 32<rt> dstD) sr2C sr2D
-    doShuf cond4 (extractHigh 32<rt> dstD) sr2C sr2D
+    doShuf cond1 (AST.xtlo 32<rt> dstA) sr1A sr1B
+    doShuf cond2 (AST.xthi 32<rt> dstA) sr1A sr1B
+    doShuf cond3 (AST.xtlo 32<rt> dstB) sr2A sr2B
+    doShuf cond4 (AST.xthi 32<rt> dstB) sr2A sr2B
+    doShuf cond1 (AST.xtlo 32<rt> dstC) sr1C sr1D
+    doShuf cond2 (AST.xthi 32<rt> dstC) sr1C sr1D
+    doShuf cond3 (AST.xtlo 32<rt> dstD) sr2C sr2D
+    doShuf cond4 (AST.xthi 32<rt> dstD) sr2C sr2D
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
 let vsqrtpd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst, src = getTwoOprs ins
   let oprSz = getOperationSize ins
   startMark insAddr insLen builder
@@ -7851,28 +7860,28 @@ let vsqrtpd ins insAddr insLen ctxt =
   | 128<rt> ->
     let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
     let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
-    builder <! (dst1 := fSqrt src1)
-    builder <! (dst2 := fSqrt src2)
+    builder <! (dst1 := AST.fsqrt src1)
+    builder <! (dst2 := AST.fsqrt src2)
     fillZeroHigh128 ctxt dst builder
   | 256<rt> ->
     let dst4, dst3, dst2, dst1 = transOprToExpr256 ins insAddr insLen ctxt dst
     let sr4, sr3, sr2, sr1 = transOprToExpr256 ins insAddr insLen ctxt src
-    builder <! (dst1 := fSqrt sr1)
-    builder <! (dst2 := fSqrt sr2)
-    builder <! (dst3 := fSqrt sr3)
-    builder <! (dst4 := fSqrt sr4)
+    builder <! (dst1 := AST.fsqrt sr1)
+    builder <! (dst2 := AST.fsqrt sr2)
+    builder <! (dst3 := AST.fsqrt sr3)
+    builder <! (dst4 := AST.fsqrt sr4)
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
 let vsqrtps ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst, src = getTwoOprs ins
   let oprSz = getOperationSize ins
   let do32PackedSqrt dst64 src builder =
-    let dstA, dstB = extractLow 32<rt> dst64, extractHigh 32<rt> dst64
-    let srcA, srcB = extractLow 32<rt> src, extractHigh 32<rt> src
-    builder <! (dstA := fSqrt srcA)
-    builder <! (dstB := fSqrt srcB)
+    let dstA, dstB = AST.xtlo 32<rt> dst64, AST.xthi 32<rt> dst64
+    let srcA, srcB = AST.xtlo 32<rt> src, AST.xthi 32<rt> src
+    builder <! (dstA := AST.fsqrt srcA)
+    builder <! (dstB := AST.fsqrt srcB)
   startMark insAddr insLen builder
   match oprSz with
   | 128<rt> ->
@@ -7892,7 +7901,7 @@ let vsqrtps ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let vsqrts ins insAddr insLen ctxt sz =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst, src1, src2 = getThreeOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src1B, src1A = transOprToExpr128 ins insAddr insLen ctxt src1
@@ -7900,11 +7909,11 @@ let vsqrts ins insAddr insLen ctxt sz =
   match sz with
   | 32<rt> ->
     let src2 = transOprToExpr32 ins insAddr insLen ctxt src2
-    builder <! (extractLow 32<rt> dst1 := fSqrt src2)
-    builder <! (extractHigh 32<rt> dst1 := extractHigh 32<rt> src1A)
+    builder <! (AST.xtlo 32<rt> dst1 := AST.fsqrt src2)
+    builder <! (AST.xthi 32<rt> dst1 := AST.xthi 32<rt> src1A)
   | 64<rt> ->
     let src2 = transOprToExpr64 ins insAddr insLen ctxt src2
-    builder <! (dst1 := fSqrt src2)
+    builder <! (dst1 := AST.fsqrt src2)
   | _ -> raise InvalidOperandSizeException
   builder <! (dst2 := src1B)
   fillZeroHigh128 ctxt dst builder
@@ -7917,21 +7926,21 @@ let vsqrtss ins insAddr insLen ctxt =
   vsqrts ins insAddr insLen ctxt 32<rt>
 
 let vsubpd ins insAddr insLen ctxt =
-  vexedPackedFPBinOp64 ins insAddr insLen ctxt fsub
+  vexedPackedFPBinOp64 ins insAddr insLen ctxt AST.fsub
 
 let vsubps ins insAddr insLen ctxt =
   match getOperationSize ins with
   | 512<rt> -> nop insAddr insLen
-  | _ -> vexedPackedFPBinOp32 ins insAddr insLen ctxt fsub
+  | _ -> vexedPackedFPBinOp32 ins insAddr insLen ctxt AST.fsub
 
 let vsubsd ins insAddr insLen ctxt =
-  vexedScalarFPBinOp ins insAddr insLen ctxt 64<rt> fsub
+  vexedScalarFPBinOp ins insAddr insLen ctxt 64<rt> AST.fsub
 
 let vsubss ins insAddr insLen ctxt =
-  vexedScalarFPBinOp ins insAddr insLen ctxt 32<rt> fsub
+  vexedScalarFPBinOp ins insAddr insLen ctxt 32<rt> AST.fsub
 
 let vunpckhpd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src1, src2 = getThreeOprs ins
   startMark insAddr insLen builder
   match getOperationSize ins with
@@ -7954,7 +7963,7 @@ let vunpckhpd ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let vunpckhps ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst, src1, src2 = getThreeOprs ins
   startMark insAddr insLen builder
   match getOperationSize ins with
@@ -7962,28 +7971,28 @@ let vunpckhps ins insAddr insLen ctxt =
     let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
     let src1B, _src1A = transOprToExpr128 ins insAddr insLen ctxt src1
     let src2B, _src2A = transOprToExpr128 ins insAddr insLen ctxt src2
-    builder <! (extractLow 32<rt> dstA := extractLow 32<rt> src1B)
-    builder <! (extractHigh 32<rt> dstA := extractLow 32<rt> src2B)
-    builder <! (extractLow 32<rt> dstB := extractHigh 32<rt> src1B)
-    builder <! (extractHigh 32<rt> dstB := extractHigh 32<rt> src2B)
+    builder <! (AST.xtlo 32<rt> dstA := AST.xtlo 32<rt> src1B)
+    builder <! (AST.xthi 32<rt> dstA := AST.xtlo 32<rt> src2B)
+    builder <! (AST.xtlo 32<rt> dstB := AST.xthi 32<rt> src1B)
+    builder <! (AST.xthi 32<rt> dstB := AST.xthi 32<rt> src2B)
     fillZeroHigh128 ctxt dst builder
   | 256<rt> ->
     let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
     let sr1D, _, sr1B, _ = transOprToExpr256 ins insAddr insLen ctxt src1
     let sr2D, _, sr2B, _ = transOprToExpr256 ins insAddr insLen ctxt src2
-    builder <! (extractLow 32<rt> dstA := extractLow 32<rt> sr1B)
-    builder <! (extractHigh 32<rt> dstA := extractLow 32<rt> sr2B)
-    builder <! (extractLow 32<rt> dstB := extractHigh 32<rt> sr1B)
-    builder <! (extractHigh 32<rt> dstB := extractHigh 32<rt> sr2B)
-    builder <! (extractLow 32<rt> dstC := extractLow 32<rt> sr1D)
-    builder <! (extractHigh 32<rt> dstC := extractLow 32<rt> sr2D)
-    builder <! (extractLow 32<rt> dstD := extractHigh 32<rt> sr1D)
-    builder <! (extractHigh 32<rt> dstD := extractHigh 32<rt> sr2D)
+    builder <! (AST.xtlo 32<rt> dstA := AST.xtlo 32<rt> sr1B)
+    builder <! (AST.xthi 32<rt> dstA := AST.xtlo 32<rt> sr2B)
+    builder <! (AST.xtlo 32<rt> dstB := AST.xthi 32<rt> sr1B)
+    builder <! (AST.xthi 32<rt> dstB := AST.xthi 32<rt> sr2B)
+    builder <! (AST.xtlo 32<rt> dstC := AST.xtlo 32<rt> sr1D)
+    builder <! (AST.xthi 32<rt> dstC := AST.xtlo 32<rt> sr2D)
+    builder <! (AST.xtlo 32<rt> dstD := AST.xthi 32<rt> sr1D)
+    builder <! (AST.xthi 32<rt> dstD := AST.xthi 32<rt> sr2D)
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
 let vunpcklpd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src1, src2 = getThreeOprs ins
   startMark insAddr insLen builder
   match getOperationSize ins with
@@ -8006,7 +8015,7 @@ let vunpcklpd ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let vunpcklps ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst, src1, src2 = getThreeOprs ins
   startMark insAddr insLen builder
   match getOperationSize ins with
@@ -8014,23 +8023,23 @@ let vunpcklps ins insAddr insLen ctxt =
     let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
     let _src1B, src1A = transOprToExpr128 ins insAddr insLen ctxt src1
     let _src2B, src2A = transOprToExpr128 ins insAddr insLen ctxt src2
-    builder <! (extractLow 32<rt> dstA := extractLow 32<rt> src1A)
-    builder <! (extractHigh 32<rt> dstA := extractLow 32<rt> src2A)
-    builder <! (extractLow 32<rt> dstB := extractHigh 32<rt> src1A)
-    builder <! (extractHigh 32<rt> dstB := extractHigh 32<rt> src2A)
+    builder <! (AST.xtlo 32<rt> dstA := AST.xtlo 32<rt> src1A)
+    builder <! (AST.xthi 32<rt> dstA := AST.xtlo 32<rt> src2A)
+    builder <! (AST.xtlo 32<rt> dstB := AST.xthi 32<rt> src1A)
+    builder <! (AST.xthi 32<rt> dstB := AST.xthi 32<rt> src2A)
     fillZeroHigh128 ctxt dst builder
   | 256<rt> ->
     let dstD, dstC, dstB, dstA = transOprToExpr256 ins insAddr insLen ctxt dst
     let _, src1C, _, src1A = transOprToExpr256 ins insAddr insLen ctxt src1
     let _, src2C, _, src2A = transOprToExpr256 ins insAddr insLen ctxt src2
-    builder <! (extractLow 32<rt> dstA := extractLow 32<rt> src1A)
-    builder <! (extractHigh 32<rt> dstA := extractLow 32<rt> src2A)
-    builder <! (extractLow 32<rt> dstB := extractHigh 32<rt> src1A)
-    builder <! (extractHigh 32<rt> dstB := extractHigh 32<rt> src2A)
-    builder <! (extractLow 32<rt> dstC := extractLow 32<rt> src1C)
-    builder <! (extractHigh 32<rt> dstC := extractLow 32<rt> src2C)
-    builder <! (extractLow 32<rt> dstD := extractHigh 32<rt> src1C)
-    builder <! (extractHigh 32<rt> dstD := extractHigh 32<rt> src2C)
+    builder <! (AST.xtlo 32<rt> dstA := AST.xtlo 32<rt> src1A)
+    builder <! (AST.xthi 32<rt> dstA := AST.xtlo 32<rt> src2A)
+    builder <! (AST.xtlo 32<rt> dstB := AST.xthi 32<rt> src1A)
+    builder <! (AST.xthi 32<rt> dstB := AST.xthi 32<rt> src2A)
+    builder <! (AST.xtlo 32<rt> dstC := AST.xtlo 32<rt> src1C)
+    builder <! (AST.xthi 32<rt> dstC := AST.xtlo 32<rt> src2C)
+    builder <! (AST.xtlo 32<rt> dstD := AST.xthi 32<rt> src1C)
+    builder <! (AST.xthi 32<rt> dstD := AST.xthi 32<rt> src2C)
   | _ -> raise InvalidOperandSizeException
   endMark insAddr insLen builder
 
@@ -8040,32 +8049,32 @@ let vxorpd ins insAddr insLen ctxt =
 let vxorps ins insAddr insLen ctxt =
   match getOperationSize ins with
   | 512<rt> ->
-    let builder = new StmtBuilder (16)
+    let builder = StmtBuilder (16)
     let dst, src1, src2 = getThreeOprs ins
     startMark insAddr insLen builder
     let ePrx = getEVEXPrx ins.VEXInfo
     let k = getRegVar ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
     let masking dst =
       match ePrx.Z with
-      | Zeroing -> num0 32<rt>
+      | Zeroing -> AST.num0 32<rt>
       | Merging -> dst
     let cond idx =
       (* no write mask *)
-      let noWritemask = if ePrx.AAA = 0uy then num1 1<rt> else num0 1<rt>
-      extract k 1<rt> idx .| noWritemask
-    let tmpDest = Array.init 2 (fun _ -> tmpVar 32<rt>)
+      let noWritemask = if ePrx.AAA = 0uy then AST.num1 1<rt> else AST.num0 1<rt>
+      AST.extract k 1<rt> idx .| noWritemask
+    let tmpDest = Array.init 2 (fun _ -> AST.tmpvar 32<rt>)
     let evAssign dst s1 s2 src2A idx =
       for i in 0 .. 1 do
-        let s1 = extract s1 32<rt> (i * 32)
-        let s2 = extract s2 32<rt> (i * 32)
-        let dst = extract dst 32<rt> (i * 32)
+        let s1 = AST.extract s1 32<rt> (i * 32)
+        let s2 = AST.extract s2 32<rt> (i * 32)
+        let dst = AST.extract dst 32<rt> (i * 32)
         let tSrc =
           match src2 with
           | OprMem _ when ePrx.AAA (* B *) = 1uy ->
-            s1 <+> (extract src2A 32<rt> 0)
+            s1 <+> (AST.extract src2A 32<rt> 0)
           | _ -> s1 <+> s2
-        builder <! (tmpDest.[i] := ite (cond (idx + i)) tSrc (masking dst))
-      concatExprs tmpDest
+        builder <! (tmpDest.[i] := AST.ite (cond (idx + i)) tSrc (masking dst))
+      AST.concatArr tmpDest
     let kl, vl = 16, 512
     let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
       transOprToExpr512 ins insAddr insLen ctxt dst
@@ -8085,9 +8094,9 @@ let vxorps ins insAddr insLen ctxt =
   | _ -> vexedPackedFPBinOp32 ins insAddr insLen ctxt (<+>)
 
 let vzeroupper ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (32)
+  let builder = StmtBuilder (32)
   startMark insAddr insLen builder
-  let n0 = num0 64<rt>
+  let n0 = AST.num0 64<rt>
   builder <! (getPseudoRegVar ctxt R.YMM0 3 := n0)
   builder <! (getPseudoRegVar ctxt R.YMM0 4 := n0)
   builder <! (getPseudoRegVar ctxt R.YMM1 3 := n0)
@@ -8124,32 +8133,32 @@ let vzeroupper ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let wait _ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   startMark insAddr insLen builder
   allCFlagsUndefined ctxt builder
   endMark insAddr insLen builder
 
 let wrfsbase ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let src = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
   startMark insAddr insLen builder
-  builder <! (getRegVar ctxt R.FSBase := zExt ctxt.WordBitSize src)
+  builder <! (getRegVar ctxt R.FSBase := AST.zext ctxt.WordBitSize src)
   endMark insAddr insLen builder
 
 let wrgsbase ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let src = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
   startMark insAddr insLen builder
-  builder <! (getRegVar ctxt R.GSBase := zExt ctxt.WordBitSize src)
+  builder <! (getRegVar ctxt R.GSBase := AST.zext ctxt.WordBitSize src)
   endMark insAddr insLen builder
 
 let wrpkru ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
-  let lblSucc = lblSymbol "Succ"
-  let lblErr = lblSymbol "Err"
+  let builder = StmtBuilder (8)
+  let lblSucc = AST.symbol "Succ"
+  let lblErr = AST.symbol "Err"
   let oprSize = getOperationSize ins
-  let ecxIsZero = getRegVar ctxt R.ECX == num0 oprSize
-  let edxIsZero = getRegVar ctxt R.EDX == num0 oprSize
+  let ecxIsZero = getRegVar ctxt R.ECX == AST.num0 oprSize
+  let edxIsZero = getRegVar ctxt R.EDX == AST.num0 oprSize
   let cond = ecxIsZero .& edxIsZero
   startMark insAddr insLen builder
   builder <! (CJmp (cond, Name lblSucc, Name lblErr))
@@ -8160,10 +8169,10 @@ let wrpkru ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let xadd ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
-  let t = tmpVar oprSize
+  let t = AST.tmpvar oprSize
   startMark insAddr insLen builder
   builder <! (t := src .+ dst)
   builder <! (dstAssign oprSize src dst)
@@ -8172,38 +8181,38 @@ let xadd ins insAddr insLen ctxt =
   endMark insAddr insLen builder
 
 let xchg ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (8)
+  let builder = StmtBuilder (8)
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   startMark insAddr insLen builder
   if dst <> src then
     let oprSize = getOperationSize ins
-    let t = tmpVar oprSize
+    let t = AST.tmpvar oprSize
     builder <! (t := dst)
     builder <! (dstAssign oprSize dst src)
     builder <! (dstAssign oprSize src t)
   endMark insAddr insLen builder
 
 let xlatb ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (4)
+  let builder = StmtBuilder (4)
   let addressSize = getEffAddrSz ins
-  let al = zExt addressSize (getRegVar ctxt R.AL)
+  let al = AST.zext addressSize (getRegVar ctxt R.AL)
   let bx = getRegOfSize ctxt addressSize grpEBX
   startMark insAddr insLen builder
-  builder <! (getRegVar ctxt R.AL := loadLE 8<rt> (al .+ bx))
+  builder <! (getRegVar ctxt R.AL := AST.loadLE 8<rt> (al .+ bx))
   endMark insAddr insLen builder
 
 let xor ins insAddr insLen ctxt =
-  let builder = new StmtBuilder (16)
+  let builder = StmtBuilder (16)
   let dst, src = getTwoOprs ins |> transTwoOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
-  let r = tmpVar oprSize
+  let r = AST.tmpvar oprSize
   startMark insAddr insLen builder
-  builder <! (r := dst <+> sExt oprSize src)
+  builder <! (r := dst <+> AST.sext oprSize src)
   builder <! (dstAssign oprSize dst r)
-  builder <! (getRegVar ctxt R.OF := b0)
-  builder <! (getRegVar ctxt R.CF := b0)
-  builder <! (getRegVar ctxt R.SF := extractHigh 1<rt> r)
-  builder <! (getRegVar ctxt R.ZF := r == (num0 oprSize))
+  builder <! (getRegVar ctxt R.OF := AST.b0)
+  builder <! (getRegVar ctxt R.CF := AST.b0)
+  builder <! (getRegVar ctxt R.SF := AST.xthi 1<rt> r)
+  builder <! (getRegVar ctxt R.ZF := r == (AST.num0 oprSize))
   buildPF ctxt r oprSize None builder
   builder <! (getRegVar ctxt R.AF := undefAF)
   endMark insAddr insLen builder

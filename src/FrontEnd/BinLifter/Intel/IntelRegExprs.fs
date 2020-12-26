@@ -25,47 +25,51 @@
 namespace B2R2.FrontEnd.BinLifter.Intel
 
 open B2R2
-open B2R2.BinIR.LowUIR.AST
+open B2R2.BinIR.LowUIR
 
 /// This is a fatal error that happens when B2R2 tries to access non-existing
 /// register symbol. This exception should not happen in general.
 exception internal InvalidRegAccessException
 
 type internal RegExprs (wordSize) =
-  let var sz t name = var sz t name (IntelRegisterSet.singleton t)
+  let var sz t name = AST.var sz t name (IntelRegisterSet.singleton t)
 
   let reg64 wordSize t name =
-    if wordSize = WordSize.Bit32 then unDef 64<rt> name else var 64<rt> t name
+    if wordSize = WordSize.Bit32 then AST.undef 64<rt> name
+    else var 64<rt> t name
 
   let reg32 wordSize t name r64 =
     if wordSize = WordSize.Bit32 then var 32<rt> t name
-    else extractLow 32<rt> r64
+    else AST.xtlo 32<rt> r64
 
   let reg32ext wordSize name r64 =
-    if wordSize = WordSize.Bit32 then unDef 32<rt> name
-    else extractLow 32<rt> r64
+    if wordSize = WordSize.Bit32 then AST.undef 32<rt> name
+    else AST.xtlo 32<rt> r64
 
   let reg16 wordSize r32 r64 =
-    extractLow 16<rt> (if wordSize = WordSize.Bit32 then r32 else r64)
+    AST.xtlo 16<rt> (if wordSize = WordSize.Bit32 then r32 else r64)
 
   let reg16ext wordSize name r64 =
-    if wordSize = WordSize.Bit32 then unDef 16<rt> name
-    else extractLow 16<rt> r64
+    if wordSize = WordSize.Bit32 then AST.undef 16<rt> name
+    else AST.xtlo 16<rt> r64
 
   let regL8 wordSize r32 r64 =
-    extractLow 8<rt> (if wordSize = WordSize.Bit32 then r32 else r64)
+    AST.xtlo 8<rt> (if wordSize = WordSize.Bit32 then r32 else r64)
 
   let regH8 wordSize r32 r64 =
-    extract (if wordSize = WordSize.Bit32 then r32 else r64) 8<rt> 8
+    AST.extract (if wordSize = WordSize.Bit32 then r32 else r64) 8<rt> 8
 
   let regL8ext wordSize name r64 =
-    if wordSize = WordSize.Bit32 then unDef 16<rt> name else extractLow 8<rt> r64
+    if wordSize = WordSize.Bit32 then AST.undef 16<rt> name
+    else AST.xtlo 8<rt> r64
 
+#if DEBUG
   let assert64Bit wordSize =
     if wordSize = WordSize.Bit64 then () else raise InvalidRegAccessException
 
   let assert32Bit wordSize =
     if wordSize = WordSize.Bit32 then () else raise InvalidRegAccessException
+#endif
 
   (* Registers *)
   let rax  = reg64 wordSize (Register.toRegID Register.RAX) "RAX"
@@ -205,8 +209,8 @@ type internal RegExprs (wordSize) =
   member val SIL = regL8ext wordSize "SIL" rsi with get
   member val DIL = regL8ext wordSize "DIL" rdi with get
   (* Program counters *)
-  member val EIP = pcVar 32<rt> "EIP"
-  member val RIP = pcVar 64<rt> "RIP"
+  member val EIP = AST.pcvar 32<rt> "EIP"
+  member val RIP = AST.pcvar 64<rt> "RIP"
   (* Segment selector *)
   member val CS = var 16<rt> (Register.toRegID Register.CS) "CS"
   member val DS = var 16<rt> (Register.toRegID Register.DS) "DS"
@@ -562,21 +566,21 @@ type internal RegExprs (wordSize) =
   member val ST7A = st7a
   member val ST7B = st7b
   (* x87 FPU Top register *)
-  member val FTOP = extract fsw 3<rt> 11
+  member val FTOP = AST.extract fsw 3<rt> 11
   (* x87 FPU Tag word sections*)
-  member val FTW0 = extract ftw 2<rt> 0
-  member val FTW1 = extract ftw 2<rt> 2
-  member val FTW2 = extract ftw 2<rt> 4
-  member val FTW3 = extract ftw 2<rt> 6
-  member val FTW4 = extract ftw 2<rt> 8
-  member val FTW5 = extract ftw 2<rt> 10
-  member val FTW6 = extract ftw 2<rt> 12
-  member val FTW7 = extract ftw 2<rt> 14
+  member val FTW0 = AST.extract ftw 2<rt> 0
+  member val FTW1 = AST.extract ftw 2<rt> 2
+  member val FTW2 = AST.extract ftw 2<rt> 4
+  member val FTW3 = AST.extract ftw 2<rt> 6
+  member val FTW4 = AST.extract ftw 2<rt> 8
+  member val FTW5 = AST.extract ftw 2<rt> 10
+  member val FTW6 = AST.extract ftw 2<rt> 12
+  member val FTW7 = AST.extract ftw 2<rt> 14
   (* x87 Status Word Flags *)
-  member val FSWC0 = extract fsw 1<rt> 8
-  member val FSWC1 = extract fsw 1<rt> 9
-  member val FSWC2 = extract fsw 1<rt> 10
-  member val FSWC3 = extract fsw 1<rt> 14
+  member val FSWC0 = AST.extract fsw 1<rt> 8
+  member val FSWC1 = AST.extract fsw 1<rt> 9
+  member val FSWC2 = AST.extract fsw 1<rt> 10
+  member val FSWC3 = AST.extract fsw 1<rt> 14
   (* Opmask registers *)
   member val K0 = k0 with get
   member val K1 = k1 with get
@@ -589,14 +593,46 @@ type internal RegExprs (wordSize) =
 
   member __.GetRegVar (name) =
     match name with
-    | R.RAX -> assert64Bit wordSize; __.RAX
-    | R.RBX -> assert64Bit wordSize; __.RBX
-    | R.RCX -> assert64Bit wordSize; __.RCX
-    | R.RDX -> assert64Bit wordSize; __.RDX
-    | R.RSP -> assert64Bit wordSize; __.RSP
-    | R.RBP -> assert64Bit wordSize; __.RBP
-    | R.RSI -> assert64Bit wordSize; __.RSI
-    | R.RDI -> assert64Bit wordSize; __.RDI
+    | R.RAX ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.RAX
+    | R.RBX ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.RBX
+    | R.RCX ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.RCX
+    | R.RDX ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.RDX
+    | R.RSP ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.RSP
+    | R.RBP ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.RBP
+    | R.RSI ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.RSI
+    | R.RDI ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.RDI
     | R.EAX -> __.EAX
     | R.EBX -> __.EBX
     | R.ECX -> __.ECX
@@ -621,44 +657,196 @@ type internal RegExprs (wordSize) =
     | R.BH -> __.BH
     | R.CH -> __.CH
     | R.DH -> __.DH
-    | R.R8 -> assert64Bit wordSize; __.R8
-    | R.R9 -> assert64Bit wordSize; __.R9
-    | R.R10 -> assert64Bit wordSize; __.R10
-    | R.R11 -> assert64Bit wordSize; __.R11
-    | R.R12 -> assert64Bit wordSize; __.R12
-    | R.R13 -> assert64Bit wordSize; __.R13
-    | R.R14 -> assert64Bit wordSize; __.R14
-    | R.R15 -> assert64Bit wordSize; __.R15
-    | R.R8D -> assert64Bit wordSize; __.R8D
-    | R.R9D -> assert64Bit wordSize; __.R9D
-    | R.R10D -> assert64Bit wordSize; __.R10D
-    | R.R11D -> assert64Bit wordSize; __.R11D
-    | R.R12D -> assert64Bit wordSize; __.R12D
-    | R.R13D -> assert64Bit wordSize; __.R13D
-    | R.R14D -> assert64Bit wordSize; __.R14D
-    | R.R15D -> assert64Bit wordSize; __.R15D
-    | R.R8W -> assert64Bit wordSize; __.R8W
-    | R.R9W -> assert64Bit wordSize; __.R9W
-    | R.R10W -> assert64Bit wordSize; __.R10W
-    | R.R11W -> assert64Bit wordSize; __.R11W
-    | R.R12W -> assert64Bit wordSize; __.R12W
-    | R.R13W -> assert64Bit wordSize; __.R13W
-    | R.R14W -> assert64Bit wordSize; __.R14W
-    | R.R15W -> assert64Bit wordSize; __.R15W
-    | R.R8L -> assert64Bit wordSize; __.R8L
-    | R.R9L -> assert64Bit wordSize; __.R9L
-    | R.R10L -> assert64Bit wordSize; __.R10L
-    | R.R11L -> assert64Bit wordSize; __.R11L
-    | R.R12L -> assert64Bit wordSize; __.R12L
-    | R.R13L -> assert64Bit wordSize; __.R13L
-    | R.R14L -> assert64Bit wordSize; __.R14L
-    | R.R15L -> assert64Bit wordSize; __.R15L
-    | R.SPL -> assert64Bit wordSize; __.SPL
-    | R.BPL -> assert64Bit wordSize; __.BPL
-    | R.SIL -> assert64Bit wordSize; __.SIL
-    | R.DIL -> assert64Bit wordSize; __.DIL
-    | R.EIP -> assert32Bit wordSize; __.EIP
-    | R.RIP -> assert64Bit wordSize; __.RIP
+    | R.R8 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R8
+    | R.R9 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R9
+    | R.R10 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R10
+    | R.R11 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R11
+    | R.R12 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R12
+    | R.R13 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R13
+    | R.R14 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R14
+    | R.R15 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R15
+    | R.R8D ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R8D
+    | R.R9D ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R9D
+    | R.R10D ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R10D
+    | R.R11D ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R11D
+    | R.R12D ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R12D
+    | R.R13D ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R13D
+    | R.R14D ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R14D
+    | R.R15D ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R15D
+    | R.R8W ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R8W
+    | R.R9W ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R9W
+    | R.R10W ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R10W
+    | R.R11W ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R11W
+    | R.R12W ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R12W
+    | R.R13W ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R13W
+    | R.R14W ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R14W
+    | R.R15W ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R15W
+    | R.R8L ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R8L
+    | R.R9L ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R9L
+    | R.R10L ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R10L
+    | R.R11L ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R11L
+    | R.R12L ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R12L
+    | R.R13L ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R13L
+    | R.R14L ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R14L
+    | R.R15L ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.R15L
+    | R.SPL ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.SPL
+    | R.BPL ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.BPL
+    | R.SIL ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.SIL
+    | R.DIL ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.DIL
+    | R.EIP ->
+#if DEBUG
+      assert32Bit wordSize
+#endif
+      __.EIP
+    | R.RIP ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.RIP
     | R.CS -> __.CS
     | R.DS -> __.DS
     | R.ES -> __.ES
@@ -675,7 +863,11 @@ type internal RegExprs (wordSize) =
     | R.CR2 -> __.CR2
     | R.CR3 -> __.CR3
     | R.CR4 -> __.CR4
-    | R.CR8 -> assert64Bit wordSize; __.CR8
+    | R.CR8 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.CR8
     | R.OF -> __.OF
     | R.DF -> __.DF
     | R.IF -> __.IF
@@ -717,14 +909,14 @@ type internal RegExprs (wordSize) =
     | R.MXCSR -> __.MXCSR
     | R.MXCSRMASK -> __.MXCSRMASK
     | R.PKRU -> __.PKRU
-    | R.ST0 -> concat __.ST0B __.ST0A
-    | R.ST1 -> concat __.ST1B __.ST1A
-    | R.ST2 -> concat __.ST2B __.ST2A
-    | R.ST3 -> concat __.ST3B __.ST3A
-    | R.ST4 -> concat __.ST4B __.ST4A
-    | R.ST5 -> concat __.ST5B __.ST5A
-    | R.ST6 -> concat __.ST6B __.ST6A
-    | R.ST7 -> concat __.ST7B __.ST7A
+    | R.ST0 -> AST.concat __.ST0B __.ST0A
+    | R.ST1 -> AST.concat __.ST1B __.ST1A
+    | R.ST2 -> AST.concat __.ST2B __.ST2A
+    | R.ST3 -> AST.concat __.ST3B __.ST3A
+    | R.ST4 -> AST.concat __.ST4B __.ST4A
+    | R.ST5 -> AST.concat __.ST5B __.ST5A
+    | R.ST6 -> AST.concat __.ST6B __.ST6A
+    | R.ST7 -> AST.concat __.ST7B __.ST7A
     | R.K0 -> __.K0
     | R.K1 -> __.K1
     | R.K2 -> __.K2
@@ -753,22 +945,86 @@ type internal RegExprs (wordSize) =
     | R.XMM6, 2 -> __.ZMM6B
     | R.XMM7, 1 -> __.ZMM7A
     | R.XMM7, 2 -> __.ZMM7B
-    | R.XMM8, 1 -> assert64Bit wordSize; __.ZMM8A
-    | R.XMM8, 2 -> assert64Bit wordSize; __.ZMM8B
-    | R.XMM9, 1 -> assert64Bit wordSize; __.ZMM9A
-    | R.XMM9, 2 -> assert64Bit wordSize; __.ZMM9B
-    | R.XMM10, 1 -> assert64Bit wordSize; __.ZMM10A
-    | R.XMM10, 2 -> assert64Bit wordSize; __.ZMM10B
-    | R.XMM11, 1 -> assert64Bit wordSize; __.ZMM11A
-    | R.XMM11, 2 -> assert64Bit wordSize; __.ZMM11B
-    | R.XMM12, 1 -> assert64Bit wordSize; __.ZMM12A
-    | R.XMM12, 2 -> assert64Bit wordSize; __.ZMM12B
-    | R.XMM13, 1 -> assert64Bit wordSize; __.ZMM13A
-    | R.XMM13, 2 -> assert64Bit wordSize; __.ZMM13B
-    | R.XMM14, 1 -> assert64Bit wordSize; __.ZMM14A
-    | R.XMM14, 2 -> assert64Bit wordSize; __.ZMM14B
-    | R.XMM15, 1 -> assert64Bit wordSize; __.ZMM15A
-    | R.XMM15, 2 -> assert64Bit wordSize; __.ZMM15B
+    | R.XMM8, 1 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM8A
+    | R.XMM8, 2 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM8B
+    | R.XMM9, 1 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM9A
+    | R.XMM9, 2 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM9B
+    | R.XMM10, 1 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM10A
+    | R.XMM10, 2 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM10B
+    | R.XMM11, 1 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM11A
+    | R.XMM11, 2 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM11B
+    | R.XMM12, 1 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM12A
+    | R.XMM12, 2 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM12B
+    | R.XMM13, 1 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM13A
+    | R.XMM13, 2 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM13B
+    | R.XMM14, 1 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM14A
+    | R.XMM14, 2 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM14B
+    | R.XMM15, 1 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM15A
+    | R.XMM15, 2 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM15B
     | R.YMM0, 1 -> __.ZMM0A
     | R.YMM0, 2 -> __.ZMM0B
     | R.YMM0, 3 -> __.ZMM0C
@@ -801,38 +1057,166 @@ type internal RegExprs (wordSize) =
     | R.YMM7, 2 -> __.ZMM7B
     | R.YMM7, 3 -> __.ZMM7C
     | R.YMM7, 4 -> __.ZMM7D
-    | R.YMM8, 1 -> assert64Bit wordSize; __.ZMM8A
-    | R.YMM8, 2 -> assert64Bit wordSize; __.ZMM8B
-    | R.YMM8, 3 -> assert64Bit wordSize; __.ZMM8C
-    | R.YMM8, 4 -> assert64Bit wordSize; __.ZMM8D
-    | R.YMM9, 1 -> assert64Bit wordSize; __.ZMM9A
-    | R.YMM9, 2 -> assert64Bit wordSize; __.ZMM9B
-    | R.YMM9, 3 -> assert64Bit wordSize; __.ZMM9C
-    | R.YMM9, 4 -> assert64Bit wordSize; __.ZMM9D
-    | R.YMM10, 1 -> assert64Bit wordSize; __.ZMM10A
-    | R.YMM10, 2 -> assert64Bit wordSize; __.ZMM10B
-    | R.YMM10, 3 -> assert64Bit wordSize; __.ZMM10C
-    | R.YMM10, 4 -> assert64Bit wordSize; __.ZMM10D
-    | R.YMM11, 1 -> assert64Bit wordSize; __.ZMM11A
-    | R.YMM11, 2 -> assert64Bit wordSize; __.ZMM11B
-    | R.YMM11, 3 -> assert64Bit wordSize; __.ZMM11C
-    | R.YMM11, 4 -> assert64Bit wordSize; __.ZMM11D
-    | R.YMM12, 1 -> assert64Bit wordSize; __.ZMM12A
-    | R.YMM12, 2 -> assert64Bit wordSize; __.ZMM12B
-    | R.YMM12, 3 -> assert64Bit wordSize; __.ZMM12C
-    | R.YMM12, 4 -> assert64Bit wordSize; __.ZMM12D
-    | R.YMM13, 1 -> assert64Bit wordSize; __.ZMM13A
-    | R.YMM13, 2 -> assert64Bit wordSize; __.ZMM13B
-    | R.YMM13, 3 -> assert64Bit wordSize; __.ZMM13C
-    | R.YMM13, 4 -> assert64Bit wordSize; __.ZMM13D
-    | R.YMM14, 1 -> assert64Bit wordSize; __.ZMM14A
-    | R.YMM14, 2 -> assert64Bit wordSize; __.ZMM14B
-    | R.YMM14, 3 -> assert64Bit wordSize; __.ZMM14C
-    | R.YMM14, 4 -> assert64Bit wordSize; __.ZMM14D
-    | R.YMM15, 1 -> assert64Bit wordSize; __.ZMM15A
-    | R.YMM15, 2 -> assert64Bit wordSize; __.ZMM15B
-    | R.YMM15, 3 -> assert64Bit wordSize; __.ZMM15C
-    | R.YMM15, 4 -> assert64Bit wordSize; __.ZMM15D
+    | R.YMM8, 1 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM8A
+    | R.YMM8, 2 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM8B
+    | R.YMM8, 3 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM8C
+    | R.YMM8, 4 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM8D
+    | R.YMM9, 1 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM9A
+    | R.YMM9, 2 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM9B
+    | R.YMM9, 3 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM9C
+    | R.YMM9, 4 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM9D
+    | R.YMM10, 1 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM10A
+    | R.YMM10, 2 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM10B
+    | R.YMM10, 3 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM10C
+    | R.YMM10, 4 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM10D
+    | R.YMM11, 1 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM11A
+    | R.YMM11, 2 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM11B
+    | R.YMM11, 3 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM11C
+    | R.YMM11, 4 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM11D
+    | R.YMM12, 1 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM12A
+    | R.YMM12, 2 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM12B
+    | R.YMM12, 3 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM12C
+    | R.YMM12, 4 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM12D
+    | R.YMM13, 1 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM13A
+    | R.YMM13, 2 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM13B
+    | R.YMM13, 3 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM13C
+    | R.YMM13, 4 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM13D
+    | R.YMM14, 1 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM14A
+    | R.YMM14, 2 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM14B
+    | R.YMM14, 3 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM14C
+    | R.YMM14, 4 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM14D
+    | R.YMM15, 1 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM15A
+    | R.YMM15, 2 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM15B
+    | R.YMM15, 3 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM15C
+    | R.YMM15, 4 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM15D
     | R.ZMM0, 1 -> __.ZMM0A
     | R.ZMM0, 2 -> __.ZMM0B
     | R.ZMM0, 3 -> __.ZMM0C
@@ -897,70 +1281,326 @@ type internal RegExprs (wordSize) =
     | R.ZMM7, 6 -> __.ZMM7F
     | R.ZMM7, 7 -> __.ZMM7G
     | R.ZMM7, 8 -> __.ZMM7H
-    | R.ZMM8, 1 -> assert64Bit wordSize; __.ZMM8A
-    | R.ZMM8, 2 -> assert64Bit wordSize; __.ZMM8B
-    | R.ZMM8, 3 -> assert64Bit wordSize; __.ZMM8C
-    | R.ZMM8, 4 -> assert64Bit wordSize; __.ZMM8D
-    | R.ZMM8, 5 -> assert64Bit wordSize; __.ZMM8E
-    | R.ZMM8, 6 -> assert64Bit wordSize; __.ZMM8F
-    | R.ZMM8, 7 -> assert64Bit wordSize; __.ZMM8G
-    | R.ZMM8, 8 -> assert64Bit wordSize; __.ZMM8F
-    | R.ZMM9, 1 -> assert64Bit wordSize; __.ZMM9A
-    | R.ZMM9, 2 -> assert64Bit wordSize; __.ZMM9B
-    | R.ZMM9, 3 -> assert64Bit wordSize; __.ZMM9C
-    | R.ZMM9, 4 -> assert64Bit wordSize; __.ZMM9D
-    | R.ZMM9, 5 -> assert64Bit wordSize; __.ZMM9E
-    | R.ZMM9, 6 -> assert64Bit wordSize; __.ZMM9F
-    | R.ZMM9, 7 -> assert64Bit wordSize; __.ZMM9G
-    | R.ZMM9, 8 -> assert64Bit wordSize; __.ZMM9F
-    | R.ZMM10, 1 -> assert64Bit wordSize; __.ZMM10A
-    | R.ZMM10, 2 -> assert64Bit wordSize; __.ZMM10B
-    | R.ZMM10, 3 -> assert64Bit wordSize; __.ZMM10C
-    | R.ZMM10, 4 -> assert64Bit wordSize; __.ZMM10D
-    | R.ZMM10, 5 -> assert64Bit wordSize; __.ZMM10E
-    | R.ZMM10, 6 -> assert64Bit wordSize; __.ZMM10F
-    | R.ZMM10, 7 -> assert64Bit wordSize; __.ZMM10G
-    | R.ZMM10, 8 -> assert64Bit wordSize; __.ZMM10F
-    | R.ZMM11, 1 -> assert64Bit wordSize; __.ZMM11A
-    | R.ZMM11, 2 -> assert64Bit wordSize; __.ZMM11B
-    | R.ZMM11, 3 -> assert64Bit wordSize; __.ZMM11C
-    | R.ZMM11, 4 -> assert64Bit wordSize; __.ZMM11D
-    | R.ZMM11, 5 -> assert64Bit wordSize; __.ZMM11E
-    | R.ZMM11, 6 -> assert64Bit wordSize; __.ZMM11F
-    | R.ZMM11, 7 -> assert64Bit wordSize; __.ZMM11G
-    | R.ZMM11, 8 -> assert64Bit wordSize; __.ZMM11F
-    | R.ZMM12, 1 -> assert64Bit wordSize; __.ZMM12A
-    | R.ZMM12, 2 -> assert64Bit wordSize; __.ZMM12B
-    | R.ZMM12, 3 -> assert64Bit wordSize; __.ZMM12C
-    | R.ZMM12, 4 -> assert64Bit wordSize; __.ZMM12D
-    | R.ZMM12, 5 -> assert64Bit wordSize; __.ZMM12E
-    | R.ZMM12, 6 -> assert64Bit wordSize; __.ZMM12F
-    | R.ZMM12, 7 -> assert64Bit wordSize; __.ZMM12G
-    | R.ZMM12, 8 -> assert64Bit wordSize; __.ZMM12F
-    | R.ZMM13, 1 -> assert64Bit wordSize; __.ZMM13A
-    | R.ZMM13, 2 -> assert64Bit wordSize; __.ZMM13B
-    | R.ZMM13, 3 -> assert64Bit wordSize; __.ZMM13C
-    | R.ZMM13, 4 -> assert64Bit wordSize; __.ZMM13D
-    | R.ZMM13, 5 -> assert64Bit wordSize; __.ZMM13E
-    | R.ZMM13, 6 -> assert64Bit wordSize; __.ZMM13F
-    | R.ZMM13, 7 -> assert64Bit wordSize; __.ZMM13G
-    | R.ZMM13, 8 -> assert64Bit wordSize; __.ZMM13F
-    | R.ZMM14, 1 -> assert64Bit wordSize; __.ZMM14A
-    | R.ZMM14, 2 -> assert64Bit wordSize; __.ZMM14B
-    | R.ZMM14, 3 -> assert64Bit wordSize; __.ZMM14C
-    | R.ZMM14, 4 -> assert64Bit wordSize; __.ZMM14D
-    | R.ZMM14, 5 -> assert64Bit wordSize; __.ZMM14E
-    | R.ZMM14, 6 -> assert64Bit wordSize; __.ZMM14F
-    | R.ZMM14, 7 -> assert64Bit wordSize; __.ZMM14G
-    | R.ZMM14, 8 -> assert64Bit wordSize; __.ZMM14F
-    | R.ZMM15, 1 -> assert64Bit wordSize; __.ZMM15A
-    | R.ZMM15, 2 -> assert64Bit wordSize; __.ZMM15B
-    | R.ZMM15, 3 -> assert64Bit wordSize; __.ZMM15C
-    | R.ZMM15, 4 -> assert64Bit wordSize; __.ZMM15D
-    | R.ZMM15, 5 -> assert64Bit wordSize; __.ZMM15E
-    | R.ZMM15, 6 -> assert64Bit wordSize; __.ZMM15F
-    | R.ZMM15, 7 -> assert64Bit wordSize; __.ZMM15G
-    | R.ZMM15, 8 -> assert64Bit wordSize; __.ZMM15F
+    | R.ZMM8, 1 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM8A
+    | R.ZMM8, 2 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM8B
+    | R.ZMM8, 3 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM8C
+    | R.ZMM8, 4 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM8D
+    | R.ZMM8, 5 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM8E
+    | R.ZMM8, 6 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM8F
+    | R.ZMM8, 7 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM8G
+    | R.ZMM8, 8 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM8F
+    | R.ZMM9, 1 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM9A
+    | R.ZMM9, 2 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM9B
+    | R.ZMM9, 3 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM9C
+    | R.ZMM9, 4 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM9D
+    | R.ZMM9, 5 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM9E
+    | R.ZMM9, 6 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM9F
+    | R.ZMM9, 7 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM9G
+    | R.ZMM9, 8 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM9F
+    | R.ZMM10, 1 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM10A
+    | R.ZMM10, 2 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM10B
+    | R.ZMM10, 3 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM10C
+    | R.ZMM10, 4 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM10D
+    | R.ZMM10, 5 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM10E
+    | R.ZMM10, 6 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM10F
+    | R.ZMM10, 7 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM10G
+    | R.ZMM10, 8 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM10F
+    | R.ZMM11, 1 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM11A
+    | R.ZMM11, 2 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM11B
+    | R.ZMM11, 3 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM11C
+    | R.ZMM11, 4 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM11D
+    | R.ZMM11, 5 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM11E
+    | R.ZMM11, 6 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM11F
+    | R.ZMM11, 7 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM11G
+    | R.ZMM11, 8 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM11F
+    | R.ZMM12, 1 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM12A
+    | R.ZMM12, 2 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM12B
+    | R.ZMM12, 3 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM12C
+    | R.ZMM12, 4 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM12D
+    | R.ZMM12, 5 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM12E
+    | R.ZMM12, 6 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM12F
+    | R.ZMM12, 7 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM12G
+    | R.ZMM12, 8 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM12F
+    | R.ZMM13, 1 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM13A
+    | R.ZMM13, 2 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM13B
+    | R.ZMM13, 3 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM13C
+    | R.ZMM13, 4 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM13D
+    | R.ZMM13, 5 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM13E
+    | R.ZMM13, 6 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM13F
+    | R.ZMM13, 7 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM13G
+    | R.ZMM13, 8 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM13F
+    | R.ZMM14, 1 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM14A
+    | R.ZMM14, 2 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM14B
+    | R.ZMM14, 3 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM14C
+    | R.ZMM14, 4 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM14D
+    | R.ZMM14, 5 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM14E
+    | R.ZMM14, 6 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM14F
+    | R.ZMM14, 7 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM14G
+    | R.ZMM14, 8 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM14F
+    | R.ZMM15, 1 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM15A
+    | R.ZMM15, 2 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM15B
+    | R.ZMM15, 3 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM15C
+    | R.ZMM15, 4 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM15D
+    | R.ZMM15, 5 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM15E
+    | R.ZMM15, 6 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM15F
+    | R.ZMM15, 7 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM15G
+    | R.ZMM15, 8 ->
+#if DEBUG
+      assert64Bit wordSize
+#endif
+      __.ZMM15F
     | R.BND0, 1 -> __.BND0A
     | R.BND0, 2 -> __.BND0B
     | R.BND1, 1 -> __.BND1A

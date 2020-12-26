@@ -139,7 +139,7 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     pstring "??" >>. ws
     >>. pchar '(' >>. ws >>. pComment .>> ws .>> pchar ')'
     >>= fun comment ->
-      getUserState |>> (fun rt -> AST.unDef rt comment)
+      getUserState |>> (fun rt -> AST.undef rt comment)
 
   let pNil = pstringCI "nil" |>> (fun _ -> AST.nil)
 
@@ -254,13 +254,13 @@ type LowUIRParser (isa, regbay: RegisterBay) =
 
   let pLMark =
     ws >>. pchar ':' >>. pIdentifier
-    |>> (AST.lblSymbol >> LMark)
+    |>> (AST.symbol >> LMark)
 
   let pPut =
     ws
     >>. ((attempt pTempVar <|> pVar) >>= updateExpectedType)
     .>> ws .>> pstring ":=" .>> ws .>>. pExpr
-    |>> (fun (dest, value) -> AST.(:=) dest value)
+    |>> (fun (dest, value) -> AST.assign dest value)
 
   let pStore =
     ws
@@ -270,7 +270,7 @@ type LowUIRParser (isa, regbay: RegisterBay) =
 
   let pJmp =
     ws >>. pstring "jmp" >>. ws >>. pIdentifier
-    |>> (fun lab -> Jmp (Name <| AST.lblSymbol lab))
+    |>> (fun lab -> Jmp (Name <| AST.symbol lab))
 
   let pCJmp =
     ws
@@ -279,8 +279,8 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     .>> pstring "jmp" .>> ws .>>. pIdentifier .>> ws
     .>> pstring "else" .>> ws .>> pstring "jmp" .>> ws .>>. pIdentifier
     |>> (fun ((cond, tlab), flab) ->
-      let tlab = Name <| AST.lblSymbol tlab
-      let flab = Name <| AST.lblSymbol flab
+      let tlab = Name <| AST.symbol tlab
+      let flab = Name <| AST.symbol flab
       CJmp (cond, tlab, flab))
 
   let pInterJmp =
