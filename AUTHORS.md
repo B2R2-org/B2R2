@@ -23,6 +23,7 @@ list of contributors in alphabetic order.
 - Doyeon Kim
 - Hongsik Kim
 - Jaemin Kim
+- JungHyun Kim
 - Kangsu Kim
 - Minsu Lee
 - DongYeop Oh
