@@ -17,6 +17,12 @@
     <Compile Include="IntelRegisterBay.fs" />
     <Compile Include="IntelHelper.fs" />
     <Compile Include="IntelDisasm.fs" />
+    <Compile Include="IntelLiftingUtils.fs" />
+    <Compile Include="IntelGeneralLifter.fs" />
+    <Compile Include="IntelMMXLifter.fs" />
+    <Compile Include="IntelSSELifter.fs" />
+    <Compile Include="IntelAVXLifter.fs" />
+    <Compile Include="IntelX87Lifter.fs" />
     <Compile Include="IntelLifter.fs" />
     <Compile Include="IntelInstruction.fs" />
     <Compile Include="IntelParser.fsi" />
