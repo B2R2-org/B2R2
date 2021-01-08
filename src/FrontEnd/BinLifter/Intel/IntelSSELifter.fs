@@ -29,26 +29,27 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinLifter.LiftingOperators
 open B2R2.FrontEnd.BinLifter.Intel
 open B2R2.FrontEnd.BinLifter.Intel.Helper
 open B2R2.FrontEnd.BinLifter.Intel.LiftingUtils
 open B2R2.FrontEnd.BinLifter.Intel.MMXLifter
 
 let buildMove ins insAddr insLen ctxt bufSize =
-  let builder = StmtBuilder (bufSize)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (bufSize)
   let oprSize = getOperationSize ins
-  startMark insAddr insLen builder
+  !<ir insAddr insLen
   match oprSize with
   | 32<rt> | 64<rt> ->
-    let dst, src = transTwoOprs ins insAddr insLen ctxt (dst, src)
-    builder <! (dst := src)
+    let struct (dst, src) = transTwoOprs ins insAddr insLen ctxt
+    !!ir (dst := src)
   | 128<rt> | 256<rt> | 512<rt> ->
+    let struct (dst, src) = getTwoOprs ins
     let dst = transOprToExprVec ins insAddr insLen ctxt dst
     let src = transOprToExprVec ins insAddr insLen ctxt src
-    List.iter2 (fun d s -> builder <! (d := s)) dst src
+    List.iter2 (fun d s -> !!ir (d := s)) dst src
   | _ -> raise InvalidOperandSizeException
-  endMark insAddr insLen builder
+  !>ir insAddr insLen
 
 let movaps ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
 
@@ -59,135 +60,135 @@ let movups ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
 let movupd ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
 
 let movhps ins insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  let dst, src = getTwoOprs ins
-  startMark insAddr insLen builder
+  let ir = IRBuilder (4)
+  let struct (dst, src) = getTwoOprs ins
+  !<ir insAddr insLen
   match dst, src with
   | OprMem (_, _, _, 64<rt>), OprReg r ->
     let dst = transOprToExpr ins insAddr insLen ctxt dst
-    builder <! (dst := getPseudoRegVar ctxt r 2)
+    !!ir (dst := getPseudoRegVar ctxt r 2)
   | OprReg r, OprMem (_, _, _, 64<rt>)->
     let src = transOprToExpr ins insAddr insLen ctxt src
-    builder <! (getPseudoRegVar ctxt r 2 := src)
+    !!ir (getPseudoRegVar ctxt r 2 := src)
   | _ -> raise InvalidOperandException
-  endMark insAddr insLen builder
+  !>ir insAddr insLen
 
 let movhpd ins insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  let dst, src = getTwoOprs ins
-  startMark insAddr insLen builder
+  let ir = IRBuilder (4)
+  let struct (dst, src) = getTwoOprs ins
+  !<ir insAddr insLen
   match dst, src with
   | OprReg r, OprMem _ ->
     let src = transOprToExpr ins insAddr insLen ctxt src
-    builder <! (getPseudoRegVar ctxt r 2 := src)
+    !!ir (getPseudoRegVar ctxt r 2 := src)
   | OprMem _, OprReg r ->
     let dst = transOprToExpr ins insAddr insLen ctxt dst
-    builder <! (dst := getPseudoRegVar ctxt r 1)
+    !!ir (dst := getPseudoRegVar ctxt r 1)
   | _ -> raise InvalidOperandException
-  endMark insAddr insLen builder
+  !>ir insAddr insLen
 
 let movhlps ins insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (4)
+  let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr128 ins insAddr insLen ctxt dst |> snd
   let src = transOprToExpr128 ins insAddr insLen ctxt src |> fst
-  startMark insAddr insLen builder
-  builder <! (dst := src)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (dst := src)
+  !>ir insAddr insLen
 
 let movlpd ins insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  let dst, src = getTwoOprs ins
-  startMark insAddr insLen builder
+  let ir = IRBuilder (4)
+  let struct (dst, src) = getTwoOprs ins
+  !<ir insAddr insLen
   match dst, src with
   | OprReg r, OprMem _ ->
     let src = transOprToExpr ins insAddr insLen ctxt src
-    builder <! (getPseudoRegVar ctxt r 1 := src)
+    !!ir (getPseudoRegVar ctxt r 1 := src)
   | OprMem _, OprReg r ->
     let dst = transOprToExpr ins insAddr insLen ctxt dst
-    builder <! (dst := getPseudoRegVar ctxt r 1)
+    !!ir (dst := getPseudoRegVar ctxt r 1)
   | _ -> raise InvalidOperandException
-  endMark insAddr insLen builder
+  !>ir insAddr insLen
 
 let movlps ins insAddr insLen ctxt = movlpd ins insAddr insLen ctxt
 
 let movlhps ins insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (4)
+  let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr128 ins insAddr insLen ctxt dst |> fst
   let src = transOprToExpr128 ins insAddr insLen ctxt src |> snd
-  startMark insAddr insLen builder
-  builder <! (dst := src)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (dst := src)
+  !>ir insAddr insLen
 
 let movmskps ins insAddr insLen ctxt =
-  let builder = StmtBuilder (8)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (8)
+  let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr ins insAddr insLen ctxt dst
   let srcB, srcA= transOprToExpr128 ins insAddr insLen ctxt src
   let oprSize = getOperationSize ins
-  startMark insAddr insLen builder
+  !<ir insAddr insLen
   let srcA = AST.concat (AST.extract srcA 1<rt> 63) (AST.extract srcA 1<rt> 31)
   let srcB = AST.concat (AST.extract srcB 1<rt> 63) (AST.extract srcB 1<rt> 31)
-  builder <! (dst := AST.zext oprSize <| AST.concat srcB srcA)
-  endMark insAddr insLen builder
+  !!ir (dst := AST.zext oprSize <| AST.concat srcB srcA)
+  !>ir insAddr insLen
 
 let movmskpd ins insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (4)
+  let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr ins insAddr insLen ctxt dst
   let src1, src2 = transOprToExpr128 ins insAddr insLen ctxt src
   let oprSize = getOperationSize ins
-  startMark insAddr insLen builder
+  !<ir insAddr insLen
   let src63 = AST.sext oprSize (AST.xthi 1<rt> src2)
   let src127 = (AST.sext oprSize (AST.xthi 1<rt> src1)) << AST.num1 oprSize
-  builder <! (dst := src63 .| src127)
-  endMark insAddr insLen builder
+  !!ir (dst := src63 .| src127)
+  !>ir insAddr insLen
 
 let movss (ins: InsInfo) insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  let dst, src = getTwoOprs ins
-  startMark insAddr insLen builder
+  let ir = IRBuilder (4)
+  let struct (dst, src) = getTwoOprs ins
+  !<ir insAddr insLen
   match dst, src with
   | OprReg r1, OprReg r2 ->
     let dst = getPseudoRegVar ctxt r1 1 |> AST.xtlo 32<rt>
     let src = getPseudoRegVar ctxt r2 1 |> AST.xtlo 32<rt>
-    builder <! (dst := src)
+    !!ir (dst := src)
   | OprReg r1, OprMem _ ->
     let dst2, dst1 = getPseudoRegVar128 ctxt r1
     let src = transOprToExpr ins insAddr insLen ctxt src
-    builder <! (dstAssign 32<rt> dst1 src)
-    builder <! (dst2 := AST.num0 64<rt>)
+    !!ir (dstAssign 32<rt> dst1 src)
+    !!ir (dst2 := AST.num0 64<rt>)
   | OprMem _ , OprReg r1 ->
     let dst = transOprToExpr ins insAddr insLen ctxt dst
     let src = getPseudoRegVar ctxt r1 1 |> AST.xtlo 32<rt>
-    builder <! (dstAssign 32<rt> dst src)
+    !!ir (dstAssign 32<rt> dst src)
   | _ -> raise InvalidOperandException
-  endMark insAddr insLen builder
+  !>ir insAddr insLen
 
 let movsd (ins: InsInfo) insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
+  let ir = IRBuilder (4)
   if ins.Operands = Operands.NoOperand then
     GeneralLifter.movs ins insAddr insLen ctxt
   else
-    let dst, src = getTwoOprs ins
-    startMark insAddr insLen builder
+    let struct (dst, src) = getTwoOprs ins
+    !<ir insAddr insLen
     match dst, src with
     | OprReg r1, OprReg r2 ->
       let dst = getPseudoRegVar ctxt r1 1
       let src = getPseudoRegVar ctxt r2 1
-      builder <! (dst := src)
+      !!ir (dst := src)
     | OprReg r1, OprMem _ ->
       let dst2, dst1 = getPseudoRegVar128 ctxt r1
       let src = transOprToExpr ins insAddr insLen ctxt src
-      builder <! (dst1 := src)
-      builder <! (dst2 := AST.num0 64<rt>)
+      !!ir (dst1 := src)
+      !!ir (dst2 := AST.num0 64<rt>)
     | OprMem _ , OprReg r1 ->
       let dst = transOprToExpr ins insAddr insLen ctxt dst
       let src = getPseudoRegVar ctxt r1 1
-      builder <! (dstAssign 64<rt> dst src)
+      !!ir (dstAssign 64<rt> dst src)
     | _ -> raise InvalidOperandException
-    endMark insAddr insLen builder
+    !>ir insAddr insLen
 
 let addps ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 32<rt> (opP AST.fadd) 8
@@ -208,7 +209,7 @@ let private getTwoSrcOperands = function
   | _ -> raise InvalidOperandException
 
 let private handleScalarFPOp ins insAddr insLen ctxt sz op =
-  let builder = StmtBuilder(8)
+  let ir = IRBuilder(8)
   let _dst2, dst1 =
     ins.Operands |> getFstOperand |> transOprToExpr128 ins insAddr insLen ctxt
   let src1, src2 = getTwoSrcOperands ins.Operands
@@ -219,13 +220,13 @@ let private handleScalarFPOp ins insAddr insLen ctxt sz op =
   let dst1, src1 =
     if sz = 32<rt> then AST.xtlo 32<rt> dst1, AST.xtlo 32<rt> src1
     else dst1, src1
-  let t1, t2, t3 = tmpVars3 sz
-  startMark insAddr insLen builder
-  builder <! (t1 := src1)
-  builder <! (t2 := src2)
-  builder <! (t3 := op t1 t2)
-  builder <! (dst1 := t3)
-  endMark insAddr insLen builder
+  let struct (t1, t2, t3) = tmpVars3 sz
+  !<ir insAddr insLen
+  !!ir (t1 := src1)
+  !!ir (t2 := src2)
+  !!ir (t3 := op t1 t2)
+  !!ir (dst1 := t3)
+  !>ir insAddr insLen
 
 let addss ins insAddr insLen ctxt =
   handleScalarFPOp ins insAddr insLen ctxt 32<rt> AST.fadd
@@ -237,14 +238,14 @@ let subps ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 32<rt> (opP AST.fsub) 8
 
 let subpd ins insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  let dst, src = getTwoOprs ins
-  startMark insAddr insLen builder
+  let ir = IRBuilder (4)
+  let struct (dst, src) = getTwoOprs ins
+  !<ir insAddr insLen
   let dst1, dst2 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src1, src2 = transOprToExpr128 ins insAddr insLen ctxt src
-  builder <! (dst1 := dst1 .- src1)
-  builder <! (dst2 := dst2 .- src2)
-  endMark insAddr insLen builder
+  !!ir (dst1 := dst1 .- src1)
+  !!ir (dst2 := dst2 .- src2)
+  !>ir insAddr insLen
 
 let subss ins insAddr insLen ctxt =
   handleScalarFPOp ins insAddr insLen ctxt 32<rt> AST.fsub
@@ -277,8 +278,8 @@ let divsd ins insAddr insLen ctxt =
   handleScalarFPOp ins insAddr insLen ctxt 64<rt> AST.fdiv
 
 let rcpps ins insAddr insLen ctxt =
-  let builder = StmtBuilder(8)
-  let opr1, opr2 = getTwoOprs ins
+  let ir = IRBuilder(8)
+  let struct (opr1, opr2) = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt opr1
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt opr2
   let dst1b, dst1a = AST.xthi 32<rt> dst1, AST.xtlo 32<rt> dst1
@@ -287,72 +288,72 @@ let rcpps ins insAddr insLen ctxt =
   let src2b, src2a = AST.xthi 32<rt> src2, AST.xtlo 32<rt> src2
   let tmp = AST.tmpvar 32<rt>
   let flt1 = BitVector.ofInt32 0x3f800000 32<rt> |> Num
-  startMark insAddr insLen builder
-  builder <! (dst1a := AST.fdiv flt1 src1a)
-  builder <! (dst1b := AST.fdiv flt1 src1b)
-  builder <! (dst2a := AST.fdiv flt1 src2a)
-  builder <! (dst2b := AST.fdiv flt1 src2b)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (dst1a := AST.fdiv flt1 src1a)
+  !!ir (dst1b := AST.fdiv flt1 src1b)
+  !!ir (dst2a := AST.fdiv flt1 src2a)
+  !!ir (dst2b := AST.fdiv flt1 src2b)
+  !>ir insAddr insLen
 
 let rcpss ins insAddr insLen ctxt =
-  let builder = StmtBuilder(4)
-  let opr1, opr2 = getTwoOprs ins
+  let ir = IRBuilder(4)
+  let struct (opr1, opr2) = getTwoOprs ins
   let dst = transOprToExpr32 ins insAddr insLen ctxt opr1
   let src = transOprToExpr32 ins insAddr insLen ctxt opr2
   let tmp = AST.tmpvar 32<rt>
   let flt1 = BitVector.ofInt32 0x3f800000 32<rt> |> Num
-  startMark insAddr insLen builder
-  builder <! (dst := AST.fdiv flt1 src)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (dst := AST.fdiv flt1 src)
+  !>ir insAddr insLen
 
 let sqrtps ins insAddr insLen ctxt =
-  let builder = StmtBuilder (16)
-  let opr1, opr2 = getTwoOprs ins
+  let ir = IRBuilder (16)
+  let struct (opr1, opr2) = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt opr1
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt opr2
-  let tmp1, tmp2, tmp3, tmp4 = tmpVars4 32<rt>
-  startMark insAddr insLen builder
-  builder <! (tmp1 := AST.xtlo 32<rt> src1)
-  builder <! (tmp2 := AST.xthi 32<rt> src1)
-  builder <! (tmp3 := AST.xtlo 32<rt> src2)
-  builder <! (tmp4 := AST.xthi 32<rt> src2)
-  builder <! (AST.xtlo 32<rt> dst1 := AST.unop UnOpType.FSQRT tmp1)
-  builder <! (AST.xthi 32<rt> dst1 := AST.unop UnOpType.FSQRT tmp2)
-  builder <! (AST.xtlo 32<rt> dst2 := AST.unop UnOpType.FSQRT tmp3)
-  builder <! (AST.xthi 32<rt> dst2 := AST.unop UnOpType.FSQRT tmp4)
-  endMark insAddr insLen builder
+  let struct (tmp1, tmp2, tmp3, tmp4) = tmpVars4 32<rt>
+  !<ir insAddr insLen
+  !!ir (tmp1 := AST.xtlo 32<rt> src1)
+  !!ir (tmp2 := AST.xthi 32<rt> src1)
+  !!ir (tmp3 := AST.xtlo 32<rt> src2)
+  !!ir (tmp4 := AST.xthi 32<rt> src2)
+  !!ir (AST.xtlo 32<rt> dst1 := AST.unop UnOpType.FSQRT tmp1)
+  !!ir (AST.xthi 32<rt> dst1 := AST.unop UnOpType.FSQRT tmp2)
+  !!ir (AST.xtlo 32<rt> dst2 := AST.unop UnOpType.FSQRT tmp3)
+  !!ir (AST.xthi 32<rt> dst2 := AST.unop UnOpType.FSQRT tmp4)
+  !>ir insAddr insLen
 
 let sqrtpd ins insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  let opr1, opr2 = getTwoOprs ins
+  let ir = IRBuilder (4)
+  let struct (opr1, opr2) = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt opr1
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt opr2
-  startMark insAddr insLen builder
-  builder <! (dst1 := AST.unop UnOpType.FSQRT src1)
-  builder <! (dst2 := AST.unop UnOpType.FSQRT src2)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (dst1 := AST.unop UnOpType.FSQRT src1)
+  !!ir (dst2 := AST.unop UnOpType.FSQRT src2)
+  !>ir insAddr insLen
 
 let sqrtss ins insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  let opr1, opr2 = getTwoOprs ins
+  let ir = IRBuilder (4)
+  let struct (opr1, opr2) = getTwoOprs ins
   let dst = transOprToExpr32 ins insAddr insLen ctxt opr1
   let src = transOprToExpr32 ins insAddr insLen ctxt opr2
-  startMark insAddr insLen builder
-  builder <! (dst := AST.unop UnOpType.FSQRT src)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (dst := AST.unop UnOpType.FSQRT src)
+  !>ir insAddr insLen
 
 let sqrtsd ins insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  let opr1, opr2 = getTwoOprs ins
+  let ir = IRBuilder (4)
+  let struct (opr1, opr2) = getTwoOprs ins
   let dst = transOprToExpr64 ins insAddr insLen ctxt opr1
   let src = transOprToExpr64 ins insAddr insLen ctxt opr2
-  startMark insAddr insLen builder
-  builder <! (dst := AST.unop UnOpType.FSQRT src)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (dst := AST.unop UnOpType.FSQRT src)
+  !>ir insAddr insLen
 
 let rsqrtps ins insAddr insLen ctxt =
-  let builder = StmtBuilder(16)
-  let opr1, opr2 = getTwoOprs ins
+  let ir = IRBuilder(16)
+  let struct (opr1, opr2) = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt opr1
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt opr2
   let dst1b, dst1a = AST.xthi 32<rt> dst1, AST.xtlo 32<rt> dst1
@@ -361,84 +362,84 @@ let rsqrtps ins insAddr insLen ctxt =
   let src2b, src2a = AST.xthi 32<rt> src2, AST.xtlo 32<rt> src2
   let tmp = AST.tmpvar 32<rt>
   let flt1 = BitVector.ofInt32 0x3f800000 32<rt> |> Num
-  startMark insAddr insLen builder
-  builder <! (tmp := AST.unop UnOpType.FSQRT src1a)
-  builder <! (dst1a := AST.fdiv flt1 tmp)
-  builder <! (tmp := AST.unop UnOpType.FSQRT src1b)
-  builder <! (dst1b := AST.fdiv flt1 tmp)
-  builder <! (tmp := AST.unop UnOpType.FSQRT src2a)
-  builder <! (dst2a := AST.fdiv flt1 tmp)
-  builder <! (tmp := AST.unop UnOpType.FSQRT src2b)
-  builder <! (dst2b := AST.fdiv flt1 tmp)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (tmp := AST.unop UnOpType.FSQRT src1a)
+  !!ir (dst1a := AST.fdiv flt1 tmp)
+  !!ir (tmp := AST.unop UnOpType.FSQRT src1b)
+  !!ir (dst1b := AST.fdiv flt1 tmp)
+  !!ir (tmp := AST.unop UnOpType.FSQRT src2a)
+  !!ir (dst2a := AST.fdiv flt1 tmp)
+  !!ir (tmp := AST.unop UnOpType.FSQRT src2b)
+  !!ir (dst2b := AST.fdiv flt1 tmp)
+  !>ir insAddr insLen
 
 let rsqrtss ins insAddr insLen ctxt =
-  let builder = StmtBuilder(4)
-  let opr1, opr2 = getTwoOprs ins
+  let ir = IRBuilder(4)
+  let struct (opr1, opr2) = getTwoOprs ins
   let dst = transOprToExpr32 ins insAddr insLen ctxt opr1
   let src = transOprToExpr32 ins insAddr insLen ctxt opr2
   let tmp = AST.tmpvar 32<rt>
   let flt1 = BitVector.ofInt32 0x3f800000 32<rt> |> Num
-  startMark insAddr insLen builder
-  builder <! (tmp := AST.unop UnOpType.FSQRT src)
-  builder <! (dst := AST.fdiv flt1 tmp)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (tmp := AST.unop UnOpType.FSQRT src)
+  !!ir (dst := AST.fdiv flt1 tmp)
+  !>ir insAddr insLen
 
 let private minMaxPS ins insAddr insLen ctxt compare =
-  let builder = StmtBuilder (16)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (16)
+  let struct (dst, src) = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
   let dst1A, dst1B = AST.xtlo 32<rt> dst1, AST.xthi 32<rt> dst1
   let dst2A, dst2B = AST.xtlo 32<rt> dst2, AST.xthi 32<rt> dst2
   let src1A, src1B = AST.xtlo 32<rt> src1, AST.xthi 32<rt> src1
   let src2A, src2B = AST.xtlo 32<rt> src2, AST.xthi 32<rt> src2
-  let val4, val3, val2, val1 = tmpVars4 32<rt>
-  startMark insAddr insLen builder
-  builder <! (val1 := AST.ite (compare dst1A src1A) dst1A src1A)
-  builder <! (val2 := AST.ite (compare dst1B src1B) dst1B src1B)
-  builder <! (val3 := AST.ite (compare dst2A src2A) dst2A src2A)
-  builder <! (val4 := AST.ite (compare dst2B src2B) dst2B src2B)
-  builder <! (dst1A := val1)
-  builder <! (dst1B := val2)
-  builder <! (dst2A := val3)
-  builder <! (dst2B := val4)
-  endMark insAddr insLen builder
+  let struct (val4, val3, val2, val1) = tmpVars4 32<rt>
+  !<ir insAddr insLen
+  !!ir (val1 := AST.ite (compare dst1A src1A) dst1A src1A)
+  !!ir (val2 := AST.ite (compare dst1B src1B) dst1B src1B)
+  !!ir (val3 := AST.ite (compare dst2A src2A) dst2A src2A)
+  !!ir (val4 := AST.ite (compare dst2B src2B) dst2B src2B)
+  !!ir (dst1A := val1)
+  !!ir (dst1B := val2)
+  !!ir (dst2A := val3)
+  !!ir (dst2B := val4)
+  !>ir insAddr insLen
 
 let private minMaxPD ins insAddr insLen ctxt compare =
-  let builder = StmtBuilder (8)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (8)
+  let struct (dst, src) = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
-  let val2, val1 = tmpVars2 64<rt>
-  startMark insAddr insLen builder
-  builder <! (val1 := AST.ite (compare dst1 src1) dst1 src1)
-  builder <! (val2 := AST.ite (compare dst2 src2) dst2 src2)
-  builder <! (dst1 := val1)
-  builder <! (dst2 := val2)
-  endMark insAddr insLen builder
+  let struct (val2, val1) = tmpVars2 64<rt>
+  !<ir insAddr insLen
+  !!ir (val1 := AST.ite (compare dst1 src1) dst1 src1)
+  !!ir (val2 := AST.ite (compare dst2 src2) dst2 src2)
+  !!ir (dst1 := val1)
+  !!ir (dst2 := val2)
+  !>ir insAddr insLen
 
 let private minMaxSS ins insAddr insLen ctxt compare =
-  let builder = StmtBuilder (4)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (4)
+  let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr32 ins insAddr insLen ctxt dst
   let src = transOprToExpr32 ins insAddr insLen ctxt src
   let tmp = AST.tmpvar 32<rt>
-  startMark insAddr insLen builder
-  builder <! (tmp := AST.ite (compare dst src) dst src)
-  builder <! (dst := tmp)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (tmp := AST.ite (compare dst src) dst src)
+  !!ir (dst := tmp)
+  !>ir insAddr insLen
 
 let private minMaxSD ins insAddr insLen ctxt compare =
-  let builder = StmtBuilder (4)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (4)
+  let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr64 ins insAddr insLen ctxt dst
   let src = transOprToExpr64 ins insAddr insLen ctxt src
   let tmp = AST.tmpvar 64<rt>
-  startMark insAddr insLen builder
-  builder <! (tmp := AST.ite (compare dst src) dst src)
-  builder <! (dst := tmp)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (tmp := AST.ite (compare dst src) dst src)
+  !!ir (dst := tmp)
+  !>ir insAddr insLen
 
 let maxps ins insAddr insLen ctxt =
   minMaxPS ins insAddr insLen ctxt AST.fgt
@@ -465,8 +466,8 @@ let minsd ins insAddr insLen ctxt =
   minMaxSD ins insAddr insLen ctxt AST.flt
 
 let cmpps ins insAddr insLen ctxt =
-  let builder = StmtBuilder (64)
-  let op1, op2, op3 = getThreeOprs ins
+  let ir = IRBuilder (64)
+  let struct (op1, op2, op3) = getThreeOprs ins
   let dst1, dst2 = transOprToExpr128 ins insAddr insLen ctxt op1
   let src1, src2 = transOprToExpr128 ins insAddr insLen ctxt op2
   let dst1A, dst1B = AST.xtlo 32<rt> dst1, AST.xthi 32<rt> dst1
@@ -476,31 +477,31 @@ let cmpps ins insAddr insLen ctxt =
     (AST.extract expr 8<rt> 23  == AST.num (BitVector.unsignedMax 8<rt>))
      .& (AST.xtlo 23<rt> expr != AST.num0 23<rt>)
   let cmpCond c expr1 expr2 =
-    builder <! (c := AST.b0)
-    builder <! (c := AST.ite (imm == AST.num0 3<rt>) (expr1 == expr2) c)
-    builder <! (c := AST.ite (imm == AST.num1 3<rt>) (AST.flt expr1  expr2) c)
-    builder <! (c := AST.ite (imm == numI32 2 3<rt>) (AST.fle expr1 expr2) c)
-    builder <! (c := AST.ite (imm == numI32 3 3<rt>) (isNan expr1 .| isNan expr2) c)
-    builder <! (c := AST.ite (imm == numI32 4 3<rt>) (expr1 != expr2) c)
-    builder <! (c := AST.ite (imm == numI32 5 3<rt>) (AST.flt expr1 expr2 |> AST.not) c)
-    builder <! (c := AST.ite (imm == numI32 6 3<rt>) (AST.fle expr1 expr2 |> AST.not) c)
-    builder <!
+    !!ir (c := AST.b0)
+    !!ir (c := AST.ite (imm == AST.num0 3<rt>) (expr1 == expr2) c)
+    !!ir (c := AST.ite (imm == AST.num1 3<rt>) (AST.flt expr1  expr2) c)
+    !!ir (c := AST.ite (imm == numI32 2 3<rt>) (AST.fle expr1 expr2) c)
+    !!ir (c := AST.ite (imm == numI32 3 3<rt>) (isNan expr1 .| isNan expr2) c)
+    !!ir (c := AST.ite (imm == numI32 4 3<rt>) (expr1 != expr2) c)
+    !!ir (c := AST.ite (imm == numI32 5 3<rt>) (AST.flt expr1 expr2 |> AST.not) c)
+    !!ir (c := AST.ite (imm == numI32 6 3<rt>) (AST.fle expr1 expr2 |> AST.not) c)
+    !!ir
       (c := AST.ite (imm == numI32 7 3<rt>) (isNan expr1 .| isNan expr2 |> AST.not) c)
-  let cond1, cond2, cond3, cond4 = tmpVars4 1<rt>
-  startMark insAddr insLen builder
+  let struct (cond1, cond2, cond3, cond4) = tmpVars4 1<rt>
+  !<ir insAddr insLen
   cmpCond cond1 dst1A (AST.xtlo 32<rt> src1)
   cmpCond cond2 dst1B (AST.xthi 32<rt> src1)
   cmpCond cond3 dst2A (AST.xtlo 32<rt> src2)
   cmpCond cond4 dst2B (AST.xthi 32<rt> src2)
-  builder <! (dst1A := AST.ite cond1 (maxNum 32<rt>) (AST.num0 32<rt>))
-  builder <! (dst1B := AST.ite cond2 (maxNum 32<rt>) (AST.num0 32<rt>))
-  builder <! (dst2A := AST.ite cond3 (maxNum 32<rt>) (AST.num0 32<rt>))
-  builder <! (dst2B := AST.ite cond4 (maxNum 32<rt>) (AST.num0 32<rt>))
-  endMark insAddr insLen builder
+  !!ir (dst1A := AST.ite cond1 (maxNum 32<rt>) (AST.num0 32<rt>))
+  !!ir (dst1B := AST.ite cond2 (maxNum 32<rt>) (AST.num0 32<rt>))
+  !!ir (dst2A := AST.ite cond3 (maxNum 32<rt>) (AST.num0 32<rt>))
+  !!ir (dst2B := AST.ite cond4 (maxNum 32<rt>) (AST.num0 32<rt>))
+  !>ir insAddr insLen
 
 let cmppd ins insAddr insLen ctxt =
-  let builder = StmtBuilder (32)
-  let op1, op2, op3 = getThreeOprs ins
+  let ir = IRBuilder (32)
+  let struct (op1, op2, op3) = getThreeOprs ins
   let dst1, dst2 = transOprToExpr128 ins insAddr insLen ctxt op1
   let src1, src2 = transOprToExpr128 ins insAddr insLen ctxt op2
   let imm = transOprToExpr ins insAddr insLen ctxt op3
@@ -508,27 +509,27 @@ let cmppd ins insAddr insLen ctxt =
     (AST.extract expr 11<rt> 52  == AST.num (BitVector.unsignedMax 11<rt>))
      .& (AST.xtlo 52<rt> expr != AST.num0 52<rt>)
   let cmpCond c expr1 expr2 =
-    builder <! (c := AST.b0)
-    builder <! (c := AST.ite (imm == AST.num0 3<rt>) (expr1 == expr2) c)
-    builder <! (c := AST.ite (imm == AST.num1 3<rt>) (AST.flt expr1  expr2) c)
-    builder <! (c := AST.ite (imm == numI32 2 3<rt>) (AST.fle expr1 expr2) c)
-    builder <! (c := AST.ite (imm == numI32 3 3<rt>) (isNan expr1 .| isNan expr2) c)
-    builder <! (c := AST.ite (imm == numI32 4 3<rt>) (expr1 != expr2) c)
-    builder <! (c := AST.ite (imm == numI32 5 3<rt>) (AST.flt expr1 expr2 |> AST.not) c)
-    builder <! (c := AST.ite (imm == numI32 6 3<rt>) (AST.fle expr1 expr2 |> AST.not) c)
-    builder <!
+    !!ir (c := AST.b0)
+    !!ir (c := AST.ite (imm == AST.num0 3<rt>) (expr1 == expr2) c)
+    !!ir (c := AST.ite (imm == AST.num1 3<rt>) (AST.flt expr1  expr2) c)
+    !!ir (c := AST.ite (imm == numI32 2 3<rt>) (AST.fle expr1 expr2) c)
+    !!ir (c := AST.ite (imm == numI32 3 3<rt>) (isNan expr1 .| isNan expr2) c)
+    !!ir (c := AST.ite (imm == numI32 4 3<rt>) (expr1 != expr2) c)
+    !!ir (c := AST.ite (imm == numI32 5 3<rt>) (AST.flt expr1 expr2 |> AST.not) c)
+    !!ir (c := AST.ite (imm == numI32 6 3<rt>) (AST.fle expr1 expr2 |> AST.not) c)
+    !!ir
       (c := AST.ite (imm == numI32 7 3<rt>) (isNan expr1 .| isNan expr2 |> AST.not) c)
-  let cond1, cond2 = tmpVars2 1<rt>
-  startMark insAddr insLen builder
+  let struct (cond1, cond2) = tmpVars2 1<rt>
+  !<ir insAddr insLen
   cmpCond cond1 dst1 src1
   cmpCond cond2 dst2 src2
-  builder <! (dst1 := AST.ite cond1 (maxNum 64<rt>) (AST.num0 64<rt>))
-  builder <! (dst2 := AST.ite cond2 (maxNum 64<rt>) (AST.num0 64<rt>))
-  endMark insAddr insLen builder
+  !!ir (dst1 := AST.ite cond1 (maxNum 64<rt>) (AST.num0 64<rt>))
+  !!ir (dst2 := AST.ite cond2 (maxNum 64<rt>) (AST.num0 64<rt>))
+  !>ir insAddr insLen
 
 let cmpss ins insAddr insLen ctxt =
-  let builder = StmtBuilder (16)
-  let dst, src, imm = getThreeOprs ins
+  let ir = IRBuilder (16)
+  let struct (dst, src, imm) = getThreeOprs ins
   let dst = transOprToExpr32 ins insAddr insLen ctxt dst
   let src = transOprToExpr32 ins insAddr insLen ctxt src
   let imm = transOprToExpr ins insAddr insLen ctxt imm |> AST.xtlo 8<rt>
@@ -538,24 +539,24 @@ let cmpss ins insAddr insLen ctxt =
     (AST.extract expr 8<rt> 23  == AST.num (BitVector.unsignedMax 8<rt>))
      .& (AST.xtlo 23<rt> expr != AST.num0 23<rt>)
   let cond = AST.tmpvar 1<rt>
-  startMark insAddr insLen builder
-  builder <! (cond := (dst == src))
-  builder <! (cond := AST.ite (imm == n 1) (AST.flt dst src) cond)
-  builder <! (cond := AST.ite (imm == n 2) (AST.fle dst src) cond)
-  builder <! (cond := AST.ite (imm == n 3) ((isNan dst) .| (isNan src)) cond)
-  builder <! (cond := AST.ite (imm == n 4) (dst != src) cond)
-  builder <! (cond := AST.ite (imm == n 5) (AST.flt dst src |> AST.not) cond)
-  builder <! (cond := AST.ite (imm == n 6) (AST.fle dst src |> AST.not) cond)
-  builder <! (cond := AST.ite (imm == n 7)
+  !<ir insAddr insLen
+  !!ir (cond := (dst == src))
+  !!ir (cond := AST.ite (imm == n 1) (AST.flt dst src) cond)
+  !!ir (cond := AST.ite (imm == n 2) (AST.fle dst src) cond)
+  !!ir (cond := AST.ite (imm == n 3) ((isNan dst) .| (isNan src)) cond)
+  !!ir (cond := AST.ite (imm == n 4) (dst != src) cond)
+  !!ir (cond := AST.ite (imm == n 5) (AST.flt dst src |> AST.not) cond)
+  !!ir (cond := AST.ite (imm == n 6) (AST.fle dst src |> AST.not) cond)
+  !!ir (cond := AST.ite (imm == n 7)
                           ((isNan dst) .| (isNan src) |> AST.not) cond)
-  builder <! (dst := AST.ite cond max32 (AST.num0 32<rt>))
-  endMark insAddr insLen builder
+  !!ir (dst := AST.ite cond max32 (AST.num0 32<rt>))
+  !>ir insAddr insLen
 
 let cmpsd ins insAddr insLen ctxt =
   match ins.Operands with
   | NoOperand -> GeneralLifter.cmps ins insAddr insLen ctxt
   | ThreeOperands (dst, src, imm) ->
-    let builder = StmtBuilder (16)
+    let ir = IRBuilder (16)
     let dst = transOprToExpr64 ins insAddr insLen ctxt dst
     let src = transOprToExpr64 ins insAddr insLen ctxt src
     let imm = transOprToExpr ins insAddr insLen ctxt imm |> AST.xtlo 8<rt>
@@ -565,131 +566,131 @@ let cmpsd ins insAddr insLen ctxt =
       (AST.extract expr 11<rt> 52  == AST.num (BitVector.unsignedMax 11<rt>))
        .& (AST.xtlo 52<rt> expr != AST.num0 52<rt>)
     let cond = AST.tmpvar 1<rt>
-    startMark insAddr insLen builder
-    builder <! (cond := (dst == src))
-    builder <! (cond := AST.ite (imm == n 1) (AST.flt dst src) cond)
-    builder <! (cond := AST.ite (imm == n 2) (AST.fle dst src) cond)
-    builder <! (cond := AST.ite (imm == n 3) ((isNan dst) .| (isNan src)) cond)
-    builder <! (cond := AST.ite (imm == n 4) (dst != src) cond)
-    builder <! (cond := AST.ite (imm == n 5) (AST.flt dst src |> AST.not) cond)
-    builder <! (cond := AST.ite (imm == n 6) (AST.fle dst src |> AST.not) cond)
-    builder <! (cond := AST.ite (imm == n 7)
+    !<ir insAddr insLen
+    !!ir (cond := (dst == src))
+    !!ir (cond := AST.ite (imm == n 1) (AST.flt dst src) cond)
+    !!ir (cond := AST.ite (imm == n 2) (AST.fle dst src) cond)
+    !!ir (cond := AST.ite (imm == n 3) ((isNan dst) .| (isNan src)) cond)
+    !!ir (cond := AST.ite (imm == n 4) (dst != src) cond)
+    !!ir (cond := AST.ite (imm == n 5) (AST.flt dst src |> AST.not) cond)
+    !!ir (cond := AST.ite (imm == n 6) (AST.fle dst src |> AST.not) cond)
+    !!ir (cond := AST.ite (imm == n 7)
                             ((isNan dst) .| (isNan src) |> AST.not) cond)
-    builder <! (dst := AST.ite cond max64 (AST.num0 64<rt>))
-    endMark insAddr insLen builder
+    !!ir (dst := AST.ite cond max64 (AST.num0 64<rt>))
+    !>ir insAddr insLen
   | _ -> raise InvalidOperandException
 
 let comiss ins insAddr insLen ctxt =
-  let builder = StmtBuilder (16)
-  let opr1, opr2 = getTwoOprs ins
+  let ir = IRBuilder (16)
+  let struct (opr1, opr2) = getTwoOprs ins
   let opr1 = transOprToExpr32 ins insAddr insLen ctxt opr1
   let opr2 = transOprToExpr32 ins insAddr insLen ctxt opr2
   let lblNan = AST.symbol "IsNan"
   let lblExit = AST.symbol "Exit"
-  let zf = getRegVar ctxt R.ZF
-  let pf = getRegVar ctxt R.PF
-  let cf = getRegVar ctxt R.CF
-  startMark insAddr insLen builder
-  builder <! (zf := AST.ite (opr1 == opr2) AST.b1 AST.b0)
-  builder <! (pf := AST.b0)
-  builder <! (cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0)
+  let zf = !.ctxt R.ZF
+  let pf = !.ctxt R.PF
+  let cf = !.ctxt R.CF
+  !<ir insAddr insLen
+  !!ir (zf := AST.ite (opr1 == opr2) AST.b1 AST.b0)
+  !!ir (pf := AST.b0)
+  !!ir (cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0)
   let isNan expr =
     (AST.extract expr 8<rt> 23  == AST.num (BitVector.unsignedMax 8<rt>))
      .& (AST.xtlo 23<rt> expr != AST.num0 23<rt>)
-  builder <! (CJmp (isNan opr1 .| isNan opr2, Name lblNan, Name lblExit))
-  builder <! (LMark lblNan)
-  builder <! (zf := AST.b1)
-  builder <! (pf := AST.b1)
-  builder <! (cf := AST.b1)
-  builder <! (LMark lblExit)
-  builder <! (getRegVar ctxt R.OF := AST.b0)
-  builder <! (getRegVar ctxt R.AF := AST.b0)
-  builder <! (getRegVar ctxt R.SF := AST.b0)
-  endMark insAddr insLen builder
+  !!ir (CJmp (isNan opr1 .| isNan opr2, Name lblNan, Name lblExit))
+  !!ir (LMark lblNan)
+  !!ir (zf := AST.b1)
+  !!ir (pf := AST.b1)
+  !!ir (cf := AST.b1)
+  !!ir (LMark lblExit)
+  !!ir (!.ctxt R.OF := AST.b0)
+  !!ir (!.ctxt R.AF := AST.b0)
+  !!ir (!.ctxt R.SF := AST.b0)
+  !>ir insAddr insLen
 
 let comisd ins insAddr insLen ctxt =
-  let builder = StmtBuilder (16)
-  let opr1, opr2 = getTwoOprs ins
+  let ir = IRBuilder (16)
+  let struct (opr1, opr2) = getTwoOprs ins
   let opr1 = transOprToExpr64 ins insAddr insLen ctxt opr1
   let opr2 = transOprToExpr64 ins insAddr insLen ctxt opr2
   let lblNan = AST.symbol "IsNan"
   let lblExit = AST.symbol "Exit"
-  let zf = getRegVar ctxt R.ZF
-  let pf = getRegVar ctxt R.PF
-  let cf = getRegVar ctxt R.CF
-  startMark insAddr insLen builder
-  builder <! (zf := AST.ite (opr1 == opr2) AST.b1 AST.b0)
-  builder <! (pf := AST.b0)
-  builder <! (cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0)
+  let zf = !.ctxt R.ZF
+  let pf = !.ctxt R.PF
+  let cf = !.ctxt R.CF
+  !<ir insAddr insLen
+  !!ir (zf := AST.ite (opr1 == opr2) AST.b1 AST.b0)
+  !!ir (pf := AST.b0)
+  !!ir (cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0)
   let isNan expr =
     (AST.extract expr 11<rt> 52  == AST.num (BitVector.unsignedMax 11<rt>))
      .& (AST.xtlo 52<rt> expr != AST.num0 52<rt>)
-  builder <! (CJmp (isNan opr1 .| isNan opr2, Name lblNan, Name lblExit))
-  builder <! (LMark lblNan)
-  builder <! (zf := AST.b1)
-  builder <! (pf := AST.b1)
-  builder <! (cf := AST.b1)
-  builder <! (LMark lblExit)
-  builder <! (getRegVar ctxt R.OF := AST.b0)
-  builder <! (getRegVar ctxt R.AF := AST.b0)
-  builder <! (getRegVar ctxt R.SF := AST.b0)
-  endMark insAddr insLen builder
+  !!ir (CJmp (isNan opr1 .| isNan opr2, Name lblNan, Name lblExit))
+  !!ir (LMark lblNan)
+  !!ir (zf := AST.b1)
+  !!ir (pf := AST.b1)
+  !!ir (cf := AST.b1)
+  !!ir (LMark lblExit)
+  !!ir (!.ctxt R.OF := AST.b0)
+  !!ir (!.ctxt R.AF := AST.b0)
+  !!ir (!.ctxt R.SF := AST.b0)
+  !>ir insAddr insLen
 
 let ucomiss ins insAddr insLen ctxt =
-  let builder = StmtBuilder (16)
-  let opr1, opr2 = getTwoOprs ins
+  let ir = IRBuilder (16)
+  let struct (opr1, opr2) = getTwoOprs ins
   let opr1 = transOprToExpr32 ins insAddr insLen ctxt opr1
   let opr2 = transOprToExpr32 ins insAddr insLen ctxt opr2
   let lblNan = AST.symbol "IsNan"
   let lblExit = AST.symbol "Exit"
-  let zf = getRegVar ctxt R.ZF
-  let pf = getRegVar ctxt R.PF
-  let cf = getRegVar ctxt R.CF
-  startMark insAddr insLen builder
-  builder <! (zf := AST.ite (opr1 == opr2) AST.b1 AST.b0)
-  builder <! (pf := AST.b0)
-  builder <! (cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0)
+  let zf = !.ctxt R.ZF
+  let pf = !.ctxt R.PF
+  let cf = !.ctxt R.CF
+  !<ir insAddr insLen
+  !!ir (zf := AST.ite (opr1 == opr2) AST.b1 AST.b0)
+  !!ir (pf := AST.b0)
+  !!ir (cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0)
   let isNan expr =
     (AST.extract expr 8<rt> 23  == AST.num (BitVector.unsignedMax 8<rt>))
      .& (AST.xtlo 23<rt> expr != AST.num0 23<rt>)
-  builder <! (CJmp (isNan opr1 .| isNan opr2, Name lblNan, Name lblExit))
-  builder <! (LMark lblNan)
-  builder <! (zf := AST.b1)
-  builder <! (pf := AST.b1)
-  builder <! (cf := AST.b1)
-  builder <! (LMark lblExit)
-  builder <! (getRegVar ctxt R.OF := AST.b0)
-  builder <! (getRegVar ctxt R.AF := AST.b0)
-  builder <! (getRegVar ctxt R.SF := AST.b0)
-  endMark insAddr insLen builder
+  !!ir (CJmp (isNan opr1 .| isNan opr2, Name lblNan, Name lblExit))
+  !!ir (LMark lblNan)
+  !!ir (zf := AST.b1)
+  !!ir (pf := AST.b1)
+  !!ir (cf := AST.b1)
+  !!ir (LMark lblExit)
+  !!ir (!.ctxt R.OF := AST.b0)
+  !!ir (!.ctxt R.AF := AST.b0)
+  !!ir (!.ctxt R.SF := AST.b0)
+  !>ir insAddr insLen
 
 let ucomisd ins insAddr insLen ctxt =
-  let builder = StmtBuilder (16)
-  let opr1, opr2 = getTwoOprs ins
+  let ir = IRBuilder (16)
+  let struct (opr1, opr2) = getTwoOprs ins
   let opr1 = transOprToExpr64 ins insAddr insLen ctxt opr1
   let opr2 = transOprToExpr64 ins insAddr insLen ctxt opr2
   let lblNan = AST.symbol "IsNan"
   let lblExit = AST.symbol "Exit"
-  let zf = getRegVar ctxt R.ZF
-  let pf = getRegVar ctxt R.PF
-  let cf = getRegVar ctxt R.CF
-  startMark insAddr insLen builder
-  builder <! (zf := AST.ite (opr1 == opr2) AST.b1 AST.b0)
-  builder <! (pf := AST.b0)
-  builder <! (cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0)
+  let zf = !.ctxt R.ZF
+  let pf = !.ctxt R.PF
+  let cf = !.ctxt R.CF
+  !<ir insAddr insLen
+  !!ir (zf := AST.ite (opr1 == opr2) AST.b1 AST.b0)
+  !!ir (pf := AST.b0)
+  !!ir (cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0)
   let isNan expr =
     (AST.extract expr 11<rt> 52  == AST.num (BitVector.unsignedMax 11<rt>))
      .& (AST.xtlo 52<rt> expr != AST.num0 52<rt>)
-  builder <! (CJmp (isNan opr1 .| isNan opr2, Name lblNan, Name lblExit))
-  builder <! (LMark lblNan)
-  builder <! (zf := AST.b1)
-  builder <! (pf := AST.b1)
-  builder <! (cf := AST.b1)
-  builder <! (LMark lblExit)
-  builder <! (getRegVar ctxt R.OF := AST.b0)
-  builder <! (getRegVar ctxt R.AF := AST.b0)
-  builder <! (getRegVar ctxt R.SF := AST.b0)
-  endMark insAddr insLen builder
+  !!ir (CJmp (isNan opr1 .| isNan opr2, Name lblNan, Name lblExit))
+  !!ir (LMark lblNan)
+  !!ir (zf := AST.b1)
+  !!ir (pf := AST.b1)
+  !!ir (cf := AST.b1)
+  !!ir (LMark lblExit)
+  !!ir (!.ctxt R.OF := AST.b0)
+  !!ir (!.ctxt R.AF := AST.b0)
+  !!ir (!.ctxt R.SF := AST.b0)
+  !>ir insAddr insLen
 
 let andps ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 32<rt> opPand 16
@@ -718,8 +719,8 @@ let xorpd ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 64<rt> opPxor 16
 
 let shufps ins insAddr insLen ctxt =
-  let builder = StmtBuilder (32)
-  let dst, src, imm = getThreeOprs ins
+  let ir = IRBuilder (32)
+  let struct (dst, src, imm) = getThreeOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
   let imm = transOprToExpr ins insAddr insLen ctxt imm
@@ -728,293 +729,293 @@ let shufps ins insAddr insLen ctxt =
   let src1A, src1B = AST.xtlo 32<rt> src1, AST.xthi 32<rt> src1
   let src2A, src2B = AST.xtlo 32<rt> src2, AST.xthi 32<rt> src2
   let doShuf cond dst e0 e1 e2 e3 =
-    builder <! (dst := AST.num0 32<rt>)
-    builder <! (dst := AST.ite (cond == AST.num0 2<rt>) e0 dst)
-    builder <! (dst := AST.ite (cond == AST.num1 2<rt>) e1 dst)
-    builder <! (dst := AST.ite (cond == numI32 2 2<rt>) e2 dst)
-    builder <! (dst := AST.ite (cond == numI32 3 2<rt>) e3 dst)
+    !!ir (dst := AST.num0 32<rt>)
+    !!ir (dst := AST.ite (cond == AST.num0 2<rt>) e0 dst)
+    !!ir (dst := AST.ite (cond == AST.num1 2<rt>) e1 dst)
+    !!ir (dst := AST.ite (cond == numI32 2 2<rt>) e2 dst)
+    !!ir (dst := AST.ite (cond == numI32 3 2<rt>) e3 dst)
   let cond1 = AST.xtlo 2<rt> imm
   let cond2 = AST.extract imm 2<rt> 2
   let cond3 = AST.extract imm 2<rt> 4
   let cond4 = AST.extract imm 2<rt> 6
-  let tmp1, tmp2, tmp3, tmp4 = tmpVars4 32<rt>
-  startMark insAddr insLen builder
+  let struct (tmp1, tmp2, tmp3, tmp4) = tmpVars4 32<rt>
+  !<ir insAddr insLen
   doShuf cond1 tmp1 dst1A dst1B dst2A dst2B
   doShuf cond2 tmp2 dst1A dst1B dst2A dst2B
   doShuf cond3 tmp3 src1A src1B src2A src2B
   doShuf cond4 tmp4 src1A src1B src2A src2B
-  builder <! (dst1A := tmp1)
-  builder <! (dst1B := tmp2)
-  builder <! (dst2A := tmp3)
-  builder <! (dst2B := tmp4)
-  endMark insAddr insLen builder
+  !!ir (dst1A := tmp1)
+  !!ir (dst1B := tmp2)
+  !!ir (dst2A := tmp3)
+  !!ir (dst2B := tmp4)
+  !>ir insAddr insLen
 
 let shufpd ins insAddr insLen ctxt =
-  let builder = StmtBuilder (8)
-  let dst, src, imm = getThreeOprs ins
+  let ir = IRBuilder (8)
+  let struct (dst, src, imm) = getThreeOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
   let imm = transOprToExpr ins insAddr insLen ctxt imm
   let cond1 = AST.xtlo 1<rt> imm
   let cond2 = AST.extract imm 1<rt> 1
-  startMark insAddr insLen builder
-  builder <! (dst1 := AST.ite cond1 dst2 dst1)
-  builder <! (dst2 := AST.ite cond2 src2 src1)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (dst1 := AST.ite cond1 dst2 dst1)
+  !!ir (dst2 := AST.ite cond2 src2 src1)
+  !>ir insAddr insLen
 
 let unpckhps ins insAddr insLen ctxt =
-  let builder = StmtBuilder (8)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (8)
+  let struct (dst, src) = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2, _src1 = transOprToExpr128 ins insAddr insLen ctxt src
   let dst1A, dst1B = AST.xtlo 32<rt> dst1, AST.xthi 32<rt> dst1
   let dst2A, dst2B = AST.xtlo 32<rt> dst2, AST.xthi 32<rt> dst2
   let src2A, src2B = AST.xtlo 32<rt> src2, AST.xthi 32<rt> src2
-  startMark insAddr insLen builder
-  builder <! (dst1A := dst2A)
-  builder <! (dst1B := src2A)
-  builder <! (dst2A := dst2B)
-  builder <! (dst2B := src2B)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (dst1A := dst2A)
+  !!ir (dst1B := src2A)
+  !!ir (dst2A := dst2B)
+  !!ir (dst2B := src2B)
+  !>ir insAddr insLen
 
 let unpckhpd ins insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (4)
+  let struct (dst, src) = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2, _src1 = transOprToExpr128 ins insAddr insLen ctxt src
-  startMark insAddr insLen builder
-  builder <! (dst1 := dst2)
-  builder <! (dst2 := src2)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (dst1 := dst2)
+  !!ir (dst2 := src2)
+  !>ir insAddr insLen
 
 let unpcklps ins insAddr insLen ctxt =
-  let builder = StmtBuilder (8)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (8)
+  let struct (dst, src) = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let _src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
   let _dst1A, dst1B = AST.xtlo 32<rt> dst1, AST.xthi 32<rt> dst1
   let dst2A, dst2B = AST.xtlo 32<rt> dst2, AST.xthi 32<rt> dst2
   let src1A, src1B = AST.xtlo 32<rt> src1, AST.xthi 32<rt> src1
-  startMark insAddr insLen builder
-  builder <! (dst2A := dst1B)
-  builder <! (dst1B := src1A)
-  builder <! (dst2B := src1B)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (dst2A := dst1B)
+  !!ir (dst1B := src1A)
+  !!ir (dst2B := src1B)
+  !>ir insAddr insLen
 
 let unpcklpd ins insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (4)
+  let struct (dst, src) = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let _src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
-  startMark insAddr insLen builder
-  builder <! (dst2 := src1)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (dst2 := src1)
+  !>ir insAddr insLen
 
 let cvtpi2ps ins insAddr insLen ctxt =
-  let builder = StmtBuilder (8)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (8)
+  let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr64 ins insAddr insLen ctxt dst
   let src = transOprToExpr64 ins insAddr insLen ctxt src
-  let tmp2, tmp1 = tmpVars2 32<rt>
-  startMark insAddr insLen builder
-  builder <! (tmp1 := AST.xtlo 32<rt> src)
-  builder <! (tmp2 := AST.xthi 32<rt> src)
-  builder <! (AST.xtlo 32<rt> dst := AST.cast CastKind.IntToFloat 32<rt> tmp1)
-  builder <! (AST.xthi 32<rt> dst := AST.cast CastKind.IntToFloat 32<rt> tmp2)
-  endMark insAddr insLen builder
+  let struct (tmp2, tmp1) = tmpVars2 32<rt>
+  !<ir insAddr insLen
+  !!ir (tmp1 := AST.xtlo 32<rt> src)
+  !!ir (tmp2 := AST.xthi 32<rt> src)
+  !!ir (AST.xtlo 32<rt> dst := AST.cast CastKind.IntToFloat 32<rt> tmp1)
+  !!ir (AST.xthi 32<rt> dst := AST.cast CastKind.IntToFloat 32<rt> tmp2)
+  !>ir insAddr insLen
 
 let cvtdq2pd ins insAddr insLen ctxt =
-  let builder = StmtBuilder (8)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (8)
+  let struct (dst, src) = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src = transOprToExpr64 ins insAddr insLen ctxt src
-  let tmp1, tmp2 = tmpVars2 32<rt>
-  startMark insAddr insLen builder
-  builder <! (tmp1 := AST.xtlo 32<rt> src)
-  builder <! (tmp2 := AST.xthi 32<rt> src)
-  builder <! (dst1 := AST.cast CastKind.IntToFloat 64<rt> tmp1)
-  builder <! (dst2 := AST.cast CastKind.IntToFloat 64<rt> tmp2)
-  endMark insAddr insLen builder
+  let struct (tmp1, tmp2) = tmpVars2 32<rt>
+  !<ir insAddr insLen
+  !!ir (tmp1 := AST.xtlo 32<rt> src)
+  !!ir (tmp2 := AST.xthi 32<rt> src)
+  !!ir (dst1 := AST.cast CastKind.IntToFloat 64<rt> tmp1)
+  !!ir (dst2 := AST.cast CastKind.IntToFloat 64<rt> tmp2)
+  !>ir insAddr insLen
 
 let cvtpi2pd ins insAddr insLen ctxt = cvtdq2pd ins insAddr insLen ctxt
 
 let cvtsi2ss ins insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (4)
+  let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr64 ins insAddr insLen ctxt dst
   let src = transOprToExpr ins insAddr insLen ctxt src
-  startMark insAddr insLen builder
-  builder <! (AST.xtlo 32<rt> dst := AST.cast CastKind.IntToFloat 32<rt> src)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (AST.xtlo 32<rt> dst := AST.cast CastKind.IntToFloat 32<rt> src)
+  !>ir insAddr insLen
 
 let cvtsi2sd ins insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (4)
+  let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr64 ins insAddr insLen ctxt dst
   let src = transOprToExpr ins insAddr insLen ctxt src
-  startMark insAddr insLen builder
-  builder <! (dst := AST.cast CastKind.IntToFloat 64<rt> src)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (dst := AST.cast CastKind.IntToFloat 64<rt> src)
+  !>ir insAddr insLen
 
 let cvtps2pi ins insAddr insLen ctxt rounded =
-  let builder = StmtBuilder (8)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (8)
+  let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr ins insAddr insLen ctxt dst
   let src = transOprToExpr64 ins insAddr insLen ctxt src
-  let tmp1, tmp2 = tmpVars2 32<rt>
+  let struct (tmp1, tmp2) = tmpVars2 32<rt>
   let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
-  startMark insAddr insLen builder
-  builder <! (tmp1 := AST.xtlo 32<rt> src)
-  builder <! (tmp2 := AST.xthi 32<rt> src)
-  builder <! (AST.xtlo 32<rt> dst := AST.cast castKind 32<rt> tmp1)
-  builder <! (AST.xthi 32<rt> dst := AST.cast castKind 32<rt> tmp2)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (tmp1 := AST.xtlo 32<rt> src)
+  !!ir (tmp2 := AST.xthi 32<rt> src)
+  !!ir (AST.xtlo 32<rt> dst := AST.cast castKind 32<rt> tmp1)
+  !!ir (AST.xthi 32<rt> dst := AST.cast castKind 32<rt> tmp2)
+  !>ir insAddr insLen
 
 let cvtps2pd ins insAddr insLen ctxt =
-  let builder = StmtBuilder (8)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (8)
+  let struct (dst, src) = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src = transOprToExpr64 ins insAddr insLen ctxt src
-  let tmp1, tmp2 = tmpVars2 32<rt>
-  startMark insAddr insLen builder
-  builder <! (tmp1 := AST.xtlo 32<rt> src)
-  builder <! (tmp2 := AST.xthi 32<rt> src)
-  builder <! (dst1 := AST.cast CastKind.FloatExt 64<rt> tmp1)
-  builder <! (dst2 := AST.cast CastKind.FloatExt 64<rt> tmp2)
-  endMark insAddr insLen builder
+  let struct (tmp1, tmp2) = tmpVars2 32<rt>
+  !<ir insAddr insLen
+  !!ir (tmp1 := AST.xtlo 32<rt> src)
+  !!ir (tmp2 := AST.xthi 32<rt> src)
+  !!ir (dst1 := AST.cast CastKind.FloatExt 64<rt> tmp1)
+  !!ir (dst2 := AST.cast CastKind.FloatExt 64<rt> tmp2)
+  !>ir insAddr insLen
 
 let cvtpd2ps ins insAddr insLen ctxt =
-  let builder = StmtBuilder (8)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (8)
+  let struct (dst, src) = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
-  startMark insAddr insLen builder
-  builder <! (AST.xtlo 32<rt> dst1 := AST.cast CastKind.FloatExt 32<rt> src1)
-  builder <! (AST.xthi 32<rt> dst1 := AST.cast CastKind.FloatExt 32<rt> src2)
-  builder <! (dst2 := AST.num0 64<rt>)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (AST.xtlo 32<rt> dst1 := AST.cast CastKind.FloatExt 32<rt> src1)
+  !!ir (AST.xthi 32<rt> dst1 := AST.cast CastKind.FloatExt 32<rt> src2)
+  !!ir (dst2 := AST.num0 64<rt>)
+  !>ir insAddr insLen
 
 let cvtpd2pi ins insAddr insLen ctxt rounded =
-  let builder = StmtBuilder (4)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (4)
+  let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr ins insAddr insLen ctxt dst
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
   let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
-  startMark insAddr insLen builder
-  builder <! (AST.xtlo 32<rt> dst := AST.cast castKind 32<rt> src1)
-  builder <! (AST.xthi 32<rt> dst := AST.cast castKind 32<rt> src2)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (AST.xtlo 32<rt> dst := AST.cast castKind 32<rt> src1)
+  !!ir (AST.xthi 32<rt> dst := AST.cast castKind 32<rt> src2)
+  !>ir insAddr insLen
 
 let cvtpd2dq ins insAddr insLen ctxt rounded =
-  let builder = StmtBuilder (8)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (8)
+  let struct (dst, src) = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
   let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
-  startMark insAddr insLen builder
-  builder <! (AST.xtlo 32<rt> dst1 := AST.cast castKind 32<rt> src1)
-  builder <! (AST.xthi 32<rt> dst1 := AST.cast castKind 32<rt> src2)
-  builder <! (dst2 := AST.num0 64<rt>)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (AST.xtlo 32<rt> dst1 := AST.cast castKind 32<rt> src1)
+  !!ir (AST.xthi 32<rt> dst1 := AST.cast castKind 32<rt> src2)
+  !!ir (dst2 := AST.num0 64<rt>)
+  !>ir insAddr insLen
 
 let cvtdq2ps ins insAddr insLen ctxt =
-  let builder = StmtBuilder (16)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (16)
+  let struct (dst, src) = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
-  let tmp1, tmp2, tmp3, tmp4 = tmpVars4 32<rt>
-  startMark insAddr insLen builder
-  builder <! (tmp1 := AST.xtlo 32<rt> src1)
-  builder <! (tmp2 := AST.xthi 32<rt> src1)
-  builder <! (tmp3 := AST.xtlo 32<rt> src2)
-  builder <! (tmp4 := AST.xthi 32<rt> src2)
-  builder <! (AST.xtlo 32<rt> dst1 := AST.cast CastKind.IntToFloat 32<rt> tmp1)
-  builder <! (AST.xthi 32<rt> dst1 := AST.cast CastKind.IntToFloat 32<rt> tmp2)
-  builder <! (AST.xtlo 32<rt> dst2 := AST.cast CastKind.IntToFloat 32<rt> tmp3)
-  builder <! (AST.xthi 32<rt> dst2 := AST.cast CastKind.IntToFloat 32<rt> tmp4)
-  endMark insAddr insLen builder
+  let struct (tmp1, tmp2, tmp3, tmp4) = tmpVars4 32<rt>
+  !<ir insAddr insLen
+  !!ir (tmp1 := AST.xtlo 32<rt> src1)
+  !!ir (tmp2 := AST.xthi 32<rt> src1)
+  !!ir (tmp3 := AST.xtlo 32<rt> src2)
+  !!ir (tmp4 := AST.xthi 32<rt> src2)
+  !!ir (AST.xtlo 32<rt> dst1 := AST.cast CastKind.IntToFloat 32<rt> tmp1)
+  !!ir (AST.xthi 32<rt> dst1 := AST.cast CastKind.IntToFloat 32<rt> tmp2)
+  !!ir (AST.xtlo 32<rt> dst2 := AST.cast CastKind.IntToFloat 32<rt> tmp3)
+  !!ir (AST.xthi 32<rt> dst2 := AST.cast CastKind.IntToFloat 32<rt> tmp4)
+  !>ir insAddr insLen
 
 let cvtps2dq ins insAddr insLen ctxt rounded =
-  let builder = StmtBuilder (16)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (16)
+  let struct (dst, src) = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
-  let tmp1, tmp2, tmp3, tmp4 = tmpVars4 32<rt>
+  let struct (tmp1, tmp2, tmp3, tmp4) = tmpVars4 32<rt>
   let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
-  startMark insAddr insLen builder
-  builder <! (tmp1 := AST.xtlo 32<rt> src1)
-  builder <! (tmp2 := AST.xthi 32<rt> src1)
-  builder <! (tmp3 := AST.xtlo 32<rt> src2)
-  builder <! (tmp4 := AST.xthi 32<rt> src2)
-  builder <! (AST.xtlo 32<rt> dst1 := AST.cast castKind 32<rt> tmp1)
-  builder <! (AST.xthi 32<rt> dst1 := AST.cast castKind 32<rt> tmp2)
-  builder <! (AST.xtlo 32<rt> dst2 := AST.cast castKind 32<rt> tmp3)
-  builder <! (AST.xthi 32<rt> dst2 := AST.cast castKind 32<rt> tmp4)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (tmp1 := AST.xtlo 32<rt> src1)
+  !!ir (tmp2 := AST.xthi 32<rt> src1)
+  !!ir (tmp3 := AST.xtlo 32<rt> src2)
+  !!ir (tmp4 := AST.xthi 32<rt> src2)
+  !!ir (AST.xtlo 32<rt> dst1 := AST.cast castKind 32<rt> tmp1)
+  !!ir (AST.xthi 32<rt> dst1 := AST.cast castKind 32<rt> tmp2)
+  !!ir (AST.xtlo 32<rt> dst2 := AST.cast castKind 32<rt> tmp3)
+  !!ir (AST.xthi 32<rt> dst2 := AST.cast castKind 32<rt> tmp4)
+  !>ir insAddr insLen
 
 let cvtss2si ins insAddr insLen ctxt rounded =
-  let builder = StmtBuilder (4)
+  let ir = IRBuilder (4)
   let oprSize = getOperationSize ins
-  let dst, src = getTwoOprs ins
+  let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr ins insAddr insLen ctxt dst
   let src = transOprToExpr32 ins insAddr insLen ctxt src
   let tmp = AST.tmpvar 32<rt>
   let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
-  startMark insAddr insLen builder
+  !<ir insAddr insLen
   if is64bit ctxt && oprSize = 64<rt> then
-    builder <! (dst := AST.cast castKind 64<rt> src)
+    !!ir (dst := AST.cast castKind 64<rt> src)
   else
-    builder <! (tmp := AST.cast castKind 32<rt> src)
-    builder <! (dstAssign 32<rt> dst tmp)
-  endMark insAddr insLen builder
+    !!ir (tmp := AST.cast castKind 32<rt> src)
+    !!ir (dstAssign 32<rt> dst tmp)
+  !>ir insAddr insLen
 
 let cvtss2sd ins insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (4)
+  let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr64 ins insAddr insLen ctxt dst
   let src = transOprToExpr32 ins insAddr insLen ctxt src
-  startMark insAddr insLen builder
-  builder <! (dst := AST.cast CastKind.FloatExt 64<rt> src)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (dst := AST.cast CastKind.FloatExt 64<rt> src)
+  !>ir insAddr insLen
 
 let cvtsd2ss ins insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (4)
+  let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr64 ins insAddr insLen ctxt dst
   let src = transOprToExpr64 ins insAddr insLen ctxt src
-  startMark insAddr insLen builder
-  builder <! (AST.xtlo 32<rt> dst := AST.cast CastKind.FloatExt 32<rt> src)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (AST.xtlo 32<rt> dst := AST.cast CastKind.FloatExt 32<rt> src)
+  !>ir insAddr insLen
 
 let cvtsd2si ins insAddr insLen ctxt rounded =
-  let builder = StmtBuilder (8)
+  let ir = IRBuilder (8)
   let oprSize = getOperationSize ins
-  let dst, src = getTwoOprs ins
+  let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr ins insAddr insLen ctxt dst
   let src = transOprToExpr64 ins insAddr insLen ctxt src
   let castKind = if rounded then CastKind.FtoIRound else CastKind.FtoITrunc
   let tmp = AST.tmpvar 32<rt>
-  startMark insAddr insLen builder
+  !<ir insAddr insLen
   if is64bit ctxt && oprSize = 64<rt> then
-    builder <! (dst := AST.cast castKind 64<rt> src)
+    !!ir (dst := AST.cast castKind 64<rt> src)
   else
-    builder <! (tmp := AST.cast castKind 32<rt> src)
-    builder <! dstAssign 32<rt> dst tmp
-  endMark insAddr insLen builder
+    !!ir (tmp := AST.cast castKind 32<rt> src)
+    !!ir (dstAssign 32<rt> dst tmp)
+  !>ir insAddr insLen
 
 let ldmxcsr ins insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  let src = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
-  startMark insAddr insLen builder
-  builder <! (getRegVar ctxt R.MXCSR := src)
-  endMark insAddr insLen builder
+  let ir = IRBuilder (4)
+  let src = transOneOpr ins insAddr insLen ctxt
+  !<ir insAddr insLen
+  !!ir (!.ctxt R.MXCSR := src)
+  !>ir insAddr insLen
 
 let stmxcsr ins insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  let dst = getOneOpr ins |> transOneOpr ins insAddr insLen ctxt
-  startMark insAddr insLen builder
-  builder <! (dst := getRegVar ctxt R.MXCSR)
-  endMark insAddr insLen builder
+  let ir = IRBuilder (4)
+  let dst = transOneOpr ins insAddr insLen ctxt
+  !<ir insAddr insLen
+  !!ir (dst := !.ctxt R.MXCSR)
+  !>ir insAddr insLen
 
 let private opAveragePackedInt (packSz: int<rt>) =
   let dblSz = packSz * 2
@@ -1034,72 +1035,72 @@ let pavgw ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 16<rt> opPavgw 32
 
 let pextrw ins insAddr insLen ctxt =
-  let builder = StmtBuilder (8)
-  let dst, src, count = getThreeOprs ins
+  let ir = IRBuilder (8)
+  let struct (dst, src, count) = getThreeOprs ins
   let dst = transOprToExpr ins insAddr insLen ctxt dst
   let count =
     transOprToExpr ins insAddr insLen ctxt count
     |> AST.xtlo 8<rt> .& numU32 7u 8<rt>
   let oprSize = getOperationSize ins
-  startMark insAddr insLen builder
+  !<ir insAddr insLen
   match src with
   | OprReg reg ->
     match Register.getKind reg with
     | Register.Kind.MMX ->
       let src = transOprToExpr ins insAddr insLen ctxt src
       let srcOffset = AST.tmpvar 64<rt>
-      builder <! (srcOffset := AST.zext 64<rt> count)
+      !!ir (srcOffset := AST.zext 64<rt> count)
       let t = (src >> (srcOffset .* numU32 16u 64<rt>)) .& numU32 0xFFFFu 64<rt>
-      builder <! (dstAssign oprSize dst (AST.xtlo oprSize t))
+      !!ir (dstAssign oprSize dst (AST.xtlo oprSize t))
     | Register.Kind.XMM ->
       let srcB, srcA = getPseudoRegVar128 ctxt reg
       let tSrc = AST.tmpvar 128<rt>
       let srcOffset = AST.tmpvar 128<rt>
-      builder <! (srcOffset := AST.zext 128<rt> count)
-      builder <! (tSrc := AST.concat srcB srcA)
+      !!ir (srcOffset := AST.zext 128<rt> count)
+      !!ir (tSrc := AST.concat srcB srcA)
       let t = (tSrc >> (srcOffset .* numU32 16u 128<rt>)) .&
               numU32 0xFFFFu 128<rt>
-      builder <! (dstAssign oprSize dst (AST.xtlo oprSize t))
+      !!ir (dstAssign oprSize dst (AST.xtlo oprSize t))
     | _ -> raise InvalidRegisterException
   | _ -> raise InvalidOperandException
-  endMark insAddr insLen builder
+  !>ir insAddr insLen
 
 let pinsrw ins insAddr insLen ctxt =
-  let builder = StmtBuilder (8)
-  let dst, src, count = getThreeOprs ins
+  let ir = IRBuilder (8)
+  let struct (dst, src, count) = getThreeOprs ins
   let src = transOprToExpr ins insAddr insLen ctxt src
   let sel = AST.tmpvar 64<rt>
   let getImm = function
     | OprImm imm -> imm
     | _ -> raise InvalidOperandException
-  startMark insAddr insLen builder
+  !<ir insAddr insLen
   match getOperationSize ins with
   | 64<rt> ->
     let dst = transOprToExpr ins insAddr insLen ctxt dst
     let count = transOprToExpr ins insAddr insLen ctxt count
     let mask = AST.tmpvar 64<rt>
-    builder <! (sel := count .| numI64 3L 64<rt>)
+    !!ir (sel := count .| numI64 3L 64<rt>)
     let pos = sel .* numU64 0x10UL 64<rt>
-    builder <! (mask := (numU64 0xffffUL 64<rt>) << pos)
-    builder <!
+    !!ir (mask := (numU64 0xffffUL 64<rt>) << pos)
+    !!ir
       (dst := (dst .& (AST.not mask)) .| (AST.zext 64<rt> src << pos .& mask))
   | 128<rt> ->
     let dst1, dst2 = transOprToExpr128 ins insAddr insLen ctxt dst
     let mask = AST.tmpvar 64<rt>
     let count = getImm count
-    builder <! (sel := numI64 count 64<rt> .| numI64 7L 64<rt>)
+    !!ir (sel := numI64 count 64<rt> .| numI64 7L 64<rt>)
     if count > 3L then
       let pos = (sel .- numI32 4 64<rt>) .* numI32 16 64<rt>
-      builder <! (mask := (numU64 0xffffUL 64<rt>) << pos)
-      builder <! (dst1 := (dst1 .& (AST.not mask))
+      !!ir (mask := (numU64 0xffffUL 64<rt>) << pos)
+      !!ir (dst1 := (dst1 .& (AST.not mask))
                           .| (AST.zext 64<rt> src << pos .& mask))
     else
       let pos = sel .* numI32 16 64<rt>
-      builder <! (mask := (numU64 0xffffUL 64<rt>) << pos)
-      builder <! (dst2 := (dst2 .& (AST.not mask))
+      !!ir (mask := (numU64 0xffffUL 64<rt>) << pos)
+      !!ir (dst2 := (dst2 .& (AST.not mask))
                           .| (AST.zext 64<rt> src << pos .& mask))
   | _ -> raise InvalidOperandSizeException
-  endMark insAddr insLen builder
+  !>ir insAddr insLen
 
 let private opMaxMinPacked cmp =
   Array.map2 (fun e1 e2 -> AST.ite (cmp e1 e2) e1 e2)
@@ -1140,20 +1141,20 @@ let pminsb ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 8<rt> opPminsb 32
 
 let pmovmskb ins insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (4)
   let oprSize = getOperationSize ins
-  startMark insAddr insLen builder
+  let struct (dst, src) = getTwoOprs ins
+  !<ir insAddr insLen
   let r = match src with | OprReg r -> r | _ -> raise InvalidOperandException
   let arrayInit cnt src =
     Array.init cnt (fun i -> AST.extract src 1<rt> (i * 8 + 7))
   match Register.getKind r with
   | Register.Kind.MMX ->
-    let dst, src = transTwoOprs ins insAddr insLen ctxt (dst, src)
+    let struct (dst, src) = transTwoOprs ins insAddr insLen ctxt
     let srcSize = AST.typeOf src
     let cnt = RegType.toByteWidth srcSize
     let tmps = arrayInit cnt src
-    builder <! (dstAssign oprSize dst <| AST.zext oprSize (AST.concatArr tmps))
+    !!ir (dstAssign oprSize dst <| AST.zext oprSize (AST.concatArr tmps))
   | Register.Kind.XMM ->
     let dst = transOprToExpr ins insAddr insLen ctxt dst
     let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
@@ -1162,7 +1163,7 @@ let pmovmskb ins insAddr insLen ctxt =
     let tmpsA = arrayInit cnt srcA
     let tmpsB = arrayInit cnt srcB
     let tmps = AST.concat (AST.concatArr tmpsB) (AST.concatArr tmpsA)
-    builder <! (dstAssign oprSize dst <| AST.zext oprSize tmps)
+    !!ir (dstAssign oprSize dst <| AST.zext oprSize tmps)
   | Register.Kind.YMM ->
     let dst = transOprToExpr ins insAddr insLen ctxt dst
     let srcD, srcC, srcB, srcA = transOprToExpr256 ins insAddr insLen ctxt src
@@ -1174,9 +1175,9 @@ let pmovmskb ins insAddr insLen ctxt =
     let tmpsD = arrayInit cnt srcD
     let tmps = AST.concat (AST.concat (AST.concatArr tmpsD) (AST.concatArr tmpsC))
                       (AST.concat (AST.concatArr tmpsB) (AST.concatArr tmpsA))
-    builder <! (dstAssign oprSize dst <| AST.zext oprSize tmps)
+    !!ir (dstAssign oprSize dst <| AST.zext oprSize tmps)
   | _ -> raise InvalidOperandException
-  endMark insAddr insLen builder
+  !>ir insAddr insLen
 
 let private opPmulhuw _ = opPmul AST.xthi AST.zext 32<rt> 16<rt>
 
@@ -1191,11 +1192,11 @@ let psadbw ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 8<rt> opPsadbw 64
 
 let pshufw ins insAddr insLen ctxt =
-  let dst, src, ord = getThreeOprs ins |> transThreeOprs ins insAddr insLen ctxt
+  let struct (dst, src, ord) = transThreeOprs ins insAddr insLen ctxt
   let oprSize = getOperationSize ins
   let cnt = RegType.toBitWidth oprSize / 16
-  let builder = StmtBuilder (2 * cnt)
-  startMark insAddr insLen builder
+  let ir = IRBuilder (2 * cnt)
+  !<ir insAddr insLen
   let tmps = Array.init cnt (fun _ -> AST.tmpvar 16<rt>)
   let n16 = numI32 16 oprSize
   let mask2 = numI32 3 16<rt> (* 2-bit mask *)
@@ -1203,81 +1204,80 @@ let pshufw ins insAddr insLen ctxt =
     let order =
       ((AST.xtlo 16<rt> ord) >> (numI32 ((i - 1) * 2) 16<rt>)) .& mask2
     let order' = AST.zext oprSize order
-    builder <! (tmps.[i - 1] := AST.xtlo 16<rt> (src >> (order' .* n16)))
+    !!ir (tmps.[i - 1] := AST.xtlo 16<rt> (src >> (order' .* n16)))
   done
-  builder <! (dst := AST.concatArr tmps)
-  endMark insAddr insLen builder
+  !!ir (dst := AST.concatArr tmps)
+  !>ir insAddr insLen
 
 let pshufd ins insAddr insLen ctxt =
-  let dst, src, ord = getThreeOprs ins
+  let struct (dst, src, ord) = getThreeOprs ins
   let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
   let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
   let ord = transOprToExpr ins insAddr insLen ctxt ord
   let oprSize = getOperationSize ins
   let cnt = RegType.toBitWidth oprSize / 32
-  let builder = StmtBuilder (2 * cnt)
-  startMark insAddr insLen builder
+  let ir = IRBuilder (2 * cnt)
+  !<ir insAddr insLen
   let tmps = Array.init cnt (fun _ -> AST.tmpvar 32<rt>)
   let n32 = numI32 32 oprSize
   let mask2 = numI32 3 32<rt> (* 2-bit mask *)
   let tSrc = AST.tmpvar oprSize
   let tDst = AST.tmpvar oprSize
-  builder <! (tSrc := AST.concat srcB srcA)
+  !!ir (tSrc := AST.concat srcB srcA)
   for i in 1 .. cnt do
     let order =
       ((AST.xtlo 32<rt> ord) >> (numI32 ((i - 1) * 2) 32<rt>)) .& mask2
     let order' = AST.zext oprSize order
-    builder <! (tmps.[i - 1] := AST.xtlo 32<rt> (tSrc >> (order' .* n32)))
+    !!ir (tmps.[i - 1] := AST.xtlo 32<rt> (tSrc >> (order' .* n32)))
   done
-  builder <! (tDst := AST.concatArr tmps)
-  builder <! (dstA := AST.xtlo 64<rt> tDst)
-  builder <! (dstB := AST.xthi 64<rt> tDst)
-  endMark insAddr insLen builder
+  !!ir (tDst := AST.concatArr tmps)
+  !!ir (dstA := AST.xtlo 64<rt> tDst)
+  !!ir (dstB := AST.xthi 64<rt> tDst)
+  !>ir insAddr insLen
 
 let pshuflw ins insAddr insLen ctxt =
-  let builder = StmtBuilder (8)
-  let dst, src, imm = getThreeOprs ins
+  let ir = IRBuilder (8)
+  let struct (dst, src, imm) = getThreeOprs ins
   let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
   let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
   let imm = transOprToExpr ins insAddr insLen ctxt imm
-  startMark insAddr insLen builder
+  !<ir insAddr insLen
   let tmps = Array.init 4 (fun _ -> AST.tmpvar 16<rt>)
   let n16 = numI32 16 64<rt>
   let mask2 = numI32 3 64<rt> (* 2-bit mask *)
   for i in 1 .. 4 do
     let imm =
       ((AST.xtlo 64<rt> imm) >> (numI32 ((i - 1) * 2) 64<rt>)) .& mask2
-    builder <! (tmps.[i - 1] := AST.xtlo 16<rt> (srcA >> (imm .* n16)))
+    !!ir (tmps.[i - 1] := AST.xtlo 16<rt> (srcA >> (imm .* n16)))
   done
-  builder <! (dstA := AST.concatArr tmps)
-  builder <! (dstB := srcB)
-  endMark insAddr insLen builder
+  !!ir (dstA := AST.concatArr tmps)
+  !!ir (dstB := srcB)
+  !>ir insAddr insLen
 
 let pshufhw ins insAddr insLen ctxt =
-  let dst, src, imm = getThreeOprs ins
+  let struct (dst, src, imm) = getThreeOprs ins
   let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
   let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
   let imm = transOprToExpr ins insAddr insLen ctxt imm
-  let builder = StmtBuilder (8)
-  startMark insAddr insLen builder
+  let ir = IRBuilder (8)
+  !<ir insAddr insLen
   let tmps = Array.init 4 (fun _ -> AST.tmpvar 16<rt>)
   let n16 = numI32 16 64<rt>
   let mask2 = numI32 3 64<rt> (* 2-bit mask *)
   for i in 1 .. 4 do
     let imm =
       ((AST.xtlo 64<rt> imm) >> (numI32 ((i - 1) * 2) 64<rt>)) .& mask2
-    builder <! (tmps.[i - 1] := AST.xtlo 16<rt> (srcB >> (imm .* n16)))
+    !!ir (tmps.[i - 1] := AST.xtlo 16<rt> (srcB >> (imm .* n16)))
   done
-  builder <! (dstA := srcA)
-  builder <! (dstB := AST.concatArr tmps)
-  endMark insAddr insLen builder
+  !!ir (dstA := srcA)
+  !!ir (dstB := AST.concatArr tmps)
+  !>ir insAddr insLen
 
 let pshufb ins insAddr insLen ctxt =
-  let dst, src = getTwoOprs ins
   let oprSize = getOperationSize ins
   let cnt = RegType.toBitWidth oprSize / 8
-  let builder = StmtBuilder (2 * cnt)
-  startMark insAddr insLen builder
+  let ir = IRBuilder (2 * cnt)
+  !<ir insAddr insLen
   let tmps = Array.init cnt (fun _ -> AST.tmpvar 8<rt>)
   let mask = numI32 (cnt - 1) 8<rt>
   let genTmps dst src =
@@ -1285,28 +1285,29 @@ let pshufb ins insAddr insLen ctxt =
       let cond = AST.extract src 1<rt> (i * 8 + 7)
       let idx = (AST.extract src 8<rt> (i * 8)) .& mask
       let numShift = AST.zext oprSize idx .* numI32 8 oprSize
-      builder <!
+      !!ir
         (tmps.[i] :=
           AST.ite cond (AST.num0 8<rt>) (AST.xtlo 8<rt> (dst >> numShift)))
     done
   match oprSize with
   | 64<rt> ->
-    let dst, src = transTwoOprs ins insAddr insLen ctxt (dst, src)
+    let struct (dst, src) = transTwoOprs ins insAddr insLen ctxt
     genTmps dst src
-    builder <! (dst := AST.concatArr tmps)
+    !!ir (dst := AST.concatArr tmps)
   | 128<rt> ->
+    let struct (dst, src) = getTwoOprs ins
     let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
     let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
-    let conDst, conSrc = tmpVars2 oprSize
+    let struct (conDst, conSrc) = tmpVars2 oprSize
     let tDst = AST.tmpvar oprSize
-    builder <! (conDst := AST.concat dstB dstA)
-    builder <! (conSrc := AST.concat srcB srcA)
+    !!ir (conDst := AST.concat dstB dstA)
+    !!ir (conSrc := AST.concat srcB srcA)
     genTmps conDst conSrc
-    builder <! (tDst := AST.concatArr tmps)
-    builder <! (dstA := AST.xtlo 64<rt> tDst)
-    builder <! (dstB := AST.xthi 64<rt> tDst)
+    !!ir (tDst := AST.concatArr tmps)
+    !!ir (dstA := AST.xtlo 64<rt> tDst)
+    !!ir (dstB := AST.xthi 64<rt> tDst)
   | _ -> raise InvalidOperandSizeException
-  endMark insAddr insLen builder
+  !>ir insAddr insLen
 
 let movdqa ins insAddr insLen ctxt =
   buildMove ins insAddr insLen ctxt 4
@@ -1315,23 +1316,23 @@ let movdqu ins insAddr insLen ctxt =
   buildMove ins insAddr insLen ctxt 4
 
 let movq2dq ins insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (4)
+  let struct (dst, src) = getTwoOprs ins
   let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
   let src = transOprToExpr ins insAddr insLen ctxt src
-  startMark insAddr insLen builder
-  builder <! (dstA := src)
-  builder <! (dstB := AST.num0 64<rt>)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (dstA := src)
+  !!ir (dstB := AST.num0 64<rt>)
+  !>ir insAddr insLen
 
 let movdq2q ins insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (4)
+  let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr ins insAddr insLen ctxt dst
   let _, srcA = transOprToExpr128 ins insAddr insLen ctxt src
-  startMark insAddr insLen builder
-  builder <! (dst := srcA)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (dst := srcA)
+  !>ir insAddr insLen
 
 let private opPmuludq _ =
   let low32 expr = expr .& numI64 0xffffffffL 64<rt>
@@ -1347,20 +1348,20 @@ let psubq ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 64<rt> opPsub 8
 
 let private shiftDQ ins insAddr insLen ctxt shift =
-  let builder = StmtBuilder (8)
-  let dst, cnt = getTwoOprs ins
+  let ir = IRBuilder (8)
+  let struct (dst, cnt) = getTwoOprs ins
   let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
   let cnt = transOprToExpr ins insAddr insLen ctxt cnt |> castNum 8<rt>
   let oprSize = getOperationSize ins
   let t1 = AST.tmpvar 8<rt>
-  let t2, tDst = tmpVars2 oprSize
-  startMark insAddr insLen builder
-  builder <! (t1 := AST.ite (AST.lt (numU32 15u 8<rt>) cnt) (numU32 16u 8<rt>) cnt)
-  builder <! (t2 := AST.concat dstB dstA)
-  builder <! (tDst := (shift t2 (AST.zext oprSize (t1 .* numU32 8u 8<rt>))))
-  builder <! (dstA := AST.xtlo 64<rt> tDst)
-  builder <! (dstB := AST.xthi 64<rt> tDst)
-  endMark insAddr insLen builder
+  let struct (t2, tDst) = tmpVars2 oprSize
+  !<ir insAddr insLen
+  !!ir (t1 := AST.ite (AST.lt (numU32 15u 8<rt>) cnt) (numU32 16u 8<rt>) cnt)
+  !!ir (t2 := AST.concat dstB dstA)
+  !!ir (tDst := (shift t2 (AST.zext oprSize (t1 .* numU32 8u 8<rt>))))
+  !!ir (dstA := AST.xtlo 64<rt> tDst)
+  !!ir (dstB := AST.xthi 64<rt> tDst)
+  !>ir insAddr insLen
 
 let pslldq ins insAddr insLen ctxt =
   shiftDQ ins insAddr insLen ctxt (<<)
@@ -1387,124 +1388,125 @@ let movnti ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
 let lddqu ins insAddr insLen ctxt = buildMove ins insAddr insLen ctxt 4
 
 let movshdup ins insAddr insLen ctxt =
-  let builder = StmtBuilder (8)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (8)
+  let struct (dst, src) = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
-  let tmp1, tmp2 = tmpVars2 32<rt>
-  startMark insAddr insLen builder
-  builder <! (tmp1 := AST.xthi 32<rt> src1)
-  builder <! (tmp2 := AST.xthi 32<rt> src2)
-  builder <! (AST.xtlo 32<rt> dst1 := tmp1)
-  builder <! (AST.xthi 32<rt> dst1 := tmp1)
-  builder <! (AST.xtlo 32<rt> dst2 := tmp2)
-  builder <! (AST.xthi 32<rt> dst2 := tmp2)
-  endMark insAddr insLen builder
+  let struct (tmp1, tmp2) = tmpVars2 32<rt>
+  !<ir insAddr insLen
+  !!ir (tmp1 := AST.xthi 32<rt> src1)
+  !!ir (tmp2 := AST.xthi 32<rt> src2)
+  !!ir (AST.xtlo 32<rt> dst1 := tmp1)
+  !!ir (AST.xthi 32<rt> dst1 := tmp1)
+  !!ir (AST.xtlo 32<rt> dst2 := tmp2)
+  !!ir (AST.xthi 32<rt> dst2 := tmp2)
+  !>ir insAddr insLen
 
 let movsldup ins insAddr insLen ctxt =
-  let builder = StmtBuilder (8)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (8)
+  let struct (dst, src) = getTwoOprs ins
   let dst2, dst1 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src2, src1 = transOprToExpr128 ins insAddr insLen ctxt src
-  let tmp1, tmp2 = tmpVars2 32<rt>
-  startMark insAddr insLen builder
-  builder <! (tmp1 := AST.xtlo 32<rt> src1)
-  builder <! (tmp2 := AST.xtlo 32<rt> src2)
-  builder <! (AST.xtlo 32<rt> dst1 := tmp1)
-  builder <! (AST.xthi 32<rt> dst1 := tmp1)
-  builder <! (AST.xtlo 32<rt> dst2 := tmp2)
-  builder <! (AST.xthi 32<rt> dst2 := tmp2)
-  endMark insAddr insLen builder
+  let struct (tmp1, tmp2) = tmpVars2 32<rt>
+  !<ir insAddr insLen
+  !!ir (tmp1 := AST.xtlo 32<rt> src1)
+  !!ir (tmp2 := AST.xtlo 32<rt> src2)
+  !!ir (AST.xtlo 32<rt> dst1 := tmp1)
+  !!ir (AST.xthi 32<rt> dst1 := tmp1)
+  !!ir (AST.xtlo 32<rt> dst2 := tmp2)
+  !!ir (AST.xthi 32<rt> dst2 := tmp2)
+  !>ir insAddr insLen
 
 let movddup ins insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (4)
+  let struct (dst, src) = getTwoOprs ins
   let dst1, dst0 = transOprToExpr128 ins insAddr insLen ctxt dst
   let src = transOprToExpr64 ins insAddr insLen ctxt src
-  startMark insAddr insLen builder
-  builder <! (dst0 := src)
-  builder <! (dst1 := src)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (dst0 := src)
+  !!ir (dst1 := src)
+  !>ir insAddr insLen
 
 let palignr ins insAddr insLen ctxt =
-  let builder = StmtBuilder (8)
-  let dst, src, imm = getThreeOprs ins
+  let ir = IRBuilder (8)
+  let struct (dst, src, imm) = getThreeOprs ins
   let imm = transOprToExpr ins insAddr insLen ctxt imm
-  startMark insAddr insLen builder
+  !<ir insAddr insLen
   match getOperationSize ins with
   | 64<rt> ->
     let dst = transOprToExpr ins insAddr insLen ctxt dst
     let src = transOprToExpr ins insAddr insLen ctxt src
     let t = AST.tmpvar 128<rt>
-    builder <!
+    !!ir
       (t := (AST.concat dst src) >> (AST.zext 128<rt> (imm .* numU32 8u 64<rt>)))
-    builder <! (dst := AST.xtlo 64<rt> t)
+    !!ir (dst := AST.xtlo 64<rt> t)
   | 128<rt> ->
     let dst1, dst2 = transOprToExpr128 ins insAddr insLen ctxt dst
     let src1, src2 = transOprToExpr128 ins insAddr insLen ctxt src
     let dst = AST.concat dst1 dst2
     let src = AST.concat src1 src2
     let t = AST.tmpvar 256<rt>
-    builder <!
+    !!ir
       (t := (AST.concat dst src) >> (AST.zext 256<rt> (imm .* numU32 8u 128<rt>)))
-    builder <! (dst1 := AST.extract t 64<rt> 64)
-    builder <! (dst2 := AST.xtlo 64<rt> t)
+    !!ir (dst1 := AST.extract t 64<rt> 64)
+    !!ir (dst2 := AST.xtlo 64<rt> t)
   | _ -> raise InvalidOperandSizeException
-  endMark insAddr insLen builder
+  !>ir insAddr insLen
 
 let roundsd ins insAddr insLen ctxt =
-  let builder = StmtBuilder (8)
-  let dst, src, imm = getThreeOprs ins
+  let ir = IRBuilder (8)
+  let struct (dst, src, imm) = getThreeOprs ins
   let dst = transOprToExpr64 ins insAddr insLen ctxt dst
   let src = transOprToExpr64 ins insAddr insLen ctxt src
   let imm = transOprToExpr ins insAddr insLen ctxt imm
-  let rc = AST.extract (getRegVar ctxt R.FCW) 2<rt> 10
+  let rc = AST.extract (!.ctxt R.FCW) 2<rt> 10
   let tmp = AST.tmpvar 2<rt>
   let cster castKind = AST.cast castKind 64<rt> src
-  startMark insAddr insLen builder
-  builder <! (tmp := AST.ite (AST.extract imm 1<rt> 2) rc (AST.xtlo 2<rt> imm))
-  builder <! (dst := AST.num0 64<rt>)
-  builder <! (dst := AST.ite (tmp == AST.num0 2<rt>) (cster CastKind.FtoIRound) dst)
-  builder <! (dst := AST.ite (tmp == AST.num1 2<rt>) (cster CastKind.FtoIFloor) dst)
-  builder <! (dst := AST.ite (tmp == numI32 2 2<rt>) (cster CastKind.FtoICeil) dst)
-  builder <! (dst := AST.ite (tmp == numI32 3 2<rt>) (cster CastKind.FtoITrunc) dst)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (tmp := AST.ite (AST.extract imm 1<rt> 2) rc (AST.xtlo 2<rt> imm))
+  !!ir (dst := AST.num0 64<rt>)
+  !!ir (dst := AST.ite (tmp == AST.num0 2<rt>) (cster CastKind.FtoIRound) dst)
+  !!ir (dst := AST.ite (tmp == AST.num1 2<rt>) (cster CastKind.FtoIFloor) dst)
+  !!ir (dst := AST.ite (tmp == numI32 2 2<rt>) (cster CastKind.FtoICeil) dst)
+  !!ir (dst := AST.ite (tmp == numI32 3 2<rt>) (cster CastKind.FtoITrunc) dst)
+  !>ir insAddr insLen
 
 let pinsrb ins insAddr insLen ctxt =
-  let builder = StmtBuilder (8)
-  let dst, src, count = getThreeOprs ins
+  let ir = IRBuilder (8)
+  let struct (dst, src, count) = getThreeOprs ins
   let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
-  let src, count = transTwoOprs ins insAddr insLen ctxt (src, count)
+  let src = transOprToExpr ins insAddr insLen ctxt src
+  let count = transOprToExpr ins insAddr insLen ctxt count
   let oprSize = getOperationSize ins
-  let sel, mask, temp, tDst = tmpVars4 oprSize
+  let struct (sel, mask, temp, tDst) = tmpVars4 oprSize
   let sel8 = sel .* numI32 8 oprSize
-  startMark insAddr insLen builder
-  builder <! (sel := count .& numI32 0xf oprSize)
-  builder <! (mask := (numI32 0x0ff oprSize) << sel8)
-  builder <! (temp := (AST.zext oprSize (AST.extract src 8<rt> 0) << sel8) .& mask)
-  builder <! (tDst := ((AST.concat dstB dstA) .& (AST.not mask)) .| temp)
-  builder <! (dstA := AST.xtlo 64<rt> tDst)
-  builder <! (dstB := AST.xthi 64<rt> tDst)
-  endMark insAddr insLen builder
+  !<ir insAddr insLen
+  !!ir (sel := count .& numI32 0xf oprSize)
+  !!ir (mask := (numI32 0x0ff oprSize) << sel8)
+  !!ir (temp := (AST.zext oprSize (AST.extract src 8<rt> 0) << sel8) .& mask)
+  !!ir (tDst := ((AST.concat dstB dstA) .& (AST.not mask)) .| temp)
+  !!ir (dstA := AST.xtlo 64<rt> tDst)
+  !!ir (dstB := AST.xthi 64<rt> tDst)
+  !>ir insAddr insLen
 
 let ptest ins insAddr insLen ctxt =
-  let builder = StmtBuilder (16)
-  let src1, src2 = getTwoOprs ins
+  let ir = IRBuilder (16)
+  let struct (src1, src2) = getTwoOprs ins
   let src1B, src1A = transOprToExpr128 ins insAddr insLen ctxt src1
   let src2B, src2A = transOprToExpr128 ins insAddr insLen ctxt src2
-  let t1, t2, t3, t4 = tmpVars4 64<rt>
-  startMark insAddr insLen builder
-  builder <! (t1 := src2A .& src1A)
-  builder <! (t2 := src2B .& src1B)
-  builder <! (getRegVar ctxt R.ZF := (t1 .| t2) == (AST.num0 64<rt>))
-  builder <! (t3 := src2A .& AST.not src1A)
-  builder <! (t4 := src2B .& AST.not src1B)
-  builder <! (getRegVar ctxt R.CF := (t3 .| t4) == (AST.num0 64<rt>))
-  builder <! (getRegVar ctxt R.AF := AST.b0)
-  builder <! (getRegVar ctxt R.OF := AST.b0)
-  builder <! (getRegVar ctxt R.PF := AST.b0)
-  builder <! (getRegVar ctxt R.SF := AST.b0)
-  endMark insAddr insLen builder
+  let struct (t1, t2, t3, t4) = tmpVars4 64<rt>
+  !<ir insAddr insLen
+  !!ir (t1 := src2A .& src1A)
+  !!ir (t2 := src2B .& src1B)
+  !!ir (!.ctxt R.ZF := (t1 .| t2) == (AST.num0 64<rt>))
+  !!ir (t3 := src2A .& AST.not src1A)
+  !!ir (t4 := src2B .& AST.not src1B)
+  !!ir (!.ctxt R.CF := (t3 .| t4) == (AST.num0 64<rt>))
+  !!ir (!.ctxt R.AF := AST.b0)
+  !!ir (!.ctxt R.OF := AST.b0)
+  !!ir (!.ctxt R.PF := AST.b0)
+  !!ir (!.ctxt R.SF := AST.b0)
+  !>ir insAddr insLen
 
 let opPcmpeqq _ = opPcmp 64<rt> (==)
 
@@ -1587,18 +1589,18 @@ let private getPcmpstrInfo opCode (imm: Expr) =
     Len = len
     Ret = ret }
 
-let private explicitValidCheck ctrl reg rSz builder =
+let private explicitValidCheck ctrl reg rSz ir =
   let tmps = [| for _ in 1u .. ctrl.NumElems -> AST.tmpvar 1<rt> |]
   let checkNum = numU32 ctrl.NumElems rSz
   let rec getValue idx =
     let v = AST.lt (numU32 idx rSz) (AST.ite (AST.lt checkNum reg) checkNum reg)
     if idx = ctrl.NumElems then ()
-    else builder <! (tmps.[int idx] := v)
+    else !!ir (tmps.[int idx] := v)
          getValue (idx + 1u)
   getValue 0u
   tmps
 
-let private implicitValidCheck ctrl srcB srcA builder =
+let private implicitValidCheck ctrl srcB srcA ir =
   let unitWidth = RegType.toBitWidth ctrl.PackSize
   let tmps = [| for _ in 1u .. ctrl.NumElems -> AST.tmpvar 1<rt> |]
   let getSrc idx e = AST.extract e ctrl.PackSize (unitWidth * idx)
@@ -1608,25 +1610,25 @@ let private implicitValidCheck ctrl srcB srcA builder =
       let half = int ctrl.NumElems / 2
       let e, amount = if idx < half then srcA, idx else srcB, idx - half
       let v e = tmps.[idx - 1] .& (getSrc amount e != AST.num0 ctrl.PackSize)
-      builder <! (tmps.[idx] := v e)
+      !!ir (tmps.[idx] := v e)
       getValue (idx + 1)
-  builder <! (tmps.[0] := AST.b1 .& (getSrc 0 srcA != AST.num0 ctrl.PackSize))
+  !!ir (tmps.[0] := AST.b1 .& (getSrc 0 srcA != AST.num0 ctrl.PackSize))
   getValue 1
   tmps
 
-let private genValidCheck ins insAddr insLen ctxt ctrl e1 e2 builder =
+let private genValidCheck ins insAddr insLen ctxt ctrl e1 e2 ir =
   let src1B, src1A = transOprToExpr128 ins insAddr insLen ctxt e1
   let src2B, src2A = transOprToExpr128 ins insAddr insLen ctxt e2
   match ctrl.Len with
-  | Implicit -> implicitValidCheck ctrl src1B src1A builder,
-                implicitValidCheck ctrl src2B src2A builder
+  | Implicit -> implicitValidCheck ctrl src1B src1A ir,
+                implicitValidCheck ctrl src2B src2A ir
   | Explicit ->
     let regSize, ax, dx =
       if hasREXW ins.REXPrefix
-      then 64<rt>, getRegVar ctxt R.RAX, getRegVar ctxt R.RDX
-      else 32<rt>, getRegVar ctxt R.EAX, getRegVar ctxt R.EDX
-    explicitValidCheck ctrl ax regSize builder,
-    explicitValidCheck ctrl dx regSize builder
+      then 64<rt>, !.ctxt R.RAX, !.ctxt R.RDX
+      else 32<rt>, !.ctxt R.EAX, !.ctxt R.EDX
+    explicitValidCheck ctrl ax regSize ir,
+    explicitValidCheck ctrl dx regSize ir
 
 let private genBoolRes ins insAddr insLen ctrl ctxt e1 e2 (ck1: Expr []) (ck2: Expr []) j i cmp =
   let src1B, src1A = transOprToExpr128 ins insAddr insLen ctxt e1
@@ -1654,7 +1656,7 @@ let private genBoolRes ins insAddr insLen ctrl ctxt e1 e2 (ck1: Expr []) (ck2: E
         (AST.ite (ck1.[j] .& AST.not ck2.[i]) (AST.num0 elemSz) b))
 
 let private aggOpr ins insAddr insLen
-           ctxt ctrl src1 src2 ck1 ck2 (res1 : Expr []) builder =
+           ctxt ctrl src1 src2 ck1 ck2 (res1 : Expr []) ir =
   let nElem = int ctrl.NumElems
   let elemSz = RegType.fromBitWidth <| nElem
   let boolRes = genBoolRes ins insAddr insLen ctrl ctxt src2 src1 ck2 ck1
@@ -1669,39 +1671,39 @@ let private aggOpr ins insAddr insLen
     for j in 0 .. nElem - 1 do
       let tRes = [| for _ in 1 .. nElem -> AST.tmpvar elemSz |]
       let boolRes i = boolRes j i (==)
-      builder <! (tRes.[0] := AST.num0 elemSz .| boolRes 0)
+      !!ir (tRes.[0] := AST.num0 elemSz .| boolRes 0)
       for i in 1 .. nElem - 1 do
-        builder <! (tRes.[i] := tRes.[i - 1] .| boolRes i)
+        !!ir (tRes.[i] := tRes.[i - 1] .| boolRes i)
       done
-      builder <! (res1.[j] := tRes.[nElem - 1] << numI32 j elemSz)
+      !!ir (res1.[j] := tRes.[nElem - 1] << numI32 j elemSz)
     done
   | EqualEach ->
     for i in 0 .. nElem - 1 do
       let boolRes i = boolRes i i (==)
-      builder <! (res1.[i] := boolRes i << numI32 i elemSz)
+      !!ir (res1.[i] := boolRes i << numI32 i elemSz)
     done
   | EqualOrdered ->
     for j in 0 .. nElem - 1 do
       let tRes = [| for _ in 1 .. nElem -> AST.tmpvar elemSz |]
       let boolRes k i = boolRes k i (==)
-      builder <! (tRes.[0] := numI32 -1 elemSz .& boolRes j 0)
+      !!ir (tRes.[0] := numI32 -1 elemSz .& boolRes j 0)
       for i in 1 .. nElem - 1 - j do
         let k = i + j
-        builder <! (tRes.[i] := tRes.[i - 1] .& boolRes k i)
+        !!ir (tRes.[i] := tRes.[i - 1] .& boolRes k i)
       done
-      builder <! (res1.[j] := tRes.[nElem - 1] << numI32 j elemSz)
+      !!ir (res1.[j] := tRes.[nElem - 1] << numI32 j elemSz)
     done
   | Ranges ->
     for j in 0 .. nElem - 1 do
       let tRes = [| for _ in 1 .. nElem -> AST.tmpvar elemSz |]
       let cmp i = rangesCmp i
       let boolRes i = boolRes j i (cmp i)
-      builder <! (tRes.[0] := AST.num0 elemSz .| (boolRes 0 .& boolRes 1))
+      !!ir (tRes.[0] := AST.num0 elemSz .| (boolRes 0 .& boolRes 1))
       for i in 2 .. 2 .. nElem - 1 do
-        builder <!
+        !!ir
           (tRes.[i] := tRes.[i - 1] .| (boolRes i .& boolRes (i + 1)))
       done
-      builder <! (res1.[j] := tRes.[nElem - 1] << numI32 j elemSz)
+      !!ir (res1.[j] := tRes.[nElem - 1] << numI32 j elemSz)
     done
 
 let private getIntRes2 e ctrInfo (booRes: Expr []) =
@@ -1726,18 +1728,18 @@ let rec private genOutput ctrl e acc i =
   if cond then AST.ite (AST.xtlo 1<rt> e') (numI32 i elemSz) acc
   else genOutput ctrl e (AST.ite (AST.xtlo 1<rt> e') (numI32 i elemSz) acc) next
 
-let private pcmpStrRet (ins: InsInfo) info ctxt intRes2 builder =
+let private pcmpStrRet (ins: InsInfo) info ctxt intRes2 ir =
   let nElem = int info.NumElems
   let elemSz = RegType.fromBitWidth <| nElem
   match info.Ret with
   | Index ->
     let outSz, cx =
       if hasREXW ins.REXPrefix then 64<rt>, R.RCX else 32<rt>, R.ECX
-    let cx = getRegVar ctxt cx
+    let cx = !.ctxt cx
     let nMaxSz = numI32 nElem elemSz
     let idx = if info.OutSelect = Least then nElem - 1 else 0
     let out = AST.zext outSz <| genOutput info intRes2 nMaxSz idx
-    builder <! (dstAssign outSz cx out)
+    !!ir (dstAssign outSz cx out)
   | Mask ->
     let xmmB, xmmA = getPseudoRegVar128 ctxt Register.XMM0
     let loop (acc1, acc2) i =
@@ -1745,17 +1747,17 @@ let private pcmpStrRet (ins: InsInfo) info ctxt intRes2 builder =
       if (i < nElem / 2) then (acc1, (AST.zext info.PackSize src) :: acc2)
       else ((AST.zext info.PackSize src) :: acc1, acc2)
     if info.OutSelect = Least then
-      builder <! (xmmA := AST.zext 64<rt> intRes2)
-      builder <! (xmmB := AST.num0 64<rt>)
+      !!ir (xmmA := AST.zext 64<rt> intRes2)
+      !!ir (xmmB := AST.num0 64<rt>)
     else let r1, r2 = List.fold loop ([], []) [0 .. nElem - 1]
-         builder <! (xmmB := AST.concatArr (List.toArray r1))
-         builder <! (xmmA := AST.concatArr (List.toArray r2))
+         !!ir (xmmB := AST.concatArr (List.toArray r1))
+         !!ir (xmmA := AST.concatArr (List.toArray r2))
 
-let private getZSFForPCMPSTR ins insAddr insLen ctrl ctxt src1 src2 builder =
+let private getZSFForPCMPSTR ins insAddr insLen ctrl ctxt src1 src2 ir =
   let src1B, src1A = transOprToExpr128 ins insAddr insLen ctxt src1
   let src2B, src2A = transOprToExpr128 ins insAddr insLen ctxt src2
   let getExZSFlag r =
-    let reg = getRegVar ctxt r
+    let reg = !.ctxt r
     AST.lt (AST.ite (AST.xthi 1<rt> reg) (AST.neg reg) reg)
        (numU32 ctrl.NumElems 32<rt>)
   let rec getImZSFlag acc srcB srcA idx =
@@ -1770,32 +1772,32 @@ let private getZSFForPCMPSTR ins insAddr insLen ctrl ctxt src1 src2 builder =
          getImZSFlag acc srcB srcA next
   match ctrl.Len with
   | Implicit ->
-    builder <! (getRegVar ctxt R.ZF :=
+    !!ir (!.ctxt R.ZF :=
       getImZSFlag AST.b0 src2B src2A (ctrl.NumElems - 1u |> int))
-    builder <! (getRegVar ctxt R.SF :=
+    !!ir (!.ctxt R.SF :=
       getImZSFlag AST.b0 src1B src1A (ctrl.NumElems - 1u |> int))
   | Explicit ->
-    builder <! (getRegVar ctxt R.ZF := getExZSFlag R.EDX)
-    builder <! (getRegVar ctxt R.SF := getExZSFlag R.EAX)
+    !!ir (!.ctxt R.ZF := getExZSFlag R.EDX)
+    !!ir (!.ctxt R.SF := getExZSFlag R.EAX)
 
 let pcmpstr ins insAddr insLen ctxt =
-  let builder = StmtBuilder (64)
-  startMark insAddr insLen builder
-  let src1, src2, imm = getThreeOprs ins
+  let ir = IRBuilder (64)
+  !<ir insAddr insLen
+  let struct (src1, src2, imm) = getThreeOprs ins
   let imm = transOprToExpr ins insAddr insLen ctxt imm
   let ctrl = getPcmpstrInfo ins.Opcode imm
   let nElem = int ctrl.NumElems
   let elemSz = RegType.fromBitWidth <| nElem
-  let ck1, ck2 = genValidCheck ins insAddr insLen ctxt ctrl src1 src2 builder
-  let intRes1, intRes2 = tmpVars2 elemSz
+  let ck1, ck2 = genValidCheck ins insAddr insLen ctxt ctrl src1 src2 ir
+  let struct (intRes1, intRes2) = tmpVars2 elemSz
   let res1 = [| for _ in 1 .. nElem -> AST.tmpvar elemSz |]
-  aggOpr ins insAddr insLen ctxt ctrl src1 src2 ck1 ck2 res1 builder
-  builder <! (intRes1 := Array.reduce (.|) res1)
-  builder <! (intRes2 := getIntRes2 intRes1 ctrl ck2)
-  pcmpStrRet ins ctrl ctxt intRes2 builder
-  builder <! (getRegVar ctxt R.CF := intRes2 != AST.num0 elemSz)
-  getZSFForPCMPSTR ins insAddr insLen ctrl ctxt src1 src2 builder
-  builder <! (getRegVar ctxt R.OF := AST.xtlo 1<rt> intRes2)
-  builder <! (getRegVar ctxt R.AF := AST.b0)
-  builder <! (getRegVar ctxt R.PF := AST.b0)
-  endMark insAddr insLen builder
+  aggOpr ins insAddr insLen ctxt ctrl src1 src2 ck1 ck2 res1 ir
+  !!ir (intRes1 := Array.reduce (.|) res1)
+  !!ir (intRes2 := getIntRes2 intRes1 ctrl ck2)
+  pcmpStrRet ins ctrl ctxt intRes2 ir
+  !!ir (!.ctxt R.CF := intRes2 != AST.num0 elemSz)
+  getZSFForPCMPSTR ins insAddr insLen ctrl ctxt src1 src2 ir
+  !!ir (!.ctxt R.OF := AST.xtlo 1<rt> intRes2)
+  !!ir (!.ctxt R.AF := AST.b0)
+  !!ir (!.ctxt R.PF := AST.b0)
+  !>ir insAddr insLen

@@ -29,95 +29,96 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinLifter.LiftingOperators
 open B2R2.FrontEnd.BinLifter.Intel
 open B2R2.FrontEnd.BinLifter.Intel.LiftingUtils
 
-let private movdRegToReg ctxt r1 r2 builder =
+let private movdRegToReg ctxt r1 r2 ir =
   let tmp = AST.tmpvar 32<rt>
   match Register.getKind r1, Register.getKind r2 with
   | Register.Kind.XMM, _ ->
-    builder <! (getPseudoRegVar ctxt r1 1 := AST.zext 64<rt> (getRegVar ctxt r2))
-    builder <! (getPseudoRegVar ctxt r1 2 := AST.num0 64<rt>)
+    !!ir (getPseudoRegVar ctxt r1 1 := AST.zext 64<rt> (!.ctxt r2))
+    !!ir (getPseudoRegVar ctxt r1 2 := AST.num0 64<rt>)
   | _, Register.Kind.XMM ->
-    builder <! (tmp := AST.xtlo 32<rt> (getPseudoRegVar ctxt r2 1))
-    builder <! (dstAssign 32<rt> (getRegVar ctxt r1) tmp)
+    !!ir (tmp := AST.xtlo 32<rt> (getPseudoRegVar ctxt r2 1))
+    !!ir (dstAssign 32<rt> (!.ctxt r1) tmp)
   | Register.Kind.MMX, _ ->
-    builder <! (getRegVar ctxt r1 := AST.zext 64<rt> (getRegVar ctxt r2))
+    !!ir (!.ctxt r1 := AST.zext 64<rt> (!.ctxt r2))
   | _, Register.Kind.MMX ->
-    builder <! (tmp := AST.xtlo 32<rt> (getRegVar ctxt r2))
-    builder <! (dstAssign 32<rt> (getRegVar ctxt r1) tmp)
+    !!ir (tmp := AST.xtlo 32<rt> (!.ctxt r2))
+    !!ir (dstAssign 32<rt> (!.ctxt r1) tmp)
   | _, _ -> Utils.impossible ()
 
-let private movdRegToMem ctxt dst r builder =
+let private movdRegToMem ctxt dst r ir =
   match Register.getKind r with
   | Register.Kind.XMM ->
-    builder <! (dst := AST.xtlo 32<rt> (getPseudoRegVar ctxt r 1))
-  | Register.Kind.MMX -> builder <! (dst := AST.xtlo 32<rt> (getRegVar ctxt r))
+    !!ir (dst := AST.xtlo 32<rt> (getPseudoRegVar ctxt r 1))
+  | Register.Kind.MMX -> !!ir (dst := AST.xtlo 32<rt> (!.ctxt r))
   | _ -> Utils.impossible ()
 
-let private movdMemToReg ctxt src r builder =
+let private movdMemToReg ctxt src r ir =
   match Register.getKind r with
   | Register.Kind.XMM ->
-    builder <! (getPseudoRegVar ctxt r 1 := AST.zext 64<rt> src)
-    builder <! (getPseudoRegVar ctxt r 2 := AST.num0 64<rt>)
-  | Register.Kind.MMX -> builder <! (getRegVar ctxt r := AST.zext 64<rt> src)
+    !!ir (getPseudoRegVar ctxt r 1 := AST.zext 64<rt> src)
+    !!ir (getPseudoRegVar ctxt r 2 := AST.num0 64<rt>)
+  | Register.Kind.MMX -> !!ir (!.ctxt r := AST.zext 64<rt> src)
   | _ -> Utils.impossible ()
 
 let movd ins insAddr insLen ctxt =
-  let builder = StmtBuilder (8)
-  let dst, src = getTwoOprs ins
-  startMark insAddr insLen builder
+  let ir = IRBuilder (8)
+  let struct (dst, src) = getTwoOprs ins
+  !<ir insAddr insLen
   match dst, src  with
-  | OprReg r1, OprReg r2 -> movdRegToReg ctxt r1 r2 builder
+  | OprReg r1, OprReg r2 -> movdRegToReg ctxt r1 r2 ir
   | OprMem _, OprReg r -> let dst = transOprToExpr ins insAddr insLen ctxt dst
-                          movdRegToMem ctxt dst r builder
+                          movdRegToMem ctxt dst r ir
   | OprReg r, OprMem _ -> let src = transOprToExpr ins insAddr insLen ctxt src
-                          movdMemToReg ctxt src r builder
+                          movdMemToReg ctxt src r ir
   | _, _ -> raise InvalidOperandException
-  endMark insAddr insLen builder
+  !>ir insAddr insLen
 
-let private movqRegToReg ctxt r1 r2 builder =
+let private movqRegToReg ctxt r1 r2 ir =
   match Register.getKind r1, Register.getKind r2 with
   | Register.Kind.XMM, Register.Kind.XMM ->
-    builder <! (getPseudoRegVar ctxt r1 1 := getPseudoRegVar ctxt r2 1 )
-    builder <! (getPseudoRegVar ctxt r1 2 := AST.num0 64<rt>)
+    !!ir (getPseudoRegVar ctxt r1 1 := getPseudoRegVar ctxt r2 1 )
+    !!ir (getPseudoRegVar ctxt r1 2 := AST.num0 64<rt>)
   | Register.Kind.XMM, _ ->
-    builder <! (getPseudoRegVar ctxt r1 1 := getRegVar ctxt r2)
-    builder <! (getPseudoRegVar ctxt r1 2 := AST.num0 64<rt>)
+    !!ir (getPseudoRegVar ctxt r1 1 := !.ctxt r2)
+    !!ir (getPseudoRegVar ctxt r1 2 := AST.num0 64<rt>)
   | Register.Kind.GP, Register.Kind.XMM ->
-    builder <! (getRegVar ctxt r1 := getPseudoRegVar ctxt r2 1)
+    !!ir (!.ctxt r1 := getPseudoRegVar ctxt r2 1)
   | Register.Kind.MMX, Register.Kind.MMX
   | Register.Kind.MMX, Register.Kind.GP
   | Register.Kind.GP, Register.Kind.MMX ->
-    builder <! (getRegVar ctxt r1 := getRegVar ctxt r2)
+    !!ir (!.ctxt r1 := !.ctxt r2)
   | _, _ -> Utils.impossible ()
 
-let private movqRegToMem ctxt dst r builder =
+let private movqRegToMem ctxt dst r ir =
   match Register.getKind r with
-  | Register.Kind.XMM -> builder <! (dst := getPseudoRegVar ctxt r 1)
-  | Register.Kind.MMX -> builder <! (dst := getRegVar ctxt r)
+  | Register.Kind.XMM -> !!ir (dst := getPseudoRegVar ctxt r 1)
+  | Register.Kind.MMX -> !!ir (dst := !.ctxt r)
   | _ -> Utils.impossible ()
 
-let private movqMemToReg ctxt src r builder =
+let private movqMemToReg ctxt src r ir =
   match Register.getKind r with
   | Register.Kind.XMM ->
-    builder <! (getPseudoRegVar ctxt r 1 := src)
-    builder <! (getPseudoRegVar ctxt r 2 := AST.num0 64<rt>)
-  | Register.Kind.MMX -> builder <! (getRegVar ctxt r := src)
+    !!ir (getPseudoRegVar ctxt r 1 := src)
+    !!ir (getPseudoRegVar ctxt r 2 := AST.num0 64<rt>)
+  | Register.Kind.MMX -> !!ir (!.ctxt r := src)
   | _ -> Utils.impossible ()
 
 let movq ins insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  let dst, src = getTwoOprs ins
-  startMark insAddr insLen builder
+  let ir = IRBuilder (4)
+  let struct (dst, src) = getTwoOprs ins
+  !<ir insAddr insLen
   match dst, src with
-  | OprReg r1, OprReg r2 -> movqRegToReg ctxt r1 r2 builder
+  | OprReg r1, OprReg r2 -> movqRegToReg ctxt r1 r2 ir
   | OprMem _, OprReg r -> let dst = transOprToExpr ins insAddr insLen ctxt dst
-                          movqRegToMem ctxt dst r builder
+                          movqRegToMem ctxt dst r ir
   | OprReg r, OprMem _ -> let src = transOprToExpr ins insAddr insLen ctxt src
-                          movqMemToReg ctxt src r builder
+                          movqMemToReg ctxt src r ir
   | _, _ -> raise InvalidOperandException
-  endMark insAddr insLen builder
+  !>ir insAddr insLen
 
 let private saturateSignedDwordToSignedWord expr =
   let checkMin = AST.slt expr (numI32 -32768 32<rt>)
@@ -168,26 +169,27 @@ let private saturateToUnsignedWord expr =
   let maxNum = numU32 0xffu 16<rt>
   AST.ite checkMin minNum (AST.ite checkMax maxNum expr)
 
-let private makeSrc builder packSize packNum src =
+let private makeSrc ir packSize packNum src =
   let tSrc = Array.init packNum (fun _ -> AST.tmpvar packSize)
   for i in 0 .. packNum - 1 do
-    builder <! (tSrc.[i] := AST.extract src packSize (i * (int packSize)))
+    !!ir (tSrc.[i] := AST.extract src packSize (i * (int packSize)))
   tSrc
 
 let private buildPackedInstrTwoOprs ins insAddr insLen ctxt packSz opFn bufSz dst src =
-  let builder = StmtBuilder (bufSz)
+  let ir = IRBuilder (bufSz)
   let oprSize = getOperationSize ins
   let packNum = oprSize / packSz
-  let makeSrc = makeSrc builder packSz
-  startMark insAddr insLen builder
+  let makeSrc = makeSrc ir packSz
+  !<ir insAddr insLen
   match oprSize with
   | 64<rt> ->
-    let dst, src = transTwoOprs ins insAddr insLen ctxt (dst, src)
+    let dst = transOprToExpr ins insAddr insLen ctxt dst
+    let src = transOprToExpr ins insAddr insLen ctxt src
     let src1 = makeSrc packNum dst
     let src2 = match src with
                | Load (_, rt, _, _, _) -> makeSrc (rt / packSz) src
                | _ -> makeSrc packNum src
-    builder <! (dst := opFn oprSize src1 src2 |> AST.concatArr)
+    !!ir (dst := opFn oprSize src1 src2 |> AST.concatArr)
   | 128<rt> ->
     let packNum = packNum / (oprSize / 64<rt>)
     let srcAppend src =
@@ -197,23 +199,25 @@ let private buildPackedInstrTwoOprs ins insAddr insLen ctxt packSz opFn bufSz ds
     let dst = transOprToExprVec ins insAddr insLen ctxt dst
     let packNum = Array.length tSrc / List.length dst
     let assign idx dst =
-      builder <! (dst := Array.sub tSrc (packNum * idx) packNum |> AST.concatArr)
+      !!ir (dst := Array.sub tSrc (packNum * idx) packNum |> AST.concatArr)
     List.iteri assign dst
   | _ -> raise InvalidOperandSizeException
-  endMark insAddr insLen builder
+  !>ir insAddr insLen
 
 let private buildPackedInstrThreeOprs ins iAddr iLen ctxt packSz opFn bufSz dst s1 s2 =
-  let builder = StmtBuilder (bufSz)
+  let ir = IRBuilder (bufSz)
   let oprSize = getOperationSize ins
   let packNum = oprSize / packSz
-  let makeSrc = makeSrc builder packSz
-  startMark iAddr iLen builder
+  let makeSrc = makeSrc ir packSz
+  !<ir iAddr iLen
   match oprSize with
   | 64<rt> ->
-    let dst, src1, src2 = transThreeOprs ins iAddr iLen ctxt (dst, s1, s2)
+    let dst = transOprToExpr ins iAddr iLen ctxt dst
+    let src1 = transOprToExpr ins iAddr iLen ctxt s1
+    let src2 = transOprToExpr ins iAddr iLen ctxt s2
     let src1 = makeSrc packNum src1
     let src2 = makeSrc packNum src2
-    builder <! (dst := opFn oprSize src1 src2 |> AST.concatArr)
+    !!ir (dst := opFn oprSize src1 src2 |> AST.concatArr)
   | 128<rt> | 256<rt> ->
     let packNum = packNum / (oprSize / 64<rt>)
     let dst = transOprToExprVec ins iAddr iLen ctxt dst
@@ -222,10 +226,10 @@ let private buildPackedInstrThreeOprs ins iAddr iLen ctxt packSz opFn bufSz dst 
       List.map (makeSrc packNum) src |> List.fold Array.append [||]
     let tSrc = opFn oprSize (srcAppend s1) (srcAppend s2)
     let assign idx dst =
-      builder <! (dst := Array.sub tSrc (packNum * idx) packNum |> AST.concatArr)
+      !!ir (dst := Array.sub tSrc (packNum * idx) packNum |> AST.concatArr)
     List.iteri assign dst
   | _ -> raise InvalidOperandSizeException
-  endMark iAddr iLen builder
+  !>ir iAddr iLen
 
 let buildPackedInstr ins insAddr insLen ctxt packSz opFn bufSz =
   match ins.Operands with
@@ -447,21 +451,21 @@ let por ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 64<rt> opPor 8
 
 let pxor ins insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  let dst, src = getTwoOprs ins
+  let ir = IRBuilder (4)
   let oprSize = getOperationSize ins
-  startMark insAddr insLen builder
+  !<ir insAddr insLen
   match oprSize with
   | 64<rt> ->
-    let dst, src = transTwoOprs ins insAddr insLen ctxt (dst, src)
-    builder <! (dst := dst <+> src)
+    let struct (dst, src) = transTwoOprs ins insAddr insLen ctxt
+    !!ir (dst := dst <+> src)
   | 128<rt> ->
+    let struct (dst, src) = getTwoOprs ins
     let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
     let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
-    builder <! (dstA := dstA <+> srcA)
-    builder <! (dstB := dstB <+> srcB)
+    !!ir (dstA := dstA <+> srcA)
+    !!ir (dstB := dstB <+> srcB)
   | _ -> raise InvalidOperandSizeException
-  endMark insAddr insLen builder
+  !>ir insAddr insLen
 
 let private opShiftPackedDataLogical oprSize packSz shift src1 src2 =
   let count = AST.concatArr src2 |> AST.zext oprSize
@@ -517,7 +521,7 @@ let psrad ins insAddr insLen ctxt =
   buildPackedInstr ins insAddr insLen ctxt 32<rt> opPsrad 16
 
 let emms _ins insAddr insLen ctxt =
-  let builder = StmtBuilder (4)
-  startMark insAddr insLen builder
-  builder <! (getRegVar ctxt R.FTW := maxNum 16<rt>)
-  endMark insAddr insLen builder
+  let ir = IRBuilder (4)
+  !<ir insAddr insLen
+  !!ir (!.ctxt R.FTW := maxNum 16<rt>)
+  !>ir insAddr insLen

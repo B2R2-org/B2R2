@@ -34,12 +34,12 @@ open B2R2.FrontEnd.BinLifter.MIPS
 let inline getRegVar (ctxt: TranslationContext) name =
   Register.toRegID name |> ctxt.GetRegVar
 
-let inline private (<!) (builder: StmtBuilder) (s) = builder.Append (s)
+let inline private (<!) (builder: IRBuilder) (s) = builder.Append (s)
 
-let startMark insInfo (builder: StmtBuilder) =
+let startMark insInfo (builder: IRBuilder) =
   builder <! (ISMark (insInfo.Address, insInfo.NumBytes))
 
-let endMark insInfo (builder: StmtBuilder) =
+let endMark insInfo (builder: IRBuilder) =
   builder <! (IEMark (uint64 insInfo.NumBytes + insInfo.Address)); builder
 
 let inline numU32 n t = BitVector.ofUInt32 n t |> AST.num
@@ -104,7 +104,7 @@ let transThreeOprs insInfo ctxt (o1, o2, o3) =
   transOprToExpr insInfo ctxt o3
 
 let sideEffects insInfo name =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   startMark insInfo builder
   builder <! (SideEffect name)
   endMark insInfo builder
@@ -119,7 +119,7 @@ let notWordValue v =
   (AST.xthi 32<rt> v) != AST.sext 32<rt> (AST.extract v 1<rt> 31)
 
 let add insInfo ctxt =
-  let builder = StmtBuilder (8)
+  let builder = IRBuilder (8)
   let lblL0 = AST.symbol "L0"
   let lblL1 = AST.symbol "L1"
   let lblEnd = AST.symbol "End"
@@ -138,7 +138,7 @@ let add insInfo ctxt =
   endMark insInfo builder
 
 let add64 insInfo ctxt =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   let lblL0 = AST.symbol "L0"
   let lblL1 = AST.symbol "L1"
   let lblL2 = AST.symbol "L2"
@@ -165,7 +165,7 @@ let add64 insInfo ctxt =
   endMark insInfo builder
 
 let addiu insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let result = AST.tmpvar 32<rt>
   startMark insInfo builder
@@ -174,7 +174,7 @@ let addiu insInfo ctxt =
   endMark insInfo builder
 
 let addiu64 insInfo ctxt =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   let lblL0 = AST.symbol "L0"
   let lblL1 = AST.symbol "L1"
   let lblEnd = AST.symbol "End"
@@ -193,14 +193,14 @@ let addiu64 insInfo ctxt =
   endMark insInfo builder
 
 let addu insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := rs .+ rt)
   endMark insInfo builder
 
 let addu64 insInfo ctxt =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   let lblL0 = AST.symbol "L0"
   let lblL1 = AST.symbol "L1"
   let lblEnd = AST.symbol "End"
@@ -219,21 +219,21 @@ let addu64 insInfo ctxt =
   endMark insInfo builder
 
 let logAnd insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := rs .& rt)
   endMark insInfo builder
 
 let andi insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rt := rs .& imm)
   endMark insInfo builder
 
 let aui insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let imm = imm << numI32 16 ctxt.WordBitSize
   startMark insInfo builder
@@ -241,7 +241,7 @@ let aui insInfo ctxt =
   endMark insInfo builder
 
 let b insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let offset = getOneOpr insInfo |> transOneOpr insInfo ctxt
   let pc = getRegVar ctxt R.PC
   startMark insInfo builder
@@ -249,7 +249,7 @@ let b insInfo ctxt =
   endMark insInfo builder
 
 let bal insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let offset = getOneOpr insInfo |> transOneOpr insInfo ctxt
   let pc = getRegVar ctxt R.PC
   startMark insInfo builder
@@ -258,7 +258,7 @@ let bal insInfo ctxt =
   endMark insInfo builder
 
 let beq insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rs, rt, offset = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let pc = getRegVar ctxt R.PC
   let cond = rs == rt
@@ -269,7 +269,7 @@ let beq insInfo ctxt =
   endMark insInfo builder
 
 let blez insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rs, offset = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let pc = getRegVar ctxt R.PC
   let cond = AST.le rs (AST.num0 ctxt.WordBitSize)
@@ -280,7 +280,7 @@ let blez insInfo ctxt =
   endMark insInfo builder
 
 let bltz insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rs, offset = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let pc = getRegVar ctxt R.PC
   let cond = AST.lt rs (AST.num0 ctxt.WordBitSize)
@@ -291,7 +291,7 @@ let bltz insInfo ctxt =
   endMark insInfo builder
 
 let bgez insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rs, offset = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let pc = getRegVar ctxt R.PC
   let cond = AST.ge rs (AST.num0 ctxt.WordBitSize)
@@ -302,7 +302,7 @@ let bgez insInfo ctxt =
   endMark insInfo builder
 
 let bgtz insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rs, offset = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let pc = getRegVar ctxt R.PC
   let cond = AST.gt rs (AST.num0 ctxt.WordBitSize)
@@ -313,7 +313,7 @@ let bgtz insInfo ctxt =
   endMark insInfo builder
 
 let bne insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rs, rt, offset = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let pc = getRegVar ctxt R.PC
   let cond = rs != rt
@@ -324,7 +324,7 @@ let bne insInfo ctxt =
   endMark insInfo builder
 
 let clz insInfo (ctxt: TranslationContext) =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   let lblLoop = AST.symbol "Loop"
   let lblContinue = AST.symbol "Continue"
   let lblUpdate = AST.symbol "update"
@@ -347,7 +347,7 @@ let clz insInfo (ctxt: TranslationContext) =
   endMark insInfo builder
 
 let daddiu insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let result = AST.tmpvar 64<rt>
   startMark insInfo builder
@@ -356,7 +356,7 @@ let daddiu insInfo ctxt =
   endMark insInfo builder
 
 let dclz insInfo (ctxt: TranslationContext) =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   let lblLoop = AST.symbol "Loop"
   let lblContinue = AST.symbol "Continue"
   let lblUpdate = AST.symbol "update"
@@ -379,7 +379,7 @@ let dclz insInfo (ctxt: TranslationContext) =
   endMark insInfo builder
 
 let ddivu insInfo ctxt =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   startMark insInfo builder
   let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let q = AST.tmpvar 128<rt>
@@ -402,7 +402,7 @@ let checkDEXTPosSize pos size =
   else  raise InvalidOperandException
 
 let dext insInfo ctxt =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   startMark insInfo builder
   let rt, rs, pos, size = getFourOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
@@ -431,7 +431,7 @@ let checkDEXTUPosSize pos size =
   else  raise InvalidOperandException
 
 let dextx insInfo posSizeCheckFn ctxt =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   startMark insInfo builder
   let rt, rs, pos, size = getFourOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
@@ -455,7 +455,7 @@ let checkINSorExtPosSize pos size =
   else raise InvalidOperandException
 
 let dins insInfo ctxt =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   startMark insInfo builder
   let rt, rs, pos, size = getFourOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
@@ -489,7 +489,7 @@ let checkDINSUPosSize pos size =
   else raise InvalidOperandException
 
 let dinsx insInfo posSizeCheckFn ctxt =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   startMark insInfo builder
   let rt, rs, pos, size = getFourOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
@@ -509,7 +509,7 @@ let dinsx insInfo posSizeCheckFn ctxt =
   endMark insInfo builder
 
 let divu insInfo ctxt =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   startMark insInfo builder
   let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let q = AST.tmpvar 64<rt>
@@ -544,7 +544,7 @@ let divu insInfo ctxt =
   endMark insInfo builder
 
 let dmult insInfo ctxt =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   startMark insInfo builder
   let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let result = AST.tmpvar 128<rt>
@@ -556,7 +556,7 @@ let dmult insInfo ctxt =
   endMark insInfo builder
 
 let dmultu insInfo ctxt =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   startMark insInfo builder
   let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let result = AST.tmpvar 128<rt>
@@ -568,7 +568,7 @@ let dmultu insInfo ctxt =
   endMark insInfo builder
 
 let drotr insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let size = numI32 64 64<rt>
   startMark insInfo builder
@@ -576,7 +576,7 @@ let drotr insInfo ctxt =
   endMark insInfo builder
 
 let dsll insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   if sa = AST.num0 ctxt.WordBitSize then builder <! (rd := rt)
@@ -584,7 +584,7 @@ let dsll insInfo ctxt =
   endMark insInfo builder
 
 let dsll32 insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let sa = sa .+ numI32 32 64<rt>
   startMark insInfo builder
@@ -592,14 +592,14 @@ let dsll32 insInfo ctxt =
   endMark insInfo builder
 
 let dsllv insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rd, rt, rs = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := rt << (rs .& numI32 63 64<rt>))
   endMark insInfo builder
 
 let dsra insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   if sa = AST.num0 ctxt.WordBitSize then builder <! (rd := rt)
@@ -607,7 +607,7 @@ let dsra insInfo ctxt =
   endMark insInfo builder
 
 let dsra32 insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let sa = sa .+ numI32 32 64<rt>
   startMark insInfo builder
@@ -615,7 +615,7 @@ let dsra32 insInfo ctxt =
   endMark insInfo builder
 
 let dsrl insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   if sa = AST.num0 ctxt.WordBitSize then builder <! (rd := rt)
@@ -623,7 +623,7 @@ let dsrl insInfo ctxt =
   endMark insInfo builder
 
 let dsrl32 insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let sa = sa .+ numI32 32 64<rt>
   startMark insInfo builder
@@ -631,14 +631,14 @@ let dsrl32 insInfo ctxt =
   endMark insInfo builder
 
 let dsrlv insInfo ctxt =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   let rd, rt, rs = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := rt >> (rs .& numI32 63 64<rt>))
   endMark insInfo builder
 
 let ins insInfo ctxt =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   startMark insInfo builder
   let rt, rs, pos, size = getFourOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
@@ -658,7 +658,7 @@ let ins insInfo ctxt =
   endMark insInfo builder
 
 let ins64 insInfo ctxt =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   startMark insInfo builder
   let rt, rs, pos, size = getFourOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
@@ -692,7 +692,7 @@ let getJALROprs insInfo ctxt =
   | _ -> raise InvalidOperandException
 
 let jalr insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rd, rs = getJALROprs insInfo ctxt
   let pc = getRegVar ctxt R.PC
   let r = bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
@@ -702,7 +702,7 @@ let jalr insInfo ctxt =
   endMark insInfo builder
 
 let jr insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rs = getOneOpr insInfo |> transOneOpr insInfo ctxt
   let pc = getRegVar ctxt R.PC
   startMark insInfo builder
@@ -710,21 +710,21 @@ let jr insInfo ctxt =
   endMark insInfo builder
 
 let load insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rt := AST.sext ctxt.WordBitSize mem)
   endMark insInfo builder
 
 let loadu insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rt := AST.zext ctxt.WordBitSize mem)
   endMark insInfo builder
 
 let ext insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   startMark insInfo builder
   let rt, rs, pos, size = getFourOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
@@ -739,7 +739,7 @@ let ext insInfo ctxt =
   endMark insInfo builder
 
 let ext64 insInfo ctxt =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   startMark insInfo builder
   let rt, rs, pos, size = getFourOprs insInfo
   let rt = transOprToExpr insInfo ctxt rt
@@ -764,7 +764,7 @@ let ext64 insInfo ctxt =
   endMark insInfo builder
 
 let lui insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rt, imm = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
   if ctxt.WordBitSize = 64<rt> then
@@ -774,7 +774,7 @@ let lui insInfo ctxt =
   endMark insInfo builder
 
 let madd insInfo ctxt =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   startMark insInfo builder
   let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let result = AST.tmpvar 64<rt>
@@ -803,21 +803,21 @@ let madd insInfo ctxt =
   endMark insInfo builder
 
 let mfhi insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rd = getOneOpr insInfo |> transOneOpr insInfo ctxt
   startMark insInfo builder
   builder <! (rd := getRegVar ctxt R.HI)
   endMark insInfo builder
 
 let mflo insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rd = getOneOpr insInfo |> transOneOpr insInfo ctxt
   startMark insInfo builder
   builder <! (rd := getRegVar ctxt R.LO)
   endMark insInfo builder
 
 let movz insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = rt == AST.num0 ctxt.WordBitSize
   startMark insInfo builder
@@ -825,7 +825,7 @@ let movz insInfo ctxt =
   endMark insInfo builder
 
 let movn insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = rt != AST.num0 ctxt.WordBitSize
   startMark insInfo builder
@@ -833,7 +833,7 @@ let movn insInfo ctxt =
   endMark insInfo builder
 
 let mul insInfo ctxt =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   startMark insInfo builder
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let result = AST.tmpvar 64<rt>
@@ -860,7 +860,7 @@ let mul insInfo ctxt =
   endMark insInfo builder
 
 let mult insInfo ctxt =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   startMark insInfo builder
   let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let result = AST.tmpvar 64<rt>
@@ -888,7 +888,7 @@ let mult insInfo ctxt =
   endMark insInfo builder
 
 let multu insInfo ctxt =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   startMark insInfo builder
   let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   let result = AST.tmpvar 64<rt>
@@ -916,33 +916,33 @@ let multu insInfo ctxt =
   endMark insInfo builder
 
 let nop insInfo =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   startMark insInfo builder
   endMark insInfo builder
 
 let nor insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := AST.not (rs .| rt))
   endMark insInfo builder
 
 let logOr insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := rs .| rt)
   endMark insInfo builder
 
 let ori insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rt := rs .| imm)
   endMark insInfo builder
 
 let rotr insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rd, rt, sa = getThreeOprs insInfo
   let rd, rt = transTwoOprs insInfo ctxt (rd, rt)
   let sa = numI32 (int32 (transOprToImm sa)) 32<rt>
@@ -957,21 +957,21 @@ let rotr insInfo ctxt =
   endMark insInfo builder
 
 let sb insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
   builder <! (mem := AST.xtlo 8<rt> rt)
   endMark insInfo builder
 
 let sd insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
   builder <! (mem := AST.xtlo 64<rt> rt)
   endMark insInfo builder
 
 let sdl insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rt, mem = getTwoOprs insInfo
   let baseOffset = transOprToBaseOffset ctxt mem
   let rt, mem = transTwoOprs insInfo ctxt (rt, mem)
@@ -988,7 +988,7 @@ let sdl insInfo ctxt =
   endMark insInfo builder
 
 let sdr insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rt, mem = getTwoOprs insInfo
   let baseOffset = transOprToBaseOffset ctxt mem
   let rt, mem = transTwoOprs insInfo ctxt (rt, mem)
@@ -1005,21 +1005,21 @@ let sdr insInfo ctxt =
   endMark insInfo builder
 
 let sh insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
   builder <! (mem := AST.xtlo 16<rt> rt)
   endMark insInfo builder
 
 let sw insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rt, mem = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
   builder <! (mem := AST.xtlo 32<rt> rt)
   endMark insInfo builder
 
 let swl insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rt, mem = getTwoOprs insInfo
   let baseOffset = transOprToBaseOffset ctxt mem
   let rt, mem = transTwoOprs insInfo ctxt (rt, mem)
@@ -1039,7 +1039,7 @@ let swl insInfo ctxt =
   endMark insInfo builder
 
 let swr insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rt, mem = getTwoOprs insInfo
   let baseOffset = transOprToBaseOffset ctxt mem
   let rt, mem = transTwoOprs insInfo ctxt (rt, mem)
@@ -1059,7 +1059,7 @@ let swr insInfo ctxt =
   endMark insInfo builder
 
 let seb insInfo ctxt =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   let rd, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
   if ctxt.WordBitSize = 64<rt> then
@@ -1079,7 +1079,7 @@ let seb insInfo ctxt =
   endMark insInfo builder
 
 let seh insInfo ctxt =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   let rd, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
   if ctxt.WordBitSize = 64<rt> then
@@ -1099,7 +1099,7 @@ let seh insInfo ctxt =
   endMark insInfo builder
 
 let sll insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rd, rt, sa = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   if ctxt.WordBitSize = 64<rt> then
@@ -1110,7 +1110,7 @@ let sll insInfo ctxt =
   endMark insInfo builder
 
 let sllv insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rd, rt, rs = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let mask = numI32 31 32<rt>
   startMark insInfo builder
@@ -1122,7 +1122,7 @@ let sllv insInfo ctxt =
   endMark insInfo builder
 
 let slt insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = AST.lt rs rt
   let rtVal = AST.ite cond (AST.num1 ctxt.WordBitSize) (AST.num0 ctxt.WordBitSize)
@@ -1131,7 +1131,7 @@ let slt insInfo ctxt =
   endMark insInfo builder
 
 let slti insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = AST.lt rs imm
   let rtVal = AST.ite cond (AST.num1 ctxt.WordBitSize) (AST.num0 ctxt.WordBitSize)
@@ -1140,7 +1140,7 @@ let slti insInfo ctxt =
   endMark insInfo builder
 
 let sltiu insInfo (ctxt: TranslationContext) =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let wordSz = ctxt.WordBitSize
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = AST.lt (AST.zext (wordSz * 2) rs) (AST.zext (wordSz * 2) imm)
@@ -1150,7 +1150,7 @@ let sltiu insInfo (ctxt: TranslationContext) =
   endMark insInfo builder
 
 let sltu insInfo (ctxt: TranslationContext) =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let wordSz = ctxt.WordBitSize
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = AST.lt (AST.zext (wordSz * 2) rs) (AST.zext (wordSz * 2) rt)
@@ -1160,7 +1160,7 @@ let sltu insInfo (ctxt: TranslationContext) =
   endMark insInfo builder
 
 let sra insInfo ctxt =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   let rd, rt, sa = getThreeOprs insInfo
   let rd, rt = transTwoOprs insInfo ctxt (rd, rt)
   let sa = numI32 (int32 (transOprToImm sa)) 32<rt>
@@ -1184,7 +1184,7 @@ let sra insInfo ctxt =
   endMark insInfo builder
 
 let srl insInfo ctxt =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   let rd, rt, sa = getThreeOprs insInfo
   let rd, rt = transTwoOprs insInfo ctxt (rd, rt)
   let sa = numI32 (int32 (transOprToImm sa)) 32<rt>
@@ -1208,7 +1208,7 @@ let srl insInfo ctxt =
   endMark insInfo builder
 
 let srlv insInfo ctxt =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   let rd, rt, rs = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let mask = numI32 31 32<rt>
   startMark insInfo builder
@@ -1231,14 +1231,14 @@ let srlv insInfo ctxt =
   endMark insInfo builder
 
 let subu insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := rs .- rt)
   endMark insInfo builder
 
 let subu64 insInfo ctxt =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   let lblL0 = AST.symbol "L0"
   let lblL1 = AST.symbol "L1"
   let lblEnd = AST.symbol "End"
@@ -1255,7 +1255,7 @@ let subu64 insInfo ctxt =
   endMark insInfo builder
 
 let teq insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let lblL0 = AST.symbol "L0"
   let lblEnd = AST.symbol "End"
   let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
@@ -1267,14 +1267,14 @@ let teq insInfo ctxt =
   endMark insInfo builder
 
 let logXor insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rd := rs <+> rt)
   endMark insInfo builder
 
 let xori insInfo ctxt =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let rt, rs, imm = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   startMark insInfo builder
   builder <! (rt := rs <+> imm)

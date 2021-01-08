@@ -10,7 +10,7 @@
 
   <ItemGroup>
     <Compile Include="Exceptions.fs" />
-    <Compile Include="StmtBuilder.fs" />
+    <Compile Include="IRBuilder.fs" />
     <Compile Include="ParsingContext.fs" />
     <Compile Include="TranslationContext.fs" />
     <Compile Include="AsmWord.fs" />
@@ -19,6 +19,7 @@
     <Compile Include="Instruction.fs" />
     <Compile Include="Parser.fs" />
     <Compile Include="ParseUtils.fs" />
+    <Compile Include="LiftingOperators.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath=""/>
     <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
   </ItemGroup>

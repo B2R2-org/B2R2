@@ -29,13 +29,16 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinLifter.LiftingOperators
 open B2R2.FrontEnd.BinLifter.Intel.Helper
+
+open type BinOpType
+
+let inline ( !. ) (ctxt: TranslationContext) name =
+  Register.toRegID name |> ctxt.GetRegVar
 
 let inline getPseudoRegVar (ctxt: TranslationContext) name pos =
   ctxt.GetPseudoRegVar (Register.toRegID name) pos
-
-let inline getRegVar (ctxt: TranslationContext) name =
-  Register.toRegID name |> ctxt.GetRegVar
 
 let inline numU32 n t = BitVector.ofUInt32 n t |> AST.num
 
@@ -59,96 +62,32 @@ let inline is64bit (ctxt: TranslationContext) = ctxt.WordBitSize = 64<rt>
 let is64REXW ctxt (ins: InsInfo) =
   is64bit ctxt && hasREXW ins.REXPrefix
 
+#if DEBUG
+let assert32 ctxt =
+  if is64bit ctxt then raise InvalidISAException else ()
+#endif
+
 let inline tmpVars2 t =
-  AST.tmpvar t, AST.tmpvar t
+  struct (AST.tmpvar t, AST.tmpvar t)
 
 let inline tmpVars3 t =
-  AST.tmpvar t, AST.tmpvar t, AST.tmpvar t
+  struct (AST.tmpvar t, AST.tmpvar t, AST.tmpvar t)
 
 let inline tmpVars4 t =
-  AST.tmpvar t, AST.tmpvar t, AST.tmpvar t, AST.tmpvar t
+  struct (AST.tmpvar t, AST.tmpvar t, AST.tmpvar t, AST.tmpvar t)
 
 let inline getOperationSize (i: InsInfo) = i.InsSize.OperationSize
+
 let inline getEffAddrSz (i: InsInfo) = i.InsSize.MemEffAddrSize
 
-let inline (<!) (builder: StmtBuilder) (s) = builder.Append (s)
-
-let inline ( |>> ) (b: StmtBuilder) (s) = b.Append (s); b
-
-let undefCF = AST.undef 1<rt> "CF is undefined."
-let undefOF = AST.undef 1<rt> "OF is undefined."
-let undefAF = AST.undef 1<rt> "AF is undefined."
-let undefSF = AST.undef 1<rt> "SF is undefined."
-let undefZF = AST.undef 1<rt> "ZF is undefined."
-let undefPF = AST.undef 1<rt> "PF is undefined."
-let undefC0 = AST.undef 1<rt> "C0 is undefined."
-let undefC1 = AST.undef 1<rt> "C1 is undefined."
-let undefC2 = AST.undef 1<rt> "C2 is undefined."
-let undefC3 = AST.undef 1<rt> "C3 is undefined."
-
-let buildAF ctxt e1 e2 r size =
-  let t1 = r <+> e1
-  let t2 = t1 <+> e2
-  let t3 = AST.binop BinOpType.SHL (AST.num1 size) (numU32 4ul size)
-  let t4 = t2 .& t3
-  getRegVar ctxt R.AF := t4 == t3
-
-let buildPF ctxt r size cond builder =
-  let t1, t2 = tmpVars2 size
-  let s2 = r <+> (AST.binop BinOpType.SHR r (AST.zext size (numU32 4ul 8<rt>)))
-  let s4 = s2 <+> (AST.binop BinOpType.SHR t1 (AST.zext size (numU32 2ul 8<rt>)))
-  let s5 = s4 <+> (AST.binop BinOpType.SHR t2 (AST.zext size (AST.num1 8<rt>)))
-  builder <! (t1 := s2)
-  builder <! (t2 := s4)
-  let pf = AST.unop UnOpType.NOT (AST.xtlo 1<rt> s5)
-  match cond with
-  | None -> builder <! (getRegVar ctxt R.PF := pf)
-  | Some condFn -> builder <! (getRegVar ctxt R.PF := condFn pf)
-
-let enumSZPFlags ctxt r size builder =
-  builder <! (getRegVar ctxt R.SF := AST.xthi 1<rt> r)
-  builder <! (getRegVar ctxt R.ZF := r == (AST.num0 size))
-  buildPF ctxt r size None builder
-
-let enumASZPFlags ctxt e1 e2 r size builder =
-  builder <! (buildAF ctxt e1 e2 r size)
-  enumSZPFlags ctxt r size builder
-
-let enumEFLAGS ctxt e1 e2 e3 size cfGetter ofGetter builder =
-  builder <! (getRegVar ctxt R.CF := cfGetter e1 e2 e3)
-  builder <! (getRegVar ctxt R.OF := ofGetter e1 e2 e3)
-  builder <! (buildAF ctxt e1 e2 e3 size)
-  builder <! (getRegVar ctxt R.SF := AST.xthi 1<rt> e3)
-  builder <! (getRegVar ctxt R.ZF := e3 == (AST.num0 size))
-  buildPF ctxt e3 size None builder
-
-let allEFLAGSUndefined ctxt builder =
-  builder <! (getRegVar ctxt R.CF := undefCF)
-  builder <! (getRegVar ctxt R.OF := undefOF)
-  builder <! (getRegVar ctxt R.AF := undefAF)
-  builder <! (getRegVar ctxt R.SF := undefSF)
-  builder <! (getRegVar ctxt R.ZF := undefZF)
-  builder <! (getRegVar ctxt R.PF := undefPF)
-
-let allCFlagsUndefined ctxt builder =
-  builder <! (getRegVar ctxt R.FSWC0 := undefC0)
-  builder <! (getRegVar ctxt R.FSWC1 := undefC1)
-  builder <! (getRegVar ctxt R.FSWC2 := undefC2)
-  builder <! (getRegVar ctxt R.FSWC3 := undefC3)
-
-let cflagsUndefined023 ctxt builder =
-  builder <! (getRegVar ctxt R.FSWC0 := undefC0)
-  builder <! (getRegVar ctxt R.FSWC2 := undefC2)
-  builder <! (getRegVar ctxt R.FSWC3 := undefC3)
-
-let getMemExpr128 expr =
+let private getMemExpr128 expr =
   match expr with
   | Load (e, 128<rt>, expr, _, _) ->
     AST.load e 64<rt> (expr .+ numI32 8 (AST.typeOf expr)),
     AST.load e 64<rt> expr
   | _ -> raise InvalidOperandException
 
-let getMemExpr256 expr =
+let private getMemExpr256 expr =
   match expr with
   | Load (e, 256<rt>, expr, _, _) ->
     AST.load e 64<rt> (expr .+ numI32 24 (AST.typeOf expr)),
@@ -157,7 +96,7 @@ let getMemExpr256 expr =
     AST.load e 64<rt> expr
   | _ -> raise InvalidOperandException
 
-let getMemExpr512 expr =
+let private getMemExpr512 expr =
   match expr with
   | Load (e, 512<rt>, expr, _, _) ->
     AST.load e 64<rt> (expr .+ numI32 56 (AST.typeOf expr)),
@@ -170,25 +109,25 @@ let getMemExpr512 expr =
     AST.load e 64<rt> expr
   | _ -> raise InvalidOperandException
 
-let getMemExprs expr =
+let private getMemExprs expr =
   match expr with
   | Load (e, 128<rt>, expr, _, _) ->
-    [ AST.load e 64<rt> expr;
+    [ AST.load e 64<rt> expr
       AST.load e 64<rt> (expr .+ numI32 8 (AST.typeOf expr)) ]
   | Load (e, 256<rt>, expr, _, _) ->
     [ AST.load e 64<rt> expr
-      AST.load e 64<rt> (expr .+ numI32 8 (AST.typeOf expr));
-      AST.load e 64<rt> (expr .+ numI32 16 (AST.typeOf expr));
-      AST.load e 64<rt> (expr .+ numI32 24 (AST.typeOf expr)); ]
+      AST.load e 64<rt> (expr .+ numI32 8 (AST.typeOf expr))
+      AST.load e 64<rt> (expr .+ numI32 16 (AST.typeOf expr))
+      AST.load e 64<rt> (expr .+ numI32 24 (AST.typeOf expr)) ]
   | Load (e, 512<rt>, expr, _, _) ->
     [ AST.load e 64<rt> expr
-      AST.load e 64<rt> (expr .+ numI32 8 (AST.typeOf expr));
-      AST.load e 64<rt> (expr .+ numI32 16 (AST.typeOf expr));
-      AST.load e 64<rt> (expr .+ numI32 24 (AST.typeOf expr));
-      AST.load e 64<rt> (expr .+ numI32 32 (AST.typeOf expr));
-      AST.load e 64<rt> (expr .+ numI32 40 (AST.typeOf expr));
-      AST.load e 64<rt> (expr .+ numI32 48 (AST.typeOf expr));
-      AST.load e 64<rt> (expr .+ numI32 56 (AST.typeOf expr)); ]
+      AST.load e 64<rt> (expr .+ numI32 8 (AST.typeOf expr))
+      AST.load e 64<rt> (expr .+ numI32 16 (AST.typeOf expr))
+      AST.load e 64<rt> (expr .+ numI32 24 (AST.typeOf expr))
+      AST.load e 64<rt> (expr .+ numI32 32 (AST.typeOf expr))
+      AST.load e 64<rt> (expr .+ numI32 40 (AST.typeOf expr))
+      AST.load e 64<rt> (expr .+ numI32 48 (AST.typeOf expr))
+      AST.load e 64<rt> (expr .+ numI32 56 (AST.typeOf expr)) ]
   | _ -> raise InvalidOperandException
 
 let getPseudoRegVar128 ctxt r =
@@ -204,7 +143,7 @@ let getPseudoRegVar512 ctxt r =
   getPseudoRegVar ctxt r 4, getPseudoRegVar ctxt r 3,
   getPseudoRegVar ctxt r 2, getPseudoRegVar ctxt r 1
 
-let getPseudoRegVars ctxt r =
+let private getPseudoRegVars ctxt r =
   match Register.getKind r with
   | Register.Kind.XMM -> [ getPseudoRegVar ctxt r 1; getPseudoRegVar ctxt r 2 ]
   | Register.Kind.YMM -> [ getPseudoRegVar ctxt r 1; getPseudoRegVar ctxt r 2
@@ -215,6 +154,15 @@ let getPseudoRegVars ctxt r =
                            getPseudoRegVar ctxt r 7; getPseudoRegVar ctxt r 8 ]
   | _ -> raise InvalidOperandException
 
+let isSegReg = function
+  | Register.CS
+  | Register.DS
+  | Register.SS
+  | Register.ES
+  | Register.FS
+  | Register.GS -> true
+  | _ -> false
+
 let private segRegToBase = function
   | R.CS -> R.CSBase
   | R.DS -> R.DSBase
@@ -224,13 +172,13 @@ let private segRegToBase = function
   | R.SS -> R.SSBase
   | _ -> Utils.impossible ()
 
-let inline private ldMem ins ctxt oprSize e =
+let private ldMem ins ctxt oprSize e =
   match getSegment ins.Prefixes with
-  | Some s -> getRegVar ctxt (segRegToBase s) .+ e
+  | Some s -> !.ctxt (segRegToBase s) .+ e
   | None -> e
   |> AST.loadLE oprSize
 
-let inline private numOfAddrSz (ins: InsInfo) (ctxt: TranslationContext) n =
+let private numOfAddrSz (ins: InsInfo) (ctxt: TranslationContext) n =
   let pref = ins.Prefixes
   let sz =
     if ctxt.WordBitSize = 32<rt> then if hasAddrSz pref then 16<rt> else 32<rt>
@@ -238,10 +186,10 @@ let inline private numOfAddrSz (ins: InsInfo) (ctxt: TranslationContext) n =
   numI64 n sz
 
 let inline private sIdx ins ctxt (r, s) =
-  (getRegVar ctxt r) .* (numOfAddrSz ins ctxt (int64 s))
+  (!.ctxt r) .* (numOfAddrSz ins ctxt (int64 s))
 
-let transMem ins insAddr (insLen: uint32) ctxt b index (disp: Disp option) oprSize =
-  match b, index, disp with
+let private transMem ins insAddr insLen ctxt b index disp oprSize =
+  match b, index, (disp: Disp option) with
   | None, None, Some d ->
     numOfAddrSz ins ctxt d
     |> AST.zext ctxt.WordBitSize
@@ -251,53 +199,37 @@ let transMem ins insAddr (insLen: uint32) ctxt b index (disp: Disp option) oprSi
     |> AST.zext ctxt.WordBitSize
     |> ldMem ins ctxt oprSize
   | Some b, None, None ->
-    getRegVar ctxt b
+    !.ctxt b
     |> AST.zext ctxt.WordBitSize
     |> ldMem ins ctxt oprSize
   | Some R.RIP, None, Some d -> (* RIP-relative addressing *)
-    int64 insAddr + d + int64 insLen
+    int64 insAddr + d + int64 (insLen: uint32)
     |> numOfAddrSz ins ctxt
     |> ldMem ins ctxt oprSize
   | Some b, None, Some d ->
-    getRegVar ctxt b .+ (numOfAddrSz ins ctxt d)
+    !.ctxt b .+ (numOfAddrSz ins ctxt d)
     |> AST.zext ctxt.WordBitSize
     |> ldMem ins ctxt oprSize
   | Some b, Some i, None ->
-    getRegVar ctxt b .+ (sIdx ins ctxt i)
+    !.ctxt b .+ (sIdx ins ctxt i)
     |> AST.zext ctxt.WordBitSize
     |> ldMem ins ctxt oprSize
   | Some b, Some i, Some d ->
-    getRegVar ctxt b .+ (sIdx ins ctxt i) .+ (numOfAddrSz ins ctxt d)
+    !.ctxt b .+ (sIdx ins ctxt i) .+ (numOfAddrSz ins ctxt d)
     |> AST.zext ctxt.WordBitSize
     |> ldMem ins ctxt oprSize
   | _, _, _ -> raise InvalidOperandException
 
-let transDirAddr wordSize (addr: Addr) = function
-  | Absolute (_, addr, _) -> numU64 addr wordSize
-  | Relative (offset) ->
-    let offset = numI64 offset wordSize |> AST.sext wordSize
-    let addr = numU64 addr wordSize
-    offset .+ addr
-
-let getCFlagOnAdd e1 _ r = AST.lt r e1
-let getCFlagOnSub e1 e2 _ = AST.lt e1 e2
-
-let getOFlagOnAdd e1 e2 r =
-  let e1High = AST.xthi 1<rt> e1
-  let e2High = AST.xthi 1<rt> e2
-  let rHigh = AST.xthi 1<rt> r
-  (e1High == e2High) .& (e1High <+> rHigh)
-
-let getOFlagOnSub e1 e2 r =
-  AST.xthi 1<rt> (AST.binop BinOpType.AND (e1 <+> e2) (e1 <+> r))
-
 let transOprToExpr ins insAddr insLen ctxt = function
-  | OprReg reg -> getRegVar ctxt reg
+  | OprReg reg -> !.ctxt reg
   | OprMem (b, index, disp, oprSize) ->
     transMem ins insAddr insLen ctxt b index disp oprSize
   | OprImm imm -> numI64 imm (getOperationSize ins)
-  | OprDirAddr jumpTarget ->
-    transDirAddr ctxt.WordBitSize insAddr jumpTarget
+  | OprDirAddr (Absolute (_, addr, _)) -> numU64 addr ctxt.WordBitSize
+  | OprDirAddr (Relative offset) ->
+    let wordSize = ctxt.WordBitSize
+    let offset = numI64 offset wordSize |> AST.sext wordSize
+    offset .+ (numU64 insAddr wordSize)
   | _ -> Utils.impossible ()
 
 let transOprToExprVec ins insAddr insLen ctxt opr =
@@ -312,7 +244,7 @@ let transOprToExpr32 ins insAddr insLen ctxt opr =
   match opr with
   | OprReg r when Register.toRegType r > 64<rt> ->
     getPseudoRegVar ctxt r 1 |> AST.xtlo 32<rt>
-  | OprReg r -> getRegVar ctxt r
+  | OprReg r -> !.ctxt r
   | OprMem (b, index, disp, 32<rt>) ->
     transMem ins insAddr insLen ctxt b index disp 32<rt>
   | _ -> raise InvalidOperandException
@@ -320,7 +252,7 @@ let transOprToExpr32 ins insAddr insLen ctxt opr =
 let transOprToExpr64 ins insAddr insLen ctxt opr =
   match opr with
   | OprReg r when Register.toRegType r > 64<rt> -> getPseudoRegVar ctxt r 1
-  | OprReg r -> getRegVar ctxt r
+  | OprReg r -> !.ctxt r
   | OprMem (b, index, disp, 64<rt>) ->
     transMem ins insAddr insLen ctxt b index disp 64<rt>
   | _ -> raise InvalidOperandException
@@ -348,9 +280,9 @@ let transOprToExpr512 ins insAddr insLen ctxt opr =
 
 let transOprToFloat80 ins insAddr insLen ctxt opr =
   match opr with
-  | OprReg r when Register.toRegType r = 80<rt> -> getRegVar ctxt r
+  | OprReg r when Register.toRegType r = 80<rt> -> !.ctxt r
   | OprReg r ->
-    getRegVar ctxt r |> AST.cast CastKind.FloatExt 80<rt>
+    !.ctxt r |> AST.cast CastKind.FloatExt 80<rt>
   | OprMem (b, index, disp, 80<rt>) ->
     transMem ins insAddr insLen ctxt b index disp 80<rt>
   | OprMem (b, index, disp, len) ->
@@ -358,37 +290,40 @@ let transOprToFloat80 ins insAddr insLen ctxt opr =
     |> AST.cast CastKind.FloatExt 80<rt>
   | _ -> raise InvalidOperandException
 
-let getOneOpr (ins: InsInfo) =
+let getTwoOprs ins =
   match ins.Operands with
-  | OneOperand opr -> opr
-  | _ -> raise InvalidOperandException
-
-let getTwoOprs (ins: InsInfo) =
-  match ins.Operands with
-  | TwoOperands (o1, o2) -> o1, o2
+  | TwoOperands (o1, o2) -> struct (o1, o2)
   | _ -> raise InvalidOperandException
 
 let getThreeOprs (ins: InsInfo) =
   match ins.Operands with
-  | ThreeOperands (o1, o2, o3) -> o1, o2, o3
+  | ThreeOperands (o1, o2, o3) -> struct (o1, o2, o3)
   | _ -> raise InvalidOperandException
 
 let getFourOprs (ins: InsInfo) =
   match ins.Operands with
-  | FourOperands (o1, o2, o3, o4) -> o1, o2, o3, o4
+  | FourOperands (o1, o2, o3, o4) -> struct (o1, o2, o3, o4)
   | _ -> raise InvalidOperandException
 
-let transOneOpr ins insAddr insLen ctxt opr =
-  transOprToExpr ins insAddr insLen ctxt opr
+let transOneOpr ins insAddr insLen ctxt =
+  match ins.Operands with
+  | OneOperand opr -> transOprToExpr ins insAddr insLen ctxt opr
+  | _ -> raise InvalidOperandException
 
-let transTwoOprs ins insAddr insLen ctxt (o1, o2) =
-  transOprToExpr ins insAddr insLen ctxt o1,
-  transOprToExpr ins insAddr insLen ctxt o2
+let transTwoOprs ins insAddr insLen ctxt =
+  match ins.Operands with
+  | TwoOperands (o1, o2) ->
+    struct (transOprToExpr ins insAddr insLen ctxt o1,
+            transOprToExpr ins insAddr insLen ctxt o2)
+  | _ -> raise InvalidOperandException
 
-let transThreeOprs ins insAddr insLen ctxt (o1, o2, o3) =
-  transOprToExpr ins insAddr insLen ctxt o1,
-  transOprToExpr ins insAddr insLen ctxt o2,
-  transOprToExpr ins insAddr insLen ctxt o3
+let transThreeOprs ins insAddr insLen ctxt =
+  match ins.Operands with
+  | ThreeOperands (o1, o2, o3) ->
+    struct (transOprToExpr ins insAddr insLen ctxt o1,
+            transOprToExpr ins insAddr insLen ctxt o2,
+            transOprToExpr ins insAddr insLen ctxt o3)
+  | _ -> raise InvalidOperandException
 
 /// This is an Intel-specific assignment to a destination operand.
 /// Unlike typical assignments, this function performs zero-padding when
@@ -431,14 +366,8 @@ let getMask oprSize =
   | 64<rt> -> numI64 0xffffffffffffffffL oprSize
   | _ -> raise InvalidOperandSizeException
 
-let startMark insAddr insLen builder =
-  builder <! (ISMark (insAddr, insLen))
-
-let endMark insAddr (insLen: uint32) builder =
-  builder <! (IEMark (insAddr + uint64 insLen)); builder
-
 let sideEffects insAddr insLen name =
-  let builder = StmtBuilder (4)
-  startMark insAddr insLen builder
-  builder <! (SideEffect name)
-  endMark insAddr insLen builder
+  let ir = IRBuilder (4)
+  !<ir insAddr insLen
+  !!ir (SideEffect name)
+  !>ir insAddr insLen

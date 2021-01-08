@@ -39,7 +39,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | OP.AAS -> GeneralLifter.aas ins insAddr insLen ctxt
   | OP.ADC -> GeneralLifter.adc ins insAddr insLen ctxt
   | OP.ADD -> GeneralLifter.add ins insAddr insLen ctxt
-  | OP.AND -> GeneralLifter.logAnd ins insAddr insLen ctxt
+  | OP.AND -> GeneralLifter.``and`` ins insAddr insLen ctxt
   | OP.ANDN
   | OP.ARPL -> GeneralLifter.arpl ins insAddr insLen ctxt
   | OP.BNDMOV -> GeneralLifter.bndmov ins insAddr insLen ctxt
@@ -51,8 +51,8 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | OP.BTC -> GeneralLifter.btc ins insAddr insLen ctxt
   | OP.BTR -> GeneralLifter.btr ins insAddr insLen ctxt
   | OP.BTS -> GeneralLifter.bts ins insAddr insLen ctxt
-  | OP.CALLNear -> GeneralLifter.call ins insAddr insLen ctxt false
-  | OP.CALLFar -> GeneralLifter.call ins insAddr insLen ctxt true
+  | OP.CALLNear -> GeneralLifter.call ins insAddr insLen ctxt
+  | OP.CALLFar -> LiftingUtils.sideEffects insAddr insLen UnsupportedFAR
   | OP.CBW | OP.CWDE | OP.CDQE ->
     GeneralLifter.convBWQ ins insAddr insLen ctxt
   | OP.CLC -> GeneralLifter.clearFlag insAddr insLen ctxt R.CF
@@ -134,17 +134,15 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | OP.RDMSR | OP.RSM ->
     LiftingUtils.sideEffects insAddr insLen UnsupportedExtension
   | OP.RDPKRU -> GeneralLifter.rdpkru ins insAddr insLen ctxt
-  | OP.RDPMC ->
-    LiftingUtils.sideEffects insAddr insLen UnsupportedExtension
-  | OP.RDRAND ->
-    LiftingUtils.sideEffects insAddr insLen UnsupportedExtension
+  | OP.RDPMC -> LiftingUtils.sideEffects insAddr insLen UnsupportedExtension
+  | OP.RDRAND -> LiftingUtils.sideEffects insAddr insLen UnsupportedExtension
   | OP.RDSSPD | OP.RDSSPQ -> GeneralLifter.nop insAddr insLen
   | OP.RDTSC -> LiftingUtils.sideEffects insAddr insLen ClockCounter
   | OP.RDTSCP -> LiftingUtils.sideEffects insAddr insLen ClockCounter
-  | OP.RETNear -> GeneralLifter.ret ins insAddr insLen ctxt false false
-  | OP.RETNearImm -> GeneralLifter.ret ins insAddr insLen ctxt false true
-  | OP.RETFar -> GeneralLifter.ret ins insAddr insLen ctxt true false
-  | OP.RETFarImm -> GeneralLifter.ret ins insAddr insLen ctxt true true
+  | OP.RETNear -> GeneralLifter.ret ins insAddr insLen ctxt
+  | OP.RETNearImm -> GeneralLifter.retWithImm ins insAddr insLen ctxt
+  | OP.RETFar -> LiftingUtils.sideEffects insAddr insLen UnsupportedFAR
+  | OP.RETFarImm -> LiftingUtils.sideEffects insAddr insLen UnsupportedFAR
   | OP.ROL -> GeneralLifter.rol ins insAddr insLen ctxt
   | OP.ROR -> GeneralLifter.ror ins insAddr insLen ctxt
   | OP.RORX -> GeneralLifter.rorx ins insAddr insLen ctxt
@@ -171,8 +169,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | OP.STOSB | OP.STOSW | OP.STOSD | OP.STOSQ ->
     GeneralLifter.stos ins insAddr insLen ctxt
   | OP.SUB -> GeneralLifter.sub ins insAddr insLen ctxt
-  | OP.SYSCALL | OP.SYSENTER ->
-    LiftingUtils.sideEffects insAddr insLen SysCall
+  | OP.SYSCALL | OP.SYSENTER -> LiftingUtils.sideEffects insAddr insLen SysCall
   | OP.TEST -> GeneralLifter.test ins insAddr insLen ctxt
   | OP.TZCNT -> GeneralLifter.tzcnt ins insAddr insLen ctxt
   | OP.UD2 -> LiftingUtils.sideEffects insAddr insLen UndefinedInstr
@@ -181,16 +178,12 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | OP.WRPKRU -> GeneralLifter.wrpkru ins insAddr insLen ctxt
   | OP.WRSSD | OP.WRSSQ -> GeneralLifter.nop insAddr insLen
   | OP.WRUSSD | OP.WRUSSQ -> GeneralLifter.nop insAddr insLen
-  | OP.XABORT ->
-    LiftingUtils.sideEffects insAddr insLen UnsupportedExtension
+  | OP.XABORT -> LiftingUtils.sideEffects insAddr insLen UnsupportedExtension
   | OP.XADD -> GeneralLifter.xadd ins insAddr insLen ctxt
-  | OP.XBEGIN ->
-    LiftingUtils.sideEffects insAddr insLen UnsupportedExtension
+  | OP.XBEGIN -> LiftingUtils.sideEffects insAddr insLen UnsupportedExtension
   | OP.XCHG -> GeneralLifter.xchg ins insAddr insLen ctxt
-  | OP.XEND ->
-    LiftingUtils.sideEffects insAddr insLen UnsupportedExtension
-  | OP.XGETBV ->
-    LiftingUtils.sideEffects insAddr insLen UnsupportedExtension
+  | OP.XEND -> LiftingUtils.sideEffects insAddr insLen UnsupportedExtension
+  | OP.XGETBV -> LiftingUtils.sideEffects insAddr insLen UnsupportedExtension
   | OP.XLATB -> GeneralLifter.xlatb ins insAddr insLen ctxt
   | OP.XOR -> GeneralLifter.xor ins insAddr insLen ctxt
   | OP.XRSTOR | OP.XRSTORS | OP.XSAVE | OP.XSAVEC
@@ -619,8 +612,7 @@ let translate (ins: InsInfo) insAddr insLen ctxt =
   | OP.WAIT -> X87Lifter.wait ins insAddr insLen ctxt
   | OP.FNOP -> X87Lifter.fnop ins insAddr insLen ctxt
   | OP.FXSAVE | OP.FXSAVE64 -> X87Lifter.fxsave ins insAddr insLen ctxt
-  | OP.FXRSTOR | OP.FXRSTOR64 ->
-    X87Lifter.fxrstor ins insAddr insLen ctxt
+  | OP.FXRSTOR | OP.FXRSTOR64 -> X87Lifter.fxrstor ins insAddr insLen ctxt
   | o ->
 #if DEBUG
          eprintfn "%A" o

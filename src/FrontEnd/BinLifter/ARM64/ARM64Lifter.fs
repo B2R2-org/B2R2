@@ -43,7 +43,7 @@ let numI64 n t = BitVector.ofInt64 n t |> AST.num
 
 let oprSzToExpr oprSize = numI32 (RegType.toBitWidth oprSize) oprSize
 
-let inline private (<!) (builder: StmtBuilder) (s) = builder.Append (s)
+let inline private (<!) (builder: IRBuilder) (s) = builder.Append (s)
 
 // shared/functions/integer/AddWithCarry
 // AddWithCarry()
@@ -239,7 +239,7 @@ let getSIMDReg = function
                     | _ -> raise <| NotImplementedIRException "getSIMDReg"
   | _ -> failwith "Invalid SIMD operand"
 
-let transOprToExprOfADD ins ctxt addr (builder: StmtBuilder) =
+let transOprToExprOfADD ins ctxt addr (builder: IRBuilder) =
   match ins.Operands with
   | ThreeOperands (o1, _, _) -> (* SIMD arithmetic *)
     let oSz = ins.OprSize
@@ -440,7 +440,7 @@ let transOprToExprOfLDP ins ctxt addr =
     transOprToExpr ins ctxt addr o3 |> separateMemExpr
   | _ -> raise InvalidOperandException
 
-let transOprToExprOfLDR ins ctxt addr (builder: StmtBuilder) =
+let transOprToExprOfLDR ins ctxt addr (builder: IRBuilder) =
   match ins.Operands with
   | TwoOperands (o1, Memory (LiteralMode o2)) -> (* LDR (literal) *)
     let dst = transOprToExpr ins ctxt addr o1
@@ -673,7 +673,7 @@ type BranchType =
 // Set program counter to a new address, which may include a tag in the top
 // eight bits, with a branch reason hint for possible use by hardware fetching
 // the next instruction.
-let branchTo ins ctxt target brType i (builder: StmtBuilder) =
+let branchTo ins ctxt target brType i (builder: IRBuilder) =
   builder <! (InterJmp (getPC ctxt, target, i)) // FIXME: BranchAddr function
 
 // shared/functions/system/ConditionHolds
@@ -704,7 +704,7 @@ let conditionHolds ctxt = function
 // shared/functions/common/HighestSetBit
 // HighestSetBit()
 // ===============
-let highestSetBitForIR dst src width oprSz (builder: StmtBuilder) =
+let highestSetBitForIR dst src width oprSz (builder: IRBuilder) =
   let lblLoop = AST.symbol "Loop"
   let lblLoopCont = AST.symbol "LoopContinue"
   let lblUpdateTmp = AST.symbol "UpdateTmp"
@@ -725,7 +725,7 @@ let highestSetBitForIR dst src width oprSz (builder: StmtBuilder) =
 // shared/functions/common/Replicate
 // Replicate()
 // ===========
-let replicateForIR dst value bits oprSize (builder: StmtBuilder) =
+let replicateForIR dst value bits oprSize (builder: IRBuilder) =
   let lblLoop = AST.symbol "Loop"
   let lblEnd = AST.symbol "End"
   let lblLoopContinue = AST.symbol "LoopContinue"
@@ -782,27 +782,27 @@ let decodeBitMasksForIR wmask tmask immN imms immr isImm oprSize builder =
 let countLeadingZeroBitsForIR dst src oprSize builder =
   highestSetBitForIR dst src (RegType.toBitWidth oprSize) oprSize builder
 
-let startMark ins addr (builder: StmtBuilder) =
+let startMark ins addr (builder: IRBuilder) =
   builder <! (ISMark (addr, ins.NumBytes))
 
-let endMark ins addr (builder: StmtBuilder) =
+let endMark ins addr (builder: IRBuilder) =
   builder <! (IEMark (uint64 ins.NumBytes + addr)); builder
 
 let sideEffects ins addr name =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   startMark ins addr builder
   builder <! (SideEffect name)
   endMark ins addr builder
 
 /// A module for all AArch64-IR translation functions
 let add ins ctxt addr =
-  let builder = StmtBuilder (32) // FIXME
+  let builder = IRBuilder (32) // FIXME
   startMark ins addr builder
   transOprToExprOfADD ins ctxt addr builder
   endMark ins addr builder
 
 let adds ins ctxt addr =
-  let builder = StmtBuilder (8)
+  let builder = IRBuilder (8)
   let dst, src1, src2 = transOprToExprOfADDS ins ctxt addr
   let oSz = ins.OprSize
   startMark ins addr builder
@@ -815,28 +815,28 @@ let adds ins ctxt addr =
   endMark ins addr builder
 
 let adr ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst, label = transTwoOprs ins ctxt addr
   startMark ins addr builder
   builder <! (dst := getPC ctxt .+ label)
   endMark ins addr builder
 
 let adrp ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst, lbl = transTwoOprs ins ctxt addr
   startMark ins addr builder
   builder <! (dst := (getPC ctxt .& numI64 0xfffffffffffff000L 64<rt>) .+ lbl)
   endMark ins addr builder
 
 let logAnd ins ctxt addr = (* AND *)
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst, src1, src2 = transOprToExprOfAND ins ctxt addr
   startMark ins addr builder
   builder <! (dst := src1 .& src2)
   endMark ins addr builder
 
 let asrv ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst, src1, src2 = transThreeOprs ins ctxt addr
   let amount = src2 .% oprSzToExpr ins.OprSize
   startMark ins addr builder
@@ -844,14 +844,14 @@ let asrv ins ctxt addr =
   endMark ins addr builder
 
 let ands ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst, src1, src2 = transOprToExprOfANDS ins ctxt addr
   startMark ins addr builder
   builder <! (dst := src1 .& src2)
   endMark ins addr builder
 
 let b ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let label = transOneOpr ins ctxt addr
   let pc = getPC ctxt
   startMark ins addr builder
@@ -859,7 +859,7 @@ let b ins ctxt addr =
   endMark ins addr builder
 
 let bCond ins ctxt addr cond =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let label = transOneOpr ins ctxt addr
   let pc = getPC ctxt
   startMark ins addr builder
@@ -867,7 +867,7 @@ let bCond ins ctxt addr cond =
   endMark ins addr builder
 
 let bfm ins ctxt addr =
-  let builder = StmtBuilder (64)
+  let builder = IRBuilder (64)
   let dst, src, imms, immr = transOprToExprOfBFM ins ctxt addr
   let oSz = ins.OprSize
   let wmask, tmask = AST.tmpvar oSz, AST.tmpvar oSz
@@ -881,14 +881,14 @@ let bfm ins ctxt addr =
   endMark ins addr builder
 
 let bic ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst, src1, src2 = transFourOprsWithBarrelShift ins ctxt addr
   startMark ins addr builder
   builder <! (dst := src1 .& AST.not src2)
   endMark ins addr builder
 
 let bl ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let label = transOneOpr ins ctxt addr
   let pc = getPC ctxt
   startMark ins addr builder
@@ -898,7 +898,7 @@ let bl ins ctxt addr =
   endMark ins addr builder
 
 let blr ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let src = transOneOpr ins ctxt addr
   let pc = getPC ctxt
   startMark ins addr builder
@@ -908,7 +908,7 @@ let blr ins ctxt addr =
   endMark ins addr builder
 
 let br ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst = transOneOpr ins ctxt addr
   startMark ins addr builder
   // FIXME: BranchTo (BType_JMP)
@@ -916,7 +916,7 @@ let br ins ctxt addr =
   endMark ins addr builder
 
 let cbnz ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let test, label = transTwoOprs ins ctxt addr
   let pc = getPC ctxt
   startMark ins addr builder
@@ -924,7 +924,7 @@ let cbnz ins ctxt addr =
   endMark ins addr builder
 
 let cbz ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let test, label = transTwoOprs ins ctxt addr
   let pc = getPC ctxt
   startMark ins addr builder
@@ -932,7 +932,7 @@ let cbz ins ctxt addr =
   endMark ins addr builder
 
 let ccmn ins ctxt addr =
-  let builder = StmtBuilder (8)
+  let builder = IRBuilder (8)
   let src, imm, nzcv, cond = transOprToExprOfCCMN ins ctxt addr
   startMark ins addr builder
   let oSz = ins.OprSize
@@ -946,7 +946,7 @@ let ccmn ins ctxt addr =
   endMark ins addr builder
 
 let ccmp ins ctxt addr =
-  let builder = StmtBuilder (8)
+  let builder = IRBuilder (8)
   let src, imm, nzcv, cond = transOprToExprOfCCMP ins ctxt addr
   startMark ins addr builder
   let tCond = conditionHolds ctxt cond
@@ -959,14 +959,14 @@ let ccmp ins ctxt addr =
   endMark ins addr builder
 
 let clz ins ctxt addr =
-  let builder = StmtBuilder (16)
+  let builder = IRBuilder (16)
   let dst, src = transTwoOprs ins ctxt addr
   startMark ins addr builder
   countLeadingZeroBitsForIR dst src ins.OprSize builder
   endMark ins addr builder
 
 let cmp ins ctxt addr =
-  let builder = StmtBuilder (8)
+  let builder = IRBuilder (8)
   let src, imm = transOprToExprOfCMP ins ctxt addr
   let oSz = ins.OprSize
   let dst = getRegVar ctxt (if oSz = 64<rt> then R.XZR else R.WZR)
@@ -982,28 +982,28 @@ let cmp ins ctxt addr =
   endMark ins addr builder
 
 let csel ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst, src1, src2, cond = transOprToExprOfCSEL ins ctxt addr
   startMark ins addr builder
   builder <! (dst := AST.ite (conditionHolds ctxt cond) src1 src2)
   endMark ins addr builder
 
 let csinc ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst, s1, s2, cond = transOprToExprOfCSINC ins ctxt addr
   startMark ins addr builder
   builder <! (dst := AST.ite (conditionHolds ctxt cond) s1 (s2 .+ AST.num1 ins.OprSize))
   endMark ins addr builder
 
 let csinv ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst, src1, src2, cond = transOprToExprOfCSINV ins ctxt addr
   startMark ins addr builder
   builder <! (dst := AST.ite (conditionHolds ctxt cond) src1 (AST.not src2))
   endMark ins addr builder
 
 let csneg ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst, src1, src2, cond = transOprToExprOfCSNEG ins ctxt addr
   startMark ins addr builder
   let cond = conditionHolds ctxt cond
@@ -1011,14 +1011,14 @@ let csneg ins ctxt addr =
   endMark ins addr builder
 
 let eor ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst, src1, src2 = transOprToExprOfEOR ins ctxt addr
   startMark ins addr builder
   builder <! (dst := src1 <+> src2)
   endMark ins addr builder
 
 let extr ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst, src1, src2, lsb = transOprToExprOfEXTR ins ctxt addr
   let oSz = ins.OprSize
   let conSize = if oSz = 64<rt> then 128<rt> else 64<rt>
@@ -1030,7 +1030,7 @@ let extr ins ctxt addr =
   endMark ins addr builder
 
 let ldp ins ctxt addr =
-  let builder = StmtBuilder (8)
+  let builder = IRBuilder (8)
   let src1, src2, (bReg, offset) = transOprToExprOfLDP ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
   let address = AST.tmpvar 64<rt>
@@ -1045,13 +1045,13 @@ let ldp ins ctxt addr =
   endMark ins addr builder
 
 let ldr ins ctxt addr =
-  let builder = StmtBuilder (8)
+  let builder = IRBuilder (8)
   startMark ins addr builder
   transOprToExprOfLDR ins ctxt addr builder
   endMark ins addr builder
 
 let ldrb ins ctxt addr =
-  let builder = StmtBuilder (8)
+  let builder = IRBuilder (8)
   let dst, (bReg, offset) = transOprToExprOfLDRB ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
   let address = AST.tmpvar 64<rt>
@@ -1066,7 +1066,7 @@ let ldrb ins ctxt addr =
   endMark ins addr builder
 
 let ldrh ins ctxt addr =
-  let builder = StmtBuilder (8)
+  let builder = IRBuilder (8)
   let dst, (bReg, offset) = transOprToExprOfLDRB ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
   let address = AST.tmpvar 64<rt>
@@ -1081,7 +1081,7 @@ let ldrh ins ctxt addr =
   endMark ins addr builder
 
 let ldrsw ins ctxt addr =
-  let builder = StmtBuilder (8)
+  let builder = IRBuilder (8)
   let dst, (bReg, offset) = transOprToExprOfLDRB ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
   let address = AST.tmpvar 64<rt>
@@ -1096,7 +1096,7 @@ let ldrsw ins ctxt addr =
   endMark ins addr builder
 
 let ldur ins ctxt addr =
-  let builder = StmtBuilder (8)
+  let builder = IRBuilder (8)
   let dst, (bReg, offset) = transOprToExprOfLDRB ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
   let address = AST.tmpvar 64<rt>
@@ -1111,7 +1111,7 @@ let ldur ins ctxt addr =
   endMark ins addr builder
 
 let ldurb ins ctxt addr =
-  let builder = StmtBuilder (8)
+  let builder = IRBuilder (8)
   let src, (bReg, offset) = transOprToExprOfLDRB ins ctxt addr
   let address = AST.tmpvar 64<rt>
   let data = AST.tmpvar 8<rt>
@@ -1123,7 +1123,7 @@ let ldurb ins ctxt addr =
   endMark ins addr builder
 
 let lslv ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst, src1, src2 = transThreeOprs ins ctxt addr
   let oprSz = ins.OprSize
   let dataSize = numI32 (RegType.toBitWidth ins.OprSize) oprSz
@@ -1132,7 +1132,7 @@ let lslv ins ctxt addr =
   endMark ins addr builder
 
 let lsrv ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst, src1, src2 = transThreeOprs ins ctxt addr
   let oprSz = ins.OprSize
   let dataSize = numI32 (RegType.toBitWidth oprSz) oprSz
@@ -1141,14 +1141,14 @@ let lsrv ins ctxt addr =
   endMark ins addr builder
 
 let madd ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst, src1, src2, src3 = transOprToExprOfMADD ins ctxt addr
   startMark ins addr builder
   builder <! (dst := src3 .+ (src1 .* src2))
   endMark ins addr builder
 
 let mov ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst, src = transOprToExprOfMOV ins ctxt addr
   startMark ins addr builder
   match ins.Opcode with
@@ -1158,40 +1158,40 @@ let mov ins ctxt addr =
   endMark ins addr builder
 
 let mrs ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst, src = transTwoOprs ins ctxt addr
   startMark ins addr builder
   builder <! (dst := src) (* FIXME: AArch64.SysRegRead *)
   endMark ins addr builder
 
 let msub ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst, src1, src2, src3 = transFourOprs ins ctxt addr
   startMark ins addr builder
   builder <! (dst := src3 .- (src1 .* src2))
   endMark ins addr builder
 
 let nop ins addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   startMark ins addr builder
   endMark ins addr builder
 
 let orn ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst, src1, src2 = transOprToExprOfORN ins ctxt addr
   startMark ins addr builder
   builder <! (dst := src1 .| AST.not src2)
   endMark ins addr builder
 
 let orr ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst, src1, src2 = transOprToExprOfORR ins ctxt addr
   startMark ins addr builder
   builder <! (dst := src1 .| src2)
   endMark ins addr builder
 
 let ret ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let src = transOneOpr ins ctxt addr
   let target = AST.tmpvar 64<rt>
   startMark ins addr builder
@@ -1200,7 +1200,7 @@ let ret ins ctxt addr =
   endMark ins addr builder
 
 let sbc ins ctxt addr =
-  let builder = StmtBuilder (8)
+  let builder = IRBuilder (8)
   let dst, src1, src2 = transThreeOprs ins ctxt addr
   let c = AST.zext ins.OprSize (getRegVar ctxt R.C)
   startMark ins addr builder
@@ -1209,7 +1209,7 @@ let sbc ins ctxt addr =
   endMark ins addr builder
 
 let sbfm ins ctxt addr =
-  let builder = StmtBuilder (64)
+  let builder = IRBuilder (64)
   let dst, src, immr, imms = transOprToExprOfSBFM ins ctxt addr
   let oprSz = ins.OprSize
   let bot, top = AST.tmpvar oprSz, AST.tmpvar oprSz
@@ -1224,14 +1224,14 @@ let sbfm ins ctxt addr =
   endMark ins addr builder
 
 let smaddl ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst, src1, src2, src3 = transOprToExprOfSMADDL ins ctxt addr
   startMark ins addr builder
   builder <! (dst := src3 .+ (AST.sext 64<rt> src1 .* AST.sext 64<rt> src2))
   endMark ins addr builder
 
 let smulh ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst, src1, src2 = transThreeOprs ins ctxt addr
   let result = AST.tmpvar 128<rt>
   startMark ins addr builder
@@ -1240,7 +1240,7 @@ let smulh ins ctxt addr =
   endMark ins addr builder
 
 let stp ins ctxt addr =
-  let builder = StmtBuilder (8)
+  let builder = IRBuilder (8)
   let src1, src2, (bReg, offset) = transOprToExprOfSTP ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
   let address = AST.tmpvar 64<rt>
@@ -1255,7 +1255,7 @@ let stp ins ctxt addr =
   endMark ins addr builder
 
 let str ins ctxt addr =
-  let builder = StmtBuilder (8)
+  let builder = IRBuilder (8)
   let src, (bReg, offset) = transOprToExprOfSTR ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
   let address = AST.tmpvar 64<rt>
@@ -1270,7 +1270,7 @@ let str ins ctxt addr =
   endMark ins addr builder
 
 let strb ins ctxt addr =
-  let builder = StmtBuilder (8)
+  let builder = IRBuilder (8)
   let src, (bReg, offset) = transOprToExprOfSTRB ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
   let address = AST.tmpvar 64<rt>
@@ -1285,7 +1285,7 @@ let strb ins ctxt addr =
   endMark ins addr builder
 
 let strh ins ctxt addr =
-  let builder = StmtBuilder (8)
+  let builder = IRBuilder (8)
   let src, (bReg, offset) = transOprToExprOfSTRB ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
   let address = AST.tmpvar 64<rt>
@@ -1300,7 +1300,7 @@ let strh ins ctxt addr =
   endMark ins addr builder
 
 let stur ins ctxt addr =
-  let builder = StmtBuilder (8)
+  let builder = IRBuilder (8)
   let src, (bReg, offset) = transOprToExprOfSTUR ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
   let address = AST.tmpvar 64<rt>
@@ -1315,7 +1315,7 @@ let stur ins ctxt addr =
   endMark ins addr builder
 
 let sturb ins ctxt addr =
-  let builder = StmtBuilder (8)
+  let builder = IRBuilder (8)
   let src, (bReg, offset) = transOprToExprOfSTUR ins ctxt addr
   let address = AST.tmpvar 64<rt>
   let data = AST.tmpvar 8<rt>
@@ -1327,7 +1327,7 @@ let sturb ins ctxt addr =
   endMark ins addr builder
 
 let sturh ins ctxt addr =
-  let builder = StmtBuilder (8)
+  let builder = IRBuilder (8)
   let src, (bReg, offset) = transOprToExprOfSTUR ins ctxt addr
   let address = AST.tmpvar 64<rt>
   let data = AST.tmpvar 16<rt>
@@ -1339,19 +1339,19 @@ let sturh ins ctxt addr =
   endMark ins addr builder
 
 let sub ins ctxt addr =
-  let builder = StmtBuilder (8)
+  let builder = IRBuilder (8)
   startMark ins addr builder
   transOprToExprOfSUB ins ctxt addr builder
   endMark ins addr builder
 
 let subs ins ctxt addr =
-  let builder = StmtBuilder (8)
+  let builder = IRBuilder (8)
   startMark ins addr builder
   transOprToExprOfSUBS ins ctxt addr builder
   endMark ins addr builder
 
 let tbnz ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let test, imm, label = transThreeOprs ins ctxt addr
   let pc = getPC ctxt
   let cond = (test >> imm .& AST.num1 ins.OprSize) == AST.num1 ins.OprSize
@@ -1360,7 +1360,7 @@ let tbnz ins ctxt addr =
   endMark ins addr builder
 
 let tbz ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let test, imm, label = transThreeOprs ins ctxt addr
   let pc = getPC ctxt
   let cond = (test >> imm .& AST.num1 ins.OprSize) == AST.num0 ins.OprSize
@@ -1369,7 +1369,7 @@ let tbz ins ctxt addr =
   endMark ins addr builder
 
 let udiv ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst, src1, src2 = transThreeOprs ins ctxt addr
   let cond = src2 == AST.num0 ins.OprSize
   startMark ins addr builder
@@ -1378,14 +1378,14 @@ let udiv ins ctxt addr =
   endMark ins addr builder
 
 let umaddl ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst, src1, src2, src3 = transOprToExprOfUMADDL ins ctxt addr
   startMark ins addr builder
   builder <! (dst := src3 .+ (AST.zext 64<rt> src1 .* AST.zext 64<rt> src2))
   endMark ins addr builder
 
 let umulh ins ctxt addr =
-  let builder = StmtBuilder (4)
+  let builder = IRBuilder (4)
   let dst, src1, src2 = transThreeOprs ins ctxt addr
   let result = AST.tmpvar 128<rt>
   startMark ins addr builder
@@ -1394,7 +1394,7 @@ let umulh ins ctxt addr =
   endMark ins addr builder
 
 let ubfm ins ctxt addr =
-  let builder = StmtBuilder (64)
+  let builder = IRBuilder (64)
   let dst, src, immr, imms = transOprToExprOfUBFM ins ctxt addr
   let oSz = ins.OprSize
   let bot = AST.tmpvar oSz

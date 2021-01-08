@@ -22,32 +22,30 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter
+module B2R2.FrontEnd.BinLifter.LiftingOperators
 
-open System.Collections
 open B2R2.BinIR.LowUIR
 
-/// StmtBuilder accumulates IR statements while lifting, and emits them into an
-/// array of statements at the end of a lifting process.
-type StmtBuilder =
-  inherit Generic.List<Stmt>
+/// This is the special operator that we use for writing a lifter. There are
+/// several major operators we use including this one. This one simply appends a
+/// statement to the IRBuilder. We always put a IRBuilder variable immediately
+/// after each operator without any space to make it visually distinct. For
+/// example, for a builder variable "ir", we write a lifting logic as follows:
+/// !<ir insAddr insLen
+/// !!ir (t1 := v1 .+ v2)
+/// !!ir (t2 := t1 .* t1)
+/// !>ir insAddr insLen
+let inline ( !! ) (ir: IRBuilder) (s) = ir.Append s
 
-  /// <summary>
-  ///   Initialize an IR statement builder of internal buffer size n.
-  /// </summary>
-  /// <param name="n">The size of the internal buffer.</param>
-  new (n: int) = { inherit Generic.List<Stmt>(n) }
+/// The special operator for starting an instruction (ISMark).
+let inline ( !< ) (ir: IRBuilder) insAddr insLen =
+  ir.Append (ISMark (insAddr, insLen))
 
-  /// <summary>
-  ///   Append a new IR statement to the builder.
-  /// </summary>
-  /// <param name="stmt">IR statement to add.</param>
-  member __.Append stmt = __.Add (stmt)
+/// The special operator for finishing an instruction (IEMark).
+let inline ( !> ) (ir: IRBuilder) insAddr (insLen: uint32) =
+  ir.Append (IEMark (insAddr + uint64 insLen))
+  ir
 
-  /// <summary>
-  ///   Create an array of IR statements from the buffer.
-  /// </summary>
-  /// <returns>
-  ///   Returns a list of IR statements.
-  /// </returns>
-  member __.ToStmts () = __.ToArray ()
+/// The special operator for applying a function with a IRBuilder as input.
+let inline ( !? ) (ir: IRBuilder) fn =
+  fn ir
