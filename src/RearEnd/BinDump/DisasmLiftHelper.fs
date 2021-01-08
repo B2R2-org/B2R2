@@ -124,6 +124,7 @@ let convertToDisasmStr (words: AsmWord []) =
   |> List.concat
 
 let printColorDisasm words wordSize addr bytes cfg =
+  out.Flush ()
   let hexStr = convertToHexStr bytes
   let addrStr = Addr.toString wordSize addr + ":"
   let disasStr = convertToDisasmStr words
