@@ -185,7 +185,8 @@ let dumpHexStringMode (opts: BinDumpOpts) =
   assertBinaryLength hdl opts.InputHexStr
   opts.ShowColor <- true
   let printer = makeCodePrinter hdl cfg opts
-  let bp = BinaryPointer (0UL, 0, opts.InputHexStr.Length)
+  let baseAddr = defaultArg opts.BaseAddress 0UL
+  let bp = BinaryPointer (baseAddr, 0, opts.InputHexStr.Length)
   printer.Print bp
   out.PrintLine ()
 
