@@ -14,7 +14,7 @@ build:
     artifacts:
         paths:
             - build/
-        expire_in: 1 day
+        expire_in: 3 hrs
     tags:
         - b2r2
 
