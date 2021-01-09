@@ -162,6 +162,6 @@ module State =
     | Put (TempVar (_, reg), value) -> evalPutTemp state reg value
     | Store (endian, addr, value) -> evalStore state endian addr value
     | CJmp (condE, trueE, falseE) -> evalCJmp state condE trueE falseE
-    | InterJmp (PCVar (_, pc), value, _) -> evalPutVar state pc value
+    | InterJmp (value, _) -> evalPutVar state "EIP" value
     | Stmt.SideEffect eff -> evalSideEff state eff
     | e -> failwithf "evalStmt fail %A" e

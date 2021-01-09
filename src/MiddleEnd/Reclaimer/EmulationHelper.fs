@@ -61,13 +61,14 @@ let emptyMemoryReader _ _ _ = Error ErrorCase.InvalidMemoryRead
 let eval (ess: BinEssence) (blk: Vertex<IRBasicBlock>) st stopFn =
   let visited = HashSet<ProgramPoint> ()
   let rec evalLoop (blk: Vertex<IRBasicBlock>) st stopFn =
-    if visited.Contains blk.VData.PPoint then None
+    let pp = blk.VData.PPoint
+    if visited.Contains pp then None
     else
-      visited.Add blk.VData.PPoint |> ignore
+      visited.Add pp |> ignore
       let result =
         blk.VData.GetIRStatements ()
         |> Array.concat
-        |> SafeEvaluator.evalBlock st 0
+        |> SafeEvaluator.evalBlock st pp.Address 0
       match result with
       | Ok st' ->
         if stopFn blk then Some st'

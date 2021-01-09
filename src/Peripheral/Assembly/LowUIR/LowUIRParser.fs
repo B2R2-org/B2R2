@@ -46,12 +46,6 @@ type LowUIRParser (isa, regbay: RegisterBay) =
   let pIdentifier =
     many1Satisfy2L isAllowedFirstCharForID isAllowedCharForID "identifier"
 
-  let pHexUInt64 =
-     many hex
-     |>> (Seq.map string)
-     |>> String.concat ""
-     |>> (fun s -> Convert.ToUInt64 (s, 16))
-
   let ws = spaces
 
   let numberFormat =
@@ -239,9 +233,7 @@ type LowUIRParser (isa, regbay: RegisterBay) =
   let pISMark =
     ws
     >>. pchar '('
-    >>. ws >>. pHexUInt64
-    .>> ws .>> pchar ';' .>> ws
-    .>>. puint32 .>> ws
+    >>. ws >>. puint32 .>> ws
     .>> pchar ')'
     .>> ws .>> pchar '{'
     |>> ISMark
@@ -249,7 +241,7 @@ type LowUIRParser (isa, regbay: RegisterBay) =
   let pIEMark =
     ws
     >>. pchar '}' >>. ws
-    >>. pstring "//" >>. ws >>. pHexUInt64 .>> ws
+    >>. pstring "//" >>. ws >>. puint32 .>> ws
     |>> IEMark
 
   let pLMark =
@@ -287,7 +279,7 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     pstring "ijmp" .>> ws >>. pExpr
     |>> (fun expr ->
       let rt = AST.typeOf expr
-      InterJmp (dummyExpr rt, expr, InterJmpInfo.Base))
+      InterJmp (expr, InterJmpInfo.Base))
 
   let pInterCJmp =
     ws
@@ -297,7 +289,7 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     .>> pstring "else" .>> ws .>> pstring "ijmp" .>> ws .>>. pExpr
     |>> (fun ((cond, tExp), fExp) ->
       let rt = AST.typeOf tExp
-      InterCJmp (cond, dummyExpr rt, tExp, fExp))
+      InterCJmp (cond, tExp, fExp))
 
   let pSideEffectIdentifier =
     let isAllowedChar c = isAllowedCharForID c || c = '(' || c = ')'

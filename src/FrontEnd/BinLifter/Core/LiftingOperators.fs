@@ -38,12 +38,12 @@ open B2R2.BinIR.LowUIR
 let inline ( !! ) (ir: IRBuilder) (s) = ir.Append s
 
 /// The special operator for starting an instruction (ISMark).
-let inline ( !< ) (ir: IRBuilder) insAddr insLen =
-  ir.Append (ISMark (insAddr, insLen))
+let inline ( !< ) (ir: IRBuilder) insLen =
+  ir.Append (ISMark (insLen))
 
 /// The special operator for finishing an instruction (IEMark).
-let inline ( !> ) (ir: IRBuilder) insAddr (insLen: uint32) =
-  ir.Append (IEMark (insAddr + uint64 insLen))
+let inline ( !> ) (ir: IRBuilder) (insLen: uint32) =
+  ir.Append (IEMark (insLen))
   ir
 
 /// The special operator for applying a function with a IRBuilder as input.

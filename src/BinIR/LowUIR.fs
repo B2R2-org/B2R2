@@ -204,20 +204,17 @@ type Expr =
 
 /// IL Statements.
 type Stmt =
-  /// ConsInfo data representing the start of a machine instruction. More
-  /// specifically, it contains the address and the length of the instruction.
-  /// There is a single IMark per machine instruction.
-  ///
-  /// Example: [IMark(<Addr>, <Len>)]
-  /// represents a machine instruction of <Len> bytes located at <Addr>
-  | ISMark of Addr * uint32
+  /// Metadata representing the start of a machine instruction. More
+  /// specifically, it contains the length of the instruction. There must be a
+  /// single IMark per a machine instruction.
+  | ISMark of uint32
 
-  /// ConsInfo data representing the end of a machine instruction. It contains the
-  /// next fall-through address.
-  | IEMark of Addr
+  /// Metadata representing the end of a machine instruction. It contains the
+  /// length of the current instruction.
+  | IEMark of uint32
 
-  /// ConsInfo data representing a label (as in an assembly language). LMark is
-  /// only valid within a machine instruction.
+  /// Metadata representing a label (as in an assembly language). LMark is only
+  /// valid within a machine instruction.
   | LMark of Symbol
 
   /// This statement puts a value into a register. The first argument is a
@@ -247,17 +244,16 @@ type Stmt =
   /// address specified by the third argument.
   | CJmp of Expr * Expr * Expr
 
-  /// This is an unconditional jump instruction to another instruction. This
-  /// is an inter-instruction jump unlike Jmp statement. The first argument
-  /// represents the program counter, and the second is the target address.
-  | InterJmp of Expr * Expr * InterJmpInfo
+  /// This is an unconditional jump instruction to another instruction. This is
+  /// an inter-instruction jump unlike Jmp statement. The first argument is the
+  /// jump target address.
+  | InterJmp of Expr * InterJmpInfo
 
   /// This is a conditional jump instruction to another instruction. The first
-  /// argument specifies a jump condition, and the second argument represents
-  /// the program counter. If the condition is true, change the program
-  /// counter to jump to the address specified by the third argument.
-  /// Otherwise, jump to the address specified by the fourth argument.
-  | InterCJmp of Expr * Expr * Expr * Expr
+  /// argument specifies a jump condition. If the condition is true, change the
+  /// program counter to jump to the address specified by the second argument.
+  /// Otherwise, jump to the address specified by the third argument.
+  | InterCJmp of Expr * Expr * Expr
 
   /// This represents an instruction with side effects such as a system call.
   | SideEffect of SideEffect

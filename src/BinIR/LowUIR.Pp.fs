@@ -105,15 +105,13 @@ let rec private expToStringAux expr (sb: StringBuilder) =
 
 let private stmtToStringAux stmt (sb: StringBuilder) =
   match stmt with
-  | ISMark (addr, len) ->
+  | ISMark (len) ->
     sb.Append ("(") |> ignore
-    sb.Append (String.u64ToHexNoPrefix addr) |> ignore
-    sb.Append ("; ") |> ignore
     sb.Append (len.ToString ()) |> ignore
     sb.Append (") {") |> ignore
-  | IEMark (addr) ->
+  | IEMark (len) ->
     sb.Append ("} // ") |> ignore
-    sb.Append (String.u64ToHexNoPrefix addr) |> ignore
+    sb.Append (len.ToString ()) |> ignore
   | LMark lbl ->
     sb.Append (":") |> ignore
     sb.Append (Symbol.getName lbl) |> ignore
@@ -124,7 +122,7 @@ let private stmtToStringAux stmt (sb: StringBuilder) =
   | Jmp exp ->
     sb.Append ("jmp ") |> ignore
     expToStringAux exp sb
-  | InterJmp (_pc, exp, _) ->
+  | InterJmp (exp, _) ->
     sb.Append ("ijmp ") |> ignore
     expToStringAux exp sb
   | Store (_endian, exp1, exp2) ->
@@ -139,7 +137,7 @@ let private stmtToStringAux stmt (sb: StringBuilder) =
     expToStringAux t sb
     sb.Append (" else jmp ") |> ignore
     expToStringAux f sb
-  | InterCJmp (cond, _pc, t, f) ->
+  | InterCJmp (cond, t, f) ->
     sb.Append ("if ") |> ignore
     expToStringAux cond sb
     sb.Append (" then ijmp ") |> ignore

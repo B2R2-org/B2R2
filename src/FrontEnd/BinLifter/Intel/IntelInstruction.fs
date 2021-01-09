@@ -156,7 +156,7 @@ type IntelInstruction (addr, len, insInfo, wordSz) =
     __.Info.Opcode = Opcode.NOP
 
   override __.Translate ctxt =
-    Lifter.translate __.Info addr len ctxt
+    Lifter.translate __.Info len ctxt
 
   override __.Disasm (showAddr, resolveSymbol, disasmHelper) =
     let helper = if resolveSymbol then disasmHelper else Dummy.helper

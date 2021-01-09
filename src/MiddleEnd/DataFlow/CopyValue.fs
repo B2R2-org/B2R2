@@ -33,6 +33,7 @@ type CopyValue =
   | Thunk of BitVector
   | Undef
 
+[<RequireQualifiedAccess>]
 module CopyValue =
 
   let meet c1 c2 =
@@ -48,8 +49,8 @@ module CopyValue =
     | Thunk bv1, Const bv2
     | Const bv1, Thunk bv2 -> Const (BitVector.add bv1 bv2)
     | Const bv1, Const bv2 ->
-      if BitVector.isZero bv1 || BitVector.isZero bv2 then
-        Const (BitVector.add bv1 bv2)
+      if BitVector.isZero bv1 then Const bv2
+      elif BitVector.isZero bv2 then Const bv1
       else NotAConst
     | _ -> NotAConst
 

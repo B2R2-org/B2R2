@@ -27,9 +27,6 @@ module B2R2.Peripheral.Assembly.LowUIR.Helper
 open B2R2.BinIR.LowUIR
 open FParsec
 
-/// Used when parsing InterJmp statments (not relevant).
-let dummyExpr rt = Undefined (rt, "unknown")
-
 let typeCheck st =
   if AST.typeCheck st then preturn st
   else fail "Type check failed."

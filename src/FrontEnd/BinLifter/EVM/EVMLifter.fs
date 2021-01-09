@@ -37,10 +37,10 @@ let inline private getRegVar (ctxt: TranslationContext) name =
 let inline private (<!) (builder: IRBuilder) (s) = builder.Append (s)
 
 let inline private startMark insInfo (builder: IRBuilder) =
-  builder <! (ISMark (insInfo.Address, insInfo.NumBytes))
+  builder <! (ISMark (insInfo.NumBytes))
 
 let inline private endMark insInfo (builder: IRBuilder) =
-  builder <! (IEMark (uint64 insInfo.NumBytes + insInfo.Address)); builder
+  builder <! (IEMark (insInfo.NumBytes)); builder
 
 let inline private numI32 n t = BitVector.ofInt32 n t |> AST.num
 let inline private numU64 n t = BitVector.ofUInt64 n t |> AST.num
@@ -227,13 +227,12 @@ let mstore8 insInfo ctxt =
 
 let jump insInfo ctxt =
   let builder = new IRBuilder (8)
-  let pc = getRegVar ctxt R.PC
   try
     startMark insInfo builder
     let dst = popFromStack ctxt builder
     let dstAddr = dst .+ (BitVector.ofUInt64 insInfo.Offset 256<rt> |> AST.num)
     updateGas ctxt insInfo.GAS builder
-    builder <! InterJmp (pc, dstAddr, InterJmpInfo.Base)
+    builder <! InterJmp (dstAddr, InterJmpInfo.Base)
     endMark insInfo builder
   with
     | :? System.InvalidOperationException -> (* Special case: terminate func. *)
@@ -242,13 +241,12 @@ let jump insInfo ctxt =
 let jumpi insInfo ctxt =
   let builder = new IRBuilder (12)
   startMark insInfo builder
-  let pc = getRegVar ctxt R.PC
   let dst = popFromStack ctxt builder
   let dstAddr = dst .+ (BitVector.ofUInt64 insInfo.Offset 256<rt> |> AST.num)
   let cond = popFromStack ctxt builder
   let fall = numU64 (insInfo.Address + 1UL) 64<rt>
   updateGas ctxt insInfo.GAS builder
-  builder <! InterCJmp (AST.xtlo 1<rt> cond, pc, dstAddr, fall)
+  builder <! InterCJmp (AST.xtlo 1<rt> cond, dstAddr, fall)
   endMark insInfo builder
 
 let getpc insInfo ctxt =

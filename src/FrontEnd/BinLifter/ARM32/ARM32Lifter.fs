@@ -470,8 +470,8 @@ let selectInstrSet ctxt builder = function
 let branchWritePC ctxt (insInfo: InsInfo) addr jmpInfo =
   let addr = zMaskAnd addr 32<rt> 1
   match insInfo.Mode with
-  | ArchOperationMode.ARMMode -> InterJmp (getPC ctxt, addr, jmpInfo)
-  | _ -> InterJmp (getPC ctxt, addr, jmpInfo)
+  | ArchOperationMode.ARMMode -> InterJmp (addr, jmpInfo)
+  | _ -> InterJmp (addr, jmpInfo)
 
 let disableITStateForCondBranches ctxt isUnconditional (builder: IRBuilder) =
   if isUnconditional then ()
@@ -486,15 +486,14 @@ let bxWritePC ctxt isUnconditional addr (builder: IRBuilder) =
   let lblL0 = AST.symbol "L0"
   let lblL1 = AST.symbol "L1"
   let cond1 = AST.xtlo 1<rt> addr == AST.b1
-  let pc = getPC ctxt
   disableITStateForCondBranches ctxt isUnconditional builder
   builder <! (CJmp (cond1, Name lblL0, Name lblL1))
   builder <! (LMark lblL0)
   selectThumbInstrSet ctxt builder
-  builder <! (InterJmp (pc, zMaskAnd addr 32<rt> 1, InterJmpInfo.SwitchToThumb))
+  builder <! (InterJmp (zMaskAnd addr 32<rt> 1, InterJmpInfo.SwitchToThumb))
   builder <! (LMark lblL1)
   selectARMInstrSet ctxt builder
-  builder <! (InterJmp (pc, addr, InterJmpInfo.SwitchToARM))
+  builder <! (InterJmp (addr, InterJmpInfo.SwitchToARM))
 
 /// Write value to R.PC, with interworking for ARM only from ARMv7 on page
 /// A2-47. function : ALUWritePC()
@@ -786,7 +785,7 @@ let parseOprOfADC insInfo ctxt =
   | _ -> raise InvalidOperandException
 
 let startMark insInfo builder =
-  builder <! (ISMark (insInfo.Address, insInfo.NumBytes))
+  builder <! (ISMark (insInfo.NumBytes))
 
 let checkCondition insInfo ctxt isUnconditional builder =
   let lblPass = AST.symbol "NeedToExec"
@@ -840,10 +839,10 @@ let putEndLabel ctxt lblIgnore isUnconditional isBranch builder =
     | None -> ()
     | Some (i: InsInfo) ->
       let target = BitVector.ofUInt64 (i.Address + uint64 i.NumBytes) 32<rt>
-      builder <! (InterJmp (getPC ctxt, AST.num target, InterJmpInfo.Base))
+      builder <! (InterJmp (AST.num target, InterJmpInfo.Base))
 
 let endMark insInfo builder =
-  builder <! (IEMark (uint64 insInfo.NumBytes + insInfo.Address))
+  builder <! (IEMark insInfo.NumBytes)
   builder
 
 let sideEffects insInfo name =
@@ -2469,7 +2468,7 @@ let cbz nonZero insInfo ctxt =
   builder <! (LMark lblL1)
   let fallAddr = insInfo.Address + uint64 insInfo.NumBytes
   let fallAddrExp = BitVector.ofUInt64 fallAddr 32<rt> |> AST.num
-  builder <! (InterJmp (getPC ctxt, fallAddrExp, InterJmpInfo.Base))
+  builder <! (InterJmp (fallAddrExp, InterJmpInfo.Base))
   putEndLabel ctxt lblIgnore isUnconditional (Some insInfo) builder
   endMark insInfo builder
 

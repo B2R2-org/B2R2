@@ -48,8 +48,6 @@ let inline numU64 n t = BitVector.ofUInt64 n t |> AST.num
 
 let inline numI64 n t = BitVector.ofInt64 n t |> AST.num
 
-let numAddr addr (ctxt: TranslationContext) = numU64 addr ctxt.WordBitSize
-
 let numInsLen insLen (ctxt: TranslationContext) = numU32 insLen ctxt.WordBitSize
 
 let numOprSize = function
@@ -188,7 +186,7 @@ let private numOfAddrSz (ins: InsInfo) (ctxt: TranslationContext) n =
 let inline private sIdx ins ctxt (r, s) =
   (!.ctxt r) .* (numOfAddrSz ins ctxt (int64 s))
 
-let private transMem ins insAddr insLen ctxt b index disp oprSize =
+let private transMem ins insLen ctxt b index disp oprSize =
   match b, index, (disp: Disp option) with
   | None, None, Some d ->
     numOfAddrSz ins ctxt d
@@ -203,8 +201,7 @@ let private transMem ins insAddr insLen ctxt b index disp oprSize =
     |> AST.zext ctxt.WordBitSize
     |> ldMem ins ctxt oprSize
   | Some R.RIP, None, Some d -> (* RIP-relative addressing *)
-    int64 insAddr + d + int64 (insLen: uint32)
-    |> numOfAddrSz ins ctxt
+    !.ctxt R.RIP .+ numOfAddrSz ins ctxt (d + int64 (insLen: uint32))
     |> ldMem ins ctxt oprSize
   | Some b, None, Some d ->
     !.ctxt b .+ (numOfAddrSz ins ctxt d)
@@ -220,74 +217,87 @@ let private transMem ins insAddr insLen ctxt b index disp oprSize =
     |> ldMem ins ctxt oprSize
   | _, _, _ -> raise InvalidOperandException
 
-let transOprToExpr ins insAddr insLen ctxt = function
+let transOprToExpr ins insLen ctxt = function
   | OprReg reg -> !.ctxt reg
   | OprMem (b, index, disp, oprSize) ->
-    transMem ins insAddr insLen ctxt b index disp oprSize
+    transMem ins insLen ctxt b index disp oprSize
   | OprImm imm -> numI64 imm (getOperationSize ins)
   | OprDirAddr (Absolute (_, addr, _)) -> numU64 addr ctxt.WordBitSize
   | OprDirAddr (Relative offset) ->
     let wordSize = ctxt.WordBitSize
-    let offset = numI64 offset wordSize |> AST.sext wordSize
-    offset .+ (numU64 insAddr wordSize)
+    numI64 offset wordSize |> AST.sext wordSize
   | _ -> Utils.impossible ()
 
-let transOprToExprVec ins insAddr insLen ctxt opr =
+let transOprToExprVec ins insLen ctxt opr =
   match opr with
   | OprReg r -> getPseudoRegVars ctxt r
   | OprMem (b, index, disp, oprSize) ->
-    transMem ins insAddr insLen ctxt b index disp oprSize |> getMemExprs
+    transMem ins insLen ctxt b index disp oprSize |> getMemExprs
   | OprImm imm -> [ numI64 imm (getOperationSize ins) ]
   | _ -> raise InvalidOperandException
 
-let transOprToExpr32 ins insAddr insLen ctxt opr =
+let transOprToExpr32 ins insLen ctxt opr =
   match opr with
   | OprReg r when Register.toRegType r > 64<rt> ->
     getPseudoRegVar ctxt r 1 |> AST.xtlo 32<rt>
   | OprReg r -> !.ctxt r
   | OprMem (b, index, disp, 32<rt>) ->
-    transMem ins insAddr insLen ctxt b index disp 32<rt>
+    transMem ins insLen ctxt b index disp 32<rt>
   | _ -> raise InvalidOperandException
 
-let transOprToExpr64 ins insAddr insLen ctxt opr =
+let transOprToExpr64 ins insLen ctxt opr =
   match opr with
   | OprReg r when Register.toRegType r > 64<rt> -> getPseudoRegVar ctxt r 1
   | OprReg r -> !.ctxt r
   | OprMem (b, index, disp, 64<rt>) ->
-    transMem ins insAddr insLen ctxt b index disp 64<rt>
+    transMem ins insLen ctxt b index disp 64<rt>
   | _ -> raise InvalidOperandException
 
-let transOprToExpr128 ins insAddr insLen ctxt opr =
+let transOprToExpr128 ins insLen ctxt opr =
   match opr with
   | OprReg r -> getPseudoRegVar128 ctxt r
   | OprMem (b, index, disp, oprSize) ->
-    transMem ins insAddr insLen ctxt b index disp oprSize |> getMemExpr128
+    transMem ins insLen ctxt b index disp oprSize |> getMemExpr128
   | _ -> raise InvalidOperandException
 
-let transOprToExpr256 ins insAddr insLen ctxt opr =
+let transOprToExpr256 ins insLen ctxt opr =
   match opr with
   | OprReg r -> getPseudoRegVar256 ctxt r
   | OprMem (b, index, disp, oprSize) ->
-    transMem ins insAddr insLen ctxt b index disp oprSize |> getMemExpr256
+    transMem ins insLen ctxt b index disp oprSize |> getMemExpr256
   | _ -> raise InvalidOperandException
 
-let transOprToExpr512 ins insAddr insLen ctxt opr =
+let transOprToExpr512 ins insLen ctxt opr =
   match opr with
   | OprReg r -> getPseudoRegVar512 ctxt r
   | OprMem (b, index, disp, oprSize) ->
-    transMem ins insAddr insLen ctxt b index disp oprSize |> getMemExpr512
+    transMem ins insLen ctxt b index disp oprSize |> getMemExpr512
   | _ -> raise InvalidOperandException
 
-let transOprToFloat80 ins insAddr insLen ctxt opr =
+let transOprToFloat80 ins insLen ctxt opr =
   match opr with
   | OprReg r when Register.toRegType r = 80<rt> -> !.ctxt r
   | OprReg r ->
     !.ctxt r |> AST.cast CastKind.FloatExt 80<rt>
   | OprMem (b, index, disp, 80<rt>) ->
-    transMem ins insAddr insLen ctxt b index disp 80<rt>
+    transMem ins insLen ctxt b index disp 80<rt>
   | OprMem (b, index, disp, len) ->
-    transMem ins insAddr insLen ctxt b index disp len
+    transMem ins insLen ctxt b index disp len
     |> AST.cast CastKind.FloatExt 80<rt>
+  | _ -> raise InvalidOperandException
+
+/// Return a tuple (jump target expr, is pc-relative?)
+let transJumpTargetOpr ins pc insLen (ctxt: TranslationContext) =
+  match ins.Operands with
+  | OneOperand (OprDirAddr (Absolute (_, addr, _))) ->
+    struct (numU64 addr ctxt.WordBitSize, false)
+  | OneOperand (OprDirAddr (Relative offset)) ->
+    let wordSize = ctxt.WordBitSize
+    let offset = numI64 offset wordSize |> AST.sext wordSize
+    struct (pc .+ offset, true)
+  | OneOperand (OprReg reg) -> struct (!.ctxt reg, false)
+  | OneOperand (OprMem (b, index, disp, oprSize)) ->
+    struct (transMem ins insLen ctxt b index disp oprSize, false)
   | _ -> raise InvalidOperandException
 
 let getTwoOprs ins =
@@ -305,24 +315,24 @@ let getFourOprs (ins: InsInfo) =
   | FourOperands (o1, o2, o3, o4) -> struct (o1, o2, o3, o4)
   | _ -> raise InvalidOperandException
 
-let transOneOpr ins insAddr insLen ctxt =
+let transOneOpr ins insLen ctxt =
   match ins.Operands with
-  | OneOperand opr -> transOprToExpr ins insAddr insLen ctxt opr
+  | OneOperand opr -> transOprToExpr ins insLen ctxt opr
   | _ -> raise InvalidOperandException
 
-let transTwoOprs ins insAddr insLen ctxt =
+let transTwoOprs ins insLen ctxt =
   match ins.Operands with
   | TwoOperands (o1, o2) ->
-    struct (transOprToExpr ins insAddr insLen ctxt o1,
-            transOprToExpr ins insAddr insLen ctxt o2)
+    struct (transOprToExpr ins insLen ctxt o1,
+            transOprToExpr ins insLen ctxt o2)
   | _ -> raise InvalidOperandException
 
-let transThreeOprs ins insAddr insLen ctxt =
+let transThreeOprs ins insLen ctxt =
   match ins.Operands with
   | ThreeOperands (o1, o2, o3) ->
-    struct (transOprToExpr ins insAddr insLen ctxt o1,
-            transOprToExpr ins insAddr insLen ctxt o2,
-            transOprToExpr ins insAddr insLen ctxt o3)
+    struct (transOprToExpr ins insLen ctxt o1,
+            transOprToExpr ins insLen ctxt o2,
+            transOprToExpr ins insLen ctxt o3)
   | _ -> raise InvalidOperandException
 
 /// This is an Intel-specific assignment to a destination operand.
@@ -366,8 +376,8 @@ let getMask oprSize =
   | 64<rt> -> numI64 0xffffffffffffffffL oprSize
   | _ -> raise InvalidOperandSizeException
 
-let sideEffects insAddr insLen name =
+let sideEffects insLen name =
   let ir = IRBuilder (4)
-  !<ir insAddr insLen
+  !<ir insLen
   !!ir (SideEffect name)
-  !>ir insAddr insLen
+  !>ir insLen

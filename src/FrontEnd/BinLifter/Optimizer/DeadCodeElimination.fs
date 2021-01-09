@@ -93,10 +93,10 @@ let rec optimizeLoop (stmts: Stmt []) (used: bool []) idx len ctxt =
       let ei1 = AST.getExprInfo e1
       let ei2 = AST.getExprInfo e2
       optimizeLoop stmts used (idx - 1) len (updateUse2 ei1 ei2 ctxt)
-    | InterJmp (_, e, _) ->
+    | InterJmp (e, _) ->
       let ei = AST.getExprInfo e
       optimizeLoop stmts used (idx - 1) len (updateUse ei ctxt)
-    | InterCJmp (e, _, e1, e2) ->
+    | InterCJmp (e, e1, e2) ->
       let ei = AST.getExprInfo e
       let ei1 = AST.getExprInfo e1
       let ei2 = AST.getExprInfo e2

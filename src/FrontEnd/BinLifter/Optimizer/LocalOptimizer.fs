@@ -30,7 +30,7 @@ module private Localizer =
   let rec breakByMark acc (stmts: Stmt []) idx =
     if idx < stmts.Length then
       match stmts.[idx] with
-      | ISMark (_, _)
+      | ISMark (_)
       | LMark (_) ->
         let left, right = Array.splitAt idx stmts
         breakByMark (left :: acc) right 1

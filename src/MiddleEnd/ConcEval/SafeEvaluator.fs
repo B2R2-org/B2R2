@@ -153,17 +153,26 @@ let private markUndefAfterFailure st lhs =
   | Var (_, n, _, _) -> EvalState.SetReg st n Undef |> ignore
   | _ -> ()
 
+let private evalPCUpdate st rhs =
+  match evalConcrete st rhs with
+  | (Ok v) as res ->
+    st.Callbacks.OnPut st.PC v
+    unwrap res
+    |> Result.map BitVector.toUInt64
+    |> Result.map (EvalState.SetPC st)
+  | Error e -> Error e
+
 let private evalPut st lhs rhs =
   match evalConcrete st rhs with
   | (Ok v) as res ->
     st.Callbacks.OnPut st.PC v
     match lhs with
     | Var (_, n, _, _) -> EvalState.SetReg st n v |> Ok
+    | TempVar (_, n) -> EvalState.SetTmp st n v |> Ok
     | PCVar (_) ->
       unwrap res
       |> Result.map BitVector.toUInt64
       |> Result.map (EvalState.SetPC st)
-    | TempVar (_, n) -> EvalState.SetTmp st n v |> Ok
     | _ -> Error ErrorCase.InvalidExprEvaluation
   | Error e ->
     markUndefAfterFailure st lhs
@@ -190,24 +199,23 @@ let private evalCJmp st cond t f =
     if cond = tr then evalJmp st t else evalJmp st f
   | Error e -> Error e
 
-let private evalIntCJmp st cond pc t f =
+let private evalIntCJmp st cond t f =
   match evalConcrete st cond |> unwrap with
-  | Ok cond ->
-    evalPut st pc (if cond = tr then t else f)
+  | Ok cond -> evalPCUpdate st (if cond = tr then t else f)
   | Error e -> Error e
 
 let evalStmt st = function
-  | ISMark (pc, _) -> EvalState.StartInstr st pc |> EvalState.NextStmt |> Ok
-  | IEMark (addr) -> EvalState.SetPC st addr |> EvalState.AbortInstr |> Ok
+  | ISMark (_) -> EvalState.StartInstr st; EvalState.NextStmt st |> Ok
+  | IEMark (len) -> EvalState.IncPC st len |> EvalState.AbortInstr |> Ok
   | LMark _ -> EvalState.NextStmt st |> Ok
   | Put (lhs, rhs) -> evalPut st lhs rhs |> Result.map EvalState.NextStmt
   | Store (e, addr, v) -> evalStore st e addr v |> Result.map EvalState.NextStmt
   | Jmp target -> evalJmp st target
   | CJmp (cond, t, f) -> evalCJmp st cond t f
-  | InterJmp (pc, target, _) ->
-    evalPut st pc target |> Result.map EvalState.AbortInstr
-  | InterCJmp (c, pc, t, f) ->
-    evalIntCJmp st c pc t f |> Result.map EvalState.AbortInstr
+  | InterJmp (target, _) ->
+    evalPCUpdate st target |> Result.map EvalState.AbortInstr
+  | InterCJmp (c, t, f) ->
+    evalIntCJmp st c t f |> Result.map EvalState.AbortInstr
   | SideEffect eff -> st.Callbacks.OnSideEffect eff st |> Ok
 
 let internal tryEvaluate stmt st =
@@ -232,7 +240,8 @@ let rec internal evalLoop stmts result =
 
 /// Evaluate a block of statements. The block may represent a machine
 /// instruction, or a basic block.
-let evalBlock (st: EvalState) tid stmts =
+let evalBlock (st: EvalState) pc tid stmts =
+  let st = EvalState.SetPC st pc
   if st.ThreadId <> tid then EvalState.ContextSwitch tid st else st
   |> EvalState.PrepareBlockEval stmts
   |> Ok

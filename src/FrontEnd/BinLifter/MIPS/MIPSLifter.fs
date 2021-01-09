@@ -37,10 +37,10 @@ let inline getRegVar (ctxt: TranslationContext) name =
 let inline private (<!) (builder: IRBuilder) (s) = builder.Append (s)
 
 let startMark insInfo (builder: IRBuilder) =
-  builder <! (ISMark (insInfo.Address, insInfo.NumBytes))
+  builder <! (ISMark (insInfo.NumBytes))
 
 let endMark insInfo (builder: IRBuilder) =
-  builder <! (IEMark (uint64 insInfo.NumBytes + insInfo.Address)); builder
+  builder <! (IEMark (insInfo.NumBytes)); builder
 
 let inline numU32 n t = BitVector.ofUInt32 n t |> AST.num
 let inline numI32 n t = BitVector.ofInt32 n t |> AST.num
@@ -243,9 +243,8 @@ let aui insInfo ctxt =
 let b insInfo ctxt =
   let builder = IRBuilder (4)
   let offset = getOneOpr insInfo |> transOneOpr insInfo ctxt
-  let pc = getRegVar ctxt R.PC
   startMark insInfo builder
-  builder <! (InterJmp (pc, offset, InterJmpInfo.Base))
+  builder <! (InterJmp (offset, InterJmpInfo.Base))
   endMark insInfo builder
 
 let bal insInfo ctxt =
@@ -254,73 +253,67 @@ let bal insInfo ctxt =
   let pc = getRegVar ctxt R.PC
   startMark insInfo builder
   builder <! (getRegVar ctxt R.R31 := pc .+ numI32 8 ctxt.WordBitSize)
-  builder <! (InterJmp (pc, offset, InterJmpInfo.IsCall))
+  builder <! (InterJmp (offset, InterJmpInfo.IsCall))
   endMark insInfo builder
 
 let beq insInfo ctxt =
   let builder = IRBuilder (4)
   let rs, rt, offset = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let pc = getRegVar ctxt R.PC
   let cond = rs == rt
   let fallThrough =
     bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
   startMark insInfo builder
-  builder <! (InterCJmp (cond, pc, offset, fallThrough))
+  builder <! (InterCJmp (cond, offset, fallThrough))
   endMark insInfo builder
 
 let blez insInfo ctxt =
   let builder = IRBuilder (4)
   let rs, offset = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let pc = getRegVar ctxt R.PC
   let cond = AST.le rs (AST.num0 ctxt.WordBitSize)
   let fallThrough =
     bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
   startMark insInfo builder
-  builder <! (InterCJmp (cond, pc, offset, fallThrough))
+  builder <! (InterCJmp (cond, offset, fallThrough))
   endMark insInfo builder
 
 let bltz insInfo ctxt =
   let builder = IRBuilder (4)
   let rs, offset = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let pc = getRegVar ctxt R.PC
   let cond = AST.lt rs (AST.num0 ctxt.WordBitSize)
   let fallThrough =
     bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
   startMark insInfo builder
-  builder <! (InterCJmp (cond, pc, offset, fallThrough))
+  builder <! (InterCJmp (cond, offset, fallThrough))
   endMark insInfo builder
 
 let bgez insInfo ctxt =
   let builder = IRBuilder (4)
   let rs, offset = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let pc = getRegVar ctxt R.PC
   let cond = AST.ge rs (AST.num0 ctxt.WordBitSize)
   let fallThrough =
     bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
   startMark insInfo builder
-  builder <! (InterCJmp (cond, pc, offset, fallThrough))
+  builder <! (InterCJmp (cond, offset, fallThrough))
   endMark insInfo builder
 
 let bgtz insInfo ctxt =
   let builder = IRBuilder (4)
   let rs, offset = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
-  let pc = getRegVar ctxt R.PC
   let cond = AST.gt rs (AST.num0 ctxt.WordBitSize)
   let fallThrough =
     bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
   startMark insInfo builder
-  builder <! (InterCJmp (cond, pc, offset, fallThrough))
+  builder <! (InterCJmp (cond, offset, fallThrough))
   endMark insInfo builder
 
 let bne insInfo ctxt =
   let builder = IRBuilder (4)
   let rs, rt, offset = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
-  let pc = getRegVar ctxt R.PC
   let cond = rs != rt
   let fallThrough =
     bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
   startMark insInfo builder
-  builder <! (InterCJmp (cond, pc, offset, fallThrough))
+  builder <! (InterCJmp (cond, offset, fallThrough))
   endMark insInfo builder
 
 let clz insInfo (ctxt: TranslationContext) =
@@ -694,19 +687,17 @@ let getJALROprs insInfo ctxt =
 let jalr insInfo ctxt =
   let builder = IRBuilder (4)
   let rd, rs = getJALROprs insInfo ctxt
-  let pc = getRegVar ctxt R.PC
   let r = bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
   startMark insInfo builder
   builder <! (rd := r)
-  builder <! (InterJmp (pc, rs, InterJmpInfo.IsCall))
+  builder <! (InterJmp (rs, InterJmpInfo.IsCall))
   endMark insInfo builder
 
 let jr insInfo ctxt =
   let builder = IRBuilder (4)
   let rs = getOneOpr insInfo |> transOneOpr insInfo ctxt
-  let pc = getRegVar ctxt R.PC
   startMark insInfo builder
-  builder <! (InterJmp (pc, rs, InterJmpInfo.Base))
+  builder <! (InterJmp (rs, InterJmpInfo.Base))
   endMark insInfo builder
 
 let load insInfo ctxt =

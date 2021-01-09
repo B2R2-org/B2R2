@@ -27,6 +27,7 @@ namespace B2R2.MiddleEnd.BinEssence
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinInterface
+open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open System.Collections.Generic
 
@@ -61,7 +62,7 @@ module InstrMap =
       | _ -> labels) Map.empty
     |> fst
 
-  let private findReachablePPs labels stmts =
+  let private findReachablePPs insAddr mask labels stmts =
     stmts
     |> Array.fold (fun targets stmt ->
       match stmt with
@@ -72,28 +73,72 @@ module InstrMap =
         Set.add (Map.find t labels) targets
       | CJmp (_, Undefined _, Name f) ->
         Set.add (Map.find f labels) targets
-      | InterJmp (_, Num bv, _) ->
+      | InterJmp (Num bv, _) ->
         let ppoint = ProgramPoint (BitVector.toUInt64 bv, 0)
         Set.add ppoint targets
-      | InterCJmp (_, _, Num tBv, Num fBv) ->
+      | InterJmp (PCVar _, _) ->
+        let ppoint = ProgramPoint (insAddr, 0)
+        Set.add ppoint targets
+      | InterJmp (BinOp (BinOpType.ADD, _, PCVar (_), Num bv, _, _), _)
+      | InterJmp (BinOp (BinOpType.ADD, _, Num bv, PCVar (_), _, _), _) ->
+        let ppoint = ProgramPoint ((insAddr + BitVector.toUInt64 bv) &&& mask, 0)
+        Set.add ppoint targets
+      | InterCJmp (_, Num tBv, Num fBv) ->
         let tPpoint = ProgramPoint (BitVector.toUInt64 tBv, 0)
         let fPpoint = ProgramPoint (BitVector.toUInt64 fBv, 0)
         targets |> Set.add tPpoint |> Set.add fPpoint
-      | InterCJmp (_, _, Num tBv, _) ->
+      | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar (_), Num tBv, _, _),
+                      BinOp (BinOpType.ADD, _, PCVar (_), Num fBv, _, _))
+      | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar (_), Num tBv, _, _),
+                      BinOp (BinOpType.ADD, _, Num fBv, PCVar (_), _, _))
+      | InterCJmp (_, BinOp (BinOpType.ADD, _, Num tBv, PCVar (_), _, _),
+                      BinOp (BinOpType.ADD, _, PCVar (_), Num fBv, _, _))
+      | InterCJmp (_, BinOp (BinOpType.ADD, _, Num tBv, PCVar (_), _, _),
+                      BinOp (BinOpType.ADD, _, Num fBv, PCVar (_), _, _)) ->
+        let tPpoint = ProgramPoint ((insAddr + BitVector.toUInt64 tBv) &&& mask, 0)
+        let fPpoint = ProgramPoint ((insAddr + BitVector.toUInt64 fBv) &&& mask, 0)
+        targets |> Set.add tPpoint |> Set.add fPpoint
+      | InterCJmp (_, PCVar (_),
+                      BinOp (BinOpType.ADD, _, PCVar (_), Num fBv, _, _))
+      | InterCJmp (_, PCVar (_),
+                      BinOp (BinOpType.ADD, _, Num fBv, PCVar (_), _, _)) ->
+        let tPpoint = ProgramPoint (insAddr, 0)
+        let fPpoint = ProgramPoint ((insAddr + BitVector.toUInt64 fBv) &&& mask, 0)
+        targets |> Set.add tPpoint |> Set.add fPpoint
+      | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar (_), Num tBv, _, _),
+                      PCVar (_))
+      | InterCJmp (_, BinOp (BinOpType.ADD, _, Num tBv, PCVar (_), _, _),
+                      PCVar (_)) ->
+        let tPpoint = ProgramPoint ((insAddr + BitVector.toUInt64 tBv) &&& mask, 0)
+        let fPpoint = ProgramPoint (insAddr, 0)
+        targets |> Set.add tPpoint |> Set.add fPpoint
+      | InterCJmp (_, Num tBv, _) ->
         let tPpoint = ProgramPoint (BitVector.toUInt64 tBv, 0)
         Set.add tPpoint targets
-      | InterCJmp (_, _, _, Num fBv) ->
+      | InterCJmp (_, _, Num fBv) ->
         let fPpoint = ProgramPoint (BitVector.toUInt64 fBv, 0)
         Set.add fPpoint targets
+      | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar (_), Num bv, _, _), _)
+      | InterCJmp (_, _, BinOp (BinOpType.ADD, _, PCVar (_), Num bv, _, _)) ->
+        let tPpoint = ProgramPoint ((insAddr + BitVector.toUInt64 bv) &&& mask, 0)
+        Set.add tPpoint targets
+      | InterCJmp (_, PCVar _, _)
+      | InterCJmp (_, _, PCVar _) ->
+        let tPpoint = ProgramPoint (insAddr, 0)
+        Set.add tPpoint targets
       | _ -> targets) Set.empty
 
   let private newInstructionInfo hdl (ins: Instruction) =
     let stmts = BinHandle.LiftInstr hdl ins |> transform
+    let rt =
+      hdl.ISA.WordSize
+      |> WordSize.toRegType
+    let mask = BitVector.unsignedMax rt |> BitVector.toUInt64
     let labels = findLabels ins.Address stmts
     { Instruction = ins
       Stmts = stmts
       Labels = labels
-      ReachablePPs = findReachablePPs labels stmts
+      ReachablePPs = findReachablePPs ins.Address mask labels stmts
       ArchOperationMode = hdl.DefaultParsingContext.ArchOperationMode
       Offset = hdl.DefaultParsingContext.CodeOffset }
 

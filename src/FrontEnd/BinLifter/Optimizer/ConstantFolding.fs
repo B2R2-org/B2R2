@@ -188,20 +188,20 @@ let rec optimizeLoop (stmts: Stmt []) idx ctxt =
       let struct (c2, e2) = replace ctxt e2
       if c1 || c2 then stmts.[idx] <- Store (endian, e1, e2) else ()
       optimizeLoop stmts (idx + 1) ctxt
-    | InterJmp (pc, e, t) ->
+    | InterJmp (e, t) ->
       let struct (changed, e) = replace ctxt e
-      if changed then stmts.[idx] <- InterJmp (pc, e, t) else ()
+      if changed then stmts.[idx] <- InterJmp (e, t) else ()
       optimizeLoop stmts (idx + 1) ctxt
-    | InterCJmp (cond, pc, e1, e2) ->
+    | InterCJmp (cond, e1, e2) ->
       let struct (c0, cond) = replace ctxt cond
       let struct (c1, e1) = replace ctxt e1
       let struct (c2, e2) = replace ctxt e2
       if c0 || c1 || c2 then
         stmts.[idx] <-
           match cond with
-          | Num n when BitVector.isOne n -> InterJmp (pc, e1, InterJmpInfo.Base)
-          | Num _ -> InterJmp (pc, e2, InterJmpInfo.Base)
-          | _ -> InterCJmp (cond, pc, e1, e2)
+          | Num n when BitVector.isOne n -> InterJmp (e1, InterJmpInfo.Base)
+          | Num _ -> InterJmp (e2, InterJmpInfo.Base)
+          | _ -> InterCJmp (cond, e1, e2)
       else ()
       optimizeLoop stmts (idx + 1) ctxt
     | Jmp (e) ->

@@ -44,8 +44,8 @@ let private extractUseFromStmt = function
   | Store (_, _, e)
   | Jmp (e)
   | CJmp (e, _, _)
-  | InterJmp (_, e, _) -> extractUseFromExpr e
-  | InterCJmp (c, _, e1, e2) ->
+  | InterJmp (e, _) -> extractUseFromExpr e
+  | InterCJmp (c, e1, e2) ->
     extractUseFromExpr c @ extractUseFromExpr e1 @ extractUseFromExpr e2
   | _ -> []
 

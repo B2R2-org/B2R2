@@ -48,7 +48,7 @@ type LowUIRTests () =
   [<TestMethod>]
   member __.``[IntelAssemblerLowUIR] Test IEMark ``() =
     let result = p.Parse "} // 1" |> Result.get |> Array.head
-    let answer = IEMark 1UL
+    let answer = IEMark 1u
     Assert.AreEqual (answer, result)
 
   [<TestMethod>]

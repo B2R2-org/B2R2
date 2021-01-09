@@ -120,13 +120,6 @@ and EvalState (?reader, ?ignoreundef) =
   /// This is particularly useful to quickly check some constants.
   member val IgnoreUndef = defaultArg ignoreundef false with get
 
-  /// Prepare the initial context of the given thread id (tid). This function
-  /// will set the current thread to be tid.
-  static member PrepareContext (st: EvalState) tid pc regs =
-    let st = EvalState.ContextSwitch tid st
-    let st = EvalState.SetPC st pc
-    regs |> List.fold (fun st (r, v) -> EvalState.SetReg st r v) st
-
   /// Get the context of a specific thread.
   static member inline GetContext (st: EvalState) tid =
     st.Contexts.[tid]
@@ -134,6 +127,57 @@ and EvalState (?reader, ?ignoreundef) =
   /// Get the current context of the current thread.
   static member inline GetCurrentContext (st: EvalState) =
     st.Contexts.[st.ThreadId]
+
+  /// Update the current statement index to be the next (current + 1) statement.
+  static member inline NextStmt (st: EvalState) =
+    st.Contexts.[st.ThreadId].StmtIdx <- st.Contexts.[st.ThreadId].StmtIdx + 1
+    st
+
+  /// Stop evaluating further statements of the current instruction, and move on
+  /// the next instruction.
+  static member inline AbortInstr (st: EvalState) =
+    st.TerminateInstr <- true
+    EvalState.NextStmt st
+
+  /// Start evaluating the instruction.
+  static member inline StartInstr (st: EvalState) =
+    st.TerminateInstr <- false
+
+  /// Should we stop evaluating further statements of the current instruction,
+  /// and move on to the next instruction?
+  static member inline IsInstrTerminated (st: EvalState) =
+    st.TerminateInstr
+
+  /// Get the value of the given temporary variable.
+  static member inline GetTmp (st: EvalState) n =
+    st.Contexts.[st.ThreadId].Temporaries.Get (n)
+
+  /// Set the value for the given temporary variable.
+  static member inline SetTmp (st: EvalState) n v =
+    st.Contexts.[st.ThreadId].Temporaries.Set n v
+    st
+
+  /// Get the value of the given register.
+  static member inline GetReg (st: EvalState) r =
+    st.Contexts.[st.ThreadId].Registers.Get r
+
+  /// Set the value for the given register.
+  static member inline SetReg (st: EvalState) r v =
+    st.Contexts.[st.ThreadId].Registers.Set r v
+    st
+
+  /// Get the program counter (PC).
+  static member inline GetPC (st: EvalState) =
+    st.PC
+
+  /// Set the program counter (PC).
+  static member inline SetPC (st: EvalState) addr =
+    st.PC <- addr
+    st
+
+  static member inline IncPC (st: EvalState) (amount: uint32) =
+    st.PC <- st.PC + uint64 amount
+    st
 
   /// Thread context switch. If the given thread ID does not exist, we create a
   /// new context for it.
@@ -144,77 +188,36 @@ and EvalState (?reader, ?ignoreundef) =
     else ()
     st
 
-  /// Update the current statement index to be the next (current + 1) statement.
-  static member NextStmt (st: EvalState) =
-    st.Contexts.[st.ThreadId].StmtIdx <- st.Contexts.[st.ThreadId].StmtIdx + 1
-    st
-
-  /// Stop evaluating further statements of the current instruction, and move on
-  /// the next instruction.
-  static member AbortInstr (st: EvalState) =
-    st.TerminateInstr <- true
-    EvalState.NextStmt st
-
-  /// Start evaluating the instruction.
-  static member StartInstr (st: EvalState) pc =
-    st.TerminateInstr <- false
-    EvalState.SetPC st pc
-
-  /// Should we stop evaluating further statements of the current instruction,
-  /// and move on to the next instruction?
-  static member IsInstrTerminated (st: EvalState) =
-    st.TerminateInstr
-
-  /// Get the value of the given temporary variable.
-  static member GetTmp (st: EvalState) n =
-    st.Contexts.[st.ThreadId].Temporaries.Get (n)
-
-  /// Set the value for the given temporary variable.
-  static member SetTmp (st: EvalState) n v =
-    st.Contexts.[st.ThreadId].Temporaries.Set n v
-    st
-
-  /// Get the value of the given register.
-  static member GetReg (st: EvalState) r =
-    st.Contexts.[st.ThreadId].Registers.Get r
-
-  /// Set the value for the given register.
-  static member SetReg (st: EvalState) r v =
-    st.Contexts.[st.ThreadId].Registers.Set r v
-    st
-
-  /// Get the program counter (PC).
-  static member GetPC (st: EvalState) =
-    st.PC
-
-  /// Set the program counter (PC).
-  static member SetPC (st: EvalState) addr =
-    st.PC <- addr
-    st
+  /// Prepare the initial context of the given thread id (tid). This function
+  /// will set the current thread to be tid.
+  static member PrepareContext (st: EvalState) tid pc regs =
+    let st = EvalState.ContextSwitch tid st
+    let st = EvalState.SetPC st pc
+    regs |> List.fold (fun st (r, v) -> EvalState.SetReg st r v) st
 
   /// Go to the statement of the given label.
-  static member GoToLabel (st: EvalState) lbl =
+  static member inline GoToLabel (st: EvalState) lbl =
     st.Contexts.[st.ThreadId].StmtIdx <-
       st.Contexts.[st.ThreadId].Labels.Index lbl
     st
 
   /// Get ready for block-level evaluation (evalBlock).
-  static member PrepareBlockEval stmts (st: EvalState) =
+  static member inline PrepareBlockEval stmts (st: EvalState) =
     st.Contexts.[st.ThreadId].Labels.Update stmts
     st.Contexts.[st.ThreadId].StmtIdx <- 0
     st
 
   /// Get the current architecture operation mode.
-  static member GetMode (st: EvalState) =
+  static member inline GetMode (st: EvalState) =
     st.Contexts.[st.ThreadId].Mode
 
   /// Set the architecture operation mode.
-  static member SetMode (st: EvalState) mode =
+  static member inline SetMode (st: EvalState) mode =
     st.Contexts.[st.ThreadId].Mode <- mode
     st
 
   /// Delete temporary states variables and get ready for evaluating the next
   /// block of isntructions.
-  static member CleanUp (st: EvalState) =
+  static member inline CleanUp (st: EvalState) =
     st.Contexts.[st.ThreadId].Temporaries.Clear ()
     st

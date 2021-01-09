@@ -64,18 +64,18 @@ let private movdMemToReg ctxt src r ir =
   | Register.Kind.MMX -> !!ir (!.ctxt r := AST.zext 64<rt> src)
   | _ -> Utils.impossible ()
 
-let movd ins insAddr insLen ctxt =
+let movd ins insLen ctxt =
   let ir = IRBuilder (8)
   let struct (dst, src) = getTwoOprs ins
-  !<ir insAddr insLen
+  !<ir insLen
   match dst, src  with
   | OprReg r1, OprReg r2 -> movdRegToReg ctxt r1 r2 ir
-  | OprMem _, OprReg r -> let dst = transOprToExpr ins insAddr insLen ctxt dst
+  | OprMem _, OprReg r -> let dst = transOprToExpr ins insLen ctxt dst
                           movdRegToMem ctxt dst r ir
-  | OprReg r, OprMem _ -> let src = transOprToExpr ins insAddr insLen ctxt src
+  | OprReg r, OprMem _ -> let src = transOprToExpr ins insLen ctxt src
                           movdMemToReg ctxt src r ir
   | _, _ -> raise InvalidOperandException
-  !>ir insAddr insLen
+  !>ir insLen
 
 let private movqRegToReg ctxt r1 r2 ir =
   match Register.getKind r1, Register.getKind r2 with
@@ -107,18 +107,18 @@ let private movqMemToReg ctxt src r ir =
   | Register.Kind.MMX -> !!ir (!.ctxt r := src)
   | _ -> Utils.impossible ()
 
-let movq ins insAddr insLen ctxt =
+let movq ins insLen ctxt =
   let ir = IRBuilder (4)
   let struct (dst, src) = getTwoOprs ins
-  !<ir insAddr insLen
+  !<ir insLen
   match dst, src with
   | OprReg r1, OprReg r2 -> movqRegToReg ctxt r1 r2 ir
-  | OprMem _, OprReg r -> let dst = transOprToExpr ins insAddr insLen ctxt dst
+  | OprMem _, OprReg r -> let dst = transOprToExpr ins insLen ctxt dst
                           movqRegToMem ctxt dst r ir
-  | OprReg r, OprMem _ -> let src = transOprToExpr ins insAddr insLen ctxt src
+  | OprReg r, OprMem _ -> let src = transOprToExpr ins insLen ctxt src
                           movqMemToReg ctxt src r ir
   | _, _ -> raise InvalidOperandException
-  !>ir insAddr insLen
+  !>ir insLen
 
 let private saturateSignedDwordToSignedWord expr =
   let checkMin = AST.slt expr (numI32 -32768 32<rt>)
@@ -175,16 +175,16 @@ let private makeSrc ir packSize packNum src =
     !!ir (tSrc.[i] := AST.extract src packSize (i * (int packSize)))
   tSrc
 
-let private buildPackedInstrTwoOprs ins insAddr insLen ctxt packSz opFn bufSz dst src =
+let private buildPackedTwoOprs ins insLen ctxt packSz opFn bufSz dst src =
   let ir = IRBuilder (bufSz)
   let oprSize = getOperationSize ins
   let packNum = oprSize / packSz
   let makeSrc = makeSrc ir packSz
-  !<ir insAddr insLen
+  !<ir insLen
   match oprSize with
   | 64<rt> ->
-    let dst = transOprToExpr ins insAddr insLen ctxt dst
-    let src = transOprToExpr ins insAddr insLen ctxt src
+    let dst = transOprToExpr ins insLen ctxt dst
+    let src = transOprToExpr ins insLen ctxt src
     let src1 = makeSrc packNum dst
     let src2 = match src with
                | Load (_, rt, _, _, _) -> makeSrc (rt / packSz) src
@@ -193,69 +193,69 @@ let private buildPackedInstrTwoOprs ins insAddr insLen ctxt packSz opFn bufSz ds
   | 128<rt> ->
     let packNum = packNum / (oprSize / 64<rt>)
     let srcAppend src =
-      let src = transOprToExprVec ins insAddr insLen ctxt src
+      let src = transOprToExprVec ins insLen ctxt src
       List.map (makeSrc packNum) src |> List.fold Array.append [||]
     let tSrc = opFn oprSize (srcAppend dst) (srcAppend src)
-    let dst = transOprToExprVec ins insAddr insLen ctxt dst
+    let dst = transOprToExprVec ins insLen ctxt dst
     let packNum = Array.length tSrc / List.length dst
     let assign idx dst =
       !!ir (dst := Array.sub tSrc (packNum * idx) packNum |> AST.concatArr)
     List.iteri assign dst
   | _ -> raise InvalidOperandSizeException
-  !>ir insAddr insLen
+  !>ir insLen
 
-let private buildPackedInstrThreeOprs ins iAddr iLen ctxt packSz opFn bufSz dst s1 s2 =
+let private buildPackedThreeOprs ins iLen ctxt packSz opFn bufSz dst s1 s2 =
   let ir = IRBuilder (bufSz)
   let oprSize = getOperationSize ins
   let packNum = oprSize / packSz
   let makeSrc = makeSrc ir packSz
-  !<ir iAddr iLen
+  !<ir iLen
   match oprSize with
   | 64<rt> ->
-    let dst = transOprToExpr ins iAddr iLen ctxt dst
-    let src1 = transOprToExpr ins iAddr iLen ctxt s1
-    let src2 = transOprToExpr ins iAddr iLen ctxt s2
+    let dst = transOprToExpr ins iLen ctxt dst
+    let src1 = transOprToExpr ins iLen ctxt s1
+    let src2 = transOprToExpr ins iLen ctxt s2
     let src1 = makeSrc packNum src1
     let src2 = makeSrc packNum src2
     !!ir (dst := opFn oprSize src1 src2 |> AST.concatArr)
   | 128<rt> | 256<rt> ->
     let packNum = packNum / (oprSize / 64<rt>)
-    let dst = transOprToExprVec ins iAddr iLen ctxt dst
+    let dst = transOprToExprVec ins iLen ctxt dst
     let srcAppend src =
-      let src = transOprToExprVec ins iAddr iLen ctxt src
+      let src = transOprToExprVec ins iLen ctxt src
       List.map (makeSrc packNum) src |> List.fold Array.append [||]
     let tSrc = opFn oprSize (srcAppend s1) (srcAppend s2)
     let assign idx dst =
       !!ir (dst := Array.sub tSrc (packNum * idx) packNum |> AST.concatArr)
     List.iteri assign dst
   | _ -> raise InvalidOperandSizeException
-  !>ir iAddr iLen
+  !>ir iLen
 
-let buildPackedInstr ins insAddr insLen ctxt packSz opFn bufSz =
+let buildPackedInstr ins insLen ctxt packSz opFn bufSz =
   match ins.Operands with
   | TwoOperands (o1, o2) ->
-    buildPackedInstrTwoOprs ins insAddr insLen ctxt packSz opFn bufSz o1 o2
+    buildPackedTwoOprs ins insLen ctxt packSz opFn bufSz o1 o2
   | ThreeOperands (o1, o2, o3) ->
-    buildPackedInstrThreeOprs ins insAddr insLen ctxt packSz opFn bufSz o1 o2 o3
+    buildPackedThreeOprs ins insLen ctxt packSz opFn bufSz o1 o2 o3
   | _ -> raise InvalidOperandException
 
 let private opPackssdw _ src1 src2 =
   Array.append src1 src2 |> Array.map saturateSignedDwordToSignedWord
 
-let packssdw ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 32<rt> opPackssdw 16
+let packssdw ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 32<rt> opPackssdw 16
 
 let private opPacksswb _ src1 src2 =
   Array.append src1 src2 |> Array.map saturateSignedWordToSignedByte
 
-let packsswb ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 16<rt> opPacksswb 16
+let packsswb ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 16<rt> opPacksswb 16
 
 let private opPackuswb _ src1 src2 =
   Array.append src1 src2 |> Array.map saturateSignedWordToUnsignedByte
 
-let packuswb ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 16<rt> opPackuswb 16
+let packuswb ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 16<rt> opPackuswb 16
 
 let private opPunpck oprSize src1 src2 isHigh =
   match oprSize with
@@ -288,93 +288,93 @@ let opPunpckHigh oprSize src1 src2 = opPunpck oprSize src1 src2 true
 
 let opPunpckLow oprSize src1 src2 = opPunpck oprSize src1 src2 false
 
-let punpckhbw ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 8<rt> opPunpckHigh 64
+let punpckhbw ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 8<rt> opPunpckHigh 64
 
-let punpckhwd ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 16<rt> opPunpckHigh 32
+let punpckhwd ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 16<rt> opPunpckHigh 32
 
-let punpckhdq ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 32<rt> opPunpckHigh 16
+let punpckhdq ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 32<rt> opPunpckHigh 16
 
-let punpcklbw ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 8<rt> opPunpckLow 64
+let punpcklbw ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 8<rt> opPunpckLow 64
 
-let punpcklwd ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 16<rt> opPunpckLow 32
+let punpcklwd ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 16<rt> opPunpckLow 32
 
-let punpckldq ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 32<rt> opPunpckLow 16
+let punpckldq ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 32<rt> opPunpckLow 16
 
 let opP op _ = Array.map2 (op)
 
-let paddb ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 8<rt> (opP (.+)) 8
+let paddb ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 8<rt> (opP (.+)) 8
 
-let paddw ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 16<rt> (opP (.+)) 8
+let paddw ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 16<rt> (opP (.+)) 8
 
-let paddd ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 32<rt> (opP (.+)) 8
+let paddd ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 32<rt> (opP (.+)) 8
 
 let private opPaddsb oprSize src1 src2 =
   (opP (.+)) oprSize src1 src2 |> Array.map saturateToSignedByte
 
-let paddsb ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 8<rt> opPaddsb 16
+let paddsb ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 8<rt> opPaddsb 16
 
 let private opPaddsw oprSize src1 src2 =
   (opP (.+)) oprSize src1 src2 |> Array.map saturateToSignedWord
 
-let paddsw ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 16<rt> opPaddsw 16
+let paddsw ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 16<rt> opPaddsw 16
 
 let private opPaddusb oprSize src1 src2 =
   (opP (.+)) oprSize src1 src2 |> Array.map saturateToUnsignedByte
 
-let paddusb ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 8<rt> opPaddusb 16
+let paddusb ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 8<rt> opPaddusb 16
 
 let private opPaddusw oprSize src1 src2 =
   (opP (.+)) oprSize src1 src2 |> Array.map saturateToUnsignedWord
 
-let paddusw ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 16<rt> opPaddusw 16
+let paddusw ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 16<rt> opPaddusw 16
 
 let opPsub _ = Array.map2 (.-)
 
-let psubb ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 8<rt> opPsub 8
+let psubb ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 8<rt> opPsub 8
 
-let psubw ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 16<rt> opPsub 8
+let psubw ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 16<rt> opPsub 8
 
-let psubd ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 32<rt> opPsub 8
+let psubd ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 32<rt> opPsub 8
 
 let private opPsubsb oprSize src1 src2 =
   opPsub oprSize src1 src2 |> Array.map saturateToSignedByte
 
-let psubsb ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 8<rt> opPsubsb 8
+let psubsb ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 8<rt> opPsubsb 8
 
 let private opPsubsw oprSize src1 src2 =
   opPsub oprSize src1 src2 |> Array.map saturateToSignedWord
 
-let psubsw ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 16<rt> opPsubsw 8
+let psubsw ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 16<rt> opPsubsw 8
 
 let private opPsubusb oprSize src1 src2 =
   opPsub oprSize src1 src2 |> Array.map saturateToUnsignedByte
 
-let psubusb ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 8<rt> opPsubusb 8
+let psubusb ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 8<rt> opPsubusb 8
 
 let private opPsubusw oprSize src1 src2 =
   opPsub oprSize src1 src2 |> Array.map saturateToUnsignedWord
 
-let psubusw ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 16<rt> opPsubusw 8
+let psubusw ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 16<rt> opPsubusw 8
 
 let opPmul resType extr extSz packSz src1 src2 =
   Array.map2 (fun e1 e2 -> extr extSz e1 .* extr extSz e2) src1 src2
@@ -382,13 +382,13 @@ let opPmul resType extr extSz packSz src1 src2 =
 
 let private opPmulhw _ = opPmul AST.xthi AST.sext 32<rt> 16<rt>
 
-let pmulhw ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 16<rt> opPmulhw 32
+let pmulhw ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 16<rt> opPmulhw 32
 
 let private opPmullw _ = opPmul AST.xtlo AST.sext 32<rt> 16<rt>
 
-let pmullw ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 16<rt> opPmullw 32
+let pmullw ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 16<rt> opPmullw 32
 
 let private opPmaddwd _ =
   let lowAndSExt expr = AST.xtlo 16<rt> expr |> AST.sext 32<rt>
@@ -398,8 +398,8 @@ let private opPmaddwd _ =
   let packAdd e1 e2 = mulLow e1 e2 .+ mulHigh e1 e2
   Array.map2 packAdd
 
-let pmaddwd ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 32<rt> opPmaddwd 16
+let pmaddwd ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 32<rt> opPmaddwd 16
 
 let opPcmp packSz cmpOp =
   Array.map2 (fun e1 e2 ->
@@ -407,65 +407,65 @@ let opPcmp packSz cmpOp =
 
 let opPcmpeqb _ = opPcmp 8<rt> (==)
 
-let pcmpeqb ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 8<rt> opPcmpeqb 32
+let pcmpeqb ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 8<rt> opPcmpeqb 32
 
 let private opPcmpeqw _ = opPcmp 16<rt> (==)
 
-let pcmpeqw ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 16<rt> opPcmpeqw 32
+let pcmpeqw ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 16<rt> opPcmpeqw 32
 
 let opPcmpeqd _ = opPcmp 32<rt> (==)
 
-let pcmpeqd ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 32<rt> opPcmpeqd 16
+let pcmpeqd ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 32<rt> opPcmpeqd 16
 
 let opPcmpgtb _ = opPcmp 8<rt> AST.sgt
 
-let pcmpgtb ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 8<rt> opPcmpgtb 32
+let pcmpgtb ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 8<rt> opPcmpgtb 32
 
 let private opPcmpgtw _ = opPcmp 16<rt> AST.sgt
 
-let pcmpgtw ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 16<rt> opPcmpgtw 32
+let pcmpgtw ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 16<rt> opPcmpgtw 32
 
 let private opPcmpgtd _ = opPcmp 32<rt> AST.sgt
 
-let pcmpgtd ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 32<rt> opPcmpgtd 16
+let pcmpgtd ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 32<rt> opPcmpgtd 16
 
 let opPand _ = Array.map2 (.&)
 
-let pand ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 64<rt> opPand 8
+let pand ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 64<rt> opPand 8
 
 let opPandn _ = Array.map2 (fun e1 e2 -> (AST.not e1) .& e2)
 
-let pandn ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 64<rt> opPandn 8
+let pandn ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 64<rt> opPandn 8
 
 let opPor _ = Array.map2 (.|)
 
-let por ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 64<rt> opPor 8
+let por ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 64<rt> opPor 8
 
-let pxor ins insAddr insLen ctxt =
+let pxor ins insLen ctxt =
   let ir = IRBuilder (4)
   let oprSize = getOperationSize ins
-  !<ir insAddr insLen
+  !<ir insLen
   match oprSize with
   | 64<rt> ->
-    let struct (dst, src) = transTwoOprs ins insAddr insLen ctxt
+    let struct (dst, src) = transTwoOprs ins insLen ctxt
     !!ir (dst := dst <+> src)
   | 128<rt> ->
     let struct (dst, src) = getTwoOprs ins
-    let dstB, dstA = transOprToExpr128 ins insAddr insLen ctxt dst
-    let srcB, srcA = transOprToExpr128 ins insAddr insLen ctxt src
+    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+    let srcB, srcA = transOprToExpr128 ins insLen ctxt src
     !!ir (dstA := dstA <+> srcA)
     !!ir (dstB := dstB <+> srcB)
   | _ -> raise InvalidOperandSizeException
-  !>ir insAddr insLen
+  !>ir insLen
 
 let private opShiftPackedDataLogical oprSize packSz shift src1 src2 =
   let count = AST.concatArr src2 |> AST.zext oprSize
@@ -475,33 +475,33 @@ let private opShiftPackedDataLogical oprSize packSz shift src1 src2 =
 
 let private opPsllw oprSize = opShiftPackedDataLogical oprSize 16<rt> (<<)
 
-let psllw ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 16<rt> opPsllw 8
+let psllw ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 16<rt> opPsllw 8
 
 let private opPslld oprSize = opShiftPackedDataLogical oprSize 32<rt> (<<)
 
-let pslld ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 32<rt> opPslld 8
+let pslld ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 32<rt> opPslld 8
 
 let private opPsllq oprSize = opShiftPackedDataLogical oprSize 64<rt> (<<)
 
-let psllq ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 64<rt> opPsllq 8
+let psllq ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 64<rt> opPsllq 8
 
 let private opPsrlw oprSize = opShiftPackedDataLogical oprSize 16<rt> (>>)
 
-let psrlw ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 16<rt> opPsrlw 32
+let psrlw ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 16<rt> opPsrlw 32
 
 let private opPsrld oprSize = opShiftPackedDataLogical oprSize 32<rt> (>>)
 
-let psrld ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 32<rt> opPsrld 16
+let psrld ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 32<rt> opPsrld 16
 
 let private opPsrlq oprSize = opShiftPackedDataLogical oprSize 64<rt> (>>)
 
-let psrlq ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 64<rt> opPsrlq 8
+let psrlq ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 64<rt> opPsrlq 8
 
 let private opShiftPackedDataRightArith oprSize packSz src1 src2 =
   let count = AST.concatArr src2 |> AST.zext oprSize
@@ -512,16 +512,16 @@ let private opShiftPackedDataRightArith oprSize packSz src1 src2 =
 
 let private opPsraw oprSize = opShiftPackedDataRightArith oprSize 16<rt>
 
-let psraw ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 16<rt> opPsraw 32
+let psraw ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 16<rt> opPsraw 32
 
 let private opPsrad oprSize = opShiftPackedDataRightArith oprSize 32<rt>
 
-let psrad ins insAddr insLen ctxt =
-  buildPackedInstr ins insAddr insLen ctxt 32<rt> opPsrad 16
+let psrad ins insLen ctxt =
+  buildPackedInstr ins insLen ctxt 32<rt> opPsrad 16
 
-let emms _ins insAddr insLen ctxt =
+let emms _ins insLen ctxt =
   let ir = IRBuilder (4)
-  !<ir insAddr insLen
+  !<ir insLen
   !!ir (!.ctxt R.FTW := maxNum 16<rt>)
-  !>ir insAddr insLen
+  !>ir insLen

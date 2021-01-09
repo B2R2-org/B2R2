@@ -81,9 +81,9 @@ let rec translateExpr = function
 
 let rec internal translateStmtAux defaultRegType addr = function
   | LowUIR.ISMark _ -> None
-  | LowUIR.IEMark addr ->
+  | LowUIR.IEMark len ->
     let pc = { Kind = PCVar (defaultRegType); Identifier = -1 }
-    let num = Num <| BitVector.ofUInt64 addr defaultRegType
+    let num = Num <| BitVector.ofUInt64 (addr + uint64 len) defaultRegType
     Def (pc, num) |> Some
   | LowUIR.LMark symb ->
     LMark (addr, symb) |> Some
@@ -109,11 +109,11 @@ let rec internal translateStmtAux defaultRegType addr = function
     let label2 = translateLabel addr label2
     let jmp = IntraCJmp (expr, label1, label2)
     Jmp jmp |> Some
-  | LowUIR.InterJmp (_, expr, _) ->
+  | LowUIR.InterJmp (expr, _) ->
     let expr = translateExpr expr
     let jmp = InterJmp (expr)
     Jmp jmp |> Some
-  | LowUIR.InterCJmp (expr1, _, expr2, expr3) ->
+  | LowUIR.InterCJmp (expr1, expr2, expr3) ->
     let expr1 = translateExpr expr1
     let expr2 = translateExpr expr2
     let expr3 = translateExpr expr3

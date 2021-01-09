@@ -34,6 +34,6 @@ let rec gotoNextInstr stmts st =
   let idx = ctxt.StmtIdx
   if EvalState.IsInstrTerminated st && Array.length stmts > idx && idx >= 0 then
     match stmts.[idx] with
-    | ISMark (pc, _) -> EvalState.StartInstr st pc
+    | ISMark (_) -> EvalState.StartInstr st; st
     | _ -> gotoNextInstr stmts (EvalState.NextStmt st)
   else st

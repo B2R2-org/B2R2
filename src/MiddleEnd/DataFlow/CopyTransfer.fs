@@ -71,17 +71,21 @@ let evalReturn (st: CPState<CopyValue>) addr ret v =
     else NotAConst
   | _ -> Utils.impossible ()
 
-let rec evalExpr ess cfg stackSt st blk = function
+let rec evalExpr ess cfg stackSt st blk (ppoint: ProgramPoint) = function
   | Num bv -> Const bv
+  | Var ({ Kind = PCVar (rt) }) -> Const (BitVector.ofUInt64 ppoint.Address rt)
   | Var v -> CPState.findReg st v
   | Nil -> NotAConst
   | Load (m, rt, addr) ->
     StackTransfer.evalExpr ess cfg stackSt blk addr |> evalLoad st m rt
   | UnOp _ -> NotAConst
   | FuncName _ -> NotAConst
+  | BinOp (BinOpType.ADD, _, Var ({ Kind = PCVar (rt) }), Num bv)
+  | BinOp (BinOpType.ADD, _, Num bv, Var ({ Kind = PCVar (rt) })) ->
+    Const (BitVector.ofUInt64 ppoint.Address rt + bv)
   | BinOp (op, _, e1, e2) ->
-    let c1 = evalExpr ess cfg stackSt st blk e1
-    let c2 = evalExpr ess cfg stackSt st blk e2
+    let c1 = evalExpr ess cfg stackSt st blk ppoint e1
+    let c2 = evalExpr ess cfg stackSt st blk ppoint e2
     evalBinOp op c1 c2
   | RelOp _ -> NotAConst
   | Ite _ -> NotAConst
@@ -91,11 +95,11 @@ let rec evalExpr ess cfg stackSt st blk = function
   | ReturnVal (addr, ret, v) -> evalReturn st addr ret v
   | _ -> Utils.impossible ()
 
-let evalMemDef ess cfg stackSt st blk mDst e =
+let evalMemDef ess cfg stackSt st blk ppoint mDst e =
   let dstid = mDst.Identifier
   match e with
   | Store (mSrc, rt, addr, v) ->
-    let c = evalExpr ess cfg stackSt st blk v
+    let c = evalExpr ess cfg stackSt st blk ppoint v
     let addr = StackTransfer.evalExpr ess cfg stackSt blk addr
     let oldMem = st.MemState.TryGetValue dstid |> Utils.tupleToOpt
     CPState.copyMem st dstid mSrc.Identifier
@@ -121,11 +125,11 @@ let inline updateConst st r v =
     st.RegState.[r] <- st.Meet st.RegState.[r] v
     st.SSAWorkList.Push r
 
-let evalDef ess cfg stackSt (st: CPState<CopyValue>) blk v e =
+let evalDef ess cfg stackSt (st: CPState<CopyValue>) blk ppoint v e =
   match v.Kind with
   | RegVar _ | TempVar _ ->
-    evalExpr ess cfg stackSt st blk e |> updateConst st v
-  | MemVar -> evalMemDef ess cfg stackSt st blk v e
+    evalExpr ess cfg stackSt st blk ppoint e |> updateConst st v
+  | MemVar -> evalMemDef ess cfg stackSt st blk ppoint v e
   | PCVar _ -> ()
 
 let executableSources cfg st (blk: Vertex<_>) srcIDs =
@@ -187,8 +191,8 @@ let evalJmp cfg st blk = function
   | InterJmp _ -> evalInterJmp cfg st blk
   | _ -> markAllSuccessors cfg st blk
 
-let evalStmt stackSt mergePointMap ess cfg st blk _ppoint = function
-  | Def (v, e) -> evalDef ess cfg stackSt st blk v e
+let evalStmt stackSt mergePointMap ess cfg st blk ppoint = function
+  | Def (v, e) -> evalDef ess cfg stackSt st blk ppoint v e
   | Phi (v, ns) -> evalPhi mergePointMap cfg st blk v ns
   | Jmp jmpTy -> evalJmp cfg st blk jmpTy
   | LMark _ | SideEffect _ -> ()
