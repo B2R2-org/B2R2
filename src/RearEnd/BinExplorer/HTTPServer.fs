@@ -33,7 +33,6 @@ open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.BinEssence
 open B2R2.MiddleEnd.Lens
 open B2R2.MiddleEnd.DataFlow
-open B2R2.RearEnd
 open B2R2.RearEnd.Visualization
 
 type CFGType =
@@ -241,26 +240,30 @@ let handleDataflow req resp arbiter (args: string) =
   let args = args.Split ([|','|])
   let entry = args.[0] |> uint64
   let addr = args.[1] |> uint64
-  let var = args.[2] |> ess.BinHandle.RegisterBay.RegIDFromString
-  try
-    let cfg, root = ess.GetFunctionCFG (entry) |> Result.get
-    let chain = DataFlowChain.init cfg root true
-    let v = { ProgramPoint = ProgramPoint (addr, 0); VarExpr = Regular var }
-    computeConnectedVars chain v
-    |> Set.toArray
-    |> Array.map (fun vp ->
-      { VarAddr = vp.ProgramPoint.Address
-        VarNames = getVarNames ess.BinHandle vp.VarExpr })
-    |> json<JsonVarPoint []>
-    |> defaultEnc.GetBytes
-    |> Some
-    |> answer req resp
-  with e ->
+  let tag = args.[2] (* either variable or value. *)
+  match tag with
+  | "variable" ->
+    let var = args.[3] |> ess.BinHandle.RegisterBay.RegIDFromString
+    try
+      let cfg, root = ess.GetFunctionCFG (entry) |> Result.get
+      let chain = DataFlowChain.init cfg root true
+      let v = { ProgramPoint = ProgramPoint (addr, 0); VarExpr = Regular var }
+      computeConnectedVars chain v
+      |> Set.toArray
+      |> Array.map (fun vp ->
+        { VarAddr = vp.ProgramPoint.Address
+          VarNames = getVarNames ess.BinHandle vp.VarExpr })
+      |> json<JsonVarPoint []>
+      |> defaultEnc.GetBytes
+      |> Some
+      |> answer req resp
+    with e ->
 #if DEBUG
-    printfn "%A" e; failwith "[FATAL]: Failed to obtain dataflow info"
+      printfn "%A" e; failwith "[FATAL]: Failed to obtain dataflow info"
 #else
-    answer req resp None
+      answer req resp None
 #endif
+  | _ -> answer req resp None
 
 let handleAJAX req resp arbiter cmdMap query args =
   match query with

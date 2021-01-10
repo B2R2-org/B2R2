@@ -55,10 +55,10 @@ class FlowGraph extends Graph {
       .curve(d3.curveMonotoneY);
   }
 
-  queryDataflow(roots, addr, term) {
+  queryDataflow(roots, addr, tag, term) {
     const myself = this;
     const root = roots[0];
-    const args = [root, addr, term];
+    const args = [root, addr, tag, term];
     query({ "q": "DataFlow", "args": args }, function (_status, json) {
       let nodes = myself.linemap[addr].Tokens[term];
       for (let i = 0; i < json.length; i++) {
@@ -94,7 +94,7 @@ class FlowGraph extends Graph {
       span.on("click", function () {
         myself.deactivateHighlights();
         d3.event.stopPropagation();
-        myself.queryDataflow(roots, addr, term);
+        myself.queryDataflow(roots, addr, tag, term);
       });
     }
   }
