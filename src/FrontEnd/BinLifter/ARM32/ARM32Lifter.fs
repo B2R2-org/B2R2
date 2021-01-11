@@ -2102,7 +2102,7 @@ let ldm opcode insInfo ctxt wbackop =
   let t0 = builder.NewTempVar 32<rt>
   let t1 = builder.NewTempVar 32<rt>
   let rn, numOfRn, numOfReg = parseOprOfLDM insInfo ctxt
-  let wback = Option.get insInfo.WriteBack
+  let wback = insInfo.WriteBack
   let stackWidth = 4 * bitCount numOfReg 16
   let addr = getLDMStartAddr t0 stackWidth opcode
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
@@ -2431,7 +2431,7 @@ let stm opcode insInfo ctxt wbop =
   let builder = IRBuilder (32)
   let taddr = builder.NewTempVar 32<rt>
   let rn, regs = parseOprOfSTM insInfo ctxt
-  let wback = Option.get insInfo.WriteBack
+  let wback = insInfo.WriteBack
   let msize = BitVector.ofInt32 (4 * bitCount regs 16) 32<rt> |> AST.num
   let addr = getSTMStartAddr rn msize opcode
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
@@ -3247,7 +3247,7 @@ let vstm insInfo ctxt =
   let imm32 = AST.num <| BitVector.ofInt32 ((regs * 2) <<< 2) 32<rt>
   let addr = builder.NewTempVar 32<rt>
   let updateRn rn =
-    if insInfo.WriteBack.Value then
+    if insInfo.WriteBack then
       if add then rn .+ imm32 else rn .- imm32
     else rn
   builder <! (addr := if add then rn else rn .- imm32)
@@ -3279,7 +3279,7 @@ let vldm insInfo ctxt =
   let imm32 = AST.num <| BitVector.ofInt32 ((regs * 2) <<< 2) 32<rt>
   let addr = builder.NewTempVar 32<rt>
   let updateRn rn =
-    if insInfo.WriteBack.Value then
+    if insInfo.WriteBack then
       if add then rn .+ imm32 else rn .- imm32
     else rn
   builder <! (addr := if add then rn else rn .- imm32)
@@ -3848,7 +3848,7 @@ let parseOprOfVecStAndLd ctxt insInfo =
 
 let updateRn insInfo rn (rm: Expr option) n (regIdx: bool option) =
   let rmOrTransSz = if regIdx.Value then rm.Value else numI32 n 32<rt>
-  if insInfo.WriteBack.Value then rn .+ rmOrTransSz else rn
+  if insInfo.WriteBack then rn .+ rmOrTransSz else rn
 
 let incAddr addr n = addr .+ (numI32 n 32<rt>)
 

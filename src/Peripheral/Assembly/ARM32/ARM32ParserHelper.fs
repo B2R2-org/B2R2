@@ -142,18 +142,18 @@ let getPSRFlagFromStr (str: string) =
 
 let optionOprFromStr (str: string) =
   match str.ToLower () with
-  | "sy" -> SY
-  | "st" -> ST
-  | "ld" -> LD
-  | "ish" -> ISH
-  | "ishst" -> ISHST
-  | "ishld" -> ISHLD
-  | "nsh" -> NSH
-  | "nshst" -> NSHST
-  | "nshld" -> NSHLD
-  | "osh" -> OSH
-  | "oshst" -> OSHST
-  | "oshld" -> OSHLD
+  | "sy" -> Option.SY
+  | "st" -> Option.ST
+  | "ld" -> Option.LD
+  | "ish" -> Option.ISH
+  | "ishst" -> Option.ISHST
+  | "ishld" -> Option.ISHLD
+  | "nsh" -> Option.NSH
+  | "nshst" -> Option.NSHST
+  | "nshld" -> Option.NSHLD
+  | "osh" -> Option.OSH
+  | "oshst" -> Option.OSHST
+  | "oshld" -> Option.OSHLD
   | _ -> failwith "unknown OptionOperand"
 
 let iFlagFromStr (str: string) =
@@ -194,7 +194,7 @@ let newInsInfo addr opcode c it w q simd oprs iLen mode cflag =
     Opcode = opcode
     Operands = oprs
     ITState = it
-    WriteBack = if w then Some w else None
+    WriteBack = w
     Qualifier = q
     SIMDTyp = simd
     Mode = mode

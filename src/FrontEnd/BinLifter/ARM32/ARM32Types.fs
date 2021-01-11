@@ -1055,6 +1055,20 @@ type OptionOpr =
   | OSHST
   | OSHLD
 
+type Option =
+  | OSHLD = 0b0001
+  | OSHST = 0b0010
+  | OSH = 0b0011
+  | NSHLD = 0b0101
+  | NSHST = 0b0110
+  | NSH = 0b0111
+  | ISHLD = 0b1001
+  | ISHST = 0b1010
+  | ISH = 0b1011
+  | LD = 0b1101
+  | ST = 0b1110
+  | SY = 0b1111
+
 type Iflag =
   | A
   | I
@@ -1079,7 +1093,7 @@ type SRType =
 type Qualifier =
   /// Wide.
   | W
-  /// Narrow.
+  /// Narrow (defalut).
   | N
 
 /// A2.6.3 Data types supported by the Advanced SIMD Extension
@@ -1180,7 +1194,7 @@ type Operand =
   | OprShift of Shift
   | OprRegShift of SRType * Register
   | OprMemory of AddressingMode
-  | OprOption of OptionOpr
+  | OprOption of Option
   | OprIflag of Iflag
   | OprEndian of Endian
   | OprCond of Condition
@@ -1211,9 +1225,9 @@ type InsInfo = {
   /// IT state for this instruction (used only for IT instructions).
   ITState: byte
   /// Write back.
-  WriteBack: bool option
+  WriteBack: bool
   /// Qualifier.
-  Qualifier: Qualifier option
+  Qualifier: Qualifier
   /// SIMD data type.
   SIMDTyp: SIMDDataTypes option
   /// Target architecture mode.

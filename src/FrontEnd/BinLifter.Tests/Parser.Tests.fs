@@ -1513,6 +1513,8 @@ module ARMv7 =
     let q' = ins.Info.Qualifier
     let simd' = ins.Info.SIMDTyp
     let oprs' = ins.Info.Operands
+    let w = match w with | Some true -> true | _ -> false // XXX
+    let q = match q with | Some W -> W | _ -> N // XXX
     Assert.AreEqual (cond', cond)
     Assert.AreEqual (opcode', op)
     Assert.AreEqual (wback', w)
@@ -1830,7 +1832,7 @@ module ARMv7 =
              [| 0xf5uy; 0x7fuy; 0xf0uy; 0x1fuy |]
 
       test32 None Op.DMB None None None
-             (OneOperand (OprOption SY))
+             (OneOperand (OprOption Option.SY))
              [| 0xf5uy; 0x7fuy; 0xf0uy; 0x5fuy |]
 
       test32 (Some Condition.AL) Op.NOP None None None NoOperand
@@ -5337,6 +5339,8 @@ module ARMThumb =
     let q' = ins.Info.Qualifier
     let simd' = ins.Info.SIMDTyp
     let oprs' = ins.Info.Operands
+    let w = match w with | Some true -> true | _ -> false // XXX
+    let q = match q with | Some W -> W | _ -> N // XXX
     Assert.AreEqual (cond', cond)
     Assert.AreEqual (opcode', op)
     Assert.AreEqual (wback', w)
@@ -5992,7 +5996,7 @@ module ARMThumb =
                 [| 0xf3uy; 0xafuy; 0x80uy; 0xfbuy |]
 
       testThumb (Some Condition.AL) Op.DMB None None None
-                (OneOperand (OprOption NSH))
+                (OneOperand (OprOption Option.NSH))
                 [| 0xf3uy; 0xbfuy; 0x8fuy; 0x57uy |]
 
       testThumb None Op.ITE None None None

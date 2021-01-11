@@ -541,12 +541,10 @@ let SIMDTypToStr = function
 
 let qualifierToStr = function
   | W -> ".w"
-  | N -> ".n"
+  | N -> ""
 
 let inline appendQualifier ins (sb: StringBuilder) =
-  match ins.Qualifier with
-  | None ->  sb
-  | Some q -> sb.Append (qualifierToStr q)
+  sb.Append (qualifierToStr ins.Qualifier)
 
 let inline appendSIMDDataTypes ins (sb: StringBuilder) =
   match ins.SIMDTyp with
@@ -575,13 +573,13 @@ let isRFEorSRS = function
 let buildReg ins isRegList reg (builder: DisasmBuilder<_>) =
   let reg = Register.toString reg
   match ins.WriteBack with
-  | Some true when existRegList ins.Operands && not isRegList ->
+  | true when existRegList ins.Operands && not isRegList ->
     builder.Accumulate AsmWordKind.Variable reg
     builder.Accumulate AsmWordKind.String "!"
-  | Some true when isRFEorSRS ins.Opcode ->
+  | true when isRFEorSRS ins.Opcode ->
     builder.Accumulate AsmWordKind.Variable reg
     builder.Accumulate AsmWordKind.String "!"
-  | _ ->
+  | _ (* false *) ->
     builder.Accumulate AsmWordKind.Variable reg
 
 /// See A8-499 the description of <spec_reg>.
@@ -817,18 +815,19 @@ let memToString hlp ins addr addrMode builder =
   memTail addrMode builder
 
 let optToString = function
-  | SY -> "sy"
-  | ST -> "st"
-  | LD -> "ld"
-  | ISH -> "ish"
-  | ISHST -> "ishst"
-  | ISHLD -> "ishld"
-  | NSH -> "nsh"
-  | NSHST -> "nshst"
-  | NSHLD -> "nshld"
-  | OSH -> "osh"
-  | OSHST -> "oshst"
-  | OSHLD -> "oshld"
+  | Option.SY -> "sy"
+  | Option.ST -> "st"
+  | Option.LD -> "ld"
+  | Option.ISH -> "ish"
+  | Option.ISHST -> "ishst"
+  | Option.ISHLD -> "ishld"
+  | Option.NSH -> "nsh"
+  | Option.NSHST -> "nshst"
+  | Option.NSHLD -> "nshld"
+  | Option.OSH -> "osh"
+  | Option.OSHST -> "oshst"
+  | Option.OSHLD -> "oshld"
+  | _ -> Utils.impossible ()
 
 let iFlagToString = function
   | A -> "a"
@@ -918,8 +917,12 @@ let buildOprs hlp ins pc builder =
     oprToString hlp ins pc opr5 (Some ", ") builder
     oprToString hlp ins pc opr6 (Some ", ") builder
 
+let buildAdditionalInfo (ins: InsInfo) (builder: DisasmBuilder<_>) =
+  builder.Accumulate AsmWordKind.String (" ; WB " + ins.WriteBack.ToString())
+
 let disasm hlp ins (builder: DisasmBuilder<_>) =
   let pc = ins.Address
   if builder.ShowAddr then builder.AccumulateAddr () else ()
   buildOpcode ins builder
   buildOprs hlp ins pc builder
+  buildAdditionalInfo ins builder (* FIXME: Debug *)

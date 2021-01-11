@@ -332,6 +332,7 @@ type AsmParser (startAddress: Addr) =
       pOpcode .>>. opt pCondition .>>. opt (attempt pSIMDDataTypes)
       .>>. opt pQualifier >>= pOperands
       |>> (fun ((((opcode, cond), simd), qual), operands) ->
+              let qual = match qual with | Some W -> W | _ -> N /// XXX
               newInsInfo
                  address opcode cond 0uy wBackFlag qual simd
                  operands (getInsLength ()) opMode None )

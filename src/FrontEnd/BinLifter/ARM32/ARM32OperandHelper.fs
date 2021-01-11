@@ -69,7 +69,7 @@ let getCoprocCRegister = function
 
 let checkUnpred cond = if cond then raise UnpredictableException else ()
 
-let isUndefined cond = if cond then raise UndefinedException else ()
+let checkUndef cond = if cond then raise UndefinedException else ()
 
 let isValidOpcode cond = if cond then raise InvalidOpcodeException else ()
 
@@ -292,14 +292,14 @@ let getBankedRegs r sysM =
   | _ -> raise UnpredictableException
 
 let getOption = function
-  | 0b0010uy -> OSHST
-  | 0b0011uy -> OSH
-  | 0b0110uy -> NSHST
-  | 0b0111uy -> NSH
-  | 0b1010uy -> ISHST
-  | 0b1011uy -> ISH
-  | 0b1110uy -> ST
-  | 0b1111uy -> SY
+  | 0b0010uy -> Option.OSHST
+  | 0b0011uy -> Option.OSH
+  | 0b0110uy -> Option.NSHST
+  | 0b0111uy -> Option.NSH
+  | 0b1010uy -> Option.ISHST
+  | 0b1011uy -> Option.ISH
+  | 0b1110uy -> Option.ST
+  | 0b1111uy -> Option.SY
   | _ -> raise InvalidOptionException
 
 let getIflag = function
@@ -892,7 +892,7 @@ let getRegListR b = extract b 7u 0u |> getRegList |> OprRegList
 
 let getShiftImm5A b = concat (extract b 14u 12u) (extract b 7u 6u) 2
 let getShift typ imm =
-  let shift, imm = decodeImmShift typ imm in OprShift (shift, Imm imm)
+  let struct (shift, imm) = decodeImmShift typ imm in OprShift (shift, Imm imm)
 let getShiftA b =
   OprRegShift (decodeRegShift (extract b 6u 5u), getReg b 11u 8u)
 let getShiftB b = getShift (extract b 6u 5u) (extract b 11u 7u)
@@ -1168,14 +1168,14 @@ let getMemQ b =
   let rn = getReg b 19u 16u
   let rm = getReg b 3u 0u
   let imm5 = extract b 11u 7u
-  let shift, imm = decodeImmShift (extract b 6u 5u) imm5
+  let struct (shift, imm) = decodeImmShift (extract b 6u 5u) imm5
   let typ = shift, Imm imm
   let sign = pickBit b 23u |> getSign |> Some
   memPostIdxReg (rn, sign, rm, Some typ)
 let getMemR b =
   let rn = getReg b 19u 16u
   let rm = getReg b 3u 0u
-  let shift, imm = decodeImmShift (extract b 6u 5u) (extract b 11u 7u)
+  let struct (shift, imm) = decodeImmShift (extract b 6u 5u) (extract b 11u 7u)
   let shiftOffset = Some (shift, Imm imm)
   let sign = pickBit b 23u |> getSign |> Some
   match pickBit b 24u, pickBit b 21u with
@@ -1311,7 +1311,7 @@ let getMemAB b =
 let getMemAC b =
   let rn = getRegister (extract b 19u 16u |> byte)
   let imm5 = extract b 11u 7u
-  let shift, imm = decodeImmShift (extract b 6u 5u) imm5
+  let struct (shift, imm) = decodeImmShift (extract b 6u 5u) imm5
   let typ = shift, Imm imm
   let rm = getRegister (extract b 3u 0u |> byte)
   memOffsetReg (rn, pickBit b 23u |> getSign |> Some, rm, Some typ)
@@ -1671,7 +1671,7 @@ let chkUnpreBD opcode itstate b op1 =
                (op1 b = OprCond Condition.AL && isITOpcode opcode))
 
 let chkUnpreBE itstate b _ =
-  isUndefined (extract b 11u 8u = 14u)
+  checkUndef (extract b 11u 8u = 14u)
   checkUnpred (inITBlock itstate)
 
 let chkUnpreBF (b1, b2) _ =
@@ -2028,172 +2028,172 @@ let chkUnpreDM (b1, b2) (op1, op2, op3) =
 
 let chkUndefA q b _ =
   let size = extract b 21u 20u
-  isUndefined (size = 0u || size = 3u ||
+  checkUndef (size = 0u || size = 3u ||
                (q = 1u && (pickBit b 16u = 1u || pickBit b 12u = 1u)))
 
 let chkUndefB q b _ =
   let size = extract b 21u 20u
-  isUndefined (size = 0u || (pickBit b 8u = 1u && size = 1u) ||
+  checkUndef (size = 0u || (pickBit b 8u = 1u && size = 1u) ||
                q = 1u && (pickBit b 12u = 1u || pickBit b 16u = 1u))
 
-let chkUndefC b _ = isUndefined (extract b 21u 20u = 0u || pickBit b 12u = 1u)
+let chkUndefC b _ = checkUndef (extract b 21u 20u = 0u || pickBit b 12u = 1u)
 
 let chkUndefD b  _ =
   let pick = pickBit b
-  isUndefined (pick 6u = 1u && (pick 12u = 1u || pick 16u = 1u || pick 0u = 1u))
+  checkUndef (pick 6u = 1u && (pick 12u = 1u || pick 16u = 1u || pick 0u = 1u))
 
-let chkUndefE b _ = isUndefined (extract b 21u 20u = 3u)
+let chkUndefE b _ = checkUndef (extract b 21u 20u = 3u)
 
 let chkUndefF b _ = chkUndefD b (); chkUndefE b ()
 
 let chkUndefG b _ =
-  isUndefined (pickBit b 6u = 0b0u && pickBit b 10u = 0b1u); chkUndefD b ()
+  checkUndef (pickBit b 6u = 0b0u && pickBit b 10u = 0b1u); chkUndefD b ()
 
 let chkUndefH b _ =
-  isUndefined (pickBit b 6u = 1u && (pickBit b 12u = 1u || pickBit b 0u = 1u))
+  checkUndef (pickBit b 6u = 1u && (pickBit b 12u = 1u || pickBit b 0u = 1u))
 
 let chkUndefJ b _ =
-  isUndefined (extract b 21u 20u = 3u || pickBit b 6u = 1u)
+  checkUndef (extract b 21u 20u = 3u || pickBit b 6u = 1u)
 
 let chkUndefK b _ =
   let size = extract b 21u 20u
-  isUndefined (size = 0u || size = 3u); chkUndefD b ()
+  checkUndef (size = 0u || size = 3u); chkUndefD b ()
 
-let chkUndefL b _ = isUndefined (pickBit b 20u = 1u); chkUndefD b ()
+let chkUndefL b _ = checkUndef (pickBit b 20u = 1u); chkUndefD b ()
 
-let chkUndefM b _ = isUndefined (pickBit b 20u = 1u || pickBit b 6u = 1u)
+let chkUndefM b _ = checkUndef (pickBit b 20u = 1u || pickBit b 6u = 1u)
 
-let chkUndefN b _ = isUndefined (pickBit b 6u = 0b1u && pickBit b 12u = 0b1u)
+let chkUndefN b _ = checkUndef (pickBit b 6u = 0b1u && pickBit b 12u = 0b1u)
 
-let chkUndefO b _ = isUndefined (extract b 3u 0u % 2u = 0b1u)
+let chkUndefO b _ = checkUndef (extract b 3u 0u % 2u = 0b1u)
 
-let chkUndefP b _ = isUndefined (pickBit b 21u = 0b0u); chkUndefH b ()
+let chkUndefP b _ = checkUndef (pickBit b 21u = 0b0u); chkUndefH b ()
 
 let chkUndefQ b _ =
-  isUndefined (pickBit b 12u = 1u || (pickBit b 8u = 1u && pickBit b 16u = 1u))
+  checkUndef (pickBit b 12u = 1u || (pickBit b 8u = 1u && pickBit b 16u = 1u))
 
-let chkUndefR b _ = isUndefined (pickBit b 16u = 1u || pickBit b 0u = 1u)
+let chkUndefR b _ = checkUndef (pickBit b 16u = 1u || pickBit b 0u = 1u)
 
-let chkUndefS b _ = isUndefined (pickBit b 12u = 0b1u)
+let chkUndefS b _ = checkUndef (pickBit b 12u = 0b1u)
 
-let chkUndefT b _ = isUndefined (extract b 21u 20u = 0u || pickBit b 12u = 1u)
+let chkUndefT b _ = checkUndef (extract b 21u 20u = 0u || pickBit b 12u = 1u)
 
 let chkUndefU b _ =
   chkUndefH b ()
-  isUndefined (pickBit b 6u = 0u &&
+  checkUndef (pickBit b 6u = 0u &&
                ((extract b 8u 7u) + (extract b 19u 18u)) >= 3u)
 
-let chkUndefV b _ = chkUndefH b (); isUndefined (extract b 19u 18u = 0b11u)
+let chkUndefV b _ = chkUndefH b (); checkUndef (extract b 19u 18u = 0b11u)
 
-let chkUndefW b _ = chkUndefH b (); isUndefined (extract b 19u 18u <> 0b10u)
+let chkUndefW b _ = chkUndefH b (); checkUndef (extract b 19u 18u <> 0b10u)
 
 let chkUndefX b _ =
-  chkUndefH b (); isUndefined (pickBit b 6u = 0u && extract b 19u 18u = 0b11u)
+  chkUndefH b (); checkUndef (pickBit b 6u = 0u && extract b 19u 18u = 0b11u)
 
 let chkUndefY b _ =
-  chkUndefH b (); isUndefined (pickBit b 6u = 0u && extract b 19u 18u <> 0b00u)
+  chkUndefH b (); checkUndef (pickBit b 6u = 0u && extract b 19u 18u <> 0b00u)
 
 let chkUndefZ b _ =
-  chkUndefH b (); isUndefined (extract b 19u 18u <> 0b00u)
+  chkUndefH b (); checkUndef (extract b 19u 18u <> 0b00u)
 
 let chkUndefAA b _ =
-  chkUndefH b (); isUndefined (extract b 19u 18u = 0b11u)
+  chkUndefH b (); checkUndef (extract b 19u 18u = 0b11u)
 
 let chkUndefAB b _ =
   chkUndefH b ()
-  isUndefined (extract b 19u 18u = 0b11u ||
+  checkUndef (extract b 19u 18u = 0b11u ||
                pickBit b 6u = 0u && extract b 19u 18u = 0b10u)
 
 let chkUndefAC b _ =
   let s = extract b 19u 18u
-  chkUndefH b (); isUndefined (s = 0b11u || (pickBit b 10u = 1u && s <> 0b10u))
-let chkUndefAD b _ = isUndefined (extract b 19u 18u = 3u || pickBit b 0u = 1u)
+  chkUndefH b (); checkUndef (s = 0b11u || (pickBit b 10u = 1u && s <> 0b10u))
+let chkUndefAD b _ = checkUndef (extract b 19u 18u = 3u || pickBit b 0u = 1u)
 let chkUndefAE b _ =
   let op = pickBit b 8u
-  isUndefined (extract b 19u 18u <> 01u || (op = 1u && pickBit b 12u = 1u) ||
+  checkUndef (extract b 19u 18u <> 01u || (op = 1u && pickBit b 12u = 1u) ||
                (op = 0u && pickBit b 0u = 1u))
 let chkUndefAF b _ =
-  chkUndefH b (); isUndefined (extract b 19u 18u <> 0b10u)
+  chkUndefH b (); checkUndef (extract b 19u 18u <> 0b10u)
 let chkUndefAG b _ =
   let q = pickBit b 6u
   let i = extract b 19u 16u
-  isUndefined ((q = 0u && (i = 0u || i = 8u)) || (q = 1u && pickBit b 12u = 1u))
+  checkUndef ((q = 0u && (i = 0u || i = 8u)) || (q = 1u && pickBit b 12u = 1u))
 let chkUndefAH b _ =
   let typ = extract b 11u 8u
   let align = extract b 5u 4u
-  isUndefined (typ = 0b0111u && pickBit align 1u = 0b1u ||
+  checkUndef (typ = 0b0111u && pickBit align 1u = 0b1u ||
                (typ = 0b1010u && align = 0b11u) ||
                (typ = 0b0110u && pickBit align 1u = 0b1u))
 let chkUndefAI b _ =
   let typ = extract b 11u 8u
   let align = extract b 5u 4u
-  isUndefined (extract b 7u 6u = 0b11u || (typ = 0b1000u && align = 0b11u) ||
+  checkUndef (extract b 7u 6u = 0b11u || (typ = 0b1000u && align = 0b11u) ||
                (typ = 0b1001u && align = 0b11u))
-let chkUndefAJ b _ = isUndefined (extract b 7u 6u = 3u || pickBit b 5u = 1u)
-let chkUndefAK b _ = isUndefined (extract b 7u 6u = 0b11u)
+let chkUndefAJ b _ = checkUndef (extract b 7u 6u = 3u || pickBit b 5u = 1u)
+let chkUndefAK b _ = checkUndef (extract b 7u 6u = 0b11u)
 let chkUndefAL b _ =
   let size = extract b 11u 10u
   let ia = extract b 7u 4u
-  isUndefined ((size = 0b00u && pickBit ia 0u <> 0b0u) ||
+  checkUndef ((size = 0b00u && pickBit ia 0u <> 0b0u) ||
                (size = 0b01u && pickBit ia 1u <> 0b0u) ||
                (size = 0b10u && pickBit ia 2u <> 0b0u) ||
                (size = 0b10u && extract ia 1u 0u = 0b01u) ||
                (size = 0b10u && extract ia 1u 0u = 0b10u))
 let chkUndefAM b _ =
-  isUndefined (extract b 11u 10u = 0b10u && pickBit b 5u <> 0b0u)
+  checkUndef (extract b 11u 10u = 0b10u && pickBit b 5u <> 0b0u)
 let chkUndefAN b _ =
   let size = extract b 11u 10u
   let ia = extract b 7u 4u
-  isUndefined ((size = 0b00u && pickBit ia 0u <> 0b0u) ||
+  checkUndef ((size = 0b00u && pickBit ia 0u <> 0b0u) ||
                (size = 0b01u && pickBit ia 0u <> 0b0u) ||
                (size = 0b10u && extract ia 1u 0u <> 0b00u))
 let chkUndefAO b _ =
-  isUndefined (extract b 11u 10u = 0b10u && extract b 5u 4u = 0b11u)
+  checkUndef (extract b 11u 10u = 0b10u && extract b 5u 4u = 0b11u)
 let chkUndefAP b _ =
   let size = extract b 7u 6u
-  isUndefined (size = 0b11u || (size = 0b00u && pickBit b 4u = 0b1u))
-let chkUndefAQ b _ = isUndefined (extract b 7u 6u = 0b11u)
-let chkUndefAR b _ = isUndefined (extract b 7u 6u = 3u || pickBit b 4u = 1u)
-let chkUndefAS b _ = isUndefined (extract b 7u 6u = 3u && pickBit b 4u = 0u)
+  checkUndef (size = 0b11u || (size = 0b00u && pickBit b 4u = 0b1u))
+let chkUndefAQ b _ = checkUndef (extract b 7u 6u = 0b11u)
+let chkUndefAR b _ = checkUndef (extract b 7u 6u = 3u || pickBit b 4u = 1u)
+let chkUndefAS b _ = checkUndef (extract b 7u 6u = 3u && pickBit b 4u = 0u)
 let chkUndefAT b _ =
-  isUndefined (pickBit b 12u = 1u || pickBit b 0u = 1u ||
+  checkUndef (pickBit b 12u = 1u || pickBit b 0u = 1u ||
                extract b 19u 18u <> 0u)
 let chkUndefAU b _ =
-  isUndefined (pickBit b 12u = 1u || pickBit b 0u = 1u ||
+  checkUndef (pickBit b 12u = 1u || pickBit b 0u = 1u ||
                extract b 19u 18u <> 2u)
 
 let chkBothA (b1, b2) (op1, op2) =
-  isUndefined (getRegister (extract b1 3u 0u |> byte) = R.PC)
+  checkUndef (getRegister (extract b1 3u 0u |> byte) = R.PC)
   chkUnpreBL (b1, b2) (op1, op2)
 let chkBothB (b1, b2) (op1, op2, op3, op4) =
   chkUnpreBX (b1, b2) (op1, op2, op3, op4)
-  isUndefined (pickBit b1 4u = 0b1u || pickBit b2 4u = 0b1u)
+  checkUndef (pickBit b1 4u = 0b1u || pickBit b2 4u = 0b1u)
 let chkBothC (b1, b2) (op1 ,_) =
   let rn = getRegister (extract b1 3u 0u |> byte)
   let opr1 = op1 (b1, b2)
-  isUndefined (rn = R.PC)
+  checkUndef (rn = R.PC)
   checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
                (pickBit b2 8u = 1u && OprReg rn = opr1))
 let chkBothD (b1, b2) (op1, _) =
   let rn = getRegister (extract b1 3u 0u |> byte)
-  isUndefined (rn = R.PC)
+  checkUndef (rn = R.PC)
   checkUnpred (op1 (b1, b2) = OprReg R.PC ||
                (pickBit b2 8u = 0b1u && OprReg rn = op1 (b1, b2)))
 let chkBothE (b1, b2) (op1, op2) =
-  isUndefined (getRegister (extract b1 3u 0u |> byte) = R.PC)
+  checkUndef (getRegister (extract b1 3u 0u |> byte) = R.PC)
   chkUnpreBL (b1, b2) (op1, op2)
 let chkBothF (b1, b2) (op1, _) =
-  isUndefined (getRegister (extract b1 3u 0u |> byte) = R.PC)
+  checkUndef (getRegister (extract b1 3u 0u |> byte) = R.PC)
   checkUnpred (op1 (b1, b2) = OprReg R.PC)
 let chkBothG (b1, b2) (op1, _) =
   let rm = getRegister (extract b2 3u 0u |> byte)
   let opr1 = op1 (b1, b2)
-  isUndefined (getRegister (extract b1 3u 0u |> byte) = R.PC)
+  checkUndef (getRegister (extract b1 3u 0u |> byte) = R.PC)
   checkUnpred (opr1 = OprReg R.SP || opr1 = OprReg R.PC ||
                rm = R.SP || rm = R.PC)
 let chkBothH (b1, b2) (op1, _) =
   let rm = getRegister (extract b2 3u 0u |> byte)
-  isUndefined (getRegister (extract b1 3u 0u |> byte) = R.PC)
+  checkUndef (getRegister (extract b1 3u 0u |> byte) = R.PC)
   checkUnpred (op1 (b1, b2) = OprReg R.PC || rm = R.SP || rm = R.PC)
 
 let oneDt dt = Some (OneDT dt)

@@ -35,7 +35,8 @@ let init (isa: ISA) mode (entryPoint: Addr option) =
   match isa.Arch with
   | Arch.IntelX64
   | Arch.IntelX86 -> Intel.IntelParser (isa.WordSize) :> Parser
-  | Arch.ARMv7 -> ARM32.ARM32Parser (isa, mode, entryPoint) :> Parser
+  | Arch.ARMv7 | Arch.AARCH32 ->
+    ARM32.ARM32Parser (isa, mode, entryPoint) :> Parser
   | Arch.AARCH64 -> ARM64.ARM64Parser (isa) :> Parser
   | Arch.MIPS1 | Arch.MIPS2 | Arch.MIPS3 | Arch.MIPS4 | Arch.MIPS5
   | Arch.MIPS32 | Arch.MIPS32R2 | Arch.MIPS32R6

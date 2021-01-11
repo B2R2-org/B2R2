@@ -35,7 +35,7 @@ let init isa =
   match isa.Arch with
   | Arch.IntelX64
   | Arch.IntelX86 -> Intel.Basis.init isa
-  | Arch.ARMv7 -> ARM32.Basis.init isa
+  | Arch.ARMv7 | Arch.AARCH32 -> ARM32.Basis.init isa
   | Arch.AARCH64 -> ARM64.Basis.init isa
   | Arch.MIPS1 | Arch.MIPS2 | Arch.MIPS3 | Arch.MIPS4 | Arch.MIPS5
   | Arch.MIPS32 | Arch.MIPS32R2 | Arch.MIPS32R6

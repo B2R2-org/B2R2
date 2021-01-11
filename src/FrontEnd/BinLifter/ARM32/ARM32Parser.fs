@@ -48,33 +48,38 @@ let parseThumb (itstate: byref<byte list>) bin = function
   | 4u -> Parserv7.parseV7Thumb32 &itstate bin
   | _ -> failwith "Invalid instruction length"
 
+let newInsInfo addr len mode op cond itState wback q simdt oprs cflag =
+  let insInfo =
+    { Address = addr
+      NumBytes = len
+      Condition  = cond
+      Opcode = op
+      Operands = oprs
+      ITState = itState
+      WriteBack = wback
+      Qualifier = q
+      SIMDTyp = simdt
+      Mode = mode
+      Cflag = cflag }
+  ARM32Instruction (addr, len, insInfo)
+
 let parse span reader mode (it: byref<byte list>) arch addr =
   let struct (bin, len) =
     match mode with
     | ArchOperationMode.ThumbMode -> getThumbBytes span reader
     | ArchOperationMode.ARMMode -> struct (reader.ReadUInt32 (span, 0), 4u)
     | _-> raise InvalidTargetArchModeException
-  let opcode, cond, itState, wback, qualifier, simdt, oprs, cflag =
-    match mode with
-    | ArchOperationMode.ARMMode ->
-      if isARMv7 arch then Parserv7.parseV7ARM bin
-      else Parserv8.parseV8A32ARM bin // XXX
-    | ArchOperationMode.ThumbMode ->
-      if isARMv7 arch then parseThumb &it bin len
-      else raise UnallocatedException
-    | _ -> raise InvalidTargetArchModeException
-  let insInfo =
-    { Address = addr
-      NumBytes = len
-      Condition  = cond
-      Opcode = opcode
-      Operands = oprs
-      ITState = itState
-      WriteBack = wback
-      Qualifier = qualifier
-      SIMDTyp = simdt
-      Mode = mode
-      Cflag = cflag }
-  ARM32Instruction (addr, len, insInfo)
+  match mode with
+  | ArchOperationMode.ARMMode ->
+    Parserv8.parseV8A32ARM mode addr bin len
+  | ArchOperationMode.ThumbMode ->
+    if isARMv7 arch then
+      let op, cond, itState, wback, q, simdt, oprs, cflag =
+        parseThumb &it bin len
+      let wback = match wback with | Some true -> true | _ -> false (* xxx *)
+      let q = match q with | Some W -> W | _ -> N (* xxx *)
+      newInsInfo addr len mode op cond itState wback q simdt oprs cflag
+    else raise UnallocatedException
+  | _ -> raise InvalidTargetArchModeException
 
 // vim: set tw=80 sts=2 sw=2:

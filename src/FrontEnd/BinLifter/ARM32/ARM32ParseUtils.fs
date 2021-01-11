@@ -45,12 +45,11 @@ let align (x: uint64) (y: uint64) = y * (x / y)
 /// The DecodeImmShift() function in the manual.
 let decodeImmShift typ imm5 =
   match typ with
-  | 0b00u -> SRTypeLSL, imm5
-  | 0b01u -> SRTypeLSR, if imm5 = 0ul then 32ul else imm5
-  | 0b10u -> SRTypeASR, if imm5 = 0ul then 32ul else imm5
-  | 0b11u when imm5 = 0ul -> SRTypeRRX, 1ul
-  | 0b11u -> SRTypeROR, imm5
-  | _ -> raise InvalidTypeException
+  | 0b00u -> struct (SRTypeLSL, imm5)
+  | 0b01u -> struct (SRTypeLSR, if imm5 = 0ul then 32ul else imm5)
+  | 0b10u -> struct (SRTypeASR, if imm5 = 0ul then 32ul else imm5)
+  | 0b11u when imm5 = 0ul -> struct (SRTypeRRX, 1ul)
+  | _ (* 0b11u *) -> struct (SRTypeROR, imm5)
 
 /// The DecodeRegShift() function in the manual.
 let decodeRegShift = function

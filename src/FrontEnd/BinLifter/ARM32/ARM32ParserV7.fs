@@ -1962,7 +1962,7 @@ let parseGroup8WithRdSub b1 b2 =
   | 0b10001u -> Op.ADDS, getQfW (), p4Oprs (b1, b2) chkUnpreCB operands
   | 0b11010u -> Op.SUB, getQfW (), p4Oprs (b1, b2) chkUnpreCA operands
   | 0b11011u -> Op.SUBS, getQfW (), p4Oprs (b1, b2) chkUnpreCB operands
-    | _ -> failwith "Wrong opcode in parseGroup8."
+  | _ -> failwith "Wrong opcode in parseGroup8."
 
 /// Data-processing (shifted register), page A6-243
 let parseGroup8WithRd b1 b2 =
@@ -2133,7 +2133,7 @@ let parseGroup9Sub3 b1 b2 =
   let op = concat (extract b1 9u 4u) (pickBit b2 4u) 1
   let b = concat b1 b2 16
   let chk () = op &&& 0b1110100u <> 0b0000000u
-  isUndefined (pickBit b1 12u = 0b1u)
+  checkUndef (pickBit b1 12u = 0b1u)
   match op with
   | o when o &&& 0b1000000u = 0b0000000u && chk () ->
     let opcode, wback, operands = parseExtRegLoadStore b
