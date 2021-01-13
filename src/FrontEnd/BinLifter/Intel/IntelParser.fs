@@ -223,7 +223,7 @@ let newInsInfo t (rhlp: ReadHelper) opcode oprs insSize =
       Operands = oprs
       InsSize = insSize
 #if ! NOLCACHE
-      InsHash = rhlp.GetInsHash ()
+      InsHash = rhlp.GetInsHash () ||| Prefix.computeHash t.TPrefixes
 #endif
     }
   IntelInstruction (rhlp.InsAddr, uint32 (rhlp.ParsedLen ()), ins, t.TWordSize)
@@ -5814,9 +5814,9 @@ let parseMain t rhlp =
   | None -> parseRegularOpcode t rhlp
 
 let parse (reader: BinReader) wordSz addr pos =
-  let struct (prefs, nextPos) = parsePrefix reader pos
-  let struct (rexPref, prefEndPos) = parseREX wordSz reader nextPos
-  let struct (vInfo, nextPos) = parseVEXInfo wordSz reader prefEndPos
+  let struct (prefs, prefEndPos) = parsePrefix reader pos
+  let struct (rexPref, nextPos) = parseREX wordSz reader prefEndPos
+  let struct (vInfo, nextPos) = parseVEXInfo wordSz reader nextPos
   let t = newTemporaryInfo prefs rexPref vInfo wordSz
   let rhlp = ReadHelper (reader, addr, pos, nextPos)
 #if ! NOLCACHE
