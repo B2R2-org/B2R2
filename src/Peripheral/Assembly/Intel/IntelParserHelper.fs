@@ -92,4 +92,8 @@ let newInfo prfxs rexPrfx vexInfo opc operands size =
     VEXInfo = vexInfo
     Opcode = opc
     Operands = operands
-    InsSize = size }
+    InsSize = size
+#if ! NOLCACHE
+    InsHash = 0UL
+#endif
+  }

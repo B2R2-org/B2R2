@@ -299,6 +299,10 @@ type InsInfo = {
   Operands: Operands
   /// Instruction size information.
   InsSize: InstrSize
+#if ! NOLCACHE
+  /// Instruction hash.
+  InsHash: uint64
+#endif
 }
 with
   override __.GetHashCode () =

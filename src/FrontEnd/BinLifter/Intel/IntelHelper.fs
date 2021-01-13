@@ -45,21 +45,14 @@ type TemporaryInfo = {
   TWordSize: WordSize
 }
 
-/// Create a new instruction descriptor.
-let newTemporaryIns opcode operands (preInfo: TemporaryInfo) insSize =
-  { Prefixes = preInfo.TPrefixes
-    REXPrefix = preInfo.TREXPrefix
-    VEXInfo = preInfo.TVEXInfo
-    Opcode = opcode
-    Operands = operands
-    InsSize = insSize }
-
-type ReadHelper (r, addr, ipos, cpos) =
-  let mutable ipos: int = ipos
-  let mutable cpos: int = cpos
+type ReadHelper (r, addr, initialPos, cpos) =
+  let mutable cpos: int = cpos (* current position *)
+#if ! NOLCACHE
+  let mutable prefixEnd: int = initialPos
+  let mutable hashEnd: int = initialPos
+#endif
   member __.BinReader with get(): BinReader = r
   member __.InsAddr with get(): Addr = addr
-  member __.InitPos with get() = ipos and set(p) = ipos <- p
   member __.CurrPos with get() = cpos and set(p) = cpos <- p
   member __.IncPos () = cpos <- cpos + 1
 
@@ -74,7 +67,19 @@ type ReadHelper (r, addr, ipos, cpos) =
   member inline __.ReadUInt16 () = let v = r.PeekUInt16 cpos in __.ModCPos 2; v
   member inline __.ReadUInt32 () = let v = r.PeekUInt32 cpos in __.ModCPos 4; v
   member inline __.ReadUInt64 () = let v = r.PeekUInt64 cpos in __.ModCPos 8; v
-  member inline __.ParsedLen () = cpos - ipos
+  member inline __.ParsedLen () = cpos - initialPos
+#if ! NOLCACHE
+  member inline __.MarkHashEnd () =
+    if hashEnd = initialPos then hashEnd <- cpos else ()
+
+  member inline __.MarkPrefixEnd (pos) = prefixEnd <- pos
+
+  member inline __.GetInsHash () =
+    let bs = r.PeekBytes (hashEnd - prefixEnd, prefixEnd)
+    let n = Array.zeroCreate 8
+    Array.blit bs 0 n 0 bs.Length
+    System.BitConverter.ToUInt64 (n, 0)
+#endif
 
 let inline hasREXW rexPref = rexPref &&& REXPrefix.REXW = REXPrefix.REXW
 
