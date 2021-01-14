@@ -47,7 +47,7 @@ type TemporaryInfo = {
 
 type ReadHelper (r, addr, initialPos, cpos) =
   let mutable cpos: int = cpos (* current position *)
-#if ! NOLCACHE
+#if LCACHE
   let mutable prefixEnd: int = initialPos
   let mutable hashEnd: int = initialPos
 #endif
@@ -68,17 +68,19 @@ type ReadHelper (r, addr, initialPos, cpos) =
   member inline __.ReadUInt32 () = let v = r.PeekUInt32 cpos in __.ModCPos 4; v
   member inline __.ReadUInt64 () = let v = r.PeekUInt64 cpos in __.ModCPos 8; v
   member inline __.ParsedLen () = cpos - initialPos
-#if ! NOLCACHE
+#if LCACHE
   member inline __.MarkHashEnd () =
     if hashEnd = initialPos then hashEnd <- cpos else ()
 
   member inline __.MarkPrefixEnd (pos) = prefixEnd <- pos
 
-  member inline __.GetInsHash () =
+  member inline __.GetInsHash (vinfo: VEXInfo option) =
     let bs = r.PeekBytes (hashEnd - prefixEnd, prefixEnd)
     let n = Array.zeroCreate 8
     Array.blit bs 0 n 0 bs.Length
-    System.BitConverter.ToUInt64 (n, 0)
+    let hash = System.BitConverter.ToUInt64 (n, 0)
+    if Option.isNone vinfo then (uint64 (cpos - initialPos) <<< 52) ||| hash
+    else hash
 #endif
 
 let inline hasREXW rexPref = rexPref &&& REXPrefix.REXW = REXPrefix.REXW

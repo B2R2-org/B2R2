@@ -212,7 +212,7 @@ let exceptionalOperationSize opcode insSize =
   | _ -> insSize
 
 let newInsInfo t (rhlp: ReadHelper) opcode oprs insSize =
-#if ! NOLCACHE
+#if LCACHE
   rhlp.MarkHashEnd ()
 #endif
   let ins =
@@ -222,8 +222,8 @@ let newInsInfo t (rhlp: ReadHelper) opcode oprs insSize =
       Opcode = opcode
       Operands = oprs
       InsSize = insSize
-#if ! NOLCACHE
-      InsHash = rhlp.GetInsHash () ||| Prefix.computeHash t.TPrefixes
+#if LCACHE
+      InsHash = rhlp.GetInsHash (t.TVEXInfo) ||| Prefix.computeHash t.TPrefixes
 #endif
     }
   IntelInstruction (rhlp.InsAddr, uint32 (rhlp.ParsedLen ()), ins, t.TWordSize)
@@ -651,36 +651,28 @@ let compressDisp vInfo disp =
       when t &&& VEXType.EVEX = VEXType.EVEX -> disp * 64L
   | _ -> disp
 
-#if NOLCACHE
-let parseOprMem insSize t rhlp b s disp =
-#else
 let parseOprMem insSize t (rhlp: ReadHelper) b s disp =
-#endif
   let memSz = insSize.MemEffOprSize
   match disp with
   | None -> OprMem (b, s, None, memSz)
   | Some dispSz ->
-#if ! NOLCACHE
+#if LCACHE
     rhlp.MarkHashEnd ()
 #endif
     let disp = parseSignedImm rhlp dispSz
     let disp = compressDisp t.TVEXInfo disp
     OprMem (b, s, Some disp, memSz)
 
-#if NOLCACHE
-let parseOprSImm rhlp immSize =
-#else
 let parseOprImm (rhlp: ReadHelper) immSize =
+#if LCACHE
   rhlp.MarkHashEnd ()
 #endif
   let immSize = RegType.toByteWidth immSize
   let imm = parseUnsignedImm rhlp immSize
   OprImm (int64 imm)
 
-#if NOLCACHE
-let parseOprSImm rhlp immSize =
-#else
 let parseOprSImm (rhlp: ReadHelper) immSize =
+#if LCACHE
   rhlp.MarkHashEnd ()
 #endif
   let immSize = RegType.toByteWidth immSize
@@ -808,7 +800,7 @@ let parseOprMemWithSIB insSize t rhlp oprSz modVal disp =
   | 0 -> OprMem (b, si, None, oprSz)
   | dispSz ->
     let vInfo = t.TVEXInfo
-#if ! NOLCACHE
+#if LCACHE
     rhlp.MarkHashEnd ()
 #endif
     let disp = parseSignedImm rhlp dispSz
@@ -1184,15 +1176,11 @@ let opGprRmImm t (rhlp: ReadHelper) insSize =
   let opr3 = parseOprSImm rhlp (getImmZ insSize)
   struct (ThreeOperands (opr1, opr2, opr3), insSize)
 
-#if NOLCACHE
-let parseOprForRelJmp rhlp immSz =
-#else
 let parseOprForRelJmp (rhlp: ReadHelper) immSz =
-#endif
-  let immSz = RegType.toByteWidth immSz
-#if ! NOLCACHE
+#if LCACHE
   rhlp.MarkHashEnd ()
 #endif
+  let immSz = RegType.toByteWidth immSz
   let offset = parseSignedImm rhlp immSz
   let relOffset = offset + int64 (rhlp.ParsedLen ())
   OprDirAddr (Relative (relOffset))
@@ -5819,7 +5807,7 @@ let parse (reader: BinReader) wordSz addr pos =
   let struct (vInfo, nextPos) = parseVEXInfo wordSz reader nextPos
   let t = newTemporaryInfo prefs rexPref vInfo wordSz
   let rhlp = ReadHelper (reader, addr, pos, nextPos)
-#if ! NOLCACHE
+#if LCACHE
   rhlp.MarkPrefixEnd (prefEndPos)
 #endif
   parseMain t rhlp

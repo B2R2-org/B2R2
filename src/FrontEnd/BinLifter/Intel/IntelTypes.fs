@@ -56,6 +56,7 @@ type Prefix =
   /// 67H - Address-size override prefix.
   | PrxADDRSIZE = 0x800
 
+#if LCACHE
 module Prefix =
   let computeHash (pref: Prefix) =
     let pref = int pref
@@ -76,6 +77,7 @@ module Prefix =
     let grp3 = (uint64 (pref &&& int Prefix.PrxOPSIZE)) <<< 52
     let grp4 = (uint64 (pref &&& int Prefix.PrxADDRSIZE)) <<< 52
     grp1 ||| grp2 ||| grp3 ||| grp4
+#endif
 
 /// REX prefixes.
 type REXPrefix =
@@ -320,7 +322,7 @@ type InsInfo = {
   Operands: Operands
   /// Instruction size information.
   InsSize: InstrSize
-#if ! NOLCACHE
+#if LCACHE
   /// Instruction hash.
   InsHash: uint64
 #endif

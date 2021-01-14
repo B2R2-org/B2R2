@@ -222,10 +222,8 @@ let transOprToExpr ins insLen ctxt = function
   | OprMem (b, index, disp, oprSize) ->
     transMem ins insLen ctxt b index disp oprSize
   | OprImm imm -> numI64 imm (getOperationSize ins)
+  | OprDirAddr (Relative offset) -> numI64 offset ctxt.WordBitSize
   | OprDirAddr (Absolute (_, addr, _)) -> numU64 addr ctxt.WordBitSize
-  | OprDirAddr (Relative offset) ->
-    let wordSize = ctxt.WordBitSize
-    numI64 offset wordSize |> AST.sext wordSize
   | _ -> Utils.impossible ()
 
 let transOprToExprVec ins insLen ctxt opr =
