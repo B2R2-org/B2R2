@@ -674,6 +674,11 @@ let fcom ins insLen ctxt nPop unordered =
     let oprExpr = transOprToFloat80 ins insLen ctxt opr
     !!ir (tmp1 := fpuRegValue ctxt R.ST0)
     !!ir (tmp2 := oprExpr)
+  | TwoOperands (o1, o2) ->
+    let o1 = transOprToFloat80 ins insLen ctxt o1
+    let o2 = transOprToFloat80 ins insLen ctxt o2
+    !!ir (tmp1 := o1)
+    !!ir (tmp2 := o2)
   | _ -> raise InvalidOperandException
   !!ir (c0 := AST.ite (AST.flt tmp1 tmp2) AST.b1 AST.b0)
   !!ir (c2 := AST.b0)

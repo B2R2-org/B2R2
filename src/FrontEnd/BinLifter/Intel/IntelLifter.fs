@@ -193,7 +193,8 @@ let translate (ins: InsInfo) insLen ctxt =
   | OP.IN | OP.INTO | OP.INVD | OP.INVLPG | OP.IRETD
   | OP.IRETQ | OP.IRETW | OP.LAR | OP.LGDT | OP.LLDT
   | OP.LMSW | OP.LSL | OP.LTR | OP.OUT | OP.SGDT
-  | OP.SIDT | OP.SLDT | OP.SMSW | OP.STR | OP.VERR
+  | OP.SIDT | OP.SLDT | OP.SMSW | OP.STR | OP.VERR ->
+    LiftingUtils.sideEffects insLen UnsupportedPrivInstr
   | OP.MOVD -> MMXLifter.movd ins insLen ctxt
   | OP.MOVQ -> MMXLifter.movq ins insLen ctxt
   | OP.PACKSSDW -> MMXLifter.packssdw ins insLen ctxt
