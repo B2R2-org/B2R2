@@ -44,21 +44,21 @@ module private NoReturnHelper =
   let isKnownNoReturnFunction ess entry =
     Map.containsKey entry ess.NoReturnInfo.NoReturnFuncs
 
-  let sideEffectHandler _eff st =
-    EvalState.NextStmt st
+  let sideEffectHandler _eff (st: EvalState) =
+    st.NextStmt ()
 
   let evalBlock (ess: BinEssence) (v: Vertex<IRBasicBlock>) =
     let hdl = ess.BinHandle
     let st = EvalState (emptyMemoryReader hdl, true)
     let addr = v.VData.PPoint.Address
-    let st = initRegs hdl |> EvalState.PrepareContext st 0 addr
+    initRegs hdl |> st.PrepareContext 0 addr
     st.Callbacks.SideEffectEventHandler <- sideEffectHandler
     eval ess v st (fun blk -> blk.VData.PPoint.Address = addr)
 
-  let checkArgumentsX86 isOk args st =
+  let checkArgumentsX86 isOk args (st: EvalState) =
     let esp = (Intel.Register.ESP |> Intel.Register.toRegID)
-    match EvalState.GetReg st esp with
-    | EvalValue.Def sp ->
+    match st.TryGetReg esp with
+    | Def sp ->
       args
       |> Set.forall (fun arg ->
         let p = BitVector.add (BitVector.ofInt32 (4 * arg) 32<rt>) sp

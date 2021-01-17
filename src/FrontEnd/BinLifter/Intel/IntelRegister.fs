@@ -800,6 +800,8 @@ module Register = begin
     /// character from 'A' to 'H'. For example, XMM0A refers to the first 64-bit
     /// chunk of XMM0.
     | PseudoRegister = 0xD
+    /// OpMask registers of EVEX.
+    | OpMaskRegister = 0xE
 
   let getKind (reg: Register): Kind =
     (int reg >>> 8) &&& 0b1111 |> LanguagePrimitives.EnumOfValue
@@ -1732,6 +1734,145 @@ module Register = begin
     | R.MM5 -> [ R.ST5A ]
     | R.MM6 -> [ R.ST6A ]
     | R.MM7 -> [ R.ST7A ]
+    | e -> failwithf "Unhandled register: %A" e
+
+  let pseudoRegToReg = function
+    | R.ZMM0A
+    | R.ZMM0B
+    | R.ZMM0C
+    | R.ZMM0D
+    | R.ZMM0E
+    | R.ZMM0F
+    | R.ZMM0G
+    | R.ZMM0H -> R.ZMM0
+    | R.ZMM1A
+    | R.ZMM1B
+    | R.ZMM1C
+    | R.ZMM1D
+    | R.ZMM1E
+    | R.ZMM1F
+    | R.ZMM1G
+    | R.ZMM1H -> R.ZMM1
+    | R.ZMM2A
+    | R.ZMM2B
+    | R.ZMM2C
+    | R.ZMM2D
+    | R.ZMM2E
+    | R.ZMM2F
+    | R.ZMM2G
+    | R.ZMM2H -> R.ZMM2
+    | R.ZMM3A
+    | R.ZMM3B
+    | R.ZMM3C
+    | R.ZMM3D
+    | R.ZMM3E
+    | R.ZMM3F
+    | R.ZMM3G
+    | R.ZMM3H -> R.ZMM3
+    | R.ZMM4A
+    | R.ZMM4B
+    | R.ZMM4C
+    | R.ZMM4D
+    | R.ZMM4E
+    | R.ZMM4F
+    | R.ZMM4G
+    | R.ZMM4H -> R.ZMM4
+    | R.ZMM5A
+    | R.ZMM5B
+    | R.ZMM5C
+    | R.ZMM5D
+    | R.ZMM5E
+    | R.ZMM5F
+    | R.ZMM5G
+    | R.ZMM5H -> R.ZMM5
+    | R.ZMM6A
+    | R.ZMM6B
+    | R.ZMM6C
+    | R.ZMM6D
+    | R.ZMM6E
+    | R.ZMM6F
+    | R.ZMM6G
+    | R.ZMM6H -> R.ZMM6
+    | R.ZMM7A
+    | R.ZMM7B
+    | R.ZMM7C
+    | R.ZMM7D
+    | R.ZMM7E
+    | R.ZMM7F
+    | R.ZMM7G
+    | R.ZMM7H -> R.ZMM7
+    | R.ZMM8A
+    | R.ZMM8B
+    | R.ZMM8C
+    | R.ZMM8D
+    | R.ZMM8E
+    | R.ZMM8F
+    | R.ZMM8G
+    | R.ZMM8H -> R.ZMM8
+    | R.ZMM9A
+    | R.ZMM9B
+    | R.ZMM9C
+    | R.ZMM9D
+    | R.ZMM9E
+    | R.ZMM9F
+    | R.ZMM9G
+    | R.ZMM9H -> R.ZMM9
+    | R.ZMM10A
+    | R.ZMM10B
+    | R.ZMM10C
+    | R.ZMM10D
+    | R.ZMM10E
+    | R.ZMM10F
+    | R.ZMM10G
+    | R.ZMM10H -> R.ZMM10
+    | R.ZMM11A
+    | R.ZMM11B
+    | R.ZMM11C
+    | R.ZMM11D
+    | R.ZMM11E
+    | R.ZMM11F
+    | R.ZMM11G
+    | R.ZMM11H -> R.ZMM11
+    | R.ZMM12A
+    | R.ZMM12B
+    | R.ZMM12C
+    | R.ZMM12D
+    | R.ZMM12E
+    | R.ZMM12F
+    | R.ZMM12G
+    | R.ZMM12H -> R.ZMM12
+    | R.ZMM13A
+    | R.ZMM13B
+    | R.ZMM13C
+    | R.ZMM13D
+    | R.ZMM13E
+    | R.ZMM13F
+    | R.ZMM13G
+    | R.ZMM13H -> R.ZMM13
+    | R.ZMM14A
+    | R.ZMM14B
+    | R.ZMM14C
+    | R.ZMM14D
+    | R.ZMM14E
+    | R.ZMM14F
+    | R.ZMM14G
+    | R.ZMM14H -> R.ZMM14
+    | R.ZMM15A
+    | R.ZMM15B
+    | R.ZMM15C
+    | R.ZMM15D
+    | R.ZMM15E
+    | R.ZMM15F
+    | R.ZMM15G
+    | R.ZMM15H -> R.ZMM15
+    | R.ST0A | R.ST0B -> R.ST0
+    | R.ST1A | R.ST1B -> R.ST1
+    | R.ST2A | R.ST2B -> R.ST2
+    | R.ST3A | R.ST3B -> R.ST3
+    | R.ST4A | R.ST4B -> R.ST4
+    | R.ST5A | R.ST5B -> R.ST5
+    | R.ST6A | R.ST6B -> R.ST6
+    | R.ST7A | R.ST7B -> R.ST7
     | e -> failwithf "Unhandled register: %A" e
 end
 

@@ -33,6 +33,7 @@ exception UndefExpException
 exception InvalidMemException
 
 /// A value is either defined or undefined.
+[<Struct>]
 type EvalValue =
   | Undef
   | Def of BitVector

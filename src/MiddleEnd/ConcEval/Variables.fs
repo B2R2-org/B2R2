@@ -26,18 +26,21 @@
 namespace B2R2.MiddleEnd.ConcEval
 
 open System.Collections.Generic
+open B2R2
 
 type Variables<'Key when 'Key: equality> () =
-  let vars = Dictionary<'Key, EvalValue> ()
+  let vars = Dictionary<'Key, BitVector> ()
 
-  member __.Get k =
-    let found, v = vars.TryGetValue (k)
-    if found then v else Undef
+  member __.TryGet k = vars.TryGetValue (k)
+
+  member __.Get k = vars.[k]
 
   member __.Set k v = vars.[k] <- v
+
+  member __.Unset k = vars.Remove k |> ignore
 
   member __.Clear () = vars.Clear ()
 
   member __.Count () = vars.Count
 
-  member __.ToSeq () = vars |> Seq.map (fun (KeyValue(k,v)) -> k, v)
+  member __.ToSeq () = vars |> Seq.map (fun (KeyValue (k,v)) -> k, v)

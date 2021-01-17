@@ -31,8 +31,7 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.BinEssence
 open System.Collections.Generic
 
-let defZero t = Def (BitVector.zero t)
-let stackAddr t = Def (BitVector.ofInt32 0x1000000 t)
+let stackAddr t = BitVector.ofInt32 0x1000000 t
 
 let obtainStackDef hdl =
   match hdl.RegisterBay.StackPointer with
@@ -41,7 +40,7 @@ let obtainStackDef hdl =
 
 let obtainFramePointerDef hdl =
   match hdl.RegisterBay.FramePointer with
-  | Some r -> Some (r, hdl.ISA.WordSize |> WordSize.toRegType |> defZero)
+  | Some r -> Some (r, hdl.ISA.WordSize |> WordSize.toRegType |>BitVector.zero)
   | None -> None
 
 let initRegs hdl =
@@ -85,7 +84,7 @@ let readMem (st: EvalState) addr endian size =
   | Ok bs -> BitVector.toUInt64 bs |> Some
   | Error _ -> None
 
-let readReg st regID =
-  match EvalState.GetReg st regID with
+let readReg (st: EvalState) regID =
+  match st.TryGetReg regID with
   | Def v -> Some v
   | Undef -> None

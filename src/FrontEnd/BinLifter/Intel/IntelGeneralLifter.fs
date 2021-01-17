@@ -37,6 +37,7 @@ open B2R2.FrontEnd.BinLifter.Intel.LiftingUtils
 
 open type BinOpType
 
+#if !EMULATION
 let private undefCF = AST.undef 1<rt> "CF is undefined."
 
 let private undefOF = AST.undef 1<rt> "OF is undefined."
@@ -48,6 +49,7 @@ let private undefSF = AST.undef 1<rt> "SF is undefined."
 let private undefZF = AST.undef 1<rt> "ZF is undefined."
 
 let private undefPF = AST.undef 1<rt> "PF is undefined."
+#endif
 
 let private buildAF ctxt e1 e2 r size =
   let t1 = r <+> e1
@@ -214,10 +216,12 @@ let aaa insLen ctxt =
   !!ir (af := AST.ite cond AST.b1 AST.b0)
   !!ir (cf := AST.ite cond AST.b1 AST.b0)
   !!ir (al := alAnd0f)
+#if !EMULATION
   !!ir (!.ctxt R.OF := undefOF)
   !!ir (!.ctxt R.SF := undefSF)
   !!ir (!.ctxt R.ZF := undefZF)
   !!ir (!.ctxt R.PF := undefPF)
+#endif
   !>ir insLen
 
 let aad ins insLen ctxt =
@@ -232,9 +236,11 @@ let aad ins insLen ctxt =
   !!ir (al := (al .+ (ah .* imm8)) .& (numI32 0xff 8<rt>))
   !!ir (ah := AST.num0 8<rt>)
   !?ir (enumSZPFlags ctxt al 8<rt>)
+#if !EMULATION
   !!ir (!.ctxt R.OF := undefOF)
   !!ir (!.ctxt R.AF := undefAF)
   !!ir (!.ctxt R.CF := undefCF)
+#endif
   !>ir insLen
 
 let aam ins insLen ctxt =
@@ -249,9 +255,11 @@ let aam ins insLen ctxt =
   !!ir (ah := al ./ imm8)
   !!ir (al := al .% imm8)
   !?ir (enumSZPFlags ctxt al 8<rt>)
+#if !EMULATION
   !!ir (!.ctxt R.OF := undefOF)
   !!ir (!.ctxt R.AF := undefAF)
   !!ir (!.ctxt R.CF := undefCF)
+#endif
   !>ir insLen
 
 let aas insLen ctxt =
@@ -317,7 +325,9 @@ let ``and`` ins insLen ctxt =
   !!ir (dstAssign oprSize dst t)
   !!ir (!.ctxt R.OF := AST.b0)
   !!ir (!.ctxt R.CF := AST.b0)
+#if !EMULATION
   !!ir (!.ctxt R.AF := undefAF)
+#endif
   !?ir (enumSZPFlags ctxt t oprSize)
   !>ir insLen
 
@@ -402,11 +412,13 @@ let bsf ins insLen ctxt =
   !!ir (LMark lblLE)
   !!ir (dstAssign oprSize dst t)
   !!ir (LMark lblEnd)
+#if !EMULATION
   !!ir (!.ctxt R.CF := undefCF)
   !!ir (!.ctxt R.OF := undefOF)
   !!ir (!.ctxt R.AF := undefAF)
   !!ir (!.ctxt R.SF := undefSF)
   !!ir (!.ctxt R.PF := undefPF)
+#endif
   !>ir insLen
 
 let bsr ins insLen ctxt =
@@ -439,11 +451,13 @@ let bsr ins insLen ctxt =
   !!ir (LMark lblLE)
   !!ir (dst := t)
   !!ir (LMark lblEnd)
+#if !EMULATION
   !!ir (!.ctxt R.CF := undefCF)
   !!ir (!.ctxt R.OF := undefOF)
   !!ir (!.ctxt R.AF := undefAF)
   !!ir (!.ctxt R.SF := undefSF)
   !!ir (!.ctxt R.PF := undefPF)
+#endif
   !>ir insLen
 
 let bswap ins insLen ctxt =
@@ -478,10 +492,12 @@ let bt ins insLen ctxt =
   let ir = IRBuilder (8)
   !<ir insLen
   !!ir (!.ctxt R.CF := bit ins bitBase bitOffset oprSize)
+#if !EMULATION
   !!ir (!.ctxt R.OF := undefOF)
   !!ir (!.ctxt R.SF := undefSF)
   !!ir (!.ctxt R.AF := undefAF)
   !!ir (!.ctxt R.PF := undefPF)
+#endif
   !>ir insLen
 
 let private setBit ins bitBase bitOffset oprSize setValue =
@@ -506,10 +522,12 @@ let bitTest ins insLen ctxt setValue =
   !<ir insLen
   !!ir (!.ctxt R.CF := bit ins bitBase bitOffset oprSize)
   !!ir (setBit ins bitBase bitOffset oprSize setValue)
+#if !EMULATION
   !!ir (!.ctxt R.OF := undefOF)
   !!ir (!.ctxt R.SF := undefSF)
   !!ir (!.ctxt R.AF := undefAF)
   !!ir (!.ctxt R.PF := undefPF)
+#endif
   !>ir insLen
 
 let btc ins insLen ctxt =
@@ -560,11 +578,13 @@ let cmc ins insLen ctxt =
   let ir = IRBuilder (8)
   !<ir insLen
   !!ir (cf := AST.not cf)
+#if !EMULATION
   !!ir (!.ctxt R.OF := undefOF)
   !!ir (!.ctxt R.AF := undefAF)
   !!ir (!.ctxt R.SF := undefSF)
   !!ir (!.ctxt R.ZF := undefZF)
   !!ir (!.ctxt R.PF := undefPF)
+#endif
   !>ir insLen
 
 let private getCondOfCMov (ins: InsInfo) ctxt =
@@ -756,7 +776,9 @@ let daa insLen ctxt =
   !!ir (al := AST.ite cond2 (al .+ numI32 0x60 8<rt>) al)
   !!ir (cf := cond2)
   !?ir (enumSZPFlags ctxt al 8<rt>)
+#if !EMULATION
   !!ir (!.ctxt R.OF := undefOF)
+#endif
   !>ir insLen
 
 let das insLen ctxt =
@@ -788,7 +810,9 @@ let das insLen ctxt =
   !!ir (al := AST.ite cond2 (al .- numI32 0x60 8<rt>) al)
   !!ir (cf := cond2)
   !?ir (enumSZPFlags ctxt al 8<rt>)
+#if !EMULATION
   !!ir (!.ctxt R.OF := undefOF)
+#endif
   !>ir insLen
 
 let dec ins insLen ctxt =
@@ -857,12 +881,14 @@ let div ins insLen ctxt =
     !!ir (dstAssign oprSize q (AST.xtlo oprSize quotient))
     !!ir (dstAssign oprSize r (AST.xtlo oprSize remainder))
   | _ -> raise InvalidOperandSizeException
+#if !EMULATION
   !!ir (!.ctxt R.CF := undefCF)
   !!ir (!.ctxt R.OF := undefOF)
   !!ir (!.ctxt R.AF := undefAF)
   !!ir (!.ctxt R.SF := undefSF)
   !!ir (!.ctxt R.ZF := undefZF)
   !!ir (!.ctxt R.PF := undefPF)
+#endif
   !>ir insLen
 
 let enter ins insLen ctxt =
@@ -953,9 +979,11 @@ let imul ins insLen ctxt =
   let ir = IRBuilder (24)
   !<ir insLen
   !?ir (buildMulBody ins insLen ctxt)
+#if !EMULATION
   !!ir (!.ctxt R.ZF := undefZF)
   !!ir (!.ctxt R.AF := undefAF)
   !!ir (!.ctxt R.PF := undefPF)
+#endif
   !>ir insLen
 
 let inc ins insLen ctxt =
@@ -1141,10 +1169,12 @@ let lzcnt ins insLen ctxt =
   let oprSize = numI32 (RegType.toBitWidth oprSize) oprSize
   !!ir (!.ctxt R.CF := dst == oprSize)
   !!ir (!.ctxt R.ZF := dst == n)
+#if !EMULATION
   !!ir (!.ctxt R.OF := undefOF)
   !!ir (!.ctxt R.SF := undefSF)
   !!ir (!.ctxt R.PF := undefPF)
   !!ir (!.ctxt R.AF := undefAF)
+#endif
   !>ir insLen
 
 let mov ins insLen ctxt =
@@ -1224,10 +1254,12 @@ let mul ins insLen ctxt =
   !!ir (cond := AST.xthi oprSize t != (AST.num0 oprSize))
   !!ir (!.ctxt R.CF := cond)
   !!ir (!.ctxt R.OF := cond)
+#if !EMULATION
   !!ir (!.ctxt R.SF := undefSF)
   !!ir (!.ctxt R.ZF := undefZF)
   !!ir (!.ctxt R.AF := undefAF)
   !!ir (!.ctxt R.PF := undefPF)
+#endif
   !>ir insLen
 
 let neg ins insLen ctxt =
@@ -1267,7 +1299,9 @@ let logOr ins insLen ctxt =
   !!ir (dstAssign oprSize dst t)
   !!ir (!.ctxt R.CF := AST.b0)
   !!ir (!.ctxt R.OF := AST.b0)
+#if !EMULATION
   !!ir (!.ctxt R.AF := undefAF)
+#endif
   !?ir (enumSZPFlags ctxt t oprSize)
   !>ir insLen
 
@@ -1455,7 +1489,11 @@ let rcl ins insLen ctxt =
   !!ir (tmpCount := cnt)
   !!ir (dst := (dst << tmpCount) .| (dst >> (size .- tmpCount)))
   !!ir (cF := AST.xthi 1<rt> dst)
+#if !EMULATION
   !!ir (oF := AST.ite cond (AST.xthi 1<rt> dst <+> cF) undefOF)
+#else
+  !!ir (oF := AST.ite cond (AST.xthi 1<rt> dst <+> cF) oF)
+#endif
   !>ir insLen
 
 let rcr ins insLen ctxt =
@@ -1477,7 +1515,11 @@ let rcr ins insLen ctxt =
   let cond = count == AST.num1 oprSize
   !<ir insLen
   !!ir (tmpCount := cnt)
+#if !EMULATION
   !!ir (oF := AST.ite cond (AST.xthi 1<rt> dst <+> cF) undefOF)
+#else
+  !!ir (oF := AST.ite cond (AST.xthi 1<rt> dst <+> cF) oF)
+#endif
   !!ir (dst := (dst >> tmpCount) .| (dst << (size .- tmpCount)))
   !!ir (cF := AST.xthi 1<rt> dst)
   !>ir insLen
@@ -1536,7 +1578,11 @@ let rotate ins insLen ctxt lfn hfn cfFn ofFn =
   !!ir (orgCount := (AST.zext oprSize count .& countMask))
   !!ir (dst := (lfn dst orgCount) .| (hfn dst (size .- orgCount)))
   !!ir (cF := AST.ite cond1 cF (cfFn 1<rt> dst))
+#if !EMULATION
   !!ir (oF := AST.ite cond2 (ofFn dst cF) undefOF)
+#else
+  !!ir (oF := AST.ite cond2 (ofFn dst cF) oF)
+#endif
   !>ir insLen
 
 let rol ins insLen ctxt =
@@ -1598,26 +1644,40 @@ let shift ins insLen ctxt =
     !!ir (dst := dst ?>> cnt)
     !!ir (tCnt := cnt .- n1)
     !!ir (cF := AST.ite cond2 cF prevLBit)
+#if !EMULATION
     !!ir (oF := AST.ite cond1 AST.b0 (AST.ite cond2 oF undefOF))
+#else
+    !!ir (oF := AST.ite cond1 AST.b0 oF)
+#endif
   | Opcode.SHL ->
     let prevHBit = AST.xthi 1<rt> (tDst << tCnt)
     let of1 = AST.xthi 1<rt> dst <+> cF
     !!ir (dstAssign oprSize dst (dst << cnt))
     !!ir (tCnt := cnt .- n1)
     !!ir (cF := AST.ite cond2 cF prevHBit)
+#if !EMULATION
     !!ir (oF := AST.ite cond1 of1 (AST.ite cond2 oF undefOF))
+#else
+    !!ir (oF := AST.ite cond1 of1 oF)
+#endif
   | Opcode.SHR ->
     let prevLBit = AST.xtlo 1<rt> (tDst ?>> tCnt)
     !!ir (dstAssign oprSize dst (dst >> cnt))
     !!ir (tCnt := cnt .- n1)
     !!ir (cF := AST.ite cond2 cF prevLBit)
+#if !EMULATION
     !!ir
       (oF := AST.ite cond1 (AST.xthi 1<rt> tDst) (AST.ite cond2 oF undefOF))
+#else
+    !!ir (oF := AST.ite cond1 (AST.xthi 1<rt> tDst) oF)
+#endif
   | _ -> raise InvalidOpcodeException
   !!ir (sF := AST.ite cond2 sF (AST.xthi 1<rt> dst))
   !?ir (buildPF ctxt dst oprSize (Some cond2))
   !!ir (zF := AST.ite cond2 zF (dst == n0))
+#if !EMULATION
   !!ir (aF := AST.ite cond2 aF undefAF)
+#endif
   !>ir insLen
 
 let sbb ins insLen ctxt =
@@ -1716,9 +1776,14 @@ let inline shiftDblPrec ins insLen ctxt fnDst fnSrc isShl =
     else
       cF := AST.ite cond1 cF (AST.xtlo 1<rt> (orig >> (c .- AST.num1 oprSize)))
   )
+#if !EMULATION
   !!ir (oF := AST.ite cond1 oF
                (AST.ite cond2 (AST.xthi 1<rt> (orig <+> dst)) undefOF))
   !!ir (aF := AST.ite cond1 aF undefAF)
+#else
+  !!ir (oF := AST.ite cond1 oF
+               (AST.ite cond2 (AST.xthi 1<rt> (orig <+> dst)) oF))
+#endif
   !?ir (enumSZPFlags ctxt dst oprSize)
   !>ir insLen
 
@@ -1796,7 +1861,9 @@ let test ins insLen ctxt =
   !?ir (buildPF ctxt t oprSize None)
   !!ir (!.ctxt R.CF := AST.b0)
   !!ir (!.ctxt R.OF := AST.b0)
+#if !EMULATION
   !!ir (!.ctxt R.AF := undefAF)
+#endif
   !>ir insLen
 
 let tzcnt ins insLen ctxt =
@@ -1820,10 +1887,12 @@ let tzcnt ins insLen ctxt =
   !!ir (dstAssign oprSize dst t1)
   !!ir (!.ctxt R.CF := dst == max)
   !!ir (!.ctxt R.ZF := dst == AST.num0 oprSize)
+#if !EMULATION
   !!ir (!.ctxt R.OF := undefOF)
   !!ir (!.ctxt R.SF := undefSF)
   !!ir (!.ctxt R.PF := undefPF)
   !!ir (!.ctxt R.AF := undefAF)
+#endif
   !>ir insLen
 
 let wrfsbase ins insLen ctxt =
@@ -1902,5 +1971,7 @@ let xor ins insLen ctxt =
   !!ir (!.ctxt R.SF := AST.xthi 1<rt> r)
   !!ir (!.ctxt R.ZF := r == (AST.num0 oprSize))
   !?ir (buildPF ctxt r oprSize None)
+#if !EMULATION
   !!ir (!.ctxt R.AF := undefAF)
+#endif
   !>ir insLen

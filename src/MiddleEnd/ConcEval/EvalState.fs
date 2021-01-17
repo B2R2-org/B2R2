@@ -63,12 +63,12 @@ type EvalCallBacks () =
 
   /// Put event handler. The first parameter is PC, and the second is the value
   /// that is put to the destination.
-  member val PutEventHandler: Addr -> EvalValue -> unit =
+  member val PutEventHandler: Addr -> BitVector -> unit =
     fun _ _ -> () with get, set
 
   /// Side-effect event handler.
-  member val SideEffectEventHandler: SideEffect -> EvalState -> EvalState =
-    fun _ st -> st with get, set
+  member val SideEffectEventHandler: SideEffect -> EvalState -> unit =
+    fun _ st -> () with get, set
 
   /// Statement evaluation event handler.
   member val StmtEvalEventHandler: LowUIR.Stmt -> unit =
@@ -121,103 +121,111 @@ and EvalState (?reader, ?ignoreundef) =
   member val IgnoreUndef = defaultArg ignoreundef false with get
 
   /// Get the context of a specific thread.
-  static member inline GetContext (st: EvalState) tid =
-    st.Contexts.[tid]
+  member inline __.GetContext tid =
+    __.Contexts.[tid]
 
   /// Get the current context of the current thread.
-  static member inline GetCurrentContext (st: EvalState) =
-    st.Contexts.[st.ThreadId]
+  member inline __.GetCurrentContext () =
+    __.Contexts.[__.ThreadId]
 
   /// Update the current statement index to be the next (current + 1) statement.
-  static member inline NextStmt (st: EvalState) =
-    st.Contexts.[st.ThreadId].StmtIdx <- st.Contexts.[st.ThreadId].StmtIdx + 1
-    st
+  member inline __.NextStmt () =
+    __.Contexts.[__.ThreadId].StmtIdx <- __.Contexts.[__.ThreadId].StmtIdx + 1
 
   /// Stop evaluating further statements of the current instruction, and move on
   /// the next instruction.
-  static member inline AbortInstr (st: EvalState) =
-    st.TerminateInstr <- true
-    EvalState.NextStmt st
+  member inline __.AbortInstr () =
+    __.TerminateInstr <- true
+    __.NextStmt ()
 
   /// Start evaluating the instruction.
-  static member inline StartInstr (st: EvalState) =
-    st.TerminateInstr <- false
+  member inline __.StartInstr () =
+    __.TerminateInstr <- false
 
   /// Should we stop evaluating further statements of the current instruction,
   /// and move on to the next instruction?
-  static member inline IsInstrTerminated (st: EvalState) =
-    st.TerminateInstr
+  member inline __.IsInstrTerminated () =
+    __.TerminateInstr
 
   /// Get the value of the given temporary variable.
-  static member inline GetTmp (st: EvalState) n =
-    st.Contexts.[st.ThreadId].Temporaries.Get (n)
+  member inline __.TryGetTmp n =
+    let found, v = __.Contexts.[__.ThreadId].Temporaries.TryGet (n)
+    if found then Def v else Undef
+
+  /// Get the value of the given temporary variable.
+  member inline __.GetTmp n =
+    __.Contexts.[__.ThreadId].Temporaries.Get (n)
 
   /// Set the value for the given temporary variable.
-  static member inline SetTmp (st: EvalState) n v =
-    st.Contexts.[st.ThreadId].Temporaries.Set n v
-    st
+  member inline __.SetTmp n v =
+    __.Contexts.[__.ThreadId].Temporaries.Set n v
+
+  /// Unset the given temporary variable.
+  member inline __.UnsetTmp n =
+    __.Contexts.[__.ThreadId].Temporaries.Unset n
 
   /// Get the value of the given register.
-  static member inline GetReg (st: EvalState) r =
-    st.Contexts.[st.ThreadId].Registers.Get r
+  member inline __.TryGetReg r =
+    let found, v = __.Contexts.[__.ThreadId].Registers.TryGet r
+    if found then Def v else Undef
+
+  /// Get the value of the given register.
+  member inline __.GetReg r =
+    __.Contexts.[__.ThreadId].Registers.Get r
 
   /// Set the value for the given register.
-  static member inline SetReg (st: EvalState) r v =
-    st.Contexts.[st.ThreadId].Registers.Set r v
-    st
+  member inline __.SetReg r v =
+    __.Contexts.[__.ThreadId].Registers.Set r v
+
+  /// Unset the given register.
+  member inline __.UnsetReg r =
+    __.Contexts.[__.ThreadId].Registers.Unset r
 
   /// Get the program counter (PC).
-  static member inline GetPC (st: EvalState) =
-    st.PC
+  member inline __.GetPC =
+    __.PC
 
   /// Set the program counter (PC).
-  static member inline SetPC (st: EvalState) addr =
-    st.PC <- addr
-    st
+  member inline __.SetPC addr =
+    __.PC <- addr
 
-  static member inline IncPC (st: EvalState) (amount: uint32) =
-    st.PC <- st.PC + uint64 amount
-    st
+  member inline __.IncPC (amount: uint32) =
+    __.PC <- __.PC + uint64 amount
 
   /// Thread context switch. If the given thread ID does not exist, we create a
   /// new context for it.
-  static member ContextSwitch tid (st: EvalState) =
-    st.ThreadId <- tid
-    if Array.length st.Contexts <= tid then
-      st.Contexts <- Array.append st.Contexts [| Context () |]
+  member __.ContextSwitch tid =
+    __.ThreadId <- tid
+    if Array.length __.Contexts <= tid then
+      __.Contexts <- Array.append __.Contexts [| Context () |]
     else ()
-    st
 
   /// Prepare the initial context of the given thread id (tid). This function
   /// will set the current thread to be tid.
-  static member PrepareContext (st: EvalState) tid pc regs =
-    let st = EvalState.ContextSwitch tid st
-    let st = EvalState.SetPC st pc
-    regs |> List.fold (fun st (r, v) -> EvalState.SetReg st r v) st
+  member __.PrepareContext tid pc regs =
+    __.ContextSwitch tid
+    __.SetPC pc
+    regs |> List.iter (fun (r, v) -> __.SetReg r v)
 
   /// Go to the statement of the given label.
-  static member inline GoToLabel (st: EvalState) lbl =
-    st.Contexts.[st.ThreadId].StmtIdx <-
-      st.Contexts.[st.ThreadId].Labels.Index lbl
-    st
+  member inline __.GoToLabel lbl =
+    let ctxt = __.Contexts.[__.ThreadId]
+    ctxt.StmtIdx <- ctxt.Labels.Index lbl
 
   /// Get ready for block-level evaluation (evalBlock).
-  static member inline PrepareBlockEval stmts (st: EvalState) =
-    st.Contexts.[st.ThreadId].Labels.Update stmts
-    st.Contexts.[st.ThreadId].StmtIdx <- 0
-    st
+  member inline __.PrepareBlockEval stmts =
+    __.Contexts.[__.ThreadId].Labels.Update stmts
+    __.Contexts.[__.ThreadId].StmtIdx <- 0
 
   /// Get the current architecture operation mode.
-  static member inline GetMode (st: EvalState) =
-    st.Contexts.[st.ThreadId].Mode
+  member inline __.GetMode () =
+    __.Contexts.[__.ThreadId].Mode
 
   /// Set the architecture operation mode.
-  static member inline SetMode (st: EvalState) mode =
-    st.Contexts.[st.ThreadId].Mode <- mode
-    st
+  member inline __.SetMode mode =
+    __.Contexts.[__.ThreadId].Mode <- mode
 
   /// Delete temporary states variables and get ready for evaluating the next
   /// block of isntructions.
-  static member inline CleanUp (st: EvalState) =
-    st.Contexts.[st.ThreadId].Temporaries.Clear ()
-    st
+  member inline __.CleanUp () =
+    __.Contexts.[__.ThreadId].Temporaries.Clear ()

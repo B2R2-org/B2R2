@@ -31,9 +31,9 @@ open B2R2.MiddleEnd.ConcEval
 open B2R2.MiddleEnd.Reclaimer.EmulationHelper
 
 module private LibcAnalysisHelper =
-  let retrieveAddrsForx86 (ess: BinEssence) st =
+  let retrieveAddrsForx86 (ess: BinEssence) (st: EvalState) =
     let esp = (Intel.Register.ESP |> Intel.Register.toRegID)
-    match EvalState.GetReg st esp with
+    match st.TryGetReg esp with
     | Def sp ->
       let p1 = BitVector.add (BitVector.ofInt32 4 32<rt>) sp
       let p4 = BitVector.add (BitVector.ofInt32 16 32<rt>) sp
@@ -89,7 +89,7 @@ module private LibcAnalysisHelper =
       let hdl = ess.BinHandle
       let st = EvalState (memoryReader hdl, true)
       let rootAddr = root.VData.PPoint.Address
-      let st = initRegs hdl |> EvalState.PrepareContext st 0 rootAddr
+      initRegs hdl |> st.PrepareContext 0 rootAddr
       eval ess root st (fun blk -> blk.VData.PPoint.Address = callerAddr)
       |> retrieveLibcStartAddresses ess
 

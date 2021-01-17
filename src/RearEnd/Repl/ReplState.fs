@@ -34,25 +34,25 @@ type ParserState =
   | BinParser of Architecture
 
 type ReplState (isa: ISA, regbay: RegisterBay, doFiltering) =
+  let rstate = EvalState ()
   let mutable parser = BinParser isa.Arch
-  let mutable rstate =
+  do
     regbay.GetAllRegExprs ()
     |> List.map (fun r ->
       (regbay.RegIDFromRegExpr r, BitVector.ofInt32 0 (LowUIR.AST.typeOf r)))
-    |> List.map (fun (x, y) -> (x, Def y))
-    |> EvalState.PrepareContext (EvalState ()) 0 0UL
+    |> List.map (fun (x, y) -> (x, y))
+    |> rstate.PrepareContext 0 0UL
   let mutable prevReg =
-    (EvalState.GetCurrentContext rstate).Registers.ToSeq () |> Seq.toArray
+    (rstate.GetCurrentContext ()).Registers.ToSeq () |> Seq.toArray
   let mutable prevTmp =
-    (EvalState.GetCurrentContext rstate).Temporaries.ToSeq () |> Seq.toArray
+    (rstate.GetCurrentContext ()).Temporaries.ToSeq () |> Seq.toArray
   let generalRegs =
     regbay.GetGeneralRegExprs ()
     |> List.map regbay.RegIDFromRegExpr
     |> Set.ofList
 
   member private __.EvaluateStmts (stmts: LowUIR.Stmt []) =
-    stmts
-    |> Array.fold (fun rstate stmt -> Evaluator.evalStmt rstate stmt) rstate
+    stmts |> Array.iter (fun stmt -> Evaluator.evalStmt rstate stmt)
 
   member private __.ComputeDelta prev curr =
     Array.fold2 (fun acc t1 t2 ->
@@ -61,20 +61,15 @@ type ReplState (isa: ISA, regbay: RegisterBay, doFiltering) =
 
   /// Update the state and return deltas.
   member __.Update stmts =
-    try rstate <- __.EvaluateStmts stmts
+    try __.EvaluateStmts stmts
     with exc -> printfn "%s" exc.Message
-    let currContext = EvalState.GetCurrentContext rstate
+    let currContext = rstate.GetCurrentContext ()
     let currReg = currContext.Registers.ToSeq () |> Seq.toArray
     let currTmp = currContext.Temporaries.ToSeq () |> Seq.toArray
     let regdelta = __.ComputeDelta prevReg currReg
     prevReg <- currReg
     prevTmp <- currTmp
     regdelta
-
-  member private __.EvalValueToString v =
-    match v with
-    | Def bv -> bv.ToString ()
-    | Undef -> "undef"
 
   member private __.Filter regPairs =
     if doFiltering then
@@ -89,12 +84,12 @@ type ReplState (isa: ISA, regbay: RegisterBay, doFiltering) =
     |> __.Filter
     |> List.map (fun (r, v) ->
       let regStr = regbay.RegIDToString r
-      let regVal = __.EvalValueToString v
+      let regVal = v.ToString ()
       regStr + ": " + regVal, Set.contains r set)
 
   /// Gets a temporary register name and EvalValue string representation.
   member private __.TempRegString (n: int) v =
-    "T_" + string (n) + ": " + (__.EvalValueToString v)
+    "T_" + string (n) + ": " + v.ToString ()
 
   member __.GetAllTempValString delta =
     let set = Set.ofList delta

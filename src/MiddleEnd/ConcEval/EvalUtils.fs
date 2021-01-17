@@ -29,11 +29,11 @@ open B2R2.BinIR.LowUIR
 
 let tr = BitVector.one 1<rt>
 
-let rec gotoNextInstr stmts st =
-  let ctxt = EvalState.GetCurrentContext st
+let rec gotoNextInstr stmts (st: EvalState) =
+  let ctxt = st.GetCurrentContext ()
   let idx = ctxt.StmtIdx
-  if EvalState.IsInstrTerminated st && Array.length stmts > idx && idx >= 0 then
+  if st.IsInstrTerminated () && Array.length stmts > idx && idx >= 0 then
     match stmts.[idx] with
-    | ISMark (_) -> EvalState.StartInstr st; st
-    | _ -> gotoNextInstr stmts (EvalState.NextStmt st)
+    | ISMark (_) -> st.StartInstr (); st
+    | _ -> st.NextStmt (); gotoNextInstr stmts st
   else st
