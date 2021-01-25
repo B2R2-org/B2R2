@@ -135,6 +135,12 @@ type internal RegExprs (wordSize) =
   let k5 = var 64<rt> (Register.toRegID Register.K5) "K5"
   let k6 = var 64<rt> (Register.toRegID Register.K6) "K6"
   let k7 = var 64<rt> (Register.toRegID Register.K7) "K7"
+  let dr0 = var 32<rt> (Register.toRegID Register.DR0) "DR0"
+  let dr1 = var 32<rt> (Register.toRegID Register.DR1) "DR1"
+  let dr2 = var 32<rt> (Register.toRegID Register.DR2) "DR2"
+  let dr3 = var 32<rt> (Register.toRegID Register.DR3) "DR3"
+  let dr6 = var 32<rt> (Register.toRegID Register.DR6) "DR6"
+  let dr7 = var 32<rt> (Register.toRegID Register.DR7) "DR7"
 
   (* QWORD regs *)
   member val RAX = rax with get
@@ -590,6 +596,13 @@ type internal RegExprs (wordSize) =
   member val K5 = k5 with get
   member val K6 = k6 with get
   member val K7 = k7 with get
+  (* Debug registers *)
+  member val DR0 = dr0 with get
+  member val DR1 = dr1 with get
+  member val DR2 = dr2 with get
+  member val DR3 = dr3 with get
+  member val DR6 = dr6 with get
+  member val DR7 = dr7 with get
 
   member __.GetRegVar (name) =
     match name with
@@ -925,6 +938,12 @@ type internal RegExprs (wordSize) =
     | R.K5 -> __.K5
     | R.K6 -> __.K6
     | R.K7 -> __.K7
+    | R.DR0 -> __.DR0
+    | R.DR1 -> __.DR1
+    | R.DR2 -> __.DR2
+    | R.DR3 -> __.DR3
+    | R.DR6 -> __.DR6
+    | R.DR7 -> __.DR7
     | _ -> failwith "Unhandled register."
 
   member __.GetPseudoRegVar name pos =

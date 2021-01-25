@@ -248,6 +248,12 @@ type IntelRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     | R.MXCSR -> 201
     | R.MXCSRMASK -> 202
     | R.PKRU -> 203
+    | R.DR0 -> 204
+    | R.DR1 -> 205
+    | R.DR2 -> 206
+    | R.DR3 -> 207
+    | R.DR6 -> 208
+    | R.DR7 -> 209
     | _ -> -1
 
   override __.IndexToRegID index =
@@ -456,6 +462,12 @@ type IntelRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     | 201 -> R.MXCSR
     | 202 -> R.MXCSRMASK
     | 203 -> R.PKRU
+    | 204 -> R.DR0
+    | 205 -> R.DR1
+    | 206 -> R.DR2
+    | 207 -> R.DR3
+    | 208 -> R.DR6
+    | 209 -> R.DR7
     | _ -> Utils.impossible ()
     |> Register.toRegID
 

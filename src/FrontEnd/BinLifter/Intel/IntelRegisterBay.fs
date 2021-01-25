@@ -49,7 +49,7 @@ type IntelRegisterBay internal (wordSize, R: RegExprs) =
         R.ZMM5D; R.ZMM5E; R.ZMM5F; R.ZMM5G; R.ZMM5H; R.ZMM6A; R.ZMM6B; R.ZMM6C;
         R.ZMM6D; R.ZMM6E; R.ZMM6F; R.ZMM6G; R.ZMM6H; R.ZMM7A; R.ZMM7B; R.ZMM7C;
         R.ZMM7D; R.ZMM7E; R.ZMM7F; R.ZMM7G; R.ZMM7H; R.CS; R.DS; R.ES; R.FS;
-        R.GS; R.SS ]
+        R.GS; R.SS; R.DR0; R.DR1; R.DR2; R.DR3; R.DR6; R.DR7 ]
     else
       [ R.RAX; R.RBX; R.RCX; R.RDX; R.RSP; R.RBP; R.RSI; R.RDI; R.R8; R.R9;
         R.R10; R.R11; R.R12; R.R13; R.R14; R.R15; R.RIP; R.CSBase; R.DSBase;
@@ -76,7 +76,7 @@ type IntelRegisterBay internal (wordSize, R: RegExprs) =
         R.ZMM13G; R.ZMM13H; R.ZMM14A; R.ZMM14B; R.ZMM14C; R.ZMM14D; R.ZMM14E;
         R.ZMM14F; R.ZMM14G; R.ZMM14H; R.ZMM15A; R.ZMM15B; R.ZMM15C; R.ZMM15D;
         R.ZMM15E; R.ZMM15F; R.ZMM15G; R.ZMM15H; R.CS; R.DS; R.ES; R.FS; R.GS;
-        R.SS ]
+        R.SS; R.DR0; R.DR1; R.DR2; R.DR3; R.DR6; R.DR7 ]
 
   override __.GetAllRegNames () =
     __.GetAllRegExprs ()
@@ -384,6 +384,12 @@ type IntelRegisterBay internal (wordSize, R: RegExprs) =
     | "ZMM15G" -> R.ZMM15G
     | "ZMM15H" -> R.ZMM15H
     | "PKRU" -> R.PKRU
+    | "DR0" -> R.DR0
+    | "DR1" -> R.DR1
+    | "DR2" -> R.DR2
+    | "DR3" -> R.DR3
+    | "DR6" -> R.DR6
+    | "DR7" -> R.DR7
     | _ -> raise UnhandledRegExprException
 
   override __.RegIDFromString str =
