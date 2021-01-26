@@ -1422,10 +1422,25 @@ let private loadLegacyFxrstor ctxt src ir =
   let offset = AST.num (BitVector.ofInt32 8 (getAddrRegSize src))
   let xRegs = [ R.XMM0; R.XMM1; R.XMM2; R.XMM3; R.XMM4; R.XMM5; R.XMM6; R.XMM7 ]
   let tSrc = AST.tmpvar 64<rt>
+  let struct (t0, t1, t2, t3) = tmpVars4 1<rt>
+  let struct (t4, t5, t6, t7) = tmpVars4 1<rt>
+  let abrTagW = AST.tmpvar 8<rt>
+  let num0, num3 = numI32 0 2<rt>, numI32 3 2<rt>
+  !!ir (abrTagW :=
+    AST.concat (AST.concat (AST.concat t7 t6) (AST.concat t5 t4))
+               (AST.concat (AST.concat t3 t2) (AST.concat t1 t0)))
   !!ir (tSrc := src)
   !!ir (!.ctxt R.FCW := AST.xtlo 16<rt> tSrc)
   !!ir (!.ctxt R.FSW := AST.extract tSrc 16<rt> 16)
-  !!ir (!.ctxt R.FTW := AST.extract tSrc 8<rt> 32)
+  !!ir (abrTagW := AST.extract tSrc 8<rt> 32)
+  !!ir (!.ctxt R.FTW0 := AST.ite t0 num0 num3)
+  !!ir (!.ctxt R.FTW1 := AST.ite t1 num0 num3)
+  !!ir (!.ctxt R.FTW2 := AST.ite t2 num0 num3)
+  !!ir (!.ctxt R.FTW3 := AST.ite t3 num0 num3)
+  !!ir (!.ctxt R.FTW4 := AST.ite t4 num0 num3)
+  !!ir (!.ctxt R.FTW5 := AST.ite t5 num0 num3)
+  !!ir (!.ctxt R.FTW6 := AST.ite t6 num0 num3)
+  !!ir (!.ctxt R.FTW7 := AST.ite t7 num0 num3)
   !!ir (!.ctxt R.FOP := AST.extract tSrc 16<rt> 48)
   !!ir (updateAddrByOffset src offset)
   !!ir (tSrc := src)
