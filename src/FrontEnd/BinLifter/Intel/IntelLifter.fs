@@ -173,9 +173,11 @@ let translate (ins: InsInfo) insLen ctxt =
   | OP.TEST -> GeneralLifter.test ins insLen ctxt
   | OP.TZCNT -> GeneralLifter.tzcnt ins insLen ctxt
   | OP.UD2 -> LiftingUtils.sideEffects insLen UndefinedInstr
+  | OP.WBINVD -> LiftingUtils.sideEffects insLen UnsupportedPrivInstr
   | OP.WRFSBASE -> GeneralLifter.wrfsbase ins insLen ctxt
   | OP.WRGSBASE -> GeneralLifter.wrgsbase ins insLen ctxt
   | OP.WRPKRU -> GeneralLifter.wrpkru ins insLen ctxt
+  | OP.WRMSR -> LiftingUtils.sideEffects insLen UnsupportedPrivInstr
   | OP.WRSSD | OP.WRSSQ -> GeneralLifter.nop insLen
   | OP.WRUSSD | OP.WRUSSQ -> GeneralLifter.nop insLen
   | OP.XABORT -> LiftingUtils.sideEffects insLen UnsupportedExtension
