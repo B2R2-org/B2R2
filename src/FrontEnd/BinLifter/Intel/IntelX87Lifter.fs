@@ -151,6 +151,35 @@ let private popFPUStack ctxt ir =
   updateTagWordOnPop ctxt ir
   !!ir (top := top .+ AST.num1 3<rt>)
 
+let private updateAddrByOffset addr offset =
+  match addr with
+  (* Save *)
+  | Load (_, _, BinOp (_, _, BinOp (_, _, reg, _, _, _), _, _, _), _, _) ->
+    reg := reg .+ offset (* SIB *)
+  | Load (_, _, BinOp (_, _, e, _, _, _), _, _) ->
+    e := e .+ offset (* Displacemnt *)
+  | Load (_, _, expr, _, _) -> expr := expr .+ offset
+  | _ -> Utils.impossible ()
+
+let private getAddrRegSize = function
+  (* Save *)
+  | Load (_, _, Var (t, _, _, _), _, _) -> t
+  | Load (_, _, BinOp (_, t, _, _, _, _), _, _) -> t
+  (* Load *)
+  | TempVar (t, _) -> t
+  | _ -> Utils.impossible ()
+
+let private getBaseReg = function
+  | Load (_, _, BinOp (_, _, BinOp (_, _, reg, _, _, _), _, _, _), _, _) -> reg
+  | Load (_, _, BinOp (_, _, e, _, _, _), _, _) -> e
+  | Load (_, _, expr, _, _) -> expr
+  | _ -> Utils.impossible ()
+
+let private extendAddr src regType =
+  match src with
+  | Load (e, _, expr, _, _) -> AST.load e regType expr
+  | _ -> Utils.impossible ()
+
 let private m14Stenv dst ctxt ir =
   let tmp = AST.tmpvar 112<rt>
   !!ir (tmp := AST.num0 112<rt>)
@@ -1102,27 +1131,44 @@ let fldenv ins insLen ctxt =
   !>ir insLen
 
 let private stSts dst ctxt ir =
-  !!ir (AST.xtlo 80<rt> dst := !.ctxt R.ST0)
-  !!ir (AST.extract dst 80<rt> 80 := !.ctxt R.ST1)
-  !!ir (AST.extract dst 80<rt> 160 := !.ctxt R.ST2)
-  !!ir (AST.extract dst 80<rt> 240 := !.ctxt R.ST3)
-  !!ir (AST.extract dst 80<rt> 320 := !.ctxt R.ST4)
-  !!ir (AST.extract dst 80<rt> 400 := !.ctxt R.ST5)
-  !!ir (AST.extract dst 80<rt> 480 := !.ctxt R.ST6)
-  !!ir (AST.extract dst 80<rt> 560 := !.ctxt R.ST7)
+  let dst = extendAddr dst 80<rt>
+  let offset = numI32 10 (getAddrRegSize dst)
+  !!ir (dst := !.ctxt R.ST0)
+  !!ir (updateAddrByOffset dst offset)
+  !!ir (dst := !.ctxt R.ST1)
+  !!ir (updateAddrByOffset dst offset)
+  !!ir (dst := !.ctxt R.ST2)
+  !!ir (updateAddrByOffset dst offset)
+  !!ir (dst := !.ctxt R.ST3)
+  !!ir (updateAddrByOffset dst offset)
+  !!ir (dst := !.ctxt R.ST4)
+  !!ir (updateAddrByOffset dst offset)
+  !!ir (dst := !.ctxt R.ST5)
+  !!ir (updateAddrByOffset dst offset)
+  !!ir (dst := !.ctxt R.ST6)
+  !!ir (updateAddrByOffset dst offset)
+  !!ir (dst := !.ctxt R.ST7)
+  !!ir (updateAddrByOffset dst offset)
 
 let fsave ins insLen ctxt =
   let ir = IRBuilder (32)
   let dst = transOneOpr ins insLen ctxt
+  let baseReg = getBaseReg dst
+  let regSave = AST.tmpvar (getAddrRegSize dst)
+  let addrRegSize = getAddrRegSize dst
   !<ir insLen
-  m14Stenv (AST.xtlo 112<rt> dst) ctxt ir
-  stSts (AST.xthi 640<rt> dst) ctxt ir
+  !!ir (regSave := baseReg)
+  let eDst = extendAddr dst 112<rt>
+  m14Stenv eDst ctxt ir
+  !!ir (updateAddrByOffset eDst (numI32 28 addrRegSize))
+  stSts eDst ctxt ir
   !!ir (!.ctxt R.FCW := numI32 0x037F 16<rt>)
   !!ir (!.ctxt R.FSW := AST.num0 16<rt>)
   !!ir (!.ctxt R.FTW := numI32 0xFFFF 16<rt>)
-  !!ir (!.ctxt R.FDP := AST.num0 16<rt>)
-  !!ir (!.ctxt R.FIP := AST.num0 16<rt>)
+  !!ir (!.ctxt R.FDP := AST.num0 64<rt>)
+  !!ir (!.ctxt R.FIP := AST.num0 64<rt>)
   !!ir (!.ctxt R.FOP := AST.num0 16<rt>)
+  !!ir (baseReg := regSave)
   !>ir insLen
 
 let private ldSts src ctxt ir =
@@ -1176,35 +1222,6 @@ let fnop _ins insLen ctxt =
   !<ir insLen
   allCFlagsUndefined ctxt ir
   !>ir insLen
-
-let private updateAddrByOffset addr offset =
-  match addr with
-  (* Save *)
-  | Load (_, _, BinOp (_, _, BinOp (_, _, reg, _, _, _), _, _, _), _, _) ->
-    reg := reg .+ offset (* SIB *)
-  | Load (_, _, BinOp (_, _, e, _, _, _), _, _) ->
-    e := e .+ offset (* Displacemnt *)
-  | Load (_, _, expr, _, _) -> expr := expr .+ offset
-  | _ -> Utils.impossible ()
-
-let private getAddrRegSize = function
-  (* Save *)
-  | Load (_, _, Var (t, _, _, _), _, _) -> t
-  | Load (_, _, BinOp (_, t, _, _, _, _), _, _) -> t
-  (* Load *)
-  | TempVar (t, _) -> t
-  | _ -> Utils.impossible ()
-
-let private getBaseReg = function
-  | Load (_, _, BinOp (_, _, BinOp (_, _, reg, _, _, _), _, _, _), _, _) -> reg
-  | Load (_, _, BinOp (_, _, e, _, _, _), _, _) -> e
-  | Load (_, _, expr, _, _) -> expr
-  | _ -> Utils.impossible ()
-
-let private extendAddr src regType =
-  match src with
-  | Load (e, _, expr, _, _) -> AST.load e regType expr
-  | _ -> Utils.impossible ()
 
 let private saveFxsaveMMX ctxt addr offset ir =
   let r64 = AST.num0 64<rt>
