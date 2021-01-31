@@ -115,13 +115,7 @@ let private getBasePtr ctxt =
   !.ctxt (if is64bit ctxt then R.RBP else R.EBP)
 
 let private getRegOfSize ctxt oprSize regGrp =
-  match oprSize with
-  | 8<rt> -> regGrp 0
-  | 16<rt> -> regGrp 1
-  | 32<rt> -> regGrp 2
-  | 64<rt> -> regGrp 3
-  | _ -> raise InvalidOperandSizeException
-  |> !.ctxt
+  regGrp oprSize |> !.ctxt
 
 let private getDividend ctxt = function
   | 8<rt> -> !.ctxt R.AX

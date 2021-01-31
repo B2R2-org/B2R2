@@ -322,4 +322,15 @@ and internal BinReaderBE (bytes: byte []) =
 
   override __.Endianness = Endian.Big
 
+/// Empty BinReader, representing a null type.
+type EmptyBinReader () =
+  inherit BinReader ([||])
+  override __.PeekInt16 (o) = Utils.impossible ()
+  override __.PeekUInt16 (o) = Utils.impossible ()
+  override __.PeekInt32 (o) = Utils.impossible ()
+  override __.PeekUInt32 (o) = Utils.impossible ()
+  override __.PeekInt64 (o) = Utils.impossible ()
+  override __.PeekUInt64 (o) = Utils.impossible ()
+  override __.Endianness = Utils.impossible ()
+
 // vim: set tw=80 sts=2 sw=2:

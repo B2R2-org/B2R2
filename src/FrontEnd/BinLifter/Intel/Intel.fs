@@ -36,13 +36,6 @@ type IntelTranslationContext internal (isa, regexprs) =
   override __.GetPseudoRegVar id pos =
     __.RegExprs.GetPseudoRegVar (Register.ofRegID id ) pos
 
-/// Parser for Intel (x86 or x86-64) instructions. Parser will return a
-/// platform-agnostic instruction type (Instruction).
-type IntelParser (wordSize) =
-  inherit Parser ()
-  override __.Parse binReader _ctxt addr pos =
-    Parser.parse binReader wordSize addr pos :> Instruction
-
 module Basis =
   let init (isa: ISA) =
     let regexprs = RegExprs (isa.WordSize)

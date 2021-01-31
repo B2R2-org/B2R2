@@ -160,30 +160,6 @@ type OpGroup =
   | G16 = 19
   | G17 = 20
 
-/// Defines attributes for registers to apply register conversion rules.
-[<System.FlagsAttribute>]
-type RGrpAttr =
-  /// This represents the case where there is no given attribute.
-  | ANone = 0x0
-  /// Registers defined by the 4th row of Table 2-2. Vol. 2A.
-  | AMod11 = 0x1
-  /// Registers defined by REG bit of the opcode: some instructions such as PUSH
-  /// make use of its opcode to represent the REG bit. REX bits can change the
-  /// symbol.
-  | ARegInOpREX = 0x2
-  /// Registers defined by REG bit of the opcode: some instructions such as PUSH
-  /// make use of its opcode to represent the REG bit. REX bits cannot change
-  /// the symbol.
-  | ARegInOpNoREX = 0x4
-  /// Registers defined by REG field of the ModR/M byte.
-  | ARegBits = 0x8
-  /// Base registers defined by the RM field: first three rows of Table 2-2.
-  | ABaseRM = 0x10
-  /// Registers defined by the SIB index field.
-  | ASIBIdx = 0x20
-  /// Registers defined by the SIB base field.
-  | ASIBBase = 0x40
-
 /// The scale of Scaled Index.
 type Scale =
   /// Times 1
@@ -279,7 +255,6 @@ type VEXInfo = {
   VectorLength: RegType
   VEXType: VEXType
   VPrefixes: Prefix
-  VREXPrefix: REXPrefix
   EVEXPrx: EVEXPrefix option
 }
 

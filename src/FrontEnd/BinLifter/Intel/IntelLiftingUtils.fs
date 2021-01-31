@@ -183,7 +183,7 @@ let private numOfAddrSz (ins: InsInfo) (ctxt: TranslationContext) n =
     else if hasAddrSz pref then 32<rt> else 64<rt>
   numI64 n sz
 
-let inline private sIdx ins ctxt (r, s) =
+let inline private sIdx ins ctxt (r, s: Scale) =
   (!.ctxt r) .* (numOfAddrSz ins ctxt (int64 s))
 
 let private transMem ins insLen ctxt b index disp oprSize =

@@ -34,7 +34,9 @@ module Intel =
 
   let private test prefs segment wordSize opcode oprs length (bytes: byte[]) =
     let reader = BinReader.Init (bytes)
-    let ins = Parser.parse reader wordSize 0UL 0
+    let parser = IntelParser (wordSize)
+    let ctxt = ParsingContext.Init (ArchOperationMode.NoMode)
+    let ins = parser.Parse reader ctxt 0UL 0 :?> IntelInstruction
     let pInfo = ins.Info
     Assert.AreEqual (pInfo.Prefixes, prefs)
     Assert.AreEqual (Helper.getSegment pInfo.Prefixes, segment)

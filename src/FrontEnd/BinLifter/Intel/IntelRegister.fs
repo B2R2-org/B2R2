@@ -51,12 +51,12 @@ exception UnknownRegException
 type Register =
   /// Accumulator for operands and results data (64bit).
   | RAX = 0x0
-  /// Pointer to data in the DS segment (64bit).
-  | RBX = 0x1
   /// TCounter for string and loop operations (64bit).
-  | RCX = 0x2
+  | RCX = 0x1
   /// I/O pointer (64bit).
-  | RDX = 0x3
+  | RDX = 0x2
+  /// Pointer to data in the DS segment (64bit).
+  | RBX = 0x3
   /// Stack pointer (in the SS segment) (64bit).
   | RSP = 0x4
   /// Pointer to data on the stack (in the SS segment) (64bit).
@@ -65,102 +65,102 @@ type Register =
   | RSI = 0x6
   /// Pointer to data in the segment pointed to by the ES register (64bit).
   | RDI = 0x7
+  /// General-Purpose Registers for 64bit Mode.
+  | R8 = 0x8
+  /// General-Purpose Registers for 64bit Mode.
+  | R9 = 0x9
+  /// General-Purpose Registers for 64bit Mode.
+  | R10 = 0xA
+  /// General-Purpose Registers for 64bit Mode.
+  | R11 = 0xB
+  /// General-Purpose Registers for 64bit Mode.
+  | R12 = 0xC
+  /// General-Purpose Registers for 64bit Mode.
+  | R13 = 0xD
+  /// General-Purpose Registers for 64bit Mode.
+  | R14 = 0xE
+  /// General-Purpose Registers for 64bit Mode.
+  | R15 = 0xF
   /// Accumulator for operands and results data (32bit).
-  | EAX = 0x8
-  /// Pointer to data in the DS segment (32bit).
-  | EBX = 0x9
+  | EAX = 0x10
   /// TCounter for string and loop operations (32bit).
-  | ECX = 0xA
+  | ECX = 0x11
   /// I/O pointer (32bit).
-  | EDX = 0xB
+  | EDX = 0x12
+  /// Pointer to data in the DS segment (32bit).
+  | EBX = 0x13
   /// Stack pointer (in the SS segment) (32bit).
-  | ESP = 0xC
+  | ESP = 0x14
   /// Pointer to data on the stack (in the SS segment) (32bit).
-  | EBP = 0xD
+  | EBP = 0x15
   /// Pointer to data in the segment pointed to by the DS register (32bit).
-  | ESI = 0xE
+  | ESI = 0x16
   /// Pointer to data in the segment pointed to by the ES register (32bit).
-  | EDI = 0xF
+  | EDI = 0x17
+  /// General-Purpose Registers for 64bit Mode (Doubleword Register).
+  | R8D = 0x18
+  /// General-Purpose Registers for 64bit Mode (Doubleword Register).
+  | R9D = 0x19
+  /// General-Purpose Registers for 64bit Mode (Doubleword Register).
+  | R10D = 0x1A
+  /// General-Purpose Registers for 64bit Mode (Doubleword Register).
+  | R11D = 0x1B
+  /// General-Purpose Registers for 64bit Mode (Doubleword Register).
+  | R12D = 0x1C
+  /// General-Purpose Registers for 64bit Mode (Doubleword Register).
+  | R13D = 0x1D
+  /// General-Purpose Registers for 64bit Mode (Doubleword Register).
+  | R14D = 0x1E
+  /// General-Purpose Registers for 64bit Mode (Doubleword Register).
+  | R15D = 0x1F
   /// General-Purpose Registers (lower 16bits EAX).
-  | AX = 0x10
-  /// General-Purpose Registers (lower 16bits EBX).
-  | BX = 0x11
+  | AX = 0x20
   /// General-Purpose Registers (lower 16bits ECX).
-  | CX = 0x12
+  | CX = 0x21
   /// General-Purpose Registers (lower 16bits EDX).
-  | DX = 0x13
+  | DX = 0x22
+  /// General-Purpose Registers (lower 16bits EBX).
+  | BX = 0x23
   /// General-Purpose Registers (lower 16bits ESP).
-  | SP = 0x14
+  | SP = 0x24
   /// General-Purpose Registers (lower 16bits EBP).
-  | BP = 0x15
+  | BP = 0x25
   /// General-Purpose Registers (lower 16bits ESI).
-  | SI = 0x16
+  | SI = 0x26
   /// General-Purpose Registers (lower 16bits EDI).
-  | DI = 0x17
+  | DI = 0x27
+  /// General-Purpose Registers for 64bit Mode (Word Register).
+  | R8W = 0x28
+  /// General-Purpose Registers for 64bit Mode (Word Register).
+  | R9W = 0x29
+  /// General-Purpose Registers for 64bit Mode (Word Register).
+  | R10W = 0x2A
+  /// General-Purpose Registers for 64bit Mode (Word Register).
+  | R11W = 0x2B
+  /// General-Purpose Registers for 64bit Mode (Word Register).
+  | R12W = 0x2C
+  /// General-Purpose Registers for 64bit Mode (Word Register).
+  | R13W = 0x2D
+  /// General-Purpose Registers for 64bit Mode (Word Register).
+  | R14W = 0x2E
+  /// General-Purpose Registers for 64bit Mode (Word Register).
+  | R15W = 0x2F
   /// General-Purpose Registers (lower 8bits AX).
-  | AL = 0x18
-  /// General-Purpose Registers (lower 8bits BX).
-  | BL = 0x19
+  | AL = 0x30
   /// General-Purpose Registers (lower 8bits CX).
-  | CL = 0x1A
+  | CL = 0x31
   /// General-Purpose Registers (lower 8bits DX).
-  | DL = 0x1B
+  | DL = 0x32
+  /// General-Purpose Registers (lower 8bits BX).
+  | BL = 0x33
   /// General-Purpose Registers (Higher 8bits AX).
-  | AH = 0x1C
-  /// General-Purpose Registers (Higher 8bits BX).
-  | BH = 0x1D
+  | AH = 0x34
   /// General-Purpose Registers (Higher 8bits CX).
-  | CH = 0x1E
+  | CH = 0x35
   /// General-Purpose Registers (Higher 8bits DX).
-  | DH = 0x1F
-  /// General-Purpose Registers for 64bit Mode.
-  | R8 = 0x20
-  /// General-Purpose Registers for 64bit Mode.
-  | R9 = 0x21
-  /// General-Purpose Registers for 64bit Mode.
-  | R10 = 0x22
-  /// General-Purpose Registers for 64bit Mode.
-  | R11 = 0x23
-  /// General-Purpose Registers for 64bit Mode.
-  | R12 = 0x24
-  /// General-Purpose Registers for 64bit Mode.
-  | R13 = 0x25
-  /// General-Purpose Registers for 64bit Mode.
-  | R14 = 0x26
-  /// General-Purpose Registers for 64bit Mode.
-  | R15 = 0x27
-  /// General-Purpose Registers for 64bit Mode (Doubleword Register).
-  | R8D = 0x28
-  /// General-Purpose Registers for 64bit Mode (Doubleword Register).
-  | R9D = 0x29
-  /// General-Purpose Registers for 64bit Mode (Doubleword Register).
-  | R10D = 0x2A
-  /// General-Purpose Registers for 64bit Mode (Doubleword Register).
-  | R11D = 0x2B
-  /// General-Purpose Registers for 64bit Mode (Doubleword Register).
-  | R12D = 0x2C
-  /// General-Purpose Registers for 64bit Mode (Doubleword Register).
-  | R13D = 0x2D
-  /// General-Purpose Registers for 64bit Mode (Doubleword Register).
-  | R14D = 0x2E
-  /// General-Purpose Registers for 64bit Mode (Doubleword Register).
-  | R15D = 0x2F
-  /// General-Purpose Registers for 64bit Mode (Word Register).
-  | R8W = 0x30
-  /// General-Purpose Registers for 64bit Mode (Word Register).
-  | R9W = 0x31
-  /// General-Purpose Registers for 64bit Mode (Word Register).
-  | R10W = 0x32
-  /// General-Purpose Registers for 64bit Mode (Word Register).
-  | R11W = 0x33
-  /// General-Purpose Registers for 64bit Mode (Word Register).
-  | R12W = 0x34
-  /// General-Purpose Registers for 64bit Mode (Word Register).
-  | R13W = 0x35
-  /// General-Purpose Registers for 64bit Mode (Word Register).
-  | R14W = 0x36
-  /// General-Purpose Registers for 64bit Mode (Word Register).
-  | R15W = 0x37
+  | DH = 0x36
+  /// General-Purpose Registers (Higher 8bits BX).
+  | BH = 0x37
   /// General-Purpose Registers for 64bit Mode (Byte Register).
   | R8L = 0x38
   /// General-Purpose Registers for 64bit Mode (Byte Register).
@@ -268,101 +268,101 @@ type Register =
   /// MMX registers.
   | MM7 = 0x207
   /// XMM registers.
-  | XMM0 = 0x30F
+  | XMM0 = 0x300
   /// XMM registers.
-  | XMM1 = 0x30E
+  | XMM1 = 0x301
   /// XMM registers.
-  | XMM2 = 0x30D
+  | XMM2 = 0x302
   /// XMM registers.
-  | XMM3 = 0x30C
+  | XMM3 = 0x303
   /// XMM registers.
-  | XMM4 = 0x30B
+  | XMM4 = 0x304
   /// XMM registers.
-  | XMM5 = 0x30A
+  | XMM5 = 0x305
   /// XMM registers.
-  | XMM6 = 0x309
+  | XMM6 = 0x306
   /// XMM registers.
-  | XMM7 = 0x308
+  | XMM7 = 0x307
   /// XMM registers.
-  | XMM8 = 0x307
+  | XMM8 = 0x308
   /// XMM registers.
-  | XMM9 = 0x306
+  | XMM9 = 0x309
   /// XMM registers.
-  | XMM10 = 0x305
+  | XMM10 = 0x30A
   /// XMM registers.
-  | XMM11 = 0x304
+  | XMM11 = 0x30B
   /// XMM registers.
-  | XMM12 = 0x303
+  | XMM12 = 0x30C
   /// XMM registers.
-  | XMM13 = 0x302
+  | XMM13 = 0x30D
   /// XMM registers.
-  | XMM14 = 0x301
+  | XMM14 = 0x30E
   /// XMM registers.
-  | XMM15 = 0x300
+  | XMM15 = 0x30F
   /// 256-bit vector registers.
-  | YMM0 = 0x40F
+  | YMM0 = 0x400
   /// 256-bit vector registers.
-  | YMM1 = 0x40E
+  | YMM1 = 0x401
   /// 256-bit vector registers.
-  | YMM2 = 0x40D
+  | YMM2 = 0x402
   /// 256-bit vector registers.
-  | YMM3 = 0x40C
+  | YMM3 = 0x403
   /// 256-bit vector registers.
-  | YMM4 = 0x40B
+  | YMM4 = 0x404
   /// 256-bit vector registers.
-  | YMM5 = 0x40A
+  | YMM5 = 0x405
   /// 256-bit vector registers.
-  | YMM6 = 0x409
+  | YMM6 = 0x406
   /// 256-bit vector registers.
-  | YMM7 = 0x408
+  | YMM7 = 0x407
   /// 256-bit vector registers.
-  | YMM8 = 0x407
+  | YMM8 = 0x408
   /// 256-bit vector registers.
-  | YMM9 = 0x406
+  | YMM9 = 0x409
   /// 256-bit vector registers.
-  | YMM10 = 0x405
+  | YMM10 = 0x40A
   /// 256-bit vector registers.
-  | YMM11 = 0x404
+  | YMM11 = 0x40B
   /// 256-bit vector registers.
-  | YMM12 = 0x403
+  | YMM12 = 0x40C
   /// 256-bit vector registers.
-  | YMM13 = 0x402
+  | YMM13 = 0x40D
   /// 256-bit vector registers.
-  | YMM14 = 0x401
+  | YMM14 = 0x40E
   /// 256-bit vector registers.
-  | YMM15 = 0x400
+  | YMM15 = 0x40F
   /// 512-bit vector registers.
-  | ZMM0 = 0x50F
+  | ZMM0 = 0x500
   /// 512-bit vector registers.
-  | ZMM1 = 0x50E
+  | ZMM1 = 0x501
   /// 512-bit vector registers.
-  | ZMM2 = 0x50D
+  | ZMM2 = 0x502
   /// 512-bit vector registers.
-  | ZMM3 = 0x50C
+  | ZMM3 = 0x503
   /// 512-bit vector registers.
-  | ZMM4 = 0x50B
+  | ZMM4 = 0x504
   /// 512-bit vector registers.
-  | ZMM5 = 0x50A
+  | ZMM5 = 0x505
   /// 512-bit vector registers.
-  | ZMM6 = 0x509
+  | ZMM6 = 0x506
   /// 512-bit vector registers.
-  | ZMM7 = 0x508
+  | ZMM7 = 0x507
   /// 512-bit vector registers.
-  | ZMM8 = 0x507
+  | ZMM8 = 0x508
   /// 512-bit vector registers.
-  | ZMM9 = 0x506
+  | ZMM9 = 0x509
   /// 512-bit vector registers.
-  | ZMM10 = 0x505
+  | ZMM10 = 0x50A
   /// 512-bit vector registers.
-  | ZMM11 = 0x504
+  | ZMM11 = 0x50B
   /// 512-bit vector registers.
-  | ZMM12 = 0x503
+  | ZMM12 = 0x50C
   /// 512-bit vector registers.
-  | ZMM13 = 0x502
+  | ZMM13 = 0x50D
   /// 512-bit vector registers.
-  | ZMM14 = 0x501
+  | ZMM14 = 0x50E
   /// 512-bit vector registers.
-  | ZMM15 = 0x500
+  | ZMM15 = 0x50F
   /// 512-bit vector registers.
   | ES = 0x600
   /// 512-bit vector registers.
@@ -1877,212 +1877,49 @@ module Register = begin
 end
 
 /// This module defines sets of registers that are frequently grouped by Intel.
+/// Table 3-1. Register Codes Associated With +rb, +rw, +rd, +ro
 module internal RegGroup = begin
   /// Grp 0.
   let grpEAX = function
-    | 0 -> R.AL
-    | 1 -> R.AX
-    | 2 -> R.EAX
-    | 3 -> R.RAX
-    | 4 -> R.XMM0
-    | 5 -> R.YMM0
-    | 6 -> R.ZMM0
+    | 64<rt> -> R.RAX
+    | 32<rt> -> R.EAX
+    | 16<rt> -> R.AX
+    | 8<rt> -> R.AL
+    | 128<rt> -> R.XMM0
+    | 256<rt> -> R.YMM0
+    | 512<rt> -> R.ZMM0
     | _ -> Utils.impossible ()
 
   /// Grp 1.
   let grpECX = function
-    | 0 -> R.CL
-    | 1 -> R.CX
-    | 2 -> R.ECX
-    | 3 -> R.RCX
-    | 4 -> R.XMM1
-    | 5 -> R.YMM1
-    | 6 -> R.ZMM1
+    | 64<rt> -> R.RCX
+    | 32<rt> -> R.ECX
+    | 16<rt> -> R.CX
+    | 8<rt> -> R.CL
+    | 128<rt> -> R.XMM1
+    | 256<rt> -> R.YMM1
+    | 512<rt> -> R.ZMM1
     | _ -> Utils.impossible ()
 
   /// Grp 2.
   let grpEDX = function
-    | 0 -> R.DL
-    | 1 -> R.DX
-    | 2 -> R.EDX
-    | 3 -> R.RDX
-    | 4 -> R.XMM2
-    | 5 -> R.YMM2
-    | 6 -> R.ZMM2
+    | 64<rt> -> R.RDX
+    | 32<rt> -> R.EDX
+    | 16<rt> -> R.DX
+    | 8<rt> -> R.DL
+    | 128<rt> -> R.XMM2
+    | 256<rt> -> R.YMM2
+    | 512<rt> -> R.ZMM2
     | _ -> Utils.impossible ()
 
   /// Grp 3.
   let grpEBX = function
-    | 0 -> R.BL
-    | 1 -> R.BX
-    | 2 -> R.EBX
-    | 3 -> R.RBX
-    | 4 -> R.XMM3
-    | 5 -> R.YMM3
-    | 6 -> R.ZMM3
-    | _ -> Utils.impossible ()
-
-  /// Grp 4.
-  let grpAH  = function
-    | 0 -> R.AH
-    | 1 -> R.SP
-    | 2 -> R.ESP
-    | 3 -> R.RSP
-    | 4 -> R.XMM4
-    | 5 -> R.YMM4
-    | 6 -> R.ZMM4
-    | _ -> Utils.impossible ()
-
-  /// Grp 5.
-  let grpCH = function
-    | 0 -> R.CH
-    | 1 -> R.BP
-    | 2 -> R.EBP
-    | 3 -> R.RBP
-    | 4 -> R.XMM5
-    | 5 -> R.YMM5
-    | 6 -> R.ZMM5
-    | _ -> Utils.impossible ()
-
-  /// Grp 6.
-  let grpDH  = function
-    | 0 -> R.DH
-    | 1 -> R.SI
-    | 2 -> R.ESI
-    | 3 -> R.RSI
-    | 4 -> R.XMM6
-    | 5 -> R.YMM6
-    | 6 -> R.ZMM6
-    | _ -> Utils.impossible ()
-
-  /// Grp 7.
-  let grpBH  = function
-    | 0 -> R.BH
-    | 1 -> R.DI
-    | 2 -> R.EDI
-    | 3 -> R.RDI
-    | 4 -> R.XMM7
-    | 5 -> R.YMM7
-    | 6 -> R.ZMM7
-    | _ -> Utils.impossible ()
-
-  let grpESP = function
-    | 0 -> R.SPL
-    | 1 -> R.SP
-    | 2 -> R.ESP
-    | 3 -> R.RSP
-    | 4 -> R.XMM4
-    | 5 -> R.YMM4
-    | 6 -> R.ZMM4
-    | _ -> Utils.impossible ()
-
-  let grpEBP = function
-    | 0 -> R.BPL
-    | 1 -> R.BP
-    | 2 -> R.EBP
-    | 3 -> R.RBP
-    | 4 -> R.XMM5
-    | 5 -> R.YMM5
-    | 6 -> R.ZMM5
-    | _ -> Utils.impossible ()
-
-  let grpESI = function
-    | 0 -> R.SIL
-    | 1 -> R.SI
-    | 2 -> R.ESI
-    | 3 -> R.RSI
-    | 4 -> R.XMM6
-    | 5 -> R.YMM6
-    | 6 -> R.ZMM6
-    | _ -> Utils.impossible ()
-
-  let grpEDI = function
-    | 0 -> R.DIL
-    | 1 -> R.DI
-    | 2 -> R.EDI
-    | 3 -> R.RDI
-    | 4 -> R.XMM7
-    | 5 -> R.YMM7
-    | 6 -> R.ZMM7
-    | _ -> Utils.impossible ()
-
-  let grpR8  = function
-    | 0 -> R.R8L
-    | 1 -> R.R8W
-    | 2 -> R.R8D
-    | 3 -> R.R8
-    | 4 -> R.XMM8
-    | 5 -> R.YMM8
-    | 6 -> R.ZMM8
-    | _ -> Utils.impossible ()
-
-  let grpR9  = function
-    | 0 -> R.R9L
-    | 1 -> R.R9W
-    | 2 -> R.R9D
-    | 3 -> R.R9
-    | 4 -> R.XMM9
-    | 5 -> R.YMM9
-    | 6 -> R.ZMM9
-    | _ -> Utils.impossible ()
-
-  let grpR10 = function
-    | 0 -> R.R10L
-    | 1 -> R.R10W
-    | 2 -> R.R10D
-    | 3 -> R.R10
-    | 4 -> R.XMM10
-    | 5 -> R.YMM10
-    | 6 -> R.ZMM10
-    | _ -> Utils.impossible ()
-
-  let grpR11 = function
-    | 0 -> R.R11L
-    | 1 -> R.R11W
-    | 2 -> R.R11D
-    | 3 -> R.R11
-    | 4 -> R.XMM11
-    | 5 -> R.YMM11
-    | 6 -> R.ZMM11
-    | _ -> Utils.impossible ()
-
-  let grpR12 = function
-    | 0 -> R.R12L
-    | 1 -> R.R12W
-    | 2 -> R.R12D
-    | 3 -> R.R12
-    | 4 -> R.XMM12
-    | 5 -> R.YMM12
-    | 6 -> R.ZMM12
-    | _ -> Utils.impossible ()
-
-  let grpR13 = function
-    | 0 -> R.R13L
-    | 1 -> R.R13W
-    | 2 -> R.R13D
-    | 3 -> R.R13
-    | 4 -> R.XMM13
-    | 5 -> R.YMM13
-    | 6 -> R.ZMM13
-    | _ -> Utils.impossible ()
-
-  let grpR14 = function
-    | 0 -> R.R14L
-    | 1 -> R.R14W
-    | 2 -> R.R14D
-    | 3 -> R.R14
-    | 4 -> R.XMM14
-    | 5 -> R.YMM14
-    | 6 -> R.ZMM14
-    | _ -> Utils.impossible ()
-
-  let grpR15 = function
-    | 0 -> R.R15L
-    | 1 -> R.R15W
-    | 2 -> R.R15D
-    | 3 -> R.R15
-    | 4 -> R.XMM15
-    | 5 -> R.YMM15
-    | 6 -> R.ZMM15
+    | 64<rt> -> R.RBX
+    | 32<rt> -> R.EBX
+    | 16<rt> -> R.BX
+    | 8<rt> -> R.BL
+    | 128<rt> -> R.XMM3
+    | 256<rt> -> R.YMM3
+    | 512<rt> -> R.ZMM3
     | _ -> Utils.impossible ()
 end

@@ -16,6 +16,7 @@
     <Compile Include="IntelRegExprs.fs" />
     <Compile Include="IntelRegisterBay.fs" />
     <Compile Include="IntelHelper.fs" />
+    <Compile Include="IntelOperands.fs" />
     <Compile Include="IntelDisasm.fs" />
     <Compile Include="IntelLiftingUtils.fs" />
     <Compile Include="IntelGeneralLifter.fs" />
@@ -25,7 +26,8 @@
     <Compile Include="IntelX87Lifter.fs" />
     <Compile Include="IntelLifter.fs" />
     <Compile Include="IntelInstruction.fs" />
-    <Compile Include="IntelParser.fsi" />
+    <Compile Include="IntelParsingHelper.fs" />
+    <Compile Include="IntelParsingJob.fs" />
     <Compile Include="IntelParser.fs" />
     <Compile Include="Intel.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath=""/>
