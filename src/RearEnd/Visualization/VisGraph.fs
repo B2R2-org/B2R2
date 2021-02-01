@@ -25,7 +25,7 @@
 namespace B2R2.RearEnd.Visualization
 
 open B2R2.MiddleEnd.BinGraph
-open B2R2.MiddleEnd.BinEssence
+open B2R2.MiddleEnd.ControlFlowGraph
 open System.Collections.Generic
 
 /// The main graph type for visualization.

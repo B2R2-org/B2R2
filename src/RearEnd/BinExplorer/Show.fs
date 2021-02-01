@@ -27,6 +27,7 @@ namespace B2R2.RearEnd.BinExplorer
 open System
 open System.Text
 open B2R2
+open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.BinEssence
 
 type CmdShow () =
@@ -50,31 +51,36 @@ type CmdShow () =
   member private __.CallerToString (sb: StringBuilder) (addr: Addr) =
     sb.Append ("  - referenced by " + String.u64ToHexNoPrefix addr + "\n")
 
-  member private __.CalleeToSimpleString prefix (sb: StringBuilder) callee =
-    let noret = if callee.IsNoReturn then " [no return]" else ""
-    match callee.Addr with
-    | None -> sb.Append (prefix + callee.CalleeName + noret + "\n")
-    | Some addr ->
-      sb.Append (prefix + callee.CalleeName
-               + noret + " @ " + String.u64ToHexNoPrefix addr + "\n")
+  member private __.CalleeToSimpleString ess prefix (sb: StringBuilder) (callee: Function) =
+    let noret =
+      match callee.NoReturnProperty with
+      | NoRet -> " [no return]"
+      | ConditionalNoRet _ -> " [conditional no return]"
+      | NotNoRetConfirmed | NotNoRet -> ""
+      | UnknownNoRet -> ""
+    if callee.FunctionKind <> FunctionKind.Regular then
+      sb.Append (prefix + callee.FunctionName + noret + "\n")
+    else
+      sb.Append (prefix + callee.FunctionName
+               + noret + " @ " + String.u64ToHexNoPrefix callee.Entry + "\n")
 
-  member private __.CalleeToString (sb: StringBuilder) callee =
-    __.CalleeToSimpleString "" sb callee
-    |> (fun sb -> callee.Callers |> Set.fold __.CallerToString sb)
+  member private __.CalleeToString ess (sb: StringBuilder) callee =
+    __.CalleeToSimpleString ess "" sb callee
+    |> (fun sb -> callee.Callers |> Seq.fold __.CallerToString sb)
 
   member __.ShowCaller ess = function
     | (expr: string) :: _ ->
       let addr = CmdUtils.convHexString expr |> Option.defaultValue 0UL
-      match Map.tryFind addr ess.CalleeMap.CallerMap with
+      match ess.CodeManager.FunctionMaintainer.TryFind addr with
       | None -> [| "[*] Not found." |]
-      | Some callees ->
+      | Some func ->
         let sb = StringBuilder ()
         let sb = sb.Append (expr + " calls:\n")
         let sb =
-          callees
-          |> Set.fold (fun sb (addr: Addr) ->
-            match ess.CalleeMap.Find addr with
-            | Some callee -> __.CalleeToSimpleString "  - " sb callee
+          func.Callers
+          |> Seq.fold (fun sb (addr: Addr) ->
+            match ess.CodeManager.FunctionMaintainer.TryFind addr with
+            | Some callee -> __.CalleeToSimpleString ess "  - " sb callee
             | None -> sb) sb
         [| sb.ToString () |]
     | _ -> [| __.CmdHelp |]
@@ -83,9 +89,10 @@ type CmdShow () =
     | (expr: string) :: _ ->
       let addr = CmdUtils.convHexString expr |> Option.defaultValue 0UL
       let sb = StringBuilder ()
-      if Char.IsDigit expr.[0] then ess.CalleeMap.Find (addr)
-      else ess.CalleeMap.Find (expr)
-      |> Option.map (fun callee -> (__.CalleeToString sb callee).ToString ())
+      if Char.IsDigit expr.[0] then
+        ess.CodeManager.FunctionMaintainer.TryFind (addr)
+      else ess.CodeManager.FunctionMaintainer.TryFind (expr)
+      |> Option.map (fun callee -> (__.CalleeToString ess sb callee).ToString ())
       |> Option.defaultValue "[*] Not found."
       |> Array.singleton
     | _ -> [| __.CmdHelp |]

@@ -24,7 +24,13 @@
 
 module B2R2.MiddleEnd.DataFlow.Utils
 
+open System.Collections.Generic
+open B2R2
 open B2R2.BinIR.LowUIR
+open B2R2.MiddleEnd.ControlFlowGraph
+
+/// We use this constant for our data-flow analyses.
+let [<Literal>] initialStackPointer = 0x80000000UL
 
 let rec private extractUseFromExpr e =
   match e.E with
@@ -59,3 +65,13 @@ let filterRegularVars vars =
   vars |> Set.filter (function
     | Regular _ -> true
     | _ -> false)
+
+let inline initMemory () =
+  let dict = Dictionary ()
+  dict.[0] <- (Map.empty, Set.empty)
+  dict
+
+let computeStackShift rt (blk: SSAVertex) =
+  let retAddrSize = RegType.toByteWidth rt |> uint64
+  let adj = blk.VData.FakeBlockInfo.UnwindingBytes
+  BitVector.ofUInt64 (retAddrSize + adj) rt

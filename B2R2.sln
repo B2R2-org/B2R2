@@ -1,108 +1,108 @@
 ﻿Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.26124.0
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30804.86
 MinimumVisualStudioVersion = 15.0.26124.0
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{96279848-CA27-42C6-9488-498A8E696F67}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Core", "src\Core\B2R2.Core.fsproj", "{92A41F1C-8B77-4479-8CD3-FB8987269C60}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.Core", "src\Core\B2R2.Core.fsproj", "{92A41F1C-8B77-4479-8CD3-FB8987269C60}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Core.Tests", "src\Core.Tests\B2R2.Core.Tests.fsproj", "{29FF59AD-E83D-4084-9DE5-564CA5687981}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.Core.Tests", "src\Core.Tests\B2R2.Core.Tests.fsproj", "{29FF59AD-E83D-4084-9DE5-564CA5687981}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.BinIR", "src\BinIR\B2R2.BinIR.fsproj", "{7AE36E18-182E-4E36-AD0E-08F326B381B2}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.BinIR", "src\BinIR\B2R2.BinIR.fsproj", "{7AE36E18-182E-4E36-AD0E-08F326B381B2}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "BinIR.Tests", "src\BinIR.Tests\BinIR.Tests.fsproj", "{A015D2D5-EBB2-455C-BF72-EE8EEC2854D4}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "BinIR.Tests", "src\BinIR.Tests\BinIR.Tests.fsproj", "{A015D2D5-EBB2-455C-BF72-EE8EEC2854D4}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "FrontEnd", "FrontEnd", "{55E62B6F-2C33-4E89-ADD5-0CE9BAA76401}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "BinLifter", "BinLifter", "{0CAF4618-5C72-4A71-BAEB-79AA4065B9D6}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.FrontEnd.BinLifter.Core", "src\FrontEnd\BinLifter\Core\B2R2.FrontEnd.BinLifter.Core.fsproj", "{717ED421-8AE2-435F-888F-91F676C87C32}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.BinLifter.Core", "src\FrontEnd\BinLifter\Core\B2R2.FrontEnd.BinLifter.Core.fsproj", "{717ED421-8AE2-435F-888F-91F676C87C32}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.FrontEnd.BinLifter.Intel", "src\FrontEnd\BinLifter\Intel\B2R2.FrontEnd.BinLifter.Intel.fsproj", "{B9E587C6-D492-478A-856D-A7FC67EB5FE0}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.BinLifter.Intel", "src\FrontEnd\BinLifter\Intel\B2R2.FrontEnd.BinLifter.Intel.fsproj", "{B9E587C6-D492-478A-856D-A7FC67EB5FE0}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.FrontEnd.BinLifter.ARM32", "src\FrontEnd\BinLifter\ARM32\B2R2.FrontEnd.BinLifter.ARM32.fsproj", "{65784B83-F76F-4C1A-AAAD-6417614116C6}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.BinLifter.ARM32", "src\FrontEnd\BinLifter\ARM32\B2R2.FrontEnd.BinLifter.ARM32.fsproj", "{65784B83-F76F-4C1A-AAAD-6417614116C6}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.FrontEnd.BinLifter.ARM64", "src\FrontEnd\BinLifter\ARM64\B2R2.FrontEnd.BinLifter.ARM64.fsproj", "{8CA197A9-96CE-4284-80B5-EC0132F20A62}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.BinLifter.ARM64", "src\FrontEnd\BinLifter\ARM64\B2R2.FrontEnd.BinLifter.ARM64.fsproj", "{8CA197A9-96CE-4284-80B5-EC0132F20A62}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.FrontEnd.BinLifter.MIPS", "src\FrontEnd\BinLifter\MIPS\B2R2.FrontEnd.BinLifter.MIPS.fsproj", "{40C841D4-C7D0-489B-80FB-5B4D22DB60E7}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.BinLifter.MIPS", "src\FrontEnd\BinLifter\MIPS\B2R2.FrontEnd.BinLifter.MIPS.fsproj", "{40C841D4-C7D0-489B-80FB-5B4D22DB60E7}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.FrontEnd.BinLifter.EVM", "src\FrontEnd\BinLifter\EVM\B2R2.FrontEnd.BinLifter.EVM.fsproj", "{49C21BFB-126B-473D-876E-C9965CCD3096}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.BinLifter.EVM", "src\FrontEnd\BinLifter\EVM\B2R2.FrontEnd.BinLifter.EVM.fsproj", "{49C21BFB-126B-473D-876E-C9965CCD3096}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.FrontEnd.BinLifter.TMS320C6000", "src\FrontEnd\BinLifter\TMS320C6000\B2R2.FrontEnd.BinLifter.TMS320C6000.fsproj", "{E1311CDD-8C52-4F55-B05A-1FBAC7FB693D}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.BinLifter.TMS320C6000", "src\FrontEnd\BinLifter\TMS320C6000\B2R2.FrontEnd.BinLifter.TMS320C6000.fsproj", "{E1311CDD-8C52-4F55-B05A-1FBAC7FB693D}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.FrontEnd.BinLifter.CIL", "src\FrontEnd\BinLifter\CIL\B2R2.FrontEnd.BinLifter.CIL.fsproj", "{A0A5A856-7C41-46E5-B773-97B677E532B5}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.BinLifter.CIL", "src\FrontEnd\BinLifter\CIL\B2R2.FrontEnd.BinLifter.CIL.fsproj", "{A0A5A856-7C41-46E5-B773-97B677E532B5}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.FrontEnd.BinLifter.Optimizer", "src\FrontEnd\BinLifter\Optimizer\B2R2.FrontEnd.BinLifter.Optimizer.fsproj", "{772A6D09-0FB3-46B0-A234-9196704D4657}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.BinLifter.Optimizer", "src\FrontEnd\BinLifter\Optimizer\B2R2.FrontEnd.BinLifter.Optimizer.fsproj", "{772A6D09-0FB3-46B0-A234-9196704D4657}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.FrontEnd.BinLifter.Tests", "src\FrontEnd\BinLifter.Tests\B2R2.FrontEnd.BinLifter.Tests.fsproj", "{5A9E82F6-3FAF-4459-A1DB-5AF7609F29C1}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.BinLifter.Tests", "src\FrontEnd\BinLifter.Tests\B2R2.FrontEnd.BinLifter.Tests.fsproj", "{5A9E82F6-3FAF-4459-A1DB-5AF7609F29C1}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.FrontEnd.BinFile", "src\FrontEnd\BinFile\B2R2.FrontEnd.BinFile.fsproj", "{1CD7C68A-A371-49CE-8F54-A7E781EE332A}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.BinFile", "src\FrontEnd\BinFile\B2R2.FrontEnd.BinFile.fsproj", "{1CD7C68A-A371-49CE-8F54-A7E781EE332A}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.FrontEnd.BinFile.Tests", "src\FrontEnd\BinFile.Tests\B2R2.FrontEnd.BinFile.Tests.fsproj", "{80DB4163-821F-4C85-80AB-B6E5E946C4F9}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.BinFile.Tests", "src\FrontEnd\BinFile.Tests\B2R2.FrontEnd.BinFile.Tests.fsproj", "{80DB4163-821F-4C85-80AB-B6E5E946C4F9}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.FrontEnd.BinInterface", "src\FrontEnd\BinInterface\B2R2.FrontEnd.BinInterface.fsproj", "{C07D0F30-B3EC-430B-9F4C-4A74E15CE7F0}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.BinInterface", "src\FrontEnd\BinInterface\B2R2.FrontEnd.BinInterface.fsproj", "{C07D0F30-B3EC-430B-9F4C-4A74E15CE7F0}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.FrontEnd.NameMangling", "src\FrontEnd\NameMangling\B2R2.FrontEnd.NameMangling.fsproj", "{ADB65D83-B476-4F0B-8B9F-8719A8AB7624}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.NameMangling", "src\FrontEnd\NameMangling\B2R2.FrontEnd.NameMangling.fsproj", "{ADB65D83-B476-4F0B-8B9F-8719A8AB7624}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.FrontEnd.NameMangling.Tests", "src\FrontEnd\NameMangling.Tests\B2R2.FrontEnd.NameMangling.Tests.fsproj", "{26427FEE-BE8D-4FDE-8944-BCAFC58EB13C}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.NameMangling.Tests", "src\FrontEnd\NameMangling.Tests\B2R2.FrontEnd.NameMangling.Tests.fsproj", "{26427FEE-BE8D-4FDE-8944-BCAFC58EB13C}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "MiddleEnd", "MiddleEnd", "{B581729A-04EA-4F57-8347-795C1F14257D}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.MiddleEnd.ConcEval", "src\MiddleEnd\ConcEval\B2R2.MiddleEnd.ConcEval.fsproj", "{1EB78AE6-9233-4FE8-8EE1-292AF412D731}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.MiddleEnd.ConcEval", "src\MiddleEnd\ConcEval\B2R2.MiddleEnd.ConcEval.fsproj", "{1EB78AE6-9233-4FE8-8EE1-292AF412D731}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.MiddleEnd.BinGraph", "src\MiddleEnd\BinGraph\B2R2.MiddleEnd.BinGraph.fsproj", "{A831C214-9CEB-4B37-B2B2-2D25A34E43EF}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.MiddleEnd.BinGraph", "src\MiddleEnd\BinGraph\B2R2.MiddleEnd.BinGraph.fsproj", "{A831C214-9CEB-4B37-B2B2-2D25A34E43EF}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.MiddleEnd.BinGraph.Tests", "src\MiddleEnd\BinGraph.Tests\B2R2.MiddleEnd.BinGraph.Tests.fsproj", "{DBD08956-B4AA-449C-8408-FC0638A20795}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.MiddleEnd.ControlFlowGraph", "src\MiddleEnd\ControlFlowGraph\B2R2.MiddleEnd.ControlFlowGraph.fsproj", "{B008D195-BA7B-461D-93D4-284532F9274D}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.MiddleEnd.Lens", "src\MiddleEnd\Lens\B2R2.MiddleEnd.Lens.fsproj", "{CC239141-459C-4F6B-83A3-F2DF1562BBE7}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.MiddleEnd.BinGraph.Tests", "src\MiddleEnd\BinGraph.Tests\B2R2.MiddleEnd.BinGraph.Tests.fsproj", "{DBD08956-B4AA-449C-8408-FC0638A20795}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.MiddleEnd.BinEssence", "src\MiddleEnd\BinEssence\B2R2.MiddleEnd.BinEssence.fsproj", "{02EEDA2B-1311-4F68-879D-0F32686BA650}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.MiddleEnd.BinEssence", "src\MiddleEnd\BinEssence\B2R2.MiddleEnd.BinEssence.fsproj", "{02EEDA2B-1311-4F68-879D-0F32686BA650}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.MiddleEnd.DataFlow", "src\MiddleEnd\DataFlow\B2R2.MiddleEnd.DataFlow.fsproj", "{D40C3359-5983-4021-9F0E-8E7D450EFEFF}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.MiddleEnd.DataFlow", "src\MiddleEnd\DataFlow\B2R2.MiddleEnd.DataFlow.fsproj", "{D40C3359-5983-4021-9F0E-8E7D450EFEFF}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.MiddleEnd.DataFlow.Tests", "src\MiddleEnd\DataFlow.Tests\B2R2.MiddleEnd.DataFlow.Tests.fsproj", "{78363647-923A-446F-91BF-4CC09EA28CD0}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.MiddleEnd.DataFlow.Tests", "src\MiddleEnd\DataFlow.Tests\B2R2.MiddleEnd.DataFlow.Tests.fsproj", "{78363647-923A-446F-91BF-4CC09EA28CD0}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.MiddleEnd.Reclaimer", "src\MiddleEnd\Reclaimer\B2R2.MiddleEnd.Reclaimer.fsproj", "{A18591FD-1A3C-488D-A814-FED8734FF1CE}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.MiddleEnd.ControlFlowAnalysis", "src\MiddleEnd\ControlFlowAnalysis\B2R2.MiddleEnd.ControlFlowAnalysis.fsproj", "{A18591FD-1A3C-488D-A814-FED8734FF1CE}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.MiddleEnd.Reclaimer.Tests", "src\MiddleEnd\Reclaimer.Tests\B2R2.MiddleEnd.Reclaimer.Tests.fsproj", "{27C13F72-B915-4F08-BC20-628AFDFCF088}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.MiddleEnd.BinEssence.Tests", "src\MiddleEnd\BinEssence.Tests\B2R2.MiddleEnd.BinEssence.Tests.fsproj", "{27C13F72-B915-4F08-BC20-628AFDFCF088}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "RearEnd", "RearEnd", "{BBF63851-BC21-45CC-A671-9ED1A538E052}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.RearEnd.Core", "src\RearEnd\Core\B2R2.RearEnd.Core.fsproj", "{42288F1B-B3FC-4A6A-B39C-AE745F8E37C4}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.RearEnd.Core", "src\RearEnd\Core\B2R2.RearEnd.Core.fsproj", "{42288F1B-B3FC-4A6A-B39C-AE745F8E37C4}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.RearEnd.FileViewer", "src\RearEnd\FileViewer\B2R2.RearEnd.FileViewer.fsproj", "{84AD21E8-23A0-4029-9767-50F7863E7A02}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.RearEnd.FileViewer", "src\RearEnd\FileViewer\B2R2.RearEnd.FileViewer.fsproj", "{84AD21E8-23A0-4029-9767-50F7863E7A02}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.RearEnd.BinDump", "src\RearEnd\BinDump\B2R2.RearEnd.BinDump.fsproj", "{44BFF304-5D42-4065-9260-E2C9E552EB24}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.RearEnd.BinDump", "src\RearEnd\BinDump\B2R2.RearEnd.BinDump.fsproj", "{44BFF304-5D42-4065-9260-E2C9E552EB24}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.RearEnd.ROP", "src\RearEnd\ROP\B2R2.RearEnd.ROP.fsproj", "{0794FC55-D4F9-43F1-8C2F-CAC0E455FCC4}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.RearEnd.ROP", "src\RearEnd\ROP\B2R2.RearEnd.ROP.fsproj", "{0794FC55-D4F9-43F1-8C2F-CAC0E455FCC4}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.RearEnd.Visualization", "src\RearEnd\Visualization\B2R2.RearEnd.Visualization.fsproj", "{7FACEAF5-30A5-4502-822C-485FE980A6C3}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.RearEnd.Visualization", "src\RearEnd\Visualization\B2R2.RearEnd.Visualization.fsproj", "{7FACEAF5-30A5-4502-822C-485FE980A6C3}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.RearEnd.BinExplorer", "src\RearEnd\BinExplorer\B2R2.RearEnd.BinExplorer.fsproj", "{05276DA5-3CF1-4950-8923-9A5F4C1A15D8}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.RearEnd.BinExplorer", "src\RearEnd\BinExplorer\B2R2.RearEnd.BinExplorer.fsproj", "{05276DA5-3CF1-4950-8923-9A5F4C1A15D8}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.RearEnd.Assembler", "src\RearEnd\Assembler\B2R2.RearEnd.Assembler.fsproj", "{300ACCF4-DC0C-42ED-B2D6-3C9CAAE991BB}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.RearEnd.Assembler", "src\RearEnd\Assembler\B2R2.RearEnd.Assembler.fsproj", "{300ACCF4-DC0C-42ED-B2D6-3C9CAAE991BB}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.RearEnd.Repl", "src\RearEnd\Repl\B2R2.RearEnd.Repl.fsproj", "{35184561-8AAB-4E74-9E0D-231D16E336BF}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.RearEnd.Repl", "src\RearEnd\Repl\B2R2.RearEnd.Repl.fsproj", "{35184561-8AAB-4E74-9E0D-231D16E336BF}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Peripheral", "Peripheral", "{F0888151-28C5-4EF0-86CB-9C66218F89AE}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Assembly", "Assembly", "{F90413F1-AB57-43C0-B401-E7C2EC83198C}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.Core", "src\Peripheral\Assembly\Core\B2R2.Peripheral.Assembly.Core.fsproj", "{D332DFCA-E6EE-482B-BAE4-2592F5BB5D26}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.Peripheral.Assembly.Core", "src\Peripheral\Assembly\Core\B2R2.Peripheral.Assembly.Core.fsproj", "{D332DFCA-E6EE-482B-BAE4-2592F5BB5D26}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.ARM32", "src\Peripheral\Assembly\ARM32\B2R2.Peripheral.Assembly.ARM32.fsproj", "{54652BFC-61CF-4DF0-B34A-64406A43F708}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.Peripheral.Assembly.ARM32", "src\Peripheral\Assembly\ARM32\B2R2.Peripheral.Assembly.ARM32.fsproj", "{54652BFC-61CF-4DF0-B34A-64406A43F708}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.Intel", "src\Peripheral\Assembly\Intel\B2R2.Peripheral.Assembly.Intel.fsproj", "{F3EC4BDB-88C0-4CC7-963F-75ACB96A83D9}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.Peripheral.Assembly.Intel", "src\Peripheral\Assembly\Intel\B2R2.Peripheral.Assembly.Intel.fsproj", "{F3EC4BDB-88C0-4CC7-963F-75ACB96A83D9}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.MIPS", "src\Peripheral\Assembly\MIPS\B2R2.Peripheral.Assembly.MIPS.fsproj", "{7C6A7725-FA4E-45FB-A4CB-8F581D017C05}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.Peripheral.Assembly.MIPS", "src\Peripheral\Assembly\MIPS\B2R2.Peripheral.Assembly.MIPS.fsproj", "{7C6A7725-FA4E-45FB-A4CB-8F581D017C05}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.LowUIR", "src\Peripheral\Assembly\LowUIR\B2R2.Peripheral.Assembly.LowUIR.fsproj", "{DF0B3D4E-2365-4D4F-82BD-0DC0E98ABA83}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.Peripheral.Assembly.LowUIR", "src\Peripheral\Assembly\LowUIR\B2R2.Peripheral.Assembly.LowUIR.fsproj", "{DF0B3D4E-2365-4D4F-82BD-0DC0E98ABA83}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.AsmInterface", "src\Peripheral\Assembly\AsmInterface\B2R2.Peripheral.Assembly.AsmInterface.fsproj", "{A2A4BF9A-485B-4C39-9E13-E2B908BF1B4D}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.Peripheral.Assembly.AsmInterface", "src\Peripheral\Assembly\AsmInterface\B2R2.Peripheral.Assembly.AsmInterface.fsproj", "{A2A4BF9A-485B-4C39-9E13-E2B908BF1B4D}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.Peripheral.Assembly.Tests", "src\Peripheral\Assembly.Tests\B2R2.Peripheral.Assembly.Tests.fsproj", "{3FDFC8B9-AD97-4FD6-B1B9-D9E498BC34B5}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.Peripheral.Assembly.Tests", "src\Peripheral\Assembly.Tests\B2R2.Peripheral.Assembly.Tests.fsproj", "{3FDFC8B9-AD97-4FD6-B1B9-D9E498BC34B5}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "B2R2.RearEnd.Launcher", "src\RearEnd\Launcher\B2R2.RearEnd.Launcher.fsproj", "{ECF6ADAE-C222-41E9-BA5B-811866193A2B}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.RearEnd.Launcher", "src\RearEnd\Launcher\B2R2.RearEnd.Launcher.fsproj", "{ECF6ADAE-C222-41E9-BA5B-811866193A2B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -112,9 +112,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 		Release|x64 = Release|x64
 		Release|x86 = Release|x86
-	EndGlobalSection
-	GlobalSection(SolutionProperties) = preSolution
-		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{92A41F1C-8B77-4479-8CD3-FB8987269C60}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -369,6 +366,18 @@ Global
 		{A831C214-9CEB-4B37-B2B2-2D25A34E43EF}.Release|x64.Build.0 = Release|Any CPU
 		{A831C214-9CEB-4B37-B2B2-2D25A34E43EF}.Release|x86.ActiveCfg = Release|Any CPU
 		{A831C214-9CEB-4B37-B2B2-2D25A34E43EF}.Release|x86.Build.0 = Release|Any CPU
+		{B008D195-BA7B-461D-93D4-284532F9274D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B008D195-BA7B-461D-93D4-284532F9274D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B008D195-BA7B-461D-93D4-284532F9274D}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B008D195-BA7B-461D-93D4-284532F9274D}.Debug|x64.Build.0 = Debug|Any CPU
+		{B008D195-BA7B-461D-93D4-284532F9274D}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B008D195-BA7B-461D-93D4-284532F9274D}.Debug|x86.Build.0 = Debug|Any CPU
+		{B008D195-BA7B-461D-93D4-284532F9274D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B008D195-BA7B-461D-93D4-284532F9274D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B008D195-BA7B-461D-93D4-284532F9274D}.Release|x64.ActiveCfg = Release|Any CPU
+		{B008D195-BA7B-461D-93D4-284532F9274D}.Release|x64.Build.0 = Release|Any CPU
+		{B008D195-BA7B-461D-93D4-284532F9274D}.Release|x86.ActiveCfg = Release|Any CPU
+		{B008D195-BA7B-461D-93D4-284532F9274D}.Release|x86.Build.0 = Release|Any CPU
 		{DBD08956-B4AA-449C-8408-FC0638A20795}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{DBD08956-B4AA-449C-8408-FC0638A20795}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DBD08956-B4AA-449C-8408-FC0638A20795}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -381,18 +390,6 @@ Global
 		{DBD08956-B4AA-449C-8408-FC0638A20795}.Release|x64.Build.0 = Release|Any CPU
 		{DBD08956-B4AA-449C-8408-FC0638A20795}.Release|x86.ActiveCfg = Release|Any CPU
 		{DBD08956-B4AA-449C-8408-FC0638A20795}.Release|x86.Build.0 = Release|Any CPU
-		{CC239141-459C-4F6B-83A3-F2DF1562BBE7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{CC239141-459C-4F6B-83A3-F2DF1562BBE7}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{CC239141-459C-4F6B-83A3-F2DF1562BBE7}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{CC239141-459C-4F6B-83A3-F2DF1562BBE7}.Debug|x64.Build.0 = Debug|Any CPU
-		{CC239141-459C-4F6B-83A3-F2DF1562BBE7}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{CC239141-459C-4F6B-83A3-F2DF1562BBE7}.Debug|x86.Build.0 = Debug|Any CPU
-		{CC239141-459C-4F6B-83A3-F2DF1562BBE7}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{CC239141-459C-4F6B-83A3-F2DF1562BBE7}.Release|Any CPU.Build.0 = Release|Any CPU
-		{CC239141-459C-4F6B-83A3-F2DF1562BBE7}.Release|x64.ActiveCfg = Release|Any CPU
-		{CC239141-459C-4F6B-83A3-F2DF1562BBE7}.Release|x64.Build.0 = Release|Any CPU
-		{CC239141-459C-4F6B-83A3-F2DF1562BBE7}.Release|x86.ActiveCfg = Release|Any CPU
-		{CC239141-459C-4F6B-83A3-F2DF1562BBE7}.Release|x86.Build.0 = Release|Any CPU
 		{02EEDA2B-1311-4F68-879D-0F32686BA650}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{02EEDA2B-1311-4F68-879D-0F32686BA650}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{02EEDA2B-1311-4F68-879D-0F32686BA650}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -646,6 +643,9 @@ Global
 		{ECF6ADAE-C222-41E9-BA5B-811866193A2B}.Release|x86.ActiveCfg = Release|Any CPU
 		{ECF6ADAE-C222-41E9-BA5B-811866193A2B}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{92A41F1C-8B77-4479-8CD3-FB8987269C60} = {96279848-CA27-42C6-9488-498A8E696F67}
 		{29FF59AD-E83D-4084-9DE5-564CA5687981} = {96279848-CA27-42C6-9488-498A8E696F67}
@@ -671,8 +671,8 @@ Global
 		{B581729A-04EA-4F57-8347-795C1F14257D} = {96279848-CA27-42C6-9488-498A8E696F67}
 		{1EB78AE6-9233-4FE8-8EE1-292AF412D731} = {B581729A-04EA-4F57-8347-795C1F14257D}
 		{A831C214-9CEB-4B37-B2B2-2D25A34E43EF} = {B581729A-04EA-4F57-8347-795C1F14257D}
+		{B008D195-BA7B-461D-93D4-284532F9274D} = {B581729A-04EA-4F57-8347-795C1F14257D}
 		{DBD08956-B4AA-449C-8408-FC0638A20795} = {B581729A-04EA-4F57-8347-795C1F14257D}
-		{CC239141-459C-4F6B-83A3-F2DF1562BBE7} = {B581729A-04EA-4F57-8347-795C1F14257D}
 		{02EEDA2B-1311-4F68-879D-0F32686BA650} = {B581729A-04EA-4F57-8347-795C1F14257D}
 		{D40C3359-5983-4021-9F0E-8E7D450EFEFF} = {B581729A-04EA-4F57-8347-795C1F14257D}
 		{78363647-923A-446F-91BF-4CC09EA28CD0} = {B581729A-04EA-4F57-8347-795C1F14257D}
@@ -697,5 +697,8 @@ Global
 		{A2A4BF9A-485B-4C39-9E13-E2B908BF1B4D} = {F90413F1-AB57-43C0-B401-E7C2EC83198C}
 		{3FDFC8B9-AD97-4FD6-B1B9-D9E498BC34B5} = {F0888151-28C5-4EF0-86CB-9C66218F89AE}
 		{ECF6ADAE-C222-41E9-BA5B-811866193A2B} = {BBF63851-BC21-45CC-A671-9ED1A538E052}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E18BA4C9-E1E4-42CD-8393-505DEDE479A2}
 	EndGlobalSection
 EndGlobal

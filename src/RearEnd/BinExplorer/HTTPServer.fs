@@ -30,8 +30,9 @@ open System.Runtime.Serialization
 open System.Runtime.Serialization.Json
 open B2R2
 open B2R2.FrontEnd.BinInterface
+open B2R2.MiddleEnd.ControlFlowGraph
+open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.MiddleEnd.BinEssence
-open B2R2.MiddleEnd.Lens
 open B2R2.MiddleEnd.DataFlow
 open B2R2.RearEnd.Visualization
 
@@ -136,27 +137,30 @@ let handleBinInfo req resp arbiter =
   let txt = "\"" + txt.Replace(@"\", @"\\") + "\""
   Some (defaultEnc.GetBytes (txt)) |> answer req resp
 
-let cfgToJSON cfgType ess g roots =
+let cfgToJSON cfgType (ess: BinEssence) g root =
   match cfgType with
   | IRCFG ->
-    Visualizer.getJSONFromGraph g roots
+    Visualizer.getJSONFromGraph g [root]
   | DisasmCFG ->
-    let lens = DisasmLens.Init ess
-    let g, roots = lens.Filter (g, roots, ess)
-    Visualizer.getJSONFromGraph g roots
+    let blockInfos =
+      ess.CodeManager.FoldBBLs (fun acc (KeyValue (addr, bblInfo)) ->
+        if bblInfo.FunctionEntry = root.VData.PPoint.Address then
+          Map.add addr (bblInfo.BlkRange, bblInfo.InstrAddrs) acc
+        else acc) Map.empty
+    let g, root = DisasmLens.filter ess.CodeManager blockInfos g root
+    Visualizer.getJSONFromGraph g [root]
   | SSACFG ->
-    let lens = SSALens.Init ess
-    let g, roots = lens.Filter (g, roots, ess)
-    Visualizer.getJSONFromGraph g roots
+    let struct (g, root) = SSACFG.ofIRCFG ess.BinHandle g root
+    Visualizer.getJSONFromGraph g [root]
   | _ -> failwith "Invalid CFG type"
 
 let handleRegularCFG req resp (name: string) (ess: BinEssence) cfgType =
-  match ess.CalleeMap.Find name with
+  match ess.CodeManager.FunctionMaintainer.TryFind name with
   | None -> answer req resp None
-  | Some callee ->
+  | Some func ->
     try
-      let cfg, root = ess.GetFunctionCFG (callee.Addr.Value) |> Result.get
-      let s = cfgToJSON cfgType ess cfg [root]
+      let cfg, root = BinEssence.getFunctionCFG ess func.Entry |> Result.get
+      let s = cfgToJSON cfgType ess cfg root
       Some (defaultEnc.GetBytes s) |> answer req resp
     with e ->
 #if DEBUG
@@ -170,8 +174,7 @@ let handleCFG req resp arbiter cfgType name =
   match cfgType with
   | CallCFG ->
     try
-      let lens = CallGraphLens.Init ()
-      let g, roots = lens.Filter (ess.SCFG, [], ess)
+      let g, roots = CallGraphLens.build ess
       let s = Visualizer.getJSONFromGraph g roots
       Some (defaultEnc.GetBytes s) |> answer req resp
     with e ->
@@ -185,8 +188,8 @@ let handleCFG req resp arbiter cfgType name =
 let handleFunctions req resp arbiter =
   let ess = Protocol.getBinEssence arbiter
   let names =
-    ess.CalleeMap.InternalCallees
-    |> Seq.map (fun c -> { FuncID = c.CalleeID; FuncName = c.CalleeName })
+    ess.CodeManager.FunctionMaintainer.RegularFunctions
+    |> Seq.map (fun c -> { FuncID = c.FunctionID; FuncName = c.FunctionName })
     |> Seq.toArray
   Some (json<(JsonFuncInfo) []> names |> defaultEnc.GetBytes)
   |> answer req resp
@@ -245,7 +248,7 @@ let handleDataflow req resp arbiter (args: string) =
   | "variable" ->
     let var = args.[3] |> ess.BinHandle.RegisterBay.RegIDFromString
     try
-      let cfg, root = ess.GetFunctionCFG (entry) |> Result.get
+      let cfg, root = BinEssence.getFunctionCFG ess entry |> Result.get
       let chain = DataFlowChain.init cfg root true
       let v = { ProgramPoint = ProgramPoint (addr, 0); VarExpr = Regular var }
       computeConnectedVars chain v

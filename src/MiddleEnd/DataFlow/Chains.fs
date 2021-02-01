@@ -24,17 +24,18 @@
 
 namespace B2R2.MiddleEnd.DataFlow
 
+open System.Collections.Generic
 open B2R2
 open B2R2.MiddleEnd.BinGraph
-open B2R2.MiddleEnd.BinEssence
+open B2R2.MiddleEnd.ControlFlowGraph
 
 type DataFlowChain = {
-  UseDefChain: Map<VarPoint, Set<VarPoint>>
-  DefUseChain: Map<VarPoint, Set<VarPoint>>
+  UseDefChain: Map<VarPoint<VarExpr>, Set<VarPoint<VarExpr>>>
+  DefUseChain: Map<VarPoint<VarExpr>, Set<VarPoint<VarExpr>>>
 }
 
 module DataFlowChain =
-  let private computeInBlockDefs pp (u: VarExpr) (outset: Set<VarPoint>) =
+  let private computeInBlockDefs pp u (outset: Set<VarPoint<VarExpr>>) =
     outset
     |> Seq.filter (fun vp ->
       vp.VarExpr = u
@@ -56,15 +57,15 @@ module DataFlowChain =
     |> Map.toList
     |> List.map snd
 
-  let private computeOutBlockDefs (u: VarExpr) (inset: Set<VarPoint>) =
+  let private computeOutBlockDefs u (inset: Set<VarPoint<VarExpr>>) =
     inset
     |> Set.filter (fun d -> d.VarExpr = u)
     |> filterLastDefInBlock
 
-  let private initUDChain cfg (ins: RDMap) (outs: RDMap) =
+  let private initUDChain cfg (ins: Dictionary<_,_>) (outs: Dictionary<_, _>) =
     Map.empty
     |> DiGraph.foldVertex cfg (fun map (v: Vertex<IRBasicBlock>) ->
-      v.VData.GetInsInfos ()
+      v.VData.InsInfos
       |> Array.fold (fun map info ->
         info.Stmts
         |> Array.foldi (fun map idx stmt ->
@@ -93,7 +94,7 @@ module DataFlowChain =
         | None -> Map.add d (Set.singleton u) map
         | Some us -> Map.add d (Set.add u us) map) map) Map.empty
 
-  let private normalizeVP (vp: VarPoint) =
+  let private normalizeVP (vp: VarPoint<VarExpr>) =
     let addr = vp.ProgramPoint.Address
     { vp with ProgramPoint = ProgramPoint (addr, 0) }
 
@@ -110,7 +111,7 @@ module DataFlowChain =
 
   [<CompiledName("Init")>]
   let init cfg root isDisasmLevel =
-    let rd = ReachingDefinitions (cfg)
+    let rd = LowUIRReachingDefinitions (cfg)
     let ins, outs = rd.Compute cfg root
     let udchain = initUDChain cfg ins outs |> filterDisasm isDisasmLevel
     let duchain = initDUChain udchain |> filterDisasm isDisasmLevel

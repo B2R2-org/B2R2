@@ -62,6 +62,14 @@ type AddrRange =
     member ToTuple: unit -> Addr * Addr
 
     /// <summary>
+    /// Check if the address range is including the given address.
+    /// </summary>
+    /// <returns>
+    /// True if the address is included in the range. False otherwise.
+    /// </returns>
+    member inline IsIncluding: Addr -> bool
+
+    /// <summary>
     /// Get the min value (inclusive) of the AddrRange.
     /// </summary>
     /// <returns>

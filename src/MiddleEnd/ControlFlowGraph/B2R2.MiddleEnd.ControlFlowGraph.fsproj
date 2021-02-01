@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="CFGEdgeKind.fs" />
+    <Compile Include="VisualBlock.fs" />
+    <Compile Include="BasicBlock.fs" />
+    <Compile Include="ControlFlowGraph.fs" />
+    <Compile Include="CFGExport.fs" />
+    <Compile Include="InstructionInfo.fs" />
+    <Compile Include="FakeBlockInfo.fs" />
+    <Compile Include="SyscallTailInfo.fs" />
+    <Compile Include="IRBasicBlock.fs" />
+    <Compile Include="IRCFG.fs" />
+    <Compile Include="DisasmBasicBlock.fs" />
+    <Compile Include="DisasmCFG.fs" />
+    <Compile Include="SSABasicBlock.fs" />
+    <Compile Include="SSATypes.fs" />
+    <Compile Include="SSAEdges.fs" />
+    <Compile Include="SSAUtils.fs" />
+    <Compile Include="SSACFG.fs" />
+    <Compile Include="CallGraphBlock.fs" />
+    <Compile Include="CallGraph.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\BinLifter\Core\B2R2.FrontEnd.BinLifter.Core.fsproj" />
+    <ProjectReference Include="..\BinGraph\B2R2.MiddleEnd.BinGraph.fsproj" />
+  </ItemGroup>
+
+</Project>

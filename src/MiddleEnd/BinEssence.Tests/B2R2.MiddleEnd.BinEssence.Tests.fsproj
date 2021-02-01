@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="CFG.Tests.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.8.0" />
+    <PackageReference Include="MSTest.TestAdapter" Version="2.1.2" />
+    <PackageReference Include="MSTest.TestFramework" Version="2.1.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\BinEssence\B2R2.MiddleEnd.BinEssence.fsproj" />
+    <ProjectReference Include="..\BinGraph\B2R2.MiddleEnd.BinGraph.fsproj" />
+    <ProjectReference Include="..\ControlFlowGraph\B2R2.MiddleEnd.ControlFlowGraph.fsproj" />
+    <ProjectReference Include="..\ControlFlowAnalysis\B2R2.MiddleEnd.ControlFlowAnalysis.fsproj" />
+  </ItemGroup>
+
+</Project>

@@ -105,17 +105,18 @@ module IntervalSet =
         else false
     containLoop r
 
-  let remove (i: AddrRange) (IntervalSet s) =
+  /// Assuming the given AddrRange is in the set, remove the range.
+  let remove (range: AddrRange) (IntervalSet s) =
     let l, r =
-      Op.Split (fun (e: InterMonoid<Addr>) -> Key i.Min <= e.GetMin ()) s
+      Op.Split (fun (e: InterMonoid<Addr>) -> Key range.Min <= e.GetMin ()) s
     let rec rmLoop l r =
       match Op.ViewL r with
       | Nil -> raise InvalidAddrRangeException
       | Cons (x: IntervalSetElem, xs)
-        when x.Min = i.Min && x.Max = i.Max ->
+        when x.Min = range.Min && x.Max = range.Max ->
         Op.Concat l xs
       | Cons (x, xs) ->
-        if i.Min = x.Min then rmLoop (Op.Snoc l x) xs
+        if range.Min = x.Min then rmLoop (Op.Snoc l x) xs
         else raise InvalidAddrRangeException
     IntervalSet <| rmLoop l r
 

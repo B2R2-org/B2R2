@@ -28,7 +28,6 @@ open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.BinEssence
-open B2R2.RearEnd
 
 type CmdList () =
   inherit Cmd ()
@@ -37,8 +36,8 @@ type CmdList () =
     Addr.toString hdl.ISA.WordSize addr + ": " + name
 
   let listFunctions ess =
-    ess.CalleeMap.InternalCallees
-    |> Seq.map (fun c -> Option.get c.Addr, c.CalleeID)
+    ess.CodeManager.FunctionMaintainer.RegularFunctions
+    |> Seq.map (fun c -> c.Entry, c.FunctionID)
     |> Seq.sortBy fst
     |> Seq.map (createFuncString ess.BinHandle)
     |> Seq.toArray

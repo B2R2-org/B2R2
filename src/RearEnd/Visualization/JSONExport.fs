@@ -27,7 +27,7 @@ namespace B2R2.RearEnd.Visualization
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.BinGraph
-open B2R2.MiddleEnd.BinEssence
+open B2R2.MiddleEnd.ControlFlowGraph
 open Microsoft.FSharpLu.Json
 
 type JSONCoordinate = {

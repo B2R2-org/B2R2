@@ -234,10 +234,10 @@ module ARMap =
   /// <summary>
   ///   Return a sequence of overlapping mappings of the given interval.
   /// </summary>
-  /// <param name="range">The interval.</param>
+  /// <param name="k">The key interval.</param>
   /// <param name="tree">The interval tree.</param>
   /// <returns>
   ///   A sequence of mappings.
   /// </returns>
   [<CompiledName("GetOverlaps")>]
-  val getOverlaps: range: AddrRange -> tree: ARMap<'V> -> (AddrRange * 'V) list
+  val getOverlaps: k: AddrRange -> tree: ARMap<'V> -> (AddrRange * 'V) list

@@ -24,40 +24,59 @@
 
 namespace B2R2.MiddleEnd.DataFlow
 
-open B2R2
-open B2R2.BinIR.LowUIR
-open B2R2.MiddleEnd.BinGraph
-open B2R2.MiddleEnd.BinEssence
 open System.Collections.Generic
+open B2R2
+open B2R2.BinIR
+open B2R2.MiddleEnd.BinGraph
+open B2R2.MiddleEnd.ControlFlowGraph
 
-type RDMap = Dictionary<VertexID, Set<VarPoint>>
+[<AbstractClass>]
+type ReachingDefinitions<'Expr, 'BBL when 'Expr: comparison
+                                      and 'BBL: equality
+                                      and 'BBL :> BasicBlock>
+                        (_cfg: DiGraph<'BBL, CFGEdgeKind>) =
+  inherit TopologicalDataFlowAnalysis<Set<VarPoint<'Expr>>, 'BBL> (Forward)
 
-type ReachingDefinitions (cfg: DiGraph<IRBasicBlock, CFGEdgeKind>) as this =
-  inherit TopologicalDataFlowAnalysis<Set<VarPoint>, IRBasicBlock> (Forward)
+  let gens = Dictionary<VertexID, Set<VarPoint<'Expr>>> ()
+  let kills = Dictionary<VertexID, Set<VarPoint<'Expr>>> ()
 
-  let gens = RDMap ()
-  let kills = RDMap ()
+  member __.Gens with get() = gens
 
-  do this.Initialize ()
+  member __.Kills with get() = kills
+
+  override __.Meet a b = Set.union a b
+
+  override __.Top = Set.empty
+
+  override __.Transfer i v =
+    let vid = v.GetID ()
+    Set.union gens.[vid] (Set.difference i kills.[vid])
+
+/// Reaching definition analysis with a LowUIR-based CFG.
+type LowUIRReachingDefinitions (cfg) as this =
+  inherit ReachingDefinitions<VarExpr, IRBasicBlock> (cfg)
+
+  do this.Initialize this.Gens this.Kills
 
   member private __.FindDefs (v: Vertex<IRBasicBlock>) =
-    v.VData.GetInsInfos ()
+    v.VData.InsInfos
     |> Array.fold (fun list info ->
       info.Stmts
       |> Array.foldi (fun list idx stmt ->
         match stmt.S with
-        | Put ({ E = TempVar (_, n) }, _) ->
+        | LowUIR.Put ({ LowUIR.E = LowUIR.TempVar (_, n) }, _) ->
           let pp = ProgramPoint (info.Instruction.Address, idx)
           { ProgramPoint = pp; VarExpr = Temporary n } :: list
-        | Put ({ E = Var (_, id, _, _) }, _) ->
+        | LowUIR.Put ({ LowUIR.E = LowUIR.Var (_, id, _, _) }, _) ->
           let pp = ProgramPoint (info.Instruction.Address, idx)
           { ProgramPoint = pp; VarExpr = Regular id } :: list
         | _ -> list) list
       |> fst) []
 
-  member private __.Initialize () =
-    let vpPerVar = Dictionary<VarExpr, Set<VarPoint>> ()
-    let vpPerVertex = Dictionary<VertexID, VarPoint list> ()
+  member private __.Initialize
+    (gens: Dictionary<_, _>) (kills: Dictionary<_, _>) =
+    let vpPerVar = Dictionary<VarExpr, Set<VarPoint<VarExpr>>> ()
+    let vpPerVertex = Dictionary<VertexID, VarPoint<VarExpr> list> ()
     DiGraph.iterVertex cfg (fun v ->
       let vid = v.GetID ()
       let defs = __.FindDefs v
@@ -70,17 +89,10 @@ type ReachingDefinitions (cfg: DiGraph<IRBasicBlock, CFGEdgeKind>) as this =
     )
     DiGraph.iterVertex cfg (fun v ->
       let vid = v.GetID ()
-      let vars = vpPerVertex.[vid] |> List.map (fun vp -> vp.VarExpr)
-      let vps = vpPerVertex.[vid] |> Set.ofList
+      let defVarPoints = vpPerVertex.[vid]
+      let vars = defVarPoints |> List.map (fun vp -> vp.VarExpr)
+      let vps = defVarPoints |> Set.ofList
       let alldefs =
         vars |> List.fold (fun set v -> Set.union set vpPerVar.[v]) Set.empty
       kills.[vid] <- Set.difference alldefs vps
     )
-
-  override __.Meet a b = Set.union a b
-
-  override __.Top = Set.empty
-
-  override __.Transfer i v =
-    let vid = v.GetID ()
-    Set.union gens.[vid] (Set.difference i kills.[vid])

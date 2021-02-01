@@ -82,11 +82,11 @@ let rec translateExpr (e: LowUIR.Expr) =
 
 let rec internal translateStmtAux defaultRegType addr (s: LowUIR.Stmt) =
   match s.S with
-  | LowUIR.ISMark _ -> None
-  | LowUIR.IEMark len ->
+  | LowUIR.ISMark _ ->
     let pc = { Kind = PCVar (defaultRegType); Identifier = -1 }
-    let num = Num <| BitVector.ofUInt64 (addr + uint64 len) defaultRegType
-    Def (pc, num) |> Some
+    let n = Num <| BitVector.ofUInt64 addr defaultRegType
+    Def (pc, n) |> Some
+  | LowUIR.IEMark _ -> None
   | LowUIR.LMark symb ->
     LMark (addr, symb) |> Some
   | LowUIR.Put (var, expr) ->

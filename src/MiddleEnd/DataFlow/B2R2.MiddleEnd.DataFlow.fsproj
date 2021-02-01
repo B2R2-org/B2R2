@@ -11,32 +11,27 @@
   <ItemGroup>
     <Compile Include="DataFlowAnalysis.fs" />
     <Compile Include="ReachingDefinitions.fs" />
-    <Compile Include="SSAReachingDefinitions.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="Chains.fs" />
     <Compile Include="CPState.fs" />
     <Compile Include="ConstantPropagation.fs" />
-    <Compile Include="SCCPValue.fs" />
-    <Compile Include="SCCPTransfer.fs" />
-    <Compile Include="SparseConditionalConstantPropagation.fs" />
-    <Compile Include="StackValue.fs" />
-    <Compile Include="StackTransfer.fs" />
+    <Compile Include="SCPValue.fs" />
+    <Compile Include="SCPTransfer.fs" />
+    <Compile Include="SparseConstantPropagation.fs" />
+    <Compile Include="SPValue.fs" />
+    <Compile Include="SPTransfer.fs" />
     <Compile Include="StackPointerPropagation.fs" />
-    <Compile Include="CopyValue.fs" />
-    <Compile Include="CopyTransfer.fs" />
-    <Compile Include="ConstantCopyPropagation.fs" />
-    <Compile Include="UVPropValue.fs" />
-    <Compile Include="UVPropTransfer.fs" />
+    <Compile Include="UVValue.fs" />
+    <Compile Include="UVTransfer.fs" />
     <Compile Include="UntouchedValuePropagation.fs" />
-    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath=""/>
+    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
     <ProjectReference Include="..\BinGraph\B2R2.MiddleEnd.BinGraph.fsproj" />
-    <ProjectReference Include="..\BinEssence\B2R2.MiddleEnd.BinEssence.fsproj" />
-    <ProjectReference Include="..\Lens\B2R2.MiddleEnd.Lens.fsproj" />
+    <ProjectReference Include="..\ControlFlowGraph\B2R2.MiddleEnd.ControlFlowGraph.fsproj" />
   </ItemGroup>
 
 </Project>

@@ -24,7 +24,7 @@
 
 namespace B2R2.RearEnd.Visualization
 
-open B2R2.MiddleEnd.BinEssence
+open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The main edge data type for visualization.
 type VisEdge (ty) =

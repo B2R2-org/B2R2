@@ -24,7 +24,7 @@
 
 namespace B2R2.RearEnd.Visualization
 
-open B2R2.MiddleEnd.BinEssence
+open B2R2.MiddleEnd.ControlFlowGraph
 
 /// The main vertex type used for visualization.
 type VisBBlock (blk: BasicBlock, isDummy) =

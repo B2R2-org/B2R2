@@ -22,7 +22,6 @@
   SOFTWARE.
 *)
 
-
 namespace B2R2
 
 open System

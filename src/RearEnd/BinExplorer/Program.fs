@@ -26,9 +26,9 @@ module B2R2.RearEnd.BinExplorer.Program
 
 open B2R2
 open B2R2.FrontEnd.BinInterface
+open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.BinEssence
-open B2R2.MiddleEnd.Lens
-open B2R2.MiddleEnd.Reclaimer
+open B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.RearEnd
 open B2R2.RearEnd.Visualization
 open B2R2.RearEnd.BinExplorer.CmdUtils
@@ -69,14 +69,10 @@ type BinExplorerOpts (isa) =
 
   /// List of analyses to perform.
   member __.GetAnalyses () =
-    [ yield LibcAnalysis () :> IAnalysis
-      yield EVMCodeCopyAnalysis () :> IAnalysis
-      if __.EnableNoReturn then
-        yield NoReturnAnalysis () :> IAnalysis
-      if __.EnableBranchRecovery then
-        yield BranchRecovery (__.EnableNoReturn) :> IAnalysis
-      if __.EnableGapComp then
-        yield SpeculativeGapCompletion (__.EnableNoReturn) :> IAnalysis ]
+    let preanalyses = [ yield LibcAnalysis () :> IPluggableAnalysis ]
+    let iteranalyses = []
+    let postanalyses = []
+    preanalyses, iteranalyses, postanalyses
 
   static member private ToThis (opts: CmdOpts) =
     match opts with
@@ -182,8 +178,8 @@ let spec =
   ]
 
 let buildGraph (opts: BinExplorerOpts) handle =
-  BinEssence.init handle
-  |> Reclaimer.run (opts.GetAnalyses ())
+  let preanalyses, iteranalyses, postanalyses = opts.GetAnalyses ()
+  BinEssence.init handle preanalyses iteranalyses postanalyses
 
 let startGUI (opts: BinExplorerOpts) arbiter =
   HTTPServer.startServer arbiter opts.IP opts.Port opts.Verbose
@@ -194,12 +190,18 @@ let startGUI (opts: BinExplorerOpts) arbiter =
 let dumpJsonFiles jsonDir ess =
   try System.IO.Directory.Delete(jsonDir, true) with _ -> ()
   System.IO.Directory.CreateDirectory(jsonDir) |> ignore
-  ess.CalleeMap.InternalCallees
-  |> Seq.iter (fun { CalleeID = id; Addr = addr } ->
+  ess.CodeManager.FunctionMaintainer.RegularFunctions
+  |> Seq.iter (fun func ->
+    let id = func.FunctionID
+    let entry = func.Entry
     let disasmJsonPath = Printf.sprintf "%s/%s.disasmCFG" jsonDir id
-    let cfg, root = ess.GetFunctionCFG (Option.get addr) |> Result.get
-    let lens = DisasmLens.Init ess
-    let disasmcfg, _ = lens.Filter (cfg, [root], ess)
+    let cfg, root = BinEssence.getFunctionCFG ess entry |> Result.get
+    let blockInfos =
+      ess.CodeManager.FoldBBLs (fun acc (KeyValue (addr, bblInfo)) ->
+        if bblInfo.FunctionEntry = entry then
+          Map.add addr (bblInfo.BlkRange, bblInfo.InstrAddrs) acc
+        else acc) Map.empty
+    let disasmcfg, _ = DisasmLens.filter ess.CodeManager blockInfos cfg root
     CFGExport.toJson disasmcfg disasmJsonPath)
 
 let initBinHdl isa (name: string) =
@@ -265,7 +267,9 @@ let dumpSwitch _cmdMap opts file outdir _args =
   let file = file.Replace (':', '_')
   let outpath = System.IO.Path.Combine (outdir, file)
   use writer = System.IO.File.CreateText (outpath)
-  ess.IndirectBranchMap
+  ()
+  (*
+  ess.CFGOracle.IndirectBranch
   |> Map.iter (fun fromAddr { TargetAddresses = targets } ->
     targets
     |> Set.iter (fun target ->
@@ -273,6 +277,7 @@ let dumpSwitch _cmdMap opts file outdir _args =
                       + String.u64ToHexNoPrefix target)
     )
   )
+  *)
 
 let [<Literal>] private toolName = "binexplore"
 

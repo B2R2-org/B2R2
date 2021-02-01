@@ -27,24 +27,25 @@ namespace B2R2.MiddleEnd.DataFlow
 open B2R2
 open B2R2.BinIR.SSA
 open B2R2.MiddleEnd.BinGraph
-open B2R2.MiddleEnd.BinEssence
-open B2R2.MiddleEnd.Lens
+open B2R2.MiddleEnd.ControlFlowGraph
 
-/// Modified version of sparse conditional constant propagation of Wegman et al.
-type ConstantPropagation<'L when 'L: equality>
-    (ssaCFG: DiGraph<SSABBlock, CFGEdgeKind>, st: CPState<'L>) =
-  inherit DataFlowAnalysis<'L, SSABBlock> ()
+/// The constant propagation framework, which is a modified version of sparse
+/// conditional constant propagation of Wegman et al.
+[<AbstractClass>]
+type ConstantPropagation<'L when 'L: equality> (ssaCFG) =
+  inherit DataFlowAnalysis<'L, SSABasicBlock> ()
 
-  override __.Top: 'L = st.Top
+  /// Constant propagation state.
+  abstract State: CPState<'L>
 
-  member private __.GetNumIncomingExecutedEdges st (blk: Vertex<SSABBlock>) =
+  member private __.GetNumIncomingExecutedEdges st (blk: SSAVertex) =
     let myid = blk.GetID ()
     DiGraph.getPreds ssaCFG blk
     |> List.map (fun p -> p.GetID (), myid)
     |> List.filter (fun (src, dst) -> CPState.isExecuted st src dst)
     |> List.length
 
-  member private __.ProcessSSA ess st =
+  member private __.ProcessSSA st =
     while st.SSAWorkList.Count > 0 do
       let def = st.SSAWorkList.Pop ()
       match Map.tryFind def st.SSAEdges.Uses with
@@ -54,30 +55,30 @@ type ConstantPropagation<'L when 'L: equality>
           let v = DiGraph.findVertexByID ssaCFG vid
           if __.GetNumIncomingExecutedEdges st v > 0 then
             let ppoint, stmt = v.VData.SSAStmtInfos.[idx]
-            st.TransferFn ess ssaCFG st v ppoint stmt
+            st.CPCore.Transfer st ssaCFG v ppoint stmt
           else ())
       | None -> ()
 
-  member private __.ProcessFlow ess st =
+  member private __.ProcessFlow st =
     if st.FlowWorkList.Count > 0 then
       let parentid, myid = st.FlowWorkList.Dequeue ()
       st.ExecutedEdges.Add (parentid, myid) |> ignore
       let blk = DiGraph.findVertexByID ssaCFG myid
       blk.VData.SSAStmtInfos
       |> Array.iter (fun (ppoint, stmt) ->
-        st.TransferFn ess ssaCFG st blk ppoint stmt)
+        st.CPCore.Transfer st ssaCFG blk ppoint stmt)
       match blk.VData.GetLastStmt () with
       | Jmp _ -> ()
-      | _ ->
+      | _ -> (* Fall-through cases. *)
         DiGraph.getSuccs ssaCFG blk
         |> List.iter (fun succ ->
           let succid = succ.GetID ()
           CPState.markExecutable st myid succid)
     else ()
 
-  member __.Compute ess (root: Vertex<_>) =
-    st.FlowWorkList.Enqueue (0, root.GetID ())
-    while st.FlowWorkList.Count > 0 || st.SSAWorkList.Count > 0 do
-      __.ProcessFlow ess st
-      __.ProcessSSA ess st
-    st
+  member __.Compute (root: Vertex<_>) =
+    __.State.FlowWorkList.Enqueue (0, root.GetID ())
+    while __.State.FlowWorkList.Count > 0 || __.State.SSAWorkList.Count > 0 do
+      __.ProcessFlow __.State
+      __.ProcessSSA __.State
+    __.State

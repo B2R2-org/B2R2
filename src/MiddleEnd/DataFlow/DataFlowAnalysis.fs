@@ -35,15 +35,36 @@ type VarExpr =
   | Memory of Addr
 
 /// Program point of a defined variable.
-type VarPoint = {
+type VarPoint<'E> = {
   ProgramPoint: ProgramPoint
-  VarExpr: VarExpr
+  VarExpr: 'E
 }
 
 /// Either forward or backward analysis.
 type DataFlowDirection =
   | Forward
   | Backward
+
+[<AbstractClass>]
+type DataFlowHelper () =
+  /// Obtain the neighboring vertices.
+  abstract Neighbor: DiGraph<'V, 'E> -> Vertex<'V> -> Vertex<'V> list
+
+  /// Add next vertices to the worklist queue.
+  abstract AddToWorkList:
+    DiGraph<'V, 'E> -> Vertex<'V> -> Queue<Vertex<'V>> -> unit
+
+type private ForwardDataFlowHelper () =
+  inherit DataFlowHelper ()
+  override __.Neighbor g v = DiGraph.getPreds g v
+  override __.AddToWorkList g v worklist =
+    DiGraph.getSuccs g v |> List.iter worklist.Enqueue
+
+type BackwardDataFlowHelper () =
+  inherit DataFlowHelper ()
+  override __.Neighbor g v = DiGraph.getSuccs g v
+  override __.AddToWorkList g v worklist =
+    DiGraph.getPreds g v |> List.iter worklist.Enqueue
 
 /// Data-flow analysis framework. 'L is a lattice, 'V is a vertex data type of a
 /// graph.
@@ -67,22 +88,12 @@ type TopologicalDataFlowAnalysis<'L, 'V
   /// Entry lattice per vertex.
   let ins = Dictionary<VertexID, 'L> ()
 
-  /// Neighboring vertices to compute dataflow. This is dependent on the
+  /// Accessor of the vertices to compute dataflow. This is dependent on the
   /// direction of the analysis.
-  let neighbor g =
+  let helper =
     match direction with
-    | Forward -> fun (v: Vertex<'V>) -> DiGraph.getPreds g v
-    | Backward -> fun (v: Vertex<'V>) -> DiGraph.getSuccs g v
-
-  /// Expand the worklist depending on the direction of the analysis.
-  let addToWorklist g =
-    match direction with
-    | Forward ->
-      fun (worklist: Queue<Vertex<'V>>) (v: Vertex<'V>) ->
-        DiGraph.getSuccs g v |> List.iter worklist.Enqueue
-    | Backward ->
-      fun (worklist: Queue<Vertex<'V>>) (v: Vertex<'V>) ->
-        DiGraph.getPreds g v |> List.iter worklist.Enqueue
+    | Forward -> ForwardDataFlowHelper () :> DataFlowHelper
+    | Backward -> BackwardDataFlowHelper () :> DataFlowHelper
 
   /// Initialize worklist queue. This should be a topologically sorted list to
   /// be efficient.
@@ -113,11 +124,11 @@ type TopologicalDataFlowAnalysis<'L, 'V
       let blk = worklist.Dequeue ()
       let blkid = blk.GetID ()
       ins.[blkid] <-
-        neighbor g blk
+        helper.Neighbor g blk
         |> List.fold (fun eff v -> __.Meet eff outs.[v.GetID()]) __.Top
       let outeffect = __.Transfer ins.[blkid] blk
       if outs.[blkid] <> outeffect then
         outs.[blkid] <- outeffect
-        addToWorklist g worklist blk
+        helper.AddToWorkList g blk worklist
       else ()
     ins, outs

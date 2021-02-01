@@ -73,7 +73,9 @@ type ELFFileInfo (bytes, path, baseAddr, regbay) =
   override __.IsExecutableAddr addr = isExecutableAddr elf addr
   override __.GetNotInFileIntervals range = getNotInFileIntervals elf range
   override __.GetFunctionAddresses () =
-    base.GetFunctionAddresses () |> addExtraFunctionAddrs elf
+    base.GetFunctionAddresses () |> addExtraFunctionAddrs elf false
+  override __.GetFunctionAddresses (useExcInfo) =
+    base.GetFunctionAddresses () |> addExtraFunctionAddrs elf useExcInfo
   member __.ELF with get() = elf
   member __.RegisterBay = regbay
 

@@ -217,16 +217,16 @@ let getAddrsFromFiniArray elf =
   | Some s -> getFunctionAddrsFromLibcArray elf s
   | None -> Seq.empty
 
-let addExtraFunctionAddrs elf addrs =
+let addExtraFunctionAddrs elf useExceptionInfo addrs =
   let addrSet =
     [ addrs; getAddrsFromInitArray elf; getAddrsFromFiniArray elf ]
     |> Seq.concat
     |> Set.ofSeq
-  elf.ExceptionFrame
-  |> List.fold (fun set cfi ->
-    cfi.FDERecord
-    |> Array.fold (fun set fde ->
-      Set.add fde.PCBegin set
-      ) set
+  if useExceptionInfo then (* XXX *)
+    elf.ExceptionFrame
+    |> List.fold (fun set cfi ->
+      cfi.FDERecord
+      |> Array.fold (fun set fde -> Set.add fde.PCBegin set) set
     ) addrSet
-  |> Set.toSeq
+    |> Set.toSeq
+  else addrSet |> Set.toSeq

@@ -42,6 +42,7 @@
     <Compile Include="IntervalSet.fs" />
     <Compile Include="RandomAccessQueue.fs" />
     <Compile Include="LRUCache.fs" />
+    <Compile Include="PersistentQueue.fs" />
     <Compile Include="BinReader.fs" />
     <Compile Include="Logger.fs" />
     <Compile Include="Attribution.fs" />

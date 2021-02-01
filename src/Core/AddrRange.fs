@@ -54,6 +54,10 @@ type AddrRange =
   member __.ToTuple () =
     __.Min, __.Max
 
+  /// Check if the address range is including the given address.
+  member inline __.IsIncluding (addr: Addr) =
+    __.Min <= addr && addr < __.Max
+
   static member inline GetMin (range: AddrRange) = range.Min
 
   static member inline GetMax (range: AddrRange) = range.Max

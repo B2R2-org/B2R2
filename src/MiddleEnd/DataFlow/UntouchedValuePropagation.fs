@@ -24,13 +24,24 @@
 
 namespace B2R2.MiddleEnd.DataFlow
 
+open System.Collections.Generic
 open B2R2.BinIR.SSA
 open B2R2.FrontEnd.BinInterface
-open System.Collections.Generic
+open B2R2.MiddleEnd.DataFlow.Utils
 
-module UVPropState =
+[<AutoOpen>]
+module private UntouchedValuePropagation =
 
-  let initRegister hdl (dict: Dictionary<_, _>) =
+  let initRegister hdl =
+    let dict = Dictionary ()
+    hdl.RegisterBay.GetGeneralRegExprs ()
+    |> List.iter (fun regExpr ->
+      let rid = hdl.RegisterBay.RegIDFromRegExpr regExpr
+      let rt = hdl.RegisterBay.RegIDToRegType rid
+      let str = hdl.RegisterBay.RegIDToString rid
+      let var = { Kind = RegVar (rt, rid, str); Identifier = 0 }
+      dict.[var] <- Untouched (RegisterTag var)
+    )
     match hdl.RegisterBay.StackPointer with
     | Some sp ->
       let rt = hdl.RegisterBay.RegIDToRegType sp
@@ -40,23 +51,21 @@ module UVPropState =
       dict
     | None -> dict
 
-  let initMemory (dict: Dictionary<_, _>) =
-    dict.[0] <- (Map.empty, Set.empty)
-    dict
+/// This is a variant of the SparseConstantPropagation, which computes which
+/// registers or memory cells are not re-defined (i.e., are untouched) within a
+/// function. This algorithm assumes that the SSA has been promoted.
+type UntouchedValuePropagation (hdl, ssaCFG) as this =
+  inherit ConstantPropagation<UVValue> (ssaCFG)
 
-/// Modified version of sparse conditional constant propagation of Wegman et al.
-type UntouchedValuePropagation (ssaCFG, tState) =
-  inherit ConstantPropagation<UVPropValue> (ssaCFG, tState)
+  let st = CPState.initState hdl ssaCFG (initRegister hdl) (initMemory ()) this
 
-  static member Init hdl ssaCFG spState mergePointMap =
-    let tState =
-      CPState.initState hdl
-                        ssaCFG
-                        (UVPropState.initRegister hdl)
-                        UVPropState.initMemory
-                        Undef
-                        Touched
-                        UVPropValue.goingUp
-                        UVPropValue.meet
-                        (UVPropTransfer.evalStmt spState mergePointMap)
-    UntouchedValuePropagation (ssaCFG, tState)
+  override __.State = st
+
+  override __.Top = Undef
+
+  interface IConstantPropagationCore<UVValue> with
+    member __.Bottom = Touched
+    member __.GoingUp a b = UVValue.goingUp a b
+    member __.Meet a b = UVValue.meet a b
+    member __.Transfer st cfg v _ppoint stmt = UVTransfer.evalStmt st cfg v stmt
+    member __.MemoryRead _addr _rt = None

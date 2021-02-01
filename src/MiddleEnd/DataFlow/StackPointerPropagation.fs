@@ -24,98 +24,42 @@
 
 namespace B2R2.MiddleEnd.DataFlow
 
+open System.Collections.Generic
 open B2R2
 open B2R2.BinIR.SSA
 open B2R2.FrontEnd.BinInterface
-open B2R2.MiddleEnd.BinGraph
-open B2R2.MiddleEnd.Lens
-open System.Collections.Generic
 
-module StackState =
+[<AutoOpen>]
+module private StackPointerPropagation =
 
-  let initRegister hdl (dict: Dictionary<_, _>) =
+  let initRegister hdl =
+    let dict = Dictionary ()
     match hdl.RegisterBay.StackPointer with
     | Some sp ->
       let rt = hdl.RegisterBay.RegIDToRegType sp
       let str = hdl.RegisterBay.RegIDToString sp
       let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
-      dict.[var] <- Const (BitVector.ofUInt64 0x80000000UL rt)
+      dict.[var] <- Const (BitVector.ofUInt64 Utils.initialStackPointer rt)
       dict
     | None -> dict
 
-  let private collectDefAddrs ess cfg st v addrs = function
-    | _, Def (_, Store (_, rt, addr, _)) ->
-      match StackTransfer.evalExpr ess cfg st v addr with
-      | Const bv ->
-        let addr = BitVector.toUInt64 bv
-        let align = RegType.toByteWidth rt |> uint64
-        if (rt = st.DefaultWordSize) && (addr % align = 0UL) then
-          Set.add addr addrs
-        else addrs
-      | _ -> addrs
-    | _ -> addrs
+/// This is a variant of the SparseConstantPropagation, which only tracks
+/// the stack pointer used in a function. We initiate the stack pointer with a
+/// constant first, and check how it propagates within the function.
+/// StackPointerPropagation is generally much faster than
+/// SparseConstantPropagation due to its simplicity.
+type StackPointerPropagation (hdl, ssaCFG) as this =
+  inherit ConstantPropagation<SPValue> (ssaCFG)
 
-  let private recordMergePoint mergePoints v addr =
-    match Map.tryFind v mergePoints with
-    | Some addrs -> Map.add v (Set.add addr addrs) mergePoints
-    | None -> Map.add v (Set.singleton addr) mergePoints
+  let st = CPState.initState hdl ssaCFG (initRegister hdl) (Dictionary ()) this
 
-  let private updateMergePoint addrsPerNode addr (mps, visited, workList) v =
-    if Set.contains v visited then mps, visited, workList
-    else
-      let mps = recordMergePoint mps v addr
-      let visited = Set.add v visited
-      let addrs = (addrsPerNode: Dictionary<SSAVertex, Set<Addr>>).[v]
-      if not <| Set.contains addr addrs then mps, visited, v :: workList
-      else mps, visited, workList
+  override __.State = st
 
-  let rec private foldVertices mergePoints visited addrsPerNode addr = function
-    | [] -> mergePoints
-    | (v: SSAVertex) :: workList ->
-      let mergePoints, visited, workList =
-        v.VData.Frontier
-        |> List.fold (updateMergePoint addrsPerNode addr)
-                      (mergePoints, visited, workList)
-      foldVertices mergePoints visited addrsPerNode addr workList
+  override __.Top = Undef
 
-  /// Memory merge point means an address of which the merging operation should
-  /// be performed. Mempory merge point is necessary for dataflow analysis on
-  /// SSA. Without this, every time we meet a phi statement of a memory, we
-  /// should iterate memories and merge values at all exisitng addresses.
-  let computeMemoryMergePoints ess cfg st =
-    let defSites = Dictionary ()
-    let defsPerNode = Dictionary ()
-    DiGraph.iterVertex cfg (fun (v: Vertex<SSABBlock>) ->
-      if v.VData.IsFakeBlock () then ()
-      else
-        let defs =
-          v.VData.SSAStmtInfos
-          |> Array.fold (collectDefAddrs ess cfg st v) Set.empty
-        defsPerNode.[v] <- defs
-        defs
-        |> Set.iter (fun d ->
-          if defSites.ContainsKey d then defSites.[d] <- Set.add v defSites.[d]
-          else defSites.[d] <- Set.singleton v))
-    defSites
-    |> Seq.fold (fun mergePoints (KeyValue (addr, defs)) ->
-      Set.toList defs
-      |> foldVertices mergePoints Set.empty defsPerNode addr
-      ) Map.empty
-
-/// Variant of Constant Propagation. It only cares stack-related registers:
-/// stack pointer and frame pointer.
-type StackPointerPropagation (ssaCFG, spState) =
-  inherit ConstantPropagation<StackValue> (ssaCFG, spState)
-
-  static member Init hdl ssaCFG =
-    let spState =
-      CPState.initState hdl
-                        ssaCFG
-                        (StackState.initRegister hdl)
-                        id
-                        Undef
-                        NotAConst
-                        StackValue.goingUp
-                        StackValue.meet
-                        StackTransfer.evalStmt
-    StackPointerPropagation (ssaCFG, spState)
+  interface IConstantPropagationCore<SPValue> with
+    member __.Bottom = NotAConst
+    member __.GoingUp a b = SPValue.goingUp a b
+    member __.Meet a b = SPValue.meet a b
+    member __.Transfer st cfg v _ stmt = SPTransfer.evalStmt st cfg v stmt
+    member __.MemoryRead _addr _rt = None

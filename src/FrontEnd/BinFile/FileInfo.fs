@@ -351,7 +351,8 @@ type FileInfo () =
 
   /// <summary>
   ///   Returns a sequence of local function addresses (excluding external
-  ///   functions) from a given FileInfo.
+  ///   functions) from a given FileInfo. This function only considers addresses
+  ///   that are certain.
   /// </summary>
   /// <returns>
   ///   A sequence of function addresses.
@@ -359,6 +360,23 @@ type FileInfo () =
   abstract member GetFunctionAddresses: unit -> seq<Addr>
 
   default __.GetFunctionAddresses () =
+    __.GetFunctionSymbols ()
+    |> Seq.map (fun s -> s.Address)
+
+  /// <summary>
+  ///   Returns a sequence of local function addresses (excluding external
+  ///   functions) from a given FileInfo. If the argument is true, then this
+  ///   funciton utilizes exception information of the binary to infer function
+  ///   entries. Note that the inference process is not necessarily precise, so
+  ///   this is really just an experimental feature, and will be removed in the
+  ///   future.
+  /// </summary>
+  /// <returns>
+  ///   A sequence of function addresses.
+  /// </returns>
+  abstract member GetFunctionAddresses: bool -> seq<Addr>
+
+  default __.GetFunctionAddresses (_) =
     __.GetFunctionSymbols ()
     |> Seq.map (fun s -> s.Address)
 
@@ -393,7 +411,7 @@ type FileInfo () =
   /// <summary>
   ///   Convert from permission to string.
   /// </summary>
-  /// <param name="perm">A permission to convert.</param>
+  /// <param name="p">A permission to convert.</param>
   /// <returns>
   ///   A converted string.
   /// </returns>

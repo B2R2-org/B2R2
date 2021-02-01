@@ -40,6 +40,25 @@ type ErrorCase =
   | InvalidFileFormat = 5
   /// Invalid function address is encountered during a CFG analysis.
   | InvalidFunctionAddress = 6
+  /// The IR is not implemented yet.
+  | NotImplementedIR = 7
+  /// Invalid use of operand has been encountered.
+  | InvalidOperand = 8
+  /// Invalid operand size has been used.
+  | InvalidOperandSize = 9
+  /// Invalid opcode has been used.
+  | InvalidOpcode = 10
+  /// Invalid register has been used.
+  | InvalidRegister = 11
+  /// Encountered register expression that is not yet handled.
+  | UnhandledRegExpr = 12
+  /// Encountered a not executable address while parsing binaries.
+  | NotExecutableAddress = 13
+  /// Encountered an instruction address at the middle of an exisitng
+  /// instruction while parsing binaries.
+  | IntrudingInstruction = 14
+  /// Encountered fatal error while recovering CFG.
+  | FailedToRecoverCFG = 15
 
 module ErrorCase =
   let toString errCase =
@@ -51,4 +70,13 @@ module ErrorCase =
     | ErrorCase.ItemNotFound -> "Item not found."
     | ErrorCase.InvalidFileFormat -> "Given invalid file format."
     | ErrorCase.InvalidFunctionAddress -> "Given invalid function address."
+    | ErrorCase.NotImplementedIR -> "Not implemented IR."
+    | ErrorCase.InvalidOperand -> "Invalid operand."
+    | ErrorCase.InvalidOperandSize -> "Invalid operand size."
+    | ErrorCase.InvalidOpcode -> "Invalid opcode."
+    | ErrorCase.InvalidRegister -> "Invalid register."
+    | ErrorCase.UnhandledRegExpr -> "Unhandled register expression."
+    | ErrorCase.NotExecutableAddress -> "Not executable address."
+    | ErrorCase.IntrudingInstruction -> "Intruding instruction."
+    | ErrorCase.FailedToRecoverCFG -> "Failed to recover CFG."
     | _ -> invalidArg (nameof errCase) "Unknown error case."

@@ -28,7 +28,7 @@ open System
 
 let assertEqual a b exn = if a = b then () else raise exn
 
-let assertByCond cond exn = if cond then () else raise exn
+let assertByCond condition exn = if condition then () else raise exn
 
 let futureFeature () =
   let trace = Diagnostics.StackTrace (true)

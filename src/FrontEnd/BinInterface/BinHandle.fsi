@@ -29,9 +29,10 @@ open B2R2.BinIR
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 
-/// The main hdl for reading/parsing a binary code. BinHandle essentially
-/// provides a basic interface for a chunk of binary code either from a string
-/// or from an actual binary file.
+/// The main handle for reading/parsing a binary code. BinHandle essentially
+/// provides a low-level interface for a chunk of binary code. One can use
+/// BinHandle to parse/lift/disassemble instructions at a specific address or to
+/// access file-specific data.
 type BinHandle = {
   ISA: ISA
   FileInfo: FileInfo
@@ -79,7 +80,7 @@ with
   ///   Return the corresponding integer value of the size from the current
   ///   binary, which is pointed to by the binary pointer (bp).
   /// </summary>
-  /// <param name="addr">The address.</param>
+  /// <param name="bp">The binary pointer.</param>
   /// <param name="size">The size of the integer in bytes. Maximum 8 bytes is
   /// possible.</param>
   /// <returns>
@@ -128,7 +129,7 @@ with
   /// <returns>
   ///   Return the corresponding ASCII string.
   /// </returns>
-  member ReadASCII: addr: Addr -> string
+  member ReadASCII: bp: BinaryPointer -> string
 
   /// <summary>
   ///   Initialize a BInHnalder from a given binary byte sequence. This function
@@ -580,7 +581,6 @@ with
   ///   returns a simplified disassembly, which does not contain the instruction
   ///   address nor symbols.
   /// </summary>
-  /// <param name="hdl">BinHandle.</param>
   /// <param name="ins">The instruction to disassemble.</param>
   /// <returns>
   ///   Disassembled string.

@@ -45,6 +45,7 @@ let rec private foldPostorderLoop visited g fn acc vstack = function
     v.GetID () |> visited.Add |> ignore
     let struct (acc, vstack) = consume visited g fn acc (v :: vstack)
     foldPostorderLoop visited g fn acc vstack (prependSuccessors g tovisit v)
+
 and consume visited g fn acc = function
   | [] -> struct (acc, [])
   | v :: rest ->
@@ -80,24 +81,24 @@ let iterPreorderExcept g roots excepts fn =
   foldPreorderExcept g roots excepts (fun () v -> fn v) ()
 
 /// Fold vertices of the graph in a depth-first manner with the postorder
-/// traversal.
+/// traversal. The traversal starts from each vertex in roots.
 let foldPostorder g roots fn acc =
   let visited = new HashSet<int> ()
   foldPostorderLoop visited g fn acc [] roots
 
 /// Iterate vertices of the graph in a depth-first manner with the postorder
-/// traversal.
+/// traversal. The traversal starts from each vertex in roots.
 let iterPostorder g roots fn =
   foldPostorder g roots (fun () v -> fn v) ()
 
 /// Fold vertices of the graph in a depth-first manner with the reverse
-/// postorder traversal.
+/// postorder traversal. The traversal starts from each vertex in roots.
 let foldRevPostorder g roots fn acc =
   foldPostorder g roots (fun acc v -> v :: acc) []
   |> List.fold fn acc
 
 /// Iterate vertices of the graph in a depth-first manner with the reverse
-/// postorder traversal.
+/// postorder traversal. The traversal starts from each vertex in roots.
 let iterRevPostorder g roots fn =
   foldPostorder g roots (fun acc v -> v :: acc) []
   |> List.iter fn
