@@ -59,6 +59,7 @@ let translate (ins: InsInfo) insLen ctxt =
   | OP.CLD -> GeneralLifter.clearFlag insLen ctxt R.DF
   | OP.CLI -> GeneralLifter.clearFlag insLen ctxt R.IF
   | OP.CLRSSBSY -> GeneralLifter.nop insLen
+  | OP.CLTS -> LiftingUtils.sideEffects insLen UnsupportedPrivInstr
   | OP.CMC -> GeneralLifter.cmc ins insLen ctxt
   | OP.CMOVO | OP.CMOVNO | OP.CMOVB | OP.CMOVAE
   | OP.CMOVZ | OP.CMOVNZ | OP.CMOVBE | OP.CMOVA
@@ -170,6 +171,7 @@ let translate (ins: InsInfo) insLen ctxt =
     GeneralLifter.stos ins insLen ctxt
   | OP.SUB -> GeneralLifter.sub ins insLen ctxt
   | OP.SYSCALL | OP.SYSENTER -> LiftingUtils.sideEffects insLen SysCall
+  | OP.SYSEXIT -> GeneralLifter.nop insLen
   | OP.TEST -> GeneralLifter.test ins insLen ctxt
   | OP.TZCNT -> GeneralLifter.tzcnt ins insLen ctxt
   | OP.UD2 -> LiftingUtils.sideEffects insLen UndefinedInstr
@@ -193,7 +195,7 @@ let translate (ins: InsInfo) insLen ctxt =
     LiftingUtils.sideEffects insLen UnsupportedExtension
   | OP.XTEST -> LiftingUtils.sideEffects insLen UnsupportedExtension
   | OP.IN | OP.INTO | OP.INVD | OP.INVLPG | OP.IRETD
-  | OP.IRETQ | OP.IRETW | OP.LAR | OP.LGDT | OP.LLDT
+  | OP.IRETQ | OP.IRETW | OP.LAR | OP.LGDT | OP.LIDT |OP.LLDT
   | OP.LMSW | OP.LSL | OP.LTR | OP.OUT | OP.SGDT
   | OP.SIDT | OP.SLDT | OP.SMSW | OP.STR | OP.VERR ->
     LiftingUtils.sideEffects insLen UnsupportedPrivInstr
@@ -310,6 +312,7 @@ let translate (ins: InsInfo) insLen ctxt =
   | OP.ORPD -> SSELifter.orpd ins insLen ctxt (* SSE2 *)
   | OP.XORPS -> SSELifter.xorps ins insLen ctxt
   | OP.XORPD -> SSELifter.xorpd ins insLen ctxt (* SSE2 *)
+  | OP.XSETBV -> LiftingUtils.sideEffects insLen UnsupportedPrivInstr
   | OP.SHUFPS -> SSELifter.shufps ins insLen ctxt
   | OP.SHUFPD -> SSELifter.shufpd ins insLen ctxt (* SSE2 *)
   | OP.UNPCKHPS -> SSELifter.unpckhps ins insLen ctxt
