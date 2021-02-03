@@ -88,7 +88,7 @@ let translate (ins: InsInfo) insLen ctxt =
   | OP.INCSSPD | OP.INCSSPQ -> GeneralLifter.nop insLen
   | OP.INSB | OP.INSW | OP.INSD ->
     GeneralLifter.insinstr ins insLen ctxt
-  | OP.INT -> GeneralLifter.interrupt ins insLen ctxt
+  | OP.INT | OP.INTO -> GeneralLifter.interrupt ins insLen ctxt
   | OP.INT3 -> LiftingUtils.sideEffects insLen Breakpoint
   | OP.JMPFar | OP.JMPNear -> GeneralLifter.jmp ins insLen ctxt
   | OP.JO | OP.JNO | OP.JB | OP.JNB
@@ -171,7 +171,8 @@ let translate (ins: InsInfo) insLen ctxt =
     GeneralLifter.stos ins insLen ctxt
   | OP.SUB -> GeneralLifter.sub ins insLen ctxt
   | OP.SYSCALL | OP.SYSENTER -> LiftingUtils.sideEffects insLen SysCall
-  | OP.SYSEXIT -> GeneralLifter.nop insLen
+  | OP.SYSEXIT | OP.SYSRET ->
+    LiftingUtils.sideEffects insLen UnsupportedPrivInstr
   | OP.TEST -> GeneralLifter.test ins insLen ctxt
   | OP.TZCNT -> GeneralLifter.tzcnt ins insLen ctxt
   | OP.UD2 -> LiftingUtils.sideEffects insLen UndefinedInstr
@@ -194,8 +195,8 @@ let translate (ins: InsInfo) insLen ctxt =
   | OP.XSAVEC64 | OP.XSAVEOPT | OP.XSAVES | OP.XSAVES64 ->
     LiftingUtils.sideEffects insLen UnsupportedExtension
   | OP.XTEST -> LiftingUtils.sideEffects insLen UnsupportedExtension
-  | OP.IN | OP.INTO | OP.INVD | OP.INVLPG | OP.IRETD
-  | OP.IRETQ | OP.IRETW | OP.LAR | OP.LGDT | OP.LIDT |OP.LLDT
+  | OP.IN | OP.INVD | OP.INVLPG | OP.IRET | OP.IRETQ | OP.IRETW | OP.IRETD
+  | OP.LAR | OP.LGDT | OP.LIDT | OP.LLDT
   | OP.LMSW | OP.LSL | OP.LTR | OP.OUT | OP.SGDT
   | OP.SIDT | OP.SLDT | OP.SMSW | OP.STR | OP.VERR ->
     LiftingUtils.sideEffects insLen UnsupportedPrivInstr
