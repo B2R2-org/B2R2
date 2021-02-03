@@ -100,6 +100,9 @@ type ARM32Instruction (addr, numBytes, insInfo, ctxt, auxctxt) =
   override __.IsInterrupt () =
     __.Info.Opcode = Op.SVC
 
+  override __.IsExit () =
+    Utils.futureFeature ()
+
   override __.IsBBLEnd () =
     __.IsDirectBranch () ||
     __.IsIndirectBranch () ||

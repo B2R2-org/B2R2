@@ -92,6 +92,16 @@ type IntelInstruction (addr, len, insInfo, wordSz) =
       -> true
     | _ -> false
 
+  override __.IsExit () =
+    match __.Info.Opcode with
+    (* Compiler sometimes inserts HLT in user-level code to raise a fault. *)
+    | Opcode.HLT
+    (* Invalid OP exceptions usually don't return from the handler. *)
+    | Opcode.UD2
+    | Opcode.SYSEXIT | Opcode.SYSRET
+    | Opcode.IRET | Opcode.IRETW | Opcode.IRETD | Opcode.IRETQ -> true
+    | _ -> false
+
   override __.IsBBLEnd () =
        __.IsBranch ()
     || __.Info.Opcode = Opcode.HLT

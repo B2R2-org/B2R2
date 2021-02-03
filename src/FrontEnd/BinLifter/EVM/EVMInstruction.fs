@@ -75,7 +75,7 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
 
   override __.IsInterrupt () = Utils.futureFeature ()
 
-  member private __.IsHaltingInstruction () =
+  override __.IsExit () =
     __.Info.Opcode = Opcode.REVERT
     || __.Info.Opcode = Opcode.RETURN
     || __.Info.Opcode = Opcode.SELFDESTRUCT
@@ -100,7 +100,7 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
   override __.GetNextInstrAddrs () =
     let fallthrough = __.Address + uint64 __.Length
     let acc = Seq.singleton (fallthrough, ArchOperationMode.NoMode)
-    if __.IsHaltingInstruction () then Seq.empty
+    if __.IsExit () then Seq.empty
     else acc
 
   override __.InterruptNum (_num: byref<int64>) = Utils.futureFeature ()
