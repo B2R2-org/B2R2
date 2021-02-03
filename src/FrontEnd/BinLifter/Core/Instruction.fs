@@ -152,15 +152,15 @@ type Instruction (addr, len, wordSize) =
   abstract member IsInterrupt: unit -> bool
 
   /// <summary>
-  ///   Does this instruction exit a basic block? For example, this function
-  ///   returns true for the <c>HLT</c> instruction of Intel. We also consider
-  ///   system call instructions as an exit instruction.
+  ///   Does this instruction end a basic block? For example, this function
+  ///   returns true for branch instructions and exit instructions. We also
+  ///   consider system call instructions as an end of basic blocks.
   /// </summary>
   /// <returns>
   ///   Returns true if this instruction should be at the end of the
   ///   corresponding basic block.
   /// </returns>
-  abstract member IsExit: unit -> bool
+  abstract member IsBBLEnd: unit -> bool
 
   /// <summary>
   ///   Is this a NO-OP instruction?

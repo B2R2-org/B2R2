@@ -92,7 +92,7 @@ type IntelInstruction (addr, len, insInfo, wordSz) =
       -> true
     | _ -> false
 
-  override __.IsExit () =
+  override __.IsBBLEnd () =
        __.IsBranch ()
     || __.Info.Opcode = Opcode.HLT
     || __.Info.Opcode = Opcode.INT

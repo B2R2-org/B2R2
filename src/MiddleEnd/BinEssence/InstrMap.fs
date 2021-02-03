@@ -150,7 +150,7 @@ module InstrMap =
     | Ok ins ->
       let ctxt = ins.NextParsingContext
       let nextAddr = pc + uint64 ins.Length
-      if ins.IsExit () || Map.containsKey nextAddr bblMap then
+      if ins.IsBBLEnd () || Map.containsKey nextAddr bblMap then
         Ok <| struct (List.rev (ins :: acc), ins.Address)
       else parseBBL hdl ctxt bblMap (ins :: acc) nextAddr
     | Error _ -> Error <| List.rev acc

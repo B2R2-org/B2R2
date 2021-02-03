@@ -723,7 +723,7 @@ module BinEssence =
   let rec private getBlockAddressesWithInstrMap ess addrs addr =
     let ins = ess.InstrMap.[addr].Instruction
     let nextAddr = addr + uint64 ins.Length
-    if ins.IsExit () || Map.containsKey nextAddr ess.BBLStore.BBLMap then
+    if ins.IsBBLEnd () || Map.containsKey nextAddr ess.BBLStore.BBLMap then
       struct (List.rev (addr :: addrs), ins.Address)
     else getBlockAddressesWithInstrMap ess (addr :: addrs) nextAddr
 

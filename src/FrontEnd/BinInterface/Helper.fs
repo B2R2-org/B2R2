@@ -134,7 +134,7 @@ let rec parseBBLAux fi parser ctxt tryParseFn advanceFn pos acc =
   match tryParseFn fi parser ctxt pos with
   | Ok (ins: Instruction) ->
     let ctxt = ins.NextParsingContext
-    if ins.IsExit () then Ok (List.rev (ins :: acc), ctxt)
+    if ins.IsBBLEnd () then Ok (List.rev (ins :: acc), ctxt)
     else
       let pos = advanceFn pos (int ins.Length)
       parseBBLAux fi parser ctxt tryParseFn advanceFn pos (ins :: acc)

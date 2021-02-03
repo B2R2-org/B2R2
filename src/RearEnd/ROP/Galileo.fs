@@ -80,7 +80,7 @@ let rec buildBackward hdl minAddr curAddr lastAddr map =
     match BinHandle.TryParseInstr (hdl, hdl.DefaultParsingContext, curAddr) with
     | Ok ins ->
       let nextAddr = curAddr + (uint64 ins.Length)
-      if ins.IsExit () then
+      if ins.IsBBLEnd () then
         if nextAddr < lastAddr then map
         else buildBackward hdl minAddr (curAddr - 1UL) lastAddr map
       else
