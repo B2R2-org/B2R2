@@ -204,13 +204,13 @@ let aaa (ctxt: EncContext) = function
 
 let aad (ctxt: EncContext) = function
   | NoOperand -> no64Arch ctxt.Arch; [| Normal 0xD5uy; Normal 0x0Auy |]
-  | OneOperand (OprImm imm) ->
+  | OneOperand (OprImm (imm, _)) ->
     no64Arch ctxt.Arch; [| Normal 0xD5uy; yield! immediate imm 8<rt> |]
   | _ -> raise NotEncodableException
 
 let aam (ctxt: EncContext) = function
   | NoOperand -> no64Arch ctxt.Arch; [| Normal 0xD4uy; Normal 0x0Auy |]
-  | OneOperand (OprImm imm) ->
+  | OneOperand (OprImm (imm, _)) ->
     no64Arch ctxt.Arch; [| Normal 0xD4uy; yield! immediate imm 8<rt> |]
   | _ -> raise NotEncodableException
 
@@ -221,70 +221,70 @@ let aas (ctxt: EncContext) = function
 let adc (ctxt: EncContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm (Priority 1) *)
-  | TwoOperands (OprReg Register.AL, OprImm imm) ->
+  | TwoOperands (OprReg Register.AL, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x14uy |] imm 8<rt>
-  | TwoOperands (OprReg Register.AX, OprImm imm) ->
+  | TwoOperands (OprReg Register.AX, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x15uy |] imm 16<rt>
-  | TwoOperands (OprReg Register.EAX, OprImm imm) ->
+  | TwoOperands (OprReg Register.EAX, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x15uy |] imm 32<rt>
-  | TwoOperands (OprReg Register.RAX, OprImm imm) ->
+  | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
     no32Arch ctxt.Arch
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x15uy |] imm 32<rt>
   (* Reg - Imm (Priority 0) *)
-  | TwoOperands (OprReg r, OprImm imm) when isReg16 r && isInt8 imm ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg16 r && isInt8 imm ->
     encRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x83uy |] r 0b010uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg32 r && isInt8 imm ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg32 r && isInt8 imm ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x83uy |] r 0b010uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg64 r && isInt8 imm ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 r && isInt8 imm ->
     no32Arch ctxt.Arch
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x83uy |] r 0b010uy imm 8<rt>
   (* Mem - Imm (Priority 0) *)
-  | TwoOperands (Label _, OprImm imm) when isInt8 imm ->
+  | TwoOperands (Label _, OprImm (imm, _)) when isInt8 imm ->
     encLI ctxt ins 0b010uy imm 8<rt> [||] [| 0x83uy |]
-  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) when isInt8 imm ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm (imm, _)) when isInt8 imm ->
     encMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x83uy |] b s d 0b010uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm imm) when isInt8 imm ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm (imm, _)) when isInt8 imm ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x83uy |] b s d 0b010uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm imm) when isInt8 imm ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) when isInt8 imm ->
     no32Arch ctxt.Arch
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x83uy |] b s d 0b010uy imm 8<rt>
   (* Reg - Imm (Priority 1) *)
-  | TwoOperands (OprReg r, OprImm imm) when isReg8 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg8 r ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x80uy |] r 0b010uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg16 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg16 r ->
     encRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x81uy |] r 0b010uy imm 16<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg32 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg32 r ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x81uy |] r 0b010uy imm 32<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg64 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 r ->
     no32Arch ctxt.Arch
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x81uy |] r 0b010uy imm 32<rt>
   (* Mem - Imm (Priority 1) *)
-  | TwoOperands (Label _, OprImm imm) ->
+  | TwoOperands (Label _, OprImm (imm, _)) ->
     encLI ctxt ins 0b010uy imm 32<rt> [| 0x80uy |] [| 0x81uy |] // FIXME
-  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x80uy |] b s d 0b010uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x81uy |] b s d 0b010uy imm 16<rt>
-  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x81uy |] b s d 0b010uy imm 32<rt>
-  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) ->
     no32Arch ctxt.Arch;
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x81uy |] b s d 0b010uy imm 32<rt>
@@ -339,70 +339,70 @@ let adc (ctxt: EncContext) ins =
 let add (ctxt: EncContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm (Priority 1) *)
-  | TwoOperands (OprReg Register.AL, OprImm imm) ->
+  | TwoOperands (OprReg Register.AL, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x04uy |] imm 8<rt>
-  | TwoOperands (OprReg Register.AX, OprImm imm) ->
+  | TwoOperands (OprReg Register.AX, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x05uy |] imm 16<rt>
-  | TwoOperands (OprReg Register.EAX, OprImm imm) ->
+  | TwoOperands (OprReg Register.EAX, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x05uy |] imm 32<rt>
-  | TwoOperands (OprReg Register.RAX, OprImm imm) ->
+  | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
     no32Arch ctxt.Arch
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x05uy |] imm 32<rt>
   (* Reg - Imm (Priority 0) *)
-  | TwoOperands (OprReg r, OprImm imm) when isReg16 r && isInt8 imm ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg16 r && isInt8 imm ->
     encRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x83uy |] r 0b000uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg32 r && isInt8 imm ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg32 r && isInt8 imm ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x83uy |] r 0b000uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg64 r && isInt8 imm ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 r && isInt8 imm ->
     no32Arch ctxt.Arch
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x83uy |] r 0b000uy imm 8<rt>
   (* Mem - Imm (Priority 0) *)
-  | TwoOperands (Label _, OprImm imm) when isInt8 imm ->
+  | TwoOperands (Label _, OprImm (imm, _)) when isInt8 imm ->
     encLI ctxt ins 0b000uy imm 8<rt> [||] [| 0x83uy |]
-  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) when isInt8 imm ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm (imm, _)) when isInt8 imm ->
     encMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x83uy |] b s d 0b000uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm imm) when isInt8 imm ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm (imm, _)) when isInt8 imm ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x83uy |] b s d 0b000uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm imm) when isInt8 imm ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) when isInt8 imm ->
     no32Arch ctxt.Arch
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x83uy |] b s d 0b000uy imm 8<rt>
   (* Reg - Imm (Priority 1) *)
-  | TwoOperands (OprReg r, OprImm imm) when isReg8 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg8 r ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x80uy |] r 0b000uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg16 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg16 r ->
     encRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x81uy |] r 0b000uy imm 16<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg32 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg32 r ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x81uy |] r 0b000uy imm 32<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg64 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 r ->
     no32Arch ctxt.Arch
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x81uy |] r 0b000uy imm 32<rt>
   (* Mem - Imm (Priority 1) *)
-  | TwoOperands (Label _, OprImm imm) ->
+  | TwoOperands (Label _, OprImm (imm, _)) ->
     encLI ctxt ins 0b000uy imm 32<rt> [| 0x80uy |] [| 0x81uy |] // FIXME
-  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x80uy |] b s d 0b000uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x81uy |] b s d 0b000uy imm 16<rt>
-  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x81uy |] b s d 0b000uy imm 32<rt>
-  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) ->
     no32Arch ctxt.Arch;
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x81uy |] b s d 0b000uy imm 32<rt>
@@ -497,70 +497,70 @@ let addss (ctxt: EncContext) ins =
 let logAnd (ctxt: EncContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm *)
-  | TwoOperands (OprReg Register.AL, OprImm imm) ->
+  | TwoOperands (OprReg Register.AL, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x24uy |] imm 8<rt>
-  | TwoOperands (OprReg Register.AX, OprImm imm) ->
+  | TwoOperands (OprReg Register.AX, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x25uy |] imm 16<rt>
-  | TwoOperands (OprReg Register.EAX, OprImm imm) ->
+  | TwoOperands (OprReg Register.EAX, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x25uy |] imm 32<rt>
-  | TwoOperands (OprReg Register.RAX, OprImm imm) ->
+  | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
     no32Arch ctxt.Arch
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x25uy |] imm 32<rt>
   (* Reg - Imm (Priority 0) *)
-  | TwoOperands (OprReg r, OprImm imm) when isReg16 r && isInt8 imm ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg16 r && isInt8 imm ->
     encRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x83uy |] r 0b100uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg32 r && isInt8 imm ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg32 r && isInt8 imm ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x83uy |] r 0b100uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg64 r && isInt8 imm ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 r && isInt8 imm ->
     no32Arch ctxt.Arch
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x83uy |] r 0b100uy imm 8<rt>
   (* Mem - Imm (Priority 0) *)
-  | TwoOperands (Label _, OprImm imm) when isInt8 imm ->
+  | TwoOperands (Label _, OprImm (imm, _)) when isInt8 imm ->
     encLI ctxt ins 0b100uy imm 8<rt> [||] [| 0x83uy |]
-  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) when isInt8 imm ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm (imm, _)) when isInt8 imm ->
     encMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x83uy |] b s d 0b100uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm imm) when isInt8 imm ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm (imm, _)) when isInt8 imm ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x83uy |] b s d 0b100uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm imm) when isInt8 imm ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) when isInt8 imm ->
     no32Arch ctxt.Arch
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x83uy |] b s d 0b100uy imm 8<rt>
   (* Reg - Imm (Priority 1) *)
-  | TwoOperands (OprReg r, OprImm imm) when isReg8 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg8 r ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x80uy |] r 0b100uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg16 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg16 r ->
     encRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x81uy |] r 0b100uy imm 16<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg32 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg32 r ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x81uy |] r 0b100uy imm 32<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg64 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 r ->
     no32Arch ctxt.Arch
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x81uy |] r 0b100uy imm 32<rt>
   (* Mem - Imm (Priority 1) *)
-  | TwoOperands (Label _, OprImm imm) ->
+  | TwoOperands (Label _, OprImm (imm, _)) ->
     encLI ctxt ins 0b100uy imm 32<rt> [| 0x80uy |] [| 0x81uy |] // FIXME
-  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x80uy |] b s d 0b100uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x81uy |] b s d 0b100uy imm 16<rt>
-  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x81uy |] b s d 0b100uy imm 32<rt>
-  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) ->
     no32Arch ctxt.Arch;
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x81uy |] b s d 0b100uy imm 32<rt>
@@ -680,25 +680,25 @@ let bt (ctxt: EncContext) ins =
     no32Arch ctxt.Arch
     encMR ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexWAndMR [| 0x0Fuy; 0xA3uy |] b s d r
-  | TwoOperands (OprReg r, OprImm imm) when isReg16 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg16 r ->
     encRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x0Fuy; 0xBAuy |] r 0b100uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg32 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg32 r ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x0Fuy; 0xBAuy |] r 0b100uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg64 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 r ->
     no32Arch ctxt.Arch
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x0Fuy; 0xBAuy |] r 0b100uy imm 8<rt>
-  | TwoOperands (Label _, OprImm imm) ->
+  | TwoOperands (Label _, OprImm (imm, _)) ->
     encLI ctxt ins 0b100uy imm 32<rt> [||] [| 0x0Fuy; 0xBAuy |] // FIXME
-  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x0Fuy; 0xBAuy |] b s d 0b100uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm i) ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm (i, _)) ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x0Fuy; 0xBAuy |] b s d 0b100uy i 8<rt>
-  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) ->
     no32Arch ctxt.Arch
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x0Fuy; 0xBAuy |] b s d 0b100uy imm 8<rt>
@@ -800,70 +800,70 @@ let cmovz ctxt ins = cmovcc ctxt ins [| 0x0Fuy; 0x44uy |]
 let cmp (ctxt: EncContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm (Priority 1) *)
-  | TwoOperands (OprReg Register.AL, OprImm imm) ->
+  | TwoOperands (OprReg Register.AL, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x3Cuy |] imm 8<rt>
-  | TwoOperands (OprReg Register.AX, OprImm imm) ->
+  | TwoOperands (OprReg Register.AX, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x3Duy |] imm 16<rt>
-  | TwoOperands (OprReg Register.EAX, OprImm imm) ->
+  | TwoOperands (OprReg Register.EAX, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x3Duy |] imm 32<rt>
-  | TwoOperands (OprReg Register.RAX, OprImm imm) ->
+  | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
     no32Arch ctxt.Arch
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x3Duy |] imm 32<rt>
   (* Reg - Imm (Priority 0) *)
-  | TwoOperands (OprReg r, OprImm imm) when isReg16 r && isInt8 imm ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg16 r && isInt8 imm ->
     encRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x83uy |] r 0b111uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg32 r && isInt8 imm ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg32 r && isInt8 imm ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x83uy |] r 0b111uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg64 r && isInt8 imm ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 r && isInt8 imm ->
     no32Arch ctxt.Arch
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x83uy |] r 0b111uy imm 8<rt>
   (* Mem - Imm (Priority 0) *)
-  | TwoOperands (Label _, OprImm imm) when isInt8 imm ->
+  | TwoOperands (Label _, OprImm (imm, _)) when isInt8 imm ->
     encLI ctxt ins 0b111uy imm 8<rt> [||] [| 0x83uy |]
-  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) when isInt8 imm ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm (imm, _)) when isInt8 imm ->
     encMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x83uy |] b s d 0b111uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm imm) when isInt8 imm ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm (imm, _)) when isInt8 imm ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x83uy |] b s d 0b111uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm imm) when isInt8 imm ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) when isInt8 imm ->
     no32Arch ctxt.Arch
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x83uy |] b s d 0b111uy imm 8<rt>
   (* Reg - Imm (Priority 1) *)
-  | TwoOperands (OprReg r, OprImm imm) when isReg8 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg8 r ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x80uy |] r 0b111uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg16 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg16 r ->
     encRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x81uy |] r 0b111uy imm 16<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg32 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg32 r ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x81uy |] r 0b111uy imm 32<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg64 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 r ->
     no32Arch ctxt.Arch
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x81uy |] r 0b111uy imm 32<rt>
   (* Mem - Imm (Priority 1) *)
-  | TwoOperands (Label _, OprImm imm) ->
+  | TwoOperands (Label _, OprImm (imm, _)) ->
     encLI ctxt ins 0b111uy imm 32<rt> [| 0x80uy |] [| 0x81uy |] // FIXME
-  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x80uy |] b s d 0b111uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x81uy |] b s d 0b111uy imm 16<rt>
-  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x81uy |] b s d 0b111uy imm 32<rt>
-  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) ->
     no32Arch ctxt.Arch;
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x81uy |] b s d 0b111uy imm 32<rt>
@@ -1400,58 +1400,58 @@ let imul (ctxt: EncContext) ins =
   | TwoOperands (OprReg r, OprMem (b, s, d, 64<rt>)) when isReg64 r ->
     encRM ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x0Fuy; 0xAFuy |] r b s d
-  | ThreeOperands (OprReg r1, OprReg r2, OprImm imm)
+  | ThreeOperands (OprReg r1, OprReg r2, OprImm (imm, _))
     when isReg16 r1 && isReg16 r2 && isInt8 imm ->
     encRRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x6Buy |] r1 r2 imm 8<rt>
-  | ThreeOperands (OprReg r, Label _, OprImm imm) when isInt8 imm ->
+  | ThreeOperands (OprReg r, Label _, OprImm (imm, _)) when isInt8 imm ->
     encRLI ctxt ins r [| 0x6Buy |] imm 8<rt>
-  | ThreeOperands (OprReg r, OprMem (b, s, d, 16<rt>), OprImm imm)
+  | ThreeOperands (OprReg r, OprMem (b, s, d, 16<rt>), OprImm (imm, _))
     when isReg16 r && isInt8 imm ->
     encRMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x6Buy |] r b s d imm 8<rt>
-  | ThreeOperands (OprReg r1, OprReg r2, OprImm imm)
+  | ThreeOperands (OprReg r1, OprReg r2, OprImm (imm, _))
     when isReg32 r1 && isReg32 r2 && isInt8 imm ->
     encRRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x6Buy |] r1 r2 imm 8<rt>
-  | ThreeOperands (OprReg r, OprMem (b, s, d, 32<rt>), OprImm imm)
+  | ThreeOperands (OprReg r, OprMem (b, s, d, 32<rt>), OprImm (imm, _))
     when isReg32 r && isInt8 imm ->
     encRMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x6Buy |] r b s d imm 8<rt>
-  | ThreeOperands (OprReg r1, OprReg r2, OprImm imm)
+  | ThreeOperands (OprReg r1, OprReg r2, OprImm (imm, _))
     when isReg64 r1 && isReg64 r2 && isInt8 imm ->
     no32Arch ctxt.Arch
     encRRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x6Buy |] r1 r2 imm 8<rt>
-  | ThreeOperands (OprReg r, OprMem (b, s, d, 64<rt>), OprImm imm)
+  | ThreeOperands (OprReg r, OprMem (b, s, d, 64<rt>), OprImm (imm, _))
     when isReg64 r && isInt8 imm ->
     no32Arch ctxt.Arch
     encRMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x6Buy |] r b s d imm 8<rt>
-  | ThreeOperands (OprReg r1, OprReg r2, OprImm imm)
+  | ThreeOperands (OprReg r1, OprReg r2, OprImm (imm, _))
     when isReg16 r1 && isReg16 r2 ->
     encRRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x69uy |] r1 r2 imm 16<rt>
-  | ThreeOperands (OprReg r, Label _, OprImm imm) ->
+  | ThreeOperands (OprReg r, Label _, OprImm (imm, _)) ->
     encRLI ctxt ins r [| 0x69uy |] imm 32<rt> // FIXME
-  | ThreeOperands (OprReg r, OprMem (b, s, d, 16<rt>), OprImm imm)
+  | ThreeOperands (OprReg r, OprMem (b, s, d, 16<rt>), OprImm (imm, _))
     when isReg16 r ->
     encRMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x69uy |] r b s d imm 16<rt>
-  | ThreeOperands (OprReg r1, OprReg r2, OprImm imm)
+  | ThreeOperands (OprReg r1, OprReg r2, OprImm (imm, _))
     when isReg32 r1 && isReg32 r2 ->
     encRRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x69uy |] r1 r2 imm 32<rt>
-  | ThreeOperands (OprReg r, OprMem (b, s, d, 32<rt>), OprImm imm)
+  | ThreeOperands (OprReg r, OprMem (b, s, d, 32<rt>), OprImm (imm, _))
     when isReg32 r ->
     encRMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x69uy |] r b s d imm 32<rt>
-  | ThreeOperands (OprReg r1, OprReg r2, OprImm imm)
+  | ThreeOperands (OprReg r1, OprReg r2, OprImm (imm, _))
     when isReg64 r1 && isReg64 r2 ->
     no32Arch ctxt.Arch
     encRRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x69uy |] r1 r2 imm 32<rt>
-  | ThreeOperands (OprReg r, OprMem (b, s, d, 64<rt>), OprImm imm)
+  | ThreeOperands (OprReg r, OprMem (b, s, d, 64<rt>), OprImm (imm, _))
     when isReg64 r ->
     no32Arch ctxt.Arch
     encRMI ins ctxt.Arch
@@ -1642,36 +1642,36 @@ let mov (ctxt: EncContext) ins =
     encRM ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x8Buy |] r b s d
   (* Reg - Imm (Opcode reg field) *)
-  | TwoOperands (OprReg r, OprImm imm) when isReg8 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg8 r ->
     encOI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal 0xB0uy r imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg16 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg16 r ->
     encOI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal 0xB8uy r imm 16<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg32 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg32 r ->
     encOI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal 0xB8uy r imm 32<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg64 r && isInt32 imm ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 r && isInt32 imm ->
     no32Arch ctxt.Arch
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0xC7uy |] r 0b000uy imm 32<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg64 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 r ->
     no32Arch ctxt.Arch
     encOI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW 0xB8uy r imm 64<rt>
   (* Mem - Imm *)
-  | TwoOperands (Label _, OprImm imm) ->
+  | TwoOperands (Label _, OprImm (imm, _)) ->
     encLI ctxt ins 0b000uy imm 32<rt> [| 0xC6uy |] [| 0xC7uy |] // FIXME
-  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0xC6uy |] b s d 0b000uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0xC7uy |] b s d 0b000uy imm 16<rt>
-  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0xC7uy |] b s d 0b000uy imm 32<rt>
-  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) ->
     no32Arch ctxt.Arch;
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0xC7uy |] b s d 0b000uy imm 32<rt>
@@ -2005,70 +2005,70 @@ let not (ctxt: EncContext) ins =
 let logOr (ctxt: EncContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm *)
-  | TwoOperands (OprReg Register.AL, OprImm imm) ->
+  | TwoOperands (OprReg Register.AL, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x0Cuy |] imm 8<rt>
-  | TwoOperands (OprReg Register.AX, OprImm imm) ->
+  | TwoOperands (OprReg Register.AX, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x0Duy |] imm 16<rt>
-  | TwoOperands (OprReg Register.EAX, OprImm imm) ->
+  | TwoOperands (OprReg Register.EAX, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x0Duy |] imm 32<rt>
-  | TwoOperands (OprReg Register.RAX, OprImm imm) ->
+  | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
     no32Arch ctxt.Arch
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x0Duy |] imm 32<rt>
   (* Reg - Imm (Priority 0) *)
-  | TwoOperands (OprReg r, OprImm imm) when isReg16 r && isInt8 imm ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg16 r && isInt8 imm ->
     encRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x83uy |] r 0b001uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg32 r && isInt8 imm ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg32 r && isInt8 imm ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x83uy |] r 0b001uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg64 r && isInt8 imm ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 r && isInt8 imm ->
     no32Arch ctxt.Arch
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x83uy |] r 0b001uy imm 8<rt>
   (* Mem - Imm (Priority 0) *)
-  | TwoOperands (Label _, OprImm imm) when isInt8 imm ->
+  | TwoOperands (Label _, OprImm (imm, _)) when isInt8 imm ->
     encLI ctxt ins 0b001uy imm 8<rt> [||] [| 0x83uy |]
-  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) when isInt8 imm ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm (imm, _)) when isInt8 imm ->
     encMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x83uy |] b s d 0b001uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm imm) when isInt8 imm ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm (imm, _)) when isInt8 imm ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x83uy |] b s d 0b001uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm imm) when isInt8 imm ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) when isInt8 imm ->
     no32Arch ctxt.Arch
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x83uy |] b s d 0b001uy imm 8<rt>
   (* Reg - Imm (Priority 1) *)
-  | TwoOperands (OprReg r, OprImm imm) when isReg8 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg8 r ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x80uy |] r 0b001uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg16 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg16 r ->
     encRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x81uy |] r 0b001uy imm 16<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg32 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg32 r ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x81uy |] r 0b001uy imm 32<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg64 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 r ->
     no32Arch ctxt.Arch
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x81uy |] r 0b001uy imm 32<rt>
   (* Mem - Imm (Priority 1) *)
-  | TwoOperands (Label _, OprImm imm) ->
+  | TwoOperands (Label _, OprImm (imm, _)) ->
     encLI ctxt ins 0b001uy imm 32<rt> [| 0x80uy |] [| 0x81uy |] // FIXME
-  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x80uy |] b s d 0b001uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x81uy |] b s d 0b001uy imm 16<rt>
-  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x81uy |] b s d 0b001uy imm 32<rt>
-  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) ->
     no32Arch ctxt.Arch;
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x81uy |] b s d 0b001uy imm 32<rt>
@@ -2143,22 +2143,22 @@ let paddd (ctxt: EncContext) ins =
 let palignr (ctxt: EncContext) ins =
   match ins.Operands with
   (* Reg - Reg - Imm8 *)
-  | ThreeOperands (OprReg r1, OprReg r2, OprImm imm)
+  | ThreeOperands (OprReg r1, OprReg r2, OprImm (imm, _))
     when isMMXReg r1 && isMMXReg r2 ->
     encRRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x0Fuy; 0x3Auy; 0x0Fuy |]
       r1 r2 imm 8<rt>
-  | ThreeOperands (OprReg r1, OprReg r2, OprImm imm)
+  | ThreeOperands (OprReg r1, OprReg r2, OprImm (imm, _))
     when isXMMReg r1 && isXMMReg r2 ->
     encRRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x0Fuy; 0x3Auy; 0x0Fuy |] r1 r2 imm 8<rt>
   (* Reg - Mem - Imm8 *)
-  | ThreeOperands (OprReg r, OprMem (b, s, d, 64<rt>), OprImm imm)
+  | ThreeOperands (OprReg r, OprMem (b, s, d, 64<rt>), OprImm (imm, _))
     when isMMXReg r ->
     encRMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x0Fuy; 0x3Auy; 0x0Fuy |]
       r b s d imm 8<rt>
-  | ThreeOperands (OprReg r, OprMem (b, s, d, 128<rt>), OprImm imm)
+  | ThreeOperands (OprReg r, OprMem (b, s, d, 128<rt>), OprImm (imm, _))
     when isXMMReg r ->
     encRMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x0Fuy; 0x3Auy; 0x0Fuy |] r b s d imm 8<rt>
@@ -2197,11 +2197,11 @@ let pop (ctxt: EncContext) ins =
 
 let pshufd (ctxt: EncContext) ins =
   match ins.Operands with
-  | ThreeOperands (OprReg r1, OprReg r2, OprImm imm)
+  | ThreeOperands (OprReg r1, OprReg r2, OprImm (imm, _))
     when isXMMReg r1 && isXMMReg r2 ->
     encRRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x0Fuy; 0x70uy |] r1 r2 imm 8<rt>
-  | ThreeOperands (OprReg r, OprMem (b, s, d, 128<rt>), OprImm imm)
+  | ThreeOperands (OprReg r, OprMem (b, s, d, 128<rt>), OprImm (imm, _))
     when isXMMReg r ->
     encRMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x0Fuy; 0x70uy |] r b s d imm 8<rt>
@@ -2253,13 +2253,13 @@ let push (ctxt: EncContext) ins =
     no32Arch ctxt.Arch
     encM ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0xFFuy |] b s d 0b110uy
-  | OneOperand (OprImm imm) when isInt8 imm ->
+  | OneOperand (OprImm (imm, _)) when isInt8 imm ->
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x6Auy |] imm 8<rt>
-  | OneOperand (OprImm imm) when isInt16 imm ->
+  | OneOperand (OprImm (imm, _)) when isInt16 imm ->
     encI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x68uy |] imm 16<rt>
-  | OneOperand (OprImm imm) when isUInt32 imm -> // FIXME
+  | OneOperand (OprImm (imm, _)) when isUInt32 imm -> // FIXME
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x68uy |] imm 32<rt>
   | o -> printfn "%A" o; raise NotEncodableException
@@ -2282,10 +2282,10 @@ let pxor (ctxt: EncContext) ins =
 
 let rotateOrShift (ctxt: EncContext) ins regConstr =
   match ins.Operands with
-  | TwoOperands (OprReg r, OprImm (1L as imm)) when isReg8 r ->
+  | TwoOperands (OprReg r, OprImm (1L as imm, _)) when isReg8 r ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0xD0uy |] r regConstr imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm (1L as imm)) ->
+  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm (1L as imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0xD0uy |] b s d regConstr imm 8<rt>
   | TwoOperands (OprReg r, OprReg Register.CL) when isReg8 r ->
@@ -2294,18 +2294,18 @@ let rotateOrShift (ctxt: EncContext) ins regConstr =
   | TwoOperands (OprMem (b, s, d, 8<rt>), OprReg Register.CL) ->
     encMC ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0xD2uy |] b s d regConstr
-  | TwoOperands (OprReg r, OprImm imm)  when isReg8 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _))  when isReg8 r ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0xC0uy |] r regConstr imm 8<rt>
-  | TwoOperands (Label _, OprImm imm) ->
+  | TwoOperands (Label _, OprImm (imm, _)) ->
     encLI ctxt ins regConstr imm 8<rt> [| 0xC0uy |] [| 0xC1uy |]
-  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0xC0uy |] b s d regConstr imm 8<rt>
-  | TwoOperands (OprReg r, OprImm (1L as imm)) when isReg16 r ->
+  | TwoOperands (OprReg r, OprImm (1L as imm, _)) when isReg16 r ->
     encRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0xD1uy |] r regConstr imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm (1L as imm)) ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm (1L as imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0xD1uy |] b s d regConstr imm 8<rt>
   | TwoOperands (OprReg r, OprReg Register.CL) when isReg16 r ->
@@ -2314,16 +2314,16 @@ let rotateOrShift (ctxt: EncContext) ins regConstr =
   | TwoOperands (OprMem (b, s, d, 16<rt>), OprReg Register.CL) ->
     encMC ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0xD3uy |] b s d regConstr
-  | TwoOperands (OprReg r, OprImm imm)  when isReg16 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _))  when isReg16 r ->
     encRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0xC1uy |] r regConstr imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0xC1uy |] b s d regConstr imm 8<rt>
-  | TwoOperands (OprReg r, OprImm (1L as imm)) when isReg32 r ->
+  | TwoOperands (OprReg r, OprImm (1L as imm, _)) when isReg32 r ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0xD1uy |] r regConstr imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm (1L as imm)) ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm (1L as imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0xD1uy |] b s d regConstr imm 8<rt>
   | TwoOperands (OprReg r, OprReg Register.CL) when isReg32 r ->
@@ -2332,17 +2332,17 @@ let rotateOrShift (ctxt: EncContext) ins regConstr =
   | TwoOperands (OprMem (b, s, d, 32<rt>), OprReg Register.CL) ->
     encMC ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0xD3uy |] b s d regConstr
-  | TwoOperands (OprReg r, OprImm imm)  when isReg32 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _))  when isReg32 r ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0xC1uy |] r regConstr imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0xC1uy |] b s d regConstr imm 8<rt>
-  | TwoOperands (OprReg r, OprImm (1L as imm)) when isReg64 r ->
+  | TwoOperands (OprReg r, OprImm (1L as imm, _)) when isReg64 r ->
     no32Arch ctxt.Arch
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0xD1uy |] r regConstr imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (1L as imm)) ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (1L as imm, _)) ->
     no32Arch ctxt.Arch
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0xD1uy |] b s d regConstr imm 8<rt>
@@ -2354,11 +2354,11 @@ let rotateOrShift (ctxt: EncContext) ins regConstr =
     no32Arch ctxt.Arch
     encMC ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0xD3uy |] b s d regConstr
-  | TwoOperands (OprReg r, OprImm imm)  when isReg64 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _))  when isReg64 r ->
     no32Arch ctxt.Arch
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0xC1uy |] r regConstr imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) ->
     no32Arch ctxt.Arch
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0xC1uy |] b s d regConstr imm 8<rt>
@@ -2375,7 +2375,7 @@ let ret (ctxt: EncContext) ins =
   | OneOperand (OprDirAddr (Relative rel)) -> // FIXME
     encD ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0xC2uy |] rel 16<rt>
-  | OneOperand (OprImm imm) ->
+  | OneOperand (OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0xC2uy |] imm 16<rt>
   | o -> printfn "%A" o; raise NotEncodableException
@@ -2391,70 +2391,70 @@ let sahf (ctxt: EncContext) = function
 let sbb (ctxt: EncContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm (Priority 1) *)
-  | TwoOperands (OprReg Register.AL, OprImm imm) ->
+  | TwoOperands (OprReg Register.AL, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x1Cuy |] imm 8<rt>
-  | TwoOperands (OprReg Register.AX, OprImm imm) ->
+  | TwoOperands (OprReg Register.AX, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x1Duy |] imm 16<rt>
-  | TwoOperands (OprReg Register.EAX, OprImm imm) ->
+  | TwoOperands (OprReg Register.EAX, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x1Duy |] imm 32<rt>
-  | TwoOperands (OprReg Register.RAX, OprImm imm) ->
+  | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
     no32Arch ctxt.Arch
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x1Duy |] imm 32<rt>
   (* Reg - Imm (Priority 0) *)
-  | TwoOperands (OprReg r, OprImm imm) when isReg16 r && isInt8 imm ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg16 r && isInt8 imm ->
     encRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x83uy |] r 0b011uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg32 r && isInt8 imm ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg32 r && isInt8 imm ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x83uy |] r 0b011uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg64 r && isInt8 imm ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 r && isInt8 imm ->
     no32Arch ctxt.Arch
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x83uy |] r 0b011uy imm 8<rt>
   (* Mem - Imm (Priority 0) *)
-  | TwoOperands (Label _, OprImm imm) when isInt8 imm ->
+  | TwoOperands (Label _, OprImm (imm, _)) when isInt8 imm ->
     encLI ctxt ins 0b011uy imm 8<rt> [||] [| 0x83uy |]
-  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) when isInt8 imm ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm (imm, _)) when isInt8 imm ->
     encMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x83uy |] b s d 0b011uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm imm) when isInt8 imm ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm (imm, _)) when isInt8 imm ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x83uy |] b s d 0b011uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm imm) when isInt8 imm ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) when isInt8 imm ->
     no32Arch ctxt.Arch
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x83uy |] b s d 0b011uy imm 8<rt>
   (* Reg - Imm (Priority 1) *)
-  | TwoOperands (OprReg r, OprImm imm) when isReg8 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg8 r ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x80uy |] r 0b011uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg16 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg16 r ->
     encRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x81uy |] r 0b011uy imm 16<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg32 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg32 r ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x81uy |] r 0b011uy imm 32<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg64 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 r ->
     no32Arch ctxt.Arch
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x81uy |] r 0b011uy imm 32<rt>
   (* Mem - Imm (Priority 1) *)
-  | TwoOperands (Label _, OprImm imm) ->
+  | TwoOperands (Label _, OprImm (imm, _)) ->
     encLI ctxt ins 0b011uy imm 32<rt> [| 0x80uy |] [| 0x81uy |] // FIXME
-  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x80uy |] b s d 0b011uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x81uy |] b s d 0b011uy imm 16<rt>
-  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x81uy |] b s d 0b011uy imm 32<rt>
-  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) ->
     no32Arch ctxt.Arch;
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x81uy |] b s d 0b011uy imm 32<rt>
@@ -2564,11 +2564,11 @@ let setz ctxt ins = setcc ctxt ins 0x94uy
 
 let shld (ctxt: EncContext) ins =
   match ins.Operands with
-  | ThreeOperands (OprReg r1, OprReg r2, OprImm imm)
+  | ThreeOperands (OprReg r1, OprReg r2, OprImm (imm, _))
     when isReg16 r1 && isReg16 r2 ->
     encRRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x0Fuy; 0xA4uy |] r1 r2 imm 8<rt>
-  | ThreeOperands (OprMem (b, s, d, 16<rt>), OprReg r, OprImm imm)
+  | ThreeOperands (OprMem (b, s, d, 16<rt>), OprReg r, OprImm (imm, _))
     when isReg16 r ->
     encMRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x0Fuy; 0xA4uy |] b s d r imm 8<rt>
@@ -2580,11 +2580,11 @@ let shld (ctxt: EncContext) ins =
     when isReg16 r ->
     encMR ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x0Fuy; 0xA5uy |] b s d r
-  | ThreeOperands (OprReg r1, OprReg r2, OprImm imm)
+  | ThreeOperands (OprReg r1, OprReg r2, OprImm (imm, _))
     when isReg32 r1 && isReg32 r2 ->
     encRRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexMR [| 0x0Fuy; 0xA4uy |] r2 r1 imm 8<rt>
-  | ThreeOperands (OprMem (b, s, d, 32<rt>), OprReg r, OprImm imm)
+  | ThreeOperands (OprMem (b, s, d, 32<rt>), OprReg r, OprImm (imm, _))
     when isReg32 r ->
     encMRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x0Fuy; 0xA4uy |] b s d r imm 8<rt>
@@ -2596,12 +2596,12 @@ let shld (ctxt: EncContext) ins =
     when isReg32 r ->
     encMR ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x0Fuy; 0xA5uy |] b s d r
-  | ThreeOperands (OprReg r1, OprReg r2, OprImm imm)
+  | ThreeOperands (OprReg r1, OprReg r2, OprImm (imm, _))
     when isReg64 r1 && isReg64 r2 ->
     no32Arch ctxt.Arch
     encRRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x0Fuy; 0xA4uy |] r1 r2 imm 8<rt>
-  | ThreeOperands (OprMem (b, s, d, 64<rt>), OprReg r, OprImm imm)
+  | ThreeOperands (OprMem (b, s, d, 64<rt>), OprReg r, OprImm (imm, _))
     when isReg64 r ->
     no32Arch ctxt.Arch
     encMRI ins ctxt.Arch
@@ -2650,70 +2650,70 @@ let stosw (ctxt: EncContext) ins =
 let sub (ctxt: EncContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm (Priority 1) *)
-  | TwoOperands (OprReg Register.AL, OprImm imm) ->
+  | TwoOperands (OprReg Register.AL, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x2Cuy |] imm 8<rt>
-  | TwoOperands (OprReg Register.AX, OprImm imm) ->
+  | TwoOperands (OprReg Register.AX, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x2Duy |] imm 16<rt>
-  | TwoOperands (OprReg Register.EAX, OprImm imm) ->
+  | TwoOperands (OprReg Register.EAX, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x2Duy |] imm 32<rt>
-  | TwoOperands (OprReg Register.RAX, OprImm imm) ->
+  | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
     no32Arch ctxt.Arch
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x2Duy |] imm 32<rt>
   (* Reg - Imm (Priority 0) *)
-  | TwoOperands (OprReg r, OprImm imm) when isReg16 r && isInt8 imm ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg16 r && isInt8 imm ->
     encRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x83uy |] r 0b101uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg32 r && isInt8 imm ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg32 r && isInt8 imm ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x83uy |] r 0b101uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg64 r && isInt8 imm ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 r && isInt8 imm ->
     no32Arch ctxt.Arch
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x83uy |] r 0b101uy imm 8<rt>
   (* Mem - Imm (Priority 0) *)
-  | TwoOperands (Label _, OprImm imm) when isInt8 imm ->
+  | TwoOperands (Label _, OprImm (imm, _)) when isInt8 imm ->
     encLI ctxt ins 0b101uy imm 8<rt> [||] [| 0x83uy |]
-  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) when isInt8 imm ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm (imm, _)) when isInt8 imm ->
     encMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x83uy |] b s d 0b101uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm imm) when isInt8 imm ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm (imm, _)) when isInt8 imm ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x83uy |] b s d 0b101uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm imm) when isInt8 imm ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) when isInt8 imm ->
     no32Arch ctxt.Arch
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x83uy |] b s d 0b101uy imm 8<rt>
   (* Reg - Imm (Priority 1) *)
-  | TwoOperands (OprReg r, OprImm imm) when isReg8 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg8 r ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x80uy |] r 0b101uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg16 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg16 r ->
     encRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x81uy |] r 0b101uy imm 16<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg32 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg32 r ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x81uy |] r 0b101uy imm 32<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg64 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 r ->
     no32Arch ctxt.Arch
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x81uy |] r 0b101uy imm 32<rt>
   (* Mem - Imm (Priority 1) *)
-  | TwoOperands (Label _, OprImm imm) ->
+  | TwoOperands (Label _, OprImm (imm, _)) ->
      encLI ctxt ins 0b101uy imm 32<rt> [| 0x80uy |] [| 0x81uy |] // FIXME
-  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x80uy |] b s d 0b101uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x81uy |] b s d 0b101uy imm 16<rt>
-  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x81uy |] b s d 0b101uy imm 32<rt>
-  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) ->
     no32Arch ctxt.Arch;
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x81uy |] b s d 0b011uy imm 32<rt>
@@ -2788,46 +2788,46 @@ let subss (ctxt: EncContext) ins =
 let test (ctxt: EncContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm *)
-  | TwoOperands (OprReg Register.AL, OprImm imm) ->
+  | TwoOperands (OprReg Register.AL, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0xA8uy |] imm 8<rt>
-  | TwoOperands (OprReg Register.AX, OprImm imm) ->
+  | TwoOperands (OprReg Register.AX, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0xA9uy |] imm 16<rt>
-  | TwoOperands (OprReg Register.EAX, OprImm imm) ->
+  | TwoOperands (OprReg Register.EAX, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0xA9uy |] imm 32<rt>
-  | TwoOperands (OprReg Register.RAX, OprImm imm) ->
+  | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
     no32Arch ctxt.Arch
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0xA9uy |] imm 32<rt>
   (* Reg - Imm *)
-  | TwoOperands (OprReg r, OprImm imm) when isReg8 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg8 r ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0xF6uy |] r 0b000uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg16 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg16 r ->
     encRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0xF7uy |] r 0b000uy imm 16<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg32 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg32 r ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0xF7uy |] r 0b000uy imm 32<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg64 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 r ->
     no32Arch ctxt.Arch
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0xF7uy |] r 0b000uy imm 32<rt>
   (* Mem - Imm *)
-  | TwoOperands (Label _, OprImm imm) ->
+  | TwoOperands (Label _, OprImm (imm, _)) ->
     encLI ctxt ins 0b000uy imm 32<rt> [| 0xF6uy |] [| 0xF7uy |] // FIXME
-  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0xF6uy |] b s d 0b000uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0xF7uy |] b s d 0b000uy imm 16<rt>
-  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0xF7uy |] b s d 0b000uy imm 32<rt>
-  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) ->
     no32Arch ctxt.Arch;
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0xF7uy |] b s d 0b000uy imm 32<rt>
@@ -2928,20 +2928,20 @@ let vaddss (ctxt: EncContext) ins =
 let vpalignr (ctxt: EncContext) ins =
   match ins.Operands with
   (* Reg - Reg - Reg - Imm8 *)
-  | FourOperands (OprReg r1, OprReg r2, OprReg r3, OprImm imm)
+  | FourOperands (OprReg r1, OprReg r2, OprReg r3, OprImm (imm, _))
     when isXMMReg r1 && isXMMReg r2 && isXMMReg r3 ->
     encVexRRRI ins ctxt.Arch
       (Some r2) ctxt.VEX128n66n0F3A [| 0x0Fuy |] r1 r3 imm 8<rt>
-  | FourOperands (OprReg r1, OprReg r2, OprReg r3, OprImm imm)
+  | FourOperands (OprReg r1, OprReg r2, OprReg r3, OprImm (imm, _))
     when isYMMReg r1 && isYMMReg r2 && isYMMReg r3 ->
     encVexRRRI ins ctxt.Arch
       (Some r2) ctxt.VEX256n66n0F3A [| 0x0Fuy |] r1 r3 imm 8<rt>
   (* Reg - Reg - Mem - Imm8 *)
-  | FourOperands (OprReg r1, OprReg r2, OprMem (b, s, d, 128<rt>), OprImm imm)
+  | FourOperands (OprReg r1, OprReg r2, OprMem (b, s, d, 128<rt>), OprImm (imm, _))
     when isXMMReg r1 && isXMMReg r2 ->
     encVexRRMI ins ctxt.Arch
       (Some r2) ctxt.VEX128n66n0F3A [| 0x0Fuy |] r1 b s d imm 8<rt>
-  | FourOperands (OprReg r1, OprReg r2, OprMem (b, s, d, 256<rt>), OprImm imm)
+  | FourOperands (OprReg r1, OprReg r2, OprMem (b, s, d, 256<rt>), OprImm (imm, _))
     when isYMMReg r1 && isYMMReg r2 ->
     encVexRRMI ins ctxt.Arch
       (Some r2) ctxt.VEX256n66n0F3A [| 0x0Fuy |] r1 b s d imm 8<rt>
@@ -2967,66 +2967,66 @@ let xchg (ctxt: EncContext) ins =
 let xor (ctxt: EncContext) ins =
   match ins.Operands with
   (* Reg (fixed) - Imm (Priority 1). *)
-  | TwoOperands (OprReg Register.AL, OprImm imm) ->
+  | TwoOperands (OprReg Register.AL, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x34uy |] imm 8<rt>
-  | TwoOperands (OprReg Register.AX, OprImm imm) ->
+  | TwoOperands (OprReg Register.AX, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x35uy |] imm 16<rt>
-  | TwoOperands (OprReg Register.EAX, OprImm imm) ->
+  | TwoOperands (OprReg Register.EAX, OprImm (imm, _)) ->
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x35uy |] imm 32<rt>
-  | TwoOperands (OprReg Register.RAX, OprImm imm) ->
+  | TwoOperands (OprReg Register.RAX, OprImm (imm, _)) ->
     no32Arch ctxt.Arch
     encI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x35uy |] imm 32<rt>
   (* Reg - Imm (Priority 0) *)
-  | TwoOperands (OprReg r, OprImm imm) when isReg16 r && isInt8 imm ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg16 r && isInt8 imm ->
     encRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x83uy |] r 0b110uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg32 r && isInt8 imm ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg32 r && isInt8 imm ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x83uy |] r 0b110uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg64 r && isInt8 imm ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 r && isInt8 imm ->
     no32Arch ctxt.Arch
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x83uy |] r 0b110uy imm 8<rt>
   (* Mem - Imm (Priority 0) *)
-  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) when isInt8 imm ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm (imm, _)) when isInt8 imm ->
     encMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x83uy |] b s d 0b110uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm imm) when isInt8 imm ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm (imm, _)) when isInt8 imm ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x83uy |] b s d 0b110uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm imm) when isInt8 imm ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) when isInt8 imm ->
     no32Arch ctxt.Arch
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x83uy |] b s d 0b110uy imm 8<rt>
   (* Reg - Imm (Priority 1) *)
-  | TwoOperands (OprReg r, OprImm imm) when isReg8 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg8 r ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x80uy |] r 0b110uy imm 8<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg16 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg16 r ->
     encRI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x81uy |] r 0b110uy imm 16<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg32 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg32 r ->
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x81uy |] r 0b110uy imm 32<rt>
-  | TwoOperands (OprReg r, OprImm imm) when isReg64 r ->
+  | TwoOperands (OprReg r, OprImm (imm, _)) when isReg64 r ->
     no32Arch ctxt.Arch
     encRI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x81uy |] r 0b110uy imm 32<rt>
   (* Mem - Imm (Priority 1) *)
-  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 8<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x80uy |] b s d 0b110uy imm 8<rt>
-  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 16<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.Pref66 ctxt.RexNormal [| 0x81uy |] b s d 0b110uy imm 16<rt>
-  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 32<rt>), OprImm (imm, _)) ->
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x81uy |] b s d 0b110uy imm 32<rt>
-  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm imm) ->
+  | TwoOperands (OprMem (b, s, d, 64<rt>), OprImm (imm, _)) ->
     no32Arch ctxt.Arch;
     encMI ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x81uy |] b s d 0b110uy imm 32<rt>

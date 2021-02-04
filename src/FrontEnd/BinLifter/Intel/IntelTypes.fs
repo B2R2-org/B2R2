@@ -185,10 +185,18 @@ and OperandSize = RegType
 /// We define four different types of X86 operands:
 /// register, memory, direct address, and immediate.
 type Operand =
+  /// A register operand.
   | OprReg of Register
+  /// OprMem represents a memory operand. The OperandSize here means the memory
+  /// access size of the operand, i.e., how many bytes do we read/write here.
   | OprMem of Register option * ScaledIndex option * Disp option * OperandSize
+  /// OprDirAddr is a direct branch target address.
   | OprDirAddr of JumpTarget
-  | OprImm of int64
+  /// OprImm represents an immediate operand. The OperandSize here means the
+  /// size of the encoded immediate value.
+  | OprImm of int64 * OperandSize
+  /// Label is *not* encoded in the actual binary. This is only used when we
+  /// assemble binaries.
   | Label of string * RegType
 /// Displacement.
 and Disp = int64
@@ -283,7 +291,6 @@ type MPref =
   | MPrx66F2 = 4
 
 /// Basic information obtained by parsing an Intel instruction.
-[<NoComparison; CustomEquality>]
 type InsInfo = {
   /// Prefixes.
   Prefixes: Prefix
@@ -295,30 +302,21 @@ type InsInfo = {
   Opcode: Opcode
   /// Operands.
   Operands: Operands
-  /// Instruction size information.
-  InsSize: InstrSize
+  /// Size of the main operation performed by the instruction. This field is
+  /// mainly used by our lifter, and we suggest not to use this field for
+  /// analyzing binaries because there is some ambiguity in deciding the
+  /// operation size when the instruction semantics are complex. We use this
+  /// only for the purpose of optimizing the lifting process.
+  MainOperationSize: RegType
+  /// Size of the memory pointer in the instruction, i.e., how many bytes are
+  /// required to represent a memory address. This field may hold a dummy value
+  /// if there's no memory operand. This is mainly used for the lifting purpose
+  /// along with the MainOperationSize.
+  PointerSize: RegType
 #if LCACHE
   /// Instruction hash.
   InsHash: uint64
 #endif
 }
-with
-  override __.GetHashCode () =
-    hash (__.Prefixes,
-          __.REXPrefix,
-          __.VEXInfo,
-          __.Opcode,
-          __.Operands,
-          __.InsSize)
-  override __.Equals (i) =
-    match i with
-    | :? InsInfo as i ->
-      i.Prefixes = __.Prefixes
-      && i.REXPrefix = __.REXPrefix
-      && i.VEXInfo = __.VEXInfo
-      && i.Opcode = __.Opcode
-      && i.Operands = __.Operands
-      && i.InsSize = __.InsSize
-    | _ -> false
 
 // vim: set tw=80 sts=2 sw=2:

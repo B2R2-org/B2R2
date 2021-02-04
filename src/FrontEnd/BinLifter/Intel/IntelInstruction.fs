@@ -148,7 +148,7 @@ type IntelInstruction (addr, len, insInfo, wordSz) =
   override __.InterruptNum (num: byref<int64>) =
     if __.Info.Opcode = Opcode.INT then
       match __.Info.Operands with
-      | OneOperand (OprImm n) ->
+      | OneOperand (OprImm (n, _)) ->
         num <- n
         true
       | _ -> false

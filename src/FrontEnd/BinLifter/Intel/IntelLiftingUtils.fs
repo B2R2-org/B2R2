@@ -74,9 +74,9 @@ let inline tmpVars3 t =
 let inline tmpVars4 t =
   struct (AST.tmpvar t, AST.tmpvar t, AST.tmpvar t, AST.tmpvar t)
 
-let inline getOperationSize (i: InsInfo) = i.InsSize.OperationSize
+let inline getOperationSize (i: InsInfo) = i.MainOperationSize
 
-let inline getEffAddrSz (i: InsInfo) = i.InsSize.MemEffAddrSize
+let inline getEffAddrSz (i: InsInfo) = i.PointerSize
 
 let private getMemExpr128 expr =
   match expr with
@@ -221,7 +221,7 @@ let transOprToExpr ins insLen ctxt = function
   | OprReg reg -> !.ctxt reg
   | OprMem (b, index, disp, oprSize) ->
     transMem ins insLen ctxt b index disp oprSize
-  | OprImm imm -> numI64 imm (getOperationSize ins)
+  | OprImm (imm, _) -> numI64 imm (getOperationSize ins)
   | OprDirAddr (Relative offset) -> numI64 offset ctxt.WordBitSize
   | OprDirAddr (Absolute (_, addr, _)) -> numU64 addr ctxt.WordBitSize
   | _ -> Utils.impossible ()
@@ -231,7 +231,7 @@ let transOprToExprVec ins insLen ctxt opr =
   | OprReg r -> getPseudoRegVars ctxt r
   | OprMem (b, index, disp, oprSize) ->
     transMem ins insLen ctxt b index disp oprSize |> getMemExprs
-  | OprImm imm -> [ numI64 imm (getOperationSize ins) ]
+  | OprImm (imm, _) -> [ numI64 imm (getOperationSize ins) ]
   | _ -> raise InvalidOperandException
 
 let transOprToExpr32 ins insLen ctxt opr =

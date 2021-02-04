@@ -55,7 +55,7 @@ let checkStackAdjustFromIns ess acc (ins: Instruction) =
       match ins.Info.Opcode with
       | Opcode.RETNearImm ->
         match ins.Info.Operands with
-        | OneOperand (OprImm n) -> uint64 n
+        | OneOperand (OprImm (n, _)) -> uint64 n
         | _ -> acc
       | _ -> acc
     else acc

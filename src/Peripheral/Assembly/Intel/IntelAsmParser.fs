@@ -181,7 +181,9 @@ type IntelAsmParser (isa, baseAddr: Addr) =
   let pOprDirAddr opc =
     check opc Helper.isBranch >>. pJumpTarget |>> OprDirAddr
 
-  let pOprImm = pImm |>> OprImm
+  (* We just put dummy regsize here, as immediates will be replaced according to
+     the decoding rules anyways. *)
+  let pOprImm = pImm |>> fun i -> OprImm (i, 32<rt>)
 
   let pSizedLabel sz =
     let sz = Option.defaultValue defaultRegType sz

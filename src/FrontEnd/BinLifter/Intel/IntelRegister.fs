@@ -37,344 +37,345 @@ exception UnknownRegException
 /// <summary>
 /// Registers for x86 (and x86-64).<para/>
 ///
-/// Internally, a Register is represented with an integer (we use only 12 bits).
-/// The most significant 4 bits (from 8th to 11th bits) represent the register
+/// Internally, a Register is represented with an integer (we use only 22 bits).
+/// The most significant 10 bits (from 12th to 21th bits) represent the size of
+/// the register. The next 4 bits (from 8th to 11th bits) represent the register
 /// kind, and the reset of 8 bits are used to represent a register ID. There are
 /// currently 13 kinds of registers including GP, FPU, MMX, etc. <para/>
 /// <code>
-/// 11 10 09 08 07 06 05 04 03 02 01 00 (bit position)
-/// +----------+----------------------+
-/// | Kind     |  Register ID.        |
-/// +----------+----------------------+
+/// 21 ... 13 12 11 10 09 08 07 06 05 04 03 02 01 00 (bit position)
+/// +------------+----------+----------------------+
+/// |  Size      | Kind     |  Register ID.        |
+/// +------------+----------+----------------------+
 /// </code>
 /// </summary>
 type Register =
   /// Accumulator for operands and results data (64bit).
-  | RAX = 0x0
+  | RAX = 0x40000
   /// TCounter for string and loop operations (64bit).
-  | RCX = 0x1
+  | RCX = 0x40001
   /// I/O pointer (64bit).
-  | RDX = 0x2
+  | RDX = 0x40002
   /// Pointer to data in the DS segment (64bit).
-  | RBX = 0x3
+  | RBX = 0x40003
   /// Stack pointer (in the SS segment) (64bit).
-  | RSP = 0x4
+  | RSP = 0x40004
   /// Pointer to data on the stack (in the SS segment) (64bit).
-  | RBP = 0x5
+  | RBP = 0x40005
   /// Pointer to data in the segment pointed to by the DS register (64bit).
-  | RSI = 0x6
+  | RSI = 0x40006
   /// Pointer to data in the segment pointed to by the ES register (64bit).
-  | RDI = 0x7
+  | RDI = 0x40007
   /// General-Purpose Registers for 64bit Mode.
-  | R8 = 0x8
+  | R8 = 0x40008
   /// General-Purpose Registers for 64bit Mode.
-  | R9 = 0x9
+  | R9 = 0x40009
   /// General-Purpose Registers for 64bit Mode.
-  | R10 = 0xA
+  | R10 = 0x4000A
   /// General-Purpose Registers for 64bit Mode.
-  | R11 = 0xB
+  | R11 = 0x4000B
   /// General-Purpose Registers for 64bit Mode.
-  | R12 = 0xC
+  | R12 = 0x4000C
   /// General-Purpose Registers for 64bit Mode.
-  | R13 = 0xD
+  | R13 = 0x4000D
   /// General-Purpose Registers for 64bit Mode.
-  | R14 = 0xE
+  | R14 = 0x4000E
   /// General-Purpose Registers for 64bit Mode.
-  | R15 = 0xF
+  | R15 = 0x4000F
   /// Accumulator for operands and results data (32bit).
-  | EAX = 0x10
+  | EAX = 0x20010
   /// TCounter for string and loop operations (32bit).
-  | ECX = 0x11
+  | ECX = 0x20011
   /// I/O pointer (32bit).
-  | EDX = 0x12
+  | EDX = 0x20012
   /// Pointer to data in the DS segment (32bit).
-  | EBX = 0x13
+  | EBX = 0x20013
   /// Stack pointer (in the SS segment) (32bit).
-  | ESP = 0x14
+  | ESP = 0x20014
   /// Pointer to data on the stack (in the SS segment) (32bit).
-  | EBP = 0x15
+  | EBP = 0x20015
   /// Pointer to data in the segment pointed to by the DS register (32bit).
-  | ESI = 0x16
+  | ESI = 0x20016
   /// Pointer to data in the segment pointed to by the ES register (32bit).
-  | EDI = 0x17
+  | EDI = 0x20017
   /// General-Purpose Registers for 64bit Mode (Doubleword Register).
-  | R8D = 0x18
+  | R8D = 0x20018
   /// General-Purpose Registers for 64bit Mode (Doubleword Register).
-  | R9D = 0x19
+  | R9D = 0x20019
   /// General-Purpose Registers for 64bit Mode (Doubleword Register).
-  | R10D = 0x1A
+  | R10D = 0x2001A
   /// General-Purpose Registers for 64bit Mode (Doubleword Register).
-  | R11D = 0x1B
+  | R11D = 0x2001B
   /// General-Purpose Registers for 64bit Mode (Doubleword Register).
-  | R12D = 0x1C
+  | R12D = 0x2001C
   /// General-Purpose Registers for 64bit Mode (Doubleword Register).
-  | R13D = 0x1D
+  | R13D = 0x2001D
   /// General-Purpose Registers for 64bit Mode (Doubleword Register).
-  | R14D = 0x1E
+  | R14D = 0x2001E
   /// General-Purpose Registers for 64bit Mode (Doubleword Register).
-  | R15D = 0x1F
+  | R15D = 0x2001F
   /// General-Purpose Registers (lower 16bits EAX).
-  | AX = 0x20
+  | AX = 0x10020
   /// General-Purpose Registers (lower 16bits ECX).
-  | CX = 0x21
+  | CX = 0x10021
   /// General-Purpose Registers (lower 16bits EDX).
-  | DX = 0x22
+  | DX = 0x10022
   /// General-Purpose Registers (lower 16bits EBX).
-  | BX = 0x23
+  | BX = 0x10023
   /// General-Purpose Registers (lower 16bits ESP).
-  | SP = 0x24
+  | SP = 0x10024
   /// General-Purpose Registers (lower 16bits EBP).
-  | BP = 0x25
+  | BP = 0x10025
   /// General-Purpose Registers (lower 16bits ESI).
-  | SI = 0x26
+  | SI = 0x10026
   /// General-Purpose Registers (lower 16bits EDI).
-  | DI = 0x27
+  | DI = 0x10027
   /// General-Purpose Registers for 64bit Mode (Word Register).
-  | R8W = 0x28
+  | R8W = 0x10028
   /// General-Purpose Registers for 64bit Mode (Word Register).
-  | R9W = 0x29
+  | R9W = 0x10029
   /// General-Purpose Registers for 64bit Mode (Word Register).
-  | R10W = 0x2A
+  | R10W = 0x1002A
   /// General-Purpose Registers for 64bit Mode (Word Register).
-  | R11W = 0x2B
+  | R11W = 0x1002B
   /// General-Purpose Registers for 64bit Mode (Word Register).
-  | R12W = 0x2C
+  | R12W = 0x1002C
   /// General-Purpose Registers for 64bit Mode (Word Register).
-  | R13W = 0x2D
+  | R13W = 0x1002D
   /// General-Purpose Registers for 64bit Mode (Word Register).
-  | R14W = 0x2E
+  | R14W = 0x1002E
   /// General-Purpose Registers for 64bit Mode (Word Register).
-  | R15W = 0x2F
+  | R15W = 0x1002F
   /// General-Purpose Registers (lower 8bits AX).
-  | AL = 0x30
+  | AL = 0x8030
   /// General-Purpose Registers (lower 8bits CX).
-  | CL = 0x31
+  | CL = 0x8031
   /// General-Purpose Registers (lower 8bits DX).
-  | DL = 0x32
+  | DL = 0x8032
   /// General-Purpose Registers (lower 8bits BX).
-  | BL = 0x33
+  | BL = 0x8033
   /// General-Purpose Registers (Higher 8bits AX).
-  | AH = 0x34
+  | AH = 0x8034
   /// General-Purpose Registers (Higher 8bits CX).
-  | CH = 0x35
+  | CH = 0x8035
   /// General-Purpose Registers (Higher 8bits DX).
-  | DH = 0x36
+  | DH = 0x8036
   /// General-Purpose Registers (Higher 8bits BX).
-  | BH = 0x37
+  | BH = 0x8037
   /// General-Purpose Registers for 64bit Mode (Byte Register).
-  | R8L = 0x38
+  | R8L = 0x8038
   /// General-Purpose Registers for 64bit Mode (Byte Register).
-  | R9L = 0x39
+  | R9L = 0x8039
   /// General-Purpose Registers for 64bit Mode (Byte Register).
-  | R10L = 0x3A
+  | R10L = 0x803A
   /// General-Purpose Registers for 64bit Mode (Byte Register).
-  | R11L = 0x3B
+  | R11L = 0x803B
   /// General-Purpose Registers for 64bit Mode (Byte Register).
-  | R12L = 0x3C
+  | R12L = 0x803C
   /// General-Purpose Registers for 64bit Mode (Byte Register).
-  | R13L = 0x3D
+  | R13L = 0x803D
   /// General-Purpose Registers for 64bit Mode (Byte Register).
-  | R14L = 0x3E
+  | R14L = 0x803E
   /// General-Purpose Registers for 64bit Mode (Byte Register).
-  | R15L = 0x3F
+  | R15L = 0x803F
   /// General-Purpose Registers for 64bit Mode (Byte Register).
-  | SPL = 0x40
+  | SPL = 0x8040
   /// General-Purpose Registers for 64bit Mode (Byte Register).
-  | BPL = 0x41
+  | BPL = 0x8041
   /// General-Purpose Registers for 64bit Mode (Byte Register).
-  | SIL = 0x42
+  | SIL = 0x8042
   /// General-Purpose Registers for 64bit Mode (Byte Register).
-  | DIL = 0x43
+  | DIL = 0x8043
   /// Instruction Pointer (32Bit).
-  | EIP = 0x44
+  | EIP = 0x20044
   /// Instruction Pointer (64Bit).
-  | RIP = 0x45
+  | RIP = 0x40045
   /// x87 FPU registers.
-  | ST0 = 0x100
+  | ST0 = 0x50100
   /// x87 FPU registers.
-  | ST1 = 0x101
+  | ST1 = 0x50101
   /// x87 FPU registers.
-  | ST2 = 0x102
+  | ST2 = 0x50102
   /// x87 FPU registers.
-  | ST3 = 0x103
+  | ST3 = 0x50103
   /// x87 FPU registers.
-  | ST4 = 0x104
+  | ST4 = 0x50104
   /// x87 FPU registers.
-  | ST5 = 0x105
+  | ST5 = 0x50105
   /// x87 FPU registers.
-  | ST6 = 0x106
+  | ST6 = 0x50106
   /// x87 FPU registers.
-  | ST7 = 0x107
+  | ST7 = 0x50107
   /// C87 FPU Control Word.
-  | FCW = 0x108
+  | FCW = 0x10108
   /// x87 FPU Status Word.
-  | FSW = 0x109
+  | FSW = 0x10109
   /// x87 FPU Tag Word.
-  | FTW = 0x10A
+  | FTW = 0x1010A
   /// x87 FPU Opcode.
-  | FOP = 0x10B
+  | FOP = 0x1010B
   /// x87 FPU Instruction Pointer Offset.
-  | FIP = 0x10C
+  | FIP = 0x4010C
   /// x87 FPU Instruction Pointer Selector.
-  | FCS = 0x10D
+  | FCS = 0x1010D
   /// x87 FPU Data Pointer Offset.
-  | FDP = 0x10E
+  | FDP = 0x4010E
   /// x87 FPU Data Pointer Selector.
-  | FDS = 0x10F
+  | FDS = 0x1010F
   /// x87 FPU Top indicator bits of Status Word.
-  | FTOP = 0x110
+  | FTOP = 0x2110
   /// x87 FPU Tag word section.
-  | FTW0 = 0x111
+  | FTW0 = 0x2111
   /// x87 FPU Tag word section.
-  | FTW1 = 0x112
+  | FTW1 = 0x2112
   /// x87 FPU Tag word section.
-  | FTW2 = 0x113
+  | FTW2 = 0x2113
   /// x87 FPU Tag word section.
-  | FTW3 = 0x114
+  | FTW3 = 0x2114
   /// x87 FPU Tag word section.
-  | FTW4 = 0x115
+  | FTW4 = 0x2115
   /// x87 FPU Tag word section.
-  | FTW5 = 0x116
+  | FTW5 = 0x2116
   /// x87 FPU Tag word section.
-  | FTW6 = 0x117
+  | FTW6 = 0x2117
   /// x87 FPU Tag word section.
-  | FTW7 = 0x118
+  | FTW7 = 0x2118
   /// x87 FPU Status Word C flag.
-  | FSWC0 = 0x119
+  | FSWC0 = 0x10119
   /// x87 FPU Status Word C flag.
-  | FSWC1 = 0x11A
+  | FSWC1 = 0x411A
   /// x87 FPU Status Word C flag.
-  | FSWC2 = 0x11B
+  | FSWC2 = 0x411B
   /// x87 FPU Status Word C flag.
-  | FSWC3 = 0x11C
+  | FSWC3 = 0x411C
   /// MXCSR Control and Status Register.
-  | MXCSR = 0x11D
+  | MXCSR = 0x20411D
   /// MXCSR_MASK.
-  | MXCSRMASK = 0x11E
+  | MXCSRMASK = 0x2011E
   /// MMX registers.
-  | MM0 = 0x200
+  | MM0 = 0x40200
   /// MMX registers.
-  | MM1 = 0x201
+  | MM1 = 0x40201
   /// MMX registers.
-  | MM2 = 0x202
+  | MM2 = 0x40202
   /// MMX registers.
-  | MM3 = 0x203
+  | MM3 = 0x40203
   /// MMX registers.
-  | MM4 = 0x204
+  | MM4 = 0x40204
   /// MMX registers.
-  | MM5 = 0x205
+  | MM5 = 0x40205
   /// MMX registers.
-  | MM6 = 0x206
+  | MM6 = 0x40206
   /// MMX registers.
-  | MM7 = 0x207
+  | MM7 = 0x40207
   /// XMM registers.
-  | XMM0 = 0x300
+  | XMM0 = 0x80300
   /// XMM registers.
-  | XMM1 = 0x301
+  | XMM1 = 0x80301
   /// XMM registers.
-  | XMM2 = 0x302
+  | XMM2 = 0x80302
   /// XMM registers.
-  | XMM3 = 0x303
+  | XMM3 = 0x80303
   /// XMM registers.
-  | XMM4 = 0x304
+  | XMM4 = 0x80304
   /// XMM registers.
-  | XMM5 = 0x305
+  | XMM5 = 0x80305
   /// XMM registers.
-  | XMM6 = 0x306
+  | XMM6 = 0x80306
   /// XMM registers.
-  | XMM7 = 0x307
+  | XMM7 = 0x80307
   /// XMM registers.
-  | XMM8 = 0x308
+  | XMM8 = 0x80308
   /// XMM registers.
-  | XMM9 = 0x309
+  | XMM9 = 0x80309
   /// XMM registers.
-  | XMM10 = 0x30A
+  | XMM10 = 0x8030A
   /// XMM registers.
-  | XMM11 = 0x30B
+  | XMM11 = 0x8030B
   /// XMM registers.
-  | XMM12 = 0x30C
+  | XMM12 = 0x8030C
   /// XMM registers.
-  | XMM13 = 0x30D
+  | XMM13 = 0x8030D
   /// XMM registers.
-  | XMM14 = 0x30E
+  | XMM14 = 0x8030E
   /// XMM registers.
-  | XMM15 = 0x30F
+  | XMM15 = 0x8030F
   /// 256-bit vector registers.
-  | YMM0 = 0x400
+  | YMM0 = 0x100400
   /// 256-bit vector registers.
-  | YMM1 = 0x401
+  | YMM1 = 0x100401
   /// 256-bit vector registers.
-  | YMM2 = 0x402
+  | YMM2 = 0x100402
   /// 256-bit vector registers.
-  | YMM3 = 0x403
+  | YMM3 = 0x100403
   /// 256-bit vector registers.
-  | YMM4 = 0x404
+  | YMM4 = 0x100404
   /// 256-bit vector registers.
-  | YMM5 = 0x405
+  | YMM5 = 0x100405
   /// 256-bit vector registers.
-  | YMM6 = 0x406
+  | YMM6 = 0x100406
   /// 256-bit vector registers.
-  | YMM7 = 0x407
+  | YMM7 = 0x100407
   /// 256-bit vector registers.
-  | YMM8 = 0x408
+  | YMM8 = 0x100408
   /// 256-bit vector registers.
-  | YMM9 = 0x409
+  | YMM9 = 0x100409
   /// 256-bit vector registers.
-  | YMM10 = 0x40A
+  | YMM10 = 0x10040A
   /// 256-bit vector registers.
-  | YMM11 = 0x40B
+  | YMM11 = 0x10040B
   /// 256-bit vector registers.
-  | YMM12 = 0x40C
+  | YMM12 = 0x10040C
   /// 256-bit vector registers.
-  | YMM13 = 0x40D
+  | YMM13 = 0x10040D
   /// 256-bit vector registers.
-  | YMM14 = 0x40E
+  | YMM14 = 0x10040E
   /// 256-bit vector registers.
-  | YMM15 = 0x40F
+  | YMM15 = 0x10040F
   /// 512-bit vector registers.
-  | ZMM0 = 0x500
+  | ZMM0 = 0x200500
   /// 512-bit vector registers.
-  | ZMM1 = 0x501
+  | ZMM1 = 0x200501
   /// 512-bit vector registers.
-  | ZMM2 = 0x502
+  | ZMM2 = 0x200502
   /// 512-bit vector registers.
-  | ZMM3 = 0x503
+  | ZMM3 = 0x200503
   /// 512-bit vector registers.
-  | ZMM4 = 0x504
+  | ZMM4 = 0x200504
   /// 512-bit vector registers.
-  | ZMM5 = 0x505
+  | ZMM5 = 0x200505
   /// 512-bit vector registers.
-  | ZMM6 = 0x506
+  | ZMM6 = 0x200506
   /// 512-bit vector registers.
-  | ZMM7 = 0x507
+  | ZMM7 = 0x200507
   /// 512-bit vector registers.
-  | ZMM8 = 0x508
+  | ZMM8 = 0x200508
   /// 512-bit vector registers.
-  | ZMM9 = 0x509
+  | ZMM9 = 0x200509
   /// 512-bit vector registers.
-  | ZMM10 = 0x50A
+  | ZMM10 = 0x20050A
   /// 512-bit vector registers.
-  | ZMM11 = 0x50B
+  | ZMM11 = 0x20050B
   /// 512-bit vector registers.
-  | ZMM12 = 0x50C
+  | ZMM12 = 0x20050C
   /// 512-bit vector registers.
-  | ZMM13 = 0x50D
+  | ZMM13 = 0x20050D
   /// 512-bit vector registers.
-  | ZMM14 = 0x50E
+  | ZMM14 = 0x20050E
   /// 512-bit vector registers.
-  | ZMM15 = 0x50F
-  /// 512-bit vector registers.
-  | ES = 0x600
-  /// 512-bit vector registers.
-  | CS = 0x601
+  | ZMM15 = 0x20050F
   /// Segment registers.
-  | SS = 0x602
+  | ES = 0x10600
   /// Segment registers.
-  | DS = 0x603
+  | CS = 0x10601
   /// Segment registers.
-  | FS = 0x604
+  | SS = 0x10602
   /// Segment registers.
-  | GS = 0x605
+  | DS = 0x10603
+  /// Segment registers.
+  | FS = 0x10604
+  /// Segment registers.
+  | GS = 0x10605
   /// ES.base.
   | ESBase = 0x700
   /// CS.base.
@@ -388,15 +389,15 @@ type Register =
   /// ES.base.
   | GSBase = 0x705
   /// Control registers.
-  | CR0 = 0x800
+  | CR0 = 0x20800
   /// Control registers.
-  | CR2 = 0x802
+  | CR2 = 0x20802
   /// Control registers.
-  | CR3 = 0x803
+  | CR3 = 0x20803
   /// Control registers.
-  | CR4 = 0x804
+  | CR4 = 0x20804
   /// Control registers.
-  | CR8 = 0x808
+  | CR8 = 0x20808
   /// Debug registers.
   | DR0 = 0x900
   /// Debug registers.
@@ -410,353 +411,353 @@ type Register =
   /// Debug registers.
   | DR7 = 0x907
   /// BND registers.
-  | BND0 = 0xA00
+  | BND0 = 0x80A00
   /// BND registers.
-  | BND1 = 0xA01
+  | BND1 = 0x80A01
   /// BND registers.
-  | BND2 = 0xA02
+  | BND2 = 0x80A02
   /// BND registers.
-  | BND3 = 0xA03
+  | BND3 = 0x80A03
   /// Overflow Flag in EFLAGS Register
-  | OF = 0xB00
+  | OF = 0x1B00
   /// Direction Flag in EFLAGS Register
-  | DF = 0xB01
+  | DF = 0x1B01
   /// Interrupt Enable Flag in EFLAGS Register
-  | IF = 0xB02
+  | IF = 0x1B02
   /// Trap Flag in EFLAGS Register
-  | TF = 0xB03
+  | TF = 0x1B03
   /// Sign Flag in EFLAGS Register
-  | SF = 0xB04
+  | SF = 0x1B04
   /// Zero Flag in EFLAGS Register
-  | ZF = 0xB05
+  | ZF = 0x1B05
   /// Auxiliary Carry Flag in EFLAGS Register
-  | AF = 0xB06
+  | AF = 0x1B06
   /// Parity Flag in EFLAGS Register
-  | PF = 0xB07
+  | PF = 0x1B07
   /// Carry Flag in EFLAGS Register
-  | CF = 0xB08
+  | CF = 0x1B08
   /// Protection-key features register.
-  | PKRU = 0xC00
+  | PKRU = 0x20C00
   /// BND Register (lower 64bits BND0).
-  | BND0A = 0xD80
+  | BND0A = 0x40D80
   /// BND Register (Higher 64bits BND0).
-  | BND0B = 0xD81
+  | BND0B = 0x40D81
   /// BND Register (lower 64bits BND1).
-  | BND1A = 0xD82
+  | BND1A = 0x40D82
   /// BND Register (Higher 64bits BND1).
-  | BND1B = 0xD83
+  | BND1B = 0x40D83
   /// BND Register (lower 64bits BND2).
-  | BND2A = 0xD84
+  | BND2A = 0x40D84
   /// BND Register (Higher 64bits BND2).
-  | BND2B = 0xD85
+  | BND2B = 0x40D85
   /// BND Register (lower 64bits BND3).
-  | BND3A = 0xD86
+  | BND3A = 0x40D86
   /// BND Register (Higher 64bits BND3).
-  | BND3B = 0xD87
+  | BND3B = 0x40D87
   /// ST Register (lower 64bits ST0).
-  | ST0A = 0xD88
+  | ST0A = 0x40D88
   /// ST Register (Higher 16bits ST0).
-  | ST0B = 0xD89
+  | ST0B = 0x10D89
   /// ST Register (lower 64bits ST1).
-  | ST1A = 0xD8A
+  | ST1A = 0x40D8A
   /// ST Register (Higher 16bits ST1).
-  | ST1B = 0xD8B
+  | ST1B = 0x10D8B
   /// ST Register (lower 64bits ST2).
-  | ST2A = 0xD8C
+  | ST2A = 0x40D8C
   /// ST Register (Higher 16bits ST2).
-  | ST2B = 0xD8D
+  | ST2B = 0x10D8D
   /// ST Register (lower 64bits ST3).
-  | ST3A = 0xD8E
+  | ST3A = 0x40D8E
   /// ST Register (Higher 16bits ST3).
-  | ST3B = 0xD8F
+  | ST3B = 0x10D8F
   /// ST Register (lower 64bits ST4).
-  | ST4A = 0xD90
+  | ST4A = 0x40D90
   /// ST Register (Higher 16bits ST4).
-  | ST4B = 0xD91
+  | ST4B = 0x10D91
   /// ST Register (lower 64bits ST5).
-  | ST5A = 0xD92
+  | ST5A = 0x40D92
   /// ST Register (Higher 16bits ST5).
-  | ST5B = 0xD93
+  | ST5B = 0x10D93
   /// ST Register (lower 64bits ST6).
-  | ST6A = 0xD94
+  | ST6A = 0x40D94
   /// ST Register (Higher 16bits ST6).
-  | ST6B = 0xD95
+  | ST6B = 0x10D95
   /// ST Register (lower 64bits ST7).
-  | ST7A = 0xD96
+  | ST7A = 0x40D96
   /// ST Register (Higher 16bits ST7).
-  | ST7B = 0xD97
+  | ST7B = 0x10D97
   /// ZMM0A is the 1st 64-bit chunk of ZMM0.
-  | ZMM0A = 0xD00
+  | ZMM0A = 0x40D00
   /// ZMM0B is the 2nd 64-bit chunk of ZMM0.
-  | ZMM0B = 0xD01
+  | ZMM0B = 0x40D01
   /// ZMM0C is the 3rd 64-bit chunk of ZMM0.
-  | ZMM0C = 0xD02
+  | ZMM0C = 0x40D02
   /// ZMM0D is the 4th 64-bit chunk of ZMM0.
-  | ZMM0D = 0xD03
+  | ZMM0D = 0x40D03
   /// ZMM0E is the 5th 64-bit chunk of ZMM0.
-  | ZMM0E = 0xD04
+  | ZMM0E = 0x40D04
   /// ZMM0F is the 6th 64-bit chunk of ZMM0.
-  | ZMM0F = 0xD05
+  | ZMM0F = 0x40D05
   /// ZMM0G is the 7th 64-bit chunk of ZMM0.
-  | ZMM0G = 0xD06
+  | ZMM0G = 0x40D06
   /// ZMM0H is the 8th 64-bit chunk of ZMM0.
-  | ZMM0H = 0xD07
+  | ZMM0H = 0x40D07
   /// ZMM1A is the 1st 64-bit chunk of ZMM1.
-  | ZMM1A = 0xD08
+  | ZMM1A = 0x40D08
   /// ZMM1B is the 2nd 64-bit chunk of ZMM1.
-  | ZMM1B = 0xD09
+  | ZMM1B = 0x40D09
   /// ZMM1C is the 3rd 64-bit chunk of ZMM1.
-  | ZMM1C = 0xD0A
+  | ZMM1C = 0x40D0A
   /// ZMM1D is the 4th 64-bit chunk of ZMM1.
-  | ZMM1D = 0xD0B
+  | ZMM1D = 0x40D0B
   /// ZMM1E is the 5th 64-bit chunk of ZMM1.
-  | ZMM1E = 0xD0C
+  | ZMM1E = 0x40D0C
   /// ZMM1F is the 6th 64-bit chunk of ZMM1.
-  | ZMM1F = 0xD0D
+  | ZMM1F = 0x40D0D
   /// ZMM1G is the 7th 64-bit chunk of ZMM1.
-  | ZMM1G = 0xD0E
+  | ZMM1G = 0x40D0E
   /// ZMM1H is the 8th 64-bit chunk of ZMM1.
-  | ZMM1H = 0xD0F
+  | ZMM1H = 0x40D0F
   /// ZMM2A is the 1st 64-bit chunk of ZMM2.
-  | ZMM2A = 0xD10
+  | ZMM2A = 0x40D10
   /// ZMM2B is the 2nd 64-bit chunk of ZMM2.
-  | ZMM2B = 0xD11
+  | ZMM2B = 0x40D11
   /// ZMM2C is the 3rd 64-bit chunk of ZMM2.
-  | ZMM2C = 0xD12
+  | ZMM2C = 0x40D12
   /// ZMM2D is the 4th 64-bit chunk of ZMM2.
-  | ZMM2D = 0xD13
+  | ZMM2D = 0x40D13
   /// ZMM2E is the 5th 64-bit chunk of ZMM2.
-  | ZMM2E = 0xD14
+  | ZMM2E = 0x40D14
   /// ZMM2F is the 6th 64-bit chunk of ZMM2.
-  | ZMM2F = 0xD15
+  | ZMM2F = 0x40D15
   /// ZMM2G is the 7th 64-bit chunk of ZMM2.
-  | ZMM2G = 0xD16
+  | ZMM2G = 0x40D16
   /// ZMM2H is the 8th 64-bit chunk of ZMM2.
-  | ZMM2H = 0xD17
+  | ZMM2H = 0x40D17
   /// ZMM3A is the 1st 64-bit chunk of ZMM3.
-  | ZMM3A = 0xD18
+  | ZMM3A = 0x40D18
   /// ZMM3B is the 2nd 64-bit chunk of ZMM3.
-  | ZMM3B = 0xD19
+  | ZMM3B = 0x40D19
   /// ZMM3C is the 3rd 64-bit chunk of ZMM3.
-  | ZMM3C = 0xD1A
+  | ZMM3C = 0x40D1A
   /// ZMM3D is the 4th 64-bit chunk of ZMM3.
-  | ZMM3D = 0xD1B
+  | ZMM3D = 0x40D1B
   /// ZMM3E is the 5th 64-bit chunk of ZMM3.
-  | ZMM3E = 0xD1C
+  | ZMM3E = 0x40D1C
   /// ZMM3F is the 6th 64-bit chunk of ZMM3.
-  | ZMM3F = 0xD1D
+  | ZMM3F = 0x40D1D
   /// ZMM3G is the 7th 64-bit chunk of ZMM3.
-  | ZMM3G = 0xD1E
+  | ZMM3G = 0x40D1E
   /// ZMM3H is the 8th 64-bit chunk of ZMM3.
-  | ZMM3H = 0xD1F
+  | ZMM3H = 0x40D1F
   /// ZMM4A is the 1st 64-bit chunk of ZMM4.
-  | ZMM4A = 0xD20
+  | ZMM4A = 0x40D20
   /// ZMM4B is the 2nd 64-bit chunk of ZMM4.
-  | ZMM4B = 0xD21
+  | ZMM4B = 0x40D21
   /// ZMM4C is the 3rd 64-bit chunk of ZMM4.
-  | ZMM4C = 0xD22
+  | ZMM4C = 0x40D22
   /// ZMM4D is the 4th 64-bit chunk of ZMM4.
-  | ZMM4D = 0xD23
+  | ZMM4D = 0x40D23
   /// ZMM4E is the 5th 64-bit chunk of ZMM4.
-  | ZMM4E = 0xD24
+  | ZMM4E = 0x40D24
   /// ZMM4F is the 6th 64-bit chunk of ZMM4.
-  | ZMM4F = 0xD25
+  | ZMM4F = 0x40D25
   /// ZMM4G is the 7th 64-bit chunk of ZMM4.
-  | ZMM4G = 0xD26
+  | ZMM4G = 0x40D26
   /// ZMM4H is the 8th 64-bit chunk of ZMM4.
-  | ZMM4H = 0xD27
+  | ZMM4H = 0x40D27
   /// ZMM5A is the 1st 64-bit chunk of ZMM5.
-  | ZMM5A = 0xD28
+  | ZMM5A = 0x40D28
   /// ZMM5B is the 2nd 64-bit chunk of ZMM5.
-  | ZMM5B = 0xD29
+  | ZMM5B = 0x40D29
   /// ZMM5C is the 3rd 64-bit chunk of ZMM5.
-  | ZMM5C = 0xD2A
+  | ZMM5C = 0x40D2A
   /// ZMM5D is the 4th 64-bit chunk of ZMM5.
-  | ZMM5D = 0xD2B
+  | ZMM5D = 0x40D2B
   /// ZMM5E is the 5th 64-bit chunk of ZMM5.
-  | ZMM5E = 0xD2C
+  | ZMM5E = 0x40D2C
   /// ZMM5F is the 6th 64-bit chunk of ZMM5.
-  | ZMM5F = 0xD2D
+  | ZMM5F = 0x40D2D
   /// ZMM5G is the 7th 64-bit chunk of ZMM5.
-  | ZMM5G = 0xD2E
+  | ZMM5G = 0x40D2E
   /// ZMM5H is the 8th 64-bit chunk of ZMM5.
-  | ZMM5H = 0xD2F
+  | ZMM5H = 0x40D2F
   /// ZMM6A is the 1st 64-bit chunk of ZMM6.
-  | ZMM6A = 0xD30
+  | ZMM6A = 0x40D30
   /// ZMM6B is the 2nd 64-bit chunk of ZMM6.
-  | ZMM6B = 0xD31
+  | ZMM6B = 0x40D31
   /// ZMM6C is the 3rd 64-bit chunk of ZMM6.
-  | ZMM6C = 0xD32
+  | ZMM6C = 0x40D32
   /// ZMM6D is the 4th 64-bit chunk of ZMM6.
-  | ZMM6D = 0xD33
+  | ZMM6D = 0x40D33
   /// ZMM6E is the 5th 64-bit chunk of ZMM6.
-  | ZMM6E = 0xD34
+  | ZMM6E = 0x40D34
   /// ZMM6F is the 6th 64-bit chunk of ZMM6.
-  | ZMM6F = 0xD35
+  | ZMM6F = 0x40D35
   /// ZMM6G is the 7th 64-bit chunk of ZMM6.
-  | ZMM6G = 0xD36
+  | ZMM6G = 0x40D36
   /// ZMM6H is the 8th 64-bit chunk of ZMM6.
-  | ZMM6H = 0xD37
+  | ZMM6H = 0x40D37
   /// ZMM7A is the 1st 64-bit chunk of ZMM7.
-  | ZMM7A = 0xD38
+  | ZMM7A = 0x40D38
   /// ZMM7B is the 2nd 64-bit chunk of ZMM7.
-  | ZMM7B = 0xD39
+  | ZMM7B = 0x40D39
   /// ZMM7C is the 3rd 64-bit chunk of ZMM7.
-  | ZMM7C = 0xD3A
+  | ZMM7C = 0x40D3A
   /// ZMM7D is the 4th 64-bit chunk of ZMM7.
-  | ZMM7D = 0xD3B
+  | ZMM7D = 0x40D3B
   /// ZMM7E is the 5th 64-bit chunk of ZMM7.
-  | ZMM7E = 0xD3C
+  | ZMM7E = 0x40D3C
   /// ZMM7F is the 6th 64-bit chunk of ZMM7.
-  | ZMM7F = 0xD3D
+  | ZMM7F = 0x40D3D
   /// ZMM7G is the 7th 64-bit chunk of ZMM7.
-  | ZMM7G = 0xD3E
+  | ZMM7G = 0x40D3E
   /// ZMM7H is the 8th 64-bit chunk of ZMM7.
-  | ZMM7H = 0xD3F
+  | ZMM7H = 0x40D3F
   /// ZMM8A is the 1st 64-bit chunk of ZMM8.
-  | ZMM8A = 0xD40
+  | ZMM8A = 0x40D40
   /// ZMM8B is the 2nd 64-bit chunk of ZMM8.
-  | ZMM8B = 0xD41
+  | ZMM8B = 0x40D41
   /// ZMM8C is the 3rd 64-bit chunk of ZMM8.
-  | ZMM8C = 0xD42
+  | ZMM8C = 0x40D42
   /// ZMM8D is the 4th 64-bit chunk of ZMM8.
-  | ZMM8D = 0xD43
+  | ZMM8D = 0x40D43
   /// ZMM8E is the 5th 64-bit chunk of ZMM8.
-  | ZMM8E = 0xD44
+  | ZMM8E = 0x40D44
   /// ZMM8F is the 6th 64-bit chunk of ZMM8.
-  | ZMM8F = 0xD45
+  | ZMM8F = 0x40D45
   /// ZMM8G is the 7th 64-bit chunk of ZMM8.
-  | ZMM8G = 0xD46
+  | ZMM8G = 0x40D46
   /// ZMM8H is the 8th 64-bit chunk of ZMM8.
-  | ZMM8H = 0xD47
+  | ZMM8H = 0x40D47
   /// ZMM9A is the 1st 64-bit chunk of ZMM9.
-  | ZMM9A = 0xD48
+  | ZMM9A = 0x40D48
   /// ZMM9B is the 2nd 64-bit chunk of ZMM9.
-  | ZMM9B = 0xD49
+  | ZMM9B = 0x40D49
   /// ZMM9C is the 3rd 64-bit chunk of ZMM9.
-  | ZMM9C = 0xD4A
+  | ZMM9C = 0x40D4A
   /// ZMM9D is the 4th 64-bit chunk of ZMM9.
-  | ZMM9D = 0xD4B
+  | ZMM9D = 0x40D4B
   /// ZMM9E is the 5th 64-bit chunk of ZMM9.
-  | ZMM9E = 0xD4C
+  | ZMM9E = 0x40D4C
   /// ZMM9F is the 6th 64-bit chunk of ZMM9.
-  | ZMM9F = 0xD4D
+  | ZMM9F = 0x40D4D
   /// ZMM9G is the 7th 64-bit chunk of ZMM9.
-  | ZMM9G = 0xD4E
+  | ZMM9G = 0x40D4E
   /// ZMM9H is the 8th 64-bit chunk of ZMM9.
-  | ZMM9H = 0xD4F
+  | ZMM9H = 0x40D4F
   /// ZMM10A is the 1st 64-bit chunk of ZMM10.
-  | ZMM10A = 0xD50
+  | ZMM10A = 0x40D50
   /// ZMM10B is the 2nd 64-bit chunk of ZMM10.
-  | ZMM10B = 0xD51
+  | ZMM10B = 0x40D51
   /// ZMM10C is the 3rd 64-bit chunk of ZMM10.
-  | ZMM10C = 0xD52
+  | ZMM10C = 0x40D52
   /// ZMM10D is the 4th 64-bit chunk of ZMM10.
-  | ZMM10D = 0xD53
+  | ZMM10D = 0x40D53
   /// ZMM10E is the 5th 64-bit chunk of ZMM10.
-  | ZMM10E = 0xD54
+  | ZMM10E = 0x40D54
   /// ZMM10F is the 6th 64-bit chunk of ZMM10.
-  | ZMM10F = 0xD55
+  | ZMM10F = 0x40D55
   /// ZMM10G is the 7th 64-bit chunk of ZMM10.
-  | ZMM10G = 0xD56
+  | ZMM10G = 0x40D56
   /// ZMM10H is the 8th 64-bit chunk of ZMM10.
-  | ZMM10H = 0xD57
+  | ZMM10H = 0x40D57
   /// ZMM11A is the 1st 64-bit chunk of ZMM11.
-  | ZMM11A = 0xD58
+  | ZMM11A = 0x40D58
   /// ZMM11B is the 2nd 64-bit chunk of ZMM11.
-  | ZMM11B = 0xD59
+  | ZMM11B = 0x40D59
   /// ZMM11C is the 3rd 64-bit chunk of ZMM11.
-  | ZMM11C = 0xD5A
+  | ZMM11C = 0x40D5A
   /// ZMM11D is the 4th 64-bit chunk of ZMM11.
-  | ZMM11D = 0xD5B
+  | ZMM11D = 0x40D5B
   /// ZMM11E is the 5th 64-bit chunk of ZMM11.
-  | ZMM11E = 0xD5C
+  | ZMM11E = 0x40D5C
   /// ZMM11F is the 6th 64-bit chunk of ZMM11.
-  | ZMM11F = 0xD5D
+  | ZMM11F = 0x40D5D
   /// ZMM11G is the 7th 64-bit chunk of ZMM11.
-  | ZMM11G = 0xD5E
+  | ZMM11G = 0x40D5E
   /// ZMM11H is the 8th 64-bit chunk of ZMM11.
-  | ZMM11H = 0xD5F
+  | ZMM11H = 0x40D5F
   /// ZMM12A is the 1st 64-bit chunk of ZMM12.
-  | ZMM12A = 0xD60
+  | ZMM12A = 0x40D60
   /// ZMM12B is the 2nd 64-bit chunk of ZMM12.
-  | ZMM12B = 0xD61
+  | ZMM12B = 0x40D61
   /// ZMM12C is the 3rd 64-bit chunk of ZMM12.
-  | ZMM12C = 0xD62
+  | ZMM12C = 0x40D62
   /// ZMM12D is the 4th 64-bit chunk of ZMM12.
-  | ZMM12D = 0xD63
+  | ZMM12D = 0x40D63
   /// ZMM12E is the 5th 64-bit chunk of ZMM12.
-  | ZMM12E = 0xD64
+  | ZMM12E = 0x40D64
   /// ZMM12F is the 6th 64-bit chunk of ZMM12.
-  | ZMM12F = 0xD65
+  | ZMM12F = 0x40D65
   /// ZMM12G is the 7th 64-bit chunk of ZMM12.
-  | ZMM12G = 0xD66
+  | ZMM12G = 0x40D66
   /// ZMM12H is the 8th 64-bit chunk of ZMM12.
-  | ZMM12H = 0xD67
+  | ZMM12H = 0x40D67
   /// ZMM13A is the 1st 64-bit chunk of ZMM13.
-  | ZMM13A = 0xD68
+  | ZMM13A = 0x40D68
   /// ZMM13B is the 2nd 64-bit chunk of ZMM13.
-  | ZMM13B = 0xD69
+  | ZMM13B = 0x40D69
   /// ZMM13C is the 3rd 64-bit chunk of ZMM13.
-  | ZMM13C = 0xD6A
+  | ZMM13C = 0x40D6A
   /// ZMM13D is the 4th 64-bit chunk of ZMM13.
-  | ZMM13D = 0xD6B
+  | ZMM13D = 0x40D6B
   /// ZMM13E is the 5th 64-bit chunk of ZMM13.
-  | ZMM13E = 0xD6C
+  | ZMM13E = 0x40D6C
   /// ZMM13F is the 6th 64-bit chunk of ZMM13.
-  | ZMM13F = 0xD6D
+  | ZMM13F = 0x40D6D
   /// ZMM13G is the 7th 64-bit chunk of ZMM13.
-  | ZMM13G = 0xD6E
+  | ZMM13G = 0x40D6E
   /// ZMM13H is the 8th 64-bit chunk of ZMM13.
-  | ZMM13H = 0xD6F
+  | ZMM13H = 0x40D6F
   /// ZMM14A is the 1st 64-bit chunk of ZMM14.
-  | ZMM14A = 0xD70
+  | ZMM14A = 0x40D70
   /// ZMM14B is the 2nd 64-bit chunk of ZMM14.
-  | ZMM14B = 0xD71
+  | ZMM14B = 0x40D71
   /// ZMM14C is the 3rd 64-bit chunk of ZMM14.
-  | ZMM14C = 0xD72
+  | ZMM14C = 0x40D72
   /// ZMM14D is the 4th 64-bit chunk of ZMM14.
-  | ZMM14D = 0xD73
+  | ZMM14D = 0x40D73
   /// ZMM14E is the 5th 64-bit chunk of ZMM14.
-  | ZMM14E = 0xD74
+  | ZMM14E = 0x40D74
   /// ZMM14F is the 6th 64-bit chunk of ZMM14.
-  | ZMM14F = 0xD75
+  | ZMM14F = 0x40D75
   /// ZMM14G is the 7th 64-bit chunk of ZMM14.
-  | ZMM14G = 0xD76
+  | ZMM14G = 0x40D76
   /// ZMM14H is the 8th 64-bit chunk of ZMM14.
-  | ZMM14H = 0xD77
+  | ZMM14H = 0x40D77
   /// ZMM15A is the 1st 64-bit chunk of ZMM15.
-  | ZMM15A = 0xD78
+  | ZMM15A = 0x40D78
   /// ZMM15B is the 2nd 64-bit chunk of ZMM15.
-  | ZMM15B = 0xD79
+  | ZMM15B = 0x40D79
   /// ZMM15C is the 3rd 64-bit chunk of ZMM15.
-  | ZMM15C = 0xD7A
+  | ZMM15C = 0x40D7A
   /// ZMM15D is the 4th 64-bit chunk of ZMM15.
-  | ZMM15D = 0xD7B
+  | ZMM15D = 0x40D7B
   /// ZMM15E is the 5th 64-bit chunk of ZMM15.
-  | ZMM15E = 0xD7C
+  | ZMM15E = 0x40D7C
   /// ZMM15F is the 6th 64-bit chunk of ZMM15.
-  | ZMM15F = 0xD7D
+  | ZMM15F = 0x40D7D
   /// ZMM15G is the 7th 64-bit chunk of ZMM15.
-  | ZMM15G = 0xD7E
+  | ZMM15G = 0x40D7E
   /// ZMM15H is the 8th 64-bit chunk of ZMM15.
-  | ZMM15H = 0xD7F
+  | ZMM15H = 0x40D7F
   /// Opmask registers. For EVEX.
-  | K0 = 0xE00
+  | K0 = 0x40E00
   /// Opmask registers. For EVEX.
-  | K1 = 0xE01
+  | K1 = 0x40E01
   /// Opmask registers. For EVEX.
-  | K2 = 0xE02
+  | K2 = 0x40E02
   /// Opmask registers. For EVEX.
-  | K3 = 0xE03
+  | K3 = 0x40E03
   /// Opmask registers. For EVEX.
-  | K4 = 0xE04
+  | K4 = 0x40E04
   /// Opmask registers. For EVEX.
-  | K5 = 0xE05
+  | K5 = 0x40E05
   /// Opmask registers. For EVEX.
-  | K6 = 0xE06
+  | K6 = 0x40E06
   /// Opmask registers. For EVEX.
-  | K7 = 0xE07
+  | K7 = 0x40E07
   /// Unknown Register.
   | UnknownReg = 0xF00
 
@@ -806,14 +807,18 @@ module Register = begin
   let getKind (reg: Register): Kind =
     (int reg >>> 8) &&& 0b1111 |> LanguagePrimitives.EnumOfValue
 
-  let make id (kind: Kind): Register =
-    (int kind <<< 8) ||| id |> LanguagePrimitives.EnumOfValue
+  let make id (kind: Kind) size =
+    (size <<< 12) ||| (int kind <<< 8) ||| id
+    |> LanguagePrimitives.EnumOfValue<int, Register>
 
   let inline ofRegID (n: RegisterID): Register =
     int n |> LanguagePrimitives.EnumOfValue
 
   let inline toRegID (reg: Register) =
     LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
+
+  let inline getSize (reg: Register) =
+    int reg >>> 12 |> RegType.fromBitWidth
 
   let ofString (str: string) =
     match str.ToLower () with

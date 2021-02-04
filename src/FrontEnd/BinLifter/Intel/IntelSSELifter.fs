@@ -1071,7 +1071,7 @@ let pinsrw ins insLen ctxt =
   let src = transOprToExpr ins insLen ctxt src
   let sel = AST.tmpvar 64<rt>
   let getImm = function
-    | OprImm imm -> imm
+    | OprImm (imm, _) -> imm
     | _ -> raise InvalidOperandException
   !<ir insLen
   match getOperationSize ins with

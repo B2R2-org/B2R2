@@ -1089,7 +1089,7 @@ let lea ins insLen ctxt =
      | _ -> raise InvalidOperandSizeException)
   !>ir insLen
 
-let leave ins insLen ctxt =
+let leave _ins insLen ctxt =
   let sp = getStackPtr ctxt
   let bp = getBasePtr ctxt
   let ir = IRBuilder (8)

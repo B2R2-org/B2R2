@@ -56,11 +56,11 @@ module Intel =
     member __.``Intel Data Transfer Parse Test`` () =
       test32 Opcode.MOV
              (TwoOperands (OprMem (None, None, Some 2210584L, 32<rt>),
-                           OprImm 2L) ) 10ul
+                           OprImm (2L, 32<rt>)) ) 10ul
              [| 0xc7uy; 0x05uy; 0x18uy; 0xbbuy; 0x21uy;
                 0x00uy; 0x02uy; 0x00uy; 0x00uy; 0x00uy |]
 
-      test64 Opcode.PUSH (OneOperand (OprImm 0x44332211L)) 5ul
+      test64 Opcode.PUSH (OneOperand (OprImm (0x44332211L, 32<rt>))) 5ul
              [| 0x68uy; 0x11uy; 0x22uy; 0x33uy; 0x44uy |]
 
       test32 Opcode.MOVSX
@@ -78,7 +78,8 @@ module Intel =
              [| 0x48uy; 0x03uy; 0xc8uy |]
 
       test32 Opcode.IMUL
-             (ThreeOperands (OprReg R.EDI, OprReg R.EDX, OprImm 10L)) 3ul
+             (ThreeOperands (OprReg R.EDI, OprReg R.EDX, OprImm (10L, 8<rt>)))
+             3ul
              [| 0x6buy; 0xfauy; 0x0auy |]
 
       test32 Opcode.MUL
@@ -113,12 +114,12 @@ module Intel =
     member __.``Intel Shift And Rotate Parse Test`` () =
       test32 Opcode.ROL
              (TwoOperands (OprMem (Some R.EAX, None, None, 32<rt>),
-                           OprImm 10L) ) 3ul
+                           OprImm (10L, 8<rt>))) 3ul
             [| 0xc1uy; 0x00uy; 0x0auy |]
 
       test32 Opcode.ROL
              (TwoOperands (OprMem (Some R.EAX, None, None, 8<rt>),
-                                      OprImm 10L)) 3ul
+                                      OprImm (10L, 8<rt>))) 3ul
              [| 0xc0uy; 0x00uy; 0x0auy |]
 
     /// 5.1.6 Bit and Byte Instructions
@@ -126,7 +127,7 @@ module Intel =
     member __.``Intel Bit And Byte Parse Test`` () =
      test32 Opcode.TEST
             (TwoOperands (OprMem (Some R.EAX, None, None, 8<rt>),
-                          OprImm 10L)) 3ul
+                          OprImm (10L, 8<rt>))) 3ul
             [| 0xf6uy; 0x00uy; 0x0auy |]
 
     /// 5.1.7 Control Transfer Instructions
@@ -149,7 +150,8 @@ module Intel =
              7ul
              [| 0x9auy; 0x98uy; 0x76uy; 0x54uy; 0x32uy; 0x10uy; 0x00uy |]
 
-      test32 Opcode.INT (OneOperand (OprImm 1L)) 2ul [| 0xcduy; 0x01uy |]
+      test32 Opcode.INT (OneOperand (OprImm (1L, 8<rt>)))
+             2ul [| 0xcduy; 0x01uy |]
 
     /// 5.1.9 I/O Instructions
     [<TestMethod>]
@@ -528,7 +530,8 @@ module Intel =
     [<TestMethod>]
     member __.``Intel Packed Align Right Parse Test`` () =
       test64 Opcode.PALIGNR
-             (ThreeOperands (OprReg R.XMM2, OprReg R.XMM1, OprImm 1L)) 6ul
+             (ThreeOperands (OprReg R.XMM2, OprReg R.XMM1, OprImm (1L, 8<rt>)))
+             6ul
              [| 0x66uy; 0x0fuy; 0x3auy; 0x0fuy; 0xd1uy; 0x01uy |]
 
   /// 5.10 SSE4.1 INSTRUCTIONS

@@ -218,17 +218,15 @@ module internal OperandParsingHelper =
 #if LCACHE
     rhlp.MarkHashEnd ()
 #endif
-    let immSize = RegType.toByteWidth immSize
-    let imm = parseUnsignedImm rhlp immSize
-    OprImm (int64 imm)
+    let imm = parseUnsignedImm rhlp (RegType.toByteWidth immSize)
+    OprImm (int64 imm, immSize)
 
   let parseOprSImm (rhlp: ReadHelper) immSize =
 #if LCACHE
     rhlp.MarkHashEnd ()
 #endif
-    let immSize = RegType.toByteWidth immSize
-    let imm = parseSignedImm rhlp immSize
-    OprImm imm
+    let imm = parseSignedImm rhlp (RegType.toByteWidth immSize)
+    OprImm (imm, immSize)
 
   /// The first 24 rows of Table 2-1. of the manual Vol. 2A.
   /// The index of this tbl is a number that is a concatenation of (mod) and
@@ -378,10 +376,11 @@ module internal OperandParsingHelper =
     match rhlp.VEXInfo with
     | None -> raise ParsingFailureException
     | Some vInfo when vInfo.VectorLength = 512<rt> ->
-      Register.make (int vInfo.VVVV) Register.Kind.ZMM |> OprReg
+      Register.make (int vInfo.VVVV) Register.Kind.ZMM 512 |> OprReg
     | Some vInfo when vInfo.VectorLength = 256<rt> ->
-      Register.make (int vInfo.VVVV) Register.Kind.YMM |> OprReg
-    | Some vInfo -> Register.make (int vInfo.VVVV) Register.Kind.XMM |> OprReg
+      Register.make (int vInfo.VVVV) Register.Kind.YMM 256 |> OprReg
+    | Some vInfo ->
+      Register.make (int vInfo.VVVV) Register.Kind.XMM 128 |> OprReg
 
   let parseVEXtoGPR (rhlp: ReadHelper) insSize =
     match rhlp.VEXInfo with
@@ -392,15 +391,15 @@ module internal OperandParsingHelper =
       |> LanguagePrimitives.EnumOfValue<int, Register>
       |> OprReg
 
-  let parseMMXReg n = Register.make n Register.Kind.MMX |> OprReg
+  let parseMMXReg n = Register.make n Register.Kind.MMX 64 |> OprReg
 
-  let parseSegReg n = Register.make n Register.Kind.Segment |> OprReg
+  let parseSegReg n = Register.make n Register.Kind.Segment 16 |> OprReg
 
-  let parseBoundRegister n = Register.make n Register.Kind.Bound |> OprReg
+  let parseBoundRegister n = Register.make n Register.Kind.Bound 128 |> OprReg
 
-  let parseControlReg n = Register.make n Register.Kind.Control |> OprReg
+  let parseControlReg n = Register.make n Register.Kind.Control 32 |> OprReg
 
-  let parseDebugReg n = Register.make n Register.Kind.Debug |> OprReg
+  let parseDebugReg n = Register.make n Register.Kind.Debug 0 |> OprReg
 
   let parseOprOnlyDisp rhlp insSize =
     RegType.toByteWidth insSize.MemEffAddrSize
@@ -1058,7 +1057,7 @@ type internal OpM1 () =
   override __.Render rhlp insSize =
     let modRM = rhlp.ReadByte ()
     let opr = parseMemOrReg modRM insSize rhlp
-    struct (TwoOperands (opr, OprImm 1L), insSize)
+    struct (TwoOperands (opr, OprImm (1L, 0<rt>)), insSize)
 
 type internal OpRmCL () =
   inherit OperandParser ()

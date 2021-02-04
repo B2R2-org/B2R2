@@ -92,7 +92,8 @@ let newInfo prfxs rexPrfx vexInfo opc operands size =
     VEXInfo = vexInfo
     Opcode = opc
     Operands = operands
-    InsSize = size
+    MainOperationSize = size.OperationSize
+    PointerSize = size.MemEffAddrSize
 #if LCACHE
     InsHash = 0UL
 #endif

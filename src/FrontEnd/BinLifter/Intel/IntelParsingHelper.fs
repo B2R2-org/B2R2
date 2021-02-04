@@ -165,7 +165,8 @@ module internal ParsingHelper = begin
         VEXInfo = rhlp.VEXInfo
         Opcode = opcode
         Operands = oprs
-        InsSize = insSize
+        MainOperationSize = insSize.OperationSize
+        PointerSize = insSize.MemEffAddrSize
 #if LCACHE
         InsHash =
           rhlp.GetInsHash (rhlp.VEXInfo) ||| Prefix.computeHash rhlp.Prefixes

@@ -877,16 +877,16 @@ let inline private uToHexStr (i: uint64) (builder: DisasmBuilder<_>) =
   builder.Accumulate AsmWordKind.Value (String.u64ToHex i)
 
 let private ptrDirectiveString isFar = function
-  | 1 -> "byte ptr"
-  | 2 -> "word ptr"
-  | 4 -> if isFar then "word far ptr" else "dword ptr"
-  | 6 -> "dword far ptr"
-  | 8 -> "qword ptr"
-  | 10 -> if isFar then "qword far ptr" else "tword ptr"
-  | 16 -> "xmmword ptr"
-  | 32 -> "ymmword ptr"
-  | 64 -> "zmmword ptr"
-  | 28 | 108 -> "" (* x87 FPU state *)
+  | 8<rt> -> "byte ptr"
+  | 16<rt> -> "word ptr"
+  | 32<rt> -> if isFar then "word far ptr" else "dword ptr"
+  | 48<rt> -> "dword far ptr"
+  | 64<rt> -> "qword ptr"
+  | 80<rt> -> if isFar then "qword far ptr" else "tword ptr"
+  | 128<rt> -> "xmmword ptr"
+  | 256<rt> -> "ymmword ptr"
+  | 512<rt> -> "zmmword ptr"
+  | 224<rt> | 864<rt> -> "" (* x87 FPU state *)
   | _ -> Utils.impossible ()
 
 let dispToString showSign wordSz (disp: Disp) (builder: DisasmBuilder<_>) =
@@ -933,7 +933,7 @@ let inline isFar (ins: InsInfo) =
   | _ -> false
 
 let mToString wordSz (ins: InsInfo) b si d oprSz (builder: DisasmBuilder<_>) =
-  let ptrDirective = RegType.toByteWidth oprSz |> ptrDirectiveString (isFar ins)
+  let ptrDirective = ptrDirectiveString (isFar ins) oprSz
   match Helper.getSegment ins.Prefixes with
   | None ->
     builder.Accumulate AsmWordKind.String ptrDirective
@@ -1017,8 +1017,7 @@ let oprToString wordSz ins insAddr hlp opr isFst (builder: DisasmBuilder<_>) =
   | OprMem (b, si, disp, oprSz) ->
     mToString wordSz ins b si disp oprSz builder
     if isFst then buildMask ins builder else ()
-  | OprImm imm ->
-    iToHexStr (imm &&& getMask ins.InsSize.OperationSize) builder
+  | OprImm (imm, _) -> iToHexStr (imm &&& getMask ins.MainOperationSize) builder
   | OprDirAddr (Absolute (sel, offset, _)) -> absToString sel offset builder
   | OprDirAddr (Relative (offset)) -> relToString insAddr offset hlp builder
   | Label _ -> Utils.impossible ()
@@ -1037,8 +1036,7 @@ let inline buildPref (prefs: Prefix) (builder: DisasmBuilder<_>) =
 let inline buildOpcode opcode (builder: DisasmBuilder<_>) =
   builder.Accumulate AsmWordKind.Mnemonic (opCodeToString opcode)
 
-let recomputeRIPRel pc disp (ins: InsInfo) (insLen: uint32) builder =
-  let oprSize = RegType.toByteWidth ins.InsSize.MemEffOprSize
+let recomputeRIPRel pc disp (insLen: uint32) oprSize builder =
   let dir = ptrDirectiveString false oprSize
   (builder: DisasmBuilder<_>).Accumulate AsmWordKind.String dir
   builder.Accumulate AsmWordKind.String " ["
@@ -1055,16 +1053,16 @@ let buildOprs ins insLen pc hlp wordSz (builder: DisasmBuilder<_>) =
   | OneOperand opr ->
     builder.Accumulate AsmWordKind.String " "
     oprToString wordSz ins pc hlp opr true builder
-  | TwoOperands (OprMem (Some R.RIP, None, Some disp, _), opr) ->
+  | TwoOperands (OprMem (Some R.RIP, None, Some disp, sz), opr) ->
     builder.Accumulate AsmWordKind.String " "
-    recomputeRIPRel pc disp ins insLen builder
+    recomputeRIPRel pc disp insLen sz builder
     builder.Accumulate AsmWordKind.String ", "
     oprToString wordSz ins pc hlp opr false builder
-  | TwoOperands (opr, OprMem (Some R.RIP, None, Some disp, _)) ->
+  | TwoOperands (opr, OprMem (Some R.RIP, None, Some disp, sz)) ->
     builder.Accumulate AsmWordKind.String " "
     oprToString wordSz ins pc hlp opr true builder
     builder.Accumulate AsmWordKind.String ", "
-    recomputeRIPRel pc disp ins insLen builder
+    recomputeRIPRel pc disp insLen sz builder
   | TwoOperands (opr1, opr2) ->
     builder.Accumulate AsmWordKind.String " "
     oprToString wordSz ins pc hlp opr1 true builder

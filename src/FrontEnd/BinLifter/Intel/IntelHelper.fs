@@ -121,7 +121,7 @@ let inline getReg (byte: byte) = (int byte >>> 3) &&& 0b111
 
 let inline getRM (byte: byte) = (int byte) &&& 0b111
 
-let inline getSTReg n = Register.make n Register.Kind.FPU |> OprReg
+let inline getSTReg n = Register.make n Register.Kind.FPU 80 |> OprReg
 
 let inline modIsMemory b = (getMod b) <> 0b11
 
