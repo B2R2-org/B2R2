@@ -104,15 +104,8 @@ type IntelInstruction (addr, len, insInfo, wordSz) =
 
   override __.IsBBLEnd () =
        __.IsBranch ()
-    || __.Info.Opcode = Opcode.HLT
-    || __.Info.Opcode = Opcode.INT
-    || __.Info.Opcode = Opcode.INT3
-    || __.Info.Opcode = Opcode.INTO
-    || __.Info.Opcode = Opcode.SYSCALL
-    || __.Info.Opcode = Opcode.SYSENTER
-    || __.Info.Opcode = Opcode.SYSEXIT
-    || __.Info.Opcode = Opcode.SYSRET
-    || __.Info.Opcode = Opcode.UD2
+    || __.IsInterrupt ()
+    || __.IsExit ()
 
   override __.DirectBranchTarget (addr: byref<Addr>) =
     if __.IsBranch () then
