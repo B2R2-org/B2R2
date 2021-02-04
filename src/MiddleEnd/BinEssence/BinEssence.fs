@@ -365,13 +365,13 @@ module BinEssence =
         | elm, _ -> elm) elms
     ess, elms
 
-  let private hasNoFallThrough (stmts: Stmt []) =
+  let private hasNoFallThrough (insInfo: InstructionInfo) =
+    let stmts = insInfo.Stmts
     if stmts.Length > 0 then
       match stmts.[stmts.Length - 1] with
       | InterJmp (_, InterJmpInfo.IsCall) -> false
       | InterJmp (_, _)
-      | SideEffect (BinIR.Halt)
-      | SideEffect (BinIR.UndefinedInstr) -> true
+      | SideEffect _ when insInfo.Instruction.IsExit () -> true
       | _ -> false
     else false
 
@@ -383,7 +383,7 @@ module BinEssence =
       if ppoint.Address <> (nextLeader: ProgramPoint).Address then
         let nextInsAddr = i.Instruction.Address + uint64 i.Instruction.Length
         let nextPoint =
-          if hasNoFallThrough i.Stmts then nextLeader
+          if hasNoFallThrough i then nextLeader
           else ProgramPoint (nextInsAddr, 0)
         if ppoint.Position > 0 then
           let delta = i.Stmts.Length - ppoint.Position
@@ -405,7 +405,7 @@ module BinEssence =
       | None, _ -> [||]
       | Some info, nextPoint ->
         let acc = info :: acc
-        if hasNoFallThrough info.Stmts then List.rev acc |> List.toArray
+        if hasNoFallThrough info then List.rev acc |> List.toArray
         else gatherBB acc instrMap blkRange leaders nextPoint nextIdx
     elif nextLeader = ppoint then List.rev acc |> List.toArray
     (* Next point is beyond the next leader's point. This is possible when two
@@ -486,8 +486,8 @@ module BinEssence =
       ess.BinHandle.ISA.WordSize
       |> WordSize.toRegType
     let mask = BitVector.unsignedMax rt |> BitVector.toUInt64
-    let instrs = src.VData.GetInstructions ()
-    let addr = instrs.[Array.length instrs - 1].Address
+    let lastInstr = src.VData.LastInstruction
+    let addr = lastInstr.Address
     match src.VData.GetLastStmt () with
     | Jmp (Name s) ->
       ess, getIntraEdge src s IntraJmpEdge edges
@@ -642,8 +642,7 @@ module BinEssence =
       src.VData.HasIndirectBranch <- true
       ess, getIndirectEdges ess.IndirectBranchMap src false edges
     | SideEffect (BinIR.SysCall) when ess.IsNoReturn src false -> ess, edges
-    | SideEffect (BinIR.Halt)
-    | SideEffect (BinIR.UndefinedInstr) -> ess, edges
+    | SideEffect _ when lastInstr.IsExit () -> ess, edges
     | _ -> (* Fall through case *)
       let next = getNextPPoint src
       if next.Position = 0 then
