@@ -170,7 +170,7 @@ type IntelAsmParser (isa, baseAddr: Addr) =
 
   let pAbsoluteAddress =
     pImm |>> int16 .>> spaces .>> pchar ';' .>> spaces .>>. pAddr
-    |>> (fun (sel, addr) -> Absolute (sel, addr, dummyRegType))
+    |>> (fun (sel, addr) -> Absolute (sel, addr, 0<rt> (* dummy *)))
 
   let pJumpTarget = attempt pAbsoluteAddress <|> (pImm |>> Relative)
 

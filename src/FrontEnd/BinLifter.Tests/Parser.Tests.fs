@@ -36,12 +36,11 @@ module Intel =
     let reader = BinReader.Init (bytes)
     let parser = IntelParser (wordSize)
     let ctxt = ParsingContext.Init (ArchOperationMode.NoMode)
-    let ins = parser.Parse reader ctxt 0UL 0 :?> IntelInstruction
-    let pInfo = ins.Info
-    Assert.AreEqual (pInfo.Prefixes, prefs)
-    Assert.AreEqual (Helper.getSegment pInfo.Prefixes, segment)
-    Assert.AreEqual (pInfo.Opcode, opcode)
-    Assert.AreEqual (pInfo.Operands, oprs)
+    let ins = parser.Parse reader ctxt 0UL 0 :?> IntelInternalInstruction
+    Assert.AreEqual (ins.Prefixes, prefs)
+    Assert.AreEqual (Helper.getSegment ins.Prefixes, segment)
+    Assert.AreEqual (ins.Opcode, opcode)
+    Assert.AreEqual (ins.Operands, oprs)
     Assert.AreEqual (ins.Length, length)
 
   let private test32 = test Prefix.PrxNone None WordSize.Bit32

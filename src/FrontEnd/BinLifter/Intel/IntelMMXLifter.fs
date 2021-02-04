@@ -231,7 +231,7 @@ let private buildPackedThreeOprs ins iLen ctxt packSz opFn bufSz dst s1 s2 =
   | _ -> raise InvalidOperandSizeException
   !>ir iLen
 
-let buildPackedInstr ins insLen ctxt packSz opFn bufSz =
+let buildPackedInstr (ins: InsInfo) insLen ctxt packSz opFn bufSz =
   match ins.Operands with
   | TwoOperands (o1, o2) ->
     buildPackedTwoOprs ins insLen ctxt packSz opFn bufSz o1 o2

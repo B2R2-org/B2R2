@@ -936,7 +936,7 @@ let vmovhlps ins insLen ctxt =
   fillZeroHigh128 ctxt dst ir
   !>ir insLen
 
-let vmovhpd ins insLen ctxt =
+let vmovhpd (ins: InsInfo) insLen ctxt =
   let ir = IRBuilder (8)
   !<ir insLen
   match ins.Operands with
@@ -968,7 +968,7 @@ let vmovlhps ins insLen ctxt =
   fillZeroHigh128 ctxt dst ir
   !>ir insLen
 
-let vmovlpd ins insLen ctxt =
+let vmovlpd (ins: InsInfo) insLen ctxt =
   let ir = IRBuilder (8)
   !<ir insLen
   match ins.Operands with
@@ -1039,7 +1039,7 @@ let vmovmskps ins insLen ctxt =
   | OprReg r -> mskpd r
   | _ -> raise InvalidOperandSizeException
 
-let vmovsd ins insLen ctxt =
+let vmovsd (ins: InsInfo) insLen ctxt =
   let ir = IRBuilder (8)
   !<ir insLen
   match ins.Operands with
@@ -1115,7 +1115,7 @@ let vmovsldup ins insLen ctxt =
   | _ -> raise InvalidOperandSizeException
   !>ir insLen
 
-let vmovss ins insLen ctxt =
+let vmovss (ins: InsInfo) insLen ctxt =
   let ir = IRBuilder (8)
   !<ir insLen
   match ins.Operands with

@@ -260,7 +260,7 @@ let private ftrig _ins insLen ctxt trigFunc =
   !!ir (c3 := undefC3)
   !>ir insLen
 
-let private fpuFBinOp ins insLen ctxt binOp doPop leftToRight =
+let private fpuFBinOp (ins: InsInfo) insLen ctxt binOp doPop leftToRight =
   let ir = IRBuilder (64)
   let res = AST.tmpvar 80<rt>
   !<ir insLen
@@ -353,7 +353,7 @@ let fld ins insLen ctxt =
   let oprExpr = transOneOpr ins insLen ctxt
   fpuLoad insLen ctxt oprExpr
 
-let ffst ins insLen ctxt doPop =
+let ffst (ins: InsInfo) insLen ctxt doPop =
   let opr, oprExpr =
     match ins.Operands with
     | OneOperand opr -> opr, transOprToExpr ins insLen ctxt opr
@@ -454,7 +454,7 @@ let fbstp ins insLen ctxt =
   !!ir (dst := tmp)
   !>ir insLen
 
-let fxch ins insLen ctxt =
+let fxch (ins: InsInfo) insLen ctxt =
   let ir = IRBuilder (16)
   let tmp = AST.tmpvar 80<rt>
   let st0 = fpuRegValue ctxt R.ST0
@@ -475,7 +475,7 @@ let fxch ins insLen ctxt =
   !?ir (cflagsUndefined023 ctxt)
   !>ir insLen
 
-let private fcmov ins insLen ctxt cond =
+let private fcmov (ins: InsInfo) insLen ctxt cond =
   let ir = IRBuilder (8)
   let src =
     match ins.Operands with
@@ -685,7 +685,7 @@ let fxtract _ins insLen ctxt =
   !?ir (cflagsUndefined023 ctxt)
   !>ir insLen
 
-let fcom ins insLen ctxt nPop unordered =
+let fcom (ins: InsInfo) insLen ctxt nPop unordered =
   let ir = IRBuilder (64)
   let lblNan = AST.symbol "IsNan"
   let lblExit = AST.symbol "Exit"
@@ -1022,7 +1022,7 @@ let fdecstp _ins insLen ctxt =
   !!ir (!.ctxt R.FSWC3 := undefC3)
   !>ir insLen
 
-let ffree ins insLen ctxt =
+let ffree (ins: InsInfo) insLen ctxt =
   let ir = IRBuilder (8)
   let top = !.ctxt R.FTOP
   let tagWord = !.ctxt R.FTW

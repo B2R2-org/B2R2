@@ -50,11 +50,11 @@ let isStackRelatedRegister (st: CPState<StackValue>) regid =
 let checkStackAdjustFromIns ess acc (ins: Instruction) =
   match ess.BinHandle.ISA.Arch with
   | Arch.IntelX86 ->
-    let ins = ins :?> IntelInstruction
+    let ins = ins :?> IntelInternalInstruction
     if ins.IsRET () then
-      match ins.Info.Opcode with
+      match ins.Opcode with
       | Opcode.RETNearImm ->
-        match ins.Info.Operands with
+        match ins.Operands with
         | OneOperand (OprImm (n, _)) -> uint64 n
         | _ -> acc
       | _ -> acc

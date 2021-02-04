@@ -208,7 +208,7 @@ let private getTwoSrcOperands = function
   | ThreeOperands (_op1, op2, op3) -> (op2, op3)
   | _ -> raise InvalidOperandException
 
-let private handleScalarFPOp ins insLen ctxt sz op =
+let private handleScalarFPOp (ins: InsInfo) insLen ctxt sz op =
   let ir = IRBuilder(8)
   let _dst2, dst1 =
     ins.Operands |> getFstOperand |> transOprToExpr128 ins insLen ctxt
@@ -552,7 +552,7 @@ let cmpss ins insLen ctxt =
   !!ir (dst := AST.ite cond max32 (AST.num0 32<rt>))
   !>ir insLen
 
-let cmpsd ins insLen ctxt =
+let cmpsd (ins: InsInfo) insLen ctxt =
   match ins.Operands with
   | NoOperand -> GeneralLifter.cmps ins insLen ctxt
   | ThreeOperands (dst, src, imm) ->

@@ -27,10 +27,18 @@ module B2R2.Peripheral.Assembly.Intel.ParserHelper
 open B2R2
 open B2R2.FrontEnd.BinLifter.Intel
 
+type AsmInsInfo = {
+  Prefixes: Prefix
+  REXPrefix: REXPrefix
+  VEXInfo: VEXInfo option
+  Opcode: Opcode
+  Operands: Operands
+}
+
 /// AssemblyLine is either a label or an instruction.
 type AssemblyLine =
   | LabelDefLine
-  | InstructionLine of InsInfo
+  | InstructionLine of AsmInsInfo
 
 let checkIfInstructionLine = function
   | InstructionLine ins -> Some ins
@@ -77,17 +85,9 @@ let prefixFromRegString (str: string) =
   | "ss" -> Prefix.PrxSS
   | _ -> Utils.impossible ()
 
-let [<Literal>] dummyRegType = 0<rt>
-
 let newInfo prfxs rexPrfx vexInfo opc operands =
   { Prefixes = prfxs
     REXPrefix = rexPrfx
     VEXInfo = vexInfo
     Opcode = opc
-    Operands = operands
-    MainOperationSize = dummyRegType
-    PointerSize = dummyRegType
-#if LCACHE
-    InsHash = 0UL
-#endif
-  }
+    Operands = operands }

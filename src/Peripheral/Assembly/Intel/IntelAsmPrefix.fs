@@ -26,6 +26,7 @@ module internal B2R2.Peripheral.Assembly.Intel.AsmPrefix
 
 open B2R2
 open B2R2.FrontEnd.BinLifter.Intel
+open B2R2.Peripheral.Assembly.Intel.ParserHelper
 
 let isReg8 reg = Register.toRegType reg = 8<rt>
 let isReg16 reg = Register.toRegType reg = 16<rt>

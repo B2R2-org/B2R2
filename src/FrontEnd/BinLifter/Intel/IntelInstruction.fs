@@ -33,21 +33,20 @@ module private Dummy =
 
 /// The internal representation for an Intel instruction used by our
 /// disassembler and lifter.
-type IntelInstruction (addr, len, insInfo, wordSz) =
-  inherit Instruction (addr, len, wordSz)
-
-  /// Basic instruction info.
-  member __.Info with get(): InsInfo = insInfo
+type IntelInstruction
+  (addr, len, wordSz, pref, rex, vex, opcode, oprs, opsz, psz) =
+  inherit IntelInternalInstruction
+    (addr, len, wordSz, pref, rex, vex, opcode, oprs, opsz, psz)
 
   override __.NextParsingContext with get() = Dummy.ctxt
 
   override __.AuxParsingContext with get() = None
 
   override __.IsBranch () =
-    Helper.isBranch __.Info.Opcode
+    Helper.isBranch opcode
 
   member __.HasConcJmpTarget () =
-    match __.Info.Operands with
+    match oprs with
     | OneOperand (OprDirAddr _) -> true
     | _ -> false
 
@@ -58,7 +57,7 @@ type IntelInstruction (addr, len, insInfo, wordSz) =
     __.IsBranch () && (not <| __.HasConcJmpTarget ())
 
   override __.IsCondBranch () =
-    match __.Info.Opcode with
+    match opcode with
     | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
     | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JNB | Opcode.JNL | Opcode.JNO
     | Opcode.JNP | Opcode.JNS | Opcode.JNZ | Opcode.JO | Opcode.JP
@@ -68,7 +67,7 @@ type IntelInstruction (addr, len, insInfo, wordSz) =
 
   override __.IsCJmpOnTrue () =
     __.IsCondBranch ()
-    && match __.Info.Opcode with
+    && match opcode with
        | Opcode.JA | Opcode.JB | Opcode.JBE | Opcode.JCXZ | Opcode.JECXZ
        | Opcode.JG | Opcode.JL | Opcode.JLE | Opcode.JO | Opcode.JP
        | Opcode.JRCXZ | Opcode.JS | Opcode.JZ | Opcode.LOOP | Opcode.LOOPE ->
@@ -76,24 +75,24 @@ type IntelInstruction (addr, len, insInfo, wordSz) =
        | _ -> false
 
   override __.IsCall () =
-    match __.Info.Opcode with
+    match opcode with
     | Opcode.CALLFar | Opcode.CALLNear -> true
     | _ -> false
 
   override __.IsRET () =
-    match __.Info.Opcode with
+    match opcode with
     | Opcode.RETFar | Opcode.RETFarImm | Opcode.RETNear | Opcode.RETNearImm ->
       true
     | _ -> false
 
   override __.IsInterrupt () =
-    match __.Info.Opcode with
+    match opcode with
     | Opcode.INT | Opcode.INT3 | Opcode.INTO | Opcode.SYSCALL | Opcode.SYSENTER
       -> true
     | _ -> false
 
   override __.IsExit () =
-    match __.Info.Opcode with
+    match opcode with
     (* Compiler sometimes inserts HLT in user-level code to raise a fault. *)
     | Opcode.HLT
     (* Invalid OP exceptions usually don't return from the handler. *)
@@ -109,7 +108,7 @@ type IntelInstruction (addr, len, insInfo, wordSz) =
 
   override __.DirectBranchTarget (addr: byref<Addr>) =
     if __.IsBranch () then
-      match __.Info.Operands with
+      match oprs with
       | OneOperand (OprDirAddr (Absolute (_))) -> Utils.futureFeature ()
       | OneOperand (OprDirAddr (Relative offset)) ->
         addr <- (int64 __.Address + offset) |> uint64
@@ -119,7 +118,7 @@ type IntelInstruction (addr, len, insInfo, wordSz) =
 
   override __.IndirectTrampolineAddr (addr: byref<Addr>) =
     if __.IsIndirectBranch () then
-      match __.Info.Operands with
+      match oprs with
       | OneOperand (OprMem (None, None, Some disp, _)) ->
         addr <- uint64 disp; true
       | OneOperand (OprMem (Some Register.RIP, None, Some disp, _)) ->
@@ -141,13 +140,13 @@ type IntelInstruction (addr, len, insInfo, wordSz) =
     elif __.IsDirectBranch () || __.IsIndirectBranch () then
       if __.IsCondBranch () then acc |> __.AddBranchTargetIfExist
       else __.AddBranchTargetIfExist Seq.empty
-    elif __.Info.Opcode = Opcode.HLT then Seq.empty
-    elif __.Info.Opcode = Opcode.UD2 then Seq.empty
+    elif opcode = Opcode.HLT then Seq.empty
+    elif opcode = Opcode.UD2 then Seq.empty
     else acc
 
   override __.InterruptNum (num: byref<int64>) =
-    if __.Info.Opcode = Opcode.INT then
-      match __.Info.Operands with
+    if opcode = Opcode.INT then
+      match oprs with
       | OneOperand (OprImm (n, _)) ->
         num <- n
         true
@@ -155,25 +154,25 @@ type IntelInstruction (addr, len, insInfo, wordSz) =
     else false
 
   override __.IsNop () =
-    __.Info.Opcode = Opcode.NOP
+    opcode = Opcode.NOP
 
   override __.Translate ctxt =
-    Lifter.translate __.Info len ctxt
+    Lifter.translate __ len ctxt
 
   override __.Disasm (showAddr, resolveSymbol, disasmHelper) =
     let helper = if resolveSymbol then disasmHelper else Dummy.helper
     let builder = DisasmStringBuilder ()
-    Disasm.disasm showAddr wordSz helper __.Info addr len builder
+    Disasm.disasm showAddr wordSz helper __ addr len builder
     builder.Finalize ()
 
   override __.Disasm () =
     let builder = DisasmStringBuilder ()
-    Disasm.disasm false wordSz Dummy.helper __.Info addr len builder
+    Disasm.disasm false wordSz Dummy.helper __ addr len builder
     builder.Finalize ()
 
   override __.Decompose (showAddr) =
     let builder = DisasmWordBuilder (8)
-    Disasm.disasm showAddr wordSz Dummy.helper __.Info addr len builder
+    Disasm.disasm showAddr wordSz Dummy.helper __ addr len builder
     builder.Finalize ()
 
 // vim: set tw=80 sts=2 sw=2:

@@ -174,8 +174,8 @@ and IntelConditionRetriever () =
     let ppoint = v.VData.PPoint
     let stmts = Array.toList v.VData.SSAStmtInfos
     let addr = __.FindAddr condVar ppoint.Address stmts
-    let ins = ess.InstrMap.[addr].Instruction :?> Intel.IntelInstruction
-    match ins.Info.Opcode, ins.Info.Operands with
+    let ins = ess.InstrMap.[addr].Instruction :?> Intel.IntelInternalInstruction
+    match ins.Opcode, ins.Operands with
     | Intel.Opcode.CMP, Intel.TwoOperands (Intel.OprMem _, Intel.OprImm _)
     | Intel.Opcode.CMP, Intel.TwoOperands (Intel.OprReg _, Intel.OprImm _)
     | Intel.Opcode.SUB, Intel.TwoOperands (Intel.OprMem _, Intel.OprImm _)

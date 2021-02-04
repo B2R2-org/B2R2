@@ -106,11 +106,11 @@ let evalCast op rt c =
 let checkStackAdjustFromIns ess acc (ins: Instruction) =
   match ess.BinHandle.ISA.Arch with
   | Arch.IntelX86 ->
-    let ins = ins :?> IntelInstruction
+    let ins = ins :?> IntelInternalInstruction
     if ins.IsRET () then
-      match ins.Info.Opcode with
+      match ins.Opcode with
       | Opcode.RETNearImm ->
-        match ins.Info.Operands with
+        match ins.Operands with
         | OneOperand (OprImm (n, _)) -> uint64 n
         | _ -> acc
       | _ -> acc
@@ -296,11 +296,11 @@ let loadPointerToReg hdl (blk: Vertex<SSABBlock>) addr =
   let ins = info.Instruction
   match hdl.FileInfo.ISA.Arch with
   | Arch.IntelX64 ->
-    match (ins :?> IntelInstruction).Info.Operands with
+    match (ins :?> IntelInternalInstruction).Operands with
     | TwoOperands (_, OprMem (Some reg, None, Some _, _)) -> reg = Register.RIP
     | _ -> false
   | Arch.IntelX86 ->
-    match (ins :?> IntelInstruction).Info.Operands with
+    match (ins :?> IntelInternalInstruction).Operands with
     | TwoOperands (_, OprMem (None, None, Some _, _)) -> true
     | _ -> false
   | _ -> false

@@ -1043,7 +1043,7 @@ let recomputeRIPRel pc disp (insLen: uint32) oprSize builder =
   uToHexStr (pc + uint64 disp + uint64 insLen) builder
   builder.Accumulate AsmWordKind.String "]"
 
-let buildOprs ins insLen pc hlp wordSz (builder: DisasmBuilder<_>) =
+let buildOprs (ins: InsInfo) insLen pc hlp wordSz (builder: DisasmBuilder<_>) =
   match ins.Operands with
   | NoOperand -> ()
   | OneOperand (OprMem (Some Register.RIP, None, Some off, 64<rt>)) ->
@@ -1087,7 +1087,7 @@ let buildOprs ins insLen pc hlp wordSz (builder: DisasmBuilder<_>) =
 
 let disasm showAddr wordSize hlp ins pc insLen (builder: DisasmBuilder<_>) =
   builder.AccumulateAddr pc wordSize showAddr
-  buildPref ins.Prefixes builder
+  buildPref (ins: InsInfo).Prefixes builder
   buildOpcode ins.Opcode builder
   buildOprs ins insLen pc hlp wordSize builder
 

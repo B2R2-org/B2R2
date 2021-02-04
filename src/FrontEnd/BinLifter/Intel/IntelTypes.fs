@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinLifter.Intel
 
 open B2R2
+open B2R2.FrontEnd.BinLifter
 
 /// Instruction prefixes.
 [<System.FlagsAttribute>]
@@ -281,33 +282,48 @@ type MPref =
   /// 66 & F2 prefix.
   | MPrx66F2 = 4
 
-/// Basic information obtained by parsing an Intel instruction.
-type InsInfo = {
+[<AbstractClass>]
+type IntelInternalInstruction
+#if LCACHE
+  (addr, len, wordSz, pref, rex, vex, opcode, oprs, opsz, psz, insHash) =
+#else
+  (addr, len, wordSz, pref, rex, vex, opcode, oprs, opsz, psz) =
+#endif
+  inherit Instruction (addr, len, wordSz)
+
   /// Prefixes.
-  Prefixes: Prefix
+  member __.Prefixes with get(): Prefix = pref
+
   /// REX Prefix.
-  REXPrefix: REXPrefix
+  member __.REXPrefix with get(): REXPrefix = rex
+
   /// VEX information.
-  VEXInfo: VEXInfo option
+  member __.VEXInfo with get(): VEXInfo option = vex
+
   /// Opcode.
-  Opcode: Opcode
+  member __.Opcode with get(): Opcode = opcode
+
   /// Operands.
-  Operands: Operands
+  member __.Operands with get(): Operands = oprs
+
   /// Size of the main operation performed by the instruction. This field is
   /// mainly used by our lifter, and we suggest not to use this field for
   /// analyzing binaries because there is some ambiguity in deciding the
   /// operation size when the instruction semantics are complex. We use this
   /// only for the purpose of optimizing the lifting process.
-  MainOperationSize: RegType
+  member __.MainOperationSize with get(): RegType = opsz
+
   /// Size of the memory pointer in the instruction, i.e., how many bytes are
   /// required to represent a memory address. This field may hold a dummy value
   /// if there's no memory operand. This is mainly used for the lifting purpose
   /// along with the MainOperationSize.
-  PointerSize: RegType
+  member __.PointerSize with get(): RegType = psz
+
 #if LCACHE
   /// Instruction hash.
-  InsHash: uint64
+  member __.InsHash with get(): uint64 = insHash
 #endif
-}
+
+type internal InsInfo = IntelInternalInstruction
 
 // vim: set tw=80 sts=2 sw=2:

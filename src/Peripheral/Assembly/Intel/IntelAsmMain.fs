@@ -27,6 +27,7 @@ module B2R2.Peripheral.Assembly.Intel.AsmMain
 open System
 open B2R2
 open B2R2.FrontEnd.BinLifter.Intel
+open B2R2.Peripheral.Assembly.Intel.ParserHelper
 open B2R2.Peripheral.Assembly.Intel.AsmOpcode
 
 type AssemblyInfo = {
@@ -46,7 +47,7 @@ type UserState = {
   CurIndex: int
 }
 
-let encodeInstruction ins ctxt =
+let encodeInstruction (ins: AsmInsInfo) ctxt =
   match ins.Opcode with
   | Opcode.AAA -> aaa ctxt ins.Operands
   | Opcode.AAD -> aad ctxt ins.Operands
@@ -331,7 +332,7 @@ let finalize arch parserState realLenArr baseAddr myIdx comp =
        yield! getImm imm |]
   | _ -> comp |> Array.map normalToByte
 
-let assemble parserState isa (baseAddr: Addr) (instrs: InsInfo list) =
+let assemble parserState isa (baseAddr: Addr) (instrs: AsmInsInfo list) =
   let ctxt = EncContext (isa.Arch)
   let components = instrs |> List.map (fun ins -> encodeInstruction ins ctxt)
   let maxLenArr = computeMaxLen components

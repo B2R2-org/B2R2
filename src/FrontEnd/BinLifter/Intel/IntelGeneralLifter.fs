@@ -581,7 +581,7 @@ let cmc ins insLen ctxt =
 #endif
   !>ir insLen
 
-let private getCondOfCMov (ins: InsInfo) ctxt =
+let private getCondOfCMov (ins: IntelInternalInstruction) ctxt =
   match ins.Opcode with
   | Opcode.CMOVO -> !.ctxt R.OF
   | Opcode.CMOVNO -> !.ctxt R.OF == AST.b0
@@ -639,7 +639,7 @@ let private cmpsBody ins ctxt ir =
   !!ir (di := AST.ite df (di .- amount) (di .+ amount))
   !?ir (enumEFLAGS ctxt t1 t2 t3 oprSize (cfOnSub t1 t2) (ofOnSub t1 t2 t3))
 
-let cmps ins insLen ctxt =
+let cmps (ins: InsInfo) insLen ctxt =
   let pref = ins.Prefixes
   let zf = !.ctxt R.ZF
   let ir = IRBuilder (32)
@@ -1003,7 +1003,7 @@ let private insBody ins ctxt ir =
   !!ir (AST.loadLE ctxt.WordBitSize di := src)
   !!ir (di := AST.ite df (di .- amount) (di .+ amount))
 
-let insinstr ins insLen ctxt =
+let insinstr (ins: InsInfo) insLen ctxt =
   let ir = IRBuilder (16)
   !<ir insLen
   if hasREPZ ins.Prefixes then
@@ -1017,7 +1017,7 @@ let interrupt ins insLen ctxt =
   | Num n -> Interrupt (BitVector.toInt32 n) |> sideEffects insLen
   | _ -> raise InvalidOperandException
 
-let private getCondOfJcc (ins: InsInfo) (ctxt: TranslationContext) =
+let private getCondOfJcc (ins: IntelInternalInstruction) (ctxt: TranslationContext) =
 #if DEBUG
   if ctxt.WordBitSize = 64<rt> && (getOperationSize ins) = 16<rt> then
     Utils.impossible ()
@@ -1107,7 +1107,7 @@ let private lodsBody ins ctxt ir =
   !!ir (dst := AST.loadLE oprSize di)
   !!ir (di := AST.ite df (di .- amount) (di .+ amount))
 
-let lods ins insLen ctxt =
+let lods (ins: InsInfo) insLen ctxt =
   let ir = IRBuilder (16)
   !<ir insLen
   if hasREPZ ins.Prefixes then
@@ -1204,7 +1204,7 @@ let private movsBody ins ctxt ir =
   !!ir (si := AST.ite df (si .- amount) (si .+ amount))
   !!ir (di := AST.ite df (di .- amount) (di .+ amount))
 
-let movs ins insLen ctxt =
+let movs (ins: InsInfo) insLen ctxt =
   let ir = IRBuilder (16)
   !<ir insLen
   if hasREPZ ins.Prefixes then
@@ -1317,7 +1317,7 @@ let private outsBody ins ctxt ir =
     !!ir (src := AST.xtlo 16<rt> (AST.loadLE oprSize si))
   | _ -> raise InvalidOperandSizeException
 
-let outs ins insLen ctxt =
+let outs (ins: InsInfo) insLen ctxt =
   let ir = IRBuilder (16)
   !<ir insLen
   if hasREPZ ins.Prefixes then
@@ -1704,7 +1704,7 @@ let private scasBody ins ctxt ir =
   !?ir (enumEFLAGS ctxt x tSrc t oprSize (cfOnSub x tSrc) (ofOnSub x tSrc t))
   !!ir (di := AST.ite df (di .- amount) (di .+ amount))
 
-let scas ins insLen ctxt =
+let scas (ins: InsInfo) insLen ctxt =
   let pref = ins.Prefixes
   let zfCond n = Some (!.ctxt R.ZF == n)
   let ir = IRBuilder (32)
@@ -1716,7 +1716,7 @@ let scas ins insLen ctxt =
   else scasBody ins ctxt ir
   !>ir insLen
 
-let private getCondOfSet (ins: InsInfo) ctxt =
+let private getCondOfSet (ins: IntelInternalInstruction) ctxt =
   match ins.Opcode with
   | Opcode.SETO   -> !.ctxt R.OF
   | Opcode.SETNO  -> !.ctxt R.OF == AST.b0
@@ -1821,7 +1821,7 @@ let private stosBody ins ctxt ir =
   !!ir (AST.loadLE oprSize di := src)
   !!ir (di := AST.ite df (di .- amount) (di .+ amount))
 
-let stos ins insLen ctxt =
+let stos (ins: InsInfo) insLen ctxt =
   let ir = IRBuilder (16)
   !<ir insLen
   if hasREPZ ins.Prefixes then

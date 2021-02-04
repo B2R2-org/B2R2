@@ -170,7 +170,7 @@ let private segRegToBase = function
   | R.SS -> R.SSBase
   | _ -> Utils.impossible ()
 
-let private ldMem ins ctxt oprSize e =
+let private ldMem (ins: InsInfo) ctxt oprSize e =
   match getSegment ins.Prefixes with
   | Some s -> !.ctxt (segRegToBase s) .+ e
   | None -> e
@@ -285,7 +285,7 @@ let transOprToFloat80 ins insLen ctxt opr =
   | _ -> raise InvalidOperandException
 
 /// Return a tuple (jump target expr, is pc-relative?)
-let transJumpTargetOpr ins pc insLen (ctxt: TranslationContext) =
+let transJumpTargetOpr (ins: InsInfo) pc insLen (ctxt: TranslationContext) =
   match ins.Operands with
   | OneOperand (OprDirAddr (Absolute (_, addr, _))) ->
     struct (numU64 addr ctxt.WordBitSize, false)
@@ -298,7 +298,7 @@ let transJumpTargetOpr ins pc insLen (ctxt: TranslationContext) =
     struct (transMem ins insLen ctxt b index disp oprSize, false)
   | _ -> raise InvalidOperandException
 
-let getTwoOprs ins =
+let getTwoOprs (ins: InsInfo) =
   match ins.Operands with
   | TwoOperands (o1, o2) -> struct (o1, o2)
   | _ -> raise InvalidOperandException
@@ -313,19 +313,19 @@ let getFourOprs (ins: InsInfo) =
   | FourOperands (o1, o2, o3, o4) -> struct (o1, o2, o3, o4)
   | _ -> raise InvalidOperandException
 
-let transOneOpr ins insLen ctxt =
+let transOneOpr (ins: InsInfo) insLen ctxt =
   match ins.Operands with
   | OneOperand opr -> transOprToExpr ins insLen ctxt opr
   | _ -> raise InvalidOperandException
 
-let transTwoOprs ins insLen ctxt =
+let transTwoOprs (ins: InsInfo) insLen ctxt =
   match ins.Operands with
   | TwoOperands (o1, o2) ->
     struct (transOprToExpr ins insLen ctxt o1,
             transOprToExpr ins insLen ctxt o2)
   | _ -> raise InvalidOperandException
 
-let transThreeOprs ins insLen ctxt =
+let transThreeOprs (ins: InsInfo) insLen ctxt =
   match ins.Operands with
   | ThreeOperands (o1, o2, o3) ->
     struct (transOprToExpr ins insLen ctxt o1,

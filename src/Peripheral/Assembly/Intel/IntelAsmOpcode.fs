@@ -26,6 +26,7 @@ module internal B2R2.Peripheral.Assembly.Intel.AsmOpcode
 
 open B2R2
 open B2R2.FrontEnd.BinLifter.Intel
+open B2R2.Peripheral.Assembly.Intel.ParserHelper
 open B2R2.Peripheral.Assembly.Intel.AsmPrefix
 open B2R2.Peripheral.Assembly.Intel.AsmOperands
 

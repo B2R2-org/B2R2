@@ -31,7 +31,7 @@ open B2R2.FrontEnd.BinLifter
 type OP = Opcode (* Just to make it concise. *)
 
 /// Translate IR.
-let translate (ins: InsInfo) insLen ctxt =
+let translate (ins: IntelInternalInstruction) insLen ctxt =
   match ins.Opcode with
   | OP.AAA -> GeneralLifter.aaa insLen ctxt
   | OP.AAD -> GeneralLifter.aad ins insLen ctxt
