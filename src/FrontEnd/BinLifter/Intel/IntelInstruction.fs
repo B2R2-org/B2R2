@@ -93,16 +93,19 @@ type IntelInstruction (addr, len, insInfo, wordSz) =
     | _ -> false
 
   override __.IsExit () =
+    match __.Info.Opcode with
+    (* Compiler sometimes inserts HLT in user-level code to raise a fault. *)
+    | Opcode.HLT
+    (* Invalid OP exceptions usually don't return from the handler. *)
+    | Opcode.UD2
+    | Opcode.SYSEXIT | Opcode.SYSRET
+    | Opcode.IRET | Opcode.IRETW | Opcode.IRETD | Opcode.IRETQ -> true
+    | _ -> false
+
+  override __.IsBBLEnd () =
        __.IsBranch ()
-    || __.Info.Opcode = Opcode.HLT
-    || __.Info.Opcode = Opcode.INT
-    || __.Info.Opcode = Opcode.INT3
-    || __.Info.Opcode = Opcode.INTO
-    || __.Info.Opcode = Opcode.SYSCALL
-    || __.Info.Opcode = Opcode.SYSENTER
-    || __.Info.Opcode = Opcode.SYSEXIT
-    || __.Info.Opcode = Opcode.SYSRET
-    || __.Info.Opcode = Opcode.UD2
+    || __.IsInterrupt ()
+    || __.IsExit ()
 
   override __.DirectBranchTarget (addr: byref<Addr>) =
     if __.IsBranch () then

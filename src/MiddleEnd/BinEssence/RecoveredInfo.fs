@@ -77,7 +77,8 @@ with
         "__cxa_throw"
         "_Unwind_Resume"
         "_ZSt20__throw_length_errorPKc"
-        "_gfortran_stop_numeric" ]
+        "_gfortran_stop_numeric"
+        "__libc_start_main" ]
     { KnownNoReturnFuncNames = knownNoReturnFuncs
       NoReturnFuncs = noRetFuncs
       NoReturnCallSites = noRetCallSites }
