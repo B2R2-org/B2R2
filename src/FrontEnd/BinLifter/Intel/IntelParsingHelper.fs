@@ -115,47 +115,17 @@ module internal ParsingHelper = begin
       VPrefixes = getVPrefs b2
       EVEXPrx = e }
 
-  let getOprSize size sizeCond =
-    if sizeCond = SzCond.F64 ||
-      (size = 32<rt> && sizeCond = SzCond.D64) then 64<rt>
-    else size
-
-  let inline getEffOprSize32 prefs =
-    if hasOprSz prefs then 16<rt> else 32<rt>
-
-  let inline getEffAddrSize32 prefs =
-    if hasAddrSz prefs then 16<rt> else 32<rt>
-
-  let getSize64 prefs rexPref sizeCond =
-    if hasREXW rexPref then
-      if hasAddrSz prefs then struct (64<rt>, 32<rt>)
-      else struct (64<rt>, 64<rt>)
-    else
-      if hasOprSz prefs then
-        if hasAddrSz prefs then struct (getOprSize 16<rt> sizeCond, 32<rt>)
-        else struct (getOprSize 16<rt> sizeCond, 64<rt>)
-      else
-        if hasAddrSz prefs then
-          struct (getOprSize 32<rt> sizeCond, 32<rt>)
-        else struct (getOprSize 32<rt> sizeCond, 64<rt>)
-
-  let inline getSize (rhlp: ReadHelper) sizeCond =
-    if rhlp.WordSize = WordSize.Bit32 then
-      struct (getEffOprSize32 rhlp.Prefixes, getEffAddrSize32 rhlp.Prefixes)
-    else getSize64 rhlp.Prefixes rhlp.REXPrefix sizeCond
-
-  let exceptionalOperationSize opcode insSize =
+  let exceptionalOperationSize opcode (rhlp: ReadHelper) =
     match opcode with
-    | Opcode.PUSH | Opcode.POP ->
-      { insSize with OperationSize = insSize.MemEffOprSize }
+    | Opcode.PUSH | Opcode.POP -> rhlp.OperationSize <- rhlp.MemEffOprSize
     | Opcode.MOVSB | Opcode.INSB
     | Opcode.STOSB | Opcode.LODSB
-    | Opcode.OUTSB | Opcode.SCASB -> { insSize with OperationSize = 8<rt> }
-    | Opcode.OUTSW -> { insSize with OperationSize = 16<rt> }
-    | Opcode.OUTSD -> { insSize with OperationSize = 32<rt> }
-    | _ -> insSize
+    | Opcode.OUTSB | Opcode.SCASB -> rhlp.OperationSize <- 8<rt>
+    | Opcode.OUTSW -> rhlp.OperationSize <- 16<rt>
+    | Opcode.OUTSD -> rhlp.OperationSize <- 32<rt>
+    | _ -> ()
 
-  let newInsInfo (rhlp: ReadHelper) opcode oprs insSize =
+  let newInsInfo (rhlp: ReadHelper) opcode oprs =
 #if LCACHE
     rhlp.MarkHashEnd ()
 #endif
@@ -165,8 +135,8 @@ module internal ParsingHelper = begin
         VEXInfo = rhlp.VEXInfo
         Opcode = opcode
         Operands = oprs
-        MainOperationSize = insSize.OperationSize
-        PointerSize = insSize.MemEffAddrSize
+        MainOperationSize = rhlp.OperationSize
+        PointerSize = rhlp.MemEffAddrSize
 #if LCACHE
         InsHash =
           rhlp.GetInsHash (rhlp.VEXInfo) ||| Prefix.computeHash rhlp.Prefixes
@@ -3872,12 +3842,11 @@ module internal ParsingHelper = begin
   let getInstr prefix fnInstr = fnInstr (getMandPrx prefix)
 
   /// The main instruction rendering function.
-  let render rhlp opcode szCond (oidx: OprDesc) (sidx: SizeKind) =
-    let struct (effOprSize, effAddrSize) = getSize rhlp szCond
-    let insSize = rhlp.SzComputers.[int sidx].Render rhlp effOprSize effAddrSize
-    let insSize = exceptionalOperationSize opcode insSize
-    let struct (oprs, insSize) = rhlp.OprParsers.[int oidx].Render rhlp insSize
-    newInsInfo rhlp opcode oprs insSize
+  let render (rhlp: ReadHelper) opcode szCond (oidx: OprDesc) (sidx: SizeKind) =
+    rhlp.SzComputers.[int sidx].Render rhlp szCond
+    exceptionalOperationSize opcode rhlp
+    let oprs = rhlp.OprParsers.[int oidx].Render rhlp
+    newInsInfo rhlp opcode oprs
 
   /// Parse group Opcodes: Vol.2C A-19 Table A-6. Opcode Extensions for One- and
   /// Two-byte Opcodes by Group Number.
@@ -3987,9 +3956,7 @@ module internal ParsingHelper = begin
 
   let parseESCOp (rhlp: ReadHelper) escFlag getOpIn getOpOut =
     let modRM = rhlp.ReadByte ()
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
     if modRM <= 0xBFuy then
       let op = getOpIn modRM
       let effOprSize =
@@ -3999,13 +3966,13 @@ module internal ParsingHelper = begin
         | 0xDDuy -> getReg modRM |> getDDEscEffOprSizeByModRM
         | 0xDFuy -> getReg modRM |> getDFEscEffOprSizeByModRM
         | _ -> escFlag |> getEscEffOprSizeByESCOp
-      let insSize =
-        { insSize with MemEffOprSize = effOprSize; MemEffRegSize = effOprSize }
-      let o = OperandParsingHelper.parseMemory modRM insSize rhlp
-      newInsInfo rhlp op (OneOperand o) insSize
+      rhlp.MemEffOprSize <- effOprSize
+      rhlp.MemEffRegSize <- effOprSize
+      let o = OperandParsingHelper.parseMemory modRM rhlp
+      newInsInfo rhlp op (OneOperand o)
     else
       let opcode, oprs = getOpOut modRM
-      newInsInfo rhlp opcode oprs insSize
+      newInsInfo rhlp opcode oprs
 
   /// When the first two bytes are 0F38.
   /// Table A-4 of Volume 2 (Three-byte Opcode Map : First Two Bytes are 0F 38H)

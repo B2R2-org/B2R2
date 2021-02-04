@@ -209,8 +209,7 @@ type IntelAsmParser (isa, baseAddr: Addr) =
   let pInsInfo =
     opt pPrefix >>. spaces >>. (pOpcode >>= operands)
     |>> (fun (opcode, operands) ->
-          newInfo inferredPrefix REXPrefix.NOREX None
-            opcode operands dummyInsSize)
+          newInfo inferredPrefix REXPrefix.NOREX None opcode operands)
 
   let pInstructionLine =
     incrementIndex >>. opt pLabelDef >>. spaces >>. pInsInfo .>> resetPrefix

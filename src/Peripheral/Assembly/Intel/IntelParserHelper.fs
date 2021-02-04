@@ -77,23 +77,16 @@ let prefixFromRegString (str: string) =
   | "ss" -> Prefix.PrxSS
   | _ -> Utils.impossible ()
 
-let dummyRegType = 0<rt>
+let [<Literal>] dummyRegType = 0<rt>
 
-let dummyInsSize =
-  { MemEffOprSize = dummyRegType
-    MemEffAddrSize = dummyRegType
-    MemEffRegSize = dummyRegType
-    RegSize = dummyRegType
-    OperationSize = dummyRegType }
-
-let newInfo prfxs rexPrfx vexInfo opc operands size =
+let newInfo prfxs rexPrfx vexInfo opc operands =
   { Prefixes = prfxs
     REXPrefix = rexPrfx
     VEXInfo = vexInfo
     Opcode = opc
     Operands = operands
-    MainOperationSize = size.OperationSize
-    PointerSize = size.MemEffAddrSize
+    MainOperationSize = dummyRegType
+    PointerSize = dummyRegType
 #if LCACHE
     InsHash = 0UL
 #endif

@@ -38,62 +38,44 @@ type internal ParsingJob () =
 type internal OneOp00 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RmGpr].Render rhlp insSize
-    newInsInfo rhlp Opcode.ADD oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RmGpr].Render rhlp
+    newInsInfo rhlp Opcode.ADD oprs
 
 type internal OneOp01 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RmGpr].Render rhlp insSize
-    newInsInfo rhlp Opcode.ADD oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RmGpr].Render rhlp
+    newInsInfo rhlp Opcode.ADD oprs
 
 type internal OneOp02 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.GprRm].Render rhlp insSize
-    newInsInfo rhlp Opcode.ADD oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.GprRm].Render rhlp
+    newInsInfo rhlp Opcode.ADD oprs
 
 type internal OneOp03 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.GprRm].Render rhlp insSize
-    newInsInfo rhlp Opcode.ADD oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.GprRm].Render rhlp
+    newInsInfo rhlp Opcode.ADD oprs
 
 type internal OneOp04 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RegImm8].Render rhlp insSize
-    newInsInfo rhlp Opcode.ADD oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RegImm8].Render rhlp
+    newInsInfo rhlp Opcode.ADD oprs
 
 type internal OneOp05 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RegImm].Render rhlp insSize
-    newInsInfo rhlp Opcode.ADD oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RegImm].Render rhlp
+    newInsInfo rhlp Opcode.ADD oprs
 
 type internal OneOp06 () =
   inherit ParsingJob ()
@@ -101,13 +83,10 @@ type internal OneOp06 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.RegW].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = insSize.MemEffOprSize }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Es].Render rhlp insSize
-    newInsInfo rhlp Opcode.PUSH oprs insSize
+    rhlp.SzComputers.[int SZ.RegW].Render rhlp SzCond.Nor
+    rhlp.OperationSize <- rhlp.MemEffOprSize
+    let oprs = rhlp.OprParsers.[int OD.Es].Render rhlp
+    newInsInfo rhlp Opcode.PUSH oprs
 
 type internal OneOp07 () =
   inherit ParsingJob ()
@@ -115,73 +94,52 @@ type internal OneOp07 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.RegW].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = insSize.MemEffOprSize }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Es].Render rhlp insSize
-    newInsInfo rhlp Opcode.POP oprs insSize
+    rhlp.SzComputers.[int SZ.RegW].Render rhlp SzCond.Nor
+    rhlp.OperationSize <- rhlp.MemEffOprSize
+    let oprs = rhlp.OprParsers.[int OD.Es].Render rhlp
+    newInsInfo rhlp Opcode.POP oprs
 
 type internal OneOp08 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RmGpr].Render rhlp insSize
-    newInsInfo rhlp Opcode.OR oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RmGpr].Render rhlp
+    newInsInfo rhlp Opcode.OR oprs
 
 type internal OneOp09 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RmGpr].Render rhlp insSize
-    newInsInfo rhlp Opcode.OR oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RmGpr].Render rhlp
+    newInsInfo rhlp Opcode.OR oprs
 
 type internal OneOp0A () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.GprRm].Render rhlp insSize
-    newInsInfo rhlp Opcode.OR oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.GprRm].Render rhlp
+    newInsInfo rhlp Opcode.OR oprs
 
 type internal OneOp0B () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.GprRm].Render rhlp insSize
-    newInsInfo rhlp Opcode.OR oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.GprRm].Render rhlp
+    newInsInfo rhlp Opcode.OR oprs
 
 type internal OneOp0C () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RegImm8].Render rhlp insSize
-    newInsInfo rhlp Opcode.OR oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RegImm8].Render rhlp
+    newInsInfo rhlp Opcode.OR oprs
 
 type internal OneOp0D () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RegImm].Render rhlp insSize
-    newInsInfo rhlp Opcode.OR oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RegImm].Render rhlp
+    newInsInfo rhlp Opcode.OR oprs
 
 type internal OneOp0E () =
   inherit ParsingJob ()
@@ -189,13 +147,10 @@ type internal OneOp0E () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.RegW].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = insSize.MemEffOprSize }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Cs].Render rhlp insSize
-    newInsInfo rhlp Opcode.PUSH oprs insSize
+    rhlp.SzComputers.[int SZ.RegW].Render rhlp SzCond.Nor
+    rhlp.OperationSize <- rhlp.MemEffOprSize
+    let oprs = rhlp.OprParsers.[int OD.Cs].Render rhlp
+    newInsInfo rhlp Opcode.PUSH oprs
 
 type internal OneOp0F () =
   inherit ParsingJob ()
@@ -205,62 +160,44 @@ type internal OneOp0F () =
 type internal OneOp10 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RmGpr].Render rhlp insSize
-    newInsInfo rhlp Opcode.ADC oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RmGpr].Render rhlp
+    newInsInfo rhlp Opcode.ADC oprs
 
 type internal OneOp11 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RmGpr].Render rhlp insSize
-    newInsInfo rhlp Opcode.ADC oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RmGpr].Render rhlp
+    newInsInfo rhlp Opcode.ADC oprs
 
 type internal OneOp12 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.GprRm].Render rhlp insSize
-    newInsInfo rhlp Opcode.ADC oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.GprRm].Render rhlp
+    newInsInfo rhlp Opcode.ADC oprs
 
 type internal OneOp13 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.GprRm].Render rhlp insSize
-    newInsInfo rhlp Opcode.ADC oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.GprRm].Render rhlp
+    newInsInfo rhlp Opcode.ADC oprs
 
 type internal OneOp14 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RegImm8].Render rhlp insSize
-    newInsInfo rhlp Opcode.ADC oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RegImm8].Render rhlp
+    newInsInfo rhlp Opcode.ADC oprs
 
 type internal OneOp15 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RegImm].Render rhlp insSize
-    newInsInfo rhlp Opcode.ADC oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RegImm].Render rhlp
+    newInsInfo rhlp Opcode.ADC oprs
 
 type internal OneOp16 () =
   inherit ParsingJob ()
@@ -268,13 +205,10 @@ type internal OneOp16 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.RegW].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = insSize.MemEffOprSize }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Ss].Render rhlp insSize
-    newInsInfo rhlp Opcode.PUSH oprs insSize
+    rhlp.SzComputers.[int SZ.RegW].Render rhlp SzCond.Nor
+    rhlp.OperationSize <- rhlp.MemEffOprSize
+    let oprs = rhlp.OprParsers.[int OD.Ss].Render rhlp
+    newInsInfo rhlp Opcode.PUSH oprs
 
 type internal OneOp17 () =
   inherit ParsingJob ()
@@ -282,73 +216,52 @@ type internal OneOp17 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.RegW].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = insSize.MemEffOprSize }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Ss].Render rhlp insSize
-    newInsInfo rhlp Opcode.POP oprs insSize
+    rhlp.SzComputers.[int SZ.RegW].Render rhlp SzCond.Nor
+    rhlp.OperationSize <- rhlp.MemEffOprSize
+    let oprs = rhlp.OprParsers.[int OD.Ss].Render rhlp
+    newInsInfo rhlp Opcode.POP oprs
 
 type internal OneOp18 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RmGpr].Render rhlp insSize
-    newInsInfo rhlp Opcode.SBB oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RmGpr].Render rhlp
+    newInsInfo rhlp Opcode.SBB oprs
 
 type internal OneOp19 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RmGpr].Render rhlp insSize
-    newInsInfo rhlp Opcode.SBB oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RmGpr].Render rhlp
+    newInsInfo rhlp Opcode.SBB oprs
 
 type internal OneOp1A () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.GprRm].Render rhlp insSize
-    newInsInfo rhlp Opcode.SBB oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.GprRm].Render rhlp
+    newInsInfo rhlp Opcode.SBB oprs
 
 type internal OneOp1B () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.GprRm].Render rhlp insSize
-    newInsInfo rhlp Opcode.SBB oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.GprRm].Render rhlp
+    newInsInfo rhlp Opcode.SBB oprs
 
 type internal OneOp1C () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RegImm8].Render rhlp insSize
-    newInsInfo rhlp Opcode.SBB oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RegImm8].Render rhlp
+    newInsInfo rhlp Opcode.SBB oprs
 
 type internal OneOp1D () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RegImm].Render rhlp insSize
-    newInsInfo rhlp Opcode.SBB oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RegImm].Render rhlp
+    newInsInfo rhlp Opcode.SBB oprs
 
 type internal OneOp1E () =
   inherit ParsingJob ()
@@ -356,13 +269,10 @@ type internal OneOp1E () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.RegW].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = insSize.MemEffOprSize }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Ds].Render rhlp insSize
-    newInsInfo rhlp Opcode.PUSH oprs insSize
+    rhlp.SzComputers.[int SZ.RegW].Render rhlp SzCond.Nor
+    rhlp.OperationSize <- rhlp.MemEffOprSize
+    let oprs = rhlp.OprParsers.[int OD.Ds].Render rhlp
+    newInsInfo rhlp Opcode.PUSH oprs
 
 type internal OneOp1F () =
   inherit ParsingJob ()
@@ -370,73 +280,52 @@ type internal OneOp1F () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.RegW].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = insSize.MemEffOprSize }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Ds].Render rhlp insSize
-    newInsInfo rhlp Opcode.POP oprs insSize
+    rhlp.SzComputers.[int SZ.RegW].Render rhlp SzCond.Nor
+    rhlp.OperationSize <- rhlp.MemEffOprSize
+    let oprs = rhlp.OprParsers.[int OD.Ds].Render rhlp
+    newInsInfo rhlp Opcode.POP oprs
 
 type internal OneOp20 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RmGpr].Render rhlp insSize
-    newInsInfo rhlp Opcode.AND oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RmGpr].Render rhlp
+    newInsInfo rhlp Opcode.AND oprs
 
 type internal OneOp21 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RmGpr].Render rhlp insSize
-    newInsInfo rhlp Opcode.AND oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RmGpr].Render rhlp
+    newInsInfo rhlp Opcode.AND oprs
 
 type internal OneOp22 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.GprRm].Render rhlp insSize
-    newInsInfo rhlp Opcode.AND oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.GprRm].Render rhlp
+    newInsInfo rhlp Opcode.AND oprs
 
 type internal OneOp23 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.GprRm].Render rhlp insSize
-    newInsInfo rhlp Opcode.AND oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.GprRm].Render rhlp
+    newInsInfo rhlp Opcode.AND oprs
 
 type internal OneOp24 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RegImm8].Render rhlp insSize
-    newInsInfo rhlp Opcode.AND oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RegImm8].Render rhlp
+    newInsInfo rhlp Opcode.AND oprs
 
 type internal OneOp25 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RegImm].Render rhlp insSize
-    newInsInfo rhlp Opcode.AND oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RegImm].Render rhlp
+    newInsInfo rhlp Opcode.AND oprs
 
 type internal OneOp26 () =
   inherit ParsingJob ()
@@ -448,72 +337,51 @@ type internal OneOp27 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.DAA oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.DAA oprs
 
 type internal OneOp28 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RmGpr].Render rhlp insSize
-    newInsInfo rhlp Opcode.SUB oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RmGpr].Render rhlp
+    newInsInfo rhlp Opcode.SUB oprs
 
 type internal OneOp29 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RmGpr].Render rhlp insSize
-    newInsInfo rhlp Opcode.SUB oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RmGpr].Render rhlp
+    newInsInfo rhlp Opcode.SUB oprs
 
 type internal OneOp2A () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.GprRm].Render rhlp insSize
-    newInsInfo rhlp Opcode.SUB oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.GprRm].Render rhlp
+    newInsInfo rhlp Opcode.SUB oprs
 
 type internal OneOp2B () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.GprRm].Render rhlp insSize
-    newInsInfo rhlp Opcode.SUB oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.GprRm].Render rhlp
+    newInsInfo rhlp Opcode.SUB oprs
 
 type internal OneOp2C () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RegImm8].Render rhlp insSize
-    newInsInfo rhlp Opcode.SUB oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RegImm8].Render rhlp
+    newInsInfo rhlp Opcode.SUB oprs
 
 type internal OneOp2D () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RegImm].Render rhlp insSize
-    newInsInfo rhlp Opcode.SUB oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RegImm].Render rhlp
+    newInsInfo rhlp Opcode.SUB oprs
 
 type internal OneOp2E () =
   inherit ParsingJob ()
@@ -525,72 +393,51 @@ type internal OneOp2F () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.DAS oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.DAS oprs
 
 type internal OneOp30 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RmGpr].Render rhlp insSize
-    newInsInfo rhlp Opcode.XOR oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RmGpr].Render rhlp
+    newInsInfo rhlp Opcode.XOR oprs
 
 type internal OneOp31 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RmGpr].Render rhlp insSize
-    newInsInfo rhlp Opcode.XOR oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RmGpr].Render rhlp
+    newInsInfo rhlp Opcode.XOR oprs
 
 type internal OneOp32 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.GprRm].Render rhlp insSize
-    newInsInfo rhlp Opcode.XOR oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.GprRm].Render rhlp
+    newInsInfo rhlp Opcode.XOR oprs
 
 type internal OneOp33 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.GprRm].Render rhlp insSize
-    newInsInfo rhlp Opcode.XOR oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.GprRm].Render rhlp
+    newInsInfo rhlp Opcode.XOR oprs
 
 type internal OneOp34 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RegImm8].Render rhlp insSize
-    newInsInfo rhlp Opcode.XOR oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RegImm8].Render rhlp
+    newInsInfo rhlp Opcode.XOR oprs
 
 type internal OneOp35 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RegImm].Render rhlp insSize
-    newInsInfo rhlp Opcode.XOR oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RegImm].Render rhlp
+    newInsInfo rhlp Opcode.XOR oprs
 
 type internal OneOp36 () =
   inherit ParsingJob ()
@@ -602,72 +449,51 @@ type internal OneOp37 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.AAA oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.AAA oprs
 
 type internal OneOp38 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RmGpr].Render rhlp insSize
-    newInsInfo rhlp Opcode.CMP oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RmGpr].Render rhlp
+    newInsInfo rhlp Opcode.CMP oprs
 
 type internal OneOp39 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RmGpr].Render rhlp insSize
-    newInsInfo rhlp Opcode.CMP oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RmGpr].Render rhlp
+    newInsInfo rhlp Opcode.CMP oprs
 
 type internal OneOp3A () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.GprRm].Render rhlp insSize
-    newInsInfo rhlp Opcode.CMP oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.GprRm].Render rhlp
+    newInsInfo rhlp Opcode.CMP oprs
 
 type internal OneOp3B () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.GprRm].Render rhlp insSize
-    newInsInfo rhlp Opcode.CMP oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.GprRm].Render rhlp
+    newInsInfo rhlp Opcode.CMP oprs
 
 type internal OneOp3C () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RegImm8].Render rhlp insSize
-    newInsInfo rhlp Opcode.CMP oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RegImm8].Render rhlp
+    newInsInfo rhlp Opcode.CMP oprs
 
 type internal OneOp3D () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RegImm].Render rhlp insSize
-    newInsInfo rhlp Opcode.CMP oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RegImm].Render rhlp
+    newInsInfo rhlp Opcode.CMP oprs
 
 type internal OneOp3E () =
   inherit ParsingJob ()
@@ -679,12 +505,9 @@ type internal OneOp3F () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.AAS oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.AAS oprs
 
 type internal OneOp40 () =
   inherit ParsingJob ()
@@ -692,12 +515,9 @@ type internal OneOp40 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Eax].Render rhlp insSize
-    newInsInfo rhlp Opcode.INC oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.Eax].Render rhlp
+    newInsInfo rhlp Opcode.INC oprs
 
 type internal OneOp41 () =
   inherit ParsingJob ()
@@ -705,12 +525,9 @@ type internal OneOp41 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Ecx].Render rhlp insSize
-    newInsInfo rhlp Opcode.INC oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.Ecx].Render rhlp
+    newInsInfo rhlp Opcode.INC oprs
 
 type internal OneOp42 () =
   inherit ParsingJob ()
@@ -718,12 +535,9 @@ type internal OneOp42 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Edx].Render rhlp insSize
-    newInsInfo rhlp Opcode.INC oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.Edx].Render rhlp
+    newInsInfo rhlp Opcode.INC oprs
 
 type internal OneOp43 () =
   inherit ParsingJob ()
@@ -731,12 +545,9 @@ type internal OneOp43 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Ebx].Render rhlp insSize
-    newInsInfo rhlp Opcode.INC oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.Ebx].Render rhlp
+    newInsInfo rhlp Opcode.INC oprs
 
 type internal OneOp44 () =
   inherit ParsingJob ()
@@ -744,12 +555,9 @@ type internal OneOp44 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Esp].Render rhlp insSize
-    newInsInfo rhlp Opcode.INC oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.Esp].Render rhlp
+    newInsInfo rhlp Opcode.INC oprs
 
 type internal OneOp45 () =
   inherit ParsingJob ()
@@ -757,12 +565,9 @@ type internal OneOp45 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Ebp].Render rhlp insSize
-    newInsInfo rhlp Opcode.INC oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.Ebp].Render rhlp
+    newInsInfo rhlp Opcode.INC oprs
 
 type internal OneOp46 () =
   inherit ParsingJob ()
@@ -770,12 +575,9 @@ type internal OneOp46 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Esi].Render rhlp insSize
-    newInsInfo rhlp Opcode.INC oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.Esi].Render rhlp
+    newInsInfo rhlp Opcode.INC oprs
 
 type internal OneOp47 () =
   inherit ParsingJob ()
@@ -783,12 +585,9 @@ type internal OneOp47 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Edi].Render rhlp insSize
-    newInsInfo rhlp Opcode.INC oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.Edi].Render rhlp
+    newInsInfo rhlp Opcode.INC oprs
 
 type internal OneOp48 () =
   inherit ParsingJob ()
@@ -796,12 +595,9 @@ type internal OneOp48 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Eax].Render rhlp insSize
-    newInsInfo rhlp Opcode.DEC oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.Eax].Render rhlp
+    newInsInfo rhlp Opcode.DEC oprs
 
 type internal OneOp49 () =
   inherit ParsingJob ()
@@ -809,12 +605,9 @@ type internal OneOp49 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Ecx].Render rhlp insSize
-    newInsInfo rhlp Opcode.DEC oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.Ecx].Render rhlp
+    newInsInfo rhlp Opcode.DEC oprs
 
 type internal OneOp4A () =
   inherit ParsingJob ()
@@ -822,12 +615,9 @@ type internal OneOp4A () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Edx].Render rhlp insSize
-    newInsInfo rhlp Opcode.DEC oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.Edx].Render rhlp
+    newInsInfo rhlp Opcode.DEC oprs
 
 type internal OneOp4B () =
   inherit ParsingJob ()
@@ -835,12 +625,9 @@ type internal OneOp4B () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Ebx].Render rhlp insSize
-    newInsInfo rhlp Opcode.DEC oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.Ebx].Render rhlp
+    newInsInfo rhlp Opcode.DEC oprs
 
 type internal OneOp4C () =
   inherit ParsingJob ()
@@ -848,12 +635,9 @@ type internal OneOp4C () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Esp].Render rhlp insSize
-    newInsInfo rhlp Opcode.DEC oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.Esp].Render rhlp
+    newInsInfo rhlp Opcode.DEC oprs
 
 type internal OneOp4D () =
   inherit ParsingJob ()
@@ -861,12 +645,9 @@ type internal OneOp4D () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Ebp].Render rhlp insSize
-    newInsInfo rhlp Opcode.DEC oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.Ebp].Render rhlp
+    newInsInfo rhlp Opcode.DEC oprs
 
 type internal OneOp4E () =
   inherit ParsingJob ()
@@ -874,12 +655,9 @@ type internal OneOp4E () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Esi].Render rhlp insSize
-    newInsInfo rhlp Opcode.DEC oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.Esi].Render rhlp
+    newInsInfo rhlp Opcode.DEC oprs
 
 type internal OneOp4F () =
   inherit ParsingJob ()
@@ -887,188 +665,137 @@ type internal OneOp4F () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Edi].Render rhlp insSize
-    newInsInfo rhlp Opcode.DEC oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.Edi].Render rhlp
+    newInsInfo rhlp Opcode.DEC oprs
 
 type internal OneOp50 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.D64
-    let insSize =
-      rhlp.SzComputers.[int SZ.D64].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = insSize.MemEffOprSize }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rax].Render rhlp insSize
-    newInsInfo rhlp Opcode.PUSH oprs insSize
+    rhlp.SzComputers.[int SZ.D64].Render rhlp SzCond.D64
+    rhlp.OperationSize <- rhlp.MemEffOprSize
+    let oprs = rhlp.OprParsers.[int OD.Rax].Render rhlp
+    newInsInfo rhlp Opcode.PUSH oprs
 
 type internal OneOp51 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.D64
-    let insSize =
-      rhlp.SzComputers.[int SZ.D64].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = insSize.MemEffOprSize }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rcx].Render rhlp insSize
-    newInsInfo rhlp Opcode.PUSH oprs insSize
+    rhlp.SzComputers.[int SZ.D64].Render rhlp SzCond.D64
+    rhlp.OperationSize <- rhlp.MemEffOprSize
+    let oprs = rhlp.OprParsers.[int OD.Rcx].Render rhlp
+    newInsInfo rhlp Opcode.PUSH oprs
 
 type internal OneOp52 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.D64
-    let insSize =
-      rhlp.SzComputers.[int SZ.D64].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = insSize.MemEffOprSize }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rdx].Render rhlp insSize
-    newInsInfo rhlp Opcode.PUSH oprs insSize
+    rhlp.SzComputers.[int SZ.D64].Render rhlp SzCond.D64
+    rhlp.OperationSize <- rhlp.MemEffOprSize
+    let oprs = rhlp.OprParsers.[int OD.Rdx].Render rhlp
+    newInsInfo rhlp Opcode.PUSH oprs
 
 type internal OneOp53 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.D64
-    let insSize =
-      rhlp.SzComputers.[int SZ.D64].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = insSize.MemEffOprSize }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rbx].Render rhlp insSize
-    newInsInfo rhlp Opcode.PUSH oprs insSize
+    rhlp.SzComputers.[int SZ.D64].Render rhlp SzCond.D64
+    rhlp.OperationSize <- rhlp.MemEffOprSize
+    let oprs = rhlp.OprParsers.[int OD.Rbx].Render rhlp
+    newInsInfo rhlp Opcode.PUSH oprs
 
 type internal OneOp54 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.D64
-    let insSize =
-      rhlp.SzComputers.[int SZ.D64].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = insSize.MemEffOprSize }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rsp].Render rhlp insSize
-    newInsInfo rhlp Opcode.PUSH oprs insSize
+    rhlp.SzComputers.[int SZ.D64].Render rhlp SzCond.D64
+    rhlp.OperationSize <- rhlp.MemEffOprSize
+    let oprs = rhlp.OprParsers.[int OD.Rsp].Render rhlp
+    newInsInfo rhlp Opcode.PUSH oprs
 
 type internal OneOp55 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.D64
-    let insSize =
-      rhlp.SzComputers.[int SZ.D64].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = insSize.MemEffOprSize }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rbp].Render rhlp insSize
-    newInsInfo rhlp Opcode.PUSH oprs insSize
+    rhlp.SzComputers.[int SZ.D64].Render rhlp SzCond.D64
+    rhlp.OperationSize <- rhlp.MemEffOprSize
+    let oprs = rhlp.OprParsers.[int OD.Rbp].Render rhlp
+    newInsInfo rhlp Opcode.PUSH oprs
 
 type internal OneOp56 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.D64
-    let insSize =
-      rhlp.SzComputers.[int SZ.D64].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = insSize.MemEffOprSize }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rsi].Render rhlp insSize
-    newInsInfo rhlp Opcode.PUSH oprs insSize
+    rhlp.SzComputers.[int SZ.D64].Render rhlp SzCond.D64
+    rhlp.OperationSize <- rhlp.MemEffOprSize
+    let oprs = rhlp.OprParsers.[int OD.Rsi].Render rhlp
+    newInsInfo rhlp Opcode.PUSH oprs
 
 type internal OneOp57 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.D64
-    let insSize =
-      rhlp.SzComputers.[int SZ.D64].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = insSize.MemEffOprSize }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rdi].Render rhlp insSize
-    newInsInfo rhlp Opcode.PUSH oprs insSize
+    rhlp.SzComputers.[int SZ.D64].Render rhlp SzCond.D64
+    rhlp.OperationSize <- rhlp.MemEffOprSize
+    let oprs = rhlp.OprParsers.[int OD.Rdi].Render rhlp
+    newInsInfo rhlp Opcode.PUSH oprs
 
 type internal OneOp58 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.D64
-    let insSize =
-      rhlp.SzComputers.[int SZ.D64].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = insSize.MemEffOprSize }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rax].Render rhlp insSize
-    newInsInfo rhlp Opcode.POP oprs insSize
+    rhlp.SzComputers.[int SZ.D64].Render rhlp SzCond.D64
+    rhlp.OperationSize <- rhlp.MemEffOprSize
+    let oprs = rhlp.OprParsers.[int OD.Rax].Render rhlp
+    newInsInfo rhlp Opcode.POP oprs
 
 type internal OneOp59 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.D64
-    let insSize =
-      rhlp.SzComputers.[int SZ.D64].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = insSize.MemEffOprSize }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rcx].Render rhlp insSize
-    newInsInfo rhlp Opcode.POP oprs insSize
+    rhlp.SzComputers.[int SZ.D64].Render rhlp SzCond.D64
+    rhlp.OperationSize <- rhlp.MemEffOprSize
+    let oprs = rhlp.OprParsers.[int OD.Rcx].Render rhlp
+    newInsInfo rhlp Opcode.POP oprs
 
 type internal OneOp5A () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.D64
-    let insSize =
-      rhlp.SzComputers.[int SZ.D64].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = insSize.MemEffOprSize }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rdx].Render rhlp insSize
-    newInsInfo rhlp Opcode.POP oprs insSize
+    rhlp.SzComputers.[int SZ.D64].Render rhlp SzCond.D64
+    rhlp.OperationSize <- rhlp.MemEffOprSize
+    let oprs = rhlp.OprParsers.[int OD.Rdx].Render rhlp
+    newInsInfo rhlp Opcode.POP oprs
 
 type internal OneOp5B () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.D64
-    let insSize =
-      rhlp.SzComputers.[int SZ.D64].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = insSize.MemEffOprSize }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rbx].Render rhlp insSize
-    newInsInfo rhlp Opcode.POP oprs insSize
+    rhlp.SzComputers.[int SZ.D64].Render rhlp SzCond.D64
+    rhlp.OperationSize <- rhlp.MemEffOprSize
+    let oprs = rhlp.OprParsers.[int OD.Rbx].Render rhlp
+    newInsInfo rhlp Opcode.POP oprs
 
 type internal OneOp5C () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.D64
-    let insSize =
-      rhlp.SzComputers.[int SZ.D64].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = insSize.MemEffOprSize }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rsp].Render rhlp insSize
-    newInsInfo rhlp Opcode.POP oprs insSize
+    rhlp.SzComputers.[int SZ.D64].Render rhlp SzCond.D64
+    rhlp.OperationSize <- rhlp.MemEffOprSize
+    let oprs = rhlp.OprParsers.[int OD.Rsp].Render rhlp
+    newInsInfo rhlp Opcode.POP oprs
 
 type internal OneOp5D () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.D64
-    let insSize =
-      rhlp.SzComputers.[int SZ.D64].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = insSize.MemEffOprSize }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rbp].Render rhlp insSize
-    newInsInfo rhlp Opcode.POP oprs insSize
+    rhlp.SzComputers.[int SZ.D64].Render rhlp SzCond.D64
+    rhlp.OperationSize <- rhlp.MemEffOprSize
+    let oprs = rhlp.OprParsers.[int OD.Rbp].Render rhlp
+    newInsInfo rhlp Opcode.POP oprs
 
 type internal OneOp5E () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.D64
-    let insSize =
-      rhlp.SzComputers.[int SZ.D64].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = insSize.MemEffOprSize }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rsi].Render rhlp insSize
-    newInsInfo rhlp Opcode.POP oprs insSize
+    rhlp.SzComputers.[int SZ.D64].Render rhlp SzCond.D64
+    rhlp.OperationSize <- rhlp.MemEffOprSize
+    let oprs = rhlp.OprParsers.[int OD.Rsi].Render rhlp
+    newInsInfo rhlp Opcode.POP oprs
 
 type internal OneOp5F () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.D64
-    let insSize =
-      rhlp.SzComputers.[int SZ.D64].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = insSize.MemEffOprSize }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rdi].Render rhlp insSize
-    newInsInfo rhlp Opcode.POP oprs insSize
+    rhlp.SzComputers.[int SZ.D64].Render rhlp SzCond.D64
+    rhlp.OperationSize <- rhlp.MemEffOprSize
+    let oprs = rhlp.OprParsers.[int OD.Rdi].Render rhlp
+    newInsInfo rhlp Opcode.POP oprs
 
 type internal OneOp60 () =
   inherit ParsingJob ()
@@ -1105,12 +832,9 @@ type internal OneOp62 () =
       | VEXType.VEXThreeByteOpTwo -> parseThreeByteOp2 rhlp
       | _ -> raise ParsingFailureException
     else
-      let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-      let insSize =
-        rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-      let struct (oprs, insSize) =
-        rhlp.OprParsers.[int OD.GprM].Render rhlp insSize
-      newInsInfo rhlp Opcode.BOUND oprs insSize
+      rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+      let oprs = rhlp.OprParsers.[int OD.GprM].Render rhlp
+      newInsInfo rhlp Opcode.BOUND oprs
 
 type internal OneOp63 () =
   inherit ParsingJob ()
@@ -1139,55 +863,40 @@ type internal OneOp67 () =
 type internal OneOp68 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.D64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = insSize.MemEffOprSize }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Imm].Render rhlp insSize
-    newInsInfo rhlp Opcode.PUSH oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.D64
+    rhlp.OperationSize <- rhlp.MemEffOprSize
+    let oprs = rhlp.OprParsers.[int OD.Imm].Render rhlp
+    newInsInfo rhlp Opcode.PUSH oprs
 
 type internal OneOp69 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.GprRmImm].Render rhlp insSize
-    newInsInfo rhlp Opcode.IMUL oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.GprRmImm].Render rhlp
+    newInsInfo rhlp Opcode.IMUL oprs
 
 type internal OneOp6A () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.D64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = insSize.MemEffOprSize }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.SImm8].Render rhlp insSize
-    newInsInfo rhlp Opcode.PUSH oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.D64
+    rhlp.OperationSize <- rhlp.MemEffOprSize
+    let oprs = rhlp.OprParsers.[int OD.SImm8].Render rhlp
+    newInsInfo rhlp Opcode.PUSH oprs
 
 type internal OneOp6B () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.GprRmImm8].Render rhlp insSize
-    newInsInfo rhlp Opcode.IMUL oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.GprRmImm8].Render rhlp
+    newInsInfo rhlp Opcode.IMUL oprs
 
 type internal OneOp6C () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = 8<rt> }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.INSB oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.OperationSize <- 8<rt>
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.INSB oprs
 
 type internal OneOp6D () =
   inherit ParsingJob ()
@@ -1199,13 +908,10 @@ type internal OneOp6D () =
 type internal OneOp6E () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = 8<rt> }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.OUTSB oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.OperationSize <- 8<rt>
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.OUTSB oprs
 
 type internal OneOp6F () =
   inherit ParsingJob ()
@@ -1218,177 +924,129 @@ type internal OneOp70 () =
   inherit ParsingJob ()
   override __.Run rhlp =
     addBND rhlp
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rel8].Render rhlp insSize
-    newInsInfo rhlp Opcode.JO oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.Rel8].Render rhlp
+    newInsInfo rhlp Opcode.JO oprs
 
 type internal OneOp71 () =
   inherit ParsingJob ()
   override __.Run rhlp =
     addBND rhlp
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rel8].Render rhlp insSize
-    newInsInfo rhlp Opcode.JNO oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.Rel8].Render rhlp
+    newInsInfo rhlp Opcode.JNO oprs
 
 type internal OneOp72 () =
   inherit ParsingJob ()
   override __.Run rhlp =
     addBND rhlp
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rel8].Render rhlp insSize
-    newInsInfo rhlp Opcode.JB oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.Rel8].Render rhlp
+    newInsInfo rhlp Opcode.JB oprs
 
 type internal OneOp73 () =
   inherit ParsingJob ()
   override __.Run rhlp =
     addBND rhlp
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rel8].Render rhlp insSize
-    newInsInfo rhlp Opcode.JNB oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.Rel8].Render rhlp
+    newInsInfo rhlp Opcode.JNB oprs
 
 type internal OneOp74 () =
   inherit ParsingJob ()
   override __.Run rhlp =
     addBND rhlp
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rel8].Render rhlp insSize
-    newInsInfo rhlp Opcode.JZ oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.Rel8].Render rhlp
+    newInsInfo rhlp Opcode.JZ oprs
 
 type internal OneOp75 () =
   inherit ParsingJob ()
   override __.Run rhlp =
     addBND rhlp
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rel8].Render rhlp insSize
-    newInsInfo rhlp Opcode.JNZ oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.Rel8].Render rhlp
+    newInsInfo rhlp Opcode.JNZ oprs
 
 type internal OneOp76 () =
   inherit ParsingJob ()
   override __.Run rhlp =
     addBND rhlp
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rel8].Render rhlp insSize
-    newInsInfo rhlp Opcode.JBE oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.Rel8].Render rhlp
+    newInsInfo rhlp Opcode.JBE oprs
 
 type internal OneOp77 () =
   inherit ParsingJob ()
   override __.Run rhlp =
     addBND rhlp
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rel8].Render rhlp insSize
-    newInsInfo rhlp Opcode.JA oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.Rel8].Render rhlp
+    newInsInfo rhlp Opcode.JA oprs
 
 type internal OneOp78 () =
   inherit ParsingJob ()
   override __.Run rhlp =
     addBND rhlp
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rel8].Render rhlp insSize
-    newInsInfo rhlp Opcode.JS oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.Rel8].Render rhlp
+    newInsInfo rhlp Opcode.JS oprs
 
 type internal OneOp79 () =
   inherit ParsingJob ()
   override __.Run rhlp =
     addBND rhlp
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rel8].Render rhlp insSize
-    newInsInfo rhlp Opcode.JNS oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.Rel8].Render rhlp
+    newInsInfo rhlp Opcode.JNS oprs
 
 type internal OneOp7A () =
   inherit ParsingJob ()
   override __.Run rhlp =
     addBND rhlp
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rel8].Render rhlp insSize
-    newInsInfo rhlp Opcode.JP oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.Rel8].Render rhlp
+    newInsInfo rhlp Opcode.JP oprs
 
 type internal OneOp7B () =
   inherit ParsingJob ()
   override __.Run rhlp =
     addBND rhlp
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rel8].Render rhlp insSize
-    newInsInfo rhlp Opcode.JNP oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.Rel8].Render rhlp
+    newInsInfo rhlp Opcode.JNP oprs
 
 type internal OneOp7C () =
   inherit ParsingJob ()
   override __.Run rhlp =
     addBND rhlp
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rel8].Render rhlp insSize
-    newInsInfo rhlp Opcode.JL oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.Rel8].Render rhlp
+    newInsInfo rhlp Opcode.JL oprs
 
 type internal OneOp7D () =
   inherit ParsingJob ()
   override __.Run rhlp =
     addBND rhlp
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rel8].Render rhlp insSize
-    newInsInfo rhlp Opcode.JNL oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.Rel8].Render rhlp
+    newInsInfo rhlp Opcode.JNL oprs
 
 type internal OneOp7E () =
   inherit ParsingJob ()
   override __.Run rhlp =
     addBND rhlp
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rel8].Render rhlp insSize
-    newInsInfo rhlp Opcode.JLE oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.Rel8].Render rhlp
+    newInsInfo rhlp Opcode.JLE oprs
 
 type internal OneOp7F () =
   inherit ParsingJob ()
   override __.Run rhlp =
     addBND rhlp
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rel8].Render rhlp insSize
-    newInsInfo rhlp Opcode.JG oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.Rel8].Render rhlp
+    newInsInfo rhlp Opcode.JG oprs
 
 type internal OneOp80 () =
   inherit ParsingJob ()
@@ -1421,112 +1079,79 @@ type internal OneOp83 () =
 type internal OneOp84 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RmGpr].Render rhlp insSize
-    newInsInfo rhlp Opcode.TEST oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RmGpr].Render rhlp
+    newInsInfo rhlp Opcode.TEST oprs
 
 type internal OneOp85 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RmGpr].Render rhlp insSize
-    newInsInfo rhlp Opcode.TEST oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RmGpr].Render rhlp
+    newInsInfo rhlp Opcode.TEST oprs
 
 type internal OneOp86 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RmGpr].Render rhlp insSize
-    newInsInfo rhlp Opcode.XCHG oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RmGpr].Render rhlp
+    newInsInfo rhlp Opcode.XCHG oprs
 
 type internal OneOp87 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RmGpr].Render rhlp insSize
-    newInsInfo rhlp Opcode.XCHG oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RmGpr].Render rhlp
+    newInsInfo rhlp Opcode.XCHG oprs
 
 type internal OneOp88 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RmGpr].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RmGpr].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOp89 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RmGpr].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RmGpr].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOp8A () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.GprRm].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.GprRm].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOp8B () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.GprRm].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.GprRm].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOp8C () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Word].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RmSeg].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Word].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RmSeg].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOp8D () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.GprM].Render rhlp insSize
-    newInsInfo rhlp Opcode.LEA oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.GprM].Render rhlp
+    newInsInfo rhlp Opcode.LEA oprs
 
 type internal OneOp8E () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Word].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.SegRm].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Word].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.SegRm].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOp8F () =
   inherit ParsingJob ()
@@ -1547,72 +1172,51 @@ type internal OneOp90 () =
 type internal OneOp91 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RaxRcx].Render rhlp insSize
-    newInsInfo rhlp Opcode.XCHG oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RaxRcx].Render rhlp
+    newInsInfo rhlp Opcode.XCHG oprs
 
 type internal OneOp92 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RaxRdx].Render rhlp insSize
-    newInsInfo rhlp Opcode.XCHG oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RaxRdx].Render rhlp
+    newInsInfo rhlp Opcode.XCHG oprs
 
 type internal OneOp93 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RaxRbx].Render rhlp insSize
-    newInsInfo rhlp Opcode.XCHG oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RaxRbx].Render rhlp
+    newInsInfo rhlp Opcode.XCHG oprs
 
 type internal OneOp94 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RaxRsp].Render rhlp insSize
-    newInsInfo rhlp Opcode.XCHG oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RaxRsp].Render rhlp
+    newInsInfo rhlp Opcode.XCHG oprs
 
 type internal OneOp95 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RaxRbp].Render rhlp insSize
-    newInsInfo rhlp Opcode.XCHG oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RaxRbp].Render rhlp
+    newInsInfo rhlp Opcode.XCHG oprs
 
 type internal OneOp96 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RaxRsi].Render rhlp insSize
-    newInsInfo rhlp Opcode.XCHG oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RaxRsi].Render rhlp
+    newInsInfo rhlp Opcode.XCHG oprs
 
 type internal OneOp97 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RaxRdi].Render rhlp insSize
-    newInsInfo rhlp Opcode.XCHG oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RaxRdi].Render rhlp
+    newInsInfo rhlp Opcode.XCHG oprs
 
 type internal OneOp98 () =
   inherit ParsingJob ()
@@ -1639,22 +1243,16 @@ type internal OneOp9A () =
     ensure32 rhlp
 #endif
     addBND rhlp
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.P].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Dir].Render rhlp insSize
-    newInsInfo rhlp Opcode.CALLFar oprs insSize
+    rhlp.SzComputers.[int SZ.P].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.Dir].Render rhlp
+    newInsInfo rhlp Opcode.CALLFar oprs
 
 type internal OneOp9B () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.WAIT oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.WAIT oprs
 
 type internal OneOp9C () =
   inherit ParsingJob ()
@@ -1677,73 +1275,52 @@ type internal OneOp9D () =
 type internal OneOp9E () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.SAHF oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.SAHF oprs
 
 type internal OneOp9F () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.LAHF oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.LAHF oprs
 
 type internal OneOpA0 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RaxFar].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RaxFar].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOpA1 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RaxFar].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RaxFar].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOpA2 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.FarRax].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.FarRax].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOpA3 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.FarRax].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.FarRax].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOpA4 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = 8<rt> }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOVSB oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.OperationSize <- 8<rt>
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.MOVSB oprs
 
 type internal OneOpA5 () =
   inherit ParsingJob ()
@@ -1757,12 +1334,9 @@ type internal OneOpA5 () =
 type internal OneOpA6 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.CMPSB oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.CMPSB oprs
 
 type internal OneOpA7 () =
   inherit ParsingJob ()
@@ -1776,33 +1350,24 @@ type internal OneOpA7 () =
 type internal OneOpA8 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RegImm8].Render rhlp insSize
-    newInsInfo rhlp Opcode.TEST oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RegImm8].Render rhlp
+    newInsInfo rhlp Opcode.TEST oprs
 
 type internal OneOpA9 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RegImm].Render rhlp insSize
-    newInsInfo rhlp Opcode.TEST oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RegImm].Render rhlp
+    newInsInfo rhlp Opcode.TEST oprs
 
 type internal OneOpAA () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = 8<rt> }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.STOSB oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.OperationSize <- 8<rt>
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.STOSB oprs
 
 type internal OneOpAB () =
   inherit ParsingJob ()
@@ -1816,13 +1381,10 @@ type internal OneOpAB () =
 type internal OneOpAC () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = 8<rt> }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.LODSB oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.OperationSize <- 8<rt>
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.LODSB oprs
 
 type internal OneOpAD () =
   inherit ParsingJob ()
@@ -1836,13 +1398,10 @@ type internal OneOpAD () =
 type internal OneOpAE () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let insSize = { insSize with OperationSize = 8<rt> }
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.SCASB oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.OperationSize <- 8<rt>
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.SCASB oprs
 
 type internal OneOpAF () =
   inherit ParsingJob ()
@@ -1856,162 +1415,114 @@ type internal OneOpAF () =
 type internal OneOpB0 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.ALImm8].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.ALImm8].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOpB1 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.CLImm8].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.CLImm8].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOpB2 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.DLImm8].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.DLImm8].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOpB3 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.BLImm8].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.BLImm8].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOpB4 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.AhImm8].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.AhImm8].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOpB5 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.ChImm8].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.ChImm8].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOpB6 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.DhImm8].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.DhImm8].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOpB7 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.BhImm8].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.BhImm8].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOpB8 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RaxImm].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RaxImm].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOpB9 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RcxImm].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RcxImm].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOpBA () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RdxImm].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RdxImm].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOpBB () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RbxImm].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RbxImm].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOpBC () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RspImm].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RspImm].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOpBD () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RbpImm].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RbpImm].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOpBE () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RsiImm].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RsiImm].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOpBF () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RdiImm].Render rhlp insSize
-    newInsInfo rhlp Opcode.MOV oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RdiImm].Render rhlp
+    newInsInfo rhlp Opcode.MOV oprs
 
 type internal OneOpC0 () =
   inherit ParsingJob ()
@@ -2031,23 +1542,17 @@ type internal OneOpC2 () =
   inherit ParsingJob ()
   override __.Run rhlp =
     addBND rhlp
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Imm16].Render rhlp insSize
-    newInsInfo rhlp Opcode.RETNearImm oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.Imm16].Render rhlp
+    newInsInfo rhlp Opcode.RETNearImm oprs
 
 type internal OneOpC3 () =
   inherit ParsingJob ()
   override __.Run rhlp =
     addBND rhlp
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.RETNear oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.RETNear oprs
 
 type internal OneOpC4 () =
   inherit ParsingJob ()
@@ -2064,12 +1569,9 @@ type internal OneOpC4 () =
       | VEXType.VEXThreeByteOpTwo -> parseThreeByteOp2 rhlp
       | _ -> raise ParsingFailureException
     else
-      let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-      let insSize =
-        rhlp.SzComputers.[int SZ.PZ].Render rhlp effOprSize effAddrSize
-      let struct (oprs, insSize) =
-        rhlp.OprParsers.[int OD.GprM].Render rhlp insSize
-      newInsInfo rhlp Opcode.LES oprs insSize
+      rhlp.SzComputers.[int SZ.PZ].Render rhlp SzCond.Nor
+      let oprs = rhlp.OprParsers.[int OD.GprM].Render rhlp
+      newInsInfo rhlp Opcode.LES oprs
 
 type internal OneOpC5 () =
   inherit ParsingJob ()
@@ -2081,12 +1583,9 @@ type internal OneOpC5 () =
       rhlp.CurrPos <- rhlp.CurrPos + 1
       parseTwoByteOpcode rhlp
     else
-      let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-      let insSize =
-        rhlp.SzComputers.[int SZ.PZ].Render rhlp effOprSize effAddrSize
-      let struct (oprs, insSize) =
-        rhlp.OprParsers.[int OD.GprM].Render rhlp insSize
-      newInsInfo rhlp Opcode.LDS oprs insSize
+      rhlp.SzComputers.[int SZ.PZ].Render rhlp SzCond.Nor
+      let oprs = rhlp.OprParsers.[int OD.GprM].Render rhlp
+      newInsInfo rhlp Opcode.LDS oprs
 
 type internal OneOpC6 () =
   inherit ParsingJob ()
@@ -2105,64 +1604,46 @@ type internal OneOpC7 () =
 type internal OneOpC8 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.ImmImm].Render rhlp insSize
-    newInsInfo rhlp Opcode.ENTER oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.ImmImm].Render rhlp
+    newInsInfo rhlp Opcode.ENTER oprs
 
 type internal OneOpC9 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.D64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.LEAVE oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.D64
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.LEAVE oprs
 
 type internal OneOpCA () =
   inherit ParsingJob ()
   override __.Run rhlp =
     addBND rhlp
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Imm16].Render rhlp insSize
-    newInsInfo rhlp Opcode.RETFarImm oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.Imm16].Render rhlp
+    newInsInfo rhlp Opcode.RETFarImm oprs
 
 type internal OneOpCB () =
   inherit ParsingJob ()
   override __.Run rhlp =
     addBND rhlp
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.RETFar oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.RETFar oprs
 
 type internal OneOpCC () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.INT3 oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.INT3 oprs
 
 type internal OneOpCD () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Imm8].Render rhlp insSize
-    newInsInfo rhlp Opcode.INT oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.Imm8].Render rhlp
+    newInsInfo rhlp Opcode.INT oprs
 
 type internal OneOpCE () =
   inherit ParsingJob ()
@@ -2170,12 +1651,9 @@ type internal OneOpCE () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.INTO oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.INTO oprs
 
 type internal OneOpCF () =
   inherit ParsingJob ()
@@ -2220,12 +1698,9 @@ type internal OneOpD4 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Imm8].Render rhlp insSize
-    newInsInfo rhlp Opcode.AAM oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.Imm8].Render rhlp
+    newInsInfo rhlp Opcode.AAM oprs
 
 type internal OneOpD5 () =
   inherit ParsingJob ()
@@ -2233,12 +1708,9 @@ type internal OneOpD5 () =
 #if !EMULATION
     ensure32 rhlp
 #endif
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Imm8].Render rhlp insSize
-    newInsInfo rhlp Opcode.AAD oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.Imm8].Render rhlp
+    newInsInfo rhlp Opcode.AAD oprs
 
 type internal OneOpD6 () =
   inherit ParsingJob ()
@@ -2247,186 +1719,158 @@ type internal OneOpD6 () =
 type internal OneOpD7 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.XLATB oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.XLATB oprs
 
 type internal OneOpD8 () =
   inherit ParsingJob ()
   override __.Run rhlp =
     let modRM = rhlp.ReadByte ()
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
     if modRM <= 0xBFuy then
       let op = getD8OpWithin00toBF modRM
       let effOprSize = getEscEffOprSizeByESCOp 0xD8uy
-      let insSize =
-        { insSize with MemEffOprSize = effOprSize; MemEffRegSize = effOprSize }
-      let o = OperandParsingHelper.parseMemory modRM insSize rhlp
-      newInsInfo rhlp op (OneOperand o) insSize
+      rhlp.MemEffOprSize <- effOprSize
+      rhlp.MemEffRegSize <- effOprSize
+      let o = OperandParsingHelper.parseMemory modRM rhlp
+      newInsInfo rhlp op (OneOperand o)
     else
       let opcode, oprs = getD8OverBF modRM
-      newInsInfo rhlp opcode oprs insSize
+      newInsInfo rhlp opcode oprs
 
 type internal OneOpD9 () =
   inherit ParsingJob ()
   override __.Run rhlp =
     let modRM = rhlp.ReadByte ()
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
     if modRM <= 0xBFuy then
       let op = getD9OpWithin00toBF modRM
       let effOprSize = getReg modRM |> getD9EscEffOprSizeByModRM
-      let insSize =
-        { insSize with MemEffOprSize = effOprSize; MemEffRegSize = effOprSize }
-      let o = OperandParsingHelper.parseMemory modRM insSize rhlp
-      newInsInfo rhlp op (OneOperand o) insSize
+      rhlp.MemEffOprSize <- effOprSize
+      rhlp.MemEffRegSize <- effOprSize
+      let o = OperandParsingHelper.parseMemory modRM rhlp
+      newInsInfo rhlp op (OneOperand o)
     else
       let opcode, oprs = getD9OverBF modRM
-      newInsInfo rhlp opcode oprs insSize
+      newInsInfo rhlp opcode oprs
 
 type internal OneOpDA () =
   inherit ParsingJob ()
   override __.Run rhlp =
     let modRM = rhlp.ReadByte ()
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
     if modRM <= 0xBFuy then
       let op = getDAOpWithin00toBF modRM
       let effOprSize = getEscEffOprSizeByESCOp 0xDAuy
-      let insSize =
-        { insSize with MemEffOprSize = effOprSize; MemEffRegSize = effOprSize }
-      let o = OperandParsingHelper.parseMemory modRM insSize rhlp
-      newInsInfo rhlp op (OneOperand o) insSize
+      rhlp.MemEffOprSize <- effOprSize
+      rhlp.MemEffRegSize <- effOprSize
+      let o = OperandParsingHelper.parseMemory modRM rhlp
+      newInsInfo rhlp op (OneOperand o)
     else
       let opcode, oprs = getDAOverBF modRM
-      newInsInfo rhlp opcode oprs insSize
+      newInsInfo rhlp opcode oprs
 
 type internal OneOpDB () =
   inherit ParsingJob ()
   override __.Run rhlp =
     let modRM = rhlp.ReadByte ()
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
     if modRM <= 0xBFuy then
       let op = getDBOpWithin00toBF modRM
       let effOprSize = getReg modRM |> getDBEscEffOprSizeByModRM
-      let insSize =
-        { insSize with MemEffOprSize = effOprSize; MemEffRegSize = effOprSize }
-      let o = OperandParsingHelper.parseMemory modRM insSize rhlp
-      newInsInfo rhlp op (OneOperand o) insSize
+      rhlp.MemEffOprSize <- effOprSize
+      rhlp.MemEffRegSize <- effOprSize
+      let o = OperandParsingHelper.parseMemory modRM rhlp
+      newInsInfo rhlp op (OneOperand o)
     else
       let opcode, oprs = getDBOverBF modRM
-      newInsInfo rhlp opcode oprs insSize
+      newInsInfo rhlp opcode oprs
 
 type internal OneOpDC () =
   inherit ParsingJob ()
   override __.Run rhlp =
     let modRM = rhlp.ReadByte ()
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
     if modRM <= 0xBFuy then
       let op = getDCOpWithin00toBF modRM
       let effOprSize = getEscEffOprSizeByESCOp 0xDCuy
-      let insSize =
-        { insSize with MemEffOprSize = effOprSize; MemEffRegSize = effOprSize }
-      let o = OperandParsingHelper.parseMemory modRM insSize rhlp
-      newInsInfo rhlp op (OneOperand o) insSize
+      rhlp.MemEffOprSize <- effOprSize
+      rhlp.MemEffRegSize <- effOprSize
+      let o = OperandParsingHelper.parseMemory modRM rhlp
+      newInsInfo rhlp op (OneOperand o)
     else
       let opcode, oprs = getDCOverBF modRM
-      newInsInfo rhlp opcode oprs insSize
+      newInsInfo rhlp opcode oprs
 
 type internal OneOpDD () =
   inherit ParsingJob ()
   override __.Run rhlp =
     let modRM = rhlp.ReadByte ()
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
     if modRM <= 0xBFuy then
       let op = getDDOpWithin00toBF modRM
       let effOprSize = getReg modRM |> getDDEscEffOprSizeByModRM
-      let insSize =
-        { insSize with MemEffOprSize = effOprSize; MemEffRegSize = effOprSize }
-      let o = OperandParsingHelper.parseMemory modRM insSize rhlp
-      newInsInfo rhlp op (OneOperand o) insSize
+      rhlp.MemEffOprSize <- effOprSize
+      rhlp.MemEffRegSize <- effOprSize
+      let o = OperandParsingHelper.parseMemory modRM rhlp
+      newInsInfo rhlp op (OneOperand o)
     else
       let opcode, oprs = getDDOverBF modRM
-      newInsInfo rhlp opcode oprs insSize
+      newInsInfo rhlp opcode oprs
 
 type internal OneOpDE () =
   inherit ParsingJob ()
   override __.Run rhlp =
     let modRM = rhlp.ReadByte ()
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
     if modRM <= 0xBFuy then
       let op = getDEOpWithin00toBF modRM
       let effOprSize = getEscEffOprSizeByESCOp 0xDEuy
-      let insSize =
-        { insSize with MemEffOprSize = effOprSize; MemEffRegSize = effOprSize }
-      let o = OperandParsingHelper.parseMemory modRM insSize rhlp
-      newInsInfo rhlp op (OneOperand o) insSize
+      rhlp.MemEffOprSize <- effOprSize
+      rhlp.MemEffRegSize <- effOprSize
+      let o = OperandParsingHelper.parseMemory modRM rhlp
+      newInsInfo rhlp op (OneOperand o)
     else
       let opcode, oprs = getDEOverBF modRM
-      newInsInfo rhlp opcode oprs insSize
+      newInsInfo rhlp opcode oprs
 
 type internal OneOpDF () =
   inherit ParsingJob ()
   override __.Run rhlp =
     let modRM = rhlp.ReadByte ()
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
     if modRM <= 0xBFuy then
       let op = getDFOpWithin00toBF modRM
       let effOprSize = getReg modRM |> getDFEscEffOprSizeByModRM
-      let insSize =
-        { insSize with MemEffOprSize = effOprSize; MemEffRegSize = effOprSize }
-      let o = OperandParsingHelper.parseMemory modRM insSize rhlp
-      newInsInfo rhlp op (OneOperand o) insSize
+      rhlp.MemEffOprSize <- effOprSize
+      rhlp.MemEffRegSize <- effOprSize
+      let o = OperandParsingHelper.parseMemory modRM rhlp
+      newInsInfo rhlp op (OneOperand o)
     else
       let opcode, oprs = getDFOverBF modRM
-      newInsInfo rhlp opcode oprs insSize
+      newInsInfo rhlp opcode oprs
 
 type internal OneOpE0 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rel8].Render rhlp insSize
-    newInsInfo rhlp Opcode.LOOPNE oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.Rel8].Render rhlp
+    newInsInfo rhlp Opcode.LOOPNE oprs
 
 type internal OneOpE1 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rel8].Render rhlp insSize
-    newInsInfo rhlp Opcode.LOOPE oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.Rel8].Render rhlp
+    newInsInfo rhlp Opcode.LOOPE oprs
 
 type internal OneOpE2 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rel8].Render rhlp insSize
-    newInsInfo rhlp Opcode.LOOP oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.Rel8].Render rhlp
+    newInsInfo rhlp Opcode.LOOP oprs
 
 type internal OneOpE3 () =
   inherit ParsingJob ()
@@ -2440,64 +1884,46 @@ type internal OneOpE3 () =
 type internal OneOpE4 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RegImm8].Render rhlp insSize
-    newInsInfo rhlp Opcode.IN oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RegImm8].Render rhlp
+    newInsInfo rhlp Opcode.IN oprs
 
 type internal OneOpE5 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.RegImm8].Render rhlp insSize
-    newInsInfo rhlp Opcode.IN oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.RegImm8].Render rhlp
+    newInsInfo rhlp Opcode.IN oprs
 
 type internal OneOpE6 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Imm8Reg].Render rhlp insSize
-    newInsInfo rhlp Opcode.OUT oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.Imm8Reg].Render rhlp
+    newInsInfo rhlp Opcode.OUT oprs
 
 type internal OneOpE7 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Imm8Reg].Render rhlp insSize
-    newInsInfo rhlp Opcode.OUT oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.Imm8Reg].Render rhlp
+    newInsInfo rhlp Opcode.OUT oprs
 
 type internal OneOpE8 () =
   inherit ParsingJob ()
   override __.Run rhlp =
     addBND rhlp
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.D64].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rel].Render rhlp insSize
-    newInsInfo rhlp Opcode.CALLNear oprs insSize
+    rhlp.SzComputers.[int SZ.D64].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.Rel].Render rhlp
+    newInsInfo rhlp Opcode.CALLNear oprs
 
 type internal OneOpE9 () =
   inherit ParsingJob ()
   override __.Run rhlp =
     addBND rhlp
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.D64].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rel].Render rhlp insSize
-    newInsInfo rhlp Opcode.JMPNear oprs insSize
+    rhlp.SzComputers.[int SZ.D64].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.Rel].Render rhlp
+    newInsInfo rhlp Opcode.JMPNear oprs
 
 type internal OneOpEA () =
   inherit ParsingJob ()
@@ -2506,63 +1932,45 @@ type internal OneOpEA () =
     ensure32 rhlp
 #endif
     addBND rhlp
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.P].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Dir].Render rhlp insSize
-    newInsInfo rhlp Opcode.JMPFar oprs insSize
+    rhlp.SzComputers.[int SZ.P].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.Dir].Render rhlp
+    newInsInfo rhlp Opcode.JMPFar oprs
 
 type internal OneOpEB () =
   inherit ParsingJob ()
   override __.Run rhlp =
     addBND rhlp
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Byte].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.Rel8].Render rhlp insSize
-    newInsInfo rhlp Opcode.JMPNear oprs insSize
+    rhlp.SzComputers.[int SZ.Byte].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.Rel8].Render rhlp
+    newInsInfo rhlp Opcode.JMPNear oprs
 
 type internal OneOpEC () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.ALDx].Render rhlp insSize
-    newInsInfo rhlp Opcode.IN oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.ALDx].Render rhlp
+    newInsInfo rhlp Opcode.IN oprs
 
 type internal OneOpED () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.EaxDx].Render rhlp insSize
-    newInsInfo rhlp Opcode.IN oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.EaxDx].Render rhlp
+    newInsInfo rhlp Opcode.IN oprs
 
 type internal OneOpEE () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.DxAL].Render rhlp insSize
-    newInsInfo rhlp Opcode.OUT oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.DxAL].Render rhlp
+    newInsInfo rhlp Opcode.OUT oprs
 
 type internal OneOpEF () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.Nor
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.DxEax].Render rhlp insSize
-    newInsInfo rhlp Opcode.OUT oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    let oprs = rhlp.OprParsers.[int OD.DxEax].Render rhlp
+    newInsInfo rhlp Opcode.OUT oprs
 
 type internal OneOpF0 () =
   inherit ParsingJob ()
@@ -2583,22 +1991,16 @@ type internal OneOpF3 () =
 type internal OneOpF4 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.HLT oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.HLT oprs
 
 type internal OneOpF5 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.CMC oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.CMC oprs
 
 type internal OneOpF6 () =
   inherit ParsingJob ()
@@ -2617,62 +2019,44 @@ type internal OneOpF7 () =
 type internal OneOpF8 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.CLC oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.CLC oprs
 
 type internal OneOpF9 () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.STC oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.STC oprs
 
 type internal OneOpFA () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.CLI oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.CLI oprs
 
 type internal OneOpFB () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.STI oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.STI oprs
 
 type internal OneOpFC () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.CLD oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.CLD oprs
 
 type internal OneOpFD () =
   inherit ParsingJob ()
   override __.Run rhlp =
-    let struct (effOprSize, effAddrSize) = getSize rhlp SzCond.F64
-    let insSize =
-      rhlp.SzComputers.[int SZ.Def].Render rhlp effOprSize effAddrSize
-    let struct (oprs, insSize) =
-      rhlp.OprParsers.[int OD.No].Render rhlp insSize
-    newInsInfo rhlp Opcode.STD oprs insSize
+    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.F64
+    let oprs = rhlp.OprParsers.[int OD.No].Render rhlp
+    newInsInfo rhlp Opcode.STD oprs
 
 type internal OneOpFE () =
   inherit ParsingJob ()

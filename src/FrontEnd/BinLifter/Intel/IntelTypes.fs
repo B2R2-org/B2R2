@@ -266,15 +266,6 @@ type VEXInfo = {
   EVEXPrx: EVEXPrefix option
 }
 
-/// Represents the size information of an instruction.
-type InstrSize = {
-  MemEffOprSize: RegType
-  MemEffAddrSize: RegType
-  MemEffRegSize: RegType
-  RegSize: RegType
-  OperationSize: RegType
-}
-
 /// Mandatory prefixes. The 66H, F2H, and F3H prefixes are mandatory for opcode
 /// extensions.
 type MPref =
