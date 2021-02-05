@@ -776,14 +776,16 @@ let processAddrExn32 ins addr =
 let calculateRelativePC lbl addr = int32 addr + int32 lbl |> uint64
 
 let commentWithSymbol helper addr addrStr (builder: DisasmBuilder<_>) =
-  match (helper: DisasmHelper).FindFunctionSymbol (addr) with
-  | Error _ ->
-    builder.Accumulate AsmWordKind.String addrStr
-  | Ok "" -> ()
-  | Ok name ->
-    builder.Accumulate AsmWordKind.String (addrStr + " ; <")
-    builder.Accumulate AsmWordKind.Value name
-    builder.Accumulate AsmWordKind.String ">"
+  if builder.ResolveSymbol then
+    match (helper: DisasmHelper).FindFunctionSymbol (addr) with
+    | Error _ ->
+      builder.Accumulate AsmWordKind.String addrStr
+    | Ok "" -> ()
+    | Ok name ->
+      builder.Accumulate AsmWordKind.String (addrStr + " ; <")
+      builder.Accumulate AsmWordKind.Value name
+      builder.Accumulate AsmWordKind.String ">"
+  else ()
 
 let memHead hlp ins addr addrMode (builder: DisasmBuilder<_>) =
   match addrMode with
@@ -916,8 +918,8 @@ let buildOprs hlp ins pc builder =
     oprToString hlp ins pc opr5 (Some ", ") builder
     oprToString hlp ins pc opr6 (Some ", ") builder
 
-let disasm showAddr hlp ins (builder: DisasmBuilder<_>) =
+let disasm hlp ins (builder: DisasmBuilder<_>) =
   let pc = ins.Address
-  builder.AccumulateAddr pc WordSize.Bit32 showAddr
+  if builder.ShowAddr then builder.AccumulateAddr () else ()
   buildOpcode ins builder
   buildOprs hlp ins pc builder

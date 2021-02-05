@@ -226,9 +226,8 @@ let buildOprs insInfo (builder: DisasmBuilder<_>) =
     oprToString insInfo opr3 ", " builder
     oprToString insInfo opr4 ", " builder
 
-let disasm showAddr wordSize insInfo (builder: DisasmBuilder<_>) =
-  let pc = insInfo.Address
-  builder.AccumulateAddr pc wordSize showAddr
+let disasm wordSize insInfo (builder: DisasmBuilder<_>) =
+  if builder.ShowAddr then builder.AccumulateAddr () else ()
   buildOpcode insInfo builder
   buildOprs insInfo builder
 

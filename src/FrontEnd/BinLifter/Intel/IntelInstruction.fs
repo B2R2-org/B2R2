@@ -159,20 +159,19 @@ type IntelInstruction
   override __.Translate ctxt =
     Lifter.translate __ len ctxt
 
-  override __.Disasm (showAddr, resolveSymbol, disasmHelper) =
-    let helper = if resolveSymbol then disasmHelper else Dummy.helper
-    let builder = DisasmStringBuilder ()
-    Disasm.disasm showAddr wordSz helper __ addr len builder
+  override __.Disasm (showAddr, resolveSymb, disasmHelper) =
+    let builder = DisasmStringBuilder (showAddr, resolveSymb, wordSz, addr, len)
+    Disasm.disasm disasmHelper __ builder
     builder.Finalize ()
 
   override __.Disasm () =
-    let builder = DisasmStringBuilder ()
-    Disasm.disasm false wordSz Dummy.helper __ addr len builder
+    let builder = DisasmStringBuilder (false, false, wordSz, addr, len)
+    Disasm.disasm Dummy.helper __ builder
     builder.Finalize ()
 
   override __.Decompose (showAddr) =
-    let builder = DisasmWordBuilder (8)
-    Disasm.disasm showAddr wordSz Dummy.helper __ addr len builder
+    let builder = DisasmWordBuilder (showAddr, false, wordSz, addr, len, 8)
+    Disasm.disasm Dummy.helper __ builder
     builder.Finalize ()
 
 // vim: set tw=80 sts=2 sw=2:

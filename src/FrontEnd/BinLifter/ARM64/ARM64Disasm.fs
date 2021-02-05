@@ -857,8 +857,8 @@ let buildOprs insInfo pc builder =
     oprToString insInfo pc opr4 (Some ", ") builder
     oprToString insInfo pc opr5 (Some ", ") builder
 
-let disasm showAddr ins (builder: DisasmBuilder<_>) =
+let disasm ins (builder: DisasmBuilder<_>) =
   let pc = ins.Address
-  builder.AccumulateAddr pc WordSize.Bit64 showAddr
+  if builder.ShowAddr then builder.AccumulateAddr () else ()
   buildOpcode ins builder
   buildOprs ins pc builder

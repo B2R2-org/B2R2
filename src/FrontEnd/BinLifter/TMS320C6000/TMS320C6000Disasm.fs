@@ -358,8 +358,8 @@ let buildOprs insInfo builder =
     oprToString opr3 ", " builder
     oprToString opr4 ", " builder
 
-let disasm showAddr insInfo (builder: DisasmBuilder<_>) =
-  builder.AccumulateAddr insInfo.Address WordSize.Bit32 showAddr
+let disasm insInfo (builder: DisasmBuilder<_>) =
+  if builder.ShowAddr then builder.AccumulateAddr () else ()
   buildParallelPipe insInfo builder
   buildOpcode insInfo builder
   buildOprs insInfo builder

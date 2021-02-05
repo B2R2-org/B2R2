@@ -190,9 +190,8 @@ let inline buildOpcode insInfo (builder: DisasmBuilder<_>) =
     builder.Accumulate AsmWordKind.String " "
     builder.Accumulate AsmWordKind.Value extra
 
-let disasm showAddr insInfo (builder: DisasmBuilder<_>) =
-  let pc = insInfo.Address
-  builder.AccumulateAddr pc WordSize.Bit32 showAddr
+let disasm insInfo (builder: DisasmBuilder<_>) =
+  if builder.ShowAddr then builder.AccumulateAddr () else ()
   buildOpcode insInfo builder
 
 // vim: set tw=80 sts=2 sw=2:

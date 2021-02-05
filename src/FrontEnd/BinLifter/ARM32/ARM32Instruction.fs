@@ -156,20 +156,22 @@ type ARM32Instruction (addr, numBytes, insInfo, ctxt, auxctxt) =
   override __.Translate ctxt =
     Lifter.translate __.Info ctxt
 
-  override __.Disasm (showAddr, resolveSymbol, disasmHelper) =
-    let helper = if resolveSymbol then disasmHelper else dummyHelper
-    let builder = DisasmStringBuilder ()
-    Disasm.disasm showAddr helper __.Info builder
+  override __.Disasm (showAddr, resolveSym, disasmHelper) =
+    let builder =
+      DisasmStringBuilder (showAddr, resolveSym, WordSize.Bit32, addr, numBytes)
+    Disasm.disasm disasmHelper __.Info builder
     builder.Finalize ()
 
   override __.Disasm () =
-    let builder = DisasmStringBuilder ()
-    Disasm.disasm false dummyHelper __.Info builder
+    let builder =
+      DisasmStringBuilder (false, false, WordSize.Bit32, addr, numBytes)
+    Disasm.disasm dummyHelper __.Info builder
     builder.Finalize ()
 
   override __.Decompose (showAddr) =
-    let builder = DisasmWordBuilder (8)
-    Disasm.disasm showAddr dummyHelper __.Info builder
+    let builder =
+      DisasmWordBuilder (showAddr, false, WordSize.Bit32, addr, numBytes, 8)
+    Disasm.disasm dummyHelper __.Info builder
     builder.Finalize ()
 
 // vim: set tw=80 sts=2 sw=2:

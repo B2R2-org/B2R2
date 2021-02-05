@@ -36,41 +36,42 @@ type DisasmHelper (?fn: Addr -> Result<string, ErrorCase>) =
   member __.FindFunctionSymbol (addr: Addr) = helper addr
 
 [<AbstractClass>]
-type DisasmBuilder<'Result> () =
+type DisasmBuilder<'Result> (showAddr, resolveSymb, wordSz, addr, len) =
   abstract member Accumulate: AsmWordKind -> string -> unit
-  abstract member AccumulateAddr: Addr -> WordSize -> bool -> unit
+  abstract member AccumulateAddr: unit -> unit
   abstract member Finalize: unit -> 'Result
+  member __.ShowAddr with get(): bool = showAddr
+  member __.ResolveSymbol with get(): bool = resolveSymb
+  member __.WordSize with get(): WordSize = wordSz
+  member __.Address with get(): Addr = addr
+  member __.InsLength with get(): uint32 = len
 
-type DisasmStringBuilder () =
-  inherit DisasmBuilder<string> ()
+type DisasmStringBuilder (showAddr, resolveSymb, wordSz, addr, len) =
+  inherit DisasmBuilder<string> (showAddr, resolveSymb, wordSz, addr, len)
 
   let sb = StringBuilder ()
 
   override __.Accumulate _kind s =
     sb.Append (s) |> ignore
 
-  override __.AccumulateAddr addr wordSize showAddress =
-    if not showAddress then ()
-    else
-      sb.Append (Addr.toString wordSize addr) |> ignore
-      sb.Append (": ") |> ignore
+  override __.AccumulateAddr () =
+    sb.Append (Addr.toString wordSz addr) |> ignore
+    sb.Append (": ") |> ignore
 
   override __.Finalize () = sb.ToString ()
 
-type DisasmWordBuilder (n) =
-  inherit DisasmBuilder<AsmWord []> ()
+type DisasmWordBuilder (showAddr, resolveSymb, wordSz, addr, len, n) =
+  inherit DisasmBuilder<AsmWord []> (showAddr, resolveSymb, wordSz, addr, len)
 
   let ab = AsmWordBuilder (n)
 
   override __.Accumulate kind s =
     ab.Append ({ AsmWordKind = kind; AsmWordValue = s }) |> ignore
 
-  override __.AccumulateAddr addr wordSize showAddress =
-    if not showAddress then ()
-    else
-      ab.Append ({ AsmWordKind = AsmWordKind.Address
-                   AsmWordValue = Addr.toString wordSize addr }) |> ignore
-      ab.Append ({ AsmWordKind = AsmWordKind.String
-                   AsmWordValue = ": " }) |> ignore
+  override __.AccumulateAddr () =
+    ab.Append ({ AsmWordKind = AsmWordKind.Address
+                 AsmWordValue = Addr.toString wordSz addr }) |> ignore
+    ab.Append ({ AsmWordKind = AsmWordKind.String
+                 AsmWordValue = ": " }) |> ignore
 
   override __.Finalize () = ab.Finish ()
