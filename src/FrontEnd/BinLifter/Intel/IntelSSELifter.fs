@@ -1074,32 +1074,35 @@ let pinsrw ins insLen ctxt =
     | OprImm (imm, _) -> imm
     | _ -> raise InvalidOperandException
   !<ir insLen
-  match getOperationSize ins with
-  | 64<rt> ->
-    let dst = transOprToExpr ins insLen ctxt dst
-    let count = transOprToExpr ins insLen ctxt count
-    let mask = AST.tmpvar 64<rt>
-    !!ir (sel := count .| numI64 3L 64<rt>)
-    let pos = sel .* numU64 0x10UL 64<rt>
-    !!ir (mask := (numU64 0xffffUL 64<rt>) << pos)
-    !!ir
-      (dst := (dst .& (AST.not mask)) .| (AST.zext 64<rt> src << pos .& mask))
-  | 128<rt> ->
-    let dst1, dst2 = transOprToExpr128 ins insLen ctxt dst
-    let mask = AST.tmpvar 64<rt>
-    let count = getImm count
-    !!ir (sel := numI64 count 64<rt> .| numI64 7L 64<rt>)
-    if count > 3L then
-      let pos = (sel .- numI32 4 64<rt>) .* numI32 16 64<rt>
+  match dst with
+  | OprReg reg ->
+    match Register.getSize reg with
+    | 64<rt> ->
+      let dst = transOprToExpr ins insLen ctxt dst
+      let count = transOprToExpr ins insLen ctxt count
+      let mask = AST.tmpvar 64<rt>
+      !!ir (sel := count .| numI64 3L 64<rt>)
+      let pos = sel .* numU64 0x10UL 64<rt>
       !!ir (mask := (numU64 0xffffUL 64<rt>) << pos)
-      !!ir (dst1 := (dst1 .& (AST.not mask))
-                          .| (AST.zext 64<rt> src << pos .& mask))
-    else
-      let pos = sel .* numI32 16 64<rt>
-      !!ir (mask := (numU64 0xffffUL 64<rt>) << pos)
-      !!ir (dst2 := (dst2 .& (AST.not mask))
-                          .| (AST.zext 64<rt> src << pos .& mask))
-  | _ -> raise InvalidOperandSizeException
+      !!ir
+        (dst := (dst .& (AST.not mask)) .| (AST.zext 64<rt> src << pos .& mask))
+    | 128<rt> ->
+      let dst1, dst2 = transOprToExpr128 ins insLen ctxt dst
+      let mask = AST.tmpvar 64<rt>
+      let count = getImm count
+      !!ir (sel := numI64 count 64<rt> .| numI64 7L 64<rt>)
+      if count > 3L then
+        let pos = (sel .- numI32 4 64<rt>) .* numI32 16 64<rt>
+        !!ir (mask := (numU64 0xffffUL 64<rt>) << pos)
+        !!ir (dst1 := (dst1 .& (AST.not mask))
+                            .| (AST.zext 64<rt> src << pos .& mask))
+      else
+        let pos = sel .* numI32 16 64<rt>
+        !!ir (mask := (numU64 0xffffUL 64<rt>) << pos)
+        !!ir (dst2 := (dst2 .& (AST.not mask))
+                            .| (AST.zext 64<rt> src << pos .& mask))
+    | _ -> raise InvalidOperandSizeException
+  | _ -> raise InvalidOperandException
   !>ir insLen
 
 let private opMaxMinPacked cmp =
