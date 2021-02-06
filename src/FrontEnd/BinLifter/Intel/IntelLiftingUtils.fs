@@ -190,30 +190,24 @@ let private transMem ins insLen ctxt b index disp oprSize =
   match b, index, (disp: Disp option) with
   | None, None, Some d ->
     numOfAddrSz ins ctxt d
-    |> AST.zext ctxt.WordBitSize
     |> ldMem ins ctxt oprSize
   | None, Some i, Some d ->
     (sIdx ins ctxt i) .+ (numOfAddrSz ins ctxt d)
-    |> AST.zext ctxt.WordBitSize
     |> ldMem ins ctxt oprSize
   | Some b, None, None ->
     !.ctxt b
-    |> AST.zext ctxt.WordBitSize
     |> ldMem ins ctxt oprSize
   | Some R.RIP, None, Some d -> (* RIP-relative addressing *)
     !.ctxt R.RIP .+ numOfAddrSz ins ctxt (d + int64 (insLen: uint32))
     |> ldMem ins ctxt oprSize
   | Some b, None, Some d ->
     !.ctxt b .+ (numOfAddrSz ins ctxt d)
-    |> AST.zext ctxt.WordBitSize
     |> ldMem ins ctxt oprSize
   | Some b, Some i, None ->
     !.ctxt b .+ (sIdx ins ctxt i)
-    |> AST.zext ctxt.WordBitSize
     |> ldMem ins ctxt oprSize
   | Some b, Some i, Some d ->
     !.ctxt b .+ (sIdx ins ctxt i) .+ (numOfAddrSz ins ctxt d)
-    |> AST.zext ctxt.WordBitSize
     |> ldMem ins ctxt oprSize
   | _, _, _ -> raise InvalidOperandException
 

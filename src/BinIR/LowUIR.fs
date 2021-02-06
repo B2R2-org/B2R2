@@ -24,11 +24,12 @@
 
 namespace B2R2.BinIR.LowUIR
 
+open System
 open B2R2
 open B2R2.BinIR
 open B2R2.Utils
 
-type [<System.Flags>] InterJmpInfo =
+type [<Flags>] InterJmpInfo =
   | Base = 0
   | IsCall = 1
   | IsRet = 2
@@ -130,8 +131,8 @@ type Expr =
   member inline private __.Hash4 h1 h2 h3 h4 =
     __.Hash3 h1 h2 h3 |> __.DoHash h4
 
-  override __.Equals lhs =
-    match lhs with
+  override __.Equals rhs =
+    match rhs with
     | :? Expr as x ->
       match __, x with
       (* Primitive comparison. *)

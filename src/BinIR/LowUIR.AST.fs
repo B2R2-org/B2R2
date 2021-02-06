@@ -70,11 +70,11 @@ module private TypeCheck =
       "Cannot cast from " + oldType.ToString () + " to " + newType.ToString ()
     raise <| TypeCheckException errMsg
 
-  let private isFloatValid = function
-  | 32<rt> | 64<rt> | 80<rt> -> true
-  | _ -> false
+  let private isValidFloatType = function
+    | 32<rt> | 64<rt> | 80<rt> -> true
+    | _ -> false
 
-  let cast kind newType e =
+  let canCast kind newType e =
     let oldType = typeOf e
     match kind with
     | CastKind.SignExt
@@ -83,9 +83,9 @@ module private TypeCheck =
       else if oldType = newType then false
       else castErr newType oldType
     | CastKind.IntToFloat ->
-      if isFloatValid newType then true else raise InvalidFloatTypeException
+      if isValidFloatType newType then true else raise InvalidFloatTypeException
     | CastKind.FloatExt ->
-      if isFloatValid oldType && isFloatValid newType then true
+      if isValidFloatType oldType && isValidFloatType newType then true
       else raise InvalidFloatTypeException
     | _ -> true
 
@@ -223,7 +223,7 @@ module AST =
     | Num n -> ValueOpt.unop n t
     | _ -> UnOp (t, e, getExprInfo e, None) |> proc
 
-  let unop (t: UnOpType) e = unopBuilder t e (fun x -> x)
+  let unop (t: UnOpType) e = unopBuilder t e id
 
   let inline (===) e1 e2 = LanguagePrimitives.PhysicalEquality e1 e2
 
@@ -267,7 +267,7 @@ module AST =
     | Num n1, Num n2 -> ValueOpt.relop n1 n2 op
     | _ -> RelOp (op, e1, e2, mergeTwoInfo e1 e2, None) |> proc
 
-  let relop (op: RelOpType) e1 e2 = relopBuilder op e1 e2 (fun x -> x)
+  let relop (op: RelOpType) e1 e2 = relopBuilder op e1 e2 id
 
   let inline loadBuilder (e: Endian) (t: RegType) addr (proc: Expr -> Expr) =
 #if DEBUG
@@ -279,7 +279,7 @@ module AST =
     Load (e, t, addr, { getExprInfo addr with HasLoad = true }, None) |> proc
 #endif
 
-  let load (e: Endian) (t: RegType) addr = loadBuilder e t addr (fun x -> x)
+  let load (e: Endian) (t: RegType) addr = loadBuilder e t addr id
 
   let inline iteBuilder cond e1 e2 proc =
 #if DEBUG
@@ -290,16 +290,17 @@ module AST =
     | Num (n) -> if BitVector.isOne n then e1 else e2 (* Assume valid cond *)
     | _ -> Ite (cond, e1, e2, mergeThreeInfo cond e1 e2, None) |> proc
 
-  let ite cond e1 e2 = iteBuilder cond e1 e2 (fun x -> x)
+  let ite cond e1 e2 = iteBuilder cond e1 e2 id
 
   let inline castBuilder kind (t: RegType) (e: Expr) proc =
     match e with
     | Num n -> ValueOpt.cast t n kind
-    | _ when TypeCheck.cast kind t e ->
-      Cast (kind, t, e, getExprInfo e, None) |> proc
-    | _ -> e
+    | _ ->
+      if TypeCheck.canCast kind t e then
+        Cast (kind, t, e, getExprInfo e, None) |> proc
+      else e (* Remove unnecessary casting . *)
 
-  let cast kind (t: RegType) (e: Expr) = castBuilder kind t e (fun x -> x)
+  let cast kind (t: RegType) (e: Expr) = castBuilder kind t e id
 
   let inline extractBuilder (expr: Expr) (t: RegType) (pos: StartPos) proc =
     TypeCheck.extract t pos (TypeCheck.typeOf expr)
@@ -309,7 +310,7 @@ module AST =
     | _ -> Extract (expr, t, pos, getExprInfo expr, None) |> proc
 
   let extract (expr: Expr) (t: RegType) (pos: StartPos) =
-    extractBuilder expr t pos (fun x -> x)
+    extractBuilder expr t pos id
 
   let undef (t: RegType) (s: string) =
     Undefined (t, s)
