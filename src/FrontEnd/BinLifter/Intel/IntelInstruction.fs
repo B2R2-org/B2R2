@@ -93,9 +93,9 @@ type IntelInstruction
 
   override __.IsExit () =
     match opcode with
-    (* Compiler sometimes inserts HLT in user-level code to raise a fault. *)
+    (* In kernel code, HLT is often preceded by CLI to shut down the machine.
+       In user code, compilers insert HLT to raise a fault and exit. *)
     | Opcode.HLT
-    (* Invalid OP exceptions usually don't return from the handler. *)
     | Opcode.UD2
     | Opcode.SYSEXIT | Opcode.SYSRET
     | Opcode.IRET | Opcode.IRETW | Opcode.IRETD | Opcode.IRETQ -> true

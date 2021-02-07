@@ -32,16 +32,16 @@ type SideEffect =
   | ClockCounter
   /// Memory fence operations, e.g., LFENCE/MFENCE/SFENCE on x86.
   | Fence
-  /// Process halt, e.g., HLT on x86.
-  | Halt
-  /// Interrupt, e.g., INT on x86.
+  /// Delay the execution for a while, e.g. HLT, PAUSE on x86.
+  | Delay
+  /// Terminate the execution.
+  | Terminate
+  /// Asynchronous event triggered by software (e.g. INT on x86) or hardware.
   | Interrupt of int
-  /// Trap (or exception).
-  | Trap of string
+  /// Synchronous event generated when the execution encounters error condition.
+  | Exception of string
   /// Locking, e.g., LOCK prefix on x86.
   | Lock
-  /// Give a hint about a spin-wait loop, e.g., PAUSE on x86.
-  | Pause
   /// Access CPU details, e.g., CPUID on x86.
   | ProcessorID
   /// System call.
@@ -62,11 +62,11 @@ module SideEffect =
     | Breakpoint -> "Breakpoint"
     | ClockCounter -> "CLK"
     | Fence -> "Fence"
-    | Halt -> "Halt"
+    | Delay -> "Delay"
+    | Terminate -> "Terminate"
     | Interrupt (n) -> "Int" + n.ToString ()
-    | Trap s -> "Trap(" + s + ")"
+    | Exception s -> "Exception(" + s + ")"
     | Lock -> "Lock"
-    | Pause -> "Pause"
     | ProcessorID -> "PID"
     | SysCall -> "SysCall"
     | UndefinedInstr -> "Undef"
@@ -80,9 +80,9 @@ module SideEffect =
     | "breakpoint" -> Breakpoint
     | "clk" -> ClockCounter
     | "fence" -> Fence
-    | "halt" -> Halt
+    | "delay" -> Delay
+    | "terminate" -> Terminate
     | "lock" -> Lock
-    | "pause" -> Pause
     | "pid" -> ProcessorID
     | "syscall" -> SysCall
     | "undef" -> UndefinedInstr
@@ -90,8 +90,8 @@ module SideEffect =
     | "privinstr" -> UnsupportedPrivInstr
     | "far" -> UnsupportedFAR
     | "cpu extension" -> UnsupportedExtension
-    | s when s.StartsWith "trap(" && s.Length >= 6 && s.EndsWith ")" ->
-      input.[ 5 .. input.Length - 2 ] |> Trap
+    | s when s.StartsWith "exception(" && s.Length >= 6 && s.EndsWith ")" ->
+      input.[ 5 .. input.Length - 2 ] |> Exception
     | s when s.StartsWith "int" && s.Length >= 5 ->
       int s.[4 ..] |> Interrupt
     | _ -> B2R2.Utils.impossible ()

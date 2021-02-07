@@ -850,7 +850,7 @@ let div ins insLen ctxt =
   !<ir insLen
   !!ir (CJmp (divisor == AST.num0 oprSize, Name lblErr, Name lblChk))
   !!ir (LMark lblErr)
-  !!ir (SideEffect (Trap "DivErr"))
+  !!ir (SideEffect (Exception "DivErr"))
   !!ir (LMark lblChk)
   match ins.Opcode with
   | Opcode.DIV ->
@@ -1529,7 +1529,7 @@ let rdpkru ins insLen ctxt =
   !<ir insLen
   !!ir (CJmp (ecx == AST.num0 oprSize, Name lblSucc, Name lblErr))
   !!ir (LMark lblErr)
-  !!ir (SideEffect (Trap "GP"))
+  !!ir (SideEffect (Exception "GP"))
   !!ir (LMark lblSucc)
   !!ir (eax := AST.zext ctxt.WordBitSize (!.ctxt R.PKRU))
   !!ir (edx := AST.num0 ctxt.WordBitSize)
@@ -1914,7 +1914,7 @@ let wrpkru ins insLen ctxt =
   !<ir insLen
   !!ir (CJmp (cond, Name lblSucc, Name lblErr))
   !!ir (LMark lblErr)
-  !!ir (SideEffect (Trap "GP"))
+  !!ir (SideEffect (Exception "GP"))
   !!ir (LMark lblSucc)
   !!ir (!.ctxt R.PKRU := !.ctxt R.EAX)
   !>ir insLen

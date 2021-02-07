@@ -236,7 +236,7 @@ let jump insInfo ctxt =
     endMark insInfo builder
   with
     | :? System.InvalidOperationException -> (* Special case: terminate func. *)
-      sideEffects insInfo Halt
+      sideEffects insInfo Terminate
 
 let jumpi insInfo ctxt =
   let builder = new IRBuilder (12)
@@ -453,16 +453,16 @@ let ret insInfo ctxt =
   let builder = new IRBuilder (8)
   popFromStack ctxt builder |> ignore
   popFromStack ctxt builder |> ignore
-  sideEffects insInfo Halt
+  sideEffects insInfo Terminate
 
 let selfdestruct insInfo ctxt =
   let builder = new IRBuilder (8)
   popFromStack ctxt builder |> ignore
-  sideEffects insInfo Halt
+  sideEffects insInfo Terminate
 
 let translate insInfo (ctxt: TranslationContext) =
   match insInfo.Opcode with
-  | STOP -> sideEffects insInfo Halt
+  | STOP -> sideEffects insInfo Terminate
   | ADD -> add insInfo ctxt
   | MUL -> mul insInfo ctxt
   | SUB -> sub insInfo ctxt

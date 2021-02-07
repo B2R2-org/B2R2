@@ -82,7 +82,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.DIV | OP.IDIV -> GeneralLifter.div ins insLen ctxt
   | OP.ENDBR32 | OP.ENDBR64 -> GeneralLifter.nop insLen
   | OP.ENTER -> GeneralLifter.enter ins insLen ctxt
-  | OP.HLT -> LiftingUtils.sideEffects insLen Halt
+  | OP.HLT -> LiftingUtils.sideEffects insLen Delay
   | OP.IMUL -> GeneralLifter.imul ins insLen ctxt
   | OP.INC -> GeneralLifter.inc ins insLen ctxt
   | OP.INCSSPD | OP.INCSSPQ -> GeneralLifter.nop insLen
@@ -387,7 +387,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.CLFLUSH -> GeneralLifter.nop insLen (* SSE2 *)
   | OP.LFENCE -> LiftingUtils.sideEffects insLen Fence (* SSE2 *)
   | OP.MFENCE -> LiftingUtils.sideEffects insLen Fence (* SSE2 *)
-  | OP.PAUSE -> LiftingUtils.sideEffects insLen Pause (* SSE2 *)
+  | OP.PAUSE -> LiftingUtils.sideEffects insLen Delay (* SSE2 *)
   | OP.MOVNTPD -> SSELifter.movntpd ins insLen ctxt (* SSE2 *)
   | OP.MOVNTDQ -> SSELifter.movntdq ins insLen ctxt (* SSE2 *)
   | OP.MOVNTI -> SSELifter.movnti ins insLen ctxt (* SSE2 *)

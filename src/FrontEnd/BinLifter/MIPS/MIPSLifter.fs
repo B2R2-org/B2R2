@@ -1334,7 +1334,7 @@ let translate insInfo (ctxt: TranslationContext) =
   | Op.INS -> ins64 insInfo ctxt
   | Op.JALR | Op.JALRHB -> jalr insInfo ctxt
   | Op.JR | Op.JRHB -> jr insInfo ctxt
-  | Op.PAUSE -> sideEffects insInfo Pause
+  | Op.PAUSE -> sideEffects insInfo Delay
   | Op.LB | Op.LH | Op.LW | Op.LD -> load insInfo ctxt
   | Op.LBU | Op.LHU | Op.LWU -> loadu insInfo ctxt
   | Op.LDC1 | Op.LWC1 | Op.SDC1 | Op.SWC1 -> sideEffects insInfo UnsupportedFP
