@@ -137,18 +137,3 @@ module RegType =
   let getMask t =
     if t <= 64<rt> then System.UInt64.MaxValue >>> (64 - int t) |> bigint
     else (bigint.One <<< (int t)) - bigint.One
-
-  /// <summary>
-  ///   Get a bitmask (in integer) from the given RegType.
-  /// </summary>
-  /// <returns>
-  ///   A bit mask in uint64.
-  /// </returns>
-  let getUInt64Mask = function
-    | 1<rt> -> 1UL
-    | 8<rt> -> 255UL
-    | 16<rt> -> 65535UL
-    | 32<rt> -> 4294967295UL
-    | 64<rt> -> 18446744073709551615UL
-    | t when t < 64<rt> -> (1UL <<< (int t)) - 1UL
-    | _ -> raise InvalidRegTypeException
