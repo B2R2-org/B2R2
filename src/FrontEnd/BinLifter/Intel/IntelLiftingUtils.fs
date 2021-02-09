@@ -270,12 +270,12 @@ let transOprToFloat80 ins insLen ctxt opr =
   match opr with
   | OprReg r when Register.toRegType r = 80<rt> -> !.ctxt r
   | OprReg r ->
-    !.ctxt r |> AST.cast CastKind.FloatExt 80<rt>
+    !.ctxt r |> AST.cast CastKind.FloatCast 80<rt>
   | OprMem (b, index, disp, 80<rt>) ->
     transMem ins insLen ctxt b index disp 80<rt>
   | OprMem (b, index, disp, len) ->
     transMem ins insLen ctxt b index disp len
-    |> AST.cast CastKind.FloatExt 80<rt>
+    |> AST.cast CastKind.FloatCast 80<rt>
   | _ -> raise InvalidOperandException
 
 /// Return a tuple (jump target expr, is pc-relative?)
@@ -349,10 +349,10 @@ let dstAssign oprSize dst src =
 
 let maxNum rt =
   match rt with
-  | 8<rt> -> BitVector.maxNum8
-  | 16<rt> -> BitVector.maxNum16
-  | 32<rt> -> BitVector.maxNum32
-  | 64<rt> -> BitVector.maxNum64
+  | 8<rt> -> BitVector.maxUInt8
+  | 16<rt> -> BitVector.maxUInt16
+  | 32<rt> -> BitVector.maxUInt32
+  | 64<rt> -> BitVector.maxUInt64
   | _ -> raise InvalidOperandSizeException
   |> AST.num
 

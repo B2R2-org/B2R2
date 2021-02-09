@@ -1023,7 +1023,7 @@ let extr ins ctxt addr =
   let oSz = ins.OprSize
   let conSize = if oSz = 64<rt> then 128<rt> else 64<rt>
   let con = AST.tmpvar conSize
-  let mask = AST.num (BitVector.ofUBInt (RegType.getMask oSz) conSize)
+  let mask = AST.num (BitVector.ofBInt (RegType.getMask oSz) conSize)
   startMark ins builder
   builder <! (con := AST.concat src1 src2)
   builder <! (dst := AST.xtlo oSz ((con >> (AST.zext conSize lsb)) .& mask))

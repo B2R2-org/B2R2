@@ -342,7 +342,7 @@ let private fpuLoad insLen ctxt oprExpr =
   let ir = IRBuilder (64)
   let tmp = AST.tmpvar 80<rt>
   !<ir insLen
-  !!ir (tmp := AST.cast CastKind.FloatExt 80<rt> oprExpr)
+  !!ir (tmp := AST.cast CastKind.FloatCast 80<rt> oprExpr)
   !?ir (checkFPUOnLoad ctxt)
   !?ir (shiftFPUStackDown ctxt)
   !?ir (assignFPUReg R.ST0 tmp ctxt)
@@ -363,7 +363,7 @@ let ffst (ins: InsInfo) insLen ctxt doPop =
   let tmp = AST.tmpvar sz
   let ir = IRBuilder (32)
   !<ir insLen
-  !!ir (tmp := AST.cast CastKind.FloatExt sz st0)
+  !!ir (tmp := AST.cast CastKind.FloatCast sz st0)
   match opr with
   | OprReg r -> !?ir (assignFPUReg r tmp ctxt)
   | _ -> !!ir (oprExpr := tmp)
@@ -908,7 +908,7 @@ let fptan _ins insLen ctxt =
   !!ir (c1 := undefC1)
   !!ir (c3 := undefC3)
   !!ir (tmp64 := numI64 4607182418800017408L 64<rt>)
-  !!ir (tmp := AST.cast CastKind.FloatExt 80<rt> tmp64)
+  !!ir (tmp := AST.cast CastKind.FloatCast 80<rt> tmp64)
   !?ir (checkFPUOnLoad ctxt)
   !?ir (shiftFPUStackDown ctxt)
   !?ir (assignFPUReg R.ST0 tmp ctxt)
@@ -1052,7 +1052,7 @@ let private checkFPUExceptions ctxt ir = ()
 
 let private clearFPU ctxt ir =
   let cw = BitVector.ofInt32 895 16<rt> |> AST.num
-  let tw = BitVector.maxNum16 |> AST.num
+  let tw = BitVector.maxUInt16 |> AST.num
   !!ir (!.ctxt R.FCW := cw)
   !!ir (!.ctxt R.FSW := AST.num0 16<rt>)
   !!ir (!.ctxt R.FTW := tw)

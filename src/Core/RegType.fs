@@ -119,8 +119,6 @@ module RegType =
   /// </returns>
   let fromByteWidth n = fromBitWidth (n * 8)
 
-  /// Get the double width of RegType.
-
   /// <summary>
   ///   Get a double-sized RegType from a given RegType.
   /// </summary>
@@ -130,25 +128,15 @@ module RegType =
   /// </returns>
   let double (t: RegType) =  2 * t
 
-  /// Get a bitmask of the given RegType size.
-
   /// <summary>
   ///   Get a bitmask (in integer) from the given RegType.
   /// </summary>
   /// <returns>
   ///   A bit mask in big integer.
   /// </returns>
-  let getMask = function
-    | 1<rt> -> 1I
-    | 8<rt> -> 255I
-    | 16<rt> -> 65535I
-    | 32<rt> -> 4294967295I
-    | 64<rt> -> 18446744073709551615I
-    | 128<rt> -> BigInteger.mask128
-    | 256<rt> -> BigInteger.mask256
-    | 512<rt> -> BigInteger.mask512
-    | t when t < 512<rt> -> (bigint.One <<< (int t)) - bigint.One
-    | _ -> raise InvalidRegTypeException
+  let getMask t =
+    if t <= 64<rt> then System.UInt64.MaxValue >>> (64 - int t) |> bigint
+    else (bigint.One <<< (int t)) - bigint.One
 
   /// <summary>
   ///   Get a bitmask (in integer) from the given RegType.

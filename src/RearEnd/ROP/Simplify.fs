@@ -34,10 +34,10 @@ let inline zeroNum ty = Num (BitVector.zero ty)
 
 let inline maxNum ty =
   match ty with
-  | 8<rt>  -> BitVector.maxNum8  |> Num
-  | 16<rt> -> BitVector.maxNum16 |> Num
-  | 32<rt> -> BitVector.maxNum32 |> Num
-  | 64<rt> -> BitVector.maxNum64 |> Num
+  | 8<rt>  -> BitVector.maxUInt8  |> Num
+  | 16<rt> -> BitVector.maxUInt16 |> Num
+  | 32<rt> -> BitVector.maxUInt32 |> Num
+  | 64<rt> -> BitVector.maxUInt64 |> Num
   | _ -> failwith "maxNum fail"
 
 let inline isZero x =

@@ -42,67 +42,67 @@ let haveVirtExt () = AST.b0
 
 /// Gets the mask bits for fetching the condition flag bits from the PSR.
 /// PSR bit[31:28]
-let maskPSRForCondbits = AST.num <| BitVector.ofUBInt 4026531840I 32<rt>
+let maskPSRForCondbits = AST.num <| BitVector.ofBInt 4026531840I 32<rt>
 
 /// Gets the mask bits for fetching the N condition flag from the PSR.
 /// PSR bit[31]
-let maskPSRForNbit = AST.num <| BitVector.ofUBInt 2147483648I 32<rt>
+let maskPSRForNbit = AST.num <| BitVector.ofBInt 2147483648I 32<rt>
 
 /// Gets the mask bits for fetching the Z condition flag from the PSR.
 /// PSR bits[30]
-let maskPSRForZbit = AST.num <| BitVector.ofUBInt 1073741824I 32<rt>
+let maskPSRForZbit = AST.num <| BitVector.ofBInt 1073741824I 32<rt>
 
 /// Gets the mask bits for fetching the C condition flag from the PSR.
 /// PSR bit[29]
-let maskPSRForCbit = AST.num <| BitVector.ofUBInt 536870912I 32<rt>
+let maskPSRForCbit = AST.num <| BitVector.ofBInt 536870912I 32<rt>
 
 /// Gets the mask bits for fetching the V condition flag from the PSR.
 /// PSR bit[28]
-let maskPSRForVbit = AST.num <| BitVector.ofUBInt 268435456I 32<rt>
+let maskPSRForVbit = AST.num <| BitVector.ofBInt 268435456I 32<rt>
 
 /// Gets the mask bits for fetching the Q bit from the PSR.
 /// PSR bit[27]
-let maskPSRForQbit = AST.num <| BitVector.ofUBInt 134217728I 32<rt>
+let maskPSRForQbit = AST.num <| BitVector.ofBInt 134217728I 32<rt>
 
 /// Gets the mask bits for fetching the IT[1:0] bits from the PSR.
 /// PSR bits[26:25]
-let maskPSRForIT10bits = AST.num <| BitVector.ofUBInt 100663296I 32<rt>
+let maskPSRForIT10bits = AST.num <| BitVector.ofBInt 100663296I 32<rt>
 
 /// Gets the mask bits for fetching the J bit from the PSR.
 /// PSR bit[24]
-let maskPSRForJbit = AST.num <| BitVector.ofUBInt 16777216I 32<rt>
+let maskPSRForJbit = AST.num <| BitVector.ofBInt 16777216I 32<rt>
 
 /// Gets the mask bits for fetching the GE[3:0] bits from the PSR.
 /// PSR bits[19:16]
-let maskPSRForGEbits = AST.num <| BitVector.ofUBInt 983040I 32<rt>
+let maskPSRForGEbits = AST.num <| BitVector.ofBInt 983040I 32<rt>
 
 /// Gets the mask bits for fetching the IT[7:2] bits from the PSR.
 /// PSR bits[15:10]
-let maskPSRForIT72bits = AST.num <| BitVector.ofUBInt 64512I 32<rt>
+let maskPSRForIT72bits = AST.num <| BitVector.ofBInt 64512I 32<rt>
 
 /// Gets the mask bits for fetching the E bit from the PSR.
 /// PSR bit[9]
-let maskPSRForEbit = AST.num <| BitVector.ofUBInt 512I 32<rt>
+let maskPSRForEbit = AST.num <| BitVector.ofBInt 512I 32<rt>
 
 /// Gets the mask bits for fetching the A bit from the PSR.
 /// PSR bit[8]
-let maskPSRForAbit = AST.num <| BitVector.ofUBInt 256I 32<rt>
+let maskPSRForAbit = AST.num <| BitVector.ofBInt 256I 32<rt>
 
 /// Gets the mask bits for fetching the I bit from the PSR.
 /// PSR bit[7]
-let maskPSRForIbit = AST.num <| BitVector.ofUBInt 128I 32<rt>
+let maskPSRForIbit = AST.num <| BitVector.ofBInt 128I 32<rt>
 
 /// Gets the mask bits for fetching the F bit from the PSR.
 /// PSR bit[6]
-let maskPSRForFbit = AST.num <| BitVector.ofUBInt 64I 32<rt>
+let maskPSRForFbit = AST.num <| BitVector.ofBInt 64I 32<rt>
 
 /// Gets the mask bits for fetching the T bit from the PSR.
 /// PSR bit[5]
-let maskPSRForTbit = AST.num <| BitVector.ofUBInt 32I 32<rt>
+let maskPSRForTbit = AST.num <| BitVector.ofBInt 32I 32<rt>
 
 /// Gets the mask bits for fetching the M[4:0] bits from the PSR.
 /// PSR bits[4:0]
-let maskPSRForMbits = AST.num <| BitVector.ofUBInt 31I 32<rt>
+let maskPSRForMbits = AST.num <| BitVector.ofBInt 31I 32<rt>
 
 /// Get PSR bits without shifting it.
 let internal getPSR ctxt reg psrType =

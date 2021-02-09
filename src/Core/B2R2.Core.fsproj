@@ -31,7 +31,6 @@
     <Compile Include="AddrRange.fs" />
     <Compile Include="AddrRangeMap.fsi" />
     <Compile Include="AddrRangeMap.fs" />
-    <Compile Include="BitVector.fsi" />
     <Compile Include="BitVector.fs" />
     <Compile Include="ProgramPoint.fs" />
     <Compile Include="ByteArray.fsi" />

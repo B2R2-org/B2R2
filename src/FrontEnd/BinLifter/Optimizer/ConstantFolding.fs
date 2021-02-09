@@ -97,7 +97,7 @@ let private concretizeCast castType rt bv =
   | CastKind.FtoICeil -> BitVector.ftoiceil bv rt
   | CastKind.FtoIFloor -> BitVector.ftoifloor bv rt
   | CastKind.FtoITrunc -> BitVector.ftoitrunc bv rt
-  | CastKind.FloatExt -> BitVector.fext bv rt
+  | CastKind.FloatCast -> BitVector.fcast bv rt
   | _ -> Utils.impossible ()
 
 let rec replace ctxt expr =

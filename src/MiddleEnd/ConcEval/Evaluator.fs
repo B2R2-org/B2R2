@@ -60,7 +60,7 @@ and private evalLoad st endian t addr =
 and private evalCast st t e = function
   | CastKind.SignExt -> BitVector.sext (evalConcrete st e) t
   | CastKind.ZeroExt -> BitVector.zext (evalConcrete st e) t
-  | CastKind.FloatExt -> BitVector.fext (evalConcrete st e) t
+  | CastKind.FloatCast -> BitVector.fcast (evalConcrete st e) t
   | CastKind.IntToFloat -> BitVector.itof (evalConcrete st e) t
   | CastKind.FtoICeil -> BitVector.ftoiceil (evalConcrete st e) t
   | CastKind.FtoIFloor -> BitVector.ftoifloor (evalConcrete st e) t

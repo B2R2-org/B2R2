@@ -346,7 +346,7 @@ let vcvtsd2ss ins insLen ctxt =
   let src1B, src1A = transOprToExpr128 ins insLen ctxt src1
   let src2 = transOprToExpr64 ins insLen ctxt src2
   !<ir insLen
-  !!ir (AST.xtlo 32<rt> dstA := AST.cast CastKind.FloatExt 32<rt> src2)
+  !!ir (AST.xtlo 32<rt> dstA := AST.cast CastKind.FloatCast 32<rt> src2)
   !!ir (AST.xthi 32<rt> dstA := AST.xthi 32<rt> src1A)
   !!ir (dstB := src1B)
   fillZeroHigh128 ctxt dst ir
@@ -359,7 +359,7 @@ let vcvtss2sd ins insLen ctxt =
   let src1B, _src1A = transOprToExpr128 ins insLen ctxt src1
   let src2 = transOprToExpr32 ins insLen ctxt src2
   !<ir insLen
-  !!ir (dstA := AST.cast CastKind.FloatExt 64<rt> src2)
+  !!ir (dstA := AST.cast CastKind.FloatCast 64<rt> src2)
   !!ir (dstB := src1B)
   fillZeroHigh128 ctxt dst ir
   !>ir insLen

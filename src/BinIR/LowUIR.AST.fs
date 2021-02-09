@@ -84,7 +84,7 @@ module private TypeCheck =
       else castErr newType oldType
     | CastKind.IntToFloat ->
       if isValidFloatType newType then true else raise InvalidFloatTypeException
-    | CastKind.FloatExt ->
+    | CastKind.FloatCast ->
       if isValidFloatType oldType && isValidFloatType newType then true
       else raise InvalidFloatTypeException
     | _ -> true
@@ -148,7 +148,7 @@ module private ValueOpt =
   let inline cast t n = function
     | CastKind.SignExt -> BitVector.sext n t |> Num
     | CastKind.ZeroExt -> BitVector.zext n t |> Num
-    | CastKind.FloatExt -> BitVector.fext n t |> Num
+    | CastKind.FloatCast -> BitVector.fcast n t |> Num
     | CastKind.IntToFloat -> BitVector.itof n t |> Num
     | CastKind.FtoICeil -> BitVector.ftoiceil n t |> Num
     | CastKind.FtoIFloor -> BitVector.ftoifloor n t |> Num
@@ -340,13 +340,13 @@ module AST =
     | Extract ((Var (t, _, _, _) as e1), eTyp, 0, _, _)
     | Extract ((TempVar (t, _) as e1), eTyp, 0, _, _)->
       let nMask = RegType.getMask t - RegType.getMask eTyp
-      let mask = num <| BitVector.ofUBInt nMask t
+      let mask = num <| BitVector.ofBInt nMask t
       let src = cast CastKind.ZeroExt t e2
       Put (e1, binop BinOpType.OR (binop BinOpType.AND e1 mask) src)
     | Extract ((Var (t, _, _, _) as e1), eTyp, pos, _, _)
     | Extract ((TempVar (t, _) as e1), eTyp, pos, _, _) ->
       let nMask = RegType.getMask t - (RegType.getMask eTyp <<< pos)
-      let mask = num <| BitVector.ofUBInt nMask t
+      let mask = num <| BitVector.ofBInt nMask t
       let src = cast CastKind.ZeroExt t e2
       let shift = (num <| BitVector.ofInt32 pos t)
       let src = binop BinOpType.SHL src shift

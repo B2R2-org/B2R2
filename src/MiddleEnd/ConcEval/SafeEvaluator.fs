@@ -90,7 +90,7 @@ and private evalUnOpConc st e fn =
 and private evalCast st t e = function
   | CastKind.SignExt -> evalConcrete st e |> map1 BitVector.sext t
   | CastKind.ZeroExt -> evalConcrete st e |> map1 BitVector.zext t
-  | CastKind.FloatExt -> evalConcrete st e |> map1 BitVector.fext t
+  | CastKind.FloatCast -> evalConcrete st e |> map1 BitVector.fcast t
   | CastKind.IntToFloat -> evalConcrete st e |> map1 BitVector.itof t
   | CastKind.FtoICeil -> evalConcrete st e |> map1 BitVector.ftoiceil t
   | CastKind.FtoIFloor -> evalConcrete st e |> map1 BitVector.ftoifloor t

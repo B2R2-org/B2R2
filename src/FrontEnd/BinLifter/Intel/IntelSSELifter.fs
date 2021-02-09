@@ -880,8 +880,8 @@ let cvtps2pd ins insLen ctxt =
   !<ir insLen
   !!ir (tmp1 := AST.xtlo 32<rt> src)
   !!ir (tmp2 := AST.xthi 32<rt> src)
-  !!ir (dst1 := AST.cast CastKind.FloatExt 64<rt> tmp1)
-  !!ir (dst2 := AST.cast CastKind.FloatExt 64<rt> tmp2)
+  !!ir (dst1 := AST.cast CastKind.FloatCast 64<rt> tmp1)
+  !!ir (dst2 := AST.cast CastKind.FloatCast 64<rt> tmp2)
   !>ir insLen
 
 let cvtpd2ps ins insLen ctxt =
@@ -890,8 +890,8 @@ let cvtpd2ps ins insLen ctxt =
   let dst2, dst1 = transOprToExpr128 ins insLen ctxt dst
   let src2, src1 = transOprToExpr128 ins insLen ctxt src
   !<ir insLen
-  !!ir (AST.xtlo 32<rt> dst1 := AST.cast CastKind.FloatExt 32<rt> src1)
-  !!ir (AST.xthi 32<rt> dst1 := AST.cast CastKind.FloatExt 32<rt> src2)
+  !!ir (AST.xtlo 32<rt> dst1 := AST.cast CastKind.FloatCast 32<rt> src1)
+  !!ir (AST.xthi 32<rt> dst1 := AST.cast CastKind.FloatCast 32<rt> src2)
   !!ir (dst2 := AST.num0 64<rt>)
   !>ir insLen
 
@@ -975,7 +975,7 @@ let cvtss2sd ins insLen ctxt =
   let dst = transOprToExpr64 ins insLen ctxt dst
   let src = transOprToExpr32 ins insLen ctxt src
   !<ir insLen
-  !!ir (dst := AST.cast CastKind.FloatExt 64<rt> src)
+  !!ir (dst := AST.cast CastKind.FloatCast 64<rt> src)
   !>ir insLen
 
 let cvtsd2ss ins insLen ctxt =
@@ -984,7 +984,7 @@ let cvtsd2ss ins insLen ctxt =
   let dst = transOprToExpr64 ins insLen ctxt dst
   let src = transOprToExpr64 ins insLen ctxt src
   !<ir insLen
-  !!ir (AST.xtlo 32<rt> dst := AST.cast CastKind.FloatExt 32<rt> src)
+  !!ir (AST.xtlo 32<rt> dst := AST.cast CastKind.FloatCast 32<rt> src)
   !>ir insLen
 
 let cvtsd2si ins insLen ctxt rounded =
