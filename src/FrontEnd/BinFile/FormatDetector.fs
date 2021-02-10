@@ -66,7 +66,7 @@ let private identifyWASM reader isa =
 ///   B2R2.FileFormat and B2R2.ISA.
 /// </summary>
 [<CompiledName("Identify")>]
-let identifyFromBuffer bytes isa =
+let identify bytes isa =
   let reader = BinReader.Init (bytes)
   Monads.OrElse.orElse {
     yield! identifyELF reader
@@ -75,19 +75,3 @@ let identifyFromBuffer bytes isa =
     yield! identifyWASM reader isa
     yield! Some (FileFormat.RawBinary, isa)
   } |> Option.get
-
-(* This is more than enough for all the file formats. *)
-let [<Literal>] private maxBytes = 2048
-
-/// <summary>
-///   Given a binary file path, identify its file format and return
-///   B2R2.FileFormat and B2R2.ISA.
-/// </summary>
-[<CompiledName("Identify")>]
-let identifyFromFile file isa =
-  use f = File.OpenRead (file)
-  let bytes = Array.create maxBytes 0uy
-  f.Read (bytes, 0, maxBytes) |> ignore
-  identifyFromBuffer bytes isa
-
-// vim: set tw=80 sts=2 sw=2:

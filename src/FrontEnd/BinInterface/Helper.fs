@@ -24,10 +24,11 @@
 
 module internal B2R2.FrontEnd.BinInterface.Helper
 
+open System
+open System.Text
 open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
-open System.Text
 
 let initBasis isa =
   match isa.Arch with
@@ -42,10 +43,8 @@ let initBasis isa =
   | Arch.TMS320C6000 -> TMS320C6000.Basis.init isa
   | _ -> Utils.futureFeature ()
 
-let identifyFormatAndISA bytes path isa autoDetect =
-  if autoDetect then
-    if System.IO.File.Exists path then FormatDetector.identifyFromFile path isa
-    else FormatDetector.identifyFromBuffer bytes isa
+let identifyFormatAndISA bytes isa autoDetect =
+  if autoDetect then FormatDetector.identify bytes isa
   else FileFormat.RawBinary, isa
 
 let newFileInfo bytes (baddr: Addr option) path fmt isa regbay =

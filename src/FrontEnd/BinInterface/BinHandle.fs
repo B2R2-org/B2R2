@@ -41,10 +41,7 @@ type BinHandle = {
 }
 with
   static member private Init (isa, mode, autoDetect, baseAddr, bytes, path) =
-    let path =
-      if String.IsNullOrEmpty path then ""
-      else try IO.Path.GetFullPath path with _ -> ""
-    let fmt, isa = identifyFormatAndISA bytes path isa autoDetect
+    let fmt, isa = identifyFormatAndISA bytes isa autoDetect
     let struct (ctxt, parser, regbay) = initBasis isa
     let fi = newFileInfo bytes baseAddr path fmt isa regbay
     assert (isa = fi.ISA)
@@ -63,10 +60,12 @@ with
 
   static member Init (isa, archMode, autoDetect, baseAddr, fileName) =
     let bytes = IO.File.ReadAllBytes fileName
+    let fileName = IO.Path.GetFullPath fileName
     BinHandle.Init (isa, archMode, autoDetect, baseAddr, bytes, fileName)
 
   static member Init (isa, baseAddr, fileName) =
     let bytes = IO.File.ReadAllBytes fileName
+    let fileName = IO.Path.GetFullPath fileName
     let defaultMode = ArchOperationMode.NoMode
     BinHandle.Init (isa, defaultMode, true, baseAddr, bytes, fileName)
 
