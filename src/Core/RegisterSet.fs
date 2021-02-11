@@ -37,6 +37,7 @@ type RegisterSetTag =
   | MIPS = 4
   | EVM = 5
   | TMS320C6000 = 6
+  | CIL = 7
 
 /// RegisterSet is an efficient set data structure using arrays for managing a
 /// set of registers.

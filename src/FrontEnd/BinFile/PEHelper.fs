@@ -32,17 +32,6 @@ open System.Reflection.PortableExecutable
 
 let [<Literal>] secText = ".text"
 
-let machineToArch = function
-  | Machine.I386 -> Arch.IntelX86
-  | Machine.Amd64 | Machine.IA64 -> Arch.IntelX64
-  | Machine.Arm -> Arch.ARMv7
-  | Machine.Arm64 -> Arch.AARCH64
-  | _ -> raise InvalidISAException
-
-let getISA pe =
-  let arch = machineToArch pe.PEHeaders.CoffHeader.Machine
-  ISA.Init arch Endian.Little
-
 let getFileType pe =
   let c = pe.PEHeaders.CoffHeader.Characteristics
   if c.HasFlag Characteristics.Dll then FileType.LibFile
@@ -310,6 +299,25 @@ let inline getNotInFileIntervals pe range =
   |> List.map (FileHelper.trimByRange range)
   |> List.toSeq
 
+let machineToArch = function
+  | Machine.I386 -> Arch.IntelX86
+  | Machine.Amd64 | Machine.IA64 -> Arch.IntelX64
+  | Machine.Arm -> Arch.ARMv7
+  | Machine.Arm64 -> Arch.AARCH64
+  | _ -> raise InvalidISAException
+
+let peHeadersToArch (peHeaders: PEHeaders) =
+  let corHeader = peHeaders.CorHeader
+  if isNull corHeader then
+    peHeaders.CoffHeader.Machine |> machineToArch
+  else
+    if corHeader.Flags = CorFlags.ILOnly then Arch.CILOnly
+    else
+      match peHeaders.CoffHeader.Machine with
+      | Machine.I386 -> Arch.CILIntel32
+      | Machine.Amd64 | Machine.IA64 -> Arch.CILIntel64
+      | _ -> raise InvalidISAException
+
 /// Return Architecture from the PE header. If the given binary is invalid,
 /// return an Error.
 let getPEArch bytes offset =
@@ -317,8 +325,12 @@ let getPEArch bytes offset =
     let bs = Array.sub bytes offset (Array.length bytes - offset)
     use stream = new IO.MemoryStream (bs)
     use reader = new PEReader (stream, PEStreamOptions.Default)
-    reader.PEHeaders.CoffHeader.Machine |> machineToArch |> Ok
+    peHeadersToArch reader.PEHeaders |> Ok
   with _ ->
     Error ErrorCase.InvalidFileFormat
+
+let getISA pe =
+  let arch = peHeadersToArch pe.PEHeaders
+  ISA.Init arch Endian.Little
 
 // vim: set tw=80 sts=2 sw=2:

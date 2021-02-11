@@ -24,7 +24,6 @@
 
 module internal B2R2.FrontEnd.BinInterface.Helper
 
-open System
 open System.Text
 open B2R2
 open B2R2.FrontEnd.BinFile
@@ -41,6 +40,7 @@ let initBasis isa =
   | Arch.MIPS64 | Arch.MIPS64R2 | Arch.MIPS64R6 -> MIPS.Basis.init isa
   | Arch.EVM -> EVM.Basis.init isa
   | Arch.TMS320C6000 -> TMS320C6000.Basis.init isa
+  | Arch.CILOnly -> CIL.Basis.init isa
   | _ -> Utils.futureFeature ()
 
 let identifyFormatAndISA bytes isa autoDetect =

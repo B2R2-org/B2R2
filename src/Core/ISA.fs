@@ -70,8 +70,14 @@ type Architecture =
   | TMS320C5000 = 18
   /// TMS320C64x, TMS320C67x, etc.
   | TMS320C6000 = 19
+  /// Common Intermediate Language (CIL), aka MSIL.
+  | CILOnly = 20
+  /// CIL + x86 (PE32).
+  | CILIntel32 = 21
+  /// CIL + x64 (PE32+)
+  | CILIntel64 = 22
   /// Unknown ISA.
-  | UnknownISA = 20
+  | UnknownISA = 30
 
 type Arch = Architecture
 
@@ -105,9 +111,9 @@ module ArchOperationMode =
 
 /// Instruction Set Architecture (ISA).
 type ISA = {
-  Arch       : Architecture
-  Endian     : Endian
-  WordSize   : WordSize
+  Arch: Architecture
+  Endian: Endian
+  WordSize: WordSize
 }
 with
   static member DefaultISA =
@@ -138,29 +144,32 @@ with
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit256 }
     | Arch.TMS320C6000 ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit32 }
+    | Arch.CILOnly ->
+      { Arch = arch; Endian = endian; WordSize = WordSize.Bit64 }
     | _ -> raise InvalidISAException
 
   static member OfString (s: string) =
     match s.ToLower () with
-    | "x86" | "i386" -> ISA.Init (Arch.IntelX86) Endian.Little
+    | "x86" | "i386" -> ISA.Init Arch.IntelX86 Endian.Little
     | "x64" | "x86-64" | "amd64" -> ISA.DefaultISA
     | "armv7" | "armv7le"
-    | "armel" | "armhf" -> ISA.Init (Arch.ARMv7) Endian.Little
-    | "armv7be" -> ISA.Init (Arch.ARMv7) Endian.Big
-    | "armv8a32" | "aarch32" -> ISA.Init (Arch.AARCH32) Endian.Little
-    | "armv8a32be" | "aarch32be" -> ISA.Init (Arch.AARCH32) Endian.Big
-    | "armv8a64" | "aarch64"-> ISA.Init (Arch.AARCH64) Endian.Little
-    | "armv8a64be" | "aarch64be" -> ISA.Init (Arch.AARCH64) Endian.Big
-    | "mips32r2" -> ISA.Init (Arch.MIPS32R2) Endian.Little
-    | "mips32r2be" -> ISA.Init (Arch.MIPS32R2) Endian.Big
-    | "mips32r6" -> ISA.Init (Arch.MIPS32R6) Endian.Little
-    | "mips32r6be" -> ISA.Init (Arch.MIPS32R6) Endian.Big
-    | "mips64r2" -> ISA.Init (Arch.MIPS64R2) Endian.Little
-    | "mips64r2be" -> ISA.Init (Arch.MIPS64R2) Endian.Big
-    | "mips64r6" -> ISA.Init (Arch.MIPS64R6) Endian.Little
-    | "mips64r6be" -> ISA.Init (Arch.MIPS64R6) Endian.Big
-    | "evm" -> ISA.Init (Arch.EVM) Endian.Little
-    | "tms320c6000" -> ISA.Init (Arch.TMS320C6000) Endian.Little
+    | "armel" | "armhf" -> ISA.Init Arch.ARMv7 Endian.Little
+    | "armv7be" -> ISA.Init Arch.ARMv7 Endian.Big
+    | "armv8a32" | "aarch32" -> ISA.Init Arch.AARCH32 Endian.Little
+    | "armv8a32be" | "aarch32be" -> ISA.Init Arch.AARCH32 Endian.Big
+    | "armv8a64" | "aarch64"-> ISA.Init Arch.AARCH64 Endian.Little
+    | "armv8a64be" | "aarch64be" -> ISA.Init Arch.AARCH64 Endian.Big
+    | "mips32r2" -> ISA.Init Arch.MIPS32R2 Endian.Little
+    | "mips32r2be" -> ISA.Init Arch.MIPS32R2 Endian.Big
+    | "mips32r6" -> ISA.Init Arch.MIPS32R6 Endian.Little
+    | "mips32r6be" -> ISA.Init Arch.MIPS32R6 Endian.Big
+    | "mips64r2" -> ISA.Init Arch.MIPS64R2 Endian.Little
+    | "mips64r2be" -> ISA.Init Arch.MIPS64R2 Endian.Big
+    | "mips64r6" -> ISA.Init Arch.MIPS64R6 Endian.Little
+    | "mips64r6be" -> ISA.Init Arch.MIPS64R6 Endian.Big
+    | "evm" -> ISA.Init Arch.EVM Endian.Little
+    | "tms320c6000" -> ISA.Init Arch.TMS320C6000 Endian.Little
+    | "cil" -> ISA.Init Arch.CILOnly Endian.Little
     | _ -> raise InvalidISAException
 
   static member ArchToString arch =
@@ -176,5 +185,6 @@ with
     | Arch.MIPS64R6 -> "MIPS64 Release 6"
     | Arch.EVM -> "EVM"
     | Arch.TMS320C6000 -> "TMS320C6000"
+    | Arch.CILOnly -> "CIL"
     | Arch.UnknownISA -> "Unknown"
     | _ -> "Not supported ISA"
