@@ -50,11 +50,11 @@ module Value =
   let toLinear (value: Value) =
     match value.GetExpr () with
     | Var (32<rt>, _, reg, _) -> Some (reg, 0u)
-    | BinOp (BinOpType.ADD, _, Var (32<rt>, _, reg, _), Num n, _, _)
-    | BinOp (BinOpType.ADD, _, Num n, Var (32<rt>, _, reg, _), _, _) ->
+    | BinOp (BinOpType.ADD, _, Var (32<rt>, _, reg, _), Num n, _)
+    | BinOp (BinOpType.ADD, _, Num n, Var (32<rt>, _, reg, _), _) ->
       Some (reg, BitVector.toUInt32 n)
-    | BinOp (BinOpType.SUB, _, Var (32<rt>, _, reg, _), Num n, _, _)
-    | BinOp (BinOpType.SUB, _, Num n, Var (32<rt>, _, reg, _), _, _) ->
+    | BinOp (BinOpType.SUB, _, Var (32<rt>, _, reg, _), Num n, _)
+    | BinOp (BinOpType.SUB, _, Num n, Var (32<rt>, _, reg, _), _) ->
       Some (reg, BitVector.neg n |> BitVector.toUInt32)
     | _ -> None
 
@@ -80,11 +80,10 @@ module State =
     SideEff  = false
   }
 
-  let private getReg state reg =
-    let _, _, name, _ = reg
+  let private getReg state name expr =
     match Map.tryFind name state.Regs with
     | Some v -> v
-    | None -> Var reg |> Value
+    | None -> Value expr
 
   let private getTempReg state name =
     match Map.tryFind name state.TempRegs with
@@ -92,18 +91,18 @@ module State =
     | None -> failwithf "get T_%d fail" name
 
   let rec evalExpr state = function
-    | Var (t, id, n, rs) -> getReg state (t, id, n, rs)
-    | TempVar (t, name) -> getTempReg state name
-    | UnOp (op, expr, _, _) -> AST.unop op (getEvalExpr state expr) |> Value
-    | BinOp (op, ty, lExpr, rExpr, _, _) ->
+    | Var (_, _, name, _) as v -> getReg state name v
+    | TempVar (_, name) -> getTempReg state name
+    | UnOp (op, expr, _) -> AST.unop op (getEvalExpr state expr) |> Value
+    | BinOp (op, ty, lExpr, rExpr, _) ->
       AST.binop op (getEvalExpr state lExpr) (getEvalExpr state rExpr) |> Value
-    | RelOp (op, lExpr, rExpr, _, _) ->
+    | RelOp (op, lExpr, rExpr, _) ->
       AST.relop op (getEvalExpr state lExpr) (getEvalExpr state rExpr) |> Value
-    | Load (endian, ty, expr, _, _) -> evalLoad state endian ty expr
-    | Ite (cExpr, tExpr, fExpr, _, _) ->
+    | Load (endian, ty, expr, _) -> evalLoad state endian ty expr
+    | Ite (cExpr, tExpr, fExpr, _) ->
       AST.ite (getEvalExpr state cExpr) (getEvalExpr state tExpr)
               (getEvalExpr state fExpr) |> Value
-    | Cast (kind, ty, expr, _, _) ->
+    | Cast (kind, ty, expr, _) ->
       AST.cast kind ty <| getEvalExpr state expr |> Value
     | expr -> Value expr // Num, Name, PCVar
 

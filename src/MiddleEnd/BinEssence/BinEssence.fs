@@ -503,9 +503,9 @@ module BinEssence =
       ess, getIntraEdge src s2 IntraCJmpFalseEdge edges
     | InterJmp (_, InterJmpInfo.IsRet) ->
       ess, edges (* Connect ret edges later. *)
-    | InterJmp (BinOp (BinOpType.ADD, _, PCVar (_), Num bv, _, _) ,
+    | InterJmp (BinOp (BinOpType.ADD, _, PCVar (_), Num bv, _) ,
                 InterJmpInfo.IsCall)
-    | InterJmp (BinOp (BinOpType.ADD, _, Num bv, PCVar (_), _, _) ,
+    | InterJmp (BinOp (BinOpType.ADD, _, Num bv, PCVar (_), _) ,
                 InterJmpInfo.IsCall) ->
       let target = (addr + BitVector.toUInt64 bv) &&& mask
       let calleeMap = ess.CalleeMap.AddEntry target
@@ -535,8 +535,8 @@ module BinEssence =
       let ess = { ess with CalleeMap = calleeMap }
       if ess.IsNoReturn src true then ess, edges
       else ess, getFallthroughEdge src true edges
-    | InterJmp (BinOp (BinOpType.ADD, _, PCVar (_), Num bv, _, _) , _)
-    | InterJmp (BinOp (BinOpType.ADD, _, Num bv, PCVar (_), _, _) , _) ->
+    | InterJmp (BinOp (BinOpType.ADD, _, PCVar (_), Num bv, _) , _)
+    | InterJmp (BinOp (BinOpType.ADD, _, Num bv, PCVar (_), _) , _) ->
       let target = (addr + BitVector.toUInt64 bv) &&& mask
       let edges = getInterEdge src target InterJmpEdge edges
       ess, edges
@@ -546,14 +546,14 @@ module BinEssence =
     | InterJmp (PCVar _, _) ->
       let edges = getInterEdge src addr InterJmpEdge edges
       ess, edges
-    | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar (_), Num tBv, _, _),
-                    BinOp (BinOpType.ADD, _, PCVar (_), Num fBv, _, _))
-    | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar (_), Num tBv, _, _),
-                    BinOp (BinOpType.ADD, _, Num fBv, PCVar (_), _, _))
-    | InterCJmp (_, BinOp (BinOpType.ADD, _, Num tBv, PCVar (_), _, _),
-                    BinOp (BinOpType.ADD, _, PCVar (_), Num fBv, _, _))
-    | InterCJmp (_, BinOp (BinOpType.ADD, _, Num tBv, PCVar (_), _, _),
-                    BinOp (BinOpType.ADD, _, Num fBv, PCVar (_), _, _)) ->
+    | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar (_), Num tBv, _),
+                    BinOp (BinOpType.ADD, _, PCVar (_), Num fBv, _))
+    | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar (_), Num tBv, _),
+                    BinOp (BinOpType.ADD, _, Num fBv, PCVar (_), _))
+    | InterCJmp (_, BinOp (BinOpType.ADD, _, Num tBv, PCVar (_), _),
+                    BinOp (BinOpType.ADD, _, PCVar (_), Num fBv, _))
+    | InterCJmp (_, BinOp (BinOpType.ADD, _, Num tBv, PCVar (_), _),
+                    BinOp (BinOpType.ADD, _, Num fBv, PCVar (_), _)) ->
       let addr1 = (addr + BitVector.toUInt64 tBv) &&& mask
       let addr2 = (addr + BitVector.toUInt64 fBv) &&& mask
       let edges =
@@ -562,9 +562,9 @@ module BinEssence =
         |> getInterEdge src addr2 InterCJmpFalseEdge
       ess, edges
     | InterCJmp (_, PCVar (_),
-                    BinOp (BinOpType.ADD, _, PCVar (_), Num fBv, _, _))
+                    BinOp (BinOpType.ADD, _, PCVar (_), Num fBv, _))
     | InterCJmp (_, PCVar (_),
-                    BinOp (BinOpType.ADD, _, Num fBv, PCVar (_), _, _)) ->
+                    BinOp (BinOpType.ADD, _, Num fBv, PCVar (_), _)) ->
       let addr1 = addr
       let addr2 = (addr + BitVector.toUInt64 fBv) % mask
       let edges =
@@ -572,9 +572,9 @@ module BinEssence =
         |> getInterEdge src addr1 InterCJmpTrueEdge
         |> getInterEdge src addr2 InterCJmpFalseEdge
       ess, edges
-    | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar (_), Num tBv, _, _),
+    | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar (_), Num tBv, _),
                     PCVar (_))
-    | InterCJmp (_, BinOp (BinOpType.ADD, _, Num tBv, PCVar (_), _, _),
+    | InterCJmp (_, BinOp (BinOpType.ADD, _, Num tBv, PCVar (_), _),
                     PCVar (_)) ->
       let addr1 = (addr + BitVector.toUInt64 tBv) &&& mask
       let addr2 = addr
@@ -591,8 +591,8 @@ module BinEssence =
         |> getInterEdge src addr1 InterCJmpTrueEdge
         |> getInterEdge src addr2 InterCJmpFalseEdge
       ess, edges
-    | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar (_), Num tBv, _, _), _)
-    | InterCJmp (_, BinOp (BinOpType.ADD, _, Num tBv, PCVar (_), _, _), _) ->
+    | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar (_), Num tBv, _), _)
+    | InterCJmp (_, BinOp (BinOpType.ADD, _, Num tBv, PCVar (_), _), _) ->
       let target = (addr + BitVector.toUInt64 tBv) &&& mask
       src.VData.HasIndirectBranch <- true
       let edges = getIndirectEdges ess.IndirectBranchMap src false edges
@@ -610,8 +610,8 @@ module BinEssence =
       let edges =
         getInterEdge src (BitVector.toUInt64 addr) InterCJmpTrueEdge edges
       ess, edges
-    | InterCJmp (_, _, BinOp (BinOpType.ADD, _, PCVar (_), Num fBv, _, _))
-    | InterCJmp (_, _, BinOp (BinOpType.ADD, _, Num fBv, PCVar (_), _, _)) ->
+    | InterCJmp (_, _, BinOp (BinOpType.ADD, _, PCVar (_), Num fBv, _))
+    | InterCJmp (_, _, BinOp (BinOpType.ADD, _, Num fBv, PCVar (_), _)) ->
       let target = (addr + BitVector.toUInt64 fBv) &&& mask
       src.VData.HasIndirectBranch <- true
       let edges = getIndirectEdges ess.IndirectBranchMap src false edges

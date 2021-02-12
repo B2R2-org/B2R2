@@ -43,19 +43,19 @@ let rec private expToStringAux expr (sb: StringBuilder) =
     sb.Append (RegType.toString typ) |> ignore
   | Name (n) -> sb.Append (Symbol.getName n) |> ignore
   | FuncName (n) -> sb.Append (n) |> ignore
-  | UnOp (op, e, _, _) ->
+  | UnOp (op, e, _) ->
     sb.Append ("(") |> ignore
     sb.Append (UnOpType.toString op) |> ignore
     sb.Append (" ") |> ignore
     expToStringAux e sb
     sb.Append (")") |> ignore
-  | BinOp (BinOpType.FLOG, _typ, e1, e2, _, _) -> (* The only prefix operator *)
+  | BinOp (BinOpType.FLOG, _typ, e1, e2, _) -> (* The only prefix operator *)
     sb.Append ("(lg (") |> ignore
     expToStringAux e1 sb
     sb.Append (", ") |> ignore
     expToStringAux e2 sb
     sb.Append ("))") |> ignore
-  | BinOp (op, _typ, e1, e2, _, _) ->
+  | BinOp (op, _typ, e1, e2, _) ->
     sb.Append ("(") |> ignore
     expToStringAux e1 sb
     sb.Append (" ") |> ignore
@@ -63,7 +63,7 @@ let rec private expToStringAux expr (sb: StringBuilder) =
     sb.Append (" ") |> ignore
     expToStringAux e2 sb
     sb.Append (")") |> ignore
-  | RelOp (op, e1, e2, _, _) ->
+  | RelOp (op, e1, e2, _) ->
     sb.Append ("(") |> ignore
     expToStringAux e1 sb
     sb.Append (" ") |> ignore
@@ -71,12 +71,12 @@ let rec private expToStringAux expr (sb: StringBuilder) =
     sb.Append (" ") |> ignore
     expToStringAux e2 sb
     sb.Append (")") |> ignore
-  | Load (_endian, typ, e, _, _) ->
+  | Load (_endian, typ, e, _) ->
     sb.Append ("[") |> ignore
     expToStringAux e sb
     sb.Append ("]:") |> ignore
     sb.Append (RegType.toString typ) |> ignore
-  | Ite (cond, e1, e2, _, _) ->
+  | Ite (cond, e1, e2, _) ->
     sb.Append ("((") |> ignore
     expToStringAux cond sb
     sb.Append (") ? (") |> ignore
@@ -84,14 +84,14 @@ let rec private expToStringAux expr (sb: StringBuilder) =
     sb.Append (") : (") |> ignore
     expToStringAux e2 sb
     sb.Append ("))") |> ignore
-  | Cast (cast, typ, e, _, _) ->
+  | Cast (cast, typ, e, _) ->
     sb.Append (CastKind.toString cast) |> ignore
     sb.Append (":") |> ignore
     sb.Append (RegType.toString typ) |> ignore
     sb.Append ("(") |> ignore
     expToStringAux e sb
     sb.Append (")") |> ignore
-  | Extract (e, typ, p, _, _) ->
+  | Extract (e, typ, p, _) ->
     sb.Append ("(") |> ignore
     expToStringAux e sb
     sb.Append ("[") |> ignore

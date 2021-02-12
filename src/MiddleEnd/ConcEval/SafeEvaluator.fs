@@ -50,13 +50,13 @@ let rec evalConcrete (st: EvalState) e =
   | Var (_, n, _, _) -> st.TryGetReg n |> Ok
   | PCVar (t, _) -> BitVector.ofUInt64 st.PC t |> Def |> Ok
   | TempVar (_, n) -> st.TryGetTmp n |> Ok
-  | UnOp (t, e, _, _) -> evalUnOp st e t
-  | BinOp (t, _, e1, e2, _, _) -> evalBinOp st e1 e2 t
-  | RelOp (t, e1, e2, _, _) -> evalRelOp st e1 e2 t
-  | Load (endian, t, addr, _, _) -> evalLoad st endian t addr
-  | Ite (cond, e1, e2, _, _) -> evalIte st cond e1 e2
-  | Cast (kind, t, e, _, _) -> evalCast st t e kind
-  | Extract (e, t, p, _, _) -> evalConcrete st e |> map2 BitVector.extract t p
+  | UnOp (t, e, _) -> evalUnOp st e t
+  | BinOp (t, _, e1, e2, _) -> evalBinOp st e1 e2 t
+  | RelOp (t, e1, e2, _) -> evalRelOp st e1 e2 t
+  | Load (endian, t, addr, _) -> evalLoad st endian t addr
+  | Ite (cond, e1, e2, _) -> evalIte st cond e1 e2
+  | Cast (kind, t, e, _) -> evalCast st t e kind
+  | Extract (e, t, p, _) -> evalConcrete st e |> map2 BitVector.extract t p
   | Undefined (_) -> Ok Undef
   | _ -> Error ErrorCase.InvalidExprEvaluation
 

@@ -426,10 +426,10 @@ let getIsWBackAndIsPostIndex = function
 
 let separateMemExpr expr =
   let getExpr = function
-    | Load (e, t, expr, _, _) -> expr
+    | Load (e, t, expr, _) -> expr
     | _ -> failwith "None"
   match getExpr expr with
-  | BinOp (BinOpType.ADD, _, b, o, _, _) -> b, o
+  | BinOp (BinOpType.ADD, _, b, o, _) -> b, o
   | _ -> failwith "None"
 
 let transOprToExprOfLDP ins ctxt addr =
@@ -500,7 +500,7 @@ let transOprToExprOfORR ins ctxt addr =
   | _ -> raise InvalidOperandException
 
 let unwrapReg = function
-  | Extract (e, 32<rt>, 0, _, _) -> e
+  | Extract (e, 32<rt>, 0, _) -> e
   | _ -> failwith "Invalid register"
 
 let transOprToExprOfSBFM ins ctxt addr =
@@ -713,12 +713,12 @@ let highestSetBitForIR dst src width oprSz (builder: IRBuilder) =
   let width = numI32 (width - 1) oprSz
   builder <! (t := width)
   builder <! (LMark lblLoop)
-  builder <! (CJmp (src >> t == AST.num1 oprSz, Name lblEnd, Name lblLoopCont))
+  builder <! (CJmp (src >> t == AST.num1 oprSz, AST.name lblEnd, AST.name lblLoopCont))
   builder <! (LMark lblLoopCont)
-  builder <! (CJmp (t == AST.num0 oprSz, Name lblEnd, Name lblUpdateTmp))
+  builder <! (CJmp (t == AST.num0 oprSz, AST.name lblEnd, AST.name lblUpdateTmp))
   builder <! (LMark lblUpdateTmp)
   builder <! (t := t .- AST.num1 oprSz)
-  builder <! (Jmp (Name lblLoop))
+  builder <! (Jmp (AST.name lblLoop))
   builder <! (LMark lblEnd)
   builder <! (dst := width .- t)
 
@@ -735,11 +735,11 @@ let replicateForIR dst value bits oprSize (builder: IRBuilder) =
   builder <! (tmpAmt := bits)
   builder <! (tmpVal := value)
   builder <! (LMark lblLoop)
-  builder <! (CJmp (AST.ge tmpAmt oSz, Name lblEnd, Name lblLoopContinue))
+  builder <! (CJmp (AST.ge tmpAmt oSz, AST.name lblEnd, AST.name lblLoopContinue))
   builder <! (LMark lblLoopContinue)
   builder <! (tmpVal := value << tmpAmt)
   builder <! (tmpAmt := tmpAmt .+ bits)
-  builder <! (Jmp (Name lblLoop))
+  builder <! (Jmp (AST.name lblLoop))
   builder <! (LMark lblEnd)
   builder <! (dst := tmpVal)  (* FIXME: Check value *)
 

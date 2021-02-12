@@ -31,17 +31,17 @@ open B2R2.BinIR
 module private TypeCheck =
 
   let rec typeOf = function
-    | Num n -> BitVector.getType n
+    | Num n -> n.Length
     | Var (t, _, _, _)
     | PCVar (t, _)
     | TempVar (t, _) -> t
-    | UnOp (_, e, _, _) -> typeOf e
-    | BinOp (_, t, _, _, _, _) -> t
+    | UnOp (_, e, _) -> typeOf e
+    | BinOp (_, t, _, _, _) -> t
     | RelOp (_) -> 1<rt>
-    | Load (_, t, _, _, _) -> t
-    | Ite (_, e1, _, _, _) -> typeOf e1
-    | Cast (_, t, _, _, _) -> t
-    | Extract (_, t, _, _, _) -> t
+    | Load (_, t, _, _) -> t
+    | Ite (_, e1, _, _) -> typeOf e1
+    | Cast (_, t, _, _) -> t
+    | Extract (_, t, _, _) -> t
     | Undefined (t, _) -> t
     | FuncName (_) | Name (_) | Nil -> raise InvalidExprException
 
@@ -171,13 +171,13 @@ module AST =
       { HasLoad = false
         VarsUsed = RegisterSet.empty
         TempVarsUsed = Set.singleton name }
-    | UnOp (_, _, ei, _)
-    | BinOp (_, _, _, _, ei, _)
-    | RelOp (_, _, _, ei, _)
-    | Load (_, _, _, ei, _)
-    | Ite (_, _, _, ei, _)
-    | Cast (_, _, _, ei, _)
-    | Extract (_, _, _, ei, _) -> ei
+    | UnOp (_, _, ei)
+    | BinOp (_, _, _, _, ei)
+    | RelOp (_, _, _, ei)
+    | Load (_, _, _, ei)
+    | Ite (_, _, _, ei)
+    | Cast (_, _, _, ei)
+    | Extract (_, _, _, ei) -> ei
 
   let mergeTwoInfo e1 e2 =
     let ei1 = getExprInfo e1
@@ -211,6 +211,8 @@ module AST =
     if i >= 0 then TempVar (t, i)
     else Utils.impossible ()
 
+  let tmpvarWithID t id = TempVar (t, id)
+
   let private lblCnt = ref -1
 
   let symbol n =
@@ -218,16 +220,16 @@ module AST =
     if i >= 0 then Symbol (n, i)
     else Utils.impossible ()
 
-  let inline unopBuilder (t: UnOpType) e proc =
+  let unop (t: UnOpType) e =
     match e with
     | Num n -> ValueOpt.unop n t
-    | _ -> UnOp (t, e, getExprInfo e, None) |> proc
+    | _ -> UnOp (t, e, getExprInfo e)
 
-  let unop (t: UnOpType) e = unopBuilder t e id
+  let name symb = Name symb
 
   let inline (===) e1 e2 = LanguagePrimitives.PhysicalEquality e1 e2
 
-  let inline binopBuilder (op: BinOpType) e1 e2 proc =
+  let binop op e1 e2 =
     let t =
       match op with
       | BinOpType.CONCAT -> TypeCheck.concat e1 e2
@@ -241,76 +243,64 @@ module AST =
     | _, Num n1, Num n2 -> ValueOpt.binop n1 n2 op
     | BinOpType.XOR, _, _ when e1 === e2 -> BitVector.zero t |> Num
     (* TODO: add more cases for optimization *)
-    | _ -> BinOp (op, t, e1, e2, mergeTwoInfo e1 e2, None) |> proc
-
-  let binop op e1 e2 = binopBuilder op e1 e2 id
+    | _ -> BinOp (op, t, e1, e2, mergeTwoInfo e1 e2)
 
   let cons a b =
     match b with
     | Nil ->
-      BinOp (BinOpType.CONS, TypeCheck.typeOf a, a, b, getExprInfo a, None)
+      BinOp (BinOpType.CONS, TypeCheck.typeOf a, a, b, getExprInfo a)
     | _ ->
       let t = TypeCheck.binop a b
-      BinOp (BinOpType.CONS, t, a, b, mergeTwoInfo a b, None)
+      BinOp (BinOpType.CONS, t, a, b, mergeTwoInfo a b)
 
   let app name args retType =
     let funName = FuncName (name)
     List.reduceBack cons (args @ [ Nil ])
     |> fun cons ->
-      BinOp (BinOpType.APP, retType, funName, cons, getExprInfo cons, None)
+      BinOp (BinOpType.APP, retType, funName, cons, getExprInfo cons)
 
-  let inline relopBuilder (op: RelOpType) e1 e2 proc =
+  let relop (op: RelOpType) e1 e2 =
 #if DEBUG
     TypeCheck.binop e1 e2 |> ignore
 #endif
     match e1, e2 with
     | Num n1, Num n2 -> ValueOpt.relop n1 n2 op
-    | _ -> RelOp (op, e1, e2, mergeTwoInfo e1 e2, None) |> proc
+    | _ -> RelOp (op, e1, e2, mergeTwoInfo e1 e2)
 
-  let relop (op: RelOpType) e1 e2 = relopBuilder op e1 e2 id
 
-  let inline loadBuilder (e: Endian) (t: RegType) addr (proc: Expr -> Expr) =
+  let load (e: Endian) (t: RegType) addr =
 #if DEBUG
     match addr with
     | Name _ -> raise InvalidExprException
     | expr ->
-      Load (e, t, expr, { getExprInfo expr with HasLoad = true }, None) |> proc
+      Load (e, t, expr, { getExprInfo expr with HasLoad = true })
 #else
-    Load (e, t, addr, { getExprInfo addr with HasLoad = true }, None) |> proc
+    Load (e, t, addr, { getExprInfo addr with HasLoad = true })
 #endif
 
-  let load (e: Endian) (t: RegType) addr = loadBuilder e t addr id
-
-  let inline iteBuilder cond e1 e2 proc =
+  let ite cond e1 e2 =
 #if DEBUG
     TypeCheck.bool cond
     TypeCheck.checkEquivalence (TypeCheck.typeOf e1) (TypeCheck.typeOf e2)
 #endif
     match cond with
     | Num (n) -> if BitVector.isOne n then e1 else e2 (* Assume valid cond *)
-    | _ -> Ite (cond, e1, e2, mergeThreeInfo cond e1 e2, None) |> proc
+    | _ -> Ite (cond, e1, e2, mergeThreeInfo cond e1 e2)
 
-  let ite cond e1 e2 = iteBuilder cond e1 e2 id
-
-  let inline castBuilder kind (t: RegType) (e: Expr) proc =
+  let cast kind (t: RegType) (e: Expr) =
     match e with
     | Num n -> ValueOpt.cast t n kind
     | _ ->
-      if TypeCheck.canCast kind t e then
-        Cast (kind, t, e, getExprInfo e, None) |> proc
+      if TypeCheck.canCast kind t e then Cast (kind, t, e, getExprInfo e)
       else e (* Remove unnecessary casting . *)
 
-  let cast kind (t: RegType) (e: Expr) = castBuilder kind t e id
-
-  let inline extractBuilder (expr: Expr) (t: RegType) (pos: StartPos) proc =
+  let extract (expr: Expr) (t: RegType) (pos: StartPos) =
     TypeCheck.extract t pos (TypeCheck.typeOf expr)
     match expr with
     | Num n -> ValueOpt.extract n t pos
-    | Extract (e, _, p, ei, _) -> Extract (e, t, p + pos, ei, None) |> proc
-    | _ -> Extract (expr, t, pos, getExprInfo expr, None) |> proc
+    | Extract (e, _, p, ei) -> Extract (e, t, p + pos, ei)
+    | _ -> Extract (expr, t, pos, getExprInfo expr)
 
-  let extract (expr: Expr) (t: RegType) (pos: StartPos) =
-    extractBuilder expr t pos id
 
   let undef (t: RegType) (s: string) =
     Undefined (t, s)
@@ -337,14 +327,14 @@ module AST =
 
   let assignForExtractDst e1 e2 =
     match e1 with
-    | Extract ((Var (t, _, _, _) as e1), eTyp, 0, _, _)
-    | Extract ((TempVar (t, _) as e1), eTyp, 0, _, _)->
+    | Extract ((Var (t, _, _, _) as e1), eTyp, 0, _)
+    | Extract ((TempVar (t, _) as e1), eTyp, 0, _)->
       let nMask = RegType.getMask t - RegType.getMask eTyp
       let mask = num <| BitVector.ofBInt nMask t
       let src = cast CastKind.ZeroExt t e2
       Put (e1, binop BinOpType.OR (binop BinOpType.AND e1 mask) src)
-    | Extract ((Var (t, _, _, _) as e1), eTyp, pos, _, _)
-    | Extract ((TempVar (t, _) as e1), eTyp, pos, _, _) ->
+    | Extract ((Var (t, _, _, _) as e1), eTyp, pos, _)
+    | Extract ((TempVar (t, _) as e1), eTyp, pos, _) ->
       let nMask = RegType.getMask t - (RegType.getMask eTyp <<< pos)
       let mask = num <| BitVector.ofBInt nMask t
       let src = cast CastKind.ZeroExt t e2
@@ -358,7 +348,7 @@ module AST =
     TypeCheck.checkEquivalence (TypeCheck.typeOf e1) (TypeCheck.typeOf e2)
 #endif
     match e1 with
-    | Load (_, _, e, _, _) -> Store (Endian.Little, e, e2)
+    | Load (_, _, e, _) -> Store (Endian.Little, e, e2)
     | Var _ | PCVar _ | TempVar _ -> Put (e1, e2)
     | Extract (_) as e1 -> assignForExtractDst e1 e2
     | _ -> raise InvalidAssignmentException
@@ -444,8 +434,8 @@ module AST =
   let fatan e = unop UnOpType.FATAN e
 
   let rec unwrap = function
-    | Cast (_, _, e, _, _)
-    | Extract (e, _, _, _, _) -> unwrap e
+    | Cast (_, _, e, _)
+    | Extract (e, _, _, _) -> unwrap e
     | e -> e
 
   let zext addrSize expr = cast CastKind.ZeroExt addrSize expr
@@ -464,20 +454,20 @@ module AST =
   let typeOf e = TypeCheck.typeOf e
 
   let rec private typeCheckExpr = function
-    | UnOp (_, e, _, _) -> typeCheckExpr e
-    | BinOp (BinOpType.CONCAT, t, e1, e2, _, _) ->
+    | UnOp (_, e, _) -> typeCheckExpr e
+    | BinOp (BinOpType.CONCAT, t, e1, e2, _) ->
       typeCheckExpr e1 && typeCheckExpr e2 && TypeCheck.concat e1 e2 = t
-    | BinOp (_, t, e1, e2, _, _) ->
+    | BinOp (_, t, e1, e2, _) ->
       typeCheckExpr e1 && typeCheckExpr e2 && TypeCheck.binop e1 e2 = t
-    | RelOp (_, e1, e2, _, _) ->
+    | RelOp (_, e1, e2, _) ->
       typeCheckExpr e1 && typeCheckExpr e2 && typeOf e1 = typeOf e2
-    | Load (_, _, addr, _, _) -> typeCheckExpr addr
-    | Ite (cond, e1, e2, _, _) ->
+    | Load (_, _, addr, _) -> typeCheckExpr addr
+    | Ite (cond, e1, e2, _) ->
       typeOf cond = 1<rt>
       && typeCheckExpr e1 && typeCheckExpr e2 && typeOf e1 = typeOf e2
-    | Cast (CastKind.SignExt, t, e, _, _)
-    | Cast (CastKind.ZeroExt, t, e, _, _) -> typeCheckExpr e && t >= typeOf e
-    | Extract (e, t, p, _, _) ->
+    | Cast (CastKind.SignExt, t, e, _)
+    | Cast (CastKind.ZeroExt, t, e, _) -> typeCheckExpr e && t >= typeOf e
+    | Extract (e, t, p, _) ->
       typeCheckExpr e
       && ((t + LanguagePrimitives.Int32WithMeasure p) <= typeOf e)
     | _ -> true
@@ -495,105 +485,28 @@ module AST =
 
   /// AST.InfixOp
   module InfixOp = begin
-    let (:=) e1 e2 = assign e1 e2
-    let (.+) e1 e2 = binop BinOpType.ADD e1 e2
-    let (.-) e1 e2 = binop BinOpType.SUB e1 e2
-    let (.*) e1 e2 = binop BinOpType.MUL e1 e2
-    let (./) e1 e2 = binop BinOpType.DIV e1 e2
-    let (?/) e1 e2 = binop BinOpType.SDIV e1 e2
-    let (.%) e1 e2 = binop BinOpType.MOD e1 e2
-    let (?%) e1 e2 = binop BinOpType.SMOD e1 e2
-    let (==) e1 e2 = relop RelOpType.EQ e1 e2
-    let (!=) e1 e2 = relop RelOpType.NEQ e1 e2
-    let (.>) e1 e2 = relop RelOpType.GT e1 e2
-    let (.>=) e1 e2 = relop RelOpType.GE e1 e2
-    let (?>) e1 e2 = relop RelOpType.SGT e1 e2
-    let (?>=) e1 e2 = relop RelOpType.SGE e1 e2
-    let (.<) e1 e2 = relop RelOpType.LT e1 e2
-    let (.<=) e1 e2 = relop RelOpType.LE e1 e2
-    let (?<) e1 e2 = relop RelOpType.SLT e1 e2
-    let (?<=) e1 e2 = relop RelOpType.SLE e1 e2
-    let (.&) e1 e2 = binop BinOpType.AND e1 e2
-    let (.|) e1 e2 = binop BinOpType.OR e1 e2
-    let (<+>) e1 e2 = binop BinOpType.XOR e1 e2
-    let (?>>) e1 e2 = binop BinOpType.SAR e1 e2
-    let (>>) e1 e2 = binop BinOpType.SHR e1 e2
-    let (<<) e1 e2 = binop BinOpType.SHL e1 e2
+    let inline (:=) e1 e2 = assign e1 e2
+    let inline (.+) e1 e2 = binop BinOpType.ADD e1 e2
+    let inline (.-) e1 e2 = binop BinOpType.SUB e1 e2
+    let inline (.*) e1 e2 = binop BinOpType.MUL e1 e2
+    let inline (./) e1 e2 = binop BinOpType.DIV e1 e2
+    let inline (?/) e1 e2 = binop BinOpType.SDIV e1 e2
+    let inline (.%) e1 e2 = binop BinOpType.MOD e1 e2
+    let inline (?%) e1 e2 = binop BinOpType.SMOD e1 e2
+    let inline (==) e1 e2 = relop RelOpType.EQ e1 e2
+    let inline (!=) e1 e2 = relop RelOpType.NEQ e1 e2
+    let inline (.>) e1 e2 = relop RelOpType.GT e1 e2
+    let inline (.>=) e1 e2 = relop RelOpType.GE e1 e2
+    let inline (?>) e1 e2 = relop RelOpType.SGT e1 e2
+    let inline (?>=) e1 e2 = relop RelOpType.SGE e1 e2
+    let inline (.<) e1 e2 = relop RelOpType.LT e1 e2
+    let inline (.<=) e1 e2 = relop RelOpType.LE e1 e2
+    let inline (?<) e1 e2 = relop RelOpType.SLT e1 e2
+    let inline (?<=) e1 e2 = relop RelOpType.SLE e1 e2
+    let inline (.&) e1 e2 = binop BinOpType.AND e1 e2
+    let inline (.|) e1 e2 = binop BinOpType.OR e1 e2
+    let inline (<+>) e1 e2 = binop BinOpType.XOR e1 e2
+    let inline (?>>) e1 e2 = binop BinOpType.SAR e1 e2
+    let inline (>>) e1 e2 = binop BinOpType.SHR e1 e2
+    let inline (<<) e1 e2 = binop BinOpType.SHL e1 e2
   end
-
-module HashCons =
-  exception ConsistencyFailException of string
-  exception TagNotExistException
-
-  let private tag = ref 0L
-
-  let private wrt = new ConcurrentWeakReferenceTable<Expr> ()
-
-  let inline private genMeta expr =
-    { Tag = System.Threading.Interlocked.Increment (tag)
-      Hash = expr.GetHashCode () } |> Some
-
-  let private factory expr =
-    match expr with
-    | UnOp (op, e, ei, None) -> UnOp (op, e, ei, genMeta expr)
-    | BinOp (op, typ, e1, e2, ei, None) ->
-      BinOp (op, typ, e1, e2, ei, genMeta expr)
-    | RelOp (op, e1, e2, ei, None) -> RelOp (op, e1, e2, ei, genMeta expr)
-    | Load (edn, typ, e, ei, None) -> Load (edn, typ, e, ei, genMeta expr)
-    | Ite (cond, e1, e2, ei, None) -> Ite (cond, e1, e2, ei, genMeta expr)
-    | Cast (cast, typ, e, ei, None) -> Cast (cast, typ, e, ei, genMeta expr)
-    | Extract (e, rt, st, ei, None) -> Extract (e, rt, st, ei, genMeta expr)
-    | Num (_) | Var (_) | PCVar (_) | TempVar (_) | Name (_) | Undefined (_) ->
-      raise <| ConsistencyFailException ("ConcurrentWeakReferenceTable:
-                                          This expr cannot be hash-consed.")
-    | _ -> raise <| ConsistencyFailException ("ConcurrentWeakReferenceTable:
-                                               This expr already hash-consed.")
-
-  let isHashConsable = function
-    | Num _ | Var _ | PCVar _ | TempVar _ | Name _ | FuncName _ | Undefined _ ->
-      false
-    | _ -> true
-
-  let isHashConsed = function
-    | Num _ | Var _ | PCVar _ | TempVar _ | FuncName _ | Name _ | Undefined _
-    | UnOp (_, _, _, Some _) | BinOp (_, _, _, _, _, Some _)
-    | RelOp (_, _, _, _, Some _) | Load (_, _, _, _, Some _)
-    | Ite (_, _, _, _, Some _) | Cast (_, _, _, _, Some _)
-    | Extract (_, _, _, _, Some _) -> true
-    | _ -> false
-
-  let getTag = function
-    | UnOp (_, _, _, Some x) | BinOp (_, _, _, _, _, Some x)
-    | RelOp (_, _, _, _, Some x) | Load (_, _, _, _, Some x)
-    | Ite (_, _, _, _, Some x) | Cast (_, _, _, _, Some x)
-    | Extract (_, _, _, _, Some x) -> x.Tag
-    | _ -> raise TagNotExistException
-
-  let hashCons expr = wrt.GetOrApplyAndAdd expr factory
-
-  let cons x y = AST.cons x y |> hashCons
-
-  /// Hash-consed App constructor.
-  let app name args retType =
-    let funName = FuncName (name)
-    if List.isEmpty args then [ Nil ] else args
-    |> List.reduceBack cons
-    |> fun cons ->
-      BinOp (BinOpType.APP, retType, funName, cons, AST.getExprInfo cons, None)
-      |> hashCons
-
-  let unop t e = AST.unopBuilder t e hashCons
-
-  let binop op e1 e2 = AST.binopBuilder op e1 e2 hashCons
-
-  let relop op e1 e2 = AST.relopBuilder op e1 e2 hashCons
-
-  let load endian t e = AST.loadBuilder endian t e hashCons
-
-  let ite cond e1 e2 = AST.iteBuilder cond e1 e2 hashCons
-
-  let cast kind t e = AST.castBuilder kind t e hashCons
-
-  let extract e t pos = AST.extractBuilder e t pos hashCons
-
-// vim: set tw=80 sts=2 sw=2:

@@ -153,7 +153,7 @@ let private maskOffset offset oprSize =
 
 let rec private isVar = function
   | Var _ | TempVar _ -> true
-  | Extract (e, _, _, _, _) -> isVar e
+  | Extract (e, _, _, _) -> isVar e
   | _ -> false
 
 let private calculateOffset offset oprSize =
@@ -175,14 +175,14 @@ let private strRepeat ins insLen ctxt body cond ir =
   let cx = !.ctxt (if is64bit ctxt then R.RCX else R.ECX)
   let pc = getInstrPtr ctxt
   let ninstAddr = pc .+ numInsLen insLen ctxt
-  !!ir (CJmp (cx == n0, Name lblExit, Name lblCont))
+  !!ir (CJmp (cx == n0, AST.name lblExit, AST.name lblCont))
   !!ir (LMark lblCont)
   !?ir (body ins ctxt)
   !!ir (cx := cx .- AST.num1 ctxt.WordBitSize)
   match cond with
   | None -> !!ir (InterJmp (pc, InterJmpInfo.Base))
   | Some cond ->
-    !!ir (CJmp (cx == n0, Name lblExit, Name lblNext))
+    !!ir (CJmp (cx == n0, AST.name lblExit, AST.name lblNext))
     !!ir (LMark lblNext)
     !!ir (InterCJmp (cond, ninstAddr, pc))
   !!ir (LMark lblExit)
@@ -390,19 +390,19 @@ let bsf ins insLen ctxt =
   let t = AST.tmpvar oprSize
   let ir = IRBuilder (26)
   !<ir insLen
-  !!ir (CJmp (cond, Name lblL0, Name lblL1))
+  !!ir (CJmp (cond, AST.name lblL0, AST.name lblL1))
   !!ir (LMark lblL0)
   !!ir (zf := AST.b1)
   !!ir (dst := AST.undef oprSize "DEST is undefined.")
-  !!ir (Jmp (Name lblEnd))
+  !!ir (Jmp (AST.name lblEnd))
   !!ir (LMark lblL1)
   !!ir (zf := AST.b0)
   !!ir (t := AST.num0 oprSize)
   !!ir (LMark lblLoopCond)
-  !!ir (CJmp ((AST.xtlo 1<rt> (src >> t)) == AST.b0, Name lblLoop, Name lblLE))
+  !!ir (CJmp ((AST.xtlo 1<rt> (src >> t)) == AST.b0, AST.name lblLoop, AST.name lblLE))
   !!ir (LMark lblLoop)
   !!ir (t := t .+ AST.num1 oprSize)
-  !!ir (Jmp (Name lblLoopCond))
+  !!ir (Jmp (AST.name lblLoopCond))
   !!ir (LMark lblLE)
   !!ir (dstAssign oprSize dst t)
   !!ir (LMark lblEnd)
@@ -429,19 +429,20 @@ let bsr ins insLen ctxt =
   let t = AST.tmpvar oprSize
   let ir = IRBuilder (26)
   !<ir insLen
-  !!ir (CJmp (cond, Name lblL0, Name lblL1))
+  !!ir (CJmp (cond, AST.name lblL0, AST.name lblL1))
   !!ir (LMark lblL0)
   !!ir (zf := AST.b1)
   !!ir (dst := AST.undef oprSize "DEST is undefined.")
-  !!ir (Jmp (Name lblEnd))
+  !!ir (Jmp (AST.name lblEnd))
   !!ir (LMark lblL1)
   !!ir (zf := AST.b0)
   !!ir (t := numOprSize oprSize .- AST.num1 oprSize)
   !!ir (LMark lblLoopCond)
-  !!ir (CJmp ((AST.xtlo 1<rt> (src >> t)) == AST.b0, Name lblLoop, Name lblLE))
+  !!ir (CJmp ((AST.xtlo 1<rt> (src >> t)) == AST.b0,
+              AST.name lblLoop, AST.name lblLE))
   !!ir (LMark lblLoop)
   !!ir (t := t .- AST.num1 oprSize)
-  !!ir (Jmp (Name lblLoopCond))
+  !!ir (Jmp (AST.name lblLoopCond))
   !!ir (LMark lblLE)
   !!ir (dst := t)
   !!ir (LMark lblEnd)
@@ -471,7 +472,7 @@ let bswap ins insLen ctxt =
 
 let private bit ins bitBase bitOffset oprSize =
   match bitBase with
-  | Load (e, t, expr, _, _) ->
+  | Load (e, t, expr, _) ->
     let effAddrSz = getEffAddrSz ins
     let addrOffset, bitOffset = calculateOffset bitOffset oprSize
     let addrOffset = AST.zext effAddrSz addrOffset
@@ -496,7 +497,7 @@ let bt ins insLen ctxt =
 
 let private setBit ins bitBase bitOffset oprSize setValue =
   match bitBase with
-  | Load (e, t, expr, _, _) ->
+  | Load (e, t, expr, _) ->
     let effAddrSz = getEffAddrSz ins
     let addrOffset, bitOffset = calculateOffset bitOffset oprSize
     let addrOffset = AST.zext effAddrSz addrOffset
@@ -824,7 +825,8 @@ let dec ins insLen ctxt =
   !>ir insLen
 
 let private checkQuotientDIV oprSize lblAssign lblErr q =
-  CJmp (AST.xthi oprSize q == AST.num0 oprSize, Name lblAssign, Name lblErr)
+  CJmp (AST.xthi oprSize q == AST.num0 oprSize,
+        AST.name lblAssign, AST.name lblErr)
 
 let private checkQuotientIDIV oprSize sz lblAssign lblErr q =
   let amount =
@@ -834,7 +836,7 @@ let private checkQuotientIDIV oprSize sz lblAssign lblErr q =
   let negRes = AST.lt q (AST.zext sz mask)
   let posRes = AST.gt q (AST.zext sz (mask .- (AST.num1 oprSize)))
   let cond = AST.ite (msb == AST.b1) negRes posRes
-  CJmp (cond, Name lblErr, Name lblAssign)
+  CJmp (cond, AST.name lblErr, AST.name lblAssign)
 
 let div ins insLen ctxt =
   let lblAssign = AST.symbol "Assign"
@@ -848,7 +850,7 @@ let div ins insLen ctxt =
   let remainder = AST.tmpvar sz
   let ir = IRBuilder (16)
   !<ir insLen
-  !!ir (CJmp (divisor == AST.num0 oprSize, Name lblErr, Name lblChk))
+  !!ir (CJmp (divisor == AST.num0 oprSize, AST.name lblErr, AST.name lblChk))
   !!ir (LMark lblErr)
   !!ir (SideEffect (Exception "DivErr"))
   !!ir (LMark lblChk)
@@ -905,15 +907,17 @@ let enter ins insLen ctxt =
   !?ir (auxPush ctxt.WordBitSize ctxt bp)
   !!ir (frameTemp := sp)
   !!ir (addrSize := getAddrSize ctxt.WordBitSize)
-  !!ir (CJmp (nestingLevel == AST.num0 oSz, Name lblCont, Name lblLevelCheck))
+  !!ir (CJmp (nestingLevel == AST.num0 oSz,
+              AST.name lblCont, AST.name lblLevelCheck))
   !!ir (LMark lblLevelCheck)
   !!ir (cnt := nestingLevel .- AST.num1 oSz)
-  !!ir (CJmp (AST.gt nestingLevel (AST.num1 oSz), Name lblLoop, Name lblLv1))
+  !!ir (CJmp (AST.gt nestingLevel (AST.num1 oSz),
+              AST.name lblLoop, AST.name lblLv1))
   !!ir (LMark lblLoop)
   !!ir (bp := bp .- addrSize)
   !?ir (auxPush ctxt.WordBitSize ctxt (AST.loadLE ctxt.WordBitSize bp))
   !!ir (cnt := cnt .- AST.num1 oSz)
-  !!ir (CJmp (cnt == AST.num0 oSz, Name lblCont, Name lblLoop))
+  !!ir (CJmp (cnt == AST.num0 oSz, AST.name lblCont, AST.name lblLoop))
   !!ir (LMark lblLv1)
   !?ir (auxPush ctxt.WordBitSize ctxt frameTemp)
   !!ir (LMark lblCont)
@@ -1068,7 +1072,7 @@ let jmp ins insLen ctxt =
   !>ir insLen
 
 let private convertSrc = function
-  | Load (_, _, expr, _, _) -> expr
+  | Load (_, _, expr, _) -> expr
   | _ -> Utils.impossible ()
 
 let lea ins insLen ctxt =
@@ -1154,11 +1158,11 @@ let lzcnt ins insLen ctxt =
   !!ir (dst := n)
   !!ir (LMark lblLoopCond)
   let cond1 = (AST.ge temp n) .& ((AST.xtlo 1<rt> (src >> temp)) == AST.b0)
-  !!ir (CJmp (cond1, Name lblLoop, Name lblExit))
+  !!ir (CJmp (cond1, AST.name lblLoop, AST.name lblExit))
   !!ir (LMark lblLoop)
   !!ir (temp := temp .- AST.num1 oprSize)
   !!ir (dst := dst .+ AST.num1 oprSize)
-  !!ir (Jmp (Name lblLoopCond))
+  !!ir (Jmp (AST.name lblLoopCond))
   !!ir (LMark lblExit)
   let oprSize = numI32 (RegType.toBitWidth oprSize) oprSize
   !!ir (!.ctxt R.CF := dst == oprSize)
@@ -1369,12 +1373,12 @@ let popcnt ins insLen ctxt =
   !!ir (i := AST.num0 oprSize)
   !!ir (count := AST.num0 oprSize)
   !!ir (LMark lblLoopCond)
-  !!ir (CJmp (AST.lt i max, Name lblLoop, Name lblExit))
+  !!ir (CJmp (AST.lt i max, AST.name lblLoop, AST.name lblExit))
   !!ir (LMark lblLoop)
   let cond = (AST.xtlo 1<rt> (src >> i)) == AST.b1
   !!ir (count := AST.ite cond (count .+ AST.num1 oprSize) count)
   !!ir (i := i .+ AST.num1 oprSize)
-  !!ir (Jmp (Name lblLoopCond))
+  !!ir (Jmp (AST.name lblLoopCond))
   !!ir (LMark lblExit)
   !!ir (dstAssign oprSize dst count)
   !!ir (!.ctxt R.OF := AST.b0)
@@ -1527,7 +1531,7 @@ let rdpkru ins insLen ctxt =
   let eax = getRegOfSize ctxt ctxt.WordBitSize grpEAX
   let edx = getRegOfSize ctxt ctxt.WordBitSize grpEDX
   !<ir insLen
-  !!ir (CJmp (ecx == AST.num0 oprSize, Name lblSucc, Name lblErr))
+  !!ir (CJmp (ecx == AST.num0 oprSize, AST.name lblSucc, AST.name lblErr))
   !!ir (LMark lblErr)
   !!ir (SideEffect (Exception "GP"))
   !!ir (LMark lblSucc)
@@ -1873,10 +1877,10 @@ let tzcnt ins insLen ctxt =
   !!ir (t1 := AST.num0 oprSize)
   !!ir (LMark lblLoopCond)
   let cond = (AST.lt t1 max) .& (AST.xtlo 1<rt> (src >> t1) == AST.b0)
-  !!ir (CJmp (cond, Name lblLoop, Name lblExit))
+  !!ir (CJmp (cond, AST.name lblLoop, AST.name lblExit))
   !!ir (LMark lblLoop)
   !!ir (t1 := t1 .+ AST.num1 oprSize)
-  !!ir (Jmp (Name lblLoopCond))
+  !!ir (Jmp (AST.name lblLoopCond))
   !!ir (LMark lblExit)
   !!ir (dstAssign oprSize dst t1)
   !!ir (!.ctxt R.CF := dst == max)
@@ -1912,7 +1916,7 @@ let wrpkru ins insLen ctxt =
   let edxIsZero = !.ctxt R.EDX == AST.num0 oprSize
   let cond = ecxIsZero .& edxIsZero
   !<ir insLen
-  !!ir (CJmp (cond, Name lblSucc, Name lblErr))
+  !!ir (CJmp (cond, AST.name lblSucc, AST.name lblErr))
   !!ir (LMark lblErr)
   !!ir (SideEffect (Exception "GP"))
   !!ir (LMark lblSucc)

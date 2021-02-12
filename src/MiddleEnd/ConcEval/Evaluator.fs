@@ -36,15 +36,15 @@ let rec evalConcrete (st: EvalState) e =
   | Var (_, n, _, _) -> st.GetReg n
   | PCVar (t, _) -> BitVector.ofUInt64 st.PC t
   | TempVar (_, n) -> st.GetTmp n
-  | UnOp (t, e, _, _) -> evalUnOp st e t
-  | BinOp (t, _, e1, e2, _, _) -> evalBinOp st e1 e2 t
-  | RelOp (t, e1, e2, _, _) -> evalRelOp st e1 e2 t
-  | Load (endian, t, addr, _, _) -> evalLoad st endian t addr
-  | Ite (cond, e1, e2, _, _) ->
+  | UnOp (t, e, _) -> evalUnOp st e t
+  | BinOp (t, _, e1, e2, _) -> evalBinOp st e1 e2 t
+  | RelOp (t, e1, e2, _) -> evalRelOp st e1 e2 t
+  | Load (endian, t, addr, _) -> evalLoad st endian t addr
+  | Ite (cond, e1, e2, _) ->
     let cond = evalConcrete st cond
     if cond = tr then evalConcrete st e1 else evalConcrete st e2
-  | Cast (kind, t, e, _, _) -> evalCast st t e kind
-  | Extract (e, t, p, _, _) -> BitVector.extract (evalConcrete st e) t p
+  | Cast (kind, t, e, _) -> evalCast st t e kind
+  | Extract (e, t, p, _) -> BitVector.extract (evalConcrete st e) t p
   | Undefined (_) -> raise UndefExpException
   | _ -> raise InvalidExprException
 

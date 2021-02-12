@@ -487,7 +487,7 @@ let bxWritePC ctxt isUnconditional addr (builder: IRBuilder) =
   let lblL1 = AST.symbol "L1"
   let cond1 = AST.xtlo 1<rt> addr == AST.b1
   disableITStateForCondBranches ctxt isUnconditional builder
-  builder <! (CJmp (cond1, Name lblL0, Name lblL1))
+  builder <! (CJmp (cond1, AST.name lblL0, AST.name lblL1))
   builder <! (LMark lblL0)
   selectThumbInstrSet ctxt builder
   builder <! (InterJmp (zMaskAnd addr 32<rt> 1, InterJmpInfo.SwitchToThumb))
@@ -627,23 +627,23 @@ let writeModeBits ctxt value isExcptReturn (builder: IRBuilder) =
   let cond3 = chkSecure .& (valueM == num11010)
   let cond4 = chkSecure .& (cpsrM != num11010) .& (valueM == num11010)
   let cond5 = (cpsrM == num11010) .& (valueM != num11010)
-  builder <! (CJmp (cond1, Name lblL8, Name lblL9))
+  builder <! (CJmp (cond1, AST.name lblL8, AST.name lblL9))
   builder <! (LMark lblL8)
   builder <! (SideEffect UndefinedInstr)  // FIXME: (use UNPREDICTABLE)
   builder <! (LMark lblL9)
-  builder <! (CJmp (cond2, Name lblL10, Name lblL11))
+  builder <! (CJmp (cond2, AST.name lblL10, AST.name lblL11))
   builder <! (LMark lblL10)
   builder <! (SideEffect UndefinedInstr)  // FIXME: (use UNPREDICTABLE)
   builder <! (LMark lblL11)
-  builder <! (CJmp (cond3, Name lblL12, Name lblL13))
+  builder <! (CJmp (cond3, AST.name lblL12, AST.name lblL13))
   builder <! (LMark lblL12)
   builder <! (SideEffect UndefinedInstr)  // FIXME: (use UNPREDICTABLE)
   builder <! (LMark lblL13)
-  builder <! (CJmp (cond4, Name lblL14, Name lblL15))
+  builder <! (CJmp (cond4, AST.name lblL14, AST.name lblL15))
   builder <! (LMark lblL14)
   builder <! (SideEffect UndefinedInstr)  // FIXME: (use UNPREDICTABLE)
   builder <! (LMark lblL15)
-  builder <! (CJmp (cond5, Name lblL16, Name lblL17))
+  builder <! (CJmp (cond5, AST.name lblL16, AST.name lblL17))
   builder <! (LMark lblL16)
   if Operators.not isExcptReturn then
     builder <! (SideEffect UndefinedInstr)  // FIXME: (use UNPREDICTABLE)
@@ -687,7 +687,7 @@ let cpsrWriteByInstr ctxt value bytemask isExcptReturn (builder: IRBuilder) =
     builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_E .| eValue)
     let cond =
       privileged .& (isSecure ctxt .| isSetSCR_AW ctxt .| haveVirtExt ())
-    builder <! (CJmp (cond, Name lblL0, Name lblL1))
+    builder <! (CJmp (cond, AST.name lblL0, AST.name lblL1))
     builder <! (LMark lblL0)
     let aValue = value .& maskPSRForAbit
     builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_A .| aValue)
@@ -703,7 +703,7 @@ let cpsrWriteByInstr ctxt value bytemask isExcptReturn (builder: IRBuilder) =
     let lblL7 = AST.symbol "cpsrWriteByInstrL7"
     let lblEnd = AST.symbol "cpsrWriteByInstrEnd"
     let nmfi = isSetSCTLR_NMFI ctxt
-    builder <! (CJmp (privileged, Name lblL2, Name lblL3))
+    builder <! (CJmp (privileged, AST.name lblL2, AST.name lblL3))
     builder <! (LMark lblL2)
     let iValue = value .& maskPSRForIbit
     builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_I .| iValue)
@@ -712,7 +712,7 @@ let cpsrWriteByInstr ctxt value bytemask isExcptReturn (builder: IRBuilder) =
     let chkValueF = (value .& maskPSRForFbit) == AST.num0 32<rt>
     let cond = privileged .& (AST.not nmfi .| chkValueF) .&
                (isSecure ctxt .| isSetSCR_FW ctxt .| haveVirtExt ())
-    builder <! (CJmp (cond, Name lblL4, Name lblL5))
+    builder <! (CJmp (cond, AST.name lblL4, AST.name lblL5))
     builder <! (LMark lblL4)
     let fValue = value .& maskPSRForFbit
     builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_F .| fValue)
@@ -723,10 +723,10 @@ let cpsrWriteByInstr ctxt value bytemask isExcptReturn (builder: IRBuilder) =
       builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_T .| tValue)
     else ()
 
-    builder <! (CJmp (privileged, Name lblL6, Name lblL7))
+    builder <! (CJmp (privileged, AST.name lblL6, AST.name lblL7))
     builder <! (LMark lblL6)
     builder <! (SideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
-    builder <! (Jmp (Name lblEnd))
+    builder <! (Jmp (AST.name lblEnd))
     builder <! (LMark lblL7)
     writeModeBits ctxt value isExcptReturn builder
     builder <! (LMark lblEnd)
@@ -793,7 +793,7 @@ let checkCondition insInfo ctxt isUnconditional builder =
   if isUnconditional then lblIgnore
   else
     let cond = conditionPassed ctxt (Option.get insInfo.Condition)
-    builder <! (CJmp (cond, Name lblPass, Name lblIgnore))
+    builder <! (CJmp (cond, AST.name lblPass, AST.name lblIgnore))
     builder <! (LMark lblPass)
     lblIgnore
 
@@ -819,11 +819,11 @@ let itAdvance ctxt builder =
   let num8 = AST.num <| BitVector.ofInt32 8 32<rt>
   builder <! (itstate := cpsrIT72 .| cpsrIT10)
   builder <! (cond := ((itstate .& mask20) == AST.num0 32<rt>))
-  builder <! CJmp (cond, Name lblThen, Name lblElse)
+  builder <! CJmp (cond, AST.name lblThen, AST.name lblElse)
   builder <! LMark lblThen
   builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_IT10)
   builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_IT72)
-  builder <! Jmp (Name lblEnd)
+  builder <! Jmp (AST.name lblEnd)
   builder <! LMark lblElse
   builder <! (nextstate := (itstate .& mask40 << AST.num1 32<rt>))
   builder <! (cpsr := nextstate .& mask10 |> setPSR ctxt R.CPSR PSR_IT10)
@@ -1151,8 +1151,8 @@ let subsAndRelatedInstr insInfo ctxt =
 let computeCarryOutFromImmCflag insInfo ctxt =
   match insInfo.Cflag with
   | Some v ->
-    if v then BitVector.one 1<rt> |> Num
-    else BitVector.zero 1<rt> |> Num
+    if v then BitVector.one 1<rt> |> AST.num
+    else BitVector.zero 1<rt> |> AST.num
   | None -> getCarryFlag ctxt
 
 let translateLogicOp insInfo ctxt (builder: IRBuilder) =
@@ -1697,12 +1697,12 @@ let clz insInfo ctxt =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   builder <! (t1 := numSize)
   builder <! (LMark lblBoundCheck)
-  builder <! (CJmp (cond1, Name lblEnd, Name lblZeroCheck))
+  builder <! (CJmp (cond1, AST.name lblEnd, AST.name lblZeroCheck))
   builder <! (LMark lblZeroCheck)
-  builder <! (CJmp (cond2, Name lblEnd, Name lblCount))
+  builder <! (CJmp (cond2, AST.name lblEnd, AST.name lblCount))
   builder <! (LMark lblCount)
   builder <! (t1 := t1 .- (AST.num1 32<rt>))
-  builder <! (Jmp (Name lblBoundCheck))
+  builder <! (Jmp (AST.name lblBoundCheck))
   builder <! (LMark lblEnd)
   builder <! (dst := numSize .- t1)
   putEndLabel ctxt lblIgnore isUnconditional None builder
@@ -2462,7 +2462,7 @@ let cbz nonZero insInfo ctxt =
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
-  builder <! (CJmp (cond, Name lblL0, Name lblL1))
+  builder <! (CJmp (cond, AST.name lblL0, AST.name lblL1))
   builder <! (LMark lblL0)
   builder <! (branchWritePC ctxt insInfo pc InterJmpInfo.Base)
   builder <! (LMark lblL1)
@@ -3140,12 +3140,12 @@ let highestSetBitForIR dst src width oprSz builder =
   let width = (AST.num <| BitVector.ofInt32 (width - 1) oprSz)
   builder <! (t := width)
   builder <! (LMark lblLoop)
-  builder <! (CJmp (src >> t == AST.num1 oprSz, Name lblEnd, Name lblLoopCont))
+  builder <! (CJmp (src >> t == AST.num1 oprSz, AST.name lblEnd, AST.name lblLoopCont))
   builder <! (LMark lblLoopCont)
-  builder <! (CJmp (t == AST.num0 oprSz, Name lblEnd, Name lblUpdateTmp))
+  builder <! (CJmp (t == AST.num0 oprSz, AST.name lblEnd, AST.name lblUpdateTmp))
   builder <! (LMark lblUpdateTmp)
   builder <! (t := t .- AST.num1 oprSz)
-  builder <! (Jmp (Name lblLoop))
+  builder <! (Jmp (AST.name lblLoop))
   builder <! (LMark lblEnd)
   builder <! (dst := width .- t)
 

@@ -45,11 +45,17 @@ module AST = begin
   /// Construct a temporary variable (TempVar).
   val tmpvar: RegType -> Expr
 
+  /// Construct an existing temporary variable (TempVar) of the given ID.
+  val tmpvarWithID: RegType -> id: int -> Expr
+
   /// Construct a symbol (for a label) from a string.
   val symbol: string -> Symbol
 
   /// Construct an unary operator (UnOp).
   val unop: UnOpType -> Expr -> Expr
+
+  /// Construct a symbolic name (Name).
+  val name: Symbol -> Expr
 
   /// Construct a binary operator (BinOp).
   val binop: BinOpType -> Expr -> Expr -> Expr
@@ -252,117 +258,77 @@ module AST = begin
   /// Infix operator for LowUIR.
   module InfixOp = begin
     /// An assignment statement.
-    val (:=): Expr -> Expr -> Stmt
+    val inline (:=): Expr -> Expr -> Stmt
 
     /// Add two expressions.
-    val (.+): Expr -> Expr -> Expr
+    val inline (.+): Expr -> Expr -> Expr
 
     /// Subtract two expressions.
-    val (.-): Expr -> Expr -> Expr
+    val inline (.-): Expr -> Expr -> Expr
 
     /// Multiplication.
-    val (.*): Expr -> Expr -> Expr
+    val inline (.*): Expr -> Expr -> Expr
 
     /// Unsigned division.
-    val (./): Expr -> Expr -> Expr
+    val inline (./): Expr -> Expr -> Expr
 
     /// Signed division.
-    val (?/): Expr -> Expr -> Expr
+    val inline (?/): Expr -> Expr -> Expr
 
     /// Unsigned modulus.
-    val (.%): Expr -> Expr -> Expr
+    val inline (.%): Expr -> Expr -> Expr
 
     /// Signed modulus.
-    val (?%): Expr -> Expr -> Expr
+    val inline (?%): Expr -> Expr -> Expr
 
     /// Equal.
-    val (==): Expr -> Expr -> Expr
+    val inline (==): Expr -> Expr -> Expr
 
     /// Not equal.
-    val (!=): Expr -> Expr -> Expr
+    val inline (!=): Expr -> Expr -> Expr
 
     /// Unsigned greater than.
-    val (.>): Expr -> Expr -> Expr
+    val inline (.>): Expr -> Expr -> Expr
 
     /// Unsigned greater than or equal.
-    val (.>=): Expr -> Expr -> Expr
+    val inline (.>=): Expr -> Expr -> Expr
 
     /// Signed greater than.
-    val (?>): Expr -> Expr -> Expr
+    val inline (?>): Expr -> Expr -> Expr
 
     /// Signed greater than or equal.
-    val (?>=): Expr -> Expr -> Expr
+    val inline (?>=): Expr -> Expr -> Expr
 
     /// Unsigned less than.
-    val (.<): Expr -> Expr -> Expr
+    val inline (.<): Expr -> Expr -> Expr
 
     /// Unsigned less than or equal.
-    val (.<=): Expr -> Expr -> Expr
+    val inline (.<=): Expr -> Expr -> Expr
 
     /// Signed less than.
-    val (?<): Expr -> Expr -> Expr
+    val inline (?<): Expr -> Expr -> Expr
 
     /// Signed less than or equal.
-    val (?<=): Expr -> Expr -> Expr
+    val inline (?<=): Expr -> Expr -> Expr
 
     /// Bitwise AND.
-    val (.&): Expr -> Expr -> Expr
+    val inline (.&): Expr -> Expr -> Expr
 
     /// Bitwise OR.
-    val (.|): Expr -> Expr -> Expr
+    val inline (.|): Expr -> Expr -> Expr
 
     /// Bitwise XOR.
-    val (<+>): Expr -> Expr -> Expr
+    val inline (<+>): Expr -> Expr -> Expr
 
     /// Shift arithmetic right.
-    val (?>>): Expr -> Expr -> Expr
+    val inline (?>>): Expr -> Expr -> Expr
 
     /// Shift logical right.
-    val (>>): Expr -> Expr -> Expr
+    val inline (>>): Expr -> Expr -> Expr
 
     /// Shift logical left.
-    val (<<): Expr -> Expr -> Expr
+    val inline (<<): Expr -> Expr -> Expr
   end
-
-end
-
-module HashCons = begin
-
-  exception ConsistencyFailException of string
-  exception TagNotExistException
-
-  /// Return true if the given expression is hash-consable.
-  val isHashConsable: Expr -> bool
-
-  /// Return true if the given expression is hash-consed.
-  val isHashConsed: Expr -> bool
-
-  /// Return the tag of hash-consed expression.
-  val getTag: Expr -> int64
-
-  /// Hash-consed UnOp constructor.
-  val unop: UnOpType -> Expr -> Expr
-
-  /// Hash-consed BinOp constructor.
-  val binop: BinOpType -> Expr -> Expr -> Expr
-
-  /// Hash-consed App constructor.
-  val app: string -> Expr list -> RegType -> Expr
-
-  /// Hash-consed RelOp constructor.
-  val relop: RelOpType -> Expr -> Expr -> Expr
-
-  /// Hash-consed Load constructor.
-  val load: Endian -> RegType -> Expr -> Expr
-
-  /// Hash-consed Ite constructor.
-  val ite: Expr -> Expr -> Expr -> Expr
-
-  /// Hash-consed Cast constructor. N.B. Type checking is not performed.
-  val cast: CastKind -> RegType -> Expr -> Expr
-
-  /// Hash-consed Extract constructor.
-  val extract: Expr -> RegType -> StartPos -> Expr
 
 end
 

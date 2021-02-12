@@ -98,7 +98,7 @@ type LowUIRParser (isa, regbay: RegisterBay) =
   let pTempVar =
     pstring "T_" >>. pint32 .>> ws
     .>> pchar ':' .>> ws .>>. pRegType
-    |>> (fun (num, typ) -> TempVar (typ, num))
+    |>> (fun (num, typ) -> AST.tmpvarWithID typ num)
 
   let pUnOp =
     pUnaryOperator .>> ws .>>. pExpr

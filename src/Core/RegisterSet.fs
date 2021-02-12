@@ -136,6 +136,13 @@ type NonEmptyRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     else raise RegisterSetTagMismatchException
 #endif
 
+  override __.GetHashCode () = hash __.BitArray
+
+  override __.Equals obj =
+    match obj with
+    | :? NonEmptyRegisterSet as rhs -> __.BitArray = rhs.BitArray
+    | _ -> false
+
   override __.BitArray = bitArray
 
   override  __.AuxSet = s

@@ -287,7 +287,7 @@ let rcpps ins insLen ctxt =
   let src1b, src1a = AST.xthi 32<rt> src1, AST.xtlo 32<rt> src1
   let src2b, src2a = AST.xthi 32<rt> src2, AST.xtlo 32<rt> src2
   let tmp = AST.tmpvar 32<rt>
-  let flt1 = BitVector.ofInt32 0x3f800000 32<rt> |> Num
+  let flt1 = BitVector.ofInt32 0x3f800000 32<rt> |> AST.num
   !<ir insLen
   !!ir (dst1a := AST.fdiv flt1 src1a)
   !!ir (dst1b := AST.fdiv flt1 src1b)
@@ -301,7 +301,7 @@ let rcpss ins insLen ctxt =
   let dst = transOprToExpr32 ins insLen ctxt opr1
   let src = transOprToExpr32 ins insLen ctxt opr2
   let tmp = AST.tmpvar 32<rt>
-  let flt1 = BitVector.ofInt32 0x3f800000 32<rt> |> Num
+  let flt1 = BitVector.ofInt32 0x3f800000 32<rt> |> AST.num
   !<ir insLen
   !!ir (dst := AST.fdiv flt1 src)
   !>ir insLen
@@ -361,7 +361,7 @@ let rsqrtps ins insLen ctxt =
   let src1b, src1a = AST.xthi 32<rt> src1, AST.xtlo 32<rt> src1
   let src2b, src2a = AST.xthi 32<rt> src2, AST.xtlo 32<rt> src2
   let tmp = AST.tmpvar 32<rt>
-  let flt1 = BitVector.ofInt32 0x3f800000 32<rt> |> Num
+  let flt1 = BitVector.ofInt32 0x3f800000 32<rt> |> AST.num
   !<ir insLen
   !!ir (tmp := AST.unop UnOpType.FSQRT src1a)
   !!ir (dst1a := AST.fdiv flt1 tmp)
@@ -379,7 +379,7 @@ let rsqrtss ins insLen ctxt =
   let dst = transOprToExpr32 ins insLen ctxt opr1
   let src = transOprToExpr32 ins insLen ctxt opr2
   let tmp = AST.tmpvar 32<rt>
-  let flt1 = BitVector.ofInt32 0x3f800000 32<rt> |> Num
+  let flt1 = BitVector.ofInt32 0x3f800000 32<rt> |> AST.num
   !<ir insLen
   !!ir (tmp := AST.unop UnOpType.FSQRT src)
   !!ir (dst := AST.fdiv flt1 tmp)
@@ -597,7 +597,7 @@ let comiss ins insLen ctxt =
   let isNan expr =
     (AST.extract expr 8<rt> 23  == AST.num (BitVector.unsignedMax 8<rt>))
      .& (AST.xtlo 23<rt> expr != AST.num0 23<rt>)
-  !!ir (CJmp (isNan opr1 .| isNan opr2, Name lblNan, Name lblExit))
+  !!ir (CJmp (isNan opr1 .| isNan opr2, AST.name lblNan, AST.name lblExit))
   !!ir (LMark lblNan)
   !!ir (zf := AST.b1)
   !!ir (pf := AST.b1)
@@ -625,7 +625,7 @@ let comisd ins insLen ctxt =
   let isNan expr =
     (AST.extract expr 11<rt> 52  == AST.num (BitVector.unsignedMax 11<rt>))
      .& (AST.xtlo 52<rt> expr != AST.num0 52<rt>)
-  !!ir (CJmp (isNan opr1 .| isNan opr2, Name lblNan, Name lblExit))
+  !!ir (CJmp (isNan opr1 .| isNan opr2, AST.name lblNan, AST.name lblExit))
   !!ir (LMark lblNan)
   !!ir (zf := AST.b1)
   !!ir (pf := AST.b1)
@@ -653,7 +653,7 @@ let ucomiss ins insLen ctxt =
   let isNan expr =
     (AST.extract expr 8<rt> 23  == AST.num (BitVector.unsignedMax 8<rt>))
      .& (AST.xtlo 23<rt> expr != AST.num0 23<rt>)
-  !!ir (CJmp (isNan opr1 .| isNan opr2, Name lblNan, Name lblExit))
+  !!ir (CJmp (isNan opr1 .| isNan opr2, AST.name lblNan, AST.name lblExit))
   !!ir (LMark lblNan)
   !!ir (zf := AST.b1)
   !!ir (pf := AST.b1)
@@ -681,7 +681,7 @@ let ucomisd ins insLen ctxt =
   let isNan expr =
     (AST.extract expr 11<rt> 52  == AST.num (BitVector.unsignedMax 11<rt>))
      .& (AST.xtlo 52<rt> expr != AST.num0 52<rt>)
-  !!ir (CJmp (isNan opr1 .| isNan opr2, Name lblNan, Name lblExit))
+  !!ir (CJmp (isNan opr1 .| isNan opr2, AST.name lblNan, AST.name lblExit))
   !!ir (LMark lblNan)
   !!ir (zf := AST.b1)
   !!ir (pf := AST.b1)

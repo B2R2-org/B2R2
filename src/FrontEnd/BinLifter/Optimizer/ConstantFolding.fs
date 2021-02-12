@@ -110,22 +110,22 @@ let rec replace ctxt expr =
     match ctxt.TempVarMap.TryGetValue name with
     | (true, e) -> struct (true, e)
     | _  -> struct (false, expr)
-  | UnOp (t, e, _, _) ->
+  | UnOp (t, e, _) ->
     let struct (changed, e) = replace ctxt e
     if changed then
       match e with
       | Num bv -> struct (true, AST.num <| concretizeUnOp t bv)
       | _ -> struct (true, AST.unop t e)
     else struct (false, expr)
-  | BinOp (BinOpType.ADD, _, e, Num bv, _, _)
-  | BinOp (BinOpType.ADD, _, Num bv, e, _, _) when BitVector.isZero bv ->
+  | BinOp (BinOpType.ADD, _, e, Num bv, _)
+  | BinOp (BinOpType.ADD, _, Num bv, e, _) when BitVector.isZero bv ->
     let struct (changed, e') = replace ctxt e
     if changed then struct (true, e') else struct (true, e)
-  | BinOp (BinOpType.MUL, _, e, Num bv, _, _)
-  | BinOp (BinOpType.MUL, _, Num bv, e, _, _) when BitVector.isOne bv ->
+  | BinOp (BinOpType.MUL, _, e, Num bv, _)
+  | BinOp (BinOpType.MUL, _, Num bv, e, _) when BitVector.isOne bv ->
     let struct (changed, e') = replace ctxt e
     if changed then struct (true, e') else struct (true, e)
-  | BinOp (t, _, e1, e2, _, _) ->
+  | BinOp (t, _, e1, e2, _) ->
     let struct (changed1, e1) = replace ctxt e1
     let struct (changed2, e2) = replace ctxt e2
     match e1, e2 with
@@ -133,7 +133,7 @@ let rec replace ctxt expr =
     | _ ->
       if changed1 || changed2 then struct (true, AST.binop t e1 e2)
       else struct (false, expr)
-  | RelOp (t, e1, e2, _, _) ->
+  | RelOp (t, e1, e2, _) ->
     let struct (changed1, e1) = replace ctxt e1
     let struct (changed2, e2) = replace ctxt e2
     match e1, e2 with
@@ -141,11 +141,11 @@ let rec replace ctxt expr =
     | _ ->
       if changed1 || changed2 then struct (true, AST.relop t e1 e2)
       else struct (false, expr)
-  | Load (endian, rt, e, _, _) ->
+  | Load (endian, rt, e, _) ->
     let struct (changed, e') = replace ctxt e
     if changed then struct (true, AST.load endian rt e')
     else struct (false, expr)
-  | Ite (cond, e1, e2, _, _) ->
+  | Ite (cond, e1, e2, _) ->
     let struct (changed0, cond) = replace ctxt cond
     let struct (changed1, e1) = replace ctxt e1
     let struct (changed2, e2) = replace ctxt e2
@@ -156,14 +156,14 @@ let rec replace ctxt expr =
         else struct (false, e2)
       | _ -> struct (true, AST.ite cond e1 e2)
     else struct (false, expr)
-  | Cast (kind, rt, e, _, _) ->
+  | Cast (kind, rt, e, _) ->
     let struct (changed, e) = replace ctxt e
     if changed then
       match e with
       | Num bv -> struct (true, AST.num <| concretizeCast kind rt bv)
       | _ -> struct (true, AST.cast kind rt e)
     else struct (false, expr)
-  | Extract (e, rt, pos, _, _) ->
+  | Extract (e, rt, pos, _) ->
     let struct (changed, e) = replace ctxt e
     if changed then
       match e with

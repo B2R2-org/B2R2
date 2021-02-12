@@ -60,21 +60,21 @@ let rec translateExpr = function
   | (LowUIR.Var _ as e)
   | (LowUIR.PCVar _ as e)
   | (LowUIR.TempVar _ as e) -> Var <| translateDest e
-  | LowUIR.UnOp (op, e, _, _) ->
+  | LowUIR.UnOp (op, e, _) ->
     let ty = LowUIR.AST.typeOf e
     UnOp (op, ty, translateExpr e)
   | LowUIR.FuncName s -> FuncName s
-  | LowUIR.BinOp (op, ty, e1, e2, _, _) ->
+  | LowUIR.BinOp (op, ty, e1, e2, _) ->
     BinOp (op, ty, translateExpr e1, translateExpr e2)
-  | LowUIR.RelOp (op, e1, e2, _, _) ->
+  | LowUIR.RelOp (op, e1, e2, _) ->
     RelOp (op, 1<rt>, translateExpr e1, translateExpr e2)
-  | LowUIR.Load (_, ty, e, _, _) ->
+  | LowUIR.Load (_, ty, e, _) ->
     Load ({ Kind = MemVar; Identifier = -1 }, ty, translateExpr e)
-  | LowUIR.Ite (e1, e2, e3, _, _) ->
+  | LowUIR.Ite (e1, e2, e3, _) ->
     let ty = LowUIR.AST.typeOf e2
     Ite (translateExpr e1, ty, translateExpr e2, translateExpr e3)
-  | LowUIR.Cast (op, ty, e, _, _) -> Cast (op, ty, translateExpr e)
-  | LowUIR.Extract (e, ty, pos, _, _) -> Extract (translateExpr e, ty, pos)
+  | LowUIR.Cast (op, ty, e, _) -> Cast (op, ty, translateExpr e)
+  | LowUIR.Extract (e, ty, pos, _) -> Extract (translateExpr e, ty, pos)
   | LowUIR.Undefined (ty, s) -> Undefined (ty, s)
   | LowUIR.Nil -> Nil
   | _ -> raise InvalidExprException /// Name

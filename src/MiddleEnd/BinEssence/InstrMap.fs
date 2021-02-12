@@ -79,35 +79,35 @@ module InstrMap =
       | InterJmp (PCVar _, _) ->
         let ppoint = ProgramPoint (insAddr, 0)
         Set.add ppoint targets
-      | InterJmp (BinOp (BinOpType.ADD, _, PCVar (_), Num bv, _, _), _)
-      | InterJmp (BinOp (BinOpType.ADD, _, Num bv, PCVar (_), _, _), _) ->
+      | InterJmp (BinOp (BinOpType.ADD, _, PCVar (_), Num bv, _), _)
+      | InterJmp (BinOp (BinOpType.ADD, _, Num bv, PCVar (_), _), _) ->
         let ppoint = ProgramPoint ((insAddr + BitVector.toUInt64 bv) &&& mask, 0)
         Set.add ppoint targets
       | InterCJmp (_, Num tBv, Num fBv) ->
         let tPpoint = ProgramPoint (BitVector.toUInt64 tBv, 0)
         let fPpoint = ProgramPoint (BitVector.toUInt64 fBv, 0)
         targets |> Set.add tPpoint |> Set.add fPpoint
-      | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar (_), Num tBv, _, _),
-                      BinOp (BinOpType.ADD, _, PCVar (_), Num fBv, _, _))
-      | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar (_), Num tBv, _, _),
-                      BinOp (BinOpType.ADD, _, Num fBv, PCVar (_), _, _))
-      | InterCJmp (_, BinOp (BinOpType.ADD, _, Num tBv, PCVar (_), _, _),
-                      BinOp (BinOpType.ADD, _, PCVar (_), Num fBv, _, _))
-      | InterCJmp (_, BinOp (BinOpType.ADD, _, Num tBv, PCVar (_), _, _),
-                      BinOp (BinOpType.ADD, _, Num fBv, PCVar (_), _, _)) ->
+      | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar (_), Num tBv, _),
+                      BinOp (BinOpType.ADD, _, PCVar (_), Num fBv, _))
+      | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar (_), Num tBv, _),
+                      BinOp (BinOpType.ADD, _, Num fBv, PCVar (_), _))
+      | InterCJmp (_, BinOp (BinOpType.ADD, _, Num tBv, PCVar (_), _),
+                      BinOp (BinOpType.ADD, _, PCVar (_), Num fBv, _))
+      | InterCJmp (_, BinOp (BinOpType.ADD, _, Num tBv, PCVar (_), _),
+                      BinOp (BinOpType.ADD, _, Num fBv, PCVar (_), _)) ->
         let tPpoint = ProgramPoint ((insAddr + BitVector.toUInt64 tBv) &&& mask, 0)
         let fPpoint = ProgramPoint ((insAddr + BitVector.toUInt64 fBv) &&& mask, 0)
         targets |> Set.add tPpoint |> Set.add fPpoint
       | InterCJmp (_, PCVar (_),
-                      BinOp (BinOpType.ADD, _, PCVar (_), Num fBv, _, _))
+                      BinOp (BinOpType.ADD, _, PCVar (_), Num fBv, _))
       | InterCJmp (_, PCVar (_),
-                      BinOp (BinOpType.ADD, _, Num fBv, PCVar (_), _, _)) ->
+                      BinOp (BinOpType.ADD, _, Num fBv, PCVar (_), _)) ->
         let tPpoint = ProgramPoint (insAddr, 0)
         let fPpoint = ProgramPoint ((insAddr + BitVector.toUInt64 fBv) &&& mask, 0)
         targets |> Set.add tPpoint |> Set.add fPpoint
-      | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar (_), Num tBv, _, _),
+      | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar (_), Num tBv, _),
                       PCVar (_))
-      | InterCJmp (_, BinOp (BinOpType.ADD, _, Num tBv, PCVar (_), _, _),
+      | InterCJmp (_, BinOp (BinOpType.ADD, _, Num tBv, PCVar (_), _),
                       PCVar (_)) ->
         let tPpoint = ProgramPoint ((insAddr + BitVector.toUInt64 tBv) &&& mask, 0)
         let fPpoint = ProgramPoint (insAddr, 0)
@@ -118,8 +118,8 @@ module InstrMap =
       | InterCJmp (_, _, Num fBv) ->
         let fPpoint = ProgramPoint (BitVector.toUInt64 fBv, 0)
         Set.add fPpoint targets
-      | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar (_), Num bv, _, _), _)
-      | InterCJmp (_, _, BinOp (BinOpType.ADD, _, PCVar (_), Num bv, _, _)) ->
+      | InterCJmp (_, BinOp (BinOpType.ADD, _, PCVar (_), Num bv, _), _)
+      | InterCJmp (_, _, BinOp (BinOpType.ADD, _, PCVar (_), Num bv, _)) ->
         let tPpoint = ProgramPoint ((insAddr + BitVector.toUInt64 bv) &&& mask, 0)
         Set.add tPpoint targets
       | InterCJmp (_, PCVar _, _)

@@ -29,14 +29,14 @@ open B2R2.BinIR.LowUIR
 let rec private extractUseFromExpr = function
   | Var (_, id, _, _) -> [ Regular id ]
   | TempVar (_, n) -> [ Temporary n ]
-  | UnOp (_, e, _, _) -> extractUseFromExpr e
-  | BinOp (_, _, e1, e2, _, _) -> extractUseFromExpr e1 @ extractUseFromExpr e2
-  | RelOp (_, e1, e2, _, _) -> extractUseFromExpr e1 @ extractUseFromExpr e2
-  | Load (_, _, e, _, _) -> extractUseFromExpr e
-  | Ite (c, e1, e2, _, _) ->
+  | UnOp (_, e, _) -> extractUseFromExpr e
+  | BinOp (_, _, e1, e2, _) -> extractUseFromExpr e1 @ extractUseFromExpr e2
+  | RelOp (_, e1, e2, _) -> extractUseFromExpr e1 @ extractUseFromExpr e2
+  | Load (_, _, e, _) -> extractUseFromExpr e
+  | Ite (c, e1, e2, _) ->
     extractUseFromExpr c @ extractUseFromExpr e1 @ extractUseFromExpr e2
-  | Cast (_, _, e, _, _) -> extractUseFromExpr e
-  | Extract (e, _, _, _, _) -> extractUseFromExpr e
+  | Cast (_, _, e, _) -> extractUseFromExpr e
+  | Extract (e, _, _, _) -> extractUseFromExpr e
   | _ -> []
 
 let private extractUseFromStmt = function

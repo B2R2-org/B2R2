@@ -27,7 +27,6 @@ namespace B2R2.BinIR.LowUIR
 open System
 open B2R2
 open B2R2.BinIR
-open B2R2.Utils
 
 type [<Flags>] InterJmpInfo =
   | Base = 0
@@ -57,7 +56,6 @@ type ExprInfo = {
 /// IR Expressions.
 /// NOTE: You SHOULD NOT create Expr without using functions in
 ///       B2R2.BinIR.LowUIR.HashCons or B2R2.BinIR.LowUIR.AST.
-[<CustomEquality; NoComparison>]
 type Expr =
   /// A number. For example, (0x42:I32) is a 32-bit number 0x42
   | Num of BitVector
@@ -83,7 +81,7 @@ type Expr =
   | TempVar of RegType * int
 
   /// Unary operation such as negation.
-  | UnOp of UnOpType * Expr * ExprInfo * ConsInfo option
+  | UnOp of UnOpType * Expr * ExprInfo
 
   /// Symbolic constant for labels.
   | Name of Symbol
@@ -93,115 +91,32 @@ type Expr =
 
   /// Binary operation such as add, sub, etc. The second argument is a result
   /// type after applying BinOp.
-  | BinOp of BinOpType * RegType * Expr * Expr * ExprInfo * ConsInfo option
+  | BinOp of BinOpType * RegType * Expr * Expr * ExprInfo
 
   /// Relative operation such as eq, lt, etc.
-  | RelOp of RelOpType * Expr * Expr * ExprInfo * ConsInfo option
+  | RelOp of RelOpType * Expr * Expr * ExprInfo
 
   /// Memory loading such as LE:[T_1:I32]
-  | Load of Endian * RegType * Expr * ExprInfo * ConsInfo option
+  | Load of Endian * RegType * Expr * ExprInfo
 
   /// If-then-else expression. The first expression is a condition, and the
   /// second and the third are true and false expression respectively.
-  | Ite of Expr * Expr * Expr * ExprInfo * ConsInfo option
+  | Ite of Expr * Expr * Expr * ExprInfo
 
   /// Type casting expression. The first argument is a casting type, and the
   /// second argument is a result type.
-  | Cast of CastKind * RegType * Expr * ExprInfo * ConsInfo option
+  | Cast of CastKind * RegType * Expr * ExprInfo
 
   /// Extraction expression. The first argument is target expression, and the
   /// second argument is the number of bits for extraction, and the third is
   /// the start position.
-  | Extract of Expr * RegType * StartPos * ExprInfo * ConsInfo option
+  | Extract of Expr * RegType * StartPos * ExprInfo
 
   /// Undefined expression. This is rarely used, and it is a fatal error when we
   /// encounter this expression while evaluating a program. Some CPU manuals
   /// explicitly say that a register value is undefined after a certain
   /// operation. We model such cases with this expression.
   | Undefined of RegType * string
-
-  member inline private __.DoHash v phash = (phash * 16777619) ^^^ v
-
-  member inline private __.Hash2 h1 h2 =
-    __.DoHash h1 -2128831035 |> __.DoHash h2
-
-  member inline private __.Hash3 h1 h2 h3 =
-    __.Hash2 h1 h2 |> __.DoHash h3
-
-  member inline private __.Hash4 h1 h2 h3 h4 =
-    __.Hash3 h1 h2 h3 |> __.DoHash h4
-
-  override __.Equals rhs =
-    match rhs with
-    | :? Expr as x ->
-      match __, x with
-      (* Primitive comparison. *)
-      | Num n1, Num n2 -> n1 = n2
-      | Name s1, Name s2 -> s1 = s2
-      | FuncName s1, FuncName s2 -> s1 = s2
-      | Var (typ1, r1, _, _), Var (typ2, r2, _, _) -> typ1 = typ2 && r1 = r2
-      | TempVar (typ1, n1), TempVar (typ2, n2) -> typ1 = typ2 && n1 = n2
-      | PCVar (typ1, n1), PCVar (typ2, n2)
-      | Undefined (typ1, n1), Undefined (typ2, n2) -> typ1 = typ2 && n1 = n2
-      (* Non-Primitive Comparison.
-         If both of arguments are hash-consed, use physical equality. *)
-      | UnOp (_, _, _, Some _), UnOp (_, _, _, Some _)
-      | BinOp (_, _, _, _, _, Some _), BinOp (_, _, _, _, _, Some _)
-      | RelOp (_, _, _, _, Some _), RelOp (_, _, _, _, Some _)
-      | Load (_, _, _, _, Some _), Load (_, _, _, _, Some _)
-      | Ite (_, _, _, _, Some _), Ite (_, _, _, _, Some _)
-      | Cast (_, _, _, _, Some _), Cast (_, _, _, _, Some _)
-      | Extract (_, _, _, _, Some _), Extract (_, _, _, _, Some _) ->
-        __ === x
-      (* Otherwise, use structure equality *)
-      | UnOp (op1, e1, _, _), UnOp (op2, e2, _, _) -> op1 = op2 && e1 = e2
-      | BinOp (op1, typ1, e11, e12, _, _), BinOp (op2, typ2, e21, e22, _, _) ->
-        op1 = op2 && typ1 = typ2 && e11 = e21 && e12 = e22
-      | RelOp (op1, e11, e12, _, _), RelOp (op2, e21, e22, _, _) ->
-        op1 = op2 && e11 = e21 && e12 = e22
-      | Load (_endian1, typ1, e1, _, _), Load (_endian2, typ2, e2, _, _) ->
-        _endian1 = _endian2 && typ1 = typ2 && e1 = e2
-      | Ite (cond1, e11, e12, _, _), Ite (cond2, e21, e22, _, _) ->
-        cond1 = cond2 && e11 = e21  && e12 = e22
-      | Cast (cast1, typ1, e1, _, _), Cast (cast2, typ2, e2, _, _) ->
-        cast1 = cast2 && typ1 = typ2 && e1 = e2
-      | Extract (e1, typ1, p1, _, _), Extract (e2, typ2, p2, _, _) ->
-        e1 = e2 && typ1 = typ2 && p1 = p2
-      | _ -> false
-    | _ -> false
-
-  /// If cached hash exists, then take it. Otherwise, calculate it.
-  override __.GetHashCode () =
-    match __ with
-    | Num n -> n.GetHashCode ()
-    | Var (_typ, n, _, _) -> n.GetHashCode ()
-    | Nil -> 0
-    | PCVar (_typ, n) -> __.Hash2 (_typ.GetHashCode ()) (n.GetHashCode ())
-    | TempVar (_typ, n) -> __.Hash2 (_typ.GetHashCode ()) (n.GetHashCode ())
-    | UnOp (_, _, _, Some x) -> x.Hash
-    | UnOp (op, e, _, None) -> __.Hash2 (op.GetHashCode ()) (e.GetHashCode ())
-    | Name s -> s.GetHashCode ()
-    | FuncName s -> s.GetHashCode ()
-    | BinOp (_, _, _, _, _, Some x) -> x.Hash
-    | BinOp (op, typ, e1, e2, _, None) ->
-      __.Hash4 (op.GetHashCode ()) (typ.GetHashCode ())
-               (e1.GetHashCode ()) (e2.GetHashCode ())
-    | RelOp (_, _, _, _, Some x) -> x.Hash
-    | RelOp (op, e1, e2, _, None) ->
-      __.Hash3 (op.GetHashCode ()) (e1.GetHashCode ()) (e2.GetHashCode ())
-    | Load (_endian, _, _, _, Some x) -> x.Hash
-    | Load (_endian, typ, e, _, None) ->
-      __.Hash3 (_endian.GetHashCode ()) (typ.GetHashCode ()) (e.GetHashCode ())
-    | Ite (_, _, _, _, Some x) -> x.Hash
-    | Ite (cond, e1, e2, _, None) ->
-      __.Hash3 (cond.GetHashCode ()) (e1.GetHashCode ()) (e2.GetHashCode ())
-    | Cast (_, _, _, _, Some x) -> x.Hash
-    | Cast (cast, typ, e, _, None) ->
-      __.Hash3 (cast.GetHashCode ()) (typ.GetHashCode ()) (e.GetHashCode ())
-    | Extract (_, _, _, _, Some x) -> x.Hash
-    | Extract (e, typ, pos, _, None) ->
-      __.Hash3 (e.GetHashCode ()) (typ.GetHashCode ()) (pos.GetHashCode ())
-    | Undefined (typ, r) -> __.Hash2 (typ.GetHashCode ()) (r.GetHashCode ())
 
 /// IL Statements.
 type Stmt =

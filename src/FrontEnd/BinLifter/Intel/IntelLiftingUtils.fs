@@ -80,14 +80,14 @@ let inline getEffAddrSz (i: InsInfo) = i.PointerSize
 
 let private getMemExpr128 expr =
   match expr with
-  | Load (e, 128<rt>, expr, _, _) ->
+  | Load (e, 128<rt>, expr, _) ->
     AST.load e 64<rt> (expr .+ numI32 8 (AST.typeOf expr)),
     AST.load e 64<rt> expr
   | _ -> raise InvalidOperandException
 
 let private getMemExpr256 expr =
   match expr with
-  | Load (e, 256<rt>, expr, _, _) ->
+  | Load (e, 256<rt>, expr, _) ->
     AST.load e 64<rt> (expr .+ numI32 24 (AST.typeOf expr)),
     AST.load e 64<rt> (expr .+ numI32 16 (AST.typeOf expr)),
     AST.load e 64<rt> (expr .+ numI32 8 (AST.typeOf expr)),
@@ -96,7 +96,7 @@ let private getMemExpr256 expr =
 
 let private getMemExpr512 expr =
   match expr with
-  | Load (e, 512<rt>, expr, _, _) ->
+  | Load (e, 512<rt>, expr, _) ->
     AST.load e 64<rt> (expr .+ numI32 56 (AST.typeOf expr)),
     AST.load e 64<rt> (expr .+ numI32 48 (AST.typeOf expr)),
     AST.load e 64<rt> (expr .+ numI32 40 (AST.typeOf expr)),
@@ -109,15 +109,15 @@ let private getMemExpr512 expr =
 
 let private getMemExprs expr =
   match expr with
-  | Load (e, 128<rt>, expr, _, _) ->
+  | Load (e, 128<rt>, expr, _) ->
     [ AST.load e 64<rt> expr
       AST.load e 64<rt> (expr .+ numI32 8 (AST.typeOf expr)) ]
-  | Load (e, 256<rt>, expr, _, _) ->
+  | Load (e, 256<rt>, expr, _) ->
     [ AST.load e 64<rt> expr
       AST.load e 64<rt> (expr .+ numI32 8 (AST.typeOf expr))
       AST.load e 64<rt> (expr .+ numI32 16 (AST.typeOf expr))
       AST.load e 64<rt> (expr .+ numI32 24 (AST.typeOf expr)) ]
-  | Load (e, 512<rt>, expr, _, _) ->
+  | Load (e, 512<rt>, expr, _) ->
     [ AST.load e 64<rt> expr
       AST.load e 64<rt> (expr .+ numI32 8 (AST.typeOf expr))
       AST.load e 64<rt> (expr .+ numI32 16 (AST.typeOf expr))
@@ -357,7 +357,7 @@ let maxNum rt =
   |> AST.num
 
 let castNum newType = function
-  | Num n -> Num <| BitVector.cast n newType
+  | Num n -> BitVector.cast n newType |> AST.num
   | _ -> raise InvalidOperandException
 
 let getMask oprSize =

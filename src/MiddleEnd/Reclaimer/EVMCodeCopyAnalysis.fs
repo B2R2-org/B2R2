@@ -38,7 +38,7 @@ type EVMCodeCopyAnalysis () =
       | Store (_, Num dst,
                   BinOp (BinOpType.APP, _len,
                          FuncName "code",
-                         BinOp (BinOpType.CONS, _, Num src, _, _, _), _, _)) ->
+                         BinOp (BinOpType.CONS, _, Num src, _, _), _)) ->
         let dstAddr = BitVector.toUInt64 dst
         let srcAddr = BitVector.toUInt64 src
         let offset = srcAddr - dstAddr
