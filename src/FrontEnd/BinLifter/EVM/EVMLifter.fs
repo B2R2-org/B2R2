@@ -65,12 +65,10 @@ let private getSPSize size = numI32 (32 * size) 256<rt>
 /// Pushes an element to stack.
 let private pushToStack (ctxt: TranslationContext) expr (builder: IRBuilder) =
   let spReg = getRegVar ctxt R.SP
-  let tmp = builder.NewTempVar OperationSize.regType
   let expr = if OperationSize.regType = TypeCheck.typeOf expr then expr
              else AST.zext OperationSize.regType expr
   builder <! (spReg := (spReg .+ (getSPSize 1))) (* SP := SP + 32 *)
-  builder <! (tmp := expr)                       (* tmp := expr *)
-  builder <! (AST.store Endian.Big spReg tmp) (* [SP] := tmp *)
+  builder <! (AST.store Endian.Big spReg expr) (* [SP] := expr *)
 
 /// Pops an element from stack and returns the element.
 let private popFromStack (ctxt: TranslationContext) (builder: IRBuilder) =
