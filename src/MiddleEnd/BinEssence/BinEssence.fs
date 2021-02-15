@@ -482,10 +482,7 @@ module BinEssence =
       else Set.minElement bigger
 
   let getEdges ess edges (src: Vertex<IRBasicBlock>) =
-    let rt =
-      ess.BinHandle.ISA.WordSize
-      |> WordSize.toRegType
-    let mask = BitVector.unsignedMax rt |> BitVector.toUInt64
+    let mask = Helper.computeJumpTargetMask ess.BinHandle
     let lastInstr = src.VData.LastInstruction
     let addr = lastInstr.Address
     match src.VData.GetLastStmt () with

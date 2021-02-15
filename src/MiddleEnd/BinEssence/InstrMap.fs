@@ -130,10 +130,7 @@ module InstrMap =
 
   let private newInstructionInfo hdl (ins: Instruction) =
     let stmts = BinHandle.LiftInstr hdl ins |> transform
-    let rt =
-      hdl.ISA.WordSize
-      |> WordSize.toRegType
-    let mask = BitVector.unsignedMax rt |> BitVector.toUInt64
+    let mask = Helper.computeJumpTargetMask hdl
     let labels = findLabels ins.Address stmts
     { Instruction = ins
       Stmts = stmts

@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Helper.fs" />
     <Compile Include="CFGEdgeKind.fs" />
     <Compile Include="InstructionInfo.fs" />
     <Compile Include="VisualBlock.fs" />
