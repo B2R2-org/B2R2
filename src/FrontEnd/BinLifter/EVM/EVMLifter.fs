@@ -70,13 +70,13 @@ let private pushToStack (ctxt: TranslationContext) expr (builder: IRBuilder) =
              else AST.zext OperationSize.regType expr
   builder <! (spReg := (spReg .+ (getSPSize 1))) (* SP := SP + 32 *)
   builder <! (tmp := expr)                       (* tmp := expr *)
-  builder <! (AST.store Endian.Little spReg tmp) (* [SP] := tmp *)
+  builder <! (AST.store Endian.Big spReg tmp) (* [SP] := tmp *)
 
 /// Pops an element from stack and returns the element.
 let private popFromStack (ctxt: TranslationContext) (builder: IRBuilder) =
   let spReg = getRegVar ctxt R.SP
   let tmp = builder.NewTempVar OperationSize.regType
-  builder <! (tmp := AST.loadLE (OperationSize.regType) spReg) (* tmp := [SP] *)
+  builder <! (tmp := AST.loadBE (OperationSize.regType) spReg) (* tmp := [SP] *)
   builder <! (spReg := (spReg .- (getSPSize 1)))           (* SP := SP - 32 *)
   tmp
 
@@ -84,7 +84,7 @@ let private peekStack (ctxt: TranslationContext) pos (builder: IRBuilder) =
   let spReg = getRegVar ctxt R.SP
   let regType = OperationSize.regType
   let tmp = builder.NewTempVar regType
-  builder <! (tmp := AST.loadLE regType (spReg .- (getSPSize (pos - 1))))
+  builder <! (tmp := AST.loadBE regType (spReg .- (getSPSize (pos - 1))))
   tmp
 
 let private swapStack (ctxt: TranslationContext) pos (builder: IRBuilder) =
@@ -92,10 +92,10 @@ let private swapStack (ctxt: TranslationContext) pos (builder: IRBuilder) =
   let regType = OperationSize.regType
   let tmp1 = builder.NewTempVar regType
   let tmp2 = builder.NewTempVar regType
-  builder <! (tmp1 := AST.loadLE regType spReg)
-  builder <! (tmp2 := AST.loadLE regType (spReg .- (getSPSize (pos - 1))))
-  builder <! (AST.store Endian.Little (spReg .- (getSPSize (pos - 1))) tmp1)
-  builder <! (AST.store Endian.Little spReg tmp2)
+  builder <! (tmp1 := AST.loadBE regType spReg)
+  builder <! (tmp2 := AST.loadBE regType (spReg .- (getSPSize (pos - 1))))
+  builder <! (AST.store Endian.Big (spReg .- (getSPSize (pos - 1))) tmp1)
+  builder <! (AST.store Endian.Big spReg tmp2)
 
 /// Binary operations and relative operations.
 let basicOperation insInfo ctxt opFn =
@@ -202,7 +202,7 @@ let mload insInfo ctxt =
   let builder = new IRBuilder (8)
   startMark insInfo builder
   let addr = popFromStack ctxt builder
-  let expr = AST.loadLE OperationSize.regType addr
+  let expr = AST.loadBE OperationSize.regType addr
   pushToStack ctxt expr builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
@@ -212,7 +212,7 @@ let mstore insInfo ctxt =
   startMark insInfo builder
   let addr = popFromStack ctxt builder
   let value = popFromStack ctxt builder
-  builder <! AST.store Endian.Little addr value
+  builder <! AST.store Endian.Big addr value
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
@@ -222,7 +222,7 @@ let mstore8 insInfo ctxt =
   let addr = popFromStack ctxt builder
   let value = popFromStack ctxt builder
   let lsb = AST.extract value 8<rt> 0
-  builder <! AST.store Endian.Little addr lsb
+  builder <! AST.store Endian.Big addr lsb
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
@@ -331,7 +331,7 @@ let calldatacopy insInfo ctxt =
   let offset = popFromStack ctxt builder
   let length = popFromStack ctxt builder
   let src = AST.app "msg.data" [ offset; length ] OperationSize.regType
-  builder <! (AST.loadLE OperationSize.regType dstOffset := src)
+  builder <! (AST.loadBE OperationSize.regType dstOffset := src)
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
@@ -342,7 +342,7 @@ let codecopy insInfo ctxt =
   let offset = popFromStack ctxt builder
   let length = popFromStack ctxt builder
   let src = AST.app "code" [ offset; length ] OperationSize.regType
-  builder <! (AST.loadLE OperationSize.regType dstOffset := src)
+  builder <! (AST.loadBE OperationSize.regType dstOffset := src)
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
@@ -354,7 +354,7 @@ let extcodecopy insInfo ctxt =
   let offset = popFromStack ctxt builder
   let length = popFromStack ctxt builder
   let src = AST.app "code" [ addr; offset; length ] OperationSize.regType
-  builder <! (AST.loadLE OperationSize.regType dstOffset := src)
+  builder <! (AST.loadBE OperationSize.regType dstOffset := src)
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
@@ -365,7 +365,7 @@ let returndatacopy insInfo ctxt =
   let offset = popFromStack ctxt builder
   let length = popFromStack ctxt builder
   let src = AST.app "returndata" [ offset; length ] OperationSize.regType
-  builder <! (AST.loadLE OperationSize.regType dstOffset := src)
+  builder <! (AST.loadBE OperationSize.regType dstOffset := src)
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
