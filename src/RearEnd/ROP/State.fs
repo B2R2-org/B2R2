@@ -48,13 +48,17 @@ type Value (expr) =
 
 module Value =
   let toLinear (value: Value) =
-    match value.GetExpr () with
+    match value.GetExpr().E with
     | Var (32<rt>, _, reg, _) -> Some (reg, 0u)
-    | BinOp (BinOpType.ADD, _, Var (32<rt>, _, reg, _), Num n, _)
-    | BinOp (BinOpType.ADD, _, Num n, Var (32<rt>, _, reg, _), _) ->
+    | BinOp (BinOpType.ADD, _,
+             { E = Var (32<rt>, _, reg, _) }, { E = Num n }, _)
+    | BinOp (BinOpType.ADD, _,
+             { E = Num n }, { E = Var (32<rt>, _, reg, _) }, _) ->
       Some (reg, BitVector.toUInt32 n)
-    | BinOp (BinOpType.SUB, _, Var (32<rt>, _, reg, _), Num n, _)
-    | BinOp (BinOpType.SUB, _, Num n, Var (32<rt>, _, reg, _), _) ->
+    | BinOp (BinOpType.SUB, _,
+             { E = Var (32<rt>, _, reg, _) }, { E = Num n }, _)
+    | BinOp (BinOpType.SUB, _,
+             { E = Num n }, { E = Var (32<rt>, _, reg, _) }, _) ->
       Some (reg, BitVector.neg n |> BitVector.toUInt32)
     | _ -> None
 
@@ -90,8 +94,9 @@ module State =
     | Some v -> v
     | None -> failwithf "get T_%d fail" name
 
-  let rec evalExpr state = function
-    | Var (_, _, name, _) as v -> getReg state name v
+  let rec evalExpr state e =
+    match e.E with
+    | Var (_, _, name, _) -> getReg state name e
     | TempVar (_, name) -> getTempReg state name
     | UnOp (op, expr, _) -> AST.unop op (getEvalExpr state expr) |> Value
     | BinOp (op, ty, lExpr, rExpr, _) ->
@@ -104,14 +109,14 @@ module State =
               (getEvalExpr state fExpr) |> Value
     | Cast (kind, ty, expr, _) ->
       AST.cast kind ty <| getEvalExpr state expr |> Value
-    | expr -> Value expr // Num, Name, PCVar
+    | _ -> Value e // Num, Name, PCVar
 
   and evalLoad state endian ty expr =
     let addr = evalExpr state expr
     match Map.tryFind addr state.Mems with
     | Some v ->
       let expr = v.GetExpr ()
-      let vType = AST.typeOf expr
+      let vType = TypeCheck.typeOf expr
       if vType = ty then v
       elif vType > ty then AST.extract (v.GetExpr ()) ty 0 |> Value
       else AST.load endian ty (addr.GetExpr ()) |> Value
@@ -147,7 +152,7 @@ module State =
   let private evalSideEff (state: State) = function
     | SysCall | Interrupt 0x80 ->
       let nEAX =
-        Undefined (32<rt>, List.length state.SysCall |> sprintf "EAX%d")
+        AST.undef 32<rt> (List.length state.SysCall |> sprintf "EAX%d")
         |> Value
       { state with SysCall = state :: state.SysCall
                    SideEff = true
@@ -155,12 +160,12 @@ module State =
     | _ -> { state with SideEff = true }
 
   let evalStmt state stmt  =
-    match stmt with
+    match stmt.S with
     | ISMark _ | IEMark _ | LMark _ -> state
-    | Put (Var (_, _, reg, _), value) -> evalPutVar state reg value
-    | Put (TempVar (_, reg), value) -> evalPutTemp state reg value
+    | Put ({ E = Var (_, _, reg, _) }, value) -> evalPutVar state reg value
+    | Put ({ E = TempVar (_, reg) }, value) -> evalPutTemp state reg value
     | Store (endian, addr, value) -> evalStore state endian addr value
     | CJmp (condE, trueE, falseE) -> evalCJmp state condE trueE falseE
     | InterJmp (value, _) -> evalPutVar state "EIP" value
-    | Stmt.SideEffect eff -> evalSideEff state eff
+    | SideEffect eff -> evalSideEff state eff
     | e -> failwithf "evalStmt fail %A" e

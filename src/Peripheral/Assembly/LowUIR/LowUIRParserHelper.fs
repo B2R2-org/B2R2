@@ -28,9 +28,9 @@ open B2R2.BinIR.LowUIR
 open FParsec
 
 let typeCheck st =
-  if AST.typeCheck st then preturn st
+  if TypeCheck.stmt st then preturn st
   else fail "Type check failed."
 
 let updateExpectedType e =
-  updateUserState (fun _ -> AST.typeOf e)
+  updateUserState (fun _ -> TypeCheck.typeOf e)
   >>. preturn e

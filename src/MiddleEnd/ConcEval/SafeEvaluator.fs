@@ -45,7 +45,7 @@ let private unwrap = function
   | _ -> Error ErrorCase.InvalidExprEvaluation
 
 let rec evalConcrete (st: EvalState) e =
-  match e with
+  match e.E with
   | Num n -> Def n |> Ok
   | Var (_, n, _, _) -> st.TryGetReg n |> Ok
   | PCVar (t, _) -> BitVector.ofUInt64 st.PC t |> Def |> Ok
@@ -166,13 +166,13 @@ let private evalPut st lhs rhs =
   match evalConcrete st rhs with
   | (Ok (Def v)) ->
     st.Callbacks.OnPut st.PC v
-    match lhs with
+    match lhs.E with
     | Var (_, n, _, _) -> st.SetReg n v |> Ok
     | TempVar (_, n) -> st.SetTmp n v |> Ok
     | PCVar (_) -> BitVector.toUInt64 v |> st.SetPC |> Ok
     | _ -> Error ErrorCase.InvalidExprEvaluation
   | _ ->
-    markUndefAfterFailure st lhs
+    markUndefAfterFailure st lhs.E
     Error ErrorCase.InvalidExprEvaluation
 
 let private evalStore st endian addr v =
@@ -186,7 +186,7 @@ let private evalStore st endian addr v =
   | Error e, _ | _, Error e -> Error e
 
 let private evalJmp (st: EvalState) target =
-  match target with
+  match target.E with
   | Name n -> st.GoToLabel n |> Ok
   | _ -> Error ErrorCase.InvalidExprEvaluation
 
@@ -214,7 +214,7 @@ let evalStmt (st: EvalState) = function
   | SideEffect eff -> st.Callbacks.OnSideEffect eff st |> ignore |> Ok
 
 let internal tryEvaluate stmt st =
-  match evalStmt st stmt with
+  match evalStmt st stmt.S with
   | Ok () -> Ok ()
   | Error e ->
     if st.IgnoreUndef then st.NextStmt () |> Ok

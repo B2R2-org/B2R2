@@ -990,7 +990,7 @@ let vmovmskpd ins insLen ctxt =
   let ir = IRBuilder (4)
   let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr ins insLen ctxt dst
-  let dstSz = AST.typeOf dst
+  let dstSz = TypeCheck.typeOf dst
   let mskpd r =
     match Register.getKind r with
     | Register.Kind.XMM -> SSELifter.movmskpd ins insLen ctxt
@@ -1012,7 +1012,7 @@ let vmovmskps ins insLen ctxt =
   let ir = IRBuilder (4)
   let struct (dst, src) = getTwoOprs ins
   let dst = transOprToExpr ins insLen ctxt dst
-  let dstSz = AST.typeOf dst
+  let dstSz = TypeCheck.typeOf dst
   let mskpd r =
     match Register.getKind r with
     | Register.Kind.XMM -> SSELifter.movmskps ins insLen ctxt
@@ -1941,7 +1941,7 @@ let vpshufb ins insLen ctxt =
     !!ir (dstA := AST.xtlo 64<rt> tDst)
     !!ir (dstB := AST.extract tDst 64<rt> 64)
     !!ir
-      (dstC := AST.extract tDst 64<rt> (RegType.toBitWidth (AST.typeOf tDst) - 64))
+      (dstC := AST.extract tDst 64<rt> (RegType.toBitWidth (TypeCheck.typeOf tDst) - 64))
     !!ir (dstD := AST.xthi 64<rt> tDst)
   | 512<rt> ->
     let kl, vl = 64, 512

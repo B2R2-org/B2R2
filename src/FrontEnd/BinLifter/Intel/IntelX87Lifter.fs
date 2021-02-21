@@ -152,31 +152,34 @@ let private popFPUStack ctxt ir =
   !!ir (top := top .+ AST.num1 3<rt>)
 
 let private updateAddrByOffset addr offset =
-  match addr with
+  match addr.E with
   (* Save *)
-  | Load (_, _, BinOp (_, _, BinOp (_, _, reg, _, _), _, _), _) ->
-    reg := reg .+ offset (* SIB *)
-  | Load (_, _, BinOp (_, _, e, _, _), _) ->
+  | Load (_, _, { E = BinOp (_, _, { E = BinOp (_, _, reg, _, _) }, _, _) }, _)
+    -> reg := reg .+ offset (* SIB *)
+  | Load (_, _, { E = BinOp (_, _, e, _, _) }, _) ->
     e := e .+ offset (* Displacemnt *)
   | Load (_, _, expr, _) -> expr := expr .+ offset
   | _ -> Utils.impossible ()
 
-let private getAddrRegSize = function
+let private getAddrRegSize e =
+  match e.E with
   (* Save *)
-  | Load (_, _, Var (t, _, _, _), _) -> t
-  | Load (_, _, BinOp (_, t, _, _, _), _) -> t
+  | Load (_, _, { E = Var (t, _, _, _) }, _) -> t
+  | Load (_, _, { E = BinOp (_, t, _, _, _) }, _) -> t
   (* Load *)
   | TempVar (t, _) -> t
   | _ -> Utils.impossible ()
 
-let private getBaseReg = function
-  | Load (_, _, BinOp (_, _, BinOp (_, _, reg, _, _), _, _), _) -> reg
-  | Load (_, _, BinOp (_, _, e, _, _), _) -> e
+let private getBaseReg e =
+  match e.E with
+  | Load (_, _, { E = BinOp (_, _, { E = BinOp (_, _, reg, _, _) }, _, _) }, _)
+    -> reg
+  | Load (_, _, { E = BinOp (_, _, e, _, _) }, _) -> e
   | Load (_, _, expr, _) -> expr
   | _ -> Utils.impossible ()
 
 let private extendAddr src regType =
-  match src with
+  match src.E with
   | Load (e, _, expr, _) -> AST.load e regType expr
   | _ -> Utils.impossible ()
 
@@ -245,16 +248,16 @@ let private ftrig _ins insLen ctxt trigFunc =
   let tmp = AST.tmpvar 80<rt>
   !<ir insLen
   !!ir (tmp := st0 .& float80SignUnmask)
-  !!ir (CJmp (AST.flt tmp maxFloat,
-              AST.name lblInRange, AST.name lblOutOfRange))
-  !!ir (LMark lblInRange)
+  !!ir (AST.cjmp (AST.flt tmp maxFloat)
+                 (AST.name lblInRange) (AST.name lblOutOfRange))
+  !!ir (AST.lmark lblInRange)
   !!ir (tmp := trigFunc st0)
   !?ir (assignFPUReg R.ST0 tmp ctxt)
   !!ir (c1 := AST.ite (!.ctxt R.FTW7 == num3) AST.b0 c1)
   !!ir (c2 := AST.b0)
   !!ir (c0 := undefC0)
   !!ir (c3 := undefC3)
-  !!ir (LMark lblOutOfRange)
+  !!ir (AST.lmark lblOutOfRange)
   !!ir (c2 := AST.b1)
   !!ir (c0 := undefC0)
   !!ir (c1 := undefC1)
@@ -360,7 +363,7 @@ let ffst (ins: InsInfo) insLen ctxt doPop =
     | OneOperand opr -> opr, transOprToExpr ins insLen ctxt opr
     | _ -> raise InvalidOperandException
   let st0 = fpuRegValue ctxt R.ST0
-  let sz = AST.typeOf oprExpr
+  let sz = TypeCheck.typeOf oprExpr
   let tmp = AST.tmpvar sz
   let ir = IRBuilder (32)
   !<ir insLen
@@ -388,7 +391,7 @@ let fild ins insLen ctxt =
 let fist ins insLen ctxt doPop =
   let ir = IRBuilder (32)
   let oprExpr = transOneOpr ins insLen ctxt
-  let sz = AST.typeOf oprExpr
+  let sz = TypeCheck.typeOf oprExpr
   let st0 = fpuRegValue ctxt R.ST0
   let tmp1 = AST.tmpvar sz
   let tmp2 = AST.tmpvar 2<rt>
@@ -410,7 +413,7 @@ let fist ins insLen ctxt doPop =
 let fisttp ins insLen ctxt =
   let ir = IRBuilder (64)
   let oprExpr = transOneOpr ins insLen ctxt
-  let sz = AST.typeOf oprExpr
+  let sz = TypeCheck.typeOf oprExpr
   let st0 = fpuRegValue ctxt R.ST0
   !<ir insLen
   !!ir (oprExpr := AST.cast CastKind.FtoICeil sz st0)
@@ -567,9 +570,9 @@ let fprem _ins insLen ctxt round =
   let tmp64 = AST.tmpvar 64<rt>
   !<ir insLen
   !!ir (expDiff := AST.extract st0 15<rt> 64 .- AST.extract st1 15<rt> 64)
-  !!ir (CJmp (AST.lt expDiff (numI32 64 15<rt>),
-              AST.name lblLT64, AST.name lblGT64))
-  !!ir (LMark lblLT64)
+  !!ir (AST.cjmp (AST.lt expDiff (numI32 64 15<rt>))
+                 (AST.name lblLT64) (AST.name lblGT64))
+  !!ir (AST.lmark lblLT64)
   !!ir (tmp80A := AST.fdiv st0 st1)
   !!ir (tmp64 := AST.cast caster 64<rt> tmp80A)
   !!ir (tmp80B := AST.fmul st1 (AST.cast CastKind.IntToFloat 80<rt> tmp64))
@@ -579,8 +582,8 @@ let fprem _ins insLen ctxt round =
   !!ir (!.ctxt R.FSWC1 := AST.xtlo 1<rt> tmp64)
   !!ir (!.ctxt R.FSWC3 := AST.extract tmp64 1<rt> 1)
   !!ir (!.ctxt R.FSWC0 := AST.extract tmp64 1<rt> 2)
-  !!ir (Jmp (AST.name lblExit))
-  !!ir (LMark lblGT64)
+  !!ir (AST.jmp (AST.name lblExit))
+  !!ir (AST.lmark lblGT64)
   !!ir (!.ctxt R.FSWC2 := AST.b1)
   !!ir (tmp64 := (AST.zext 64<rt> expDiff) .- numI32 63 64<rt>)
   !!ir (tmp64 := tmp64 .* numI32 2 64<rt>)
@@ -590,7 +593,7 @@ let fprem _ins insLen ctxt round =
   !!ir (tmp80A := AST.cast CastKind.IntToFloat 80<rt> tmp64)
   !!ir (tmp80A := AST.fsub st0 (AST.fmul st1 (AST.fmul tmp80A tmp80B)))
   !?ir (assignFPUReg R.ST0 tmp80A ctxt)
-  !!ir (LMark lblExit)
+  !!ir (AST.lmark lblExit)
   !>ir insLen
 
 let fabs _ins insLen ctxt =
@@ -723,12 +726,12 @@ let fcom (ins: InsInfo) insLen ctxt nPop unordered =
         let tmp2qNanCond = isNan tmp2 .& (AST.extract tmp2 1<rt> 62 == AST.b1)
         tmp1qNanCond .| tmp2qNanCond .& (im == AST.b0)
     else isNan tmp1 .| isNan tmp2 .& (im == AST.b0)
-  !!ir (CJmp (cond, AST.name lblNan, AST.name lblExit))
-  !!ir (LMark lblNan)
+  !!ir (AST.cjmp cond (AST.name lblNan) (AST.name lblExit))
+  !!ir (AST.lmark lblNan)
   !!ir (c0 := AST.b1)
   !!ir (c2 := AST.b1)
   !!ir (c3 := AST.b1)
-  !!ir (LMark lblExit)
+  !!ir (AST.lmark lblExit)
   !!ir (!.ctxt R.FSWC1 := AST.b0)
   if nPop > 0 then !?ir (popFPUStack ctxt) else ()
   if nPop = 2 then !?ir (popFPUStack ctxt) else ()
@@ -772,25 +775,25 @@ let fcomi ins insLen ctxt doPop =
   let cond = opr1NanCond .| opr2NanCond .& (im == AST.b0)
   match ins.Opcode with
   | Opcode.FCOMI | Opcode.FCOMIP ->
-    !!ir (CJmp (cond, AST.name lblNan, AST.name lblExit))
+    !!ir (AST.cjmp cond (AST.name lblNan) (AST.name lblExit))
   | Opcode.FUCOMI | Opcode.FUCOMIP ->
     let opr1qNanCond = opr1NanCond .& (AST.extract opr1 1<rt> 62 == AST.b1)
     let opr2qNanCond = opr2NanCond .& (AST.extract opr2 1<rt> 62 == AST.b1)
-    !!ir (CJmp (opr1qNanCond .| opr2qNanCond,
-                AST.name lblQNan, AST.name lblCond))
-    !!ir (LMark lblQNan)
+    !!ir (AST.cjmp (opr1qNanCond .| opr2qNanCond)
+                   (AST.name lblQNan) (AST.name lblCond))
+    !!ir (AST.lmark lblQNan)
     !!ir (zf:= AST.b1)
     !!ir (pf := AST.b1)
     !!ir (cf := AST.b1)
-    !!ir (Jmp (AST.name lblExit))
-    !!ir (LMark lblCond)
-    !!ir (CJmp (cond, AST.name lblNan, AST.name lblExit))
+    !!ir (AST.jmp (AST.name lblExit))
+    !!ir (AST.lmark lblCond)
+    !!ir (AST.cjmp cond (AST.name lblNan) (AST.name lblExit))
   | _ -> raise InvalidOpcodeException
-  !!ir (LMark lblNan)
+  !!ir (AST.lmark lblNan)
   !!ir (zf := AST.b1)
   !!ir (pf := AST.b1)
   !!ir (cf := AST.b1)
-  !!ir (LMark lblExit)
+  !!ir (AST.lmark lblExit)
   if doPop then !?ir (popFPUStack ctxt) else ()
   !>ir insLen
 
@@ -811,12 +814,12 @@ let ftst _ins insLen ctxt =
   let st0NanCond =
     (st0Exponent == AST.num (BitVector.unsignedMax 15<rt>))
      .& (AST.xtlo 62<rt> st0 != AST.num0 62<rt>)
-  !!ir (CJmp (st0NanCond, AST.name lblNan, AST.name lblExit))
-  !!ir (LMark lblNan)
+  !!ir (AST.cjmp st0NanCond (AST.name lblNan) (AST.name lblExit))
+  !!ir (AST.lmark lblNan)
   !!ir (c0 := AST.b1)
   !!ir (c2 := AST.b1)
   !!ir (c3 := AST.b1)
-  !!ir (LMark lblExit)
+  !!ir (AST.lmark lblExit)
   !!ir (!.ctxt R.FSWC1 := AST.b0)
   !>ir insLen
 
@@ -860,9 +863,9 @@ let fsincos _ins insLen ctxt =
   let struct (tmp1, tmp2) = tmpVars2 80<rt>
   !<ir insLen
   !!ir (tmp1 := st0 .& float80SignUnmask)
-  !!ir (CJmp (AST.flt tmp1 maxFloat,
-              AST.name lblInRange, AST.name lblOutOfRange))
-  !!ir (LMark lblInRange)
+  !!ir (AST.cjmp (AST.flt tmp1 maxFloat)
+                 (AST.name lblInRange) (AST.name lblOutOfRange))
+  !!ir (AST.lmark lblInRange)
   !!ir (tmp1 := AST.fcos st0)
   !!ir (tmp2 := AST.fsin st0)
   !?ir (assignFPUReg R.ST0 tmp2 ctxt)
@@ -874,7 +877,7 @@ let fsincos _ins insLen ctxt =
   !?ir (shiftFPUStackDown ctxt)
   !?ir (assignFPUReg R.ST0 tmp1 ctxt)
   !?ir (updateTagWordOnLoad ctxt)
-  !!ir (LMark lblOutOfRange)
+  !!ir (AST.lmark lblOutOfRange)
   !!ir (c2 := AST.b1)
   !!ir (c0 := undefC0)
   !!ir (c1 := undefC1)
@@ -898,16 +901,16 @@ let fptan _ins insLen ctxt =
   let tmp64 = AST.tmpvar 64<rt>
   !<ir insLen
   !!ir (tmp := st0 .& float80SignUnmask)
-  !!ir (CJmp (AST.flt tmp maxFloat,
-              AST.name lblInRange, AST.name lblOutOfRange))
-  !!ir (LMark lblInRange)
+  !!ir (AST.cjmp (AST.flt tmp maxFloat)
+                 (AST.name lblInRange) (AST.name lblOutOfRange))
+  !!ir (AST.lmark lblInRange)
   !!ir (tmp := AST.ftan st0)
   !?ir (assignFPUReg R.ST0 tmp ctxt)
   !!ir (c1 := AST.ite (!.ctxt R.FTW7 == num3) AST.b0 c1)
   !!ir (c2 := AST.b0)
   !!ir (c0 := undefC0)
   !!ir (c3 := undefC3)
-  !!ir (LMark lblOutOfRange)
+  !!ir (AST.lmark lblOutOfRange)
   !!ir (c2 := AST.b1)
   !!ir (c0 := undefC0)
   !!ir (c1 := undefC1)
@@ -1119,7 +1122,7 @@ let fstenv ins insLen ctxt =
   let ir = IRBuilder (16)
   let dst = transOneOpr ins insLen ctxt
   !<ir insLen
-  match AST.typeOf dst with
+  match TypeCheck.typeOf dst with
   | 112<rt> -> m14Stenv dst ctxt ir
   | 224<rt> -> m28fstenv dst ctxt ir
   | _ -> raise InvalidOperandSizeException
@@ -1129,7 +1132,7 @@ let fldenv ins insLen ctxt =
   let ir = IRBuilder (16)
   let src = transOneOpr ins insLen ctxt
   !<ir insLen
-  match AST.typeOf src with
+  match TypeCheck.typeOf src with
   | 112<rt> -> m14fldenv src ctxt ir
   | 224<rt> -> m28fldenv src ctxt ir
   | _ -> raise InvalidOperandSizeException
@@ -1190,7 +1193,7 @@ let frstor ins insLen ctxt =
   let ir = IRBuilder (32)
   let src = transOneOpr ins insLen ctxt
   !<ir insLen
-  match AST.typeOf src with
+  match TypeCheck.typeOf src with
   | 752<rt> ->
     m14fldenv (AST.xtlo 112<rt> src) ctxt ir
   | 864<rt> ->

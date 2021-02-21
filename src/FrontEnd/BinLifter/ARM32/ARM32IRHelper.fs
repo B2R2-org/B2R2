@@ -163,7 +163,7 @@ let currentModeIsUserOrSystem ctxt =
   let ite1 = modeM == (AST.num <| BitVector.ofInt32 0b11111 32<rt>)
   let ite2 =
     AST.ite (modeM == (AST.num <| BitVector.ofInt32 0b10000 32<rt>)) AST.b1 ite1
-  AST.ite modeCond (Expr.Undefined (1<rt>, "UNPREDICTABLE")) ite2
+  AST.ite modeCond (AST.undef 1<rt> "UNPREDICTABLE") ite2
 
 /// Returns TRUE if current mode is Hyp mode, on page B1-1142.
 /// function : CurrentModeIsHyp()
@@ -171,7 +171,7 @@ let currentModeIsHyp ctxt =
   let modeM = getPSR ctxt R.CPSR PSR_M
   let modeCond = isBadMode modeM
   let ite1 = modeM == (AST.num <| BitVector.ofInt32 0b11010 32<rt>)
-  AST.ite modeCond (Expr.Undefined (1<rt>, "UNPREDICTABLE")) ite1
+  AST.ite modeCond (AST.undef 1<rt> "UNPREDICTABLE") ite1
 
 /// Is this ARM instruction set, on page A2-51.
 let isInstrSetARM ctxt =

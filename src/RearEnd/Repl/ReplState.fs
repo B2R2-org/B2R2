@@ -26,6 +26,7 @@ namespace B2R2.RearEnd.Repl
 
 open B2R2
 open B2R2.BinIR
+open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ConcEval
 
@@ -39,7 +40,7 @@ type ReplState (isa: ISA, regbay: RegisterBay, doFiltering) =
   do
     regbay.GetAllRegExprs ()
     |> List.map (fun r ->
-      (regbay.RegIDFromRegExpr r, BitVector.ofInt32 0 (LowUIR.AST.typeOf r)))
+      (regbay.RegIDFromRegExpr r, BitVector.ofInt32 0 (TypeCheck.typeOf r)))
     |> List.map (fun (x, y) -> (x, y))
     |> rstate.PrepareContext 0 0UL
   let mutable prevReg =
@@ -51,7 +52,7 @@ type ReplState (isa: ISA, regbay: RegisterBay, doFiltering) =
     |> List.map regbay.RegIDFromRegExpr
     |> Set.ofList
 
-  member private __.EvaluateStmts (stmts: LowUIR.Stmt []) =
+  member private __.EvaluateStmts (stmts: Stmt []) =
     stmts |> Array.iter (fun stmt -> Evaluator.evalStmt rstate stmt)
 
   member private __.ComputeDelta prev curr =

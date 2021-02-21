@@ -139,10 +139,12 @@ module private NoReturnHelper =
 
   let hasExitSyscall ess (v: Vertex<IRBasicBlock>) =
     if v.VData.IsFakeBlock () then false
-    elif v.VData.GetLastStmt () = LowUIR.SideEffect SysCall then
-      evalBlock ess v
-      |> checkExitSyscall ess.BinHandle
-    else false
+    else
+      match v.VData.GetLastStmt().S with
+      | LowUIR.SideEffect SysCall ->
+        evalBlock ess v
+        |> checkExitSyscall ess.BinHandle
+      | _ -> false
 
   let collectSyscallFallThroughs ess cfg v edges =
     if hasExitSyscall ess v then

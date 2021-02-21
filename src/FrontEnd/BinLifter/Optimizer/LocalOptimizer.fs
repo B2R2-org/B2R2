@@ -29,7 +29,7 @@ open B2R2.BinIR.LowUIR
 module private Localizer =
   let rec breakByMark acc (stmts: Stmt []) idx =
     if idx < stmts.Length then
-      match stmts.[idx] with
+      match stmts.[idx].S with
       | ISMark (_)
       | LMark (_) ->
         let left, right = Array.splitAt idx stmts

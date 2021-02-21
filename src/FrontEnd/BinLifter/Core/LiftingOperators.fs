@@ -39,11 +39,11 @@ let inline ( !! ) (ir: IRBuilder) (s) = ir.Append s
 
 /// The special operator for starting an instruction (ISMark).
 let inline ( !< ) (ir: IRBuilder) insLen =
-  ir.Append (ISMark (insLen))
+  ir.Append (AST.ismark insLen)
 
 /// The special operator for finishing an instruction (IEMark).
 let inline ( !> ) (ir: IRBuilder) (insLen: uint32) =
-  ir.Append (IEMark (insLen))
+  ir.Append (AST.iemark insLen)
   ir
 
 /// The special operator for applying a function with a IRBuilder as input.

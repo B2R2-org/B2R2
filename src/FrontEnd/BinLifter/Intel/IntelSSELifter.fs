@@ -597,12 +597,13 @@ let comiss ins insLen ctxt =
   let isNan expr =
     (AST.extract expr 8<rt> 23  == AST.num (BitVector.unsignedMax 8<rt>))
      .& (AST.xtlo 23<rt> expr != AST.num0 23<rt>)
-  !!ir (CJmp (isNan opr1 .| isNan opr2, AST.name lblNan, AST.name lblExit))
-  !!ir (LMark lblNan)
+  !!ir (AST.cjmp (isNan opr1 .| isNan opr2)
+                 (AST.name lblNan) (AST.name lblExit))
+  !!ir (AST.lmark lblNan)
   !!ir (zf := AST.b1)
   !!ir (pf := AST.b1)
   !!ir (cf := AST.b1)
-  !!ir (LMark lblExit)
+  !!ir (AST.lmark lblExit)
   !!ir (!.ctxt R.OF := AST.b0)
   !!ir (!.ctxt R.AF := AST.b0)
   !!ir (!.ctxt R.SF := AST.b0)
@@ -625,12 +626,13 @@ let comisd ins insLen ctxt =
   let isNan expr =
     (AST.extract expr 11<rt> 52  == AST.num (BitVector.unsignedMax 11<rt>))
      .& (AST.xtlo 52<rt> expr != AST.num0 52<rt>)
-  !!ir (CJmp (isNan opr1 .| isNan opr2, AST.name lblNan, AST.name lblExit))
-  !!ir (LMark lblNan)
+  !!ir (AST.cjmp (isNan opr1 .| isNan opr2)
+                 (AST.name lblNan) (AST.name lblExit))
+  !!ir (AST.lmark lblNan)
   !!ir (zf := AST.b1)
   !!ir (pf := AST.b1)
   !!ir (cf := AST.b1)
-  !!ir (LMark lblExit)
+  !!ir (AST.lmark lblExit)
   !!ir (!.ctxt R.OF := AST.b0)
   !!ir (!.ctxt R.AF := AST.b0)
   !!ir (!.ctxt R.SF := AST.b0)
@@ -653,12 +655,13 @@ let ucomiss ins insLen ctxt =
   let isNan expr =
     (AST.extract expr 8<rt> 23  == AST.num (BitVector.unsignedMax 8<rt>))
      .& (AST.xtlo 23<rt> expr != AST.num0 23<rt>)
-  !!ir (CJmp (isNan opr1 .| isNan opr2, AST.name lblNan, AST.name lblExit))
-  !!ir (LMark lblNan)
+  !!ir (AST.cjmp (isNan opr1 .| isNan opr2)
+                 (AST.name lblNan) (AST.name lblExit))
+  !!ir (AST.lmark lblNan)
   !!ir (zf := AST.b1)
   !!ir (pf := AST.b1)
   !!ir (cf := AST.b1)
-  !!ir (LMark lblExit)
+  !!ir (AST.lmark lblExit)
   !!ir (!.ctxt R.OF := AST.b0)
   !!ir (!.ctxt R.AF := AST.b0)
   !!ir (!.ctxt R.SF := AST.b0)
@@ -681,12 +684,13 @@ let ucomisd ins insLen ctxt =
   let isNan expr =
     (AST.extract expr 11<rt> 52  == AST.num (BitVector.unsignedMax 11<rt>))
      .& (AST.xtlo 52<rt> expr != AST.num0 52<rt>)
-  !!ir (CJmp (isNan opr1 .| isNan opr2, AST.name lblNan, AST.name lblExit))
-  !!ir (LMark lblNan)
+  !!ir (AST.cjmp (isNan opr1 .| isNan opr2)
+                 (AST.name lblNan) (AST.name lblExit))
+  !!ir (AST.lmark lblNan)
   !!ir (zf := AST.b1)
   !!ir (pf := AST.b1)
   !!ir (cf := AST.b1)
-  !!ir (LMark lblExit)
+  !!ir (AST.lmark lblExit)
   !!ir (!.ctxt R.OF := AST.b0)
   !!ir (!.ctxt R.AF := AST.b0)
   !!ir (!.ctxt R.SF := AST.b0)
@@ -1154,14 +1158,14 @@ let pmovmskb ins insLen ctxt =
   match Register.getKind r with
   | Register.Kind.MMX ->
     let struct (dst, src) = transTwoOprs ins insLen ctxt
-    let srcSize = AST.typeOf src
+    let srcSize = TypeCheck.typeOf src
     let cnt = RegType.toByteWidth srcSize
     let tmps = arrayInit cnt src
     !!ir (dstAssign oprSize dst <| AST.zext oprSize (AST.concatArr tmps))
   | Register.Kind.XMM ->
     let dst = transOprToExpr ins insLen ctxt dst
     let srcB, srcA = transOprToExpr128 ins insLen ctxt src
-    let srcSize = AST.typeOf srcA
+    let srcSize = TypeCheck.typeOf srcA
     let cnt = RegType.toByteWidth srcSize
     let tmpsA = arrayInit cnt srcA
     let tmpsB = arrayInit cnt srcB
@@ -1170,7 +1174,7 @@ let pmovmskb ins insLen ctxt =
   | Register.Kind.YMM ->
     let dst = transOprToExpr ins insLen ctxt dst
     let srcD, srcC, srcB, srcA = transOprToExpr256 ins insLen ctxt src
-    let srcSize = AST.typeOf srcA
+    let srcSize = TypeCheck.typeOf srcA
     let cnt = RegType.toByteWidth srcSize
     let tmpsA = arrayInit cnt srcA
     let tmpsB = arrayInit cnt srcB
@@ -1559,7 +1563,7 @@ and Return =
   | Mask
 
 let private getPcmpstrInfo opCode (imm: Expr) =
-  let immByte = match imm with
+  let immByte = match imm.E with
                 | Num n -> BitVector.getValue n
                 | _ -> raise InvalidExprException
   let agg = match (immByte >>> 2) &&& 3I with

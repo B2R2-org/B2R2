@@ -33,7 +33,7 @@ let rec gotoNextInstr stmts (st: EvalState) =
   let ctxt = st.GetCurrentContext ()
   let idx = ctxt.StmtIdx
   if st.IsInstrTerminated () && Array.length stmts > idx && idx >= 0 then
-    match stmts.[idx] with
+    match stmts.[idx].S with
     | ISMark (_) -> st.StartInstr (); st
     | _ -> st.NextStmt (); gotoNextInstr stmts st
   else st

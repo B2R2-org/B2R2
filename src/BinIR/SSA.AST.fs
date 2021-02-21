@@ -55,13 +55,14 @@ let private translateLabel addr = function
   | LowUIR.Undefined (_, s) -> addr, (s, -1)
   | _ -> raise InvalidExprException
 
-let rec translateExpr = function
+let rec translateExpr (e: LowUIR.Expr) =
+  match e.E with
   | LowUIR.Num bv -> Num bv
   | (LowUIR.Var _ as e)
   | (LowUIR.PCVar _ as e)
   | (LowUIR.TempVar _ as e) -> Var <| translateDest e
   | LowUIR.UnOp (op, e, _) ->
-    let ty = LowUIR.AST.typeOf e
+    let ty = LowUIR.TypeCheck.typeOf e
     UnOp (op, ty, translateExpr e)
   | LowUIR.FuncName s -> FuncName s
   | LowUIR.BinOp (op, ty, e1, e2, _) ->
@@ -71,7 +72,7 @@ let rec translateExpr = function
   | LowUIR.Load (_, ty, e, _) ->
     Load ({ Kind = MemVar; Identifier = -1 }, ty, translateExpr e)
   | LowUIR.Ite (e1, e2, e3, _) ->
-    let ty = LowUIR.AST.typeOf e2
+    let ty = LowUIR.TypeCheck.typeOf e2
     Ite (translateExpr e1, ty, translateExpr e2, translateExpr e3)
   | LowUIR.Cast (op, ty, e, _) -> Cast (op, ty, translateExpr e)
   | LowUIR.Extract (e, ty, pos, _) -> Extract (translateExpr e, ty, pos)
@@ -79,7 +80,8 @@ let rec translateExpr = function
   | LowUIR.Nil -> Nil
   | _ -> raise InvalidExprException /// Name
 
-let rec internal translateStmtAux defaultRegType addr = function
+let rec internal translateStmtAux defaultRegType addr (s: LowUIR.Stmt) =
+  match s.S with
   | LowUIR.ISMark _ -> None
   | LowUIR.IEMark len ->
     let pc = { Kind = PCVar (defaultRegType); Identifier = -1 }
@@ -88,11 +90,11 @@ let rec internal translateStmtAux defaultRegType addr = function
   | LowUIR.LMark symb ->
     LMark (addr, symb) |> Some
   | LowUIR.Put (var, expr) ->
-    let dest = translateDest var
+    let dest = translateDest var.E
     let expr = translateExpr expr
     Def (dest, expr) |> Some
   | LowUIR.Store (_, addr, expr) ->
-    let ty = LowUIR.AST.typeOf expr
+    let ty = LowUIR.TypeCheck.typeOf expr
     let addr = translateExpr addr
     let expr = translateExpr expr
     let srcMem = { Kind = MemVar; Identifier = -1 }
@@ -100,13 +102,13 @@ let rec internal translateStmtAux defaultRegType addr = function
     let store = Store (srcMem, ty, addr, expr)
     Def (dstMem, store) |> Some
   | LowUIR.Jmp (expr) ->
-    let label = translateLabel addr expr
+    let label = translateLabel addr expr.E
     let jmp = IntraJmp label
     Jmp jmp |> Some
   | LowUIR.CJmp (expr, label1, label2) ->
     let expr = translateExpr expr
-    let label1 = translateLabel addr label1
-    let label2 = translateLabel addr label2
+    let label1 = translateLabel addr label1.E
+    let label2 = translateLabel addr label2.E
     let jmp = IntraCJmp (expr, label1, label2)
     Jmp jmp |> Some
   | LowUIR.InterJmp (expr, _) ->

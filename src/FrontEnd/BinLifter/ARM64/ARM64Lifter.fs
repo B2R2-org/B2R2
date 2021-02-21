@@ -426,9 +426,9 @@ let getIsWBackAndIsPostIndex = function
 
 let separateMemExpr expr =
   let getExpr = function
-    | Load (e, t, expr, _) -> expr
+    | Load (e, t, expr, _) -> expr.E
     | _ -> failwith "None"
-  match getExpr expr with
+  match getExpr expr.E with
   | BinOp (BinOpType.ADD, _, b, o, _) -> b, o
   | _ -> failwith "None"
 
@@ -499,7 +499,8 @@ let transOprToExprOfORR ins ctxt addr =
     transBarrelShiftToExpr ins ctxt o3 o4
   | _ -> raise InvalidOperandException
 
-let unwrapReg = function
+let unwrapReg e =
+  match e.E with
   | Extract (e, 32<rt>, 0, _) -> e
   | _ -> failwith "Invalid register"
 
@@ -674,7 +675,7 @@ type BranchType =
 // eight bits, with a branch reason hint for possible use by hardware fetching
 // the next instruction.
 let branchTo ins ctxt target brType i (builder: IRBuilder) =
-  builder <! (InterJmp (target, i)) // FIXME: BranchAddr function
+  builder <! (AST.interjmp target i) // FIXME: BranchAddr function
 
 // shared/functions/system/ConditionHolds
 // ConditionHolds()
@@ -712,14 +713,16 @@ let highestSetBitForIR dst src width oprSz (builder: IRBuilder) =
   let t = AST.tmpvar oprSz
   let width = numI32 (width - 1) oprSz
   builder <! (t := width)
-  builder <! (LMark lblLoop)
-  builder <! (CJmp (src >> t == AST.num1 oprSz, AST.name lblEnd, AST.name lblLoopCont))
-  builder <! (LMark lblLoopCont)
-  builder <! (CJmp (t == AST.num0 oprSz, AST.name lblEnd, AST.name lblUpdateTmp))
-  builder <! (LMark lblUpdateTmp)
+  builder <! (AST.lmark lblLoop)
+  builder <! (AST.cjmp (src >> t == AST.num1 oprSz)
+                       (AST.name lblEnd) (AST.name lblLoopCont))
+  builder <! (AST.lmark lblLoopCont)
+  builder <! (AST.cjmp (t == AST.num0 oprSz)
+                       (AST.name lblEnd) (AST.name lblUpdateTmp))
+  builder <! (AST.lmark lblUpdateTmp)
   builder <! (t := t .- AST.num1 oprSz)
-  builder <! (Jmp (AST.name lblLoop))
-  builder <! (LMark lblEnd)
+  builder <! (AST.jmp (AST.name lblLoop))
+  builder <! (AST.lmark lblEnd)
   builder <! (dst := width .- t)
 
 // shared/functions/common/Replicate
@@ -734,13 +737,14 @@ let replicateForIR dst value bits oprSize (builder: IRBuilder) =
   let tmpVal = AST.tmpvar oprSize
   builder <! (tmpAmt := bits)
   builder <! (tmpVal := value)
-  builder <! (LMark lblLoop)
-  builder <! (CJmp (AST.ge tmpAmt oSz, AST.name lblEnd, AST.name lblLoopContinue))
-  builder <! (LMark lblLoopContinue)
+  builder <! (AST.lmark lblLoop)
+  builder <! (AST.cjmp (AST.ge tmpAmt oSz)
+                       (AST.name lblEnd) (AST.name lblLoopContinue))
+  builder <! (AST.lmark lblLoopContinue)
   builder <! (tmpVal := value << tmpAmt)
   builder <! (tmpAmt := tmpAmt .+ bits)
-  builder <! (Jmp (AST.name lblLoop))
-  builder <! (LMark lblEnd)
+  builder <! (AST.jmp (AST.name lblLoop))
+  builder <! (AST.lmark lblEnd)
   builder <! (dst := tmpVal)  (* FIXME: Check value *)
 
 let getMaskForIR n oprSize = (AST.num1 oprSize << n) .- AST.num1 oprSize
@@ -783,15 +787,15 @@ let countLeadingZeroBitsForIR dst src oprSize builder =
   highestSetBitForIR dst src (RegType.toBitWidth oprSize) oprSize builder
 
 let startMark ins (builder: IRBuilder) =
-  builder <! (ISMark (ins.NumBytes))
+  builder <! (AST.ismark (ins.NumBytes))
 
 let endMark ins (builder: IRBuilder) =
-  builder <! (IEMark (ins.NumBytes)); builder
+  builder <! (AST.iemark (ins.NumBytes)); builder
 
 let sideEffects ins addr name =
   let builder = IRBuilder (4)
   startMark ins builder
-  builder <! (SideEffect name)
+  builder <! (AST.sideEffect name)
   endMark ins builder
 
 /// A module for all AArch64-IR translation functions
@@ -855,7 +859,7 @@ let b ins ctxt addr =
   let label = transOneOpr ins ctxt addr
   let pc = getPC ctxt
   startMark ins builder
-  builder <! (InterJmp (pc .+ label, InterJmpInfo.Base))
+  builder <! (AST.interjmp (pc .+ label) InterJmpKind.Base)
   endMark ins builder
 
 let bCond ins ctxt addr cond =
@@ -863,7 +867,7 @@ let bCond ins ctxt addr cond =
   let label = transOneOpr ins ctxt addr
   let pc = getPC ctxt
   startMark ins builder
-  builder <! (InterCJmp (conditionHolds ctxt cond, pc .+ label, pc))
+  builder <! (AST.intercjmp (conditionHolds ctxt cond) (pc .+ label) pc)
   endMark ins builder
 
 let bfm ins ctxt addr =
@@ -894,7 +898,7 @@ let bl ins ctxt addr =
   startMark ins builder
   builder <! (getRegVar ctxt R.X30 := pc .+ numI64 4L ins.OprSize)
   // FIXME: BranchTo (BType_CALL)
-  builder <! (InterJmp (pc .+ label, InterJmpInfo.IsCall))
+  builder <! (AST.interjmp (pc .+ label) InterJmpKind.IsCall)
   endMark ins builder
 
 let blr ins ctxt addr =
@@ -904,7 +908,7 @@ let blr ins ctxt addr =
   startMark ins builder
   builder <! (getRegVar ctxt R.X30 := pc .+ numI64 4L ins.OprSize)
   // FIXME: BranchTo (BranchType_CALL)
-  builder <! (InterJmp (src, InterJmpInfo.IsCall))
+  builder <! (AST.interjmp src InterJmpKind.IsCall)
   endMark ins builder
 
 let br ins ctxt addr =
@@ -912,7 +916,7 @@ let br ins ctxt addr =
   let dst = transOneOpr ins ctxt addr
   startMark ins builder
   // FIXME: BranchTo (BType_JMP)
-  builder <! (InterJmp (dst, InterJmpInfo.Base))
+  builder <! (AST.interjmp dst InterJmpKind.Base)
   endMark ins builder
 
 let cbnz ins ctxt addr =
@@ -920,7 +924,7 @@ let cbnz ins ctxt addr =
   let test, label = transTwoOprs ins ctxt addr
   let pc = getPC ctxt
   startMark ins builder
-  builder <! (InterCJmp (test != AST.num0 ins.OprSize, pc .+ label, pc))
+  builder <! (AST.intercjmp (test != AST.num0 ins.OprSize) (pc .+ label) pc)
   endMark ins builder
 
 let cbz ins ctxt addr =
@@ -928,7 +932,7 @@ let cbz ins ctxt addr =
   let test, label = transTwoOprs ins ctxt addr
   let pc = getPC ctxt
   startMark ins builder
-  builder <! (InterCJmp (test == AST.num0 ins.OprSize, pc .+ label, pc))
+  builder <! (AST.intercjmp (test == AST.num0 ins.OprSize) (pc .+ label) pc)
   endMark ins builder
 
 let ccmn ins ctxt addr =
@@ -1196,7 +1200,7 @@ let ret ins ctxt addr =
   let target = AST.tmpvar 64<rt>
   startMark ins builder
   builder <! (target := src)
-  branchTo ins ctxt target BrTypeRET InterJmpInfo.IsRet builder
+  branchTo ins ctxt target BrTypeRET InterJmpKind.IsRet builder
   endMark ins builder
 
 let sbc ins ctxt addr =
@@ -1356,7 +1360,7 @@ let tbnz ins ctxt addr =
   let pc = getPC ctxt
   let cond = (test >> imm .& AST.num1 ins.OprSize) == AST.num1 ins.OprSize
   startMark ins builder
-  builder <! (InterCJmp (cond, pc .+ label, pc))
+  builder <! (AST.intercjmp cond (pc .+ label) pc)
   endMark ins builder
 
 let tbz ins ctxt addr =
@@ -1365,7 +1369,7 @@ let tbz ins ctxt addr =
   let pc = getPC ctxt
   let cond = (test >> imm .& AST.num1 ins.OprSize) == AST.num0 ins.OprSize
   startMark ins builder
-  builder <! (InterCJmp (cond, pc .+ label, pc))
+  builder <! (AST.intercjmp cond (pc .+ label) pc)
   endMark ins builder
 
 let udiv ins ctxt addr =

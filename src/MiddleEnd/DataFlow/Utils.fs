@@ -26,7 +26,8 @@ module B2R2.MiddleEnd.DataFlow.Utils
 
 open B2R2.BinIR.LowUIR
 
-let rec private extractUseFromExpr = function
+let rec private extractUseFromExpr e =
+  match e.E with
   | Var (_, id, _, _) -> [ Regular id ]
   | TempVar (_, n) -> [ Temporary n ]
   | UnOp (_, e, _) -> extractUseFromExpr e
@@ -39,7 +40,8 @@ let rec private extractUseFromExpr = function
   | Extract (e, _, _, _) -> extractUseFromExpr e
   | _ -> []
 
-let private extractUseFromStmt = function
+let private extractUseFromStmt s =
+  match s.S with
   | Put (_, e)
   | Store (_, _, e)
   | Jmp (e)

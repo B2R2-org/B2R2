@@ -42,19 +42,19 @@ type LowUIRTests () =
     let result = p.Parse "RAX := 0x1:I64" |> Result.get |> Array.head
     let regID = Intel.Register.toRegID (Intel.Register.RAX)
     let regSet = Intel.IntelRegisterSet.singleton regID
-    let answer = Put (Var(64<rt>, regID, "RAX", regSet), Num size64Num)
+    let answer = AST.put (AST.var 64<rt> regID "RAX" regSet) (AST.num size64Num)
     Assert.AreEqual (answer, result)
 
   [<TestMethod>]
   member __.``[IntelAssemblerLowUIR] Test IEMark ``() =
     let result = p.Parse "} // 1" |> Result.get |> Array.head
-    let answer = IEMark 1u
+    let answer = AST.iemark 1u
     Assert.AreEqual (answer, result)
 
   [<TestMethod>]
   member __.``[IntelAssemblerLowUIR] Test Temporary Registers``() =
     let result = p.Parse "T_2:I1 := 1" |> Result.get |> Array.head
-    let answer = Put (TempVar(1<rt>,2), Num size1Num)
+    let answer = AST.put (AST.tmpvarWithID 1<rt> 2) (AST.num size1Num)
     Assert.AreEqual (answer, result)
 
   [<TestMethod>]
@@ -64,7 +64,6 @@ type LowUIRTests () =
     let regID = Intel.Register.toRegID (Intel.Register.RAX)
     let regSet = Intel.IntelRegisterSet.singleton regID
     let answer =
-      Put (Var (64<rt>, regID, "RAX", regSet),
-           Num (BitVector.cast BitVector.F 64<rt>))
+      AST.put (AST.var 64<rt> regID "RAX" regSet)
+              (AST.num (BitVector.cast BitVector.F 64<rt>))
     Assert.AreEqual (answer, result)
-

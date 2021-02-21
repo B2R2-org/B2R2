@@ -186,7 +186,7 @@ let private buildPackedTwoOprs ins insLen ctxt packSz opFn bufSz dst src =
     let dst = transOprToExpr ins insLen ctxt dst
     let src = transOprToExpr ins insLen ctxt src
     let src1 = makeSrc packNum dst
-    let src2 = match src with
+    let src2 = match src.E with
                | Load (_, rt, _, _) -> makeSrc (rt / packSz) src
                | _ -> makeSrc packNum src
     !!ir (dst := opFn oprSize src1 src2 |> AST.concatArr)

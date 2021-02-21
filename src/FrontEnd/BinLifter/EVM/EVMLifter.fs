@@ -37,10 +37,10 @@ let inline private getRegVar (ctxt: TranslationContext) name =
 let inline private (<!) (builder: IRBuilder) (s) = builder.Append (s)
 
 let inline private startMark insInfo (builder: IRBuilder) =
-  builder <! (ISMark (insInfo.NumBytes))
+  builder <! (AST.ismark (insInfo.NumBytes))
 
 let inline private endMark insInfo (builder: IRBuilder) =
-  builder <! (IEMark (insInfo.NumBytes)); builder
+  builder <! (AST.iemark (insInfo.NumBytes)); builder
 
 let inline private numI32 n t = BitVector.ofInt32 n t |> AST.num
 let inline private numU64 n t = BitVector.ofUInt64 n t |> AST.num
@@ -52,7 +52,7 @@ let inline private updateGas ctxt gas builder =
 let sideEffects insInfo name =
   let builder = new IRBuilder (4)
   startMark insInfo builder
-  builder <! (SideEffect name)
+  builder <! AST.sideEffect name
   endMark insInfo builder
 
 let nop insInfo =
@@ -66,11 +66,11 @@ let private getSPSize size = numI32 (32 * size) 256<rt>
 let private pushToStack (ctxt: TranslationContext) expr builder =
   let spReg = getRegVar ctxt R.SP
   let tmp = AST.tmpvar OperationSize.regType
-  let expr = if OperationSize.regType = AST.typeOf expr then expr
+  let expr = if OperationSize.regType = TypeCheck.typeOf expr then expr
              else AST.zext OperationSize.regType expr
   builder <! (spReg := (spReg .+ (getSPSize 1))) (* SP := SP + 32 *)
   builder <! (tmp := expr)                       (* tmp := expr *)
-  builder <! (Store (Endian.Little, spReg, tmp)) (* [SP] := tmp *)
+  builder <! (AST.store Endian.Little spReg tmp) (* [SP] := tmp *)
 
 /// Pops an element from stack and returns the element.
 let private popFromStack (ctxt: TranslationContext) builder =
@@ -94,8 +94,8 @@ let private swapStack (ctxt: TranslationContext) pos builder=
   let tmp2 = AST.tmpvar regType
   builder <! (tmp1 := AST.loadLE regType spReg)
   builder <! (tmp2 := AST.loadLE regType (spReg .- (getSPSize (pos - 1))))
-  builder <! (Store (Endian.Little, (spReg .- (getSPSize (pos - 1))), tmp1))
-  builder <! (Store (Endian.Little, spReg, tmp2))
+  builder <! (AST.store Endian.Little (spReg .- (getSPSize (pos - 1))) tmp1)
+  builder <! (AST.store Endian.Little spReg tmp2)
 
 /// Binary operations and relative operations.
 let basicOperation insInfo ctxt opFn =
@@ -232,7 +232,7 @@ let jump insInfo ctxt =
     let dst = popFromStack ctxt builder
     let dstAddr = dst .+ (BitVector.ofUInt64 insInfo.Offset 256<rt> |> AST.num)
     updateGas ctxt insInfo.GAS builder
-    builder <! InterJmp (dstAddr, InterJmpInfo.Base)
+    builder <! AST.interjmp dstAddr InterJmpKind.Base
     endMark insInfo builder
   with
     | :? System.InvalidOperationException -> (* Special case: terminate func. *)
@@ -246,7 +246,7 @@ let jumpi insInfo ctxt =
   let cond = popFromStack ctxt builder
   let fall = numU64 (insInfo.Address + 1UL) 64<rt>
   updateGas ctxt insInfo.GAS builder
-  builder <! InterCJmp (AST.xtlo 1<rt> cond, dstAddr, fall)
+  builder <! AST.intercjmp (AST.xtlo 1<rt> cond) dstAddr fall
   endMark insInfo builder
 
 let getpc insInfo ctxt =

@@ -18,7 +18,8 @@
     <Compile Include="SideEffect.fs" />
     <Compile Include="LowUIR.fs" />
     <Compile Include="LowUIR.Pp.fs" />
-    <Compile Include="LowUIR.AST.fsi" />
+    <Compile Include="LowUIR.TypeCheck.fs" />
+    <Compile Include="LowUIR.ASTHelper.fs" />
     <Compile Include="LowUIR.AST.fs" />
     <Compile Include="SSA.fs" />
     <Compile Include="SSA.Pp.fs" />

@@ -54,15 +54,15 @@ let private undefPF = AST.undef 1<rt> "PF is undefined."
 let private buildAF ctxt e1 e2 r size =
   let t1 = r <+> e1
   let t2 = t1 <+> e2
-  let t3 = AST.binop SHL (AST.num1 size) (numU32 4ul size)
+  let t3 = (AST.num1 size) << (numU32 4ul size)
   let t4 = t2 .& t3
   !.ctxt R.AF := t4 == t3
 
 let private buildPF ctxt r size cond ir =
   let struct (t1, t2) = tmpVars2 size
-  let s2 = r <+> (AST.binop SHR r (AST.zext size (numU32 4ul 8<rt>)))
-  let s4 = s2 <+> (AST.binop SHR t1 (AST.zext size (numU32 2ul 8<rt>)))
-  let s5 = s4 <+> (AST.binop SHR t2 (AST.zext size (AST.num1 8<rt>)))
+  let s2 = r <+> (r >> (AST.zext size (numU32 4ul 8<rt>)))
+  let s4 = s2 <+> (t1 >> (AST.zext size (numU32 2ul 8<rt>)))
+  let s5 = s4 <+> (t2 >> (AST.zext size (AST.num1 8<rt>)))
   let pf = !.ctxt R.PF
   let computedPF = AST.unop UnOpType.NOT (AST.xtlo 1<rt> s5)
   !!ir (t1 := s2)
@@ -103,7 +103,7 @@ let private ofOnAdd e1 e2 r =
 
 /// OF on sub.
 let private ofOnSub e1 e2 r =
-  AST.xthi 1<rt> (AST.binop AND (e1 <+> e2) (e1 <+> r))
+  AST.xthi 1<rt> ((e1 <+> e2) .& (e1 <+> r))
 
 let private getInstrPtr ctxt =
   !.ctxt (if is64bit ctxt then R.RIP else R.EIP)
@@ -140,7 +140,7 @@ let private computePopSize oprSize = function
 
 let private auxPop oprSize ctxt dst ir =
   let sp = getStackPtr ctxt
-  !!ir (dst := AST.loadLE (computePopSize oprSize dst) sp)
+  !!ir (dst := AST.loadLE (computePopSize oprSize dst.E) sp)
   !!ir (sp := sp .+ (getStackWidth ctxt.WordBitSize oprSize))
 
 let private maskOffset offset oprSize =
@@ -153,7 +153,7 @@ let private maskOffset offset oprSize =
 
 let rec private isVar = function
   | Var _ | TempVar _ -> true
-  | Extract (e, _, _, _) -> isVar e
+  | Extract (e, _, _, _) -> isVar e.E
   | _ -> false
 
 let private calculateOffset offset oprSize =
@@ -175,21 +175,21 @@ let private strRepeat ins insLen ctxt body cond ir =
   let cx = !.ctxt (if is64bit ctxt then R.RCX else R.ECX)
   let pc = getInstrPtr ctxt
   let ninstAddr = pc .+ numInsLen insLen ctxt
-  !!ir (CJmp (cx == n0, AST.name lblExit, AST.name lblCont))
-  !!ir (LMark lblCont)
+  !!ir (AST.cjmp (cx == n0) (AST.name lblExit) (AST.name lblCont))
+  !!ir (AST.lmark lblCont)
   !?ir (body ins ctxt)
   !!ir (cx := cx .- AST.num1 ctxt.WordBitSize)
   match cond with
-  | None -> !!ir (InterJmp (pc, InterJmpInfo.Base))
+  | None -> !!ir (AST.interjmp pc InterJmpKind.Base)
   | Some cond ->
-    !!ir (CJmp (cx == n0, AST.name lblExit, AST.name lblNext))
-    !!ir (LMark lblNext)
-    !!ir (InterCJmp (cond, ninstAddr, pc))
-  !!ir (LMark lblExit)
+    !!ir (AST.cjmp (cx == n0) (AST.name lblExit) (AST.name lblNext))
+    !!ir (AST.lmark lblNext)
+    !!ir (AST.intercjmp cond ninstAddr pc)
+  !!ir (AST.lmark lblExit)
   (* We consider each individual loop from a REP-prefixed instruction as an
      independent basic block, because it is more intuitive and matches with
      the definition of basic block from text books. *)
-  !!ir (InterJmp (ninstAddr, InterJmpInfo.Base))
+  !!ir (AST.interjmp ninstAddr InterJmpKind.Base)
 
 let aaa insLen ctxt =
 #if DEBUG
@@ -390,22 +390,23 @@ let bsf ins insLen ctxt =
   let t = AST.tmpvar oprSize
   let ir = IRBuilder (26)
   !<ir insLen
-  !!ir (CJmp (cond, AST.name lblL0, AST.name lblL1))
-  !!ir (LMark lblL0)
+  !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+  !!ir (AST.lmark lblL0)
   !!ir (zf := AST.b1)
   !!ir (dst := AST.undef oprSize "DEST is undefined.")
-  !!ir (Jmp (AST.name lblEnd))
-  !!ir (LMark lblL1)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblL1)
   !!ir (zf := AST.b0)
   !!ir (t := AST.num0 oprSize)
-  !!ir (LMark lblLoopCond)
-  !!ir (CJmp ((AST.xtlo 1<rt> (src >> t)) == AST.b0, AST.name lblLoop, AST.name lblLE))
-  !!ir (LMark lblLoop)
+  !!ir (AST.lmark lblLoopCond)
+  !!ir (AST.cjmp ((AST.xtlo 1<rt> (src >> t)) == AST.b0)
+                 (AST.name lblLoop) (AST.name lblLE))
+  !!ir (AST.lmark lblLoop)
   !!ir (t := t .+ AST.num1 oprSize)
-  !!ir (Jmp (AST.name lblLoopCond))
-  !!ir (LMark lblLE)
+  !!ir (AST.jmp (AST.name lblLoopCond))
+  !!ir (AST.lmark lblLE)
   !!ir (dstAssign oprSize dst t)
-  !!ir (LMark lblEnd)
+  !!ir (AST.lmark lblEnd)
 #if !EMULATION
   !!ir (!.ctxt R.CF := undefCF)
   !!ir (!.ctxt R.OF := undefOF)
@@ -429,23 +430,23 @@ let bsr ins insLen ctxt =
   let t = AST.tmpvar oprSize
   let ir = IRBuilder (26)
   !<ir insLen
-  !!ir (CJmp (cond, AST.name lblL0, AST.name lblL1))
-  !!ir (LMark lblL0)
+  !!ir (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+  !!ir (AST.lmark lblL0)
   !!ir (zf := AST.b1)
   !!ir (dst := AST.undef oprSize "DEST is undefined.")
-  !!ir (Jmp (AST.name lblEnd))
-  !!ir (LMark lblL1)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblL1)
   !!ir (zf := AST.b0)
   !!ir (t := numOprSize oprSize .- AST.num1 oprSize)
-  !!ir (LMark lblLoopCond)
-  !!ir (CJmp ((AST.xtlo 1<rt> (src >> t)) == AST.b0,
-              AST.name lblLoop, AST.name lblLE))
-  !!ir (LMark lblLoop)
+  !!ir (AST.lmark lblLoopCond)
+  !!ir (AST.cjmp ((AST.xtlo 1<rt> (src >> t)) == AST.b0)
+                 (AST.name lblLoop) (AST.name lblLE))
+  !!ir (AST.lmark lblLoop)
   !!ir (t := t .- AST.num1 oprSize)
-  !!ir (Jmp (AST.name lblLoopCond))
-  !!ir (LMark lblLE)
+  !!ir (AST.jmp (AST.name lblLoopCond))
+  !!ir (AST.lmark lblLE)
   !!ir (dst := t)
-  !!ir (LMark lblEnd)
+  !!ir (AST.lmark lblEnd)
 #if !EMULATION
   !!ir (!.ctxt R.CF := undefCF)
   !!ir (!.ctxt R.OF := undefOF)
@@ -471,13 +472,13 @@ let bswap ins insLen ctxt =
   !>ir insLen
 
 let private bit ins bitBase bitOffset oprSize =
-  match bitBase with
+  match bitBase.E with
   | Load (e, t, expr, _) ->
     let effAddrSz = getEffAddrSz ins
     let addrOffset, bitOffset = calculateOffset bitOffset oprSize
     let addrOffset = AST.zext effAddrSz addrOffset
     AST.xtlo 1<rt> ((AST.load e t (expr .+ addrOffset)) >> bitOffset)
-  | _ -> if isVar bitBase
+  | _ -> if isVar bitBase.E
          then AST.xtlo 1<rt> (bitBase >> maskOffset bitOffset oprSize)
          else raise InvalidExprException
 
@@ -496,7 +497,7 @@ let bt ins insLen ctxt =
   !>ir insLen
 
 let private setBit ins bitBase bitOffset oprSize setValue =
-  match bitBase with
+  match bitBase.E with
   | Load (e, t, expr, _) ->
     let effAddrSz = getEffAddrSz ins
     let addrOffset, bitOffset = calculateOffset bitOffset oprSize
@@ -504,7 +505,7 @@ let private setBit ins bitBase bitOffset oprSize setValue =
     let mask = setValue << bitOffset
     let loadMem = AST.load e t (expr .+ addrOffset)
     loadMem := (loadMem .& (getMask oprSize .- mask)) .| mask
-  | _ -> if isVar bitBase
+  | _ -> if isVar bitBase.E
          then let mask = setValue << maskOffset bitOffset oprSize
               bitBase := (bitBase .& (getMask oprSize .- mask)) .| mask
          else raise InvalidExprException
@@ -542,12 +543,12 @@ let call ins insLen ctxt =
   !<ir insLen
   if ispcrel then
     !?ir (auxPush oprSize ctxt (pc .+ numInsLen insLen ctxt))
-    !!ir (InterJmp (target, InterJmpInfo.IsCall))
+    !!ir (AST.interjmp target InterJmpKind.IsCall)
   else
     let t = AST.tmpvar oprSize (* Use tmpvar because the target can use RSP *)
     !!ir (t := target)
     !?ir (auxPush oprSize ctxt (pc .+ numInsLen insLen ctxt))
-    !!ir (InterJmp (t, InterJmpInfo.IsCall))
+    !!ir (AST.interjmp t InterJmpKind.IsCall)
   !>ir insLen
 
 let convBWQ ins insLen ctxt =
@@ -657,7 +658,7 @@ let cmpxchg ins insLen ctxt =
   let oprSize = getOperationSize ins
   let ir = IRBuilder (32)
   !<ir insLen
-  if hasLock ins.Prefixes then !!ir (SideEffect Lock) else ()
+  if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
   let t = AST.tmpvar oprSize
   let r = AST.tmpvar oprSize
   let acc = getRegOfSize ctxt oprSize grpEAX
@@ -825,8 +826,8 @@ let dec ins insLen ctxt =
   !>ir insLen
 
 let private checkQuotientDIV oprSize lblAssign lblErr q =
-  CJmp (AST.xthi oprSize q == AST.num0 oprSize,
-        AST.name lblAssign, AST.name lblErr)
+  AST.cjmp (AST.xthi oprSize q == AST.num0 oprSize)
+           (AST.name lblAssign) (AST.name lblErr)
 
 let private checkQuotientIDIV oprSize sz lblAssign lblErr q =
   let amount =
@@ -836,7 +837,7 @@ let private checkQuotientIDIV oprSize sz lblAssign lblErr q =
   let negRes = AST.lt q (AST.zext sz mask)
   let posRes = AST.gt q (AST.zext sz (mask .- (AST.num1 oprSize)))
   let cond = AST.ite (msb == AST.b1) negRes posRes
-  CJmp (cond, AST.name lblErr, AST.name lblAssign)
+  AST.cjmp cond (AST.name lblErr) (AST.name lblAssign)
 
 let div ins insLen ctxt =
   let lblAssign = AST.symbol "Assign"
@@ -845,15 +846,16 @@ let div ins insLen ctxt =
   let divisor = transOneOpr ins insLen ctxt
   let oprSize = getOperationSize ins
   let dividend = getDividend ctxt oprSize
-  let sz = AST.typeOf dividend
+  let sz = TypeCheck.typeOf dividend
   let quotient = AST.tmpvar sz
   let remainder = AST.tmpvar sz
   let ir = IRBuilder (16)
   !<ir insLen
-  !!ir (CJmp (divisor == AST.num0 oprSize, AST.name lblErr, AST.name lblChk))
-  !!ir (LMark lblErr)
-  !!ir (SideEffect (Exception "DivErr"))
-  !!ir (LMark lblChk)
+  !!ir (AST.cjmp (divisor == AST.num0 oprSize)
+                 (AST.name lblErr) (AST.name lblChk))
+  !!ir (AST.lmark lblErr)
+  !!ir (AST.sideEffect (Exception "DivErr"))
+  !!ir (AST.lmark lblChk)
   match ins.Opcode with
   | Opcode.DIV ->
     let divisor = AST.zext sz divisor
@@ -866,7 +868,7 @@ let div ins insLen ctxt =
     !!ir (remainder := dividend ?% divisor)
     !!ir (checkQuotientIDIV oprSize sz lblAssign lblErr quotient)
   | _ ->  raise InvalidOpcodeException
-  !!ir (LMark lblAssign)
+  !!ir (AST.lmark lblAssign)
   match oprSize with
   | 8<rt> ->
     !!ir (!.ctxt R.AL := AST.xtlo oprSize quotient)
@@ -907,20 +909,20 @@ let enter ins insLen ctxt =
   !?ir (auxPush ctxt.WordBitSize ctxt bp)
   !!ir (frameTemp := sp)
   !!ir (addrSize := getAddrSize ctxt.WordBitSize)
-  !!ir (CJmp (nestingLevel == AST.num0 oSz,
-              AST.name lblCont, AST.name lblLevelCheck))
-  !!ir (LMark lblLevelCheck)
+  !!ir (AST.cjmp (nestingLevel == AST.num0 oSz)
+                 (AST.name lblCont) (AST.name lblLevelCheck))
+  !!ir (AST.lmark lblLevelCheck)
   !!ir (cnt := nestingLevel .- AST.num1 oSz)
-  !!ir (CJmp (AST.gt nestingLevel (AST.num1 oSz),
-              AST.name lblLoop, AST.name lblLv1))
-  !!ir (LMark lblLoop)
+  !!ir (AST.cjmp (AST.gt nestingLevel (AST.num1 oSz))
+                 (AST.name lblLoop) (AST.name lblLv1))
+  !!ir (AST.lmark lblLoop)
   !!ir (bp := bp .- addrSize)
   !?ir (auxPush ctxt.WordBitSize ctxt (AST.loadLE ctxt.WordBitSize bp))
   !!ir (cnt := cnt .- AST.num1 oSz)
-  !!ir (CJmp (cnt == AST.num0 oSz, AST.name lblCont, AST.name lblLoop))
-  !!ir (LMark lblLv1)
+  !!ir (AST.cjmp (cnt == AST.num0 oSz) (AST.name lblCont) (AST.name lblLoop))
+  !!ir (AST.lmark lblLv1)
   !?ir (auxPush ctxt.WordBitSize ctxt frameTemp)
-  !!ir (LMark lblCont)
+  !!ir (AST.lmark lblCont)
   !!ir (bp := frameTemp)
   !!ir (sp := sp .- AST.zext ctxt.WordBitSize allocSize)
   !>ir insLen
@@ -1018,7 +1020,7 @@ let insinstr (ins: InsInfo) insLen ctxt =
 
 let interrupt ins insLen ctxt =
   match transOneOpr ins insLen ctxt with
-  | Num n -> Interrupt (BitVector.toInt32 n) |> sideEffects insLen
+  | { E = Num n } -> Interrupt (BitVector.toInt32 n) |> sideEffects insLen
   | _ -> raise InvalidOperandException
 
 let private getCondOfJcc (ins: IntelInternalInstruction) (ctxt: TranslationContext) =
@@ -1060,7 +1062,7 @@ let jcc ins insLen ctxt =
   let fallThrough = pc .+ numInsLen insLen ctxt
   let ir = IRBuilder (4)
   !<ir insLen
-  !!ir (InterCJmp (cond, jmpTarget, fallThrough))
+  !!ir (AST.intercjmp cond jmpTarget fallThrough)
   !>ir insLen
 
 let jmp ins insLen ctxt =
@@ -1068,7 +1070,7 @@ let jmp ins insLen ctxt =
   let struct (target, _) = transJumpTargetOpr ins pc insLen ctxt
   let ir = IRBuilder (4)
   !<ir insLen
-  !!ir (InterJmp (target, InterJmpInfo.Base))
+  !!ir (AST.interjmp target InterJmpKind.Base)
   !>ir insLen
 
 let private convertSrc = function
@@ -1078,7 +1080,7 @@ let private convertSrc = function
 let lea ins insLen ctxt =
   let struct (dst, src) = transTwoOprs ins insLen ctxt
   let oprSize = getOperationSize ins
-  let src = convertSrc src
+  let src = convertSrc src.E
   let addrSize = getEffAddrSz ins
   let ir = IRBuilder (4)
   !<ir insLen
@@ -1141,7 +1143,7 @@ let loop ins insLen ctxt =
   let fallThrough = pc .+ numInsLen insLen ctxt
   let jumpTarget = if addrSize = 16<rt> then pc .& numI32 0xFFFF 32<rt>
                    else pc .+ AST.sext addrSize dst
-  !!ir (InterCJmp (branchCond, jumpTarget, fallThrough))
+  !!ir (AST.intercjmp branchCond jumpTarget fallThrough)
   !>ir insLen
 
 let lzcnt ins insLen ctxt =
@@ -1156,14 +1158,14 @@ let lzcnt ins insLen ctxt =
   let temp = AST.tmpvar oprSize
   !!ir (temp := numI32 (RegType.toBitWidth oprSize - 1) oprSize)
   !!ir (dst := n)
-  !!ir (LMark lblLoopCond)
+  !!ir (AST.lmark lblLoopCond)
   let cond1 = (AST.ge temp n) .& ((AST.xtlo 1<rt> (src >> temp)) == AST.b0)
-  !!ir (CJmp (cond1, AST.name lblLoop, AST.name lblExit))
-  !!ir (LMark lblLoop)
+  !!ir (AST.cjmp cond1 (AST.name lblLoop) (AST.name lblExit))
+  !!ir (AST.lmark lblLoop)
   !!ir (temp := temp .- AST.num1 oprSize)
   !!ir (dst := dst .+ AST.num1 oprSize)
-  !!ir (Jmp (AST.name lblLoopCond))
-  !!ir (LMark lblExit)
+  !!ir (AST.jmp (AST.name lblLoopCond))
+  !!ir (AST.lmark lblExit)
   let oprSize = numI32 (RegType.toBitWidth oprSize) oprSize
   !!ir (!.ctxt R.CF := dst == oprSize)
   !!ir (!.ctxt R.ZF := dst == n)
@@ -1372,14 +1374,14 @@ let popcnt ins insLen ctxt =
   let count = AST.tmpvar oprSize
   !!ir (i := AST.num0 oprSize)
   !!ir (count := AST.num0 oprSize)
-  !!ir (LMark lblLoopCond)
-  !!ir (CJmp (AST.lt i max, AST.name lblLoop, AST.name lblExit))
-  !!ir (LMark lblLoop)
+  !!ir (AST.lmark lblLoopCond)
+  !!ir (AST.cjmp (AST.lt i max) (AST.name lblLoop) (AST.name lblExit))
+  !!ir (AST.lmark lblLoop)
   let cond = (AST.xtlo 1<rt> (src >> i)) == AST.b1
   !!ir (count := AST.ite cond (count .+ AST.num1 oprSize) count)
   !!ir (i := i .+ AST.num1 oprSize)
-  !!ir (Jmp (AST.name lblLoopCond))
-  !!ir (LMark lblExit)
+  !!ir (AST.jmp (AST.name lblLoopCond))
+  !!ir (AST.lmark lblExit)
   !!ir (dstAssign oprSize dst count)
   !!ir (!.ctxt R.OF := AST.b0)
   !!ir (!.ctxt R.SF := AST.b0)
@@ -1407,7 +1409,7 @@ let popf ins insLen ctxt =
   !>ir insLen
 
 let inline private padPushExpr oprSize opr =
-  match opr with
+  match opr.E with
   | Var (_, s, _, _) ->
     if isSegReg <| Register.ofRegID s then AST.zext oprSize opr else opr
   | Num (_) -> AST.sext oprSize opr
@@ -1531,10 +1533,10 @@ let rdpkru ins insLen ctxt =
   let eax = getRegOfSize ctxt ctxt.WordBitSize grpEAX
   let edx = getRegOfSize ctxt ctxt.WordBitSize grpEDX
   !<ir insLen
-  !!ir (CJmp (ecx == AST.num0 oprSize, AST.name lblSucc, AST.name lblErr))
-  !!ir (LMark lblErr)
-  !!ir (SideEffect (Exception "GP"))
-  !!ir (LMark lblSucc)
+  !!ir (AST.cjmp (ecx == AST.num0 oprSize) (AST.name lblSucc) (AST.name lblErr))
+  !!ir (AST.lmark lblErr)
+  !!ir (AST.sideEffect (Exception "GP"))
+  !!ir (AST.lmark lblSucc)
   !!ir (eax := AST.zext ctxt.WordBitSize (!.ctxt R.PKRU))
   !!ir (edx := AST.num0 ctxt.WordBitSize)
   !>ir insLen
@@ -1548,7 +1550,7 @@ let retWithImm ins insLen ctxt =
   !<ir insLen
   !?ir (auxPop oprSize ctxt t)
   !!ir (sp := sp .+ (AST.zext oprSize src))
-  !!ir (InterJmp (t, InterJmpInfo.IsRet))
+  !!ir (AST.interjmp t InterJmpKind.IsRet)
   !>ir insLen
 
 let ret ins insLen ctxt =
@@ -1557,7 +1559,7 @@ let ret ins insLen ctxt =
   let ir = IRBuilder (6)
   !<ir insLen
   !?ir (auxPop oprSize ctxt t)
-  !!ir (InterJmp (t, InterJmpInfo.IsRet))
+  !!ir (AST.interjmp t InterJmpKind.IsRet)
   !>ir insLen
 
 let rotate ins insLen ctxt lfn hfn cfFn ofFn =
@@ -1875,13 +1877,13 @@ let tzcnt ins insLen ctxt =
   !<ir insLen
   let t1 = AST.tmpvar oprSize
   !!ir (t1 := AST.num0 oprSize)
-  !!ir (LMark lblLoopCond)
+  !!ir (AST.lmark lblLoopCond)
   let cond = (AST.lt t1 max) .& (AST.xtlo 1<rt> (src >> t1) == AST.b0)
-  !!ir (CJmp (cond, AST.name lblLoop, AST.name lblExit))
-  !!ir (LMark lblLoop)
+  !!ir (AST.cjmp cond (AST.name lblLoop) (AST.name lblExit))
+  !!ir (AST.lmark lblLoop)
   !!ir (t1 := t1 .+ AST.num1 oprSize)
-  !!ir (Jmp (AST.name lblLoopCond))
-  !!ir (LMark lblExit)
+  !!ir (AST.jmp (AST.name lblLoopCond))
+  !!ir (AST.lmark lblExit)
   !!ir (dstAssign oprSize dst t1)
   !!ir (!.ctxt R.CF := dst == max)
   !!ir (!.ctxt R.ZF := dst == AST.num0 oprSize)
@@ -1916,10 +1918,10 @@ let wrpkru ins insLen ctxt =
   let edxIsZero = !.ctxt R.EDX == AST.num0 oprSize
   let cond = ecxIsZero .& edxIsZero
   !<ir insLen
-  !!ir (CJmp (cond, AST.name lblSucc, AST.name lblErr))
-  !!ir (LMark lblErr)
-  !!ir (SideEffect (Exception "GP"))
-  !!ir (LMark lblSucc)
+  !!ir (AST.cjmp cond (AST.name lblSucc) (AST.name lblErr))
+  !!ir (AST.lmark lblErr)
+  !!ir (AST.sideEffect (Exception "GP"))
+  !!ir (AST.lmark lblSucc)
   !!ir (!.ctxt R.PKRU := !.ctxt R.EAX)
   !>ir insLen
 

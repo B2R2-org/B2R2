@@ -32,8 +32,9 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.BinEssence
 
 module SSABlockHelper =
-  let private updateDefinedVar set = function
-    | LowUIR.Put (LowUIR.Var (_) as dst, _) ->
+  let private updateDefinedVar set (s: LowUIR.Stmt) =
+    match s.S with
+    | LowUIR.Put ({ E = LowUIR.Var (_) as dst }, _) ->
       Set.add (SSA.AST.translateDest dst) set
     | LowUIR.Store (_) ->
       Set.add ({ SSA.Kind = SSA.MemVar; SSA.Identifier = -1 }) set

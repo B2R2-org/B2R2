@@ -37,10 +37,10 @@ let inline getRegVar (ctxt: TranslationContext) name =
 let inline private (<!) (builder: IRBuilder) (s) = builder.Append (s)
 
 let startMark insInfo (builder: IRBuilder) =
-  builder <! (ISMark (insInfo.NumBytes))
+  builder <! (AST.ismark (insInfo.NumBytes))
 
 let endMark insInfo (builder: IRBuilder) =
-  builder <! (IEMark (insInfo.NumBytes)); builder
+  builder <! (AST.iemark (insInfo.NumBytes)); builder
 
 let inline numU32 n t = BitVector.ofUInt32 n t |> AST.num
 let inline numI32 n t = BitVector.ofInt32 n t |> AST.num
@@ -106,7 +106,7 @@ let transThreeOprs insInfo ctxt (o1, o2, o3) =
 let sideEffects insInfo name =
   let builder = IRBuilder (4)
   startMark insInfo builder
-  builder <! (SideEffect name)
+  builder <! (AST.sideEffect name)
   endMark insInfo builder
 
 let checkOverfolwOnAdd e1 e2 r =
@@ -128,13 +128,13 @@ let add insInfo ctxt =
   let cond = checkOverfolwOnAdd rs rt result
   startMark insInfo builder
   builder <! (result := rs .+ rt)
-  builder <! (CJmp (cond, AST.name lblL0, AST.name lblL1))
-  builder <! (LMark lblL0)
-  builder <! (SideEffect UndefinedInstr) (* FIXME: (SignalException(IntegerOverflow)) *)
-  builder <! (Jmp (AST.name lblEnd))
-  builder <! (LMark lblL1)
+  builder <! (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+  builder <! (AST.lmark lblL0)
+  builder <! (AST.sideEffect UndefinedInstr) (* FIXME: (SignalException(IntegerOverflow)) *)
+  builder <! (AST.jmp (AST.name lblEnd))
+  builder <! (AST.lmark lblL1)
   builder <! (rd := result)
-  builder <! (LMark lblEnd)
+  builder <! (AST.lmark lblEnd)
   endMark insInfo builder
 
 let add64 insInfo ctxt =
@@ -149,19 +149,19 @@ let add64 insInfo ctxt =
   let cond = notWordValue rs .| notWordValue rt
   let cond2 = checkOverfolwOnAdd rs rt result
   startMark insInfo builder
-  builder <! (CJmp (cond, AST.name lblL0, AST.name lblL1))
-  builder <! (LMark lblL0)
-  builder <! (SideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-  builder <! (Jmp (AST.name lblEnd))
-  builder <! (LMark lblL1)
+  builder <! (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+  builder <! (AST.lmark lblL0)
+  builder <! (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
+  builder <! (AST.jmp (AST.name lblEnd))
+  builder <! (AST.lmark lblL1)
   builder <! (result := AST.xtlo 32<rt> rs .+ AST.xtlo 32<rt> rt)
-  builder <! (CJmp (cond2, AST.name lblL2, AST.name lblL3))
-  builder <! (LMark lblL0)
-  builder <! (SideEffect UndefinedInstr) (* FIXME: (SignalException(IntegerOverflow)) *)
-  builder <! (Jmp (AST.name lblEnd))
-  builder <! (LMark lblL1)
+  builder <! (AST.cjmp cond2 (AST.name lblL2) (AST.name lblL3))
+  builder <! (AST.lmark lblL0)
+  builder <! (AST.sideEffect UndefinedInstr) (* FIXME: (SignalException(IntegerOverflow)) *)
+  builder <! (AST.jmp (AST.name lblEnd))
+  builder <! (AST.lmark lblL1)
   builder <! (rd := AST.sext 64<rt> result)
-  builder <! (LMark lblEnd)
+  builder <! (AST.lmark lblEnd)
   endMark insInfo builder
 
 let addiu insInfo ctxt =
@@ -182,14 +182,14 @@ let addiu64 insInfo ctxt =
   let result = AST.tmpvar 64<rt>
   let cond = notWordValue rs
   startMark insInfo builder
-  builder <! (CJmp (cond, AST.name lblL0, AST.name lblL1))
-  builder <! (LMark lblL0)
-  builder <! (SideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-  builder <! (Jmp (AST.name lblEnd))
-  builder <! (LMark lblL1)
+  builder <! (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+  builder <! (AST.lmark lblL0)
+  builder <! (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
+  builder <! (AST.jmp (AST.name lblEnd))
+  builder <! (AST.lmark lblL1)
   builder <! (result := rs .+ imm)
   builder <! (rt := AST.sext 64<rt> (AST.xtlo 32<rt> result))
-  builder <! (LMark lblEnd)
+  builder <! (AST.lmark lblEnd)
   endMark insInfo builder
 
 let addu insInfo ctxt =
@@ -208,14 +208,14 @@ let addu64 insInfo ctxt =
   let result = AST.tmpvar 64<rt>
   let cond = notWordValue rs .| notWordValue rt
   startMark insInfo builder
-  builder <! (CJmp (cond, AST.name lblL0, AST.name lblL1))
-  builder <! (LMark lblL0)
-  builder <! (SideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-  builder <! (Jmp (AST.name lblEnd))
-  builder <! (LMark lblL1)
+  builder <! (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+  builder <! (AST.lmark lblL0)
+  builder <! (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
+  builder <! (AST.jmp (AST.name lblEnd))
+  builder <! (AST.lmark lblL1)
   builder <! (result := rs .+ rt)
   builder <! (rd := AST.sext 64<rt> (AST.xtlo 32<rt> result))
-  builder <! (LMark lblEnd)
+  builder <! (AST.lmark lblEnd)
   endMark insInfo builder
 
 let logAnd insInfo ctxt =
@@ -244,7 +244,7 @@ let b insInfo ctxt =
   let builder = IRBuilder (4)
   let offset = getOneOpr insInfo |> transOneOpr insInfo ctxt
   startMark insInfo builder
-  builder <! (InterJmp (offset, InterJmpInfo.Base))
+  builder <! (AST.interjmp offset InterJmpKind.Base)
   endMark insInfo builder
 
 let bal insInfo ctxt =
@@ -253,7 +253,7 @@ let bal insInfo ctxt =
   let pc = getRegVar ctxt R.PC
   startMark insInfo builder
   builder <! (getRegVar ctxt R.R31 := pc .+ numI32 8 ctxt.WordBitSize)
-  builder <! (InterJmp (offset, InterJmpInfo.IsCall))
+  builder <! (AST.interjmp offset InterJmpKind.IsCall)
   endMark insInfo builder
 
 let beq insInfo ctxt =
@@ -263,7 +263,7 @@ let beq insInfo ctxt =
   let fallThrough =
     bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
   startMark insInfo builder
-  builder <! (InterCJmp (cond, offset, fallThrough))
+  builder <! (AST.intercjmp cond offset fallThrough)
   endMark insInfo builder
 
 let blez insInfo ctxt =
@@ -273,7 +273,7 @@ let blez insInfo ctxt =
   let fallThrough =
     bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
   startMark insInfo builder
-  builder <! (InterCJmp (cond, offset, fallThrough))
+  builder <! (AST.intercjmp cond offset fallThrough)
   endMark insInfo builder
 
 let bltz insInfo ctxt =
@@ -283,7 +283,7 @@ let bltz insInfo ctxt =
   let fallThrough =
     bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
   startMark insInfo builder
-  builder <! (InterCJmp (cond, offset, fallThrough))
+  builder <! (AST.intercjmp cond offset fallThrough)
   endMark insInfo builder
 
 let bgez insInfo ctxt =
@@ -293,7 +293,7 @@ let bgez insInfo ctxt =
   let fallThrough =
     bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
   startMark insInfo builder
-  builder <! (InterCJmp (cond, offset, fallThrough))
+  builder <! (AST.intercjmp cond offset fallThrough)
   endMark insInfo builder
 
 let bgtz insInfo ctxt =
@@ -303,7 +303,7 @@ let bgtz insInfo ctxt =
   let fallThrough =
     bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
   startMark insInfo builder
-  builder <! (InterCJmp (cond, offset, fallThrough))
+  builder <! (AST.intercjmp cond offset fallThrough)
   endMark insInfo builder
 
 let bne insInfo ctxt =
@@ -313,7 +313,7 @@ let bne insInfo ctxt =
   let fallThrough =
     bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
   startMark insInfo builder
-  builder <! (InterCJmp (cond, offset, fallThrough))
+  builder <! (AST.intercjmp cond offset fallThrough)
   endMark insInfo builder
 
 let clz insInfo (ctxt: TranslationContext) =
@@ -328,14 +328,16 @@ let clz insInfo (ctxt: TranslationContext) =
   let tmp = numI32 (32 - 1) wordSz
   startMark insInfo builder
   builder <! (t := tmp)
-  builder <! (LMark lblLoop)
-  builder <! (CJmp (rs >> t == AST.num1 wordSz, AST.name lblEnd, AST.name lblContinue))
-  builder <! (LMark lblContinue)
-  builder <! (CJmp (t == AST.num0 wordSz, AST.name lblEnd, AST.name lblUpdate))
-  builder <! (LMark lblUpdate)
+  builder <! (AST.lmark lblLoop)
+  builder <! (AST.cjmp (rs >> t == AST.num1 wordSz)
+                       (AST.name lblEnd) (AST.name lblContinue))
+  builder <! (AST.lmark lblContinue)
+  builder <! (AST.cjmp (t == AST.num0 wordSz)
+                       (AST.name lblEnd) (AST.name lblUpdate))
+  builder <! (AST.lmark lblUpdate)
   builder <! (t := t .- AST.num1 wordSz)
-  builder <! (Jmp (AST.name lblLoop))
-  builder <! (LMark lblEnd)
+  builder <! (AST.jmp (AST.name lblLoop))
+  builder <! (AST.lmark lblEnd)
   builder <! (rd := t)
   endMark insInfo builder
 
@@ -360,14 +362,16 @@ let dclz insInfo (ctxt: TranslationContext) =
   let tmp = numI32 (64 - 1) wordSz
   startMark insInfo builder
   builder <! (t := tmp)
-  builder <! (LMark lblLoop)
-  builder <! (CJmp (rs >> t == AST.num1 wordSz, AST.name lblEnd, AST.name lblContinue))
-  builder <! (LMark lblContinue)
-  builder <! (CJmp (t == AST.num0 wordSz, AST.name lblEnd, AST.name lblUpdate))
-  builder <! (LMark lblUpdate)
+  builder <! (AST.lmark lblLoop)
+  builder <! (AST.cjmp (rs >> t == AST.num1 wordSz)
+                       (AST.name lblEnd) (AST.name lblContinue))
+  builder <! (AST.lmark lblContinue)
+  builder <! (AST.cjmp (t == AST.num0 wordSz)
+                       (AST.name lblEnd) (AST.name lblUpdate))
+  builder <! (AST.lmark lblUpdate)
   builder <! (t := t .- AST.num1 wordSz)
-  builder <! (Jmp (AST.name lblLoop))
-  builder <! (LMark lblEnd)
+  builder <! (AST.jmp (AST.name lblLoop))
+  builder <! (AST.lmark lblEnd)
   builder <! (rd := t)
   endMark insInfo builder
 
@@ -517,16 +521,16 @@ let divu insInfo ctxt =
     let mask = numI64 0xFFFFFFFFL 64<rt>
     let rs = rs .& mask
     let rt = rt .& mask
-    builder <! (CJmp (cond, AST.name lblL0, AST.name lblL1))
-    builder <! (LMark lblL0)
-    builder <! (SideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-    builder <! (Jmp (AST.name lblEnd))
-    builder <! (LMark lblL1)
+    builder <! (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+    builder <! (AST.lmark lblL0)
+    builder <! (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
+    builder <! (AST.jmp (AST.name lblEnd))
+    builder <! (AST.lmark lblL1)
     builder <! (q := rs ./ rt)
     builder <! (r := rs .% rt)
     builder <! (lo := AST.sext 64<rt> (AST.xtlo 32<rt> q))
     builder <! (hi := AST.sext 64<rt> (AST.xtlo 32<rt> r))
-    builder <! (LMark lblEnd)
+    builder <! (AST.lmark lblEnd)
   else
     let rs = AST.zext 64<rt> rs
     let rt = AST.zext 64<rt> rt
@@ -665,16 +669,16 @@ let ins64 insInfo ctxt =
   let lblL1 = AST.symbol "L1"
   let lblEnd = AST.symbol "End"
   let cond = notWordValue rs .| notWordValue rt
-  builder <! (CJmp (cond, AST.name lblL0, AST.name lblL1))
-  builder <! (LMark lblL0)
-  builder <! (SideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-  builder <! (Jmp (AST.name lblEnd))
-  builder <! (LMark lblL1)
+  builder <! (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+  builder <! (AST.lmark lblL0)
+  builder <! (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
+  builder <! (AST.jmp (AST.name lblEnd))
+  builder <! (AST.lmark lblL1)
   let mask = numI64 (getMask size) ctxt.WordBitSize
   let rs', rt' = if pos = 0 then rs .& mask, rt .& (AST.not mask)
                  else (rs .& mask) << posExpr, rt .& (AST.not (mask << posExpr))
   builder <! (rt := rt' .| rs')
-  builder <! (LMark lblEnd)
+  builder <! (AST.lmark lblEnd)
   endMark insInfo builder
 
 let getJALROprs insInfo ctxt =
@@ -690,14 +694,14 @@ let jalr insInfo ctxt =
   let r = bvOfBaseAddr ctxt insInfo.Address .+ bvOfInstrLen ctxt insInfo
   startMark insInfo builder
   builder <! (rd := r)
-  builder <! (InterJmp (rs, InterJmpInfo.IsCall))
+  builder <! (AST.interjmp rs InterJmpKind.IsCall)
   endMark insInfo builder
 
 let jr insInfo ctxt =
   let builder = IRBuilder (4)
   let rs = getOneOpr insInfo |> transOneOpr insInfo ctxt
   startMark insInfo builder
-  builder <! (InterJmp (rs, InterJmpInfo.Base))
+  builder <! (AST.interjmp rs InterJmpKind.Base)
   endMark insInfo builder
 
 let load insInfo ctxt =
@@ -743,15 +747,15 @@ let ext64 insInfo ctxt =
   let lblL1 = AST.symbol "L1"
   let lblEnd = AST.symbol "End"
   let cond = notWordValue rs
-  builder <! (CJmp (cond, AST.name lblL0, AST.name lblL1))
-  builder <! (LMark lblL0)
-  builder <! (SideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-  builder <! (Jmp (AST.name lblEnd))
-  builder <! (LMark lblL1)
+  builder <! (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+  builder <! (AST.lmark lblL0)
+  builder <! (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
+  builder <! (AST.jmp (AST.name lblEnd))
+  builder <! (AST.lmark lblL1)
   if size = 32 then if rt = rs then () else  builder <! (rt := rs)
   else let rs = if pos = 0 then rs else rs >> numI32 pos ctxt.WordBitSize
        builder <! (rt := rs .& numI64 (getMask size) ctxt.WordBitSize)
-  builder <! (LMark lblEnd)
+  builder <! (AST.lmark lblEnd)
   endMark insInfo builder
 
 let lui insInfo ctxt =
@@ -778,15 +782,15 @@ let madd insInfo ctxt =
     let cond = notWordValue rs .| notWordValue rt
     let hilo = AST.concat (AST.xtlo 32<rt> hi) (AST.xtlo 32<rt> lo)
     let mask = numU32 0xFFFFu 64<rt>
-    builder <! (CJmp (cond, AST.name lblL0, AST.name lblL1))
-    builder <! (LMark lblL0)
-    builder <! (SideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-    builder <! (Jmp (AST.name lblEnd))
-    builder <! (LMark lblL1)
+    builder <! (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+    builder <! (AST.lmark lblL0)
+    builder <! (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
+    builder <! (AST.jmp (AST.name lblEnd))
+    builder <! (AST.lmark lblL1)
     builder <! (result := hilo .+ ((rs .& mask) .* (rt .& mask)))
     builder <! (hi := AST.sext 64<rt> (AST.xthi 32<rt> result))
     builder <! (lo := AST.sext 64<rt> (AST.xtlo 32<rt> result))
-    builder <! (LMark lblEnd)
+    builder <! (AST.lmark lblEnd)
   else
     builder <! (result := (AST.concat hi lo) .+ (AST.sext 64<rt> rs .* AST.sext 64<rt> rt))
     builder <! (hi := AST.xthi 32<rt> result)
@@ -835,19 +839,19 @@ let mul insInfo ctxt =
     let lblL1 = AST.symbol "L1"
     let lblEnd = AST.symbol "End"
     let cond = notWordValue rs .| notWordValue rt
-    builder <! (CJmp (cond, AST.name lblL0, AST.name lblL1))
-    builder <! (LMark lblL0)
-    builder <! (SideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-    builder <! (Jmp (AST.name lblEnd))
-    builder <! (LMark lblL1)
+    builder <! (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+    builder <! (AST.lmark lblL0)
+    builder <! (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
+    builder <! (AST.jmp (AST.name lblEnd))
+    builder <! (AST.lmark lblL1)
     builder <! (result := rs .* rt)
     builder <! (rd := AST.sext 64<rt> (AST.xtlo 32<rt> result))
-    builder <! (LMark lblEnd)
+    builder <! (AST.lmark lblEnd)
   else
     builder <! (result := (AST.sext 64<rt> rs .* AST.sext 64<rt> rt))
     builder <! (rd := AST.xtlo 32<rt> result)
-  builder <! (hi := Expr.Undefined (ctxt.WordBitSize, "UNPREDICTABLE"))
-  builder <! (lo := Expr.Undefined (ctxt.WordBitSize, "UNPREDICTABLE"))
+  builder <! (hi := AST.undef ctxt.WordBitSize "UNPREDICTABLE")
+  builder <! (lo := AST.undef ctxt.WordBitSize "UNPREDICTABLE")
   endMark insInfo builder
 
 let mult insInfo ctxt =
@@ -863,15 +867,15 @@ let mult insInfo ctxt =
     let lblEnd = AST.symbol "End"
     let cond = notWordValue rs .| notWordValue rt
     let mask = numI64 0xFFFFFFFFL 64<rt>
-    builder <! (CJmp (cond, AST.name lblL0, AST.name lblL1))
-    builder <! (LMark lblL0)
-    builder <! (SideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-    builder <! (Jmp (AST.name lblEnd))
-    builder <! (LMark lblL1)
+    builder <! (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+    builder <! (AST.lmark lblL0)
+    builder <! (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
+    builder <! (AST.jmp (AST.name lblEnd))
+    builder <! (AST.lmark lblL1)
     builder <! (result := (rs .& mask) .* (rt .& mask))
     builder <! (lo := AST.sext 64<rt> (AST.xtlo 32<rt> result))
     builder <! (hi := AST.sext 64<rt> (AST.xthi 32<rt> result))
-    builder <! (LMark lblEnd)
+    builder <! (AST.lmark lblEnd)
   else
     builder <! (result := (AST.sext 64<rt> rs .* AST.sext 64<rt> rt))
     builder <! (lo := AST.xtlo 32<rt> result)
@@ -891,15 +895,15 @@ let multu insInfo ctxt =
     let lblEnd = AST.symbol "End"
     let cond = notWordValue rs .| notWordValue rt
     let mask = numI64 0xFFFFFFFFL 64<rt>
-    builder <! (CJmp (cond, AST.name lblL0, AST.name lblL1))
-    builder <! (LMark lblL0)
-    builder <! (SideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-    builder <! (Jmp (AST.name lblEnd))
-    builder <! (LMark lblL1)
+    builder <! (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+    builder <! (AST.lmark lblL0)
+    builder <! (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
+    builder <! (AST.jmp (AST.name lblEnd))
+    builder <! (AST.lmark lblL1)
     builder <! (result := (rs .& mask) .* (rt .& mask))
     builder <! (lo := AST.sext 64<rt> (AST.xtlo 32<rt> result))
     builder <! (hi := AST.sext 64<rt> (AST.xthi 32<rt> result))
-    builder <! (LMark lblEnd)
+    builder <! (AST.lmark lblEnd)
   else
     builder <! (result := (AST.zext 64<rt> rs .* AST.zext 64<rt> rt))
     builder <! (lo := AST.xtlo 32<rt> result)
@@ -1058,13 +1062,13 @@ let seb insInfo ctxt =
     let lblL1 = AST.symbol "L1"
     let lblEnd = AST.symbol "End"
     let cond = notWordValue rt
-    builder <! (CJmp (cond, AST.name lblL0, AST.name lblL1))
-    builder <! (LMark lblL0)
-    builder <! (SideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-    builder <! (Jmp (AST.name lblEnd))
-    builder <! (LMark lblL1)
+    builder <! (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+    builder <! (AST.lmark lblL0)
+    builder <! (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
+    builder <! (AST.jmp (AST.name lblEnd))
+    builder <! (AST.lmark lblL1)
     builder <! (rd := AST.sext 64<rt> (AST.extract rt 8<rt> 0))
-    builder <! (LMark lblEnd)
+    builder <! (AST.lmark lblEnd)
   else
     builder <! (rd := AST.sext 32<rt> (AST.extract rt 8<rt> 0))
   endMark insInfo builder
@@ -1078,13 +1082,13 @@ let seh insInfo ctxt =
     let lblL1 = AST.symbol "L1"
     let lblEnd = AST.symbol "End"
     let cond = notWordValue rt
-    builder <! (CJmp (cond, AST.name lblL0, AST.name lblL1))
-    builder <! (LMark lblL0)
-    builder <! (SideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-    builder <! (Jmp (AST.name lblEnd))
-    builder <! (LMark lblL1)
+    builder <! (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+    builder <! (AST.lmark lblL0)
+    builder <! (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
+    builder <! (AST.jmp (AST.name lblEnd))
+    builder <! (AST.lmark lblL1)
     builder <! (rd := AST.sext 64<rt> (AST.extract rt 16<rt> 0))
-    builder <! (LMark lblEnd)
+    builder <! (AST.lmark lblEnd)
   else
     builder <! (rd := AST.sext 32<rt> (AST.extract rt 16<rt> 0))
   endMark insInfo builder
@@ -1162,14 +1166,14 @@ let sra insInfo ctxt =
     let lblEnd = AST.symbol "End"
     let cond = notWordValue rt
     let t1 = AST.tmpvar 32<rt>
-    builder <! (CJmp (cond, AST.name lblL0, AST.name lblL1))
-    builder <! (LMark lblL0)
-    builder <! (SideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-    builder <! (Jmp (AST.name lblEnd))
-    builder <! (LMark lblL1)
+    builder <! (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+    builder <! (AST.lmark lblL0)
+    builder <! (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
+    builder <! (AST.jmp (AST.name lblEnd))
+    builder <! (AST.lmark lblL1)
     builder <! (t1 := AST.xtlo 32<rt> rt)
     builder <! (rd := AST.sext 64<rt> (t1 ?>> sa))
-    builder <! (LMark lblEnd)
+    builder <! (AST.lmark lblEnd)
   else
     builder <! (rd := rt ?>> sa)
   endMark insInfo builder
@@ -1186,14 +1190,14 @@ let srl insInfo ctxt =
     let lblEnd = AST.symbol "End"
     let cond = notWordValue rt
     let t1 = AST.tmpvar 32<rt>
-    builder <! (CJmp (cond, AST.name lblL0, AST.name lblL1))
-    builder <! (LMark lblL0)
-    builder <! (SideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-    builder <! (Jmp (AST.name lblEnd))
-    builder <! (LMark lblL1)
+    builder <! (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+    builder <! (AST.lmark lblL0)
+    builder <! (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
+    builder <! (AST.jmp (AST.name lblEnd))
+    builder <! (AST.lmark lblL1)
     builder <! (t1 := AST.xtlo 32<rt> rt)
     builder <! (rd := AST.sext 64<rt> (t1 >> sa))
-    builder <! (LMark lblEnd)
+    builder <! (AST.lmark lblEnd)
   else
     builder <! (rd := rt >> sa)
   endMark insInfo builder
@@ -1209,14 +1213,14 @@ let srlv insInfo ctxt =
     let lblEnd = AST.symbol "End"
     let cond = notWordValue rt
     let t1 = AST.tmpvar 32<rt>
-    builder <! (CJmp (cond, AST.name lblL0, AST.name lblL1))
-    builder <! (LMark lblL0)
-    builder <! (SideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-    builder <! (Jmp (AST.name lblEnd))
-    builder <! (LMark lblL1)
+    builder <! (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+    builder <! (AST.lmark lblL0)
+    builder <! (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
+    builder <! (AST.jmp (AST.name lblEnd))
+    builder <! (AST.lmark lblL1)
     builder <! (t1 := AST.xtlo 32<rt> rt)
     builder <! (rd := AST.sext 64<rt> (t1 >> (AST.xtlo 32<rt> rs .& mask)))
-    builder <! (LMark lblEnd)
+    builder <! (AST.lmark lblEnd)
   else
     builder <! (rd := rt >> (rs .& mask))
   endMark insInfo builder
@@ -1236,13 +1240,13 @@ let subu64 insInfo ctxt =
   let rd, rs, rt = getThreeOprs insInfo |> transThreeOprs insInfo ctxt
   let cond = notWordValue rs .| notWordValue rt
   startMark insInfo builder
-  builder <! (CJmp (cond, AST.name lblL0, AST.name lblL1))
-  builder <! (LMark lblL0)
-  builder <! (SideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
-  builder <! (Jmp (AST.name lblEnd))
-  builder <! (LMark lblL1)
+  builder <! (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+  builder <! (AST.lmark lblL0)
+  builder <! (AST.sideEffect UndefinedInstr) (* FIXME: UNPREDICTABLE *)
+  builder <! (AST.jmp (AST.name lblEnd))
+  builder <! (AST.lmark lblL1)
   builder <! (rd := rs .- rt)
-  builder <! (LMark lblEnd)
+  builder <! (AST.lmark lblEnd)
   endMark insInfo builder
 
 let teq insInfo ctxt =
@@ -1251,10 +1255,10 @@ let teq insInfo ctxt =
   let lblEnd = AST.symbol "End"
   let rs, rt = getTwoOprs insInfo |> transTwoOprs insInfo ctxt
   startMark insInfo builder
-  builder <! (CJmp ((rs == rt), AST.name lblL0, AST.name lblEnd))
-  builder <! (LMark lblL0)
-  builder <! (SideEffect UndefinedInstr) (* FIXME: Trap *)
-  builder <! (LMark lblEnd)
+  builder <! (AST.cjmp (rs == rt) (AST.name lblL0) (AST.name lblEnd))
+  builder <! (AST.lmark lblL0)
+  builder <! (AST.sideEffect UndefinedInstr) (* FIXME: Trap *)
+  builder <! (AST.lmark lblEnd)
   endMark insInfo builder
 
 let logXor insInfo ctxt =

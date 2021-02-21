@@ -22,491 +22,568 @@
   SOFTWARE.
 *)
 
-namespace B2R2.BinIR.LowUIR
+/// LowUIR AST construction must be done through this module.
+module B2R2.BinIR.LowUIR.AST
 
 open B2R2
 open B2R2.BinIR
 
-[<RequireQualifiedAccess>]
-module private TypeCheck =
+/// Get the expression info from the given expression (Expr).
+[<CompiledName("GetExprInfo")>]
+let getExprInfo e = ASTHelper.getExprInfo e
 
-  let rec typeOf = function
-    | Num n -> n.Length
-    | Var (t, _, _, _)
-    | PCVar (t, _)
-    | TempVar (t, _) -> t
-    | UnOp (_, e, _) -> typeOf e
-    | BinOp (_, t, _, _, _) -> t
-    | RelOp (_) -> 1<rt>
-    | Load (_, t, _, _) -> t
-    | Ite (_, e1, _, _) -> typeOf e1
-    | Cast (_, t, _, _) -> t
-    | Extract (_, t, _, _) -> t
-    | Undefined (t, _) -> t
-    | FuncName (_) | Name (_) | Nil -> raise InvalidExprException
+/// Construct a number (Num).
+[<CompiledName("Num")>]
+let num bv = Num (bv) |> ASTHelper.buildExpr
 
-#if DEBUG
-  let bool e =
-    let t = typeOf e
-    if t <> 1<rt> then
-      raise <| TypeCheckException (Pp.expToString e + "must be boolean.")
-    else ()
-#endif
+/// Construct a variable (Var).
+[<CompiledName("Var")>]
+let var t id name rs = Var (t, id, name, rs) |> ASTHelper.buildExpr
 
-  let inline checkEquivalence t1 t2 =
-    if t1 = t2 then ()
-    else raise <| TypeCheckException "Inconsistent types."
+/// Construct a pc variable (PCVar).
+[<CompiledName("PCVar")>]
+let pcvar t name = PCVar (t, name) |> ASTHelper.buildExpr
 
-  let concat e1 e2 = typeOf e1 + typeOf e2
+let private tvarCnt = ref -1
 
-  let binop e1 e2 =
-    let t1 = typeOf e1
-    let t2 = typeOf e2
-    checkEquivalence t1 t2
-    t1
+/// Construct a temporary variable (TempVar).
+[<CompiledName("TmpVar")>]
+let tmpvar t =
+  let id = System.Threading.Interlocked.Increment (tvarCnt)
+  if id >= 0 then TempVar (t, id) |> ASTHelper.buildExpr
+  else Utils.impossible ()
 
-  let private castErr (newType: RegType) (oldType: RegType) =
-    let errMsg =
-      "Cannot cast from " + oldType.ToString () + " to " + newType.ToString ()
-    raise <| TypeCheckException errMsg
+/// Construct a temporary variable (TempVar) with the given ID.
+[<CompiledName("TmpVar")>]
+let tmpvarWithID t id = TempVar (t, id) |> ASTHelper.buildExpr
 
-  let private isValidFloatType = function
-    | 32<rt> | 64<rt> | 80<rt> -> true
-    | _ -> false
+let private lblCnt = ref -1
 
-  let canCast kind newType e =
-    let oldType = typeOf e
-    match kind with
-    | CastKind.SignExt
-    | CastKind.ZeroExt ->
-      if oldType < newType then true
-      else if oldType = newType then false
-      else castErr newType oldType
-    | CastKind.IntToFloat ->
-      if isValidFloatType newType then true else raise InvalidFloatTypeException
-    | CastKind.FloatCast ->
-      if isValidFloatType oldType && isValidFloatType newType then true
-      else raise InvalidFloatTypeException
-    | _ -> true
+/// Construct a symbol (for a label) from a string.
+[<CompiledName("Symbol")>]
+let symbol name =
+  let id = System.Threading.Interlocked.Increment (lblCnt)
+  if id >= 0 then Symbol (name, id)
+  else Utils.impossible ()
 
-  let extract (t: RegType) pos (t2: RegType) =
-    if (RegType.toBitWidth t + pos) <= RegType.toBitWidth t2 && pos >= 0 then ()
-    else raise <| TypeCheckException "Inconsistent types."
+/// Construct an unary operator (UnOp).
+[<CompiledName("UnOp")>]
+let unop rt e = ASTHelper.unop rt e
 
-[<RequireQualifiedAccess>]
-module private ValueOpt =
-  let inline unop n = function
-    | UnOpType.NEG -> BitVector.neg n |> Num
-    | UnOpType.NOT -> BitVector.bnot n |> Num
-    | UnOpType.FSQRT -> BitVector.fsqrt n |> Num
-    | UnOpType.FCOS -> BitVector.fcos n |> Num
-    | UnOpType.FSIN -> BitVector.fsin n |> Num
-    | UnOpType.FTAN -> BitVector.ftan n |> Num
-    | UnOpType.FATAN -> BitVector.fatan n |> Num
-    | _ -> Utils.impossible ()
+/// Construct a symbolic name (Name).
+[<CompiledName("Name")>]
+let name symb = Name symb |> ASTHelper.buildExpr
 
-  let inline binop n1 n2 = function
-    | BinOpType.ADD  -> BitVector.add n1 n2 |> Num
-    | BinOpType.SUB  -> BitVector.sub n1 n2 |> Num
-    | BinOpType.MUL  -> BitVector.mul n1 n2 |> Num
-    | BinOpType.DIV  -> BitVector.div n1 n2 |> Num
-    | BinOpType.SDIV -> BitVector.sdiv n1 n2 |> Num
-    | BinOpType.MOD  -> BitVector.modulo n1 n2 |> Num
-    | BinOpType.SMOD -> BitVector.smodulo n1 n2 |> Num
-    | BinOpType.SHL  -> BitVector.shl n1 n2 |> Num
-    | BinOpType.SAR  -> BitVector.sar n1 n2 |> Num
-    | BinOpType.SHR  -> BitVector.shr n1 n2 |> Num
-    | BinOpType.AND  -> BitVector.band n1 n2 |> Num
-    | BinOpType.OR   -> BitVector.bor n1 n2 |> Num
-    | BinOpType.XOR  -> BitVector.bxor n1 n2 |> Num
-    | BinOpType.CONCAT -> BitVector.concat n1 n2 |> Num
-    | BinOpType.FADD -> BitVector.fadd n1 n2 |> Num
-    | BinOpType.FSUB -> BitVector.fsub n1 n2 |> Num
-    | BinOpType.FMUL -> BitVector.fmul n1 n2 |> Num
-    | BinOpType.FDIV -> BitVector.fdiv n1 n2 |> Num
-    | BinOpType.FPOW -> BitVector.fpow n1 n2 |> Num
-    | BinOpType.FLOG -> BitVector.flog n1 n2 |> Num
-    | _ -> Utils.impossible ()
-
-  let inline relop n1 n2 = function
-    | RelOpType.EQ  -> BitVector.eq n1 n2 |> Num
-    | RelOpType.NEQ -> BitVector.neq n1 n2 |> Num
-    | RelOpType.GT  -> BitVector.gt n1 n2 |> Num
-    | RelOpType.GE  -> BitVector.ge n1 n2 |> Num
-    | RelOpType.SGT -> BitVector.sgt n1 n2 |> Num
-    | RelOpType.SGE -> BitVector.sge n1 n2 |> Num
-    | RelOpType.LT  -> BitVector.lt n1 n2 |> Num
-    | RelOpType.LE  -> BitVector.le n1 n2 |> Num
-    | RelOpType.SLT -> BitVector.slt n1 n2 |> Num
-    | RelOpType.SLE -> BitVector.sle n1 n2 |> Num
-    | RelOpType.FLT -> BitVector.flt n1 n2 |> Num
-    | RelOpType.FLE -> BitVector.fle n1 n2 |> Num
-    | RelOpType.FGT -> BitVector.fgt n1 n2 |> Num
-    | RelOpType.FGE -> BitVector.fge n1 n2 |> Num
-    | _ -> Utils.impossible ()
-
-  let inline cast t n = function
-    | CastKind.SignExt -> BitVector.sext n t |> Num
-    | CastKind.ZeroExt -> BitVector.zext n t |> Num
-    | CastKind.FloatCast -> BitVector.fcast n t |> Num
-    | CastKind.IntToFloat -> BitVector.itof n t |> Num
-    | CastKind.FtoICeil -> BitVector.ftoiceil n t |> Num
-    | CastKind.FtoIFloor -> BitVector.ftoifloor n t |> Num
-    | CastKind.FtoIRound -> BitVector.ftoiround n t |> Num
-    | CastKind.FtoITrunc -> BitVector.ftoitrunc n t |> Num
-    | _ -> Utils.impossible ()
-
-  let inline extract e t pos = BitVector.extract e t pos |> Num
-
-[<RequireQualifiedAccess>]
-module AST =
-  let private emptyInfo =
-    { HasLoad = false; VarsUsed = RegisterSet.empty; TempVarsUsed = Set.empty }
-
-  let getExprInfo = function
-    | Num _ | PCVar _ | Nil | Name _ | FuncName _ | Undefined _ -> emptyInfo
-    | Var (_, _, _, rs) ->
-      { HasLoad = false; VarsUsed = rs; TempVarsUsed = Set.empty }
-    | TempVar (_, name) ->
-      { HasLoad = false
-        VarsUsed = RegisterSet.empty
-        TempVarsUsed = Set.singleton name }
-    | UnOp (_, _, ei)
-    | BinOp (_, _, _, _, ei)
-    | RelOp (_, _, _, ei)
-    | Load (_, _, _, ei)
-    | Ite (_, _, _, ei)
-    | Cast (_, _, _, ei)
-    | Extract (_, _, _, ei) -> ei
-
-  let mergeTwoInfo e1 e2 =
-    let ei1 = getExprInfo e1
-    let ei2 = getExprInfo e2
-    { HasLoad = ei1.HasLoad || ei2.HasLoad
-      VarsUsed = RegisterSet.union ei1.VarsUsed ei2.VarsUsed
-      TempVarsUsed = Set.union ei1.TempVarsUsed ei2.TempVarsUsed }
-
-  let mergeThreeInfo e1 e2 e3 =
-    let ei1 = getExprInfo e1
-    let ei2 = getExprInfo e2
-    let ei3 = getExprInfo e3
-    let vInfo = RegisterSet.union ei1.VarsUsed ei2.VarsUsed
-                |> RegisterSet.union ei3.VarsUsed
-    let tvInfo = Set.union ei1.TempVarsUsed ei2.TempVarsUsed
-                 |> Set.union ei3.TempVarsUsed
-    { HasLoad = ei1.HasLoad || ei2.HasLoad || ei3.HasLoad
-      VarsUsed = vInfo; TempVarsUsed = tvInfo }
-
-  let num (num: BitVector) = Num (num)
-
-  let var (t: RegType) (id: RegisterID) (name: string) (rs: RegisterSet) =
-    Var (t, id, name, rs)
-
-  let pcvar (t: RegType) (name: string) = PCVar (t, name)
-
-  let private varCnt = ref -1
-
-  let tmpvar (t: RegType) =
-    let i = System.Threading.Interlocked.Increment (varCnt)
-    if i >= 0 then TempVar (t, i)
-    else Utils.impossible ()
-
-  let tmpvarWithID t id = TempVar (t, id)
-
-  let private lblCnt = ref -1
-
-  let symbol n =
-    let i = System.Threading.Interlocked.Increment (lblCnt)
-    if i >= 0 then Symbol (n, i)
-    else Utils.impossible ()
-
-  let unop (t: UnOpType) e =
-    match e with
-    | Num n -> ValueOpt.unop n t
-    | _ -> UnOp (t, e, getExprInfo e)
-
-  let name symb = Name symb
-
-  let inline (===) e1 e2 = LanguagePrimitives.PhysicalEquality e1 e2
-
-  let binop op e1 e2 =
-    let t =
-      match op with
-      | BinOpType.CONCAT -> TypeCheck.concat e1 e2
-      | _ ->
-#if DEBUG
-        TypeCheck.binop e1 e2
-#else
-        TypeCheck.typeOf e1
-#endif
-    match op, e1, e2 with
-    | _, Num n1, Num n2 -> ValueOpt.binop n1 n2 op
-    | BinOpType.XOR, _, _ when e1 === e2 -> BitVector.zero t |> Num
-    (* TODO: add more cases for optimization *)
-    | _ -> BinOp (op, t, e1, e2, mergeTwoInfo e1 e2)
-
-  let cons a b =
-    match b with
-    | Nil ->
-      BinOp (BinOpType.CONS, TypeCheck.typeOf a, a, b, getExprInfo a)
+/// Construct a binary operator (BinOp).
+[<CompiledName("BinOp")>]
+let binop op e1 e2 =
+  let t =
+    match op with
+    | BinOpType.CONCAT -> TypeCheck.concat e1 e2
     | _ ->
-      let t = TypeCheck.binop a b
-      BinOp (BinOpType.CONS, t, a, b, mergeTwoInfo a b)
-
-  let app name args retType =
-    let funName = FuncName (name)
-    List.reduceBack cons (args @ [ Nil ])
-    |> fun cons ->
-      BinOp (BinOpType.APP, retType, funName, cons, getExprInfo cons)
-
-  let relop (op: RelOpType) e1 e2 =
 #if DEBUG
-    TypeCheck.binop e1 e2 |> ignore
-#endif
-    match e1, e2 with
-    | Num n1, Num n2 -> ValueOpt.relop n1 n2 op
-    | _ -> RelOp (op, e1, e2, mergeTwoInfo e1 e2)
-
-
-  let load (e: Endian) (t: RegType) addr =
-#if DEBUG
-    match addr with
-    | Name _ -> raise InvalidExprException
-    | expr ->
-      Load (e, t, expr, { getExprInfo expr with HasLoad = true })
+      TypeCheck.binop e1 e2
 #else
-    Load (e, t, addr, { getExprInfo addr with HasLoad = true })
+      TypeCheck.typeOf e1
 #endif
+  ASTHelper.binop op t e1 e2
 
-  let ite cond e1 e2 =
+/// Consing two expr.
+[<CompiledName("Cons")>]
+let cons a b = ASTHelper.cons a b
+
+/// Construct a function application.
+[<CompiledName("App")>]
+let app name args retType = ASTHelper.app name args retType
+
+/// Construct a relative operator (RelOp).
+[<CompiledName("RelOp")>]
+let relop op e1 e2 = ASTHelper.relop op e1 e2
+
+/// Construct a load expression (Load).
+[<CompiledName("Load")>]
+let load endian rt addr = ASTHelper.load endian rt addr
+
+/// Construct a load expression in little-endian.
+[<CompiledName("LoadLE")>]
+let loadLE t expr = ASTHelper.load Endian.Little t expr
+
+/// Construct a load expression in big-endian.
+[<CompiledName("LoadBE")>]
+let loadBE t expr = ASTHelper.load Endian.Big t expr
+
+/// Construct an ITE (if-then-else) expression (Ite).
+[<CompiledName("Ite")>]
+let ite cond e1 e2 = ASTHelper.ite cond e1 e2
+
+/// Construct a cast expression (Cast).
+[<CompiledName("Cast")>]
+let cast kind rt e = ASTHelper.cast kind rt e
+
+/// Construct a extract expression (Extract).
+[<CompiledName("Extract")>]
+let extract e rt pos = ASTHelper.extract e rt pos
+
+/// Undefined expression.
+[<CompiledName("Undef")>]
+let undef rt s = Undefined (rt, s) |> ASTHelper.buildExpr
+
+/// Construct a (Num 0) of size t.
+[<CompiledName("Num0")>]
+let num0 rt = num (BitVector.zero rt)
+
+/// Construct a (Num 1) of size t.
+[<CompiledName("Num1")>]
+let num1 rt = num (BitVector.one rt)
+
+/// Num expression for a one-bit number zero.
+[<CompiledName("B0")>]
+let b0 = num (BitVector.zero 1<rt>)
+
+/// Num expression for a one-bit number one.
+[<CompiledName("B1")>]
+let b1 = num (BitVector.one 1<rt>)
+
+/// Nil.
+[<CompiledName("Nil")>]
+let nil = Nil |> ASTHelper.buildExpr
+
+/// Concatenation.
+[<CompiledName("Concat")>]
+let concat e1 e2 = ASTHelper.concat e1 e2
+
+/// Concatenate an array of expressions.
+[<CompiledName("Concat")>]
+let concatArr (arr: Expr[]) = ASTHelper.concatArr arr
+
+/// Unwrap (casted) expression.
+[<CompiledName("Unwrap")>]
+let unwrap e = ASTHelper.unwrap e
+
+/// Zero-extend an expression.
+[<CompiledName("ZExt")>]
+let zext addrSize expr = ASTHelper.cast CastKind.ZeroExt addrSize expr
+
+/// Sign-extend an expression.
+[<CompiledName("SExt")>]
+let sext addrSize expr = ASTHelper.cast CastKind.SignExt addrSize expr
+
+/// Take the low half bits of an expression.
+[<CompiledName("XtLo")>]
+let xtlo addrSize expr = ASTHelper.extract expr addrSize 0
+
+/// Take the high half bits of an expression.
+[<CompiledName("XtHi")>]
+let xthi addrSize expr =
+  ASTHelper.extract expr addrSize (int (TypeCheck.typeOf expr - addrSize))
+
+/// Add two expressions.
+[<CompiledName("Add")>]
+let add e1 e2 =
+  let t =
 #if DEBUG
-    TypeCheck.bool cond
-    TypeCheck.checkEquivalence (TypeCheck.typeOf e1) (TypeCheck.typeOf e2)
+    TypeCheck.binop e1 e2
+#else
+    TypeCheck.typeOf e1
 #endif
-    match cond with
-    | Num (n) -> if BitVector.isOne n then e1 else e2 (* Assume valid cond *)
-    | _ -> Ite (cond, e1, e2, mergeThreeInfo cond e1 e2)
+  ASTHelper.binop BinOpType.ADD t e1 e2
 
-  let cast kind (t: RegType) (e: Expr) =
-    match e with
-    | Num n -> ValueOpt.cast t n kind
-    | _ ->
-      if TypeCheck.canCast kind t e then Cast (kind, t, e, getExprInfo e)
-      else e (* Remove unnecessary casting . *)
-
-  let extract (expr: Expr) (t: RegType) (pos: StartPos) =
-    TypeCheck.extract t pos (TypeCheck.typeOf expr)
-    match expr with
-    | Num n -> ValueOpt.extract n t pos
-    | Extract (e, _, p, ei) -> Extract (e, t, p + pos, ei)
-    | _ -> Extract (expr, t, pos, getExprInfo expr)
-
-
-  let undef (t: RegType) (s: string) =
-    Undefined (t, s)
-
-  let num0 t = num <| BitVector.zero t
-
-  let num1 t = num <| BitVector.one t
-
-  let b0 = num0 1<rt>
-  let b1 = num1 1<rt>
-
-  let nil = Nil
-
-  let concat e1 e2 = binop BinOpType.CONCAT e1 e2
-
-  let concatArr (arr: Expr []) =
-    let rec concatLoop sPos ePos =
-      let diff = ePos - sPos
-      if diff > 0 then concat (concatLoop (sPos + diff / 2 + 1) ePos)
-                              (concatLoop sPos (sPos + diff / 2))
-      elif diff = 0 then arr.[sPos]
-      else Utils.impossible ()
-    concatLoop 0 (Array.length arr - 1)
-
-  let assignForExtractDst e1 e2 =
-    match e1 with
-    | Extract ((Var (t, _, _, _) as e1), eTyp, 0, _)
-    | Extract ((TempVar (t, _) as e1), eTyp, 0, _)->
-      let nMask = RegType.getMask t - RegType.getMask eTyp
-      let mask = num <| BitVector.ofBInt nMask t
-      let src = cast CastKind.ZeroExt t e2
-      Put (e1, binop BinOpType.OR (binop BinOpType.AND e1 mask) src)
-    | Extract ((Var (t, _, _, _) as e1), eTyp, pos, _)
-    | Extract ((TempVar (t, _) as e1), eTyp, pos, _) ->
-      let nMask = RegType.getMask t - (RegType.getMask eTyp <<< pos)
-      let mask = num <| BitVector.ofBInt nMask t
-      let src = cast CastKind.ZeroExt t e2
-      let shift = (num <| BitVector.ofInt32 pos t)
-      let src = binop BinOpType.SHL src shift
-      Put (e1, binop BinOpType.OR (binop BinOpType.AND e1 mask) src)
-    | e -> printfn "%A" e; raise InvalidAssignmentException
-
-  let assign e1 e2 =
+/// Subtract two expressions.
+[<CompiledName("Sub")>]
+let sub e1 e2 =
+  let t =
 #if DEBUG
-    TypeCheck.checkEquivalence (TypeCheck.typeOf e1) (TypeCheck.typeOf e2)
+    TypeCheck.binop e1 e2
+#else
+    TypeCheck.typeOf e1
 #endif
-    match e1 with
-    | Load (_, _, e, _) -> Store (Endian.Little, e, e2)
-    | Var _ | PCVar _ | TempVar _ -> Put (e1, e2)
-    | Extract (_) as e1 -> assignForExtractDst e1 e2
-    | _ -> raise InvalidAssignmentException
+  ASTHelper.binop BinOpType.SUB t e1 e2
 
-  let add e1 e2 = binop BinOpType.ADD e1 e2
+/// Multiply two expressions.
+[<CompiledName("Mul")>]
+let mul e1 e2 =
+  let t =
+#if DEBUG
+    TypeCheck.binop e1 e2
+#else
+    TypeCheck.typeOf e1
+#endif
+  ASTHelper.binop BinOpType.MUL t e1 e2
 
-  let sub e1 e2 = binop BinOpType.SUB e1 e2
+/// Unsigned division.
+[<CompiledName("Div")>]
+let div e1 e2 =
+  let t =
+#if DEBUG
+    TypeCheck.binop e1 e2
+#else
+    TypeCheck.typeOf e1
+#endif
+  ASTHelper.binop BinOpType.DIV t e1 e2
 
-  let mul e1 e2 = binop BinOpType.MUL e1 e2
+/// Signed division.
+[<CompiledName("SDiv")>]
+let sdiv e1 e2 =
+  let t =
+#if DEBUG
+    TypeCheck.binop e1 e2
+#else
+    TypeCheck.typeOf e1
+#endif
+  ASTHelper.binop BinOpType.SDIV t e1 e2
 
-  let div e1 e2 = binop BinOpType.DIV e1 e2
+/// Unsigned modulus.
+[<CompiledName("Mod")>]
+let ``mod`` e1 e2 =
+  let t =
+#if DEBUG
+    TypeCheck.binop e1 e2
+#else
+    TypeCheck.typeOf e1
+#endif
+  ASTHelper.binop BinOpType.MOD t e1 e2
 
-  let sdiv e1 e2 = binop BinOpType.SDIV e1 e2
+/// Signed modulus.
+[<CompiledName("SMod")>]
+let smod e1 e2 =
+  let t =
+#if DEBUG
+    TypeCheck.binop e1 e2
+#else
+    TypeCheck.typeOf e1
+#endif
+  ASTHelper.binop BinOpType.SMOD t e1 e2
 
-  let ``mod`` e1 e2 = binop BinOpType.MOD e1 e2
+/// Equal.
+[<CompiledName("Eq")>]
+let eq e1 e2 = ASTHelper.relop RelOpType.EQ e1 e2
 
-  let smod e1 e2 = binop BinOpType.SMOD e1 e2
+/// Not equal.
+[<CompiledName("Neq")>]
+let neq e1 e2 = ASTHelper.relop RelOpType.NEQ e1 e2
 
-  let eq e1 e2 = relop RelOpType.EQ e1 e2
+/// Unsigned greater than.
+[<CompiledName("Gt")>]
+let gt e1 e2 = ASTHelper.relop RelOpType.GT e1 e2
 
-  let neq e1 e2 = relop RelOpType.NEQ e1 e2
+/// Unsigned greater than or equal.
+[<CompiledName("Ge")>]
+let ge e1 e2 = ASTHelper.relop RelOpType.GE e1 e2
 
-  let gt e1 e2 = relop RelOpType.GT e1 e2
+/// Signed greater than.
+[<CompiledName("SGt")>]
+let sgt e1 e2 = ASTHelper.relop RelOpType.SGT e1 e2
 
-  let ge e1 e2 = relop RelOpType.GE e1 e2
+/// Signed greater than or equal.
+[<CompiledName("SGe")>]
+let sge e1 e2 = ASTHelper.relop RelOpType.SGE e1 e2
 
-  let sgt e1 e2 = relop RelOpType.SGT e1 e2
+/// Unsigned less than.
+[<CompiledName("Lt")>]
+let lt e1 e2 = ASTHelper.relop RelOpType.LT e1 e2
 
-  let sge e1 e2 = relop RelOpType.SGE e1 e2
+/// Unsigned less than or equal.
+[<CompiledName("Le")>]
+let le e1 e2 = ASTHelper.relop RelOpType.LE e1 e2
 
-  let lt e1 e2 = relop RelOpType.LT e1 e2
+/// Signed less than.
+[<CompiledName("SLt")>]
+let slt e1 e2 = ASTHelper.relop RelOpType.SLT e1 e2
 
-  let le e1 e2 = relop RelOpType.LE e1 e2
+/// Signed less than or equal.
+[<CompiledName("SLe")>]
+let sle e1 e2 = ASTHelper.relop RelOpType.SLE e1 e2
 
-  let slt e1 e2 = relop RelOpType.SLT e1 e2
+/// Bitwise AND.
+[<CompiledName("And")>]
+let ``and`` e1 e2 =
+  let t =
+#if DEBUG
+    TypeCheck.binop e1 e2
+#else
+    TypeCheck.typeOf e1
+#endif
+  ASTHelper.binop BinOpType.AND t e1 e2
 
-  let sle e1 e2 = relop RelOpType.SLE e1 e2
+/// Bitwise OR.
+[<CompiledName("Or")>]
+let ``or`` e1 e2 =
+  let t =
+#if DEBUG
+    TypeCheck.binop e1 e2
+#else
+    TypeCheck.typeOf e1
+#endif
+  ASTHelper.binop BinOpType.OR t e1 e2
 
-  let ``and`` e1 e2 = binop BinOpType.AND e1 e2
+/// Bitwise XOR.
+[<CompiledName("Xor")>]
+let xor e1 e2 =
+  let t =
+#if DEBUG
+    TypeCheck.binop e1 e2
+#else
+    TypeCheck.typeOf e1
+#endif
+  ASTHelper.binop BinOpType.XOR t e1 e2
 
-  let ``or`` e1 e2 = binop BinOpType.OR e1 e2
+/// Shift arithmetic right.
+[<CompiledName("Sar")>]
+let sar e1 e2 =
+  let t =
+#if DEBUG
+    TypeCheck.binop e1 e2
+#else
+    TypeCheck.typeOf e1
+#endif
+  ASTHelper.binop BinOpType.SAR t e1 e2
 
-  let xor e1 e2 = binop BinOpType.XOR e1 e2
+/// Shift logical right.
+[<CompiledName("Shr")>]
+let shr e1 e2 =
+  let t =
+#if DEBUG
+    TypeCheck.binop e1 e2
+#else
+    TypeCheck.typeOf e1
+#endif
+  ASTHelper.binop BinOpType.SHR t e1 e2
 
-  let sar e1 e2 = binop BinOpType.SAR e1 e2
+/// Shift logical left.
+[<CompiledName("Shl")>]
+let shl e1 e2 =
+  let t =
+#if DEBUG
+    TypeCheck.binop e1 e2
+#else
+    TypeCheck.typeOf e1
+#endif
+  ASTHelper.binop BinOpType.SHL t e1 e2
 
-  let shr e1 e2 = binop BinOpType.SHR e1 e2
+/// Negation (Two's complement).
+[<CompiledName("Neg")>]
+let neg e = ASTHelper.unop UnOpType.NEG e
 
-  let shl e1 e2 = binop BinOpType.SHL e1 e2
+/// Logical not.
+[<CompiledName("Not")>]
+let not e = ASTHelper.unop UnOpType.NOT e
 
-  let neg e = unop UnOpType.NEG e
+/// Floating point add two expressions.
+[<CompiledName("FAdd")>]
+let fadd e1 e2 =
+  let t =
+#if DEBUG
+    TypeCheck.binop e1 e2
+#else
+    TypeCheck.typeOf e1
+#endif
+  ASTHelper.binop BinOpType.FADD t e1 e2
 
-  let not e = unop UnOpType.NOT e
+/// Floating point subtract two expressions.
+[<CompiledName("FSub")>]
+let fsub e1 e2 =
+  let t =
+#if DEBUG
+    TypeCheck.binop e1 e2
+#else
+    TypeCheck.typeOf e1
+#endif
+  ASTHelper.binop BinOpType.FSUB t e1 e2
 
-  let fadd e1 e2 = binop BinOpType.FADD e1 e2
+/// Floating point multiplication.
+[<CompiledName("FMul")>]
+let fmul e1 e2 =
+  let t =
+#if DEBUG
+    TypeCheck.binop e1 e2
+#else
+    TypeCheck.typeOf e1
+#endif
+  ASTHelper.binop BinOpType.FMUL t e1 e2
 
-  let fsub e1 e2 = binop BinOpType.FSUB e1 e2
+/// Floating point division.
+[<CompiledName("FDiv")>]
+let fdiv e1 e2 =
+  let t =
+#if DEBUG
+    TypeCheck.binop e1 e2
+#else
+    TypeCheck.typeOf e1
+#endif
+  ASTHelper.binop BinOpType.FDIV t e1 e2
 
-  let fmul e1 e2 = binop BinOpType.FMUL e1 e2
+/// Floating point greater than.
+[<CompiledName("FGt")>]
+let fgt e1 e2 = ASTHelper.relop RelOpType.FGT e1 e2
 
-  let fdiv e1 e2 = binop BinOpType.FDIV e1 e2
+/// Floating point greater than or equal.
+[<CompiledName("FGe")>]
+let fge e1 e2 = ASTHelper.relop RelOpType.FGE e1 e2
 
-  let fpow e1 e2 = binop BinOpType.FPOW e1 e2
+/// Floating point less than.
+[<CompiledName("FLt")>]
+let flt e1 e2 = ASTHelper.relop RelOpType.FLT e1 e2
 
-  let flog e1 e2 = binop BinOpType.FLOG e1 e2
+/// Floating point less than or equal.
+[<CompiledName("FLe")>]
+let fle e1 e2 = ASTHelper.relop RelOpType.FLE e1 e2
 
-  let fgt e1 e2 = relop RelOpType.FGT e1 e2
+/// Floating point power.
+[<CompiledName("FPow")>]
+let fpow e1 e2 =
+  let t =
+#if DEBUG
+    TypeCheck.binop e1 e2
+#else
+    TypeCheck.typeOf e1
+#endif
+  ASTHelper.binop BinOpType.FPOW t e1 e2
 
-  let fge e1 e2 = relop RelOpType.FGE e1 e2
+/// Floating point logarithm.
+[<CompiledName("FLog")>]
+let flog e1 e2 =
+  let t =
+#if DEBUG
+    TypeCheck.binop e1 e2
+#else
+    TypeCheck.typeOf e1
+#endif
+  ASTHelper.binop BinOpType.FLOG t e1 e2
 
-  let flt e1 e2 = relop RelOpType.FLT e1 e2
+/// Floating point square root.
+[<CompiledName("FSqrt")>]
+let fsqrt e = ASTHelper.unop UnOpType.FSQRT e
 
-  let fle e1 e2 = relop RelOpType.FLE e1 e2
+/// Floating point sine.
+[<CompiledName("FSin")>]
+let fsin e = ASTHelper.unop UnOpType.FSIN e
 
-  let fsqrt e = unop UnOpType.FSQRT e
+/// Floating point cosine.
+[<CompiledName("FCos")>]
+let fcos e = ASTHelper.unop UnOpType.FCOS e
 
-  let fsin e = unop UnOpType.FSIN e
+/// Floating point tangent.
+[<CompiledName("FTan")>]
+let ftan e = ASTHelper.unop UnOpType.FTAN e
 
-  let fcos e = unop UnOpType.FCOS e
+/// Floating point arc tangent.
+[<CompiledName("FATan")>]
+let fatan e = ASTHelper.unop UnOpType.FATAN e
 
-  let ftan e = unop UnOpType.FTAN e
+/// An assignment statement.
+[<CompiledName("Assign")>]
+let assign dst src = ASTHelper.assign dst src
 
-  let fatan e = unop UnOpType.FATAN e
+/// An ISMark statement.
+[<CompiledName("ISMark")>]
+let ismark nBytes = ISMark nBytes |> ASTHelper.buildStmt
 
-  let rec unwrap = function
-    | Cast (_, _, e, _)
-    | Extract (e, _, _, _) -> unwrap e
-    | e -> e
+/// An IEMark statement.
+[<CompiledName("IEMark")>]
+let iemark nBytes = IEMark nBytes |> ASTHelper.buildStmt
 
-  let zext addrSize expr = cast CastKind.ZeroExt addrSize expr
+/// An LMark statement.
+[<CompiledName("LMark")>]
+let lmark s = LMark s |> ASTHelper.buildStmt
 
-  let sext addrSize expr = cast CastKind.SignExt addrSize expr
+/// A Put statement.
+[<CompiledName("Put")>]
+let put dst src = Put (dst, src) |> ASTHelper.buildStmt
 
-  let xtlo addrSize expr = extract expr addrSize 0
+/// A Store statement.
+[<CompiledName("Store")>]
+let store endian addr v = Store (endian, addr, v) |> ASTHelper.buildStmt
 
-  let xthi addrSize expr =
-    extract expr addrSize (int (TypeCheck.typeOf expr - addrSize))
+/// A Jmp statement.
+[<CompiledName("Jmp")>]
+let jmp target = Jmp (target) |> ASTHelper.buildStmt
 
-  let loadLE t expr = load Endian.Little t expr
+/// A CJmp statement.
+[<CompiledName("CJmp")>]
+let cjmp cond dst1 dst2 = CJmp (cond, dst1, dst2) |> ASTHelper.buildStmt
 
-  let loadBE t expr = load Endian.Big t expr
+/// An InterJmp statement.
+[<CompiledName("InterJmp")>]
+let interjmp dst kind = InterJmp (dst, kind) |> ASTHelper.buildStmt
 
-  let typeOf e = TypeCheck.typeOf e
+/// A InterCJmp statement.
+[<CompiledName("InterCJmp")>]
+let intercjmp cond dst1 dst2 =
+  InterCJmp (cond, dst1, dst2) |> ASTHelper.buildStmt
 
-  let rec private typeCheckExpr = function
-    | UnOp (_, e, _) -> typeCheckExpr e
-    | BinOp (BinOpType.CONCAT, t, e1, e2, _) ->
-      typeCheckExpr e1 && typeCheckExpr e2 && TypeCheck.concat e1 e2 = t
-    | BinOp (_, t, e1, e2, _) ->
-      typeCheckExpr e1 && typeCheckExpr e2 && TypeCheck.binop e1 e2 = t
-    | RelOp (_, e1, e2, _) ->
-      typeCheckExpr e1 && typeCheckExpr e2 && typeOf e1 = typeOf e2
-    | Load (_, _, addr, _) -> typeCheckExpr addr
-    | Ite (cond, e1, e2, _) ->
-      typeOf cond = 1<rt>
-      && typeCheckExpr e1 && typeCheckExpr e2 && typeOf e1 = typeOf e2
-    | Cast (CastKind.SignExt, t, e, _)
-    | Cast (CastKind.ZeroExt, t, e, _) -> typeCheckExpr e && t >= typeOf e
-    | Extract (e, t, p, _) ->
-      typeCheckExpr e
-      && ((t + LanguagePrimitives.Int32WithMeasure p) <= typeOf e)
-    | _ -> true
+/// A SideEffect statement.
+[<CompiledName("SideEffect")>]
+let sideEffect eff = SideEffect eff |> ASTHelper.buildStmt
 
-  let typeCheck = function
-    | Put (v, e) -> (typeOf v) = (typeOf e)
-    | Store (_, a, v) -> typeCheckExpr a && typeCheckExpr v
-    | Jmp (a) -> typeCheckExpr a
-    | CJmp (cond, e1, e2) ->
-      typeCheckExpr cond && typeCheckExpr e1 && typeCheckExpr e2
-    | InterJmp (addr, _) -> typeCheckExpr addr
-    | InterCJmp (cond, a1, a2) ->
-      typeCheckExpr cond && typeCheckExpr a1 && typeCheckExpr a2
-    | _ -> true
+module InfixOp =
+  /// Assignment.
+  let inline (:=) e1 e2 = assign e1 e2
 
-  /// AST.InfixOp
-  module InfixOp = begin
-    let inline (:=) e1 e2 = assign e1 e2
-    let inline (.+) e1 e2 = binop BinOpType.ADD e1 e2
-    let inline (.-) e1 e2 = binop BinOpType.SUB e1 e2
-    let inline (.*) e1 e2 = binop BinOpType.MUL e1 e2
-    let inline (./) e1 e2 = binop BinOpType.DIV e1 e2
-    let inline (?/) e1 e2 = binop BinOpType.SDIV e1 e2
-    let inline (.%) e1 e2 = binop BinOpType.MOD e1 e2
-    let inline (?%) e1 e2 = binop BinOpType.SMOD e1 e2
-    let inline (==) e1 e2 = relop RelOpType.EQ e1 e2
-    let inline (!=) e1 e2 = relop RelOpType.NEQ e1 e2
-    let inline (.>) e1 e2 = relop RelOpType.GT e1 e2
-    let inline (.>=) e1 e2 = relop RelOpType.GE e1 e2
-    let inline (?>) e1 e2 = relop RelOpType.SGT e1 e2
-    let inline (?>=) e1 e2 = relop RelOpType.SGE e1 e2
-    let inline (.<) e1 e2 = relop RelOpType.LT e1 e2
-    let inline (.<=) e1 e2 = relop RelOpType.LE e1 e2
-    let inline (?<) e1 e2 = relop RelOpType.SLT e1 e2
-    let inline (?<=) e1 e2 = relop RelOpType.SLE e1 e2
-    let inline (.&) e1 e2 = binop BinOpType.AND e1 e2
-    let inline (.|) e1 e2 = binop BinOpType.OR e1 e2
-    let inline (<+>) e1 e2 = binop BinOpType.XOR e1 e2
-    let inline (?>>) e1 e2 = binop BinOpType.SAR e1 e2
-    let inline (>>) e1 e2 = binop BinOpType.SHR e1 e2
-    let inline (<<) e1 e2 = binop BinOpType.SHL e1 e2
-  end
+  /// Addition.
+  let inline (.+) e1 e2 = add e1 e2
+
+  /// Subtraction.
+  let inline (.-) e1 e2 = sub e1 e2
+
+  /// Multiplication.
+  let inline (.*) e1 e2 = mul e1 e2
+
+  /// Unsigned division.
+  let inline (./) e1 e2 = div e1 e2
+
+  /// Signed division.
+  let inline (?/) e1 e2 = sdiv e1 e2
+
+  /// Unsigned modulus.
+  let inline (.%) e1 e2 = ``mod`` e1 e2
+
+  /// Signed modulus.
+  let inline (?%) e1 e2 = smod e1 e2
+
+  /// Equal.
+  let inline (==) e1 e2 = eq e1 e2
+
+  /// Not equal.
+  let inline (!=) e1 e2 = neq e1 e2
+
+  /// Unsigned greater than.
+  let inline (.>) e1 e2 = gt e1 e2
+
+  /// Unsigned greater than or equal.
+  let inline (.>=) e1 e2 = ge e1 e2
+
+  /// Signed greater than.
+  let inline (?>) e1 e2 = sgt e1 e2
+
+  /// Signed greater than or equal.
+  let inline (?>=) e1 e2 = sge e1 e2
+
+  /// Signed less than.
+  let inline (.<) e1 e2 = lt e1 e2
+
+  /// Signed less than or equal.
+  let inline (.<=) e1 e2 = le e1 e2
+
+  /// Signed less than.
+  let inline (?<) e1 e2 = slt e1 e2
+
+  /// Signed less than or equal.
+  let inline (?<=) e1 e2 = sle e1 e2
+
+  /// Bitwise AND.
+  let inline (.&) e1 e2 = ``and`` e1 e2
+
+  /// Bitwise OR.
+  let inline (.|) e1 e2 = ``or`` e1 e2
+
+  /// Bitwise XOR.
+  let inline (<+>) e1 e2 = xor e1 e2
+
+  /// Shift arithmetic right.
+  let inline (?>>) e1 e2 = sar e1 e2
+
+  /// Shift logical right.
+  let inline (>>) e1 e2 = shr e1 e2
+
+  /// Shift logical left.
+  let inline (<<) e1 e2 = shl e1 e2

@@ -70,7 +70,7 @@ type ARM64RegisterBay internal (R: RegExprs) =
       R.N; R.Z; R.C ]
 
   override __.RegIDFromRegExpr (e) =
-    match e with
+    match e.E with
     | Var (_,id, _,_) -> id
     | PCVar (_, _) -> Register.toRegID Register.PC
     | _ -> failwith "not a register expression"

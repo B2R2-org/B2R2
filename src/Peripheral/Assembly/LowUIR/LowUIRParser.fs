@@ -236,17 +236,17 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     >>. ws >>. puint32 .>> ws
     .>> pchar ')'
     .>> ws .>> pchar '{'
-    |>> ISMark
+    |>> AST.ismark
 
   let pIEMark =
     ws
     >>. pchar '}' >>. ws
     >>. pstring "//" >>. ws >>. puint32 .>> ws
-    |>> IEMark
+    |>> AST.iemark
 
   let pLMark =
     ws >>. pchar ':' >>. pIdentifier
-    |>> (AST.symbol >> LMark)
+    |>> (AST.symbol >> AST.lmark)
 
   let pPut =
     ws
@@ -258,11 +258,11 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     ws
     >>. pchar '[' .>> ws >>. pExpr .>> ws .>> pchar ']' .>> ws
     .>> pstring ":=" .>> ws .>>. pExpr
-    |>> (fun (e1, e2) -> Store (isa.Endian, e1, e2))
+    |>> (fun (e1, e2) -> AST.store isa.Endian e1 e2)
 
   let pJmp =
     ws >>. pstring "jmp" >>. ws >>. pIdentifier
-    |>> (fun lab -> Jmp (Name <| AST.symbol lab))
+    |>> (fun lab -> AST.jmp (AST.name <| AST.symbol lab))
 
   let pCJmp =
     ws
@@ -271,15 +271,15 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     .>> pstring "jmp" .>> ws .>>. pIdentifier .>> ws
     .>> pstring "else" .>> ws .>> pstring "jmp" .>> ws .>>. pIdentifier
     |>> (fun ((cond, tlab), flab) ->
-      let tlab = Name <| AST.symbol tlab
-      let flab = Name <| AST.symbol flab
-      CJmp (cond, tlab, flab))
+      let tlab = AST.name <| AST.symbol tlab
+      let flab = AST.name <| AST.symbol flab
+      AST.cjmp cond tlab flab)
 
   let pInterJmp =
     pstring "ijmp" .>> ws >>. pExpr
     |>> (fun expr ->
-      let rt = AST.typeOf expr
-      InterJmp (expr, InterJmpInfo.Base))
+      let rt = TypeCheck.typeOf expr
+      AST.interjmp expr InterJmpKind.Base)
 
   let pInterCJmp =
     ws
@@ -288,8 +288,8 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     .>> pstring "ijmp" .>> ws .>>. pExpr .>> ws
     .>> pstring "else" .>> ws .>> pstring "ijmp" .>> ws .>>. pExpr
     |>> (fun ((cond, tExp), fExp) ->
-      let rt = AST.typeOf tExp
-      InterCJmp (cond, tExp, fExp))
+      let rt = TypeCheck.typeOf tExp
+      AST.intercjmp cond tExp fExp)
 
   let pSideEffectIdentifier =
     let isAllowedChar c = isAllowedCharForID c || c = '(' || c = ')'
@@ -298,7 +298,7 @@ type LowUIRParser (isa, regbay: RegisterBay) =
   let pSideEffect =
     ws
     >>. pstring "!!" .>> ws >>. pSideEffectIdentifier
-    |>> (fun str -> SideEffect.ofString str |> SideEffect)
+    |>> (fun str -> SideEffect.ofString str |> AST.sideEffect)
 
   let pStatement =
     attempt pISMark

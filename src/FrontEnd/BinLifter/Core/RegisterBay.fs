@@ -43,7 +43,7 @@ type RegisterBay () =
 
   /// Return RegType from a given RegExpr.
   member __.RegTypeFromRegExpr (e: Expr) =
-    match e with
+    match e.E with
     | Var (rt, _, _ ,_)
     | PCVar (rt, _) -> rt
     | _ -> raise InvalidRegisterException

@@ -53,22 +53,23 @@ module Summary =
     [| "EIP"; "ESP"; "EBP"; "EAX"; "EBX"; "ECX"; "EDX"; "ESI"; "EDI" |]
 
   let private syscallOutRegs =
-    Map.ofList [("EAX", Undefined (32<rt>, "EAX0") |> Value)]
+    Map.ofList [("EAX", AST.undef 32<rt> "EAX0" |> Value)]
 
   let getInput (state: State) e =
-    let rec getInput = function
-    | Var (_, _, n, _) -> (Set.empty.Add (n), Set.empty)
-    | TempVar (_, n) -> getInput <| (Map.find n state.TempRegs).GetExpr ()
-    | UnOp (_, expr, _) -> getInput expr
-    | BinOp (_, _, lExpr, rExpr, _) | RelOp (_, lExpr, rExpr, _) ->
-      mergeInput (getInput lExpr) (getInput rExpr)
-    | Load (_, _, expr, _) ->
-      mergeInput (getInput expr) (Set.empty, Set.empty.Add (Value expr))
-    | Ite (cExpr, tExpr, fExpr, _) ->
-      mergeInput (getInput cExpr) (getInput tExpr)
-      |> mergeInput (getInput fExpr)
-    | Cast (_, _, expr, _) | Extract (expr, _, _, _) -> getInput expr
-    | _ -> emptyInput // Num, Name, PCVar
+    let rec getInput e =
+      match e.E with
+      | Var (_, _, n, _) -> (Set.empty.Add (n), Set.empty)
+      | TempVar (_, n) -> getInput <| (Map.find n state.TempRegs).GetExpr ()
+      | UnOp (_, expr, _) -> getInput expr
+      | BinOp (_, _, lExpr, rExpr, _) | RelOp (_, lExpr, rExpr, _) ->
+        mergeInput (getInput lExpr) (getInput rExpr)
+      | Load (_, _, expr, _) ->
+        mergeInput (getInput expr) (Set.empty, Set.empty.Add (Value expr))
+      | Ite (cExpr, tExpr, fExpr, _) ->
+        mergeInput (getInput cExpr) (getInput tExpr)
+        |> mergeInput (getInput fExpr)
+      | Cast (_, _, expr, _) | Extract (expr, _, _, _) -> getInput expr
+      | _ -> emptyInput // Num, Name, PCVar
     getInput e
 
   let private getInputAll state =
@@ -91,17 +92,18 @@ module Summary =
     if n % 4 = 0 && n >=0 then Some (n / 4)
     else None
 
-  let private getEspOff = function
-    | var when var = ESP -> Some 0
-    | BinOp (BinOpType.ADD, 32<rt>, var, Num (n), _)
-    | BinOp (BinOpType.ADD, 32<rt>, Num (n), var, _) when var = ESP ->
+  let private getEspOff e =
+    match e.E with
+    | _ when e = ESP -> Some 0
+    | BinOp (BinOpType.ADD, 32<rt>, var, { E = Num (n) }, _)
+    | BinOp (BinOpType.ADD, 32<rt>, { E = Num (n) }, var, _) when var = ESP ->
       calcOffset (BitVector.toInt32 n)
-    | BinOp (BinOpType.SUB, 32<rt>, var, Num (n), _) when var = ESP ->
-      calcOffset (-(BitVector.toInt32 n))
+    | BinOp (BinOpType.SUB, 32<rt>, var, { E = Num (n) }, _) when var = ESP ->
+      calcOffset (- (BitVector.toInt32 n))
     | _ -> None
 
   let private getStackOff (v: Value) =
-    match v.GetExpr () with
+    match v.GetExpr().E with
     | Load (_, 32<rt>, expr, _) -> getEspOff expr
     | _ -> None
 
@@ -124,13 +126,18 @@ module Summary =
 
   let private isStackMems = Set.forall isStackMem
 
-  let private isLinearExpr = function
+  let private isLinearExpr e =
+    match e.E with
     | Var (32<rt>, _, reg, _) -> Some (reg, 0u)
-    | BinOp (BinOpType.ADD, _, Var (32<rt>, _, reg, _), Num n, _)
-    | BinOp (BinOpType.ADD, _, Num n, Var (32<rt>, _, reg, _), _) ->
+    | BinOp (BinOpType.ADD, _,
+             { E = Var (32<rt>, _, reg, _) }, { E = Num n }, _)
+    | BinOp (BinOpType.ADD, _,
+             { E = Num n }, { E = Var (32<rt>, _, reg, _) }, _) ->
       Some (reg, BitVector.toUInt32 n)
-    | BinOp (BinOpType.SUB, _, Var (32<rt>, _, reg, _), Num n, _)
-    | BinOp (BinOpType.SUB, _, Num n, Var (32<rt>, _, reg, _), _) ->
+    | BinOp (BinOpType.SUB, _,
+             { E = Var (32<rt>, _, reg, _) }, { E = Num n }, _)
+    | BinOp (BinOpType.SUB, _,
+             { E = Num n }, { E = Var (32<rt>, _, reg, _) }, _) ->
       Some (reg, BitVector.neg n |> BitVector.toUInt32)
     | _ -> None
 
@@ -185,7 +192,7 @@ module Summary =
   let private getLinearLoad reg (sum: Summary) =
     match Map.tryFind reg sum.OutRegs with
     | Some value ->
-      match value.GetExpr () with
+      match value.GetExpr().E with
       | Load (_, _, addr, _) -> isLinearExpr addr
       | _ -> None
     | _ -> None
@@ -241,7 +248,7 @@ module Summary =
     |> Value
 
   let private toBytes (value: Value) =
-    match value.GetExpr () with
+    match value.GetExpr().E with
     | Num n -> (BitVector.getValue n).ToByteArray () |> Some
     | _ -> None
 

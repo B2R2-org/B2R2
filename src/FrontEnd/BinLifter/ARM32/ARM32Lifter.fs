@@ -470,8 +470,8 @@ let selectInstrSet ctxt builder = function
 let branchWritePC ctxt (insInfo: InsInfo) addr jmpInfo =
   let addr = zMaskAnd addr 32<rt> 1
   match insInfo.Mode with
-  | ArchOperationMode.ARMMode -> InterJmp (addr, jmpInfo)
-  | _ -> InterJmp (addr, jmpInfo)
+  | ArchOperationMode.ARMMode -> AST.interjmp addr jmpInfo
+  | _ -> AST.interjmp addr jmpInfo
 
 let disableITStateForCondBranches ctxt isUnconditional (builder: IRBuilder) =
   if isUnconditional then ()
@@ -487,20 +487,20 @@ let bxWritePC ctxt isUnconditional addr (builder: IRBuilder) =
   let lblL1 = AST.symbol "L1"
   let cond1 = AST.xtlo 1<rt> addr == AST.b1
   disableITStateForCondBranches ctxt isUnconditional builder
-  builder <! (CJmp (cond1, AST.name lblL0, AST.name lblL1))
-  builder <! (LMark lblL0)
+  builder <! (AST.cjmp cond1 (AST.name lblL0) (AST.name lblL1))
+  builder <! (AST.lmark lblL0)
   selectThumbInstrSet ctxt builder
-  builder <! (InterJmp (zMaskAnd addr 32<rt> 1, InterJmpInfo.SwitchToThumb))
-  builder <! (LMark lblL1)
+  builder <! (AST.interjmp (zMaskAnd addr 32<rt> 1) InterJmpKind.SwitchToThumb)
+  builder <! (AST.lmark lblL1)
   selectARMInstrSet ctxt builder
-  builder <! (InterJmp (addr, InterJmpInfo.SwitchToARM))
+  builder <! (AST.interjmp addr InterJmpKind.SwitchToARM)
 
 /// Write value to R.PC, with interworking for ARM only from ARMv7 on page
 /// A2-47. function : ALUWritePC()
 let aluWritePC ctxt (insInfo: InsInfo) isUnconditional addr builder =
   match insInfo.Mode with
   | ArchOperationMode.ARMMode -> bxWritePC ctxt isUnconditional addr builder
-  | _ -> builder <! branchWritePC ctxt insInfo addr InterJmpInfo.Base
+  | _ -> builder <! branchWritePC ctxt insInfo addr InterJmpKind.Base
 
 /// Write value to R.PC, with interworking (without it before ARMv5T),
 /// on page A2-47. function : LoadWritePC()
@@ -594,8 +594,10 @@ let isSecure ctxt =
 let currentModeIsNotUser ctxt =
   let modeM = getPSR ctxt R.CPSR PSR_M
   let modeCond = isBadMode modeM
-  let ite1 = AST.ite (modeM == (AST.num <| BitVector.ofInt32 0b10000 32<rt>)) AST.b0 AST.b1
-  AST.ite modeCond (Expr.Undefined (1<rt>, "UNPREDICTABLE")) ite1
+  let ite1 =
+    AST.ite (modeM == (AST.num <| BitVector.ofInt32 0b10000 32<rt>))
+            AST.b0 AST.b1
+  AST.ite modeCond (AST.undef 1<rt> "UNPREDICTABLE") ite1
 
 /// Bitstring replication, on page AppxP-2652.
 /// function : Replicate()
@@ -627,28 +629,28 @@ let writeModeBits ctxt value isExcptReturn (builder: IRBuilder) =
   let cond3 = chkSecure .& (valueM == num11010)
   let cond4 = chkSecure .& (cpsrM != num11010) .& (valueM == num11010)
   let cond5 = (cpsrM == num11010) .& (valueM != num11010)
-  builder <! (CJmp (cond1, AST.name lblL8, AST.name lblL9))
-  builder <! (LMark lblL8)
-  builder <! (SideEffect UndefinedInstr)  // FIXME: (use UNPREDICTABLE)
-  builder <! (LMark lblL9)
-  builder <! (CJmp (cond2, AST.name lblL10, AST.name lblL11))
-  builder <! (LMark lblL10)
-  builder <! (SideEffect UndefinedInstr)  // FIXME: (use UNPREDICTABLE)
-  builder <! (LMark lblL11)
-  builder <! (CJmp (cond3, AST.name lblL12, AST.name lblL13))
-  builder <! (LMark lblL12)
-  builder <! (SideEffect UndefinedInstr)  // FIXME: (use UNPREDICTABLE)
-  builder <! (LMark lblL13)
-  builder <! (CJmp (cond4, AST.name lblL14, AST.name lblL15))
-  builder <! (LMark lblL14)
-  builder <! (SideEffect UndefinedInstr)  // FIXME: (use UNPREDICTABLE)
-  builder <! (LMark lblL15)
-  builder <! (CJmp (cond5, AST.name lblL16, AST.name lblL17))
-  builder <! (LMark lblL16)
+  builder <! (AST.cjmp cond1 (AST.name lblL8) (AST.name lblL9))
+  builder <! (AST.lmark lblL8)
+  builder <! (AST.sideEffect UndefinedInstr)  // FIXME: (use UNPREDICTABLE)
+  builder <! (AST.lmark lblL9)
+  builder <! (AST.cjmp cond2 (AST.name lblL10) (AST.name lblL11))
+  builder <! (AST.lmark lblL10)
+  builder <! (AST.sideEffect UndefinedInstr)  // FIXME: (use UNPREDICTABLE)
+  builder <! (AST.lmark lblL11)
+  builder <! (AST.cjmp cond3 (AST.name lblL12) (AST.name lblL13))
+  builder <! (AST.lmark lblL12)
+  builder <! (AST.sideEffect UndefinedInstr)  // FIXME: (use UNPREDICTABLE)
+  builder <! (AST.lmark lblL13)
+  builder <! (AST.cjmp cond4 (AST.name lblL14) (AST.name lblL15))
+  builder <! (AST.lmark lblL14)
+  builder <! (AST.sideEffect UndefinedInstr)  // FIXME: (use UNPREDICTABLE)
+  builder <! (AST.lmark lblL15)
+  builder <! (AST.cjmp cond5 (AST.name lblL16) (AST.name lblL17))
+  builder <! (AST.lmark lblL16)
   if Operators.not isExcptReturn then
-    builder <! (SideEffect UndefinedInstr)  // FIXME: (use UNPREDICTABLE)
+    builder <! (AST.sideEffect UndefinedInstr)  // FIXME: (use UNPREDICTABLE)
   else ()
-  builder <! (LMark lblL17)
+  builder <! (AST.lmark lblL17)
   let mValue = value .& maskPSRForMbits
   builder <!
     (getRegVar ctxt R.CPSR := disablePSRBits ctxt R.CPSR PSR_M .| mValue)
@@ -687,11 +689,11 @@ let cpsrWriteByInstr ctxt value bytemask isExcptReturn (builder: IRBuilder) =
     builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_E .| eValue)
     let cond =
       privileged .& (isSecure ctxt .| isSetSCR_AW ctxt .| haveVirtExt ())
-    builder <! (CJmp (cond, AST.name lblL0, AST.name lblL1))
-    builder <! (LMark lblL0)
+    builder <! (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+    builder <! (AST.lmark lblL0)
     let aValue = value .& maskPSRForAbit
     builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_A .| aValue)
-    builder <! (LMark lblL1)
+    builder <! (AST.lmark lblL1)
   else ()
 
   if bytemask &&& 0b0001 = 0b0001 then
@@ -703,33 +705,33 @@ let cpsrWriteByInstr ctxt value bytemask isExcptReturn (builder: IRBuilder) =
     let lblL7 = AST.symbol "cpsrWriteByInstrL7"
     let lblEnd = AST.symbol "cpsrWriteByInstrEnd"
     let nmfi = isSetSCTLR_NMFI ctxt
-    builder <! (CJmp (privileged, AST.name lblL2, AST.name lblL3))
-    builder <! (LMark lblL2)
+    builder <! (AST.cjmp privileged (AST.name lblL2) (AST.name lblL3))
+    builder <! (AST.lmark lblL2)
     let iValue = value .& maskPSRForIbit
     builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_I .| iValue)
-    builder <! (LMark lblL3)
+    builder <! (AST.lmark lblL3)
 
     let chkValueF = (value .& maskPSRForFbit) == AST.num0 32<rt>
     let cond = privileged .& (AST.not nmfi .| chkValueF) .&
                (isSecure ctxt .| isSetSCR_FW ctxt .| haveVirtExt ())
-    builder <! (CJmp (cond, AST.name lblL4, AST.name lblL5))
-    builder <! (LMark lblL4)
+    builder <! (AST.cjmp cond (AST.name lblL4) (AST.name lblL5))
+    builder <! (AST.lmark lblL4)
     let fValue = value .& maskPSRForFbit
     builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_F .| fValue)
-    builder <! (LMark lblL5)
+    builder <! (AST.lmark lblL5)
 
     if isExcptReturn then
       let tValue = value .& maskPSRForTbit
       builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_T .| tValue)
     else ()
 
-    builder <! (CJmp (privileged, AST.name lblL6, AST.name lblL7))
-    builder <! (LMark lblL6)
-    builder <! (SideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
-    builder <! (Jmp (AST.name lblEnd))
-    builder <! (LMark lblL7)
+    builder <! (AST.cjmp privileged (AST.name lblL6) (AST.name lblL7))
+    builder <! (AST.lmark lblL6)
+    builder <! (AST.sideEffect UndefinedInstr) // FIXME: (use UNPREDICTABLE)
+    builder <! (AST.jmp (AST.name lblEnd))
+    builder <! (AST.lmark lblL7)
     writeModeBits ctxt value isExcptReturn builder
-    builder <! (LMark lblEnd)
+    builder <! (AST.lmark lblEnd)
   else ()
 
 let transShiftOprs ctxt opr1 opr2 =
@@ -785,7 +787,7 @@ let parseOprOfADC insInfo ctxt =
   | _ -> raise InvalidOperandException
 
 let startMark insInfo builder =
-  builder <! (ISMark (insInfo.NumBytes))
+  builder <! (AST.ismark (insInfo.NumBytes))
 
 let checkCondition insInfo ctxt isUnconditional builder =
   let lblPass = AST.symbol "NeedToExec"
@@ -793,8 +795,8 @@ let checkCondition insInfo ctxt isUnconditional builder =
   if isUnconditional then lblIgnore
   else
     let cond = conditionPassed ctxt (Option.get insInfo.Condition)
-    builder <! (CJmp (cond, AST.name lblPass, AST.name lblIgnore))
-    builder <! (LMark lblPass)
+    builder <! (AST.cjmp cond (AST.name lblPass) (AST.name lblIgnore))
+    builder <! (AST.lmark lblPass)
     lblIgnore
 
 /// Update ITState after normal execution of an IT-block instruction. See A2-52
@@ -819,36 +821,36 @@ let itAdvance ctxt builder =
   let num8 = AST.num <| BitVector.ofInt32 8 32<rt>
   builder <! (itstate := cpsrIT72 .| cpsrIT10)
   builder <! (cond := ((itstate .& mask20) == AST.num0 32<rt>))
-  builder <! CJmp (cond, AST.name lblThen, AST.name lblElse)
-  builder <! LMark lblThen
+  builder <! AST.cjmp cond (AST.name lblThen) (AST.name lblElse)
+  builder <! AST.lmark lblThen
   builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_IT10)
   builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_IT72)
-  builder <! Jmp (AST.name lblEnd)
-  builder <! LMark lblElse
+  builder <! AST.jmp (AST.name lblEnd)
+  builder <! AST.lmark lblElse
   builder <! (nextstate := (itstate .& mask40 << AST.num1 32<rt>))
   builder <! (cpsr := nextstate .& mask10 |> setPSR ctxt R.CPSR PSR_IT10)
   builder <! (cpsr := cpsrIT42 .| ((nextstate .& mask42) << num8))
-  builder <! LMark lblEnd
+  builder <! AST.lmark lblEnd
 
 let putEndLabel ctxt lblIgnore isUnconditional isBranch builder =
   if isUnconditional then ()
   else
-    builder <! (LMark lblIgnore)
+    builder <! (AST.lmark lblIgnore)
     itAdvance ctxt builder
     match isBranch with
     | None -> ()
     | Some (i: InsInfo) ->
       let target = BitVector.ofUInt64 (i.Address + uint64 i.NumBytes) 32<rt>
-      builder <! (InterJmp (AST.num target, InterJmpInfo.Base))
+      builder <! (AST.interjmp (AST.num target) InterJmpKind.Base)
 
 let endMark insInfo builder =
-  builder <! (IEMark insInfo.NumBytes)
+  builder <! (AST.iemark insInfo.NumBytes)
   builder
 
 let sideEffects insInfo name =
   let builder = IRBuilder (4)
   startMark insInfo builder
-  builder <! (SideEffect name)
+  builder <! (AST.sideEffect name)
   endMark insInfo builder
 
 let nop insInfo =
@@ -996,7 +998,7 @@ let bl insInfo ctxt =
   if insInfo.Mode = ArchOperationMode.ARMMode then builder <! (lr := retAddr)
   else builder <! (lr := maskAndOR retAddr (AST.num1 32<rt>) 32<rt> 1)
   selectInstrSet ctxt builder targetMode
-  builder <! (branchWritePC ctxt insInfo alignedAddr InterJmpInfo.IsCall)
+  builder <! (branchWritePC ctxt insInfo alignedAddr InterJmpKind.IsCall)
   putEndLabel ctxt lblIgnore isUnconditional (Some insInfo) builder
   endMark insInfo builder
 
@@ -1031,7 +1033,7 @@ let pushLoop ctxt numOfReg addr (builder: IRBuilder) =
   let loop addr count =
     if (numOfReg >>> count) &&& 1u = 1u then
       if count = 13 && count <> lowestSetBit numOfReg 32 then
-        builder <! (AST.loadLE 32<rt> addr := (Undefined (32<rt>, "UNKNOWN")))
+        builder <! (AST.loadLE 32<rt> addr := (AST.undef 32<rt> "UNKNOWN"))
       else
         let reg = count |> byte |> OperandHelper.getRegister
         builder <! (AST.loadLE 32<rt> addr := getRegVar ctxt reg)
@@ -1095,7 +1097,7 @@ let subsPCLRThumb insInfo ctxt =
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   cpsrWriteByInstr ctxt (getRegVar ctxt R.SPSR) 0b1111 true builder
-  builder <! (branchWritePC ctxt insInfo result InterJmpInfo.IsRet)
+  builder <! (branchWritePC ctxt insInfo result InterJmpKind.IsRet)
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
@@ -1144,7 +1146,7 @@ let subsAndRelatedInstr insInfo ctxt =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   cpsrWriteByInstr ctxt (getRegVar ctxt R.SPSR) 0b1111 true builder
   builder <! (result := parseResultOfSUBAndRela insInfo ctxt)
-  builder <! (branchWritePC ctxt insInfo result InterJmpInfo.IsRet)
+  builder <! (branchWritePC ctxt insInfo result InterJmpKind.IsRet)
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
@@ -1696,14 +1698,14 @@ let clz insInfo ctxt =
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   builder <! (t1 := numSize)
-  builder <! (LMark lblBoundCheck)
-  builder <! (CJmp (cond1, AST.name lblEnd, AST.name lblZeroCheck))
-  builder <! (LMark lblZeroCheck)
-  builder <! (CJmp (cond2, AST.name lblEnd, AST.name lblCount))
-  builder <! (LMark lblCount)
+  builder <! (AST.lmark lblBoundCheck)
+  builder <! (AST.cjmp cond1 (AST.name lblEnd) (AST.name lblZeroCheck))
+  builder <! (AST.lmark lblZeroCheck)
+  builder <! (AST.cjmp cond2 (AST.name lblEnd) (AST.name lblCount))
+  builder <! (AST.lmark lblCount)
   builder <! (t1 := t1 .- (AST.num1 32<rt>))
-  builder <! (Jmp (AST.name lblBoundCheck))
-  builder <! (LMark lblEnd)
+  builder <! (AST.jmp (AST.name lblBoundCheck))
+  builder <! (AST.lmark lblEnd)
   builder <! (dst := numSize .- t1)
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
@@ -2022,7 +2024,7 @@ let b insInfo ctxt =
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
-  builder <! (branchWritePC ctxt insInfo e InterJmpInfo.Base)
+  builder <! (branchWritePC ctxt insInfo e InterJmpKind.Base)
   putEndLabel ctxt lblIgnore isUnconditional (Some insInfo) builder
   endMark insInfo builder
 
@@ -2075,7 +2077,7 @@ let pop insInfo ctxt =
   let addr = popLoop ctxt numOfReg t0 builder
   if (numOfReg >>> 13 &&& 1u) = 0u then
     builder <! (sp := sp .+ (AST.num <| BitVector.ofInt32 stackWidth 32<rt>))
-  else builder <! (sp := (Expr.Undefined (32<rt>, "UNKNOWN")))
+  else builder <! (sp := (AST.undef 32<rt> "UNKNOWN"))
   if (numOfReg >>> 15 &&& 1u) = 1u then
     AST.loadLE 32<rt> addr |> loadWritePC ctxt isUnconditional builder
   else ()
@@ -2116,7 +2118,7 @@ let ldm opcode insInfo ctxt wbackop =
     builder <! (rn := wbackop t0 (AST.num <| BitVector.ofInt32 stackWidth 32<rt>))
   else ()
   if wback && (numOfReg &&& numOfRn) = numOfRn then
-    builder <! (rn := (Expr.Undefined (32<rt>, "UNKNOWN")))
+    builder <! (rn := (AST.undef 32<rt> "UNKNOWN"))
   else ()
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
@@ -2418,7 +2420,7 @@ let stmLoop ctxt regs wback rn addr (builder: IRBuilder) =
     if (regs >>> count) &&& 1u = 1u then
       let ri = count |> byte |> OperandHelper.getRegister |> getRegVar ctxt
       if ri = rn && wback && count <> lowestSetBit regs 32 then
-        builder <! (AST.loadLE 32<rt> addr := (Expr.Undefined (32<rt>, "UNKNOWN")))
+        builder <! (AST.loadLE 32<rt> addr := (AST.undef 32<rt> "UNKNOWN"))
       else
         builder <! (AST.loadLE 32<rt> addr := ri)
       addr .+ (AST.num <| BitVector.ofInt32 4 32<rt>)
@@ -2462,13 +2464,13 @@ let cbz nonZero insInfo ctxt =
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
-  builder <! (CJmp (cond, AST.name lblL0, AST.name lblL1))
-  builder <! (LMark lblL0)
-  builder <! (branchWritePC ctxt insInfo pc InterJmpInfo.Base)
-  builder <! (LMark lblL1)
+  builder <! (AST.cjmp cond (AST.name lblL0) (AST.name lblL1))
+  builder <! (AST.lmark lblL0)
+  builder <! (branchWritePC ctxt insInfo pc InterJmpKind.Base)
+  builder <! (AST.lmark lblL1)
   let fallAddr = insInfo.Address + uint64 insInfo.NumBytes
   let fallAddrExp = BitVector.ofUInt64 fallAddr 32<rt> |> AST.num
-  builder <! (InterJmp (fallAddrExp, InterJmpInfo.Base))
+  builder <! (AST.interjmp fallAddrExp InterJmpKind.Base)
   putEndLabel ctxt lblIgnore isUnconditional (Some insInfo) builder
   endMark insInfo builder
 
@@ -2497,7 +2499,7 @@ let tableBranch insInfo ctxt =
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
-  builder <! (branchWritePC ctxt insInfo result InterJmpInfo.Base)
+  builder <! (branchWritePC ctxt insInfo result InterJmpKind.Base)
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
@@ -3080,7 +3082,7 @@ let vabs insInfo ctxt =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rd, rm = transTwoOprs insInfo ctxt
   let p = getParsingInfo insInfo
-  let regs = if AST.typeOf rd = 64<rt> then 1 else 2
+  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   for r in 0 .. regs - 1 do
     let rd = AST.extract rd 64<rt> (r * 64)
     let rm = AST.extract rm 64<rt> (r * 64)
@@ -3096,7 +3098,7 @@ let vadd insInfo ctxt =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rd, rn, rm = transThreeOprs insInfo ctxt
   let p = getParsingInfo insInfo
-  let regs = if AST.typeOf rd = 64<rt> then 1 else 2
+  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   for r in 0 .. regs - 1 do
     let rd = AST.extract rd 64<rt> (r * 64)
     let rn = AST.extract rn 64<rt> (r * 64)
@@ -3124,7 +3126,7 @@ let vdup insInfo ctxt =
   let esize = 8 * getEBytes insInfo.SIMDTyp
   let rd, scalar = parseOprOfVDUP insInfo ctxt esize
   let elements = 64 / esize
-  let regs = if AST.typeOf rd = 64<rt> then 1 else 2
+  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   for r in 0 .. regs - 1 do
     let rd = AST.extract rd 64<rt> (r * 64)
     for e in 0 .. elements - 1 do builder <! (elem rd e esize := scalar) done
@@ -3139,14 +3141,16 @@ let highestSetBitForIR dst src width oprSz builder =
   let t = AST.tmpvar oprSz
   let width = (AST.num <| BitVector.ofInt32 (width - 1) oprSz)
   builder <! (t := width)
-  builder <! (LMark lblLoop)
-  builder <! (CJmp (src >> t == AST.num1 oprSz, AST.name lblEnd, AST.name lblLoopCont))
-  builder <! (LMark lblLoopCont)
-  builder <! (CJmp (t == AST.num0 oprSz, AST.name lblEnd, AST.name lblUpdateTmp))
-  builder <! (LMark lblUpdateTmp)
+  builder <! (AST.lmark lblLoop)
+  builder <! (AST.cjmp (src >> t == AST.num1 oprSz)
+                       (AST.name lblEnd) (AST.name lblLoopCont))
+  builder <! (AST.lmark lblLoopCont)
+  builder <! (AST.cjmp (t == AST.num0 oprSz)
+                       (AST.name lblEnd) (AST.name lblUpdateTmp))
+  builder <! (AST.lmark lblUpdateTmp)
   builder <! (t := t .- AST.num1 oprSz)
-  builder <! (Jmp (AST.name lblLoop))
-  builder <! (LMark lblEnd)
+  builder <! (AST.jmp (AST.name lblLoop))
+  builder <! (AST.lmark lblEnd)
   builder <! (dst := width .- t)
 
 let countLeadingZeroBitsForIR dst src oprSize builder =
@@ -3159,7 +3163,7 @@ let vclz insInfo ctxt =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rd, rm = transTwoOprs insInfo ctxt
   let pInfo = getParsingInfo insInfo
-  let regs = if AST.typeOf rd = 64<rt> then 1 else 2
+  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   for r in 0 .. regs - 1 do
     let rd = AST.extract rd 64<rt> (r * 64)
     let rm = AST.extract rm 64<rt> (r * 64)
@@ -3190,7 +3194,7 @@ let vmaxmin insInfo ctxt maximum =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rd, rn, rm = transThreeOprs insInfo ctxt
   let pInfo = getParsingInfo insInfo
-  let regs = if AST.typeOf rd = 64<rt> then 1 else 2
+  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   let unsigned = isUnsigned insInfo.SIMDTyp
   for r in 0 .. regs - 1 do
     let rn = AST.extract rn 64<rt> (r * 64)
@@ -3212,7 +3216,7 @@ let vsub insInfo ctxt =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rd, rn, rm = transThreeOprs insInfo ctxt
   let p = getParsingInfo insInfo
-  let regs = if AST.typeOf rd = 64<rt> then 1 else 2
+  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   for r in 0 .. regs - 1 do
     let rd = AST.extract rd 64<rt> (r * 64)
     let rn = AST.extract rn 64<rt> (r * 64)
@@ -3297,7 +3301,7 @@ let vecMulAccOrSub insInfo ctxt add =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rd, rn, rm = transThreeOprs insInfo ctxt
   let pInfo = getParsingInfo insInfo
-  let regs = if AST.typeOf rd = 64<rt> then 1 else 2
+  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   for r in 0 .. regs - 1 do
     let rd = AST.extract rd 64<rt> (r * 64)
     let rn = AST.extract rn 64<rt> (r * 64)
@@ -3342,7 +3346,7 @@ let vecMulAccOrSubByScalar insInfo ctxt add =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rd, rn, (rm, index) = parseOprOfVMulByScalar insInfo ctxt
   let p = getParsingInfo insInfo
-  let regs = if AST.typeOf rd = 64<rt> then 1 else 2
+  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   let op2val = AST.sext p.RtESize (elem rm index p.ESize)
   for r in 0 .. regs - 1 do
     let rd = AST.extract rd 64<rt> (r * 64)
@@ -3426,7 +3430,7 @@ let vecMul insInfo ctxt =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rd, rn, rm = transThreeOprs insInfo ctxt
   let p = getParsingInfo insInfo
-  let regs = if AST.typeOf rd = 64<rt> then 1 else 2
+  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   let polynomial = isPolynomial insInfo.SIMDTyp
   for r in 0 .. regs - 1 do
     let rd = AST.extract rd 64<rt> (r * 64)
@@ -3464,7 +3468,7 @@ let vecMulByScalar insInfo ctxt =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rd, rn, (rm, index) = parseOprOfVMulByScalar insInfo ctxt
   let p = getParsingInfo insInfo
-  let regs = if AST.typeOf rd = 64<rt> then 1 else 2
+  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   let op2val = AST.sext (RegType.fromBitWidth p.ESize) (elem rm index p.ESize)
   for r in 0 .. regs - 1 do
     let rd = AST.extract rd 64<rt> (r * 64)
@@ -3534,7 +3538,7 @@ let vneg insInfo ctxt =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rd, rm = transTwoOprs insInfo ctxt
   let p = getParsingInfo insInfo
-  let regs = if AST.typeOf rd = 64<rt> then 1 else 2
+  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   for r in 0 .. regs - 1 do
     let rd = AST.extract rd 64<rt> (r * 64)
     let rm = AST.extract rm 64<rt> (r * 64)
@@ -3571,7 +3575,7 @@ let vrshr insInfo ctxt =
   let rd, rm, imm = transThreeOprs insInfo ctxt
   let imm = AST.zext 64<rt> imm
   let p = getParsingInfo insInfo
-  let regs = if AST.typeOf rd = 64<rt> then 1 else 2
+  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   let extend = if isUnsigned insInfo.SIMDTyp then AST.zext else AST.sext
   let roundConst = AST.num1 64<rt> << (imm .- AST.num1 64<rt>)
   for r in 0 .. regs - 1 do
@@ -3591,7 +3595,7 @@ let vshlImm insInfo ctxt =
   let rd, rm, imm = transThreeOprs insInfo ctxt
   let p = getParsingInfo insInfo
   let imm = AST.zext p.RtESize imm
-  let regs = if AST.typeOf rd = 64<rt> then 1 else 2
+  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   for r in 0 .. regs - 1 do
     let rd = AST.extract rd 64<rt> (r * 64)
     let rm = AST.extract rm 64<rt> (r * 64)
@@ -3607,7 +3611,7 @@ let vshlReg insInfo ctxt =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rd, rm, rn = transThreeOprs insInfo ctxt
   let p = getParsingInfo insInfo
-  let regs = if AST.typeOf rd = 64<rt> then 1 else 2
+  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   let extend = if isUnsigned insInfo.SIMDTyp then AST.zext else AST.sext
   for r in 0 .. regs - 1 do
     let rd = AST.extract rd 64<rt> (r * 64)
@@ -3633,7 +3637,7 @@ let vshr insInfo ctxt =
   let rd, rm, imm = transThreeOprs insInfo ctxt
   let p = getParsingInfo insInfo
   let imm = AST.zext 64<rt> imm
-  let regs = if AST.typeOf rd = 64<rt> then 1 else 2
+  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   let extend = if isUnsigned insInfo.SIMDTyp then AST.zext else AST.sext
   for r in 0 .. regs - 1 do
     let rd = AST.extract rd 64<rt> (r * 64)
@@ -3686,12 +3690,12 @@ let vectorCompare insInfo ctxt cmp =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rd, src1, src2 = transThreeOprs insInfo ctxt
   let p = getParsingInfo insInfo
-  let regs = if AST.typeOf rd = 64<rt> then 1 else 2
+  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   for r in 0 .. regs - 1 do
     let rd = AST.extract rd 64<rt> (r * 64)
     let src1 = AST.extract src1 64<rt> (r * 64)
     for e in 0 .. p.Elements - 1 do
-      let src2 = if isImm src2 then AST.num0 p.RtESize
+      let src2 = if isImm src2.E then AST.num0 p.RtESize
                  else elem (AST.extract src2 64<rt> (r * 64)) e p.ESize
       let t = cmp (elem src1 e p.ESize) src2
       builder <! (elem rd e p.ESize := AST.ite t (ones p.RtESize) (AST.num0 p.RtESize))
@@ -3713,7 +3717,7 @@ let vtst insInfo ctxt =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rd, rn, rm = transThreeOprs insInfo ctxt
   let p = getParsingInfo insInfo
-  let regs = if AST.typeOf rd = 64<rt> then 1 else 2
+  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   for r in 0 .. regs - 1 do
     let rd = AST.extract rd 64<rt> (r * 64)
     let rn = AST.extract rn 64<rt> (r * 64)
@@ -3747,7 +3751,7 @@ let vorrReg insInfo ctxt =
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rd, rn, rm = transThreeOprs insInfo ctxt
-  let regs = if AST.typeOf rd = 64<rt> then 1 else 2
+  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   for r in 0 .. regs - 1 do
     let reg expr = AST.extract expr 64<rt> (r * 64)
     builder <! (reg rd := reg rn .| reg rm)
@@ -3761,7 +3765,7 @@ let vorrImm insInfo ctxt =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rd, imm = transTwoOprs insInfo ctxt
   let imm = AST.concat imm imm // FIXME: A8-975
-  let regs = if AST.typeOf rd = 64<rt> then 1 else 2
+  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   for r in 0 .. regs - 1 do
     builder <! (AST.extract rd 64<rt> (r * 64) := AST.extract rd 64<rt> (r * 64) .| imm)
   putEndLabel ctxt lblIgnore isUnconditional None builder
@@ -3779,7 +3783,7 @@ let vornReg insInfo ctxt =
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rd, rn, rm = transThreeOprs insInfo ctxt
-  let regs = if AST.typeOf rd = 64<rt> then 1 else 2
+  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   for r in 0 .. regs - 1 do
     let reg expr = AST.extract expr 64<rt> (r * 64)
     builder <! (reg rd := reg rn .| (AST.not <| reg rm))
@@ -3793,7 +3797,7 @@ let vornImm insInfo ctxt =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rd, imm = transTwoOprs insInfo ctxt
   let imm = AST.concat imm imm // FIXME: A8-975
-  let regs = if AST.typeOf rd = 64<rt> then 1 else 2
+  let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
   for r in 0 .. regs - 1 do
     builder <!
       (AST.extract rd 64<rt> (r * 64) := AST.extract rd 64<rt> (r * 64) .| AST.not imm)

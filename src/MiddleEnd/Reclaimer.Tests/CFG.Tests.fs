@@ -272,7 +272,7 @@ type CFGTest2 () =
     let actual =
       leaders
       |> Array.map (fun l ->
-        match (Map.find l vMap).VData.GetLastStmt () with
+        match (Map.find l vMap).VData.GetLastStmt().S with
         | IEMark _ -> 0
         | InterJmp _ -> 1
         | InterCJmp _ -> 2

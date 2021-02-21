@@ -31,7 +31,7 @@ open B2R2.BinIR.LowUIR
 open B2R2.MiddleEnd.ConcEval.EvalUtils
 
 let rec evalConcrete (st: EvalState) e =
-  match e with
+  match e.E with
   | Num n -> n
   | Var (_, n, _, _) -> st.GetReg n
   | PCVar (t, _) -> BitVector.ofUInt64 st.PC t
@@ -132,7 +132,7 @@ let private evalPCUpdate st rhs =
   BitVector.toUInt64 v |> st.SetPC
 
 let evalUndef (st: EvalState) lhs =
-  match lhs with
+  match lhs.E with
   | Var (_, n, _, _) -> st.UnsetReg n
   | TempVar (_, n) -> st.UnsetTmp n
   | _ -> raise InvalidExprException
@@ -141,7 +141,7 @@ let private evalPut st lhs rhs =
   try
     let v = evalConcrete st rhs
     st.Callbacks.OnPut st.PC v
-    match lhs with
+    match lhs.E with
     | Var (_, n, _, _) -> st.SetReg n v
     | TempVar (_, n) -> st.SetTmp n v
     | PCVar (_) -> BitVector.toUInt64 v |> st.SetPC
@@ -157,7 +157,7 @@ let private evalStore st endian addr v =
   st.Memory.Write addr v endian
 
 let private evalJmp (st: EvalState) target =
-  match target with
+  match target.E with
   | Name n -> st.GoToLabel n
   | _ -> raise InvalidExprException
 
@@ -169,11 +169,12 @@ let private evalIntCJmp st cond t f =
   let cond = evalConcrete st cond
   evalPCUpdate st (if cond = tr then t else f)
 
-let evalStmt (st: EvalState) = function
+let evalStmt (st: EvalState) s =
+  match s.S with
   | ISMark (_) -> st.StartInstr (); st.NextStmt ()
   | IEMark (len) -> st.IncPC len; st.AbortInstr ()
   | LMark _ -> st.NextStmt ()
-  | Put (lhs, Undefined (_)) -> evalUndef st lhs |> st.NextStmt
+  | Put (lhs, { E = Undefined (_) }) -> evalUndef st lhs |> st.NextStmt
   | Put (lhs, rhs) -> evalPut st lhs rhs |> st.NextStmt
   | Store (e, addr, v) -> evalStore st e addr v |> st.NextStmt
   | Jmp target -> evalJmp st target
@@ -193,7 +194,7 @@ let rec gotoNextInstr stmts (st: EvalState) =
   let ctxt = st.GetCurrentContext ()
   let idx = ctxt.StmtIdx
   if st.IsInstrTerminated () && Array.length stmts > idx && idx >= 0 then
-    match stmts.[idx] with
+    match stmts.[idx].S with
     | ISMark (_) -> st.StartInstr ()
     | _ -> st.NextStmt (); gotoNextInstr stmts st
   else ()

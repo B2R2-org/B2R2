@@ -88,7 +88,7 @@ let createReducedStmts (stmts: Stmt []) reducedLen (used: bool []) =
 
 let rec optimizeLoop (stmts: Stmt []) (used: bool []) idx len ctxt =
   if idx >= 0 then
-    match stmts.[idx] with
+    match stmts.[idx].S with
     | Store (_, e1, e2) ->
       let ei1 = AST.getExprInfo e1
       let ei2 = AST.getExprInfo e2
@@ -112,7 +112,7 @@ let rec optimizeLoop (stmts: Stmt []) (used: bool []) idx len ctxt =
     | Put (v, e) when v = e ->
       used.[idx] <- false
       optimizeLoop stmts used (idx - 1) (len - 1) ctxt
-    | Put (Var (_, rid, _, rs), rhs) ->
+    | Put ({ E = Var (_, rid, _, rs) }, rhs) ->
       let isUsed = RegisterSet.exist rid ctxt.UseRegisters
       let ctxt = if isUsed then removeUse rid ctxt else ctxt
       if not isUsed && RegisterSet.exist rid ctxt.OutRegisters then
@@ -122,7 +122,7 @@ let rec optimizeLoop (stmts: Stmt []) (used: bool []) idx len ctxt =
         let ctxt = updateOut rs ctxt
         let ctxt = updateUse (AST.getExprInfo rhs) ctxt
         optimizeLoop stmts used (idx - 1) len ctxt
-    | Put (TempVar (_, n), rhs) ->
+    | Put ({ E = TempVar (_, n) }, rhs) ->
       let isUsed = Set.contains n ctxt.UseTempVar
       let ctxt = if isUsed then removeTempUse n ctxt else ctxt
       if not isUsed && (ctxt.IsLastBlock || Set.contains n ctxt.OutTempVar) then

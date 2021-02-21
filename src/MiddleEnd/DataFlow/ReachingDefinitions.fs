@@ -45,11 +45,11 @@ type ReachingDefinitions (cfg: DiGraph<IRBasicBlock, CFGEdgeKind>) as this =
     |> Array.fold (fun list info ->
       info.Stmts
       |> Array.foldi (fun list idx stmt ->
-        match stmt with
-        | Put (TempVar (_, n), _) ->
+        match stmt.S with
+        | Put ({ E = TempVar (_, n) }, _) ->
           let pp = ProgramPoint (info.Instruction.Address, idx)
           { ProgramPoint = pp; VarExpr = Temporary n } :: list
-        | Put (Var (_, id, _, _), _) ->
+        | Put ({ E = Var (_, id, _, _) }, _) ->
           let pp = ProgramPoint (info.Instruction.Address, idx)
           { ProgramPoint = pp; VarExpr = Regular id } :: list
         | _ -> list) list

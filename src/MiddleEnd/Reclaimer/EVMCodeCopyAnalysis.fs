@@ -34,11 +34,12 @@ type EVMCodeCopyAnalysis () =
   let findCodeCopy stmts =
     stmts
     |> Array.tryPick (fun stmt ->
-      match stmt with
-      | Store (_, Num dst,
-                  BinOp (BinOpType.APP, _len,
-                         FuncName "code",
-                         BinOp (BinOpType.CONS, _, Num src, _, _), _)) ->
+      match stmt.S with
+      | Store (_, { E = Num dst },
+                  { E = BinOp (BinOpType.APP, _len,
+                               { E = FuncName "code" },
+                               { E = BinOp (BinOpType.CONS, _,
+                                            { E = Num src }, _, _) }, _) }) ->
         let dstAddr = BitVector.toUInt64 dst
         let srcAddr = BitVector.toUInt64 src
         let offset = srcAddr - dstAddr

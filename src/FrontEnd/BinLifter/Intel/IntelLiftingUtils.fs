@@ -79,53 +79,53 @@ let inline getOperationSize (i: InsInfo) = i.MainOperationSize
 let inline getEffAddrSz (i: InsInfo) = i.PointerSize
 
 let private getMemExpr128 expr =
-  match expr with
+  match expr.E with
   | Load (e, 128<rt>, expr, _) ->
-    AST.load e 64<rt> (expr .+ numI32 8 (AST.typeOf expr)),
+    AST.load e 64<rt> (expr .+ numI32 8 (TypeCheck.typeOf expr)),
     AST.load e 64<rt> expr
   | _ -> raise InvalidOperandException
 
 let private getMemExpr256 expr =
-  match expr with
+  match expr.E with
   | Load (e, 256<rt>, expr, _) ->
-    AST.load e 64<rt> (expr .+ numI32 24 (AST.typeOf expr)),
-    AST.load e 64<rt> (expr .+ numI32 16 (AST.typeOf expr)),
-    AST.load e 64<rt> (expr .+ numI32 8 (AST.typeOf expr)),
+    AST.load e 64<rt> (expr .+ numI32 24 (TypeCheck.typeOf expr)),
+    AST.load e 64<rt> (expr .+ numI32 16 (TypeCheck.typeOf expr)),
+    AST.load e 64<rt> (expr .+ numI32 8 (TypeCheck.typeOf expr)),
     AST.load e 64<rt> expr
   | _ -> raise InvalidOperandException
 
 let private getMemExpr512 expr =
-  match expr with
+  match expr.E with
   | Load (e, 512<rt>, expr, _) ->
-    AST.load e 64<rt> (expr .+ numI32 56 (AST.typeOf expr)),
-    AST.load e 64<rt> (expr .+ numI32 48 (AST.typeOf expr)),
-    AST.load e 64<rt> (expr .+ numI32 40 (AST.typeOf expr)),
-    AST.load e 64<rt> (expr .+ numI32 32 (AST.typeOf expr)),
-    AST.load e 64<rt> (expr .+ numI32 24 (AST.typeOf expr)),
-    AST.load e 64<rt> (expr .+ numI32 16 (AST.typeOf expr)),
-    AST.load e 64<rt> (expr .+ numI32 8 (AST.typeOf expr)),
+    AST.load e 64<rt> (expr .+ numI32 56 (TypeCheck.typeOf expr)),
+    AST.load e 64<rt> (expr .+ numI32 48 (TypeCheck.typeOf expr)),
+    AST.load e 64<rt> (expr .+ numI32 40 (TypeCheck.typeOf expr)),
+    AST.load e 64<rt> (expr .+ numI32 32 (TypeCheck.typeOf expr)),
+    AST.load e 64<rt> (expr .+ numI32 24 (TypeCheck.typeOf expr)),
+    AST.load e 64<rt> (expr .+ numI32 16 (TypeCheck.typeOf expr)),
+    AST.load e 64<rt> (expr .+ numI32 8 (TypeCheck.typeOf expr)),
     AST.load e 64<rt> expr
   | _ -> raise InvalidOperandException
 
 let private getMemExprs expr =
-  match expr with
+  match expr.E with
   | Load (e, 128<rt>, expr, _) ->
     [ AST.load e 64<rt> expr
-      AST.load e 64<rt> (expr .+ numI32 8 (AST.typeOf expr)) ]
+      AST.load e 64<rt> (expr .+ numI32 8 (TypeCheck.typeOf expr)) ]
   | Load (e, 256<rt>, expr, _) ->
     [ AST.load e 64<rt> expr
-      AST.load e 64<rt> (expr .+ numI32 8 (AST.typeOf expr))
-      AST.load e 64<rt> (expr .+ numI32 16 (AST.typeOf expr))
-      AST.load e 64<rt> (expr .+ numI32 24 (AST.typeOf expr)) ]
+      AST.load e 64<rt> (expr .+ numI32 8 (TypeCheck.typeOf expr))
+      AST.load e 64<rt> (expr .+ numI32 16 (TypeCheck.typeOf expr))
+      AST.load e 64<rt> (expr .+ numI32 24 (TypeCheck.typeOf expr)) ]
   | Load (e, 512<rt>, expr, _) ->
     [ AST.load e 64<rt> expr
-      AST.load e 64<rt> (expr .+ numI32 8 (AST.typeOf expr))
-      AST.load e 64<rt> (expr .+ numI32 16 (AST.typeOf expr))
-      AST.load e 64<rt> (expr .+ numI32 24 (AST.typeOf expr))
-      AST.load e 64<rt> (expr .+ numI32 32 (AST.typeOf expr))
-      AST.load e 64<rt> (expr .+ numI32 40 (AST.typeOf expr))
-      AST.load e 64<rt> (expr .+ numI32 48 (AST.typeOf expr))
-      AST.load e 64<rt> (expr .+ numI32 56 (AST.typeOf expr)) ]
+      AST.load e 64<rt> (expr .+ numI32 8 (TypeCheck.typeOf expr))
+      AST.load e 64<rt> (expr .+ numI32 16 (TypeCheck.typeOf expr))
+      AST.load e 64<rt> (expr .+ numI32 24 (TypeCheck.typeOf expr))
+      AST.load e 64<rt> (expr .+ numI32 32 (TypeCheck.typeOf expr))
+      AST.load e 64<rt> (expr .+ numI32 40 (TypeCheck.typeOf expr))
+      AST.load e 64<rt> (expr .+ numI32 48 (TypeCheck.typeOf expr))
+      AST.load e 64<rt> (expr .+ numI32 56 (TypeCheck.typeOf expr)) ]
   | _ -> raise InvalidOperandException
 
 let getPseudoRegVar128 ctxt r =
@@ -340,7 +340,7 @@ let dstAssign oprSize dst src =
   match oprSize with
   | 8<rt> | 16<rt> -> dst := src (* No extension for 8- and 16-bit operands *)
   | _ -> let dst = AST.unwrap dst
-         let dstOrigSz = dst |> AST.typeOf
+         let dstOrigSz = dst |> TypeCheck.typeOf
          let oprBitSize = RegType.toBitWidth oprSize
          let dstBitSize = RegType.toBitWidth dstOrigSz
          if dstBitSize > oprBitSize then dst := AST.zext dstOrigSz src
@@ -356,7 +356,8 @@ let maxNum rt =
   | _ -> raise InvalidOperandSizeException
   |> AST.num
 
-let castNum newType = function
+let castNum newType e =
+  match e.E with
   | Num n -> BitVector.cast n newType |> AST.num
   | _ -> raise InvalidOperandException
 
@@ -371,5 +372,5 @@ let getMask oprSize =
 let sideEffects insLen name =
   let ir = IRBuilder (4)
   !<ir insLen
-  !!ir (SideEffect name)
+  !!ir (AST.sideEffect name)
   !>ir insLen

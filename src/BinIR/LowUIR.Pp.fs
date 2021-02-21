@@ -31,7 +31,7 @@ open B2R2
 open B2R2.BinIR
 
 let rec private expToStringAux expr (sb: StringBuilder) =
-  match expr with
+  match expr.E with
   | Num n -> sb.Append (BitVector.toString n) |> ignore
   | Var (_typ, _, n, _) -> sb.Append (n) |> ignore
   | Nil -> sb.Append ("nil") |> ignore
@@ -104,7 +104,7 @@ let rec private expToStringAux expr (sb: StringBuilder) =
     sb.Append (")") |> ignore
 
 let private stmtToStringAux stmt (sb: StringBuilder) =
-  match stmt with
+  match stmt.S with
   | ISMark (len) ->
     sb.Append ("(") |> ignore
     sb.Append (len.ToString ()) |> ignore

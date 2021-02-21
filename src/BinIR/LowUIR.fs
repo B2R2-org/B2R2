@@ -28,19 +28,21 @@ open System
 open B2R2
 open B2R2.BinIR
 
-type [<Flags>] InterJmpInfo =
+/// The kind of an InterJmp. Multiple kinds can present for a jump instruction.
+[<Flags>]
+type InterJmpKind =
+  /// The base case, i.e., a simple jump instruction.
   | Base = 0
+  /// A call to a function.
   | IsCall = 1
+  /// A return from a function.
   | IsRet = 2
+  /// An exit, which will terminate the process.
   | IsExit = 4
+  /// A branch instructino that modifies the operation mode from Thumb to ARM.
   | SwitchToARM = 8
+  /// A branch instructino that modifies the operation mode from ARM to Thumb.
   | SwitchToThumb = 16
-
-[<Struct>]
-type ConsInfo = {
-  Tag: int64
-  Hash: int
-}
 
 /// ExprInfo summarizes several abstract information about the Expr. This is
 /// useful for writing an efficient post analyses.
@@ -54,9 +56,9 @@ type ExprInfo = {
 }
 
 /// IR Expressions.
-/// NOTE: You SHOULD NOT create Expr without using functions in
-///       B2R2.BinIR.LowUIR.HashCons or B2R2.BinIR.LowUIR.AST.
-type Expr =
+/// NOTE: You MUST create Expr/Stmt through the AST module. *NEVER* directly
+/// construct Expr nor Stmt.
+type E =
   /// A number. For example, (0x42:I32) is a 32-bit number 0x42
   | Num of BitVector
 
@@ -118,8 +120,16 @@ type Expr =
   /// operation. We model such cases with this expression.
   | Undefined of RegType * string
 
+/// When hash-consing is not used, we simply create a wrapper for an AST node.
+and [<Struct>] Expr = {
+  /// The actual AST node.
+  E: E
+}
+
 /// IL Statements.
-type Stmt =
+/// NOTE: You MUST create Expr/Stmt through the AST module. *NEVER* directly
+/// construct Expr nor Stmt.
+type S =
   /// Metadata representing the start of a machine instruction. More
   /// specifically, it contains the length of the instruction. There must be a
   /// single IMark per a machine instruction.
@@ -163,7 +173,7 @@ type Stmt =
   /// This is an unconditional jump instruction to another instruction. This is
   /// an inter-instruction jump unlike Jmp statement. The first argument is the
   /// jump target address.
-  | InterJmp of Expr * InterJmpInfo
+  | InterJmp of Expr * InterJmpKind
 
   /// This is a conditional jump instruction to another instruction. The first
   /// argument specifies a jump condition. If the condition is true, change the
@@ -173,5 +183,11 @@ type Stmt =
 
   /// This represents an instruction with side effects such as a system call.
   | SideEffect of SideEffect
+
+/// When hash-consing is not used, we simply create a wrapper for an AST node.
+and [<Struct>] Stmt = {
+  /// The actual AST node.
+  S: S
+}
 
 // vim: set tw=80 sts=2 sw=2:
