@@ -483,8 +483,8 @@ let disableITStateForCondBranches ctxt isUnconditional (builder: IRBuilder) =
 /// Write value to R.PC, with interworking, on page A2-47.
 /// function : BXWritePC()
 let bxWritePC ctxt isUnconditional addr (builder: IRBuilder) =
-  let lblL0 = AST.symbol "L0"
-  let lblL1 = AST.symbol "L1"
+  let lblL0 = builder.NewSymbol "L0"
+  let lblL1 = builder.NewSymbol "L1"
   let cond1 = AST.xtlo 1<rt> addr == AST.b1
   disableITStateForCondBranches ctxt isUnconditional builder
   builder <! (AST.cjmp cond1 (AST.name lblL0) (AST.name lblL1))
@@ -609,16 +609,16 @@ let replicate expr regType lsb width value =
 let ones rt = BitVector.ofBInt (RegType.getMask rt) rt |> AST.num
 
 let writeModeBits ctxt value isExcptReturn (builder: IRBuilder) =
-  let lblL8 = AST.symbol "L8"
-  let lblL9 = AST.symbol "L9"
-  let lblL10 = AST.symbol "L10"
-  let lblL11 = AST.symbol "L11"
-  let lblL12 = AST.symbol "L12"
-  let lblL13 = AST.symbol "L13"
-  let lblL14 = AST.symbol "L14"
-  let lblL15 = AST.symbol "L15"
-  let lblL16 = AST.symbol "L16"
-  let lblL17 = AST.symbol "L17"
+  let lblL8 = builder.NewSymbol "L8"
+  let lblL9 = builder.NewSymbol "L9"
+  let lblL10 = builder.NewSymbol "L10"
+  let lblL11 = builder.NewSymbol "L11"
+  let lblL12 = builder.NewSymbol "L12"
+  let lblL13 = builder.NewSymbol "L13"
+  let lblL14 = builder.NewSymbol "L14"
+  let lblL15 = builder.NewSymbol "L15"
+  let lblL16 = builder.NewSymbol "L16"
+  let lblL17 = builder.NewSymbol "L17"
   let valueM = value .& maskPSRForMbits
   let cpsrM = getPSR ctxt R.CPSR PSR_M
   let num11010 = (AST.num <| BitVector.ofInt32 0b11010 32<rt>)
@@ -679,8 +679,8 @@ let cpsrWriteByInstr ctxt value bytemask isExcptReturn (builder: IRBuilder) =
   else ()
 
   if bytemask &&& 0b0010 = 0b0010 then
-    let lblL0 = AST.symbol "cpsrWriteByInstrL0"
-    let lblL1 = AST.symbol "cpsrWriteByInstrL1"
+    let lblL0 = builder.NewSymbol "cpsrWriteByInstrL0"
+    let lblL1 = builder.NewSymbol "cpsrWriteByInstrL1"
     if isExcptReturn then
       let itValue = value .& maskPSRForIT72bits
       builder <! (cpsr := disablePSRBits ctxt R.CPSR PSR_IT72 .| itValue)
@@ -697,13 +697,13 @@ let cpsrWriteByInstr ctxt value bytemask isExcptReturn (builder: IRBuilder) =
   else ()
 
   if bytemask &&& 0b0001 = 0b0001 then
-    let lblL2 = AST.symbol "cpsrWriteByInstrL2"
-    let lblL3 = AST.symbol "cpsrWriteByInstrL3"
-    let lblL4 = AST.symbol "cpsrWriteByInstrL4"
-    let lblL5 = AST.symbol "cpsrWriteByInstrL5"
-    let lblL6 = AST.symbol "cpsrWriteByInstrL6"
-    let lblL7 = AST.symbol "cpsrWriteByInstrL7"
-    let lblEnd = AST.symbol "cpsrWriteByInstrEnd"
+    let lblL2 = builder.NewSymbol "cpsrWriteByInstrL2"
+    let lblL3 = builder.NewSymbol "cpsrWriteByInstrL3"
+    let lblL4 = builder.NewSymbol "cpsrWriteByInstrL4"
+    let lblL5 = builder.NewSymbol "cpsrWriteByInstrL5"
+    let lblL6 = builder.NewSymbol "cpsrWriteByInstrL6"
+    let lblL7 = builder.NewSymbol "cpsrWriteByInstrL7"
+    let lblEnd = builder.NewSymbol "cpsrWriteByInstrEnd"
     let nmfi = isSetSCTLR_NMFI ctxt
     builder <! (AST.cjmp privileged (AST.name lblL2) (AST.name lblL3))
     builder <! (AST.lmark lblL2)
@@ -789,9 +789,9 @@ let parseOprOfADC insInfo ctxt =
 let startMark insInfo builder =
   builder <! (AST.ismark (insInfo.NumBytes))
 
-let checkCondition insInfo ctxt isUnconditional builder =
-  let lblPass = AST.symbol "NeedToExec"
-  let lblIgnore = AST.symbol "IgnoreExec"
+let checkCondition insInfo ctxt isUnconditional (builder: IRBuilder) =
+  let lblPass = builder.NewSymbol "NeedToExec"
+  let lblIgnore = builder.NewSymbol "IgnoreExec"
   if isUnconditional then lblIgnore
   else
     let cond = conditionPassed ctxt (Option.get insInfo.Condition)
@@ -801,13 +801,13 @@ let checkCondition insInfo ctxt isUnconditional builder =
 
 /// Update ITState after normal execution of an IT-block instruction. See A2-52
 /// function: ITAdvance().
-let itAdvance ctxt builder =
-  let itstate = AST.tmpvar 32<rt>
-  let cond = AST.tmpvar 1<rt>
-  let nextstate = AST.tmpvar 32<rt>
-  let lblThen = AST.symbol "LThen"
-  let lblElse = AST.symbol "LElse"
-  let lblEnd = AST.symbol "LEnd"
+let itAdvance ctxt (builder: IRBuilder) =
+  let itstate = builder.NewTempVar 32<rt>
+  let cond = builder.NewTempVar 1<rt>
+  let nextstate = builder.NewTempVar 32<rt>
+  let lblThen = builder.NewSymbol "LThen"
+  let lblElse = builder.NewSymbol "LElse"
+  let lblEnd = builder.NewSymbol "LEnd"
   let cpsr = getRegVar ctxt R.CPSR
   let cpsrIT10 =
     getPSR ctxt R.CPSR PSR_IT10 >> (AST.num <| BitVector.ofInt32 25 32<rt>)
@@ -869,8 +869,8 @@ let adc isSetFlags insInfo ctxt =
   let dst, src1, src2 = parseOprOfADC insInfo ctxt
   let src1 = convertPCOpr insInfo ctxt src1
   let src2 = convertPCOpr insInfo ctxt src2
-  let t1, t2 = AST.tmpvar 32<rt>, AST.tmpvar 32<rt>
-  let result = AST.tmpvar 32<rt>
+  let t1, t2 = builder.NewTempVar 32<rt>, builder.NewTempVar 32<rt>
+  let result = builder.NewTempVar 32<rt>
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
@@ -935,7 +935,7 @@ let add isSetFlags insInfo ctxt =
   let dst, src1, src2 = parseOprOfADD insInfo ctxt
   let src1 = convertPCOpr insInfo ctxt src1
   let src2 = convertPCOpr insInfo ctxt src2
-  let t1, t2 = AST.tmpvar 32<rt>, AST.tmpvar 32<rt>
+  let t1, t2 = builder.NewTempVar 32<rt>, builder.NewTempVar 32<rt>
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
@@ -1043,7 +1043,7 @@ let pushLoop ctxt numOfReg addr (builder: IRBuilder) =
 
 let push insInfo ctxt =
   let builder = IRBuilder (32)
-  let t0 = AST.tmpvar 32<rt>
+  let t0 = builder.NewTempVar 32<rt>
   let sp = getRegVar ctxt R.SP
   let numOfReg = parseOprOfPUSHPOP insInfo
   let stackWidth = 4 * bitCount numOfReg 16
@@ -1065,8 +1065,8 @@ let sub isSetFlags insInfo ctxt =
   let dst, src1, src2 = parseOprOfADD insInfo ctxt
   let src1 = convertPCOpr insInfo ctxt src1
   let src2 = convertPCOpr insInfo ctxt src2
-  let t1, t2 = AST.tmpvar 32<rt>, AST.tmpvar 32<rt>
-  let result = AST.tmpvar 32<rt>
+  let t1, t2 = builder.NewTempVar 32<rt>, builder.NewTempVar 32<rt>
+  let result = builder.NewTempVar 32<rt>
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
@@ -1140,7 +1140,7 @@ let parseResultOfSUBAndRela insInfo ctxt =
 /// B9.3.20 SUBS R.PC, R.LR and related instruction (ARM), on page B9-2010
 let subsAndRelatedInstr insInfo ctxt =
   let builder = IRBuilder (64)
-  let result = AST.tmpvar 32<rt>
+  let result = builder.NewTempVar 32<rt>
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
@@ -1160,7 +1160,7 @@ let computeCarryOutFromImmCflag insInfo ctxt =
 let translateLogicOp insInfo ctxt (builder: IRBuilder) =
   match insInfo.Operands with
   | TwoOperands (OprReg _, OprReg _) ->
-    let t = AST.tmpvar 32<rt>
+    let t = builder.NewTempVar 32<rt>
     let e1, e2 = transTwoOprs insInfo ctxt
     builder <! (t := e2)
     let shifted, carryOut = shiftC t 32<rt> SRTypeLSL 0u (getCarryFlag ctxt)
@@ -1170,7 +1170,7 @@ let translateLogicOp insInfo ctxt (builder: IRBuilder) =
     let carryOut = computeCarryOutFromImmCflag insInfo ctxt
     e1, e2, e3, carryOut
   | FourOperands (opr1, opr2, opr3 , OprShift (typ, Imm imm)) ->
-    let t = AST.tmpvar 32<rt>
+    let t = builder.NewTempVar 32<rt>
     let carryIn = getCarryFlag ctxt
     let dst = transOprToExpr ctxt opr1
     let src1 = transOprToExpr ctxt opr2
@@ -1179,7 +1179,7 @@ let translateLogicOp insInfo ctxt (builder: IRBuilder) =
     let shifted, carryOut = shiftC t 32<rt> typ imm carryIn
     dst, src1, shifted, carryOut
   | FourOperands (opr1, opr2, opr3 , OprRegShift (typ, reg)) ->
-    let t = AST.tmpvar 32<rt>
+    let t = builder.NewTempVar 32<rt>
     let carryIn = getCarryFlag ctxt
     let dst = transOprToExpr ctxt opr1
     let src1 = transOprToExpr ctxt opr2
@@ -1196,7 +1196,7 @@ let logicalAnd isSetFlags insInfo ctxt =
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let dst, src1, src2, carryOut = translateLogicOp insInfo ctxt builder
-  let result = AST.tmpvar 32<rt>
+  let result = builder.NewTempVar 32<rt>
   builder <! (result := src1 .& src2)
   if dst = getPC ctxt then aluWritePC ctxt insInfo isUnconditional result builder
   else
@@ -1213,7 +1213,7 @@ let logicalAnd isSetFlags insInfo ctxt =
 let mov isSetFlags insInfo ctxt =
   let builder = IRBuilder (32)
   let dst, res = transTwoOprs insInfo ctxt
-  let result = AST.tmpvar 32<rt>
+  let result = builder.NewTempVar 32<rt>
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
@@ -1235,7 +1235,7 @@ let eor isSetFlags insInfo ctxt =
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let dst, src1, src2, carryOut = translateLogicOp insInfo ctxt builder
-  let result = AST.tmpvar 32<rt>
+  let result = builder.NewTempVar 32<rt>
   builder <! (result := src1 <+> src2)
   if dst = getPC ctxt then aluWritePC ctxt insInfo isUnconditional result builder
   else
@@ -1272,8 +1272,8 @@ let parseOprOfRSB insInfo ctxt =
 let rsb isSetFlags insInfo ctxt =
   let builder = IRBuilder (32)
   let dst, src1, src2 = parseOprOfRSB insInfo ctxt
-  let result = AST.tmpvar 32<rt>
-  let t1, t2 = AST.tmpvar 32<rt>, AST.tmpvar 32<rt>
+  let result = builder.NewTempVar 32<rt>
+  let t1, t2 = builder.NewTempVar 32<rt>, builder.NewTempVar 32<rt>
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
@@ -1325,8 +1325,8 @@ let parseOprOfSBC insInfo ctxt =
 let sbc isSetFlags insInfo ctxt =
   let builder = IRBuilder (32)
   let dst, src1, src2 = parseOprOfSBC insInfo ctxt
-  let t1, t2 = AST.tmpvar 32<rt>, AST.tmpvar 32<rt>
-  let result = AST.tmpvar 32<rt>
+  let t1, t2 = builder.NewTempVar 32<rt>, builder.NewTempVar 32<rt>
+  let result = builder.NewTempVar 32<rt>
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
@@ -1370,8 +1370,8 @@ let parseOprOfRSC insInfo ctxt =
 let rsc isSetFlags insInfo ctxt =
   let builder = IRBuilder (32)
   let dst, src1, src2 = parseOprOfRSC insInfo ctxt
-  let t1, t2 = AST.tmpvar 32<rt>, AST.tmpvar 32<rt>
-  let result = AST.tmpvar 32<rt>
+  let t1, t2 = builder.NewTempVar 32<rt>, builder.NewTempVar 32<rt>
+  let result = builder.NewTempVar 32<rt>
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
@@ -1398,7 +1398,7 @@ let orr isSetFlags insInfo ctxt =
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let dst, src1, src2, carryOut = translateLogicOp insInfo ctxt builder
-  let result = AST.tmpvar 32<rt>
+  let result = builder.NewTempVar 32<rt>
   builder <! (result := src1 .| src2)
   if dst = getPC ctxt then aluWritePC ctxt insInfo isUnconditional result builder
   else
@@ -1418,7 +1418,7 @@ let orn isSetFlags insInfo ctxt =
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let dst, src1, src2, carryOut = translateLogicOp insInfo ctxt builder
-  let result = AST.tmpvar 32<rt>
+  let result = builder.NewTempVar 32<rt>
   builder <! (result := src1 .| AST.not src2)
   if dst = getPC ctxt then aluWritePC ctxt insInfo isUnconditional result builder
   else
@@ -1438,7 +1438,7 @@ let bic isSetFlags insInfo ctxt =
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let dst, src1, src2, carryOut = translateLogicOp insInfo ctxt builder
-  let result = AST.tmpvar 32<rt>
+  let result = builder.NewTempVar 32<rt>
   builder <! (result := src1 .& (AST.not src2))
   if dst = getPC ctxt then aluWritePC ctxt insInfo isUnconditional result builder
   else
@@ -1489,7 +1489,7 @@ let parseOprOfMVN insInfo ctxt =
 let mvn isSetFlags insInfo ctxt =
   let builder = IRBuilder (32)
   let dst, src, carryOut = parseOprOfMVN insInfo ctxt
-  let result = AST.tmpvar 32<rt>
+  let result = builder.NewTempVar 32<rt>
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
@@ -1558,8 +1558,8 @@ let parseOprOfShiftInstr insInfo shiftTyp ctxt tmp =
 
 let shiftInstr isSetFlags insInfo typ ctxt =
   let builder = IRBuilder (32)
-  let srcTmp = AST.tmpvar 32<rt>
-  let result = AST.tmpvar 32<rt>
+  let srcTmp = builder.NewTempVar 32<rt>
+  let result = builder.NewTempVar 32<rt>
   let dst, src, res, carryOut = parseOprOfShiftInstr insInfo typ ctxt srcTmp
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
@@ -1686,12 +1686,12 @@ let rrxs isSetFlags insInfo ctxt =
 let clz insInfo ctxt =
   let builder = IRBuilder (32)
   let dst, src = transTwoOprs insInfo ctxt
-  let lblBoundCheck = AST.symbol "LBoundCheck"
-  let lblZeroCheck = AST.symbol "LZeroCheck"
-  let lblCount = AST.symbol "LCount"
-  let lblEnd = AST.symbol "LEnd"
+  let lblBoundCheck = builder.NewSymbol "LBoundCheck"
+  let lblZeroCheck = builder.NewSymbol "LZeroCheck"
+  let lblCount = builder.NewSymbol "LCount"
+  let lblEnd = builder.NewSymbol "LEnd"
   let numSize = (AST.num <| BitVector.ofInt32 32 32<rt>)
-  let t1 = AST.tmpvar 32<rt>
+  let t1 = builder.NewTempVar 32<rt>
   let cond1 = t1 == (AST.num0 32<rt>)
   let cond2 = src .& ((AST.num1 32<rt>) << (t1 .- AST.num1 32<rt>)) != (AST.num0 32<rt>)
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
@@ -1745,8 +1745,8 @@ let parseOprOfCMN insInfo ctxt =
 let cmn insInfo ctxt =
   let builder = IRBuilder (16)
   let dst, src = parseOprOfCMN insInfo ctxt
-  let result = AST.tmpvar 32<rt>
-  let t1, t2 = AST.tmpvar 32<rt>, AST.tmpvar 32<rt>
+  let result = builder.NewTempVar 32<rt>
+  let t1, t2 = builder.NewTempVar 32<rt>, builder.NewTempVar 32<rt>
   let cpsr = getRegVar ctxt R.CPSR
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
@@ -1765,7 +1765,7 @@ let cmn insInfo ctxt =
 let mla isSetFlags insInfo ctxt =
   let builder = IRBuilder (16)
   let rd, rn, rm, ra = transFourOprs insInfo ctxt
-  let r = AST.tmpvar 32<rt>
+  let r = builder.NewTempVar 32<rt>
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
@@ -1812,8 +1812,8 @@ let parseOprOfCMP insInfo ctxt =
 let cmp insInfo ctxt =
   let builder = IRBuilder (16)
   let rn, rm = parseOprOfCMP insInfo ctxt
-  let result = AST.tmpvar 32<rt>
-  let t1, t2 = AST.tmpvar 32<rt>, AST.tmpvar 32<rt>
+  let result = builder.NewTempVar 32<rt>
+  let t1, t2 = builder.NewTempVar 32<rt>, builder.NewTempVar 32<rt>
   let cpsr = getRegVar ctxt R.CPSR
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
@@ -1832,7 +1832,7 @@ let cmp insInfo ctxt =
 let umlal isSetFlags insInfo ctxt =
   let builder = IRBuilder (16)
   let rdLo, rdHi, rn, rm = transFourOprs insInfo ctxt
-  let result = AST.tmpvar 64<rt>
+  let result = builder.NewTempVar 64<rt>
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
@@ -1850,7 +1850,7 @@ let umlal isSetFlags insInfo ctxt =
 let umull isSetFlags insInfo ctxt =
   let builder = IRBuilder (16)
   let rdLo, rdHi, rn, rm = transFourOprs insInfo ctxt
-  let result = AST.tmpvar 64<rt>
+  let result = builder.NewTempVar 64<rt>
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
@@ -1888,7 +1888,7 @@ let transOprsOfTEQ insInfo ctxt =
 let teq insInfo ctxt =
   let builder = IRBuilder (16)
   let src1, src2, carryOut = transOprsOfTEQ insInfo ctxt
-  let result = AST.tmpvar 32<rt>
+  let result = builder.NewTempVar 32<rt>
   let cpsr = getRegVar ctxt R.CPSR
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
@@ -1903,7 +1903,7 @@ let teq insInfo ctxt =
 let mul isSetFlags insInfo ctxt =
   let builder = IRBuilder (16)
   let rd, rn, rm = transThreeOprs insInfo ctxt
-  let result = AST.tmpvar 32<rt>
+  let result = builder.NewTempVar 32<rt>
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
@@ -1945,7 +1945,7 @@ let transOprsOfTST insInfo ctxt =
 let tst insInfo ctxt =
   let builder = IRBuilder (16)
   let src1, src2, carryOut = transOprsOfTST insInfo ctxt
-  let result = AST.tmpvar 32<rt>
+  let result = builder.NewTempVar 32<rt>
   let cpsr = getRegVar ctxt R.CPSR
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
@@ -1960,8 +1960,8 @@ let tst insInfo ctxt =
 let smulhalf insInfo ctxt s1top s2top =
   let builder = IRBuilder (8)
   let rd, rn, rm = transThreeOprs insInfo ctxt
-  let t1 = AST.tmpvar 32<rt>
-  let t2 = AST.tmpvar 32<rt>
+  let t1 = builder.NewTempVar 32<rt>
+  let t2 = builder.NewTempVar 32<rt>
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
@@ -1977,8 +1977,8 @@ let smulhalf insInfo ctxt s1top s2top =
 let smulandacc isSetFlags doAcc insInfo ctxt =
   let builder = IRBuilder (16)
   let rdLo, rdHi, rn, rm = transFourOprs insInfo ctxt
-  let tmpresult = AST.tmpvar 64<rt>
-  let result = AST.tmpvar 64<rt>
+  let tmpresult = builder.NewTempVar 64<rt>
+  let result = builder.NewTempVar 64<rt>
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
@@ -1998,8 +1998,8 @@ let smulandacc isSetFlags doAcc insInfo ctxt =
 let smulacchalf insInfo ctxt s1top s2top =
   let builder = IRBuilder (8)
   let rd, rn, rm, ra = transFourOprs insInfo ctxt
-  let t1 = AST.tmpvar 32<rt>
-  let t2 = AST.tmpvar 32<rt>
+  let t1 = builder.NewTempVar 32<rt>
+  let t2 = builder.NewTempVar 32<rt>
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
@@ -2065,7 +2065,7 @@ let popLoop ctxt numOfReg addr (builder: IRBuilder) =
 
 let pop insInfo ctxt =
   let builder = IRBuilder (32)
-  let t0 = AST.tmpvar 32<rt>
+  let t0 = builder.NewTempVar 32<rt>
   let sp = getRegVar ctxt R.SP
   let numOfReg = parseOprOfPUSHPOP insInfo
   let stackWidth = 4 * bitCount numOfReg 16
@@ -2099,8 +2099,8 @@ let getLDMStartAddr rn stackWidth = function
 
 let ldm opcode insInfo ctxt wbackop =
   let builder = IRBuilder (32)
-  let t0 = AST.tmpvar 32<rt>
-  let t1 = AST.tmpvar 32<rt>
+  let t0 = builder.NewTempVar 32<rt>
+  let t1 = builder.NewTempVar 32<rt>
   let rn, numOfRn, numOfReg = parseOprOfLDM insInfo ctxt
   let wback = Option.get insInfo.WriteBack
   let stackWidth = 4 * bitCount numOfReg 16
@@ -2190,15 +2190,15 @@ let parseOprOfLDR insInfo ctxt =
 /// Load register
 let ldr insInfo ctxt size ext =
   let builder = IRBuilder (16)
-  let data = AST.tmpvar 32<rt>
+  let data = builder.NewTempVar 32<rt>
   let rt, addr, writeback = parseOprOfLDR insInfo ctxt
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   match writeback with
   | Some (basereg, newoffset) ->
-    let taddr = AST.tmpvar 32<rt>
-    let twriteback = AST.tmpvar 32<rt>
+    let taddr = builder.NewTempVar 32<rt>
+    let twriteback = builder.NewTempVar 32<rt>
     builder <! (taddr := addr)
     builder <! (twriteback := newoffset)
     builder <! (data := AST.loadLE size taddr |> ext 32<rt>)
@@ -2231,7 +2231,7 @@ let parseOprOfLDRD insInfo ctxt =
 
 let ldrd insInfo ctxt =
   let builder = IRBuilder (8)
-  let taddr = AST.tmpvar 32<rt>
+  let taddr = builder.NewTempVar 32<rt>
   let rt, rt2, addr, writeback = parseOprOfLDRD insInfo ctxt
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
@@ -2239,7 +2239,7 @@ let ldrd insInfo ctxt =
   let n4 = AST.num (BitVector.ofInt32 4 32<rt>)
   match writeback with
   | Some (basereg, newoffset) ->
-    let twriteback = AST.tmpvar 32<rt>
+    let twriteback = builder.NewTempVar 32<rt>
     builder <! (taddr := addr)
     builder <! (twriteback := newoffset)
     builder <! (rt := AST.loadLE 32<rt> taddr)
@@ -2274,14 +2274,14 @@ let combineGEs ge0 ge1 ge2 ge3 =
 let uadd8 insInfo ctxt =
   let builder = IRBuilder (32)
   let rd, rn, rm = transThreeOprs insInfo ctxt
-  let sum1 = AST.tmpvar 32<rt>
-  let sum2 = AST.tmpvar 32<rt>
-  let sum3 = AST.tmpvar 32<rt>
-  let sum4 = AST.tmpvar 32<rt>
-  let ge0 = AST.tmpvar 32<rt>
-  let ge1 = AST.tmpvar 32<rt>
-  let ge2 = AST.tmpvar 32<rt>
-  let ge3 = AST.tmpvar 32<rt>
+  let sum1 = builder.NewTempVar 32<rt>
+  let sum2 = builder.NewTempVar 32<rt>
+  let sum3 = builder.NewTempVar 32<rt>
+  let sum4 = builder.NewTempVar 32<rt>
+  let ge0 = builder.NewTempVar 32<rt>
+  let ge1 = builder.NewTempVar 32<rt>
+  let ge2 = builder.NewTempVar 32<rt>
+  let ge3 = builder.NewTempVar 32<rt>
   let cpsr = getRegVar ctxt R.CPSR
   let n100 = AST.num <| BitVector.ofInt32 0x100 32<rt>
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
@@ -2302,10 +2302,10 @@ let uadd8 insInfo ctxt =
 
 let sel insInfo ctxt =
   let builder = IRBuilder (16)
-  let t1 = AST.tmpvar 32<rt>
-  let t2 = AST.tmpvar 32<rt>
-  let t3 = AST.tmpvar 32<rt>
-  let t4 = AST.tmpvar 32<rt>
+  let t1 = builder.NewTempVar 32<rt>
+  let t2 = builder.NewTempVar 32<rt>
+  let t3 = builder.NewTempVar 32<rt>
+  let t4 = builder.NewTempVar 32<rt>
   let rd, rn, rm = transThreeOprs insInfo ctxt
   let n1 = AST.num1 32<rt>
   let n2 = AST.num <| BitVector.ofInt32 2 32<rt>
@@ -2325,8 +2325,8 @@ let sel insInfo ctxt =
 
 let rbit insInfo ctxt =
   let builder = IRBuilder (16)
-  let t1 = AST.tmpvar 32<rt>
-  let t2 = AST.tmpvar 32<rt>
+  let t1 = builder.NewTempVar 32<rt>
+  let t2 = builder.NewTempVar 32<rt>
   let rd, rm = transTwoOprs insInfo ctxt
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
@@ -2341,10 +2341,10 @@ let rbit insInfo ctxt =
 
 let rev insInfo ctxt =
   let builder = IRBuilder (16)
-  let t1 = AST.tmpvar 32<rt>
-  let t2 = AST.tmpvar 32<rt>
-  let t3 = AST.tmpvar 32<rt>
-  let t4 = AST.tmpvar 32<rt>
+  let t1 = builder.NewTempVar 32<rt>
+  let t2 = builder.NewTempVar 32<rt>
+  let t3 = builder.NewTempVar 32<rt>
+  let t4 = builder.NewTempVar 32<rt>
   let rd, rm = transTwoOprs insInfo ctxt
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
@@ -2429,7 +2429,7 @@ let stmLoop ctxt regs wback rn addr (builder: IRBuilder) =
 
 let stm opcode insInfo ctxt wbop =
   let builder = IRBuilder (32)
-  let taddr = AST.tmpvar 32<rt>
+  let taddr = builder.NewTempVar 32<rt>
   let rn, regs = parseOprOfSTM insInfo ctxt
   let wback = Option.get insInfo.WriteBack
   let msize = BitVector.ofInt32 (4 * bitCount regs 16) 32<rt> |> AST.num
@@ -2456,8 +2456,8 @@ let parseOprOfCBZ insInfo ctxt =
 
 let cbz nonZero insInfo ctxt =
   let builder = IRBuilder (16)
-  let lblL0 = AST.symbol "L0"
-  let lblL1 = AST.symbol "L1"
+  let lblL0 = builder.NewSymbol "L0"
+  let lblL1 = builder.NewSymbol "L1"
   let n = if nonZero then AST.num1 1<rt> else AST.num0 1<rt>
   let rn, pc = parseOprOfCBZ insInfo ctxt
   let cond = n <+> (rn == AST.num0 32<rt>)
@@ -2529,8 +2529,8 @@ let parseOprOfRdRnLsbWidth insInfo ctxt =
 let bfi insInfo ctxt =
   let builder = IRBuilder (8)
   let rd, rn, lsb, width = parseOprOfRdRnLsbWidth insInfo ctxt
-  let t0 = AST.tmpvar 32<rt>
-  let t1 = AST.tmpvar 32<rt>
+  let t0 = builder.NewTempVar 32<rt>
+  let t1 = builder.NewTempVar 32<rt>
   let n = rn .&
           (BitVector.ofBInt (BigInteger.getMask width) 32<rt> |> AST.num)
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
@@ -2553,8 +2553,8 @@ let bfx insInfo ctxt signExtend =
   let v = BitVector.ofBInt (BigInteger.getMask width) 32<rt> |> AST.num
   builder <! (rd := (rn >> (AST.num <| BitVector.ofInt32 lsb 32<rt>)) .& v)
   if signExtend && width > 1 then
-    let msb = AST.tmpvar 32<rt>
-    let mask = AST.tmpvar 32<rt>
+    let msb = builder.NewTempVar 32<rt>
+    let mask = builder.NewTempVar 32<rt>
     let msboffset = AST.num <| BitVector.ofInt32 (lsb + width - 1) 32<rt>
     let shift = AST.num <| BitVector.ofInt32 width 32<rt>
     builder <! (msb := (rn >> msboffset) .& AST.num1 32<rt>)
@@ -2569,8 +2569,8 @@ let parseOprOfUqOpr ctxt = function
     getRegVar ctxt rd, getRegVar ctxt rn, getRegVar ctxt rm
   | _ -> raise InvalidOperandException
 
-let createTemporaries cnt regtype =
-  Array.init cnt (fun _ -> AST.tmpvar regtype)
+let createTemporaries (builder: IRBuilder) cnt regtype =
+  Array.init cnt (fun _ -> builder.NewTempVar regtype)
 
 let extractUQOps r width =
   let typ = RegType.fromBitWidth width
@@ -2592,8 +2592,8 @@ let getUQAssignment tmps width =
 let uqopr insInfo ctxt width opr =
   let builder = IRBuilder (16)
   let rd, rn, rm = parseOprOfUqOpr ctxt insInfo.Operands
-  let tmps = createTemporaries (32 / width) 32<rt>
-  let sats = createTemporaries (32 / width) (RegType.fromBitWidth width)
+  let tmps = createTemporaries builder (32 / width) 32<rt>
+  let sats = createTemporaries builder (32 / width) (RegType.fromBitWidth width)
   let rns = extractUQOps rn width
   let rms = extractUQOps rm width
   let diffs = Array.map2 opr rns rms
@@ -2643,7 +2643,7 @@ let adr insInfo ctxt =
 let mls insInfo ctxt =
   let builder = IRBuilder (8)
   let rd, rn, rm, ra = transFourOprs insInfo ctxt
-  let r = AST.tmpvar 32<rt>
+  let r = builder.NewTempVar 32<rt>
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
@@ -2712,12 +2712,12 @@ let vldr insInfo ctxt =
   startMark insInfo builder
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   if isSReg then
-    let data = AST.tmpvar 32<rt>
+    let data = builder.NewTempVar 32<rt>
     builder <! (data := AST.loadLE 32<rt> addr)
     builder <! (rd := data)
   else
-    let d1 = AST.tmpvar 32<rt>
-    let d2 = AST.tmpvar 32<rt>
+    let d1 = builder.NewTempVar 32<rt>
+    let d2 = builder.NewTempVar 32<rt>
     builder <! (d1 := AST.loadLE 32<rt> addr)
     builder <! (d2 := AST.loadLE 32<rt> (addr .+ (AST.num (BitVector.ofInt32 4 32<rt>))))
     builder <! (rd := if ctxt.Endianness = Endian.Big then AST.concat d1 d2
@@ -2861,7 +2861,7 @@ let vpopLoop ctxt d imm isSReg addr (builder: IRBuilder) =
 
 let vpop insInfo ctxt =
   let builder = IRBuilder (64) // FIXME
-  let t0 = AST.tmpvar 32<rt>
+  let t0 = builder.NewTempVar 32<rt>
   let sp = getRegVar ctxt R.SP
   let d, imm, isSReg = parsePUSHPOPsubValue insInfo
   let addr = sp
@@ -2900,7 +2900,7 @@ let vpushLoop ctxt d imm isSReg addr (builder: IRBuilder) =
 
 let vpush insInfo ctxt =
   let builder = IRBuilder (64) // FIXME
-  let t0 = AST.tmpvar 32<rt>
+  let t0 = builder.NewTempVar 32<rt>
   let sp = getRegVar ctxt R.SP
   let d, imm, isSReg = parsePUSHPOPsubValue insInfo
   let isUnconditional = ParseUtils.isUnconditional insInfo.Condition
@@ -3133,12 +3133,12 @@ let vdup insInfo ctxt =
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
-let highestSetBitForIR dst src width oprSz builder =
-  let lblLoop = AST.symbol "Loop"
-  let lblLoopCont = AST.symbol "LoopContinue"
-  let lblUpdateTmp = AST.symbol "UpdateTmp"
-  let lblEnd = AST.symbol "End"
-  let t = AST.tmpvar oprSz
+let highestSetBitForIR dst src width oprSz (builder: IRBuilder) =
+  let lblLoop = builder.NewSymbol "Loop"
+  let lblLoopCont = builder.NewSymbol "LoopContinue"
+  let lblUpdateTmp = builder.NewSymbol "UpdateTmp"
+  let lblEnd = builder.NewSymbol "End"
+  let t = builder.NewTempVar oprSz
   let width = (AST.num <| BitVector.ofInt32 (width - 1) oprSz)
   builder <! (t := width)
   builder <! (AST.lmark lblLoop)
@@ -3245,7 +3245,7 @@ let vstm insInfo ctxt =
     | _ -> raise InvalidOpcodeException
   let regs = List.length regList
   let imm32 = AST.num <| BitVector.ofInt32 ((regs * 2) <<< 2) 32<rt>
-  let addr = AST.tmpvar 32<rt>
+  let addr = builder.NewTempVar 32<rt>
   let updateRn rn =
     if insInfo.WriteBack.Value then
       if add then rn .+ imm32 else rn .- imm32
@@ -3277,7 +3277,7 @@ let vldm insInfo ctxt =
     | _ -> raise InvalidOpcodeException
   let regs = List.length regList
   let imm32 = AST.num <| BitVector.ofInt32 ((regs * 2) <<< 2) 32<rt>
-  let addr = AST.tmpvar 32<rt>
+  let addr = builder.NewTempVar 32<rt>
   let updateRn rn =
     if insInfo.WriteBack.Value then
       if add then rn .+ imm32 else rn .- imm32
@@ -3556,7 +3556,7 @@ let vpadd insInfo ctxt =
   let rd, rn, rm = transThreeOprs insInfo ctxt
   let p = getParsingInfo insInfo
   let h = p.Elements / 2
-  let dest = AST.tmpvar 64<rt>
+  let dest = builder.NewTempVar 64<rt>
   builder <! (dest := AST.num0 64<rt>)
   for e in 0 .. h - 1 do
     let addPair expr =
@@ -3860,7 +3860,7 @@ let vst1Multi insInfo ctxt =
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
   let pInfo = getParsingInfo insInfo
   let regs = getRegs insInfo.Operands
-  let addr = AST.tmpvar 32<rt>
+  let addr = builder.NewTempVar 32<rt>
   builder <! (addr := rn)
   builder <! (rn := updateRn insInfo rn rm (8 * regs) pInfo.RegIndex)
   for r in 0 .. (regs - 1) do
@@ -3885,7 +3885,7 @@ let vst1Single insInfo ctxt index =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rd, rn, rm = parseOprOfVecStAndLd ctxt insInfo
   let pInfo = getParsingInfo insInfo
-  let addr = AST.tmpvar 32<rt>
+  let addr = builder.NewTempVar 32<rt>
   builder <! (addr := rn)
   builder <! (rn := updateRn insInfo rn rm pInfo.EBytes pInfo.RegIndex)
   let mem = AST.loadLE pInfo.RtESize addr
@@ -3910,7 +3910,7 @@ let vld1SingleOne insInfo ctxt index =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rd, rn, rm = parseOprOfVecStAndLd ctxt insInfo
   let pInfo = getParsingInfo insInfo
-  let addr = AST.tmpvar 32<rt>
+  let addr = builder.NewTempVar 32<rt>
   builder <! (addr := rn)
   builder <! (rn := updateRn insInfo rn rm pInfo.EBytes pInfo.RegIndex)
   let mem = AST.loadLE pInfo.RtESize addr
@@ -3925,7 +3925,7 @@ let vld1SingleAll insInfo ctxt =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
   let pInfo = getParsingInfo insInfo
-  let addr = AST.tmpvar 32<rt>
+  let addr = builder.NewTempVar 32<rt>
   builder <! (addr := rn)
   builder <! (rn := updateRn insInfo rn rm pInfo.EBytes pInfo.RegIndex)
   let mem = AST.loadLE pInfo.RtESize addr
@@ -3943,18 +3943,18 @@ let vld1Multi insInfo ctxt =
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
   let pInfo = getParsingInfo insInfo
   let regs = getRegs insInfo.Operands
-  let addr = AST.tmpvar 32<rt>
+  let addr = builder.NewTempVar 32<rt>
   builder <! (addr := rn)
   builder <! (rn := updateRn insInfo rn rm (8 * regs) pInfo.RegIndex)
   for r in 0 .. (regs - 1) do
     for e in 0 .. (pInfo.Elements - 1) do
       if pInfo.EBytes <> 8 then
-        let data = AST.tmpvar pInfo.RtESize
+        let data = builder.NewTempVar pInfo.RtESize
         builder <! (data := AST.loadLE pInfo.RtESize addr)
         builder <! (elem rdList.[r] e pInfo.ESize := data)
       else
-        let data1 = AST.tmpvar 32<rt>
-        let data2 = AST.tmpvar 32<rt>
+        let data1 = builder.NewTempVar 32<rt>
+        let data2 = builder.NewTempVar 32<rt>
         let mem1 = AST.loadLE 32<rt> addr
         let mem2 = AST.loadLE 32<rt> (addr .+ (AST.num <| BitVector.ofInt32 4 32<rt>))
         let isbig = ctxt.Endianness = Endian.Big
@@ -3986,7 +3986,7 @@ let vst2Multi insInfo ctxt =
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
   let regs = getRegs insInfo.Operands / 2
   let pInfo = getParsingInfo insInfo
-  let addr = AST.tmpvar 32<rt>
+  let addr = builder.NewTempVar 32<rt>
   builder <! (addr := rn)
   builder <! (rn := updateRn insInfo rn rm (16 * regs) pInfo.RegIndex)
   for r in 0 .. (regs - 1) do
@@ -4008,7 +4008,7 @@ let vst2Single insInfo ctxt index =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
   let pInfo = getParsingInfo insInfo
-  let addr = AST.tmpvar 32<rt>
+  let addr = builder.NewTempVar 32<rt>
   builder <! (addr := rn)
   builder <! (rn := updateRn insInfo rn rm (16 * pInfo.EBytes) pInfo.RegIndex)
   let mem1 = AST.loadLE pInfo.RtESize addr
@@ -4035,7 +4035,7 @@ let vst3Multi insInfo ctxt =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
   let pInfo = getParsingInfo insInfo
-  let addr = AST.tmpvar 32<rt>
+  let addr = builder.NewTempVar 32<rt>
   builder <! (addr := rn)
   builder <! (rn := updateRn insInfo rn rm 24 pInfo.RegIndex)
   for e in 0 .. (pInfo.Elements - 1) do
@@ -4056,7 +4056,7 @@ let vst3Single insInfo ctxt index =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
   let pInfo = getParsingInfo insInfo
-  let addr = AST.tmpvar 32<rt>
+  let addr = builder.NewTempVar 32<rt>
   builder <! (addr := rn)
   builder <! (rn := updateRn insInfo rn rm (3 * pInfo.EBytes) pInfo.RegIndex)
   let mem1 = AST.loadLE pInfo.RtESize addr
@@ -4085,7 +4085,7 @@ let vst4Multi insInfo ctxt =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
   let pInfo = getParsingInfo insInfo
-  let addr = AST.tmpvar 32<rt>
+  let addr = builder.NewTempVar 32<rt>
   builder <! (addr := rn)
   builder <! (rn := updateRn insInfo rn rm 32 pInfo.RegIndex)
   for e in 0 .. (pInfo.Elements - 1) do
@@ -4108,7 +4108,7 @@ let vst4Single insInfo ctxt index =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
   let pInfo = getParsingInfo insInfo
-  let addr = AST.tmpvar 32<rt>
+  let addr = builder.NewTempVar 32<rt>
   builder <! (addr := rn)
   builder <! (rn := updateRn insInfo rn rm (4 * pInfo.EBytes) pInfo.RegIndex)
   let mem1 = AST.loadLE pInfo.RtESize addr
@@ -4139,7 +4139,7 @@ let vld2SingleOne insInfo ctxt index =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
   let pInfo = getParsingInfo insInfo
-  let addr = AST.tmpvar 32<rt>
+  let addr = builder.NewTempVar 32<rt>
   builder <! (addr := rn)
   builder <! (rn := updateRn insInfo rn rm (2 * pInfo.EBytes) pInfo.RegIndex)
   let mem1 = AST.loadLE pInfo.RtESize addr
@@ -4156,7 +4156,7 @@ let vld2SingleAll insInfo ctxt =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
   let pInfo = getParsingInfo insInfo
-  let addr = AST.tmpvar 32<rt>
+  let addr = builder.NewTempVar 32<rt>
   builder <! (addr := rn)
   builder <! (rn := updateRn insInfo rn rm (2 * pInfo.EBytes) pInfo.RegIndex)
   let mem1 = AST.loadLE pInfo.RtESize addr
@@ -4176,7 +4176,7 @@ let vld2Multi insInfo ctxt =
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
   let pInfo = getParsingInfo insInfo
   let regs = getRegs insInfo.Operands / 2
-  let addr = AST.tmpvar 32<rt>
+  let addr = builder.NewTempVar 32<rt>
   builder <! (addr := rn)
   builder <! (rn := updateRn insInfo rn rm (16 * regs) pInfo.RegIndex)
   for r in 0 .. (regs - 1) do
@@ -4208,7 +4208,7 @@ let vld3SingleOne insInfo ctxt index =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
   let pInfo = getParsingInfo insInfo
-  let addr = AST.tmpvar 32<rt>
+  let addr = builder.NewTempVar 32<rt>
   builder <! (addr := rn)
   builder <! (rn := updateRn insInfo rn rm (3 * pInfo.EBytes) pInfo.RegIndex)
   let mem1 = AST.loadLE pInfo.RtESize addr
@@ -4227,7 +4227,7 @@ let vld3SingleAll insInfo ctxt =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
   let pInfo = getParsingInfo insInfo
-  let addr = AST.tmpvar 32<rt>
+  let addr = builder.NewTempVar 32<rt>
   builder <! (addr := rn)
   builder <! (rn := updateRn insInfo rn rm (3 * pInfo.EBytes) pInfo.RegIndex)
   let mem1 = AST.loadLE pInfo.RtESize addr
@@ -4249,7 +4249,7 @@ let vld3Multi insInfo ctxt =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
   let pInfo = getParsingInfo insInfo
-  let addr = AST.tmpvar 32<rt>
+  let addr = builder.NewTempVar 32<rt>
   builder <! (addr := rn)
   builder <! (rn := updateRn insInfo rn rm 24 pInfo.RegIndex)
   for e in 0 .. (pInfo.Elements - 1) do
@@ -4279,7 +4279,7 @@ let vld4SingleOne insInfo ctxt index =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
   let pInfo = getParsingInfo insInfo
-  let addr = AST.tmpvar 32<rt>
+  let addr = builder.NewTempVar 32<rt>
   builder <! (addr := rn)
   builder <! (rn := updateRn insInfo rn rm (4 * pInfo.EBytes) pInfo.RegIndex)
   let mem1 = AST.loadLE pInfo.RtESize addr
@@ -4300,7 +4300,7 @@ let vld4SingleAll insInfo ctxt =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
   let pInfo = getParsingInfo insInfo
-  let addr = AST.tmpvar 32<rt>
+  let addr = builder.NewTempVar 32<rt>
   builder <! (addr := rn)
   builder <! (rn := updateRn insInfo rn rm (4 * pInfo.EBytes) pInfo.RegIndex)
   let mem1 = AST.loadLE pInfo.RtESize addr
@@ -4325,7 +4325,7 @@ let vld4Multi insInfo ctxt =
   let lblIgnore = checkCondition insInfo ctxt isUnconditional builder
   let rdList, rn, rm = parseOprOfVecStAndLd ctxt insInfo
   let pInfo = getParsingInfo insInfo
-  let addr = AST.tmpvar 32<rt>
+  let addr = builder.NewTempVar 32<rt>
   builder <! (addr := rn)
   builder <! (rn := updateRn insInfo rn rm 24 pInfo.RegIndex)
   for e in 0 .. (pInfo.Elements - 1) do

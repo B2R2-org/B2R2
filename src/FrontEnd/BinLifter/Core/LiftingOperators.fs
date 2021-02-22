@@ -37,6 +37,9 @@ open B2R2.BinIR.LowUIR
 /// !>ir insAddr insLen
 let inline ( !! ) (ir: IRBuilder) (s) = ir.Append s
 
+/// The special operator for creating a temporary variable.
+let inline ( !* ) (ir: IRBuilder) rt = ir.NewTempVar rt
+
 /// The special operator for starting an instruction (ISMark).
 let inline ( !< ) (ir: IRBuilder) insLen =
   ir.Append (AST.ismark insLen)

@@ -63,9 +63,9 @@ let nop insInfo =
 let private getSPSize size = numI32 (32 * size) 256<rt>
 
 /// Pushes an element to stack.
-let private pushToStack (ctxt: TranslationContext) expr builder =
+let private pushToStack (ctxt: TranslationContext) expr (builder: IRBuilder) =
   let spReg = getRegVar ctxt R.SP
-  let tmp = AST.tmpvar OperationSize.regType
+  let tmp = builder.NewTempVar OperationSize.regType
   let expr = if OperationSize.regType = TypeCheck.typeOf expr then expr
              else AST.zext OperationSize.regType expr
   builder <! (spReg := (spReg .+ (getSPSize 1))) (* SP := SP + 32 *)
@@ -73,25 +73,25 @@ let private pushToStack (ctxt: TranslationContext) expr builder =
   builder <! (AST.store Endian.Little spReg tmp) (* [SP] := tmp *)
 
 /// Pops an element from stack and returns the element.
-let private popFromStack (ctxt: TranslationContext) builder =
+let private popFromStack (ctxt: TranslationContext) (builder: IRBuilder) =
   let spReg = getRegVar ctxt R.SP
-  let tmp = AST.tmpvar OperationSize.regType
+  let tmp = builder.NewTempVar OperationSize.regType
   builder <! (tmp := AST.loadLE (OperationSize.regType) spReg) (* tmp := [SP] *)
   builder <! (spReg := (spReg .- (getSPSize 1)))           (* SP := SP - 32 *)
   tmp
 
-let private peekStack (ctxt: TranslationContext) pos builder =
+let private peekStack (ctxt: TranslationContext) pos (builder: IRBuilder) =
   let spReg = getRegVar ctxt R.SP
   let regType = OperationSize.regType
-  let tmp = AST.tmpvar regType
+  let tmp = builder.NewTempVar regType
   builder <! (tmp := AST.loadLE regType (spReg .- (getSPSize (pos - 1))))
   tmp
 
-let private swapStack (ctxt: TranslationContext) pos builder=
+let private swapStack (ctxt: TranslationContext) pos (builder: IRBuilder) =
   let spReg = getRegVar ctxt R.SP
   let regType = OperationSize.regType
-  let tmp1 = AST.tmpvar regType
-  let tmp2 = AST.tmpvar regType
+  let tmp1 = builder.NewTempVar regType
+  let tmp2 = builder.NewTempVar regType
   builder <! (tmp1 := AST.loadLE regType spReg)
   builder <! (tmp2 := AST.loadLE regType (spReg .- (getSPSize (pos - 1))))
   builder <! (AST.store Endian.Little (spReg .- (getSPSize (pos - 1))) tmp1)
@@ -434,7 +434,7 @@ let sstore insInfo ctxt =
   startMark insInfo builder
   let key = popFromStack ctxt builder
   let value = popFromStack ctxt builder
-  let t = AST.tmpvar OperationSize.regType
+  let t = builder.NewTempVar OperationSize.regType
   updateGas ctxt insInfo.GAS builder
   builder <! (t := AST.app "sstore" [ key; value ] OperationSize.regType)
   endMark insInfo builder

@@ -65,14 +65,14 @@ let assert32 ctxt =
   if is64bit ctxt then raise InvalidISAException else ()
 #endif
 
-let inline tmpVars2 t =
-  struct (AST.tmpvar t, AST.tmpvar t)
+let inline tmpVars2 ir t =
+  struct (!*ir t, !*ir t)
 
-let inline tmpVars3 t =
-  struct (AST.tmpvar t, AST.tmpvar t, AST.tmpvar t)
+let inline tmpVars3 ir t =
+  struct (!*ir t, !*ir t, !*ir t)
 
-let inline tmpVars4 t =
-  struct (AST.tmpvar t, AST.tmpvar t, AST.tmpvar t, AST.tmpvar t)
+let inline tmpVars4 ir t =
+  struct (!*ir t, !*ir t, !*ir t, !*ir t)
 
 let inline getOperationSize (i: InsInfo) = i.MainOperationSize
 

@@ -25,6 +25,7 @@
 namespace B2R2.BinIR.LowUIR
 
 open System
+open LanguagePrimitives
 open B2R2
 open B2R2.BinIR
 
@@ -58,6 +59,10 @@ type ExprInfo = {
 /// IR Expressions.
 /// NOTE: You MUST create Expr/Stmt through the AST module. *NEVER* directly
 /// construct Expr nor Stmt.
+#if NOHASHCONS
+#else
+[<CustomEquality; NoComparison>]
+#endif
 type E =
   /// A number. For example, (0x42:I32) is a 32-bit number 0x42
   | Num of BitVector
@@ -119,16 +124,135 @@ type E =
   /// explicitly say that a register value is undefined after a certain
   /// operation. We model such cases with this expression.
   | Undefined of RegType * string
+#if NOHASHCONS
+#else
+with
+  override __.Equals rhs =
+    match rhs with
+    | :? E as rhs ->
+      match __, rhs with
+      | Num (n1), Num (n2) -> n1 = n2
+      | Var (t1, r1, _, _), Var (t2, r2, _, _) -> t1 = t2 && r1 = r2
+      | Nil, Nil -> true
+      | PCVar (t1, _), PCVar (t2, _) -> t1 = t2
+      | TempVar (t1, n1), TempVar (t2, n2) -> t1 = t2 && n1 = n2
+      | UnOp (t1, e1, _), UnOp (t2, e2, _) -> t1 = t2 && PhysicalEquality e1 e2
+      | Name (s1), Name (s2) -> s1 = s2
+      | FuncName (n1), FuncName (n2) -> n1 = n2
+      | BinOp (o1, t1, lhs1, rhs1, _), BinOp (o2, t2, lhs2, rhs2, _) ->
+        o1 = o2 && t1 = t2 &&
+          PhysicalEquality lhs1 lhs2 && PhysicalEquality rhs1 rhs2
+      | RelOp (o1, lhs1, rhs1, _), RelOp (o2, lhs2, rhs2, _) ->
+        o1 = o2 && PhysicalEquality lhs1 lhs2 && PhysicalEquality rhs1 rhs2
+      | Load (n1, t1, e1, _), Load (n2, t2, e2, _) ->
+        n1 = n2 && t1 = t2 && PhysicalEquality e1 e2
+      | Ite (c1, t1, f1, _), Ite (c2, t2, f2, _) ->
+        PhysicalEquality c1 c2 &&
+          PhysicalEquality t1 t2 && PhysicalEquality f1 f2
+      | Cast (k1, t1, e1, _), Cast (k2, t2, e2, _) ->
+        k1 = k2 && t1 = t2 && PhysicalEquality e1 e2
+      | Extract (e1, t1, p1, _), Extract (e2, t2, p2, _) ->
+        PhysicalEquality e1 e2 && t1 = t2 && p1 = p2
+      | Undefined (t1, s1), Undefined (t2, s2) -> t1 = t2 && s1 = s2
+      | _ -> false
+    | _ -> false
 
+  static member inline HashVar (rt: RegType) (rid: RegisterID) =
+    19 * (19 * int rt + int rid) + 1
+
+  static member inline HashPCVar (rt: RegType) =
+    19 * int rt + 2
+
+  static member inline HashTempVar (rt: RegType) n =
+    19 * (19 * int rt + n) + 3
+
+  static member inline HashUnOp (op: UnOpType) e =
+    19 * (19 * int op + e.HashKey) + 4
+
+  static member inline HashName ((s, n): Symbol) =
+    19 * (19 * s.GetHashCode () + n) + 5
+
+  static member inline HashFuncName (s: string) =
+    (19 * s.GetHashCode ()) + 6
+
+  static member inline HashBinOp (op: BinOpType) (rt: RegType) e1 e2 =
+    19 * (19 * (19 * (19 * int op + int rt) + e1.HashKey) + e2.HashKey) + 7
+
+  static member inline HashRelOp (op: RelOpType) e1 e2 =
+    19 * (19 * (19 * int op + e1.HashKey) + e2.HashKey) + 8
+
+  static member inline HashLoad (endian: Endian) (rt: RegType) e =
+    19 * (19 * (19 * int endian + int rt) + e.HashKey) + 9
+
+  static member inline HashIte cond t f =
+    19 * (19 * (19 * cond.HashKey + t.HashKey) + f.HashKey) + 10
+
+  static member inline HashCast (kind: CastKind) (rt: RegType) e =
+    19 * (19 * (19 * int kind + int rt) + e.HashKey) + 11
+
+  static member inline HashExtract e (rt: RegType) pos =
+    19 * (19 * (19 * e.HashKey + int rt) + pos) + 12
+
+  static member inline HashUndef (rt: RegType) (s: string) =
+    19 * (19 * int rt + s.GetHashCode ()) + 13
+
+  override __.GetHashCode () =
+    match __ with
+    | Num n -> n.GetHashCode ()
+    | Var (rt, rid, _, _) -> E.HashVar rt rid
+    | Nil -> 0
+    | PCVar (rt, _) -> E.HashPCVar rt
+    | TempVar (rt, n) -> E.HashTempVar rt n
+    | UnOp (op, e, _) -> E.HashUnOp op e
+    | Name (s) -> E.HashName s
+    | FuncName (s) -> E.HashFuncName s
+    | BinOp (op, rt, e1, e2, _) -> E.HashBinOp op rt e1 e2
+    | RelOp (op, e1, e2, _) -> E.HashRelOp op e1 e2
+    | Load (endian, rt, e, _) -> E.HashLoad endian rt e
+    | Ite (cond, t, f, _) -> E.HashIte cond t f
+    | Cast (k, rt, e, _) -> E.HashCast k rt e
+    | Extract (e, rt, pos, _) -> E.HashExtract e rt pos
+    | Undefined (rt, s) -> E.HashUndef rt s
+#endif
+
+#if NOHASHCONS
 /// When hash-consing is not used, we simply create a wrapper for an AST node.
 and [<Struct>] Expr = {
   /// The actual AST node.
   E: E
 }
+#else
+/// Hash-consed Expr.
+and [<CustomEquality; CustomComparison>] Expr = {
+  /// The actual AST node.
+  E: E
+  /// Unique id.
+  Tag: uint32
+  /// Hash cache.
+  HashKey: int
+}
+with
+  override __.Equals rhs =
+    match rhs with
+    | :? Expr as rhs -> __.Tag = rhs.Tag
+    | _ -> false
+
+  override __.GetHashCode () = __.HashKey
+
+  interface IComparable with
+    member __.CompareTo rhs =
+      match rhs with
+      | :? Expr as rhs -> __.Tag.CompareTo rhs.Tag
+      | _ -> 1
+#endif
 
 /// IL Statements.
 /// NOTE: You MUST create Expr/Stmt through the AST module. *NEVER* directly
 /// construct Expr nor Stmt.
+#if NOHASHCONS
+#else
+[<CustomEquality; NoComparison>]
+#endif
 type S =
   /// Metadata representing the start of a machine instruction. More
   /// specifically, it contains the length of the instruction. There must be a
@@ -183,11 +307,93 @@ type S =
 
   /// This represents an instruction with side effects such as a system call.
   | SideEffect of SideEffect
+#if NOHASHCONS
+#else
+with
+  override __.Equals rhs =
+    match rhs with
+    | :? S as rhs ->
+      match __, rhs with
+      | ISMark len1, ISMark len2 -> len1 = len2
+      | IEMark len1, IEMark len2 -> len1 = len2
+      | LMark s1, LMark s2 -> s1 = s2
+      | Put (dst1, src1), Put (dst2, src2) ->
+        dst1.Tag = dst2.Tag && src1.Tag = src2.Tag
+      | Store (n1, addr1, e1), Store (n2, addr2, e2) ->
+        n1 = n2 && addr1 = addr2 && e1.Tag = e2.Tag
+      | Jmp (e1), Jmp (e2) -> e1.Tag = e2.Tag
+      | CJmp (c1, t1, f1), CJmp (c2, t2, f2) ->
+        c1.Tag = c2.Tag && t1.Tag = t2.Tag && f1.Tag = f2.Tag
+      | InterJmp (e1, k1), InterJmp (e2, k2) -> e1.Tag = e2.Tag && k1 = k2
+      | InterCJmp (c1, t1, f1), InterCJmp (c2, t2, f2) ->
+        c1.Tag = c2.Tag && t1.Tag = t2.Tag && f1.Tag = f2.Tag
+      | SideEffect e1, SideEffect e2 -> e1 = e2
+      | _ -> false
+    | _ -> false
 
+  static member inline HashISMark (len: uint32) = len.GetHashCode () + 1
+
+  static member inline HashIEMark (len: uint32) = 19 * len.GetHashCode () + 2
+
+  static member inline HashLMark ((s, n): Symbol) =
+    19 * (19 * s.GetHashCode () + n) + 3
+
+  static member inline HashPut (dst: Expr) (src: Expr) =
+    19 * (19 * dst.HashKey + src.HashKey) + 4
+
+  static member inline HashStore (n: Endian) (addr: Expr) (e: Expr) =
+    19 * (19 * (19 * int n + addr.HashKey) + e.HashKey) + 5
+
+  static member inline HashJmp (e: Expr) =
+    19 * (19 * e.HashKey + 1) + 6
+
+  static member inline HashCJmp (cond: Expr) (t: Expr) (f: Expr) =
+    19 * (19 * (19 * cond.HashKey + t.HashKey) + f.HashKey) + 7
+
+  static member inline HashInterJmp (e: Expr) (k: InterJmpKind) =
+    19 * (19 * e.HashKey + int k) + 8
+
+  static member inline HashInterCJmp (cond: Expr) (t: Expr) (f: Expr) =
+    19 * (19 * (19 * cond.HashKey + t.HashKey) + f.HashKey) + 9
+
+  static member inline HashSideEffect (e: SideEffect) =
+    (19 * hash e) + 10
+
+  override __.GetHashCode () =
+    match __ with
+    | ISMark len -> S.HashISMark len
+    | IEMark len -> S.HashIEMark len
+    | LMark s -> S.HashLMark s
+    | Put (dst, src) -> S.HashPut dst src
+    | Store (n, addr, e) -> S.HashStore n addr e
+    | Jmp (e) -> S.HashJmp e
+    | CJmp (cond, t, f) -> S.HashCJmp cond t f
+    | InterJmp (e, k) -> S.HashInterJmp e k
+    | InterCJmp (cond, t, f) -> S.HashInterCJmp cond t f
+    | SideEffect (e) -> S.HashSideEffect e
+#endif
+
+#if NOHASHCONS
 /// When hash-consing is not used, we simply create a wrapper for an AST node.
 and [<Struct>] Stmt = {
   /// The actual AST node.
   S: S
 }
+#else
+/// Hash-consed Stmt.
+and [<CustomEquality; NoComparison>] Stmt = {
+  /// The actual AST node.
+  S: S
+  /// Unique id.
+  Tag: uint32
+  /// Hash cache.
+  HashKey: int
+}
+with
+  override __.Equals rhs =
+    match rhs with
+    | :? Stmt as rhs -> __.Tag = rhs.Tag
+    | _ -> false
 
-// vim: set tw=80 sts=2 sw=2:
+  override __.GetHashCode () = __.HashKey
+#endif

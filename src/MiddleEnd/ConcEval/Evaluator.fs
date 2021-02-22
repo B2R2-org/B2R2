@@ -171,7 +171,7 @@ let private evalIntCJmp st cond t f =
 
 let evalStmt (st: EvalState) s =
   match s.S with
-  | ISMark (_) -> st.StartInstr (); st.NextStmt ()
+  | ISMark (_) -> st.NextStmt ()
   | IEMark (len) -> st.IncPC len; st.AbortInstr ()
   | LMark _ -> st.NextStmt ()
   | Put (lhs, { E = Undefined (_) }) -> evalUndef st lhs |> st.NextStmt
@@ -190,32 +190,32 @@ let internal tryEvaluate stmt st =
     if st.IgnoreUndef then st.NextStmt ()
     else raise UndefExpException
 
-let rec gotoNextInstr stmts (st: EvalState) =
-  let ctxt = st.GetCurrentContext ()
-  let idx = ctxt.StmtIdx
-  if st.IsInstrTerminated () && Array.length stmts > idx && idx >= 0 then
-    match stmts.[idx].S with
-    | ISMark (_) -> st.StartInstr ()
-    | _ -> st.NextStmt (); gotoNextInstr stmts st
-  else ()
-
-let rec internal evalLoop stmts (st: EvalState) =
+/// Evaluate a sequence of statements, which is lifted from a single
+/// instruction.
+let rec internal evalStmts stmts (st: EvalState) =
   let ctxt = st.GetCurrentContext ()
   let idx = ctxt.StmtIdx
   let st = if idx = 0 then st.Callbacks.OnInstr st else st
-  if Array.length stmts > idx && idx >= 0 then
+  if not st.IsInstrTerminated && Array.length stmts > idx
+    && not st.InPrematureState then
     let stmt = stmts.[idx]
     st.Callbacks.OnStmtEval stmt
     tryEvaluate stmt st
-    gotoNextInstr stmts st
-    evalLoop stmts st
+    evalStmts stmts st
   else ()
 
-/// Evaluate a block of statements. The block may represent a machine
-/// instruction, or a basic block.
-let evalBlock (st: EvalState) pc tid stmts =
+let rec evalBlockLoop idx (blk: Stmt [][]) (st: EvalState) =
+  if idx < blk.Length && not st.InPrematureState then
+    let stmts = blk.[idx]
+    st.PrepareInstrEval stmts
+    evalStmts stmts st
+    evalBlockLoop (idx + 1) blk st
+  else ()
+
+/// Evaluate a block of statements. The block represents a series of lifted IR
+/// statements from one or more machine instructions.
+let evalBlock (st: EvalState) pc tid blk =
   st.SetPC pc
   if st.ThreadId <> tid then st.ContextSwitch tid else ()
-  st.PrepareBlockEval stmts
-  evalLoop stmts st
+  evalBlockLoop 0 blk st
   st.CleanUp ()

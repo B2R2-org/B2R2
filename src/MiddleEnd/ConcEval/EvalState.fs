@@ -112,9 +112,14 @@ and EvalState (?reader, ?ignoreundef) =
   member val Callbacks = EvalCallBacks () with get
 
   /// Indicate whether to terminate the current instruction or not. This flag is
-  /// set to true when we encounter an ISMark within a block. In other words, we
-  /// should proceed to the next instruction if this flag is set to true.
-  member val TerminateInstr = false with get, set
+  /// set to true when we encounter an inter-jump statement, so that we can
+  /// ignore the rest of the statements.
+  member val IsInstrTerminated = false with get, set
+
+  /// Indicate whether we are in an abnormal state. If so, the rest of the
+  /// evaluation should be aborted. This flag should never be set in normal
+  /// situation.
+  member val InPrematureState = false with get, set
 
   /// Whether to ignore statements that cannot be evaluated due to undef values.
   /// This is particularly useful to quickly check some constants.
@@ -135,17 +140,12 @@ and EvalState (?reader, ?ignoreundef) =
   /// Stop evaluating further statements of the current instruction, and move on
   /// the next instruction.
   member inline __.AbortInstr () =
-    __.TerminateInstr <- true
+    __.IsInstrTerminated <- true
     __.NextStmt ()
 
   /// Start evaluating the instruction.
   member inline __.StartInstr () =
-    __.TerminateInstr <- false
-
-  /// Should we stop evaluating further statements of the current instruction,
-  /// and move on to the next instruction?
-  member inline __.IsInstrTerminated () =
-    __.TerminateInstr
+    __.IsInstrTerminated <- false
 
   /// Get the value of the given temporary variable.
   member inline __.TryGetTmp n =
@@ -212,8 +212,9 @@ and EvalState (?reader, ?ignoreundef) =
     let ctxt = __.Contexts.[__.ThreadId]
     ctxt.StmtIdx <- ctxt.Labels.Index lbl
 
-  /// Get ready for block-level evaluation (evalBlock).
-  member inline __.PrepareBlockEval stmts =
+  /// Get ready for evaluating an instruction.
+  member inline __.PrepareInstrEval stmts =
+    __.StartInstr ()
     __.Contexts.[__.ThreadId].Labels.Update stmts
     __.Contexts.[__.ThreadId].StmtIdx <- 0
 

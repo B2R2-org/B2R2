@@ -43,7 +43,7 @@ let numI64 n t = BitVector.ofInt64 n t |> AST.num
 
 let oprSzToExpr oprSize = numI32 (RegType.toBitWidth oprSize) oprSize
 
-let inline private (<!) (builder: IRBuilder) (s) = builder.Append (s)
+let inline private (<!) (ir: IRBuilder) (s) = ir.Append (s)
 
 // shared/functions/integer/AddWithCarry
 // AddWithCarry()
@@ -239,26 +239,26 @@ let getSIMDReg = function
                     | _ -> raise <| NotImplementedIRException "getSIMDReg"
   | _ -> failwith "Invalid SIMD operand"
 
-let transOprToExprOfADD ins ctxt addr (builder: IRBuilder) =
+let transOprToExprOfADD ins ctxt addr (ir: IRBuilder) =
   match ins.Operands with
   | ThreeOperands (o1, _, _) -> (* SIMD arithmetic *)
     let oSz = ins.OprSize
     let dst, s1, s2 = transThreeOprs ins ctxt addr
     let eNum, eSz = getElemNumAndSize oSz (getSIMDReg o1)
-    let s1Tmps = Array.init (int eNum) (fun _ -> AST.tmpvar eSz)
-    let s2Tmps = Array.init (int eNum) (fun _ -> AST.tmpvar eSz)
-    let resTmps = Array.init (int eNum) (fun _ -> AST.tmpvar eSz)
+    let s1Tmps = Array.init (int eNum) (fun _ -> ir.NewTempVar eSz)
+    let s2Tmps = Array.init (int eNum) (fun _ -> ir.NewTempVar eSz)
+    let resTmps = Array.init (int eNum) (fun _ -> ir.NewTempVar eSz)
     let amt = RegType.toBitWidth eSz
     for i in 0 .. (int eNum) - 1 do
-      builder <! (s1Tmps.[i] := AST.extract s1 eSz (i * amt))
-      builder <! (s2Tmps.[i] := AST.extract s2 eSz (i * amt))
-      builder <! (resTmps.[i] := s1Tmps.[i] .+ s2Tmps.[i])
+      ir <! (s1Tmps.[i] := AST.extract s1 eSz (i * amt))
+      ir <! (s2Tmps.[i] := AST.extract s2 eSz (i * amt))
+      ir <! (resTmps.[i] := s1Tmps.[i] .+ s2Tmps.[i])
     done
-    builder <! (dst := AST.concatArr resTmps)
+    ir <! (dst := AST.concatArr resTmps)
   | FourOperands (_, _, _, _) -> (* Arithmetic *)
     let dst, s1, s2 = transFourOprsWithBarrelShift ins ctxt addr
     let result, _ = addWithCarry s1 s2 (AST.num0 ins.OprSize) ins.OprSize
-    builder <! (dst := result)
+    ir <! (dst := result)
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfADDS ins ctxt addr =
@@ -440,28 +440,28 @@ let transOprToExprOfLDP ins ctxt addr =
     transOprToExpr ins ctxt addr o3 |> separateMemExpr
   | _ -> raise InvalidOperandException
 
-let transOprToExprOfLDR ins ctxt addr (builder: IRBuilder) =
+let transOprToExprOfLDR ins ctxt addr (ir: IRBuilder) =
   match ins.Operands with
   | TwoOperands (o1, Memory (LiteralMode o2)) -> (* LDR (literal) *)
     let dst = transOprToExpr ins ctxt addr o1
     let offset = transOprToExpr ins ctxt addr (Memory (LiteralMode o2))
-    let address = AST.tmpvar 64<rt>
-    let data = AST.tmpvar ins.OprSize
-    builder <! (address := getPC ctxt .+ offset)
-    builder <! (data := AST.loadLE ins.OprSize address)
-    builder <! (dst := data)
+    let address = ir.NewTempVar 64<rt>
+    let data = ir.NewTempVar ins.OprSize
+    ir <! (address := getPC ctxt .+ offset)
+    ir <! (data := AST.loadLE ins.OprSize address)
+    ir <! (dst := data)
   | TwoOperands (o1, o2) ->
     let dst = transOprToExpr ins ctxt addr o1
     let bReg, offset = transOprToExpr ins ctxt addr o2 |> separateMemExpr
     let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-    let address = AST.tmpvar 64<rt>
-    let data = AST.tmpvar ins.OprSize
-    builder <! (address := bReg)
-    builder <! (address := if isPostIndex then address .+ offset else address)
-    builder <! (data := AST.loadLE ins.OprSize address)
-    builder <! (dst := AST.zext ins.OprSize data)
-    if isWBack && isPostIndex then builder <! (bReg := address .+ offset)
-    else if isWBack then builder <! (bReg := address) else ()
+    let address = ir.NewTempVar 64<rt>
+    let data = ir.NewTempVar ins.OprSize
+    ir <! (address := bReg)
+    ir <! (address := if isPostIndex then address .+ offset else address)
+    ir <! (data := AST.loadLE ins.OprSize address)
+    ir <! (dst := AST.zext ins.OprSize data)
+    if isWBack && isPostIndex then ir <! (bReg := address .+ offset)
+    else if isWBack then ir <! (bReg := address) else ()
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfMADD ins ctxt addr =
@@ -571,7 +571,7 @@ let transOprToExprOfSTUR ins ctxt addr =
     transOprToExpr ins ctxt addr o2 |> separateMemExpr
   | _ -> raise InvalidOperandException
 
-let transOprToExprOfSUB ins ctxt addr builder =
+let transOprToExprOfSUB ins ctxt addr ir =
   let oprSize = ins.OprSize
   match ins.Operands with
   | ThreeOperands (o1, o2, o3) -> (* NEG: Arithmetic *)
@@ -579,13 +579,13 @@ let transOprToExprOfSUB ins ctxt addr builder =
     let s1 = getRegVar ctxt (if oprSize = 64<rt> then R.XZR else R.WZR)
     let s2 = transBarrelShiftToExpr ins ctxt o2 o3 |> AST.not
     let result, _ = addWithCarry s1 s2 (AST.num1 oprSize) oprSize
-    builder <! (dst := result)
+    ir <! (dst := result)
   | FourOperands (o1, o2, o3, o4) -> (* Arithmetic *)
     let dst = transOprToExpr ins ctxt addr o1
     let s1 = transOprToExpr ins ctxt addr o2
     let s2 = transBarrelShiftToExpr ins ctxt o3 o4 |> AST.not
     let result, _ = addWithCarry s1 s2 (AST.num1 oprSize) oprSize
-    builder <! (dst := result)
+    ir <! (dst := result)
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfUMADDL ins ctxt addr =
@@ -598,7 +598,7 @@ let transOprToExprOfUMADDL ins ctxt addr =
   | FourOperands (_, _, _, _) -> transFourOprs ins ctxt addr
   | _ -> raise InvalidOperandException
 
-let transOprToExprOfSUBS ins ctxt addr builder =
+let transOprToExprOfSUBS ins ctxt addr ir =
   let oprSize = ins.OprSize
   match ins.Operands with
   | FourOperands (o1, o2, o3, o4) ->
@@ -606,11 +606,11 @@ let transOprToExprOfSUBS ins ctxt addr builder =
     let s1 = transOprToExpr ins ctxt addr o2
     let s2 = transBarrelShiftToExpr ins ctxt o3 o4 |> AST.not
     let result, (n, z, c, v) = addWithCarry s1 s2 (AST.num1 oprSize) oprSize
-    builder <! (getRegVar ctxt R.N := n)
-    builder <! (getRegVar ctxt R.Z := z)
-    builder <! (getRegVar ctxt R.C := c)
-    builder <! (getRegVar ctxt R.V := v)
-    builder <! (dst := result)
+    ir <! (getRegVar ctxt R.N := n)
+    ir <! (getRegVar ctxt R.Z := z)
+    ir <! (getRegVar ctxt R.C := c)
+    ir <! (getRegVar ctxt R.V := v)
+    ir <! (dst := result)
   | _ -> raise InvalidOperandException
 
 let transOprToExprOfUBFM ins ctxt addr =
@@ -674,8 +674,8 @@ type BranchType =
 // Set program counter to a new address, which may include a tag in the top
 // eight bits, with a branch reason hint for possible use by hardware fetching
 // the next instruction.
-let branchTo ins ctxt target brType i (builder: IRBuilder) =
-  builder <! (AST.interjmp target i) // FIXME: BranchAddr function
+let branchTo ins ctxt target brType i (ir: IRBuilder) =
+  ir <! (AST.interjmp target i) // FIXME: BranchAddr function
 
 // shared/functions/system/ConditionHolds
 // ConditionHolds()
@@ -705,47 +705,47 @@ let conditionHolds ctxt = function
 // shared/functions/common/HighestSetBit
 // HighestSetBit()
 // ===============
-let highestSetBitForIR dst src width oprSz (builder: IRBuilder) =
-  let lblLoop = AST.symbol "Loop"
-  let lblLoopCont = AST.symbol "LoopContinue"
-  let lblUpdateTmp = AST.symbol "UpdateTmp"
-  let lblEnd = AST.symbol "End"
-  let t = AST.tmpvar oprSz
+let highestSetBitForIR dst src width oprSz (ir: IRBuilder) =
+  let lblLoop = ir.NewSymbol "Loop"
+  let lblLoopCont = ir.NewSymbol "LoopContinue"
+  let lblUpdateTmp = ir.NewSymbol "UpdateTmp"
+  let lblEnd = ir.NewSymbol "End"
+  let t = ir.NewTempVar oprSz
   let width = numI32 (width - 1) oprSz
-  builder <! (t := width)
-  builder <! (AST.lmark lblLoop)
-  builder <! (AST.cjmp (src >> t == AST.num1 oprSz)
+  ir <! (t := width)
+  ir <! (AST.lmark lblLoop)
+  ir <! (AST.cjmp (src >> t == AST.num1 oprSz)
                        (AST.name lblEnd) (AST.name lblLoopCont))
-  builder <! (AST.lmark lblLoopCont)
-  builder <! (AST.cjmp (t == AST.num0 oprSz)
+  ir <! (AST.lmark lblLoopCont)
+  ir <! (AST.cjmp (t == AST.num0 oprSz)
                        (AST.name lblEnd) (AST.name lblUpdateTmp))
-  builder <! (AST.lmark lblUpdateTmp)
-  builder <! (t := t .- AST.num1 oprSz)
-  builder <! (AST.jmp (AST.name lblLoop))
-  builder <! (AST.lmark lblEnd)
-  builder <! (dst := width .- t)
+  ir <! (AST.lmark lblUpdateTmp)
+  ir <! (t := t .- AST.num1 oprSz)
+  ir <! (AST.jmp (AST.name lblLoop))
+  ir <! (AST.lmark lblEnd)
+  ir <! (dst := width .- t)
 
 // shared/functions/common/Replicate
 // Replicate()
 // ===========
-let replicateForIR dst value bits oprSize (builder: IRBuilder) =
-  let lblLoop = AST.symbol "Loop"
-  let lblEnd = AST.symbol "End"
-  let lblLoopContinue = AST.symbol "LoopContinue"
-  let tmpAmt = AST.tmpvar oprSize
+let replicateForIR dst value bits oprSize (ir: IRBuilder) =
+  let lblLoop = ir.NewSymbol "Loop"
+  let lblEnd = ir.NewSymbol "End"
+  let lblLoopContinue = ir.NewSymbol "LoopContinue"
+  let tmpAmt = ir.NewTempVar oprSize
   let oSz = oprSzToExpr oprSize
-  let tmpVal = AST.tmpvar oprSize
-  builder <! (tmpAmt := bits)
-  builder <! (tmpVal := value)
-  builder <! (AST.lmark lblLoop)
-  builder <! (AST.cjmp (AST.ge tmpAmt oSz)
+  let tmpVal = ir.NewTempVar oprSize
+  ir <! (tmpAmt := bits)
+  ir <! (tmpVal := value)
+  ir <! (AST.lmark lblLoop)
+  ir <! (AST.cjmp (AST.ge tmpAmt oSz)
                        (AST.name lblEnd) (AST.name lblLoopContinue))
-  builder <! (AST.lmark lblLoopContinue)
-  builder <! (tmpVal := value << tmpAmt)
-  builder <! (tmpAmt := tmpAmt .+ bits)
-  builder <! (AST.jmp (AST.name lblLoop))
-  builder <! (AST.lmark lblEnd)
-  builder <! (dst := tmpVal)  (* FIXME: Check value *)
+  ir <! (AST.lmark lblLoopContinue)
+  ir <! (tmpVal := value << tmpAmt)
+  ir <! (tmpAmt := tmpAmt .+ bits)
+  ir <! (AST.jmp (AST.name lblLoop))
+  ir <! (AST.lmark lblEnd)
+  ir <! (dst := tmpVal)  (* FIXME: Check value *)
 
 let getMaskForIR n oprSize = (AST.num1 oprSize << n) .- AST.num1 oprSize
 
@@ -754,662 +754,660 @@ let getMaskForIR n oprSize = (AST.num1 oprSize << n) .- AST.num1 oprSize
 // ================
 // Decode AArch64 bitfield and logical immediate masks which use a similar
 // encoding structure
-let decodeBitMasksForIR wmask tmask immN imms immr isImm oprSize builder =
+let decodeBitMasksForIR wmask tmask immN imms immr isImm oprSize (ir: IRBuilder) =
   let concatSz = RegType.fromBitWidth ((RegType.toBitWidth oprSize) * 2)
-  let tLen = AST.tmpvar concatSz
-  let levels = AST.tmpvar oprSize
-  let S, R = AST.tmpvar oprSize, AST.tmpvar oprSize
-  let diff = AST.tmpvar oprSize
-  let esize = AST.tmpvar oprSize
-  let d = AST.tmpvar oprSize
-  let welem = AST.tmpvar oprSize
-  let telem = AST.tmpvar oprSize
+  let tLen = ir.NewTempVar concatSz
+  let levels = ir.NewTempVar oprSize
+  let S, R = ir.NewTempVar oprSize, ir.NewTempVar oprSize
+  let diff = ir.NewTempVar oprSize
+  let esize = ir.NewTempVar oprSize
+  let d = ir.NewTempVar oprSize
+  let welem = ir.NewTempVar oprSize
+  let telem = ir.NewTempVar oprSize
   let n1 = AST.num1 oprSize
-  let len = AST.tmpvar oprSize
+  let len = ir.NewTempVar oprSize
   highestSetBitForIR tLen (AST.concat immN (AST.not imms)) (RegType.toBitWidth oprSize)
-    concatSz builder
-  builder <! (len := AST.xtlo oprSize tLen)
-  builder <! (levels := AST.zext oprSize len) // ZeroExtend (Ones(len), 6)
-  builder <! (S := imms .& levels)
-  builder <! (R := immr .& levels)
-  builder <! (diff := S .- R)
-  builder <! (esize := AST.num1 oprSize << len)
-  builder <! (d := diff .& getMaskForIR len oprSize)
-  builder <! (welem := AST.zext oprSize (S .+ n1))
-  builder <! (telem := AST.zext oprSize (d .+ n1))
-  replicateForIR wmask (ror welem R (oprSzToExpr oprSize)) esize oprSize builder
-  replicateForIR tmask welem esize oprSize builder
+    concatSz ir
+  ir <! (len := AST.xtlo oprSize tLen)
+  ir <! (levels := AST.zext oprSize len) // ZeroExtend (Ones(len), 6)
+  ir <! (S := imms .& levels)
+  ir <! (R := immr .& levels)
+  ir <! (diff := S .- R)
+  ir <! (esize := AST.num1 oprSize << len)
+  ir <! (d := diff .& getMaskForIR len oprSize)
+  ir <! (welem := AST.zext oprSize (S .+ n1))
+  ir <! (telem := AST.zext oprSize (d .+ n1))
+  replicateForIR wmask (ror welem R (oprSzToExpr oprSize)) esize oprSize ir
+  replicateForIR tmask welem esize oprSize ir
 
 // shared/functions/common/CountLeadingZeroBits
 // CountLeadingZeroBits()
 // ======================
-let countLeadingZeroBitsForIR dst src oprSize builder =
-  highestSetBitForIR dst src (RegType.toBitWidth oprSize) oprSize builder
+let countLeadingZeroBitsForIR dst src oprSize ir =
+  highestSetBitForIR dst src (RegType.toBitWidth oprSize) oprSize ir
 
-let startMark ins (builder: IRBuilder) =
-  builder <! (AST.ismark (ins.NumBytes))
+let startMark ins (ir: IRBuilder) =
+  ir <! (AST.ismark (ins.NumBytes))
 
-let endMark ins (builder: IRBuilder) =
-  builder <! (AST.iemark (ins.NumBytes)); builder
+let endMark ins (ir: IRBuilder) =
+  ir <! (AST.iemark (ins.NumBytes)); ir
 
 let sideEffects ins addr name =
-  let builder = IRBuilder (4)
-  startMark ins builder
-  builder <! (AST.sideEffect name)
-  endMark ins builder
+  let ir = IRBuilder (4)
+  startMark ins ir
+  ir <! (AST.sideEffect name)
+  endMark ins ir
 
 /// A module for all AArch64-IR translation functions
 let add ins ctxt addr =
-  let builder = IRBuilder (32) // FIXME
-  startMark ins builder
-  transOprToExprOfADD ins ctxt addr builder
-  endMark ins builder
+  let ir = IRBuilder (32) // FIXME
+  startMark ins ir
+  transOprToExprOfADD ins ctxt addr ir
+  endMark ins ir
 
 let adds ins ctxt addr =
-  let builder = IRBuilder (8)
+  let ir = IRBuilder (8)
   let dst, src1, src2 = transOprToExprOfADDS ins ctxt addr
   let oSz = ins.OprSize
-  startMark ins builder
+  startMark ins ir
   let result, (n, z, c, v) = addWithCarry src1 src2 (AST.num0 oSz) oSz
-  builder <! (getRegVar ctxt R.N := n)
-  builder <! (getRegVar ctxt R.Z := z)
-  builder <! (getRegVar ctxt R.C := c)
-  builder <! (getRegVar ctxt R.V := v)
-  builder <! (dst := result)
-  endMark ins builder
+  ir <! (getRegVar ctxt R.N := n)
+  ir <! (getRegVar ctxt R.Z := z)
+  ir <! (getRegVar ctxt R.C := c)
+  ir <! (getRegVar ctxt R.V := v)
+  ir <! (dst := result)
+  endMark ins ir
 
 let adr ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst, label = transTwoOprs ins ctxt addr
-  startMark ins builder
-  builder <! (dst := getPC ctxt .+ label)
-  endMark ins builder
+  startMark ins ir
+  ir <! (dst := getPC ctxt .+ label)
+  endMark ins ir
 
 let adrp ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst, lbl = transTwoOprs ins ctxt addr
-  startMark ins builder
-  builder <! (dst := (getPC ctxt .& numI64 0xfffffffffffff000L 64<rt>) .+ lbl)
-  endMark ins builder
+  startMark ins ir
+  ir <! (dst := (getPC ctxt .& numI64 0xfffffffffffff000L 64<rt>) .+ lbl)
+  endMark ins ir
 
 let logAnd ins ctxt addr = (* AND *)
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst, src1, src2 = transOprToExprOfAND ins ctxt addr
-  startMark ins builder
-  builder <! (dst := src1 .& src2)
-  endMark ins builder
+  startMark ins ir
+  ir <! (dst := src1 .& src2)
+  endMark ins ir
 
 let asrv ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst, src1, src2 = transThreeOprs ins ctxt addr
   let amount = src2 .% oprSzToExpr ins.OprSize
-  startMark ins builder
-  builder <! (dst := shiftReg src1 amount ins.OprSize SRTypeASR)
-  endMark ins builder
+  startMark ins ir
+  ir <! (dst := shiftReg src1 amount ins.OprSize SRTypeASR)
+  endMark ins ir
 
 let ands ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst, src1, src2 = transOprToExprOfANDS ins ctxt addr
-  startMark ins builder
-  builder <! (dst := src1 .& src2)
-  endMark ins builder
+  startMark ins ir
+  ir <! (dst := src1 .& src2)
+  endMark ins ir
 
 let b ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let label = transOneOpr ins ctxt addr
   let pc = getPC ctxt
-  startMark ins builder
-  builder <! (AST.interjmp (pc .+ label) InterJmpKind.Base)
-  endMark ins builder
+  startMark ins ir
+  ir <! (AST.interjmp (pc .+ label) InterJmpKind.Base)
+  endMark ins ir
 
 let bCond ins ctxt addr cond =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let label = transOneOpr ins ctxt addr
   let pc = getPC ctxt
-  startMark ins builder
-  builder <! (AST.intercjmp (conditionHolds ctxt cond) (pc .+ label) pc)
-  endMark ins builder
+  startMark ins ir
+  ir <! (AST.intercjmp (conditionHolds ctxt cond) (pc .+ label) pc)
+  endMark ins ir
 
 let bfm ins ctxt addr =
-  let builder = IRBuilder (64)
+  let ir = IRBuilder (64)
   let dst, src, imms, immr = transOprToExprOfBFM ins ctxt addr
   let oSz = ins.OprSize
-  let wmask, tmask = AST.tmpvar oSz, AST.tmpvar oSz
+  let wmask, tmask = ir.NewTempVar oSz, ir.NewTempVar oSz
   let immN = if ins.OprSize = 64<rt> then AST.num1 oSz else AST.num0 oSz
-  decodeBitMasksForIR wmask tmask immN imms immr (AST.num0 oSz) oSz builder
+  decodeBitMasksForIR wmask tmask immN imms immr (AST.num0 oSz) oSz ir
   let width = oprSzToExpr ins.OprSize
-  let bot = AST.tmpvar ins.OprSize
-  startMark ins builder
-  builder <! (bot := (dst .& AST.not wmask) .| (ror src immr width .& wmask))
-  builder <! (dst := (dst .& AST.not tmask) .| (bot .& tmask))
-  endMark ins builder
+  let bot = ir.NewTempVar ins.OprSize
+  startMark ins ir
+  ir <! (bot := (dst .& AST.not wmask) .| (ror src immr width .& wmask))
+  ir <! (dst := (dst .& AST.not tmask) .| (bot .& tmask))
+  endMark ins ir
 
 let bic ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst, src1, src2 = transFourOprsWithBarrelShift ins ctxt addr
-  startMark ins builder
-  builder <! (dst := src1 .& AST.not src2)
-  endMark ins builder
+  startMark ins ir
+  ir <! (dst := src1 .& AST.not src2)
+  endMark ins ir
 
 let bl ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let label = transOneOpr ins ctxt addr
   let pc = getPC ctxt
-  startMark ins builder
-  builder <! (getRegVar ctxt R.X30 := pc .+ numI64 4L ins.OprSize)
+  startMark ins ir
+  ir <! (getRegVar ctxt R.X30 := pc .+ numI64 4L ins.OprSize)
   // FIXME: BranchTo (BType_CALL)
-  builder <! (AST.interjmp (pc .+ label) InterJmpKind.IsCall)
-  endMark ins builder
+  ir <! (AST.interjmp (pc .+ label) InterJmpKind.IsCall)
+  endMark ins ir
 
 let blr ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let src = transOneOpr ins ctxt addr
   let pc = getPC ctxt
-  startMark ins builder
-  builder <! (getRegVar ctxt R.X30 := pc .+ numI64 4L ins.OprSize)
+  startMark ins ir
+  ir <! (getRegVar ctxt R.X30 := pc .+ numI64 4L ins.OprSize)
   // FIXME: BranchTo (BranchType_CALL)
-  builder <! (AST.interjmp src InterJmpKind.IsCall)
-  endMark ins builder
+  ir <! (AST.interjmp src InterJmpKind.IsCall)
+  endMark ins ir
 
 let br ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst = transOneOpr ins ctxt addr
-  startMark ins builder
+  startMark ins ir
   // FIXME: BranchTo (BType_JMP)
-  builder <! (AST.interjmp dst InterJmpKind.Base)
-  endMark ins builder
+  ir <! (AST.interjmp dst InterJmpKind.Base)
+  endMark ins ir
 
 let cbnz ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let test, label = transTwoOprs ins ctxt addr
   let pc = getPC ctxt
-  startMark ins builder
-  builder <! (AST.intercjmp (test != AST.num0 ins.OprSize) (pc .+ label) pc)
-  endMark ins builder
+  startMark ins ir
+  ir <! (AST.intercjmp (test != AST.num0 ins.OprSize) (pc .+ label) pc)
+  endMark ins ir
 
 let cbz ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let test, label = transTwoOprs ins ctxt addr
   let pc = getPC ctxt
-  startMark ins builder
-  builder <! (AST.intercjmp (test == AST.num0 ins.OprSize) (pc .+ label) pc)
-  endMark ins builder
+  startMark ins ir
+  ir <! (AST.intercjmp (test == AST.num0 ins.OprSize) (pc .+ label) pc)
+  endMark ins ir
 
 let ccmn ins ctxt addr =
-  let builder = IRBuilder (8)
+  let ir = IRBuilder (8)
   let src, imm, nzcv, cond = transOprToExprOfCCMN ins ctxt addr
-  startMark ins builder
+  startMark ins ir
   let oSz = ins.OprSize
-  let tCond = AST.tmpvar 1<rt>
-  builder <! (tCond := conditionHolds ctxt cond)
+  let tCond = ir.NewTempVar 1<rt>
+  ir <! (tCond := conditionHolds ctxt cond)
   let _, (n, z, c, v) = addWithCarry src imm (AST.num0 oSz) oSz
-  builder <! (getRegVar ctxt R.N := (AST.ite tCond n (AST.extract nzcv 1<rt> 3)))
-  builder <! (getRegVar ctxt R.Z := (AST.ite tCond z (AST.extract nzcv 1<rt> 2)))
-  builder <! (getRegVar ctxt R.C := (AST.ite tCond c (AST.extract nzcv 1<rt> 1)))
-  builder <! (getRegVar ctxt R.V := (AST.ite tCond v (AST.xtlo 1<rt> nzcv)))
-  endMark ins builder
+  ir <! (getRegVar ctxt R.N := (AST.ite tCond n (AST.extract nzcv 1<rt> 3)))
+  ir <! (getRegVar ctxt R.Z := (AST.ite tCond z (AST.extract nzcv 1<rt> 2)))
+  ir <! (getRegVar ctxt R.C := (AST.ite tCond c (AST.extract nzcv 1<rt> 1)))
+  ir <! (getRegVar ctxt R.V := (AST.ite tCond v (AST.xtlo 1<rt> nzcv)))
+  endMark ins ir
 
 let ccmp ins ctxt addr =
-  let builder = IRBuilder (8)
+  let ir = IRBuilder (8)
   let src, imm, nzcv, cond = transOprToExprOfCCMP ins ctxt addr
-  startMark ins builder
+  startMark ins ir
   let tCond = conditionHolds ctxt cond
   let oSz = ins.OprSize
   let _, (n, z, c, v) = addWithCarry src (AST.not imm) (AST.num1 oSz) oSz
-  builder <! (getRegVar ctxt R.N := (AST.ite tCond n (AST.extract nzcv 1<rt> 3)))
-  builder <! (getRegVar ctxt R.Z := (AST.ite tCond z (AST.extract nzcv 1<rt> 2)))
-  builder <! (getRegVar ctxt R.C := (AST.ite tCond c (AST.extract nzcv 1<rt> 1)))
-  builder <! (getRegVar ctxt R.V := (AST.ite tCond v (AST.xtlo 1<rt> nzcv)))
-  endMark ins builder
+  ir <! (getRegVar ctxt R.N := (AST.ite tCond n (AST.extract nzcv 1<rt> 3)))
+  ir <! (getRegVar ctxt R.Z := (AST.ite tCond z (AST.extract nzcv 1<rt> 2)))
+  ir <! (getRegVar ctxt R.C := (AST.ite tCond c (AST.extract nzcv 1<rt> 1)))
+  ir <! (getRegVar ctxt R.V := (AST.ite tCond v (AST.xtlo 1<rt> nzcv)))
+  endMark ins ir
 
 let clz ins ctxt addr =
-  let builder = IRBuilder (16)
+  let ir = IRBuilder (16)
   let dst, src = transTwoOprs ins ctxt addr
-  startMark ins builder
-  countLeadingZeroBitsForIR dst src ins.OprSize builder
-  endMark ins builder
+  startMark ins ir
+  countLeadingZeroBitsForIR dst src ins.OprSize ir
+  endMark ins ir
 
 let cmp ins ctxt addr =
-  let builder = IRBuilder (8)
+  let ir = IRBuilder (8)
   let src, imm = transOprToExprOfCMP ins ctxt addr
   let oSz = ins.OprSize
   let dst = getRegVar ctxt (if oSz = 64<rt> then R.XZR else R.WZR)
-  let opr1 = AST.tmpvar oSz
-  let opr2 = AST.tmpvar oSz
-  startMark ins builder
+  startMark ins ir
   let result, (n, z, c, v) = addWithCarry src (AST.not imm) (AST.num1 oSz) oSz
-  builder <! (getRegVar ctxt R.N := n)
-  builder <! (getRegVar ctxt R.Z := z)
-  builder <! (getRegVar ctxt R.C := c)
-  builder <! (getRegVar ctxt R.V := v)
-  builder <! (dst := result)
-  endMark ins builder
+  ir <! (getRegVar ctxt R.N := n)
+  ir <! (getRegVar ctxt R.Z := z)
+  ir <! (getRegVar ctxt R.C := c)
+  ir <! (getRegVar ctxt R.V := v)
+  ir <! (dst := result)
+  endMark ins ir
 
 let csel ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst, src1, src2, cond = transOprToExprOfCSEL ins ctxt addr
-  startMark ins builder
-  builder <! (dst := AST.ite (conditionHolds ctxt cond) src1 src2)
-  endMark ins builder
+  startMark ins ir
+  ir <! (dst := AST.ite (conditionHolds ctxt cond) src1 src2)
+  endMark ins ir
 
 let csinc ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst, s1, s2, cond = transOprToExprOfCSINC ins ctxt addr
-  startMark ins builder
-  builder <! (dst := AST.ite (conditionHolds ctxt cond) s1 (s2 .+ AST.num1 ins.OprSize))
-  endMark ins builder
+  startMark ins ir
+  ir <! (dst := AST.ite (conditionHolds ctxt cond) s1 (s2 .+ AST.num1 ins.OprSize))
+  endMark ins ir
 
 let csinv ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst, src1, src2, cond = transOprToExprOfCSINV ins ctxt addr
-  startMark ins builder
-  builder <! (dst := AST.ite (conditionHolds ctxt cond) src1 (AST.not src2))
-  endMark ins builder
+  startMark ins ir
+  ir <! (dst := AST.ite (conditionHolds ctxt cond) src1 (AST.not src2))
+  endMark ins ir
 
 let csneg ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst, src1, src2, cond = transOprToExprOfCSNEG ins ctxt addr
-  startMark ins builder
+  startMark ins ir
   let cond = conditionHolds ctxt cond
-  builder <! (dst := AST.ite cond src1 (AST.not src2 .+ AST.num1 ins.OprSize))
-  endMark ins builder
+  ir <! (dst := AST.ite cond src1 (AST.not src2 .+ AST.num1 ins.OprSize))
+  endMark ins ir
 
 let eor ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst, src1, src2 = transOprToExprOfEOR ins ctxt addr
-  startMark ins builder
-  builder <! (dst := src1 <+> src2)
-  endMark ins builder
+  startMark ins ir
+  ir <! (dst := src1 <+> src2)
+  endMark ins ir
 
 let extr ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst, src1, src2, lsb = transOprToExprOfEXTR ins ctxt addr
   let oSz = ins.OprSize
   let conSize = if oSz = 64<rt> then 128<rt> else 64<rt>
-  let con = AST.tmpvar conSize
+  let con = ir.NewTempVar conSize
   let mask = AST.num (BitVector.ofBInt (RegType.getMask oSz) conSize)
-  startMark ins builder
-  builder <! (con := AST.concat src1 src2)
-  builder <! (dst := AST.xtlo oSz ((con >> (AST.zext conSize lsb)) .& mask))
-  endMark ins builder
+  startMark ins ir
+  ir <! (con := AST.concat src1 src2)
+  ir <! (dst := AST.xtlo oSz ((con >> (AST.zext conSize lsb)) .& mask))
+  endMark ins ir
 
 let ldp ins ctxt addr =
-  let builder = IRBuilder (8)
+  let ir = IRBuilder (8)
   let src1, src2, (bReg, offset) = transOprToExprOfLDP ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-  let address = AST.tmpvar 64<rt>
+  let address = ir.NewTempVar 64<rt>
   let dByte = numI32 (RegType.toBitWidth ins.OprSize) 64<rt>
-  startMark ins builder
-  builder <! (address := bReg)
-  builder <! (address := if isPostIndex then address else address .+ offset)
-  builder <! (src1 := AST.loadLE ins.OprSize address)
-  builder <! (src2 := AST.loadLE ins.OprSize (address .+ dByte))
-  if isWBack && isPostIndex then builder <! (bReg := address .+ offset)
-  else if isWBack then builder <! (bReg := address) else ()
-  endMark ins builder
+  startMark ins ir
+  ir <! (address := bReg)
+  ir <! (address := if isPostIndex then address else address .+ offset)
+  ir <! (src1 := AST.loadLE ins.OprSize address)
+  ir <! (src2 := AST.loadLE ins.OprSize (address .+ dByte))
+  if isWBack && isPostIndex then ir <! (bReg := address .+ offset)
+  else if isWBack then ir <! (bReg := address) else ()
+  endMark ins ir
 
 let ldr ins ctxt addr =
-  let builder = IRBuilder (8)
-  startMark ins builder
-  transOprToExprOfLDR ins ctxt addr builder
-  endMark ins builder
+  let ir = IRBuilder (8)
+  startMark ins ir
+  transOprToExprOfLDR ins ctxt addr ir
+  endMark ins ir
 
 let ldrb ins ctxt addr =
-  let builder = IRBuilder (8)
+  let ir = IRBuilder (8)
   let dst, (bReg, offset) = transOprToExprOfLDRB ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-  let address = AST.tmpvar 64<rt>
-  let data = AST.tmpvar 8<rt>
-  startMark ins builder
-  builder <! (address := bReg)
-  builder <! (address := if isPostIndex then address .+ offset else address)
-  builder <! (data := AST.loadLE 8<rt> address)
-  builder <! (dst := AST.zext 32<rt> data)
-  if isWBack && isPostIndex then builder <! (bReg := address .+ offset)
-  else if isWBack then builder <! (bReg := address) else ()
-  endMark ins builder
+  let address = ir.NewTempVar 64<rt>
+  let data = ir.NewTempVar 8<rt>
+  startMark ins ir
+  ir <! (address := bReg)
+  ir <! (address := if isPostIndex then address .+ offset else address)
+  ir <! (data := AST.loadLE 8<rt> address)
+  ir <! (dst := AST.zext 32<rt> data)
+  if isWBack && isPostIndex then ir <! (bReg := address .+ offset)
+  else if isWBack then ir <! (bReg := address) else ()
+  endMark ins ir
 
 let ldrh ins ctxt addr =
-  let builder = IRBuilder (8)
+  let ir = IRBuilder (8)
   let dst, (bReg, offset) = transOprToExprOfLDRB ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-  let address = AST.tmpvar 64<rt>
-  let data = AST.tmpvar 16<rt>
-  startMark ins builder
-  builder <! (address := bReg)
-  builder <! (address := if isPostIndex then address .+ offset else address)
-  builder <! (data := AST.loadLE 16<rt> address)
-  builder <! (dst := AST.zext 32<rt> data)
-  if isWBack && isPostIndex then builder <! (bReg := address .+ offset)
-  else if isWBack then builder <! (bReg := address) else ()
-  endMark ins builder
+  let address = ir.NewTempVar 64<rt>
+  let data = ir.NewTempVar 16<rt>
+  startMark ins ir
+  ir <! (address := bReg)
+  ir <! (address := if isPostIndex then address .+ offset else address)
+  ir <! (data := AST.loadLE 16<rt> address)
+  ir <! (dst := AST.zext 32<rt> data)
+  if isWBack && isPostIndex then ir <! (bReg := address .+ offset)
+  else if isWBack then ir <! (bReg := address) else ()
+  endMark ins ir
 
 let ldrsw ins ctxt addr =
-  let builder = IRBuilder (8)
+  let ir = IRBuilder (8)
   let dst, (bReg, offset) = transOprToExprOfLDRB ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-  let address = AST.tmpvar 64<rt>
-  let data = AST.tmpvar 32<rt>
-  startMark ins builder
-  builder <! (address := bReg)
-  builder <! (address := if isPostIndex then address else address .+ offset)
-  builder <! (data := AST.loadLE 32<rt> address)
-  builder <! (dst := AST.sext 64<rt> data)
-  if isWBack && isPostIndex then builder <! (bReg := address .+ offset)
-  else if isWBack then builder <! (bReg := address) else ()
-  endMark ins builder
+  let address = ir.NewTempVar 64<rt>
+  let data = ir.NewTempVar 32<rt>
+  startMark ins ir
+  ir <! (address := bReg)
+  ir <! (address := if isPostIndex then address else address .+ offset)
+  ir <! (data := AST.loadLE 32<rt> address)
+  ir <! (dst := AST.sext 64<rt> data)
+  if isWBack && isPostIndex then ir <! (bReg := address .+ offset)
+  else if isWBack then ir <! (bReg := address) else ()
+  endMark ins ir
 
 let ldur ins ctxt addr =
-  let builder = IRBuilder (8)
+  let ir = IRBuilder (8)
   let dst, (bReg, offset) = transOprToExprOfLDRB ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-  let address = AST.tmpvar 64<rt>
-  let data = AST.tmpvar ins.OprSize
-  startMark ins builder
-  builder <! (address := bReg)
-  builder <! (address := if isPostIndex then address else address .+ offset)
-  builder <! (data := AST.loadLE ins.OprSize address)
-  builder <! (dst := data)
-  if isWBack && isPostIndex then builder <! (bReg := address .+ offset)
-  else if isWBack then builder <! (bReg := address) else ()
-  endMark ins builder
+  let address = ir.NewTempVar 64<rt>
+  let data = ir.NewTempVar ins.OprSize
+  startMark ins ir
+  ir <! (address := bReg)
+  ir <! (address := if isPostIndex then address else address .+ offset)
+  ir <! (data := AST.loadLE ins.OprSize address)
+  ir <! (dst := data)
+  if isWBack && isPostIndex then ir <! (bReg := address .+ offset)
+  else if isWBack then ir <! (bReg := address) else ()
+  endMark ins ir
 
 let ldurb ins ctxt addr =
-  let builder = IRBuilder (8)
+  let ir = IRBuilder (8)
   let src, (bReg, offset) = transOprToExprOfLDRB ins ctxt addr
-  let address = AST.tmpvar 64<rt>
-  let data = AST.tmpvar 8<rt>
-  startMark ins builder
-  builder <! (address := bReg)
-  builder <! (address := address .+ offset)
-  builder <! (data := AST.loadLE 8<rt> address)
-  builder <! (src := AST.zext 32<rt> data)
-  endMark ins builder
+  let address = ir.NewTempVar 64<rt>
+  let data = ir.NewTempVar 8<rt>
+  startMark ins ir
+  ir <! (address := bReg)
+  ir <! (address := address .+ offset)
+  ir <! (data := AST.loadLE 8<rt> address)
+  ir <! (src := AST.zext 32<rt> data)
+  endMark ins ir
 
 let lslv ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst, src1, src2 = transThreeOprs ins ctxt addr
   let oprSz = ins.OprSize
   let dataSize = numI32 (RegType.toBitWidth ins.OprSize) oprSz
-  startMark ins builder
-  builder <! (dst := shiftReg src1 (src2 .% dataSize) oprSz SRTypeLSL)
-  endMark ins builder
+  startMark ins ir
+  ir <! (dst := shiftReg src1 (src2 .% dataSize) oprSz SRTypeLSL)
+  endMark ins ir
 
 let lsrv ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst, src1, src2 = transThreeOprs ins ctxt addr
   let oprSz = ins.OprSize
   let dataSize = numI32 (RegType.toBitWidth oprSz) oprSz
-  startMark ins builder
-  builder <! (dst := shiftReg src1 (src2 .% dataSize) oprSz SRTypeLSR)
-  endMark ins builder
+  startMark ins ir
+  ir <! (dst := shiftReg src1 (src2 .% dataSize) oprSz SRTypeLSR)
+  endMark ins ir
 
 let madd ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst, src1, src2, src3 = transOprToExprOfMADD ins ctxt addr
-  startMark ins builder
-  builder <! (dst := src3 .+ (src1 .* src2))
-  endMark ins builder
+  startMark ins ir
+  ir <! (dst := src3 .+ (src1 .* src2))
+  endMark ins ir
 
 let mov ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst, src = transOprToExprOfMOV ins ctxt addr
-  startMark ins builder
+  startMark ins ir
   match ins.Opcode with
-  | Opcode.MOVN -> builder <! (dst := AST.not src)
-  | Opcode.MOVZ | Opcode.MOVK | Opcode.MOV -> builder <! (dst := src)
+  | Opcode.MOVN -> ir <! (dst := AST.not src)
+  | Opcode.MOVZ | Opcode.MOVK | Opcode.MOV -> ir <! (dst := src)
   | _ -> failwith "Invalid Move wide Opcode"
-  endMark ins builder
+  endMark ins ir
 
 let mrs ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst, src = transTwoOprs ins ctxt addr
-  startMark ins builder
-  builder <! (dst := src) (* FIXME: AArch64.SysRegRead *)
-  endMark ins builder
+  startMark ins ir
+  ir <! (dst := src) (* FIXME: AArch64.SysRegRead *)
+  endMark ins ir
 
 let msub ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst, src1, src2, src3 = transFourOprs ins ctxt addr
-  startMark ins builder
-  builder <! (dst := src3 .- (src1 .* src2))
-  endMark ins builder
+  startMark ins ir
+  ir <! (dst := src3 .- (src1 .* src2))
+  endMark ins ir
 
 let nop ins addr =
-  let builder = IRBuilder (4)
-  startMark ins builder
-  endMark ins builder
+  let ir = IRBuilder (4)
+  startMark ins ir
+  endMark ins ir
 
 let orn ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst, src1, src2 = transOprToExprOfORN ins ctxt addr
-  startMark ins builder
-  builder <! (dst := src1 .| AST.not src2)
-  endMark ins builder
+  startMark ins ir
+  ir <! (dst := src1 .| AST.not src2)
+  endMark ins ir
 
 let orr ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst, src1, src2 = transOprToExprOfORR ins ctxt addr
-  startMark ins builder
-  builder <! (dst := src1 .| src2)
-  endMark ins builder
+  startMark ins ir
+  ir <! (dst := src1 .| src2)
+  endMark ins ir
 
 let ret ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let src = transOneOpr ins ctxt addr
-  let target = AST.tmpvar 64<rt>
-  startMark ins builder
-  builder <! (target := src)
-  branchTo ins ctxt target BrTypeRET InterJmpKind.IsRet builder
-  endMark ins builder
+  let target = ir.NewTempVar 64<rt>
+  startMark ins ir
+  ir <! (target := src)
+  branchTo ins ctxt target BrTypeRET InterJmpKind.IsRet ir
+  endMark ins ir
 
 let sbc ins ctxt addr =
-  let builder = IRBuilder (8)
+  let ir = IRBuilder (8)
   let dst, src1, src2 = transThreeOprs ins ctxt addr
   let c = AST.zext ins.OprSize (getRegVar ctxt R.C)
-  startMark ins builder
+  startMark ins ir
   let result, _ = addWithCarry src1 src2 c ins.OprSize
-  builder <! (dst := result)
-  endMark ins builder
+  ir <! (dst := result)
+  endMark ins ir
 
 let sbfm ins ctxt addr =
-  let builder = IRBuilder (64)
+  let ir = IRBuilder (64)
   let dst, src, immr, imms = transOprToExprOfSBFM ins ctxt addr
   let oprSz = ins.OprSize
-  let bot, top = AST.tmpvar oprSz, AST.tmpvar oprSz
-  let wmask, tmask = AST.tmpvar oprSz, AST.tmpvar oprSz
+  let bot, top = ir.NewTempVar oprSz, ir.NewTempVar oprSz
+  let wmask, tmask = ir.NewTempVar oprSz, ir.NewTempVar oprSz
   let immN = if oprSz = 64<rt> then AST.num1 oprSz else AST.num0 oprSz
   let width = oprSzToExpr oprSz
-  startMark ins builder
-  decodeBitMasksForIR wmask tmask immN imms immr (AST.num0 oprSz) oprSz builder
-  builder <! (bot := ror src immr width .& wmask)
-  replicateForIR top src imms oprSz builder
-  builder <! (dst := (top .& AST.not tmask) .| (bot .& tmask))
-  endMark ins builder
+  startMark ins ir
+  decodeBitMasksForIR wmask tmask immN imms immr (AST.num0 oprSz) oprSz ir
+  ir <! (bot := ror src immr width .& wmask)
+  replicateForIR top src imms oprSz ir
+  ir <! (dst := (top .& AST.not tmask) .| (bot .& tmask))
+  endMark ins ir
 
 let smaddl ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst, src1, src2, src3 = transOprToExprOfSMADDL ins ctxt addr
-  startMark ins builder
-  builder <! (dst := src3 .+ (AST.sext 64<rt> src1 .* AST.sext 64<rt> src2))
-  endMark ins builder
+  startMark ins ir
+  ir <! (dst := src3 .+ (AST.sext 64<rt> src1 .* AST.sext 64<rt> src2))
+  endMark ins ir
 
 let smulh ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst, src1, src2 = transThreeOprs ins ctxt addr
-  let result = AST.tmpvar 128<rt>
-  startMark ins builder
-  builder <! (result := AST.sext 128<rt> src1 .* AST.sext 128<rt> src2)
-  builder <! (dst := AST.xthi 64<rt> result)
-  endMark ins builder
+  let result = ir.NewTempVar 128<rt>
+  startMark ins ir
+  ir <! (result := AST.sext 128<rt> src1 .* AST.sext 128<rt> src2)
+  ir <! (dst := AST.xthi 64<rt> result)
+  endMark ins ir
 
 let stp ins ctxt addr =
-  let builder = IRBuilder (8)
+  let ir = IRBuilder (8)
   let src1, src2, (bReg, offset) = transOprToExprOfSTP ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-  let address = AST.tmpvar 64<rt>
+  let address = ir.NewTempVar 64<rt>
   let dByte = numI32 (RegType.toBitWidth ins.OprSize) 64<rt>
-  startMark ins builder
-  builder <! (address := bReg)
-  builder <! (address := if isPostIndex then address else address .+ offset)
-  builder <! (AST.loadLE ins.OprSize address := src1)
-  builder <! (AST.loadLE ins.OprSize (address .+ dByte) := src2)
-  if isWBack && isPostIndex then builder <! (bReg := address .+ offset)
-  else if isWBack then builder <! (bReg := address) else ()
-  endMark ins builder
+  startMark ins ir
+  ir <! (address := bReg)
+  ir <! (address := if isPostIndex then address else address .+ offset)
+  ir <! (AST.loadLE ins.OprSize address := src1)
+  ir <! (AST.loadLE ins.OprSize (address .+ dByte) := src2)
+  if isWBack && isPostIndex then ir <! (bReg := address .+ offset)
+  else if isWBack then ir <! (bReg := address) else ()
+  endMark ins ir
 
 let str ins ctxt addr =
-  let builder = IRBuilder (8)
+  let ir = IRBuilder (8)
   let src, (bReg, offset) = transOprToExprOfSTR ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-  let address = AST.tmpvar 64<rt>
-  let data = AST.tmpvar ins.OprSize
-  startMark ins builder
-  builder <! (address := bReg)
-  builder <! (address := if isPostIndex then address else address .+ offset)
-  builder <! (data := src)
-  builder <! (AST.loadLE ins.OprSize address := data)
-  if isWBack && isPostIndex then builder <! (bReg := address .+ offset)
-  else if isWBack then builder <! (bReg := address) else ()
-  endMark ins builder
+  let address = ir.NewTempVar 64<rt>
+  let data = ir.NewTempVar ins.OprSize
+  startMark ins ir
+  ir <! (address := bReg)
+  ir <! (address := if isPostIndex then address else address .+ offset)
+  ir <! (data := src)
+  ir <! (AST.loadLE ins.OprSize address := data)
+  if isWBack && isPostIndex then ir <! (bReg := address .+ offset)
+  else if isWBack then ir <! (bReg := address) else ()
+  endMark ins ir
 
 let strb ins ctxt addr =
-  let builder = IRBuilder (8)
+  let ir = IRBuilder (8)
   let src, (bReg, offset) = transOprToExprOfSTRB ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-  let address = AST.tmpvar 64<rt>
-  let data = AST.tmpvar 8<rt>
-  startMark ins builder
-  builder <! (address := bReg)
-  builder <! (address := if isPostIndex then address else address .+ offset)
-  builder <! (data := AST.xtlo 8<rt> src)
-  builder <! (AST.loadLE 8<rt> address := data)
-  if isWBack && isPostIndex then builder <! (bReg := address .+ offset)
-  else if isWBack then builder <! (bReg := address) else ()
-  endMark ins builder
+  let address = ir.NewTempVar 64<rt>
+  let data = ir.NewTempVar 8<rt>
+  startMark ins ir
+  ir <! (address := bReg)
+  ir <! (address := if isPostIndex then address else address .+ offset)
+  ir <! (data := AST.xtlo 8<rt> src)
+  ir <! (AST.loadLE 8<rt> address := data)
+  if isWBack && isPostIndex then ir <! (bReg := address .+ offset)
+  else if isWBack then ir <! (bReg := address) else ()
+  endMark ins ir
 
 let strh ins ctxt addr =
-  let builder = IRBuilder (8)
+  let ir = IRBuilder (8)
   let src, (bReg, offset) = transOprToExprOfSTRB ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-  let address = AST.tmpvar 64<rt>
-  let data = AST.tmpvar 16<rt>
-  startMark ins builder
-  builder <! (address := bReg)
-  builder <! (address := if isPostIndex then address else address .+ offset)
-  builder <! (data := AST.xtlo 16<rt> src)
-  builder <! (AST.loadLE 16<rt> address := data)
-  if isWBack && isPostIndex then builder <! (bReg := address .+ offset)
-  else if isWBack then builder <! (bReg := address) else ()
-  endMark ins builder
+  let address = ir.NewTempVar 64<rt>
+  let data = ir.NewTempVar 16<rt>
+  startMark ins ir
+  ir <! (address := bReg)
+  ir <! (address := if isPostIndex then address else address .+ offset)
+  ir <! (data := AST.xtlo 16<rt> src)
+  ir <! (AST.loadLE 16<rt> address := data)
+  if isWBack && isPostIndex then ir <! (bReg := address .+ offset)
+  else if isWBack then ir <! (bReg := address) else ()
+  endMark ins ir
 
 let stur ins ctxt addr =
-  let builder = IRBuilder (8)
+  let ir = IRBuilder (8)
   let src, (bReg, offset) = transOprToExprOfSTUR ins ctxt addr
   let isWBack, isPostIndex = getIsWBackAndIsPostIndex ins.Operands
-  let address = AST.tmpvar 64<rt>
-  let data = AST.tmpvar ins.OprSize
-  startMark ins builder
-  builder <! (address := bReg)
-  builder <! (address := if isPostIndex then address else address .+ offset)
-  builder <! (data := src)
-  builder <! (AST.loadLE ins.OprSize address := data)
-  if isWBack && isPostIndex then builder <! (bReg := address .+ offset)
-  else if isWBack then builder <! (bReg := address) else ()
-  endMark ins builder
+  let address = ir.NewTempVar 64<rt>
+  let data = ir.NewTempVar ins.OprSize
+  startMark ins ir
+  ir <! (address := bReg)
+  ir <! (address := if isPostIndex then address else address .+ offset)
+  ir <! (data := src)
+  ir <! (AST.loadLE ins.OprSize address := data)
+  if isWBack && isPostIndex then ir <! (bReg := address .+ offset)
+  else if isWBack then ir <! (bReg := address) else ()
+  endMark ins ir
 
 let sturb ins ctxt addr =
-  let builder = IRBuilder (8)
+  let ir = IRBuilder (8)
   let src, (bReg, offset) = transOprToExprOfSTUR ins ctxt addr
-  let address = AST.tmpvar 64<rt>
-  let data = AST.tmpvar 8<rt>
-  startMark ins builder
-  builder <! (address := bReg)
-  builder <! (address := address .+ offset)
-  builder <! (data := AST.xtlo 8<rt> src)
-  builder <! (AST.loadLE 8<rt> address := data)
-  endMark ins builder
+  let address = ir.NewTempVar 64<rt>
+  let data = ir.NewTempVar 8<rt>
+  startMark ins ir
+  ir <! (address := bReg)
+  ir <! (address := address .+ offset)
+  ir <! (data := AST.xtlo 8<rt> src)
+  ir <! (AST.loadLE 8<rt> address := data)
+  endMark ins ir
 
 let sturh ins ctxt addr =
-  let builder = IRBuilder (8)
+  let ir = IRBuilder (8)
   let src, (bReg, offset) = transOprToExprOfSTUR ins ctxt addr
-  let address = AST.tmpvar 64<rt>
-  let data = AST.tmpvar 16<rt>
-  startMark ins builder
-  builder <! (address := bReg)
-  builder <! (address := address .+ offset)
-  builder <! (data := AST.xtlo 16<rt> src)
-  builder <! (AST.loadLE 16<rt> address := data)
-  endMark ins builder
+  let address = ir.NewTempVar 64<rt>
+  let data = ir.NewTempVar 16<rt>
+  startMark ins ir
+  ir <! (address := bReg)
+  ir <! (address := address .+ offset)
+  ir <! (data := AST.xtlo 16<rt> src)
+  ir <! (AST.loadLE 16<rt> address := data)
+  endMark ins ir
 
 let sub ins ctxt addr =
-  let builder = IRBuilder (8)
-  startMark ins builder
-  transOprToExprOfSUB ins ctxt addr builder
-  endMark ins builder
+  let ir = IRBuilder (8)
+  startMark ins ir
+  transOprToExprOfSUB ins ctxt addr ir
+  endMark ins ir
 
 let subs ins ctxt addr =
-  let builder = IRBuilder (8)
-  startMark ins builder
-  transOprToExprOfSUBS ins ctxt addr builder
-  endMark ins builder
+  let ir = IRBuilder (8)
+  startMark ins ir
+  transOprToExprOfSUBS ins ctxt addr ir
+  endMark ins ir
 
 let tbnz ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let test, imm, label = transThreeOprs ins ctxt addr
   let pc = getPC ctxt
   let cond = (test >> imm .& AST.num1 ins.OprSize) == AST.num1 ins.OprSize
-  startMark ins builder
-  builder <! (AST.intercjmp cond (pc .+ label) pc)
-  endMark ins builder
+  startMark ins ir
+  ir <! (AST.intercjmp cond (pc .+ label) pc)
+  endMark ins ir
 
 let tbz ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let test, imm, label = transThreeOprs ins ctxt addr
   let pc = getPC ctxt
   let cond = (test >> imm .& AST.num1 ins.OprSize) == AST.num0 ins.OprSize
-  startMark ins builder
-  builder <! (AST.intercjmp cond (pc .+ label) pc)
-  endMark ins builder
+  startMark ins ir
+  ir <! (AST.intercjmp cond (pc .+ label) pc)
+  endMark ins ir
 
 let udiv ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst, src1, src2 = transThreeOprs ins ctxt addr
   let cond = src2 == AST.num0 ins.OprSize
-  startMark ins builder
-  builder <! // FIXME: RoundTwoardsZero
+  startMark ins ir
+  ir <! // FIXME: RoundTwoardsZero
     (dst := AST.ite cond (AST.num0 ins.OprSize) (src1 ./ src2))
-  endMark ins builder
+  endMark ins ir
 
 let umaddl ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst, src1, src2, src3 = transOprToExprOfUMADDL ins ctxt addr
-  startMark ins builder
-  builder <! (dst := src3 .+ (AST.zext 64<rt> src1 .* AST.zext 64<rt> src2))
-  endMark ins builder
+  startMark ins ir
+  ir <! (dst := src3 .+ (AST.zext 64<rt> src1 .* AST.zext 64<rt> src2))
+  endMark ins ir
 
 let umulh ins ctxt addr =
-  let builder = IRBuilder (4)
+  let ir = IRBuilder (4)
   let dst, src1, src2 = transThreeOprs ins ctxt addr
-  let result = AST.tmpvar 128<rt>
-  startMark ins builder
-  builder <! (result := AST.zext 128<rt> src1 .* AST.zext 128<rt> src2)
-  builder <! (dst := AST.xthi 64<rt> result)
-  endMark ins builder
+  let result = ir.NewTempVar 128<rt>
+  startMark ins ir
+  ir <! (result := AST.zext 128<rt> src1 .* AST.zext 128<rt> src2)
+  ir <! (dst := AST.xthi 64<rt> result)
+  endMark ins ir
 
 let ubfm ins ctxt addr =
-  let builder = IRBuilder (64)
+  let ir = IRBuilder (64)
   let dst, src, immr, imms = transOprToExprOfUBFM ins ctxt addr
   let oSz = ins.OprSize
-  let bot = AST.tmpvar oSz
-  let wmask, tmask = AST.tmpvar oSz, AST.tmpvar oSz
+  let bot = ir.NewTempVar oSz
+  let wmask, tmask = ir.NewTempVar oSz, ir.NewTempVar oSz
   let immN = if ins.OprSize = 64<rt> then AST.num1 oSz else AST.num0 oSz
-  decodeBitMasksForIR wmask tmask immN imms immr (AST.num0 oSz) oSz builder
+  decodeBitMasksForIR wmask tmask immN imms immr (AST.num0 oSz) oSz ir
   let width = oprSzToExpr ins.OprSize
-  startMark ins builder
-  builder <! (bot := ror src immr width .& wmask)
-  builder <! (dst := bot .& tmask)
-  endMark ins builder
+  startMark ins ir
+  ir <! (bot := ror src immr width .& wmask)
+  ir <! (dst := bot .& tmask)
+  endMark ins ir
 
 /// The logical shift left(or right) is the alias of LS{L|R}V and UBFM.
 /// Therefore, it is necessary to distribute to the original instruction.
@@ -1520,6 +1518,6 @@ let translate ins ctxt =
          eprintfn "%A" o
 #endif
          raise <| NotImplementedIRException (Disasm.opCodeToString o)
-  |> fun builder -> builder.ToStmts ()
+  |> fun ir -> ir.ToStmts ()
 
 // vim: set tw=80 sts=2 sw=2:

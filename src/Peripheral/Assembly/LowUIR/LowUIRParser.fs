@@ -246,7 +246,7 @@ type LowUIRParser (isa, regbay: RegisterBay) =
 
   let pLMark =
     ws >>. pchar ':' >>. pIdentifier
-    |>> (AST.symbol >> AST.lmark)
+    |>> (fun name -> AST.symbol name (AST.IDCounter.Init ()) |> AST.lmark)
 
   let pPut =
     ws
@@ -262,7 +262,8 @@ type LowUIRParser (isa, regbay: RegisterBay) =
 
   let pJmp =
     ws >>. pstring "jmp" >>. ws >>. pIdentifier
-    |>> (fun lab -> AST.jmp (AST.name <| AST.symbol lab))
+    |>> (fun lab ->
+      AST.jmp (AST.name <| AST.symbol lab (AST.IDCounter.Init ())))
 
   let pCJmp =
     ws
@@ -271,8 +272,9 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     .>> pstring "jmp" .>> ws .>>. pIdentifier .>> ws
     .>> pstring "else" .>> ws .>> pstring "jmp" .>> ws .>>. pIdentifier
     |>> (fun ((cond, tlab), flab) ->
-      let tlab = AST.name <| AST.symbol tlab
-      let flab = AST.name <| AST.symbol flab
+      let counter = AST.IDCounter.Init ()
+      let tlab = AST.name <| AST.symbol tlab counter
+      let flab = AST.name <| AST.symbol flab counter
       AST.cjmp cond tlab flab)
 
   let pInterJmp =

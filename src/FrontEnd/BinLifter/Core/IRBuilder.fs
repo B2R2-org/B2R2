@@ -32,11 +32,27 @@ open B2R2.BinIR.LowUIR
 type IRBuilder =
   inherit Generic.List<Stmt>
 
+  val TempVarCount: AST.IDCounter
+  val LabelCount: AST.IDCounter
+
   /// <summary>
   ///   Initialize an IR statement builder of internal buffer size n.
   /// </summary>
   /// <param name="n">The size of the internal buffer.</param>
-  new (n: int) = { inherit Generic.List<Stmt>(n) }
+  new (n: int) =
+    { inherit Generic.List<Stmt>(n)
+      TempVarCount = AST.IDCounter.Init ()
+      LabelCount = AST.IDCounter.Init () }
+
+  /// <summary>
+  ///   Create a new temporary variable of RegType (rt).
+  /// </summary>
+  member inline __.NewTempVar rt = AST.tmpvar rt __.TempVarCount
+
+  /// <summary>
+  ///   Create a new symbol for a label.
+  /// </summary>
+  member inline __.NewSymbol name = AST.symbol name __.LabelCount
 
   /// <summary>
   ///   Append a new IR statement to the builder.

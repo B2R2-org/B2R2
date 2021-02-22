@@ -151,6 +151,7 @@ and private evalRelOp st e1 e2 = function
 let private markUndefAfterFailure (st: EvalState) lhs =
   match lhs with
   | Var (_, n, _, _) -> st.UnsetReg n
+  | TempVar (_, n) -> st.UnsetTmp n
   | _ -> ()
 
 let private evalPCUpdate st rhs =
@@ -164,7 +165,7 @@ let private evalPCUpdate st rhs =
 
 let private evalPut st lhs rhs =
   match evalConcrete st rhs with
-  | (Ok (Def v)) ->
+  | Ok (Def v) ->
     st.Callbacks.OnPut st.PC v
     match lhs.E with
     | Var (_, n, _, _) -> st.SetReg n v |> Ok
@@ -215,35 +216,44 @@ let evalStmt (st: EvalState) = function
 
 let internal tryEvaluate stmt st =
   match evalStmt st stmt.S with
-  | Ok () -> Ok ()
+  | Ok () -> Ok st
   | Error e ->
-    if st.IgnoreUndef then st.NextStmt () |> Ok
+    if st.IgnoreUndef then st.NextStmt (); Ok st
     else Error e
 
-let go stmts st = function
-  | Ok () -> gotoNextInstr stmts st |> Ok
-  | Error e -> Error e
-
-let rec internal evalLoop stmts result =
+/// Evaluate a sequence of statements, which is lifted from a single
+/// instruction.
+let rec internal evalStmts stmts result =
   match result with
   | Ok (st: EvalState) ->
     let ctxt = st.GetCurrentContext ()
     let idx = ctxt.StmtIdx
     let st = if idx = 0 then st.Callbacks.OnInstr st else st
-    if Array.length stmts > idx && idx >= 0 then
+    if not st.IsInstrTerminated && Array.length stmts > idx
+      && not st.InPrematureState then
       let stmt = stmts.[idx]
       st.Callbacks.OnStmtEval stmt
-      evalLoop stmts (tryEvaluate stmt st |> go stmts st)
+      evalStmts stmts (tryEvaluate stmt st)
     else Ok st
   | Error _ -> result
 
+let rec evalBlockLoop idx (blk: Stmt [][]) result =
+  match result with
+  | Ok (st: EvalState) ->
+    if idx < blk.Length && not st.InPrematureState then
+      let stmts = blk.[idx]
+      st.PrepareInstrEval stmts
+      evalStmts stmts (Ok st)
+      |> evalBlockLoop (idx + 1) blk
+    else result
+  | Error e -> Error e
+
 /// Evaluate a block of statements. The block may represent a machine
 /// instruction, or a basic block.
-let evalBlock (st: EvalState) pc tid stmts =
+let evalBlock (st: EvalState) pc tid blk =
   st.SetPC pc
   if st.ThreadId <> tid then st.ContextSwitch tid else ()
-  st.PrepareBlockEval stmts
-  evalLoop stmts (Ok st)
+  evalBlockLoop 0 blk (Ok st)
   |> function
     | Ok st -> st.CleanUp (); Ok st
     | Error e -> Error e

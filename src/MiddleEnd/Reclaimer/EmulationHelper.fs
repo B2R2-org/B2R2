@@ -66,7 +66,6 @@ let eval (ess: BinEssence) (blk: Vertex<IRBasicBlock>) st stopFn =
       visited.Add pp |> ignore
       let result =
         blk.VData.GetIRStatements ()
-        |> Array.concat
         |> SafeEvaluator.evalBlock st pp.Address 0
       match result with
       | Ok st' ->

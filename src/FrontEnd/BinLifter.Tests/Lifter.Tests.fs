@@ -38,9 +38,9 @@ module Lifter =
     member __.``PP Test`` () =
       let e = BitVector.ofUInt32 42ul 32<rt> |> AST.num
       Assert.AreEqual (Pp.expToString e, "0x2a:I32")
-      let e0 = AST.tmpvar 32<rt>
+      let e0 = AST.tmpvarWithID 32<rt> 0
       Assert.AreEqual (Pp.expToString e0, "T_0:I32")
-      let e1 = AST.tmpvar 32<rt>
+      let e1 = AST.tmpvarWithID 32<rt> 1
       Assert.AreEqual (Pp.expToString e1, "T_1:I32")
       let e = AST.unop UnOpType.NEG e1
       Assert.AreEqual (Pp.expToString e, "(- T_1:I32)")
@@ -48,7 +48,7 @@ module Lifter =
       Assert.AreEqual (Pp.expToString e, "(~ (T_0:I32 + T_1:I32))")
       let e = AST.load Endian.Little 32<rt> e0
       Assert.AreEqual (Pp.expToString e, "[T_0:I32]:I32")
-      let e = AST.ite (AST.tmpvar 1<rt>) e0 e1
+      let e = AST.ite (AST.tmpvarWithID 1<rt> 2) e0 e1
       Assert.AreEqual (Pp.expToString e, "((T_2:I1) ? (T_0:I32) : (T_1:I32))")
 
 // vim: set tw=80 sts=2 sw=2:
