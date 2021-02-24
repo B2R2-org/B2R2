@@ -31,7 +31,7 @@ open B2R2
 open System.Threading
 
 [<TestClass>]
-type ConcurrentLRUTests () =
+type LRUCacheTests () =
   member __.GenTestFunc<'K, 'V> (proc: 'K -> 'V) =
     let x = ref 0
     (fun k -> Interlocked.Increment x |> ignore; proc k), x
@@ -39,14 +39,14 @@ type ConcurrentLRUTests () =
   [<TestMethod>]
   member __.``GetOrAddTest`` () =
     let proc, cnt = __.GenTestFunc (fun x -> x)
-    let lru = new ConcurrentLRU<int, int>(100)
+    let lru = LRUCache<int, int>(100)
     for i = 0 to 10 do Assert.AreEqual (1, lru.GetOrAdd 1 proc)
     Assert.AreEqual (1, !cnt)
 
   [<TestMethod>]
   member __.``CountTest`` () =
     let proc, cnt = __.GenTestFunc (fun x -> x)
-    let lru = new ConcurrentLRU<int, int>(100)
+    let lru = LRUCache<int, int>(100)
     for i = 0 to 99 do Assert.AreEqual (i, lru.GetOrAdd i proc)
     Assert.AreEqual (100, !cnt)
     Assert.AreEqual (100, lru.Count)
@@ -59,7 +59,7 @@ type ConcurrentLRUTests () =
   [<TestMethod>]
   member __.``OverflowTest`` () =
     let proc, cnt = __.GenTestFunc (fun x -> x)
-    let lru = new ConcurrentLRU<int, int>(100)
+    let lru = LRUCache<int, int>(100)
     for i = 0 to 199 do Assert.AreEqual (i, lru.GetOrAdd i proc)
     Assert.AreEqual (200, !cnt)
     Assert.AreEqual (100, lru.Count)
@@ -70,7 +70,7 @@ type ConcurrentLRUTests () =
   [<TestMethod>]
   member __.``LRUTest`` () =
     let proc, cnt = __.GenTestFunc (fun x -> x)
-    let lru = new ConcurrentLRU<int, int>(100)
+    let lru = LRUCache<int, int>(100)
     for i = 0 to 99 do Assert.AreEqual (i, lru.GetOrAdd i proc)
     Assert.AreEqual (100, !cnt)
     Assert.AreEqual (100, lru.Count)

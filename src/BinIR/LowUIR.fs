@@ -59,7 +59,7 @@ type ExprInfo = {
 /// IR Expressions.
 /// NOTE: You MUST create Expr/Stmt through the AST module. *NEVER* directly
 /// construct Expr nor Stmt.
-#if NOHASHCONS
+#if ! HASHCONS
 #else
 [<CustomEquality; NoComparison>]
 #endif
@@ -124,7 +124,7 @@ type E =
   /// explicitly say that a register value is undefined after a certain
   /// operation. We model such cases with this expression.
   | Undefined of RegType * string
-#if NOHASHCONS
+#if ! HASHCONS
 #else
 with
   override __.Equals rhs =
@@ -215,7 +215,7 @@ with
     | Undefined (rt, s) -> E.HashUndef rt s
 #endif
 
-#if NOHASHCONS
+#if ! HASHCONS
 /// When hash-consing is not used, we simply create a wrapper for an AST node.
 and [<Struct>] Expr = {
   /// The actual AST node.
@@ -249,7 +249,7 @@ with
 /// IL Statements.
 /// NOTE: You MUST create Expr/Stmt through the AST module. *NEVER* directly
 /// construct Expr nor Stmt.
-#if NOHASHCONS
+#if ! HASHCONS
 #else
 [<CustomEquality; NoComparison>]
 #endif
@@ -307,7 +307,7 @@ type S =
 
   /// This represents an instruction with side effects such as a system call.
   | SideEffect of SideEffect
-#if NOHASHCONS
+#if ! HASHCONS
 #else
 with
   override __.Equals rhs =
@@ -373,7 +373,7 @@ with
     | SideEffect (e) -> S.HashSideEffect e
 #endif
 
-#if NOHASHCONS
+#if ! HASHCONS
 /// When hash-consing is not used, we simply create a wrapper for an AST node.
 and [<Struct>] Stmt = {
   /// The actual AST node.

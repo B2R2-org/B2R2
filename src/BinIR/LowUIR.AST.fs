@@ -28,7 +28,7 @@ module B2R2.BinIR.LowUIR.AST
 open B2R2
 open B2R2.BinIR
 
-#if ! NOHASHCONS
+#if HASHCONS
 open System
 open System.Collections.Concurrent
 
@@ -75,7 +75,7 @@ let getExprInfo e = ASTHelper.getExprInfo e
 /// Construct a number (Num).
 [<CompiledName("Num")>]
 let num bv =
-#if NOHASHCONS
+#if ! HASHCONS
   Num (bv) |> ASTHelper.buildExpr
 #else
   let k = Num bv
@@ -91,7 +91,7 @@ let num bv =
 /// Construct a variable (Var).
 [<CompiledName("Var")>]
 let var t id name rs =
-#if NOHASHCONS
+#if ! HASHCONS
   Var (t, id, name, rs) |> ASTHelper.buildExpr
 #else
   let k = Var (t, id, name, rs)
@@ -107,7 +107,7 @@ let var t id name rs =
 /// Construct a pc variable (PCVar).
 [<CompiledName("PCVar")>]
 let pcvar t name =
-#if NOHASHCONS
+#if ! HASHCONS
   PCVar (t, name) |> ASTHelper.buildExpr
 #else
   let k = PCVar (t, name)
@@ -123,7 +123,7 @@ let pcvar t name =
 /// Construct a temporary variable (TempVar) with the given ID.
 [<CompiledName("TmpVar")>]
 let tmpvarWithID t id =
-#if NOHASHCONS
+#if ! HASHCONS
   TempVar (t, id) |> ASTHelper.buildExpr
 #else
   let k = TempVar (t, id)
@@ -153,7 +153,7 @@ let symbol name (counter: IDCounter) =
 let unop op e =
   match e.E with
   | Num n -> ValueOptimizer.unop n op |> num
-#if NOHASHCONS
+#if ! HASHCONS
   | _ -> UnOp (op, e, getExprInfo e) |> ASTHelper.buildExpr
 #else
   | _ ->
@@ -170,7 +170,7 @@ let unop op e =
 /// Construct a symbolic name (Name).
 [<CompiledName("Name")>]
 let name symb =
-#if NOHASHCONS
+#if ! HASHCONS
   Name symb |> ASTHelper.buildExpr
 #else
   let k = Name symb
@@ -190,7 +190,7 @@ let binopWithType op t e1 e2 =
   match op, e1.E, e2.E with
   | _, Num n1, Num n2 -> ValueOptimizer.binop n1 n2 op |> num
   | BinOpType.XOR, _, _ when e1 === e2 -> BitVector.zero t |> num
-#if NOHASHCONS
+#if ! HASHCONS
   | _ ->
     BinOp (op, t, e1, e2, ASTHelper.mergeTwoExprInfo e1 e2)
     |> ASTHelper.buildExpr
@@ -227,7 +227,7 @@ let cons a b = binop BinOpType.CONS a b
 /// Nil.
 [<CompiledName("Nil")>]
 let nil =
-#if NOHASHCONS
+#if ! HASHCONS
   Nil |> ASTHelper.buildExpr
 #else
   { E = Nil; Tag = newETag (); HashKey = 0 }
@@ -236,7 +236,7 @@ let nil =
 /// Function name.
 [<CompiledName("FuncName")>]
 let funcName name =
-#if NOHASHCONS
+#if ! HASHCONS
   FuncName (name) |> ASTHelper.buildExpr
 #else
   let k = FuncName (name)
@@ -254,7 +254,7 @@ let funcName name =
 let app name args retType =
   let funName = funcName name
   List.reduceBack cons (args @ [ nil ])
-#if NOHASHCONS
+#if ! HASHCONS
   |> fun cons ->
     BinOp (BinOpType.APP, retType, funName, cons, getExprInfo cons)
     |> ASTHelper.buildExpr
@@ -279,7 +279,7 @@ let relop op e1 e2 =
 #endif
   match e1.E, e2.E with
   | Num n1, Num n2 -> ValueOptimizer.relop n1 n2 op |> num
-#if NOHASHCONS
+#if ! HASHCONS
   | _ ->
     RelOp (op, e1, e2, ASTHelper.mergeTwoExprInfo e1 e2)|> ASTHelper.buildExpr
 #else
@@ -302,7 +302,7 @@ let load endian rt addr =
   | Name _ -> raise InvalidExprException
   | _ ->
 #endif
-#if NOHASHCONS
+#if ! HASHCONS
     Load (endian, rt, addr, { getExprInfo addr with HasLoad = true })
     |> ASTHelper.buildExpr
 #else
@@ -334,7 +334,7 @@ let ite cond e1 e2 =
   match cond.E with
   | Num (n) -> if BitVector.isOne n then e1 else e2 (* Assume valid cond *)
   | _ ->
-#if NOHASHCONS
+#if ! HASHCONS
     Ite (cond, e1, e2, ASTHelper.mergeThreeExprInfo cond e1 e2)
     |> ASTHelper.buildExpr
 #else
@@ -356,7 +356,7 @@ let cast kind rt e =
   | Num n -> ValueOptimizer.cast rt n kind |> num
   | _ ->
     if TypeCheck.canCast kind rt e then
-#if NOHASHCONS
+#if ! HASHCONS
       Cast (kind, rt, e, getExprInfo e) |> ASTHelper.buildExpr
 #else
       let k = Cast (kind, rt, e, getExprInfo e)
@@ -378,7 +378,7 @@ let extract expr rt pos =
   | Num n -> ValueOptimizer.extract n rt pos |> num
   | Extract (e, _, p, ei) ->
     let pos = p + pos
-#if NOHASHCONS
+#if ! HASHCONS
     Extract (e, rt, pos, ei) |> ASTHelper.buildExpr
 #else
     let k = Extract (e, rt, pos, ei)
@@ -391,7 +391,7 @@ let extract expr rt pos =
       e'
 #endif
   | _ ->
-#if NOHASHCONS
+#if ! HASHCONS
     Extract (expr, rt, pos, getExprInfo expr) |> ASTHelper.buildExpr
 #else
     let k = Extract (expr, rt, pos, getExprInfo expr)
@@ -407,7 +407,7 @@ let extract expr rt pos =
 /// Undefined expression.
 [<CompiledName("Undef")>]
 let undef rt s =
-#if NOHASHCONS
+#if ! HASHCONS
   Undefined (rt, s) |> ASTHelper.buildExpr
 #else
   let k = Undefined (rt, s)
@@ -489,7 +489,7 @@ let add e1 e2 =
 #else
     TypeCheck.typeOf e1
 #endif
-#if NOHASHCONS
+#if ! HASHCONS
   binopWithType BinOpType.ADD t e1 e2
 #else
   if e1 < e2 then binopWithType BinOpType.ADD t e1 e2
@@ -516,7 +516,7 @@ let mul e1 e2 =
 #else
     TypeCheck.typeOf e1
 #endif
-#if NOHASHCONS
+#if ! HASHCONS
   binopWithType BinOpType.MUL t e1 e2
 #else
   if e1 < e2 then binopWithType BinOpType.MUL t e1 e2
@@ -570,7 +570,7 @@ let smod e1 e2 =
 /// Equal.
 [<CompiledName("Eq")>]
 let eq e1 e2 =
-#if NOHASHCONS
+#if ! HASHCONS
   relop RelOpType.EQ e1 e2
 #else
   if e1 < e2 then relop RelOpType.EQ e1 e2
@@ -580,7 +580,7 @@ let eq e1 e2 =
 /// Not equal.
 [<CompiledName("Neq")>]
 let neq e1 e2 =
-#if NOHASHCONS
+#if ! HASHCONS
   relop RelOpType.NEQ e2 e1
 #else
   if e1 < e2 then relop RelOpType.NEQ e1 e2
@@ -639,7 +639,7 @@ let ``or`` e1 e2 =
 #else
     TypeCheck.typeOf e1
 #endif
-#if NOHASHCONS
+#if ! HASHCONS
   binopWithType BinOpType.OR t e2 e1
 #else
   if e1 < e2 then binopWithType BinOpType.OR t e1 e2
@@ -655,7 +655,7 @@ let xor e1 e2 =
 #else
     TypeCheck.typeOf e1
 #endif
-#if NOHASHCONS
+#if ! HASHCONS
   binopWithType BinOpType.XOR t e2 e1
 #else
   if e1 < e2 then binopWithType BinOpType.XOR t e1 e2
@@ -712,7 +712,7 @@ let fadd e1 e2 =
 #else
     TypeCheck.typeOf e1
 #endif
-#if NOHASHCONS
+#if ! HASHCONS
   binopWithType BinOpType.FADD t e2 e1
 #else
   if e1 < e2 then binopWithType BinOpType.FADD t e1 e2
@@ -739,7 +739,7 @@ let fmul e1 e2 =
 #else
     TypeCheck.typeOf e1
 #endif
-#if NOHASHCONS
+#if ! HASHCONS
   binopWithType BinOpType.FMUL t e2 e1
 #else
   if e1 < e2 then binopWithType BinOpType.FMUL t e1 e2
@@ -818,7 +818,7 @@ let fatan e = unop UnOpType.FATAN e
 /// An ISMark statement.
 [<CompiledName("ISMark")>]
 let ismark nBytes =
-#if NOHASHCONS
+#if ! HASHCONS
   ISMark nBytes |> ASTHelper.buildStmt
 #else
   let k = ISMark nBytes
@@ -834,7 +834,7 @@ let ismark nBytes =
 /// An IEMark statement.
 [<CompiledName("IEMark")>]
 let iemark nBytes =
-#if NOHASHCONS
+#if ! HASHCONS
   IEMark nBytes |> ASTHelper.buildStmt
 #else
   let k = IEMark nBytes
@@ -850,7 +850,7 @@ let iemark nBytes =
 /// An LMark statement.
 [<CompiledName("LMark")>]
 let lmark s =
-#if NOHASHCONS
+#if ! HASHCONS
   LMark s |> ASTHelper.buildStmt
 #else
   let k = LMark s
@@ -866,7 +866,7 @@ let lmark s =
 /// A Put statement.
 [<CompiledName("Put")>]
 let put dst src =
-#if NOHASHCONS
+#if ! HASHCONS
   Put (dst, src) |> ASTHelper.buildStmt
 #else
   let k = Put (dst, src)
@@ -902,7 +902,7 @@ let assignForExtractDst e1 e2 =
 /// A Store statement.
 [<CompiledName("Store")>]
 let store endian addr v =
-#if NOHASHCONS
+#if ! HASHCONS
   Store (endian, addr, v) |> ASTHelper.buildStmt
 #else
   let k = Store (endian, addr, v)
@@ -930,7 +930,7 @@ let assign dst src =
 /// A Jmp statement.
 [<CompiledName("Jmp")>]
 let jmp target =
-#if NOHASHCONS
+#if ! HASHCONS
   Jmp (target) |> ASTHelper.buildStmt
 #else
   let k = Jmp (target)
@@ -946,7 +946,7 @@ let jmp target =
 /// A CJmp statement.
 [<CompiledName("CJmp")>]
 let cjmp cond dst1 dst2 =
-#if NOHASHCONS
+#if ! HASHCONS
   CJmp (cond, dst1, dst2) |> ASTHelper.buildStmt
 #else
   let k = CJmp (cond, dst1, dst2)
@@ -962,7 +962,7 @@ let cjmp cond dst1 dst2 =
 /// An InterJmp statement.
 [<CompiledName("InterJmp")>]
 let interjmp dst kind =
-#if NOHASHCONS
+#if ! HASHCONS
   InterJmp (dst, kind) |> ASTHelper.buildStmt
 #else
   let k = InterJmp (dst, kind)
@@ -978,7 +978,7 @@ let interjmp dst kind =
 /// A InterCJmp statement.
 [<CompiledName("InterCJmp")>]
 let intercjmp cond d1 d2 =
-#if NOHASHCONS
+#if ! HASHCONS
   InterCJmp (cond, d1, d2) |> ASTHelper.buildStmt
 #else
   let k = InterCJmp (cond, d1, d2)
@@ -994,7 +994,7 @@ let intercjmp cond d1 d2 =
 /// A SideEffect statement.
 [<CompiledName("SideEffect")>]
 let sideEffect eff =
-#if NOHASHCONS
+#if ! HASHCONS
   SideEffect eff |> ASTHelper.buildStmt
 #else
   let k = SideEffect eff

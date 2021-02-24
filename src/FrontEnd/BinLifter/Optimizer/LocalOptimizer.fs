@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd.BinLifter
 
 open B2R2.BinIR.LowUIR
 
+[<AutoOpen>]
 module private Localizer =
   let rec breakByMark acc (stmts: Stmt []) idx =
     if idx < stmts.Length then
@@ -44,9 +45,21 @@ module private Localizer =
 
 /// Intra-block local IR optimizer.
 type LocalOptimizer =
+  /// Remove unnecessary IEMark to ease the analysis.
+  static member private TrimIEMark (stmts: Stmt []) =
+    let last = stmts.[stmts.Length - 1].S
+    let secondLast = stmts.[stmts.Length - 2].S
+    match secondLast, last with
+    | InterJmp _, IEMark _
+    | InterCJmp _, IEMark _
+    | SideEffect _, IEMark _ ->
+      Array.sub stmts 0 (stmts.Length - 1)
+    | _ -> stmts
+
   /// Run optimization on a flattened IR statements (an array of IR statements).
   static member Optimize stmts =
-    Localizer.breakIntoBlocks stmts
+    LocalOptimizer.TrimIEMark stmts
+    |> breakIntoBlocks
     |> Array.map (fun stmts ->
       ConstantFolding.optimize stmts
       |> DeadCodeElimination.optimize)

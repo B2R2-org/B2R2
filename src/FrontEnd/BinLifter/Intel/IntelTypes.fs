@@ -57,29 +57,6 @@ type Prefix =
   /// 67H - Address-size override prefix.
   | PrxADDRSIZE = 0x800
 
-#if LCACHE
-module Prefix =
-  let computeHash (pref: Prefix) =
-    let pref = int pref
-    let grp1 =
-      if pref &&& int Prefix.PrxLOCK <> 0 then 0x100000000000000UL
-      elif pref &&& int Prefix.PrxREPNZ <> 0 then 0x200000000000000UL
-      elif pref &&& int Prefix.PrxBND <> 0 then 0x300000000000000UL
-      elif pref &&& int Prefix.PrxREPZ <> 0 then 0x400000000000000UL
-      else 0UL
-    let grp2 =
-      if pref &&& int Prefix.PrxCS <> 0 then 0x800000000000000UL
-      elif pref &&& int Prefix.PrxSS <> 0 then 0x1000000000000000UL
-      elif pref &&& int Prefix.PrxDS <> 0 then 0x1800000000000000UL
-      elif pref &&& int Prefix.PrxES <> 0 then 0x2000000000000000UL
-      elif pref &&& int Prefix.PrxFS <> 0 then 0x2800000000000000UL
-      elif pref &&& int Prefix.PrxGS <> 0 then 0x3000000000000000UL
-      else 0UL
-    let grp3 = (uint64 (pref &&& int Prefix.PrxOPSIZE)) <<< 52
-    let grp4 = (uint64 (pref &&& int Prefix.PrxADDRSIZE)) <<< 52
-    grp1 ||| grp2 ||| grp3 ||| grp4
-#endif
-
 /// REX prefixes.
 type REXPrefix =
   /// No REX: this is to represent the case where there is no REX
@@ -284,11 +261,7 @@ type MPref =
 
 [<AbstractClass>]
 type IntelInternalInstruction
-#if LCACHE
-  (addr, len, wordSz, pref, rex, vex, opcode, oprs, opsz, psz, insHash) =
-#else
   (addr, len, wordSz, pref, rex, vex, opcode, oprs, opsz, psz) =
-#endif
   inherit Instruction (addr, len, wordSz)
 
   /// Prefixes.
@@ -318,11 +291,6 @@ type IntelInternalInstruction
   /// if there's no memory operand. This is mainly used for the lifting purpose
   /// along with the MainOperationSize.
   member __.PointerSize with get(): RegType = psz
-
-#if LCACHE
-  /// Instruction hash.
-  member __.InsHash with get(): uint64 = insHash
-#endif
 
 type internal InsInfo = IntelInternalInstruction
 

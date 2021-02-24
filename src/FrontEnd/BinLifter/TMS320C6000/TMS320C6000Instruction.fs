@@ -35,6 +35,8 @@ type TMS320C6000Instruction (addr, numBytes, insInfo, ctxt) =
   /// Basic instruction information.
   member val Info: InsInfo = insInfo
 
+  override __.HashString = __.GetHashCode().ToString()
+
   override __.NextParsingContext = ctxt
 
   override __.AuxParsingContext with get() = None

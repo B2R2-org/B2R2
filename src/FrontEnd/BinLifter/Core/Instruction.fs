@@ -55,6 +55,12 @@ type Instruction (addr, len, wordSize) =
   member val WordSize: WordSize = wordSize
 
   /// <summary>
+  ///   Unique string (hash) representation of the instruction. In most cases,
+  ///   this just comes from the actual byte array of the instruction.
+  /// </summary>
+  abstract member HashString: string
+
+  /// <summary>
   ///   Parsing context of the next instruction. Sometimes the way we parse a
   ///   binary instruction chanages based on prior instructions we observed so
   ///   far. We propagate such information through Instructions. The next

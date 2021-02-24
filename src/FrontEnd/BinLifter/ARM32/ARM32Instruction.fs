@@ -36,6 +36,8 @@ type ARM32Instruction (addr, numBytes, insInfo, ctxt, auxctxt) =
 
   member val Info: InsInfo = insInfo
 
+  override __.HashString = __.GetHashCode().ToString()
+
   override __.NextParsingContext = ctxt
 
   override __.AuxParsingContext = auxctxt

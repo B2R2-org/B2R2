@@ -7,7 +7,7 @@
 
   <ItemGroup>
     <Compile Include="AddrRange.Tests.fs" />
-    <Compile Include="ConcurrentLRU.Tests.fs" />
+    <Compile Include="LRUCache.Tests.fs" />
     <Compile Include="IntervalTree.Tests.fs" />
     <Compile Include="BitVector.Tests.fs" />
     <Compile Include="ByteArray.Tests.fs" />

@@ -26,69 +26,68 @@
 namespace B2R2
 
 open System
+open System.Collections.Generic
 open System.Threading
 
 [<CustomEquality; NoComparison>]
-type private DoubleLinkedListNode<'T when 'T : equality> = {
-  mutable Prev  : DoubleLinkedListNode<'T>
-  mutable Next  : DoubleLinkedListNode<'T>
-  Value : 'T
+type private DoubleLinkedListNode<'T when 'T: equality> = {
+  mutable Prev: DoubleLinkedListNode<'T>
+  mutable Next: DoubleLinkedListNode<'T>
+  Value: 'T
 }
 with
   override __.GetHashCode () = hash __.Value
-  override __.Equals x =
-    match x with
-    | :? DoubleLinkedListNode<'T> as v -> v.Value = __.Value
+  override __.Equals rhs =
+    match rhs with
+    | :? DoubleLinkedListNode<'T> as rhs -> __.Value = rhs.Value
     | _ -> false
 
-/// Least Recently Used Cache supporting concurrency.
-type ConcurrentLRU<'K, 'V when 'K : equality and 'V : equality>(capacity: int) =
+/// Least Recently Used Cache supporting concurrency. The capacity decides how
+/// many entries to store.
+type LRUCache<'K, 'V when 'K : equality and 'V : equality> (capacity: int) =
   let nil = Unchecked.defaultof<DoubleLinkedListNode<_>>
-  let dict = new Collections.Generic.Dictionary<'K, DoubleLinkedListNode<'V>> ()
+  let dict = Dictionary<'K, DoubleLinkedListNode<'V>> ()
   let lock = ref (new Object ())
   let mutable head = nil
   let mutable tail = nil
   let mutable size = 0
 
-  member private __.AcquireLock () =
+  member inline private __.AcquireLock () =
     try Monitor.Enter (lock)
     finally ()
 
-  member private __.ReleaseLock () =
+  member inline private __.ReleaseLock () =
     Monitor.Exit (lock)
 
-  member private __.InsertBack o =
-    if head = nil then head <- o (* empty *)
-                  else tail.Next <- o
-    o.Prev <- tail
-    o.Next <- nil
-    tail <- o
+  member private __.InsertBack v =
+    if head = nil then head <- v else tail.Next <- v
+    v.Prev <- tail
+    v.Next <- nil
+    tail <- v
     size <- size + 1
-    o
+    v
 
-  member private __.Remove o =
-    if o.Prev = nil then head <- o.Next
-                    else o.Prev.Next <- o.Next
-    if o.Next = nil then tail <- o.Prev
-                    else o.Next.Prev <- o.Prev
+  member private __.Remove v =
+    if v.Prev = nil then head <- v.Next else v.Prev.Next <- v.Next
+    if v.Next = nil then tail <- v.Prev else v.Next.Prev <- v.Prev
     size <- size - 1
 
   member __.Count with get () = size
 
   member __.GetOrAdd (key: 'K) (proc: 'K -> 'V) =
     __.AcquireLock ()
-    let o =
+    let v =
       match dict.TryGetValue key with
-      | true, out ->
-        __.Remove out
-        __.InsertBack out
+      | true, v ->
+        __.Remove v
+        __.InsertBack v
       | _ ->
         if size >= capacity then __.Remove head
-        let out = { Prev = nil; Next = nil; Value = proc key }
-        dict.Add (key, out)
-        __.InsertBack out
+        let v = { Prev = nil; Next = nil; Value = proc key }
+        dict.Add (key, v)
+        __.InsertBack v
     __.ReleaseLock ()
-    o.Value
+    v.Value
 
   member __.Clear () =
     __.AcquireLock ()

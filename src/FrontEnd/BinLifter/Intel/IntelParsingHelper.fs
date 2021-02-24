@@ -126,9 +126,6 @@ module internal ParsingHelper = begin
     | _ -> ()
 
   let inline newInsInfo (rhlp: ReadHelper) opcode oprs =
-#if LCACHE
-    rhlp.MarkHashEnd ()
-#endif
     IntelInstruction (rhlp.InsAddr,
                       uint32 (rhlp.ParsedLen ()),
                       rhlp.WordSize,
@@ -138,12 +135,8 @@ module internal ParsingHelper = begin
                       opcode,
                       oprs,
                       rhlp.OperationSize,
-#if LCACHE
-                      rhlp.GetInsHash (rhlp.VEXInfo)
-                        ||| Prefix.computeHash rhlp.Prefixes)
-#else
-                      rhlp.MemEffAddrSize)
-#endif
+                      rhlp.MemEffAddrSize,
+                      rhlp.GetInsHash ())
 
   (* Table A-7/15 of Volume 2
      (D8/DC Opcode Map When ModR/M Byte is within 00H to BFH) *)

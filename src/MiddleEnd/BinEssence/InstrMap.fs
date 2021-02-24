@@ -38,21 +38,6 @@ type InstrMap = Dictionary<Addr, InstructionInfo>
 [<RequireQualifiedAccess>]
 module InstrMap =
 
-  /// Remove unnecessary IEMark to ease the analysis.
-  let private trimIEMark (stmts: Stmt []) =
-    let last = stmts.[stmts.Length - 1].S
-    let secondLast = stmts.[stmts.Length - 2].S
-    match secondLast, last with
-    | InterJmp _, IEMark _
-    | InterCJmp _, IEMark _
-    | SideEffect _, IEMark _ ->
-      Array.sub stmts 0 (stmts.Length - 1)
-    | _ -> stmts
-
-  let private transform stmts =
-    BinHandle.Optimize stmts
-    |> trimIEMark
-
   let private findLabels addr stmts =
     stmts
     |> Array.foldi (fun labels idx stmt ->
@@ -154,7 +139,7 @@ module InstrMap =
       | _ -> targets) Set.empty
 
   let private newInstructionInfo hdl (ins: Instruction) =
-    let stmts = BinHandle.LiftInstr hdl ins |> transform
+    let stmts = BinHandle.LiftOptimizedInstr hdl ins
     let mask = Helper.computeJumpTargetMask hdl
     let labels = findLabels ins.Address stmts
     { Instruction = ins

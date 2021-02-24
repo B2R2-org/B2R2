@@ -47,7 +47,7 @@ type BinIRTest () =
     let n2 = AST.tmpvar 32<rt> counter
     let e1 = AST.add n1 n2
     let e2 = AST.add n2 n1
-#if NOHASHCONS
+#if ! HASHCONS
     Assert.AreNotEqual (e1, e2)
 #else
     Assert.AreEqual (e1, e2)
@@ -62,7 +62,7 @@ type BinIRTest () =
     let n3 = AST.tmpvar 32<rt> counter
     let e1 = AST.mul n3 (AST.div n1 n2)
     let e2 = AST.mul (AST.div n1 n2) n3
-#if NOHASHCONS
+#if ! HASHCONS
     Assert.AreNotEqual (e1, e2)
 #else
     Assert.AreEqual (e1, e2)

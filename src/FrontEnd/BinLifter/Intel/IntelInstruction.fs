@@ -34,9 +34,11 @@ module private Dummy =
 /// The internal representation for an Intel instruction used by our
 /// disassembler and lifter.
 type IntelInstruction
-  (addr, len, wordSz, pref, rex, vex, opcode, oprs, opsz, psz) =
+  (addr, len, wordSz, pref, rex, vex, opcode, oprs, opsz, psz, hash) =
   inherit IntelInternalInstruction
     (addr, len, wordSz, pref, rex, vex, opcode, oprs, opsz, psz)
+
+  override __.HashString = hash
 
   override __.NextParsingContext with get() = Dummy.ctxt
 

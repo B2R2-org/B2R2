@@ -41,9 +41,8 @@
     <Compile Include="IntervalMap.fs" />
     <Compile Include="IntervalSet.fs" />
     <Compile Include="RandomAccessQueue.fs" />
+    <Compile Include="LRUCache.fs" />
     <Compile Include="BinReader.fs" />
-    <Compile Include="ConcurrentLRU.fs" />
-    <Compile Include="ConcurrentWeakReferenceTable.fs" />
     <Compile Include="Logger.fs" />
     <Compile Include="Attribution.fs" />
     <None Include="..\..\LICENSE.md" Pack="true" PackagePath=""/>

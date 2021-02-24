@@ -37,6 +37,8 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
   /// Basic instruction information.
   member val Info: InsInfo = insInfo
 
+  override __.HashString = __.GetHashCode().ToString()
+
   override __.NextParsingContext with get() = defaultCtxt
 
   override __.AuxParsingContext with get() = None

@@ -117,33 +117,47 @@ let inline tryParseInstrFromAddr (fi: FileInfo) (parser: Parser) ctxt addr =
   try parseInstrFromAddr fi parser ctxt addr |> Ok
   with _ -> Error ErrorCase.ParsingFailure
 
-let inline parseInstrFromBinPtr (fi: FileInfo) parser ctxt (bp: BinaryPointer) =
-  let ins = (parser: Parser).Parse fi.BinReader ctxt bp.Addr bp.Offset
-  if BinaryPointer.IsValidAccess bp (int ins.Length) then ins
-  else raise ParsingFailureException
+let inline tryParseInstrFromBinPtr fi (p: Parser) ctxt (bp: BinaryPointer) =
+  try
+    let ins = p.Parse (fi: FileInfo).BinReader ctxt bp.Addr bp.Offset
+    if BinaryPointer.IsValidAccess bp (int ins.Length) then Ok ins
+    else Error ErrorCase.ParsingFailure
+  with _ ->
+    Error ErrorCase.ParsingFailure
 
-let inline tryParseInstrFromBinPtr (fi: FileInfo) (parser: Parser) ctxt bp =
-  try parseInstrFromBinPtr fi parser ctxt bp |> Ok
-  with _ -> Error ErrorCase.ParsingFailure
+let inline parseInstrFromBinPtr (fi: FileInfo) parser ctxt (bp: BinaryPointer) =
+  match tryParseInstrFromBinPtr fi parser ctxt bp with
+  | Ok ins -> ins
+  | Error _ -> raise ParsingFailureException
 
 let advanceAddr addr len =
   addr + uint64 len
 
-let rec parseBBLAux fi parser ctxt tryParseFn advanceFn pos acc =
-  match tryParseFn fi parser ctxt pos with
+let rec parseLoopByAddr fi parser ctxt addr acc =
+  match tryParseInstrFromAddr fi parser ctxt addr with
+  | Ok ins ->
+    let ctxt = ins.NextParsingContext
+    if ins.IsBBLEnd () then Ok (List.rev (ins :: acc), ctxt)
+    else
+      let addr = addr + (uint64 ins.Length)
+      parseLoopByAddr fi parser ctxt addr (ins :: acc)
+  | Error _ -> Error <| List.rev acc
+
+let inline parseBBLFromAddr (fi: FileInfo) (parser: Parser) ctxt addr =
+  parseLoopByAddr fi parser ctxt addr []
+
+let rec parseLoopByPtr fi parser ctxt bp acc =
+  match tryParseInstrFromBinPtr fi parser ctxt bp with
   | Ok (ins: Instruction) ->
     let ctxt = ins.NextParsingContext
     if ins.IsBBLEnd () then Ok (List.rev (ins :: acc), ctxt)
     else
-      let pos = advanceFn pos (int ins.Length)
-      parseBBLAux fi parser ctxt tryParseFn advanceFn pos (ins :: acc)
+      let bp = BinaryPointer.Advance bp (int ins.Length)
+      parseLoopByPtr fi parser ctxt bp (ins :: acc)
   | Error _ -> Error <| List.rev acc
 
-let inline parseBBLFromAddr (fi: FileInfo) (parser: Parser) ctxt addr =
-  parseBBLAux fi parser ctxt tryParseInstrFromAddr advanceAddr addr []
-
 let inline parseBBLFromBinPtr (fi: FileInfo) (parser: Parser) ctxt bp =
-  parseBBLAux fi parser ctxt tryParseInstrFromBinPtr BinaryPointer.Advance bp []
+  parseLoopByPtr fi parser ctxt bp []
 
 let rec liftBBLAux acc advanceFn trctxt pos = function
   | (ins: Instruction) :: rest ->

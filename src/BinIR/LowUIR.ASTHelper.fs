@@ -95,7 +95,7 @@ module internal ValueOptimizer =
 
 [<RequireQualifiedAccess>]
 module internal ASTHelper =
-#if NOHASHCONS
+#if ! HASHCONS
   let inline buildExpr e =
     { E = e }
 

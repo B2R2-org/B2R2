@@ -52,10 +52,6 @@ and ReadHelper (rd, addr, initialPos, cpos, pref, rex, vex, wordSz, ops, szs) =
   let mutable memRegSz = 0<rt>
   let mutable regSz = 0<rt>
   let mutable operationSz = 0<rt>
-#if LCACHE
-  let mutable prefixEnd: int = initialPos
-  let mutable hashEnd: int = initialPos
-#endif
   new (wordSz, oparsers, szcomputers) =
     ReadHelper (EmptyBinReader () :> BinReader,
                 0UL, 0, 0, Prefix.PrxNone, REXPrefix.NOREX, None,
@@ -89,20 +85,12 @@ and ReadHelper (rd, addr, initialPos, cpos, pref, rex, vex, wordSz, ops, szs) =
   member inline __.ReadUInt32 () = let v = r.PeekUInt32 cpos in __.ModCPos 4; v
   member inline __.ReadUInt64 () = let v = r.PeekUInt64 cpos in __.ModCPos 8; v
   member inline __.ParsedLen () = cpos - ipos
-#if LCACHE
-  member inline __.MarkHashEnd () =
-    if hashEnd = ipos then hashEnd <- cpos else ()
-
-  member inline __.MarkPrefixEnd (pos) = prefixEnd <- pos
-
-  member inline __.GetInsHash (vinfo: VEXInfo option) =
-    let bs = r.PeekBytes (hashEnd - prefixEnd, prefixEnd)
-    let n = Array.zeroCreate 8
-    Array.blit bs 0 n 0 bs.Length
-    let hash = System.BitConverter.ToUInt64 (n, 0)
-    if Option.isNone vinfo then (uint64 (cpos - ipos) <<< 52) ||| hash
-    else hash
-#endif
+  member inline __.GetInsHash () =
+    let len = cpos - ipos
+    let bs = r.PeekBytes (len, ipos)
+    let chars: char [] = Array.zeroCreate (len * sizeof<char>)
+    System.Buffer.BlockCopy (bs, 0, chars, 0, bs.Length)
+    System.String chars
 
 let inline hasREXW rexPref = rexPref &&& REXPrefix.REXW = REXPrefix.REXW
 
