@@ -208,21 +208,22 @@ let mload insInfo ctxt =
   endMark insInfo builder
 
 let mstore insInfo ctxt =
-  let builder = new IRBuilder (12)
+  let builder = new IRBuilder (8)
   startMark insInfo builder
   let addr = popFromStack ctxt builder
   let value = popFromStack ctxt builder
+  builder <! AST.store Endian.Little addr value
   updateGas ctxt insInfo.GAS builder
-  builder <! (AST.loadLE OperationSize.regType addr := value)
   endMark insInfo builder
 
 let mstore8 insInfo ctxt =
-  let builder = new IRBuilder (12)
+  let builder = new IRBuilder (8)
   startMark insInfo builder
   let addr = popFromStack ctxt builder
   let value = popFromStack ctxt builder
+  let lsb = AST.extract value 8<rt> 0
+  builder <! AST.store Endian.Little addr lsb
   updateGas ctxt insInfo.GAS builder
-  builder <! (AST.loadLE 8<rt> addr := value .& makeNum 0xff)
   endMark insInfo builder
 
 let jump insInfo ctxt =
