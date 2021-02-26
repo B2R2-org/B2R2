@@ -98,6 +98,12 @@ type BitVector internal (len) =
   /// Return the BigInteger representation of the bitvector value.
   abstract BigValue: unit -> bigint
 
+  /// Return true if the value is zero.
+  abstract IsZero: unit -> bool
+
+  /// Return true if the value is one.
+  abstract IsOne: unit -> bool
+
   /// BitVector addition with uint64.
   abstract Add: uint64 -> BitVector
 
@@ -467,12 +473,12 @@ type BitVector internal (len) =
   /// Check if the given BitVector is zero.
   [<CompiledName("IsZero")>]
   static member isZero (bv: BitVector) =
-    bv.SmallValue () = 0UL
+    bv.IsZero ()
 
   /// Check if the given BitVector is one.
   [<CompiledName("IsOne")>]
   static member isOne (bv: BitVector) =
-    bv.SmallValue () = 1UL
+    bv.IsOne ()
 
   /// Check if the given BitVector is "false".
   [<CompiledName("IsFalse")>]
@@ -867,6 +873,10 @@ and BitVectorSmall (n, len) =
   override __.SmallValue () = n
 
   override __.BigValue () = bigint n
+
+  override __.IsZero () = n = 0UL
+
+  override __.IsOne () = n = 1UL
 
   override __.Add (rhs: uint64) =
     BitVectorSmall (n + rhs |> adaptSmall len, len) :> BitVector
@@ -1432,6 +1442,10 @@ and BitVectorBig (n, len) =
     uint64 n
 
   override __.BigValue () = n
+
+  override __.IsZero () = n = 0I
+
+  override __.IsOne () = n = 1I
 
   override __.Add (rhs: uint64) =
     BitVectorBig (n + bigint rhs, len) :> BitVector

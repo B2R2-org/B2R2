@@ -173,9 +173,10 @@ module InstrMap =
         let addrs = List.map (fun (instr: Instruction) -> instr.Address) instrs
         Ok <| struct (instrMap, addrs, lastAddr)
       with
-        | _ ->
+        | e ->
 #if DEBUG
           printfn "Not Implemented IR starting from %x" leaderAddr
+          printfn "%s" <| e.ToString ()
 #endif
           Error ()
     | Error _ -> Error ()
