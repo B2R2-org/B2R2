@@ -40,7 +40,6 @@ type BinHandle = {
   TranslationContext: TranslationContext
   Parser: Parser
   RegisterBay: RegisterBay
-  OptimizedStmtCache: LRUCache<string, LowUIR.Stmt []>
 }
 with
   /// <summary>
@@ -540,9 +539,7 @@ with
     hdl: BinHandle -> ins: Instruction -> LowUIR.Stmt []
 
   /// Lift a parsed instruction (Instruction) to produce an array of optimized
-  /// IR statements from a given BinHandle. This will internally cache
-  /// instructions to make it faster. Thus, it is recommended to use this over
-  /// "LiftInstr" followed by "Optimize".
+  /// IR statements from a given BinHandle.
   static member LiftOptimizedInstr:
     hdl: BinHandle -> ins: Instruction -> LowUIR.Stmt []
 

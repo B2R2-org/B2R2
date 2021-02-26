@@ -26,7 +26,6 @@ namespace B2R2.FrontEnd.BinInterface
 
 open System
 open B2R2
-open B2R2.BinIR
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinInterface.Helper
@@ -39,7 +38,6 @@ type BinHandle = {
   TranslationContext: TranslationContext
   Parser: Parser
   RegisterBay: RegisterBay
-  OptimizedStmtCache: LRUCache<string, LowUIR.Stmt []>
 }
 with
   static member private Init (isa, mode, autoDetect, baseAddr, bytes, path) =
@@ -55,8 +53,7 @@ with
       DefaultParsingContext = ParsingContext.Init (mode)
       TranslationContext = ctxt
       Parser = parser
-      RegisterBay = regbay
-      OptimizedStmtCache = LRUCache (10000) }
+      RegisterBay = regbay }
 
   static member Init (isa, archMode, autoDetect, baseAddr, bytes) =
     BinHandle.Init (isa, archMode, autoDetect, baseAddr, bytes, "")
@@ -258,8 +255,7 @@ with
     ins.Translate hdl.TranslationContext
 
   static member LiftOptimizedInstr hdl (ins: Instruction) =
-    hdl.OptimizedStmtCache.GetOrAdd ins.HashString (fun _ ->
-      BinHandle.LiftInstr hdl ins |> LocalOptimizer.Optimize)
+    BinHandle.LiftInstr hdl ins |> LocalOptimizer.Optimize
 
   static member LiftBBlock (hdl: BinHandle, ctxt, addr: Addr) =
     liftBBLFromAddr hdl.FileInfo hdl.Parser hdl.TranslationContext ctxt addr

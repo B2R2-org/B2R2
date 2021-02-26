@@ -34,8 +34,6 @@ type CILInstruction (addr, numBytes, insInfo, wordSize) =
 
   let defaultCtxt = ParsingContext.Init ()
 
-  override __.HashString = __.GetHashCode().ToString()
-
   override __.NextParsingContext = defaultCtxt
 
   override __.AuxParsingContext with get() = None
@@ -59,3 +57,6 @@ type CILInstruction (addr, numBytes, insInfo, wordSize) =
   override __.Disasm (_, _, _) = Utils.futureFeature ()
   override __.Disasm () = Utils.futureFeature ()
   override __.Decompose (_) = Utils.futureFeature ()
+
+  override __.Equals (_) = Utils.futureFeature ()
+  override __.GetHashCode () = Utils.futureFeature ()

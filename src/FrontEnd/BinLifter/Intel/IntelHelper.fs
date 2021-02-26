@@ -85,12 +85,7 @@ and ReadHelper (rd, addr, initialPos, cpos, pref, rex, vex, wordSz, ops, szs) =
   member inline __.ReadUInt32 () = let v = r.PeekUInt32 cpos in __.ModCPos 4; v
   member inline __.ReadUInt64 () = let v = r.PeekUInt64 cpos in __.ModCPos 8; v
   member inline __.ParsedLen () = cpos - ipos
-  member inline __.GetInsHash () =
-    let len = cpos - ipos
-    let bs = r.PeekBytes (len, ipos)
-    let chars: char [] = Array.zeroCreate (len * sizeof<char>)
-    System.Buffer.BlockCopy (bs, 0, chars, 0, bs.Length)
-    System.String chars
+  member inline __.GetInsHash () = ""
 
 let inline hasREXW rexPref = rexPref &&& REXPrefix.REXW = REXPrefix.REXW
 

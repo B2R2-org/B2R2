@@ -36,8 +36,6 @@ type ARM32Instruction (addr, numBytes, insInfo, ctxt, auxctxt) =
 
   member val Info: InsInfo = insInfo
 
-  override __.HashString = __.GetHashCode().ToString()
-
   override __.NextParsingContext = ctxt
 
   override __.AuxParsingContext = auxctxt
@@ -175,5 +173,8 @@ type ARM32Instruction (addr, numBytes, insInfo, ctxt, auxctxt) =
       DisasmWordBuilder (showAddr, false, WordSize.Bit32, addr, numBytes, 8)
     Disasm.disasm dummyHelper __.Info builder
     builder.Finalize ()
+
+  override __.Equals (_) = Utils.futureFeature ()
+  override __.GetHashCode () = Utils.futureFeature ()
 
 // vim: set tw=80 sts=2 sw=2:

@@ -35,8 +35,6 @@ type TMS320C6000Instruction (addr, numBytes, insInfo, ctxt) =
   /// Basic instruction information.
   member val Info: InsInfo = insInfo
 
-  override __.HashString = __.GetHashCode().ToString()
-
   override __.NextParsingContext = ctxt
 
   override __.AuxParsingContext with get() = None
@@ -99,5 +97,8 @@ type TMS320C6000Instruction (addr, numBytes, insInfo, ctxt) =
       DisasmWordBuilder (showAddr, false, WordSize.Bit32, addr, numBytes, 8)
     Disasm.disasm __.Info builder
     builder.Finalize ()
+
+  override __.Equals (_) = Utils.futureFeature ()
+  override __.GetHashCode () = Utils.futureFeature ()
 
 // vim: set tw=80 sts=2 sw=2:

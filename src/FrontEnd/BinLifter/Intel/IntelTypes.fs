@@ -292,6 +292,25 @@ type IntelInternalInstruction
   /// along with the MainOperationSize.
   member __.PointerSize with get(): RegType = psz
 
+  override __.Equals (rhs) =
+    match rhs with
+    | :? IntelInternalInstruction as rhs ->
+      __.Prefixes = rhs.Prefixes
+      && __.REXPrefix = rhs.REXPrefix
+      && __.VEXInfo = rhs.VEXInfo
+      && __.Opcode = rhs.Opcode
+      && __.Operands = rhs.Operands
+    | _ -> false
+
+  override __.GetHashCode () =
+    let hash = System.HashCode ()
+    hash.Add __.Prefixes
+    hash.Add __.REXPrefix
+    hash.Add __.VEXInfo
+    hash.Add __.Opcode
+    hash.Add __.Operands
+    hash.ToHashCode ()
+
 type internal InsInfo = IntelInternalInstruction
 
 // vim: set tw=80 sts=2 sw=2:

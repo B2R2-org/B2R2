@@ -37,8 +37,6 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
   /// Basic instruction information.
   member val Info: InsInfo = insInfo
 
-  override __.HashString = __.GetHashCode().ToString()
-
   override __.NextParsingContext = defaultCtxt
 
   override __.AuxParsingContext with get() = None
@@ -129,5 +127,8 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
       DisasmWordBuilder (showAddr, false, WordSize.Bit256, addr, numBytes, 8)
     Disasm.disasm __.Info builder
     builder.Finalize ()
+
+  override __.Equals (_) = Utils.futureFeature ()
+  override __.GetHashCode () = Utils.futureFeature ()
 
 // vim: set tw=80 sts=2 sw=2:
