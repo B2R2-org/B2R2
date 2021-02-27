@@ -98,7 +98,7 @@ type LowUIRParser (isa, regbay: RegisterBay) =
   let pTempVar =
     pstring "T_" >>. pint32 .>> ws
     .>> pchar ':' .>> ws .>>. pRegType
-    |>> (fun (num, typ) -> AST.tmpvarWithID typ num)
+    |>> (fun (num, typ) -> AST.tmpvar typ num)
 
   let pUnOp =
     pUnaryOperator .>> ws .>>. pExpr
@@ -246,7 +246,7 @@ type LowUIRParser (isa, regbay: RegisterBay) =
 
   let pLMark =
     ws >>. pchar ':' >>. pIdentifier
-    |>> (fun name -> AST.symbol name (AST.IDCounter.Init ()) |> AST.lmark)
+    |>> (fun name -> AST.symbol name 0 |> AST.lmark)
 
   let pPut =
     ws
@@ -263,7 +263,7 @@ type LowUIRParser (isa, regbay: RegisterBay) =
   let pJmp =
     ws >>. pstring "jmp" >>. ws >>. pIdentifier
     |>> (fun lab ->
-      AST.jmp (AST.name <| AST.symbol lab (AST.IDCounter.Init ())))
+      AST.jmp (AST.name <| AST.symbol lab 0))
 
   let pCJmp =
     ws
@@ -272,9 +272,8 @@ type LowUIRParser (isa, regbay: RegisterBay) =
     .>> pstring "jmp" .>> ws .>>. pIdentifier .>> ws
     .>> pstring "else" .>> ws .>> pstring "jmp" .>> ws .>>. pIdentifier
     |>> (fun ((cond, tlab), flab) ->
-      let counter = AST.IDCounter.Init ()
-      let tlab = AST.name <| AST.symbol tlab counter
-      let flab = AST.name <| AST.symbol flab counter
+      let tlab = AST.name <| AST.symbol tlab 0
+      let flab = AST.name <| AST.symbol flab 0
       AST.cjmp cond tlab flab)
 
   let pInterJmp =

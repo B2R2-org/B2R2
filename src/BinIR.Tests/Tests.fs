@@ -42,9 +42,8 @@ type BinIRTest () =
 
   [<TestMethod>]
   member __.``Expr Commutative Equivalence Test 1``() =
-    let counter = AST.IDCounter.Init ()
-    let n1 = AST.tmpvar 32<rt> counter
-    let n2 = AST.tmpvar 32<rt> counter
+    let n1 = AST.tmpvar 32<rt> 0
+    let n2 = AST.tmpvar 32<rt> 1
     let e1 = AST.add n1 n2
     let e2 = AST.add n2 n1
 #if ! HASHCONS
@@ -56,10 +55,9 @@ type BinIRTest () =
 
   [<TestMethod>]
   member __.``Expr Commutative Equivalence Test 2``() =
-    let counter = AST.IDCounter.Init ()
-    let n1 = AST.tmpvar 32<rt> counter
-    let n2 = AST.tmpvar 32<rt> counter
-    let n3 = AST.tmpvar 32<rt> counter
+    let n1 = AST.tmpvar 32<rt> 0
+    let n2 = AST.tmpvar 32<rt> 1
+    let n3 = AST.tmpvar 32<rt> 2
     let e1 = AST.mul n3 (AST.div n1 n2)
     let e2 = AST.mul (AST.div n1 n2) n3
 #if ! HASHCONS

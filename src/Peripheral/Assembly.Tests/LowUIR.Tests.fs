@@ -54,7 +54,7 @@ type LowUIRTests () =
   [<TestMethod>]
   member __.``[IntelAssemblerLowUIR] Test Temporary Registers``() =
     let result = p.Parse "T_2:I1 := 1" |> Result.get |> Array.head
-    let answer = AST.put (AST.tmpvarWithID 1<rt> 2) (AST.num size1Num)
+    let answer = AST.put (AST.tmpvar 1<rt> 2) (AST.num size1Num)
     Assert.AreEqual (answer, result)
 
   [<TestMethod>]

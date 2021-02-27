@@ -61,13 +61,6 @@ let inline private tryGetStmt (k: S) =
   | _ -> Error false
 #endif
 
-/// ID counter is used to give a unique ID for temporary variables or labels.
-[<Struct>]
-type IDCounter = {
-  Count: int ref
-}
-with static member Init () = { Count = ref 0 }
-
 /// Get the expression info from the given expression (Expr).
 [<CompiledName("GetExprInfo")>]
 let getExprInfo e = ASTHelper.getExprInfo e
@@ -122,7 +115,7 @@ let pcvar t name =
 
 /// Construct a temporary variable (TempVar) with the given ID.
 [<CompiledName("TmpVar")>]
-let tmpvarWithID t id =
+let inline tmpvar t id =
 #if ! HASHCONS
   TempVar (t, id) |> ASTHelper.buildExpr
 #else
@@ -136,16 +129,9 @@ let tmpvarWithID t id =
     e'
 #endif
 
-/// Construct a temporary variable (TempVar).
-[<CompiledName("TmpVar")>]
-let tmpvar t (counter: IDCounter) =
-  let id = System.Threading.Interlocked.Increment counter.Count
-  tmpvarWithID t id
-
 /// Construct a symbol (for a label) from a string and a IDCounter.
 [<CompiledName("Symbol")>]
-let symbol name (counter: IDCounter) =
-  let id = System.Threading.Interlocked.Increment counter.Count
+let inline symbol name id =
   Symbol (name, id)
 
 /// Construct an unary operator (UnOp).
