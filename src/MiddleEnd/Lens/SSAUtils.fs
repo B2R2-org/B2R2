@@ -41,17 +41,21 @@ let collectDefVars defs (_, stmt) =
   | SSA.Def ({ Kind = k }, _) -> Set.add k defs
   | _ -> defs
 
-let findPhiSites g defsPerNode variable (phiSites, workList) v =
+let findPhiSites g defsPerNode variable (phiSites, workList) (v: Vertex<SSABBlock>) =
   if Set.contains v phiSites then phiSites, workList
   else
-    (* Insert Phi for v *)
-    DiGraph.getPreds g v
-    |> List.length
-    |> (v: Vertex<SSABBlock>).VData.InsertPhi variable
-    let phiSites = Set.add v phiSites
-    let defs = (defsPerNode: DefsPerNode).[v]
-    if not <| Set.contains variable defs then phiSites, v :: workList
-    else phiSites, workList
+    match variable with
+    (* PhiSite should not be start of an instruction for TempVar *)
+    | SSA.TempVar _ when v.VData.PPoint.Position = 0 -> phiSites, workList
+    | _ ->
+      (* Insert Phi for v *)
+      DiGraph.getPreds g v
+      |> List.length
+      |> (v: Vertex<SSABBlock>).VData.InsertPhi variable
+      let phiSites = Set.add v phiSites
+      let defs = (defsPerNode: DefsPerNode).[v]
+      if not <| Set.contains variable defs then phiSites, v :: workList
+      else phiSites, workList
 
 let rec iterDefs g phiSites defsPerNode variable = function
   | [] -> phiSites
@@ -71,15 +75,9 @@ let placePhis g vMap (fMap: FakeVMap) (defSites: DefSites) domCtxt =
       if defSites.ContainsKey d then defSites.[d] <- Set.add v defSites.[d]
       else defSites.[d] <- Set.singleton v))
   for KeyValue (variable, defs) in defSites do
-    match variable with
-    | SSA.TempVar (_) when defs.Count = 1 ->
-      (* We can safely ignore TempVars here because they are used only within a
-         single basic block. *)
-      ()
-    | _ ->
-      Set.toList defs
-      |> iterDefs g Set.empty defsPerNode variable
-      |> ignore
+    Set.toList defs
+    |> iterDefs g Set.empty defsPerNode variable
+    |> ignore
   domCtxt
 
 let renameDest (stack: IDStack) (dest: SSA.Variable) =
