@@ -78,6 +78,7 @@ let private popFromStack (ctxt: TranslationContext) (builder: IRBuilder) =
   builder <! (spReg := (spReg .- (getSPSize 1)))           (* SP := SP - 32 *)
   tmp
 
+// Peek the 'pos'-th item.
 let private peekStack (ctxt: TranslationContext) pos (builder: IRBuilder) =
   let spReg = getRegVar ctxt R.SP
   let regType = OperationSize.regType
@@ -85,14 +86,15 @@ let private peekStack (ctxt: TranslationContext) pos (builder: IRBuilder) =
   builder <! (tmp := AST.loadBE regType (spReg .- (getSPSize (pos - 1))))
   tmp
 
+// Swap the topmost item with ('pos' + 1)-th item.
 let private swapStack (ctxt: TranslationContext) pos (builder: IRBuilder) =
   let spReg = getRegVar ctxt R.SP
   let regType = OperationSize.regType
   let tmp1 = builder.NewTempVar regType
   let tmp2 = builder.NewTempVar regType
   builder <! (tmp1 := AST.loadBE regType spReg)
-  builder <! (tmp2 := AST.loadBE regType (spReg .- (getSPSize (pos - 1))))
-  builder <! (AST.store Endian.Big (spReg .- (getSPSize (pos - 1))) tmp1)
+  builder <! (tmp2 := AST.loadBE regType (spReg .- (getSPSize pos)))
+  builder <! (AST.store Endian.Big (spReg .- (getSPSize pos)) tmp1)
   builder <! (AST.store Endian.Big spReg tmp2)
 
 /// Binary operations and relative operations.
