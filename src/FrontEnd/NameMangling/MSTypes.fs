@@ -470,5 +470,3 @@ type MSUserState = {
 }
 with
   static member Default = { NameList = []; TypeList = [] }
-
-type MSParser<'a> = FParsec.Primitives.Parser<'a, MSUserState>

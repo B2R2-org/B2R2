@@ -718,6 +718,3 @@ with
       Carry = Dummy ""
       RetFlag = 0
       ArgPackFlag = 0 }
-
-type ItaniumParser<'a> = FParsec.Primitives.Parser<'a, ItaniumUserState>
-

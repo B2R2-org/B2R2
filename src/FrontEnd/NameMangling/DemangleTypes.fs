@@ -33,3 +33,18 @@ type ManglingScheme =
   | ItaniumMangler
   /// Unknown mangling scheme.
   | UnknownMangler
+
+/// Demangler error types.
+type DemanglerError =
+  /// Unknown demangled string format encountered.
+  | InvalidFormat
+  /// Parsing failed in the middle.
+  | ParsingFailure
+  /// Parsing didn't consume all the string; there is/are trailing char(s).
+  | TrailingChars
+
+/// The main demangler interface.
+[<AbstractClass>]
+type Demangler () =
+  /// Take a string as input and return a demangled string as output.
+  abstract Run: string -> Result<string, DemanglerError>

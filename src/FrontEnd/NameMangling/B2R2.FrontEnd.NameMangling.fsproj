@@ -13,14 +13,12 @@
     <Compile Include="MSTypes.fs" />
     <Compile Include="MSUtils.fs" />
     <Compile Include="MSInterpreter.fs" />
-    <Compile Include="MSParser.fs" />
     <Compile Include="MSDemangler.fs" />
     <Compile Include="ItaniumTypes.fs" />
     <Compile Include="ItaniumTables.fs" />
     <Compile Include="ItaniumFunctionPointer.fs" />
     <Compile Include="ItaniumUtils.fs" />
     <Compile Include="ItaniumInterpreter.fs" />
-    <Compile Include="ItaniumParser.fs" />
     <Compile Include="ItaniumDemangler.fs" />
     <Compile Include="Demangle.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />

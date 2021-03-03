@@ -22,7 +22,7 @@
   SOFTWARE.
 *)
 
-module B2R2.FrontEnd.NameMangling.ItaniumUtils
+module internal B2R2.FrontEnd.NameMangling.ItaniumUtils
 
 open FParsec
 open B2R2.FrontEnd.NameMangling.ItaniumFunctionPointer

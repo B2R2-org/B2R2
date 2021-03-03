@@ -24,20 +24,17 @@ SOFTWARE.
 
 namespace B2R2.FrontEnd.NameMangling
 
-open System.Runtime.InteropServices
-
-type Demangler =
-  static member Detect str =
-    if MSDemangler.isMSMangled str then MSMangler
-    elif ItaniumDemangler.isItaniumMangled str then ItaniumMangler
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module Demangler =
+  [<CompiledName ("Detect")>]
+  let detect str =
+    if MSDemangler.IsWellFormed str then MSMangler
+    elif ItaniumDemangler.IsWellFormed str then ItaniumMangler
     else UnknownMangler
 
-  static member Demangle (str, [<Out>] dest: byref<string>) =
-    let result =
-      match Demangler.Detect str with
-      | MSMangler -> MSDemangler.demangle str
-      | ItaniumMangler -> ItaniumDemangler.demangle str
-      | UnknownMangler-> None
-    match result with
-    | None -> false
-    | Some s -> dest <- s; true
+  [<CompiledName ("Demangle")>]
+  let demangle str =
+    match detect str with
+    | MSMangler -> MSDemangler().Run str
+    | ItaniumMangler -> ItaniumDemangler().Run str
+    | UnknownMangler-> Error InvalidFormat

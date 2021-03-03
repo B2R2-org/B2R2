@@ -28,6 +28,6 @@ open B2R2.FrontEnd.NameMangling
 open Microsoft.VisualStudio.TestTools.UnitTesting
 
 let test mangled demangled =
-  match Demangler.Demangle mangled with
-  | true, result -> Assert.AreEqual (demangled, result)
-  | false, _ -> failwith "Demangling failure."
+  match Demangler.demangle mangled with
+  | Ok result -> Assert.AreEqual (demangled, result)
+  | Error _ -> failwith "Demangling failure."

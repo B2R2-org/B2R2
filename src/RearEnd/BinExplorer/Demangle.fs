@@ -43,7 +43,7 @@ type CmdDemangle () =
 
   override __.CallBack _ _ args =
     let mangled = String.concat " " args
-    match Demangler.Demangle mangled |> Utils.tupleToOpt with
-    | None -> [| "[*] Invalid input." |]
-    | Some s -> [| s |]
+    match Demangler.demangle mangled with
+    | Ok s -> [| s |]
+    | Error _ -> [| "[*] Invalid input." |]
     |> Array.map OutputNormal
