@@ -115,7 +115,7 @@ let pcvar t name =
 
 /// Construct a temporary variable (TempVar) with the given ID.
 [<CompiledName("TmpVar")>]
-let inline tmpvar t id =
+let tmpvar t id =
 #if ! HASHCONS
   TempVar (t, id) |> ASTHelper.buildExpr
 #else

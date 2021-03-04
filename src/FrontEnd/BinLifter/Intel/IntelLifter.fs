@@ -24,6 +24,7 @@
 
 module internal B2R2.FrontEnd.BinLifter.Intel.Lifter
 
+open System.Collections.Concurrent
 open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd.BinLifter
@@ -31,7 +32,7 @@ open B2R2.FrontEnd.BinLifter
 type OP = Opcode (* Just to make it concise. *)
 
 /// Translate IR.
-let translate (ins: IntelInternalInstruction) insLen ctxt =
+let inline private translateAux (ins: IntelInternalInstruction) insLen ctxt =
   match ins.Opcode with
   | OP.AAA -> GeneralLifter.aaa insLen ctxt
   | OP.AAD -> GeneralLifter.aad ins insLen ctxt
@@ -626,6 +627,9 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
          eprintfn "%A" ins
 #endif
          raise <| NotImplementedIRException (Disasm.opCodeToString o)
-  |> fun builder -> builder.ToStmts ()
+
+let translate (ins: IntelInternalInstruction) insLen ctxt =
+  let builder = translateAux ins insLen ctxt
+  builder.ToStmts ()
 
 // vim: set tw=80 sts=2 sw=2:

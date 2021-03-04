@@ -135,8 +135,7 @@ module internal ParsingHelper = begin
                       opcode,
                       oprs,
                       rhlp.OperationSize,
-                      rhlp.MemEffAddrSize
-                      (* rhlp.GetInsHash () *))
+                      rhlp.MemEffAddrSize)
 
   (* Table A-7/15 of Volume 2
      (D8/DC Opcode Map When ModR/M Byte is within 00H to BFH) *)
