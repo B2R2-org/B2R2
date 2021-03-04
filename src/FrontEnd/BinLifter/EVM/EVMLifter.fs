@@ -289,106 +289,13 @@ let swap insInfo ctxt pos =
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
-let obtainInfo insInfo ctxt name =
-  let builder = new IRBuilder (8)
+let callExternFunc insInfo ctxt name argCount doesRet =
+  let builder = new IRBuilder (15)
   startMark insInfo builder
-  let expr = AST.app name [] OperationSize.regType
-  pushToStack ctxt expr builder
-  updateGas ctxt insInfo.GAS builder
-  endMark insInfo builder
-
-let balance insInfo ctxt =
-  let builder = new IRBuilder (8)
-  startMark insInfo builder
-  let addr = popFromStack ctxt builder
-  let expr = AST.app "balance" [ addr ] OperationSize.regType
-  pushToStack ctxt expr builder
-  updateGas ctxt insInfo.GAS builder
-  endMark insInfo builder
-
-let calldataload insInfo ctxt =
-  let builder = new IRBuilder (12)
-  startMark insInfo builder
-  let offset = popFromStack ctxt builder
-  let expr = AST.app "msg.data" [ offset ] OperationSize.regType
-  pushToStack ctxt expr builder
-  updateGas ctxt insInfo.GAS builder
-  endMark insInfo builder
-
-let calldatacopy insInfo ctxt =
-  let builder = new IRBuilder (12)
-  startMark insInfo builder
-  let dst = popFromStack ctxt builder
-  let src = popFromStack ctxt builder
-  let len = popFromStack ctxt builder
-  let regType = OperationSize.regType
-  let t = builder.NewTempVar regType
-  builder <! (t := AST.app "calldatacopy" [ dst; src; len ] regType)
-  updateGas ctxt insInfo.GAS builder
-  endMark insInfo builder
-
-let codecopy insInfo ctxt =
-  let builder = new IRBuilder (12)
-  startMark insInfo builder
-  let dst = popFromStack ctxt builder
-  let src = popFromStack ctxt builder
-  let len = popFromStack ctxt builder
-  let regType = OperationSize.regType
-  let t = builder.NewTempVar regType
-  builder <! (t := AST.app "codecopy" [ dst; src; len ] regType)
-  updateGas ctxt insInfo.GAS builder
-  endMark insInfo builder
-
-let extcodecopy insInfo ctxt =
-  let builder = new IRBuilder (12)
-  startMark insInfo builder
-  let addr = popFromStack ctxt builder
-  let dst = popFromStack ctxt builder
-  let src = popFromStack ctxt builder
-  let len = popFromStack ctxt builder
-  let regType = OperationSize.regType
-  let t = builder.NewTempVar regType
-  builder <! (t := AST.app "extcodecopy" [ addr; dst; src; len ] regType)
-  updateGas ctxt insInfo.GAS builder
-  endMark insInfo builder
-
-let returndatacopy insInfo ctxt =
-  let builder = new IRBuilder (12)
-  startMark insInfo builder
-  let dst = popFromStack ctxt builder
-  let src = popFromStack ctxt builder
-  let len = popFromStack ctxt builder
-  let regType = OperationSize.regType
-  let t = builder.NewTempVar regType
-  builder <! (t := AST.app "returndatacopy" [ dst; src; len ] regType)
-  updateGas ctxt insInfo.GAS builder
-  endMark insInfo builder
-
-let extcodesize insInfo ctxt =
-  let builder = new IRBuilder (8)
-  startMark insInfo builder
-  let addr = popFromStack ctxt builder
-  let expr = AST.app "extcodesize" [ addr ] OperationSize.regType
-  pushToStack ctxt expr builder
-  updateGas ctxt insInfo.GAS builder
-  endMark insInfo builder
-
-let blockhash insInfo ctxt =
-  let builder = new IRBuilder (8)
-  startMark insInfo builder
-  let blockNum = popFromStack ctxt builder
-  let expr = AST.app "blockhash" [ blockNum ] OperationSize.regType
-  pushToStack ctxt expr builder
-  updateGas ctxt insInfo.GAS builder
-  endMark insInfo builder
-
-let sha3 insInfo ctxt =
-  let builder = new IRBuilder (12)
-  startMark insInfo builder
-  let offset = popFromStack ctxt builder
-  let length = popFromStack ctxt builder
-  let expr = AST.app "keccak256" [ offset; length ] OperationSize.regType
-  pushToStack ctxt expr builder
+  let args = List.init argCount (fun _ -> popFromStack ctxt builder)
+  let expr = AST.app name args OperationSize.regType
+  if doesRet then pushToStack ctxt expr builder
+  else builder <! ((builder.NewTempVar OperationSize.regType) := expr)
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
@@ -404,35 +311,6 @@ let call insInfo ctxt fname =
   let retLength = popFromStack ctxt builder
   let args = [ gas; addr; value; argsOffset; argsLength; retOffset; retLength ]
   let expr = AST.app fname args OperationSize.regType
-  pushToStack ctxt expr builder
-  updateGas ctxt insInfo.GAS builder
-  endMark insInfo builder
-
-let sload insInfo ctxt =
-  let builder = new IRBuilder (8)
-  startMark insInfo builder
-  let key = popFromStack ctxt builder
-  let value = AST.app "sload" [key] OperationSize.regType
-  pushToStack ctxt value builder
-  updateGas ctxt insInfo.GAS builder
-  endMark insInfo builder
-
-let sstore insInfo ctxt =
-  let builder = new IRBuilder (8)
-  startMark insInfo builder
-  let key = popFromStack ctxt builder
-  let value = popFromStack ctxt builder
-  let t = builder.NewTempVar OperationSize.regType
-  updateGas ctxt insInfo.GAS builder
-  builder <! (t := AST.app "sstore" [ key; value ] OperationSize.regType)
-  endMark insInfo builder
-
-let exp insInfo ctxt =
-  let builder = new IRBuilder (12)
-  startMark insInfo builder
-  let a = popFromStack ctxt builder
-  let b = popFromStack ctxt builder
-  let expr = AST.app "exp" [ a; b ] OperationSize.regType
   pushToStack ctxt expr builder
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
@@ -460,7 +338,7 @@ let translate insInfo (ctxt: TranslationContext) =
   | SMOD -> smod insInfo ctxt
   | ADDMOD -> addmod insInfo ctxt
   | MULMOD -> mulmod insInfo ctxt
-  | EXP -> exp insInfo ctxt
+  | EXP -> callExternFunc insInfo ctxt "exp" 2 true
   | SIGNEXTEND -> signextend insInfo ctxt
   | LT -> lt insInfo ctxt
   | GT -> gt insInfo ctxt
@@ -476,38 +354,38 @@ let translate insInfo (ctxt: TranslationContext) =
   | SHL -> shl insInfo ctxt
   | SHR -> shr insInfo ctxt
   | SAR -> sar insInfo ctxt
-  | SHA3 -> sha3 insInfo ctxt
-  | ADDRESS -> obtainInfo insInfo ctxt "address" // Not msg.sender or PC.
-  | BALANCE -> balance insInfo ctxt
-  | ORIGIN -> obtainInfo insInfo ctxt "tx.origin"
-  | CALLER -> obtainInfo insInfo ctxt "msg.caller"
-  | CALLVALUE -> obtainInfo insInfo ctxt "msg.value"
-  | CALLDATALOAD -> calldataload insInfo ctxt
-  | CALLDATASIZE -> obtainInfo insInfo ctxt "msg.data.size"
-  | CALLDATACOPY -> calldatacopy insInfo ctxt
-  | CODESIZE -> obtainInfo insInfo ctxt "code.size"
-  | CODECOPY -> codecopy insInfo ctxt
-  | GASPRICE -> obtainInfo insInfo ctxt "tx.gasprice"
-  | EXTCODESIZE -> extcodesize insInfo ctxt
-  | EXTCODECOPY -> extcodecopy insInfo ctxt
-  | RETURNDATASIZE -> obtainInfo insInfo ctxt "returndatasize"
-  | RETURNDATACOPY -> returndatacopy insInfo ctxt
-  | BLOCKHASH -> blockhash insInfo ctxt
-  | COINBASE -> obtainInfo insInfo ctxt "block.coinbase"
-  | TIMESTAMP -> obtainInfo insInfo ctxt "block.timestamp"
-  | NUMBER -> obtainInfo insInfo ctxt "block.number"
-  | DIFFICULTY -> obtainInfo insInfo ctxt "block.difficulty"
-  | GASLIMIT -> obtainInfo insInfo ctxt "block.gaslimit"
+  | SHA3 -> callExternFunc insInfo ctxt "keccak256" 2 true
+  | ADDRESS -> callExternFunc insInfo ctxt "address" 0 true
+  | BALANCE -> callExternFunc insInfo ctxt "balance" 1 true
+  | ORIGIN -> callExternFunc insInfo ctxt "tx.origin" 0 true
+  | CALLER -> callExternFunc insInfo ctxt "msg.caller" 0 true
+  | CALLVALUE -> callExternFunc insInfo ctxt "msg.value" 0 true
+  | CALLDATALOAD -> callExternFunc insInfo ctxt "msg.data" 1 true
+  | CALLDATASIZE -> callExternFunc insInfo ctxt "msg.data.size" 0 true
+  | CALLDATACOPY -> callExternFunc insInfo ctxt "calldatacopy" 3 false
+  | CODESIZE -> callExternFunc insInfo ctxt "codesize" 0 true
+  | CODECOPY -> callExternFunc insInfo ctxt "codecopy" 3 false
+  | GASPRICE -> callExternFunc insInfo ctxt "tx.gasprice" 0 true
+  | EXTCODESIZE -> callExternFunc insInfo ctxt "extcodesize" 1 true
+  | EXTCODECOPY -> callExternFunc insInfo ctxt "extcodecopy" 4 false
+  | RETURNDATASIZE -> callExternFunc insInfo ctxt "returndatasize" 0 true
+  | RETURNDATACOPY -> callExternFunc insInfo ctxt "returndatacopy" 3 false
+  | BLOCKHASH -> callExternFunc insInfo ctxt "blockhash" 1 true
+  | COINBASE -> callExternFunc insInfo ctxt "block.coinbase" 0 true
+  | TIMESTAMP -> callExternFunc insInfo ctxt "block.timestamp" 0 true
+  | NUMBER -> callExternFunc insInfo ctxt "block.number" 0 true
+  | DIFFICULTY -> callExternFunc insInfo ctxt "block.difficulty" 0 true
+  | GASLIMIT -> callExternFunc insInfo ctxt "block.gaslimit" 0 true
   | POP -> pop insInfo ctxt
   | MLOAD -> mload insInfo ctxt
   | MSTORE -> mstore insInfo ctxt
   | MSTORE8 -> mstore8 insInfo ctxt
-  | SLOAD -> sload insInfo ctxt
-  | SSTORE -> sstore insInfo ctxt
+  | SLOAD -> callExternFunc insInfo ctxt "sload" 1 true
+  | SSTORE -> callExternFunc insInfo ctxt "sstore" 2 false
   | JUMP -> jump insInfo ctxt
   | JUMPI -> jumpi insInfo ctxt
   | GETPC -> getpc insInfo ctxt
-  | MSIZE -> obtainInfo insInfo ctxt "msize"
+  | MSIZE -> callExternFunc insInfo ctxt "msize" 0 true
   | GAS -> gas insInfo ctxt
   | JUMPDEST -> nop insInfo
   | PUSH1 imm -> push insInfo ctxt imm
@@ -574,19 +452,18 @@ let translate insInfo (ctxt: TranslationContext) =
   | SWAP14 -> swap insInfo ctxt 14
   | SWAP15 -> swap insInfo ctxt 15
   | SWAP16 -> swap insInfo ctxt 16
-  | RETURN
-  | REVERT -> ret insInfo ctxt
-  | CALL -> call insInfo ctxt "call.gas"
-  | CALLCODE -> call insInfo ctxt "callcode.gas"
-  | LOG0
-  | LOG1
-  | LOG2
-  | LOG3
-  | LOG4
-  | CREATE
-  | DELEGATECALL
-  | CREATE2
-  | STATICCALL
-  | INVALID
+  | RETURN | REVERT -> ret insInfo ctxt
+  | CALL -> callExternFunc insInfo ctxt "call" 7 true
+  | CALLCODE -> callExternFunc insInfo ctxt "callcode" 7 true
+  | LOG0 -> callExternFunc insInfo ctxt "log0" 2 false
+  | LOG1 -> callExternFunc insInfo ctxt "log1" 3 false
+  | LOG2 -> callExternFunc insInfo ctxt "log2" 4 false
+  | LOG3 -> callExternFunc insInfo ctxt "log3" 5 false
+  | LOG4 -> callExternFunc insInfo ctxt "log4" 6 false
+  | CREATE -> callExternFunc insInfo ctxt "create" 3 true
+  | DELEGATECALL -> callExternFunc insInfo ctxt "delegatecall" 6 true
+  | CREATE2 -> callExternFunc insInfo ctxt "create2" 4 true
+  | STATICCALL -> callExternFunc insInfo ctxt "staticcall" 6 true
+  | INVALID -> sideEffects insInfo Terminate
   | SELFDESTRUCT -> selfdestruct insInfo ctxt
   |> fun builder -> builder.ToStmts ()
