@@ -343,30 +343,6 @@ type Opcode =
   | LOG3
   /// Append log record with four topics
   | LOG4
-  /// Tentative libevmasm has different numbers
-  | JUMPTO
-  /// Tentative
-  | JUMPIF
-  /// Tentative
-  | JUMPSUB
-  /// Tentative
-  | JUMPSUBV
-  /// Tentative
-  | BEGINSUB
-  /// Tentative
-  | BEGINDATA
-  /// Tentative
-  | RETURNSUB
-  /// Tentative
-  | PUTLOCAL
-  /// Tentative
-  | GETLOCAL
-  /// Only referenced in pyethereum
-  | SLOADBYTES
-  /// Only referenced in pyethereum
-  | SSTOREBYTES
-  /// Only referenced in pyethereum
-  | SSIZE
   /// Create a new account with associated code
   | CREATE
   /// Message-call into an account
@@ -383,8 +359,6 @@ type Opcode =
   | CREATE2
   /// Similar to CALL, but does not modify state
   | STATICCALL
-  /// FIXME: Not in the yellow paper.
-  | TXEXECGAS
   /// Stop execution and revert state changes, without consuming all provided
   /// gas and providing a reason
   | REVERT

@@ -583,23 +583,10 @@ let translate insInfo (ctxt: TranslationContext) =
   | LOG2
   | LOG3
   | LOG4
-  | JUMPTO
-  | JUMPIF
-  | JUMPSUB
-  | JUMPSUBV
-  | BEGINSUB
-  | BEGINDATA
-  | RETURNSUB
-  | PUTLOCAL
-  | GETLOCAL
-  | SLOADBYTES
-  | SSTOREBYTES
-  | SSIZE
   | CREATE
   | DELEGATECALL
   | CREATE2
   | STATICCALL
-  | TXEXECGAS
   | INVALID
   | SELFDESTRUCT -> selfdestruct insInfo ctxt
   |> fun builder -> builder.ToStmts ()
