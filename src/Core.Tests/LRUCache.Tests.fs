@@ -30,54 +30,58 @@ open B2R2
 
 open System.Threading
 
+type TestOp () =
+  let cnt = ref 0
+  member __.Count with get() = !cnt
+  interface ICacheableOperation<int, int> with
+    member __.Perform v =
+      Interlocked.Increment cnt |> ignore
+      v
+
 [<TestClass>]
 type LRUCacheTests () =
-  member __.GenTestFunc<'K, 'V> (proc: 'K -> 'V) =
-    let x = ref 0
-    (fun k -> Interlocked.Increment x |> ignore; proc k), x
-
   [<TestMethod>]
   member __.``GetOrAddTest`` () =
-    let proc, cnt = __.GenTestFunc (fun x -> x)
+    let op = TestOp ()
     let lru = LRUCache<int, int>(100)
-    for i = 0 to 10 do Assert.AreEqual (1, lru.GetOrAdd 1 proc)
-    Assert.AreEqual (1, !cnt)
+    for i = 0 to 10 do Assert.AreEqual (1, lru.GetOrAdd 1 op 1)
+    Assert.AreEqual (1, op.Count)
 
   [<TestMethod>]
   member __.``CountTest`` () =
-    let proc, cnt = __.GenTestFunc (fun x -> x)
+    let op = TestOp ()
     let lru = LRUCache<int, int>(100)
-    for i = 0 to 99 do Assert.AreEqual (i, lru.GetOrAdd i proc)
-    Assert.AreEqual (100, !cnt)
+    for i = 0 to 99 do Assert.AreEqual (i, lru.GetOrAdd i op i)
+    Assert.AreEqual (100, op.Count)
     Assert.AreEqual (100, lru.Count)
     lru.Clear ()
     Assert.AreEqual (0, lru.Count)
-    for i = 0 to 99 do Assert.AreEqual (i, lru.GetOrAdd i proc)
-    Assert.AreEqual (200, !cnt)
+    for i = 0 to 99 do Assert.AreEqual (i, lru.GetOrAdd i op i)
+    Assert.AreEqual (200, op.Count)
     Assert.AreEqual (100, lru.Count)
 
   [<TestMethod>]
   member __.``OverflowTest`` () =
-    let proc, cnt = __.GenTestFunc (fun x -> x)
+    let op = TestOp ()
     let lru = LRUCache<int, int>(100)
-    for i = 0 to 199 do Assert.AreEqual (i, lru.GetOrAdd i proc)
-    Assert.AreEqual (200, !cnt)
+    for i = 0 to 199 do Assert.AreEqual (i, lru.GetOrAdd i op i)
+    Assert.AreEqual (200, op.Count)
     Assert.AreEqual (100, lru.Count)
-    let proc2, cnt2 = __.GenTestFunc (fun x -> x)
-    for i = 100 to 199 do Assert.AreEqual (i, lru.GetOrAdd i proc2)
-    Assert.AreEqual (0, !cnt2)
+    let op = TestOp ()
+    for i = 100 to 199 do Assert.AreEqual (i, lru.GetOrAdd i op i)
+    Assert.AreEqual (0, op.Count)
 
   [<TestMethod>]
   member __.``LRUTest`` () =
-    let proc, cnt = __.GenTestFunc (fun x -> x)
+    let op = TestOp ()
     let lru = LRUCache<int, int>(100)
-    for i = 0 to 99 do Assert.AreEqual (i, lru.GetOrAdd i proc)
-    Assert.AreEqual (100, !cnt)
+    for i = 0 to 99 do Assert.AreEqual (i, lru.GetOrAdd i op i)
+    Assert.AreEqual (100, op.Count)
     Assert.AreEqual (100, lru.Count)
-    Assert.AreEqual (0, lru.GetOrAdd 0 proc)
-    Assert.AreEqual (100, !cnt)
+    Assert.AreEqual (0, lru.GetOrAdd 0 op 0)
+    Assert.AreEqual (100, op.Count)
     Assert.AreEqual (100, lru.Count)
-    Assert.AreEqual (100, lru.GetOrAdd 100 proc)
-    let proc2, cnt2 = __.GenTestFunc (fun x -> x)
-    Assert.AreEqual (0, lru.GetOrAdd 0 proc2)
-    Assert.AreEqual (0, !cnt2)
+    Assert.AreEqual (100, lru.GetOrAdd 100 op 100)
+    let op = TestOp ()
+    Assert.AreEqual (0, lru.GetOrAdd 0 op 0)
+    Assert.AreEqual (0, op.Count)

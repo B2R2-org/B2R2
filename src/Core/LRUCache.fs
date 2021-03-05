@@ -30,23 +30,29 @@ open System.Collections.Generic
 open System.Threading
 
 [<CustomEquality; NoComparison>]
-type private DoubleLinkedListNode<'T when 'T: equality> = {
-  mutable Prev: DoubleLinkedListNode<'T>
-  mutable Next: DoubleLinkedListNode<'T>
+type private DoubleLinkedListNode<'K, 'T when 'K: equality and 'T: equality> = {
+  mutable Prev: DoubleLinkedListNode<'K, 'T>
+  mutable Next: DoubleLinkedListNode<'K, 'T>
+  Key: 'K
   Value: 'T
 }
 with
   override __.GetHashCode () = hash __.Value
   override __.Equals rhs =
     match rhs with
-    | :? DoubleLinkedListNode<'T> as rhs -> __.Value = rhs.Value
+    | :? DoubleLinkedListNode<'K, 'T> as rhs -> __.Value = rhs.Value
     | _ -> false
+
+/// This is a cacheable operation, which will be executed when there's no
+/// already cached item.
+type ICacheableOperation<'Arg, 'V when 'V: equality> =
+  abstract Perform: 'Arg -> 'V
 
 /// Least Recently Used Cache supporting concurrency. The capacity decides how
 /// many entries to store.
-type LRUCache<'K, 'V when 'K : equality and 'V : equality> (capacity: int) =
-  let nil = Unchecked.defaultof<DoubleLinkedListNode<_>>
-  let dict = Dictionary<'K, DoubleLinkedListNode<'V>> ()
+type LRUCache<'K, 'V when 'K: equality and 'V: equality> (capacity: int) =
+  let nil = Unchecked.defaultof<DoubleLinkedListNode<_, _>>
+  let dict = Dictionary<'K, DoubleLinkedListNode<'K, 'V>> ()
   let lock = ref (new Object ())
   let mutable head = nil
   let mutable tail = nil
@@ -74,7 +80,7 @@ type LRUCache<'K, 'V when 'K : equality and 'V : equality> (capacity: int) =
 
   member __.Count with get () = size
 
-  member __.GetOrAdd (key: 'K) (proc: 'K -> 'V) =
+  member __.GetOrAdd (key: 'K) (op: ICacheableOperation<_, 'V>) arg =
     __.AcquireLock ()
     let v =
       match dict.TryGetValue key with
@@ -82,8 +88,10 @@ type LRUCache<'K, 'V when 'K : equality and 'V : equality> (capacity: int) =
         __.Remove v
         __.InsertBack v
       | _ ->
-        if size >= capacity then __.Remove head
-        let v = { Prev = nil; Next = nil; Value = proc key }
+        if size >= capacity then
+          dict.Remove head.Key |> ignore
+          __.Remove head
+        let v = { Prev = nil; Next = nil; Key = key; Value = op.Perform arg }
         dict.Add (key, v)
         __.InsertBack v
     __.ReleaseLock ()

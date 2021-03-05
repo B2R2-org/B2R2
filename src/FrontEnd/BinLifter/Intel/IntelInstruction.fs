@@ -157,7 +157,7 @@ type IntelInstruction
     opcode = Opcode.NOP
 
   override __.Translate ctxt =
-    Lifter.translate __ len ctxt
+    (Lifter.translate __ len ctxt).ToStmts ()
 
   override __.Disasm (showAddr, resolveSymb, disasmHelper) =
     let builder = DisasmStringBuilder (showAddr, resolveSymb, wordSz, addr, len)
@@ -173,5 +173,8 @@ type IntelInstruction
     let builder = DisasmWordBuilder (showAddr, false, wordSz, addr, len, 8)
     Disasm.disasm Dummy.helper __ builder
     builder.Finalize ()
+
+  interface ICacheableOperation<TranslationContext, BinIR.LowUIR.Stmt []> with
+    member __.Perform ctxt = (Lifter.translate __ len ctxt).ToStmts ()
 
 // vim: set tw=80 sts=2 sw=2:
