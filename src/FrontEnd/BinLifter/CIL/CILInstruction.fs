@@ -29,16 +29,11 @@ open B2R2.FrontEnd.BinLifter
 
 /// The internal representation for a CIL instruction used by our disassembler
 /// and lifter.
-type CILInstruction (addr, numBytes, insInfo, wordSize) =
+type CILInstruction (addr, numBytes, wordSize) =
   inherit Instruction (addr, numBytes, wordSize)
 
-  let defaultCtxt = ParsingContext.Init ()
-
-  override __.NextParsingContext = defaultCtxt
-
-  override __.AuxParsingContext with get() = None
-
   override __.IsBranch () = Utils.futureFeature ()
+  override __.IsModeChanging () = false
   override __.IsDirectBranch () = Utils.futureFeature ()
   override __.IsIndirectBranch () = Utils.futureFeature ()
   override __.IsCondBranch () = Utils.futureFeature ()

@@ -518,7 +518,7 @@ type IntelParser (wordSz) =
         pos + 1
       else pos
 
-  override __.Parse reader _ctxt addr pos =
+  override __.Parse reader addr pos =
     let mutable rex = REXPrefix.NOREX
     let prefEndPos = __.ParsePrefix (reader, pos)
     let nextPos = __.ParseREX (reader, prefEndPos, &rex)
@@ -532,5 +532,7 @@ type IntelParser (wordSz) =
     rhlp.MarkPrefixEnd (prefEndPos)
 #endif
     oneByteParsers.[int (rhlp.ReadByte ())].Run rhlp :> Instruction
+
+  override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 
 // vim: set tw=80 sts=2 sw=2:

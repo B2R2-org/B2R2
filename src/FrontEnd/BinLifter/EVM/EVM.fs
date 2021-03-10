@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.BinLifter.EVM
 
+open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Translation context for Ethereum Virtual Machine (EVM) instructions.
@@ -41,15 +42,20 @@ type EVMTranslationContext internal (isa, regexprs) =
 /// instruction type (Instruction).
 type EVMParser (wordSize) =
   inherit Parser ()
-  override __.Parse binReader ctxt addr pos =
-    Parser.parse binReader ctxt wordSize addr pos :> Instruction
+  let mutable codeOffset: Addr = 0UL
+
+  member __.CodeOffset with get() = codeOffset and set(o) = codeOffset <- o
+
+  override __.Parse binReader addr pos =
+    Parser.parse binReader codeOffset wordSize addr pos :> Instruction
+
+  override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 
 module Basis =
   let init isa =
     let regexprs = RegExprs ()
     struct (
       EVMTranslationContext (isa, regexprs) :> TranslationContext,
-      EVMParser (isa.WordSize) :> Parser,
       EVMRegisterBay () :> RegisterBay
     )
 

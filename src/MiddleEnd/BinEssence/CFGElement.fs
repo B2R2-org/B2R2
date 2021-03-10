@@ -25,9 +25,8 @@
 namespace B2R2.MiddleEnd.BinEssence
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
 
 /// Internally used to indicate CFG elements: either a vertex or an edge.
 type internal CFGElement =
-  | CFGVertex of Addr * ParsingContext
+  | CFGVertex of Addr * ArchOperationMode
   | CFGEdge of src: ProgramPoint * CFGEdgeKind * dst: Addr

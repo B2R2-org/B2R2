@@ -29,19 +29,17 @@ open B2R2.FrontEnd.BinLifter
 
 /// The internal representation for a TMS320C6000 instruction used by our
 /// disassembler and lifter.
-type TMS320C6000Instruction (addr, numBytes, insInfo, ctxt) =
+type TMS320C6000Instruction (addr, numBytes, insInfo) =
   inherit Instruction (addr, numBytes, WordSize.Bit32)
 
   /// Basic instruction information.
   member val Info: InsInfo = insInfo
 
-  override __.NextParsingContext = ctxt
-
-  override __.AuxParsingContext with get() = None
-
   override __.IsBranch () =
     match __.Info.Opcode with
     | _ -> false
+
+  override __.IsModeChanging () = false
 
   member __.HasConcJmpTarget () = Utils.futureFeature ()
 

@@ -32,14 +32,8 @@ open B2R2.FrontEnd.BinLifter
 type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
   inherit Instruction (addr, numBytes, wordSize)
 
-  let defaultCtxt = ParsingContext.Init ()
-
   /// Basic instruction information.
   member val Info: InsInfo = insInfo
-
-  override __.NextParsingContext with get() = defaultCtxt
-
-  override __.AuxParsingContext with get() = None
 
   override __.IsBranch () =
     match __.Info.Opcode with
@@ -47,6 +41,8 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
     | Opcode.BGTZ | Opcode.BLEZ | Opcode.BLTZ | Opcode.BNE
     | Opcode.JALR | Opcode.JALRHB | Opcode.JR | Opcode.JRHB -> true
     | _ -> false
+
+  override __.IsModeChanging () = false
 
   member __.HasConcJmpTarget () =
     match __.Info.Operands with

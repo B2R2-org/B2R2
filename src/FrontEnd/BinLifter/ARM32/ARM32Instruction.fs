@@ -29,16 +29,12 @@ open B2R2.FrontEnd.BinLifter
 
 /// The internal representation for an ARM32 instruction used by our
 /// disassembler and lifter.
-type ARM32Instruction (addr, numBytes, insInfo, ctxt, auxctxt) =
+type ARM32Instruction (addr, numBytes, insInfo) =
   inherit Instruction (addr, numBytes, WordSize.Bit32)
 
   let dummyHelper = DisasmHelper ()
 
   member val Info: InsInfo = insInfo
-
-  override __.NextParsingContext = ctxt
-
-  override __.AuxParsingContext = auxctxt
 
   override __.IsBranch () =
     match __.Info.Opcode with
@@ -53,6 +49,11 @@ type ARM32Instruction (addr, numBytes, insInfo, ctxt, auxctxt) =
       match __.Info.Operands with
       | OneOperand (OprRegList regs) -> List.contains R.PC regs
       | _ -> false
+    | _ -> false
+
+  override __.IsModeChanging () =
+    match __.Info.Opcode with
+    | Op.BLX -> true
     | _ -> false
 
   member __.HasConcJmpTarget () =

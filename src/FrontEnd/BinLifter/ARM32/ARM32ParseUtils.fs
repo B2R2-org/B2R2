@@ -62,10 +62,10 @@ let decodeRegShift = function
   | _ -> raise InvalidTypeException
 
 /// Test if the current instruction is in an IT block.
-let inITBlock (ctxt: ParsingContext) = List.isEmpty ctxt.ITState |> not
+let inITBlock itstate = List.isEmpty itstate |> not
 
 /// Test if the current instruction is the last instruction of an IT block.
-let lastInITBlock (ctxt: ParsingContext) = List.length ctxt.ITState = 1
+let lastInITBlock itstate = List.length itstate = 1
 
 let parseCond = function
   | 0x0uy -> Condition.EQ

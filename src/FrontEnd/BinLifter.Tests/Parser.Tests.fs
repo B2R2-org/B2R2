@@ -35,8 +35,7 @@ module Intel =
   let private test prefs segment wordSize opcode oprs length (bytes: byte[]) =
     let reader = BinReader.Init (bytes)
     let parser = IntelParser (wordSize)
-    let ctxt = ParsingContext.Init (ArchOperationMode.NoMode)
-    let ins = parser.Parse reader ctxt 0UL 0 :?> IntelInternalInstruction
+    let ins = parser.Parse reader 0UL 0 :?> IntelInternalInstruction
     Assert.AreEqual (ins.Prefixes, prefs)
     Assert.AreEqual (Helper.getSegment ins.Prefixes, segment)
     Assert.AreEqual (ins.Opcode, opcode)
@@ -1503,8 +1502,9 @@ module ARMv7 =
 
   let private test arch endian cond op w (q: Qualifier option) simd oprs bytes =
     let reader = BinReader.Init (bytes, endian)
-    let ctxt = ParsingContext.Init (ArchOperationMode.ARMMode)
-    let ins = Parser.parse reader ctxt arch 0UL 0
+    let mode = ArchOperationMode.ARMMode
+    let mutable itstate = []
+    let ins = Parser.parse reader mode &itstate arch 0UL 0
     let cond' = ins.Info.Condition
     let opcode' = ins.Info.Opcode
     let wback' = ins.Info.WriteBack
@@ -5320,8 +5320,9 @@ module ARMThumb =
 
   let private test arch endian cond op w q (simd: SIMDDataType option) oprs bs =
     let reader = BinReader.Init (bs, endian)
-    let ctxt = ParsingContext.Init (ArchOperationMode.ThumbMode)
-    let ins = Parser.parse reader ctxt arch 0UL 0
+    let mode = ArchOperationMode.ThumbMode
+    let mutable itstate = []
+    let ins = Parser.parse reader mode &itstate arch 0UL 0
     let cond' = ins.Info.Condition
     let opcode' = ins.Info.Opcode
     let wback' = ins.Info.WriteBack
@@ -6556,8 +6557,7 @@ module EVM =
 
   let private test opcode bytes =
     let reader = BinReader.Init (bytes, Endian.Little)
-    let ctxt = ParsingContext.Init (ArchOperationMode.NoMode)
-    let ins = Parser.parse reader ctxt WordSize.Bit64 0UL 0
+    let ins = Parser.parse reader 0UL WordSize.Bit64 0UL 0
     let opcode' = ins.Info.Opcode
     Assert.AreEqual (opcode', opcode)
 

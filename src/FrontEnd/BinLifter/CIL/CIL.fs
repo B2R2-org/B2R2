@@ -39,14 +39,15 @@ type CILTranslationContext internal (isa, regexprs) =
 
 type CILParser () =
   inherit Parser ()
-  override __.Parse binReader ctxt addr pos =
+  override __.Parse binReader addr pos =
     Utils.futureFeature ()
+
+  override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 
 module Basis =
   let init isa =
     let regexprs = RegExprs ()
     struct (
       CILTranslationContext (isa, regexprs) :> TranslationContext,
-      CILParser () :> Parser,
       CILRegisterBay () :> RegisterBay
     )

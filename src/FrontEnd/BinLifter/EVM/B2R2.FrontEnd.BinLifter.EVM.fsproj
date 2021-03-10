@@ -16,7 +16,6 @@
     <Compile Include="EVMDisasm.fs" />
     <Compile Include="EVMLifter.fs" />
     <Compile Include="EVMInstruction.fs" />
-    <Compile Include="EVMParser.fsi" />
     <Compile Include="EVMParser.fs" />
     <Compile Include="EVM.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath=""/>

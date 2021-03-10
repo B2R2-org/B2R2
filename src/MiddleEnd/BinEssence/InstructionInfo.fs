@@ -40,8 +40,6 @@ type InstructionInfo = {
   Labels: Map<Symbol, ProgramPoint>
   /// Reachable program points (jump targets) from the instruction.
   ReachablePPs: Set<ProgramPoint>
-  /// Operation mode.
-  ArchOperationMode: ArchOperationMode
   /// Instruction itself contains its address, but we may want to place this
   /// instruction in a different location in a virtual address space. This field
   /// is useful in such cases to give a specific offset to the instruction. This

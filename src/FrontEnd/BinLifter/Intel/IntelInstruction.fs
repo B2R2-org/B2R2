@@ -28,7 +28,6 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 module private Dummy =
-  let ctxt = ParsingContext.Init ()
   let helper = DisasmHelper ()
 
 /// The internal representation for an Intel instruction used by our
@@ -38,12 +37,10 @@ type IntelInstruction
   inherit IntelInternalInstruction
     (addr, len, wordSz, pref, rex, vex, opcode, oprs, opsz, psz)
 
-  override __.NextParsingContext with get() = Dummy.ctxt
-
-  override __.AuxParsingContext with get() = None
-
   override __.IsBranch () =
     Helper.isBranch opcode
+
+  override __.IsModeChanging () = false
 
   member __.HasConcJmpTarget () =
     match oprs with

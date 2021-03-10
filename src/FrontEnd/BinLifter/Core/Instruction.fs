@@ -55,28 +55,6 @@ type Instruction (addr, len, wordSize) =
   member val WordSize: WordSize = wordSize
 
   /// <summary>
-  ///   Parsing context of the next instruction. Sometimes the way we parse a
-  ///   binary instruction chanages based on prior instructions we observed so
-  ///   far. We propagate such information through Instructions. The next
-  ///   instruction here means either the fall-through instruction or the jump
-  ///   target instruction. That is, we always follow the control flow and refer
-  ///   to the previous instruction from the control flow to decide the parsing
-  ///   behavior.
-  /// </summary>
-  abstract member NextParsingContext: ParsingContext
-
-  /// <summary>
-  ///   Auxiliary parsing context that can be used to parse the next
-  ///   instruction. This is particularly useful when an instruction has two
-  ///   different parsing context depending on the jump target. For example, BLX
-  ///   instruction of ARM produces two CFG edges, and each edge should have
-  ///   different ArchOperationMode (one is Thumb and the other is ARM). In this
-  ///   case, AuxParsingContext contains the parsing context when we follow the
-  ///   fall-through edge.
-  /// </summary>
-  abstract member AuxParsingContext: ParsingContext option
-
-  /// <summary>
   ///   Is this a branch instruction? A branch instruction includes any kinds of
   ///   jump instructions, such as CALL/RET instructions, indirect/direct jump
   ///   instructions, and conditional jump instructions.
@@ -85,6 +63,15 @@ type Instruction (addr, len, wordSize) =
   ///   Returns true if this is a branch instruction.
   /// </returns>
   abstract member IsBranch: unit -> bool
+
+  /// <summary>
+  ///   Is this a mode-changing instruction? In ARMv7, BLX is such an
+  ///   instruction.
+  /// </summary>
+  /// <returns>
+  ///   Returns true if this is a mode-changing instruction.
+  /// </returns>
+  abstract member IsModeChanging: unit -> bool
 
   /// <summary>
   ///   Is this a direct branch instruction? A direct branch instruction is a

@@ -31,7 +31,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.BinEssence
 
 type EVMCodeCopyAnalysis () =
-  let findCodeCopy stmts =
+  let findCodeCopy (ess: BinEssence) stmts =
     stmts
     |> Array.tryPick (fun stmt ->
       match stmt.S with
@@ -43,18 +43,19 @@ type EVMCodeCopyAnalysis () =
         let dstAddr = BitVector.toUInt64 dst
         let srcAddr = BitVector.toUInt64 src
         let offset = srcAddr - dstAddr
-        (srcAddr, ParsingContext.InitEVM offset) |> Some
+        (ess.BinHandle.Parser :?> EVM.EVMParser).CodeOffset <- offset
+        Some srcAddr
       | _ -> None)
 
   let recoverCopiedCode (ess: BinEssence) =
     ess.InstrMap
     |> Seq.fold (fun ess (KeyValue (_, ins)) ->
-      match ins.Stmts |> findCodeCopy with
+      match ins.Stmts |> findCodeCopy ess with
       | None -> ess
-      | Some (addr, ctxt) ->
+      | Some addr ->
         match ess.CalleeMap.Find addr with
         | None ->
-          match BinEssence.addEntry ess (addr, ctxt) with
+          match BinEssence.addEntry ess (addr, ArchOperationMode.NoMode) with
           | Ok ess -> ess
           | Error _ -> Utils.impossible ()
         | Some _ -> ess) ess

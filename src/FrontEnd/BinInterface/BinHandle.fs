@@ -34,7 +34,6 @@ type BinHandle = {
   ISA: ISA
   FileInfo: FileInfo
   DisasmHelper: DisasmHelper
-  DefaultParsingContext: ParsingContext
   TranslationContext: TranslationContext
   Parser: Parser
   RegisterBay: RegisterBay
@@ -42,15 +41,13 @@ type BinHandle = {
 with
   static member private Init (isa, mode, autoDetect, baseAddr, bytes, path) =
     let fmt, isa = identifyFormatAndISA bytes isa autoDetect
-    let struct (ctxt, parser, regbay) = initBasis isa
+    let struct (ctxt, regbay) = initBasis isa
     let fi = newFileInfo bytes baseAddr path fmt isa regbay
     assert (isa = fi.ISA)
-    let needCheckThumb = mode = ArchOperationMode.NoMode && isARM isa
-    let mode = if needCheckThumb then detectThumb fi.EntryPoint isa else mode
+    let parser = initParser isa mode fi
     { ISA = isa
       FileInfo = fi
       DisasmHelper = DisasmHelper (fi.TryFindFunctionSymbolName)
-      DefaultParsingContext = ParsingContext.Init (mode)
       TranslationContext = ctxt
       Parser = parser
       RegisterBay = regbay }
@@ -233,23 +230,23 @@ with
     let bs = readASCII fi bp.Offset
     ByteArray.extractCString bs 0
 
-  static member ParseInstr (hdl: BinHandle, ctxt, addr) =
-    parseInstrFromAddr hdl.FileInfo hdl.Parser ctxt addr
+  static member ParseInstr (hdl: BinHandle, addr) =
+    parseInstrFromAddr hdl.FileInfo hdl.Parser addr
 
-  static member ParseInstr (hdl: BinHandle, ctxt, bp: BinaryPointer) =
-    parseInstrFromBinPtr hdl.FileInfo hdl.Parser ctxt bp
+  static member ParseInstr (hdl: BinHandle, bp: BinaryPointer) =
+    parseInstrFromBinPtr hdl.FileInfo hdl.Parser bp
 
-  static member TryParseInstr (hdl, ctxt, addr) =
-    tryParseInstrFromAddr hdl.FileInfo hdl.Parser ctxt addr
+  static member TryParseInstr (hdl, addr) =
+    tryParseInstrFromAddr hdl.FileInfo hdl.Parser addr
 
-  static member TryParseInstr (hdl, ctxt, bp: BinaryPointer) =
-    tryParseInstrFromBinPtr hdl.FileInfo hdl.Parser ctxt bp
+  static member TryParseInstr (hdl, bp: BinaryPointer) =
+    tryParseInstrFromBinPtr hdl.FileInfo hdl.Parser bp
 
-  static member ParseBBlock (hdl, ctxt, addr) =
-    parseBBLFromAddr hdl.FileInfo hdl.Parser ctxt addr
+  static member ParseBBlock (hdl, addr) =
+    parseBBLFromAddr hdl.FileInfo hdl.Parser addr
 
-  static member ParseBBlock (hdl, ctxt, bp) =
-    parseBBLFromBinPtr hdl.FileInfo hdl.Parser ctxt bp
+  static member ParseBBlock (hdl, bp) =
+    parseBBLFromBinPtr hdl.FileInfo hdl.Parser bp
 
   static member inline LiftInstr (hdl: BinHandle) (ins: Instruction) =
     ins.Translate hdl.TranslationContext
@@ -257,11 +254,11 @@ with
   static member LiftOptimizedInstr hdl (ins: Instruction) =
     BinHandle.LiftInstr hdl ins |> LocalOptimizer.Optimize
 
-  static member LiftBBlock (hdl: BinHandle, ctxt, addr: Addr) =
-    liftBBLFromAddr hdl.FileInfo hdl.Parser hdl.TranslationContext ctxt addr
+  static member LiftBBlock (hdl: BinHandle, addr: Addr) =
+    liftBBLFromAddr hdl.FileInfo hdl.Parser hdl.TranslationContext addr
 
-  static member LiftBBlock (hdl: BinHandle, ctxt, bp: BinaryPointer) =
-    liftBBLFromBinPtr hdl.FileInfo hdl.Parser hdl.TranslationContext ctxt bp
+  static member LiftBBlock (hdl: BinHandle, bp: BinaryPointer) =
+    liftBBLFromBinPtr hdl.FileInfo hdl.Parser hdl.TranslationContext bp
 
   static member inline DisasmInstr hdl showAddr resolve (ins: Instruction) =
     ins.Disasm (showAddr, resolve, hdl.DisasmHelper)
@@ -269,13 +266,13 @@ with
   static member inline DisasmInstrSimple (ins: Instruction) =
     ins.Disasm ()
 
-  static member DisasmBBlock (hdl, ctxt, showAddr, resolve, addr) =
+  static member DisasmBBlock (hdl, showAddr, resolve, addr) =
     disasmBBLFromAddr
-      hdl.FileInfo hdl.Parser hdl.DisasmHelper showAddr resolve ctxt addr
+      hdl.FileInfo hdl.Parser hdl.DisasmHelper showAddr resolve addr
 
-  static member DisasmBBlock (hdl, ctxt, showAddr, resolve, bp) =
+  static member DisasmBBlock (hdl, showAddr, resolve, bp) =
     disasmBBLFromBinPtr
-      hdl.FileInfo hdl.Parser hdl.DisasmHelper showAddr resolve ctxt bp
+      hdl.FileInfo hdl.Parser hdl.DisasmHelper showAddr resolve bp
 
   static member Optimize stmts = LocalOptimizer.Optimize stmts
 

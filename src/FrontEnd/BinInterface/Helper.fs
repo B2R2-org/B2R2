@@ -57,16 +57,20 @@ let newFileInfo bytes (baddr: Addr option) path fmt isa regbay =
     MachFileInfo (bytes, path, isa, baddr) :> FileInfo
   | _ -> new RawFileInfo (bytes, path, isa, baddr) :> FileInfo
 
-let detectThumb entryPoint (isa: ISA) =
-  match entryPoint, isa.Arch with
-  | Some entry, Arch.ARMv7 when entry % 2UL <> 0UL -> (* XXX: LIbraries? *)
-    ArchOperationMode.ThumbMode
-  | _ -> ArchOperationMode.ARMMode
-
-let isARM (isa: ISA) =
+let initParser (isa: ISA) mode (fi: FileInfo) =
   match isa.Arch with
-  | Arch.ARMv7 | Arch.AARCH32 | Arch.AARCH64 -> true
-  | _ -> false
+  | Arch.IntelX64
+  | Arch.IntelX86 -> Intel.IntelParser (isa.WordSize) :> Parser
+  | Arch.ARMv7 -> ARM32.ARM32Parser (isa, mode, fi.EntryPoint) :> Parser
+  | Arch.AARCH64 -> ARM64.ARM64Parser () :> Parser
+  | Arch.MIPS1 | Arch.MIPS2 | Arch.MIPS3 | Arch.MIPS4 | Arch.MIPS5
+  | Arch.MIPS32 | Arch.MIPS32R2 | Arch.MIPS32R6
+  | Arch.MIPS64 | Arch.MIPS64R2 | Arch.MIPS64R6 ->
+    MIPS.MIPSParser (isa.WordSize, isa.Arch) :> Parser
+  | Arch.EVM -> EVM.EVMParser (isa.WordSize) :> Parser
+  | Arch.TMS320C6000 -> TMS320C6000.TMS320C6000Parser () :> Parser
+  | Arch.CILOnly -> CIL.CILParser () :> Parser
+  | _ -> Utils.futureFeature ()
 
 /// Classify ranges to be either in-file or not-in-file. The second parameter
 /// (notinfiles) is a sequence of (exclusive) ranges within the myrange, which
@@ -109,55 +113,53 @@ let inline readASCII (fi: FileInfo) pos =
     else loop (b :: acc) (pos + 1)
   loop [] pos
 
-let inline parseInstrFromAddr (fi: FileInfo) (parser: Parser) ctxt addr =
+let inline parseInstrFromAddr (fi: FileInfo) (parser: Parser) addr =
   fi.TranslateAddress addr
-  |> parser.Parse fi.BinReader ctxt addr
+  |> parser.Parse fi.BinReader addr
 
-let inline tryParseInstrFromAddr (fi: FileInfo) (parser: Parser) ctxt addr =
-  try parseInstrFromAddr fi parser ctxt addr |> Ok
+let inline tryParseInstrFromAddr (fi: FileInfo) (parser: Parser) addr =
+  try parseInstrFromAddr fi parser addr |> Ok
   with _ -> Error ErrorCase.ParsingFailure
 
-let inline tryParseInstrFromBinPtr fi (p: Parser) ctxt (bp: BinaryPointer) =
+let inline tryParseInstrFromBinPtr fi (p: Parser) (bp: BinaryPointer) =
   try
-    let ins = p.Parse (fi: FileInfo).BinReader ctxt bp.Addr bp.Offset
+    let ins = p.Parse (fi: FileInfo).BinReader bp.Addr bp.Offset
     if BinaryPointer.IsValidAccess bp (int ins.Length) then Ok ins
     else Error ErrorCase.ParsingFailure
   with _ ->
     Error ErrorCase.ParsingFailure
 
-let inline parseInstrFromBinPtr (fi: FileInfo) parser ctxt (bp: BinaryPointer) =
-  match tryParseInstrFromBinPtr fi parser ctxt bp with
+let inline parseInstrFromBinPtr (fi: FileInfo) parser (bp: BinaryPointer) =
+  match tryParseInstrFromBinPtr fi parser bp with
   | Ok ins -> ins
   | Error _ -> raise ParsingFailureException
 
 let advanceAddr addr len =
   addr + uint64 len
 
-let rec parseLoopByAddr fi parser ctxt addr acc =
-  match tryParseInstrFromAddr fi parser ctxt addr with
+let rec parseLoopByAddr fi parser addr acc =
+  match tryParseInstrFromAddr fi parser addr with
   | Ok ins ->
-    let ctxt = ins.NextParsingContext
-    if ins.IsBBLEnd () then Ok (List.rev (ins :: acc), ctxt)
+    if ins.IsBBLEnd () then Ok (List.rev (ins :: acc))
     else
       let addr = addr + (uint64 ins.Length)
-      parseLoopByAddr fi parser ctxt addr (ins :: acc)
+      parseLoopByAddr fi parser addr (ins :: acc)
   | Error _ -> Error <| List.rev acc
 
-let inline parseBBLFromAddr (fi: FileInfo) (parser: Parser) ctxt addr =
-  parseLoopByAddr fi parser ctxt addr []
+let inline parseBBLFromAddr (fi: FileInfo) (parser: Parser) addr =
+  parseLoopByAddr fi parser addr []
 
-let rec parseLoopByPtr fi parser ctxt bp acc =
-  match tryParseInstrFromBinPtr fi parser ctxt bp with
+let rec parseLoopByPtr fi parser bp acc =
+  match tryParseInstrFromBinPtr fi parser bp with
   | Ok (ins: Instruction) ->
-    let ctxt = ins.NextParsingContext
-    if ins.IsBBLEnd () then Ok (List.rev (ins :: acc), ctxt)
+    if ins.IsBBLEnd () then Ok (List.rev (ins :: acc))
     else
       let bp = BinaryPointer.Advance bp (int ins.Length)
-      parseLoopByPtr fi parser ctxt bp (ins :: acc)
+      parseLoopByPtr fi parser bp (ins :: acc)
   | Error _ -> Error <| List.rev acc
 
-let inline parseBBLFromBinPtr (fi: FileInfo) (parser: Parser) ctxt bp =
-  parseLoopByPtr fi parser ctxt bp []
+let inline parseBBLFromBinPtr (fi: FileInfo) (parser: Parser) bp =
+  parseLoopByPtr fi parser bp []
 
 let rec liftBBLAux acc advanceFn trctxt pos = function
   | (ins: Instruction) :: rest ->
@@ -165,20 +167,20 @@ let rec liftBBLAux acc advanceFn trctxt pos = function
     liftBBLAux (ins.Translate trctxt :: acc) advanceFn trctxt pos rest
   | [] -> struct (List.rev acc |> Array.concat, pos)
 
-let inline liftBBLFromAddr fi parser trctxt pctxt addr =
-  match parseBBLFromAddr fi parser pctxt addr with
-  | Ok (bbl, ctxt) ->
+let inline liftBBLFromAddr fi parser trctxt addr =
+  match parseBBLFromAddr fi parser addr with
+  | Ok bbl ->
     let struct (stmts, addr) = liftBBLAux [] advanceAddr trctxt addr bbl
-    Ok (stmts, addr, ctxt)
+    Ok (stmts, addr)
   | Error bbl ->
     let struct (stmts, addr) = liftBBLAux [] advanceAddr trctxt addr bbl
     Error (stmts, addr)
 
-let inline liftBBLFromBinPtr fi parser trctxt pctxt bp =
-  match parseBBLFromBinPtr fi parser pctxt bp with
-  | Ok (bbl, ctxt) ->
+let inline liftBBLFromBinPtr fi parser trctxt bp =
+  match parseBBLFromBinPtr fi parser bp with
+  | Ok bbl ->
     let struct (stmts, bp) = liftBBLAux [] BinaryPointer.Advance trctxt bp bbl
-    Ok (stmts, bp, ctxt)
+    Ok (stmts, bp)
   | Error bbl ->
     let struct (stmts, bp) = liftBBLAux [] BinaryPointer.Advance trctxt bp bbl
     Error (stmts, bp)
@@ -193,24 +195,24 @@ let rec disasmBBLAux sb advanceFn showAddr resolve hlp pos = function
     disasmBBLAux (sb.Append (s)) advanceFn showAddr resolve hlp pos rest
   | [] -> struct (sb.ToString (), pos)
 
-let disasmBBLFromAddr fi parser hlp showAddr resolve ctxt addr =
-  match parseBBLFromAddr fi parser ctxt addr with
-  | Ok (bbl, ctxt) ->
+let disasmBBLFromAddr fi parser hlp showAddr resolve addr =
+  match parseBBLFromAddr fi parser addr with
+  | Ok bbl ->
     let struct (str, addr) =
       disasmBBLAux (StringBuilder ()) advanceAddr showAddr resolve hlp addr bbl
-    Ok (str, addr, ctxt)
+    Ok (str, addr)
   | Error bbl ->
     let struct (str, addr) =
       disasmBBLAux (StringBuilder ()) advanceAddr showAddr resolve hlp addr bbl
     Error (str, addr)
 
-let disasmBBLFromBinPtr fi parser hlp showAddr resolve ctxt bp =
-  match parseBBLFromBinPtr fi parser ctxt bp with
-  | Ok (bbl, ctxt) ->
+let disasmBBLFromBinPtr fi parser hlp showAddr resolve bp =
+  match parseBBLFromBinPtr fi parser bp with
+  | Ok bbl ->
     let struct (str, addr) =
       disasmBBLAux (StringBuilder ())
         BinaryPointer.Advance showAddr resolve hlp bp bbl
-    Ok (str, addr, ctxt)
+    Ok (str, addr)
   | Error bbl ->
     let struct (str, addr) =
       disasmBBLAux (StringBuilder ())

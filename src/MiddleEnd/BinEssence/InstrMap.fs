@@ -146,26 +146,25 @@ module InstrMap =
       Stmts = stmts
       Labels = labels
       ReachablePPs = findReachablePPs ins.Address mask labels stmts
-      ArchOperationMode = hdl.DefaultParsingContext.ArchOperationMode
-      Offset = hdl.DefaultParsingContext.CodeOffset }
+      Offset = 0UL }
 
   let rec private updateInstrMap hdl (instrMap: InstrMap) (instr: Instruction) =
     instrMap.[instr.Address] <- newInstructionInfo hdl instr
 
-  let rec private parseBBL hdl ctxt bblMap acc pc =
-    match BinHandle.TryParseInstr (hdl, ctxt, addr=pc) with
+  let rec private parseBBL hdl mode bblMap acc pc =
+    hdl.Parser.OperationMode <- mode
+    match BinHandle.TryParseInstr (hdl, addr=pc) with
     | Ok ins ->
-      let ctxt = ins.NextParsingContext
       let nextAddr = pc + uint64 ins.Length
       if ins.IsBBLEnd () || Map.containsKey nextAddr bblMap then
         Ok <| struct (List.rev (ins :: acc), ins.Address)
-      else parseBBL hdl ctxt bblMap (ins :: acc) nextAddr
+      else parseBBL hdl mode bblMap (ins :: acc) nextAddr
     | Error _ -> Error <| List.rev acc
 
   /// InstrMap will only have this API. Removing instructions from InstrMap is
   /// not allowed.
-  let parse hdl ctxt instrMap bblStore leaderAddr =
-    match parseBBL hdl ctxt bblStore.BBLMap [] leaderAddr with
+  let parse hdl mode instrMap bblStore leaderAddr =
+    match parseBBL hdl mode bblStore.BBLMap [] leaderAddr with
     | Ok ([], _) -> failwith "Fatal error: an empty block encountered."
     | Ok (instrs, lastAddr) ->
       try

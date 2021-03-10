@@ -25,7 +25,6 @@
 namespace B2R2.MiddleEnd.BinEssence
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinInterface
 open B2R2.BinIR
 open B2R2.BinIR.LowUIR
@@ -731,8 +730,8 @@ module BinEssence =
         connectEdges ess elms edges
     | Error _ -> Error ()
 
-  let internal parseNewBBL ess elms ctxt addr edgeInfo =
-    match InstrMap.parse ess.BinHandle ctxt ess.InstrMap ess.BBLStore addr with
+  let internal parseNewBBL ess elms mode addr edgeInfo =
+    match InstrMap.parse ess.BinHandle mode ess.InstrMap ess.BBLStore addr with
     | Ok (instrMap, block, lastAddr) ->
       let ess = { ess with InstrMap = instrMap }
       buildBlock ess addr block lastAddr elms edgeInfo
@@ -745,7 +744,7 @@ module BinEssence =
       struct (List.rev (addr :: addrs), ins.Address)
     else getBlockAddressesWithInstrMap ess (addr :: addrs) nextAddr
 
-  let internal updateCFGWithVertex ess elms addr ctxt =
+  let internal updateCFGWithVertex ess elms addr mode =
     if bblExists ess.BBLStore addr then Ok <| struct (ess, elms)
     elif not <| isExecutableLeader ess.BinHandle addr then Error ()
     elif needSplitting ess.BBLStore addr then
@@ -755,17 +754,7 @@ module BinEssence =
     elif isKnownInstruction ess.InstrMap addr then
       let struct (block, lastAddr) = getBlockAddressesWithInstrMap ess [] addr
       buildBlock ess addr block lastAddr elms None
-    else parseNewBBL ess elms ctxt addr None
-
-  let private computeNextParsingContext ess src edge =
-    let prevVertex = Map.find src ess.BBLStore.VertexMap
-    let ctxt = prevVertex.VData.LastInstruction.NextParsingContext
-    match ess.BinHandle.ISA.Arch with
-    | Arch.ARMv7 ->
-      match edge, prevVertex.VData.LastInstruction.AuxParsingContext with
-      | CallFallThroughEdge, Some ctxt -> ctxt
-      | _ -> ctxt
-    | _ -> ctxt
+    else parseNewBBL ess elms mode addr None
 
   let internal updateCFGWithEdge ess elms src edge dst =
     if bblExists ess.BBLStore dst then
@@ -784,12 +773,12 @@ module BinEssence =
       let struct (block, lastAddr) = getBlockAddressesWithInstrMap ess [] dst
       buildBlock ess dst block lastAddr elms (Some (src, edge))
     else
-      let ctxt = computeNextParsingContext ess src edge
-      parseNewBBL ess elms ctxt dst (Some (src, edge))
+      let mode = ess.BinHandle.Parser.OperationMode
+      parseNewBBL ess elms mode dst (Some (src, edge))
 
   let rec internal updateCFG ess success = function
-    | CFGVertex (addr, ctxt) :: elms ->
-      match updateCFGWithVertex ess elms addr ctxt with
+    | CFGVertex (addr, mode) :: elms ->
+      match updateCFGWithVertex ess elms addr mode with
       | Ok (ess, elms) -> updateCFG ess success elms
       | Error () ->
         if ess.IgnoreIllegal then updateCFG ess false elms
@@ -805,10 +794,10 @@ module BinEssence =
       else Error ess
 
   [<CompiledName("AddEntry")>]
-  let addEntry ess (addr, ctxt) =
+  let addEntry ess (addr, mode) =
     let ess =
       { ess with CalleeMap = ess.CalleeMap.AddEntry addr }
-    match updateCFG ess true [ CFGVertex (addr, ctxt) ] with
+    match updateCFG ess true [ CFGVertex (addr, mode) ] with
     | Ok ess -> Ok ess
     | Error ess -> Error ess
 
@@ -856,13 +845,11 @@ module BinEssence =
       |> Set.toList
     match hdl.ISA.Arch with
     | Arch.ARMv7 ->
-      let thumbCtxt = ParsingContext.Init ArchOperationMode.ThumbMode
-      let armCtxt = ParsingContext.Init ArchOperationMode.ARMMode
       List.map (fun addr ->
-        if addr &&& 1UL = 1UL then addr - 1UL, thumbCtxt
-        else addr, armCtxt) entries
+        if addr &&& 1UL = 1UL then addr - 1UL, ArchOperationMode.ThumbMode
+        else addr, ArchOperationMode.ARMMode) entries
     | _ ->
-      List.map (fun addr -> addr, hdl.DefaultParsingContext) entries
+      List.map (fun addr -> addr, ArchOperationMode.NoMode) entries
 
   let private initialize hdl ignoreIllegal =
     let noretInfo = NoReturnInfo.Init Map.empty Set.empty

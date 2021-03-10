@@ -25,7 +25,6 @@
 module B2R2.FrontEnd.BinLifter.ARM32.Parser
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
 
 let getThumbBytes (reader: BinReader) pos =
   let struct (b, nextPos) = reader.ReadUInt16 pos
@@ -43,31 +42,25 @@ let isARMv8 = function
   | Arch.AARCH32 -> true
   | _ -> false
 
-let parseThumb ctxt bin = function
-  | 2u -> Parserv7.parseV7Thumb16 ctxt bin
-  | 4u -> Parserv7.parseV7Thumb32 ctxt bin
+let parseThumb (itstate: byref<byte list>) bin = function
+  | 2u -> Parserv7.parseV7Thumb16 &itstate bin
+  | 4u -> Parserv7.parseV7Thumb32 &itstate bin
   | _ -> failwith "Invalid instruction length"
 
-let computeContext opcode ctxt =
-  match opcode with
-  | Op.BLX -> struct (ParsingContext.ARMSwitchOperationMode ctxt, Some ctxt)
-  | _ -> struct (ctxt, None)
-
-let parse reader (ctxt: ParsingContext) arch addr pos =
-  let mode = ctxt.ArchOperationMode
+let parse reader mode (it: byref<byte list>) arch addr pos =
   let struct (bin, nextPos) =
     match mode with
     | ArchOperationMode.ThumbMode -> getThumbBytes reader pos
     | ArchOperationMode.ARMMode -> reader.ReadUInt32 pos
     | _-> raise InvalidTargetArchModeException
   let len = nextPos - pos |> uint32
-  let opcode, cond, itState, wback, qualifier, simdt, oprs, cflag, ctxt =
-    match ctxt.ArchOperationMode with
+  let opcode, cond, itState, wback, qualifier, simdt, oprs, cflag =
+    match mode with
     | ArchOperationMode.ARMMode ->
-      if isARMv7 arch then Parserv7.parseV7ARM ctxt bin
-      else Parserv8.parseV8A32ARM ctxt bin // XXX
+      if isARMv7 arch then Parserv7.parseV7ARM bin
+      else Parserv8.parseV8A32ARM bin // XXX
     | ArchOperationMode.ThumbMode ->
-      if isARMv7 arch then parseThumb ctxt bin len
+      if isARMv7 arch then parseThumb &it bin len
       else raise UnallocatedException
     | _ -> raise InvalidTargetArchModeException
   let insInfo =
@@ -82,7 +75,6 @@ let parse reader (ctxt: ParsingContext) arch addr pos =
       SIMDTyp = simdt
       Mode = mode
       Cflag = cflag }
-  let struct (ctxt, aux) = computeContext opcode ctxt
-  ARM32Instruction (addr, len, insInfo, ctxt, aux)
+  ARM32Instruction (addr, len, insInfo)
 
 // vim: set tw=80 sts=2 sw=2:

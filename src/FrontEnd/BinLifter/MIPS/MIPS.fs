@@ -39,15 +39,16 @@ type MIPSTranslationContext internal (isa, regexprs) =
 /// instruction type (Instruction).
 type MIPSParser (wordSize, arch) =
   inherit Parser ()
-  override __.Parse binReader _ctxt addr pos =
+  override __.Parse binReader addr pos =
     Parser.parse binReader arch wordSize addr pos :> Instruction
+
+  override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 
 module Basis =
   let init (isa: ISA) =
     let regexprs = RegExprs (isa.WordSize)
     struct (
       MIPSTranslationContext (isa, regexprs) :> TranslationContext,
-      MIPSParser (isa.WordSize, isa.Arch) :> Parser,
       MIPSRegisterBay (isa.WordSize, regexprs) :> RegisterBay
     )
 

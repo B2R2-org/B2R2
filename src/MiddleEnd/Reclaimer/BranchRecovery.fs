@@ -642,7 +642,7 @@ module BranchRecoveryHelper =
   let addConstJmpEdge (ess: BinEssence) blockAddr target isCall =
     if isContainedInTextSection ess.BinHandle target then
       if isCall then
-        [ (target, ess.BinHandle.DefaultParsingContext) ]
+        [ (target, ess.BinHandle.Parser.OperationMode) ]
         |> BinEssence.addEntries ess
       else Ok ess
       |> Result.bind (fun ess ->

@@ -37,12 +37,11 @@ type AsmParser () =
     __.Assemble asm
     |> Result.bind (fun bins ->
       bins
-      |> List.fold (fun (acc, ctxt) bs ->
+      |> List.fold (fun acc bs ->
         let hdl = BinHandle.UpdateCode hdl addr bs
-        let ins = BinHandle.ParseInstr (hdl, ctxt, addr)
-        BinHandle.LiftInstr hdl ins :: acc, ins.NextParsingContext
-      ) ([], hdl.DefaultParsingContext)
-      |> fst
+        let ins = BinHandle.ParseInstr (hdl, addr)
+        BinHandle.LiftInstr hdl ins :: acc
+      ) []
       |> List.rev
       |> Array.concat
       |> Ok)

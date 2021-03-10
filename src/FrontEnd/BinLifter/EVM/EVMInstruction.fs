@@ -32,20 +32,16 @@ open B2R2.FrontEnd.BinLifter
 type EVMInstruction (addr, numBytes, insInfo, wordSize) =
   inherit Instruction (addr, numBytes, wordSize)
 
-  let defaultCtxt = ParsingContext.Init ()
-
   /// Basic instruction information.
   member val Info: InsInfo = insInfo
-
-  override __.NextParsingContext = defaultCtxt
-
-  override __.AuxParsingContext with get() = None
 
   override __.IsBranch () =
     match __.Info.Opcode with
     | Opcode.JUMP
     | Opcode.JUMPI -> true
     | _ -> false
+
+  override __.IsModeChanging () = false
 
   member __.HasConcJmpTarget () = false
 

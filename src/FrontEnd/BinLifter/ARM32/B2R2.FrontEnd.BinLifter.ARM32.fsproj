@@ -23,7 +23,6 @@
     <Compile Include="ARM32Instruction.fs" />
     <Compile Include="ARM32ParserV7.fs" />
     <Compile Include="ARM32ParserV8.fs" />
-    <Compile Include="ARM32Parser.fsi" />
     <Compile Include="ARM32Parser.fs" />
     <Compile Include="ARM32.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath=""/>

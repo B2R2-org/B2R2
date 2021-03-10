@@ -1462,8 +1462,8 @@ let checkStoreEx2 b (op1, op2, op3, _) =
                op2 b = OprReg R.LR || rn = OprReg R.PC || op1 b = rn ||
                op1 b = op2 b || op1 b = op3 b)
 
-let chkUnpreInAndNotLastItBlock ctxt =
-  inITBlock ctxt && lastInITBlock ctxt |> not
+let chkUnpreInAndNotLastItBlock itstate =
+  inITBlock itstate && lastInITBlock itstate |> not
 
 let chkUnpreA b (op1, op2, op3) =
   checkUnpred (op1 b = OprReg R.PC || op2 b = OprReg R.PC ||
@@ -1504,10 +1504,10 @@ let chkUnpreP b (op1, op2, _) =
   checkUnpred (op1 b = OprReg R.PC || op2 b = OprReg R.PC)
 let chkUnpreQ b (op1, op2, _, _) =
   checkUnpred (op1 b = OprReg R.PC || op2 b = OprReg R.PC)
-let chkUnpreR ctxt b _ =
+let chkUnpreR itstate b _ =
   let d = concat (pickBit b 7u) (extract b 2u 0u) 3
   checkUnpred ((extract b 6u 3u = 15u && d = 15u) &&
-               d = 15u && inITBlock ctxt && lastInITBlock ctxt |> not)
+               d = 15u && inITBlock itstate && lastInITBlock itstate |> not)
 let chkUnpreS b _ =
   let rnd = concat (pickBit b 7u) (extract b 2u 0u) 3
   let rm = extract b 6u 3u
@@ -1662,17 +1662,17 @@ let chkUnpreBC b _ =
   let rL = ((pickBit b 8u) <<< 14) + (extract b 7u 0u) |> getRegList
   checkUnpred (List.length rL < 1)
 
-let chkUnpreBD opcode ctxt b op1 =
+let chkUnpreBD opcode itstate b op1 =
   let isITOpcode = function
     | Op.ITE | Op.ITET | Op.ITTE | Op.ITEE | Op.ITETT | Op.ITTET | Op.ITEET
     | Op.ITTTE | Op.ITETE | Op.ITTEE | Op.ITEEE -> true
     | _ -> false
-  checkUnpred (inITBlock ctxt || op1 b = OprCond Condition.UN ||
+  checkUnpred (inITBlock itstate || op1 b = OprCond Condition.UN ||
                (op1 b = OprCond Condition.AL && isITOpcode opcode))
 
-let chkUnpreBE ctxt b _ =
+let chkUnpreBE itstate b _ =
   isUndefined (extract b 11u 8u = 14u)
-  checkUnpred (inITBlock ctxt)
+  checkUnpred (inITBlock itstate)
 
 let chkUnpreBF (b1, b2) _ =
   let n = extract b1 3u 0u
@@ -1680,19 +1680,19 @@ let chkUnpreBF (b1, b2) _ =
   checkUnpred ((n = 15u || List.length rL < 2) ||
                (pickBit b1 5u = 0b1u && pickBit b2 n = 0b1u))
 
-let chkUnpreBG ctxt (_, b2) _ =
+let chkUnpreBG itstate (_, b2) _ =
   let pm = (extract b2 15u 14u)
   let rL = concat (pm <<< 1) (extract b2 12u 0u) 13 |> getRegList
   checkUnpred (List.length rL < 2 || pm = 0b11u ||
-               (pickBit b2 15u = 1u && chkUnpreInAndNotLastItBlock ctxt))
+               (pickBit b2 15u = 1u && chkUnpreInAndNotLastItBlock itstate))
 
-let chkUnpreBH ctxt (b1, b2) _ =
+let chkUnpreBH itstate (b1, b2) _ =
   let n = extract b1 3u 0u
   let w =  pickBit b1 5u
   let pm = extract b2 15u 14u
   let rl = getRegList (concat (pm <<< 1) (extract b2 12u 0u) 13)
   checkUnpred (n = 15u || List.length rl < 2 || pm = 0b11u)
-  checkUnpred (pickBit b2 15u = 1u && chkUnpreInAndNotLastItBlock ctxt)
+  checkUnpred (pickBit b2 15u = 1u && chkUnpreInAndNotLastItBlock itstate)
   checkUnpred (w = 1u && pickBit b2 n = 1u)
 
 let chkUnpreBI (_, b2) _ =
@@ -1763,11 +1763,11 @@ let chkUnpreBQ (b1, b2) (op1, op2, op3, _) =
                rn = R.PC || op1 (b1, b2) = OprReg rn ||
                op1 (b1, b2) = op2 (b1, b2))
 
-let chkUnpreBR ctxt (b1, b2) _ =
+let chkUnpreBR itstate (b1, b2) _ =
   let rn = getRegister (extract b1 3u 0u |> byte)
   let rm = getRegister (extract b2 3u 0u |> byte)
   checkUnpred (rn = R.SP || rm = R.SP || rm = R.PC)
-  checkUnpred (chkUnpreInAndNotLastItBlock ctxt)
+  checkUnpred (chkUnpreInAndNotLastItBlock itstate)
 
 let chkUnpreBS (b1, b2) (op1, _) =
   let rn = getRegister (extract b1 3u 0u |> byte)
@@ -1918,11 +1918,11 @@ let chkUnpreCQ (b1, b2) op1 =
 let chkUnpreCR (_, b2) _ =
   checkUnpred (pickBit b2 0u = 0b1u)
 
-let chkUnpreCS ctxt (_, b2) _ =
+let chkUnpreCS itstate (_, b2) _ =
   checkUnpred ((extract b2 4u 0u <> 0b0u && pickBit b2 8u = 0b0u) ||
                (pickBit b2 10u = 0b1u && extract b2 7u 5u = 0b0u) ||
                (pickBit b2 10u = 0b0u && extract b2 7u 5u <> 0b0u))
-  checkUnpred (extract b2 10u 9u = 1u || inITBlock ctxt)
+  checkUnpred (extract b2 10u 9u = 1u || inITBlock itstate)
 
 let chkUnpreCT (b1, b2) (op1, _) =
   let rn = getRegister (extract b1 3u 0u |> byte)
@@ -1931,11 +1931,11 @@ let chkUnpreCT (b1, b2) (op1, _) =
   checkUnpred (opr1 = OprReg R.SP || (opr1 = OprReg R.PC && w = 1u) ||
                (w = 1u && OprReg rn = op1 (b1, b2)))
 
-let chkUnpreCU ctxt (b1, b2) _ =
+let chkUnpreCU itstate (b1, b2) _ =
   let n = extract b1 3u 0u
   let t = extract b2 15u 12u
   checkUnpred ((pickBit b2 8u = 1u && n = t) ||
-               (t = 15u && chkUnpreInAndNotLastItBlock ctxt))
+               (t = 15u && chkUnpreInAndNotLastItBlock itstate))
 
 let chkUnpreCV (b1, b2) (op1, _) = checkUnpred (op1 (b1, b2) = OprReg R.SP)
 let chkUnpreCW (b1, b2) (op1, _) =
@@ -1996,28 +1996,28 @@ let chkUnpreDC (b1, b2) (op1, op2, op3, op4) =
 let chkUnpreDD b _ =
   checkUnpred (List.length (getRegList (extract b 7u 0u)) < 1)
 
-let chkUnpreDE ctxt _ _ = checkUnpred (inITBlock ctxt)
+let chkUnpreDE itstate _ _ = checkUnpred (inITBlock itstate)
 
-let chkUnpreDF ctxt b _ =
+let chkUnpreDF itstate b _ =
     let d = concat (pickBit b 7u) (extract b 2u 0u) 3
-    checkUnpred (d = 15u && chkUnpreInAndNotLastItBlock ctxt)
+    checkUnpred (d = 15u && chkUnpreInAndNotLastItBlock itstate)
 
-let chkUnpreDG ctxt _ _ =
-    checkUnpred (chkUnpreInAndNotLastItBlock ctxt)
+let chkUnpreDG itstate _ _ =
+    checkUnpred (chkUnpreInAndNotLastItBlock itstate)
 
-let chkUnpreDH ctxt b op =
-  checkUnpred (op b = OprReg R.PC || chkUnpreInAndNotLastItBlock ctxt)
+let chkUnpreDH itstate b op =
+  checkUnpred (op b = OprReg R.PC || chkUnpreInAndNotLastItBlock itstate)
 
-let chkUnpreDI ctxt b _ =
+let chkUnpreDI itstate b _ =
   checkUnpred (extract b 19u 16u = 15u ||
-               chkUnpreInAndNotLastItBlock ctxt)
+               chkUnpreInAndNotLastItBlock itstate)
 
 let chkUnpreDJ it (b1, b2) op1 =
   checkUnpred (op1 (b1, b2) = OprReg R.SP ||
                (op1 (b1, b2) = OprReg R.PC && chkUnpreInAndNotLastItBlock it))
 
-let chkUnpreDK ctxt b (op, _) =
-  checkUnpred (op b = OprReg R.PC && chkUnpreInAndNotLastItBlock ctxt)
+let chkUnpreDK itstate b (op, _) =
+  checkUnpred (op b = OprReg R.PC && chkUnpreInAndNotLastItBlock itstate)
 
 let chkUnpreDL mode b (op1, _) =
   checkUnpred (op1 b = OprReg R.SP && mode <> ArchOperationMode.ARMMode)

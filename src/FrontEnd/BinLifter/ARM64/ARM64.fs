@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.BinLifter.ARM64
 
+open B2R2
 open B2R2.FrontEnd.BinLifter
 
 /// Translation context for 64-bit ARM instructions.
@@ -38,15 +39,16 @@ type ARM64TranslationContext internal (isa, regexprs) =
 /// instruction type (Instruction).
 type ARM64Parser () =
   inherit Parser ()
-  override __.Parse binReader _ctxt addr pos =
+  override __.Parse binReader addr pos =
     Parser.parse binReader addr pos :> Instruction
+
+  override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 
 module Basis =
   let init isa =
     let regexprs = RegExprs ()
     struct (
       ARM64TranslationContext (isa, regexprs) :> TranslationContext,
-      ARM64Parser () :> Parser,
       ARM64RegisterBay (regexprs) :> RegisterBay
     )
 

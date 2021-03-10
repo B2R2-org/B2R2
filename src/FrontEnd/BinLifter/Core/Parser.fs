@@ -30,10 +30,13 @@ open B2R2
 [<AbstractClass>]
 type Parser () =
   /// Parse one instruction.
-  abstract member Parse : BinReader
-                       -> ParsingContext
+  abstract member Parse: BinReader
                        -> Addr
                        -> int
                        -> Instruction
+
+  /// The current operation mode of the Parser. This is only useful for ARMv7
+  /// parsers.
+  abstract member OperationMode: ArchOperationMode with get, set
 
 // vim: set tw=80 sts=2 sw=2:

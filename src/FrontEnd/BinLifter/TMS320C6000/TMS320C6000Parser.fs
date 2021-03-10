@@ -1969,7 +1969,7 @@ let private parseInstruction bin =
   | 0b01u -> parseDUnitLoadStore bin
   | _ (* 0b11u *) -> parseDUnitLongImm bin
 
-let parse (reader: BinReader) (ctxt: ParsingContext) addr pos =
+let parse (reader: BinReader) (inParallel: byref<bool>) addr pos =
   let struct (bin, nextPos) = reader.ReadUInt32 pos
   let instrLen = nextPos - pos |> uint32
   let struct (opcode, unit, operands) = parseInstruction bin
@@ -1980,9 +1980,9 @@ let parse (reader: BinReader) (ctxt: ParsingContext) addr pos =
       Operands = operands
       FunctionalUnit = unit
       OperationSize = 32<rt> // FIXME
-      IsParallel = ctxt.InParallel
+      IsParallel = inParallel
       EffectiveAddress = 0UL }
-  let ctxt' = ParsingContext.InitDSP (ctxt, pBit bin <> 0u)
-  TMS320C6000Instruction (addr, instrLen, insInfo, ctxt')
+  inParallel <- pBit bin <> 0u
+  TMS320C6000Instruction (addr, instrLen, insInfo)
 
 // vim: set tw=80 sts=2 sw=2:

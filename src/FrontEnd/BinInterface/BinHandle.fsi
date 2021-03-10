@@ -36,7 +36,6 @@ type BinHandle = {
   ISA: ISA
   FileInfo: FileInfo
   DisasmHelper: DisasmHelper
-  DefaultParsingContext: ParsingContext
   TranslationContext: TranslationContext
   Parser: Parser
   RegisterBay: RegisterBay
@@ -474,7 +473,7 @@ with
   ///   Parsed instruction.
   /// </returns>
   static member ParseInstr:
-    hdl: BinHandle * ParsingContext * addr: Addr -> Instruction
+    hdl: BinHandle * addr: Addr -> Instruction
 
   /// <summary>
   ///   Parse one instruction pointed to by binary pointer (bp) from the
@@ -487,7 +486,7 @@ with
   ///   Parsed instruction.
   /// </returns>
   static member ParseInstr:
-    hdl: BinHandle * ParsingContext * bp: BinaryPointer -> Instruction
+    hdl: BinHandle * bp: BinaryPointer -> Instruction
 
   /// <summary>
   ///   Parse one instruction at the given address (addr) from the BinHandle,
@@ -500,8 +499,7 @@ with
   ///   Parsed instruction (option type).
   /// </returns>
   static member TryParseInstr:
-    hdl: BinHandle * ParsingContext * addr: Addr
-    -> Result<Instruction, ErrorCase>
+    hdl: BinHandle * addr: Addr -> Result<Instruction, ErrorCase>
 
   /// <summary>
   ///   Parse one instruction pointed to by the binary pointer (bp) from the
@@ -514,24 +512,23 @@ with
   ///   Parsed instruction (option type).
   /// </returns>
   static member TryParseInstr:
-       hdl: BinHandle * ParsingContext * bp: BinaryPointer
-    -> Result<Instruction, ErrorCase>
+       hdl: BinHandle * bp: BinaryPointer -> Result<Instruction, ErrorCase>
 
   /// Parse a basic block from the given address, and return the sequence of the
   /// instructions of the basic block. This function may return an incomplete
   /// basic block as an Error type. This function can be safely used for any
   /// ISAs, and thus, this should be the main parsing function.
   static member ParseBBlock:
-       BinHandle * ParsingContext * addr: Addr
-    -> Result<Instruction list * ParsingContext, Instruction list>
+       BinHandle * addr: Addr
+    -> Result<Instruction list, Instruction list>
 
   /// Parse a basic block pointed to by the binary pointer (bp), and return the
   /// sequence of the instructions of the basic block. This function may return
   /// an incomplete basic block as an Error type. This function can be safely
   /// used for any ISAs, and thus, this should be the main parsing function.
   static member ParseBBlock:
-       BinHandle * ParsingContext * bp: BinaryPointer
-    -> Result<Instruction list * ParsingContext, Instruction list>
+       BinHandle * bp: BinaryPointer
+    -> Result<Instruction list, Instruction list>
 
   /// Lift a parsed instruction (Instruction) to produce an array of IR
   /// statements from a given BinHandle.
@@ -547,16 +544,16 @@ with
   /// given address. This function returns a partial bblock with Error, if the
   /// parsing of the bblock was not successful.
   static member LiftBBlock:
-       hdl: BinHandle * ParsingContext * addr: Addr
-    -> Result<(LowUIR.Stmt [] * Addr * ParsingContext),
+       hdl: BinHandle * addr: Addr
+    -> Result<(LowUIR.Stmt [] * Addr),
               (LowUIR.Stmt [] * Addr)>
 
   /// Return the lifted IR (an array of statements) of a basic block pointed to
   /// by the binary pointer (bp). This function returns a partial bblock with
   /// Error, if the parsing of the bblock was not successful.
   static member LiftBBlock:
-       hdl: BinHandle * ParsingContext * bp: BinaryPointer
-    -> Result<(LowUIR.Stmt [] * BinaryPointer * ParsingContext),
+       hdl: BinHandle * bp: BinaryPointer
+    -> Result<(LowUIR.Stmt [] * BinaryPointer),
               (LowUIR.Stmt [] * BinaryPointer)>
 
   /// <summary>
@@ -598,11 +595,10 @@ with
   /// </summary>
   static member DisasmBBlock:
     hdl: BinHandle
-    * ParsingContext
     * showAddr:bool
     * resolveSymbol: bool
     * addr: Addr
-    -> Result<(string * Addr * ParsingContext), (string * Addr)>
+    -> Result<(string * Addr), (string * Addr)>
 
   /// <summary>
   ///   Return the disassembled string for a basic block starting at address
@@ -612,11 +608,10 @@ with
   /// </summary>
   static member DisasmBBlock:
     hdl: BinHandle
-    * ParsingContext
     * showAddr:bool
     * resolveSymbol: bool
     * bp: BinaryPointer
-    -> Result<(string * BinaryPointer * ParsingContext),
+    -> Result<(string * BinaryPointer),
               (string * BinaryPointer)>
 
   /// <summary>

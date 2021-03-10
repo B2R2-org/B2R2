@@ -39,15 +39,17 @@ type TMS320C6000TranslationContext internal (isa, regexprs) =
 /// instruction type (Instruction).
 type TMS320C6000Parser () =
   inherit Parser ()
-  override __.Parse binReader ctxt addr pos =
-    Parser.parse binReader ctxt addr pos :> Instruction
+  let mutable inParallel = false
+  override __.Parse binReader addr pos =
+    Parser.parse binReader &inParallel addr pos :> Instruction
+
+  override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 
 module Basis =
   let init (isa: ISA) =
     let regexprs = RegExprs (isa.WordSize)
     struct (
       TMS320C6000TranslationContext (isa, regexprs) :> TranslationContext,
-      TMS320C6000Parser () :> Parser,
       TMS320C6000RegisterBay () :> RegisterBay
     )
 

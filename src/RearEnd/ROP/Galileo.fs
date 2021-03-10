@@ -77,7 +77,7 @@ let inline updateGadgets curAddr nextAddr ins gadgets =
 let rec buildBackward hdl minAddr curAddr lastAddr map =
   if curAddr < minAddr || (curAddr + 1UL) = 0UL then map
   else
-    match BinHandle.TryParseInstr (hdl, hdl.DefaultParsingContext, curAddr) with
+    match BinHandle.TryParseInstr (hdl, curAddr) with
     | Ok ins ->
       let nextAddr = curAddr + (uint64 ins.Length)
       if ins.IsBBLEnd () then
@@ -95,7 +95,7 @@ let parseTail hdl addr bytes =
   let lastAddr = (Array.length bytes |> uint64) + addr
   let rec parseLoop acc addr =
     if lastAddr > addr then
-      let ins = BinHandle.ParseInstr (hdl, hdl.DefaultParsingContext, addr)
+      let ins = BinHandle.ParseInstr (hdl, addr)
       parseLoop (ins :: acc) (addr + uint64 ins.Length)
     else List.rev acc
   parseLoop [] addr

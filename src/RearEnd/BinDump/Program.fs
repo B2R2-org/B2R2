@@ -125,7 +125,15 @@ let private printCodeOrTable (printer: BinPrinter) sec =
   printer.Print (BinaryPointer.OfSection sec)
   out.PrintLine ()
 
+let initHandleForTableOutput hdl =
+  match hdl.ISA.Arch with
+  (* For ARM PLTs, we just assume the ARM mode (if no symbol is given). *)
+  | Arch.ARMv7
+  | Arch.AARCH32 -> hdl.Parser.OperationMode <- ArchOperationMode.ARMMode
+  | _ -> ()
+
 let private dumpSections hdl (opts: BinDumpOpts) (sections: seq<Section>) cfg =
+  let mymode = hdl.Parser.OperationMode
   let codeprn = makeCodePrinter hdl cfg opts
   let tableprn = makeTablePrinter hdl cfg opts
   sections
@@ -134,8 +142,10 @@ let private dumpSections hdl (opts: BinDumpOpts) (sections: seq<Section>) cfg =
       out.PrintSectionTitle (String.wrapParen s.Name)
       match s.Kind with
       | SectionKind.ExecutableSection ->
+        hdl.Parser.OperationMode <- mymode
         printCodeOrTable codeprn s
       | SectionKind.LinkageTableSection ->
+        initHandleForTableOutput hdl
         printCodeOrTable tableprn s
       | _ ->
         if opts.OnlyDisasm then printCodeOrTable codeprn s
@@ -168,7 +178,7 @@ let dumpFileMode files (opts: BinDumpOpts) =
     Printer.printErrorToConsole ("File(s) " + errs.ToString() + " not found!")
 
 let private assertBinaryLength hdl hexstr =
-  let multiplier = getInstructionAlignment hdl hdl.DefaultParsingContext
+  let multiplier = getInstructionAlignment hdl
   if (Array.length hexstr) % multiplier = 0 then ()
   else
     Printer.printErrorToConsole <|

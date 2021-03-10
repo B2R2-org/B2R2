@@ -41,7 +41,6 @@ module Basis =
     let regexprs = RegExprs (isa.WordSize)
     struct (
       IntelTranslationContext (isa, regexprs) :> TranslationContext,
-      IntelParser (isa.WordSize) :> Parser,
       IntelRegisterBay (isa.WordSize, regexprs) :> RegisterBay
     )
 
