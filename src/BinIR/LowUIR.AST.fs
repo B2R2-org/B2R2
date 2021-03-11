@@ -208,7 +208,25 @@ let binop op e1 e2 =
 
 /// Consing two expr.
 [<CompiledName("Cons")>]
-let cons a b = binop BinOpType.CONS a b
+let cons a b =
+  match b.E with
+  | Nil ->
+    let t = TypeCheck.typeOf a
+#if ! HASHCONS
+    BinOp (BinOpType.CONS, t, a, b, ASTHelper.getExprInfo a)
+    |> ASTHelper.buildExpr
+#else
+    let k = BinOp (BinOpType.CONS, t, a, b, ASTHelper.getExprInfo a)
+    match tryGetExpr k with
+    | Ok e -> e
+    | Error isReclaimed ->
+      let e' = { E = k; Tag = newETag ()
+                 HashKey = E.HashBinOp BinOpType.CONS t a b }
+      if isReclaimed then exprs.[k].SetTarget e'
+      else exprs.[k] <- WeakReference<Expr> e'
+      e'
+#endif
+  | _ -> binop BinOpType.CONS a b
 
 /// Nil.
 [<CompiledName("Nil")>]

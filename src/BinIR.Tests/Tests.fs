@@ -66,3 +66,10 @@ type BinIRTest () =
     Assert.AreEqual (e1, e2)
     Assert.AreEqual (e1.GetHashCode (), e2.GetHashCode ())
 #endif
+
+  [<TestMethod>]
+  member __.``Consing Exception Test``() =
+    let n1 = AST.tmpvar 32<rt> 0
+    let n2 = AST.nil
+    AST.cons n1 n2 |> ignore
+    Assert.IsTrue true
