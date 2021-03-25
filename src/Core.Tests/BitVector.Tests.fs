@@ -26,7 +26,6 @@ namespace B2R2.Core.Tests
 
 open System
 open Microsoft.VisualStudio.TestTools.UnitTesting
-
 open B2R2
 
 [<TestClass>]

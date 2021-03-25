@@ -12,6 +12,7 @@
     <Compile Include="BitVector.Tests.fs" />
     <Compile Include="ByteArray.Tests.fs" />
     <Compile Include="LEB128.Tests.fs" />
+    <Compile Include="SortedList.Tests.fs" />
     <Compile Include="BinReader.Tests.fs" />
   </ItemGroup>
 
