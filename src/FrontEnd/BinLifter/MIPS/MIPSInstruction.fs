@@ -95,6 +95,20 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
     if __.IsBranch () then Utils.futureFeature ()
     else false
 
+  override __.Immediate (v: byref<int64>) =
+    match __.Info.Operands with
+    | OneOperand (OpImm (c))
+    | TwoOperands (OpImm (c), _)
+    | TwoOperands (_, OpImm (c))
+    | ThreeOperands (OpImm (c), _, _)
+    | ThreeOperands (_, OpImm (c), _)
+    | ThreeOperands (_, _, OpImm (c))
+    | FourOperands (OpImm (c), _, _, _)
+    | FourOperands (_, OpImm (c), _, _)
+    | FourOperands (_, _, OpImm (c), _)
+    | FourOperands (_, _, _, OpImm (c)) -> v <- int64 c; true
+    | _ -> false
+
   override __.GetNextInstrAddrs () = Utils.futureFeature ()
 
   override __.InterruptNum (_num: byref<int64>) = Utils.futureFeature ()

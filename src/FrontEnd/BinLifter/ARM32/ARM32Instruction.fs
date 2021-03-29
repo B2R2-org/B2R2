@@ -125,6 +125,31 @@ type ARM32Instruction (addr, numBytes, insInfo) =
   override __.IndirectTrampolineAddr (_: byref<Addr>) =
     false
 
+  override __.Immediate (v: byref<int64>) =
+    match __.Info.Operands with
+    | OneOperand (OprImm c)
+    | TwoOperands (OprImm c, _)
+    | TwoOperands (_, OprImm c)
+    | ThreeOperands (OprImm c, _, _)
+    | ThreeOperands (_, OprImm c, _)
+    | ThreeOperands (_, _, OprImm c)
+    | FourOperands (OprImm c, _, _, _)
+    | FourOperands (_, OprImm c, _, _)
+    | FourOperands (_, _, OprImm c, _)
+    | FourOperands (_, _, _, OprImm c)
+    | FiveOperands (OprImm c, _, _, _, _)
+    | FiveOperands (_, OprImm c, _, _, _)
+    | FiveOperands (_, _, OprImm c, _, _)
+    | FiveOperands (_, _, _, OprImm c, _)
+    | FiveOperands (_, _, _, _, OprImm c)
+    | SixOperands (OprImm c, _, _, _, _, _)
+    | SixOperands (_, OprImm c, _, _, _, _)
+    | SixOperands (_, _, OprImm c, _, _, _)
+    | SixOperands (_, _, _, OprImm c, _, _)
+    | SixOperands (_, _, _, _, OprImm c, _)
+    | SixOperands (_, _, _, _, _, OprImm c) -> v <- c; true
+    | _ -> false
+
   member private __.GetNextMode () =
     match __.Info.Opcode with
     | Opcode.BLX

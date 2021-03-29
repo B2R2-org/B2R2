@@ -106,6 +106,25 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
     if __.IsBranch () then Utils.futureFeature ()
     else false
 
+  override __.Immediate (v: byref<int64>) =
+    match __.Info.Operands with
+    | OneOperand (Immediate c)
+    | TwoOperands (Immediate c, _)
+    | TwoOperands (_, Immediate c)
+    | ThreeOperands (Immediate c, _, _)
+    | ThreeOperands (_, Immediate c, _)
+    | ThreeOperands (_, _, Immediate c)
+    | FourOperands (Immediate c, _, _, _)
+    | FourOperands (_, Immediate c, _, _)
+    | FourOperands (_, _, Immediate c, _)
+    | FourOperands (_, _, _, Immediate c)
+    | FiveOperands (Immediate c, _, _, _, _)
+    | FiveOperands (_, Immediate c, _, _, _)
+    | FiveOperands (_, _, Immediate c, _, _)
+    | FiveOperands (_, _, _, Immediate c, _)
+    | FiveOperands (_, _, _, _, Immediate c) -> v <- c; true
+    | _ -> false
+
   override __.GetNextInstrAddrs () = Utils.futureFeature ()
 
   override __.InterruptNum (_num: byref<int64>) = Utils.futureFeature ()

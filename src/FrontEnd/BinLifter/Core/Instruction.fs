@@ -190,6 +190,15 @@ type Instruction (addr, len, wordSize) =
   abstract member IndirectTrampolineAddr: [<Out>] addr: byref<Addr> -> bool
 
   /// <summary>
+  ///   Return an integer immediate value of the instruction if there is one.
+  ///   This function will ignore floating-point immediate values.
+  /// </summary>
+  /// <returns>
+  ///   Returns true if an immediate exists. Otherwise, returns false.
+  /// </returns>
+  abstract member Immediate: [<Out>] v: byref<int64> -> bool
+
+  /// <summary>
   ///   Return a sequence of possible next instruction addresses along with
   ///   their ArchOperationMode. For branch instructions, the returned sequence
   ///   includes jump target(s). For regular instructions, the sequence is a

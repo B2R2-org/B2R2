@@ -124,6 +124,20 @@ type IntelInstruction
       | _ -> false
     else false
 
+  override __.Immediate (v: byref<int64>) =
+    match oprs with
+    | OneOperand (OprImm (c, _))
+    | TwoOperands (OprImm (c, _), _)
+    | TwoOperands (_, OprImm (c, _))
+    | ThreeOperands (OprImm (c, _), _, _)
+    | ThreeOperands (_, OprImm (c, _), _)
+    | ThreeOperands (_, _, OprImm (c, _))
+    | FourOperands (OprImm (c, _), _, _, _)
+    | FourOperands (_, OprImm (c, _), _, _)
+    | FourOperands (_, _, OprImm (c, _), _)
+    | FourOperands (_, _, _, OprImm (c, _)) -> v <- c; true
+    | _ -> false
+
   member private __.AddBranchTargetIfExist addrs =
     match __.DirectBranchTarget () |> Utils.tupleToOpt with
     | None -> addrs

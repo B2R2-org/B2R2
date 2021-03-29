@@ -70,6 +70,8 @@ type TMS320C6000Instruction (addr, numBytes, insInfo) =
   override __.IndirectTrampolineAddr (_addr: byref<Addr>) =
     Utils.futureFeature ()
 
+  override __.Immediate (_v: byref<int64>) = Utils.futureFeature ()
+
   override __.GetNextInstrAddrs () = Utils.futureFeature ()
 
   override __.InterruptNum (_num: byref<int64>) = Utils.futureFeature ()

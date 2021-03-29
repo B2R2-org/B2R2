@@ -45,6 +45,7 @@ type CILInstruction (addr, numBytes, wordSize) =
   override __.IsBBLEnd () = Utils.futureFeature ()
   override __.DirectBranchTarget (_) = Utils.futureFeature ()
   override __.IndirectTrampolineAddr (_) = Utils.futureFeature ()
+  override __.Immediate (_) = Utils.futureFeature ()
   override __.GetNextInstrAddrs () = Utils.futureFeature ()
   override __.InterruptNum (_) = Utils.futureFeature ()
   override __.IsNop () = Utils.futureFeature ()

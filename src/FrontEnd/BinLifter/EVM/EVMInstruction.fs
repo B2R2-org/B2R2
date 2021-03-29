@@ -93,6 +93,8 @@ type EVMInstruction (addr, numBytes, insInfo, wordSize) =
     // FIXME
     false
 
+  override __.Immediate (_) = false
+
   override __.GetNextInstrAddrs () =
     let fallthrough = __.Address + uint64 __.Length
     let acc = Seq.singleton (fallthrough, ArchOperationMode.NoMode)
