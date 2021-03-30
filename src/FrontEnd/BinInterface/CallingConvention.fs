@@ -28,8 +28,8 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 [<CompiledName("VolatileRegisters")>]
-let volatileRegisters handler =
-  match handler.ISA.Arch with
+let volatileRegisters hdl =
+  match hdl.ISA.Arch with
   | Arch.IntelX86 ->
     [ Intel.Register.EAX; Intel.Register.ECX; Intel.Register.EDX ]
     |> List.map Intel.Register.toRegID
@@ -46,8 +46,8 @@ let volatileRegisters handler =
   | _ -> Utils.futureFeature ()
 
 [<CompiledName("ReturnRegister")>]
-let returnRegister handler =
-  match handler.ISA.Arch with
+let returnRegister hdl =
+  match hdl.ISA.Arch with
   | Architecture.IntelX86 -> Intel.Register.EAX |> Intel.Register.toRegID
   | Architecture.IntelX64 -> Intel.Register.RAX |> Intel.Register.toRegID
   | Architecture.ARMv7
@@ -67,8 +67,8 @@ let returnRegister handler =
   | _ -> Utils.futureFeature ()
 
 [<CompiledName("SyscallNumRegister")>]
-let syscallNumRegister handler =
-  match handler.ISA.Arch with
+let syscallNumRegister hdl =
+  match hdl.ISA.Arch with
   | Architecture.IntelX86 -> Intel.Register.EAX |> Intel.Register.toRegID
   | Architecture.IntelX64 -> Intel.Register.RAX |> Intel.Register.toRegID
   | Architecture.ARMv7
@@ -88,9 +88,9 @@ let syscallNumRegister handler =
   | _ -> Utils.futureFeature ()
 
 [<CompiledName("SyscallArgRegister")>]
-let syscallArgRegister handler num =
-  match handler.ISA.Arch with
-  | Architecture.IntelX86 ->
+let syscallArgRegister hdl num =
+  match hdl.FileInfo.FileFormat, hdl.ISA.Arch with
+  | FileFormat.ELFBinary, Architecture.IntelX86 ->
     match num with
     | 1 -> Intel.Register.EBX |> Intel.Register.toRegID
     | 2 -> Intel.Register.ECX |> Intel.Register.toRegID
@@ -99,7 +99,7 @@ let syscallArgRegister handler num =
     | 5 -> Intel.Register.EDI |> Intel.Register.toRegID
     | 6 -> Intel.Register.EBP |> Intel.Register.toRegID
     | _ -> Utils.impossible ()
-  | Architecture.IntelX64 ->
+  | FileFormat.ELFBinary, Architecture.IntelX64 ->
     match num with
     | 1 -> Intel.Register.RDI |> Intel.Register.toRegID
     | 2 -> Intel.Register.RSI |> Intel.Register.toRegID
@@ -108,8 +108,8 @@ let syscallArgRegister handler num =
     | 5 -> Intel.Register.R8 |> Intel.Register.toRegID
     | 6 -> Intel.Register.R9 |> Intel.Register.toRegID
     | _ -> Utils.impossible ()
-  | Architecture.ARMv7
-  | Architecture.AARCH32 ->
+  | FileFormat.ELFBinary, Architecture.ARMv7
+  | FileFormat.ELFBinary, Architecture.AARCH32 ->
     match num with
     | 1 -> ARM32.Register.R0 |> ARM32.Register.toRegID
     | 2 -> ARM32.Register.R1 |> ARM32.Register.toRegID
@@ -118,7 +118,7 @@ let syscallArgRegister handler num =
     | 5 -> ARM32.Register.R4 |> ARM32.Register.toRegID
     | 6 -> ARM32.Register.R5 |> ARM32.Register.toRegID
     | _ -> Utils.impossible ()
-  | Architecture.AARCH64 ->
+  | FileFormat.ELFBinary, Architecture.AARCH64 ->
     match num with
     | 1 -> ARM64.Register.X0 |> ARM64.Register.toRegID
     | 2 -> ARM64.Register.X1 |> ARM64.Register.toRegID
@@ -127,17 +127,17 @@ let syscallArgRegister handler num =
     | 5 -> ARM64.Register.X4 |> ARM64.Register.toRegID
     | 6 -> ARM64.Register.X5 |> ARM64.Register.toRegID
     | _ -> Utils.impossible ()
-  | Architecture.MIPS1
-  | Architecture.MIPS2
-  | Architecture.MIPS3
-  | Architecture.MIPS4
-  | Architecture.MIPS5
-  | Architecture.MIPS32
-  | Architecture.MIPS32R2
-  | Architecture.MIPS32R6
-  | Architecture.MIPS64
-  | Architecture.MIPS64R2
-  | Architecture.MIPS64R6 ->
+  | FileFormat.ELFBinary, Architecture.MIPS1
+  | FileFormat.ELFBinary, Architecture.MIPS2
+  | FileFormat.ELFBinary, Architecture.MIPS3
+  | FileFormat.ELFBinary, Architecture.MIPS4
+  | FileFormat.ELFBinary, Architecture.MIPS5
+  | FileFormat.ELFBinary, Architecture.MIPS32
+  | FileFormat.ELFBinary, Architecture.MIPS32R2
+  | FileFormat.ELFBinary, Architecture.MIPS32R6
+  | FileFormat.ELFBinary, Architecture.MIPS64
+  | FileFormat.ELFBinary, Architecture.MIPS64R2
+  | FileFormat.ELFBinary, Architecture.MIPS64R6 ->
     match num with
     | 1 -> MIPS.Register.R4 |> MIPS.Register.toRegID
     | 2 -> MIPS.Register.R5 |> MIPS.Register.toRegID
@@ -148,9 +148,35 @@ let syscallArgRegister handler num =
     | _ -> Utils.impossible ()
   | _ -> Utils.futureFeature ()
 
+[<CompiledName("FunctionArgRegister")>]
+let functionArgRegister hdl num =
+  match hdl.FileInfo.FileFormat, hdl.ISA.Arch with
+  | FileFormat.PEBinary, Architecture.IntelX86 -> (* fast call *)
+    match num with
+    | 1 -> Intel.Register.ECX |> Intel.Register.toRegID
+    | 2 -> Intel.Register.EDX |> Intel.Register.toRegID
+    | _ -> Utils.impossible ()
+  | FileFormat.ELFBinary, Architecture.IntelX64 -> (* System V *)
+    match num with
+    | 1 -> Intel.Register.RDI |> Intel.Register.toRegID
+    | 2 -> Intel.Register.RSI |> Intel.Register.toRegID
+    | 3 -> Intel.Register.RDX |> Intel.Register.toRegID
+    | 4 -> Intel.Register.RCX |> Intel.Register.toRegID
+    | 5 -> Intel.Register.R8 |> Intel.Register.toRegID
+    | 6 -> Intel.Register.R9 |> Intel.Register.toRegID
+    | _ -> Utils.impossible ()
+  | FileFormat.PEBinary, Architecture.IntelX64 ->
+    match num with
+    | 1 -> Intel.Register.RCX |> Intel.Register.toRegID
+    | 2 -> Intel.Register.RDX |> Intel.Register.toRegID
+    | 3 -> Intel.Register.R8 |> Intel.Register.toRegID
+    | 4 -> Intel.Register.R9 |> Intel.Register.toRegID
+    | _ -> Utils.impossible ()
+  | _ -> Utils.futureFeature ()
+
 [<CompiledName("IsNonVolatile")>]
-let isNonVolatile handler rid =
-  match handler.FileInfo.FileFormat, handler.ISA.Arch with
+let isNonVolatile hdl rid =
+  match hdl.FileInfo.FileFormat, hdl.ISA.Arch with
   | FileFormat.ELFBinary, Arch.IntelX86 -> (* CDECL *)
     rid = (Intel.Register.EBP |> Intel.Register.toRegID)
     || rid = (Intel.Register.EBX |> Intel.Register.toRegID)

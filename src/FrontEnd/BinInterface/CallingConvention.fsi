@@ -26,6 +26,7 @@ module B2R2.FrontEnd.BinInterface.CallingConvention
 
 open B2R2
 
+/// Obtain the list of volatile register IDs
 [<CompiledName("VolatileRegisters")>]
 val volatileRegisters: BinHandle -> RegisterID list
 
@@ -40,6 +41,13 @@ val syscallNumRegister: BinHandle -> RegisterID
 /// Obtain the register ID used for the nth syscall parameter.
 [<CompiledName("SyscallArgRegister")>]
 val syscallArgRegister: BinHandle -> int -> RegisterID
+
+/// Obtain the register ID used for the nth function call parameter. Since
+/// actual calling convention may vary depending on the binaries, this function
+/// only returns a generally used register for the given architecture and the
+/// file format.
+[<CompiledName("FunctionArgRegister")>]
+val functionArgRegister: BinHandle -> int -> RegisterID
 
 /// Check if the given register is non-volatile register in the given binary.
 /// Non-volatile registers are preserved by callee, i.e., callee-saved

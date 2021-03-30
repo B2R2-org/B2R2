@@ -36,6 +36,7 @@ type ELFFileType =
   | SharedObject = 0x3us
   | Core = 0x4us
 
+/// ABI type.
 type OSABI =
   | ABISystemV = 0x0uy
   | ABIHPUX = 0x1uy
