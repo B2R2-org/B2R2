@@ -9,6 +9,7 @@
     <Compile Include="Types.fs" />
     <Compile Include="ImperativeGraph.Tests.fs" />
     <Compile Include="PersistentGraph.Tests.fs" />
+    <Compile Include="Loop.Tests.fs" />
   </ItemGroup>
 
   <ItemGroup>

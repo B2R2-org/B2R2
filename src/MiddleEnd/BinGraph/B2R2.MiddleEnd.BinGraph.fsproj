@@ -23,7 +23,8 @@
     <Compile Include="Dominator.fsi" />
     <Compile Include="Dominator.fs" />
     <Compile Include="SCC.fs" />
-    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath=""/>
+    <Compile Include="Loop.fs" />
+    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
   </ItemGroup>
 
