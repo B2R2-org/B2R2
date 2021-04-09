@@ -1499,14 +1499,10 @@ module Intel =
 module ARMv7 =
   open B2R2.FrontEnd.BinLifter.ARM32
 
-  let private test arch endian cond op w (q: Qualifier option) simd oprs bytes =
-    let reader =
-      if endian = Endian.Little then BinReader.binReaderLE
-      else BinReader.binReaderBE
-    let span = System.ReadOnlySpan bytes
+  let private test arch endian cond op w q simd oprs (bytes: byte[]) =
     let mode = ArchOperationMode.ARMMode
-    let mutable itstate = []
-    let ins = Parser.parse span reader mode &itstate arch 0UL
+    let parser = ARM32Parser (ISA.Init arch endian, mode, None)
+    let ins = parser.Parse (bytes, 0UL) :?> ARM32Instruction
     let cond' = ins.Info.Condition
     let opcode' = ins.Info.Opcode
     let wback' = ins.Info.WriteBack
@@ -1533,7 +1529,7 @@ module ARMv7 =
              (OneOperand (OprMemory (LiteralMode 1020L)))
              [| 0xeauy; 0x00uy; 0x00uy; 0xffuy |]
 
-      test32 None Op.BLX None None None
+      test32 (Some Condition.UN) Op.BLX None None None // Some UN? or None?
              (OneOperand (OprMemory (LiteralMode 64L)))
              [| 0xfauy; 0x00uy; 0x00uy; 0x10uy |]
 
@@ -1640,7 +1636,7 @@ module ARMv7 =
     [<TestMethod>]
     member __.``[ARMv7] Saturating addition and subtraction Parse Test`` () =
       test32 (Some Condition.AL) Op.QADD None None None
-             (ThreeOperands (OprReg R.R1, OprReg R.R0, OprReg R.R2))
+             (ThreeOperands (OprReg R.R1, OprReg R.R2, OprReg R.R0))
              [| 0xe1uy; 0x00uy; 0x10uy; 0x52uy |]
 
     /// A4.4.6 Packing and unpacking instructions
@@ -1703,7 +1699,7 @@ module ARMv7 =
              (TwoOperands (OprSpecReg (R.APSR, Some PSRnzcvqg), OprReg R.R2))
              [| 0xe1uy; 0x2cuy; 0xf0uy; 0x02uy |]
 
-      test32 None Op.CPSIE None None None
+      test32 (Some Condition.UN) Op.CPSIE None None None // Some UN? or None?
              (TwoOperands (OprIflag AF, OprImm 2L))
              [| 0xf1uy; 0x0auy; 0x01uy; 0x42uy |]
 
@@ -1815,8 +1811,13 @@ module ARMv7 =
              (OneOperand (OprRegList [ R.R0; R.R1; R.R2; R.R3 ]))
              [| 0xe8uy; 0xbduy; 0x00uy; 0x0fuy |]
 
-      test32 (Some Condition.AL) Op.PUSH None None None
-             (OneOperand (OprReg R.R0))
+      (* test32 (Some Condition.AL) Op.STR (Some true) None None
+             (TwoOperands (OprReg R.R0,
+               OprMemory (PreIdxMode (ImmOffset (R.SP, Some Minus, Some 4L)))))
+             [| 0xe5uy; 0x2duy; 0x00uy; 0x04uy |] *)
+
+      test32 (Some Condition.AL) Op.PUSH (Some true) None None
+             (OneOperand (OprRegList [ R.R0 ]))
              [| 0xe5uy; 0x2duy; 0x00uy; 0x04uy |]
 
       test32 (Some Condition.AL) Op.STMIA None None None
@@ -1828,35 +1829,35 @@ module ARMv7 =
   type MiscellaneousClass () =
     [<TestMethod>]
     member __.``[ARMv7] Miscellaneous Parse Test`` () =
-      test32 None Op.CLREX None None None (NoOperand)
-             [| 0xf5uy; 0x7fuy; 0xf0uy; 0x1fuy |]
+      test32 (Some Condition.UN) Op.CLREX None None None (NoOperand)
+             [| 0xf5uy; 0x7fuy; 0xf0uy; 0x1fuy |] // Some UN? or None?
 
-      test32 None Op.DMB None None None
+      test32 (Some Condition.UN) Op.DMB None None None // Some UN? or None?
              (OneOperand (OprOption Option.SY))
              [| 0xf5uy; 0x7fuy; 0xf0uy; 0x5fuy |]
 
       test32 (Some Condition.AL) Op.NOP None None None NoOperand
              [| 0xe3uy; 0x20uy; 0xf0uy; 0x00uy |]
 
-      test32 None Op.PLD None None None
+      test32 (Some Condition.UN) Op.PLD None None None // Some UN? or None?
              (OneOperand (OprMemory (LiteralMode -3840L)))
              [| 0xf5uy; 0x5fuy; 0xffuy; 0x00uy |]
 
-      test32 None Op.PLDW None None None
+      test32 (Some Condition.UN) Op.PLDW None None None // Some UN? or None?
              (OneOperand (OprMemory (OffsetMode
                                     (RegOffset (R.R0, Some Plus, R.R0,
                                        Some (SRTypeASR, Imm 3u))))))
              [| 0xf7uy; 0x90uy; 0xf1uy; 0xc0uy |]
 
-      test32 None Op.PLI None None None
-             (OneOperand (OprMemory (OffsetMode
-                                    (ImmOffset (R.R0, Some Minus, Some 240L)))))
+      test32 (Some Condition.UN) Op.PLI None None None // Some UN? or None?
+             (OneOperand (OprMemory (LiteralMode -240L)))
              [| 0xf4uy; 0x50uy; 0xf0uy; 0xf0uy |]
 
-      test32 None Op.SETEND None None None
+      test32 (Some Condition.UN) Op.SETEND None None None // Some UN? or None?
              (OneOperand (OprEndian Endian.Big))
              [| 0xf1uy; 0x01uy; 0x02uy; 0x00uy |]
 
+      // FIXME: Not in ARMv8
       test32 (Some Condition.AL) Op.SWP None None None
              (ThreeOperands (OprReg R.IP, OprReg R.LR,
                              OprMemory (OffsetMode
@@ -1876,12 +1877,12 @@ module ARMv7 =
              (OneOperand (OprImm 15L))
              [| 0xe1uy; 0x60uy; 0x00uy; 0x7fuy |]
 
-      test32 None Op.RFEIB (Some true) None None
-             (OneOperand (OprReg R.IP))
+      test32 (Some Condition.UN) Op.RFEIB (Some true) None None
+             (OneOperand (OprReg R.IP)) // Some UN? or None?
              [| 0xf9uy; 0xbcuy; 0x0auy; 0x00uy |]
 
-      test32 None Op.SRSDB (Some true) None None
-             (TwoOperands (OprReg R.SP, OprImm 4L))
+      test32 (Some Condition.UN) Op.SRSDB (Some true) None None
+             (TwoOperands (OprReg R.SP, OprImm 4L)) // Some UN? or None?
              [| 0xf9uy; 0x6duy; 0x05uy; 0x04uy |]
 
   /// A4.10 Co-processor instructions
@@ -1889,31 +1890,31 @@ module ARMv7 =
   type CoprocessorClass () =
     [<TestMethod>]
     member __.``[ARMv7] Co-processor Parse Test`` () =
+      // FIXME: Not in ARMv8
       test32 (Some Condition.AL) Op.CDP None None None
              (SixOperands (OprReg R.P3, OprImm 0L, OprReg R.C2,
                            OprReg R.C1, OprReg R.C8, OprImm 7L))
              [| 0xeeuy; 0x01uy; 0x23uy; 0xe8uy |]
 
       test32 (Some Condition.AL) Op.MCRR None None None
-             (FiveOperands (OprReg R.P9, OprImm 14L, OprReg R.R1,
+             (FiveOperands (OprReg R.P15, OprImm 14L, OprReg R.R1,
                             OprReg R.R0, OprReg R.C3))
-             [| 0xecuy; 0x40uy; 0x19uy; 0xe3uy |]
+             [| 0xecuy; 0x40uy; 0x1fuy; 0xe3uy |]
 
       test32 (Some Condition.AL) Op.MRC None None None
-             (SixOperands (OprReg R.P5, OprImm 4L, OprReg R.SB,
+             (SixOperands (OprReg R.P14, OprImm 4L, OprReg R.SB,
                            OprReg R.C14, OprReg R.C2, OprImm 1L))
-             [| 0xeeuy; 0x9euy; 0x95uy; 0x32uy |]
+             [| 0xeeuy; 0x9euy; 0x9euy; 0x32uy |]
 
       test32 (Some Condition.AL) Op.LDC (Some false) None None
-             (ThreeOperands (OprReg R.P5, OprReg R.C10,
+             (ThreeOperands (OprReg R.P14, OprReg R.C5,
                              OprMemory (LiteralMode 192L)))
-             [| 0xeduy; 0x9fuy; 0xa5uy; 0x30uy |]
+             [| 0xeduy; 0x9fuy; 0x5euy; 0x30uy |]
 
-      test32 (Some Condition.AL) Op.LDCL None None None
-             (ThreeOperands (OprReg R.P12, OprReg R.C3,
+      test32 (Some Condition.AL) Op.LDC None None None
+             (ThreeOperands (OprReg R.P14, OprReg R.C5,
                              OprMemory (UnIdxMode (R.R0, 128L))))
-             [| 0xecuy; 0xd0uy; 0x3cuy; 0x80uy |]
-
+             [| 0xecuy; 0x90uy; 0x5euy; 0x80uy |]
 
   /// A4.11 Advanced SIMD and Floating-point load/store instructions
   [<TestClass>]
@@ -1921,7 +1922,8 @@ module ARMv7 =
     /// A4.11.1 Element and structure load/store instructions
     [<TestMethod>]
     member __.``[ARMv7] Element and structure load/store Parse Test`` () =
-      test32 None Op.VLD4 (Some true) None (Some (OneDT SIMDTyp16))
+      test32 (Some Condition.UN) Op.VLD4 (Some true) None // Some UN? or None?
+             (Some (OneDT SIMDTyp16))
              (TwoOperands
                (OprSIMD (FourRegs (Scalar (R.D18, None), Scalar (R.D20, None),
                                    Scalar (R.D22, None), Scalar (R.D24, None))),
@@ -1930,7 +1932,8 @@ module ARMv7 =
                                                    Some R.R0)))))
              [| 0xf4uy; 0xe0uy; 0x2fuy; 0x70uy |]
 
-      test32 None Op.VST1 (Some true) None (Some (OneDT SIMDTyp32))
+      test32 (Some Condition.UN) Op.VST1 (Some true) None // Some UN? or None?
+             (Some (OneDT SIMDTyp32))
              (TwoOperands (OprSIMD (ThreeRegs (Vector R.D12, Vector R.D13,
                                                Vector R.D14)),
                            OprMemory (PostIdxMode
@@ -1938,13 +1941,13 @@ module ARMv7 =
                                                    Some R.R0)))))
              [| 0xf4uy; 0x02uy; 0xc6uy; 0x90uy |]
 
-      test32 None Op.VST3 (Some true) None (Some (OneDT SIMDTyp32))
+      test32 (Some Condition.UN) Op.VST3 (Some true) None // Some UN? or None?
+             (Some (OneDT SIMDTyp32))
              (TwoOperands
                (OprSIMD (ThreeRegs (Scalar (R.D14, Some 1uy),
                                     Scalar (R.D16, Some 1uy),
                                     Scalar (R.D18, Some 1uy))),
-                           OprMemory (PostIdxMode
-                                     (AlignOffset (R.LR, None, Some R.R3)))))
+               OprMemory (PostIdxMode (RegOffset (R.LR, None, R.R3, None)))))
              [| 0xf4uy; 0x8euy; 0xeauy; 0xc3uy |]
 
   /// A4.12 Advanced SIMD and Floating-point register transfer instructions
@@ -1972,24 +1975,28 @@ module ARMv7 =
     /// A4.13.1 Advanced SIMD parallel addition and subtraction
     [<TestMethod>]
     member __.``[ARMv7] Advanced SIMD parallel add and sub Parse Test`` () =
-      test32 None Op.VADDW None None (Some (OneDT SIMDTypS8))
+      test32 (Some Condition.UN) Op.VADDW None None // Some UN? or None?
+             (Some (OneDT SIMDTypS8))
              (ThreeOperands (OprSIMD (SFReg (Vector R.Q14)),
                              OprSIMD (SFReg (Vector R.Q8)),
                              OprSIMD (SFReg (Vector R.D10))))
              [| 0xf2uy; 0xc0uy; 0xc1uy; 0x8auy |]
 
-      test32 None Op.VHSUB None None (Some (OneDT SIMDTypU32))
+      test32 (Some Condition.UN) Op.VHSUB None None // Some UN? or None?
+             (Some (OneDT SIMDTypU32))
              (ThreeOperands (OprSIMD (SFReg (Vector R.D1)),
                              OprSIMD (SFReg (Vector R.D0)),
                              OprSIMD (SFReg (Vector R.D28))))
              [| 0xf3uy; 0x20uy; 0x12uy; 0x2cuy |]
 
-      test32 None Op.VPADDL None None (Some (OneDT SIMDTypU8))
+      test32 (Some Condition.UN) Op.VPADDL None None // Some UN? or None?
+             (Some (OneDT SIMDTypU8))
              (TwoOperands (OprSIMD (SFReg (Vector R.D0)),
                            OprSIMD (SFReg (Vector R.D14))))
              [| 0xf3uy; 0xb0uy; 0x02uy; 0x8euy |]
 
-      test32 None Op.VSUBHN None None (Some (OneDT SIMDTypI32))
+      test32 (Some Condition.UN) Op.VSUBHN None None // Some UN? or None?
+             (Some (OneDT SIMDTypI32))
              (ThreeOperands (OprSIMD (SFReg (Vector R.D12)),
                              OprSIMD (SFReg (Vector R.Q8)),
                              OprSIMD (SFReg (Vector R.Q1))))
@@ -1998,15 +2005,17 @@ module ARMv7 =
     /// A4.13.2 Bitwise Advanced SIMD data-processing instructions
     [<TestMethod>]
     member __.``[ARMv7] Bitwise Advanced SIMD data-processing Parse Test`` () =
-      test32 None Op.VAND None None None
+      test32 (Some Condition.UN) Op.VAND None None None // Some UN? or None?
              (ThreeOperands (OprSIMD (SFReg (Vector R.Q14)),
                              OprSIMD (SFReg (Vector R.Q9)),
                              OprSIMD (SFReg (Vector R.Q12))))
              [| 0xf2uy; 0x42uy; 0xc1uy; 0xf8uy |]
 
-      test32 None Op.VBIC None None (Some (OneDT SIMDTypI32))
+      test32 (Some Condition.UN) Op.VBIC None None // Some UN? or None?
+             (Some (OneDT SIMDTypI32))
              (TwoOperands (OprSIMD (SFReg (Vector R.Q15)),
-                           OprImm 10158080L))
+               // OprImm 10158080L)) FIXME: AdvSIMDExpandImm
+               OprImm 0x9B0000009B0000L))
              [| 0xf3uy; 0xc1uy; 0xe5uy; 0x7buy |]
 
       test32 (Some Condition.AL) Op.VMOV None None None
@@ -2016,7 +2025,8 @@ module ARMv7 =
     /// A4.13.3 Advanced SIMD comparison instructions
     [<TestMethod>]
     member __.``[ARMv7] Advanced SIMD comparison Parse Test`` () =
-      test32 None Op.VCEQ None None (Some (OneDT SIMDTypF32))
+      test32 (Some Condition.UN) Op.VCEQ None None // Some UN? or None?
+             (Some (OneDT SIMDTypF32))
              (ThreeOperands (OprSIMD (SFReg (Vector R.Q12)),
                              OprSIMD (SFReg (Vector R.Q6)),
                              OprSIMD (SFReg (Vector R.Q0))))
@@ -2025,32 +2035,38 @@ module ARMv7 =
     /// A4.13.4 Advanced SIMD shift instructions
     [<TestMethod>]
     member __.``[ARMv7] Advanced SIMD shift Parse Test`` () =
-      test32 None Op.VQRSHRN None None (Some (OneDT SIMDTypU64))
+      test32 (Some Condition.UN) Op.VQRSHRN None None // Some UN? or None?
+             (Some (OneDT SIMDTypU64))
              (ThreeOperands (OprSIMD (SFReg (Vector R.D0)),
                              OprSIMD (SFReg (Vector R.Q0)), OprImm 32L))
              [| 0xf3uy; 0xa0uy; 0x09uy; 0x50uy |]
 
-      test32 None Op.VQSHRUN None None (Some (OneDT SIMDTypS64))
+      test32 (Some Condition.UN) Op.VQSHRUN None None // Some UN? or None?
+             (Some (OneDT SIMDTypS64))
              (ThreeOperands (OprSIMD (SFReg (Vector R.D0)),
                              OprSIMD (SFReg (Vector R.Q8)), OprImm 8L))
              [| 0xf3uy; 0xb8uy; 0x08uy; 0x30uy |]
 
-      test32 None Op.VSHL None None (Some (OneDT SIMDTypI64))
+      test32 (Some Condition.UN) Op.VSHL None None // Some UN? or None?
+             (Some (OneDT SIMDTypI64))
              (ThreeOperands (OprSIMD (SFReg (Vector R.Q1)),
                              OprSIMD (SFReg (Vector R.Q4)), OprImm 56L))
              [| 0xf2uy; 0xb8uy; 0x25uy; 0xd8uy |]
 
-      test32 None Op.VSHRN None None (Some (OneDT SIMDTypI64))
+      test32 (Some Condition.UN) Op.VSHRN None None // Some UN? or None?
+             (Some (OneDT SIMDTypI64))
              (ThreeOperands (OprSIMD (SFReg (Vector R.D0)),
                              OprSIMD (SFReg (Vector R.Q9)), OprImm 32L))
              [| 0xf2uy; 0xa0uy; 0x08uy; 0x32uy |]
 
-      test32 None Op.VSRA None None (Some (OneDT SIMDTypU64))
+      test32 (Some Condition.UN) Op.VSRA None None // Some UN? or None?
+             (Some (OneDT SIMDTypU64))
              (ThreeOperands (OprSIMD (SFReg (Vector R.Q8)),
                              OprSIMD (SFReg (Vector R.Q8)), OprImm 24L))
              [| 0xf3uy; 0xe8uy; 0x01uy; 0xf0uy |]
 
-      test32 None Op.VSRI None None (Some (OneDT SIMDTyp32))
+      test32 (Some Condition.UN) Op.VSRI None None // Some UN? or None?
+             (Some (OneDT SIMDTyp32))
              (ThreeOperands (OprSIMD (SFReg (Vector R.D9)),
                              OprSIMD (SFReg (Vector R.D26)), OprImm 7L))
              [| 0xf3uy; 0xb9uy; 0x94uy; 0x3auy |]
@@ -2058,7 +2074,8 @@ module ARMv7 =
     /// A4.13.5 Advanced SIMD multiply instructions
     [<TestMethod>]
     member __.``[ARMv7] Advanced SIMD multiply Parse Test`` () =
-      test32 None Op.VMLSL None None (Some (OneDT SIMDTypU32))
+      test32 (Some Condition.UN) Op.VMLSL None None // Some UN? or None?
+             (Some (OneDT SIMDTypU32))
              (ThreeOperands (OprSIMD (SFReg (Vector R.Q1)),
                              OprSIMD (SFReg (Vector R.D0)),
                              OprSIMD (SFReg (Vector R.D24))))
@@ -2070,19 +2087,22 @@ module ARMv7 =
                              OprSIMD (SFReg (Vector R.S17))))
              [| 0xeeuy; 0x20uy; 0x2auy; 0xa8uy |]
 
-      test32 None Op.VMULL None None (Some (OneDT SIMDTypS8))
+      test32 (Some Condition.UN) Op.VMULL None None // Some UN? or None?
+             (Some (OneDT SIMDTypS8))
              (ThreeOperands (OprSIMD (SFReg (Vector R.Q12)),
                              OprSIMD (SFReg (Vector R.D18)),
                              OprSIMD (SFReg (Vector R.D16))))
              [| 0xf2uy; 0xc2uy; 0x8cuy; 0xa0uy |]
 
-      test32 None Op.VMULL None None (Some (OneDT SIMDTypU32))
+      test32 (Some Condition.UN) Op.VMULL None None // Some UN? or None?
+             (Some (OneDT SIMDTypU32))
              (ThreeOperands (OprSIMD (SFReg (Vector R.Q10)),
                              OprSIMD (SFReg (Vector R.D2)),
                              OprSIMD (SFReg (Scalar (R.D10, Some 0uy)))))
              [| 0xf3uy; 0xe2uy; 0x4auy; 0x4auy |]
 
-      test32 None Op.VQDMULH None None (Some (OneDT SIMDTypS16))
+      test32 (Some Condition.UN) Op.VQDMULH None None // Some UN? or None?
+             (Some (OneDT SIMDTypS16))
              (ThreeOperands (OprSIMD (SFReg (Vector R.Q9)),
                              OprSIMD (SFReg (Vector R.Q8)),
                              OprSIMD (SFReg (Scalar (R.D0, Some 3uy)))))
@@ -2091,22 +2111,26 @@ module ARMv7 =
     /// A4.13.6 Miscellaneous Advanced SIMD data-processing instructions
     [<TestMethod>]
     member __.``[ARMv7] Misc Advanced SIMD data-processing Parse Test`` () =
-      test32 None Op.VCVT None None (Some (TwoDT (SIMDTypU32, SIMDTypF32)))
+      test32 (Some Condition.UN) Op.VCVT None None // Some UN? or None?
+             (Some (TwoDT (SIMDTypU32, SIMDTypF32)))
              (ThreeOperands (OprSIMD (SFReg (Vector R.D0)),
                              OprSIMD (SFReg (Vector R.D16)), OprImm 22L))
              [| 0xf3uy; 0xaauy; 0x0fuy; 0x30uy |]
 
-      test32 (Some Condition.AL) Op.VCVT None None (Some (TwoDT (SIMDTypU16, SIMDTypF64)))
+      test32 (Some Condition.AL) Op.VCVT None None
+             (Some (TwoDT (SIMDTypU16, SIMDTypF64)))
              (ThreeOperands (OprSIMD (SFReg (Vector R.D0)),
                              OprSIMD (SFReg (Vector R.D0)), OprImm 11L))
              [| 0xeeuy; 0xbfuy; 0x0buy; 0x62uy |]
 
-      test32 None Op.VCNT None None (Some (OneDT SIMDTyp8))
+      test32 (Some Condition.UN) Op.VCNT None None // Some UN? or None?
+             (Some (OneDT SIMDTyp8))
              (TwoOperands (OprSIMD (SFReg (Vector R.Q13)),
                            OprSIMD (SFReg (Vector R.Q15))))
              [| 0xf3uy; 0xf0uy; 0xa5uy; 0x6euy |]
 
-      test32 None Op.VEXT None None (Some (OneDT SIMDTyp8))
+      test32 (Some Condition.UN) Op.VEXT None None // Some UN? or None?
+             (Some (OneDT SIMDTyp8))
              (FourOperands (OprSIMD (SFReg (Vector R.Q0)),
                             OprSIMD (SFReg (Vector R.Q8)),
                             OprSIMD (SFReg (Vector R.Q7)), OprImm 3L))
@@ -2117,18 +2141,21 @@ module ARMv7 =
                            OprSIMD (SFReg (Vector R.D18))))
              [| 0xeeuy; 0xf1uy; 0x0buy; 0x62uy |]
 
-      test32 None Op.VPMAX None None (Some (OneDT SIMDTypF32))
+      test32 (Some Condition.UN) Op.VPMAX None None // Some UN? or None?
+             (Some (OneDT SIMDTypF32))
              (ThreeOperands (OprSIMD (SFReg (Vector R.D25)),
                              OprSIMD (SFReg (Vector R.D0)),
                              OprSIMD (SFReg (Vector R.D15))))
              [| 0xf3uy; 0x40uy; 0x9fuy; 0x0fuy |]
 
-      test32 None Op.VREV32 None None (Some (OneDT SIMDTyp16))
+      test32 (Some Condition.UN) Op.VREV32 None None // Some UN? or None?
+             (Some (OneDT SIMDTyp16))
              (TwoOperands (OprSIMD (SFReg (Vector R.Q0)),
                            OprSIMD (SFReg (Vector R.Q1))))
              [| 0xf3uy; 0xb4uy; 0x00uy; 0xc2uy |]
 
-      test32 None Op.VTBX None None (Some (OneDT SIMDTyp8))
+      test32 (Some Condition.UN) Op.VTBX None None // Some UN? or None?
+             (Some (OneDT SIMDTyp8))
              (ThreeOperands (OprSIMD (SFReg (Vector R.D5)),
                              OprSIMD (FourRegs (Vector R.D3, Vector R.D4,
                                                 Vector R.D5, Vector R.D6)),
@@ -2144,22 +2171,24 @@ module ARMv7 =
              (TwoOperands (OprSIMD (SFReg (Vector R.D0)), OprImm 0L))
              [| 0xeeuy; 0xb5uy; 0x0buy; 0xc0uy |]
 
-      test32 (Some Condition.AL) Op.VCVT None None (Some (TwoDT (SIMDTypF32, SIMDTypU32)))
+      test32 (Some Condition.AL) Op.VCVT None None
+             (Some (TwoDT (SIMDTypF32, SIMDTypU32)))
              (TwoOperands (OprSIMD (SFReg (Vector R.S4)),
                            OprSIMD (SFReg (Vector R.S17))))
              [| 0xeeuy; 0xb8uy; 0x2auy; 0x68uy |]
 
-      test32 (Some Condition.AL) Op.VCVTB None None (Some (TwoDT (SIMDTypF16, SIMDTypF32)))
+      test32 (Some Condition.AL) Op.VCVTB None None
+             (Some (TwoDT (SIMDTypF16, SIMDTypF32)))
              (TwoOperands (OprSIMD (SFReg (Vector R.S0)),
                            OprSIMD (SFReg (Vector R.S6))))
              [| 0xeeuy; 0xb3uy; 0x0auy; 0x43uy |]
 
       test32 (Some Condition.AL) Op.VMOV None None (Some (OneDT SIMDTypF32))
-             (TwoOperands (OprSIMD (SFReg (Vector R.S6)),
-                                    OprImm 1091567616L))
+             (TwoOperands (OprSIMD (SFReg (Vector R.S6)), OprImm 1091567616L))
              [| 0xeeuy; 0xb2uy; 0x3auy; 0x02uy |]
 
-      test32 None Op.VMLS None None (Some (OneDT SIMDTypI16))
+      test32 (Some Condition.UN) Op.VMLS None None // Some UN? or None?
+             (Some (OneDT SIMDTypI16))
              (ThreeOperands (OprSIMD (SFReg (Vector R.Q14)),
                              OprSIMD (SFReg (Vector R.Q1)),
                              OprSIMD (SFReg (Scalar (R.D0, Some 2uy)))))
@@ -5325,14 +5354,10 @@ module ARM64 =
 module ARMThumb =
   open B2R2.FrontEnd.BinLifter.ARM32
 
-  let private test arch endian cond op w q (simd: SIMDDataType option) oprs bs =
-    let reader =
-      if endian = Endian.Little then BinReader.binReaderLE
-      else BinReader.binReaderBE
-    let span = System.ReadOnlySpan bs
+  let private test arch e c op w q (s: SIMDDataTypes option) oprs (b: byte[]) =
     let mode = ArchOperationMode.ThumbMode
-    let mutable itstate = []
-    let ins = Parser.parse span reader mode &itstate arch 0UL
+    let parser = ARM32Parser (ISA.Init arch e, mode, None)
+    let ins = parser.Parse (b, 0UL) :?> ARM32Instruction
     let cond' = ins.Info.Condition
     let opcode' = ins.Info.Opcode
     let wback' = ins.Info.WriteBack
@@ -5341,11 +5366,11 @@ module ARMThumb =
     let oprs' = ins.Info.Operands
     let w = match w with | Some true -> true | _ -> false // XXX
     let q = match q with | Some W -> W | _ -> N // XXX
-    Assert.AreEqual (cond', cond)
+    Assert.AreEqual (cond', c)
     Assert.AreEqual (opcode', op)
     Assert.AreEqual (wback', w)
     Assert.AreEqual (q', q)
-    Assert.AreEqual (simd', simd)
+    Assert.AreEqual (simd', s)
     Assert.AreEqual (oprs', oprs)
 
   let private testThumb = test Arch.ARMv7 Endian.Big
