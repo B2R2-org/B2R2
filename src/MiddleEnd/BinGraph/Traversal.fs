@@ -29,7 +29,7 @@ open System.Collections.Generic
 let inline private prependSuccessors g lst v =
   DiGraph.getSuccs g v |> List.fold (fun lst s -> s :: lst) lst
 
-let rec foldPreorderLoop visited g fn acc = function
+let rec private foldPreorderLoop visited g fn acc = function
   | [] -> acc
   | v: Vertex<_> :: tovisit when v.GetID () |> (visited: HashSet<_>).Contains ->
     foldPreorderLoop visited g fn acc tovisit
@@ -37,18 +37,7 @@ let rec foldPreorderLoop visited g fn acc = function
     v.GetID () |> visited.Add |> ignore
     foldPreorderLoop visited g fn (fn acc v) (prependSuccessors g tovisit v)
 
-/// Fold vertices of the graph in a depth-first manner with the preorder
-/// traversal.
-let foldPreorder g vs fn acc =
-  let visited = new HashSet<int> ()
-  foldPreorderLoop visited g fn acc vs
-
-/// Iterate vertices of the graph in a depth-first manner with the preorder
-/// traversal.
-let iterPreorder g vs fn =
-  foldPreorder g vs (fun () v -> fn v) ()
-
-let rec foldPostorderLoop visited g fn acc vstack = function
+let rec private foldPostorderLoop visited g fn acc vstack = function
   | [] -> acc
   | v: Vertex<_> :: tovisit when v.GetID () |> (visited: HashSet<_>).Contains ->
     foldPostorderLoop visited g fn acc vstack tovisit
@@ -65,27 +54,52 @@ and consume visited g fn acc = function
     if allSuccsVisited then consume visited g fn (fn acc v) rest
     else struct (acc, v :: rest)
 
+/// Fold vertices of the graph in a depth-first manner with the preorder
+/// traversal.
+let foldPreorder g roots fn acc =
+  let visited = new HashSet<int> ()
+  foldPreorderLoop visited g fn acc roots
+
+/// Fold vertices, except them in the second list, of the graph in a
+/// depth-first manner with the preorder traversal.
+let foldPreorderExcept g roots excepts fn acc =
+  let visited =
+    excepts
+    |> List.map (fun v -> Vertex<_>.GetID v)
+    |> HashSet
+  foldPreorderLoop visited g fn acc roots
+
+/// Iterate vertices of the graph in a depth-first manner with the preorder
+/// traversal.
+let iterPreorder g roots fn =
+  foldPreorder g roots (fun () v -> fn v) ()
+
+/// Iterate vertices, except them in the second list, of the graph in a
+/// depth-first manner with the preorder traversal.
+let iterPreorderExcept g roots excepts fn =
+  foldPreorderExcept g roots excepts (fun () v -> fn v) ()
+
 /// Fold vertices of the graph in a depth-first manner with the postorder
 /// traversal.
-let foldPostorder g vs fn acc =
+let foldPostorder g roots fn acc =
   let visited = new HashSet<int> ()
-  foldPostorderLoop visited g fn acc [] vs
+  foldPostorderLoop visited g fn acc [] roots
 
 /// Iterate vertices of the graph in a depth-first manner with the postorder
 /// traversal.
-let iterPostorder g vs fn =
-  foldPostorder g vs (fun () v -> fn v) ()
+let iterPostorder g roots fn =
+  foldPostorder g roots (fun () v -> fn v) ()
 
 /// Fold vertices of the graph in a depth-first manner with the reverse
 /// postorder traversal.
-let foldRevPostorder g vs fn acc =
-  foldPostorder g vs (fun acc v -> v :: acc) []
+let foldRevPostorder g roots fn acc =
+  foldPostorder g roots (fun acc v -> v :: acc) []
   |> List.fold fn acc
 
 /// Iterate vertices of the graph in a depth-first manner with the reverse
 /// postorder traversal.
-let iterRevPostorder g vs fn =
-  foldPostorder g vs (fun acc v -> v :: acc) []
+let iterRevPostorder g roots fn =
+  foldPostorder g roots (fun acc v -> v :: acc) []
   |> List.iter fn
 
 /// Topologically fold every vertex of the given graph. For every unreachable
@@ -97,7 +111,7 @@ let iterRevPostorder g vs fn =
 /// there is a loop to the root node.
 let foldTopologically g roots fn acc =
   let visited = new HashSet<int> ()
-  let vs =
+  let roots =
     DiGraph.getUnreachables g
     |> Set.ofSeq
     |> List.foldBack Set.add roots
@@ -107,5 +121,5 @@ let foldTopologically g roots fn acc =
      random *)
   DiGraph.getVertices g
   |> Set.toList
-  |> foldPostorderLoop visited g (fun acc v -> v :: acc) vs []
+  |> foldPostorderLoop visited g (fun acc v -> v :: acc) roots []
   |> List.fold fn acc
