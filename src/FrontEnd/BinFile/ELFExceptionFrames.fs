@@ -130,12 +130,12 @@ let pop2 exprs =
 
 let parseBinop op exprs =
   let struct (fst, snd, exprs) = pop2 exprs
-  AST.binop op fst snd :: exprs
+  AST.binop op snd fst :: exprs
 
 let parseRel isa op exprs =
   let struct (fst, snd, exprs) = pop2 exprs
   let rt = isa.WordSize |> WordSize.toRegType
-  AST.cast CastKind.ZeroExt rt (AST.relop op fst snd) :: exprs
+  AST.cast CastKind.ZeroExt rt (AST.relop op snd fst) :: exprs
 
 let parseLoad isa exprs =
   let struct (addr, exprs) = pop exprs
