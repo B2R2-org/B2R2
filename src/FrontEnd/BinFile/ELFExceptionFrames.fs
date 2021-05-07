@@ -248,13 +248,24 @@ let rec parseExprs isa regbay exprs (span: ReadOnlySpan<byte>) i maxIdx =
     | DWOperation.DW_OP_const1u ->
       let exprs = num isa (uint64 span.[i + 1]) :: exprs
       parseExprs isa regbay exprs span (i + 2) maxIdx
+    | DWOperation.DW_OP_const1s ->
+      let exprs = num isa (int64 span.[i + 1] |> uint64) :: exprs
+      parseExprs isa regbay exprs span (i + 2) maxIdx
     | DWOperation.DW_OP_const2u ->
       let c = MemoryMarshal.Read<uint16> (span.Slice (i + 1))
       let exprs = num isa (uint64 c) :: exprs
       parseExprs isa regbay exprs span (i + 3) maxIdx
+    | DWOperation.DW_OP_const2s ->
+      let c = MemoryMarshal.Read<int16> (span.Slice (i + 1))
+      let exprs = num isa (int64 c |> uint64) :: exprs
+      parseExprs isa regbay exprs span (i + 3) maxIdx
     | DWOperation.DW_OP_const4u ->
       let c = MemoryMarshal.Read<uint32> (span.Slice (i + 1))
       let exprs = num isa (uint64 c) :: exprs
+      parseExprs isa regbay exprs span (i + 5) maxIdx
+    | DWOperation.DW_OP_const4s ->
+      let c = MemoryMarshal.Read<int32> (span.Slice (i + 1))
+      let exprs = num isa (int64 c |> uint64) :: exprs
       parseExprs isa regbay exprs span (i + 5) maxIdx
     | DWOperation.DW_OP_lit0 ->
       let exprs = num isa 0UL :: exprs
