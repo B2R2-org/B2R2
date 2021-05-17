@@ -535,7 +535,7 @@ module internal ParsingHelper = begin
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
   let nor0F16Reg = function
-    | MPref.MPrxNP -> struct (Opcode.MOVLHPS, OD.XmmVvXm, SZ.DqDq) (* VdqUdq *)
+    | MPref.MPrxNP -> struct (Opcode.MOVLHPS, OD.GprRm, SZ.DqDq) (* VdqUdq *)
     | MPref.MPrx66 -> struct (Opcode.MOVHPD, OD.GprRm, SZ.DqqDq) (* VdqMq *)
     | MPref.MPrxF3 -> struct (Opcode.MOVSHDUP, OD.GprRm, SZ.DqDq) (* VdqWdq *)
     | MPref.MPrxF2
@@ -4302,6 +4302,7 @@ module internal ParsingHelper = begin
     | 0xEBuy -> parseVEX rhlp nor0FEB vex0FEB
     | 0xECuy -> parseVEX rhlp nor0FEC vex0FEC
     | 0xEDuy -> parseVEX rhlp nor0FED vex0FED
+    | 0xEEuy -> parseVEX rhlp nor0FEE vex0FEE
     | 0xEFuy -> parseEVEX rhlp nor0FEF vex0FEF evex0FEFW0 evex0FEFW1
     | 0xEFuy -> parseVEX rhlp nor0FEF vex0FEF
     | 0xF0uy -> parseVEX rhlp nor0FF0 vex0FF0
