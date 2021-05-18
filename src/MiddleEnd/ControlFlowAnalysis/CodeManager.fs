@@ -234,9 +234,11 @@ type CodeManager (hdl) =
   member __.HistoryManager with get() = history
 
   member private __.RemoveFunction fnAddr =
-    let fn = funcMaintainer.FindRegular fnAddr
-    fn.IterRegularVertexPps (fun pp -> __.RemoveBBL pp.Address)
-    funcMaintainer.RemoveFunction fnAddr
+    match funcMaintainer.TryFindRegular fnAddr with
+    | Some fn ->
+      fn.IterRegularVertexPps (fun pp -> __.RemoveBBL pp.Address)
+      funcMaintainer.RemoveFunction fnAddr
+    | None -> () (* Already removed. *)
 
   member private __.RollBackFact evts fact =
 #if CFGDEBUG
