@@ -46,7 +46,8 @@ type ProgramPoint (addr, pos) =
   static member IsFake (p: ProgramPoint) = p.Address = 0UL && p.Position = -1
 
   static member Next (p: ProgramPoint) =
-    ProgramPoint (p.Address, p.Position + 1)
+    if ProgramPoint.IsFake p then p
+    else ProgramPoint (p.Address, p.Position + 1)
 
   interface System.IComparable with
     member __.CompareTo (rhs) =

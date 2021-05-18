@@ -68,8 +68,8 @@ module private SSABasicBlockHelper =
     | SSA.Def (v, SSA.Num bv) ->
       match v.Kind with
       | SSA.PCVar _ -> ProgramPoint (BitVector.toUInt64 bv, 0)
-      | _ -> ProgramPoint (ppoint.Address, ppoint.Position + 1)
-    | _ -> ProgramPoint (ppoint.Address, ppoint.Position + 1)
+      | _ -> ProgramPoint.Next ppoint
+    | _ -> ProgramPoint.Next ppoint
 
 /// SSA statement information.
 type SSAStmtInfo = ProgramPoint * SSA.Stmt
