@@ -219,21 +219,34 @@ module private IndirectJumpResolution =
       classifyWithSymbolicExpr cpState baseExpr tblExpr t
     | _ -> UnknownPattern
 
+  let rec findIndJumpExpr ssaCFG callerBlkAddr fstV (vs: SSAVertex list) =
+    match vs with
+    | v :: rest ->
+      match v.VData.GetLastStmt () with
+      | Jmp (InterJmp jmpExpr) -> jmpExpr
+      | _ ->
+        let vs =
+          DiGraph.getSuccs ssaCFG v
+          |> List.fold (fun acc succ ->
+            if succ <> fstV then succ :: acc else acc) rest
+        findIndJumpExpr ssaCFG callerBlkAddr fstV vs
+    | [] -> Utils.impossible ()
+
   /// Symbolically expand the indirect jump expression with the constant
   /// information obtained from the constatnt propagation step, and see if the
   /// jump target is in the form of loading a jump table.
   let analyzeIndirectBranchPattern ssaCFG cpState callerBlkAddr =
-    let v =
+    let callerV =
       DiGraph.findVertexBy ssaCFG (fun (v: SSAVertex) ->
         v.VData.PPoint.Address = callerBlkAddr)
-    match v.VData.GetLastStmt () with
-    | Jmp (InterJmp jmpExpr) ->
-      let symbExpr = symbolicExpand cpState jmpExpr |> simplify
+    let symbExpr =
+      findIndJumpExpr ssaCFG callerBlkAddr callerV [ callerV ]
+      |> symbolicExpand cpState
+      |> simplify
 #if CFGDEBUG
-      dbglog "IndJmpRecovery" "Pattern of indjmp: %s" (Pp.expToString symbExpr)
+    dbglog "IndJmpRecovery" "Pattern of indjmp: %s" (Pp.expToString symbExpr)
 #endif
-      classify cpState symbExpr
-    | _ -> Utils.impossible ()
+    classify cpState symbExpr
 
   let computeMask size =
     let rt = RegType.fromByteWidth size
