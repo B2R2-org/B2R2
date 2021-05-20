@@ -4243,13 +4243,17 @@ module internal ParsingHelper = begin
     | 0xB6uy -> render rhlp Opcode.MOVZX SzCond.Nor OD.GprRm SZ.BV
     | 0xB7uy -> render rhlp Opcode.MOVZX SzCond.Nor OD.GprRm SZ.WV
     | 0xB8uy when not <| hasREPZ rhlp.Prefixes -> raise ParsingFailureException
-    | 0xB8uy -> render rhlp Opcode.POPCNT SzCond.Nor OD.GprRm SZ.Def
+    | 0xB8uy ->
+      rhlp.Prefixes <- filterPrefs rhlp.Prefixes
+      render rhlp Opcode.POPCNT SzCond.Nor OD.GprRm SZ.Def
     | 0xBBuy when hasREPZ rhlp.Prefixes -> raise ParsingFailureException
     | 0xBBuy -> render rhlp Opcode.BTC SzCond.Nor OD.RmGpr SZ.Def
     | 0xBCuy when hasREPZ rhlp.Prefixes ->
+      rhlp.Prefixes <- filterPrefs rhlp.Prefixes
       render rhlp Opcode.TZCNT SzCond.Nor OD.GprRm SZ.Def
     | 0xBCuy -> render rhlp Opcode.BSF SzCond.Nor OD.GprRm SZ.Def
     | 0xBDuy when hasREPZ rhlp.Prefixes ->
+      rhlp.Prefixes <- filterPrefs rhlp.Prefixes
       render rhlp Opcode.LZCNT SzCond.Nor OD.GprRm SZ.Def
     | 0xBDuy -> render rhlp Opcode.BSR SzCond.Nor OD.GprRm SZ.Def
     | 0xBEuy -> render rhlp Opcode.MOVSX SzCond.Nor OD.GprRm SZ.BV
