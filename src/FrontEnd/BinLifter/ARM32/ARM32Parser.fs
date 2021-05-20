@@ -43,21 +43,6 @@ module private Parser =
       struct (((uint32 b2) <<< 16) + (uint32 b), 4u)
     | _ -> struct (uint32 b, 2u)
 
-  let newInsInfo addr len mode op cond itState wback q simdt oprs cflag =
-    let insInfo =
-      { Address = addr
-        NumBytes = len
-        Condition = cond
-        Opcode = op
-        Operands = oprs
-        ITState = itState
-        WriteBack = wback
-        Qualifier = q
-        SIMDTyp = simdt
-        Mode = mode
-        Cflag = cflag }
-    ARM32Instruction (addr, len, insInfo)
-
   let parseARM (span: ByteSpan) (phlp: ParsingHelper) =
     let bin = phlp.BinReader.ReadUInt32 (span, 0)
     phlp.Len <- 4u
@@ -65,12 +50,7 @@ module private Parser =
 
   let parseThumb span reader mode (itstate: byref<byte list>) addr =
     let struct (bin, len) = readThumbBytes span reader
-    let op, cond, itState, wback, q, simdt, oprs, cflag =
-      if len = 2u then ThumbParser.parseThumb16 &itstate bin
-      else ThumbParser.parseThumb32 &itstate bin
-    let wback = match wback with | Some true -> true | _ -> false (* xxx *)
-    let q = match q with | Some W -> W | _ -> N (* xxx *)
-    newInsInfo addr len mode op cond itState wback q simdt oprs cflag
+    ThumbParser.parse mode &itstate addr bin len
 
   let detectThumb entryPoint (isa: ISA) =
     match entryPoint, isa.Arch with

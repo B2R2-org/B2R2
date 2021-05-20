@@ -21,8 +21,8 @@
     <Compile Include="ARM32Lifter.fs" />
     <Compile Include="ARM32Instruction.fs" />
     <Compile Include="ARM32Operands.fs" />
-    <Compile Include="ARM32ThumbParser.fs" />
     <Compile Include="ARM32ARMParser.fs" />
+    <Compile Include="ARM32ThumbParser.fs" />
     <Compile Include="ARM32Parser.fs" />
     <Compile Include="ARM32.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />

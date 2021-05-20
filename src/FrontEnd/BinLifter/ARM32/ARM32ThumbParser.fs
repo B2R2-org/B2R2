@@ -27,6 +27,7 @@ module internal B2R2.FrontEnd.BinLifter.ARM32.ThumbParser
 open B2R2
 open B2R2.FrontEnd.BinLifter.ARM32.ParseUtils
 open B2R2.FrontEnd.BinLifter.ARM32.OperandHelper
+open B2R2.FrontEnd.BinLifter.ARM32.ARMParser
 
 let getCFThumb (b1, b2) =
   let imm1 = pickBit b1 10
@@ -2021,5 +2022,29 @@ let parseThumb16 (itstate: byref<byte list>) bin =
     | _ -> failwith "Wrong thumb group specified."
   if isInITBlock then updateITSTATE &itstate else ()
   opcode, cond, itState, wback, qualifier, None, operands, None
+
+let render mode it addr bin len cond opcode dt fnOperand =
+  let struct (oprs, wback, qualifier, cflag) = fnOperand bin
+  let cond =
+    match cond with
+    | Some cond -> cond
+    | None -> Condition.UN // FIXME
+  newInsInfo mode addr len cond opcode oprs it wback qualifier dt cflag
+
+(* <label> *)
+let oprLabel bin =
+  let label = extract bin 11 0 <<< 1 |> signExtend
+  struct (OneOperand label, false, Qualifier.N, None)
+
+/// ARM Architecture Reference Manual ARMv8-A, ARM DDI 0487F.c ID072120
+/// T32 instruction set encoding on page F3-4148.
+let parse mode (itstate: byref<byte list>) addr bin len =
+  let isInITBlock = not itstate.IsEmpty
+  let cond = getCondWithITSTATE itstate
+  match extract bin 15 11 (* op0:op1 *) with
+  | 0b11100u -> Utils.futureFeature ()
+    //render mode 0uy addr bin len cond Op.B None oprLabel
+  | 0b11101u | 0b11110u | 0b11111u (* 111 != 00 *) -> Utils.futureFeature ()
+  | _ (* != 111 xx *) -> Utils.futureFeature ()
 
 // vim: set tw=80 sts=2 sw=2:
