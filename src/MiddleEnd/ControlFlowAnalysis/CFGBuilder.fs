@@ -70,7 +70,6 @@ module private CFGBuilder =
 
   let splitAndConnectEdge (codeMgr: CodeManager) fn src dst edge evts =
     let bbl = codeMgr.GetBBL dst
-    let isNewFn = bbl.FunctionEntry <> (fn: RegularFunction).Entry
     if bbl.FunctionEntry <> (fn: RegularFunction).Entry then
       Error ErrorConnectingEdge
     else

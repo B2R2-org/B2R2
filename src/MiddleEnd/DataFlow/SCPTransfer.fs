@@ -144,68 +144,9 @@ let rec evalExpr st blk = function
   | Undefined _ -> NotAConst
   | _ -> Utils.impossible ()
 
-let evalMemStore st blk mDst mSrc rt addr v =
-  let dstid = mDst.Identifier
-  let c = evalExpr st blk v
-  let addr = evalExpr st blk addr
-  let oldMemState = CPState.tryGetMemState st dstid
-  CPState.copyMem st dstid mSrc.Identifier
-  match addr with
-  | Const addr ->
-    let addr = BitVector.toUInt64 addr
-    match oldMemState with
-    | Some (oldMem, _) -> CPState.storeToOldMem oldMem st mDst rt addr c
-    | None -> CPState.storeToFreshMem st mDst rt addr c
-  | _ ->
-    if st.MemState.[dstid] |> snd |> Set.isEmpty |> not then
-      st.SSAWorkList.Push mDst
-    else ()
-
-let invalidateValuesForExistingMemory st oldMem mDst =
-  let dstid = mDst.Identifier
-  let mem, updated = st.MemState.[dstid]
-  let mem, updated, needPush =
-    mem
-    |> Map.fold (fun (mem, updated, needPush) addr v ->
-      match Map.tryFind addr oldMem, v with
-      | Some oldV, v when oldV = v -> mem, updated, needPush
-      | _, Pointer _
-      | _, NotAConst -> Map.add addr v mem, Set.add addr updated, true
-      | Some NotAConst, _ -> Map.add addr NotAConst mem, updated, needPush
-      | _, _ -> Map.add addr NotAConst mem, Set.add addr updated, true
-      ) (mem, updated, false)
-  st.MemState.[dstid] <- (mem, updated)
-  if needPush then st.SSAWorkList.Push mDst else ()
-
-let invalidateValuesForFreshMemory st mDst =
-  let dstid = mDst.Identifier
-  let mem, updated = st.MemState.[dstid]
-  let mem, needPush =
-    mem
-    |> Map.fold (fun (mem, needPush) addr v ->
-      match v with
-      | Pointer _ | NotAConst -> mem, needPush
-      | _ -> Map.add addr NotAConst mem, true) (mem, false)
-  st.MemState.[dstid] <- (mem, updated)
-  if needPush then st.SSAWorkList.Push mDst else ()
-
-let evalReturnVal st mDst mSrc =
-  let dstid = mDst.Identifier
-  let oldMemState = CPState.tryGetMemState st dstid
-  CPState.copyMem st dstid mSrc.Identifier
-  match oldMemState with
-  | Some (oldMem, _) -> invalidateValuesForExistingMemory st oldMem mDst
-  | None -> invalidateValuesForFreshMemory st mDst
-
-let evalMemDef st blk mDst e =
-  match e with
-  | Store (mSrc, rt, addr, v) -> evalMemStore st blk mDst mSrc rt addr v
-  | ReturnVal (_, _, mSrc) -> evalReturnVal st mDst mSrc
-  | _ ->  Utils.impossible ()
-
 let evalDef (st: CPState<SCPValue>) blk v e =
   match v.Kind with
-  | MemVar -> evalMemDef st blk v e
+  | MemVar -> ()
   | _ -> evalExpr st blk e |> CPState.updateConst st v
 
 let evalPhi st cfg blk dst srcIDs =
@@ -213,7 +154,7 @@ let evalPhi st cfg blk dst srcIDs =
   | [||] -> ()
   | executableSrcIDs ->
     match dst.Kind with
-    | MemVar -> CPState.mergeMemWithoutMergePoints st dst executableSrcIDs
+    | MemVar -> ()
     | _ ->
       executableSrcIDs
       |> Array.choose (fun i ->
