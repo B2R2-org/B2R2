@@ -326,13 +326,11 @@ let getIflag = function
 
 let getEndian = function
   | 0b0uy -> Endian.Little
-  | 0b1uy -> Endian.Big
-  | _ -> raise ParsingFailureException
+  | _ (* 1 *) -> Endian.Big
 
 let getFloatSizeBySz = function
   | 0b0u -> SIMDTypF32
-  | 0b1u -> SIMDTypF64
-  | _ -> raise ParsingFailureException
+  | _ (* 1 *) -> SIMDTypF64
 
 let getSignednessSize32ByOp = function
   | 0b0u -> SIMDTypU32

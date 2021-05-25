@@ -5397,8 +5397,7 @@ module ARMThumb =
                 [| 0xf0uy; 0x30uy; 0x91uy; 0x94uy |]
 
       testThumb None Op.CBNZ None None None
-                (TwoOperands (OprReg R.R2,
-                              OprMemory (LiteralMode 6L)))
+                (TwoOperands (OprReg R.R2, OprMemory (LiteralMode 6L)))
                 [| 0xb9uy; 0x1auy |]
 
       testThumb (Some Condition.AL) Op.BLX None None None
@@ -5609,7 +5608,7 @@ module ARMThumb =
                 [| 0xf3uy; 0x28uy; 0x0cuy; 0x05uy |]
 
       testThumb (Some Condition.AL) Op.USAT None None None
-                (FourOperands (OprReg R.R7, OprImm 18L, OprReg R.R3,
+                (FourOperands (OprReg R.R7, OprImm 17L, OprReg R.R3,
                                OprShift (SRTypeASR, Imm 6u)))
                 [| 0xf3uy; 0xa3uy; 0x17uy; 0x91uy |]
 
@@ -5643,8 +5642,7 @@ module ARMThumb =
                 [| 0xb2uy; 0x87uy |]
 
       testThumb (Some Condition.AL) Op.UXTH None (Some W) None
-                (ThreeOperands (OprReg R.R2, OprReg R.IP,
-                                OprShift (SRTypeROR, Imm 0u)))
+                (TwoOperands (OprReg R.R2, OprReg R.IP))
                 [| 0xfauy; 0x1fuy; 0xf2uy; 0x8cuy |]
 
     /// A4.4.7 Parallel addition and subtraction instructions
@@ -5741,7 +5739,7 @@ module ARMThumb =
     [<TestMethod>]
     member __.``[Thumb] Banked register access Parse Test`` () =
       testThumb (Some Condition.AL) Op.MRS None None None
-                (TwoOperands (OprReg R.LRusr, OprReg R.R0))
+                (TwoOperands (OprReg R.R0, OprReg R.LRusr))
                 [| 0xf3uy; 0xe6uy; 0x80uy; 0x20uy |]
 
       testThumb (Some Condition.AL) Op.MSR None None None
@@ -5972,8 +5970,7 @@ module ARMThumb =
     [<TestMethod>]
     member __.``[Thumb] Load/store multiple Parse Test`` () =
       testThumb (Some Condition.AL) Op.LDM (Some true) None None
-                (TwoOperands (OprReg R.R3,
-                              OprRegList [R.R0; R.R6; R.R7]))
+                (TwoOperands (OprReg R.R3, OprRegList [R.R0; R.R6; R.R7]))
                 [| 0xcbuy; 0xc1uy |]
 
       testThumb (Some Condition.AL) Op.LDM (Some false) (Some W) None
@@ -6127,9 +6124,9 @@ module ARMThumb =
   type MiscellaneousControlClass () =
     [<TestMethod>]
     member __.``[Thumb] Miscellaneous control Parse Test`` () =
-      testThumb None Op.ENTERX None None None
+      testThumb None Op.CLREX None None None
                 NoOperand
-                [| 0xf3uy; 0xbfuy; 0x8fuy; 0x1fuy |]
+                [| 0xf3uy; 0xbfuy; 0x8fuy; 0x2fuy |]
 
 module MIPS64 =
   open B2R2.FrontEnd.BinLifter.MIPS

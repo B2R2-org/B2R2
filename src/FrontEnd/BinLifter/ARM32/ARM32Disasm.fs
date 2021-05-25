@@ -72,6 +72,9 @@ let opCodeToString = function
   | Op.CRC32W -> "crc32w"
   | Op.CSDB -> "csdb"
   | Op.DBG -> "dbg"
+  | Op.DCPS1 -> "dcps1"
+  | Op.DCPS2 -> "dcps2"
+  | Op.DCPS3 -> "dcps3"
   | Op.DMB -> "dmb"
   | Op.DSB -> "dsb"
   | Op.ENTERX -> "enterx"
@@ -581,6 +584,7 @@ let SIMDTypToStr = function
   | SIMDTypF32 -> ".f32"
   | SIMDTypF64 -> ".f64"
   | SIMDTypP8 -> ".p8"
+  | SIMDTypP64 -> ".p64"
   | BF16 -> ".bf16"
 
 let qualifierToStr = function

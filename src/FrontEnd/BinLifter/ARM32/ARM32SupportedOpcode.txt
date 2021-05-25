@@ -84,6 +84,12 @@ CRC32W
 CSDB
 /// Debug hint.
 DBG
+/// Debug switch to Exception level 1.
+DCPS1
+/// Debug switch to Exception level 2.
+DCPS2
+/// Debug switch to Exception level 3.
+DCPS3
 /// Data Memory Barrier.
 DMB
 /// Data Synchronization Barrier.

@@ -49,8 +49,7 @@ module private Parser =
     ARMParser.parse phlp bin
 
   let parseThumb span reader mode (itstate: byref<byte list>) addr =
-    let struct (bin, len) = readThumbBytes span reader
-    ThumbParser.parse mode &itstate addr bin len
+    ThumbParser.parse reader mode &itstate addr bin
 
   let detectThumb entryPoint (isa: ISA) =
     match entryPoint, isa.Arch with

@@ -28,6 +28,7 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.ARM32
 open B2R2.FrontEnd.BinLifter.ARM32.ParseUtils
 open B2R2.FrontEnd.BinLifter.ARM32.OperandHelper
+
 open OperandParsingHelper
 
 let inc bin =
@@ -162,7 +163,7 @@ let chkPCRtRm bin =
 
 (* if Rt<0> == '1' then UNPREDICTABLE
    if t2 == 15 then UNPREDICTABLE *)
-let chkPCRt2 bin =
+let chkRtPCRt2 bin =
   checkUnpred ((pickBit bin 12 = 1u) || (extract bin 15 12 + 1u = 15u))
 
 (* if Rt<0> == '1' then UNPREDICTABLE
@@ -266,7 +267,7 @@ let chkCondAL cond = checkUnpred (cond <> Condition.AL)
 
 (* if t == 15 || t2 == 15 || m == 31 then UNPREDICTABLE
    if to_arm_registers && t == t2 then UNPREDICTABLE *)
-let chkPCRtRt2VmEq bin =
+let chkPCRtRt2VmRegsEq bin =
   let sm = concat (extract bin 3 0) (pickBit bin 5) 1 (* Vm:M *)
   let t = extract bin 15 12
   let t2 = extract bin 19 16
@@ -332,11 +333,6 @@ let chkPCRt bin = checkUnpred (extract bin 15 12 = 15u)
    if t == 15 then UNPREDICTABLE *)
 let chkCondPCRt bin cond =
   checkUnpred (cond <> Condition.AL || extract bin 15 12 = 15u)
-
-(* if W == '1' || (P == '0' && CurrentInstrSet() != InstrSet_A32)
-   then UNPREDICTABLE *)
-let chkWP bin =
-  checkUnpred ((pickBit bin 21 = 0b1u) || (pickBit bin 24 = 0b0u))
 
 (* is_pldw = (R == '0') *)
 (* if m == 15 || (n == 15 && is_pldw) then UNPREDICTABLE *)
@@ -431,7 +427,7 @@ let chkPCRnLen bin =
   checkUnpred (n + (extract bin 9 8 + 1u) > 32u)
 
 (* if Vd<0> == '1' || (op == '1' && Vn<0> == '1') then UNDEFINED *)
-let chkVdOp bin =
+let chkVdOpVn bin =
   (pickBit bin 12 = 1u || (pickBit bin 8 = 1u && pickBit bin 16 = 1u))
   |> checkUndef
 
@@ -446,20 +442,11 @@ let chkSzVd bin =
 let chkVd0 bin = checkUndef (pickBit bin 12 = 1u)
 
 (* if size == '00' ||
-   (F == '1' && size == '01' && !HaveFP16Ext()) then UNDEFINED
    if Q == '1' && (Vd<0> == '1' || Vn<0> == '1') then UNDEFINED *)
 let chkSzQVdVn bin =
   ((extract bin 21 20 = 0b00u) ||
    ((pickBit bin 24 = 1u) && (pickBit bin 12 = 1u || pickBit bin 16 = 1u)))
    |> checkUndef
-
-(* if Q == '1' && (Vd<0> == '1' || Vn<0> == '1' || Vm<0> == '1') then UNDEFINED
-   if size == '00' || size == '11' then UNDEFINED *)
-let chkQVdVnVmSz bin =
-  let size = extract bin 21 20
-  (((pickBit bin 24 = 1u) &&
-    (pickBit bin 12 = 1u || pickBit bin 16 = 1u || pickBit bin 0 = 1u))
-    || (size = 0b00u || size = 0b11u)) |> checkUndef
 
 (* if size == '11' || (size == '00' && a == '1') then UNDEFINED
    if n == 15 || d+regs > 32 then UNPREDICTABLE *)
@@ -611,7 +598,7 @@ let chkPCRtRt2Rn bin =
 
 (* if Q == '1' && (Vd<0> == '1' || Vn<0> == '1' || Vm<0> == '1')
    then UNDEFINED *)
-let chkQVdVnVm bin =
+let chkQVdVnVm bin = (* chkQVdVmVn *)
   ((pickBit bin 6 = 1u) &&
    ((pickBit bin 12 = 1u) || (pickBit bin 16 = 1u) || (pickBit bin 0 = 1u)))
    |> checkUndef
@@ -715,7 +702,7 @@ let parseLoadStoreImm (phlp: ParsingHelper) bin =
   | 0b00010u when isNotRn1111 bin -> (* LDRD (immediate) *)
     chkRnRtPCRt2 bin; render phlp bin Op.LDRD None OD.OprRtRt2MemImm
   | 0b00010u -> (* LDRD (literal) *)
-    chkPCRt2 bin; render phlp bin Op.LDRD None OD.OprRtRt2Label
+    chkRtPCRt2 bin; render phlp bin Op.LDRD None OD.OprRtRt2Label
   | 0b00001u ->
     chkPCRnRtWithWB bin; render phlp bin Op.STRH None OD.OprRtMemImm
   | 0b00011u ->
@@ -734,7 +721,7 @@ let parseLoadStoreImm (phlp: ParsingHelper) bin =
     chkPCRtWithWB bin; render phlp bin Op.LDRSH None OD.OprRtLabelHL
   | 0b01010u when isNotRn1111 bin -> raise ParsingFailureException
   | 0b01010u ->
-    chkPCRt2 bin; render phlp bin Op.LDRD None OD.OprRtRt2Label
+    chkRtPCRt2 bin; render phlp bin Op.LDRD None OD.OprRtRt2Label
   | 0b01001u ->
     chkPCRtRnEq bin; render phlp bin Op.STRHT None OD.OprRtMemImmP
   | 0b01011u -> raise ParsingFailureException
@@ -747,7 +734,7 @@ let parseLoadStoreImm (phlp: ParsingHelper) bin =
   | 0b10010u when isNotRn1111 bin ->
     chkRnRtPCRt2 bin; render phlp bin Op.LDRD None OD.OprRtRt2MemImm
   | 0b10010u ->
-    chkPCRt2 bin; render phlp bin Op.LDRD None OD.OprRtRt2Label
+    chkRtPCRt2 bin; render phlp bin Op.LDRD None OD.OprRtRt2Label
   | 0b10001u ->
     chkPCRnRtWithWB bin; render phlp bin Op.STRH None OD.OprRtMemImm
   | 0b10011u ->
@@ -767,7 +754,7 @@ let parseLoadStoreImm (phlp: ParsingHelper) bin =
   | 0b11010u when isNotRn1111 bin ->
     chkRnRtPCRt2 bin; render phlp bin Op.LDRD None OD.OprRtRt2MemImm
   | 0b11010u ->
-    chkPCRt2 bin; render phlp bin Op.LDRD None OD.OprRtRt2Label
+    chkRtPCRt2 bin; render phlp bin Op.LDRD None OD.OprRtRt2Label
   | 0b11001u ->
     chkPCRnRtWithWB bin; render phlp bin Op.STRH None OD.OprRtMemImm
   | 0b11011u ->
@@ -847,10 +834,10 @@ let parseLdStExclAndLdAcqStRel (phlp: ParsingHelper) bin =
   | 0b00011u ->
     chkPCRdRtRn bin; render phlp bin Op.STREX None OD.OprRdRtMem
   | 0b00100u ->
-    chkPCRtRn bin; render phlp bin Op.LDA None OD.OprRtAMem
+    chkPCRtRn bin; render phlp bin Op.LDA None OD.OprRt15Mem
   | 0b00101u -> raise ParsingFailureException
   | 0b00110u ->
-    chkPCRtRn bin; render phlp bin Op.LDAEX None OD.OprRtAMem
+    chkPCRtRn bin; render phlp bin Op.LDAEX None OD.OprRt15Mem
   | 0b00111u ->
     chkPCRtRn bin; render phlp bin Op.LDREX None OD.OprRtMemImm0
   | 0b01000u | 0b01001u -> raise ParsingFailureException
@@ -1578,7 +1565,7 @@ let parseSaturate32bit (phlp: ParsingHelper) bin =
   | 0b0u ->
     chkPCRdRn bin; render phlp bin Op.SSAT None OD.OprRdImmRnShf
   | _ (* 0b1u *) ->
-    chkPCRdRn bin; render phlp bin Op.USAT None OD.OprRdImmRnShf
+    chkPCRdRn bin; render phlp bin Op.USAT None OD.OprRdImmRnShfU
 
 /// Extend and Add on page F4-4241.
 let parseExtendAndAdd (phlp: ParsingHelper) bin =
@@ -1791,14 +1778,16 @@ let parseExceptionSaveStore (phlp: ParsingHelper) bin =
 
 /// Alias conditions on page F5-4438.
 let changeToAliasOfLDM bin =
-  if (wbackW bin) && (extract bin 19 16 = 0b1101u) && (bitCount bin > 1) then
-    struct (Op.POP, OD.OprRegs)
+  if (wbackW bin) && (extract bin 19 16 = 0b1101u) &&
+     (bitCount (extract bin 15 0) 15 > 1)
+  then struct (Op.POP, OD.OprRegs)
   else struct (Op.LDM, OD.OprRnRegs)
 
 /// Alias conditions on page F5-4813.
 let changeToAliasOfSTMDB bin =
-  if (pickBit bin 21 = 1u) && (extract bin 19 16 = 0b1101u) && (bitCount bin > 1) then
-    struct (Op.PUSH, OD.OprRegs)
+  if (pickBit bin 21 = 1u) && (extract bin 19 16 = 0b1101u) &&
+     (bitCount (extract bin 15 0) 15 > 1)
+  then struct (Op.PUSH, OD.OprRegs)
   else struct (Op.STMDB, OD.OprRnRegs)
 
 /// Load/Store Multiple on page F4-4245.
@@ -2102,12 +2091,12 @@ let parseAdvSIMDAndFPMulWithAccumulate (phlp: ParsingHelper) bin =
     render phlp bin Op.VFMAT (oneDt BF16) OD.OprQdQnDmidxm
   | 0b10000u | 0b10100u | 0b11000u | 0b11100u (* 1xx00 *) -> (* Armv8.3 *)
     chkQVdVn bin
-    render phlp bin Op.VCMLA (oneDt SIMDTypF16) OD.OprDdDnDm0Rotate
+    render phlp bin Op.VCMLA (oneDt SIMDTypF32) OD.OprDdDnDm0Rotate
   | 0b10001u | 0b10011u | 0b10101u | 0b10111u | 0b11001u | 0b11011u | 0b11101u
   | 0b11111u (* 1xxx1 *) -> raise ParsingFailureException
   | _ (* 1xx10 *) -> (* Armv8.3 *)
     chkQVdVn bin
-    render phlp bin Op.VCMLA (oneDt SIMDTypF16) OD.OprQdQnDm0Rotate
+    render phlp bin Op.VCMLA (oneDt SIMDTypF32) OD.OprQdQnDm0Rotate
 
 /// Advanced SIMD and floating-point dot product on page F4-4252.
 let parseAdvSIMDAndFPDotProduct (phlp: ParsingHelper) bin =
@@ -2225,11 +2214,11 @@ let parseAdvancedSIMDandFP64bitMove (phlp: ParsingHelper) bin =
     (pickBit bin 4)
   match decodeFields (* D:op:size:opc2:o3 *) with
   | 0b1010001u ->
-    chkPCRtRt2VmEq bin; render phlp bin Op.VMOV None OD.OprSmSm1RtRt2
+    chkPCRtRt2VmRegsEq bin; render phlp bin Op.VMOV None OD.OprSmSm1RtRt2
   | 0b1011001u ->
     chkPCRtRt2ArmEq bin; render phlp bin Op.VMOV None OD.OprDmRtRt2
   | 0b1110001u ->
-    chkPCRtRt2VmEq bin; render phlp bin Op.VMOV None OD.OprRtRt2SmSm1
+    chkPCRtRt2VmRegsEq bin; render phlp bin Op.VMOV None OD.OprRtRt2SmSm1
   | 0b1111001u ->
     chkPCRtRt2ArmEq bin; render phlp bin Op.VMOV None OD.OprRtRt2Dm
   | _ (* 0xxxxxx 1xxxxx0 1x0x001 1xxx01x 1xxx1xx *) ->
@@ -2275,12 +2264,19 @@ let parseAdvSIMDAndFPLdSt (phlp: ParsingHelper) bin =
     chkPCRnRegsImm bin
     render phlp bin Op.FLDMIAX None OD.OprRnDreglist
   | 0b100000u | 0b110000u (* 1x0000 *) -> raise UndefinedException
-  | 0b100001u | 0b110001u | 0b100010u | 0b110010u ->
-    chkSzCondPCRn bin phlp.Cond; render phlp bin Op.VSTR None OD.OprSdMem
+  | 0b100001u | 0b110001u ->
+    chkSzCondPCRn bin phlp.Cond
+    render phlp bin Op.VSTR (oneDt SIMDTyp16) OD.OprSdMem
+  | 0b100010u | 0b110010u ->
+    chkSzCondPCRn bin phlp.Cond
+    render phlp bin Op.VSTR (oneDt SIMDTyp32) OD.OprSdMem
   | 0b100011u | 0b110011u ->
-    chkSzCondPCRn bin phlp.Cond; render phlp bin Op.VSTR None OD.OprDdMem
-  | 0b100100u | 0b110100u when phlp.Cond <> Condition.UN -> raise UndefinedException
-  | 0b100101u | 0b110101u | 0b100110u | 0b110110u when phlp.Cond <> Condition.UN ->
+    chkSzCondPCRn bin phlp.Cond
+    render phlp bin Op.VSTR (oneDt SIMDTyp64) OD.OprDdMem
+  | 0b100100u | 0b110100u when phlp.Cond <> Condition.UN ->
+    raise UndefinedException
+  | 0b100101u | 0b110101u | 0b100110u | 0b110110u
+    when phlp.Cond <> Condition.UN ->
     chkSzCond bin phlp.Cond; render phlp bin Op.VLDR None OD.OprSdMem
   | 0b100111u | 0b110111u when phlp.Cond <> Condition.UN ->
     chkSzCond bin phlp.Cond; render phlp bin Op.VLDR None OD.OprDdMem
@@ -2322,7 +2318,9 @@ let parseSysRegisterLdSt (phlp: ParsingHelper) bin =
   | 0b000u | 0b001u | 0b010u | 0b011u (* 0b0xxu *)
     when puw <> 0b000u && not (isCRd0101 bin) -> raise ParsingFailureException
   | 0b010u when puw <> 0b000u && isNotRn1111 bin |> not && isCRd0101 bin ->
-    chkWP bin; render phlp bin Op.LDC None OD.OprP14C5Label
+    (* if W == '1' then UNPREDICTABLE *)
+    pickBit bin 21 = 1u |> checkUnpred
+    render phlp bin Op.LDC None OD.OprP14C5Label
   | 0b001u | 0b011u | 0b101u | 0b111u (* 0bxx1u *) when puw <> 0b000u ->
     raise ParsingFailureException
   | 0b100u | 0b110u (* 0b1x0u *) when puw <> 0b000u && isCRd0101 bin ->
@@ -2780,7 +2778,7 @@ let parseFPDataProcThreeRegs (phlp: ParsingHelper) bin =
     chkSzCond bin phlp.Cond
     render phlp bin Op.VNMLA (oneDt SIMDTypF64) OD.OprDdDnDm
   (* 010xx0 VMUL *)
-  | 0b010000u ->raise UndefinedException
+  | 0b010000u -> raise UndefinedException
   | 0b010010u ->
     chkSzCond bin phlp.Cond
     render phlp bin Op.VMUL (oneDt SIMDTypF16) OD.OprSdSnSm
@@ -2802,7 +2800,7 @@ let parseFPDataProcThreeRegs (phlp: ParsingHelper) bin =
     chkSzCond bin phlp.Cond
     render phlp bin Op.VNMUL (oneDt SIMDTypF64) OD.OprDdDnDm
   (* 011xx0 VADD *)
-  | 0b011000u ->raise UndefinedException
+  | 0b011000u -> raise UndefinedException
   | 0b011010u ->
     chkSzCond bin phlp.Cond
     render phlp bin Op.VADD (oneDt SIMDTypF16) OD.OprSdSnSm
@@ -2813,7 +2811,7 @@ let parseFPDataProcThreeRegs (phlp: ParsingHelper) bin =
     chkSzCond bin phlp.Cond
     render phlp bin Op.VADD (oneDt SIMDTypF64) OD.OprDdDnDm
   (* 011xx1 VSUB *)
-  | 0b011001u ->raise UndefinedException
+  | 0b011001u -> raise UndefinedException
   | 0b011011u ->
     chkSzCond bin phlp.Cond
     render phlp bin Op.VSUB (oneDt SIMDTypF16) OD.OprSdSnSm
@@ -2824,7 +2822,7 @@ let parseFPDataProcThreeRegs (phlp: ParsingHelper) bin =
     chkSzCond bin phlp.Cond
     render phlp bin Op.VSUB (oneDt SIMDTypF64) OD.OprDdDnDm
   (* 100xx0 VDIV *)
-  | 0b100000u ->raise UndefinedException
+  | 0b100000u -> raise UndefinedException
   | 0b100010u ->
     chkSzCond bin phlp.Cond
     render phlp bin Op.VDIV (oneDt SIMDTypF16) OD.OprSdSnSm
@@ -2857,7 +2855,7 @@ let parseFPDataProcThreeRegs (phlp: ParsingHelper) bin =
     chkSzCond bin phlp.Cond
     render phlp bin Op.VFNMA (oneDt SIMDTypF64) OD.OprDdDnDm
   (* 110xx0 VFMA *)
-  | 0b110000u ->raise UndefinedException
+  | 0b110000u -> raise UndefinedException
   | 0b110010u ->
     chkSzCond bin phlp.Cond
     render phlp bin Op.VFMA (oneDt SIMDTypF16) OD.OprSdSnSm
@@ -2868,7 +2866,7 @@ let parseFPDataProcThreeRegs (phlp: ParsingHelper) bin =
     chkSzCond bin phlp.Cond
     render phlp bin Op.VFMA (oneDt SIMDTypF64) OD.OprDdDnDm
   (* 110xx1 VFMS *)
-  | 0b110001u ->raise UndefinedException
+  | 0b110001u -> raise UndefinedException
   | 0b110011u ->
     chkSzCond bin phlp.Cond
     render phlp bin Op.VFMS (oneDt SIMDTypF16) OD.OprSdSnSm
@@ -2891,8 +2889,7 @@ let parseFloatingPointDataProcessing (phlp: ParsingHelper) bin =
 let parseFPMoveSpecialReg (phlp: ParsingHelper) bin =
   match pickBit bin 20 (* L *) with
   | 0b0u -> chkPCRt bin; render phlp bin Op.VMSR None OD.OprSregRt
-  | _ (* 0b1u *) ->
-     chkPCRt bin; render phlp bin Op.VMRS None OD.OprRtSreg
+  | _ (* 0b1u *) -> chkPCRt bin; render phlp bin Op.VMRS None OD.OprRtSreg
 
 /// Advanced SIMD 8/16/32-bit element move/duplicate on page F4-4260.
 let parseAdvSIMD8n16n32bitElemMoveDup (phlp: ParsingHelper) bin =
@@ -3046,13 +3043,14 @@ let parseCase11 (phlp: ParsingHelper) bin =
   | 0b1010u -> parseFloatingPointDataProcessing phlp bin
   | _ (* 0b1011u *) -> parseAdvSIMDAndSysReg32bitMove phlp bin
 
+/// CPS, CPSID, CPSIE on page F5-4372.
 let parseCPS (phlp: ParsingHelper) bin =
   (* if mode != '00000' && M == '0' then UNPREDICTABLE
      if (imod<1> == '1' && A:I:F == '000') || (imod<1> == '0' && A:I:F != '000')
      then UNPREDICTABLE *)
   let imod1 = pickBit bin 19 (* imod<1> *)
   let aif = extract bin 8 6 (* A:I:F *)
-  (((extract bin 4 0 (* mode *) <> 0u) && (pickBit bin 8 = 0u (* M *))) ||
+  (((extract bin 4 0 (* mode *) <> 0u) && (pickBit bin 17 = 0u (* M *))) ||
    (((imod1 = 1u) && (aif = 0u)) || ((imod1 = 0u) && (aif <> 0u))))
    |> checkUnpred
   let struct (op, oprs) =
@@ -4731,19 +4729,19 @@ let parseAdvSIMDThreeRegsDiffLen (phlp: ParsingHelper) bin =
   match concat (pickBit bin 24) (extract bin 11 8) 4 (* U:opc *) with
   | 0b00000u | 0b10000u (* x0000 *) ->
     let dt = getDT bin |> oneDt
-    chkVdOp bin; render phlp bin Op.VADDL dt OD.OprQdDnDm
+    chkVdOpVn bin; render phlp bin Op.VADDL dt OD.OprQdDnDm
   | 0b00001u | 0b10001u (* x0001 *) ->
     let dt = getDT bin |> oneDt
-    chkVdOp bin; render phlp bin Op.VADDW dt OD.OprQdQnDm
+    chkVdOpVn bin; render phlp bin Op.VADDW dt OD.OprQdQnDm
   | 0b00010u | 0b10010u (* x0010 *) ->
     let dt = getDT bin |> oneDt
-    chkVdOp bin; render phlp bin Op.VSUBL dt OD.OprQdDnDm
+    chkVdOpVn bin; render phlp bin Op.VSUBL dt OD.OprQdDnDm
   | 0b00100u ->
     let dt = getDTInt (extract bin 21 20) |> oneDt
     chkVnVm bin; render phlp bin Op.VADDHN dt OD.OprDdQnQm
   | 0b00011u | 0b10011u (* x0011 *) ->
     let dt = getDT bin |> oneDt
-    chkVdOp bin; render phlp bin Op.VSUBW dt OD.OprQdQnDm
+    chkVdOpVn bin; render phlp bin Op.VSUBW dt OD.OprQdQnDm
   | 0b00110u ->
     let dt = getDTInt (extract bin 21 20) |> oneDt
     chkVnVm bin; render phlp bin Op.VSUBHN dt OD.OprDdQnQm
@@ -5013,13 +5011,7 @@ let parseAdvSIMDTwoRegsAndShfAmt (phlp: ParsingHelper) bin =
     pickBit bin 12 = 1u |> checkUndef
     render phlp bin Op.VSHLL (getDTImm6Byte bin) OD.OprQdDmImm
   | b when b &&& 0b011000u = 0b011000u (* x11xxx *) ->
-    (* if op<1> == '0' && imm6 == '10xxxx' then UNDEFINED
-       if imm6 == '0xxxxx' then UNDEFINED
-       if Q == '1' && (Vd<0> == '1' || Vm<0> == '1') then UNDEFINED *)
-    ((pickBit bin 9 = 0u && extract bin 21 20 = 0b10u) ||
-     (pickBit bin 21 = 0u) ||
-      (pickBit bin 6 = 1u && (pickBit bin 12 = 1u || pickBit bin 0 = 1u)))
-      |> checkUndef
+    chkOpImm6QVdVm bin
     let dt1 =
       match concat (extract bin 9 8) (pickBit bin 24) 1 (* op:U *) with
       | 0b000u | 0b001u (* 00x *) -> SIMDTypF16
