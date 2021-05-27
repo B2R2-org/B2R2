@@ -121,8 +121,9 @@ type SSABasicBlock (pp, instrs: InstructionInfo []) =
   member __.UpdatePPoints () =
     __.SSAStmtInfos
     |> Array.foldi (fun ppoint idx (_, stmt) ->
-      __.SSAStmtInfos.[idx] <- (ppoint, stmt)
-      computeNextPPoint ppoint stmt) pp
+      let ppoint' = computeNextPPoint ppoint stmt
+      __.SSAStmtInfos.[idx] <- (ppoint', stmt)
+      ppoint') pp
     |> ignore
 
   /// Return the array of SSAStmtInfos.
