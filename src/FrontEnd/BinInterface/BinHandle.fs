@@ -37,12 +37,14 @@ type BinHandle = {
   TranslationContext: TranslationContext
   Parser: Parser
   RegisterBay: RegisterBay
+  OS: OS
 }
 with
-  static member private Init (isa, mode, autoDetect, baseAddr, bytes, path) =
-    let fmt, isa = identifyFormatAndISA bytes isa autoDetect
+  static member private Init (isa, mode, autoDetect, baseAddr, bs, path, os) =
+    let fmt, isa = identifyFormatAndISA bs isa autoDetect
+    let os = BinHandle.inferOS fmt os autoDetect
     let struct (ctxt, regbay) = initBasis isa
-    let fi = newFileInfo bytes baseAddr path fmt isa regbay
+    let fi = newFileInfo bs baseAddr path fmt isa regbay
     assert (isa = fi.ISA)
     let parser = initParser isa mode fi
     { ISA = isa
@@ -50,42 +52,57 @@ with
       DisasmHelper = DisasmHelper (fi.TryFindFunctionSymbolName)
       TranslationContext = ctxt
       Parser = parser
-      RegisterBay = regbay }
+      RegisterBay = regbay
+      OS = os }
 
   static member Init (isa, archMode, autoDetect, baseAddr, bytes) =
-    BinHandle.Init (isa, archMode, autoDetect, baseAddr, bytes, "")
+    BinHandle.Init (isa, archMode, autoDetect, baseAddr, bytes, "", None)
 
   static member Init (isa, archMode, autoDetect, baseAddr, fileName) =
     let bytes = IO.File.ReadAllBytes fileName
     let fileName = IO.Path.GetFullPath fileName
-    BinHandle.Init (isa, archMode, autoDetect, baseAddr, bytes, fileName)
+    BinHandle.Init (isa, archMode, autoDetect, baseAddr, bytes, fileName, None)
 
   static member Init (isa, baseAddr, fileName) =
     let bytes = IO.File.ReadAllBytes fileName
     let fileName = IO.Path.GetFullPath fileName
     let defaultMode = ArchOperationMode.NoMode
-    BinHandle.Init (isa, defaultMode, true, baseAddr, bytes, fileName)
+    BinHandle.Init (isa, defaultMode, true, baseAddr, bytes, fileName, None)
 
   static member Init (isa, fileName) =
     BinHandle.Init (isa=isa, baseAddr=None, fileName=fileName)
 
   static member Init (isa, baseAddr, bytes) =
     let defaultMode = ArchOperationMode.NoMode
-    BinHandle.Init (isa, defaultMode, false, baseAddr, bytes, "")
+    BinHandle.Init (isa, defaultMode, false, baseAddr, bytes, "", None)
 
   static member Init (isa, bytes) =
     BinHandle.Init (isa=isa, baseAddr=None, bytes=bytes)
 
   static member Init (isa, archMode) =
-    BinHandle.Init (isa, archMode, false, None, [||], "")
+    BinHandle.Init (isa, archMode, false, None, [||], "", None)
 
-  static member Init (isa) = BinHandle.Init (isa, [||])
+  static member Init (isa, os) =
+    let defaultMode = ArchOperationMode.NoMode
+    BinHandle.Init (isa, defaultMode, false, None, [||], "", Some os)
+
+  static member Init (isa: ISA) = BinHandle.Init (isa, ([||]: byte []))
 
   static member UpdateCode hdl addr bs =
     { hdl with FileInfo = RawFileInfo (bs, "", hdl.ISA, Some addr) :> FileInfo }
 
   static member private UpdateFileInfo h fi =
     { h with FileInfo = fi }
+
+  static member private inferOS fmt os autoDetect =
+    let toOS = function
+      | FileFormat.ELFBinary -> OS.Linux
+      | FileFormat.PEBinary -> OS.Windows
+      | FileFormat.MachBinary -> OS.MacOSX
+      | _ -> OS.UnknownOS
+    match autoDetect, os with
+    | true, _ | false, None -> toOS fmt
+    | _ -> Option.get os
 
   static member PatchCode hdl addr (bs: byte []) =
     let fi = hdl.FileInfo

@@ -55,7 +55,7 @@ let newFileInfo bytes (baddr: Addr option) path fmt isa regbay =
     PEFileInfo (bytes, path, baddr) :> FileInfo
   | FileFormat.MachBinary ->
     MachFileInfo (bytes, path, isa, baddr) :> FileInfo
-  | _ -> new RawFileInfo (bytes, path, isa, baddr) :> FileInfo
+  | _ -> RawFileInfo (bytes, path, isa, baddr) :> FileInfo
 
 let initParser (isa: ISA) mode (fi: FileInfo) =
   match isa.Arch with

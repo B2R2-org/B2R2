@@ -40,6 +40,7 @@ type BinHandle = {
   TranslationContext: TranslationContext
   Parser: Parser
   RegisterBay: RegisterBay
+  OS: OS
 }
 with
   /// <summary>
@@ -230,10 +231,7 @@ with
   /// <param name="isa">ISA.</param>
   /// <param name="archMode">ArchOperatinoMode.</param>
   /// <returns>BinHandle.</returns>
-  static member Init:
-      isa: ISA
-    * archMode: ArchOperationMode
-    -> BinHandle
+  static member Init: isa: ISA * archMode: ArchOperationMode -> BinHandle
 
   /// <summary>
   ///   Initialize an empty BinHandle solely from an ISA, assuming that the
@@ -243,6 +241,16 @@ with
   /// <param name="isa">ISA.</param>
   /// <returns>BinHandle.</returns>
   static member Init: isa: ISA -> BinHandle
+
+  /// <summary>
+  ///   Initialize an empty BinHandle. This function is useful when you want to
+  ///   delay loading the actual body of your binary blob but also want to
+  ///   specify the os.
+  /// </summary>
+  /// <param name="isa">ISA.</param>
+  /// <param name="os">OS.</param>
+  /// <returns>BinHandle.</returns>
+  static member Init: isa: ISA * os: OS -> BinHandle
 
   /// <summary>
   ///   Update BinHandle to have new code at a new address (addr). BinHandle
