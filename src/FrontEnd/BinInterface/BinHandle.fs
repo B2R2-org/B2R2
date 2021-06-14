@@ -41,8 +41,7 @@ type BinHandle = {
 }
 with
   static member private Init (isa, mode, autoDetect, baseAddr, bs, path, os) =
-    let fmt, isa = identifyFormatAndISA bs isa autoDetect
-    let os = BinHandle.inferOS fmt os autoDetect
+    let fmt, isa, os = identifyFormatAndISAAndOS bs isa os autoDetect
     let struct (ctxt, regbay) = initBasis isa
     let fi = newFileInfo bs baseAddr path fmt isa regbay
     assert (isa = fi.ISA)
@@ -93,16 +92,6 @@ with
 
   static member private UpdateFileInfo h fi =
     { h with FileInfo = fi }
-
-  static member private inferOS fmt os autoDetect =
-    let toOS = function
-      | FileFormat.ELFBinary -> OS.Linux
-      | FileFormat.PEBinary -> OS.Windows
-      | FileFormat.MachBinary -> OS.MacOSX
-      | _ -> OS.UnknownOS
-    match autoDetect, os with
-    | true, _ | false, None -> toOS fmt
-    | _ -> Option.get os
 
   static member PatchCode hdl addr (bs: byte []) =
     let fi = hdl.FileInfo

@@ -27,4 +27,5 @@ list of contributors in alphabetic order.
 - Kangsu Kim
 - Minsu Lee
 - DongYeop Oh
+- MyeongGeun Shin
 - Michael Tegegn
