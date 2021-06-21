@@ -79,13 +79,15 @@ type CoverageMaintainer () =
   member __.IsAddressCovered addr =
     IntervalSet.tryFindByAddr addr coverage |> Option.isSome
 
-  /// For a given address range (from sAddr to eAddr), return a list of gap
-  /// start addresses. A gap is a "uncovered chunk" in the binary code.
+  /// For a given address range (from sAddr to eAddr), return a map from gap
+  /// start address to gap end address. A gap is a "uncovered chunk" in the
+  /// binary code.
   member __.ComputeGapAddrs sAddr eAddr =
     let range = AddrRange (sAddr, eAddr)
     match IntervalSet.findAll range coverage with
     | [] -> (* Nothing covered; the whole range is a gap. *)
       Map.add sAddr eAddr Map.empty
-    | [_] -> Map.empty (* Only a single overlap == No gap *)
-    | overlaps -> (* Two or more overlaps == one or more gaps *)
+    | [ overlap ] when range = overlap -> (* Given range is covered all. *)
+      Map.empty
+    | overlaps ->
       overlaps |> List.sortBy (fun r -> r.Min) |> computeGaps Map.empty sAddr
