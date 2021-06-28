@@ -27,6 +27,8 @@ namespace B2R2
 /// B2R2 represents the word size of a CPU with WordSize, which can be either
 /// 32- or 64-bit.
 type WordSize =
+  | Bit8 = 8
+  | Bit16 = 16
   | Bit32 = 32
   | Bit64 = 64
   | Bit128 = 128
@@ -39,6 +41,8 @@ exception InvalidWordSizeException
 module WordSize =
 
   let bitTypeOfString = function
+    | "8"  -> WordSize.Bit8
+    | "16"  -> WordSize.Bit16
     | "32"  -> WordSize.Bit32
     | "64"  -> WordSize.Bit64
     | "128" -> WordSize.Bit128
@@ -50,6 +54,8 @@ module WordSize =
 
   /// Transform a word size into a RegType.
   let toRegType = function
+    | WordSize.Bit8 -> 8<rt>
+    | WordSize.Bit16 -> 16<rt>
     | WordSize.Bit32  -> 32<rt>
     | WordSize.Bit64  -> 64<rt>
     | WordSize.Bit128 -> 128<rt>
