@@ -78,6 +78,7 @@ let peekArch (reader: BinReader) cls offset =
   | 0xB7s -> Arch.AARCH64
   | 0x08s
   | 0x0as -> getMIPSISA reader cls offset
+  | 0x53s -> Arch.AVR
   | _ -> Arch.UnknownISA
 
 let computeNewBaseAddr ftype baseAddr =

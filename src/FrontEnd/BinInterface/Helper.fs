@@ -41,6 +41,7 @@ let initBasis isa =
   | Arch.EVM -> EVM.Basis.init isa
   | Arch.TMS320C6000 -> TMS320C6000.Basis.init isa
   | Arch.CILOnly -> CIL.Basis.init isa
+  | Arch.AVR -> AVR.Basis.init isa
   | _ -> Utils.futureFeature ()
 
 let private appendOSInfo fmt isa =
@@ -77,6 +78,7 @@ let initParser (isa: ISA) mode (fi: FileInfo) =
   | Arch.EVM -> EVM.EVMParser (isa.WordSize) :> Parser
   | Arch.TMS320C6000 -> TMS320C6000.TMS320C6000Parser () :> Parser
   | Arch.CILOnly -> CIL.CILParser () :> Parser
+  | Arch.AVR -> AVR.AVRParser () :> Parser
   | _ -> Utils.futureFeature ()
 
 /// Classify ranges to be either in-file or not-in-file. The second parameter
