@@ -14,6 +14,7 @@
     <Compile Include="AVRRegExprs.fs" />
     <Compile Include="AVRRegisterBay.fs" />
     <Compile Include="AVRTypes.fs" />
+    <Compile Include="AVROperandHelper.fs" />
     <Compile Include="AVRDisasm.fs" />
     <Compile Include="AVRInstruction.fs" />
     <Compile Include="AVRParser.fs" />
