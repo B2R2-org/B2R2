@@ -48,6 +48,7 @@ type CalleeKind =
   /// Callee (call target) is unresolved yet. This eventually will become
   /// IndirectCallees after indirect call analyses.
   | UnresolvedIndirectCallees
+  | NullCallee
 
 /// NoReturnProperty of a function specifies whether the function will
 /// eventually return or not. Some functions, e.g., exit, will never return in
@@ -281,7 +282,8 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
   member __.AddEdge (callerBlk, callSite, callee, isTailCall) =
     let src = regularVertices.[callerBlk]
     let dst = __.GetOrAddFakeVertex (callSite, callee, isTailCall)
-    callEdges.[callSite] <- RegularCallee callee
+    callEdges.[callSite] <-
+      if callee = 0UL then NullCallee else RegularCallee callee
     callEdgeChanged <- true
     __.IRCFG <- DiGraph.addEdge __.IRCFG src dst CallEdge
 
@@ -550,7 +552,8 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
         match callee with
         | RegularCallee callee -> __.AddXRef entry xrefs callee
         | IndirectCallees callees -> Set.fold (__.AddXRef entry) xrefs callees
-        | UnresolvedIndirectCallees -> xrefs) xrefs
+        | UnresolvedIndirectCallees -> xrefs
+        | NullCallee -> xrefs) xrefs
     else xrefs
 
   /// Return the sorted gaps' ranges. Each range is a mapping from a start

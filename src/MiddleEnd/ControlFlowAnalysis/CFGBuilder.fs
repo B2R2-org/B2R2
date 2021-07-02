@@ -104,12 +104,22 @@ module private CFGBuilder =
     then myfn.NoReturnProperty <- NotNoRet
     else ()
 
-  let buildCall hdl codeMgr fn callSite callee isTailCall evts =
-    let calleeFn, evts = getCallee hdl codeMgr callee evts
+  /// Sometimes we could find call 0 from static compiled binaries. In such
+  /// case, we do not create function at address 0, nor mark it as returning.
+  let buildNULLCall (codeMgr: CodeManager) fn callSite callee isTailCall evts =
     let callerBlk = Set.maxElement (codeMgr.GetBBL callSite).IRLeaders
     (fn: RegularFunction).AddEdge (callerBlk, callSite, callee, isTailCall)
-    markAsReturning fn isTailCall calleeFn
     Ok evts
+
+  let buildCall hdl codeMgr fn callSite callee isTailCall evts =
+    if callee = 0UL then
+      buildNULLCall codeMgr fn callSite callee isTailCall evts
+    else
+      let calleeFn, evts = getCallee hdl codeMgr callee evts
+      let callerBlk = Set.maxElement (codeMgr.GetBBL callSite).IRLeaders
+      (fn: RegularFunction).AddEdge (callerBlk, callSite, callee, isTailCall)
+      markAsReturning fn isTailCall calleeFn
+      Ok evts
 
   let buildIndCall (codeMgr: CodeManager) fn callSite evts =
     let callerBlk = Set.maxElement (codeMgr.GetBBL callSite).IRLeaders

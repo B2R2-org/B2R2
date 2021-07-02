@@ -113,7 +113,7 @@ module private LibcAnalysisHelper =
             match callee with
             | RegularCallee target -> isLibcStartMain target
             | IndirectCallees addrs -> Set.exists isLibcStartMain addrs
-            | UnresolvedIndirectCallees (_) -> false)
+            | UnresolvedIndirectCallees (_) | NullCallee -> false)
           |> fst
         analyzeLibcStartMain builder hdl codeMgr start.Entry callSite
     | _ -> false
