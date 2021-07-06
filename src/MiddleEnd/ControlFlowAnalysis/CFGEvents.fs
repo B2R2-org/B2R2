@@ -117,6 +117,16 @@ module CFGEvents =
         | elm -> elm)
     { evts with BasicEvents = basicEvents }
 
+  let updateEvtsAfterBBLMerge srcPp dstPp evts =
+    let basicEvents =
+      evts.BasicEvents
+      |> List.map (fun elm ->
+        match elm with
+        | CFGEdge (fn, src, dst, edge) when src = dstPp ->
+          CFGEdge (fn, srcPp, dst, edge)
+        | elm -> elm)
+    { evts with BasicEvents = basicEvents }
+
   let updateEvtsAfterFuncSplit (newFn: RegularFunction) evts =
     let basicEvents =
       evts.BasicEvents

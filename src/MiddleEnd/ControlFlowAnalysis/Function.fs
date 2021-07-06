@@ -389,6 +389,42 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
     regularVertices.[splitPoint] <- dst
     dst
 
+  member __.MergeVertexAndReplaceInlinedAssembly src dst insAddrs assembly =
+    let srcInfos = (src: IRVertex).VData.InsInfos
+    let dstInfos = (dst: IRVertex).VData.InsInfos
+    let fstAddr = List.head insAddrs
+    let lastAddr = List.rev insAddrs |> List.head
+    let front =
+      srcInfos
+      |> Array.filter (fun insInfo -> insInfo.Instruction.Address < fstAddr)
+    let back =
+      dstInfos
+      |> Array.filter (fun insInfo -> insInfo.Instruction.Address > lastAddr)
+    let lastInsInfo =
+      dstInfos
+      |> Array.find (fun insInfo -> insInfo.Instruction.Address = lastAddr)
+    let assemblyInfo =
+      { Instruction = assembly;
+        Stmts = lastInsInfo.Stmts;
+        BBLAddr = srcInfos.[0].BBLAddr }
+    let insInfos = Array.concat [ front; [| assemblyInfo |]; back ]
+    let blk = IRBasicBlock.initRegular insInfos src.VData.PPoint
+    __.AddVertex blk
+
+  member __.MergeBBLAndReplaceInlinedAssembly (srcPoint, dstPoint, insAddrs, assembly) =
+    let src = regularVertices.[srcPoint]
+    let dst = regularVertices.[dstPoint]
+    regularVertices.Remove srcPoint |> ignore
+    regularVertices.Remove dstPoint |> ignore
+    let ins, _, _ = categorizeNeighboringEdges __.IRCFG src
+    let _, outs, _ = categorizeNeighboringEdges __.IRCFG dst
+    __.RemoveVertex src
+    __.RemoveVertex dst
+    let v = __.MergeVertexAndReplaceInlinedAssembly src dst insAddrs assembly
+    ins |> List.iter (fun (p, e) -> RegularFunction.AddEdgeByType __ p v e)
+    outs |> List.iter (fun (s, e) -> RegularFunction.AddEdgeByType __ v s e)
+    regularVertices.[v.VData.PPoint] <- v
+
   /// Split the BBL at bblPoint into two at the splitPoint, and make the
   /// splitPoint be a new function's entry block. This function returns the
   /// newly created function, along with a test function that can check perform

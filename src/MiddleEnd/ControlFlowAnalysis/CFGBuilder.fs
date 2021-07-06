@@ -151,6 +151,15 @@ module private CFGBuilder =
       makeCalleeNoReturn codeMgr fn callee callSite
       Ok evts
 
+  let createJumpAfterLock (codeMgr: CodeManager) patternStart addrs =
+    let last = List.rev addrs |> List.head
+    let insInfo = codeMgr.GetInstruction last
+    let addr = patternStart
+    let size = last + uint64 insInfo.Instruction.Length - patternStart
+    let wordSize = insInfo.Instruction.WordSize
+    let stmts = insInfo.Stmts
+    InlinedAssembly.Init addr (uint32 size) wordSize stmts
+
   /// Build a regular edge, which is any edge that is not a call, an indirect
   /// call, nor a ret edge.
   let buildRegularEdge hdl (codeMgr: CodeManager) dataMgr fn src dst edge evts =
@@ -172,7 +181,13 @@ module private CFGBuilder =
       splitAndConnectEdge codeMgr fn src dst edge evts
     elif not (codeMgr.HasInstruction dst) (* Jump to the middle of an instr *)
       && fn.IsAddressCovered dst then
-      Error ErrorConnectingEdge
+      match InlinedAssemblyPattern.checkInlinedAssemblyPattern hdl dst with
+      | NotInlinedAssembly -> Error ErrorConnectingEdge
+      | JumpAfterLock addrs ->
+        let patternStart = List.head addrs
+        let assembly = createJumpAfterLock codeMgr patternStart addrs
+        let evts = codeMgr.ReplaceInlinedAssembly addrs assembly evts
+        Ok evts
     else
       match buildBBL hdl codeMgr fn mode dst evts with
       | Ok evts -> fn.AddEdge (src, ProgramPoint (dst, 0), edge); Ok evts

@@ -189,6 +189,31 @@ type CodeManager (hdl) =
     if Set.contains splitPp bbl.IRLeaders then Ok (None, evts)
     else __.SplitCFG func bbl splitPp evts isNewFn |> Ok
 
+  member private __.MergeBBLInfoAndReplaceInlinedAssembly (fstBBL: BBLInfo) (sndBBL: BBLInfo) addrs =
+    let restAddrs = List.tail addrs
+    __.RemoveBBL (fstBBL)
+    __.RemoveBBL (sndBBL)
+    let blkRange = AddrRange (fstBBL.BlkRange.Min, sndBBL.BlkRange.Max)
+    let leaders =
+      Set.union fstBBL.IRLeaders sndBBL.IRLeaders
+      |> Set.filter (fun leader -> not <| List.contains leader.Address restAddrs)
+    let addrs =
+      Set.union fstBBL.InstrAddrs sndBBL.InstrAddrs
+      |> Set.filter (fun addr -> not <| List.contains addr restAddrs)
+      |> Set.toList
+    let entry = fstBBL.FunctionEntry
+    __.AddBBL blkRange leaders entry addrs
+
+  member __.ReplaceInlinedAssembly insAddrs (assembly: Instruction) evts =
+    let fstBBL = __.GetBBL assembly.Address
+    let sndBBL = __.GetBBL fstBBL.BlkRange.Max
+    __.MergeBBLInfoAndReplaceInlinedAssembly fstBBL sndBBL insAddrs
+    let fn = funcMaintainer.FindRegular fstBBL.FunctionEntry
+    let srcPoint = fstBBL.IRLeaders.MaximumElement
+    let dstPoint = sndBBL.IRLeaders.MinimumElement
+    fn.MergeBBLAndReplaceInlinedAssembly (srcPoint, dstPoint, insAddrs, assembly)
+    CFGEvents.updateEvtsAfterBBLMerge srcPoint dstPoint evts
+
   /// Update function entry information for the basic block located at the given
   /// address.
   member __.UpdateFunctionEntry bblAddr funcEntry =

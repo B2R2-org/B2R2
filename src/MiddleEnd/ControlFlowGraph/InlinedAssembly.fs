@@ -29,7 +29,9 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinInterface
 
 type InlinedAssemblyTypes =
-  | JumpAfterLock
+  /// Jump-after-lock pattern to make the instruction atomic. This pattern spans
+  /// instructions in addrs.
+  | JumpAfterLock of addrs: Addr list
   | NotInlinedAssembly
 
 module InlinedAssemblyPattern =
@@ -42,7 +44,9 @@ module InlinedAssemblyPattern =
     BinHandle.ReadBytes (hdl, targetBlkAddr - 12UL, 12) = jumpAfterLockPattern
 
   let checkInlinedAssemblyPattern hdl targetBlkAddr =
-    if checkJumpAfterLock hdl targetBlkAddr then JumpAfterLock
+    if checkJumpAfterLock hdl targetBlkAddr then
+      let patternStart = targetBlkAddr - 12UL
+      JumpAfterLock [patternStart; patternStart + 9UL; patternStart + 11UL]
     else NotInlinedAssembly
 
 type InlinedAssembly (addr, len, wordSize, stmts) =
