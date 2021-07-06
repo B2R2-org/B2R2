@@ -185,6 +185,8 @@ type IntelInstruction
     Disasm.disasm Dummy.helper __ builder
     builder.Finalize ()
 
+  override __.IsInlinedAssembly () = false
+
   interface ICacheableOperation<TranslationContext, BinIR.LowUIR.Stmt []> with
     member __.Perform ctxt = (Lifter.translate __ len ctxt).ToStmts ()
 

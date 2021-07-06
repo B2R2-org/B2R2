@@ -53,6 +53,7 @@ type CILInstruction (addr, numBytes, wordSize) =
   override __.Disasm (_, _, _) = Utils.futureFeature ()
   override __.Disasm () = Utils.futureFeature ()
   override __.Decompose (_) = Utils.futureFeature ()
+  override __.IsInlinedAssembly () = false
 
   override __.Equals (_) = Utils.futureFeature ()
   override __.GetHashCode () = Utils.futureFeature ()
