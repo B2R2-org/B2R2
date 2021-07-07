@@ -252,10 +252,7 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
   /// with its leader address) to this function.
   member __.AddVertex (instrs, leader) =
     let blk = IRBasicBlock.initRegular instrs leader
-    let v, g = DiGraph.addVertex __.IRCFG blk
-    __.IRCFG <- g
-    regularVertices.[leader] <- v
-    coverage.AddCoverage blk.Range
+    __.AddVertex blk
 
   /// Add/replace a regular edge to this function.
   member __.AddEdge (srcPp, dstPp, edge) =
@@ -325,10 +322,7 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
 
   /// Remove the fake block from this function.
   member __.RemoveFakeVertex ((callSite, _) as fakeEdgeKey) =
-    let v = fakeVertices.[fakeEdgeKey]
-    __.IRCFG <- DiGraph.removeVertex __.IRCFG v
-    fakeVertices.Remove (fakeEdgeKey) |> ignore
-    callEdges.Remove callSite |> ignore
+    fakeVertices.[fakeEdgeKey] |> __.RemoveVertex
 
   /// Remove the given edge.
   member __.RemoveEdge (src, dst) =
@@ -385,8 +379,6 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
     ins |> List.iter (fun (p, e) -> RegularFunction.AddEdgeByType __ p src e)
     outs |> List.iter (fun (s, e) -> RegularFunction.AddEdgeByType __ dst s e)
     cycle |> Option.iter (fun e -> RegularFunction.AddEdgeByType __ dst src e)
-    regularVertices.[bblPoint] <- src
-    regularVertices.[splitPoint] <- dst
     dst
 
   member __.MergeVertexAndReplaceInlinedAssembly src dst insAddrs assembly =
