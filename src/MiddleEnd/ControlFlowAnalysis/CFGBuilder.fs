@@ -51,10 +51,12 @@ module private CFGBuilder =
     | Some bbl when bbl.FunctionEntry <> entry ->
       codeMgr.HistoryManager.Record <| CreatedFunction entry
       if bbl.BlkRange.Min <> entry then
-        codeMgr.SplitBlock bbl entry evts true |> Result.map snd
+        let _, evts = codeMgr.SplitBlock bbl entry evts
+        let _, evts = codeMgr.PromoteBBL hdl entry bbl dataMgr evts
+        Ok evts
       else
-        let func, evts = codeMgr.PromoteBBL hdl entry bbl dataMgr evts
-        buildBBL hdl codeMgr func mode entry evts
+        let _, evts = codeMgr.PromoteBBL hdl entry bbl dataMgr evts
+        Ok evts
     | _ ->
       let func =
         match codeMgr.FunctionMaintainer.TryFindRegular entry with
@@ -73,8 +75,8 @@ module private CFGBuilder =
     if bbl.FunctionEntry <> (fn: RegularFunction).Entry then
       Error ErrorConnectingEdge
     else
-      match codeMgr.SplitBlock bbl dst evts false with
-      | Ok (Some front, evts) ->
+      match codeMgr.SplitBlock bbl dst evts with
+      | Some front, evts ->
         (* When a bbl is self-dividing itself, then the dst block should have a
            self-loop. For example, if a BBL has three instructions (a, b, c) and
            if c has a branch to b, then we split the block into (a) and (b, c),
@@ -82,10 +84,9 @@ module private CFGBuilder =
         let src = if src = front then ProgramPoint (dst, 0) else src
         fn.AddEdge (src, ProgramPoint (dst, 0), edge)
         Ok evts
-      | Ok (_, evts) ->
+      | _, evts ->
         fn.AddEdge (src, ProgramPoint (dst, 0), edge)
         Ok evts
-      | Error e -> Error e
 
   let getCallee hdl (codeMgr: CodeManager) callee evts =
     match codeMgr.FunctionMaintainer.TryFind (addr=callee) with
