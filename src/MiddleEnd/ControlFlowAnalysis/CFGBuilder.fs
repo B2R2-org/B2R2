@@ -189,6 +189,7 @@ module private CFGBuilder =
         let assembly = createJumpAfterLock codeMgr patternStart addrs
         let evts = codeMgr.ReplaceInlinedAssembly addrs assembly evts
         Ok evts
+    elif dst = 0UL then Ok evts (* jmp 0 case, especially from libc *)
     else
       match buildBBL hdl codeMgr fn mode dst evts with
       | Ok evts -> fn.AddEdge (src, ProgramPoint (dst, 0), edge); Ok evts
