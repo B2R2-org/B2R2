@@ -47,8 +47,7 @@ module private CFGBuilder =
 
   let buildFunction hdl (codeMgr: CodeManager) dataMgr entry mode evts =
     match codeMgr.TryGetBBL entry with
-    (* Need to split the existing bbl. *)
-    | Some bbl when bbl.FunctionEntry <> entry ->
+    | Some bbl when bbl.FunctionEntry <> entry -> (* Need to split *)
       codeMgr.HistoryManager.Record <| CreatedFunction entry
       if bbl.BlkRange.Min <> entry then
         let _, evts = codeMgr.SplitBlock bbl entry evts
@@ -105,20 +104,12 @@ module private CFGBuilder =
     then myfn.NoReturnProperty <- NotNoRet
     else ()
 
-  /// Sometimes we could find call 0 from static compiled binaries. In such
-  /// case, we do not create function at address 0, nor mark it as returning.
-  let buildNULLCall (codeMgr: CodeManager) fn callSite callee isTailCall evts =
+  let buildCall hdl (codeMgr: CodeManager) fn callSite callee isTailCall evts =
     let callerBlk = Set.maxElement (codeMgr.GetBBL callSite).IRLeaders
     (fn: RegularFunction).AddEdge (callerBlk, callSite, callee, isTailCall)
-    Ok evts
-
-  let buildCall hdl codeMgr fn callSite callee isTailCall evts =
-    if callee = 0UL then
-      buildNULLCall codeMgr fn callSite callee isTailCall evts
+    if callee = 0UL then Ok evts (* Ignore the callee for "call 0" cases. *)
     else
       let calleeFn, evts = getCallee hdl codeMgr callee evts
-      let callerBlk = Set.maxElement (codeMgr.GetBBL callSite).IRLeaders
-      (fn: RegularFunction).AddEdge (callerBlk, callSite, callee, isTailCall)
       markAsReturning fn isTailCall calleeFn
       Ok evts
 
@@ -152,14 +143,13 @@ module private CFGBuilder =
       makeCalleeNoReturn codeMgr fn callee callSite
       Ok evts
 
-  let createJumpAfterLock (codeMgr: CodeManager) patternStart addrs =
+  let createJumpAfterLockChunk (codeMgr: CodeManager) chunkStartAddr addrs =
     let last = List.rev addrs |> List.head
-    let insInfo = codeMgr.GetInstruction last
-    let addr = patternStart
-    let size = last + uint64 insInfo.Instruction.Length - patternStart
-    let wordSize = insInfo.Instruction.WordSize
-    let stmts = insInfo.Stmts
-    InlinedAssembly.Init addr (uint32 size) wordSize stmts
+    let lastIns = codeMgr.GetInstruction last
+    let size = last + uint64 lastIns.Instruction.Length - chunkStartAddr
+    let wordSize = lastIns.Instruction.WordSize
+    let stmts = lastIns.Stmts
+    InlinedAssembly.Init chunkStartAddr (uint32 size) wordSize stmts
 
   /// Build a regular edge, which is any edge that is not a call, an indirect
   /// call, nor a ret edge.
@@ -186,10 +176,9 @@ module private CFGBuilder =
       | NotInlinedAssembly -> Error ErrorConnectingEdge
       | JumpAfterLock addrs ->
         let patternStart = List.head addrs
-        let assembly = createJumpAfterLock codeMgr patternStart addrs
-        let evts = codeMgr.ReplaceInlinedAssembly addrs assembly evts
-        Ok evts
-    elif dst = 0UL then Ok evts (* jmp 0 case, especially from libc *)
+        let chunk = createJumpAfterLockChunk codeMgr patternStart addrs
+        codeMgr.ReplaceInlinedAssemblyChunk addrs chunk evts |> Ok
+    elif dst = 0UL then Ok evts (* "jmp 0" case (as in "call 0"). *)
     else
       match buildBBL hdl codeMgr fn mode dst evts with
       | Ok evts -> fn.AddEdge (src, ProgramPoint (dst, 0), edge); Ok evts

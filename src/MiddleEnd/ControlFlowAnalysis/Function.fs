@@ -48,6 +48,9 @@ type CalleeKind =
   /// Callee (call target) is unresolved yet. This eventually will become
   /// IndirectCallees after indirect call analyses.
   | UnresolvedIndirectCallees
+  /// There can be "call 0" to call an external function. This pattern is typically
+  /// observed by object files, but sometimes we do see this pattern in regular
+  /// executables, e.g., GNU libc.
   | NullCallee
 
 /// NoReturnProperty of a function specifies whether the function will
@@ -260,7 +263,7 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
     let dst = regularVertices.[dstPp]
     __.IRCFG <- DiGraph.addEdge __.IRCFG src dst edge
 
-  member __.AddFakeVertex edgeKey bbl =
+  member private __.AddFakeVertex edgeKey bbl =
     let v, g = DiGraph.addVertex __.IRCFG bbl
     __.IRCFG <- g
     fakeVertices.[edgeKey] <- v
@@ -325,7 +328,10 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
 
   /// Remove the fake block from this function.
   member __.RemoveFakeVertex ((callSite, _) as fakeEdgeKey) =
-    fakeVertices.[fakeEdgeKey] |> __.RemoveVertex
+    let v = fakeVertices.[fakeEdgeKey]
+    __.IRCFG <- DiGraph.removeVertex __.IRCFG v
+    fakeVertices.Remove (fakeEdgeKey) |> ignore
+    callEdges.Remove callSite |> ignore
 
   /// Remove the given edge.
   member __.RemoveEdge (src, dst) =
@@ -384,40 +390,38 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
     cycle |> Option.iter (fun e -> RegularFunction.AddEdgeByType __ dst src e)
     dst
 
-  member private __.MergeVertexAndReplaceInlinedAssembly src dst insAddrs assembly =
-    let srcInfos = (src: IRVertex).VData.InsInfos
-    let dstInfos = (dst: IRVertex).VData.InsInfos
+  member private __.GetMergedVertex srcV dstV insAddrs chunk =
+    let src = (srcV: IRVertex).VData.InsInfos
+    let dst = (dstV: IRVertex).VData.InsInfos
     let fstAddr = List.head insAddrs
-    let lastAddr = List.rev insAddrs |> List.head
-    let front =
-      srcInfos
-      |> Array.filter (fun insInfo -> insInfo.Instruction.Address < fstAddr)
-    let back =
-      dstInfos
-      |> Array.filter (fun insInfo -> insInfo.Instruction.Address > lastAddr)
-    let lastInsInfo =
-      dstInfos
-      |> Array.find (fun insInfo -> insInfo.Instruction.Address = lastAddr)
-    let assemblyInfo =
-      { Instruction = assembly;
-        Stmts = lastInsInfo.Stmts;
-        BBLAddr = srcInfos.[0].BBLAddr }
-    let insInfos = Array.concat [ front; [| assemblyInfo |]; back ]
-    let blk = IRBasicBlock.initRegular insInfos src.VData.PPoint
-    __.AddVertex blk
+    let lastAddr = List.last insAddrs
+    let chunkIdx =
+      src |> Array.findIndex (fun i -> i.Instruction.Address >= fstAddr)
+    let backIdx =
+      dst |> Array.findIndexBack (fun i -> i.Instruction.Address <= lastAddr)
+    let front = src.[0 .. chunkIdx - 1]
+    let back = dst.[backIdx + 1 .. dst.Length - 1]
+    let lastInsInfo = dst.[backIdx]
+    let chunkInfo =
+      [| { Instruction = chunk;
+           Stmts = lastInsInfo.Stmts;
+           BBLAddr = src.[0].BBLAddr } |]
+    let insInfos = Array.concat [ front; chunkInfo; back ]
+    IRBasicBlock.initRegular insInfos srcV.VData.PPoint
+    |> __.AddVertex
 
-  /// Merge two vertices starting from srcPoint and dstPoint first, and
-  /// replace instructions at addresses in insAddrs with assembly.
-  member __.MergeBBLAndReplaceInlinedAssembly (srcPoint, dstPoint, insAddrs, assembly) =
-    let src = regularVertices.[srcPoint]
-    let dst = regularVertices.[dstPoint]
-    regularVertices.Remove srcPoint |> ignore
-    regularVertices.Remove dstPoint |> ignore
+  /// Merge two vertices connected with an inlined assembly chunk, where there
+  /// is a control-flow to the middle of an instruction.
+  member __.MergeVerticesWithInlinedAsmChunk (insAddrs, srcPp, dstPp, chunk) =
+    let src = regularVertices.[srcPp]
+    let dst = regularVertices.[dstPp]
+    regularVertices.Remove srcPp |> ignore
+    regularVertices.Remove dstPp |> ignore
     let ins, _, _ = categorizeNeighboringEdges __.IRCFG src
     let _, outs, _ = categorizeNeighboringEdges __.IRCFG dst
     __.RemoveVertex src
     __.RemoveVertex dst
-    let v = __.MergeVertexAndReplaceInlinedAssembly src dst insAddrs assembly
+    let v = __.GetMergedVertex src dst insAddrs chunk
     ins |> List.iter (fun (p, e) -> RegularFunction.AddEdgeByType __ p v e)
     outs |> List.iter (fun (s, e) -> RegularFunction.AddEdgeByType __ v s e)
     regularVertices.[v.VData.PPoint] <- v
@@ -574,8 +578,7 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
         match callee with
         | RegularCallee callee -> __.AddXRef entry xrefs callee
         | IndirectCallees callees -> Set.fold (__.AddXRef entry) xrefs callees
-        | UnresolvedIndirectCallees -> xrefs
-        | NullCallee -> xrefs) xrefs
+        | UnresolvedIndirectCallees | NullCallee -> xrefs) xrefs
     else xrefs
 
   /// Return the sorted gaps' ranges. Each range is a mapping from a start

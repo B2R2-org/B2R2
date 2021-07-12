@@ -28,10 +28,18 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinInterface
 
+/// Sometimes, inlined assembly creates branches that jump into the middle of an
+/// instruction. For example, the following pattern is commonly found in Libc.
+///
+/// 41af15: 64 83 3c 25 18 00 00 00 00    cmpl  $0x0,%fs:0x18
+/// 41af1e: 74 01                         je    41af21 <arena_get2.part.0+0x4a1>
+/// 41af20: f0 48 ff 0d c0 57 0a 00       lock decq 0xa57c0(%rip)
+///
+/// We call such the above code pattern as the "jump-after-lock" pattern.
 type InlinedAssemblyTypes =
-  /// Jump-after-lock pattern to make the instruction atomic. This pattern spans
-  /// instructions in addrs.
+  /// The jump-after-lock pattern that spans multiple instruction addresses.
   | JumpAfterLock of addrs: Addr list
+  /// No known pattern.
   | NotInlinedAssembly
 
 module InlinedAssemblyPattern =
@@ -40,11 +48,13 @@ module InlinedAssemblyPattern =
     [| 0x64uy; 0x83uy; 0x3cuy; 0x25uy; 0x18uy; 0x00uy; 0x00uy; 0x00uy; 0x00uy;
       0x74uy; 0x01uy; 0xf0uy |]
 
-  let private checkJumpAfterLock hdl targetBlkAddr =
-    BinHandle.ReadBytes (hdl, targetBlkAddr - 12UL, 12) = jumpAfterLockPattern
+  let private isJumpAfterLock hdl targetBlkAddr =
+    if targetBlkAddr < 12UL then false
+    else
+      BinHandle.ReadBytes (hdl, targetBlkAddr - 12UL, 12) = jumpAfterLockPattern
 
   let checkInlinedAssemblyPattern hdl targetBlkAddr =
-    if checkJumpAfterLock hdl targetBlkAddr then
+    if isJumpAfterLock hdl targetBlkAddr then
       let patternStart = targetBlkAddr - 12UL
       JumpAfterLock [patternStart; patternStart + 9UL; patternStart + 11UL]
     else NotInlinedAssembly

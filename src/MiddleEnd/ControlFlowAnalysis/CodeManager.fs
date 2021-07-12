@@ -91,7 +91,7 @@ type CodeManager (hdl) =
   member __.HasInstruction addr = insMap.ContainsKey addr
 
   /// Access instruction at the given address.
-  member __.GetInstruction (i: Addr) = insMap.[i]
+  member __.GetInstruction (addr: Addr) = insMap.[addr]
 
   /// Fold every instruction stored in the CodeManager.
   member __.FoldInstructions fn acc =
@@ -182,10 +182,10 @@ type CodeManager (hdl) =
     if Set.contains splitPp bbl.IRLeaders then None, evts
     else __.SplitCFG func bbl splitPp evts
 
-  member private __.MergeBBLInfoAndReplaceInlinedAssembly (fstBBL: BBLInfo) (sndBBL: BBLInfo) addrs =
+  member private __.MergeBBLInfoAndReplaceInlinedAssembly addrs fstBBL sndBBL =
     let restAddrs = List.tail addrs
-    __.RemoveBBL (fstBBL)
-    __.RemoveBBL (sndBBL)
+    __.RemoveBBL (bbl=fstBBL)
+    __.RemoveBBL (bbl=sndBBL)
     let blkRange = AddrRange (fstBBL.BlkRange.Min, sndBBL.BlkRange.Max)
     let leaders =
       Set.union fstBBL.IRLeaders sndBBL.IRLeaders
@@ -197,14 +197,14 @@ type CodeManager (hdl) =
     let entry = fstBBL.FunctionEntry
     __.AddBBL blkRange leaders entry addrs
 
-  member __.ReplaceInlinedAssembly insAddrs (assembly: Instruction) evts =
-    let fstBBL = __.GetBBL assembly.Address
+  member __.ReplaceInlinedAssemblyChunk insAddrs (chunk: Instruction) evts =
+    let fstBBL = __.GetBBL chunk.Address
     let sndBBL = __.GetBBL fstBBL.BlkRange.Max
-    __.MergeBBLInfoAndReplaceInlinedAssembly fstBBL sndBBL insAddrs
+    __.MergeBBLInfoAndReplaceInlinedAssembly insAddrs fstBBL sndBBL
     let fn = funcMaintainer.FindRegular fstBBL.FunctionEntry
     let srcPoint = fstBBL.IRLeaders.MaximumElement
     let dstPoint = sndBBL.IRLeaders.MinimumElement
-    fn.MergeBBLAndReplaceInlinedAssembly (srcPoint, dstPoint, insAddrs, assembly)
+    fn.MergeVerticesWithInlinedAsmChunk (insAddrs, srcPoint, dstPoint, chunk)
     CFGEvents.updateEvtsAfterBBLMerge srcPoint dstPoint evts
 
   /// Update function entry information for the basic block located at the given
