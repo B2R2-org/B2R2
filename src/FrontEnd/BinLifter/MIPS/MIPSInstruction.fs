@@ -137,6 +137,8 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
     Disasm.disasm wordSize __.Info builder
     builder.Finalize ()
 
+  override __.IsInlinedAssembly () = false
+
   override __.Equals (_) = Utils.futureFeature ()
   override __.GetHashCode () = Utils.futureFeature ()
 

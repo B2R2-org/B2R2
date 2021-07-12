@@ -98,6 +98,8 @@ type AVRInstruction (addr, numBytes, insInfo) =
     Disasm.disasm __.Info builder
     builder.Finalize ()
 
+  override __.IsInlinedAssembly () = false
+
   override __.Equals (_) = Utils.futureFeature ()
   override __.GetHashCode () = Utils.futureFeature ()
 

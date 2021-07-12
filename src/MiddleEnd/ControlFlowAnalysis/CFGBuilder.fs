@@ -47,14 +47,15 @@ module private CFGBuilder =
 
   let buildFunction hdl (codeMgr: CodeManager) dataMgr entry mode evts =
     match codeMgr.TryGetBBL entry with
-    (* Need to split the existing bbl. *)
-    | Some bbl when bbl.FunctionEntry <> entry ->
+    | Some bbl when bbl.FunctionEntry <> entry -> (* Need to split *)
       codeMgr.HistoryManager.Record <| CreatedFunction entry
       if bbl.BlkRange.Min <> entry then
-        codeMgr.SplitBlock bbl entry evts true |> Result.map snd
+        let _, evts = codeMgr.SplitBlock bbl entry evts
+        let _, evts = codeMgr.PromoteBBL hdl entry bbl dataMgr evts
+        Ok evts
       else
-        let func, evts = codeMgr.PromoteBBL hdl entry bbl dataMgr evts
-        buildBBL hdl codeMgr func mode entry evts
+        let _, evts = codeMgr.PromoteBBL hdl entry bbl dataMgr evts
+        Ok evts
     | _ ->
       let func =
         match codeMgr.FunctionMaintainer.TryFindRegular entry with
@@ -73,8 +74,8 @@ module private CFGBuilder =
     if bbl.FunctionEntry <> (fn: RegularFunction).Entry then
       Error ErrorConnectingEdge
     else
-      match codeMgr.SplitBlock bbl dst evts false with
-      | Ok (Some front, evts) ->
+      match codeMgr.SplitBlock bbl dst evts with
+      | Some front, evts ->
         (* When a bbl is self-dividing itself, then the dst block should have a
            self-loop. For example, if a BBL has three instructions (a, b, c) and
            if c has a branch to b, then we split the block into (a) and (b, c),
@@ -82,10 +83,9 @@ module private CFGBuilder =
         let src = if src = front then ProgramPoint (dst, 0) else src
         fn.AddEdge (src, ProgramPoint (dst, 0), edge)
         Ok evts
-      | Ok (_, evts) ->
+      | _, evts ->
         fn.AddEdge (src, ProgramPoint (dst, 0), edge)
         Ok evts
-      | Error e -> Error e
 
   let getCallee hdl (codeMgr: CodeManager) callee evts =
     match codeMgr.FunctionMaintainer.TryFind (addr=callee) with
@@ -104,12 +104,14 @@ module private CFGBuilder =
     then myfn.NoReturnProperty <- NotNoRet
     else ()
 
-  let buildCall hdl codeMgr fn callSite callee isTailCall evts =
-    let calleeFn, evts = getCallee hdl codeMgr callee evts
+  let buildCall hdl (codeMgr: CodeManager) fn callSite callee isTailCall evts =
     let callerBlk = Set.maxElement (codeMgr.GetBBL callSite).IRLeaders
     (fn: RegularFunction).AddEdge (callerBlk, callSite, callee, isTailCall)
-    markAsReturning fn isTailCall calleeFn
-    Ok evts
+    if callee = 0UL then Ok evts (* Ignore the callee for "call 0" cases. *)
+    else
+      let calleeFn, evts = getCallee hdl codeMgr callee evts
+      markAsReturning fn isTailCall calleeFn
+      Ok evts
 
   let buildIndCall (codeMgr: CodeManager) fn callSite evts =
     let callerBlk = Set.maxElement (codeMgr.GetBBL callSite).IRLeaders
@@ -141,6 +143,14 @@ module private CFGBuilder =
       makeCalleeNoReturn codeMgr fn callee callSite
       Ok evts
 
+  let createJumpAfterLockChunk (codeMgr: CodeManager) chunkStartAddr addrs =
+    let last = List.rev addrs |> List.head
+    let lastIns = codeMgr.GetInstruction last
+    let size = last + uint64 lastIns.Instruction.Length - chunkStartAddr
+    let wordSize = lastIns.Instruction.WordSize
+    let stmts = lastIns.Stmts
+    InlinedAssembly.Init chunkStartAddr (uint32 size) wordSize stmts
+
   /// Build a regular edge, which is any edge that is not a call, an indirect
   /// call, nor a ret edge.
   let buildRegularEdge hdl (codeMgr: CodeManager) dataMgr fn src dst edge evts =
@@ -162,7 +172,13 @@ module private CFGBuilder =
       splitAndConnectEdge codeMgr fn src dst edge evts
     elif not (codeMgr.HasInstruction dst) (* Jump to the middle of an instr *)
       && fn.IsAddressCovered dst then
-      Error ErrorConnectingEdge
+      match InlinedAssemblyPattern.checkInlinedAssemblyPattern hdl dst with
+      | NotInlinedAssembly -> Error ErrorConnectingEdge
+      | JumpAfterLock addrs ->
+        let patternStart = List.head addrs
+        let chunk = createJumpAfterLockChunk codeMgr patternStart addrs
+        codeMgr.ReplaceInlinedAssemblyChunk addrs chunk evts |> Ok
+    elif dst = 0UL then Ok evts (* "jmp 0" case (as in "call 0"). *)
     else
       match buildBBL hdl codeMgr fn mode dst evts with
       | Ok evts -> fn.AddEdge (src, ProgramPoint (dst, 0), edge); Ok evts

@@ -48,6 +48,10 @@ type CalleeKind =
   /// Callee (call target) is unresolved yet. This eventually will become
   /// IndirectCallees after indirect call analyses.
   | UnresolvedIndirectCallees
+  /// There can be "call 0" to call an external function. This pattern is typically
+  /// observed by object files, but sometimes we do see this pattern in regular
+  /// executables, e.g., GNU libc.
+  | NullCallee
 
 /// NoReturnProperty of a function specifies whether the function will
 /// eventually return or not. Some functions, e.g., exit, will never return in
@@ -251,16 +255,19 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
   /// with its leader address) to this function.
   member __.AddVertex (instrs, leader) =
     let blk = IRBasicBlock.initRegular instrs leader
-    let v, g = DiGraph.addVertex __.IRCFG blk
-    __.IRCFG <- g
-    regularVertices.[leader] <- v
-    coverage.AddCoverage blk.Range
+    __.AddVertex blk
 
   /// Add/replace a regular edge to this function.
   member __.AddEdge (srcPp, dstPp, edge) =
     let src = regularVertices.[srcPp]
     let dst = regularVertices.[dstPp]
     __.IRCFG <- DiGraph.addEdge __.IRCFG src dst edge
+
+  member private __.AddFakeVertex edgeKey bbl =
+    let v, g = DiGraph.addVertex __.IRCFG bbl
+    __.IRCFG <- g
+    fakeVertices.[edgeKey] <- v
+    v
 
   /// Find a call fake block from callSite to callee. The third arg (isTailCall)
   /// indicates whether this is a tail call.
@@ -272,16 +279,14 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
       let bbl = (* When callee = 0UL, then it means an indirect call. *)
         if callee = 0UL then IRBasicBlock.initIndirectCallBlock callSite
         else IRBasicBlock.initCallBlock callee callSite isTailCall
-      let v, g = DiGraph.addVertex __.IRCFG bbl
-      __.IRCFG <- g
-      fakeVertices.[edgeKey] <- v
-      v
+      __.AddFakeVertex edgeKey bbl
 
   /// Add/replace a direct call edge to this function.
   member __.AddEdge (callerBlk, callSite, callee, isTailCall) =
     let src = regularVertices.[callerBlk]
     let dst = __.GetOrAddFakeVertex (callSite, callee, isTailCall)
-    callEdges.[callSite] <- RegularCallee callee
+    callEdges.[callSite] <-
+      if callee = 0UL then NullCallee else RegularCallee callee
     callEdgeChanged <- true
     __.IRCFG <- DiGraph.addEdge __.IRCFG src dst CallEdge
 
@@ -383,75 +388,98 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
     ins |> List.iter (fun (p, e) -> RegularFunction.AddEdgeByType __ p src e)
     outs |> List.iter (fun (s, e) -> RegularFunction.AddEdgeByType __ dst s e)
     cycle |> Option.iter (fun e -> RegularFunction.AddEdgeByType __ dst src e)
-    regularVertices.[bblPoint] <- src
-    regularVertices.[splitPoint] <- dst
     dst
 
-  /// Split the BBL at bblPoint into two at the splitPoint, and make the
-  /// splitPoint be a new function's entry block. This function returns the
-  /// newly created function, along with a test function that can check perform
-  /// a membership test of a program point in the newly constructed graph.
-  member __.SplitFunc (hdl, bblPoint, splitPoint) =
-    let newBlk = __.SplitBBL (bblPoint, splitPoint)
-    let newFn = RegularFunction (histMgr, hdl, splitPoint.Address)
-    let reachableNodes, reachableEdges = getReachables __.IRCFG newBlk
-    reachableNodes |> Set.iter (fun v ->
-      if v.VData.IsFakeBlock () then () (* Fake blocks will be added below. *)
+  member private __.GetMergedVertex srcV dstV insAddrs chunk =
+    let src = (srcV: IRVertex).VData.InsInfos
+    let dst = (dstV: IRVertex).VData.InsInfos
+    let fstAddr = List.head insAddrs
+    let lastAddr = List.last insAddrs
+    let chunkIdx =
+      src |> Array.findIndex (fun i -> i.Instruction.Address >= fstAddr)
+    let backIdx =
+      dst |> Array.findIndexBack (fun i -> i.Instruction.Address <= lastAddr)
+    let front = src.[0 .. chunkIdx - 1]
+    let back = dst.[backIdx + 1 .. dst.Length - 1]
+    let lastInsInfo = dst.[backIdx]
+    let chunkInfo =
+      [| { Instruction = chunk;
+           Stmts = lastInsInfo.Stmts;
+           BBLAddr = src.[0].BBLAddr } |]
+    let insInfos = Array.concat [ front; chunkInfo; back ]
+    IRBasicBlock.initRegular insInfos srcV.VData.PPoint
+    |> __.AddVertex
+
+  /// Merge two vertices connected with an inlined assembly chunk, where there
+  /// is a control-flow to the middle of an instruction.
+  member __.MergeVerticesWithInlinedAsmChunk (insAddrs, srcPp, dstPp, chunk) =
+    let src = regularVertices.[srcPp]
+    let dst = regularVertices.[dstPp]
+    regularVertices.Remove srcPp |> ignore
+    regularVertices.Remove dstPp |> ignore
+    let ins, _, _ = categorizeNeighboringEdges __.IRCFG src
+    let _, outs, _ = categorizeNeighboringEdges __.IRCFG dst
+    __.RemoveVertex src
+    __.RemoveVertex dst
+    let v = __.GetMergedVertex src dst insAddrs chunk
+    ins |> List.iter (fun (p, e) -> RegularFunction.AddEdgeByType __ p v e)
+    outs |> List.iter (fun (s, e) -> RegularFunction.AddEdgeByType __ v s e)
+    regularVertices.[v.VData.PPoint] <- v
+
+  member private __.AddCallEdge callSite callee =
+    callEdges.[callSite] <- callee
+
+  member private __.RemoveCallEdge callSite =
+    callEdges.Remove callSite |> ignore
+
+  member private __.AddIndirectJump insAddr jmpKind =
+    indirectJumps.[insAddr] <- jmpKind
+
+  member private __.RemoveIndirectJump insAddr =
+    indirectJumps.Remove insAddr |> ignore
+
+  /// Split this function into two separate functions, one is this one, the
+  /// original function, and the other is a function starting from newEntry.
+  member __.SplitFunction (hdl, newEntry) =
+    let newFn = RegularFunction (histMgr, hdl, newEntry)
+    let entryBlk = regularVertices.[ProgramPoint (newEntry, 0)]
+    (* Transplant CFG first *)
+    let reachableNodes, reachableEdges = getReachables __.IRCFG entryBlk
+    reachableNodes
+    |> Set.iter (fun v ->
+      if v.VData.IsFakeBlock () then
+        let edgeKey = v.VData.FakeBlockInfo.CallSite, v.VData.PPoint.Address
+        __.RemoveFakeVertex edgeKey
+        newFn.AddFakeVertex edgeKey v.VData |> ignore
+      else
+        __.RemoveVertex v
+        newFn.AddVertex v.VData |> ignore)
+    reachableEdges
+    |> Set.iter (fun (src, dst, e) ->
+      RegularFunction.AddEdgeByType newFn src dst e)
+    (* Move necessary information *)
+    reachableNodes
+    |> Set.iter (fun v ->
+      if v.VData.IsFakeBlock () then ()
       else
         let lastAddr = v.VData.LastInstruction.Address
-        if syscallSites.Contains lastAddr then
+        if callEdges.ContainsKey lastAddr then
+          let callee = callEdges.[lastAddr]
+          __.RemoveCallEdge lastAddr
+          newFn.AddCallEdge lastAddr callee
+        elif syscallSites.Contains lastAddr then
           __.RemoveSysCallSite lastAddr
           newFn.AddSysCallSite lastAddr
-        else ()
-        __.RemoveVertex v
-        newFn.AddVertex (v.VData) |> ignore)
-    reachableEdges |> Set.iter (fun (src, dst, e) ->
-      RegularFunction.AddEdgeByType newFn src dst e)
-    newFn
-
-  member private __.RemoveUnreachableInfo acc (v: Vertex<IRBasicBlock>) =
-    v.VData.Instructions
-    |> Array.fold (fun acc i ->
-      let insAddr = i.Address
-      if syscallSites.Contains insAddr then
-        syscallSites.Remove insAddr |> ignore
-      else ()
-      if indirectJumps.ContainsKey insAddr then
-        let kv = insAddr, indirectJumps.[insAddr]
-        indirectJumps.Remove insAddr |> ignore
-        kv :: acc
-      else acc
-    ) acc
-
-  /// Make the BBL (located at bblAddr) as a new function's entry. This function
-  /// returns a set of nodes that became unreachable as we perform the
-  /// transformation.
-  member __.BBLToFunc bblAddr =
-    let g = __.IRCFG
-    let root = DiGraph.findVertexBy g (fun v -> v.VData.PPoint.Address = entry)
-    let v = DiGraph.findVertexBy g (fun v -> v.VData.PPoint.Address = bblAddr)
-    let srcs = DiGraph.getPreds g v
-    let filteredSrcs = srcs |> List.filter (fun s ->
-      DiGraph.findEdgeData g s v <> CallFallThroughEdge)
-    let g = srcs |> List.fold (fun g pred -> DiGraph.removeEdge g pred v) g
-    let reachables = Traversal.foldPostorder g [root] (fun acc v -> v :: acc) []
-    let allVertices = DiGraph.getVertices g
-    let unreachables = Set.difference allVertices (Set.ofList reachables)
-    __.IRCFG <- g
-    let removedIndJmps =
-      unreachables |> Set.fold (fun acc v ->
-        let acc = __.RemoveUnreachableInfo acc v
-        __.RemoveVertex v
-        acc) []
-    filteredSrcs
-    |> List.filter (fun s -> not (Set.contains s unreachables))
-    |> List.iter (fun srcV ->
-      if srcV.VData.IsFakeBlock () then () (* No-return case. *)
-      else
-        let callerBlk = srcV.VData.PPoint
-        let callSite = srcV.VData.LastInstruction.Address
-        __.AddEdge (callerBlk, callSite, bblAddr, true))
-    unreachables, removedIndJmps
+        elif indirectJumps.ContainsKey lastAddr then
+          let jmpKind = indirectJumps.[lastAddr]
+          __.RemoveIndirectJump lastAddr
+          newFn.AddIndirectJump lastAddr jmpKind
+        if v.VData.Range.Max > newFn.MaxAddr then
+          newFn.MaxAddr <- v.VData.Range.Max)
+    let bbls =
+      reachableNodes
+      |> Set.filter (fun v -> not <| v.VData.IsFakeBlock ())
+    bbls, newFn
 
   /// This field indicates the amount of stack unwinding happening at the return
   /// of this function. This value is 0 if caller cleans the stack (e.g.,
@@ -550,7 +578,7 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
         match callee with
         | RegularCallee callee -> __.AddXRef entry xrefs callee
         | IndirectCallees callees -> Set.fold (__.AddXRef entry) xrefs callees
-        | UnresolvedIndirectCallees -> xrefs) xrefs
+        | UnresolvedIndirectCallees | NullCallee -> xrefs) xrefs
     else xrefs
 
   /// Return the sorted gaps' ranges. Each range is a mapping from a start

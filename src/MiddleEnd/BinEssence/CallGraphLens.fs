@@ -65,7 +65,7 @@ module CallGraphLens =
           targets
           |> Set.fold (fun callCFG target ->
             addEdge ess vMap func.Entry target callCFG) callCFG
-        | UnresolvedIndirectCallees (_) -> callCFG
+        | UnresolvedIndirectCallees (_) | NullCallee -> callCFG
       ) callCFG) callCFG
 
   let build ess =

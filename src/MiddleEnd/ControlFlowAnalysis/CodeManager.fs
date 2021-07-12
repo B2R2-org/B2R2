@@ -91,7 +91,7 @@ type CodeManager (hdl) =
   member __.HasInstruction addr = insMap.ContainsKey addr
 
   /// Access instruction at the given address.
-  member __.GetInstruction (i: Addr) = insMap.[i]
+  member __.GetInstruction (addr: Addr) = insMap.[addr]
 
   /// Fold every instruction stored in the CodeManager.
   member __.FoldInstructions fn acc =
@@ -159,26 +159,19 @@ type CodeManager (hdl) =
 
   /// This is when a contiguous bbl (it is even contiguous at the IR-level) is
   /// divided into two at the splitPoint.
-  member private __.SplitCFG fn prevBBL splitPoint evts isNewFn =
+  member private __.SplitCFG fn prevBBL splitPoint evts =
     let bblPoint = (* The program point of the dividing block. *)
       prevBBL.IRLeaders
       |> Set.partition (fun pp -> pp < splitPoint)
       |> fst |> Set.maxElement
-    if isNewFn then
-      let newFunc = (fn: RegularFunction).SplitFunc (hdl, bblPoint, splitPoint)
-      funcMaintainer.AddFunction newFunc
-      CFGEvents.updateEvtsAfterBBLSplit bblPoint splitPoint evts
-      |> CFGEvents.updateEvtsAfterFuncSplit newFunc
-      |> fun evts -> Some bblPoint, evts
-    else
-      fn.SplitBBL (bblPoint, splitPoint) |> ignore
-      Some bblPoint, CFGEvents.updateEvtsAfterBBLSplit bblPoint splitPoint evts
+    (fn: RegularFunction).SplitBBL (bblPoint, splitPoint) |> ignore
+    Some bblPoint, CFGEvents.updateEvtsAfterBBLSplit bblPoint splitPoint evts
 
   /// Split the given basic block into two at the given address (splitAddr), and
   /// returns a pair of (the address of the front bbl after the cut-out, and new
   /// events). The front bbl may not exist if the split point is at the address
   /// of an existing bbl leader.
-  member __.SplitBlock bbl splitAddr evts isNewFn =
+  member __.SplitBlock bbl splitAddr evts =
     let splitPp = ProgramPoint (splitAddr, 0)
 #if CFGDEBUG
     dbglog (nameof CodeManager) "Split BBL @ %x%s"
@@ -186,8 +179,33 @@ type CodeManager (hdl) =
 #endif
     let func = funcMaintainer.FindRegular bbl.FunctionEntry
     __.SplitBBLInfo bbl splitAddr splitPp
-    if Set.contains splitPp bbl.IRLeaders then Ok (None, evts)
-    else __.SplitCFG func bbl splitPp evts isNewFn |> Ok
+    if Set.contains splitPp bbl.IRLeaders then None, evts
+    else __.SplitCFG func bbl splitPp evts
+
+  member private __.MergeBBLInfoAndReplaceInlinedAssembly addrs fstBBL sndBBL =
+    let restAddrs = List.tail addrs
+    __.RemoveBBL (bbl=fstBBL)
+    __.RemoveBBL (bbl=sndBBL)
+    let blkRange = AddrRange (fstBBL.BlkRange.Min, sndBBL.BlkRange.Max)
+    let leaders =
+      Set.union fstBBL.IRLeaders sndBBL.IRLeaders
+      |> Set.filter (fun leader -> not <| List.contains leader.Address restAddrs)
+    let addrs =
+      Set.union fstBBL.InstrAddrs sndBBL.InstrAddrs
+      |> Set.filter (fun addr -> not <| List.contains addr restAddrs)
+      |> Set.toList
+    let entry = fstBBL.FunctionEntry
+    __.AddBBL blkRange leaders entry addrs
+
+  member __.ReplaceInlinedAssemblyChunk insAddrs (chunk: Instruction) evts =
+    let fstBBL = __.GetBBL chunk.Address
+    let sndBBL = __.GetBBL fstBBL.BlkRange.Max
+    __.MergeBBLInfoAndReplaceInlinedAssembly insAddrs fstBBL sndBBL
+    let fn = funcMaintainer.FindRegular fstBBL.FunctionEntry
+    let srcPoint = fstBBL.IRLeaders.MaximumElement
+    let dstPoint = sndBBL.IRLeaders.MinimumElement
+    fn.MergeVerticesWithInlinedAsmChunk (insAddrs, srcPoint, dstPoint, chunk)
+    CFGEvents.updateEvtsAfterBBLMerge srcPoint dstPoint evts
 
   /// Update function entry information for the basic block located at the given
   /// address.
@@ -208,21 +226,16 @@ type CodeManager (hdl) =
 #endif
     let entry = bbl.FunctionEntry
     let prevFn = funcMaintainer.FindRegular entry
-    let unreachables, removedIndJmps = prevFn.BBLToFunc bblAddr
-    unreachables
+    let vertices, fn = prevFn.SplitFunction (hdl, bblAddr)
+    vertices
     |> Set.iter (fun v ->
-      if v.VData.IsFakeBlock () then ()
-      else __.RemoveBBL (v.VData.PPoint.Address))
-    removedIndJmps
-    |> List.iter (fun (_, indJmpKind) ->
-      match indJmpKind with
-      | JmpTbl tAddr ->
-        let jt = { dataMgr.JumpTables.[tAddr] with HostFunctionEntry = bblAddr }
-        dataMgr.JumpTables.[jt.JTStartAddr] <- jt
-      | _ -> ()
-    )
-    funcMaintainer.GetOrAddFunction (hdl, bblAddr),
+      let addr = v.VData.PPoint.Address
+      let bbl = __.GetBBL addr
+      __.UpdateFunctionEntry bbl.BlkRange.Min bblAddr)
+    funcMaintainer.AddFunction fn
+    fn,
     CFGEvents.removeEvtsAfterBBLPromotion entry evts
+    |> CFGEvents.addPerFuncAnalysisEvt entry
 
   /// Return the exception table.
   member __.ExceptionTable with get() = excTbl

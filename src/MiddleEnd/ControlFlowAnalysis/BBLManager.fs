@@ -404,7 +404,7 @@ module BBLInfo =
       else ProgramPoint (endAddr, 0)
     let instrs = gatherInsInfos [] instrs leader nextLeader
     if Array.isEmpty instrs then ()
-    else (fn: RegularFunction).AddVertex (instrs, leader)
+    else (fn: RegularFunction).AddVertex (instrs, leader) |> ignore
 
   let private resetFunctionBoundary (fn: RegularFunction) endAddr =
     if endAddr > fn.MaxAddr then fn.SetBoundary fn.MinAddr endAddr

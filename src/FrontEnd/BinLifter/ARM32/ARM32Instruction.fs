@@ -200,6 +200,8 @@ type ARM32Instruction (addr, numBytes, insInfo) =
     Disasm.disasm dummyHelper __.Info builder
     builder.Finalize ()
 
+  override __.IsInlinedAssembly () = false
+
   override __.Equals (_) = Utils.futureFeature ()
   override __.GetHashCode () = Utils.futureFeature ()
 

@@ -73,7 +73,7 @@ module private NoReturnFunctionIdentificationHelper =
       | IndirectCallees addrs ->
         addrs
         |> Set.exists (hasConditionallyInvalidFallEdge codeMgr fn callSiteAddr)
-      | UnresolvedIndirectCallees (_) -> false)
+      | UnresolvedIndirectCallees (_) | NullCallee -> false)
 
   /// We disregard jump trampolines and consider them as NotNoRet.
   let checkTrampoline (vertices: IRVertex list) =

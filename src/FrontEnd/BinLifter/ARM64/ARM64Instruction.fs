@@ -153,6 +153,8 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
     Disasm.disasm __.Info builder
     builder.Finalize ()
 
+  override __.IsInlinedAssembly () = false
+
   override __.Equals (_) = Utils.futureFeature ()
   override __.GetHashCode () = Utils.futureFeature ()
 

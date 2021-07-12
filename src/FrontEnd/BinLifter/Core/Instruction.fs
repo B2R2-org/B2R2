@@ -261,4 +261,6 @@ type Instruction (addr, len, wordSize) =
   /// </returns>
   abstract member Decompose: bool -> AsmWord []
 
+  abstract member IsInlinedAssembly: unit -> bool
+
 // vim: set tw=80 sts=2 sw=2:
