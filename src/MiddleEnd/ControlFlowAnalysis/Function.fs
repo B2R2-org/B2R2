@@ -443,6 +443,7 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
   member __.SplitFunction (hdl, newEntry) =
     let newFn = RegularFunction (histMgr, hdl, newEntry)
     let entryBlk = regularVertices.[ProgramPoint (newEntry, 0)]
+    let callerBlk: IRVertex = DiGraph.getPreds __.IRCFG entryBlk |> List.head
     (* Transplant CFG first *)
     let reachableNodes, reachableEdges = getReachables __.IRCFG entryBlk
     reachableNodes
@@ -457,6 +458,10 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
     reachableEdges
     |> Set.iter (fun (src, dst, e) ->
       RegularFunction.AddEdgeByType newFn src dst e)
+    (* Replace newFn to FakeBlock *)
+    let callerPoint = callerBlk.VData.PPoint
+    let callSite = callerBlk.VData.LastInstruction.Address
+    __.AddEdge (callerPoint, callSite, newEntry, true)
     (* Move necessary information *)
     reachableNodes
     |> Set.iter (fun v ->
