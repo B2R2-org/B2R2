@@ -28,7 +28,7 @@ open System.IO
 
 /// How verbose do we want to log messages?
 type LogLevel =
-  /// Most succint = level 1.
+  /// Most succinct = level 1.
   | L1 = 1
   /// Normal = level 2.
   | L2 = 2
@@ -36,6 +36,23 @@ type LogLevel =
   | L3 = 3
   /// Most verbose = level 4.
   | L4 = 4
+
+/// Helper module for LogLevel
+[<RequireQualifiedAccess>]
+module LogLevel =
+  let ofString (str: string) =
+    match str.ToLower () with
+    | "1" | "l1" | "quiet" | "q" -> LogLevel.L1
+    | "3" | "l3" | "verbose" | "v" -> LogLevel.L3
+    | "4" | "l4" -> LogLevel.L4
+    | _ -> LogLevel.L2
+
+  let toString = function
+    | LogLevel.L1 -> "L1"
+    | LogLevel.L2 -> "L2"
+    | LogLevel.L3 -> "L3"
+    | LogLevel.L4 -> "L4"
+    | _ -> Utils.impossible ()
 
 /// Basic logging facility.
 type ILogger =
