@@ -119,8 +119,8 @@ type CFGTest1 () =
         (0x7fUL, 0x71UL) ]
       |> List.toArray
     let actual =
-      ess.CodeManager.FoldInstructions (fun acc (KeyValue (insAddr, bblAddr)) ->
-        Set.add (insAddr, bblAddr.BBLAddr) acc) Set.empty
+      ess.CodeManager.FoldInstructions (fun acc (KeyValue (insAddr, bbl)) ->
+        Set.add (insAddr, bbl.BBLAddr) acc) Set.empty
       |> Set.toArray
     CollectionAssert.AreEqual (expected, actual)
 
@@ -412,8 +412,8 @@ type CFGTest2 () =
         (0x23UL, 0x0cUL); (0x24UL, 0x24UL); (0x27UL, 0x24UL) ]
       |> List.toArray
     let actual =
-      ess.CodeManager.FoldInstructions (fun acc (KeyValue (insAddr, bblAddr)) ->
-        Set.add (insAddr, bblAddr.BBLAddr) acc) Set.empty
+      ess.CodeManager.FoldInstructions (fun acc (KeyValue (insAddr, bbl)) ->
+        Set.add (insAddr, bbl.BBLAddr) acc) Set.empty
       |> Set.toArray
     CollectionAssert.AreEqual (expected, actual)
 

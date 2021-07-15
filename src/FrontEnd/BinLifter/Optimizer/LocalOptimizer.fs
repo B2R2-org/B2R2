@@ -51,8 +51,7 @@ type LocalOptimizer =
     let secondLast = stmts.[stmts.Length - 2].S
     match secondLast, last with
     | InterJmp _, IEMark _
-    | InterCJmp _, IEMark _
-    | SideEffect _, IEMark _ ->
+    | InterCJmp _, IEMark _ ->
       Array.sub stmts 0 (stmts.Length - 1)
     | _ -> stmts
 

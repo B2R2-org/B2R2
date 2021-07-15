@@ -35,7 +35,7 @@ open B2R2.MiddleEnd.ControlFlowGraph
 /// instruction-level basic block. This information is necessary to construct a
 /// (IR-level) CFG. Normally, a single instruction-level bbl represents a single
 /// IR-level basic block, but if there exist intra-instruction control flows, it
-/// can have multiple blocks.
+/// can have multiple intra blocks.
 type TempInfo = {
   /// Helper for translating symbol to program point.
   LabelPPoints: Map<LabelIdentifier, ProgramPoint>
@@ -45,6 +45,15 @@ type TempInfo = {
   IntraEdges: (ProgramPoint * ProgramPoint * CFGEdgeKind) list
   /// Inter-Instruction edges related to this block.
   InterEdges: (ProgramPoint * ProgramPoint * CFGEdgeKind) list
+  /// Flag indicating that IEMark statement follows a terminatinig statment,
+  /// such as SideEffect. Although our IR optimizer will remove such IEMarks in
+  /// most cases, there is one exception, though. If there is a SideEffect
+  /// statement immediately followed by an IEMark, our optmizer will not remove
+  /// the IEMark because we cannot assume that the SideEffect statement will
+  /// advance the PC. In fact, the SideEffect statement does not necessarily
+  /// know the size of the corresponding machine instruction. Thus, it is not
+  /// natural to remove such IEMarks.
+  HasExplicitTerminator: bool
   /// Next events to consume. Since BBLManager parses only a single BBL, other
   /// events need to be consumed later.
   NextEvents: CFGEvents
@@ -55,6 +64,7 @@ with
       Leaders = Set.singleton initialLeader
       IntraEdges = []
       InterEdges = []
+      HasExplicitTerminator = false
       NextEvents = evts }
 
   /// Find label symbol at the given program point (myPp).
@@ -286,21 +296,24 @@ module BBLInfo =
     (* SideEffects *)
     | SideEffect SysCall ->
       fn.AddSysCallSite addr
-      leader, tmp
-    | SideEffect _ when insInfo.Instruction.IsExit () -> leader, tmp
+      leader, { tmp with HasExplicitTerminator = true }
+    | SideEffect _ when insInfo.Instruction.IsExit () ->
+      leader, { tmp with HasExplicitTerminator = true }
     | SideEffect _ ->
       let ftAddr = addr + uint64 insInfo.Instruction.Length
       let tmp =
         tmp.NextEvents
         |> CFGEvents.addEdgeEvt fn leader ftAddr FallThroughEdge
         |> updateNextEvents tmp
-      leader, tmp
+      leader, { tmp with HasExplicitTerminator = true }
     | _ -> (* Fall-through cases. *)
       (* Inter-instruction fall-through. *)
       if isLast then
         let ftAddr = addr + uint64 insInfo.Instruction.Length
         let tmp =
-          if (fm: FunctionMaintainer).Contains ftAddr then tmp
+          if (fm: FunctionMaintainer).Contains ftAddr
+            || tmp.HasExplicitTerminator
+          then tmp
           else
             tmp.NextEvents
             |> CFGEvents.addEdgeEvt fn leader ftAddr FallThroughEdge
