@@ -148,21 +148,3 @@ module CFGEvents =
           CFGTailCall (newFn, callSite, callee)
         | elm -> elm)
     { evts with BasicEvents = basicEvents }
-
-  let removeEvtsAfterBBLPromotion oldEntry evts =
-    let basicEvents =
-      evts.BasicEvents
-      |> List.filter (fun elm ->
-        match elm with
-        | CFGEdge (fn, src, _, _) when fn.Entry = oldEntry ->
-          fn.HasVertex src
-        | CFGCall (fn, callSiteAddr, _) when fn.Entry = oldEntry ->
-          fn.Entry < callSiteAddr && callSiteAddr < fn.MaxAddr
-        | CFGRet (fn, _, ftAddr, _) when fn.Entry = oldEntry ->
-          fn.Entry < ftAddr && ftAddr < fn.MaxAddr
-        | CFGIndCall (fn, callSiteAddr) when fn.Entry = oldEntry ->
-          fn.Entry < callSiteAddr && callSiteAddr < fn.MaxAddr
-        | CFGTailCall (fn, callSiteAddr, _) when fn.Entry = oldEntry ->
-          fn.Entry < callSiteAddr && callSiteAddr < fn.MaxAddr
-        | _ -> true)
-    { evts with BasicEvents = basicEvents }
