@@ -468,19 +468,26 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
       if v.VData.IsFakeBlock () then ()
       else
         let lastAddr = v.VData.LastInstruction.Address
+        (* CallEdge *)
         if callEdges.ContainsKey lastAddr then
           let callee = callEdges.[lastAddr]
           __.RemoveCallEdge lastAddr
           newFn.AddCallEdge lastAddr callee
+        (* SysCall *)
         elif syscallSites.Contains lastAddr then
           __.RemoveSysCallSite lastAddr
           newFn.AddSysCallSite lastAddr
+        (* IndirectJump *)
         elif indirectJumps.ContainsKey lastAddr then
           let jmpKind = indirectJumps.[lastAddr]
           __.RemoveIndirectJump lastAddr
           newFn.AddIndirectJump lastAddr jmpKind
+        (* MaxAddr *)
         if v.VData.Range.Max > newFn.MaxAddr then
-          newFn.MaxAddr <- v.VData.Range.Max)
+          newFn.MaxAddr <- v.VData.Range.Max
+        (* NoReturnProperty *)
+        if v.VData.LastInstruction.IsRET () then
+          newFn.NoReturnProperty <- NotNoRet)
     let bbls =
       reachableNodes
       |> Set.filter (fun v -> not <| v.VData.IsFakeBlock ())
