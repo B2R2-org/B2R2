@@ -167,7 +167,7 @@ module private IndirectJumpResolution =
       isJmpTblAddr cpState e1 || isJmpTblAddr cpState e2
     | _ -> false
 
-  let rec extractIndexExpr = function
+  let rec extractTableExpr = function
     | BinOp (BinOpType.ADD, _, BinOp (BinOpType.MUL, _, _, Num _), e)
     | BinOp (BinOpType.ADD, _, BinOp (BinOpType.MUL, _, Num _, _), e)
     | BinOp (BinOpType.ADD, _, BinOp (BinOpType.SHL, _, _, Num _), e)
@@ -175,23 +175,23 @@ module private IndirectJumpResolution =
     | BinOp (BinOpType.ADD, _, e, BinOp (BinOpType.MUL, _, Num _, _))
     | BinOp (BinOpType.ADD, _, e, BinOp (BinOpType.SHL, _, _, Num _)) -> e
     | BinOp (op, rt, e1, e2) ->
-      BinOp (op, rt, extractIndexExpr e1, extractIndexExpr e2)
-    | UnOp (op, rt, e) -> UnOp (op, rt, extractIndexExpr e)
-    | Cast (op, rt, e) -> Cast (op, rt, extractIndexExpr e)
-    | Extract (e, rt, pos) -> Extract (extractIndexExpr e, rt, pos)
+      BinOp (op, rt, extractTableExpr e1, extractTableExpr e2)
+    | UnOp (op, rt, e) -> UnOp (op, rt, extractTableExpr e)
+    | Cast (op, rt, e) -> Cast (op, rt, extractTableExpr e)
+    | Extract (e, rt, pos) -> Extract (extractTableExpr e, rt, pos)
     | e -> e
 
   let classifyWithSymbolicExpr cpState baseExpr tblExpr rt =
     let baseExpr = foldWithConstant cpState baseExpr |> simplify
-    let indexExpr =
+    let tblExpr =
       symbolicExpand cpState tblExpr
-      |> extractIndexExpr
+      |> extractTableExpr
       |> foldWithConstant cpState
 #if CFGDEBUG
-    dbglog "IndJmpRecovery" "base(%s); index(%s)"
-      (Pp.expToString baseExpr) (Pp.expToString indexExpr)
+    dbglog "IndJmpRecovery" "base(%s); table(%s)"
+      (Pp.expToString baseExpr) (Pp.expToString tblExpr)
 #endif
-    match baseExpr, indexExpr with
+    match baseExpr, tblExpr with
     | Num b, Num t
     | Num b, BinOp (BinOpType.ADD, _, Num t, _)
     | Num b, BinOp (BinOpType.ADD, _, _, Num t) ->
@@ -208,15 +208,26 @@ module private IndirectJumpResolution =
     | BinOp (BinOpType.ADD, _, Load (_, t, memExpr), Num b)
     | BinOp (BinOpType.ADD, _, Num b, Cast (_, _, Load (_, t, memExpr)))
     | BinOp (BinOpType.ADD, _, Cast (_, _, Load (_, t, memExpr)), Num b) ->
-      classifyWithSymbolicExpr cpState (Num b) memExpr t
+      if isJmpTblAddr cpState memExpr then
+        classifyWithSymbolicExpr cpState (Num b) memExpr t
+      else UnknownPattern
     (* Symbolic patterns should be resolved with our constant analysis. *)
     | BinOp (BinOpType.ADD, _, (Load (_, _, e1) as l1),
                                (Load (_, t, e2) as l2)) ->
       if isJmpTblAddr cpState e1 then classifyWithSymbolicExpr cpState l2 e1 t
-      else classifyWithSymbolicExpr cpState l1 e2 t
+      elif isJmpTblAddr cpState e2 then classifyWithSymbolicExpr cpState l1 e2 t
+      else UnknownPattern
     | BinOp (BinOpType.ADD, _, baseExpr, Load (_, t, tblExpr))
     | BinOp (BinOpType.ADD, _, Load (_, t, tblExpr), baseExpr) ->
-      classifyWithSymbolicExpr cpState baseExpr tblExpr t
+      if isJmpTblAddr cpState tblExpr then
+        classifyWithSymbolicExpr cpState baseExpr tblExpr t
+      else UnknownPattern
+    (* Patterns from non-pie executables. *)
+    | Load (_, t, memExpr)
+    | Cast (_, _, Load (_, t, memExpr)) ->
+      if isJmpTblAddr cpState memExpr then
+        classifyWithSymbolicExpr cpState (Num <| BitVector.zero t) memExpr t
+      else UnknownPattern
     | _ -> UnknownPattern
 
   let rec findIndJumpExpr ssaCFG callerBlkAddr fstV (vs: SSAVertex list) =
