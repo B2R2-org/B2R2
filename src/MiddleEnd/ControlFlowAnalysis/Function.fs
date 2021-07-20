@@ -438,14 +438,41 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
   member private __.RemoveIndirectJump insAddr =
     indirectJumps.Remove insAddr |> ignore
 
+  member private __.MoveBlockInfo fn (v: Vertex<IRBasicBlock>) =
+    let lastAddr = v.VData.LastInstruction.Address
+    if v.VData.Range.Max > (fn: RegularFunction).MaxAddr then
+      fn.MaxAddr <- v.VData.Range.Max
+    else ()
+    (* CallEdge *)
+    if callEdges.ContainsKey lastAddr then
+      let callee = callEdges.[lastAddr]
+      __.RemoveCallEdge lastAddr
+      (fn: RegularFunction).AddCallEdge lastAddr callee
+    (* SysCall *)
+    elif syscallSites.Contains lastAddr then
+      __.RemoveSysCallSite lastAddr
+      fn.AddSysCallSite lastAddr
+    (* IndirectJump *)
+    elif indirectJumps.ContainsKey lastAddr then
+      let jmpKind = indirectJumps.[lastAddr]
+      __.RemoveIndirectJump lastAddr
+      fn.AddIndirectJump lastAddr jmpKind
+    (* NoReturnProperty *)
+    elif v.VData.LastInstruction.IsRET () then
+      fn.NoReturnProperty <- NotNoRet
+    else ()
+
   /// Split this function into two separate functions, one is this one, the
   /// original function, and the other is a function starting from newEntry.
   member __.SplitFunction (hdl, newEntry) =
     let newFn = RegularFunction (histMgr, hdl, newEntry)
     let entryBlk = regularVertices.[ProgramPoint (newEntry, 0)]
-    let callerBlk: IRVertex = DiGraph.getPreds __.IRCFG entryBlk |> List.head
     (* Transplant CFG first *)
     let reachableNodes, reachableEdges = getReachables __.IRCFG entryBlk
+    let callerBlk: IRVertex =
+      DiGraph.getPreds __.IRCFG entryBlk
+      |> List.filter (fun v -> not <| Set.contains v reachableNodes)
+      |> List.head
     reachableNodes
     |> Set.iter (fun v ->
       if v.VData.IsFakeBlock () then
@@ -466,28 +493,7 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
     reachableNodes
     |> Set.iter (fun v ->
       if v.VData.IsFakeBlock () then ()
-      else
-        let lastAddr = v.VData.LastInstruction.Address
-        (* CallEdge *)
-        if callEdges.ContainsKey lastAddr then
-          let callee = callEdges.[lastAddr]
-          __.RemoveCallEdge lastAddr
-          newFn.AddCallEdge lastAddr callee
-        (* SysCall *)
-        elif syscallSites.Contains lastAddr then
-          __.RemoveSysCallSite lastAddr
-          newFn.AddSysCallSite lastAddr
-        (* IndirectJump *)
-        elif indirectJumps.ContainsKey lastAddr then
-          let jmpKind = indirectJumps.[lastAddr]
-          __.RemoveIndirectJump lastAddr
-          newFn.AddIndirectJump lastAddr jmpKind
-        (* MaxAddr *)
-        if v.VData.Range.Max > newFn.MaxAddr then
-          newFn.MaxAddr <- v.VData.Range.Max
-        (* NoReturnProperty *)
-        if v.VData.LastInstruction.IsRET () then
-          newFn.NoReturnProperty <- NotNoRet)
+      else __.MoveBlockInfo newFn v)
     let bbls =
       reachableNodes
       |> Set.filter (fun v -> not <| v.VData.IsFakeBlock ())
