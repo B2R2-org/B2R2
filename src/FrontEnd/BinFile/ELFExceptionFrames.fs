@@ -132,6 +132,13 @@ let parseBinop op exprs =
   let struct (fst, snd, exprs) = pop2 exprs
   AST.binop op snd fst :: exprs
 
+let parsePlusUconst isa exprs (span: ReadOnlySpan<byte>) idx =
+  let n, cnt = LEB128.DecodeUInt64 (span.Slice (idx))
+  let n = num isa n
+  let struct (fst, exprs) = pop exprs
+  let exprs = AST.binop BinOpType.ADD fst n :: exprs
+  struct (exprs, idx + cnt)
+
 let parseRel isa op exprs =
   let struct (fst, snd, exprs) = pop2 exprs
   let rt = isa.WordSize |> WordSize.toRegType
@@ -380,6 +387,12 @@ let rec parseExprs isa regbay exprs (span: ReadOnlySpan<byte>) i maxIdx =
       parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_plus ->
       let exprs = parseBinop BinOpType.ADD exprs
+      parseExprs isa regbay exprs span (i + 1) maxIdx
+    | DWOperation.DW_OP_plus_uconst ->
+      let struct (exprs, i') = parsePlusUconst isa exprs span (i + 1)
+      parseExprs isa regbay exprs span i' maxIdx
+    | DWOperation.DW_OP_mul ->
+      let exprs = parseBinop BinOpType.MUL exprs
       parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_shl ->
       let exprs = parseBinop BinOpType.SHL exprs
