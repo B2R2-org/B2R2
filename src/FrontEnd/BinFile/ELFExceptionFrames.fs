@@ -128,6 +128,11 @@ let pop2 exprs =
   | fst :: snd :: rest -> struct (fst, snd, rest)
   | _ -> Utils.impossible ()
 
+let inline hasLessThanTwoOperands exprs =
+  match exprs with
+  | [ _ ] | [] -> true
+  | _ -> false
+
 let parseBinop op exprs =
   let struct (fst, snd, exprs) = pop2 exprs
   AST.binop op snd fst :: exprs
@@ -383,7 +388,11 @@ let rec parseExprs isa regbay exprs (span: ReadOnlySpan<byte>) i maxIdx =
       let exprs = parseBinop BinOpType.DIV exprs
       parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_minus ->
-      let exprs = parseBinop BinOpType.SUB exprs
+      (* There is an exceptional case where ICC compbiler uses DW_OP_minus with
+         a single opearnd. This is not the standard way. *)
+      let exprs =
+        if hasLessThanTwoOperands exprs then [ num isa 0UL ]
+        else parseBinop BinOpType.SUB exprs
       parseExprs isa regbay exprs span (i + 1) maxIdx
     | DWOperation.DW_OP_plus ->
       let exprs = parseBinop BinOpType.ADD exprs
