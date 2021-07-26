@@ -41,7 +41,7 @@ let inline translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.ADC -> GeneralLifter.adc ins insLen ctxt
   | OP.ADD -> GeneralLifter.add ins insLen ctxt
   | OP.AND -> GeneralLifter.``and`` ins insLen ctxt
-  | OP.ANDN
+  | OP.ANDN -> GeneralLifter.andn ins insLen ctxt
   | OP.ARPL -> GeneralLifter.arpl ins insLen ctxt
   | OP.BNDMOV -> GeneralLifter.bndmov ins insLen ctxt
   | OP.BOUND -> GeneralLifter.nop insLen
@@ -529,6 +529,15 @@ let inline translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.VPTERNLOGD | OP.VCMPPD | OP.VCMPPS | OP.VGATHERDPS
   | OP.VPGATHERDD | OP.VMOVDQU8 ->
     GeneralLifter.nop insLen (* FIXME: #196 !211 *)
+  | OP.VRSQRTSS | OP.VFMSUB213SD | OP.VRSQRT28SD | OP.VRCP28SD | OP.VPEXTRD
+  | OP.VFMADD213PD | OP.VPBROADCASTQ | OP.VPSUBW | OP.VFMSUB213PD | OP.VPSUBD
+  | OP.VRCPSS | OP.VGETMANTSD | OP.VGETEXPSD | OP.VRCP14SD | OP.VRNDSCALESD
+  | OP.VEXTRACTF128 -> GeneralLifter.nop insLen (* FIXME: #277 *)
+  | OP.VPCMPGTD | OP.MULX | OP.VREDUCESD | OP.VROUNDPD | OP.VMINPD | OP.VRSQRTPS
+  | OP.VBLENDVPD | OP.VFNMADD213PD | OP.VFMSUB231PD | OP.BLENDVPD | OP.ROUNDPD
+  | OP.VRCPPS | OP.VGATHERQPD | OP.VPSRAD | OP.VCVTDQ2PS | OP.VCVTTPD2DQ
+  | OP.VPMULLD | OP.PMULLD | OP.VROUNDPS | OP.ROUNDPS ->
+    GeneralLifter.nop insLen (* FIXME: #279 *)
   | OP.FLD -> X87Lifter.fld ins insLen ctxt
   | OP.FST -> X87Lifter.ffst ins insLen ctxt false
   | OP.FSTP -> X87Lifter.ffst ins insLen ctxt true
