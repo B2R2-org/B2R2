@@ -72,13 +72,13 @@ let personalityRoutinePointerSize addrSize = function
 
 let obtainAugData addrSize (arr: byte []) data offset = function
   | 'L' ->
-    let v, app = parseEncoding arr.[offset]
+    let struct (v, app) = parseEncoding arr.[offset]
     { Format = 'L'
       ValueEncoding = v
       ApplicationEncoding = app
       PersonalityRoutionPointer = [||] } :: data, offset + 1
   | 'P' ->
-    let v, app = parseEncoding arr.[offset]
+    let struct (v, app) = parseEncoding arr.[offset]
     let psz = arr.[offset] &&& 7uy |> personalityRoutinePointerSize addrSize
     let prp = arr.[ offset + 1 .. offset + psz ]
     { Format = 'P'
@@ -86,7 +86,7 @@ let obtainAugData addrSize (arr: byte []) data offset = function
       ApplicationEncoding = app
       PersonalityRoutionPointer = prp } :: data, offset + psz + 1
   | 'R' ->
-    let v, app = parseEncoding arr.[offset]
+    let struct (v, app) = parseEncoding arr.[offset]
     { Format = 'R'
       ValueEncoding = v
       ApplicationEncoding = app

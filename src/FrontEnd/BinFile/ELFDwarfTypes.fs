@@ -46,6 +46,8 @@ type ExceptionHeaderValue =
   | DW_EH_PE_udata4 = 0x03
   /// A 8-byte unsigned value.
   | DW_EH_PE_udata8 = 0x04
+  /// A signed value whose size is determined by the architecture.
+  | DW_EH_PE_signed = 0x08
   /// Signed value is encoded using the LEB128.
   | DW_EH_PE_sleb128 = 0x09
   /// A 2-byte signed value.
@@ -103,19 +105,19 @@ module ExceptionHeaderEncoding =
     | ExceptionHeaderValue.DW_EH_PE_sdata8 ->
       let struct (cv, offset) = reader.ReadInt64 offset
       struct (uint64 cv, offset)
-    | _ -> raise UnhandledEncoding
+    | _ -> printfn "%A" venc; raise UnhandledEncoding
 
   let parseEncoding b =
     if b &&& 0xFFuy = 255uy then
       let v = EnumOfValue<int, ExceptionHeaderValue> 0xff
       let app = EnumOfValue<int, ExceptionHeaderApplication> 0xff
-      v, app
+      struct (v, app)
     else
       let v = int (b &&& 0x0Fuy)
               |> EnumOfValue<int, ExceptionHeaderValue>
       let app = int (b &&& 0xF0uy)
                 |> EnumOfValue<int, ExceptionHeaderApplication>
-      v, app
+      struct (v, app)
 
 /// Dwarf instructions used for unwinding stack.
 type DWCFAInstruction =

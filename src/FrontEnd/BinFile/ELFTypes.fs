@@ -799,30 +799,38 @@ type ProgramHeader = {
 
 /// Language Specific Data Area header.
 type LSDAHeader = {
-  /// This is the format of the landing pad pointers.
-  LPFormat: ExceptionHeaderValue * ExceptionHeaderApplication
+  /// This is the value encoding of the landing pad pointer.
+  LPValueEncoding: ExceptionHeaderValue
+  /// This is the application encoding of the landing pad pointer.
+  LPAppEncoding: ExceptionHeaderApplication
   /// The base of the landing pad pointers.
   LPStart: Addr option
-  /// This is the format of types table entry.
-  TTFormat: ExceptionHeaderValue * ExceptionHeaderApplication
-  /// The end of types table.
-  TTEnd: Addr option
-  // This is the format of the call site offsets.
-  CallSiteFormat: ExceptionHeaderValue * ExceptionHeaderApplication
+  /// This is the value encoding of type table (TT).
+  TTValueEncoding: ExceptionHeaderValue
+  /// This is the application encoding of type table (TT).
+  TTAppEncoding: ExceptionHeaderApplication
+  /// The base of types table.
+  TTBase: Addr option
+  // This is the value encoding of the call site table.
+  CallSiteValueEncoding: ExceptionHeaderValue
+  // This is the application encoding of the call site table.
+  CallSiteAppEncoding: ExceptionHeaderApplication
   // The size of call site table.
   CallSiteTableSize: uint64
 }
 
+/// An entry in the callsite table of LSDA.
 type CallSiteRecord = {
+  /// Offset of the callsite relative to the previous call site.
   Position: uint64
+  /// Size of the callsite instruction(s).
   Length: uint64
+  /// Offset of the landing pad.
   LandingPad: uint64
-  Action: uint64
-}
-
-type ActionRecord = {
-  TypeFilter: int64
-  NextAction: int64
+  /// Offset to the action table. Zero means no action entry.
+  ActionOffset: int
+  /// Parsed list of type filters from the action table.
+  ActionTypeFilters: int64 list
 }
 
 /// LSDA. Language Specific Data Area.
@@ -830,8 +838,6 @@ type LanguageSpecificDataArea = {
   LSDAAddr: Addr
   Header: LSDAHeader
   CallSiteTable: CallSiteRecord list
-  ActionTable: ActionRecord list
-  TypeTable: uint64 list
 }
 
 /// This tells how augmetation data is handled.
@@ -895,6 +901,8 @@ type ELF = {
   ExceptionFrame: CallFrameInformation list
   /// Exception table.
   ExceptionTable: ARMap<ARMap<Addr>>
+  /// List of LSDAs (Language Specific Data Areas).
+  LSDAs: LanguageSpecificDataArea list
   /// Invalid address ranges.
   InvalidAddrRanges: IntervalSet
   /// Not-in-file address ranges.
