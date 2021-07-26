@@ -105,6 +105,10 @@ let dumpEHFrame hdl (fi: FileInfo) =
   dumpSpecific hdl fi ".eh_frame Information"
     ELFViewer.dumpEHFrame PEViewer.badAccess MachViewer.badAccess
 
+let dumpLSDA hdl (fi: FileInfo) =
+  dumpSpecific hdl fi ".gcc_except_table Information"
+    ELFViewer.dumpLSDA PEViewer.badAccess MachViewer.badAccess
+
 let dumpNotes hdl (fi: FileInfo) =
   dumpSpecific hdl fi ".notes Information"
     ELFViewer.dumpNotes PEViewer.badAccess MachViewer.badAccess
@@ -166,6 +170,7 @@ let printAll opts hdl (fi: FileInfo) =
      dumpSegments opts fi
      dumpLinkageTable opts fi
      dumpEHFrame hdl fi
+     dumpLSDA hdl fi
    | :? PEFileInfo as fi ->
      dumpImports opts fi
      dumpExports opts fi
@@ -188,6 +193,7 @@ let printSelectively hdl opts fi = function
   | DisplayELFSpecific ELFDisplayProgramHeader -> dumpSegments opts fi
   | DisplayELFSpecific ELFDisplayPLT -> dumpLinkageTable opts fi
   | DisplayELFSpecific ELFDisplayEHFrame -> dumpEHFrame hdl fi
+  | DisplayELFSpecific ELFDisplayLSDA -> dumpLSDA hdl fi
   | DisplayELFSpecific ELFDisplayNotes -> dumpNotes hdl fi
   | DisplayPESpecific PEDisplayImports -> dumpImports opts fi
   | DisplayPESpecific PEDisplayExports -> dumpExports opts fi

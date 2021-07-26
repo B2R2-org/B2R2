@@ -305,5 +305,19 @@ let dumpEHFrame hdl (fi: ELFFileInfo) =
     )
   )
 
-let dumpNotes hdl (fi: ELFFileInfo) =
+let dumpLSDA _hdl (fi: ELFFileInfo) =
+  let addrColumn = columnWidthOfAddr fi |> LeftAligned
+  let cfg = [ addrColumn; LeftAligned 15; LeftAligned 15; addrColumn ]
+  out.PrintRow (true, cfg, [ "Address"; "LP App"; "LP Val"; "TT End" ])
+  fi.ELF.LSDAs
+  |> List.iter (fun lsda ->
+    let ttbase = lsda.Header.TTBase |> Option.defaultValue 0UL
+    out.PrintRow (true, cfg,
+      [ Addr.toString fi.WordSize lsda.LSDAAddr
+        lsda.Header.LPAppEncoding.ToString ()
+        lsda.Header.LPValueEncoding.ToString ()
+        ttbase |> Addr.toString fi.WordSize ])
+  )
+
+let dumpNotes _hdl (fi: ELFFileInfo) =
   Utils.futureFeature ()

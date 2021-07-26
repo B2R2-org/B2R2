@@ -137,6 +137,14 @@ type FileViewerOpts () =
     CmdOpts.New (descr = "Display the eh_frame information",
                  callback = cb, long = "--ehframe")
 
+  /// "--lsda" option for displaying the .gcc_except_table section information,
+  /// i.e., LSDAs.
+  static member OptLSDA () =
+    let cb opts _ =
+      FileViewerOpts.AddOpt opts (DisplayELFSpecific ELFDisplayLSDA)
+    CmdOpts.New (descr = "Display the LSDA information",
+                 callback = cb, long = "--lsda")
+
   /// "--notes" option for displaying the notes section information.
   static member OptNotes () =
     let cb opts _ =
@@ -239,6 +247,7 @@ module Cmd =
       FileViewerOpts.OptProgramHeaders ()
       FileViewerOpts.OptPLT ()
       FileViewerOpts.OptEHFrame ()
+      FileViewerOpts.OptLSDA ()
       FileViewerOpts.OptNotes ()
 
       CmdOpts.New (descr = "", dummy = true)

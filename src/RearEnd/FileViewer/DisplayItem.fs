@@ -29,6 +29,7 @@ type ELFDisplayItem =
   | ELFDisplayProgramHeader
   | ELFDisplayPLT
   | ELFDisplayEHFrame
+  | ELFDisplayLSDA
   | ELFDisplayNotes
 
 /// Display items for PE.
