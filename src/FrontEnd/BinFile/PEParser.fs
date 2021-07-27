@@ -294,7 +294,7 @@ let execRanges baseAddr secs =
   |> Array.fold (fun set s ->
     let saddr = baseAddr + uint64 s.VirtualAddress
     let eaddr = saddr + (uint64 <| getVirtualSectionSize s)
-    IntervalSet.add (AddrRange (saddr, eaddr)) set
+    IntervalSet.add (AddrRange (saddr, eaddr - 1UL)) set
     ) IntervalSet.empty
 
 let parseImage execpath rawpdb baseAddr binReader (hdrs: PEHeaders) =

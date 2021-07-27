@@ -38,7 +38,7 @@ type CodeManager (hdl) =
   let bblMap = Dictionary<Addr, BBLInfo> ()
   let excTbl = ExceptionTable (hdl)
   let history = HistoryManager ()
-  let funcMaintainer = FunctionMaintainer.Init hdl history
+  let fnMaintainer = FunctionMaintainer.Init hdl history
 
   let newInstructionInfo hdl (ins: Instruction) bblAddr =
     let stmts = BinHandle.LiftOptimizedInstr hdl ins
@@ -72,9 +72,9 @@ type CodeManager (hdl) =
     match parseBBL hdl mode [] leaderAddr with
     | Ok (instrs, lastIns) ->
       let ins = postProcessInstrs hdl leaderAddr [] instrs
-      let endAddr = lastIns.Address + uint64 lastIns.Length
+      let nextAddr = lastIns.Address + uint64 lastIns.Length
       let struct (bbl, evts) =
-        BBLInfo.parse hdl ins leaderAddr endAddr func funcMaintainer excTbl evts
+        BBLInfo.parse hdl ins leaderAddr nextAddr func fnMaintainer excTbl evts
       bblMap.[leaderAddr] <- bbl
       Ok evts
     | Error addr ->
@@ -151,7 +151,7 @@ type CodeManager (hdl) =
       Set.add splitPp bbl.IRLeaders
       |> Set.partition (fun pp -> pp < splitPp)
     let oldRange = bbl.BlkRange
-    let fstRange = AddrRange (oldRange.Min, splitAddr)
+    let fstRange = AddrRange (oldRange.Min, splitAddr - 1UL)
     let sndRange = AddrRange (splitAddr, oldRange.Max)
     let entry = bbl.FunctionEntry
     __.AddBBL fstRange fstLeaders entry fstAddrs
@@ -177,7 +177,7 @@ type CodeManager (hdl) =
     dbglog (nameof CodeManager) "Split BBL @ %x%s"
       splitAddr (if Set.contains splitPp bbl.IRLeaders then " (& CFG)" else "")
 #endif
-    let func = funcMaintainer.FindRegular bbl.FunctionEntry
+    let func = fnMaintainer.FindRegular bbl.FunctionEntry
     __.SplitBBLInfo bbl splitAddr splitPp
     if Set.contains splitPp bbl.IRLeaders then None, evts
     else __.SplitCFG func bbl splitPp evts
@@ -201,7 +201,7 @@ type CodeManager (hdl) =
     let fstBBL = __.GetBBL chunk.Address
     let sndBBL = __.GetBBL fstBBL.BlkRange.Max
     __.MergeBBLInfoAndReplaceInlinedAssembly insAddrs fstBBL sndBBL
-    let fn = funcMaintainer.FindRegular fstBBL.FunctionEntry
+    let fn = fnMaintainer.FindRegular fstBBL.FunctionEntry
     let srcPoint = fstBBL.IRLeaders.MaximumElement
     let dstPoint = sndBBL.IRLeaders.MinimumElement
     fn.MergeVerticesWithInlinedAsmChunk (insAddrs, srcPoint, dstPoint, chunk)
@@ -225,14 +225,14 @@ type CodeManager (hdl) =
     dbglog (nameof CodeManager) "Turn BBL @ %x into func" bblAddr
 #endif
     let entry = bbl.FunctionEntry
-    let prevFn = funcMaintainer.FindRegular entry
+    let prevFn = fnMaintainer.FindRegular entry
     let vertices, fn = prevFn.SplitFunction (hdl, bblAddr)
     vertices
     |> Set.iter (fun v ->
       let addr = v.VData.PPoint.Address
       let bbl = __.GetBBL addr
       __.UpdateFunctionEntry bbl.BlkRange.Min bblAddr)
-    funcMaintainer.AddFunction fn
+    fnMaintainer.AddFunction fn
     fn,
     CFGEvents.updateEvtsAfterFuncSplit fn evts
     |> CFGEvents.addPerFuncAnalysisEvt entry
@@ -241,16 +241,16 @@ type CodeManager (hdl) =
   member __.ExceptionTable with get() = excTbl
 
   /// Return the function maintainer.
-  member __.FunctionMaintainer with get() = funcMaintainer
+  member __.FunctionMaintainer with get() = fnMaintainer
 
   /// Return the history manager.
   member __.HistoryManager with get() = history
 
   member private __.RemoveFunction fnAddr =
-    match funcMaintainer.TryFindRegular fnAddr with
+    match fnMaintainer.TryFindRegular fnAddr with
     | Some fn ->
       fn.IterRegularVertexPps (fun pp -> __.RemoveBBL pp.Address)
-      funcMaintainer.RemoveFunction fnAddr
+      fnMaintainer.RemoveFunction fnAddr
     | None -> () (* Already removed. *)
 
   member private __.RollBackFact evts fact =

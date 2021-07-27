@@ -61,8 +61,8 @@ let execRanges segs =
   |> List.filter (fun seg ->
     let perm: Permission = seg.MaxProt |> LanguagePrimitives.EnumOfValue
     perm &&& Permission.Executable = Permission.Executable)
-  |> List.fold (fun set seg ->
-    IntervalSet.add (AddrRange (seg.VMAddr, seg.VMAddr + seg.VMSize)) set
+  |> List.fold (fun set s ->
+    IntervalSet.add (AddrRange (s.VMAddr, s.VMAddr + s.VMSize - 1UL)) set
     ) IntervalSet.empty
 
 let computeBaseAddr machHdr baseAddr =

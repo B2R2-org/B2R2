@@ -196,12 +196,7 @@ let dumpJsonFiles jsonDir ess =
     let entry = func.Entry
     let disasmJsonPath = Printf.sprintf "%s/%s.disasmCFG" jsonDir id
     let cfg, root = BinEssence.getFunctionCFG ess entry |> Result.get
-    let blockInfos =
-      ess.CodeManager.FoldBBLs (fun acc (KeyValue (addr, bblInfo)) ->
-        if bblInfo.FunctionEntry = entry then
-          Map.add addr (bblInfo.BlkRange, bblInfo.InstrAddrs) acc
-        else acc) Map.empty
-    let disasmcfg, _ = DisasmLens.filter ess.CodeManager blockInfos cfg root
+    let disasmcfg, _ = DisasmLens.filter ess.CodeManager cfg root
     CFGExport.toJson disasmcfg disasmJsonPath)
 
 let initBinHdl isa (name: string) =

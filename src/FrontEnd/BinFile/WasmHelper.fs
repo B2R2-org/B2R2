@@ -183,18 +183,3 @@ let tryFindFunSymName wm addr =
   match sym with
   | Some s -> Ok s.Name
   | None -> Error ErrorCase.SymbolNotFound
-
-let getNotInFileIntervals (range: AddrRange) (len: int64) =
-  let maxAddr = uint64 len
-  if range.Max <= 0UL then Seq.singleton range
-  elif range.Max <= maxAddr && range.Min < 0UL
-  then Seq.singleton (AddrRange (range.Min, 0UL))
-  elif range.Max > maxAddr && range.Min < 0UL then
-    [ AddrRange (range.Min, 0UL);
-      AddrRange (maxAddr, range.Max) ]
-    |> List.toSeq
-  elif range.Max > maxAddr && range.Min <= maxAddr
-  then Seq.singleton (AddrRange (maxAddr, range.Max))
-  elif range.Max > maxAddr && range.Min > maxAddr
-  then Seq.singleton range
-  else Seq.empty

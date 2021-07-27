@@ -78,7 +78,7 @@ let secHasValidAddr baseAddr sec =
 
 let addSecToAddrMap baseAddr sec map =
   if secHasValidAddr baseAddr sec then
-    let endAddr = sec.SecAddr + sec.SecSize
+    let endAddr = sec.SecAddr + sec.SecSize - 1UL
     ARMap.addRange sec.SecAddr endAddr sec map
   else map
 

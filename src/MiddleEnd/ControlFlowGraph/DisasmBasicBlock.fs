@@ -47,7 +47,7 @@ type DisasmBasicBlock (instrs: Instruction [], pp(*, ?funcID*)) =
 
   override __.Range =
     let last = instructions.[instructions.Length - 1]
-    AddrRange (pp.Address, last.Address + uint64 last.Length)
+    AddrRange (pp.Address, last.Address + uint64 last.Length - 1UL)
 
   override __.IsFakeBlock () = Array.isEmpty instructions
 

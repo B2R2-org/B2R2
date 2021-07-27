@@ -36,7 +36,7 @@ let extract cmds =
 let buildMap (segs: SegCmd list) =
   segs
   |> List.fold (fun map s ->
-       ARMap.addRange s.VMAddr (s.VMAddr + s.VMSize) s map) ARMap.empty
+       ARMap.addRange s.VMAddr (s.VMAddr + s.VMSize - 1UL) s map) ARMap.empty
 
 let segCmdToSegment seg =
   { Address = seg.VMAddr

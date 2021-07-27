@@ -136,14 +136,14 @@ with
     BinHandle.ReadBytes (__, bp, nBytes)
 
   static member TryReadBytes ({ FileInfo = fi }, addr, nBytes) =
-    let range = AddrRange (addr, addr + uint64 nBytes)
+    let range = AddrRange (addr, addr + uint64 nBytes - 1UL)
     if fi.IsInFileRange range then
       fi.BinReader.PeekBytes (nBytes, fi.TranslateAddress addr) |> Ok
     elif fi.IsValidRange range then
       fi.GetNotInFileIntervals range
       |> classifyRanges range
       |> List.fold (fun bs (range, isInFile) ->
-           let len = range.Max - range.Min |> int
+           let len = (range.Max - range.Min |> int) + 1
            if isInFile then
              let addr = fi.TranslateAddress range.Min
              fi.BinReader.PeekBytes (len, addr)

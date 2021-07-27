@@ -30,19 +30,19 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 
 [<TestClass>]
 type BasicImperativeGraphTest () =
-  let v1 = V (1, (AddrRange (1UL, 2UL)))
-  let v2 = V (2, (AddrRange (2UL, 3UL)))
-  let v3 = V (3, (AddrRange (3UL, 4UL)))
-  let v4 = V (4, (AddrRange (4UL, 5UL)))
-  let v5 = V (5, (AddrRange (5UL, 6UL)))
-  let v6 = V (6, (AddrRange (6UL, 7UL)))
-  let v7 = V (7, (AddrRange (7UL, 8UL)))
-  let v8 = V (8, (AddrRange (8UL, 9UL)))
-  let v9 = V (9, (AddrRange (9UL, 10UL)))
-  let v10 = V (10, (AddrRange (10UL, 11UL)))
-  let v11 = V (11, (AddrRange (11UL, 12UL)))
-  let v12 = V (12, (AddrRange (12UL, 13UL)))
-  let v13 = V (13, (AddrRange (13UL, 14UL)))
+  let v1 = V (1, (AddrRange (1UL)))
+  let v2 = V (2, (AddrRange (2UL)))
+  let v3 = V (3, (AddrRange (3UL)))
+  let v4 = V (4, (AddrRange (4UL)))
+  let v5 = V (5, (AddrRange (5UL)))
+  let v6 = V (6, (AddrRange (6UL)))
+  let v7 = V (7, (AddrRange (7UL)))
+  let v8 = V (8, (AddrRange (8UL)))
+  let v9 = V (9, (AddrRange (9UL)))
+  let v10 = V (10, (AddrRange (10UL)))
+  let v11 = V (11, (AddrRange (11UL)))
+  let v12 = V (12, (AddrRange (12UL)))
+  let v13 = V (13, (AddrRange (13UL)))
 
   (* Graph example from Wikipedia. *)
   let g1 = RangedDiGraph.init -1 ImperativeGraph
@@ -174,7 +174,7 @@ type BasicImperativeGraphTest () =
     let g2 = g1.Clone ()
     let g2root = DiGraph.findVertexByData g2 g1root.VData
     let g2 =
-      (g2 :?> RangedDiGraph<_, _>).FindVertexByRange (AddrRange (3UL, 4UL))
+      (g2 :?> RangedDiGraph<_, _>).FindVertexByRange (AddrRange (3UL))
       |> DiGraph.removeVertex g2
     let s1 = Traversal.foldPreorder g1 [g1root] sum 0
     let s2 = Traversal.foldPreorder g2 [g2root] sum 0
@@ -307,29 +307,29 @@ type BasicImperativeGraphTest () =
 
 [<TestClass>]
 type ExtraImperativeDomTest () =
-  let v1 = V (1, (AddrRange (1UL, 2UL)))
-  let v2 = V (2, (AddrRange (2UL, 3UL)))
-  let v3 = V (3, (AddrRange (3UL, 4UL)))
-  let v4 = V (4, (AddrRange (4UL, 5UL)))
-  let v5 = V (5, (AddrRange (5UL, 6UL)))
-  let v6 = V (6, (AddrRange (6UL, 7UL)))
-  let v7 = V (7, (AddrRange (7UL, 8UL)))
-  let v8 = V (8, (AddrRange (8UL, 9UL)))
-  let v9 = V (9, (AddrRange (9UL, 10UL)))
-  let v10 = V (10, (AddrRange (10UL, 11UL)))
-  let v11 = V (11, (AddrRange (11UL, 12UL)))
-  let v12 = V (12, (AddrRange (12UL, 13UL)))
-  let v13 = V (13, (AddrRange (13UL, 14UL)))
-  let v14 = V (14, (AddrRange (14UL, 15UL)))
-  let v15 = V (15, (AddrRange (15UL, 16UL)))
-  let v16 = V (16, (AddrRange (16UL, 17UL)))
-  let v17 = V (17, (AddrRange (17UL, 18UL)))
-  let v18 = V (18, (AddrRange (18UL, 19UL)))
-  let v19 = V (19, (AddrRange (19UL, 20UL)))
-  let v20 = V (20, (AddrRange (20UL, 21UL)))
-  let v21 = V (21, (AddrRange (21UL, 22UL)))
-  let v22 = V (22, (AddrRange (22UL, 23UL)))
-  let v23 = V (23, (AddrRange (23UL, 24UL)))
+  let v1 = V (1, (AddrRange (1UL)))
+  let v2 = V (2, (AddrRange (2UL)))
+  let v3 = V (3, (AddrRange (3UL)))
+  let v4 = V (4, (AddrRange (4UL)))
+  let v5 = V (5, (AddrRange (5UL)))
+  let v6 = V (6, (AddrRange (6UL)))
+  let v7 = V (7, (AddrRange (7UL)))
+  let v8 = V (8, (AddrRange (8UL)))
+  let v9 = V (9, (AddrRange (9UL)))
+  let v10 = V (10, (AddrRange (10UL)))
+  let v11 = V (11, (AddrRange (11UL)))
+  let v12 = V (12, (AddrRange (12UL)))
+  let v13 = V (13, (AddrRange (13UL)))
+  let v14 = V (14, (AddrRange (14UL)))
+  let v15 = V (15, (AddrRange (15UL)))
+  let v16 = V (16, (AddrRange (16UL)))
+  let v17 = V (17, (AddrRange (17UL)))
+  let v18 = V (18, (AddrRange (18UL)))
+  let v19 = V (19, (AddrRange (19UL)))
+  let v20 = V (20, (AddrRange (20UL)))
+  let v21 = V (21, (AddrRange (21UL)))
+  let v22 = V (22, (AddrRange (22UL)))
+  let v23 = V (23, (AddrRange (23UL)))
 
   let g1 = RangedDiGraph.init -1 ImperativeGraph
   let n1, g1 = DiGraph.addVertex g1 v1
@@ -397,14 +397,14 @@ type ExtraImperativeDomTest () =
 
 [<TestClass>]
 type ImperativeSCCTest () =
-  let v1 = V (1, (AddrRange (1UL, 2UL)))
-  let v2 = V (2, (AddrRange (2UL, 3UL)))
-  let v3 = V (3, (AddrRange (3UL, 4UL)))
-  let v4 = V (4, (AddrRange (4UL, 5UL)))
-  let v5 = V (5, (AddrRange (5UL, 6UL)))
-  let v6 = V (6, (AddrRange (6UL, 7UL)))
-  let v7 = V (7, (AddrRange (7UL, 8UL)))
-  let v8 = V (8, (AddrRange (8UL, 9UL)))
+  let v1 = V (1, (AddrRange (1UL)))
+  let v2 = V (2, (AddrRange (2UL)))
+  let v3 = V (3, (AddrRange (3UL)))
+  let v4 = V (4, (AddrRange (4UL)))
+  let v5 = V (5, (AddrRange (5UL)))
+  let v6 = V (6, (AddrRange (6UL)))
+  let v7 = V (7, (AddrRange (7UL)))
+  let v8 = V (8, (AddrRange (8UL)))
 
   (* Example from article about Bourdoncle Components by Matt Elder *)
   [<TestMethod>]

@@ -30,16 +30,16 @@ open Microsoft.VisualStudio.TestTools.UnitTesting
 
 [<TestClass>]
 type LoopTest () =
-  let v1 = V (1, (AddrRange (1UL, 2UL)))
-  let v2 = V (2, (AddrRange (2UL, 3UL)))
-  let v3 = V (3, (AddrRange (3UL, 4UL)))
-  let v4 = V (4, (AddrRange (4UL, 5UL)))
-  let v5 = V (5, (AddrRange (5UL, 6UL)))
-  let v6 = V (6, (AddrRange (6UL, 7UL)))
-  let v7 = V (7, (AddrRange (7UL, 8UL)))
-  let v8 = V (8, (AddrRange (8UL, 9UL)))
-  let v9 = V (9, (AddrRange (9UL, 10UL)))
-  let v10 = V (10, (AddrRange (10UL, 11UL)))
+  let v1 = V (1, (AddrRange (1UL)))
+  let v2 = V (2, (AddrRange (2UL)))
+  let v3 = V (3, (AddrRange (3UL)))
+  let v4 = V (4, (AddrRange (4UL)))
+  let v5 = V (5, (AddrRange (5UL)))
+  let v6 = V (6, (AddrRange (6UL)))
+  let v7 = V (7, (AddrRange (7UL)))
+  let v8 = V (8, (AddrRange (8UL)))
+  let v9 = V (9, (AddrRange (9UL)))
+  let v10 = V (10, (AddrRange (10UL)))
 
   (* Graph example from Dragon Book (Fig. 9.38) *)
   let g1 = RangedDiGraph.init -1 ImperativeGraph

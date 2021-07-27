@@ -86,7 +86,7 @@ type SSABasicBlock (pp, instrs: InstructionInfo []) =
   override __.Range =
     if Array.isEmpty instrs then Utils.impossible () else ()
     let last = instrs.[instrs.Length - 1].Instruction
-    AddrRange (pp.Address, last.Address + uint64 last.Length)
+    AddrRange (pp.Address, last.Address + uint64 last.Length - 1UL)
 
   override __.IsFakeBlock () = Array.isEmpty instrs
 

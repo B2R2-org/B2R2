@@ -50,7 +50,7 @@ let rec loopCallSiteTable fde acc = function
         if rcrd.LandingPad = uint64 0 then rcrd.LandingPad
         else fde.PCBegin + rcrd.LandingPad
       let blockStart = fde.PCBegin + rcrd.Position
-      let blockEnd = fde.PCBegin + rcrd.Position + rcrd.Length
+      let blockEnd = fde.PCBegin + rcrd.Position + rcrd.Length - 1UL
       ARMap.add (AddrRange (blockStart, blockEnd)) landingPad acc
     loopCallSiteTable fde acc rest
 
@@ -63,7 +63,7 @@ let buildExceptionTable fde gccexctbl tbl =
 let accumulateExceptionTableInfo fde gccexctbl map =
   fde
   |> Array.fold (fun map fde ->
-     let functionRange = AddrRange (fde.PCBegin, fde.PCEnd)
+     let functionRange = AddrRange (fde.PCBegin, fde.PCEnd - 1UL)
      let exceptTable = buildExceptionTable fde gccexctbl ARMap.empty
      if ARMap.isEmpty exceptTable then map
      else ARMap.add functionRange exceptTable map) map
@@ -93,8 +93,8 @@ let execRanges segs =
   segs
   |> List.filter (fun seg ->
     seg.PHFlags &&& Permission.Executable = Permission.Executable)
-  |> List.fold (fun set seg ->
-    IntervalSet.add (AddrRange (seg.PHAddr, seg.PHAddr + seg.PHMemSize)) set
+  |> List.fold (fun set s ->
+    IntervalSet.add (AddrRange (s.PHAddr, s.PHAddr + s.PHMemSize - 1UL)) set
     ) IntervalSet.empty
 
 let private parseELF baseAddr regbay offset reader =

@@ -87,9 +87,9 @@ module ARMap =
       | Node (c, k', v', l, r) ->
         if k' = k then (if isReplace then Node (c, k', v, l, r)
                         else raise RangeOverlapException)
-        elif k.Min < k'.Min && k.Max <= k'.Min then
+        elif k.Min < k'.Min && k.Max < k'.Min then
           balance (c, k', v', ins l, r)
-        elif k.Min >= k'.Max && k.Max > k'.Max then
+        elif k.Min > k'.Max && k.Max > k'.Max then
           balance (c, k', v', l, ins r)
         else raise RangeOverlapException
     ins tree |> toBlack
@@ -107,8 +107,8 @@ module ARMap =
     | Leaf _ -> Error ErrorCase.ItemNotFound
     | Node (_, k', v', l, r) ->
       if k = k' then Ok (k', v')
-      elif k.Min < k'.Min && k.Max <= k'.Min then findLoop isExact k l
-      elif k.Min >= k'.Max && k.Max > k'.Max then findLoop isExact k r
+      elif k.Min < k'.Min && k.Max < k'.Min then findLoop isExact k l
+      elif k.Min > k'.Max && k.Max > k'.Max then findLoop isExact k r
       elif (not isExact)
             && k.Min >= k'.Min && k.Max <= k'.Max then Ok (k', v')
       else Error ErrorCase.ItemNotFound
@@ -117,9 +117,9 @@ module ARMap =
     | Leaf _ -> raise KeyNotFoundException
     | Node (c, k', v', l, r) ->
       if k = k' then delAndBalance isExact (c, l, r)
-      elif k.Min < k'.Min && k.Max <= k'.Min then
+      elif k.Min < k'.Min && k.Max < k'.Min then
         bubble (c, k', v', del isExact k l, r)
-      elif k.Min >= k'.Max && k.Max > k'.Max then
+      elif k.Min > k'.Max && k.Max > k'.Max then
         bubble (c, k', v', l, del isExact k r)
       elif (not isExact) && k.Min >= k'.Min && k.Max <= k'.Max then
         delAndBalance isExact (c, l, r)
@@ -150,7 +150,7 @@ module ARMap =
 
   [<CompiledName("RemoveAddr")>]
   let removeAddr addr tree =
-    del false (AddrRange (addr, addr + 1UL)) tree
+    del false (AddrRange addr) tree
 
   [<CompiledName("Empty")>]
   let empty = Leaf B
@@ -163,7 +163,7 @@ module ARMap =
 
   [<CompiledName("ContainsAddr")>]
   let containsAddr addr tree =
-    findLoop false (AddrRange (addr, addr + 1UL)) tree |> Result.isOk
+    findLoop false (AddrRange addr) tree |> Result.isOk
 
   [<CompiledName("ContainsRange")>]
   let containsRange range tree =
@@ -174,7 +174,7 @@ module ARMap =
 
   [<CompiledName("TryFindKey")>]
   let tryFindKey addr tree =
-    match findLoop false (AddrRange (addr, addr + 1UL)) tree with
+    match findLoop false (AddrRange addr) tree with
     | Ok (k, _) -> Some k
     | _ -> None
 
@@ -186,13 +186,13 @@ module ARMap =
 
   [<CompiledName("TryFindByAddr")>]
   let tryFindByAddr addr tree =
-    match findLoop false (AddrRange (addr, addr + 1UL)) tree with
+    match findLoop false (AddrRange addr) tree with
     | Ok (_, v) -> Some v
     | _ -> None
 
   [<CompiledName("FindByAddr")>]
   let findByAddr addr tree =
-    findLoop false (AddrRange (addr, addr + 1UL)) tree |> Result.get |> snd
+    findLoop false (AddrRange addr) tree |> Result.get |> snd
 
   let rec private sizeAux acc tree =
     match tree with
@@ -224,7 +224,7 @@ module ARMap =
       | Node (_, k', v', l, r) ->
         let acc = if k.Min < k'.Min then loop acc l else acc
         let acc =
-          if k.Max <= k'.Min || k.Min >= k'.Max then acc
+          if k.Max < k'.Min || k.Min > k'.Max then acc
           else (k', v') :: acc
         let acc = if k.Max > k'.Max then loop acc r else acc
         acc

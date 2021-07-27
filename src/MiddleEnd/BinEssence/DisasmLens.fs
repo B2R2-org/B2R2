@@ -29,17 +29,16 @@ open B2R2
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
-type DisasmBlockInfo = AddrRange * Addr list
-
 /// A mapping from an address to a DisasmCFG vertex.
 type DisasmVMap = Dictionary<Addr, DisasmVertex>
 
 /// A graph lens for obtaining DisasmCFG.
+[<RequireQualifiedAccess>]
 module DisasmLens =
 
   let findBlockStart blockInfos addr =
     Map.findKey (fun _ (range: AddrRange, _) ->
-      range.Min <= addr && addr < range.Max) blockInfos
+      range.Min <= addr && addr <= range.Max) blockInfos
 
   let canBeMerged ircfg v =
     DiGraph.getSuccs ircfg v
@@ -53,7 +52,7 @@ module DisasmLens =
       elif canBeMerged ircfg v then
         let bblAddr = findBlockStart blockInfos v.VData.PPoint.Address
         let range, _ = Map.find bblAddr blockInfos
-        Map.add bblAddr range.Max mergeMap
+        Map.add bblAddr (range.Max + 1UL) mergeMap
       else mergeMap) Map.empty
 
   let getEdgeInfos blockInfos (ircfg: DiGraph<IRBasicBlock, _>) =
@@ -127,7 +126,7 @@ module DisasmLens =
     let dst = vMap.[dst]
     DiGraph.addEdge g src dst e
 
-  let buildCFG codeMgr blockInfos ircfg vMap dcfg =
+  let private buildCFG codeMgr blockInfos ircfg vMap dcfg =
     let mergeMap = getMergeMap blockInfos ircfg
     let edgeInfos = getEdgeInfos blockInfos ircfg
     let vertexInfo, edgeInfo = mergeInfos codeMgr blockInfos edgeInfos mergeMap
@@ -135,7 +134,12 @@ module DisasmLens =
     let dcfg = Map.fold (addEdge vMap) dcfg edgeInfo
     dcfg
 
-  let filter codeMgr blockInfos (g: DiGraph<_, _>) root =
+  let filter codeMgr (g: DiGraph<_, _>) (root: IRVertex) =
+    let blockInfos =
+      (codeMgr: CodeManager).FoldBBLs (fun acc (KeyValue (addr, bblInfo)) ->
+        if bblInfo.FunctionEntry = root.VData.PPoint.Address then
+          Map.add addr (bblInfo.BlkRange, bblInfo.InstrAddrs) acc
+        else acc) Map.empty
     let newGraph = DisasmCFG.init g.ImplementationType
     let vMap = DisasmVMap ()
     let newGraph = buildCFG codeMgr blockInfos g vMap newGraph

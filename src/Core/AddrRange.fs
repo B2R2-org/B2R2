@@ -37,8 +37,11 @@ type AddrRange =
   val Max: Addr
 
   new (min, max) =
-    if min >= max then raise InvalidAddrRangeException else ()
+    if min > max then raise InvalidAddrRangeException else ()
     { Min = min; Max = max }
+
+  new (addr) =
+    { Min = addr; Max = addr }
 
   override __.ToString () =
     String.u64ToHexNoPrefix __.Min + " -- " + String.u64ToHexNoPrefix __.Max
@@ -51,12 +54,14 @@ type AddrRange =
   override __.GetHashCode () =
     hash ( __.Min, __.Max )
 
+  member __.Count with get() = __.Max - __.Min + 1UL
+
   member __.ToTuple () =
     __.Min, __.Max
 
   /// Check if the address range is including the given address.
   member inline __.IsIncluding (addr: Addr) =
-    __.Min <= addr && addr < __.Max
+    __.Min <= addr && addr <= __.Max
 
   static member inline GetMin (range: AddrRange) = range.Min
 

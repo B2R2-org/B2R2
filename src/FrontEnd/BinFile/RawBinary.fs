@@ -111,7 +111,7 @@ type RawFileInfo (bytes: byte [], path, isa, baseAddr) =
     addr >= baseAddr && addr < (baseAddr + usize)
 
   override __.IsValidRange (range) =
-    __.IsValidAddr range.Min && __.IsValidAddr (range.Max - 1UL)
+    __.IsValidAddr range.Min && __.IsValidAddr range.Max
 
   override __.IsInFileAddr (addr) = __.IsValidAddr (addr)
 
@@ -120,16 +120,6 @@ type RawFileInfo (bytes: byte [], path, isa, baseAddr) =
   override __.IsExecutableAddr addr = __.IsValidAddr addr
 
   override __.GetNotInFileIntervals range =
-    let lastAddr = baseAddr + usize
-    if range.Max <= baseAddr then Seq.singleton range
-    elif range.Max <= lastAddr && range.Min < baseAddr then
-      Seq.singleton (AddrRange (range.Min, baseAddr))
-    elif range.Max > lastAddr && range.Min < baseAddr then
-      [ AddrRange (range.Min, baseAddr); AddrRange (lastAddr, range.Max) ]
-      |> List.toSeq
-    elif range.Max > lastAddr && range.Min <= lastAddr then
-      Seq.singleton (AddrRange (lastAddr, range.Max))
-    elif range.Max > lastAddr && range.Min > lastAddr then Seq.singleton range
-    else Seq.empty
+    FileHelper.getNotInFileIntervals baseAddr usize range
 
 // vim: set tw=80 sts=2 sw=2:

@@ -38,12 +38,13 @@ type CoverageMaintainer () =
 
   let rec computeGaps map myAddr = function
     | (r1: AddrRange) :: tl ->
-      if r1.IsIncluding myAddr then computeGaps map r1.Max tl
+      if r1.IsIncluding myAddr then computeGaps map (r1.Max + 1UL) tl
       else
 #if CFGDEBUG
-        dbglog (nameof CoverageMaintainer) "Computed gap %x--%x" myAddr r1.Min
+        dbglog (nameof CoverageMaintainer)
+          "Computed gap %x--%x" myAddr (r1.Min - 1UL)
 #endif
-        computeGaps (Map.add myAddr r1.Min map) r1.Max tl
+        computeGaps (Map.add myAddr (r1.Min - 1UL) map) (r1.Max + 1UL) tl
     | _ -> map
 
   /// Add covered address range.
@@ -61,15 +62,15 @@ type CoverageMaintainer () =
         if r.Min >= range.Min && r.Max <= range.Max then
           coverage <- IntervalSet.remove r coverage
         elif range.Min > r.Min && range.Max < r.Max then
-          let left = AddrRange (r.Min, range.Min)
-          let right = AddrRange (range.Max, r.Max)
+          let left = AddrRange (r.Min, range.Min - 1UL)
+          let right = AddrRange (range.Max + 1UL, r.Max)
           let c = IntervalSet.remove r coverage
           coverage <- IntervalSet.add left c |> IntervalSet.add right
         elif r.Min >= range.Min then
-          let r' = AddrRange (range.Max, r.Max)
+          let r' = AddrRange (range.Max + 1UL, r.Max)
           coverage <- IntervalSet.remove r coverage |> IntervalSet.add r'
         else (* elif r.Max <= range.Max then *)
-          let r' = AddrRange (r.Min, range.Min)
+          let r' = AddrRange (r.Min, range.Min - 1UL)
           coverage <- IntervalSet.remove r coverage |> IntervalSet.add r'
         removeLoop tl
       | [] -> ()
@@ -79,15 +80,15 @@ type CoverageMaintainer () =
   member __.IsAddressCovered addr =
     IntervalSet.tryFindByAddr addr coverage |> Option.isSome
 
-  /// For a given address range (from sAddr to eAddr), return a map from gap
-  /// start address to gap end address. A gap is a "uncovered chunk" in the
-  /// binary code.
+  /// For a given address range (from sAddr to eAddr), return a map of gaps,
+  /// where each mapping maps from a gap start address to a gap end address. A
+  /// gap is a "uncovered chunk" in the binary code.
   member __.ComputeGapAddrs sAddr eAddr =
     let range = AddrRange (sAddr, eAddr)
     match IntervalSet.findAll range coverage with
     | [] -> (* Nothing covered; the whole range is a gap. *)
       Map.add sAddr eAddr Map.empty
-    | [ overlap ] when range = overlap -> (* Given range is covered all. *)
+    | [ overlap ] when range = overlap -> (* Given range is covering all. *)
       Map.empty
     | overlaps ->
       overlaps |> List.sortBy (fun r -> r.Min) |> computeGaps Map.empty sAddr

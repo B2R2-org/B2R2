@@ -33,18 +33,18 @@ type AddrRangeTests () =
   [<TestMethod>]
   [<ExpectedException(typedefof<RangeOverlapException>)>]
   member __.``Overlap Test 1`` () =
-    let r1 = AddrRange (100UL, 200UL)
-    let r2 = AddrRange (200UL, 300UL)
+    let r1 = AddrRange (100UL, 199UL)
+    let r2 = AddrRange (200UL, 299UL)
     let m = ARMap.empty
     let m = ARMap.add r1 1 m
     let m = ARMap.add r2 2 m
-    ARMap.addRange 99UL 101UL 3 m |> ignore
+    ARMap.addRange 99UL 100UL 3 m |> ignore
 
   [<TestMethod>]
   [<ExpectedException(typedefof<RangeOverlapException>)>]
   member __.``Overlap Test 2`` () =
-    let r1 = AddrRange (100UL, 200UL)
-    let r2 = AddrRange (200UL, 300UL)
+    let r1 = AddrRange (100UL, 199UL)
+    let r2 = AddrRange (200UL, 299UL)
     let m = ARMap.empty
     let m = ARMap.add r1 1 m
     let m = ARMap.add r2 2 m
@@ -55,14 +55,14 @@ type AddrRangeTests () =
     let size = 0x10UL
     let num = 0x100UL
     let sprayRange m i =
-      let r = AddrRange (size * i, size * (i + 1UL))
+      let r = AddrRange (size * i, size * (i + 1UL) - 1UL)
       ARMap.add r None m
-    let r = AddrRange (0x150UL, 0x180UL)
+    let r = AddrRange (0x150UL, 0x17FUL)
     let l =
       [ 0UL .. num - 1UL ]
       |> List.fold sprayRange ARMap.empty
       |> ARMap.getOverlaps r
-    let n1 = (r.Max - r.Min) / size
+    let n1 = r.Count / size
     let n2 = uint64 <| List.length l
     Assert.AreEqual (n1, n2)
 
@@ -75,8 +75,8 @@ type AddrRangeTests () =
 
   [<TestMethod>]
   member __.``Count Test2 `` () =
-    let r1 = AddrRange (100UL, 200UL)
-    let r2 = AddrRange (50UL, 100UL)
+    let r1 = AddrRange (100UL, 199UL)
+    let r2 = AddrRange (50UL, 99UL)
     let m = ARMap.empty
     let m = ARMap.add r1 1 m
     let m = ARMap.add r2 2 m
@@ -84,8 +84,8 @@ type AddrRangeTests () =
 
   [<TestMethod>]
   member __.``Count Test3 `` () =
-    let r1 = AddrRange (100UL, 200UL)
-    let r2 = AddrRange (200UL, 300UL)
+    let r1 = AddrRange (100UL, 199UL)
+    let r2 = AddrRange (200UL, 299UL)
     let m = ARMap.empty
     let m = ARMap.add r1 1 m
     let m = ARMap.add r2 2 m
@@ -93,11 +93,23 @@ type AddrRangeTests () =
 
   [<TestMethod>]
   member __.``Count Test4 `` () =
-    let r1 = AddrRange (100UL, 200UL)
-    let r2 = AddrRange (200UL, 300UL)
-    let r3 = AddrRange (50UL, 100UL)
+    let r1 = AddrRange (100UL, 199UL)
+    let r2 = AddrRange (200UL, 299UL)
+    let r3 = AddrRange (50UL, 99UL)
     let m = ARMap.empty
     let m = ARMap.add r1 1 m
     let m = ARMap.add r2 2 m
     let m = ARMap.add r3 3 m
     Assert.AreEqual (ARMap.count m, 3)
+
+  [<TestMethod>]
+  member __.``Singleton Test1`` () =
+    let r1 = AddrRange (0UL)
+    let r2 = AddrRange (1UL)
+    let r3 = AddrRange (2UL)
+    let m = ARMap.empty
+    let m = ARMap.add r1 1 m
+    let m = ARMap.add r2 2 m
+    let m = ARMap.add r3 3 m
+    Assert.AreEqual (3, ARMap.count m)
+    Assert.AreEqual (2, ARMap.findByAddr 1UL m)

@@ -411,10 +411,10 @@ module BBLInfo =
        happens in obfuscated code. *)
     else Utils.futureFeature ()
 
-  let private createIRBBL fn instrs endAddr leaders idx leader =
+  let private createIRBBL fn instrs nextAddr leaders idx leader =
     let nextLeader =
       if idx < (leaders: ProgramPoint []).Length - 1 then leaders.[idx + 1]
-      else ProgramPoint (endAddr, 0)
+      else ProgramPoint (nextAddr, 0)
     let instrs = gatherInsInfos [] instrs leader nextLeader
     if Array.isEmpty instrs then ()
     else (fn: RegularFunction).AddVertex (instrs, leader) |> ignore
@@ -428,23 +428,23 @@ module BBLInfo =
     if insInfo.Instruction.IsRET () then fn.NoReturnProperty <- NotNoRet
     else ()
 
-  let private buildVertices instrs endAddr fn tmp =
+  let private buildVertices instrs nextAddr fn tmp =
     let leaders = Set.toArray tmp.Leaders
     leaders
-    |> Array.iteri (createIRBBL fn instrs endAddr leaders)
-    resetFunctionBoundary fn endAddr
+    |> Array.iteri (createIRBBL fn instrs nextAddr leaders)
+    resetFunctionBoundary fn (nextAddr - 1UL)
     markNoReturn fn instrs
 
   let private buildEdges (fn: RegularFunction) tmp =
     tmp.IntraEdges |> List.iter fn.AddEdge
     tmp.InterEdges |> List.iter fn.AddEdge
 
-  let parse hdl instrs sAddr eAddr fn fnMaintainer excTbl evts =
+  let parse hdl instrs sAddr nextAddr fn fnMaintainer excTbl evts =
     let tmp = scanBlock hdl fnMaintainer excTbl instrs fn sAddr evts
-    buildVertices instrs eAddr fn tmp
+    buildVertices instrs nextAddr fn tmp
     buildEdges fn tmp
     struct (
-      { BlkRange = AddrRange (sAddr, eAddr)
+      { BlkRange = AddrRange (sAddr, nextAddr - 1UL)
         InstrAddrs =
           instrs |> List.map (fun i -> i.Instruction.Address) |> Set.ofList
         IRLeaders = tmp.Leaders

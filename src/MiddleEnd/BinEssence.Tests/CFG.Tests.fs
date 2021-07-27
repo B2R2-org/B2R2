@@ -129,8 +129,8 @@ type CFGTest1 () =
     Assert.AreEqual (8, ess.CodeManager.BBLCount)
     (* BlkRange Test *)
     let expected =
-      [ (0x00UL, 0x19UL); (0x19UL, 0x3fUL); (0x3fUL, 0x48UL); (0x48UL, 0x52UL);
-        (0x52UL, 0x55UL); (0x55UL, 0x5fUL); (0x62UL, 0x71UL); (0x71UL, 0x81UL) ]
+      [ (0x00UL, 0x18UL); (0x19UL, 0x3eUL); (0x3fUL, 0x47UL); (0x48UL, 0x51UL);
+        (0x52UL, 0x54UL); (0x55UL, 0x5eUL); (0x62UL, 0x70UL); (0x71UL, 0x80UL) ]
       |> List.toArray
     let actual =
       ess.CodeManager.FoldBBLs (fun acc (KeyValue (_, bblInfo)) ->
@@ -218,8 +218,8 @@ type CFGTest1 () =
   [<TestMethod>]
   member __.``CFGInfo: BBLBounds Test`` () =
     let expected =
-      [ (0x00UL, 0x19UL); (0x19UL, 0x3FUL); (0x3FUL, 0x48UL); (0x48UL, 0x52UL);
-        (0x52UL, 0x55UL); (0x55UL, 0x5FUL); (0x62UL, 0x71UL); (0x71UL, 0x81UL) ]
+      [ (0x00UL, 0x18UL); (0x19UL, 0x3EUL); (0x3FUL, 0x47UL); (0x48UL, 0x51UL);
+        (0x52UL, 0x54UL); (0x55UL, 0x5EUL); (0x62UL, 0x70UL); (0x71UL, 0x80UL) ]
       |> List.toArray
     expected
     |> Array.iter (fun (minAddr, maxAddr) ->
@@ -292,9 +292,9 @@ type CFGTest1 () =
          ProgramPoint (0x52UL, 0); ProgramPoint (0x55UL, 0); |]
     let actual = leaders |> Array.map (fun l -> (Map.find l vMap).VData.Range)
     let expected =
-      [| AddrRange (0x00UL, 0x19UL); AddrRange (0x19UL, 0x3FUL);
-         AddrRange (0x3FUL, 0x48UL); AddrRange (0x48UL, 0x52UL);
-         AddrRange (0x52UL, 0x55UL); AddrRange (0x55UL, 0x5FUL); |]
+      [| AddrRange (0x00UL, 0x18UL); AddrRange (0x19UL, 0x3EUL);
+         AddrRange (0x3FUL, 0x47UL); AddrRange (0x48UL, 0x51UL);
+         AddrRange (0x52UL, 0x54UL); AddrRange (0x55UL, 0x5EUL); |]
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
@@ -336,7 +336,7 @@ type CFGTest1 () =
     let vMap = DiGraph.foldVertex cfg Utils.foldVertexNoFake Map.empty
     let leaders = [| ProgramPoint (0x62UL, 0) |]
     let actual = leaders |> Array.map (fun l -> (Map.find l vMap).VData.Range)
-    let expected = [| AddrRange (0x62UL, 0x71UL) |]
+    let expected = [| AddrRange (0x62UL, 0x70UL) |]
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
@@ -352,7 +352,7 @@ type CFGTest1 () =
     let vMap = DiGraph.foldVertex cfg Utils.foldVertexNoFake Map.empty
     let leaders = [| ProgramPoint (0x71UL, 0) |]
     let actual = leaders |> Array.map (fun l -> (Map.find l vMap).VData.Range)
-    let expected = [| AddrRange (0x71UL, 0x81UL) |]
+    let expected = [| AddrRange (0x71UL, 0x80UL) |]
     CollectionAssert.AreEqual (expected, actual)
 
   [<TestMethod>]
@@ -422,7 +422,7 @@ type CFGTest2 () =
     Assert.AreEqual (3, ess.CodeManager.BBLCount)
     (* BlkRange Test *)
     let expected =
-      [ (0x00UL, 0x0cUL); (0x0cUL, 0x24UL); (0x24UL, 0x28UL) ]
+      [ (0x00UL, 0x0bUL); (0x0cUL, 0x23UL); (0x24UL, 0x27UL) ]
       |> List.toArray
     let actual =
       ess.CodeManager.FoldBBLs (fun acc (KeyValue (_, bblInfo)) ->
@@ -498,7 +498,7 @@ type CFGTest2 () =
   [<TestMethod>]
   member __.``CFGInfo: BBLBounds Test`` () =
     let expected =
-      [ (0x00UL, 0x0cUL); (0x0cUL, 0x24UL); (0x24UL, 0x28UL) ]
+      [ (0x00UL, 0x0bUL); (0x0cUL, 0x23UL); (0x24UL, 0x27UL) ]
       |> List.toArray
     expected
     |> Array.iter (fun (minAddr, maxAddr) ->
@@ -612,12 +612,7 @@ type CFGTest2 () =
   [<TestMethod>]
   member __.``DisasmLens Test: _start`` () =
     let cfg, root = BinEssence.getFunctionCFG ess 0UL |> Result.get
-    let blockInfos =
-      ess.CodeManager.FoldBBLs (fun acc (KeyValue (addr, bblInfo)) ->
-        if bblInfo.FunctionEntry = 0UL then
-          Map.add addr (bblInfo.BlkRange, bblInfo.InstrAddrs) acc
-        else acc) Map.empty
-    let cfg, _ = DisasmLens.filter ess.CodeManager blockInfos cfg root
+    let cfg, _ = DisasmLens.filter ess.CodeManager cfg root
     Assert.AreEqual (1, DiGraph.getSize cfg)
     let vMap = DiGraph.foldVertex cfg (fun m v ->
       Map.add v.VData.PPoint.Address v m) Map.empty

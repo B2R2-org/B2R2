@@ -76,4 +76,4 @@ type WasmFileInfo (bytes, path, baseAddr) =
   override __.IsInFileRange range = __.IsValidRange range
   override __.IsExecutableAddr _addr = Utils.futureFeature () // FIXME
   override __.GetNotInFileIntervals range =
-    getNotInFileIntervals range bytes.LongLength
+    FileHelper.getNotInFileIntervals 0UL (uint64 bytes.LongLength) range

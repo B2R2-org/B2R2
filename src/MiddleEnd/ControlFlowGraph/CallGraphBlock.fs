@@ -38,7 +38,7 @@ type CallGraphBlock (addr, id, name, isFake, isExternal) =
 
   member __.IsExternal with get () = isExternal
 
-  override __.Range = AddrRange (addr, addr + 1UL)
+  override __.Range = AddrRange (addr)
 
   override __.IsFakeBlock () = isFake
 

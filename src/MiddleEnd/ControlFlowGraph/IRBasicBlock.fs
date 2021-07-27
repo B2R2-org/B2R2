@@ -77,7 +77,7 @@ type IRBasicBlock (instrs: InstructionInfo [], ppoint: ProgramPoint) =
   /// range.
   override __.Range =
     let lastAddr = __.LastInstruction.Address + uint64 __.LastInstruction.Length
-    AddrRange (__.PPoint.Address, lastAddr)
+    AddrRange (__.PPoint.Address, lastAddr - 1UL)
 
   override __.ToVisualBlock () =
     __.IRStatements

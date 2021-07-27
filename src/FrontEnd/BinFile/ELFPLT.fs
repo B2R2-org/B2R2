@@ -349,7 +349,7 @@ let private parsePLT gotBase typ reloc (reader: BinReader) (s: ELFSection) map =
       let info = typ.InfoGetter addr idx typ reader s gotBase |> Result.get
       // printfn "%x -> %x" addr info.EntryRelocAddr
       let nextAddr = info.NextEntryAddr
-      let ar = AddrRange (addr, nextAddr)
+      let ar = AddrRange (addr, nextAddr - 1UL)
       match Map.tryFind info.EntryRelocAddr reloc.RelocByAddr with
       | Some r when r.RelSymbol.IsSome ->
         let symb = Option.get r.RelSymbol

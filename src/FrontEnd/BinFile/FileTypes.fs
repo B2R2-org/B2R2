@@ -108,7 +108,7 @@ with
   /// Convert the section into an AddrRange based on its starting address and
   /// the size.
   member __.ToAddrRange () =
-    AddrRange (__.Address, __.Address + __.Size)
+    AddrRange (__.Address, __.Address + __.Size - 1UL)
 
 /// Linkage table entry object, which basically refers to PLT or IAT.
 type LinkageTableEntry = {

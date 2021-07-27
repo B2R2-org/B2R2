@@ -43,7 +43,7 @@ let parseSection baseAddr (reader: BinReader) cls pos =
     SecReserved2 = peekHeaderI32 reader cls pos 64 72 }
 
 let foldSecInfo acc sec =
-  let secEnd = sec.SecAddr + sec.SecSize
+  let secEnd = sec.SecAddr + sec.SecSize - 1UL
   let secByAddr = ARMap.addRange sec.SecAddr secEnd sec acc.SecByAddr
   let secByName = Map.add sec.SecName sec acc.SecByName
   { acc with SecByAddr = secByAddr; SecByName = secByName }

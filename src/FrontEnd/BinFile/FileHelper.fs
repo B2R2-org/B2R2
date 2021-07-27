@@ -25,7 +25,6 @@
 module internal B2R2.FrontEnd.BinFile.FileHelper
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
 
 let peekUIntOfType (reader: BinReader) bitType o =
   if bitType = WordSize.Bit32 then reader.PeekUInt32 (o) |> uint64
@@ -69,7 +68,7 @@ let peekCStringOfSize (reader: BinReader) offset (size: int) =
 
 let addInvRange set saddr eaddr =
   if saddr = eaddr then set
-  else IntervalSet.add (AddrRange (saddr, eaddr)) set
+  else IntervalSet.add (AddrRange (saddr, eaddr - 1UL)) set
 
 let addLastInvRange wordSize (set, saddr) =
   let laddr =
@@ -82,3 +81,17 @@ let trimByRange myrange target =
   let l = max (AddrRange.GetMin myrange) (AddrRange.GetMin target)
   let h = min (AddrRange.GetMax myrange) (AddrRange.GetMax target)
   AddrRange (l, h)
+
+let getNotInFileIntervals fileBase fileSize (range: AddrRange) =
+  let lastAddr = fileBase + fileSize - 1UL
+  if range.Max < fileBase then Seq.singleton range
+  elif range.Max <= lastAddr && range.Min < fileBase then
+    Seq.singleton (AddrRange (range.Min, fileBase - 1UL))
+  elif range.Max > lastAddr && range.Min < fileBase then
+    [ AddrRange (range.Min, fileBase - 1UL)
+      AddrRange (lastAddr + 1UL, range.Max) ]
+    |> List.toSeq
+  elif range.Max > lastAddr && range.Min <= lastAddr then
+    Seq.singleton (AddrRange (lastAddr + 1UL, range.Max))
+  elif range.Max > lastAddr && range.Min > lastAddr then Seq.singleton range
+  else Seq.empty
