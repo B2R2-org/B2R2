@@ -106,6 +106,15 @@ type FileInfo () =
   abstract member TranslateAddress: addr: Addr -> int
 
   /// <summary>
+   ///   Add a symbol for the address. This function is useful when we can
+   ///   obtain extra symbol information from outside of B2R2.
+   /// </summary>
+   /// <returns>
+   ///   Does not return a value.
+   /// </returns>
+   abstract member AddSymbol: Addr -> Symbol -> unit
+
+  /// <summary>
   ///   Return a list of all the symbols from the binary.
   /// </summary>
   /// <returns>

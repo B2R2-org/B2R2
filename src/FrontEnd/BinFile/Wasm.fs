@@ -51,6 +51,7 @@ type WasmFileInfo (bytes, path, baseAddr) =
   override __.EntryPoint = entryPointOf wm
   override __.TextStartAddr = textStartAddrOf wm
   override __.TranslateAddress addr = int addr
+  override __.AddSymbol addr symbol = Utils.futureFeature ()
   override __.GetSymbols () = getSymbols wm
   override __.GetStaticSymbols () = Seq.empty
   override __.GetDynamicSymbols (?exc) = getDynamicSymbols wm exc

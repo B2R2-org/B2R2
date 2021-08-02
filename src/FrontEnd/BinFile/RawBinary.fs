@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinFile
 
 open B2R2
+open System.Collections.Generic
 
 /// <summary>
 ///   This class represents a raw binary file (containing only binary code and
@@ -36,6 +37,8 @@ type RawFileInfo (bytes: byte [], path, isa, baseAddr) =
   let size = bytes.Length
   let usize = uint64 size
   let reader = BinReader.Init (bytes, isa.Endian)
+
+  let symbolMap = Dictionary<Addr, Symbol> ()
 
   override __.BinReader = reader
 
@@ -63,9 +66,13 @@ type RawFileInfo (bytes: byte [], path, isa, baseAddr) =
 
   override __.TranslateAddress addr = System.Convert.ToInt32 (addr - baseAddr)
 
-  override __.GetSymbols () = Seq.empty
+  override __.AddSymbol addr symbol =
+    symbolMap.[addr] <- symbol
 
-  override __.GetStaticSymbols () = Seq.empty
+  override __.GetSymbols () =
+    Seq.map (fun (KeyValue(k, v)) -> v) symbolMap
+
+  override __.GetStaticSymbols () = __.GetSymbols ()
 
   override __.GetDynamicSymbols (?_excludeImported) = Seq.empty
 
@@ -97,7 +104,9 @@ type RawFileInfo (bytes: byte [], path, isa, baseAddr) =
 
   override __.IsLinkageTable _ = false
 
-  override __.TryFindFunctionSymbolName (_addr) = Error ErrorCase.SymbolNotFound
+  override __.TryFindFunctionSymbolName (_addr) =
+    if symbolMap.ContainsKey(_addr) then Ok symbolMap.[_addr].Name
+    else Error ErrorCase.SymbolNotFound
 
   override __.ExceptionTable = ARMap.empty
 

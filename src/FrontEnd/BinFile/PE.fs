@@ -52,6 +52,7 @@ type PEFileInfo (bytes, path, baseAddr, rawpdb) =
   override __.EntryPoint = getEntryPoint pe
   override __.TextStartAddr = getTextStartAddr pe
   override __.TranslateAddress addr = translateAddr pe addr
+  override __.AddSymbol addr symbol = Utils.futureFeature ()
   override __.GetSymbols () = getSymbols pe
   override __.GetStaticSymbols () = getStaticSymbols pe
   override __.GetDynamicSymbols (?exc) = getDynamicSymbols pe exc

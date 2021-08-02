@@ -49,6 +49,7 @@ type ELFFileInfo (bytes, path, baseAddr, regbay) =
   override __.EntryPoint = Some elf.ELFHdr.EntryPoint
   override __.TextStartAddr = getTextStartAddr elf
   override __.TranslateAddress addr = translateAddr addr elf
+  override __.AddSymbol addr symbol = Utils.futureFeature ()
   override __.GetSymbols () = getSymbols elf
   override __.GetStaticSymbols () = getStaticSymbols elf
   override __.GetDynamicSymbols (?exc) = getDynamicSymbols exc elf
