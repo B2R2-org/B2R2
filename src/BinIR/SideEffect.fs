@@ -24,6 +24,8 @@
 
 namespace B2R2.BinIR
 
+open B2R2.BinIR.LowUIR
+
 /// Side effect kinds.
 type SideEffect =
   /// Software breakpoint.
@@ -54,8 +56,10 @@ type SideEffect =
   | UnsupportedPrivInstr
   /// Unsupported FAR branching.
   | UnsupportedFAR
-  /// Unsupported processor extension
+  /// Unsupported processor extension.
   | UnsupportedExtension
+  /// External function call.
+  | ExternalCall of Expr
 
 module SideEffect =
   let toString = function
@@ -74,24 +78,4 @@ module SideEffect =
     | UnsupportedPrivInstr -> "PrivInstr"
     | UnsupportedFAR -> "FAR"
     | UnsupportedExtension -> "CPU extension"
-
-  let ofString (input: string) =
-    match input.ToLower () with
-    | "breakpoint" -> Breakpoint
-    | "clk" -> ClockCounter
-    | "fence" -> Fence
-    | "delay" -> Delay
-    | "terminate" -> Terminate
-    | "lock" -> Lock
-    | "pid" -> ProcessorID
-    | "syscall" -> SysCall
-    | "undef" -> UndefinedInstr
-    | "fp" -> UnsupportedFP
-    | "privinstr" -> UnsupportedPrivInstr
-    | "far" -> UnsupportedFAR
-    | "cpu extension" -> UnsupportedExtension
-    | s when s.StartsWith "exception(" && s.Length >= 6 && s.EndsWith ")" ->
-      input.[ 5 .. input.Length - 2 ] |> Exception
-    | s when s.StartsWith "int" && s.Length >= 5 ->
-      int s.[4 ..] |> Interrupt
-    | _ -> B2R2.Utils.impossible ()
+    | ExternalCall expr -> "Call " + Expr.toString expr
