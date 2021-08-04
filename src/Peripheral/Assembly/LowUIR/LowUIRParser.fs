@@ -292,14 +292,33 @@ type LowUIRParser (isa, regbay: RegisterBay) =
       let rt = TypeCheck.typeOf tExp
       AST.intercjmp cond tExp fExp)
 
-  let pSideEffectIdentifier =
-    let isAllowedChar c = isAllowedCharForID c || c = '(' || c = ')'
-    many1Satisfy2L isAllowedFirstCharForID isAllowedChar "identifier"
+  let pException =
+    pstringCI "Exception"
+    >>. ws >>. pchar '(' >>. ws >>. pIdentifier .>> ws .>> pchar ')'
+    |>> Exception
+
+  let pSideEffectKind =
+    attempt (pstringCI "breakpoint" >>% Breakpoint)
+    <|> attempt (pstringCI "clk" >>% ClockCounter)
+    <|> attempt (pstringCI "fence" >>% Fence)
+    <|> attempt (pstringCI "delay" >>% Delay)
+    <|> attempt (pstringCI "terminate" >>% Terminate)
+    <|> attempt (pstringCI "int" >>. pint32 |>> Interrupt)
+    <|> attempt pException
+    <|> attempt (pstringCI "lock" >>% Lock)
+    <|> attempt (pstringCI "pid" >>% ProcessorID)
+    <|> attempt (pstringCI "syscall" >>% SysCall)
+    <|> attempt (pstringCI "undef" >>% UndefinedInstr)
+    <|> attempt (pstringCI "fp" >>% UnsupportedFP)
+    <|> attempt (pstringCI "privinstr" >>% UnsupportedPrivInstr)
+    <|> attempt (pstringCI "far" >>% UnsupportedFAR)
+    <|> attempt (pstringCI "cpu extension" >>% UnsupportedExtension)
+    <|> attempt (pstringCI "call " >>. pExpr |>> ExternalCall)
 
   let pSideEffect =
     ws
-    >>. pstring "!!" .>> ws >>. pSideEffectIdentifier
-    |>> (fun str -> SideEffect.ofString str |> AST.sideEffect)
+    >>. pstring "!!" .>> ws >>. pSideEffectKind
+    |>> AST.sideEffect
 
   let pStatement =
     attempt pISMark

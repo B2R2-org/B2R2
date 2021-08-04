@@ -15,8 +15,9 @@
     <Compile Include="BinOpType.fs" />
     <Compile Include="RelOpType.fs" />
     <Compile Include="CastKind.fs" />
+    <Compile Include="Expr.fs" />
     <Compile Include="SideEffect.fs" />
-    <Compile Include="LowUIR.fs" />
+    <Compile Include="Stmt.fs" />
     <Compile Include="LowUIR.Pp.fs" />
     <Compile Include="LowUIR.TypeCheck.fs" />
     <Compile Include="LowUIR.ASTHelper.fs" />
