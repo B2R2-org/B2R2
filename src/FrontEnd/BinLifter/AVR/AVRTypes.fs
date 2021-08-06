@@ -37,7 +37,7 @@ type Opcode =
   /// Add without Carry
   | ADD = 1
   /// Add immediate to Word
-  | ADIW = 2 
+  | ADIW = 2
   /// Logical AND
   | AND = 3
   /// Logical AND with Immediate
@@ -276,7 +276,7 @@ type Opcode =
 type Const = int32
 
 type AddressingMode =
-  | DispMode of Register * Const 
+  | DispMode of Register * Const
   | PreIdxMode of Register
   | PostIdxMode of Register
   | UnchMode of Register

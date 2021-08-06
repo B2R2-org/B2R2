@@ -10,7 +10,7 @@
   copies of the Software, and to permit persons to whom the Software is
   furnished to do so, subject to the following conditions:
 
-  The above copyright notice and this permission notice shall be included in all 
+  The above copyright notice and this permission notice shall be included in all
   copies or substantial portions of the Software.
 
   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
@@ -25,8 +25,6 @@
 module B2R2.FrontEnd.BinLifter.AVR.Parser
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
-open B2R2.FrontEnd.BinLifter.BitData
 open B2R2.FrontEnd.BinLifter.AVR.OperandHelper
 
 let isTwoBytes b1 =
@@ -54,29 +52,29 @@ let parse1001001 b32 =
   | 0b1100u | 0b1101u | 0b1110u | 0b1001u | 0b1010u | 0b0001u | 0b0010u ->
     Opcode.ST, parseTwoOpr b32 getMemST getRegD
   | 0b1111u -> Opcode.PUSH, parseOneOpr b32 getRegD
-  | 0b0110u -> Opcode.LAC, parseOneOpr b32 getRegD
-  | 0b0101u -> Opcode.LAS, parseOneOpr b32 getRegD
-  | 0b0111u -> Opcode.LAT, parseOneOpr b32 getRegD
-  | 0b0100u -> Opcode.XCH, parseOneOpr b32 getRegD
+  | 0b0110u -> Opcode.LAC, TwoOperands (OprReg R.Z, getRegD b32)
+  | 0b0101u -> Opcode.LAS, TwoOperands (OprReg R.Z, getRegD b32)
+  | 0b0111u -> Opcode.LAT, TwoOperands (OprReg R.Z, getRegD b32)
+  | 0b0100u -> Opcode.XCH, TwoOperands (OprReg R.Z, getRegD b32)
   | _ -> Opcode.InvalidOp, NoOperand
 
 /// 0000 00-- ---- ----
-let parse000000 b32 = 
+let parse000000 b32 =
   match extract b32 9u 8u with
-    | 0b01u -> Opcode.MOVW, parseTwoOpr b32 getRegEven4D getRegEvenEnd4D
-    | 0b10u -> Opcode.MULS, parseTwoOpr b32 getRegEven4D getRegEvenEnd4D
-    | 0b11u -> 
-        match concat (pickBit b32 7u) (pickBit b32 3u) 1 with
-          | 0b01u -> Opcode.FMUL, parseTwoOpr b32 getReg3D getReg3DLast
-          | 0b10u -> Opcode.FMULS, parseTwoOpr b32 getReg3D getReg3DLast
-          | 0b11u -> Opcode.FMULSU, parseTwoOpr b32 getReg3D getReg3DLast
-          | 0b00u -> Opcode.MULSU, parseTwoOpr b32 getReg3D getReg3DLast
-          | _ -> Opcode.InvalidOp, NoOperand
-    | 0b0u when b32 = 0u -> Opcode.NOP, NoOperand
+  | 0b01u -> Opcode.MOVW, parseTwoOpr b32 getRegEven4D getRegEvenEnd4D
+  | 0b10u -> Opcode.MULS, parseTwoOpr b32 getRegEven4D getRegEvenEnd4D
+  | 0b11u ->
+    match concat (pickBit b32 7u) (pickBit b32 3u) 1 with
+    | 0b01u -> Opcode.FMUL, parseTwoOpr b32 getReg3D getReg3DLast
+    | 0b10u -> Opcode.FMULS, parseTwoOpr b32 getReg3D getReg3DLast
+    | 0b11u -> Opcode.FMULSU, parseTwoOpr b32 getReg3D getReg3DLast
+    | 0b00u -> Opcode.MULSU, parseTwoOpr b32 getReg3D getReg3DLast
     | _ -> Opcode.InvalidOp, NoOperand
+  | 0b0u when b32 = 0u -> Opcode.NOP, NoOperand
+  | _ -> Opcode.InvalidOp, NoOperand
 
 /// 1001 010- ---- 1000 with no operands
-let parseNoOp1000 b32 = 
+let parseNoOp1000 b32 =
   match extract b32 8u 4u with
   | 0b11001u -> Opcode.BREAK, NoOperand
   | 0b01000u -> Opcode.CLC, NoOperand
@@ -105,7 +103,7 @@ let parseNoOp1000 b32 =
   | _ -> Opcode.InvalidOp, NoOperand
 
 /// 1001 010- ---- 1001 with no operands
-let parseNoOp1001 b32 = 
+let parseNoOp1001 b32 =
   match extract b32 8u 4u with
   | 0b10001u -> Opcode.EICALL, NoOperand
   | 0b00001u -> Opcode.EIJMP, NoOperand
@@ -114,7 +112,7 @@ let parseNoOp1001 b32 =
   | _ -> Opcode.InvalidOp, NoOperand
 
 /// 1001 010- ---- ----
-let parse1001010 b32 = 
+let parse1001010 b32 =
   match b32 >>> 9 with
   | 0b1001010u ->
     match b32 &&& 0b1111u with
@@ -128,17 +126,17 @@ let parse1001010 b32 =
     | 0b0010u -> Opcode.SWAP, parseOneOpr b32 getRegD
     | 0b1011u when pickBit b32 8u = 0b0u ->
       Opcode.DES, parseOneOpr b32 getConst4K
-    //| 0b1000u when extract b32 8u 7u = 0b01u ->
-    //  Opcode.BCLR, parseOneOpr b32 getConst3bs
-    //| 0b1000u when extract b32 8u 7u = 0b00u ->
-    //  Opcode.BSET, parseOneOpr b32 getConst3bs
+    (* | 0b1000u when extract b32 8u 7u = 0b01u ->
+      Opcode.BCLR, parseOneOpr b32 getConst3bs
+    | 0b1000u when extract b32 8u 7u = 0b00u ->
+      Opcode.BSET, parseOneOpr b32 getConst3bs *)
     | 0b1000u -> parseNoOp1000 b32
     | 0b1001u -> parseNoOp1001 b32
     | _ -> Opcode.InvalidOp, NoOperand
   | _ -> Opcode.InvalidOp, NoOperand
-    
+
 /// 1111 1--d dddd 0bbb
-let parse11111 b32 = 
+let parse11111 b32 =
   match concat (extract b32 10u 9u) (pickBit b32 3u) 1 with
   | 0b000u -> Opcode.BLD, parseTwoOpr b32 getRegD getConst3b
   | 0b010u -> Opcode.BST, parseTwoOpr b32 getRegD getConst3b
@@ -148,26 +146,26 @@ let parse11111 b32 =
 
 /// 1111 0- kk kkkk k---
 let parse11110 b32 =
-  match pickBit b32 10u with 
+  match pickBit b32 10u with
   | 0b0u ->
     match b32 &&& 0b111u with
     | 0b000u -> Opcode.BRCS, parseOneOpr b32 getAddr7K
     | 0b001u -> Opcode.BREQ, parseOneOpr b32 getAddr7K
     | 0b101u -> Opcode.BRHS, parseOneOpr b32 getAddr7K
     | 0b111u -> Opcode.BRIE, parseOneOpr b32 getAddr7K
-    // | 0b000u -> Opcode.BRLO, parseOneOpr b getAddr7K
+    (* | 0b000u -> Opcode.BRLO, parseOneOpr b getAddr7K *)
     | 0b100u -> Opcode.BRLT, parseOneOpr b32 getAddr7K
     | 0b010u -> Opcode.BRMI, parseOneOpr b32 getAddr7K
     | 0b110u -> Opcode.BRTS, parseOneOpr b32 getAddr7K
     | 0b011u -> Opcode.BRVS, parseOneOpr b32 getAddr7K
     | _ -> Opcode.InvalidOp, NoOperand
-  | 0b1u -> 
+  | 0b1u ->
     match b32 &&& 0b111u with
     | 0b000u -> Opcode.BRCC, parseOneOpr b32 getAddr7K
     | 0b001u -> Opcode.BRNE, parseOneOpr b32 getAddr7K
     | 0b101u -> Opcode.BRHC, parseOneOpr b32 getAddr7K
     | 0b111u -> Opcode.BRID, parseOneOpr b32 getAddr7K
-    // | 0b000u -> Opcode.BRSH, parseOneOpr b getAddr7K
+    (* | 0b000u -> Opcode.BRSH, parseOneOpr b getAddr7K *)
     | 0b100u -> Opcode.BRGE, parseOneOpr b32 getAddr7K
     | 0b010u -> Opcode.BRPL, parseOneOpr b32 getAddr7K
     | 0b110u -> Opcode.BRTC, parseOneOpr b32 getAddr7K
@@ -199,14 +197,18 @@ let parse1001 b32 =
 let parse1000 b32 =
   let isDispZero = getDisp b32 = 0
   match concat (pickBit b32 9u)(pickBit b32 3u) 1 with
-  | 0b11u -> if isDispZero then Opcode.ST, parseTwoOpr b32 getMemST getRegD else
-              Opcode.STD, parseTwoOpr b32 getMemDispY getRegD
-  | 0b10u -> if isDispZero then Opcode.ST, parseTwoOpr b32 getMemST getRegD else
-              Opcode.STD, parseTwoOpr b32 getMemDispZ getRegD
-  | 0b01u -> if isDispZero then Opcode.LD, parseTwoOpr b32 getRegD getMemLDD
-              else Opcode.LDD, parseTwoOpr b32 getRegD getMemDispY
-  | 0b00u -> if isDispZero then Opcode.LD, parseTwoOpr b32 getRegD getMemLDD
-              else Opcode.LDD, parseTwoOpr b32 getRegD getMemDispZ
+  | 0b11u ->
+    if isDispZero then Opcode.ST, parseTwoOpr b32 getMemST getRegD
+    else Opcode.STD, parseTwoOpr b32 getMemDispY getRegD
+  | 0b10u ->
+    if isDispZero then Opcode.ST, parseTwoOpr b32 getMemST getRegD
+    else Opcode.STD, parseTwoOpr b32 getMemDispZ getRegD
+  | 0b01u ->
+    if isDispZero then Opcode.LD, parseTwoOpr b32 getRegD getMemLDD
+    else Opcode.LDD, parseTwoOpr b32 getRegD getMemDispY
+  | 0b00u ->
+    if isDispZero then Opcode.LD, parseTwoOpr b32 getRegD getMemLDD
+    else Opcode.LDD, parseTwoOpr b32 getRegD getMemDispZ
   | _ -> Opcode.InvalidOp, NoOperand
 
 let parse1010 b32 =
@@ -218,39 +220,39 @@ let parse1010 b32 =
   | _ -> Opcode.InvalidOp, NoOperand
 
 /// Parse the instruction using only the first 6 bits
-let parseSixBits b32 = 
+let parseSixBits b32 =
   match b32 >>> 10 with
   | 0b000111u -> Opcode.ADC, parseTwoOpr b32 getRegD getRegR
   | 0b000011u -> Opcode.ADD, parseTwoOpr b32 getRegD getRegR
   | 0b001000u -> Opcode.AND, parseTwoOpr b32 getRegD getRegR
-  // | 0b111101u -> Opcode.BRBC  
-  // | 0b111100u -> Opcode.BRBS
-  // | 0b001001u -> Opcode.CLR //Same with EOR
+  (* | 0b111101u -> Opcode.BRBC
+     | 0b111100u -> Opcode.BRBS
+     | 0b001001u -> Opcode.CLR // Same with EOR *)
   | 0b000101u -> Opcode.CP, parseTwoOpr b32 getRegD getRegR
   | 0b000001u -> Opcode.CPC, parseTwoOpr b32 getRegD getRegR
   | 0b000100u -> Opcode.CPSE, parseTwoOpr b32 getRegD getRegR
   | 0b001001u -> Opcode.EOR, parseTwoOpr b32 getRegD getRegR
-  // | 0b000011u -> Opcode.LSL /// Logical shift left
+  (* | 0b000011u -> Opcode.LSL // Logical shift left *)
   | 0b001011u -> Opcode.MOV, parseTwoOpr b32 getRegD getRegR
   | 0b000110u -> Opcode.SUB, parseTwoOpr b32 getRegD getRegR
   | 0b100111u -> Opcode.MUL, parseTwoOpr b32 getRegD getRegR
   | 0b001010u -> Opcode.OR, parseTwoOpr b32 getRegD getRegR
-  // | 0b000111u -> Opcode.ROL /// Rotate Left thrugh Carry
+  (* | 0b000111u -> Opcode.ROL // Rotate Left through Carry *)
   | 0b000010u -> Opcode.SBC, parseTwoOpr b32 getRegD getRegR
-  // | 0b001000u -> Opcode.TST
+  (* | 0b001000u -> Opcode.TST *)
   | _ -> Opcode.InvalidOp, NoOperand
 
 /// Parse the instruction using only the first 4 bits
-let parseFourBits b32  = 
+let parseFourBits b32  =
   match b32 >>> 12 with
-  | 0b0111u -> Opcode.ANDI, parseTwoOpr b32 getReg4D getConst8K 
-  | 0b0011u -> Opcode.CPI, parseTwoOpr b32 getReg4D getConst8K 
-  | 0b1110u -> Opcode.LDI, parseTwoOpr b32 getReg4D getConst8K 
+  | 0b0111u -> Opcode.ANDI, parseTwoOpr b32 getReg4D getConst8K
+  | 0b0011u -> Opcode.CPI, parseTwoOpr b32 getReg4D getConst8K
+  | 0b1110u -> Opcode.LDI, parseTwoOpr b32 getReg4D getConst8K
   | 0b0110u -> Opcode.ORI, parseTwoOpr b32 getReg4D getConst8K
   | 0b1101u -> Opcode.RCALL, parseOneOpr b32 getAddr12
   | 0b1100u -> Opcode.RJMP, parseOneOpr b32 getAddr12
   | 0b0100u -> Opcode.SBCI, parseTwoOpr b32 getReg4D getConst8K
-  // | 0x0110u -> Opcode.SBR, parseTwoOpr b32 getReg4D getConst8K
+  (* | 0x0110u -> Opcode.SBR, parseTwoOpr b32 getReg4D getConst8K *)
   | 0b0101u -> Opcode.SUBI, parseTwoOpr b32 getReg4D getConst8K
   | 0b1011u when (pickBit b32 11u) = 0b0u ->
     Opcode.IN, parseTwoOpr b32 getRegD getIO6
@@ -258,7 +260,7 @@ let parseFourBits b32  =
     Opcode.OUT, parseTwoOpr b32 getIO6 getRegD
   | _ -> parseSixBits b32
 
-let parseTwoBytes bin = 
+let parseTwoBytes bin =
   match bin >>> 12 with
   | 0b0000u when extract bin 11u 10u = 0b0u -> parse000000 bin
   | 0b1001u -> parse1001 bin
@@ -282,16 +284,17 @@ let parse (reader: BinReader) addr pos =
     | true -> struct (uint32 bin, nextPos)
     | false ->
       let struct (b2, nextPos) = reader.ReadUInt16 nextPos
-      struct (((uint32 bin) <<< 16) + (uint32 b2), nextPos)      
+      struct (((uint32 bin) <<< 16) + (uint32 b2), nextPos)
   let instrLen = nextPos - pos |> uint32
   let op , operands =
     match isTwoBytes bin with
     | true -> parseTwoBytes bin32
-    | false -> parseFourBytes bin32 
+    | false -> parseFourBytes bin32
   let insInfo =
     { Address = addr
       NumBytes = instrLen
       Opcode = op
       Operands = operands }
   AVRInstruction (addr, instrLen, insInfo)
+
 // vim: set tw=80 sts=2 sw=2:

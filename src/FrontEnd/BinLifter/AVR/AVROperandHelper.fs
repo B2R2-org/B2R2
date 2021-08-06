@@ -24,7 +24,6 @@ SOFTWARE.
 
 module internal B2R2.FrontEnd.BinLifter.AVR.OperandHelper
 
-open B2R2
 open B2R2.FrontEnd.BinLifter
 
 let getRegister = function
@@ -111,8 +110,8 @@ let getConst8K b = concat (extract b 11u 8u) (b &&& 0b1111u) 4 |> int32 |> OprIm
 let getConst3b b = b &&& 0b111u |> int32 |> OprImm
 let getConst3bs b = extract b 6u 4u |> int32 |> OprImm
 let getConst22 b =
-  concat (extract b 24u 20u) (extract b 16u 0u) (17) |> int32 |> OprImm
-let getConst16 b = extract b 15u 0u |> int32 |> OprImm
+  (2u * concat (extract b 24u 20u) (extract b 16u 0u) (17)) |> int32 |> OprAddr
+let getConst16 b = extract b 15u 0u |> int32 |> OprAddr
 
 let getIO5 b = extract b 7u 3u |> int32 |> OprImm
 let getIO6 b = concat (extract b 10u 9u) (b &&& 0b1111u) 4 |> int32 |> OprImm

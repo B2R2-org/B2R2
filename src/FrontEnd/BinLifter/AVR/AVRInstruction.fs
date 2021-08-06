@@ -78,7 +78,8 @@ type AVRInstruction (addr, numBytes, insInfo) =
 
   override __.IsNop () = Utils.futureFeature ()
 
-  override __.Translate ctxt = Utils.futureFeature ()
+  override __.Translate ctxt =
+    Lifter.translate __.Info numBytes ctxt
 
   override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
     let builder =

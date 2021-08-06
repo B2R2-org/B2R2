@@ -45,10 +45,102 @@ type AVRRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
 
   override __.RegIDToIndex rid =
     match Register.ofRegID rid with
-    | _ -> Utils.futureFeature ()
+    | R.R0 -> 0
+    | R.R1 -> 1
+    | R.R2 -> 2
+    | R.R3 -> 3
+    | R.R4 -> 4
+    | R.R5 -> 5
+    | R.R6 -> 6
+    | R.R7 -> 7
+    | R.R8 -> 8
+    | R.R9 -> 9
+    | R.R10 -> 10
+    | R.R11 -> 11
+    | R.R12 -> 12
+    | R.R13 -> 13
+    | R.R14 -> 14
+    | R.R15 -> 15
+    | R.R16 -> 16
+    | R.R17 -> 17
+    | R.R18 -> 18
+    | R.R19 -> 19
+    | R.R20 -> 20
+    | R.R21 -> 21
+    | R.R22 -> 22
+    | R.R23 -> 23
+    | R.R24 -> 24
+    | R.R25 -> 25
+    | R.R26 -> 26
+    | R.R27 -> 27
+    | R.R28 -> 28
+    | R.R29 -> 29
+    | R.R30 -> 30
+    | R.R31 -> 31
+    | R.X -> 32
+    | R.Y -> 33
+    | R.Z -> 34
+    | R.IF -> 35
+    | R.TF -> 36
+    | R.HF -> 37
+    | R.SF -> 38
+    | R.VF -> 39
+    | R.NF -> 40
+    | R.ZF -> 41
+    | R.CF -> 42
+    | R.PC -> 43
+    | R.SP -> 44
+    | _ -> -1
 
-  override __.IndexToRegID _index: RegisterID =
-    Utils.futureFeature ()
+  override __.IndexToRegID index =
+    match index with
+    | 0 -> R.R0
+    | 1 -> R.R1
+    | 2 -> R.R2
+    | 3 -> R.R3
+    | 4 -> R.R4
+    | 5 -> R.R5
+    | 6 -> R.R6
+    | 7 -> R.R7
+    | 8 -> R.R8
+    | 9 -> R.R9
+    | 10 -> R.R10
+    | 11 -> R.R11
+    | 12 -> R.R12
+    | 13 -> R.R13
+    | 14 -> R.R14
+    | 15 -> R.R15
+    | 16 -> R.R16
+    | 17 -> R.R17
+    | 18 -> R.R18
+    | 19 -> R.R19
+    | 20 -> R.R20
+    | 21 -> R.R21
+    | 22 -> R.R22
+    | 23 -> R.R23
+    | 24 -> R.R24
+    | 25 -> R.R25
+    | 26 -> R.R26
+    | 27 -> R.R27
+    | 28 -> R.R28
+    | 29 -> R.R29
+    | 30 -> R.R30
+    | 31 -> R.R31
+    | 32 -> R.X
+    | 33 -> R.Y
+    | 34 -> R.Z
+    | 35 -> R.IF
+    | 36 -> R.TF
+    | 37 -> R.HF
+    | 38 -> R.SF
+    | 39 -> R.VF
+    | 40 -> R.NF
+    | 41 -> R.ZF
+    | 42 -> R.CF
+    | 43 -> R.PC
+    | 44 -> R.SP
+    | _ -> Utils.impossible ()
+    |> Register.toRegID
 
   override __.ToString () =
     sprintf "AVRRegisterSet<%x, %x>" __.BitArray.[0] __.BitArray.[1]

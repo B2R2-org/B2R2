@@ -165,7 +165,8 @@ let addrToString shift addr (builder: DisasmBuilder<_>) =
     builder.Accumulate AsmWordKind.String ".+"
     builder.Accumulate AsmWordKind.Value (string shift)
     builder.Accumulate AsmWordKind.String "     ; "
-    builder.Accumulate AsmWordKind.Value (String.i32ToHex relAddr) else
+    builder.Accumulate AsmWordKind.Value (String.i32ToHex relAddr)
+    else
       builder.Accumulate AsmWordKind.String "."
       builder.Accumulate AsmWordKind.Value (string shift)
       builder.Accumulate AsmWordKind.String "     ; "

@@ -62,6 +62,16 @@ type Register =
   | X = 0x20
   | Y = 0x21
   | Z = 0x22
+  | IF = 0x23
+  | TF = 0x24
+  | HF = 0x25
+  | SF = 0x26
+  | VF = 0x27
+  | NF = 0x28
+  | ZF = 0x29
+  | CF = 0x2A
+  | PC = 0x2B
+  | SP = 0x2C
 
 /// Shortcut for Register type.
 type internal R = Register
@@ -109,9 +119,16 @@ module Register =
     | "r30" -> R.R29
     | "r31" -> R.R30
     | "r32" -> R.R31
-    | "X" -> R.X
-    | "Y" -> R.Y
-    | "Z" -> R.Z
+    | "IF" -> R.IF
+    | "TF" -> R.TF
+    | "HF" -> R.HF
+    | "SF" -> R.SF
+    | "VF" -> R.VF
+    | "NF" -> R.NF
+    | "ZF" -> R.ZF
+    | "CF" -> R.CF
+    | "PC" -> R.PC
+    | "SP" -> R.SP
     | _ -> Utils.impossible ()
 
   let toString = function
@@ -150,5 +167,7 @@ module Register =
     | R.X -> "X"
     | R.Y -> "Y"
     | R.Z -> "Z"
+    | R.PC -> "pc"
+    | R.SP -> "sp"
     | _ -> Utils.impossible ()
 
