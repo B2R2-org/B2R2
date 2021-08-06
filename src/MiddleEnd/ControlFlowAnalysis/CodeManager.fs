@@ -199,7 +199,7 @@ type CodeManager (hdl) =
 
   member __.ReplaceInlinedAssemblyChunk insAddrs (chunk: Instruction) evts =
     let fstBBL = __.GetBBL chunk.Address
-    let sndBBL = __.GetBBL fstBBL.BlkRange.Max
+    let sndBBL = __.GetBBL (fstBBL.BlkRange.Max + 1UL)
     __.MergeBBLInfoAndReplaceInlinedAssembly insAddrs fstBBL sndBBL
     let fn = fnMaintainer.FindRegular fstBBL.FunctionEntry
     let srcPoint = fstBBL.IRLeaders.MaximumElement
