@@ -35,11 +35,8 @@ using the following tags:
 
 ### F# Coding Style
 
-Please read the [F# design
-guidelines](https://fsharp.org/specs/component-design-guidelines/) and the [F#
-style
-guideline](https://github.com/fsprojects/fantomas/blob/master/docs/FormattingConventions.md),
-before you proceed as we mostly follow these guidelines.
+Please read the [F# code formatting guideline](https://docs.microsoft.com/en-us/dotnet/fsharp/style-guide/formatting),
+before you proceed as we mostly follow it.
 
 #### Basic Rules
 
