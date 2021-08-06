@@ -627,7 +627,7 @@ type SzDqd () =
     rhlp.OperationSize <- 32<rt>
 
 /// VxHxWdq
-type SzDqX () =
+type SzXDq () =
   inherit InsSizeComputer ()
   override __.Render rhlp _ =
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
@@ -635,6 +635,17 @@ type SzDqX () =
     rhlp.MemEffAddrSize <- getEffAddrSize rhlp
     rhlp.MemEffRegSize <- 128<rt>
     rhlp.RegSize <- vLen
+    rhlp.OperationSize <- vLen
+
+/// VdqWx
+type SzDqX () =
+  inherit InsSizeComputer ()
+  override __.Render rhlp _ =
+    let vLen = (Option.get rhlp.VEXInfo).VectorLength
+    rhlp.MemEffOprSize <- vLen
+    rhlp.MemEffAddrSize <- getEffAddrSize rhlp
+    rhlp.MemEffRegSize <- vLen
+    rhlp.RegSize <- 128<rt>
     rhlp.OperationSize <- vLen
 
 /// GdUx
@@ -1051,36 +1062,37 @@ type SizeKind =
   | DwDqMR = 34
   | QD = 35
   | Dqd = 36
-  | DqX = 37
-  | XD = 38
-  | DqqdqX = 39
-  | DqddqX = 40
-  | DqwDq = 41
-  | DqwX = 42
-  | DqQqq = 43
-  | DqbX = 44
-  | DbDq = 45
-  | BV = 46
-  | Q = 47
-  | S = 48
-  | DX = 49
-  | DqdXz = 50
-  | DqqX = 51
-  | P = 52
-  | PRM = 53
-  | XqXz = 54
-  | XXz = 55
-  | XzX = 56
-  | XzXz = 57
-  | DqqQq = 58
-  | DqqXz = 59
-  | QqXz = 60
-  | QqXzRM = 61
-  | DqdX = 62
-  | DXz = 63
-  | QXz = 64
-  | DqQq = 65
-  | DqXz = 66
-  | YDq = 67
+  | XDq = 37
+  | DqX = 38
+  | XD = 39
+  | DqqdqX = 40
+  | DqddqX = 41
+  | DqwDq = 42
+  | DqwX = 43
+  | DqQqq = 44
+  | DqbX = 45
+  | DbDq = 46
+  | BV = 47
+  | Q = 48
+  | S = 49
+  | DX = 50
+  | DqdXz = 51
+  | DqqX = 52
+  | P = 53
+  | PRM = 54
+  | XqXz = 55
+  | XXz = 56
+  | XzX = 57
+  | XzXz = 58
+  | DqqQq = 59
+  | DqqXz = 60
+  | QqXz = 61
+  | QqXzRM = 62
+  | DqdX = 63
+  | DXz = 64
+  | QXz = 65
+  | DqQq = 66
+  | DqXz = 67
+  | YDq = 68
 
 // vim: set tw=80 sts=2 sw=2:

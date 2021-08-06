@@ -325,6 +325,18 @@ let ``and`` ins insLen ctxt =
   !?ir (enumSZPFlags ctxt t oprSize)
   !>ir insLen
 
+let andn ins insLen ctxt =
+  let struct (dst, src1, src2) = transThreeOprs ins insLen ctxt
+  let oprSize = getOperationSize ins
+  let ir = IRBuilder (16)
+  let t = !*ir oprSize
+  !<ir insLen
+  !!ir (t := (AST.not src1) .& src2)
+  !!ir (dstAssign oprSize dst t)
+  !!ir (!.ctxt R.SF := AST.extract dst 1<rt> (int oprSize - 1))
+  !!ir (!.ctxt R.ZF := AST.eq dst (AST.num0 oprSize))
+  !>ir insLen
+
 let arpl ins insLen ctxt =
 #if DEBUG
   assert32 ctxt

@@ -514,9 +514,9 @@ INSERTPS
 INSW
 /// Call to Interrupt (Interrupt vector specified by immediate byte).
 INT
-/// Call to Interrupt (Interrupt 3—trap to debugger).
+/// Call to Interrupt (Interrupt 3-trap to debugger).
 INT3
-/// Call to Interrupt (InteInterrupt 4—if overflow flag is 1).
+/// Call to Interrupt (InteInterrupt 4-if overflow flag is 1).
 INTO
 /// Invalidate Internal Caches.
 INVD
@@ -536,47 +536,42 @@ IRETD
 IRETQ
 /// Interrupt return (16-bit operand size).
 IRETW
-/// Jump if Condition Is Met (Jump short if above, CF = 0 and ZF = 0).
-JNBE
-JA
-/// Jump if Condition Is Met (Jump short if below, CF = 1).
-JC
-JNAE
-JB
-/// Jump if Condition Is Met (Jump short if below or equal, CF = 1 or ZF).
-JNA
-JBE
-/// Jump if Condition Is Met (Jump short if CX register is 0).
-JCXZ
-/// Jump if Condition Is Met (Jump short if ECX register is 0).
-JECXZ
-/// Jump if Condition Is Met (Jump short if RCX register is 0).
-JRCXZ
-/// Jump if Condition Is Met (Jump short if greater, ZF = 0 and SF = OF).
-JNLE
-JG
-/// Jump if Condition Is Met (Jump short if less, SF <> OF).
-JNGE
-JL
-/// Jump if Cond Is Met (Jump short if less or equal, ZF = 1 or SF <> OF).
-JNG
-JLE
-/// Far jmp.
-JMPFar
-/// Near jmp.
-JMPNear
 /// Jump if Condition Is Met (Jump near if not below, CF = 0).
 JAE
 JNC
 JNB
+/// Jump if Condition Is Met (Jump short if below, CF = 1).
+JC
+JNAE
+JB
+/// Jump if Condition Is Met (Jump short if CX register is 0).
+JCXZ
+/// Jump if Condition Is Met (Jump short if ECX register is 0).
+JECXZ
 /// Jump if Condition Is Met (Jump near if not less, SF = OF).
 JGE
 JNL
+/// Far jmp.
+JMPFar
+/// Near jmp.
+JMPNear
+/// Jump if Condition Is Met (Jump short if below or equal, CF = 1 or ZF).
+JNA
+JBE
+/// Jump if Condition Is Met (Jump short if above, CF = 0 and ZF = 0).
+JNBE
+JA
+/// Jump if Cond Is Met (Jump short if less or equal, ZF = 1 or SF <> OF).
+JNG
+JLE
+/// Jump if Condition Is Met (Jump short if less, SF <> OF).
+JNGE
+JL
+/// Jump if Condition Is Met (Jump short if greater, ZF = 0 and SF = OF).
+JNLE
+JG
 /// Jump if Condition Is Met (Jump near if not overflow, OF = 0).
 JNO
-/// Jump if Condition Is Met (Jump near if not parity, PF = 0).
-JPO
-JNP
 /// Jump if Condition Is Met (Jump near if not sign, SF = 0).
 JNS
 /// Jump if Condition Is Met (Jump near if not zero, ZF = 0).
@@ -587,6 +582,11 @@ JO
 /// Jump if Condition Is Met (Jump near if parity, PF = 1).
 JP
 JPE
+/// Jump if Condition Is Met (Jump near if not parity, PF = 0).
+JPO
+JNP
+/// Jump if Condition Is Met (Jump short if RCX register is 0).
+JRCXZ
 /// Jump if Condition Is Met (Jump short if sign, SF = 1).
 JS
 /// Jump if Condition Is Met (Jump short if zero, ZF = 1).
@@ -1426,12 +1426,22 @@ VANDPS
 VBLENDMPD
 /// Replace the VBLENDVPS instructions (using opmask as select control).
 VBLENDMPS
+/// Variable Blend Packed Double-Precision Floats.
+VBLENDVPD
 /// Broadcast 128 bits of int data in mem to low and high 128-bits in ymm1.
 VBROADCASTI128
 /// Broadcast low double-precision floating-point element.
 VBROADCASTSD
 /// Broadcast Floating-Point Data.
 VBROADCASTSS
+/// Compare Packed Double-Precision Floating-Point Values.
+VCMPPD
+/// Compare Packed Single-Precision Floating-Point Values.
+VCMPPS
+/// Compare Scalar Double-Precision Floating-Point Values.
+VCMPSD
+/// Scalar Single-Precision Floating-Point Values.
+VCMPSS
 /// Compare Scalar Ordered Double-Precision FP Values and Set EFLAGS.
 VCOMISD
 /// Compare Scalar Ordered Single-Precision FP Values and Set EFLAGS.
@@ -1440,12 +1450,10 @@ VCOMISS
 VCOMPRESSPD
 /// Compress packed SP elements of a vector.
 VCOMPRESSPS
-/// Compare Packed Double-Precision Floating-Point Values.
-VCMPPD
-/// Compare Packed Single-Precision Floating-Point Values.
-VCMPPS
 /// Convert two packed signed doubleword integers.
 VCVTDQ2PD
+/// Convert Packed Dword Integers to Packed Single-Precision FP Values.
+VCVTDQ2PS
 /// Convert two packed double-precision floating-point values.
 VCVTPD2PS
 /// Convert Packed Double-Precision FP Values to Packed Quadword Integers.
@@ -1486,6 +1494,8 @@ VCVTSS2SD
 VCVTSS2SI
 /// Convert Scalar Single-Precision FP Value to Unsigned Doubleword Integer.
 VCVTSS2USI
+/// Convert with Trunc Packed Double-Precision FP Val to Packed Dword Integers.
+VCVTTPD2DQ
 /// Convert with Truncation Packed DP FP Values to Packed QWord Integers.
 VCVTTPD2QQ
 /// Convert with Truncation Packed DP FP Values to Packed Unsigned DWord Int.
@@ -1544,6 +1554,8 @@ VEXP2SS
 VEXPANDPD
 /// Load Sparse Packed Single-Precision FP Values from Dense Memory.
 VEXPANDPS
+/// Extract Packed Floating-Point Values.
+VEXTRACTF128
 /// Extract a vector from a full-length vector with 32-bit granular update.
 VEXTRACTF32X4
 /// Extract a vector from a full-length vector with 32-bit granular update.
@@ -1568,12 +1580,14 @@ VFIXUPIMMPS
 VFIXUPIMMSD
 /// Fix Up Special Scalar Float32 Value.
 VFIXUPIMMSS
+/// Fused Multiply-Add of Packed Double-Precision Floating-Point Values.
+VFMADD132PD
 /// Fused Multiply-Add of Scalar Double-Precision Floating-Point Values.
 VFMADD132SD
 /// Fused Multiply-Add of Scalar Single-Precision Floating-Point Values.
 VFMADD132SS
 /// Fused Multiply-Add of Packed Double-Precision Floating-Point Values.
-VFMADD132PD
+VFMADD213PD
 /// Fused Multiply-Add of Packed Single-Precision Floating-Point Values.
 VFMADD213PS
 /// Fused Multiply-Add of Scalar Double-Precision Floating-Point Values.
@@ -1588,16 +1602,24 @@ VFMADD231SD
 VFMADD231SS
 /// Fused Multiply-Subtract of Scalar Single-Precision Floating-Point Values.
 VFMSUB132SS
+/// Fused Multiply-Subtract of Packed Double-Precision Floating-Point Values.
+VFMSUB213PD
+/// Fused Multiply-Subtract of Scalar Double-Precision Floating-Point Values.
+VFMSUB213SD
+/// Fused Multiply-Subtract of Packed Double-Precision Floating-Point Values.
+VFMSUB231PD
 /// Fused Multiply-Subtract of Scalar Double-Precision Floating-Point Values.
 VFMSUB231SD
 /// Fused Negative Multiply-Add of Packed Double-Precision FP Values.
 VFNMADD132PD
-/// Fused Negative Multiply-Add of Packed Double-Precision FP Values.
-VFNMADD231PD
 /// Fused Negative Multiply-Add of Scalar Double-Precision FP Values.
 VFNMADD132SD
+/// Fused Negative Multiply-Add of Packed Double-Precision FP Values.
+VFNMADD213PD
 /// Fused Negative Multiply-Add of Scalar Double-Precision FP Values.
 VFNMADD213SD
+/// Fused Negative Multiply-Add of Packed Double-Precision FP Values.
+VFNMADD231PD
 /// Fused Negative Multiply-Add of Scalar Double-Precision FP Values.
 VFNMADD231SD
 /// Tests Types Of a Packed Float64 Values.
@@ -1610,6 +1632,8 @@ VFPCLASSSD
 VFPCLASSSS
 /// Gather Packed SP FP values Using Signed Dword/Qword Indices.
 VGATHERDPS
+/// Gather Packed DP FP Values Using Signed Dword/Qword Indices.
+VGATHERQPD
 /// Convert Exponents of Packed DP FP Values to DP FP Values.
 VGETEXPPD
 /// Convert Exponents of Packed SP FP Values to SP FP Values.
@@ -1644,20 +1668,28 @@ VINSERTI64X2
 VINSERTI64X4
 /// Load Unaligned Integer 128 Bits.
 VLDDQU
+/// Return Maximum Packed Double-Precision Floating-Point Values.
+VMAXPD
 /// Maximum of Packed Single-Precision Floating-Point Values.
 VMAXPS
 /// Return Maximum Scalar Double-Precision Floating-Point Value.
 VMAXSD
 /// Return Maximum Scalar Single-Precision Floating-Point Value.
 VMAXSS
-/// Return Minimum Scalar Single-Precision Floating-Point Value.
-VMINSS
 /// Call to VM Monitor.
 VMCALL
 /// Clear Virtual-Machine Control Structure.
 VMCLEAR
 /// Invoke VM function.
 VMFUNC
+/// Return Minimum Packed Double-Precision Floating-Point Values.
+VMINPD
+/// Return Minimum Packed Single-Precision Floating-Point Values.
+VMINPS
+/// Return Minimum Scalar Double-Precision Floating-Point Value.
+VMINSD
+/// Return Minimum Scalar Single-Precision Floating-Point Value.
+VMINSS
 /// Launch Virtual Machine.
 VMLAUNCH
 /// Move Aligned Packed Double-Precision Floating-Point Values.
@@ -1878,6 +1910,8 @@ VPERMW
 VPEXPANDD
 /// Load Sparse Packed Quadword Integer Values from Dense Memory / Register.
 VPEXPANDQ
+/// Extract DWord.
+VPEXTRD
 /// Extract Word.
 VPEXTRW
 /// Gather packed dword values using signed Dword/Qword indices.
@@ -1892,7 +1926,7 @@ VPHADDW
 VPHMINPOSUW
 /// Packed Horizontal Subtract (32-bit).
 VPHSUBD
-/// Packed Horizontal Subtract and Saturate (16-bit)
+/// Packed Horizontal Subtract and Saturate (16-bit).
 VPHSUBSW
 /// Packed Horizontal Subtract (16-bit).
 VPHSUBW
@@ -1900,10 +1934,10 @@ VPHSUBW
 VPINSRB
 /// Insert Dword.
 VPINSRD
-/// Insert Word.
-VPINSRW
 /// Insert Qword.
 VPINSRQ
+/// Insert Word.
+VPINSRW
 /// Count the number of leading zero bits of packed dword elements.
 VPLZCNTD
 /// Count the number of leading zero bits of packed qword elements.
@@ -1998,9 +2032,9 @@ VPMOVUSDB
 VPMOVUSDW
 /// Down Convert QWord to Byte.
 VPMOVUSQB
-/// Down Convert QWord to DWord
+/// Down Convert QWord to DWord.
 VPMOVUSQD
-/// Down Convert QWord to Dword.
+/// Down Convert QWord to Word.
 VPMOVUSQW
 /// Down Convert Word to Byte.
 VPMOVUSWB
@@ -2194,6 +2228,10 @@ VRCP28PS
 VRCP28SD
 /// Computes the reciprocal approximation of the low float32 value.
 VRCP28SS
+/// Compute reciprocals of packed single-precision floating-point values.
+VRCPPS
+/// Compute Reciprocal of Scalar Single-Precision Floating-Point Values.
+VRCPSS
 /// Perform Reduction Transformation on Packed Float64 Values.
 VREDUCEPD
 /// Perform Reduction Transformation on Packed Float32 Values.
@@ -2210,6 +2248,12 @@ VRNDSCALEPS
 VRNDSCALESD
 /// Round Scalar Float32 Value To Include A Given Number Of Fraction Bits.
 VRNDSCALESS
+/// Round Packed Double-Precision Values.
+VROUNDPD
+/// Round Packed Single-Precision Values.
+VROUNDPS
+/// Round Scalar Double-Precision Value.
+VROUNDSD
 /// Compute Approximate Reciprocals of Square Roots of Packed Float64 Values.
 VRSQRT14PD
 /// Compute Approximate Reciprocals of Square Roots of Packed Float32 Values.
@@ -2226,6 +2270,10 @@ VRSQRT28PS
 VRSQRT28SD
 /// Computes the reciprocal square root of the low float32 value.
 VRSQRT28SS
+/// Compute Reciprocals of Square Roots of Packed Single-Precision FP Values.
+VRSQRTPS
+/// Compute Reciprocal of Square Root of Scalar Single-Precision FP Value.
+VRSQRTSS
 /// Multiply packed DP FP elements of a vector by powers.
 VSCALEPD
 /// Multiply packed SP FP elements of a vector by powers.
