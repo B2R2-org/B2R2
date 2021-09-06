@@ -24,6 +24,8 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.BinLifter.ARM
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.BinLifter.ARM64", "src\FrontEnd\BinLifter\ARM64\B2R2.FrontEnd.BinLifter.ARM64.fsproj", "{8CA197A9-96CE-4284-80B5-EC0132F20A62}"
 EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.BinLifter.AVR", "src\FrontEnd\BinLifter\AVR\B2R2.FrontEnd.BinLifter.AVR.fsproj", "{A425AE4A-691C-4540-9CA0-2B7D32EFE230}"
+EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.BinLifter.MIPS", "src\FrontEnd\BinLifter\MIPS\B2R2.FrontEnd.BinLifter.MIPS.fsproj", "{40C841D4-C7D0-489B-80FB-5B4D22DB60E7}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.BinLifter.EVM", "src\FrontEnd\BinLifter\EVM\B2R2.FrontEnd.BinLifter.EVM.fsproj", "{49C21BFB-126B-473D-876E-C9965CCD3096}"
@@ -103,8 +105,6 @@ EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.Peripheral.Assembly.Tests", "src\Peripheral\Assembly.Tests\B2R2.Peripheral.Assembly.Tests.fsproj", "{3FDFC8B9-AD97-4FD6-B1B9-D9E498BC34B5}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.RearEnd.Launcher", "src\RearEnd\Launcher\B2R2.RearEnd.Launcher.fsproj", "{ECF6ADAE-C222-41E9-BA5B-811866193A2B}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.FrontEnd.BinLifter.AVR", "src\FrontEnd\BinLifter\AVR\B2R2.FrontEnd.BinLifter.AVR.fsproj", "{A425AE4A-691C-4540-9CA0-2B7D32EFE230}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
