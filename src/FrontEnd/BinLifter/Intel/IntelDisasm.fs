@@ -672,6 +672,7 @@ let opCodeToString = function
   | Opcode.VMCLEAR -> "vmclear"
   | Opcode.VMFUNC -> "vmfunc"
   | Opcode.VMINPD -> "vminpd"
+  | Opcode.VMINPS -> "vminps"
   | Opcode.VMINSS -> "vminss"
   | Opcode.VMLAUNCH -> "vmlaunch"
   | Opcode.VMOVAPD -> "vmovapd"
