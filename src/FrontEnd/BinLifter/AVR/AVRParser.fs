@@ -279,17 +279,16 @@ let parseFourBytes b1=
 
 let parse (reader: BinReader) addr pos =
   let struct (bin, nextPos) = reader.ReadUInt16 pos
-  let struct (bin32, nextPos) =
+  let struct ((op, operands), nextPos) =
     match isTwoBytes bin with
-    | true -> struct (uint32 bin, nextPos)
+    | true ->
+      let bin = uint32 bin
+      struct (bin |> parseTwoBytes, nextPos)
     | false ->
       let struct (b2, nextPos) = reader.ReadUInt16 nextPos
-      struct (((uint32 bin) <<< 16) + (uint32 b2), nextPos)
+      let bin = ((uint32 bin) <<< 16) + (uint32 b2)
+      struct (bin |> parseFourBytes, nextPos)
   let instrLen = nextPos - pos |> uint32
-  let op , operands =
-    match isTwoBytes bin with
-    | true -> parseTwoBytes bin32
-    | false -> parseFourBytes bin32
   let insInfo =
     { Address = addr
       NumBytes = instrLen

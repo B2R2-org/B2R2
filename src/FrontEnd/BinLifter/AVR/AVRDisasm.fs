@@ -28,7 +28,6 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 let opCodeToString = function
-  (* TODO *)
   | Opcode.ADC -> "adc"
   | Opcode.ADD -> "add"
   | Opcode.ADIW -> "adiw"

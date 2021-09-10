@@ -1,25 +1,25 @@
 (*
-B2R2 - the Next-Generation Reversing Platform
+  B2R2 - the Next-Generation Reversing Platform
 
-Copyright (c) SoftSec Lab. @ KAIST, since 2016
+  Copyright (c) SoftSec Lab. @ KAIST, since 2016
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
 *)
 
 module internal B2R2.FrontEnd.BinLifter.AVR.OperandHelper
@@ -65,8 +65,11 @@ let getRegister = function
   | _ -> raise InvalidRegisterException
 
 let memPreIdx offset = OprMemory (PreIdxMode (offset))
+
 let memPostIdx offset = OprMemory (PostIdxMode (offset))
+
 let memDisp offset = OprMemory (DispMode (offset))
+
 let memUnch offset = OprMemory (UnchMode (offset))
 
 let extract binary n1 n2 =
@@ -94,30 +97,45 @@ let parseTwoOpr b op1 op2 = TwoOperands(op1 b, op2 b)
 let getReg b s e = getRegister (extract b s e |> byte)
 
 let getRegD b = getReg b 8u 4u |> OprReg
+
 let getReg2D b = getRegister( 24u + 2u * (extract b 5u 4u) |> byte)|> OprReg
+
 let getReg3D b = getRegister( 16u + (extract b 6u 4u) |> byte)|> OprReg
+
 let getReg3DLast b = getRegister( 16u + (extract b 2u 0u) |> byte)|> OprReg
+
 let getReg4D b = getRegister (extract b 7u 4u + 16u |> byte ) |> OprReg
+
 let getRegEven4D b = getRegister(2u * (extract b 7u 4u) |> byte) |> OprReg
+
 let getRegEvenEnd4D b = getRegister(2u * (extract b 3u 0u) |> byte) |> OprReg
+
 let getRegR b =
   getRegister (concat (pickBit b 9u) (b &&& 0b1111u) 4 |> byte ) |> OprReg
+
 let getRegD32 b = getReg b 24u 20u |> OprReg
 
 let getConst4K b = extract b 7u 4u |> int32 |> OprImm
+
 let getConst6K b = concat (extract b 7u 6u) (b &&& 0b1111u) 4 |> int32 |> OprImm
+
 let getConst8K b = concat (extract b 11u 8u) (b &&& 0b1111u) 4 |> int32 |> OprImm
+
 let getConst3b b = b &&& 0b111u |> int32 |> OprImm
+
 let getConst3bs b = extract b 6u 4u |> int32 |> OprImm
+
 let getConst22 b =
   (2u * concat (extract b 24u 20u) (extract b 16u 0u) (17)) |> int32 |> OprAddr
+
 let getConst16 b = extract b 15u 0u |> int32 |> OprAddr
 
 let getIO5 b = extract b 7u 3u |> int32 |> OprImm
+
 let getIO6 b = concat (extract b 10u 9u) (b &&& 0b1111u) 4 |> int32 |> OprImm
 
-
 let getAddr7K b = ((extract b 9u 3u) <<< 25  |> int32 >>> 25) * 2 |> OprAddr
+
 let getAddr12 b = ((extract b 11u 0u) <<< 20  |> int32 >>> 20) * 2 |> OprAddr
 
 let getDisp b =

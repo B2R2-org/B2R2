@@ -47,8 +47,11 @@ let private test bytes len (actStmts : Stmt [])  =
 [<TestClass>]
 type AVRUnitTest () =
   [<TestMethod>]
-  member __.``[AVR] Insturctions Lift Test`` () =
-    test [| 0x00uy; 0x00uy |] 2u [| AST.ismark 2u; AST.iemark 2u|]
+  member __.``[AVR] Instructions with start and end statements lift Test`` () =
+    test [| 0x00uy; 0x00uy |] 2u [| AST.ismark 2u; AST.iemark 2u |]
+
+  [<TestMethod>]
+  member __.``[AVR] Instructions with Put statements lift Test`` () =
     test [| 0x4cuy; 0x2fuy |] 2u
          [| AST.ismark 2u
             (!.ctxt R.R20 := !.ctxt R.R28)
@@ -58,6 +61,9 @@ type AVRUnitTest () =
             (!.ctxt R.R10 := !.ctxt R.R8)
             (!.ctxt R.R11 := !.ctxt R.R9)
             AST.iemark 2u |]
+
+  [<TestMethod>]
+  member __.``[AVR] Put statements for flag registers lift Test`` () =
     test [| 0xf8uy; 0x94uy |] 2u
          [| AST.ismark 2u
             (!.ctxt R.IF := AST.b0)
@@ -70,6 +76,9 @@ type AVRUnitTest () =
             (!.ctxt R.ZF := !. ctxt R.R1 == AST.num0 8<rt>)
             (!.ctxt R.SF := !.ctxt R.NF <+> !.ctxt R.VF)
             AST.iemark 2u |]
+
+  [<TestMethod>]
+  member __.``[AVR] Load statements lift Test`` () =
     test [| 0x6fuy; 0x92uy |] 2u
          [| AST.ismark 2u
             (AST.loadLE 8<rt> (!.ctxt R.SP) := !.ctxt R.R6)

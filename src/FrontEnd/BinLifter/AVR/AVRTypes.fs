@@ -31,7 +31,6 @@ open System.Runtime.CompilerServices
 do ()
 
 type Opcode =
-  (* TODO *)
   /// Add with Carry
   | ADC = 0
   /// Add without Carry

@@ -27,7 +27,7 @@ namespace B2R2.FrontEnd.BinLifter.AVR
 open B2R2
 
 type Register =
-  | R0 = 0x0 (* TODO *)
+  | R0 = 0x0
   | R1 = 0x1
   | R2 = 0x2
   | R3 = 0x3
@@ -87,7 +87,7 @@ module Register =
 
   let ofString (str: string) =
     match str.ToLower () with
-    | "r1" -> R.R0 (* TODO *)
+    | "r1" -> R.R0
     | "r2" -> R.R1
     | "r3" -> R.R2
     | "r4" -> R.R3
@@ -132,7 +132,7 @@ module Register =
     | _ -> Utils.impossible ()
 
   let toString = function
-    | R.R0 -> "r0" (* TODO *)
+    | R.R0 -> "r0"
     | R.R1 -> "r1"
     | R.R2 -> "r2"
     | R.R3 -> "r3"
