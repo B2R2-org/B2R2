@@ -466,6 +466,11 @@ let rec getUnwind acc cfa irule rst rule isa rbay lr cf df rr span i loc =
       let offset, cnt = LEB128.DecodeUInt64 (span.Slice i)
       let cfa = CanonicalFrameAddress.regPlusOffset isa rbay lr (int offset)
       getUnwind acc cfa irule rst rule isa rbay lr cf df rr span (i + cnt) loc
+    | DWCFAInstruction.DW_CFA_def_cfa_offset_sf ->
+      let offset, cnt = LEB128.DecodeSInt64 (span.Slice i)
+      let offset = int (offset * df)
+      let cfa = CanonicalFrameAddress.regPlusOffset isa rbay lr offset
+      getUnwind acc cfa irule rst rule isa rbay lr cf df rr span (i + cnt) loc
     | DWCFAInstruction.DW_CFA_def_cfa_expression ->
       let v, cnt = LEB128.DecodeUInt64 (span.Slice i)
       let i = i + cnt
