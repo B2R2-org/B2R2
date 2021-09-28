@@ -96,10 +96,16 @@ type ARM32Instruction (addr, numBytes, insInfo) =
     | _ -> false
 
   override __.IsRET () =
-    Utils.futureFeature ()
+    match __.Info with
+    | { Opcode = Op.LDR; Operands = TwoOperands (OprReg R.PC, _)} -> true
+    | { Opcode = Op.POP; Operands = OneOperand (OprRegList regs) }
+      when List.contains R.PC regs -> true
+    | _ -> false
 
   override __.IsInterrupt () =
-    __.Info.Opcode = Op.SVC
+    match __.Info.Opcode with
+    | Op.SVC | Op.HVC | Op.SMC -> true
+    | _ -> false
 
   override __.IsExit () =
     Utils.futureFeature ()
@@ -107,7 +113,7 @@ type ARM32Instruction (addr, numBytes, insInfo) =
   override __.IsBBLEnd () =
     __.IsDirectBranch () ||
     __.IsIndirectBranch () ||
-    __.Info.Opcode = Op.SVC
+    __.IsInterrupt ()
 
   override __.DirectBranchTarget (addr: byref<Addr>) =
     if __.IsBranch () then

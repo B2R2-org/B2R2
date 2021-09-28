@@ -85,13 +85,17 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
   override __.IsRET () =
     __.Info.Opcode = Opcode.RET
 
-  override __.IsInterrupt () = Utils.futureFeature ()
+  override __.IsInterrupt () =
+    match __.Info.Opcode with
+    | Opcode.SVC | Opcode.HVC | Opcode.SMC -> true
+    | _ -> false
 
   override __.IsExit () = Utils.futureFeature ()
 
   override __.IsBBLEnd () = // FIXME
     __.IsDirectBranch () ||
-    __.IsIndirectBranch ()
+    __.IsIndirectBranch () ||
+    __.IsInterrupt ()
 
   override __.DirectBranchTarget (addr: byref<Addr>) =
     if __.IsBranch () then
