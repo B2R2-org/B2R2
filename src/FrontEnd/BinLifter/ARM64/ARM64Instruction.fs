@@ -101,7 +101,13 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
     if __.IsBranch () then
       match __.Info.Operands with
       | OneOperand (Memory (LiteralMode (ImmOffset (Lbl offset)))) ->
-        addr <- (int64 __.Address + offset) |> uint64
+        addr <- (__.Address + uint64 offset)
+        true
+      | TwoOperands (_, Memory (LiteralMode (ImmOffset (Lbl offset)))) ->
+        addr <- (__.Address + uint64 offset)
+        true
+      | ThreeOperands (_, _, Memory (LiteralMode (ImmOffset (Lbl offset)))) ->
+        addr <- (__.Address + uint64 offset)
         true
       | _ -> false
     else false
