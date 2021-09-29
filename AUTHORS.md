@@ -25,6 +25,7 @@ list of contributors in alphabetic order.
 - Jaemin Kim
 - JungHyun Kim
 - Kangsu Kim
+- Junoh Lee
 - Minsu Lee
 - DongYeop Oh
 - MyeongGeun Shin
