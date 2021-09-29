@@ -49,7 +49,7 @@ let getNaturalLoops g root =
     let s = findIn rev s
     let d = findIn rev d
     let vertices =
-      []
+      [ d ]
       |> Traversal.foldPreorderExcept rev [ s ] [ d ] (fun acc v ->
         (findIn g v) :: acc)
       |> HashSet
