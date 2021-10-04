@@ -122,7 +122,26 @@ let rec internal translateStmtAux defaultRegType addr (s: LowUIR.Stmt) =
     let jmp = InterCJmp (expr1, expr2, expr3)
     Jmp jmp |> Some
   | LowUIR.SideEffect s ->
-    SideEffect s |> Some
+    let ssaForm =
+      match s with
+      | SideEffect.Breakpoint -> SSA.Breakpoint
+      | SideEffect.ClockCounter -> SSA.ClockCounter
+      | SideEffect.Fence -> SSA.Fence
+      | SideEffect.Delay -> SSA.Delay
+      | SideEffect.Terminate -> SSA.Terminate
+      | SideEffect.Interrupt (v) -> SSA.Interrupt (v)
+      | SideEffect.Exception (v) -> SSA.Exception (v)
+      | SideEffect.Lock -> SSA.Lock
+      | SideEffect.ProcessorID -> SSA.ProcessorID
+      | SideEffect.SysCall -> SSA.SysCall
+      | SideEffect.UndefinedInstr -> SSA.UndefinedInstr
+      | SideEffect.UnsupportedFP -> SSA.UnsupportedFP
+      | SideEffect.UnsupportedPrivInstr -> SSA.UnsupportedPrivInstr
+      | SideEffect.UnsupportedFAR -> SSA.UnsupportedFAR
+      | SideEffect.UnsupportedExtension -> SSA.UnsupportedExtension
+      | SideEffect.ExternalCall (expr) ->
+        expr |> translateExpr |> SSA.ExternalCall
+    SideEffect ssaForm |> Some
 
 let translateStmts defaultRegType addr stmts =
   stmts |> Array.choose (translateStmtAux defaultRegType addr)

@@ -139,7 +139,9 @@ let introduceDef (count: VarCountMap) (stack: IDStack) (v: SSA.Variable) =
 
 let renameStmt count stack (_, stmt) =
   match stmt with
-  | SSA.LMark _
+  | SSA.LMark _ -> ()
+  | SSA.SideEffect (SSA.ExternalCall e) ->
+    renameExpr stack e
   | SSA.SideEffect _ -> ()
   | SSA.Jmp jmpTy -> renameJmp stack jmpTy
   | SSA.Def (def, e) ->

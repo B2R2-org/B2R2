@@ -147,7 +147,7 @@ let private stmtToStringAux stmt (sb: StringBuilder) =
       sb.Append (";") |> ignore)
     sb.Append (")") |> ignore
   | SideEffect eff ->
-    sb.Append ("SideEffect " + SideEffect.toString eff) |> ignore
+    sb.Append ("SideEffect " + eff.ToString ()) |> ignore
 
 let expToString expr =
   let sb = new StringBuilder ()

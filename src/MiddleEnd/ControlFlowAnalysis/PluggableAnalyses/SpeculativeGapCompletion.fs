@@ -110,4 +110,4 @@ type SpeculativeGapCompletion () =
     member __.Name = "Speculative Gap Completion"
 
     member __.Run _builder hdl codeMgr dataMgr =
-      SpeculativeGapCompletionHelper.run hdl codeMgr dataMgr
+      PluggableAnalysisOk // SpeculativeGapCompletionHelper.run hdl codeMgr dataMgr

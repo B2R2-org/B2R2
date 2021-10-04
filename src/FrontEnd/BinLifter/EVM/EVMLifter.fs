@@ -295,7 +295,7 @@ let callExternFunc insInfo ctxt name argCount doesRet =
   let args = List.init argCount (fun _ -> popFromStack ctxt builder)
   let expr = AST.app name args OperationSize.regType
   if doesRet then pushToStack ctxt expr builder
-  else builder <! ((builder.NewTempVar OperationSize.regType) := expr)
+  else builder <! (AST.sideEffect (ExternalCall expr))
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
@@ -358,7 +358,7 @@ let translate insInfo (ctxt: TranslationContext) =
   | ADDRESS -> callExternFunc insInfo ctxt "address" 0 true
   | BALANCE -> callExternFunc insInfo ctxt "balance" 1 true
   | ORIGIN -> callExternFunc insInfo ctxt "tx.origin" 0 true
-  | CALLER -> callExternFunc insInfo ctxt "msg.caller" 0 true
+  | CALLER -> callExternFunc insInfo ctxt "msg.sender" 0 true
   | CALLVALUE -> callExternFunc insInfo ctxt "msg.value" 0 true
   | CALLDATALOAD -> callExternFunc insInfo ctxt "msg.data" 1 true
   | CALLDATASIZE -> callExternFunc insInfo ctxt "msg.data.size" 0 true

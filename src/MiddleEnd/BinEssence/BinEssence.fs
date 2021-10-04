@@ -93,6 +93,38 @@ module BinEssence =
     | Ok () -> Ok ess
     | Error err -> Error err
 
+  let private handlePluggableAnalysisResult ess name = function
+    | PluggableAnalysisOk ->
+      Ok ess
+    | PluggableAnalysisError ->
+      printfn "[*] %s failed." name
+      Ok ess
+    | PluggableAnalysisNewBinary hdl ->
+      let ess = initialize hdl
+      let builder = CFGBuilder (hdl, ess.CodeManager, ess.DataManager)
+      initialBuild ess builder
+
+  let private runAnalyses builder analyses (ess: BinEssence) =
+    analyses
+    |> List.fold (fun ess (analysis: IPluggableAnalysis) ->
+  #if DEBUG
+      printfn "[*] %s started." analysis.Name
+  #endif
+      let ess =
+        analysis.Run builder ess.BinHandle ess.CodeManager ess.DataManager
+        |> handlePluggableAnalysisResult ess analysis.Name
+      match ess with
+      | Ok ess -> ess
+      | Error e ->
+        eprintfn "[*] Fatal error with %s" (CFGError.toString e)
+        Utils.impossible ()) ess
+
+  let private analyzeAll preAnalyses mainAnalyses postAnalyses builder ess =
+    ess
+    |> runAnalyses builder preAnalyses
+    |> runAnalyses builder mainAnalyses
+    |> runAnalyses builder postAnalyses
+
   [<CompiledName("Init")>]
   let init hdl preAnalyses mainAnalyses postAnalyses =
 #if DEBUG
@@ -102,9 +134,7 @@ module BinEssence =
     let builder = CFGBuilder (hdl, ess.CodeManager, ess.DataManager)
     match initialBuild ess builder with
     | Ok ess ->
-      CFGAnalysis.run
-        preAnalyses mainAnalyses postAnalyses
-        builder ess.BinHandle ess.CodeManager ess.DataManager
+      let ess = ess |> analyzeAll preAnalyses mainAnalyses postAnalyses builder
 #if DEBUG
       let endTime = System.DateTime.Now
       endTime.Subtract(startTime).TotalSeconds

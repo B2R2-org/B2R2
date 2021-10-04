@@ -171,7 +171,7 @@ with
     | "mips64r2be" -> ISA.Init Arch.MIPS64R2 Endian.Big
     | "mips64r6" -> ISA.Init Arch.MIPS64R6 Endian.Little
     | "mips64r6be" -> ISA.Init Arch.MIPS64R6 Endian.Big
-    | "evm" -> ISA.Init Arch.EVM Endian.Little
+    | "evm" -> ISA.Init Arch.EVM Endian.Big
     | "tms320c6000" -> ISA.Init Arch.TMS320C6000 Endian.Little
     | "cil" -> ISA.Init Arch.CILOnly Endian.Little
     | "avr" | "avr8" -> ISA.Init Arch.AVR Endian.Little

@@ -299,13 +299,11 @@ module BBLInfo =
       leader, { tmp with HasExplicitTerminator = true }
     | SideEffect _ when insInfo.Instruction.IsExit () ->
       leader, { tmp with HasExplicitTerminator = true }
-    | SideEffect _ ->
-      let ftAddr = addr + uint64 insInfo.Instruction.Length
-      let tmp =
-        tmp.NextEvents
-        |> CFGEvents.addEdgeEvt fn leader ftAddr FallThroughEdge
-        |> updateNextEvents tmp
-      leader, { tmp with HasExplicitTerminator = true }
+    (* For EVM. *)
+    | InterJmp ({ E = TempVar (_, _) }, _)
+    | InterCJmp (_, { E = TempVar (_, _) }, { E = Num _ }) ->
+      (fn: RegularFunction).RegisterNewIndJump addr
+      leader, tmp
     | _ -> (* Fall-through cases. *)
       (* Inter-instruction fall-through. *)
       if isLast then

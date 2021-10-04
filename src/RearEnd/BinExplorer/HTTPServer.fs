@@ -184,6 +184,7 @@ let handleFunctions req resp arbiter =
   let ess = Protocol.getBinEssence arbiter
   let names =
     ess.CodeManager.FunctionMaintainer.RegularFunctions
+    |> Seq.sortBy (fun c -> c.Entry)
     |> Seq.map (fun c -> { FuncID = c.FunctionID; FuncName = c.FunctionName })
     |> Seq.toArray
   Some (json<(JsonFuncInfo) []> names |> defaultEnc.GetBytes)

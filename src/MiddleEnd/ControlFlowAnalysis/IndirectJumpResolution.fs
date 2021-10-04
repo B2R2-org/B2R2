@@ -1,4 +1,4 @@
-﻿(*
+(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -31,129 +31,27 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
+open B2R2.MiddleEnd.ControlFlowAnalysis.IRHelper
 open B2R2.MiddleEnd.DataFlow
+open System.Collections.Generic
 
 type BranchPattern =
   /// This encodes an indirect jump with a jump table where baseAddr is the jump
   /// target's base address, tblAddr is the start address of a jump table, and
   /// rt is the size of each entry in the jump table.
   | JmpTablePattern of baseAddr: Addr * tblAddr: Addr * rt: RegType
+  /// For EVM
+  | ConstJmpPattern of addr: Addr
+  /// For EVM
+  | ConstCJmpPattern of tAddr: Addr * fAddr: Addr
+  /// For EVM
+  | ConstCallPattern of calleeAddr: Addr * ftAddr: Addr
+  /// For EVM
+  | ReturnPattern of sp: Addr
   /// Unknown pattern.
   | UnknownPattern
 
 module private IndirectJumpResolution =
-
-  let varToBV cpState var id =
-    let v = { var with Identifier = id }
-    match CPState.findReg cpState v with
-    | Const bv | Thunk bv | Pointer bv -> Some bv
-    | _ -> None
-
-  let expandPhi cpState var ids e =
-    let bvs = ids |> Array.toList |> List.map (fun id -> varToBV cpState var id)
-    match bvs.[0] with
-    | Some hd ->
-      if bvs.Tail |> List.forall (function Some bv -> bv = hd | None -> false)
-      then Num hd
-      else e
-    | None -> e
-
-  /// Recursively expand vars until we meet a Load expr.
-  let rec symbolicExpand cpState = function
-    | Num _ as e -> e
-    | Var v as e ->
-      match Map.tryFind v cpState.SSAEdges.Defs with
-      | Some (Def (_, e)) -> symbolicExpand cpState e
-      | Some (Phi (_, ids)) -> expandPhi cpState v ids e
-      | _ -> e
-    | Load _ as e -> e
-    | UnOp (_, _, Load _) as e -> e
-    | UnOp (op, rt, e) ->
-      let e = symbolicExpand cpState e
-      UnOp (op, rt, e)
-    | BinOp (_, _, Load _, _)
-    | BinOp (_, _, _, Load _) as e -> e
-    | BinOp (op, rt, e1, e2) ->
-      let e1 = symbolicExpand cpState e1
-      let e2 = symbolicExpand cpState e2
-      BinOp (op, rt, e1, e2)
-    | RelOp (_, _, Load _, _)
-    | RelOp (_, _, _, Load _) as e -> e
-    | RelOp (op, rt, e1, e2) ->
-      let e1 = symbolicExpand cpState e1
-      let e2 = symbolicExpand cpState e2
-      RelOp (op, rt, e1, e2)
-    | Ite (Load _, _, _, _)
-    | Ite (_, _, Load _, _)
-    | Ite (_, _, _, Load _) as e -> e
-    | Ite (e1, rt, e2, e3) ->
-      let e1 = symbolicExpand cpState e1
-      let e2 = symbolicExpand cpState e2
-      let e3 = symbolicExpand cpState e3
-      Ite (e1, rt, e2, e3)
-    | Cast (_, _, Load _) as e -> e
-    | Cast (op, rt, e) ->
-      let e = symbolicExpand cpState e
-      Cast (op, rt, e)
-    | Extract (Load _, _, _) as e -> e
-    | Extract (e, rt, pos) ->
-      let e = symbolicExpand cpState e
-      Extract (e, rt, pos)
-    | e -> e
-
-  let rec simplify = function
-    | Load (v, rt, e) -> Load (v, rt, simplify e)
-    | Store (v, rt, e1, e2) -> Store (v, rt, simplify e1, simplify e2)
-    | BinOp (BinOpType.ADD, rt, BinOp (BinOpType.ADD, _, Num v1, e), Num v2)
-    | BinOp (BinOpType.ADD, rt, BinOp (BinOpType.ADD, _, e, Num v1), Num v2)
-    | BinOp (BinOpType.ADD, rt, Num v1, BinOp (BinOpType.ADD, _, e, Num v2))
-    | BinOp (BinOpType.ADD, rt, Num v1, BinOp (BinOpType.ADD, _, Num v2, e)) ->
-      BinOp (BinOpType.ADD, rt, e, Num (BitVector.add v1 v2))
-    | BinOp (BinOpType.ADD, _, Num v1, Num v2) -> Num (BitVector.add v1 v2)
-    | BinOp (BinOpType.SUB, _, Num v1, Num v2) -> Num (BitVector.sub v1 v2)
-    | BinOp (op, rt, e1, e2) -> BinOp (op, rt, simplify e1, simplify e2)
-    | UnOp (op, rt, e) -> UnOp (op, rt, simplify e)
-    | RelOp (op, rt, e1, e2) -> RelOp (op, rt, simplify e1, simplify e2)
-    | Ite (c, rt, e1, e2) -> Ite (simplify c, rt, simplify e1, simplify e2)
-    | Cast (k, rt, e) -> Cast (k, rt, simplify e)
-    | Extract (Cast (CastKind.ZeroExt, _, e), rt, 0) when AST.typeOf e = rt -> e
-    | Extract (Cast (CastKind.SignExt, _, e), rt, 0) when AST.typeOf e = rt -> e
-    | Extract (e, rt, pos) -> Extract (simplify e, rt, pos)
-    | expr -> expr
-
-  let rec foldWithConstant cpState = function
-    | Var v as e ->
-      match CPState.findReg cpState v with
-      | Const bv | Thunk bv | Pointer bv -> Num bv
-      | _ ->
-        match Map.tryFind v cpState.SSAEdges.Defs with
-        | Some (Def (_, e)) -> foldWithConstant cpState e
-        | _ -> e
-    | Load (m, rt, addr) as e ->
-      match foldWithConstant cpState addr with
-      | Num addr ->
-        let addr = BitVector.toUInt64 addr
-        match CPState.tryFindMem cpState m rt addr with
-        | Some (Const bv) | Some (Thunk bv) | Some (Pointer bv) -> Num bv
-        | _ -> e
-      | _ -> e
-    | UnOp (op, rt, e) -> UnOp (op, rt, foldWithConstant cpState e)
-    | BinOp (op, rt, e1, e2) ->
-      let e1 = foldWithConstant cpState e1
-      let e2 = foldWithConstant cpState e2
-      BinOp (op, rt, e1, e2) |> simplify
-    | RelOp (op, rt, e1, e2) ->
-      let e1 = foldWithConstant cpState e1
-      let e2 = foldWithConstant cpState e2
-      RelOp (op, rt, e1, e2)
-    | Ite (e1, rt, e2, e3) ->
-      let e1 = foldWithConstant cpState e1
-      let e2 = foldWithConstant cpState e2
-      let e3 = foldWithConstant cpState e3
-      Ite (e1, rt, e2, e3)
-    | Cast (op, rt, e) -> Cast (op, rt, foldWithConstant cpState e)
-    | Extract (e, rt, pos) -> Extract (foldWithConstant cpState e, rt, pos)
-    | e -> e
 
   let rec isJmpTblAddr cpState = function
     | Var v ->
@@ -243,13 +141,98 @@ module private IndirectJumpResolution =
         findIndJumpExpr ssaCFG callerBlkAddr fstV vs
     | [] -> Utils.impossible ()
 
+  let tryGetLastSp callerV cpState =
+    let sp = EVM.Register.SP
+    let t = sp |> EVM.Register.toRegType
+    let id = sp |> EVM.Register.toRegID
+    let str = sp |> EVM.Register.toString
+    let k = SSA.RegVar (t, id, str)
+    match SSACFG.findDef callerV k with
+    | Some (Def (_, e)) ->
+      match tryResolveExprToUInt64 cpState e with
+      | Some v -> v |> Some
+      | None -> None
+    | _ -> None
+
+  /// Get elements in the latest stack frame. The upper bound of SP should be
+  /// calculated in first. Note that we handle EVM's SP in the ascending-order.
+  let rec getStackVarExprsUntil v sp (ret: Dictionary<VariableKind, Expr>) =
+    let offLB = - int (sp - Utils.initialStackPointer)
+    let stmtInfos = (v: SSAVertex).VData.SSAStmtInfos
+    None
+    |> Array.foldBack (fun (_, stmt) _ ->
+      match stmt with
+      | Def ({ Kind = StackVar (_, off) as k }, e) when off >= offLB ->
+        if ret.ContainsKey k then ()
+        else ret.Add (k, e) |> ignore
+        None
+      | _ -> None) stmtInfos |> ignore
+    match v.VData.ImmDominator with
+    | Some idom -> getStackVarExprsUntil idom sp ret
+    | None -> ret
+
+  /// Check if the latest stack frame has the fall-through address (ftAddr). It
+  /// assumes that the last instruction is either a jump or a conditional jump.
+  let rec checkIfStackHasFtAddr callerV cpState ftAddr isCJmp =
+    match tryGetLastSp callerV cpState with
+    | Some sp ->
+      let wordSize = uint64 <| RegType.toByteWidth 256<rt>
+      (* Note that the addresses in stack have already been popped out. *)
+      let spDiff = if isCJmp then wordSize * 2UL else wordSize
+      let sp = sp + spDiff
+      let stackVarExprMap = Dictionary () |> getStackVarExprsUntil callerV sp
+      stackVarExprMap.Values
+      |> Seq.exists (fun e ->
+        match tryResolveExprToUInt64 cpState e with
+        | Some v when v = ftAddr -> true
+        | _ -> false)
+    | None -> false
+
+  let checkCall callerV cpState addr ftAddr =
+    (* It is based on heuristics, and could be replaced by argument analysis. *)
+    if addr = ftAddr then false
+    else checkIfStackHasFtAddr callerV cpState ftAddr false
+
+  let analyzeIndirectBranchPatternForEVM cpState (callerV: SSAVertex) =
+    match callerV.VData.GetLastStmt () with
+    | Jmp (InterJmp jmpExpr) ->
+      match resolveExpr cpState jmpExpr with
+      | Var ({ Kind = StackVar (_, _); Identifier = 0; }) ->
+        (* If it's referring to a StackVar out of scope here, then it indicates
+           ReturnPattern. Note that it's purely on heuristics. It may be not
+           the case: it could be given as a function pointer to somewhere. *)
+        match tryGetLastSp callerV cpState with
+        | Some sp -> ReturnPattern <| sp
+        | _ -> UnknownPattern
+      | Num addr ->
+        match tryResolveBVToUInt64 addr with
+        | Some addr ->
+          let insInfos = callerV.VData.InsInfos
+          let lastInsInfo = Array.last insInfos
+          let lastInsAddr = lastInsInfo.Instruction.Address
+          let lastInsLength = uint64 lastInsInfo.Instruction.Length
+          let ftAddr = lastInsAddr + lastInsLength
+          if checkCall callerV cpState addr ftAddr then
+            ConstCallPattern <| (addr, ftAddr)
+          else
+            ConstJmpPattern <| addr
+        | _ -> UnknownPattern
+      | _ -> UnknownPattern
+    | Jmp (InterCJmp (_, tJmpExpr, fJmpExpr)) ->
+      let tAddr = tJmpExpr |> tryResolveExprToUInt64 cpState
+      let fAddr = fJmpExpr |> tryResolveExprToUInt64 cpState
+      match tAddr, fAddr with
+      | Some tAddr, Some fAddr -> ConstCJmpPattern <| (tAddr, fAddr)
+      | _ -> UnknownPattern
+    /// Does not consider this case in the current implementation. Assume that
+    /// we register only the cases above into IndirectJumpResolution for EVM.
+    | _ -> Utils.impossible ()
+
   /// Symbolically expand the indirect jump expression with the constant
   /// information obtained from the constatnt propagation step, and see if the
   /// jump target is in the form of loading a jump table.
-  let analyzeIndirectBranchPattern ssaCFG cpState callerBlkAddr =
-    let callerV =
-      DiGraph.findVertexBy ssaCFG (fun (v: SSAVertex) ->
-        v.VData.PPoint.Address = callerBlkAddr)
+  let analyzeIndirectBranchPattern ssaCFG cpState callerV =
+    let callerBlkAddr = (callerV: SSAVertex).VData.PPoint.Address
     let symbExpr =
       findIndJumpExpr ssaCFG callerBlkAddr callerV [ callerV ]
       |> symbolicExpand cpState
@@ -308,21 +291,18 @@ module private IndirectJumpResolution =
       | Error e -> Error e
 
   let rec analyzeNewJmpTables hdl codeMgr dataMgr func addrs needRecovery =
-    let struct (cpState, ssaCFG) = PerFunctionAnalysis.runCP hdl func None
     match addrs with
     | insAddr :: restAddrs ->
 #if CFGDEBUG
       dbglog "IndJmpRecovery" "@%x Detected indjmp @ %x" func.Entry insAddr
 #endif
+      let struct (cpState, ssaCFG) = PerFunctionAnalysis.runCP hdl func None
       let bblInfo = (codeMgr: CodeManager).GetBBL insAddr
       let blkAddr = Set.minElement bblInfo.InstrAddrs
-      match analyzeIndirectBranchPattern ssaCFG cpState blkAddr with
-      | UnknownPattern ->
-#if CFGDEBUG
-        dbglog "IndJmpRecovery" "The pattern is unknown"
-#endif
-        func.MarkIndJumpAsUnknown insAddr
-        analyzeNewJmpTables hdl codeMgr dataMgr func restAddrs needRecovery
+      let ssaBlk =
+        DiGraph.findVertexBy ssaCFG (fun (v: SSAVertex) ->
+          v.VData.PPoint.Address = blkAddr)
+      match analyzeIndirectBranchPattern ssaCFG cpState ssaBlk with
       | JmpTablePattern (bAddr, tAddr, rt) ->
 #if CFGDEBUG
         dbglog "IndJmpRecovery" "Found known pattern %x, %x" bAddr tAddr
@@ -330,9 +310,15 @@ module private IndirectJumpResolution =
         let tbls = (dataMgr: DataManager).JumpTables
         match tbls.Register func.Entry insAddr bAddr tAddr rt with
         | Ok () ->
-          func.MarkIndJumpAsAnalyzed insAddr tAddr
+          func.MarkIndJumpAsJumpTbl insAddr tAddr
           analyzeNewJmpTables hdl codeMgr dataMgr func restAddrs true
         | Error jt -> Error (jt, tAddr) (* Overlapping jump table. *)
+      | _ ->
+#if CFGDEBUG
+        dbglog "IndJmpRecovery" "The pattern is unknown"
+#endif
+        func.MarkIndJumpAsUnknown insAddr
+        analyzeNewJmpTables hdl codeMgr dataMgr func restAddrs needRecovery
     | [] -> Ok needRecovery
 
   /// Find out jump table bases only for those never seen before.
@@ -345,8 +331,8 @@ module private IndirectJumpResolution =
     fn.IndirectJumps.Values
     |> Seq.fold (fun acc jmpKind ->
       match jmpKind with
-      | NotJmpTbl | YetAnalyzed -> acc
       | JmpTbl tAddr -> tAddr :: acc
+      | _ -> acc
     ) []
     |> List.rev
 
@@ -501,13 +487,80 @@ module private IndirectJumpResolution =
       | None ->
         getNextRecoveryTargetFromTable hdl codeMgr dataMgr func gaps jmpTbls
 
-  let rec resolve bld hdl codeMgr dataMgr fn evts =
+  let addEvtsForConstJmp func src addr isEvtAdded evts =
+    if isEvtAdded then evts
+    else CFGEvents.addPerFuncAnalysisEvt (func: RegularFunction).Entry evts
+    |> CFGEvents.addEdgeEvt func src addr InterJmpEdge
+
+  let addEvtsForConstCJmp func src tAddr fAddr isEvtAdded evts =
+    if isEvtAdded then evts
+    else CFGEvents.addPerFuncAnalysisEvt (func: RegularFunction).Entry evts
+    |> CFGEvents.addEdgeEvt func src tAddr InterCJmpTrueEdge
+    |> CFGEvents.addEdgeEvt func src fAddr InterCJmpFalseEdge
+
+  let addEvtsForConstCall func src insAddr calleeAddr ftAddr isEvtAdded evts =
+    if isEvtAdded then evts
+    else CFGEvents.addPerFuncAnalysisEvt (func: RegularFunction).Entry evts
+    |> CFGEvents.addEdgeEvt func src ftAddr CallFallThroughEdge
+    |> CFGEvents.addCallEvt func insAddr calleeAddr
+
+  let finalizeFunctionInfo (func: RegularFunction) sp =
+    let spDiff = int64 <| 0x80000000UL - sp
+    let retAddrSize = int64 <| RegType.toByteWidth 256<rt>
+    let amountUnwinding = - spDiff - retAddrSize
+    func.AmountUnwinding <- amountUnwinding
+    func.NoReturnProperty <- NotNoRet
+
+  let rec analyzeNewEVMJmps hdl codeMgr dataMgr func addrs isEvtAdded evts =
+    match addrs with
+    | insAddr :: restAddrs ->
+#if CFGDEBUG
+      dbglog "IndJmpRecovery" "@%x Detected indjmp @ %x" func.Entry insAddr
+#endif
+      let struct (cpState, ssaCFG) = PerFunctionAnalysis.runCP hdl func None
+      let bblInfo = (codeMgr: CodeManager).GetBBL insAddr
+      let blkAddr = Set.minElement bblInfo.InstrAddrs
+      let src = Set.maxElement bblInfo.IRLeaders
+      let ssaBlk =
+        DiGraph.findVertexBy ssaCFG (fun (v: SSAVertex) ->
+          v.VData.PPoint.Address = blkAddr)
+      match analyzeIndirectBranchPatternForEVM cpState ssaBlk with
+      | ConstJmpPattern addr ->
+        func.RemoveIndJump insAddr
+        addEvtsForConstJmp func src addr isEvtAdded evts
+        |> analyzeNewEVMJmps hdl codeMgr dataMgr func restAddrs true
+      | ConstCJmpPattern (tAddr, fAddr) ->
+        func.RemoveIndJump insAddr
+        addEvtsForConstCJmp func src tAddr fAddr isEvtAdded evts
+        |> analyzeNewEVMJmps hdl codeMgr dataMgr func restAddrs true
+      | ConstCallPattern (calleeAddr, ftAddr) ->
+        func.RemoveIndJump insAddr
+        addEvtsForConstCall func src insAddr calleeAddr ftAddr isEvtAdded evts
+        |> analyzeNewEVMJmps hdl codeMgr dataMgr func restAddrs true
+      | ReturnPattern sp ->
+        func.RemoveIndJump insAddr
+        finalizeFunctionInfo func sp
+        analyzeNewEVMJmps hdl codeMgr dataMgr func restAddrs isEvtAdded evts
+      | _ ->
+#if CFGDEBUG
+        dbglog "IndJmpRecovery" "The pattern is unknown"
+#endif
+        func.MarkIndJumpAsUnknown insAddr
+        analyzeNewEVMJmps hdl codeMgr dataMgr func restAddrs isEvtAdded evts
+    | [] -> evts
+
+  let resolveEVMJmps hdl codeMgr dataMgr fn evts =
+    let addrs = (fn: RegularFunction).YetAnalyzedIndirectJumpAddrs
+    if List.isEmpty addrs then Ok <| evts
+    else Ok <| analyzeNewEVMJmps hdl codeMgr dataMgr fn addrs false evts
+
+  let rec resolveJmpTables bld hdl codeMgr dataMgr fn evts =
     match analyzeJmpTables hdl codeMgr dataMgr fn with
     | Ok true ->
       match getNextAnalysisTarget hdl codeMgr dataMgr fn with
       | Some (jt, entryAddr) ->
         match recoverOneEntry bld hdl codeMgr dataMgr fn jt entryAddr with
-        | Ok () -> resolve bld hdl codeMgr dataMgr fn evts
+        | Ok () -> resolveJmpTables bld hdl codeMgr dataMgr fn evts
         | Error e -> rollback codeMgr dataMgr fn evts jt entryAddr e
       | None -> Ok evts
     | Ok false ->
@@ -553,6 +606,11 @@ module private IndirectJumpResolution =
     if codeMgr.HistoryManager.HasFunctionLater fnAddr then
       Error (ErrorBranchRecovery (fnAddr, brAddr, Set.singleton fnAddr))
     else codeMgr.RollBack (evts, [ fnAddr ]) |> Ok
+
+  let resolve bld hdl codeMgr dataMgr fn evts =
+    match (hdl: BinHandle).ISA.Arch with
+    | Arch.EVM -> resolveEVMJmps hdl codeMgr dataMgr fn evts
+    | _ -> resolveJmpTables bld hdl codeMgr dataMgr fn evts
 
 /// IndirectJumpResolution recovers jump targets of indirect jumps by inferring
 /// their jump tables. It first identifies jump table bases with constant
