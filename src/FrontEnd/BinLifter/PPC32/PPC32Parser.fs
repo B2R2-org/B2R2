@@ -28,8 +28,23 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.BitData
 
+let parseADDx bin =
+  match concat (pickBit bin 31u) (pickBit bin 21u) 1 (* Rc:OE *) with
+  (* FIMXE *)
+  | 0b00u -> struct (Op.ADD, ThreeOperands (OpReg R.R0, OpReg R.R0, OpReg R.R0))
+  | 0b10u
+  | 0b01u
+  | _ (* 11 *) -> Utils.futureFeature ()
+
+let parse1F bin =
+  match extract bin 30u 22u with
+  | 0x10Au -> parseADDx bin
+  | _ -> Utils.futureFeature ()
+
 let private parseInstruction bin =
-  Utils.futureFeature ()
+  match extract bin 5u 0u with
+  | 0x1Fu -> parse1F bin
+  | _ -> Utils.futureFeature ()
 
 let parse (reader: BinReader) addr pos =
   let struct (bin, nextPos) = reader.ReadUInt32 pos

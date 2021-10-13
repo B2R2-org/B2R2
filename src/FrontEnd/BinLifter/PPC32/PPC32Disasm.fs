@@ -28,7 +28,7 @@ open B2R2
 open B2R2.FrontEnd.BinLifter
 
 let opCodeToString = function
-  | Op.ADDI -> "ADDI"
+  | Op.ADD -> "ADD"
   | _ -> Utils.impossible ()
 
 let inline buildOpcode ins (builder: DisasmBuilder<_>) =

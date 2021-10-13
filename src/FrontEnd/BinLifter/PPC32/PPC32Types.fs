@@ -36,7 +36,7 @@ do ()
 ///   file.
 /// </summary>
 type Opcode =
-  | ADDI = 0 (* FIXME: Add Opcodes *)
+  | ADD = 0 (* FIXME: Add Opcodes *)
   | InvalOP = 1
 
 type internal Op = Opcode
