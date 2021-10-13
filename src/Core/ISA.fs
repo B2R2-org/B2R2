@@ -80,6 +80,8 @@ type Architecture =
   | AVR = 23
   /// SuperH (SH-4).
   | SH4 = 24
+  /// PowerPC 32-bit.
+  | PPC32 = 25
   /// Unknown ISA.
   | UnknownISA = 30
 
@@ -154,6 +156,8 @@ with
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit8 }
     | Arch.SH4 ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit32 }
+    | Arch.PPC32 ->
+      { Arch = arch; Endian = endian; WordSize = WordSize.Bit32 }
     | _ -> raise InvalidISAException
 
   static member OfString (s: string) =
@@ -180,6 +184,7 @@ with
     | "cil" -> ISA.Init Arch.CILOnly Endian.Little
     | "avr" | "avr8" -> ISA.Init Arch.AVR Endian.Little
     | "sh4" | "sh-4" -> ISA.Init Arch.SH4 Endian.Little
+    | "ppc32" -> ISA.Init Arch.PPC32 Endian.Little
     | _ -> raise InvalidISAException
 
   static member ArchToString arch =
@@ -198,5 +203,6 @@ with
     | Arch.CILOnly -> "CIL"
     | Arch.AVR -> "AVR"
     | Arch.SH4 -> "SH4"
+    | Arch.PPC32 -> "PPC32"
     | Arch.UnknownISA -> "Unknown"
     | _ -> "Not supported ISA"

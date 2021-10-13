@@ -31,6 +31,7 @@
     <ProjectReference Include="..\BinLifter\AVR\B2R2.FrontEnd.BinLifter.AVR.fsproj" />
     <ProjectReference Include="..\BinLifter\MIPS\B2R2.FrontEnd.BinLifter.MIPS.fsproj" />
     <ProjectReference Include="..\BinLifter\EVM\B2R2.FrontEnd.BinLifter.EVM.fsproj" />
+    <ProjectReference Include="..\BinLifter\PPC32\B2R2.FrontEnd.BinLifter.PPC32.fsproj" />
     <ProjectReference Include="..\BinLifter\TMS320C6000\B2R2.FrontEnd.BinLifter.TMS320C6000.fsproj" />
     <ProjectReference Include="..\BinLifter\CIL\B2R2.FrontEnd.BinLifter.CIL.fsproj" />
     <ProjectReference Include="..\BinLifter\SH4\B2R2.FrontEnd.BinLifter.SH4.fsproj" />
