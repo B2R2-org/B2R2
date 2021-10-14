@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
@@ -8,6 +8,8 @@
   <ItemGroup>
     <Compile Include="Lifter.Tests.fs" />
     <Compile Include="Parser.Tests.fs" />
+    <Compile Include="AVR.Parser.Tests.fs" />
+    <Compile Include="AVR.Lifter.Tests.fs" />
     <Compile Include="TMS320.Parser.Tests.fs" />
   </ItemGroup>
 

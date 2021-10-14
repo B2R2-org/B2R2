@@ -87,6 +87,7 @@ let getInstructionAlignment hdl =
   | Arch.MIPS32 | Arch.MIPS32R2 | Arch.MIPS32R6
   | Arch.MIPS64 | Arch.MIPS64R2 | Arch.MIPS64R6 -> 4
   | Arch.EVM -> 1
+  | Arch.AVR -> 2
   | _ -> Utils.futureFeature ()
 
 let convertToHexStr bytes =

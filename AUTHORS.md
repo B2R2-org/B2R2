@@ -12,6 +12,7 @@
 B2R2 would not have been possible without the help of contributors. Below is a
 list of contributors in alphabetic order.
 
+- Anar Abbas
 - Mehdi Aghakishiyev
 - TA Thanh Dinh
 - HyungSeok Han

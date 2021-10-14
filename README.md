@@ -57,17 +57,17 @@ progress, but we look forward to your contributions! Feel free to write a PR
 (Pull Request) while making sure that you have read our [contribution
 guideline](CONTRIBUTING.md).
 
-| Feature               | x86         | x86-64               | ARMv7 (& Thumb) | ARMv8                | MIPS32               | MIPS64               | EVM         | TMS320C600  | PPC        |
-|-----------------------|:-----------:|:--------------------:|:---------------:|:--------------------:|:--------------------:|:--------------------:|:-----------:|:-----------:|:----------:|
-| Instruction Parsing   | :full_moon: | :full_moon:          | :full_moon:     | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :new_moon: |
-| Disassembly           | :full_moon: | :full_moon:          | :full_moon:     | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :new_moon: |
-| Lifting               | :full_moon: | :full_moon:          | :full_moon:     | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :new_moon: |
-| CFG Recovery          | :full_moon: | :full_moon:          | :full_moon:     | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :full_moon: | :new_moon:  | :new_moon: |
-| Data-Flow             | :full_moon: | :full_moon:          | :full_moon:     | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :new_moon: |
-| Instruction Emulation | :full_moon: | :full_moon:          | :full_moon:     | :full_moon:          | :full_moon:          | :full_moon:          | :new_moon:  | :new_moon:  | :new_moon: |
-| Assembly              | :full_moon: | :full_moon:          | :new_moon:      | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon: |
-| REPL                  | :full_moon: | :full_moon:          | :new_moon:      | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon: |
-| ROP Compilation       | :full_moon: | :new_moon:           | :new_moon:      | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon: |
+| Feature               | x86         | x86-64      | ARMv7 (& Thumb) | ARMv8                | MIPS32               | MIPS64               | EVM         | TMS320C600  | AVR         | PPC        |
+|-----------------------|:-----------:|:------------|:---------------:|:--------------------:|:--------------------:|:--------------------:|:-----------:|:-----------:|:-----------:|:----------:|
+| Instruction Parsing   | :full_moon: | :full_moon: | :full_moon:     | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :full_moon: | :new_moon: |
+| Disassembly           | :full_moon: | :full_moon: | :full_moon:     | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :full_moon: | :new_moon: |
+| Lifting               | :full_moon: | :full_moon: | :full_moon:     | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :full_moon: | :new_moon: |
+| CFG Recovery          | :full_moon: | :full_moon: | :full_moon:     | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :full_moon: | :new_moon:  | :new_moon:  | :new_moon: |
+| Data-Flow             | :full_moon: | :full_moon: | :full_moon:     | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :new_moon:  | :new_moon: |
+| Instruction Emulation | :full_moon: | :full_moon: | :full_moon:     | :full_moon:          | :full_moon:          | :full_moon:          | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: |
+| Assembly              | :full_moon: | :full_moon: | :new_moon:      | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: |
+| REPL                  | :full_moon: | :full_moon: | :new_moon:      | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: |
+| ROP Compilation       | :full_moon: | :new_moon:  | :new_moon:      | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: |
 
 Dependencies?
 -------------
