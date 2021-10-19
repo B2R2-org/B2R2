@@ -37,7 +37,26 @@ do ()
 /// </summary>
 type Opcode =
   | ADD = 0 (* FIXME: Add Opcodes *)
-  | InvalOP = 1
+  | ADDdot = 1
+  | ADDO = 2
+  | ADDOdot = 3
+  | ADDC = 4
+  | ADDCdot = 5
+  | ADDCO = 6
+  | ADDCOdot = 7
+  | ADDE = 8
+  | ADDEdot = 9
+  | ADDEO = 10
+  | ADDEOdot = 11
+  | ADDME = 12
+  | ADDMEdot = 13
+  | ADDMEO = 14
+  | ADDMEOdot = 15
+  | ADDZE = 16
+  | ADDZEdot = 17
+  | ADDZEO = 18
+  | ADDZEOdot = 19
+  | InvalOP = 100
 
 type internal Op = Opcode
 
