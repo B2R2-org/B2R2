@@ -364,10 +364,78 @@ module DWRegister =
     | 32uy -> Intel.Register.toRegID Intel.Register.XMM15
     | _ -> Utils.futureFeature ()
 
+  let private toAArch64Register = function
+    | 0uy -> ARM64.Register.toRegID ARM64.Register.X0
+    | 1uy -> ARM64.Register.toRegID ARM64.Register.X1
+    | 2uy -> ARM64.Register.toRegID ARM64.Register.X2
+    | 3uy -> ARM64.Register.toRegID ARM64.Register.X3
+    | 4uy -> ARM64.Register.toRegID ARM64.Register.X4
+    | 5uy -> ARM64.Register.toRegID ARM64.Register.X5
+    | 6uy -> ARM64.Register.toRegID ARM64.Register.X6
+    | 7uy -> ARM64.Register.toRegID ARM64.Register.X7
+    | 8uy -> ARM64.Register.toRegID ARM64.Register.X8
+    | 9uy -> ARM64.Register.toRegID ARM64.Register.X9
+    | 10uy -> ARM64.Register.toRegID ARM64.Register.X10
+    | 11uy -> ARM64.Register.toRegID ARM64.Register.X11
+    | 12uy -> ARM64.Register.toRegID ARM64.Register.X12
+    | 13uy -> ARM64.Register.toRegID ARM64.Register.X13
+    | 14uy -> ARM64.Register.toRegID ARM64.Register.X14
+    | 15uy -> ARM64.Register.toRegID ARM64.Register.X15
+    | 16uy -> ARM64.Register.toRegID ARM64.Register.X16
+    | 17uy -> ARM64.Register.toRegID ARM64.Register.X17
+    | 18uy -> ARM64.Register.toRegID ARM64.Register.X18
+    | 19uy -> ARM64.Register.toRegID ARM64.Register.X19
+    | 20uy -> ARM64.Register.toRegID ARM64.Register.X20
+    | 21uy -> ARM64.Register.toRegID ARM64.Register.X21
+    | 22uy -> ARM64.Register.toRegID ARM64.Register.X22
+    | 23uy -> ARM64.Register.toRegID ARM64.Register.X23
+    | 24uy -> ARM64.Register.toRegID ARM64.Register.X24
+    | 25uy -> ARM64.Register.toRegID ARM64.Register.X25
+    | 26uy -> ARM64.Register.toRegID ARM64.Register.X26
+    | 27uy -> ARM64.Register.toRegID ARM64.Register.X27
+    | 28uy -> ARM64.Register.toRegID ARM64.Register.X28
+    | 29uy -> ARM64.Register.toRegID ARM64.Register.X29
+    | 30uy -> ARM64.Register.toRegID ARM64.Register.X30
+    | 31uy -> ARM64.Register.toRegID ARM64.Register.SP
+    | 64uy -> ARM64.Register.toRegID ARM64.Register.V0
+    | 65uy -> ARM64.Register.toRegID ARM64.Register.V1
+    | 66uy -> ARM64.Register.toRegID ARM64.Register.V2
+    | 67uy -> ARM64.Register.toRegID ARM64.Register.V3
+    | 68uy -> ARM64.Register.toRegID ARM64.Register.V4
+    | 69uy -> ARM64.Register.toRegID ARM64.Register.V5
+    | 70uy -> ARM64.Register.toRegID ARM64.Register.V6
+    | 71uy -> ARM64.Register.toRegID ARM64.Register.V7
+    | 72uy -> ARM64.Register.toRegID ARM64.Register.V8
+    | 73uy -> ARM64.Register.toRegID ARM64.Register.V9
+    | 74uy -> ARM64.Register.toRegID ARM64.Register.V10
+    | 75uy -> ARM64.Register.toRegID ARM64.Register.V11
+    | 76uy -> ARM64.Register.toRegID ARM64.Register.V12
+    | 77uy -> ARM64.Register.toRegID ARM64.Register.V13
+    | 78uy -> ARM64.Register.toRegID ARM64.Register.V14
+    | 79uy -> ARM64.Register.toRegID ARM64.Register.V15
+    | 80uy -> ARM64.Register.toRegID ARM64.Register.V16
+    | 81uy -> ARM64.Register.toRegID ARM64.Register.V17
+    | 82uy -> ARM64.Register.toRegID ARM64.Register.V18
+    | 83uy -> ARM64.Register.toRegID ARM64.Register.V19
+    | 84uy -> ARM64.Register.toRegID ARM64.Register.V20
+    | 85uy -> ARM64.Register.toRegID ARM64.Register.V21
+    | 86uy -> ARM64.Register.toRegID ARM64.Register.V22
+    | 87uy -> ARM64.Register.toRegID ARM64.Register.V23
+    | 88uy -> ARM64.Register.toRegID ARM64.Register.V24
+    | 89uy -> ARM64.Register.toRegID ARM64.Register.V25
+    | 90uy -> ARM64.Register.toRegID ARM64.Register.V26
+    | 91uy -> ARM64.Register.toRegID ARM64.Register.V27
+    | 92uy -> ARM64.Register.toRegID ARM64.Register.V28
+    | 93uy -> ARM64.Register.toRegID ARM64.Register.V29
+    | 94uy -> ARM64.Register.toRegID ARM64.Register.V30
+    | 95uy -> ARM64.Register.toRegID ARM64.Register.V31
+    | x -> Utils.futureFeature ()
+
   let toRegID isa regnum =
     match isa.Arch with
     | Architecture.IntelX86 -> toIntelx86Register regnum
     | Architecture.IntelX64 -> toIntelx64Register regnum
+    | Architecture.AARCH64 -> toAArch64Register regnum
     | _ -> Utils.futureFeature ()
 
   let toRegisterExpr isa (regbay: RegisterBay) regnum =
