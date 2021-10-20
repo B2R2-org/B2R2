@@ -564,6 +564,11 @@ let rec getUnwind acc cfa irule rst rule isa rbay lr cf df rr span i loc =
       let target = Rule.getTarget isa rr oparg
       let rule = restoreOne irule rule target
       getUnwind acc cfa irule rst rule isa rbay lr cf df rr span i loc
+    | DWCFAInstruction.DW_CFA_restore_extended ->
+      let reg, cnt = LEB128.DecodeUInt64 (span.Slice i)
+      let target = Rule.getTarget isa rr (byte reg)
+      let rule = restoreOne irule rule target
+      getUnwind acc cfa irule rst rule isa rbay lr cf df rr span (i + cnt) loc
     | DWCFAInstruction.DW_CFA_restore_state ->
       let cfa, rule = List.head rst
       let rst = List.tail rst
