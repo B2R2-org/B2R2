@@ -1,16 +1,8 @@
 // ----------------------------------------------------------------------------
 // B2R2 F# Sample.
 // ----------------------------------------------------------------------------
-// Currently we assume that you have published all the binaries into the
-// `../../build` directory. To do so, you can simply run `make publish` in the
-// source root directory.
-// ----------------------------------------------------------------------------
 
-#r "../../build/B2R2.Core.dll"
-#r "../../build/B2R2.BinIR.dll"
-#r "../../build/B2R2.BinFile.dll"
-#r "../../build/B2R2.FrontEnd.Core.dll"
-#r "../../build/B2R2.FrontEnd.Library.dll"
+#r "nuget: B2R2.FrontEnd.BinInterface, 0.5.0-rc3"
 
 open B2R2
 open B2R2.FrontEnd

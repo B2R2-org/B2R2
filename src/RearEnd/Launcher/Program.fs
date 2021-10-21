@@ -48,7 +48,7 @@ This is the B2R2 launcher, which is a .NET tool that can invoke
 various tools provided by our framework. To know more about B2R2,
 please visit our official website: https://b2r2.org/.
 
-Usage: dotnet b2r2 [app name]
+Usage: b2r2 [app name]
 
 [Available Applications]
 
@@ -58,7 +58,7 @@ Usage: dotnet b2r2 [app name]
   You can read various file format information using this app. To
   learn more about the tool, type the following command:
 
-  $ dotnet b2r2 file --help
+  $ b2r2 file --help
 
 - dump (a.k.a. disasm, bindump)
 
@@ -66,7 +66,7 @@ Usage: dotnet b2r2 [app name]
   this app is more powerful and versatile. To learn more about the
   tool, type the following command:
 
-  $ dotnet b2r2 dump --help
+  $ b2r2 dump --help
 
 - explore (a.k.a. binexplorer, analyze)
 
@@ -74,7 +74,7 @@ Usage: dotnet b2r2 [app name]
   GUI as well as its own CLI terminal. To learn more about the tool,
   type the following command:
 
-  $ dotnet b2r2 explore --help
+  $ b2r2 explore --help
 
 - repl
 
@@ -82,14 +82,14 @@ Usage: dotnet b2r2 [app name]
   as binary assembly languages. To learn more about the tool type the
   following command:
 
-  $ dotnet b2r2 repl --help
+  $ b2r2 repl --help
 
 - asm (a.k.a. assembler)
 
   This is a simple cross-platform assembler. To learn more about the
   tool, type the following command:
 
-  $ dotnet b2r2 asm --help
+  $ b2r2 asm --help
 """
 
 let printMyVersion () =
