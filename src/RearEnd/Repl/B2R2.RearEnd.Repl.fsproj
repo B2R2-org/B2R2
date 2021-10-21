@@ -1,10 +1,9 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
     <IsPackable>false</IsPackable>
-    <IsTestProject>false</IsTestProject>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,15 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
-    <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
-    <ProjectReference Include="..\..\Peripheral\Assembly\LowUIR\B2R2.Peripheral.Assembly.LowUIR.fsproj" />
     <ProjectReference Include="..\..\Peripheral\Assembly\AsmInterface\B2R2.Peripheral.Assembly.AsmInterface.fsproj" />
-    <ProjectReference Include="..\..\FrontEnd\BinLifter\Core\B2R2.FrontEnd.BinLifter.Core.fsproj" />
-    <ProjectReference Include="..\..\FrontEnd\BinLifter\ARM32\B2R2.FrontEnd.BinLifter.ARM32.fsproj" />
-    <ProjectReference Include="..\..\FrontEnd\BinLifter\ARM64\B2R2.FrontEnd.BinLifter.ARM64.fsproj" />
-    <ProjectReference Include="..\..\FrontEnd\BinLifter\Intel\B2R2.FrontEnd.BinLifter.Intel.fsproj" />
-    <ProjectReference Include="..\..\FrontEnd\BinLifter\MIPS\B2R2.FrontEnd.BinLifter.MIPS.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\BinInterface\B2R2.FrontEnd.BinInterface.fsproj" />
     <ProjectReference Include="..\..\MiddleEnd\ConcEval\B2R2.MiddleEnd.ConcEval.fsproj" />
     <ProjectReference Include="..\Core\B2R2.RearEnd.Core.fsproj" />

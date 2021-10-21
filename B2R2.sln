@@ -10,7 +10,7 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.Core.Tests", "src\Core
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.BinIR", "src\BinIR\B2R2.BinIR.fsproj", "{7AE36E18-182E-4E36-AD0E-08F326B381B2}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "BinIR.Tests", "src\BinIR.Tests\BinIR.Tests.fsproj", "{A015D2D5-EBB2-455C-BF72-EE8EEC2854D4}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.BinIR.Tests", "src\BinIR.Tests\B2R2.BinIR.Tests.fsproj", "{A015D2D5-EBB2-455C-BF72-EE8EEC2854D4}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "FrontEnd", "FrontEnd", "{55E62B6F-2C33-4E89-ADD5-0CE9BAA76401}"
 EndProject
@@ -54,17 +54,17 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.MiddleEnd.ConcEval", "
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.MiddleEnd.BinGraph", "src\MiddleEnd\BinGraph\B2R2.MiddleEnd.BinGraph.fsproj", "{A831C214-9CEB-4B37-B2B2-2D25A34E43EF}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.MiddleEnd.ControlFlowGraph", "src\MiddleEnd\ControlFlowGraph\B2R2.MiddleEnd.ControlFlowGraph.fsproj", "{B008D195-BA7B-461D-93D4-284532F9274D}"
-EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.MiddleEnd.BinGraph.Tests", "src\MiddleEnd\BinGraph.Tests\B2R2.MiddleEnd.BinGraph.Tests.fsproj", "{DBD08956-B4AA-449C-8408-FC0638A20795}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.MiddleEnd.BinEssence", "src\MiddleEnd\BinEssence\B2R2.MiddleEnd.BinEssence.fsproj", "{02EEDA2B-1311-4F68-879D-0F32686BA650}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.MiddleEnd.ControlFlowGraph", "src\MiddleEnd\ControlFlowGraph\B2R2.MiddleEnd.ControlFlowGraph.fsproj", "{B008D195-BA7B-461D-93D4-284532F9274D}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.MiddleEnd.DataFlow", "src\MiddleEnd\DataFlow\B2R2.MiddleEnd.DataFlow.fsproj", "{D40C3359-5983-4021-9F0E-8E7D450EFEFF}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.MiddleEnd.DataFlow.Tests", "src\MiddleEnd\DataFlow.Tests\B2R2.MiddleEnd.DataFlow.Tests.fsproj", "{78363647-923A-446F-91BF-4CC09EA28CD0}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.MiddleEnd.ControlFlowAnalysis", "src\MiddleEnd\ControlFlowAnalysis\B2R2.MiddleEnd.ControlFlowAnalysis.fsproj", "{A18591FD-1A3C-488D-A814-FED8734FF1CE}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.MiddleEnd.BinEssence", "src\MiddleEnd\BinEssence\B2R2.MiddleEnd.BinEssence.fsproj", "{02EEDA2B-1311-4F68-879D-0F32686BA650}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.MiddleEnd.BinEssence.Tests", "src\MiddleEnd\BinEssence.Tests\B2R2.MiddleEnd.BinEssence.Tests.fsproj", "{27C13F72-B915-4F08-BC20-628AFDFCF088}"
 EndProject
@@ -86,6 +86,8 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.RearEnd.Assembler", "s
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.RearEnd.Repl", "src\RearEnd\Repl\B2R2.RearEnd.Repl.fsproj", "{35184561-8AAB-4E74-9E0D-231D16E336BF}"
 EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.RearEnd.Launcher", "src\RearEnd\Launcher\B2R2.RearEnd.Launcher.fsproj", "{ECF6ADAE-C222-41E9-BA5B-811866193A2B}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Peripheral", "Peripheral", "{F0888151-28C5-4EF0-86CB-9C66218F89AE}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Assembly", "Assembly", "{F90413F1-AB57-43C0-B401-E7C2EC83198C}"
@@ -103,8 +105,6 @@ EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.Peripheral.Assembly.AsmInterface", "src\Peripheral\Assembly\AsmInterface\B2R2.Peripheral.Assembly.AsmInterface.fsproj", "{A2A4BF9A-485B-4C39-9E13-E2B908BF1B4D}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.Peripheral.Assembly.Tests", "src\Peripheral\Assembly.Tests\B2R2.Peripheral.Assembly.Tests.fsproj", "{3FDFC8B9-AD97-4FD6-B1B9-D9E498BC34B5}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "B2R2.RearEnd.Launcher", "src\RearEnd\Launcher\B2R2.RearEnd.Launcher.fsproj", "{ECF6ADAE-C222-41E9-BA5B-811866193A2B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

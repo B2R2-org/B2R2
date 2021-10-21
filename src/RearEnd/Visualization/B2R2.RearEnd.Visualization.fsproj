@@ -1,9 +1,8 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
     <IsPackable>false</IsPackable>
-    <IsTestProject>false</IsTestProject>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,7 +22,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
-    <ProjectReference Include="..\..\MiddleEnd\BinGraph\B2R2.MiddleEnd.BinGraph.fsproj" />
     <ProjectReference Include="..\..\MiddleEnd\BinEssence\B2R2.MiddleEnd.BinEssence.fsproj" />
   </ItemGroup>
 

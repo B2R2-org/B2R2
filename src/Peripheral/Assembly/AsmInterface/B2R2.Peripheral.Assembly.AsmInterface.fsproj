@@ -1,21 +1,21 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
     <PackageIcon>b2r2-240x240.png</PackageIcon>
-    <RepositoryUrl>https://github.com/B2R2-org/B2R2</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Include="AsmInterface.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath=""/>
     <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
+    <None Include="README.md" Pack="true" PackagePath="" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\Core\B2R2.Core.fsproj" />
+    <ProjectReference Include="..\Core\B2R2.Peripheral.Assembly.Core.fsproj" />
     <ProjectReference Include="..\Intel\B2R2.Peripheral.Assembly.Intel.fsproj" />
     <ProjectReference Include="..\ARM32\B2R2.Peripheral.Assembly.ARM32.fsproj" />
     <ProjectReference Include="..\MIPS\B2R2.Peripheral.Assembly.MIPS.fsproj" />

@@ -4,7 +4,6 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net5.0</TargetFramework>
     <IsPackable>false</IsPackable>
-    <IsTestProject>false</IsTestProject>
   </PropertyGroup>
 
   <ItemGroup>
@@ -39,9 +38,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\FrontEnd\BinInterface\B2R2.FrontEnd.BinInterface.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\NameMangling\B2R2.FrontEnd.NameMangling.fsproj" />
-    <ProjectReference Include="..\..\MiddleEnd\BinGraph\B2R2.MiddleEnd.BinGraph.fsproj" />
-    <ProjectReference Include="..\..\MiddleEnd\DataFlow\B2R2.MiddleEnd.DataFlow.fsproj" />
-    <ProjectReference Include="..\..\MiddleEnd\ControlFlowAnalysis\B2R2.MiddleEnd.ControlFlowAnalysis.fsproj" />
+    <ProjectReference Include="..\..\MiddleEnd\BinEssence\B2R2.MiddleEnd.BinEssence.fsproj" />
     <ProjectReference Include="..\Core\B2R2.RearEnd.Core.fsproj" />
     <ProjectReference Include="..\ROP\B2R2.RearEnd.ROP.fsproj" />
     <ProjectReference Include="..\Visualization\B2R2.RearEnd.Visualization.fsproj" />

@@ -1,11 +1,8 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
-    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
-    <PackageIcon>b2r2-240x240.png</PackageIcon>
-    <RepositoryUrl>https://github.com/B2R2-org/B2R2</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,12 +13,9 @@
     <Compile Include="IntelAsmOpcode.fs" />
     <Compile Include="IntelAsmMain.fs" />
     <Compile Include="IntelAsmParser.fs" />
-    <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />
-    <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\FrontEnd\BinLifter\Intel\B2R2.FrontEnd.BinLifter.Intel.fsproj" />
     <ProjectReference Include="..\..\..\FrontEnd\BinInterface\B2R2.FrontEnd.BinInterface.fsproj" />
     <ProjectReference Include="..\Core\B2R2.Peripheral.Assembly.Core.fsproj" />
   </ItemGroup>

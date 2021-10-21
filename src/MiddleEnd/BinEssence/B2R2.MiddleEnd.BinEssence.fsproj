@@ -4,8 +4,7 @@
     <TargetFramework>net5.0</TargetFramework>
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
     <PackageIcon>b2r2-240x240.png</PackageIcon>
-    <RepositoryUrl>https://github.com/B2R2-org/B2R2</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,15 +14,12 @@
     <Compile Include="CallGraphLens.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
+    <None Include="README.md" Pack="true" PackagePath="" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
-    <ProjectReference Include="..\..\FrontEnd\BinFile\B2R2.FrontEnd.BinFile.fsproj" />
-    <ProjectReference Include="..\..\FrontEnd\BinLifter\Core\B2R2.FrontEnd.BinLifter.Core.fsproj" />
-    <ProjectReference Include="..\..\FrontEnd\BinLifter\Optimizer\B2R2.FrontEnd.BinLifter.Optimizer.fsproj" />
     <ProjectReference Include="..\..\FrontEnd\BinInterface\B2R2.FrontEnd.BinInterface.fsproj" />
-    <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\ConcEval\B2R2.MiddleEnd.ConcEval.fsproj" />
     <ProjectReference Include="..\BinGraph\B2R2.MiddleEnd.BinGraph.fsproj" />
     <ProjectReference Include="..\ControlFlowGraph\B2R2.MiddleEnd.ControlFlowGraph.fsproj" />
     <ProjectReference Include="..\DataFlow\B2R2.MiddleEnd.DataFlow.fsproj" />

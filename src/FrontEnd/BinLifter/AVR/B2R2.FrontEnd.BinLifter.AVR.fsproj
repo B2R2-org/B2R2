@@ -1,11 +1,8 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
-    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
-    <PackageIcon>b2r2-240x240.png</PackageIcon>
-    <RepositoryUrl>https://github.com/B2R2-org/B2R2</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,8 +18,6 @@
     <Compile Include="AVRInstruction.fs" />
     <Compile Include="AVRParser.fs" />
     <Compile Include="AVR.fs" />
-    <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />
-    <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
   </ItemGroup>
 
   <ItemGroup>
