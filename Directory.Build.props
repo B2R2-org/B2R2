@@ -4,8 +4,7 @@
     <Authors>SoftSec Lab. @ KAIST</Authors>
     <Company>SoftSec Lab. @ KAIST</Company>
     <VersionPrefix>0.5.0</VersionPrefix>
-    <VersionSuffix>rc3</VersionSuffix>
-    <Description>B2R2: the Next-Generation Reversing Platform</Description>
+    <VersionSuffix>rc4</VersionSuffix>
     <Copyright>Copyright (c) SoftSec Lab. @ KAIST, since 2016</Copyright>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <RepositoryUrl>https://github.com/B2R2-org/B2R2</RepositoryUrl>

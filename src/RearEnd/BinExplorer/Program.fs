@@ -226,10 +226,6 @@ let showBatchUsage () =
   eprintfn ""
   eprintfn "    visualize <input json> <output json>"
   eprintfn ""
-  eprintfn "* dumpswitch: dump switch recovery information to output directory."
-  eprintfn ""
-  eprintfn "    dumpswitch <output dir>"
-  eprintfn ""
   exit 1
 
 let visualizeGraph inputFile outputFile =
@@ -256,33 +252,11 @@ let runCommand cmdMap opts file cmd args =
   Cmd.handle cmdMap ess cmd args
   |> Array.iter out.Print
 
-let dumpSwitch _cmdMap opts file outdir _args =
-  let ess = initBinHdl ISA.DefaultISA file |> buildGraph opts
-  let file = file.Replace (System.IO.Path.DirectorySeparatorChar, '_')
-  let file = file.Replace (':', '_')
-  let outpath = System.IO.Path.Combine (outdir, file)
-  use writer = System.IO.File.CreateText (outpath)
-  ()
-  (*
-  ess.CFGOracle.IndirectBranch
-  |> Map.iter (fun fromAddr { TargetAddresses = targets } ->
-    targets
-    |> Set.iter (fun target ->
-      writer.WriteLine (String.u64ToHexNoPrefix fromAddr + ","
-                      + String.u64ToHexNoPrefix target)
-    )
-  )
-  *)
-
 let [<Literal>] private toolName = "binexplore"
 
 let batchMain opts paths args =
   match args with
   | "visualize" :: infile :: outfile :: _ -> visualizeGraph infile outfile
-  | "dumpswitch" :: outdir :: _ ->
-    try System.IO.Directory.Delete (outdir, true) with _ -> ()
-    System.IO.Directory.CreateDirectory (outdir) |> ignore
-    batchRun opts paths outdir [] dumpSwitch
   | cmd :: args -> batchRun opts paths cmd args runCommand
   | _ -> showBatchUsage ()
 
