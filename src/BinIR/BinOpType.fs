@@ -93,6 +93,31 @@ module BinOpType =
     | BinOpType.FSUB -> "-."
     | BinOpType.FMUL -> "*."
     | BinOpType.FDIV -> "/."
-    | BinOpType.FPOW -> "^"
-    | BinOpType.FLOG -> "log"
+    | BinOpType.FPOW -> "^^"
+    | BinOpType.FLOG -> "lg"
+    | _ -> raise IllegalASTTypeException
+
+  let ofString = function
+    | "+" -> BinOpType.ADD
+    | "-" -> BinOpType.SUB
+    | "*" -> BinOpType.MUL
+    | "/" -> BinOpType.DIV
+    | "?/" -> BinOpType.SDIV
+    | "%" -> BinOpType.MOD
+    | "?%" -> BinOpType. SMOD
+    | "<<" -> BinOpType.SHL
+    | ">>" -> BinOpType. SHR
+    | "?>>" -> BinOpType. SAR
+    | "&" -> BinOpType. AND
+    | "|" -> BinOpType. OR
+    | "^" -> BinOpType. XOR
+    | "++" -> BinOpType.CONCAT
+    | "-|" -> BinOpType.APP
+    | "::" -> BinOpType.CONS
+    | "+." -> BinOpType.FADD
+    | "-." -> BinOpType.FSUB
+    | "*." -> BinOpType.FMUL
+    | "/." -> BinOpType.FDIV
+    | "^^" -> BinOpType.FPOW
+    | "lg" -> BinOpType.FLOG
     | _ -> raise IllegalASTTypeException

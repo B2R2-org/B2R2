@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageIcon>b2r2-240x240.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>B2R2 EVM frontend.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="EVMTypes.fs" />
+    <Compile Include="EVMRegisterSet.fs" />
+    <Compile Include="EVMRegExprs.fs" />
+    <Compile Include="EVMRegisterBay.fs" />
+    <Compile Include="EVMDisasm.fs" />
+    <Compile Include="EVMLifter.fs" />
+    <Compile Include="EVMInstruction.fs" />
+    <Compile Include="EVMParser.fs" />
+    <Compile Include="EVM.fs" />
+    <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />
+    <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\..\..\Core\B2R2.Core.fsproj" />
+    <ProjectReference Include="..\Core\B2R2.FrontEnd.BinLifter.Core.fsproj" />
+  </ItemGroup>
+
+</Project>

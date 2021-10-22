@@ -81,8 +81,8 @@ type BinReader (bytes: byte []) =
 
   member inline private __.extendSign b offset currentValue bitmask maxLen =
     if b &&& 0x40uy <> 0uy then
-        let shiftOffset = if offset < (maxLen - 1) then offset + 1 else offset
-        bitmask <<< (7 * (shiftOffset)) ||| currentValue
+      let shiftOffset = if offset < (maxLen - 1) then offset + 1 else offset
+      bitmask <<< (7 * (shiftOffset)) ||| currentValue
     else
       currentValue
 
@@ -217,7 +217,7 @@ type BinReader (bytes: byte []) =
   member __.Length () = Array.length bytes
 
   /// Is the given offset points to a position out of the range of the file?
-  member __.IsOutOfRange (o) = Array.length bytes <= o
+  member __.IsOutOfRange (o) = o < 0 || Array.length bytes <= o
 
   /// Instantiate BinReader from a given byte array and endianness.
   static member Init
@@ -225,7 +225,7 @@ type BinReader (bytes: byte []) =
     match endian with
     | Endian.Little -> BinReaderLE (bytes) :> BinReader
     | Endian.Big -> BinReaderBE (bytes) :> BinReader
-    | _ -> invalidArg "BinReader.init" "Invalid endian is given."
+    | _ -> invalidArg (nameof endian) "Invalid endian is given."
 
   /// Return a new BinReader of the given endianness. This function will return
   /// the same reader if the given endianness is the same as the endianness of
@@ -321,5 +321,16 @@ and internal BinReaderBE (bytes: byte []) =
     ||| (uint64 base.Bytes.[o + 7])
 
   override __.Endianness = Endian.Big
+
+/// Empty BinReader, representing a null type.
+type EmptyBinReader () =
+  inherit BinReader ([||])
+  override __.PeekInt16 (o) = Utils.impossible ()
+  override __.PeekUInt16 (o) = Utils.impossible ()
+  override __.PeekInt32 (o) = Utils.impossible ()
+  override __.PeekUInt32 (o) = Utils.impossible ()
+  override __.PeekInt64 (o) = Utils.impossible ()
+  override __.PeekUInt64 (o) = Utils.impossible ()
+  override __.Endianness = Utils.impossible ()
 
 // vim: set tw=80 sts=2 sw=2:

@@ -1,20 +1,24 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netstandard2.1</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageIcon>b2r2-240x240.png</PackageIcon>
+    <OtherFlags>$(OtherFlags)--warnon:3390</OtherFlags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>B2R2 core library.</Description>
   </PropertyGroup>
-
-  <Target Name="BuildStdBuf" BeforeTargets="BeforeBuild"
-          Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true' And $(DefineConstants.Contains(LIBFPU))">
-    <Exec Command="make -C ../../lib/libfpu" />
-  </Target>
 
   <ItemGroup>
     <Compile Include="TypeExtensions.fs" />
     <Compile Include="Monads.fs" />
+    <Compile Include="Errors.fs" />
+    <Compile Include="Utils.fsi" />
+    <Compile Include="Utils.fs" />
+    <Compile Include="ColoredString.fs" />
+    <Compile Include="OutString.fs" />
+    <Compile Include="Printer.fs" />
     <Compile Include="RegType.fs" />
     <Compile Include="RegisterID.fs" />
-    <Compile Include="BaseRegisterSet.fs" />
-    <Compile Include="RegisterSet.fsi" />
     <Compile Include="RegisterSet.fs" />
     <Compile Include="WordSize.fs" />
     <Compile Include="Endian.fs" />
@@ -22,26 +26,28 @@
     <Compile Include="ISA.fs" />
     <Compile Include="FileFormat.fs" />
     <Compile Include="Syscalls.fs" />
+    <Compile Include="Addr.fs" />
     <Compile Include="AddrRange.fsi" />
     <Compile Include="AddrRange.fs" />
     <Compile Include="AddrRangeMap.fsi" />
     <Compile Include="AddrRangeMap.fs" />
-    <Compile Include="BitVector.fsi" />
     <Compile Include="BitVector.fs" />
     <Compile Include="ProgramPoint.fs" />
     <Compile Include="ByteArray.fsi" />
     <Compile Include="ByteArray.fs" />
+    <Compile Include="BytePattern.fs" />
     <Compile Include="LEB128.fs" />
     <Compile Include="FingerTree.fs" />
     <Compile Include="IntervalMap.fs" />
     <Compile Include="IntervalSet.fs" />
     <Compile Include="RandomAccessQueue.fs" />
+    <Compile Include="LRUCache.fs" />
+    <Compile Include="PersistentQueue.fs" />
     <Compile Include="BinReader.fs" />
-    <Compile Include="ConcurrentLRU.fs" />
-    <Compile Include="ConcurrentWeakReferenceTable.fs" />
     <Compile Include="Logger.fs" />
-    <Compile Include="Utils.fsi" />
-    <Compile Include="Utils.fs" />
     <Compile Include="Attribution.fs" />
+    <None Include="..\..\LICENSE.md" Pack="true" PackagePath=""/>
+    <None Include="..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
+    <None Include="README.md" Pack="true" PackagePath="" />
   </ItemGroup>
 </Project>

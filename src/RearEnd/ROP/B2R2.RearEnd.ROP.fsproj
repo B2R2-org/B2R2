@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Gadget.fs" />
+    <Compile Include="Simplify.fs" />
+    <Compile Include="State.fs" />
+    <Compile Include="Summary.fs" />
+    <Compile Include="Galileo.fs" />
+    <Compile Include="ROPValue.fs" />
+    <Compile Include="ROPPayload.fs" />
+    <Compile Include="Chain.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\FrontEnd\BinInterface\B2R2.FrontEnd.BinInterface.fsproj" />
+  </ItemGroup>
+
+</Project>

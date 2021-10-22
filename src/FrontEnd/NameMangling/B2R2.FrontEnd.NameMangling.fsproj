@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageIcon>b2r2-240x240.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>B2R2 name demangling module.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="DemangleTypes.fs" />
+    <Compile Include="MSTypes.fs" />
+    <Compile Include="MSUtils.fs" />
+    <Compile Include="MSInterpreter.fs" />
+    <Compile Include="MSDemangler.fs" />
+    <Compile Include="ItaniumTypes.fs" />
+    <Compile Include="ItaniumTables.fs" />
+    <Compile Include="ItaniumFunctionPointer.fs" />
+    <Compile Include="ItaniumUtils.fs" />
+    <Compile Include="ItaniumInterpreter.fs" />
+    <Compile Include="ItaniumDemangler.fs" />
+    <Compile Include="Demangle.fs" />
+    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
+    <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FParsec" Version="1.1.1" />
+  </ItemGroup>
+
+</Project>

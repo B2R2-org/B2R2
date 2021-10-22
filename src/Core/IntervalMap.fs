@@ -64,13 +64,13 @@ module IntervalMap =
   let findAll (range: AddrRange) (IntervalMap m) =
     let il = range.Min
     let ih = range.Max
-    let dropMatcher (e: InterMonoid<Addr>) = Prio il < e.GetMax ()
+    let dropMatcher (e: InterMonoid<Addr>) = Prio il <= e.GetMax ()
     let rec matches xs =
       let v = Op.DropUntil dropMatcher xs
       match Op.ViewL v with
       | Nil -> []
       | Cons (x, xs) -> x :: matches xs
-    Op.TakeUntil (fun (elt: InterMonoid<Addr>) -> Key ih <= elt.GetMin ()) m
+    Op.TakeUntil (fun (elt: InterMonoid<Addr>) -> Key ih < elt.GetMin ()) m
     |> matches
 
   /// Find exactly matching interval.
@@ -82,7 +82,7 @@ module IntervalMap =
   /// Find an interval that has the same low bound (Min) as the given address.
   let tryFindByMin (addr: Addr) (IntervalMap m) =
     let comp (elt: InterMonoid<Addr>) = Key addr <= elt.GetMin ()
-    if Prio addr < ((m :> IMeasured<_>).Measurement).GetMax () then
+    if Prio addr <= ((m :> IMeasured<_>).Measurement).GetMax () then
       let z = (m.Monoid :> IMonoid<InterMonoid<Addr>>).Zero
       let _, x, _ = Op.SplitTree comp z m
       if x.Min = addr then Some (x.Val) else None
@@ -93,11 +93,11 @@ module IntervalMap =
   let includeRange (range: AddrRange) (IntervalMap m) =
     let il = range.Min
     let ih = range.Max
-    if Prio il < ((m :> IMeasured<_>).Measurement).GetMax () then
+    if Prio il <= ((m :> IMeasured<_>).Measurement).GetMax () then
       let z = (m.Monoid :> IMonoid<InterMonoid<Addr>>).Zero
       let _, x, _ =
-        Op.SplitTree (fun (e: InterMonoid<Addr>) -> Prio il < e.GetMax()) z m
-      x.Min < ih
+        Op.SplitTree (fun (e: InterMonoid<Addr>) -> Prio il <= e.GetMax()) z m
+      x.Min <= ih
     else false
 
   /// Check whether the given address exists in the interval tree.

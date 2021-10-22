@@ -1,0 +1,71 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageIcon>b2r2-240x240.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>B2R2 file parsing engine.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="FileTypes.fs" />
+    <Compile Include="BinaryPointer.fs" />
+    <Compile Include="FileInfo.fs" />
+    <Compile Include="FileHelper.fs" />
+    <Compile Include="RawBinary.fs" />
+    <Compile Include="WasmTypes.fs" />
+    <Compile Include="WasmHeader.fs" />
+    <Compile Include="WasmExpression.fs" />
+    <Compile Include="WasmSection.fs" />
+    <Compile Include="WasmParser.fs" />
+    <Compile Include="WasmHelper.fs" />
+    <Compile Include="Wasm.fs" />
+    <Compile Include="ELFDwarfTypes.fs" />
+    <Compile Include="ELFTypes.fs" />
+    <Compile Include="ELFExceptionFrames.fs" />
+    <Compile Include="ELFGccExceptTable.fs" />
+    <Compile Include="ELFHeader.fs" />
+    <Compile Include="ELFSection.fs" />
+    <Compile Include="ELFProgHeader.fs" />
+    <Compile Include="ELFSymbol.fs" />
+    <Compile Include="ELFRelocs.fs" />
+    <Compile Include="ELFPLT.fs" />
+    <Compile Include="ELFHelper.fs" />
+    <Compile Include="ELFParser.fs" />
+    <Compile Include="ELF.fs" />
+    <Compile Include="MachTypes.fs" />
+    <Compile Include="MachLoadCommands.fs" />
+    <Compile Include="MachHeader.fs" />
+    <Compile Include="MachFat.fs" />
+    <Compile Include="MachSegment.fs" />
+    <Compile Include="MachSection.fs" />
+    <Compile Include="MachReloc.fs" />
+    <Compile Include="MachSymbol.fs" />
+    <Compile Include="MachHelper.fs" />
+    <Compile Include="MachParser.fs" />
+    <Compile Include="Mach.fs" />
+    <Compile Include="PETypes.fs" />
+    <Compile Include="PEPDB.fs" />
+    <Compile Include="PEHelper.fs" />
+    <Compile Include="PECoff.fs" />
+    <Compile Include="PEParser.fs" />
+    <Compile Include="PE.fs" />
+    <Compile Include="FormatDetector.fs" />
+    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath=""/>
+    <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
+    <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\BinLifter\Intel\B2R2.FrontEnd.BinLifter.Intel.fsproj" />
+    <ProjectReference Include="..\BinLifter\ARM32\B2R2.FrontEnd.BinLifter.ARM32.fsproj" />
+    <ProjectReference Include="..\BinLifter\ARM64\B2R2.FrontEnd.BinLifter.ARM64.fsproj" />
+    <ProjectReference Include="..\BinLifter\MIPS\B2R2.FrontEnd.BinLifter.MIPS.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Reflection.Metadata" Version="5.0.0" />
+  </ItemGroup>
+</Project>

@@ -31,17 +31,10 @@ exception RangeOverlapException
 /// interval.
 exception InvalidAddrRangeException
 
-/// Addresses are represented with a 64-bit integer in B2R2.
-type Addr = uint64
-
-module Addr =
-  /// Convert the given address to a hex-string.
-  val toString: WordSize -> Addr -> string
-
 /// AddrRange is a tuple (min, max) that represents a range of address values
-/// that are greater or equal to the min value (inclusive) and are less than the
-/// max value (exclusive). To access the min and the max value of a range, use
-/// either getMin or getMax function.
+/// that are greater or equal to the min value (inclusive) and are less than or
+/// equal to the max value (inclusive). To access the min and the max value of a
+/// range, use either getMin or getMax function.
 type AddrRange =
   class
     /// <summary>
@@ -54,11 +47,24 @@ type AddrRange =
     /// </returns>
     new : min: Addr * max: Addr -> AddrRange
 
+    /// <summary>
+    /// Initialize an instance of AddrRange of size 1 has a single addr, i.e.,
+    /// (addr - addr).
+    /// </summary>
+    /// <param name="addr">The start address.</param>
+    /// <returns>
+    /// An instance of AddrRange.
+    /// </returns>
+    new : addr: Addr -> AddrRange
+
     /// Minimum value (lower bound) of the interval.
     val Min: Addr
 
     /// Maximum value (upper bound) of the interval.
     val Max: Addr
+
+    /// The number of addresses in this range.
+    member Count: uint64
 
     /// <summary>
     /// Get the corresponding tuple (Addr, Addr) from the AddrRange.
@@ -67,6 +73,14 @@ type AddrRange =
     /// A tuple of min (inclusive) and max (exclusive).
     /// </returns>
     member ToTuple: unit -> Addr * Addr
+
+    /// <summary>
+    /// Check if the address range is including the given address.
+    /// </summary>
+    /// <returns>
+    /// True if the address is included in the range. False otherwise.
+    /// </returns>
+    member inline IsIncluding: Addr -> bool
 
     /// <summary>
     /// Get the min value (inclusive) of the AddrRange.

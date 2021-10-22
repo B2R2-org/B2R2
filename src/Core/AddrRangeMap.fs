@@ -28,7 +28,7 @@ exception InvalidWhiteningException
 
 exception KeyNotFoundException
 
-type Color =
+type internal RBColor =
   /// Red
   | R
   /// Black
@@ -39,8 +39,8 @@ type Color =
   | NB
 
 type ARMap<'V> =
-  | Leaf of Color
-  | Node of Color * AddrRange * 'V * ARMap<'V> * ARMap<'V>
+  | Leaf of RBColor
+  | Node of RBColor * AddrRange * 'V * ARMap<'V> * ARMap<'V>
 
 [<RequireQualifiedAccess>]
 module ARMap =
@@ -87,9 +87,9 @@ module ARMap =
       | Node (c, k', v', l, r) ->
         if k' = k then (if isReplace then Node (c, k', v, l, r)
                         else raise RangeOverlapException)
-        elif k.Min < k'.Min && k.Max <= k'.Min then
+        elif k.Min < k'.Min && k.Max < k'.Min then
           balance (c, k', v', ins l, r)
-        elif k.Min >= k'.Max && k.Max > k'.Max then
+        elif k.Min > k'.Max && k.Max > k'.Max then
           balance (c, k', v', l, ins r)
         else raise RangeOverlapException
     ins tree |> toBlack
@@ -104,22 +104,22 @@ module ARMap =
   let replace k v tree = fnAdd k v tree true
 
   let rec private findLoop isExact k = function
-    | Leaf _ -> None
+    | Leaf _ -> Error ErrorCase.ItemNotFound
     | Node (_, k', v', l, r) ->
-      if k = k' then Some (k', v')
-      elif k.Min < k'.Min && k.Max <= k'.Min then findLoop isExact k l
-      elif k.Min >= k'.Max && k.Max > k'.Max then findLoop isExact k r
+      if k = k' then Ok (k', v')
+      elif k.Min < k'.Min && k.Max < k'.Min then findLoop isExact k l
+      elif k.Min > k'.Max && k.Max > k'.Max then findLoop isExact k r
       elif (not isExact)
-            && k.Min >= k'.Min && k.Max <= k'.Max then Some (k', v')
-      else None
+            && k.Min >= k'.Min && k.Max <= k'.Max then Ok (k', v')
+      else Error ErrorCase.ItemNotFound
 
   let rec private del isExact k = function
     | Leaf _ -> raise KeyNotFoundException
     | Node (c, k', v', l, r) ->
       if k = k' then delAndBalance isExact (c, l, r)
-      elif k.Min < k'.Min && k.Max <= k'.Min then
+      elif k.Min < k'.Min && k.Max < k'.Min then
         bubble (c, k', v', del isExact k l, r)
-      elif k.Min >= k'.Max && k.Max > k'.Max then
+      elif k.Min > k'.Max && k.Max > k'.Max then
         bubble (c, k', v', l, del isExact k r)
       elif (not isExact) && k.Min >= k'.Min && k.Max <= k'.Max then
         delAndBalance isExact (c, l, r)
@@ -145,12 +145,12 @@ module ARMap =
     | node -> Node node
 
   [<CompiledName("Remove")>]
-  let remove range tree =
-    del true range tree |> toBlack
+  let remove k tree =
+    del true k tree |> toBlack
 
   [<CompiledName("RemoveAddr")>]
-  let removeAddr k tree =
-    del false (AddrRange (k, k + 1UL)) tree
+  let removeAddr addr tree =
+    del false (AddrRange addr) tree
 
   [<CompiledName("Empty")>]
   let empty = Leaf B
@@ -162,30 +162,37 @@ module ARMap =
     | _ -> false
 
   [<CompiledName("ContainsAddr")>]
-  let containsAddr k tree =
-    findLoop false (AddrRange (k, k + 1UL)) tree |> Option.isSome
+  let containsAddr addr tree =
+    findLoop false (AddrRange addr) tree |> Result.isOk
 
   [<CompiledName("ContainsRange")>]
   let containsRange range tree =
-    findLoop true range tree |> Option.isSome
+    findLoop true range tree |> Result.isOk
 
   [<CompiledName("Find")>]
-  let find range tree = findLoop true range tree |> Option.get |> snd
+  let find range tree = findLoop true range tree |> Result.get |> snd
 
   [<CompiledName("TryFindKey")>]
   let tryFindKey addr tree =
-    findLoop false (AddrRange (addr, addr + 1UL)) tree |> Option.map fst
+    match findLoop false (AddrRange addr) tree with
+    | Ok (k, _) -> Some k
+    | _ -> None
 
   [<CompiledName("TryFind")>]
   let tryFind range tree =
-    findLoop true range tree |> Option.map snd
+    match findLoop true range tree with
+    | Ok (_, v) -> Some v
+    | _ -> None
 
   [<CompiledName("TryFindByAddr")>]
-  let tryFindByAddr k tree =
-    findLoop false (AddrRange (k, k + 1UL)) tree |> Option.map snd
+  let tryFindByAddr addr tree =
+    match findLoop false (AddrRange addr) tree with
+    | Ok (_, v) -> Some v
+    | _ -> None
 
   [<CompiledName("FindByAddr")>]
-  let findByAddr k tree = tryFindByAddr k tree |> Option.get
+  let findByAddr addr tree =
+    findLoop false (AddrRange addr) tree |> Result.get |> snd
 
   let rec private sizeAux acc tree =
     match tree with
@@ -196,16 +203,19 @@ module ARMap =
   let count tree = sizeAux 0 tree
 
   [<CompiledName("Iterate")>]
-  let rec iter fn = function
+  let rec iter fn tree =
+    match tree with
     | Leaf _ -> ()
     | Node (_, k, v, l, r) -> iter fn l; fn k v; iter fn r
 
   [<CompiledName("Fold")>]
-  let rec fold fn acc = function
+  let rec fold fn acc tree =
+    match tree with
     | Leaf _ -> acc
-    | Node (_, k, v, l, r) -> let acc = fold fn acc l
-                              let acc = fn acc k v
-                              fold fn acc r
+    | Node (_, k, v, l, r) ->
+      let acc = fold fn acc l
+      let acc = fn acc k v
+      fold fn acc r
 
   [<CompiledName("GetOverlaps")>]
   let getOverlaps (k: AddrRange) tree =
@@ -214,7 +224,7 @@ module ARMap =
       | Node (_, k', v', l, r) ->
         let acc = if k.Min < k'.Min then loop acc l else acc
         let acc =
-          if k.Max <= k'.Min || k.Min >= k'.Max then acc
+          if k.Max < k'.Min || k.Min > k'.Max then acc
           else (k', v') :: acc
         let acc = if k.Max > k'.Max then loop acc r else acc
         acc

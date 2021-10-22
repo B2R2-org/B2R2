@@ -30,18 +30,3 @@ open B2R2.BinIR.LowUIR
 let isBranch = function
   | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ -> true
   | ISMark _ | IEMark _ | LMark _ | Put _ | Store _ | SideEffect _ -> false
-
-/// Does this IR statement halt the execution?
-let isHalt = function
-  | ISMark _ | IEMark _ | LMark _ | Put _ | Store _ -> false
-  | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ -> false
-  | SideEffect effect -> effect = Halt
-
-/// Is this IR statement a branch statement or does it halt the execution? This
-/// is equaivalent to (isBranch || isHalt), but defined separately just for
-/// the performance reason.
-let isBBEnd = function
-  | ISMark _ | IEMark _ | LMark _ | Put _ | Store _ -> false
-  | Jmp _ | CJmp _ | InterJmp _ | InterCJmp _ -> true
-  | SideEffect effect -> effect = Halt
-

@@ -29,16 +29,30 @@ open B2R2.BinIR
 
 /// Type representing destination of an assignment.
 type VariableKind =
+  /// Register.
   | RegVar of RegType * RegisterID * string
+  /// PC.
   | PCVar of RegType
+  /// Temporary variables.
   | TempVar of RegType * int
+  /// The whole memory as a var (an over-approximated instance). Whenever there
+  /// is a memory store op, we update MemVar.
   | MemVar
+  /// Stack variables. This variable is available only after the SSA promotion,
+  /// which basically translates every memory load/store expression with a
+  /// concrete address into either a StackVar or a GlobalVar.
+  | StackVar of RegType * offset: int
+  /// Global variables. This variable is available only after the SSA promotion.
+  | GlobalVar of RegType * Addr
 with
+  [<CompiledName("ToString")>]
   static member toString = function
     | RegVar (_, _, n) -> n
     | PCVar (_) -> "PC"
     | TempVar (_, n) -> "T_" + n.ToString()
     | MemVar -> "MEM"
+    | StackVar (_, offset) -> "V_" + offset.ToString ()
+    | GlobalVar (_, addr) -> "G_" + addr.ToString ()
 
 /// SSA variables always have their own identifier.
 type Variable = {
@@ -46,10 +60,12 @@ type Variable = {
   mutable Identifier: int
 }
 with
+  [<CompiledName("ToString")>]
   static member toString ({ Kind = k; Identifier = i }) =
     VariableKind.toString k + "_" + i.ToString ()
 
-  static member IsPC ({ Kind = k }) =
+  [<CompiledName("IsPC")>]
+  static member isPC ({ Kind = k }) =
     match k with
     | PCVar (_) -> true
     | _ -> false
@@ -106,10 +122,11 @@ type Expr =
   /// case).
   | Undefined of RegType * string
 
-  /// Value returned from a function located at the address. The second argument
-  /// indicates the return address, and the third argument indicates the live
-  /// definition of previously defined variable.
-  | ReturnVal of Addr * Addr * Variable
+  /// Value returned from a function located at the address (fnAddr). The second
+  /// argument indicates the return address (the fall-through address of the
+  /// call instruction), and the third argument indicates the live definition of
+  /// previously defined variable. A fake bbl will contain this expression.
+  | ReturnVal of fnAddr: Addr * retAddr: Addr * Variable
 
 /// IR Label. Since we don't distinguish instruction boundary in SSA level, we
 /// want to specify where the label comes from.

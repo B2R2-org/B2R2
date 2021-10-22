@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="VisPosition.fs" />
+    <Compile Include="VisBBlock.fs" />
+    <Compile Include="VisEdge.fs" />
+    <Compile Include="VisGraph.fs" />
+    <Compile Include="VisDebug.fs" />
+    <Compile Include="JSONExport.fs" />
+    <Compile Include="CycleRemoval.fs" />
+    <Compile Include="LayerAssignment.fs" />
+    <Compile Include="CrossMinimization.fs" />
+    <Compile Include="CoordAssignment.fs" />
+    <Compile Include="EdgeDrawing.fs" />
+    <Compile Include="Visualizer.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\B2R2.Core.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.FSharpLu.Json" Version="0.11.6" />
+    <PackageReference Include="B2R2.MiddleEnd.BinEssence" Version="0.5.0" />
+  </ItemGroup>
+
+</Project>

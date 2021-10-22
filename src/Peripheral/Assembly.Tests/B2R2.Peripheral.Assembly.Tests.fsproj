@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="LowUIR.Tests.fs" />
+    <Compile Include="Intel.Tests.fs" />
+    <Compile Include="MIPS.Tests.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.8.0" />
+    <PackageReference Include="MSTest.TestAdapter" Version="2.1.2" />
+    <PackageReference Include="MSTest.TestFramework" Version="2.1.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\BinLifter\Intel\B2R2.FrontEnd.BinLifter.Intel.fsproj" />
+    <ProjectReference Include="..\Assembly\LowUIR\B2R2.Peripheral.Assembly.LowUIR.fsproj" />
+    <ProjectReference Include="..\Assembly\ARM32\B2R2.Peripheral.Assembly.ARM32.fsproj" />
+    <ProjectReference Include="..\Assembly\Intel\B2R2.Peripheral.Assembly.Intel.fsproj" />
+    <ProjectReference Include="..\Assembly\MIPS\B2R2.Peripheral.Assembly.MIPS.fsproj" />
+    <ProjectReference Include="..\Assembly\AsmInterface\B2R2.Peripheral.Assembly.AsmInterface.fsproj" />
+  </ItemGroup>
+
+</Project>

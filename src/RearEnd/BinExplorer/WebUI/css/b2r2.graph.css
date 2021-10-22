@@ -1,0 +1,401 @@
+/* B2R2 - the Next-Generation Reversing Platform */
+
+.c-graph {
+  display: none;
+  padding: 0;
+  border-top: 0px;
+  border-left: 1px solid var(--graph-border);
+  border-right: 1px solid var(--graph-border);
+  border-bottom: 1px solid var(--graph-border);
+  background: var(--graph-background);
+  width: 100%;
+  height: 100%;
+}
+
+.c-graph.active {
+  display: block;
+}
+
+.c-graph__node {
+  fill: var(--graph-node-fill);
+  stroke: var(--graph-node-stroke);
+  stroke-width: 1.5px;
+}
+
+.c-graph__text {
+  font-family: 'Inconsolata', monospace;
+  line-height: 1.0;
+  padding: 5px 5px 5px 5px;
+}
+
+.c-graph__stmt {
+  font-family: 'Inconsolata', monospace;
+  line-height: 1.0;
+}
+
+.c-graph__stmt.active {
+  font-weight: bold;
+  font-style: italic;
+}
+
+.c-graph__stmt.hover {
+  background-color: var(--graph-stmt-hover);
+}
+
+.c-graph__stmt--address {
+  color: var(--graph-stmt-address);
+}
+
+.c-graph__stmt--mnemonic {
+  color: var(--graph-stmt-mnemonic);
+}
+
+.c-graph__stmt--string {
+  color: var(--graph-stmt-string);
+}
+
+.c-graph__stmt--variable {
+  color: var(--graph-stmt-variable);
+}
+
+.c-graph__stmt--value {
+  color: var(--graph-stmt-value);
+}
+
+.c-graph__stmt--variable.active {
+  background-color: var(--graph-stmt-highlighted-background);
+  color: var(--graph-stmt-highlighted);
+  font-weight: bold;
+}
+
+.c-graph__stmt--value.active {
+  background-color: var(--graph-stmt-highlighted-background);
+  color: var(--graph-stmt-highlighted);
+  font-weight: bold;
+}
+
+.c-graph__edge {
+  stroke-width: 3px;
+  fill: none;
+}
+
+/* Edge */
+.c-graph__interjmpedge {
+  stroke: var(--graph-edge-interjmp-stroke);
+}
+
+.c-graph__intercjmpfalseedge {
+  stroke: var(--graph-edge-intercjmpfalse-stroke);
+}
+
+.c-graph__intercjmptrueedge {
+  stroke: var(--graph-edge-intercjmptrue-stroke);
+}
+
+.c-graph__intrajmpedge {
+  stroke: var(--graph-edge-intrajmp-stroke);
+}
+
+.c-graph__intracjmpfalseedge {
+  stroke: var(--graph-edge-intracjmpfalse-stroke);
+}
+
+.c-graph__intracjmptrueedge {
+  stroke: var(--graph-edge-intracjmptrue-stroke);
+}
+
+.c-graph__calledge {
+  stroke: var(--graph-edge-call-stroke);
+}
+
+.c-graph__recursivecalledge {
+  stroke: var(--graph-edge-call-stroke);
+}
+
+.c-graph__indirectjmpedge {
+  stroke: var(--graph-edge-interjmp-stroke);
+}
+
+.c-graph__indirectcalledge {
+  stroke: var(--graph-edge-call-stroke);
+}
+
+.c-graph__retedge {
+  stroke: var(--graph-edge-call-stroke);
+}
+
+.c-graph__fallthroughedge {
+  stroke: var(--graph-edge-fallthrough-stroke);
+}
+
+.c-graph__callfallthroughedge {
+  stroke: var(--graph-edge-fallthrough-stroke);
+}
+
+.c-graph__exceptionfallthroughedge {
+  stroke: var(--graph-edge-fallthrough-stroke);
+}
+
+/* Arrow */
+.c-arrow-interjmpedge {
+  fill: var(--graph-edge-interjmp-stroke);
+}
+
+.c-arrow-intercjmpfalseedge {
+  fill: var(--graph-edge-intercjmpfalse-stroke);
+}
+
+.c-arrow-intercjmptrueedge {
+  fill: var(--graph-edge-intercjmptrue-stroke);
+}
+
+.c-arrow-intrajmpedge {
+  fill: var(--graph-edge-intrajmp-stroke);
+}
+
+.c-arrow-intracjmpfalseedge {
+  fill: var(--graph-edge-intracjmpfalse-stroke);
+}
+
+.c-arrow-intracjmptrueedge {
+  fill: var(--graph-edge-intracjmptrue-stroke);
+}
+
+.c-arrow-calledge {
+  fill: var(--graph-edge-call-stroke);
+}
+
+.c-arrow-recursivecalledge {
+  fill: var(--graph-edge-call-stroke);
+}
+
+.c-arrow-indirectjmpedge {
+  fill: var(--graph-edge-interjmp-stroke);
+}
+
+.c-arrow-indirectcalledge {
+  fill: var(--graph-edge-call-stroke);
+}
+
+.c-arrow-retedge {
+  fill: var(--graph-edge-ret-stroke);
+}
+
+.c-arrow-fallthroughedge {
+  fill: var(--graph-edge-fallthrough-stroke);
+}
+
+.c-arrow-callfallthroughedge {
+  fill: var(--graph-edge-fallthrough-stroke);
+}
+
+.c-arrow-exceptionfallthroughedge {
+  fill: var(--graph-edge-fallthrough-stroke);
+}
+
+.c-minimap {
+  margin-right: 10px;
+  margin-bottom: 10px;
+  right: 0px;
+  bottom: 0px;
+  position: absolute;
+  border: 1px solid var(--minimap-border);
+  color: var(--minimap-icon);
+  background-color: var(--minimap-background);
+  display: flex;
+  flex-direction: column;
+}
+
+.c-minimap__node {
+  fill: var(--minimap-node-fill);
+  stroke: var(--minimap-node-stroke);
+}
+
+.c-minimap__edge {
+  stroke: var(--minimap-edge-stroke);
+  stroke-width: 0.7px;
+  fill: none;
+}
+
+.c-minimap__viewbox {
+  stroke: var(--minimap-viewbox-stroke);
+  stroke-width: 3.5px;
+  vector-effect: non-scaling-stroke;
+  fill: transparent;
+  cursor: move;
+}
+
+.l-minimap-topper {
+  position: absolute;
+  width: 100%;
+  text-align: right;
+  padding-left: 2px;
+}
+
+.l-minimap-graph {
+  width: 100%;
+  padding: 3px;
+}
+
+.l-minimap-topper span.glyphicon {
+  border: 1px solid var(--minimap-icon-border);
+  background-color: var(--minimap-background);
+  font-size: 12px;
+  padding: 1px;
+  margin-right: 2px;
+}
+
+.c-minimap__min {
+  position: relative;
+  cursor: pointer;
+}
+
+.c-minimap__recover {
+  position: relative;
+  cursor: pointer;
+}
+
+.c-minimap__init {
+  position: relative;
+  cursor: pointer;
+}
+
+.c-minimap__move {
+  position: relative;
+  cursor: all-scroll;
+}
+
+.c-graph__segselector {
+  padding: 10px;
+}
+
+.c-graph__segselector .dropdown-menu {
+  min-width: 116px;
+  font-size: 12px;
+}
+
+.c-graph__segselector .dropdown-menu > li > a {
+  padding-left: 10px;
+}
+
+.l-graph__segment {
+  overflow-y: scroll;
+  height: calc(100% - 50px);
+}
+
+.c-graph__segment {
+  padding: 10px;
+}
+
+.c-graph__segment > .breadcrumb {
+  color: var(--hexview-segment-title-text);
+  background-color: var(--hexview-segment-title-background);
+  margin-bottom: 0px;
+}
+
+.l-graph__hexdump {
+  padding: 5px 15px 5px 15px;
+  color: var(--hexview-dump-text);
+  background-color: var(--hexview-dump-background);
+  font-family: 'Inconsolata', monospace;
+  font-size: 16px;
+  display: flex;
+  flex-direction: row;
+}
+
+.c-graph__hexaddr {
+  flex: 0 0 160px;
+  padding-right: 10px;
+  color: var(--hexview-addr);
+}
+
+.l-graph__hexdata {
+  flex: 0 0 calc(100% - 160px);
+  display: flex;
+  flex-direction: row;
+}
+
+.c-graph__hexdump {
+  flex: 0 0 70%;
+  padding-right: 10px;
+  white-space: pre-line;
+}
+
+.c-graph__hexdump mark {
+  padding: 0px;
+  color: var(--hexview-dump-text);
+  background: var(--hexview-highlight);
+}
+
+.c-graph__hexdump::selection {
+  background: var(--hexview-highlight);
+}
+
+.c-graph__hexascii {
+  flex: 0 0 30%;
+  border-left: 2px solid var(--hexview-ascii-vbar);
+  padding-left: 10px;
+  word-wrap: break-word;
+  width: 35%;
+  white-space: pre-line;
+}
+
+.c-graph__hexascii mark {
+  padding: 0px;
+  color: var(--hexview-dump-text);
+  background: var(--hexview-highlight);
+}
+
+.c-graph__hexascii::selection {
+  background: var(--hexview-highlight);
+}
+
+.l-graph__terminal {
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.c-graph__termcontent {
+  font-family: 'Inconsolata', monospace;
+  color: var(--terminal-text);
+  background: var(--terminal-background);
+  padding: 5px 5px 0px 5px;
+  flex: 0 0 calc(100% - 30px);
+  overflow-y: auto;
+  white-space: pre;
+}
+
+.c-graph__termcontent:focus {
+  outline: none;
+}
+
+.c-graph__termresult {
+  display: block;
+}
+
+.l-graph__termprompt {
+  font-family: 'Inconsolata', monospace;
+  color: var(--terminal-text);
+  background: var(--terminal-background);
+  padding: 0px 5px 5px 5px;
+  flex: 0 0 30px;
+  height: 30px;
+  display: flex;
+}
+
+.c-graph__termprompt {
+  margin-left: 10px;
+  width: 100%;
+  height: 100%;
+  padding: 0px;
+  background: none;
+  border: none;
+  outline: none;
+  resize: none;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  white-space: nowrap;
+}
+

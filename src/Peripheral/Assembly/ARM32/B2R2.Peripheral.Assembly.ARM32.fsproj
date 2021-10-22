@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageIcon>b2r2-240x240.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>B2R2 ARM32 assembly library.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="ARM32ParserHelper.fs" />
+    <Compile Include="ARM32SecondPass.fs" />
+    <Compile Include="ARM32AsmParser.fs" />
+    <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />
+    <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\FrontEnd\BinLifter\ARM32\B2R2.FrontEnd.BinLifter.ARM32.fsproj" />
+  </ItemGroup>
+
+</Project>

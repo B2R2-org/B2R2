@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageIcon>b2r2-240x240.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Description>B2R2 TMS frontend.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="TMS320C6000Register.fs" />
+    <Compile Include="TMS320C6000RegisterSet.fs" />
+    <Compile Include="TMS320C6000RegExprs.fs" />
+    <Compile Include="TMS320C6000RegisterBay.fs" />
+    <Compile Include="TMS320C6000Types.fs" />
+    <Compile Include="TMS320C6000Utils.fs" />
+    <Compile Include="TMS320C6000Disasm.fs" />
+    <Compile Include="TMS320C6000Instruction.fs" />
+    <Compile Include="TMS320C6000Parser.fs" />
+    <Compile Include="TMS320C6000.fs" />
+    <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />
+    <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\B2R2.Core.fsproj" />
+    <ProjectReference Include="..\..\..\BinIR\B2R2.BinIR.fsproj" />
+    <ProjectReference Include="..\Core\B2R2.FrontEnd.BinLifter.Core.fsproj" />
+  </ItemGroup>
+
+</Project>

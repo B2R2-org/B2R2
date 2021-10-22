@@ -41,7 +41,7 @@ type CastKind =
   /// Float to Integer truncated conversion
   | FtoITrunc = 6
   /// Float to Float conversion with different precisions
-  | FloatExt = 7
+  | FloatCast = 7
 
 module CastKind =
   let toString = function
@@ -52,5 +52,16 @@ module CastKind =
     | CastKind.FtoICeil -> "ceil"
     | CastKind.FtoIFloor -> "floor"
     | CastKind.FtoITrunc -> "trunc"
-    | CastKind.FloatExt -> "fext"
+    | CastKind.FloatCast -> "fext"
+    | _ -> raise IllegalASTTypeException
+
+  let ofString = function
+    | "sext" -> CastKind.SignExt
+    | "zext" -> CastKind.ZeroExt
+    | "float" -> CastKind.IntToFloat
+    | "round" -> CastKind.FtoIRound
+    | "ceil" -> CastKind.FtoICeil
+    | "floor" -> CastKind.FtoIFloor
+    | "trunc" -> CastKind.FtoITrunc
+    | "fext" -> CastKind.FloatCast
     | _ -> raise IllegalASTTypeException

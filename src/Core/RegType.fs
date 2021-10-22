@@ -93,7 +93,7 @@ module RegType =
   let toByteWidth t =
     let t = toBitWidth t
     if t % 8 = 0 then t / 8
-    else failwith "Failed to get byte width."
+    else Utils.impossible ()
 
   /// <summary>
   ///   Get the corresponding integer RegType from the given bit width. When a
@@ -119,8 +119,6 @@ module RegType =
   /// </returns>
   let fromByteWidth n = fromBitWidth (n * 8)
 
-  /// Get the double width of RegType.
-
   /// <summary>
   ///   Get a double-sized RegType from a given RegType.
   /// </summary>
@@ -130,37 +128,12 @@ module RegType =
   /// </returns>
   let double (t: RegType) =  2 * t
 
-  /// Get a bitmask of the given RegType size.
-
   /// <summary>
   ///   Get a bitmask (in integer) from the given RegType.
   /// </summary>
   /// <returns>
   ///   A bit mask in big integer.
   /// </returns>
-  let getMask = function
-    | 1<rt> -> 1I
-    | 8<rt> -> 255I
-    | 16<rt> -> 65535I
-    | 32<rt> -> 4294967295I
-    | 64<rt> -> 18446744073709551615I
-    | 128<rt> -> BigInteger.mask128
-    | 256<rt> -> BigInteger.mask256
-    | 512<rt> -> BigInteger.mask512
-    | t when t < 512<rt> -> (bigint.One <<< (int t)) - bigint.One
-    | _ -> raise InvalidRegTypeException
-
-  /// <summary>
-  ///   Get a bitmask (in integer) from the given RegType.
-  /// </summary>
-  /// <returns>
-  ///   A bit mask in uint64.
-  /// </returns>
-  let getUInt64Mask = function
-    | 1<rt> -> 1UL
-    | 8<rt> -> 255UL
-    | 16<rt> -> 65535UL
-    | 32<rt> -> 4294967295UL
-    | 64<rt> -> 18446744073709551615UL
-    | t when t < 64<rt> -> (1UL <<< (int t)) - 1UL
-    | _ -> raise InvalidRegTypeException
+  let getMask t =
+    if t <= 64<rt> then System.UInt64.MaxValue >>> (64 - int t) |> bigint
+    else (bigint.One <<< (int t)) - bigint.One

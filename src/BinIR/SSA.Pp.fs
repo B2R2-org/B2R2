@@ -58,12 +58,14 @@ let rec private expToStringAux expr (sb: StringBuilder) =
     sb.Append (" ") |> ignore
     expToStringAux e2 sb
     sb.Append (")") |> ignore
-  | Load (_endian, typ, e) ->
+  | Load (v, typ, e) ->
+    sb.Append (Variable.toString v) |> ignore
     sb.Append ("[") |> ignore
     expToStringAux e sb
     sb.Append ("]:") |> ignore
     sb.Append (RegType.toString typ) |> ignore
-  | Store (_, _, addr, e) ->
+  | Store (v, _, addr, e) ->
+    sb.Append (Variable.toString v) |> ignore
     sb.Append ("[") |> ignore
     expToStringAux addr sb
     sb.Append (" <- ") |> ignore
@@ -97,15 +99,15 @@ let rec private expToStringAux expr (sb: StringBuilder) =
     sb.Append (")") |> ignore
   | ReturnVal (addr, ret, _) ->
     sb.Append ("RetFromFunc(") |> ignore
-    sb.Append (addr.ToString ("X")) |> ignore
+    sb.Append (String.u64ToHexNoPrefix addr) |> ignore
     sb.Append (",") |> ignore
-    sb.Append (ret.ToString ("X")) |> ignore
+    sb.Append (String.u64ToHexNoPrefix ret) |> ignore
     sb.Append (")") |> ignore
 
 let private labelToString (addr: Addr, symb) (sb: StringBuilder) =
   sb.Append (Symbol.getName symb) |> ignore
   sb.Append (" @ ") |> ignore
-  sb.Append (addr.ToString ("X")) |> ignore
+  sb.Append (String.u64ToHexNoPrefix addr) |> ignore
 
 let private stmtToStringAux stmt (sb: StringBuilder) =
   match stmt with

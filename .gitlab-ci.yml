@@ -1,8 +1,8 @@
-image: mcr.microsoft.com/dotnet/core/sdk:3.1
+image: mcr.microsoft.com/dotnet/sdk:5.0-focal
 
 stages:
     - build
-    - evaltest
+    - extra
 
 build:
     stage: build
@@ -14,18 +14,15 @@ build:
     artifacts:
         paths:
             - build/
-        expire_in: 1 day
+        expire_in: 3 hrs
     tags:
         - b2r2
 
-evaltest:
-    stage: evaltest
+extra:
+    stage: extra
     script:
-        - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@softsec.kaist.ac.kr:8888/B2R2/evaltest
-        - dotnet nuget locals all --clear
-        - |
-            dotnet run -c Release --project evaltest/B2R2.TestDriver -- \
-            $TRACE_URL $CI_COMMIT_REF_NAME $CI_COMMIT_SHA "$GITLAB_USER_NAME"
+        - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@softsec.kaist.ac.kr:8000/B2R2/ci-runner
+        - dotnet run -p ci-runner/CIStarter -- $CI_URL $CI_COMMIT_SHA $CI_COMMIT_REF_NAME "$GITLAB_USER_NAME"
     dependencies:
         - build
     tags:

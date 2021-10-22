@@ -28,7 +28,7 @@ open System
 
 let assertEqual a b exn = if a = b then () else raise exn
 
-let assertByCond cond exn = if cond then () else raise exn
+let assertByCond condition exn = if condition then () else raise exn
 
 let futureFeature () =
   let trace = Diagnostics.StackTrace (true)
@@ -56,14 +56,8 @@ let inline tupleToOpt result =
   | false, _ -> None
   | true, a -> Some a
 
-let writeB2R2 newLine =
-  Console.ForegroundColor <- ConsoleColor.DarkCyan
-  Console.Write ("B")
-  Console.ForegroundColor <- ConsoleColor.DarkYellow
-  Console.Write ("2")
-  Console.ForegroundColor <- ConsoleColor.DarkCyan
-  Console.Write ("R")
-  Console.ForegroundColor <- ConsoleColor.DarkYellow
-  Console.Write ("2")
-  Console.ResetColor ()
-  if newLine then Console.WriteLine () else ()
+let inline tripleFst (a, _, _) = a
+
+let inline tripleSnd (_, a, _) = a
+
+let inline tripleThd (_, _, a) = a

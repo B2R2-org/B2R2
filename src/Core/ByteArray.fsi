@@ -31,6 +31,12 @@ open System
 /// Convert a hex string to a byte array.
 val ofHexString: string -> byte []
 
+/// Convert a byte array into a read-only span.
+val toReadOnlySpan: byte [] -> ReadOnlySpan<byte>
+
+/// Read int32 from the given byte array at the given offset.
+val readInt32: byte [] -> offset: int -> Result<int, ErrorCase>
+
 /// Extract a C-string (string that ends with a NULL char) from a byte array.
 val extractCString: byte [] -> int -> string
 

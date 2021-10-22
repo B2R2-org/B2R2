@@ -60,24 +60,24 @@ module IntervalSet =
   let includeRange (range: AddrRange) (IntervalSet s) =
     let il = range.Min
     let ih = range.Max
-    if Prio il < ((s :> IMeasured<_>).Measurement).GetMax () then
+    if Prio il <= ((s :> IMeasured<_>).Measurement).GetMax () then
       let z = (s.Monoid :> IMonoid<InterMonoid<Addr>>).Zero
       let (_, x, _) =
-        Op.SplitTree (fun (e: InterMonoid<Addr>) -> Prio il < e.GetMax()) z s
-      x.Min < ih
+        Op.SplitTree (fun (e: InterMonoid<Addr>) -> Prio il <= e.GetMax()) z s
+      x.Min <= ih
     else false
 
   /// Find all overlapping intervals.
   let findAll (range: AddrRange) (IntervalSet s) =
     let il = range.Min
     let ih = range.Max
-    let dropMatcher (e: InterMonoid<Addr>) = Prio il < e.GetMax ()
+    let dropMatcher (e: InterMonoid<Addr>) = Prio il <= e.GetMax ()
     let rec matches acc xs =
       let v = Op.DropUntil dropMatcher xs
       match Op.ViewL v with
       | Nil -> acc
       | Cons (x: IntervalSetElem, xs) -> matches (x.Val :: acc) xs
-    Op.TakeUntil (fun (elt: InterMonoid<Addr>) -> Key ih <= elt.GetMin ()) s
+    Op.TakeUntil (fun (elt: InterMonoid<Addr>) -> Key ih < elt.GetMin ()) s
     |> matches []
 
   /// Find and return the first matching interval from the given range.
@@ -87,10 +87,10 @@ module IntervalSet =
 
   /// Find and return the first matching interval from the given address.
   let tryFindByAddr addr s =
-    tryFind (AddrRange (addr, addr + 1UL)) s
+    tryFind (AddrRange (addr, addr)) s
 
   /// Check whether the given address exists in the interval set.
-  let containsAddr addr s = includeRange (AddrRange (addr, addr + 1UL)) s
+  let containsAddr addr s = includeRange (AddrRange (addr, addr)) s
 
   /// Check whether the exact interval exists in the interval set.
   let contains (i: AddrRange) (IntervalSet s) =
@@ -105,17 +105,18 @@ module IntervalSet =
         else false
     containLoop r
 
-  let remove (i: AddrRange) (IntervalSet s) =
+  /// Assuming the given AddrRange is in the set, remove the range.
+  let remove (range: AddrRange) (IntervalSet s) =
     let l, r =
-      Op.Split (fun (e: InterMonoid<Addr>) -> Key i.Min <= e.GetMin ()) s
+      Op.Split (fun (e: InterMonoid<Addr>) -> Key range.Min <= e.GetMin ()) s
     let rec rmLoop l r =
       match Op.ViewL r with
       | Nil -> raise InvalidAddrRangeException
       | Cons (x: IntervalSetElem, xs)
-        when x.Min = i.Min && x.Max = i.Max ->
+        when x.Min = range.Min && x.Max = range.Max ->
         Op.Concat l xs
       | Cons (x, xs) ->
-        if i.Min = x.Min then rmLoop (Op.Snoc l x) xs
+        if range.Min = x.Min then rmLoop (Op.Snoc l x) xs
         else raise InvalidAddrRangeException
     IntervalSet <| rmLoop l r
 

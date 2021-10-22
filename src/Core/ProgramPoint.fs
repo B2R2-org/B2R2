@@ -37,7 +37,7 @@ type ProgramPoint (addr, pos) =
     | :? ProgramPoint as o -> o.Address = __.Address && o.Position = __.Position
     | _ -> false
   override __.GetHashCode () = hash (__.Address, __.Position)
-  override __.ToString () = addr.ToString ("X") + ":" + pos.ToString ()
+  override __.ToString () = String.u64ToHexNoPrefix addr + ":" + pos.ToString ()
 
   /// Get a fake program point to represent a fake vertex, which does not exist
   /// in a CFG. Fake vertices are useful for representing external function
@@ -46,13 +46,14 @@ type ProgramPoint (addr, pos) =
   static member IsFake (p: ProgramPoint) = p.Address = 0UL && p.Position = -1
 
   static member Next (p: ProgramPoint) =
-    ProgramPoint (p.Address, p.Position + 1)
+    if ProgramPoint.IsFake p then p
+    else ProgramPoint (p.Address, p.Position + 1)
 
   interface System.IComparable with
-    member __.CompareTo (o) =
-      match o with
-      | :? ProgramPoint as o ->
+    member __.CompareTo (rhs) =
+      match rhs with
+      | :? ProgramPoint as rhs ->
         (* To lexicographically sort leaders. Being too pedantic here. *)
-        if __.Address = o.Address then compare __.Position o.Position
-        else compare __.Address o.Address
-      | _ -> invalidArg "ProgramPoint" "Invalid comparison"
+        if __.Address = rhs.Address then compare __.Position rhs.Position
+        else compare __.Address rhs.Address
+      | _ -> invalidArg (nameof rhs) "Invalid comparison"

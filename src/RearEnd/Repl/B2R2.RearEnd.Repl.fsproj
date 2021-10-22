@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net5.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="ReplOpts.fs" />
+    <Compile Include="ReplCommand.fs" />
+    <Compile Include="ReplState.fs" />
+    <Compile Include="ReplDisplay.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="B2R2.FsReadLine" Version="0.1.5" />
+    <PackageReference Include="B2R2.MiddleEnd.ConcEval" Version="0.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Peripheral\Assembly\AsmInterface\B2R2.Peripheral.Assembly.AsmInterface.fsproj" />
+    <ProjectReference Include="..\..\FrontEnd\BinInterface\B2R2.FrontEnd.BinInterface.fsproj" />
+    <ProjectReference Include="..\Core\B2R2.RearEnd.Core.fsproj" />
+  </ItemGroup>
+
+</Project>

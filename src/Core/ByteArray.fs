@@ -27,6 +27,7 @@ module B2R2.ByteArray
 open System
 open System.Text
 open System.Globalization
+open System.Runtime.InteropServices
 
 let ofHexString (s: string) =
   Seq.windowed 2 s
@@ -35,6 +36,16 @@ let ofHexString (s: string) =
   |> Seq.map (fun (_, j) -> Byte.Parse(String(j),
                                        NumberStyles.AllowHexSpecifier))
   |> Array.ofSeq
+
+let toReadOnlySpan (bs: byte []) =
+  ReadOnlySpan (bs)
+
+let readInt32 (bs: byte []) offset =
+  try
+    let span = ReadOnlySpan (bs, offset, 4)
+    MemoryMarshal.Read<int> span |> Ok
+  with _ ->
+    Error ErrorCase.InvalidMemoryRead
 
 let rec private extractCStringFromSpanAux span (acc: StringBuilder) offset =
   if offset >= (span: ReadOnlySpan<byte>).Length then acc.ToString ()
@@ -92,19 +103,19 @@ let rec getMatch (pattern: byte []) (buf: byte []) struct (i, j) =
     getMatch pattern buf struct (i - 1, j - 1)
   else struct (i, j)
 
+let rec searchOne i (buf: byte []) (pattern: byte []) (d1: int[]) (d2: int[]) =
+  if i < buf.Length then
+    let struct (i, j) = getMatch pattern buf struct (i, pattern.Length - 1)
+    if j < 0 then Some (i + 1)
+    else searchOne (i + (max d1.[int buf.[i]] d2.[j])) buf pattern d1 d2
+  else None
+
 let bmSearch pattern buf =
-  let buflen = Array.length buf
   let patlen = Array.length pattern
   let delta1 = makeDelta1 pattern patlen
   let delta2 = makeDelta2 pattern patlen
-  let rec searchOne i =
-    if i < buflen then
-      let struct (i, j) = getMatch pattern buf struct (i, patlen - 1)
-      if j < 0 then Some (i + 1)
-      else searchOne (i + (max delta1.[int buf.[i]] delta2.[j]))
-    else None
   let rec searchAll idx ret =
-    match searchOne idx with
+    match searchOne idx buf pattern delta1 delta2 with
     | Some j -> searchAll (j + patlen) (j :: ret)
     | None -> ret
   searchAll (patlen - 1) []
@@ -113,17 +124,11 @@ let findIdxs offset pattern buf =
   bmSearch pattern buf |> List.map (fun x -> (uint64 x) + offset)
 
 let tryFindIdx offset pattern buf =
-  let buflen = Array.length buf
   let patlen = Array.length pattern
   let delta1 = makeDelta1 pattern patlen
   let delta2 = makeDelta2 pattern patlen
-  let rec searchOne i =
-    if i < buflen then
-      let struct (i, j) = getMatch pattern buf struct (i, patlen - 1)
-      if j < 0 then Some ((uint64 i) + offset)
-      else searchOne (i + (max delta1.[int buf.[i]] delta2.[j]))
-    else None
-  searchOne (patlen - 1)
+  searchOne (patlen - 1) buf pattern delta1 delta2
+  |> Option.map (fun idx -> uint64 idx + offset)
 
 let toUInt32Arr (src: byte []) =
   let srcLen = Array.length src

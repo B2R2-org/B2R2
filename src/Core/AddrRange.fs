@@ -32,24 +32,19 @@ exception RangeOverlapException
 /// value is larger than Max value.
 exception InvalidAddrRangeException
 
-/// Address type in B2R2 is 64-bit unsigned integer.
-type Addr = uint64
-
-module Addr =
-  let toString wordSize (addr: Addr) =
-    if wordSize = WordSize.Bit32 then addr.ToString ("X8")
-    else addr.ToString ("X16")
-
 type AddrRange =
   val Min: Addr
   val Max: Addr
 
   new (min, max) =
-    if min >= max then raise InvalidAddrRangeException else ()
+    if min > max then raise InvalidAddrRangeException else ()
     { Min = min; Max = max }
 
+  new (addr) =
+    { Min = addr; Max = addr }
+
   override __.ToString () =
-    __.Min.ToString ("X") + " -- " + __.Max.ToString ("X")
+    String.u64ToHexNoPrefix __.Min + " -- " + String.u64ToHexNoPrefix __.Max
 
   override __.Equals (rhs: obj) =
     match rhs with
@@ -59,8 +54,14 @@ type AddrRange =
   override __.GetHashCode () =
     hash ( __.Min, __.Max )
 
+  member __.Count with get() = __.Max - __.Min + 1UL
+
   member __.ToTuple () =
     __.Min, __.Max
+
+  /// Check if the address range is including the given address.
+  member inline __.IsIncluding (addr: Addr) =
+    __.Min <= addr && addr <= __.Max
 
   static member inline GetMin (range: AddrRange) = range.Min
 
