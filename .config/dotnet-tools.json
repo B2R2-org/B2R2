@@ -2,10 +2,10 @@
   "version": 1,
   "isRoot": true,
   "tools": {
-    "b2r2.rearend.launcher": {
-      "version": "0.4.0",
+    "fsharp.formatting.commandtool": {
+      "version": "11.4.4",
       "commands": [
-        "b2r2"
+        "fsdocs"
       ]
     }
   }
