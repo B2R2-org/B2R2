@@ -3,7 +3,8 @@
 [![Build status](https://ci.appveyor.com/api/projects/status/0c0tcxh813ev8w6i?svg=true)](https://ci.appveyor.com/project/sangkilc/b2r2)
 [![Build Status](https://travis-ci.com/B2R2-org/B2R2.svg?branch=master)](https://travis-ci.com/B2R2-org/B2R2)
 ![](https://img.shields.io/github/license/B2R2-org/B2R2.svg?style=flat)
-[![](https://img.shields.io/nuget/vpre/B2R2.FrontEnd.svg?style=flat)](https://www.nuget.org/packages/B2R2.FrontEnd)
+![](https://img.shields.io/tokei/lines/github/B2R2-org/B2R2)
+[![](https://img.shields.io/nuget/v/B2R2.RearEnd.Launcher)](https://www.nuget.org/packages/B2R2.RearEnd.Launcher/)
 
 B2R2
 ====
@@ -57,17 +58,17 @@ progress, but we look forward to your contributions! Feel free to write a PR
 (Pull Request) while making sure that you have read our [contribution
 guideline](CONTRIBUTING.md).
 
-| Feature               | x86         | x86-64      | ARMv7 (& Thumb) | ARMv8                | MIPS32               | MIPS64               | EVM         | TMS320C600  | AVR         | PPC        |
-|-----------------------|:-----------:|:------------|:---------------:|:--------------------:|:--------------------:|:--------------------:|:-----------:|:-----------:|:-----------:|:----------:|
-| Instruction Parsing   | :full_moon: | :full_moon: | :full_moon:     | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :full_moon: | :new_moon: |
-| Disassembly           | :full_moon: | :full_moon: | :full_moon:     | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :full_moon: | :new_moon: |
-| Lifting               | :full_moon: | :full_moon: | :full_moon:     | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :full_moon: | :new_moon: |
-| CFG Recovery          | :full_moon: | :full_moon: | :full_moon:     | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :full_moon: | :new_moon:  | :new_moon:  | :new_moon: |
-| Data-Flow             | :full_moon: | :full_moon: | :full_moon:     | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :new_moon:  | :new_moon: |
-| Instruction Emulation | :full_moon: | :full_moon: | :full_moon:     | :full_moon:          | :full_moon:          | :full_moon:          | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: |
-| Assembly              | :full_moon: | :full_moon: | :new_moon:      | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: |
-| REPL                  | :full_moon: | :full_moon: | :new_moon:      | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: |
-| ROP Compilation       | :full_moon: | :new_moon:  | :new_moon:      | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: |
+| Feature               | x86         | x86-64      | ARMv7 (& Thumb)      | ARMv8                | MIPS32               | MIPS64               | EVM         | TMS320C600  | AVR         | PPC        |
+|-----------------------|:-----------:|:------------|:--------------------:|:--------------------:|:--------------------:|:--------------------:|:-----------:|:-----------:|:-----------:|:----------:|
+| Instruction Parsing   | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :full_moon: | :new_moon: |
+| Disassembly           | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :full_moon: | :new_moon: |
+| Lifting               | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :full_moon: | :new_moon: |
+| CFG Recovery          | :full_moon: | :full_moon: | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :full_moon: | :new_moon:  | :new_moon:  | :new_moon: |
+| Data-Flow             | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :new_moon:  | :new_moon: |
+| Instruction Emulation | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: |
+| Assembly              | :full_moon: | :full_moon: | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: |
+| REPL                  | :full_moon: | :full_moon: | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: |
+| ROP Compilation       | :full_moon: | :new_moon:  | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: |
 
 Dependencies?
 -------------
