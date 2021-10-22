@@ -33,7 +33,7 @@ let showUsage () =
          ''''''''''
       .;'          ';.
      ;' o      o     ';           888888b.           8888888b.
- .. ,,                ,, ..       888  "88b          8b888   Y8
+ .. ,,                ,, ..       888  "88b          888   "88b
 ;''cl                  l:MMO      888  .88P  .oPYo.  888    888 .oPYo.
 l  c.dooooooooooooooood.:MMM      8888888K.      `8  888   d88P     `8
 :  cdMMMMMMMMMMMMMMMMMMd:MMk      888  "Y88b    oP'  8888888P"     oP'
