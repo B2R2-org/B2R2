@@ -84,7 +84,8 @@ leverage.
 API Documentation
 -----------------
 
-We currently use docfx to generate our documentation: https://b2r2.org/APIDoc/
+We currently use [fsdocs](https://github.com/fsprojects/FSharp.Formatting/) to
+generate our documentation: https://b2r2.org/APIDoc/.
 
 Example
 -------
