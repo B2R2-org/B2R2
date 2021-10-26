@@ -35,8 +35,8 @@ open B2R2.MiddleEnd.BinGraph
 [<AutoOpen>]
 module private EVMTrampolineAnalysis =
   let computeKeccak256 (keccak: SHA3Core.Keccak.Keccak) (str: string) =
-      let hashStr = (keccak.Hash str).[ 0 .. 7 ]
-      System.UInt32.Parse (hashStr, System.Globalization.NumberStyles.HexNumber)
+    let hashStr = (keccak.Hash str).[ 0 .. 7 ]
+    System.UInt32.Parse (hashStr, System.Globalization.NumberStyles.HexNumber)
 
   // Parse function information and update signature to name mapping.
   let parseFunc keccak accMap (funcJson: JsonValue) =
@@ -58,7 +58,7 @@ module private EVMTrampolineAnalysis =
   let tryGetTrampolineInfo cpState = function
     (* It's based on heuristics. *)
     | SSA.Jmp (SSA.InterCJmp (cond, tExpr, _)) ->
-      let cond = cond |> IRHelper.resolveExpr cpState
+      let cond = cond |> IRHelper.resolveExpr cpState true
       let tAddr = tExpr |> IRHelper.tryResolveExprToUInt64 cpState
       match cond, tAddr with
       | SSA.RelOp (RelOpType.EQ, _, v1, v2), Some tAddr ->
@@ -76,19 +76,18 @@ module private EVMTrampolineAnalysis =
       | _ -> None
     | _ -> None
 
-  // Returns a mapping from function signature to its address.
-  let findFuncs hdl codeMgr =
+  // Iterate trampolines in the entry function.
+  let iterateTrampoline hdl codeMgr fn =
     let entryOffset = 0UL
     (codeMgr: CodeManager).FunctionMaintainer.TryFindRegular entryOffset
     |> function
-      | Some fn ->
-        let struct (cpState, ssaCFG) = PerFunctionAnalysis.runCP hdl fn None
-        DiGraph.foldVertex ssaCFG (fun acc v ->
-          v.VData.SSAStmtInfos
-          |> Array.fold (fun acc (_, stmt) ->
+      | Some func ->
+        let struct (cpState, ssaCFG) = PerFunctionAnalysis.runCP hdl func None
+        DiGraph.iterVertex ssaCFG (fun v ->
+          Array.iter (fun (_, stmt) ->
             match tryGetTrampolineInfo cpState stmt with
-            | Some (sign, addr) -> acc |> Map.add sign addr
-            | _ -> acc) acc) Map.empty
+            | Some (sign, addr) -> fn sign addr
+            | _ -> ()) v.VData.SSAStmtInfos)
       | _ -> failwith "Could not find its entry function at 0x0"
 
 type EVMTrampolineAnalysis (abiFile) =
@@ -100,24 +99,22 @@ type EVMTrampolineAnalysis (abiFile) =
       LibraryName = ""
       ArchOperationMode = ArchOperationMode.NoMode }
 
-  member private __.UpdateSymbols (fi: FileInfo) sigToName sigToAddr sign = // XXX
-    match Map.tryFind sign sigToName, Map.tryFind sign sigToAddr with
-    | Some name, Some addr ->
-      fi.AddSymbol addr (__.MakeSymbol name addr)
-    | None, Some addr ->
-      let name = sprintf "func_%x" addr
-      fi.AddSymbol addr (__.MakeSymbol name addr)
-    | _ -> ()
+  member private __.UpdateSymbols (fi: FileInfo) addr name =
+    fi.AddSymbol addr (__.MakeSymbol name addr)
 
   member private __.AnalyzeTrampoline hdl codeMgr =
     let bytes = hdl.FileInfo.BinReader.Bytes
-    let newHdl = BinHandle.Init (hdl.FileInfo.ISA, bytes)
-    let sigToName = if abiFile <> "" then parseABI abiFile else Map.empty // XXX
-    let sigToAddr = findFuncs hdl codeMgr
-    let entrySigs = if abiFile <> "" // If ABI is given, rely on it.
-                    then Map.toList sigToName |> List.unzip |> fst
-                    else Map.toList sigToAddr |> List.unzip |> fst
-    List.iter (__.UpdateSymbols newHdl.FileInfo sigToName sigToAddr) entrySigs
+    let isa = hdl.FileInfo.ISA
+    let newHdl = BinHandle.Init (isa, bytes)
+    let newFi = newHdl.FileInfo
+    let sigToName = if abiFile <> "" then parseABI abiFile else Map.empty
+    let fn sign addr =
+      let name =
+        match Map.tryFind sign sigToName with
+        | Some name -> name
+        | _ -> sprintf "func_%x" addr
+      __.UpdateSymbols newFi addr name
+    iterateTrampoline hdl codeMgr fn
     PluggableAnalysisNewBinary newHdl
 
   interface IPluggableAnalysis with

@@ -543,8 +543,7 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
 
   /// Register a new indirect jump as YetAnalyzed.
   member __.RegisterNewIndJump indJumpAddr =
-    YetAnalyzed
-    |> __.AddIndirectJump indJumpAddr
+    __.AddIndirectJump indJumpAddr YetAnalyzed
 
   /// Remove an indirect jump.
   member __.RemoveIndJump indJumpAddr =
@@ -552,13 +551,11 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
 
   /// Mark the given indirect jump as unknown.
   member __.MarkIndJumpAsUnknown indJumpAddr =
-    UnknownIndJmp
-    |> __.AddIndirectJump indJumpAddr
+    __.AddIndirectJump indJumpAddr UnknownIndJmp
 
   /// Mark the given indirect jump as analyzed; we know the table address of it.
   member __.MarkIndJumpAsJumpTbl indJumpAddr tAddr =
-    JmpTbl tAddr
-    |> __.AddIndirectJump indJumpAddr
+    __.AddIndirectJump indJumpAddr (JmpTbl tAddr)
 
   /// The minimum address of this function's range.
   member __.MinAddr with get() = minAddr and set(a) = minAddr <- a

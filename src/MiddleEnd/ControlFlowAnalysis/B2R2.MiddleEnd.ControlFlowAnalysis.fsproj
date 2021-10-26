@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
@@ -28,6 +28,8 @@
     <Compile Include="IRHelper.fs" />
     <Compile Include="IndirectCallResolution.fs" />
     <Compile Include="IndirectJumpResolution.fs" />
+    <Compile Include="JmpTableResolution.fs" />
+    <Compile Include="EVMJmpResolution.fs" />
     <Compile Include="NoReturnFunctionIdentification.fs" />
     <Compile Include="CFGBuilder.fs" />
     <Compile Include="IPluggableAnalysis.fs" />

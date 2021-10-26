@@ -33,7 +33,7 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.DataFlow
 
 type EVMCodeCopyAnalysis () =
-  let parseCodeCopyInfo (cpState: CPState<SCPValue>) (stmt: SSA.Stmt) =
+  let accumulateCodeCopyInfo (cpState: CPState<SCPValue>) (stmt: SSA.Stmt) acc =
     match stmt with
     | SideEffect (ExternalCall (
                     BinOp (BinOpType.APP, _, FuncName "codecopy",
@@ -43,23 +43,21 @@ type EVMCodeCopyAnalysis () =
       let dst = tmpVarDst |> IRHelper.tryResolveExprToUInt64 cpState
       let src = tmpVarSrc |> IRHelper.tryResolveExprToUInt64 cpState
       let len = tmpVarLen |> IRHelper.tryResolveExprToUInt64 cpState
-      Some (dst, src, len)
-    | _ -> None
+      (dst, src, len) :: acc
+    | _ -> acc
 
   let rec pickValidCopyInfo hdl = function
-    | copyInfo :: restCopyInfos ->
-      match copyInfo with
-      | Some dst, Some src, Some len ->
-        let bin = hdl.FileInfo.BinReader.Bytes
-        let binLen = uint64 bin.Length
-        let srcStart = src
-        let srcEnd = src + len - 1UL
-        if srcEnd < binLen then
-          let codeArea = bin.[ int (srcStart) .. int (srcEnd) ]
-          let newHdl = BinHandle.Init (hdl.ISA, Some dst, codeArea)
-          PluggableAnalysisNewBinary newHdl
-        else pickValidCopyInfo hdl restCopyInfos
-      | _ -> pickValidCopyInfo hdl restCopyInfos
+    | (Some 0UL, Some src, Some len) :: restCopyInfos ->
+      let bin = hdl.FileInfo.BinReader.Bytes
+      let binLen = uint64 bin.Length
+      let srcStart = src
+      let srcEnd = src + len - 1UL
+      if srcEnd < binLen then
+        let codeArea = bin.[ int (srcStart) .. int (srcEnd) ]
+        let newHdl = BinHandle.Init (hdl.ISA, codeArea)
+        PluggableAnalysisNewBinary newHdl
+      else pickValidCopyInfo hdl restCopyInfos
+    | _ :: restCopyInfos -> pickValidCopyInfo hdl restCopyInfos
     | _ -> failwith "Failed to find codecopy"
 
   let recoverCopiedCode hdl codeMgr =
@@ -69,9 +67,7 @@ type EVMCodeCopyAnalysis () =
       DiGraph.foldVertex ssaCFG (fun acc v ->
         v.VData.SSAStmtInfos
         |> Array.fold (fun acc (_, stmt) ->
-          match parseCodeCopyInfo cpState stmt with
-          | Some v -> v :: acc
-          | _ -> acc
+          accumulateCodeCopyInfo cpState stmt acc
         ) acc
       ) acc) []
     |> pickValidCopyInfo hdl
@@ -80,7 +76,7 @@ type EVMCodeCopyAnalysis () =
 
     member __.Name = "EVM Code Copy Analysis"
 
-    member __.Run builder hdl codeMgr dataMgr =
+    member __.Run _builder hdl codeMgr _dataMgr =
       match hdl.FileInfo.ISA.Arch with
       | Architecture.EVM -> recoverCopiedCode hdl codeMgr
       | _ -> PluggableAnalysisOk

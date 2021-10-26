@@ -145,25 +145,26 @@ let rec foldWithConstant cpState = function
   | Extract (e, rt, pos) -> Extract (foldWithConstant cpState e, rt, pos)
   | e -> e
 
-let resolveExpr cpState expr =
+let resolveExpr cpState needConstFolding expr =
   expr
   |> symbolicExpand cpState
-  |> foldWithConstant cpState
+  |> fun expr ->
+    if needConstFolding then foldWithConstant cpState expr else expr
   |> simplify
 
 let tryResolveExprToBV cpState expr =
-  match resolveExpr cpState expr with
+  match resolveExpr cpState true expr with
   | Num addr -> Some addr
   | _ -> None
 
-let tryResolveBVToUInt32 bv =
+let tryConvertBVToUInt32 bv =
   let bv = BitVector.cast bv 256<rt>
   let maxVal = BitVector.cast BitVector.maxUInt32 256<rt>
   let isConvertible = BitVector.le bv maxVal |> BitVector.isTrue
   if isConvertible then bv |> BitVector.toUInt32 |> Some
   else None
 
-let tryResolveBVToUInt64 bv =
+let tryConvertBVToUInt64 bv =
   let bv = BitVector.cast bv 256<rt>
   let maxVal = BitVector.cast BitVector.maxUInt64 256<rt>
   let isConvertible = BitVector.le bv maxVal |> BitVector.isTrue
@@ -172,10 +173,10 @@ let tryResolveBVToUInt64 bv =
 
 let tryResolveExprToUInt32 cpState expr =
   match tryResolveExprToBV cpState expr with
-  | Some addr -> addr |> tryResolveBVToUInt32
+  | Some addr -> addr |> tryConvertBVToUInt32
   | _ -> None
 
 let tryResolveExprToUInt64 cpState expr =
   match tryResolveExprToBV cpState expr with
-  | Some addr -> addr |> tryResolveBVToUInt64
+  | Some addr -> addr |> tryConvertBVToUInt64
   | _ -> None

@@ -323,7 +323,8 @@ module private CFGBuilder =
           |> List.choose (fun f ->
             if f.NoReturnProperty = UnknownNoRet then Some f else None)
           |> List.sortByDescending (fun callee ->
-            let nextAddr = codeMgr.FunctionMaintainer.FindNextFunctionAddr callee
+            let nextAddr =
+              codeMgr.FunctionMaintainer.FindNextFunctionAddr callee
             nextAddr - callee.MaxAddr)
           |> List.tryHead (* Take the one with the biggest gap *)
           |> function
@@ -404,7 +405,10 @@ module private CFGBuilder =
 type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
   let noret = NoReturnFunctionIdentification ()
   let indcall = IndirectCallResolution ()
-  let indjmp = IndirectJumpResolution (this)
+  let indjmp =
+    match hdl.ISA.Arch with
+    | Arch.EVM -> EVMJmpResolution () :> PerFunctionAnalysis
+    | _ -> JmpTableResolution (this) :> PerFunctionAnalysis
 
 #if CFGDEBUG
   let countEvts evts =
