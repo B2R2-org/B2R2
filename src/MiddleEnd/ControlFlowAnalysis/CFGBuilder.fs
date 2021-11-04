@@ -323,7 +323,8 @@ module private CFGBuilder =
           |> List.choose (fun f ->
             if f.NoReturnProperty = UnknownNoRet then Some f else None)
           |> List.sortByDescending (fun callee ->
-            let nextAddr = codeMgr.FunctionMaintainer.FindNextFunctionAddr callee
+            let nextAddr =
+              codeMgr.FunctionMaintainer.FindNextFunctionAddr callee
             nextAddr - callee.MaxAddr)
           |> List.tryHead (* Take the one with the biggest gap *)
           |> function
@@ -349,8 +350,8 @@ module private CFGBuilder =
 
   let retrieveStackAdjustment (ins: Instruction) =
     match ins.Immediate () with
-    | true, v -> uint64 v
-    | false, _ -> 0UL
+    | true, v -> int64 v
+    | false, _ -> 0L
 
   /// Assuming that "ret NN" instructions are used, compute how much stack
   /// unwinding is happening for the given function.
@@ -365,14 +366,14 @@ module private CFGBuilder =
         if ins.IsRET () then retrieveStackAdjustment ins |> Some
         else acc) None
     |> function
-       | None -> 0UL
+       | None -> 0L
        | Some n -> n
 
   /// Update extra function information as we have finished all the per-function
   /// analyses.
   let finalizeFunctionInfo (func: RegularFunction) =
     let amountUnwinding = computeStackUnwindingAmount func.IRCFG
-    if amountUnwinding <> 0UL then func.AmountUnwinding <- amountUnwinding
+    if amountUnwinding <> 0L then func.AmountUnwinding <- amountUnwinding
     else ()
 
   let runPerFuncAnalysis hdl codeMgr dataMgr entry noret indcall indjmp evts =
@@ -391,7 +392,12 @@ module private CFGBuilder =
 #if CFGDEBUG
       dbglog "CFGBuilder" "@%x Finalize with no-ret analysis" entry
 #endif
-      finalizeFunctionInfo fn
+      (* We implement unwinding calculation for EVM in the other function
+         analyzeIndirectBranchPattern in IndirectJumpResolution. It's for
+         minimizing the overhead in calling CP, and we can get it back here when
+         incremental CP is implemented. *)
+      if hdl.ISA.Arch = Arch.EVM then ()
+      else finalizeFunctionInfo fn
       updateCalleeInfo codeMgr fn
       noret.Run hdl codeMgr dataMgr fn evts
 
@@ -399,7 +405,10 @@ module private CFGBuilder =
 type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
   let noret = NoReturnFunctionIdentification ()
   let indcall = IndirectCallResolution ()
-  let indjmp = IndirectJumpResolution (this)
+  let indjmp =
+    match hdl.ISA.Arch with
+    | Arch.EVM -> EVMJmpResolution () :> PerFunctionAnalysis
+    | _ -> JmpTableResolution (this) :> PerFunctionAnalysis
 
 #if CFGDEBUG
   let countEvts evts =

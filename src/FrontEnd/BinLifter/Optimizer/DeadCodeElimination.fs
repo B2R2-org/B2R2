@@ -132,6 +132,9 @@ let rec optimizeLoop (stmts: Stmt []) (used: bool []) idx len ctxt =
         let ctxt = updateTempOut n ctxt
         let ctxt = updateUse (AST.getExprInfo rhs) ctxt
         optimizeLoop stmts used (idx - 1) len ctxt
+    | SideEffect (BinIR.SideEffect.ExternalCall expr) ->
+      let ctxt = updateUse (AST.getExprInfo expr) ctxt
+      optimizeLoop stmts used (idx - 1) len ctxt
     | LMark _ ->
       optimizeLoop stmts used (idx - 1) len { ctxt with IsLastBlock = false }
     | ISMark _ ->

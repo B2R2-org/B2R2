@@ -117,12 +117,15 @@ module private LibcAnalysisHelper =
           |> fst
         analyzeLibcStartMain builder hdl codeMgr start.Entry callSite
     | _ -> false
+    |> function
+    | true -> PluggableAnalysisOk
+    | false -> PluggableAnalysisError
 
   let recoverLibcEntries builder hdl codeMgr =
     match hdl.FileInfo.FileFormat with
     | FileFormat.ELFBinary ->
       recoverAddrsFromLibcStartMain builder hdl codeMgr
-    | _ -> false
+    | _ -> PluggableAnalysisError
 
 type LibcAnalysis () =
   interface IPluggableAnalysis with

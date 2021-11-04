@@ -72,6 +72,6 @@ let inline initMemory () =
   dict
 
 let computeStackShift rt (blk: SSAVertex) =
-  let retAddrSize = RegType.toByteWidth rt |> uint64
+  let retAddrSize = RegType.toByteWidth rt |> int64
   let adj = blk.VData.FakeBlockInfo.UnwindingBytes
-  BitVector.ofUInt64 (retAddrSize + adj) rt
+  BitVector.ofInt64 (retAddrSize + adj) rt

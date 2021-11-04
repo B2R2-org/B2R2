@@ -26,45 +26,57 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
 open B2R2
 open B2R2.BinIR
-open B2R2.BinIR.LowUIR
-open B2R2.FrontEnd.BinLifter
+open B2R2.BinIR.SSA
 open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.ControlFlowAnalysis
+open B2R2.MiddleEnd.BinGraph
+open B2R2.MiddleEnd.DataFlow
 
 type EVMCodeCopyAnalysis () =
-  let findCodeCopy hdl stmts =
-    stmts
-    |> Array.tryPick (fun stmt ->
-      match stmt.S with
-      | Store (_, { E = Num dst },
-                  { E = BinOp (BinOpType.APP, _len,
-                               { E = FuncName "code" },
-                               { E = BinOp (BinOpType.CONS, _,
-                                            { E = Num src }, _, _) }, _) }) ->
-        let dstAddr = BitVector.toUInt64 dst
-        let srcAddr = BitVector.toUInt64 src
-        let offset = srcAddr - dstAddr
-        (hdl.Parser :?> EVM.EVMParser).CodeOffset <- offset
-        (srcAddr, ArchOperationMode.NoMode) |> Some
-      | _ -> None)
+  let accumulateCodeCopyInfo (cpState: CPState<SCPValue>) (stmt: SSA.Stmt) acc =
+    match stmt with
+    | SideEffect (ExternalCall (
+                    BinOp (BinOpType.APP, _, FuncName "codecopy",
+                      BinOp (BinOpType.CONS, _, tmpVarDst,
+                        BinOp (BinOpType.CONS, _, tmpVarSrc,
+                          BinOp (BinOpType.CONS, _, tmpVarLen, _)))))) ->
+      let dst = tmpVarDst |> IRHelper.tryResolveExprToUInt64 cpState
+      let src = tmpVarSrc |> IRHelper.tryResolveExprToUInt64 cpState
+      let len = tmpVarLen |> IRHelper.tryResolveExprToUInt64 cpState
+      (dst, src, len) :: acc
+    | _ -> acc
 
-  let recoverCopiedCode (builder: CFGBuilder) hdl codeMgr =
-    (codeMgr: CodeManager).FoldInstructions (fun cont (KeyValue (_, ins)) ->
-      match ins.Stmts |> findCodeCopy hdl with
-      | None -> cont
-      | Some (addr, mode) ->
-        match codeMgr.FunctionMaintainer.TryFind addr with
-        | None ->
-          match builder.AddNewFunctions [(addr, mode)] with
-          | Ok () -> true
-          | Error _ -> Utils.impossible ()
-        | Some _ -> cont) false
+  let rec pickValidCopyInfo hdl = function
+    | (Some 0UL, Some src, Some len) :: restCopyInfos ->
+      let bin = hdl.FileInfo.BinReader.Bytes
+      let binLen = uint64 bin.Length
+      let srcStart = src
+      let srcEnd = src + len - 1UL
+      if srcEnd < binLen then
+        let codeArea = bin.[ int (srcStart) .. int (srcEnd) ]
+        let newHdl = BinHandle.Init (hdl.ISA, codeArea)
+        PluggableAnalysisNewBinary newHdl
+      else pickValidCopyInfo hdl restCopyInfos
+    | _ :: restCopyInfos -> pickValidCopyInfo hdl restCopyInfos
+    | _ -> failwith "Failed to find codecopy"
+
+  let recoverCopiedCode hdl codeMgr =
+    (codeMgr: CodeManager).FunctionMaintainer.RegularFunctions
+    |> Seq.fold (fun acc fn ->
+      let struct (cpState, ssaCFG) = PerFunctionAnalysis.runCP hdl fn None
+      DiGraph.foldVertex ssaCFG (fun acc v ->
+        v.VData.SSAStmtInfos
+        |> Array.fold (fun acc (_, stmt) ->
+          accumulateCodeCopyInfo cpState stmt acc
+        ) acc
+      ) acc) []
+    |> pickValidCopyInfo hdl
 
   interface IPluggableAnalysis with
 
     member __.Name = "EVM Code Copy Analysis"
 
-    member __.Run builder hdl codeMgr _dataMgr =
+    member __.Run _builder hdl codeMgr _dataMgr =
       match hdl.FileInfo.ISA.Arch with
-      | Architecture.EVM -> recoverCopiedCode builder hdl codeMgr
-      | _ -> false
+      | Architecture.EVM -> recoverCopiedCode hdl codeMgr
+      | _ -> PluggableAnalysisOk

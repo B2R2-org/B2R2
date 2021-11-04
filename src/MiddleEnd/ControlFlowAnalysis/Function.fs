@@ -74,12 +74,12 @@ type NoReturnProperty =
 
 /// Indirect jump's kind.
 type IndirectJumpKind =
-  /// We found a corresponding jump table at Addr.
-  | JmpTbl of tAddr: Addr
-  /// We analyzed this indirect jump, and we found no jump table.
-  | NotJmpTbl
   /// We did not analyzed this indirect jump yet.
   | YetAnalyzed
+  /// We found a corresponding jump table at Addr.
+  | JmpTbl of tAddr: Addr
+  /// We analyzed the given jump, and we could not determine its kind.
+  | UnknownIndJmp
 
 /// Function is a non-overlapping chunk of code in a binary. We do not allow
 /// function overlaps. When there exist two functions sharing common basic
@@ -148,7 +148,7 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
 
   let callEdges = SortedList<Addr, CalleeKind> ()
   let syscallSites = SortedSet<Addr> ()
-  let indirectJumps = SortedList<Addr, IndirectJumpKind> ()
+  let indirectJumps = Dictionary<Addr, IndirectJumpKind> ()
   let regularVertices = Dictionary<ProgramPoint, Vertex<IRBasicBlock>> ()
   let fakeVertices = Dictionary<FakeEdge, Vertex<IRBasicBlock>> ()
   let coverage = CoverageMaintainer ()
@@ -156,7 +156,7 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
   let mutable needRecalcSSA = true
   let mutable ircfg = IRCFG.init PersistentGraph
   let mutable ssacfg = SSACFG.init PersistentGraph
-  let mutable amountUnwinding = 0UL
+  let mutable amountUnwinding = 0L
   let mutable getPCThunkInfo = thunkInfo
   let mutable minAddr = entry
   let mutable maxAddr = entry
@@ -529,7 +529,7 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
   member __.JumpTableAddrs
     with get() =
       indirectJumps
-      |> Seq.choose (fun (KeyValue (indJumpAddr, kind)) ->
+      |> Seq.choose (fun (KeyValue (_, kind)) ->
         match kind with
         | JmpTbl (tAddr) -> Some tAddr
         | _ -> None)
@@ -543,15 +543,19 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
 
   /// Register a new indirect jump as YetAnalyzed.
   member __.RegisterNewIndJump indJumpAddr =
-    indirectJumps.[indJumpAddr] <- YetAnalyzed
+    __.AddIndirectJump indJumpAddr YetAnalyzed
+
+  /// Remove an indirect jump.
+  member __.RemoveIndJump indJumpAddr =
+    __.RemoveIndirectJump indJumpAddr |> ignore
 
   /// Mark the given indirect jump as unknown.
   member __.MarkIndJumpAsUnknown indJumpAddr =
-    indirectJumps.[indJumpAddr] <- NotJmpTbl
+    __.AddIndirectJump indJumpAddr UnknownIndJmp
 
   /// Mark the given indirect jump as analyzed; we know the table address of it.
-  member __.MarkIndJumpAsAnalyzed indJumpAddr tAddr =
-    indirectJumps.[indJumpAddr] <- JmpTbl tAddr
+  member __.MarkIndJumpAsJumpTbl indJumpAddr tAddr =
+    __.AddIndirectJump indJumpAddr (JmpTbl tAddr)
 
   /// The minimum address of this function's range.
   member __.MinAddr with get() = minAddr and set(a) = minAddr <- a
@@ -568,8 +572,8 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
   member __.GetSSACFG hdl =
     if needRecalcSSA then
       let root =
-        DiGraph.getUnreachables __.IRCFG
-        |> List.find (fun v -> v.VData.PPoint.Address = __.Entry)
+        DiGraph.findVertexBy __.IRCFG (fun v ->
+          v.VData.PPoint.Address = __.Entry && not <| v.VData.IsFakeBlock ())
       let struct (ssa, root) = SSACFG.ofIRCFG hdl __.IRCFG root
       let struct (ssa, root) = SSAPromotion.promote hdl ssa root
       ssacfg <- ssa
@@ -577,8 +581,8 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
       ssa, root
     else
       let root =
-        DiGraph.getUnreachables ssacfg
-        |> List.find (fun v -> v.VData.PPoint.Address = __.Entry)
+        DiGraph.findVertexBy ssacfg (fun v ->
+          v.VData.PPoint.Address = __.Entry && not <| v.VData.IsFakeBlock ())
       ssacfg, root
 
   member private __.AddXRef entry xrefs callee =

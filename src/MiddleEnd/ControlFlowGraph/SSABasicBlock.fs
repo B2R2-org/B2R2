@@ -37,9 +37,12 @@ module private SSABasicBlockHelper =
     SSA.RegVar (wordSize, reg, hdl.RegisterBay.RegIDToString reg)
 
   let private addReturnValDef hdl defs =
-    let reg = CallingConvention.returnRegister hdl |> buildRegVar hdl
-    let def = { SSA.Kind = reg; SSA.Identifier = -1 }
-    Set.add def defs
+    match (hdl: BinHandle).ISA.Arch with
+    | Arch.EVM -> defs
+    | _ ->
+      let reg = CallingConvention.returnRegister hdl |> buildRegVar hdl
+      let def = { SSA.Kind = reg; SSA.Identifier = -1 }
+      Set.add def defs
 
   let private addStackDef hdl defs =
     match hdl.RegisterBay.StackPointer with

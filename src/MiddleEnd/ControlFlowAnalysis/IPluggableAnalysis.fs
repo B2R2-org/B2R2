@@ -1,4 +1,4 @@
-﻿(*
+(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -27,6 +27,15 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.ControlFlowAnalysis
 
+/// Return types of pluggable analysis interface.
+type PluggableAnalysisReturnType =
+  /// Analysis done ok.
+  | PluggableAnalysisOk
+  /// Analysis done with error.
+  | PluggableAnalysisError
+  /// Analysis done and a new BinHandle has been created.
+  | PluggableAnalysisNewBinary of BinHandle
+
 /// Pluggable analysis interface. Any CFG-related analysis implementing this
 /// interface can be plugged in or unplugged from the BinEssence.
 type IPluggableAnalysis =
@@ -40,4 +49,4 @@ type IPluggableAnalysis =
     -> BinHandle
     -> CodeManager
     -> DataManager
-    -> bool
+    -> PluggableAnalysisReturnType

@@ -134,7 +134,7 @@ type FakeIRBasicBlock (ppoint, callSiteAddr, ?isTailCall, ?isIndCall) =
 
   let mutable info =
     { CallSite = callSiteAddr
-      UnwindingBytes = 0UL
+      UnwindingBytes = 0L
       FrameDistance = None
       GetPCThunkInfo = NoGetPCThunk
       IsPLT = false

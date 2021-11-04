@@ -9,7 +9,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="CFGAnalysis.fs" />
     <Compile Include="BinEssence.fs" />
     <Compile Include="DisasmLens.fs" />
     <Compile Include="CallGraphLens.fs" />

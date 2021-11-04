@@ -72,7 +72,10 @@ let compute ssaCFG =
     v.VData.SSAStmtInfos
     |> Array.foldi (fun acc idx (_, stmt) ->
       match stmt with
-      | SSA.LMark _
+      | SSA.LMark _ -> acc
+      | SSA.SideEffect (SSA.ExternalCall expr) ->
+        let loc = vid, idx
+        computeUses loc expr acc
       | SSA.SideEffect _ -> acc
       | SSA.Jmp (SSA.IntraJmp _) -> acc
       | SSA.Jmp (SSA.IntraCJmp (cond, _, _)) -> computeUses (vid, idx) cond acc

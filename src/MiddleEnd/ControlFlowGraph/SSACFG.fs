@@ -122,19 +122,29 @@ module SSACFG =
       if v.VData.IsFakeBlock () then false
       else v.VData.Range.IsIncluding addr)
 
+  /// Find the definition of the given variable kind (targetVarKind) at the
+  /// given node v. We simply follow the dominator tree of the given SSACFG
+  /// until we find a definition.
+  let rec findDef (v: SSAVertex) targetVarKind =
+    let stmtInfo =
+      v.VData.SSAStmtInfos
+      |> Array.tryFindBack (fun (_, stmt) ->
+        match stmt with
+        | Def ({ Kind = k }, _) when k = targetVarKind -> true
+        | _ -> false)
+    match stmtInfo with
+    | Some stmtInfo -> Some (snd stmtInfo)
+    | None ->
+      match v.VData.ImmDominator with
+      | Some idom ->
+        findDef idom targetVarKind
+      | None -> None
+
   /// Find the reaching definition of the given variable kind (targetVarKind) at
   /// the entry of node v. We simply follow the dominator tree of the given
   /// SSACFG until we find a definition.
-  let rec findReachingDef (v: SSAVertex) targetVarKind =
+  let findReachingDef (v: SSAVertex) targetVarKind =
     match v.VData.ImmDominator with
     | Some idom ->
-      let stmtInfo =
-        idom.VData.SSAStmtInfos
-        |> Array.tryFindBack (fun (_, stmt) ->
-          match stmt with
-          | Def ({ Kind = k }, _) when k = targetVarKind -> true
-          | _ -> false)
-      match stmtInfo with
-      | Some stmtInfo -> Some (snd stmtInfo)
-      | None -> findReachingDef idom targetVarKind
+      findDef idom targetVarKind
     | None -> None

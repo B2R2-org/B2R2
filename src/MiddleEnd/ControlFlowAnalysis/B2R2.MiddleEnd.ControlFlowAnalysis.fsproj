@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
@@ -25,13 +25,17 @@
     <Compile Include="ICFGBuildable.fs" />
     <Compile Include="EvalHelper.fs" />
     <Compile Include="PerFunctionAnalysis.fs" />
+    <Compile Include="IRHelper.fs" />
     <Compile Include="IndirectCallResolution.fs" />
     <Compile Include="IndirectJumpResolution.fs" />
+    <Compile Include="JmpTableResolution.fs" />
+    <Compile Include="EVMJmpResolution.fs" />
     <Compile Include="NoReturnFunctionIdentification.fs" />
     <Compile Include="CFGBuilder.fs" />
     <Compile Include="IPluggableAnalysis.fs" />
     <Compile Include="PluggableAnalyses\LibcAnalysis.fs" />
     <Compile Include="PluggableAnalyses\EVMCodeCopyAnalysis.fs" />
+    <Compile Include="PluggableAnalyses\EVMTrampolineAnalysis.fs" />
     <Compile Include="PluggableAnalyses\ConditionRetriever.fs" />
     <Compile Include="PluggableAnalyses\SpeculativeGapCompletion.fs" />
     <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
@@ -45,6 +49,11 @@
     <ProjectReference Include="..\BinGraph\B2R2.MiddleEnd.BinGraph.fsproj" />
     <ProjectReference Include="..\ControlFlowGraph\B2R2.MiddleEnd.ControlFlowGraph.fsproj" />
     <ProjectReference Include="..\DataFlow\B2R2.MiddleEnd.DataFlow.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FSharp.Data" Version="4.2.3" />
+    <PackageReference Include="SHA3Core" Version="1.0.1" />
   </ItemGroup>
 
 </Project>

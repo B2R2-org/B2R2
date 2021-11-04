@@ -371,7 +371,7 @@ type internal Op = Opcode
 
 type internal Instruction = Opcode
 
-/// Basic information obtained by parsing a MIPS instruction.
+/// Basic information obtained by parsing an EVM instruction.
 [<NoComparison; CustomEquality>]
 type InsInfo = {
   /// Address.

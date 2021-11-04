@@ -45,7 +45,7 @@ type FakeBlockInfo = {
   /// Call site address, i.e., the call instruction's address.
   CallSite: Addr
   /// How many bytes of the stack does this function unwind when return?
-  UnwindingBytes: Addr
+  UnwindingBytes: int64
   /// What is the distance between the caller's stack frame (activation record)
   /// and the callee's stack frame? If the distance is always constant, we
   /// remember the value here.
