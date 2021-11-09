@@ -31,7 +31,7 @@ open B2R2.FrontEnd.BinFile.ELF.ExceptionHeaderEncoding
 
 let [<Literal>] gccExceptTable = ".gcc_except_table"
 
-let parseHeader cls (reader: BinReader) sAddr offset =
+let parseLSDAHeader cls (reader: BinReader) sAddr offset =
   let struct (b, offset) = reader.ReadByte offset
   let struct (lpv, lpapp) = parseEncoding b
   let struct (lpstart, offset) =
@@ -60,17 +60,23 @@ let parseHeader cls (reader: BinReader) sAddr offset =
     CallSiteTableSize = cstsz }, offset
 
 let rec parseCallSiteTable acc cls (reader: BinReader) offset csv hasAction =
-  if offset >= (reader.Length ()) then List.rev acc, hasAction
+  (* We found that GCC sometimes produces a wrong callsite table length, and the
+     length can be off by one. So we minus one here. This is conservative
+     anyways, because callsite entry can only be larger than three bytes. *)
+  if offset >= (reader.Length () - 3) then List.rev acc, hasAction
   else
     let struct (start, offset) = computeValue cls reader csv offset
     let struct (length, offset) = computeValue cls reader csv offset
     let struct (landingPad, offset) = computeValue cls reader csv offset
     let actionOffset, offset = parseULEB128 reader offset
-    let acc = { Position = start
-                Length = length
-                LandingPad = landingPad
-                ActionOffset = int actionOffset
-                ActionTypeFilters = [] } :: acc
+    let acc =
+      if start = 0UL && length = 0UL && landingPad = 0UL && actionOffset = 0UL
+      then acc (* This can appear due to the miscalculation issue above. *)
+      else { Position = start
+             Length = length
+             LandingPad = landingPad
+             ActionOffset = int actionOffset
+             ActionTypeFilters = [] } :: acc
     let hasAction = if actionOffset > 0UL then true else hasAction
     parseCallSiteTable acc cls reader offset csv hasAction
 
@@ -130,7 +136,7 @@ let rec parseLSDA cls (reader: BinReader) sAddr offset lsdas =
   if offset >= (reader.Length ()) then List.rev lsdas
   else
     let lsdaAddr = sAddr + uint64 offset
-    let header, offset = parseHeader cls reader sAddr offset
+    let header, offset = parseLSDAHeader cls reader sAddr offset
     let subrdr = reader.SubReader offset (int header.CallSiteTableSize)
     let callsites, hasAction =
       parseCallSiteTable [] cls subrdr 0 header.CallSiteValueEncoding false

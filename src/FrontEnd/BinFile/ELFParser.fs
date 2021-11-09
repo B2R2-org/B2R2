@@ -44,13 +44,13 @@ let rec loadCallSiteTable lsdaPointer = function
 
 let rec loopCallSiteTable fde acc = function
   | [] -> acc
-  | rcrd :: rest ->
+  | csrec :: rest ->
     let acc =
       let landingPad =
-        if rcrd.LandingPad = uint64 0 then rcrd.LandingPad
-        else fde.PCBegin + rcrd.LandingPad
-      let blockStart = fde.PCBegin + rcrd.Position
-      let blockEnd = fde.PCBegin + rcrd.Position + rcrd.Length - 1UL
+        if csrec.LandingPad = 0UL then 0UL
+        else fde.PCBegin + csrec.LandingPad
+      let blockStart = fde.PCBegin + csrec.Position
+      let blockEnd = fde.PCBegin + csrec.Position + csrec.Length - 1UL
       ARMap.add (AddrRange (blockStart, blockEnd)) landingPad acc
     loopCallSiteTable fde acc rest
 
