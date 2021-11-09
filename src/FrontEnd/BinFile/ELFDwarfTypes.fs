@@ -431,11 +431,25 @@ module DWRegister =
     | 95uy -> ARM64.Register.toRegID ARM64.Register.V31
     | x -> Utils.futureFeature ()
 
+  let private toMIPSRegister (n: byte) =
+    MIPS.Register.toRegID (EnumOfValue (int n))
+
   let toRegID isa regnum =
     match isa.Arch with
     | Architecture.IntelX86 -> toIntelx86Register regnum
     | Architecture.IntelX64 -> toIntelx64Register regnum
     | Architecture.AARCH64 -> toAArch64Register regnum
+    | Architecture.MIPS1
+    | Architecture.MIPS2
+    | Architecture.MIPS3
+    | Architecture.MIPS32
+    | Architecture.MIPS32R2
+    | Architecture.MIPS32R6
+    | Architecture.MIPS4
+    | Architecture.MIPS5
+    | Architecture.MIPS64
+    | Architecture.MIPS64R2
+    | Architecture.MIPS64R6 -> toMIPSRegister regnum
     | _ -> Utils.futureFeature ()
 
   let toRegisterExpr isa (regbay: RegisterBay) regnum =

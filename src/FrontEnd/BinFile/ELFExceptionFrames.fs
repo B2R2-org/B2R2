@@ -437,7 +437,8 @@ let rec parseExprs isa regbay exprs (span: ReadOnlySpan<byte>) i maxIdx =
 
 let extractOldOffset = function
   | RegPlusOffset (_, o) -> o
-  | _ -> Utils.impossible ()
+  | UnknownCFA -> 0
+  | e -> Utils.impossible ()
 
 let restoreOne initialRule currentRule target =
   match Map.tryFind target initialRule with
