@@ -69,10 +69,16 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
 
   override __.IsCall () =
     match __.Info.Opcode with
-    | Opcode.JR | Opcode.JALR | Opcode.JALRHB -> true
+    | Opcode.BAL | Opcode.BGEZAL | Opcode.JALR | Opcode.JALRHB -> true
     | _ -> false
 
-  override __.IsRET () = false // XXX
+  override __.IsRET () =
+    match __.Info.Opcode with
+    | Opcode.JR ->
+      match __.Info.Operands with
+      | OneOperand (OpReg (Register.R31)) -> true
+      | _ -> false
+    | _ -> false
 
   override __.IsInterrupt () = Utils.futureFeature ()
 
