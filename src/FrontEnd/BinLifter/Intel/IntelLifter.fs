@@ -24,7 +24,6 @@
 
 module internal B2R2.FrontEnd.BinLifter.Intel.Lifter
 
-open System.Collections.Concurrent
 open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd.BinLifter
@@ -32,7 +31,7 @@ open B2R2.FrontEnd.BinLifter
 type OP = Opcode (* Just to make it concise. *)
 
 /// Translate IR.
-let inline translate (ins: IntelInternalInstruction) insLen ctxt =
+let translate (ins: IntelInternalInstruction) insLen ctxt =
   match ins.Opcode with
   | OP.AAA -> GeneralLifter.aaa insLen ctxt
   | OP.AAD -> GeneralLifter.aad ins insLen ctxt
