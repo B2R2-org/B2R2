@@ -94,6 +94,12 @@ type MIPSInstruction (addr, numBytes, insInfo, wordSize) =
       | OneOperand (OpAddr (Relative offset)) ->
         addr <- (int64 __.Address + offset) |> uint64
         true
+      | TwoOperands (_, OpAddr (Relative offset)) ->
+        addr <- (int64 __.Address + offset) |> uint64
+        true
+      | ThreeOperands (_, _,OpAddr (Relative offset)) ->
+        addr <- (int64 __.Address + offset) |> uint64
+        true
       | _ -> false
     else false
 
