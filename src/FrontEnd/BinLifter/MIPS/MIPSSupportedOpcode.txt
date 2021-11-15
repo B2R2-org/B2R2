@@ -1,118 +1,304 @@
+/// Floating Point Absolute Value.
+ABS
+/// Add Word.
 ADD
-ADDIU  (* or LI *)
+/// Add Immediate Unsigned Word.
+ADDIU
+/// Add Unsigned Word.
 ADDU
+/// Concatenate two GPRs, and extract a contiguous subset at a byte position.
 ALIGN
+/// And.
 AND
+/// And immediate.
 ANDI
+/// Add Immediate to Upper Bits.
 AUI
+/// Unconditional Branch.
 B
+/// Branch and Link.
 BAL
+/// Branch on FP False.
 BC1F
+/// Branch on FP True.
 BC1T
-BEQ  (* or BEQZ *)
+/// Branch on COP3 False.
+BC3F
+/// Branch on COP3 False Likely.
+BC3FL
+/// Branch on COP3 True.
+BC3T
+/// Branch on COP2 True Likely.
+BC3TL
+/// Branch on Equal.
+BEQ
+/// Branch on Greater Than or Equal to Zero.
 BGEZ
+/// Branch on Greater Than or Equal to Zero and Link.
 BGEZAL
+/// Branch on Greater Than Zero.
 BGTZ
+/// Swaps (reverses) bits in each byte.
 BITSWAP
+/// Branch on Less Than or Equal to Zero.
 BLEZ
+/// Branch on Less Than Zero.
 BLTZ
-BNE  (* or BNEZ *)
+/// Branch on Not Equal.
+BNE
+/// Floating Point Compare.
 C
+/// Move Control Word From Floating Point.
 CFC1
+/// Count Leading Zeros in Word.
 CLZ
+/// Move Control Word to Floating Point.
 CTC1
+/// Floating Point Convert to Double Floating Point.
 CVTD
+/// Floating Point Convert to Single Floating Point.
 CVTS
+/// Doubleword Add Immediate Unsigned.
 DADDIU
+/// Doubleword Add Unsigned.
 DADDU
+/// Concatenate two GPRs, and extract a contiguous subset at a byte position.
 DALIGN
+/// Swaps (reverses) bits in each byte.
 DBITSWAP
+/// Count Leading Zeros in Doubleword.
 DCLZ
+/// Doubleword Divide.
+DDIV
+/// Doubleword Divide Unsigned.
 DDIVU
+/// Doubleword Extract Bit Field.
 DEXT
+/// Doubleword Extract Bit Field Middle.
 DEXTM
+/// Doubleword Extract Bit Field Upper.
 DEXTU
+/// Doubleword Insert Bit Field.
 DINS
+/// Doubleword Insert Bit Field Middle.
 DINSM
+/// Doubleword Insert Bit Field Upper.
 DINSU
+/// Divide Word.
 DIV
+/// Divide Unsigned Word.
 DIVU
+/// Doubleword Move from Floating Point.
 DMFC1
+/// Doubleword Move to Floating Point.
 DMTC1
+/// Doubleword Multiply.
 DMULT
+/// Doubleword Multiply Unsigned.
 DMULTU
+/// Doubleword Rotate Right.
 DROTR
+/// Doubleword Rotate Right Plus 32.
+DROTR32
+/// Doubleword Rotate Right Variable.
+DROTRV
+/// Doubleword Swap Bytes Within Halfwords.
+DSBH
+/// Doubleword Swap Halfwords Within Doublewords.
+DSHD
+/// Doubleword Shift Left Logical.
 DSLL
+/// Doubleword Shift Left Logical Plus 32.
 DSLL32
+/// Doubleword Shift Left Logical Variable.
 DSLLV
+/// Doubleword Shift Right Arithmetic.
 DSRA
+/// Doubleword Shift Right Arithmetic Plus 32.
 DSRA32
+/// Doubleword Shift Right Arithmetic Variable.
+DSRAV
+/// Doubleword Shift Right Logical.
 DSRL
+/// Doubleword Shift Right Logical Plus 32.
 DSRL32
+/// Doubleword Shift Right Logical Variable.
 DSRLV
+/// Doubleword Subtract Unsigned.
 DSUBU
+/// Execution Hazard Barrier.
 EHB
+/// Extract Bit Field.
 EXT
+/// Insert Bit Field.
 INS
+/// Jump.
+J
+/// Jump and Link.
+JAL
+/// Jump and Link Register.
 JALR
+/// Jump and Link Register with Hazard Barrier.
 JALRHB
+/// Jump Register.
 JR
+/// Jump Register with Hazard Barrier.
 JRHB
+/// Load Byte.
 LB
+/// Load Byte Unsigned.
 LBU
+/// Load Doubleword.
 LD
+/// Load Doubleword to Floating Point.
 LDC1
+/// Load Doubleword Left.
+LDL
+/// Load Doubleword Right.
+LDR
+/// Load Doubleword Indexed to Floating Point.
+LDXC1
+/// Load Halfword.
 LH
+/// Load Halfword Unsigned.
 LHU
+/// Load Upper Immediate.
 LUI
+/// Load Word.
 LW
+/// Load Word to Floating Point.
 LWC1
+/// Load Word Left.
+LWL
+/// Load Word Right.
+LWR
+/// Load Word Unsigned.
 LWU
+/// Load Word Indexed to Floating Point.
+LWXC1
+/// Multiply and Add Word to Hi, Lo.
 MADD
+/// Multiply and Add Unsigned Word to Hi,Lo.
+MADDU
+/// Move Word From Floating Point.
 MFC1
+/// Move Word From High Half of Floating Point Register.
+MFHC1
+/// Move From HI Register.
 MFHI
+/// Move From LO Register.
 MFLO
+/// Floating Point Move.
 MOV
+/// Move Conditional on Floating Point False.
+MOVF
+/// Move Conditional on Not Zero.
 MOVN
+/// Move Conditional on Floating Point True.
+MOVT
+/// Move Conditional on Zero.
 MOVZ
+/// Multiply and Subtract Word to Hi,Lo.
+MSUB
+/// Move Word to Floating Point.
 MTC1
+/// Move Word to High Half of Floating Point Register.
+MTHC1
+/// Move to HI Register.
+MTHI
+/// Move to LO Register.
+MTLO
+/// Multiply Word to GPR.
 MUL
+/// Multiply Word.
 MULT
+/// Multiply Unsigned Word.
 MULTU
+/// Floating Point Negate.
+NEG
+/// No Operation.
 NOP
+/// Not Or.
 NOR
-OR  (* or MOVE *)
+/// Or.
+OR
+/// Or Immediate.
 ORI
+/// Wait for the LLBit to clear.
 PAUSE
+/// Rotate Word Right.
 ROTR
+/// Rotate Word Right Variable.
+ROTRV
+/// Store Byte.
 SB
+/// Store Doubleword.
 SD
+/// Store Doubleword from Floating Point.
 SDC1
+/// Store Doubleword Left.
 SDL
+/// Store Doubleword Right.
 SDR
+/// Store Doubleword Indexed from Floating Point.
+SDXC1
+/// Sign-Extend Byte.
 SEB
+/// Sign-Extend Halfword.
 SEH
+/// Store Halfword.
 SH
+/// Shift Word Left Logical.
 SLL
+/// Shift Word Left Logical Variable.
 SLLV
+/// Set on Less Than.
 SLT
+/// Set on Less Than Immediate.
 SLTI
+/// Set on Less Than Immediate Unsigned.
 SLTIU
+/// Set on Less Than Unsigned.
 SLTU
+/// Floating Point Square Root.
+SQRT
+/// Shift Word Right Arithmetic.
 SRA
-SRL  (* or ROR *)
+/// Shift Word Right Arithmetic Variable.
+SRAV
+/// Shift Word Right Logical.
+SRL
+/// Shift Word Right Logical Variable.
 SRLV
+/// Superscalar No Operation.
 SSNOP
+/// Subtract Word.
 SUB
-SUBU  (* or NEGU *)
+/// Subtract Unsigned Word.
+SUBU
+/// Store Word.
 SW
+/// Store Word from Floating Point.
 SWC1
+/// Store Word Left.
 SWL
+/// Store Word Right.
 SWR
+/// Store Word Indexed from Floating Point.
+SWXC1
+/// Synchronize Shared Memory.
+SYNC
+/// Trap if Equal.
 TEQ
+/// Floating Point Truncate to Long Fixed Point.
 TRUNCL
+/// Floating Point Truncate to Word Fixed Point.
 TRUNCW
+/// Word Swap Bytes Within Halfwords.
 WSBH
+/// Exclusive OR.
 XOR
+/// Exclusive OR Immediate.
 XORI
-  | InvalOP
+/// Invalid Opcode.
+InvalOP

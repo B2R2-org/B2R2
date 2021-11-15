@@ -6197,23 +6197,23 @@ module MIPS64 =
     [<TestMethod>]
     member __.``[MIPS64] Load and Store operations Parse Test`` () =
       test64R2 Op.LD
-               (TwoOperands (OpReg R.R29, OpMem (R.R26, 0x2afdL, 64<rt>)))
+               (TwoOperands (OpReg R.R29, OpMem (R.R26, Imm 0x2afdL, 64<rt>)))
                [| 0xdfuy; 0x5duy; 0x2auy; 0xfduy |]
 
       test64R2 Op.LWU
-               (TwoOperands (OpReg R.R17, OpMem (R.R24, -0x52ffL, 32<rt>)))
+               (TwoOperands (OpReg R.R17, OpMem (R.R24, Imm -0x52ffL, 32<rt>)))
                [| 0x9fuy; 0x11uy; 0xaduy; 0x01uy |]
 
       test64R2 Op.SD
-               (TwoOperands (OpReg R.R5, OpMem (R.R17, 0x380aL, 64<rt>)))
+               (TwoOperands (OpReg R.R5, OpMem (R.R17, Imm 0x380aL, 64<rt>)))
                [| 0xfeuy; 0x25uy; 0x38uy; 0x0auy |]
 
       test64R2 Op.SDL
-               (TwoOperands (OpReg R.R12, OpMem (R.R26, 0x3f02L, 64<rt>)))
+               (TwoOperands (OpReg R.R12, OpMem (R.R26, Imm 0x3f02L, 64<rt>)))
                [| 0xb3uy; 0x4cuy; 0x3fuy; 0x02uy |]
 
       test64R2 Op.SDR
-               (TwoOperands (OpReg R.R11, OpMem (R.R6, -0x78ebL, 64<rt>)))
+               (TwoOperands (OpReg R.R11, OpMem (R.R6, Imm -0x78ebL, 64<rt>)))
                [| 0xb4uy; 0xcbuy; 0x87uy; 0x15uy |]
 
 module MIPS32 =
@@ -6427,39 +6427,39 @@ module MIPS32 =
     [<TestMethod>]
     member __.``[MIPS32] Load And Store operations Parse Test`` () =
       test32R2 Op.LB None None
-               (TwoOperands (OpReg R.R2, OpMem (R.R2, 0L, 8<rt>)))
+               (TwoOperands (OpReg R.R2, OpMem (R.R2, Imm 0L, 8<rt>)))
                [| 0x80uy; 0x42uy; 0x00uy; 0x00uy |]
 
       test32R2 Op.LBU None None
-               (TwoOperands (OpReg R.R2, OpMem (R.R19, 17432L, 8<rt>)))
+               (TwoOperands (OpReg R.R2, OpMem (R.R19, Imm 17432L, 8<rt>)))
                [| 0x92uy; 0x62uy; 0x44uy; 0x18uy |]
 
       test32R2 Op.LHU None None
-               (TwoOperands (OpReg R.R2, OpMem (R.R29, 170L, 16<rt>)))
+               (TwoOperands (OpReg R.R2, OpMem (R.R29, Imm 170L, 16<rt>)))
                [| 0x97uy; 0xa2uy; 0x00uy; 0xaauy |]
 
       test32R2 Op.LW None None
-               (TwoOperands (OpReg R.R2, OpMem (R.R28, -032060L, 32<rt>)))
+               (TwoOperands (OpReg R.R2, OpMem (R.R28, Imm -032060L, 32<rt>)))
                [| 0x8fuy; 0x82uy; 0x82uy; 0xc4uy |]
 
       test32R2 Op.SB None None
-               (TwoOperands (OpReg R.R4, OpMem (R.R22, 17372L, 8<rt>)))
+               (TwoOperands (OpReg R.R4, OpMem (R.R22, Imm 17372L, 8<rt>)))
                [| 0xa2uy; 0xc4uy; 0x43uy; 0xdcuy |]
 
       test32R2 Op.SH None None
-               (TwoOperands (OpReg R.R2, OpMem (R.R29, 184L, 16<rt>)))
+               (TwoOperands (OpReg R.R2, OpMem (R.R29, Imm 184L, 16<rt>)))
                [| 0xa7uy; 0xa2uy; 0x00uy; 0xb8uy |]
 
       test32R2 Op.SW None None
-               (TwoOperands (OpReg R.R28, OpMem (R.R29, 16L, 32<rt>)))
+               (TwoOperands (OpReg R.R28, OpMem (R.R29, Imm 16L, 32<rt>)))
                [| 0xafuy; 0xbcuy; 0x00uy; 0x10uy |]
 
       test32R2 Op.SWL None None
-               (TwoOperands (OpReg R.R4, OpMem (R.R2, 0L, 32<rt>)))
+               (TwoOperands (OpReg R.R4, OpMem (R.R2, Imm 0L, 32<rt>)))
                [| 0xa8uy; 0x44uy; 0x00uy; 0x00uy |]
 
       test32R2 Op.SWR None None
-               (TwoOperands (OpReg R.R4, OpMem (R.R2, 3L, 32<rt>)))
+               (TwoOperands (OpReg R.R4, OpMem (R.R2, Imm 3L, 32<rt>)))
                [| 0xb8uy; 0x44uy; 0x00uy; 0x03uy |]
 
   /// Floating Point operations
@@ -6500,19 +6500,19 @@ module MIPS32 =
                [| 0x44uy; 0x80uy; 0x30uy; 0x00uy |]
 
       test32R2 Op.LDC1 None None
-               (TwoOperands (OpReg R.F4, OpMem (R.R2, 2632L, 64<rt>)))
+               (TwoOperands (OpReg R.F4, OpMem (R.R2, Imm 2632L, 64<rt>)))
                [| 0xd4uy; 0x44uy; 0x0auy; 0x48uy |]
 
       test32R2 Op.LWC1 None None
-               (TwoOperands (OpReg R.F0, OpMem (R.R3, 8L, 32<rt>)))
+               (TwoOperands (OpReg R.F0, OpMem (R.R3, Imm 8L, 32<rt>)))
                [| 0xc4uy; 0x60uy; 0x00uy; 0x08uy |]
 
       test32R2 Op.SDC1 None None
-               (TwoOperands (OpReg R.F0, OpMem (R.R29, 16L, 64<rt>)))
+               (TwoOperands (OpReg R.F0, OpMem (R.R29, Imm 16L, 64<rt>)))
                [| 0xf7uy; 0xa0uy; 0x00uy; 0x10uy |]
 
       test32R2 Op.SWC1 None None
-               (TwoOperands (OpReg R.F0, OpMem (R.R4, 4L, 32<rt>)))
+               (TwoOperands (OpReg R.F0, OpMem (R.R4, Imm 4L, 32<rt>)))
                [| 0xe4uy; 0x80uy; 0x00uy; 0x04uy |]
 
       test32R2 Op.C (Some Condition.LT) (Some Fmt.S)

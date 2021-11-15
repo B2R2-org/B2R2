@@ -58,7 +58,7 @@ type MIPSTests () =
   [<TestMethod>]
   member __.``[MipsAssembly] Test jmp with memmory access operand``() =
     let result = assembler.Run "jr ($s0)"
-    let operands = OneOperand (OpMem (Register.R16, 0L, 32<rt>))
+    let operands = OneOperand (OpMem (Register.R16, Imm 0L, 32<rt>))
     let answer =
       [ newInfo mips 0UL Opcode.JR None None operands ]
     Assert.AreEqual (answer, result)

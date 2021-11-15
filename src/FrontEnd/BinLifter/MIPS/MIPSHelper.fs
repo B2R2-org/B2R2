@@ -107,17 +107,38 @@ let getFRegister = function
   | 0x1Fuy -> R.F31
   | _ -> raise InvalidRegisterException
 
+let getCondition = function
+  | 0x0u -> Condition.F
+  | 0x1u -> Condition.UN
+  | 0x2u -> Condition.EQ
+  | 0x3u -> Condition.UEQ
+  | 0x4u -> Condition.OLT
+  | 0x5u -> Condition.ULT
+  | 0x6u -> Condition.OLE
+  | 0x7u -> Condition.ULE
+  | 0x8u -> Condition.SF
+  | 0x9u -> Condition.NGLE
+  | 0xAu -> Condition.SEQ
+  | 0xBu -> Condition.NGL
+  | 0xCu -> Condition.LT
+  | 0xDu -> Condition.NGE
+  | 0xEu -> Condition.LE
+  | 0xFu -> Condition.NGT
+  | _ -> raise InvalidConditionException
+
 let gprLen = function
   | Arch.MIPS32R2 | Arch.MIPS32R6 -> 32
   | Arch.MIPS64R2 | Arch.MIPS64R6 -> 64
   | _ -> failwith "Not Implemented."
 
 let num16 b = extract b 15u 0u
+let num26 b = extract b 25u 0u
 let getRegFrom2521 b = getRegister (extract b 25u 21u |> byte)
 let getRegFrom2016 b = getRegister (extract b 20u 16u |> byte)
 let getRegFrom1511 b = getRegister (extract b 15u 11u |> byte)
 let getFRegFrom2521 b = getFRegister (extract b 25u 21u |> byte)
 let getFRegFrom2016 b = getFRegister (extract b 20u 16u |> byte)
+let getFRegFrom2018 b = getFRegister (extract b 20u 18u |> byte)
 let getFRegFrom1511 b = getFRegister (extract b 15u 11u |> byte)
 let getFRegFrom106 b = getFRegister (extract b 10u 6u |> byte)
 let getFRegFrom108 b = getFRegister (extract b 10u 8u |> byte)
@@ -129,7 +150,8 @@ let rd b = getRegFrom1511 b |> OpReg
 let fs b = getFRegFrom1511 b |> OpReg
 let ft b = getFRegFrom2016 b |> OpReg
 let fd b = getFRegFrom106 b |> OpReg
-let cc b = getFRegFrom108 b |> OpReg // FIXME: Floating Point cond code CC.
+let cc10 b = getFRegFrom108 b |> OpReg // FIXME: Floating Point cond code CC.
+let cc20 b = getFRegFrom2018 b |> OpReg // FIXME: Floating Point cond code CC.
 
 let sa b = extract b 10u 6u |> uint64 |> OpShiftAmount
 let bp b = extract b 7u 6u |> uint64 |> OpImm
@@ -137,11 +159,17 @@ let bp b = extract b 7u 6u |> uint64 |> OpImm
 let rel16 b =
   let off = num16 b |> uint64 <<< 2 |> signExtend 18 64 |> int64
   off + 4L |> Relative |> OpAddr
-let imm16 b = num16 b  |> uint64 |> OpImm
+let region b =
+  num26 b <<< 2 |> uint64 |> OpImm (* FIXME: PC-region on page 268 *)
+let stype b =
+  extract b 10u 6u |> uint64 |> OpImm (* FIXME: SType Field on page 533 *)
+let imm16 b = num16 b |> uint64 |> OpImm
 let imm16SignExt b = num16 b |> uint64 |> signExtend 16 64 |> OpImm
 let memBaseOff b accLength =
   let offset = num16 b |> uint64 |> signExtend 16 64 |> int64
-  OpMem (getRegFrom2521 b, offset, accLength)
+  OpMem (getRegFrom2521 b, Imm offset, accLength)
+let memBaseIdx b accLength =
+  OpMem (getRegFrom2521 b, Reg (getRegFrom2016 b), accLength)
 
 let posSize b =
   let msb = extract b 15u 11u
@@ -172,6 +200,8 @@ let posSize6 b =
 let getRel16 b = OneOperand (rel16 b)
 let getRs b = OneOperand (rs b)
 let getRd b = OneOperand (rd b)
+let getTarget b = OneOperand (region b)
+let getStype b = OneOperand (stype b)
 let getRdRs b = TwoOperands (rd b, rs b)
 let getRdRtRs b = ThreeOperands (rd b, rt b, rs b)
 let getRdRsRt b = ThreeOperands (rd b, rs b, rt b)
@@ -184,7 +214,10 @@ let getRtRsImm16s b = ThreeOperands (rt b, rs b, imm16SignExt b)
 let getRtRsImm16 b = ThreeOperands (rt b, rs b, imm16 b)
 let getRtMemBaseOff b accLength = TwoOperands (rt b, memBaseOff b accLength)
 let getFtMemBaseOff b accLength = TwoOperands (ft b, memBaseOff b accLength)
+let getFdMemBaseIdx b accLength = TwoOperands (fd b, memBaseIdx b accLength)
+let getFsMemBaseIdx b accLength = TwoOperands (fs b, memBaseIdx b accLength)
 let getRdRtSa b = ThreeOperands (rd b, rt b, sa b)
+let getRdRsCc b = ThreeOperands (rd b, rs b, cc20 b)
 let getRdRsRtBp b = FourOperands (rd b, rs b, rt b, bp b)
 let getRtRsPosSize b = let p, s = posSize b in FourOperands (rt b, rs b, p, s)
 let getRtRsPosSize2 b = let p, s = posSize2 b in FourOperands (rt b, rs b, p, s)
@@ -199,7 +232,9 @@ let getCcOff b =
   | a -> TwoOperands (a |> uint64 |> OpImm, rel16 b)
 let getFsFt b = TwoOperands (fs b, ft b)
 let getFdFs b = TwoOperands (fd b, fs b)
-let getCcFsFt b = ThreeOperands (cc b, fs b, ft b)
+let getFdFsRt b = ThreeOperands (fd b, fs b, rt b)
+let getFdFsCc b = ThreeOperands (fd b, fs b, cc20 b)
+let getCcFsFt b = ThreeOperands (cc10 b, fs b, ft b)
 let getFdFsFt b = ThreeOperands (fd b, fs b, ft b)
 
 // vim: set tw=80 sts=2 sw=2:

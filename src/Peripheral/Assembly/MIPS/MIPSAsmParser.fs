@@ -155,8 +155,8 @@ type AsmParser (mipsISA: ISA, startAddress: Addr) =
     paddr
     |>> (fun (ofstOp, reg) ->
       match ofstOp with
-      | Some offset -> OpMem (reg, offset, 32<rt>)
-      | None -> OpMem (reg, 0L, 32<rt>))
+      | Some offset -> OpMem (reg, Imm offset, 32<rt>)
+      | None -> OpMem (reg, Imm 0L, 32<rt>))
 
   let operand = addr <|> reg <|> imm <|> label
 

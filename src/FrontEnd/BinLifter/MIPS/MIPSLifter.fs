@@ -56,8 +56,10 @@ let transOprToExpr insInfo ctxt = function
   | OpReg reg -> getRegVar ctxt reg
   | OpImm imm
   | OpShiftAmount imm -> ctxt.WordBitSize |> BitVector.ofUInt64 imm |> AST.num
-  | OpMem (b, o, sz) ->
+  | OpMem (b, Imm o, sz) ->
     AST.loadLE sz (getRegVar ctxt b .+ numI64 o ctxt.WordBitSize)
+  | OpMem (b, Reg o, sz) ->
+    AST.loadLE sz (getRegVar ctxt b .+ getRegVar ctxt o)
   | OpAddr (Relative o) ->
     numI64 (int64 insInfo.Address + o + int64 insInfo.NumBytes) ctxt.WordBitSize
     |> AST.loadLE ctxt.WordBitSize
@@ -69,7 +71,8 @@ let transOprToImm = function
   | _ -> raise InvalidOperandException
 
 let transOprToBaseOffset ctxt = function
-  | OpMem (b, o, _) -> getRegVar ctxt b .+ numI64 o ctxt.WordBitSize
+  | OpMem (b, Imm o, _) -> getRegVar ctxt b .+ numI64 o ctxt.WordBitSize
+  | OpMem (b, Reg o, _) -> getRegVar ctxt b .+ getRegVar ctxt o
   | _ -> raise InvalidOperandException
 
 let getOneOpr insInfo =
