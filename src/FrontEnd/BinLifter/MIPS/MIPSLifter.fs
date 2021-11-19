@@ -1391,6 +1391,12 @@ let translate insInfo (ctxt: TranslationContext) =
   | Op.TRUNCL | Op.TRUNCW -> sideEffects insInfo UnsupportedFP
   | Op.XOR -> logXor insInfo ctxt
   | Op.XORI -> xori insInfo ctxt
+  | Op.ABS | Op.BC3F | Op.BC3FL | Op.BC3T | Op.BC3TL | Op.DDIV | Op.DIV
+  | Op.DROTR32 | Op.DROTRV | Op.DSBH | Op.DSHD | Op.DSRAV | Op.J | Op.JAL
+  | Op.LDL | Op.LDR | Op.LDXC1 | Op.LWL | Op.LWR | Op.LWXC1 | Op.MADDU
+  | Op.MFHC1 | Op.MOVF | Op.MOVN | Op.MOVT | Op.MSUB | Op.MTHC1 | Op.MTHI
+  | Op.MTLO | Op.NEG | Op.ROTRV | Op.SDXC1 | Op.SQRT | Op.SRAV | Op.SWXC1
+  | Op.SYNC | Op.TRUNCL | Op.WSBH -> sideEffects insInfo UnsupportedExtension // XXX this is temporary fix
   | o ->
 #if DEBUG
          eprintfn "%A" o
