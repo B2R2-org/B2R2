@@ -31,9 +31,17 @@ exception NotEncodableException
 
 /// Basic components for assembling binaries.
 type AsmComponent =
+  /// Normal byte, which is not associated with a label.
   | Normal of byte
+  /// This component refers to a label, which we didn't yet concretize. This
+  /// will eventually become a concrete number of RegType size.
   | IncompLabel of RegType
+  /// Assembled instruction, whose byte values are not yet decided. IncompleteOp
+  /// will be transformed into two components: (CompOp, IncompLabel).
   | IncompleteOp of Opcode * Operands
+  /// This component refers to an opcode that is now decided (completed) with a
+  /// concrete value. It is just that we don't concretize the corresponding
+  /// label, i.e., IncompLabel.
   | CompOp of Opcode * Operands * byte [] * byte [] option
 
 type EncodedByteCode = {

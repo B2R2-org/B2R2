@@ -1495,6 +1495,14 @@ let inc (ctxt: EncContext) ins =
       ctxt.PrefNormal ctxt.RexW [| 0xFFuy |] b s d 0b000uy
   | o -> printfn "%A" o; raise NotEncodableException
 
+let interrupt ins =
+  match ins.Operands with
+  | OneOperand (OprImm (n, _)) when isUInt8 n ->
+    [| Normal 0xcduy; Normal (byte n) |]
+  | o -> printfn "%A" o; raise NotEncodableException
+
+let interrupt3 () = [| Normal 0xccuy |]
+
 let jcc (ctxt: EncContext) ins op8Byte opByte op =
   match ins.Operands with
   | OneOperand (Label _) ->
@@ -3084,5 +3092,8 @@ let xorps (ctxt: EncContext) ins =
     encRM ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexNormal [| 0x0Fuy; 0x57uy |] r b s d
   | o -> printfn "%A" o; raise NotEncodableException
+
+let syscall () =
+  [| Normal 0x0Fuy; Normal 0x05uy |]
 
 // vim: set tw=80 sts=2 sw=2:

@@ -123,6 +123,8 @@ let encodeInstruction (ins: AsmInsInfo) ctxt =
   | Opcode.IDIV -> idiv ctxt ins
   | Opcode.IMUL -> imul ctxt ins
   | Opcode.INC -> inc ctxt ins
+  | Opcode.INT -> interrupt ins
+  | Opcode.INT3 -> interrupt3 ()
   | Opcode.JA -> ja ctxt ins
   | Opcode.JB -> jb ctxt ins
   | Opcode.JBE -> jbe ctxt ins
@@ -216,6 +218,7 @@ let encodeInstruction (ins: AsmInsInfo) ctxt =
   | Opcode.XCHG -> xchg ctxt ins
   | Opcode.XOR -> xor ctxt ins
   | Opcode.XORPS -> xorps ctxt ins
+  | Opcode.SYSCALL -> syscall ()
   | op -> printfn "%A" op; Utils.futureFeature ()
 
 let computeIncompMaxLen = function
