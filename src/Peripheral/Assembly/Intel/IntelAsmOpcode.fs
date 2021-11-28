@@ -44,6 +44,17 @@ let isUInt8 (i: int64) = uint64 i <= 0xFFUL
 let isUInt16 (i: int64) = uint64 i <= 0xFFFFUL
 let isUInt32 (i: int64) = uint64 i <= 0xFFFFFFFFUL
 
+let isClassicGPReg = function
+  | Register.RAX | Register.EAX | Register.AX
+  | Register.RCX | Register.ECX | Register.CX
+  | Register.RDX | Register.EDX | Register.DX
+  | Register.RBX | Register.EBX | Register.BX
+  | Register.RSP | Register.ESP | Register.SP
+  | Register.RBP | Register.EBP | Register.BP
+  | Register.RSI | Register.ESI | Register.SI
+  | Register.RDI | Register.EDI | Register.DI -> true
+  | _ -> false
+
 let inline prxRexOp ins arch pref rex op =
   [| yield! encodePrefix ins arch pref
      yield! encodeREXPref ins arch rex
@@ -59,6 +70,10 @@ let inline encI ins arch pref rex op i immSz =
 let inline encR ins arch pref rex op r c =
   [| yield! prxRexOp ins arch pref rex op
      modrmR r c |]
+
+let inline encClassicR opSizePref opValue diff =
+  [| if opSizePref then Normal 0x66uy else ()
+     Normal (opValue + diff) |]
 
 let inline encD ins arch pref rex op rel sz =
   let prxRexOp = prxRexOp ins arch pref rex op
@@ -1051,37 +1066,27 @@ let cwde _ctxt = function
 let dec (ctxt: EncContext) ins =
   match ins.Operands with
   | OneOperand (OprReg r) when isReg8 r ->
-    encR ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexNormal [| 0xFEuy |] r 0b001uy
+    encR ins ctxt.Arch ctxt.PrefNormal ctxt.RexNormal [| 0xFEuy |] r 1uy
   | OneOperand (OprMem (b, s, d, 8<rt>)) ->
-    encM ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexNormal [| 0xFEuy |] b s d 0b001uy
-  | OneOperand (OprReg r) when isReg16 r && ctxt.Arch = Arch.IntelX86 ->
-    encO ins ctxt.Arch
-      ctxt.Pref66 ctxt.RexNormal 0x48uy r
+    encM ins ctxt.Arch ctxt.PrefNormal ctxt.RexNormal [| 0xFEuy |] b s d 1uy
   | OneOperand (OprReg r) when isReg16 r ->
-    encR ins ctxt.Arch
-      ctxt.Pref66 ctxt.RexNormal [| 0xFFuy |] r 0b001uy
+    if isClassicGPReg r && ctxt.Arch = Arch.IntelX86 then
+      encClassicR true 0x48uy (regTo3Bit r)
+    else encR ins ctxt.Arch ctxt.Pref66 ctxt.RexNormal [| 0xFFuy |] r 1uy
   | OneOperand (OprMem (b, s, d, 16<rt>)) ->
-    encM ins ctxt.Arch
-      ctxt.Pref66 ctxt.RexNormal [| 0xFFuy |] b s d 0b001uy
-  | OneOperand (OprReg r) when isReg32 r && ctxt.Arch = Arch.IntelX86 ->
-    encO ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexNormal 0x48uy r
+    encM ins ctxt.Arch ctxt.Pref66 ctxt.RexNormal [| 0xFFuy |] b s d 1uy
   | OneOperand (OprReg r) when isReg32 r ->
-    encR ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexNormal [| 0xFFuy |] r 0b001uy
+    if isClassicGPReg r && ctxt.Arch = Arch.IntelX86 then
+      encClassicR false 0x48uy (regTo3Bit r)
+    else encR ins ctxt.Arch ctxt.PrefNormal ctxt.RexNormal [| 0xFFuy |] r 1uy
   | OneOperand (OprMem (b, s, d, 32<rt>)) ->
-    encM ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexNormal [| 0xFFuy |] b s d 0b001uy
+    encM ins ctxt.Arch ctxt.PrefNormal ctxt.RexNormal [| 0xFFuy |] b s d 1uy
   | OneOperand (OprReg r) when isReg64 r ->
     no32Arch ctxt.Arch
-    encR ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexW [| 0xFFuy |] r 0b001uy
+    encR ins ctxt.Arch ctxt.PrefNormal ctxt.RexW [| 0xFFuy |] r 1uy
   | OneOperand (OprMem (b, s, d, 64<rt>)) ->
     no32Arch ctxt.Arch
-    encM ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexW [| 0xFFuy |] b s d 0b001uy
+    encM ins ctxt.Arch ctxt.PrefNormal ctxt.RexW [| 0xFFuy |] b s d 1uy
   | o -> printfn "%A" o; raise NotEncodableException
 
 let div (ctxt: EncContext) ins =
@@ -1462,37 +1467,27 @@ let imul (ctxt: EncContext) ins =
 let inc (ctxt: EncContext) ins =
   match ins.Operands with
   | OneOperand (OprReg r) when isReg8 r ->
-    encR ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexNormal [| 0xFEuy |] r 0b000uy
+    encR ins ctxt.Arch ctxt.PrefNormal ctxt.RexNormal [| 0xFEuy |] r 0uy
   | OneOperand (OprMem (b, s, d, 8<rt>)) ->
-    encM ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexNormal [| 0xFEuy |] b s d 0b000uy
-  | OneOperand (OprReg r) when isReg16 r && ctxt.Arch = Arch.IntelX86 ->
-    encO ins ctxt.Arch
-      ctxt.Pref66 ctxt.RexNormal 0x40uy r
+    encM ins ctxt.Arch ctxt.PrefNormal ctxt.RexNormal [| 0xFEuy |] b s d 0uy
   | OneOperand (OprReg r) when isReg16 r ->
-    encR ins ctxt.Arch
-      ctxt.Pref66 ctxt.RexNormal [| 0xFFuy |] r 0b000uy
+    if isClassicGPReg r && ctxt.Arch = Arch.IntelX86 then
+      encClassicR true 0x40uy (regTo3Bit r)
+    else encR ins ctxt.Arch ctxt.Pref66 ctxt.RexNormal [| 0xFFuy |] r 0uy
   | OneOperand (OprMem (b, s, d, 16<rt>)) ->
-    encM ins ctxt.Arch
-      ctxt.Pref66 ctxt.RexNormal [| 0xFFuy |] b s d 0b000uy
-  | OneOperand (OprReg r) when isReg32 r && ctxt.Arch = Arch.IntelX86 ->
-    encO ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexNormal 0x40uy r
+    encM ins ctxt.Arch ctxt.Pref66 ctxt.RexNormal [| 0xFFuy |] b s d 0uy
   | OneOperand (OprReg r) when isReg32 r ->
-    encR ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexNormal [| 0xFFuy |] r 0b000uy
+    if isClassicGPReg r && ctxt.Arch = Arch.IntelX86 then
+      encClassicR false 0x40uy (regTo3Bit r)
+    else encR ins ctxt.Arch ctxt.PrefNormal ctxt.RexNormal [| 0xFFuy |] r 0uy
   | OneOperand (OprMem (b, s, d, 32<rt>)) ->
-    encM ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexNormal [| 0xFFuy |] b s d 0b000uy
+    encM ins ctxt.Arch ctxt.PrefNormal ctxt.RexNormal [| 0xFFuy |] b s d 0uy
   | OneOperand (OprReg r) when isReg64 r ->
     no32Arch ctxt.Arch
-    encR ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexW [| 0xFFuy |] r 0b000uy
+    encR ins ctxt.Arch ctxt.PrefNormal ctxt.RexW [| 0xFFuy |] r 0uy
   | OneOperand (OprMem (b, s, d, 64<rt>)) ->
     no32Arch ctxt.Arch
-    encM ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexW [| 0xFFuy |] b s d 0b000uy
+    encM ins ctxt.Arch ctxt.PrefNormal ctxt.RexW [| 0xFFuy |] b s d 0uy
   | o -> printfn "%A" o; raise NotEncodableException
 
 let interrupt ins =
@@ -2181,27 +2176,24 @@ let pop (ctxt: EncContext) ins =
   | OneOperand (OprReg Register.FS) -> [| Normal 0x0Fuy; Normal 0xA1uy |]
   | OneOperand (OprReg Register.GS) -> [| Normal 0x0Fuy; Normal 0xA9uy |]
   | OneOperand (OprReg r) when isReg16 r ->
-    encR ins ctxt.Arch
-      ctxt.Pref66 ctxt.RexNormal [| 0x8Fuy |] r 0b000uy
+    if isClassicGPReg r then encClassicR true 0x58uy (regTo3Bit r)
+    else encR ins ctxt.Arch ctxt.Pref66 ctxt.RexNormal [| 0x8Fuy |] r 0uy
   | OneOperand (OprMem (b, s, d, 16<rt>)) ->
-    encM ins ctxt.Arch
-      ctxt.Pref66 ctxt.RexNormal [| 0x8Fuy |] b s d 0b000uy
+    encM ins ctxt.Arch ctxt.Pref66 ctxt.RexNormal [| 0x8Fuy |] b s d 0uy
   | OneOperand (OprReg r) when isReg32 r ->
     no64Arch ctxt.Arch
-    encR ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexNormal [| 0x8Fuy |] r 0b000uy
+    if isClassicGPReg r then encClassicR false 0x58uy (regTo3Bit r)
+    else encR ins ctxt.Arch ctxt.PrefNormal ctxt.RexNormal [| 0x8Fuy |] r 0uy
   | OneOperand (OprMem (b, s, d, 32<rt>)) ->
     no64Arch ctxt.Arch
-    encM ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexNormal [| 0x8Fuy |] b s d 0b000uy
+    encM ins ctxt.Arch ctxt.PrefNormal ctxt.RexNormal [| 0x8Fuy |] b s d 0uy
   | OneOperand (OprReg r) when isReg64 r ->
     no32Arch ctxt.Arch
-    encR ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexW [| 0x8Fuy |] r 0b000uy
+    if isClassicGPReg r then encClassicR false 0x58uy (regTo3Bit r)
+    else encR ins ctxt.Arch ctxt.PrefNormal ctxt.RexW [| 0x8Fuy |] r 0uy
   | OneOperand (OprMem (b, s, d, 64<rt>)) ->
     no32Arch ctxt.Arch
-    encM ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexW [| 0x8Fuy |] b s d 0b000uy
+    encM ins ctxt.Arch ctxt.PrefNormal ctxt.RexW [| 0x8Fuy |] b s d 0uy
   | o -> printfn "%A" o; raise NotEncodableException
 
 let pshufd (ctxt: EncContext) ins =
@@ -2241,36 +2233,32 @@ let push (ctxt: EncContext) ins =
   | OneOperand (OprReg Register.FS) -> [| Normal 0x0Fuy; Normal 0xA0uy |]
   | OneOperand (OprReg Register.GS) -> [| Normal 0x0Fuy; Normal 0xA8uy |]
   | OneOperand (OprReg r) when isReg16 r ->
-    encR ins ctxt.Arch
-      ctxt.Pref66 ctxt.RexNormal [| 0xFFuy |] r 0b110uy
+    if isClassicGPReg r then encClassicR true 0x50uy (regTo3Bit r)
+    else encR ins ctxt.Arch ctxt.Pref66 ctxt.RexNormal [| 0xFFuy |] r 0b110uy
   | OneOperand (OprMem (b, s, d, 16<rt>)) ->
-    encM ins ctxt.Arch
-      ctxt.Pref66 ctxt.RexNormal [| 0xFFuy |] b s d 0b110uy
+    encM ins ctxt.Arch ctxt.Pref66 ctxt.RexNormal [| 0xFFuy |] b s d 0b110uy
   | OneOperand (OprReg r) when isReg32 r ->
     no64Arch ctxt.Arch
-    encR ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexNormal [| 0xFFuy |] r 0b110uy
+    if isClassicGPReg r then encClassicR false 0x50uy (regTo3Bit r)
+    else
+      encR ins ctxt.Arch ctxt.PrefNormal ctxt.RexNormal [| 0xFFuy |] r 0b110uy
   | OneOperand (OprMem (b, s, d, 32<rt>)) ->
     no64Arch ctxt.Arch
-    encM ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexNormal [| 0xFFuy |] b s d 0b110uy
+    encM ins ctxt.Arch ctxt.PrefNormal ctxt.RexNormal [| 0xFFuy |] b s d 0b110uy
   | OneOperand (OprReg r) when isReg64 r ->
     no32Arch ctxt.Arch
-    encR ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexNormal [| 0xFFuy |] r 0b110uy
+    if isClassicGPReg r then encClassicR false 0x50uy (regTo3Bit r)
+    else
+      encR ins ctxt.Arch ctxt.PrefNormal ctxt.RexNormal [| 0xFFuy |] r 0b110uy
   | OneOperand (OprMem (b, s, d, 64<rt>)) ->
     no32Arch ctxt.Arch
-    encM ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexNormal [| 0xFFuy |] b s d 0b110uy
+    encM ins ctxt.Arch ctxt.PrefNormal ctxt.RexNormal [| 0xFFuy |] b s d 0b110uy
   | OneOperand (OprImm (imm, _)) when isInt8 imm ->
-    encI ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexNormal [| 0x6Auy |] imm 8<rt>
+    encI ins ctxt.Arch ctxt.PrefNormal ctxt.RexNormal [| 0x6Auy |] imm 8<rt>
   | OneOperand (OprImm (imm, _)) when isInt16 imm ->
-    encI ins ctxt.Arch
-      ctxt.Pref66 ctxt.RexNormal [| 0x68uy |] imm 16<rt>
+    encI ins ctxt.Arch ctxt.Pref66 ctxt.RexNormal [| 0x68uy |] imm 16<rt>
   | OneOperand (OprImm (imm, _)) when isUInt32 imm -> // FIXME
-    encI ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexNormal [| 0x68uy |] imm 32<rt>
+    encI ins ctxt.Arch ctxt.PrefNormal ctxt.RexNormal [| 0x68uy |] imm 32<rt>
   | o -> printfn "%A" o; raise NotEncodableException
 
 let pxor (ctxt: EncContext) ins =
@@ -2960,17 +2948,14 @@ let xchg (ctxt: EncContext) ins =
   match ins.Operands with
   | TwoOperands (OprReg Register.AX, OprReg r)
   | TwoOperands (OprReg r, OprReg Register.AX) when isReg16 r ->
-    encO ins ctxt.Arch
-      ctxt.Pref66 ctxt.RexNormal 0x90uy r
+    encO ins ctxt.Arch ctxt.Pref66 ctxt.RexNormal 0x90uy r
   | TwoOperands (OprReg Register.EAX, OprReg r)
   | TwoOperands (OprReg r, OprReg Register.EAX) when isReg32 r ->
-    encO ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexNormal 0x90uy r
+    encO ins ctxt.Arch ctxt.PrefNormal ctxt.RexNormal 0x90uy r
   | TwoOperands (OprReg Register.RAX, OprReg r)
   | TwoOperands (OprReg r, OprReg Register.RAX) when isReg64 r ->
     no32Arch ctxt.Arch
-    encO ins ctxt.Arch
-      ctxt.PrefNormal ctxt.RexW 0x90uy r
+    encO ins ctxt.Arch ctxt.PrefNormal ctxt.RexW 0x90uy r
   | o -> printfn "%A" o; raise NotEncodableException
 
 let xor (ctxt: EncContext) ins =
