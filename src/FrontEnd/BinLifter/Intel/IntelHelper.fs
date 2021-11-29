@@ -305,12 +305,11 @@ type SzD64 () =
   override __.Render rhlp szCond =
     let effAddrSz = getEffAddrSize rhlp
     let effOprSz = getEffOprSize rhlp szCond
-    let oprSize = WordSize.toRegType rhlp.WordSize
     rhlp.MemEffOprSize <- effOprSz
     rhlp.MemEffAddrSize <- effAddrSz
     rhlp.MemEffRegSize <- effOprSz
-    rhlp.RegSize <- oprSize
-    rhlp.OperationSize <- oprSize
+    rhlp.RegSize <- effOprSz
+    rhlp.OperationSize <- effOprSz
 
 /// GzMp
 type SzPZ () =
