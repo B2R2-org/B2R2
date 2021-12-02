@@ -326,6 +326,16 @@ type SzPZ () =
     rhlp.RegSize <- effOprSz
     rhlp.OperationSize <- effOprSz
 
+/// EdVdqIb
+type SzDDq () =
+  inherit InsSizeComputer ()
+  override __.Render rhlp _ =
+    rhlp.MemEffOprSize <- 32<rt>
+    rhlp.MemEffAddrSize <- getEffAddrSize rhlp
+    rhlp.MemEffRegSize <- 32<rt>
+    rhlp.RegSize <- 128<rt>
+    rhlp.OperationSize <- 32<rt>
+
 /// MdqVdq VdqHdqUdq VdqHdqWdqIb VdqMdq VdqUdq VdqWdq VdqWdqIb WdqVdq
 type SzDqDq () =
   inherit InsSizeComputer ()
@@ -336,7 +346,7 @@ type SzDqDq () =
     rhlp.RegSize <- 128<rt>
     rhlp.OperationSize <- 128<rt>
 
-/// VdqWdqd VdqMd VdqHdqWdqd VdqWdqdIb MdVdq
+/// VdqWdqd VdqMd VdqHdqWdqd VdqWdqdIb MdVdq VdqHdqUdqdIb
 type SzDqdDq () =
   inherit InsSizeComputer ()
   override __.Render rhlp _ =
@@ -935,7 +945,7 @@ type SzDqqXz () =
     rhlp.RegSize <- vLen
     rhlp.OperationSize <- vLen
 
-/// WqqVZxz WZqqVZxzIb WqqVZxzIb
+/// WqqVZxz WZqqVZxzIb WqqVZxzIb VqqHqqWqq
 type SzQqXz () =
   inherit InsSizeComputer ()
   override __.Render rhlp _ =
@@ -1023,6 +1033,17 @@ type SzYDq () =
     rhlp.RegSize <- 128<rt>
     rhlp.OperationSize <- 128<rt>
 
+/// VdqHdqEyIb
+type SzQq () =
+  inherit InsSizeComputer ()
+  override __.Render rhlp _ =
+    let effAddrSz = getEffAddrSize rhlp
+    rhlp.MemEffOprSize <- 256<rt>
+    rhlp.MemEffAddrSize <- effAddrSz
+    rhlp.MemEffRegSize <- 256<rt>
+    rhlp.RegSize <- 256<rt>
+    rhlp.OperationSize <- 256<rt>
+
 type SizeKind =
   | Byte = 0
   | Word = 1
@@ -1035,63 +1056,65 @@ type SizeKind =
   | WV = 8
   | D64 = 9
   | PZ = 10
-  | DqDq = 11
-  | DqdDq = 12
-  | DqdDqMR = 13
-  | DqqDq = 14
-  | DqqDqMR = 15
-  | XqX = 16
-  | DqqDqWS = 17
-  | VyDq = 18
-  | VyDqMR = 19
-  | DY = 20
-  | QDq = 21
-  | DqqQ = 22
-  | DqQ = 23
-  | DqdY = 24
-  | DqqY = 25
-  | DqY = 26
-  | Dq = 27
-  | DQ = 28
-  | QQ = 29
-  | YQ = 30
-  | YQRM = 31
-  | DwQ = 32
-  | DwDq = 33
-  | DwDqMR = 34
-  | QD = 35
-  | Dqd = 36
-  | XDq = 37
-  | DqX = 38
-  | XD = 39
-  | DqqdqX = 40
-  | DqddqX = 41
-  | DqwDq = 42
-  | DqwX = 43
-  | DqQqq = 44
-  | DqbX = 45
-  | DbDq = 46
-  | BV = 47
-  | Q = 48
-  | S = 49
-  | DX = 50
-  | DqdXz = 51
-  | DqqX = 52
-  | P = 53
-  | PRM = 54
-  | XqXz = 55
-  | XXz = 56
-  | XzX = 57
-  | XzXz = 58
-  | DqqQq = 59
-  | DqqXz = 60
-  | QqXz = 61
-  | QqXzRM = 62
-  | DqdX = 63
-  | DXz = 64
-  | QXz = 65
-  | DqQq = 66
-  | DqXz = 67
-  | YDq = 68
+  | DDq = 11
+  | DqDq = 12
+  | DqdDq = 13
+  | DqdDqMR = 14
+  | DqqDq = 15
+  | DqqDqMR = 16
+  | XqX = 17
+  | DqqDqWS = 18
+  | VyDq = 19
+  | VyDqMR = 20
+  | DY = 21
+  | QDq = 22
+  | DqqQ = 23
+  | DqQ = 24
+  | DqdY = 25
+  | DqqY = 26
+  | DqY = 27
+  | Dq = 28
+  | DQ = 29
+  | QQ = 30
+  | YQ = 31
+  | YQRM = 32
+  | DwQ = 33
+  | DwDq = 34
+  | DwDqMR = 35
+  | QD = 36
+  | Dqd = 37
+  | XDq = 38
+  | DqX = 39
+  | XD = 40
+  | DqqdqX = 41
+  | DqddqX = 42
+  | DqwDq = 43
+  | DqwX = 44
+  | DqQqq = 45
+  | DqbX = 46
+  | DbDq = 47
+  | BV = 48
+  | Q = 49
+  | S = 50
+  | DX = 51
+  | DqdXz = 52
+  | DqqX = 53
+  | P = 54
+  | PRM = 55
+  | XqXz = 56
+  | XXz = 57
+  | XzX = 58
+  | XzXz = 59
+  | DqqQq = 60
+  | DqqXz = 61
+  | QqXz = 62
+  | QqXzRM = 63
+  | DqdX = 64
+  | DXz = 65
+  | QXz = 66
+  | DqQq = 67
+  | DqXz = 68
+  | YDq = 69
+  | Qq = 70
 
 // vim: set tw=80 sts=2 sw=2:
