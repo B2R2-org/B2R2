@@ -125,6 +125,14 @@ let getTBRRegister bin =
   let TBR = bin |> uint64 |> Immediate
   TBR
 
+let getFPSCRegister bin =
+  let FPSC = bin |> uint64 |> Immediate
+  FPSC
+
+let getFM bin =
+  let FM = bin |> uint64 |> Immediate
+  FM
+
 let parseADDx bin =
   match concat (pickBit bin 10u) (pickBit bin 0u) 1 (* OE:RC *) with
   | 0b00u ->
@@ -1287,9 +1295,371 @@ let parse1F bin =
   | 0x138u when pickBit bin 10u = 1u -> parseSRAWIx bin
   | _ -> Utils.futureFeature ()
 
+let parseFCMPU bin =
+  match pickBit bin 0u with
+  | 0b0u when extract bin 22u 21u = 0u ->
+    let crfd = getCondRegister (extract bin 25u 23u) |> OpReg
+    let fra = getFPRegister (extract bin 20u 16u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FCMPU, ThreeOperands (crfd, fra, frb))
+  | _ (* 1 *)-> Utils.impossible ()
+
+let parseFRSPx bin =
+  match pickBit bin 0u with
+  | 0b0u when extract bin 20u 16u = 0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FRSP, TwoOperands (frd, frb))
+  | 0b1u when extract bin 20u 16u = 0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FRSPdot, TwoOperands (frd, frb))
+  | _ -> Utils.impossible ()
+
+let parseFCTIWx bin =
+  match pickBit bin 0u with
+  | 0b0u when extract bin 20u 16u = 0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FCTIW, TwoOperands (frd, frb))
+  | 0b1u when extract bin 20u 16u = 0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FCTIWdot, TwoOperands (frd, frb))
+  | _ -> Utils.impossible ()
+
+let parseFCTIWZx bin =
+  match pickBit bin 0u with
+  | 0b0u when extract bin 20u 16u = 0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FCTIWZ, TwoOperands (frd, frb))
+  | 0b1u when extract bin 20u 16u = 0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FCTIWZdot, TwoOperands (frd, frb))
+  | _ -> Utils.impossible ()
+
+let parseFDIVx bin =
+  match pickBit bin 0u with
+  | 0b0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let fra = getFPRegister (extract bin 20u 16u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FDIV, ThreeOperands (frd, fra, frb))
+  | _ (* 1 *)->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let fra = getFPRegister (extract bin 20u 16u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FDIVdot, ThreeOperands (frd, fra, frb))
+
+let parseFSUBx bin =
+  match pickBit bin 0u with
+  | 0b0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let fra = getFPRegister (extract bin 20u 16u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FSUB, ThreeOperands (frd, fra, frb))
+  | _ (* 1 *) ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let fra = getFPRegister (extract bin 20u 16u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FSUBdot, ThreeOperands (frd, fra, frb))
+
+let parseFADDx bin =
+  match pickBit bin 0u with
+  | 0b0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let fra = getFPRegister (extract bin 20u 16u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FADD, ThreeOperands (frd, fra, frb))
+  | _ (* 1 *) ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let fra = getFPRegister (extract bin 20u 16u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FADDdot, ThreeOperands (frd, fra, frb))
+
+let parseFSQRTx bin =
+  match pickBit bin 0u with
+  | 0b0u when extract bin 20u 16u = 0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FSQRT, TwoOperands (frd, frb))
+  | 0b1u when extract bin 20u 16u = 0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FSQRTdot, TwoOperands (frd, frb))
+  | _ -> Utils.impossible ()
+
+let parseFSELx bin =
+  match pickBit bin 0u with
+  | 0b0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let fra = getFPRegister (extract bin 20u 16u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    let frc = getFPRegister (extract bin 10u 6u) |> OpReg
+    struct (Op.FSEL, FourOperands (frd, fra, frc, frb))
+  | _ (* 1 *) ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let fra = getFPRegister (extract bin 20u 16u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    let frc = getFPRegister (extract bin 10u 6u) |> OpReg
+    struct (Op.FSELdot, FourOperands (frd, fra, frc, frb))
+
+let parseFMULx bin =
+  match pickBit bin 0u with
+  | 0b0u when extract bin 15u 11u = 0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let fra = getFPRegister (extract bin 20u 16u) |> OpReg
+    let frc = getFPRegister (extract bin 10u 6u) |> OpReg
+    struct (Op.FMUL, ThreeOperands (frd, fra, frc))
+  | 0b1u when extract bin 15u 11u = 0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let fra = getFPRegister (extract bin 20u 16u) |> OpReg
+    let frc = getFPRegister (extract bin 10u 6u) |> OpReg
+    struct (Op.FMULdot, ThreeOperands (frd, fra, frc))
+  | _ -> Utils.impossible ()
+
+let parseFRSQRTEx bin =
+  match pickBit bin 0u with
+  | 0b0u when concat (extract bin 20u 16u) (extract bin 10u 6u) 5 = 0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FRSQRTE, TwoOperands (frd, frb))
+  | 0b1u when extract bin 15u 11u = 0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FRSQRTEdot, TwoOperands (frd, frb))
+  | _ -> Utils.impossible ()
+
+let parseFMSUBx bin =
+  match pickBit bin 0u with
+  | 0b0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let fra = getFPRegister (extract bin 20u 16u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    let frc = getFPRegister (extract bin 10u 6u) |> OpReg
+    struct (Op.FMSUB, FourOperands (frd, fra, frc, frb))
+  | _ (* 1 *) ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let fra = getFPRegister (extract bin 20u 16u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    let frc = getFPRegister (extract bin 10u 6u) |> OpReg
+    struct (Op.FMSUBdot, FourOperands (frd, fra, frc, frb))
+
+let parseFMADDx bin =
+  match pickBit bin 0u with
+  | 0b0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let fra = getFPRegister (extract bin 20u 16u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    let frc = getFPRegister (extract bin 10u 6u) |> OpReg
+    struct (Op.FMADD, FourOperands (frd, fra, frc, frb))
+  | _ (* 1 *) ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let fra = getFPRegister (extract bin 20u 16u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    let frc = getFPRegister (extract bin 10u 6u) |> OpReg
+    struct (Op.FMADDdot, FourOperands (frd, fra, frc, frb))
+
+let parseFNMSUBx bin =
+  match pickBit bin 0u with
+  | 0b0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let fra = getFPRegister (extract bin 20u 16u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    let frc = getFPRegister (extract bin 10u 6u) |> OpReg
+    struct (Op.FNMSUB, FourOperands (frd, fra, frc, frb))
+  | _ (* 1 *) ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let fra = getFPRegister (extract bin 20u 16u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    let frc = getFPRegister (extract bin 10u 6u) |> OpReg
+    struct (Op.FNMSUBdot, FourOperands (frd, fra, frc, frb))
+
+let parseFNMADDx bin =
+  match pickBit bin 0u with
+  | 0b0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let fra = getFPRegister (extract bin 20u 16u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    let frc = getFPRegister (extract bin 10u 6u) |> OpReg
+    struct (Op.FNMADD, FourOperands (frd, fra, frc, frb))
+  | _ (* 1 *) ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let fra = getFPRegister (extract bin 20u 16u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    let frc = getFPRegister (extract bin 10u 6u) |> OpReg
+    struct (Op.FNMADDdot, FourOperands (frd, fra, frc, frb))
+
+let parseFCMPO bin =
+  match pickBit bin 0u with
+  | 0b0u when extract bin 22u 21u = 0u ->
+    let crfd = getCondRegister (extract bin 25u 23u) |> OpReg
+    let fra = getFPRegister (extract bin 20u 16u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FCMPO, ThreeOperands (crfd, fra, frb))
+  | _ (* 1 *)-> Utils.impossible ()
+
+let parseMTFSB1x bin =
+  match pickBit bin 0u with
+  | 0b0u when extract bin 20u 11u = 0u ->
+  /// (* FIX FPSCRegister *)
+    let crbd = getFPSCRegister (extract bin 25u 21u)
+    struct (Op.MTFSB1, OneOperand crbd)
+  | 0b1u when extract bin 20u 11u = 0u ->
+  /// (* FIX FPSCRegister *)
+    let crbd = getFPSCRegister (extract bin 25u 21u)
+    struct (Op.MTFSB1dot, OneOperand crbd)
+  | _ -> Utils.impossible ()
+
+let parseFNEGx bin =
+  match pickBit bin 0u with
+  | 0b0u when extract bin 20u 11u = 0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FNEG, TwoOperands (frd, frb))
+  | 0b1u when extract bin 20u 11u = 0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FNEGdot, TwoOperands (frd, frb))
+  | _ -> Utils.impossible ()
+
+let parseMCRFS bin =
+  match pickBit bin 0u with
+  | 0b0u when concat (extract bin 22u 21u) (extract bin 17u 11u) 2 = 0u ->
+    let crfd = getCondRegister (extract bin 25u 23u) |> OpReg
+    let crfs = getCondRegister (extract bin 20u 18u) |> OpReg
+    struct (Op.MCRFS, TwoOperands (crfd, crfs))
+  | _ (* 1 *)-> Utils.impossible ()
+
+let parseMTFSB0x bin =
+  match pickBit bin 0u with
+  | 0b0u when extract bin 20u 11u = 0u ->
+  /// (* FIX FPSCRegister *)
+    let crbd = getFPSCRegister (extract bin 25u 21u)
+    struct (Op.MTFSB0, OneOperand crbd)
+  | 0b1u when extract bin 20u 11u = 0u ->
+  /// (* FIX FPSCRegister *)
+    let crbd = getFPSCRegister (extract bin 25u 21u)
+    struct (Op.MTFSB0dot, OneOperand crbd)
+  | _ -> Utils.impossible ()
+
+let parseFMRx bin =
+  match pickBit bin 0u with
+  | 0b0u when extract bin 20u 16u = 0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FMR, TwoOperands (frd, frb))
+  | 0b1u when extract bin 20u 16u = 0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FMRdot, TwoOperands (frd, frb))
+  | _ -> Utils.impossible ()
+
+let parseMTFSFIx bin =
+  match pickBit bin 0u with
+  | 0b0u when concat (extract bin 22u 16u) (pickBit bin 11u) 7 = 0u ->
+    let crfd = getCondRegister (extract bin 25u 23u) |> OpReg
+    let IMM = extract bin 15u 12u |> uint64 |> Immediate
+    struct (Op.MTFSFI, TwoOperands (crfd, IMM))
+  | 0b1u when concat (extract bin 22u 16u) (pickBit bin 11u) 7 = 0u ->
+    let crfd = getCondRegister (extract bin 25u 23u) |> OpReg
+    let IMM = extract bin 15u 12u |> uint64 |> Immediate
+    struct (Op.MTFSFIdot, TwoOperands (crfd, IMM))
+  | _ -> Utils.impossible ()
+
+let parseFNABSx bin =
+  match pickBit bin 0u with
+  | 0b0u when extract bin 20u 16u = 0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FNABS, TwoOperands (frd, frb))
+  | 0b1u when extract bin 20u 16u = 0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FNABSdot, TwoOperands (frd, frb))
+  | _ -> Utils.impossible ()
+
+let parseFABSx bin =
+  match pickBit bin 0u with
+  | 0b0u when extract bin 20u 16u = 0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FABS, TwoOperands (frd, frb))
+  | 0b1u when extract bin 20u 16u = 0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.FABSdot, TwoOperands (frd, frb))
+  | _ -> Utils.impossible ()
+
+let parseMFFSx bin =
+  match pickBit bin 0u with
+  | 0b0u when extract bin 20u 11u = 0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    struct (Op.MFFS, OneOperand frd)
+  | 0b1u when extract bin 20u 11u = 0u ->
+    let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+    struct (Op.MFFSdot, OneOperand frd)
+  | _ -> Utils.impossible ()
+
+let parseMTFSFx bin =
+  match pickBit bin 0u with
+  | 0b0u when concat (pickBit bin 25u) (pickBit bin 16u) 1 = 0u ->
+    let fm = getFM (extract bin 24u 17u)
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.MTFSF, TwoOperands (fm, frb))
+  | 0b1u when concat (pickBit bin 25u) (pickBit bin 16u) 1 = 0u ->
+    let fm = getFM (extract bin 24u 17u)
+    let frb = getFPRegister (extract bin 15u 11u) |> OpReg
+    struct (Op.MTFSFdot, TwoOperands (fm, frb))
+  | _ -> Utils.impossible ()
+
+let parse3F bin =
+  match extract bin 5u 1u with
+  | 0x0u ->
+    if extract bin 10u 6u = 0u then parseFCMPU bin
+    elif extract bin 10u 6u = 1u then parseFCMPO bin
+    elif extract bin 10u 6u = 2u then parseMCRFS bin
+    else Utils.impossible ()
+  | 0x6u ->
+    /// (* FIX FPSCRegister *)
+    if extract bin 10u 6u = 1u then parseMTFSB1x bin
+    /// (* FIX FPSCRegister *)
+    elif extract bin 10u 6u = 2u then parseMTFSB0x bin
+    elif extract bin 10u 6u = 4u then parseMTFSFIx bin
+    else Utils.impossible ()
+  | 0x7u ->
+    if extract bin 10u 6u = 0x12u then parseMFFSx bin
+    elif extract bin 10u 6u = 0x16u then parseMTFSFx bin
+    else Utils.impossible ()
+  | 0x8u ->
+    if extract bin 10u 6u = 1u then parseFNEGx bin
+    elif extract bin 10u 6u = 2u then parseFMRx bin
+    elif extract bin 10u 6u = 4u then parseFNABSx bin
+    elif extract bin 10u 6u = 8u then parseFABSx bin
+    else Utils.impossible ()
+  | 0xCu when extract bin 10u 6u = 0u -> parseFRSPx bin
+  | 0xEu when extract bin 10u 6u = 0u -> parseFCTIWx bin
+  | 0xFu when extract bin 10u 6u = 0u -> parseFCTIWZx bin
+  | 0x12u when extract bin 10u 6u = 0u -> parseFDIVx bin
+  | 0x14u when extract bin 10u 6u = 0u -> parseFSUBx bin
+  | 0x15u when extract bin 10u 6u = 0u -> parseFADDx bin
+  | 0x16u when extract bin 10u 6u = 0u -> parseFSQRTx bin
+  | 0x17u -> parseFSELx bin
+  | 0x19u -> parseFMULx bin
+  | 0x1Au -> parseFRSQRTEx bin
+  | 0x1Cu -> parseFMSUBx bin
+  | 0x1Du -> parseFMADDx bin
+  | 0x1Eu -> parseFNMSUBx bin
+  | 0x1Fu -> parseFNMADDx bin
+  | 0x20u when extract bin 10u 6u = 0u -> parseFCMPO bin
+  | _ -> Utils.futureFeature ()
+
 let private parseInstruction bin =
   match extract bin 31u 26u with
   | 0x1Fu -> parse1F bin
+  | 0x3Fu -> parse3F bin
   | _ -> Utils.futureFeature ()
 
 let parse (reader: BinReader) addr pos =
