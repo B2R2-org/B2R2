@@ -30,8 +30,9 @@ open B2R2.FrontEnd.BinLifter.ARM32.ParseUtils
 open B2R2.FrontEnd.BinLifter.ARM32.OperandHelper
 
 type OprDesc =
+  /// A32/T16/T32 operands
   | OprNo = 0
-  | OprBankregRn = 1
+  | OprBankregRnA = 1
   | OprCoprocCRdMem = 2
   | OprCpOpc1CRdCRnCRmOpc2 = 3
   | OprCpOpc1RtCRnCRmOpc2 = 4
@@ -58,8 +59,8 @@ type OprDesc =
   | OprDdDnDmImm = 25
   | OprDdDnDmRotate = 26
   | OprDdDnDmx = 27
-  | OprDdImm = 28
-  | OprDdImm0 = 29
+  | OprDdImm0 = 28
+  | OprDdImmA = 29
   | OprDdLabel = 30
   | OprDdListDm = 31
   | OprDdmDdmFbits = 32
@@ -73,15 +74,15 @@ type OprDesc =
   | OprDdSnSmidx = 40
   | OprDdVImm = 41
   | OprDmRtRt2 = 42
-  | OprEndian = 43
-  | OprIflags = 44
-  | OprIflagsMode = 45
-  | OprImm1 = 46
-  | OprImm16 = 47
+  | OprEndianA = 43
+  | OprIflagsA = 44
+  | OprIflagsModeA = 45
+  | OprImm16A = 46
+  | OprImm1A = 47
   | OprImm24 = 48
-  | OprImm4 = 49
-  | OprLabel = 50
-  | OprLabel12 = 51
+  | OprImm4A = 49
+  | OprLabel12A = 50
+  | OprLabelA = 51
   | OprLabelH = 52
   | OprListMem = 53
   | OprListMem1 = 54
@@ -93,9 +94,9 @@ type OprDesc =
   | OprListMemC = 60
   | OprListMemD = 61
   | OprMemImm = 62
-  | OprMemReg = 63
+  | OprMemRegA = 63
   | OprMode = 64
-  | OprOption = 65
+  | OprOpt = 65
   | OprP14C5Label = 66
   | OprP14C5Mem = 67
   | OprP14C5Option = 68
@@ -108,7 +109,7 @@ type OprDesc =
   | OprQdDnDm = 75
   | OprQdDnDmidx = 76
   | OprQdDnDmx = 77
-  | OprQdImm = 78
+  | OprQdImmA = 78
   | OprQdQm = 79
   | OprQdQmFbits = 80
   | OprQdQmImm = 81
@@ -125,93 +126,201 @@ type OprDesc =
   | OprQdQnQmImm = 92
   | OprQdQnQmRotate = 93
   | OprQdRt = 94
-  | OprRdBankreg = 95
-  | OprRdConst = 96
+  | OprRdBankregA = 95
+  | OprRdConstA = 96
   | OprRdConstCF = 97
-  | OprRdImm16 = 98
-  | OprRdImmRn = 99
-  | OprRdImmRnShf = 100
-  | OprRdLabel = 101
-  | OprRdlRdhRnRm = 102
-  | OprRdLsbWidth = 103
-  | OprRdRm = 104
-  | OprRdRmImm = 105
-  | OprRdRmRn = 106
-  | OprRdRmROR = 107
-  | OprRdRmRs = 108
-  | OprRdRmShf = 109
-  | OprRdRmShfRs = 110
-  | OprRdRnConst = 111
-  | OprRdRnConstCF = 112
-  | OprRdRnLsbWidth = 113
-  | OprRdRnLsbWidthM1 = 114
-  | OprRdRnRm = 115
-  | OprRdRnRmOpt = 116
-  | OprRdRnRmRa = 117
-  | OprRdRnRmROR = 118
-  | OprRdRnRmShf = 119
-  | OprRdRnRmShfRs = 120
-  | OprRdRtMem = 121
-  | OprRdRtMemImm = 122
-  | OprRdRtRt2Mem = 123
-  | OprRdSPConst = 124
-  | OprRdSreg = 125
-  | OprRegs = 126
-  | OprRm = 127
-  | OprRn = 128
-  | OprRnConst = 129
-  | OprRnConstCF = 130
-  | OprRnDreglist = 131
-  | OprRnRegs = 132
-  | OprRnRegsCaret = 133
-  | OprRnRmShf = 134
-  | OprRnRmShfRs = 135
-  | OprRnSreglist = 136
-  | OprRtAMem = 137
-  | OprRtDn0 = 138
-  | OprRtDn1 = 139
-  | OprRtDn2 = 140
-  | OprRtDn3 = 141
-  | OprRtDn4 = 142
-  | OprRtDn5 = 143
-  | OprRtDn6 = 144
-  | OprRtDn7 = 145
-  | OprRtLabel = 146
-  | OprRtLabelHL = 147
-  | OprRtMem = 148
-  | OprRtMemImm = 149
-  | OprRtMemImm0 = 150
-  | OprRtMemImm12 = 151
-  | OprRtMemImm12P = 152
-  | OprRtMemImmP = 153
-  | OprRtMemReg = 154
-  | OprRtMemRegP = 155
-  | OprRtMemShf = 156
-  | OprRtMemShfP = 157
-  | OprRtRt2Dm = 158
-  | OprRtRt2Label = 159
-  | OprRtRt2Mem = 160
+  | OprRdImm16A = 98
+  | OprRdImmRnA = 99
+  | OprRdImmRnShfA = 100
+  | OprRdImmRnShfUA = 101
+  | OprRdLabelA = 102
+  | OprRdlRdhRnRmA = 103
+  | OprRdLsbWidthA = 104
+  | OprRdRm = 105
+  | OprRdRmImmA = 106
+  | OprRdRmRnA = 107
+  | OprRdRmRorA = 108
+  | OprRdRmRs = 109
+  | OprRdRmShf = 110
+  | OprRdRmShfRsA = 111
+  | OprRdRnConstA = 112
+  | OprRdRnConstCF = 113
+  | OprRdRnLsbWidthA = 114
+  | OprRdRnLsbWidthM1A = 115
+  | OprRdRnRm = 116
+  | OprRdRnRmOpt = 117
+  | OprRdRnRmRaA = 118
+  | OprRdRnRmRorA = 119
+  | OprRdRnRmShfA = 120
+  | OprRdRnRmShfRs = 121
+  | OprRdRtMemA = 122
+  | OprRdRtMemImmA = 123
+  | OprRdRtRt2MemA = 124
+  | OprRdSPConstA = 125
+  | OprRdSregA = 126
+  | OprRegs = 127
+  | OprRm = 128
+  | OprRn = 129
+  | OprRnConstA = 130
+  | OprRnConstCF = 131
+  | OprRnDreglist = 132
+  | OprRnRegsA = 133
+  | OprRnRegsCaret = 134
+  | OprRnRmShfA = 135
+  | OprRnRmShfRs = 136
+  | OprRnSreglist = 137
+  | OprRt15Mem = 138
+  | OprRtDn0 = 139
+  | OprRtDn1 = 140
+  | OprRtDn2 = 141
+  | OprRtDn3 = 142
+  | OprRtDn4 = 143
+  | OprRtDn5 = 144
+  | OprRtDn6 = 145
+  | OprRtDn7 = 146
+  | OprRtLabelA = 147
+  | OprRtLabelHL = 148
+  | OprRtMem = 149
+  | OprRtMemImm = 150
+  | OprRtMemImm0A = 151
+  | OprRtMemImm12A = 152
+  | OprRtMemImm12P = 153
+  | OprRtMemImmP = 154
+  | OprRtMemReg = 155
+  | OprRtMemRegP = 156
+  | OprRtMemShf = 157
+  | OprRtMemShfP = 158
+  | OprRtRt2Dm = 159
+  | OprRtRt2LabelA = 160
   | OprRtRt2Mem2 = 161
-  | OprRtRt2MemImm = 162
-  | OprRtRt2MemReg = 163
-  | OprRtRt2SmSm1 = 164
-  | OprRtSn = 165
-  | OprRtSreg = 166
-  | OprSdDm = 167
-  | OprSdImm0 = 168
-  | OprSdLabel = 169
-  | OprSdMem = 170
-  | OprSdmSdmFbits = 171
-  | OprSdSm = 172
-  | OprSdSnSm = 173
-  | OprSdVImm = 174
-  | OprSingleRegs = 175
-  | OprSmSm1RtRt2 = 176
-  | OprSnRt = 177
-  | OprSPMode = 178
-  | OprSregImm = 179
-  | OprSregRn = 180
-  | OprSregRt = 181
+  | OprRtRt2MemA = 162
+  | OprRtRt2MemImmA = 163
+  | OprRtRt2MemReg = 164
+  | OprRtRt2SmSm1 = 165
+  | OprRtSn = 166
+  | OprRtSreg = 167
+  | OprSdDm = 168
+  | OprSdImm0 = 169
+  | OprSdLabel = 170
+  | OprSdMem = 171
+  | OprSdmSdmFbits = 172
+  | OprSdSm = 173
+  | OprSdSnSm = 174
+  | OprSdVImm = 175
+  | OprSingleRegs = 176
+  | OprSmSm1RtRt2 = 177
+  | OprSnRt = 178
+  | OprSPMode = 179
+  | OprSregImm = 180
+  | OprSregRnA = 181
+  | OprSregRt = 182
+  | OprBankregRnT = 183
+  | OprCondition = 184
+  | OprDdDm0 = 185
+  | OprDdImmT = 186
+  | OprEndianT = 187
+  | OprIflagsModeT = 188
+  | OprIflagsT = 189
+  | OprImm16T = 190
+  | OprImm1T = 191
+  | OprImm4T = 192
+  | OprImm6 = 193
+  | OprImm8 = 194
+  | OprLabel12T = 195
+  | OprLabel8 = 196
+  | OprLabelT = 197
+  | OprLabelT2 = 198
+  | OprLabelT3 = 199
+  | OprLabelT4 = 200
+  | OprMemImm12 = 201
+  | OprMemImm8M = 202
+  | OprMemRegLSL = 203
+  | OprMemRegLSL1 = 204
+  | OprMemRegT = 205
+  | OprPCLRImm8 = 206
+  | OprQdImmT = 207
+  | OprQdQm0 = 208
+  | OprRdBankregT = 209
+  | OprRdConstT = 210
+  | OprRdImm16T = 211
+  | OprRdImm8 = 212
+  | OprRdImmRnShfT = 213
+  | OprRdImmRnShfUT = 214
+  | OprRdImmRnT = 215
+  | OprRdImmRnU = 216
+  | OprRdLabelT = 217
+  | OprRdlRdhRnRmT = 218
+  | OprRdLsbWidthT = 219
+  | OprRdmRdmASRRs = 220
+  | OprRdmRdmLSLRs = 221
+  | OprRdmRdmLSRRs = 222
+  | OprRdmRdmRORRs = 223
+  | OprRdmRnRdm = 224
+  | OprRdmSPRdm = 225
+  | OprRdnImm8 = 226
+  | OprRdnRdnRm = 227
+  | OprRdnRm = 228
+  | OprRdRmExt = 229
+  | OprRdRmImmT = 230
+  | OprRdRmRnT = 231
+  | OprRdRmRorT = 232
+  | OprRdRmShfRsT = 233
+  | OprRdRmShfT16 = 234
+  | OprRdRmShfT32 = 235
+  | OprRdRmT16 = 236
+  | OprRdRmT32 = 237
+  | OprRdRn0 = 238
+  | OprRdRn0T32 = 239
+  | OprRdRnConstT = 240
+  | OprRdRnImm12 = 241
+  | OprRdRnImm3 = 242
+  | OprRdRnLsbWidthM1T = 243
+  | OprRdRnLsbWidthT = 244
+  | OprRdRnRmRaT = 245
+  | OprRdRnRmRorT = 246
+  | OprRdRnRmShfT = 247
+  | OprRdRnRmT16 = 248
+  | OprRdRnRmT32 = 249
+  | OprRdRtMemImmT = 250
+  | OprRdRtMemT = 251
+  | OprRdRtRt2MemT = 252
+  | OprRdSPConstT = 253
+  | OprRdSPImm12 = 254
+  | OprRdSPImm8 = 255
+  | OprRdSPRmShf = 256
+  | OprRdSregT = 257
+  | OprRegsM = 258
+  | OprRegsP = 259
+  | OprRm16 = 260
+  | OprRm32 = 261
+  | OprRnConstT = 262
+  | OprRnLabel = 263
+  | OprRnRegsT = 264
+  | OprRnRegsW = 265
+  | OprRnRm = 266
+  | OprRnRmExt = 267
+  | OprRnRmShfT = 268
+  | OprRtLabel12 = 269
+  | OprRtLabelT = 270
+  | OprRtMemImm0T = 271
+  | OprRtMemImm1 = 272
+  | OprRtMemImm12T = 273
+  | OprRtMemImm2 = 274
+  | OprRtMemImm8 = 275
+  | OprRtMemImm8M = 276
+  | OprRtMemImm8P = 277
+  | OprRtMemImmPr = 278
+  | OprRtMemImmPs = 279
+  | OprRtMemReg16 = 280
+  | OprRtMemReg32 = 281
+  | OprRtMemRegLSL = 282
+  | OprRtMemSP = 283
+  | OprRtRt2LabelT = 284
+  | OprRtRt2MemImmT = 285
+  | OprRtRt2MemT = 286
+  | OprSPSPImm7 = 287
+  | OprSPSPRm = 288
+  | OprSregRnT = 289
 
 type OD = OprDesc
 
@@ -225,12 +334,11 @@ module OperandParsingHelper =
     loop value bits
 
   /// shared/functions/vector/AdvSIMDExpandImm on page J1-7926.
-  let advSIMDExpandImm bin =
+  let advSIMDExpandImm bin i =
     let cmode = extract bin 11 8
     let cmode0 = pickBit cmode 0 (* cmode<0> *)
     let op = pickBit bin 5
-    let imm8 =
-      (pickBit bin 24 <<< 7) + (extract bin 18 16 <<< 4) + (extract bin 3 0)
+    let imm8 = (i <<< 7) + (extract bin 18 16 <<< 4) + (extract bin 3 0)
     match extract cmode 3 1 (* cmode<3:1> *) with
     | 0b000u -> replicate (imm8 |> int64) (* Zeros(24):imm8 *) 32 64<rt>
     | 0b001u ->
@@ -306,15 +414,14 @@ module OperandParsingHelper =
     else (value <<< (32 - rotation)) ||| (value >>> rotation)
 
   /// shared/functions/common/SignExtend on page J1-7849.
-  let signExtend bits =
-    bits |> uint64 |> signExtend 26 32 |> System.Convert.ToInt64 |> memLabel
+  let signExtend bitSize (bits: uint32) =
+    bits |> uint64 |> signExtend bitSize 32 |> System.Convert.ToInt64 |> memLabel
 
   /// shared/functions/common/BitCount on page J1-7845.
-  let bitCount bin =
-    let regList = extract bin 15 0
+  let bitCount bits len =
     let rec loop cnt idx =
-      if idx > 15 then cnt
-      elif ((regList >>> idx) &&& 0b1u) = 1u then loop (cnt + 1) (idx + 1)
+      if idx > len then cnt
+      elif ((bits >>> idx) &&& 0b1u) = 1u then loop (cnt + 1) (idx + 1)
       else loop cnt (idx + 1)
     loop 0 0
 
@@ -325,7 +432,7 @@ module OperandParsingHelper =
      U8  when U = 1, size = 00
      U16 when U = 1, size = 01
      U32 when U = 1, size = 10 *)
-  let getDT bin =
+  let getDtA bin =
     match concat (pickBit bin 24) (extract bin 21 20) 2 (* U:size *) with
     | 0b000u -> SIMDTypS8
     | 0b001u -> SIMDTypS16
@@ -384,7 +491,7 @@ module OperandParsingHelper =
      16 when L = 0, imm6<5:3> = 01x
      32 when L = 0, imm6<5:3> = 1xx
      64 when L = 1, imm6<5:3> = xxx *)
-  let getDTLImm bin =
+  let getDTLImmA bin =
     let isSign = pickBit bin 24 (* U *) = 0u
     match concat (pickBit bin 7) (extract bin 21 19) 3 (* L:imm6<5:3> *) with
     | 0b0000u -> raise ParsingFailureException
@@ -401,7 +508,7 @@ module OperandParsingHelper =
      U8 when  U = 1, imm3H = 001
      U16 when U = 1, imm3H = 010
      U32 when U = 1, imm3H = 100 *)
-  let getDTUImm3H bin =
+  let getDTUImm3hA bin =
     match concat (pickBit bin 24) (extract bin 21 19) 3 (* U:imm3H *) with
     | 0b0001u -> SIMDTypS8
     | 0b0010u -> SIMDTypS16
@@ -435,7 +542,7 @@ module OperandParsingHelper =
     | _ (* 111 *) -> SIMDTypU64
     |> oneDt
 
-  let getDTImm6Word bin =
+  let getDTImm6WordA bin =
     let isSign = pickBit bin 24 (* U *) = 0u
     match extract bin 21 19 (* imm6<5:3> *) with
     | 0b000u -> raise ParsingFailureException
@@ -444,7 +551,7 @@ module OperandParsingHelper =
     | _ (* 1xx *) -> if isSign then SIMDTypS64 else SIMDTypU64
     |> oneDt
 
-  let getDTImm6Byte bin =
+  let getDTImm6ByteA bin =
     let isSign = pickBit bin 24 (* U *) = 0u
     match extract bin 21 19 (* imm6<5:3> *) with
     | 0b000u -> raise ParsingFailureException
@@ -614,6 +721,219 @@ module OperandParsingHelper =
   (* (m != 15) *)
   let wbackM bin = extract bin 3 0 <> 15u
 
+  /// Thumb operands
+  let updateITSTATE (itstate: byref<byte list>) =
+    itstate <- List.tail itstate
+
+  let getCondWithITSTATE itstate =
+    match List.tryHead itstate with
+    | Some st -> st |> parseCond |> Some
+    | None -> Condition.AL |> Some
+
+  /// aarch32/functions/common/T32ExpandImm_C on page J1-7767.
+  // T32ExpandImm_C()
+  // ================
+  /// Modified immediate constants in A32 inOprInfoions on page F2-4135.
+  let t32ExpandImm imm12 = (* _carryIn = *)
+    if extract imm12 11 10 = 0b00u then
+      let imm8 = extract imm12 7 0 (* imm12<7:0> *)
+      let imm32 =
+        match extract imm12 9 8 with
+        | 0b00u -> imm8
+        | 0b01u -> (imm8 <<< 16) + imm8
+        | 0b10u -> (imm8 <<< 24) + (imm8 <<< 8)
+        | _ (* 11 *) -> (imm8<<< 24) + (imm8 <<< 16) + (imm8 <<< 8) + imm8
+      (* OprInfo (imm32, carryIn) *) /// FIMXE: carry = PSTATE.C
+      imm32
+    else
+      let value = (1u <<< 7) + (extract imm12 6 0)
+      let rotation = (extract imm12 11 7) % 32u |> int
+      let imm32 =
+        if rotation = 0 then value
+        else (value >>> rotation) ||| (value <<< (32 - rotation))
+      let _carryOut = pickBit imm32 (32 - 1)
+      (* OprInfo (imm32, carryOut) *) /// FIMXE: carry = PSTATE.C
+      imm32
+
+  (* W == '1' *)
+  let wbackW8 bin = pickBit bin 8 = 0b1u
+
+  (* S8  when U = 0, size = 00
+     S16 when U = 0, size = 01
+     S32 when U = 0, size = 10
+     U8  when U = 1, size = 00
+     U16 when U = 1, size = 01
+     U32 when U = 1, size = 10 *)
+  let getDtT bin = (* FIXME: Integration with ARM32 *)
+    match concat (pickBit bin 28) (extract bin 21 20) 2 (* U:size *) with
+    | 0b000u -> SIMDTypS8
+    | 0b001u -> SIMDTypS16
+    | 0b010u -> SIMDTypS32
+    | 0b100u -> SIMDTypU8
+    | 0b101u -> SIMDTypU16
+    | 0b110u -> SIMDTypU32
+    | _ -> Utils.impossible ()
+
+  (* U16 when size = 01
+     U32 when size = 10 *)
+  let getDTUSign = function (* [21:20] *)
+    | 0b01u -> SIMDTypU16
+    | 0b10u -> SIMDTypU32
+    | _ -> raise UndefinedException
+
+  (* 8 when  L = 0, imm6<5:3> = 001
+     16 when L = 0, imm6<5:3> = 01x
+     32 when L = 0, imm6<5:3> = 1xx
+     64 when L = 1, imm6<5:3> = xxx *)
+  let getDTLImmT bin = (* FIXME: Integration with ARM32 *)
+    let isSign = pickBit bin 28 (* U *) = 0u
+    match concat (pickBit bin 7) (extract bin 21 19) 3 (* L:imm6<5:3> *) with
+    | 0b0000u -> Utils.impossible ()
+    | 0b0001u -> if isSign then SIMDTypS8 else SIMDTypU16
+    | 0b0010u | 0b0011u -> if isSign then SIMDTypS16 else SIMDTypU16
+    | 0b0100u | 0b0101u | 0b0110u | 0b0111u ->
+      if isSign then SIMDTypS32 else SIMDTypU32
+    | _ (* 1xxx *) -> if isSign then SIMDTypS64 else SIMDTypU64
+    |> oneDt
+
+  (* S8 when  U = 0, imm3H = 001
+     S16 when U = 0, imm3H = 010
+     S32 when U = 0, imm3H = 100
+     U8 when  U = 1, imm3H = 001
+     U16 when U = 1, imm3H = 010
+     U32 when U = 1, imm3H = 100 *)
+  let getDTUImm3hT bin = (* FIXME: Integration with ARM32 *)
+    match concat (pickBit bin 28) (extract bin 21 19) 3 (* U:imm3H *) with
+    | 0b0001u -> SIMDTypS8
+    | 0b0010u -> SIMDTypS16
+    | 0b0100u -> SIMDTypS32
+    | 0b1001u -> SIMDTypU8
+    | 0b1010u -> SIMDTypU16
+    | 0b1100u -> SIMDTypU32
+    | _ -> Utils.impossible ()
+    |> oneDt
+
+  (* S when U = 0
+     U when U = 1
+     16 when imm6<5:3> = 001
+     32 when imm6<5:3> = 01x
+     64 when imm6<5:3> = 1xx *)
+  let getDTImm6WordT bin = (* FIXME: Integration with ARM32 *)
+    let isSign = pickBit bin 28 (* U *) = 0u
+    match extract bin 21 19 (* imm6<5:3> *) with
+    | 0b000u -> Utils.impossible ()
+    | 0b001u -> if isSign then SIMDTypS16 else SIMDTypU16
+    | 0b010u | 0b011u (* 01x *) -> if isSign then SIMDTypS32 else SIMDTypU32
+    | _ (* 1xx *) -> if isSign then SIMDTypS64 else SIMDTypU64
+    |> oneDt
+
+  let getDTImm6ByteT bin = (* FIXME: Integration with ARM32 *)
+    let isSign = pickBit bin 28 (* U *) = 0u
+    match extract bin 21 19 (* imm6<5:3> *) with
+    | 0b000u -> Utils.impossible ()
+    | 0b001u -> if isSign then SIMDTypS8 else SIMDTypU8
+    | 0b010u | 0b011u (* 01x *) -> if isSign then SIMDTypS16 else SIMDTypU16
+    | _ (* 1xx *) -> if isSign then SIMDTypS32 else SIMDTypU32
+    |> oneDt
+
+  let getDTPoly b =
+    (* op:U:size *)
+    match (pickBit b 9 <<< 3) + (pickBit b 28 <<< 2) + (extract b 21 20) with
+    | 0b0000u -> SIMDTypS8
+    | 0b0001u -> SIMDTypS16
+    | 0b0010u -> SIMDTypS32
+    | 0b0100u -> SIMDTypU8
+    | 0b0101u -> SIMDTypU16
+    | 0b0110u -> SIMDTypU32
+    | 0b1000u -> SIMDTypP8
+    | 0b1010u -> SIMDTypP64
+    | _ -> raise UndefinedException
+
+  let getDTFP bin =
+    match extract bin 9 8 (* size *) with
+    | 0b00u -> raise UndefinedException
+    | 0b01u -> SIMDTypF16
+    | 0b10u -> SIMDTypF32
+    | _ (* 11 *) -> SIMDTypF64
+    |> oneDt
+
+  /// Data types: FP, sign, unsign
+  let getDTFSU bin =
+    match extract bin 9 7 (* size:op *) with
+    | 0b000u | 0b001u -> raise UndefinedException
+    | 0b010u -> SIMDTypF16, SIMDTypU32
+    | 0b011u -> SIMDTypF16, SIMDTypS32
+    | 0b100u -> SIMDTypF32, SIMDTypU32
+    | 0b101u -> SIMDTypF32, SIMDTypS32
+    | 0b110u -> SIMDTypF64, SIMDTypU32
+    | _ (* 111 *) -> SIMDTypF64, SIMDTypS32
+    |> twoDt
+
+  let getDTOpU bin =
+    let opU = concat (extract bin 9 8) (pickBit bin 28) 1 (* op:U *)
+    let dt1 =
+      match opU with
+      | 0b000u | 0b001u (* 00x *) -> SIMDTypF16
+      | 0b010u -> SIMDTypS16
+      | 0b011u -> SIMDTypU16
+      | 0b100u | 0b101u (* 10x *) -> SIMDTypF32
+      | 0b110u -> SIMDTypS32
+      | _ (* 111 *) -> SIMDTypU32
+    let dt2 =
+      match opU with
+      | 0b000u -> SIMDTypS16
+      | 0b001u -> SIMDTypU16
+      | 0b010u | 0b011u (* 01x *) -> SIMDTypF16
+      | 0b100u -> SIMDTypS32
+      | 0b101u -> SIMDTypU32
+      | _ (* 11x *) -> SIMDTypF32
+    twoDt (dt1, dt2)
+
+
+  let inverseCond cond =
+    (cond &&& 0xeuy) ||| ((~~~ cond) &&& 0b1uy)
+
+  let getITOpcodeWithX cond x =
+    let invCond = inverseCond cond
+    if x then Op.ITT, [ cond; cond ] else Op.ITE, [ cond; invCond ]
+
+  let getITOpcodeWithXY cond x y =
+    let invCond = inverseCond cond
+    match x, y with
+    | true, true -> Op.ITTT, [ cond; cond; cond ]
+    | true, false -> Op.ITTE, [ cond; cond; invCond ]
+    | false, true -> Op.ITET, [ cond; invCond; cond ]
+    | false, false -> Op.ITEE, [ cond; invCond; invCond ]
+
+  let getITOpcodeWithXYZ cond x y z =
+    let invCond = inverseCond cond
+    match x, y, z with
+    | true, true, true -> Op.ITTTT, [ cond; cond; cond; cond ]
+    | true, true, false -> Op.ITTTE, [ cond; cond; cond; invCond ]
+    | true, false, true -> Op.ITTET, [ cond; cond; invCond; cond ]
+    | true, false, false -> Op.ITTEE, [ cond; cond; invCond; invCond ]
+    | false, true, true -> Op.ITETT, [ cond; invCond; cond; cond ]
+    | false, true, false -> Op.ITETE, [ cond; invCond; cond; invCond ]
+    | false, false, true -> Op.ITEET, [ cond; invCond; invCond; cond ]
+    | false, false, false -> Op.ITEEE, [ cond; invCond; invCond; invCond ]
+
+  let getIT fstCond cond mask =
+    let mask0 = pickBit mask 0
+    let mask1 = pickBit mask 1
+    let mask2 = pickBit mask 2
+    let mask3 = pickBit mask 3
+    let x = fstCond = pickBit mask 3
+    let y = fstCond = pickBit mask 2
+    let z = fstCond = pickBit mask 1
+    let opcode, itState =
+      match mask3, mask2, mask1, mask0 with
+      | 0b1u, 0b0u, 0b0u, 0b0u -> Op.IT, [ cond ]
+      | _, 0b1u, 0b0u, 0b0u -> getITOpcodeWithX cond x
+      | _, _, 0b1u, 0b0u -> getITOpcodeWithXY cond x y
+      | _, _, _, 0b1u -> getITOpcodeWithXYZ cond x y z
+      | _ -> failwith "Wrong opcode in IT instruction"
+    opcode, itState
+
 open OperandParsingHelper
 
 type OprInfo (oprs, wback, cflags) =
@@ -650,7 +970,6 @@ and ParsingHelper (arch, mode, bin, rd, addr, oprs, len, cond) =
 type internal OprNo () =
   inherit OperandParser ()
   override __.Render _ =
-    ///NoOperand
     OprInfo (NoOperand, false, None)
 
 (* <Rn>{!} *)
@@ -659,7 +978,6 @@ type internal OprRn () =
   override __.Render bin =
     let rn = extract bin 19 16 |> getRegister |> OprReg
     OprInfo (OneOperand rn, wbackW bin, None)
-    ///OneOperand rn
 
 (* <Rm> *)
 type internal OprRm () =
@@ -667,7 +985,6 @@ type internal OprRm () =
   override __.Render bin =
     let rm = extract bin 3 0 |> getRegister |> OprReg
     OprInfo (OneOperand rm, false, None)
-    ///OneOperand rm
 
 (* [<Rn> {, #{+/-}<imm>}] *)
 type internal OprMemImm () =
@@ -682,11 +999,10 @@ type internal OprMemImm () =
       | 0b11u -> memPreIdxImm  (rn, sign, Some imm12)
       | _ (* 0b0xu *) -> memPostIdxImm (rn, sign, Some imm12)
     OprInfo (OneOperand mem, false, None)
-    ///OneOperand mem
 
 (* [<Rn>, {+/-}<Rm> , RRX] *)
 (* [<Rn>, {+/-}<Rm> {, <shift> #<amount>}] *)
-type internal OprMemReg () =
+type internal OprMemRegA () =
   inherit OperandParser ()
   override __.Render bin =
     let mem =
@@ -698,65 +1014,57 @@ type internal OprMemReg () =
       let sign = pickBit bin 23 |> getSign |> Some
       memOffsetReg (rn, sign, rm, shiftOffset)
     OprInfo (OneOperand mem, false, None)
-    ///OneOperand mem
 
 (* {#}<imm> *)
-type internal OprImm16 () =
+type internal OprImm16A () =
   inherit OperandParser ()
   override __.Render bin =
     let imm = concat (extract bin 19 8) (extract bin 3 0) 4 |> int64 |> OprImm
     OprInfo (OneOperand imm, false, None)
-    ///OneOperand imm
 
 (* {#}<imm> *)
 type internal OprImm24 () =
   inherit OperandParser ()
   override __.Render bin =
     OprInfo (extract bin 23 0 |> int64 |> OprImm |> OneOperand, false, None)
-    ///extract bin 23 0 |> int64 |> OprImm |> OneOperand
 
 (* {#}<imm4> *)
-type internal OprImm4 () =
+type internal OprImm4A () =
   inherit OperandParser ()
   override __.Render bin =
     OprInfo (extract bin 3 0 |> int64 |> OprImm |> OneOperand, false, None)
-    ///extract bin 3 0 |> int64 |> OprImm |> OneOperand
 
 (* #<imm> *)
-type internal OprImm1 () =
+type internal OprImm1A () =
   inherit OperandParser ()
   override __.Render bin =
     OprInfo (pickBit bin 9 |> int64 |> OprImm |> OneOperand, false, None)
-    ///pickBit bin 9 |> int64 |> OprImm |> OneOperand
 
 (* [<Rn> {, #{+/-}<imm>}]
    <label> Normal form
    [PC, #{+/-}<imm>] Alternative form *)
-type internal OprLabel12 () =
+type internal OprLabel12A () =
   inherit OperandParser ()
   override __.Render bin =
     let imm12 = extract bin 11 0 |> int64
     let label =
       if pickBit bin 23 = 1u then memLabel imm12 else memLabel (imm12 * -1L)
     OprInfo (OneOperand label, false, None)
-    ///OneOperand label
 
 (* <label> *)
-type internal OprLabel () =
+type internal OprLabelA () =
   inherit OperandParser ()
   override __.Render bin =
-    let label = extract bin 23 0 <<< 2 |> signExtend
+    let label = extract bin 23 0 <<< 2 |> signExtend 26
     OprInfo (OneOperand label, false, None)
-    ///OneOperand label
 
 (* <label> *)
 type internal OprLabelH () =
   inherit OperandParser ()
   override __.Render bin =
     let label =
-      (concat (extract bin 23 0) (pickBit bin 24) 1) <<< 1 |> signExtend
+      (concat (extract bin 23 0) (pickBit bin 24) 1) <<< 1 |> signExtend 26
     OprInfo (OneOperand label, false, None)
-    ///OneOperand label
 
 (* {<option>} *)
 type internal OprOpt () =
@@ -764,15 +1072,13 @@ type internal OprOpt () =
   override __.Render bin =
     let option = extract bin 3 0 |> getOption |> OprOption
     OprInfo (OneOperand option, false, None)
-    ///OneOperand option
 
 (* <endian_specifier> *)
-type internal OprEnd () =
+type internal OprEndianA () =
   inherit OperandParser ()
   override __.Render bin =
     let endian = pickBit bin 9 |> byte |> getEndian |> OprEndian
     OprInfo (OneOperand endian, false, None)
-    ///OneOperand endian
 
 (* <registers> *)
 type internal OprRegs () =
@@ -780,7 +1086,6 @@ type internal OprRegs () =
   override __.Render bin =
     let regs = extract bin 15 0 |> getRegList |> OprRegList
     OprInfo (OneOperand regs, false, None)
-    ///OneOperand regs
 
 (* <single_register_list> *)
 type internal OprSingleRegs () =
@@ -788,21 +1093,18 @@ type internal OprSingleRegs () =
   override __.Render bin =
     let regs = OprRegList [ extract bin 15 12 |> getRegister ]
     OprInfo (OneOperand regs, wback bin, None)
-    ///OneOperand regs
 
 (* #<mode> *)
 type internal OprMode () =
   inherit OperandParser ()
   override __.Render bin =
     OprInfo (OneOperand (extract bin 4 0 |> int64 |> OprImm), false, None)
-    ///OneOperand (extract bin 4 0 |> int64 |> OprImm)
 
 (* <iflags> *)
-type internal OprIflags () =
+type internal OprIflagsA () =
   inherit OperandParser ()
   override __.Render bin =
     OprInfo (OneOperand (OprIflag (getIflag (extract bin 8 6))), false, None)
-    ///OneOperand (OprIflag (getIflag (extract bin 8 6)))
 
 (* <Rd>, <Rm> *)
 type internal OprRdRm () =
@@ -811,7 +1113,6 @@ type internal OprRdRm () =
     let rd = extract bin 15 12 |> getRegister |> OprReg
     let rm = extract bin 3 0 |> getRegister |> OprReg
     OprInfo (TwoOperands (rd, rm), false, None)
-    ///TwoOperands (rd, rm)
 
 (* <Sd>, <Sm> *)
 type internal OprSdSm () =
@@ -822,7 +1123,6 @@ type internal OprSdSm () =
     let sm = (* Vm:M *)
       concat (extract bin 3 0) (pickBit bin 5) 1 |> getVecSReg |> toSVReg
     OprInfo (TwoOperands (sd, sm), false, None)
-    ///TwoOperands (sd, sm)
 
 (* <Dd>, <Dm> *)
 type internal OprDdDm () =
@@ -833,7 +1133,6 @@ type internal OprDdDm () =
     let dm = (* M:Vm *)
       concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecDReg |> toSVReg
     OprInfo (TwoOperands (dd, dm), false, None)
-    ///TwoOperands (dd, dm)
 
 (* <Dd>, <Sm> *)
 type internal OprDdSm () =
@@ -844,7 +1143,6 @@ type internal OprDdSm () =
     let sm = (* Vm:M *)
       concat (extract bin 3 0) (pickBit bin 5) 1 |> getVecSReg |> toSVReg
     OprInfo (TwoOperands (dd, sm), false, None)
-    ///TwoOperands (dd, sm)
 
 (* <Sd>, <Dm> *)
 type internal OprSdDm () =
@@ -855,7 +1153,6 @@ type internal OprSdDm () =
     let dm = (* M:Vm *)
       concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecDReg |> toSVReg
     OprInfo (TwoOperands (sd, dm), false, None)
-    ///TwoOperands (sd, dm)
 
 (* <Sn>, <Rt> *)
 type internal OprSnRt () =
@@ -865,7 +1162,6 @@ type internal OprSnRt () =
       concat (extract bin 19 16) (pickBit bin 7) 1 |> getVecSReg |> toSVReg
     let rt = extract bin 15 12 |> getRegister |> OprReg
     OprInfo (TwoOperands (sn, rt), false, None)
-    ///TwoOperands (sn, rt)
 
 (* <Rt>, <Sn> *)
 type internal OprRtSn () =
@@ -875,7 +1171,6 @@ type internal OprRtSn () =
     let sn = (* Vn:N *)
       concat (extract bin 19 16) (pickBit bin 7) 1 |> getVecSReg |> toSVReg
     OprInfo (TwoOperands (rt, sn), false, None)
-    ///TwoOperands (rt, sn)
 
 (* <Qd>, <Qm> *)
 type internal OprQdQm () =
@@ -886,7 +1181,6 @@ type internal OprQdQm () =
     let qm = (* M:Vm *)
       concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecQReg |> toSVReg
     OprInfo (TwoOperands (qd, qm), false, None)
-    ///TwoOperands (qd, qm)
 
 (* <Dd>, <Qm> *)
 type internal OprDdQm () =
@@ -897,7 +1191,6 @@ type internal OprDdQm () =
     let qm = (* M:Vm *)
       concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecQReg |> toSVReg
     OprInfo (TwoOperands (dd, qm), false, None)
-    ///TwoOperands (dd, qm)
 
 (* <Qd>, <Dm> *)
 type internal OprQdDm () =
@@ -908,7 +1201,6 @@ type internal OprQdDm () =
     let dm = (* M:Vm *)
       concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecDReg |> toSVReg
     OprInfo (TwoOperands (qd, dm), false, None)
-    ///TwoOperands (qd, dm)
 
 (* <spec_reg>, <Rt> *)
 type internal OprSregRt () =
@@ -916,7 +1208,6 @@ type internal OprSregRt () =
   override __.Render bin =
     let rt = extract bin 15 12 |> getRegister |> OprReg
     OprInfo (TwoOperands (OprReg R.FPSCR, rt), false, None)
-    ///TwoOperands (OprReg R.FPSCR, rt) /// FIXME: spec_reg
 
 (* <Rt>, <spec_reg> *)
 type internal OprRtSreg () =
@@ -924,10 +1215,9 @@ type internal OprRtSreg () =
   override __.Render bin =
     let rt = extract bin 15 12 |> getRegister |> OprReg
     OprInfo (TwoOperands (rt, OprReg R.FPSCR), false, None)
-    ///TwoOperands (rt, OprReg R.FPSCR) /// FIXME: spec_reg
 
 (* <Rd>, <spec_reg> *)
-type internal OprRdSreg () =
+type internal OprRdSregA () =
   inherit OperandParser ()
   override __.Render bin =
     let rd = extract bin 15 12 |> getRegister |> OprReg
@@ -935,10 +1225,9 @@ type internal OprRdSreg () =
       if pickBit bin 22 = 1u then R.SPSR else R.APSR (* or CPSR *)
       |> uint |> getRegister |> OprReg
     OprInfo (TwoOperands (rd, sreg), false, None)
-    ///TwoOperands (rd, sreg)
 
 (* <spec_reg>, <Rn> *)
-type internal OprSregRn () =
+type internal OprSregRnA () =
   inherit OperandParser ()
   override __.Render bin =
     let struct (sreg, flag) = (* FIXME: F5-4583 *)
@@ -946,10 +1235,9 @@ type internal OprSregRn () =
       else getAPSR (extract bin 19 18 (* mask<3:2> *)) (* or CPSR *)
     let rn = extract bin 3 0 |> getRegister |> OprReg
     OprInfo (TwoOperands (OprSpecReg (sreg, flag), rn), false, None)
-    ///TwoOperands (OprSpecReg (sreg, flag), rn)
 
 (* <Rd>, <banked_reg> *)
-type internal OprRdBankreg () =
+type internal OprRdBankregA () =
   inherit OperandParser ()
   override __.Render bin =
     let rd = extract bin 15 12 |> getRegister |> OprReg
@@ -957,10 +1245,9 @@ type internal OprRdBankreg () =
       concat (pickBit bin 8) (extract bin 19 16) 4
       |> getBankedReg (pickBit bin 22) |> OprReg
     OprInfo (TwoOperands (rd, breg), false, None)
-    ///TwoOperands (rd, breg)
 
 (* <banked_reg>, <Rn> *)
-type internal OprBankregRn () =
+type internal OprBankregRnA () =
   inherit OperandParser ()
   override __.Render bin =
     let breg =
@@ -968,7 +1255,6 @@ type internal OprBankregRn () =
       |> getBankedReg (pickBit bin 22) |> OprReg
     let rn = extract bin 3 0 |> getRegister |> OprReg
     OprInfo (TwoOperands (breg, rn), false, None)
-    ///TwoOperands (breg, rn)
 
 (* <Dd[x]>, <Rt> *)
 type internal OprDd0Rt () =
@@ -978,7 +1264,6 @@ type internal OprDd0Rt () =
     let dd0 = toSSReg (d |> getVecDReg, Some 0uy)
     let rt = extract bin 15 12 |> getRegister |> OprReg
     OprInfo (TwoOperands (dd0, rt), false, None)
-    ///TwoOperands (dd0, rt)
 
 type internal OprDd1Rt () =
   inherit OperandParser ()
@@ -987,7 +1272,6 @@ type internal OprDd1Rt () =
     let dd1 = toSSReg (d |> getVecDReg, Some 1uy)
     let rt = extract bin 15 12 |> getRegister |> OprReg
     OprInfo (TwoOperands (dd1, rt), false, None)
-    ///TwoOperands (dd1, rt)
 
 type internal OprDd2Rt () =
   inherit OperandParser ()
@@ -996,7 +1280,6 @@ type internal OprDd2Rt () =
     let dd2 = toSSReg (d |> getVecDReg, Some 2uy)
     let rt = extract bin 15 12 |> getRegister |> OprReg
     OprInfo (TwoOperands (dd2, rt), false, None)
-    ///TwoOperands (dd2, rt)
 
 type internal OprDd3Rt () =
   inherit OperandParser ()
@@ -1005,7 +1288,6 @@ type internal OprDd3Rt () =
     let dd3 = toSSReg (d |> getVecDReg, Some 3uy)
     let rt = extract bin 15 12 |> getRegister |> OprReg
     OprInfo (TwoOperands (dd3, rt), false, None)
-    ///TwoOperands (dd3, rt)
 
 type internal OprDd4Rt () =
   inherit OperandParser ()
@@ -1014,7 +1296,6 @@ type internal OprDd4Rt () =
     let dd4 = toSSReg (d |> getVecDReg, Some 4uy)
     let rt = extract bin 15 12 |> getRegister |> OprReg
     OprInfo (TwoOperands (dd4, rt), false, None)
-    ///TwoOperands (dd4, rt)
 
 type internal OprDd5Rt () =
   inherit OperandParser ()
@@ -1023,7 +1304,6 @@ type internal OprDd5Rt () =
     let dd5 = toSSReg (d |> getVecDReg, Some 5uy)
     let rt = extract bin 15 12 |> getRegister |> OprReg
     OprInfo (TwoOperands (dd5, rt), false, None)
-    ///TwoOperands (dd5, rt)
 
 type internal OprDd6Rt () =
   inherit OperandParser ()
@@ -1032,7 +1312,6 @@ type internal OprDd6Rt () =
     let dd6 = toSSReg (d |> getVecDReg, Some 6uy)
     let rt = extract bin 15 12 |> getRegister |> OprReg
     OprInfo (TwoOperands (dd6, rt), false, None)
-    ///TwoOperands (dd6, rt)
 
 type internal OprDd7Rt () =
   inherit OperandParser ()
@@ -1041,7 +1320,6 @@ type internal OprDd7Rt () =
     let dd7 = toSSReg (d |> getVecDReg, Some 7uy)
     let rt = extract bin 15 12 |> getRegister |> OprReg
     OprInfo (TwoOperands (dd7, rt), false, None)
-    ///TwoOperands (dd7, rt)
 
 (* <Rt>, <Dn[x]> *)
 type internal OprRtDn0 () =
@@ -1051,7 +1329,6 @@ type internal OprRtDn0 () =
     let n = concat (pickBit bin 7) (extract bin 19 16) 4 (* N:Vn *)
     let dn0 = toSSReg (n |> getVecDReg, Some 0uy)
     OprInfo (TwoOperands (rt, dn0), false, None)
-    ///TwoOperands (rt, dn0)
 
 type internal OprRtDn1 () =
   inherit OperandParser ()
@@ -1060,7 +1337,6 @@ type internal OprRtDn1 () =
     let n = concat (pickBit bin 7) (extract bin 19 16) 4 (* N:Vn *)
     let dn1 = toSSReg (n |> getVecDReg, Some 1uy)
     OprInfo (TwoOperands (rt, dn1), false, None)
-    ///TwoOperands (rt, dn1)
 
 type internal OprRtDn2 () =
   inherit OperandParser ()
@@ -1069,7 +1345,6 @@ type internal OprRtDn2 () =
     let n = concat (pickBit bin 7) (extract bin 19 16) 4 (* N:Vn *)
     let dn2 = toSSReg (n |> getVecDReg, Some 2uy)
     OprInfo (TwoOperands (rt, dn2), false, None)
-    ///TwoOperands (rt, dn2)
 
 type internal OprRtDn3 () =
   inherit OperandParser ()
@@ -1078,7 +1353,6 @@ type internal OprRtDn3 () =
     let n = concat (pickBit bin 7) (extract bin 19 16) 4 (* N:Vn *)
     let dn3 = toSSReg (n |> getVecDReg, Some 3uy)
     OprInfo (TwoOperands (rt, dn3), false, None)
-    ///TwoOperands (rt, dn3)
 
 type internal OprRtDn4 () =
   inherit OperandParser ()
@@ -1087,7 +1361,6 @@ type internal OprRtDn4 () =
     let n = concat (pickBit bin 7) (extract bin 19 16) 4 (* N:Vn *)
     let dn4 = toSSReg (n |> getVecDReg, Some 4uy)
     OprInfo (TwoOperands (rt, dn4), false, None)
-    ///TwoOperands (rt, dn4)
 
 type internal OprRtDn5 () =
   inherit OperandParser ()
@@ -1096,7 +1369,6 @@ type internal OprRtDn5 () =
     let n = concat (pickBit bin 7) (extract bin 19 16) 4 (* N:Vn *)
     let dn5 = toSSReg (n |> getVecDReg, Some 5uy)
     OprInfo (TwoOperands (rt, dn5), false, None)
-    ///TwoOperands (rt, dn5)
 
 type internal OprRtDn6 () =
   inherit OperandParser ()
@@ -1105,7 +1377,6 @@ type internal OprRtDn6 () =
     let n = concat (pickBit bin 7) (extract bin 19 16) 4 (* N:Vn *)
     let dn6 = toSSReg (n |> getVecDReg, Some 6uy)
     OprInfo (TwoOperands (rt, dn6), false, None)
-    ///TwoOperands (rt, dn6)
 
 type internal OprRtDn7 () =
   inherit OperandParser ()
@@ -1114,7 +1385,6 @@ type internal OprRtDn7 () =
     let n = concat (pickBit bin 7) (extract bin 19 16) 4 (* N:Vn *)
     let dn7 = toSSReg (n |> getVecDReg, Some 7uy)
     OprInfo (TwoOperands (rt, dn7), false, None)
-    ///TwoOperands (rt, dn7)
 
 (* <Qd>, <Rt> *)
 type internal OprQdRt () =
@@ -1124,7 +1394,6 @@ type internal OprQdRt () =
       concat (pickBit bin 7) (extract bin 19 16) 4 |> getVecQReg |> toSVReg
     let rt = extract bin 15 12 |> getRegister |> OprReg
     OprInfo (TwoOperands (qd, rt), false, None)
-    ///TwoOperands (qd, rt)
 
 (* <Dd>, <Rt> *)
 type internal OprDdRt () =
@@ -1134,7 +1403,6 @@ type internal OprDdRt () =
       concat (pickBit bin 7) (extract bin 19 16) 4 |> getVecDReg |> toSVReg
     let rt = extract bin 15 12 |> getRegister |> OprReg
     OprInfo (TwoOperands (dd, rt), false, None)
-    ///TwoOperands (dd, rt)
 
 (* <Dd>, <Dm[x]> *)
 type internal OprDdDmx () =
@@ -1153,7 +1421,6 @@ type internal OprDdDmx () =
       let m = concat (pickBit bin 5) (extract bin 3 0) 4 (* M:Vm *)
       toSSReg (m |> getVecDReg, Some idx)
     OprInfo (TwoOperands (dd, dmx), false, None)
-    ///TwoOperands (dd, dmx)
 
 (* <Qd>, <Dm[x]> *)
 type internal OprQdDmx () =
@@ -1172,16 +1439,14 @@ type internal OprQdDmx () =
       let m = concat (pickBit bin 5) (extract bin 3 0) 4 (* M:Vm *)
       toSSReg (m |> getVecDReg, Some idx)
     OprInfo (TwoOperands (qd, dmx), false, None)
-    ///TwoOperands (qd, dmx)
 
 (* <Rt>, [<Rn>] *)
-type internal OprRtAMem () =
+type internal OprRt15Mem () =
   inherit OperandParser ()
   override __.Render bin =
     let rt = extract bin 15 12 |> getRegister |> OprReg
     let mem = memOffsetImm (extract bin 19 16 |> getRegister, None, None)
     OprInfo (TwoOperands (rt, mem), false, None)
-    ///TwoOperands (rt, mem)
 
 (* <Rt>, [<Rn>] *)
 type internal OprRtMem () =
@@ -1190,7 +1455,6 @@ type internal OprRtMem () =
     let rt = extract bin 3 0 |> getRegister |> OprReg
     let mem = memOffsetImm (extract bin 19 16 |> getRegister, None, None)
     OprInfo (TwoOperands (rt, mem), false, None)
-    ///TwoOperands (rt, mem)
 
 (* <Sd>, [<Rn>{, #{+/-}<imm>}] *)
 type internal OprSdMem () =
@@ -1207,7 +1471,6 @@ type internal OprSdMem () =
       let sign = pickBit bin 23 (* U *) |> getSign |> Some
       memOffsetImm (rn, sign, Some imm32)
     OprInfo (TwoOperands (sd, mem), false, None)
-    ///TwoOperands (sd, mem)
 
 (* <Dd>, [<Rn>{, #{+/-}<imm>}] *)
 type internal OprDdMem () =
@@ -1224,22 +1487,20 @@ type internal OprDdMem () =
       let sign = pickBit bin 23 (* U *) |> getSign |> Some
       memOffsetImm (rn, sign, Some imm32)
     OprInfo (TwoOperands (dd, mem), false, None)
-    ///TwoOperands (dd, mem)
 
 (* <Rt>, [<Rn> {, {#}<imm>}] *)
-type internal OprRtMemImm0 () =
+type internal OprRtMemImm0A () =
   inherit OperandParser ()
   override __.Render bin =
     let rt = extract bin 15 12 |> getRegister |> OprReg
     let mem = (* imm32 = 0 *)
       memOffsetImm (extract bin 19 16 |> getRegister, None, None)
     OprInfo (TwoOperands (rt, mem), false, None)
-    ///TwoOperands (rt, mem)
 
 (* <Rt>, [<Rn> {, #{+/-}<imm>}]
    <Rt>, [<Rn>], #{+/-}<imm>
    <Rt>, [<Rn>, #{+/-}<imm>]! *)
-type internal OprRtMemImm12 () =
+type internal OprRtMemImm12A () =
   inherit OperandParser ()
   override __.Render bin =
     let rt = extract bin 15 12 |> getRegister |> OprReg
@@ -1253,7 +1514,6 @@ type internal OprRtMemImm12 () =
       | 0b11u -> memPreIdxImm (rn, sign, Some imm12)
       | _ -> raise ParsingFailureException (* STRT *)
     OprInfo (TwoOperands (rt, mem), wback bin, None)
-    ///TwoOperands (rt, mem)
 
 (* <Rt>, [<Rn>, {+/-}<Rm>{, <shift>}]
    <Rt>, [<Rn>], {+/-}<Rm>{, <shift>}
@@ -1275,7 +1535,6 @@ type internal OprRtMemShf () =
       | 0b11u -> memPreIdxReg (rn, sign, rm, shiftOffset)
       | _ -> raise ParsingFailureException (* STRT *)
     OprInfo (TwoOperands (rt, mem), wback bin, None)
-    ///TwoOperands (rt, mem)
 
 (* <Rt>, [<Rn>], {+/-}<Rm>{, <shift>} *)
 type internal OprRtMemShfP () =
@@ -1291,7 +1550,6 @@ type internal OprRtMemShfP () =
       let sign = pickBit bin 23 |> getSign |> Some
       memPostIdxReg (rn, sign, rm, shiftOffset)
     OprInfo (TwoOperands (rt, mem), false, None)
-    ///TwoOperands (rt, mem)
 
 (* <Rt>, [<Rn>, {+/-}<Rm>]
    <Rt>, [<Rn>], {+/-}<Rm>
@@ -1310,7 +1568,6 @@ type internal OprRtMemReg () =
       | 0b11u -> memPreIdxReg (rn, sign, rm, None)
       | _ -> raise ParsingFailureException (* STRHT *)
     OprInfo (TwoOperands (rt, mem), wback bin, None)
-    ///TwoOperands (rt, mem)
 
 (* <Rt>, [<Rn>], {+/-}<Rm> *)
 type internal OprRtMemRegP () =
@@ -1323,7 +1580,6 @@ type internal OprRtMemRegP () =
       let sign = pickBit bin 23 |> getSign |> Some
       memPostIdxReg (rn, sign, rm, None)
     OprInfo (TwoOperands (rt, mem), false, None)
-    ///TwoOperands (rt, mem)
 
 (* <Rt>, [<Rn> {, #{+/-}<imm>}]
    <Rt>, [<Rn>], #{+/-}<imm>
@@ -1343,7 +1599,6 @@ type internal OprRtMemImm () =
       | 0b11u -> memPreIdxImm (rn, sign, Some imm)
       | _ -> raise ParsingFailureException (* STRHT *)
     OprInfo (TwoOperands (rt, mem), wback bin, None)
-    ///TwoOperands (rt, mem)
 
 (* <Rt>, [<Rn>] {, #{+/-}<imm>} *)
 type internal OprRtMemImmP () =
@@ -1357,7 +1612,6 @@ type internal OprRtMemImmP () =
       let sign = pickBit bin 23 |> getSign |> Some
       memPostIdxImm (rn, sign, Some imm)
     OprInfo (TwoOperands (rt, mem), false, None)
-    ///TwoOperands (rt, mem)
 
 (* <Rt>, [<Rn>] {, #{+/-}<imm>} *)
 type internal OprRtMemImm12P () =
@@ -1370,27 +1624,24 @@ type internal OprRtMemImm12P () =
       let sign = pickBit bin 23 |> getSign |> Some
       memPostIdxImm (rn, sign, Some imm)
     OprInfo (TwoOperands (rt, mem), false, None)
-    ///TwoOperands (rt, mem)
 
 (* <Dd>, #<imm> *)
-type internal OprDdImm () =
+type internal OprDdImmA () =
   inherit OperandParser ()
   override __.Render bin =
     let dd = (* D:Vd *)
       concat (pickBit bin 22) (extract bin 15 12) 4 |> getVecDReg |> toSVReg
-    let imm = advSIMDExpandImm bin |> int64 |> OprImm
+    let imm = advSIMDExpandImm bin (pickBit bin 24) |> int64 |> OprImm
     OprInfo (TwoOperands (dd, imm), false, None)
-    ///TwoOperands (dd, imm)
 
 (* <Qd>, #<imm> *)
-type internal OprQdImm () =
+type internal OprQdImmA () =
   inherit OperandParser ()
   override __.Render bin =
     let qd = (* D:Vd *)
       concat (pickBit bin 22) (extract bin 15 12) 4 |> getVecQReg |> toSVReg
-    let imm = advSIMDExpandImm bin |> int64 |> OprImm
+    let imm = advSIMDExpandImm bin (pickBit bin 24) |> int64 |> OprImm
     OprInfo (TwoOperands (qd, imm), false, None)
-    ///TwoOperands (qd, imm)
 
 (* <Sd>, #<imm> *)
 type internal OprSdVImm () =
@@ -1402,7 +1653,6 @@ type internal OprSdVImm () =
       let imm8 = concat (extract bin 19 16) (extract bin 3 0) 4
       vfpExpandImm bin imm8 |> int64 |> OprImm
     OprInfo (TwoOperands (sd, imm), false, None)
-    ///TwoOperands (sd, imm)
 
 (* <Dd>, #<imm> *)
 type internal OprDdVImm () =
@@ -1414,7 +1664,6 @@ type internal OprDdVImm () =
       let imm8 = concat (extract bin 19 16) (extract bin 3 0) 4
       vfpExpandImm bin imm8 |> int64 |> OprImm
     OprInfo (TwoOperands (dd, imm), false, None)
-    ///TwoOperands (dd, imm)
 
 (* <Sd>, #0.0 *)
 type internal OprSdImm0 () =
@@ -1423,7 +1672,6 @@ type internal OprSdImm0 () =
     let sd = (* Vd:D *)
       concat (extract bin 15 12) (pickBit bin 22) 1 |> getVecSReg |> toSVReg
     OprInfo (TwoOperands (sd, OprImm 0L), false, None)
-    ///TwoOperands (sd, OprImm 0L)
 
 (* <Dd>, #0.0 *)
 type internal OprDdImm0 () =
@@ -1432,17 +1680,15 @@ type internal OprDdImm0 () =
     let dd = (* D:Vd *)
       concat (pickBit bin 22) (extract bin 15 12) 4 |> getVecDReg |> toSVReg
     OprInfo (TwoOperands (dd, OprImm 0L), false, None)
-    ///TwoOperands (dd, OprImm 0L)
 
 (* <Rd>, #<imm16> *)
-type internal OprRdImm16 () =
+type internal OprRdImm16A () =
   inherit OperandParser ()
   override __.Render bin =
     let rd = extract bin 15 12 |> getRegister |> OprReg
     let imm16 = (* imm4:imm12 *)
       concat (extract bin 19 16) (extract bin 11 0) 12 |> int64 |> OprImm
     OprInfo (TwoOperands (rd, imm16), false, None)
-    ///TwoOperands (rd, imm16)
 
 (* <spec_reg>, #<imm> *)
 type internal OprSregImm () =
@@ -1453,16 +1699,14 @@ type internal OprSregImm () =
       else getAPSR (extract bin 19 18 (* mask<3:2> *)) (* or CPSR *)
     let imm = expandImmediate bin |> int64 |> OprImm
     OprInfo (TwoOperands (OprSpecReg (sreg, flag), imm), false, None)
-    ///TwoOperands (OprSpecReg (sreg, flag), imm)
 
 (* <Rd>, #<const> *)
-type internal OprRdConst () =
+type internal OprRdConstA () =
   inherit OperandParser ()
   override __.Render bin =
     let rd = extract bin 15 12 |> getRegister |> OprReg
     let imm = expandImmediate bin |> int64 |> OprImm
     OprInfo (TwoOperands (rd, imm), false, None)
-    ///TwoOperands (rd, imm)
 
 (* <Rd>, #<const> with carry *)
 type internal OprRdConstCF () =
@@ -1471,16 +1715,14 @@ type internal OprRdConstCF () =
     let rd = extract bin 15 12 |> getRegister |> OprReg
     let struct (imm32, carryOut) = expandImmCF bin
     OprInfo (TwoOperands (rd, imm32), false, carryOut)
-    ///TwoOperands (rd, imm32)
 
 (* <Rn>, #<const> *)
-type internal OprRnConst () =
+type internal OprRnConstA () =
   inherit OperandParser ()
   override __.Render bin =
     let rn = extract bin 19 16 |> getRegister |> OprReg
     let imm = expandImmediate bin |> int64 |> OprImm
     OprInfo (TwoOperands (rn, imm), false, None)
-    ///TwoOperands (rn, imm)
 
 (* <Rn>, #<const> with carry *)
 type internal OprRnConstCF () =
@@ -1489,7 +1731,6 @@ type internal OprRnConstCF () =
     let rn = extract bin 19 16 |> getRegister |> OprReg
     let struct (imm32, carryOut) = expandImmCF bin
     OprInfo (TwoOperands (rn, imm32), false, carryOut)
-    ///TwoOperands (rn, imm32)
 
 (* <Sd>, <label> *)
 type internal OprSdLabel () =
@@ -1499,7 +1740,6 @@ type internal OprSdLabel () =
       concat (extract bin 15 12) (pickBit bin 22) 1 |> getVecSReg |> toSVReg
     let label = extract bin 7 0 (* imm8 *) |> int64 |> memLabel
     OprInfo (TwoOperands (sd, label), false, None)
-    ///TwoOperands (sd, label)
 
 (* <Dd>, <label> *)
 type internal OprDdLabel () =
@@ -1509,19 +1749,17 @@ type internal OprDdLabel () =
       concat (pickBit bin 22) (extract bin 15 12) 4 |> getVecDReg |> toSVReg
     let label = extract bin 7 0 (* imm8 *) |> int64 |> memLabel
     OprInfo (TwoOperands (dd, label), false, None)
-    ///TwoOperands (dd, label)
 
 (* <Rd>, <label> *)
-type internal OprRdLabel () =
+type internal OprRdLabelA () =
   inherit OperandParser ()
   override __.Render bin =
     let rd = extract bin 15 12 |> getRegister |> OprReg
     let label = expandImmediate bin |> int64 |> memLabel
     OprInfo (TwoOperands (rd, label), false, None)
-    ///TwoOperands (rd, label)
 
 (* <Rt>, <label> *)
-type internal OprRtLabel () =
+type internal OprRtLabelA () =
   inherit OperandParser ()
   override __.Render bin =
     let rt = extract bin 15 12 |> getRegister |> OprReg
@@ -1529,7 +1767,6 @@ type internal OprRtLabel () =
     let label =
       if pickBit bin 23 = 1u then memLabel imm12 else memLabel (imm12 * -1L)
     OprInfo (TwoOperands (rt, label), wback bin, None)
-    ///TwoOperands (rt, label)
 
 (* <Rt>, <label> *)
 type internal OprRtLabelHL () =
@@ -1539,16 +1776,14 @@ type internal OprRtLabelHL () =
     let label = (* imm4H:imm4L *)
       concat (extract bin 11 8) (extract bin 3 0) 4 |> int64 |> memLabel
     OprInfo (TwoOperands (rt, label), wback bin, None)
-    ///TwoOperands (rt, label)
 
 (* <Rn>{!}, <registers> *)
-type internal OprRnRegs () =
+type internal OprRnRegsA () =
   inherit OperandParser ()
   override __.Render bin =
     let rn = extract bin 19 16 |> getRegister |> OprReg
     let regs = extract bin 15 0 (* register_list *) |> getRegList |> OprRegList
     OprInfo (TwoOperands (rn, regs), wbackW bin, None)
-    ///TwoOperands (rn, regs)
 
 (* <Rn>, <registers>^ *) /// FIXME: '^' not apply
 type internal OprRnRegsCaret () =
@@ -1557,7 +1792,6 @@ type internal OprRnRegsCaret () =
     let rn = extract bin 19 16 |> getRegister |> OprReg
     let regs = extract bin 15 0 (* register_list *) |> getRegList |> OprRegList
     OprInfo (TwoOperands (rn, regs), false, None)
-    ///TwoOperands (rn, regs)
 
 (* <Rn>{!}, <dreglist> *)
 type internal OprRnDreglist () =
@@ -1568,7 +1802,6 @@ type internal OprRnDreglist () =
     let dreglist = (* D:Vd *)
       getDRegList (concat (pickBit bin 22) (extract bin 15 12) 4) regs
     OprInfo (TwoOperands (rn, dreglist), wbackW bin, None)
-    ///TwoOperands (rn, dreglist)
 
 (* <Rn>{!}, <sreglist> *)
 type internal OprRnSreglist () =
@@ -1579,7 +1812,6 @@ type internal OprRnSreglist () =
     let sreglist = (* Vd:D *)
       getSRegList (concat (extract bin 15 12) (pickBit bin 22) 1) regs
     OprInfo (TwoOperands (rn, sreglist), wbackW bin, None)
-    ///TwoOperands (rn, sreglist)
 
 (* <list>, [<Rn>{:<align>}]
    <list>, [<Rn>{:<align>}]!
@@ -1609,7 +1841,6 @@ type internal OprListMem () =
         | _ (* 00 *) -> None
       toMemAlign rn align rm
     OprInfo (TwoOperands (list, mem), wbackM bin, None)
-    ///TwoOperands (list, mem)
 
 (* <list>, [<Rn>{:<align>}]
    <list>, [<Rn>{:<align>}]!
@@ -1633,7 +1864,6 @@ type internal OprListMem1 () =
         | _ (* 001 & 11x *) -> raise UndefinedException
       toMemAlign rn align rm
     OprInfo (TwoOperands (list, mem), wbackM bin, None)
-    ///TwoOperands (list, mem)
 
 /// VLD2 (single 2-element structure to all lanes)
 type internal OprListMem2 () =
@@ -1655,7 +1885,6 @@ type internal OprListMem2 () =
         | _ (* 11x *) -> raise UndefinedException
       toMemAlign rn align rm
     OprInfo (TwoOperands (list, mem), wbackM bin, None)
-    ///TwoOperands (list, mem)
 
 /// VLD4 (single 4-element structure to all lanes)
 type internal OprListMem4 () =
@@ -1679,7 +1908,6 @@ type internal OprListMem4 () =
         | _ (* 110 *) -> raise UndefinedException
       toMemAlign rn align rm
     OprInfo (TwoOperands (list, mem), wbackM bin, None)
-    ///TwoOperands (list, mem)
 
 (* <list>, [<Rn>]
    <list>, [<Rn>]!
@@ -1701,7 +1929,6 @@ type internal OprListMem3 () =
       | R.SP -> memPreIdxImm (rn, None, None)
       | _ -> memPostIdxReg (rn, None, rm, None)
     OprInfo (TwoOperands (list, mem), wbackM bin, None)
-    ///TwoOperands (list, mem)
 
 (* <list>, [<Rn>{:<align>}]
    <list>, [<Rn>{:<align>}]!
@@ -1728,7 +1955,6 @@ type internal OprListMemA () =
         | _ -> None
       toMemAlign rn align rm
     OprInfo (TwoOperands (list, mem), wbackM bin, None)
-    ///TwoOperands (list, mem)
 
 /// VST2: index_align
 type internal OprListMemB () =
@@ -1762,7 +1988,6 @@ type internal OprListMemB () =
         | _ -> None
       toMemAlign rn align rm
     OprInfo (TwoOperands (list, mem), wbackM bin, None)
-    ///TwoOperands (list, mem)
 
 /// VST4: index_align
 type internal OprListMemD () =
@@ -1799,7 +2024,6 @@ type internal OprListMemD () =
         | _ -> None
       toMemAlign rn align rm
     OprInfo (TwoOperands (list, mem), wbackM bin, None)
-    ///TwoOperands (list, mem)
 
 (* <list>, [<Rn>]
    <list>, [<Rn>]!
@@ -1833,7 +2057,6 @@ type internal OprListMemC () =
       | R.SP -> memPreIdxImm (rn, None, None)
       | _ -> memPostIdxReg (rn, None, rm, None)
     OprInfo (TwoOperands (list, mem), wbackM bin, None)
-    ///TwoOperands (list, mem)
 
 (* SP{!}, #<mode> *)
 type internal OprSPMode () =
@@ -1841,16 +2064,14 @@ type internal OprSPMode () =
   override __.Render bin =
     let mode = extract bin 5 0 |> int64 |> OprImm
     OprInfo (TwoOperands (OprReg R.SP, mode), wbackW bin, None)
-    ///TwoOperands (OprReg R.SP, mode)
 
 (* <iflags> , #<mode> *)
-type internal OprIflagsMode () =
+type internal OprIflagsModeA () =
   inherit OperandParser ()
   override __.Render bin =
     let iflags = OprIflag (getIflag (extract bin 8 6))
     let mode = extract bin 4 0 |> int64 |> OprImm
     OprInfo (TwoOperands (iflags, mode), false, None)
-    ///TwoOperands (iflags, mode)
 
 (* <Dm>, <Rt>, <Rt2> *)
 type internal OprDmRtRt2 () =
@@ -1861,7 +2082,6 @@ type internal OprDmRtRt2 () =
     let rt = extract bin 15 12 |> getRegister |> OprReg
     let rt2 = extract bin 19 16 |> getRegister |> OprReg
     OprInfo (ThreeOperands (dm, rt, rt2), false, None)
-    ///ThreeOperands (dm, rt, rt2)
 
 (* <Rt>, <Rt2>, <Dm> *)
 type internal OprRtRt2Dm () =
@@ -1872,7 +2092,6 @@ type internal OprRtRt2Dm () =
     let dm = (* M:Vm *)
       concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecDReg |> toSVReg
     OprInfo (ThreeOperands (rt, rt2, dm), false, None)
-    ///ThreeOperands (rt, rt2, dm)
 
 (* <Dd>, <Sn>, <Sm> *)
 type internal OprDdSnSm () =
@@ -1885,7 +2104,6 @@ type internal OprDdSnSm () =
     let sm = (* Vm:M *)
       concat (extract bin 3 0) (pickBit bin 5) 1 |> getVecSReg |> toSVReg
     OprInfo (ThreeOperands (dd, sn, sm), false, None)
-    ///ThreeOperands (dd, sn, sm)
 
 (* <Dd>, <Sn>, <Sm>[<index>] *)
 type internal OprDdSnSmidx () =
@@ -1899,7 +2117,6 @@ type internal OprDdSnSmidx () =
     let smidx =
       toSSReg (sm |> getVecDReg, Some (pickBit bin 3 (* Vm<3> *) |> uint8))
     OprInfo (ThreeOperands (dd, sn, smidx), false, None)
-    ///ThreeOperands (dd, sn, smidx)
 
 (* <Sd>, <Sn>, <Sm> *)
 type internal OprSdSnSm () =
@@ -1912,7 +2129,6 @@ type internal OprSdSnSm () =
     let sm = (* Vm:M *)
       concat (extract bin 3 0) (pickBit bin 5) 1 |> getVecSReg |> toSVReg
     OprInfo (ThreeOperands (sd, sn, sm), false, None)
-    ///ThreeOperands (sd, sn, sm)
 
 (* <Dd>, <Dn>, <Dm> *)
 (* {<Dd>, }<Dn>, <Dm> *)
@@ -1926,7 +2142,6 @@ type internal OprDdDnDm () =
     let dm = (* M:Vm *)
       concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecDReg |> toSVReg
     OprInfo (ThreeOperands (dd, dn, dm), false, None)
-    ///ThreeOperands (dd, dn, dm)
 
 (* <Dd>, <Dn>, <Dm>[<index>] *)
 type internal OprDdDnDmidx () =
@@ -1939,7 +2154,6 @@ type internal OprDdDnDmidx () =
     let dm = extract bin 3 0 (* Vm *) |> getVecDReg
     let dmidx = toSSReg (dm, Some (pickBit bin 5 (* M *) |> uint8))
     OprInfo (ThreeOperands (dd, dn, dmidx), false, None)
-    ///ThreeOperands (dd, dn, dmidx)
 
 (* {<Dd>,} <Dm>, <Dn> *)
 type internal OprDdDmDn () =
@@ -1952,7 +2166,6 @@ type internal OprDdDmDn () =
     let dn = (* N:Vn *)
       concat (pickBit bin 7) (extract bin 19 16) 4 |> getVecDReg |> toSVReg
     OprInfo (ThreeOperands (dd, dm, dn), false, None)
-    ///ThreeOperands (dd, dm, dn)
 
 (* <Qd>, <Qn>, <Qm> *)
 (* {<Qd>, }<Qn>, <Qm> *)
@@ -1966,7 +2179,6 @@ type internal OprQdQnQm () =
     let qm = (* M:Vm *)
       concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecQReg |> toSVReg
     OprInfo (ThreeOperands (qd, qn, qm), false, None)
-    ///ThreeOperands (qd, qn, qm)
 
 (* {<Qd>,} <Qm>, <Qn> *)
 type internal OprQdQmQn () =
@@ -1979,7 +2191,6 @@ type internal OprQdQmQn () =
     let qn = (* N:Vn *)
       concat (pickBit bin 7) (extract bin 19 16) 4 |> getVecQReg |> toSVReg
     OprInfo (ThreeOperands (qd, qm, qn), false, None)
-    ///ThreeOperands (qd, qm, qn)
 
 (* <Qd>, <Dn>, <Dm>[<index>] *)
 type internal OprQdDnDmidx () =
@@ -1993,7 +2204,6 @@ type internal OprQdDnDmidx () =
     let dmidx =
       toSSReg (extract bin 2 0 (* Vm<2:0> *) |> getVecDReg, Some (index |> uint8))
     OprInfo (ThreeOperands (qd, dn, dmidx), false, None)
-    ///ThreeOperands (qd, dn, dmidx)
 
 (* <Qd>, <Dn>, <Dm> *)
 type internal OprQdDnDm () =
@@ -2006,7 +2216,6 @@ type internal OprQdDnDm () =
     let dm = (* M:Vm *)
       concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecDReg |> toSVReg
     OprInfo (ThreeOperands (qd, dn, dm), false, None)
-    ///ThreeOperands (qd, dn, dm)
 
 (* {<Qd>,} <Qn>, <Dm> *)
 type internal OprQdQnDm () =
@@ -2019,7 +2228,6 @@ type internal OprQdQnDm () =
     let dm = (* M:Vm *)
       concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecDReg |> toSVReg
     OprInfo (ThreeOperands (qd, qn, dm), false, None)
-    ///ThreeOperands (qd, qn, dm)
 
 (* <Qd>, <Qn>, <Dm>[<index>] *)
 type internal OprQdQnDmidx () =
@@ -2032,7 +2240,6 @@ type internal OprQdQnDmidx () =
     let dm = extract bin 3 0 (* Vm *) |> getVecDReg
     let dmidx = toSSReg (dm, Some (pickBit bin 5 (* M *) |> uint8))
     OprInfo (ThreeOperands (qd, qn, dmidx), false, None)
-    ///ThreeOperands (qd, qn, dmidx)
 
 (* <Qd>, <Qn>, <Dm>[<index>] *)
 type internal OprQdQnDmidxm () =
@@ -2046,7 +2253,6 @@ type internal OprQdQnDmidxm () =
     let dmidx =
       toSSReg (extract bin 2 0 (* Vm<2:0> *) |> getVecDReg, Some (index |> uint8))
     OprInfo (ThreeOperands (qd, qn, dmidx), false, None)
-    ///ThreeOperands (qd, qn, dmidx)
 
 (* <Dd>, <Qn>, <Qm> *)
 type internal OprDdQnQm () =
@@ -2059,7 +2265,6 @@ type internal OprDdQnQm () =
     let qm = (* M:Vm *)
       concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecQReg |> toSVReg
     OprInfo (ThreeOperands (dd, qn, qm), false, None)
-    ///ThreeOperands (dd, qn, qm)
 
 (* <Dd>, <Dn>, <Dm[x]> *)
 type internal OprDdDnDmx () =
@@ -2081,7 +2286,6 @@ type internal OprDdDnDmx () =
       concat (pickBit bin 7) (extract bin 19 16) 4 |> getVecDReg |> toSVReg
     let dmx = toSSReg (m |> getVecDReg, Some (index |> uint8))
     OprInfo (ThreeOperands (dd, dn, dmx), false, None)
-    ///ThreeOperands (dd, dn, dmx)
 
 (* <Qd>, <Qn>, <Dm[x]> *)
 type internal OprQdQnDmx () =
@@ -2103,7 +2307,6 @@ type internal OprQdQnDmx () =
       concat (pickBit bin 7) (extract bin 19 16) 4 |> getVecQReg |> toSVReg
     let dmx = toSSReg (m |> getVecDReg, Some (index |> uint8))
     OprInfo (ThreeOperands (qd, qn, dmx), false, None)
-    ///ThreeOperands (qd, qn, dmx)
 
 (* <Qd>, <Dn>, <Dm>[<index>] *)
 type internal OprQdDnDmx () =
@@ -2125,7 +2328,6 @@ type internal OprQdDnDmx () =
       concat (pickBit bin 7) (extract bin 19 16) 4 |> getVecDReg |> toSVReg
     let dmx = toSSReg (m |> getVecDReg, Some (index |> uint8))
     OprInfo (ThreeOperands (qd, dn, dmx), false, None)
-    ///ThreeOperands (qd, dn, dmx)
 
 (* <Rd>, <Rn>, <Rm> *)
 (* {<Rd>,} <Rn>, <Rm> : SADD16? *)
@@ -2136,7 +2338,6 @@ type internal OprRdRnRm () =
     let rn = extract bin 19 16 |> getRegister |> OprReg
     let rm = extract bin 3 0 |> getRegister |> OprReg
     OprInfo (ThreeOperands (rd, rn, rm), false, None)
-    ///ThreeOperands (rd, rn, rm)
 
 (* <Rd>, <Rn>{, <Rm>} *)
 (* {<Rd>,} <Rn>, <Rm> *)
@@ -2147,7 +2348,6 @@ type internal OprRdRnRmOpt () =
     let rn = extract bin 3 0 |> getRegister |> OprReg
     let rm = extract bin 11 8 |> getRegister |> OprReg
     OprInfo (ThreeOperands (rd, rn, rm), false, None)
-    ///ThreeOperands (rd, rn, rm)
 
 (* {<Rd>,} <Rm>, <Rs> *)
 type internal OprRdRmRs () =
@@ -2157,17 +2357,15 @@ type internal OprRdRmRs () =
     let rm = extract bin 3 0 |> getRegister |> OprReg
     let rs = extract bin 11 8 |> getRegister |> OprReg
     OprInfo (ThreeOperands (rd, rm, rs), false, None)
-    ///ThreeOperands (rd, rm, rs)
 
 (* {<Rd>,} <Rm>, <Rn> *)
-type internal OprRdRmRn () =
+type internal OprRdRmRnA () =
   inherit OperandParser ()
   override __.Render bin =
     let rd = extract bin 15 12 |> getRegister |> OprReg
     let rm = extract bin 3 0 |> getRegister |> OprReg
     let rn = extract bin 19 16 |> getRegister |> OprReg
     OprInfo (ThreeOperands (rd, rm, rn), false, None)
-    ///ThreeOperands (rd, rm, rn)
 
 (* <Rt>, <Rt2>, [<Rn>, {+/-}<Rm>]
    <Rt>, <Rt2>, [<Rn>], {+/-}<Rm>
@@ -2187,10 +2385,9 @@ type internal OprRtRt2MemReg () =
       | 0b11u -> memPreIdxReg (rn, sign, rm, None)
       | _ -> raise ParsingFailureException (* SEE "STRHT" *)
     OprInfo (ThreeOperands (rt, rt2, mem), wback bin, None)
-    ///ThreeOperands (rt, rt2, mem)
 
 (* <Rt>, <Rt2>, [<Rn>] *)
-type internal OprRtRt2Mem () =
+type internal OprRtRt2MemA () =
   inherit OperandParser ()
   override __.Render bin =
     let rt = extract bin 3 0 |> getRegister |> OprReg
@@ -2198,7 +2395,6 @@ type internal OprRtRt2Mem () =
     let mem =
       memOffsetImm (extract bin 19 16 (* Rn *) |> getRegister, None, None)
     OprInfo (ThreeOperands (rt, rt2, mem), false, None)
-    ///ThreeOperands (rt, rt2, mem)
 
 (* <Rt>, <Rt2>, [<Rn>] *)
 type internal OprRtRt2Mem2 () =
@@ -2209,12 +2405,11 @@ type internal OprRtRt2Mem2 () =
     let mem =
       memOffsetImm (extract bin 19 16 (* Rn *) |> getRegister, None, None)
     OprInfo (ThreeOperands (rt, rt2, mem), false, None)
-    ///ThreeOperands (rt, rt2, mem)
 
 (* <Rt>, <Rt2>, [<Rn> {, #{+/-}<imm>}]
    <Rt>, <Rt2>, [<Rn>], #{+/-}<imm>
    <Rt>, <Rt2>, [<Rn>, #{+/-}<imm>]! *)
-type internal OprRtRt2MemImm () =
+type internal OprRtRt2MemImmA () =
   inherit OperandParser ()
   override __.Render bin =
     let rt = extract bin 15 12 |> getRegister |> OprReg
@@ -2231,20 +2426,18 @@ type internal OprRtRt2MemImm () =
       | 0b11u -> memPreIdxImm (rn, sign, Some imm)
       | _ (* 10 *) -> raise UnpredictableException
     OprInfo (ThreeOperands (rt, rt2, mem), wback bin, None)
-    ///ThreeOperands (rt, rt2, mem)
 
 (* <Rd>, <Rt>, [<Rn>] *)
-type internal OprRdRtMem () =
+type internal OprRdRtMemA () =
   inherit OperandParser ()
   override __.Render bin =
     let rd = extract bin 15 12 |> getRegister |> OprReg
     let rt = extract bin 3 0 |> getRegister |> OprReg
     let mem = memOffsetImm (extract bin 19 16 |> getRegister, None, None)
     OprInfo (ThreeOperands (rd, rt, mem), false, None)
-    ///ThreeOperands (rd, rt, mem)
 
 (* <Rd>, <Rt>, [<Rn> {, {#}<imm>}] *)
-type internal OprRdRtMemImm () =
+type internal OprRdRtMemImmA () =
   inherit OperandParser ()
   override __.Render bin =
     let rd = extract bin 15 12 |> getRegister |> OprReg
@@ -2252,7 +2445,6 @@ type internal OprRdRtMemImm () =
     let mem = (* Rn, imm32 = 0 *)
       memOffsetImm (extract bin 19 16 |> getRegister, None, None)
     OprInfo (ThreeOperands (rd, rt, mem), false, None)
-    ///ThreeOperands (rd, rt, mem)
 
 (* p14, c5, [<Rn>], #{+/-}<imm> *)
 type internal OprP14C5Mem () =
@@ -2271,7 +2463,6 @@ type internal OprP14C5Mem () =
       | 0b11u -> memPreIdxImm (rn, sign, Some imm32)
       | _ -> raise ParsingFailureException
     OprInfo (ThreeOperands (OprReg R.P14, OprReg R.C5, mem), wbackW bin, None)
-    ///ThreeOperands (OprReg R.P14, OprReg R.C5, mem)
 
 (* p14, c5, [<Rn>], <option> *)
 type internal OprP14C5Option () =
@@ -2281,17 +2472,15 @@ type internal OprP14C5Option () =
       let rn = extract bin 19 16 |> getRegister
       memUnIdxImm (rn, extract bin 7 0 (* imm8 *) |> int64)
     OprInfo (ThreeOperands (OprReg R.P14, OprReg R.C5, mem), wbackW bin, None)
-    ///ThreeOperands (OprReg R.P14, OprReg R.C5, mem)
 
 (* {<Rd>,} <Rn>, #<const> *)
-type internal OprRdRnConst () =
+type internal OprRdRnConstA () =
   inherit OperandParser ()
   override __.Render bin =
     let rd = extract bin 15 12 |> getRegister |> OprReg
     let rn = extract bin 19 16 |> getRegister |> OprReg
     let cons = expandImmediate bin |> int64 |> OprImm
     OprInfo (ThreeOperands (rd, rn, cons), false, None)
-    ///ThreeOperands (rd, rn, cons)
 
 (* {<Rd>,} <Rn>, #<const> with carry *)
 type internal OprRdRnConstCF () =
@@ -2301,26 +2490,23 @@ type internal OprRdRnConstCF () =
     let rn = extract bin 19 16 |> getRegister |> OprReg
     let struct (imm32, carryOut) = expandImmCF bin
     OprInfo (ThreeOperands (rd, rn, imm32), false, carryOut)
-    ///ThreeOperands (rd, rn, imm32)
 
 (* {<Rd>,} SP, #<const> *)
-type internal OprRdSPConst () =
+type internal OprRdSPConstA () =
   inherit OperandParser ()
   override __.Render bin =
     let rd = extract bin 15 12 |> getRegister |> OprReg
     let cons = expandImmediate bin |> int64 |> OprImm
     OprInfo (ThreeOperands (rd, OprReg R.SP, cons), false, None)
-    ///ThreeOperands (rd, OprReg R.SP, cons)
 
 (* {<Rd>,} <Rm>, #<imm> : MOV alias *)
-type internal OprRdRmImm () =
+type internal OprRdRmImmA () =
   inherit OperandParser ()
   override __.Render bin =
     let rd = extract bin 15 12 |> getRegister |> OprReg
     let rm = extract bin 3 0 |> getRegister |> OprReg
     let imm = extract bin 11 7 (* imm5 *) |> int64 |> OprImm
     OprInfo (ThreeOperands (rd, rm, imm), false, None)
-    ///ThreeOperands (rd, rm, imm)
 
 (* {<Dd>,} <Dm>, #<imm> *)
 type internal OprDdDmImm () =
@@ -2340,7 +2526,6 @@ type internal OprDdDmImm () =
       | _ (* 1xxx *) -> 64u - imm6
       |> int64 |> OprImm
     OprInfo (ThreeOperands (dd, dm, imm), false, None)
-    ///ThreeOperands (dd, dm, imm)
 
 (* {<Dd>,} <Dm>, #<imm> *)
 type internal OprDdDmImmLeft () =
@@ -2360,7 +2545,6 @@ type internal OprDdDmImmLeft () =
       | _ (* 1xxx *) -> imm6
       |> int64 |> OprImm
     OprInfo (ThreeOperands (dd, dm, imm), false, None)
-    ///ThreeOperands (dd, dm, imm)
 
 (* {<Qd>,} <Qm>, #<imm> *)
 type internal OprQdQmImm () =
@@ -2380,7 +2564,6 @@ type internal OprQdQmImm () =
       | _ (* 1xxx *) -> 64u - imm6
       |> int64 |> OprImm
     OprInfo (ThreeOperands (qd, qm, imm), false, None)
-    ///ThreeOperands (qd, qm, imm)
 
 (* {<Qd>,} <Qm>, #<imm> *)
 type internal OprQdQmImmLeft () =
@@ -2400,7 +2583,6 @@ type internal OprQdQmImmLeft () =
       | _ (* 1xxx *) -> imm6
       |> int64 |> OprImm
     OprInfo (ThreeOperands (qd, qm, imm), false, None)
-    ///ThreeOperands (qd, qm, imm)
 
 (* <Dd>, <Qm>, #<imm> *)
 type internal OprDdQmImm () =
@@ -2419,7 +2601,6 @@ type internal OprDdQmImm () =
       | _ (* 1xx *) -> 64u - imm6
       |> int64 |> OprImm
     OprInfo (ThreeOperands (dd, qm, imm), false, None)
-    ///ThreeOperands (dd, qm, imm)
 
 (* <Qd>, <Dm>, #<imm> *)
 type internal OprQdDmImm () =
@@ -2438,7 +2619,6 @@ type internal OprQdDmImm () =
       | _ (* 1xx *) -> imm6 - 32u
       |> int64 |> OprImm
     OprInfo (ThreeOperands (qd, dm, imm), false, None)
-    ///ThreeOperands (qd, dm, imm)
 
 (* <Qd>, <Dm>, #<imm> *)
 type internal OprQdDmImm8 () =
@@ -2449,7 +2629,6 @@ type internal OprQdDmImm8 () =
     let dm = (* M:Vm *)
       concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecDReg |> toSVReg
     OprInfo (ThreeOperands (qd, dm, OprImm 8L), false, None)
-    ///ThreeOperands (qd, dm, OprImm 8L)
 
 (* <Qd>, <Dm>, #<imm> *)
 type internal OprQdDmImm16 () =
@@ -2460,7 +2639,6 @@ type internal OprQdDmImm16 () =
     let dm = (* M:Vm *)
       concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecDReg |> toSVReg
     OprInfo (ThreeOperands (qd, dm, OprImm 16L), false, None)
-    ///ThreeOperands (qd, dm, OprImm 16L)
 
 (* <Qd>, <Dm>, #<imm> *)
 type internal OprQdDmImm32 () =
@@ -2471,7 +2649,6 @@ type internal OprQdDmImm32 () =
     let dm = (* M:Vm *)
       concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecDReg |> toSVReg
     OprInfo (ThreeOperands (qd, dm, OprImm 32L), false, None)
-    ///ThreeOperands (qd, dm, OprImm 32L)
 
 (* {<Dd>,} <Dm>, #0 *)
 type internal OprDdDmImm0 () =
@@ -2482,7 +2659,6 @@ type internal OprDdDmImm0 () =
     let dm = (* M:Vm *)
       concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecDReg |> toSVReg
     OprInfo (ThreeOperands (dd, dm, OprImm 0L), false, None)
-    ///ThreeOperands (dd, dm, OprImm 0L)
 
 (* {<Qd>,} <Qm>, #0 *)
 type internal OprQdQmImm0 () =
@@ -2493,11 +2669,10 @@ type internal OprQdQmImm0 () =
     let qm = (* M:Vm *)
       concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecQReg |> toSVReg
     OprInfo (ThreeOperands (qd, qm, OprImm 0L), false, None)
-    ///ThreeOperands (qd, qm, OprImm 0L)
 
 (* <Rn>, <Rm>, RRX *)
 (* <Rn>, <Rm> {, <shift> #<amount>} *)
-type internal OprRnRmShf () =
+type internal OprRnRmShfA () =
   inherit OperandParser ()
   override __.Render bin =
     let rn = extract bin 19 16 |> getRegister |> OprReg
@@ -2505,7 +2680,6 @@ type internal OprRnRmShf () =
     let struct (shift, amount) =
       decodeImmShift (extract bin 6 5) (extract bin 11 7) (* stype imm5 *)
     OprInfo (ThreeOperands (rn, rm, OprShift (shift, Imm amount)), false, None)
-    ///ThreeOperands (rn, rm, OprShift (shift, Imm amount))
 
 (* <Rd>, <Rm>, RRX *)
 (* <Rd>, <Rm> {, <shift> #<amount>} *)
@@ -2517,7 +2691,6 @@ type internal OprRdRmShf () =
     let struct (shift, amount) =
       decodeImmShift (extract bin 6 5) (extract bin 11 7) (* stype imm5 *)
     OprInfo (ThreeOperands (rd, rm, OprShift (shift, Imm amount)), false, None)
-    ///ThreeOperands (rd, rm, OprShift (shift, Imm amount))
 
 (* <Rn>, <Rm>, <type> <Rs> *)
 type internal OprRnRmShfRs () =
@@ -2529,10 +2702,9 @@ type internal OprRnRmShfRs () =
       let rs = extract bin 11 8 |> getRegister
       OprRegShift (decodeRegShift (extract bin 6 5 (* stype *)), rs)
     OprInfo (ThreeOperands (rn, rm, shift), false, None)
-    ///ThreeOperands (rn, rm, shift)
 
 (* <Rd>, <Rm>, <shift> <Rs> *)
-type internal OprRdRmShfRs () =
+type internal OprRdRmShfRsA () =
   inherit OperandParser ()
   override __.Render bin =
     let rd = extract bin 15 12 |> getRegister |> OprReg
@@ -2541,30 +2713,27 @@ type internal OprRdRmShfRs () =
       let rs = extract bin 11 8 |> getRegister
       OprRegShift (decodeRegShift (extract bin 6 5 (* stype *)), rs)
     OprInfo (ThreeOperands (rd, rm, shift), false, None)
-    ///ThreeOperands (rd, rm, shift)
 
 (* {<Rd>,} <Rm> {, ROR #<amount>} *)
-type internal OprRdRmROR () =
+type internal OprRdRmRorA () =
   inherit OperandParser ()
   override __.Render bin =
     let rd = extract bin 15 12 |> getRegister |> OprReg
     let rm = extract bin 3 0 |> getRegister |> OprReg
     let shift = OprShift (SRType.SRTypeROR, extract bin 11 10 <<< 3 |> Imm)
     OprInfo (ThreeOperands (rd, rm, shift), false, None)
-    ///ThreeOperands (rd, rm, shift)
 
 (* <Rd>, #<imm>, <Rn> *)
-type internal OprRdImmRn () =
+type internal OprRdImmRnA () =
   inherit OperandParser ()
   override __.Render bin =
     let rd = extract bin 15 12 |> getRegister |> OprReg
     let imm = extract bin 19 16 (* sat_imm *) + 1u |> int64 |> OprImm
     let rn = extract bin 3 0 |> getRegister |> OprReg
     OprInfo (ThreeOperands (rd, imm, rn), false, None)
-    ///ThreeOperands (rd, imm, rn)
 
 (* <Rd>, #<lsb>, #<width> *)
-type internal OprRdLsbWidth () =
+type internal OprRdLsbWidthA () =
   inherit OperandParser ()
   override __.Render bin =
     let rd = extract bin 15 12 |> getRegister |> OprReg
@@ -2572,10 +2741,9 @@ type internal OprRdLsbWidth () =
     let width = (* msb - lsb + 1 *)
       (extract bin 20 16) - (extract bin 11 7) + 1u |> int64 |> OprImm
     OprInfo (ThreeOperands (rd, lsb, width), false, None)
-    ///ThreeOperands (rd, lsb, width)
 
 (* <Rt>, <Rt2>, <label> *)
-type internal OprRtRt2Label () =
+type internal OprRtRt2LabelA () =
   inherit OperandParser ()
   override __.Render bin =
     let rt = extract bin 15 12 |> getRegister |> OprReg
@@ -2583,15 +2751,13 @@ type internal OprRtRt2Label () =
     let label = (* imm4H:imm4L *)
       concat (extract bin 11 8) (extract bin 3 0) 4 |> int64 |> memLabel
     OprInfo (ThreeOperands (rt, rt2, label), false, None)
-    ///ThreeOperands (rt, rt2, label)
 
 (* p14, c5, <label> *)
 type internal OprP14C5Label () =
   inherit OperandParser ()
   override __.Render bin =
     let label = extract bin 7 0 <<< 2 (* imm8:00 *) |> int64 |> memLabel
-    OprInfo (ThreeOperands (OprReg R.P14, OprReg R.C5, label), wbackW bin, None)
-    ///ThreeOperands (OprReg R.P14, OprReg R.C5, label)
+    OprInfo (ThreeOperands (OprReg R.P14, OprReg R.C5, label), false, None)
 
 (* <Sdm>, <Sdm>, #<fbits> *)
 type internal OprSdmSdmFbits () =
@@ -2604,7 +2770,6 @@ type internal OprSdmSdmFbits () =
       if pickBit bin 7 = 0u then 16u - imm4i else 32u - imm4i
       |> int64 |> OprImm
     OprInfo (ThreeOperands (sdm, sdm, fbits), false, None)
-    ///ThreeOperands (sdm, sdm, fbits)
 
 (* <Ddm>, <Ddm>, #<fbits> *)
 type internal OprDdmDdmFbits () =
@@ -2617,7 +2782,6 @@ type internal OprDdmDdmFbits () =
       if pickBit bin 7 = 0u then 16u - imm4i else 32u - imm4i
       |> int64 |> OprImm
     OprInfo (ThreeOperands (ddm, ddm, fbits), false, None)
-    ///ThreeOperands (ddm, ddm, fbits)
 
 (* <Dd>, <Dm>, #<fbits> *)
 type internal OprDdDmFbits () =
@@ -2629,7 +2793,6 @@ type internal OprDdDmFbits () =
       concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecDReg |> toSVReg
     let fbits = 64u - extract bin 21 16 |> int64 |> OprImm
     OprInfo (ThreeOperands (dd, dm, fbits), false, None)
-    ///ThreeOperands (dd, dm, fbits)
 
 (* <Qd>, <Qm>, #<fbits> *)
 type internal OprQdQmFbits () =
@@ -2641,7 +2804,6 @@ type internal OprQdQmFbits () =
       concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecQReg |> toSVReg
     let fbits = 64u - extract bin 21 16 |> int64 |> OprImm
     OprInfo (ThreeOperands (qd, qm, fbits), false, None)
-    ///ThreeOperands (qd, qm, fbits)
 
 (* <Dd>, <list>, <Dm> *)
 type internal OprDdListDm () =
@@ -2660,10 +2822,9 @@ type internal OprDdListDm () =
     let dm = (* M:Vm *)
       concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecDReg |> toSVReg
     OprInfo (ThreeOperands (dd, list, dm), false, None)
-    ///ThreeOperands (dd, list, dm)
 
 (* <Rd>, <Rn>, <Rm>, <Ra> *)
-type internal OprRdRnRmRa () =
+type internal OprRdRnRmRaA () =
   inherit OperandParser ()
   override __.Render bin =
     let rd = extract bin 19 16 |> getRegister |> OprReg
@@ -2671,10 +2832,9 @@ type internal OprRdRnRmRa () =
     let rm = extract bin 11 8 |> getRegister |> OprReg
     let ra = extract bin 15 12 |> getRegister |> OprReg
     OprInfo (FourOperands (rd, rn, rm, ra), false, None)
-    ///FourOperands (rd, rn, rm, ra)
 
 (* <RdLo>, <RdHi>, <Rn>, <Rm> *)
-type internal OprRdlRdhRnRm () =
+type internal OprRdlRdhRnRmA () =
   inherit OperandParser ()
   override __.Render bin =
     let rdLo = extract bin 15 12 |> getRegister |> OprReg
@@ -2682,7 +2842,6 @@ type internal OprRdlRdhRnRm () =
     let rn = extract bin 3 0 |> getRegister |> OprReg
     let rm = extract bin 11 8 |> getRegister |> OprReg
     OprInfo (FourOperands (rdLo, rdHi, rn, rm), false, None)
-    ///FourOperands (rdLo, rdHi, rn, rm)
 
 (* <Sm>, <Sm1>, <Rt>, <Rt2> *)
 type internal OprSmSm1RtRt2 () =
@@ -2695,7 +2854,6 @@ type internal OprSmSm1RtRt2 () =
     let rt = extract bin 15 12 |> getRegister |> OprReg
     let rt2 = extract bin 19 16 |> getRegister |> OprReg
     OprInfo (FourOperands (sm, sm1, rt, rt2), false, None)
-    ///FourOperands (sm, sm1, rt, rt2)
 
 (* <Rt>, <Rt2>, <Sm>, <Sm1> *)
 type internal OprRtRt2SmSm1 () =
@@ -2708,10 +2866,9 @@ type internal OprRtRt2SmSm1 () =
     let sm1 = (* Vm:M *)
       concat (extract bin 3 0) (pickBit bin 5) 1 + 1u |> getVecSReg |> toSVReg
     OprInfo (FourOperands (rt, rt2, sm, sm1), false, None)
-    ///FourOperands (rt, rt2, sm, sm1)
 
 (* <Rd>, <Rt>, <Rt2>, [<Rn>] *)
-type internal OprRdRtRt2Mem () =
+type internal OprRdRtRt2MemA () =
   inherit OperandParser ()
   override __.Render bin =
     let rd = extract bin 15 12 |> getRegister |> OprReg
@@ -2719,7 +2876,6 @@ type internal OprRdRtRt2Mem () =
     let rt2 = extract bin 3 0 + 1u |> getRegister |> OprReg
     let mem = memOffsetImm (extract bin 19 16 |> getRegister, None, None)
     OprInfo (FourOperands (rd, rt, rt2, mem), false, None)
-    ///FourOperands (rd, rt, rt2, mem)
 
 (* {<Dd>,} <Dn>, <Dm>, #<imm> *)
 type internal OprDdDnDmImm () =
@@ -2733,7 +2889,6 @@ type internal OprDdDnDmImm () =
       concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecDReg |> toSVReg
     let imm = extract bin 11 8 (* imm4 *) |> int64 |> OprImm
     OprInfo (FourOperands (dd, dn, dm, imm), false, None)
-    ///FourOperands (dd, dn, dm, imm)
 
 (* {<Qd>,} <Qn>, <Qm>, #<imm> *)
 type internal OprQdQnQmImm () =
@@ -2747,11 +2902,10 @@ type internal OprQdQnQmImm () =
       concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecQReg |> toSVReg
     let imm = extract bin 11 8 (* imm4 *) |> int64 |> OprImm
     OprInfo (FourOperands (qd, qn, qm, imm), false, None)
-    ///FourOperands (qd, qn, qm, imm)
 
 (* {<Rd>,} <Rn>, <Rm>, RRX *)
 (* {<Rd>,} <Rn>, <Rm> {, <shift> #<amount>} *)
-type internal OprRdRnRmShf () =
+type internal OprRdRnRmShfA () =
   inherit OperandParser ()
   override __.Render bin =
     let rd = extract bin 15 12 |> getRegister |> OprReg
@@ -2760,7 +2914,6 @@ type internal OprRdRnRmShf () =
     let struct (shift, amount) = (* stype imm5 *)
       decodeImmShift (extract bin 6 5) (extract bin 11 7)
     OprInfo (FourOperands (rd, rn, rm, OprShift (shift, Imm amount)), false, None)
-    ///FourOperands (rd, rn, rm, OprShift (shift, Imm amount))
 
 (* {<Rd>,} <Rn>, <Rm>, <shift> <Rs> *)
 type internal OprRdRnRmShfRs () =
@@ -2773,10 +2926,9 @@ type internal OprRdRnRmShfRs () =
       let rs = extract bin 11 8 |> getRegister
       OprRegShift (decodeRegShift (extract bin 6 5), rs)
     OprInfo (FourOperands (rd, rn, rm, shift), false, None)
-    ///FourOperands (rd, rn, rm, shift)
 
 (* {<Rd>,} <Rn>, <Rm> {, ROR #<amount>} *)
-type internal OprRdRnRmROR () =
+type internal OprRdRnRmRorA () =
   inherit OperandParser ()
   override __.Render bin =
     let rd = extract bin 15 12 |> getRegister |> OprReg
@@ -2784,11 +2936,10 @@ type internal OprRdRnRmROR () =
     let rm = extract bin 3 0 |> getRegister |> OprReg
     let shift = OprShift (SRType.SRTypeROR, extract bin 11 10 <<< 3 |> Imm)
     OprInfo (FourOperands (rd, rn, rm, shift), false, None)
-    ///FourOperands (rd, rn, rm, shift)
 
 (* <Rd>, #<imm>, <Rn>, ASR #<amount> *)
 (* <Rd>, #<imm>, <Rn>, LSL #<amount> *)
-type internal OprRdImmRnShf () =
+type internal OprRdImmRnShfA () =
   inherit OperandParser ()
   override __.Render bin =
     let rd = extract bin 15 12 |> getRegister |> OprReg
@@ -2797,10 +2948,21 @@ type internal OprRdImmRnShf () =
     let struct (sTyp, amount) = (* sh:'0' *) (* imm5 *)
       decodeImmShift (extract bin 6 5) (extract bin 11 7)
     OprInfo (FourOperands (rd, imm, rn, OprShift (sTyp, Imm amount)), false, None)
-    ///FourOperands (rd, imm, rn, OprShift (sTyp, Imm amount))
+
+(* <Rd>, #<imm>, <Rn>, ASR #<amount> *)
+(* <Rd>, #<imm>, <Rn>, LSL #<amount> *)
+type internal OprRdImmRnShfUA () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 15 12 |> getRegister |> OprReg
+    let imm = extract bin 20 16 (* sat_imm *) |> int64 |> OprImm
+    let rn = extract bin 3 0 |> getRegister |> OprReg
+    let struct (sTyp, amount) = (* sh:'0' *) (* imm5 *)
+      decodeImmShift (extract bin 6 5) (extract bin 11 7)
+    OprInfo (FourOperands (rd, imm, rn, OprShift (sTyp, Imm amount)), false, None)
 
 (* <Rd>, <Rn>, #<lsb>, #<width> *)
-type internal OprRdRnLsbWidth () =
+type internal OprRdRnLsbWidthA () =
   inherit OperandParser ()
   override __.Render bin =
     let rd = extract bin 15 12 |> getRegister |> OprReg
@@ -2809,10 +2971,9 @@ type internal OprRdRnLsbWidth () =
     let width = (* msb - lsb + 1 *)
       (extract bin 20 16) - (extract bin 11 7) + 1u |> int64 |> OprImm
     OprInfo (FourOperands (rd, rn, lsb, width), false, None)
-    ///FourOperands (rd, rn, lsb, width)
 
 (* <Rd>, <Rn>, #<lsb>, #<width> *)
-type internal OprRdRnLsbWidthM1 () =
+type internal OprRdRnLsbWidthM1A () =
   inherit OperandParser ()
   override __.Render bin =
     let rd = extract bin 15 12 |> getRegister |> OprReg
@@ -2821,7 +2982,6 @@ type internal OprRdRnLsbWidthM1 () =
     let width = (* widthm1 + 1 *)
       (extract bin 20 16 (* widthm1 *)) + 1u |> int64 |> OprImm
     OprInfo (FourOperands (rd, rn, lsb, width), false, None)
-    ///FourOperands (rd, rn, lsb, width)
 
 (* <Dd>, <Dn>, <Dm>, #<rotate> *)
 type internal OprDdDnDmRotate () =
@@ -2841,7 +3001,6 @@ type internal OprDdDnDmRotate () =
       | _ (* 11 *) -> 270L
       |> OprImm
     OprInfo (FourOperands (dd, dn, dm, rotate), false, None)
-    ///FourOperands (dd, dn, dm, rotate)
 
 (* <Qd>, <Qn>, <Qm>, #<rotate> *)
 type internal OprQdQnQmRotate () =
@@ -2861,7 +3020,6 @@ type internal OprQdQnQmRotate () =
       | _ (* 11 *) -> 270L
       |> OprImm
     OprInfo (FourOperands (qd, qn, qm, rotate), false, None)
-    ///FourOperands (qd, qn, qm, rotate)
 
 (* <Dd>, <Dn>, <Dm>[<index>], #<rotate> *)
 type internal OprDdDnDmidxRotate () =
@@ -2881,7 +3039,6 @@ type internal OprDdDnDmidxRotate () =
       | _ (* 11 *) -> 270L
       |> OprImm
     OprInfo (FourOperands (dd, dn, dmidx, rotate), false, None)
-    ///FourOperands (dd, dn, dmidx, rotate)
 
 (* <Qd>, <Qn>, <Dm>[<index>], #<rotate> *)
 type internal OprQdQnDmidxRotate () =
@@ -2901,7 +3058,6 @@ type internal OprQdQnDmidxRotate () =
       | _ (* 11 *) -> 270L
       |> OprImm
     OprInfo (FourOperands (qd, qn, dmidx, rotate), false, None)
-    ///FourOperands (qd, qn, dmidx, rotate)
 
 (* <Dd>, <Dn>, <Dm>[0], #<rotate> *)
 type internal OprDdDnDm0Rotate () =
@@ -2921,7 +3077,6 @@ type internal OprDdDnDm0Rotate () =
       | _ (* 11 *) -> 270L
       |> OprImm
     OprInfo (FourOperands (dd, dn, dm0, rotate), false, None)
-    ///FourOperands (dd, dn, dm0, rotate)
 
 (* <Qd>, <Qn>, <Dm>[0], #<rotate> *)
 type internal OprQdQnDm0Rotate () =
@@ -2941,7 +3096,6 @@ type internal OprQdQnDm0Rotate () =
       | _ (* 11 *) -> 270L
       |> OprImm
     OprInfo (FourOperands (qd, qn, dm0, rotate), false, None)
-    ///FourOperands (qd, qn, dm0, rotate)
 
 (* <coproc>, {#}<opc1>, <Rt>, <Rt2>, <CRm> *)
 type internal OprCpOpc1RtRt2CRm () =
@@ -2953,7 +3107,6 @@ type internal OprCpOpc1RtRt2CRm () =
     let rt2 = extract bin 19 16 |> getRegister |> OprReg
     let crm = extract bin 3 0 |> getCoprocCReg |> OprReg
     OprInfo (FiveOperands (coproc, opc1, rt, rt2, crm), false, None)
-    ///FiveOperands (coproc, opc1, rt, rt2, crm)
 
 (* <coproc>, {#}<opc1>, <Rt>, <CRn>, <CRm>{, {#}<opc2>} *)
 type internal OprCpOpc1RtCRnCRmOpc2 () =
@@ -2966,7 +3119,6 @@ type internal OprCpOpc1RtCRnCRmOpc2 () =
     let crm = extract bin 3 0 |> getCoprocCReg |> OprReg
     let opc2 = extract bin 7 5 |> int64 |> OprImm
     OprInfo (SixOperands (coproc, opc1, rt, crn, crm, opc2), false, None)
-    ///SixOperands (coproc, opc1, rt, crn, crm, opc2)
 
 (* <coproc>, <opc1>, <CRd>, <CRn>, <CRm>, <opc2> *)
 type internal OprCpOpc1CRdCRnCRmOpc2 () =
@@ -2979,7 +3131,6 @@ type internal OprCpOpc1CRdCRnCRmOpc2 () =
     let crm = extract bin 3 0 |> getCoprocCReg |> OprReg
     let opc2 = extract bin 7 5 |> int64 |> OprImm
     OprInfo (SixOperands (coproc, opc1, crd, crn, crm, opc2), false, None)
-    ///SixOperands (coproc, opc1, crd, crn, crm, opc2)
 
 (* <coproc>, <CRd>, [<Rn>, #+/-<imm>]{!}
    <coproc>, <CRd>, [<Rn>], #+/-<imm>
@@ -3001,6 +3152,1016 @@ type internal OprCoprocCRdMem () =
         memUnIdxImm (rn, extract bin 7 0 (* imm8 *) |> int64)
       | _ (* 00 *) -> raise UndefinedException
     OprInfo (ThreeOperands (coproc, crd, mem), wbackW bin, None)
-    ///ThreeOperands (coproc, crd, mem)
+
+(* <label> *)
+type internal OprLabelT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let label = (extract bin 10 0 <<< 1) |> signExtend 12
+    OprInfo (OneOperand label, false, None)
+
+(* <label> *)
+type internal OprLabel8 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let label = extract bin 7 0 <<< 1 |> signExtend 9
+    OprInfo (OneOperand label, false, None)
+
+(* <label> // Preferred syntax
+   [PC, #{+/-}<imm>] // Alternative syntax *)
+type internal OprLabel12T () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let imm12 = extract bin 11 0 |> int64
+    OprInfo (OneOperand (memLabel imm12), false, None)
+
+(* <label> *)
+type internal OprLabelT3 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let imm32 (* S:J2:J1:imm6:imm11:'0' *) =
+      ((pickBit bin 26 <<< 19) + (pickBit bin 11 <<< 18) +
+       (pickBit bin 13 <<< 17) + (extract bin 21 16 <<< 11) +
+       (extract bin 10 0)) <<< 1 |> signExtend 21
+    OprInfo (OneOperand imm32, false, None)
+
+(* <label> *)
+type internal OprLabelT4 () =
+  inherit OperandParser ()
+  override __.Render bin = (* or BL T1 *)
+    let i1 = if (pickBit bin 13 ^^^ pickBit bin 26) = 0u then 1u else 0u
+    let i2 = if (pickBit bin 11 ^^^ pickBit bin 26) = 0u then 1u else 0u
+    let imm32 (* S:I1:I2:imm10:imm11:'0' *) =
+      ((pickBit bin 26 <<< 23) + (i1 <<< 22) + (i2 <<< 21) +
+       (extract bin 25 16 <<< 11) + (extract bin 10 0)) <<< 1 |> signExtend 25
+    OprInfo (OneOperand imm32, false, None)
+
+(* <label> *)
+type internal OprLabelT2 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let i1 = if (pickBit bin 13 ^^^ pickBit bin 26) = 0u then 1u else 0u
+    let i2 = if (pickBit bin 11 ^^^ pickBit bin 26) = 0u then 1u else 0u
+    let imm32 (* S:I1:I2:imm10H:imm10L:'00' *) =
+      ((pickBit bin 26 <<< 22) + (i1 <<< 21) + (i2 <<< 20) +
+       (extract bin 25 16 <<< 10) + (extract bin 10 1)) <<< 2 |> signExtend 25
+    OprInfo (OneOperand imm32, false, None)
+
+(* <Rm> *)
+type internal OprRm16 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rm = extract bin 6 3 |> getRegister |> OprReg
+    OprInfo (OneOperand rm, false, None)
+
+(* <Rm> *)
+type internal OprRm32 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rm = extract bin 6 3 |> getRegister |> OprReg
+    OprInfo (OneOperand rm, false, None)
+
+(* #<imm> *)
+type internal OprImm1T () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let imm = OprImm (pickBit bin 3 (* imm1 *) |> int64)
+    OprInfo (OneOperand imm, false, None)
+
+(* {#}<imm> *)
+type internal OprImm6 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let imm = OprImm (extract bin 5 0 (* imm6 *) |> int64)
+    OprInfo (OneOperand imm, false, None)
+
+(* {#}<imm> *)
+type internal OprImm8 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let imm = OprImm (extract bin 7 0 (* imm8 *) |> int64)
+    OprInfo (OneOperand imm, false, None)
+
+(* {#}<imm> *)
+type internal OprImm16T () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let imm (* imm4:imm12 *) =
+      concat (extract bin 19 16) (extract bin 11 0) 12 |> int64 |> OprImm
+    OprInfo (OneOperand imm, false, None)
+
+(* {#}<imm4> *)
+type internal OprImm4T () =
+  inherit OperandParser ()
+  override __.Render bin =
+    OprInfo (extract bin 19 16 |> int64 |> OprImm |> OneOperand, false, None)
+
+(* <cond> *)
+type internal OprCondition () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let cond = extract bin 7 4 |> byte |> parseCond |> OprCond
+    OprInfo (OneOperand cond, false, None)
+
+(* <endian_specifier> *)
+type internal OprEndianT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let endian = pickBit bin 3 |> byte |> getEndian |> OprEndian
+    OprInfo (OneOperand endian, false, None)
+
+(* <iflags> *)
+type internal OprIflagsT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    OprInfo (OneOperand (OprIflag (getIflag (extract bin 7 5))), false, None)
+
+(* <iflags> , #<mode> *)
+type internal OprIflagsModeT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let iflags = OprIflag (getIflag (extract bin 7 5))
+    let mode = extract bin 4 0 |> int64 |> OprImm
+    OprInfo (TwoOperands (iflags, mode), false, None)
+
+(* <registers> *)
+type internal OprRegsM () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let regs = (* '0':M:'000000':register_list *)
+      concat (pickBit bin 8 <<< 6) (extract bin 7 0) 8 |> getRegList
+      |> OprRegList
+    OprInfo (OneOperand regs, false, None)
+
+(* <registers> *)
+type internal OprRegsP () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let regs = (* P:'0000000':register_list *)
+      concat (pickBit bin 8 <<< 7) (extract bin 7 0) 8 |> getRegList
+      |> OprRegList
+    OprInfo (OneOperand regs, false, None)
+
+(* [<Rn> {, #-<imm>}] *)
+type internal OprMemImm8M () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rn = extract bin 19 16 |> getRegister
+    let imm = extract bin 7 0 (* imm8 *) |> int64
+    OprInfo (OneOperand (memOffsetImm (rn, Some Minus, Some imm)), false, None)
+
+(* [<Rn> {, #{+}<imm>}] *)
+type internal OprMemImm12 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rn = extract bin 19 16 |> getRegister
+    let imm = extract bin 11 0 (* imm12 *) |> int64
+    OprInfo (OneOperand (memOffsetImm (rn, Some Plus, Some imm)), false, None)
+
+(* [<Rn>, <Rm>] *)
+type internal OprMemRegT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rn = getRegister (extract bin 19 16)
+    let rm = getRegister (extract bin 3 0)
+    OprInfo (OneOperand (memOffsetReg (rn, None, rm, None)), false, None)
+
+(* [<Rn>, <Rm>, LSL #1] *)
+type internal OprMemRegLSL1 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rn = getRegister (extract bin 19 16)
+    let rm = getRegister (extract bin 3 0)
+    let shf = Some (SRTypeLSL, Imm 1u)
+    OprInfo (OneOperand (memOffsetReg (rn, None, rm, shf)), false, None)
+
+(* [<Rn>, {+}<Rm> {, LSL #<amount>}] *)
+type internal OprMemRegLSL () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rn = getRegister (extract bin 19 16)
+    let rm = getRegister (extract bin 3 0)
+    let shf = Some (SRTypeLSL, Imm (extract bin 5 4 (* imm2 *)))
+    OprInfo (OneOperand (memOffsetReg (rn, None, rm, shf)), false, None)
+
+(* <Rt>, <label> *)
+type internal OprRtLabelT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rt = extract bin 10 8 |> getRegister |> OprReg
+    let label = extract bin 7 0 <<< 2 |> int64 |> memLabel
+    OprInfo (TwoOperands (rt, label), false, None)
+
+(* <Rn>, <label> *)
+type internal OprRnLabel () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rn = extract bin 2 0 |> getRegister |> OprReg
+    let label = (* i:imm5:'0' *)
+      (concat (pickBit bin 9) (extract bin 7 3) 5) <<< 1 |> int64 |> memLabel
+    OprInfo (TwoOperands (rn, label), false, None)
+
+(* <Rt>, <label> // Preferred syntax
+   <Rt>, [PC, #{+/-}<imm>] // Alternative syntax *)
+type internal OprRtLabel12 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rt = extract bin 15 12 |> getRegister |> OprReg
+    let label = extract bin 11 0 |> int64 |> memLabel
+    OprInfo (TwoOperands (rt, label), false, None)
+
+(* <Rd>, #<imm8> *)
+type internal OprRdImm8 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 10 8 |> getRegister |> OprReg
+    let imm8 = extract bin 7 0 |> int64 |> OprImm
+    OprInfo (TwoOperands (rd, imm8), false, None) /// FIXME: carry = PSTATE.C
+
+(* <Rdn>, #<imm8> *)
+type internal OprRdnImm8 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rdn = extract bin 10 8 |> getRegister |> OprReg
+    let imm8 = extract bin 7 0 |> int64 |> OprImm
+    OprInfo (TwoOperands (rdn, imm8), false, None)
+
+(* <Dd>, #<imm> *)
+type internal OprDdImmT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let dd = (* D:Vd *)
+      concat (pickBit bin 22) (extract bin 15 12) 4 |> getVecDReg |> toSVReg
+    let imm = advSIMDExpandImm bin (pickBit bin 28) |> int64 |> OprImm
+    OprInfo (TwoOperands (dd, imm), false, None)
+
+(* <Qd>, #<imm> *)
+type internal OprQdImmT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let qd = (* D:Vd *)
+      concat (pickBit bin 22) (extract bin 15 12) 4 |> getVecQReg |> toSVReg
+    let imm = advSIMDExpandImm bin (pickBit bin 28) |> int64 |> OprImm
+    OprInfo (TwoOperands (qd, imm), false, None)
+
+(* <Rd>, <Rm> *)
+type internal OprRdRmT16 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 2 0 |> getRegister |> OprReg
+    let rm = extract bin 5 3 |> getRegister |> OprReg
+    OprInfo (TwoOperands (rd, rm), false, None)
+
+(* <Rd>, <Rm> *)
+type internal OprRdRmT32 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let rm = extract bin 3 0 |> getRegister |> OprReg
+    OprInfo (TwoOperands (rd, rm), false, None)
+
+(* <Rd>, <Rm> *)
+type internal OprRdRmExt () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = (* D:Rd *)
+      concat (pickBit bin 7) (extract bin 2 0) 3 |> getRegister |> OprReg
+    let rm = extract bin 6 3 |> getRegister |> OprReg
+    OprInfo (TwoOperands (rd, rm), false, None)
+
+(* <Rn>, <Rm> *)
+type internal OprRnRm () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rn = extract bin 2 0 |> getRegister |> OprReg
+    let rm = extract bin 5 3 |> getRegister |> OprReg
+    OprInfo (TwoOperands (rn, rm), false, None)
+
+(* <Rn>, <Rm> *)
+type internal OprRnRmExt () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rn = (* N:Rn *)
+      concat (pickBit bin 7) (extract bin 2 0) 3 |> getRegister |> OprReg
+    let rm = extract bin 6 3 |> getRegister |> OprReg
+    OprInfo (TwoOperands (rn, rm), false, None)
+
+(* <Rdn>, <Rm> *)
+type internal OprRdnRm () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rdn = (* DN:Rdn *)
+      concat (pickBit bin 7) (extract bin 2 0) 3 |> getRegister |> OprReg
+    let rm = extract bin 6 3 |> getRegister |> OprReg
+    OprInfo (TwoOperands (rdn, rm), false, None)
+
+(* <Rn>, #<const> *)
+type internal OprRnConstT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rn = extract bin 19 16 |> getRegister |> OprReg
+    let imm12 (* i:imm3:imm8 *) =
+      (pickBit bin 26 <<< 11) + (extract bin 14 12 <<< 8) + (extract bin 7 0)
+    let cons = t32ExpandImm imm12 |> int64 |> OprImm
+    OprInfo (TwoOperands (rn, cons), false, None)
+
+(* <Rd>, #<const> *)
+type internal OprRdConstT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rn = extract bin 11 8 |> getRegister |> OprReg
+    let imm12 (* i:imm3:imm8 *) =
+      (pickBit bin 26 <<< 11) + (extract bin 14 12 <<< 8) + (extract bin 7 0)
+    let cons = t32ExpandImm imm12 |> int64 |> OprImm
+    OprInfo (TwoOperands (rn, cons), false, None)
+
+(* <Rn>!, <registers> *)
+type internal OprRnRegsT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rn = extract bin 10 8 |> getRegister |> OprReg
+    let regs = extract bin 7 0 (* register_list *) |> getRegList |> OprRegList
+    OprInfo (TwoOperands (rn, regs), true, None)
+
+(* <Rn>!, <registers> *)
+type internal OprRnRegsW () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rn = extract bin 10 8
+    let regs = extract bin 7 0 (* register_list *)
+    let wback = pickBit regs (int rn) = 0u
+    let regs = regs |> getRegList |> OprRegList
+    OprInfo (TwoOperands (rn |> getRegister |> OprReg, regs), wback, None)
+
+(* <spec_reg>, <Rn> *)
+type internal OprSregRnT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let struct (sreg, flag) = (* FIXME: F5-4583 *)
+      if pickBit bin 20 = 1u (* R *) then getSPSR (extract bin 19 16)
+      else getAPSR (extract bin 11 10 (* mask<3:2> *)) (* or CPSR *)
+    let rn = extract bin 19 16 |> getRegister |> OprReg
+    OprInfo (TwoOperands (OprSpecReg (sreg, flag), rn), false, None)
+
+(* <Rd>, <spec_reg> *)
+type internal OprRdSregT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let sreg =
+      if pickBit bin 20 = 1u then R.SPSR else R.APSR (* or CPSR *)
+      |> uint |> getRegister |> OprReg
+    OprInfo (TwoOperands (rd, sreg), false, None)
+
+(* <banked_reg>, <Rn> *)
+type internal OprBankregRnT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let breg =
+      concat (pickBit bin 4) (extract bin 11 8) 4 (* M:M1 *)
+      |> getBankedReg (pickBit bin 20) (* R *) |> OprReg
+    let rn = extract bin 19 16 |> getRegister |> OprReg
+    OprInfo (TwoOperands (breg, rn), false, None)
+
+(* <Rd>, <banked_reg> *)
+type internal OprRdBankregT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let breg =
+      concat (pickBit bin 4) (extract bin 19 16) 4 (* M:M1 *)
+      |> getBankedReg (pickBit bin 20) (* R *) |> OprReg
+    OprInfo (TwoOperands (rd, breg), false, None)
+
+(* {<Dd>,} <Dm>, #0 *)
+type internal OprDdDm0 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let dd = (* D:Vd *)
+      concat (pickBit bin 22) (extract bin 15 12) 4 |> getVecDReg |> toSVReg
+    let dm = (* M:Vm *)
+      concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecDReg |> toSVReg
+    OprInfo (ThreeOperands (dd, dm, OprImm 0L), false, None)
+
+(* {<Qd>,} <Qm>, #0 *)
+type internal OprQdQm0 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let qd = (* D:Vd *)
+      concat (pickBit bin 22) (extract bin 15 12) 4 |> getVecQReg |> toSVReg
+    let qm = (* M:Vm *)
+      concat (pickBit bin 5) (extract bin 3 0) 4 |> getVecQReg |> toSVReg
+    OprInfo (ThreeOperands (qd, qm, OprImm 0L), false, None)
+
+(* <Rt>, [<Rn>, {+}<Rm>] *)
+type internal OprRtMemReg16 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rt = extract bin 2 0 |> getRegister |> OprReg
+    let mem =
+      let rn = extract bin 5 3 |> getRegister
+      let rm = extract bin 8 6 |> getRegister
+      memOffsetReg (rn, Some Plus, rm, None)
+    OprInfo (TwoOperands (rt, mem), false, None)
+
+(* <Rt>, [<Rn>, {+}<Rm>] *)
+type internal OprRtMemReg32 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rt = extract bin 15 12 |> getRegister |> OprReg
+    let mem =
+      let rn = extract bin 19 16 |> getRegister
+      let rm = extract bin 3 0 |> getRegister
+      memOffsetReg (rn, Some Plus, rm, None)
+    OprInfo (TwoOperands (rt, mem), false, None)
+
+(* <Rt>, [<Rn>, {+}<Rm>{, LSL #<imm>}] *)
+type internal OprRtMemRegLSL () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rt = extract bin 15 12 |> getRegister |> OprReg
+    let mem =
+      let rn = extract bin 19 16 |> getRegister
+      let rm = extract bin 3 0 |> getRegister
+      let amount = Imm (extract bin 5 4 (* imm2 *))
+      memOffsetReg (rn, Some Plus, rm, Some (SRTypeLSL, amount))
+    OprInfo (TwoOperands (rt, mem), false, None)
+
+(* <Rt>, [<Rn> {, #{+}<imm>}] *)
+type internal OprRtMemImm0T () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rt = extract bin 2 0 |> getRegister |> OprReg
+    let mem =
+      let rn = extract bin 5 3 |> getRegister
+      let imm = extract bin 10 6 (* imm5 *) |> int64 (* ZeroExtend(imm5, 32) *)
+      memOffsetImm (rn, Some Plus, Some imm)
+    OprInfo (TwoOperands (rt, mem), false, None)
+
+(* <Rt>, [<Rn> {, #{+}<imm>}] *)
+type internal OprRtMemImm1 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rt = extract bin 2 0 |> getRegister |> OprReg
+    let mem =
+      let rn = extract bin 5 3 |> getRegister
+      let imm = (* ZeroExtend(imm5:'0', 32) *)
+        extract bin 10 6 (* imm5 *) <<< 1 |> int64
+      memOffsetImm (rn, Some Plus, Some imm)
+    OprInfo (TwoOperands (rt, mem), false, None)
+
+(* <Rt>, [<Rn> {, #{+}<imm>}] *)
+type internal OprRtMemImm2 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rt = extract bin 2 0 |> getRegister |> OprReg
+    let mem =
+      let rn = extract bin 5 3 |> getRegister
+      let imm = (* ZeroExtend(imm5:'00', 32) *)
+        extract bin 10 6 (* imm5 *) <<< 2 |> int64
+      memOffsetImm (rn, Some Plus, Some imm)
+    OprInfo (TwoOperands (rt, mem), false, None)
+
+(* <Rt>, [<Rn> {, #<imm>}] *)
+type internal OprRtMemImm8 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rt = extract bin 15 12 |> getRegister |> OprReg
+    let mem =
+      let rn = extract bin 19 16 |> getRegister
+      let imm = extract bin 7 0 <<< 2 (* imm8:'00' *) |> int64
+      memOffsetImm (rn, None, Some imm)
+    OprInfo (TwoOperands (rt, mem), false, None)
+
+(* <Rt>, [<Rn> {, #{+}<imm>}] *)
+type internal OprRtMemImm8P () =
+  inherit OperandParser ()
+  override __.Render bin = /// imm8 & Plus
+    let rt = extract bin 15 12 |> getRegister |> OprReg
+    let mem =
+      let rn = extract bin 19 16 |> getRegister
+      let imm = extract bin 7 0 (* imm8 *) |> int64
+      memOffsetImm (rn, Some Plus, Some imm)
+    OprInfo (TwoOperands (rt, mem), false, None)
+
+(* <Rt>, [<Rn> {, #-<imm>}] *)
+type internal OprRtMemImm8M () =
+  inherit OperandParser ()
+  override __.Render bin = /// imm8 & Minus
+    let rt = extract bin 15 12 |> getRegister |> OprReg
+    let mem =
+      let rn = extract bin 19 16 |> getRegister
+      let imm = extract bin 7 0 (* imm8 *) |> int64
+      memOffsetImm (rn, Some Minus, Some imm)
+    OprInfo (TwoOperands (rt, mem), wbackW8 bin, None)
+
+(* <Rt>, [<Rn>], #{+/-}<imm> *)
+type internal OprRtMemImmPs () =
+  inherit OperandParser ()
+  override __.Render bin = /// Post-indexed
+    let rt = extract bin 15 12 |> getRegister |> OprReg
+    let mem =
+      let rn = extract bin 19 16 |> getRegister
+      let imm = extract bin 7 0 (* imm8 *) |> int64
+      let sign = pickBit bin 9 |> getSign |> Some
+      memPostIdxImm (rn, sign, Some imm)
+    OprInfo (TwoOperands (rt, mem), wbackW8 bin, None)
+
+(* <Rt>, [<Rn>, #{+/-}<imm>]! *)
+type internal OprRtMemImmPr () =
+  inherit OperandParser ()
+  override __.Render bin = /// Pre-indexed
+    let rt = extract bin 15 12 |> getRegister |> OprReg
+    let mem =
+      let rn = extract bin 19 16 |> getRegister
+      let imm = extract bin 7 0 (* imm8 *) |> int64
+      let sign = pickBit bin 9 |> getSign |> Some
+      memPreIdxImm (rn, sign, Some imm)
+    OprInfo (TwoOperands (rt, mem), wbackW8 bin, None)
+
+(* <Rt>, [<Rn> {, #{+}<imm>}] *)
+type internal OprRtMemImm12T () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rt = extract bin 15 12 |> getRegister |> OprReg
+    let mem =
+      let imm12 = extract bin 11 0 |> int64
+      let rn = extract bin 19 16 |> getRegister
+      memOffsetImm (rn, Some Plus, Some imm12)
+    OprInfo (TwoOperands (rt, mem), false, None)
+
+(* <Rt>, [SP{, #{+}<imm>}] *)
+type internal OprRtMemSP () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rt = extract bin 10 8 |> getRegister |> OprReg
+    let mem =
+      let imm = extract bin 7 0 (* imm8 *) <<< 2 |> int64
+      memOffsetImm (R.SP, Some Plus, Some imm)
+    OprInfo (TwoOperands (rt, mem), false, None)
+
+(* <Rd>, <label> *)
+type internal OprRdLabelT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let imm32 (* i:imm3:imm8 *) =
+      (pickBit bin 26 <<< 11) + (extract bin 14 12 <<< 8) + (extract bin 7 0)
+      |> int64 |> memLabel
+    OprInfo (TwoOperands (rd, imm32), false, None)
+
+(* <Rt>, <Rt2>, <label> *)
+type internal OprRtRt2LabelT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rt = extract bin 15 12 |> getRegister |> OprReg
+    let rt2 = extract bin 11 8 |> getRegister |> OprReg
+    let label = extract bin 7 0 <<< 2 (* imm8:'00' *) |> int64 |> memLabel
+    OprInfo (ThreeOperands (rt, rt2, label), false, None)
+
+(* <Rd>, <Rn>, <Rm> *)
+(* {<Rd>,} <Rn>, <Rm> *)
+type internal OprRdRnRmT16 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 2 0 |> getRegister |> OprReg
+    let rn = extract bin 5 3 |> getRegister |> OprReg
+    let rm = extract bin 8 6 |> getRegister |> OprReg
+    OprInfo (ThreeOperands (rd, rn, rm), false, None)
+
+(* {<Rd>,} <Rn>, <Rm> *)
+type internal OprRdRnRmT32 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let rn = extract bin 19 16 |> getRegister |> OprReg
+    let rm = extract bin 3 0 |> getRegister |> OprReg
+    OprInfo (ThreeOperands (rd, rn, rm), false, None)
+
+(* {<Rd>,} <Rm>, <Rn> *)
+type internal OprRdRmRnT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let rm = extract bin 3 0 |> getRegister |> OprReg
+    let rn = extract bin 19 16 |> getRegister |> OprReg
+    OprInfo (ThreeOperands (rd, rm, rn), false, None)
+
+(* {<Rd>,} <Rm>, #<imm> *)
+type internal OprRdRmImmT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 2 0 |> getRegister |> OprReg
+    let rm = extract bin 5 3 |> getRegister |> OprReg
+    let imm = extract bin 10 6 |> int64 |> OprImm
+    OprInfo (ThreeOperands (rd, rm, imm), false, None)
+
+(* <Rd>, <Rn>, #<imm3> *)
+type internal OprRdRnImm3 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 2 0 |> getRegister |> OprReg
+    let rn = extract bin 5 3 |> getRegister |> OprReg
+    let imm3 = extract bin 8 6 (* imm3 *) |> int64 |> OprImm
+    OprInfo (ThreeOperands (rd, rn, imm3), false, None)
+
+(* <Rd>, SP, #<imm8> *)
+type internal OprRdSPImm8 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 10 8 |> getRegister |> OprReg
+    let imm8 = extract bin 7 0 (* imm8 *) <<< 2 |> int64 |> OprImm
+    OprInfo (ThreeOperands (rd, OprReg R.SP, imm8), false, None)
+
+(* {<Rd>,} <Rn>, #<imm12> *)
+type internal OprRdRnImm12 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let rn = extract bin 19 16 |> getRegister |> OprReg
+    let imm12 (* i:imm3:imm8 *) =
+      (pickBit bin 26 <<< 11) + (extract bin 14 12 <<< 8) + (extract bin 7 0)
+      |> int64
+    OprInfo (ThreeOperands (rd, rn, OprImm imm12), false, None)
+
+(* <Rd>, #<imm16> *)
+type internal OprRdImm16T () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let imm16 = (* imm4:i:imm3:imm8 *)
+      (extract bin 19 16 <<< 12) + (pickBit bin 26 <<< 11) +
+      (extract bin 14 12 <<< 8) + (extract bin 7 0) |> int64 |> OprImm
+    OprInfo (TwoOperands (rd, imm16), false, None)
+
+(* {<Rd>,} SP, #<imm12> *)
+type internal OprRdSPImm12 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let imm12 (* i:imm3:imm8 *) =
+      (pickBit bin 26 <<< 11) + (extract bin 14 12 <<< 8) + (extract bin 7 0)
+      |> int64
+    OprInfo (ThreeOperands (rd, OprReg R.SP, OprImm imm12), false, None)
+
+(* PC, LR, #<imm8> *)
+type internal OprPCLRImm8 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let imm8 = extract bin 7 0 (* imm8 *) |> int64 |> OprImm
+    OprInfo (ThreeOperands (OprReg R.PC, OprReg R.LR, imm8), false, None)
+
+(* {SP,} SP, #<imm7> *)
+type internal OprSPSPImm7 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let imm = extract bin 6 0 (* imm7 *) <<< 2 |> int64 |> OprImm
+    OprInfo (ThreeOperands (OprReg R.SP, OprReg R.SP, imm), false, None)
+
+(* <Rd>, <Rm> {, <shift> #<amount>} *)
+type internal OprRdRmShfT16 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 2 0 |> getRegister |> OprReg
+    let rm = extract bin 5 3 |> getRegister |> OprReg
+    let struct (shift, amount) =
+      decodeImmShift (extract bin 12 11) (extract bin 10 6) (* stype, imm5 *)
+    OprInfo (ThreeOperands (rd, rm, OprShift (shift, Imm amount)), false, None)
+
+(* <Rd>, <Rm> {, <shift> #<amount>} *)
+type internal OprRdRmShfT32 () =
+  inherit OperandParser ()
+  override __.Render b =
+    let rd = extract b 11 8 |> getRegister |> OprReg
+    let rm = extract b 3 0 |> getRegister |> OprReg
+    let struct (shift, amount) = (* stype, imm3:imm2 *)
+      decodeImmShift (extract b 5 4) ((extract b 14 12 <<< 2) + (extract b 7 6))
+    OprInfo (ThreeOperands (rd, rm, OprShift (shift, Imm amount)), false, None)
+
+(* {<Rd>, }<Rn>, #0 *)
+type internal OprRdRn0 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 2 0 |> getRegister |> OprReg
+    let rn = extract bin 5 3 |> getRegister |> OprReg
+    OprInfo (ThreeOperands (rd, rn, OprImm 0L), false, None)
+
+(* {<Rd>, }<Rn>, #0 *)
+type internal OprRdRn0T32 () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let rn = extract bin 19 16 |> getRegister |> OprReg
+    OprInfo (ThreeOperands (rd, rn, OprImm 0L), false, None)
+
+(* {<Rdn>,} <Rdn>, <Rm> *)
+type internal OprRdnRdnRm () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rdn = extract bin 2 0 |> getRegister |> OprReg
+    let rm = extract bin 5 3 |> getRegister |> OprReg
+    OprInfo (ThreeOperands (rdn, rdn, rm), false, None)
+
+(* <Rdm>, <Rn>{, <Rdm>} *)
+type internal OprRdmRnRdm () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rdm = extract bin 2 0 |> getRegister |> OprReg
+    let rn = extract bin 5 3 |> getRegister |> OprReg
+    OprInfo (ThreeOperands (rdm, rn, rdm), false, None)
+
+(* {<Rdm>,} SP, <Rdm> *)
+type internal OprRdmSPRdm () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rdm = (* DM:Rdm *)
+      concat (pickBit bin 7) (extract bin 2 0) 3 |> getRegister |> OprReg
+    OprInfo (ThreeOperands (rdm, OprReg R.SP, rdm), false, None)
+
+(* {SP,} SP, <Rm> *)
+type internal OprSPSPRm () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rm = extract bin 6 3 |> getRegister |> OprReg
+    OprInfo (ThreeOperands (OprReg R.SP, OprReg R.SP, rm), false, None)
+
+(* <Rd>, <Rt>, [<Rn>] *)
+type internal OprRdRtMemT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 3 0 |> getRegister |> OprReg
+    let rt = extract bin 15 12 |> getRegister |> OprReg
+    let mem = memOffsetImm (extract bin 19 16 |> getRegister, None, None)
+    OprInfo (ThreeOperands (rd, rt, mem), false, None)
+
+(* <Rt>, <Rt2>, [<Rn>] *)
+type internal OprRtRt2MemT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rt = extract bin 15 12 |> getRegister |> OprReg
+    let rt2 = extract bin 11 8 |> getRegister |> OprReg
+    let mem =
+      memOffsetImm (extract bin 19 16 (* Rn *) |> getRegister, None, None)
+    OprInfo (ThreeOperands (rt, rt2, mem), false, None)
+
+(* <Rt>, <Rt2>, [<Rn> {, #{+/-}<imm>}]
+   <Rt>, <Rt2>, [<Rn>], #{+/-}<imm>
+   <Rt>, <Rt2>, [<Rn>, #{+/-}<imm>]! *)
+type internal OprRtRt2MemImmT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rt = extract bin 15 12 |> getRegister |> OprReg
+    let rt2 = extract bin 11 8 |> getRegister |> OprReg
+    let mem =
+      let rn = extract bin 19 16 |> getRegister
+      let imm = extract bin 7 0 <<< 2 |> int64
+      let sign = pickBit bin 23 |> getSign |> Some
+      match concat (pickBit bin 24) (pickBit bin 21) 1 with
+      | 0b10u -> memOffsetImm (rn, sign, Some imm)
+      | 0b01u -> memPostIdxImm (rn, sign, Some imm)
+      | 0b11u -> memPreIdxImm (rn, sign, Some imm)
+      | _ (* 00 *) -> raise UnpredictableException
+    OprInfo (ThreeOperands (rt, rt2, mem), wbackW bin, None)
+
+(* <Rd>, <Rt>, [<Rn> {, #<imm>}] *)
+type internal OprRdRtMemImmT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let rt = extract bin 15 12 |> getRegister |> OprReg
+    let mem =
+      let imm = extract bin 7 0 <<< 2 (* imm8:'00' *) |> int64
+      memOffsetImm (extract bin 19 16 |> getRegister, None, Some imm)
+    OprInfo (ThreeOperands (rd, rt, mem), false, None)
+
+(* <Rn>, <Rm>, RRX *)
+(* <Rn>, <Rm> {, <shift> #<amount>} *)
+type internal OprRnRmShfT () =
+  inherit OperandParser ()
+  override __.Render b =
+    let rn = extract b 19 16 |> getRegister |> OprReg
+    let rm = extract b 3 0 |> getRegister |> OprReg
+    let struct (shift, amount) = (* stype, imm3:imm2 *)
+      decodeImmShift (extract b 5 4) ((extract b 14 12 <<< 2) + (extract b 7 6))
+    OprInfo (ThreeOperands (rn, rm, OprShift (shift, Imm amount)), false, None)
+
+(* <Rd>, <Rm>, <shift> <Rs> *)
+type internal OprRdRmShfRsT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let rm = extract bin 19 16 |> getRegister |> OprReg
+    let shift =
+      let rs = extract bin 3 0 |> getRegister
+      OprRegShift (decodeRegShift (extract bin 22 21 (* stype *)), rs)
+    OprInfo (ThreeOperands (rd, rm, shift), false, None)
+
+(* {<Rd>,} <Rm> {, ROR #<amount>} *)
+type internal OprRdRmRorT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let rm = extract bin 3 0 |> getRegister |> OprReg
+    let shift = OprShift (SRType.SRTypeROR, extract bin 5 4 <<< 3 |> Imm)
+    OprInfo (ThreeOperands (rd, rm, shift), false, None)
+
+(* {<Rd>,} <Rn>, #<const> *)
+type internal OprRdRnConstT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let rn = extract bin 19 16 |> getRegister |> OprReg
+    let imm12 (* i:imm3:imm8 *) =
+      (pickBit bin 26 <<< 11) + (extract bin 14 12 <<< 8) + (extract bin 7 0)
+    let cons = t32ExpandImm imm12 |> int64 |> OprImm
+    OprInfo (ThreeOperands (rd, rn, cons), false, None)
+
+(* {<Rd>,} SP, #<const> *)
+type internal OprRdSPConstT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let imm12 (* i:imm3:imm8 *) =
+      (pickBit bin 26 <<< 11) + (extract bin 14 12 <<< 8) + (extract bin 7 0)
+    let cons = t32ExpandImm imm12 |> int64 |> OprImm
+    OprInfo (ThreeOperands (rd, OprReg R.SP, cons), false, None)
+
+(* <Rd>, #<imm>, <Rn> *)
+type internal OprRdImmRnT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let imm = extract bin 3 0 (* sat_imm *) + 1u |> int64 |> OprImm
+    let rn = extract bin 19 16 |> getRegister |> OprReg
+    OprInfo (ThreeOperands (rd, imm, rn), false, None)
+
+(* <Rd>, #<imm>, <Rn> *)
+type internal OprRdImmRnU () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let imm = extract bin 3 0 (* sat_imm *) |> int64 |> OprImm
+    let rn = extract bin 19 16 |> getRegister |> OprReg
+    OprInfo (ThreeOperands (rd, imm, rn), false, None)
+
+(* <Rd>, #<lsb>, #<width> *)
+type internal OprRdLsbWidthT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let lsb = concat (extract bin 14 12) (extract bin 7 6) 2
+    let width = (* msb - lsb + 1 *)
+      (extract bin 4 0) - lsb + 1u |> int64 |> OprImm
+    OprInfo (ThreeOperands (rd, OprImm (int64 lsb), width), false, None)
+
+(* {<Rd>,} <Rn>, <Rm>, RRX *)
+(* {<Rd>,} <Rn>, <Rm> {, <shift> #<amount>} *)
+type internal OprRdRnRmShfT () =
+  inherit OperandParser ()
+  override __.Render b =
+    let rd = extract b 11 8 |> getRegister |> OprReg
+    let rn = extract b 19 16 |> getRegister |> OprReg
+    let rm = extract b 3 0 |> getRegister |> OprReg
+    let struct (shift, amount) = (* stype, imm3:imm2 *)
+      decodeImmShift (extract b 5 4) ((extract b 14 12 <<< 2) + (extract b 7 6))
+    let shift = OprShift (shift, Imm amount)
+    OprInfo (FourOperands (rd, rn, rm, shift), false, None)
+
+(* {<Rd>,} SP, <Rm>, RRX *)
+(* {<Rd>,} SP, <Rm> {, <shift> #<amount>} *)
+type internal OprRdSPRmShf () =
+  inherit OperandParser ()
+  override __.Render b=
+    let rd = extract b 11 8 |> getRegister |> OprReg
+    let rm = extract b 3 0 |> getRegister |> OprReg
+    let struct (shift, amount) = (* stype, imm3:imm2 *)
+      decodeImmShift (extract b 5 4) ((extract b 14 12 <<< 2) + (extract b 7 6))
+    let shf = OprShift (shift, Imm amount)
+    OprInfo (FourOperands (rd, OprReg R.SP, rm, shf), false, None)
+
+(* <Rdm>, <Rdm>, LSL <Rs> *)
+type internal OprRdmRdmLSLRs () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rdm = extract bin 2 0 |> getRegister |> OprReg
+    let shift = OprRegShift (SRTypeLSL, extract bin 5 3 |> getRegister (* Rs *))
+    OprInfo (ThreeOperands (rdm, rdm, shift), false, None)
+
+(* <Rdm>, <Rdm>, LSR <Rs> *)
+type internal OprRdmRdmLSRRs () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rdm = extract bin 2 0 |> getRegister |> OprReg
+    let shift = OprRegShift (SRTypeLSR, extract bin 5 3 |> getRegister (* Rs *))
+    OprInfo (ThreeOperands (rdm, rdm, shift), false, None)
+
+(* <Rdm>, <Rdm>, ASR <Rs> *)
+type internal OprRdmRdmASRRs () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rdm = extract bin 2 0 |> getRegister |> OprReg
+    let shift = OprRegShift (SRTypeASR, extract bin 5 3 |> getRegister (* Rs *))
+    OprInfo (ThreeOperands (rdm, rdm, shift), false, None)
+
+(* <Rdm>, <Rdm>, ROR <Rs> *)
+type internal OprRdmRdmRORRs () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rdm = extract bin 2 0 |> getRegister |> OprReg
+    let shift = OprRegShift (SRTypeROR, extract bin 5 3 |> getRegister (* Rs *))
+    OprInfo (ThreeOperands (rdm, rdm, shift), false, None)
+
+(* {<Rd>,} <Rn>, <Rm> {, ROR #<amount>} *)
+type internal OprRdRnRmRorT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let rn = extract bin 19 16 |> getRegister |> OprReg
+    let rm = extract bin 3 0 |> getRegister |> OprReg
+    let shift = OprShift (SRType.SRTypeROR, extract bin 5 4 <<< 3 |> Imm)
+    OprInfo (FourOperands (rd, rn, rm, shift), false, None)
+
+(* <Rd>, <Rn>, <Rm>, <Ra> *)
+type internal OprRdRnRmRaT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let rn = extract bin 19 16 |> getRegister |> OprReg
+    let rm = extract bin 3 0 |> getRegister |> OprReg
+    let ra = extract bin 15 12 |> getRegister |> OprReg
+    OprInfo (FourOperands (rd, rn, rm, ra), false, None)
+
+(* <RdLo>, <RdHi>, <Rn>, <Rm> *)
+type internal OprRdlRdhRnRmT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rdLo = extract bin 15 12 |> getRegister |> OprReg
+    let rdHi = extract bin 11 8 |> getRegister |> OprReg
+    let rn = extract bin 19 16 |> getRegister |> OprReg
+    let rm = extract bin 3 0 |> getRegister |> OprReg
+    OprInfo (FourOperands (rdLo, rdHi, rn, rm), false, None)
+
+(* <Rd>, <Rt>, <Rt2>, [<Rn>] *)
+type internal OprRdRtRt2MemT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 3 0 |> getRegister |> OprReg
+    let rt = extract bin 15 12 |> getRegister |> OprReg
+    let rt2 = extract bin 11 8 |> getRegister |> OprReg
+    let mem = memOffsetImm (extract bin 19 16 |> getRegister, None, None)
+    OprInfo (FourOperands (rd, rt, rt2, mem), false, None)
+
+(* <Rd>, #<imm>, <Rn>, ASR #<amount> *)
+(* <Rd>, #<imm>, <Rn>, LSL #<amount> *)
+type internal OprRdImmRnShfT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let imm = extract bin 4 0 (* sat_imm *) + 1u |> int64 |> OprImm
+    let rn = extract bin 19 16 |> getRegister |> OprReg
+    let imm5 (* imm3:imm2 *) = concat (extract bin 14 12) (extract bin 7 6) 2
+    let struct (sTyp, amount) (* sh:'0' *) =
+      decodeImmShift (extract bin 21 20) imm5
+    let shift = OprShift (sTyp, Imm amount)
+    OprInfo (FourOperands (rd, imm, rn, shift), false, None)
+
+(* <Rd>, #<imm>, <Rn>, ASR #<amount> *)
+(* <Rd>, #<imm>, <Rn>, LSL #<amount> *)
+type internal OprRdImmRnShfUT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let imm = extract bin 4 0 (* sat_imm *) |> int64 |> OprImm
+    let rn = extract bin 19 16 |> getRegister |> OprReg
+    let imm5 (* imm3:imm2 *) = concat (extract bin 14 12) (extract bin 7 6) 2
+    let struct (sTyp, amount) (* sh:'0' *) =
+      decodeImmShift (extract bin 21 20) imm5
+    let shift = OprShift (sTyp, Imm amount)
+    OprInfo (FourOperands (rd, imm, rn, shift), false, None)
+
+(* <Rd>, <Rn>, #<lsb>, #<width> *)
+type internal OprRdRnLsbWidthT () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let rn = extract bin 19 16 |> getRegister |> OprReg
+    let lsb (* imm3:imm2 *) =
+      concat (extract bin 14 12) (extract bin 7 6) 2
+    let width = (* msb - lsb + 1 *)
+      (extract bin 4 0) - lsb + 1u |> int64 |> OprImm
+    OprInfo (FourOperands (rd, rn, OprImm (int64 lsb), width), false, None)
+
+(* <Rd>, <Rn>, #<lsb>, #<width> *)
+type internal OprRdRnLsbWidthM1T () =
+  inherit OperandParser ()
+  override __.Render bin =
+    let rd = extract bin 11 8 |> getRegister |> OprReg
+    let rn = extract bin 19 16 |> getRegister |> OprReg
+    let lsb (* imm3:imm2 *) =
+      concat (extract bin 14 12) (extract bin 7 6) 2 |> int64 |> OprImm
+    let width (* widthm1 + 1 *) =
+      (extract bin 4 0 (* widthm1 *)) + 1u |> int64 |> OprImm
+    OprInfo (FourOperands (rd, rn, lsb, width), false, None)
+
 
 // vim: set tw=80 sts=2 sw=2:
