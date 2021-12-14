@@ -756,11 +756,10 @@ let parseCMPandMCRXR bin =
     let crfd = getCondRegister (extract bin 25u 23u) |> OpReg
     let ra = getRegister (extract bin 20u 16u) |> OpReg
     let rb = getRegister (extract bin 15u 11u) |> OpReg
-    if pickBit bin 21u = 0u then
+    match pickBit bin 21u with
     /// cmpw crfd,ra,rb = cmp crfd,0,ra,rb
-      struct (Op.CMPW, ThreeOperands (crfd, ra, rb))
-    else
-      struct (Op.CMP, FourOperands (crfd, Immediate 1UL, ra, rb))
+    | 0b0u -> struct (Op.CMPW, ThreeOperands (crfd, ra, rb))
+    | _ (* 1 *)-> struct (Op.CMP, FourOperands (crfd, Immediate 1UL, ra, rb))
   | 0b1u when extract bin 22u 11u = 0u ->
     let crfd = getCondRegister (extract bin 25u 23u) |> OpReg
     struct (Op.MCRXR, OneOperand (crfd))
@@ -1049,30 +1048,41 @@ let parseCMPL bin =
     let crfd = getCondRegister (extract bin 25u 23u) |> OpReg
     let ra = getRegister (extract bin 20u 16u) |> OpReg
     let rb = getRegister (extract bin 15u 11u) |> OpReg
-    if pickBit bin 21u = 0u then
+    match pickBit bin 21u with
     /// cmplw crfd,ra,rb = cmpl crfd,0,ra,rb
-      struct (Op.CMPLW, ThreeOperands (crfd, ra, rb))
-    else
-      struct (Op.CMPL, FourOperands (crfd, Immediate 1UL, ra, rb))
+    | 0b0u -> struct (Op.CMPLW, ThreeOperands (crfd, ra, rb))
+    | _ (* 1 *)-> struct (Op.CMPL, FourOperands (crfd, Immediate 1UL, ra, rb))
   | _ (* 1 *) -> Utils.impossible ()
 
 let parseTW bin =
   match pickBit bin 10u with
-  /// twlge ra,rb = tw 5,ra,rb
   | 0b0u ->
     let TO = extract bin 25u 21u |> uint64 |> Immediate
     let ra = getRegister (extract bin 20u 16u) |> OpReg
     let rb = getRegister (extract bin 15u 11u) |> OpReg
-    if extract bin 25u 21u = 0x4u then
+    match extract bin 25u 21u with
+    /// twlgt ra,rb = tw 1,ra,rb
+    | 0x1u -> struct (Op.TWLGT, TwoOperands (ra, rb))
+    /// twllt ra,rb = tw 2,ra,rb
+    | 0x2u -> struct (Op.TWLLT, TwoOperands (ra, rb))
     /// tweq ra,rb = tw 4,ra,rb
-      struct (Op.TWEQ, TwoOperands (ra, rb))
-    elif extract bin 25u 21u = 0x1fu then
-      if extract bin 20u 11u = 0x0u then
-        struct (Op.TRAP, NoOperand)
-      else
-        struct (Op.TW, NoOperand)
-    else
-      struct (Op.TW, ThreeOperands (TO, ra, rb))
+    | 0x4u -> struct (Op.TWEQ, TwoOperands (ra, rb))
+    /// twlnl ra,rb = tw 5,ra,rb
+    | 0x5u -> struct (Op.TWLNL, TwoOperands (ra, rb))
+    /// twgt ra,rb = tw 8,ra,rb
+    | 0x8u -> struct (Op.TWGT, TwoOperands (ra, rb))
+    /// twlt ra,rb = tw 16,ra,rb
+    | 0x10u -> struct (Op.TWLT, TwoOperands (ra, rb))
+    /// twne ra,rb = tw 24,ra,rb
+    | 0x18u -> struct (Op.TWNE, TwoOperands (ra, rb))
+    | 0x1Fu ->
+      match extract bin 20u 11u with
+      | 0x0u -> struct (Op.TRAP, NoOperand)
+      /// twlle ra,rb = twlng ra, rb = tw 6,ra,rb
+      /// twge ra,rb = twlge ra, rb = twnl ra, rb = tw 12,ra,rb
+      /// twle ra,rb = twng ra, rb = tw 20,ra,rb
+      | _ -> struct (Op.TW, ThreeOperands (TO, ra, rb))
+    | _ -> struct (Op.TW, ThreeOperands (TO, ra, rb))
   | _ (* 1 *) -> Utils.impossible ()
 
 let parseMTCRF bin =
@@ -1101,17 +1111,14 @@ let parseMFSPR bin =
     /// (* FIX SpecialRegister *)
     let spr =
       getSpecialRegister (concat (extract bin 15u 11u) (extract bin 20u 16u) 5)
+    match concat (extract bin 15u 11u) (extract bin 20u 16u) 5 with
     /// mfxer rd = mfspr rd,1
-    if concat (extract bin 15u 11u) (extract bin 20u 16u) 5 = 0x1u then
-      struct (Op.MFXER, OneOperand rd)
+    | 0x1u -> struct (Op.MFXER, OneOperand rd)
     /// mflr rd = mfspr rd,8
-    elif concat (extract bin 15u 11u) (extract bin 20u 16u) 5 = 0x8u then
-      struct (Op.MFLR, OneOperand rd)
+    | 0x8u -> struct (Op.MFLR, OneOperand rd)
     /// mfctr rd = mfspr rd,9
-    elif concat (extract bin 15u 11u) (extract bin 20u 16u) 5 = 0x9u then
-      struct (Op.MFCTR, OneOperand rd)
-    else
-    struct (Op.MFSPR, TwoOperands (rd, spr))
+    | 0x9u -> struct (Op.MFCTR, OneOperand rd)
+    | _ -> struct (Op.MFSPR, TwoOperands (rd, spr))
   | _ (* 1 *) -> Utils.impossible ()
 
 let parseMFTB bin =
@@ -1121,12 +1128,11 @@ let parseMFTB bin =
     /// (* FIX TBRRegister *)
     let tbr =
       getTBRRegister (concat (extract bin 15u 11u) (extract bin 20u 16u) 5)
+    match concat (extract bin 15u 11u) (extract bin 20u 16u) 5 with
     /// mftbu rd = mftb rd,269
-    if concat (extract bin 15u 11u) (extract bin 20u 16u) 5 = 0x10du then
-      struct (Op.MFTBU, OneOperand rd)
+    | 0x10du -> struct (Op.MFTBU, OneOperand rd)
     /// mftb rd = mftb rd,268
-    else
-    struct (Op.MFTB, TwoOperands (rd, tbr))
+    | _ -> struct (Op.MFTB, TwoOperands (rd, tbr))
   | _ (* 1 *) -> Utils.impossible ()
 
 let parseMTSPR bin =
@@ -1136,17 +1142,14 @@ let parseMTSPR bin =
     /// (* FIX SpecialRegister *)
     let spr =
       getSpecialRegister (concat (extract bin 15u 11u) (extract bin 20u 16u) 5)
+    match concat (extract bin 15u 11u) (extract bin 20u 16u) 5 with
     /// mtxer rd = mtspr rd,1
-    if concat (extract bin 15u 11u) (extract bin 20u 16u) 5 = 0x1u then
-      struct (Op.MTXER, OneOperand rs)
+    | 0x1u -> struct (Op.MTXER, OneOperand rs)
     /// mtlr rd = mtspr rd,8
-    elif concat (extract bin 15u 11u) (extract bin 20u 16u) 5 = 0x8u then
-      struct (Op.MTLR, OneOperand rs)
+    | 0x8u -> struct (Op.MTLR, OneOperand rs)
     /// mtctr rd = mtspr rd,9
-    elif concat (extract bin 15u 11u) (extract bin 20u 16u) 5 = 0x9u then
-      struct (Op.MTCTR, OneOperand rs)
-    else
-    struct (Op.MTSPR, TwoOperands (rs, spr))
+    | 0x9u -> struct (Op.MTCTR, OneOperand rs)
+    | _ -> struct (Op.MTSPR, TwoOperands (rs, spr))
   | _ (* 1 *) -> Utils.impossible ()
 
 let parseSTSWI bin =
@@ -1606,27 +1609,31 @@ let parseMTFSFx bin =
 let parse3F bin =
   match extract bin 5u 1u with
   | 0x0u ->
-    if extract bin 10u 6u = 0u then parseFCMPU bin
-    elif extract bin 10u 6u = 1u then parseFCMPO bin
-    elif extract bin 10u 6u = 2u then parseMCRFS bin
-    else Utils.impossible ()
+    match extract bin 10u 6u with
+    | 0x0u -> parseFCMPU bin
+    | 0x1u -> parseFCMPO bin
+    | 0x2u -> parseMCRFS bin
+    | _ -> Utils.impossible ()
   | 0x6u ->
     /// (* FIX FPSCRegister *)
-    if extract bin 10u 6u = 1u then parseMTFSB1x bin
+    match extract bin 10u 6u with
+    | 0x1u -> parseMTFSB1x bin
     /// (* FIX FPSCRegister *)
-    elif extract bin 10u 6u = 2u then parseMTFSB0x bin
-    elif extract bin 10u 6u = 4u then parseMTFSFIx bin
-    else Utils.impossible ()
+    | 0x2u -> parseMTFSB0x bin
+    | 0x4u -> parseMTFSFIx bin
+    | _ -> Utils.impossible ()
   | 0x7u ->
-    if extract bin 10u 6u = 0x12u then parseMFFSx bin
-    elif extract bin 10u 6u = 0x16u then parseMTFSFx bin
-    else Utils.impossible ()
+    match extract bin 10u 6u with
+    | 0x12u -> parseMFFSx bin
+    | 0x16u -> parseMTFSFx bin
+    | _ -> Utils.impossible ()
   | 0x8u ->
-    if extract bin 10u 6u = 1u then parseFNEGx bin
-    elif extract bin 10u 6u = 2u then parseFMRx bin
-    elif extract bin 10u 6u = 4u then parseFNABSx bin
-    elif extract bin 10u 6u = 8u then parseFABSx bin
-    else Utils.impossible ()
+    match extract bin 10u 6u with
+    | 0x1u -> parseFNEGx bin
+    | 0x2u -> parseFMRx bin
+    | 0x4u -> parseFNABSx bin
+    | 0x8u -> parseFABSx bin
+    | _ -> Utils.impossible ()
   | 0xCu when extract bin 10u 6u = 0u -> parseFRSPx bin
   | 0xEu when extract bin 10u 6u = 0u -> parseFCTIWx bin
   | 0xFu when extract bin 10u 6u = 0u -> parseFCTIWZx bin
@@ -1795,11 +1802,416 @@ let parse3B bin =
   | 0x1Fu -> parseFNMADDSx bin
   | _ -> Utils.futureFeature ()
 
+let parseTWI bin =
+  let TO = extract bin 25u 21u |> uint64 |> Immediate
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let value = extract bin 15u 0u |> uint64 |> Immediate
+  match extract bin 25u 21u with
+  /// twlgti ra,value = twi 1,ra,value
+  | 0x1u -> struct (Op.TWLGTI, TwoOperands (ra, value))
+  /// twllti ra,value = twi 2,ra,value
+  | 0x2u -> struct (Op.TWLLTI, TwoOperands (ra, value))
+  /// tweqi ra,value = twi 4,ra,value
+  | 0x4u -> struct (Op.TWEQI, TwoOperands (ra, value))
+  /// twlnli ra,value = twi 5,ra,value
+  | 0x5u -> struct (Op.TWLNLI, TwoOperands (ra, value))
+  /// twgti ra,value = twi 8,ra,value
+  | 0x8u -> struct (Op.TWGTI, TwoOperands (ra, value))
+  /// twlti ra,value = twi 16,ra,value
+  | 0x10u -> struct (Op.TWLTI, TwoOperands (ra, value))
+  /// twnei ra,value = twi 24,ra,value
+  | 0x18u -> struct (Op.TWNEI, TwoOperands (ra, value))
+  /// twllei ra,value = twlngi ra, value = twi 6,ra,value
+  /// twgei ra,value = twlgei ra, value = twnli ra, value = twi 12,ra,value
+  /// twlei ra,value = twngi ra, value = twi 20,ra,value
+  /// twui ra,value = twi 31, ra, value (???)
+  | _ -> struct (Op.TWI, ThreeOperands (TO, ra, value))
+
+let parseMULLI bin =
+  let rd = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let simm = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.MULLI, ThreeOperands (rd, ra, simm))
+
+let parseSUBFIC bin =
+  let rd = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let simm = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.SUBFIC, ThreeOperands (rd, ra, simm))
+
+let parseCMPLI bin =
+  match pickBit bin 22u with
+  | 0b0u ->
+    let crfd = getCondRegister (extract bin 25u 23u) |> OpReg
+    let ra = getRegister (extract bin 20u 16u) |> OpReg
+    let uimm = extract bin 15u 0u |> uint64 |> Immediate
+    match pickBit bin 21u with
+    /// cmplwi crfd,ra,uimm = cmpli crfd,0,ra,uimm
+    | 0b0u -> struct (Op.CMPLWI, ThreeOperands (crfd, ra, uimm))
+    | _ -> struct (Op.CMPLI, FourOperands (crfd, Immediate 1UL, ra, uimm))
+  | _ (* 1 *) -> Utils.impossible ()
+
+let parseCMPI bin =
+  match pickBit bin 22u with
+  | 0b0u ->
+    let crfd = getCondRegister (extract bin 25u 23u) |> OpReg
+    let ra = getRegister (extract bin 20u 16u) |> OpReg
+    let simm = extract bin 15u 0u |> uint64 |> Immediate
+    match pickBit bin 21u with
+    /// cmpwl crfd,ra,uimm = cmpl crfd,0,ra,uimm
+    | 0b0u -> struct (Op.CMPWI, ThreeOperands (crfd, ra, simm))
+    | _ -> struct (Op.CMPI, FourOperands (crfd, Immediate 1UL, ra, simm))
+  | _ (* 1 *) -> Utils.impossible ()
+
+let parseADDIC bin =
+  let rd = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let value = extract bin 15u 0u |> uint64 |> Immediate
+  /// subic rd,ra,value = addic rd,ra,-value
+  struct (Op.ADDIC, ThreeOperands (rd, ra, value))
+
+let parseADDICdot bin =
+  let rd = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let value = extract bin 15u 0u |> uint64 |> Immediate
+  /// subic. rd,ra,value = addic. rd,ra,-value
+  struct (Op.ADDICdot, ThreeOperands (rd, ra, value))
+
+let parseADDI bin =
+  let rd = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let value = extract bin 15u 0u |> uint64 |> Immediate
+  match extract bin 20u 16u with
+  | 0b0u -> struct (Op.LI, TwoOperands (rd, value))
+  /// subi rd,ra,value = addi rd,ra,-value
+  | _ -> struct (Op.ADDI, ThreeOperands (rd, ra, value))
+
+let parseADDIS bin =
+  let rd = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let value = extract bin 15u 0u |> uint64 |> Immediate
+  match extract bin 20u 16u with
+  | 0b0u -> struct (Op.LIS, TwoOperands (rd, value))
+  /// subis rd,ra,value = addis rd,ra,-value
+  | _ -> struct (Op.ADDIS, ThreeOperands (rd, ra, value))
+
+let parseSC bin =
+  match pickBit bin 1u with
+  | 0b1u -> struct (Op.SC, NoOperand)
+  | _ -> Utils.impossible ()
+
+let parseBx bin =
+  let li = extract bin 25u 2u |> uint64 |> Immediate
+  match concat (pickBit bin 1u) (pickBit bin 0u) 1 (* AA:LK *) with
+  | 0b00u -> struct (Op.B, OneOperand li)
+  | 0b01u -> struct (Op.BL, OneOperand li)
+  | 0b10u -> struct (Op.BA, OneOperand li)
+  | _ (* 11 *)-> struct (Op.BLA, OneOperand li)
+
+let parseLWZ bin =
+  let rd = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let d = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.LWZ, ThreeOperands(rd, d, ra))
+
+let parseLWZU bin =
+  let rd = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let d = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.LWZU, ThreeOperands(rd, d, ra))
+
+let parseLBZ bin =
+  let rd = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let d = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.LBZ, ThreeOperands(rd, d, ra))
+
+let parseLBZU bin =
+  let rd = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let d = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.LBZU, ThreeOperands(rd, d, ra))
+
+let parseSTW bin =
+  let rs = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let d = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.STW, ThreeOperands(rs, d, ra))
+
+let parseSTWU bin =
+  let rs = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let d = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.STWU, ThreeOperands(rs, d, ra))
+
+let parseSTB bin =
+  let rs = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let d = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.STB, ThreeOperands(rs, d, ra))
+
+let parseSTBU bin =
+  let rs = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let d = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.STBU, ThreeOperands(rs, d, ra))
+
+let parseLHZ bin =
+  let rd = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let d = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.LHZ, ThreeOperands(rd, d, ra))
+
+let parseLHZU bin =
+  let rd = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let d = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.LHZU, ThreeOperands(rd, d, ra))
+
+let parseLHA bin =
+  let rd = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let d = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.LHA, ThreeOperands(rd, d, ra))
+
+let parseLHAU bin =
+  let rd = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let d = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.LHAU, ThreeOperands(rd, d, ra))
+
+let parseSTH bin =
+  let rs = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let d = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.STH, ThreeOperands(rs, d, ra))
+
+let parseSTHU bin =
+  let rs = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let d = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.STHU, ThreeOperands(rs, d, ra))
+
+let parseLMW bin =
+  let rd = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let d = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.LMW, ThreeOperands(rd, d, ra))
+
+let parseSTMW bin =
+  let rs = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let d = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.STMW, ThreeOperands(rs, d, ra))
+
+let parseLFS bin =
+  let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let d = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.LFS, ThreeOperands(frd, d, ra))
+
+let parseLFSU bin =
+  let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let d = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.LFSU, ThreeOperands(frd, d, ra))
+
+let parseLFD bin =
+  let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let d = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.LFD, ThreeOperands(frd, d, ra))
+
+let parseLFDU bin =
+  let frd = getFPRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let d = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.LFDU, ThreeOperands(frd, d, ra))
+
+let parseSTFS bin =
+  let frs = getFPRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let d = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.STFS, ThreeOperands(frs, d, ra))
+
+let parseSTFSU bin =
+  let frs = getFPRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let d = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.STFSU, ThreeOperands(frs, d, ra))
+
+let parseSTFD bin =
+  let frs = getFPRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let d = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.STFD, ThreeOperands(frs, d, ra))
+
+let parseSTFDU bin =
+  let frs = getFPRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let d = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.STFDU, ThreeOperands(frs, d, ra))
+
+let parseRLWIMIx bin =
+  let rs = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let sh = extract bin 15u 11u |> uint64 |> Immediate
+  let mb = extract bin 10u 6u |> uint64 |> Immediate
+  let me = extract bin 5u 1u |> uint64 |> Immediate
+  match pickBit bin 0u with
+  /// inslwi ra,rs,n,b = rlwimi ra,rs,32-b,b,b+n-1
+  /// insrwi ra,rs,n,b (n>0) = rlwimi ra,rs,32-(b+n),b,(b+n)-1
+  | 0b0u -> struct (Op.RLWIMI, FiveOperands(ra, rs, sh, mb, me))
+  | _ (* 1 *)-> struct (Op.RLWIMIdot, FiveOperands(ra, rs, sh, mb, me))
+
+let parseRLWINMx bin =
+  let rs = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let sh = extract bin 15u 11u |> uint64 |> Immediate
+  let mb = extract bin 10u 6u |> uint64 |> Immediate
+  let me = extract bin 5u 1u |> uint64 |> Immediate
+  match pickBit bin 0u with
+  | 0b0u ->
+    match extract bin 15u 11u with
+    | 0b0u when extract bin 5u 1u = 0x1Fu ->
+      match extract bin 10u 6u with
+      ///slwi ra,rs,0 = rlwinm ra,rs,0,0,31
+      | 0x0u ->
+        let n = extract bin 15u 11u |> uint64 |> Immediate
+        struct (Op.SLWI, ThreeOperands(ra, rs, n))
+      ///clrlwi ra,rs,n = rlwinm ra,rs,0,n,31
+      | _ ->
+        let n = extract bin 10u 6u |> uint64 |> Immediate
+        struct (Op.CLRLWI, ThreeOperands(ra, rs, n))
+    | _ ->
+      match extract bin 10u 6u with
+      | 0x0u ->
+        let n = extract bin 15u 11u
+        ///rotlwi ra,rs,n = rotrwi ra,rs,n = rlwinm ra,rs,n,0,31
+        if extract bin 5u 1u = 0x1Fu then
+          let n = extract bin 15u 11u |> uint64 |> Immediate
+          struct (Op.ROTLWI, ThreeOperands(ra, rs, n))
+        ///slwi ra,rs,n = rlwinm ra,rs,n,0,31-n
+        elif extract bin 5u 1u = 0x1Fu - n then
+          let n = extract bin 15u 11u |> uint64 |> Immediate
+          struct (Op.SLWI, ThreeOperands(ra, rs, n))
+        else
+          struct (Op.RLWINM, FiveOperands(ra, rs, sh, mb, me))
+      | _ ->
+        let n = extract bin 10u 6u
+        if extract bin 15u 11u = 0x20u - n then
+          match extract bin 5u 1u with
+          ///srwi ra,rs,n = rlwinm ra,rs,32-n,n,31
+          | 0x1Fu ->
+            let n = extract bin 10u 6u |> uint64 |> Immediate
+            struct (Op.SRWI, ThreeOperands(ra, rs, n))
+          | _ -> struct (Op.RLWINM, FiveOperands(ra, rs, sh, mb, me))
+        else
+          struct (Op.RLWINM, FiveOperands(ra, rs, sh, mb, me))
+  | _ (* 1 *)-> struct (Op.RLWINMdot, FiveOperands(ra, rs, sh, mb, me))
+
+let parseRLWNMx bin =
+  let rs = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let rb = getRegister (extract bin 15u 11u) |> OpReg
+  let mb = extract bin 10u 6u |> uint64 |> Immediate
+  let me = extract bin 5u 1u |> uint64 |> Immediate
+  match pickBit bin 0u with
+  | 0b0u ->
+    match extract bin 10u 1u with
+    /// rotlw ra,rs,rb = rlwnm ra,rs,rb,mb,me
+    | 0x1Fu -> struct (Op.ROTLW, ThreeOperands(ra, rs, rb))
+    | _ -> struct (Op.RLWNM, FiveOperands(ra, rs, rb, mb, me))
+  | _ (* 1 *)-> struct (Op.RLWNMdot, FiveOperands(ra, rs, rb, mb, me))
+
+let parseORI bin =
+  let rs = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let uimm = extract bin 15u 0u |> uint64 |> Immediate
+  match extract bin 25u 0u with
+  /// nop = ori 0,0,0
+  | 0b0u -> struct (Op.NOP, NoOperand)
+  | _ -> struct (Op.ORI, ThreeOperands(rs, ra, uimm))
+
+let parseORIS bin =
+  let rs = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let uimm = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.ORIS, ThreeOperands(rs, ra, uimm))
+
+let parseXORI bin =
+  let rs = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let uimm = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.XORI, ThreeOperands(rs, ra, uimm))
+
+let parseXORIS bin =
+  let rs = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let uimm = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.XORIS, ThreeOperands(rs, ra, uimm))
+
+let parseANDIdot bin =
+  let rs = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let uimm = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.ANDIdot, ThreeOperands(rs, ra, uimm))
+
+let parseANDISdot bin =
+  let rs = getRegister (extract bin 25u 21u) |> OpReg
+  let ra = getRegister (extract bin 20u 16u) |> OpReg
+  let uimm = extract bin 15u 0u |> uint64 |> Immediate
+  struct (Op.ANDISdot, ThreeOperands(rs, ra, uimm))
+
 let private parseInstruction bin =
   match extract bin 31u 26u with
+  | 0x3u -> parseTWI bin
+  | 0x7u -> parseMULLI bin
+  | 0x8u -> parseSUBFIC bin
+  | 0xAu -> parseCMPLI bin
+  | 0xBu -> parseCMPI bin
+  | 0xCu -> parseADDIC bin
+  | 0xDu -> parseADDICdot bin
+  | 0xEu -> parseADDI bin
+  | 0xFu -> parseADDIS bin
+  | 0x11u when pickBit bin 0u = 0u -> parseSC bin
+  | 0x12u -> parseBx bin
+  | 0x14u -> parseRLWIMIx bin
+  | 0x15u -> parseRLWINMx bin
+  | 0x17u -> parseRLWNMx bin
+  | 0x18u -> parseORI bin
+  | 0x19u -> parseORIS bin
+  | 0x1Au -> parseXORI bin
+  | 0x1Bu -> parseXORIS bin
+  | 0x1Cu -> parseANDIdot bin
+  | 0x1Du -> parseANDISdot bin
   | 0x1Fu -> parse1F bin
-  | 0x3Fu -> parse3F bin
+  | 0x20u -> parseLWZ bin
+  | 0x21u -> parseLWZU bin
+  | 0x22u -> parseLBZ bin
+  | 0x23u -> parseLBZU bin
+  | 0x24u -> parseSTW bin
+  | 0x25u -> parseSTWU bin
+  | 0x26u -> parseSTB bin
+  | 0x27u -> parseSTBU bin
+  | 0x28u -> parseLHZ bin
+  | 0x29u -> parseLHZU bin
+  | 0x2Au -> parseLHA bin
+  | 0x2Bu -> parseLHAU bin
+  | 0x2Cu -> parseSTH bin
+  | 0x2Du -> parseSTHU bin
+  | 0x2Eu -> parseLMW bin
+  | 0x2Fu -> parseSTMW bin
+  | 0x30u -> parseLFS bin
+  | 0x31u -> parseLFSU bin
+  | 0x32u -> parseLFD bin
+  | 0x33u -> parseLFDU bin
+  | 0x34u -> parseSTFS bin
+  | 0x35u -> parseSTFSU bin
+  | 0x36u -> parseSTFD bin
+  | 0x37u -> parseSTFDU bin
   | 0x3Bu -> parse3B bin
+  | 0x3Fu -> parse3F bin
   | _ -> Utils.futureFeature ()
 
 let parse (reader: BinReader) addr pos =
