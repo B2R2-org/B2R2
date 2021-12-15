@@ -131,6 +131,7 @@ type IntelParser (wordSz) =
        OpGprVvRm () :> OperandParser
        OpXmVvXmm () :> OperandParser
        OpGpr () :> OperandParser
+       OpRmXmmImm8 () :> OperandParser
        OpXmmRmImm8 () :> OperandParser
        OpMmxMmImm8 () :> OperandParser
        OpMmxRmImm8 () :> OperandParser
@@ -142,7 +143,9 @@ type IntelParser (wordSz) =
        OpVvRmImm8 () :> OperandParser
        OpRmGprCL () :> OperandParser
        OpXmmXmXmm0 () :> OperandParser
-       OpXmmXmVv () :> OperandParser |]
+       OpXmmXmVv () :> OperandParser
+       OpVvRm () :> OperandParser
+       OpGprRmImm8Imm8 () :> OperandParser |]
 
   let szcomputers =
     [| SzByte () :> InsSizeComputer
@@ -156,6 +159,7 @@ type IntelParser (wordSz) =
        SzWV () :> InsSizeComputer
        SzD64 () :> InsSizeComputer
        SzPZ () :> InsSizeComputer
+       SzDDq () :> InsSizeComputer
        SzDqDq () :> InsSizeComputer
        SzDqdDq () :> InsSizeComputer
        SzDqdDqMR () :> InsSizeComputer
@@ -213,7 +217,8 @@ type IntelParser (wordSz) =
        SzQXz () :> InsSizeComputer
        SzDqQq () :> InsSizeComputer
        SzDqXz () :> InsSizeComputer
-       SzYDq () :> InsSizeComputer |]
+       SzYDq () :> InsSizeComputer
+       SzQq () :> InsSizeComputer |]
 
   let oneByteParsers =
     [| OneOp00 () :> ParsingJob

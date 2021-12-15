@@ -125,18 +125,21 @@ type OprDesc =
   | GprVvRm = 91
   | XmVvXmm = 92
   | Gpr = 93
-  | XmmRmImm8 = 94
-  | MmxMmImm8 = 95
-  | MmxRmImm8 = 96
-  | GprMmxImm8 = 97
-  | XmmVvXmImm8 = 98
-  | XmmVvXmXmm = 99
-  | XmRegImm8 = 100
-  | GprRmVv = 101
-  | VvRmImm8 = 102
-  | RmGprCL = 103
-  | XmmXmXmm0 = 104
-  | XmmXmVv = 105
+  | RmXmmImm8 = 94
+  | XmmRmImm8 = 95
+  | MmxMmImm8 = 96
+  | MmxRmImm8 = 97
+  | GprMmxImm8 = 98
+  | XmmVvXmImm8 = 99
+  | XmmVvXmXmm = 100
+  | XmRegImm8 = 101
+  | GprRmVv = 102
+  | VvRmImm8 = 103
+  | RmGprCL = 104
+  | XmmXmXmm0 = 105
+  | XmmXmVv = 106
+  | VvRm = 107
+  | GprRmImm8Imm8 = 108
 
 module internal OperandParsingHelper =
   /// Find a specific reg. The bitmask will be used to extract a specific REX
@@ -1097,6 +1100,16 @@ type internal OpGpr () =
       findRegRmAndSIBBase rhlp.RegSize rhlp.REXPrefix (getRM modRM) |> OprReg
     OneOperand opr
 
+type internal OpRmXmmImm8 () =
+  inherit OperandParser ()
+  override __.Render rhlp =
+    let modRM = rhlp.ReadByte ()
+    let opr1 = parseMemOrReg modRM rhlp
+    let opr2 =
+      findRegRBits rhlp.RegSize rhlp.REXPrefix (getReg modRM) |> OprReg
+    let opr3 = parseOprImm rhlp 8<rt>
+    ThreeOperands (opr1, opr2, opr3)
+
 type internal OpXmmRmImm8 () =
   inherit OperandParser ()
   override __.Render rhlp =
@@ -1155,8 +1168,9 @@ type internal OpXmmVvXmXmm () =
     let opr1 = findRegRBits rhlp.RegSize rhlp.REXPrefix (getReg modRM) |> OprReg
     let opr2 = parseVVVVReg rhlp
     let opr3 = parseMemOrReg modRM rhlp
-    let imm8 = (rhlp.ReadUInt8 () >>> 4) &&& 0b1111uy |> int (* imm8[7:4] *)
-    let opr4 = findRegRBits rhlp.RegSize rhlp.REXPrefix imm8 |> OprReg
+    let mask = if rhlp.WordSize = WordSize.Bit32 then 0b0111uy else 0b1111uy
+    let imm8 = (rhlp.ReadUInt8 () >>> 4) &&& mask |> int (* imm8[7:4] *)
+    let opr4 = findRegNoREX rhlp.RegSize rhlp.REXPrefix imm8 |> OprReg
     FourOperands (opr1, opr2, opr3, opr4)
 
 type internal OpXmRegImm8 () =
@@ -1209,3 +1223,24 @@ type internal OpXmmXmVv () =
     let opr1 = findRegRBits rhlp.RegSize rhlp.REXPrefix (getReg modRM) |> OprReg
     let opr2 = parseMemOrReg modRM rhlp
     ThreeOperands (opr1, opr2, parseVVVVReg rhlp)
+
+type internal OpVvRm () =
+  inherit OperandParser ()
+  override __.Render rhlp =
+    let modRM = rhlp.ReadByte ()
+    let opr1 = parseVEXtoGPR rhlp
+    let opr2 = parseMemOrReg modRM rhlp
+    TwoOperands (opr1, opr2)
+
+type internal OpGprRmImm8Imm8 () =
+  inherit OperandParser ()
+  override __.Render rhlp =
+    let modRM = rhlp.ReadByte ()
+    let opr1 =
+      findRegRBits rhlp.RegSize rhlp.REXPrefix (getReg modRM) |> OprReg
+    let opr2 =
+      if modIsMemory modRM then raise ParsingFailureException
+      else parseMemOrReg modRM rhlp
+    let opr3 = parseOprImm rhlp 8<rt>
+    let opr4 = parseOprImm rhlp 8<rt>
+    FourOperands (opr1, opr2, opr3, opr4)
