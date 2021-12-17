@@ -532,7 +532,7 @@ type SzDq () =
     rhlp.MemEffOprSize <- 128<rt>
     rhlp.MemEffAddrSize <- effAddrSz
     rhlp.MemEffRegSize <- 128<rt>
-    rhlp.RegSize <- effOprSz
+    rhlp.RegSize <- 128<rt>
     rhlp.OperationSize <- 128<rt>
 
 /// PqQd
@@ -712,20 +712,15 @@ type SzDqwDq () =
     rhlp.RegSize <- 128<rt>
     rhlp.OperationSize <- 128<rt>
 
-/// VxWdqwd
+/// VxWdqw
 type SzDqwX () =
   inherit InsSizeComputer ()
   override __.Render rhlp _ =
     let effAddrSz = getEffAddrSize rhlp
     let vLen = (Option.get rhlp.VEXInfo).VectorLength
-    let struct (mopr, maddr, mreg) =
-      match vLen with
-      | 128<rt> -> struct (16<rt>, effAddrSz, 128<rt>)
-      | 256<rt> -> struct (32<rt>, effAddrSz, 128<rt>)
-      | _ -> Utils.futureFeature () (* EVEX *)
-    rhlp.MemEffOprSize <- mopr
-    rhlp.MemEffAddrSize <- maddr
-    rhlp.MemEffRegSize <- mreg
+    rhlp.MemEffOprSize <- 16<rt>
+    rhlp.MemEffAddrSize <- effAddrSz
+    rhlp.MemEffRegSize <- 128<rt>
     rhlp.RegSize <- vLen
     rhlp.OperationSize <- vLen
 
@@ -1044,6 +1039,23 @@ type SzQq () =
     rhlp.RegSize <- 256<rt>
     rhlp.OperationSize <- 256<rt>
 
+/// VxWdqwd
+type SzDqwdX () =
+  inherit InsSizeComputer ()
+  override __.Render rhlp _ =
+    let effAddrSz = getEffAddrSize rhlp
+    let vLen = (Option.get rhlp.VEXInfo).VectorLength
+    let struct (mopr, maddr, mreg) =
+      match vLen with
+      | 128<rt> -> struct (16<rt>, effAddrSz, 128<rt>)
+      | 256<rt> -> struct (32<rt>, effAddrSz, 128<rt>)
+      | _ -> Utils.futureFeature () (* EVEX *)
+    rhlp.MemEffOprSize <- mopr
+    rhlp.MemEffAddrSize <- maddr
+    rhlp.MemEffRegSize <- mreg
+    rhlp.RegSize <- vLen
+    rhlp.OperationSize <- vLen
+
 type SizeKind =
   | Byte = 0
   | Word = 1
@@ -1116,5 +1128,6 @@ type SizeKind =
   | DqXz = 68
   | YDq = 69
   | Qq = 70
+  | DqwdX = 71
 
 // vim: set tw=80 sts=2 sw=2:
