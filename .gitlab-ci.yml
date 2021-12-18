@@ -22,7 +22,7 @@ extra:
     stage: extra
     script:
         - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@softsec.kaist.ac.kr:8000/B2R2/ci-runner
-        - dotnet run -p ci-runner/CIStarter -- $CI_URL $CI_COMMIT_SHA $CI_COMMIT_REF_NAME "$GITLAB_USER_NAME"
+        - dotnet run --project ci-runner/CIStarter -- $CI_URL $CI_COMMIT_SHA $CI_COMMIT_REF_NAME "$GITLAB_USER_NAME"
     dependencies:
         - build
     tags:
