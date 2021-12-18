@@ -137,7 +137,7 @@ let dumpArchiveHeader (opts: FileViewerOpts) (fi: FileInfo) =
   dumpSpecific opts fi "Archive Header Information"
     ELFViewer.badAccess PEViewer.badAccess MachViewer.dumpArchiveHeader
 
-let dumpUniversalHeader (opts: FileViewerOpts) (fi: FileInfo) =
+let dumpUnivHeader (opts: FileViewerOpts) (fi: FileInfo) =
   dumpSpecific opts fi "Universal Header Information"
     ELFViewer.badAccess PEViewer.badAccess MachViewer.dumpUniversalHeader
 
@@ -201,7 +201,7 @@ let printSelectively hdl opts fi = function
   | DisplayPESpecific PEDisplayCLRHeader -> dumpCLRHeader opts fi
   | DisplayPESpecific PEDisplayDependencies -> dumpDependencies opts fi
   | DisplayMachSpecific MachDisplayArchiveHeader -> dumpArchiveHeader opts fi
-  | DisplayMachSpecific MachDisplayUniversalHeader -> dumpUniversalHeader opts fi
+  | DisplayMachSpecific MachDisplayUniversalHeader -> dumpUnivHeader opts fi
   | DisplayMachSpecific MachDisplayLoadCommands -> dumpLoadCommands opts fi
   | DisplayMachSpecific MachDisplaySharedLibs -> dumpSharedLibs opts fi
 

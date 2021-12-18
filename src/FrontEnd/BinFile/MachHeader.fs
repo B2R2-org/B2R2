@@ -22,12 +22,12 @@
   SOFTWARE.
 *)
 
-module internal B2R2.FrontEnd.BinFile.Mach.Header
+module B2R2.FrontEnd.BinFile.Mach.Header
 
 open B2R2
 open B2R2.FrontEnd.BinFile
 
-let peekMagic (reader: BinReader) offset =
+let internal peekMagic (reader: BinReader) offset =
   if reader.Length() > offset + sizeof<uint32>
   then reader.PeekUInt32 offset
   else 0ul
@@ -43,13 +43,13 @@ let isMach reader offset =
   | Magic.MHCigam | Magic.MHCigam64 | Magic.MHMagic | Magic.MHMagic64 -> true
   | _ -> isFat reader offset
 
-let peekCPUType (reader: BinReader) offset =
+let internal peekCPUType (reader: BinReader) offset =
   offset + 4 |> reader.PeekInt32 |> LanguagePrimitives.EnumOfValue
 
-let peekCPUSubType (reader: BinReader) offset =
+let internal peekCPUSubType (reader: BinReader) offset =
   offset + 8 |> reader.PeekInt32 |> LanguagePrimitives.EnumOfValue
 
-let getMIPSISA = function
+let internal getMIPSISA = function
   | CPUSubType.MIPSAll
   | CPUSubType.MIPSR2300
   | CPUSubType.MIPSR2600
@@ -66,26 +66,26 @@ let cpuTypeToArch cputype subtype =
   | CPUType.MIPS -> getMIPSISA subtype
   | _ -> Arch.UnknownISA
 
-let peekArch reader offset =
+let internal peekArch reader offset =
   let cputype = peekCPUType reader offset
   let subtype = peekCPUSubType reader offset
   cpuTypeToArch cputype subtype
 
-let peekClass reader offset =
+let internal peekClass reader offset =
   match peekMagic reader offset with
   | Magic.MHMagic | Magic.MHCigam -> WordSize.Bit32
   | Magic.MHMagic64 | Magic.MHCigam64 -> WordSize.Bit64
   | _ -> raise FileFormatMismatchException
 
-let magicToEndian = function
+let internal magicToEndian = function
   | Magic.MHMagic | Magic.MHMagic64 -> Endian.Little
   | Magic.MHCigam | Magic.MHCigam64 -> Endian.Big
   | _ -> raise FileFormatMismatchException
 
-let peekEndianness reader offset =
+let internal peekEndianness reader offset =
   peekMagic reader offset |> magicToEndian
 
-let parse reader offset =
+let internal parse reader offset =
   { Magic = peekMagic reader offset
     Class = peekClass reader offset
     CPUType = peekCPUType reader offset
