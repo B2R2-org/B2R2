@@ -1,7 +1,7 @@
 language: csharp
 mono: none
-dotnet: 3.1
-dist: bionic
+dotnet: 6.0
+dist: focal
 solution: B2R2.sln
 install:
     - dotnet restore
