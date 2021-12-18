@@ -130,7 +130,7 @@ module private JmpTableResolution =
     | tAddr :: tl ->
       let endPoint = dataMgr.JumpTables.FindConfirmedEndPoint tAddr
       if tAddr = endPoint then (* First entry *)
-        Some (dataMgr.JumpTables.[tAddr], tAddr)
+        Some (dataMgr.JumpTables[tAddr], tAddr)
       else getInitialRecoveryTarget dataMgr tl
     | [] -> None
 
@@ -205,7 +205,7 @@ module private JmpTableResolution =
   /// Find a recovery end-point address that can fill in the gap.
   let rec getRecoveryTargetFromGap hdl (dataMgr: DataManager) gaps = function
     | tAddr :: tl ->
-      let jt = dataMgr.JumpTables.[tAddr]
+      let jt = dataMgr.JumpTables[tAddr]
       let entryAddr = dataMgr.JumpTables.FindConfirmedEndPoint tAddr
       match findGapPointingAddr hdl dataMgr jt entryAddr gaps with
       | Some _ as target -> target
@@ -226,7 +226,7 @@ module private JmpTableResolution =
   /// next recovery end-point address by simply pointing to the next entry.
   let rec getNextRecoveryTargetFromTable hdl codeMgr dataMgr fn gaps = function
     | tAddr :: tl ->
-      let jt = (dataMgr: DataManager).JumpTables.[tAddr]
+      let jt = (dataMgr: DataManager).JumpTables[tAddr]
       let deadEnd = dataMgr.JumpTables.FindPotentialEndPoint tAddr
       let entryAddr = dataMgr.JumpTables.FindConfirmedEndPoint tAddr
 #if CFGDEBUG

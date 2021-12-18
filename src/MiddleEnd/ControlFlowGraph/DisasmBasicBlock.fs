@@ -39,14 +39,14 @@ type DisasmBasicBlock (instrs: Instruction [], pp(*, ?funcID*)) =
   let symbolize (words: AsmWord []) =
     match funcID with
     | Some funcID ->
-      words.[words.Length - 1] <-
+      words[words.Length - 1] <-
         { AsmWordKind = AsmWordKind.Value; AsmWordValue = funcID }
     | None -> ()
     words
   *)
 
   override __.Range =
-    let last = instructions.[instructions.Length - 1]
+    let last = instructions[instructions.Length - 1]
     AddrRange (pp.Address, last.Address + uint64 last.Length - 1UL)
 
   override __.IsFakeBlock () = Array.isEmpty instructions

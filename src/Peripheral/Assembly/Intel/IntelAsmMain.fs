@@ -235,7 +235,7 @@ let getImm imm = if Option.isSome imm then Option.get imm else [||]
 let computeMaxLen (components: AsmComponent [] list) =
   components
   |> List.map (fun comp ->
-       match comp.[0] with
+       match comp[0] with
        | Normal _ -> Array.length comp
        | CompOp (_, _, bytes, imm) ->
          Array.length bytes + 4 + Array.length (getImm imm)
@@ -284,7 +284,7 @@ let computeAddr idx realLenArr =
   | arr -> Array.reduce (+) arr |> int64
 
 let decideOp parserState maxLenArr myIdx (comp: _ []) =
-  match comp.[0] with
+  match comp[0] with
   | Normal _ | CompOp _ -> comp
   | IncompleteOp (op, (OneOperand (Label (lbl, _)) as oprs)) ->
     let labelIdx = Map.find lbl parserState.LabelMap
@@ -297,9 +297,9 @@ let decideOp parserState maxLenArr myIdx (comp: _ []) =
 let computeRealLen components =
   components
   |> List.map (fun (comp: AsmComponent []) ->
-    match comp.[0] with
+    match comp[0] with
     | CompOp (_, _, bytes, imm) ->
-      match comp.[1] with
+      match comp[1] with
       | IncompLabel sz ->
         Array.length bytes + RegType.toByteWidth sz + Array.length (getImm imm)
       | _ -> Utils.impossible ()

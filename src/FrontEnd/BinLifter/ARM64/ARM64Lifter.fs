@@ -250,9 +250,9 @@ let transOprToExprOfADD ins ctxt addr (ir: IRBuilder) =
     let resTmps = Array.init (int eNum) (fun _ -> ir.NewTempVar eSz)
     let amt = RegType.toBitWidth eSz
     for i in 0 .. (int eNum) - 1 do
-      ir <! (s1Tmps.[i] := AST.extract s1 eSz (i * amt))
-      ir <! (s2Tmps.[i] := AST.extract s2 eSz (i * amt))
-      ir <! (resTmps.[i] := s1Tmps.[i] .+ s2Tmps.[i])
+      ir <! (s1Tmps[i] := AST.extract s1 eSz (i * amt))
+      ir <! (s2Tmps[i] := AST.extract s2 eSz (i * amt))
+      ir <! (resTmps[i] := s1Tmps[i] .+ s2Tmps[i])
     done
     ir <! (dst := AST.concatArr resTmps)
   | FourOperands (_, _, _, _) -> (* Arithmetic *)

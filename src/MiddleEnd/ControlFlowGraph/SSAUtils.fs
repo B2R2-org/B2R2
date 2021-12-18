@@ -32,9 +32,9 @@ let computeDominatorInfo g root =
   let domCtxt = Dominator.initDominatorContext g root
   let frontiers = Dominator.frontiers domCtxt
   DiGraph.iterVertex g (fun (v: SSAVertex) ->
-    let dfnum = domCtxt.ForwardDomInfo.DFNumMap.[v.GetID ()]
+    let dfnum = domCtxt.ForwardDomInfo.DFNumMap[v.GetID ()]
     v.VData.ImmDominator <- Dominator.idom domCtxt v
-    v.VData.DomFrontier <- frontiers.[dfnum])
+    v.VData.DomFrontier <- frontiers[dfnum])
   domCtxt
 
 let collectDefVars defs (_, stmt) =
@@ -57,7 +57,7 @@ let findPhiSites g defsPerNode variable (phiSites, workList) v =
       |> List.length
       |> v.VData.PrependPhi variable
       let phiSites = Set.add v phiSites
-      let defs = (defsPerNode: DefsPerNode).[v]
+      let defs = (defsPerNode: DefsPerNode)[v]
       if not <| Set.contains variable defs then phiSites, v :: workList
       else phiSites, workList
 
@@ -74,10 +74,10 @@ let placePhis g vertices (defSites: DefSites) domCtxt =
   vertices
   |> Seq.iter (fun (v: SSAVertex) ->
     let defs = v.VData.SSAStmtInfos |> Array.fold collectDefVars Set.empty
-    defsPerNode.[v] <- defs
+    defsPerNode[v] <- defs
     defs |> Set.iter (fun d ->
-      if defSites.ContainsKey d then defSites.[d] <- Set.add v defSites.[d]
-      else defSites.[d] <- Set.singleton v))
+      if defSites.ContainsKey d then defSites[d] <- Set.add v defSites[d]
+      else defSites[d] <- Set.singleton v))
   for KeyValue (variable, defs) in defSites do
     Set.toList defs
     |> iterDefs g Set.empty defsPerNode variable
@@ -132,9 +132,9 @@ let renameJmp stack = function
     renameExpr stack target2
 
 let introduceDef (count: VarCountMap) (stack: IDStack) (v: SSA.Variable) =
-  count.[v.Kind] <- count.[v.Kind] + 1
-  let i = count.[v.Kind]
-  stack.[v.Kind] <- i :: stack.[v.Kind]
+  count[v.Kind] <- count[v.Kind] + 1
+  let i = count[v.Kind]
+  stack[v.Kind] <- i :: stack[v.Kind]
   v.Identifier <- i
 
 let renameStmt count stack (_, stmt) =
@@ -156,7 +156,7 @@ let renamePhiAux (stack: IDStack) preds (parent: SSAVertex) (_, stmt) =
     let idx =
       List.findIndex (fun (v: SSAVertex) ->
         v.VData = parent.VData) preds
-    nums.[idx] <- List.head stack.[def.Kind]
+    nums[idx] <- List.head stack[def.Kind]
   | _ -> ()
 
 let renamePhi g stack parent (succ: SSAVertex) =
@@ -166,7 +166,7 @@ let renamePhi g stack parent (succ: SSAVertex) =
 let popStack (stack: IDStack) (_, stmt) =
   match stmt with
   | SSA.Def (def, _)
-  | SSA.Phi (def, _) -> stack.[def.Kind] <- List.tail stack.[def.Kind]
+  | SSA.Phi (def, _) -> stack[def.Kind] <- List.tail stack[def.Kind]
   | _ -> ()
 
 let rec rename g domTree count stack (v: SSAVertex) =
@@ -186,6 +186,6 @@ let renameVars g (defSites: DefSites) domCtxt =
   let count = VarCountMap ()
   let stack = IDStack ()
   defSites.Keys |> Seq.iter (fun variable ->
-    count.[variable] <- 0
-    stack.[variable] <- [0])
+    count[variable] <- 0
+    stack[variable] <- [0])
   rename g domTree count stack root |> ignore

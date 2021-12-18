@@ -501,7 +501,7 @@ type IntelParser (wordSz) =
     let mutable pos = pos
     let mutable pref = PrxNone
     let mutable b = (reader: BinReader).PeekByte pos
-    while ((prefixCheck.[(int b >>> 5)] >>> (int b &&& 0b11111)) &&& 1u) > 0u do
+    while ((prefixCheck[(int b >>> 5)] >>> (int b &&& 0b11111)) &&& 1u) > 0u do
       match b with
       | 0xF0uy -> pref <- PrxLOCK ||| (clearGrp1PrefMask &&& pref)
       | 0xF2uy -> pref <- PrxREPNZ ||| (clearGrp1PrefMask &&& pref)
@@ -542,7 +542,7 @@ type IntelParser (wordSz) =
 #if LCACHE
     rhlp.MarkPrefixEnd (prefEndPos)
 #endif
-    oneByteParsers.[int (rhlp.ReadByte ())].Run rhlp :> Instruction
+    oneByteParsers[int (rhlp.ReadByte ())].Run rhlp :> Instruction
 
   override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 

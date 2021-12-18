@@ -198,7 +198,7 @@ let rec internal evalStmts stmts (st: EvalState) =
   let st = if idx = 0 then st.Callbacks.OnInstr st else st
   if not st.IsInstrTerminated && Array.length stmts > idx
     && not st.InPrematureState then
-    let stmt = stmts.[idx]
+    let stmt = stmts[idx]
     st.Callbacks.OnStmtEval stmt
     tryEvaluate stmt st
     evalStmts stmts st
@@ -206,7 +206,7 @@ let rec internal evalStmts stmts (st: EvalState) =
 
 let rec evalBlockLoop idx (blk: Stmt [][]) (st: EvalState) =
   if idx < blk.Length && not st.InPrematureState then
-    let stmts = blk.[idx]
+    let stmts = blk[idx]
     st.PrepareInstrEval stmts
     evalStmts stmts st
     evalBlockLoop (idx + 1) blk st

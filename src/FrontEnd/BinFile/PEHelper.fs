@@ -102,7 +102,7 @@ let inline translateAddr pe addr =
   match pe.FindSectionIdxFromRVA rva with
   | -1 -> raise InvalidAddrReadException
   | idx ->
-    let sHdr = pe.SectionHeaders.[idx]
+    let sHdr = pe.SectionHeaders[idx]
     rva + sHdr.PointerToRawData - sHdr.VirtualAddress
 
 let pdbTypeToSymbKind = function
@@ -123,7 +123,7 @@ let inline getStaticSymbols pe =
   |> Array.toSeq
 
 let getSymbolKindBySectionIndex pe idx =
-  let ch = pe.SectionHeaders.[idx].SectionCharacteristics
+  let ch = pe.SectionHeaders[idx].SectionCharacteristics
   if ch.HasFlag SectionCharacteristics.MemExecute then SymbolKind.FunctionType
   else SymbolKind.ObjectType
 
@@ -213,7 +213,7 @@ let getSectionsByAddr pe addr =
   match pe.FindSectionIdxFromRVA rva with
   | -1 -> Seq.empty
   | idx ->
-    pe.SectionHeaders.[idx] |> secHdrToSection pe |> Seq.singleton
+    pe.SectionHeaders[idx] |> secHdrToSection pe |> Seq.singleton
 
 let getTextSections pe =
   getSectionsByName pe secText

@@ -35,7 +35,7 @@ open B2R2.MiddleEnd.BinGraph
 [<AutoOpen>]
 module private EVMTrampolineAnalysis =
   let computeKeccak256 (keccak: SHA3Core.Keccak.Keccak) (str: string) =
-    let hashStr = (keccak.Hash str).[ 0 .. 7 ]
+    let hashStr = (keccak.Hash str)[ 0 .. 7 ]
     System.UInt32.Parse (hashStr, System.Globalization.NumberStyles.HexNumber)
 
   // Parse function information and update signature to name mapping.

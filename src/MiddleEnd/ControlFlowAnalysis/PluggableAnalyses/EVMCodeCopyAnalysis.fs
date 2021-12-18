@@ -53,7 +53,7 @@ type EVMCodeCopyAnalysis () =
       let srcStart = src
       let srcEnd = src + len - 1UL
       if srcEnd < binLen then
-        let codeArea = bin.[ int (srcStart) .. int (srcEnd) ]
+        let codeArea = bin[ int (srcStart) .. int (srcEnd) ]
         let newHdl = BinHandle.Init (hdl.ISA, codeArea)
         PluggableAnalysisNewBinary newHdl
       else pickValidCopyInfo hdl restCopyInfos

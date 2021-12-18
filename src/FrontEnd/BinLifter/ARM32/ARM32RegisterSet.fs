@@ -128,7 +128,7 @@ type ARM32RegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     |> Register.toRegID
 
   override __.ToString () =
-    sprintf "ARM32RegisterSet<%x>" __.BitArray.[0]
+    sprintf "ARM32RegisterSet<%x>" __.BitArray[0]
 
 [<RequireQualifiedAccess>]
 module ARM32RegisterSet =

@@ -53,7 +53,7 @@ type EVMRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     | _ -> Utils.impossible ()
 
   override __.ToString () =
-    sprintf "EVMReisterSet<%x, %x>" __.BitArray.[0] __.BitArray.[1]
+    sprintf "EVMReisterSet<%x, %x>" __.BitArray[0] __.BitArray[1]
 
 [<RequireQualifiedAccess>]
 module EVMRegisterSet =

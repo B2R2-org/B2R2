@@ -94,8 +94,8 @@ let parseDefinedVersionTable tbl (reader: BinReader) strTab = function
 let parseVersionTable secs (reader: BinReader) =
   secs.DynSymSecNums
   |> List.fold (fun tbl n ->
-       let symTblSec = secs.SecByNum.[n]
-       let ss = secs.SecByNum.[Convert.ToInt32 symTblSec.SecLink]
+       let symTblSec = secs.SecByNum[n]
+       let ss = secs.SecByNum[Convert.ToInt32 symTblSec.SecLink]
        let size = Convert.ToInt32 ss.SecSize
        let offset = Convert.ToInt32 ss.SecOffset
        let strTab = reader.PeekSpan (size, offset)
@@ -192,7 +192,7 @@ let rec parseSymAux baseAddr eHdr secs reader txt vtbl stbl cnt max offset acc =
 
 let parseSymbols baseAddr eHdr secs (reader: BinReader) vtbl acc symTblSec =
   let cls = eHdr.Class
-  let ss = secs.SecByNum.[Convert.ToInt32 symTblSec.SecLink] (* Get the sec. *)
+  let ss = secs.SecByNum[Convert.ToInt32 symTblSec.SecLink] (* Get the sec. *)
   let size = Convert.ToInt32 ss.SecSize
   let offset = Convert.ToInt32 ss.SecOffset
   let max = symTblSec.SecSize / (if cls = WordSize.Bit32 then 16UL else 24UL)
@@ -232,7 +232,7 @@ let parse baseAddr eHdr secs reader =
       let symbols = parseSymbols baseAddr eHdr secs reader vtbl [] symTblSec
       Map.add n (Array.ofList symbols) map) Map.empty sec
   let symTbls =
-    List.map (fun n -> n, secs.SecByNum.[n]) symTabNumbers |> getSymTables
+    List.map (fun n -> n, secs.SecByNum[n]) symTabNumbers |> getSymTables
   let staticSymArr = getStaticSymArrayInternal secs symTbls
   let dynamicSymArr = getDynamicSymArrayInternal secs symTbls
   { VersionTable = vtbl

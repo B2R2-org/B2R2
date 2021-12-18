@@ -72,21 +72,21 @@ let personalityRoutinePointerSize addrSize = function
 
 let obtainAugData addrSize (arr: byte []) data offset = function
   | 'L' ->
-    let struct (v, app) = parseEncoding arr.[offset]
+    let struct (v, app) = parseEncoding arr[offset]
     { Format = 'L'
       ValueEncoding = v
       ApplicationEncoding = app
       PersonalityRoutionPointer = [||] } :: data, offset + 1
   | 'P' ->
-    let struct (v, app) = parseEncoding arr.[offset]
-    let psz = arr.[offset] &&& 7uy |> personalityRoutinePointerSize addrSize
-    let prp = arr.[ offset + 1 .. offset + psz ]
+    let struct (v, app) = parseEncoding arr[offset]
+    let psz = arr[offset] &&& 7uy |> personalityRoutinePointerSize addrSize
+    let prp = arr[ offset + 1 .. offset + psz ]
     { Format = 'P'
       ValueEncoding = v
       ApplicationEncoding = app
       PersonalityRoutionPointer = prp } :: data, offset + psz + 1
   | 'R' ->
-    let struct (v, app) = parseEncoding arr.[offset]
+    let struct (v, app) = parseEncoding arr[offset]
     { Format = 'R'
       ValueEncoding = v
       ApplicationEncoding = app
@@ -99,7 +99,7 @@ let parseAugmentationData (reader: BinReader) offset addrSize augstr =
     let len, offset = parseULEB128 reader offset
     let span = reader.PeekSpan (int len, offset)
     let arr = span.ToArray ()
-    augstr.[ 1.. ]
+    augstr[ 1.. ]
     |> Seq.fold (fun (data, idx) ch ->
       obtainAugData addrSize arr data idx ch) ([], 0)
     |> fst |> List.rev, offset + int len
@@ -160,7 +160,7 @@ let rec parseExprs isa regbay exprs (span: ReadOnlySpan<byte>) i maxIdx =
     | [ exp ] -> exp
     | _ -> raise InvalidDWInstructionExpression
   else
-    match span.[i] |> DWOperation.parse with
+    match span[i] |> DWOperation.parse with
     | DWOperation.DW_OP_breg0 ->
       let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 0uy
       parseExprs isa regbay exprs span i' maxIdx
@@ -258,10 +258,10 @@ let rec parseExprs isa regbay exprs (span: ReadOnlySpan<byte>) i maxIdx =
       let struct (exprs, i') = parseOpBReg isa regbay exprs span (i + 1) 31uy
       parseExprs isa regbay exprs span i' maxIdx
     | DWOperation.DW_OP_const1u ->
-      let exprs = num isa (uint64 span.[i + 1]) :: exprs
+      let exprs = num isa (uint64 span[i + 1]) :: exprs
       parseExprs isa regbay exprs span (i + 2) maxIdx
     | DWOperation.DW_OP_const1s ->
-      let exprs = num isa (int64 span.[i + 1] |> uint64) :: exprs
+      let exprs = num isa (int64 span[i + 1] |> uint64) :: exprs
       parseExprs isa regbay exprs span (i + 2) maxIdx
     | DWOperation.DW_OP_const2u ->
       let c = MemoryMarshal.Read<uint16> (span.Slice (i + 1))
@@ -451,8 +451,8 @@ let rec getUnwind acc cfa irule rst rule isa rbay lr cf df rr span i loc =
       CanonicalFrameAddress = cfa
       Rule = rule } :: acc |> List.rev, cfa, lr
   else
-    let op = span.[i]
-    let oparg = span.[i] &&& 0x3fuy
+    let op = span[i]
+    let oparg = span[i] &&& 0x3fuy
     let i = i + 1
     let op = if op &&& 0xc0uy > 0uy then op &&& 0xc0uy else op
     match DWCFAInstruction.parse op with
@@ -541,7 +541,7 @@ let rec getUnwind acc cfa irule rst rule isa rbay lr cf df rr span i loc =
       let acc = ent :: acc
       getUnwind acc cfa irule rst rule isa rbay lr cf df rr span i loc'
     | DWCFAInstruction.DW_CFA_advance_loc1 ->
-      let loc' = loc + uint64 span.[i]
+      let loc' = loc + uint64 span[i]
       let i' = i + 1
       let ent = { Location = loc; CanonicalFrameAddress = cfa; Rule = rule }
       let acc = ent :: acc

@@ -36,7 +36,7 @@ type Memory (reader: Addr -> Addr -> Result<byte, ErrorCase>) =
   member __.Reader with get() = reader and set(f) = reader <- f
 
   member private __.Load (pc: Addr) addr =
-    if mem.ContainsKey (addr) then Ok mem.[addr]
+    if mem.ContainsKey (addr) then Ok mem[addr]
     else __.Reader pc addr
 
   member private __.ReadLE acc pc addr i =
@@ -69,11 +69,11 @@ type Memory (reader: Addr -> Addr -> Result<byte, ErrorCase>) =
       for i = 1 to len do
         let offset = i - 1
         let b = (v >>> (offset * 8)) &&& 255I |> byte
-        mem.[addr + uint64 (len - i)] <- b
+        mem[addr + uint64 (len - i)] <- b
     else
       for i = 1 to len do
         let offset = i - 1
         let b = (v >>> (offset * 8)) &&& 255I |> byte
-        mem.[addr + uint64 offset] <- b
+        mem[addr + uint64 offset] <- b
 
   member __.Clear () = mem.Clear ()

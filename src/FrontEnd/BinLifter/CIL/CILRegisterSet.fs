@@ -44,7 +44,7 @@ type CILRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     LanguagePrimitives.Int32WithMeasure<RegisterID.T> index
 
   override __.ToString () =
-    sprintf "CILReisterSet<%x, %x>" __.BitArray.[0] __.BitArray.[1]
+    sprintf "CILReisterSet<%x, %x>" __.BitArray[0] __.BitArray[1]
 
 [<RequireQualifiedAccess>]
 module CILRegisterSet =

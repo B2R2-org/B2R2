@@ -129,18 +129,18 @@ module CPState =
     let preds = DiGraph.getPreds cfg blk |> List.toArray
     srcIDs
     |> Array.mapi (fun i srcID ->
-      if isExecuted st (preds.[i].GetID ()) (blk.GetID ()) then Some srcID
+      if isExecuted st (preds[i].GetID ()) (blk.GetID ()) then Some srcID
       else None)
     |> Array.choose id
 
   let inline updateConst st r v =
     if not (st.RegState.ContainsKey r) then
-      st.RegState.[r] <- v
+      st.RegState[r] <- v
       st.SSAWorkList.Push r
-    elif st.RegState.[r] = v then ()
-    elif st.CPCore.GoingUp st.RegState.[r] v then ()
+    elif st.RegState[r] = v then ()
+    elif st.CPCore.GoingUp st.RegState[r] v then ()
     else
-      st.RegState.[r] <- st.CPCore.Meet st.RegState.[r] v
+      st.RegState[r] <- st.CPCore.Meet st.RegState[r] v
       st.SSAWorkList.Push r
 
   let tryFindReg st lazyInit r =
@@ -160,7 +160,7 @@ module CPState =
 
   let inline private initMemState st mid =
     if st.MemState.ContainsKey mid then ()
-    else st.MemState.[mid] <- (Map.empty, Set.empty)
+    else st.MemState[mid] <- (Map.empty, Set.empty)
 
   let inline private isAligned st rt addr =
     let align = RegType.toByteWidth rt |> uint64
@@ -169,16 +169,16 @@ module CPState =
   let tryFindMem st m rt addr =
     let mid = m.Identifier
     initMemState st mid
-    if isAligned st rt addr then Map.tryFind addr <| fst st.MemState.[mid]
+    if isAligned st rt addr then Map.tryFind addr <| fst st.MemState[mid]
     else st.CPCore.Bottom |> Some
 
   let updateUninitialized st m addr =
     let mid = m.Identifier
-    let mem, updated = st.MemState.[mid]
+    let mem, updated = st.MemState[mid]
     let mem = Map.add addr st.CPCore.Bottom mem
-    st.MemState.[mid] <- (mem, updated)
+    st.MemState[mid] <- (mem, updated)
     st.UninitializedMemAddrs.Add addr |> ignore
     st.CPCore.Bottom
 
   let copyMem st dstid srcid =
-    st.MemState.[dstid] <- st.MemState.[srcid]
+    st.MemState[dstid] <- st.MemState[srcid]

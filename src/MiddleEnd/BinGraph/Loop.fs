@@ -36,7 +36,7 @@ let private getBackEdges g root =
     |> Map.ofList
   []
   |> DiGraph.foldEdge g (fun acc s d e ->
-    match doms.[s] with
+    match doms[s] with
     | l when l |> List.exists (fun v -> v = d) -> (s, d) :: acc
     | _ -> acc)
 
@@ -54,4 +54,3 @@ let getNaturalLoops g root =
         (findIn g v) :: acc)
       |> HashSet
     vertices :: acc) []
-    

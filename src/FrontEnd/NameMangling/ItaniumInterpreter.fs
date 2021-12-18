@@ -107,8 +107,8 @@ let rec interpret (input: ItaniumExpr) =
             acc + add + elem) "" args
     if f = "" then
       f
-    elif f.[f.Length - 1] = ' ' then
-      f.[.. f.Length - 3]
+    elif f[f.Length - 1] = ' ' then
+      f[.. f.Length - 3]
     else
       f
 
@@ -158,7 +158,7 @@ let rec interpret (input: ItaniumExpr) =
       let flag = interpret value
       let array =
         List.fold (fun acc elem -> acc + "[" + interpret(elem) + "]") "" a
-      if flag.[flag.Length - 1] = '&' then
+      if flag[flag.Length - 1] = '&' then
         interpret b + " (" + flag + ") " + array
       else
         interpret b + " (" + flag + interpret ref + ") " + array
@@ -172,7 +172,7 @@ let rec interpret (input: ItaniumExpr) =
     | TemplateSub (a, _) -> interpret (RefArg (ref, a))
     | _ ->
       let arg = interpret arg
-      if arg <> "" && arg.[String.length arg - 1] = '&' then
+      if arg <> "" && arg[String.length arg - 1] = '&' then
         arg
       else
         arg + interpret ref
@@ -212,7 +212,7 @@ let rec interpret (input: ItaniumExpr) =
         fun acc elem ->
           let add = if (fst acc = "") then "" else "::"
           let idx = snd acc
-          let prev = if (idx = 0) then Dummy "" else namelist.[idx - 1]
+          let prev = if (idx = 0) then Dummy "" else namelist[idx - 1]
           match elem, prev with
           | ConsOrDes _, Template (Sxname (_, b), _) ->
             let elem = interpret elem
@@ -227,7 +227,7 @@ let rec interpret (input: ItaniumExpr) =
             let elem = interpret elem
             fst acc + add + elem + (Sxabbreviation.get sx), (idx + 1)
           | ConsOrDes _, UnnamedType _ ->
-            let prev = namelist.[idx - 2]
+            let prev = namelist[idx - 2]
             let elem = interpret elem
             fst acc + add + elem + interpret (prev), (idx + 1)
           | ConsOrDes _, _ ->
@@ -237,29 +237,29 @@ let rec interpret (input: ItaniumExpr) =
             let elem = interpret (ConsOrDes a)
             let prev = interpret c
             let help = interpret b
-            let help = if (help.[help.Length - 1] = '>') then (" >") else ">"
+            let help = if (help[help.Length - 1] = '>') then (" >") else ">"
             fst acc + add + elem + prev + "<" + interpret b + help, (idx + 1)
           | Template (ConsOrDes a, b), Template (Sxsubstitution sx, _) ->
             let elem = interpret (ConsOrDes a)
             let help = interpret b
-            let help = if (help.[help.Length - 1] = '>') then (" >") else ">"
+            let help = if (help[help.Length - 1] = '>') then (" >") else ">"
             fst acc + add + elem + Sxabbreviation.get sx
             + "<" + interpret b + help, (idx + 1)
           | Template (ConsOrDes a, b), Template (c, _) ->
             let elem = interpret (ConsOrDes a)
             let prev = interpret c
             let help = interpret b
-            let help = if (help.[help.Length - 1] = '>') then (" >") else ">"
+            let help = if (help[help.Length - 1] = '>') then (" >") else ">"
             fst acc + add + elem + prev + "<" + interpret b + help, (idx + 1)
           | Template (ConsOrDes a, b), _ ->
             let elem = interpret (ConsOrDes a)
             let prev = interpret prev
             let help = interpret b
-            let help = if (help.[help.Length - 1] = '>') then (" >") else ">"
+            let help = if (help[help.Length - 1] = '>') then (" >") else ">"
             fst acc + add + elem + prev + "<" + interpret b + help, (idx + 1)
           | _ ->
             let elem = interpret elem
-            if elem.Length >= 10 && elem.[0 .. 9] = "_GLOBAL__N" then
+            if elem.Length >= 10 && elem[0 .. 9] = "_GLOBAL__N" then
               fst acc + add + "(anonymous namespace)", (idx + 1)
             else
               fst acc + add + elem, (idx + 1)) ("", 0) namelist
@@ -271,11 +271,11 @@ let rec interpret (input: ItaniumExpr) =
   | Template (name, tempargs) ->
     let help = interpret tempargs
     let name = interpret name
-    let helper = if (name.[name.Length - 1] = '<') then (" <") else ("<")
+    let helper = if (name[name.Length - 1] = '<') then (" <") else ("<")
     if help = "" then
       name + helper + help + ">"
     else
-      let help = if (help.[help.Length - 1] = '>') then (" >") else ">"
+      let help = if (help[help.Length - 1] = '>') then (" >") else ">"
       name + helper + (interpret tempargs) + help
 
   | Clone (exprlist) ->
@@ -290,7 +290,7 @@ let rec interpret (input: ItaniumExpr) =
             else acc + "." + string(x)
           | _ -> acc) "" exprlist
     if a = "" then ""
-    elif a.[0] = ']' then a.[1 .. (String.length a) - 1] + "]"
+    elif a[0] = ']' then a[1 .. (String.length a) - 1] + "]"
     else a + "]"
 
   | Function (scope, a, Name "", Name "", clone) ->
@@ -328,7 +328,7 @@ let rec interpret (input: ItaniumExpr) =
         let all, index = combine (List.rev arguments) 0 ""
         let fullname = name + "(" + (args) + ")" + add
         let len = String.length all
-        let final = all.[0 .. index] + fullname + all.[(index + 1) .. len - 1]
+        let final = all[0 .. index] + fullname + all[(index + 1) .. len - 1]
         returned + " " + scope1 + final + interpret clone
       | TemplateSub (a, _) ->
         interpret (Function (scope, a, a, arglist, clone))
@@ -342,12 +342,12 @@ let rec interpret (input: ItaniumExpr) =
   | UnaryExpr (a, b) ->
     let operator = interpret a
     let len = String.length operator
-    let operator = operator.[8 .. (len - 1)]
+    let operator = operator[8 .. (len - 1)]
     if operator = "++" || operator = "--" then
       "(" + interpret b + ")" + operator
     elif operator = "&" then
       let b = interpret b
-      if b.[b.Length - 1] = '>' || b.[b.Length - 1] = ')' then
+      if b[b.Length - 1] = '>' || b[b.Length - 1] = ')' then
         operator + "(" + b + ")"
       else
         operator + b
@@ -359,7 +359,7 @@ let rec interpret (input: ItaniumExpr) =
   | BinaryExpr (a, b, c) ->
     let operator = interpret a
     let len = String.length operator
-    let operator = operator.[8 .. (len - 1)]
+    let operator = operator[8 .. (len - 1)]
     if operator = "::" then
       interpret b + operator + interpret c
     else
@@ -491,8 +491,8 @@ let rec interpret (input: ItaniumExpr) =
     | _ -> interpret a
 
   | CallExpr a ->
-    let first = a.[0]
-    let rest = a.[1 ..]
+    let first = a[0]
+    let rest = a[1 ..]
     let rest =
       List.fold
         (fun acc elem ->

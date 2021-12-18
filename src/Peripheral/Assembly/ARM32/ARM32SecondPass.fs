@@ -36,7 +36,7 @@ let updateOperands insAddress operandList labelToAddress =
       match hd with
       | GoToLabel (a1) ->
         if mapping.ContainsKey a1 then
-          let lblAddr = mapping.[a1]
+          let lblAddr = mapping[a1]
           let value = LiteralMode (int64 lblAddr) |> OprMemory
           doChecking tail mapping (value :: result)
         else

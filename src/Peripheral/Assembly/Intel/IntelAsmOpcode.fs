@@ -125,7 +125,7 @@ let inline encRLI (ctxt: EncContext) ins r op i immSz =
   [| CompOp (ins.Opcode, ins.Operands, op, imm); IncompLabel 32<rt> |]
 
 let inline encFR (op: byte []) r =
-  let op = [| op.[0]; op.[1] + (regTo3Bit r) |]
+  let op = [| op[0]; op[1] + (regTo3Bit r) |]
   [| yield! Array.map Normal op |]
 
 let inline encO ins arch pref rex op r =

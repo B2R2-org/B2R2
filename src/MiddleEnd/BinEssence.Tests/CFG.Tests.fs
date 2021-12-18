@@ -318,12 +318,12 @@ type CFGTest1 () =
       ProgramPoint (0x52UL, 0), ProgramPoint (0x55UL, 0); ]
     |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x eMap)
     let actual =
-      [| cfg.FindEdgeData vertices.[0] vertices.[1]
-         cfg.FindEdgeData vertices.[1] vertices.[2]
-         cfg.FindEdgeData vertices.[1] vertices.[3]
-         cfg.FindEdgeData vertices.[2] vertices.[5]
-         cfg.FindEdgeData vertices.[3] vertices.[4]
-         cfg.FindEdgeData vertices.[4] vertices.[5] |]
+      [| cfg.FindEdgeData vertices[0] vertices[1]
+         cfg.FindEdgeData vertices[1] vertices[2]
+         cfg.FindEdgeData vertices[1] vertices[3]
+         cfg.FindEdgeData vertices[2] vertices[5]
+         cfg.FindEdgeData vertices[3] vertices[4]
+         cfg.FindEdgeData vertices[4] vertices[5] |]
     let expected =
       [| CallFallThroughEdge; InterCJmpFalseEdge; InterCJmpTrueEdge;
          InterJmpEdge; CallFallThroughEdge; FallThroughEdge; |]
@@ -598,12 +598,12 @@ type CFGTest2 () =
       (ProgramPoint (0x1CUL, 8), ProgramPoint (0x1EUL, 0)); ]
     |> List.iter (fun x -> Assert.IsTrue <| Map.containsKey x eMap)
     let actual =
-      [| cfg.FindEdgeData vertices.[0] vertices.[1]
-         cfg.FindEdgeData vertices.[1] vertices.[2]
-         cfg.FindEdgeData vertices.[2] vertices.[3]
-         cfg.FindEdgeData vertices.[2] vertices.[4]
-         cfg.FindEdgeData vertices.[3] vertices.[2]
-         cfg.FindEdgeData vertices.[4] vertices.[5] |]
+      [| cfg.FindEdgeData vertices[0] vertices[1]
+         cfg.FindEdgeData vertices[1] vertices[2]
+         cfg.FindEdgeData vertices[2] vertices[3]
+         cfg.FindEdgeData vertices[2] vertices[4]
+         cfg.FindEdgeData vertices[3] vertices[2]
+         cfg.FindEdgeData vertices[4] vertices[5] |]
     let expected =
       [| CallFallThroughEdge; FallThroughEdge; IntraCJmpFalseEdge;
          IntraCJmpTrueEdge; InterJmpEdge; InterJmpEdge |]

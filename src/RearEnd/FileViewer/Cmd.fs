@@ -63,7 +63,7 @@ type FileViewerOpts () =
   static member OptBaseAddr () =
     let cb opts (arg: string []) =
       (FileViewerOpts.ToThis opts).BaseAddress <-
-        Some (Convert.ToUInt64 (arg.[0], 16))
+        Some (Convert.ToUInt64 (arg[0], 16))
       opts
     CmdOpts.New (descr = "Specify the base <address> in hex (default=0)",
                  extra = 1, callback = cb, short = "-b", long = "--base-addr")
@@ -91,7 +91,7 @@ type FileViewerOpts () =
   /// "--section-details" option for displaying the target section details.
   static member OptSectionDetails () =
     let cb opts (arg: string []) =
-      FileViewerOpts.AddOpt opts (DisplaySectionDetails arg.[0])
+      FileViewerOpts.AddOpt opts (DisplaySectionDetails arg[0])
     CmdOpts.New (descr = "Display the <name> section details", extra = 1,
                  callback = cb, short = "-d", long = "--section-details")
 
@@ -219,7 +219,7 @@ type FileViewerOpts () =
   /// "-i" or "--isa" option for specifying ISA.
   static member OptISA () =
     let cb opts (arg: string []) =
-      (FileViewerOpts.ToThis opts).ISA <- ISA.OfString arg.[0]; opts
+      (FileViewerOpts.ToThis opts).ISA <- ISA.OfString arg[0]; opts
     CmdOpts.New (descr = "Specify <ISA> (e.g., x86) for fat binaries",
                  extra = 1, callback = cb, short = "-i", long= "--isa")
 

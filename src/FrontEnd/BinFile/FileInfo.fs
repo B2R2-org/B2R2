@@ -351,9 +351,9 @@ type FileInfo () =
   /// </returns>
   member __.GetFunctionSymbols () =
     let dict = System.Collections.Generic.Dictionary<Addr, Symbol> ()
-    __.GetStaticSymbols () |> Seq.iter (fun s -> dict.[s.Address] <- s)
+    __.GetStaticSymbols () |> Seq.iter (fun s -> dict[s.Address] <- s)
     __.GetDynamicSymbols (true) |> Seq.iter (fun s ->
-      if dict.ContainsKey s.Address then () else dict.[s.Address] <- s)
+      if dict.ContainsKey s.Address then () else dict[s.Address] <- s)
     dict
     |> Seq.map (fun (KeyValue (_, s)) -> s)
     |> Seq.filter (fun s -> s.Kind = FunctionType)

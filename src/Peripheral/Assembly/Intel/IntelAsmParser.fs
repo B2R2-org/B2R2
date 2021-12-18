@@ -104,7 +104,7 @@ type IntelAsmParser (isa, baseAddr: Addr) =
   let pImm =
     numberLiteral numberFormat "number"
     |>> (fun x ->
-          if x.HasPlusSign then int64 x.String.[1 ..] else int64 x.String)
+          if x.HasPlusSign then int64 x.String[1 ..] else int64 x.String)
 
   let pAddr = pImm |>> uint64
 

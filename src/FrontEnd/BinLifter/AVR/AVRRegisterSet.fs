@@ -143,7 +143,7 @@ type AVRRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     |> Register.toRegID
 
   override __.ToString () =
-    sprintf "AVRRegisterSet<%x, %x>" __.BitArray.[0] __.BitArray.[1]
+    sprintf "AVRRegisterSet<%x, %x>" __.BitArray[0] __.BitArray[1]
 
 [<RequireQualifiedAccess>]
 module AVRRegisterSet =

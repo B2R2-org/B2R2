@@ -70,8 +70,8 @@ module DataFlowChain =
         info.Stmts
         |> Array.foldi (fun map idx stmt ->
           let pp = ProgramPoint (info.Instruction.Address, idx)
-          let inset = ins.[v.GetID ()]
-          let outset = outs.[v.GetID ()]
+          let inset = ins[v.GetID ()]
+          let outset = outs[v.GetID ()]
           let uses = Utils.extractUses stmt
           uses |> Set.fold (fun map u ->
             let usepoint = { VarExpr = u; ProgramPoint = pp }

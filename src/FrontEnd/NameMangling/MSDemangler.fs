@@ -195,7 +195,7 @@ type MSDemangler () =
     digit |>> string |>> int .>>. getUserState
     |>> (fun (x, us) ->
           if x >= us.NameList.Length then Name "???????"
-          else (List.rev us.NameList).[x])
+          else (List.rev us.NameList)[x])
 
   (*---------------For the type components of functions.-----------------*)
 
@@ -309,7 +309,7 @@ type MSDemangler () =
     digit |>> string |>> int .>>. getUserState
     |>> (fun (x, us) ->
           if x >= us.TypeList.Length then Name "?????"
-          else (List.rev us.TypeList).[x])
+          else (List.rev us.TypeList)[x])
 
   /// Parses a type and adds it to the typeList if it is not a simple type.
   let smartParseType =
@@ -538,7 +538,7 @@ type MSDemangler () =
     <|> attempt pTemplate <|> fullName
 
   override __.Run str =
-    match runParserOnString allExpressions MSUserState.Default "" str.[1..] with
+    match runParserOnString allExpressions MSUserState.Default "" str[1..] with
     | Success (result, _, _) ->
       let result = MSInterpreter.interpret result
       Result.Ok <| result.Trim ()

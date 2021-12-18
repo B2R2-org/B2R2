@@ -194,7 +194,7 @@ type ARM64RegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     |> Register.toRegID
 
   override __.ToString () =
-    sprintf "ARM64RegisterSet<%x, %x>" __.BitArray.[0] __.BitArray.[1]
+    sprintf "ARM64RegisterSet<%x, %x>" __.BitArray[0] __.BitArray[1]
 
 [<RequireQualifiedAccess>]
 module ARM64RegisterSet =

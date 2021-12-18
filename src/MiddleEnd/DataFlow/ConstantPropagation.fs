@@ -54,7 +54,7 @@ type ConstantPropagation<'L when 'L: equality> (ssaCFG) =
         |> Set.iter (fun (vid, idx) ->
           let v = DiGraph.findVertexByID ssaCFG vid
           if __.GetNumIncomingExecutedEdges st v > 0 then
-            let ppoint, stmt = v.VData.SSAStmtInfos.[idx]
+            let ppoint, stmt = v.VData.SSAStmtInfos[idx]
             st.CPCore.Transfer st ssaCFG v ppoint stmt
           else ())
       | None -> ()

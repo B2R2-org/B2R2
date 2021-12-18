@@ -143,7 +143,7 @@ let getSectionsByName mach name =
   | None -> Seq.empty
 
 let getTextSections mach =
-  mach.Sections.SecByNum.[mach.SecText]
+  mach.Sections.SecByNum[mach.SecText]
   |> machSectionToSection mach.SegmentMap
   |> Seq.singleton
 

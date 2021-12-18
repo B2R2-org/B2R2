@@ -36,7 +36,7 @@ module private LEB128Helper =
     let acc = b :: acc
     if b &&& 0x80uy <> 0uy && offset = len - 1 then raise LEB128DecodeException
     elif b &&& 0x80uy = 0uy then List.rev acc, offset'
-    else decodeLoop acc bs offset' bs.[offset'] len
+    else decodeLoop acc bs offset' bs[offset'] len
 
   let inline decode (bytes: ReadOnlySpan<byte>) cast maxLen =
     let rec convLoop v offset = function
@@ -47,7 +47,7 @@ module private LEB128Helper =
     if bytes.Length = 0 then invalidArg (nameof bytes) "Invalid buffer length"
     else
       let len = if bytes.Length > maxLen then maxLen else bytes.Length
-      let bs, offset = decodeLoop [] bytes 0 bytes.[0] len
+      let bs, offset = decodeLoop [] bytes 0 bytes[0] len
       convLoop (cast 0uy) 0 bs, offset
 
   let inline extendSign b offset currentValue bitmask maxLen =
@@ -88,7 +88,7 @@ type LEB128 =
   static member DecodeSInt64 span =
     let v, len = decode span int64 LEB128.Max64
     let offset = len - 1
-    extendSign span.[offset] offset v 0xFFFFFFFFFFFFFFFFL LEB128.Max64, len
+    extendSign span[offset] offset v 0xFFFFFFFFFFFFFFFFL LEB128.Max64, len
 
   /// Decode a LEB128-encoded integer into int64. This function returns a tuple
   /// of (the decoded int64, and the count of how many bytes were read).
@@ -100,7 +100,7 @@ type LEB128 =
   static member DecodeSInt32 span =
     let v, len = decode span int32 LEB128.Max32
     let offset = len - 1
-    extendSign span.[offset] offset v 0xFFFFFFFF LEB128.Max32, len
+    extendSign span[offset] offset v 0xFFFFFFFF LEB128.Max32, len
 
   /// Decode a LEB128-encoded integer into int32. This function returns a tuple
   /// of (the decoded int32, and the count of how many bytes were read).

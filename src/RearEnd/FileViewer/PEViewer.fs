@@ -143,7 +143,7 @@ let dumpSectionDetails (secname: string) (fi: PEFileInfo) =
       s.Name = secname) fi.PE.SectionHeaders
   match idx with
   | Some idx ->
-    let section = fi.PE.SectionHeaders.[idx]
+    let section = fi.PE.SectionHeaders[idx]
     let characteristics = uint64 section.SectionCharacteristics
     out.PrintTwoCols
       "Section number:"

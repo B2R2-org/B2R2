@@ -98,9 +98,9 @@ type CmdPrint () =
   let parseFormat fmt =
     let m = regexFormat.Match (fmt)
     if m.Success then
-      convertCount m.Groups.[1].Value
-      |> Result.bind (convertFmtLetter m.Groups.[2].Value)
-      |> Result.bind (convertSize m.Groups.[3].Value)
+      convertCount m.Groups[1].Value
+      |> Result.bind (convertFmtLetter m.Groups[2].Value)
+      |> Result.bind (convertSize m.Groups[3].Value)
     else
       Error ("[*] Invalid format string is given.")
 

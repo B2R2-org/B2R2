@@ -67,7 +67,7 @@ type RawFileInfo (bytes: byte [], path, isa, baseAddr) =
   override __.TranslateAddress addr = System.Convert.ToInt32 (addr - baseAddr)
 
   override __.AddSymbol addr symbol =
-    symbolMap.[addr] <- symbol
+    symbolMap[addr] <- symbol
 
   override __.GetSymbols () =
     Seq.map (fun (KeyValue(k, v)) -> v) symbolMap
@@ -105,7 +105,7 @@ type RawFileInfo (bytes: byte [], path, isa, baseAddr) =
   override __.IsLinkageTable _ = false
 
   override __.TryFindFunctionSymbolName (_addr) =
-    if symbolMap.ContainsKey(_addr) then Ok symbolMap.[_addr].Name
+    if symbolMap.ContainsKey(_addr) then Ok symbolMap[_addr].Name
     else Error ErrorCase.SymbolNotFound
 
   override __.ExceptionTable = ARMap.empty

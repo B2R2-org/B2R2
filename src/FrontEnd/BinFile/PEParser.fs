@@ -42,7 +42,7 @@ let findSectionIndex (secs: SectionHeader []) rva =
 
 let getRawOffset secs rva =
   let idx = findSectionIndex secs rva
-  let sHdr = secs.[idx]
+  let sHdr = secs[idx]
   rva + sHdr.PointerToRawData - sHdr.VirtualAddress
 
 let readStr secs (binReader: BinReader) rva =
@@ -57,7 +57,7 @@ let isNULLImportDir tbl =
 
 let decodeForwardInfo (str: string) =
   let strInfo = str.Split('.')
-  let dllName, funcName = strInfo.[0], strInfo.[1]
+  let dllName, funcName = strInfo[0], strInfo[1]
   (dllName, funcName)
 
 let readIDTEntry (binReader: BinReader) secs pos =

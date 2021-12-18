@@ -3255,8 +3255,8 @@ let vstm insInfo ctxt =
   for r in 0 .. (regs - 1) do
     let mem1 = AST.loadLE 32<rt> addr
     let mem2 = AST.loadLE 32<rt> (addr .+ (AST.num <| BitVector.ofInt32 4 32<rt>))
-    let data1 = AST.xtlo 32<rt> regList.[r]
-    let data2 = AST.xthi 32<rt> regList.[r]
+    let data1 = AST.xtlo 32<rt> regList[r]
+    let data2 = AST.xthi 32<rt> regList[r]
     let isbig = ctxt.Endianness = Endian.Big
     builder <! (mem1 := if isbig then data2 else data1)
     builder <! (mem2 := if isbig then data1 else data2)
@@ -3289,7 +3289,7 @@ let vldm insInfo ctxt =
     let word2 = AST.loadLE 32<rt> (addr .+ (AST.num <| BitVector.ofInt32 4 32<rt>))
     let isbig = ctxt.Endianness = Endian.Big
     builder <!
-      (regList.[r] := if isbig then AST.concat word1 word2 else AST.concat word2 word1)
+      (regList[r] := if isbig then AST.concat word1 word2 else AST.concat word2 word1)
     builder <! (addr := addr .+ (AST.num <| BitVector.ofInt32 8 32<rt>))
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
@@ -3867,11 +3867,11 @@ let vst1Multi insInfo ctxt =
     for e in 0 .. (pInfo.Elements - 1) do
       if pInfo.EBytes <> 8 then
         let mem = AST.loadLE pInfo.RtESize addr
-        builder <! (mem := elem rdList.[r] e pInfo.ESize)
+        builder <! (mem := elem rdList[r] e pInfo.ESize)
       else
         let mem1 = AST.loadLE 32<rt> addr
         let mem2 = AST.loadLE 32<rt> (incAddr addr 4)
-        let reg = elem rdList.[r] e pInfo.ESize
+        let reg = elem rdList[r] e pInfo.ESize
         assignByEndian ctxt mem1 reg builder
         assignByEndian ctxt mem2 reg builder
       builder <! (addr := addr .+ (numI32 pInfo.EBytes 32<rt>))
@@ -3889,7 +3889,7 @@ let vst1Single insInfo ctxt index =
   builder <! (addr := rn)
   builder <! (rn := updateRn insInfo rn rm pInfo.EBytes pInfo.RegIndex)
   let mem = AST.loadLE pInfo.RtESize addr
-  builder <! (mem := elem rd.[0] (int32 index) pInfo.ESize)
+  builder <! (mem := elem rd[0] (int32 index) pInfo.ESize)
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
@@ -3914,7 +3914,7 @@ let vld1SingleOne insInfo ctxt index =
   builder <! (addr := rn)
   builder <! (rn := updateRn insInfo rn rm pInfo.EBytes pInfo.RegIndex)
   let mem = AST.loadLE pInfo.RtESize addr
-  builder <! (elem rd.[0] (int32 index) pInfo.ESize := mem)
+  builder <! (elem rd[0] (int32 index) pInfo.ESize := mem)
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
@@ -3931,7 +3931,7 @@ let vld1SingleAll insInfo ctxt =
   let mem = AST.loadLE pInfo.RtESize addr
   let repElem = Array.replicate pInfo.Elements mem |> AST.concatArr
   for r in 0 .. (List.length rdList - 1) do
-    builder <! (rdList.[r] := repElem) done
+    builder <! (rdList[r] := repElem) done
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
@@ -3951,7 +3951,7 @@ let vld1Multi insInfo ctxt =
       if pInfo.EBytes <> 8 then
         let data = builder.NewTempVar pInfo.RtESize
         builder <! (data := AST.loadLE pInfo.RtESize addr)
-        builder <! (elem rdList.[r] e pInfo.ESize := data)
+        builder <! (elem rdList[r] e pInfo.ESize := data)
       else
         let data1 = builder.NewTempVar 32<rt>
         let data2 = builder.NewTempVar 32<rt>
@@ -3960,7 +3960,7 @@ let vld1Multi insInfo ctxt =
         let isbig = ctxt.Endianness = Endian.Big
         builder <! (data1 := if isbig then mem2 else mem1)
         builder <! (data2 := if isbig then mem1 else mem1)
-        builder <! (elem rdList.[r] e pInfo.ESize := AST.concat data2 data1)
+        builder <! (elem rdList[r] e pInfo.ESize := AST.concat data2 data1)
       builder <! (addr := incAddr addr pInfo.EBytes)
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
@@ -3990,8 +3990,8 @@ let vst2Multi insInfo ctxt =
   builder <! (addr := rn)
   builder <! (rn := updateRn insInfo rn rm (16 * regs) pInfo.RegIndex)
   for r in 0 .. (regs - 1) do
-    let rd1 = rdList.[r * 2]
-    let rd2 = rdList.[r * 2 + 1]
+    let rd1 = rdList[r * 2]
+    let rd2 = rdList[r * 2 + 1]
     for e in 0 .. (pInfo.Elements - 1) do
       let mem1 = AST.loadLE pInfo.RtESize addr
       let mem2 = AST.loadLE pInfo.RtESize (addr .+ (numI32 pInfo.EBytes 32<rt>))
@@ -4013,8 +4013,8 @@ let vst2Single insInfo ctxt index =
   builder <! (rn := updateRn insInfo rn rm (16 * pInfo.EBytes) pInfo.RegIndex)
   let mem1 = AST.loadLE pInfo.RtESize addr
   let mem2 = AST.loadLE pInfo.RtESize (addr .+ (numI32 pInfo.EBytes 32<rt>))
-  builder <! (mem1 := elem rdList.[0] index pInfo.ESize)
-  builder <! (mem2 := elem rdList.[1] index pInfo.ESize)
+  builder <! (mem1 := elem rdList[0] index pInfo.ESize)
+  builder <! (mem2 := elem rdList[1] index pInfo.ESize)
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
@@ -4042,9 +4042,9 @@ let vst3Multi insInfo ctxt =
     let mem1 = AST.loadLE pInfo.RtESize addr
     let mem2 = AST.loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
     let mem3 = AST.loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
-    builder <! (mem1 := elem rdList.[0] e pInfo.ESize)
-    builder <! (mem2 := elem rdList.[1] e pInfo.ESize)
-    builder <! (mem3 := elem rdList.[2] e pInfo.ESize)
+    builder <! (mem1 := elem rdList[0] e pInfo.ESize)
+    builder <! (mem2 := elem rdList[1] e pInfo.ESize)
+    builder <! (mem3 := elem rdList[2] e pInfo.ESize)
     builder <! (addr := incAddr addr (3 * pInfo.EBytes))
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
@@ -4062,9 +4062,9 @@ let vst3Single insInfo ctxt index =
   let mem1 = AST.loadLE pInfo.RtESize addr
   let mem2 = AST.loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
   let mem3 = AST.loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
-  builder <! (mem1 := elem rdList.[0] index pInfo.ESize)
-  builder <! (mem2 := elem rdList.[1] index pInfo.ESize)
-  builder <! (mem3 := elem rdList.[2] index pInfo.ESize)
+  builder <! (mem1 := elem rdList[0] index pInfo.ESize)
+  builder <! (mem2 := elem rdList[1] index pInfo.ESize)
+  builder <! (mem3 := elem rdList[2] index pInfo.ESize)
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
@@ -4093,10 +4093,10 @@ let vst4Multi insInfo ctxt =
     let mem2 = AST.loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
     let mem3 = AST.loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
     let mem4 = AST.loadLE pInfo.RtESize (incAddr addr (3 * pInfo.EBytes))
-    builder <! (mem1 := elem rdList.[0] e pInfo.ESize)
-    builder <! (mem2 := elem rdList.[1] e pInfo.ESize)
-    builder <! (mem3 := elem rdList.[2] e pInfo.ESize)
-    builder <! (mem4 := elem rdList.[3] e pInfo.ESize)
+    builder <! (mem1 := elem rdList[0] e pInfo.ESize)
+    builder <! (mem2 := elem rdList[1] e pInfo.ESize)
+    builder <! (mem3 := elem rdList[2] e pInfo.ESize)
+    builder <! (mem4 := elem rdList[3] e pInfo.ESize)
     builder <! (addr := incAddr addr (4 * pInfo.EBytes))
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
@@ -4115,10 +4115,10 @@ let vst4Single insInfo ctxt index =
   let mem2 = AST.loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
   let mem3 = AST.loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
   let mem4 = AST.loadLE pInfo.RtESize (incAddr addr (3 * pInfo.EBytes))
-  builder <! (mem1 := elem rdList.[0] index pInfo.ESize)
-  builder <! (mem2 := elem rdList.[1] index pInfo.ESize)
-  builder <! (mem3 := elem rdList.[2] index pInfo.ESize)
-  builder <! (mem4 := elem rdList.[3] index pInfo.ESize)
+  builder <! (mem1 := elem rdList[0] index pInfo.ESize)
+  builder <! (mem2 := elem rdList[1] index pInfo.ESize)
+  builder <! (mem3 := elem rdList[2] index pInfo.ESize)
+  builder <! (mem4 := elem rdList[3] index pInfo.ESize)
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
@@ -4144,8 +4144,8 @@ let vld2SingleOne insInfo ctxt index =
   builder <! (rn := updateRn insInfo rn rm (2 * pInfo.EBytes) pInfo.RegIndex)
   let mem1 = AST.loadLE pInfo.RtESize addr
   let mem2 = AST.loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
-  builder <! (elem rdList.[0] (int32 index) pInfo.ESize := mem1)
-  builder <! (elem rdList.[1] (int32 index) pInfo.ESize := mem2)
+  builder <! (elem rdList[0] (int32 index) pInfo.ESize := mem1)
+  builder <! (elem rdList[1] (int32 index) pInfo.ESize := mem2)
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
@@ -4163,8 +4163,8 @@ let vld2SingleAll insInfo ctxt =
   let mem2 = AST.loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
   let repElem1 = Array.replicate pInfo.Elements mem1 |> AST.concatArr
   let repElem2 = Array.replicate pInfo.Elements mem2 |> AST.concatArr
-  builder <! (rdList.[0] := repElem1)
-  builder <! (rdList.[1] := repElem2)
+  builder <! (rdList[0] := repElem1)
+  builder <! (rdList[1] := repElem2)
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
@@ -4180,8 +4180,8 @@ let vld2Multi insInfo ctxt =
   builder <! (addr := rn)
   builder <! (rn := updateRn insInfo rn rm (16 * regs) pInfo.RegIndex)
   for r in 0 .. (regs - 1) do
-    let rd1 = rdList.[r * 2]
-    let rd2 = rdList.[r * 2 + 1]
+    let rd1 = rdList[r * 2]
+    let rd2 = rdList[r * 2 + 1]
     for e in 0 .. (pInfo.Elements - 1) do
       let mem1 = AST.loadLE pInfo.RtESize addr
       let mem2 = AST.loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
@@ -4214,9 +4214,9 @@ let vld3SingleOne insInfo ctxt index =
   let mem1 = AST.loadLE pInfo.RtESize addr
   let mem2 = AST.loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
   let mem3 = AST.loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
-  builder <! (elem rdList.[0] (int32 index) pInfo.ESize := mem1)
-  builder <! (elem rdList.[1] (int32 index) pInfo.ESize := mem2)
-  builder <! (elem rdList.[2] (int32 index) pInfo.ESize := mem3)
+  builder <! (elem rdList[0] (int32 index) pInfo.ESize := mem1)
+  builder <! (elem rdList[1] (int32 index) pInfo.ESize := mem2)
+  builder <! (elem rdList[2] (int32 index) pInfo.ESize := mem3)
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
@@ -4236,9 +4236,9 @@ let vld3SingleAll insInfo ctxt =
   let repElem1 = Array.replicate pInfo.Elements mem1 |> AST.concatArr
   let repElem2 = Array.replicate pInfo.Elements mem2 |> AST.concatArr
   let repElem3 = Array.replicate pInfo.Elements mem3 |> AST.concatArr
-  builder <! (rdList.[0] := repElem1)
-  builder <! (rdList.[1] := repElem2)
-  builder <! (rdList.[2] := repElem3)
+  builder <! (rdList[0] := repElem1)
+  builder <! (rdList[1] := repElem2)
+  builder <! (rdList[2] := repElem3)
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
@@ -4256,9 +4256,9 @@ let vld3Multi insInfo ctxt =
     let mem1 = AST.loadLE pInfo.RtESize addr
     let mem2 = AST.loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
     let mem3 = AST.loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
-    builder <! (elem rdList.[0] e pInfo.ESize := mem1)
-    builder <! (elem rdList.[1] e pInfo.ESize := mem2)
-    builder <! (elem rdList.[2] e pInfo.ESize := mem3)
+    builder <! (elem rdList[0] e pInfo.ESize := mem1)
+    builder <! (elem rdList[1] e pInfo.ESize := mem2)
+    builder <! (elem rdList[2] e pInfo.ESize := mem3)
     builder <! (addr := addr .+ (numI32 (3 * pInfo.EBytes) 32<rt>))
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
@@ -4286,10 +4286,10 @@ let vld4SingleOne insInfo ctxt index =
   let mem2 = AST.loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
   let mem3 = AST.loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
   let mem4 = AST.loadLE pInfo.RtESize (incAddr addr (3 * pInfo.EBytes))
-  builder <! (elem rdList.[0] (int32 index) pInfo.ESize := mem1)
-  builder <! (elem rdList.[1] (int32 index) pInfo.ESize := mem2)
-  builder <! (elem rdList.[2] (int32 index) pInfo.ESize := mem3)
-  builder <! (elem rdList.[3] (int32 index) pInfo.ESize := mem4)
+  builder <! (elem rdList[0] (int32 index) pInfo.ESize := mem1)
+  builder <! (elem rdList[1] (int32 index) pInfo.ESize := mem2)
+  builder <! (elem rdList[2] (int32 index) pInfo.ESize := mem3)
+  builder <! (elem rdList[3] (int32 index) pInfo.ESize := mem4)
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
@@ -4311,10 +4311,10 @@ let vld4SingleAll insInfo ctxt =
   let repElem2 = Array.replicate pInfo.Elements mem2 |> AST.concatArr
   let repElem3 = Array.replicate pInfo.Elements mem3 |> AST.concatArr
   let repElem4 = Array.replicate pInfo.Elements mem4 |> AST.concatArr
-  builder <! (rdList.[0] := repElem1)
-  builder <! (rdList.[1] := repElem2)
-  builder <! (rdList.[2] := repElem3)
-  builder <! (rdList.[3] := repElem4)
+  builder <! (rdList[0] := repElem1)
+  builder <! (rdList[1] := repElem2)
+  builder <! (rdList[2] := repElem3)
+  builder <! (rdList[3] := repElem4)
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder
 
@@ -4333,10 +4333,10 @@ let vld4Multi insInfo ctxt =
     let mem2 = AST.loadLE pInfo.RtESize (incAddr addr pInfo.EBytes)
     let mem3 = AST.loadLE pInfo.RtESize (incAddr addr (2 * pInfo.EBytes))
     let mem4 = AST.loadLE pInfo.RtESize (incAddr addr (3 * pInfo.EBytes))
-    builder <! (elem rdList.[0] e pInfo.ESize := mem1)
-    builder <! (elem rdList.[1] e pInfo.ESize := mem2)
-    builder <! (elem rdList.[2] e pInfo.ESize := mem3)
-    builder <! (elem rdList.[3] e pInfo.ESize := mem4)
+    builder <! (elem rdList[0] e pInfo.ESize := mem1)
+    builder <! (elem rdList[1] e pInfo.ESize := mem2)
+    builder <! (elem rdList[2] e pInfo.ESize := mem3)
+    builder <! (elem rdList[3] e pInfo.ESize := mem4)
     builder <! (addr := addr .+ (numI32 (4 * pInfo.EBytes) 32<rt>))
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark insInfo builder

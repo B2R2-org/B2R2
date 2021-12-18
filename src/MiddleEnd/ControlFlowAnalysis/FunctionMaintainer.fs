@@ -68,17 +68,17 @@ type FunctionMaintainer private (histMgr: HistoryManager) =
     | _ -> None
 
   /// Obtain a function by the given function entry address.
-  member __.Find (addr) = addrMap.[addr]
+  member __.Find (addr) = addrMap[addr]
 
   /// Obtain a function by the given function name.
-  member __.Find (name) = addrMap.[nameMap.[name]]
+  member __.Find (name) = addrMap[nameMap[name]]
 
   /// Obtain a regular function by the given function entry address.
   member __.TryFindRegular (addr) =
     regularMap.TryGetValue addr |> Utils.tupleToOpt
 
   /// Obtain a regular function by the given function entry address.
-  member __.FindRegular (addr) = regularMap.[addr]
+  member __.FindRegular (addr) = regularMap[addr]
 
   /// Returns an array of regualr functions.
   member __.RegularFunctions with get () = regularMap.Values |> Seq.toArray
@@ -91,27 +91,27 @@ type FunctionMaintainer private (histMgr: HistoryManager) =
 
   /// Remove the given function.
   member __.RemoveFunction (addr) =
-    let fnName = addrMap.[addr].FunctionName
+    let fnName = addrMap[addr].FunctionName
     regularMap.Remove addr |> ignore
     addrMap.Remove addr |> ignore
     nameMap.Remove fnName |> ignore
 
   /// Add an external function. This function should not be called outside.
   member private __.AddFunction (func: ExternalFunction) =
-    nameMap.[func.FunctionID] <- func.Entry
-    nameMap.[func.FunctionName] <- func.Entry
-    addrMap.[func.Entry] <- func
+    nameMap[func.FunctionID] <- func.Entry
+    nameMap[func.FunctionName] <- func.Entry
+    addrMap[func.Entry] <- func
     match func.TrampolineAddr () with
-    | true, addr -> addrMap.[addr] <- func
+    | true, addr -> addrMap[addr] <- func
     | _ -> ()
 
   /// Add a new regular function
   member __.AddFunction (func: RegularFunction) =
     let entry = func.Entry
-    nameMap.[func.FunctionID] <- entry
-    nameMap.[func.FunctionName] <- entry
-    addrMap.[entry] <- func
-    regularMap.[entry] <- func
+    nameMap[func.FunctionID] <- entry
+    nameMap[func.FunctionName] <- entry
+    addrMap[entry] <- func
+    regularMap[entry] <- func
 
   /// Get a regular function at the entry. If the entry does not contain any
   /// function, create a new one and return it.
@@ -133,7 +133,7 @@ type FunctionMaintainer private (histMgr: HistoryManager) =
   member __.UpdateCallerCrossReferences () =
     __.CollectXRefs ()
     |> Map.iter (fun callee callers ->
-      addrMap.[callee].RegisterCallers callers)
+      addrMap[callee].RegisterCallers callers)
 
   static member private InitELFExterns hdl (fnMaintainer: FunctionMaintainer) =
     let elf = (hdl.FileInfo :?> ELFFileInfo).ELF
@@ -146,7 +146,7 @@ type FunctionMaintainer private (histMgr: HistoryManager) =
     |> Array.iter (fun (_, reloc) ->
       match reloc.RelSymbol with
       | Some symb ->
-        let sec = elf.SecInfo.SecByNum.[reloc.RelSecNumber]
+        let sec = elf.SecInfo.SecByNum[reloc.RelSecNumber]
         if (sec.SecName = ".rela.dyn" || sec.SecName = ".rel.dyn")
           && Array.contains symb.SymName knownNoPLTFuncs
         then

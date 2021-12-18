@@ -40,14 +40,14 @@ module private UntouchedValuePropagation =
       let rt = hdl.RegisterBay.RegIDToRegType rid
       let str = hdl.RegisterBay.RegIDToString rid
       let var = { Kind = RegVar (rt, rid, str); Identifier = 0 }
-      dict.[var] <- Untouched (RegisterTag var)
+      dict[var] <- Untouched (RegisterTag var)
     )
     match hdl.RegisterBay.StackPointer with
     | Some sp ->
       let rt = hdl.RegisterBay.RegIDToRegType sp
       let str = hdl.RegisterBay.RegIDToString sp
       let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
-      dict.[var] <- Touched
+      dict[var] <- Touched
       dict
     | None -> dict
 

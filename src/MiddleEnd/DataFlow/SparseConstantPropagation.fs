@@ -40,7 +40,7 @@ module private SparseConstantPropagation =
       let rt = hdl.RegisterBay.RegIDToRegType sp
       let str = hdl.RegisterBay.RegIDToString sp
       let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
-      dict.[var] <- Const (BitVector.ofUInt64 initialStackPointer rt)
+      dict[var] <- Const (BitVector.ofUInt64 initialStackPointer rt)
       dict
     | None -> dict
 

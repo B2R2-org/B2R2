@@ -390,7 +390,7 @@ type BitVector internal (len) =
   [<CompiledName("OfArr")>]
   static member ofArr (arr: byte []) =
     match arr.Length with
-    | 1 -> BitVectorSmall (uint64 arr.[0], 8<rt>) :> BitVector
+    | 1 -> BitVectorSmall (uint64 arr[0], 8<rt>) :> BitVector
     | 2 ->
       let n = BitConverter.ToUInt16 (arr, 0) |> uint64
       BitVectorSmall (n, 16<rt>) :> BitVector

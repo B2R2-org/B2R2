@@ -1215,7 +1215,7 @@ let pshufw ins insLen ctxt =
     let order =
       ((AST.xtlo 16<rt> ord) >> (numI32 ((i - 1) * 2) 16<rt>)) .& mask2
     let order' = AST.zext oprSize order
-    !!ir (tmps.[i - 1] := AST.xtlo 16<rt> (src >> (order' .* n16)))
+    !!ir (tmps[i - 1] := AST.xtlo 16<rt> (src >> (order' .* n16)))
   done
   !!ir (dst := AST.concatArr tmps)
   !>ir insLen
@@ -1239,7 +1239,7 @@ let pshufd ins insLen ctxt =
     let order =
       ((AST.xtlo 32<rt> ord) >> (numI32 ((i - 1) * 2) 32<rt>)) .& mask2
     let order' = AST.zext oprSize order
-    !!ir (tmps.[i - 1] := AST.xtlo 32<rt> (tSrc >> (order' .* n32)))
+    !!ir (tmps[i - 1] := AST.xtlo 32<rt> (tSrc >> (order' .* n32)))
   done
   !!ir (tDst := AST.concatArr tmps)
   !!ir (dstA := AST.xtlo 64<rt> tDst)
@@ -1259,7 +1259,7 @@ let pshuflw ins insLen ctxt =
   for i in 1 .. 4 do
     let imm =
       ((AST.xtlo 64<rt> imm) >> (numI32 ((i - 1) * 2) 64<rt>)) .& mask2
-    !!ir (tmps.[i - 1] := AST.xtlo 16<rt> (srcA >> (imm .* n16)))
+    !!ir (tmps[i - 1] := AST.xtlo 16<rt> (srcA >> (imm .* n16)))
   done
   !!ir (dstA := AST.concatArr tmps)
   !!ir (dstB := srcB)
@@ -1278,7 +1278,7 @@ let pshufhw ins insLen ctxt =
   for i in 1 .. 4 do
     let imm =
       ((AST.xtlo 64<rt> imm) >> (numI32 ((i - 1) * 2) 64<rt>)) .& mask2
-    !!ir (tmps.[i - 1] := AST.xtlo 16<rt> (srcB >> (imm .* n16)))
+    !!ir (tmps[i - 1] := AST.xtlo 16<rt> (srcB >> (imm .* n16)))
   done
   !!ir (dstA := srcA)
   !!ir (dstB := AST.concatArr tmps)
@@ -1297,7 +1297,7 @@ let pshufb ins insLen ctxt =
       let idx = (AST.extract src 8<rt> (i * 8)) .& mask
       let numShift = AST.zext oprSize idx .* numI32 8 oprSize
       !!ir
-        (tmps.[i] :=
+        (tmps[i] :=
           AST.ite cond (AST.num0 8<rt>) (AST.xtlo 8<rt> (dst >> numShift)))
     done
   match oprSize with
@@ -1606,7 +1606,7 @@ let private explicitValidCheck ctrl reg rSz ir =
   let rec getValue idx =
     let v = AST.lt (numU32 idx rSz) (AST.ite (AST.lt checkNum reg) checkNum reg)
     if idx = ctrl.NumElems then ()
-    else !!ir (tmps.[int idx] := v)
+    else !!ir (tmps[int idx] := v)
          getValue (idx + 1u)
   getValue 0u
   tmps
@@ -1620,10 +1620,10 @@ let private implicitValidCheck ctrl srcB srcA ir =
     else
       let half = int ctrl.NumElems / 2
       let e, amount = if idx < half then srcA, idx else srcB, idx - half
-      let v e = tmps.[idx - 1] .& (getSrc amount e != AST.num0 ctrl.PackSize)
-      !!ir (tmps.[idx] := v e)
+      let v e = tmps[idx - 1] .& (getSrc amount e != AST.num0 ctrl.PackSize)
+      !!ir (tmps[idx] := v e)
       getValue (idx + 1)
-  !!ir (tmps.[0] := AST.b1 .& (getSrc 0 srcA != AST.num0 ctrl.PackSize))
+  !!ir (tmps[0] := AST.b1 .& (getSrc 0 srcA != AST.num0 ctrl.PackSize))
   getValue 1
   tmps
 
@@ -1656,15 +1656,15 @@ let private genBoolRes ins insLen ctrl ctxt e1 e2 (ck1: Expr []) (ck2: Expr []) 
     (AST.ite (cmp (getSrc e1 j) (getSrc e2 i)) (AST.num1 elemSz) (AST.num0 elemSz))
   match ctrl.Agg with
   | EqualAny | Ranges ->
-    AST.ite (AST.not ck1.[j] .& AST.not ck2.[i]) (AST.num0 elemSz)
-      (AST.ite (AST.not ck1.[j] .| AST.not ck2.[i]) (AST.num0 elemSz) b)
+    AST.ite (AST.not ck1[j] .& AST.not ck2[i]) (AST.num0 elemSz)
+      (AST.ite (AST.not ck1[j] .| AST.not ck2[i]) (AST.num0 elemSz) b)
   | EqualEach ->
-    AST.ite (AST.not ck1.[i] .& AST.not ck2.[i]) (AST.num1 elemSz)
-      (AST.ite (AST.not ck1.[i] .| AST.not ck2.[i]) (AST.num0 elemSz) b)
+    AST.ite (AST.not ck1[i] .& AST.not ck2[i]) (AST.num1 elemSz)
+      (AST.ite (AST.not ck1[i] .| AST.not ck2[i]) (AST.num0 elemSz) b)
   | EqualOrdered ->
-    AST.ite (AST.not ck1.[j] .& AST.not ck2.[i]) (AST.num1 elemSz)
-      (AST.ite (AST.not ck1.[j] .& ck2.[i]) (AST.num1 elemSz)
-        (AST.ite (ck1.[j] .& AST.not ck2.[i]) (AST.num0 elemSz) b))
+    AST.ite (AST.not ck1[j] .& AST.not ck2[i]) (AST.num1 elemSz)
+      (AST.ite (AST.not ck1[j] .& ck2[i]) (AST.num1 elemSz)
+        (AST.ite (ck1[j] .& AST.not ck2[i]) (AST.num0 elemSz) b))
 
 let private aggOpr ins insLen
            ctxt ctrl src1 src2 ck1 ck2 (res1 : Expr []) ir =
@@ -1682,39 +1682,39 @@ let private aggOpr ins insLen
     for j in 0 .. nElem - 1 do
       let tRes = [| for _ in 1 .. nElem -> !*ir elemSz |]
       let boolRes i = boolRes j i (==)
-      !!ir (tRes.[0] := AST.num0 elemSz .| boolRes 0)
+      !!ir (tRes[0] := AST.num0 elemSz .| boolRes 0)
       for i in 1 .. nElem - 1 do
-        !!ir (tRes.[i] := tRes.[i - 1] .| boolRes i)
+        !!ir (tRes[i] := tRes[i - 1] .| boolRes i)
       done
-      !!ir (res1.[j] := tRes.[nElem - 1] << numI32 j elemSz)
+      !!ir (res1[j] := tRes[nElem - 1] << numI32 j elemSz)
     done
   | EqualEach ->
     for i in 0 .. nElem - 1 do
       let boolRes i = boolRes i i (==)
-      !!ir (res1.[i] := boolRes i << numI32 i elemSz)
+      !!ir (res1[i] := boolRes i << numI32 i elemSz)
     done
   | EqualOrdered ->
     for j in 0 .. nElem - 1 do
       let tRes = [| for _ in 1 .. nElem -> !*ir elemSz |]
       let boolRes k i = boolRes k i (==)
-      !!ir (tRes.[0] := numI32 -1 elemSz .& boolRes j 0)
+      !!ir (tRes[0] := numI32 -1 elemSz .& boolRes j 0)
       for i in 1 .. nElem - 1 - j do
         let k = i + j
-        !!ir (tRes.[i] := tRes.[i - 1] .& boolRes k i)
+        !!ir (tRes[i] := tRes[i - 1] .& boolRes k i)
       done
-      !!ir (res1.[j] := tRes.[nElem - 1] << numI32 j elemSz)
+      !!ir (res1[j] := tRes[nElem - 1] << numI32 j elemSz)
     done
   | Ranges ->
     for j in 0 .. nElem - 1 do
       let tRes = [| for _ in 1 .. nElem -> !*ir elemSz |]
       let cmp i = rangesCmp i
       let boolRes i = boolRes j i (cmp i)
-      !!ir (tRes.[0] := AST.num0 elemSz .| (boolRes 0 .& boolRes 1))
+      !!ir (tRes[0] := AST.num0 elemSz .| (boolRes 0 .& boolRes 1))
       for i in 2 .. 2 .. nElem - 1 do
         !!ir
-          (tRes.[i] := tRes.[i - 1] .| (boolRes i .& boolRes (i + 1)))
+          (tRes[i] := tRes[i - 1] .| (boolRes i .& boolRes (i + 1)))
       done
-      !!ir (res1.[j] := tRes.[nElem - 1] << numI32 j elemSz)
+      !!ir (res1[j] := tRes[nElem - 1] << numI32 j elemSz)
     done
 
 let private getIntRes2 e ctrInfo (booRes: Expr []) =
@@ -1727,7 +1727,7 @@ let private getIntRes2 e ctrInfo (booRes: Expr []) =
     List.fold (fun acc i ->
       let e1 = e .& numI32 (pown 2 i) elemSz
       let e2 = (AST.not e) .& numI32 (pown 2 i) elemSz
-      (AST.ite (booRes.[i]) e2 e1) :: acc) [] [0 .. elemCnt - 1]
+      (AST.ite (booRes[i]) e2 e1) :: acc) [] [0 .. elemCnt - 1]
     |> List.reduce (.|)
 
 let rec private genOutput ctrl e acc i =

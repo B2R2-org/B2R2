@@ -68,7 +68,7 @@ let filterRegularVars vars =
 
 let inline initMemory () =
   let dict = Dictionary ()
-  dict.[0] <- (Map.empty, Set.empty)
+  dict[0] <- (Map.empty, Set.empty)
   dict
 
 let computeStackShift rt (blk: SSAVertex) =

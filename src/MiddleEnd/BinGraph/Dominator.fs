@@ -79,16 +79,16 @@ let initDomInfo g =
     MaxLength = len }
 
 let inline dfnum (info: DomInfo<'D>) (v: Vertex<_>) =
-  info.DFNumMap.[v.GetID ()]
+  info.DFNumMap[v.GetID ()]
 
 let rec assignDFNum g (info: DomInfo<'D>) n = function
   | (p, v : Vertex<_>) :: stack
       when not <| info.DFNumMap.ContainsKey (v.GetID ()) ->
     info.DFNumMap.Add (v.GetID (), n)
-    info.Semi.[n] <- n
-    info.Vertex.[n] <- v
-    info.Label.[n] <- n
-    info.Parent.[n] <- p
+    info.Semi[n] <- n
+    info.Vertex[n] <- v
+    info.Label[n] <- n
+    info.Parent[n] <- p
     DiGraph.getSuccs g v
     |> List.fold (fun acc s -> (n, s) :: acc) stack
     |> assignDFNum g info (n+1)
@@ -96,61 +96,61 @@ let rec assignDFNum g (info: DomInfo<'D>) n = function
   | [] -> n - 1
 
 let rec compress info v =
-  let a = info.Ancestor.[v]
-  if info.Ancestor.[a] <> 0 then
+  let a = info.Ancestor[v]
+  if info.Ancestor[a] <> 0 then
     compress info a
-    if info.Semi.[info.Label.[a]] < info.Semi.[info.Label.[v]] then
-      info.Label.[v] <- info.Label.[a]
+    if info.Semi[info.Label[a]] < info.Semi[info.Label[v]] then
+      info.Label[v] <- info.Label[a]
     else ()
-    info.Ancestor.[v] <- info.Ancestor.[a]
+    info.Ancestor[v] <- info.Ancestor[a]
 
 let eval info v =
-  if info.Ancestor.[v] = 0 then info.Label.[v]
+  if info.Ancestor[v] = 0 then info.Label[v]
   else
     compress info v
-    if info.Semi.[info.Label.[info.Ancestor.[v]]] >= info.Semi.[info.Label.[v]]
-    then info.Label.[v]
-    else info.Label.[info.Ancestor.[v]]
+    if info.Semi[info.Label[info.Ancestor[v]]] >= info.Semi[info.Label[v]]
+    then info.Label[v]
+    else info.Label[info.Ancestor[v]]
 
 /// Compute semidominator of v.
 let rec computeSemiDom info v = function
   | pred :: preds ->
     let u = eval info pred
-    if info.Semi.[u] < info.Semi.[v] then info.Semi.[v] <- info.Semi.[u]
+    if info.Semi[u] < info.Semi[v] then info.Semi[v] <- info.Semi[u]
     computeSemiDom info v preds
   | [] -> ()
 
 let link info v w =
   let mutable s = w
-  while info.Semi.[info.Label.[w]] < info.Semi.[info.Label.[info.Child.[s]]] do
-    if info.Size.[s] + info.Size.[info.Child.[info.Child.[s]]]
-       >= 2 * info.Size.[info.Child.[s]]
-    then info.Ancestor.[info.Child.[s]] <- s
-         info.Child.[s] <- info.Child.[info.Child.[s]]
-    else info.Size.[info.Child.[s]] <- info.Size.[s]
-         info.Ancestor.[s] <- info.Child.[s]
-         s <- info.Ancestor.[s]
+  while info.Semi[info.Label[w]] < info.Semi[info.Label[info.Child[s]]] do
+    if info.Size[s] + info.Size[info.Child[info.Child[s]]]
+       >= 2 * info.Size[info.Child[s]]
+    then info.Ancestor[info.Child[s]] <- s
+         info.Child[s] <- info.Child[info.Child[s]]
+    else info.Size[info.Child[s]] <- info.Size[s]
+         info.Ancestor[s] <- info.Child[s]
+         s <- info.Ancestor[s]
   done
-  info.Label.[s] <- info.Label.[w]
-  info.Size.[v] <- info.Size.[v] + info.Size.[w]
-  if info.Size.[v] < 2 * info.Size.[w] then
+  info.Label[s] <- info.Label[w]
+  info.Size[v] <- info.Size[v] + info.Size[w]
+  if info.Size[v] < 2 * info.Size[w] then
     let t = s
-    s <- info.Child.[v]
-    info.Child.[v] <- t
+    s <- info.Child[v]
+    info.Child[v] <- t
   while s <> 0 do
-    info.Ancestor.[s] <- v
-    s <- info.Child.[s]
+    info.Ancestor[s] <- v
+    s <- info.Child[s]
   done
 
 let computeDom info p =
   Set.iter (fun v ->
     let u = eval info v
-    if info.Semi.[u] < info.Semi.[v] then info.IDom.[v] <- u
-    else info.IDom.[v] <- p) info.Bucket.[p]
-  info.Bucket.[p] <- Set.empty
+    if info.Semi[u] < info.Semi[v] then info.IDom[v] <- u
+    else info.IDom[v] <- p) info.Bucket[p]
+  info.Bucket[p] <- Set.empty
 
 let rec computeDomOrDelay info parent =
-  if info.Bucket.[parent].IsEmpty then ()
+  if info.Bucket[parent].IsEmpty then ()
   else computeDom info parent
 
 let initDominator g root =
@@ -158,16 +158,16 @@ let initDominator g root =
   let dummyEntry, g = DummyEntry.Connect g root
   let n = assignDFNum g info 0 [(0, dummyEntry)]
   for i = n downto 1 do
-    let v = info.Vertex.[i]
-    let p = info.Parent.[i]
+    let v = info.Vertex[i]
+    let p = info.Parent[i]
     DiGraph.getPreds g v |> List.map (dfnum info) |> computeSemiDom info i
-    info.Bucket.[info.Semi.[i]] <- Set.add i info.Bucket.[info.Semi.[i]]
+    info.Bucket[info.Semi[i]] <- Set.add i info.Bucket[info.Semi[i]]
     link info p i (* Link the parent (p) to the forest. *)
     computeDomOrDelay info p
   done
   for i = 1 to n do
-    if info.IDom.[i] <> info.Semi.[i] then
-      info.IDom.[i] <- info.IDom.[info.IDom.[i]]
+    if info.IDom[i] <> info.Semi[i] then
+      info.IDom[i] <- info.IDom[info.IDom[i]]
     else ()
   done
   DiGraph.removeVertex g dummyEntry |> ignore
@@ -243,8 +243,8 @@ let checkVertexInGraph g (v: Vertex<_>) =
   else raise VertexNotFoundException
 
 let private idomAux info v =
-  let id = info.IDom.[dfnum info v]
-  if id >= 1 then Some info.Vertex.[id] else None
+  let id = info.IDom[dfnum info v]
+  if id >= 1 then Some info.Vertex[id] else None
 
 let idom ctxt v =
   let g = ctxt.ForwardGraph
@@ -257,8 +257,8 @@ let ipdom ctxt (v: Vertex<_>) =
   idomAux ctxt.BackwardDomInfo v
 
 let rec domsAux acc v info =
-  let id = info.IDom.[dfnum info v]
-  if id > 0 then domsAux (info.Vertex.[id] :: acc) info.Vertex.[id] info
+  let id = info.IDom[dfnum info v]
+  if id > 0 then domsAux (info.Vertex[id] :: acc) info.Vertex[id] info
   else List.rev acc
 
 let doms ctxt v =
@@ -272,14 +272,14 @@ let pdoms ctxt v =
 let computeDomTree g info =
   let domTree = Array.create info.MaxLength []
   DiGraph.iterVertex g (fun v ->
-    let idom = info.IDom.[dfnum info v]
-    domTree.[idom] <- v :: domTree.[idom])
+    let idom = info.IDom[dfnum info v]
+    domTree[idom] <- v :: domTree[idom])
   domTree
 
 let rec computeFrontierLocal s ctxt (parent: Vertex<_>) = function
   | succ :: rest ->
     let succID = dfnum ctxt succ
-    let d = ctxt.Vertex.[ctxt.IDom.[succID]]
+    let d = ctxt.Vertex[ctxt.IDom[succID]]
     let s = if d.GetID () = parent.GetID () then s else Set.add succID s
     computeFrontierLocal s ctxt parent rest
   | [] -> s
@@ -288,19 +288,19 @@ let rec computeDF domTree (frontiers: Vertex<_> list []) g ctxt r =
   let mutable s = Set.empty
   for succ in DiGraph.getSuccs g r do
     let succID = dfnum ctxt succ
-    let domID = ctxt.IDom.[succID]
-    let d = ctxt.Vertex.[ctxt.IDom.[succID]]
+    let domID = ctxt.IDom[succID]
+    let d = ctxt.Vertex[ctxt.IDom[succID]]
     if domID <> 0 && d.GetID () <> r.GetID () then s <- Set.add succID s
   done
-  for child in (domTree: Vertex<_> list []).[dfnum ctxt r] do
+  for child in (domTree: Vertex<_> list [])[dfnum ctxt r] do
     computeDF domTree frontiers g ctxt child
-    for node in frontiers.[dfnum ctxt child] do
+    for node in frontiers[dfnum ctxt child] do
       let doms = domsAux [] node ctxt
       let dominate = doms |> List.exists (fun d -> d.GetID () = r.GetID ())
       if not dominate then s <- Set.add (dfnum ctxt node) s
     done
   done
-  frontiers.[dfnum ctxt r] <- Set.fold (fun df n -> ctxt.Vertex.[n] :: df) [] s
+  frontiers[dfnum ctxt r] <- Set.fold (fun df n -> ctxt.Vertex[n] :: df) [] s
 
 let frontier ctxt v =
   let g = ctxt.ForwardGraph
@@ -310,7 +310,7 @@ let frontier ctxt v =
   let frontiers = Array.create ctxt.MaxLength []
   let domTree = computeDomTree g ctxt
   computeDF domTree frontiers g ctxt root
-  frontiers.[dfnum ctxt v]
+  frontiers[dfnum ctxt v]
 
 let frontiers ctxt =
   let g = ctxt.ForwardGraph
@@ -326,11 +326,11 @@ let dominatorTree ctxt =
   let info = ctxt.ForwardDomInfo
   let tree = computeDomTree g info
   let tree = Array.sub tree 1 (Array.length tree - 1) // Remove a dummy node
-  let root = info.Vertex.[1]
+  let root = info.Vertex[1]
   let tree =
     Array.mapi (fun dfNum vs -> dfNum, vs) tree
     |> Array.fold (fun tree (dfNum, vs) ->
-        Map.add info.Vertex.[dfNum + 1] vs tree) Map.empty
+        Map.add info.Vertex[dfNum + 1] vs tree) Map.empty
   tree, root
 
 // vim: set tw=80 sts=2 sw=2:

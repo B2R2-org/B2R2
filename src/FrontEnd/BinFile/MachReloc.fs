@@ -60,8 +60,8 @@ let translateRelocAddr reloc =
 
 let translateRelocSymbol (symbols: MachSymbol []) (secs: MachSection []) reloc =
   match reloc.RelocSymbol with
-  | SymIndex (n) -> symbols.[n].SymName
-  | SecOrdinal (n) -> secs.[n - 1].SecName
+  | SymIndex (n) -> symbols[n].SymName
+  | SecOrdinal (n) -> secs[n - 1].SecName
 
 let toSymbol symbols secs reloc =
   { Address = translateRelocAddr reloc

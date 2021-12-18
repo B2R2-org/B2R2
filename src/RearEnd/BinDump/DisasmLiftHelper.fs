@@ -51,7 +51,7 @@ let makeFuncSymbolDic hdl =
   hdl.FileInfo.GetFunctionAddresses ()
   |> Seq.iter (fun a ->
     if funcs.ContainsKey a then ()
-    else funcs.[a] <- Addr.toFuncName a)
+    else funcs[a] <- Addr.toFuncName a)
   funcs
 
 let makeLinkageTblSymbolDic hdl =
@@ -70,7 +70,7 @@ let makeArchModeDic hdl =
     hdl.FileInfo.GetSymbols ()
     |> Seq.iter (fun s ->
       if s.ArchOperationMode <> ArchOperationMode.NoMode then
-        modes.[s.Address] <- s.ArchOperationMode
+        modes[s.Address] <- s.ArchOperationMode
       else ())
   | _ -> ()
   modes

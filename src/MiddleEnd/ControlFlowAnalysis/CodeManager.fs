@@ -51,7 +51,7 @@ type CodeManager (hdl) =
     | (ins: Instruction) :: tl ->
       let addr = ins.Address
       let info = newInstructionInfo hdl ins leaderAddr
-      insMap.[addr] <- info
+      insMap[addr] <- info
       postProcessInstrs hdl leaderAddr (info :: acc) tl
     | [] -> acc
 
@@ -75,7 +75,7 @@ type CodeManager (hdl) =
       let nextAddr = lastIns.Address + uint64 lastIns.Length
       let struct (bbl, evts) =
         BBLInfo.parse hdl ins leaderAddr nextAddr func fnMaintainer excTbl evts
-      bblMap.[leaderAddr] <- bbl
+      bblMap[leaderAddr] <- bbl
       Ok evts
     | Error addr ->
 #if DEBUG
@@ -91,7 +91,7 @@ type CodeManager (hdl) =
   member __.HasInstruction addr = insMap.ContainsKey addr
 
   /// Access instruction at the given address.
-  member __.GetInstruction (addr: Addr) = insMap.[addr]
+  member __.GetInstruction (addr: Addr) = insMap[addr]
 
   /// Fold every instruction stored in the CodeManager.
   member __.FoldInstructions fn acc =
@@ -104,7 +104,7 @@ type CodeManager (hdl) =
   member __.HasBBL addr = bblMap.ContainsKey addr
 
   /// Find the corresponding BBL address from the given instruction address.
-  member __.GetBBL addr = bblMap.[insMap.[addr].BBLAddr]
+  member __.GetBBL addr = bblMap[insMap[addr].BBLAddr]
 
   /// Try to find the corresponding BBL address from the given instruction
   /// address.
@@ -123,9 +123,9 @@ type CodeManager (hdl) =
     | leaderAddr :: _ ->
       insAddrs
       |> List.iter (fun addr ->
-        let ins = insMap.[addr]
-        insMap.[addr] <- { ins with BBLAddr = leaderAddr })
-      bblMap.[leaderAddr] <- BBLInfo.init blkRange insAddrs irLeaders funcEntry
+        let ins = insMap[addr]
+        insMap[addr] <- { ins with BBLAddr = leaderAddr })
+      bblMap[leaderAddr] <- BBLInfo.init blkRange insAddrs irLeaders funcEntry
     | [] -> ()
 
   /// Remove the given BBLInfo.
@@ -134,7 +134,7 @@ type CodeManager (hdl) =
 
   /// Remove the given BBL located at the bblAddr.
   member __.RemoveBBL (bblAddr) =
-    if bblMap.ContainsKey bblAddr then __.RemoveBBL bblMap.[bblAddr]
+    if bblMap.ContainsKey bblAddr then __.RemoveBBL bblMap[bblAddr]
     else ()
 
   /// Fold every instruction stored in the CodeManager.
@@ -213,7 +213,7 @@ type CodeManager (hdl) =
     match bblMap.TryGetValue bblAddr with
     | true, bbl ->
       let bbl = { bbl with FunctionEntry = funcEntry }
-      bblMap.[bbl.BlkRange.Min] <- bbl
+      bblMap[bbl.BlkRange.Min] <- bbl
     | _ -> ()
 
   /// The BBL had been created as a non-function bbl; there was a jump edge to

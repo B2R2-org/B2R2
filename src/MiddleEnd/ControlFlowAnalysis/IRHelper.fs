@@ -37,7 +37,7 @@ let private varToBV cpState var id =
 
 let private expandPhi cpState var ids e =
   let bvs = ids |> Array.toList |> List.map (fun id -> varToBV cpState var id)
-  match bvs.[0] with
+  match bvs[0] with
   | Some hd ->
     if bvs.Tail |> List.forall (function Some bv -> bv = hd | None -> false)
     then Num hd

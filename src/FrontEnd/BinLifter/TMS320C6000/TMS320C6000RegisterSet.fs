@@ -51,7 +51,7 @@ type TMS320C6000RegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     Utils.futureFeature ()
 
   override __.ToString () =
-    sprintf "TMS320C6000RegisterSet<%x, %x>" __.BitArray.[0] __.BitArray.[1]
+    sprintf "TMS320C6000RegisterSet<%x, %x>" __.BitArray[0] __.BitArray[1]
 
 [<RequireQualifiedAccess>]
 module TMS320C6000RegisterSet =

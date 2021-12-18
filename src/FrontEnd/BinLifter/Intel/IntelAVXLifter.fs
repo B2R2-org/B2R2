@@ -604,7 +604,7 @@ let vmovdqu16 ins insLen ctxt =
           let pos = i * 16
           let dst = AST.extract dst 16<rt> pos
           !!ir
-            (tmps.[i] := AST.ite (cond (idx + i)) (AST.extract src 16<rt> pos) dst)
+            (tmps[i] := AST.ite (cond (idx + i)) (AST.extract src 16<rt> pos) dst)
         AST.concatArr tmps
       !!ir (dstA := assign dstA srcA 0)
       !!ir (dstB := assign dstB srcB 4)
@@ -645,7 +645,7 @@ let vmovdqu16 ins insLen ctxt =
           let pos = i * 16
           let dst = AST.extract dst 16<rt> pos
           !!ir
-            (tmps.[i] := AST.ite (cond (idx + i)) (AST.extract src 16<rt> pos) dst)
+            (tmps[i] := AST.ite (cond (idx + i)) (AST.extract src 16<rt> pos) dst)
         AST.concatArr tmps
       !!ir (dstA := assign dstA srcA 0)
       !!ir (dstB := assign dstB srcB 4)
@@ -707,7 +707,7 @@ let vmovdqu16 ins insLen ctxt =
           let pos = i * 16
           let dst = AST.extract dst 16<rt> pos
           !!ir
-            (tmps.[i] := AST.ite (cond (idx + i)) (AST.extract src 16<rt> pos) dst)
+            (tmps[i] := AST.ite (cond (idx + i)) (AST.extract src 16<rt> pos) dst)
         AST.concatArr tmps
       !!ir (dstA := assign dstA srcA 0)
       !!ir (dstB := assign dstB srcB 4)
@@ -1233,7 +1233,7 @@ let vshufi32x4 ins insLen ctxt =
         match src2 with
           | OprMem _ when ePrx.B = 1uy -> AST.extract src2A 32<rt> 0
           | _ -> AST.extract conSrc2 32<rt> (i * 32)
-      !!ir (tmpSrc2.[i] := tSrc2)
+      !!ir (tmpSrc2[i] := tSrc2)
     let tmpSrc2 = AST.concatArr tmpSrc2
     !!ir (AST.extract tmpDest 128<rt> 0 := select4 conSrc1 0)
     !!ir (AST.extract tmpDest 128<rt> 128 := select4 conSrc2 2)
@@ -1460,7 +1460,7 @@ let vxorps ins insLen ctxt =
           | OprMem _ when ePrx.AAA (* B *) = 1uy ->
             s1 <+> (AST.extract src2A 32<rt> 0)
           | _ -> s1 <+> s2
-        !!ir (tmpDest.[i] := AST.ite (cond (idx + i)) tSrc (masking dst))
+        !!ir (tmpDest[i] := AST.ite (cond (idx + i)) tSrc (masking dst))
       AST.concatArr tmpDest
     let kl, vl = 16, 512
     let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
@@ -1559,7 +1559,7 @@ let vextracti32x8 ins insLen ctxt =
         let dst = AST.extract dst 32<rt> dstPos
         let src = AST.extract src 32<rt> srcPos
         !!ir
-          (tmps.[i] := AST.ite (cond (idx + i)) src (masking dst))
+          (tmps[i] := AST.ite (cond (idx + i)) src (masking dst))
       AST.concatArr tmps
     !!ir (dstA := assign dstA tDest 0)
     !!ir (dstB := assign dstB tDest 2)
@@ -1573,7 +1573,7 @@ let vextracti32x8 ins insLen ctxt =
         let srcPos = 32 * (idx + i)
         let dst = AST.extract dst 32<rt> dstPos
         !!ir
-          (tmps.[i] := AST.ite (cond (idx + i)) (AST.extract src 32<rt> srcPos) dst)
+          (tmps[i] := AST.ite (cond (idx + i)) (AST.extract src 32<rt> srcPos) dst)
       AST.concatArr tmps
     !!ir (dstA := assign dstA tDest 0)
     !!ir (dstB := assign dstB tDest 2)
@@ -1666,7 +1666,7 @@ let vpaddd ins insLen ctxt =
           | OprMem _ when ePrx.AAA (* B *) = 1uy ->
             s1 .+ (AST.extract src2A 32<rt> 0)
           | _ -> s1 .+ s2
-        !!ir (tmpDest.[i] := AST.ite (cond (idx + i)) tSrc (masking dst))
+        !!ir (tmpDest[i] := AST.ite (cond (idx + i)) tSrc (masking dst))
       AST.concatArr tmpDest
     let kl, vl = 16, 512
     let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
@@ -1751,7 +1751,7 @@ let vpbroadcastb ins insLen ctxt =
     !<ir insLen
     !!ir (tSrc := src)
     let tmps = Array.init 8 (fun _ -> !*ir 8<rt>)
-    for i in 0 .. 7 do !!ir (tmps.[i] := tSrc) done
+    for i in 0 .. 7 do !!ir (tmps[i] := tSrc) done
     let t = !*ir 64<rt>
     !!ir (t := AST.concatArr tmps)
     match oprSize with
@@ -1915,7 +1915,7 @@ let vpshufb ins insLen ctxt =
       let idx = (AST.extract tSrc2 8<rt> (i * 8)) .& mask
       let s = AST.zext oprSize idx .* numI32 8 oprSize
       !!ir
-        (tmps.[i] := AST.ite cond (AST.num0 8<rt>) (AST.xtlo 8<rt> (tSrc1 >> s)))
+        (tmps[i] := AST.ite cond (AST.num0 8<rt>) (AST.xtlo 8<rt> (tSrc1 >> s)))
     done
     !!ir (tDst := AST.concatArr tmps)
     !!ir (dstA := AST.xtlo 64<rt> tDst)
@@ -1935,7 +1935,7 @@ let vpshufb ins insLen ctxt =
       let idx = (AST.extract tSrc2 8<rt> (i * 8)) .& mask
       let s = AST.zext oprSize idx .* numI32 8 oprSize
       !!ir
-        (tmps.[i] := AST.ite cond (AST.num0 8<rt>) (AST.xtlo 8<rt> (tSrc1 >> s)))
+        (tmps[i] := AST.ite cond (AST.num0 8<rt>) (AST.xtlo 8<rt> (tSrc1 >> s)))
     done
     !!ir (tDst := AST.concatArr tmps)
     !!ir (dstA := AST.xtlo 64<rt> tDst)
@@ -1975,7 +1975,7 @@ let vpshufb ins insLen ctxt =
       let index2 = (index1 .& num0F) .+ (numI32 i 8<rt> .& jmask)
       let src1 =
         AST.xtlo 8<rt> (tSrc1 >> (AST.zext oprSize (index2 .* numI32 8 8<rt>)))
-      !!ir (tmps.[i] := AST.ite (cond i) (AST.ite (AST.xthi 1<rt> index1)
+      !!ir (tmps[i] := AST.ite (cond i) (AST.ite (AST.xthi 1<rt> index1)
                                                (AST.num0 8<rt>) src1) (AST.num0 8<rt>))
     done
     !!ir (tDst := AST.concatArr tmps)
@@ -2006,7 +2006,7 @@ let vpshufd ins insLen ctxt =
       let order =
         ((AST.xtlo 32<rt> ord) >> (numI32 ((i - 1) * 2) 32<rt>)) .& mask2
       let order' = AST.zext oprSize order
-      !!ir (tmps.[i - 1] := AST.xtlo 32<rt> (src >> (order' .* n32)))
+      !!ir (tmps[i - 1] := AST.xtlo 32<rt> (src >> (order' .* n32)))
     done
   !<ir insLen
   match oprSize with
@@ -2035,7 +2035,7 @@ let vpshufd ins insLen ctxt =
   !>ir insLen
 
 let private opShiftVpackedDataLogical oprSize packSz shift src1 (src2: Expr []) =
-  let count = src2.[0] |> AST.zext oprSize
+  let count = src2[0] |> AST.zext oprSize
   let cond = AST.gt count (numI32 ((int packSz) - 1) oprSize)
   let shifted expr = AST.extract (shift (AST.zext oprSize expr) count) packSz 0
   Array.map (fun e -> AST.ite cond (AST.num0 packSz) (shifted e)) src1
@@ -2192,7 +2192,7 @@ let vpxord ins insLen ctxt =
         | OprMem _ when ePrx.AAA (* B *) = 1uy ->
           s1 <+> (AST.extract src2A 32<rt> 0)
         | _ -> s1 <+> s2
-      !!ir (tmpDest.[i] := AST.ite (cond (idx + i)) tSrc (masking dst))
+      !!ir (tmpDest[i] := AST.ite (cond (idx + i)) tSrc (masking dst))
     AST.concatArr tmpDest
   match oprSize with
   | 128<rt> ->

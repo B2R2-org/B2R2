@@ -67,7 +67,7 @@ type HistoryManager () =
       | false, _ ->
         let stack = Stack()
         stack.Push fact
-        history.[funcAddr] <- stack
+        history[funcAddr] <- stack
     | false, _ -> ()
 
   /// Peek the history of the current function.
@@ -75,7 +75,7 @@ type HistoryManager () =
     let arr =
       match history.TryGetValue fnAddr with
       | true, stack ->
-        history.[fnAddr] <- Stack ()
+        history[fnAddr] <- Stack ()
         stack |> Seq.toArray
       | false, _ -> [||]
     Array.append arr [| CreatedFunction (fnAddr) |]

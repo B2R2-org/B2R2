@@ -71,7 +71,7 @@ let parseStreamBlks (reader: BinReader) sb streamSizes offset =
   let rec loop idx acc offset =
     if idx = Array.length streamSizes then List.rev acc |> List.toArray
     else
-      let numBlks = getNumBlocks streamSizes.[idx] sb.BlockSize
+      let numBlks = getNumBlocks streamSizes[idx] sb.BlockSize
       let blocks = readIntValues reader numBlks [] offset |> List.toArray
       let nextOffset = offset + numBlks * 4
       loop (idx + 1) (blocks :: acc) nextOffset
@@ -95,8 +95,8 @@ let parseStreamDirectory reader sb =
   |> buildStreamDirectory sb
 
 let parseStream reader superBlock streamDir idx =
-  let blks = streamDir.StreamBlocks.[idx] |> Array.toList
-  let size = streamDir.StreamSizes.[idx]
+  let blks = streamDir.StreamBlocks[idx] |> Array.toList
+  let size = streamDir.StreamSizes[idx]
   let stream = readStream reader superBlock.BlockSize blks
   { Reader = BinReader.Init (stream); ByteSize = size }
 
@@ -109,7 +109,7 @@ let buildStreamMap reader superBlock streamDir =
   builder [] 0
 
 let getStream (streamMap: Lazy<MSFStream> []) idx =
-  let s = streamMap.[idx]
+  let s = streamMap[idx]
   s.Force ()
 
 let parseDBIHeader dbiStream =

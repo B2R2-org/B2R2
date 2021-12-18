@@ -113,8 +113,8 @@ type TopologicalDataFlowAnalysis<'L, 'V
   member private __.InitInsOuts g (root: Vertex<'V>) =
     Traversal.iterPreorder g [root] (fun v ->
       let blkid = v.GetID ()
-      outs.[blkid] <- __.Top
-      ins.[blkid] <- __.Top)
+      outs[blkid] <- __.Top
+      ins[blkid] <- __.Top)
 
   /// Compute data-flow with the iterative worklist algorithm.
   member __.Compute g (root: Vertex<'V>) =
@@ -123,12 +123,12 @@ type TopologicalDataFlowAnalysis<'L, 'V
     while worklist.Count <> 0 do
       let blk = worklist.Dequeue ()
       let blkid = blk.GetID ()
-      ins.[blkid] <-
+      ins[blkid] <-
         helper.Neighbor g blk
-        |> List.fold (fun eff v -> __.Meet eff outs.[v.GetID()]) __.Top
-      let outeffect = __.Transfer ins.[blkid] blk
-      if outs.[blkid] <> outeffect then
-        outs.[blkid] <- outeffect
+        |> List.fold (fun eff v -> __.Meet eff outs[v.GetID()]) __.Top
+      let outeffect = __.Transfer ins[blkid] blk
+      if outs[blkid] <> outeffect then
+        outs[blkid] <- outeffect
         helper.AddToWorkList g blk worklist
       else ()
     ins, outs

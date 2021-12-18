@@ -184,22 +184,22 @@ let updateContextAtDef ctxt dst src =
 
 let rec optimizeLoop (stmts: Stmt []) idx ctxt =
   if Array.length stmts > idx then
-    match stmts.[idx].S with
+    match stmts[idx].S with
     | Store (endian, e1, e2) ->
       let struct (c1, e1) = replace ctxt e1
       let struct (c2, e2) = replace ctxt e2
-      if c1 || c2 then stmts.[idx] <- AST.store endian e1 e2 else ()
+      if c1 || c2 then stmts[idx] <- AST.store endian e1 e2 else ()
       optimizeLoop stmts (idx + 1) ctxt
     | InterJmp (e, t) ->
       let struct (changed, e) = replace ctxt e
-      if changed then stmts.[idx] <- AST.interjmp e t else ()
+      if changed then stmts[idx] <- AST.interjmp e t else ()
       optimizeLoop stmts (idx + 1) ctxt
     | InterCJmp (cond, e1, e2) ->
       let struct (c0, cond) = replace ctxt cond
       let struct (c1, e1) = replace ctxt e1
       let struct (c2, e2) = replace ctxt e2
       if c0 || c1 || c2 then
-        stmts.[idx] <-
+        stmts[idx] <-
           match cond.E with
           | Num n when BitVector.isOne n -> AST.interjmp e1 InterJmpKind.Base
           | Num _ -> AST.interjmp e2 InterJmpKind.Base
@@ -208,14 +208,14 @@ let rec optimizeLoop (stmts: Stmt []) idx ctxt =
       optimizeLoop stmts (idx + 1) ctxt
     | Jmp (e) ->
       let struct (changed, e) = replace ctxt e
-      if changed then stmts.[idx] <- AST.jmp e else ()
+      if changed then stmts[idx] <- AST.jmp e else ()
       optimizeLoop stmts (idx + 1) ctxt
     | CJmp (cond, e1, e2) ->
       let struct (c0, cond) = replace ctxt cond
       let struct (c1, e1) = replace ctxt e1
       let struct (c2, e2) = replace ctxt e2
       if c0 || c1 || c2 then
-        stmts.[idx] <-
+        stmts[idx] <-
           match cond.E with
           | Num (n) when BitVector.isOne n -> AST.jmp e1
           | Num (_) -> AST.jmp e2
@@ -225,7 +225,7 @@ let rec optimizeLoop (stmts: Stmt []) idx ctxt =
     | LMark _ -> optimizeLoop stmts (idx + 1) ctxt
     | Put (lhs, rhs) ->
       let rhs = match replace ctxt rhs with
-                | true, rhs -> stmts.[idx] <- AST.put lhs rhs; rhs
+                | true, rhs -> stmts[idx] <- AST.put lhs rhs; rhs
                 | _ -> rhs
       updateContextAtDef ctxt lhs rhs
       optimizeLoop stmts (idx + 1) ctxt

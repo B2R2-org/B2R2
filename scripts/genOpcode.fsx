@@ -28,7 +28,7 @@ open System.Text.RegularExpressions
 let split line =
   let r = new Regex("(\/\/\/ .+)?([a-zA-Z0-9]+)?\s*(\(\*.+\*\))?")
   let m = r.Match (line)
-  m.Groups.[1].ToString(), m.Groups.[2].ToString(), m.Groups.[3].ToString()
+  m.Groups[1].ToString(), m.Groups[2].ToString(), m.Groups[3].ToString()
 
 let print idx (desc, op, comment) =
   if String.length desc > 0 then printfn "  %s" desc; idx + 1
@@ -44,7 +44,7 @@ let conv file =
 
 let main args =
   if Array.length args < 2 then
-    printfn "Usage: %s <input opcode file>" args.[0]
-  else conv args.[1]
+    printfn "Usage: %s <input opcode file>" args[0]
+  else conv args[1]
 
 fsi.CommandLineArgs |> main

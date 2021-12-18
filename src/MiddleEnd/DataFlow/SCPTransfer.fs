@@ -33,10 +33,10 @@ open B2R2.MiddleEnd.ControlFlowGraph
 let private updateReadOnlyMem st mDst rt addr c =
   let align = RegType.toByteWidth rt |> uint64
   let dstid = mDst.Identifier
-  let mem, updated = st.MemState.[dstid]
+  let mem, updated = st.MemState[dstid]
   if (rt = st.DefaultWordSize) && (addr % align = 0UL) then
     let mem = Map.add addr c mem
-    st.MemState.[dstid] <- (mem, updated)
+    st.MemState[dstid] <- (mem, updated)
   else ()
 
 let evalLoad st m rt addr =

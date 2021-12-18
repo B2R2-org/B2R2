@@ -85,7 +85,7 @@ type BinDumpOpts () =
   /// "-i" or "--isa" option for specifying ISA.
   static member OptISA () =
     let cb opts (arg: string []) =
-      (BinDumpOpts.ToThis opts).ISA <- ISA.OfString arg.[0]
+      (BinDumpOpts.ToThis opts).ISA <- ISA.OfString arg[0]
       opts
     CmdOpts.New (descr = "Specify <ISA> (e.g., x86) from command line",
                  extra = 1, callback = cb, short = "-i", long = "--isa")
@@ -94,7 +94,7 @@ type BinDumpOpts () =
   static member OptBaseAddr () =
     let cb opts (arg: string []) =
       (BinDumpOpts.ToThis opts).BaseAddress <-
-        Some (Convert.ToUInt64 (arg.[0], 16))
+        Some (Convert.ToUInt64 (arg[0], 16))
       (BinDumpOpts.ToThis opts).ShowAddress <- true
       opts
     CmdOpts.New (descr = "Specify the base <address> in hex (default=0)",
@@ -113,7 +113,7 @@ type BinDumpOpts () =
   /// "-S" or "--section" for displaying contents of a specific section.
   static member OptDumpSection () =
     let cb opts (arg: string []) =
-      (BinDumpOpts.ToThis opts).InputSecName <- Some arg.[0]
+      (BinDumpOpts.ToThis opts).InputSecName <- Some arg[0]
       opts
     CmdOpts.New (
       descr = "Display the contents of a specific section",
@@ -122,7 +122,7 @@ type BinDumpOpts () =
   /// "-s" option for specifying an input hexstring.
   static member OptInputHexString () =
     let cb opts (arg: string []) =
-      (BinDumpOpts.ToThis opts).InputHexStr <- ByteArray.ofHexString arg.[0]
+      (BinDumpOpts.ToThis opts).InputHexStr <- ByteArray.ofHexString arg[0]
       opts
     CmdOpts.New (descr = "Specify an input <hexstring> from command line",
                  extra = 1, callback = cb, short = "-s")
@@ -131,7 +131,7 @@ type BinDumpOpts () =
   static member OptArchMode () =
     let cb opts (arg: string []) =
       (BinDumpOpts.ToThis opts).ArchOperationMode <-
-        ArchOperationMode.ofString arg.[0]
+        ArchOperationMode.ofString arg[0]
       opts
     CmdOpts.New (
       descr = "Specify <operation mode> (e.g., thumb/arm) from cmdline",

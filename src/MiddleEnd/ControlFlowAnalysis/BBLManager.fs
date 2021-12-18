@@ -177,7 +177,7 @@ module BBLInfo =
     else
       let isLastStmt = isLastIns && idx = stmts.Length - 1
       let tmp =
-        collectAux hdl fm addr fn idx tmp stmts.[idx] isLastStmt
+        collectAux hdl fm addr fn idx tmp stmts[idx] isLastStmt
       collectLeaders hdl fm addr fn (idx + 1) isLastIns stmts tmp
 
   let rec private prepareLeaders hdl fm instrs fn tmp =
@@ -227,7 +227,7 @@ module BBLInfo =
 
   /// Add intra-instruction edges.
   let private addEdgesAux hdl fm excTbl fn addr idx leader tmp insInfo isLast =
-    let stmt = insInfo.Stmts.[idx]
+    let stmt = insInfo.Stmts[idx]
     match stmt.S with
     | LMark _ -> ProgramPoint (addr, idx), tmp
     | Jmp { E = Name symb } ->
@@ -411,7 +411,7 @@ module BBLInfo =
 
   let private createIRBBL fn instrs nextAddr leaders idx leader =
     let nextLeader =
-      if idx < (leaders: ProgramPoint []).Length - 1 then leaders.[idx + 1]
+      if idx < (leaders: ProgramPoint []).Length - 1 then leaders[idx + 1]
       else ProgramPoint (nextAddr, 0)
     let instrs = gatherInsInfos [] instrs leader nextLeader
     if Array.isEmpty instrs then ()

@@ -52,17 +52,17 @@ let initSCCInfo g =
     LowLink = Array.zeroCreate len }
 
 let inline dfnum ctxt (v: Vertex<_>) =
-  ctxt.DFNumMap.[v.GetID ()]
+  ctxt.DFNumMap[v.GetID ()]
 
 let inline lowlink ctxt v =
-  ctxt.LowLink.[dfnum ctxt v]
+  ctxt.LowLink[dfnum ctxt v]
 
 let rec assignSCC ctxt vNum stack scc =
   if List.length stack <> 0 then
     let wNum = List.head stack
     if wNum >= vNum then
       let stack = List.tail stack
-      let w = ctxt.Vertex.[wNum]
+      let w = ctxt.Vertex[wNum]
       let scc = Set.add w scc
       assignSCC ctxt vNum stack scc
     else stack, scc
@@ -79,9 +79,9 @@ let inline min x y = if x < y then x else y
 
 /// R.Tarjan. Depth-first search and linear graph algorithms
 let rec computeSCC g ctxt (v: Vertex<_>) n stack sccs =
-  ctxt.DFNumMap.[v.GetID ()] <- n
-  ctxt.LowLink.[n] <- n
-  ctxt.Vertex.[n] <- v
+  ctxt.DFNumMap[v.GetID ()] <- n
+  ctxt.LowLink[n] <- n
+  ctxt.Vertex[n] <- v
   let n, stack, sccs =
     DiGraph.getSuccs g v
     |> List.fold (computeLowLink g ctxt v) (n + 1, n :: stack, sccs)
@@ -93,12 +93,12 @@ and computeLowLink g ctxt v (n, stack, sccs) (w: Vertex<_>) =
   let vLink = lowlink ctxt v
   if ctxt.DFNumMap.ContainsKey <| w.GetID () then
     let wNum = dfnum ctxt w
-    if List.contains wNum stack then ctxt.LowLink.[vNum] <- min vLink wNum
+    if List.contains wNum stack then ctxt.LowLink[vNum] <- min vLink wNum
     n, stack, sccs
   else
     let n, stack, sccs = computeSCC g ctxt w n stack sccs
     let wLink = lowlink ctxt w
-    ctxt.LowLink.[vNum] <- min vLink wLink
+    ctxt.LowLink[vNum] <- min vLink wLink
     n, stack, sccs
 
 let compute g root =

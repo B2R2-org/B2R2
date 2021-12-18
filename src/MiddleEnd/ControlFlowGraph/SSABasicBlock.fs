@@ -88,7 +88,7 @@ type SSABasicBlock (pp, instrs: InstructionInfo []) =
 
   override __.Range =
     if Array.isEmpty instrs then Utils.impossible () else ()
-    let last = instrs.[instrs.Length - 1].Instruction
+    let last = instrs[instrs.Length - 1].Instruction
     AddrRange (pp.Address, last.Address + uint64 last.Length - 1UL)
 
   override __.IsFakeBlock () = Array.isEmpty instrs
@@ -104,7 +104,7 @@ type SSABasicBlock (pp, instrs: InstructionInfo []) =
 
   /// Get the last SSA statement of the bblock.
   member __.GetLastStmt () =
-    snd __.SSAStmtInfos.[__.SSAStmtInfos.Length - 1]
+    snd __.SSAStmtInfos[__.SSAStmtInfos.Length - 1]
 
   /// Immediate dominator of this block.
   member __.ImmDominator with get() = idom and set(d) = idom <- d
@@ -125,7 +125,7 @@ type SSABasicBlock (pp, instrs: InstructionInfo []) =
     __.SSAStmtInfos
     |> Array.foldi (fun ppoint idx (_, stmt) ->
       let ppoint' = computeNextPPoint ppoint stmt
-      __.SSAStmtInfos.[idx] <- (ppoint', stmt)
+      __.SSAStmtInfos[idx] <- (ppoint', stmt)
       ppoint') pp
     |> ignore
 

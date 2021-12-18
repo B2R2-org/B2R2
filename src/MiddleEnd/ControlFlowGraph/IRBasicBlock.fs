@@ -39,22 +39,22 @@ type IRBasicBlock (instrs: InstructionInfo [], ppoint: ProgramPoint) =
   /// The first instruction of the basic block.
   member __.FirstInstruction with get() =
     if Array.isEmpty instrs then raise DummyDataAccessException
-    else instrs.[0].Instruction
+    else instrs[0].Instruction
 
   /// The first InstructionInfo of the basic block.
   member __.FirstInsInfo with get() =
     if Array.isEmpty instrs then raise DummyDataAccessException
-    else instrs.[0]
+    else instrs[0]
 
   /// The last instruction of the basic block.
   member __.LastInstruction with get() =
     if Array.isEmpty instrs then raise DummyDataAccessException
-    else instrs.[Array.length instrs - 1].Instruction
+    else instrs[Array.length instrs - 1].Instruction
 
   /// The last InstructionInfo of the basic block.
   member __.LastInsInfo with get() =
     if Array.isEmpty instrs then raise DummyDataAccessException
-    else instrs.[Array.length instrs - 1]
+    else instrs[Array.length instrs - 1]
 
   /// Get an array of IR statements of a basic block.
   member __.IRStatements with get() = instrs |> Array.map (fun i -> i.Stmts)
@@ -69,8 +69,8 @@ type IRBasicBlock (instrs: InstructionInfo [], ppoint: ProgramPoint) =
 
   /// Get the last IR statement of the bblock.
   member __.LastStmt with get() =
-    let stmts = instrs.[instrs.Length - 1].Stmts
-    stmts.[stmts.Length - 1]
+    let stmts = instrs[instrs.Length - 1].Stmts
+    stmts[stmts.Length - 1]
 
   /// The address range of the basic block. Even if the block contains a partial
   /// IR statements of an instruction, we include the instruction to compute the
@@ -106,7 +106,7 @@ type RegularIRBasicBlock (instrs, ppoint) =
   let mutable syscallTail = NoSyscallTail
 
   do assert (not (Array.isEmpty instrs))
-     let stmts = instrs.[instrs.Length - 1].Stmts
+     let stmts = instrs[instrs.Length - 1].Stmts
      match Array.tryLast stmts with
      | Some ({ S = LowUIR.SideEffect SysCall }) ->
        syscallTail <- UnknownSyscallTail

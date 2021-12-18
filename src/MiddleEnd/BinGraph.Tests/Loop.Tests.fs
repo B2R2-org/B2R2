@@ -78,8 +78,8 @@ type LoopTest () =
       |> Seq.toArray
 
     Assert.AreEqual (5, s.Length)
-    Assert.IsFalse  (s.[0].Contains n9)
-    Assert.IsTrue   (s.[1].Contains n10)
-    Assert.IsFalse  (s.[2].Contains n1)
-    Assert.IsTrue   (s.[3].Contains n7)
-    Assert.IsTrue   (s.[4].Contains n8)
+    Assert.IsFalse  (s[0].Contains n9)
+    Assert.IsTrue   (s[1].Contains n10)
+    Assert.IsFalse  (s[2].Contains n1)
+    Assert.IsTrue   (s[3].Contains n7)
+    Assert.IsTrue   (s[4].Contains n8)

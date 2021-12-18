@@ -33,9 +33,9 @@ type Variables<'Key when 'Key: equality> () =
 
   member __.TryGet k = vars.TryGetValue (k)
 
-  member __.Get k = vars.[k]
+  member __.Get k = vars[k]
 
-  member __.Set k v = vars.[k] <- v
+  member __.Set k v = vars[k] <- v
 
   member __.Unset k = vars.Remove k |> ignore
 

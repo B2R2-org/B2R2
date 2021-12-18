@@ -50,7 +50,7 @@ type ReachingDefinitions<'Expr, 'BBL when 'Expr: comparison
 
   override __.Transfer i v =
     let vid = v.GetID ()
-    Set.union gens.[vid] (Set.difference i kills.[vid])
+    Set.union gens[vid] (Set.difference i kills[vid])
 
 /// Reaching definition analysis with a LowUIR-based CFG.
 type LowUIRReachingDefinitions (cfg) as this =
@@ -80,19 +80,19 @@ type LowUIRReachingDefinitions (cfg) as this =
     DiGraph.iterVertex cfg (fun v ->
       let vid = v.GetID ()
       let defs = __.FindDefs v
-      gens.[vid] <- defs |> Set.ofList
-      vpPerVertex.[vid] <- defs
+      gens[vid] <- defs |> Set.ofList
+      vpPerVertex[vid] <- defs
       defs |> List.iter (fun ({ VarExpr = v } as vp) ->
-        if vpPerVar.ContainsKey v then vpPerVar.[v] <- Set.add vp vpPerVar.[v]
-        else vpPerVar.[v] <- Set.singleton vp
+        if vpPerVar.ContainsKey v then vpPerVar[v] <- Set.add vp vpPerVar[v]
+        else vpPerVar[v] <- Set.singleton vp
       )
     )
     DiGraph.iterVertex cfg (fun v ->
       let vid = v.GetID ()
-      let defVarPoints = vpPerVertex.[vid]
+      let defVarPoints = vpPerVertex[vid]
       let vars = defVarPoints |> List.map (fun vp -> vp.VarExpr)
       let vps = defVarPoints |> Set.ofList
       let alldefs =
-        vars |> List.fold (fun set v -> Set.union set vpPerVar.[v]) Set.empty
-      kills.[vid] <- Set.difference alldefs vps
+        vars |> List.fold (fun set v -> Set.union set vpPerVar[v]) Set.empty
+      kills[vid] <- Set.difference alldefs vps
     )

@@ -102,9 +102,9 @@ with
       Error ErrorCase.InvalidMemoryRead
     else
       let bs =
-        reader.Bytes.[ idx + Array.length bs .. ]
+        reader.Bytes[ idx + Array.length bs .. ]
         |> Array.append bs
-        |> Array.append reader.Bytes.[ .. idx - 1 ]
+        |> Array.append reader.Bytes[ .. idx - 1 ]
       match fi with
       | :? RawFileInfo ->
         RawFileInfo (bs, fi.FilePath, fi.ISA, Some fi.BaseAddress) :> FileInfo

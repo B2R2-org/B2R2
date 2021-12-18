@@ -478,7 +478,7 @@ let bswap ins insLen ctxt =
   !<ir insLen
   !!ir (t := dst)
   for i in 0 .. cnt - 1 do
-    !!ir (tmps.[i] := AST.extract t 8<rt> (i * 8))
+    !!ir (tmps[i] := AST.extract t 8<rt> (i * 8))
   done
   !!ir (dstAssign oprSize dst (AST.concatArr (Array.rev tmps)))
   !>ir insLen
@@ -1207,7 +1207,7 @@ let movbe ins insLen ctxt =
   !<ir insLen
   !!ir (t := src)
   for i in 0 .. cnt - 1 do
-    !!ir (tmps.[i] := AST.extract t 8<rt> (i * 8))
+    !!ir (tmps[i] := AST.extract t 8<rt> (i * 8))
   done
   !!ir (dstAssign oprSize dst (AST.concatArr (Array.rev tmps)))
   !>ir insLen

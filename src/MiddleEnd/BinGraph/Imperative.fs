@@ -136,7 +136,7 @@ type ImperativeCore<'D, 'E when 'D :> VertexData and 'D: equality>
     let dstid = dst.GetID ()
     if edges.ContainsKey (srcid, dstid) then ()
     else
-      edges.[(srcid, dstid)] <- (src, dst, e)
+      edges[(srcid, dstid)] <- (src, dst, e)
       src.Succs <- dst :: src.Succs
       dst.Preds <- src :: dst.Preds
       unreachables.Remove dst |> ignore
@@ -172,13 +172,13 @@ type ImperativeCore<'D, 'E when 'D :> VertexData and 'D: equality>
 
   override __.FindEdge src dst =
     if edges.ContainsKey (src.GetID (), dst.GetID ()) then
-      let _, _, e = edges.[(src.GetID (), dst.GetID ())]
+      let _, _, e = edges[(src.GetID (), dst.GetID ())]
       e
     else raise EdgeNotFoundException
 
   override __.TryFindEdge src dst =
     if edges.ContainsKey (src.GetID (), dst.GetID ()) then
-      let _, _, e = edges.[(src.GetID (), dst.GetID ())]
+      let _, _, e = edges[(src.GetID (), dst.GetID ())]
       Some e
     else None
 
@@ -293,7 +293,7 @@ type ImperativeRangedCore<'D, 'E when 'D :> RangedVertexData and 'D: equality>
     let dstid = dst.GetID ()
     if edges.ContainsKey (srcid, dstid) then ()
     else
-      edges.[(src.GetID (), dst.GetID ())] <- (src, dst, e)
+      edges[(src.GetID (), dst.GetID ())] <- (src, dst, e)
       src.Succs <- dst :: src.Succs
       dst.Preds <- src :: dst.Preds
       unreachables.Remove dst |> ignore
@@ -329,13 +329,13 @@ type ImperativeRangedCore<'D, 'E when 'D :> RangedVertexData and 'D: equality>
 
   override __.FindEdge src dst =
     if edges.ContainsKey (src.GetID (), dst.GetID ()) then
-      let _, _, e = edges.[(src.GetID (), dst.GetID ())]
+      let _, _, e = edges[(src.GetID (), dst.GetID ())]
       e
     else raise EdgeNotFoundException
 
   override __.TryFindEdge src dst =
     if edges.ContainsKey (src.GetID (), dst.GetID ()) then
-      let _, _, e = edges.[(src.GetID (), dst.GetID ())]
+      let _, _, e = edges[(src.GetID (), dst.GetID ())]
       Some e
     else None
 

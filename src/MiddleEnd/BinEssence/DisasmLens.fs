@@ -122,8 +122,8 @@ module DisasmLens =
     g, vMap
 
   let addEdge (vMap: DisasmVMap) g (src, dst) e =
-    let src = vMap.[src]
-    let dst = vMap.[dst]
+    let src = vMap[src]
+    let dst = vMap[dst]
     DiGraph.addEdge g src dst e
 
   let private buildCFG codeMgr blockInfos ircfg vMap dcfg =
@@ -143,5 +143,5 @@ module DisasmLens =
     let newGraph = DisasmCFG.init g.ImplementationType
     let vMap = DisasmVMap ()
     let newGraph = buildCFG codeMgr blockInfos g vMap newGraph
-    let root = vMap.[(root: IRVertex).VData.PPoint.Address]
+    let root = vMap[(root: IRVertex).VData.PPoint.Address]
     newGraph, root

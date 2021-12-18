@@ -100,26 +100,26 @@ type BinExplorerOpts (isa) =
   /// (2) Make sure firewall does not block the connection.
   static member OptIP () =
     let cb (opts: #CmdOpts) (arg: string []) =
-      (BinExplorerOpts.ToThis opts).IP <- arg.[0]; opts
+      (BinExplorerOpts.ToThis opts).IP <- arg[0]; opts
     CmdOpts.New ( descr = "Specify IP <address> (default: localhost)",
                   extra = 1, callback = cb, long = "--ip" )
 
   static member OptPort () =
     let cb (opts: #CmdOpts) (arg: string []) =
-      (BinExplorerOpts.ToThis opts).Port <- int arg.[0]; opts
+      (BinExplorerOpts.ToThis opts).Port <- int arg[0]; opts
     CmdOpts.New ( descr = "Specify host port <number> (default: 8282)",
                   extra = 1, callback = cb, short = "-p", long = "--port" )
 
   static member OptLogFile () =
     let cb (opts: #CmdOpts) (arg: string []) =
-      (BinExplorerOpts.ToThis opts).LogFile <- arg.[0]; opts
+      (BinExplorerOpts.ToThis opts).LogFile <- arg[0]; opts
     CmdOpts.New ( descr = "Specify log file <name> (default: B2R2.log)",
                   callback = cb, short = "-l", long = "--log" )
 
   /// "-a" or "--isa" option for specifying ISA.
   static member OptISA () =
     let cb (opts: #CmdOpts) (arg: string []) =
-      (BinExplorerOpts.ToThis opts).ISA <- ISA.OfString arg.[0]; opts
+      (BinExplorerOpts.ToThis opts).ISA <- ISA.OfString arg[0]; opts
     CmdOpts.New ( descr = "Specify <ISA> (e.g., x86) for fat binaries",
                   extra = 1, callback = cb, short = "-a", long= "--isa" )
 
@@ -132,7 +132,7 @@ type BinExplorerOpts (isa) =
 
   static member OptJsonDumpDir () =
     let cb (opts: #CmdOpts) (arg : string []) =
-      (BinExplorerOpts.ToThis opts).JsonDumpDir <- arg.[0]; opts
+      (BinExplorerOpts.ToThis opts).JsonDumpDir <- arg[0]; opts
     CmdOpts.New (
       descr = "Directory name to dump CFG json (no dump if empty)",
       extra = 1, callback = cb, short = "-j", long = "--jsondir")
@@ -160,7 +160,7 @@ type BinExplorerOpts (isa) =
 
   static member OptEVMAbiFile () =
     let cb (opts: #CmdOpts) (arg : string []) =
-      (BinExplorerOpts.ToThis opts).EVMAbiFile <- arg.[0]; opts
+      (BinExplorerOpts.ToThis opts).EVMAbiFile <- arg[0]; opts
     CmdOpts.New (
       descr = "ABI file path for EVM bytecode.",
       extra = 1, callback = cb, long = "--evmabi")

@@ -154,7 +154,7 @@ type NonEmptyRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     | idx ->
       let struct (bucket, offset) = RegisterSet.GetBucketAndOffset idx
       let newArr = Array.copy bitArray
-      newArr.[bucket] <- newArr.[bucket] ||| (1UL <<< offset)
+      newArr[bucket] <- newArr[bucket] ||| (1UL <<< offset)
       __.New newArr s
 
   override __.Remove id =
@@ -163,7 +163,7 @@ type NonEmptyRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     | id ->
       let struct (bucket, offset) = RegisterSet.GetBucketAndOffset id
       let newArr = Array.copy bitArray
-      newArr.[bucket] <- newArr.[bucket] &&& ~~~(1UL <<< offset)
+      newArr[bucket] <- newArr[bucket] &&& ~~~(1UL <<< offset)
       __.New newArr s
 
   override __.Union (other: RegisterSet) =
@@ -172,7 +172,7 @@ type NonEmptyRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
 #if DEBUG
       __.CheckTag other
 #endif
-      let newArr = Array.mapi (fun i e -> e ||| other.BitArray.[i]) bitArray
+      let newArr = Array.mapi (fun i e -> e ||| other.BitArray[i]) bitArray
       __.New newArr (Set.union __.AuxSet other.AuxSet)
 
   override __.Intersect (other: RegisterSet) =
@@ -181,7 +181,7 @@ type NonEmptyRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
 #if DEBUG
       __.CheckTag other
 #endif
-      let newArr = Array.mapi (fun i e -> e &&& other.BitArray.[i]) bitArray
+      let newArr = Array.mapi (fun i e -> e &&& other.BitArray[i]) bitArray
       __.New newArr <| Set.intersect __.AuxSet other.AuxSet
 
   override  __.Exists id =
@@ -189,7 +189,7 @@ type NonEmptyRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     | -1 -> Set.contains id __.AuxSet
     | id ->
       let struct (bucket, offset) = RegisterSet.GetBucketAndOffset id
-      (bitArray.[bucket] &&& (1UL <<< offset)) <> 0UL
+      (bitArray[bucket] &&& (1UL <<< offset)) <> 0UL
 
   override __.IsEmpty () =
     (Array.exists (fun x -> x <> 0UL) bitArray |> not) && Set.isEmpty __.AuxSet

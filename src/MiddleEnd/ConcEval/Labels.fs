@@ -35,8 +35,8 @@ type Labels () =
   member __.Update (stmts) =
     lbls.Clear ()
     for i = 0 to Array.length stmts - 1 do
-      match stmts.[i].S with
+      match stmts[i].S with
       | LMark s -> lbls.Add (s, i)
       | _ -> ()
 
-  member __.Index (sym) = lbls.[sym]
+  member __.Index (sym) = lbls[sym]

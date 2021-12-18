@@ -124,7 +124,7 @@ let checkcarry expr =
         { us with TemplateArgList = b }
       | NestedName (_, b) ->
         let len = List.length b
-        match b.[len - 1] with
+        match b[len - 1] with
         | Template (_name, Arguments b) ->
           { us with TemplateArgList = b }
         | _ -> us
@@ -190,7 +190,7 @@ let addArgPack expr =
      | RefArg (_, Arguments alist) |
        RefArg (_, TemplateSub (Arguments alist, _)) ->
        if alist <> [] then
-         let add = alist.[alist.Length - 1]
+         let add = alist[alist.Length - 1]
          { us with Namelist = add :: us.Namelist }
        else
          { us with Namelist = Name "" :: us.Namelist }
@@ -207,7 +207,7 @@ let addOnCondition expr =
        { us with Namelist = b :: us.Namelist }
      | RefArg (a, Arguments b) | RefArg (a, TemplateSub (Arguments b, _)) ->
        if b <> [] then
-         let add = RefArg (a, b.[b.Length - 1])
+         let add = RefArg (a, b[b.Length - 1])
          let new_add = Arguments (addtoList a b [])
          { us with Namelist = new_add :: add :: us.Namelist }
        else
@@ -268,7 +268,7 @@ let rec createCLexprs data arglist res =
 let expandCL expr =
   match expr with
   | CallExpr a ->
-    match a.[0] with
+    match a[0] with
     | Arguments arglist ->
       let CLlist = Arguments (createCLexprs a.Tail arglist [])
       preturn CLlist

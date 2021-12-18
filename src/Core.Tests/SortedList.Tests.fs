@@ -32,10 +32,10 @@ open B2R2
 type SortedListTests () =
 
   let lst = SortedList<int, int> ()
-  do lst.[100] <- 1
-     lst.[200] <- 2
-     lst.[300] <- 3
-     lst.[400] <- 4
+  do lst[100] <- 1
+     lst[200] <- 2
+     lst[300] <- 3
+     lst[400] <- 4
 
   [<TestMethod>]
   member __.``GLB`` () =

@@ -179,11 +179,11 @@ let SIMDFP30 = [| R.B30; R.H30; R.S30; R.D30; R.Q30 |]
 let SIMDFP31 = [| R.B31; R.H31; R.S31; R.D31; R.Q31 |]
 
 let convReg (grp: Register []) = function
-  | 8 -> grp.[0]
-  | 16 -> grp.[1]
-  | 32 -> grp.[2]
-  | 64 -> grp.[3]
-  | 128 -> grp.[4]
+  | 8 -> grp[0]
+  | 16 -> grp[1]
+  | 32 -> grp[2]
+  | 64 -> grp[3]
+  | 128 -> grp[4]
   | _ -> raise InvalidOperandSizeException
 
 let getSIMDFPRegister64 oprSize = function

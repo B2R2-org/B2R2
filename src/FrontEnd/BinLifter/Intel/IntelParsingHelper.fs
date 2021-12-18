@@ -4666,9 +4666,9 @@ module internal ParsingHelper = begin
 
   /// The main instruction rendering function.
   let render (rhlp: ReadHelper) opcode szCond (oidx: OprDesc) (sidx: SizeKind) =
-    rhlp.SzComputers.[int sidx].Render rhlp szCond
+    rhlp.SzComputers[int sidx].Render rhlp szCond
     exceptionalOperationSize opcode rhlp
-    let oprs = rhlp.OprParsers.[int oidx].Render rhlp
+    let oprs = rhlp.OprParsers[int oidx].Render rhlp
     newInsInfo rhlp opcode oprs
 
   /// Parse group Opcodes: Vol.2C A-19 Table A-6. Opcode Extensions for One- and
@@ -4780,7 +4780,7 @@ module internal ParsingHelper = begin
 
   let parseESCOp (rhlp: ReadHelper) escFlag getOpIn getOpOut =
     let modRM = rhlp.ReadByte ()
-    rhlp.SzComputers.[int SZ.Def].Render rhlp SzCond.Nor
+    rhlp.SzComputers[int SZ.Def].Render rhlp SzCond.Nor
     if modRM <= 0xBFuy then
       let op = getOpIn modRM
       let effOprSize =

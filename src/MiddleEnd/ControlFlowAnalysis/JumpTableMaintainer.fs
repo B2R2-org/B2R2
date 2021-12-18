@@ -56,7 +56,7 @@ type JumpTableMaintainer () =
   member private __.FindOverlappingJumpTable addr =
     jumpTables.Values
     |> Seq.tryFind (fun jt ->
-      jt.JTStartAddr <= addr && addr < confirmedEndPoints.[jt.JTStartAddr])
+      jt.JTStartAddr <= addr && addr < confirmedEndPoints[jt.JTStartAddr])
 
   /// Register a new jump table.
   member __.Register funcEntry insAddr bAddr tAddr rt =
@@ -68,38 +68,38 @@ type JumpTableMaintainer () =
          reuse it. *)
       Ok ()
     else
-      confirmedEndPoints.[tAddr] <- tAddr
-      potentialEndPoints.[tAddr] <- System.UInt64.MaxValue
+      confirmedEndPoints[tAddr] <- tAddr
+      potentialEndPoints[tAddr] <- System.UInt64.MaxValue
       match __.FindOverlappingJumpTable tAddr with
       | Some jt -> Error jt
       | None ->
         match SortedList.findGreatestLowerBoundKey tAddr jumpTables with
-        | Some lbAddr -> potentialEndPoints.[lbAddr] <- tAddr
+        | Some lbAddr -> potentialEndPoints[lbAddr] <- tAddr
         | None -> ()
         match SortedList.findLeastUpperBoundKey tAddr jumpTables with
-        | Some ubAddr -> potentialEndPoints.[tAddr] <- ubAddr
+        | Some ubAddr -> potentialEndPoints[tAddr] <- ubAddr
         | None -> ()
-        jumpTables.[tAddr] <- jt
+        jumpTables[tAddr] <- jt
         Ok ()
 
   /// Update the potential end-point information.
   member __.UpdatePotentialEndPoint tAddr pAddr =
-    potentialEndPoints.[tAddr] <- pAddr
+    potentialEndPoints[tAddr] <- pAddr
 
   /// Find the current potential end-point for the given table address.
   member __.FindPotentialEndPoint tAddr =
-    potentialEndPoints.[tAddr]
+    potentialEndPoints[tAddr]
 
   /// Update the confirmed end-point of the jump table located at the tAddr.
   member __.UpdateConfirmedEndPoint tAddr epAddr =
-    confirmedEndPoints.[tAddr] <- epAddr
+    confirmedEndPoints[tAddr] <- epAddr
 
   /// Find the currently confirmed end-point for the given table address.
   member __.FindConfirmedEndPoint tAddr =
-    confirmedEndPoints.[tAddr]
+    confirmedEndPoints[tAddr]
 
   member __.Item
-    with get(addr) = jumpTables.[addr]
-     and set addr jt = jumpTables.[addr] <- jt
+    with get(addr) = jumpTables[addr]
+     and set addr jt = jumpTables[addr] <- jt
 
   member __.ToSeq () = jumpTables |> seq

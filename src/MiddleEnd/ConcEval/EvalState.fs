@@ -99,8 +99,8 @@ and EvalState (?reader, ?ignoreundef) =
 
   /// Current PC.
   member __.PC
-    with get() = __.Contexts.[__.ThreadId].PC
-     and set(addr) = __.Contexts.[__.ThreadId].PC <- addr
+    with get() = __.Contexts[__.ThreadId].PC
+     and set(addr) = __.Contexts[__.ThreadId].PC <- addr
 
   /// Per-thread context.
   member val Contexts: Context [] = [||] with get, set
@@ -127,15 +127,15 @@ and EvalState (?reader, ?ignoreundef) =
 
   /// Get the context of a specific thread.
   member inline __.GetContext tid =
-    __.Contexts.[tid]
+    __.Contexts[tid]
 
   /// Get the current context of the current thread.
   member inline __.GetCurrentContext () =
-    __.Contexts.[__.ThreadId]
+    __.Contexts[__.ThreadId]
 
   /// Update the current statement index to be the next (current + 1) statement.
   member inline __.NextStmt () =
-    __.Contexts.[__.ThreadId].StmtIdx <- __.Contexts.[__.ThreadId].StmtIdx + 1
+    __.Contexts[__.ThreadId].StmtIdx <- __.Contexts[__.ThreadId].StmtIdx + 1
 
   /// Stop evaluating further statements of the current instruction, and move on
   /// the next instruction.
@@ -149,37 +149,37 @@ and EvalState (?reader, ?ignoreundef) =
 
   /// Get the value of the given temporary variable.
   member inline __.TryGetTmp n =
-    let found, v = __.Contexts.[__.ThreadId].Temporaries.TryGet (n)
+    let found, v = __.Contexts[__.ThreadId].Temporaries.TryGet (n)
     if found then Def v else Undef
 
   /// Get the value of the given temporary variable.
   member inline __.GetTmp n =
-    __.Contexts.[__.ThreadId].Temporaries.Get (n)
+    __.Contexts[__.ThreadId].Temporaries.Get (n)
 
   /// Set the value for the given temporary variable.
   member inline __.SetTmp n v =
-    __.Contexts.[__.ThreadId].Temporaries.Set n v
+    __.Contexts[__.ThreadId].Temporaries.Set n v
 
   /// Unset the given temporary variable.
   member inline __.UnsetTmp n =
-    __.Contexts.[__.ThreadId].Temporaries.Unset n
+    __.Contexts[__.ThreadId].Temporaries.Unset n
 
   /// Get the value of the given register.
   member inline __.TryGetReg r =
-    let found, v = __.Contexts.[__.ThreadId].Registers.TryGet r
+    let found, v = __.Contexts[__.ThreadId].Registers.TryGet r
     if found then Def v else Undef
 
   /// Get the value of the given register.
   member inline __.GetReg r =
-    __.Contexts.[__.ThreadId].Registers.Get r
+    __.Contexts[__.ThreadId].Registers.Get r
 
   /// Set the value for the given register.
   member inline __.SetReg r v =
-    __.Contexts.[__.ThreadId].Registers.Set r v
+    __.Contexts[__.ThreadId].Registers.Set r v
 
   /// Unset the given register.
   member inline __.UnsetReg r =
-    __.Contexts.[__.ThreadId].Registers.Unset r
+    __.Contexts[__.ThreadId].Registers.Unset r
 
   /// Get the program counter (PC).
   member inline __.GetPC =
@@ -209,24 +209,24 @@ and EvalState (?reader, ?ignoreundef) =
 
   /// Go to the statement of the given label.
   member inline __.GoToLabel lbl =
-    let ctxt = __.Contexts.[__.ThreadId]
+    let ctxt = __.Contexts[__.ThreadId]
     ctxt.StmtIdx <- ctxt.Labels.Index lbl
 
   /// Get ready for evaluating an instruction.
   member inline __.PrepareInstrEval stmts =
     __.StartInstr ()
-    __.Contexts.[__.ThreadId].Labels.Update stmts
-    __.Contexts.[__.ThreadId].StmtIdx <- 0
+    __.Contexts[__.ThreadId].Labels.Update stmts
+    __.Contexts[__.ThreadId].StmtIdx <- 0
 
   /// Get the current architecture operation mode.
   member inline __.GetMode () =
-    __.Contexts.[__.ThreadId].Mode
+    __.Contexts[__.ThreadId].Mode
 
   /// Set the architecture operation mode.
   member inline __.SetMode mode =
-    __.Contexts.[__.ThreadId].Mode <- mode
+    __.Contexts[__.ThreadId].Mode <- mode
 
   /// Delete temporary states variables and get ready for evaluating the next
   /// block of isntructions.
   member inline __.CleanUp () =
-    __.Contexts.[__.ThreadId].Temporaries.Clear ()
+    __.Contexts[__.ThreadId].Temporaries.Clear ()

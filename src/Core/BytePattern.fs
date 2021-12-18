@@ -58,8 +58,8 @@ module BytePattern =
     if patternLen > span.Length then false
     else
       for i in [ 0 .. patternLen - 1 ] do
-        match pattern.[i] with
+        match pattern[i] with
         | AnyByte -> ()
-        | OneByte b -> if span.[i] = b then () else matched <- false
+        | OneByte b -> if span[i] = b then () else matched <- false
       done
       matched

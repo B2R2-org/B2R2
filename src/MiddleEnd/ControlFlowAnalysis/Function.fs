@@ -227,7 +227,7 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
   member __.HasVertex (v) = regularVertices.ContainsKey v
 
   /// Find an IRCFG vertex at the given program point.
-  member __.FindVertex (pp) = regularVertices.[pp]
+  member __.FindVertex (pp) = regularVertices[pp]
 
   /// Try to find an IRCFG vertex at the given program point.
   member __.TryFindVertex (pp) =
@@ -247,7 +247,7 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
   member __.AddVertex (blk: IRBasicBlock) =
     let v, g = DiGraph.addVertex __.IRCFG blk
     __.IRCFG <- g
-    regularVertices.[blk.PPoint] <- v
+    regularVertices[blk.PPoint] <- v
     coverage.AddCoverage blk.Range
     v
 
@@ -259,14 +259,14 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
 
   /// Add/replace a regular edge to this function.
   member __.AddEdge (srcPp, dstPp, edge) =
-    let src = regularVertices.[srcPp]
-    let dst = regularVertices.[dstPp]
+    let src = regularVertices[srcPp]
+    let dst = regularVertices[dstPp]
     __.IRCFG <- DiGraph.addEdge __.IRCFG src dst edge
 
   member private __.AddFakeVertex edgeKey bbl =
     let v, g = DiGraph.addVertex __.IRCFG bbl
     __.IRCFG <- g
-    fakeVertices.[edgeKey] <- v
+    fakeVertices[edgeKey] <- v
     v
 
   /// Find a call fake block from callSite to callee. The third arg (isTailCall)
@@ -283,30 +283,30 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
 
   /// Add/replace a direct call edge to this function.
   member __.AddEdge (callerBlk, callSite, callee, isTailCall) =
-    let src = regularVertices.[callerBlk]
+    let src = regularVertices[callerBlk]
     let dst = __.GetOrAddFakeVertex (callSite, callee, isTailCall)
-    callEdges.[callSite] <-
+    callEdges[callSite] <-
       if callee = 0UL then NullCallee else RegularCallee callee
     callEdgeChanged <- true
     __.IRCFG <- DiGraph.addEdge __.IRCFG src dst CallEdge
 
   /// Add/replace an indirect call edge to this function.
   member __.AddEdge (callerBlk, callSite) =
-    let src = regularVertices.[callerBlk]
+    let src = regularVertices[callerBlk]
     let dst = __.GetOrAddFakeVertex (callSite, 0UL, false)
-    callEdges.[callSite] <- UnresolvedIndirectCallees
+    callEdges[callSite] <- UnresolvedIndirectCallees
     callEdgeChanged <- true
     __.IRCFG <- DiGraph.addEdge __.IRCFG src dst IndirectCallEdge
 
   /// Add/replace a ret edge to this function.
   member __.AddEdge (callSite, callee, ftAddr) =
     let src = __.GetOrAddFakeVertex (callSite, callee, false)
-    let dst = regularVertices.[(ProgramPoint (ftAddr, 0))]
+    let dst = regularVertices[(ProgramPoint (ftAddr, 0))]
     __.IRCFG <- DiGraph.addEdge __.IRCFG src dst RetEdge
 
   /// Update the call edge info.
   member __.UpdateCallEdgeInfo (callSiteAddr, callee) =
-    callEdges.[callSiteAddr] <- callee
+    callEdges[callSiteAddr] <- callee
     callEdgeChanged <- true
 
   /// Remove the basic block at the given program point from this function.
@@ -324,11 +324,11 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
   /// Remove the regular basic block at the given program point from this
   /// function.
   member __.RemoveVertex (pp: ProgramPoint) =
-    regularVertices.[pp] |> __.RemoveVertex
+    regularVertices[pp] |> __.RemoveVertex
 
   /// Remove the fake block from this function.
   member __.RemoveFakeVertex ((callSite, _) as fakeEdgeKey) =
-    let v = fakeVertices.[fakeEdgeKey]
+    let v = fakeVertices[fakeEdgeKey]
     __.IRCFG <- DiGraph.removeVertex __.IRCFG v
     fakeVertices.Remove (fakeEdgeKey) |> ignore
     callEdges.Remove callSite |> ignore
@@ -378,7 +378,7 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
   /// returns the second block located at the splitPoint.
   member __.SplitBBL (bblPoint: ProgramPoint, splitPoint: ProgramPoint) =
     assert (bblPoint < splitPoint)
-    let v = regularVertices.[bblPoint]
+    let v = regularVertices[bblPoint]
     let ins, outs, cycle = categorizeNeighboringEdges __.IRCFG v
     ins |> List.iter (fun (p, kind) -> __.RemoveEdge (p, v, kind))
     outs |> List.iter (fun (s, kind) -> __.RemoveEdge (v, s, kind))
@@ -399,13 +399,13 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
       src |> Array.findIndex (fun i -> i.Instruction.Address >= fstAddr)
     let backIdx =
       dst |> Array.findIndexBack (fun i -> i.Instruction.Address <= lastAddr)
-    let front = src.[0 .. chunkIdx - 1]
-    let back = dst.[backIdx + 1 .. dst.Length - 1]
-    let lastInsInfo = dst.[backIdx]
+    let front = src[0 .. chunkIdx - 1]
+    let back = dst[backIdx + 1 .. dst.Length - 1]
+    let lastInsInfo = dst[backIdx]
     let chunkInfo =
       [| { Instruction = chunk;
            Stmts = lastInsInfo.Stmts;
-           BBLAddr = src.[0].BBLAddr } |]
+           BBLAddr = src[0].BBLAddr } |]
     let insInfos = Array.concat [ front; chunkInfo; back ]
     IRBasicBlock.initRegular insInfos srcV.VData.PPoint
     |> __.AddVertex
@@ -413,8 +413,8 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
   /// Merge two vertices connected with an inlined assembly chunk, where there
   /// is a control-flow to the middle of an instruction.
   member __.MergeVerticesWithInlinedAsmChunk (insAddrs, srcPp, dstPp, chunk) =
-    let src = regularVertices.[srcPp]
-    let dst = regularVertices.[dstPp]
+    let src = regularVertices[srcPp]
+    let dst = regularVertices[dstPp]
     regularVertices.Remove srcPp |> ignore
     regularVertices.Remove dstPp |> ignore
     let ins, _, _ = categorizeNeighboringEdges __.IRCFG src
@@ -424,16 +424,16 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
     let v = __.GetMergedVertex src dst insAddrs chunk
     ins |> List.iter (fun (p, e) -> RegularFunction.AddEdgeByType __ p v e)
     outs |> List.iter (fun (s, e) -> RegularFunction.AddEdgeByType __ v s e)
-    regularVertices.[v.VData.PPoint] <- v
+    regularVertices[v.VData.PPoint] <- v
 
   member private __.AddCallEdge callSite callee =
-    callEdges.[callSite] <- callee
+    callEdges[callSite] <- callee
 
   member private __.RemoveCallEdge callSite =
     callEdges.Remove callSite |> ignore
 
   member private __.AddIndirectJump insAddr jmpKind =
-    indirectJumps.[insAddr] <- jmpKind
+    indirectJumps[insAddr] <- jmpKind
 
   member private __.RemoveIndirectJump insAddr =
     indirectJumps.Remove insAddr |> ignore
@@ -445,7 +445,7 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
     else ()
     (* CallEdge *)
     if callEdges.ContainsKey lastAddr then
-      let callee = callEdges.[lastAddr]
+      let callee = callEdges[lastAddr]
       __.RemoveCallEdge lastAddr
       (fn: RegularFunction).AddCallEdge lastAddr callee
     (* SysCall *)
@@ -454,7 +454,7 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
       fn.AddSysCallSite lastAddr
     (* IndirectJump *)
     elif indirectJumps.ContainsKey lastAddr then
-      let jmpKind = indirectJumps.[lastAddr]
+      let jmpKind = indirectJumps[lastAddr]
       __.RemoveIndirectJump lastAddr
       fn.AddIndirectJump lastAddr jmpKind
     (* NoReturnProperty *)
@@ -466,7 +466,7 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
   /// original function, and the other is a function starting from newEntry.
   member __.SplitFunction (hdl, newEntry) =
     let newFn = RegularFunction (histMgr, hdl, newEntry)
-    let entryBlk = regularVertices.[ProgramPoint (newEntry, 0)]
+    let entryBlk = regularVertices[ProgramPoint (newEntry, 0)]
     (* Transplant CFG first *)
     let reachableNodes, reachableEdges = getReachables __.IRCFG entryBlk
     let callerBlk: IRVertex =

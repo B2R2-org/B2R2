@@ -172,7 +172,7 @@ let private saturateToUnsignedWord expr =
 let private makeSrc ir packSize packNum src =
   let tSrc = Array.init packNum (fun _ -> !*ir packSize)
   for i in 0 .. packNum - 1 do
-    !!ir (tSrc.[i] := AST.extract src packSize (i * (int packSize)))
+    !!ir (tSrc[i] := AST.extract src packSize (i * (int packSize)))
   tSrc
 
 let private buildPackedTwoOprs ins insLen ctxt packSz opFn bufSz dst src =

@@ -35,7 +35,7 @@ module private SpeculativeGapCompletionHelper =
     |> Seq.sort
     |> Seq.fold (fun (gaps, prevAddr) addr ->
       let nextAddr =
-        addr + uint64 ess.CodeManager.[addr].Instruction.Length
+        addr + uint64 ess.CodeManager[addr].Instruction.Length
       if prevAddr >= addr then gaps, nextAddr
       else AddrRange (prevAddr, addr) :: gaps, nextAddr
       ) ([], sAddr)

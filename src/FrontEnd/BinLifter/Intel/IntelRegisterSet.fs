@@ -472,8 +472,8 @@ type IntelRegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     |> Register.toRegID
 
   override __.ToString () =
-    sprintf "IntelRegisterSet<%x, %x, %x, %x>" __.BitArray.[0] __.BitArray.[1]
-      __.BitArray.[2] __.BitArray.[3]
+    sprintf "IntelRegisterSet<%x, %x, %x, %x>" __.BitArray[0] __.BitArray[1]
+      __.BitArray[2] __.BitArray[3]
 
 [<RequireQualifiedAccess>]
 module IntelRegisterSet =

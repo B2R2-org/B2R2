@@ -101,7 +101,7 @@ let parseLongSymbolName (binReader: BinReader) stroff offset =
 
 let parseSymbName (binReader: BinReader) offset stroff =
   let bs = binReader.PeekSpan (8, offset)
-  if bs.[0] = 0uy && bs.[1] = 0uy && bs.[2] = 0uy && bs.[3] = 0uy then
+  if bs[0] = 0uy && bs[1] = 0uy && bs[2] = 0uy && bs[3] = 0uy then
     MemoryMarshal.Read<int> (bs.Slice 4) |> parseLongSymbolName binReader stroff
   else
     ByteArray.extractCStringFromSpan bs 0

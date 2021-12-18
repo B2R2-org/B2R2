@@ -63,7 +63,7 @@ let translateWithSecs addr (secs: ELFSection []) =
     && s.SecAddr <= addr && (s.SecAddr + s.SecSize) > addr)
   |> function
     | None -> raise InvalidAddrReadException
-    | Some idx -> secs.[idx].SecOffset + addr |> Convert.ToInt32
+    | Some idx -> secs[idx].SecOffset + addr |> Convert.ToInt32
 
 let rec translateWithSegs addr = function
   | seg :: tl ->
