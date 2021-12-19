@@ -97,9 +97,13 @@ let parseMach baseAddr reader  =
     ExecutableRanges = execRanges segs
     BinReader = reader }
 
+let private computeOffsetAndSize (reader: BinReader) isa =
+  let fatArch = Fat.loadFats reader |> Fat.findMatchingFatRecord isa
+  struct (fatArch.Offset, fatArch.Size)
+
 let updateReaderForFat bytes isa reader =
   if Header.isFat reader 0 then
-    let offset, size = Fat.computeOffsetAndSize reader isa
+    let struct (offset, size) = computeOffsetAndSize reader isa
     let bytes = Array.sub bytes offset size
     BinReader.Init (bytes)
   else reader

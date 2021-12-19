@@ -43,8 +43,9 @@ let private readFatArch (reader: BinReader) pos =
 
 let rec private loadFatAux acc reader pos cnt =
   if cnt = 0 then acc
-  else let arch = readFatArch reader pos
-       loadFatAux (arch :: acc) reader (pos + 20) (cnt - 1)
+  else
+    let arch = readFatArch reader pos
+    loadFatAux (arch :: acc) reader (pos + 20) (cnt - 1)
 
 let loadFats (reader: BinReader) =
   let reader = BinReader.RenewReader reader Endian.Big
@@ -55,7 +56,9 @@ let private matchISA isa fatArch =
   let arch = Header.cpuTypeToArch fatArch.CPUType fatArch.CPUSubType
   isa.Arch = arch
 
-let internal computeOffsetAndSize (reader: BinReader) isa =
-  match loadFats reader |> List.tryFind (matchISA isa) with
-  | None -> raise InvalidISAException
-  | Some fatArch -> fatArch.Offset, fatArch.Size
+let rec findMatchingFatRecord isa fats =
+  match fats with
+  | fatArch :: tl ->
+    if matchISA isa fatArch then fatArch
+    else findMatchingFatRecord isa tl
+  | [] -> raise InvalidISAException

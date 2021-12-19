@@ -49,7 +49,7 @@ let internal peekCPUType (reader: BinReader) offset =
 let internal peekCPUSubType (reader: BinReader) offset =
   offset + 8 |> reader.PeekInt32 |> LanguagePrimitives.EnumOfValue
 
-let internal getMIPSISA = function
+let internal getMIPSArch = function
   | CPUSubType.MIPSAll
   | CPUSubType.MIPSR2300
   | CPUSubType.MIPSR2600
@@ -63,7 +63,7 @@ let cpuTypeToArch cputype subtype =
   | CPUType.X64 -> Arch.IntelX64
   | CPUType.ARM -> Arch.ARMv7
   | CPUType.ARM64 -> Arch.AARCH64
-  | CPUType.MIPS -> getMIPSISA subtype
+  | CPUType.MIPS -> getMIPSArch subtype
   | _ -> Arch.UnknownISA
 
 let internal peekArch reader offset =

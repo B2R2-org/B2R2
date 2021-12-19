@@ -26,7 +26,6 @@
 [<RequireQualifiedAccess>]
 module B2R2.FrontEnd.BinFile.FormatDetector
 
-open System.IO
 open B2R2
 
 let private identifyELF reader =
@@ -48,6 +47,10 @@ let private identifyPE bytes =
 let private identifyMach reader isa =
   if Mach.Header.isMach reader 0 then
     if Mach.Header.isFat reader 0 then
+      let fat = Mach.Fat.loadFats reader |> Mach.Fat.findMatchingFatRecord isa
+      let arch = Mach.Header.cpuTypeToArch fat.CPUType fat.CPUSubType
+      let endian = Mach.Header.peekEndianness reader fat.Offset
+      let isa = ISA.Init arch endian
       Some (FileFormat.MachBinary, isa)
     else
       let arch = Mach.Header.peekArch reader 0
@@ -62,8 +65,10 @@ let private identifyWASM reader isa =
   else None
 
 /// <summary>
-///   Given a byte array, identify its binary file format and return
-///   B2R2.FileFormat and B2R2.ISA.
+///   Given a binary (byte array), identify its binary file format
+///   (B2R2.FileFormat) and its underlying ISA (B2R2.ISA). For FAT binaries,
+///   this function will select an ISA only when there is a match with the given
+///   input ISA. Otherwise, this function will raise InvalidISAException.
 /// </summary>
 [<CompiledName("Identify")>]
 let identify bytes isa =
