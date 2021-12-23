@@ -260,10 +260,10 @@ let chkPCRnRmRs bin =
    if cond != '1110' then UNPREDICTABLE *)
 let chkPCRdRnRmSz bin cond =
   ((extract bin 15 12 = 15u || extract bin 19 16 = 15u ||
-    extract bin 3 0 = 15u) || (cond <> Condition.AL)) |> checkUnpred
+    extract bin 3 0 = 15u) || (cond <> Some Condition.AL)) |> checkUnpred
 
 (* if cond != '1110' then UNPREDICTABLE *)
-let chkCondAL cond = checkUnpred (cond <> Condition.AL)
+let chkCondAL cond = checkUnpred (cond <> Some Condition.AL)
 
 (* if t == 15 || t2 == 15 || m == 31 then UNPREDICTABLE
    if to_arm_registers && t == t2 then UNPREDICTABLE *)
@@ -315,12 +315,12 @@ let chkPCRnRegsImm bin =
 (* if size == '01' && cond != '1110' then UNPREDICTABLE
    if n == 15 && CurrentInstrSet() != InstrSet_A32 then UNPREDICTABLE *)
 let chkSzCondPCRn bin cond =
-  (((extract bin 9 8 = 0b01u) && (cond <> Condition.AL)) ||
+  (((extract bin 9 8 = 0b01u) && (cond <> Some Condition.AL)) ||
    (extract bin 19 16 = 15u (* && != InstrSet_A32 *))) |> checkUnpred
 
 (* if size == '01' && cond != '1110' then UNPREDICTABLE *)
 let chkSzCond bin cond =
-  checkUnpred ((extract bin 9 8 = 0b01u) && (cond <> Condition.AL))
+  checkUnpred ((extract bin 9 8 = 0b01u) && (cond <> Some Condition.AL))
 
 (* if n == 15 && (wback || CurrentInstrSet() != InstrSet_A32)
    then UNPREDICTABLE *)
@@ -332,7 +332,7 @@ let chkPCRt bin = checkUnpred (extract bin 15 12 = 15u)
 (* if cond != '1110' then UNPREDICTABLE
    if t == 15 then UNPREDICTABLE *)
 let chkCondPCRt bin cond =
-  checkUnpred (cond <> Condition.AL || extract bin 15 12 = 15u)
+  checkUnpred (cond <> Some Condition.AL || extract bin 15 12 = 15u)
 
 (* is_pldw = (R == '0') *)
 (* if m == 15 || (n == 15 && is_pldw) then UNPREDICTABLE *)
@@ -642,7 +642,7 @@ let newInsInfo (phlp: ParsingHelper) opcode oprs itState wback q simdt cflag =
   let insInfo =
     { Address = phlp.InsAddr
       NumBytes = phlp.Len
-      Condition = Some phlp.Cond
+      Condition = phlp.Cond
       Opcode = opcode
       Operands = oprs
       ITState = itState
@@ -959,7 +959,8 @@ let parseMiscellaneous (phlp: ParsingHelper) bin =
   | 0b00111u ->
     chkCondAL phlp.Cond; render phlp bin Op.HLT None OD.OprImm16A
   | 0b01111u ->
-    chkCondAL phlp.Cond; render phlp bin Op.BKPT None OD.OprImm16A
+    chkCondAL phlp.Cond; phlp.Cond <- None
+    render phlp bin Op.BKPT None OD.OprImm16A
   | 0b10111u ->
     chkCondAL phlp.Cond; render phlp bin Op.HVC None OD.OprImm16A
   | 0b11111u -> render phlp bin Op.SMC None OD.OprImm4A
@@ -1140,10 +1141,10 @@ let changeToAliasOfMOVRegShf bin =
   let s = pickBit bin 20 (* S *)
   let stype = extract bin 6 5 (* stype *)
   match concat s stype 2 (* S:stype *) with
-  | 0b010u -> struct (Op.ASR, OD.OprRdRmRs)
-  | 0b000u -> struct (Op.LSL, OD.OprRdRmRs)
-  | 0b001u -> struct (Op.LSR, OD.OprRdRmRs)
-  | 0b011u -> struct (Op.ROR, OD.OprRdRmRs)
+  | 0b010u -> struct (Op.ASR, OD.OprRdRmRsA)
+  | 0b000u -> struct (Op.LSL, OD.OprRdRmRsA)
+  | 0b001u -> struct (Op.LSR, OD.OprRdRmRsA)
+  | 0b011u -> struct (Op.ROR, OD.OprRdRmRsA)
   | _ -> struct (Op.MOV, OD.OprRdRmShfRsA)
 
 /// Alias conditions on page F5-4562.
@@ -1151,10 +1152,10 @@ let changeToAliasOfMOVSRegShf bin =
   let s = pickBit bin 20 (* S *)
   let stype = extract bin 6 5 (* stype *)
   match concat s stype 2 (* S:stype *) with
-  | 0b110u -> struct (Op.ASRS, OD.OprRdRmRs)
-  | 0b100u -> struct (Op.LSLS, OD.OprRdRmRs)
-  | 0b101u -> struct (Op.LSRS, OD.OprRdRmRs)
-  | 0b111u -> struct (Op.RORS, OD.OprRdRmRs)
+  | 0b110u -> struct (Op.ASRS, OD.OprRdRmRsA)
+  | 0b100u -> struct (Op.LSLS, OD.OprRdRmRsA)
+  | 0b101u -> struct (Op.LSRS, OD.OprRdRmRsA)
+  | 0b111u -> struct (Op.RORS, OD.OprRdRmRsA)
   | _ -> struct (Op.MOVS, OD.OprRdRmShfRsA)
 
 /// Logical Arithmetic (three register, register shift) on page F4-4230.
@@ -1276,15 +1277,15 @@ let parseMovSpecReg00 (phlp: ParsingHelper) bin =
   | imm when imm &&& 0b111000u = 0b001000u (* 0b001xxx *) ->
     render phlp bin Op.NOP None OD.OprNo
   | 0b010000u ->
-    phlp.Cond <> Condition.AL |> checkUnpred
+    phlp.Cond <> Some Condition.AL |> checkUnpred
     render phlp bin Op.ESB None OD.OprNo (* Armv8.2 *)
   | 0b010001u -> render phlp bin Op.NOP None OD.OprNo
   | 0b010010u -> (* TSB CSYNC *)
-    phlp.Cond <> Condition.AL |> checkUnpred
+    phlp.Cond <> Some Condition.AL |> checkUnpred
     render phlp bin Op.TSB None OD.OprNo (* Armv8.4 *)
   | 0b010011u -> render phlp bin Op.NOP None OD.OprNo
   | 0b010100u ->
-    phlp.Cond <> Condition.AL |> checkUnpred
+    phlp.Cond <> Some Condition.AL |> checkUnpred
     render phlp bin Op.CSDB None OD.OprNo
   | 0b010101u -> render phlp bin Op.NOP None OD.OprNo
   | imm when imm &&& 0b111000u = 0b011000u (* 0b011xxx *) ->
@@ -1357,7 +1358,7 @@ let changeToAliasOfLDR bin =
   (* U == '1' && Rn == '1101' && imm12 == '000000000100' *)
   let isRn1101 = extract bin 19 16 = 0b1101u
   if (pickBit bin 23 = 1u) && isRn1101 && (extract bin 11 0 = 0b100u) then
-    struct (Op.POP, OD.OprSingleRegs)
+    struct (Op.POP, OD.OprSingleRegsA)
   else struct (Op.LDR, OD.OprRtMemImm12A)
 
 /// Alias conditions on page F5-4819.
@@ -1365,7 +1366,7 @@ let changeToAliasOfSTR bin =
   (* U == '0' && Rn == '1101' && imm12 == '000000000100' *)
   let isRn1101 = extract bin 19 16 = 0b1101u
   if (pickBit bin 23 = 0u) && isRn1101 && (extract bin 11 0 = 0b100u) then
-    struct (Op.PUSH, OD.OprSingleRegs)
+    struct (Op.PUSH, OD.OprSingleRegsA)
   else struct (Op.STR, OD.OprRtMemImm12A)
 
 /// Load/Store Word, Unsigned Byte (immediate, literal) on page F4-4234.
@@ -1684,7 +1685,7 @@ let parseBitfieldInsert (phlp: ParsingHelper) bin =
 
 /// Permanently UNDEFINED on page F4-4243.
 let parsePermanentlyUndef (phlp: ParsingHelper) bin =
-  if phlp.Cond <> Condition.AL then raise ParsingFailureException
+  if phlp.Cond <> Some Condition.AL then raise ParsingFailureException
   else render phlp bin Op.UDF None OD.OprImm16A
 
 /// Bitfield Extract on page F4-4244.
@@ -1853,13 +1854,13 @@ let parseLoadStoreMultiple (phlp: ParsingHelper) bin =
 
 let parseCase100 (phlp: ParsingHelper) bin =
   match phlp.Cond with
-  | Condition.UN (* 0b1111u *) -> parseExceptionSaveStore phlp bin
+  | Some Condition.UN (* 0b1111u *) -> parseExceptionSaveStore phlp bin
   | _ (* != 0b1111u *) -> parseLoadStoreMultiple phlp bin
 
 /// Branch (immediate) on page F4-4246.
 let parseCase101 (phlp: ParsingHelper) bin =
   match phlp.Cond with
-  | Condition.UN (* 0b1111u *) ->
+  | Some Condition.UN (* 0b1111u *) ->
     render phlp bin Op.BLX None OD.OprLabelH
   | _ (* != 0b1111u *) ->
     if pickBit bin 24 (* H *) = 0u then
@@ -1874,7 +1875,7 @@ let parseCase10 (phlp: ParsingHelper) bin =
 
 /// Supervisor call on page F4-4247.
 let parseSupervisorCall (phlp: ParsingHelper) bin =
-  if phlp.Cond = Condition.UN then raise ParsingFailureException
+  if phlp.Cond = Some Condition.UN then raise ParsingFailureException
   else render phlp bin Op.SVC None OD.OprImm24
 
 /// Advanced SIMD three registers of the same length extension on page F4-4248.
@@ -2279,12 +2280,12 @@ let parseAdvSIMDAndFPLdSt (phlp: ParsingHelper) bin =
   | 0b100011u | 0b110011u ->
     chkSzCondPCRn bin phlp.Cond
     render phlp bin Op.VSTR (oneDt SIMDTyp64) OD.OprDdMem
-  | 0b100100u | 0b110100u when phlp.Cond <> Condition.UN ->
+  | 0b100100u | 0b110100u when phlp.Cond <> Some Condition.UN ->
     raise UndefinedException
   | 0b100101u | 0b110101u | 0b100110u | 0b110110u
-    when phlp.Cond <> Condition.UN ->
+    when phlp.Cond <> Some Condition.UN ->
     chkSzCond bin phlp.Cond; render phlp bin Op.VLDR None OD.OprSdMem
-  | 0b100111u | 0b110111u when phlp.Cond <> Condition.UN ->
+  | 0b100111u | 0b110111u when phlp.Cond <> Some Condition.UN ->
     chkSzCond bin phlp.Cond; render phlp bin Op.VLDR None OD.OprDdMem
   | 0b101000u | 0b101001u | 0b101100u | 0b101101u ->
     raise ParsingFailureException
@@ -2554,7 +2555,7 @@ let parseFPDataProcTwoRegs (phlp: ParsingHelper) bin =
   | 0b1001100u | 0b1001101u (* 100110x *) -> raise ParsingFailureException
   | 0b1001110u -> raise ParsingFailureException
   | 0b1001111u -> (* Armv8.3 *)
-    phlp.Cond <> Condition.AL |> checkUnpred
+    phlp.Cond <> Some Condition.AL |> checkUnpred
     let dt = twoDt (SIMDTypS32, SIMDTypF64)
     render phlp bin Op.VJCVT dt OD.OprSdDm
   (* 101xxxx Op.VCVT *)
@@ -3030,8 +3031,8 @@ let parseCase11 (phlp: ParsingHelper) bin =
     (extract bin 25 24 <<< 2) + (pickBit bin 11 <<< 1) +
     (pickBit bin 4)
   match op0op1op2 (* op0:op1:op2 *) with
-  | _ when phlp.IsARMv7 && phlp.Cond = Condition.UN && (pickBit bin 25 = 0u)
-           && (pickBit bin 20 = 0u) -> (* ARMv7 A8-663 *)
+  | _ when phlp.IsARMv7 && phlp.Cond = Some Condition.UN &&
+           (pickBit bin 25 = 0u) && (pickBit bin 20 = 0u) (* ARMv7 A8-663 *) ->
     chkPUDWCopPCRn bin
     render phlp bin Op.STC2 None OD.OprCoprocCRdMem
   | 0b0000u | 0b0001u | 0b0100u | 0b0101u (* 0x0x *) ->
@@ -3042,7 +3043,7 @@ let parseCase11 (phlp: ParsingHelper) bin =
   | 0b1100u | 0b1101u | 0b1110u | 0b1111u (* 11xx *) ->
     parseSupervisorCall phlp bin
   | 0b0010u | 0b0011u | 0b0110u | 0b0111u | 0b1010u | 0b1011u (* != 11 1 x *)
-    when phlp.Cond = Condition.UN ->
+    when phlp.Cond = Some Condition.UN ->
     parseUncondAdvSIMDAndFPInstr phlp bin
   | 0b0010u | 0b0011u | 0b0110u | 0b0111u ->
     parseAdvSIMDAndSysRegLdStAnd64bitMove phlp bin
@@ -5336,11 +5337,11 @@ let parseUncondInstr (phlp: ParsingHelper) bin =
 /// ARM Architecture Reference Manual ARMv8-A, ARM DDI 0487F.c ID072120 A32
 /// instruction set encoding on page F4-4218.
 let parse (phlp: ParsingHelper) bin =
-  let cond = extract bin 31 28 |> byte |> parseCond
+  let cond = extract bin 31 28 |> byte |> parseCond |> Some
   phlp.Cond <- cond
   match extract bin 27 26 (* op0<2:1> *) with
-  | 0b00u when cond <> Condition.UN -> parseCase00 phlp bin
-  | 0b01u when cond <> Condition.UN -> parseCase01 phlp bin
+  | 0b00u when cond <> Some Condition.UN -> parseCase00 phlp bin
+  | 0b01u when cond <> Some Condition.UN -> parseCase01 phlp bin
   | 0b10u -> parseCase10 phlp bin
   | 0b11u -> parseCase11 phlp bin
   | _ (* 0b0xu *) -> parseUncondInstr phlp bin

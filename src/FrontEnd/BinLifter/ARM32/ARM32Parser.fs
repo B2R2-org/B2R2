@@ -172,7 +172,7 @@ type ARM32Parser (isa: ISA, mode, entryPoint: Addr option) =
     OprRdRmImmA () :> OperandParser
     OprRdRmRnA () :> OperandParser
     OprRdRmRorA () :> OperandParser
-    OprRdRmRs () :> OperandParser
+    OprRdRmRsA () :> OperandParser
     OprRdRmShf () :> OperandParser
     OprRdRmShfRsA () :> OperandParser
     OprRdRnConstA () :> OperandParser
@@ -239,7 +239,7 @@ type ARM32Parser (isa: ISA, mode, entryPoint: Addr option) =
     OprSdSm () :> OperandParser
     OprSdSnSm () :> OperandParser
     OprSdVImm () :> OperandParser
-    OprSingleRegs () :> OperandParser
+    OprSingleRegsA () :> OperandParser
     OprSmSm1RtRt2 () :> OperandParser
     OprSnRt () :> OperandParser
     OprSPMode () :> OperandParser
@@ -252,7 +252,8 @@ type ARM32Parser (isa: ISA, mode, entryPoint: Addr option) =
     OprDdImmT () :> OperandParser
     OprEndianT () :> OperandParser
     OprIflagsModeT () :> OperandParser
-    OprIflagsT () :> OperandParser
+    OprIflagsT16 () :> OperandParser
+    OprIflagsT32 () :> OperandParser
     OprImm16T () :> OperandParser
     OprImm1T () :> OperandParser
     OprImm4T () :> OperandParser
@@ -269,6 +270,7 @@ type ARM32Parser (isa: ISA, mode, entryPoint: Addr option) =
     OprMemRegLSL () :> OperandParser
     OprMemRegLSL1 () :> OperandParser
     OprMemRegT () :> OperandParser
+    OprOptImm () :> OperandParser
     OprPCLRImm8 () :> OperandParser
     OprQdImmT () :> OperandParser
     OprQdQm0 () :> OperandParser
@@ -293,10 +295,11 @@ type ARM32Parser (isa: ISA, mode, entryPoint: Addr option) =
     OprRdnRdnRm () :> OperandParser
     OprRdnRm () :> OperandParser
     OprRdRmExt () :> OperandParser
-    OprRdRmImmT () :> OperandParser
+    OprRdRmImmT16 () :> OperandParser
+    OprRdRmImmT32 () :> OperandParser
     OprRdRmRnT () :> OperandParser
     OprRdRmRorT () :> OperandParser
-    OprRdRmShfRsT () :> OperandParser
+    OprRdRmRsT () :> OperandParser
     OprRdRmShfT16 () :> OperandParser
     OprRdRmShfT32 () :> OperandParser
     OprRdRmT16 () :> OperandParser
@@ -323,11 +326,12 @@ type ARM32Parser (isa: ISA, mode, entryPoint: Addr option) =
     OprRdSregT () :> OperandParser
     OprRegsM () :> OperandParser
     OprRegsP () :> OperandParser
-    OprRm16 () :> OperandParser
-    OprRm32 () :> OperandParser
+    OprRmT16 () :> OperandParser
+    OprRmT32 () :> OperandParser
     OprRnConstT () :> OperandParser
     OprRnLabel () :> OperandParser
-    OprRnRegsT () :> OperandParser
+    OprRnRegsT16 () :> OperandParser
+    OprRnRegsT32 () :> OperandParser
     OprRnRegsW () :> OperandParser
     OprRnRm () :> OperandParser
     OprRnRmExt () :> OperandParser
@@ -350,6 +354,7 @@ type ARM32Parser (isa: ISA, mode, entryPoint: Addr option) =
     OprRtRt2LabelT () :> OperandParser
     OprRtRt2MemImmT () :> OperandParser
     OprRtRt2MemT () :> OperandParser
+    OprSingleRegsT () :> OperandParser
     OprSPSPImm7 () :> OperandParser
     OprSPSPRm () :> OperandParser
     OprSregRnT () :> OperandParser |]
