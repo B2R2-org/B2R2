@@ -1895,6 +1895,296 @@ let parseADDIS bin =
   /// subis rd,ra,value = addis rd,ra,-value
   | _ -> struct (Op.ADDIS, ThreeOperands (rd, ra, value))
 
+let parseBCx bin =
+  let bo = extract bin 25u 21u |> uint64 |> Immediate
+  let bi = extract bin 20u 16u |> uint64 |> Immediate
+  let bd = extract bin 15u 2u |> uint64 |> Immediate
+  match extract bin 1u 0u (* AA:LK *) with
+  | 0b00u ->
+    match extract bin 25u 21u with
+    ///bdnzf bi,target = bc 0,bi,target
+    | 0x0u -> struct (Op.BDNZF, TwoOperands (bi, bd))
+    ///bdzf bi,target = bc 2,bi,target
+    | 0x2u -> struct (Op.BDZF, TwoOperands (bi, bd))
+    | 0x4u ->
+      let crs = getCondRegister (extract bin 20u 18u) |> OpReg
+      match extract bin 20u 18u with
+      | 0b0u ->
+        match extract bin 17u 16u with
+        ///bf 0,target = bnl 0,target = bge target = bc 4,0,target
+        | 0b00u -> struct (Op.BGE, OneOperand bd)
+        ///bf 1,target = bng 0,target = ble target = bc 4,1,target
+        | 0b01u -> struct (Op.BLE, OneOperand bd)
+        ///bf 2,target = bne target = bc 4,2,target
+        | 0b10u -> struct (Op.BNE, OneOperand bd)
+        ///bf 3,target = bnu 0,target = bns crs = bc 4,3,target
+        | _ (* 1 *) -> struct (Op.BNS, OneOperand bd)
+      | _ ->
+        match extract bin 17u 16u with
+        (* bf 4*crs,target = bnl crs,target = bge crs,target
+        = bc 4,4*crs,target *)
+        | 0b00u -> struct (Op.BGE, TwoOperands (crs, bd))
+        (* bf 4*crs+1,target = bng crs,target = ble crs,target
+        = bc 4,4*crs+1,target *)
+        | 0b01u -> struct (Op.BLE, TwoOperands (crs, bd))
+        ///bf 4*crs+2,target = bne crs,target = bc 4,4*crs+2,target
+        | 0b10u -> struct (Op.BNE, TwoOperands (crs, bd))
+        (* bf 4*crs+3,target = bnu crs,target = bns crs,target
+        = bc 4,4*crs+3,target *)
+        | _ (* 1 *) -> struct (Op.BNS, TwoOperands (crs, bd))
+    ///bdnzt bi,target = bc 8,bi,target
+    | 0x8u -> struct (Op.BDNZT, TwoOperands (bi, bd))
+    ///bdzt bi,target = bc 10,bi,target
+    | 0xAu -> struct (Op.BDZT, TwoOperands (bi, bd))
+    | 0xCu ->
+      let crs = getCondRegister (extract bin 20u 18u) |> OpReg
+      match extract bin 20u 18u with
+      | 0b0u ->
+        match extract bin 17u 16u with
+        ///bt 0,target = blt target = bc 12,0,target
+        | 0b00u -> struct (Op.BLT, OneOperand bd)
+        ///bt 1,0 = bgt target = bc 12,1,target
+        | 0b01u -> struct (Op.BGT, OneOperand bd)
+        ///bt 2,0 = beq target = bc 12,2,target
+        | 0b10u -> struct (Op.BEQ, OneOperand bd)
+        ///bt 3,0 = bun 0,target = bso target = bc 12,3,target
+        | _ (* 1 *) -> struct (Op.BSO, OneOperand bd)
+      | _ ->
+        match extract bin 17u 16u with
+        ///bt 4*crs,target = blt crs,target = bc 12,4*crs,target
+        | 0b00u -> struct (Op.BLT, TwoOperands (crs, bd))
+        ///bt 4*crs+1,target = bgt crs,target = bc 12,4*crs+1,target
+        | 0b01u -> struct (Op.BGT, TwoOperands (crs, bd))
+        ///bt 4*crs+2,target = beq crs,target = bc 12,4*crs+2,target
+        | 0b10u -> struct (Op.BEQ, TwoOperands (crs, bd))
+        (* bt 4*crs+3,target = bun crs,target = bso crs,target
+        = bc 12,4*crs+3,target *)
+        | _ (* 1 *) -> struct (Op.BSO, TwoOperands (crs, bd))
+    | 0x10u ->
+      match extract bin 20u 16u with
+      ///bdnz target = bc 16,0,target
+      | 0b0u -> struct (Op.BDNZ, OneOperand bd)
+      | _ -> struct (Op.BC, ThreeOperands (bo, bi, bd))
+    | 0x12u ->
+      match extract bin 20u 16u with
+      ///bdz target = bc 18,0,target
+      | 0b0u -> struct (Op.BDZ, OneOperand bd)
+      | _ -> struct (Op.BC, ThreeOperands (bo, bi, bd))
+    | _ -> struct (Op.BC, ThreeOperands (bo, bi, bd))
+  | 0b01u ->
+    match extract bin 25u 21u with
+    ///bdnzfl bi,target = bcl 0,bi,target
+    | 0x0u -> struct (Op.BDNZFL, TwoOperands (bi, bd))
+    ///bdzfl bi,target = bcl 2,bi,target
+    | 0x2u -> struct (Op.BDZFL, TwoOperands (bi, bd))
+    | 0x4u ->
+      let crs = getCondRegister (extract bin 20u 18u) |> OpReg
+      match extract bin 20u 18u with
+      | 0b0u ->
+        match extract bin 17u 16u with
+        ///bfl 0,target = bnll 0,target = bgel target = bcl 4,0,target
+        | 0b00u -> struct (Op.BGEL, OneOperand bd)
+        ///bfl 1,0 = bngl 0,target = blel target = bcl 4,1,target
+        | 0b01u -> struct (Op.BLEL, OneOperand bd)
+        ///bfl 2,0 = bnel target = bcl 4,2,target
+        | 0b10u -> struct (Op.BNEL, OneOperand bd)
+        ///bfl 3,0 = bnul 0,target = bnsl target = bcl 4,3,target
+        | _ (* 1 *) -> struct (Op.BNSL, OneOperand bd)
+      | _ ->
+        match extract bin 17u 16u with
+        (* bfl 4*crs,target = bnll crs,target = bgel crs,target
+        = bcl 4,4*crs,target *)
+        | 0b00u -> struct (Op.BGEL, TwoOperands (crs, bd))
+        (* bfl 4*crs+1,target = bngl crs,target = blel crs,target
+        = bcl 4,4*crs+1,target *)
+        | 0b01u -> struct (Op.BLEL, TwoOperands (crs, bd))
+        ///bfl 4*crs+2,target = bnel crs,target = bcl 4,4*crs+2,target
+        | 0b10u -> struct (Op.BNEL, TwoOperands (crs, bd))
+        (*bfl 4*crs+3,target = bnul crs,target = bnsl crs,target
+        = bcl 4,4*crs+3,target *)
+        | _ (* 1 *) -> struct (Op.BNSL, TwoOperands (crs, bd))
+    ///bdnztl bi,target = bc 8,bi,target
+    | 0x8u -> struct (Op.BDNZTL, TwoOperands (bi, bd))
+    ///bdztl bi,target = bc 10,bi,target
+    | 0xAu -> struct (Op.BDZTL, TwoOperands (bi, bd))
+    | 0xCu ->
+      let crs = getCondRegister (extract bin 20u 18u) |> OpReg
+      match extract bin 20u 18u with
+      | 0b0u ->
+        match extract bin 17u 16u with
+        ///btl 0,target = bltl target = bcl 12,0,target
+        | 0b00u -> struct (Op.BLTL, OneOperand bd)
+        ///btl 1,target = bgtl target = bcl 12,1,target
+        | 0b01u -> struct (Op.BGTL, OneOperand bd)
+        ///btl 2,target = beql target = bcl 12,2,target
+        | 0b10u -> struct (Op.BEQL, OneOperand bd)
+        ///btl 3,target = bunl 0,target = bsol target = bcl 12,3,target
+        | _ (* 1 *) -> struct (Op.BSOL, OneOperand bd)
+      | _ ->
+        match extract bin 17u 16u with
+        ///btl 4*crs,target = bltl crs,target = bcl 12,4*crs,target
+        | 0b00u -> struct (Op.BLTL, TwoOperands (crs, bd))
+        ///btl 4*crs+1,target = bgtl crs,target = bcl 12,4*crs+1,target
+        | 0b01u -> struct (Op.BGTL, TwoOperands (crs, bd))
+        ///btl 4*crs+2,target = beql crs,target = bcl 12,4*crs+2,target
+        | 0b10u -> struct (Op.BEQL, TwoOperands (crs, bd))
+        (* btl 4*crs+3,target = bunl crs,target = bsol crs,target
+        = bcl 12,4*crs+3,target *)
+        | _ (* 1 *) -> struct (Op.BSOL, TwoOperands (crs, bd))
+    | 0x10u ->
+      match extract bin 20u 16u with
+      ///bdnzl target = bcl 16,0,target
+      | 0b0u -> struct (Op.BDNZL, OneOperand bd)
+      | _ -> struct (Op.BCL, ThreeOperands (bo, bi, bd))
+    | 0x12u ->
+      match extract bin 20u 16u with
+      ///bdzl target = bcl 18,0,target
+      | 0b0u -> struct (Op.BDZL, OneOperand bd)
+      | _ -> struct (Op.BCL, ThreeOperands (bo, bi, bd))
+    | _ -> struct (Op.BCL, ThreeOperands (bo, bi, bd))
+  | 0b10u ->
+    match extract bin 25u 21u with
+    ///bdnzfa bi,target = bca 0,bi,target0
+    | 0x0u -> struct (Op.BDNZFA, TwoOperands (bi, bd))
+    ///bdzfa bi,target = bca 2,bi,target
+    | 0x2u -> struct (Op.BDZFA, TwoOperands (bi, bd))
+    | 0x4u ->
+      let crs = getCondRegister (extract bin 20u 18u) |> OpReg
+      match extract bin 20u 18u with
+      | 0b0u ->
+        match extract bin 17u 16u with
+        ///bfa 0,target = bnla 0,target = bgea target = bca 4,0,target
+        | 0b00u -> struct (Op.BGEA, OneOperand bd)
+        ///bfa 1,target = bnga 0,target = blea target = bca 4,1,target
+        | 0b01u -> struct (Op.BLEA, OneOperand bd)
+        ///bfa 2,target = bnea target = bca 4,2,target
+        | 0b10u -> struct (Op.BNEA, OneOperand bd)
+        ///bfa 3,target = bnua 0,target = bnsa target = bca 4,3,target
+        | _ (* 1 *) -> struct (Op.BNSA, OneOperand bd)
+      | _ ->
+        match extract bin 17u 16u with
+        (* bfa 4*crs,target = bnla crs,target = bgea crs,target
+        = bca 4,4*crs,target *)
+        | 0b00u -> struct (Op.BGEA, TwoOperands (crs, bd))
+        (* bfa 4*crs+1,target = bnga crs,target = blea crs,target
+        = bca 4,4*crs+1,target *)
+        | 0b01u -> struct (Op.BLEA, TwoOperands (crs, bd))
+        ///bfa 4*crs+2,target = bnea crs,target = bca 4,4*crs+2,target
+        | 0b10u -> struct (Op.BNEA, TwoOperands (crs, bd))
+        (* bfa 4*crs+3,target = bnua crs,target = bnsa crs,target
+        = bca 4,4*crs+3,target *)
+        | _ (* 1 *) -> struct (Op.BNSA, TwoOperands (crs, bd))
+    ///bdnzta bi,target = bc 8,bi,target
+    | 0x8u -> struct (Op.BDNZTA, TwoOperands (bi, bd))
+    ///bdzta bi,target = bc 10,bi,target
+    | 0xAu -> struct (Op.BDZTA, TwoOperands (bi, bd))
+    | 0xCu ->
+      let crs = getCondRegister (extract bin 20u 18u) |> OpReg
+      match extract bin 20u 18u with
+      | 0b0u ->
+        match extract bin 17u 16u with
+        ///bta 0,target = blta target = bca 12,0,target
+        | 0b00u -> struct (Op.BLTA, OneOperand bd)
+        ///bta 1,target = bgta target = bca 12,1,target
+        | 0b01u -> struct (Op.BGTA, OneOperand bd)
+        ///bta 2,target = beqa target = bca 12,2,target
+        | 0b10u -> struct (Op.BEQA, OneOperand bd)
+        ///bta 3,target = buna 0,target = bsoa target = bca 12,3,target
+        | _ (* 1 *) -> struct (Op.BSOA, OneOperand bd)
+      | _ ->
+        match extract bin 17u 16u with
+        ///bta 4*crs,target = blta crs,target = bca 12,4*crs,target
+        | 0b00u -> struct (Op.BLTA, TwoOperands (crs, bd))
+        ///bta 4*crs+1,target = bgta crs,target = bca 12,4*crs+1,target
+        | 0b01u -> struct (Op.BGTA, TwoOperands (crs, bd))
+        ///bta 4*crs+2,target = beqa crs,target = bca 12,4*crs+2,target
+        | 0b10u -> struct (Op.BEQA, TwoOperands (crs, bd))
+        (* bta 4*crs+3,target = buna crs,target = bsoa crs,target
+        = bca 12,4*crs+3,target *)
+        | _ (* 1 *) -> struct (Op.BSOA, TwoOperands (crs, bd))
+    | 0x10u ->
+      match extract bin 20u 16u with
+      ///bdnza target = bca 16,0,target
+      | 0b0u -> struct (Op.BDNZA, OneOperand bd)
+      | _ -> struct (Op.BCA, ThreeOperands (bo, bi, bd))
+    | 0x12u ->
+      match extract bin 20u 16u with
+      ///bdza target = bca 18,0,target
+      | 0b0u -> struct (Op.BDZA, OneOperand bd)
+      | _ -> struct (Op.BCA, ThreeOperands (bo, bi, bd))
+    | _ -> struct (Op.BCA, ThreeOperands (bo, bi, bd))
+  | _ (* 11 *) ->
+    match extract bin 25u 21u with
+    ///bdnzfla bi,target = bcla 0,bi,target
+    | 0x0u -> struct (Op.BDNZFLA, TwoOperands (bi, bd))
+    ///bdzfla bi,target = bcla 2,bi,target
+    | 0x2u -> struct (Op.BDZFLA, TwoOperands (bi, bd))
+    | 0x4u ->
+      let crs = getCondRegister (extract bin 20u 18u) |> OpReg
+      match extract bin 20u 18u with
+      | 0b0u ->
+        match extract bin 17u 16u with
+        ///bfla 0,target = bnlla 0,target = bgela target = bcla 4,0,target
+        | 0b00u -> struct (Op.BGELA, OneOperand bd)
+        ///bfla 1,target = bngla 0,target = blela target = bcla 4,1,target
+        | 0b01u -> struct (Op.BLELA, OneOperand bd)
+        ///bfla 2,target = bnela target = bcla 4,2,target
+        | 0b10u -> struct (Op.BNELA, OneOperand bd)
+        ///bfla 3,target = bnula 0,target = bnsla target = bcla 4,3,target
+        | _ (* 1 *) -> struct (Op.BNSLA, OneOperand bd)
+      | _ ->
+        match extract bin 17u 16u with
+        (* bfla 4*crs,target = bnlla crs,target = bgela crs,target
+        = bcla 4,4*crs,target *)
+        | 0b00u -> struct (Op.BGELA, TwoOperands (crs, bd))
+        (* bfla 4*crs+1,target = bngla crs,target = blela crs,target
+        = bcla 4,4*crs+1,target *)
+        | 0b01u -> struct (Op.BLELA, TwoOperands (crs, bd))
+        ///bfla 4*crs+2,target = bnela crs,target = bcla 4,4*crs+2,target
+        | 0b10u -> struct (Op.BNELA, TwoOperands (crs, bd))
+        (* bfla 4*crs+3,target = bnula crs,target = bnsla crs,target
+        = bcla 4,4*crs+3,target *)
+        | _ (* 1 *) -> struct (Op.BNSLA, TwoOperands (crs, bd))
+    ///bdnztla bi,target = bc 8,bi,target
+    | 0x8u -> struct (Op.BDNZTLA, TwoOperands (bi, bd))
+    ///bdztla bi,target = bc 10,bi,target
+    | 0xAu -> struct (Op.BDZTLA, TwoOperands (bi, bd))
+    | 0xCu ->
+      let crs = getCondRegister (extract bin 20u 18u) |> OpReg
+      match extract bin 20u 18u with
+      | 0b0u ->
+        match extract bin 17u 16u with
+        ///btla 0,target = bltla target = bcla 12,0,target
+        | 0b00u -> struct (Op.BLTLA, OneOperand bd)
+        ///btla 1,target = bgtla target = bcla 12,1,target
+        | 0b01u -> struct (Op.BGTLA, OneOperand bd)
+        ///btla 2,target = beqla target = bcla 12,2,target
+        | 0b10u -> struct (Op.BEQLA, OneOperand bd)
+        ///btla 3,target = bunla crs,target = bsola target = bcla 12,3,target
+        | _ (* 1 *) -> struct (Op.BSOLA, OneOperand bd)
+      | _ ->
+        match extract bin 17u 16u with
+        ///btla 4*crs,target = bltla crs,target = bcla 12,4*crs,target
+        | 0b00u -> struct (Op.BLTLA, TwoOperands (crs, bd))
+        ///btla 4*crs+1,target = bgtla crs,target = bcla 12,4*crs+1,target
+        | 0b01u -> struct (Op.BGTLA, TwoOperands (crs, bd))
+        ///btla 4*crs+2,target = beqla crs,target = bcla 12,4*crs+2,target
+        | 0b10u -> struct (Op.BEQLA, TwoOperands (crs, bd))
+        (* btla 4*crs+3,target = bunla crs,target = bsola crs,target
+        = bcla 12,4*crs+3,target *)
+        | _ (* 1 *) -> struct (Op.BSOLA, TwoOperands (crs, bd))
+    | 0x10u ->
+      match extract bin 20u 16u with
+      ///bdnzla target = bcLA 16,0,target
+      | 0b0u -> struct (Op.BDNZLA, OneOperand bd)
+      | _ -> struct (Op.BCLA, ThreeOperands (bo, bi, bd))
+    | 0x12u ->
+      match extract bin 20u 16u with
+      ///bdzla target = bcLA 18,0,target
+      | 0b0u -> struct (Op.BDZLA, OneOperand bd)
+      | _ -> struct (Op.BCLA, ThreeOperands (bo, bi, bd))
+    | _ -> struct (Op.BCLA, ThreeOperands (bo, bi, bd))
+
 let parseSC bin =
   match pickBit bin 1u with
   | 0b1u -> struct (Op.SC, NoOperand)
@@ -1902,7 +2192,7 @@ let parseSC bin =
 
 let parseBx bin =
   let li = extract bin 25u 2u |> uint64 |> Immediate
-  match concat (pickBit bin 1u) (pickBit bin 0u) 1 (* AA:LK *) with
+  match extract bin 1u 0u (* AA:LK *) with
   | 0b00u -> struct (Op.B, OneOperand li)
   | 0b01u -> struct (Op.BL, OneOperand li)
   | 0b10u -> struct (Op.BA, OneOperand li)
@@ -2107,6 +2397,10 @@ let parseRLWINMx bin =
             struct (Op.SRWI, ThreeOperands(ra, rs, n))
           | _ -> struct (Op.RLWINM, FiveOperands(ra, rs, sh, mb, me))
         else
+        ///extlwi ra,rs,n,b = rlwinm ra,rs,b,0,n-1,
+        ///extrwi ra,rs,n,b = rlwinm ra,rs,b+n,32-n,31
+        ///clrrwi ra,rs,n = rlwinm ra,rs,0,0,31-n
+        ///clrlslwi ra,rs,b,n = rlwinm ra,rs,n,b-n,31-n
           struct (Op.RLWINM, FiveOperands(ra, rs, sh, mb, me))
   | _ (* 1 *)-> struct (Op.RLWINMdot, FiveOperands(ra, rs, sh, mb, me))
 
@@ -2163,6 +2457,250 @@ let parseANDISdot bin =
   let uimm = extract bin 15u 0u |> uint64 |> Immediate
   struct (Op.ANDISdot, ThreeOperands(rs, ra, uimm))
 
+let parseMCRF bin =
+ match pickBit bin 0u with
+  | 0b0u when concat (extract bin 22u 21u) (extract bin 17u 11u) 2 = 0u ->
+    let crfd = getCondRegister (extract bin 25u 23u) |> OpReg
+    let crfs = getCondRegister (extract bin 20u 18u) |> OpReg
+    struct (Op.MCRF, TwoOperands (crfd, crfs))
+  | _ (* 1 *)-> Utils.impossible ()
+
+let parseBCLRx bin =
+  match pickBit bin 0u with
+  | 0b0u when extract bin 15u 11u = 0u ->
+    let bo = extract bin 25u 21u |> uint64 |> Immediate
+    let bi = extract bin 20u 16u |> uint64 |> Immediate
+    match extract bin 25u 21u with
+    ///bdnzflr bi = bclr 0,bi
+    | 0x0u -> struct (Op.BDNZFLR, OneOperand bi)
+    ///bdzflr bi = bclr 2,bi
+    | 0x2u -> struct (Op.BDZFLR, OneOperand bi)
+    | 0x4u ->
+      let crs = getCondRegister (extract bin 20u 18u) |> OpReg
+      match extract bin 20u 18u with
+      | 0b0u ->
+        match extract bin 17u 16u with
+        ///bflr 0 = bnllr 0 = bgelr = bclr 4,0
+        | 0b00u -> struct (Op.BGELR, NoOperand)
+        ///bflr 1 = bnglr 0 = blelr = bclr 4,1
+        | 0b01u -> struct (Op.BLELR, NoOperand)
+        ///bflr 2 = bnelr = bclr 4,2
+        | 0b10u -> struct (Op.BNELR, NoOperand)
+        ///bflr 3 = bnulr 0 = bnslr = bclr 4,3
+        | _ (* 1 *) -> struct (Op.BNSLR, NoOperand)
+      | _ ->
+        match extract bin 17u 16u with
+        ///bflr 4*crs = bnllr crs = bgelr crs = bclr 4,4*crs
+        | 0b00u -> struct (Op.BGELR, OneOperand crs)
+        ///bflr 4*crs+1 = bnglr crs = blelr crs = bclr 4,4*crs+1
+        | 0b01u -> struct (Op.BLELR, OneOperand crs)
+        ///bflr 4*crs+2 = bnelr crs = bclr 4,4*crs+2
+        | 0b10u -> struct (Op.BNELR, OneOperand crs)
+        ///bflr 4*crs+3 = bnulr crs = bnslr crs = bclr 4,4*crs+3
+        | _ (* 1 *) -> struct (Op.BNSLR, OneOperand crs)
+    ///bdnztlr bi = bclr 8,bi
+    | 0x8u -> struct (Op.BDNZTLR, OneOperand bi)
+    ///bdztlr bi = bclr 10,bi
+    | 0xAu -> struct (Op.BDZTLR, OneOperand bi)
+    | 0xCu ->
+      let crs = getCondRegister (extract bin 20u 18u) |> OpReg
+      match extract bin 20u 18u with
+      | 0b0u ->
+        match extract bin 17u 16u with
+        ///btlr 0 = bltlr = bclr 12,0
+        | 0b00u -> struct (Op.BLTLR, OneOperand bo)
+        ///btlr 1 = bgtlr = bclr 12,1
+        | 0b01u -> struct (Op.BGTLR, OneOperand bo)
+        ///btlr 2 = beqlr = bclr 12,2
+        | 0b10u -> struct (Op.BEQLR, OneOperand bo)
+        ///btlr 3 = bunlr 0 = bsolr = bclr 12,3
+        | _ (* 1 *) -> struct (Op.BSOLR, OneOperand bo)
+      | _ ->
+        match extract bin 17u 16u with
+        ///btlr 4*crs = bltlr crs = bclr 12,4*crs
+        | 0b00u -> struct (Op.BLTLR, TwoOperands (crs, bo))
+        ///btlr 4*crs+1,0 = bgtlr crs = bclr 12,4*crs+1
+        | 0b01u -> struct (Op.BGTLR, TwoOperands (crs, bo))
+        ///btlr 4*crs+2,0 = beqlr crs = bclr 12,4*crs+2
+        | 0b10u -> struct (Op.BEQLR, TwoOperands (crs, bo))
+        ///btlr 4*crs+3,0 = bunlr crs = bsolr crs = bclr 12,4*crs+3
+        | _ (* 1 *) -> struct (Op.BSOLR, TwoOperands (crs, bo))
+    | _ -> struct (Op.BCLR, TwoOperands (bo, bi))
+  | 0b1u when extract bin 15u 11u = 0u ->
+    let bo = extract bin 25u 21u |> uint64 |> Immediate
+    let bi = extract bin 20u 16u |> uint64 |> Immediate
+    match extract bin 25u 21u with
+    ///bdnzflrl bi = bclrl 0,bi
+    | 0x0u -> struct (Op.BDNZFLRL, OneOperand bi)
+    ///bdzflrl bi = bclrl 2,bi
+    | 0x2u -> struct (Op.BDZFLRL, OneOperand bi)
+    | 0x4u ->
+      let crs = getCondRegister (extract bin 20u 18u) |> OpReg
+      match extract bin 20u 18u with
+      | 0b0u ->
+        match extract bin 17u 16u with
+        ///bflrl 0 = bnllrl 0 = bgelrl = bclrl 4,0
+        | 0b00u -> struct (Op.BGELRL, NoOperand)
+        ///bflrl 1 = bnglrl 0 = blelrl = bclrl 4,1
+        | 0b01u -> struct (Op.BLELRL, NoOperand)
+        ///bflrl 2 = bnelrl = bclrl 4,2
+        | 0b10u -> struct (Op.BNELRL, NoOperand)
+        ///bflrl 3 = bnulrl 0 = bnslrl = bclrl 4,3
+        | _ (* 1 *) -> struct (Op.BNSLRL, NoOperand)
+      | _ ->
+        match extract bin 17u 16u with
+        ///bflrl 4*crs = bnllrl crs = bgelrl crs = bclrl 4,4*crs
+        | 0b00u -> struct (Op.BGELRL, OneOperand crs)
+        ///bflrl 4*crs+1 = bnglrl crs = blelrl crs = bclrl 4,4*crs+1
+        | 0b01u -> struct (Op.BLELRL, OneOperand crs)
+        ///bflrl 4*crs+2 = bnelrl crs = bclrl 4,4*crs+2
+        | 0b10u -> struct (Op.BNELRL, OneOperand crs)
+        ///bflrl 4*crs+3 = bnulrl crs = bnslrl crs = bclrl 4,4*crs+3
+        | _ (* 1 *) -> struct (Op.BNSLRL, OneOperand crs)
+    ///bdnztlrl bi = bclrl 8,bi
+    | 0x8u -> struct (Op.BDNZTLRL, OneOperand bi)
+    ///bdztlrl bi = bclr 10,bi
+    | 0xAu -> struct (Op.BDZTLRL, OneOperand bi)
+    | _ -> struct (Op.BCLRL, TwoOperands (bo, bi))
+  | _ -> Utils.impossible ()
+
+let parseCRNOR bin =
+ match pickBit bin 0u with
+  | 0b0u ->
+    let crbd = getFPSCRegister (extract bin 25u 21u)
+    let crba = getFPSCRegister (extract bin 20u 16u)
+    let crbb = getFPSCRegister (extract bin 15u 11u)
+    ///crnot crbd,crba = crnor crbd,crba,crba
+    if extract bin 20u 16u = extract bin 15u 11u then
+      struct (Op.CRNOT, TwoOperands (crbd, crba))
+    else
+      struct (Op.CRNOR, ThreeOperands (crbd, crba, crbb))
+  | _ (* 1 *)-> Utils.impossible ()
+
+let parseRFI bin =
+ match pickBit bin 0u with
+  | 0b0u when extract bin 25u 11u = 0u ->
+    struct (Op.RFI, NoOperand)
+  | _ (* 1 *)-> Utils.impossible ()
+
+let parseCRANDC bin =
+ match pickBit bin 0u with
+  | 0b0u ->
+    let crbd = getFPSCRegister (extract bin 25u 21u)
+    let crba = getFPSCRegister (extract bin 20u 16u)
+    let crbb = getFPSCRegister (extract bin 15u 11u)
+    struct (Op.CRANDC, ThreeOperands (crbd, crba, crbb))
+  | _ (* 1 *)-> Utils.impossible ()
+
+let parseISYNC bin =
+ match pickBit bin 0u with
+  | 0b0u when extract bin 25u 11u = 0u ->
+    struct (Op.ISYNC, NoOperand)
+  | _ (* 1 *)-> Utils.impossible ()
+
+let parseCRXOR bin =
+ match pickBit bin 0u with
+  | 0b0u ->
+    let crbd = getFPSCRegister (extract bin 25u 21u)
+    let crba = getFPSCRegister (extract bin 20u 16u)
+    let crbb = getFPSCRegister (extract bin 15u 11u)
+    ///crclr crbd = crxor crbd,crbd,crbd
+    if extract bin 25u 21u = extract bin 20u 16u then
+      if extract bin 20u 16u = extract bin 15u 11u then
+        struct (Op.CRCLR, OneOperand crbd)
+      else
+        struct (Op.CRXOR, ThreeOperands (crbd, crba, crbb))
+    else
+      struct (Op.CRXOR, ThreeOperands (crbd, crba, crbb))
+  | _ (* 1 *)-> Utils.impossible ()
+
+let parseCRNAND bin =
+ match pickBit bin 0u with
+  | 0b0u ->
+    let crbd = getFPSCRegister (extract bin 25u 21u)
+    let crba = getFPSCRegister (extract bin 20u 16u)
+    let crbb = getFPSCRegister (extract bin 15u 11u)
+    struct (Op.CRNAND, ThreeOperands (crbd, crba, crbb))
+  | _ (* 1 *)-> Utils.impossible ()
+
+let parseCRAND bin =
+ match pickBit bin 0u with
+  | 0b0u ->
+    let crbd = getFPSCRegister (extract bin 25u 21u)
+    let crba = getFPSCRegister (extract bin 20u 16u)
+    let crbb = getFPSCRegister (extract bin 15u 11u)
+    struct (Op.CRAND, ThreeOperands (crbd, crba, crbb))
+  | _ (* 1 *)-> Utils.impossible ()
+
+let parseCREQV bin =
+ match pickBit bin 0u with
+  | 0b0u ->
+    let crbd = getFPSCRegister (extract bin 25u 21u)
+    let crba = getFPSCRegister (extract bin 20u 16u)
+    let crbb = getFPSCRegister (extract bin 15u 11u)
+    ///crset crbd = creqv crbd,crbd,crbd
+    if extract bin 25u 21u = extract bin 20u 16u then
+      if extract bin 20u 16u = extract bin 15u 11u then
+        struct (Op.CRSET, OneOperand crbd)
+      else
+        struct (Op.CREQV, ThreeOperands (crbd, crba, crbb))
+    else
+      struct (Op.CREQV, ThreeOperands (crbd, crba, crbb))
+  | _ (* 1 *)-> Utils.impossible ()
+
+let parseCRORC bin =
+ match pickBit bin 0u with
+  | 0b0u ->
+    let crbd = getFPSCRegister (extract bin 25u 21u)
+    let crba = getFPSCRegister (extract bin 20u 16u)
+    let crbb = getFPSCRegister (extract bin 15u 11u)
+    struct (Op.CRORC, ThreeOperands (crbd, crba, crbb))
+  | _ (* 1 *)-> Utils.impossible ()
+
+let parseCROR bin =
+ match pickBit bin 0u with
+  | 0b0u ->
+    let crbd = getFPSCRegister (extract bin 25u 21u)
+    let crba = getFPSCRegister (extract bin 20u 16u)
+    let crbb = getFPSCRegister (extract bin 15u 11u)
+    ///crmove crbd,crba = cror crbd,crba,crba
+    if extract bin 20u 16u = extract bin 15u 11u then
+      struct (Op.CRMOVE, TwoOperands (crbd, crba))
+    else
+      struct (Op.CROR, ThreeOperands (crbd, crba, crbb))
+  | _ (* 1 *)-> Utils.impossible ()
+
+let parseBCCTRx bin =
+ match pickBit bin 0u with
+  | 0b0u when extract bin 15u 11u = 0u ->
+    let bo = extract bin 25u 21u |> uint64 |> Immediate
+    let bi = extract bin 20u 16u |> uint64 |> Immediate
+    match extract bin 25u 21u with
+    | 0x0u -> struct (Op.BCCTR, TwoOperands (bo, bi))
+    | _ -> Utils.impossible ()
+  | 0b1u when extract bin 15u 11u = 0u ->
+    let bo = extract bin 25u 21u |> uint64 |> Immediate
+    let bi = extract bin 20u 16u |> uint64 |> Immediate
+    struct (Op.BCCTRL, TwoOperands (bo, bi))
+  | _ -> Utils.impossible ()
+
+let parse13 bin =
+  match extract bin 10u 1u with
+  | 0x0u -> parseMCRF bin
+  | 0x10u -> parseBCLRx bin
+  | 0x21u -> parseCRNOR bin
+  | 0x32u -> parseRFI bin
+  | 0x81u -> parseCRANDC bin
+  | 0x96u -> parseISYNC bin
+  | 0xC1u -> parseCRXOR bin
+  | 0xE1u -> parseCRNAND bin
+  | 0x101u -> parseCRAND bin
+  | 0x121u -> parseCREQV bin
+  | 0x1A1u -> parseCRORC bin
+  | 0x1C1u -> parseCROR bin
+  | 0x210u -> parseBCCTRx bin
+  | _ -> Utils.impossible ()
+
 let private parseInstruction bin =
   match extract bin 31u 26u with
   | 0x3u -> parseTWI bin
@@ -2174,8 +2712,10 @@ let private parseInstruction bin =
   | 0xDu -> parseADDICdot bin
   | 0xEu -> parseADDI bin
   | 0xFu -> parseADDIS bin
+  | 0x10u -> parseBCx bin
   | 0x11u when pickBit bin 0u = 0u -> parseSC bin
   | 0x12u -> parseBx bin
+  | 0x13u -> parse13 bin
   | 0x14u -> parseRLWIMIx bin
   | 0x15u -> parseRLWINMx bin
   | 0x17u -> parseRLWNMx bin
