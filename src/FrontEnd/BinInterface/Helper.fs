@@ -42,6 +42,7 @@ let initBasis isa =
   | Arch.TMS320C6000 -> TMS320C6000.Basis.init isa
   | Arch.CILOnly -> CIL.Basis.init isa
   | Arch.AVR -> AVR.Basis.init isa
+  | Arch.SH4 -> SH4.Basis.init isa
   | _ -> Utils.futureFeature ()
 
 let private appendOSInfo fmt isa =
@@ -79,6 +80,7 @@ let initParser (isa: ISA) mode (fi: FileInfo) =
   | Arch.TMS320C6000 -> TMS320C6000.TMS320C6000Parser () :> Parser
   | Arch.CILOnly -> CIL.CILParser () :> Parser
   | Arch.AVR -> AVR.AVRParser () :> Parser
+  | Arch.SH4 -> SH4.SH4Parser () :> Parser
   | _ -> Utils.futureFeature ()
 
 /// Classify ranges to be either in-file or not-in-file. The second parameter

@@ -31,6 +31,7 @@
     <ProjectReference Include="..\BinLifter\EVM\B2R2.FrontEnd.BinLifter.EVM.fsproj" />
     <ProjectReference Include="..\BinLifter\TMS320C6000\B2R2.FrontEnd.BinLifter.TMS320C6000.fsproj" />
     <ProjectReference Include="..\BinLifter\CIL\B2R2.FrontEnd.BinLifter.CIL.fsproj" />
+    <ProjectReference Include="..\BinLifter\SH4\B2R2.FrontEnd.BinLifter.SH4.fsproj" />
     <ProjectReference Include="..\BinLifter\Optimizer\B2R2.FrontEnd.BinLifter.Optimizer.fsproj" />
   </ItemGroup>
 </Project>
