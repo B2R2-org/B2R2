@@ -400,7 +400,9 @@ module internal OperandParsingHelper =
 
   let parseMMXReg n = Register.make n Register.Kind.MMX 64 |> OprReg
 
-  let parseSegReg n = Register.make n Register.Kind.Segment 16 |> OprReg
+  let parseSegReg n =
+    if n < 6 then Register.make n Register.Kind.Segment 16 |> OprReg
+    else raise ParsingFailureException
 
   let parseBoundRegister n = Register.make n Register.Kind.Bound 128 |> OprReg
 
