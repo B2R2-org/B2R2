@@ -39,8 +39,8 @@ type IntelParser (wordSz) =
   let oparsers =
     [| OpRmGpr () :> OperandParser
        OpRmSeg () :> OperandParser
-       OpRmCtrl () :> OperandParser
-       OpRmDbg () :> OperandParser
+       OpGprCtrl () :> OperandParser
+       OpGprDbg () :> OperandParser
        OpRMMmx () :> OperandParser
        OpMmMmx () :> OperandParser
        OpBmBnd () :> OperandParser
@@ -51,8 +51,8 @@ type IntelParser (wordSz) =
        OpSegRm () :> OperandParser
        OpBndBm () :> OperandParser
        OpBndRm () :> OperandParser
-       OpCtrlRm () :> OperandParser
-       OpDbgRm () :> OperandParser
+       OpCtrlGpr () :> OperandParser
+       OpDbgGpr () :> OperandParser
        OpMmxRm () :> OperandParser
        OpMmxMm () :> OperandParser
        OpGprRMm () :> OperandParser

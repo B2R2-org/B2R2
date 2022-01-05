@@ -5009,10 +5009,10 @@ module internal ParsingHelper = begin
       if hasREPZ rhlp.Prefixes then parseCETInstr rhlp
       else raise InvalidOpcodeException
     | 0x1Fuy -> render rhlp Opcode.NOP SzCond.Nor OD.Mem SZ.Def (* NOP /0 Ev *)
-    | 0x20uy -> render rhlp Opcode.MOV SzCond.F64 OD.RmCtrl SZ.DY
-    | 0x21uy -> render rhlp Opcode.MOV SzCond.Nor OD.RmDbg SZ.DY
-    | 0x22uy -> render rhlp Opcode.MOV SzCond.Nor OD.CtrlRm SZ.DY
-    | 0x23uy -> render rhlp Opcode.MOV SzCond.Nor OD.DbgRm SZ.DY
+    | 0x20uy -> render rhlp Opcode.MOV SzCond.F64 OD.GprCtrl SZ.DY
+    | 0x21uy -> render rhlp Opcode.MOV SzCond.Nor OD.GprDbg SZ.DY
+    | 0x22uy -> render rhlp Opcode.MOV SzCond.Nor OD.CtrlGpr SZ.DY
+    | 0x23uy -> render rhlp Opcode.MOV SzCond.Nor OD.DbgGpr SZ.DY
     | 0x28uy -> parseVEX rhlp nor0F28 vex0F28
     | 0x29uy -> parseVEX rhlp nor0F29 vex0F29
     | 0x2Auy -> parseVEX rhlp nor0F2A vex0F2A

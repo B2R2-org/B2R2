@@ -33,8 +33,8 @@ open B2R2.FrontEnd.BinLifter.Intel.Helper
 type OprDesc =
   | RmGpr = 0
   | RmSeg = 1
-  | RmCtrl = 2
-  | RmDbg = 3
+  | GprCtrl = 2
+  | GprDbg = 3
   | RMMmx = 4
   | MmMmx = 5
   | BmBnd = 6
@@ -45,8 +45,8 @@ type OprDesc =
   | SegRm = 11
   | BndBm = 12
   | BndRm = 13
-  | CtrlRm = 14
-  | DbgRm = 15
+  | CtrlGpr = 14
+  | DbgGpr = 15
   | MmxRm = 16
   | MmxMm = 17
   | GprRMm = 18
@@ -452,21 +452,25 @@ type internal OpRmSeg () =
     let opr2 = parseSegReg (getReg modRM)
     TwoOperands (opr1, opr2)
 
-type internal OpRmCtrl () =
+type internal OpGprCtrl () =
   inherit OperandParser ()
   override __.Render rhlp =
     let modRM = rhlp.ReadByte ()
-    let opr1 = parseMemOrReg modRM rhlp
-    let opr2 = parseControlReg (getReg modRM)
-    TwoOperands (opr1, opr2)
+    if modIsMemory modRM then raise ParsingFailureException
+    else
+      let opr1 = parseMemOrReg modRM rhlp
+      let opr2 = parseControlReg (getReg modRM)
+      TwoOperands (opr1, opr2)
 
-type internal OpRmDbg () =
+type internal OpGprDbg () =
   inherit OperandParser ()
   override __.Render rhlp =
     let modRM = rhlp.ReadByte ()
-    let opr1 = parseMemOrReg modRM rhlp
-    let opr2 = parseDebugReg (getReg modRM)
-    TwoOperands (opr1, opr2)
+    if modIsMemory modRM then raise ParsingFailureException
+    else
+      let opr1 = parseMemOrReg modRM rhlp
+      let opr2 = parseDebugReg (getReg modRM)
+      TwoOperands (opr1, opr2)
 
 type internal OpRMMmx () =
   inherit OperandParser ()
@@ -561,21 +565,25 @@ type internal OpBndRm () =
     let opr2 = parseMemOrReg modRM rhlp
     TwoOperands (opr1, opr2)
 
-type internal OpCtrlRm () =
+type internal OpCtrlGpr () =
   inherit OperandParser ()
   override __.Render rhlp =
     let modRM = rhlp.ReadByte ()
-    let opr1 = parseControlReg (getReg modRM)
-    let opr2 = parseMemOrReg modRM rhlp
-    TwoOperands (opr1, opr2)
+    if modIsMemory modRM then raise ParsingFailureException
+    else
+      let opr1 = parseControlReg (getReg modRM)
+      let opr2 = parseMemOrReg modRM rhlp
+      TwoOperands (opr1, opr2)
 
-type internal OpDbgRm () =
+type internal OpDbgGpr () =
   inherit OperandParser ()
   override __.Render rhlp =
     let modRM = rhlp.ReadByte ()
-    let opr1 = parseDebugReg (getReg modRM)
-    let opr2 = parseMemOrReg modRM rhlp
-    TwoOperands (opr1, opr2)
+    if modIsMemory modRM then raise ParsingFailureException
+    else
+      let opr1 = parseDebugReg (getReg modRM)
+      let opr2 = parseMemOrReg modRM rhlp
+      TwoOperands (opr1, opr2)
 
 type internal OpMmxRm () =
   inherit OperandParser ()
