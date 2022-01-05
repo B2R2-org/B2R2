@@ -1346,7 +1346,7 @@ module internal ParsingHelper = begin
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
   let nor0F78 = function
-    | MPref.MPrxNP -> struct (Opcode.VMREAD, OD.RmGpr, SZ.Def) (* EyGy *)
+    | MPref.MPrxNP -> struct (Opcode.VMREAD, OD.RmGpr, SZ.Y) (* EyGy *)
     | MPref.MPrx66 -> (* FIXME: Undocumented instruction *)
       struct (Opcode.EXTRQ, OD.RmImm8Imm8, SZ.Dq) (* VdqUdqIbIb *)
     | MPref.MPrxF3 -> raise ParsingFailureException
@@ -3719,7 +3719,7 @@ module internal ParsingHelper = begin
 
   let nor0F38F5W0 = function
     | MPref.MPrxNP -> raise ParsingFailureException
-    | MPref.MPrx66 -> struct (Opcode.WRUSSD, OD.RmGpr, SZ.Def) (* EyGy *)
+    | MPref.MPrx66 -> struct (Opcode.WRUSSD, OD.MGpr, SZ.Def) (* EyGy *)
     | MPref.MPrxF3
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException

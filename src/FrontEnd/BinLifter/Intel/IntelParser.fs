@@ -47,6 +47,7 @@ type IntelParser (wordSz) =
        OpRmBnd () :> OperandParser
        OpGprRm () :> OperandParser
        OpGprM () :> OperandParser
+       OpMGpr () :> OperandParser
        OpSegRm () :> OperandParser
        OpBndBm () :> OperandParser
        OpBndRm () :> OperandParser
@@ -220,7 +221,8 @@ type IntelParser (wordSz) =
        SzDqXz () :> InsSizeComputer
        SzYDq () :> InsSizeComputer
        SzQq () :> InsSizeComputer
-       SzDqwdX () :> InsSizeComputer |]
+       SzDqwdX () :> InsSizeComputer
+       SzY () :> InsSizeComputer |]
 
   let oneByteParsers =
     [| OneOp00 () :> ParsingJob

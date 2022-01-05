@@ -1056,6 +1056,18 @@ type SzDqwdX () =
     rhlp.RegSize <- vLen
     rhlp.OperationSize <- vLen
 
+/// EyGy - WordSize
+type SzY () =
+  inherit InsSizeComputer ()
+  override __.Render rhlp _ =
+    let effAddrSz = getEffAddrSize rhlp
+    let effOprSz = if rhlp.WordSize = WordSize.Bit64 then 64<rt> else 32<rt>
+    rhlp.MemEffOprSize <- effOprSz
+    rhlp.MemEffAddrSize <- effAddrSz
+    rhlp.MemEffRegSize <- effOprSz
+    rhlp.RegSize <- effOprSz
+    rhlp.OperationSize <- effOprSz
+
 type SizeKind =
   | Byte = 0
   | Word = 1
@@ -1129,5 +1141,6 @@ type SizeKind =
   | YDq = 69
   | Qq = 70
   | DqwdX = 71
+  | Y = 72
 
 // vim: set tw=80 sts=2 sw=2:
