@@ -437,6 +437,28 @@ let opCodeToString = function
   | Op.BGTLRL -> "BGTLRL"
   | Op.BEQLRL -> "BEQLRL"
   | Op.BSOLRL -> "BSOLRL"
+  | Op.BDNZLR -> "BDNZLR"
+  | Op.BDNZLRL -> "BDNZLRL"
+  | Op.BDZLR -> "BDZLR"
+  | Op.BDZLRL -> "BDZLRL"
+  | Op.BGECTR -> "BGECTR"
+  | Op.BLECTR -> "BLECTR"
+  | Op.BNECTR -> "BNECTR"
+  | Op.BNSCTR -> "BNSCTR"
+  | Op.BGECTRL -> "BGECTRL"
+  | Op.BLECTRL -> "BLECTRL"
+  | Op.BNECTRL -> "BNECTRL"
+  | Op.BNSCTRL -> "BNSCTRL"
+  | Op.BLTCTR -> "BLTCTR"
+  | Op.BGTCTR -> "BGTCTR"
+  | Op.BEQCTR -> "BEQCTR"
+  | Op.BSOCTR -> "BSOCTR"
+  | Op.BLTCTRL -> "BLTCTRL"
+  | Op.BGTCTRL -> "BGTCTRL"
+  | Op.BEQCTRL -> "BEQCTRL"
+  | Op.BSOCTRL -> "BSOCTRL"
+  | Op.BCTR -> "BCTR"
+  | Op.BCTRL -> "BCTRL"
   | _ -> Utils.impossible ()
 
 let inline buildOpcode ins (builder: DisasmBuilder<_>) =
@@ -451,6 +473,15 @@ let oprToString opr delim (builder: DisasmBuilder<_>) =
   | Immediate imm ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Value (String.u64ToHex imm)
+  | Branch bi ->
+    builder.Accumulate AsmWordKind.String delim
+    builder.Accumulate AsmWordKind.Value (String.u64ToHex bi)
+  | ImmOp (imm, reg) ->
+    builder.Accumulate AsmWordKind.String delim
+    builder.Accumulate AsmWordKind.Value (String.u64ToHex imm)
+    builder.Accumulate AsmWordKind.String "("
+    builder.Accumulate AsmWordKind.Variable (Register.toString reg)
+    builder.Accumulate AsmWordKind.String ")"
 
 let buildOprs insInfo builder =
   match insInfo.Operands with

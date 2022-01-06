@@ -445,14 +445,41 @@ type Opcode =
   | BGTLRL = 406
   | BEQLRL = 407
   | BSOLRL = 408
+  | BDNZLR = 409
+  | BDNZLRL = 410
+  | BDZLR = 411
+  | BDZLRL = 412
+  | BLR = 413
+  | BLRL = 414
+  | BGECTR = 415
+  | BLECTR = 416
+  | BNECTR = 417
+  | BNSCTR = 418
+  | BGECTRL = 419
+  | BLECTRL = 420
+  | BNECTRL = 421
+  | BNSCTRL = 422
+  | BLTCTR = 423
+  | BGTCTR = 424
+  | BEQCTR = 425
+  | BSOCTR = 426
+  | BLTCTRL = 427
+  | BGTCTRL = 428
+  | BEQCTRL = 429
+  | BSOCTRL = 430
+  | BCTR = 431
+  | BCTRL = 432
   | InvalOP = 450
 
 type internal Op = Opcode
 
 type Operand =
   | OpReg of Register
+  | ImmOp of Imm * Register
   | Immediate of Imm
+  | Branch of bi
 and Imm = uint64
+and bi = uint64
 
 type Operands =
   | NoOperand

@@ -265,4 +265,3 @@ module Register =
     | CR.CR6 -> "CR6"
     | CR.CR7 -> "CR7"
     | _ -> Utils.impossible ()
-
