@@ -46,7 +46,7 @@ module private PrinterConst =
   let [<Literal>] colWidth = 24
   let [<Literal>] cacheLimit = 16777216
 
-/// Any B2R2's layers should *not* use System.Console or `printfn` to directly
+/// Any B2R2's layers should *not* use System.Console nor `printfn` to directly
 /// output strings. Instead, they should resort to the Printer to "indirectly"
 /// print out strings.
 [<AbstractClass>]
