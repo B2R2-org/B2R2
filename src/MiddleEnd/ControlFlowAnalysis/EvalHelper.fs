@@ -31,11 +31,12 @@ open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 open B2R2.MiddleEnd.ConcEval
 
-let private memoryReader hdl _pc addr =
+let private memoryReader hdl _pc addr typ _e =
+  let len = RegType.toByteWidth typ
   let fileInfo = hdl.FileInfo
   if addr < System.UInt64.MaxValue && fileInfo.IsValidAddr addr then
-    match BinHandle.TryReadBytes (hdl, addr, 1) with
-    | Ok v -> Ok v[0]
+    match BinHandle.TryReadBytes (hdl, addr, len) with
+    | Ok v -> Ok (BitVector.ofArr v)
     | Error e -> Error e
   else Error ErrorCase.InvalidMemoryRead
 
@@ -52,7 +53,8 @@ let private obtainFramePointerDef hdl =
   | None -> None
 
 let private initState hdl pc =
-  let st = EvalState (memoryReader hdl, true)
+  let st = EvalState (ignoreundef=true)
+  st.Callbacks.LoadFailureEventHandler <- memoryReader hdl
   [ obtainStackDef hdl; obtainFramePointerDef hdl ]
   |> List.choose id
   |> st.PrepareContext 0 pc
@@ -96,6 +98,6 @@ let readReg (st: EvalState) regID =
 
 let readMem (st: EvalState) addr endian size =
   let addr = BitVector.toUInt64 addr
-  match st.Memory.Read st.PC addr endian size with
+  match st.Memory.Read addr endian size with
   | Ok bs -> BitVector.toUInt64 bs |> Some
   | Error _ -> None

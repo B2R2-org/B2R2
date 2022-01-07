@@ -61,14 +61,15 @@ let rec evalConcrete (st: EvalState) e =
   | _ -> Error ErrorCase.InvalidExprEvaluation
 
 and private evalLoad st endian t addr =
-  let pc = st.PC
   match evalConcrete st addr |> unwrap |> Result.map BitVector.toUInt64 with
   | Ok addr ->
-    match st.Memory.Read pc addr endian t with
+    match st.Memory.Read addr endian t with
     | Ok v ->
-      st.Callbacks.OnLoad pc addr v
+      st.Callbacks.OnLoad st.PC addr v
       Ok (Def v)
-    | Error e -> Error e
+    | Error e ->
+      st.Callbacks.OnLoadFailure st.PC addr t e
+      |> Result.map Def
   | Error e -> Error e
 
 and private evalIte st cond e1 e2 =

@@ -8,15 +8,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Types.fs" />
+    <Compile Include="ConcEvalTypes.fs" />
     <Compile Include="Memory.fs" />
     <Compile Include="Variables.fs" />
     <Compile Include="Labels.fs" />
+    <Compile Include="Context.fs" />
     <Compile Include="EvalState.fs" />
     <Compile Include="EvalUtils.fs" />
     <Compile Include="SafeEvaluator.fs" />
     <Compile Include="Evaluator.fs" />
-    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath=""/>
+    <None Include="..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />
   </ItemGroup>

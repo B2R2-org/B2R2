@@ -49,13 +49,15 @@ let rec evalConcrete (st: EvalState) e =
   | _ -> raise InvalidExprException
 
 and private evalLoad st endian t addr =
-  let pc = st.PC
   let addr = evalConcrete st addr |> BitVector.toUInt64
-  match st.Memory.Read pc addr endian t with
+  match st.Memory.Read addr endian t with
   | Ok v ->
-    st.Callbacks.OnLoad pc addr v
+    st.Callbacks.OnLoad st.PC addr v
     v
-  | Error _ -> raise InvalidMemException
+  | Error e ->
+    match st.Callbacks.OnLoadFailure st.PC addr t e with
+    | Ok v -> v
+    | Error _ ->  raise InvalidMemException
 
 and private evalCast st t e = function
   | CastKind.SignExt -> BitVector.sext (evalConcrete st e) t

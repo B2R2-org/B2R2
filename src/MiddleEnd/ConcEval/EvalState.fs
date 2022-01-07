@@ -27,70 +27,82 @@ namespace B2R2.MiddleEnd.ConcEval
 open B2R2
 open B2R2.BinIR
 
-type Context () =
-  /// The current index of the statement to evaluate within the scope of a
-  /// machine instruction. This index behaves like a PC for statements of an
-  /// instruction.
-  member val StmtIdx = 0 with get, set
+type PerInstrHandler =
+  delegate of EvalState -> EvalState
 
-  /// The current program counter.
-  member val PC: Addr = 0UL with get, set
+and LoadEventHandler =
+  delegate of Addr * Addr * BitVector -> unit
 
-  /// Store named register values.
-  member val Registers = Variables<RegisterID>() with get
+and LoadFailureEventHandler =
+  delegate of Addr * Addr * RegType * ErrorCase -> Result<BitVector, ErrorCase>
 
-  /// Store temporary variable values.
-  member val Temporaries = Variables<int>() with get
+and StoreEventHandler =
+  delegate of Addr * Addr * BitVector -> unit
 
-  /// Store labels and their corresponding statement indices.
-  member val Labels = Labels () with get
+and PutEventHandler =
+  delegate of Addr * BitVector -> unit
 
-  /// Architecture mode.
-  member val Mode = ArchOperationMode.NoMode with get, set
+and SideEffectEventHandler =
+  delegate of SideEffect * EvalState -> unit
 
-type EvalCallBacks () =
+and StmtEvalEventHandler =
+  delegate of LowUIR.Stmt -> unit
+
+and EvalCallBacks () =
   /// Per-instruction handler.
-  member val PerInstrHandler: EvalState -> EvalState =
-    fun st -> st with get, set
+  member val PerInstrHandler: PerInstrHandler =
+    PerInstrHandler id with get, set
 
   /// Memory load event handler.
-  member val LoadEventHandler: Addr -> Addr -> BitVector -> unit =
-    fun _ _ _ -> () with get, set
+  member val LoadEventHandler: LoadEventHandler =
+    LoadEventHandler (fun _ _ _ -> ()) with get, set
+
+  /// Memory load failure (access violation) event handler.
+  member val LoadFailureEventHandler: LoadFailureEventHandler =
+    LoadFailureEventHandler (fun _ _ _ e -> Error e) with get, set
 
   /// Memory store event handler.
-  member val StoreEventHandler: Addr -> Addr -> BitVector -> unit =
-    fun _ _ _ -> () with get, set
+  member val StoreEventHandler: StoreEventHandler =
+    StoreEventHandler (fun _ _ _ -> ()) with get, set
 
   /// Put event handler. The first parameter is PC, and the second is the value
   /// that is put to the destination.
-  member val PutEventHandler: Addr -> BitVector -> unit =
-    fun _ _ -> () with get, set
+  member val PutEventHandler: PutEventHandler =
+    PutEventHandler (fun _ _ -> ()) with get, set
 
   /// Side-effect event handler.
-  member val SideEffectEventHandler: SideEffect -> EvalState -> unit =
-    fun _ st -> () with get, set
+  member val SideEffectEventHandler: SideEffectEventHandler =
+    SideEffectEventHandler (fun _ st -> ()) with get, set
 
   /// Statement evaluation event handler.
-  member val StmtEvalEventHandler: LowUIR.Stmt -> unit =
-    fun _ -> () with get, set
+  member val StmtEvalEventHandler: StmtEvalEventHandler =
+    StmtEvalEventHandler (fun _ -> ()) with get, set
 
-  member __.OnInstr st = __.PerInstrHandler st
+  member __.OnInstr st =
+    __.PerInstrHandler.Invoke st
 
-  member __.OnLoad pc addr v = __.LoadEventHandler pc addr v
+  member __.OnLoad pc addr v =
+    __.LoadEventHandler.Invoke (pc, addr, v)
 
-  member __.OnStore pc addr v = __.StoreEventHandler pc addr v
+  member __.OnLoadFailure pc addr rt e =
+    __.LoadFailureEventHandler.Invoke (pc, addr, rt, e)
 
-  member __.OnPut pc v = __.PutEventHandler pc v
+  member __.OnStore pc addr v =
+    __.StoreEventHandler.Invoke (pc, addr, v)
 
-  member __.OnSideEffect eff st = __.SideEffectEventHandler eff st
+  member __.OnPut pc v =
+    __.PutEventHandler.Invoke (pc, v)
 
-  member __.OnStmtEval stmt = __.StmtEvalEventHandler stmt
+  member __.OnSideEffect eff st =
+    __.SideEffectEventHandler.Invoke (eff, st)
+
+  member __.OnStmtEval stmt =
+    __.StmtEvalEventHandler.Invoke (stmt)
 
 /// The main evaluation state that will be updated by evaluating every statement
 /// encountered during the course of execution.
-and EvalState (?reader, ?ignoreundef) =
-  /// Memory reader.
-  let reader = defaultArg reader (fun _ _ -> Error ErrorCase.InvalidMemoryRead)
+and EvalState (?memory, ?ignoreundef) =
+  let m = Option.defaultWith (fun () -> NonsharableMemory () :> Memory) memory
 
   /// The current thread ID. We use thread IDs starting from zero. We assign new
   /// thread IDs by incrementing it by one at a time. The first thread is 0, the
@@ -106,7 +118,7 @@ and EvalState (?reader, ?ignoreundef) =
   member val Contexts: Context [] = [||] with get, set
 
   /// Memory.
-  member val Memory = Memory (reader) with get
+  member val Memory = m with get
 
   /// Callback functions.
   member val Callbacks = EvalCallBacks () with get
