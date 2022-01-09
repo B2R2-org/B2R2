@@ -53,3 +53,28 @@ let load (binPath: string) (bytes: byte []) isa baseAddr =
   | FileFormat.MachBinary ->
     MachFileInfo (bytes, binPath, isa, baseAddr) :> FileInfo
   | _ -> RawFileInfo (bytes, binPath, isa, baseAddr) :> FileInfo
+
+/// Load a given byte array (binary file) and return a `ELFFileInfo`.
+[<CompiledName ("LoadELF")>]
+let loadELF (binPath: string) (bytes: byte []) isa baseAddr =
+  let fmt, isa = FormatDetector.identify bytes isa
+  let regbay = loadRegBay isa
+  match fmt with
+  | FileFormat.ELFBinary -> ELFFileInfo (bytes, binPath, baseAddr, Some regbay)
+  | _ -> raise InvalidFileTypeException
+
+/// Load a given byte array (binary file) and return a `PEFileInfo`.
+[<CompiledName ("LoadPE")>]
+let loadPE (binPath: string) (bytes: byte []) isa baseAddr =
+  let fmt, isa = FormatDetector.identify bytes isa
+  match fmt with
+  | FileFormat.PEBinary -> PEFileInfo (bytes, binPath, baseAddr=baseAddr)
+  | _ -> raise InvalidFileTypeException
+
+/// Load a given byte array (binary file) and return a `MachFileInfo`.
+[<CompiledName ("LoadMach")>]
+let loadMach (binPath: string) (bytes: byte []) isa baseAddr =
+  let fmt, isa = FormatDetector.identify bytes isa
+  match fmt with
+  | FileFormat.MachBinary -> MachFileInfo (bytes, binPath, isa, baseAddr)
+  | _ -> raise InvalidFileTypeException
