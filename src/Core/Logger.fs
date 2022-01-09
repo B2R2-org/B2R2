@@ -59,11 +59,15 @@ module LogLevel =
 /// Basic logging facility.
 type ILogger =
   /// Write a log message (without newline). If the given verbosity level (lvl)
-  /// is lower than it of the logger's, this will not print out any message.
+  /// is lower than it of the logger's, this will print out the given message.
+  /// If the logger's verbosity level is L4, then this function will always
+  /// print out messages regardless of the given `lvl`.
   abstract Log: string * ?lvl:LogLevel -> unit
 
-  /// Write a log message with a new line. If the given verbosity level (lvl) is
-  /// lower than it of the logger's, this will not print out any message.
+  /// Write a log message with a newline. If the given verbosity level (lvl) is
+  /// lower than it of the logger's, this will print out the given message. If
+  /// the logger's verbosity level is L4, then this function will always print
+  /// out messages regardless of the given `lvl`.
   abstract LogLine: string * ?lvl:LogLevel -> unit
 
 /// Log to a file.
@@ -77,8 +81,8 @@ type FileLogger(filepath, ?level: LogLevel) =
   interface ILogger with
     member __.Log (str, ?lvl) =
       let lvl = defaultArg lvl LogLevel.L2
-      if lvl >= llev then fs.Write str else ()
+      if lvl <= llev then fs.Write str else ()
 
     member __.LogLine (str, ?lvl) =
       let lvl = defaultArg lvl LogLevel.L2
-      if lvl >= llev then fs.WriteLine str else ()
+      if lvl <= llev then fs.WriteLine str else ()
