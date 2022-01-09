@@ -42,6 +42,10 @@ module Basis =
       ARM32RegisterBay (regexprs) :> RegisterBay
     )
 
+  let initRegBay () =
+    let regexprs = RegExprs ()
+    ARM32RegisterBay (regexprs) :> RegisterBay
+
   let detectThumb entryPoint (isa: ISA) =
     match entryPoint, isa.Arch with
     | Some entry, Arch.ARMv7 when entry % 2UL <> 0UL -> (* XXX: LIbraries? *)

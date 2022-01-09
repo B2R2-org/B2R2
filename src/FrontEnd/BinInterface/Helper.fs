@@ -47,14 +47,14 @@ let initBasis isa =
 
 let private appendOSInfo fmt isa =
   match fmt with
-  | FileFormat.ELFBinary -> fmt, isa, OS.Linux
-  | FileFormat.PEBinary -> fmt, isa, OS.Windows
-  | FileFormat.MachBinary -> fmt, isa, OS.MacOSX
+  | FileFormat.ELFBinary -> struct (fmt, isa, OS.Linux)
+  | FileFormat.PEBinary -> struct (fmt, isa, OS.Windows)
+  | FileFormat.MachBinary -> struct (fmt, isa, OS.MacOSX)
   | _ -> Utils.impossible ()
 
 let identifyFormatAndISAAndOS bytes isa os autoDetect =
   if autoDetect then FormatDetector.identify bytes isa ||> appendOSInfo
-  else FileFormat.RawBinary, isa, Option.defaultValue OS.UnknownOS os
+  else struct (FileFormat.RawBinary, isa, Option.defaultValue OS.UnknownOS os)
 
 let newFileInfo bytes (baddr: Addr option) path fmt isa regbay =
   match fmt with

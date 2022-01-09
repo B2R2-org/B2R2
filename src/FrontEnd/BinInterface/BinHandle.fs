@@ -41,7 +41,7 @@ type BinHandle = {
 }
 with
   static member private Init (isa, mode, autoDetect, baseAddr, bs, path, os) =
-    let fmt, isa, os = identifyFormatAndISAAndOS bs isa os autoDetect
+    let struct (fmt, isa, os) = identifyFormatAndISAAndOS bs isa os autoDetect
     let struct (ctxt, regbay) = initBasis isa
     let fi = newFileInfo bs baseAddr path fmt isa regbay
     assert (isa = fi.ISA)

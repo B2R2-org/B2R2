@@ -52,4 +52,8 @@ module Basis =
       MIPSRegisterBay (isa.WordSize, regexprs) :> RegisterBay
     )
 
+  let initRegBay isa =
+    let regexprs = RegExprs (isa.WordSize)
+    MIPSRegisterBay (isa.WordSize, regexprs) :> RegisterBay
+
 // vim: set tw=80 sts=2 sw=2:

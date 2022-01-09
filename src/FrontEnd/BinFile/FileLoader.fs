@@ -1,4 +1,4 @@
-(*
+﻿(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -22,38 +22,34 @@
   SOFTWARE.
 *)
 
-namespace B2R2.FrontEnd.BinLifter.ARM64
+/// FileLoader provides an interface for loading a binary.
+[<RequireQualifiedAccess>]
+module B2R2.FrontEnd.BinFile.FileLoader
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Translation context for 64-bit ARM instructions.
-type ARM64TranslationContext internal (isa, regexprs) =
-  inherit TranslationContext (isa)
-  /// Register expressions.
-  member val private RegExprs: RegExprs = regexprs
-  override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
-  override __.GetPseudoRegVar _id _pos = failwith "Implement"
+let private loadRegBay isa =
+  match isa.Arch with
+  | Arch.IntelX64
+  | Arch.IntelX86 -> Intel.Basis.initRegBay isa.WordSize
+  | Arch.ARMv7 -> ARM32.Basis.initRegBay ()
+  | Arch.AARCH64 -> ARM64.Basis.initRegBay ()
+  | Arch.MIPS1 | Arch.MIPS2 | Arch.MIPS3 | Arch.MIPS4 | Arch.MIPS5
+  | Arch.MIPS32 | Arch.MIPS32R2 | Arch.MIPS32R6
+  | Arch.MIPS64 | Arch.MIPS64R2 | Arch.MIPS64R6 -> MIPS.Basis.initRegBay isa
+  | _ -> Utils.futureFeature ()
 
-/// Parser for 64-bit ARM instructions. Parser will return a platform-agnostic
-/// instruction type (Instruction).
-type ARM64Parser () =
-  inherit Parser ()
-  override __.Parse binReader addr pos =
-    Parser.parse binReader addr pos :> Instruction
-
-  override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
-
-module Basis =
-  let init isa =
-    let regexprs = RegExprs ()
-    struct (
-      ARM64TranslationContext (isa, regexprs) :> TranslationContext,
-      ARM64RegisterBay (regexprs) :> RegisterBay
-    )
-
-  let initRegBay () =
-    let regexprs = RegExprs ()
-    ARM64RegisterBay (regexprs) :> RegisterBay
-
-// vim: set tw=80 sts=2 sw=2:
+/// Load a given byte array (binary file) and return a `FileInfo`.
+[<CompiledName ("Load")>]
+let load (binPath: string) (bytes: byte []) isa baseAddr =
+  let fmt, isa = FormatDetector.identify bytes isa
+  let regbay = loadRegBay isa
+  match fmt with
+  | FileFormat.ELFBinary ->
+    ELFFileInfo (bytes, binPath, baseAddr, Some regbay) :> FileInfo
+  | FileFormat.PEBinary ->
+    PEFileInfo (bytes, binPath, baseAddr) :> FileInfo
+  | FileFormat.MachBinary ->
+    MachFileInfo (bytes, binPath, isa, baseAddr) :> FileInfo
+  | _ -> RawFileInfo (bytes, binPath, isa, baseAddr) :> FileInfo
