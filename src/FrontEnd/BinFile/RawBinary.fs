@@ -98,6 +98,7 @@ type RawFileInfo (bytes: byte [], path, isa, baseAddr) =
   override __.GetSegments (_isLoadable) =
     Seq.singleton { Address = baseAddr
                     Size = usize
+                    SizeInFile = usize
                     Permission = Permission.Readable ||| Permission.Executable }
 
   override __.GetLinkageTableEntries () = Seq.empty

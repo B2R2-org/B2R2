@@ -249,6 +249,7 @@ let getSegments pe =
   let secToSegment (sec: SectionHeader) =
     { Address = uint64 sec.VirtualAddress + pe.BaseAddr
       Size = getVirtualSectionSize sec |> uint64
+      SizeInFile = uint64 sec.SizeOfRawData
       Permission = getSecPermission sec.SectionCharacteristics }
   pe.SectionHeaders
   |> Seq.map secToSegment

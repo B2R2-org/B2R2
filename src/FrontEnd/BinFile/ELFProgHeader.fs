@@ -75,4 +75,5 @@ let getLoadableSecNums secs segs =
 let toSegment phdr =
   { Address = phdr.PHAddr
     Size = phdr.PHMemSize
+    SizeInFile = phdr.PHFileSize
     Permission = phdr.PHFlags }

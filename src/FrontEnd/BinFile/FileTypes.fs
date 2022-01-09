@@ -153,6 +153,9 @@ type Segment = {
   Address: Addr
   /// Size of the segment.
   Size: uint64
+  /// Size of the corresponding segment in file. This can be smaller than
+  /// `Size` in which case the missing part is filled with zeros.
+  SizeInFile: uint64
   /// Permission of the segment.
   Permission: Permission
 }
