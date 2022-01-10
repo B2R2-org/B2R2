@@ -48,7 +48,6 @@ let peekEndianness (reader: BinReader) offset =
   | 0x2uy -> Endian.Big
   | _ -> raise InvalidEndianException
 
-
 let peekELFFileType (reader: BinReader) offset: ELFFileType =
   offset + 16 |> reader.PeekUInt16 |> LanguagePrimitives.EnumOfValue
 

@@ -31,8 +31,11 @@ open B2R2
 let private identifyELF reader =
   if ELF.Header.isELF reader 0 then
     let cls = ELF.Header.peekClass reader 0
-    let arch = ELF.Header.peekArch reader cls 0
     let endian = ELF.Header.peekEndianness reader 0
+    let reader =
+      if endian = Endian.Little then reader
+      else BinReader.RenewReader reader Endian.Big
+    let arch = ELF.Header.peekArch reader cls 0
     let isa = ISA.Init arch endian
     Some (FileFormat.ELFBinary, isa)
   else None
