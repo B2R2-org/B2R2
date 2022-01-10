@@ -321,6 +321,49 @@ let aarchPLT _reader sec =
   let startAddr = sec.SecAddr + 32UL
   newPLT startAddr DontCare LazyBinding false 16 0UL 4UL aarch64Getter
 
+let readMicroMIPSOpcode (reader: BinReader) offset =
+  let v1 = reader.PeekUInt16 offset |> uint32
+  let v2 = reader.PeekUInt16 (offset + 2) |> uint32
+  int (v1 <<< 16 ||| v2)
+
+let computeMIPSPLTHeaderSize (reader: BinReader) sec =
+  let offset = int sec.SecOffset + 12
+  let opcode = readMicroMIPSOpcode reader offset
+  if opcode = 0x3302fffe then Some 24UL
+  else Some 32UL
+
+let mipsGetter addr _idx _typ (reader: BinReader) sec _gotBase =
+  let offset = int (addr - sec.SecAddr + sec.SecOffset)
+  let opcode = readMicroMIPSOpcode reader (offset + 4)
+  match opcode with
+  | 0x651aeb00 -> (* MIPS16 *)
+    let entryAddr = reader.PeekUInt32 (offset + 12) |> uint64
+    Ok { EntryRelocAddr = entryAddr; NextEntryAddr = addr + 16UL }
+  | 0xff220000 -> (* microMIPS no 32 *)
+    let hi = uint32 (reader.PeekUInt16 (offset)) &&& 0x7fu
+    let lo = reader.PeekUInt16 (offset + 2) |> uint32
+    let entryAddr = ((hi ^^^ 0x40u - 0x40u) <<< 18) + (lo <<< 2)
+    Ok { EntryRelocAddr = uint64 entryAddr; NextEntryAddr = addr + 12UL }
+  | opcode when opcode &&& 0xffff0000 = 0xff2f0000 -> (* microMIPS 32 *)
+    let hi = reader.PeekUInt16 (offset + 2) |> uint32
+    let lo = reader.PeekUInt16 (offset + 6) |> uint32
+    let entryAddr =
+      (((hi ^^^ 0x8000u) - 0x8000u) <<< 16) + ((lo ^^^ 0x8000u) - 0x8000u)
+    Ok { EntryRelocAddr = uint64 entryAddr; NextEntryAddr = addr + 16UL }
+  | _ -> (* Regular cases. *)
+    let hi = reader.PeekUInt16 (offset) |> uint64
+    let lo = reader.PeekUInt16 (offset + 4) |> uint64
+    let entryAddr = hi <<< 16 ||| lo
+    let entrySize = 16
+    Ok { EntryRelocAddr = uint64 entryAddr; NextEntryAddr = addr + 16UL }
+
+let mipsPLT reader sec =
+  match computeMIPSPLTHeaderSize reader sec with
+  | Some headerSize ->
+    let startAddr = sec.SecAddr + headerSize
+    newPLT startAddr DontCare LazyBinding false 16 0UL 4UL mipsGetter
+  | None -> UnknownPLT
+
 let findPLTType arch reader sec =
   match arch with
   | Arch.IntelX86 ->
@@ -339,6 +382,17 @@ let findPLTType arch reader sec =
   | Arch.ARMv7
   | Arch.AARCH32 -> armv7PLT reader sec
   | Arch.AARCH64 -> aarchPLT reader sec
+  | Arch.MIPS1
+  | Arch.MIPS2
+  | Arch.MIPS3
+  | Arch.MIPS32
+  | Arch.MIPS32R2
+  | Arch.MIPS32R6
+  | Arch.MIPS4
+  | Arch.MIPS5
+  | Arch.MIPS64
+  | Arch.MIPS64R2
+  | Arch.MIPS64R6 -> mipsPLT reader sec
   | _ -> Utils.futureFeature ()
 
 let private parsePLT gotBase typ reloc (reader: BinReader) (s: ELFSection) map =

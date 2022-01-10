@@ -650,6 +650,79 @@ type RelocationMIPS =
   | RelocMIPSCall16 = 11UL
   /// MIPS: GP-relative 32 bit.
   | RelocMIPSGPREL32 = 12UL
+  /// MIPS: 5-bit shift field.
+  | RelocMIPSShift5 = 16UL
+  /// MIPS: 6-bit shift field.
+  | RelocMIPSShift6 = 17UL
+  /// MIPS: direct 64 bit.
+  | RelocMIPS64 = 18UL
+  /// MIPS: displacement in the GOT.
+  | RelocMIPSGOTDisp = 19UL
+  /// MIPS: displacement to page pointer in the GOT.
+  | RelocMIPSGOTPage = 20UL
+  /// MIPS: Offset from page pointer in the GOT.
+  | RelocMIPSGOTOfst = 21UL
+  /// MIPS: HIgh 16 bits of displacement in the GOT.
+  | RelocMIPSHI16 = 22UL
+  /// MIPS: Low 16 bits of displacement in the GOT.
+  | RelocMIPSLO16 = 23UL
+  /// MIPS: 64-bit subtraction.
+  | RelocMIPSSub = 24UL
+  /// MIPS: Insert the addend as an instruction.
+  | RelocMIPSInsertA = 25UL
+  /// MIPS: Insert the addend as an instruction, and change all relocations to
+  /// refer to the old instruction at the address.
+  | RelocMIPSInsertB = 26UL
+  /// MIPS: Delete a 32 bit instruction.
+  | RelocMIPSDelete = 27UL
+  /// MIPS: Get the higher value of a 64 bit addend.
+  | RelocMIPSHigher = 28UL
+  /// MIPS: Get the highest value of a 64 bit addend.
+  | RelocMIPSHighest = 29UL
+  /// MIPS: High 16 bits of displacement in GOT.
+  | RelocMIPSCallHI16 = 30UL
+  /// MIPS: Low 16 bits of displacement in GOT.
+  | RelocMIPSCallLO16 = 31UL
+  /// MIPS: Section displacement, used by an associated event location section.
+  | RelocMIPSScnDisp = 32UL
+  /// MIPS: PC-relative 16 bit.
+  | RelocMIPSREL16 = 33UL
+  /// MIPS: Similiar to R_MIPS_REL32, but used for relocations in a GOT section.
+  | RelocMIPSRelGOT = 36UL
+  /// MIPS: Protected jump conversion.
+  | RelocMIPSJALR = 37UL
+  /// MIPS: Module number 32 bit.
+  | RelocMIPSTLSDTPMOD32 = 38UL
+  /// MIPS: Module-relative offset 32 bit.
+  | RelocMIPSTLSDTPREL32 = 39UL
+  /// MIPS: Module number 64 bit.
+  | RelocMIPSTLSDTPMOD64 = 40UL
+  /// MIPS: Module-relative offset 64 bit.
+  | RelocMIPSTLSDTPREL64 = 41UL
+  /// MIPS: 16 bit GOT offset for GD.
+  | RelocMIPSTLSGD = 42UL
+  /// MIPS: 16 bit GOT offset for LDM.
+  | RelocMIPSTLSLDM = 43UL
+  /// MIPS: Module-relative offset, high 16 bits.
+  | RelocMIPSTLSDTPRELHI16 = 44UL
+  /// MIPS: Module-relative offset, low 16 bits.
+  | RelocMIPSTLSDTPRELLO16 = 45UL
+  /// MIPS: 16 bit GOT offset for IE.
+  | RelocMIPSTLSGOTPRel = 46UL
+  /// MIPS: TP-relative offset, 32 bit.
+  | RelocMIPSTLSTPRel32 = 47UL
+  /// MIPS: TP-relative offset, 64 bit.
+  | RelocMIPSTLSTPRel64 = 48UL
+  /// MIPS: TP-relative offset, high 16 bits.
+  | RelocMIPSTLSTPRelHI16 = 49UL
+  /// MIPS: TP-relative offset, low 16 bits.
+  | RelocMIPSTLSTPRelLO16 = 50UL
+  /// MIPS: 32 bit relocation with no addend.
+  | RelocMIPSGlobDat = 51UL
+  /// MIPS: Copy symbol at runtime.
+  | RelocMIPSCopy = 126UL
+  /// MIPS: Jump slot.
+  | RelocMIPSJumpSlot = 127UL
 
 /// Relocation type.
 type RelocationType =
