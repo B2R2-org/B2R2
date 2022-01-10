@@ -179,7 +179,7 @@ with
     | "tms320c6000" -> ISA.Init Arch.TMS320C6000 Endian.Little
     | "cil" -> ISA.Init Arch.CILOnly Endian.Little
     | "avr" | "avr8" -> ISA.Init Arch.AVR Endian.Little
-    | "sh4" | "sh-4" -> ISA.Init Arch.SH4 Endian.Little
+    | "sh4" | "sh-4" -> ISA.Init Arch.SH4 Endian.Big
     | _ -> raise InvalidISAException
 
   static member ArchToString arch =

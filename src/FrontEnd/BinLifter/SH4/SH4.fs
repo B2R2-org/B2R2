@@ -40,7 +40,7 @@ type SH4TranslationContext internal (isa, regexprs) =
 type SH4Parser () =
   inherit Parser ()
   override __.Parse binReader addr pos =
-    Utils.futureFeature () // FIXME
+    Parser.parse binReader addr pos :> Instruction // FIXME
 
   override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 
