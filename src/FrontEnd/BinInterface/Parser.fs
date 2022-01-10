@@ -46,4 +46,5 @@ let init (isa: ISA) mode (entryPoint: Addr option) =
   | Arch.CILOnly -> CIL.CILParser () :> Parser
   | Arch.AVR -> AVR.AVRParser () :> Parser
   | Arch.SH4 -> SH4.SH4Parser () :> Parser
+  | Arch.PPC32 -> PPC32.PPC32Parser () :> Parser
   | _ -> Utils.futureFeature ()

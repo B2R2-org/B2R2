@@ -45,4 +45,5 @@ let init isa =
   | Arch.CILOnly -> CIL.Basis.init isa
   | Arch.AVR -> AVR.Basis.init isa
   | Arch.SH4 -> SH4.Basis.init isa
+  | Arch.PPC32 -> PPC32.Basis.init isa
   | _ -> Utils.futureFeature ()

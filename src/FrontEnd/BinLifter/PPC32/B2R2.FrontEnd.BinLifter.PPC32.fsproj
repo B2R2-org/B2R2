@@ -19,6 +19,7 @@
     <Compile Include="PPC32.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />
+    <None Include="README.md" Pack="true" PackagePath="" />
   </ItemGroup>
 
   <ItemGroup>
