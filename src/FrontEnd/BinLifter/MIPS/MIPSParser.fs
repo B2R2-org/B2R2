@@ -25,7 +25,6 @@
 module B2R2.FrontEnd.BinLifter.MIPS.Parser
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.MIPS.Helper
 open B2R2.FrontEnd.BinLifter.MIPS.Utils
 
