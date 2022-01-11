@@ -38,16 +38,16 @@ module private LEB128Helper =
     elif b &&& 0x80uy = 0uy then List.rev acc, offset'
     else decodeLoop acc bs offset' bs[offset'] len
 
-  let inline decode (bytes: ReadOnlySpan<byte>) cast maxLen =
+  let inline decode (bs: ReadOnlySpan<byte>) ([<InlineIfLambda>] cast) maxLen =
     let rec convLoop v offset = function
       | [] -> v
       | b :: rest ->
         let v' = v ||| (cast (b &&& 0x7fuy) <<< (offset * 7))
         convLoop v' (offset + 1) rest
-    if bytes.Length = 0 then invalidArg (nameof bytes) "Invalid buffer length"
+    if bs.Length = 0 then invalidArg (nameof bs) "Invalid buffer length"
     else
-      let len = if bytes.Length > maxLen then maxLen else bytes.Length
-      let bs, offset = decodeLoop [] bytes 0 bytes[0] len
+      let len = if bs.Length > maxLen then maxLen else bs.Length
+      let bs, offset = decodeLoop [] bs 0 bs[0] len
       convLoop (cast 0uy) 0 bs, offset
 
   let inline extendSign b offset currentValue bitmask maxLen =
