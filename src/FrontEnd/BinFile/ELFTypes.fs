@@ -723,6 +723,8 @@ type RelocationMIPS =
   | RelocMIPSCopy = 126UL
   /// MIPS: Jump slot.
   | RelocMIPSJumpSlot = 127UL
+  /// MIPS: 32-bit PC-relative.
+  | RelocMIPSPC32 = 248UL
 
 /// Relocation type.
 type RelocationType =

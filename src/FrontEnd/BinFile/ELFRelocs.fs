@@ -36,10 +36,10 @@ let peekInfoWithArch reader eHdr offset =
        fields. *)
     if eHdr.Endian = Endian.Little then
       (info &&& 0xffffffffUL) <<< 32
-      ||| (info >>> 56) &&& 0xffUL
-      ||| (info >>> 40) &&& 0xff00UL
-      ||| (info >>> 24) &&& 0xff0000UL
-      ||| (info >>> 8) &&& 0xff000000UL
+      ||| ((info >>> 56) &&& 0xffUL)
+      ||| ((info >>> 40) &&& 0xff00UL)
+      ||| ((info >>> 24) &&& 0xff0000UL)
+      ||| ((info >>> 8) &&& 0xff000000UL)
     else info
   | _ -> info
 
