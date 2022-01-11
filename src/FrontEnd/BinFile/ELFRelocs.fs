@@ -29,9 +29,21 @@ open B2R2
 open B2R2.FrontEnd.BinFile.FileHelper
 
 let peekInfoWithArch reader eHdr offset =
-  peekHeaderNative reader eHdr.Class offset 4 8
+  let info = peekHeaderNative reader eHdr.Class offset 4 8
+  match eHdr.MachineType with
+  | Arch.MIPS64 | Arch.MIPS64R2 | Arch.MIPS64R6 ->
+    (* MIPS64el has a a 32-bit LE symbol index followed by four individual byte
+       fields. *)
+    if eHdr.Endian = Endian.Little then
+      (info &&& 0xffffffffUL) <<< 32
+      ||| (info >>> 56) &&& 0xffUL
+      ||| (info >>> 40) &&& 0xff00UL
+      ||| (info >>> 24) &&& 0xff0000UL
+      ||| (info >>> 8) &&& 0xff000000UL
+    else info
+  | _ -> info
 
-let inline getRelocSIdx eHdr i =
+let inline getRelocSIdx eHdr (i: uint64) =
   if eHdr.Class = WordSize.Bit32 then i >>> 8 else i >>> 32
 
 let inline relocEntry baseAddr hasAdd eHdr typMask symTbl reader pos sec =
