@@ -287,12 +287,28 @@ let peekElementSecContents (reader: BinReader) offset =
 let parseElementSec (reader: BinReader) offset =
   parseSection reader offset peekElementSecContents
 
+let rec parseLocalDecls (reader: BinReader) locals len pos =
+  if len = 0 then locals
+  else
+    let localDeclCnt, rawLen = reader.PeekUInt32LEB128 pos
+    let localDeclType = reader.PeekByte (pos + rawLen)
+    let local = {
+      LocalDeclCount = localDeclCnt;
+      LocalDeclType = localDeclType;
+      LocalDeclLen = rawLen + 1 }
+    let locals = locals @ [local]
+    parseLocalDecls reader locals (len - 1) (pos + rawLen + 1)
+
 let peekCodeEntry (reader: BinReader) offset =
   let codeSize, len = reader.PeekUInt32LEB128 offset
+  let pos = offset + len
+  let localsCnt, rawLen = reader.PeekUInt32LEB128 pos
+  let locals = parseLocalDecls reader [] (int localsCnt) (pos + rawLen)
   {
     Offset = offset
     LenFieldSize = len
     CodeSize = codeSize
+    Locals = locals
   }, offset + len + int codeSize
 
 let peekCodeSecContents (reader: BinReader) offset =

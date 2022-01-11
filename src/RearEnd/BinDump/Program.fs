@@ -118,11 +118,21 @@ let private isRawBinary hdl =
   match hdl.FileInfo.FileFormat with
   | FileFormat.ELFBinary
   | FileFormat.MachBinary
-  | FileFormat.PEBinary -> false
+  | FileFormat.PEBinary
+  | FileFormat.WasmBinary -> false
   | _ -> true
 
 let private printCodeOrTable (printer: BinPrinter) sec =
   printer.Print (BinaryPointer.OfSection sec)
+  out.PrintLine ()
+
+let private printWasmCode (printer: BinPrinter) (code: Wasm.Code) =
+  let locals = code.Locals
+  let localsSize = List.sumBy (fun (l: Wasm.LocalDecl) -> l.LocalDeclLen) locals
+  let offset = code.Offset + code.LenFieldSize + localsSize + 1
+  let maxOffset = code.Offset + code.LenFieldSize + int32 code.CodeSize
+  let bp = BinaryPointer (uint64 offset, offset, maxOffset)
+  printer.Print bp
   out.PrintLine ()
 
 let initHandleForTableOutput hdl =
@@ -143,7 +153,15 @@ let private dumpSections hdl (opts: BinDumpOpts) (sections: seq<Section>) cfg =
       match s.Kind with
       | SectionKind.ExecutableSection ->
         hdl.Parser.OperationMode <- mymode
-        printCodeOrTable codeprn s
+        match hdl.FileInfo with
+        | :? WasmFileInfo as fi ->
+          match fi.WASM.CodeSection with
+          | Some sec ->
+            match sec.Contents with
+            | Some conts -> Seq.iter (printWasmCode codeprn) conts.Elements
+            | None -> printCodeOrTable codeprn s
+          | None -> printCodeOrTable codeprn s
+        | _ -> printCodeOrTable codeprn s
       | SectionKind.LinkageTableSection ->
         initHandleForTableOutput hdl
         printCodeOrTable tableprn s

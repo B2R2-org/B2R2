@@ -42,6 +42,7 @@ let initBasis isa =
   | Arch.TMS320C6000 -> TMS320C6000.Basis.init isa
   | Arch.CILOnly -> CIL.Basis.init isa
   | Arch.AVR -> AVR.Basis.init isa
+  | Arch.WASM -> WASM.Basis.init isa
   | _ -> Utils.futureFeature ()
 
 let private appendOSInfo fmt isa =
@@ -49,6 +50,7 @@ let private appendOSInfo fmt isa =
   | FileFormat.ELFBinary -> fmt, isa, OS.Linux
   | FileFormat.PEBinary -> fmt, isa, OS.Windows
   | FileFormat.MachBinary -> fmt, isa, OS.MacOSX
+  | FileFormat.WasmBinary -> fmt, isa, OS.UnknownOS
   | _ -> Utils.impossible ()
 
 let identifyFormatAndISAAndOS bytes isa os autoDetect =
@@ -63,6 +65,8 @@ let newFileInfo bytes (baddr: Addr option) path fmt isa regbay =
     PEFileInfo (bytes, path, baddr) :> FileInfo
   | FileFormat.MachBinary ->
     MachFileInfo (bytes, path, isa, baddr) :> FileInfo
+  | FileFormat.WasmBinary ->
+    WasmFileInfo (bytes, path, baddr) :> FileInfo
   | _ -> RawFileInfo (bytes, path, isa, baddr) :> FileInfo
 
 let initParser (isa: ISA) mode (fi: FileInfo) =
@@ -79,6 +83,7 @@ let initParser (isa: ISA) mode (fi: FileInfo) =
   | Arch.TMS320C6000 -> TMS320C6000.TMS320C6000Parser () :> Parser
   | Arch.CILOnly -> CIL.CILParser () :> Parser
   | Arch.AVR -> AVR.AVRParser () :> Parser
+  | Arch.WASM -> WASM.WASMParser (isa.WordSize) :> Parser
   | _ -> Utils.futureFeature ()
 
 /// Classify ranges to be either in-file or not-in-file. The second parameter

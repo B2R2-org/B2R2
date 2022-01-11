@@ -78,6 +78,8 @@ type Architecture =
   | CILIntel64 = 22
   /// Atmel AVR 8-bit microcontroller.
   | AVR = 23
+  /// WASM
+  | WASM = 24
   /// Unknown ISA.
   | UnknownISA = 30
 
@@ -150,6 +152,8 @@ with
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit64 }
     | Arch.AVR ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit8 }
+    | Arch.WASM ->
+      { Arch = arch; Endian = endian; WordSize = WordSize.Bit32 }
     | _ -> raise InvalidISAException
 
   static member OfString (s: string) =
@@ -175,6 +179,7 @@ with
     | "tms320c6000" -> ISA.Init Arch.TMS320C6000 Endian.Little
     | "cil" -> ISA.Init Arch.CILOnly Endian.Little
     | "avr" | "avr8" -> ISA.Init Arch.AVR Endian.Little
+    | "wasm" -> ISA.Init Arch.WASM Endian.Little
     | _ -> raise InvalidISAException
 
   static member ArchToString arch =
@@ -192,5 +197,6 @@ with
     | Arch.TMS320C6000 -> "TMS320C6000"
     | Arch.CILOnly -> "CIL"
     | Arch.AVR -> "AVR"
+    | Arch.WASM -> "WASM"
     | Arch.UnknownISA -> "Unknown"
     | _ -> "Not supported ISA"

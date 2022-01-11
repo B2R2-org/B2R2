@@ -39,6 +39,7 @@ type RegisterSetTag =
   | TMS320C6000 = 6
   | CIL = 7
   | AVR = 8
+  | WASM = 9
 
 /// RegisterSet is an efficient set data structure using arrays for managing a
 /// set of registers.
