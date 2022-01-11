@@ -34,6 +34,7 @@ let private appendOSInfo fmt isa =
   | FileFormat.ELFBinary -> struct (fmt, isa, OS.Linux)
   | FileFormat.PEBinary -> struct (fmt, isa, OS.Windows)
   | FileFormat.MachBinary -> struct (fmt, isa, OS.MacOSX)
+  | FileFormat.WasmBinary -> struct (fmt, isa, OS.UnknownOS)
   | _ -> Utils.impossible ()
 
 let identifyFormatAndISAAndOS bytes isa os autoDetect =
@@ -48,6 +49,8 @@ let newFileInfo bytes (baddr: Addr option) path fmt isa regbay =
     PEFileInfo (bytes, path, baddr) :> FileInfo
   | FileFormat.MachBinary ->
     MachFileInfo (bytes, path, isa, baddr) :> FileInfo
+  | FileFormat.WasmBinary ->
+    WasmFileInfo (bytes, path, baddr) :> FileInfo
   | _ -> RawFileInfo (bytes, path, isa, baddr) :> FileInfo
 
 /// Classify ranges to be either in-file or not-in-file. The second parameter

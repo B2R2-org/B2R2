@@ -286,6 +286,7 @@ let buildFuncIndexMap (wm: WasmModule) =
       Index = idx
       Kind = IndexKind.Function
       ElemOffset = elemOff }
+
   let importedFuncs, impSecOff =
     match wm.ImportSection with
     | Some sec ->

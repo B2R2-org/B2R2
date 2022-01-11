@@ -90,6 +90,7 @@ let getInstructionAlignment hdl =
   | Arch.AVR -> 2
   | Arch.SH4 -> 2
   | Arch.PPC32 -> 4
+  | Arch.WASM -> 1
   | _ -> Utils.futureFeature ()
 
 let convertToHexStr bytes =

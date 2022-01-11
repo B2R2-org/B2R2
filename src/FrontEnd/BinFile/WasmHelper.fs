@@ -28,8 +28,7 @@ open B2R2
 open B2R2.FrontEnd.BinFile
 
 let defaultISA =
-  //FIXME
-  { Arch = Architecture.UnknownISA
+  { Arch = Architecture.WASM
     Endian = Endian.Little;
     WordSize = WordSize.Bit32 }
 
@@ -120,7 +119,6 @@ let sectionIdToKind id =
   | SectionId.Table
   | SectionId.Memory
   | SectionId.Global -> SectionKind.WritableSection
-  | SectionId.Element
   | SectionId.Code -> SectionKind.ExecutableSection
   | _ -> SectionKind.ExtraSection
 

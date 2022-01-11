@@ -36,5 +36,6 @@
     <ProjectReference Include="..\BinLifter\CIL\B2R2.FrontEnd.BinLifter.CIL.fsproj" />
     <ProjectReference Include="..\BinLifter\SH4\B2R2.FrontEnd.BinLifter.SH4.fsproj" />
     <ProjectReference Include="..\BinLifter\Optimizer\B2R2.FrontEnd.BinLifter.Optimizer.fsproj" />
+    <ProjectReference Include="..\BinLifter\WASM\B2R2.FrontEnd.BinLifter.WASM.fsproj" />
   </ItemGroup>
 </Project>
