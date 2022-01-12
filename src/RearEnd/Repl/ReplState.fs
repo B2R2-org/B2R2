@@ -42,17 +42,18 @@ type ReplState (isa: ISA, regbay: RegisterBay, doFiltering) =
     |> List.map (fun r ->
       (regbay.RegIDFromRegExpr r, BitVector.ofInt32 0 (TypeCheck.typeOf r)))
     |> List.map (fun (x, y) -> (x, y))
-    |> rstate.PrepareContext 0 0UL
+    |> rstate.InitializeContext 0UL
   let mutable prevReg =
-    (rstate.GetCurrentContext ()).Registers.ToSeq () |> Seq.toArray
+    rstate.Registers.ToSeq () |> Seq.toArray
   let mutable prevTmp =
-    (rstate.GetCurrentContext ()).Temporaries.ToSeq () |> Seq.toArray
+    rstate.Temporaries.ToSeq () |> Seq.toArray
   let generalRegs =
     regbay.GetGeneralRegExprs ()
     |> List.map regbay.RegIDFromRegExpr
     |> Set.ofList
 
   member private __.EvaluateStmts (stmts: Stmt []) =
+    rstate.PrepareInstrEval stmts
     stmts |> Array.iter (fun stmt -> Evaluator.evalStmt rstate stmt)
 
   member private __.ComputeDelta prev curr =
@@ -64,9 +65,8 @@ type ReplState (isa: ISA, regbay: RegisterBay, doFiltering) =
   member __.Update stmts =
     try __.EvaluateStmts stmts
     with exc -> printfn "%s" exc.Message
-    let currContext = rstate.GetCurrentContext ()
-    let currReg = currContext.Registers.ToSeq () |> Seq.toArray
-    let currTmp = currContext.Temporaries.ToSeq () |> Seq.toArray
+    let currReg = rstate.Registers.ToSeq () |> Seq.toArray
+    let currTmp = rstate.Temporaries.ToSeq () |> Seq.toArray
     let regdelta = __.ComputeDelta prevReg currReg
     prevReg <- currReg
     prevTmp <- currTmp

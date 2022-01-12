@@ -54,17 +54,17 @@ let private obtainFramePointerDef hdl =
 
 let private initState hdl pc =
   let st = EvalState (ignoreundef=true)
-  st.Callbacks.LoadFailureEventHandler <- memoryReader hdl
+  st.LoadFailureEventHandler <- memoryReader hdl
   [ obtainStackDef hdl; obtainFramePointerDef hdl ]
   |> List.choose id
-  |> st.PrepareContext 0 pc
+  |> st.InitializeContext pc
   st
 
 let evalBlock hdl (blk: Vertex<IRBasicBlock>) =
   let pc = blk.VData.PPoint.Address
   let st = initState hdl pc
-  st.Callbacks.SideEffectEventHandler <- fun _ st -> st.AbortInstr ()
-  match blk.VData.IRStatements |> SafeEvaluator.evalBlock st pc 0 with
+  st.SideEffectEventHandler <- fun _ st -> st.AbortInstr ()
+  match blk.VData.IRStatements |> SafeEvaluator.evalBlock st pc with
   | Ok st -> st
   | Error _ -> Utils.impossible ()
 
@@ -77,7 +77,7 @@ let evalFunctionUntilStopFn hdl (fn: RegularFunction) stopFn =
       visited.Add pp |> ignore
       let result =
         blk.VData.IRStatements
-        |> SafeEvaluator.evalBlock st pp.Address 0
+        |> SafeEvaluator.evalBlock st pp.Address
       match result with
       | Ok st' ->
         if stopFn blk then Some st'

@@ -1,4 +1,3 @@
-
 (*
   B2R2 - the Next-Generation Reversing Platform
 

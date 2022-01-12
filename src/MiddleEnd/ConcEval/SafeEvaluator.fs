@@ -65,10 +65,10 @@ and private evalLoad st endian t addr =
   | Ok addr ->
     match st.Memory.Read addr endian t with
     | Ok v ->
-      st.Callbacks.OnLoad st.PC addr v
+      st.OnLoad st.PC addr v
       Ok (Def v)
     | Error e ->
-      st.Callbacks.OnLoadFailure st.PC addr t e
+      st.OnLoadFailure st.PC addr t e
       |> Result.map Def
   | Error e -> Error e
 
@@ -158,20 +158,19 @@ let private markUndefAfterFailure (st: EvalState) lhs =
 let private evalPCUpdate st rhs =
   match evalConcrete st rhs with
   | (Ok (Def v)) as res ->
-    st.Callbacks.OnPut st.PC v
-    unwrap res
-    |> Result.map BitVector.toUInt64
-    |> Result.map st.SetPC
+    st.OnPut st.PC v
+    st.PC <- BitVector.toUInt64 v
+    Ok ()
   | _ -> Error ErrorCase.InvalidExprEvaluation
 
 let private evalPut st lhs rhs =
   match evalConcrete st rhs with
   | Ok (Def v) ->
-    st.Callbacks.OnPut st.PC v
+    st.OnPut st.PC v
     match lhs.E with
     | Var (_, n, _, _) -> st.SetReg n v |> Ok
     | TempVar (_, n) -> st.SetTmp n v |> Ok
-    | PCVar (_) -> BitVector.toUInt64 v |> st.SetPC |> Ok
+    | PCVar (_) -> st.PC <- BitVector.toUInt64 v; Ok ()
     | _ -> Error ErrorCase.InvalidExprEvaluation
   | _ ->
     markUndefAfterFailure st lhs.E
@@ -182,7 +181,7 @@ let private evalStore st endian addr v =
   let v = evalConcrete st v |> unwrap
   match addr, v with
   | Ok addr, Ok v ->
-    st.Callbacks.OnStore st.PC addr v
+    st.OnStore st.PC addr v
     st.Memory.Write addr v endian
     Ok ()
   | Error e, _ | _, Error e -> Error e
@@ -203,9 +202,10 @@ let private evalIntCJmp st cond t f =
   | Ok cond -> evalPCUpdate st (if cond = tr then t else f)
   | Error e -> Error e
 
+/// Evaluate an IR statement.
 let evalStmt (st: EvalState) = function
-  | ISMark (_) -> st.StartInstr (); st.NextStmt () |> Ok
-  | IEMark (len) -> st.IncPC len; st.AbortInstr () |> Ok
+  | ISMark (_) -> st.NextStmt () |> Ok
+  | IEMark (len) -> st.AdvancePC len; st.AbortInstr () |> Ok
   | LMark _ -> st.NextStmt () |> Ok
   | Put (lhs, rhs) -> evalPut st lhs rhs |> Result.map st.NextStmt
   | Store (e, addr, v) -> evalStore st e addr v |> Result.map st.NextStmt
@@ -213,7 +213,7 @@ let evalStmt (st: EvalState) = function
   | CJmp (cond, t, f) -> evalCJmp st cond t f
   | InterJmp (target, _) -> evalPCUpdate st target |> Result.map st.AbortInstr
   | InterCJmp (c, t, f) -> evalIntCJmp st c t f |> Result.map st.AbortInstr
-  | SideEffect eff -> st.Callbacks.OnSideEffect eff st |> ignore |> Ok
+  | SideEffect eff -> st.OnSideEffect eff st |> ignore |> Ok
 
 let internal tryEvaluate stmt st =
   match evalStmt st stmt.S with
@@ -227,21 +227,19 @@ let internal tryEvaluate stmt st =
 let rec internal evalStmts stmts result =
   match result with
   | Ok (st: EvalState) ->
-    let ctxt = st.GetCurrentContext ()
-    let idx = ctxt.StmtIdx
-    let st = if idx = 0 then st.Callbacks.OnInstr st else st
-    if not st.IsInstrTerminated && Array.length stmts > idx
-      && not st.InPrematureState then
+    let idx = st.StmtIdx
+    let st = if idx = 0 then st.OnInstr st else st
+    if not st.IsInstrTerminated && Array.length stmts > idx then
       let stmt = stmts[idx]
-      st.Callbacks.OnStmtEval stmt
+      st.OnStmtEval stmt
       evalStmts stmts (tryEvaluate stmt st)
     else Ok st
   | Error _ -> result
 
-let rec evalBlockLoop idx (blk: Stmt [][]) result =
+let rec private evalBlockLoop idx (blk: Stmt [][]) result =
   match result with
   | Ok (st: EvalState) ->
-    if idx < blk.Length && not st.InPrematureState then
+    if idx < blk.Length then
       let stmts = blk[idx]
       st.PrepareInstrEval stmts
       evalStmts stmts (Ok st)
@@ -249,11 +247,10 @@ let rec evalBlockLoop idx (blk: Stmt [][]) result =
     else result
   | Error e -> Error e
 
-/// Evaluate a block of statements. The block may represent a machine
-/// instruction, or a basic block.
-let evalBlock (st: EvalState) pc tid blk =
-  st.SetPC pc
-  if st.ThreadId <> tid then st.ContextSwitch tid else ()
+/// Evaluate a series of statement arrays, assuming that each array is obtained
+/// from a single machine instruction.
+let evalBlock (st: EvalState) pc blk =
+  st.PC <- pc
   evalBlockLoop 0 blk (Ok st)
   |> function
     | Ok st -> st.CleanUp (); Ok st

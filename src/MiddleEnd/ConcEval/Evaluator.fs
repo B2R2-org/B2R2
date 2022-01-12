@@ -52,10 +52,10 @@ and private evalLoad st endian t addr =
   let addr = evalConcrete st addr |> BitVector.toUInt64
   match st.Memory.Read addr endian t with
   | Ok v ->
-    st.Callbacks.OnLoad st.PC addr v
+    st.OnLoad st.PC addr v
     v
   | Error e ->
-    match st.Callbacks.OnLoadFailure st.PC addr t e with
+    match st.OnLoadFailure st.PC addr t e with
     | Ok v -> v
     | Error _ ->  raise InvalidMemException
 
@@ -130,8 +130,8 @@ and private evalRelOp st e1 e2 typ =
 
 let private evalPCUpdate st rhs =
   let v = evalConcrete st rhs
-  st.Callbacks.OnPut st.PC v
-  BitVector.toUInt64 v |> st.SetPC
+  st.OnPut st.PC v
+  st.PC <- BitVector.toUInt64 v
 
 let evalUndef (st: EvalState) lhs =
   match lhs.E with
@@ -142,11 +142,11 @@ let evalUndef (st: EvalState) lhs =
 let private evalPut st lhs rhs =
   try
     let v = evalConcrete st rhs
-    st.Callbacks.OnPut st.PC v
+    st.OnPut st.PC v
     match lhs.E with
     | Var (_, n, _, _) -> st.SetReg n v
     | TempVar (_, n) -> st.SetTmp n v
-    | PCVar (_) -> BitVector.toUInt64 v |> st.SetPC
+    | PCVar (_) -> st.PC <- BitVector.toUInt64 v
     | _ -> raise InvalidExprException
   with
     | UndefExpException
@@ -155,7 +155,7 @@ let private evalPut st lhs rhs =
 let private evalStore st endian addr v =
   let addr = evalConcrete st addr |> BitVector.toUInt64
   let v = evalConcrete st v
-  st.Callbacks.OnStore st.PC addr v
+  st.OnStore st.PC addr v
   st.Memory.Write addr v endian
 
 let private evalJmp (st: EvalState) target =
@@ -174,7 +174,7 @@ let private evalIntCJmp st cond t f =
 let evalStmt (st: EvalState) s =
   match s.S with
   | ISMark (_) -> st.NextStmt ()
-  | IEMark (len) -> st.IncPC len; st.AbortInstr ()
+  | IEMark (len) -> st.AdvancePC len; st.AbortInstr ()
   | LMark _ -> st.NextStmt ()
   | Put (lhs, { E = Undefined (_) }) -> evalUndef st lhs |> st.NextStmt
   | Put (lhs, rhs) -> evalPut st lhs rhs |> st.NextStmt
@@ -183,7 +183,7 @@ let evalStmt (st: EvalState) s =
   | CJmp (cond, t, f) -> evalCJmp st cond t f
   | InterJmp (target, _) -> evalPCUpdate st target |> st.AbortInstr
   | InterCJmp (c, t, f) -> evalIntCJmp st c t f |> st.AbortInstr
-  | SideEffect eff -> st.Callbacks.OnSideEffect eff st |> ignore
+  | SideEffect eff -> st.OnSideEffect eff st
 
 let internal tryEvaluate stmt st =
   try evalStmt st stmt with
@@ -192,32 +192,14 @@ let internal tryEvaluate stmt st =
     if st.IgnoreUndef then st.NextStmt ()
     else raise UndefExpException
 
-/// Evaluate a sequence of statements, which is lifted from a single
-/// instruction.
-let rec internal evalStmts stmts (st: EvalState) =
-  let ctxt = st.GetCurrentContext ()
-  let idx = ctxt.StmtIdx
-  let st = if idx = 0 then st.Callbacks.OnInstr st else st
-  if not st.IsInstrTerminated && Array.length stmts > idx
-    && not st.InPrematureState then
+/// Evaluate a sequence of statements, assuming that the statements are lifted
+/// from a single instruction.
+let rec evalStmts stmts (st: EvalState) =
+  let idx = st.StmtIdx
+  let st = if idx = 0 then st.OnInstr st else st
+  if not st.IsInstrTerminated && Array.length stmts > idx then
     let stmt = stmts[idx]
-    st.Callbacks.OnStmtEval stmt
+    st.OnStmtEval stmt
     tryEvaluate stmt st
     evalStmts stmts st
   else ()
-
-let rec evalBlockLoop idx (blk: Stmt [][]) (st: EvalState) =
-  if idx < blk.Length && not st.InPrematureState then
-    let stmts = blk[idx]
-    st.PrepareInstrEval stmts
-    evalStmts stmts st
-    evalBlockLoop (idx + 1) blk st
-  else ()
-
-/// Evaluate a block of statements. The block represents a series of lifted IR
-/// statements from one or more machine instructions.
-let evalBlock (st: EvalState) pc tid blk =
-  st.SetPC pc
-  if st.ThreadId <> tid then st.ContextSwitch tid else ()
-  evalBlockLoop 0 blk st
-  st.CleanUp ()

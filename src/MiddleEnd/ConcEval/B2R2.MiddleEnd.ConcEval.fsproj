@@ -12,7 +12,6 @@
     <Compile Include="Memory.fs" />
     <Compile Include="Variables.fs" />
     <Compile Include="Labels.fs" />
-    <Compile Include="Context.fs" />
     <Compile Include="EvalState.fs" />
     <Compile Include="EvalUtils.fs" />
     <Compile Include="SafeEvaluator.fs" />
