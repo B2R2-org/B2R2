@@ -1770,6 +1770,8 @@ VFPCLASSPS
 VFPCLASSSD
 /// Tests Types Of a Scalar Float32 Values.
 VFPCLASSSS
+/// Gather Packed DP FP Values Using Signed Dword/Qword Indices.
+VGATHERDPD
 /// Gather Packed SP FP values Using Signed Dword/Qword Indices.
 VGATHERDPS
 /// Sparse prefetch of packed DP FP vector with T0 hint using dword indices.
@@ -1790,6 +1792,8 @@ VGATHERPF1QPS
 VGATHERPF1QPD
 /// Gather Packed DP FP Values Using Signed Dword/Qword Indices.
 VGATHERQPD
+/// Gather Packed SP FP values Using Signed Dword/Qword Indices.
+VGATHERQPS
 /// Convert Exponents of Packed DP FP Values to DP FP Values.
 VGETEXPPD
 /// Convert Exponents of Packed SP FP Values to SP FP Values.
@@ -2162,6 +2166,12 @@ VPEXTRD
 VPEXTRW
 /// Gather packed dword values using signed Dword/Qword indices.
 VPGATHERDD
+/// Gather Packed Qword Values Using Signed Dword/Qword Indices.
+VPGATHERDQ
+/// Gather Packed Dword Values Using Signed Dword/Qword Indices.
+VPGATHERQD
+/// Gather Packed Qword Values Using Signed Dword/Qword Indices.
+VPGATHERQQ
 /// Packed Horizontal Add (32-bit).
 VPHADDD
 /// Packed Horizontal Add and Saturate (16-bit).
