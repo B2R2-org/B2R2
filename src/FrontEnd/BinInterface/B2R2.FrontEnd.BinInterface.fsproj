@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <Compile Include="Helper.fs" />
+    <Compile Include="Basis.fs" />
     <Compile Include="Parser.fs" />
     <Compile Include="BinHandle.fsi" />
     <Compile Include="BinHandle.fs" />

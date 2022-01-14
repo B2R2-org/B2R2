@@ -29,22 +29,6 @@ open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 
-let initBasis isa =
-  match isa.Arch with
-  | Arch.IntelX64
-  | Arch.IntelX86 -> Intel.Basis.init isa
-  | Arch.ARMv7 -> ARM32.Basis.init isa
-  | Arch.AARCH64 -> ARM64.Basis.init isa
-  | Arch.MIPS1 | Arch.MIPS2 | Arch.MIPS3 | Arch.MIPS4 | Arch.MIPS5
-  | Arch.MIPS32 | Arch.MIPS32R2 | Arch.MIPS32R6
-  | Arch.MIPS64 | Arch.MIPS64R2 | Arch.MIPS64R6 -> MIPS.Basis.init isa
-  | Arch.EVM -> EVM.Basis.init isa
-  | Arch.TMS320C6000 -> TMS320C6000.Basis.init isa
-  | Arch.CILOnly -> CIL.Basis.init isa
-  | Arch.AVR -> AVR.Basis.init isa
-  | Arch.SH4 -> SH4.Basis.init isa
-  | _ -> Utils.futureFeature ()
-
 let private appendOSInfo fmt isa =
   match fmt with
   | FileFormat.ELFBinary -> struct (fmt, isa, OS.Linux)
