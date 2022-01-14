@@ -45,7 +45,7 @@ with
     let struct (ctxt, regbay) = initBasis isa
     let fi = newFileInfo bs baseAddr path fmt isa regbay
     assert (isa = fi.ISA)
-    let parser = initParser isa mode fi
+    let parser = Parser.init isa mode fi
     { ISA = isa
       FileInfo = fi
       DisasmHelper = DisasmHelper (fi.TryFindFunctionSymbolName)
