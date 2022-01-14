@@ -151,6 +151,8 @@ type Permission =
 type Segment = {
   /// Address of the segment.
   Address: Addr
+  /// Offset in the file.
+  Offset: uint64
   /// Size of the segment.
   Size: uint64
   /// Size of the corresponding segment in file. This can be smaller than
