@@ -24,6 +24,7 @@
 
 namespace B2R2.MiddleEnd.ConcEval
 
+open System.Runtime.InteropServices
 open B2R2
 open B2R2.BinIR
 
@@ -60,6 +61,7 @@ and EvalState (?memory, ?ignoreundef) =
   let mem = Option.defaultWith (fun () -> NonsharableMemory () :> Memory) memory
   let lbls = Labels ()
   let mutable isInstrTerminated = false
+  let mutable needToEvaluateIEMark = false
   let ignoreUndef = defaultArg ignoreundef false
   let mutable perInstrHdl = PerInstrHandler id
   let mutable loadEventHdl = LoadEventHandler (fun _ _ _ -> ())
@@ -93,10 +95,17 @@ and EvalState (?memory, ?ignoreundef) =
   member __.Labels with get() = lbls
 
   /// Indicate whether to terminate the current instruction or not. This flag is
-  /// set to true when we encounter an inter-jump statement, so that we can
-  /// ignore the rest of the statements.
+  /// set to true when we encounter an inter-jump statement or SideEffect, so
+  /// that we can ignore the rest of the statements.
   member __.IsInstrTerminated
     with get() = isInstrTerminated and set(f) = isInstrTerminated <- f
+
+  /// Indicate whether to evaluate IEMark while ignoring the other instructions.
+  /// This means, the evaluation of the instruction is over, but we need to
+  /// advance the PC to the next instruction using IEMark. Thus, this flag is
+  /// only meaningful when `IsInstrTerminated` is true.
+  member __.NeedToEvaluateIEMark
+    with get() = needToEvaluateIEMark and set(f) = needToEvaluateIEMark <- f
 
   /// Whether to ignore statements that cannot be evaluated due to undef values.
   /// This is particularly useful to quickly check some constants.
@@ -108,8 +117,10 @@ and EvalState (?memory, ?ignoreundef) =
 
   /// Stop evaluating further statements of the current instruction, and move on
   /// the next instruction.
-  member __.AbortInstr () =
+  member __.AbortInstr ([<Optional; DefaultParameterValue(false)>]
+                        needToUpdatePC: bool) =
     isInstrTerminated <- true
+    needToEvaluateIEMark <- needToUpdatePC
     __.NextStmt ()
 
   /// Get the value of the given temporary variable.
@@ -162,6 +173,7 @@ and EvalState (?memory, ?ignoreundef) =
   /// Get ready for evaluating a new instruction.
   member inline __.PrepareInstrEval stmts =
     __.IsInstrTerminated <- false
+    __.NeedToEvaluateIEMark <- false
     __.Labels.Update stmts
     __.StmtIdx <- 0
 

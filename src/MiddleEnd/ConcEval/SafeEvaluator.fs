@@ -228,11 +228,16 @@ let rec internal evalStmts stmts result =
   match result with
   | Ok (st: EvalState) ->
     let idx = st.StmtIdx
+    let numStmts = Array.length stmts
     let st = if idx = 0 then st.OnInstr st else st
-    if not st.IsInstrTerminated && Array.length stmts > idx then
-      let stmt = stmts[idx]
-      st.OnStmtEval stmt
-      evalStmts stmts (tryEvaluate stmt st)
+    if numStmts > idx then
+      if st.IsInstrTerminated then
+        if st.NeedToEvaluateIEMark then tryEvaluate stmts[numStmts - 1] st
+        else Ok st
+      else
+        let stmt = stmts[idx]
+        st.OnStmtEval stmt
+        evalStmts stmts (tryEvaluate stmt st)
     else Ok st
   | Error _ -> result
 
