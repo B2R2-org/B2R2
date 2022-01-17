@@ -129,6 +129,7 @@ let parseSPECIAL arch bin =
   | 0b001001u -> parseJALR bin
   | 0b001010u when chk10to6 bin 0u -> Op.MOVZ, None, None, getRdRsRt bin
   | 0b001011u when chk10to6 bin 0u -> Op.MOVN, None, None, getRdRsRt bin
+  | 0b001101u -> Op.BREAK, None, None, NoOperand
   | 0b001111u when chk25to11 bin 0u -> Op.SYNC, None, None, getStype bin
   | 0b010000u -> parseMFHI arch bin
   | 0b010001u when isRel2 arch && chk20to6 bin 0u ->
@@ -214,6 +215,8 @@ let parseSPECIAL2 arch bin =
     Op.MUL, None, None, getRdRsRt bin
   | 0b000100u when isRel2 arch && chk15to6 bin 0u ->
     Op.MSUB, None, None, getRsRt bin
+  | 0b000101u when isRel2 arch && chk15to6 bin 0u ->
+    Op.MSUBU, None, None, getRsRt bin
   | 0b100000u -> parseR2CLZ bin
   | 0b100100u when isMIPS64 arch -> parseR2DCLZ bin
   | _ -> failwith "Not Implemented."
@@ -255,6 +258,18 @@ let parseSPECIAL3 arch binary =
     | 0b00010u -> Op.DSBH, None, None, getRdRt binary
     | 0b00101u -> Op.DSHD, None, None, getRdRt binary
     | _ -> failwith "Not Implemented."
+  | 0b100110u when pickBit binary 6u = 0u && isRel6 arch ->
+    Op.SC, None, None, getRtMemBaseOff9 binary 32<rt>
+  | 0b100111u when pickBit binary 6u = 0u && isRel6 arch ->
+    Op.SCD, None, None, getRtMemBaseOff9 binary 64<rt>
+  | 0b110101u when pickBit binary 6u = 0u && isRel6 arch ->
+    Op.PREF, None, None, getHintMemBaseOff9 binary 32<rt>
+  | 0b110110u when pickBit binary 6u = 0u && isRel6 arch ->
+    Op.LL, None, None, getRtMemBaseOff9 binary 32<rt>
+  | 0b110111u when pickBit binary 6u = 0u && isMIPS64R6 arch ->
+    Op.LL, None, None, getRtMemBaseOff9 binary 64<rt>
+  | 0b111011u when extract binary 10u 9u = 0u ->
+    Op.RDHWR, None, None, getRtRdSel binary
   | _ -> failwith "Not Implemented."
 
 /// The MIPS64 Instruction Set Reference Manual, Revision 6.06
@@ -403,6 +418,20 @@ let parseCOP1X arch binary =
     Op.SWXC1, None, None, getFsMemBaseIdx binary 32<rt>
   | 0b001001u when chk10to6 binary 0u && isRel2 arch ->
     Op.SDXC1, None, None, getFsMemBaseIdx binary 64<rt>
+  | 0b001111u when chk10to6 binary 0u && isRel2 arch ->
+    Op.PREFX, None, None, getHintMemBaseIdx binary 32<rt>
+  | 0b100000u when isRel2 arch -> Op.MADD, None, Some Fmt.S, getFdFrFsFt binary
+  | 0b100001u when isRel2 arch -> Op.MADD, None, Some Fmt.D, getFdFrFsFt binary
+  | 0b100110u when isRel2 arch ->
+    Op.MADD, None, Some Fmt.PS, getFdFrFsFt binary
+  | 0b101000u when isRel2 arch -> Op.MSUB, None, Some Fmt.S, getFdFrFsFt binary
+  | 0b101001u when isRel2 arch -> Op.MSUB, None, Some Fmt.D, getFdFrFsFt binary
+  | 0b101110u when isRel2 arch ->
+    Op.MSUB, None, Some Fmt.PS, getFdFrFsFt binary
+  | 0b110000u when isRel2 arch -> Op.NMADD, None, Some Fmt.S, getFdFrFsFt binary
+  | 0b110001u when isRel2 arch -> Op.NMADD, None, Some Fmt.D, getFdFrFsFt binary
+  | 0b110110u when isRel2 arch ->
+    Op.NMADD, None, Some Fmt.PS, getFdFrFsFt binary
   | _ -> failwith "Not Implemented."
 
 /// The MIPS64 Instrecutin Set Reference Manual, MD00087, Revision 6.06
@@ -466,20 +495,25 @@ let parseOpcodeField arch binary =
   | 0b101110u when isRel2 arch ->
     Op.SWR, None, None, getRtMemBaseOff binary 32<rt>
   | 0b101111u -> failwith "CACHE"
-  | 0b110000u -> failwith "LL"
+  | 0b110000u when isRel2 arch (* pre-Release 6 *) ->
+    Op.LL, None, None, getRtMemBaseOff binary 32<rt>
   | 0b110001u -> Op.LWC1, None, None, getFtMemBaseOff binary 32<rt>
   | 0b110010u -> failwith "LWC2"
-  | 0b110011u -> failwith "PREF"
-  | 0b110100u -> failwith "LLD"
+  | 0b110011u when isRel2 arch (* pre-Release 6 *) ->
+    Op.PREF, None, None, getHintMemBaseOff binary 32<rt>
+  | 0b110100u when isMIPS64R2 arch (* MIPS64 pre-Release 6 *) ->
+    Op.LLD, None, None, getRtMemBaseOff binary 64<rt>
   | 0b110101u -> Op.LDC1, None, None, getFtMemBaseOff binary 64<rt>
   | 0b110110u -> failwith "LDC2/BEQZC/JIC/POP66"
   | 0b110111u when isMIPS64 arch ->
     Op.LD, None, None, getRtMemBaseOff binary 64<rt>
-  | 0b111000u -> failwith "SC"
+  | 0b111000u when isRel2 arch (* pre-Release 6 *) ->
+    Op.SC, None, None, getRtMemBaseOff binary 32<rt>
   | 0b111001u -> Op.SWC1, None, None, getFtMemBaseOff binary 32<rt>
   | 0b111010u -> failwith "SWC2/BALC"
   | 0b111011u -> failwith "PCREL"
-  | 0b111100u -> failwith "SDC"
+  | 0b111100u when isRel2 arch (* pre-Release 6 *) ->
+    Op.SCD, None, None, getRtMemBaseOff binary 64<rt>
   | 0b111101u -> Op.SDC1, None, None, getFtMemBaseOff binary 64<rt>
   | 0b111110u -> failwith "SDC2/BNEZC/JIALC/POP76"
   | 0b111111u when isMIPS64 arch ->
