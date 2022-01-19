@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.BinFile
 
+open System
 open B2R2
 
 /// Raised when accessing an invalid address of a binary file.
@@ -137,7 +138,7 @@ type FileType =
 
 /// File permission. Each permission corresponds to a bit, and thus, multiple
 /// permissions can be OR-ed.
-[<System.FlagsAttribute>]
+[<Flags>]
 type Permission =
   /// File is readable.
   | Readable = 4
@@ -145,6 +146,15 @@ type Permission =
   | Writable = 2
   /// File is executable.
   | Executable = 1
+
+module Permission =
+  /// Permission to string.
+  [<CompiledName ("ToString")>]
+  let toString (p: Permission) =
+    let r = if p.HasFlag Permission.Readable then "r" else "-"
+    let w = if p.HasFlag Permission.Writable then "w" else "-"
+    let x = if p.HasFlag Permission.Executable then "x" else "-"
+    r + w + x
 
 /// A segment is a block of code/data that is loaded in the real memory at
 /// runtime. A segment can contain multiple sections in it.
