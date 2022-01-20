@@ -131,6 +131,7 @@ let gprLen = function
   | Arch.MIPS64R2 | Arch.MIPS64R6 -> 64
   | _ -> failwith "Not Implemented."
 
+let num9 b = extract b 15u 7u
 let num16 b = extract b 15u 0u
 let num26 b = extract b 25u 0u
 let getRegFrom2521 b = getRegister (extract b 25u 21u |> byte)
@@ -150,11 +151,15 @@ let rd b = getRegFrom1511 b |> OpReg
 let fs b = getFRegFrom1511 b |> OpReg
 let ft b = getFRegFrom2016 b |> OpReg
 let fd b = getFRegFrom106 b |> OpReg
+let fr b = getFRegFrom2521 b |> OpReg
 let cc10 b = getFRegFrom108 b |> OpReg // FIXME: Floating Point cond code CC.
 let cc20 b = getFRegFrom2018 b |> OpReg // FIXME: Floating Point cond code CC.
 
 let sa b = extract b 10u 6u |> uint64 |> OpShiftAmount
 let bp b = extract b 7u 6u |> uint64 |> OpImm
+
+let hint b = extract b 20u 16u |> uint64 |> OpImm (* FIMXE: hint on page 420 *)
+let sel b = extract b 8u 6u |> uint64 |> OpImm (* FIXME: sel on page 432 *)
 
 let rel16 b =
   let off = num16 b |> uint64 <<< 2 |> signExtend 18 64 |> int64
@@ -165,8 +170,8 @@ let stype b =
   extract b 10u 6u |> uint64 |> OpImm (* FIXME: SType Field on page 533 *)
 let imm16 b = num16 b |> uint64 |> OpImm
 let imm16SignExt b = num16 b |> uint64 |> signExtend 16 64 |> OpImm
-let memBaseOff b accLength =
-  let offset = num16 b |> uint64 |> signExtend 16 64 |> int64
+let memBaseOff b num accLength =
+  let offset = num b |> uint64 |> signExtend 16 64 |> int64
   OpMem (getRegFrom2521 b, Imm offset, accLength)
 let memBaseIdx b accLength =
   OpMem (getRegFrom2521 b, Reg (getRegFrom2016 b), accLength)
@@ -207,15 +212,20 @@ let getRdRtRs b = ThreeOperands (rd b, rt b, rs b)
 let getRdRsRt b = ThreeOperands (rd b, rs b, rt b)
 let getRsRt b = TwoOperands (rs b, rt b)
 let getRdRt b = TwoOperands (rd b, rt b)
+let getRtRdSel b = ThreeOperands (rt b, rd b, sel b)
 let getRsRtRel16 b = ThreeOperands (rs b, rt b, rel16 b)
 let getRsRel16 b = TwoOperands (rs b, rel16 b)
 let getRtImm16 b = TwoOperands (rt b, imm16 b)
 let getRtRsImm16s b = ThreeOperands (rt b, rs b, imm16SignExt b)
 let getRtRsImm16 b = ThreeOperands (rt b, rs b, imm16 b)
-let getRtMemBaseOff b accLength = TwoOperands (rt b, memBaseOff b accLength)
-let getFtMemBaseOff b accLength = TwoOperands (ft b, memBaseOff b accLength)
-let getFdMemBaseIdx b accLength = TwoOperands (fd b, memBaseIdx b accLength)
-let getFsMemBaseIdx b accLength = TwoOperands (fs b, memBaseIdx b accLength)
+let getRtMemBaseOff b accLen = TwoOperands (rt b, memBaseOff b num16 accLen)
+let getRtMemBaseOff9 b accLen = TwoOperands (rt b, memBaseOff b num9 accLen)
+let getFtMemBaseOff b accLen = TwoOperands (ft b, memBaseOff b num16 accLen)
+let getHintMemBaseOff b accLen = TwoOperands (hint b, memBaseOff b num16 accLen)
+let getHintMemBaseOff9 b accLen = TwoOperands (hint b, memBaseOff b num9 accLen)
+let getFdMemBaseIdx b accLen = TwoOperands (fd b, memBaseIdx b accLen)
+let getFsMemBaseIdx b accLen = TwoOperands (fs b, memBaseIdx b accLen)
+let getHintMemBaseIdx b accLen = TwoOperands (hint b, memBaseIdx b accLen)
 let getRdRtSa b = ThreeOperands (rd b, rt b, sa b)
 let getRdRsCc b = ThreeOperands (rd b, rs b, cc20 b)
 let getRdRsRtBp b = FourOperands (rd b, rs b, rt b, bp b)
@@ -236,5 +246,6 @@ let getFdFsRt b = ThreeOperands (fd b, fs b, rt b)
 let getFdFsCc b = ThreeOperands (fd b, fs b, cc20 b)
 let getCcFsFt b = ThreeOperands (cc10 b, fs b, ft b)
 let getFdFsFt b = ThreeOperands (fd b, fs b, ft b)
+let getFdFrFsFt b = FourOperands (fd b, fr b, fs b, ft b)
 
 // vim: set tw=80 sts=2 sw=2:
