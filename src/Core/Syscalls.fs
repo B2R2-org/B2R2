@@ -498,6 +498,7 @@ type LinuxSyscall =
   | Writev = 467
   | Xtensa = 468
 
+[<RequireQualifiedAccess>]
 module LinuxSyscall =
   let private getX86Number = function
     | LinuxSyscall.RestartSyscall -> 0
@@ -1905,7 +1906,7 @@ module LinuxSyscall =
     | Arch.IntelX64 -> getX64Syscall num
     | _ -> raise UnhandledSyscallException
 
-  let toStr = function
+  let toString = function
     | LinuxSyscall.Accept -> "accept"
     | LinuxSyscall.Accept4 -> "accept4"
     | LinuxSyscall.Access -> "access"
