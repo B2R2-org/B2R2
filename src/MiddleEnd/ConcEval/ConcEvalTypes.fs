@@ -30,7 +30,7 @@ open B2R2
 exception UndefExpException
 
 /// Raised when an invalid memory access.
-exception InvalidMemException
+exception InvalidMemException of Addr
 
 /// A value is either defined or undefined.
 [<Struct>]

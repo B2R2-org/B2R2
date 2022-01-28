@@ -57,7 +57,7 @@ and private evalLoad st endian t addr =
   | Error e ->
     match st.OnLoadFailure st.PC addr t e with
     | Ok v -> v
-    | Error _ ->  raise InvalidMemException
+    | Error _ ->  raise (InvalidMemException addr)
 
 and private evalCast st t e = function
   | CastKind.SignExt -> BitVector.sext (evalConcrete st e) t
@@ -188,7 +188,7 @@ let evalStmt (st: EvalState) s =
 let internal tryEvaluate stmt st =
   try evalStmt st stmt with
   | UndefExpException
-  | InvalidMemException ->
+  | InvalidMemException _ ->
     if st.IgnoreUndef then st.NextStmt ()
     else raise UndefExpException
 
