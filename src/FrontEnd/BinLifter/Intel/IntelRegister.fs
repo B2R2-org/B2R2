@@ -386,7 +386,7 @@ type Register =
   | DSBase = 0x703
   /// FS.base.
   | FSBase = 0x704
-  /// ES.base.
+  /// GS.base.
   | GSBase = 0x705
   /// Control registers.
   | CR0 = 0x20800
