@@ -53,7 +53,7 @@ let private obtainFramePointerDef hdl =
   | None -> None
 
 let private initState hdl pc =
-  let st = EvalState (ignoreundef=true)
+  let st = EvalState (true)
   st.LoadFailureEventHandler <- memoryReader hdl
   [ obtainStackDef hdl; obtainFramePointerDef hdl ]
   |> List.choose id

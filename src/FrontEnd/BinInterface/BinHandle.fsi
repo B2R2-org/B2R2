@@ -140,7 +140,7 @@ with
   ///   specific file format).
   /// </summary>
   /// <param name="isa">ISA.</param>
-  /// <param name="archMode">ArchOperatinoMode.</param>
+  /// <param name="archMode">ArchOperationMode.</param>
   /// <param name="autoDetect">Perform auto format detection or not.</param>
   /// <param name="baseAddr">Base address for calculating instruction
   /// addresses.</param>

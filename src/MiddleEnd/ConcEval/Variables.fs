@@ -27,8 +27,10 @@ namespace B2R2.MiddleEnd.ConcEval
 open System.Collections.Generic
 open B2R2
 
-type Variables<'Key when 'Key: equality> () =
-  let vars = Dictionary<'Key, BitVector> ()
+type Variables<'Key when 'Key: equality> (vars) =
+  let vars = vars
+
+  new () = Variables (Dictionary<'Key, BitVector> ())
 
   member __.TryGet k = vars.TryGetValue (k)
 
@@ -43,3 +45,6 @@ type Variables<'Key when 'Key: equality> () =
   member __.Count () = vars.Count
 
   member __.ToSeq () = vars |> Seq.map (fun (KeyValue (k,v)) -> k, v)
+
+  member __.Clone () =
+    Variables (Dictionary (vars))

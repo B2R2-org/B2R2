@@ -52,17 +52,12 @@ and StmtEvalEventHandler =
 /// The main evaluation state that will be updated by evaluating every statement
 /// encountered during the course of execution. This can be considered as a
 /// single-threaded CPU context.
-and EvalState (?memory, ?ignoreundef) =
+and EvalState (regs, temps, lbls, mem, ignoreUndef) =
   let mutable pc = 0UL
   let mutable stmtIdx = 0
   let mutable mode = ArchOperationMode.NoMode
-  let regs = Variables<RegisterID> ()
-  let temps = Variables<int> ()
-  let mem = Option.defaultWith (fun () -> NonsharableMemory () :> Memory) memory
-  let lbls = Labels ()
   let mutable isInstrTerminated = false
   let mutable needToEvaluateIEMark = false
-  let ignoreUndef = defaultArg ignoreundef false
   let mutable perInstrHdl = PerInstrHandler id
   let mutable loadEventHdl = LoadEventHandler (fun _ _ _ -> ())
   let mutable loadFailureHdl = LoadFailureEventHandler (fun _ _ _ e -> Error e)
@@ -70,6 +65,34 @@ and EvalState (?memory, ?ignoreundef) =
   let mutable putEventHdl = PutEventHandler (fun _ _ -> ())
   let mutable sideEffectHdl = SideEffectEventHandler (fun _ _ -> ())
   let mutable stmtEvalHdl = StmtEvalEventHandler (fun _ -> ())
+
+  /// This constructor will simply create a fresh new EvalState.
+  new () =
+    EvalState (Variables<RegisterID> (),
+               Variables<int> (),
+               Labels (),
+               NonsharableMemory () :> Memory,
+               false)
+
+  /// This constructor will simply create a fresh new EvalState with the given
+  /// memory.
+  new (mem) =
+    EvalState (Variables<RegisterID> (),
+               Variables<int> (),
+               Labels (),
+               mem,
+               false)
+
+  /// This constructor will simply create a fresh new EvalState. Depending on
+  /// the `ignoreUndef` parameter, the evaluator using this EvalState will
+  /// silently ignore Undef values. Such a feature is only useful for some
+  /// static analyses.
+  new (ignoreUndef) =
+    EvalState (Variables<RegisterID> (),
+               Variables<int> (),
+               Labels (),
+               NonsharableMemory () :> Memory,
+               ignoreUndef)
 
   /// Current PC.
   member __.PC with get() = pc and set(addr) = pc <- addr
@@ -231,3 +254,26 @@ and EvalState (?memory, ?ignoreundef) =
 
   member internal __.OnStmtEval stmt =
     __.StmtEvalEventHandler.Invoke (stmt)
+
+  /// Make a copy of this EvalState with a given new Memory.
+  member __.Clone (newMem) =
+    EvalState (regs.Clone (),
+               temps.Clone (),
+               lbls.Clone (),
+               newMem,
+               ignoreUndef,
+               PC=pc,
+               StmtIdx=stmtIdx,
+               Mode=mode,
+               IsInstrTerminated=isInstrTerminated,
+               NeedToEvaluateIEMark=needToEvaluateIEMark,
+               PerInstrHandler=perInstrHdl,
+               LoadEventHandler=loadEventHdl,
+               LoadFailureEventHandler=loadFailureHdl,
+               StoreEventHandler=storeEventHdl,
+               PutEventHandler=putEventHdl,
+               SideEffectEventHandler=sideEffectHdl,
+               StmtEvalEventHandler=stmtEvalHdl)
+
+  /// Make a copy of this EvalState.
+  member __.Clone () = __.Clone (mem)

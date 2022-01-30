@@ -29,8 +29,10 @@ open B2R2.BinIR.LowUIR
 open System.Collections.Generic
 
 /// Store labels of LowUIR statements.
-type Labels () =
-  let lbls = Dictionary<Symbol, int> ()
+type Labels (lbls) =
+  let lbls = lbls
+
+  new () = Labels (Dictionary<Symbol, int> ())
 
   member __.Update (stmts) =
     lbls.Clear ()
@@ -40,3 +42,6 @@ type Labels () =
       | _ -> ()
 
   member __.Index (sym) = lbls[sym]
+
+  member __.Clone () =
+    Labels (Dictionary (lbls))
