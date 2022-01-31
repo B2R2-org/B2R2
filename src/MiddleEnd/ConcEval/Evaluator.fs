@@ -173,7 +173,7 @@ let private evalIntCJmp st cond t f =
 
 let evalStmt (st: EvalState) s =
   match s.S with
-  | ISMark (_) -> st.NextStmt ()
+  | ISMark (len) -> st.CurrentInsLen <- len; st.NextStmt ()
   | IEMark (len) -> st.AdvancePC len; st.AbortInstr ()
   | LMark _ -> st.NextStmt ()
   | Put (lhs, { E = Undefined (_) }) -> evalUndef st lhs |> st.NextStmt

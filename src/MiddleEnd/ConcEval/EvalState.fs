@@ -56,6 +56,7 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
   let mutable pc = 0UL
   let mutable stmtIdx = 0
   let mutable mode = ArchOperationMode.NoMode
+  let mutable currentInsLen = 0u
   let mutable isInstrTerminated = false
   let mutable needToEvaluateIEMark = false
   let mutable perInstrHdl = PerInstrHandler id
@@ -104,6 +105,10 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
 
   /// Architecture mode.
   member __.Mode with get() = mode and set(m) = mode <- m
+
+  /// Current instruction length.
+  member __.CurrentInsLen
+    with get() = currentInsLen and set(l) = currentInsLen <- l
 
   /// Named register values.
   member __.Registers with get() = regs
@@ -265,6 +270,7 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
                PC=pc,
                StmtIdx=stmtIdx,
                Mode=mode,
+               CurrentInsLen=currentInsLen,
                IsInstrTerminated=isInstrTerminated,
                NeedToEvaluateIEMark=needToEvaluateIEMark,
                PerInstrHandler=perInstrHdl,

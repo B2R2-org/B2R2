@@ -204,7 +204,7 @@ let private evalIntCJmp st cond t f =
 
 /// Evaluate an IR statement.
 let evalStmt (st: EvalState) = function
-  | ISMark (_) -> st.NextStmt () |> Ok
+  | ISMark (len) -> st.CurrentInsLen <- len; st.NextStmt () |> Ok
   | IEMark (len) -> st.AdvancePC len; st.AbortInstr () |> Ok
   | LMark _ -> st.NextStmt () |> Ok
   | Put (lhs, rhs) -> evalPut st lhs rhs |> Result.map st.NextStmt
