@@ -200,7 +200,10 @@ let rec evalStmts stmts (st: EvalState) =
   let st = if idx = 0 then st.OnInstr st else st
   if numStmts > idx then
     if st.IsInstrTerminated then
-      if st.NeedToEvaluateIEMark then tryEvaluate stmts[numStmts - 1] st
+      if st.NeedToEvaluateIEMark then
+        let stmt = stmts[numStmts - 1]
+        st.OnStmtEval stmt
+        tryEvaluate stmt st
       else ()
     else
       let stmt = stmts[idx]
