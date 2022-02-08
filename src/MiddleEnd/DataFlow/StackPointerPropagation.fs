@@ -39,7 +39,7 @@ module private StackPointerPropagation =
       let rt = hdl.RegisterBay.RegIDToRegType sp
       let str = hdl.RegisterBay.RegIDToString sp
       let var = { Kind = RegVar (rt, sp, str); Identifier = 0 }
-      dict[var] <- Const (BitVector.ofUInt64 Utils.initialStackPointer rt)
+      dict[var] <- Const (BitVector.ofUInt64 Utils.InitialStackPointer rt)
       dict
     | None -> dict
 

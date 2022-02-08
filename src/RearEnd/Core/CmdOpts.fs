@@ -67,7 +67,7 @@ type CmdOpts () =
   static member private WriteIntro () =
     CmdOpts.WriteB2R2 false
     Printer.printToConsoleLine (", the Next-Generation Reversing Platform")
-    Printer.printToConsoleLine (Attribution.copyright + Environment.NewLine)
+    Printer.printToConsoleLine (Attribution.Copyright + Environment.NewLine)
 
   static member private CreateUsageGetter tool usageTail =
     fun () ->

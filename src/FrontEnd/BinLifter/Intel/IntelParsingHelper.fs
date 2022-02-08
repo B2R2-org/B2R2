@@ -4706,7 +4706,7 @@ module internal ParsingHelper = begin
   /// Add BND prefix (Intel MPX extension).
   let addBND (rhlp: ReadHelper) =
     if hasREPNZ rhlp.Prefixes then
-      rhlp.Prefixes <- Prefix.PrxBND ||| (clearGrp1PrefMask &&& rhlp.Prefixes)
+      rhlp.Prefixes <- Prefix.PrxBND ||| (ClearGrp1PrefMask &&& rhlp.Prefixes)
     else ()
 
   let inline getMandPrx (prefix: Prefix) =
@@ -4724,7 +4724,7 @@ module internal ParsingHelper = begin
   /// prefix, and we have to filter out the prefixes because they are not going
   /// to be used as a normal prefixes. They will only be used as a mandatory
   /// prefix to decide the opcode.
-  let inline filterPrefs (prefix: Prefix) = prefix &&& clearVEXPrefMask
+  let inline filterPrefs (prefix: Prefix) = prefix &&& ClearVEXPrefMask
 
   let getInstr prefix fnInstr = fnInstr (getMandPrx prefix)
 
@@ -4740,7 +4740,7 @@ module internal ParsingHelper = begin
   let parseGrpOp rhlp grp oidx sidx =
     let struct (op, oidx, szidx, szCond) = parseGrpOpKind rhlp oidx sidx grp
     if isBranch op then addBND rhlp |> ignore
-    elif isCETInstr op then rhlp.Prefixes <- clearGrp1PrefMask &&& rhlp.Prefixes
+    elif isCETInstr op then rhlp.Prefixes <- ClearGrp1PrefMask &&& rhlp.Prefixes
     else ()
     render rhlp op szCond oidx szidx
 
@@ -4839,7 +4839,7 @@ module internal ParsingHelper = begin
         let op = if hasREXW rhlp.REXPrefix then Opcode.RDSSPQ else Opcode.RDSSPD
         struct (op, OD.Gpr, SZ.Def)
       | _ -> raise InvalidOpcodeException
-    rhlp.Prefixes <- clearGrp1PrefMask &&& rhlp.Prefixes
+    rhlp.Prefixes <- ClearGrp1PrefMask &&& rhlp.Prefixes
     render rhlp op SzCond.Nor oidx sidx
 
   let parseESCOp (rhlp: ReadHelper) escFlag getOpIn getOpOut =

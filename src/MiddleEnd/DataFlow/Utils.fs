@@ -30,7 +30,7 @@ open B2R2.BinIR.LowUIR
 open B2R2.MiddleEnd.ControlFlowGraph
 
 /// We use this constant for our data-flow analyses.
-let [<Literal>] initialStackPointer = 0x80000000UL
+let [<Literal>] InitialStackPointer = 0x80000000UL
 
 let rec private extractUseFromExpr e =
   match e.E with

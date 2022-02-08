@@ -43,8 +43,8 @@ type TableConfig = TableColumn list
 module CS = ColoredSegment
 
 module private PrinterConst =
-  let [<Literal>] colWidth = 24
-  let [<Literal>] cacheLimit = 16777216
+  let [<Literal>] ColWidth = 24
+  let [<Literal>] CacheLimit = 16777216
 
 /// Any B2R2's layers should *not* use System.Console nor `printfn` to directly
 /// output strings. Instead, they should resort to the Printer to "indirectly"
@@ -211,12 +211,12 @@ type ConsolePrinter () =
     lastLineWasEmpty <- false
 
   override __.PrintTwoCols (col1: string) (col2: string) =
-    __.Print (col1.PadLeft PrinterConst.colWidth + " ")
+    __.Print (col1.PadLeft PrinterConst.ColWidth + " ")
     __.PrintLine col2
     lastLineWasEmpty <- false
 
   override __.PrintTwoColsWithColorOnSnd (col1: string) (col2: ColoredString) =
-    __.Print (col1.PadLeft PrinterConst.colWidth + " ")
+    __.Print (col1.PadLeft PrinterConst.ColWidth + " ")
     __.PrintLine col2
     lastLineWasEmpty <- false
 
@@ -234,7 +234,7 @@ type ConsoleCachedPrinter () =
 
   member private __.Add (s: string) =
     cache.Append (s) |> ignore
-    if cache.Length <= PrinterConst.cacheLimit then ()
+    if cache.Length <= PrinterConst.CacheLimit then ()
     else __.Flush ()
 
   override __.Print s =
@@ -309,13 +309,13 @@ type ConsoleCachedPrinter () =
     lastLineWasEmpty <- false
 
   override __.PrintTwoCols (col1: string) (col2: string) =
-    col1.PadLeft PrinterConst.colWidth + " " |> __.Add
+    col1.PadLeft PrinterConst.ColWidth + " " |> __.Add
     col2 |> __.Add
     __.Add Environment.NewLine
     lastLineWasEmpty <- false
 
   override __.PrintTwoColsWithColorOnSnd (col1: string) (col2: ColoredString) =
-    col1.PadLeft PrinterConst.colWidth + " " |> __.Add
+    col1.PadLeft PrinterConst.ColWidth + " " |> __.Add
     ColoredString.toString col2 |> __.Add
     __.Add Environment.NewLine
     lastLineWasEmpty <- false

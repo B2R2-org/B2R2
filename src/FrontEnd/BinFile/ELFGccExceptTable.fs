@@ -29,7 +29,7 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinFile.ELF.ExceptionHeaderEncoding
 
-let [<Literal>] gccExceptTable = ".gcc_except_table"
+let [<Literal>] GccExceptTable = ".gcc_except_table"
 
 let parseLSDAHeader cls (reader: BinReader) sAddr offset =
   let struct (b, offset) = reader.ReadByte offset
@@ -156,7 +156,7 @@ let rec parseLSDA cls (reader: BinReader) sAddr offset lsdas =
     parseLSDA cls reader sAddr offset lsdas
 
 let parse (reader: BinReader) cls (secs: SectionInfo) =
-  match Map.tryFind gccExceptTable secs.SecByName with
+  match Map.tryFind GccExceptTable secs.SecByName with
   | Some sec ->
     let size = Convert.ToInt32 sec.SecSize
     let offset = Convert.ToInt32 sec.SecOffset

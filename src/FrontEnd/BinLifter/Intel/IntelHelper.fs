@@ -125,13 +125,13 @@ let inline modIsMemory b = (getMod b) <> 0b11
 let inline modIsReg b = (getMod b) = 0b11
 
 /// Filter out segment-related prefixes.
-let [<Literal>] clearSegMask: Prefix = EnumOfValue 0xFC0F
+let [<Literal>] ClearSegMask: Prefix = EnumOfValue 0xFC0F
 
 /// Filter out PrxREPNZ(0x2), PrxREPZ(0x8), and PrxOPSIZE(0x400).
-let [<Literal>] clearVEXPrefMask: Prefix = EnumOfValue 0xFBF5
+let [<Literal>] ClearVEXPrefMask: Prefix = EnumOfValue 0xFBF5
 
 /// Filter out group 1 prefixes.
-let [<Literal>] clearGrp1PrefMask: Prefix = EnumOfValue 0xFFF0
+let [<Literal>] ClearGrp1PrefMask: Prefix = EnumOfValue 0xFFF0
 
 let getSegment pref =
   if (pref &&& Prefix.PrxCS) <> Prefix.PrxNone then Some R.CS

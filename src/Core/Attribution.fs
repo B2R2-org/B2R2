@@ -26,4 +26,4 @@
 module B2R2.Attribution
 
 /// Copyright by SoftSec Lab. @ KAIST.
-let [<Literal>] copyright = "Copyright (c) SoftSec Lab. @ KAIST, since 2016"
+let [<Literal>] Copyright = "Copyright (c) SoftSec Lab. @ KAIST, since 2016"

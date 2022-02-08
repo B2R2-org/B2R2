@@ -41,11 +41,11 @@ type FloatMap = Dictionary<Vertex<VisBBlock>, float>
 
 /// The horizontal interval of two consecutive blocks.
 [<Literal>]
-let private blockIntervalX = 50.0
+let private BlockIntervalX = 50.0
 
 /// The vertical interval of two consecutive blocks.
 [<Literal>]
-let private blockIntervalY = 100.0
+let private BlockIntervalY = 100.0
 
 /// Inner segment is an edge between two dummy nodes
 let findIncidentInnerSegmentNode vGraph (v: Vertex<VisBBlock>) =
@@ -163,18 +163,18 @@ let getPred (vertices: Vertex<VisBBlock> []) idx = function
 let fixShift (xs: FloatMap) (shift: FloatMap) (sink: VertexMap) u v = function
   | Leftmost ->
     shift[sink[u]] <-
-      min (shift[sink[u]]) (xs[v] - xs[u] - u.VData.Width - blockIntervalX)
+      min (shift[sink[u]]) (xs[v] - xs[u] - u.VData.Width - BlockIntervalX)
   | Rightmost ->
     shift[sink[u]] <-
-      max (shift[sink[u]]) (xs[v] - xs[u] + v.VData.Width + blockIntervalX)
+      max (shift[sink[u]]) (xs[v] - xs[u] + v.VData.Width + BlockIntervalX)
 
 let adjustX (xs: FloatMap) u v = function
   | Leftmost ->
     xs[v] <-
-      max xs[v] (xs[u] + u.VData.Width + v.VData.Width / 2.0 + blockIntervalX)
+      max xs[v] (xs[u] + u.VData.Width + v.VData.Width / 2.0 + BlockIntervalX)
   | Rightmost ->
     xs[v] <-
-      min xs[v] (xs[u] - v.VData.Width - u.VData.Width / 2.0 - blockIntervalX)
+      min xs[v] (xs[u] - v.VData.Width - u.VData.Width / 2.0 - BlockIntervalX)
 
 let rec placeBlock vLayout hDir root align sink shift (xs: FloatMap) v =
   if not (Double.IsNaN xs[v]) then ()
@@ -290,7 +290,7 @@ let assignYCoordinate y vertices =
     let vData = v.VData
     vData.Coordinate.Y <- y) vertices
   let maxHeight = Array.map VisGraph.getHeight vertices |> Array.max
-  y + maxHeight + blockIntervalY
+  y + maxHeight + BlockIntervalY
 
 let assignYCoordinates vLayout =
   let maxLayer = Array.length vLayout - 1

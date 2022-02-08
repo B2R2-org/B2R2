@@ -53,7 +53,7 @@ module private EVMJmpResolution =
   /// Get elements in the latest stack frame. The upper bound of SP should be
   /// calculated in first. Note that we handle EVM's SP in the ascending-order.
   let rec getStackVarExprsUntil v sp (ret: Dictionary<VariableKind, Expr>) =
-    let offLB = - int (sp - Utils.initialStackPointer)
+    let offLB = - int (sp - Utils.InitialStackPointer)
     let stmtInfos = (v: SSAVertex).VData.SSAStmtInfos
     None
     |> Array.foldBack (fun (_, stmt) _ ->
@@ -140,7 +140,7 @@ type EVMJmpResolution () =
     |> CFGEvents.addCallEvt fn insAddr calleeAddr
 
   member private __.FinalizeFunctionInfo (fn: RegularFunction) sp =
-    let spDiff = int64 <| Utils.initialStackPointer - sp
+    let spDiff = int64 <| Utils.InitialStackPointer - sp
     let retAddrSize = int64 <| RegType.toByteWidth 256<rt>
     let amountUnwinding = - spDiff - retAddrSize
     fn.AmountUnwinding <- amountUnwinding

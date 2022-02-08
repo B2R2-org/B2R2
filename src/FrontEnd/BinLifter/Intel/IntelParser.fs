@@ -505,15 +505,15 @@ type IntelParser (wordSz) =
     let mutable b = (reader: BinReader).PeekByte pos
     while ((prefixCheck[(int b >>> 5)] >>> (int b &&& 0b11111)) &&& 1u) > 0u do
       match b with
-      | 0xF0uy -> pref <- PrxLOCK ||| (clearGrp1PrefMask &&& pref)
-      | 0xF2uy -> pref <- PrxREPNZ ||| (clearGrp1PrefMask &&& pref)
-      | 0xF3uy -> pref <- PrxREPZ ||| (clearGrp1PrefMask &&& pref)
-      | 0x2Euy -> pref <- PrxCS ||| (clearSegMask &&& pref)
-      | 0x36uy -> pref <- PrxSS ||| (clearSegMask &&& pref)
-      | 0x3Euy -> pref <- PrxDS ||| (clearSegMask &&& pref)
-      | 0x26uy -> pref <- PrxES ||| (clearSegMask &&& pref)
-      | 0x64uy -> pref <- PrxFS ||| (clearSegMask &&& pref)
-      | 0x65uy -> pref <- PrxGS ||| (clearSegMask &&& pref)
+      | 0xF0uy -> pref <- PrxLOCK ||| (ClearGrp1PrefMask &&& pref)
+      | 0xF2uy -> pref <- PrxREPNZ ||| (ClearGrp1PrefMask &&& pref)
+      | 0xF3uy -> pref <- PrxREPZ ||| (ClearGrp1PrefMask &&& pref)
+      | 0x2Euy -> pref <- PrxCS ||| (ClearSegMask &&& pref)
+      | 0x36uy -> pref <- PrxSS ||| (ClearSegMask &&& pref)
+      | 0x3Euy -> pref <- PrxDS ||| (ClearSegMask &&& pref)
+      | 0x26uy -> pref <- PrxES ||| (ClearSegMask &&& pref)
+      | 0x64uy -> pref <- PrxFS ||| (ClearSegMask &&& pref)
+      | 0x65uy -> pref <- PrxGS ||| (ClearSegMask &&& pref)
       | 0x66uy -> pref <- PrxOPSIZE ||| pref
       | 0x67uy -> pref <- PrxADDRSIZE ||| pref
       | _ -> pos <- pos - 1

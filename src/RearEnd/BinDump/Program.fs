@@ -30,8 +30,8 @@ open B2R2.FrontEnd.BinInterface
 open B2R2.RearEnd
 open B2R2.RearEnd.BinDump.DisasmLiftHelper
 
-let [<Literal>] private toolName = "bindump"
-let [<Literal>] private usageTail = "<binary file(s) | -s hexstring>"
+let [<Literal>] private ToolName = "bindump"
+let [<Literal>] private UsageTail = "<binary file(s) | -s hexstring>"
 
 let private printFileName (filepath: string) =
   out.PrintLine (String.wrapSqrdBracket filepath)
@@ -172,7 +172,7 @@ let dumpFileMode files (opts: BinDumpOpts) =
   match List.partition System.IO.File.Exists files with
   | [], [] ->
     Printer.printErrorToConsole "File(s) must be given."
-    CmdOpts.PrintUsage toolName usageTail Cmd.spec
+    CmdOpts.PrintUsage ToolName UsageTail Cmd.spec
   | files, [] -> files |> List.iter (dumpFile opts)
   | _, errs ->
     Printer.printErrorToConsole ("File(s) " + errs.ToString() + " not found!")
@@ -218,4 +218,4 @@ let private dump files (opts: BinDumpOpts) =
 [<EntryPoint>]
 let main args =
   let opts = BinDumpOpts ()
-  CmdOpts.ParseAndRun dump toolName usageTail Cmd.spec opts args
+  CmdOpts.ParseAndRun dump ToolName UsageTail Cmd.spec opts args

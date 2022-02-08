@@ -29,7 +29,7 @@ open B2R2.MiddleEnd.BinGraph
 type VLayout = Vertex<VisBBlock> [][]
 
 /// The maximum number of iterations.
-let [<Literal>] private maxCnt = 128
+let [<Literal>] private MaxCnt = 128
 
 let private computeMaxLayer (vGraph: VisGraph) =
   vGraph.FoldVertex (fun layer v ->
@@ -142,7 +142,7 @@ let private phase2 vGraph vLayout isDown maxLayer =
   List.iter (reverseOneLayer vGraph vLayout isDown maxLayer) layers
 
 let rec private sugiyamaReorder vGraph vLayout cnt hashSet =
-  if cnt = maxCnt then ()
+  if cnt = MaxCnt then ()
   else
     let maxLayer = Array.length vLayout - 1
     phase1 vGraph vLayout true 1 maxLayer

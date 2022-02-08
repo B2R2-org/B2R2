@@ -213,15 +213,15 @@ let dumpFile (opts: FileViewerOpts) (filepath: string) =
   elif opts.DisplayItems.Contains DisplayAll then printAll opts hdl fi
   else opts.DisplayItems |> Seq.iter (printSelectively hdl opts fi)
 
-let [<Literal>] private toolName = "fileview"
-let [<Literal>] private usageTail = "<binary file(s)>"
+let [<Literal>] private ToolName = "fileview"
+let [<Literal>] private UsageTail = "<binary file(s)>"
 
 let dump files opts =
   CmdOpts.SanitizeRestArgs files
   match files with
   | [] ->
     Printer.printErrorToConsole "File(s) must be given."
-    CmdOpts.PrintUsage toolName usageTail Cmd.spec
+    CmdOpts.PrintUsage ToolName UsageTail Cmd.spec
   | files ->
     try files |> List.iter (dumpFile opts)
     finally out.Flush ()
@@ -229,4 +229,4 @@ let dump files opts =
 [<EntryPoint>]
 let main args =
   let opts = FileViewerOpts ()
-  CmdOpts.ParseAndRun dump toolName usageTail Cmd.spec opts args
+  CmdOpts.ParseAndRun dump ToolName UsageTail Cmd.spec opts args

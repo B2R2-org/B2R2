@@ -44,7 +44,7 @@ exception CIENotFoundByFDE
 /// Raised when invalid sequence of dwarf instructions encountered.
 exception InvalidDWInstructionExpression
 
-let [<Literal>] ehframe = ".eh_frame"
+let [<Literal>] Ehframe = ".eh_frame"
 
 let inline readInt (reader: BinReader) offset =
   reader.ReadInt32 offset
@@ -705,7 +705,7 @@ let rec parseCFI cls isa regbay reader sAddr cie cies fdes offset cfis =
         parseCFI cls isa regbay reader sAddr cie cies fdes nextOffset cfis
 
 let parse (reader: BinReader) cls (secs: SectionInfo) isa regbay =
-  match Map.tryFind ehframe secs.SecByName with
+  match Map.tryFind Ehframe secs.SecByName with
   | Some sec when Option.isSome regbay ->
     let size = Convert.ToInt32 sec.SecSize
     let offset = Convert.ToInt32 sec.SecOffset

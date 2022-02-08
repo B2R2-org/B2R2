@@ -58,28 +58,28 @@ let private emptyPartitionedEdges =
     SelfLoops = [] }
 
 /// The X offset between starting points of two adjacent edges.
-let [<Literal>] private edgeOffsetX = 4.0
+let [<Literal>] private EdgeOffsetX = 4.0
 
 /// The Y offset between starting points of two adjacent edges.
-let [<Literal>] private edgeOffsetY = 4.0
+let [<Literal>] private EdgeOffsetY = 4.0
 
 /// The length of the last segment of an edge. This value should be at least
 /// less than the half of blockIntervalY.
-let [<Literal>] private lastSegLen = 20.0
+let [<Literal>] private LastSegLen = 20.0
 
 /// An offset from a node to the surrounding box. This is to give some margin
 /// for the box.
-let [<Literal>] private nodeBoxOffset = 20.0
+let [<Literal>] private NodeBoxOffset = 20.0
 
 /// The margin to prevent an overlap between a node and its back edges.
-let [<Literal>] private backEdgeMargin = 10.0
+let [<Literal>] private BackEdgeMargin = 10.0
 
 /// A margin for deciding line fitness.
-let [<Literal>] private fitErrorMargin = 1.0
+let [<Literal>] private FitErrorMargin = 1.0
 
 /// If the number of incoming/outgoing edges of a layer exceeds this threshold,
 /// then we expand the layer's height.
-let [<Literal>] private layerHeightExpansionThreshold = 15
+let [<Literal>] private LayerHeightExpansionThreshold = 15
 
 let inline private isDummy (v: Vertex<VisBBlock>) = v.VData.IsDummy
 
@@ -120,13 +120,13 @@ let private getMaxDegree edges getter layer =
 let private downShiftLayers layers degree =
   Array.iter (Array.iter (fun (v: Vertex<VisBBlock>) ->
     let vData = v.VData
-    let newY = vData.Coordinate.Y + edgeOffsetY * float degree
+    let newY = vData.Coordinate.Y + EdgeOffsetY * float degree
     vData.Coordinate.Y <- newY)) layers
 
 let rec private adjustLayers isIncoming layerNum vLayout = function
   | [] -> ()
   | degree :: tl ->
-    if degree >= layerHeightExpansionThreshold then
+    if degree >= LayerHeightExpansionThreshold then
       let shiftStart = if isIncoming then layerNum else layerNum + 1
       if shiftStart < Array.length vLayout then
         downShiftLayers vLayout[ shiftStart .. ] degree
@@ -165,13 +165,13 @@ let private makeDummyBox () = makeBox 0.0 0.0 0.0 0.0 true
 
 /// Convert a Vertex into a Box.
 let private vertexToBox (v: Vertex<VisBBlock>): Box =
-  let left = VisGraph.getXPos v - if (isDummy v) then 0.0 else nodeBoxOffset
+  let left = VisGraph.getXPos v - if (isDummy v) then 0.0 else NodeBoxOffset
   let right =
     (VisGraph.getXPos v + VisGraph.getWidth v
     * if (isDummy v) then 0.5 else 1.0)
-    + if (isDummy v) then 0.0 else nodeBoxOffset
-  let top = VisGraph.getYPos v - nodeBoxOffset
-  let bottom = (VisGraph.getYPos v + VisGraph.getHeight v) + nodeBoxOffset
+    + if (isDummy v) then 0.0 else NodeBoxOffset
+  let top = VisGraph.getYPos v - NodeBoxOffset
+  let bottom = (VisGraph.getYPos v + VisGraph.getHeight v) + NodeBoxOffset
   makeBox left right top bottom (isDummy v)
 
 /// Converts vertex arrays to Box arrays.
@@ -329,7 +329,7 @@ let private lineFits (q: VisPosition) (r: VisPosition) line =
   let dy = (ry - qy)
   let m = (rx - qx) / dy
   let x = qx + m * (left.Y - qy)
-  let xFits = (x >= left.X - fitErrorMargin && x <= right.X + fitErrorMargin)
+  let xFits = (x >= left.X - FitErrorMargin && x <= right.X + FitErrorMargin)
   if xFits || (abs dy) < 0.1 then (-1, false)
   else
     if x < left.X then abs (int (x - left.X)), true
@@ -360,9 +360,9 @@ let private computeRegularEdgePoints isBackEdge dummies boxes q r qBox rBox =
   let intersectingLines = getIntersectingLines boxes
   let tailQ, headR = getEntryPoint q, getExitPoint r (* Key points *)
   let q1 = makeVisPos (fst tailQ, snd tailQ)
-  let q2 = { q1 with Y = q1.Y + nodeBoxOffset }
+  let q2 = { q1 with Y = q1.Y + NodeBoxOffset }
   let r1 = makeVisPos (fst headR, snd headR)
-  let r2 = { r1 with Y = r1.Y - nodeBoxOffset }
+  let r2 = { r1 with Y = r1.Y - NodeBoxOffset }
   let qWidth = VisGraph.getWidth q
   if isBackEdge then
     let dummyBoxes = dummies |> Array.ofList |> Array.map vertexToBox
@@ -416,9 +416,9 @@ let private drawSelfLoop g (v: Vertex<VisBBlock>) =
   let nodeWidth = VisGraph.getWidth v
   let eData = (g: VisGraph).FindEdgeData v v
   let startP, endP = getEntryPoint v, getExitPoint v
-  let p1 = (fst startP), (snd startP + lastSegLen)
-  let p2 = ((fst p1) + nodeWidth / 2.0 + backEdgeMargin), (snd p1)
-  let p3 = (fst p2), (snd endP) - lastSegLen
+  let p1 = (fst startP), (snd startP + LastSegLen)
+  let p2 = ((fst p1) + nodeWidth / 2.0 + BackEdgeMargin), (snd p1)
+  let p3 = (fst p2), (snd endP) - LastSegLen
   let p4 = (fst endP), snd p3
   let points = [ startP;  p1;  p2;  p3; p4; endP ] |> List.map makeVisPos
   eData.Points <- points
@@ -509,7 +509,7 @@ let rec private shiftHorizontally toLeft (edges: VisEdge list) offset =
     let n = Array.length points
     points[ n - 3 ].X <- points[ n - 3 ].X + offset
     points[ n - 4 ].X <- points[ n - 4 ].X + offset
-    let nextOffset = offset + if toLeft then -edgeOffsetX else edgeOffsetX
+    let nextOffset = offset + if toLeft then -EdgeOffsetX else EdgeOffsetX
     shiftHorizontally toLeft rest nextOffset
 
 let private splitAux isHeadPort edge =
@@ -530,7 +530,7 @@ let private partitionsToMergedList partition =
   @ partition.BackEdgesFromRight
   @ partition.SelfLoops
 
-let private offsetX center i = float (i - center) * edgeOffsetX
+let private offsetX center i = float (i - center) * EdgeOffsetX
 
 let private shiftSegments isHeadPort (edge: VisEdge) offset =
   let pts = edge.Points |> Array.ofList
@@ -555,7 +555,7 @@ let rec private shiftVertically isHeadPort offset = function
     else
       pts[1].Y <- pts[1].Y + offset
       if edge.IsBackEdge then pts[2].Y <- pts[2].Y + offset else ()
-    let offset = offset + (if isHeadPort then -edgeOffsetY else edgeOffsetY)
+    let offset = offset + (if isHeadPort then -EdgeOffsetY else EdgeOffsetY)
     shiftVertically isHeadPort offset rest
 
 /// Give some offsets to each neighboring edge of v.

@@ -283,7 +283,7 @@ let runCommand cmdMap opts file cmd args =
   Cmd.handle cmdMap ess cmd args
   |> Array.iter out.Print
 
-let [<Literal>] private toolName = "binexplore"
+let [<Literal>] private ToolName = "binexplore"
 
 let batchMain opts paths args =
   match args with
@@ -294,7 +294,7 @@ let batchMain opts paths args =
 let parseAndRunBatchMode opts (beforeOpts, afterOpts) =
   CmdOpts.ParseAndRun (fun rest opts ->
     batchMain opts rest (Array.tail afterOpts |> Array.toList)
-  ) toolName "" spec opts beforeOpts
+  ) ToolName "" spec opts beforeOpts
 
 [<EntryPoint>]
 let main args =
@@ -302,6 +302,6 @@ let main args =
   match Array.tryFindIndex (fun a -> a = "--batch") args with
   | Some idx -> Array.splitAt idx args |> parseAndRunBatchMode opts
   | None ->
-    CmdOpts.ParseAndRun interactiveMain toolName "<binfile>" spec opts args
+    CmdOpts.ParseAndRun interactiveMain ToolName "<binfile>" spec opts args
 
 // vim: set tw=80 sts=2 sw=2:

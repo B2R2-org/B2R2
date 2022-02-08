@@ -34,7 +34,7 @@ open B2R2.MiddleEnd.ControlFlowAnalysis
 [<AutoOpen>]
 module private IndirectCallResolution =
 
-  let [<Literal>] myname = "IndCallRecovery"
+  let [<Literal>] Myname = "IndCallRecovery"
 
   /// Try to look up the CPState to find a potential call target
   let resolveCallTarget st = function
@@ -46,7 +46,7 @@ module private IndirectCallResolution =
 
   let updateCallInfo (func: RegularFunction) callSiteAddr target =
 #if CFGDEBUG
-    dbglog myname "@%x => %x" callSiteAddr target
+    dbglog Myname "@%x => %x" callSiteAddr target
 #endif
     let callee = IndirectCallees <| Set.singleton target
     func.UpdateCallEdgeInfo (callSiteAddr, callee)
@@ -78,7 +78,7 @@ module private IndirectCallResolution =
     match v.VData.GetLastStmt () with
     | Jmp (InterJmp e) -> (* The only possible form for an indrect call *)
 #if CFGDEBUG
-      dbglog myname "@%x call exp %s" callSiteAddr (Pp.expToString e)
+      dbglog Myname "@%x call exp %s" callSiteAddr (Pp.expToString e)
 #endif
       match resolveCallTarget cpState e with
       | Const bv ->
@@ -120,7 +120,7 @@ module private IndirectCallResolution =
 type IndirectCallResolution () =
   inherit PerFunctionAnalysis ()
 
-  override __.Name = myname
+  override __.Name = Myname
 
   override __.Run hdl codeMgr _dataMgr func evts =
     let reader = reader hdl codeMgr |> Some

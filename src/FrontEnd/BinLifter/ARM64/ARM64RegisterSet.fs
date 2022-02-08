@@ -27,18 +27,18 @@ namespace B2R2.FrontEnd.BinLifter.ARM64
 open B2R2
 
 module private RegisterSetLiteral =
-  let [<Literal>] arrLen = 2
+  let [<Literal>] ArrLen = 2
 
 open RegisterSetLiteral
 
 type ARM64RegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
   inherit NonEmptyRegisterSet (bitArray, s)
 
-  new () = ARM64RegisterSet (RegisterSet.MakeInternalBitArray arrLen, Set.empty)
+  new () = ARM64RegisterSet (RegisterSet.MakeInternalBitArray ArrLen, Set.empty)
 
   override __.Tag = RegisterSetTag.ARM64
 
-  override __.ArrSize = arrLen
+  override __.ArrSize = ArrLen
 
   override __.New x s = new ARM64RegisterSet (x, s) :> RegisterSet
 

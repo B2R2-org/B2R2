@@ -37,7 +37,7 @@ let internal out = ConsoleCachedPrinter () :> Printer
 /// The colorful console printer.
 let internal colorout = ConsolePrinter () :> Printer
 
-let [<Literal>] illegalStr = "(illegal)"
+let [<Literal>] IllegalStr = "(illegal)"
 
 let getOptimizer (opts: BinDumpOpts) =
   match opts.DoOptimization with
@@ -148,8 +148,8 @@ let handleInvalidIns (hdl: BinHandle) bp isLift cfg =
   let wordSize = hdl.FileInfo.WordSize
   let align = getInstructionAlignment hdl
   let bytes = BinHandle.ReadBytes (hdl, bp=bp, nBytes=align)
-  if isLift then printLowUIR illegalStr bytes cfg
-  else printRegularDisasm illegalStr wordSize bp.Addr bytes cfg
+  if isLift then printLowUIR IllegalStr bytes cfg
+  else printRegularDisasm IllegalStr wordSize bp.Addr bytes cfg
   BinaryPointer.Advance bp align
 
 let printFuncSymbol (dict: Dictionary<Addr, string>) addr =

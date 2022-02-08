@@ -34,7 +34,7 @@ open B2R2.Peripheral.Assembly
 /// The console printer.
 let internal out = ConsolePrinter () :> Printer
 
-let [<Literal>] private normalPrompt = "> "
+let [<Literal>] private NormalPrompt = "> "
 
 let private printIns hdl addr bs =
   let bCode = (BitConverter.ToString (bs)).Replace ("-", "")
@@ -74,7 +74,7 @@ let rec private asmFromStdin (console: FsReadLine.Console) printer str =
     let input = input.Trim ()
     let str =
       if input.EndsWith (";;") then
-        console.UpdatePrompt normalPrompt
+        console.UpdatePrompt NormalPrompt
         printer <| str + input.TrimEnd (';')
         ""
       else
@@ -96,7 +96,7 @@ let private asmFromFiles files printer =
 let asmMain files opts =
   let printer = getAssemblyPrinter opts
   if List.isEmpty files then
-    let console = FsReadLine.Console (normalPrompt, ["quit"])
+    let console = FsReadLine.Console (NormalPrompt, ["quit"])
     showBasicInfo opts
     asmFromStdin console printer ""
   else asmFromFiles files printer
