@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.BinFile
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinFile.PE.Helper
 
@@ -39,7 +40,7 @@ type PEFileInfo (bytes, path, baseAddr, rawpdb) =
   new (bytes, path, baseAddr) = PEFileInfo (bytes, path, baseAddr, [||])
   new (bytes, path, rawpdb) = PEFileInfo (bytes, path, None, rawpdb)
 
-  override __.BinReader = pe.BinReader
+  override __.Span = ReadOnlySpan bytes
   override __.FileFormat = FileFormat.PEBinary
   override __.ISA = isa
   override __.FileType = getFileType pe

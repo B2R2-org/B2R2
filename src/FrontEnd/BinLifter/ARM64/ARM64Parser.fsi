@@ -25,10 +25,11 @@
 /// ARMv8 instruction parser.
 module B2R2.FrontEnd.BinLifter.ARM64.Parser
 
+open System
 open B2R2
 
 /// Read in bytes and return a parsed instruction for ARMv8. This function
 /// returns ARM64Instruction, which is a specialized type for 64-bit ARM. If you
 /// want to handle instructions in a platform-agnostic manner, you'd better use
 /// the ARM64Parser class.
-val parse: BinReader -> Addr -> int -> ARM64Instruction
+val parse: ByteSpan -> IBinReader -> Addr -> ARM64Instruction

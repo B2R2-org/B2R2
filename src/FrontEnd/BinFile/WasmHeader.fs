@@ -24,17 +24,17 @@
 
 module internal B2R2.FrontEnd.BinFile.Wasm.Header
 
+open System
 open B2R2
 
 let wasmMagic = 0x6D736100u
 
-let isWasm (reader: BinReader) offset =
-  if reader.Length() >= offset + 8
-  then reader.PeekUInt32 offset = wasmMagic
+let isWasm (span: ByteSpan) (reader: IBinReader) =
+  if span.Length >= 8 then reader.ReadUInt32 (span, 0) = wasmMagic
   else false
 
-let peekFormatVersion (reader: BinReader) offset =
+let peekFormatVersion (span: ByteSpan) (reader: IBinReader) offset =
   let version: WasmFormatVersion =
-    reader.PeekUInt32 offset
+    reader.ReadUInt32 (span, offset)
     |> LanguagePrimitives.EnumOfValue
   version

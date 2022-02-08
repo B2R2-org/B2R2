@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinFile.ELF
 
 open LanguagePrimitives
+open System
 open B2R2
 open B2R2.BinIR
 open B2R2.FrontEnd.BinLifter
@@ -68,43 +69,42 @@ type ExceptionHeaderApplication =
   | DW_EH_PE_omit = 0xff
 
 module ExceptionHeaderEncoding =
-  let parseULEB128 (reader: BinReader) offset =
-    let span = reader.PeekSpan (offset)
-    let v, cnt = LEB128.DecodeUInt64 span
+  let parseULEB128 (span: ByteSpan) offset =
+    let v, cnt = LEB128.DecodeUInt64 (span.Slice offset)
     v, offset + cnt
 
-  let parseSLEB128 (reader: BinReader) offset =
-    let span = reader.PeekSpan (offset)
-    let v, cnt = LEB128.DecodeSInt64 span
+  let parseSLEB128 (span: ByteSpan) offset =
+    let v, cnt = LEB128.DecodeSInt64 (span.Slice offset)
     v, offset + cnt
 
-  let computeValue cls (reader: BinReader) venc offset =
+  let computeValue cls span reader venc offset =
     match venc with
     | ExceptionHeaderValue.DW_EH_PE_absptr ->
-      FileHelper.readUIntOfType reader cls offset
+      FileHelper.readUIntOfType span reader cls offset
     | ExceptionHeaderValue.DW_EH_PE_uleb128 ->
-      let cv, offset = parseULEB128 reader offset
+      let cv, offset = parseULEB128 span offset
       struct (cv, offset)
     | ExceptionHeaderValue.DW_EH_PE_sleb128 ->
-      let cv, offset = parseSLEB128 reader offset
+      let cv, offset = parseSLEB128 span offset
       struct (uint64 cv, offset)
     | ExceptionHeaderValue.DW_EH_PE_udata2 ->
-      let struct (cv, offset) = reader.ReadUInt16 offset
-      struct (uint64 cv, offset)
+      let cv = reader.ReadUInt16 (span, offset)
+      struct (uint64 cv, offset + 2)
     | ExceptionHeaderValue.DW_EH_PE_sdata2 ->
-      let struct (cv, offset) = reader.ReadInt16 offset
-      struct (uint64 cv, offset)
+      let cv = reader.ReadInt16 (span, offset)
+      struct (uint64 cv, offset + 2)
     | ExceptionHeaderValue.DW_EH_PE_udata4 ->
-      let struct (cv, offset) = reader.ReadUInt32 offset
-      struct (uint64 cv, offset)
+      let cv = reader.ReadUInt32 (span, offset)
+      struct (uint64 cv, offset + 4)
     | ExceptionHeaderValue.DW_EH_PE_sdata4 ->
-      let struct (cv, offset) = reader.ReadInt32 offset
-      struct (uint64 cv, offset)
+      let cv = reader.ReadInt32 (span, offset)
+      struct (uint64 cv, offset + 4)
     | ExceptionHeaderValue.DW_EH_PE_udata8 ->
-      reader.ReadUInt64 offset
+      let cv = reader.ReadUInt64 (span, offset)
+      struct (cv, offset + 8)
     | ExceptionHeaderValue.DW_EH_PE_sdata8 ->
-      let struct (cv, offset) = reader.ReadInt64 offset
-      struct (uint64 cv, offset)
+      let cv = reader.ReadInt64 (span, offset)
+      struct (uint64 cv, offset + 8)
     | _ -> printfn "%A" venc; raise UnhandledEncoding
 
   let parseEncoding b =

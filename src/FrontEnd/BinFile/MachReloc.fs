@@ -25,6 +25,7 @@
 module internal B2R2.FrontEnd.BinFile.Mach.Reloc
 
 open System
+open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinFile
 
@@ -39,11 +40,11 @@ let parseRelocLength data =
   | 1 -> 16<rt>
   | _ -> 32<rt>
 
-let rec updateReloc relocs (binReader: BinReader) sec offset endOffset =
-  if offset >= endOffset then relocs
+let rec updateReloc relocs (span: ByteSpan) reader sec off endOffset =
+  if off >= endOffset then ()
   else
-    let addr = binReader.PeekInt32 offset
-    let data = binReader.PeekInt32 (offset + 4)
+    let addr = (reader: IBinReader).ReadInt32 (span, off)
+    let data = reader.ReadInt32 (span, off + 4)
     let sym = parseRelocSymbol data
     let len = parseRelocLength data
     let rel = (data >>> 24) &&& 1 = 1
@@ -53,7 +54,8 @@ let rec updateReloc relocs (binReader: BinReader) sec offset endOffset =
         RelocLength = len
         RelocSection = sec
         IsPCRel = rel }
-    updateReloc (r :: relocs) binReader sec (offset + 8) endOffset
+    (relocs: List<RelocationInfo>).Add r
+    updateReloc relocs span reader sec (off + 8) endOffset
 
 let translateRelocAddr reloc =
   reloc.RelocSection.SecAddr + uint64 reloc.RelocAddr
@@ -71,13 +73,13 @@ let toSymbol symbols secs reloc =
     LibraryName = ""
     ArchOperationMode = ArchOperationMode.NoMode }
 
-let parseRelocs binReader secs =
-  secs
-  |> Array.fold (fun relocs sec ->
-    if sec.SecNumOfReloc = 0 then relocs
+let parseRelocs span reader secs =
+  let relocs = List<RelocationInfo> ()
+  for sec in secs do
+    if sec.SecNumOfReloc = 0 then ()
     else
       let startOffset = sec.SecRelOff |> Convert.ToInt32
       let endOffset = startOffset + (8 * int sec.SecNumOfReloc)
-      updateReloc relocs binReader sec startOffset endOffset) []
-  |> List.rev
-  |> List.toArray
+      updateReloc relocs span reader sec startOffset endOffset
+  relocs
+  |> Seq.toArray

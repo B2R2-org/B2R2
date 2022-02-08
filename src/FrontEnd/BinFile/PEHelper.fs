@@ -106,8 +106,8 @@ let inline translateAddr pe addr =
     rva + sHdr.PointerToRawData - sHdr.VirtualAddress
 
 let pdbTypeToSymbKind = function
-  | SymFlags.Function -> SymbolKind.FunctionType
-  | _ -> SymbolKind.NoType
+  | SymFlags.Function -> SymFunctionType
+  | _ -> NoType
 
 let pdbSymbolToSymbol (sym: PESymbol) =
   { Address = sym.Address
@@ -124,8 +124,8 @@ let inline getStaticSymbols pe =
 
 let getSymbolKindBySectionIndex pe idx =
   let ch = pe.SectionHeaders[idx].SectionCharacteristics
-  if ch.HasFlag SectionCharacteristics.MemExecute then SymbolKind.FunctionType
-  else SymbolKind.ObjectType
+  if ch.HasFlag SectionCharacteristics.MemExecute then SymFunctionType
+  else SymObjectType
 
 let getImportSymbols pe =
   let conv acc rva imp =
@@ -133,14 +133,14 @@ let getImportSymbols pe =
     | ImportByOrdinal (ord, dllname) ->
       { Address = addrFromRVA pe.BaseAddr rva
         Name = "#" + ord.ToString()
-        Kind = SymbolKind.ExternFunctionType
+        Kind = SymExternFunctionType
         Target = TargetKind.DynamicSymbol
         LibraryName = dllname
         ArchOperationMode = ArchOperationMode.NoMode } :: acc
     | ImportByName (_, funname, dllname) ->
       { Address = addrFromRVA pe.BaseAddr rva
         Name = funname
-        Kind = SymbolKind.ExternFunctionType
+        Kind = SymExternFunctionType
         Target = TargetKind.DynamicSymbol
         LibraryName = dllname
         ArchOperationMode = ArchOperationMode.NoMode } :: acc
@@ -159,7 +159,7 @@ let getExportSymbols pe =
   let makeForwardedExportSymbol name (fwdBin, fwdFunc) =
     { Address = 0UL
       Name = name
-      Kind = SymbolKind.ForwardType (fwdBin, fwdFunc)
+      Kind = SymForwardType (fwdBin, fwdFunc)
       Target = TargetKind.DynamicSymbol
       LibraryName = ""
       ArchOperationMode = ArchOperationMode.NoMode }

@@ -24,6 +24,7 @@
 
 module B2R2.FrontEnd.BinLifter.TMS320C6000.Parser
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.BitData
@@ -1969,13 +1970,12 @@ let private parseInstruction bin =
   | 0b01u -> parseDUnitLoadStore bin
   | _ (* 0b11u *) -> parseDUnitLongImm bin
 
-let parse (reader: BinReader) (inParallel: byref<bool>) addr pos =
-  let struct (bin, nextPos) = reader.ReadUInt32 pos
-  let instrLen = nextPos - pos |> uint32
+let parse (span: ByteSpan) reader (inParallel: byref<bool>) addr =
+  let bin = (reader: IBinReader).ReadUInt32 (span, 0)
   let struct (opcode, unit, operands) = parseInstruction bin
   let insInfo =
     { Address = addr
-      NumBytes = instrLen
+      NumBytes = 4u
       Opcode = opcode
       Operands = operands
       FunctionalUnit = unit
@@ -1983,6 +1983,6 @@ let parse (reader: BinReader) (inParallel: byref<bool>) addr pos =
       IsParallel = inParallel
       EffectiveAddress = 0UL }
   inParallel <- pBit bin <> 0u
-  TMS320C6000Instruction (addr, instrLen, insInfo)
+  TMS320C6000Instruction (addr, 4u, insInfo)
 
 // vim: set tw=80 sts=2 sw=2:

@@ -33,9 +33,8 @@ module Intel =
   open B2R2.FrontEnd.BinLifter.Intel
 
   let private test prefs segment wordSize opcode oprs length (bytes: byte[]) =
-    let reader = BinReader.Init (bytes)
     let parser = IntelParser (wordSize)
-    let ins = parser.Parse reader 0UL 0 :?> IntelInternalInstruction
+    let ins = parser.Parse (bytes, 0UL) :?> IntelInternalInstruction
     Assert.AreEqual (ins.Prefixes, prefs)
     Assert.AreEqual (Helper.getSegment ins.Prefixes, segment)
     Assert.AreEqual (ins.Opcode, opcode)
@@ -1495,16 +1494,19 @@ module Intel =
     member __.``Intel IL Test`` () =
       let isa = ISA.Init Arch.IntelX86 Endian.Little
       let hdl = BinHandle.Init (isa)
-      Assert.AreEqual (0, hdl.FileInfo.BinReader.Length ())
+      Assert.AreEqual (0, hdl.FileInfo.Span.Length)
 
 module ARMv7 =
   open B2R2.FrontEnd.BinLifter.ARM32
 
   let private test arch endian cond op w (q: Qualifier option) simd oprs bytes =
-    let reader = BinReader.Init (bytes, endian)
+    let reader =
+      if endian = Endian.Little then BinReader.binReaderLE
+      else BinReader.binReaderBE
+    let span = System.ReadOnlySpan bytes
     let mode = ArchOperationMode.ARMMode
     let mutable itstate = []
-    let ins = Parser.parse reader mode &itstate arch 0UL 0
+    let ins = Parser.parse span reader mode &itstate arch 0UL
     let cond' = ins.Info.Condition
     let opcode' = ins.Info.Opcode
     let wback' = ins.Info.WriteBack
@@ -2166,8 +2168,11 @@ module ARM64 =
   open B2R2.FrontEnd.BinLifter.ARM64.OperandHelper
 
   let private test endian opcode oprs bytes =
-    let reader = BinReader.Init (bytes, endian)
-    let ins = Parser.parse reader 0UL 0
+    let reader =
+      if endian = Endian.Little then BinReader.binReaderLE
+      else BinReader.binReaderBE
+    let span = System.ReadOnlySpan bytes
+    let ins = Parser.parse span reader 0UL
     let opcode' = ins.Info.Opcode
     let oprs' = ins.Info.Operands
     Assert.AreEqual (opcode', opcode)
@@ -5319,10 +5324,13 @@ module ARMThumb =
   open B2R2.FrontEnd.BinLifter.ARM32
 
   let private test arch endian cond op w q (simd: SIMDDataType option) oprs bs =
-    let reader = BinReader.Init (bs, endian)
+    let reader =
+      if endian = Endian.Little then BinReader.binReaderLE
+      else BinReader.binReaderBE
+    let span = System.ReadOnlySpan bs
     let mode = ArchOperationMode.ThumbMode
     let mutable itstate = []
-    let ins = Parser.parse reader mode &itstate arch 0UL 0
+    let ins = Parser.parse span reader mode &itstate arch 0UL
     let cond' = ins.Info.Condition
     let opcode' = ins.Info.Opcode
     let wback' = ins.Info.WriteBack
@@ -6098,8 +6106,11 @@ module MIPS64 =
   open B2R2.FrontEnd.BinLifter.MIPS
 
   let private test arch endian opcode oprs bytes =
-    let reader = BinReader.Init (bytes, endian)
-    let ins = Parser.parse reader arch WordSize.Bit64 0UL 0
+    let reader =
+      if endian = Endian.Little then BinReader.binReaderLE
+      else BinReader.binReaderBE
+    let span = System.ReadOnlySpan bytes
+    let ins = Parser.parse span reader arch WordSize.Bit64 0UL
     let opcode' = ins.Info.Opcode
     let oprs' = ins.Info.Operands
     Assert.AreEqual (opcode', opcode)
@@ -6220,8 +6231,11 @@ module MIPS32 =
   open B2R2.FrontEnd.BinLifter.MIPS
 
   let private test arch endian opcode cond fmt oprs bytes =
-    let reader = BinReader.Init (bytes, endian)
-    let ins = Parser.parse reader arch WordSize.Bit32 0UL 0
+    let reader =
+      if endian = Endian.Little then BinReader.binReaderLE
+      else BinReader.binReaderBE
+    let span = System.ReadOnlySpan bytes
+    let ins = Parser.parse span reader arch WordSize.Bit32 0UL
     let opcode' = ins.Info.Opcode
     let cond' = ins.Info.Condition
     let fmt' = ins.Info.Fmt
@@ -6556,8 +6570,9 @@ module EVM =
   open B2R2.FrontEnd.BinLifter.EVM
 
   let private test opcode bytes =
-    let reader = BinReader.Init (bytes, Endian.Little)
-    let ins = Parser.parse reader 0UL WordSize.Bit64 0UL 0
+    let reader = BinReader.binReaderLE
+    let span = System.ReadOnlySpan bytes
+    let ins = Parser.parse span reader 0UL WordSize.Bit64 0UL
     let opcode' = ins.Info.Opcode
     Assert.AreEqual (opcode', opcode)
 

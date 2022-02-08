@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.BinLifter.ARM64
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
@@ -37,10 +38,18 @@ type ARM64TranslationContext internal (isa, regexprs) =
 
 /// Parser for 64-bit ARM instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
-type ARM64Parser () =
+type ARM64Parser (isa) =
   inherit Parser ()
-  override __.Parse binReader addr pos =
-    Parser.parse binReader addr pos :> Instruction
+  let reader =
+    if isa.Endian = Endian.Little then BinReader.binReaderLE
+    else BinReader.binReaderBE
+
+  override __.Parse (bs: byte[], addr) =
+    let span = ReadOnlySpan bs
+    Parser.parse span reader addr :> Instruction
+
+  override __.Parse (span: ByteSpan, addr) =
+    Parser.parse span reader addr :> Instruction
 
   override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 

@@ -48,7 +48,7 @@ type EVMCodeCopyAnalysis () =
 
   let rec pickValidCopyInfo hdl = function
     | (Some 0UL, Some src, Some len) :: restCopyInfos ->
-      let bin = hdl.FileInfo.BinReader.Bytes
+      let bin = hdl.FileInfo.Span.ToArray ()
       let binLen = uint64 bin.Length
       let srcStart = src
       let srcEnd = src + len - 1UL

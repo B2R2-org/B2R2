@@ -25,11 +25,12 @@
 module internal B2R2.FrontEnd.BinFile.ELF.Relocs
 
 open System
+open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinFile.FileHelper
 
-let peekInfoWithArch reader eHdr offset =
-  let info = peekHeaderNative reader eHdr.Class offset 4 8
+let peekInfoWithArch span reader eHdr offset =
+  let info = peekHeaderNative span reader eHdr.Class offset 4 8
   match eHdr.MachineType with
   | Arch.MIPS64 | Arch.MIPS64R2 | Arch.MIPS64R6 ->
     (* MIPS64el has a a 32-bit LE symbol index followed by four individual byte
@@ -46,56 +47,53 @@ let peekInfoWithArch reader eHdr offset =
 let inline getRelocSIdx eHdr (i: uint64) =
   if eHdr.Class = WordSize.Bit32 then i >>> 8 else i >>> 32
 
-let inline relocEntry baseAddr hasAdd eHdr typMask symTbl reader pos sec =
-  let info = peekInfoWithArch reader eHdr pos
+let inline relocEntry baseAddr hasAdd eHdr typMask symTbl span reader pos sec =
+  let info = peekInfoWithArch span reader eHdr pos
   let cls = eHdr.Class
-  { RelOffset = peekUIntOfType reader cls pos + baseAddr
+  { RelOffset = peekUIntOfType span reader cls pos + baseAddr
     RelType = typMask &&& info |> RelocationType.FromNum eHdr.MachineType
     RelSymbol = Array.tryItem (getRelocSIdx eHdr info |> Convert.ToInt32) symTbl
-    RelAddend = if hasAdd then peekHeaderNative reader cls pos 8 16 else 0UL
+    RelAddend =
+      if hasAdd then peekHeaderNative span reader cls pos 8 16 else 0UL
     RelSecNumber = sec.SecNum }
 
 let nextRelOffset hasAdd cls offset =
   if cls = WordSize.Bit32 then offset + (if hasAdd then 12 else 8)
   else offset + (if hasAdd then 24 else 16)
 
-let accumulateRelocInfo relInfo rel =
-  match rel.RelSymbol with
-  | None ->
-    { relInfo with RelocByAddr = Map.add rel.RelOffset rel relInfo.RelocByAddr }
-  | Some name ->
-    { RelocByAddr = Map.add rel.RelOffset rel relInfo.RelocByAddr
-      RelocByName = Map.add name.SymName rel relInfo.RelocByName }
-
 let tryFindSymbTable idx symbInfo =
   match Map.tryFind idx symbInfo.SecNumToSymbTbls with
   | None -> [||]
   | Some tbl -> tbl
 
-let parseRelocSection baseAddr eHdr reader sec symbInfo relInfo =
+let accumulateRelocInfo relInfo rel =
+  match rel.RelSymbol with
+  | None -> relInfo.RelocByAddr[rel.RelOffset] <- rel
+  | Some name ->
+    relInfo.RelocByAddr[rel.RelOffset] <- rel
+    relInfo.RelocByName[name.SymName] <- rel
+
+let parseRelocSection baseAddr eHdr span reader sec symbInfo relInfo =
   let hasAdd = sec.SecType = SectionType.SHTRela (* Has addend? *)
   let typMask = if eHdr.Class = WordSize.Bit32 then 0xFFUL else 0xFFFFFFFFUL
-  let rec parseLoop rNum relInfo offset =
-    if rNum = 0UL then relInfo
-    else
-      let symTbl = tryFindSymbTable (int sec.SecLink) symbInfo
-      let rel = relocEntry baseAddr hasAdd eHdr typMask symTbl reader offset sec
-      let nextOffset = nextRelOffset hasAdd eHdr.Class offset
-      parseLoop (rNum - 1UL) (accumulateRelocInfo relInfo rel) nextOffset
   let entrySize =
     if hasAdd then (uint64 <| WordSize.toByteWidth eHdr.Class * 3)
     else (uint64 <| WordSize.toByteWidth eHdr.Class * 2)
-  let numEntries = sec.SecSize / entrySize
-  Convert.ToInt32 sec.SecOffset
-  |> parseLoop numEntries relInfo
+  let numEntries = int (sec.SecSize / entrySize)
+  let mutable ofs = Convert.ToInt32 sec.SecOffset
+  for _ = numEntries downto 1 do
+    let symTbl = tryFindSymbTable (int sec.SecLink) symbInfo
+    relocEntry baseAddr hasAdd eHdr typMask symTbl span reader ofs sec
+    |> accumulateRelocInfo relInfo
+    ofs <- nextRelOffset hasAdd eHdr.Class ofs
 
-let parse baseAddr eHdr secInfo symbInfo reader =
-  let folder acc sec =
+let parse baseAddr eHdr secInfo symbInfo span reader =
+  let relInfo = { RelocByAddr = Dictionary (); RelocByName = Dictionary () }
+  for sec in secInfo.SecByNum do
     match sec.SecType with
     | SectionType.SHTRel
     | SectionType.SHTRela ->
-      if sec.SecSize = 0UL then acc
-      else parseRelocSection baseAddr eHdr reader sec symbInfo acc
-    | _ -> acc
-  let emptyRelInfo = { RelocByAddr = Map.empty; RelocByName = Map.empty }
-  Array.fold folder emptyRelInfo secInfo.SecByNum
+      if sec.SecSize = 0UL then ()
+      else parseRelocSection baseAddr eHdr span reader sec symbInfo relInfo
+    | _ -> ()
+  relInfo

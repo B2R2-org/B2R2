@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.BinFile
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinFile.Mach
 open B2R2.FrontEnd.BinFile.Mach.Helper
@@ -37,7 +38,7 @@ type MachFileInfo (bytes, path, isa, baseAddr) =
   let isa = getISA mach
 
   new (bytes, path, isa) = MachFileInfo (bytes, path, isa, None)
-  override __.BinReader = mach.BinReader
+  override __.Span = ReadOnlySpan bytes
   override __.FileFormat = FileFormat.MachBinary
   override __.ISA = isa
   override __.FileType = convFileType mach.MachHdr.FileType

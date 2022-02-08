@@ -31,14 +31,14 @@ open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.FileHelper
 
 let getSymbKind ndx = function
-  | SymbolType.STTObject -> SymbolKind.ObjectType
+  | SymbolType.STTObject -> SymObjectType
   | SymbolType.STTGNUIFunc
   | SymbolType.STTFunc ->
-    if ndx = SHNUndef then SymbolKind.NoType
-    else SymbolKind.FunctionType
-  | SymbolType.STTSection -> SymbolKind.SectionType
-  | SymbolType.STTFile ->SymbolKind.FileType
-  | _ -> SymbolKind.NoType
+    if ndx = SHNUndef then NoType
+    else SymFunctionType
+  | SymbolType.STTSection -> SymSectionType
+  | SymbolType.STTFile ->SymFileType
+  | _ -> NoType
 
 let versionToLibName version =
   match version with
@@ -53,58 +53,66 @@ let toB2R2Symbol target (symb: ELFSymbol) =
     LibraryName = versionToLibName symb.VerInfo
     ArchOperationMode = symb.ArchOperationMode }
 
-let verName (strTab: ReadOnlySpan<byte>) vnaNameOffset =
+let verName (strTab: ByteSpan) vnaNameOffset =
   if vnaNameOffset >= strTab.Length then ""
   else ByteArray.extractCStringFromSpan strTab vnaNameOffset
 
-let rec parseNeededVerFromSecAux (reader: BinReader) strTab map pos =
-  let idx = reader.PeekUInt16 (pos + 6) (* vna_other *)
-  let nameOffset = reader.PeekInt32 (pos + 8)
+let rec parseNeededVerFromSecAux span (reader: IBinReader) strTab map pos =
+  let idx = reader.ReadUInt16 (span=span, offset=pos + 6) (* vna_other *)
+  let nameOffset = reader.ReadInt32 (span, pos + 8)
   let map = Map.add idx (verName strTab nameOffset) map
-  let next = reader.PeekInt32 (pos + 12)
+  let next = reader.ReadInt32 (span, pos + 12)
   if next = 0 then map
-  else parseNeededVerFromSecAux reader strTab map (pos + next)
+  else parseNeededVerFromSecAux span reader strTab map (pos + next)
 
-let rec parseNeededVerFromSec (reader: BinReader) strTab map pos =
-  let auxOffset = reader.PeekInt32 (pos + 8) + pos (* vn_aux + pos *)
-  let map = parseNeededVerFromSecAux reader strTab map auxOffset
-  let next = reader.PeekInt32 (pos + 12) (* vn_next *)
+let rec parseNeededVerFromSec span (reader: IBinReader) strTab map pos =
+  let auxOffset =
+    reader.ReadInt32 (span=span, offset=pos + 8) + pos (* vn_aux + pos *)
+  let map = parseNeededVerFromSecAux span reader strTab map auxOffset
+  let next = reader.ReadInt32 (span, pos + 12) (* vn_next *)
   if next = 0 then map
-  else parseNeededVerFromSec reader strTab map (pos + next)
+  else parseNeededVerFromSec span reader strTab map (pos + next)
 
-let parseNeededVersionTable tbl reader strTab = function
+let parseNeededVersionTable tbl span reader strTab = function
   | None -> tbl
   | Some sec ->
-    parseNeededVerFromSec reader strTab tbl (Convert.ToInt32 sec.SecOffset)
+    parseNeededVerFromSec span reader strTab tbl (Convert.ToInt32 sec.SecOffset)
 
-let rec parseDefinedVerFromSec (reader: BinReader) strTab map pos =
-  let auxOffset = reader.PeekInt32 (pos + 12) + pos (* vd_aux + pos *)
-  let idx = reader.PeekUInt16 (pos + 4) (* vd_ndx *)
-  let nameOffset = reader.PeekInt32 auxOffset (* vda_name *)
+let rec parseDefinedVerFromSec span (reader: IBinReader) strTab map pos =
+  let auxOffset =
+    reader.ReadInt32 (span=span, offset=pos + 12) + pos (* vd_aux + pos *)
+  let idx = reader.ReadUInt16 (span, pos + 4) (* vd_ndx *)
+  let nameOffset = reader.ReadInt32 (span, auxOffset) (* vda_name *)
   let map = Map.add idx (verName strTab nameOffset) map
-  let next = reader.PeekInt32 (pos + 16) (* vd_next *)
+  let next = reader.ReadInt32 (span, pos + 16) (* vd_next *)
   if next = 0 then map
-  else parseDefinedVerFromSec reader strTab map (pos + next)
+  else parseDefinedVerFromSec span reader strTab map (pos + next)
 
-let parseDefinedVersionTable tbl (reader: BinReader) strTab = function
+let parseDefinedVersionTable tbl span reader strTab = function
   | None -> tbl
   | Some sec ->
-    parseDefinedVerFromSec reader strTab tbl (Convert.ToInt32 sec.SecOffset)
+    parseDefinedVerFromSec span reader strTab tbl
+      (Convert.ToInt32 sec.SecOffset)
 
-let parseVersionTable secs (reader: BinReader) =
-  secs.DynSymSecNums
-  |> List.fold (fun tbl n ->
-       let symTblSec = secs.SecByNum[n]
-       let ss = secs.SecByNum[Convert.ToInt32 symTblSec.SecLink]
-       let size = Convert.ToInt32 ss.SecSize
-       let offset = Convert.ToInt32 ss.SecOffset
-       let strTab = reader.PeekSpan (size, offset)
-       let tbl = parseNeededVersionTable tbl reader strTab secs.VerNeedSec
-       parseDefinedVersionTable tbl reader strTab secs.VerDefSec) Map.empty
+let rec accumulateVerTbl (span: ByteSpan) reader secs tbl nlst =
+  match nlst with
+  | n :: rest ->
+    let symTblSec = secs.SecByNum[n]
+    let ss = secs.SecByNum[Convert.ToInt32 symTblSec.SecLink]
+    let size = Convert.ToInt32 ss.SecSize
+    let offset = Convert.ToInt32 ss.SecOffset
+    let strTab = span.Slice (offset, size)
+    let tbl = parseNeededVersionTable tbl span reader strTab secs.VerNeedSec
+    let tbl = parseDefinedVersionTable tbl span reader strTab secs.VerDefSec
+    accumulateVerTbl span reader secs tbl rest
+  | [] -> tbl
 
-let parseVersData (reader: BinReader) symIdx verSymSec =
+let parseVersionTable secs (span: ByteSpan) reader =
+  accumulateVerTbl span reader secs Map.empty secs.DynSymSecNums
+
+let parseVersData span (reader: IBinReader) symIdx verSymSec =
   let pos = verSymSec.SecOffset + (symIdx * 2UL) |> Convert.ToInt32
-  let versData = reader.PeekUInt16 pos
+  let versData = reader.ReadUInt16 (span=span, offset=pos)
   if versData > 1us then Some versData
   else None
 
@@ -118,10 +126,10 @@ let adjustSymAddr baseAddr addr =
   if addr = 0UL then 0UL
   else addr + baseAddr
 
-let readSymAddr baseAddr reader cls (parent: ELFSection option) txtOffset offset =
+let readSymAddr baseAddr span reader cls parent txtOffset offset =
   let symAddrOffset = if cls = WordSize.Bit32 then 4 else 8
-  let symAddr = offset + symAddrOffset |> peekUIntOfType reader cls
-  match parent with
+  let symAddr = peekUIntOfType span reader cls (offset + symAddrOffset)
+  match (parent: ELFSection option) with
   | None -> symAddr
   | Some sec ->
     (* This is to give a meaningful address to static symbols in a relocatable
@@ -133,9 +141,9 @@ let readSymAddr baseAddr reader cls (parent: ELFSection option) txtOffset offset
     else symAddr
   |> adjustSymAddr baseAddr
 
-let readSymSize (reader: BinReader) cls offset =
+let readSymSize span reader cls offset =
   let symSizeOffset = if cls = WordSize.Bit32 then 8 else 16
-  offset + symSizeOffset |> peekUIntOfType reader cls
+  peekUIntOfType span reader cls (offset + symSizeOffset)
 
 let computeArchOpMode eHdr symbolName =
   if eHdr.MachineType = Architecture.ARMv7
@@ -146,20 +154,25 @@ let computeArchOpMode eHdr symbolName =
     else ArchOperationMode.NoMode
   else ArchOperationMode.NoMode
 
-let getSymbol baseAddr secs strTab vtbl eHdr reader txt symIdx pos =
+let getVerInfo span reader vtbl symIdx secs =
+  match secs.VerSymSec with
+  | Some ssec ->
+    parseVersData span reader symIdx ssec >>= retrieveVer vtbl
+  | None -> None
+
+let getSymbol baseAddr secs strTab vtbl eHdr span reader txt symIdx pos =
   let cls = eHdr.Class
-  let nameIdx = (reader: BinReader).PeekUInt32 pos
+  let nameIdx = (reader: IBinReader).ReadUInt32 (span=span, offset=pos)
   let sname = ByteArray.extractCStringFromSpan strTab (Convert.ToInt32 nameIdx)
-  let info = peekHeaderB reader cls pos 12 4
-  let other = peekHeaderB reader cls pos 13 5
-  let ndx =  peekHeaderU16 reader cls pos 14 6 |> int
+  let info = peekHeaderB span reader cls pos 12 4
+  let other = peekHeaderB span reader cls pos 13 5
+  let ndx =  peekHeaderU16 span reader cls pos 14 6 |> int
   let parent = Array.tryItem ndx secs.SecByNum
   let secIdx = SectionHeaderIdx.IndexFromInt ndx
-  let vssec = secs.VerSymSec
-  let verInfo = vssec >>= parseVersData reader symIdx >>= retrieveVer vtbl
-  { Addr = readSymAddr baseAddr reader cls parent txt pos
+  let verInfo = getVerInfo span reader vtbl symIdx secs
+  { Addr = readSymAddr baseAddr span reader cls parent txt pos
     SymName = sname
-    Size = readSymSize reader cls pos
+    Size = readSymSize span reader cls pos
     Bind = info >>> 4 |> LanguagePrimitives.EnumOfValue
     SymType = info &&& 0xfuy |> LanguagePrimitives.EnumOfValue
     Vis = other &&& 0x3uy |> LanguagePrimitives.EnumOfValue
@@ -181,25 +194,26 @@ let getTextSectionOffset secs =
   | None -> 0UL
   | Some sec -> sec.SecOffset
 
-let rec parseSymAux baseAddr eHdr secs reader txt vtbl stbl cnt max offset acc =
+let rec parseSymAux
+  baseAddr eHdr secs span reader txt vtbl stbl cnt max offset acc =
   if cnt = max then List.rev acc
   else
-    let sym = getSymbol baseAddr secs stbl vtbl eHdr reader txt cnt offset
+    let sym = getSymbol baseAddr secs stbl vtbl eHdr span reader txt cnt offset
     let cnt = cnt + 1UL
     let offset = nextSymOffset eHdr offset
     let acc = sym :: acc
-    parseSymAux baseAddr eHdr secs reader txt vtbl stbl cnt max offset acc
+    parseSymAux baseAddr eHdr secs span reader txt vtbl stbl cnt max offset acc
 
-let parseSymbols baseAddr eHdr secs (reader: BinReader) vtbl acc symTblSec =
+let parseSymbols baseAddr eHdr secs (span: ByteSpan) reader vtbl acc symTblSec =
   let cls = eHdr.Class
   let ss = secs.SecByNum[Convert.ToInt32 symTblSec.SecLink] (* Get the sec. *)
   let size = Convert.ToInt32 ss.SecSize
   let offset = Convert.ToInt32 ss.SecOffset
   let max = symTblSec.SecSize / (if cls = WordSize.Bit32 then 16UL else 24UL)
   let txt = getTextSectionOffset secs
-  let stbl = reader.PeekSpan (size, offset) (* Get the str table *)
+  let stbl = span.Slice (offset, size)
   let offset = Convert.ToInt32 symTblSec.SecOffset
-  parseSymAux baseAddr eHdr secs reader txt vtbl stbl 0UL max offset acc
+  parseSymAux baseAddr eHdr secs span reader txt vtbl stbl 0UL max offset acc
 
 let getMergedSymbolTbl numbers symTbls =
   numbers
@@ -224,15 +238,18 @@ let buildSymbolMap staticSymArr dynamicSymArr =
   let map = staticSymArr |> Array.fold folder Map.empty
   dynamicSymArr |> Array.fold folder map
 
-let parse baseAddr eHdr secs reader =
-  let vtbl = parseVersionTable secs reader
+let rec getSymTabs map baseAddr eHdr secs span reader vtbl = function
+  | (n, symTblSec) :: rest ->
+    let symbols = parseSymbols baseAddr eHdr secs span reader vtbl [] symTblSec
+    let map = Map.add n (Array.ofList symbols) map
+    getSymTabs map baseAddr eHdr secs span reader vtbl rest
+  | [] -> map
+
+let parse baseAddr eHdr secs span reader =
+  let vtbl = parseVersionTable secs span reader
   let symTabNumbers = List.append secs.StaticSymSecNums secs.DynSymSecNums
-  let getSymTables sec =
-    List.fold (fun map (n, symTblSec) ->
-      let symbols = parseSymbols baseAddr eHdr secs reader vtbl [] symTblSec
-      Map.add n (Array.ofList symbols) map) Map.empty sec
-  let symTbls =
-    List.map (fun n -> n, secs.SecByNum[n]) symTabNumbers |> getSymTables
+  let symSecs = List.map (fun n -> n, secs.SecByNum[n]) symTabNumbers
+  let symTbls = getSymTabs Map.empty baseAddr eHdr secs span reader vtbl symSecs
   let staticSymArr = getStaticSymArrayInternal secs symTbls
   let dynamicSymArr = getDynamicSymArrayInternal secs symTbls
   { VersionTable = vtbl

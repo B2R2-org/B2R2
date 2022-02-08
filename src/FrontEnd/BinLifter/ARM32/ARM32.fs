@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.BinLifter.ARM32
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
@@ -60,11 +61,19 @@ type ARM32Parser (isa: ISA, mode, entryPoint: Addr option) =
     if mode = ArchOperationMode.NoMode then Basis.detectThumb entryPoint isa
     else mode
   let mutable itstate: byte list = []
+  let reader =
+    if isa.Endian = Endian.Little then BinReader.binReaderLE
+    else BinReader.binReaderBE
 
   override __.OperationMode with get() = mode and set(m) = mode <- m
 
-  override __.Parse reader addr pos =
-    Parser.parse reader mode &itstate isa.Arch addr pos
+  override __.Parse (span: ByteSpan, addr) =
+    Parser.parse span reader mode &itstate isa.Arch addr
+    :> Instruction
+
+  override __.Parse (bs: byte[], addr) =
+    let span = ReadOnlySpan bs
+    Parser.parse span reader mode &itstate isa.Arch addr
     :> Instruction
 
 // vim: set tw=80 sts=2 sw=2:

@@ -267,5 +267,5 @@ type PE = {
   /// A function for finding section index for a given rva (int).
   FindSectionIdxFromRVA: int -> int
   /// BinReader
-  BinReader: BinReader
+  BinReader: IBinReader
 }

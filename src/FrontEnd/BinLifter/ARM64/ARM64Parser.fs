@@ -24,6 +24,7 @@
 
 module B2R2.FrontEnd.BinLifter.ARM64.Parser
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinLifter.ARM64.Utils
 open B2R2.FrontEnd.BinLifter.ARM64.OperandHelper
@@ -3293,20 +3294,18 @@ let parseByGroupOfB64 bin =
   | op0 when op0 &&& 0b1111u = 0b1111u -> parse64Group6 bin
   | _ -> failwith "Invalid op0 (parseByGroupOfB64)"
 
-let parse (reader: BinReader) addr pos =
-  let struct (bin, nextPos) = reader.ReadUInt32 pos
-  let instrLen = nextPos - pos |> uint32
-  // XXX: when oprSize is zero that means we did not implement it.
+let parse (span: ByteSpan) (reader: IBinReader) addr =
+  let bin = reader.ReadUInt32 (span, 0)
   let opcode, operands, oprSize = parseByGroupOfB64 bin
   let insInfo =
     {
       Address = addr
-      NumBytes = instrLen
+      NumBytes = 4u
       Condition = None
       Opcode = opcode
       Operands = operands
       OprSize = oprSize
     }
-  ARM64Instruction (addr, instrLen, insInfo, WordSize.Bit64 (* FIXME *))
+  ARM64Instruction (addr, 4u, insInfo, WordSize.Bit64 (* FIXME *))
 
 // vim: set tw=80 sts=2 sw=2:

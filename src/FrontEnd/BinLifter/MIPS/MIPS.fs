@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.BinLifter.MIPS
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
@@ -37,10 +38,20 @@ type MIPSTranslationContext internal (isa, regexprs) =
 
 /// Parser for MIPS instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
-type MIPSParser (wordSize, arch) =
+type MIPSParser (isa: ISA) =
   inherit Parser ()
-  override __.Parse binReader addr pos =
-    Parser.parse binReader arch wordSize addr pos :> Instruction
+  let wordSize = isa.WordSize
+  let arch = isa.Arch
+  let reader =
+    if isa.Endian = Endian.Little then BinReader.binReaderLE
+    else BinReader.binReaderBE
+
+  override __.Parse (bs: byte[], addr) =
+    let span = ReadOnlySpan bs
+    Parser.parse span reader arch wordSize addr :> Instruction
+
+  override __.Parse (span: ByteSpan, addr) =
+    Parser.parse span reader arch wordSize addr :> Instruction
 
   override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 

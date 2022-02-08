@@ -46,22 +46,22 @@ exception InvalidDWInstructionExpression
 
 let [<Literal>] Ehframe = ".eh_frame"
 
-let inline readInt (reader: BinReader) offset =
-  reader.ReadInt32 offset
+let inline readInt (span: ByteSpan) (reader: IBinReader) offset =
+  struct (reader.ReadInt32 (span, offset), offset + 4)
 
-let inline readUInt64 (reader: BinReader) offset =
-  reader.ReadUInt64 offset
+let inline readUInt64 (span: ByteSpan) (reader: IBinReader) offset =
+  struct (reader.ReadUInt64 (span, offset), offset + 8)
 
-let computeNextOffset len (reader: BinReader) offset =
+let computeNextOffset len span (reader: IBinReader) offset =
   if len = -1 then
-    let struct (len, offset) = readUInt64 reader offset
+    let struct (len, offset) = readUInt64 span reader offset
     int len + offset, offset
   else len + offset, offset
 
-let parseReturnRegister (reader: BinReader) version offset =
-  if version = 1uy then reader.PeekByte offset, offset + 1
+let parseReturnRegister (span: ByteSpan) version offset =
+  if version = 1uy then span[offset], offset + 1
   else
-    let r, offset = parseULEB128 reader offset
+    let r, offset = parseULEB128 span offset
     byte r, offset
 
 let personalityRoutinePointerSize addrSize = function
@@ -94,15 +94,16 @@ let obtainAugData addrSize (arr: byte []) data offset = function
   | 'S' -> data, offset (* This is a signal frame. *)
   | _ -> raise UnhandledAugString
 
-let parseAugmentationData (reader: BinReader) offset addrSize augstr =
+let parseAugmentationData span offset addrSize augstr =
   if (augstr: string).StartsWith ('z') then
-    let len, offset = parseULEB128 reader offset
-    let span = reader.PeekSpan (int len, offset)
+    let len, offset = parseULEB128 span offset
+    let span = span.Slice (offset, int len)
     let arr = span.ToArray ()
     augstr[ 1.. ]
     |> Seq.fold (fun (data, idx) ch ->
       obtainAugData addrSize arr data idx ch) ([], 0)
-    |> fst |> List.rev, offset + int len
+    |> fst
+    |> List.rev, offset + int len
   else [], offset
 
 let num isa n =
@@ -113,7 +114,7 @@ let regPlusNum isa regbay reg n =
   let regexp = DWRegister.toRegisterExpr isa regbay reg
   AST.binop BinOpType.ADD regexp (num isa n)
 
-let parseOpBReg isa regbay exprs (span: ReadOnlySpan<byte>) idx reg =
+let parseOpBReg isa regbay exprs (span: ByteSpan) idx reg =
   let offset, cnt = LEB128.DecodeUInt64 (span.Slice (idx))
   let exprs = regPlusNum isa regbay reg offset :: exprs
   struct (exprs, idx + cnt)
@@ -137,7 +138,7 @@ let parseBinop op exprs =
   let struct (fst, snd, exprs) = pop2 exprs
   AST.binop op snd fst :: exprs
 
-let parsePlusUconst isa exprs (span: ReadOnlySpan<byte>) idx =
+let parsePlusUconst isa exprs (span: ByteSpan) idx =
   let n, cnt = LEB128.DecodeUInt64 (span.Slice (idx))
   let n = num isa n
   let struct (fst, exprs) = pop exprs
@@ -154,7 +155,7 @@ let parseLoad isa exprs =
   let rt = isa.WordSize |> WordSize.toRegType
   AST.loadLE rt addr :: exprs
 
-let rec parseExprs isa regbay exprs (span: ReadOnlySpan<byte>) i maxIdx =
+let rec parseExprs isa regbay exprs (span: ByteSpan) i maxIdx =
   if i >= maxIdx then
     match exprs with
     | [ exp ] -> exp
@@ -446,7 +447,7 @@ let restoreOne initialRule currentRule target =
   | None -> Map.remove target currentRule
 
 let rec getUnwind acc cfa irule rst rule isa rbay lr cf df rr span i loc =
-  if i >= (span: ReadOnlySpan<byte>).Length then
+  if i >= (span: ByteSpan).Length then
     { Location = loc
       CanonicalFrameAddress = cfa
       Rule = rule } :: acc |> List.rev, cfa, lr
@@ -586,21 +587,21 @@ let extractRule unwindingInfo =
   | [ row ] -> row.Rule
   | _ -> Map.empty
 
-let parseCIE cls isa rbay (reader: BinReader) offset nextOffset =
-  let struct (version, offset) = reader.ReadByte offset
+let parseCIE cls isa rbay span offset nextOffset =
+  let version = (span: ByteSpan)[offset]
+  let offset = offset + 1
   if version = 1uy || version = 3uy then
-    let span = reader.PeekSpan offset
-    let augstr = ByteArray.extractCStringFromSpan span 0
+    let augstr = ByteArray.extractCStringFromSpan span offset
     let addrSize = WordSize.toByteWidth cls
     let offset = offset + augstr.Length + 1
     let offset = if augstr.Contains "eh" then offset + addrSize else offset
-    let cf, offset = parseULEB128 reader offset
-    let df, offset = parseSLEB128 reader offset
-    let rr, offset = parseReturnRegister reader version offset
-    let augs, offset = parseAugmentationData reader offset addrSize augstr
+    let cf, offset = parseULEB128 span offset
+    let df, offset = parseSLEB128 span offset
+    let rr, offset = parseReturnRegister span version offset
+    let augs, offset = parseAugmentationData span offset addrSize augstr
     let instrLen = nextOffset - offset
     if instrLen > 0 then
-      let span = reader.PeekSpan (instrLen, offset)
+      let span = span.Slice (offset, instrLen)
       let rule = Map.empty
       getUnwind [] UnknownCFA rule [] rule isa rbay rr cf df rr span 0 0UL
     else [], UnknownCFA, rr
@@ -625,22 +626,23 @@ let adjustAddr app myAddr addr =
   | ExceptionHeaderApplication.DW_EH_PE_pcrel -> addr + myAddr
   | _ -> addr
 
-let parsePCInfo cls reader sAddr venc aenc offset =
+let parsePCInfo cls span reader sAddr venc aenc offset =
   let myAddr = sAddr + uint64 offset
-  let struct (addr, offset) = computeValue cls reader venc offset
-  let struct (range, offset) = computeValue cls reader venc offset
+  let struct (addr, offset) = computeValue cls span reader venc offset
+  let struct (range, offset) = computeValue cls span reader venc offset
   let beginAddr = adjustAddr aenc myAddr addr
   let endAddr = beginAddr + range
   beginAddr, endAddr, offset
 
-let parseLSDA cls reader sAddr aug offset =
-  let _, offset = parseULEB128 reader offset
+let parseLSDA cls span reader sAddr aug offset =
+  let _, offset = parseULEB128 span offset
   let myAddr = sAddr + uint64 offset
-  let struct (addr, offset) = computeValue cls reader aug.ValueEncoding offset
+  let struct (addr, offset) =
+    computeValue cls span reader aug.ValueEncoding offset
   Some (adjustAddr aug.ApplicationEncoding myAddr addr), offset
 
-let parseCallFrameInstrs cie isa regbay reader offset nextOffset loc =
-  let span = (reader: BinReader).PeekSpan (nextOffset - offset, offset)
+let parseCallFrameInstrs cie isa regbay (span: ByteSpan) offset nextOffset loc =
+  let span = span.Slice (offset, nextOffset - offset)
   let insarr = span.ToArray ()
   if Array.forall (fun b -> b = 0uy) insarr then []
   else
@@ -653,7 +655,7 @@ let parseCallFrameInstrs cie isa regbay reader offset nextOffset loc =
     let info, _, _ = getUnwind [] cfa r [] r isa regbay ir cf df rr span 0 loc
     info
 
-let parseFDE cls isa regbay reader sAddr offset nextOffset cie =
+let parseFDE cls isa regbay span reader sAddr offset nextOffset cie =
   match cie with
   | Some cie ->
     let venc, aenc =
@@ -662,12 +664,12 @@ let parseFDE cls isa regbay reader sAddr offset nextOffset cie =
       | None -> ExceptionHeaderValue.DW_EH_PE_absptr,
                 ExceptionHeaderApplication.DW_EH_PE_absptr
     let b, e, offset =
-      parsePCInfo cls reader sAddr venc aenc offset
+      parsePCInfo cls span reader sAddr venc aenc offset
     let lsdaPointer, offset =
       match tryFindAugmentation cie 'L' with
-      | Some aug -> parseLSDA cls reader sAddr aug offset
+      | Some aug -> parseLSDA cls span reader sAddr aug offset
       | None -> None, offset
-    let info = parseCallFrameInstrs cie isa regbay reader offset nextOffset b
+    let info = parseCallFrameInstrs cie isa regbay span offset nextOffset b
     { PCBegin = b
       PCEnd = e
       LSDAPointer = lsdaPointer
@@ -681,36 +683,38 @@ let accumulateCFIs cfis cie fdes =
       FDERecord = List.rev fdes |> List.toArray } :: cfis
   | None -> cfis
 
-let rec parseCFI cls isa regbay reader sAddr cie cies fdes offset cfis =
-  if offset >= ((reader: BinReader).Length ()) then accumulateCFIs cfis cie fdes
+let rec parseCFI cls isa regbay span reader sAddr cie cies fdes offset cfis =
+  if offset >= (span: ByteSpan).Length then
+    accumulateCFIs cfis cie fdes
   else
     let originalOffset = offset
-    let struct (len, offset) = readInt reader offset
+    let struct (len, offset) = readInt span reader offset
     if len = 0 then accumulateCFIs cfis cie fdes
     else
-      let nextOffset, offset = computeNextOffset len reader offset
+      let nextOffset, offset = computeNextOffset len span reader offset
       let mybase = offset
-      let struct (id, offset) = readInt reader offset
+      let struct (id, offset) = readInt span reader offset
       if id = 0 then
         let cfis = accumulateCFIs cfis cie fdes
-        let cie = parseCIE cls isa regbay reader offset nextOffset
+        let cie = parseCIE cls isa regbay span offset nextOffset
         let cies = Map.add originalOffset cie cies
-        parseCFI cls isa regbay reader sAddr (Some cie) cies [] nextOffset cfis
+        let cie = Some cie
+        parseCFI cls isa regbay span reader sAddr cie cies [] nextOffset cfis
       else
         let cieOffset = mybase - id (* id = a CIE pointer, when id <> 0 *)
         let fde =
-          Map.tryFind cieOffset cies
-          |> parseFDE cls isa regbay reader sAddr offset nextOffset
+          parseFDE cls isa regbay span reader sAddr offset nextOffset
+            (Map.tryFind cieOffset cies)
         let fdes = fde :: fdes
-        parseCFI cls isa regbay reader sAddr cie cies fdes nextOffset cfis
+        parseCFI cls isa regbay span reader sAddr cie cies fdes nextOffset cfis
 
-let parse (reader: BinReader) cls (secs: SectionInfo) isa regbay =
+let parse span (reader: IBinReader) cls (secs: SectionInfo) isa regbay =
   match Map.tryFind Ehframe secs.SecByName with
   | Some sec when Option.isSome regbay ->
     let size = Convert.ToInt32 sec.SecSize
     let offset = Convert.ToInt32 sec.SecOffset
-    let reader = reader.SubReader offset size
+    let span = (span: ByteSpan).Slice (offset, size)
     let regbay = Option.get regbay
-    parseCFI cls isa regbay reader sec.SecAddr None Map.empty [] 0 []
+    parseCFI cls isa regbay span reader sec.SecAddr None Map.empty [] 0 []
     |> List.rev
   | _ -> []

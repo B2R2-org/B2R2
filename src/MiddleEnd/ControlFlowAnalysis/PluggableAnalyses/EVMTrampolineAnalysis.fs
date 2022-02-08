@@ -94,7 +94,7 @@ type EVMTrampolineAnalysis (abiFile) =
   member private __.MakeSymbol name addr =
     { Address = addr
       Name = name
-      Kind = FunctionType
+      Kind = SymFunctionType
       Target = TargetKind.StaticSymbol
       LibraryName = ""
       ArchOperationMode = ArchOperationMode.NoMode }
@@ -103,7 +103,7 @@ type EVMTrampolineAnalysis (abiFile) =
     fi.AddSymbol addr (__.MakeSymbol name addr)
 
   member private __.AnalyzeTrampoline hdl codeMgr =
-    let bytes = hdl.FileInfo.BinReader.Bytes
+    let bytes = hdl.FileInfo.Span.ToArray ()
     let isa = hdl.FileInfo.ISA
     let newHdl = BinHandle.Init (isa, bytes)
     let newFi = newHdl.FileInfo

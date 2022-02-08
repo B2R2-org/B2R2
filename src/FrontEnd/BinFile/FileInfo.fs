@@ -24,16 +24,17 @@
 
 namespace B2R2.FrontEnd.BinFile
 
-open B2R2
+open System
 open System.Runtime.InteropServices
+open B2R2
 
 /// FileInfo describes a binary file in a format-agnostic way.
 [<AbstractClass>]
 type FileInfo () =
   /// <summary>
-  ///   The corresponding binary reader.
+  ///   Raw byte values as a `ByteSpan`.
   /// </summary>
-  abstract BinReader: BinReader
+  abstract Span: ByteSpan
 
   /// <summary>
   ///   The format of this file: ELF, PE, Mach-O, or etc.
@@ -356,7 +357,7 @@ type FileInfo () =
       if dict.ContainsKey s.Address then () else dict[s.Address] <- s)
     dict
     |> Seq.map (fun (KeyValue (_, s)) -> s)
-    |> Seq.filter (fun s -> s.Kind = FunctionType)
+    |> Seq.filter (fun s -> s.Kind = SymFunctionType)
 
   /// <summary>
   ///   Returns a sequence of local function addresses (excluding external

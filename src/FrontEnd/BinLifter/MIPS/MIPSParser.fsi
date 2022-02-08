@@ -25,10 +25,17 @@
 /// MIPS instruction parser.
 module B2R2.FrontEnd.BinLifter.MIPS.Parser
 
+open System
 open B2R2
 
 /// Read in bytes and return a parsed instruction for MIPS. This function
 /// returns MIPSInstruction, which is a specialized type for MIPS. If you want
 /// to handle instructions in a platform-agnostic manner, you'd better use the
 /// MIPS class.
-val parse: BinReader -> Arch -> WordSize -> Addr -> int -> MIPSInstruction
+val parse:
+  ByteSpan
+  -> IBinReader
+  -> Arch
+  -> WordSize
+  -> Addr
+  -> MIPSInstruction

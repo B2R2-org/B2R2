@@ -754,5 +754,5 @@ type Mach = {
   /// Executable address ranges.
   ExecutableRanges: IntervalSet
   /// BinReader.
-  BinReader: BinReader
+  BinReader: IBinReader
 }

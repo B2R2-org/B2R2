@@ -41,19 +41,19 @@ type SymbolKind =
   /// The symbol type is not specified.
   | NoType
   /// The symbol is associated with a data object, such as a variable.
-  | ObjectType
+  | SymObjectType
   /// The symbol is associated with a general function.
-  | FunctionType
+  | SymFunctionType
   /// The symbol is associated with an external (imported) function.
-  | ExternFunctionType
+  | SymExternFunctionType
   /// The symbol is associated with a trampoline instruction, such as PLT.
-  | TrampolineType
+  | SymTrampolineType
   /// The symbol is associated with a section.
-  | SectionType
+  | SymSectionType
   /// The symbol gives the name of the source file associated with the obj file.
-  | FileType
+  | SymFileType
   /// The symbol is associated with a forwarding entry.
-  | ForwardType of bin: string * func: string
+  | SymForwardType of bin: string * func: string
 
 /// Is the symbol used for static target (static link editor) or dynamic target
 /// (dynamic linker)?

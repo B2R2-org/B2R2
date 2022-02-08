@@ -24,8 +24,9 @@
 
 namespace B2R2.FrontEnd.BinFile
 
-open B2R2
+open System
 open System.Collections.Generic
+open B2R2
 
 /// <summary>
 ///   This class represents a raw binary file (containing only binary code and
@@ -36,11 +37,10 @@ type RawFileInfo (bytes: byte [], path, isa, baseAddr) =
   let baseAddr = defaultArg baseAddr 0UL
   let size = bytes.Length
   let usize = uint64 size
-  let reader = BinReader.Init (bytes, isa.Endian)
 
   let symbolMap = Dictionary<Addr, Symbol> ()
 
-  override __.BinReader = reader
+  override __.Span = ReadOnlySpan bytes
 
   override __.FileFormat = FileFormat.RawBinary
 

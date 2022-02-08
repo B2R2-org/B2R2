@@ -24,17 +24,18 @@
 
 module internal B2R2.FrontEnd.BinFile.ELF.Parser
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinFile
 
 let parseGlobalSymbols reloc =
-  let folder map addr (rel: RelocationEntry) =
+  let folder map (KeyValue (addr, rel: RelocationEntry)) =
     match rel.RelType with
     | RelocationX86 RelocationX86.Reloc386GlobData
     | RelocationX64 RelocationX64.RelocX64GlobData ->
       Map.add addr (Option.get rel.RelSymbol) map
     | _ -> map
-  reloc.RelocByAddr |> Map.fold folder Map.empty
+  reloc.RelocByAddr |> Seq.fold folder Map.empty
 
 let rec loadCallSiteTable lsdaPointer = function
   | [] -> []
@@ -97,21 +98,21 @@ let execRanges segs =
     IntervalSet.add (AddrRange (s.PHAddr, s.PHAddr + s.PHMemSize - 1UL)) set
     ) IntervalSet.empty
 
-let private parseELF baseAddr regbay offset reader =
-  let eHdr, baseAddr = Header.parse baseAddr offset reader
+let private parseELF baseAddr regbay span (reader: IBinReader) =
+  let eHdr, baseAddr = Header.parse span reader baseAddr
   let isa = ISA.Init eHdr.MachineType eHdr.Endian
   let cls = eHdr.Class
-  let secs = Section.parse baseAddr eHdr reader
-  let proghdrs = ProgHeader.parse baseAddr eHdr reader
+  let secs = Section.parse baseAddr eHdr span reader
+  let proghdrs = ProgHeader.parse baseAddr eHdr span reader
   let segs = ProgHeader.getLoadableProgHeaders proghdrs
   let loadableSecNums = ProgHeader.getLoadableSecNums secs segs
-  let symbs = Symbol.parse baseAddr eHdr secs reader
-  let reloc = Relocs.parse baseAddr eHdr secs symbs reader
-  let plt = PLT.parse eHdr.MachineType secs reloc reader
+  let symbs = Symbol.parse baseAddr eHdr secs span reader
+  let reloc = Relocs.parse baseAddr eHdr secs symbs span reader
+  let plt = PLT.parse eHdr.MachineType secs reloc span reader
   let globals = parseGlobalSymbols reloc
   let symbs = Symbol.updatePLTSymbols plt symbs |> Symbol.updateGlobals globals
-  let excframes = ExceptionFrames.parse reader cls secs isa regbay
-  let lsdas = ELFGccExceptTable.parse reader cls secs
+  let excframes = ExceptionFrames.parse span reader cls secs isa regbay
+  let lsdas = ELFGccExceptTable.parse span reader cls secs
   let exctbls = computeExceptionTable excframes lsdas
   let unwindings = computeUnwindingTable excframes
   { ELFHdr = eHdr
@@ -130,14 +131,15 @@ let private parseELF baseAddr regbay offset reader =
     InvalidAddrRanges = invRanges cls segs (fun s -> s.PHAddr + s.PHMemSize)
     NotInFileRanges = invRanges cls segs (fun s -> s.PHAddr + s.PHFileSize)
     ExecutableRanges = execRanges segs
-    BinReader = reader
     ISA = isa
-    UnwindingTbl = unwindings }
+    UnwindingTbl = unwindings
+    BinReader = reader }
 
-let parse bytes baseAddr regbay =
-  let reader = BinReader.Init (bytes, Endian.Little)
-  if Header.isELF reader 0 then ()
+let parse (bytes: byte[]) baseAddr regbay =
+  let span = ReadOnlySpan bytes
+  if Header.isELF span then ()
   else raise FileFormatMismatchException
-  Header.peekEndianness reader 0
-  |> BinReader.RenewReader reader
-  |> parseELF baseAddr regbay 0
+  match Header.peekEndianness span with
+  | Endian.Little -> parseELF baseAddr regbay span BinReader.binReaderLE
+  | Endian.Big -> parseELF baseAddr regbay span BinReader.binReaderBE
+  | _ -> Utils.impossible ()

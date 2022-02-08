@@ -24,19 +24,20 @@
 
 namespace B2R2.FrontEnd.BinLifter
 
+open System
 open B2R2
 
 /// A platform-independent instruction parser.
 [<AbstractClass>]
 type Parser () =
-  /// Parse one instruction.
-  abstract member Parse: BinReader
-                       -> Addr
-                       -> int
-                       -> Instruction
+  /// Parse one instruction from the given byte array assuming that the address
+  /// of the instruction is `addr`.
+  abstract member Parse: bs: byte[] * addr: Addr -> Instruction
+
+  /// Parse one instruction from the given byte span assuming that the address
+  /// of the instruction is `addr`.
+  abstract member Parse: span: ByteSpan * addr: Addr -> Instruction
 
   /// The current operation mode of the Parser. This is only useful for ARMv7
   /// parsers.
   abstract member OperationMode: ArchOperationMode with get, set
-
-// vim: set tw=80 sts=2 sw=2:

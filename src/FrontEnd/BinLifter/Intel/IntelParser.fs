@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.BinLifter.Intel
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.Intel
@@ -499,10 +500,10 @@ type IntelParser (wordSz) =
 
   let rhlp = ReadHelper (wordSz, oparsers, szcomputers)
 
-  member inline private __.ParsePrefix (reader, pos: int) =
-    let mutable pos = pos
+  member inline private __.ParsePrefix (span: ByteSpan) =
+    let mutable pos = 0
     let mutable pref = PrxNone
-    let mutable b = (reader: BinReader).PeekByte pos
+    let mutable b = span[0]
     while ((prefixCheck[(int b >>> 5)] >>> (int b &&& 0b11111)) &&& 1u) > 0u do
       match b with
       | 0xF0uy -> pref <- PrxLOCK ||| (ClearGrp1PrefMask &&& pref)
@@ -518,33 +519,34 @@ type IntelParser (wordSz) =
       | 0x67uy -> pref <- PrxADDRSIZE ||| pref
       | _ -> pos <- pos - 1
       pos <- pos + 1
-      b <- reader.PeekByte pos
+      b <- span[pos]
     rhlp.Prefixes <- pref
     pos
 
-  member inline private __.ParseREX (reader, pos, rex: REXPrefix byref) =
+  member inline private __.ParseREX (bs: ByteSpan, pos, rex: REXPrefix byref) =
     if wordSz = WordSize.Bit32 then pos
     else
-      let rb = (reader: BinReader).PeekByte pos |> int
+      let rb = bs[pos] |> int
       if rb &&& 0b11110000 = 0b01000000 then
         rex <- EnumOfValue rb
         pos + 1
       else pos
 
-  override __.Parse reader addr pos =
+  override __.Parse (bs: byte[], addr) =
+    __.Parse (ReadOnlySpan bs, addr)
+
+  override __.Parse (span: ByteSpan, addr) =
     let mutable rex = REXPrefix.NOREX
-    let prefEndPos = __.ParsePrefix (reader, pos)
-    let nextPos = __.ParseREX (reader, prefEndPos, &rex)
+    let prefEndPos = __.ParsePrefix span
+    let nextPos = __.ParseREX (span, prefEndPos, &rex)
     rhlp.VEXInfo <- None
-    rhlp.BinReader <- reader
     rhlp.InsAddr <- addr
     rhlp.REXPrefix <- rex
-    rhlp.InitialPos <- pos
     rhlp.CurrPos <- nextPos
 #if LCACHE
     rhlp.MarkPrefixEnd (prefEndPos)
 #endif
-    oneByteParsers[int (rhlp.ReadByte ())].Run rhlp :> Instruction
+    oneByteParsers[int (rhlp.ReadByte span)].Run (span, rhlp) :> Instruction
 
   override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 

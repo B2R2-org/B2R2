@@ -24,6 +24,7 @@
 
 module internal B2R2.FrontEnd.BinLifter.Intel.Helper
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 open System.Runtime.CompilerServices
@@ -33,15 +34,14 @@ open LanguagePrimitives
 do ()
 
 type [<AbstractClass>] OperandParser () =
-  abstract member Render: ReadHelper -> Operands
+  abstract member Render: ByteSpan * ReadHelper -> Operands
 
 and [<AbstractClass>] InsSizeComputer () =
   abstract Render: ReadHelper -> SzCond -> unit
 
-and ReadHelper (rd, addr, initialPos, cpos, pref, rex, vex, wordSz, ops, szs) =
-  let mutable r: BinReader = rd
+and ReadHelper (addr, cpos, pref, rex, vex, wordSz, ops, szs) =
+  let reader = BinReader.binReaderLE
   let mutable addr: Addr = addr
-  let mutable ipos: int = initialPos
   let mutable cpos: int = cpos (* current position *)
   let mutable pref: Prefix = pref
   let mutable rex: REXPrefix = rex
@@ -53,12 +53,9 @@ and ReadHelper (rd, addr, initialPos, cpos, pref, rex, vex, wordSz, ops, szs) =
   let mutable regSz = 0<rt>
   let mutable operationSz = 0<rt>
   new (wordSz, oparsers, szcomputers) =
-    ReadHelper (EmptyBinReader () :> BinReader,
-                0UL, 0, 0, Prefix.PrxNone, REXPrefix.NOREX, None,
+    ReadHelper (0UL, 0, Prefix.PrxNone, REXPrefix.NOREX, None,
                 wordSz, oparsers, szcomputers)
-  member __.BinReader with get() = r and set(r') = r <- r'
   member __.InsAddr with get(): Addr = addr and set(a) = addr <- a
-  member __.InitialPos with get() = ipos and set(p) = ipos <- p
   member __.CurrPos with get() = cpos and set(p) = cpos <- p
   member __.IncPos () = cpos <- cpos + 1
   member __.Prefixes with get() = pref and set(p) = pref <- p
@@ -74,23 +71,62 @@ and ReadHelper (rd, addr, initialPos, cpos, pref, rex, vex, wordSz, ops, szs) =
   member __.OperationSize with get() = operationSz and set(s) = operationSz <- s
 
   member inline private __.ModCPos i = cpos <- cpos + i
-  member inline __.PeekByte () = r.PeekByte cpos
-  member inline __.ReadByte () = let v = r.PeekByte cpos in __.ModCPos 1; v
-  member inline __.ReadInt8 () = let v = r.PeekInt8 cpos in __.ModCPos 1; v
-  member inline __.ReadInt16 () = let v = r.PeekInt16 cpos in __.ModCPos 2; v
-  member inline __.ReadInt32 () = let v = r.PeekInt32 cpos in __.ModCPos 4; v
-  member inline __.ReadInt64 () = let v = r.PeekInt64 cpos in __.ModCPos 8; v
-  member inline __.ReadUInt8 () = let v = r.PeekUInt8 cpos in __.ModCPos 1; v
-  member inline __.ReadUInt16 () = let v = r.PeekUInt16 cpos in __.ModCPos 2; v
-  member inline __.ReadUInt32 () = let v = r.PeekUInt32 cpos in __.ModCPos 4; v
-  member inline __.ReadUInt64 () = let v = r.PeekUInt64 cpos in __.ModCPos 8; v
-  member inline __.ParsedLen () = cpos - ipos
-  member inline __.GetInsID () =
-    let len = cpos - ipos
-    let bs = r.PeekBytes (len, ipos)
+
+  member inline __.PeekByte (span: ByteSpan) = span[cpos]
+
+  member inline __.ReadByte (span: ByteSpan) =
+    let v = span[cpos]
+    __.ModCPos 1
+    v
+
+  member inline __.ReadInt8 (span: ByteSpan) =
+    let v = reader.ReadInt8 (span, cpos)
+    __.ModCPos 1
+    v
+
+  member inline __.ReadInt16 (span: ByteSpan) =
+    let v = reader.ReadInt16 (span, cpos)
+    __.ModCPos 2
+    v
+
+  member inline __.ReadInt32 (span: ByteSpan) =
+    let v = reader.ReadInt32 (span, cpos)
+    __.ModCPos 4
+    v
+
+  member inline __.ReadInt64 (span: ByteSpan) =
+    let v = reader.ReadInt64 (span, cpos)
+    __.ModCPos 8
+    v
+
+  member inline __.ReadUInt8 (span: ByteSpan) =
+    let v = reader.ReadUInt8 (span, cpos)
+    __.ModCPos 1
+    v
+
+  member inline __.ReadUInt16 (span: ByteSpan) =
+    let v = reader.ReadUInt16 (span, cpos)
+    __.ModCPos 2
+    v
+
+  member inline __.ReadUInt32 (span: ByteSpan) =
+    let v = reader.ReadUInt32 (span, cpos)
+    __.ModCPos 4
+    v
+
+  member inline __.ReadUInt64 (span: ByteSpan) =
+    let v = reader.ReadUInt64 (span, cpos)
+    __.ModCPos 8
+    v
+
+  member inline __.ParsedLen () = cpos
+
+  member inline __.GetInsID (span: ByteSpan) =
+    let len = cpos
+    let bs = reader.ReadBytes (span, 0, len)
     let chars: char [] = Array.zeroCreate (len * sizeof<char>)
-    System.Buffer.BlockCopy (bs, 0, chars, 0, bs.Length)
-    System.String chars
+    Buffer.BlockCopy (bs, 0, chars, 0, bs.Length)
+    String chars
 
 let inline hasREXW rexPref = rexPref &&& REXPrefix.REXW = REXPrefix.REXW
 

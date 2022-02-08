@@ -24,295 +24,272 @@
 
 module internal B2R2.FrontEnd.BinFile.Wasm.Section
 
+open System
+open System.Text
 open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.Wasm.Expression
-open System.Text
 
-let peekVectorLen (reader: BinReader) offset =
-  reader.PeekUInt32LEB128 offset
+let peekVectorLen (bs: byte[]) (reader: IBinReader) offset =
+  reader.ReadUInt32LEB128 (bs, offset)
 
-let peekVector (reader: BinReader) offset pe =
-  let vecLen, len = peekVectorLen reader offset
+let peekVector bs (reader: IBinReader) offset pe =
+  let vecLen, len = peekVectorLen bs reader offset
   let rec loop (acc: _ []) (count: uint32) (nOff: int) =
     if count = 0u then
       acc, uint32 (nOff - offset)
     else
-      let e, no = pe reader nOff
+      let e, no = pe bs reader nOff
       loop (Array.append acc [| e |]) (count - 1u) no
   let elems, size = loop [||] vecLen (offset + len)
-  {
-    Length = vecLen
+  { Length = vecLen
     Elements = elems
-    Size = size
-  }
+    Size = size }
 
-let peekByteVector (reader: BinReader) offset =
-  let pb (r: BinReader) (o: int) =
-    let struct(b, no) = r.ReadByte o
-    b, no
-  peekVector reader offset pb
+let peekByteVector (bs: byte[]) reader offset =
+  let pb (bs: byte[]) (r: IBinReader) (o: int) =
+    r.ReadByte (bs, o), o + 1
+  peekVector bs reader offset pb
 
-let peekName (reader: BinReader) offset =
-  let vec = peekByteVector reader offset
+let peekName bs reader offset =
+  let vec = peekByteVector bs reader offset
   vec.Elements
   |> Encoding.UTF8.GetString, vec.Size
 
-let peekSectionId (reader: BinReader) offset: SectionId =
-  reader.PeekUInt8(offset)
+let peekSectionId (bs: byte[]) reader offset =
+  (reader: IBinReader).ReadUInt8 (bs, offset)
   |> LanguagePrimitives.EnumOfValue
 
-let peekSectionHeader reader offset =
-  let secId = peekSectionId reader offset
-  let secContSize, len = reader.PeekUInt32LEB128 (offset + 1)
+let peekSectionHeader bs reader offset =
+  let secId: SectionId = peekSectionId bs reader offset
+  let secContSize, len = reader.ReadUInt32LEB128 (bs, offset + 1)
   secId, secContSize, len
 
-let parseSection (reader: BinReader) offset (pc: BinReader -> int -> 'TC) =
-  let id, contSize, len = peekSectionHeader reader offset
+let parseSection bs reader offset (pc: byte[] -> IBinReader -> int -> 'TC) =
+  let id, contSize, len = peekSectionHeader bs reader offset
   let headerSize = len + 1
   let contOff = offset + headerSize
   let contents =
     if contSize = 0u then None
-    else Some (pc reader contOff)
-  {
-    Id = id
+    else Some (pc bs reader contOff)
+  { Id = id
     Size = contSize
     Offset = offset
-    Contents = contents
-  }
+    Contents = contents }
 
-let peekCustomSecContents reader offset =
-  let name, rawLen = peekName reader offset
+let peekCustomSecContents bs reader offset =
+  let name, rawLen = peekName bs reader offset
   { Name = name; Size = rawLen }
 
-let parseCustomSec (reader: BinReader) offset =
-  let sec = parseSection reader offset peekCustomSecContents
+let parseCustomSec bs reader offset =
+  let sec = parseSection bs reader offset peekCustomSecContents
   let conts' =
     match sec.Contents with
     | Some conts ->
       Some { conts with Size = sec.Size }
     | None -> sec.Contents
-  {
-    sec with
-      Contents = conts'
-  }
+  { sec with Contents = conts' }
 
-let peekValTypeVec (reader: BinReader) offset =
-  let pvt (r: BinReader) (o: int) =
-    let struct(b, no) = r.ReadByte o
-    let valt: ValueType =
+let peekValTypeVec bs reader offset =
+  let pvt (bs: byte[]) (r: IBinReader) (o: int) =
+    let b = bs[o]
+    let valt: Wasm.ValueType =
       b |> LanguagePrimitives.EnumOfValue
-    valt, no
-  peekVector reader offset pvt
+    valt, o + 1
+  peekVector bs reader offset pvt
 
-let peekFuncType (reader: BinReader) offset =
+let peekFuncType bs reader offset =
   let offset' = offset + 1
-  let paramTypes = peekValTypeVec reader offset'
+  let paramTypes = peekValTypeVec bs reader offset'
   let rtOffset = offset' + int paramTypes.Size
-  let resultTypes = peekValTypeVec reader rtOffset
-  {
-    ParameterTypes = paramTypes
-    ResultTypes = resultTypes
-  }, rtOffset + int resultTypes.Size
+  let resultTypes = peekValTypeVec bs reader rtOffset
+  { ParameterTypes = paramTypes
+    ResultTypes = resultTypes }, rtOffset + int resultTypes.Size
 
-let peekTypeSecContents reader offset =
-  peekVector reader offset peekFuncType
+let peekTypeSecContents bs reader offset =
+  peekVector bs reader offset peekFuncType
 
-let parseTypeSec (reader: BinReader) offset =
-  parseSection reader offset peekTypeSecContents
+let parseTypeSec bs reader offset =
+  parseSection bs reader offset peekTypeSecContents
 
-let peekLimits (reader: BinReader) offset =
+let peekLimits (bs: byte[]) (reader: IBinReader) offset =
   let limitsKind =
-    reader.PeekUInt8 offset
+    reader.ReadUInt8 (bs, offset)
     |> LanguagePrimitives.EnumOfValue
   let offset' = offset + 1
   match limitsKind with
     | LimitsKind.Min ->
-      let mn, len = reader.PeekUInt32LEB128 (offset')
+      let mn, len = reader.ReadUInt32LEB128 (bs, offset')
       Min mn, (offset' + len)
     | LimitsKind.MinMax ->
-      let mn, mnLen = reader.PeekUInt32LEB128 (offset')
-      let mx, mxLen = reader.PeekUInt32LEB128 (offset' + mnLen)
+      let mn, mnLen = reader.ReadUInt32LEB128 (bs, offset')
+      let mx, mxLen = reader.ReadUInt32LEB128 (bs, offset' + mnLen)
       MinMax (mn, mx), (offset' + mnLen + mxLen)
     | _ -> raise InvalidFileTypeException
 
-let peekTableType (reader: BinReader) offset =
+let peekTableType (bs: byte[]) (reader: IBinReader) offset =
   let elemType =
-    reader.PeekUInt8 offset
+    reader.ReadUInt8 (bs, offset)
     |> LanguagePrimitives.EnumOfValue
   let offset' = offset + 1
-  let limits, no = peekLimits reader (offset')
-  {
-    ElemType = elemType
-    Limits = limits
-  }, no
+  let limits, no = peekLimits bs reader (offset')
+  { ElemType = elemType
+    Limits = limits }, no
 
-let peekGlobalType (reader: BinReader) offset =
+let peekGlobalType (bs: byte[]) (reader: IBinReader) offset =
   let valType =
-    reader.PeekUInt8 offset
+    reader.ReadUInt8 (bs, offset)
     |> LanguagePrimitives.EnumOfValue
   let mut =
-    reader.PeekUInt8 (offset + 1)
+    reader.ReadUInt8 (bs, offset + 1)
     |> LanguagePrimitives.EnumOfValue
   { ValueType = valType; Mutable = mut }, offset + 2
 
-let peekImportDesc (reader: BinReader) offset =
+let peekImportDesc (bs: byte[]) (reader: IBinReader) offset =
   let descKind =
-    reader.PeekUInt8 offset
+    reader.ReadUInt8 (bs, offset)
     |> LanguagePrimitives.EnumOfValue
   match descKind with
     | ImportDescKind.Func ->
-      let typeIdx, len = reader.PeekUInt32LEB128 (offset + 1)
+      let typeIdx, len = reader.ReadUInt32LEB128 (bs, offset + 1)
       ImpFunc (typeIdx), (offset + 1 + len)
     | ImportDescKind.Table ->
-      let tableType, size = peekTableType reader (offset + 1)
+      let tableType, size = peekTableType bs reader (offset + 1)
       ImpTable (tableType), (offset + 1 + size)
     | ImportDescKind.Mem ->
-      let mem, size = peekLimits reader (offset + 1)
+      let mem, size = peekLimits bs reader (offset + 1)
       ImpMem (mem), (offset + 1 + size)
     | ImportDescKind.Global ->
-      let glob, size = peekGlobalType reader (offset + 1)
+      let glob, size = peekGlobalType bs reader (offset + 1)
       ImpGlobal (glob), (offset + 1 + size)
     | _ -> raise InvalidFileTypeException
 
-let peekImportEntry (reader: BinReader) offset =
-  let modName, rawLen = peekName reader offset
+let peekImportEntry bs reader offset =
+  let modName, rawLen = peekName bs reader offset
   let offset' = (offset + int rawLen)
-  let impName, rawLen = peekName reader offset'
-  let impDesc, nOff = peekImportDesc reader (offset' + int rawLen)
-  {
-    Offset = offset
+  let impName, rawLen = peekName bs reader offset'
+  let impDesc, nOff = peekImportDesc bs reader (offset' + int rawLen)
+  { Offset = offset
     ModuleName = modName
     Name = impName
-    Desc = impDesc
-  }, nOff
+    Desc = impDesc }, nOff
 
-let peekImportSecContents (reader: BinReader) offset =
-  peekVector reader offset peekImportEntry
+let peekImportSecContents bs reader offset =
+  peekVector bs reader offset peekImportEntry
 
-let parseImportSec (reader: BinReader) offset =
-  parseSection reader offset peekImportSecContents
+let parseImportSec bs reader offset =
+  parseSection bs reader offset peekImportSecContents
 
-let peekFunctionSecContents (reader: BinReader) offset =
-  let pti (r: BinReader) o =
-    let struct(idx, no) = r.ReadUInt32LEB128 o
-    idx, no
-  peekVector reader offset pti
+let peekFunctionSecContents bs reader offset =
+  let pti (bs: byte[]) (r: IBinReader) o =
+    r.ReadUInt32LEB128 (bs, o)
+  peekVector bs reader offset pti
 
-let parseFunctionSec (reader: BinReader) offset =
-  parseSection reader offset peekFunctionSecContents
+let parseFunctionSec bs reader offset =
+  parseSection bs reader offset peekFunctionSecContents
 
-let peekTableSecContents (reader: BinReader) offset =
-  peekVector reader offset peekTableType
+let peekTableSecContents bs reader offset =
+  peekVector bs reader offset peekTableType
 
-let parseTableSec (reader: BinReader) offset =
-  parseSection reader offset peekTableSecContents
+let parseTableSec bs reader offset =
+  parseSection bs reader offset peekTableSecContents
 
-let peekMemorySecContents (reader: BinReader) offset =
-  peekVector reader offset peekLimits
+let peekMemorySecContents bs reader offset =
+  peekVector bs reader offset peekLimits
 
-let parseMemorySec (reader: BinReader) offset =
-  parseSection reader offset peekMemorySecContents
+let parseMemorySec bs reader offset =
+  parseSection bs reader offset peekMemorySecContents
 
-let peekGlobalVar (reader: BinReader) offset =
-  let gt, no = peekGlobalType reader offset
-  let expr, no' = peekConstExpr reader no
+let peekGlobalVar bs reader offset =
+  let gt, no = peekGlobalType bs reader offset
+  let expr, no' = peekConstExpr (ReadOnlySpan bs) reader no
   { Type = gt; InitExpr = expr }, no'
 
-let peekGlobalSecContents (reader: BinReader) offset =
-  peekVector reader offset peekGlobalVar
+let peekGlobalSecContents bs reader offset =
+  peekVector bs reader offset peekGlobalVar
 
-let parseGlobalSec (reader: BinReader) offset =
-  parseSection reader offset peekGlobalSecContents
+let parseGlobalSec bs reader offset =
+  parseSection bs reader offset peekGlobalSecContents
 
-let peekExportDesc (reader: BinReader) offset =
+let peekExportDesc (bs: byte[]) (reader: IBinReader) offset =
   let descKind =
-    reader.PeekUInt8 offset
+    reader.ReadUInt8 (bs, offset)
     |> LanguagePrimitives.EnumOfValue
   match descKind with
     | ExportDescKind.Func ->
-      let typeIdx, len = reader.PeekUInt32LEB128 (offset + 1)
+      let typeIdx, len = reader.ReadUInt32LEB128 (bs, offset + 1)
       ExpFunc (typeIdx), offset + 1 + len
     | ExportDescKind.Table ->
-      let tableIdx, len = reader.PeekUInt32LEB128 (offset + 1)
+      let tableIdx, len = reader.ReadUInt32LEB128 (bs, offset + 1)
       ExpTable (tableIdx), offset + 1 + len
     | ExportDescKind.Mem ->
-      let memIdx, len = reader.PeekUInt32LEB128 (offset + 1)
+      let memIdx, len = reader.ReadUInt32LEB128 (bs, offset + 1)
       ExpMem (memIdx), offset + 1 + len
     | ExportDescKind.Global ->
-      let globalIdx, len = reader.PeekUInt32LEB128 (offset + 1)
+      let globalIdx, len = reader.ReadUInt32LEB128 (bs, offset + 1)
       ExpGlobal (globalIdx), offset + 1 + len
     | _ -> raise InvalidFileTypeException
 
-let peekExportEntry (reader: BinReader) offset =
-  let name, rawLen = peekName reader offset
+let peekExportEntry bs reader offset =
+  let name, rawLen = peekName bs reader offset
   let offset' = (offset + int rawLen)
-  let exportDesc, nOff = peekExportDesc reader offset'
-  {
-    Offset = offset
+  let exportDesc, nOff = peekExportDesc bs reader offset'
+  { Offset = offset
     Name = name
-    Desc = exportDesc
-  }, nOff
+    Desc = exportDesc }, nOff
 
-let peekExportSecContents (reader: BinReader) offset =
-  peekVector reader offset peekExportEntry
+let peekExportSecContents bs reader offset =
+  peekVector bs reader offset peekExportEntry
 
-let parseExportSec (reader: BinReader) offset =
-  parseSection reader offset peekExportSecContents
+let parseExportSec bs reader offset =
+  parseSection bs reader offset peekExportSecContents
 
-let peekStartFunc (reader: BinReader) offset =
-  let funcIdx, _ = reader.PeekUInt32LEB128 offset
+let peekStartFunc (bs: byte[]) (reader: IBinReader) offset =
+  let funcIdx, _ = reader.ReadUInt32LEB128 (bs, offset)
   funcIdx
 
-let parseStartSec (reader: BinReader) offset =
-  parseSection reader offset peekStartFunc
+let parseStartSec bs reader offset =
+  parseSection bs reader offset peekStartFunc
 
-let peekElemSeg (reader: BinReader) offset =
-  let pti (r: BinReader) (o: int) =
-    let struct(i, no) = r.ReadUInt32LEB128 o
-    i, no
-  let tableIdx, len = reader.PeekUInt32LEB128 offset
-  let expr, no = peekConstExpr reader (offset + len)
-  let initFuncs = peekVector reader no pti
+let peekElemSeg (bs: byte[]) (reader: IBinReader) offset =
+  let pti (bs: byte[]) (r: IBinReader) (o: int) =
+    r.ReadUInt32LEB128 (bs, o)
+  let tableIdx, len = reader.ReadUInt32LEB128 (bs, offset)
+  let expr, no = peekConstExpr (ReadOnlySpan bs) reader (offset + len)
+  let initFuncs = peekVector bs reader no pti
   let offset' = no + int initFuncs.Size
-  {
-    TableIndex = tableIdx
+  { TableIndex = tableIdx
     OffsetExpr = expr
-    InitFuncs = initFuncs
-  }, offset'
+    InitFuncs = initFuncs }, offset'
 
-let peekElementSecContents (reader: BinReader) offset =
-  peekVector reader offset peekElemSeg
+let peekElementSecContents bs reader offset =
+  peekVector bs reader offset peekElemSeg
 
-let parseElementSec (reader: BinReader) offset =
-  parseSection reader offset peekElementSecContents
+let parseElementSec bs reader offset =
+  parseSection bs reader offset peekElementSecContents
 
-let peekCodeEntry (reader: BinReader) offset =
-  let codeSize, len = reader.PeekUInt32LEB128 offset
-  {
-    Offset = offset
+let peekCodeEntry (bs: byte[]) (reader: IBinReader) offset =
+  let codeSize, len = reader.ReadUInt32LEB128 (bs, offset)
+  { Offset = offset
     LenFieldSize = len
-    CodeSize = codeSize
-  }, offset + len + int codeSize
+    CodeSize = codeSize }, offset + len + int codeSize
 
-let peekCodeSecContents (reader: BinReader) offset =
-  peekVector reader offset peekCodeEntry
+let peekCodeSecContents bs reader offset =
+  peekVector bs reader offset peekCodeEntry
 
-let parseCodeSec (reader: BinReader) offset =
-  parseSection reader offset peekCodeSecContents
+let parseCodeSec bs reader offset =
+  parseSection bs reader offset peekCodeSecContents
 
-let peekDataSeg (reader: BinReader) offset =
-  let memIdx, len = reader.PeekUInt32LEB128 offset
-  let expr, no = peekConstExpr reader (offset + len)
-  let byteVec = peekByteVector reader no
-  {
-    MemoryIndex = memIdx
+let peekDataSeg (bs: byte[]) (reader: IBinReader) offset =
+  let memIdx, len = reader.ReadUInt32LEB128 (bs, offset)
+  let expr, no = peekConstExpr (ReadOnlySpan bs) reader (offset + len)
+  let byteVec = peekByteVector bs reader no
+  { MemoryIndex = memIdx
     OffsetExpr = expr
-    InitBytes = byteVec
-  }, no + int byteVec.Size
+    InitBytes = byteVec }, no + int byteVec.Size
 
-let peekDataSecContents (reader: BinReader) offset =
-  peekVector reader offset peekDataSeg
+let peekDataSecContents bs reader offset =
+  peekVector bs reader offset peekDataSeg
 
-let parseDataSec (reader: BinReader) offset =
-  parseSection reader offset peekDataSecContents
+let parseDataSec bs reader offset =
+  parseSection bs reader offset peekDataSecContents

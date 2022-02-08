@@ -68,32 +68,32 @@ let classifyRanges myrange notinfiles =
        else ((AddrRange (saddr, myrange.Max), true) :: infiles))
   |> List.rev
 
-let inline readIntBySize (fi: FileInfo) pos size =
+let inline readIntBySize (r: IBinReader) (fi: FileInfo) pos size =
   match size with
-  | 1 -> fi.BinReader.PeekInt8 pos |> int64 |> Ok
-  | 2 -> fi.BinReader.PeekInt16 pos |> int64 |> Ok
-  | 4 -> fi.BinReader.PeekInt32 pos |> int64 |> Ok
-  | 8 -> fi.BinReader.PeekInt64 pos |> Ok
+  | 1 -> r.ReadInt8 (fi.Span, pos) |> int64 |> Ok
+  | 2 -> r.ReadInt16 (fi.Span, pos) |> int64 |> Ok
+  | 4 -> r.ReadInt32 (fi.Span, pos) |> int64 |> Ok
+  | 8 -> r.ReadInt64 (fi.Span, pos) |> Ok
   | _ -> Error ErrorCase.InvalidMemoryRead
 
-let inline readUIntBySize (fi: FileInfo) pos size =
+let inline readUIntBySize (r: IBinReader) (fi: FileInfo) pos size =
   match size with
-  | 1 -> fi.BinReader.PeekUInt8 pos |> uint64 |> Ok
-  | 2 -> fi.BinReader.PeekUInt16 pos |> uint64 |> Ok
-  | 4 -> fi.BinReader.PeekUInt32 pos |> uint64 |> Ok
-  | 8 -> fi.BinReader.PeekUInt64 pos |> Ok
+  | 1 -> r.ReadUInt8 (fi.Span, pos) |> uint64 |> Ok
+  | 2 -> r.ReadUInt16 (fi.Span, pos) |> uint64 |> Ok
+  | 4 -> r.ReadUInt32 (fi.Span, pos) |> uint64 |> Ok
+  | 8 -> r.ReadUInt64 (fi.Span, pos) |> Ok
   | _ -> Error ErrorCase.InvalidMemoryRead
 
 let inline readASCII (fi: FileInfo) pos =
   let rec loop acc pos =
-    let b = fi.BinReader.PeekByte pos
+    let b = fi.Span[pos]
     if b = 0uy then List.rev (b :: acc) |> List.toArray
     else loop (b :: acc) (pos + 1)
   loop [] pos
 
 let inline parseInstrFromAddr (fi: FileInfo) (parser: Parser) addr =
-  fi.TranslateAddress addr
-  |> parser.Parse fi.BinReader addr
+  let offset = fi.TranslateAddress addr
+  parser.Parse (fi.Span.Slice offset, addr)
 
 let inline tryParseInstrFromAddr (fi: FileInfo) (parser: Parser) addr =
   try parseInstrFromAddr fi parser addr |> Ok
@@ -101,7 +101,7 @@ let inline tryParseInstrFromAddr (fi: FileInfo) (parser: Parser) addr =
 
 let inline tryParseInstrFromBinPtr fi (p: Parser) (bp: BinaryPointer) =
   try
-    let ins = p.Parse (fi: FileInfo).BinReader bp.Addr bp.Offset
+    let ins = p.Parse ((fi: FileInfo).Span.Slice bp.Offset, bp.Addr)
     if BinaryPointer.IsValidAccess bp (int ins.Length) then Ok ins
     else Error ErrorCase.ParsingFailure
   with _ ->

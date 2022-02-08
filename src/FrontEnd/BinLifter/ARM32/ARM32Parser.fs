@@ -24,15 +24,16 @@
 
 module B2R2.FrontEnd.BinLifter.ARM32.Parser
 
+open System
 open B2R2
 
-let getThumbBytes (reader: BinReader) pos =
-  let struct (b, nextPos) = reader.ReadUInt16 pos
+let getThumbBytes (span: ByteSpan) (reader: IBinReader) =
+  let b = reader.ReadUInt16 (span, 0)
   match b >>> 11 with
   | 0x1dus | 0x1eus | 0x1fus ->
-    let struct (b2, nextPos) = reader.ReadUInt16 nextPos
-    struct (((uint32 b2) <<< 16) + (uint32 b), nextPos)
-  | _ -> struct (uint32 b, nextPos)
+    let b2 = reader.ReadUInt16 (span, 2)
+    struct (((uint32 b2) <<< 16) + (uint32 b), 4u)
+  | _ -> struct (uint32 b, 2u)
 
 let isARMv7 = function
   | Arch.ARMv7 -> true
@@ -47,13 +48,12 @@ let parseThumb (itstate: byref<byte list>) bin = function
   | 4u -> Parserv7.parseV7Thumb32 &itstate bin
   | _ -> failwith "Invalid instruction length"
 
-let parse reader mode (it: byref<byte list>) arch addr pos =
-  let struct (bin, nextPos) =
+let parse span reader mode (it: byref<byte list>) arch addr =
+  let struct (bin, len) =
     match mode with
-    | ArchOperationMode.ThumbMode -> getThumbBytes reader pos
-    | ArchOperationMode.ARMMode -> reader.ReadUInt32 pos
+    | ArchOperationMode.ThumbMode -> getThumbBytes span reader
+    | ArchOperationMode.ARMMode -> struct (reader.ReadUInt32 (span, 0), 4u)
     | _-> raise InvalidTargetArchModeException
-  let len = nextPos - pos |> uint32
   let opcode, cond, itState, wback, qualifier, simdt, oprs, cflag =
     match mode with
     | ArchOperationMode.ARMMode ->

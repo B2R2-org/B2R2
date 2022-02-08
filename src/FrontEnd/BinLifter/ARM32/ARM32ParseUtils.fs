@@ -26,7 +26,6 @@ module internal B2R2.FrontEnd.BinLifter.ARM32.ParseUtils
 
 open B2R2
 open B2R2.FrontEnd.BinLifter.ARM32
-open B2R2.FrontEnd.BinLifter
 
 let extract binary n1 n2 =
   let m, n = if max n1 n2 = n1 then n1, n2 else n2, n1
@@ -93,17 +92,6 @@ let signExtend bitSize extSize (imm: uint64) =
   else
     BigInteger.getMask extSize - BigInteger.getMask bitSize ||| (bigint imm)
     |> uint64
-
-let private getThumbLen (reader: BinReader) pos =
-  let b = reader.PeekUInt16 pos
-  match b >>> 11 with
-  | 0x1dus | 0x1eus | 0x1fus -> 4
-  | _ -> 2
-
-let getInstrLen reader offset = function
-  | ArchOperationMode.ThumbMode -> getThumbLen reader offset |> uint64
-  | ArchOperationMode.ARMMode -> 4UL
-  | _ -> raise InvalidTargetArchModeException
 
 let isUnconditional cond =
   match cond with

@@ -258,9 +258,10 @@ let dumpArchiveHeader (opts: FileViewerOpts) (fi: MachFileInfo) =
   Utils.futureFeature ()
 
 let dumpUniversalHeader (_opts: FileViewerOpts) (fi: MachFileInfo) =
-  let reader = BinReader.Init (IO.File.ReadAllBytes fi.FilePath)
-  if Mach.Header.isFat reader 0 then
-    Mach.Fat.loadFats reader
+  let span = fi.Span
+  let reader = fi.Mach.BinReader
+  if Mach.Header.isFat span reader then
+    Mach.Fat.loadFats span reader
     |> List.iteri (fun idx fat ->
       let cpu = fat.CPUType
       let cpusub = fat.CPUSubType

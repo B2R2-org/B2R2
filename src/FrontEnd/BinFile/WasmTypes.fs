@@ -275,6 +275,4 @@ type WasmModule = {
   SectionsInfo: SectionsInfo
   /// An element location translation map (Index to/from Offset).
   IndexMap: IndexInfo []
-  /// Binary Reader
-  BinReader: BinReader
 }

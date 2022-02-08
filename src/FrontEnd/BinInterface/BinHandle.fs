@@ -37,6 +37,7 @@ type BinHandle = {
   TranslationContext: TranslationContext
   Parser: Parser
   RegisterBay: RegisterBay
+  BinReader: IBinReader
   OS: OS
 }
 with
@@ -52,6 +53,9 @@ with
       TranslationContext = ctxt
       Parser = parser
       RegisterBay = regbay
+      BinReader =
+        if isa.Endian = Endian.Little then BinReader.binReaderLE
+        else BinReader.binReaderBE
       OS = os }
 
   static member Init (isa, archMode, autoDetect, baseAddr, bytes) =
@@ -95,36 +99,34 @@ with
 
   static member PatchCode hdl addr (bs: byte []) =
     let fi = hdl.FileInfo
-    let reader = fi.BinReader
     let idx = int <| addr - fi.BaseAddress
     let lastIdx = idx + bs.Length - 1
-    if reader.IsOutOfRange idx || reader.IsOutOfRange lastIdx then
+    if fi.Span.Length <= idx || fi.Span.Length <= lastIdx then
       Error ErrorCase.InvalidMemoryRead
     else
-      let bs =
-        reader.Bytes[ idx + Array.length bs .. ]
-        |> Array.append bs
-        |> Array.append reader.Bytes[ .. idx - 1 ]
+      let dup = fi.Span.ToArray ()
+      Buffer.BlockCopy (bs, 0, dup, idx, bs.Length)
       match fi with
       | :? RawFileInfo ->
-        RawFileInfo (bs, fi.FilePath, fi.ISA, Some fi.BaseAddress) :> FileInfo
+        RawFileInfo (dup, fi.FilePath, fi.ISA, Some fi.BaseAddress) :> FileInfo
         |> BinHandle.UpdateFileInfo hdl
         |> Ok
       | :? ELFFileInfo as fi ->
-        ELFFileInfo (bs, fi.FilePath, Some fi.BaseAddress, fi.RegisterBay)
+        ELFFileInfo (dup, fi.FilePath, Some fi.BaseAddress, fi.RegisterBay)
         :> FileInfo
         |> BinHandle.UpdateFileInfo hdl
         |> Ok
       | :? MachFileInfo ->
-        MachFileInfo (bs, fi.FilePath, fi.ISA, Some fi.BaseAddress) :> FileInfo
+        MachFileInfo (dup, fi.FilePath, fi.ISA, Some fi.BaseAddress) :> FileInfo
         |> BinHandle.UpdateFileInfo hdl
         |> Ok
       | :? PEFileInfo as fi ->
-        PEFileInfo (bs, fi.FilePath, Some fi.BaseAddress, fi.RawPDB) :> FileInfo
+        PEFileInfo (dup, fi.FilePath, Some fi.BaseAddress, fi.RawPDB)
+        :> FileInfo
         |> BinHandle.UpdateFileInfo hdl
         |> Ok
       | :? WasmFileInfo ->
-        WasmFileInfo (bs, fi.FilePath, Some fi.BaseAddress) :> FileInfo
+        WasmFileInfo (dup, fi.FilePath, Some fi.BaseAddress) :> FileInfo
         |> BinHandle.UpdateFileInfo hdl
         |> Ok
       | _ -> Error ErrorCase.InvalidFileFormat
@@ -135,27 +137,27 @@ with
   member __.ReadBytes (bp: BinaryPointer, nBytes) =
     BinHandle.ReadBytes (__, bp, nBytes)
 
-  static member TryReadBytes ({ FileInfo = fi }, addr, nBytes) =
+  static member TryReadBytes ({ FileInfo = fi; BinReader = r }, addr, nBytes) =
     let range = AddrRange (addr, addr + uint64 nBytes - 1UL)
     if fi.IsInFileRange range then
-      fi.BinReader.PeekBytes (nBytes, fi.TranslateAddress addr) |> Ok
+      r.ReadBytes (fi.Span, fi.TranslateAddress addr, nBytes) |> Ok
     elif fi.IsValidRange range then
       fi.GetNotInFileIntervals range
       |> classifyRanges range
       |> List.fold (fun bs (range, isInFile) ->
            let len = (range.Max - range.Min |> int) + 1
            if isInFile then
-             let addr = fi.TranslateAddress range.Min
-             fi.BinReader.PeekBytes (len, addr)
+             let offset = fi.TranslateAddress range.Min
+             r.ReadBytes (fi.Span, offset, len)
              |> Array.append bs
            else Array.create len 0uy |> Array.append bs
          ) [||]
       |> Ok
     else Error ErrorCase.InvalidMemoryRead
 
-  static member TryReadBytes ({ FileInfo = fi }, bp, nBytes) =
+  static member TryReadBytes ({ FileInfo = fi; BinReader = r }, bp, nBytes) =
     if BinaryPointer.IsValidAccess bp nBytes then
-      fi.BinReader.PeekBytes (nBytes, bp.Offset) |> Ok
+      r.ReadBytes (fi.Span, bp.Offset, nBytes) |> Ok
     else Error ErrorCase.InvalidMemoryRead
 
   static member ReadBytes (hdl, addr: Addr, nBytes) =
@@ -174,15 +176,15 @@ with
   member __.ReadInt (bp: BinaryPointer, size) =
     BinHandle.ReadInt (__, bp, size)
 
-  static member TryReadInt ({ FileInfo = fi }, addr, size) =
+  static member TryReadInt ({ FileInfo = fi; BinReader = r }, addr, size) =
     let pos = fi.TranslateAddress addr
-    if pos >= fi.BinReader.Bytes.Length || pos < 0 then
+    if (pos + size) > fi.Span.Length || (pos < 0) then
       Error ErrorCase.InvalidMemoryRead
-    else readIntBySize fi pos size
+    else readIntBySize r fi pos size
 
-  static member TryReadInt ({ FileInfo = fi }, bp, size) =
+  static member TryReadInt ({ FileInfo = fi; BinReader = r }, bp, size) =
     if BinaryPointer.IsValidAccess bp size then
-      readIntBySize fi bp.Offset size
+      readIntBySize r fi bp.Offset size
     else Error ErrorCase.InvalidMemoryRead
 
   static member ReadInt (hdl, addr: Addr, size) =
@@ -201,15 +203,15 @@ with
   member __.ReadUInt (bp: BinaryPointer, size) =
     BinHandle.ReadUInt (__, bp, size)
 
-  static member TryReadUInt ({ FileInfo = fi }, addr, size) =
+  static member TryReadUInt ({ FileInfo = fi; BinReader = r }, addr, size) =
     let pos = fi.TranslateAddress addr
-    if pos >= fi.BinReader.Bytes.Length || pos < 0 then
+    if (pos + size) > fi.Span.Length || (pos < 0) then
       Error ErrorCase.InvalidMemoryRead
-    else readUIntBySize fi pos size
+    else readUIntBySize r fi pos size
 
-  static member TryReadUInt ({ FileInfo = fi }, bp, size) =
+  static member TryReadUInt ({ FileInfo = fi; BinReader = r }, bp, size) =
     if BinaryPointer.IsValidAccess bp size then
-      readUIntBySize fi bp.Offset size
+      readUIntBySize r fi bp.Offset size
     else Error ErrorCase.InvalidMemoryRead
 
   static member ReadUInt (hdl, addr: Addr, size) =

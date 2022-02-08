@@ -36,12 +36,12 @@ let init (isa: ISA) mode (fi: FileInfo) =
   | Arch.IntelX64
   | Arch.IntelX86 -> Intel.IntelParser (isa.WordSize) :> Parser
   | Arch.ARMv7 -> ARM32.ARM32Parser (isa, mode, fi.EntryPoint) :> Parser
-  | Arch.AARCH64 -> ARM64.ARM64Parser () :> Parser
+  | Arch.AARCH64 -> ARM64.ARM64Parser (isa) :> Parser
   | Arch.MIPS1 | Arch.MIPS2 | Arch.MIPS3 | Arch.MIPS4 | Arch.MIPS5
   | Arch.MIPS32 | Arch.MIPS32R2 | Arch.MIPS32R6
   | Arch.MIPS64 | Arch.MIPS64R2 | Arch.MIPS64R6 ->
-    MIPS.MIPSParser (isa.WordSize, isa.Arch) :> Parser
-  | Arch.EVM -> EVM.EVMParser (isa.WordSize) :> Parser
+    MIPS.MIPSParser (isa) :> Parser
+  | Arch.EVM -> EVM.EVMParser (isa) :> Parser
   | Arch.TMS320C6000 -> TMS320C6000.TMS320C6000Parser () :> Parser
   | Arch.CILOnly -> CIL.CILParser () :> Parser
   | Arch.AVR -> AVR.AVRParser () :> Parser

@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.BinLifter.SH4
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
@@ -39,8 +40,12 @@ type SH4TranslationContext internal (isa, regexprs) =
 
 type SH4Parser () =
   inherit Parser ()
-  override __.Parse binReader addr pos =
-    Utils.futureFeature () // FIXME
+
+  override __.Parse (_: byte[], _: Addr): Instruction =
+    Utils.futureFeature ()
+
+  override __.Parse (_: ByteSpan, _: Addr): Instruction =
+    Utils.futureFeature ()
 
   override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 

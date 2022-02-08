@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinFile.ELF
 
 open System
+open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinFile
 
@@ -776,8 +777,8 @@ type RelocationEntry = {
 
 /// Relocation information
 type RelocInfo = {
-  RelocByAddr: Map<Addr, RelocationEntry>
-  RelocByName: Map<string, RelocationEntry>
+  RelocByAddr: Dictionary<Addr, RelocationEntry>
+  RelocByName: Dictionary<string, RelocationEntry>
 }
 
 /// Main data structure for storing symbol information.
@@ -984,10 +985,10 @@ type ELF = {
   NotInFileRanges: IntervalSet
   /// Executable address ranges.
   ExecutableRanges: IntervalSet
-  /// BinReader.
-  BinReader: BinReader
   /// ISA.
   ISA: ISA
   /// Unwinding info table.
   UnwindingTbl: Map<Addr, UnwindingEntry>
+  /// IBinReader.
+  BinReader: IBinReader
 }

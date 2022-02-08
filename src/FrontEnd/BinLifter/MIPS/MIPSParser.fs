@@ -24,6 +24,7 @@
 
 module B2R2.FrontEnd.BinLifter.MIPS.Parser
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinLifter.MIPS.Helper
 open B2R2.FrontEnd.BinLifter.MIPS.Utils
@@ -528,19 +529,18 @@ let getOperationSize opcode wordSz =
   | Op.SD -> 64<rt>
   | _ -> WordSize.toRegType wordSz
 
-let parse (reader: BinReader) arch wordSize addr pos =
-  let struct (bin, nextPos) = reader.ReadUInt32 pos
-  let instrLen = nextPos - pos |> uint32
+let parse (span: ReadOnlySpan<byte>) (reader: IBinReader) arch wordSize addr =
+  let bin = reader.ReadUInt32 (span, 0)
   let opcode, cond, fmt, operands = parseOpcodeField arch bin
   let insInfo =
     { Address = addr
-      NumBytes = instrLen
+      NumBytes = 4u
       Condition = cond
       Fmt = fmt
       Opcode = opcode
       Operands = operands
       OperationSize = getOperationSize opcode wordSize
       Arch = arch }
-  MIPSInstruction (addr, instrLen, insInfo, wordSize)
+  MIPSInstruction (addr, 4u, insInfo, wordSize)
 
 // vim: set tw=80 sts=2 sw=2:

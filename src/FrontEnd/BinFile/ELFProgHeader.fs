@@ -29,32 +29,35 @@ open B2R2
 open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinFile.FileHelper
 
-let peekPHdrFlags (reader: BinReader) cls offset =
+let peekPHdrFlags (span: ByteSpan) (reader: IBinReader) cls offset =
   let pHdrPHdrFlagsOffset = if cls = WordSize.Bit32 then 24 else 4
-  offset + pHdrPHdrFlagsOffset |> reader.PeekInt32
+  reader.ReadInt32 (span, offset + pHdrPHdrFlagsOffset)
+  |> LanguagePrimitives.EnumOfValue
 
-let parseProgHeader baseAddr cls (reader: BinReader) offset =
-  { PHType = reader.PeekUInt32 offset |> LanguagePrimitives.EnumOfValue
-    PHFlags = peekPHdrFlags reader cls offset |> LanguagePrimitives.EnumOfValue
-    PHOffset = peekHeaderNative reader cls offset 4 8
-    PHAddr = peekHeaderNative reader cls offset 8 16 + baseAddr
-    PHPhyAddr = peekHeaderNative reader cls offset 12 24
-    PHFileSize = peekHeaderNative reader cls offset 16 32
-    PHMemSize = peekHeaderNative reader cls offset 20 40
-    PHAlignment = peekHeaderNative reader cls offset 28 48 }
+let parseProgHeader baseAddr cls (span: ByteSpan) reader offset =
+  let phType = (reader: IBinReader).ReadUInt32 (span, offset)
+  { PHType = LanguagePrimitives.EnumOfValue phType
+    PHFlags = peekPHdrFlags span reader cls offset
+    PHOffset = peekHeaderNative span reader cls offset 4 8
+    PHAddr = peekHeaderNative span reader cls offset 8 16 + baseAddr
+    PHPhyAddr = peekHeaderNative span reader cls offset 12 24
+    PHFileSize = peekHeaderNative span reader cls offset 16 32
+    PHMemSize = peekHeaderNative span reader cls offset 20 40
+    PHAlignment = peekHeaderNative span reader cls offset 28 48 }
+
+let rec private parseLoop span reader pNum baseAddr eHdr acc delta offset =
+  if pNum = 0us then List.rev acc
+  else
+    let phdr = parseProgHeader baseAddr eHdr.Class span reader offset
+    parseLoop span reader (pNum - 1us) baseAddr eHdr (phdr :: acc)
+              delta (offset + delta)
 
 /// Parse and associate program headers with section headers to return the list
 /// of segments.
-let parse baseAddr eHdr reader =
+let parse baseAddr eHdr span reader =
   let nextPHdrOffset = if eHdr.Class = WordSize.Bit32 then 32 else 56
-  let nextPHdr offset = offset + nextPHdrOffset
-  let rec parseLoop pNum acc offset =
-    if pNum = 0us then List.rev acc
-    else
-      let phdr = parseProgHeader baseAddr eHdr.Class reader offset
-      parseLoop (pNum - 1us) (phdr :: acc) (nextPHdr offset)
-  Convert.ToInt32 eHdr.PHdrTblOffset
-  |> parseLoop eHdr.PHdrNum []
+  parseLoop span reader eHdr.PHdrNum baseAddr eHdr []
+            nextPHdrOffset (Convert.ToInt32 eHdr.PHdrTblOffset)
 
 let getLoadableProgHeaders pHdrs =
   pHdrs |> List.filter (fun ph -> ph.PHType = ProgramHeaderType.PTLoad)

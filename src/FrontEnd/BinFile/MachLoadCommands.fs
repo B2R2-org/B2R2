@@ -28,120 +28,123 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinFile.FileHelper
 
-let parseSegCmd baseAddr (reader: BinReader) cls offset cmdType cmdSize =
+let parseSegCmd span (reader: IBinReader) baseAddr cls offset cmdType cmdSize =
   { Cmd = cmdType
     CmdSize = cmdSize
     SecOff = offset + if cls = WordSize.Bit64 then 72 else 56
-    SegCmdName = peekCStringOfSize reader (offset + 8) 16
-    VMAddr = peekHeaderNative reader cls offset 24 24 + baseAddr
-    VMSize = peekHeaderNative reader cls offset 28 32
-    FileOff = peekHeaderNative reader cls offset 32 40
-    FileSize = peekHeaderNative reader cls offset 36 48
-    MaxProt = peekHeaderI32 reader cls offset 40 56
-    InitProt = peekHeaderI32 reader cls offset 44 60
-    NumSecs = peekHeaderU32 reader cls offset 48 64
-    SegFlag = peekHeaderU32 reader cls offset 52 68 }
+    SegCmdName = peekCString span (offset + 8)
+    VMAddr = peekHeaderNative span reader cls offset 24 24 + baseAddr
+    VMSize = peekHeaderNative span reader cls offset 28 32
+    FileOff = peekHeaderNative span reader cls offset 32 40
+    FileSize = peekHeaderNative span reader cls offset 36 48
+    MaxProt = peekHeaderI32 span reader cls offset 40 56
+    InitProt = peekHeaderI32 span reader cls offset 44 60
+    NumSecs = peekHeaderU32 span reader cls offset 48 64
+    SegFlag = peekHeaderU32 span reader cls offset 52 68 }
 
-let parseSymCmd (reader: BinReader) offset cmdType cmdSize =
+let parseSymCmd (span: ByteSpan) reader offset cmdType cmdSize =
   { Cmd = cmdType
     CmdSize = cmdSize
-    SymOff = offset + 8 |> reader.PeekInt32
-    NumOfSym = offset + 12 |> reader.PeekUInt32
-    StrOff = offset + 16 |> reader.PeekInt32
-    StrSize = offset + 20 |> reader.PeekUInt32 }
+    SymOff = (reader: IBinReader).ReadInt32 (span, offset + 8)
+    NumOfSym = reader.ReadUInt32 (span, offset + 12)
+    StrOff = reader.ReadInt32 (span, offset + 16)
+    StrSize = reader.ReadUInt32 (span, offset + 20) }
 
-let parseDySymCmd (reader: BinReader) offset cmdType cmdSize =
+let parseDySymCmd (span: ByteSpan) reader offset cmdType cmdSize =
   { Cmd = cmdType
     CmdSize = cmdSize
-    IdxLocalSym = offset + 8 |> reader.PeekUInt32
-    NumLocalSym = offset + 12 |> reader.PeekUInt32
-    IdxExtSym = offset + 16 |> reader.PeekUInt32
-    NumExtSym = offset + 20 |> reader.PeekUInt32
-    IdxUndefSym = offset + 24 |> reader.PeekUInt32
-    NumUndefSym = offset + 28 |> reader.PeekUInt32
-    TOCOffset = offset + 32 |> reader.PeekUInt32
-    NumTOCContents = offset + 36 |> reader.PeekUInt32
-    ModTabOff = offset + 40 |> reader.PeekUInt32
-    NumModTab = offset + 44 |> reader.PeekUInt32
-    ExtRefSymOff = offset + 48 |> reader.PeekUInt32
-    NumExtRefSym = offset + 52 |> reader.PeekUInt32
-    IndirectSymOff = offset + 56 |> reader.PeekUInt32
-    NumIndirectSym = offset + 60 |> reader.PeekUInt32
-    ExtRelOff = offset + 64 |> reader.PeekUInt32
-    NumExtRel = offset + 68 |> reader.PeekUInt32
-    LocalRelOff = offset + 72 |> reader.PeekUInt32
-    NumLocalRel = offset + 76 |> reader.PeekUInt32 }
+    IdxLocalSym = (reader: IBinReader).ReadUInt32 (span, offset + 8)
+    NumLocalSym = reader.ReadUInt32 (span, offset + 12)
+    IdxExtSym = reader.ReadUInt32 (span, offset + 16)
+    NumExtSym = reader.ReadUInt32 (span, offset + 20)
+    IdxUndefSym = reader.ReadUInt32 (span, offset + 24)
+    NumUndefSym = reader.ReadUInt32 (span, offset + 28)
+    TOCOffset = reader.ReadUInt32 (span, offset + 32)
+    NumTOCContents = reader.ReadUInt32 (span, offset + 36)
+    ModTabOff = reader.ReadUInt32 (span, offset + 40)
+    NumModTab = reader.ReadUInt32 (span, offset + 44)
+    ExtRefSymOff = reader.ReadUInt32 (span, offset + 48)
+    NumExtRefSym = reader.ReadUInt32 (span, offset + 52)
+    IndirectSymOff = reader.ReadUInt32 (span, offset + 56)
+    NumIndirectSym = reader.ReadUInt32 (span, offset + 60)
+    ExtRelOff = reader.ReadUInt32 (span, offset + 64)
+    NumExtRel = reader.ReadUInt32 (span, offset + 68)
+    LocalRelOff = reader.ReadUInt32 (span, offset + 72)
+    NumLocalRel = reader.ReadUInt32 (span, offset + 76) }
 
-let parseMainCmd baseAddr (reader: BinReader) offset cmdType cmdSize =
+let parseMainCmd (span: ByteSpan) reader baseAddr offset cmdType cmdSize =
   { Cmd = cmdType
     CmdSize = cmdSize
-    EntryOff = (offset + 8 |> reader.PeekUInt64) + baseAddr
-    StackSize = offset + 16 |> reader.PeekUInt64 }
+    EntryOff = ((reader: IBinReader).ReadUInt64 (span, offset + 8)) + baseAddr
+    StackSize = reader.ReadUInt64 (span, offset + 16) }
 
 /// Read lc_str string.
-let readLCStr (reader: BinReader) (size: uint32) offset =
-  let strOffset = reader.PeekInt32 (offset + 8)
+let readLCStr (span: ByteSpan) reader (size: uint32) offset =
+  let strOffset = (reader: IBinReader).ReadInt32 (span, offset + 8)
   let strLen = Convert.ToInt32 size - strOffset
-  let span = reader.PeekSpan (strLen, offset + strOffset)
-  ByteArray.extractCStringFromSpan span 0
+  ByteArray.extractCStringFromSpan (span.Slice (offset + strOffset, strLen)) 0
 
-let parseDyLibCmd (reader: BinReader) offset cmdType cmdSize =
+let parseDyLibCmd span reader offset cmdType cmdSize =
   { Cmd = cmdType
     CmdSize = cmdSize
-    DyLibName = readLCStr reader cmdSize offset
-    DyLibTimeStamp = offset + 12 |> reader.PeekUInt32
-    DyLibCurVer = offset + 16 |> reader.PeekUInt32
-    DyLibCmpVer = offset + 20 |> reader.PeekUInt32 }
+    DyLibName = readLCStr span reader cmdSize offset
+    DyLibTimeStamp = reader.ReadUInt32 (span, offset + 12)
+    DyLibCurVer = reader.ReadUInt32 (span, offset + 16)
+    DyLibCmpVer = reader.ReadUInt32 (span, offset + 20) }
 
-let parseDyLdInfo (reader: BinReader) offset cmdType cmdSize =
+let parseDyLdInfo (span: ByteSpan) reader offset cmdType cmdSize =
   { Cmd = cmdType
     CmdSize = cmdSize
-    RebaseOff = offset + 8 |> reader.PeekInt32
-    RebaseSize = offset + 12 |> reader.PeekUInt32
-    BindOff = offset + 16 |> reader.PeekInt32
-    BindSize = offset + 20 |> reader.PeekUInt32
-    WeakBindOff = offset + 24 |> reader.PeekInt32
-    WeakBindSize = offset + 28 |> reader.PeekUInt32
-    LazyBindOff = offset + 32 |> reader.PeekInt32
-    LazyBindSize = offset + 36 |> reader.PeekUInt32
-    ExportOff = offset + 40 |> reader.PeekInt32
-    ExportSize = offset + 44 |> reader.PeekUInt32 }
+    RebaseOff = (reader: IBinReader).ReadInt32 (span, offset + 8)
+    RebaseSize = reader.ReadUInt32 (span, offset + 12)
+    BindOff = reader.ReadInt32 (span, offset + 16)
+    BindSize = reader.ReadUInt32 (span, offset + 20)
+    WeakBindOff = reader.ReadInt32 (span, offset + 24)
+    WeakBindSize = reader.ReadUInt32 (span, offset + 28)
+    LazyBindOff = reader.ReadInt32 (span, offset + 32)
+    LazyBindSize = reader.ReadUInt32 (span, offset + 36)
+    ExportOff = reader.ReadInt32 (span, offset + 40)
+    ExportSize = reader.ReadUInt32 (span, offset + 44) }
 
-let parseFuncStarts (reader: BinReader) offset cmdType cmdSize =
+let parseFuncStarts (span: ByteSpan) reader offset cmdType cmdSize =
   { Cmd = cmdType
     CmdSize = cmdSize
-    DataOffset = offset + 8 |> reader.PeekInt32
-    DataSize = offset + 12 |> reader.PeekUInt32 }
+    DataOffset = (reader: IBinReader).ReadInt32 (span, offset + 8)
+    DataSize = reader.ReadUInt32 (span, offset + 12) }
 
-let parseCmd baddr (reader: BinReader) cls offset =
-  let cmdType = reader.PeekInt32 offset |> LanguagePrimitives.EnumOfValue
-  let cmdSize = reader.PeekUInt32 (offset + 4)
+let parseCmd baddr (span: ByteSpan) (reader: IBinReader) cls offset =
+  let cmdType =
+    reader.ReadInt32 (span, offset) |> LanguagePrimitives.EnumOfValue
+  let cmdSize = reader.ReadUInt32 (span, offset + 4)
   let command =
     match cmdType with
     | LoadCmdType.LCSegment
     | LoadCmdType.LCSegment64 ->
-      Segment (parseSegCmd baddr reader cls offset cmdType cmdSize)
+      Segment (parseSegCmd span reader baddr cls offset cmdType cmdSize)
     | LoadCmdType.LCSymTab ->
-      SymTab (parseSymCmd reader offset cmdType cmdSize)
+      SymTab (parseSymCmd span reader offset cmdType cmdSize)
     | LoadCmdType.LCDySymTab ->
-      DySymTab (parseDySymCmd reader offset cmdType cmdSize)
+      DySymTab (parseDySymCmd span reader offset cmdType cmdSize)
     | LoadCmdType.LCMain ->
-      Main (parseMainCmd baddr reader offset cmdType cmdSize)
+      Main (parseMainCmd span reader baddr offset cmdType cmdSize)
     | LoadCmdType.LCLoadDyLib ->
-      DyLib (parseDyLibCmd reader offset cmdType cmdSize)
+      DyLib (parseDyLibCmd span reader offset cmdType cmdSize)
     | LoadCmdType.LCDyLDInfo
     | LoadCmdType.LCDyLDInfoOnly ->
-      DyLdInfo (parseDyLdInfo reader offset cmdType cmdSize)
+      DyLdInfo (parseDyLdInfo span reader offset cmdType cmdSize)
     | LoadCmdType.LCFunStarts ->
-      FuncStarts (parseFuncStarts reader offset cmdType cmdSize)
+      FuncStarts (parseFuncStarts span reader offset cmdType cmdSize)
     | _ -> Unhandled { Cmd = cmdType; CmdSize = cmdSize }
   struct (command, Convert.ToInt32 cmdSize)
 
-let parse baseAddr reader machHdr =
-  let rec loop cNum acc offset =
-    if cNum = 0u then List.rev acc
-    else
-      let struct (cmd, cmdSize) = parseCmd baseAddr reader machHdr.Class offset
-      loop (cNum - 1u) (cmd :: acc) (offset + cmdSize)
+let rec private cmdLoop baseAddr span reader machHdr cNum acc offset =
+  if cNum = 0u then List.rev acc
+  else
+    let struct (cmd, cmdSize) =
+      parseCmd baseAddr span reader machHdr.Class offset
+    cmdLoop baseAddr span reader machHdr
+            (cNum - 1u) (cmd :: acc) (offset + cmdSize)
+
+let parse baseAddr span reader machHdr =
   let cmdOffset = if machHdr.Class = WordSize.Bit32 then 28 else 32
-  cmdOffset |> loop machHdr.NumCmds []
+  cmdLoop baseAddr span reader machHdr machHdr.NumCmds [] cmdOffset

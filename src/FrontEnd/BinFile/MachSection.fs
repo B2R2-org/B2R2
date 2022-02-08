@@ -24,23 +24,24 @@
 
 module internal B2R2.FrontEnd.BinFile.Mach.Section
 
+open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinFile.FileHelper
 
-let parseSection baseAddr (reader: BinReader) cls pos =
-  let secFlag = peekHeaderI32 reader cls pos 56 64
-  { SecName = peekCStringOfSize reader pos 16
-    SegName = peekCStringOfSize reader (pos + 16) 16
-    SecAddr = peekUIntOfType reader cls (pos + 32) + baseAddr
-    SecSize = peekHeaderNative reader cls pos 36 40
-    SecOffset = peekHeaderU32 reader cls pos 40 48
-    SecAlignment = peekHeaderU32 reader cls pos 44 52
-    SecRelOff = peekHeaderU32 reader cls pos 48 56
-    SecNumOfReloc = peekHeaderI32 reader cls pos 52 60
+let parseSection baseAddr span reader cls pos =
+  let secFlag = peekHeaderI32 span reader cls pos 56 64
+  { SecName = peekCString span pos
+    SegName = peekCString span (pos + 16)
+    SecAddr = peekUIntOfType span reader cls (pos + 32) + baseAddr
+    SecSize = peekHeaderNative span reader cls pos 36 40
+    SecOffset = peekHeaderU32 span reader cls pos 40 48
+    SecAlignment = peekHeaderU32 span reader cls pos 44 52
+    SecRelOff = peekHeaderU32 span reader cls pos 48 56
+    SecNumOfReloc = peekHeaderI32 span reader cls pos 52 60
     SecType = secFlag &&& 0xFF |> LanguagePrimitives.EnumOfValue
     SecAttrib = secFlag &&& 0xFFFFFF00 |> LanguagePrimitives.EnumOfValue
-    SecReserved1 = peekHeaderI32 reader cls pos 60 68
-    SecReserved2 = peekHeaderI32 reader cls pos 64 72 }
+    SecReserved1 = peekHeaderI32 span reader cls pos 60 68
+    SecReserved2 = peekHeaderI32 span reader cls pos 64 72 }
 
 let foldSecInfo acc sec =
   let secEnd = sec.SecAddr + sec.SecSize - 1UL
@@ -48,17 +49,17 @@ let foldSecInfo acc sec =
   let secByName = Map.add sec.SecName sec acc.SecByName
   { acc with SecByAddr = secByAddr; SecByName = secByName }
 
-let parseSections baseAddr reader cls segs =
-  let rec parseLoop count acc pos =
-    if count = 0u then acc
-    else let sec = parseSection baseAddr reader cls pos
-         let nextPos = pos + if cls = WordSize.Bit64 then 80 else 68
-         parseLoop (count - 1u) (acc @ [sec]) nextPos
-  let foldSections acc seg = parseLoop seg.NumSecs acc seg.SecOff
-  let sections = List.fold foldSections [] segs
+let parseSections baseAddr span reader cls segs =
+  let sections = List<MachSection> ()
+  for seg in segs do
+    let mutable pos = seg.SecOff
+    for _ = 1 to int seg.NumSecs do
+      let sec = parseSection baseAddr span reader cls pos
+      sections.Add sec
+      pos <- pos + if cls = WordSize.Bit64 then 80 else 68
   let acc = { SecByAddr = ARMap.empty; SecByName = Map.empty; SecByNum = [||] }
-  let secInfo = List.fold foldSecInfo acc sections
-  { secInfo with SecByNum = Array.ofList sections }
+  let secInfo = Seq.fold foldSecInfo acc sections
+  { secInfo with SecByNum = Array.ofSeq sections }
 
 let getTextSectionIndex secs =
   secs |> Array.findIndex (fun s -> s.SecName = "__text")

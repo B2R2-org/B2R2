@@ -26,16 +26,17 @@
 [<RequireQualifiedAccess>]
 module B2R2.FrontEnd.BinFile.FormatDetector
 
+open System
 open B2R2
 
-let private identifyELF reader =
-  if ELF.Header.isELF reader 0 then
-    let cls = ELF.Header.peekClass reader 0
-    let endian = ELF.Header.peekEndianness reader 0
+let private identifyELF span =
+  if ELF.Header.isELF span then
+    let cls = ELF.Header.peekClass span
+    let endian = ELF.Header.peekEndianness span
     let reader =
-      if endian = Endian.Little then reader
-      else BinReader.RenewReader reader Endian.Big
-    let arch = ELF.Header.peekArch reader cls 0
+      if endian = Endian.Little then BinReader.binReaderLE
+      else BinReader.binReaderBE
+    let arch = ELF.Header.peekArch span reader cls
     let isa = ISA.Init arch endian
     Some (FileFormat.ELFBinary, isa)
   else None
@@ -47,23 +48,26 @@ let private identifyPE bytes =
     Some (FileFormat.PEBinary, isa)
   | Error _ -> None
 
-let private identifyMach reader isa =
-  if Mach.Header.isMach reader 0 then
-    if Mach.Header.isFat reader 0 then
-      let fat = Mach.Fat.loadFats reader |> Mach.Fat.findMatchingFatRecord isa
+let private identifyMach span isa =
+  let reader = BinReader.binReaderLE
+  if Mach.Header.isMach span reader then
+    if Mach.Header.isFat span reader then
+      let fat =
+        Mach.Fat.loadFats span reader
+        |> Mach.Fat.findMatchingFatRecord isa
       let arch = Mach.Header.cpuTypeToArch fat.CPUType fat.CPUSubType
-      let endian = Mach.Header.peekEndianness reader fat.Offset
+      let endian = Mach.Header.peekEndianness (span.Slice fat.Offset) reader
       let isa = ISA.Init arch endian
       Some (FileFormat.MachBinary, isa)
     else
-      let arch = Mach.Header.peekArch reader 0
-      let endian = Mach.Header.peekEndianness reader 0
+      let arch = Mach.Header.peekArch span reader
+      let endian = Mach.Header.peekEndianness span reader
       let isa = ISA.Init arch endian
       Some (FileFormat.MachBinary, isa)
   else None
 
-let private identifyWASM reader isa =
-  if Wasm.Header.isWasm reader 0 then
+let private identifyWASM span isa =
+  if Wasm.Header.isWasm span BinReader.binReaderLE then
     Some (FileFormat.WasmBinary, isa)
   else None
 
@@ -75,11 +79,10 @@ let private identifyWASM reader isa =
 /// </summary>
 [<CompiledName("Identify")>]
 let identify bytes isa =
-  let reader = BinReader.Init (bytes)
   Monads.OrElse.orElse {
-    yield! identifyELF reader
+    yield! identifyELF (ReadOnlySpan bytes)
     yield! identifyPE bytes
-    yield! identifyMach reader isa
-    yield! identifyWASM reader isa
+    yield! identifyMach (ReadOnlySpan bytes) isa
+    yield! identifyWASM (ReadOnlySpan bytes) isa
     yield! Some (FileFormat.RawBinary, isa)
   } |> Option.get

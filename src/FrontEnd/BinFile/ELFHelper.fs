@@ -25,6 +25,7 @@
 module internal B2R2.FrontEnd.BinFile.ELF.Helper
 
 open System
+open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinFile
 
@@ -43,10 +44,10 @@ let isNXEnabled elf =
   | Some s -> s.PHFlags.HasFlag Permission.Executable |> not
   | _ -> false
 
-let isRelocatable elf =
+let isRelocatable span elf =
   let pred (e: DynamicSectionEntry) = e.DTag = DynamicSectionTag.DTDebug
   elf.ELFHdr.ELFFileType = ELFFileType.SharedObject
-  && Section.getDynamicSectionEntries elf.BinReader elf.SecInfo
+  && Section.getDynamicSectionEntries span elf.BinReader elf.SecInfo
      |> List.exists pred
 
 let inline getTextStartAddr elf =
@@ -108,14 +109,13 @@ let getSymbols elf =
   Seq.append s d
 
 let getRelocSymbols elf =
-  let translate (_, reloc) =
+  let translate reloc =
     reloc.RelSymbol
     |> Option.bind (fun s ->
          { s with Addr = reloc.RelOffset }
          |> Symbol.toB2R2Symbol TargetKind.DynamicSymbol
          |> Some)
-  elf.RelocInfo.RelocByName
-  |> Map.toSeq
+  elf.RelocInfo.RelocByName.Values
   |> Seq.choose translate
 
 let secFlagToSectionKind sec =
@@ -196,30 +196,31 @@ let getNotInFileIntervals elf range =
   |> List.map (FileHelper.trimByRange range)
   |> List.toSeq
 
-let getFunctionAddrsFromLibcArray elf s =
+let getFunctionAddrsFromLibcArray span elf s =
   let offset = int s.SecOffset
   let entrySize = int s.SecEntrySize
   let readType: WordSize = LanguagePrimitives.EnumOfValue (entrySize * 8)
   let size = int s.SecSize
   if entrySize = 0 then Seq.empty
   else
-    [| offset .. entrySize .. offset + size - entrySize |]
-    |> Array.map (FileHelper.peekUIntOfType elf.BinReader readType)
-    |> Seq.ofArray
+    let lst = List<Addr> ()
+    for o in [| offset .. entrySize .. offset + size - entrySize |] do
+      lst.Add (FileHelper.peekUIntOfType span elf.BinReader readType o)
+    lst
 
-let getAddrsFromInitArray elf =
+let getAddrsFromInitArray span elf =
   match Map.tryFind ".init_array" elf.SecInfo.SecByName with
-  | Some s -> getFunctionAddrsFromLibcArray elf s
+  | Some s -> getFunctionAddrsFromLibcArray span elf s
   | None -> Seq.empty
 
-let getAddrsFromFiniArray elf =
+let getAddrsFromFiniArray span elf =
   match Map.tryFind ".fini_array" elf.SecInfo.SecByName with
-  | Some s -> getFunctionAddrsFromLibcArray elf s
+  | Some s -> getFunctionAddrsFromLibcArray span elf s
   | None -> Seq.empty
 
-let addExtraFunctionAddrs elf useExceptionInfo addrs =
+let addExtraFunctionAddrs span elf useExceptionInfo addrs =
   let addrSet =
-    [ addrs; getAddrsFromInitArray elf; getAddrsFromFiniArray elf ]
+    [ addrs; getAddrsFromInitArray span elf; getAddrsFromFiniArray span elf ]
     |> Seq.concat
     |> Set.ofSeq
   if useExceptionInfo then (* XXX *)

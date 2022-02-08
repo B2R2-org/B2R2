@@ -141,9 +141,8 @@ type FunctionMaintainer private (histMgr: HistoryManager) =
     |> ARMap.iter (fun range symb ->
       let func = ExternalFunction.Init symb.Addr symb.SymName range.Min
       fnMaintainer.AddFunction func)
-    elf.RelocInfo.RelocByAddr
-    |> Map.toArray
-    |> Array.iter (fun (_, reloc) ->
+    elf.RelocInfo.RelocByAddr.Values
+    |> Seq.iter (fun reloc ->
       match reloc.RelSymbol with
       | Some symb ->
         let sec = elf.SecInfo.SecByNum[reloc.RelSecNumber]
