@@ -26,16 +26,16 @@
 module B2R2.FrontEnd.BinInterface.Parser
 
 open B2R2
-open B2R2.FrontEnd.BinFile
 open B2R2.FrontEnd.BinLifter
 
-/// Initialize a `Parser` from a given ISA, ArchOperationMode, and FileInfo.
+/// Initialize a `Parser` from a given ISA, ArchOperationMode, and (optional)
+/// entrypoint address.
 [<CompiledName ("Init")>]
-let init (isa: ISA) mode (fi: FileInfo) =
+let init (isa: ISA) mode (entryPoint: Addr option) =
   match isa.Arch with
   | Arch.IntelX64
   | Arch.IntelX86 -> Intel.IntelParser (isa.WordSize) :> Parser
-  | Arch.ARMv7 -> ARM32.ARM32Parser (isa, mode, fi.EntryPoint) :> Parser
+  | Arch.ARMv7 -> ARM32.ARM32Parser (isa, mode, entryPoint) :> Parser
   | Arch.AARCH64 -> ARM64.ARM64Parser (isa) :> Parser
   | Arch.MIPS1 | Arch.MIPS2 | Arch.MIPS3 | Arch.MIPS4 | Arch.MIPS5
   | Arch.MIPS32 | Arch.MIPS32R2 | Arch.MIPS32R6
