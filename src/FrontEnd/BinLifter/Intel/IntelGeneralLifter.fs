@@ -675,12 +675,21 @@ let cmpxchg ins insLen ctxt =
   let r = !*ir oprSize
   let acc = getRegOfSize ctxt oprSize grpEAX
   let cond = !*ir 1<rt>
+  let lblEq = ir.NewSymbol "Equal"
+  let lblNeq = ir.NewSymbol "NotEqual"
+  let lblEnd = ir.NewSymbol "End"
   !!ir (t := dst)
   !!ir (r := acc .- t)
   !!ir (cond := acc == t)
-  !!ir (!.ctxt R.ZF := AST.ite cond AST.b1 AST.b0)
-  !!ir (dstAssign oprSize dst (AST.ite cond src t))
-  !!ir (dstAssign oprSize acc (AST.ite cond acc t))
+  !!ir (AST.cjmp cond (AST.name lblEq) (AST.name lblNeq))
+  !!ir (AST.lmark lblEq)
+  !!ir (!.ctxt R.ZF := AST.b1)
+  !!ir (dstAssign oprSize dst src)
+  !!ir (AST.jmp (AST.name lblEnd))
+  !!ir (AST.lmark lblNeq)
+  !!ir (!.ctxt R.ZF := AST.b0)
+  !!ir (dstAssign oprSize acc t)
+  !!ir (AST.lmark lblEnd)
   !!ir (!.ctxt R.OF := ofOnSub acc t r)
   !!ir (!.ctxt R.SF := AST.xthi 1<rt> r)
   !!ir (buildAF ctxt acc t r oprSize)
