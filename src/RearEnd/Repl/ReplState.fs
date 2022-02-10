@@ -25,7 +25,6 @@
 namespace B2R2.RearEnd.Repl
 
 open B2R2
-open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.ConcEval
@@ -54,7 +53,7 @@ type ReplState (isa: ISA, regbay: RegisterBay, doFiltering) =
 
   member private __.EvaluateStmts (stmts: Stmt []) =
     rstate.PrepareInstrEval stmts
-    stmts |> Array.iter (fun stmt -> Evaluator.evalStmt rstate stmt)
+    Evaluator.evalStmts stmts rstate
 
   member private __.ComputeDelta prev curr =
     Array.fold2 (fun acc t1 t2 ->
