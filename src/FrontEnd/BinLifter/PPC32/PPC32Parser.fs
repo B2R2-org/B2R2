@@ -2704,17 +2704,16 @@ let private parseInstruction bin =
   | 0x3Fu -> parse3F bin
   | _ -> raise ParsingFailureException
 
-let parse (reader: BinReader) addr pos =
-  let struct (bin, nextPos) = reader.ReadUInt32 pos
-  let instrLen = nextPos - pos |> uint32
+let parse (span: ByteSpan) (reader: IBinReader) addr =
+  let bin = reader.ReadUInt32 (span, 0)
   let struct (opcode, operands) = parseInstruction bin
   let insInfo =
     { Address = addr
-      NumBytes = instrLen
+      NumBytes = 4u
       Opcode = opcode
       Operands = operands
-      OperationSize = 32<rt> // FIXME
+      OperationSize = 32<rt>
       EffectiveAddress = 0UL }
-  PPC32Instruction (addr, instrLen, insInfo)
+  PPC32Instruction (addr, 4u, insInfo)
 
 // vim: set tw=80 sts=2 sw=2:

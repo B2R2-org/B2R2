@@ -24,6 +24,7 @@
 
 namespace B2R2.FrontEnd.BinLifter.PPC32
 
+open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
@@ -37,12 +38,21 @@ type PPC32TranslationContext internal (isa, regexprs) =
 
 /// Parser for PPC32 instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).
-type PPC32Parser () =
+type PPC32Parser (isa: ISA) =
   inherit Parser ()
-  override __.Parse binReader addr pos =
-    Parser.parse binReader addr pos :> Instruction
+
+  let reader =
+    if isa.Endian = Endian.Little then BinReader.binReaderLE
+    else BinReader.binReaderBE
 
   override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
+
+  override __.Parse (span: ByteSpan, addr) =
+    Parser.parse span reader addr :> Instruction
+
+  override __.Parse (bs: byte[], addr) =
+    let span = ReadOnlySpan bs
+    Parser.parse span reader addr :> Instruction
 
 module Basis =
   let init (isa: ISA) =
