@@ -1,4 +1,4 @@
-﻿(*
+(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -22,28 +22,38 @@
   SOFTWARE.
 *)
 
-[<RequireQualifiedAccess>]
-module B2R2.FrontEnd.BinInterface.Basis
+namespace B2R2.FrontEnd.BinLifter.PPC32
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
 
-/// Establish the basis for lifting. This function returns a pair of
-/// TranslationContext and RegisterBay.
-[<CompiledName ("Init")>]
-let init isa =
-  match isa.Arch with
-  | Arch.IntelX64
-  | Arch.IntelX86 -> Intel.Basis.init isa
-  | Arch.ARMv7 -> ARM32.Basis.init isa
-  | Arch.AARCH64 -> ARM64.Basis.init isa
-  | Arch.MIPS1 | Arch.MIPS2 | Arch.MIPS3 | Arch.MIPS4 | Arch.MIPS5
-  | Arch.MIPS32 | Arch.MIPS32R2 | Arch.MIPS32R6
-  | Arch.MIPS64 | Arch.MIPS64R2 | Arch.MIPS64R6 -> MIPS.Basis.init isa
-  | Arch.EVM -> EVM.Basis.init isa
-  | Arch.TMS320C6000 -> TMS320C6000.Basis.init isa
-  | Arch.CILOnly -> CIL.Basis.init isa
-  | Arch.AVR -> AVR.Basis.init isa
-  | Arch.SH4 -> SH4.Basis.init isa
-  | Arch.PPC32 -> PPC32.Basis.init isa
-  | _ -> Utils.futureFeature ()
+module private RegisterSetLiteral =
+  let [<Literal>] arrLen = 2
+
+open RegisterSetLiteral
+
+type PPC32RegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
+  inherit NonEmptyRegisterSet (bitArray, s)
+
+  new () =
+    PPC32RegisterSet (RegisterSet.MakeInternalBitArray arrLen, Set.empty)
+
+  override __.Tag = RegisterSetTag.PPC32
+
+  override __.ArrSize = arrLen
+
+  override __.New arr s = new PPC32RegisterSet (arr, s) :> RegisterSet
+
+  override __.RegIDToIndex rid =
+    match Register.ofRegID rid with
+    | _ -> Utils.futureFeature ()
+
+  override __.IndexToRegID _index: RegisterID =
+    Utils.futureFeature ()
+
+  override __.ToString () =
+    sprintf "PPC32RegisterSet<%x, %x>" __.BitArray.[0] __.BitArray.[1]
+
+[<RequireQualifiedAccess>]
+module PPC32RegisterSet =
+  let singleton rid = PPC32RegisterSet().Add(rid)
+  let empty = PPC32RegisterSet () :> RegisterSet

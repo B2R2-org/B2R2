@@ -1,4 +1,4 @@
-﻿(*
+(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -22,28 +22,37 @@
   SOFTWARE.
 *)
 
-[<RequireQualifiedAccess>]
-module B2R2.FrontEnd.BinInterface.Basis
+namespace B2R2.FrontEnd.BinLifter.PPC32
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.BinIR.LowUIR
 
-/// Establish the basis for lifting. This function returns a pair of
-/// TranslationContext and RegisterBay.
-[<CompiledName ("Init")>]
-let init isa =
-  match isa.Arch with
-  | Arch.IntelX64
-  | Arch.IntelX86 -> Intel.Basis.init isa
-  | Arch.ARMv7 -> ARM32.Basis.init isa
-  | Arch.AARCH64 -> ARM64.Basis.init isa
-  | Arch.MIPS1 | Arch.MIPS2 | Arch.MIPS3 | Arch.MIPS4 | Arch.MIPS5
-  | Arch.MIPS32 | Arch.MIPS32R2 | Arch.MIPS32R6
-  | Arch.MIPS64 | Arch.MIPS64R2 | Arch.MIPS64R6 -> MIPS.Basis.init isa
-  | Arch.EVM -> EVM.Basis.init isa
-  | Arch.TMS320C6000 -> TMS320C6000.Basis.init isa
-  | Arch.CILOnly -> CIL.Basis.init isa
-  | Arch.AVR -> AVR.Basis.init isa
-  | Arch.SH4 -> SH4.Basis.init isa
-  | Arch.PPC32 -> PPC32.Basis.init isa
-  | _ -> Utils.futureFeature ()
+type PPC32RegisterBay () =
+
+  inherit RegisterBay ()
+
+  override __.GetAllRegExprs () = Utils.futureFeature ()
+
+  override __.GetAllRegNames () = Utils.futureFeature ()
+
+  override __.GetGeneralRegExprs () = Utils.futureFeature ()
+
+  override __.RegIDFromRegExpr (e) =
+    match e.E with
+    | Var (_, id, _ ,_) -> id
+    | PCVar (_, _) -> Register.toRegID Register.R0
+    | _ -> failwith "not a register expression"
+
+  override __.RegIDToRegExpr (id) = Utils.futureFeature ()
+  override __.StrToRegExpr _s = Utils.futureFeature ()
+  override __.RegIDFromString _s = Utils.futureFeature ()
+  override __.RegIDToString _ = Utils.futureFeature ()
+  override __.RegIDToRegType _ = Utils.futureFeature ()
+  override __.GetRegisterAliases _ = Utils.futureFeature ()
+  override __.ProgramCounter = Utils.futureFeature ()
+  override __.StackPointer = Utils.futureFeature ()
+  override __.FramePointer = Utils.futureFeature ()
+  override __.IsProgramCounter _ = Utils.futureFeature ()
+  override __.IsStackPointer _ = Utils.futureFeature ()
+  override __.IsFramePointer _ = Utils.futureFeature ()

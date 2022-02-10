@@ -40,6 +40,7 @@ type RegisterSetTag =
   | CIL = 7
   | AVR = 8
   | SH4 = 9
+  | PPC32 = 10
 
 /// RegisterSet is an efficient set data structure using arrays for managing a
 /// set of registers.
