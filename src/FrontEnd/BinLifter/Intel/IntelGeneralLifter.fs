@@ -686,6 +686,7 @@ let cmpxchg ins insLen ctxt =
   !!ir (buildAF ctxt acc t r oprSize)
   !?ir (buildPF ctxt r oprSize None)
   !!ir (!.ctxt R.CF := AST.lt (acc .+ t) acc)
+  if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
 let compareExchangeBytes ins insLen ctxt =

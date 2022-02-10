@@ -42,8 +42,12 @@ type SideEffect =
   | Interrupt of int
   /// Synchronous event generated when the execution encounters error condition.
   | Exception of string
-  /// Locking, e.g., LOCK prefix on x86.
+  /// Acquire the lock. `Lock` and `Unlock` is used to mark a sequence of IR
+  /// statements that need to be evaluated atomically.
   | Lock
+  /// Release the lock for IR evaluation. A sequence of IR statements in between
+  /// a `Lock` and `Unlock` should be evaluated atomically.
+  | Unlock
   /// Access CPU details, e.g., CPUID on x86.
   | ProcessorID
   /// System call.
@@ -71,6 +75,7 @@ module SideEffect =
     | Interrupt (n) -> "Int" + n.ToString ()
     | Exception s -> "Exception(" + s + ")"
     | Lock -> "Lock"
+    | Unlock -> "Unlock"
     | ProcessorID -> "PID"
     | SysCall -> "SysCall"
     | UndefinedInstr -> "Undef"

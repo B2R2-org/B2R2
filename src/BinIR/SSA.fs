@@ -158,8 +158,10 @@ type SideEffect =
   | Interrupt of int
   /// Synchronous event generated when the execution encounters error condition.
   | Exception of string
-  /// Locking, e.g., LOCK prefix on x86.
+  /// Acquire the instruction evaluation lock.
   | Lock
+  /// Release the instruction evaluation lock.
+  | Unlock
   /// Access CPU details, e.g., CPUID on x86.
   | ProcessorID
   /// System call.
@@ -187,6 +189,7 @@ with
     | Interrupt (v) -> "Interrupt " + v.ToString ()
     | Exception (v) -> "Exception " + v
     | Lock -> "Lock"
+    | Unlock -> "Unlock"
     | ProcessorID -> "ProcessorID"
     | SysCall -> "SysCall"
     | UndefinedInstr -> "UndefinedInstr"

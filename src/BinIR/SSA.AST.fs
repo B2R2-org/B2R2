@@ -124,22 +124,23 @@ let rec internal translateStmtAux defaultRegType addr (s: LowUIR.Stmt) =
   | LowUIR.SideEffect s ->
     let ssaForm =
       match s with
-      | SideEffect.Breakpoint -> SSA.Breakpoint
-      | SideEffect.ClockCounter -> SSA.ClockCounter
-      | SideEffect.Fence -> SSA.Fence
-      | SideEffect.Delay -> SSA.Delay
-      | SideEffect.Terminate -> SSA.Terminate
-      | SideEffect.Interrupt (v) -> SSA.Interrupt (v)
-      | SideEffect.Exception (v) -> SSA.Exception (v)
-      | SideEffect.Lock -> SSA.Lock
-      | SideEffect.ProcessorID -> SSA.ProcessorID
-      | SideEffect.SysCall -> SSA.SysCall
-      | SideEffect.UndefinedInstr -> SSA.UndefinedInstr
-      | SideEffect.UnsupportedFP -> SSA.UnsupportedFP
-      | SideEffect.UnsupportedPrivInstr -> SSA.UnsupportedPrivInstr
-      | SideEffect.UnsupportedFAR -> SSA.UnsupportedFAR
-      | SideEffect.UnsupportedExtension -> SSA.UnsupportedExtension
-      | SideEffect.ExternalCall (expr) ->
+      | Breakpoint -> SSA.Breakpoint
+      | ClockCounter -> SSA.ClockCounter
+      | Fence -> SSA.Fence
+      | Delay -> SSA.Delay
+      | Terminate -> SSA.Terminate
+      | Interrupt (v) -> SSA.Interrupt (v)
+      | Exception (v) -> SSA.Exception (v)
+      | Lock -> SSA.Lock
+      | Unlock -> SSA.Unlock
+      | ProcessorID -> SSA.ProcessorID
+      | SysCall -> SSA.SysCall
+      | UndefinedInstr -> SSA.UndefinedInstr
+      | UnsupportedFP -> SSA.UnsupportedFP
+      | UnsupportedPrivInstr -> SSA.UnsupportedPrivInstr
+      | UnsupportedFAR -> SSA.UnsupportedFAR
+      | UnsupportedExtension -> SSA.UnsupportedExtension
+      | ExternalCall (expr) ->
         expr |> translateExpr |> SSA.ExternalCall
     SideEffect ssaForm |> Some
 
