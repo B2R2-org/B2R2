@@ -76,7 +76,7 @@ type FileLogger(filepath, ?level: LogLevel) =
   let llev = defaultArg level LogLevel.L2
 
   override __.Finalize () =
-    fs.Close ()
+    try fs.Close () with _ -> ()
 
   interface ILogger with
     member __.Log (str, ?lvl) =
