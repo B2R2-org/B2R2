@@ -61,7 +61,7 @@ guideline](CONTRIBUTING.md).
 | Feature               | x86         | x86-64      | ARMv7 (& Thumb)      | ARMv8                | MIPS32               | MIPS64               | EVM         | TMS320C600  | AVR         | PPC         |
 |-----------------------|:-----------:|:------------|:--------------------:|:--------------------:|:--------------------:|:--------------------:|:-----------:|:-----------:|:-----------:|:-----------:|
 | Instruction Parsing   | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :full_moon: | :full_moon: |
-| Disassembly           | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :full_moon: | :new_moon:  |
+| Disassembly           | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :full_moon: | :full_moon: |
 | Lifting               | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :full_moon: | :new_moon:  |
 | CFG Recovery          | :full_moon: | :full_moon: | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :full_moon: | :new_moon:  | :new_moon:  | :new_moon:  |
 | Data-Flow             | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :new_moon:  | :new_moon:  |
