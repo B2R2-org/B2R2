@@ -302,11 +302,13 @@ let add ins insLen ctxt =
   let ir = IRBuilder (16)
   let struct (t1, t2, t3) = tmpVars3 ir oprSize
   !<ir insLen
+  if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
   !!ir (t1 := dst)
   !!ir (t2 := src)
   !!ir (t3 := t1 .+ t2)
   !!ir (dstAssign oprSize dst t3)
   !?ir (enumEFLAGS ctxt t1 t2 t3 oprSize (cfOnAdd t1 t3) (ofOnAdd t1 t2 t3))
+  if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
 let ``and`` ins insLen ctxt =
@@ -315,6 +317,7 @@ let ``and`` ins insLen ctxt =
   let ir = IRBuilder (16)
   let t = !*ir oprSize
   !<ir insLen
+  if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
   !!ir (t := dst .& AST.sext oprSize src)
   !!ir (dstAssign oprSize dst t)
   !!ir (!.ctxt R.OF := AST.b0)
@@ -323,6 +326,7 @@ let ``and`` ins insLen ctxt =
   !!ir (!.ctxt R.AF := undefAF)
 #endif
   !?ir (enumSZPFlags ctxt t oprSize)
+  if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
 let andn ins insLen ctxt =
@@ -528,6 +532,7 @@ let bitTest ins insLen ctxt setValue =
   let setValue = AST.zext oprSize setValue
   let ir = IRBuilder (8)
   !<ir insLen
+  if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
   !!ir (!.ctxt R.CF := bit ins bitBase bitOffset oprSize)
   !!ir (setBit ins bitBase bitOffset oprSize setValue)
 #if !EMULATION
@@ -536,6 +541,7 @@ let bitTest ins insLen ctxt setValue =
   !!ir (!.ctxt R.AF := undefAF)
   !!ir (!.ctxt R.PF := undefPF)
 #endif
+  if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
 let btc ins insLen ctxt =
@@ -839,12 +845,14 @@ let dec ins insLen ctxt =
   let ir = IRBuilder (16)
   let struct (t1, t2, t3) = tmpVars3 ir oprSize
   !<ir insLen
+  if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
   !!ir (t1 := dst)
   !!ir (t2 := AST.num1 oprSize)
   !!ir (t3 := (t1 .- t2))
   !!ir (dstAssign oprSize dst t3)
   !!ir (!.ctxt R.OF := ofOnSub t1 t2 t3)
   !?ir (enumASZPFlags ctxt t1 t2 t3 oprSize)
+  if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
 let private checkQuotientDIV oprSize lblAssign lblErr q =
@@ -1014,12 +1022,14 @@ let inc ins insLen ctxt =
   let ir = IRBuilder (16)
   let struct (t1, t2, t3) = tmpVars3 ir oprSize
   !<ir insLen
+  if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
   !!ir (t1 := dst)
   !!ir (t2 := AST.num1 oprSize)
   !!ir (t3 := (t1 .+ t2))
   !!ir (dstAssign oprSize dst t3)
   !!ir (!.ctxt R.OF := ofOnAdd t1 t2 t3)
   !?ir (enumASZPFlags ctxt t1 t2 t3 oprSize)
+  if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
 let private insBody ins ctxt ir =
@@ -1317,6 +1327,7 @@ let logOr ins insLen ctxt =
   let oprSize = getOperationSize ins
   let t = !*ir oprSize
   !<ir insLen
+  if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
   !!ir (t := (dst .| AST.sext oprSize src))
   !!ir (dstAssign oprSize dst t)
   !!ir (!.ctxt R.CF := AST.b0)
@@ -1325,6 +1336,7 @@ let logOr ins insLen ctxt =
   !!ir (!.ctxt R.AF := undefAF)
 #endif
   !?ir (enumSZPFlags ctxt t oprSize)
+  if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
 let private outsBody ins ctxt ir =
@@ -1864,11 +1876,13 @@ let sub ins insLen ctxt =
   let ir = IRBuilder (16)
   let struct (t1, t2, t3) = tmpVars3 ir oprSize
   !<ir insLen
+  if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
   !!ir (t1 := dst)
   !!ir (t2 := src)
   !!ir (t3 := t1 .- t2)
   !!ir (dstAssign oprSize dst t3)
   !?ir (enumEFLAGS ctxt t1 t2 t3 oprSize (cfOnSub t1 t2) (ofOnSub t1 t2 t3))
+  if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
 let test ins insLen ctxt =
@@ -1953,10 +1967,12 @@ let xadd ins insLen ctxt =
   let oprSize = getOperationSize ins
   let t = !*ir oprSize
   !<ir insLen
+  if hasLock ins.Prefixes then !!ir (AST.sideEffect Lock) else ()
   !!ir (t := s .+ d)
   !!ir (dstAssign oprSize s d)
   !!ir (dstAssign oprSize d t)
   !?ir (enumEFLAGS ctxt d s t oprSize (cfOnSub d s) (ofOnAdd d s t))
+  if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
 let xchg ins insLen ctxt =
