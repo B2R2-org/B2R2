@@ -25,19 +25,22 @@
 module B2R2.Utils
 
 open System
+open System.Diagnostics
 
 let assertEqual a b exn = if a = b then () else raise exn
 
 let assertByCond condition exn = if condition then () else raise exn
 
+[<StackTraceHidden>]
 let futureFeature () =
-  let trace = Diagnostics.StackTrace (true)
+  let trace = StackTrace (true)
   printfn "FATAL ERROR: NOT IMPLEMENTED FEATURE."
   trace.ToString () |> printfn "%s"
   raise <| NotImplementedException ()
 
+[<StackTraceHidden>]
 let impossible () =
-  let trace = Diagnostics.StackTrace (true)
+  let trace = StackTrace (true)
   printfn "FATAL ERROR: THIS IS INVALID AND SHOULD NEVER HAPPEN."
   trace.ToString () |> printfn "%s"
   raise <| InvalidOperationException ()
