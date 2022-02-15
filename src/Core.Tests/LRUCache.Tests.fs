@@ -43,14 +43,14 @@ type LRUCacheTests () =
   [<TestMethod>]
   member __.``GetOrAddTest`` () =
     let op = TestOp ()
-    let lru = LRUCache<int, int>(100)
+    let lru = ConcurrentLRUCache<int, int>(100)
     for i = 0 to 10 do Assert.AreEqual (1, lru.GetOrAdd 1 op 1)
     Assert.AreEqual (1, op.Count)
 
   [<TestMethod>]
   member __.``CountTest`` () =
     let op = TestOp ()
-    let lru = LRUCache<int, int>(100)
+    let lru = ConcurrentLRUCache<int, int>(100)
     for i = 0 to 99 do Assert.AreEqual (i, lru.GetOrAdd i op i)
     Assert.AreEqual (100, op.Count)
     Assert.AreEqual (100, lru.Count)
@@ -63,7 +63,7 @@ type LRUCacheTests () =
   [<TestMethod>]
   member __.``OverflowTest`` () =
     let op = TestOp ()
-    let lru = LRUCache<int, int>(100)
+    let lru = ConcurrentLRUCache<int, int>(100)
     for i = 0 to 199 do Assert.AreEqual (i, lru.GetOrAdd i op i)
     Assert.AreEqual (200, op.Count)
     Assert.AreEqual (100, lru.Count)
@@ -74,7 +74,7 @@ type LRUCacheTests () =
   [<TestMethod>]
   member __.``LRUTest`` () =
     let op = TestOp ()
-    let lru = LRUCache<int, int>(100)
+    let lru = ConcurrentLRUCache<int, int>(100)
     for i = 0 to 99 do Assert.AreEqual (i, lru.GetOrAdd i op i)
     Assert.AreEqual (100, op.Count)
     Assert.AreEqual (100, lru.Count)
