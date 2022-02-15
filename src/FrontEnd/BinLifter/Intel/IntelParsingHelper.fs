@@ -191,6 +191,7 @@ module internal ParsingHelper = begin
     | 0xD0uy -> FNOP
     | 0xE0uy -> FCHS
     | 0xE1uy -> FABS
+    | 0xE4uy -> FTST
     | 0xE5uy -> FXAM
     | 0xE8uy -> FLD1
     | 0xE9uy -> FLDL2T
@@ -1357,6 +1358,34 @@ module internal ParsingHelper = begin
       struct (INSERTQ, OD.GprRmImm8Imm8, SZ.Dq) (* VdqUdqIbIb *)
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
+  let evex0F78W0 = function
+    | MPref.MPrxNP -> raise ParsingFailureException
+    | MPref.MPrx66 -> struct (VCVTTPS2UQQ, OD.GprRm, SZ.XqXz) (* VZxzWxq *)
+    | MPref.MPrxF3 -> struct (VCVTTSS2USI, OD.GprRm, SZ.DqdY) (* GyWdqd *)
+    | MPref.MPrxF2 -> struct (VCVTTSD2USI, OD.GprRm, SZ.DqqY) (* GyWdqq *)
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let evex0F78W1 = function
+    | MPref.MPrxNP -> raise ParsingFailureException
+    | MPref.MPrx66 -> struct (VCVTTPD2UQQ, OD.GprRm, SZ.VecDef) (* VxWx *)
+    | MPref.MPrxF3 -> struct (VCVTTSS2USI, OD.GprRm, SZ.DqdY) (* GyWdqd *)
+    | MPref.MPrxF2 -> struct (VCVTTSD2USI, OD.GprRm, SZ.DqqY) (* GyWdqq *)
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let evex0F7AW0 = function
+    | MPref.MPrxNP -> raise ParsingFailureException
+    | MPref.MPrx66 -> struct (VCVTTPS2QQ, OD.GprRm, SZ.XqXz) (* VZxzWxq *)
+    | MPref.MPrxF3
+    | MPref.MPrxF2 -> raise ParsingFailureException
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let evex0F7AW1 = function
+    | MPref.MPrxNP -> raise ParsingFailureException
+    | MPref.MPrx66 -> struct (VCVTTPD2QQ, OD.GprRm, SZ.VecDef) (* VxWx *)
+    | MPref.MPrxF3 -> struct (VCVTUQQ2PD, OD.GprRm, SZ.VecDef) (* VxWx *)
+    | MPref.MPrxF2 -> raise ParsingFailureException
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
   let vex0F7C = function
     | MPref.MPrxNP -> raise ParsingFailureException
     | MPref.MPrx66 ->
@@ -1843,6 +1872,13 @@ module internal ParsingHelper = begin
     | MPref.MPrxNP
     | MPref.MPrx66 -> raise ParsingFailureException
     | MPref.MPrxF3 -> struct (VCVTDQ2PD, OD.GprRm, SZ.XXz) (* VZxzWx *)
+    | MPref.MPrxF2
+    | _ (* MPrx66F2 *) -> raise ParsingFailureException
+
+  let evex0FE6W1 = function
+    | MPref.MPrxNP
+    | MPref.MPrx66 -> raise ParsingFailureException
+    | MPref.MPrxF3 -> struct (VCVTQQ2PD, OD.GprRm, SZ.XXz) (* VZxzWx *)
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
 
@@ -5156,7 +5192,8 @@ module internal ParsingHelper = begin
     | 0x75uy -> parseVEX span rhlp nor0F75 vex0F75
     | 0x76uy -> parseVEX span rhlp nor0F76 vex0F76
     | 0x77uy -> parseVEX span rhlp nor0F77 vex0F77
-    | 0x78uy -> parseVEX span rhlp nor0F78 notEn
+    | 0x78uy -> parseEVEX span rhlp nor0F78 notEn evex0F78W0 evex0F78W1
+    | 0x7Auy -> parseEVEX span rhlp notEn notEn evex0F7AW0 evex0F7AW1
     | 0x7Cuy -> parseVEX span rhlp notEn vex0F7C
     | 0x7Duy -> parseVEX span rhlp notEn vex0F7D
     | 0x7Euy -> parseVEXW span rhlp nor0F7EW0 nor0F7EW1 vex0F7EW0 vex0F7EW1
@@ -5271,7 +5308,7 @@ module internal ParsingHelper = begin
     | 0xE3uy -> parseVEX span rhlp nor0FE3 vex0FE3
     | 0xE4uy -> parseVEX span rhlp nor0FE4 vex0FE4
     | 0xE5uy -> parseVEX span rhlp nor0FE5 vex0FE5
-    | 0xE6uy -> parseEVEX span rhlp nor0FE6 vex0FE6 evex0FE6W0 notEn
+    | 0xE6uy -> parseEVEX span rhlp nor0FE6 vex0FE6 evex0FE6W0 evex0FE6W1
     | 0xE7uy -> parseEVEX span rhlp nor0FE7 vex0FE7 evex0FE7W0 evex0FE7W1
     | 0xE8uy -> parseVEX span rhlp nor0FE8 vex0FE8
     | 0xE9uy -> parseVEX span rhlp nor0FE9 vex0FE9
