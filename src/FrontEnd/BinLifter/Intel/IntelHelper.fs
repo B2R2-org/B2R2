@@ -160,6 +160,14 @@ let inline modIsMemory b = (getMod b) <> 0b11
 
 let inline modIsReg b = (getMod b) = 0b11
 
+let inline isReg001 span (rhlp: ReadHelper) = getReg (rhlp.PeekByte span) = 1
+
+let inline isReg010 span (rhlp: ReadHelper) = getReg (rhlp.PeekByte span) = 2
+
+let inline isReg101 span (rhlp: ReadHelper) = getReg (rhlp.PeekByte span) = 5
+
+let inline isReg110 span (rhlp: ReadHelper) = getReg (rhlp.PeekByte span) = 6
+
 /// Filter out segment-related prefixes.
 let [<Literal>] ClearSegMask: Prefix = EnumOfValue 0xFC0F
 

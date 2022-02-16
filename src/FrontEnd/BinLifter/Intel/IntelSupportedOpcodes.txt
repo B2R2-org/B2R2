@@ -1778,18 +1778,18 @@ VGATHERDPS
 VGATHERPF0DPD
 /// Sparse prefetch of packed SP FP vector with T0 hint using dword indices.
 VGATHERPF0DPS
-/// Sparse prefetch of packed SP FP vector with T0 hint using qword indices.
-VGATHERPF0QPS
 /// Sparse prefetch of packed DP FP vector with T0 hint using qword indices.
 VGATHERPF0QPD
+/// Sparse prefetch of packed SP FP vector with T0 hint using qword indices.
+VGATHERPF0QPS
 /// Sparse prefetch of packed DP FP vector with T1 hint using dword indices.
 VGATHERPF1DPD
 /// Sparse prefetch of packed SP FP vector with T1 hint using dword indices.
 VGATHERPF1DPS
-/// Sparse prefetch of packed SP FP vector with T1 hint using qword indices.
-VGATHERPF1QPS
 /// Sparse prefetch of packed DP FP vector with T1 hint using qword indices.
 VGATHERPF1QPD
+/// Sparse prefetch of packed SP FP vector with T1 hint using qword indices.
+VGATHERPF1QPS
 /// Gather Packed DP FP Values Using Signed Dword/Qword Indices.
 VGATHERQPD
 /// Gather Packed SP FP values Using Signed Dword/Qword Indices.
@@ -2106,12 +2106,12 @@ VPDPBUSDS
 VPDPWSSD
 /// Multiply and Add Signed Word Integers with Saturation.
 VPDPWSSDS
-/// Permute packed bytes elements.
-VPERMB
 /// Permute Floating-Point Values.
 VPERM2F128
 /// Permute Integer Values.
 VPERM2I128
+/// Permute packed bytes elements.
+VPERMB
 /// Permute Packed Doublewords/Words Elements.
 VPERMD
 /// Full Permute of Bytes from Two Tables Overwriting the Index.
@@ -2198,10 +2198,10 @@ VPINSRW
 VPLZCNTD
 /// Count the number of leading zero bits of packed qword elements.
 VPLZCNTQ
-/// Packed Multiply of Unsigned 52-bit and Add Low 52-bit Products.
-VPMADD52LUQ
 /// Packed Multiply of Unsigned 52-bit and Add High 52-bit Products.
 VPMADD52HUQ
+/// Packed Multiply of Unsigned 52-bit and Add Low 52-bit Products.
+VPMADD52LUQ
 /// Multiply and Add Packed Integers.
 VPMADDWD
 /// Conditional SIMD Integer Packed Loads and Stores.
@@ -2379,13 +2379,29 @@ VPSCATTERQD
 /// Scatter qword elements in a vector to memory using qword indices.
 VPSCATTERQQ
 /// Concatenate and Shift Packed Data Left Logical.
-VPSHLD
+VPSHLDD
+/// Concatenate and Shift Packed Data Left Logical.
+VPSHLDQ
 /// Concatenate and Variable Shift Packed Data Left Logical.
-VPSHLDV
+VPSHLDVD
+/// Concatenate and Variable Shift Packed Data Left Logical.
+VPSHLDVQ
+/// Concatenate and Variable Shift Packed Data Left Logical.
+VPSHLDVW
+/// Concatenate and Shift Packed Data Left Logical.
+VPSHLDW
 /// Concatenate and Shift Packed Data Right Logical.
-VPSHRD
+VPSHRDD
+/// Concatenate and Shift Packed Data Right Logical.
+VPSHRDQ
 /// Concatenate and Variable Shift Packed Data Right Logical.
-VPSHRDV
+VPSHRDVD
+/// Concatenate and Variable Shift Packed Data Right Logical.
+VPSHRDVQ
+/// Concatenate and Variable Shift Packed Data Right Logical.
+VPSHRDVW
+/// Concatenate and Shift Packed Data Right Logical.
+VPSHRDW
 /// Packed Shuffle Bytes.
 VPSHUFB
 /// Shuffle Bits from Quadword Elements Using Byte Indexes into Mask.
@@ -2602,28 +2618,28 @@ VSCATTERDPD
 VSCATTERDPS
 /// Scatter SP/DP FP elements in a vector to memory using dword indices.
 VSCATTERDQ
-/// Scatter packed double with signed qword indices.
-VSCATTERQPD
-/// Scatter packed single with signed qword indices.
-VSCATTERQPS
 /// Sparse prefetch packed DP FP with T0 hint to write using dword indices.
 VSCATTERPF0DPD
 /// Sparse prefetch packed SP FP with T0 hint to write using dword indices.
 VSCATTERPF0DPS
-/// Sparse prefetch packed SP FP with T0 hint to write using qword indices.
-VSCATTERPF0QPS
 /// Sparse prefetch packed DP FP with T0 hint to write using qword indices.
 VSCATTERPF0QPD
+/// Sparse prefetch packed SP FP with T0 hint to write using qword indices.
+VSCATTERPF0QPS
 /// Sparse prefetch packed DP FP with T1 hint to write using dword indices.
 VSCATTERPF1DPD
 /// Sparse prefetch packed SP FP with T1 hint to write using dword indices.
 VSCATTERPF1DPS
-/// Sparse prefetch packed SP FP with T1 hint to write using qword indices.
-VSCATTERPF1QPS
 /// Sparse prefetch packed DP FP with T1 hint to write using qword indices.
 VSCATTERPF1QPD
+/// Sparse prefetch packed SP FP with T1 hint to write using qword indices.
+VSCATTERPF1QPS
 /// Scatter SP/DP FP elements in a vector to memory using qword indices.
 VSCATTERQD
+/// Scatter packed double with signed qword indices.
+VSCATTERQPD
+/// Scatter packed single with signed qword indices.
+VSCATTERQPS
 /// Scatter SP/DP FP elements in a vector to memory using qword indices.
 VSCATTERQQ
 /// Shuffle 128-bit lanes of a vector with 32 bit granular conditional update.

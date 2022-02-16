@@ -1809,18 +1809,18 @@ type Opcode =
   | VGATHERPF0DPD = 881
   /// Sparse prefetch of packed SP FP vector with T0 hint using dword indices.
   | VGATHERPF0DPS = 882
-  /// Sparse prefetch of packed SP FP vector with T0 hint using qword indices.
-  | VGATHERPF0QPS = 883
   /// Sparse prefetch of packed DP FP vector with T0 hint using qword indices.
-  | VGATHERPF0QPD = 884
+  | VGATHERPF0QPD = 883
+  /// Sparse prefetch of packed SP FP vector with T0 hint using qword indices.
+  | VGATHERPF0QPS = 884
   /// Sparse prefetch of packed DP FP vector with T1 hint using dword indices.
   | VGATHERPF1DPD = 885
   /// Sparse prefetch of packed SP FP vector with T1 hint using dword indices.
   | VGATHERPF1DPS = 886
-  /// Sparse prefetch of packed SP FP vector with T1 hint using qword indices.
-  | VGATHERPF1QPS = 887
   /// Sparse prefetch of packed DP FP vector with T1 hint using qword indices.
-  | VGATHERPF1QPD = 888
+  | VGATHERPF1QPD = 887
+  /// Sparse prefetch of packed SP FP vector with T1 hint using qword indices.
+  | VGATHERPF1QPS = 888
   /// Gather Packed DP FP Values Using Signed Dword/Qword Indices.
   | VGATHERQPD = 889
   /// Gather Packed SP FP values Using Signed Dword/Qword Indices.
@@ -2137,12 +2137,12 @@ type Opcode =
   | VPDPWSSD = 1045
   /// Multiply and Add Signed Word Integers with Saturation.
   | VPDPWSSDS = 1046
-  /// Permute packed bytes elements.
-  | VPERMB = 1047
   /// Permute Floating-Point Values.
-  | VPERM2F128 = 1048
+  | VPERM2F128 = 1047
   /// Permute Integer Values.
-  | VPERM2I128 = 1049
+  | VPERM2I128 = 1048
+  /// Permute packed bytes elements.
+  | VPERMB = 1049
   /// Permute Packed Doublewords/Words Elements.
   | VPERMD = 1050
   /// Full Permute of Bytes from Two Tables Overwriting the Index.
@@ -2229,10 +2229,10 @@ type Opcode =
   | VPLZCNTD = 1091
   /// Count the number of leading zero bits of packed qword elements.
   | VPLZCNTQ = 1092
-  /// Packed Multiply of Unsigned 52-bit and Add Low 52-bit Products.
-  | VPMADD52LUQ = 1093
   /// Packed Multiply of Unsigned 52-bit and Add High 52-bit Products.
-  | VPMADD52HUQ = 1094
+  | VPMADD52HUQ = 1093
+  /// Packed Multiply of Unsigned 52-bit and Add Low 52-bit Products.
+  | VPMADD52LUQ = 1094
   /// Multiply and Add Packed Integers.
   | VPMADDWD = 1095
   /// Conditional SIMD Integer Packed Loads and Stores.
@@ -2410,368 +2410,384 @@ type Opcode =
   /// Scatter qword elements in a vector to memory using qword indices.
   | VPSCATTERQQ = 1182
   /// Concatenate and Shift Packed Data Left Logical.
-  | VPSHLD = 1183
+  | VPSHLDD = 1183
+  /// Concatenate and Shift Packed Data Left Logical.
+  | VPSHLDQ = 1184
   /// Concatenate and Variable Shift Packed Data Left Logical.
-  | VPSHLDV = 1184
+  | VPSHLDVD = 1185
+  /// Concatenate and Variable Shift Packed Data Left Logical.
+  | VPSHLDVQ = 1186
+  /// Concatenate and Variable Shift Packed Data Left Logical.
+  | VPSHLDVW = 1187
+  /// Concatenate and Shift Packed Data Left Logical.
+  | VPSHLDW = 1188
   /// Concatenate and Shift Packed Data Right Logical.
-  | VPSHRD = 1185
+  | VPSHRDD = 1189
+  /// Concatenate and Shift Packed Data Right Logical.
+  | VPSHRDQ = 1190
   /// Concatenate and Variable Shift Packed Data Right Logical.
-  | VPSHRDV = 1186
+  | VPSHRDVD = 1191
+  /// Concatenate and Variable Shift Packed Data Right Logical.
+  | VPSHRDVQ = 1192
+  /// Concatenate and Variable Shift Packed Data Right Logical.
+  | VPSHRDVW = 1193
+  /// Concatenate and Shift Packed Data Right Logical.
+  | VPSHRDW = 1194
   /// Packed Shuffle Bytes.
-  | VPSHUFB = 1187
+  | VPSHUFB = 1195
   /// Shuffle Bits from Quadword Elements Using Byte Indexes into Mask.
-  | VPSHUFBITQMB = 1188
+  | VPSHUFBITQMB = 1196
   /// Shuffle Packed Doublewords.
-  | VPSHUFD = 1189
+  | VPSHUFD = 1197
   /// Shuffle Packed High Words.
-  | VPSHUFHW = 1190
+  | VPSHUFHW = 1198
   /// Shuffle Packed Low Words.
-  | VPSHUFLW = 1191
+  | VPSHUFLW = 1199
   /// Packed SIGN (byte).
-  | VPSIGNB = 1192
+  | VPSIGNB = 1200
   /// Packed SIGN (doubleword).
-  | VPSIGND = 1193
+  | VPSIGND = 1201
   /// Packed SIGN (word).
-  | VPSIGNW = 1194
+  | VPSIGNW = 1202
   /// Shift Packed Data Left Logical (doubleword).
-  | VPSLLD = 1195
+  | VPSLLD = 1203
   /// Shift Double Quadword Left Logical.
-  | VPSLLDQ = 1196
+  | VPSLLDQ = 1204
   /// Shift Packed Data Left Logical (quadword).
-  | VPSLLQ = 1197
+  | VPSLLQ = 1205
   /// Variable Bit Shift Left Logical.
-  | VPSLLVD = 1198
+  | VPSLLVD = 1206
   /// Variable Bit Shift Left Logical.
-  | VPSLLVQ = 1199
+  | VPSLLVQ = 1207
   /// Variable Bit Shift Left Logical.
-  | VPSLLVW = 1200
+  | VPSLLVW = 1208
   /// Shift Packed Data Left Logical (word).
-  | VPSLLW = 1201
+  | VPSLLW = 1209
   /// Shift Packed Data Right Arithmetic (doubleword).
-  | VPSRAD = 1202
+  | VPSRAD = 1210
   /// Shift qwords right by a constant shift count and shifting in sign bits.
-  | VPSRAQ = 1203
+  | VPSRAQ = 1211
   /// Variable Bit Shift Right Arithmetic.
-  | VPSRAVD = 1204
+  | VPSRAVD = 1212
   /// Shift qwords right by shift counts in a vector and shifting in sign bits.
-  | VPSRAVQ = 1205
+  | VPSRAVQ = 1213
   /// Variable Bit Shift Right Arithmetic.
-  | VPSRAVW = 1206
+  | VPSRAVW = 1214
   /// Shift Packed Data Right Arithmetic (word).
-  | VPSRAW = 1207
+  | VPSRAW = 1215
   /// Shift Packed Data Right Logical (doubleword).
-  | VPSRLD = 1208
+  | VPSRLD = 1216
   /// Shift Double Quadword Right Logical.
-  | VPSRLDQ = 1209
+  | VPSRLDQ = 1217
   /// Shift Packed Data Right Logical (quadword).
-  | VPSRLQ = 1210
+  | VPSRLQ = 1218
   /// Variable Bit Shift Right Logical.
-  | VPSRLVD = 1211
+  | VPSRLVD = 1219
   /// Variable Bit Shift Right Logical.
-  | VPSRLVQ = 1212
+  | VPSRLVQ = 1220
   /// Variable Bit Shift Right Logical.
-  | VPSRLVW = 1213
+  | VPSRLVW = 1221
   /// Shift Packed Data Right Logical (word).
-  | VPSRLW = 1214
+  | VPSRLW = 1222
   /// Subtract Packed Integers (byte).
-  | VPSUBB = 1215
+  | VPSUBB = 1223
   /// Subtract Packed Integers (doubleword).
-  | VPSUBD = 1216
+  | VPSUBD = 1224
   /// Subtract Packed Integers (quadword).
-  | VPSUBQ = 1217
+  | VPSUBQ = 1225
   /// Subtract Packed Signed Integers with Signed Saturation (byte).
-  | VPSUBSB = 1218
+  | VPSUBSB = 1226
   /// Subtract Packed Signed Integers with Signed Saturation (word).
-  | VPSUBSW = 1219
+  | VPSUBSW = 1227
   /// Subtract Packed Unsigned Integers with Unsigned Saturation (byte).
-  | VPSUBUSB = 1220
+  | VPSUBUSB = 1228
   /// Subtract Packed Unsigned Integers with Unsigned Saturation (word).
-  | VPSUBUSW = 1221
+  | VPSUBUSW = 1229
   /// Subtract Packed Integers (word).
-  | VPSUBW = 1222
+  | VPSUBW = 1230
   /// Perform bitwise ternary logic operation of three vectors.
-  | VPTERLOGD = 1223
+  | VPTERLOGD = 1231
   /// Perform bitwise ternary logic operation of three vectors.
-  | VPTERLOGQ = 1224
+  | VPTERLOGQ = 1232
   /// Bitwise Ternary Logic.
-  | VPTERNLOGD = 1225
+  | VPTERNLOGD = 1233
   /// Bitwise Ternary Logic.
-  | VPTERNLOGQ = 1226
+  | VPTERNLOGQ = 1234
   /// Logical Compare.
-  | VPTEST = 1227
+  | VPTEST = 1235
   /// Perform bitwise AND of byte elems of two vecs and write results to opmask.
-  | VPTESTMB = 1228
+  | VPTESTMB = 1236
   /// Perform bitwise AND of dword elems of 2-vecs and write results to opmask.
-  | VPTESTMD = 1229
+  | VPTESTMD = 1237
   /// Perform bitwise AND of qword elems of 2-vecs and write results to opmask.
-  | VPTESTMQ = 1230
+  | VPTESTMQ = 1238
   /// Perform bitwise AND of word elems of two vecs and write results to opmask.
-  | VPTESTMW = 1231
+  | VPTESTMW = 1239
   /// Perform bitwise NAND of byte elems of 2-vecs and write results to opmask.
-  | VPTESTNMB = 1232
+  | VPTESTNMB = 1240
   /// Perform bitwise NAND of dword elems of 2-vecs and write results to opmask.
-  | VPTESTNMD = 1233
+  | VPTESTNMD = 1241
   /// Perform bitwise NAND of qword elems of 2-vecs and write results to opmask.
-  | VPTESTNMQ = 1234
+  | VPTESTNMQ = 1242
   /// Perform bitwise NAND of word elems of 2-vecs and write results to opmask.
-  | VPTESTNMW = 1235
+  | VPTESTNMW = 1243
   /// Unpack High Data.
-  | VPUNPCKHBW = 1236
+  | VPUNPCKHBW = 1244
   /// Unpack High Data.
-  | VPUNPCKHDQ = 1237
+  | VPUNPCKHDQ = 1245
   /// Unpack High Data.
-  | VPUNPCKHQDQ = 1238
+  | VPUNPCKHQDQ = 1246
   /// Unpack High Data.
-  | VPUNPCKHWD = 1239
+  | VPUNPCKHWD = 1247
   /// Unpack Low Data.
-  | VPUNPCKLBW = 1240
+  | VPUNPCKLBW = 1248
   /// Unpack Low Data.
-  | VPUNPCKLDQ = 1241
+  | VPUNPCKLDQ = 1249
   /// Unpack Low Data.
-  | VPUNPCKLQDQ = 1242
+  | VPUNPCKLQDQ = 1250
   /// Unpack Low Data.
-  | VPUNPCKLWD = 1243
+  | VPUNPCKLWD = 1251
   /// Logical Exclusive OR.
-  | VPXOR = 1244
+  | VPXOR = 1252
   /// Bitwise XOR of packed doubleword integers.
-  | VPXORD = 1245
+  | VPXORD = 1253
   /// Bitwise XOR of packed quadword integers.
-  | VPXORQ = 1246
+  | VPXORQ = 1254
   /// Range Restriction Calculation For Packed Pairs of Float64 Values.
-  | VRANGEPD = 1247
+  | VRANGEPD = 1255
   /// Range Restriction Calculation For Packed Pairs of Float32 Values.
-  | VRANGEPS = 1248
+  | VRANGEPS = 1256
   /// Range Restriction Calculation From a pair of Scalar Float64 Values.
-  | VRANGESD = 1249
+  | VRANGESD = 1257
   /// Range Restriction Calculation From a Pair of Scalar Float32 Values.
-  | VRANGESS = 1250
+  | VRANGESS = 1258
   /// Compute Approximate Reciprocals of Packed Float64 Values.
-  | VRCP14PD = 1251
+  | VRCP14PD = 1259
   /// Compute Approximate Reciprocals of Packed Float32 Values.
-  | VRCP14PS = 1252
+  | VRCP14PS = 1260
   /// Compute Approximate Reciprocal of Scalar Float64 Value.
-  | VRCP14SD = 1253
+  | VRCP14SD = 1261
   /// Compute Approximate Reciprocal of Scalar Float32 Value.
-  | VRCP14SS = 1254
+  | VRCP14SS = 1262
   /// Computes the reciprocal approximation of the float64 values.
-  | VRCP28PD = 1255
+  | VRCP28PD = 1263
   /// Computes the reciprocal approximation of the float32 values.
-  | VRCP28PS = 1256
+  | VRCP28PS = 1264
   /// Computes the reciprocal approximation of the low float64 value.
-  | VRCP28SD = 1257
+  | VRCP28SD = 1265
   /// Computes the reciprocal approximation of the low float32 value.
-  | VRCP28SS = 1258
+  | VRCP28SS = 1266
   /// Compute reciprocals of packed single-precision floating-point values.
-  | VRCPPS = 1259
+  | VRCPPS = 1267
   /// Compute Reciprocal of Scalar Single-Precision Floating-Point Values.
-  | VRCPSS = 1260
+  | VRCPSS = 1268
   /// Perform Reduction Transformation on Packed Float64 Values.
-  | VREDUCEPD = 1261
+  | VREDUCEPD = 1269
   /// Perform Reduction Transformation on Packed Float32 Values.
-  | VREDUCEPS = 1262
+  | VREDUCEPS = 1270
   /// Perform a Reduction Transformation on a Scalar Float64 Value.
-  | VREDUCESD = 1263
+  | VREDUCESD = 1271
   /// Perform a Reduction Transformation on a Scalar Float32 Value.
-  | VREDUCESS = 1264
+  | VREDUCESS = 1272
   /// Round Packed Float64 Values To Include A Given Number Of Fraction Bits.
-  | VRNDSCALEPD = 1265
+  | VRNDSCALEPD = 1273
   /// Round Packed Float32 Values To Include A Given Number Of Fraction Bits.
-  | VRNDSCALEPS = 1266
+  | VRNDSCALEPS = 1274
   /// Round Scalar Float64 Value To Include A Given Number Of Fraction Bits.
-  | VRNDSCALESD = 1267
+  | VRNDSCALESD = 1275
   /// Round Scalar Float32 Value To Include A Given Number Of Fraction Bits.
-  | VRNDSCALESS = 1268
+  | VRNDSCALESS = 1276
   /// Round Packed Double-Precision Values.
-  | VROUNDPD = 1269
+  | VROUNDPD = 1277
   /// Round Packed Single-Precision Values.
-  | VROUNDPS = 1270
+  | VROUNDPS = 1278
   /// Round Scalar Double-Precision Value.
-  | VROUNDSD = 1271
+  | VROUNDSD = 1279
   /// Round Scalar Single-Precision Value.
-  | VROUNDSS = 1272
+  | VROUNDSS = 1280
   /// Compute Approximate Reciprocals of Square Roots of Packed Float64 Values.
-  | VRSQRT14PD = 1273
+  | VRSQRT14PD = 1281
   /// Compute Approximate Reciprocals of Square Roots of Packed Float32 Values.
-  | VRSQRT14PS = 1274
+  | VRSQRT14PS = 1282
   /// Compute Approximate Reciprocal of Square Root of Scalar Float64 Value.
-  | VRSQRT14SD = 1275
+  | VRSQRT14SD = 1283
   /// Compute Approximate Reciprocal of Square Root of Scalar Float32 Value.
-  | VRSQRT14SS = 1276
+  | VRSQRT14SS = 1284
   /// Computes the reciprocal square root of the float64 values.
-  | VRSQRT28PD = 1277
+  | VRSQRT28PD = 1285
   /// Computes the reciprocal square root of the float32 values.
-  | VRSQRT28PS = 1278
+  | VRSQRT28PS = 1286
   /// Computes the reciprocal square root of the low float64 value.
-  | VRSQRT28SD = 1279
+  | VRSQRT28SD = 1287
   /// Computes the reciprocal square root of the low float32 value.
-  | VRSQRT28SS = 1280
+  | VRSQRT28SS = 1288
   /// Compute Reciprocals of Square Roots of Packed Single-Precision FP Values.
-  | VRSQRTPS = 1281
+  | VRSQRTPS = 1289
   /// Compute Reciprocal of Square Root of Scalar Single-Precision FP Value.
-  | VRSQRTSS = 1282
+  | VRSQRTSS = 1290
   /// Scale Packed Float64 Values With Float64 Values.
-  | VSCALEFPD = 1283
+  | VSCALEFPD = 1291
   /// Scale Packed Float32 Values With Float32 Values.
-  | VSCALEFPS = 1284
+  | VSCALEFPS = 1292
   /// Scale Scalar Float64 Values With Float64 Values.
-  | VSCALEFSD = 1285
+  | VSCALEFSD = 1293
   /// Scale Scalar Float32 Value With Float32 Value.
-  | VSCALEFSS = 1286
+  | VSCALEFSS = 1294
   /// Multiply packed DP FP elements of a vector by powers.
-  | VSCALEPD = 1287
+  | VSCALEPD = 1295
   /// Multiply packed SP FP elements of a vector by powers.
-  | VSCALEPS = 1288
+  | VSCALEPS = 1296
   /// Multiply the low DP FP element of a vector by powers.
-  | VSCALESD = 1289
+  | VSCALESD = 1297
   /// Multiply the low SP FP element of a vector by powers.
-  | VSCALESS = 1290
+  | VSCALESS = 1298
   /// Scatter SP/DP FP elements in a vector to memory using dword indices.
-  | VSCATTERDD = 1291
+  | VSCATTERDD = 1299
   /// Scatter packed double with signed dword indices.
-  | VSCATTERDPD = 1292
+  | VSCATTERDPD = 1300
   /// Scatter packed single with signed dword indices.
-  | VSCATTERDPS = 1293
+  | VSCATTERDPS = 1301
   /// Scatter SP/DP FP elements in a vector to memory using dword indices.
-  | VSCATTERDQ = 1294
-  /// Scatter packed double with signed qword indices.
-  | VSCATTERQPD = 1295
-  /// Scatter packed single with signed qword indices.
-  | VSCATTERQPS = 1296
+  | VSCATTERDQ = 1302
   /// Sparse prefetch packed DP FP with T0 hint to write using dword indices.
-  | VSCATTERPF0DPD = 1297
+  | VSCATTERPF0DPD = 1303
   /// Sparse prefetch packed SP FP with T0 hint to write using dword indices.
-  | VSCATTERPF0DPS = 1298
-  /// Sparse prefetch packed SP FP with T0 hint to write using qword indices.
-  | VSCATTERPF0QPS = 1299
+  | VSCATTERPF0DPS = 1304
   /// Sparse prefetch packed DP FP with T0 hint to write using qword indices.
-  | VSCATTERPF0QPD = 1300
+  | VSCATTERPF0QPD = 1305
+  /// Sparse prefetch packed SP FP with T0 hint to write using qword indices.
+  | VSCATTERPF0QPS = 1306
   /// Sparse prefetch packed DP FP with T1 hint to write using dword indices.
-  | VSCATTERPF1DPD = 1301
+  | VSCATTERPF1DPD = 1307
   /// Sparse prefetch packed SP FP with T1 hint to write using dword indices.
-  | VSCATTERPF1DPS = 1302
-  /// Sparse prefetch packed SP FP with T1 hint to write using qword indices.
-  | VSCATTERPF1QPS = 1303
+  | VSCATTERPF1DPS = 1308
   /// Sparse prefetch packed DP FP with T1 hint to write using qword indices.
-  | VSCATTERPF1QPD = 1304
+  | VSCATTERPF1QPD = 1309
+  /// Sparse prefetch packed SP FP with T1 hint to write using qword indices.
+  | VSCATTERPF1QPS = 1310
   /// Scatter SP/DP FP elements in a vector to memory using qword indices.
-  | VSCATTERQD = 1305
+  | VSCATTERQD = 1311
+  /// Scatter packed double with signed qword indices.
+  | VSCATTERQPD = 1312
+  /// Scatter packed single with signed qword indices.
+  | VSCATTERQPS = 1313
   /// Scatter SP/DP FP elements in a vector to memory using qword indices.
-  | VSCATTERQQ = 1306
+  | VSCATTERQQ = 1314
   /// Shuffle 128-bit lanes of a vector with 32 bit granular conditional update.
-  | VSHUFF32X4 = 1307
+  | VSHUFF32X4 = 1315
   /// Shuffle 128-bit lanes of a vector with 64 bit granular conditional update.
-  | VSHUFF64X2 = 1308
+  | VSHUFF64X2 = 1316
   /// Shuffle 128-bit lanes of a vector with 32 bit granular conditional update.
-  | VSHUFI32X4 = 1309
+  | VSHUFI32X4 = 1317
   /// Shuffle 128-bit lanes of a vector with 64 bit granular conditional update.
-  | VSHUFI64X2 = 1310
+  | VSHUFI64X2 = 1318
   /// Shuffle Packed Double-Precision Floating-Point Values.
-  | VSHUFPD = 1311
+  | VSHUFPD = 1319
   /// Shuffle Packed Single-Precision Floating-Point Values.
-  | VSHUFPS = 1312
+  | VSHUFPS = 1320
   /// Compute packed square roots of packed double-precision FP values.
-  | VSQRTPD = 1313
+  | VSQRTPD = 1321
   /// Compute square roots of packed single-precision floating-point values.
-  | VSQRTPS = 1314
+  | VSQRTPS = 1322
   /// Compute scalar square root of scalar double-precision FP values.
-  | VSQRTSD = 1315
+  | VSQRTSD = 1323
   /// Compute square root of scalar single-precision floating-point values.
-  | VSQRTSS = 1316
+  | VSQRTSS = 1324
   /// Subtract Packed Double-Precision Floating-Point Values.
-  | VSUBPD = 1317
+  | VSUBPD = 1325
   /// Subtract Packed Single-Precision Floating-Point Values.
-  | VSUBPS = 1318
+  | VSUBPS = 1326
   /// Subtract Scalar Double-Precision Floating-Point Values.
-  | VSUBSD = 1319
+  | VSUBSD = 1327
   /// Subtract Scalar Single-Precision Floating-Point Values.
-  | VSUBSS = 1320
+  | VSUBSS = 1328
   /// Unordered Compare Scalar Double-Precision FP Values and Set EFLAGS.
-  | VUCOMISD = 1321
+  | VUCOMISD = 1329
   /// Unordered Compare Scalar Single-Precision FPValues and Set EFLAGS.
-  | VUCOMISS = 1322
+  | VUCOMISS = 1330
   /// Unpack and Interleave High Packed Double-Precision Floating-Point Values.
-  | VUNPCKHPD = 1323
+  | VUNPCKHPD = 1331
   /// Unpack and Interleave High Packed Single-Precision Floating-Point Values.
-  | VUNPCKHPS = 1324
+  | VUNPCKHPS = 1332
   /// Unpack and Interleave Low Packed Double-Precision Floating-Point Values.
-  | VUNPCKLPD = 1325
+  | VUNPCKLPD = 1333
   /// Unpack and Interleave Low Packed Single-Precision Floating-Point Values.
-  | VUNPCKLPS = 1326
+  | VUNPCKLPS = 1334
   /// Bitwise Logical XOR for Double-Precision Floating-Point Values.
-  | VXORPD = 1327
+  | VXORPD = 1335
   /// Bitwise Logical XOR for Single-Precision Floating-Point Values.
-  | VXORPS = 1328
+  | VXORPS = 1336
   /// Zero Upper Bits of YMM Registers.
-  | VZEROUPPER = 1329
+  | VZEROUPPER = 1337
   /// Wait.
-  | WAIT = 1330
+  | WAIT = 1338
   /// Write Back and Invalidate Cache.
-  | WBINVD = 1331
+  | WBINVD = 1339
   /// Write FS Segment Base.
-  | WRFSBASE = 1332
+  | WRFSBASE = 1340
   /// Write GS Segment Base.
-  | WRGSBASE = 1333
+  | WRGSBASE = 1341
   /// Write to Model Specific Register.
-  | WRMSR = 1334
+  | WRMSR = 1342
   /// Write Data to User Page Key Register.
-  | WRPKRU = 1335
+  | WRPKRU = 1343
   /// Write to a shadow stack.
-  | WRSSD = 1336
+  | WRSSD = 1344
   /// Write to a shadow stack.
-  | WRSSQ = 1337
+  | WRSSQ = 1345
   /// Write to a user mode shadow stack.
-  | WRUSSD = 1338
+  | WRUSSD = 1346
   /// Write to a user mode shadow stack.
-  | WRUSSQ = 1339
+  | WRUSSQ = 1347
   /// Transactional Abort.
-  | XABORT = 1340
+  | XABORT = 1348
   /// Prefix hint to the beginning of an HLE transaction region.
-  | XACQUIRE = 1341
+  | XACQUIRE = 1349
   /// Exchange and Add.
-  | XADD = 1342
+  | XADD = 1350
   /// Transactional Begin.
-  | XBEGIN = 1343
+  | XBEGIN = 1351
   /// Exchange Register/Memory with Register.
-  | XCHG = 1344
+  | XCHG = 1352
   /// Transactional End.
-  | XEND = 1345
+  | XEND = 1353
   /// Value of Extended Control Register.
-  | XGETBV = 1346
+  | XGETBV = 1354
   /// Table lookup translation.
-  | XLAT = 1347
+  | XLAT = 1355
   /// Table Look-up Translation.
-  | XLATB = 1348
+  | XLATB = 1356
   /// Logical Exclusive OR.
-  | XOR = 1349
+  | XOR = 1357
   /// Bitwise Logical XOR for Double-Precision Floating-Point Values.
-  | XORPD = 1350
+  | XORPD = 1358
   /// Bitwise Logical XOR for Single-Precision Floating-Point Values.
-  | XORPS = 1351
+  | XORPS = 1359
   /// Prefix hint to the end of an HLE transaction region.
-  | XRELEASE = 1352
+  | XRELEASE = 1360
   /// Restore Processor Extended States.
-  | XRSTOR = 1353
+  | XRSTOR = 1361
   /// Restore processor supervisor-mode extended states from memory.
-  | XRSTORS = 1354
+  | XRSTORS = 1362
   /// Restore processor supervisor-mode extended states from memory.
-  | XRSTORS64 = 1355
+  | XRSTORS64 = 1363
   /// Save Processor Extended States.
-  | XSAVE = 1356
+  | XSAVE = 1364
   /// Save processor extended states with compaction to memory.
-  | XSAVEC = 1357
+  | XSAVEC = 1365
   /// Save processor extended states with compaction to memory.
-  | XSAVEC64 = 1358
+  | XSAVEC64 = 1366
   /// Save Processor Extended States Optimized.
-  | XSAVEOPT = 1359
+  | XSAVEOPT = 1367
   /// Save processor supervisor-mode extended states to memory.
-  | XSAVES = 1360
+  | XSAVES = 1368
   /// Save processor supervisor-mode extended states to memory.
-  | XSAVES64 = 1361
+  | XSAVES64 = 1369
   /// Set Extended Control Register.
-  | XSETBV = 1362
+  | XSETBV = 1370
   /// Test If In Transactional Execution.
-  | XTEST = 1363
+  | XTEST = 1371
   /// Invalid Opcode.
-  | InvalOP = 1364
+  | InvalOP = 1372
 
 // vim: set tw=80 sts=2 sw=2:
