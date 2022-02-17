@@ -184,6 +184,7 @@ with
     | "cil" -> ISA.Init Arch.CILOnly Endian.Little
     | "avr" | "avr8" -> ISA.Init Arch.AVR Endian.Little
     | "sh4" | "sh-4" -> ISA.Init Arch.SH4 Endian.Little
+    | "sh4be" | "sh-4be" -> ISA.Init Arch.SH4 Endian.Big
     | "ppc32" -> ISA.Init Arch.PPC32 Endian.Little
     | _ -> raise InvalidISAException
 

@@ -381,7 +381,6 @@ type MIPSRetriever () =
         let hi = r.ReadUInt16 (span, offset) |> uint64
         let lo = r.ReadUInt16 (span, offset + 4) |> uint64
         let entryAddr = hi <<< 16 ||| lo
-        let entrySize = 16
         Ok { EntryRelocAddr = uint64 entryAddr; NextEntryAddr = addr + 16UL }
 
 let mipsPLT span reader sec =
@@ -391,6 +390,17 @@ let mipsPLT span reader sec =
     let retriever = MIPSRetriever () :> IPLTInfoRetriever
     newPLT startAddr DontCare LazyBinding false 16 0UL 4UL retriever
   | None -> UnknownPLT
+
+type SH4Retriever () =
+  interface IPLTInfoRetriever with
+    member __.Get (addr, _, typ, span: ByteSpan, r: IBinReader, sec, _) =
+      let offset = int (addr - sec.SecAddr + sec.SecOffset) + 24
+      Ok { EntryRelocAddr = r.ReadInt32 (span, offset) |> uint64
+           NextEntryAddr = addr + uint64 typ.EntrySize }
+
+let sh4PLT sec =
+  let retriever = SH4Retriever () :> IPLTInfoRetriever
+  newPLT (sec.SecAddr + 28UL) DontCare LazyBinding false 28 0UL 2UL retriever
 
 let findX86PLTType span sec =
   (* This is dirty, but we cannot use a monad due to Span. *)
@@ -437,6 +447,7 @@ let findPLTType arch span reader sec =
   | Arch.MIPS64
   | Arch.MIPS64R2
   | Arch.MIPS64R6 -> mipsPLT span reader sec
+  | Arch.SH4 -> sh4PLT sec
   | _ -> Utils.futureFeature ()
 
 let rec private parsePLTLoop gotBase typ rel span reader s eAddr idx map addr =

@@ -727,6 +727,73 @@ type RelocationMIPS =
   /// MIPS: 32-bit PC-relative.
   | RelocMIPSPC32 = 248UL
 
+/// Relocation type for SH4.
+type RelocationSH4 =
+  /// SH4: no reloc.
+  | RelocSHUnused = 0UL
+  /// SH4: 32 bit immediate for WinCE.
+  | RelocSHIMM32CE = 2UL
+  /// SH4: 8-bit PC rel.
+  | RelocSHPCREL8 = 3UL
+  /// SH4: 16-bit PC rel.
+  | RelocSHPCREL16 = 4UL
+  /// SH4: high 8 bits of 24 bit address.
+  | RelocSHHigh8 = 5UL
+  /// SH4: low 16 bits of 24 bit immediate.
+  | RelocSHLow16 = 7UL
+  /// SH4: 24 bit immediate.
+  | RelocSH_IMM24 = 6UL
+  /// SH4: PC rel 8 bits *4 +ve.
+  | RelocSHPCDISP8BY4 = 9UL
+  /// SH4: PC rel 8 bits *2 +ve.
+  | RelocSHPCDISP8BY2 = 10UL
+  /// SH4: 8 bit branch.
+  | RelocSHPCDISP8 = 11UL
+  /// SH4: 12 bit branch.
+  | RelocSHPCDISP = 12UL
+  /// SH4: 32 bit immediate.
+  | RelocSHIMM32 = 14UL
+  /// SH4: 8 bit immediate.
+  | RelocSHIMM8 = 16UL
+  /// SH4: 8 bit immediate *2.
+  | RelocSHIMM8BY2 = 17UL
+  /// SH4: 8 bit immediate *4.
+  | RelocSHIMM8BY4 = 18UL
+  /// SH4: 4 bit immediate.
+  | RelocSHIMM4 = 19UL
+  /// SH4: 4 bit immediate *2.
+  | RelocSHIMM4BY2 = 20UL
+  /// SH4: 4 bit immediate *4.
+  | RelocSHIMM4BY4 = 21UL
+  /// SH4: PC rel 8 bits *2 unsigned.
+  | RelocSHPCRELIMM8BY2 = 22UL
+  /// SH4: PC rel 8 bits *4 unsigned.
+  | RelocSHPCRELIMM8BY4 = 23UL
+  /// SH4: 16 bit immediate.
+  | RelocSHIMM16 = 24UL
+  /// SH4: 8 bit switch table entry.
+  | RelocSHSWITCH8 = 33UL
+  /// SH4: 16 bit switch table entry.
+  | RelocSHSWITCH16 = 25UL
+  /// SH4: 32 bit switch table entry.
+  | RelocSHSWITCH32 = 26UL
+  /// SH4: .uses pseudo-op.
+  | RelocSHUses = 27UL
+  /// SH4: Count of constant pool uses.
+  | RelocSHCount = 28UL
+  /// SH4: .align pseudo-op
+  | RelocSHAlign = 29UL
+  /// SH4: start of code.
+  | RelocSHCode = 30UL
+  /// SH4: start of data.
+  | RelocSHData = 31UL
+  /// SH4: label.
+  | RelocSHLabel = 32UL
+  /// SH4: loop start.
+  | RelocSHLoopStart = 34UL
+  /// SH4: loop end.
+  | RelocSHLoopEnd = 35UL
+
 /// Relocation type.
 type RelocationType =
   | RelocationX86 of RelocationX86
@@ -734,6 +801,7 @@ type RelocationType =
   | RelocationARMv7 of RelocationARMv7
   | RelocationARMv8 of RelocationARMv8
   | RelocationMIPS of RelocationMIPS
+  | RelocationSH4 of RelocationSH4
 with
   static member FromNum arch n =
     match arch with
@@ -758,6 +826,8 @@ with
     | Architecture.MIPS64R2
     | Architecture.MIPS64R6 ->
       RelocationMIPS <| LanguagePrimitives.EnumOfValue n
+    | Architecture.SH4 ->
+      RelocationSH4 <| LanguagePrimitives.EnumOfValue n
     | _ -> invalidArg (nameof arch) "Unsupported architecture for relocation."
 
 /// Relocation entry.
