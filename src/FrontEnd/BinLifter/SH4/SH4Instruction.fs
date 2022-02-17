@@ -29,8 +29,10 @@ open B2R2.FrontEnd.BinLifter
 
 /// The internal representation for a SH4 instruction used by our disassembler
 /// and lifter.
-type SH4Instruction (addr, numBytes, wordSize) =
-  inherit Instruction (addr, numBytes, wordSize)
+type SH4Instruction (addr, numBytes, insInfo) =
+  inherit Instruction (addr, numBytes, WordSize())
+
+  member val Info: InsInfo = insInfo
 
   override __.IsBranch () = Utils.futureFeature ()
   override __.IsModeChanging () = false
@@ -50,9 +52,25 @@ type SH4Instruction (addr, numBytes, wordSize) =
   override __.InterruptNum (_) = Utils.futureFeature ()
   override __.IsNop () = Utils.futureFeature ()
   override __.Translate (_) = Utils.futureFeature ()
-  override __.Disasm (_, _, _) = Utils.futureFeature ()
-  override __.Disasm () = Utils.futureFeature ()
-  override __.Decompose (_) = Utils.futureFeature ()
+  override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
+
+    let builder =
+      DisasmStringBuilder (showAddr, false, WordSize.Bit32, addr, numBytes)
+    Disassembly.disas __.Info builder
+    builder.Finalize ()
+
+  override __.Disasm () =
+    let builder =
+      DisasmStringBuilder (false, false, WordSize.Bit32, addr, numBytes)
+    Disassembly.disas __.Info builder
+    builder.Finalize ()
+
+  override __.Decompose (showAddr) =
+    let builder =
+      DisasmWordBuilder (showAddr, false, WordSize.Bit32, addr, numBytes, 8)
+    Disassembly.disas __.Info builder
+    builder.Finalize ()
+
   override __.IsInlinedAssembly () = false
 
   override __.Equals (_) = Utils.futureFeature ()

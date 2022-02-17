@@ -78,6 +78,7 @@ let peekArch (span: ByteSpan) (reader: IBinReader) cls =
   | 0x08s
   | 0x0as -> getMIPSISA span reader cls
   | 0x53s -> Arch.AVR
+  | 0x2as | 0x2a00s -> Arch.SH4
   | 0x14s -> Arch.PPC32
   | _ -> Arch.UnknownISA
 

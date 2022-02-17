@@ -38,14 +38,19 @@ type SH4TranslationContext internal (isa, regexprs) =
 
   override __.GetPseudoRegVar _id _pos = Utils.impossible ()
 
-type SH4Parser () =
+type SH4Parser (isa: ISA) =
   inherit Parser ()
 
-  override __.Parse (_: byte[], _: Addr): Instruction =
-    Utils.futureFeature ()
+  let reader =
+    if isa.Endian = Endian.Little then BinReader.binReaderLE
+    else BinReader.binReaderBE
 
-  override __.Parse (_: ByteSpan, _: Addr): Instruction =
-    Utils.futureFeature ()
+  override __.Parse (span: ByteSpan, addr: Addr) =
+    Parser.parse span reader addr :> Instruction
+
+  override __.Parse (bs: byte[], addr: Addr) =
+    let span = ReadOnlySpan bs
+    __.Parse (span, addr)
 
   override __.OperationMode with get() = ArchOperationMode.NoMode and set _ = ()
 
