@@ -29,72 +29,73 @@ exception UnhandledSyscallException
 
 /// Linux syscall type.
 type LinuxSyscall =
-  | Accept = 1
-  | Accept4 = 2
-  | Access = 3
-  | Acct = 4
-  | AddKey = 5
-  | AdjTimex = 6
-  | Alarm = 7
-  | AllocHugePages = 8
-  | ArcGetTLS = 9
-  | ArcSetTLS = 10
-  | ArcUsrCmpxchg = 11
-  | ArchPrctl = 12
-  | AtomicBarrier = 13
-  | AtomicCmpxchg32 = 14
-  | Bdflush = 15
-  | BfinSpinlock = 16
-  | Bind = 17
-  | Bpf = 18
-  | Brk = 19
-  | Breakpoint = 20
-  | CacheFlush = 21
-  | CapGet = 22
-  | CapSet = 23
-  | Chdir = 24
-  | Chmod = 25
-  | Chown = 26
-  | Chown32 = 27
-  | Chroot = 28
-  | ClockAdjtime = 29
-  | ClockAdjtime64 = 30
-  | ClockGetres = 31
-  | ClockGetres64 = 32
-  | ClockGettime = 33
-  | ClockGettime64 = 34
-  | ClockNanosleep = 35
-  | ClockNanosleep64 = 36
-  | ClockSettime = 37
-  | ClockSettime64 = 38
-  | Clone2 = 39
-  | Clone = 40
-  | Clone3 = 41
-  | Close = 42
-  | CmpxchgBadaddr = 43
-  | Connect = 44
-  | CopyFileRange = 45
-  | Creat = 46
-  | CreateModule = 47
-  | DeleteModule = 48
-  | DmaMemcpy = 49
-  | Dup = 50
-  | Dup2 = 51
-  | Dup3 = 52
-  | EpollCreate = 53
-  | EpollCreate1 = 54
-  | EpollCtl = 55
-  | EpollPwait = 56
-  | EpollWait = 57
-  | Eventfd = 58
-  | Eventfd2 = 59
-  | Execv = 60
-  | Execve = 61
-  | Execveat = 62
-  | Exit = 63
-  | ExitGroup = 64
-  | Faccessat = 65
-  | Fadvise64 = 66
+  | Accept = 0
+  | Accept4 = 1
+  | Access = 2
+  | Acct = 3
+  | AddKey = 4
+  | AdjTimex = 5
+  | Alarm = 6
+  | AllocHugePages = 7
+  | ArcGetTLS = 8
+  | ArcSetTLS = 9
+  | ArcUsrCmpxchg = 10
+  | ArchPrctl = 11
+  | AtomicBarrier = 12
+  | AtomicCmpxchg32 = 13
+  | Bdflush = 14
+  | BfinSpinlock = 15
+  | Bind = 16
+  | Bpf = 17
+  | Brk = 18
+  | Breakpoint = 19
+  | CacheFlush = 20
+  | CapGet = 21
+  | CapSet = 22
+  | Chdir = 23
+  | Chmod = 24
+  | Chown = 25
+  | Chown32 = 26
+  | Chroot = 27
+  | ClockAdjtime = 28
+  | ClockAdjtime64 = 29
+  | ClockGetres = 30
+  | ClockGetres64 = 31
+  | ClockGettime = 32
+  | ClockGettime64 = 33
+  | ClockNanosleep = 34
+  | ClockNanosleep64 = 35
+  | ClockSettime = 36
+  | ClockSettime64 = 37
+  | Clone2 = 38
+  | Clone = 39
+  | Clone3 = 40
+  | Close = 41
+  | CmpxchgBadaddr = 42
+  | Connect = 43
+  | CopyFileRange = 44
+  | Creat = 45
+  | CreateModule = 46
+  | DeleteModule = 47
+  | DmaMemcpy = 48
+  | Dup = 49
+  | Dup2 = 50
+  | Dup3 = 51
+  | EpollCreate = 52
+  | EpollCreate1 = 53
+  | EpollCtl = 54
+  | EpollPwait = 55
+  | EpollWait = 56
+  | Eventfd = 57
+  | Eventfd2 = 58
+  | Execv = 59
+  | Execve = 60
+  | Execveat = 61
+  | Exit = 62
+  | ExitGroup = 63
+  | Faccessat = 64
+  | Fadvise64 = 65
+  | Fadvise64_64 = 66
   | Fallocate = 67
   | FanotifyInit = 68
   | FanotifyMark = 69
@@ -511,12 +512,13 @@ type LinuxSyscall =
   | Vm86old = 480
   | Vm86 = 481
   | Vmsplice = 482
-  | Wait4 = 483
-  | Waitid = 484
-  | Waitpid = 485
-  | Write = 486
-  | Writev = 487
-  | Xtensa = 488
+  | Vserver = 483
+  | Wait4 = 484
+  | Waitid = 485
+  | Waitpid = 486
+  | Write = 487
+  | Writev = 488
+  | Xtensa = 489
 
 [<RequireQualifiedAccess>]
 module LinuxSyscall =
@@ -777,6 +779,8 @@ module LinuxSyscall =
     | LinuxSyscall.Fstatfs64 -> 269
     | LinuxSyscall.Tgkill -> 270
     | LinuxSyscall.Utimes -> 271
+    | LinuxSyscall.Fadvise64_64 -> 272
+    | LinuxSyscall.Vserver -> 273
     | LinuxSyscall.Mbind -> 274
     | LinuxSyscall.GetMempolicy -> 275
     | LinuxSyscall.SetMempolicy -> 276
@@ -1480,6 +1484,8 @@ module LinuxSyscall =
     | 269 -> LinuxSyscall.Fstatfs64
     | 270 -> LinuxSyscall.Tgkill
     | 271 -> LinuxSyscall.Utimes
+    | 272 -> LinuxSyscall.Fadvise64_64
+    | 273 -> LinuxSyscall.Vserver
     | 274 -> LinuxSyscall.Mbind
     | 275 -> LinuxSyscall.GetMempolicy
     | 276 -> LinuxSyscall.SetMempolicy
@@ -2037,6 +2043,7 @@ module LinuxSyscall =
     | LinuxSyscall.ExitGroup -> "exit_group"
     | LinuxSyscall.Faccessat -> "faccessat"
     | LinuxSyscall.Fadvise64 -> "fadvise64"
+    | LinuxSyscall.Fadvise64_64 -> "fadvise64_64"
     | LinuxSyscall.Fallocate -> "fallocate"
     | LinuxSyscall.FanotifyInit -> "fanotify_init"
     | LinuxSyscall.FanotifyMark -> "fanotify_mark"
@@ -2453,6 +2460,7 @@ module LinuxSyscall =
     | LinuxSyscall.Vm86old -> "vm86old"
     | LinuxSyscall.Vm86 -> "vm86"
     | LinuxSyscall.Vmsplice -> "vmsplice"
+    | LinuxSyscall.Vserver -> "vserver"
     | LinuxSyscall.Wait4 -> "wait4"
     | LinuxSyscall.Waitid -> "waitid"
     | LinuxSyscall.Waitpid -> "waitpid"
