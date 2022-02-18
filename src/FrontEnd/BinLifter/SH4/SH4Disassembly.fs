@@ -45,7 +45,7 @@ let opCodeToString = function
   | Opcode.CLRS -> "clrs"
   | Opcode.CLRT -> "clrt"
   | Opcode.CMPEQ -> "cmpeq"
-  | Opcode.CMPGE  -> "cmpge"
+  | Opcode.CMPGE -> "cmpge"
   | Opcode.CMPGT -> "cmpgt"
   | Opcode.CMPHI -> "cmphi"
   | Opcode.CMPHS -> "cmphs"
@@ -280,6 +280,12 @@ let buildOp ins pc builder =
 let inline buildOpcode ins (builder: DisasmBuilder<_>) =
   let str = opCodeToString ins.Opcode
   builder.Accumulate AsmWordKind.Mnemonic str
+  if String.length str = 2 then builder.Accumulate AsmWordKind.String "      "
+  elif String.length str = 3 then builder.Accumulate AsmWordKind.String "     "
+  elif String.length str = 4 then builder.Accumulate AsmWordKind.String "    "
+  elif String.length str = 5 then builder.Accumulate AsmWordKind.String "   "
+  elif String.length str = 6 then builder.Accumulate AsmWordKind.String "  "
+  else builder.Accumulate AsmWordKind.String ""
 
 let disas insInfo (builder: DisasmBuilder<_>) =
   let pc = insInfo.Address
