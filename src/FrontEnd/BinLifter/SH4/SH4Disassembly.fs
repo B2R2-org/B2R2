@@ -91,7 +91,9 @@ let opCodeToString = function
   | Opcode.JMP -> "jmp"
   | Opcode.JSR -> "jsr"
   | Opcode.LDC -> "ldc"
+  | Opcode.LDCL -> "ldcl"
   | Opcode.LDS -> "lds"
+  | Opcode.LDSL -> "ldsl"
   | Opcode.LDTLB -> "ldtlb"
   | Opcode.MACL -> "macl"
   | Opcode.MACW -> "macw"
@@ -242,6 +244,7 @@ let memToStr addrMode (builder: DisasmBuilder<_>) =
   | PCr imm ->
     builder.Accumulate AsmWordKind.Value (string imm)
   | Imm imm ->
+    builder.Accumulate AsmWordKind.String "#"
     builder.Accumulate AsmWordKind.Value (string imm)
   | _ -> raise InvalidOperandException
 
@@ -268,11 +271,11 @@ let buildOp ins pc builder =
     opToStr ins pc opr (Some " ") builder
   | TwoOperands (opr1, opr2) ->
     opToStr ins pc opr1 (Some " ") builder
-    opToStr ins pc opr2 (Some ", ") builder
+    opToStr ins pc opr2 (Some ",") builder
   | ThreeOperands (opr1, opr2, opr3) ->
     opToStr ins pc opr1 (Some " ") builder
-    opToStr ins pc opr2 (Some ", ") builder
-    opToStr ins pc opr3 (Some ", ") builder
+    opToStr ins pc opr2 (Some ",") builder
+    opToStr ins pc opr3 (Some ",") builder
 
 let inline buildOpcode ins (builder: DisasmBuilder<_>) =
   let str = opCodeToString ins.Opcode

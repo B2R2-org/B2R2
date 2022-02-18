@@ -1023,7 +1023,7 @@ let parseNow b16 =
     match getBits b16 4 1 with
     | 0b0000us | 0b0001us | 0b0010us -> parseRegInd0010 b16
     | 0b0100us | 0b0101us | 0b0110us -> parsePostInc0110 b16
-    | _ -> twoOpParse0010 b16
+    | _ -> twoOpParse0110 b16
   | 0b0011us -> twoOpParse0011 b16
   | 0b1000us ->
     match getBits b16 8 5 with
