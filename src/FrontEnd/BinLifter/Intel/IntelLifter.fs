@@ -619,11 +619,10 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.FSTCW -> X87Lifter.fstcw ins insLen ctxt
   | OP.FNSTCW -> X87Lifter.fnstcw ins insLen ctxt
   | OP.FLDCW -> X87Lifter.fldcw ins insLen ctxt
-  | OP.FSTENV -> X87Lifter.fstenv ins insLen ctxt
+  | OP.FNSTENV -> X87Lifter.fnstenv ins insLen ctxt
   | OP.FLDENV -> X87Lifter.fldenv ins insLen ctxt
   | OP.FSAVE -> X87Lifter.fsave ins insLen ctxt
   | OP.FRSTOR -> X87Lifter.frstor ins insLen ctxt
-  | OP.FSTSW -> X87Lifter.fstsw ins insLen ctxt
   | OP.FNSTSW -> X87Lifter.fnstsw ins insLen ctxt
   | OP.WAIT -> X87Lifter.wait ins insLen ctxt
   | OP.FNOP -> X87Lifter.fnop ins insLen ctxt

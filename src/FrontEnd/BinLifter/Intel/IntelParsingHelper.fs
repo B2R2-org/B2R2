@@ -179,7 +179,7 @@ module internal ParsingHelper = begin
     | 0b011 -> FSTP
     | 0b100 -> FLDENV
     | 0b101 -> FLDCW
-    | 0b110 -> FSTENV
+    | 0b110 -> FNSTENV
     | 0b111 -> FNSTCW
     | _ -> raise ParsingFailureException
 

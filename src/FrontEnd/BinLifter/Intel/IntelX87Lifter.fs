@@ -1118,7 +1118,7 @@ let fldcw ins insLen ctxt =
   !!ir (!.ctxt R.FSWC3 := undefC3)
   !>ir insLen
 
-let fstenv ins insLen ctxt =
+let fnstenv ins insLen ctxt =
   let ir = IRBuilder (16)
   let dst = transOneOpr ins insLen ctxt
   !<ir insLen
@@ -1202,15 +1202,6 @@ let frstor ins insLen ctxt =
   ldSts (AST.xthi 640<rt> src) ctxt ir
   !>ir insLen
 
-let fstsw ins insLen ctxt =
-  let ir = IRBuilder (16)
-  let oprExpr = transOneOpr ins insLen ctxt
-  !<ir insLen
-  checkFPUExceptions ctxt ir
-  !!ir (oprExpr := !.ctxt R.FSW)
-  allCFlagsUndefined ctxt ir
-  !>ir insLen
-
 let fnstsw ins insLen ctxt =
   let ir = IRBuilder (8)
   let oprExpr = transOneOpr ins insLen ctxt
@@ -1222,7 +1213,7 @@ let fnstsw ins insLen ctxt =
 let wait _ins insLen ctxt =
   let ir = IRBuilder (8)
   !<ir insLen
-  allCFlagsUndefined ctxt ir
+  checkFPUExceptions ctxt ir
   !>ir insLen
 
 let fnop _ins insLen ctxt =
