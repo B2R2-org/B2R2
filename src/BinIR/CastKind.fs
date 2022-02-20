@@ -34,11 +34,12 @@ type CastKind =
   | IntToFloat = 2
   /// Float to Nearest Integer rounded conversion
   | FtoIRound = 3
-  /// Float to Integer rounded up conversion
+  /// Float to Integer rounded up conversion (toward +inf).
   | FtoICeil = 4
-  /// Float to Integer rounded down conversion
+  /// Float to Integer rounded down conversion (toward -inf).
   | FtoIFloor = 5
-  /// Float to Integer truncated conversion
+  /// Float to Integer truncated conversion (closest to but no greater in
+  /// absolute value than the infinitely precise result).
   | FtoITrunc = 6
   /// Float to Float conversion with different precisions
   | FloatCast = 7

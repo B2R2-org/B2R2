@@ -31,7 +31,6 @@ open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingOperators
 open B2R2.FrontEnd.BinLifter.Intel
-open B2R2.FrontEnd.BinLifter.Intel.Helper
 open B2R2.FrontEnd.BinLifter.Intel.LiftingUtils
 
 let private undefC0 = AST.undef 1<rt> "C0 is undefined."
@@ -53,443 +52,364 @@ let private cflagsUndefined023 ctxt ir =
   !!ir (!.ctxt R.FSWC2 := undefC2)
   !!ir (!.ctxt R.FSWC3 := undefC3)
 
-let private getFPUPseudoRegVars ctxt r =
-  getPseudoRegVar ctxt r 2, getPseudoRegVar ctxt r 1
+let inline private getFPUPseudoRegVars ctxt r =
+  struct (getPseudoRegVar ctxt r 2, getPseudoRegVar ctxt r 1)
 
-let private checkC1Flag ctxt ir topTagReg =
-  let c1 = !.ctxt R.FSWC1
-  let tagV = !.ctxt topTagReg
-  let rc = AST.extract (!.ctxt R.FCW) 2<rt> 10
-  !!ir (c1 := AST.ite (rc == numI32 2 2<rt>) AST.b1 AST.b0)
-  !!ir (c1 := AST.ite (tagV == numI32 3 2<rt>) AST.b0 c1)
-
-let private checkFPUOnLoad ctxt ir =
+let private updateC1OnLoad ctxt ir =
   let top = !.ctxt R.FTOP
   let c1Flag = !.ctxt R.FSWC1
-  let struct (cond1, cond2) = tmpVars2 ir 1<rt>
-  !!ir (cond1 := top == AST.num0 3<rt>)
-  !!ir (cond2 := (!.ctxt R.FTW0 .+ AST.num1 2<rt>) != AST.num0 2<rt>)
-  !!ir (c1Flag := AST.ite (cond1 .& cond2) AST.b1 AST.b0)
+  (* Top value has been wrapped around, which means stack overflow in B2R2. *)
+  !!ir (c1Flag := (top == AST.num0 3<rt>))
   !!ir (!.ctxt R.FSWC0 := undefC0)
   !!ir (!.ctxt R.FSWC2 := undefC2)
   !!ir (!.ctxt R.FSWC3 := undefC3)
-  !!ir (top := top .- AST.num1 3<rt>)
 
-let private fpuRegValue ctxt reg =
-  let stb, sta = getFPUPseudoRegVars ctxt reg
-  AST.concat stb sta
-
-let private assignFPUReg reg expr80 ctxt ir =
-  let stb, sta = getFPUPseudoRegVars ctxt reg
-  !!ir (sta := AST.xtlo 64<rt> expr80)
-  !!ir (stb := AST.xthi 16<rt> expr80)
-
-let private getTagValueOnLoad ctxt ir =
-  let tmp = !*ir 2<rt>
-  let st0 = fpuRegValue ctxt R.ST0
-  let exponent = AST.extract st0 11<rt> 52
-  let zero = AST.num0 11<rt>
-  let max = BitVector.unsignedMax 11<rt> |> AST.num
-  let cond0 = (AST.xtlo 63<rt> st0) == AST.num0 63<rt>
-  let condSpecial = (exponent == zero) .| (exponent == max)
-  !!ir (tmp := AST.num0 2<rt>)
-  !!ir (tmp := AST.ite condSpecial (BitVector.ofInt32 2 2<rt> |> AST.num) tmp)
-  !!ir (tmp := AST.ite cond0 (AST.num1 2<rt>) tmp)
-  tmp
-
-let private updateTagWordOnLoad ctxt ir =
+let private updateC1OnStore ctxt ir =
   let top = !.ctxt R.FTOP
-  let tagWord = !.ctxt R.FTW
-  let struct (top16, mask, shifter, tagValue16) = tmpVars4 ir 16<rt>
-  let tagValue = getTagValueOnLoad ctxt ir
-  let value3 = BitVector.ofInt32 3 16<rt> |> AST.num
-  !!ir (top16 := AST.cast CastKind.ZeroExt 16<rt> top)
-  !!ir (shifter := (BitVector.ofInt32 2 16<rt> |> AST.num) .* top16)
-  !!ir (tagValue16 := AST.cast CastKind.ZeroExt 16<rt> tagValue)
-  !!ir (tagValue16 := (tagValue16 << shifter))
-  !!ir (mask := value3 << shifter)
-  !!ir (tagWord := tagWord .& (AST.not mask))
-  !!ir (tagWord := tagWord .| tagValue16)
+  let c1Flag = !.ctxt R.FSWC1
+  (* Top value has been wrapped around, which means stack underflow in B2R2. *)
+  !!ir (c1Flag := (top != numI32 7 3<rt>))
+  !!ir (!.ctxt R.FSWC0 := undefC0)
+  !!ir (!.ctxt R.FSWC2 := undefC2)
+  !!ir (!.ctxt R.FSWC3 := undefC3)
 
-let private updateTagWordOnPop ctxt ir =
+let private moveFPRegtoFPReg regdst regsrc ctxt ir =
+  let struct (dstB, dstA) = getFPUPseudoRegVars ctxt regdst
+  let struct (srcB, srcA) = getFPUPseudoRegVars ctxt regsrc
+  !!ir (dstA := srcA)
+  !!ir (dstB := srcB)
+
+let private clearFPReg reg ctxt ir =
+  let struct (stB, stA) = getFPUPseudoRegVars ctxt reg
+  !!ir (stB := AST.num0 16<rt>)
+  !!ir (stA := AST.num0 64<rt>)
+
+let private pushFPUStack ctxt ir =
   let top = !.ctxt R.FTOP
-  let tagWord = !.ctxt R.FTW
-  let struct (top16, mask, shifter, tagValue16) = tmpVars4 ir 16<rt>
-  let value3 = BitVector.ofInt32 3 16<rt> |> AST.num
-  !!ir (top16 := AST.cast CastKind.ZeroExt 16<rt> top)
-  !!ir (shifter := (BitVector.ofInt32 2 16<rt> |> AST.num) .* top16)
-  !!ir (mask := value3 << shifter)
-  !!ir (tagWord := tagWord .| mask)
-
-let private shiftFPUStackDown ctxt ir =
-  !?ir (assignFPUReg R.ST7 (fpuRegValue ctxt R.ST6) ctxt)
-  !?ir (assignFPUReg R.ST6 (fpuRegValue ctxt R.ST5) ctxt)
-  !?ir (assignFPUReg R.ST5 (fpuRegValue ctxt R.ST4) ctxt)
-  !?ir (assignFPUReg R.ST4 (fpuRegValue ctxt R.ST3) ctxt)
-  !?ir (assignFPUReg R.ST3 (fpuRegValue ctxt R.ST2) ctxt)
-  !?ir (assignFPUReg R.ST2 (fpuRegValue ctxt R.ST1) ctxt)
-  !?ir (assignFPUReg R.ST1 (fpuRegValue ctxt R.ST0) ctxt)
+  (* We increment TOP here (which is the opposite way of what the manual says),
+     because it is more intuitive to consider it as a counter. *)
+  !!ir (top := top .+ AST.num1 3<rt>)
+  !?ir (moveFPRegtoFPReg R.ST7 R.ST6 ctxt)
+  !?ir (moveFPRegtoFPReg R.ST6 R.ST5 ctxt)
+  !?ir (moveFPRegtoFPReg R.ST5 R.ST4 ctxt)
+  !?ir (moveFPRegtoFPReg R.ST4 R.ST3 ctxt)
+  !?ir (moveFPRegtoFPReg R.ST3 R.ST2 ctxt)
+  !?ir (moveFPRegtoFPReg R.ST2 R.ST1 ctxt)
+  !?ir (moveFPRegtoFPReg R.ST1 R.ST0 ctxt)
 
 let private popFPUStack ctxt ir =
   let top = !.ctxt R.FTOP
-  let c1Flag = !.ctxt R.FSWC1
-  let struct (cond1, cond2) = tmpVars2 ir 1<rt>
-  !?ir (assignFPUReg R.ST0 (fpuRegValue ctxt R.ST1) ctxt)
-  !?ir (assignFPUReg R.ST1 (fpuRegValue ctxt R.ST2) ctxt)
-  !?ir (assignFPUReg R.ST2 (fpuRegValue ctxt R.ST3) ctxt)
-  !?ir (assignFPUReg R.ST3 (fpuRegValue ctxt R.ST4) ctxt)
-  !?ir (assignFPUReg R.ST4 (fpuRegValue ctxt R.ST5) ctxt)
-  !?ir (assignFPUReg R.ST5 (fpuRegValue ctxt R.ST6) ctxt)
-  !?ir (assignFPUReg R.ST6 (fpuRegValue ctxt R.ST7) ctxt)
-  !?ir (assignFPUReg R.ST7 (AST.num0 80<rt>) ctxt)
-  !!ir (cond1 := top == AST.num0 3<rt>)
-  !!ir (cond2 := (!.ctxt R.FTW7 .+ AST.num1 2<rt>) == AST.num0 2<rt>)
-  !!ir (c1Flag := AST.ite (cond1 .& cond2) (AST.b0) (c1Flag))
-  !!ir (!.ctxt R.FSWC0 := undefC0)
-  !!ir (!.ctxt R.FSWC2 := undefC2)
-  !!ir (!.ctxt R.FSWC3 := undefC3)
-  updateTagWordOnPop ctxt ir
-  !!ir (top := top .+ AST.num1 3<rt>)
+  (* We decrement TOP here (the opposite way compared to the manual) because it
+     is more intuitive, because it is more intuitive to consider it as a
+     counter. *)
+  !!ir (top := top .- AST.num1 3<rt>)
+  !?ir (moveFPRegtoFPReg R.ST0 R.ST1 ctxt)
+  !?ir (moveFPRegtoFPReg R.ST1 R.ST2 ctxt)
+  !?ir (moveFPRegtoFPReg R.ST2 R.ST3 ctxt)
+  !?ir (moveFPRegtoFPReg R.ST3 R.ST4 ctxt)
+  !?ir (moveFPRegtoFPReg R.ST4 R.ST5 ctxt)
+  !?ir (moveFPRegtoFPReg R.ST5 R.ST6 ctxt)
+  !?ir (moveFPRegtoFPReg R.ST6 R.ST7 ctxt)
+  !?ir (clearFPReg R.ST7 ctxt)
 
-let private updateAddrByOffset addr offset =
-  match addr.E with
-  (* Save *)
-  | Load (_, _, { E = BinOp (_, _, { E = BinOp (_, _, reg, _, _) }, _, _) }, _)
-    -> reg := reg .+ offset (* SIB *)
-  | Load (_, _, { E = BinOp (_, _, e, _, _) }, _) ->
-    e := e .+ offset (* Displacemnt *)
-  | Load (_, _, expr, _) -> expr := expr .+ offset
-  | _ -> Utils.impossible ()
-
-let private getAddrRegSize e =
-  match e.E with
-  (* Save *)
-  | Load (_, _, { E = Var (t, _, _, _) }, _) -> t
-  | Load (_, _, { E = BinOp (_, t, _, _, _) }, _) -> t
-  (* Load *)
-  | TempVar (t, _) -> t
-  | _ -> Utils.impossible ()
-
-let private getBaseReg e =
-  match e.E with
-  | Load (_, _, { E = BinOp (_, _, { E = BinOp (_, _, reg, _, _) }, _, _) }, _)
-    -> reg
-  | Load (_, _, { E = BinOp (_, _, e, _, _) }, _) -> e
-  | Load (_, _, expr, _) -> expr
-  | _ -> Utils.impossible ()
-
-let private extendAddr src regType =
+let inline private getLoadAddressExpr (src: Expr) =
   match src.E with
-  | Load (e, _, expr, _) -> AST.load e regType expr
+  | Load (_, _, addr, _) -> struct (addr, TypeCheck.typeOf addr)
   | _ -> Utils.impossible ()
 
-let private m14Stenv dst ctxt ir =
-  let tmp = !*ir 112<rt>
-  !!ir (tmp := AST.num0 112<rt>)
-  !!ir (AST.xtlo 48<rt> tmp :=
-    AST.concat (!.ctxt R.FCW) (AST.concat (!.ctxt R.FSW) (!.ctxt R.FTW)))
-  !!ir (AST.extract tmp 16<rt> 48 := AST.xtlo 16<rt> (!.ctxt R.FIP))
-  !!ir (AST.extract tmp 11<rt> 64 := AST.xtlo 11<rt> (!.ctxt R.FOP))
-  !!ir (AST.extract tmp 4<rt> 76 := AST.extract (!.ctxt R.FIP) 4<rt> 16)
-  !!ir (AST.extract tmp 16<rt> 80 := AST.xtlo 16<rt> (!.ctxt R.FDP))
-  !!ir (AST.xthi 4<rt> tmp := AST.extract (!.ctxt R.FDP) 4<rt> 16)
-  !!ir (dst := tmp)
-
-let private m14fldenv src ctxt ir =
-  let tmp = !*ir 112<rt>
-  !!ir (tmp := src)
-  !!ir (!.ctxt R.FCW := AST.xtlo 16<rt> tmp)
-  !!ir (!.ctxt R.FSW := AST.extract tmp 16<rt> 16)
-  !!ir (!.ctxt R.FTW := AST.extract tmp 16<rt> 32)
-  !!ir (AST.xtlo 16<rt> (!.ctxt R.FIP) := AST.extract tmp 16<rt> 48)
-  !!ir (AST.xtlo 11<rt> (!.ctxt R.FOP) := AST.extract tmp 11<rt> 64)
-  !!ir (AST.extract (!.ctxt R.FIP) 4<rt> 16 := AST.extract tmp 4<rt> 76)
-  !!ir (AST.xtlo 16<rt> (!.ctxt R.FDP) := AST.extract tmp 16<rt> 80)
-  !!ir (AST.extract (!.ctxt R.FDP) 4<rt> 16 := AST.xthi 4<rt> tmp)
-
-let private m28fldenv src ctxt ir =
-  let tmp = !*ir 224<rt>
-  !!ir (tmp := src)
-  !!ir (!.ctxt R.FCW := AST.xtlo 16<rt> tmp)
-  !!ir (!.ctxt R.FSW := AST.extract tmp 16<rt> 32)
-  !!ir (!.ctxt R.FTW := AST.extract tmp 16<rt> 64)
-  !!ir (AST.xtlo 16<rt> (!.ctxt R.FIP) := AST.extract tmp 16<rt> 96)
-  !!ir (AST.xtlo 11<rt> (!.ctxt R.FOP) := AST.extract tmp 11<rt> 128)
-  !!ir (AST.extract (!.ctxt R.FIP) 16<rt> 16 := AST.extract tmp 16<rt> 139)
-  !!ir (AST.xtlo 16<rt> (!.ctxt R.FDP) := AST.extract tmp 16<rt> 160)
-  !!ir (AST.extract (!.ctxt R.FDP) 16<rt> 16 := AST.extract tmp 16<rt> 204)
-
-let private m28fstenv dst ctxt ir =
-  let tmp = !*ir 224<rt>
-  !!ir (tmp := AST.num0 224<rt>)
-  !!ir (AST.xtlo 16<rt> tmp := !.ctxt R.FCW)
-  !!ir (AST.extract tmp 16<rt> 32 := !.ctxt R.FSW)
-  !!ir (AST.extract tmp 16<rt> 64 := !.ctxt R.FTW)
-  !!ir (AST.extract tmp 16<rt> 96 := AST.xtlo 16<rt> (!.ctxt R.FIP))
-  !!ir (AST.extract tmp 11<rt> 128 := AST.xtlo 11<rt> (!.ctxt R.FOP))
-  !!ir (AST.extract tmp 16<rt> 139 := AST.extract (!.ctxt R.FIP) 16<rt> 16)
-  !!ir (AST.extract tmp 16<rt> 160 := AST.xtlo 16<rt> (!.ctxt R.FDP))
-  !!ir (AST.extract tmp 16<rt> 204 := AST.extract (!.ctxt R.FDP) 16<rt> 16)
-  !!ir (dst := tmp)
-
-let private ftrig _ins insLen ctxt trigFunc =
-  let ir = IRBuilder (32)
-  let st0 = fpuRegValue ctxt R.ST0
-  let float80SignUnmask = BitVector.signedMax 80<rt> |> AST.num
-  let maxLimit = numI64 (1L <<< 63) 64<rt>
-  let maxFloat = AST.cast CastKind.IntToFloat 80<rt> maxLimit
-  let num3 = BitVector.ofInt32 3 2<rt> |> AST.num
-  let c0 = !.ctxt R.FSWC0
-  let c1 = !.ctxt R.FSWC1
-  let c2 = !.ctxt R.FSWC2
-  let c3 = !.ctxt R.FSWC3
-  let lblOutOfRange = ir.NewSymbol "IsOutOfRange"
-  let lblInRange = ir.NewSymbol "IsInRange"
-  let tmp = !*ir 80<rt>
-  !<ir insLen
-  !!ir (tmp := st0 .& float80SignUnmask)
-  !!ir (AST.cjmp (AST.flt tmp maxFloat)
-                 (AST.name lblInRange) (AST.name lblOutOfRange))
-  !!ir (AST.lmark lblInRange)
-  !!ir (tmp := trigFunc st0)
-  !?ir (assignFPUReg R.ST0 tmp ctxt)
-  !!ir (c1 := AST.ite (!.ctxt R.FTW7 == num3) AST.b0 c1)
-  !!ir (c2 := AST.b0)
-  !!ir (c0 := undefC0)
-  !!ir (c3 := undefC3)
-  !!ir (AST.lmark lblOutOfRange)
-  !!ir (c2 := AST.b1)
-  !!ir (c0 := undefC0)
-  !!ir (c1 := undefC1)
-  !!ir (c3 := undefC3)
-  !>ir insLen
-
-let private fpuFBinOp (ins: InsInfo) insLen ctxt binOp doPop leftToRight =
-  let ir = IRBuilder (64)
-  let res = !*ir 80<rt>
-  !<ir insLen
-  match ins.Operands with
-  | NoOperand ->
-    let st0 = fpuRegValue ctxt R.ST0
-    let st1 = fpuRegValue ctxt R.ST1
-    if leftToRight then !!ir (res := binOp st0 st1)
-    else !!ir (res := binOp st1 st0)
-    !?ir (assignFPUReg R.ST1 res ctxt)
-    !?ir (checkC1Flag ctxt) R.FTW6
-  | OneOperand opr ->
-    let oprExpr = transOprToFloat80 ins insLen ctxt opr
-    let st0 = fpuRegValue ctxt R.ST0
-    if leftToRight then !!ir (res := binOp st0 oprExpr)
-    else !!ir (res := binOp oprExpr st0)
-    !?ir (assignFPUReg R.ST0 res ctxt)
-    !?ir (checkC1Flag ctxt) R.FTW7
-  | TwoOperands (OprReg reg1, opr2) ->
-    let oprExpr1 = !.ctxt reg1
-    let oprExpr2 = transOprToExpr ins insLen ctxt opr2
-    if leftToRight then !!ir (res := binOp oprExpr1 oprExpr2)
-    else !!ir (res := binOp oprExpr2 oprExpr1)
-    !?ir (assignFPUReg reg1 res ctxt)
-  | _ -> raise InvalidOperandException
-  if doPop then !?ir (popFPUStack ctxt) else ()
-  !>ir insLen
-
-let private fpuIntOp ins insLen ctxt binOp leftToRight =
-  let ir = IRBuilder (8)
-  let st0 = fpuRegValue ctxt R.ST0
-  let oprExpr = transOneOpr ins insLen ctxt
-  let tmp = !*ir 80<rt>
-  !<ir insLen
-  !!ir (tmp := AST.cast CastKind.IntToFloat 80<rt> oprExpr)
-  if leftToRight then !!ir (tmp := binOp st0 tmp)
-  else !!ir (tmp := binOp tmp st0)
-  !?ir (assignFPUReg R.ST0 tmp ctxt)
-  !>ir insLen
-
-let private bcdToInt intgr bcd ir =
-  let getDigit startPos =
-    AST.extract bcd 4<rt> startPos |> AST.sext 64<rt>
-  let n num =
-    numI64 num 64<rt>
-  !!ir (intgr := AST.num0 64<rt>)
-  !!ir (intgr := intgr .+ getDigit 0)
-  !!ir (intgr := intgr .+ (getDigit 4 .* n 10L))
-  !!ir (intgr := intgr .+ (getDigit 8 .* n 100L))
-  !!ir (intgr := intgr .+ (getDigit 12 .* n 1000L))
-  !!ir (intgr := intgr .+ (getDigit 16 .* n 10000L))
-  !!ir (intgr := intgr .+ (getDigit 20 .* n 100000L))
-  !!ir (intgr := intgr .+ (getDigit 24 .* n 1000000L))
-  !!ir (intgr := intgr .+ (getDigit 28 .* n 10000000L))
-  !!ir (intgr := intgr .+ (getDigit 32 .* n 100000000L))
-  !!ir (intgr := intgr .+ (getDigit 36 .* n 1000000000L))
-  !!ir (intgr := intgr .+ (getDigit 40 .* n 10000000000L))
-  !!ir (intgr := intgr .+ (getDigit 44 .* n 100000000000L))
-  !!ir (intgr := intgr .+ (getDigit 48 .* n 1000000000000L))
-  !!ir (intgr := intgr .+ (getDigit 52 .* n 10000000000000L))
-  !!ir (intgr := intgr .+ (getDigit 56 .* n 100000000000000L))
-  !!ir (intgr := intgr .+ (getDigit 60 .* n 1000000000000000L))
-  !!ir (intgr := intgr .+ (getDigit 64 .* n 10000000000000000L))
-  !!ir (intgr := intgr .+ (getDigit 68 .* n 100000000000000000L))
-
-let private intTobcd bcd intgr ir =
-  let n10 = numI32 10 64<rt>
-  let mod10 = intgr .% n10 |> AST.zext 4<rt>
-  let digitAt startPos = AST.extract bcd 4<rt> startPos
-  let rec doAssign startPos =
-    if startPos >= 72 then ()
-    else
-      !!ir (digitAt startPos := mod10)
-      !!ir (intgr := intgr ./ n10)
-      doAssign (startPos + 4)
-  doAssign 0
+let private castTo80Bit ctxt tmpB tmpA srcExpr ir =
+  let oprSize = TypeCheck.typeOf srcExpr
+  match oprSize with
+  | 32<rt> ->
+    let tmpSrc = !*ir oprSize
+    let n31 = numI32 31 32<rt>
+    let n15 = numI32 15 32<rt>
+    let n23 = numI32 23 32<rt>
+    let one = numI32 1 32<rt>
+    let biasDiff = numI32 0x3f80 32<rt>
+    let sign = AST.xtlo 16<rt> (((tmpSrc >> n31) .& one) << n15)
+    let exponent =
+      AST.xtlo 16<rt> (((tmpSrc >> n23) .& (numI32 0xff 32<rt>)) .+ biasDiff)
+    let integerpart = numI64 0x0010000000000000L 64<rt>
+    let significand =
+      (AST.zext 64<rt> (tmpSrc .& numI32 0x7fffff 32<rt>)) .| integerpart
+    !!ir (tmpSrc := srcExpr)
+    !!ir (tmpB := sign .| exponent)
+    !!ir (tmpA := (significand << numI32 40 64<rt>))
+  | 64<rt> ->
+    let tmpSrc = !*ir oprSize
+    let n63 = numI32 63 64<rt>
+    let n15 = numI32 15 64<rt>
+    let n52 = numI32 52 64<rt>
+    let one = numI32 1 64<rt>
+    let biasDiff = numI32 0x3c00 64<rt>
+    let sign = AST.xtlo 16<rt> (((tmpSrc >> n63) .& one) << n15)
+    let exponent =
+      AST.xtlo 16<rt> (((tmpSrc>> n52) .& (numI32 0x7ff 64<rt>)) .+ biasDiff)
+    let integerpart = numI64 0x0010000000000000L 64<rt>
+    let significand = tmpSrc .& numI64 0xFFFFFFFFFFFFFL 64<rt> .| integerpart
+    !!ir (tmpSrc := srcExpr)
+    !!ir (tmpB := sign .| exponent)
+    !!ir (tmpA := (significand << numI32 11 64<rt>))
+  | 80<rt> ->
+    match srcExpr.E with
+    | Load (_, _, addrExpr, _) ->
+      let addrSize = TypeCheck.typeOf addrExpr
+      !!ir (tmpB := AST.loadLE 16<rt> (addrExpr .+ numI32 8 addrSize))
+      !!ir (tmpA := AST.loadLE 64<rt> addrExpr)
+    | BinOp (_, _, { E = Var (_, r, _, _) }, { E = Var (_, _, _, _)}, _) ->
+      let reg = Register.pseudoRegToReg (Register.ofRegID r)
+      let struct (srcB, srcA) = getFPUPseudoRegVars ctxt reg
+      !!ir (tmpB := srcB)
+      !!ir (tmpA := srcA)
+    | _ -> raise InvalidOperandException
+  | _ -> Utils.impossible ()
 
 let private fpuLoad insLen ctxt oprExpr =
   let ir = IRBuilder (64)
-  let tmp = !*ir 80<rt>
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+  let tmpB, tmpA = !*ir 16<rt>, !*ir 64<rt>
   !<ir insLen
-  !!ir (tmp := AST.cast CastKind.FloatCast 80<rt> oprExpr)
-  !?ir (checkFPUOnLoad ctxt)
-  !?ir (shiftFPUStackDown ctxt)
-  !?ir (assignFPUReg R.ST0 tmp ctxt)
-  !?ir (updateTagWordOnLoad ctxt)
+  !?ir (castTo80Bit ctxt tmpB tmpA oprExpr)
+  !?ir (pushFPUStack ctxt)
+  !!ir (st0b := tmpB)
+  !!ir (st0a := tmpA)
+  !?ir (updateC1OnLoad ctxt)
   !>ir insLen
 
 let fld ins insLen ctxt =
   let oprExpr = transOneOpr ins insLen ctxt
   fpuLoad insLen ctxt oprExpr
 
+let private castFrom80Bit dstExpr dstSize srcB srcA ir =
+  match dstSize with
+  | 32<rt> ->
+    let n16 = numI32 16 32<rt>
+    let sign = (AST.zext 32<rt> srcB .& (numI32 0x8000 32<rt>)) << n16
+    let biasDiff = numI32 0x3f80 32<rt>
+    let exponent = AST.zext 32<rt> (srcB .& (numI32 0x7fff 16<rt>)) .- biasDiff
+    let exponent = exponent << numI32 23 32<rt>
+    let n40 = numI32 40 64<rt>
+    let significand =
+      AST.xtlo 32<rt> ((srcA .& numI64 0x7FFFFFFFFFFFFFFFL 64<rt>) >> n40)
+    !!ir (dstExpr := (sign .| exponent .| significand))
+  | 64<rt> ->
+    let n48 = numI32 48 64<rt>
+    let sign = (AST.zext 64<rt> srcB .& (numI32 0x8000 64<rt>)) << n48
+    let biasDiff = numI32 0x3c00 64<rt>
+    let exponent = AST.zext 64<rt> (srcB .& (numI32 0x7fff 16<rt>)) .- biasDiff
+    let exponent = exponent << numI32 52 64<rt>
+    let n11 = numI32 11 64<rt>
+    let significand = (srcA .& numI64 0x7FFFFFFFFFFFFFFFL 64<rt>) >> n11
+    !!ir (dstExpr := (sign .| exponent .| significand))
+  | 80<rt> ->
+    let struct (addrExpr, addrSize) = getLoadAddressExpr dstExpr
+    !!ir (AST.store Endian.Little (addrExpr) srcA)
+    !!ir (AST.store Endian.Little (addrExpr .+ numI32 8 addrSize) srcB)
+  | _ -> Utils.impossible ()
+
 let ffst (ins: InsInfo) insLen ctxt doPop =
   let ir = IRBuilder (32)
-  let opr, oprExpr =
-    match ins.Operands with
-    | OneOperand opr -> opr, transOprToExpr ins insLen ctxt opr
-    | _ -> raise InvalidOperandException
-  let st0 = fpuRegValue ctxt R.ST0
-  let sz = TypeCheck.typeOf oprExpr
-  let tmp = !*ir sz
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
   !<ir insLen
-  !!ir (tmp := AST.cast CastKind.FloatCast sz st0)
-  match opr with
-  | OprReg r -> !?ir (assignFPUReg r tmp ctxt)
-  | _ -> !!ir (oprExpr := tmp)
-  !?ir (checkC1Flag ctxt) R.FTW7
-  !?ir (cflagsUndefined023 ctxt)
+  match ins.Operands with
+  | OneOperand (OprReg r) ->
+    let struct (dstB, dstA) = getFPUPseudoRegVars ctxt r
+    !!ir (dstB := st0b)
+    !!ir (dstA := st0a)
+  | OneOperand (opr) ->
+    let oprExpr = transOprToExpr ins insLen ctxt opr
+    let oprSize = TypeCheck.typeOf oprExpr
+    !?ir (castFrom80Bit oprExpr oprSize st0b st0a)
+  | _ -> raise InvalidOperandException
   if doPop then !?ir (popFPUStack ctxt) else ()
+  !?ir (updateC1OnStore ctxt)
   !>ir insLen
 
 let fild ins insLen ctxt =
   let ir = IRBuilder (32)
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
   let oprExpr = transOneOpr ins insLen ctxt
-  let tmp = !*ir 80<rt>
+  let tmpB, tmpA = !*ir 16<rt>, !*ir 64<rt>
   !<ir insLen
-  !!ir (tmp := AST.cast CastKind.IntToFloat 80<rt> oprExpr)
-  !?ir (checkFPUOnLoad ctxt)
-  !?ir (shiftFPUStackDown ctxt)
-  !?ir (assignFPUReg R.ST0 tmp ctxt)
-  !?ir (updateTagWordOnLoad ctxt)
+  !?ir
+    (castTo80Bit ctxt tmpB tmpA (AST.cast CastKind.IntToFloat 64<rt> oprExpr))
+  !?ir (pushFPUStack ctxt)
+  !!ir (st0b := tmpB)
+  !!ir (st0a := tmpA)
+  !?ir (updateC1OnLoad ctxt)
   !>ir insLen
 
 let fist ins insLen ctxt doPop =
   let ir = IRBuilder (32)
   let oprExpr = transOneOpr ins insLen ctxt
-  let sz = TypeCheck.typeOf oprExpr
-  let st0 = fpuRegValue ctxt R.ST0
-  let tmp1 = !*ir sz
-  let tmp2 = !*ir 2<rt>
+  let oprSize = TypeCheck.typeOf oprExpr
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+  let tmp0 = !*ir oprSize
+  let rcField = !*ir 2<rt> (* Rounding Control *)
   let num2 = numI32 2 2<rt>
-  let cstK castKind = AST.cast castKind sz st0
+  let cst00 = AST.cast CastKind.FtoIRound oprSize tmp0
+  let cst01 = AST.cast CastKind.FtoIFloor oprSize tmp0
+  let cst10 = AST.cast CastKind.FtoICeil oprSize tmp0
+  let cst11 = AST.cast CastKind.FtoITrunc oprSize tmp0
   !<ir insLen
-  !!ir (tmp2 := AST.extract (!.ctxt R.FCW) 2<rt> 10)
-  !!ir (tmp1 := AST.ite (tmp2 == AST.num0 2<rt>)
-    (cstK CastKind.FtoIRound) (cstK CastKind.FtoITrunc))
-  !!ir
-    (tmp1 := AST.ite (tmp2 == AST.num1 2<rt>) (cstK CastKind.FtoIFloor) tmp1)
-  !!ir (tmp1 := AST.ite (tmp2 == num2) (cstK CastKind.FtoICeil) tmp1)
-  !!ir (oprExpr := tmp1)
-  !!ir (!.ctxt R.FSWC1 := AST.ite (tmp2 == num2) AST.b1 AST.b0)
-  !?ir (cflagsUndefined023 ctxt)
+  !?ir (castFrom80Bit tmp0 oprSize st0b st0a)
+  !!ir (rcField := AST.extract (!.ctxt R.FCW) 2<rt> 10)
+  !!ir (tmp0 := AST.ite (rcField == AST.num0 2<rt>) cst00 cst11)
+  !!ir (tmp0 := AST.ite (rcField == AST.num1 2<rt>) cst01 tmp0)
+  !!ir (tmp0 := AST.ite (rcField == num2) cst10 tmp0)
+  !!ir (oprExpr := tmp0)
   if doPop then !?ir (popFPUStack ctxt) else ()
+  !?ir (updateC1OnStore ctxt)
   !>ir insLen
 
 let fisttp ins insLen ctxt =
-  let ir = IRBuilder (64)
+  let ir = IRBuilder (32)
   let oprExpr = transOneOpr ins insLen ctxt
-  let sz = TypeCheck.typeOf oprExpr
-  let st0 = fpuRegValue ctxt R.ST0
+  let oprSize = TypeCheck.typeOf oprExpr
+  let tmp1 = !*ir oprSize
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
   !<ir insLen
-  !!ir (oprExpr := AST.cast CastKind.FtoICeil sz st0)
+  !?ir (castFrom80Bit tmp1 oprSize st0b st0a)
+  !!ir (oprExpr := AST.cast CastKind.FtoITrunc oprSize tmp1)
+  !?ir (popFPUStack ctxt)
   !!ir (!.ctxt R.FSWC1 := AST.b0)
   !!ir (!.ctxt R.FSWC0 := undefC0)
   !!ir (!.ctxt R.FSWC2 := undefC2)
   !!ir (!.ctxt R.FSWC3 := undefC3)
-  !?ir (popFPUStack ctxt)
   !>ir insLen
+
+let private getTwoBCDDigits addrExpr addrSize startPos =
+  let byteValue = AST.loadLE 8<rt> (addrExpr .+ numI32 startPos addrSize)
+  let d1 = AST.extract byteValue 4<rt> 0 |> AST.sext 64<rt>
+  let d2 = AST.extract byteValue 4<rt> 4 |> AST.sext 64<rt>
+  struct (d1, d2)
+
+let private bcdToInt intgr addrExpr addrSize ir =
+  let struct (d1, d2) = getTwoBCDDigits addrExpr addrSize 0
+  let struct (d3, d4) = getTwoBCDDigits addrExpr addrSize 1
+  let struct (d5, d6) = getTwoBCDDigits addrExpr addrSize 2
+  let struct (d7, d8) = getTwoBCDDigits addrExpr addrSize 3
+  let struct (d9, d10) = getTwoBCDDigits addrExpr addrSize 4
+  let struct (d11, d12) = getTwoBCDDigits addrExpr addrSize 5
+  let struct (d13, d14) = getTwoBCDDigits addrExpr addrSize 6
+  let struct (d15, d16) = getTwoBCDDigits addrExpr addrSize 7
+  let struct (d17, d18) = getTwoBCDDigits addrExpr addrSize 8
+  let signByte = AST.loadLE 8<rt> (addrExpr .+ numI32 9 addrSize)
+  let signBit = AST.xthi 1<rt> signByte
+  !!ir (intgr := d1)
+  !!ir (intgr := intgr .+  d2 .* numI64 10L 64<rt>)
+  !!ir (intgr := intgr .+  d3 .* numI64 100L 64<rt>)
+  !!ir (intgr := intgr .+  d4 .* numI64 1000L 64<rt>)
+  !!ir (intgr := intgr .+  d5 .* numI64 10000L 64<rt>)
+  !!ir (intgr := intgr .+  d6 .* numI64 100000L 64<rt>)
+  !!ir (intgr := intgr .+  d7 .* numI64 1000000L 64<rt>)
+  !!ir (intgr := intgr .+  d8 .* numI64 10000000L 64<rt>)
+  !!ir (intgr := intgr .+  d9 .* numI64 100000000L 64<rt>)
+  !!ir (intgr := intgr .+ d10 .* numI64 1000000000L 64<rt>)
+  !!ir (intgr := intgr .+ d11 .* numI64 10000000000L 64<rt>)
+  !!ir (intgr := intgr .+ d12 .* numI64 100000000000L 64<rt>)
+  !!ir (intgr := intgr .+ d13 .* numI64 1000000000000L 64<rt>)
+  !!ir (intgr := intgr .+ d14 .* numI64 10000000000000L 64<rt>)
+  !!ir (intgr := intgr .+ d15 .* numI64 100000000000000L 64<rt>)
+  !!ir (intgr := intgr .+ d16 .* numI64 1000000000000000L 64<rt>)
+  !!ir (intgr := intgr .+ d17 .* numI64 10000000000000000L 64<rt>)
+  !!ir (intgr := intgr .+ d18 .* numI64 100000000000000000L 64<rt>)
+  !!ir (AST.xthi 1<rt> intgr := signBit)
 
 let fbld ins insLen ctxt =
   let ir = IRBuilder (64)
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
   let src = transOneOpr ins insLen ctxt
-  let sign = AST.xthi 1<rt> src
+  let struct (addrExpr, addrSize) = getLoadAddressExpr src
   let intgr = !*ir 64<rt>
-  let bcdNum = !*ir 72<rt>
-  let tmp = !*ir 80<rt>
+  let tmpB, tmpA = !*ir 16<rt>, !*ir 64<rt>
   !<ir insLen
-  !?ir (bcdToInt intgr bcdNum)
-  !!ir (AST.xthi 1<rt> intgr := sign)
-  !!ir (tmp := AST.cast CastKind.IntToFloat 80<rt> intgr)
-  !?ir (checkFPUOnLoad ctxt)
-  !?ir (shiftFPUStackDown ctxt)
-  !?ir (assignFPUReg R.ST0 tmp ctxt)
-  !?ir (updateTagWordOnLoad ctxt)
+  !?ir (bcdToInt intgr addrExpr addrSize)
+  !?ir (castTo80Bit ctxt tmpB tmpA (AST.cast CastKind.IntToFloat 64<rt> intgr))
+  !?ir (pushFPUStack ctxt)
+  !!ir (st0b := tmpB)
+  !!ir (st0a := tmpA)
+  !?ir (updateC1OnLoad ctxt)
   !>ir insLen
+
+let private storeTwoDigitBCD n10 addrExpr addrSize intgr pos ir =
+  let d1 = AST.extract (intgr .% n10) 4<rt> 0
+  let d2 = AST.extract ((intgr ./ n10) .% n10) 4<rt> 0
+  let ds = AST.concat d2 d1
+  !!ir (AST.store Endian.Little (addrExpr .+ numI32 pos addrSize) ds)
+
+let private storeBCD addrExpr addrSize intgr ir =
+  let n10 = numI32 10 64<rt>
+  let n100 = numI32 100 64<rt>
+  let sign = !*ir 1<rt>
+  let signByte = (AST.zext 8<rt> sign) << numI32 7 8<rt>
+  !!ir (sign := AST.xthi 1<rt> intgr)
+  !?ir (storeTwoDigitBCD n10 addrExpr addrSize intgr 0)
+  !!ir (intgr := intgr ./ n100)
+  !?ir (storeTwoDigitBCD n10 addrExpr addrSize intgr 1)
+  !!ir (intgr := intgr ./ n100)
+  !?ir (storeTwoDigitBCD n10 addrExpr addrSize intgr 2)
+  !!ir (intgr := intgr ./ n100)
+  !?ir (storeTwoDigitBCD n10 addrExpr addrSize intgr 3)
+  !!ir (intgr := intgr ./ n100)
+  !?ir (storeTwoDigitBCD n10 addrExpr addrSize intgr 4)
+  !!ir (intgr := intgr ./ n100)
+  !?ir (storeTwoDigitBCD n10 addrExpr addrSize intgr 5)
+  !!ir (intgr := intgr ./ n100)
+  !?ir (storeTwoDigitBCD n10 addrExpr addrSize intgr 6)
+  !!ir (intgr := intgr ./ n100)
+  !?ir (storeTwoDigitBCD n10 addrExpr addrSize intgr 7)
+  !!ir (intgr := intgr ./ n100)
+  !?ir (storeTwoDigitBCD n10 addrExpr addrSize intgr 8)
+  !!ir (AST.store Endian.Little (addrExpr .+ numI32 9 addrSize) signByte)
 
 let fbstp ins insLen ctxt =
   let ir = IRBuilder (64)
   let dst = transOneOpr ins insLen ctxt
-  let st0 = fpuRegValue ctxt R.ST0
-  let sign = AST.xthi 1<rt> st0
+  let struct (addrExpr, addrSize) = getLoadAddressExpr dst
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+  let tmp = !*ir 64<rt>
   let intgr = !*ir 64<rt>
-  let bcdNum = !*ir 72<rt>
-  let tmp = !*ir 80<rt>
   !<ir insLen
-  !!ir (intgr := AST.cast CastKind.FtoIRound 64<rt> st0)
-  !?ir (intTobcd bcdNum intgr)
-  !!ir (tmp := AST.num0 80<rt>)
-  !!ir (AST.xthi 1<rt> tmp := sign)
-  !!ir (AST.xtlo 72<rt> tmp := bcdNum)
-  !!ir (dst := tmp)
+  !?ir (castFrom80Bit tmp 64<rt> st0b st0a)
+  !!ir (intgr := AST.cast CastKind.FtoIRound 64<rt> tmp)
+  !?ir (storeBCD addrExpr addrSize intgr)
+  !?ir (popFPUStack ctxt)
+  !?ir (updateC1OnStore ctxt)
   !>ir insLen
 
 let fxch (ins: InsInfo) insLen ctxt =
   let ir = IRBuilder (16)
-  let tmp = !*ir 80<rt>
-  let st0 = fpuRegValue ctxt R.ST0
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+  let tmpB, tmpA = !*ir 16<rt>, !*ir 64<rt>
   !<ir insLen
-  match ins.Operands with
-  | OneOperand (OprReg reg as opr) ->
-      let oprExpr = transOprToExpr ins insLen ctxt opr
-      !!ir (tmp := st0)
-      !?ir (assignFPUReg R.ST0 oprExpr ctxt)
-      !?ir (assignFPUReg reg tmp ctxt)
-  | NoOperand ->
-      let st1 = fpuRegValue ctxt R.ST1
-      !!ir (tmp := st0)
-      !?ir (assignFPUReg R.ST0 st1 ctxt)
-      !?ir (assignFPUReg R.ST1 tmp ctxt)
-  | _ -> raise InvalidOperandException
+  !!ir (tmpB := st0b)
+  !!ir (tmpA := st0a)
+  let struct (srcB, srcA) =
+    match ins.Operands with
+    | OneOperand (OprReg reg) -> getFPUPseudoRegVars ctxt reg
+    | NoOperand -> getFPUPseudoRegVars ctxt R.ST1
+    | _ -> raise InvalidOperandException
+  !!ir (st0b := srcB)
+  !!ir (st0a := srcA)
+  !!ir (srcB := tmpB)
+  !!ir (srcA := tmpA)
   !!ir (!.ctxt R.FSWC1 := AST.b0)
   !?ir (cflagsUndefined023 ctxt)
   !>ir insLen
 
 let private fcmov (ins: InsInfo) insLen ctxt cond =
   let ir = IRBuilder (8)
-  let src =
+  let srcReg =
     match ins.Operands with
-    | TwoOperands (_, src) -> src
+    | TwoOperands (_, OprReg reg) -> reg
     | _ -> raise InvalidOperandException
-  let src = transOprToExpr ins insLen ctxt src
-  let st0b, st0a = getFPUPseudoRegVars ctxt R.ST0
+  let struct (srcB, srcA) = getFPUPseudoRegVars ctxt srcReg
+  let struct (dstB, dstA) = getFPUPseudoRegVars ctxt R.ST0
   !<ir insLen
-  !!ir (st0a := AST.ite cond (AST.xtlo 64<rt> src) st0a)
-  !!ir (st0b := AST.ite cond (AST.xthi 16<rt> src) st0b)
+  !!ir (dstB := AST.ite cond srcB dstB)
+  !!ir (dstA := AST.ite cond srcA dstA)
   !!ir (!.ctxt R.FSWC0 := undefC0)
   !!ir (!.ctxt R.FSWC2 := undefC2)
   !!ir (!.ctxt R.FSWC3 := undefC3)
@@ -520,6 +440,60 @@ let fcmovu ins insLen ctxt =
 
 let fcmovnu ins insLen ctxt =
   !.ctxt R.PF |> AST.not |> fcmov ins insLen ctxt
+
+let private fpuFBinOp (ins: InsInfo) insLen ctxt binOp doPop leftToRight =
+  let ir = IRBuilder (64)
+  !<ir insLen
+  match ins.Operands with
+  | NoOperand ->
+    let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+    let struct (st1b, st1a) = getFPUPseudoRegVars ctxt R.ST1
+    let tmp0, tmp1 = !*ir 64<rt>, !*ir 64<rt>
+    let res = !*ir 64<rt>
+    !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
+    !?ir (castFrom80Bit tmp1 64<rt> st1b st1a)
+    if leftToRight then !!ir (res := binOp tmp0 tmp1)
+    else !!ir (res := binOp tmp1 tmp0)
+    !?ir (castTo80Bit ctxt st1b st1a res)
+  | OneOperand opr ->
+    let oprExpr = transOneOpr ins insLen ctxt
+    let oprSize = TypeCheck.typeOf oprExpr
+    let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+    let tmp0, tmp1 = !*ir oprSize, !*ir oprSize
+    let res = !*ir oprSize
+    !?ir (castFrom80Bit tmp0 oprSize st0b st0a)
+    !!ir (tmp1 := oprExpr)
+    if leftToRight then !!ir (res := binOp tmp0 tmp1)
+    else !!ir (res := binOp tmp1 tmp0)
+    !?ir (castTo80Bit ctxt st0b st0a res)
+  | TwoOperands (OprReg reg0, OprReg reg1) ->
+    let struct (r0B, r0A) = getFPUPseudoRegVars ctxt reg0
+    let struct (r1B, r1A) = getFPUPseudoRegVars ctxt reg1
+    let tmp0, tmp1 = !*ir 64<rt>, !*ir 64<rt>
+    let res = !*ir 64<rt>
+    !?ir (castFrom80Bit tmp0 64<rt> r0B r0A)
+    !?ir (castFrom80Bit tmp1 64<rt> r1B r1A)
+    if leftToRight then !!ir (res := binOp tmp0 tmp1)
+    else !!ir (res := binOp tmp1 tmp0)
+    !?ir (castTo80Bit ctxt r0B r0A res)
+  | _ -> raise InvalidOperandException
+  if doPop then !?ir (popFPUStack ctxt) else ()
+  !?ir (updateC1OnStore ctxt)
+  !>ir insLen
+
+let private fpuIntOp ins insLen ctxt binOp leftToRight =
+  let ir = IRBuilder (8)
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+  let oprExpr = transOneOpr ins insLen ctxt
+  let tmp, dst = !*ir 64<rt>, !*ir 64<rt>
+  let res = !*ir 64<rt>
+  !<ir insLen
+  !!ir (tmp := AST.cast CastKind.IntToFloat 64<rt> oprExpr)
+  !?ir (castFrom80Bit dst 64<rt> st0b st0a)
+  if leftToRight then !!ir (res := binOp dst tmp)
+  else !!ir (res := binOp tmp dst)
+  !?ir (castTo80Bit ctxt st0b st0a res)
+  !>ir insLen
 
 let fpuadd ins insLen ctxt doPop =
   fpuFBinOp ins insLen ctxt AST.fadd doPop true
@@ -557,50 +531,55 @@ let fdivr ins insLen ctxt doPop =
 let fidivr ins insLen ctxt =
   fpuIntOp ins insLen ctxt AST.fdiv false
 
+let inline private castToF64 intexp =
+  AST.cast CastKind.IntToFloat 64<rt> intexp
+
 let fprem _ins insLen ctxt round =
   let ir = IRBuilder (32)
-  let st0 = fpuRegValue ctxt R.ST0
-  let st1 = fpuRegValue ctxt R.ST1
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+  let struct (st1b, st1a) = getFPUPseudoRegVars ctxt R.ST1
   let caster = if round then CastKind.FtoIRound else CastKind.FtoITrunc
   let lblLT64 = ir.NewSymbol "ExpDiffInRange"
-  let lblGT64 = ir.NewSymbol "ExpDiffOutOfRange"
+  let lblGE64 = ir.NewSymbol "ExpDiffOutOfRange"
   let lblExit = ir.NewSymbol "Exit"
-  let expDiff = !*ir 15<rt>
-  let struct (tmp80A, tmp80B, tmpres) = tmpVars3 ir 80<rt>
-  let tmp64 = !*ir 64<rt>
+  let tmp0, tmp1 = !*ir 64<rt>, !*ir 64<rt>
+  let expDiff = !*ir 16<rt>
+  let expMask = numI32 0x7fff 16<rt>
+  let n64 = numI32 64 16<rt>
+  let n2 = numI32 2 64<rt>
+  let struct (divres, intres, tmpres, divider) = tmpVars4 ir 64<rt>
   !<ir insLen
-  !!ir (expDiff := AST.extract st0 15<rt> 64 .- AST.extract st1 15<rt> 64)
-  !!ir (AST.cjmp (AST.lt expDiff (numI32 64 15<rt>))
-                 (AST.name lblLT64) (AST.name lblGT64))
-  !!ir (AST.lmark lblLT64)
-  !!ir (tmp80A := AST.fdiv st0 st1)
-  !!ir (tmp64 := AST.cast caster 64<rt> tmp80A)
-  !!ir (tmp80B := AST.fmul st1 (AST.cast CastKind.IntToFloat 80<rt> tmp64))
-  !!ir (tmpres := AST.fsub st0 tmp80B)
-  !?ir (assignFPUReg R.ST0 tmpres ctxt)
+  !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
+  !?ir (castFrom80Bit tmp1 64<rt> st1b st1a)
+  !!ir (expDiff := (st0b .& expMask) .- (st1b .& expMask))
+  !!ir (AST.cjmp (AST.lt expDiff n64) (AST.name lblLT64) (AST.name lblGE64))
+  !!ir (AST.lmark lblLT64) (* D < 64 *)
+  !!ir (divres := AST.fdiv tmp0 tmp1)
+  !!ir (intres := AST.cast caster 64<rt> divres)
+  !!ir (tmpres := AST.fsub tmp0 (AST.fmul tmp1 (castToF64 intres)))
+  !?ir (castTo80Bit ctxt st0b st0a tmpres)
   !!ir (!.ctxt R.FSWC2 := AST.b0)
-  !!ir (!.ctxt R.FSWC1 := AST.xtlo 1<rt> tmp64)
-  !!ir (!.ctxt R.FSWC3 := AST.extract tmp64 1<rt> 1)
-  !!ir (!.ctxt R.FSWC0 := AST.extract tmp64 1<rt> 2)
+  !!ir (!.ctxt R.FSWC1 := AST.xtlo 1<rt> intres)
+  !!ir (!.ctxt R.FSWC3 := AST.extract intres 1<rt> 1)
+  !!ir (!.ctxt R.FSWC0 := AST.extract intres 1<rt> 2)
   !!ir (AST.jmp (AST.name lblExit))
-  !!ir (AST.lmark lblGT64)
+  !!ir (AST.lmark lblGE64) (* ELSE *)
   !!ir (!.ctxt R.FSWC2 := AST.b1)
-  !!ir (tmp64 := (AST.zext 64<rt> expDiff) .- numI32 63 64<rt>)
-  !!ir (tmp64 := tmp64 .* numI32 2 64<rt>)
-  !!ir (tmp80B := AST.cast CastKind.IntToFloat 80<rt> tmp64)
-  !!ir (tmp80A := AST.fdiv (AST.fdiv st0 st1) tmp80B)
-  !!ir (tmp64 := AST.cast CastKind.FtoITrunc 64<rt> tmp80A)
-  !!ir (tmp80A := AST.cast CastKind.IntToFloat 80<rt> tmp64)
-  !!ir (tmp80A := AST.fsub st0 (AST.fmul st1 (AST.fmul tmp80A tmp80B)))
-  !?ir (assignFPUReg R.ST0 tmp80A ctxt)
+  !!ir (tmpres := AST.fsub (castToF64 expDiff) (castToF64 (numI32 63 64<rt>)))
+  !!ir (divider := AST.fpow n2 tmpres)
+  !!ir (divres := AST.fdiv (AST.fdiv tmp0 tmp1) divider)
+  !!ir (intres := AST.cast CastKind.FtoITrunc 64<rt> divres)
+  !!ir (tmpres :=
+    AST.fsub tmp0 (AST.fmul tmp1 (AST.fmul (castToF64 intres) divider)))
+  !?ir (castTo80Bit ctxt st0b st0a tmpres)
   !!ir (AST.lmark lblExit)
   !>ir insLen
 
 let fabs _ins insLen ctxt =
   let ir = IRBuilder (8)
-  let st0b, _st0a = getFPUPseudoRegVars ctxt R.ST0
+  let struct (st0b, _st0a) = getFPUPseudoRegVars ctxt R.ST0
   !<ir insLen
-  !!ir (AST.extract st0b 1<rt> 15 := AST.b1)
+  !!ir (AST.extract st0b 1<rt> 15 := AST.b0)
   !!ir (!.ctxt R.FSWC1 := AST.b0)
   !!ir (!.ctxt R.FSWC0 := undefC0)
   !!ir (!.ctxt R.FSWC2 := undefC2)
@@ -609,7 +588,7 @@ let fabs _ins insLen ctxt =
 
 let fchs _ins insLen ctxt =
   let ir = IRBuilder (8)
-  let st0b, _st0a = getFPUPseudoRegVars ctxt R.ST0
+  let struct (st0b, _st0a) = getFPUPseudoRegVars ctxt R.ST0
   let tmp = !*ir 1<rt>
   !<ir insLen
   !!ir (tmp := AST.xthi 1<rt> st0b)
@@ -622,116 +601,98 @@ let fchs _ins insLen ctxt =
 
 let frndint _ins insLen ctxt =
   let ir = IRBuilder (32)
-  let st0 = fpuRegValue ctxt R.ST0
-  let t0 = !*ir 80<rt>
-  let t1 = !*ir 64<rt>
-  let t2 = !*ir 2<rt>
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+  let tmp0 = !*ir 64<rt>
+  let rcField = !*ir 2<rt> (* Rounding Control *)
+  let cst00 = AST.cast CastKind.FtoIRound 64<rt> tmp0
+  let cst01 = AST.cast CastKind.FtoIFloor 64<rt> tmp0
+  let cst10 = AST.cast CastKind.FtoICeil 64<rt> tmp0
+  let cst11 = AST.cast CastKind.FtoITrunc 64<rt> tmp0
   let num2 = numI32 2 2<rt>
-  let cstK castKind = AST.cast castKind 64<rt> st0
   !<ir insLen
-  !!ir (t2 := AST.extract (!.ctxt R.FCW) 2<rt> 10)
-  !!ir (t1 := AST.ite (t2 == AST.num0 2<rt>)
-    (cstK CastKind.FtoIRound) (cstK CastKind.FtoITrunc))
-  !!ir (t1 := AST.ite (t2 == AST.num1 2<rt>) (cstK CastKind.FtoIFloor) t1)
-  !!ir (t1 := AST.ite (t2 == num2) (cstK CastKind.FtoICeil) t1)
-  !!ir (t0 := AST.cast CastKind.IntToFloat 80<rt> t1)
-  !?ir (assignFPUReg R.ST0 t0 ctxt)
-  !!ir (!.ctxt R.FSWC1 := AST.ite (t2 == num2) AST.b1 AST.b0)
-  !?ir (cflagsUndefined023 ctxt)
+  !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
+  !!ir (rcField := AST.extract (!.ctxt R.FCW) 2<rt> 10)
+  !!ir (tmp0 := AST.ite (rcField == AST.num0 2<rt>) cst00 cst11)
+  !!ir (tmp0 := AST.ite (rcField == AST.num1 2<rt>) cst01 tmp0)
+  !!ir (tmp0 := AST.ite (rcField == num2) cst10 tmp0)
+  !?ir (castTo80Bit ctxt st0b st0a (castToF64 tmp0))
+  !?ir (updateC1OnStore ctxt)
   !>ir insLen
 
 let fscale _ins insLen ctxt =
   let ir = IRBuilder (16)
-  let struct (tmp1, tmp2) = tmpVars2 ir 64<rt>
-  let tmp3 = !*ir 80<rt>
-  let st0 = fpuRegValue ctxt R.ST0
-  let st1 = fpuRegValue ctxt R.ST1
+  let struct (tmp0, tmp1, tmp2) = tmpVars3 ir 64<rt>
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+  let struct (st1b, st1a) = getFPUPseudoRegVars ctxt R.ST1
   !<ir insLen
-  !!ir (tmp1 := AST.cast CastKind.FtoITrunc 64<rt> st1)
-  !!ir (tmp2 := numI32 1 64<rt> << tmp1)
-  !!ir (tmp3 := AST.cast CastKind.IntToFloat 80<rt> tmp2)
-  !!ir (tmp3 := AST.fmul st0 tmp3)
-  !?ir (assignFPUReg R.ST0 tmp3 ctxt)
-  !?ir (checkC1Flag ctxt) R.FTW6
-  !?ir (cflagsUndefined023 ctxt)
+  !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
+  !?ir (castFrom80Bit tmp1 64<rt> st1b st1a)
+  !!ir (tmp2 := numI32 1 64<rt> << (AST.cast CastKind.FtoITrunc 64<rt> tmp1))
+  !?ir (castTo80Bit ctxt st0b st0a (AST.fmul tmp1 (castToF64 tmp2)))
+  !?ir (updateC1OnStore ctxt)
   !>ir insLen
 
 let fsqrt _ins insLen ctxt =
   let ir = IRBuilder (8)
-  let st0 = fpuRegValue ctxt R.ST0
-  let tmp = !*ir 80<rt>
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+  let tmp0 = !*ir 64<rt>
   !<ir insLen
-  !!ir (tmp := AST.unop UnOpType.FSQRT st0)
-  !?ir (assignFPUReg R.ST0 tmp ctxt)
-  !?ir (checkC1Flag ctxt) R.FTW7
+  !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
+  !?ir (castTo80Bit ctxt st0b st0a (AST.unop UnOpType.FSQRT tmp0))
+  !?ir (updateC1OnStore ctxt)
   !>ir insLen
 
 let fxtract _ins insLen ctxt =
   let ir = IRBuilder (64)
-  let st0 = fpuRegValue ctxt R.ST0
-  let tmp = !*ir 80<rt>
-  let exponent = !*ir 64<rt>
-  let significand = !*ir 80<rt>
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+  let n3fff = numI32 0x3FFF 16<rt>
+  let tmpB, tmpA = !*ir 16<rt>, !*ir 64<rt>
+  let tmpF = !*ir 64<rt>
   !<ir insLen
-  !!ir (exponent := AST.num0 64<rt>)
-  !!ir (significand := AST.num0 80<rt>)
-  !!ir (AST.xtlo 64<rt> significand := AST.xtlo 64<rt> st0)
-  !!ir (AST.xthi 1<rt> significand := AST.xthi 1<rt> st0)
-  !!ir (AST.extract significand 15<rt> 64 := numI32 16383 15<rt>)
-  !!ir (AST.xtlo 15<rt> exponent := AST.extract st0 15<rt> 64)
-  !!ir (exponent := exponent .- numI32 16383 64<rt>)
-  !!ir (tmp := AST.cast CastKind.IntToFloat 80<rt> exponent)
-  !?ir (assignFPUReg R.ST0 tmp ctxt)
-  !?ir (checkFPUOnLoad ctxt)
-  !?ir (shiftFPUStackDown ctxt)
-  !?ir (assignFPUReg R.ST0 significand ctxt)
-  !?ir (updateTagWordOnLoad ctxt)
-  !?ir (checkC1Flag ctxt) R.FTW7
-  !?ir (cflagsUndefined023 ctxt)
+  !!ir (tmpB := (st0b .& numI32 0x8000 16<rt>) .| n3fff)
+  !!ir (tmpA := st0a)
+  !!ir (tmpF := castToF64 ((st0b .& numI32 0x7fff 16<rt>) .- n3fff))
+  !?ir (pushFPUStack ctxt)
+  !?ir (castTo80Bit ctxt st0b st0a tmpF)
+  !?ir (updateC1OnStore ctxt)
   !>ir insLen
+
+let private prepareTwoOprsForComparison (ins: InsInfo) insLen ctxt ir =
+  let struct (tmp0, tmp1) = tmpVars2 ir 64<rt>
+  match ins.Operands with
+  | NoOperand ->
+    let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+    let struct (st1b, st1a) = getFPUPseudoRegVars ctxt R.ST1
+    !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
+    !?ir (castFrom80Bit tmp1 64<rt> st1b st1a)
+  | OneOperand (OprReg r) ->
+    let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+    let struct (st1b, st1a) = getFPUPseudoRegVars ctxt r
+    !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
+    !?ir (castFrom80Bit tmp1 64<rt> st1b st1a)
+  | OneOperand (opr) ->
+    let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+    let oprExpr = transOprToExpr ins insLen ctxt opr
+    !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
+    !!ir (tmp1 := AST.cast CastKind.FloatCast 64<rt> oprExpr)
+  | TwoOperands (OprReg r1, OprReg r2) ->
+    let struct (st0b, st0a) = getFPUPseudoRegVars ctxt r1
+    let struct (st1b, st1a) = getFPUPseudoRegVars ctxt r2
+    !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
+    !?ir (castFrom80Bit tmp1 64<rt> st1b st1a)
+  | _ -> raise InvalidOperandException
+  struct (tmp0, tmp1)
 
 let fcom (ins: InsInfo) insLen ctxt nPop unordered =
   let ir = IRBuilder (64)
-  let lblNan = ir.NewSymbol "IsNan"
-  let lblExit = ir.NewSymbol "Exit"
   let c0 = !.ctxt R.FSWC0
   let c2 = !.ctxt R.FSWC2
   let c3 = !.ctxt R.FSWC3
-  let im = !.ctxt R.FCW |> AST.xtlo 1<rt>
-  let struct (tmp1, tmp2) = tmpVars2 ir 80<rt>
   !<ir insLen
-  match ins.Operands with
-  | NoOperand ->
-    !!ir (tmp1 := fpuRegValue ctxt R.ST0)
-    !!ir (tmp2 := fpuRegValue ctxt R.ST1)
-  | OneOperand opr ->
-    let oprExpr = transOprToFloat80 ins insLen ctxt opr
-    !!ir (tmp1 := fpuRegValue ctxt R.ST0)
-    !!ir (tmp2 := oprExpr)
-  | TwoOperands (o1, o2) ->
-    let o1 = transOprToFloat80 ins insLen ctxt o1
-    let o2 = transOprToFloat80 ins insLen ctxt o2
-    !!ir (tmp1 := o1)
-    !!ir (tmp2 := o2)
-  | _ -> raise InvalidOperandException
-  !!ir (c0 := AST.ite (AST.flt tmp1 tmp2) AST.b1 AST.b0)
+  let struct (tmp0, tmp1) = prepareTwoOprsForComparison ins insLen ctxt ir
+  !!ir (c0 := AST.flt tmp0 tmp1)
   !!ir (c2 := AST.b0)
-  !!ir (c3 := AST.ite (tmp1 == tmp2) AST.b1 AST.b0)
-  let isNan expr =
-    (AST.extract expr 15<rt> 64  == AST.num (BitVector.unsignedMax 15<rt>))
-     .& (AST.xtlo 62<rt> expr != AST.num0 62<rt>)
-  let cond =
-    if unordered then
-        let tmp1qNanCond = isNan tmp1 .& (AST.extract tmp1 1<rt> 62 == AST.b1)
-        let tmp2qNanCond = isNan tmp2 .& (AST.extract tmp2 1<rt> 62 == AST.b1)
-        tmp1qNanCond .| tmp2qNanCond .& (im == AST.b0)
-    else isNan tmp1 .| isNan tmp2 .& (im == AST.b0)
-  !!ir (AST.cjmp cond (AST.name lblNan) (AST.name lblExit))
-  !!ir (AST.lmark lblNan)
-  !!ir (c0 := AST.b1)
-  !!ir (c2 := AST.b1)
-  !!ir (c3 := AST.b1)
-  !!ir (AST.lmark lblExit)
+  !!ir (c3 := (tmp0 == tmp1))
   !!ir (!.ctxt R.FSWC1 := AST.b0)
   if nPop > 0 then !?ir (popFPUStack ctxt) else ()
   if nPop = 2 then !?ir (popFPUStack ctxt) else ()
@@ -740,105 +701,97 @@ let fcom (ins: InsInfo) insLen ctxt nPop unordered =
 let ficom ins insLen ctxt doPop =
   let ir = IRBuilder (32)
   let oprExpr = transOneOpr ins insLen ctxt
-  let st0 = fpuRegValue ctxt R.ST0
-  let tmp = !*ir 80<rt>
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+  let struct (tmp0, tmp1) = tmpVars2 ir 64<rt>
   !<ir insLen
-  !!ir (tmp := AST.cast CastKind.IntToFloat 80<rt> oprExpr)
-  !!ir (!.ctxt R.FSWC0 := AST.ite (AST.flt st0 tmp) AST.b1 AST.b0)
+  !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
+  !!ir (tmp1 := AST.cast CastKind.IntToFloat 64<rt> oprExpr)
+  !!ir (!.ctxt R.FSWC0 := AST.flt tmp0 tmp1)
   !!ir (!.ctxt R.FSWC2 := AST.b0)
-  !!ir (!.ctxt R.FSWC3 := AST.ite (st0 == tmp) AST.b1 AST.b0)
+  !!ir (!.ctxt R.FSWC3 := tmp0 == tmp1)
   !!ir (!.ctxt R.FSWC1 := AST.b0)
   if doPop then !?ir (popFPUStack ctxt) else ()
   !>ir insLen
 
 let fcomi ins insLen ctxt doPop =
   let ir = IRBuilder (64)
-  let struct (opr1, opr2) = transTwoOprs ins insLen ctxt
-  let im = !.ctxt R.FCW |> AST.xtlo 1<rt>
-  let lblQNan = ir.NewSymbol "IsQNan"
-  let lblNan = ir.NewSymbol "IsNan"
-  let lblExit = ir.NewSymbol "Exit"
-  let lblCond = ir.NewSymbol "IsNanCond"
   let zf = !.ctxt R.ZF
   let pf = !.ctxt R.PF
   let cf = !.ctxt R.CF
   !<ir insLen
-  !!ir (zf := AST.ite (opr1 == opr2) AST.b1 AST.b0)
+  let struct (tmp0, tmp1) = prepareTwoOprsForComparison ins insLen ctxt ir
+  !!ir (cf := AST.flt tmp0 tmp1)
   !!ir (pf := AST.b0)
-  !!ir (cf := AST.ite (AST.flt opr1 opr2) AST.b1 AST.b0)
-  let opr1NanCond =
-    (AST.extract opr1 15<rt> 64  == AST.num (BitVector.unsignedMax 15<rt>))
-      .& (AST.xtlo 62<rt> opr1 != AST.num0 62<rt>)
-  let opr2NanCond =
-    (AST.extract opr2 15<rt> 64 == AST.num (BitVector.unsignedMax 15<rt>))
-      .& (AST.xtlo 62<rt> opr2 != AST.num0 62<rt>)
-  let cond = opr1NanCond .| opr2NanCond .& (im == AST.b0)
-  match ins.Opcode with
-  | Opcode.FCOMI | Opcode.FCOMIP ->
-    !!ir (AST.cjmp cond (AST.name lblNan) (AST.name lblExit))
-  | Opcode.FUCOMI | Opcode.FUCOMIP ->
-    let opr1qNanCond = opr1NanCond .& (AST.extract opr1 1<rt> 62 == AST.b1)
-    let opr2qNanCond = opr2NanCond .& (AST.extract opr2 1<rt> 62 == AST.b1)
-    !!ir (AST.cjmp (opr1qNanCond .| opr2qNanCond)
-                   (AST.name lblQNan) (AST.name lblCond))
-    !!ir (AST.lmark lblQNan)
-    !!ir (zf:= AST.b1)
-    !!ir (pf := AST.b1)
-    !!ir (cf := AST.b1)
-    !!ir (AST.jmp (AST.name lblExit))
-    !!ir (AST.lmark lblCond)
-    !!ir (AST.cjmp cond (AST.name lblNan) (AST.name lblExit))
-  | _ -> raise InvalidOpcodeException
-  !!ir (AST.lmark lblNan)
-  !!ir (zf := AST.b1)
-  !!ir (pf := AST.b1)
-  !!ir (cf := AST.b1)
-  !!ir (AST.lmark lblExit)
+  !!ir (zf := (tmp0 == tmp1))
+  !!ir (!.ctxt R.FSWC1 := AST.b0)
   if doPop then !?ir (popFPUStack ctxt) else ()
   !>ir insLen
 
 let ftst _ins insLen ctxt =
   let ir = IRBuilder (16)
-  let st0 = fpuRegValue ctxt R.ST0
-  let num0V = AST.num0 80<rt>
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+  let num0V = AST.num0 64<rt>
   let c0 = !.ctxt R.FSWC0
   let c2 = !.ctxt R.FSWC2
   let c3 = !.ctxt R.FSWC3
-  let lblNan = ir.NewSymbol "IsNan"
-  let lblExit = ir.NewSymbol "Exit"
+  let tmp = !*ir 64<rt>
   !<ir insLen
-  !!ir (c0 := AST.ite (AST.flt st0 num0V) AST.b1 AST.b0)
+  !?ir (castFrom80Bit tmp 64<rt> st0b st0a)
+  !!ir (c0 := AST.flt tmp num0V)
   !!ir (c2 := AST.b0)
-  !!ir (c3 := AST.ite (st0 == num0V) AST.b1 AST.b0)
-  let st0Exponent = AST.extract st0 15<rt> 64
-  let st0NanCond =
-    (st0Exponent == AST.num (BitVector.unsignedMax 15<rt>))
-     .& (AST.xtlo 62<rt> st0 != AST.num0 62<rt>)
-  !!ir (AST.cjmp st0NanCond (AST.name lblNan) (AST.name lblExit))
-  !!ir (AST.lmark lblNan)
-  !!ir (c0 := AST.b1)
-  !!ir (c2 := AST.b1)
-  !!ir (c3 := AST.b1)
-  !!ir (AST.lmark lblExit)
+  !!ir (c3 := tmp == num0V)
   !!ir (!.ctxt R.FSWC1 := AST.b0)
   !>ir insLen
 
 let fxam _ins insLen ctxt =
   let ir = IRBuilder (8)
-  let st0 = fpuRegValue ctxt R.ST0
-  let exponent = AST.extract st0 15<rt> 64
-  let maxExponent = BitVector.unsignedMax 15<rt> |> AST.num
-  let tag7 = !.ctxt R.FTW7
-  let nanCond =
-    (exponent == maxExponent) .& (AST.xtlo 62<rt> st0 != AST.num0 62<rt>)
-  let c3Cond1 = (tag7 == numI32 3 2<rt>) .| (exponent == AST.num0 15<rt>)
-  let c2Cond0 = (tag7 == numI32 3 2<rt>) .| (st0 == AST.num0 80<rt>) .| nanCond
-  let c0Cond1 = (tag7 == numI32 3 2<rt>) .| (exponent == maxExponent)
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+  let n7fff = numI32 0x7fff 16<rt>
+  let exponent = st0b .& n7fff
+  let nanCond = (exponent == n7fff) .& (AST.xtlo 62<rt> st0a != AST.num0 62<rt>)
+  let c3Cond1 = (exponent == AST.num0 16<rt>)
+  let isAllZero = (st0a == AST.num0 64<rt>) .& (st0b == AST.num0 16<rt>)
+  let c2Cond0 = AST.not (isAllZero .| nanCond)
+  let c0Cond1 = (exponent == n7fff)
   !<ir insLen
-  !!ir (!.ctxt R.FSWC1 := AST.xthi 1<rt> st0)
-  !!ir (!.ctxt R.FSWC3 := AST.ite (c3Cond1) AST.b1 AST.b0)
-  !!ir (!.ctxt R.FSWC2 := AST.ite (c2Cond0) AST.b0 AST.b1)
-  !!ir (!.ctxt R.FSWC0 := AST.ite (c0Cond1) AST.b1 AST.b0)
+  !!ir (!.ctxt R.FSWC1 := AST.xthi 1<rt> st0b)
+  !!ir (!.ctxt R.FSWC3 := c3Cond1)
+  !!ir (!.ctxt R.FSWC2 := c2Cond0)
+  !!ir (!.ctxt R.FSWC0 := c0Cond1)
+  !>ir insLen
+
+let private checkForTrigFunction unsigned lin lout ir =
+  let maxLimit = numI64 (1L <<< 63) 64<rt>
+  let maxFloat = AST.cast CastKind.IntToFloat 64<rt> maxLimit
+  !!ir (AST.cjmp (AST.flt unsigned maxFloat) (AST.name lin) (AST.name lout))
+
+let private ftrig _ins insLen ctxt trigFunc =
+  let ir = IRBuilder (32)
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+  let n7fff = numI32 0x7fff 16<rt>
+  let c0 = !.ctxt R.FSWC0
+  let c1 = !.ctxt R.FSWC1
+  let c2 = !.ctxt R.FSWC2
+  let c3 = !.ctxt R.FSWC3
+  let lin = ir.NewSymbol "IsInRange"
+  let lout = ir.NewSymbol "IsOutOfRange"
+  let lexit = ir.NewSymbol "Exit"
+  let struct (unsigned, signed, tmp) = tmpVars3 ir 64<rt>
+  !<ir insLen
+  !?ir (castFrom80Bit unsigned 64<rt> (st0b .& n7fff) st0a)
+  !?ir (castFrom80Bit signed 64<rt> st0b st0a)
+  !?ir (checkForTrigFunction unsigned lin lout)
+  !!ir (AST.lmark lin)
+  !!ir (tmp := trigFunc signed)
+  !?ir (castTo80Bit ctxt st0b st0a tmp)
+  !!ir (c2 := AST.b0)
+  !!ir (AST.jmp (AST.name lexit))
+  !!ir (AST.lmark lout)
+  !!ir (c2 := AST.b1)
+  !!ir (AST.lmark lexit)
+  !!ir (c0 := undefC0)
+  !!ir (c3 := undefC3)
+  !!ir (c1:= AST.b0)
   !>ir insLen
 
 let fsin ins insLen ctxt =
@@ -849,134 +802,127 @@ let fcos ins insLen ctxt =
 
 let fsincos _ins insLen ctxt =
   let ir = IRBuilder (64)
-  let st0 = fpuRegValue ctxt R.ST0
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+  let n7fff = numI32 0x7fff 16<rt>
   let c0 = !.ctxt R.FSWC0
-  let c1 = !.ctxt R.FSWC1
   let c2 = !.ctxt R.FSWC2
   let c3 = !.ctxt R.FSWC3
-  let float80SignUnmask = BitVector.signedMax 80<rt> |> AST.num
-  let maxLimit = numI64 (1L <<< 63) 64<rt>
-  let maxFloat = AST.cast CastKind.IntToFloat 80<rt> maxLimit
-  let num3 = BitVector.ofInt32 3 2<rt> |> AST.num
-  let lblOutOfRange = ir.NewSymbol "IsOutOfRange"
-  let lblInRange = ir.NewSymbol "IsInRange"
-  let struct (tmp1, tmp2) = tmpVars2 ir 80<rt>
+  let lin = ir.NewSymbol "IsInRange"
+  let lout = ir.NewSymbol "IsOutOfRange"
+  let lexit = ir.NewSymbol "Exit"
+  let struct (unsigned, signed, tmpsin, tmpcos) = tmpVars4 ir 64<rt>
   !<ir insLen
-  !!ir (tmp1 := st0 .& float80SignUnmask)
-  !!ir (AST.cjmp (AST.flt tmp1 maxFloat)
-                 (AST.name lblInRange) (AST.name lblOutOfRange))
-  !!ir (AST.lmark lblInRange)
-  !!ir (tmp1 := AST.fcos st0)
-  !!ir (tmp2 := AST.fsin st0)
-  !?ir (assignFPUReg R.ST0 tmp2 ctxt)
-  !!ir (c1 := AST.ite (!.ctxt R.FTW7 == num3) AST.b0 c1)
+  !?ir (castFrom80Bit unsigned 64<rt> (st0b .& n7fff) st0a)
+  !?ir (castFrom80Bit signed 64<rt> st0b st0a)
+  !?ir (checkForTrigFunction unsigned lin lout)
+  !!ir (AST.lmark lin)
+  !!ir (tmpcos := AST.fcos signed)
+  !!ir (tmpsin := AST.fsin signed)
+  !?ir (castTo80Bit ctxt st0b st0a tmpsin)
+  !?ir (pushFPUStack ctxt)
+  !?ir (castTo80Bit ctxt st0b st0a tmpcos)
   !!ir (c2 := AST.b0)
-  !!ir (c0 := undefC0)
-  !!ir (c3 := undefC3)
-  !?ir (checkFPUOnLoad ctxt)
-  !?ir (shiftFPUStackDown ctxt)
-  !?ir (assignFPUReg R.ST0 tmp1 ctxt)
-  !?ir (updateTagWordOnLoad ctxt)
-  !!ir (AST.lmark lblOutOfRange)
+  !!ir (AST.jmp (AST.name lexit))
+  !!ir (AST.lmark lout)
   !!ir (c2 := AST.b1)
+  !!ir (AST.lmark lexit)
   !!ir (c0 := undefC0)
-  !!ir (c1 := undefC1)
   !!ir (c3 := undefC3)
+  !?ir (updateC1OnLoad ctxt)
   !>ir insLen
 
 let fptan _ins insLen ctxt =
   let ir = IRBuilder (64)
-  let st0 = fpuRegValue ctxt R.ST0
-  let float80SignUnmask = BitVector.signedMax 80<rt> |> AST.num
-  let maxLimit = numI64 (1L <<< 63) 64<rt>
-  let maxFloat = AST.cast CastKind.IntToFloat 80<rt> maxLimit
-  let num3 = BitVector.ofInt32 3 2<rt> |> AST.num
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+  let n7fff = numI32 0x7fff 16<rt>
   let c0 = !.ctxt R.FSWC0
-  let c1 = !.ctxt R.FSWC1
   let c2 = !.ctxt R.FSWC2
   let c3 = !.ctxt R.FSWC3
-  let lblOutOfRange = ir.NewSymbol "IsOutOfRange"
-  let lblInRange = ir.NewSymbol "IsInRange"
-  let tmp = !*ir 80<rt>
-  let tmp64 = !*ir 64<rt>
+  let lin = ir.NewSymbol "IsInRange"
+  let lout = ir.NewSymbol "IsOutOfRange"
+  let lexit = ir.NewSymbol "Exit"
+  let fone = numI64 0x3ff0000000000000L 64<rt> (* 1.0 *)
+  let struct (unsigned, signed, tmp) = tmpVars3 ir 64<rt>
   !<ir insLen
-  !!ir (tmp := st0 .& float80SignUnmask)
-  !!ir (AST.cjmp (AST.flt tmp maxFloat)
-                 (AST.name lblInRange) (AST.name lblOutOfRange))
-  !!ir (AST.lmark lblInRange)
-  !!ir (tmp := AST.ftan st0)
-  !?ir (assignFPUReg R.ST0 tmp ctxt)
-  !!ir (c1 := AST.ite (!.ctxt R.FTW7 == num3) AST.b0 c1)
+  !?ir (castFrom80Bit unsigned 64<rt> (st0b .& n7fff) st0a)
+  !?ir (castFrom80Bit signed 64<rt> st0b st0a)
+  !?ir (checkForTrigFunction unsigned lin lout)
+  !!ir (AST.lmark lin)
+  !!ir (tmp := AST.ftan signed)
+  !?ir (castTo80Bit ctxt st0b st0a tmp)
   !!ir (c2 := AST.b0)
-  !!ir (c0 := undefC0)
-  !!ir (c3 := undefC3)
-  !!ir (AST.lmark lblOutOfRange)
+  !?ir (pushFPUStack ctxt)
+  !?ir (castTo80Bit ctxt st0b st0a fone)
+  !!ir (c2 := AST.b0)
+  !!ir (AST.jmp (AST.name lexit))
+  !!ir (AST.lmark lout)
   !!ir (c2 := AST.b1)
+  !!ir (AST.lmark lexit)
   !!ir (c0 := undefC0)
-  !!ir (c1 := undefC1)
   !!ir (c3 := undefC3)
-  !!ir (tmp64 := numI64 4607182418800017408L 64<rt>)
-  !!ir (tmp := AST.cast CastKind.FloatCast 80<rt> tmp64)
-  !?ir (checkFPUOnLoad ctxt)
-  !?ir (shiftFPUStackDown ctxt)
-  !?ir (assignFPUReg R.ST0 tmp ctxt)
-  !?ir (updateTagWordOnLoad ctxt)
+  !?ir (updateC1OnLoad ctxt)
   !>ir insLen
 
 let fpatan _ins insLen ctxt =
   let ir = IRBuilder (16)
-  let c1 = !.ctxt R.FSWC1
-  let tmp = !*ir 80<rt>
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+  let struct (st1b, st1a) = getFPUPseudoRegVars ctxt R.ST1
+  let struct (tmp0, tmp1, res) = tmpVars3 ir 64<rt>
   !<ir insLen
-  !!ir (tmp := fpuRegValue ctxt R.ST1 ./ fpuRegValue ctxt R.ST0)
-  !!ir (tmp := AST.fatan tmp)
-  !?ir (assignFPUReg R.ST1 tmp ctxt)
-  !!ir (c1 := AST.b0)
+  !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
+  !?ir (castFrom80Bit tmp1 64<rt> st1b st1a)
+  !!ir (res := AST.fatan (AST.fdiv tmp0 tmp1))
+  !?ir (castTo80Bit ctxt st1b st1a res)
+  !?ir (popFPUStack ctxt)
+  !?ir (updateC1OnStore ctxt)
   !?ir (cflagsUndefined023 ctxt)
   !>ir insLen
 
 let f2xm1 _isn insLen ctxt =
   let ir = IRBuilder (16)
-  let st0 = fpuRegValue ctxt R.ST0
-  let flt1 = AST.num1 32<rt> |> AST.cast CastKind.IntToFloat 80<rt>
-  let flt2 = numI32 2 32<rt> |> AST.cast CastKind.IntToFloat 80<rt>
-  let tmp = !*ir 80<rt>
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+  let f1 = numI32 1 64<rt> |> castToF64
+  let f2 = numI32 2 64<rt> |> castToF64
+  let c1 = !.ctxt R.FSWC1
+  let struct (tmp, res) = tmpVars2 ir 64<rt>
   !<ir insLen
-  !!ir (tmp := AST.fpow flt2 st0)
-  !!ir (tmp := AST.fsub tmp flt1)
-  !?ir (assignFPUReg R.ST0 tmp ctxt)
-  !?ir (checkC1Flag ctxt) R.FTW7
+  !?ir (castFrom80Bit tmp 64<rt> st0b st0a)
+  !!ir (res := AST.fsub (AST.fpow f2 tmp) f1)
+  !?ir (castTo80Bit ctxt st0b st0a res)
+  !!ir (c1 := AST.b0)
   !?ir (cflagsUndefined023 ctxt)
   !>ir insLen
 
 let fyl2x _ins insLen ctxt =
   let ir = IRBuilder (64)
-  let st0 = fpuRegValue ctxt R.ST0
-  let st1 = fpuRegValue ctxt R.ST1
-  let flt2 = numI32 2 32<rt> |> AST.cast CastKind.IntToFloat 80<rt>
-  let struct (t1, t2) = tmpVars2 ir 80<rt>
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+  let struct (st1b, st1a) = getFPUPseudoRegVars ctxt R.ST1
+  let struct (tmp0, tmp1, res) = tmpVars3 ir 64<rt>
+  let f2 = numI32 2 64<rt> |> castToF64
   !<ir insLen
-  !!ir (t1 := AST.flog flt2 st0)
-  !!ir (t2 := AST.fmul st1 t1)
-  !?ir (assignFPUReg R.ST1 t2 ctxt)
+  !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
+  !?ir (castFrom80Bit tmp1 64<rt> st1b st1a)
+  !!ir (res := AST.fmul tmp1 (AST.flog f2 tmp0))
+  !?ir (castTo80Bit ctxt st1b st1a res)
   !?ir (popFPUStack ctxt)
-  !?ir (checkC1Flag ctxt) R.FTW6
+  !?ir (updateC1OnStore ctxt)
   !?ir (cflagsUndefined023 ctxt)
   !>ir insLen
 
 let fyl2xp1 _ins insLen ctxt =
   let ir = IRBuilder (64)
-  let st0 = fpuRegValue ctxt R.ST0
-  let st1 = fpuRegValue ctxt R.ST1
-  let flt2 = numI32 2 32<rt> |> AST.cast CastKind.IntToFloat 80<rt>
-  let f1 = numI32 1 32<rt> |> AST.cast CastKind.IntToFloat 80<rt>
-  let tmp = !*ir 80<rt>
+  let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
+  let struct (st1b, st1a) = getFPUPseudoRegVars ctxt R.ST1
+  let struct (tmp0, tmp1, res) = tmpVars3 ir 64<rt>
+  let f1 = numI32 1 64<rt> |> castToF64
+  let f2 = numI32 2 64<rt> |> castToF64
   !<ir insLen
-  !!ir (tmp := AST.fadd f1 (AST.flog flt2 st0))
-  !!ir (tmp := AST.fmul st1 tmp)
-  !?ir (assignFPUReg R.ST1 tmp ctxt)
+  !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
+  !?ir (castFrom80Bit tmp1 64<rt> st1b st1a)
+  !!ir (res := AST.fmul tmp1 (AST.flog f2 (AST.fadd tmp0 f1)))
+  !?ir (castTo80Bit ctxt st1b st1a res)
   !?ir (popFPUStack ctxt)
-  !?ir (checkC1Flag ctxt) R.FTW6
+  !?ir (updateC1OnStore ctxt)
   !?ir (cflagsUndefined023 ctxt)
   !>ir insLen
 
@@ -1012,7 +958,8 @@ let fincstp _ins insLen ctxt =
   let ir = IRBuilder (16)
   let top = !.ctxt R.FTOP
   !<ir insLen
-  !!ir (top := top .+ AST.num1 3<rt>)
+  (* TOP in B2R2 is really a counter, so we decrement TOP here (same as pop). *)
+  !!ir (top := top .- AST.num1 3<rt>)
   !!ir (!.ctxt R.FSWC1 := AST.b0)
   !!ir (!.ctxt R.FSWC0 := undefC0)
   !!ir (!.ctxt R.FSWC2 := undefC2)
@@ -1023,6 +970,7 @@ let fdecstp _ins insLen ctxt =
   let ir = IRBuilder (8)
   let top = !.ctxt R.FTOP
   !<ir insLen
+  (* TOP in B2R2 is really a counter, so we increment TOP here. *)
   !!ir (top := top .+ AST.num1 3<rt>)
   !!ir (!.ctxt R.FSWC1 := AST.b0)
   !!ir (!.ctxt R.FSWC0 := undefC0)
@@ -1118,88 +1066,154 @@ let fldcw ins insLen ctxt =
   !!ir (!.ctxt R.FSWC3 := undefC3)
   !>ir insLen
 
+let private m14fstenv dstAddr addrSize ctxt ir =
+  let fiplo = AST.xtlo 16<rt> (!.ctxt R.FIP)
+  let fdplo = AST.xtlo 16<rt> (!.ctxt R.FDP)
+  !!ir (AST.store Endian.Little (dstAddr) (!.ctxt R.FCW))
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 2 addrSize) (!.ctxt R.FSW))
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 4 addrSize) (!.ctxt R.FTW))
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 6 addrSize) fiplo)
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 8 addrSize) (!.ctxt R.FCS))
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 10 addrSize) fdplo)
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 12 addrSize) (!.ctxt R.FDS))
+
+let private m28fstenv dstAddr addrSize ctxt ir =
+  let n0 = numI32 0 16<rt>
+  !!ir (AST.store Endian.Little (dstAddr) (!.ctxt R.FCW))
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 2 addrSize) n0)
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 4 addrSize) (!.ctxt R.FSW))
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 6 addrSize) n0)
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 8 addrSize) (!.ctxt R.FTW))
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 10 addrSize) n0)
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 12 addrSize) (!.ctxt R.FIP))
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 20 addrSize) (!.ctxt R.FDP))
+
 let fnstenv ins insLen ctxt =
   let ir = IRBuilder (16)
   let dst = transOneOpr ins insLen ctxt
+  let struct (addrExpr, addrSize) = getLoadAddressExpr dst
   !<ir insLen
   match TypeCheck.typeOf dst with
-  | 112<rt> -> m14Stenv dst ctxt ir
-  | 224<rt> -> m28fstenv dst ctxt ir
+  | 112<rt> -> m14fstenv addrExpr addrSize ctxt ir
+  | 224<rt> -> m28fstenv addrExpr addrSize ctxt ir
   | _ -> raise InvalidOperandSizeException
   !>ir insLen
+
+let private m14fldenv srcAddr addrSize ctxt ir =
+  !!ir (!.ctxt R.FCW := AST.loadLE 16<rt> (srcAddr))
+  !!ir (!.ctxt R.FSW := AST.loadLE 16<rt> (srcAddr .+ numI32 2 addrSize))
+  !!ir (!.ctxt R.FTW := AST.loadLE 16<rt> (srcAddr .+ numI32 4 addrSize))
+  !!ir (AST.xtlo 16<rt> (!.ctxt R.FIP) :=
+    AST.loadLE 16<rt> (srcAddr .+ numI32 6 addrSize))
+  !!ir (!.ctxt R.FCS := AST.loadLE 16<rt> (srcAddr .+ numI32 8 addrSize))
+  !!ir (AST.xtlo 16<rt> (!.ctxt R.FDP) :=
+    AST.loadLE 16<rt> (srcAddr .+ numI32 10 addrSize))
+  !!ir (!.ctxt R.FDS := AST.loadLE 16<rt> (srcAddr .+ numI32 12 addrSize))
+
+let private m28fldenv srcAddr addrSize ctxt ir =
+  !!ir (!.ctxt R.FCW := AST.loadLE 16<rt> (srcAddr))
+  !!ir (!.ctxt R.FSW := AST.loadLE 16<rt> (srcAddr .+ numI32 4 addrSize))
+  !!ir (!.ctxt R.FTW := AST.loadLE 16<rt> (srcAddr .+ numI32 8 addrSize))
+  !!ir (!.ctxt R.FIP := AST.loadLE 64<rt> (srcAddr .+ numI32 12 addrSize))
+  !!ir (!.ctxt R.FDP := AST.loadLE 64<rt> (srcAddr .+ numI32 20 addrSize))
 
 let fldenv ins insLen ctxt =
   let ir = IRBuilder (16)
   let src = transOneOpr ins insLen ctxt
+  let struct (addrExpr, addrSize) = getLoadAddressExpr src
   !<ir insLen
   match TypeCheck.typeOf src with
-  | 112<rt> -> m14fldenv src ctxt ir
-  | 224<rt> -> m28fldenv src ctxt ir
+  | 112<rt> -> m14fldenv addrExpr addrSize ctxt ir
+  | 224<rt> -> m28fldenv addrExpr addrSize ctxt ir
   | _ -> raise InvalidOperandSizeException
   !>ir insLen
 
-let private stSts dst ctxt ir =
-  let dst = extendAddr dst 80<rt>
-  let offset = numI32 10 (getAddrRegSize dst)
-  !!ir (dst := !.ctxt R.ST0)
-  !!ir (updateAddrByOffset dst offset)
-  !!ir (dst := !.ctxt R.ST1)
-  !!ir (updateAddrByOffset dst offset)
-  !!ir (dst := !.ctxt R.ST2)
-  !!ir (updateAddrByOffset dst offset)
-  !!ir (dst := !.ctxt R.ST3)
-  !!ir (updateAddrByOffset dst offset)
-  !!ir (dst := !.ctxt R.ST4)
-  !!ir (updateAddrByOffset dst offset)
-  !!ir (dst := !.ctxt R.ST5)
-  !!ir (updateAddrByOffset dst offset)
-  !!ir (dst := !.ctxt R.ST6)
-  !!ir (updateAddrByOffset dst offset)
-  !!ir (dst := !.ctxt R.ST7)
-  !!ir (updateAddrByOffset dst offset)
+let private stSts dstAddr addrSize offset ctxt ir =
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST0
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 (offset) addrSize) sta)
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 (offset + 8) addrSize) stb)
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST1
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 (offset + 10) addrSize) sta)
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 (offset + 18) addrSize) stb)
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST2
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 (offset + 20) addrSize) sta)
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 (offset + 28) addrSize) stb)
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST3
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 (offset + 30) addrSize) sta)
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 (offset + 38) addrSize) stb)
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST4
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 (offset + 40) addrSize) sta)
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 (offset + 48) addrSize) stb)
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST5
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 (offset + 50) addrSize) sta)
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 (offset + 58) addrSize) stb)
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST6
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 (offset + 60) addrSize) sta)
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 (offset + 68) addrSize) stb)
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST7
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 (offset + 70) addrSize) sta)
+  !!ir (AST.store Endian.Little (dstAddr .+ numI32 (offset + 78) addrSize) stb)
 
-let fsave ins insLen ctxt =
+let fnsave ins insLen ctxt =
   let ir = IRBuilder (32)
   let dst = transOneOpr ins insLen ctxt
-  let baseReg = getBaseReg dst
-  let regSave = !*ir (getAddrRegSize dst)
-  let addrRegSize = getAddrRegSize dst
+  let struct (addrExpr, addrSize) = getLoadAddressExpr dst
   !<ir insLen
-  !!ir (regSave := baseReg)
-  let eDst = extendAddr dst 112<rt>
-  m14Stenv eDst ctxt ir
-  !!ir (updateAddrByOffset eDst (numI32 28 addrRegSize))
-  stSts eDst ctxt ir
+  match TypeCheck.typeOf dst with
+  | 752<rt> ->
+    m14fstenv addrExpr addrSize ctxt ir
+    stSts addrExpr addrSize 14 ctxt ir
+  | 864<rt> ->
+    m28fstenv addrExpr addrSize ctxt ir
+    stSts addrExpr addrSize 28 ctxt ir
+  | _ -> raise InvalidOperandSizeException
   !!ir (!.ctxt R.FCW := numI32 0x037F 16<rt>)
   !!ir (!.ctxt R.FSW := AST.num0 16<rt>)
   !!ir (!.ctxt R.FTW := numI32 0xFFFF 16<rt>)
   !!ir (!.ctxt R.FDP := AST.num0 64<rt>)
   !!ir (!.ctxt R.FIP := AST.num0 64<rt>)
   !!ir (!.ctxt R.FOP := AST.num0 16<rt>)
-  !!ir (baseReg := regSave)
   !>ir insLen
 
-let private ldSts src ctxt ir =
-  !?ir (assignFPUReg R.ST0 (AST.xtlo 80<rt> src) ctxt)
-  !?ir (assignFPUReg R.ST1 (AST.extract src 80<rt> 80) ctxt)
-  !?ir (assignFPUReg R.ST2 (AST.extract src 80<rt> 160) ctxt)
-  !?ir (assignFPUReg R.ST3 (AST.extract src 80<rt> 240) ctxt)
-  !?ir (assignFPUReg R.ST4 (AST.extract src 80<rt> 320) ctxt)
-  !?ir (assignFPUReg R.ST5 (AST.extract src 80<rt> 400) ctxt)
-  !?ir (assignFPUReg R.ST6 (AST.extract src 80<rt> 480) ctxt)
-  !?ir (assignFPUReg R.ST7 (AST.extract src 80<rt> 560) ctxt)
+let private ldSts srcAddr addrSize offset ctxt ir =
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST0
+  !!ir (sta := AST.loadLE 64<rt> (srcAddr .+ numI32 (offset) addrSize))
+  !!ir (stb := AST.loadLE 16<rt> (srcAddr .+ numI32 (offset + 8) addrSize))
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST1
+  !!ir (sta := AST.loadLE 64<rt> (srcAddr .+ numI32 (offset + 10) addrSize))
+  !!ir (stb := AST.loadLE 16<rt> (srcAddr .+ numI32 (offset + 18) addrSize))
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST2
+  !!ir (sta := AST.loadLE 64<rt> (srcAddr .+ numI32 (offset + 20) addrSize))
+  !!ir (stb := AST.loadLE 16<rt> (srcAddr .+ numI32 (offset + 28) addrSize))
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST3
+  !!ir (sta := AST.loadLE 64<rt> (srcAddr .+ numI32 (offset + 30) addrSize))
+  !!ir (stb := AST.loadLE 16<rt> (srcAddr .+ numI32 (offset + 38) addrSize))
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST4
+  !!ir (sta := AST.loadLE 64<rt> (srcAddr .+ numI32 (offset + 40) addrSize))
+  !!ir (stb := AST.loadLE 16<rt> (srcAddr .+ numI32 (offset + 48) addrSize))
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST5
+  !!ir (sta := AST.loadLE 64<rt> (srcAddr .+ numI32 (offset + 50) addrSize))
+  !!ir (stb := AST.loadLE 16<rt> (srcAddr .+ numI32 (offset + 58) addrSize))
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST6
+  !!ir (sta := AST.loadLE 64<rt> (srcAddr .+ numI32 (offset + 60) addrSize))
+  !!ir (stb := AST.loadLE 16<rt> (srcAddr .+ numI32 (offset + 68) addrSize))
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST7
+  !!ir (sta := AST.loadLE 64<rt> (srcAddr .+ numI32 (offset + 70) addrSize))
+  !!ir (stb := AST.loadLE 16<rt> (srcAddr .+ numI32 (offset + 78) addrSize))
 
 let frstor ins insLen ctxt =
   let ir = IRBuilder (32)
   let src = transOneOpr ins insLen ctxt
+  let struct (addrExpr, addrSize) = getLoadAddressExpr src
   !<ir insLen
   match TypeCheck.typeOf src with
   | 752<rt> ->
-    m14fldenv (AST.xtlo 112<rt> src) ctxt ir
+    m14fldenv addrExpr addrSize ctxt ir
+    ldSts addrExpr addrSize 14 ctxt ir
   | 864<rt> ->
-    m28fldenv (AST.xtlo 224<rt> src) ctxt ir
+    m28fldenv addrExpr addrSize ctxt ir
+    ldSts addrExpr addrSize 28 ctxt ir
   | _ -> raise InvalidOperandSizeException
-  ldSts (AST.xthi 640<rt> src) ctxt ir
   !>ir insLen
 
 let fnstsw ins insLen ctxt =
@@ -1222,275 +1236,189 @@ let fnop _ins insLen ctxt =
   allCFlagsUndefined ctxt ir
   !>ir insLen
 
-let private saveFxsaveMMX ctxt addr offset ir =
-  let r64 = AST.num0 64<rt>
-  let mRegs =
-    [ r64
-      !.ctxt R.MM0; r64; !.ctxt R.MM1; r64; !.ctxt R.MM2; r64; !.ctxt R.MM3
-      r64
-      !.ctxt R.MM4; r64; !.ctxt R.MM5; r64; !.ctxt R.MM6; r64; !.ctxt R.MM7 ]
-  List.iter (fun reg -> !!ir (updateAddrByOffset addr offset)
-                        !!ir (addr := reg)) mRegs
+let inline private storeLE addr v =
+  AST.store Endian.Little addr v
 
-let private loadFxrstorMMX ctxt addr ir =
-  let offset = AST.num (BitVector.ofInt32 16 (getAddrRegSize addr))
-  let mRegs = [ R.MM0; R.MM1; R.MM2; R.MM3; R.MM4; R.MM5; R.MM6; R.MM7 ]
-  List.iter (fun reg -> !!ir (updateAddrByOffset addr (offset))
-                        !!ir (!.ctxt reg := addr)) mRegs
-
-let private saveFxsaveXMM ctxt addr offset xRegs ir =
-  let pv r = getPseudoRegVar128 ctxt r
-  let exprs =
-    List.fold(fun acc r -> let r2, r1 = pv r in r1 :: (r2 :: acc)) [] xRegs
-  List.iter (fun reg -> !!ir (updateAddrByOffset addr offset)
-                        !!ir (addr := reg)) exprs
-
-let private loadFxrstorXMM ctxt addr xRegs ir =
-  let pv r = getPseudoRegVar128 ctxt r
-  let offset = AST.num (BitVector.ofInt32 8 (getAddrRegSize addr))
-  let exprs =
-    List.fold (fun acc r -> let r2, r1 = pv r in r1 :: (r2 :: acc)) [] xRegs
-  List.iter (fun reg -> !!ir (updateAddrByOffset addr offset)
-                        !!ir (reg := addr)) exprs
-
-let private save64BitPromotedFxsave ctxt dst ir =
-  let reserved8 = AST.num0 8<rt>
-  let num3 = numI32 3 2<rt>
-  let struct (t0, t1, t2, t3) = tmpVars4 ir 1<rt>
-  let struct (t4, t5, t6, t7) = tmpVars4 ir 1<rt>
-  let abrTagW = !*ir 8<rt>
-  let offset = AST.num (BitVector.ofInt32 8 (getAddrRegSize dst))
-  let regSave = !*ir (getAddrRegSize dst)
-  let baseReg = getBaseReg dst
-  let xRegs =
-    [ R.XMM0; R.XMM1; R.XMM2; R.XMM3; R.XMM4; R.XMM5; R.XMM6; R.XMM7;
-      R.XMM8; R.XMM9; R.XMM10; R.XMM11; R.XMM12; R.XMM13; R.XMM14; R.XMM15 ]
-  !!ir (regSave := baseReg)
-  !!ir (abrTagW :=
-    AST.concat (AST.concat (AST.concat t7 t6) (AST.concat t5 t4))
-               (AST.concat (AST.concat t3 t2) (AST.concat t1 t0)))
-  !!ir (t0 := (!.ctxt R.FTW0 != num3))
-  !!ir (t1 := (!.ctxt R.FTW1 != num3))
-  !!ir (t2 := (!.ctxt R.FTW2 != num3))
-  !!ir (t3 := (!.ctxt R.FTW3 != num3))
-  !!ir (t4 := (!.ctxt R.FTW4 != num3))
-  !!ir (t5 := (!.ctxt R.FTW5 != num3))
-  !!ir (t6 := (!.ctxt R.FTW6 != num3))
-  !!ir (t7 := (!.ctxt R.FTW7 != num3))
-  !!ir (dst :=
-    AST.concat (AST.concat (!.ctxt R.FOP) (AST.concat reserved8 abrTagW))
-               (AST.concat (!.ctxt R.FSW) (!.ctxt R.FCW)))
-  !!ir (updateAddrByOffset dst offset)
-  !!ir (dst := !.ctxt R.FIP)
-  !!ir (updateAddrByOffset dst offset)
-  !!ir (dst := !.ctxt R.FDP)
-  !!ir (updateAddrByOffset dst offset)
-  !!ir (dst := AST.concat (!.ctxt R.MXCSRMASK) (!.ctxt R.MXCSR))
-  saveFxsaveMMX ctxt dst offset ir
-  saveFxsaveXMM ctxt dst offset (List.rev xRegs) ir
-  !!ir (baseReg := regSave)
-
-let private save64BitDefaultFxsave ctxt dst ir =
-  let reserved8 = AST.num0 8<rt>
-  let reserved16 = AST.num0 16<rt>
-  let num3 = numI32 3 2<rt>
-  let struct (t0, t1, t2, t3) = tmpVars4 ir 1<rt>
-  let struct (t4, t5, t6, t7) = tmpVars4 ir 1<rt>
-  let abrTagW = !*ir 8<rt>
-  let offset = AST.num (BitVector.ofInt32 8 (getAddrRegSize dst))
-  let regSave = !*ir (getAddrRegSize dst)
-  let baseReg = getBaseReg dst
-  let xRegs =
-    [ R.XMM0; R.XMM1; R.XMM2; R.XMM3; R.XMM4; R.XMM5; R.XMM6; R.XMM7;
-      R.XMM8; R.XMM9; R.XMM10; R.XMM11; R.XMM12; R.XMM13; R.XMM14; R.XMM15 ]
-  !!ir (regSave := baseReg)
-  !!ir (t0 := (!.ctxt R.FTW0 != num3))
-  !!ir (t1 := (!.ctxt R.FTW1 != num3))
-  !!ir (t2 := (!.ctxt R.FTW2 != num3))
-  !!ir (t3 := (!.ctxt R.FTW3 != num3))
-  !!ir (t4 := (!.ctxt R.FTW4 != num3))
-  !!ir (t5 := (!.ctxt R.FTW5 != num3))
-  !!ir (t6 := (!.ctxt R.FTW6 != num3))
-  !!ir (t7 := (!.ctxt R.FTW7 != num3))
-  !!ir (abrTagW :=
-    AST.concat (AST.concat (AST.concat t7 t6) (AST.concat t5 t4))
-               (AST.concat (AST.concat t3 t2) (AST.concat t1 t0)))
-  !!ir (dst :=
-    AST.concat (AST.concat (!.ctxt R.FOP) (AST.concat reserved8 abrTagW))
-               (AST.concat (!.ctxt R.FSW) (!.ctxt R.FCW)))
-  !!ir (updateAddrByOffset dst offset)
-  !!ir (dst := AST.concat (AST.xtlo 32<rt> (!.ctxt R.FIP))
-                           (AST.concat (!.ctxt R.FCS) reserved16))
-  !!ir (updateAddrByOffset dst offset)
-  !!ir (dst := AST.concat (AST.xtlo 32<rt> (!.ctxt R.FDP))
-                           (AST.concat (!.ctxt R.FDS) reserved16))
-  !!ir (updateAddrByOffset dst offset)
-  !!ir (dst := AST.concat (!.ctxt R.MXCSRMASK) (!.ctxt R.MXCSR))
-  saveFxsaveMMX ctxt dst offset ir
-  saveFxsaveXMM ctxt dst offset (List.rev xRegs) ir
-  !!ir (baseReg := regSave)
-
-let private saveLegacyFxsave ctxt dst ir =
-  let reserved8 = AST.num0 8<rt>
-  let reserved16 = AST.num0 16<rt>
-  let num3 = numI32 3 2<rt>
-  let struct (t0, t1, t2, t3) = tmpVars4 ir 1<rt>
-  let struct (t4, t5, t6, t7) = tmpVars4 ir 1<rt>
-  let abrTagW = !*ir 8<rt>
-  let offset = AST.num (BitVector.ofInt32 8 (getAddrRegSize dst))
-  let regSave = !*ir (getAddrRegSize dst)
-  let baseReg = getBaseReg dst
-  let xRegs = [ R.XMM0; R.XMM1; R.XMM2; R.XMM3; R.XMM4; R.XMM5; R.XMM6; R.XMM7 ]
-  !!ir (regSave := baseReg)
-  !!ir (t0 := (!.ctxt R.FTW0 != num3))
-  !!ir (t1 := (!.ctxt R.FTW1 != num3))
-  !!ir (t2 := (!.ctxt R.FTW2 != num3))
-  !!ir (t3 := (!.ctxt R.FTW3 != num3))
-  !!ir (t4 := (!.ctxt R.FTW4 != num3))
-  !!ir (t5 := (!.ctxt R.FTW5 != num3))
-  !!ir (t6 := (!.ctxt R.FTW6 != num3))
-  !!ir (t7 := (!.ctxt R.FTW7 != num3))
-  !!ir (abrTagW :=
-    AST.concat (AST.concat (AST.concat t7 t6) (AST.concat t5 t4))
-               (AST.concat (AST.concat t3 t2) (AST.concat t1 t0)))
-  !!ir (dst :=
-    AST.concat (AST.concat (!.ctxt R.FOP) (AST.concat reserved8 abrTagW))
-               (AST.concat (!.ctxt R.FSW) (!.ctxt R.FCW)))
-  !!ir (updateAddrByOffset dst offset)
-  !!ir
-    (dst := AST.concat (AST.xtlo 32<rt> (!.ctxt R.FIP))
-                       (AST.concat (!.ctxt R.FCS) reserved16))
-  !!ir (updateAddrByOffset dst offset)
-  !!ir (dst := AST.concat (AST.xtlo 32<rt> (!.ctxt R.FDP))
-                            (AST.concat (!.ctxt R.FDS) reserved16))
-  !!ir (updateAddrByOffset dst offset)
-  !!ir (dst := AST.concat (!.ctxt R.MXCSRMASK) (!.ctxt R.MXCSR))
-  saveFxsaveMMX ctxt dst offset ir
-  saveFxsaveXMM ctxt dst offset (List.rev xRegs) ir
-  !!ir (baseReg := regSave)
-
-let private load64BitPromotedFxrstor ctxt src ir =
-  let offset = AST.num (BitVector.ofInt32 8 (getAddrRegSize src))
-  let xRegs =
-    [ R.XMM0; R.XMM1; R.XMM2; R.XMM3; R.XMM4; R.XMM5; R.XMM6; R.XMM7;
-      R.XMM8; R.XMM9; R.XMM10; R.XMM11; R.XMM12; R.XMM13; R.XMM14; R.XMM15 ]
-  let tSrc = !*ir 64<rt>
-  !!ir (tSrc := src)
-  !!ir (!.ctxt R.FCW := AST.xtlo 16<rt> tSrc)
-  !!ir (!.ctxt R.FSW := AST.extract tSrc 16<rt> 16)
-  !!ir (!.ctxt R.FTW := AST.extract tSrc 8<rt> 32)
-  !!ir (!.ctxt R.FOP := AST.extract tSrc 16<rt> 48)
-  !!ir (updateAddrByOffset src offset)
-  !!ir (tSrc := src)
-  !!ir (!.ctxt R.FIP := tSrc)
-  !!ir (updateAddrByOffset src offset)
-  !!ir (tSrc := src)
-  !!ir (!.ctxt R.FDP := tSrc)
-  !!ir (updateAddrByOffset src offset)
-  !!ir (tSrc := src)
-  !!ir (!.ctxt R.MXCSR := AST.xtlo 32<rt> tSrc)
-  !!ir (!.ctxt R.MXCSRMASK := AST.xthi 32<rt> tSrc)
-  loadFxrstorMMX ctxt src ir
-  loadFxrstorXMM ctxt src xRegs ir
-
-let private load64BitDefaultFxrstor ctxt src ir =
-  let offset = AST.num (BitVector.ofInt32 8 (getAddrRegSize src))
-  let regSave = !*ir (getAddrRegSize src)
-  let baseReg = getBaseReg src
-  let struct (t0, t1, t2, t3) = tmpVars4 ir 2<rt>
-  let struct (t4, t5, t6, t7) = tmpVars4 ir 2<rt>
-  let tmp8 = !*ir 8<rt>
-  let zero2 = AST.num0 2<rt>
-  let three2 = numI32 3 2<rt>
-  let xRegs =
-    [ R.XMM0; R.XMM1; R.XMM2; R.XMM3; R.XMM4; R.XMM5; R.XMM6; R.XMM7;
-      R.XMM8; R.XMM9; R.XMM10; R.XMM11; R.XMM12; R.XMM13; R.XMM14; R.XMM15 ]
-  !!ir (regSave := baseReg)
-  !!ir (tmp8 := AST.extract src 8<rt> 32)
-  !!ir (t0 := AST.ite (AST.xtlo 1<rt> tmp8) zero2 three2)
-  !!ir (t1 := AST.ite (AST.extract tmp8 1<rt> 1) zero2 three2)
-  !!ir (t2 := AST.ite (AST.extract tmp8 1<rt> 2) zero2 three2)
-  !!ir (t3 := AST.ite (AST.extract tmp8 1<rt> 3) zero2 three2)
-  !!ir (t4 := AST.ite (AST.extract tmp8 1<rt> 4) zero2 three2)
-  !!ir (t5 := AST.ite (AST.extract tmp8 1<rt> 5) zero2 three2)
-  !!ir (t6 := AST.ite (AST.extract tmp8 1<rt> 6) zero2 three2)
-  !!ir (t7 := AST.ite (AST.extract tmp8 1<rt> 7) zero2 three2)
-  !!ir (!.ctxt R.FCW := AST.xtlo 16<rt> src)
-  !!ir (!.ctxt R.FSW := AST.extract src 16<rt> 16)
-  !!ir (!.ctxt R.FTW :=
-    AST.concat (AST.concat (AST.concat t7 t6) (AST.concat t5 t4))
-               (AST.concat (AST.concat t3 t2) (AST.concat t1 t0)))
-  !!ir (!.ctxt R.FOP := AST.extract src 16<rt> 48)
-  !!ir (updateAddrByOffset src offset)
-  !!ir (AST.xtlo 32<rt> (!.ctxt R.FIP) := AST.xtlo 32<rt> src)
-  !!ir (!.ctxt R.FCS := AST.extract src 16<rt> 32)
-  !!ir (updateAddrByOffset src offset)
-  !!ir (AST.xtlo 32<rt> (!.ctxt R.FDP) := AST.xtlo 32<rt> src)
-  !!ir (!.ctxt R.FDS := AST.extract src 16<rt> 32)
-  !!ir (updateAddrByOffset src offset)
-  !!ir (!.ctxt R.MXCSR := AST.xtlo 32<rt> src)
-  !!ir (!.ctxt R.MXCSRMASK := AST.xthi 32<rt> src)
-  loadFxrstorMMX ctxt src ir
-  loadFxrstorXMM ctxt src (List.rev xRegs) ir
-  !!ir (baseReg := regSave)
-
-let private loadLegacyFxrstor ctxt src ir =
-  let offset = AST.num (BitVector.ofInt32 8 (getAddrRegSize src))
-  let xRegs = [ R.XMM0; R.XMM1; R.XMM2; R.XMM3; R.XMM4; R.XMM5; R.XMM6; R.XMM7 ]
-  let tSrc = !*ir 64<rt>
-  let struct (t0, t1, t2, t3) = tmpVars4 ir 1<rt>
-  let struct (t4, t5, t6, t7) = tmpVars4 ir 1<rt>
-  let abrTagW = !*ir 8<rt>
-  let num0, num3 = numI32 0 2<rt>, numI32 3 2<rt>
-  !!ir (abrTagW :=
-    AST.concat (AST.concat (AST.concat t7 t6) (AST.concat t5 t4))
-               (AST.concat (AST.concat t3 t2) (AST.concat t1 t0)))
-  !!ir (tSrc := src)
-  !!ir (!.ctxt R.FCW := AST.xtlo 16<rt> tSrc)
-  !!ir (!.ctxt R.FSW := AST.extract tSrc 16<rt> 16)
-  !!ir (abrTagW := AST.extract tSrc 8<rt> 32)
-  !!ir (!.ctxt R.FTW0 := AST.ite t0 num0 num3)
-  !!ir (!.ctxt R.FTW1 := AST.ite t1 num0 num3)
-  !!ir (!.ctxt R.FTW2 := AST.ite t2 num0 num3)
-  !!ir (!.ctxt R.FTW3 := AST.ite t3 num0 num3)
-  !!ir (!.ctxt R.FTW4 := AST.ite t4 num0 num3)
-  !!ir (!.ctxt R.FTW5 := AST.ite t5 num0 num3)
-  !!ir (!.ctxt R.FTW6 := AST.ite t6 num0 num3)
-  !!ir (!.ctxt R.FTW7 := AST.ite t7 num0 num3)
-  !!ir (!.ctxt R.FOP := AST.extract tSrc 16<rt> 48)
-  !!ir (updateAddrByOffset src offset)
-  !!ir (tSrc := src)
-  !!ir (AST.xtlo 32<rt> (!.ctxt R.FIP) := AST.xtlo 32<rt> tSrc)
-  !!ir (!.ctxt R.FCS := AST.extract tSrc 16<rt> 32)
-  !!ir (updateAddrByOffset src offset)
-  !!ir (tSrc := src)
-  !!ir (AST.xtlo 32<rt> (!.ctxt R.FDP) := AST.xtlo 32<rt> tSrc)
-  !!ir (!.ctxt R.FDS := AST.extract tSrc 16<rt> 32)
-  !!ir (updateAddrByOffset src offset)
-  !!ir (tSrc := src)
-  !!ir (!.ctxt R.MXCSR := AST.xtlo 32<rt> tSrc)
-  !!ir (!.ctxt R.MXCSRMASK := AST.xthi 32<rt>tSrc)
-  loadFxrstorMMX ctxt src ir
-  loadFxrstorXMM ctxt src xRegs ir
-
-let fxrstor ins insLen ctxt =
-  let ir = IRBuilder (128)
-  let src = transOneOpr ins insLen ctxt
-  let eSrc = extendAddr src 64<rt>
-  !<ir insLen
-  if ctxt.WordBitSize = 64<rt> then
-    if hasREXW ins.REXPrefix then load64BitPromotedFxrstor ctxt eSrc ir
-    else load64BitDefaultFxrstor ctxt eSrc ir
-  else loadLegacyFxrstor ctxt eSrc ir
-  !>ir insLen
+let private fxsaveInternal ctxt dstAddr addrSize is64bit ir =
+  !!ir (storeLE (dstAddr) (!.ctxt R.FCW))
+  !!ir (storeLE (dstAddr .+ (numI32 2 addrSize)) (!.ctxt R.FSW))
+  !!ir (storeLE (dstAddr .+ (numI32 4 addrSize)) (!.ctxt R.FTW))
+  !!ir (storeLE (dstAddr .+ (numI32 6 addrSize)) (!.ctxt R.FOP))
+  !!ir (storeLE (dstAddr .+ (numI32 8 addrSize)) (!.ctxt R.FIP))
+  !!ir (storeLE (dstAddr .+ (numI32 16 addrSize)) (!.ctxt R.FDP))
+  !!ir (storeLE (dstAddr .+ (numI32 24 addrSize)) (!.ctxt R.MXCSR))
+  !!ir (storeLE (dstAddr .+ (numI32 28 addrSize)) (!.ctxt R.MXCSRMASK))
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST0
+  !!ir (storeLE (dstAddr .+ (numI32 32 addrSize)) sta)
+  !!ir (storeLE (dstAddr .+ (numI32 40 addrSize)) stb)
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST1
+  !!ir (storeLE (dstAddr .+ (numI32 48 addrSize)) sta)
+  !!ir (storeLE (dstAddr .+ (numI32 56 addrSize)) stb)
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST2
+  !!ir (storeLE (dstAddr .+ (numI32 64 addrSize)) sta)
+  !!ir (storeLE (dstAddr .+ (numI32 72 addrSize)) stb)
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST3
+  !!ir (storeLE (dstAddr .+ (numI32 80 addrSize)) sta)
+  !!ir (storeLE (dstAddr .+ (numI32 88 addrSize)) stb)
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST4
+  !!ir (storeLE (dstAddr .+ (numI32 96 addrSize)) sta)
+  !!ir (storeLE (dstAddr .+ (numI32 104 addrSize)) stb)
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST5
+  !!ir (storeLE (dstAddr .+ (numI32 112 addrSize)) sta)
+  !!ir (storeLE (dstAddr .+ (numI32 120 addrSize)) stb)
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST6
+  !!ir (storeLE (dstAddr .+ (numI32 128 addrSize)) sta)
+  !!ir (storeLE (dstAddr .+ (numI32 136 addrSize)) stb)
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST7
+  !!ir (storeLE (dstAddr .+ (numI32 144 addrSize)) sta)
+  !!ir (storeLE (dstAddr .+ (numI32 152 addrSize)) stb)
+  let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM0
+  !!ir (storeLE (dstAddr .+ (numI32 160 addrSize)) xmma)
+  !!ir (storeLE (dstAddr .+ (numI32 168 addrSize)) xmmb)
+  let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM1
+  !!ir (storeLE (dstAddr .+ (numI32 176 addrSize)) xmma)
+  !!ir (storeLE (dstAddr .+ (numI32 184 addrSize)) xmmb)
+  let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM2
+  !!ir (storeLE (dstAddr .+ (numI32 192 addrSize)) xmma)
+  !!ir (storeLE (dstAddr .+ (numI32 200 addrSize)) xmmb)
+  let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM3
+  !!ir (storeLE (dstAddr .+ (numI32 208 addrSize)) xmma)
+  !!ir (storeLE (dstAddr .+ (numI32 216 addrSize)) xmmb)
+  let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM4
+  !!ir (storeLE (dstAddr .+ (numI32 224 addrSize)) xmma)
+  !!ir (storeLE (dstAddr .+ (numI32 232 addrSize)) xmmb)
+  let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM5
+  !!ir (storeLE (dstAddr .+ (numI32 240 addrSize)) xmma)
+  !!ir (storeLE (dstAddr .+ (numI32 248 addrSize)) xmmb)
+  let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM6
+  !!ir (storeLE (dstAddr .+ (numI32 256 addrSize)) xmma)
+  !!ir (storeLE (dstAddr .+ (numI32 264 addrSize)) xmmb)
+  let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM7
+  !!ir (storeLE (dstAddr .+ (numI32 272 addrSize)) xmma)
+  !!ir (storeLE (dstAddr .+ (numI32 280 addrSize)) xmmb)
+  if is64bit then
+    let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM8
+    !!ir (storeLE (dstAddr .+ (numI32 288 addrSize)) xmma)
+    !!ir (storeLE (dstAddr .+ (numI32 296 addrSize)) xmmb)
+    let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM9
+    !!ir (storeLE (dstAddr .+ (numI32 304 addrSize)) xmma)
+    !!ir (storeLE (dstAddr .+ (numI32 312 addrSize)) xmmb)
+    let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM10
+    !!ir (storeLE (dstAddr .+ (numI32 320 addrSize)) xmma)
+    !!ir (storeLE (dstAddr .+ (numI32 328 addrSize)) xmmb)
+    let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM11
+    !!ir (storeLE (dstAddr .+ (numI32 336 addrSize)) xmma)
+    !!ir (storeLE (dstAddr .+ (numI32 344 addrSize)) xmmb)
+    let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM12
+    !!ir (storeLE (dstAddr .+ (numI32 352 addrSize)) xmma)
+    !!ir (storeLE (dstAddr .+ (numI32 360 addrSize)) xmmb)
+    let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM13
+    !!ir (storeLE (dstAddr .+ (numI32 368 addrSize)) xmma)
+    !!ir (storeLE (dstAddr .+ (numI32 376 addrSize)) xmmb)
+    let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM14
+    !!ir (storeLE (dstAddr .+ (numI32 384 addrSize)) xmma)
+    !!ir (storeLE (dstAddr .+ (numI32 392 addrSize)) xmmb)
+    let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM15
+    !!ir (storeLE (dstAddr .+ (numI32 400 addrSize)) xmma)
+    !!ir (storeLE (dstAddr .+ (numI32 408 addrSize)) xmmb)
+  else ()
 
 let fxsave ins insLen ctxt =
   let ir = IRBuilder (128)
   let dst = transOneOpr ins insLen ctxt
-  let eDst = extendAddr dst 64<rt>
+  let struct (addrExpr, addrSize) = getLoadAddressExpr dst
   !<ir insLen
-  if ctxt.WordBitSize = 64<rt> then
-    if hasREXW ins.REXPrefix then save64BitPromotedFxsave ctxt eDst ir
-    else save64BitDefaultFxsave ctxt eDst ir
-  else saveLegacyFxsave ctxt eDst ir
+  !?ir (fxsaveInternal ctxt addrExpr addrSize (ctxt.WordBitSize = 64<rt>))
+  !>ir insLen
+
+let private fxrstoreInternal ctxt srcAddr addrSz is64bit ir =
+  !!ir (!.ctxt R.FCW := AST.loadLE 16<rt> (srcAddr))
+  !!ir (!.ctxt R.FSW := AST.loadLE 16<rt> (srcAddr .+ (numI32 2 addrSz)))
+  !!ir (!.ctxt R.FTW := AST.loadLE 16<rt> (srcAddr .+ (numI32 4 addrSz)))
+  !!ir (!.ctxt R.FOP := AST.loadLE 16<rt> (srcAddr .+ (numI32 6 addrSz)))
+  !!ir (!.ctxt R.FIP := AST.loadLE 64<rt> (srcAddr .+ (numI32 8 addrSz)))
+  !!ir (!.ctxt R.FDP := AST.loadLE 64<rt> (srcAddr .+ (numI32 16 addrSz)))
+  !!ir (!.ctxt R.MXCSR := AST.loadLE 32<rt> (srcAddr .+ (numI32 24 addrSz)))
+  !!ir (!.ctxt R.MXCSRMASK := AST.loadLE 32<rt> (srcAddr .+ (numI32 28 addrSz)))
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST0
+  !!ir (sta := AST.loadLE 64<rt> (srcAddr .+ (numI32 32 addrSz)))
+  !!ir (stb := AST.loadLE 16<rt> (srcAddr .+ (numI32 40 addrSz)))
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST1
+  !!ir (sta := AST.loadLE 64<rt> (srcAddr .+ (numI32 48 addrSz)))
+  !!ir (stb := AST.loadLE 16<rt> (srcAddr .+ (numI32 56 addrSz)))
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST2
+  !!ir (sta := AST.loadLE 64<rt> (srcAddr .+ (numI32 64 addrSz)))
+  !!ir (stb := AST.loadLE 16<rt> (srcAddr .+ (numI32 72 addrSz)))
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST3
+  !!ir (sta := AST.loadLE 64<rt> (srcAddr .+ (numI32 80 addrSz)))
+  !!ir (stb := AST.loadLE 16<rt> (srcAddr .+ (numI32 88 addrSz)))
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST4
+  !!ir (sta := AST.loadLE 64<rt> (srcAddr .+ (numI32 96 addrSz)))
+  !!ir (stb := AST.loadLE 16<rt> (srcAddr .+ (numI32 104 addrSz)))
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST5
+  !!ir (sta := AST.loadLE 64<rt> (srcAddr .+ (numI32 112 addrSz)))
+  !!ir (stb := AST.loadLE 16<rt> (srcAddr .+ (numI32 120 addrSz)))
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST6
+  !!ir (sta := AST.loadLE 64<rt> (srcAddr .+ (numI32 128 addrSz)))
+  !!ir (stb := AST.loadLE 16<rt> (srcAddr .+ (numI32 136 addrSz)))
+  let struct (stb, sta) = getFPUPseudoRegVars ctxt R.ST7
+  !!ir (sta := AST.loadLE 64<rt> (srcAddr .+ (numI32 144 addrSz)))
+  !!ir (stb := AST.loadLE 16<rt> (srcAddr .+ (numI32 152 addrSz)))
+  let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM0
+  !!ir (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 160 addrSz)))
+  !!ir (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 168 addrSz)))
+  let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM1
+  !!ir (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 176 addrSz)))
+  !!ir (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 184 addrSz)))
+  let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM2
+  !!ir (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 192 addrSz)))
+  !!ir (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 200 addrSz)))
+  let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM3
+  !!ir (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 208 addrSz)))
+  !!ir (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 216 addrSz)))
+  let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM4
+  !!ir (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 224 addrSz)))
+  !!ir (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 232 addrSz)))
+  let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM5
+  !!ir (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 240 addrSz)))
+  !!ir (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 248 addrSz)))
+  let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM6
+  !!ir (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 256 addrSz)))
+  !!ir (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 264 addrSz)))
+  let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM7
+  !!ir (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 272 addrSz)))
+  !!ir (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 280 addrSz)))
+  if is64bit then
+    let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM8
+    !!ir (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 288 addrSz)))
+    !!ir (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 296 addrSz)))
+    let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM9
+    !!ir (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 304 addrSz)))
+    !!ir (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 312 addrSz)))
+    let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM10
+    !!ir (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 320 addrSz)))
+    !!ir (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 328 addrSz)))
+    let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM11
+    !!ir (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 336 addrSz)))
+    !!ir (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 344 addrSz)))
+    let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM12
+    !!ir (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 352 addrSz)))
+    !!ir (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 360 addrSz)))
+    let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM13
+    !!ir (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 368 addrSz)))
+    !!ir (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 376 addrSz)))
+    let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM14
+    !!ir (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 384 addrSz)))
+    !!ir (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 392 addrSz)))
+    let xmmb, xmma = getPseudoRegVar128 ctxt R.XMM15
+    !!ir (xmma := AST.loadLE 64<rt> (srcAddr .+ (numI32 400 addrSz)))
+    !!ir (xmmb := AST.loadLE 64<rt> (srcAddr .+ (numI32 408 addrSz)))
+  else ()
+
+let fxrstor ins insLen ctxt =
+  let ir = IRBuilder (128)
+  let src = transOneOpr ins insLen ctxt
+  let struct (addrExpr, addrSize) = getLoadAddressExpr src
+  !<ir insLen
+  !?ir (fxrstoreInternal ctxt addrExpr addrSize (ctxt.WordBitSize = 64<rt>))
   !>ir insLen

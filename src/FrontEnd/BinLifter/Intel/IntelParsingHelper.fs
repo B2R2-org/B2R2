@@ -289,7 +289,7 @@ module internal ParsingHelper = begin
     | 0b010 -> FST
     | 0b011 -> FSTP
     | 0b100 -> FRSTOR
-    | 0b110 -> FSAVE
+    | 0b110 -> FNSAVE
     | 0b111 -> FNSTSW
     | _ -> raise ParsingFailureException
 
