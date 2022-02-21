@@ -78,6 +78,11 @@ let inline getOperationSize (i: InsInfo) = i.MainOperationSize
 
 let inline getEffAddrSz (i: InsInfo) = i.PointerSize
 
+let inline getImmValue imm =
+  match imm with
+  | OprImm (imm, _) -> imm
+  | _ -> raise InvalidOperandException
+
 let private getMemExpr128 expr =
   match expr.E with
   | Load (e, 128<rt>, expr, _) ->

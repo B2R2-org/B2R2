@@ -509,6 +509,7 @@ let translate (ins: IntelInternalInstruction) insLen ctxt =
   | OP.VPXOR -> AVXLifter.vpxor ins insLen ctxt
   | OP.VPXORD -> AVXLifter.vpxord ins insLen ctxt
   | OP.VZEROUPPER -> AVXLifter.vzeroupper ins insLen ctxt
+  | OP.VEXTRACTI32X8 -> AVXLifter.vextracti32x8 ins insLen ctxt
   | OP.VERW -> LiftingUtils.sideEffects insLen UnsupportedPrivInstr
   | OP.VFMADD132SD -> AVXLifter.vfmadd132sd ins insLen ctxt
   | OP.VFMADD213SD -> AVXLifter.vfmadd213sd ins insLen ctxt

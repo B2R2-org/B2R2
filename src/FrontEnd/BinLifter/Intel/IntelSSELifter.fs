@@ -1046,9 +1046,7 @@ let pextrw ins insLen ctxt =
   let ir = IRBuilder (8)
   let struct (dst, src, count) = getThreeOprs ins
   let dst = transOprToExpr ins insLen ctxt dst
-  let count =
-    transOprToExpr ins insLen ctxt count
-    |> AST.xtlo 8<rt> .& numU32 7u 8<rt>
+  let count = getImmValue count
   let oprSize = getOperationSize ins
   !<ir insLen
   match src with
@@ -1056,19 +1054,21 @@ let pextrw ins insLen ctxt =
     match Register.getKind reg with
     | Register.Kind.MMX ->
       let src = transOprToExpr ins insLen ctxt src
-      let srcOffset = !*ir 64<rt>
-      !!ir (srcOffset := AST.zext 64<rt> count)
-      let t = (src >> (srcOffset .* numU32 16u 64<rt>)) .& numU32 0xFFFFu 64<rt>
+      let count = count &&& 0b11 (* COUNT[1:0] *)
+      let sel = !*ir 64<rt>
+      !!ir (sel := numI64 count 64<rt>)
+      let t = (src >> (sel .* numU32 16u 64<rt>)) .& numU32 0xFFFFu 64<rt>
       !!ir (dstAssign oprSize dst (AST.xtlo oprSize t))
     | Register.Kind.XMM ->
       let srcB, srcA = getPseudoRegVar128 ctxt reg
-      let tSrc = !*ir 128<rt>
-      let srcOffset = !*ir 128<rt>
-      !!ir (srcOffset := AST.zext 128<rt> count)
-      !!ir (tSrc := AST.concat srcB srcA)
-      let t = (tSrc >> (srcOffset .* numU32 16u 128<rt>)) .&
-              numU32 0xFFFFu 128<rt>
-      !!ir (dstAssign oprSize dst (AST.xtlo oprSize t))
+      let count = (count &&& 0b111) (* COUNT[2:0] *) * 16L
+      let lAmt = numI64 (64L - (count % 64L)) 64<rt> (* Left Shift *)
+      let rAmt = numI64 (count % 64L) 64<rt> (* Right Shift *)
+      let result =
+        if count < 64 then
+          ((srcB << lAmt) .| (srcA >> rAmt)) .& numU32 0xFFFFu 64<rt>
+        else (srcB >> rAmt) .& numU32 0xFFFFu 64<rt>
+      !!ir (dstAssign oprSize dst (AST.xtlo 16<rt> result))
     | _ -> raise InvalidRegisterException
   | _ -> raise InvalidOperandException
   !>ir insLen
@@ -1078,9 +1078,6 @@ let pinsrw ins insLen ctxt =
   let struct (dst, src, count) = getThreeOprs ins
   let src = transOprToExpr ins insLen ctxt src
   let sel = !*ir 64<rt>
-  let getImm = function
-    | OprImm (imm, _) -> imm
-    | _ -> raise InvalidOperandException
   !<ir insLen
   match dst with
   | OprReg reg ->
@@ -1097,7 +1094,7 @@ let pinsrw ins insLen ctxt =
     | 128<rt> ->
       let dst1, dst2 = transOprToExpr128 ins insLen ctxt dst
       let mask = !*ir 64<rt>
-      let count = getImm count
+      let count = getImmValue count
       !!ir (sel := numI64 count 64<rt> .| numI64 7L 64<rt>)
       if count > 3L then
         let pos = (sel .- numI32 4 64<rt>) .* numI32 16 64<rt>
@@ -1224,26 +1221,25 @@ let pshufd ins insLen ctxt =
   let struct (dst, src, ord) = getThreeOprs ins
   let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
   let srcB, srcA = transOprToExpr128 ins insLen ctxt src
-  let ord = transOprToExpr ins insLen ctxt ord
+  let ord = getImmValue ord
   let oprSize = getOperationSize ins
   let cnt = RegType.toBitWidth oprSize / 32
   let ir = IRBuilder (2 * cnt)
+  let rShiftTo64 hiExpr lowExpr amount =
+    let rightAmt = numI64 (amount % 64L) 64<rt>
+    let leftAmt = numI64 (64L - (amount % 64L)) 64<rt>
+    if amount < 64L then
+      AST.xtlo 32<rt> ((hiExpr << leftAmt) .| (lowExpr >> rightAmt))
+    elif amount < 128 then AST.xtlo 32<rt> (hiExpr >> rightAmt)
+    else AST.num0 32<rt>
+  let amount idx = ((ord >>> (idx * 2)) &&& 0b11L) * 32L
+  let struct (tSrcB, tSrcA) = tmpVars2 ir 64<rt>
   !<ir insLen
-  let tmps = Array.init cnt (fun _ -> !*ir 32<rt>)
-  let n32 = numI32 32 oprSize
-  let mask2 = numI32 3 32<rt> (* 2-bit mask *)
-  let tSrc = !*ir oprSize
-  let tDst = !*ir oprSize
-  !!ir (tSrc := AST.concat srcB srcA)
-  for i in 1 .. cnt do
-    let order =
-      ((AST.xtlo 32<rt> ord) >> (numI32 ((i - 1) * 2) 32<rt>)) .& mask2
-    let order' = AST.zext oprSize order
-    !!ir (tmps[i - 1] := AST.xtlo 32<rt> (tSrc >> (order' .* n32)))
-  done
-  !!ir (tDst := AST.concatArr tmps)
-  !!ir (dstA := AST.xtlo 64<rt> tDst)
-  !!ir (dstB := AST.xthi 64<rt> tDst)
+  !!ir (tSrcA := srcA)
+  !!ir (tSrcB := srcB)
+  let src amtIdx = rShiftTo64 tSrcB tSrcA (amount amtIdx)
+  !!ir (dstA := AST.concat (src 1) (src 0))
+  !!ir (dstB := AST.concat (src 3) (src 2))
   !>ir insLen
 
 let pshuflw ins insLen ctxt =
@@ -1251,14 +1247,14 @@ let pshuflw ins insLen ctxt =
   let struct (dst, src, imm) = getThreeOprs ins
   let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
   let srcB, srcA = transOprToExpr128 ins insLen ctxt src
-  let imm = transOprToExpr ins insLen ctxt imm
+  let imm = numI64 (getImmValue imm) 64<rt>
   !<ir insLen
   let tmps = Array.init 4 (fun _ -> !*ir 16<rt>)
   let n16 = numI32 16 64<rt>
   let mask2 = numI32 3 64<rt> (* 2-bit mask *)
   for i in 1 .. 4 do
     let imm =
-      ((AST.xtlo 64<rt> imm) >> (numI32 ((i - 1) * 2) 64<rt>)) .& mask2
+      (imm >> (numI32 ((i - 1) * 2) 64<rt>)) .& mask2
     !!ir (tmps[i - 1] := AST.xtlo 16<rt> (srcA >> (imm .* n16)))
   done
   !!ir (dstA := AST.concatArr tmps)
@@ -1269,7 +1265,7 @@ let pshufhw ins insLen ctxt =
   let struct (dst, src, imm) = getThreeOprs ins
   let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
   let srcB, srcA = transOprToExpr128 ins insLen ctxt src
-  let imm = transOprToExpr ins insLen ctxt imm
+  let imm = numI64 (getImmValue imm) 64<rt>
   let ir = IRBuilder (8)
   !<ir insLen
   let tmps = Array.init 4 (fun _ -> !*ir 16<rt>)
@@ -1277,7 +1273,7 @@ let pshufhw ins insLen ctxt =
   let mask2 = numI32 3 64<rt> (* 2-bit mask *)
   for i in 1 .. 4 do
     let imm =
-      ((AST.xtlo 64<rt> imm) >> (numI32 ((i - 1) * 2) 64<rt>)) .& mask2
+      (imm >> (numI32 ((i - 1) * 2) 64<rt>)) .& mask2
     !!ir (tmps[i - 1] := AST.xtlo 16<rt> (srcB >> (imm .* n16)))
   done
   !!ir (dstA := srcA)
@@ -1289,9 +1285,11 @@ let pshufb ins insLen ctxt =
   let cnt = RegType.toBitWidth oprSize / 8
   let ir = IRBuilder (2 * cnt)
   !<ir insLen
-  let tmps = Array.init cnt (fun _ -> !*ir 8<rt>)
   let mask = numI32 (cnt - 1) 8<rt>
-  let genTmps dst src =
+  match oprSize with
+  | 64<rt> ->
+    let struct (dst, src) = transTwoOprs ins insLen ctxt
+    let tmps = Array.init cnt (fun _ -> !*ir 8<rt>)
     for i in 0 .. cnt - 1 do
       let cond = AST.extract src 1<rt> (i * 8 + 7)
       let idx = (AST.extract src 8<rt> (i * 8)) .& mask
@@ -1300,23 +1298,28 @@ let pshufb ins insLen ctxt =
         (tmps[i] :=
           AST.ite cond (AST.num0 8<rt>) (AST.xtlo 8<rt> (dst >> numShift)))
     done
-  match oprSize with
-  | 64<rt> ->
-    let struct (dst, src) = transTwoOprs ins insLen ctxt
-    genTmps dst src
     !!ir (dst := AST.concatArr tmps)
   | 128<rt> ->
     let struct (dst, src) = getTwoOprs ins
     let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
     let srcB, srcA = transOprToExpr128 ins insLen ctxt src
-    let struct (conDst, conSrc) = tmpVars2 ir oprSize
-    let tDst = !*ir oprSize
-    !!ir (conDst := AST.concat dstB dstA)
-    !!ir (conSrc := AST.concat srcB srcA)
-    genTmps conDst conSrc
-    !!ir (tDst := AST.concatArr tmps)
-    !!ir (dstA := AST.xtlo 64<rt> tDst)
-    !!ir (dstB := AST.xthi 64<rt> tDst)
+    let highTmps = Array.init (cnt / 2) (fun _ -> !*ir 8<rt>)
+    let lowTmps = Array.init (cnt / 2) (fun _ -> !*ir 8<rt>)
+    let struct (tDst, tSrc) = tmpVars2 ir 64<rt>
+    for i in 0 .. cnt - 1 do
+      !!ir (tSrc := if i < 8 then srcA else srcB)
+      let cond = AST.extract tSrc 1<rt> (((i * 8) % 64) + 7)
+      let idx = (AST.extract tSrc 8<rt> ((i * 8) % 64)) .& mask
+      let numShift =
+        ((AST.zext 64<rt> idx) .* (numI32 8 64<rt>)) .% (numI32 64 64<rt>)
+      !!ir (tDst := AST.ite (idx .< numI32 8 8<rt>) dstA dstB)
+      let n0 = AST.num0 8<rt>
+      let temp = AST.xtlo 8<rt> (tDst >> numShift)
+      if i < 8 then !!ir (lowTmps[i] := AST.ite cond n0 temp)
+      else !!ir (highTmps[i - 8] := AST.ite cond n0 temp)
+    done
+    !!ir (dstA := AST.concatArr lowTmps)
+    !!ir (dstB := AST.concatArr highTmps)
   | _ -> raise InvalidOperandSizeException
   !>ir insLen
 
@@ -1358,27 +1361,51 @@ let paddq ins insLen ctxt =
 let psubq ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 64<rt> opPsub 8
 
-let private shiftDQ ins insLen ctxt shift =
+let pslldq ins insLen ctxt =
   let ir = IRBuilder (8)
   let struct (dst, cnt) = getTwoOprs ins
   let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
-  let cnt = transOprToExpr ins insLen ctxt cnt |> castNum 8<rt>
-  let oprSize = getOperationSize ins
-  let t1 = !*ir 8<rt>
-  let struct (t2, tDst) = tmpVars2 ir oprSize
+  let cnt = getImmValue cnt
+  let amount = if cnt > 15L then 16L * 8L else cnt * 8L
+  let rightAmt = numI64 (64L - (amount % 64L)) 64<rt>
+  let leftAmt = numI64 (amount % 64L) 64<rt>
+  let struct (tDstB, tDstA) = tmpVars2 ir 64<rt>
   !<ir insLen
-  !!ir (t1 := AST.ite (AST.lt (numU32 15u 8<rt>) cnt) (numU32 16u 8<rt>) cnt)
-  !!ir (t2 := AST.concat dstB dstA)
-  !!ir (tDst := (shift t2 (AST.zext oprSize (t1 .* numU32 8u 8<rt>))))
-  !!ir (dstA := AST.xtlo 64<rt> tDst)
-  !!ir (dstB := AST.xthi 64<rt> tDst)
+  !!ir (tDstA := dstA)
+  !!ir (tDstB := dstB)
+  if amount < 64 then
+    !!ir (dstA := tDstA << leftAmt)
+    !!ir (dstB := (tDstB << leftAmt) .| (tDstA >> rightAmt))
+  elif amount < 128 then
+    !!ir (dstA := AST.num0 64<rt>)
+    !!ir (dstB := tDstA << leftAmt)
+  else
+    !!ir (dstA := AST.num0 64<rt>)
+    !!ir (dstB := AST.num0 64<rt>)
   !>ir insLen
 
-let pslldq ins insLen ctxt =
-  shiftDQ ins insLen ctxt (<<)
-
 let psrldq ins insLen ctxt =
-  shiftDQ ins insLen ctxt (>>)
+  let ir = IRBuilder (8)
+  let struct (dst, cnt) = getTwoOprs ins
+  let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+  let cnt = getImmValue cnt
+  let amount = if cnt > 15L then 16L * 8L else cnt * 8L
+  let rightAmt = numI64 (amount % 64L) 64<rt>
+  let leftAmt = numI64 (64L - (amount % 64L)) 64<rt>
+  let struct (tDstB, tDstA) = tmpVars2 ir 64<rt>
+  !<ir insLen
+  !!ir (tDstA := dstA)
+  !!ir (tDstB := dstB)
+  if amount < 64 then
+    !!ir (dstA := (tDstB << leftAmt) .| (tDstA >> rightAmt))
+    !!ir (dstB := tDstB >> rightAmt)
+  elif amount < 128 then
+    !!ir (dstA := tDstB >> rightAmt)
+    !!ir (dstB := AST.num0 64<rt>)
+  else
+    !!ir (dstA := AST.num0 64<rt>)
+    !!ir (dstB := AST.num0 64<rt>)
+  !>ir insLen
 
 let punpckhqdq ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 64<rt> opPunpckHigh 8
@@ -1441,26 +1468,44 @@ let movddup ins insLen ctxt =
 let palignr ins insLen ctxt =
   let ir = IRBuilder (8)
   let struct (dst, src, imm) = getThreeOprs ins
-  let imm = transOprToExpr ins insLen ctxt imm
+  let imm8 = getImmValue imm
+  let amount = imm8 * 8L
+  let rightAmt = numI64 (amount % 64L) 64<rt>
+  let leftAmt = numI64 (64L - (amount % 64L)) 64<rt>
   !<ir insLen
   match getOperationSize ins with
   | 64<rt> ->
     let dst = transOprToExpr ins insLen ctxt dst
     let src = transOprToExpr ins insLen ctxt src
-    let t = !*ir 128<rt>
-    !!ir
-      (t := (AST.concat dst src) >> (AST.zext 128<rt> (imm .* numU32 8u 64<rt>)))
-    !!ir (dst := AST.xtlo 64<rt> t)
+    let struct (tDst, tSrc) = tmpVars2 ir 64<rt>
+    !!ir (tDst := dst)
+    !!ir (tSrc := src)
+    if amount < 64 then !!ir (dst := (tDst << leftAmt) .| (tSrc >> rightAmt))
+    elif amount < 128 then !!ir (dst := tDst >> rightAmt)
+    else !!ir (dst := AST.num0 64<rt>)
   | 128<rt> ->
-    let dst1, dst2 = transOprToExpr128 ins insLen ctxt dst
-    let src1, src2 = transOprToExpr128 ins insLen ctxt src
-    let dst = AST.concat dst1 dst2
-    let src = AST.concat src1 src2
-    let t = !*ir 256<rt>
-    !!ir
-      (t := (AST.concat dst src) >> (AST.zext 256<rt> (imm .* numU32 8u 128<rt>)))
-    !!ir (dst1 := AST.extract t 64<rt> 64)
-    !!ir (dst2 := AST.xtlo 64<rt> t)
+    let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
+    let srcB, srcA = transOprToExpr128 ins insLen ctxt src
+    let struct (tDstB, tDstA, tSrcB, tSrcA) = tmpVars4 ir 64<rt>
+    !!ir (tDstA := dstA)
+    !!ir (tDstB := dstB)
+    !!ir (tSrcA := srcA)
+    !!ir (tSrcB := srcB)
+    if amount < 64 then
+      !!ir (dstA := (tSrcB << leftAmt) .| (tSrcA >> rightAmt))
+      !!ir (dstB := (tDstA << leftAmt) .| (tSrcB >> rightAmt))
+    elif amount < 128 then
+      !!ir (dstA := (tDstA << leftAmt) .| (tSrcB >> rightAmt))
+      !!ir (dstB := (tDstB << leftAmt) .| (tDstA >> rightAmt))
+    elif amount < 192 then
+      !!ir (dstA := (tDstB << leftAmt) .| (tDstA >> rightAmt))
+      !!ir (dstB := tDstB >> rightAmt)
+    elif amount < 256 then
+      !!ir (dstA := tDstB >> rightAmt)
+      !!ir (dstB := AST.num0 64<rt>)
+    else
+      !!ir (dstA := AST.num0 64<rt>)
+      !!ir (dstB := AST.num0 64<rt>)
   | _ -> raise InvalidOperandSizeException
   !>ir insLen
 
@@ -1487,17 +1532,15 @@ let pinsrb ins insLen ctxt =
   let struct (dst, src, count) = getThreeOprs ins
   let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
   let src = transOprToExpr ins insLen ctxt src
-  let count = transOprToExpr ins insLen ctxt count
-  let oprSize = getOperationSize ins
-  let struct (sel, mask, temp, tDst) = tmpVars4 ir oprSize
-  let sel8 = sel .* numI32 8 oprSize
+  let sel = getImmValue count &&& 0b1111L (* COUNT[3:0] *)
+  let mask = numI64 (0xFFL <<< ((int32 sel * 8) % 64)) 64<rt>
+  let amount = sel * 8L
+  let t = !*ir 64<rt>
+  let expAmt = numI64 (amount % 64L) 64<rt>
   !<ir insLen
-  !!ir (sel := count .& numI32 0xf oprSize)
-  !!ir (mask := (numI32 0x0ff oprSize) << sel8)
-  !!ir (temp := (AST.zext oprSize (AST.extract src 8<rt> 0) << sel8) .& mask)
-  !!ir (tDst := ((AST.concat dstB dstA) .& (AST.not mask)) .| temp)
-  !!ir (dstA := AST.xtlo 64<rt> tDst)
-  !!ir (dstB := AST.xthi 64<rt> tDst)
+  !!ir (t := ((AST.zext 64<rt> (AST.xtlo 8<rt> src)) << expAmt) .& mask)
+  if amount < 64 then !!ir (dstA := (dstA .& (AST.not mask)) .& t)
+  else !!ir (dstB := (dstB .& (AST.not mask)) .& t)
   !>ir insLen
 
 let ptest ins insLen ctxt =

@@ -762,12 +762,10 @@ let convWDQ ins insLen (ctxt: TranslationContext) =
     !!ir (edx := AST.xthi 32<rt> t)
     !!ir (eax := AST.xtlo 32<rt> t)
   | 64<rt>, 64<rt> ->
-    let t = !*ir 128<rt>
     let rdx = !.ctxt R.RDX
     let rax = !.ctxt R.RAX
-    !!ir (t := AST.sext 128<rt> rax)
-    !!ir (rdx := AST.xthi 64<rt> t)
-    !!ir (rax := AST.xtlo 64<rt> t)
+    let cond = AST.extract rax 1<rt> 63
+    !!ir (rdx := AST.ite cond (numI32 -1 64<rt>) (AST.num0 64<rt>))
   | _, _ -> raise InvalidOperandSizeException
   !>ir insLen
 
