@@ -1234,8 +1234,7 @@ and BitVectorSmall (n, len) =
     | _ -> raise ArithTypeMismatchException
 
   override __.Itof targetLen =
-    let mask = UInt64.MaxValue - (UInt64.MaxValue >>> (64 - int len))
-    let signedFloat = (n + mask) |> int64 |> float
+    let signedFloat = n |> int64 |> float
     let u64 = BitConverter.DoubleToInt64Bits signedFloat |> uint64
     match targetLen with
     | 32<rt> | 64<rt> -> BitVectorSmall (u64, targetLen) :> BitVector
