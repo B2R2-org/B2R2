@@ -56,7 +56,7 @@ type SH4Parser (isa: ISA) =
 
 module Basis =
   let init isa =
-    let regexprs = RegExprs ()
+    let regexprs = RegExprs (isa.WordSize)
     struct (
       SH4TranslationContext (isa, regexprs) :> TranslationContext,
       SH4RegisterBay () :> RegisterBay

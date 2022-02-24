@@ -46,8 +46,8 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Opcode.BT -> bt ins insLen ctxt
   | Opcode.BTS -> bts ins insLen ctxt
   | Opcode.CLRMAC -> clrmac ins insLen ctxt
-  | Opcode.CLRS -> clrs ins insLen ctxt
-  | Opcode.CLRT -> clrt ins insLen ctxt
+  | Opcode.CLRS -> clrs insLen ctxt
+  | Opcode.CLRT -> clrt insLen ctxt
   | Opcode.CMPEQ -> cmpeq ins insLen ctxt
   | Opcode.CMPGE  -> cmpge ins insLen ctxt
   | Opcode.CMPGT -> cmpgt ins insLen ctxt
@@ -62,15 +62,12 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Opcode.DMULSL -> dmulsl ins insLen ctxt
   | Opcode.DMULUL -> dmulul ins insLen ctxt
   | Opcode.DT -> dt ins insLen ctxt
-  | Opcode.EXTS -> exts ins insLen ctxt
   | Opcode.EXTSB -> extsb ins insLen ctxt
   | Opcode.EXTSW -> extsw ins insLen ctxt
-  | Opcode.EXTU -> extu ins insLen ctxt
   | Opcode.EXTUB -> extub ins insLen ctxt
   | Opcode.EXTUW -> extuw ins insLen ctxt
   | Opcode.FABS -> fabs ins insLen ctxt
   | Opcode.FADD -> fadd ins insLen ctxt
-  | Opcode.FCMP -> fcmp ins insLen ctxt
   | Opcode.FCMPEQ -> fcmpeq ins insLen ctxt
   | Opcode.FCMPGT -> fcmpgt ins insLen ctxt
   | Opcode.FCNVDS -> fcnvds ins insLen ctxt
@@ -150,10 +147,8 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Opcode.SUB -> sub ins insLen ctxt
   | Opcode.SUBC -> subc ins insLen ctxt
   | Opcode.SUBV -> subv ins insLen ctxt
-  | Opcode.SWAP -> swap ins insLen ctxt
   | Opcode.SWAPB -> swapb ins insLen ctxt
   | Opcode.SWAPW -> swapw ins insLen ctxt
-  | Opcode.TAS -> tas ins insLen ctxt
   | Opcode.TASB -> tasb ins insLen ctxt
   | Opcode.TRAPA -> trapa ins insLen ctxt
   | Opcode.TST -> tst ins insLen ctxt
@@ -163,3 +158,4 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Opcode.XTRCT -> xtrct ins insLen ctxt
   | Opcode.InvalidOp -> raise InvalidOpcodeException
   | _ -> raise InvalidOpcodeException
+  (*if*)
