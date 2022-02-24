@@ -245,7 +245,7 @@ let fist ins insLen ctxt doPop =
   let oprExpr = transOneOpr ins insLen ctxt
   let oprSize = TypeCheck.typeOf oprExpr
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
-  let tmp0 = !*ir oprSize
+  let tmp0 = !*ir 64<rt>
   let rcField = !*ir 2<rt> (* Rounding Control *)
   let num2 = numI32 2 2<rt>
   let cst00 = AST.cast CastKind.FtoIRound oprSize tmp0
@@ -253,7 +253,7 @@ let fist ins insLen ctxt doPop =
   let cst10 = AST.cast CastKind.FtoICeil oprSize tmp0
   let cst11 = AST.cast CastKind.FtoITrunc oprSize tmp0
   !<ir insLen
-  !?ir (castFrom80Bit tmp0 oprSize st0b st0a)
+  !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
   !!ir (rcField := AST.extract (!.ctxt R.FCW) 2<rt> 10)
   !!ir (tmp0 := AST.ite (rcField == AST.num0 2<rt>) cst00 cst11)
   !!ir (tmp0 := AST.ite (rcField == AST.num1 2<rt>) cst01 tmp0)
@@ -267,10 +267,10 @@ let fisttp ins insLen ctxt =
   let ir = IRBuilder (32)
   let oprExpr = transOneOpr ins insLen ctxt
   let oprSize = TypeCheck.typeOf oprExpr
-  let tmp1 = !*ir oprSize
+  let tmp1 = !*ir 64<rt>
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
   !<ir insLen
-  !?ir (castFrom80Bit tmp1 oprSize st0b st0a)
+  !?ir (castFrom80Bit tmp1 64<rt> st0b st0a)
   !!ir (oprExpr := AST.cast CastKind.FtoITrunc oprSize tmp1)
   !?ir (popFPUStack ctxt)
   !!ir (!.ctxt R.FSWC1 := AST.b0)
