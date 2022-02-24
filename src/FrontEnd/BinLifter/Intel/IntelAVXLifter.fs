@@ -974,13 +974,13 @@ let vmovlpd (ins: InsInfo) insLen ctxt =
   match ins.Operands with
   | TwoOperands (dst, src) ->
     let dst = transOprToExpr64 ins insLen ctxt dst
-    let _src2, src1 = transOprToExpr128 ins insLen ctxt src
-    !!ir (dst := src1)
+    let _, srcA = transOprToExpr128 ins insLen ctxt src
+    !!ir (dst := srcA)
   | ThreeOperands (dst, src1, src2)->
     let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
     let src1B, _src1A = transOprToExpr128 ins insLen ctxt src1
-    let _src2B, src2A = transOprToExpr128 ins insLen ctxt src2
-    !!ir (dstA := src2A)
+    let src2 = transOprToExpr ins insLen ctxt src2
+    !!ir (dstA := src2)
     !!ir (dstB := src1B)
     fillZeroHigh128 ctxt dst ir
   | _ -> raise InvalidOperandException
