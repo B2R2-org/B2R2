@@ -497,6 +497,13 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
     let bbls =
       reachableNodes
       |> Set.filter (fun v -> not <| v.VData.IsFakeBlock ())
+    (* Update max address *)
+    let maxAddr =
+      DiGraph.foldVertex __.IRCFG (fun addr v ->
+        if Set.contains v reachableNodes then addr
+        elif v.VData.IsFakeBlock () then addr
+        else max v.VData.Range.Max addr) 0UL
+    __.MaxAddr <- maxAddr
     bbls, newFn
 
   /// This field indicates the amount of stack unwinding happening at the return
