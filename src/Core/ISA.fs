@@ -82,6 +82,8 @@ type Architecture =
   | SH4 = 24
   /// PowerPC 32-bit.
   | PPC32 = 25
+  /// Sparc 64-bit.
+  | Sparc64 = 26
   /// Unknown ISA.
   | UnknownISA = 30
 
@@ -158,6 +160,8 @@ with
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit32 }
     | Arch.PPC32 ->
       { Arch = arch; Endian = endian; WordSize = WordSize.Bit32 }
+    | Arch.Sparc64 ->
+      { Arch = arch; Endian = endian; WordSize = WordSize.Bit64 }
     | _ -> raise InvalidISAException
 
   static member OfString (s: string) =
@@ -186,6 +190,7 @@ with
     | "sh4" | "sh-4" -> ISA.Init Arch.SH4 Endian.Little
     | "sh4be" | "sh-4be" -> ISA.Init Arch.SH4 Endian.Big
     | "ppc32" -> ISA.Init Arch.PPC32 Endian.Little
+    | "sparc" | "sparc64" -> ISA.Init Arch.Sparc64 Endian.Big
     | _ -> raise InvalidISAException
 
   static member ArchToString arch =
@@ -205,5 +210,6 @@ with
     | Arch.AVR -> "AVR"
     | Arch.SH4 -> "SH4"
     | Arch.PPC32 -> "PPC32"
+    | Arch.Sparc64 -> "SPARC64"
     | Arch.UnknownISA -> "Unknown"
     | _ -> "Not supported ISA"

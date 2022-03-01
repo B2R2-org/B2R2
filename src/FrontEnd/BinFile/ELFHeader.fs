@@ -79,6 +79,7 @@ let peekArch (span: ByteSpan) (reader: IBinReader) cls =
   | 0x53s -> Arch.AVR
   | 0x2as -> Arch.SH4
   | 0x14s -> Arch.PPC32
+  | 0x2bs -> Arch.Sparc64
   | _ -> Arch.UnknownISA
 
 let computeNewBaseAddr ftype baseAddr =
