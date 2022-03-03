@@ -981,7 +981,6 @@ type CallSiteRecord = {
 
 /// LSDA. Language Specific Data Area.
 type LanguageSpecificDataArea = {
-  LSDAAddr: Addr
   Header: LSDAHeader
   CallSiteTable: CallSiteRecord list
 }
@@ -1047,8 +1046,8 @@ type ELF = {
   ExceptionFrame: CallFrameInformation list
   /// Exception table.
   ExceptionTable: ARMap<ARMap<Addr>>
-  /// List of LSDAs (Language Specific Data Areas).
-  LSDAs: LanguageSpecificDataArea list
+  /// LSDAs (Language Specific Data Areas).
+  LSDAs: Map<Addr, LanguageSpecificDataArea>
   /// Invalid address ranges.
   InvalidAddrRanges: IntervalSet
   /// Not-in-file address ranges.

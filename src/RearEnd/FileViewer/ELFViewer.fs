@@ -310,10 +310,10 @@ let dumpLSDA _hdl (fi: ELFFileInfo) =
   let cfg = [ addrColumn; LeftAligned 15; LeftAligned 15; addrColumn ]
   out.PrintRow (true, cfg, [ "Address"; "LP App"; "LP Val"; "TT End" ])
   fi.ELF.LSDAs
-  |> List.iter (fun lsda ->
+  |> Map.iter (fun lsdaAddr lsda ->
     let ttbase = lsda.Header.TTBase |> Option.defaultValue 0UL
     out.PrintRow (true, cfg,
-      [ Addr.toString fi.WordSize lsda.LSDAAddr
+      [ Addr.toString fi.WordSize lsdaAddr
         lsda.Header.LPAppEncoding.ToString ()
         lsda.Header.LPValueEncoding.ToString ()
         ttbase |> Addr.toString fi.WordSize ])

@@ -37,11 +37,9 @@ let parseGlobalSymbols reloc =
     | _ -> map
   reloc.RelocByAddr |> Seq.fold folder Map.empty
 
-let rec loadCallSiteTable lsdaPointer = function
-  | [] -> []
-  | lsda :: rest ->
-    if lsdaPointer = lsda.LSDAAddr then lsda.CallSiteTable
-    else loadCallSiteTable lsdaPointer rest
+let inline loadCallSiteTable lsdaPointer gccexctbl =
+  let lsda = Map.find lsdaPointer gccexctbl
+  lsda.CallSiteTable
 
 let rec loopCallSiteTable fde acc = function
   | [] -> acc

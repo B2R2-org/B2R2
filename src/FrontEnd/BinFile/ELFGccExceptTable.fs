@@ -137,7 +137,7 @@ let rec skipDummyAlign (span: ByteSpan) offset =
 
 /// Parse language-specific data area.
 let rec parseLSDA cls (span: ByteSpan) reader sAddr offset lsdas =
-  if offset >= span.Length then List.rev lsdas
+  if offset >= span.Length then lsdas
   else
     let lsdaAddr = sAddr + uint64 offset
     let header, offset = parseLSDAHeader cls span reader sAddr offset
@@ -155,9 +155,8 @@ let rec parseLSDA cls (span: ByteSpan) reader sAddr offset lsdas =
       | None -> offset
     let offset = skipTypeTable span offset callsites
     let offset = skipDummyAlign span offset
-    let lsdas = { LSDAAddr = lsdaAddr
-                  Header = header
-                  CallSiteTable = callsites } :: lsdas
+    let lsda = { Header = header; CallSiteTable = callsites }
+    let lsdas = Map.add lsdaAddr lsda lsdas
     parseLSDA cls span reader sAddr offset lsdas
 
 let parse (span: ByteSpan) reader cls (secs: SectionInfo) =
@@ -166,5 +165,5 @@ let parse (span: ByteSpan) reader cls (secs: SectionInfo) =
     let size = Convert.ToInt32 sec.SecSize
     let offset = Convert.ToInt32 sec.SecOffset
     let span = span.Slice (offset, size)
-    parseLSDA cls span reader sec.SecAddr 0 []
-  | None -> []
+    parseLSDA cls span reader sec.SecAddr 0 Map.empty
+  | None -> Map.empty
