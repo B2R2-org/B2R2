@@ -94,75 +94,75 @@ type Register =
   /// $ra - Return address.
   | R31 = 0x1F
   /// Floating point Register.
-  | F0 = 0x100
+  | F0 = 0x20
   /// Floating point Register.
-  | F1 = 0x101
+  | F1 = 0x21
   /// Floating point Register.
-  | F2 = 0x102
+  | F2 = 0x22
   /// Floating point Register.
-  | F3 = 0x103
+  | F3 = 0x23
   /// Floating point Register.
-  | F4 = 0x104
+  | F4 = 0x24
   /// Floating point Register.
-  | F5 = 0x105
+  | F5 = 0x25
   /// Floating point Register.
-  | F6 = 0x106
+  | F6 = 0x26
   /// Floating point Register.
-  | F7 = 0x107
+  | F7 = 0x27
   /// Floating point Register.
-  | F8 = 0x108
+  | F8 = 0x28
   /// Floating point Register.
-  | F9 = 0x109
+  | F9 = 0x29
   /// Floating point Register.
-  | F10 =0x10A
+  | F10 =0x2A
   /// Floating point Register.
-  | F11 = 0x10B
+  | F11 = 0x2B
   /// Floating point Register.
-  | F12 = 0x10C
+  | F12 = 0x2C
   /// Floating point Register.
-  | F13 = 0x10D
+  | F13 = 0x2D
   /// Floating point Register.
-  | F14 = 0x10E
+  | F14 = 0x2E
   /// Floating point Register.
-  | F15 = 0x10F
+  | F15 = 0x2F
   /// Floating point Register.
-  | F16 = 0x110
+  | F16 = 0x30
   /// Floating point Register.
-  | F17 = 0x111
+  | F17 = 0x31
   /// Floating point Register.
-  | F18 = 0x112
+  | F18 = 0x32
   /// Floating point Register.
-  | F19 = 0x113
+  | F19 = 0x33
   /// Floating point Register.
-  | F20 = 0x114
+  | F20 = 0x34
   /// Floating point Register.
-  | F21 = 0x115
+  | F21 = 0x35
   /// Floating point Register.
-  | F22 = 0x116
+  | F22 = 0x36
   /// Floating point Register.
-  | F23 = 0x117
+  | F23 = 0x37
   /// Floating point Register.
-  | F24 = 0x118
+  | F24 = 0x38
   /// Floating point Register.
-  | F25 = 0x119
+  | F25 = 0x39
   /// Floating point Register.
-  | F26 = 0x11A
+  | F26 = 0x3A
   /// Floating point Register.
-  | F27 = 0x11B
+  | F27 = 0x3B
   /// Floating point Register.
-  | F28 = 0x11C
+  | F28 = 0x3C
   /// Floating point Register.
-  | F29 = 0x11D
+  | F29 = 0x3D
   /// Floating point Register.
-  | F30 = 0x11E
+  | F30 = 0x3E
   /// Floating point Register.
-  | F31 = 0x11F
+  | F31 = 0x3F
   /// Accumulator High (Acc 63:32)
-  | HI = 0x200
+  | HI = 0x100
   /// Accumulator Low (Acc 31:0)
-  | LO = 0x201
+  | LO = 0x101
   /// Program Counter.
-  | PC = 0x300
+  | PC = 0x102
 
 /// Shortcut for Register type.
 type internal R = Register
