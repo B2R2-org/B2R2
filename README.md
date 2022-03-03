@@ -26,15 +26,16 @@ B2R2?
    algebraic data types, and etc.
 
 1. B2R2 is *fast*: it has a fast and efficient front-end engine for binary
-   analysis, which is written purely in a functional way. Therefore, it
-   naturally supports *pure parallelism* for binary disassembling, lifting and
-   IR optimization.
+   analysis, which is written in a
+   [functional-first](https://en.wikipedia.org/wiki/F_Sharp_(programming_language))
+   way. Therefore, it naturally supports *pure parallelism* for binary
+   disassembling, lifting and IR optimization.
 
 1. B2R2 is *easy* to play with: there is absolutely no dependency hell for B2R2
    because it is a fully-managed library.  All you need to do is to install
    [.NET Core SDK](https://dotnet.microsoft.com/download), and you are ready to
    go! Native
-   [IntelliSense](https://docs.microsoft.com/en-us/visualstudio/ide/using-intellisense?view=vs-2017)
+   [IntelliSense](https://docs.microsoft.com/en-us/visualstudio/ide/using-intellisense)
    support is another plus!
 
 1. B2R2 is *OS-Independent*: it works on Linux, Mac, Windows, and etc. as long
@@ -58,17 +59,17 @@ progress, but we look forward to your contributions! Feel free to write a PR
 (Pull Request) while making sure that you have read our [contribution
 guideline](CONTRIBUTING.md).
 
-| Feature               | x86         | x86-64      | ARMv7 (& Thumb)      | ARMv8                | MIPS32               | MIPS64               | EVM         | TMS320C600  | AVR         | PPC         |
-|-----------------------|:-----------:|:------------|:--------------------:|:--------------------:|:--------------------:|:--------------------:|:-----------:|:-----------:|:-----------:|:-----------:|
-| Instruction Parsing   | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :full_moon: | :full_moon: |
-| Disassembly           | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :full_moon: | :full_moon: |
-| Lifting               | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :full_moon: | :new_moon:  |
-| CFG Recovery          | :full_moon: | :full_moon: | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :full_moon: | :new_moon:  | :new_moon:  | :new_moon:  |
-| Data-Flow             | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :new_moon:  | :new_moon:  |
-| Instruction Emulation | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  |
-| Assembly              | :full_moon: | :full_moon: | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  |
-| REPL                  | :full_moon: | :full_moon: | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  |
-| ROP Compilation       | :full_moon: | :new_moon:  | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  |
+| Feature               | x86         | x86-64      | ARMv7                | ARMv8                | MIPS32               | MIPS64               | EVM         | TMS320C600  | AVR         | PPC         | SPARC64    |
+|-----------------------|:-----------:|:-----------:|:--------------------:|:--------------------:|:--------------------:|:--------------------:|:-----------:|:-----------:|:-----------:|:-----------:|:----------:|
+| Instruction Parsing   | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :full_moon: | :full_moon: | :new_moon: |
+| Disassembly           | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :full_moon: | :full_moon: | :new_moon: |
+| Lifting               | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :full_moon: | :new_moon:  | :new_moon: |
+| CFG Recovery          | :full_moon: | :full_moon: | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :full_moon: | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: |
+| Data-Flow             | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: |
+| Instruction Emulation | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: |
+| Assembly              | :full_moon: | :full_moon: | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: |
+| REPL                  | :full_moon: | :full_moon: | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: |
+| ROP Compilation       | :full_moon: | :new_moon:  | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: |
 
 Dependencies?
 -------------
@@ -145,18 +146,6 @@ above. Yea, that's it!
 
 For your information, please visit the official web site of F# to get more tips
 about installing the development environment for F#: http://fsharp.org/.
-
-Why Reinventing the Wheel?
---------------------------
-
-There are many other great tools available, but we wanted to build a
-*functional-first* binary analysis platform that is painless to install and runs
-on any platform without any hassle. B2R2 is in its *infancy* stage, but we
-believe it provides a rich set of library functions for binary analysis. It also
-has a strong front-end that is easily adaptable and extendable! Currently it
-reliably supports x86 and x86-64, meaning that we have heavily tested them; and
-it partially supports ARMv7 (and Thumb), ARMv8, MIPS32, MIPS64, and EVM meaning
-that they work, but we haven't tested them thoroughly yet.
 
 Credits
 -------
