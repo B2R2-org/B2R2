@@ -223,8 +223,15 @@ let dump files opts =
     Printer.printErrorToConsole "File(s) must be given."
     CmdOpts.PrintUsage ToolName UsageTail Cmd.spec
   | files ->
+#if DEBUG
+    let sw = System.Diagnostics.Stopwatch.StartNew ()
+#endif
     try files |> List.iter (dumpFile opts)
     finally out.Flush ()
+#if DEBUG
+    sw.Stop ()
+    eprintfn "Total time: %f sec." sw.Elapsed.TotalSeconds
+#endif
 
 [<EntryPoint>]
 let main args =
