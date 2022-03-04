@@ -1234,11 +1234,17 @@ and BitVectorSmall (n, len) =
     | _ -> raise ArithTypeMismatchException
 
   override __.Itof targetLen =
-    let signedFloat = n |> int64 |> float
-    let u64 = BitConverter.DoubleToInt64Bits signedFloat |> uint64
+    let signedInt = n |> int64
     match targetLen with
-    | 32<rt> | 64<rt> -> BitVectorSmall (u64, targetLen) :> BitVector
-    | 80<rt> -> BitVectorBig (bigint u64, targetLen) :> BitVector
+    | 32<rt> ->
+      let u64 = BitConverter.SingleToInt32Bits (float32 signedInt) |> uint64
+      BitVectorSmall (u64, targetLen) :> BitVector
+    | 64<rt> ->
+      let u64 = BitConverter.DoubleToInt64Bits (float signedInt) |> uint64
+      BitVectorSmall (u64, targetLen) :> BitVector
+    | 80<rt> ->
+      let u64 = BitConverter.DoubleToInt64Bits (float signedInt) |> uint64
+      BitVectorBig (bigint u64, targetLen) :> BitVector
     | _ -> raise ArithTypeMismatchException
 
   override __.FtoiTrunc targetLen =
@@ -1737,11 +1743,16 @@ and BitVectorBig (n, len) =
 
   override __.Itof targetLen =
     let v = if isBigPositive len n then n else - n
-    let signedFloat = float v
-    let u64 = BitConverter.DoubleToInt64Bits signedFloat |> uint64
     match targetLen with
-    | 32<rt> | 64<rt> -> BitVectorSmall (u64, targetLen) :> BitVector
-    | 80<rt> -> BitVectorBig (bigint u64, targetLen) :> BitVector
+    | 32<rt> ->
+      let u64 = BitConverter.SingleToInt32Bits (float32 v) |> uint64
+      BitVectorSmall (u64, targetLen) :> BitVector
+    | 64<rt> ->
+      let u64 = BitConverter.DoubleToInt64Bits (float v) |> uint64
+      BitVectorSmall (u64, targetLen) :> BitVector
+    | 80<rt> ->
+      let u64 = BitConverter.DoubleToInt64Bits (float v) |> uint64
+      BitVectorBig (bigint u64, targetLen) :> BitVector
     | _ -> raise ArithTypeMismatchException
 
   override __.FtoiTrunc targetLen =
