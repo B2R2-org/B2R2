@@ -150,7 +150,12 @@ let private evalPut st lhs rhs =
     | _ -> raise InvalidExprException
   with
     | UndefExpException
-    | :? System.Collections.Generic.KeyNotFoundException -> ()
+    | :? System.Collections.Generic.KeyNotFoundException ->
+#if EMULATION
+      ()
+#else
+      evalUndef st lhs
+#endif
 
 let private evalStore st endian addr v =
   let addr = evalConcrete st addr |> BitVector.toUInt64
