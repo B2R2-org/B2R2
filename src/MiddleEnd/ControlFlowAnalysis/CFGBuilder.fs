@@ -45,16 +45,16 @@ module private CFGBuilder =
     | Error ErrorCase.ParsingFailure -> Error ErrorParsing
     | Error _ -> Utils.impossible ()
 
-  let buildFunction hdl (codeMgr: CodeManager) dataMgr entry mode evts =
+  let buildFunction hdl (codeMgr: CodeManager) _dataMgr entry mode evts =
     match codeMgr.TryGetBBL entry with
     | Some bbl when bbl.FunctionEntry <> entry -> (* Need to split *)
       codeMgr.HistoryManager.Record <| CreatedFunction entry
       if bbl.BlkRange.Min <> entry then
         let _, evts = codeMgr.SplitBlock bbl entry evts
-        let _, evts = codeMgr.PromoteBBL hdl entry bbl dataMgr evts
+        let _, evts = codeMgr.PromoteBBL hdl entry bbl evts
         Ok evts
       else
-        let _, evts = codeMgr.PromoteBBL hdl entry bbl dataMgr evts
+        let _, evts = codeMgr.PromoteBBL hdl entry bbl evts
         Ok evts
     | _ ->
       let func =
@@ -64,15 +64,21 @@ module private CFGBuilder =
       if func.HasVertex (ProgramPoint (entry, 0)) then Ok evts
       else buildBBL hdl codeMgr func mode entry evts (* Build new block *)
 
-  let inline isIntrudingBlk (codeMgr: CodeManager) leader =
-    match codeMgr.TryGetBBL leader with
-    | Some bbl -> leader <> bbl.BlkRange.Min
+  let inline isIntrudingBlk (codeMgr: CodeManager) addr =
+    match codeMgr.TryGetBBL addr with
+    | Some bbl -> addr <> bbl.BlkRange.Min
     | None -> false
 
-  let splitAndConnectEdge (codeMgr: CodeManager) fn src dst edge evts =
+  let splitAndConnectEdge hdl (codeMgr: CodeManager) fn src dst edge evts =
     let bbl = codeMgr.GetBBL dst
     if bbl.FunctionEntry <> (fn: RegularFunction).Entry then
-      Error ErrorConnectingEdge
+      (* There is an edge from a function to another function, and the edge is
+         intruding an existing bbl, too. In this case, the destination address
+         becomes a new function. This happens when there is an edge to the
+         middle of a ".cold" snippet. *)
+      let _, evts = codeMgr.SplitBlock bbl dst evts
+      let _, evts = codeMgr.PromoteBBL hdl dst bbl evts
+      Ok evts
     else
       match codeMgr.SplitBlock bbl dst evts with
       | Some front, evts ->
@@ -169,7 +175,7 @@ module private CFGBuilder =
         buildFunction hdl codeMgr dataMgr dst mode evts
         |> Result.bind (buildCall hdl codeMgr fn src.Address dst true)
     elif isIntrudingBlk codeMgr dst then
-      splitAndConnectEdge codeMgr fn src dst edge evts
+      splitAndConnectEdge hdl codeMgr fn src dst edge evts
     elif not (codeMgr.HasInstruction dst) (* Jump to the middle of an instr *)
       && fn.IsAddressCovered dst then
       match InlinedAssemblyPattern.checkInlinedAssemblyPattern hdl dst with

@@ -220,7 +220,7 @@ type CodeManager (hdl) =
   /// this BBL. However, we later found that this block was a function and the
   /// jump edge must be changed to a tail-call edge. So we turn the BBL into a
   /// function. We call this process as BBL promotion.
-  member __.PromoteBBL hdl bblAddr (bbl: BBLInfo) (dataMgr: DataManager) evts =
+  member __.PromoteBBL hdl bblAddr (bbl: BBLInfo) evts =
 #if CFGDEBUG
     dbglog (nameof CodeManager) "Turn BBL @ %x into func" bblAddr
 #endif
