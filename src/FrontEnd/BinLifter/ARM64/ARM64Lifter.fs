@@ -1023,12 +1023,23 @@ let extr ins ctxt addr =
   let ir = IRBuilder (4)
   let dst, src1, src2, lsb = transOprToExprOfEXTR ins ctxt addr
   let oSz = ins.OprSize
-  let conSize = if oSz = 64<rt> then 128<rt> else 64<rt>
-  let con = ir.NewTempVar conSize
-  let mask = AST.num (BitVector.ofBInt (RegType.getMask oSz) conSize)
   startMark ins ir
-  ir <! (con := AST.concat src1 src2)
-  ir <! (dst := AST.xtlo oSz ((con >> (AST.zext conSize lsb)) .& mask))
+  if oSz = 32<rt> then
+    let con = ir.NewTempVar 64<rt>
+    ir <! (con := AST.concat src1 src2)
+    let mask = numI32 0xFFFFFFFF 64<rt>
+    ir <! (dst := AST.xtlo 32<rt> ((con >> (AST.zext 64<rt> lsb)) .& mask))
+  elif oSz = 64<rt> then
+    let lsb =
+      match ins.Operands with
+      | ThreeOperands (_, _, LSB shift) -> int32 shift
+      | FourOperands (_, _, _, LSB lsb) -> int32 lsb
+      | _ -> raise InvalidOperandException
+    if lsb = 0 then ir <! (dst := src2)
+    else
+      let leftAmt = numI32 (64 - lsb) 64<rt>
+      ir <! (dst := (src1 << leftAmt) .| (src2 >> (numI32 lsb 64<rt>)))
+  else raise InvalidOperandSizeException
   endMark ins ir
 
 let ldp ins ctxt addr =
