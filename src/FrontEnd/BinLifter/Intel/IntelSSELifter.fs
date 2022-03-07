@@ -1181,8 +1181,9 @@ let pmovmskb ins insLen ctxt =
     let tmpsB = arrayInit cnt srcB
     let tmpsC = arrayInit cnt srcC
     let tmpsD = arrayInit cnt srcD
-    let tmps = AST.concat (AST.concat (AST.concatArr tmpsD) (AST.concatArr tmpsC))
-                      (AST.concat (AST.concatArr tmpsB) (AST.concatArr tmpsA))
+    let tmps =
+      AST.concat (AST.concat (AST.concatArr tmpsD) (AST.concatArr tmpsC))
+        (AST.concat (AST.concatArr tmpsB) (AST.concatArr tmpsA))
     !!ir (dstAssign oprSize dst <| AST.zext oprSize tmps)
   | _ -> raise InvalidOperandException
   !>ir insLen
@@ -1286,6 +1287,7 @@ let pshufb ins insLen ctxt =
   let ir = IRBuilder (2 * cnt)
   !<ir insLen
   let mask = numI32 (cnt - 1) 8<rt>
+  let n0 = AST.num0 8<rt>
   match oprSize with
   | 64<rt> ->
     let struct (dst, src) = transTwoOprs ins insLen ctxt
@@ -1296,7 +1298,7 @@ let pshufb ins insLen ctxt =
       let numShift = AST.zext oprSize idx .* numI32 8 oprSize
       !!ir
         (tmps[i] :=
-          AST.ite cond (AST.num0 8<rt>) (AST.xtlo 8<rt> (dst >> numShift)))
+          AST.ite cond n0 (AST.xtlo 8<rt> (dst >> numShift)))
     done
     !!ir (dst := AST.concatArr tmps)
   | 128<rt> ->
@@ -1313,7 +1315,6 @@ let pshufb ins insLen ctxt =
       let numShift =
         ((AST.zext 64<rt> idx) .* (numI32 8 64<rt>)) .% (numI32 64 64<rt>)
       !!ir (tDst := AST.ite (idx .< numI32 8 8<rt>) dstA dstB)
-      let n0 = AST.num0 8<rt>
       let temp = AST.xtlo 8<rt> (tDst >> numShift)
       if i < 8 then !!ir (lowTmps[i] := AST.ite cond n0 temp)
       else !!ir (highTmps[i - 8] := AST.ite cond n0 temp)
@@ -1684,7 +1685,8 @@ let private genValidCheck ins insLen ctxt ctrl e1 e2 ir =
     explicitValidCheck ctrl ax regSize ir,
     explicitValidCheck ctrl dx regSize ir
 
-let private genBoolRes ins insLen ctrl ctxt e1 e2 (ck1: Expr []) (ck2: Expr []) j i cmp =
+let private genBoolRes ins insLen ctrl ctxt e1 e2 (ck1: Expr []) (ck2: Expr [])
+            j i cmp =
   let src1B, src1A = transOprToExpr128 ins insLen ctxt e1
   let src2B, src2A = transOprToExpr128 ins insLen ctxt e2
   let elemSz = RegType.fromBitWidth <| int ctrl.NumElems
@@ -1696,7 +1698,8 @@ let private genBoolRes ins insLen ctrl ctxt e1 e2 (ck1: Expr []) (ck2: Expr []) 
   let b =
     let e1 = if j < int ctrl.NumElems / 2 then src1A else src1B
     let e2 = if i < int ctrl.NumElems / 2 then src2A else src2B
-    (AST.ite (cmp (getSrc e1 j) (getSrc e2 i)) (AST.num1 elemSz) (AST.num0 elemSz))
+    (AST.ite (cmp (getSrc e1 j) (getSrc e2 i)) (AST.num1 elemSz)
+      (AST.num0 elemSz))
   match ctrl.Agg with
   | EqualAny | Ranges ->
     AST.ite (AST.not ck1[j] .& AST.not ck2[i]) (AST.num0 elemSz)

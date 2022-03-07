@@ -1053,7 +1053,8 @@ let interrupt ins insLen ctxt =
   | { E = Num n } -> Interrupt (BitVector.toInt32 n) |> sideEffects insLen
   | _ -> raise InvalidOperandException
 
-let private getCondOfJcc (ins: IntelInternalInstruction) (ctxt: TranslationContext) =
+let private getCondOfJcc (ins: IntelInternalInstruction)
+                         (ctxt: TranslationContext) =
 #if DEBUG
   if ctxt.WordBitSize = 64<rt> && (getOperationSize ins) = 16<rt> then
     Utils.impossible ()

@@ -603,8 +603,8 @@ let vmovdqu16 ins insLen ctxt =
         for i in 0 .. 3 do
           let pos = i * 16
           let dst = AST.extract dst 16<rt> pos
-          !!ir
-            (tmps[i] := AST.ite (cond (idx + i)) (AST.extract src 16<rt> pos) dst)
+          !!ir (tmps[i] :=
+                 AST.ite (cond (idx + i)) (AST.extract src 16<rt> pos) dst)
         AST.concatArr tmps
       !!ir (dstA := assign dstA srcA 0)
       !!ir (dstB := assign dstB srcB 4)
@@ -627,14 +627,14 @@ let vmovdqu16 ins insLen ctxt =
       !!ir (assign dstB srcB 5)
       !!ir (assign dstB srcB 6)
       !!ir (assign dstB srcB 7)
-      !!ir (assign dstC srcA 8)
-      !!ir (assign dstC srcA 9)
-      !!ir (assign dstC srcA 10)
-      !!ir (assign dstC srcA 11)
-      !!ir (assign dstD srcB 12)
-      !!ir (assign dstD srcB 13)
-      !!ir (assign dstD srcB 14)
-      !!ir (assign dstD srcB 15)
+      !!ir (assign dstC srcC 8)
+      !!ir (assign dstC srcC 9)
+      !!ir (assign dstC srcC 10)
+      !!ir (assign dstC srcC 11)
+      !!ir (assign dstD srcD 12)
+      !!ir (assign dstD srcD 13)
+      !!ir (assign dstD srcD 14)
+      !!ir (assign dstD srcD 15)
       fillZeroFromVLToMaxVL ctxt dst vl 512 ir
     | OprMem _ ->
       let dstD, dstC, dstB, dstA = transOprToExpr256 ins insLen ctxt dst
@@ -672,30 +672,30 @@ let vmovdqu16 ins insLen ctxt =
       !!ir (assign dstB srcB 5)
       !!ir (assign dstB srcB 6)
       !!ir (assign dstB srcB 7)
-      !!ir (assign dstC srcA 8)
-      !!ir (assign dstC srcA 9)
-      !!ir (assign dstC srcA 10)
-      !!ir (assign dstC srcA 11)
-      !!ir (assign dstD srcB 12)
-      !!ir (assign dstD srcB 13)
-      !!ir (assign dstD srcB 14)
-      !!ir (assign dstD srcB 15)
-      !!ir (assign dstF srcA 16)
-      !!ir (assign dstF srcA 17)
-      !!ir (assign dstF srcA 18)
-      !!ir (assign dstF srcA 19)
-      !!ir (assign dstG srcB 20)
-      !!ir (assign dstG srcB 21)
-      !!ir (assign dstG srcB 22)
-      !!ir (assign dstG srcB 23)
-      !!ir (assign dstH srcA 24)
-      !!ir (assign dstH srcA 25)
-      !!ir (assign dstH srcA 26)
-      !!ir (assign dstH srcA 27)
-      !!ir (assign dstG srcB 28)
-      !!ir (assign dstG srcB 29)
-      !!ir (assign dstG srcB 30)
-      !!ir (assign dstG srcB 31)
+      !!ir (assign dstC srcC 8)
+      !!ir (assign dstC srcC 9)
+      !!ir (assign dstC srcC 10)
+      !!ir (assign dstC srcC 11)
+      !!ir (assign dstD srcD 12)
+      !!ir (assign dstD srcD 13)
+      !!ir (assign dstD srcD 14)
+      !!ir (assign dstD srcD 15)
+      !!ir (assign dstE srcE 16)
+      !!ir (assign dstE srcE 17)
+      !!ir (assign dstE srcE 18)
+      !!ir (assign dstE srcE 19)
+      !!ir (assign dstE srcE 20)
+      !!ir (assign dstF srcF 21)
+      !!ir (assign dstF srcF 22)
+      !!ir (assign dstF srcF 23)
+      !!ir (assign dstG srcG 24)
+      !!ir (assign dstG srcG 25)
+      !!ir (assign dstG srcG 26)
+      !!ir (assign dstG srcG 27)
+      !!ir (assign dstH srcH 28)
+      !!ir (assign dstH srcH 29)
+      !!ir (assign dstH srcH 30)
+      !!ir (assign dstH srcH 31)
     | OprMem _ ->
       let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
         transOprToExpr512 ins insLen ctxt dst
@@ -706,8 +706,8 @@ let vmovdqu16 ins insLen ctxt =
         for i in 0 .. 3 do
           let pos = i * 16
           let dst = AST.extract dst 16<rt> pos
-          !!ir
-            (tmps[i] := AST.ite (cond (idx + i)) (AST.extract src 16<rt> pos) dst)
+          !!ir (tmps[i] :=
+                 AST.ite (cond (idx + i)) (AST.extract src 16<rt> pos) dst)
         AST.concatArr tmps
       !!ir (dstA := assign dstA srcA 0)
       !!ir (dstB := assign dstB srcB 4)
@@ -1445,7 +1445,8 @@ let vxorps ins insLen ctxt =
       | Merging -> dst
     let cond idx =
       (* no write mask *)
-      let noWritemask = if ePrx.AAA = 0uy then AST.num1 1<rt> else AST.num0 1<rt>
+      let noWritemask =
+        if ePrx.AAA = 0uy then AST.num1 1<rt> else AST.num0 1<rt>
       AST.extract k 1<rt> idx .| noWritemask
     let tmpDest = Array.init 2 (fun _ -> !*ir 32<rt>)
     let evAssign dst s1 s2 src2A idx =
@@ -1660,7 +1661,8 @@ let vpaddd ins insLen ctxt =
       | Merging -> dst
     let cond idx =
       (* no write mask *)
-      let noWritemask = if ePrx.AAA = 0uy then AST.num1 1<rt> else AST.num0 1<rt>
+      let noWritemask =
+        if ePrx.AAA = 0uy then AST.num1 1<rt> else AST.num0 1<rt>
       AST.extract k 1<rt> idx .| noWritemask
     let tmpDest = Array.init 2 (fun _ -> !*ir 32<rt>)
     let evAssign dst s1 s2 src2A idx =
@@ -1852,7 +1854,8 @@ let vpbroadcastd ins insLen ctxt =
       | Merging -> dst
     let cond idx =
       (* no write mask *)
-      let noWritemask = if ePrx.AAA = 0uy then AST.num1 1<rt> else AST.num0 1<rt>
+      let noWritemask =
+        if ePrx.AAA = 0uy then AST.num1 1<rt> else AST.num0 1<rt>
       AST.extract k 1<rt> idx .| noWritemask
     let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
       transOprToExpr512 ins insLen ctxt dst
@@ -1933,102 +1936,143 @@ let vpshufb ins insLen ctxt =
   let oprSize = getOperationSize ins
   let cnt = if oprSize = 128<rt> then 16 else 32
   let ir = IRBuilder (2 * cnt)
+  let n0 = AST.num0 8<rt>
+  let mask = numU32 0x0Fu 8<rt>
   !<ir insLen
   match oprSize with
   | 128<rt> ->
     let dstB, dstA = transOprToExpr128 ins insLen ctxt dst
     let src1B, src1A = transOprToExpr128 ins insLen ctxt src1
     let src2B, src2A = transOprToExpr128 ins insLen ctxt src2
-    let highTmps = Array.init cnt (fun _ -> !*ir 8<rt>)
-    let lowTmps = Array.init cnt (fun _ -> !*ir 8<rt>)
+    let highTmps = Array.init 8 (fun _ -> !*ir 8<rt>)
+    let lowTmps = Array.init 8 (fun _ -> !*ir 8<rt>)
     let struct (tSrc1, tSrc2) = tmpVars2 ir 64<rt>
-    let mask = numU32 0x0Fu 8<rt>
     for i in 0 .. cnt - 1 do
-      !!ir (tSrc1 := if i < 8 then src1A else src1B)
       !!ir (tSrc2 := if i < 8 then src2A else src2B)
       let cond = AST.extract tSrc2 1<rt> (((i * 8) % 64) + 7)
       let idx = (AST.extract tSrc2 8<rt> ((i * 8) % 64)) .& mask
-      let numShift = (AST.zext 64<rt> idx) .* (numI32 8 64<rt>)
-      let n0 = AST.num0 8<rt>
-      let temp = AST.xtlo 8<rt> (tSrc1 >> numShift)
-      if i < 8 then !!ir (lowTmps[i] := AST.ite cond n0 temp)
-      else !!ir (highTmps[i - 8] := AST.ite cond n0 temp)
+      let numShift =
+        ((AST.zext 64<rt> idx) .* (numI32 8 64<rt>)) .% (numI32 64 64<rt>)
+      !!ir (tSrc1 := AST.ite (idx .< numI32 8 8<rt>) src1A src1B)
+      let src1 = AST.xtlo 8<rt> (tSrc1 >> numShift)
+      if i < 8 then !!ir (lowTmps[i] := AST.ite cond n0 src1)
+      else !!ir (highTmps[i % 8] := AST.ite cond n0 src1)
     done
     !!ir (dstA := AST.concatArr lowTmps)
     !!ir (dstB := AST.concatArr highTmps)
+    fillZeroHigh128 ctxt dst ir
   | 256<rt> ->
     let dstD, dstC, dstB, dstA = transOprToExpr256 ins insLen ctxt dst
     let src1D, src1C, src1B, src1A = transOprToExpr256 ins insLen ctxt src1
     let src2D, src2C, src2B, src2A = transOprToExpr256 ins insLen ctxt src2
-    let tmpsA = Array.init cnt (fun _ -> !*ir 8<rt>)
-    let tmpsB = Array.init cnt (fun _ -> !*ir 8<rt>)
-    let tmpsC = Array.init cnt (fun _ -> !*ir 8<rt>)
-    let tmpsD = Array.init cnt (fun _ -> !*ir 8<rt>)
-    let mask = numU32 0x0Fu 8<rt>
+    let tmpsA = Array.init 8 (fun _ -> !*ir 8<rt>)
+    let tmpsB = Array.init 8 (fun _ -> !*ir 8<rt>)
+    let tmpsC = Array.init 8 (fun _ -> !*ir 8<rt>)
+    let tmpsD = Array.init 8 (fun _ -> !*ir 8<rt>)
     let struct (tSrc1, tSrc2) = tmpVars2 ir 64<rt>
     let src1 = [| src1A; src1B; src1C; src1D  |]
     let src2 = [| src2A; src2B; src2C; src2D  |]
+    let n8 = numI32 8 8<rt>
+    let n16 = numI32 16 8<rt>
+    let n24 = numI32 24 8<rt>
     for i in 0 .. cnt - 1 do
       !!ir (tSrc1 := src1[i / 8])
       !!ir (tSrc2 := src2[i / 8])
       let cond = AST.extract tSrc2 1<rt> (((i * 8) % 64) + 7)
       let idx = (AST.extract tSrc2 8<rt> ((i * 8) % 64)) .& mask
-      let numShift = (AST.zext 64<rt> idx) .* (numI32 8 64<rt>)
-      let n0 = AST.num0 8<rt>
-      let temp = AST.xtlo 8<rt> (tSrc1 >> numShift)
-      if i < 8 then !!ir (tmpsA[i] := AST.ite cond n0 temp)
-      elif i < 16 then !!ir (tmpsB[i - 8] := AST.ite cond n0 temp)
-      elif i < 24 then !!ir (tmpsC[i - 16] := AST.ite cond n0 temp)
-      else !!ir (tmpsD[i - 24] := AST.ite cond n0 temp)
+      let numShift =
+        ((AST.zext 64<rt> idx) .* (numI32 8 64<rt>)) .% (numI32 64 64<rt>)
+      let src1 =
+        AST.ite (idx .< n8) src1A (AST.ite (idx .< n16) src1B
+        (AST.ite (idx .< n24) src1C src1D))
+      !!ir (tSrc1 := src1)
+      let src1 = AST.xtlo 8<rt> (tSrc1 >> numShift)
+      if i < 8 then !!ir (tmpsA[i] := AST.ite cond n0 src1)
+      elif i < 16 then !!ir (tmpsB[i % 8] := AST.ite cond n0 src1)
+      elif i < 24 then !!ir (tmpsC[i % 8] := AST.ite cond n0 src1)
+      else !!ir (tmpsD[i % 8] := AST.ite cond n0 src1)
     done
     !!ir (dstA := AST.concatArr tmpsA)
     !!ir (dstB := AST.concatArr tmpsB)
     !!ir (dstC := AST.concatArr tmpsC)
     !!ir (dstD := AST.concatArr tmpsD)
-    fillZeroHigh128 ctxt dst ir
-  (*
   | 512<rt> ->
     let kl, vl = 64, 512
-    let ePrx = getEVEXPrx ins.VEXInfo
-    let k = !.ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
-    let cond idx =
-      if ePrx.AAA = 0uy then AST.num0 1<rt> (* no write mask *)
-      else AST.extract k 1<rt> idx
     let dstH, dstG, dstF, dstE, dstD, dstC, dstB, dstA =
       transOprToExpr512 ins insLen ctxt dst
     let src1H, src1G, src1F, src1E, src1D, src1C, src1B, src1A =
       transOprToExpr512 ins insLen ctxt src1
     let src2H, src2G, src2F, src2E, src2D, src2C, src2B, src2A =
       transOprToExpr512 ins insLen ctxt src2
-    let tmpsA = Array.init kl (fun _ -> !*ir 8<rt>)
-    let tmpsB = Array.init kl (fun _ -> !*ir 8<rt>)
-    let tmpsC = Array.init kl (fun _ -> !*ir 8<rt>)
-    let tmpsD = Array.init kl (fun _ -> !*ir 8<rt>)
-    let tmpsE = Array.init kl (fun _ -> !*ir 8<rt>)
-    let tmpsF = Array.init kl (fun _ -> !*ir 8<rt>)
-    let tmpsG = Array.init kl (fun _ -> !*ir 8<rt>)
-    let tmpsH = Array.init kl (fun _ -> !*ir 8<rt>)
+    let tmpsA = Array.init 8 (fun _ -> !*ir 8<rt>)
+    let tmpsB = Array.init 8 (fun _ -> !*ir 8<rt>)
+    let tmpsC = Array.init 8 (fun _ -> !*ir 8<rt>)
+    let tmpsD = Array.init 8 (fun _ -> !*ir 8<rt>)
+    let tmpsE = Array.init 8 (fun _ -> !*ir 8<rt>)
+    let tmpsF = Array.init 8 (fun _ -> !*ir 8<rt>)
+    let tmpsG = Array.init 8 (fun _ -> !*ir 8<rt>)
+    let tmpsH = Array.init 8 (fun _ -> !*ir 8<rt>)
     let src1 = [| src1A; src1B; src1C; src1D; src1E; src1F; src1G; src1H |]
     let src2 = [| src2A; src2B; src2C; src2D; src2E; src2F; src2G; src2H |]
     let struct (tSrc1, tSrc2) = tmpVars2 ir 64<rt>
-
-    let num0F = numU32 0x0Fu 8<rt>
+    let numF = numU32 0xFu 8<rt>
+    let n0 = AST.num0 8<rt>
     let jmask = !*ir 8<rt>
-    let cond idx =
-      (* no write mask *)
-      let noWritemask =
+    let ePrx = getEVEXPrx ins.VEXInfo
+    let k = !.ctxt (ePrx.AAA |> Disasm.getOpmaskRegister)
+    let cond1 idx =
+      let noWritemask = (* no masking *)
         if ePrx.AAA = 0uy then AST.num1 1<rt> else AST.num0 1<rt>
       AST.extract k 1<rt> idx .| noWritemask
-
-    !!ir (jmask := numI32 (kl - 1) 8<rt> .& (AST.not num0F))
-    let jmask = (kl - 1) &&& ~~~0xF
-
+    let lblNoMask = ir.NewSymbol "NoMasking"
+    let lblZero = ir.NewSymbol "Zeroing"
+    let lblL0 = ir.NewSymbol "L0" (* index & 0x80 *)
+    let lblL1 = ir.NewSymbol "L1"
+    let lblEnd = ir.NewSymbol "End"
+    let struct (index, cond2) = tmpVars2 ir 8<rt>
+    let getTmpDst idx =
+      if idx < 8 then tmpsA[idx]
+      elif idx < 16 then tmpsB[idx % 8]
+      elif idx < 24 then tmpsC[idx % 8]
+      elif idx < 32 then tmpsD[idx % 8]
+      elif idx < 40 then tmpsE[idx % 8]
+      elif idx < 48 then tmpsF[idx % 8]
+      elif idx < 56 then tmpsG[idx % 8]
+      else tmpsG[idx % 8]
+    let n8 = numI32 8 8<rt>
+    let n16 = numI32 16 8<rt>
+    let n24 = numI32 24 8<rt>
+    let n32 = numI32 32 8<rt>
+    let n40 = numI32 40 8<rt>
+    let n48 = numI32 48 8<rt>
+    let n56 = numI32 56 8<rt>
+    !!ir (jmask := numI32 ((kl - 1) &&& ~~~0xF) 8<rt>)
     for i in 0 .. kl - 1 do
-      !!ir (tSrc1 := src1[i / 8])
       !!ir (tSrc2 := src2[i / 8])
-      let index1 = AST.extract tSrc2 8<rt> ((i * 8) % 64)
-      let index2 = (index1 .& num0F) .+ (numI32 (i % 8) 8<rt> .& jmask)
-
+      !!ir (AST.cjmp (cond1 i) (AST.name lblNoMask) (AST.name lblZero))
+      !!ir (AST.lmark lblNoMask)
+      !!ir (index := AST.extract tSrc2 8<rt> ((i * 8) % 64))
+      !!ir (cond2 := index .& numI32 0x80 8<rt>)
+      !!ir (AST.cjmp cond2 (AST.name lblL0) (AST.name lblL1))
+      !!ir (AST.lmark lblL0)
+      !!ir (getTmpDst i := n0)
+      !!ir (AST.jmp (AST.name lblEnd))
+      !!ir (AST.lmark lblL1)
+      !!ir (index := (index .& numF) .+ (numI32 (i % 8) 8<rt> .& jmask))
+      let numShift =
+        ((AST.zext 64<rt> index) .* (numI32 8 64<rt>)) .% (numI32 64 64<rt>)
+      let src1 =
+        AST.ite (index .< n8) src1A (AST.ite (index .< n16) src1B
+          (AST.ite (index .< n24) src1C (AST.ite (index .< n32) src1D
+            (AST.ite (index .< n40) src1E (AST.ite (index .< n48) src1E
+              (AST.ite (index .< n56) src1G src1H))))))
+      !!ir (tSrc1 := src1)
+      let src1 = AST.xtlo 8<rt> (tSrc1 >> numShift)
+      !!ir (getTmpDst i := src1)
+      !!ir (AST.jmp (AST.name lblEnd))
+      !!ir (AST.lmark lblZero)
+      !!ir (getTmpDst i := n0)
+      !!ir (AST.lmark lblEnd)
     done
     !!ir (dstA := AST.concatArr tmpsA)
     !!ir (dstB := AST.concatArr tmpsB)
@@ -2038,7 +2082,6 @@ let vpshufb ins insLen ctxt =
     !!ir (dstF := AST.concatArr tmpsF)
     !!ir (dstG := AST.concatArr tmpsG)
     !!ir (dstH := AST.concatArr tmpsH)
-  *)
   | _ -> raise InvalidOperandSizeException
   !>ir insLen
 
@@ -2087,10 +2130,10 @@ let vpshufd ins insLen ctxt =
   | _ -> raise InvalidOperandSizeException
   !>ir insLen
 
-let private opShiftVpackedDataLogical oprSize packSz shift src1 (src2: Expr []) =
+let private opShiftVpackedDataLogical oprSize packSz shf src1 (src2: Expr []) =
   let count = src2[0] |> AST.zext oprSize
   let cond = AST.gt count (numI32 ((int packSz) - 1) oprSize)
-  let shifted expr = AST.extract (shift (AST.zext oprSize expr) count) packSz 0
+  let shifted expr = AST.extract (shf (AST.zext oprSize expr) count) packSz 0
   Array.map (fun e -> AST.ite cond (AST.num0 packSz) (shifted e)) src1
 
 let private opVpslld oprSize = opShiftVpackedDataLogical oprSize 32<rt> (<<)

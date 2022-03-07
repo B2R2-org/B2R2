@@ -26,7 +26,6 @@ module internal B2R2.FrontEnd.BinLifter.Intel.Lifter
 
 open B2R2
 open B2R2.BinIR
-open B2R2.FrontEnd.BinLifter
 
 type OP = Opcode (* Just to make it concise. *)
 
