@@ -34,7 +34,7 @@ type Sparc64TranslationContext internal (isa, regexprs) =
   /// Register expressions.
   member val private RegExprs: RegExprs = regexprs
   override __.GetRegVar id = Register.ofRegID id |> __.RegExprs.GetRegVar
-  override __.GetPseudoRegVar _id _pos = failwith "Implement"
+  override __.GetPseudoRegVar _id _pos = Utils.impossible ()
 
 /// Parser for Sparc64 instructions. Parser will return a platform-agnostic
 /// instruction type (Instruction).

@@ -13,6 +13,9 @@
     <Compile Include="Sparc64RegExprs.fs" />
     <Compile Include="Sparc64RegisterBay.fs" />
     <Compile Include="Sparc64Types.fs" />
+    <Compile Include="Sparc64Disasm.fs" />
+    <Compile Include="Sparc64GeneralLifter.fs" />
+    <Compile Include="Sparc64Lifter.fs" />
     <Compile Include="Sparc64Instruction.fs" />
     <Compile Include="Sparc64Parser.fs" />
     <Compile Include="Sparc64.fs" />

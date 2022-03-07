@@ -33,10 +33,11 @@
     <ProjectReference Include="..\BinLifter\EVM\B2R2.FrontEnd.BinLifter.EVM.fsproj" />
     <ProjectReference Include="..\BinLifter\PPC32\B2R2.FrontEnd.BinLifter.PPC32.fsproj" />
     <ProjectReference Include="..\BinLifter\RISCV\B2R2.FrontEnd.BinLifter.RISCV.fsproj" />
-    <ProjectReference Include="..\BinLifter\TMS320C6000\B2R2.FrontEnd.BinLifter.TMS320C6000.fsproj" />
     <ProjectReference Include="..\BinLifter\CIL\B2R2.FrontEnd.BinLifter.CIL.fsproj" />
     <ProjectReference Include="..\BinLifter\SH4\B2R2.FrontEnd.BinLifter.SH4.fsproj" />
-    <ProjectReference Include="..\BinLifter\Optimizer\B2R2.FrontEnd.BinLifter.Optimizer.fsproj" />
+    <ProjectReference Include="..\BinLifter\Sparc64\B2R2.FrontEnd.BinLifter.Sparc64.fsproj" />
+    <ProjectReference Include="..\BinLifter\TMS320C6000\B2R2.FrontEnd.BinLifter.TMS320C6000.fsproj" />
     <ProjectReference Include="..\BinLifter\WASM\B2R2.FrontEnd.BinLifter.WASM.fsproj" />
+    <ProjectReference Include="..\BinLifter\Optimizer\B2R2.FrontEnd.BinLifter.Optimizer.fsproj" />
   </ItemGroup>
 </Project>
