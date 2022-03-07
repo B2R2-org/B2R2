@@ -21,6 +21,7 @@
     <Compile Include="ARM32Lifter.fs" />
     <Compile Include="ARM32Instruction.fs" />
     <Compile Include="ARM32Operands.fs" />
+    <Compile Include="ARM32Validator.fs" />
     <Compile Include="ARM32ARMParser.fs" />
     <Compile Include="ARM32ThumbParser.fs" />
     <Compile Include="ARM32Parser.fs" />

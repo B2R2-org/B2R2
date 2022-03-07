@@ -1503,12 +1503,12 @@ module ARMv7 =
     let mode = ArchOperationMode.ARMMode
     let parser = ARM32Parser (ISA.Init arch endian, mode, None)
     let ins = parser.Parse (bytes, 0UL) :?> ARM32Instruction
-    let cond' = ins.Info.Condition
-    let opcode' = ins.Info.Opcode
-    let wback' = ins.Info.WriteBack
-    let q' = ins.Info.Qualifier
-    let simd' = ins.Info.SIMDTyp
-    let oprs' = ins.Info.Operands
+    let cond' = ins.Condition
+    let opcode' = ins.Opcode
+    let wback' = ins.WriteBack
+    let q' = ins.Qualifier
+    let simd' = ins.SIMDTyp
+    let oprs' = ins.Operands
     let w = match w with | Some true -> true | _ -> false // XXX
     let q = match q with | Some W -> W | _ -> N // XXX
     Assert.AreEqual (cond', cond)
@@ -1525,15 +1525,15 @@ module ARMv7 =
   type BranchClass () =
     [<TestMethod>]
     member __.``[ARMv7] Branch Parse Test`` () =
-      test32 (Some Condition.AL) Op.B None None None
+      test32 (Condition.AL) Op.B None None None
              (OneOperand (OprMemory (LiteralMode 1020L)))
              [| 0xeauy; 0x00uy; 0x00uy; 0xffuy |]
 
-      test32 (Some Condition.UN) Op.BLX None None None // Some UN? or None?
+      test32 (Condition.UN) Op.BLX None None None
              (OneOperand (OprMemory (LiteralMode 64L)))
              [| 0xfauy; 0x00uy; 0x00uy; 0x10uy |]
 
-      test32 (Some Condition.AL) Op.BX None None None
+      test32 (Condition.AL) Op.BX None None None
              (OneOperand (OprReg R.R0))
              [| 0xe1uy; 0x2fuy; 0xffuy; 0x10uy |]
 
@@ -1543,91 +1543,91 @@ module ARMv7 =
     /// A4.4.1 Standard data-processing instructions
     [<TestMethod>]
     member __.``[ARMv7] Standard data-processing Parse Test`` () =
-      test32 (Some Condition.AL) Op.ADD None None None
+      test32 (Condition.AL) Op.ADD None None None
              (FourOperands (OprReg R.R2, OprReg R.R0, OprReg R.LR,
                             OprRegShift (SRTypeASR, R.R8)))
              [| 0xe0uy; 0x80uy; 0x28uy; 0x5euy |]
 
-      test32 (Some Condition.AL) Op.ADD None None None (* It used to be ADR *)
+      test32 (Condition.AL) Op.ADD None None None (* It used to be ADR *)
              (ThreeOperands (OprReg R.R0, OprReg R.PC, OprImm 960L))
              [| 0xe2uy; 0x8fuy; 0x0fuy; 0xf0uy |]
 
-      test32 (Some Condition.AL) Op.AND None None None
+      test32 (Condition.AL) Op.AND None None None
              (FourOperands (OprReg R.R0, OprReg R.R0, OprReg R.R0,
                             OprShift (SRTypeLSL, Imm 0u)))
              [| 0xe0uy; 0x00uy; 0x00uy; 0x00uy |]
 
-      test32 (Some Condition.AL) Op.CMP None None None
+      test32 (Condition.AL) Op.CMP None None None
              (ThreeOperands (OprReg R.IP, OprReg R.R2,
                              OprShift (SRTypeROR, Imm 4u)))
              [| 0xe1uy; 0x5cuy; 0x02uy; 0x62uy |]
 
-      test32 (Some Condition.AL) Op.EORS None None None
+      test32 (Condition.AL) Op.EORS None None None
              (ThreeOperands (OprReg R.R1, OprReg R.R0, OprImm 252L))
              [| 0xe2uy; 0x30uy; 0x10uy; 0xfcuy |]
 
-      test32 (Some Condition.AL) Op.MOVW None None None
+      test32 (Condition.AL) Op.MOVW None None None
              (TwoOperands (OprReg R.SL, OprImm 15L))
              [| 0xe3uy; 0x00uy; 0xa0uy; 0x0fuy |]
 
-      test32 (Some Condition.AL) Op.MOVS None None None
+      test32 (Condition.AL) Op.MOVS None None None
              (TwoOperands (OprReg R.R8, OprReg R.IP))
              [| 0xe1uy; 0xb0uy; 0x80uy; 0x0cuy |]
 
-      test32 (Some Condition.AL) Op.MVN None None None
+      test32 (Condition.AL) Op.MVN None None None
              (ThreeOperands (OprReg R.R0, OprReg R.SB,
                              OprRegShift (SRTypeLSL, R.R8)))
              [| 0xe1uy; 0xe0uy; 0x08uy; 0x19uy |]
 
-      test32 (Some Condition.AL) Op.TEQ None None None
+      test32 (Condition.AL) Op.TEQ None None None
              (ThreeOperands (OprReg R.SL, OprReg R.R6,
                              OprRegShift (SRTypeLSL, R.IP)))
              [| 0xe1uy; 0x3auy; 0x0cuy; 0x16uy |]
 
-      test32 (Some Condition.AL) Op.TST None None None
+      test32 (Condition.AL) Op.TST None None None
              (TwoOperands (OprReg R.R3, OprImm 4L))
              [| 0xe3uy; 0x13uy; 0x00uy; 0x04uy |]
 
     /// A4.4.2 Shift instructions
     [<TestMethod>]
     member __.``[ARMv7] Shift Parse Test`` () =
-      test32 (Some Condition.AL) Op.LSLS None None None
+      test32 (Condition.AL) Op.LSLS None None None
              (ThreeOperands (OprReg R.R0, OprReg R.R3, OprReg R.R1))
              [| 0xe1uy; 0xb0uy; 0x01uy; 0x13uy |]
 
-      test32 (Some Condition.AL) Op.ROR None None None
+      test32 (Condition.AL) Op.ROR None None None
              (ThreeOperands (OprReg R.R0, OprReg R.R5, OprImm 28L))
              [| 0xe1uy; 0xa0uy; 0x0euy; 0x65uy |]
 
     /// A4.4.3 Multiply instructions
     [<TestMethod>]
     member __.``[ARMv7] Multiply Parse Test`` () =
-      test32 (Some Condition.AL) Op.MULS None None None
+      test32 (Condition.AL) Op.MULS None None None
              (ThreeOperands (OprReg R.R0, OprReg R.SB, OprReg R.IP))
              [| 0xe0uy; 0x10uy; 0x0cuy; 0x99uy |]
 
-      test32 (Some Condition.AL) Op.SMLABT None None None
+      test32 (Condition.AL) Op.SMLABT None None None
              (FourOperands (OprReg R.R0, OprReg R.R5, OprReg R.SL,
                             OprReg R.IP))
              [| 0xe1uy; 0x00uy; 0xcauy; 0xc5uy |]
 
-      test32 (Some Condition.AL) Op.SMLALTT None None None
+      test32 (Condition.AL) Op.SMLALTT None None None
              (FourOperands (OprReg R.R1, OprReg R.R0, OprReg R.R8,
                             OprReg R.R2))
              [| 0xe1uy; 0x40uy; 0x12uy; 0xe8uy |]
 
-      test32 (Some Condition.AL) Op.SMUAD None None None
+      test32 (Condition.AL) Op.SMUAD None None None
              (ThreeOperands (OprReg R.R0, OprReg R.R2, OprReg R.R1))
              [| 0xe7uy; 0x00uy; 0xf1uy; 0x12uy |]
 
-      test32 (Some Condition.AL) Op.SMULBB None None None
+      test32 (Condition.AL) Op.SMULBB None None None
              (ThreeOperands (OprReg R.R0, OprReg R.IP, OprReg R.LR))
              [| 0xe1uy; 0x60uy; 0x0euy; 0x8cuy |]
 
     /// A4.4.4 Saturating instructions
     [<TestMethod>]
     member __.``[ARMv7] Saturating Parse Test`` () =
-      test32 (Some Condition.AL) Op.SSAT None None None
+      test32 (Condition.AL) Op.SSAT None None None
              (FourOperands (OprReg R.R0, OprImm 29L, OprReg R.R2,
                             OprShift (SRTypeASR, Imm 7u)))
              [| 0xe6uy; 0xbcuy; 0x03uy; 0xd2uy |]
@@ -1635,24 +1635,24 @@ module ARMv7 =
     /// A4.4.5 Saturating addition and subtraction instructions
     [<TestMethod>]
     member __.``[ARMv7] Saturating addition and subtraction Parse Test`` () =
-      test32 (Some Condition.AL) Op.QADD None None None
+      test32 (Condition.AL) Op.QADD None None None
              (ThreeOperands (OprReg R.R1, OprReg R.R2, OprReg R.R0))
              [| 0xe1uy; 0x00uy; 0x10uy; 0x52uy |]
 
     /// A4.4.6 Packing and unpacking instructions
     [<TestMethod>]
     member __.``[ARMv7] Packing and unpacking Parse Test`` () =
-      test32 (Some Condition.AL) Op.PKHTB None None None
+      test32 (Condition.AL) Op.PKHTB None None None
              (FourOperands (OprReg R.R1, OprReg R.R0, OprReg R.R8,
                             OprShift (SRTypeASR, Imm 21u)))
              [| 0xe6uy; 0x80uy; 0x1auy; 0xd8uy |]
 
-      test32 (Some Condition.AL) Op.SXTAB None None None
+      test32 (Condition.AL) Op.SXTAB None None None
              (FourOperands (OprReg R.R1, OprReg R.R0, OprReg R.R0,
                             OprShift (SRTypeROR, Imm 24u)))
              [| 0xe6uy; 0xa0uy; 0x1cuy; 0x70uy |]
 
-      test32 (Some Condition.AL) Op.SXTH None None None
+      test32 (Condition.AL) Op.SXTH None None None
              (ThreeOperands (OprReg R.R0, OprReg R.R3,
                              OprShift (SRTypeROR, Imm 0u)))
              [| 0xe6uy; 0xbfuy; 0x00uy; 0x73uy |]
@@ -1660,7 +1660,7 @@ module ARMv7 =
     /// A4.4.7 Parallel addition and subtraction instructions
     [<TestMethod>]
     member __.``[ARMv7] Parallel addition and subtraction Parse Test`` () =
-      test32 (Some Condition.AL) Op.SASX None None None
+      test32 (Condition.AL) Op.SASX None None None
              (ThreeOperands (OprReg R.R1, OprReg R.R0, OprReg R.R7))
              [| 0xe6uy; 0x10uy; 0x1fuy; 0x37uy |]
 
@@ -1668,20 +1668,20 @@ module ARMv7 =
     /// A4.4.9 Miscellaneous data-processing instructions
     [<TestMethod>]
     member __.``[ARMv7] Miscellaneous data-processing Parse Test`` () =
-      test32 (Some Condition.AL) Op.BFC None None None
+      test32 (Condition.AL) Op.BFC None None None
              (ThreeOperands (OprReg R.R0, OprImm 3L, OprImm 29L))
              [| 0xe7uy; 0xdfuy; 0x01uy; 0x9fuy |]
 
-      test32 (Some Condition.AL) Op.BFI None None None
+      test32 (Condition.AL) Op.BFI None None None
              (FourOperands (OprReg R.R0, OprReg R.R0, OprImm 5L,
                             OprImm 6L))
              [| 0xe7uy; 0xcauy; 0x02uy; 0x90uy |]
 
-      test32 (Some Condition.AL) Op.CLZ None None None
+      test32 (Condition.AL) Op.CLZ None None None
              (TwoOperands (OprReg R.R0, OprReg R.R1))
              [| 0xe1uy; 0x6fuy; 0x0fuy; 0x11uy |]
 
-      test32 (Some Condition.AL) Op.SBFX None None None
+      test32 (Condition.AL) Op.SBFX None None None
              (FourOperands (OprReg R.R0, OprReg R.R2, OprImm 28L,
                             OprImm 3L))
              [| 0xe7uy; 0xa2uy; 0x0euy; 0x52uy |]
@@ -1691,15 +1691,15 @@ module ARMv7 =
   type StatusOprRegAccessClass () =
     [<TestMethod>]
     member __.``[ARMv7] Status register access Parse Test`` () =
-      test32 (Some Condition.AL) Op.MSR None None None
-             (TwoOperands (OprSpecReg (R.APSR, Some PSRnzcvqg), OprImm 240L))
+      test32 (Condition.AL) Op.MSR None None None
+             (TwoOperands (OprSpecReg (R.CPSR, Some PSRfs), OprImm 240L))
              [| 0xe3uy; 0x2cuy; 0xf0uy; 0xf0uy |]
 
-      test32 (Some Condition.AL) Op.MSR None None None
-             (TwoOperands (OprSpecReg (R.APSR, Some PSRnzcvqg), OprReg R.R2))
+      test32 (Condition.AL) Op.MSR None None None
+             (TwoOperands (OprSpecReg (R.CPSR, Some PSRfs), OprReg R.R2))
              [| 0xe1uy; 0x2cuy; 0xf0uy; 0x02uy |]
 
-      test32 (Some Condition.UN) Op.CPSIE None None None // Some UN? or None?
+      test32 (Condition.UN) Op.CPSIE None None None
              (TwoOperands (OprIflag AF, OprImm 2L))
              [| 0xf1uy; 0x0auy; 0x01uy; 0x42uy |]
 
@@ -1708,26 +1708,26 @@ module ARMv7 =
   type LoadStoreClass () =
     [<TestMethod>]
     member __.``[ARMv7] Load/store (Lord) Parse Test`` () =
-      test32 (Some Condition.AL) Op.LDR None None None
+      test32 (Condition.AL) Op.LDR None None None
              (TwoOperands (OprReg R.R0,
                            OprMemory (LiteralMode 15L)))
              [| 0xe5uy; 0x9fuy; 0x00uy; 0x0fuy |]
 
-      test32 (Some Condition.AL) Op.LDRH (Some true) None None
+      test32 (Condition.AL) Op.LDRH (Some true) None None
              (TwoOperands (OprReg R.R1,
                            OprMemory (PostIdxMode
                                      (RegOffset (R.R0, Some Plus,
                                                  R.IP, None)))))
              [| 0xe0uy; 0x90uy; 0x10uy; 0xbcuy |]
 
-      test32 (Some Condition.AL) Op.LDRB (Some false) None None
+      test32 (Condition.AL) Op.LDRB (Some false) None None
              (TwoOperands (OprReg R.R1,
                            OprMemory (OffsetMode
                                     (RegOffset (R.R0, Some Minus, R.R2,
                                       Some (SRTypeASR, Imm 1u))))))
              [| 0xe7uy; 0x50uy; 0x10uy; 0xc2uy |]
 
-      test32 (Some Condition.AL) Op.LDRSB (Some true) None None
+      test32 (Condition.AL) Op.LDRSB (Some true) None None
              (TwoOperands (OprReg R.R1,
                            OprMemory (PreIdxMode
                                     (ImmOffset (R.R0, Some Minus, Some 195L)))))
@@ -1735,20 +1735,20 @@ module ARMv7 =
 
     [<TestMethod>]
     member __.``[ARMv7] Load/store (Store) Parse Test`` () =
-      test32 (Some Condition.AL) Op.STR (Some false) None None
+      test32 (Condition.AL) Op.STR (Some false) None None
              (TwoOperands (OprReg R.R1,
                            OprMemory (OffsetMode
                                     (ImmOffset (R.R0, Some Minus, Some 243L)))))
              [| 0xe5uy; 0x00uy; 0x10uy; 0xf3uy |]
 
-      test32 (Some Condition.AL) Op.STRB (Some true) None None
+      test32 (Condition.AL) Op.STRB (Some true) None None
              (TwoOperands (OprReg R.R1,
                            OprMemory (PostIdxMode
                                      (RegOffset (R.R0, Some Minus, R.IP,
                                         Some (SRTypeLSR,Imm 4u))))))
              [| 0xe6uy; 0x40uy; 0x12uy; 0x2cuy |]
 
-      test32 (Some Condition.AL) Op.STRD (Some true) None None
+      test32 (Condition.AL) Op.STRD (Some true) None None
              (ThreeOperands (OprReg R.IP, OprReg R.SP,
                              OprMemory (PreIdxMode
                                       (RegOffset (R.R0, Some Plus,
@@ -1757,7 +1757,7 @@ module ARMv7 =
 
     [<TestMethod>]
     member __.``[ARMv7] Load/store (Load unprivileged) Parse Test`` () =
-      test32 (Some Condition.AL) Op.LDRSHT None None None
+      test32 (Condition.AL) Op.LDRSHT None None None
              (TwoOperands (OprReg R.LR,
                            OprMemory (PostIdxMode
                                      (ImmOffset (R.R0, Some Minus, Some 14L)))))
@@ -1765,13 +1765,13 @@ module ARMv7 =
 
     [<TestMethod>]
     member __.``[ARMv7] Load/store (Store unprivileged) Parse Test`` () =
-      test32 (Some Condition.AL) Op.STRT None None None
+      test32 (Condition.AL) Op.STRT None None None
              (TwoOperands (OprReg R.R1,
                            OprMemory (PostIdxMode
                                      (ImmOffset (R.R0, Some Plus, Some 15L)))))
              [| 0xe4uy; 0xa0uy; 0x10uy; 0x0fuy |]
 
-      test32 (Some Condition.AL) Op.STRHT None None None
+      test32 (Condition.AL) Op.STRHT None None None
              (TwoOperands (OprReg R.R1,
                            OprMemory (PostIdxMode
                                      (RegOffset (R.R0, Some Minus,
@@ -1780,14 +1780,14 @@ module ARMv7 =
 
     [<TestMethod>]
     member __.``[ARMv7] Load/store (Load-Exclusive) Parse Test`` () =
-      test32 (Some Condition.AL) Op.LDREX None None None
+      test32 (Condition.AL) Op.LDREX None None None
              (TwoOperands (OprReg R.LR,
                            OprMemory (OffsetMode (ImmOffset (R.R0, None, None)))))
              [| 0xe1uy; 0x90uy; 0xefuy; 0x9fuy |]
 
     [<TestMethod>]
     member __.``[ARMv7] Load/store (Store-Exclusive) Parse Test`` () =
-      test32 (Some Condition.AL) Op.STREXD None None None
+      test32 (Condition.AL) Op.STREXD None None None
              (FourOperands (OprReg R.R1, OprReg R.R2, OprReg R.R3,
                             OprMemory (OffsetMode (ImmOffset (R.R0, None, None)))))
              [| 0xe1uy; 0xa0uy; 0x1fuy; 0x92uy |]
@@ -1797,30 +1797,30 @@ module ARMv7 =
   type LoadStoreMultipleClass () =
     [<TestMethod>]
     member __.``[ARMv7] Load/store multiple Parse Test`` () =
-      test32 (Some Condition.AL) Op.LDMDA (Some false) None None
+      test32 (Condition.AL) Op.LDMDA (Some false) None None
              (TwoOperands (OprReg R.R0,
                            OprRegList [ R.R2; R.R3; R.R8; R.SB; R.SL; R.FP ]))
              [| 0xe8uy; 0x10uy; 0x0fuy; 0x0cuy |]
 
-      test32 (Some Condition.AL) Op.LDMDA (Some true) None None
+      test32 (Condition.AL) Op.LDMDA (Some true) None None
              (TwoOperands (OprReg R.R0,
                            OprRegList [ R.R2; R.R3; R.R8; R.SB; R.SL; R.FP ]))
              [| 0xe8uy; 0x30uy; 0x0fuy; 0x0cuy |]
 
-      test32 (Some Condition.AL) Op.POP None None None
+      test32 (Condition.AL) Op.POP None None None
              (OneOperand (OprRegList [ R.R0; R.R1; R.R2; R.R3 ]))
              [| 0xe8uy; 0xbduy; 0x00uy; 0x0fuy |]
 
-      (* test32 (Some Condition.AL) Op.STR (Some true) None None
+      (* test32 (Condition.AL) Op.STR (Some true) None None
              (TwoOperands (OprReg R.R0,
                OprMemory (PreIdxMode (ImmOffset (R.SP, Some Minus, Some 4L)))))
              [| 0xe5uy; 0x2duy; 0x00uy; 0x04uy |] *)
 
-      test32 (Some Condition.AL) Op.PUSH (Some true) None None
+      test32 (Condition.AL) Op.PUSH (Some true) None None
              (OneOperand (OprRegList [ R.R0 ]))
              [| 0xe5uy; 0x2duy; 0x00uy; 0x04uy |]
 
-      test32 (Some Condition.AL) Op.STMIA None None None
+      test32 (Condition.AL) Op.STMIA None None None
              (TwoOperands (OprReg R.SB, OprRegList [ R.SP; R.LR; R.PC ]))
              [| 0xe8uy; 0xc9uy; 0xe0uy; 0x00uy |]
 
@@ -1829,36 +1829,36 @@ module ARMv7 =
   type MiscellaneousClass () =
     [<TestMethod>]
     member __.``[ARMv7] Miscellaneous Parse Test`` () =
-      test32 (Some Condition.UN) Op.CLREX None None None (NoOperand)
-             [| 0xf5uy; 0x7fuy; 0xf0uy; 0x1fuy |] // Some UN? or None?
+      test32 (Condition.UN) Op.CLREX None None None (NoOperand)
+             [| 0xf5uy; 0x7fuy; 0xf0uy; 0x1fuy |]
 
-      test32 (Some Condition.UN) Op.DMB None None None // Some UN? or None?
+      test32 (Condition.UN) Op.DMB None None None
              (OneOperand (OprOption Option.SY))
              [| 0xf5uy; 0x7fuy; 0xf0uy; 0x5fuy |]
 
-      test32 (Some Condition.AL) Op.NOP None None None NoOperand
+      test32 (Condition.AL) Op.NOP None None None NoOperand
              [| 0xe3uy; 0x20uy; 0xf0uy; 0x00uy |]
 
-      test32 (Some Condition.UN) Op.PLD None None None // Some UN? or None?
+      test32 (Condition.UN) Op.PLD None None None
              (OneOperand (OprMemory (LiteralMode -3840L)))
              [| 0xf5uy; 0x5fuy; 0xffuy; 0x00uy |]
 
-      test32 (Some Condition.UN) Op.PLDW None None None // Some UN? or None?
+      test32 (Condition.UN) Op.PLDW None None None
              (OneOperand (OprMemory (OffsetMode
                                     (RegOffset (R.R0, Some Plus, R.R0,
                                        Some (SRTypeASR, Imm 3u))))))
              [| 0xf7uy; 0x90uy; 0xf1uy; 0xc0uy |]
 
-      test32 (Some Condition.UN) Op.PLI None None None // Some UN? or None?
+      test32 (Condition.UN) Op.PLI None None None
              (OneOperand (OprMemory (LiteralMode -240L)))
              [| 0xf4uy; 0x50uy; 0xf0uy; 0xf0uy |]
 
-      test32 (Some Condition.UN) Op.SETEND None None None // Some UN? or None?
+      test32 (Condition.UN) Op.SETEND None None None
              (OneOperand (OprEndian Endian.Big))
              [| 0xf1uy; 0x01uy; 0x02uy; 0x00uy |]
 
-      // FIXME: Not in ARMv8
-      test32 (Some Condition.AL) Op.SWP None None None
+      /// Only ARMv7
+      test32 (Condition.AL) Op.SWP None None None
              (ThreeOperands (OprReg R.IP, OprReg R.LR,
                              OprMemory (OffsetMode
                                       (ImmOffset (R.R0, None, None)))))
@@ -1869,20 +1869,20 @@ module ARMv7 =
   type ExcepGenAndExcepHandlClass () =
     [<TestMethod>]
     member __.``[ARMv7] Exception-gen and exception-handling Parse Test`` () =
-      test32 None Op.BKPT None None None
+      test32 Condition.UN Op.BKPT None None None
              (OneOperand (OprImm 3852L))
              [| 0xe1uy; 0x20uy; 0xf0uy; 0x7cuy |]
 
-      test32 (Some Condition.AL) Op.SMC None None None
+      test32 (Condition.AL) Op.SMC None None None
              (OneOperand (OprImm 15L))
              [| 0xe1uy; 0x60uy; 0x00uy; 0x7fuy |]
 
-      test32 (Some Condition.UN) Op.RFEIB (Some true) None None
-             (OneOperand (OprReg R.IP)) // Some UN? or None?
+      test32 (Condition.UN) Op.RFEIB (Some true) None None
+             (OneOperand (OprReg R.IP))
              [| 0xf9uy; 0xbcuy; 0x0auy; 0x00uy |]
 
-      test32 (Some Condition.UN) Op.SRSDB (Some true) None None
-             (TwoOperands (OprReg R.SP, OprImm 4L)) // Some UN? or None?
+      test32 (Condition.UN) Op.SRSDB (Some true) None None
+             (TwoOperands (OprReg R.SP, OprImm 4L))
              [| 0xf9uy; 0x6duy; 0x05uy; 0x04uy |]
 
   /// A4.10 Co-processor instructions
@@ -1890,28 +1890,28 @@ module ARMv7 =
   type CoprocessorClass () =
     [<TestMethod>]
     member __.``[ARMv7] Co-processor Parse Test`` () =
-      // FIXME: Not in ARMv8
-      test32 (Some Condition.AL) Op.CDP None None None
+      /// Only ARMv7
+      test32 (Condition.AL) Op.CDP None None None
              (SixOperands (OprReg R.P3, OprImm 0L, OprReg R.C2,
                            OprReg R.C1, OprReg R.C8, OprImm 7L))
              [| 0xeeuy; 0x01uy; 0x23uy; 0xe8uy |]
 
-      test32 (Some Condition.AL) Op.MCRR None None None
+      test32 (Condition.AL) Op.MCRR None None None
              (FiveOperands (OprReg R.P15, OprImm 14L, OprReg R.R1,
                             OprReg R.R0, OprReg R.C3))
              [| 0xecuy; 0x40uy; 0x1fuy; 0xe3uy |]
 
-      test32 (Some Condition.AL) Op.MRC None None None
+      test32 (Condition.AL) Op.MRC None None None
              (SixOperands (OprReg R.P14, OprImm 4L, OprReg R.SB,
                            OprReg R.C14, OprReg R.C2, OprImm 1L))
              [| 0xeeuy; 0x9euy; 0x9euy; 0x32uy |]
 
-      test32 (Some Condition.AL) Op.LDC (Some false) None None
+      test32 (Condition.AL) Op.LDC (Some false) None None
              (ThreeOperands (OprReg R.P14, OprReg R.C5,
                              OprMemory (LiteralMode 192L)))
              [| 0xeduy; 0x9fuy; 0x5euy; 0x30uy |]
 
-      test32 (Some Condition.AL) Op.LDC None None None
+      test32 (Condition.AL) Op.LDC None None None
              (ThreeOperands (OprReg R.P14, OprReg R.C5,
                              OprMemory (UnIdxMode (R.R0, 128L))))
              [| 0xecuy; 0x90uy; 0x5euy; 0x80uy |]
@@ -1922,7 +1922,7 @@ module ARMv7 =
     /// A4.11.1 Element and structure load/store instructions
     [<TestMethod>]
     member __.``[ARMv7] Element and structure load/store Parse Test`` () =
-      test32 (Some Condition.UN) Op.VLD4 (Some true) None // Some UN? or None?
+      test32 (Condition.UN) Op.VLD4 (Some true) None
              (Some (OneDT SIMDTyp16))
              (TwoOperands
                (OprSIMD (FourRegs (Scalar (R.D18, None), Scalar (R.D20, None),
@@ -1932,7 +1932,7 @@ module ARMv7 =
                                                    Some R.R0)))))
              [| 0xf4uy; 0xe0uy; 0x2fuy; 0x70uy |]
 
-      test32 (Some Condition.UN) Op.VST1 (Some true) None // Some UN? or None?
+      test32 (Condition.UN) Op.VST1 (Some true) None
              (Some (OneDT SIMDTyp32))
              (TwoOperands (OprSIMD (ThreeRegs (Vector R.D12, Vector R.D13,
                                                Vector R.D14)),
@@ -1941,7 +1941,7 @@ module ARMv7 =
                                                    Some R.R0)))))
              [| 0xf4uy; 0x02uy; 0xc6uy; 0x90uy |]
 
-      test32 (Some Condition.UN) Op.VST3 (Some true) None // Some UN? or None?
+      test32 (Condition.UN) Op.VST3 (Some true) None
              (Some (OneDT SIMDTyp32))
              (TwoOperands
                (OprSIMD (ThreeRegs (Scalar (R.D14, Some 1uy),
@@ -1955,16 +1955,16 @@ module ARMv7 =
   type AdvSIMDAndFPRegTransClass () =
     [<TestMethod>]
     member __.``[ARMv7] Advanced SIMD and FP register transfer Parse Test`` () =
-      test32 (Some Condition.AL) Op.VDUP None None (Some (OneDT SIMDTyp16))
+      test32 (Condition.AL) Op.VDUP None None (Some (OneDT SIMDTyp16))
              (TwoOperands (OprSIMD (SFReg (Vector R.D18)), OprReg R.LR))
              [| 0xeeuy; 0x82uy; 0xebuy; 0xb0uy |]
 
-      test32 (Some Condition.AL) Op.VMOV None None (Some (OneDT SIMDTyp8))
+      test32 (Condition.AL) Op.VMOV None None (Some (OneDT SIMDTyp8))
              (TwoOperands (OprSIMD (SFReg (Scalar (R.D18, Some 1uy))),
                            OprReg R.IP))
              [| 0xeeuy; 0x42uy; 0xcbuy; 0xb0uy |]
 
-      test32 (Some Condition.AL) Op.VMOV None None (Some (OneDT SIMDTypS16))
+      test32 (Condition.AL) Op.VMOV None None (Some (OneDT SIMDTypS16))
              (TwoOperands (OprReg R.R8,
                            OprSIMD (SFReg (Scalar (R.D16, Some 0uy)))))
              [| 0xeeuy; 0x10uy; 0x8buy; 0xb0uy |]
@@ -1975,27 +1975,27 @@ module ARMv7 =
     /// A4.13.1 Advanced SIMD parallel addition and subtraction
     [<TestMethod>]
     member __.``[ARMv7] Advanced SIMD parallel add and sub Parse Test`` () =
-      test32 (Some Condition.UN) Op.VADDW None None // Some UN? or None?
+      test32 (Condition.UN) Op.VADDW None None
              (Some (OneDT SIMDTypS8))
              (ThreeOperands (OprSIMD (SFReg (Vector R.Q14)),
                              OprSIMD (SFReg (Vector R.Q8)),
                              OprSIMD (SFReg (Vector R.D10))))
              [| 0xf2uy; 0xc0uy; 0xc1uy; 0x8auy |]
 
-      test32 (Some Condition.UN) Op.VHSUB None None // Some UN? or None?
+      test32 (Condition.UN) Op.VHSUB None None
              (Some (OneDT SIMDTypU32))
              (ThreeOperands (OprSIMD (SFReg (Vector R.D1)),
                              OprSIMD (SFReg (Vector R.D0)),
                              OprSIMD (SFReg (Vector R.D28))))
              [| 0xf3uy; 0x20uy; 0x12uy; 0x2cuy |]
 
-      test32 (Some Condition.UN) Op.VPADDL None None // Some UN? or None?
+      test32 (Condition.UN) Op.VPADDL None None
              (Some (OneDT SIMDTypU8))
              (TwoOperands (OprSIMD (SFReg (Vector R.D0)),
                            OprSIMD (SFReg (Vector R.D14))))
              [| 0xf3uy; 0xb0uy; 0x02uy; 0x8euy |]
 
-      test32 (Some Condition.UN) Op.VSUBHN None None // Some UN? or None?
+      test32 (Condition.UN) Op.VSUBHN None None
              (Some (OneDT SIMDTypI32))
              (ThreeOperands (OprSIMD (SFReg (Vector R.D12)),
                              OprSIMD (SFReg (Vector R.Q8)),
@@ -2005,27 +2005,25 @@ module ARMv7 =
     /// A4.13.2 Bitwise Advanced SIMD data-processing instructions
     [<TestMethod>]
     member __.``[ARMv7] Bitwise Advanced SIMD data-processing Parse Test`` () =
-      test32 (Some Condition.UN) Op.VAND None None None // Some UN? or None?
+      test32 (Condition.UN) Op.VAND None None None
              (ThreeOperands (OprSIMD (SFReg (Vector R.Q14)),
                              OprSIMD (SFReg (Vector R.Q9)),
                              OprSIMD (SFReg (Vector R.Q12))))
              [| 0xf2uy; 0x42uy; 0xc1uy; 0xf8uy |]
 
-      test32 (Some Condition.UN) Op.VBIC None None // Some UN? or None?
+      test32 (Condition.UN) Op.VBIC None None
              (Some (OneDT SIMDTypI32))
-             (TwoOperands (OprSIMD (SFReg (Vector R.Q15)),
-               // OprImm 10158080L)) FIXME: AdvSIMDExpandImm
-               OprImm 0x9B0000009B0000L))
+             (TwoOperands (OprSIMD (SFReg (Vector R.Q15)), OprImm 0x9B0000L))
              [| 0xf3uy; 0xc1uy; 0xe5uy; 0x7buy |]
 
-      test32 (Some Condition.AL) Op.VMOV None None None
+      test32 (Condition.AL) Op.VMOV None None None
              (TwoOperands (OprReg R.IP, OprSIMD (SFReg (Vector R.S4))))
              [| 0xeeuy; 0x12uy; 0xcauy; 0x10uy |]
 
     /// A4.13.3 Advanced SIMD comparison instructions
     [<TestMethod>]
     member __.``[ARMv7] Advanced SIMD comparison Parse Test`` () =
-      test32 (Some Condition.UN) Op.VCEQ None None // Some UN? or None?
+      test32 (Condition.UN) Op.VCEQ None None
              (Some (OneDT SIMDTypF32))
              (ThreeOperands (OprSIMD (SFReg (Vector R.Q12)),
                              OprSIMD (SFReg (Vector R.Q6)),
@@ -2035,37 +2033,37 @@ module ARMv7 =
     /// A4.13.4 Advanced SIMD shift instructions
     [<TestMethod>]
     member __.``[ARMv7] Advanced SIMD shift Parse Test`` () =
-      test32 (Some Condition.UN) Op.VQRSHRN None None // Some UN? or None?
+      test32 (Condition.UN) Op.VQRSHRN None None
              (Some (OneDT SIMDTypU64))
              (ThreeOperands (OprSIMD (SFReg (Vector R.D0)),
                              OprSIMD (SFReg (Vector R.Q0)), OprImm 32L))
              [| 0xf3uy; 0xa0uy; 0x09uy; 0x50uy |]
 
-      test32 (Some Condition.UN) Op.VQSHRUN None None // Some UN? or None?
+      test32 (Condition.UN) Op.VQSHRUN None None
              (Some (OneDT SIMDTypS64))
              (ThreeOperands (OprSIMD (SFReg (Vector R.D0)),
                              OprSIMD (SFReg (Vector R.Q8)), OprImm 8L))
              [| 0xf3uy; 0xb8uy; 0x08uy; 0x30uy |]
 
-      test32 (Some Condition.UN) Op.VSHL None None // Some UN? or None?
+      test32 (Condition.UN) Op.VSHL None None
              (Some (OneDT SIMDTypI64))
              (ThreeOperands (OprSIMD (SFReg (Vector R.Q1)),
                              OprSIMD (SFReg (Vector R.Q4)), OprImm 56L))
              [| 0xf2uy; 0xb8uy; 0x25uy; 0xd8uy |]
 
-      test32 (Some Condition.UN) Op.VSHRN None None // Some UN? or None?
+      test32 (Condition.UN) Op.VSHRN None None
              (Some (OneDT SIMDTypI64))
              (ThreeOperands (OprSIMD (SFReg (Vector R.D0)),
                              OprSIMD (SFReg (Vector R.Q9)), OprImm 32L))
              [| 0xf2uy; 0xa0uy; 0x08uy; 0x32uy |]
 
-      test32 (Some Condition.UN) Op.VSRA None None // Some UN? or None?
+      test32 (Condition.UN) Op.VSRA None None
              (Some (OneDT SIMDTypU64))
              (ThreeOperands (OprSIMD (SFReg (Vector R.Q8)),
                              OprSIMD (SFReg (Vector R.Q8)), OprImm 24L))
              [| 0xf3uy; 0xe8uy; 0x01uy; 0xf0uy |]
 
-      test32 (Some Condition.UN) Op.VSRI None None // Some UN? or None?
+      test32 (Condition.UN) Op.VSRI None None
              (Some (OneDT SIMDTyp32))
              (ThreeOperands (OprSIMD (SFReg (Vector R.D9)),
                              OprSIMD (SFReg (Vector R.D26)), OprImm 7L))
@@ -2074,34 +2072,34 @@ module ARMv7 =
     /// A4.13.5 Advanced SIMD multiply instructions
     [<TestMethod>]
     member __.``[ARMv7] Advanced SIMD multiply Parse Test`` () =
-      test32 (Some Condition.UN) Op.VMLSL None None // Some UN? or None?
+      test32 (Condition.UN) Op.VMLSL None None
              (Some (OneDT SIMDTypU32))
              (ThreeOperands (OprSIMD (SFReg (Vector R.Q1)),
                              OprSIMD (SFReg (Vector R.D0)),
                              OprSIMD (SFReg (Vector R.D24))))
              [| 0xf3uy; 0xa0uy; 0x2auy; 0x28uy |]
 
-      test32 (Some Condition.AL) Op.VMUL None None (Some (OneDT SIMDTypF32))
+      test32 (Condition.AL) Op.VMUL None None (Some (OneDT SIMDTypF32))
              (ThreeOperands (OprSIMD (SFReg (Vector R.S4)),
                              OprSIMD (SFReg (Vector R.S1)),
                              OprSIMD (SFReg (Vector R.S17))))
              [| 0xeeuy; 0x20uy; 0x2auy; 0xa8uy |]
 
-      test32 (Some Condition.UN) Op.VMULL None None // Some UN? or None?
+      test32 (Condition.UN) Op.VMULL None None
              (Some (OneDT SIMDTypS8))
              (ThreeOperands (OprSIMD (SFReg (Vector R.Q12)),
                              OprSIMD (SFReg (Vector R.D18)),
                              OprSIMD (SFReg (Vector R.D16))))
              [| 0xf2uy; 0xc2uy; 0x8cuy; 0xa0uy |]
 
-      test32 (Some Condition.UN) Op.VMULL None None // Some UN? or None?
+      test32 (Condition.UN) Op.VMULL None None
              (Some (OneDT SIMDTypU32))
              (ThreeOperands (OprSIMD (SFReg (Vector R.Q10)),
                              OprSIMD (SFReg (Vector R.D2)),
                              OprSIMD (SFReg (Scalar (R.D10, Some 0uy)))))
              [| 0xf3uy; 0xe2uy; 0x4auy; 0x4auy |]
 
-      test32 (Some Condition.UN) Op.VQDMULH None None // Some UN? or None?
+      test32 (Condition.UN) Op.VQDMULH None None
              (Some (OneDT SIMDTypS16))
              (ThreeOperands (OprSIMD (SFReg (Vector R.Q9)),
                              OprSIMD (SFReg (Vector R.Q8)),
@@ -2111,50 +2109,50 @@ module ARMv7 =
     /// A4.13.6 Miscellaneous Advanced SIMD data-processing instructions
     [<TestMethod>]
     member __.``[ARMv7] Misc Advanced SIMD data-processing Parse Test`` () =
-      test32 (Some Condition.UN) Op.VCVT None None // Some UN? or None?
+      test32 (Condition.UN) Op.VCVT None None
              (Some (TwoDT (SIMDTypU32, SIMDTypF32)))
              (ThreeOperands (OprSIMD (SFReg (Vector R.D0)),
                              OprSIMD (SFReg (Vector R.D16)), OprImm 22L))
              [| 0xf3uy; 0xaauy; 0x0fuy; 0x30uy |]
 
-      test32 (Some Condition.AL) Op.VCVT None None
+      test32 (Condition.AL) Op.VCVT None None
              (Some (TwoDT (SIMDTypU16, SIMDTypF64)))
              (ThreeOperands (OprSIMD (SFReg (Vector R.D0)),
                              OprSIMD (SFReg (Vector R.D0)), OprImm 11L))
              [| 0xeeuy; 0xbfuy; 0x0buy; 0x62uy |]
 
-      test32 (Some Condition.UN) Op.VCNT None None // Some UN? or None?
+      test32 (Condition.UN) Op.VCNT None None
              (Some (OneDT SIMDTyp8))
              (TwoOperands (OprSIMD (SFReg (Vector R.Q13)),
                            OprSIMD (SFReg (Vector R.Q15))))
              [| 0xf3uy; 0xf0uy; 0xa5uy; 0x6euy |]
 
-      test32 (Some Condition.UN) Op.VEXT None None // Some UN? or None?
+      test32 (Condition.UN) Op.VEXT None None
              (Some (OneDT SIMDTyp8))
              (FourOperands (OprSIMD (SFReg (Vector R.Q0)),
                             OprSIMD (SFReg (Vector R.Q8)),
                             OprSIMD (SFReg (Vector R.Q7)), OprImm 3L))
              [| 0xf2uy; 0xb0uy; 0x03uy; 0xceuy |]
 
-      test32 (Some Condition.AL) Op.VNEG None None (Some (OneDT SIMDTypF64))
+      test32 (Condition.AL) Op.VNEG None None (Some (OneDT SIMDTypF64))
              (TwoOperands (OprSIMD (SFReg (Vector R.D16)),
                            OprSIMD (SFReg (Vector R.D18))))
              [| 0xeeuy; 0xf1uy; 0x0buy; 0x62uy |]
 
-      test32 (Some Condition.UN) Op.VPMAX None None // Some UN? or None?
+      test32 (Condition.UN) Op.VPMAX None None
              (Some (OneDT SIMDTypF32))
              (ThreeOperands (OprSIMD (SFReg (Vector R.D25)),
                              OprSIMD (SFReg (Vector R.D0)),
                              OprSIMD (SFReg (Vector R.D15))))
              [| 0xf3uy; 0x40uy; 0x9fuy; 0x0fuy |]
 
-      test32 (Some Condition.UN) Op.VREV32 None None // Some UN? or None?
+      test32 (Condition.UN) Op.VREV32 None None
              (Some (OneDT SIMDTyp16))
              (TwoOperands (OprSIMD (SFReg (Vector R.Q0)),
                            OprSIMD (SFReg (Vector R.Q1))))
              [| 0xf3uy; 0xb4uy; 0x00uy; 0xc2uy |]
 
-      test32 (Some Condition.UN) Op.VTBX None None // Some UN? or None?
+      test32 (Condition.UN) Op.VTBX None None
              (Some (OneDT SIMDTyp8))
              (ThreeOperands (OprSIMD (SFReg (Vector R.D5)),
                              OprSIMD (FourRegs (Vector R.D3, Vector R.D4,
@@ -2167,27 +2165,27 @@ module ARMv7 =
   type FPDataProcessingClass () =
     [<TestMethod>]
     member __.``[ARMv7] Floating-point data-processing Parse Test`` () =
-      test32 (Some Condition.AL) Op.VCMPE None None (Some (OneDT SIMDTypF64))
+      test32 (Condition.AL) Op.VCMPE None None (Some (OneDT SIMDTypF64))
              (TwoOperands (OprSIMD (SFReg (Vector R.D0)), OprImm 0L))
              [| 0xeeuy; 0xb5uy; 0x0buy; 0xc0uy |]
 
-      test32 (Some Condition.AL) Op.VCVT None None
+      test32 (Condition.AL) Op.VCVT None None
              (Some (TwoDT (SIMDTypF32, SIMDTypU32)))
              (TwoOperands (OprSIMD (SFReg (Vector R.S4)),
                            OprSIMD (SFReg (Vector R.S17))))
              [| 0xeeuy; 0xb8uy; 0x2auy; 0x68uy |]
 
-      test32 (Some Condition.AL) Op.VCVTB None None
+      test32 (Condition.AL) Op.VCVTB None None
              (Some (TwoDT (SIMDTypF16, SIMDTypF32)))
              (TwoOperands (OprSIMD (SFReg (Vector R.S0)),
                            OprSIMD (SFReg (Vector R.S6))))
              [| 0xeeuy; 0xb3uy; 0x0auy; 0x43uy |]
 
-      test32 (Some Condition.AL) Op.VMOV None None (Some (OneDT SIMDTypF32))
+      test32 (Condition.AL) Op.VMOV None None (Some (OneDT SIMDTypF32))
              (TwoOperands (OprSIMD (SFReg (Vector R.S6)), OprImm 1091567616L))
              [| 0xeeuy; 0xb2uy; 0x3auy; 0x02uy |]
 
-      test32 (Some Condition.UN) Op.VMLS None None // Some UN? or None?
+      test32 (Condition.UN) Op.VMLS None None
              (Some (OneDT SIMDTypI16))
              (ThreeOperands (OprSIMD (SFReg (Vector R.Q14)),
                              OprSIMD (SFReg (Vector R.Q1)),
@@ -5358,12 +5356,12 @@ module ARMThumb =
     let mode = ArchOperationMode.ThumbMode
     let parser = ARM32Parser (ISA.Init arch e, mode, None)
     let ins = parser.Parse (b, 0UL) :?> ARM32Instruction
-    let cond' = ins.Info.Condition
-    let opcode' = ins.Info.Opcode
-    let wback' = ins.Info.WriteBack
-    let q' = ins.Info.Qualifier
-    let simd' = ins.Info.SIMDTyp
-    let oprs' = ins.Info.Operands
+    let cond' = ins.Condition
+    let opcode' = ins.Opcode
+    let wback' = ins.WriteBack
+    let q' = ins.Qualifier
+    let simd' = ins.SIMDTyp
+    let oprs' = ins.Operands
     let w = match w with | Some true -> true | _ -> false // XXX
     Assert.AreEqual (cond', c)
     Assert.AreEqual (opcode', op)
@@ -5379,43 +5377,43 @@ module ARMThumb =
   type BranchClass () =
     [<TestMethod>]
     member __.``[Thumb] Branch Parse Test`` () =
-      testThumb (Some Condition.HI) Op.B None N None
+      testThumb (Condition.HI) Op.B None N None
                 (OneOperand (OprMemory (LiteralMode 76L)))
                 [| 0xd8uy; 0x26uy |]
 
-      testThumb (Some Condition.AL) Op.B None N None
+      testThumb (Condition.AL) Op.B None N None
                 (OneOperand (OprMemory (LiteralMode 776L)))
                 [| 0xe1uy; 0x84uy |]
 
-      testThumb (Some Condition.LS) Op.B None W None
+      testThumb (Condition.LS) Op.B None W None
                 (OneOperand (OprMemory (LiteralMode 4294652108L)))
                 [| 0xf6uy; 0x73uy; 0x88uy; 0x66uy |]
 
-      testThumb (Some Condition.AL) Op.B None W None
+      testThumb (Condition.AL) Op.B None W None
                 (OneOperand (OprMemory (LiteralMode 12780328L)))
                 [| 0xf0uy; 0x30uy; 0x91uy; 0x94uy |]
 
-      testThumb None Op.CBNZ None N None
+      testThumb Condition.UN Op.CBNZ None N None
                 (TwoOperands (OprReg R.R2, OprMemory (LiteralMode 6L)))
                 [| 0xb9uy; 0x1auy |]
 
-      testThumb (Some Condition.AL) Op.BLX None N None
+      testThumb (Condition.AL) Op.BLX None N None
                 (OneOperand (OprReg R.SB))
                 [| 0x47uy; 0xc8uy |]
 
-      testThumb (Some Condition.AL) Op.BLX None N None
+      testThumb (Condition.AL) Op.BLX None N None
                 (OneOperand (OprMemory (LiteralMode 4286800648L)))
                 [| 0xf4uy; 0x36uy; 0xe1uy; 0x84uy |]
 
-      testThumb (Some Condition.AL) Op.BX None N None
+      testThumb (Condition.AL) Op.BX None N None
                 (OneOperand (OprReg R.R3))
                 [| 0x47uy; 0x18uy |]
 
-      testThumb (Some Condition.AL) Op.BXJ None N None
+      testThumb (Condition.AL) Op.BXJ None N None
                 (OneOperand (OprReg R.R5))
                 [| 0xf3uy; 0xc5uy; 0x8fuy; 0x00uy |]
 
-      testThumb (Some Condition.AL) Op.TBH None N None
+      testThumb (Condition.AL) Op.TBH None N None
                 (OneOperand (OprMemory (OffsetMode
                                        (RegOffset (R.LR, None, R.R7,
                                           Some (SRTypeLSL, Imm 1u))))))
@@ -5427,107 +5425,107 @@ module ARMThumb =
     /// A4.4.1 Standard data-processing instructions
     [<TestMethod>]
     member __.``[Thumb] Standard data-processing Parse Test`` () =
-      testThumb (Some Condition.AL) Op.ADCS None N None
+      testThumb (Condition.AL) Op.ADCS None N None
                 (ThreeOperands (OprReg R.R3, OprReg R.R2, OprImm 159383552L))
                 [| 0xf1uy; 0x52uy; 0x63uy; 0x18uy |]
 
-      testThumb (Some Condition.AL) Op.ADD None N None
+      testThumb (Condition.AL) Op.ADD None N None
                 (ThreeOperands (OprReg R.IP, OprReg R.SP, OprReg R.IP))
                 [| 0x44uy; 0xecuy |]
 
-      testThumb (Some Condition.AL) Op.ADD None N None
+      testThumb (Condition.AL) Op.ADD None N None
                 (ThreeOperands (OprReg R.SP, OprReg R.SP, OprReg R.SL))
                 [| 0x44uy; 0xd5uy |]
 
-      testThumb (Some Condition.AL) Op.ADD None N None
+      testThumb (Condition.AL) Op.ADD None N None
                 (TwoOperands (OprReg R.FP, OprReg R.R1))
                 [| 0x44uy; 0x8buy |]
 
-      testThumb (Some Condition.AL) Op.ADD None N None
+      testThumb (Condition.AL) Op.ADD None N None
                 (ThreeOperands (OprReg R.SP, OprReg R.SP, OprImm 408L))
                 [| 0xb0uy; 0x66uy |]
 
-      testThumb (Some Condition.AL) Op.ADD None N None
+      testThumb (Condition.AL) Op.ADD None N None
                 (ThreeOperands (OprReg R.R4, OprReg R.SP, OprImm 160L))
                 [| 0xacuy; 0x28uy |]
 
-      testThumb (Some Condition.AL) Op.ADD None N None
+      testThumb (Condition.AL) Op.ADD None N None
                 (ThreeOperands (OprReg R.LR, OprReg R.R4, OprImm 1L))
                 [| 0xf1uy; 0x04uy; 0x0euy; 0x01uy |]
 
-      testThumb None Op.ADDS None N None
+      testThumb Condition.UN Op.ADDS None N None
                 (ThreeOperands (OprReg R.R4, OprReg R.R1, OprReg R.R0))
                 [| 0x18uy; 0x0cuy |]
 
-      testThumb None Op.ADDS None N None
+      testThumb Condition.UN Op.ADDS None N None
                 (ThreeOperands (OprReg R.R7, OprReg R.R6, OprImm 1L))
                 [| 0x1cuy; 0x77uy |]
 
-      testThumb (Some Condition.AL) Op.ADDW None N None
+      testThumb (Condition.AL) Op.ADDW None N None
                 (ThreeOperands (OprReg R.R0, OprReg R.FP, OprImm 1L))
                 [| 0xf2uy; 0x0buy; 0x00uy; 0x01uy |]
 
-      testThumb (Some Condition.AL) Op.ADR None W None
+      testThumb (Condition.AL) Op.ADR None W None
                 (TwoOperands (OprReg R.R0, OprMemory (LiteralMode 1L)))
                 [| 0xf2uy; 0x0fuy; 0x00uy; 0x01uy |]
 
-      testThumb (Some Condition.AL) Op.ADR None N None
+      testThumb (Condition.AL) Op.ADR None N None
                 (TwoOperands (OprReg R.R2,
                               OprMemory (LiteralMode 60L)))
                 [| 0xa2uy; 0x0fuy |]
 
-      testThumb None Op.ANDS None N None
+      testThumb Condition.UN Op.ANDS None N None
                 (ThreeOperands (OprReg R.R6, OprReg R.R6, OprReg R.R7))
                 [| 0x40uy; 0x3euy |]
 
-      testThumb (Some Condition.AL) Op.BICS None N None
+      testThumb (Condition.AL) Op.BICS None N None
                 (FourOperands (OprReg R.R6, OprReg R.IP, OprReg R.R5,
                                OprShift (SRTypeLSL, Imm 28u)))
                 [| 0xeauy; 0x3cuy; 0x76uy; 0x05uy |]
 
-      testThumb (Some Condition.AL) Op.CMP None N None
+      testThumb (Condition.AL) Op.CMP None N None
                 (TwoOperands (OprReg R.R5, OprImm 243L))
                 [| 0x2duy; 0xf3uy |]
 
-      testThumb (Some Condition.AL) Op.CMP None N None
+      testThumb (Condition.AL) Op.CMP None N None
                 (TwoOperands (OprReg R.R8, OprReg R.SB))
                 [| 0x45uy; 0xc8uy |]
 
-      testThumb (Some Condition.AL) Op.CMP None N None
+      testThumb (Condition.AL) Op.CMP None N None
                 (TwoOperands (OprReg R.R4, OprReg R.R8))
                 [| 0x45uy; 0x44uy |]
 
-      testThumb (Some Condition.AL) Op.MOV None N None
+      testThumb (Condition.AL) Op.MOV None N None
                 (TwoOperands (OprReg R.R7, OprImm 524296L))
                 [| 0xf0uy; 0x4fuy; 0x17uy; 0x08uy |]
 
-      testThumb None Op.MOVS None N None
+      testThumb Condition.UN Op.MOVS None N None
                 (ThreeOperands (OprReg R.R6, OprReg R.R1,
                                 OprShift (SRTypeLSL, Imm 0u)))
                 [| 0x00uy; 0x0euy |]
 
-      testThumb (Some Condition.AL) Op.MOVW None N None
+      testThumb (Condition.AL) Op.MOVW None N None
                 (TwoOperands (OprReg R.FP, OprImm 10242L))
                 [| 0xf6uy; 0x42uy; 0x0buy; 0x02uy |]
 
-      testThumb (Some Condition.AL) Op.MVN None N None
+      testThumb (Condition.AL) Op.MVN None N None
                 (ThreeOperands (OprReg R.R4, OprReg R.LR,
                                 OprShift (SRTypeLSR, Imm 30u)))
                 [| 0xeauy; 0x6fuy; 0xf4uy; 0x9euy |]
 
-      testThumb (Some Condition.AL) Op.RSBS None N None
+      testThumb (Condition.AL) Op.RSBS None N None
                 (ThreeOperands (OprReg R.R3, OprReg R.SB, OprImm 8912896L))
                 [| 0xf5uy; 0xd9uy; 0x03uy; 0x08uy |]
 
-      testThumb None Op.RSBS None N None
+      testThumb Condition.UN Op.RSBS None N None
                 (ThreeOperands (OprReg R.R3, OprReg R.R1, OprImm 0L))
                 [| 0x42uy; 0x4buy |]
 
-      testThumb (Some Condition.AL) Op.TEQ None N None
+      testThumb (Condition.AL) Op.TEQ None N None
                 (TwoOperands (OprReg R.R1, OprImm 17408L))
                 [| 0xf4uy; 0x91uy; 0x4fuy; 0x88uy |]
 
-      testThumb (Some Condition.AL) Op.TST None N None
+      testThumb (Condition.AL) Op.TST None N None
                 (ThreeOperands (OprReg R.R2, OprReg R.FP,
                                 OprShift (SRTypeASR, Imm 21u)))
                 [| 0xeauy; 0x12uy; 0x5fuy; 0x6buy |]
@@ -5535,70 +5533,70 @@ module ARMThumb =
     /// A4.4.2 Shift instructions
     [<TestMethod>]
     member __.``[Thumb] Shift Parse Test`` () =
-      testThumb (Some Condition.AL) Op.ASRS None W None
+      testThumb (Condition.AL) Op.ASRS None W None
                 (ThreeOperands (OprReg R.FP, OprReg R.SL, OprReg R.R7))
                 [| 0xfauy; 0x5auy; 0xfbuy; 0x07uy |]
 
-      testThumb (Some Condition.AL) Op.LSLS None N None
+      testThumb (Condition.AL) Op.LSLS None N None
                 (ThreeOperands (OprReg R.R1, OprReg R.R6, OprImm 16L))
                 [| 0x04uy; 0x31uy |]
 
-      testThumb (Some Condition.AL) Op.LSRS None N None
+      testThumb (Condition.AL) Op.LSRS None N None
                 (ThreeOperands (OprReg R.R2, OprReg R.R1, OprImm 32L))
                 [| 0x08uy; 0x0auy |]
 
-      testThumb (Some Condition.AL) Op.LSRS None W None
+      testThumb (Condition.AL) Op.LSRS None W None
                 (ThreeOperands (OprReg R.IP, OprReg R.SL, OprImm 3L))
                 [| 0xeauy; 0x5fuy; 0x0cuy; 0xdauy |]
 
-      testThumb (Some Condition.AL) Op.RRXS None N None
+      testThumb (Condition.AL) Op.RRXS None N None
                 (TwoOperands (OprReg R.R0, OprReg R.SB))
                 [| 0xeauy; 0x5fuy; 0x00uy; 0x39uy |]
 
     /// A4.4.3 Multiply instructions
     member __.``[Thumb] Multiply Parse Test`` () =
-      testThumb (Some Condition.AL) Op.MLA None N None
+      testThumb (Condition.AL) Op.MLA None N None
                 (FourOperands (OprReg R.SB, OprReg R.R0, OprReg R.R1,
                                OprReg R.IP))
                 [| 0xfbuy; 0x00uy; 0xc9uy; 0x01uy |]
 
-      testThumb (Some Condition.AL) Op.MUL None N None
+      testThumb (Condition.AL) Op.MUL None N None
                 (ThreeOperands (OprReg R.IP, OprReg R.R3, OprReg R.FP))
                 [| 0xfbuy; 0x03uy; 0xfcuy; 0x0buy |]
 
-      testThumb None Op.MULS None N None
+      testThumb Condition.UN Op.MULS None N None
                 (ThreeOperands (OprReg R.R6, OprReg R.R4, OprReg R.R6))
                 [| 0x43uy; 0x66uy |]
 
-      testThumb (Some Condition.AL) Op.SMLADX None N None
+      testThumb (Condition.AL) Op.SMLADX None N None
                 (FourOperands (OprReg R.IP, OprReg R.SL, OprReg R.R4,
                                OprReg R.R5))
                 [| 0xfbuy; 0x2auy; 0x5cuy; 0x14uy |]
 
-      testThumb (Some Condition.AL) Op.SMLATB None N None
+      testThumb (Condition.AL) Op.SMLATB None N None
                 (FourOperands (OprReg R.IP, OprReg R.LR, OprReg R.R1,
                                OprReg R.R5))
                 [| 0xfbuy; 0x1euy; 0x5cuy; 0x21uy |]
 
-      testThumb (Some Condition.AL) Op.SMLALTB None N None
+      testThumb (Condition.AL) Op.SMLALTB None N None
                 (FourOperands (OprReg R.R8, OprReg R.SL, OprReg R.R1,
                                OprReg R.R3))
                 [| 0xfbuy; 0xc1uy; 0x8auy; 0xa3uy |]
 
-      testThumb (Some Condition.AL) Op.SMLSLDX None N None
+      testThumb (Condition.AL) Op.SMLSLDX None N None
                 (FourOperands (OprReg R.IP, OprReg R.LR, OprReg R.R0,
                                OprReg R.R5))
                 [| 0xfbuy; 0xd0uy; 0xceuy; 0xd5uy |]
 
-      testThumb (Some Condition.AL) Op.SMMULR None N None
+      testThumb (Condition.AL) Op.SMMULR None N None
                 (ThreeOperands (OprReg R.R0, OprReg R.R8, OprReg R.SB))
                 [| 0xfbuy; 0x58uy; 0xf0uy; 0x19uy |]
 
-      testThumb (Some Condition.AL) Op.SMULTT None N None
+      testThumb (Condition.AL) Op.SMULTT None N None
                 (ThreeOperands (OprReg R.R8, OprReg R.FP, OprReg R.R7))
                 [| 0xfbuy; 0x1buy; 0xf8uy; 0x37uy |]
 
-      testThumb (Some Condition.AL) Op.SMULL None N None
+      testThumb (Condition.AL) Op.SMULL None N None
                 (FourOperands (OprReg R.SL, OprReg R.SB, OprReg R.R3,
                                OprReg R.R4))
                 [| 0xfbuy; 0x83uy; 0xa9uy; 0x04uy |]
@@ -5606,11 +5604,11 @@ module ARMThumb =
     /// A4.4.4 Saturating instructions
     [<TestMethod>]
     member __.``[Thumb] Saturating Parse Test`` () =
-      testThumb (Some Condition.AL) Op.SSAT16 None N None
+      testThumb (Condition.AL) Op.SSAT16 None N None
                 (ThreeOperands (OprReg R.IP, OprImm 6L, OprReg R.R8))
                 [| 0xf3uy; 0x28uy; 0x0cuy; 0x05uy |]
 
-      testThumb (Some Condition.AL) Op.USAT None N None
+      testThumb (Condition.AL) Op.USAT None N None
                 (FourOperands (OprReg R.R7, OprImm 17L, OprReg R.R3,
                                OprShift (SRTypeASR, Imm 6u)))
                 [| 0xf3uy; 0xa3uy; 0x17uy; 0x91uy |]
@@ -5618,33 +5616,33 @@ module ARMThumb =
     /// A4.4.5 Saturating addition and subtraction instructions
     [<TestMethod>]
     member __.``[Thumb] Saturating addition and subtraction Parse Test`` () =
-      testThumb (Some Condition.AL) Op.QDADD None N None
+      testThumb (Condition.AL) Op.QDADD None N None
                 (ThreeOperands (OprReg R.IP, OprReg R.LR, OprReg R.R6))
                 [| 0xfauy; 0x86uy; 0xfcuy; 0x9euy |]
 
     /// A4.4.6 Packing and unpacking instructions
     [<TestMethod>]
     member __.``[Thumb] Packing and unpacking Parse Test`` () =
-      testThumb (Some Condition.AL) Op.PKHBT None N None
+      testThumb (Condition.AL) Op.PKHBT None N None
                 (FourOperands (OprReg R.R0, OprReg R.IP, OprReg R.SL,
                                OprShift (SRTypeLSL, Imm 17u)))
                 [| 0xeauy; 0xccuy; 0x40uy; 0x4auy |]
 
-      testThumb (Some Condition.AL) Op.SXTAH None N None
+      testThumb (Condition.AL) Op.SXTAH None N None
                 (FourOperands (OprReg R.R4, OprReg R.R0, OprReg R.R6,
                                OprShift (SRTypeROR, Imm 24u)))
                 [| 0xfauy; 0x00uy; 0xf4uy; 0xb6uy |]
 
-      testThumb (Some Condition.AL) Op.SXTB16 None N None
+      testThumb (Condition.AL) Op.SXTB16 None N None
                 (ThreeOperands (OprReg R.SB, OprReg R.R6,
                                 OprShift (SRTypeROR, Imm 8u)))
                 [| 0xfauy; 0x2fuy; 0xf9uy; 0x96uy |]
 
-      testThumb (Some Condition.AL) Op.UXTH None N None
+      testThumb (Condition.AL) Op.UXTH None N None
                 (TwoOperands (OprReg R.R7, OprReg R.R0))
                 [| 0xb2uy; 0x87uy |]
 
-      testThumb (Some Condition.AL) Op.UXTH None W None
+      testThumb (Condition.AL) Op.UXTH None W None
                 (TwoOperands (OprReg R.R2, OprReg R.IP))
                 [| 0xfauy; 0x1fuy; 0xf2uy; 0x8cuy |]
 
@@ -5652,59 +5650,59 @@ module ARMThumb =
     [<TestMethod>]
     member __.``[Thumb] Parallel addition and subtraction Parse Test`` () =
       // Signed
-      testThumb (Some Condition.AL) Op.SADD16 None N None
+      testThumb (Condition.AL) Op.SADD16 None N None
                 (ThreeOperands (OprReg R.FP, OprReg R.IP, OprReg R.R0))
                 [| 0xfauy; 0x9cuy; 0xfbuy; 0x00uy |]
 
       // Saturating
-      testThumb (Some Condition.AL) Op.QSAX None N None
+      testThumb (Condition.AL) Op.QSAX None N None
                 (ThreeOperands (OprReg R.LR, OprReg R.R8, OprReg R.SB))
                 [| 0xfauy; 0xe8uy; 0xfeuy; 0x19uy |]
 
       // Signed halving
-      testThumb (Some Condition.AL) Op.SHSUB8 None N None
+      testThumb (Condition.AL) Op.SHSUB8 None N None
                 (ThreeOperands (OprReg R.IP, OprReg R.R0, OprReg R.R7))
                 [| 0xfauy; 0xc0uy; 0xfcuy; 0x27uy |]
 
       // Unsigned
-      testThumb (Some Condition.AL) Op.UASX None N None
+      testThumb (Condition.AL) Op.UASX None N None
                 (ThreeOperands (OprReg R.R1, OprReg R.R0, OprReg R.R6))
                 [| 0xfauy; 0xa0uy; 0xf1uy; 0x46uy |]
 
       // Unsigned saturating
-      testThumb (Some Condition.AL) Op.UQADD8 None N None
+      testThumb (Condition.AL) Op.UQADD8 None N None
                 (ThreeOperands (OprReg R.SB, OprReg R.LR, OprReg R.R3))
                 [| 0xfauy; 0x8euy; 0xf9uy; 0x53uy |]
 
       // Unsigned halving
-      testThumb (Some Condition.AL) Op.UHASX None N None
+      testThumb (Condition.AL) Op.UHASX None N None
                 (ThreeOperands (OprReg R.R8, OprReg R.R0, OprReg R.SL))
                 [| 0xfauy; 0xa0uy; 0xf8uy; 0x6auy |]
 
     //// A4.4.8 Divide instructions
     [<TestMethod>]
     member __.``[Thumb] Divide Parse Test`` () =
-      testThumb (Some Condition.AL) Op.UDIV None N None
+      testThumb (Condition.AL) Op.UDIV None N None
                 (ThreeOperands (OprReg R.IP, OprReg R.R0, OprReg R.LR))
                 [| 0xfbuy; 0xb0uy; 0xfcuy; 0xfeuy |]
 
     /// A4.4.9 Miscellaneous data-processing instructions
     [<TestMethod>]
     member __.``[Thumb] Miscellaneous data-processing Parse Test`` () =
-      testThumb (Some Condition.AL) Op.BFC None N None
+      testThumb (Condition.AL) Op.BFC None N None
                 (ThreeOperands (OprReg R.IP, OprImm 4L, OprImm 15L))
                 [| 0xf3uy; 0x6fuy; 0x1cuy; 0x12uy |]
 
-      testThumb (Some Condition.AL) Op.BFI None N None
+      testThumb (Condition.AL) Op.BFI None N None
                 (FourOperands (OprReg R.SL, OprReg R.R1, OprImm 11L,
                                OprImm 7L))
                 [| 0xf3uy; 0x61uy; 0x2auy; 0xd1uy |]
 
-      testThumb (Some Condition.AL) Op.RBIT None N None
+      testThumb (Condition.AL) Op.RBIT None N None
                 (TwoOperands (OprReg R.IP, OprReg R.R4))
                 [| 0xfauy; 0x94uy; 0xfcuy; 0xa4uy |]
 
-      testThumb (Some Condition.AL) Op.SBFX None N None
+      testThumb (Condition.AL) Op.SBFX None N None
                 (FourOperands (OprReg R.SB, OprReg R.LR, OprImm 0L,
                                OprImm 25L))
                 [| 0xf3uy; 0x4euy; 0x09uy; 0x18uy |]
@@ -5714,38 +5712,38 @@ module ARMThumb =
   type StatusOprRegAccessClass () =
     [<TestMethod>]
     member __.``[Thumb] Status register access Parse Test`` () =
-      testThumb (Some Condition.AL) Op.MRS None N None
+      testThumb (Condition.AL) Op.MRS None N None
                 (TwoOperands (OprReg R.R5, OprReg R.APSR))
                 [| 0xf3uy; 0xefuy; 0x85uy; 0x00uy |]
 
-      testThumb (Some Condition.AL) Op.MRS None N None
+      testThumb (Condition.AL) Op.MRS None N None
                 (TwoOperands (OprReg R.IP, OprReg R.SPSR))
                 [| 0xf3uy; 0xffuy; 0x8cuy; 0x00uy |]
 
-      testThumb (Some Condition.AL) Op.MSR None N None
-                (TwoOperands (OprSpecReg (R.APSR, Some PSRg),OprReg R.FP))
+      testThumb (Condition.AL) Op.MSR None N None
+                (TwoOperands (OprSpecReg (R.CPSR, Some PSRs),OprReg R.FP))
                 [| 0xf3uy; 0x8buy; 0x84uy; 0x00uy |]
 
-      testThumb (Some Condition.AL) Op.MSR None N None
+      testThumb (Condition.AL) Op.MSR None N None
                 (TwoOperands (OprSpecReg (R.CPSR, Some PSRsc), OprReg R.IP))
                 [| 0xf3uy; 0x8cuy; 0x85uy; 0x00uy |]
 
-      testThumb None Op.CPSID None N (* W *) None
+      testThumb Condition.UN Op.CPSID None N (* W *) None
                 (TwoOperands (OprIflag IF, OprImm 4L))
                 [| 0xf3uy; 0xafuy; 0x87uy; 0x64uy |]
 
-      testThumb None Op.CPSIE None N None
+      testThumb Condition.UN Op.CPSIE None N None
                 (OneOperand (OprIflag AF))
                 [| 0xb6uy; 0x65uy |]
 
     /// A4.5.1 Banked register access instructions
     [<TestMethod>]
     member __.``[Thumb] Banked register access Parse Test`` () =
-      testThumb (Some Condition.AL) Op.MRS None N None
+      testThumb (Condition.AL) Op.MRS None N None
                 (TwoOperands (OprReg R.R0, OprReg R.LRusr))
                 [| 0xf3uy; 0xe6uy; 0x80uy; 0x20uy |]
 
-      testThumb (Some Condition.AL) Op.MSR None N None
+      testThumb (Condition.AL) Op.MSR None N None
                 (TwoOperands (OprReg R.SPSRabt, OprReg R.R1))
                 [| 0xf3uy; 0x91uy; 0x84uy; 0x30uy |]
 
@@ -5754,21 +5752,21 @@ module ARMThumb =
   type LoadStoreClass () =
     [<TestMethod>]
     member __.``[Thumb] Load/store (Lord) Parse Test`` () =
-      testThumb (Some Condition.AL) Op.LDR (Some false) N None
+      testThumb (Condition.AL) Op.LDR (Some false) N None
                 (TwoOperands (OprReg R.R1, OprMemory
                   (OffsetMode (ImmOffset (R.SP,  Some Plus, Some 60L)))))
                 [| 0x99uy; 0x0fuy |]
 
-      testThumb (Some Condition.AL) Op.LDR None N None
+      testThumb (Condition.AL) Op.LDR None N None
                 (TwoOperands (OprReg R.R4, OprMemory (LiteralMode 220L)))
                 [| 0x4cuy; 0x37uy |]
 
-      testThumb (Some Condition.AL) Op.LDR (Some false) W None
+      testThumb (Condition.AL) Op.LDR (Some false) W None
                 (TwoOperands (OprReg R.R0,
                               OprMemory (LiteralMode 135L)))
                 [| 0xf8uy; 0xdfuy; 0x00uy; 0x87uy |]
 
-      testThumb (Some Condition.AL) Op.LDR None N None
+      testThumb (Condition.AL) Op.LDR None N None
                 (TwoOperands (OprReg R.IP,
                               OprMemory (OffsetMode
                                         (RegOffset (R.SB, Some Plus, R.R8,
@@ -5776,68 +5774,68 @@ module ARMThumb =
                                                           Imm 3u))))))
                 [| 0xf8uy; 0x59uy; 0xc0uy; 0x38uy |]
 
-      testThumb (Some Condition.AL) Op.LDR (Some true) N None
+      testThumb (Condition.AL) Op.LDR (Some true) N None
                 (TwoOperands (OprReg R.R2,
                               OprMemory (PreIdxMode
                                         (ImmOffset (R.R1, Some Plus, Some 51L)))))
                 [| 0xf8uy; 0x51uy; 0x2fuy; 0x33uy |]
 
-      testThumb (Some Condition.AL) Op.LDR (Some false) W None
+      testThumb (Condition.AL) Op.LDR (Some false) W None
                 (TwoOperands (OprReg R.IP,
                               OprMemory (OffsetMode
                                        (ImmOffset (R.LR, Some Plus, Some 128L)))))
                 [| 0xf8uy; 0xdeuy; 0xc0uy; 0x80uy |]
 
-      testThumb (Some Condition.AL) Op.LDRH (Some false) N None
+      testThumb (Condition.AL) Op.LDRH (Some false) N None
                 (TwoOperands (OprReg R.FP,
                               OprMemory (OffsetMode
                                        (ImmOffset (R.SB, Some Minus,
                                                    Some 130L)))))
                 [| 0xf8uy; 0x39uy; 0xbcuy; 0x82uy |]
 
-      testThumb (Some Condition.AL) Op.LDRSH None N None
+      testThumb (Condition.AL) Op.LDRSH None N None
                 (TwoOperands (OprReg R.R6,
                               OprMemory (LiteralMode -587L)))
                 [| 0xf9uy; 0x3fuy; 0x62uy; 0x4buy |]
 
-      testThumb (Some Condition.AL) Op.LDRSH (Some false) N None
+      testThumb (Condition.AL) Op.LDRSH (Some false) N None
                 (TwoOperands (OprReg R.FP,
                               OprMemory (OffsetMode
                                        (ImmOffset (R.R3, Some Plus, Some 11L)))))
                 [| 0xf9uy; 0xb3uy; 0xb0uy; 0x0buy |]
 
-      testThumb (Some Condition.AL) Op.LDRB (Some false) N None
+      testThumb (Condition.AL) Op.LDRB (Some false) N None
                 (TwoOperands (OprReg R.R6,
                               OprMemory (OffsetMode
                                        (ImmOffset (R.R4, Some Plus, Some 6L)))))
                 [| 0x79uy; 0xa6uy |]
 
-      testThumb (Some Condition.AL) Op.LDRB (Some false) N (* W *) None
+      testThumb (Condition.AL) Op.LDRB (Some false) N (* W *) None
                 (TwoOperands (OprReg R.SL,
                               OprMemory (OffsetMode
                                        (RegOffset (R.R2, Some Plus, R.R6,
                                                    Some (SRTypeLSL, Imm 3u))))))
                 [| 0xf8uy; 0x12uy; 0xa0uy; 0x36uy |]
 
-      testThumb (Some Condition.AL) Op.LDRB (Some true) N None
+      testThumb (Condition.AL) Op.LDRB (Some true) N None
                 (TwoOperands (OprReg R.R8,
                               OprMemory (PostIdxMode
                                        (ImmOffset (R.R4, Some Minus,
                                                    Some 12L)))))
                 [| 0xf8uy; 0x14uy; 0x89uy; 0x0cuy |]
 
-      testThumb (Some Condition.AL) Op.LDRB None N (* W *) None
+      testThumb (Condition.AL) Op.LDRB None N (* W *) None
                 (TwoOperands (OprReg R.R3, OprMemory (LiteralMode 240L)))
                 [| 0xf8uy; 0x9fuy; 0x30uy; 0xf0uy |]
 
-      testThumb (Some Condition.AL) Op.LDRSB (Some false) N None
+      testThumb (Condition.AL) Op.LDRSB (Some false) N None
                 (TwoOperands (OprReg R.R1,
                               OprMemory (OffsetMode
                                        (ImmOffset (R.R8, Some Plus,
                                                    Some 3122L)))))
                 [| 0xf9uy; 0x98uy; 0x1cuy; 0x32uy |]
 
-      testThumb (Some Condition.AL) Op.LDRSB (Some false) N (* W *) None
+      testThumb (Condition.AL) Op.LDRSB (Some false) N (* W *) None
                 (TwoOperands (OprReg R.SB,
                               OprMemory (OffsetMode
                                         (RegOffset (R.LR, Some Plus, R.R0,
@@ -5845,47 +5843,47 @@ module ARMThumb =
                                                           Imm 2u))))))
                 [| 0xf9uy; 0x1euy; 0x90uy; 0x20uy |]
 
-      testThumb (Some Condition.AL) Op.LDRD (Some false) N None
+      testThumb (Condition.AL) Op.LDRD (Some false) N None
                 (ThreeOperands (OprReg R.IP, OprReg R.R6,
                                 OprMemory (LiteralMode -264L)))
                 [| 0xe9uy; 0x5fuy; 0xc6uy; 0x42uy |]
 
     [<TestMethod>]
     member __.``[Thumb] Load/store (Store) Parse Test`` () =
-      testThumb (Some Condition.AL) Op.STR (Some false) N None
+      testThumb (Condition.AL) Op.STR (Some false) N None
                 (TwoOperands (OprReg R.R7,
                               OprMemory (OffsetMode
                                        (ImmOffset (R.R6,  Some Plus, Some 96L)))))
                 [| 0x66uy; 0x37uy |]
 
-      testThumb (Some Condition.AL) Op.STRH (Some false) N None
+      testThumb (Condition.AL) Op.STRH (Some false) N None
                 (TwoOperands (OprReg R.R7,
                               OprMemory (OffsetMode
                                        (ImmOffset (R.R2, Some Plus, Some 34L)))))
                 [| 0x84uy; 0x57uy |]
 
-      testThumb (Some Condition.AL) Op.STRB (Some false) N None
+      testThumb (Condition.AL) Op.STRB (Some false) N None
                 (TwoOperands (OprReg R.R4,
                               OprMemory
                                 (OffsetMode
                                   (RegOffset (R.R3, Some Plus, R.R2, None)))))
                 [| 0x54uy; 0x9cuy |]
 
-      testThumb (Some Condition.AL) Op.STRB (Some true) N None
+      testThumb (Condition.AL) Op.STRB (Some true) N None
                 (TwoOperands (OprReg R.LR,
                               OprMemory (PostIdxMode
                                        (ImmOffset
                                          (R.SB, Some Minus, Some 130L)))))
                 [| 0xf8uy; 0x09uy; 0xe9uy; 0x82uy |]
 
-      testThumb (Some Condition.AL) Op.STRB (Some false) W None
+      testThumb (Condition.AL) Op.STRB (Some false) W None
                 (TwoOperands (OprReg R.IP,
                               OprMemory (OffsetMode
                                        (ImmOffset (R.R6, Some Plus,
                                                    Some 2060L)))))
                 [| 0xf8uy; 0x86uy; 0xc8uy; 0x0cuy |]
 
-      testThumb (Some Condition.AL) Op.STRB (Some false) N (* W *) None
+      testThumb (Condition.AL) Op.STRB (Some false) N (* W *) None
                 (TwoOperands (OprReg R.R0,
                               OprMemory (OffsetMode
                                         (RegOffset (R.SL, Some Plus, R.IP,
@@ -5893,7 +5891,7 @@ module ARMThumb =
                                                           Imm 2u))))))
                 [| 0xf8uy; 0x0auy; 0x00uy; 0x2cuy |]
 
-      testThumb (Some Condition.AL) Op.STRD (Some true) N None
+      testThumb (Condition.AL) Op.STRD (Some true) N None
                 (ThreeOperands (OprReg R.R3, OprReg R.SB,
                                 OprMemory (PreIdxMode
                                          (ImmOffset (R.SL, Some Minus,
@@ -5902,19 +5900,19 @@ module ARMThumb =
 
     [<TestMethod>]
     member __.``[Thumb] Load/store (Load unprivileged) Parse Test`` () =
-      testThumb (Some Condition.AL) Op.LDRT None N None
+      testThumb (Condition.AL) Op.LDRT None N None
                 (TwoOperands (OprReg R.R1,
                               OprMemory (OffsetMode
                                         (ImmOffset (R.R0, None, Some 4L)))))
                 [| 0xf8uy; 0x50uy; 0x1euy; 0x04uy |]
 
-      testThumb (Some Condition.AL) Op.LDRHT None N None
+      testThumb (Condition.AL) Op.LDRHT None N None
                 (TwoOperands (OprReg R.IP,
                               OprMemory (OffsetMode
                                         (ImmOffset (R.R4, None, Some 1L)))))
                 [| 0xf8uy; 0x34uy; 0xceuy; 0x01uy |]
 
-      testThumb (Some Condition.AL) Op.LDRSBT None N None
+      testThumb (Condition.AL) Op.LDRSBT None N None
                 (TwoOperands (OprReg R.SB,
                               OprMemory (OffsetMode
                                         (ImmOffset (R.IP, None, Some 9L)))))
@@ -5922,7 +5920,7 @@ module ARMThumb =
 
     [<TestMethod>]
     member __.``[Thumb] Load/store (Store unprivileged) Parse Test`` () =
-      testThumb (Some Condition.AL) Op.STRHT None N None
+      testThumb (Condition.AL) Op.STRHT None N None
                 (TwoOperands (OprReg R.FP,
                               OprMemory (OffsetMode (ImmOffset (R.R7, None,
                                                              Some 83L)))))
@@ -5930,19 +5928,19 @@ module ARMThumb =
 
     [<TestMethod>]
     member __.``[Thumb] Load/store (Load-Exclusive) Parse Test`` () =
-      testThumb (Some Condition.AL) Op.LDREX None N None
+      testThumb (Condition.AL) Op.LDREX None N None
                 (TwoOperands (OprReg R.FP,
                               OprMemory (OffsetMode
                                         (ImmOffset (R.SB, None, Some 56L)))))
                 [| 0xe8uy; 0x59uy; 0xbfuy; 0x0euy |]
 
-      testThumb (Some Condition.AL) Op.LDREXB None N None
+      testThumb (Condition.AL) Op.LDREXB None N None
                 (TwoOperands (OprReg R.R0,
                               OprMemory (OffsetMode
                                         (ImmOffset (R.SB, None, None)))))
                 [| 0xe8uy; 0xd9uy; 0x0fuy; 0x4fuy |]
 
-      testThumb (Some Condition.AL) Op.LDREXD None N None
+      testThumb (Condition.AL) Op.LDREXD None N None
                 (ThreeOperands (OprReg R.SL, OprReg R.IP,
                                 OprMemory (OffsetMode
                                           (ImmOffset (R.LR, None, None)))))
@@ -5950,19 +5948,19 @@ module ARMThumb =
 
     [<TestMethod>]
     member __.``[Thumb] Load/store (Store-Exclusive) Parse Test`` () =
-      testThumb (Some Condition.AL) Op.STREX None N None
+      testThumb (Condition.AL) Op.STREX None N None
                 (ThreeOperands (OprReg R.SL, OprReg R.LR,
                                 OprMemory (OffsetMode
                                           (ImmOffset (R.R1, None, Some 48L)))))
                 [| 0xe8uy; 0x41uy; 0xeauy; 0x0cuy |]
 
-      testThumb (Some Condition.AL) Op.STREXH None N None
+      testThumb (Condition.AL) Op.STREXH None N None
                 (ThreeOperands (OprReg R.R6, OprReg R.SL,
                                 OprMemory (OffsetMode
                                           (ImmOffset (R.R8, None, None)))))
                 [| 0xe8uy; 0xc8uy; 0xafuy; 0x56uy |]
 
-      testThumb (Some Condition.AL) Op.STREXD None N None
+      testThumb (Condition.AL) Op.STREXD None N None
                 (FourOperands (OprReg R.R4, OprReg R.IP, OprReg R.FP,
                                OprMemory (OffsetMode
                                          (ImmOffset (R.R0, None, None)))))
@@ -5973,41 +5971,41 @@ module ARMThumb =
   type LoadStoreMultipleClass () =
     [<TestMethod>]
     member __.``[Thumb] Load/store multiple Parse Test`` () =
-      testThumb (Some Condition.AL) Op.LDM (Some true) N None
+      testThumb (Condition.AL) Op.LDM (Some true) N None
                 (TwoOperands (OprReg R.R3, OprRegList [R.R0; R.R6; R.R7]))
                 [| 0xcbuy; 0xc1uy |]
 
-      testThumb (Some Condition.AL) Op.LDM (Some false) W None
+      testThumb (Condition.AL) Op.LDM (Some false) W None
                 (TwoOperands (OprReg R.R8,
                               OprRegList [R.R2; R.R7; R.R8; R.IP; R.LR]))
                 [| 0xe8uy; 0x98uy; 0x51uy; 0x84uy |]
 
-      testThumb (Some Condition.AL) Op.POP None W None
+      testThumb (Condition.AL) Op.POP None W None
                 (OneOperand (OprRegList [R.R0; R.R4; R.SB; R.SL; R.PC]))
                 [| 0xe8uy; 0xbduy; 0x86uy; 0x11uy |]
 
-      testThumb (Some Condition.AL) Op.POP None W None
+      testThumb (Condition.AL) Op.POP None W None
                 (OneOperand (OprRegList [ R.R3 ]))
                 [| 0xf8uy; 0x5duy; 0x3buy; 0x04uy |]
 
-      testThumb (Some Condition.AL) Op.PUSH None N None
+      testThumb (Condition.AL) Op.PUSH None N None
                 (OneOperand (OprRegList [R.R0; R.R1; R.R4; R.R5; R.LR]))
                 [| 0xb5uy; 0x33uy |]
 
-      testThumb (Some Condition.AL) Op.PUSH None W None
+      testThumb (Condition.AL) Op.PUSH None W None
                 (OneOperand (OprRegList [R.R2; R.R7; R.R8]))
                 [| 0xe9uy; 0x2duy; 0x01uy; 0x84uy |]
 
-      testThumb (Some Condition.AL) Op.PUSH None W None
+      testThumb (Condition.AL) Op.PUSH None W None
                 (OneOperand (OprRegList [ R.R1 ]))
                 [| 0xf8uy; 0x4duy; 0x1duy; 0x04uy |]
 
-      testThumb (Some Condition.AL) Op.STM (Some true) N None
+      testThumb (Condition.AL) Op.STM (Some true) N None
                 (TwoOperands (OprReg R.R5,
                               OprRegList [R.R0; R.R1; R.R5; R.R7]))
                 [| 0xc5uy; 0xa3uy |]
 
-      testThumb (Some Condition.AL) Op.STM (Some false) W None
+      testThumb (Condition.AL) Op.STM (Some false) W None
                 (TwoOperands (OprReg R.R2,
                               OprRegList [R.R4; R.R7; R.R8; R.FP; R.IP; R.LR]))
                 [| 0xe8uy; 0x82uy; 0x59uy; 0x90uy |]
@@ -6017,63 +6015,63 @@ module ARMThumb =
   type MiscellaneousClass () =
     [<TestMethod>]
     member __.``[Thumb] Miscellaneous Parse Test`` () =
-      testThumb (Some Condition.AL) Op.DBG None N None
+      testThumb (Condition.AL) Op.DBG None N None
                 (OneOperand (OprImm 11L))
                 [| 0xf3uy; 0xafuy; 0x80uy; 0xfbuy |]
 
-      testThumb (Some Condition.AL) Op.DMB None N None
+      testThumb (Condition.AL) Op.DMB None N None
                 (OneOperand (OprOption Option.NSH))
                 [| 0xf3uy; 0xbfuy; 0x8fuy; 0x57uy |]
 
-      testThumb None Op.ITE None N None
+      testThumb Condition.UN Op.ITE None N None
                 (OneOperand (OprCond Condition.VS))
                 [| 0xbfuy; 0x6cuy |]
 
-      testThumb (Some Condition.AL) Op.NOP None W None
+      testThumb (Condition.AL) Op.NOP None W None
                 NoOperand
                 [| 0xf3uy; 0xafuy; 0x80uy; 0x00uy |]
 
-      testThumb (Some Condition.AL) Op.PLD None N None
+      testThumb (Condition.AL) Op.PLD None N None
                 (OneOperand (OprMemory (OffsetMode
                                        (RegOffset (R.IP, None, R.FP,
                                                    Some (SRTypeLSL, Imm 1u))))))
                 [| 0xf8uy; 0x1cuy; 0xf0uy; 0x1buy |]
 
-      testThumb (Some Condition.AL) Op.PLD None N None
+      testThumb (Condition.AL) Op.PLD None N None
                 (OneOperand (OprMemory (OffsetMode
                                       (ImmOffset (R.R0, Some Minus, Some 32L)))))
                 [| 0xf8uy; 0x10uy; 0xfcuy; 0x20uy |]
 
-      testThumb (Some Condition.AL) Op.PLD None N None
+      testThumb (Condition.AL) Op.PLD None N None
                 (OneOperand (OprMemory (LiteralMode -142L)))
                 [| 0xf8uy; 0x1fuy; 0xf0uy; 0x8euy |]
 
-      testThumb (Some Condition.AL) Op.PLD None N None
+      testThumb (Condition.AL) Op.PLD None N None
                 (OneOperand (OprMemory (LiteralMode 15L)))
                 [| 0xf8uy; 0x9fuy; 0xf0uy; 0x0fuy |]
 
-      testThumb (Some Condition.AL) Op.PLDW None N None
+      testThumb (Condition.AL) Op.PLDW None N None
                 (OneOperand (OprMemory (OffsetMode
                                        (RegOffset (R.R7, None, R.FP,
                                                    Some (SRTypeLSL, Imm 1u))))))
                 [| 0xf8uy; 0x37uy; 0xf0uy; 0x1buy |]
 
-      testThumb (Some Condition.AL) Op.PLDW None N None
+      testThumb (Condition.AL) Op.PLDW None N None
                 (OneOperand (OprMemory (OffsetMode
                                       (ImmOffset (R.R2, Some Minus, Some 49L)))))
                 [| 0xf8uy; 0x32uy; 0xfcuy; 0x31uy |]
 
-      testThumb (Some Condition.AL) Op.PLDW None N None
+      testThumb (Condition.AL) Op.PLDW None N None
                 (OneOperand (OprMemory (OffsetMode
                                       (ImmOffset (R.IP, Some Plus, Some 195L)))))
                 [| 0xf8uy; 0xbcuy; 0xf0uy; 0xc3uy |]
 
-      testThumb (Some Condition.AL) Op.PLI None N None
+      testThumb (Condition.AL) Op.PLI None N None
                 (OneOperand (OprMemory (OffsetMode
                                       (ImmOffset (R.SL, Some Plus, Some 3L)))))
                 [| 0xf9uy; 0x9auy; 0xf0uy; 0x03uy |]
 
-      testThumb None Op.SETEND None N None
+      testThumb Condition.UN Op.SETEND None N None
                 (OneOperand (OprEndian Endian.Big))
                 [| 0xb6uy; 0x58uy |]
 
@@ -6082,35 +6080,35 @@ module ARMThumb =
   type ExcepGenAndExcepHandClass () =
     [<TestMethod>]
     member __.``[Thumb] Exception-gen and exception-handling Parse Test`` () =
-      testThumb None Op.BKPT None N None
+      testThumb Condition.UN Op.BKPT None N None
                 (OneOperand (OprImm 48L))
                 [| 0xbeuy; 0x30uy |]
 
-      testThumb (Some Condition.AL) Op.SMC None N None
+      testThumb (Condition.AL) Op.SMC None N None
                 (OneOperand (OprImm 8L))
                 [| 0xf7uy; 0xf8uy; 0x80uy; 0x00uy |]
 
-      testThumb (Some Condition.AL) Op.RFEIA (Some true) N None
+      testThumb (Condition.AL) Op.RFEIA (Some true) N None
                 (OneOperand (OprReg R.SL))
                 [| 0xe9uy; 0xbauy; 0xc0uy; 0x00uy |]
 
-      testThumb (Some Condition.AL) Op.SUBS None N None
+      testThumb (Condition.AL) Op.SUBS None N None
                 (ThreeOperands (OprReg R.PC, OprReg R.LR, OprImm 8L))
                 [| 0xf3uy; 0xdeuy; 0x8fuy; 0x08uy |]
 
-      testThumb None Op.HVC None N None
+      testThumb Condition.UN Op.HVC None N None
                 (OneOperand (OprImm 4108L))
                 [| 0xf7uy; 0xe1uy; 0x80uy; 0x0cuy |]
 
-      testThumb (Some Condition.AL) Op.ERET None N None
+      testThumb (Condition.AL) Op.ERET None N None
                 NoOperand
                 [| 0xf3uy; 0xdeuy; 0x8fuy; 0x00uy |]
 
-      testThumb (Some Condition.AL) Op.ERET None N None
+      testThumb (Condition.AL) Op.ERET None N None
                 NoOperand
                 [| 0xf3uy; 0xdeuy; 0x8fuy; 0x00uy |]
 
-      testThumb (Some Condition.AL) Op.SRSDB (Some true) N None
+      testThumb (Condition.AL) Op.SRSDB (Some true) N None
                 (TwoOperands ((OprReg R.SP), OprImm 19L))
                 [| 0xe8uy; 0x2duy; 0xc0uy; 0x13uy |]
 
@@ -6119,7 +6117,7 @@ module ARMThumb =
   type MediaClass () =
     [<TestMethod>]
     member __.``[Thumb] Media Parse Test`` () =
-      testThumb (Some Condition.AL) Op.UDF None N None
+      testThumb (Condition.AL) Op.UDF None N None
                 (OneOperand (OprImm 15L))
                 [| 0xdeuy; 0x0fuy |]
 
@@ -6128,7 +6126,7 @@ module ARMThumb =
   type MiscellaneousControlClass () =
     [<TestMethod>]
     member __.``[Thumb] Miscellaneous control Parse Test`` () =
-      testThumb (Some Condition.AL) Op.CLREX None N None
+      testThumb (Condition.AL) Op.CLREX None N None
                 NoOperand
                 [| 0xf3uy; 0xbfuy; 0x8fuy; 0x2fuy |]
 

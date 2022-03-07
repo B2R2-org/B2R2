@@ -325,11 +325,11 @@ type AsmParser (startAddress: Addr) =
   /// This is necessary because some operands depend on the opcode.
   let pOperands parsedInfo =
     sepBy (pOperand (getOpCode parsedInfo)) operandSeps |>> extractOperands
-    |>> (fun operands -> parsedInfo, operands )
+    |>> (fun operands -> parsedInfo, operands)
     |> skipWhitespaces
 
   let pInsInfo =
-      pOpcode .>>. opt pCondition .>>. opt (attempt pSIMDDataTypes)
+      pOpcode .>>. pCondition .>>. opt (attempt pSIMDDataTypes)
       .>>. opt pQualifier >>= pOperands
       |>> (fun ((((opcode, cond), simd), qual), operands) ->
               let qual = match qual with | Some W -> W | _ -> N /// XXX

@@ -25,6 +25,7 @@
 namespace B2R2.FrontEnd.BinLifter.ARM32
 
 open B2R2
+open B2R2.FrontEnd.BinLifter
 open System.Runtime.CompilerServices
 
 [<assembly: InternalsVisibleTo("B2R2.FrontEnd.BinLifter.Tests")>]
@@ -1304,53 +1305,35 @@ type Operands =
   | SixOperands of Operand * Operand * Operand * Operand * Operand * Operand
 
 /// Basic information for a single ARMv7 instruction obtained after parsing.
-[<NoComparison; CustomEquality>]
-type InsInfo = {
-  /// Address.
-  Address: Addr
-  /// Number of bytes.
-  NumBytes: uint32
-  /// Condition.
-  Condition: Condition option
-  /// Opcode.
-  Opcode: Opcode
-  /// Operands.
-  Operands: Operands
-  /// IT state for this instruction (used only for IT instructions).
-  ITState: byte
-  /// Write back.
-  WriteBack: bool
-  /// Qualifier.
-  Qualifier: Qualifier
-  /// SIMD data type.
-  SIMDTyp: SIMDDataTypes option
-  /// Target architecture mode.
-  Mode: ArchOperationMode
-  /// Carry Flag from decoding instruction
-  Cflag: bool option
-}
-with
-  override __.GetHashCode () =
-    hash (__.Address,
-          __.NumBytes,
-          __.Condition,
-          __.Opcode,
-          __.Operands,
-          __.Qualifier,
-          __.SIMDTyp,
-          __.Mode)
-  override __.Equals (i) =
-    match i with
-    | :? InsInfo as i ->
-      i.Address = __.Address
-      && i.NumBytes = __.NumBytes
-      && i.Condition = __.Condition
-      && i.Opcode = __.Opcode
-      && i.Operands = __.Operands
-      && i.Qualifier = __.Qualifier
-      && i.SIMDTyp = __.SIMDTyp
-      && i.Mode = __.Mode
-      && i.Cflag = __.Cflag
-    | _ -> false
+[<AbstractClass>]
+type ARM32InternalInstruction (addr, nb, cond, op, opr, its, wb, q, s, m, cf) =
+  inherit Instruction (addr, nb, WordSize.Bit32)
 
-// vim: set tw=80 sts=2 sw=2:
+  /// Condition.
+  member __.Condition with get(): Condition = cond
+
+  /// Opcode.
+  member __.Opcode with get(): Opcode = op
+
+  /// Operands.
+  member __.Operands with get(): Operands = opr
+
+  /// IT state for this instruction (used only for IT instructions).
+  member __.ITState with get(): byte = its
+
+  /// Write back.
+  member __.WriteBack with get(): bool = wb
+
+  /// Qualifier.
+  member __.Qualifier with get(): Qualifier = q
+
+  /// SIMD data type.
+  member __.SIMDTyp with get(): SIMDDataTypes option = s
+
+  /// Target architecture mode.
+  member __.Mode with get(): ArchOperationMode = m
+
+  /// Carry Flag from decoding instruction
+  member __.Cflag with get(): bool option = cf
+
+type internal InsInfo = ARM32InternalInstruction

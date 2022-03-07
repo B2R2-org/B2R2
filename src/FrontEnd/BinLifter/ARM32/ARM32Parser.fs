@@ -30,19 +30,6 @@ open B2R2.FrontEnd.BinLifter
 
 module private Parser =
 
-  let inline isARMv7 arch =
-    match arch with
-    | Arch.ARMv7 -> true
-    | _ -> false
-
-  let readThumbBytes (span: ByteSpan) (reader: IBinReader) =
-    let b = reader.ReadUInt16 (span, 0)
-    match b >>> 11 with
-    | 0x1dus | 0x1eus | 0x1fus -> (* 32-bit Thumb opcode. *)
-      let b2 = reader.ReadUInt16 (span, 2)
-      struct (((uint32 b2) <<< 16) + (uint32 b), 4u)
-    | _ -> struct (uint32 b, 2u)
-
   let parseARM (span: ByteSpan) (phlp: ParsingHelper) =
     let bin = phlp.BinReader.ReadUInt32 (span, 0)
     phlp.Len <- 4u
@@ -92,7 +79,11 @@ type ARM32Parser (isa: ISA, mode, entryPoint: Addr option) =
     OprDdDnDmRotate () :> OperandParser
     OprDdDnDmx () :> OperandParser
     OprDdImm0 () :> OperandParser
-    OprDdImmA () :> OperandParser
+    OprDdImm8A () :> OperandParser
+    OprDdImm16A () :> OperandParser
+    OprDdImm32A () :> OperandParser
+    OprDdImm64A () :> OperandParser
+    OprDdImmF32A () :> OperandParser
     OprDdLabel () :> OperandParser
     OprDdListDm () :> OperandParser
     OprDdmDdmFbits () :> OperandParser
@@ -141,7 +132,11 @@ type ARM32Parser (isa: ISA, mode, entryPoint: Addr option) =
     OprQdDnDm () :> OperandParser
     OprQdDnDmidx () :> OperandParser
     OprQdDnDmx () :> OperandParser
-    OprQdImmA () :> OperandParser
+    OprQdImm8A () :> OperandParser
+    OprQdImm16A () :> OperandParser
+    OprQdImm32A () :> OperandParser
+    OprQdImm64A () :> OperandParser
+    OprQdImmF32A () :> OperandParser
     OprQdQm () :> OperandParser
     OprQdQmFbits () :> OperandParser
     OprQdQmImm () :> OperandParser
@@ -249,7 +244,11 @@ type ARM32Parser (isa: ISA, mode, entryPoint: Addr option) =
     OprBankregRnT () :> OperandParser
     OprCondition () :> OperandParser
     OprDdDm0 () :> OperandParser
-    OprDdImmT () :> OperandParser
+    OprDdImm8T () :> OperandParser
+    OprDdImm16T () :> OperandParser
+    OprDdImm32T () :> OperandParser
+    OprDdImm64T () :> OperandParser
+    OprDdImmF32T () :> OperandParser
     OprEndianT () :> OperandParser
     OprIflagsModeT () :> OperandParser
     OprIflagsT16 () :> OperandParser
@@ -272,7 +271,11 @@ type ARM32Parser (isa: ISA, mode, entryPoint: Addr option) =
     OprMemRegT () :> OperandParser
     OprOptImm () :> OperandParser
     OprPCLRImm8 () :> OperandParser
-    OprQdImmT () :> OperandParser
+    OprQdImm8T () :> OperandParser
+    OprQdImm16T () :> OperandParser
+    OprQdImm32T () :> OperandParser
+    OprQdImm64T () :> OperandParser
+    OprQdImmF32T () :> OperandParser
     OprQdQm0 () :> OperandParser
     OprRdBankregT () :> OperandParser
     OprRdConstT () :> OperandParser
@@ -359,56 +362,33 @@ type ARM32Parser (isa: ISA, mode, entryPoint: Addr option) =
     OprSPSPRm () :> OperandParser
     OprSregRnT () :> OperandParser |]
 
-  let phlp = ParsingHelper (oparsers)
-
   let mutable mode: ArchOperationMode =
     if mode = ArchOperationMode.NoMode then
       Parser.detectThumb entryPoint isa
     else mode
 
-  let mutable itstate: byte list = []
-
   let reader =
     if isa.Endian = Endian.Little then BinReader.binReaderLE
     else BinReader.binReaderBE
 
+  let phlp = ParsingHelper (isa.Arch, reader, oparsers)
+
+  let mutable itstate: byte list = []
+
   override __.OperationMode with get() = mode and set(m) = mode <- m
 
   override __.Parse (span: ByteSpan, addr) =
+    phlp.Mode <- mode
+    phlp.InsAddr <- addr
     match mode with
     | ArchOperationMode.ThumbMode ->
-      phlp.Arch <- isa.Arch
-      phlp.Mode <- mode
-      phlp.BinReader <- reader
-      phlp.InsAddr <- addr
-      phlp.IsARMv7 <- isa.Arch = Arch.ARMv7
       Parser.parseThumb span phlp &itstate :> Instruction
     | ArchOperationMode.ARMMode ->
-      phlp.Arch <- isa.Arch
-      phlp.Mode <- mode
-      phlp.BinReader <- reader
-      phlp.InsAddr <- addr
-      phlp.IsARMv7 <- isa.Arch = Arch.ARMv7
       Parser.parseARM span phlp :> Instruction
     | _-> raise InvalidTargetArchModeException
 
   override __.Parse (bs: byte[], addr) =
     let span = ReadOnlySpan bs
-    match mode with
-    | ArchOperationMode.ThumbMode ->
-      phlp.Arch <- isa.Arch
-      phlp.Mode <- mode
-      phlp.BinReader <- reader
-      phlp.InsAddr <- addr
-      phlp.IsARMv7 <- isa.Arch = Arch.ARMv7
-      Parser.parseThumb span phlp &itstate :> Instruction
-    | ArchOperationMode.ARMMode ->
-      phlp.Arch <- isa.Arch
-      phlp.Mode <- mode
-      phlp.BinReader <- reader
-      phlp.InsAddr <- addr
-      phlp.IsARMv7 <- isa.Arch = Arch.ARMv7
-      Parser.parseARM span phlp :> Instruction
-    | _-> raise InvalidTargetArchModeException
+    __.Parse (span, addr)
 
 // vim: set tw=80 sts=2 sw=2:

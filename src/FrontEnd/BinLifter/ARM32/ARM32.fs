@@ -24,7 +24,6 @@
 
 namespace B2R2.FrontEnd.BinLifter.ARM32
 
-open System
 open B2R2
 open B2R2.FrontEnd.BinLifter
 

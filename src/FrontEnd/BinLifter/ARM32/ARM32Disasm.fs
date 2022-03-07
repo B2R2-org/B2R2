@@ -538,30 +538,28 @@ let opCodeToString = function
   | Op.WFI -> "wfi"
   | Op.YIELD -> "yield"
   | Op.InvalidOP -> "(illegal)"
-  | _ -> Utils.impossible ()
+  | _ -> raise ParsingFailureException
 
 let condToString = function
-  | Some Condition.EQ -> "eq"
-  | Some Condition.NE -> "ne"
-  | Some Condition.CS -> "cs"
-  | Some Condition.HS -> "hs"
-  | Some Condition.CC -> "cc"
-  | Some Condition.LO -> "lo"
-  | Some Condition.MI -> "mi"
-  | Some Condition.PL -> "pl"
-  | Some Condition.VS -> "vs"
-  | Some Condition.VC -> "vc"
-  | Some Condition.HI -> "hi"
-  | Some Condition.LS -> "ls"
-  | Some Condition.GE -> "ge"
-  | Some Condition.LT -> "lt"
-  | Some Condition.GT -> "gt"
-  | Some Condition.LE -> "le"
-  | Some Condition.AL -> ""
-  | Some Condition.NV -> "nv"
-  | Some Condition.UN
-  | None -> ""
-  | _ -> Utils.impossible ()
+  | Condition.EQ -> "eq"
+  | Condition.NE -> "ne"
+  | Condition.CS -> "cs"
+  | Condition.HS -> "hs"
+  | Condition.CC -> "cc"
+  | Condition.LO -> "lo"
+  | Condition.MI -> "mi"
+  | Condition.PL -> "pl"
+  | Condition.VS -> "vs"
+  | Condition.VC -> "vc"
+  | Condition.HI -> "hi"
+  | Condition.LS -> "ls"
+  | Condition.GE -> "ge"
+  | Condition.LT -> "lt"
+  | Condition.GT -> "gt"
+  | Condition.LE -> "le"
+  | Condition.NV -> "nv"
+  | Condition.UN | Condition.AL -> ""
+  | _ -> raise ParsingFailureException
 
 let SIMDTypToStr = function
   | SIMDTyp8 -> ".8"
@@ -591,17 +589,17 @@ let qualifierToStr = function
   | W -> ".w"
   | N -> ""
 
-let inline appendQualifier ins (sb: StringBuilder) =
+let inline appendQualifier (ins: InsInfo) (sb: StringBuilder) =
   sb.Append (qualifierToStr ins.Qualifier)
 
-let inline appendSIMDDataTypes ins (sb: StringBuilder) =
+let inline appendSIMDDataTypes (ins: InsInfo) (sb: StringBuilder) =
   match ins.SIMDTyp with
   | None -> sb
   | Some (OneDT dt) -> sb.Append (SIMDTypToStr dt)
   | Some (TwoDT (dt1, dt2)) ->
     (sb.Append (SIMDTypToStr dt1)).Append (SIMDTypToStr dt2)
 
-let inline buildOpcode ins (builder: DisasmBuilder<_>) =
+let inline buildOpcode (ins: InsInfo) (builder: DisasmBuilder<_>) =
   let sb = StringBuilder ()
   let sb = sb.Append (opCodeToString ins.Opcode)
   let sb = sb.Append (condToString ins.Condition)
@@ -618,7 +616,7 @@ let isRFEorSRS = function
   | Op.SRS | Op.SRSDA | Op.SRSDB | Op.SRSIA | Op.SRSIB -> true
   | _ -> false
 
-let buildReg ins isRegList reg (builder: DisasmBuilder<_>) =
+let buildReg (ins: InsInfo) isRegList reg (builder: DisasmBuilder<_>) =
   let reg = Register.toString reg
   match ins.WriteBack with
   | true when existRegList ins.Operands && not isRegList ->
@@ -809,7 +807,7 @@ let offsetToString ins addrMode offset builder =
   | AlignOffset (bReg, align, reg) ->
     alignOffsetToString ins (bReg, align, reg) builder
 
-let processAddrExn32 ins addr =
+let processAddrExn32 (ins: InsInfo) addr =
   let pc =
     if ins.Mode = ArchOperationMode.ThumbMode then addr + 4UL else addr + 8UL
   match ins.Opcode with
@@ -875,7 +873,7 @@ let optToString = function
   | Option.OSH -> "osh"
   | Option.OSHST -> "oshst"
   | Option.OSHLD -> "oshld"
-  | _ -> Utils.impossible ()
+  | _ -> raise ParsingFailureException
 
 let iFlagToString = function
   | A -> "a"
@@ -931,10 +929,10 @@ let oprToString hlp ins addr operand delim builder =
     builder.Accumulate AsmWordKind.String (endToString e)
   | OprCond c ->
     prependDelimiter delim builder
-    builder.Accumulate AsmWordKind.String (condToString (Some c))
+    builder.Accumulate AsmWordKind.String (condToString c)
   | GoToLabel _ -> ()
 
-let buildOprs hlp ins pc builder =
+let buildOprs hlp (ins: InsInfo) pc builder =
   match ins.Operands with
   | NoOperand -> ()
   | OneOperand opr ->
@@ -965,12 +963,8 @@ let buildOprs hlp ins pc builder =
     oprToString hlp ins pc opr5 (Some ", ") builder
     oprToString hlp ins pc opr6 (Some ", ") builder
 
-let buildAdditionalInfo (ins: InsInfo) (builder: DisasmBuilder<_>) =
-  builder.Accumulate AsmWordKind.String (" ; WB " + ins.WriteBack.ToString())
-
-let disasm hlp ins (builder: DisasmBuilder<_>) =
+let disasm hlp (ins: InsInfo) (builder: DisasmBuilder<_>) =
   let pc = ins.Address
   if builder.ShowAddr then builder.AccumulateAddr () else ()
   buildOpcode ins builder
   buildOprs hlp ins pc builder
-  //buildAdditionalInfo ins builder (* FIXME: Debug *)

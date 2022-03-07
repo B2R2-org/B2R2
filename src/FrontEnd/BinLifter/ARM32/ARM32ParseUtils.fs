@@ -30,6 +30,18 @@ open B2R2.FrontEnd.BinLifter.ARM32
 let inline extract (binary: uint32) m n =
   (binary >>> n) &&& ((1u <<< (m - n + 1)) - 1u)
 
+let inline pickTwo (binary: uint32) n =
+  (binary >>> n) &&& 0b11u
+
+let inline pickThree (binary: uint32) n =
+  (binary >>> n) &&& 0b111u
+
+let inline pickFour (binary: uint32) n =
+  (binary >>> n) &&& 0b1111u
+
+let inline pickFive (binary: uint32) n =
+  (binary >>> n) &&& 0b11111u
+
 let inline pickBit (binary: uint32) pos =
   (binary >>> pos) &&& 0b1u
 
@@ -92,9 +104,7 @@ let signExtend bitSize extSize (imm: uint64) =
 
 let isUnconditional cond =
   match cond with
-  | None
-  | Some Condition.AL
-  | Some Condition.UN -> true
+  | Condition.AL | Condition.UN -> true
   | _ -> false
 
 // vim: set tw=80 sts=2 sw=2:
