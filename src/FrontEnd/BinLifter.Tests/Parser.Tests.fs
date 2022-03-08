@@ -1453,15 +1453,12 @@ module Intel =
              (ThreeOperands (OprReg R.YMM0, OprReg R.YMM3, OprReg R.YMM3)) 5u
              [| 0xC4uy; 0xE2uy; 0x65uy; 0x40uy; 0xc3uy |]
 
+#if !EMULATION
   /// Exception Test
   [<TestClass>]
   type ExceptionTestClass () =
     [<TestMethod>]
-#if !EMULATION
     [<ExpectedException(typedefof<ParsingFailureException>)>]
-#else
-    [<ExpectedException(typedefof<System.IndexOutOfRangeException>)>]
-#endif
     member __.``Size cond ParsingFailure Test`` () =
       test64 Opcode.AAA NoOperand 1ul [| 0x37uy |]
 
@@ -1495,6 +1492,7 @@ module Intel =
       let isa = ISA.Init Arch.IntelX86 Endian.Little
       let hdl = BinHandle.Init (isa)
       Assert.AreEqual (0, hdl.FileInfo.Span.Length)
+#endif
 
 module ARMv7 =
   open B2R2.FrontEnd.BinLifter.ARM32
