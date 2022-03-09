@@ -24,12 +24,27 @@
 
 module B2R2.Peripheral.Assembly.ARM32.ParserHelper
 
+open B2R2
 open B2R2.FrontEnd.BinLifter.ARM32
 open FParsec
 
+type AsmInsInfo = {
+  Address: Addr
+  NumBytes: uint32
+  Condition: Condition
+  Opcode: Opcode
+  Operands: Operands
+  ITState: byte
+  WriteBack: bool
+  Qualifier: Qualifier
+  SIMDTyp: SIMDDataTypes option
+  Mode: ArchOperationMode
+  Cflag: bool option
+}
+
 type AssemblyLine =
   | LabelDefLine
-  | InstructionLine of InsInfo
+  | InstructionLine of AsmInsInfo
 
 /// Updates the dummy offset value by substituing the reg field of the dummy
 /// offset value by the register given.
@@ -142,18 +157,18 @@ let getPSRFlagFromStr (str: string) =
 
 let optionOprFromStr (str: string) =
   match str.ToLower () with
-  | "sy" -> SY
-  | "st" -> ST
-  | "ld" -> LD
-  | "ish" -> ISH
-  | "ishst" -> ISHST
-  | "ishld" -> ISHLD
-  | "nsh" -> NSH
-  | "nshst" -> NSHST
-  | "nshld" -> NSHLD
-  | "osh" -> OSH
-  | "oshst" -> OSHST
-  | "oshld" -> OSHLD
+  | "sy" -> Option.SY
+  | "st" -> Option.ST
+  | "ld" -> Option.LD
+  | "ish" -> Option.ISH
+  | "ishst" -> Option.ISHST
+  | "ishld" -> Option.ISHLD
+  | "nsh" -> Option.NSH
+  | "nshst" -> Option.NSHST
+  | "nshld" -> Option.NSHLD
+  | "osh" -> Option.OSH
+  | "oshst" -> Option.OSHST
+  | "oshld" -> Option.OSHLD
   | _ -> failwith "unknown OptionOperand"
 
 let iFlagFromStr (str: string) =
@@ -194,7 +209,7 @@ let newInsInfo addr opcode c it w q simd oprs iLen mode cflag =
     Opcode = opcode
     Operands = oprs
     ITState = it
-    WriteBack = if w then Some w else None
+    WriteBack = w
     Qualifier = q
     SIMDTyp = simd
     Mode = mode

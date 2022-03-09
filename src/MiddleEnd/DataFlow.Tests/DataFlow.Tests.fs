@@ -84,6 +84,7 @@ type PersistentDataFlowTests () =
   let hdl = BinHandle.Init (isa, binary)
   let ess = BinEssence.init hdl [] [] []
 
+#if !EMULATION
   [<TestMethod>]
   member __.``Reaching Definitions Test 1``() =
     let cfg, root = BinEssence.getFunctionCFG ess 0UL |> Result.get
@@ -128,6 +129,7 @@ type PersistentDataFlowTests () =
       { ProgramPoint = ProgramPoint (0xAUL, 11)
         VarExpr = Regular (Intel.Register.toRegID Intel.Register.PF) } ]
     Assert.AreEqual (result, Set.ofList solution)
+#endif
 
   [<TestMethod>]
   member __.``Use-Def Test 1``() =
