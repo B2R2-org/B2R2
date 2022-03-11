@@ -117,13 +117,6 @@ let private getBasePtr ctxt =
 let private getRegOfSize ctxt oprSize regGrp =
   regGrp oprSize |> !.ctxt
 
-let private getDividend ctxt = function
-  | 8<rt> -> !.ctxt R.AX
-  | 16<rt> -> AST.concat (!.ctxt R.DX) (!.ctxt R.AX)
-  | 32<rt> -> AST.concat (!.ctxt R.EDX) (!.ctxt R.EAX)
-  | 64<rt> -> AST.concat (!.ctxt R.RDX) (!.ctxt R.RAX)
-  | _ -> raise InvalidOperandSizeException
-
 let inline private getStackWidth wordSize oprSize =
   numI32 (RegType.toByteWidth oprSize) wordSize
 
@@ -853,6 +846,58 @@ let dec ins insLen ctxt =
   if hasLock ins.Prefixes then !!ir (AST.sideEffect Unlock) else ()
   !>ir insLen
 
+let divideWithoutConcat opcode oprSize divisor lblAssign lblErr ctxt ir =
+  let rdx, rax = !.ctxt R.RDX, !.ctxt R.RAX
+  let struct (trdx, trax, tdivisor) = tmpVars3 ir oprSize
+  let updateSign = !*ir 1<rt>
+  let lblComputable = (ir: IRBuilder).NewSymbol "Computable"
+  let lblEasy = (ir: IRBuilder).NewSymbol "Easy"
+  let lblHard = (ir: IRBuilder).NewSymbol "Hard"
+  let isEasy = trdx == AST.num0 oprSize
+  let errChk = AST.gt tdivisor trdx
+  let quotient = !*ir oprSize
+  let remainder = !*ir oprSize
+  let bignum = numI64 0x8000000000000000L oprSize
+  match opcode with
+  | Opcode.DIV ->
+    !!ir (trdx := rdx)
+    !!ir (trax := rax)
+    !!ir (tdivisor := divisor)
+  | Opcode.IDIV ->
+    let dividendIsNeg, divisorIsNeg = !*ir 1<rt>, !*ir 1<rt>
+    !!ir (dividendIsNeg := (AST.xthi 1<rt> rdx == AST.b1))
+    !!ir (divisorIsNeg := (AST.xthi 1<rt> divisor == AST.b1))
+    !!ir (trdx := AST.ite dividendIsNeg (AST.not rdx) rdx)
+    !!ir (trax := AST.ite dividendIsNeg (AST.not rax .+ numI32 1 oprSize) rax)
+    !!ir (tdivisor := AST.ite divisorIsNeg (AST.neg divisor) divisor)
+    !!ir (updateSign := dividendIsNeg <+> divisorIsNeg)
+  | _ -> raise InvalidOpcodeException
+  !!ir (AST.cjmp errChk (AST.name lblComputable) (AST.name lblErr))
+  !!ir (AST.lmark lblComputable)
+  !!ir (AST.cjmp isEasy (AST.name lblEasy) (AST.name lblHard))
+  !!ir (AST.lmark lblEasy)
+  !!ir (quotient := trax ./ tdivisor)
+  !!ir (remainder := trax .% tdivisor)
+  !!ir (AST.jmp (AST.name lblAssign))
+  !!ir (AST.lmark lblHard)
+  !!ir (quotient := (bignum ./ (tdivisor ./ trdx)) .+ (trax ./ tdivisor))
+  !!ir (remainder := trax .- (quotient .* tdivisor))
+  !!ir (AST.lmark lblAssign)
+  match opcode with
+  | Opcode.DIV ->
+    !!ir (dstAssign oprSize rax quotient)
+    !!ir (dstAssign oprSize rdx remainder)
+  | Opcode.IDIV ->
+    !!ir (rax := (AST.ite updateSign (AST.neg quotient) quotient))
+    !!ir (rdx := (AST.ite updateSign (AST.neg remainder) remainder))
+  | _ -> raise InvalidOpcodeException
+
+let private getDividend ctxt = function
+  | 8<rt> -> !.ctxt R.AX
+  | 16<rt> -> AST.concat (!.ctxt R.DX) (!.ctxt R.AX)
+  | 32<rt> -> AST.concat (!.ctxt R.EDX) (!.ctxt R.EAX)
+  | _ -> raise InvalidOperandSizeException
+
 let private checkQuotientDIV oprSize lblAssign lblErr q =
   AST.cjmp (AST.xthi oprSize q == AST.num0 oprSize)
            (AST.name lblAssign) (AST.name lblErr)
@@ -867,24 +912,12 @@ let private checkQuotientIDIV oprSize sz lblAssign lblErr q =
   let cond = AST.ite (msb == AST.b1) negRes posRes
   AST.cjmp cond (AST.name lblErr) (AST.name lblAssign)
 
-let div ins insLen ctxt =
-  let ir = IRBuilder (16)
-  let lblAssign = ir.NewSymbol "Assign"
-  let lblChk = ir.NewSymbol "Check"
-  let lblErr = ir.NewSymbol "DivErr"
-  let divisor = transOneOpr ins insLen ctxt
-  let oprSize = getOperationSize ins
+let divideWithConcat opcode oprSize divisor lblAssign lblErr ctxt ir =
   let dividend = getDividend ctxt oprSize
   let sz = TypeCheck.typeOf dividend
   let quotient = !*ir sz
   let remainder = !*ir sz
-  !<ir insLen
-  !!ir (AST.cjmp (divisor == AST.num0 oprSize)
-                 (AST.name lblErr) (AST.name lblChk))
-  !!ir (AST.lmark lblErr)
-  !!ir (AST.sideEffect (Exception "DivErr"))
-  !!ir (AST.lmark lblChk)
-  match ins.Opcode with
+  match opcode with
   | Opcode.DIV ->
     let divisor = AST.zext sz divisor
     !!ir (quotient := dividend ./ divisor)
@@ -895,18 +928,37 @@ let div ins insLen ctxt =
     !!ir (quotient := dividend ?/ divisor)
     !!ir (remainder := dividend ?% divisor)
     !!ir (checkQuotientIDIV oprSize sz lblAssign lblErr quotient)
-  | _ ->  raise InvalidOpcodeException
+  | _ -> raise InvalidOpcodeException
   !!ir (AST.lmark lblAssign)
   match oprSize with
   | 8<rt> ->
     !!ir (!.ctxt R.AL := AST.xtlo oprSize quotient)
     !!ir (!.ctxt R.AH := AST.xtlo oprSize remainder)
-  | 16<rt> | 32<rt> | 64<rt> ->
+  | 16<rt> | 32<rt> ->
     let q = getRegOfSize ctxt oprSize grpEAX
     let r = getRegOfSize ctxt oprSize grpEDX
     !!ir (dstAssign oprSize q (AST.xtlo oprSize quotient))
     !!ir (dstAssign oprSize r (AST.xtlo oprSize remainder))
   | _ -> raise InvalidOperandSizeException
+
+let div ins insLen ctxt =
+  let ir = IRBuilder (16)
+  let lblAssign = ir.NewSymbol "Assign"
+  let lblChk = ir.NewSymbol "Check"
+  let lblErr = ir.NewSymbol "DivErr"
+  let divisor = transOneOpr ins insLen ctxt
+  let oprSize = getOperationSize ins
+  !<ir insLen
+  !!ir (AST.cjmp (divisor == AST.num0 oprSize)
+                 (AST.name lblErr) (AST.name lblChk))
+  !!ir (AST.lmark lblErr)
+  !!ir (AST.sideEffect (Exception "DivErr"))
+  !!ir (AST.lmark lblChk)
+  match oprSize with
+  | 64<rt> ->
+    divideWithoutConcat ins.Opcode oprSize divisor lblAssign lblErr ctxt ir
+  | _ ->
+    divideWithConcat ins.Opcode oprSize divisor lblAssign lblErr ctxt ir
 #if !EMULATION
   !!ir (!.ctxt R.CF := undefCF)
   !!ir (!.ctxt R.OF := undefOF)
