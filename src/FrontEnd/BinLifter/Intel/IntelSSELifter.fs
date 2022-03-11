@@ -1148,42 +1148,54 @@ let private opPminsb _ = opMaxMinPacked AST.slt
 let pminsb ins insLen ctxt =
   buildPackedInstr ins insLen ctxt 8<rt> opPminsb 32
 
+let private mskArrayInit cnt src =
+  Array.init cnt (fun i -> AST.extract src 1<rt> (i * 8 + 7))
+
+let private concatBits (bitExprs: Expr[]) =
+  let head = bitExprs[0]
+  let tail = bitExprs[1..]
+  let rt = RegType.fromBitWidth bitExprs.Length
+  tail
+  |> Array.foldi (fun acc i bitExpr ->
+    let e = AST.zext rt bitExpr
+    acc .| (e << (numI32 (i + 1) rt))
+  ) (AST.zext rt head)
+  |> fst
+
 let pmovmskb ins insLen ctxt =
   let ir = IRBuilder (4)
   let oprSize = getOperationSize ins
   let struct (dst, src) = getTwoOprs ins
   !<ir insLen
   let r = match src with | OprReg r -> r | _ -> raise InvalidOperandException
-  let arrayInit cnt src =
-    Array.init cnt (fun i -> AST.extract src 1<rt> (i * 8 + 7))
   match Register.getKind r with
   | Register.Kind.MMX ->
     let struct (dst, src) = transTwoOprs ins insLen ctxt
     let srcSize = TypeCheck.typeOf src
     let cnt = RegType.toByteWidth srcSize
-    let tmps = arrayInit cnt src
-    !!ir (dstAssign oprSize dst <| AST.zext oprSize (AST.concatArr tmps))
+    let tmps = mskArrayInit cnt src
+    !!ir (dstAssign oprSize dst <| AST.zext oprSize (concatBits tmps))
   | Register.Kind.XMM ->
     let dst = transOprToExpr ins insLen ctxt dst
     let srcB, srcA = transOprToExpr128 ins insLen ctxt src
     let srcSize = TypeCheck.typeOf srcA
     let cnt = RegType.toByteWidth srcSize
-    let tmpsA = arrayInit cnt srcA
-    let tmpsB = arrayInit cnt srcB
-    let tmps = AST.concat (AST.concatArr tmpsB) (AST.concatArr tmpsA)
+    let tmpsA = mskArrayInit cnt srcA
+    let tmpsB = mskArrayInit cnt srcB
+    let tmps = AST.concat (concatBits tmpsB) (concatBits tmpsA)
     !!ir (dstAssign oprSize dst <| AST.zext oprSize tmps)
   | Register.Kind.YMM ->
     let dst = transOprToExpr ins insLen ctxt dst
     let srcD, srcC, srcB, srcA = transOprToExpr256 ins insLen ctxt src
     let srcSize = TypeCheck.typeOf srcA
     let cnt = RegType.toByteWidth srcSize
-    let tmpsA = arrayInit cnt srcA
-    let tmpsB = arrayInit cnt srcB
-    let tmpsC = arrayInit cnt srcC
-    let tmpsD = arrayInit cnt srcD
+    let tmpsA = mskArrayInit cnt srcA
+    let tmpsB = mskArrayInit cnt srcB
+    let tmpsC = mskArrayInit cnt srcC
+    let tmpsD = mskArrayInit cnt srcD
     let tmps =
-      AST.concat (AST.concat (AST.concatArr tmpsD) (AST.concatArr tmpsC))
-        (AST.concat (AST.concatArr tmpsB) (AST.concatArr tmpsA))
+      AST.concat (AST.concat (concatBits tmpsD) (concatBits tmpsC))
+        (AST.concat (concatBits tmpsB) (concatBits tmpsA))
     !!ir (dstAssign oprSize dst <| AST.zext oprSize tmps)
   | _ -> raise InvalidOperandException
   !>ir insLen
