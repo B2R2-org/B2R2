@@ -1246,10 +1246,21 @@ let smaddl ins ctxt addr =
 let smulh ins ctxt addr =
   let ir = IRBuilder (4)
   let dst, src1, src2 = transThreeOprs ins ctxt addr
-  let result = ir.NewTempVar 128<rt>
+  let tSrc1B = ir.NewTempVar 64<rt>
+  let tSrc1A = ir.NewTempVar 64<rt>
+  let tSrc2B = ir.NewTempVar 64<rt>
+  let tSrc2A = ir.NewTempVar 64<rt>
+  let n32 = numI32 32 64<rt>
+  let mask = numI64 0xFFFFFFFFL 64<rt>
   startMark ins ir
-  ir <! (result := AST.sext 128<rt> src1 .* AST.sext 128<rt> src2)
-  ir <! (dst := AST.xthi 64<rt> result)
+  ir <! (tSrc1B := (src1 >> n32) .& mask)
+  ir <! (tSrc1A := src1 .& mask)
+  ir <! (tSrc2B := (src2 >> n32) .& mask)
+  ir <! (tSrc2A := src2 .& mask)
+  let high = tSrc1B .* tSrc2B
+  let mid = (tSrc1A .* tSrc2B) .+ (tSrc1B .* tSrc2A)
+  let low = (tSrc1A .* tSrc2A) >> n32
+  ir <! (dst := high .+ ((mid .+ low) >> n32)) (* [127:64] *)
   endMark ins ir
 
 let stp ins ctxt addr =
@@ -1400,10 +1411,20 @@ let umaddl ins ctxt addr =
 let umulh ins ctxt addr =
   let ir = IRBuilder (4)
   let dst, src1, src2 = transThreeOprs ins ctxt addr
-  let result = ir.NewTempVar 128<rt>
-  startMark ins ir
-  ir <! (result := AST.zext 128<rt> src1 .* AST.zext 128<rt> src2)
-  ir <! (dst := AST.xthi 64<rt> result)
+  let tSrc1B = ir.NewTempVar 64<rt>
+  let tSrc1A = ir.NewTempVar 64<rt>
+  let tSrc2B = ir.NewTempVar 64<rt>
+  let tSrc2A = ir.NewTempVar 64<rt>
+  let n32 = numI32 32 64<rt>
+  let mask = numI64 0xFFFFFFFFL 64<rt>
+  ir <! (tSrc1B := (src1 >> n32) .& mask)
+  ir <! (tSrc1A := src1 .& mask)
+  ir <! (tSrc2B := (src2 >> n32) .& mask)
+  ir <! (tSrc2A := src2 .& mask)
+  let high = tSrc1B .* tSrc2B
+  let mid = (tSrc1A .* tSrc2B) .+ (tSrc1B .* tSrc2A)
+  let low = (tSrc1A .* tSrc2A) >> n32
+  ir <! (dst := high .+ ((mid .+ low) >> n32)) (* [127:64] *)
   endMark ins ir
 
 let ubfm ins ctxt addr =
