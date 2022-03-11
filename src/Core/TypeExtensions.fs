@@ -29,7 +29,7 @@ open System.Collections.Generic
 /// Extended Array.
 [<RequireQualifiedAccess>]
 module Array =
-  let foldi folder acc arr =
+  let inline foldi ([<InlineIfLambda>] folder) acc arr =
     Array.fold (fun (acc, idx) elt ->
       (folder acc idx elt, idx + 1)) (acc, 0) arr
 
@@ -38,7 +38,7 @@ module Array =
 module String =
   let explode (str: string) = [for ch in str do yield ch done]
 
-  let fold folder acc str =
+  let inline fold ([<InlineIfLambda>] folder) acc str =
     explode str |> List.fold folder acc
 
   /// Convert a string to a byte array.
