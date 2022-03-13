@@ -40,12 +40,11 @@ type ReplState (isa: ISA, regbay: RegisterBay, doFiltering) =
     regbay.GetAllRegExprs ()
     |> List.map (fun r ->
       (regbay.RegIDFromRegExpr r, BitVector.ofInt32 0 (TypeCheck.typeOf r)))
-    |> List.map (fun (x, y) -> (x, y))
     |> rstate.InitializeContext 0UL
   let mutable prevReg =
-    rstate.Registers.ToSeq () |> Seq.toArray
-  let mutable prevTmp =
-    rstate.Temporaries.ToSeq () |> Seq.toArray
+    rstate.Registers.ToArray ()
+    |> Array.map (fun (i, v) -> RegisterID.create i, v)
+  let mutable prevTmp = rstate.Temporaries.ToArray ()
   let generalRegs =
     regbay.GetGeneralRegExprs ()
     |> List.map regbay.RegIDFromRegExpr
@@ -64,8 +63,10 @@ type ReplState (isa: ISA, regbay: RegisterBay, doFiltering) =
   member __.Update stmts =
     try __.EvaluateStmts stmts
     with exc -> printfn "%s" exc.Message
-    let currReg = rstate.Registers.ToSeq () |> Seq.toArray
-    let currTmp = rstate.Temporaries.ToSeq () |> Seq.toArray
+    let currReg =
+      rstate.Registers.ToArray ()
+      |> Array.map (fun (i, v) -> RegisterID.create i, v)
+    let currTmp = rstate.Temporaries.ToArray ()
     let regdelta = __.ComputeDelta prevReg currReg
     prevReg <- currReg
     prevTmp <- currTmp

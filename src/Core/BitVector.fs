@@ -87,7 +87,7 @@ module internal BitVectorHelper =
 ///
 /// N.B. Num becomes zero when the Length becomes greater than 64. We
 /// intentionally do not sync Num and BigNum.
-[<AbstractClass>]
+[<AbstractClass; AllowNullLiteral>]
 type BitVector internal (len) =
   /// BitVector length.
   member __.Length with get(): RegType = len

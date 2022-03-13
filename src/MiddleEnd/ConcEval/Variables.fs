@@ -24,27 +24,36 @@
 
 namespace B2R2.MiddleEnd.ConcEval
 
-open System.Collections.Generic
 open B2R2
 
-type Variables<'Key when 'Key: equality> (vars) =
-  let vars = vars
+type Variables (vars) =
+  let vars: BitVector[] = vars
 
-  new () = Variables (Dictionary<'Key, BitVector> ())
+  new (cnt: int) = Variables (Array.zeroCreate cnt)
 
-  member __.TryGet k = vars.TryGetValue (k)
+  member __.TryGet k =
+    let v = vars[k]
+    if isNull v then Error ErrorCase.InvalidRegister
+    else Ok v
 
   member __.Get k = vars[k]
 
   member __.Set k v = vars[k] <- v
 
-  member __.Unset k = vars.Remove k |> ignore
+  member __.Unset k = vars[k] <- null
 
-  member __.Clear () = vars.Clear ()
+  member __.Count () = vars.Length
 
-  member __.Count () = vars.Count
-
-  member __.ToSeq () = vars |> Seq.map (fun (KeyValue (k,v)) -> k, v)
+  member __.ToArray () = vars |> Array.mapi (fun i v -> i, v)
 
   member __.Clone () =
-    Variables (Dictionary (vars))
+    Variables (Array.copy vars)
+
+module Variables =
+  /// This is the maximum number of temporary variables per instruction. 64 is
+  /// just a conservative number.
+  let [<Literal>] maxNumTemporaries = 64
+
+  /// This is the maxinum number of register variables that an ISA can have.
+  /// This is a conservative number.
+  let [<Literal>] maxNumVars = 1024
