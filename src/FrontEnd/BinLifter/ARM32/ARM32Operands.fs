@@ -691,7 +691,8 @@ module OperandParsingHelper =
   let getCoprocDReg n: Register =
     n + 0x73u |> int |> LanguagePrimitives.EnumOfValue
 
-  let getOption n: Option = n |> int |> LanguagePrimitives.EnumOfValue
+  let getOption n: BarrierOption =
+    n |> int |> LanguagePrimitives.EnumOfValue
 
   let getDRegList fReg rNum = (* fReg: First Register, rNum: Number of regs *)
     List.map (fun r -> r |> getVecDReg) [ fReg .. fReg + rNum - 1u ]

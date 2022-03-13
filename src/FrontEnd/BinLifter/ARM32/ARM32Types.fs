@@ -1105,6 +1105,7 @@ type Opcode =
 
 type internal Op = Opcode
 
+[<Struct>]
 type internal PSR =
   | PSR_Cond
   | PSR_N
@@ -1123,32 +1124,21 @@ type internal PSR =
   | PSR_T
   | PSR_M
 
+[<Struct>]
 type internal SCTLR =
   | SCTLR_NMFI
 
+[<Struct>]
 type internal SCR =
   | SCR_AW
   | SCR_FW
   | SCR_NS
 
+[<Struct>]
 type internal NSACR =
   | NSACR_RFR
 
-type OptionOpr =
-  | SY
-  | ST
-  | LD
-  | ISH
-  | ISHST
-  | ISHLD
-  | NSH
-  | NSHST
-  | NSHLD
-  | OSH
-  | OSHST
-  | OSHLD
-
-type Option =
+type BarrierOption =
   | OSHLD = 0b0001
   | OSHST = 0b0010
   | OSH = 0b0011
@@ -1162,6 +1152,7 @@ type Option =
   | ST = 0b1110
   | SY = 0b1111
 
+[<Struct>]
 type Iflag =
   | A
   | I
@@ -1171,10 +1162,12 @@ type Iflag =
   | IF
   | AIF
 
+[<Struct>]
 type internal SIMDVFPRegisterSpacing =
   | Single
   | Double
 
+[<Struct>]
 type SRType =
   | SRTypeLSL
   | SRTypeLSR
@@ -1183,6 +1176,7 @@ type SRType =
   | SRTypeRRX
 
 /// A8.2 Standard assembler syntax fields
+[<Struct>]
 type Qualifier =
   /// Wide.
   | W
@@ -1190,6 +1184,7 @@ type Qualifier =
   | N
 
 /// A2.6.3 Data types supported by the Advanced SIMD Extension
+[<Struct>]
 type SIMDDataType =
   | SIMDTyp8      (* Any element of <size> bits *)
   | SIMDTyp16
@@ -1289,7 +1284,7 @@ type Operand =
   | OprShift of Shift
   | OprRegShift of SRType * Register
   | OprMemory of AddressingMode
-  | OprOption of Option
+  | OprOption of BarrierOption
   | OprIflag of Iflag
   | OprEndian of Endian
   | OprCond of Condition

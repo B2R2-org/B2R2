@@ -861,18 +861,18 @@ let memToString hlp ins addr addrMode builder =
   memTail addrMode builder
 
 let optToString = function
-  | Option.SY -> "sy"
-  | Option.ST -> "st"
-  | Option.LD -> "ld"
-  | Option.ISH -> "ish"
-  | Option.ISHST -> "ishst"
-  | Option.ISHLD -> "ishld"
-  | Option.NSH -> "nsh"
-  | Option.NSHST -> "nshst"
-  | Option.NSHLD -> "nshld"
-  | Option.OSH -> "osh"
-  | Option.OSHST -> "oshst"
-  | Option.OSHLD -> "oshld"
+  | BarrierOption.SY -> "sy"
+  | BarrierOption.ST -> "st"
+  | BarrierOption.LD -> "ld"
+  | BarrierOption.ISH -> "ish"
+  | BarrierOption.ISHST -> "ishst"
+  | BarrierOption.ISHLD -> "ishld"
+  | BarrierOption.NSH -> "nsh"
+  | BarrierOption.NSHST -> "nshst"
+  | BarrierOption.NSHLD -> "nshld"
+  | BarrierOption.OSH -> "osh"
+  | BarrierOption.OSHST -> "oshst"
+  | BarrierOption.OSHLD -> "oshld"
   | _ -> raise ParsingFailureException
 
 let iFlagToString = function

@@ -1831,7 +1831,7 @@ module ARMv7 =
              [| 0xf5uy; 0x7fuy; 0xf0uy; 0x1fuy |]
 
       test32 (Condition.UN) Op.DMB None None None
-             (OneOperand (OprOption Option.SY))
+             (OneOperand (OprOption BarrierOption.SY))
              [| 0xf5uy; 0x7fuy; 0xf0uy; 0x5fuy |]
 
       test32 (Condition.AL) Op.NOP None None None NoOperand
@@ -6018,7 +6018,7 @@ module ARMThumb =
                 [| 0xf3uy; 0xafuy; 0x80uy; 0xfbuy |]
 
       testThumb (Condition.AL) Op.DMB None N None
-                (OneOperand (OprOption Option.NSH))
+                (OneOperand (OprOption BarrierOption.NSH))
                 [| 0xf3uy; 0xbfuy; 0x8fuy; 0x57uy |]
 
       testThumb Condition.UN Op.ITE None N None
