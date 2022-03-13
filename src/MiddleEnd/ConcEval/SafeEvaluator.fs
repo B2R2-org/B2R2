@@ -157,7 +157,7 @@ let private markUndefAfterFailure (st: EvalState) lhs =
 
 let private evalPCUpdate st rhs =
   match evalConcrete st rhs with
-  | (Ok (Def v)) as res ->
+  | (Ok (Def v)) ->
     st.OnPut st.PC v
     st.PC <- BitVector.toUInt64 v
     Ok ()
@@ -258,5 +258,5 @@ let evalBlock (st: EvalState) pc blk =
   st.PC <- pc
   evalBlockLoop 0 blk (Ok st)
   |> function
-    | Ok st -> st.CleanUp (); Ok st
+    | Ok st -> Ok st
     | Error e -> Error e

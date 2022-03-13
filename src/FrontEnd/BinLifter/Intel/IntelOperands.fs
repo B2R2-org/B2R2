@@ -384,11 +384,11 @@ module internal OperandParsingHelper =
     match rhlp.VEXInfo with
     | None -> raise ParsingFailureException
     | Some vInfo when vInfo.VectorLength = 512<rt> ->
-      Register.make (int vInfo.VVVV) Register.Kind.ZMM 512 |> OprReg
+      Register.zmm (int vInfo.VVVV) |> OprReg
     | Some vInfo when vInfo.VectorLength = 256<rt> ->
-      Register.make (int vInfo.VVVV) Register.Kind.YMM 256 |> OprReg
+      Register.ymm (int vInfo.VVVV) |> OprReg
     | Some vInfo ->
-      Register.make (int vInfo.VVVV) Register.Kind.XMM 128 |> OprReg
+      Register.xmm (int vInfo.VVVV) |> OprReg
 
   let parseVEXtoGPR (rhlp: ReadHelper) =
     match rhlp.VEXInfo with
@@ -399,17 +399,21 @@ module internal OperandParsingHelper =
       |> LanguagePrimitives.EnumOfValue<int, Register>
       |> OprReg
 
-  let parseMMXReg n = Register.make n Register.Kind.MMX 64 |> OprReg
+  let parseMMXReg n =
+    Register.mm n |> OprReg
 
   let parseSegReg n =
-    if n < 6 then Register.make n Register.Kind.Segment 16 |> OprReg
+    if n < 6 then Register.seg n |> OprReg
     else raise ParsingFailureException
 
-  let parseBoundRegister n = Register.make n Register.Kind.Bound 128 |> OprReg
+  let parseBoundRegister n =
+    Register.bound n |> OprReg
 
-  let parseControlReg n = Register.make n Register.Kind.Control 32 |> OprReg
+  let parseControlReg n =
+    Register.control n |> OprReg
 
-  let parseDebugReg n = Register.make n Register.Kind.Debug 0 |> OprReg
+  let parseDebugReg n =
+    Register.debug n |> OprReg
 
   let parseOprOnlyDisp span (rhlp: ReadHelper) =
     let dispSz = RegType.toByteWidth rhlp.MemEffAddrSize

@@ -69,8 +69,8 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
 
   /// This constructor will simply create a fresh new EvalState.
   new () =
-    EvalState (Variables<RegisterID> (),
-               Variables<int> (),
+    EvalState (Variables (Variables.maxNumVars),
+               Variables (Variables.maxNumTemporaries),
                Labels (),
                NonsharableMemory () :> Memory,
                false)
@@ -78,8 +78,8 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
   /// This constructor will simply create a fresh new EvalState with the given
   /// memory.
   new (mem) =
-    EvalState (Variables<RegisterID> (),
-               Variables<int> (),
+    EvalState (Variables (Variables.maxNumVars),
+               Variables (Variables.maxNumTemporaries),
                Labels (),
                mem,
                false)
@@ -89,8 +89,8 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
   /// silently ignore Undef values. Such a feature is only useful for some
   /// static analyses.
   new (ignoreUndef) =
-    EvalState (Variables<RegisterID> (),
-               Variables<int> (),
+    EvalState (Variables (Variables.maxNumVars),
+               Variables (Variables.maxNumTemporaries),
                Labels (),
                NonsharableMemory () :> Memory,
                ignoreUndef)
@@ -153,8 +153,9 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
 
   /// Get the value of the given temporary variable.
   member inline __.TryGetTmp n =
-    let found, v = __.Temporaries.TryGet (n)
-    if found then Def v else Undef
+    match __.Temporaries.TryGet (n) with
+    | Ok v -> Def v
+    | Error _ -> Undef
 
   /// Get the value of the given temporary variable.
   member inline __.GetTmp n =
@@ -169,21 +170,22 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
     __.Temporaries.Unset n
 
   /// Get the value of the given register.
-  member inline __.TryGetReg r =
-    let found, v = __.Registers.TryGet r
-    if found then Def v else Undef
+  member inline __.TryGetReg (r: RegisterID) =
+    match __.Registers.TryGet (int r) with
+    | Ok v -> Def v
+    | Error _ -> Undef
 
   /// Get the value of the given register.
-  member inline __.GetReg r =
-    __.Registers.Get r
+  member inline __.GetReg (r: RegisterID) =
+    __.Registers.Get (int r)
 
   /// Set the value for the given register.
-  member inline __.SetReg r v =
-    __.Registers.Set r v
+  member inline __.SetReg (r: RegisterID) v =
+    __.Registers.Set (int r) v
 
   /// Unset the given register.
-  member inline __.UnsetReg r =
-    __.Registers.Unset r
+  member inline __.UnsetReg (r: RegisterID) =
+    __.Registers.Unset (int r)
 
   /// Advance PC by `amount`.
   member inline __.AdvancePC (amount: uint32) =
@@ -204,11 +206,6 @@ and EvalState (regs, temps, lbls, mem, ignoreUndef) =
     __.NeedToEvaluateIEMark <- false
     __.Labels.Update stmts
     __.StmtIdx <- 0
-
-  /// Delete temporary states variables and get ready for evaluating the next
-  /// block of isntructions.
-  member inline __.CleanUp () =
-    __.Temporaries.Clear ()
 
   /// Per-instruction handler.
   member __.PerInstrHandler

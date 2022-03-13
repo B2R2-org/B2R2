@@ -1081,8 +1081,8 @@ let pinsrw ins insLen ctxt =
   !<ir insLen
   match dst with
   | OprReg reg ->
-    match Register.getSize reg with
-    | 64<rt> ->
+    match Register.getKind reg with
+    | Register.Kind.MMX ->
       let dst = transOprToExpr ins insLen ctxt dst
       let count = transOprToExpr ins insLen ctxt count
       let mask = !*ir 64<rt>
@@ -1091,7 +1091,7 @@ let pinsrw ins insLen ctxt =
       !!ir (mask := (numU64 0xffffUL 64<rt>) << pos)
       !!ir
         (dst := (dst .& (AST.not mask)) .| (AST.zext 64<rt> src << pos .& mask))
-    | 128<rt> ->
+    | Register.Kind.XMM ->
       let dst1, dst2 = transOprToExpr128 ins insLen ctxt dst
       let mask = !*ir 64<rt>
       let count = getImmValue count

@@ -677,21 +677,22 @@ module OperandParsingHelper =
   ///let parseCond n: Condition = n |> LanguagePrimitives.EnumOfValue
 
   let getVecSReg n: Register =
-    n + 0x100u |> int |> LanguagePrimitives.EnumOfValue
+    n + 0x10u |> int |> LanguagePrimitives.EnumOfValue
 
   let getVecDReg n: Register =
-    n + 0x200u |> int |> LanguagePrimitives.EnumOfValue
+    n + 0x30u |> int |> LanguagePrimitives.EnumOfValue
 
   let getVecQReg n: Register =
-    (n >>> 1) + 0x300u |> int |> LanguagePrimitives.EnumOfValue
+    (n >>> 1) + 0x53u |> int |> LanguagePrimitives.EnumOfValue
 
   let getCoprocCReg n: Register =
-    n + 0x400u |> int |> LanguagePrimitives.EnumOfValue
+    n + 0x63u |> int |> LanguagePrimitives.EnumOfValue
 
   let getCoprocDReg n: Register =
-    n + 0x500u |> int |> LanguagePrimitives.EnumOfValue
+    n + 0x73u |> int |> LanguagePrimitives.EnumOfValue
 
-  let getOption n: Option = n |> int |> LanguagePrimitives.EnumOfValue
+  let getOption n: BarrierOption =
+    n |> int |> LanguagePrimitives.EnumOfValue
 
   let getDRegList fReg rNum = (* fReg: First Register, rNum: Number of regs *)
     List.map (fun r -> r |> getVecDReg) [ fReg .. fReg + rNum - 1u ]

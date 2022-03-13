@@ -26,6 +26,7 @@ namespace B2R2.FrontEnd.BinLifter.ARM32
 
 open B2R2
 
+/// ARMv7, ARMv8 AARCH32 registers.
 type Register =
   /// R0.
   | R0 = 0x0
@@ -60,315 +61,315 @@ type Register =
   /// PC, the program counter.
   | PC = 0xF
   /// S0.
-  | S0 = 0x100
+  | S0 = 0x10
   /// S1.
-  | S1 = 0x101
+  | S1 = 0x11
   /// S2.
-  | S2 = 0x102
+  | S2 = 0x12
   /// S3.
-  | S3 = 0x103
+  | S3 = 0x13
   /// S4.
-  | S4 = 0x104
+  | S4 = 0x14
   /// S5.
-  | S5 = 0x105
+  | S5 = 0x15
   /// S6.
-  | S6 = 0x106
+  | S6 = 0x16
   /// S7.
-  | S7 = 0x107
+  | S7 = 0x17
   /// S8.
-  | S8 = 0x108
+  | S8 = 0x18
   /// S9.
-  | S9 = 0x109
+  | S9 = 0x19
   /// S10.
-  | S10 = 0x10A
+  | S10 = 0x1A
   /// S11.
-  | S11 = 0x10B
+  | S11 = 0x1B
   /// S12.
-  | S12 = 0x10C
+  | S12 = 0x1C
   /// S13.
-  | S13 = 0x10D
+  | S13 = 0x1D
   /// S14.
-  | S14 = 0x10E
+  | S14 = 0x1E
   /// S15.
-  | S15 = 0x10F
+  | S15 = 0x1F
   /// S16.
-  | S16 = 0x110
+  | S16 = 0x20
   /// S17.
-  | S17 = 0x111
+  | S17 = 0x21
   /// S18.
-  | S18 = 0x112
+  | S18 = 0x22
   /// S19.
-  | S19 = 0x113
+  | S19 = 0x23
   /// S20.
-  | S20 = 0x114
+  | S20 = 0x24
   /// S21.
-  | S21 = 0x115
+  | S21 = 0x25
   /// S22.
-  | S22 = 0x116
+  | S22 = 0x26
   /// S23.
-  | S23 = 0x117
+  | S23 = 0x27
   /// S24.
-  | S24 = 0x118
+  | S24 = 0x28
   /// S25.
-  | S25 = 0x119
+  | S25 = 0x29
   /// S26.
-  | S26 = 0x11A
+  | S26 = 0x2A
   /// S27.
-  | S27 = 0x11B
+  | S27 = 0x2B
   /// S28.
-  | S28 = 0x11C
+  | S28 = 0x2C
   /// S29.
-  | S29 = 0x11D
+  | S29 = 0x2D
   /// S30.
-  | S30 = 0x11E
+  | S30 = 0x2E
   /// S31.
-  | S31 = 0x11F
+  | S31 = 0x2F
   /// D0.
-  | D0 = 0x200
+  | D0 = 0x30
   /// D1.
-  | D1 = 0x201
+  | D1 = 0x31
   /// D2.
-  | D2 = 0x202
+  | D2 = 0x32
   /// D3.
-  | D3 = 0x203
+  | D3 = 0x33
   /// D4.
-  | D4 = 0x204
+  | D4 = 0x34
   /// D5.
-  | D5 = 0x205
+  | D5 = 0x35
   /// D6.
-  | D6 = 0x206
+  | D6 = 0x36
   /// D7.
-  | D7 = 0x207
+  | D7 = 0x37
   /// D8.
-  | D8 = 0x208
+  | D8 = 0x38
   /// D9.
-  | D9 = 0x209
+  | D9 = 0x39
   /// D10.
-  | D10 = 0x20A
+  | D10 = 0x3A
   /// D11.
-  | D11 = 0x20B
+  | D11 = 0x3B
   /// D12.
-  | D12 = 0x20C
+  | D12 = 0x3C
   /// D13.
-  | D13 = 0x20D
+  | D13 = 0x3D
   /// D14.
-  | D14 = 0x20E
+  | D14 = 0x3E
   /// D15.
-  | D15 = 0x20F
+  | D15 = 0x3F
   /// D16.
-  | D16 = 0x210
+  | D16 = 0x40
   /// D17.
-  | D17 = 0x211
+  | D17 = 0x41
   /// D18.
-  | D18 = 0x212
+  | D18 = 0x42
   /// D19.
-  | D19 = 0x213
+  | D19 = 0x43
   /// D20.
-  | D20 = 0x214
+  | D20 = 0x44
   /// D21.
-  | D21 = 0x215
+  | D21 = 0x45
   /// D22.
-  | D22 = 0x216
+  | D22 = 0x46
   /// D23.
-  | D23 = 0x217
+  | D23 = 0x47
   /// D24.
-  | D24 = 0x218
+  | D24 = 0x48
   /// D25.
-  | D25 = 0x219
+  | D25 = 0x49
   /// D26.
-  | D26 = 0x21A
+  | D26 = 0x4A
   /// D27.
-  | D27 = 0x21B
+  | D27 = 0x4B
   /// D28.
-  | D28 = 0x21C
+  | D28 = 0x4C
   /// D29.
-  | D29 = 0x21D
+  | D29 = 0x4D
   /// D30.
-  | D30 = 0x21E
+  | D30 = 0x4E
   /// D31.
-  | D31 = 0x21F
+  | D31 = 0x4F
   /// FPINST2.
-  | FPINST2 = 0x220
+  | FPINST2 = 0x50
   /// MVFR0.
-  | MVFR0 = 0x221
+  | MVFR0 = 0x51
   /// MVFR1.
-  | MVFR1 = 0x222
+  | MVFR1 = 0x52
   /// Q0.
-  | Q0 = 0x300
+  | Q0 = 0x53
   /// Q1.
-  | Q1 = 0x301
+  | Q1 = 0x54
   /// Q2.
-  | Q2 = 0x302
+  | Q2 = 0x55
   /// Q3.
-  | Q3 = 0x303
+  | Q3 = 0x56
   /// Q4.
-  | Q4 = 0x304
+  | Q4 = 0x57
   /// Q5.
-  | Q5 = 0x305
+  | Q5 = 0x58
   /// Q6.
-  | Q6 = 0x306
+  | Q6 = 0x59
   /// Q7.
-  | Q7 = 0x307
+  | Q7 = 0x5A
   /// Q8.
-  | Q8 = 0x308
+  | Q8 = 0x5B
   /// Q9.
-  | Q9 = 0x309
+  | Q9 = 0x5C
   /// Q10.
-  | Q10 = 0x30A
+  | Q10 = 0x5D
   /// Q11.
-  | Q11 = 0x30B
+  | Q11 = 0x5E
   /// Q12.
-  | Q12 = 0x30C
+  | Q12 = 0x5F
   /// Q13.
-  | Q13 = 0x30D
+  | Q13 = 0x60
   /// Q14.
-  | Q14 = 0x30E
+  | Q14 = 0x61
   /// Q15.
-  | Q15 = 0x30F
+  | Q15 = 0x62
   /// C0.
-  | C0 = 0x400
+  | C0 = 0x63
   /// C1.
-  | C1 = 0x401
+  | C1 = 0x64
   /// C2.
-  | C2 = 0x402
+  | C2 = 0x65
   /// C3.
-  | C3 = 0x403
+  | C3 = 0x66
   /// C4.
-  | C4 = 0x404
+  | C4 = 0x67
   /// C5.
-  | C5 = 0x405
+  | C5 = 0x68
   /// C6.
-  | C6 = 0x406
+  | C6 = 0x69
   /// C7.
-  | C7 = 0x407
+  | C7 = 0x6A
   /// C8.
-  | C8 = 0x408
+  | C8 = 0x6B
   /// C9.
-  | C9 = 0x409
+  | C9 = 0x6C
   /// C10.
-  | C10 = 0x40A
+  | C10 = 0x6D
   /// C11.
-  | C11 = 0x40B
+  | C11 = 0x6E
   /// C12.
-  | C12 = 0x40C
+  | C12 = 0x6F
   /// C13.
-  | C13 = 0x40D
+  | C13 = 0x70
   /// C14.
-  | C14 = 0x40E
+  | C14 = 0x71
   /// C15.
-  | C15 = 0x40F
+  | C15 = 0x72
   /// P0.
-  | P0 = 0x500
+  | P0 = 0x73
   /// P1.
-  | P1 = 0x501
+  | P1 = 0x74
   /// P2.
-  | P2 = 0x502
+  | P2 = 0x75
   /// P3.
-  | P3 = 0x503
+  | P3 = 0x76
   /// P4.
-  | P4 = 0x504
+  | P4 = 0x77
   /// P5.
-  | P5 = 0x505
+  | P5 = 0x78
   /// P6.
-  | P6 = 0x506
+  | P6 = 0x79
   /// P7.
-  | P7 = 0x507
+  | P7 = 0x7A
   /// P8.
-  | P8 = 0x508
+  | P8 = 0x7B
   /// P9.
-  | P9 = 0x509
+  | P9 = 0x7C
   /// P10.
-  | P10 = 0x50A
+  | P10 = 0x7D
   /// P11.
-  | P11 = 0x50B
+  | P11 = 0x7E
   /// P12.
-  | P12 = 0x50C
+  | P12 = 0x7F
   /// P13.
-  | P13 = 0x50D
+  | P13 = 0x80
   /// P14.
-  | P14 = 0x50E
+  | P14 = 0x81
   /// P15.
-  | P15 = 0x50F
+  | P15 = 0x82
   /// R8usr.
-  | R8usr = 0x600
+  | R8usr = 0x83
   /// R9usr.
-  | R9usr = 0x601
+  | R9usr = 0x84
   /// R10usr.
-  | R10usr = 0x602
+  | R10usr = 0x85
   /// R11usr.
-  | R11usr = 0x603
+  | R11usr = 0x86
   /// R12usr.
-  | R12usr = 0x604
+  | R12usr = 0x87
   /// SPusr.
-  | SPusr = 0x605
+  | SPusr = 0x88
   /// LRusr.
-  | LRusr = 0x606
+  | LRusr = 0x89
   /// SPhyp.
-  | SPhyp = 0x607
+  | SPhyp = 0x8A
   /// SPSRhyp.
-  | SPSRhyp = 0x608
+  | SPSRhyp = 0x8B
   /// ELRhyp.
-  | ELRhyp = 0x609
+  | ELRhyp = 0x8C
   /// SPsvc.
-  | SPsvc = 0x60A
+  | SPsvc = 0x8D
   /// LRsvc.
-  | LRsvc = 0x60B
+  | LRsvc = 0x8E
   /// SPSRsvc.
-  | SPSRsvc = 0x60C
+  | SPSRsvc = 0x8F
   /// SPabt.
-  | SPabt = 0x60D
+  | SPabt = 0x90
   /// LRabt.
-  | LRabt = 0x60E
+  | LRabt = 0x91
   /// SPSRabt.
-  | SPSRabt = 0x60F
+  | SPSRabt = 0x92
   /// SPund.
-  | SPund = 0x610
+  | SPund = 0x93
   /// LRund.
-  | LRund = 0x611
+  | LRund = 0x94
   /// SPSRund.
-  | SPSRund = 0x612
+  | SPSRund = 0x95
   /// SPmon.
-  | SPmon = 0x613
+  | SPmon = 0x96
   /// LRmon.
-  | LRmon = 0x614
+  | LRmon = 0x97
   /// SPSRmon.
-  | SPSRmon = 0x615
+  | SPSRmon = 0x98
   /// SPirq.
-  | SPirq = 0x616
+  | SPirq = 0x99
   /// LRirq.
-  | LRirq = 0x617
+  | LRirq = 0x9A
   /// SPSRirq.
-  | SPSRirq = 0x618
+  | SPSRirq = 0x9B
   /// R8fiq.
-  | R8fiq = 0x619
+  | R8fiq = 0x9C
   /// R9fiq.
-  | R9fiq = 0x61A
+  | R9fiq = 0x9D
   /// R10fiq.
-  | R10fiq = 0x61B
+  | R10fiq = 0x9E
   /// R11fiq.
-  | R11fiq = 0x61C
+  | R11fiq = 0x9F
   /// R12fiq.
-  | R12fiq = 0x61D
+  | R12fiq = 0xA0
   /// SPfiq.
-  | SPfiq = 0x61E
+  | SPfiq = 0xA1
   /// LRfiq.
-  | LRfiq = 0x61F
+  | LRfiq = 0xA2
   /// SPSRfiq.
-  | SPSRfiq = 0x620
+  | SPSRfiq = 0xA3
   /// Application Program Status Register.
-  | APSR = 0x700
+  | APSR = 0xA4
   /// Current Program Status Register.
-  | CPSR = 0x701
+  | CPSR = 0xA5
   /// Saved Program Status Register.
-  | SPSR = 0x702
+  | SPSR = 0xA6
   /// Secure Configuration Register.
-  | SCR = 0x703
+  | SCR = 0xA7
   /// System Control register
-  | SCTLR = 0x704
+  | SCTLR = 0xA8
   /// Non-Secure Access Control Register.
-  | NSACR = 0x705
+  | NSACR = 0xA9
   /// FPSCR, Floating-point Status and Control Register, VMSA.
-  | FPSCR = 0x800
+  | FPSCR = 0xAA
 
 /// Shortcut for Register type.
 type internal R = Register
