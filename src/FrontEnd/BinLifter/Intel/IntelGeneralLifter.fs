@@ -1007,6 +1007,31 @@ let enter ins insLen ctxt =
   !!ir (sp := sp .- AST.zext ctxt.WordBitSize allocSize)
   !>ir insLen
 
+let private imul64Bit src1 src2 ir =
+  let struct (hiSrc1, loSrc1, hiSrc2, loSrc2) = tmpVars4 ir 64<rt>
+  let struct (tSrc1, tSrc2) = tmpVars2 ir 64<rt>
+  let struct (tHigh, tLow) = tmpVars2 ir 64<rt>
+  let n32 = numI32 32 64<rt>
+  let mask = numI64 0xFFFFFFFFL 64<rt>
+  let struct (src1IsNeg, src2IsNeg, isSign) = tmpVars3 ir 1<rt>
+  !!ir (src1IsNeg := AST.xthi 1<rt> src1)
+  !!ir (src2IsNeg := AST.xthi 1<rt> src2)
+  !!ir (tSrc1 := AST.ite src1IsNeg (AST.neg src1) src1)
+  !!ir (tSrc2 := AST.ite src2IsNeg (AST.neg src2) src2)
+  !!ir (hiSrc1 := (tSrc1 >> n32) .& mask) (* SRC1[63:32] *)
+  !!ir (loSrc1 := tSrc1 .& mask) (* SRC1[31:0] *)
+  !!ir (hiSrc2 := (tSrc2 >> n32) .& mask) (* SRC2[63:32] *)
+  !!ir (loSrc2 := tSrc2 .& mask) (* SRC2[31:0] *)
+  let pHigh = hiSrc1 .* hiSrc1
+  let pMid = (hiSrc1 .* loSrc2) .+ (loSrc1 .* hiSrc2)
+  let pLow = (loSrc1 .* loSrc2)
+  let high = pHigh .+ ((pMid .+ (pLow  >> n32)) >> n32)
+  let low = pLow .+ ((pMid .& mask) << n32)
+  !!ir (isSign := src1IsNeg <+> src2IsNeg)
+  !!ir (tHigh := AST.ite isSign (AST.not high) high)
+  !!ir (tLow := AST.ite isSign (AST.neg low) low)
+  struct (tHigh, tLow)
+
 let private oneOperandImul ctxt oprSize src ir =
   let sF = !.ctxt R.SF
   let shiftNum = RegType.toBitWidth oprSize
@@ -1035,28 +1060,14 @@ let private oneOperandImul ctxt oprSize src ir =
   | 64<rt> ->
     let r1 = getRegOfSize ctxt oprSize grpEDX
     let r2 = getRegOfSize ctxt oprSize grpEAX
-    let struct (hiRAX, loRAX, hiSrc, loSrc) = tmpVars4 ir 64<rt>
-    let struct (tHigh, tLow) = tmpVars2 ir 64<rt>
-    let n32 = numI32 32 64<rt>
-    let mask = numI64 0xFFFFFFFFL 64<rt>
-    !!ir (hiRAX := (r2 >> n32) .& mask) (* RAX[63:32] *)
-    !!ir (loRAX := r2 .& mask) (* RAX[31:0] *)
-    !!ir (hiSrc := (src >> n32) .& mask) (* SRC[63:32] *)
-    !!ir (loSrc := src .& mask) (* SRC[31:0] *)
-    let pHigh = hiRAX .* hiSrc
-    let pMid = (hiRAX .* loSrc) .+ (loRAX .* hiSrc)
-    let pLow = (loRAX .* loSrc)
-    let high = pHigh .+ ((pMid .+ (pLow  >> n32)) >> n32)
-    let low = pLow .+ ((pMid .& mask) << n32)
-    !!ir (tHigh := high)
-    !!ir (tLow := low)
-    !!ir (dstAssign oprSize r1 tHigh)
-    !!ir (dstAssign oprSize r2 tLow)
+    let struct (high, low) = imul64Bit r2 src ir
+    !!ir (dstAssign oprSize r1 high)
+    !!ir (dstAssign oprSize r2 low)
     let num0 = AST.num0 64<rt>
     let numF = numI64 0xFFFFFFFFFFFFFFFFL 64<rt>
     let cond = !*ir 1<rt>
-    !!ir (cond := AST.ite (AST.xthi 1<rt> tLow) (tHigh == numF) (tHigh == num0))
-    !!ir (sF := AST.extract tHigh 1<rt> (shiftNum - 1))
+    !!ir (cond := AST.ite (AST.xthi 1<rt> low) (high == numF) (high == num0))
+    !!ir (sF := AST.extract high 1<rt> (shiftNum - 1))
     !!ir (!.ctxt R.CF := cond == AST.b0)
     !!ir (!.ctxt R.OF := cond == AST.b0)
   | _ -> raise InvalidOperandSizeException
@@ -1073,26 +1084,12 @@ let private operandsImul ctxt oprSize dst src1 src2 ir =
     !!ir (!.ctxt R.CF := cond)
     !!ir (!.ctxt R.OF := cond)
   | 64<rt> ->
-    let struct (hiSrc1, loSrc1, hiSrc2, loSrc2) = tmpVars4 ir 64<rt>
-    let struct (tHigh, tLow) = tmpVars2 ir 64<rt>
-    let n32 = numI32 32 64<rt>
-    let mask = numI64 0xFFFFFFFFL 64<rt>
-    !!ir (hiSrc1 := (src1 >> n32) .& mask) (* SRC1[63:32] *)
-    !!ir (loSrc1 := src1 .& mask) (* SRC1[31:0] *)
-    !!ir (hiSrc2 := (src2 >> n32) .& mask) (* SRC2[63:32] *)
-    !!ir (loSrc2 := src2 .& mask) (* SRC2[31:0] *)
-    let pHigh = hiSrc1 .* hiSrc1
-    let pMid = (hiSrc1 .* loSrc2) .+ (loSrc1 .* hiSrc2)
-    let pLow = (loSrc1 .* loSrc2)
-    let high = pHigh .+ ((pMid .+ (pLow  >> n32)) >> n32)
-    let low = pLow .+ ((pMid .& mask) << n32)
-    !!ir (tHigh := high)
-    !!ir (tLow := low)
-    !!ir (dstAssign oprSize dst tLow)
+    let struct (high, low) = imul64Bit src1 src2 ir
+    !!ir (dstAssign oprSize dst low)
     let num0 = AST.num0 64<rt>
     let numF = numI64 0xFFFFFFFFFFFFFFFFL 64<rt>
     let cond = !*ir 1<rt>
-    !!ir (cond := AST.ite (AST.xthi 1<rt> tLow) (tHigh != numF) (tHigh != num0))
+    !!ir (cond := AST.ite (AST.xthi 1<rt> low) (high != numF) (high != num0))
     !!ir (!.ctxt R.SF := AST.xthi 1<rt> dst)
     !!ir (!.ctxt R.CF := cond)
     !!ir (!.ctxt R.OF := cond)
