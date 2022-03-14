@@ -293,9 +293,11 @@ let buildFuncIndexMap (wm: WasmModule) =
     if len = 0 then 0u
     else uint32 (len - 1)
   let impFuncsIdxMap =
-    importedFuncs
-    |> Array.map2 (fun idx ifun ->
-      makeFuncIdxInfo impSecOff idx ifun.Offset) [| 0u .. lastIdx |]
+    if Array.isEmpty importedFuncs then [||]
+    else
+      importedFuncs
+      |> Array.map2 (fun idx ifun ->
+        makeFuncIdxInfo impSecOff idx ifun.Offset) [| 0u .. lastIdx |]
   let localFuncsIdxMap =
     match wm.CodeSection with
     | Some sec ->
