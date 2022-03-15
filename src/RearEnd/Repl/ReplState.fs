@@ -77,6 +77,7 @@ type ReplState (isa: ISA, regbay: RegisterBay, doFiltering) =
       regPairs
       |> List.filter (fun (r, _) -> Set.contains r generalRegs)
     else regPairs
+    |> List.filter (fun (_, v) -> not (isNull v))
 
   member __.GetAllRegValString delta =
     let set = Set.ofList delta
