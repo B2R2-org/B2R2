@@ -379,8 +379,8 @@ type MIPSRetriever () =
         Ok { EntryRelocAddr = uint64 entryAddr; NextEntryAddr = addr + 16UL }
       | _ -> (* Regular cases. *)
         let hi = r.ReadUInt16 (span, offset) |> uint64
-        let lo = r.ReadUInt16 (span, offset + 4) |> uint64
-        let entryAddr = hi <<< 16 ||| lo
+        let lo = r.ReadInt16 (span, offset + 4) |> uint64
+        let entryAddr = (hi <<< 16) + lo
         Ok { EntryRelocAddr = uint64 entryAddr; NextEntryAddr = addr + 16UL }
 
 let mipsPLT span reader sec =
