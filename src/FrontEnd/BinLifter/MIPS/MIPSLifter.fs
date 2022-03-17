@@ -29,6 +29,7 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.BinLifter.MIPS
 
 let inline getRegVar (ctxt: TranslationContext) name =
@@ -42,11 +43,6 @@ let startMark insInfo (builder: IRBuilder) =
 let endMark insInfo (builder: IRBuilder) =
   builder <! (AST.iemark (insInfo.NumBytes)); builder
 
-let inline numU32 n t = BitVector.ofUInt32 n t |> AST.num
-let inline numI32 n t = BitVector.ofInt32 n t |> AST.num
-let inline numU64 n t = BitVector.ofUInt64 n t |> AST.num
-let inline numI64 n t = BitVector.ofInt64 n t |> AST.num
-
 let bvOfBaseAddr (ctxt: TranslationContext) addr = numU64 addr ctxt.WordBitSize
 
 let bvOfInstrLen (ctxt: TranslationContext) insInfo =
@@ -55,7 +51,7 @@ let bvOfInstrLen (ctxt: TranslationContext) insInfo =
 let transOprToExpr insInfo ctxt = function
   | OpReg reg -> getRegVar ctxt reg
   | OpImm imm
-  | OpShiftAmount imm -> ctxt.WordBitSize |> BitVector.ofUInt64 imm |> AST.num
+  | OpShiftAmount imm -> numU64 imm ctxt.WordBitSize
   | OpMem (b, Imm o, sz) ->
     AST.loadLE sz (getRegVar ctxt b .+ numI64 o ctxt.WordBitSize)
   | OpMem (b, Reg o, sz) ->

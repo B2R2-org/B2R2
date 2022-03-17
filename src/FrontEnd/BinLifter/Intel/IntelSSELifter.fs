@@ -30,6 +30,7 @@ open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingOperators
+open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.BinLifter.Intel
 open B2R2.FrontEnd.BinLifter.Intel.Helper
 open B2R2.FrontEnd.BinLifter.Intel.LiftingUtils
@@ -287,7 +288,7 @@ let rcpps ins insLen ctxt =
   let src1b, src1a = AST.xthi 32<rt> src1, AST.xtlo 32<rt> src1
   let src2b, src2a = AST.xthi 32<rt> src2, AST.xtlo 32<rt> src2
   let tmp = !*ir 32<rt>
-  let flt1 = BitVector.ofInt32 0x3f800000 32<rt> |> AST.num
+  let flt1 = numI32 0x3f800000 32<rt>
   !<ir insLen
   !!ir (dst1a := AST.fdiv flt1 src1a)
   !!ir (dst1b := AST.fdiv flt1 src1b)
@@ -301,7 +302,7 @@ let rcpss ins insLen ctxt =
   let dst = transOprToExpr32 ins insLen ctxt opr1
   let src = transOprToExpr32 ins insLen ctxt opr2
   let tmp = !*ir 32<rt>
-  let flt1 = BitVector.ofInt32 0x3f800000 32<rt> |> AST.num
+  let flt1 = numI32 0x3f800000 32<rt>
   !<ir insLen
   !!ir (dst := AST.fdiv flt1 src)
   !>ir insLen
@@ -361,7 +362,7 @@ let rsqrtps ins insLen ctxt =
   let src1b, src1a = AST.xthi 32<rt> src1, AST.xtlo 32<rt> src1
   let src2b, src2a = AST.xthi 32<rt> src2, AST.xtlo 32<rt> src2
   let tmp = !*ir 32<rt>
-  let flt1 = BitVector.ofInt32 0x3f800000 32<rt> |> AST.num
+  let flt1 = numI32 0x3f800000 32<rt>
   !<ir insLen
   !!ir (tmp := AST.unop UnOpType.FSQRT src1a)
   !!ir (dst1a := AST.fdiv flt1 tmp)
@@ -379,7 +380,7 @@ let rsqrtss ins insLen ctxt =
   let dst = transOprToExpr32 ins insLen ctxt opr1
   let src = transOprToExpr32 ins insLen ctxt opr2
   let tmp = !*ir 32<rt>
-  let flt1 = BitVector.ofInt32 0x3f800000 32<rt> |> AST.num
+  let flt1 = numI32 0x3f800000 32<rt>
   !<ir insLen
   !!ir (tmp := AST.unop UnOpType.FSQRT src)
   !!ir (dst := AST.fdiv flt1 tmp)

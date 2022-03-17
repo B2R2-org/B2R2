@@ -29,6 +29,7 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.BinLifter.EVM
 
 let inline private getRegVar (ctxt: TranslationContext) name =
@@ -41,9 +42,6 @@ let inline private startMark insInfo (builder: IRBuilder) =
 
 let inline private endMark insInfo (builder: IRBuilder) =
   builder <! (AST.iemark (insInfo.NumBytes)); builder
-
-let inline private numI32 n t = BitVector.ofInt32 n t |> AST.num
-let inline private numU64 n t = BitVector.ofUInt64 n t |> AST.num
 
 let inline private updateGas ctxt gas builder =
   let gasReg = getRegVar ctxt R.GAS
@@ -148,8 +146,7 @@ let mulmod insInfo ctxt =
   updateGas ctxt insInfo.GAS builder
   endMark insInfo builder
 
-let private makeNum i =
-  AST.num <| BitVector.ofInt32 i OperationSize.regType
+let private makeNum i = numI32 i OperationSize.regType
 
 let signextend insInfo ctxt =
   let builder = new IRBuilder (12)
@@ -231,7 +228,7 @@ let jump insInfo ctxt =
   try
     startMark insInfo builder
     let dst = popFromStack ctxt builder
-    let dstAddr = dst .+ (BitVector.ofUInt64 insInfo.Offset 256<rt> |> AST.num)
+    let dstAddr = dst .+ (numU64 insInfo.Offset 256<rt>)
     updateGas ctxt insInfo.GAS builder
     builder <! AST.interjmp dstAddr InterJmpKind.Base
     endMark insInfo builder
@@ -243,7 +240,7 @@ let jumpi insInfo ctxt =
   let builder = new IRBuilder (12)
   startMark insInfo builder
   let dst = popFromStack ctxt builder
-  let dstAddr = dst .+ (BitVector.ofUInt64 insInfo.Offset 256<rt> |> AST.num)
+  let dstAddr = dst .+ (numU64 insInfo.Offset 256<rt>)
   let cond = popFromStack ctxt builder
   let fall = numU64 (insInfo.Address + 1UL) 64<rt>
   updateGas ctxt insInfo.GAS builder

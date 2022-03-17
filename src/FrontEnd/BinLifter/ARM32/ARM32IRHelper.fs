@@ -26,6 +26,7 @@ module B2R2.FrontEnd.BinLifter.ARM32.IRHelper
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 
@@ -136,15 +137,15 @@ let isSetCPSR_M ctxt = getPSR ctxt R.CPSR PSR_M == maskPSRForMbits
 /// Test whether mode number is valid, on page B1-1142.
 /// function : BadMode()
 let isBadMode modeM =
-  let cond1 = modeM == (AST.num <| BitVector.ofInt32 0b10000 32<rt>)
-  let cond2 = modeM == (AST.num <| BitVector.ofInt32 0b10001 32<rt>)
-  let cond3 = modeM == (AST.num <| BitVector.ofInt32 0b10010 32<rt>)
-  let cond4 = modeM == (AST.num <| BitVector.ofInt32 0b10011 32<rt>)
-  let cond5 = modeM == (AST.num <| BitVector.ofInt32 0b10110 32<rt>)
-  let cond6 = modeM == (AST.num <| BitVector.ofInt32 0b10111 32<rt>)
-  let cond7 = modeM == (AST.num <| BitVector.ofInt32 0b11010 32<rt>)
-  let cond8 = modeM == (AST.num <| BitVector.ofInt32 0b11011 32<rt>)
-  let cond9 = modeM == (AST.num <| BitVector.ofInt32 0b11111 32<rt>)
+  let cond1 = modeM == (numI32 0b10000 32<rt>)
+  let cond2 = modeM == (numI32 0b10001 32<rt>)
+  let cond3 = modeM == (numI32 0b10010 32<rt>)
+  let cond4 = modeM == (numI32 0b10011 32<rt>)
+  let cond5 = modeM == (numI32 0b10110 32<rt>)
+  let cond6 = modeM == (numI32 0b10111 32<rt>)
+  let cond7 = modeM == (numI32 0b11010 32<rt>)
+  let cond8 = modeM == (numI32 0b11011 32<rt>)
+  let cond9 = modeM == (numI32 0b11111 32<rt>)
   let ite1 = AST.ite cond9 AST.b0 AST.b1
   let ite2 = AST.ite cond8 AST.b0 ite1
   let ite3 = AST.ite cond7 (haveVirtExt () |> AST.not) ite2
@@ -160,9 +161,8 @@ let isBadMode modeM =
 let currentModeIsUserOrSystem ctxt =
   let modeM = getPSR ctxt R.CPSR PSR_M
   let modeCond = isBadMode modeM
-  let ite1 = modeM == (AST.num <| BitVector.ofInt32 0b11111 32<rt>)
-  let ite2 =
-    AST.ite (modeM == (AST.num <| BitVector.ofInt32 0b10000 32<rt>)) AST.b1 ite1
+  let ite1 = modeM == (numI32 0b11111 32<rt>)
+  let ite2 = AST.ite (modeM == (numI32 0b10000 32<rt>)) AST.b1 ite1
   AST.ite modeCond (AST.undef 1<rt> "UNPREDICTABLE") ite2
 
 /// Returns TRUE if current mode is Hyp mode, on page B1-1142.
@@ -170,7 +170,7 @@ let currentModeIsUserOrSystem ctxt =
 let currentModeIsHyp ctxt =
   let modeM = getPSR ctxt R.CPSR PSR_M
   let modeCond = isBadMode modeM
-  let ite1 = modeM == (AST.num <| BitVector.ofInt32 0b11010 32<rt>)
+  let ite1 = modeM == (numI32 0b11010 32<rt>)
   AST.ite modeCond (AST.undef 1<rt> "UNPREDICTABLE") ite1
 
 /// Is this ARM instruction set, on page A2-51.

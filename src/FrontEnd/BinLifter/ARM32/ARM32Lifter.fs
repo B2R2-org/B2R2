@@ -30,6 +30,7 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.BinLifter.ARM32
 open B2R2.FrontEnd.BinLifter.ARM32.IRHelper
 
@@ -58,7 +59,7 @@ let getRegNum = function
 
 let regsToUInt32 regs = List.fold (fun acc reg -> acc + getRegNum reg) 0u regs
 
-let regsToExpr regs = AST.num <| BitVector.ofUInt32 (regsToUInt32 regs) 16<rt>
+let regsToExpr regs = numU32 (regsToUInt32 regs) 16<rt>
 
 let sfRegToExpr ctxt = function
   | Vector reg -> getRegVar ctxt reg
@@ -81,7 +82,7 @@ let transOprToExpr ctxt = function
   | OprReg reg -> getRegVar ctxt reg
   | OprRegList regs -> regsToExpr regs
   | OprSIMD simd -> simdToExpr ctxt simd
-  | OprImm imm -> AST.num <| BitVector.ofInt64 imm 32<rt> // FIXME
+  | OprImm imm -> numI64 imm 32<rt> // FIXME
   | _ -> raise InvalidOperandException
 
 let transOneOpr (ins: InsInfo) ctxt =
@@ -110,11 +111,11 @@ let transFourOprs (ins: InsInfo) ctxt =
                                      transOprToExpr ctxt o4
   | _ -> raise InvalidOperandException
 
-let bvOfBaseAddr addr = AST.num <| BitVector.ofUInt64 addr 32<rt>
+let bvOfBaseAddr addr = numU64 addr 32<rt>
 
 /// Gets the mask bits for fetching the RFR bit from the NSACR.
 /// NSACR bit[19]
-let maskNSACRForRFRbit = AST.num <| BitVector.ofInt32 524288 32<rt>
+let maskNSACRForRFRbit = numI32 524288 32<rt>
 
 let getNSACR ctxt nsacrType =
   let nsacr = getRegVar ctxt R.NSACR
@@ -125,11 +126,11 @@ let isSetNSACR_RFR ctxt = getNSACR ctxt NSACR_RFR == maskNSACRForRFRbit
 
 /// Gets the mask bits for fetching the AW bit from the SCR.
 /// SCR bit[5]
-let maskSCRForAWbit = AST.num <| BitVector.ofInt32 32 32<rt>
+let maskSCRForAWbit = numI32 32 32<rt>
 
 /// Gets the mask bits for fetching the FW bit from the SCR.
 /// SCR bit[4]
-let maskSCRForFWbit = AST.num <| BitVector.ofInt32 16 32<rt>
+let maskSCRForFWbit = numI32 16 32<rt>
 
 /// Gets the mask bits for fetching the NS bit from the SCR.
 /// SCR bit[0]
@@ -200,26 +201,26 @@ let disablePSRBits ctxt reg psrType =
 let setPSR ctxt reg psrType expr =
   let shift expr =
     match psrType with
-    | PSR_Cond -> expr << (AST.num <| BitVector.ofInt32 28 32<rt>)
-    | PSR_N -> expr << (AST.num <| BitVector.ofInt32 31 32<rt>)
-    | PSR_Z -> expr << (AST.num <| BitVector.ofInt32 30 32<rt>)
-    | PSR_C -> expr << (AST.num <| BitVector.ofInt32 29 32<rt>)
-    | PSR_V -> expr << (AST.num <| BitVector.ofInt32 28 32<rt>)
-    | PSR_Q -> expr << (AST.num <| BitVector.ofInt32 27 32<rt>)
-    | PSR_IT10 -> expr << (AST.num <| BitVector.ofInt32 25 32<rt>)
-    | PSR_J -> expr << (AST.num <| BitVector.ofInt32 24 32<rt>)
-    | PSR_GE -> expr << (AST.num <| BitVector.ofInt32 16 32<rt>)
-    | PSR_IT72 -> expr << (AST.num <| BitVector.ofInt32 10 32<rt>)
-    | PSR_E -> expr << (AST.num <| BitVector.ofInt32 9 32<rt>)
-    | PSR_A -> expr << (AST.num <| BitVector.ofInt32 8 32<rt>)
-    | PSR_I -> expr << (AST.num <| BitVector.ofInt32 7 32<rt>)
-    | PSR_F -> expr << (AST.num <| BitVector.ofInt32 6 32<rt>)
-    | PSR_T -> expr << (AST.num <| BitVector.ofInt32 5 32<rt>)
+    | PSR_Cond -> expr << (numI32 28 32<rt>)
+    | PSR_N -> expr << (numI32 31 32<rt>)
+    | PSR_Z -> expr << (numI32 30 32<rt>)
+    | PSR_C -> expr << (numI32 29 32<rt>)
+    | PSR_V -> expr << (numI32 28 32<rt>)
+    | PSR_Q -> expr << (numI32 27 32<rt>)
+    | PSR_IT10 -> expr << (numI32 25 32<rt>)
+    | PSR_J -> expr << (numI32 24 32<rt>)
+    | PSR_GE -> expr << (numI32 16 32<rt>)
+    | PSR_IT72 -> expr << (numI32 10 32<rt>)
+    | PSR_E -> expr << (numI32 9 32<rt>)
+    | PSR_A -> expr << (numI32 8 32<rt>)
+    | PSR_I -> expr << (numI32 7 32<rt>)
+    | PSR_F -> expr << (numI32 6 32<rt>)
+    | PSR_T -> expr << (numI32 5 32<rt>)
     | PSR_M -> expr
   disablePSRBits ctxt reg psrType .| (AST.zext 32<rt> expr |> shift)
 
 let getCarryFlag ctxt =
-  getPSR ctxt R.CPSR PSR_C >> (AST.num <| BitVector.ofInt32 29 32<rt>)
+  getPSR ctxt R.CPSR PSR_C >> (numI32 29 32<rt>)
 
 let getZeroMask maskSize regType =
   BitVector.ofBInt (BigInteger.getMask maskSize) regType
@@ -278,7 +279,7 @@ let conditionPassed ctxt cond =
 /// Logical shift left of a bitstring, with carry output, on page A2-41.
 /// for Register amount. function : LSL_C()
 let shiftLSLCForRegAmount value regType amount carryIn =
-  let chkZero = AST.relop RelOpType.EQ amount (AST.num (BitVector.ofUInt32 0u regType))
+  let chkZero = AST.relop RelOpType.EQ amount (numU32 0u regType)
   let result = value << amount
   let carryOut = value << (amount .- AST.num1 regType) |> AST.xthi 1<rt>
   AST.ite chkZero value result, AST.ite chkZero carryIn carryOut
@@ -291,7 +292,7 @@ let shiftLSLForRegAmount value regType amount carryIn =
 /// Logical shift right of a bitstring, with carry output, on page A2-41.
 /// for Register amount. function : LSR_C()
 let shiftLSRCForRegAmount value regType amount carryIn =
-  let chkZero = AST.relop RelOpType.EQ amount (AST.num (BitVector.ofUInt32 0u regType))
+  let chkZero = AST.relop RelOpType.EQ amount (numU32 0u regType)
   let result = value >> amount
   let carryOut = value >> (amount .- AST.num1 regType ) |> AST.xtlo 1<rt>
   AST.ite chkZero value result, AST.ite chkZero carryIn carryOut
@@ -304,7 +305,7 @@ let shiftLSRForRegAmount value regType amount carryIn =
 /// Arithmetic shift right of a bitstring, with carry output, on page A2-41.
 /// for Register amount. function : ASR_C()
 let shiftASRCForRegAmount value regType amount carryIn =
-  let chkZero = AST.relop RelOpType.EQ amount (AST.num (BitVector.ofUInt32 0u regType))
+  let chkZero = AST.relop RelOpType.EQ amount (numU32 0u regType)
   let result = value ?>> amount
   let carryOut = value ?>> (amount .- AST.num1 regType ) |> AST.xtlo 1<rt>
   AST.ite chkZero value result, AST.ite chkZero carryIn carryOut
@@ -317,9 +318,9 @@ let shiftASRForRegAmount value regType amount carryIn =
 /// Rotate right of a bitstring, with carry output, on page A2-41.
 /// for Register amount. function : ROR_C()
 let shiftRORCForRegAmount value regType amount carryIn =
-  let chkZero = AST.relop RelOpType.EQ amount (AST.num (BitVector.ofUInt32 0u regType))
-  let m = amount .% AST.num (BitVector.ofInt32 (RegType.toBitWidth regType) regType)
-  let nm = (AST.num <| BitVector.ofInt32 32 32<rt>) .- m
+  let chkZero = AST.relop RelOpType.EQ amount (numU32 0u regType)
+  let m = amount .% (numI32 (RegType.toBitWidth regType) regType)
+  let nm = (numI32 32 32<rt>) .- m
   let result = shiftLSRForRegAmount value regType m carryIn .|
                shiftLSLForRegAmount value regType nm carryIn
   let carryOut = AST.xthi 1<rt> result
@@ -333,8 +334,8 @@ let shiftRORForRegAmount value regType amount carryIn =
 /// Rotate right with extend of a bitstring, with carry output, on page A2-41.
 /// for Register amount. function : RRX_C()
 let shiftRRXCForRegAmount value regType amount carryIn =
-  let chkZero = AST.relop RelOpType.EQ amount (AST.num (BitVector.ofUInt32 0u regType))
-  let amount1 = AST.num (BitVector.ofInt32 (RegType.toBitWidth regType) regType)
+  let chkZero = AST.relop RelOpType.EQ amount (numU32 0u regType)
+  let amount1 = numI32 (RegType.toBitWidth regType) regType
   let e1 = shiftLSLForRegAmount (AST.zext 32<rt> carryIn) regType
             (amount1 .- AST.num1 regType) carryIn
   let e2 = shiftLSRForRegAmount value regType (AST.num1 regType) carryIn
@@ -360,7 +361,7 @@ let shiftCForRegAmount value regType shiftType amount carryIn =
 /// function : LSL_C()
 let shiftLSLC value regType amount =
   Utils.assertByCond (amount > 0u) InvalidShiftAmountException
-  let amount = AST.num (BitVector.ofUInt32 amount regType)
+  let amount = numU32 amount regType
   value << amount, value << (amount .- AST.num1 regType ) |> AST.xthi 1<rt>
 
 /// Logical shift left of a bitstring, on page A2-41. function : LSL()
@@ -372,7 +373,7 @@ let shiftLSL value regType amount =
 /// function : LSR_C()
 let shiftLSRC value regType amount =
   Utils.assertByCond (amount > 0u) InvalidShiftAmountException
-  let amount' = AST.num (BitVector.ofUInt32 amount regType)
+  let amount' = numU32 amount regType
   value >> amount', AST.extract value 1<rt> (amount - 1u |> Convert.ToInt32)
 
 /// Logical shift right of a bitstring, on page A2-41. function : LSR()
@@ -384,7 +385,7 @@ let shiftLSR value regType amount =
 /// function : ASR_C()
 let shiftASRC value regType amount =
   Utils.assertByCond (amount > 0u) InvalidShiftAmountException
-  let amount = AST.num (BitVector.ofUInt32 amount regType)
+  let amount = numU32 amount regType
   value ?>> amount, value ?>> (amount .- AST.num1 regType ) |> AST.xtlo 1<rt>
 
 /// Logical shift right of a bitstring, on page A2-41. function : ASR()
@@ -442,7 +443,7 @@ let shift value regType shiftType amount carryIn =
 let addWithCarry src1 src2 carryIn =
   let result = src1 .+ src2 .+ carryIn
   let carryOut =
-    AST.ite (carryIn == (BitVector.ofUInt32 1u 32<rt> |> AST.num))
+    AST.ite (carryIn == (numU32 1u 32<rt>))
       (AST.ge src1 (AST.not src2)) (AST.gt src1 (AST.not src2))
   let overflow = getOverflowFlagOnAdd src1 src2 result
   result, carryOut, overflow
@@ -528,25 +529,24 @@ let highestSetBit b size =
 /// Count number of ones in a bitstring, on page AppxP-2653.
 /// function : BitCount()
 let bitCountFor16Bits expr =
-  let numI16 n = BitVector.ofInt32 n 16<rt> |> AST.num
   let n0 = AST.num0 16<rt>
   let n1 = AST.num1 16<rt>
   let res0 = AST.ite (expr .& n1 == n1) n1 n0
   let res1 = AST.ite ((expr >> n1) .& n1 == n1) n1 n0
-  let res2 = AST.ite ((expr >> (numI16 2)) .& n1 == n1) n1 n0
-  let res3 = AST.ite ((expr >> (numI16 3)) .& n1 == n1) n1 n0
-  let res4 = AST.ite ((expr >> (numI16 4)) .& n1 == n1) n1 n0
-  let res5 = AST.ite ((expr >> (numI16 5)) .& n1 == n1) n1 n0
-  let res6 = AST.ite ((expr >> (numI16 6)) .& n1 == n1) n1 n0
-  let res7 = AST.ite ((expr >> (numI16 7)) .& n1 == n1) n1 n0
-  let res8 = AST.ite ((expr >> (numI16 8)) .& n1 == n1) n1 n0
-  let res9 = AST.ite ((expr >> (numI16 9)) .& n1 == n1) n1 n0
-  let res10 = AST.ite ((expr >> (numI16 10)) .& n1 == n1) n1 n0
-  let res11 = AST.ite ((expr >> (numI16 11)) .& n1 == n1) n1 n0
-  let res12 = AST.ite ((expr >> (numI16 12)) .& n1 == n1) n1 n0
-  let res13 = AST.ite ((expr >> (numI16 13)) .& n1 == n1) n1 n0
-  let res14 = AST.ite ((expr >> (numI16 14)) .& n1 == n1) n1 n0
-  let res15 = AST.ite ((expr >> (numI16 15)) .& n1 == n1) n1 n0
+  let res2 = AST.ite ((expr >> (numI32 2 16<rt>)) .& n1 == n1) n1 n0
+  let res3 = AST.ite ((expr >> (numI32 3 16<rt>)) .& n1 == n1) n1 n0
+  let res4 = AST.ite ((expr >> (numI32 4 16<rt>)) .& n1 == n1) n1 n0
+  let res5 = AST.ite ((expr >> (numI32 5 16<rt>)) .& n1 == n1) n1 n0
+  let res6 = AST.ite ((expr >> (numI32 6 16<rt>)) .& n1 == n1) n1 n0
+  let res7 = AST.ite ((expr >> (numI32 7 16<rt>)) .& n1 == n1) n1 n0
+  let res8 = AST.ite ((expr >> (numI32 8 16<rt>)) .& n1 == n1) n1 n0
+  let res9 = AST.ite ((expr >> (numI32 9 16<rt>)) .& n1 == n1) n1 n0
+  let res10 = AST.ite ((expr >> (numI32 10 16<rt>)) .& n1 == n1) n1 n0
+  let res11 = AST.ite ((expr >> (numI32 11 16<rt>)) .& n1 == n1) n1 n0
+  let res12 = AST.ite ((expr >> (numI32 12 16<rt>)) .& n1 == n1) n1 n0
+  let res13 = AST.ite ((expr >> (numI32 13 16<rt>)) .& n1 == n1) n1 n0
+  let res14 = AST.ite ((expr >> (numI32 14 16<rt>)) .& n1 == n1) n1 n0
+  let res15 = AST.ite ((expr >> (numI32 15 16<rt>)) .& n1 == n1) n1 n0
   res0 .+ res1 .+ res2 .+ res3 .+ res4 .+ res5 .+ res6 .+ res7 .+ res8 .+
   res9 .+ res10 .+ res11 .+ res12 .+ res13 .+ res14 .+ res15
 
@@ -587,7 +587,7 @@ let pcStoreValue ctxt = getPC ctxt
 /// function : IsSecure()
 let isSecure ctxt =
   AST.not (haveSecurityExt ()) .| AST.not (isSetSCR_NS ctxt) .|
-  (getPSR ctxt R.CPSR PSR_M == (AST.num <| BitVector.ofInt32 0b10110 32<rt>))
+  (getPSR ctxt R.CPSR PSR_M == (numI32 0b10110 32<rt>))
 
 /// Return TRUE if current mode is executes at PL1 or higher, on page B1-1142.
 /// function : CurrentModeIsNotUser()
@@ -595,7 +595,7 @@ let currentModeIsNotUser ctxt =
   let modeM = getPSR ctxt R.CPSR PSR_M
   let modeCond = isBadMode modeM
   let ite1 =
-    AST.ite (modeM == (AST.num <| BitVector.ofInt32 0b10000 32<rt>))
+    AST.ite (modeM == (numI32 0b10000 32<rt>))
             AST.b0 AST.b1
   AST.ite modeCond (AST.undef 1<rt> "UNPREDICTABLE") ite1
 
@@ -621,11 +621,11 @@ let writeModeBits ctxt value isExcptReturn (builder: IRBuilder) =
   let lblL17 = builder.NewSymbol "L17"
   let valueM = value .& maskPSRForMbits
   let cpsrM = getPSR ctxt R.CPSR PSR_M
-  let num11010 = (AST.num <| BitVector.ofInt32 0b11010 32<rt>)
+  let num11010 = numI32 0b11010 32<rt>
   let chkSecure = AST.not (isSecure ctxt)
-  let cond1 = chkSecure .& (valueM == (AST.num <| BitVector.ofInt32 0b10110 32<rt>))
+  let cond1 = chkSecure .& (valueM == (numI32 0b10110 32<rt>))
   let cond2 = chkSecure .& isSetNSACR_RFR ctxt .&
-              (valueM == (AST.num <| BitVector.ofInt32 0b10001 32<rt>))
+              (valueM == (numI32 0b10001 32<rt>))
   let cond3 = chkSecure .& (valueM == num11010)
   let cond4 = chkSecure .& (cpsrM != num11010) .& (valueM == num11010)
   let cond5 = (cpsrM == num11010) .& (valueM != num11010)
@@ -810,15 +810,15 @@ let itAdvance ctxt (builder: IRBuilder) =
   let lblEnd = builder.NewSymbol "LEnd"
   let cpsr = getRegVar ctxt R.CPSR
   let cpsrIT10 =
-    getPSR ctxt R.CPSR PSR_IT10 >> (AST.num <| BitVector.ofInt32 25 32<rt>)
+    getPSR ctxt R.CPSR PSR_IT10 >> (numI32 25 32<rt>)
   let cpsrIT72 =
-    getPSR ctxt R.CPSR PSR_IT72 >> (AST.num <| BitVector.ofInt32 8 32<rt>)
-  let mask10 = AST.num <| BitVector.ofInt32 0x3 32<rt> (* For ITSTATE[1:0] *)
-  let mask20 = AST.num <| BitVector.ofInt32 0x7 32<rt> (* For ITSTATE[2:0] *)
-  let mask40 = AST.num <| BitVector.ofInt32 0x1f 32<rt> (* For ITSTATE[4:0] *)
-  let mask42 = AST.num <| BitVector.ofInt32 0x1c 32<rt> (* For ITSTATE[4:2] *)
-  let cpsrIT42 = cpsr .& (AST.num <| BitVector.ofInt32 0xffffe3ff 32<rt>)
-  let num8 = AST.num <| BitVector.ofInt32 8 32<rt>
+    getPSR ctxt R.CPSR PSR_IT72 >> (numI32 8 32<rt>)
+  let mask10 = numI32 0x3 32<rt> (* For ITSTATE[1:0] *)
+  let mask20 = numI32 0x7 32<rt> (* For ITSTATE[2:0] *)
+  let mask40 = numI32 0x1f 32<rt> (* For ITSTATE[4:0] *)
+  let mask42 = numI32 0x1c 32<rt> (* For ITSTATE[4:2] *)
+  let cpsrIT42 = cpsr .& (numI32 0xffffe3ff 32<rt>)
+  let num8 = numI32 8 32<rt>
   builder <! (itstate := cpsrIT72 .| cpsrIT10)
   builder <! (cond := ((itstate .& mask20) == AST.num0 32<rt>))
   builder <! AST.cjmp cond (AST.name lblThen) (AST.name lblElse)
@@ -840,8 +840,8 @@ let putEndLabel ctxt lblIgnore isUnconditional isBranch builder =
     match isBranch with
     | None -> ()
     | Some (i: InsInfo) ->
-      let target = BitVector.ofUInt64 (i.Address + uint64 i.Length) 32<rt>
-      builder <! (AST.interjmp (AST.num target) InterJmpKind.Base)
+      let target = numU64 (i.Address + uint64 i.Length) 32<rt>
+      builder <! (AST.interjmp target InterJmpKind.Base)
 
 let endMark (ins: InsInfo) builder =
   builder <! (AST.iemark ins.Length)
@@ -861,7 +861,7 @@ let nop ins =
 let convertPCOpr (ins: InsInfo) ctxt opr =
   if opr = getPC ctxt then
     let rel = if ins.Mode = ArchOperationMode.ARMMode then 8 else 4
-    opr .+ (AST.num <| BitVector.ofInt32 rel 32<rt>)
+    opr .+ (numI32 rel 32<rt>)
   else opr
 
 let adc isSetFlags ins ctxt =
@@ -968,10 +968,10 @@ let transLableOprsOfBL ins targetMode imm =
     match targetMode with
     | ArchOperationMode.ARMMode ->
       let addr = bvOfBaseAddr (ins.Address + offset)
-      align addr (AST.num (BitVector.ofInt32 4 32<rt>))
+      align addr (numI32 4 32<rt>)
     | ArchOperationMode.ThumbMode -> bvOfBaseAddr (ins.Address + offset)
     | _ -> raise InvalidTargetArchModeException
-  pc .+ (AST.num <| BitVector.ofInt64 imm 32<rt>)
+  pc .+ (numI64 imm 32<rt>)
 
 let targetModeOfBL (ins: InsInfo) =
   match ins.Opcode, ins.Mode with
@@ -991,7 +991,7 @@ let bl ins ctxt =
   let builder = IRBuilder (16)
   let alignedAddr, targetMode = parseOprOfBL ins
   let lr = getRegVar ctxt R.LR
-  let retAddr = bvOfBaseAddr ins.Address .+ (AST.num <| BitVector.ofInt32 4 32<rt>)
+  let retAddr = bvOfBaseAddr ins.Address .+ (numI32 4 32<rt>)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   startMark ins builder
   let lblIgnore = checkCondition ins ctxt isUnconditional builder
@@ -1010,9 +1010,9 @@ let blxWithReg (ins: InsInfo) reg ctxt =
   startMark ins builder
   let lblIgnore = checkCondition ins ctxt isUnconditional builder
   if ins.Mode = ArchOperationMode.ARMMode then
-    builder <! (lr := addr .+ (AST.num <| BitVector.ofInt32 4 32<rt>))
+    builder <! (lr := addr .+ (numI32 4 32<rt>))
   else
-    let addr = addr .+ (AST.num <| BitVector.ofInt32 2 32<rt>)
+    let addr = addr .+ (numI32 2 32<rt>)
     builder <! (lr := maskAndOR addr (AST.num1 32<rt>) 32<rt> 1)
   bxWritePC ctxt isUnconditional (getRegVar ctxt reg) builder
   putEndLabel ctxt lblIgnore isUnconditional (Some ins) builder
@@ -1037,7 +1037,7 @@ let pushLoop ctxt numOfReg addr (builder: IRBuilder) =
       else
         let reg = count |> uint32 |> OperandHelper.getRegister
         builder <! (AST.loadLE 32<rt> addr := getRegVar ctxt reg)
-      addr .+ (AST.num <| BitVector.ofInt32 4 32<rt>)
+      addr .+ (numI32 4 32<rt>)
     else addr
   List.fold loop addr [ 0 .. 14 ]
 
@@ -1047,7 +1047,7 @@ let push ins ctxt =
   let sp = getRegVar ctxt R.SP
   let numOfReg = parseOprOfPUSHPOP ins
   let stackWidth = 4 * bitCount numOfReg 16
-  let addr = sp .- (AST.num <| BitVector.ofInt32 stackWidth 32<rt>)
+  let addr = sp .- (numI32 stackWidth 32<rt>)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   startMark ins builder
   let lblIgnore = checkCondition ins ctxt isUnconditional builder
@@ -1690,7 +1690,7 @@ let clz ins ctxt =
   let lblZeroCheck = builder.NewSymbol "LZeroCheck"
   let lblCount = builder.NewSymbol "LCount"
   let lblEnd = builder.NewSymbol "LEnd"
-  let numSize = (AST.num <| BitVector.ofInt32 32 32<rt>)
+  let numSize = (numI32 32 32<rt>)
   let t1 = builder.NewTempVar 32<rt>
   let cond1 = t1 == (AST.num0 32<rt>)
   let cond2 = src .& ((AST.num1 32<rt>) << (t1 .- AST.num1 32<rt>)) != (AST.num0 32<rt>)
@@ -2015,7 +2015,7 @@ let parseOprOfB (ins: InsInfo) =
   let addr = bvOfBaseAddr (ins.Address + pcOffset ins)
   match ins.Operands with
   | OneOperand (OprMemory (LiteralMode imm)) ->
-    addr .+ (AST.num <| BitVector.ofInt64 imm 32<rt>)
+    addr .+ (numI64 imm 32<rt>)
   | _ -> raise InvalidOperandException
 
 let b ins ctxt =
@@ -2042,7 +2042,7 @@ let movtAssign dst src =
   let maskHigh16In32 = AST.num <| BitVector.ofBInt 4294901760I 32<rt>
   let clearHigh16In32 expr = expr .& AST.not maskHigh16In32
   dst := clearHigh16In32 dst .|
-         (src << (AST.num <| BitVector.ofInt32 16 32<rt>))
+         (src << (numI32 16 32<rt>))
 
 let movt ins ctxt =
   let builder = IRBuilder (8)
@@ -2059,7 +2059,7 @@ let popLoop ctxt numOfReg addr (builder: IRBuilder) =
     if (numOfReg >>> count) &&& 1u = 1u then
       let reg = count |> uint32 |> OperandHelper.getRegister
       builder <! (getRegVar ctxt reg := AST.loadLE 32<rt> addr)
-      (addr .+ (AST.num <| BitVector.ofInt32 4 32<rt>))
+      (addr .+ (numI32 4 32<rt>))
     else addr
   List.fold loop addr [ 0 .. 14 ]
 
@@ -2076,7 +2076,7 @@ let pop ins ctxt =
   builder <! (t0 := addr)
   let addr = popLoop ctxt numOfReg t0 builder
   if (numOfReg >>> 13 &&& 1u) = 0u then
-    builder <! (sp := sp .+ (AST.num <| BitVector.ofInt32 stackWidth 32<rt>))
+    builder <! (sp := sp .+ (numI32 stackWidth 32<rt>))
   else builder <! (sp := (AST.undef 32<rt> "UNKNOWN"))
   if (numOfReg >>> 15 &&& 1u) = 1u then
     AST.loadLE 32<rt> addr |> loadWritePC ctxt isUnconditional builder
@@ -2092,9 +2092,9 @@ let parseOprOfLDM (ins: InsInfo) ctxt =
 
 let getLDMStartAddr rn stackWidth = function
   | Op.LDM | Op.LDMIA -> rn
-  | Op.LDMDA -> rn .- (AST.num <| BitVector.ofInt32 (stackWidth + 4) 32<rt>)
-  | Op.LDMDB -> rn .- (AST.num <| BitVector.ofInt32 stackWidth 32<rt>)
-  | Op.LDMIB -> rn .+ (AST.num <| BitVector.ofInt32 4 32<rt>)
+  | Op.LDMDA -> rn .- (numI32 (stackWidth + 4) 32<rt>)
+  | Op.LDMDB -> rn .- (numI32 stackWidth 32<rt>)
+  | Op.LDMIB -> rn .+ (numI32 4 32<rt>)
   | _ -> raise InvalidOpcodeException
 
 let ldm opcode ins ctxt wbackop =
@@ -2115,7 +2115,7 @@ let ldm opcode ins ctxt wbackop =
     AST.loadLE 32<rt> addr |> loadWritePC ctxt isUnconditional builder
   else ()
   if wback && (numOfReg &&& numOfRn) = 0u then
-    builder <! (rn := wbackop t0 (AST.num <| BitVector.ofInt32 stackWidth 32<rt>))
+    builder <! (rn := wbackop t0 (numI32 stackWidth 32<rt>))
   else ()
   if wback && (numOfReg &&& numOfRn) = numOfRn then
     builder <! (rn := (AST.undef 32<rt> "UNKNOWN"))
@@ -2127,8 +2127,8 @@ let getOffAddrWithExpr s r e = if s = Some Plus then r .+ e else r .- e
 
 let getOffAddrWithImm s r imm =
   match s, imm with
-  | Some Plus, Some i -> r .+ (AST.num <| BitVector.ofInt64 i 32<rt>)
-  | Some Minus, Some i -> r .- (AST.num <| BitVector.ofInt64 i 32<rt>)
+  | Some Plus, Some i -> r .+ (numI64 i 32<rt>)
+  | Some Minus, Some i -> r .- (numI64 i 32<rt>)
   | _, _ -> r
 
 let parseMemOfLDR ins ctxt = function
@@ -2144,10 +2144,10 @@ let parseMemOfLDR ins ctxt = function
     rn, Some (rn, getOffAddrWithImm s rn imm)
   | OprMemory (LiteralMode imm) ->
     let addr = bvOfBaseAddr ins.Address
-    let pc = align addr (AST.num <| BitVector.ofInt32 4 32<rt>)
+    let pc = align addr (numI32 4 32<rt>)
     let rel = if ins.Mode = ArchOperationMode.ARMMode then 8u else 4u
-    pc .+ (AST.num <| BitVector.ofUInt32 rel 32<rt>)
-       .+ (AST.num <| BitVector.ofInt64 imm 32<rt>), None
+    pc .+ (numU32 rel 32<rt>)
+       .+ (numI64 imm 32<rt>), None
   | OprMemory (OffsetMode (RegOffset (n, _, m, None))) ->
     let m = getRegVar ctxt m |> convertPCOpr ins ctxt
     let n = getRegVar ctxt n |> convertPCOpr ins ctxt
@@ -2236,7 +2236,7 @@ let ldrd ins ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   startMark ins builder
   let lblIgnore = checkCondition ins ctxt isUnconditional builder
-  let n4 = AST.num (BitVector.ofInt32 4 32<rt>)
+  let n4 = numI32 4 32<rt>
   match writeback with
   | Some (basereg, newoffset) ->
     let twriteback = builder.NewTempVar 32<rt>
@@ -2256,10 +2256,10 @@ let sel8Bits r offset =
   AST.extract r 8<rt> offset |> AST.zext 32<rt>
 
 let combine8bitResults t1 t2 t3 t4 =
-  let mask = AST.num <| BitVector.ofInt32 0xff 32<rt>
-  let n8 = AST.num <| BitVector.ofInt32 8 32<rt>
-  let n16 = AST.num <| BitVector.ofInt32 16 32<rt>
-  let n24 = AST.num <| BitVector.ofInt32 24 32<rt>
+  let mask = numI32 0xff 32<rt>
+  let n8 = numI32 8 32<rt>
+  let n16 = numI32 16 32<rt>
+  let n24 = numI32 24 32<rt>
   ((t4 .& mask) << n24)
   .| ((t3 .& mask) << n16)
   .| ((t2 .& mask) << n8)
@@ -2267,8 +2267,8 @@ let combine8bitResults t1 t2 t3 t4 =
 
 let combineGEs ge0 ge1 ge2 ge3 =
   let n1 = AST.num1 32<rt>
-  let n2 = AST.num <| BitVector.ofInt32 2 32<rt>
-  let n3 = AST.num <| BitVector.ofInt32 3 32<rt>
+  let n2 = numI32 2 32<rt>
+  let n3 = numI32 3 32<rt>
   ge0 .| (ge1 << n1) .| (ge2 << n2) .| (ge3 << n3)
 
 let uadd8 ins ctxt =
@@ -2283,7 +2283,7 @@ let uadd8 ins ctxt =
   let ge2 = builder.NewTempVar 32<rt>
   let ge3 = builder.NewTempVar 32<rt>
   let cpsr = getRegVar ctxt R.CPSR
-  let n100 = AST.num <| BitVector.ofInt32 0x100 32<rt>
+  let n100 = numI32 0x100 32<rt>
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   startMark ins builder
   let lblIgnore = checkCondition ins ctxt isUnconditional builder
@@ -2308,10 +2308,10 @@ let sel ins ctxt =
   let t4 = builder.NewTempVar 32<rt>
   let rd, rn, rm = transThreeOprs ins ctxt
   let n1 = AST.num1 32<rt>
-  let n2 = AST.num <| BitVector.ofInt32 2 32<rt>
-  let n4 = AST.num <| BitVector.ofInt32 4 32<rt>
-  let n8 = AST.num <| BitVector.ofInt32 8 32<rt>
-  let ge = getPSR ctxt R.CPSR PSR_GE >> (AST.num <| BitVector.ofInt32 16 32<rt>)
+  let n2 = numI32 2 32<rt>
+  let n4 = numI32 4 32<rt>
+  let n8 = numI32 8 32<rt>
+  let ge = getPSR ctxt R.CPSR PSR_GE >> (numI32 16 32<rt>)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   startMark ins builder
   let lblIgnore = checkCondition ins ctxt isUnconditional builder
@@ -2335,7 +2335,7 @@ let rbit ins ctxt =
   builder <! (rd := rd <+> rd)
   for i = 0 to 31 do
     builder <! (t2 := (AST.extract t1 1<rt> i) |> AST.zext 32<rt>)
-    builder <! (rd := rd .| (t2 << (AST.num <| BitVector.ofInt32 (31 - i) 32<rt>)))
+    builder <! (rd := rd .| (t2 << (numI32 (31 - i) 32<rt>)))
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark ins builder
 
@@ -2396,7 +2396,7 @@ let strd ins ctxt =
   let lblIgnore = checkCondition ins ctxt isUnconditional builder
   builder <! (AST.loadLE 32<rt> addr := rt)
   builder <! (AST.loadLE 32<rt>
-               (addr .+ (AST.num <| BitVector.ofInt32 4 32<rt>)) := rt2)
+               (addr .+ (numI32 4 32<rt>)) := rt2)
   match writeback with
   | Some (basereg, newoffset) -> builder <! (basereg := newoffset)
   | None -> ()
@@ -2411,9 +2411,9 @@ let parseOprOfSTM (ins: InsInfo) ctxt =
 
 let getSTMStartAddr rn msize = function
   | Op.STM | Op.STMIA | Op.STMEA -> rn
-  | Op.STMDA -> rn .- msize .+  (AST.num <| BitVector.ofInt32 4 32<rt>)
+  | Op.STMDA -> rn .- msize .+  (numI32 4 32<rt>)
   | Op.STMDB -> rn .- msize
-  | Op.STMIB -> rn .+ (AST.num <| BitVector.ofInt32 4 32<rt>)
+  | Op.STMIB -> rn .+ (numI32 4 32<rt>)
   | _ -> raise InvalidOpcodeException
 
 let stmLoop ctxt regs wback rn addr (builder: IRBuilder) =
@@ -2424,7 +2424,7 @@ let stmLoop ctxt regs wback rn addr (builder: IRBuilder) =
         builder <! (AST.loadLE 32<rt> addr := (AST.undef 32<rt> "UNKNOWN"))
       else
         builder <! (AST.loadLE 32<rt> addr := ri)
-      addr .+ (AST.num <| BitVector.ofInt32 4 32<rt>)
+      addr .+ (numI32 4 32<rt>)
     else addr
   List.fold loop addr [ 0 .. 14 ]
 
@@ -2433,7 +2433,7 @@ let stm opcode ins ctxt wbop =
   let taddr = builder.NewTempVar 32<rt>
   let rn, regs = parseOprOfSTM ins ctxt
   let wback = ins.WriteBack
-  let msize = BitVector.ofInt32 (4 * bitCount regs 16) 32<rt> |> AST.num
+  let msize = numI32 (4 * bitCount regs 16) 32<rt>
   let addr = getSTMStartAddr rn msize opcode
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   startMark ins builder
@@ -2452,7 +2452,7 @@ let parseOprOfCBZ (ins: InsInfo) ctxt =
   let offset = pcOffset ins |> int64
   match ins.Operands with
   | TwoOperands (OprReg rn, (OprMemory (LiteralMode imm))) ->
-    getRegVar ctxt rn, pc .+ (AST.num <| BitVector.ofInt64 (imm + offset) 32<rt>)
+    getRegVar ctxt rn, pc .+ (numI64 (imm + offset) 32<rt>)
   | _ -> raise InvalidOperandException
 
 let cbz nonZero ins ctxt =
@@ -2470,7 +2470,7 @@ let cbz nonZero ins ctxt =
   builder <! (branchWritePC ctxt ins pc InterJmpKind.Base)
   builder <! (AST.lmark lblL1)
   let fallAddr = ins.Address + uint64 ins.Length
-  let fallAddrExp = BitVector.ofUInt64 fallAddr 32<rt> |> AST.num
+  let fallAddrExp = numU64 fallAddr 32<rt>
   builder <! (AST.interjmp fallAddrExp InterJmpKind.Base)
   putEndLabel ctxt lblIgnore isUnconditional (Some ins) builder
   endMark ins builder
@@ -2495,7 +2495,7 @@ let tableBranch (ins: InsInfo) ctxt =
   let builder = IRBuilder (8)
   let pc = bvOfBaseAddr ins.Address
   let halfwords = parseOprOfTableBranch ins ctxt
-  let numTwo = AST.num <| BitVector.ofInt32 2 32<rt>
+  let numTwo = numI32 2 32<rt>
   let result = pc .+ (numTwo .* halfwords)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   startMark ins builder
@@ -2537,7 +2537,7 @@ let bfi ins ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   startMark ins builder
   let lblIgnore = checkCondition ins ctxt isUnconditional builder
-  builder <! (t0 := n << (AST.num <| BitVector.ofInt32 lsb 32<rt>))
+  builder <! (t0 := n << (numI32 lsb 32<rt>))
   builder <! (t1 := replicate rd 32<rt> lsb width 0)
   builder <! (rd := t0 .| t1)
   putEndLabel ctxt lblIgnore isUnconditional None builder
@@ -2552,12 +2552,12 @@ let bfx ins ctxt signExtend =
   if lsb + width - 1 > 31 || width < 0 then raise InvalidOperandException
   else ()
   let v = BitVector.ofBInt (BigInteger.getMask width) 32<rt> |> AST.num
-  builder <! (rd := (rn >> (AST.num <| BitVector.ofInt32 lsb 32<rt>)) .& v)
+  builder <! (rd := (rn >> (numI32 lsb 32<rt>)) .& v)
   if signExtend && width > 1 then
     let msb = builder.NewTempVar 32<rt>
     let mask = builder.NewTempVar 32<rt>
-    let msboffset = AST.num <| BitVector.ofInt32 (lsb + width - 1) 32<rt>
-    let shift = AST.num <| BitVector.ofInt32 width 32<rt>
+    let msboffset = numI32 (lsb + width - 1) 32<rt>
+    let shift = numI32 width 32<rt>
     builder <! (msb := (rn >> msboffset) .& AST.num1 32<rt>)
     builder <! (mask := (AST.not (msb .- AST.num1 32<rt>)) << shift)
     builder <! (rd := rd .| mask)
@@ -2578,7 +2578,7 @@ let extractUQOps r width =
   [| for w in 0 .. width .. 31 do yield AST.extract r typ w |> AST.zext 32<rt> done |]
 
 let saturate e width =
-  let max32 = AST.num <| BitVector.ofInt32 (pown 2 width - 1) 32<rt>
+  let max32 = numI32 (pown 2 width - 1) 32<rt>
   let zero = AST.num0 32<rt>
   let resultType = RegType.fromBitWidth width
   AST.ite (AST.sgt e max32) (AST.xtlo resultType max32)
@@ -2587,7 +2587,7 @@ let saturate e width =
 let getUQAssignment tmps width =
   tmps
   |> Array.mapi (fun idx t ->
-       (AST.zext 32<rt> t) << (AST.num <| BitVector.ofInt32 (idx * width) 32<rt>))
+       (AST.zext 32<rt> t) << (numI32 (idx * width) 32<rt>))
   |> Array.reduce (.|)
 
 let uqopr (ins: InsInfo) ctxt width opr =
@@ -2612,19 +2612,19 @@ let parseOprOfADR (ins: InsInfo) ctxt =
   match ins.Operands with
   | TwoOperands (OprReg rd, OprMemory (LiteralMode imm)) ->
     let addr = bvOfBaseAddr ins.Address
-    let addr = addr .+ (AST.num <| BitVector.ofInt32 4 32<rt>)
-    let pc = align addr (AST.num <| BitVector.ofInt32 4 32<rt>)
-    getRegVar ctxt rd, pc .+ (AST.num <| BitVector.ofInt64 imm 32<rt>)
+    let addr = addr .+ (numI32 4 32<rt>)
+    let pc = align addr (numI32 4 32<rt>)
+    getRegVar ctxt rd, pc .+ (numI64 imm 32<rt>)
   | _ -> raise InvalidOperandException
 
 let it (ins: InsInfo) ctxt =
   let builder = IRBuilder (8)
   let cpsr = getRegVar ctxt R.CPSR
-  let itState = AST.num <| BitVector.ofInt32 (int ins.ITState) 32<rt>
-  let mask10 = AST.num <| BitVector.ofInt32 0b11 32<rt>
-  let mask72 = (AST.num <| BitVector.ofInt32 0b11111100 32<rt>)
+  let itState = numI32 (int ins.ITState) 32<rt>
+  let mask10 = numI32 0b11 32<rt>
+  let mask72 = (numI32 0b11111100 32<rt>)
   let itState10 = itState .& mask10
-  let itState72 = (itState .& mask72) >> (AST.num <| BitVector.ofInt32 2 32<rt>)
+  let itState72 = (itState .& mask72) >> (numI32 2 32<rt>)
   startMark ins builder
   builder <! (cpsr := itState10 |> setPSR ctxt R.CPSR PSR_IT10)
   builder <! (cpsr := itState72 |> setPSR ctxt R.CPSR PSR_IT72)
@@ -2702,7 +2702,7 @@ let parseOprOfVLDR (ins: InsInfo) ctxt =
   | TwoOperands (OprSIMD (SFReg (Vector d)),
                  OprMemory (OffsetMode (ImmOffset (rn , s, imm)))) ->
     let pc = getRegVar ctxt rn |> convertPCOpr ins ctxt
-    let baseAddr = align pc (AST.num <| BitVector.ofInt32 4 32<rt>)
+    let baseAddr = align pc (numI32 4 32<rt>)
     getRegVar ctxt d, getOffAddrWithImm s baseAddr imm, checkSingleReg d
   | _ -> raise InvalidOperandException
 
@@ -2720,8 +2720,7 @@ let vldr ins ctxt =
     let d1 = builder.NewTempVar 32<rt>
     let d2 = builder.NewTempVar 32<rt>
     builder <! (d1 := AST.loadLE 32<rt> addr)
-    builder <! (d2 := AST.loadLE 32<rt>
-                        (addr .+ (AST.num (BitVector.ofInt32 4 32<rt>))))
+    builder <! (d2 := AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>)))
     builder <! (rd := if ctxt.Endianness = Endian.Big then AST.concat d1 d2
                       else AST.concat d2 d1)
   putEndLabel ctxt lblIgnore isUnconditional None builder
@@ -2744,7 +2743,7 @@ let vstr (ins: InsInfo) ctxt =
   if isSReg then builder <! (AST.loadLE 32<rt> addr := rd)
   else
     let mem1 = AST.loadLE 32<rt> addr
-    let mem2 = AST.loadLE 32<rt> (addr .+ (AST.num <| BitVector.ofInt32 4 32<rt>))
+    let mem2 = AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>))
     let isbig = ctxt.Endianness = Endian.Big
     builder <!
       (mem1 := if isbig then AST.xthi 32<rt> rd else AST.xtlo 32<rt> rd)
@@ -2843,7 +2842,7 @@ let vpopLoop ctxt d imm isSReg addr (builder: IRBuilder) =
   let rec singleRegLoop r addr =
     if r < imm then
       let reg = d + r |> byte |> OperandHelper.getVFPSRegister
-      let nextAddr = (addr .+ (AST.num <| BitVector.ofInt32 4 32<rt>))
+      let nextAddr = (addr .+ (numI32 4 32<rt>))
       builder <! (getRegVar ctxt reg := AST.loadLE 32<rt> addr)
       singleRegLoop (r + 1) nextAddr
     else ()
@@ -2851,8 +2850,8 @@ let vpopLoop ctxt d imm isSReg addr (builder: IRBuilder) =
     if r < imm / 2 then
       let reg = d + r |> byte |> OperandHelper.getVFPDRegister
       let word1 = AST.loadLE 32<rt> addr
-      let word2 = AST.loadLE 32<rt> (addr .+ (AST.num <| BitVector.ofInt32 4 32<rt>))
-      let nextAddr = addr .+ (AST.num <| BitVector.ofInt32 8 32<rt>)
+      let word2 = AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>))
+      let nextAddr = addr .+ (numI32 8 32<rt>)
       let isbig = ctxt.Endianness = Endian.Big
       builder <! (getRegVar ctxt reg := if isbig then AST.concat word1 word2
                                         else AST.concat word2 word1)
@@ -2871,7 +2870,7 @@ let vpop ins ctxt =
   startMark ins builder
   let lblIgnore = checkCondition ins ctxt isUnconditional builder
   builder <! (t0 := addr)
-  builder <! (sp := addr .+ (AST.num <| BitVector.ofInt32 (imm <<< 2) 32<rt>))
+  builder <! (sp := addr .+ (numI32 (imm <<< 2) 32<rt>))
   vpopLoop ctxt d imm isSReg t0 builder
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark ins builder
@@ -2880,7 +2879,7 @@ let vpushLoop ctxt d imm isSReg addr (builder: IRBuilder) =
   let rec singleRegLoop r addr =
     if r < imm then
       let reg = d + r |> byte |> OperandHelper.getVFPSRegister
-      let nextAddr = (addr .+ (AST.num <| BitVector.ofInt32 4 32<rt>))
+      let nextAddr = (addr .+ (numI32 4 32<rt>))
       builder <! (AST.loadLE 32<rt> addr := getRegVar ctxt reg)
       singleRegLoop (r + 1) nextAddr
     else ()
@@ -2888,8 +2887,8 @@ let vpushLoop ctxt d imm isSReg addr (builder: IRBuilder) =
     if r < imm / 2 then
       let reg = d + r |> byte |> OperandHelper.getVFPDRegister
       let mem1 = AST.loadLE 32<rt> addr
-      let mem2 = AST.loadLE 32<rt> (addr .+ (AST.num <| BitVector.ofInt32 4 32<rt>))
-      let nextAddr = addr .+ (AST.num <| BitVector.ofInt32 8 32<rt>)
+      let mem2 = AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>))
+      let nextAddr = addr .+ (numI32 8 32<rt>)
       let isbig = ctxt.Endianness = Endian.Big
       let data1 = AST.xthi 32<rt> (getRegVar ctxt reg)
       let data2 = AST.xtlo 32<rt> (getRegVar ctxt reg)
@@ -2908,7 +2907,7 @@ let vpush ins ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   startMark ins builder
   let lblIgnore = checkCondition ins ctxt isUnconditional builder
-  builder <! (t0 := sp .- (AST.num <| BitVector.ofInt32 (imm <<< 2) 32<rt>))
+  builder <! (t0 := sp .- (numI32 (imm <<< 2) 32<rt>))
   builder <! (sp := t0)
   vpushLoop ctxt d imm isSReg t0 builder
   putEndLabel ctxt lblIgnore isUnconditional None builder
@@ -2990,14 +2989,12 @@ let getParsingInfo (ins: InsInfo) =
     RegIndex = regIndex
   }
 
-let inline numI32 n t = BitVector.ofInt32 n t |> AST.num
-
 let elem vector e size = AST.extract vector (RegType.fromBitWidth size) (e * size)
 
 let elemForIR vector vSize index size =
   let index = AST.zext vSize index
   let mask = AST.num <| BitVector.ofBInt (BigInteger.getMask size) vSize
-  let eSize = AST.num <| BitVector.ofInt32 size vSize
+  let eSize = numI32 size vSize
   (vector >> (index .* eSize)) .& mask |> AST.xtlo (RegType.fromBitWidth size)
 
 let getESzieOfVMOV = function
@@ -3139,7 +3136,7 @@ let highestSetBitForIR dst src width oprSz (builder: IRBuilder) =
   let lblUpdateTmp = builder.NewSymbol "UpdateTmp"
   let lblEnd = builder.NewSymbol "End"
   let t = builder.NewTempVar oprSz
-  let width = (AST.num <| BitVector.ofInt32 (width - 1) oprSz)
+  let width = (numI32 (width - 1) oprSz)
   builder <! (t := width)
   builder <! (AST.lmark lblLoop)
   builder <! (AST.cjmp (src >> t == AST.num1 oprSz)
@@ -3244,7 +3241,7 @@ let vstm (ins: InsInfo) ctxt =
     | Op.VSTMDB -> false
     | _ -> raise InvalidOpcodeException
   let regs = List.length regList
-  let imm32 = AST.num <| BitVector.ofInt32 ((regs * 2) <<< 2) 32<rt>
+  let imm32 = numI32 ((regs * 2) <<< 2) 32<rt>
   let addr = builder.NewTempVar 32<rt>
   let updateRn rn =
     if ins.WriteBack then
@@ -3254,13 +3251,13 @@ let vstm (ins: InsInfo) ctxt =
   builder <! (rn := updateRn rn)
   for r in 0 .. (regs - 1) do
     let mem1 = AST.loadLE 32<rt> addr
-    let mem2 = AST.loadLE 32<rt> (addr .+ (AST.num <| BitVector.ofInt32 4 32<rt>))
+    let mem2 = AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>))
     let data1 = AST.xtlo 32<rt> regList[r]
     let data2 = AST.xthi 32<rt> regList[r]
     let isbig = ctxt.Endianness = Endian.Big
     builder <! (mem1 := if isbig then data2 else data1)
     builder <! (mem2 := if isbig then data1 else data2)
-    builder <! (addr := addr .+ (AST.num <| BitVector.ofInt32 8 32<rt>))
+    builder <! (addr := addr .+ (numI32 8 32<rt>))
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark ins builder
 
@@ -3276,7 +3273,7 @@ let vldm (ins: InsInfo) ctxt =
     | Op.VLDMDB -> false
     | _ -> raise InvalidOpcodeException
   let regs = List.length regList
-  let imm32 = AST.num <| BitVector.ofInt32 ((regs * 2) <<< 2) 32<rt>
+  let imm32 = numI32 ((regs * 2) <<< 2) 32<rt>
   let addr = builder.NewTempVar 32<rt>
   let updateRn rn =
     if ins.WriteBack then
@@ -3286,11 +3283,11 @@ let vldm (ins: InsInfo) ctxt =
   builder <! (rn := updateRn rn)
   for r in 0 .. (regs - 1) do
     let word1 = AST.loadLE 32<rt> addr
-    let word2 = AST.loadLE 32<rt> (addr .+ (AST.num <| BitVector.ofInt32 4 32<rt>))
+    let word2 = AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>))
     let isbig = ctxt.Endianness = Endian.Big
     builder <!
       (regList[r] := if isbig then AST.concat word1 word2 else AST.concat word2 word1)
-    builder <! (addr := addr .+ (AST.num <| BitVector.ofInt32 8 32<rt>))
+    builder <! (addr := addr .+ (numI32 8 32<rt>))
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark ins builder
 
@@ -3673,7 +3670,7 @@ let vecTbl (ins: InsInfo) ctxt isVtbl =
   let table = AST.concatArr (List.toArray vectors) |> AST.zext 256<rt>
   for i in 0 .. 7 do
     let index = elem rm i 8
-    let cond = AST.lt index (AST.num <| BitVector.ofInt32 (8 * length) 8<rt>)
+    let cond = AST.lt index (numI32 (8 * length) 8<rt>)
     let e = if isVtbl then AST.num0 8<rt> else elem rd i 8
     builder <! (elem rd i 8 := AST.ite cond (elemForIR table 256<rt> index 8) e)
   putEndLabel ctxt lblIgnore isUnconditional None builder
@@ -3957,7 +3954,7 @@ let vld1Multi (ins: InsInfo) ctxt =
         let data1 = builder.NewTempVar 32<rt>
         let data2 = builder.NewTempVar 32<rt>
         let mem1 = AST.loadLE 32<rt> addr
-        let mem2 = AST.loadLE 32<rt> (addr .+ (AST.num <| BitVector.ofInt32 4 32<rt>))
+        let mem2 = AST.loadLE 32<rt> (addr .+ (numI32 4 32<rt>))
         let isbig = ctxt.Endianness = Endian.Big
         builder <! (data1 := if isbig then mem2 else mem1)
         builder <! (data2 := if isbig then mem1 else mem1)
