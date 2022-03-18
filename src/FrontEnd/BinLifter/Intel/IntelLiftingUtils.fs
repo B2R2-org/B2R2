@@ -30,6 +30,7 @@ open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingOperators
+open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.BinLifter.Intel.Helper
 
 open type BinOpType
@@ -39,14 +40,6 @@ let inline ( !. ) (ctxt: TranslationContext) name =
 
 let inline getPseudoRegVar (ctxt: TranslationContext) name pos =
   ctxt.GetPseudoRegVar (Register.toRegID name) pos
-
-let inline numU32 n t = BitVector.ofUInt32 n t |> AST.num
-
-let inline numI32 n t = BitVector.ofInt32 n t |> AST.num
-
-let inline numU64 n t = BitVector.ofUInt64 n t |> AST.num
-
-let inline numI64 n t = BitVector.ofInt64 n t |> AST.num
 
 let numInsLen insLen (ctxt: TranslationContext) = numU32 insLen ctxt.WordBitSize
 
@@ -64,15 +57,6 @@ let is64REXW ctxt (ins: InsInfo) =
 let assert32 ctxt =
   if is64bit ctxt then raise InvalidISAException else ()
 #endif
-
-let inline tmpVars2 ir t =
-  struct (!*ir t, !*ir t)
-
-let inline tmpVars3 ir t =
-  struct (!*ir t, !*ir t, !*ir t)
-
-let inline tmpVars4 ir t =
-  struct (!*ir t, !*ir t, !*ir t, !*ir t)
 
 let inline getOperationSize (i: InsInfo) = i.MainOperationSize
 

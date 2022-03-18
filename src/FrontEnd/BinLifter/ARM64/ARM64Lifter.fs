@@ -29,6 +29,7 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.BinLifter.ARM64
 
 let inline getRegVar (ctxt: TranslationContext) name =
@@ -37,9 +38,6 @@ let inline getRegVar (ctxt: TranslationContext) name =
 let getPC ctxt = getRegVar ctxt R.PC
 
 let ror src amount width = (src >> amount) .| (src << (width .- amount))
-
-let numI32 n t = BitVector.ofInt32 n t |> AST.num // FIXME: exists in IntelLifter
-let numI64 n t = BitVector.ofInt64 n t |> AST.num
 
 let oprSzToExpr oprSize = numI32 (RegType.toBitWidth oprSize) oprSize
 
@@ -151,9 +149,9 @@ let transOprToExpr ins ctxt addr = function
   | OprRegister reg -> getRegVar ctxt reg
   | Memory mem -> transMem ins ctxt addr mem
   | SIMDOpr simd -> transSIMD ctxt simd
-  | Immediate imm -> AST.num <| BitVector.ofInt64 imm ins.OprSize
-  | NZCV nzcv -> AST.num <| BitVector.ofInt64 (int64 nzcv) ins.OprSize
-  | LSB lsb -> AST.num <| BitVector.ofInt64 (int64 lsb) ins.OprSize
+  | Immediate imm -> numI64 imm ins.OprSize
+  | NZCV nzcv -> numI64 (int64 nzcv) ins.OprSize
+  | LSB lsb -> numI64 (int64 lsb) ins.OprSize
   | _ -> raise <| NotImplementedIRException "transOprToExpr"
 
 let transOneOpr ins ctxt addr =

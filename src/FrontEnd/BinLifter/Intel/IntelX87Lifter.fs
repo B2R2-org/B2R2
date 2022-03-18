@@ -30,6 +30,7 @@ open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingOperators
+open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.BinLifter.Intel
 open B2R2.FrontEnd.BinLifter.Intel.LiftingUtils
 
@@ -448,7 +449,7 @@ let private fpuFBinOp (ins: InsInfo) insLen ctxt binOp doPop leftToRight =
   | NoOperand ->
     let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
     let struct (st1b, st1a) = getFPUPseudoRegVars ctxt R.ST1
-    let tmp0, tmp1 = !*ir 64<rt>, !*ir 64<rt>
+    let struct (tmp0, tmp1) = tmpVars2 ir 64<rt>
     let res = !*ir 64<rt>
     !?ir (castFrom80Bit tmp0 64<rt> st0b st0a)
     !?ir (castFrom80Bit tmp1 64<rt> st1b st1a)
@@ -459,7 +460,7 @@ let private fpuFBinOp (ins: InsInfo) insLen ctxt binOp doPop leftToRight =
     let oprExpr = transOneOpr ins insLen ctxt
     let oprSize = TypeCheck.typeOf oprExpr
     let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
-    let tmp0, tmp1 = !*ir oprSize, !*ir oprSize
+    let struct (tmp0, tmp1) = tmpVars2 ir oprSize
     let res = !*ir oprSize
     !?ir (castFrom80Bit tmp0 oprSize st0b st0a)
     !!ir (tmp1 := oprExpr)
@@ -469,7 +470,7 @@ let private fpuFBinOp (ins: InsInfo) insLen ctxt binOp doPop leftToRight =
   | TwoOperands (OprReg reg0, OprReg reg1) ->
     let struct (r0B, r0A) = getFPUPseudoRegVars ctxt reg0
     let struct (r1B, r1A) = getFPUPseudoRegVars ctxt reg1
-    let tmp0, tmp1 = !*ir 64<rt>, !*ir 64<rt>
+    let struct (tmp0, tmp1) = tmpVars2 ir 64<rt>
     let res = !*ir 64<rt>
     !?ir (castFrom80Bit tmp0 64<rt> r0B r0A)
     !?ir (castFrom80Bit tmp1 64<rt> r1B r1A)
@@ -485,7 +486,7 @@ let private fpuIntOp ins insLen ctxt binOp leftToRight =
   let ir = IRBuilder (8)
   let struct (st0b, st0a) = getFPUPseudoRegVars ctxt R.ST0
   let oprExpr = transOneOpr ins insLen ctxt
-  let tmp, dst = !*ir 64<rt>, !*ir 64<rt>
+  let struct (tmp, dst) = tmpVars2 ir 64<rt>
   let res = !*ir 64<rt>
   !<ir insLen
   !!ir (tmp := AST.cast CastKind.IntToFloat 64<rt> oprExpr)
@@ -542,7 +543,7 @@ let fprem _ins insLen ctxt round =
   let lblLT64 = ir.NewSymbol "ExpDiffInRange"
   let lblGE64 = ir.NewSymbol "ExpDiffOutOfRange"
   let lblExit = ir.NewSymbol "Exit"
-  let tmp0, tmp1 = !*ir 64<rt>, !*ir 64<rt>
+  let struct (tmp0, tmp1) = tmpVars2 ir 64<rt>
   let expDiff = !*ir 16<rt>
   let expMask = numI32 0x7fff 16<rt>
   let n64 = numI32 64 16<rt>
@@ -927,7 +928,7 @@ let fyl2xp1 _ins insLen ctxt =
   !>ir insLen
 
 let fld1 _ins insLen ctxt =
-  let oprExpr = BitVector.ofUInt64 0x3FF0000000000000UL 64<rt> |> AST.num
+  let oprExpr = numU64 0x3FF0000000000000UL 64<rt>
   fpuLoad insLen ctxt oprExpr
 
 let fldz _ins insLen ctxt =
@@ -935,23 +936,23 @@ let fldz _ins insLen ctxt =
   fpuLoad insLen ctxt oprExpr
 
 let fldpi _ins insLen ctxt =
-  let oprExpr = BitVector.ofUInt64 4614256656552045848UL 64<rt> |> AST.num
+  let oprExpr = numU64 4614256656552045848UL 64<rt>
   fpuLoad insLen ctxt oprExpr
 
 let fldl2e _ins insLen ctxt =
-  let oprExpr = BitVector.ofUInt64 4599094494223104509UL 64<rt> |> AST.num
+  let oprExpr = numU64 4599094494223104509UL 64<rt>
   fpuLoad insLen ctxt oprExpr
 
 let fldln2 _ins insLen ctxt =
-  let oprExpr = BitVector.ofUInt64 4604418534313441775UL 64<rt> |> AST.num
+  let oprExpr = numU64 4604418534313441775UL 64<rt>
   fpuLoad insLen ctxt oprExpr
 
 let fldl2t _ins insLen ctxt =
-  let oprExpr = BitVector.ofUInt64 4614662735865160561UL 64<rt> |> AST.num
+  let oprExpr = numU64 4614662735865160561UL 64<rt>
   fpuLoad insLen ctxt oprExpr
 
 let fldlg2 _ins insLen ctxt =
-  let oprExpr = BitVector.ofUInt64 4599094494223104511UL 64<rt> |> AST.num
+  let oprExpr = numU64 4599094494223104511UL 64<rt>
   fpuLoad insLen ctxt oprExpr
 
 let fincstp _ins insLen ctxt =
@@ -983,22 +984,22 @@ let ffree (ins: InsInfo) insLen ctxt =
   let top = !.ctxt R.FTOP
   let tagWord = !.ctxt R.FTW
   let struct (top16, shifter, tagValue) = tmpVars3 ir 16<rt>
-  let value3 = BitVector.ofInt32 3 16<rt> |> AST.num
+  let value3 = numI32 3 16<rt>
   let offset =
     match ins.Operands with
-    | OneOperand (OprReg R.ST0) -> BitVector.ofInt32 0 16<rt> |> AST.num
-    | OneOperand (OprReg R.ST1) -> BitVector.ofInt32 1 16<rt> |> AST.num
-    | OneOperand (OprReg R.ST2) -> BitVector.ofInt32 2 16<rt> |> AST.num
-    | OneOperand (OprReg R.ST3) -> BitVector.ofInt32 3 16<rt> |> AST.num
-    | OneOperand (OprReg R.ST4) -> BitVector.ofInt32 4 16<rt> |> AST.num
-    | OneOperand (OprReg R.ST5) -> BitVector.ofInt32 5 16<rt> |> AST.num
-    | OneOperand (OprReg R.ST6) -> BitVector.ofInt32 6 16<rt> |> AST.num
-    | OneOperand (OprReg R.ST7) -> BitVector.ofInt32 7 16<rt> |> AST.num
+    | OneOperand (OprReg R.ST0) -> numI32 0 16<rt>
+    | OneOperand (OprReg R.ST1) -> numI32 1 16<rt>
+    | OneOperand (OprReg R.ST2) -> numI32 2 16<rt>
+    | OneOperand (OprReg R.ST3) -> numI32 3 16<rt>
+    | OneOperand (OprReg R.ST4) -> numI32 4 16<rt>
+    | OneOperand (OprReg R.ST5) -> numI32 5 16<rt>
+    | OneOperand (OprReg R.ST6) -> numI32 6 16<rt>
+    | OneOperand (OprReg R.ST7) -> numI32 7 16<rt>
     | _ -> raise InvalidOperandException
   !<ir insLen
   !!ir (top16 := AST.cast CastKind.ZeroExt 16<rt> top)
   !!ir (top16 := top16 .+ offset)
-  !!ir (shifter := (BitVector.ofInt32 2 16<rt> |> AST.num) .* top16)
+  !!ir (shifter := (numI32 2 16<rt>) .* top16)
   !!ir (tagValue := (value3 << shifter))
   !!ir (tagWord := tagWord .| tagValue)
   !>ir insLen
@@ -1007,7 +1008,7 @@ let ffree (ins: InsInfo) insLen ctxt =
 let private checkFPUExceptions ctxt ir = ()
 
 let private clearFPU ctxt ir =
-  let cw = BitVector.ofInt32 895 16<rt> |> AST.num
+  let cw = numI32 895 16<rt>
   let tw = BitVector.maxUInt16 |> AST.num
   !!ir (!.ctxt R.FCW := cw)
   !!ir (!.ctxt R.FSW := AST.num0 16<rt>)

@@ -30,6 +30,7 @@ open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinLifter.LiftingOperators
+open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.BinLifter.Intel
 open B2R2.FrontEnd.BinLifter.Intel.RegGroup
 open B2R2.FrontEnd.BinLifter.Intel.Helper
@@ -864,7 +865,7 @@ let divideWithoutConcat opcode oprSize divisor lblAssign lblErr ctxt ir =
     !!ir (trax := rax)
     !!ir (tdivisor := divisor)
   | Opcode.IDIV ->
-    let dividendIsNeg, divisorIsNeg = !*ir 1<rt>, !*ir 1<rt>
+    let struct (dividendIsNeg, divisorIsNeg) = tmpVars2 ir 1<rt>
     !!ir (dividendIsNeg := (AST.xthi 1<rt> rdx == AST.b1))
     !!ir (divisorIsNeg := (AST.xthi 1<rt> divisor == AST.b1))
     !!ir (trdx := AST.ite dividendIsNeg (AST.not rdx) rdx)
@@ -903,8 +904,7 @@ let private checkQuotientDIV oprSize lblAssign lblErr q =
            (AST.name lblAssign) (AST.name lblErr)
 
 let private checkQuotientIDIV oprSize sz lblAssign lblErr q =
-  let amount =
-    AST.num (BitVector.ofInt32 (RegType.toBitWidth oprSize - 1) oprSize)
+  let amount = numI32 (RegType.toBitWidth oprSize - 1) oprSize
   let mask = AST.num1 oprSize << amount
   let msb = AST.xthi 1<rt> q
   let negRes = AST.lt q (AST.zext sz mask)
