@@ -26,6 +26,7 @@ namespace B2R2.MiddleEnd.ControlFlowGraph
 
 open B2R2
 open B2R2.BinIR
+open B2R2.BinIR.SSA
 open B2R2.FrontEnd.BinLifter
 open B2R2.FrontEnd.BinInterface
 open B2R2.MiddleEnd.BinGraph
@@ -34,25 +35,25 @@ open B2R2.MiddleEnd.BinGraph
 module private SSABasicBlockHelper =
   let private buildRegVar hdl reg =
     let wordSize = hdl.ISA.WordSize |> WordSize.toRegType
-    SSA.RegVar (wordSize, reg, hdl.RegisterBay.RegIDToString reg)
+    RegVar (wordSize, reg, hdl.RegisterBay.RegIDToString reg)
 
   let private addReturnValDef hdl defs =
     match (hdl: BinHandle).ISA.Arch with
     | Arch.EVM -> defs
     | _ ->
       let reg = CallingConvention.returnRegister hdl |> buildRegVar hdl
-      let def = { SSA.Kind = reg; SSA.Identifier = -1 }
+      let def = { Kind = reg; Identifier = -1 }
       Set.add def defs
 
   let private addStackDef hdl defs =
     match hdl.RegisterBay.StackPointer with
     | Some sp ->
-      let def = { SSA.Kind = buildRegVar hdl sp; SSA.Identifier = -1 }
+      let def = { Kind = buildRegVar hdl sp; Identifier = -1 }
       Set.add def defs
     | None -> defs
 
   let private addMemDef defs =
-    let def = { SSA.Kind = SSA.MemVar; SSA.Identifier = - 1 }
+    let def = { Kind = MemVar; Identifier = - 1 }
     Set.add def defs
 
   let computeDefinedVars hdl getPCThunkInfo isPLT =
@@ -61,24 +62,46 @@ module private SSABasicBlockHelper =
     else
       match getPCThunkInfo with
       | YesGetPCThunk rid ->
-        let def = { SSA.Kind = buildRegVar hdl rid; SSA.Identifier = -1 }
+        let def = { Kind = buildRegVar hdl rid; Identifier = -1 }
         Set.singleton def |> addStackDef hdl |> addMemDef |> Set.toArray
       | _ ->
         Set.empty
         |> addStackDef hdl |> addReturnValDef hdl |> addMemDef |> Set.toArray
 
   let computeNextPPoint (ppoint: ProgramPoint) = function
-    | SSA.Def (v, SSA.Num bv) ->
+    | Def (v, Num bv) ->
       match v.Kind with
-      | SSA.PCVar _ -> ProgramPoint (BitVector.toUInt64 bv, 0)
+      | PCVar _ -> ProgramPoint (BitVector.toUInt64 bv, 0)
       | _ -> ProgramPoint.Next ppoint
     | _ -> ProgramPoint.Next ppoint
 
+  let private addInOutMemVars inVars outVars =
+    let inVar = { Kind = MemVar; Identifier = -1 }
+    let outVar = { Kind = MemVar; Identifier = -1 }
+    inVar :: inVars, outVar :: outVars
+
+  let private postprocessStmtForEVM = function
+    | SideEffect (eff, _, _) as stmt ->
+      match eff with
+      | ExternalCall (BinOp (BinOpType.APP, _,
+                                    FuncName "calldatacopy", _)) ->
+        let inVars, outVars = addInOutMemVars [] []
+        SideEffect (eff, inVars, outVars)
+      | _ -> stmt
+    | stmt -> stmt
+
+  let private postprocessOthers stmt = stmt
+
+  let postprocessStmt hdl s =
+    match hdl.ISA.Arch with
+    | Arch.EVM -> postprocessStmtForEVM s
+    | _ -> postprocessOthers s
+
 /// SSA statement information.
-type SSAStmtInfo = ProgramPoint * SSA.Stmt
+type SSAStmtInfo = ProgramPoint * Stmt
 
 /// Basic block type for an SSA-based CFG (SSACFG). It holds an array of
-/// SSAStmtInfos (ProgramPoint * SSA.Stmt).
+/// SSAStmtInfos (ProgramPoint * Stmt).
 [<AbstractClass>]
 type SSABasicBlock (pp, instrs: InstructionInfo []) =
   inherit BasicBlock (pp)
@@ -97,7 +120,7 @@ type SSABasicBlock (pp, instrs: InstructionInfo []) =
     __.SSAStmtInfos
     |> Array.map (fun (_, stmt) ->
       [| { AsmWordKind = AsmWordKind.String
-           AsmWordValue = SSA.Pp.stmtToString stmt } |])
+           AsmWordValue = Pp.stmtToString stmt } |])
 
   /// Return the corresponding InstructionInfo array.
   member __.InsInfos with get () = instrs
@@ -114,10 +137,10 @@ type SSABasicBlock (pp, instrs: InstructionInfo []) =
 
   /// Prepend a Phi node to this SSA basic block.
   member __.PrependPhi varKind count =
-    let var = { SSA.Kind = varKind; SSA.Identifier = -1 }
+    let var = { Kind = varKind; Identifier = -1 }
     let ppoint = ProgramPoint.GetFake ()
     __.SSAStmtInfos <-
-      Array.append [| ppoint, SSA.Phi (var, Array.zeroCreate count) |]
+      Array.append [| ppoint, Phi (var, Array.zeroCreate count) |]
                    __.SSAStmtInfos
 
   /// Update program points. This must be called after updating SSA stmts.
@@ -137,15 +160,16 @@ type SSABasicBlock (pp, instrs: InstructionInfo []) =
   abstract FakeBlockInfo: FakeBlockInfo with get, set
 
 /// Regular SSABasicBlock with regular instructions.
-type RegularSSABasicBlock (pp, instrs) =
+type RegularSSABasicBlock (hdl: BinHandle, pp, instrs) =
   inherit SSABasicBlock (pp, instrs)
 
   let mutable stmts: SSAStmtInfo [] =
     (instrs: InstructionInfo [])
     |> Array.map (fun i ->
       let wordSize = i.Instruction.WordSize |> WordSize.toRegType
-      i.Stmts
-      |> SSA.AST.translateStmts wordSize i.Instruction.Address)
+      let stmts = i.Stmts
+      let address = i.Instruction.Address
+      AST.translateStmts wordSize address (postprocessStmt hdl) stmts)
     |> Array.concat
     |> Array.map (fun s -> ProgramPoint.GetFake (), s)
 
@@ -166,11 +190,11 @@ type FakeSSABasicBlock (hdl, pp, retPoint: ProgramPoint, fakeBlkInfo) =
     let stmts = (* For a fake block, we check which var can be modified. *)
       computeDefinedVars hdl fakeBlkInfo.GetPCThunkInfo fakeBlkInfo.IsPLT
       |> Array.map (fun dst ->
-        let src = { SSA.Kind = dst.Kind; SSA.Identifier = -1 }
-        SSA.Def (dst, SSA.ReturnVal (pp.Address, retPoint.Address, src)))
+        let src = { Kind = dst.Kind; Identifier = -1 }
+        Def (dst, ReturnVal (pp.Address, retPoint.Address, src)))
     let wordSize = hdl.ISA.WordSize |> WordSize.toRegType
     let fallThrough = BitVector.ofUInt64 retPoint.Address wordSize
-    let jmpToFallThrough = SSA.Jmp (SSA.InterJmp (SSA.Num fallThrough))
+    let jmpToFallThrough = Jmp (InterJmp (Num fallThrough))
     Array.append stmts [| jmpToFallThrough |]
     |> Array.map (fun s -> ProgramPoint.GetFake (), s)
 
@@ -189,8 +213,8 @@ type SSAVertex = Vertex<SSABasicBlock>
 
 [<RequireQualifiedAccess>]
 module SSABasicBlock =
-  let initRegular pp instrs =
-    RegularSSABasicBlock (pp, instrs) :> SSABasicBlock
+  let initRegular hdl pp instrs =
+    RegularSSABasicBlock (hdl, pp, instrs) :> SSABasicBlock
 
   let initFake hdl pp retPoint fakeBlkInfo =
     FakeSSABasicBlock (hdl, pp, retPoint, fakeBlkInfo) :> SSABasicBlock

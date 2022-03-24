@@ -89,6 +89,10 @@ let renameVar (stack: IDStack) (v: SSA.Variable) =
   | false, _ -> v.Identifier <- 0
   | true, ids -> v.Identifier <- List.head ids
 
+let rec renameVarList stack = function
+  | [] -> ()
+  | v :: vs -> renameVar stack v; renameVarList stack vs
+
 let rec renameExpr stack = function
   | SSA.Num (_)
   | SSA.Undefined (_)
@@ -137,11 +141,17 @@ let introduceDef (count: VarCountMap) (stack: IDStack) (v: SSA.Variable) =
   stack[v.Kind] <- i :: stack[v.Kind]
   v.Identifier <- i
 
+let rec introduceDefList count stack = function
+  | [] -> ()
+  | v :: vs -> introduceDef count stack v; introduceDefList count stack vs
+
 let renameStmt count stack (_, stmt) =
   match stmt with
   | SSA.LMark _ -> ()
-  | SSA.SideEffect (SSA.ExternalCall e) ->
+  | SSA.SideEffect (SSA.ExternalCall e, inVars, outVars) ->
     renameExpr stack e
+    renameVarList stack inVars
+    introduceDefList count stack outVars
   | SSA.SideEffect _ -> ()
   | SSA.Jmp jmpTy -> renameJmp stack jmpTy
   | SSA.Def (def, e) ->

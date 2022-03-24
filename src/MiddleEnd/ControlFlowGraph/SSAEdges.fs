@@ -43,8 +43,14 @@ let private addUse var loc info =
   | None -> Set.singleton loc
   |> fun set -> { info with Uses = Map.add var set info.Uses }
 
+let private addUses vars loc info =
+  vars |> List.fold (fun acc v -> addUse v loc acc) info
+
 let private addDef var stmt info =
   { info with Defs = Map.add var stmt info.Defs }
+
+let private addDefs vars stmt info =
+  vars |> List.fold (fun acc v -> addDef v stmt acc) info
 
 let rec private computeUses loc expr acc =
   match expr with
@@ -73,9 +79,11 @@ let compute ssaCFG =
     |> Array.foldi (fun acc idx (_, stmt) ->
       match stmt with
       | SSA.LMark _ -> acc
-      | SSA.SideEffect (SSA.ExternalCall expr) ->
+      | SSA.SideEffect (SSA.ExternalCall expr, inVars, outVars) ->
         let loc = vid, idx
         computeUses loc expr acc
+        |> addDefs outVars stmt
+        |> addUses inVars loc
       | SSA.SideEffect _ -> acc
       | SSA.Jmp (SSA.IntraJmp _) -> acc
       | SSA.Jmp (SSA.IntraCJmp (cond, _, _)) -> computeUses (vid, idx) cond acc

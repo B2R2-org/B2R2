@@ -39,7 +39,7 @@ type EVMCodeCopyAnalysis () =
                     BinOp (BinOpType.APP, _, FuncName "codecopy",
                       BinOp (BinOpType.CONS, _, tmpVarDst,
                         BinOp (BinOpType.CONS, _, tmpVarSrc,
-                          BinOp (BinOpType.CONS, _, tmpVarLen, _)))))) ->
+                          BinOp (BinOpType.CONS, _, tmpVarLen, _))))), _, _) ->
       let dst = tmpVarDst |> IRHelper.tryResolveExprToUInt64 cpState
       let src = tmpVarSrc |> IRHelper.tryResolveExprToUInt64 cpState
       let len = tmpVarLen |> IRHelper.tryResolveExprToUInt64 cpState

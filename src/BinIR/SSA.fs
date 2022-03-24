@@ -215,7 +215,7 @@ type Stmt =
   | Jmp of JmpType
 
   /// This represents an instruction with side effects such as a system call.
-  | SideEffect of SideEffect
+  | SideEffect of SideEffect * inVars: Variable list * outVars: Variable list
 
 /// A program is a list of statements.
 type Prog = Stmt list list

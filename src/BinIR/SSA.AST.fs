@@ -44,7 +44,7 @@ let rec typeOf = function
   | Undefined (rt, _) -> rt
   | _ -> raise InvalidExprException
 
-let rec translateDest = function
+let rec private translateDest = function
   | LowUIR.Var (ty, r, n, _) -> { Kind = RegVar (ty, r, n); Identifier = -1 }
   | LowUIR.PCVar (ty, _) -> { Kind = PCVar (ty); Identifier = -1 }
   | LowUIR.TempVar (ty, n) -> { Kind = TempVar (ty, n); Identifier = -1 }
@@ -78,9 +78,9 @@ let rec translateExpr (e: LowUIR.Expr) =
   | LowUIR.Extract (e, ty, pos, _) -> Extract (translateExpr e, ty, pos)
   | LowUIR.Undefined (ty, s) -> Undefined (ty, s)
   | LowUIR.Nil -> Nil
-  | _ -> raise InvalidExprException /// Name
+  | _ -> raise InvalidExprException (* Name *)
 
-let rec internal translateStmtAux defaultRegType addr (s: LowUIR.Stmt) =
+let rec private translateStmtAux defaultRegType addr (s: LowUIR.Stmt) =
   match s.S with
   | LowUIR.ISMark _ ->
     let pc = { Kind = PCVar (defaultRegType); Identifier = -1 }
@@ -142,7 +142,10 @@ let rec internal translateStmtAux defaultRegType addr (s: LowUIR.Stmt) =
       | UnsupportedExtension -> SSA.UnsupportedExtension
       | ExternalCall (expr) ->
         expr |> translateExpr |> SSA.ExternalCall
-    SideEffect ssaForm |> Some
+    SideEffect (ssaForm, [], []) |> Some
 
-let translateStmts defaultRegType addr stmts =
-  stmts |> Array.choose (translateStmtAux defaultRegType addr)
+let translateStmts defaultRegType addr fnPostprocess stmts =
+  stmts
+  |> Array.choose (fun stmt ->
+    translateStmtAux defaultRegType addr stmt
+    |> Option.map fnPostprocess)

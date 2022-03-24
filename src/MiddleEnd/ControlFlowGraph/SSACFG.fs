@@ -51,13 +51,13 @@ module SSACFG =
     | ImperativeGraph -> initImperative ()
     | PersistentGraph -> initPersistent ()
 
-  let private getVertex g (vMap: SSAVMap) oldSrc =
+  let private getVertex hdl g (vMap: SSAVMap) oldSrc =
     let vData = (oldSrc: Vertex<IRBasicBlock>).VData
     let pos = vData.PPoint
     match vMap.TryGetValue pos with
     | false, _ ->
       let instrs = vData.InsInfos
-      let blk = SSABasicBlock.initRegular pos instrs
+      let blk = SSABasicBlock.initRegular hdl pos instrs
       let v, g = DiGraph.addVertex g blk
       vMap.Add (pos, v)
       v, g
@@ -75,7 +75,7 @@ module SSACFG =
     | true, v -> v, g
 
   let private convertToSSA hdl irCFG ssaCFG vMap fMap root =
-    let root, ssaCFG = getVertex ssaCFG vMap root
+    let root, ssaCFG = getVertex hdl ssaCFG vMap root
     let ssaCFG =
       ssaCFG
       |> DiGraph.foldEdge irCFG (fun ssaCFG src dst e ->
@@ -83,16 +83,16 @@ module SSACFG =
         if (dst: Vertex<IRBasicBlock>).VData.IsFakeBlock () then
           let last = src.VData.LastInstruction
           let fall = ProgramPoint (last.Address + uint64 last.Length, 0)
-          let srcV, ssaCFG = getVertex ssaCFG vMap src
+          let srcV, ssaCFG = getVertex hdl ssaCFG vMap src
           let dstV, ssaCFG = getFakeVertex hdl ssaCFG fMap dst fall
           DiGraph.addEdge ssaCFG srcV dstV e
         elif src.VData.IsFakeBlock () then
           let srcV, ssaCFG = getFakeVertex hdl ssaCFG fMap src dst.VData.PPoint
-          let dstV, ssaCFG = getVertex ssaCFG vMap dst
+          let dstV, ssaCFG = getVertex hdl ssaCFG vMap dst
           DiGraph.addEdge ssaCFG srcV dstV e
         else
-          let srcV, ssaCFG = getVertex ssaCFG vMap src
-          let dstV, ssaCFG = getVertex ssaCFG vMap dst
+          let srcV, ssaCFG = getVertex hdl ssaCFG vMap src
+          let dstV, ssaCFG = getVertex hdl ssaCFG vMap dst
           DiGraph.addEdge ssaCFG srcV dstV e)
     ssaCFG, root
 
