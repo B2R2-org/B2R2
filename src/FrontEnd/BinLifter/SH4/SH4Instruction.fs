@@ -52,6 +52,7 @@ type SH4Instruction (addr, numBytes, insInfo) =
   override __.InterruptNum (_) = Utils.futureFeature ()
   override __.IsNop () = Utils.futureFeature ()
   override __.Translate (_) = Utils.futureFeature ()
+  override __.TranslateToList (_) = Utils.futureFeature ()
   override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
 
     let builder =

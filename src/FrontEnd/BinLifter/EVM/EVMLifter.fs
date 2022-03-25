@@ -463,4 +463,3 @@ let translate insInfo (ctxt: TranslationContext) =
   | STATICCALL -> callExternFunc insInfo ctxt "staticcall" 6 true
   | INVALID -> sideEffects insInfo Terminate
   | SELFDESTRUCT -> selfdestruct insInfo ctxt
-  |> fun builder -> builder.ToStmts ()

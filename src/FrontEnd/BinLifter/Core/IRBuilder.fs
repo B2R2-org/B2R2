@@ -68,6 +68,6 @@ type IRBuilder =
   ///   Create an array of IR statements from the buffer.
   /// </summary>
   /// <returns>
-  ///   Returns a list of IR statements.
+  ///   Returns an array of IR statements.
   /// </returns>
   member __.ToStmts () = __.ToArray ()

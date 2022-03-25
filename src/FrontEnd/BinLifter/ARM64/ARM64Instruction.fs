@@ -143,6 +143,9 @@ type ARM64Instruction (addr, numBytes, insInfo, wordSize) =
     __.Info.Opcode = Opcode.NOP
 
   override __.Translate ctxt =
+    (Lifter.translate __.Info ctxt).ToStmts ()
+
+  override __.TranslateToList ctxt =
     Lifter.translate __.Info ctxt
 
   override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =

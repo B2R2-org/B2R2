@@ -1398,4 +1398,3 @@ let translate insInfo (ctxt: TranslationContext) =
          eprintfn "%A" o
 #endif
          raise <| NotImplementedIRException (Disasm.opCodeToString o)
-  |> fun builder -> builder.ToStmts ()

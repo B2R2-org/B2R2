@@ -4555,6 +4555,5 @@ let translate (ins: InsInfo) ctxt =
          eprintfn "%A" o
 #endif
          raise <| NotImplementedIRException (Disasm.opCodeToString o)
-  |> fun builder -> builder.ToStmts ()
 
 // vim: set tw=80 sts=2 sw=2:

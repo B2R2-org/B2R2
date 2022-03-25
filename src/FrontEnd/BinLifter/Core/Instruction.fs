@@ -24,9 +24,10 @@
 
 namespace B2R2.FrontEnd.BinLifter
 
+open System.Collections.Generic
+open System.Runtime.InteropServices
 open B2R2
 open B2R2.BinIR.LowUIR
-open System.Runtime.InteropServices
 
 /// <summary>
 ///   A high-level class representing a single machine instruction in a
@@ -213,13 +214,24 @@ type Instruction (addr, len, wordSize) =
   abstract member InterruptNum: [<Out>] num: byref<int64> -> bool
 
   /// <summary>
-  ///   Lift this instruction into a LowUIR given a translation context.
+  ///   Lift this instruction into a LowUIR statement array given a translation
+  ///   context.
   /// </summary>
   /// <param name="ctxt">Translation context.</param>
   /// <returns>
   ///   Returns an array of LowUIR statements.
   /// </returns>
-  abstract member Translate: ctxt: TranslationContext -> Stmt []
+  abstract member Translate: ctxt: TranslationContext -> Stmt[]
+
+  /// <summary>
+  ///   Lift this instruction into a LowUIR statement list given a translation
+  ///   context.
+  /// </summary>
+  /// <param name="ctxt">Translation context.</param>
+  /// <returns>
+  ///   Returns a list of LowUIR statements.
+  /// </returns>
+  abstract member TranslateToList: ctxt: TranslationContext -> List<Stmt>
 
   /// <summary>
   ///   Disassemble this instruction.

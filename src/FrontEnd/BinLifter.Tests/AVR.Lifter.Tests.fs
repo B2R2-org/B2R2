@@ -42,7 +42,7 @@ let private test bytes len (actStmts : Stmt [])  =
   let reader = BinReader.binReaderLE
   let span = System.ReadOnlySpan bytes
   let ins = Parser.parse span reader 0UL
-  let expStmts = Lifter.translate ins.Info len ctxt
+  let expStmts = (Lifter.translate ins.Info len ctxt).ToStmts ()
   Assert.AreEqual (Array.toList expStmts, Array.toList actStmts)
 
 [<TestClass>]

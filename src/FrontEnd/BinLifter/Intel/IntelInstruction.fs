@@ -170,6 +170,9 @@ type IntelInstruction
   override __.Translate ctxt =
     (Lifter.translate __ len ctxt).ToStmts ()
 
+  override __.TranslateToList ctxt =
+    Lifter.translate __ len ctxt
+
   override __.Disasm (showAddr, resolveSymb, disasmHelper) =
     let builder = DisasmStringBuilder (showAddr, resolveSymb, wordSz, addr, len)
     Disasm.disasm disasmHelper __ builder

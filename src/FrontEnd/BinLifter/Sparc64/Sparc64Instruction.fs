@@ -76,7 +76,9 @@ type Sparc64Instruction (addr, insInfo) =
 
   override __.IsNop () = Utils.futureFeature ()
 
-  override __.Translate ctxt = Utils.futureFeature ()
+  override __.Translate _ctxt = Utils.futureFeature ()
+
+  override __.TranslateToList _ctxt = Utils.futureFeature ()
 
   override __.Disasm (showAddr, _resolveSymbol, _fileInfo) =
     Utils.futureFeature ()

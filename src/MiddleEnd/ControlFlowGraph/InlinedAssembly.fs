@@ -35,7 +35,7 @@ open B2R2.FrontEnd.BinInterface
 /// 41af1e: 74 01                         je    41af21 <arena_get2.part.0+0x4a1>
 /// 41af20: f0 48 ff 0d c0 57 0a 00       lock decq 0xa57c0(%rip)
 ///
-/// We call such the above code pattern as the "jump-after-lock" pattern.
+/// We call the above code pattern as the "jump-after-lock" pattern.
 type InlinedAssemblyTypes =
   /// The jump-after-lock pattern that spans multiple instruction addresses.
   | JumpAfterLock of addrs: Addr list
@@ -99,6 +99,8 @@ type InlinedAssembly (addr, len, wordSize, stmts) =
   override __.InterruptNum _ = false
 
   override __.Translate _ = stmts
+
+  override __.TranslateToList _ = System.Collections.Generic.List stmts
 
   override __.Disasm (showAddr, resolveSymbol, disasmHelper) =
     Utils.futureFeature ()
