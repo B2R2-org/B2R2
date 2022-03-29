@@ -336,6 +336,16 @@ let dstAssign oprSize dst src =
          elif dstBitSize = oprBitSize then dst := src
          else raise InvalidOperandSizeException
 
+/// For x87 FPU Top register or x87 FPU Tag word sections.
+let extractDstAssign e1 e2 =
+  match e1.E with
+  | Extract ({ E = BinOp (BinOpType.SHR, 16<rt>,
+    { E = BinOp (BinOpType.AND, 16<rt>,
+      ({ E = Var (16<rt>, rId, _, _) } as e1), mask, _) }, amt, _) }, 8<rt>,
+        0, _) when int rId = 0x4F (* FSW *) || int rId = 0x50 (* FTW *) ->
+    e1 := (e1 .& (AST.not mask)) .| (((AST.zext 16<rt> e2) << amt) .& mask)
+  | e -> printfn "%A" e; raise InvalidAssignmentException
+
 let maxNum rt =
   match rt with
   | 8<rt> -> BitVector.maxUInt8

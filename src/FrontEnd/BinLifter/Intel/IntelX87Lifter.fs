@@ -60,7 +60,7 @@ let private updateC1OnLoad ctxt ir =
   let top = !.ctxt R.FTOP
   let c1Flag = !.ctxt R.FSWC1
   (* Top value has been wrapped around, which means stack overflow in B2R2. *)
-  !!ir (c1Flag := (top == AST.num0 3<rt>))
+  !!ir (c1Flag := (top == AST.num0 8<rt>))
   !!ir (!.ctxt R.FSWC0 := undefC0)
   !!ir (!.ctxt R.FSWC2 := undefC2)
   !!ir (!.ctxt R.FSWC3 := undefC3)
@@ -69,7 +69,7 @@ let private updateC1OnStore ctxt ir =
   let top = !.ctxt R.FTOP
   let c1Flag = !.ctxt R.FSWC1
   (* Top value has been wrapped around, which means stack underflow in B2R2. *)
-  !!ir (c1Flag := (top != numI32 7 3<rt>))
+  !!ir (c1Flag := (top != numI32 7 8<rt>))
   !!ir (!.ctxt R.FSWC0 := undefC0)
   !!ir (!.ctxt R.FSWC2 := undefC2)
   !!ir (!.ctxt R.FSWC3 := undefC3)
@@ -89,7 +89,7 @@ let private pushFPUStack ctxt ir =
   let top = !.ctxt R.FTOP
   (* We increment TOP here (which is the opposite way of what the manual says),
      because it is more intuitive to consider it as a counter. *)
-  !!ir (top := top .+ AST.num1 3<rt>)
+  !!ir (extractDstAssign top (top .+ AST.num1 8<rt>))
   !?ir (moveFPRegtoFPReg R.ST7 R.ST6 ctxt)
   !?ir (moveFPRegtoFPReg R.ST6 R.ST5 ctxt)
   !?ir (moveFPRegtoFPReg R.ST5 R.ST4 ctxt)
@@ -103,7 +103,7 @@ let private popFPUStack ctxt ir =
   (* We decrement TOP here (the opposite way compared to the manual) because it
      is more intuitive, because it is more intuitive to consider it as a
      counter. *)
-  !!ir (top := top .- AST.num1 3<rt>)
+  !!ir (extractDstAssign top (top .- AST.num1 8<rt>))
   !?ir (moveFPRegtoFPReg R.ST0 R.ST1 ctxt)
   !?ir (moveFPRegtoFPReg R.ST1 R.ST2 ctxt)
   !?ir (moveFPRegtoFPReg R.ST2 R.ST3 ctxt)
@@ -960,7 +960,7 @@ let fincstp _ins insLen ctxt =
   let top = !.ctxt R.FTOP
   !<ir insLen
   (* TOP in B2R2 is really a counter, so we decrement TOP here (same as pop). *)
-  !!ir (top := top .- AST.num1 3<rt>)
+  !!ir (extractDstAssign top (top .- AST.num1 8<rt>))
   !!ir (!.ctxt R.FSWC1 := AST.b0)
   !!ir (!.ctxt R.FSWC0 := undefC0)
   !!ir (!.ctxt R.FSWC2 := undefC2)
@@ -972,7 +972,7 @@ let fdecstp _ins insLen ctxt =
   let top = !.ctxt R.FTOP
   !<ir insLen
   (* TOP in B2R2 is really a counter, so we increment TOP here. *)
-  !!ir (top := top .+ AST.num1 3<rt>)
+  !!ir (extractDstAssign top (top .+ AST.num1 8<rt>))
   !!ir (!.ctxt R.FSWC1 := AST.b0)
   !!ir (!.ctxt R.FSWC0 := undefC0)
   !!ir (!.ctxt R.FSWC2 := undefC2)

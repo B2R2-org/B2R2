@@ -1644,8 +1644,8 @@ module Register = begin
     | R.DF | R.CF | R.PF | R.AF | R.ZF | R.SF | R.OF | R.IF
     | R.FSWC0 | R.FSWC1 | R.FSWC2 | R.FSWC3 -> 1<rt>
     | R.FTW0 | R.FTW1 | R.FTW2 | R.FTW3
-    | R.FTW4 | R.FTW5 | R.FTW6 | R.FTW7 -> 2<rt>
-    | R.FTOP -> 3<rt>
+    | R.FTW4 | R.FTW5 | R.FTW6 | R.FTW7
+    | R.FTOP -> 8<rt>
     | _ -> raise UnknownRegException
 
   let extendRegister32 = function

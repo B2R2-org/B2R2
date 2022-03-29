@@ -26,6 +26,8 @@ namespace B2R2.FrontEnd.BinLifter.Intel
 
 open B2R2
 open B2R2.BinIR.LowUIR
+open B2R2.BinIR.LowUIR.AST.InfixOp
+open B2R2.FrontEnd.BinLifter.LiftingUtils
 
 /// This is a fatal error that happens when B2R2 tries to access non-existing
 /// register symbol. This exception should not happen in general.
@@ -572,16 +574,25 @@ type internal RegExprs (wordSize) =
   member val ST7A = st7a
   member val ST7B = st7b
   (* x87 FPU Top register *)
-  member val FTOP = AST.extract fsw 3<rt> 11
-  (* x87 FPU Tag word sections*)
-  member val FTW0 = AST.extract ftw 2<rt> 0
-  member val FTW1 = AST.extract ftw 2<rt> 2
-  member val FTW2 = AST.extract ftw 2<rt> 4
-  member val FTW3 = AST.extract ftw 2<rt> 6
-  member val FTW4 = AST.extract ftw 2<rt> 8
-  member val FTW5 = AST.extract ftw 2<rt> 10
-  member val FTW6 = AST.extract ftw 2<rt> 12
-  member val FTW7 = AST.extract ftw 2<rt> 14
+  member val FTOP =
+    (fsw .& numI32 0x3800 16<rt>) >> numI32 11 16<rt> |> AST.xtlo 8<rt>
+  (* x87 FPU Tag word sections *)
+  member val FTW0 =
+    (ftw .& numI32 0x3 16<rt>) >> numI32 0 16<rt> |> AST.xtlo 8<rt>
+  member val FTW1 =
+    (ftw .& numI32 0xC 16<rt>) >> numI32 2 16<rt> |> AST.xtlo 8<rt>
+  member val FTW2 =
+    (ftw .& numI32 0x30 16<rt>) >> numI32 4 16<rt> |> AST.xtlo 8<rt>
+  member val FTW3 =
+    (ftw .& numI32 0xC0 16<rt>) >> numI32 6 16<rt> |> AST.xtlo 8<rt>
+  member val FTW4 =
+    (ftw .& numI32 0x300 16<rt>) >> numI32 8 16<rt> |> AST.xtlo 8<rt>
+  member val FTW5 =
+    (ftw .& numI32 0xC00 16<rt>) >> numI32 10 16<rt> |> AST.xtlo 8<rt>
+  member val FTW6 =
+    (ftw .& numI32 0x3000 16<rt>) >> numI32 12 16<rt> |> AST.xtlo 8<rt>
+  member val FTW7 =
+    (ftw .& numI32 0xC000 16<rt>) >> numI32 14 16<rt> |> AST.xtlo 8<rt>
   (* x87 Status Word Flags *)
   member val FSWC0 = AST.extract fsw 1<rt> 8
   member val FSWC1 = AST.extract fsw 1<rt> 9

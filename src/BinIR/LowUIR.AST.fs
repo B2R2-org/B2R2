@@ -886,7 +886,7 @@ let put dst src =
 let assignForExtractDst e1 e2 =
   match e1.E with
   | Extract ({ E = Var (t, _, _, _) } as e1, eTyp, 0, _)
-  | Extract ({ E = TempVar (t, _) } as e1, eTyp, 0, _)->
+  | Extract ({ E = TempVar (t, _) } as e1, eTyp, 0, _) ->
     let nMask = RegType.getMask t - RegType.getMask eTyp
     let mask = BitVector.ofBInt nMask t |> num
     let src = cast CastKind.ZeroExt t e2
