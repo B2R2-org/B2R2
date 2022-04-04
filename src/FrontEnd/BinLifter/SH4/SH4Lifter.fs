@@ -158,4 +158,3 @@ let translate (ins: InsInfo) insLen (ctxt: TranslationContext) =
   | Opcode.XTRCT -> xtrct ins insLen ctxt
   | Opcode.InvalidOp -> raise InvalidOpcodeException
   | _ -> raise InvalidOpcodeException
-  (*if*)

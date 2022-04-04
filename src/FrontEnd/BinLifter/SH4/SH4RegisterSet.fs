@@ -29,7 +29,7 @@ open B2R2
 type SH4RegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
   inherit NonEmptyRegisterSet (bitArray, s)
 
-  new () = SH4RegisterSet (RegisterSet.MakeInternalBitArray 2, Set.empty)
+  new () = SH4RegisterSet (RegisterSet.MakeInternalBitArray 3, Set.empty)
 
   override __.Tag = RegisterSetTag.SH4
 
@@ -174,7 +174,7 @@ type SH4RegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     | R.FPSCR_PR -> 132
     | R.FPSCR_SZ -> 133
     | R.FPSCR_FR -> 134
-    | _ -> printfn "output";-1
+    | _ -> Utils.impossible ()
 
   override __.IndexToRegID index =
     match index with
@@ -313,7 +313,7 @@ type SH4RegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
     | 132 -> R.FPSCR_PR
     | 133 -> R.FPSCR_SZ
     | 134 -> R.FPSCR_FR
-    | _ -> Utils.impossible()
+    | _ -> Utils.impossible ()
     |> Register.toRegID
 
   override __.ToString () =

@@ -875,7 +875,7 @@ let parseIdxInd1111 b16 =
 /// GBR Indirect with Displacement
 /// 1100 ---- ---- ---- with source and destination operands.
 let parseGBRIndDisp1100 b16 =
-  match getBits b16 8 5 with
+  match getBits b16 12 9 with
   | 0b0000us ->
     Opcode.MOVB,
     TwoOperands(OpReg(Regdir(R.R0)), OpReg(GbrDisp(getDisp8b b16, R.GBR)))
@@ -899,7 +899,7 @@ let parseGBRIndDisp1100 b16 =
 /// Indexed GBR Indirect
 /// 1100 ---- ---- ---- with source and destination operands.
 let parseIdxGBRInd1100 b16 =
-  match getBits b16 8 5 with
+  match getBits b16 12 9 with
   | 0b1101us ->
     Opcode.ANDB,
     TwoOperands(OpReg(Imm(getDisp8b b16)), OpReg(IdxGbr(R.R0, R.GBR)))
@@ -1038,7 +1038,7 @@ let parseNow b16 =
   | 0b0111us -> parseImm0111 b16
   | 0b1100us ->
     if get1Bit b16 12 then
-      match getBits b16 8 5 with
+      match getBits b16 12 9 with
       | 0b1001us | 0b1011us | 0b1000us | 0b1010us -> parseImm1100 b16
       | _ -> parseIdxGBRInd1100 b16
     else
