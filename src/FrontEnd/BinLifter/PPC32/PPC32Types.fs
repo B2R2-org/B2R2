@@ -36,7 +36,7 @@ do ()
 ///   file.
 /// </summary>
 type Opcode =
-  | ADD = 0 (* FIXME: Add Opcodes *)
+  | ADD = 0
   | ADDdot = 1
   | ADDO = 2
   | ADDOdot = 3
@@ -475,11 +475,16 @@ type Opcode =
 type internal Op = Opcode
 
 type Operand =
-  | OpReg of Register
-  | ImmOp of Imm * Register
-  | Immediate of Imm
+  | OprReg of Register
+  | OprMem of D * Register
+  | OprImm of Imm
   | Branch of BI
+/// Immediate field specifying a 16-bit signed two's complement integer that is
+/// sign-extended to 32 bits.
+and D = int32
 and Imm = uint64
+/// Used to specify a CR bit to be used as the condition of a branch conditional
+/// instruction.
 and BI = uint64
 
 type Operands =

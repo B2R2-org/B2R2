@@ -470,18 +470,18 @@ let inline buildOpcode ins (builder: DisasmBuilder<_>) =
 
 let oprToString opr delim (builder: DisasmBuilder<_>) =
   match opr with
-  | OpReg reg ->
+  | OprReg reg ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Variable (Register.toString reg)
-  | Immediate imm ->
+  | OprImm imm ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Value (String.u64ToHex imm)
   | Branch bi ->
     builder.Accumulate AsmWordKind.String delim
     builder.Accumulate AsmWordKind.Value (String.u64ToHex bi)
-  | ImmOp (imm, reg) ->
+  | OprMem (imm, reg) ->
     builder.Accumulate AsmWordKind.String delim
-    builder.Accumulate AsmWordKind.Value (String.u64ToHex imm)
+    builder.Accumulate AsmWordKind.Value (String.i32ToHex imm)
     builder.Accumulate AsmWordKind.String "("
     builder.Accumulate AsmWordKind.Variable (Register.toString reg)
     builder.Accumulate AsmWordKind.String ")"
