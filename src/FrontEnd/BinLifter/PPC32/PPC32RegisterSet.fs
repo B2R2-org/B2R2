@@ -45,7 +45,39 @@ type PPC32RegisterSet (bitArray: uint64 [], s: Set<RegisterID>) =
 
   override __.RegIDToIndex rid =
     match Register.ofRegID rid with
-    | _ -> Utils.futureFeature ()
+    | R.GPR0 -> 0
+    | R.GPR1 -> 1
+    | R.GPR2 -> 2
+    | R.GPR3 -> 3
+    | R.GPR4 -> 4
+    | R.GPR5 -> 5
+    | R.GPR6 -> 6
+    | R.GPR7 -> 7
+    | R.GPR8 -> 8
+    | R.GPR9 -> 9
+    | R.GPR10 -> 10
+    | R.GPR11 -> 11
+    | R.GPR12 -> 12
+    | R.GPR13 -> 13
+    | R.GPR14 -> 14
+    | R.GPR15 -> 15
+    | R.GPR16 -> 16
+    | R.GPR17 -> 17
+    | R.GPR18 -> 18
+    | R.GPR19 -> 19
+    | R.GPR20 -> 20
+    | R.GPR21 -> 21
+    | R.GPR22 -> 22
+    | R.GPR23 -> 23
+    | R.GPR24 -> 24
+    | R.GPR25 -> 25
+    | R.GPR26 -> 26
+    | R.GPR27 -> 27
+    | R.GPR28 -> 28
+    | R.GPR29 -> 29
+    | R.GPR30 -> 30
+    | R.GPR31 -> 31
+    | _ -> -1
 
   override __.IndexToRegID _index: RegisterID =
     Utils.futureFeature ()

@@ -1015,6 +1015,7 @@ with
     | RelocationMIPS t -> t.ToString ()
     | RelocationSH4 t -> t.ToString ()
     | RelocationRISCV t -> t.ToString ()
+    | RelocationPPC32 t -> t.ToString ()
 
 /// Relocation entry.
 type RelocationEntry = {

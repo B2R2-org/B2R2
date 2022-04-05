@@ -406,6 +406,19 @@ let sh4PLT sec =
   let retriever = SH4Retriever () :> IPLTInfoRetriever
   newPLT (sec.SecAddr + 28UL) DontCare LazyBinding false 28UL 0UL 2UL retriever
 
+/// FIXME
+type PPC32Retriever () =
+  interface IPLTInfoRetriever with
+    member __.Get (addr, _, typ, span: ByteSpan, r: IBinReader, sec, _) =
+      let offset = int (addr - sec.SecAddr + sec.SecOffset) + 24
+      Ok { EntryRelocAddr = r.ReadInt32 (span, offset) |> uint64
+           NextEntryAddr = addr + uint64 typ.EntrySize }
+
+/// FIXME
+let ppc32PLT sec =
+  let retriever = SH4Retriever () :> IPLTInfoRetriever
+  newPLT (sec.SecAddr + 28UL) DontCare LazyBinding false 28UL 0UL 2UL retriever
+
 let findX86PLTType span sec =
   (* This is dirty, but we cannot use a monad due to Span. *)
   match x86PICLazy span sec with

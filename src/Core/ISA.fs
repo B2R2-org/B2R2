@@ -166,7 +166,8 @@ with
     | "avr" | "avr8" -> ISA.Init Arch.AVR Endian.Little
     | "sh4" | "sh-4" -> ISA.Init Arch.SH4 Endian.Little
     | "sh4be" | "sh-4be" -> ISA.Init Arch.SH4 Endian.Big
-    | "ppc32" -> ISA.Init Arch.PPC32 Endian.Little
+    | "ppc32" | "ppc32le" -> ISA.Init Arch.PPC32 Endian.Little
+    | "ppc32be" -> ISA.Init Arch.PPC32 Endian.Big
     | "sparc" | "sparc64" -> ISA.Init Arch.Sparc64 Endian.Big
     | "riscv64" -> ISA.Init Arch.RISCV64 Endian.Little
     | "wasm" -> ISA.Init Arch.WASM Endian.Little

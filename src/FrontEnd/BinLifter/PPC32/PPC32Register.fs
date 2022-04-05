@@ -102,6 +102,14 @@ type Register =
   | CR5 = 0x45
   | CR6 = 0x46
   | CR7 = 0x47
+  /// XER Register.
+  | XER = 0x50
+  /// LR Register.
+  | LR = 0x51
+  /// Count Register.
+  | CTR = 0x52
+  /// FPSCR Register
+  | FPSCR = 0x53
 
 /// Shortcut for Register type.
 type internal R = Register

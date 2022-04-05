@@ -66,6 +66,51 @@ type internal RegExprs (wordSize) =
   member val R29 = var regType (Register.toRegID Register.GPR29) "R29" with get
   member val R30 = var regType (Register.toRegID Register.GPR30) "R30" with get
   member val R31 = var regType (Register.toRegID Register.GPR31) "R31" with get
+  member val F0 =  var 64<rt> (Register.toRegID Register.FPR0) "F0" with get
+  member val F1 =  var 64<rt> (Register.toRegID Register.FPR1) "F1" with get
+  member val F2 =  var 64<rt> (Register.toRegID Register.FPR2) "F2" with get
+  member val F3 =  var 64<rt> (Register.toRegID Register.FPR3) "F3" with get
+  member val F4 =  var 64<rt> (Register.toRegID Register.FPR4) "F4" with get
+  member val F5 =  var 64<rt> (Register.toRegID Register.FPR5) "F5" with get
+  member val F6 =  var 64<rt> (Register.toRegID Register.FPR6) "F6" with get
+  member val F7 =  var 64<rt> (Register.toRegID Register.FPR7) "F7" with get
+  member val F8 =  var 64<rt> (Register.toRegID Register.FPR8) "F8" with get
+  member val F9 =  var 64<rt> (Register.toRegID Register.FPR9) "F9" with get
+  member val F10 =  var 64<rt> (Register.toRegID Register.FPR10) "F10" with get
+  member val F11 =  var 64<rt> (Register.toRegID Register.FPR11) "F11" with get
+  member val F12 =  var 64<rt> (Register.toRegID Register.FPR12) "F12" with get
+  member val F13 =  var 64<rt> (Register.toRegID Register.FPR13) "F13" with get
+  member val F14 =  var 64<rt> (Register.toRegID Register.FPR14) "F14" with get
+  member val F15 =  var 64<rt> (Register.toRegID Register.FPR15) "F15" with get
+  member val F16 =  var 64<rt> (Register.toRegID Register.FPR16) "F16" with get
+  member val F17 =  var 64<rt> (Register.toRegID Register.FPR17) "F17" with get
+  member val F18 =  var 64<rt> (Register.toRegID Register.FPR18) "F18" with get
+  member val F19 =  var 64<rt> (Register.toRegID Register.FPR19) "F19" with get
+  member val F20 =  var 64<rt> (Register.toRegID Register.FPR20) "F20" with get
+  member val F21 =  var 64<rt> (Register.toRegID Register.FPR21) "F21" with get
+  member val F22 =  var 64<rt> (Register.toRegID Register.FPR22) "F22" with get
+  member val F23 =  var 64<rt> (Register.toRegID Register.FPR23) "F23" with get
+  member val F24 =  var 64<rt> (Register.toRegID Register.FPR24) "F24" with get
+  member val F25 =  var 64<rt> (Register.toRegID Register.FPR25) "F25" with get
+  member val F26 =  var 64<rt> (Register.toRegID Register.FPR26) "F26" with get
+  member val F27 =  var 64<rt> (Register.toRegID Register.FPR27) "F27" with get
+  member val F28 =  var 64<rt> (Register.toRegID Register.FPR28) "F28" with get
+  member val F29 =  var 64<rt> (Register.toRegID Register.FPR29) "F29" with get
+  member val F30 =  var 64<rt> (Register.toRegID Register.FPR30) "F30" with get
+  member val F31 =  var 64<rt> (Register.toRegID Register.FPR31) "F31" with get
+  member val CR0 = var 4<rt> (Register.toRegID Register.CR0) "CR0" with get
+  member val CR1 = var 4<rt> (Register.toRegID Register.CR1) "CR1" with get
+  member val CR2 = var 4<rt> (Register.toRegID Register.CR2) "CR2" with get
+  member val CR3 = var 4<rt> (Register.toRegID Register.CR3) "CR3" with get
+  member val CR4 = var 4<rt> (Register.toRegID Register.CR4) "CR4" with get
+  member val CR5 = var 4<rt> (Register.toRegID Register.CR5) "CR5" with get
+  member val CR6 = var 4<rt> (Register.toRegID Register.CR6) "CR6" with get
+  member val CR7 = var 4<rt> (Register.toRegID Register.CR7) "CR7" with get
+  member val FPSCR =
+    var 32<rt> (Register.toRegID Register.FPSCR) "FPSCR" with get
+  member val XER = var 32<rt> (Register.toRegID Register.XER) "XER" with get
+  member val LR = var regType (Register.toRegID Register.LR) "LR" with get
+  member val CTR = var regType (Register.toRegID Register.CTR) "CTR" with get
 
   member __.GetRegVar (name) =
     match name with
@@ -101,6 +146,50 @@ type internal RegExprs (wordSize) =
     | R.GPR29 -> __.R29
     | R.GPR30 -> __.R30
     | R.GPR31 -> __.R31
-    | _ -> raise B2R2.FrontEnd.BinLifter.UnhandledRegExprException
+    | R.FPR0 -> __.F0
+    | R.FPR1 -> __.F1
+    | R.FPR2 -> __.F2
+    | R.FPR3 -> __.F3
+    | R.FPR4 -> __.F4
+    | R.FPR5 -> __.F5
+    | R.FPR6 -> __.F6
+    | R.FPR7 -> __.F7
+    | R.FPR8 -> __.F8
+    | R.FPR9 -> __.F9
+    | R.FPR10 -> __.F10
+    | R.FPR11 -> __.F11
+    | R.FPR12 -> __.F12
+    | R.FPR13 -> __.F13
+    | R.FPR14 -> __.F14
+    | R.FPR15 -> __.F15
+    | R.FPR16 -> __.F16
+    | R.FPR17 -> __.F17
+    | R.FPR18 -> __.F18
+    | R.FPR19 -> __.F19
+    | R.FPR20 -> __.F20
+    | R.FPR21 -> __.F21
+    | R.FPR22 -> __.F22
+    | R.FPR23 -> __.F23
+    | R.FPR24 -> __.F24
+    | R.FPR25 -> __.F25
+    | R.FPR26 -> __.F26
+    | R.FPR27 -> __.F27
+    | R.FPR28 -> __.F28
+    | R.FPR29 -> __.F29
+    | R.FPR30 -> __.F30
+    | R.FPR31 -> __.F31
+    | R.CR0 -> __.CR0
+    | R.CR1 -> __.CR1
+    | R.CR2 -> __.CR2
+    | R.CR3 -> __.CR3
+    | R.CR4 -> __.CR4
+    | R.CR5 -> __.CR5
+    | R.CR6 -> __.CR6
+    | R.CR7 -> __.CR7
+    | R.FPSCR -> __.FPSCR
+    | R.XER -> __.XER
+    | R.LR -> __.LR
+    | R.CTR -> __.CTR
+    | _ -> raise UnhandledRegExprException
 
 // vim: set tw=80 sts=2 sw=2:

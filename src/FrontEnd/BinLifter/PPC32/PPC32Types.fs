@@ -1,4 +1,4 @@
-(*
+﻿(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -474,18 +474,46 @@ type Opcode =
 
 type internal Op = Opcode
 
+type Condition =
+  /// Less than [LT].
+  | LT = 0x0
+  /// Less than or equal (equivalent to ng) [GT].
+  | LE = 0x1
+  /// Equal [EQ].
+  | EQ = 0x2
+  /// Greater than or equal (equivalent to nl) [LT].
+  | GE = 0x3
+  /// Greater than [GT].
+  | GT = 0x4
+  /// Not less than (equivalent to ge) [LT].
+  | NL = 0x5
+  /// Not equal [EQ].
+  | NE = 0x6
+  /// Not greater than (equivalent to le) [GT].
+  | NG = 0x7
+  /// Summary overflow [SO].
+  | SO = 0x8
+  /// Not summary overflow [SO].
+  | NS = 0x9
+  /// Unordered (after floating-point comparison) [SO].
+  | UN = 0xA
+  /// Not unordered (after floating-point comparison) [SO].
+  | NU = 0xB
+
 type Operand =
   | OprReg of Register
+  | OprRegBit of Register * uint32
   | OprMem of D * Register
   | OprImm of Imm
-  | Branch of BI
+  | OprAddr of TargetAddr
+  | OprBI of uint32
 /// Immediate field specifying a 16-bit signed two's complement integer that is
 /// sign-extended to 32 bits.
 and D = int32
 and Imm = uint64
 /// Used to specify a CR bit to be used as the condition of a branch conditional
 /// instruction.
-and BI = uint64
+and TargetAddr = uint64
 
 type Operands =
   | NoOperand
