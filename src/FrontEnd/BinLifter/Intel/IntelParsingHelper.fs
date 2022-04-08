@@ -1508,7 +1508,7 @@ module internal ParsingHelper = begin
 
   let evex0FC2W0 = function
     | MPref.MPrxNP ->
-      struct (VCMPPS, OD.XmmVvXmImm8, SZ.XzXz) (* VZxzHxWZxzIb *)
+      struct (VCMPPS, OD.KnVvXmImm8, SZ.XzXz) (* KnHxWxIb *)
     | MPref.MPrx66
     | MPref.MPrxF3
     | MPref.MPrxF2
@@ -1517,7 +1517,7 @@ module internal ParsingHelper = begin
   let evex0FC2W1 = function
     | MPref.MPrxNP -> raise ParsingFailureException
     | MPref.MPrx66 ->
-      struct (VCMPPD, OD.XmmVvXmImm8, SZ.XzXz) (* VZxzHxWZxzIb *)
+      struct (VCMPPD, OD.KnVvXmImm8, SZ.XzXz) (* KnHxWxIb *)
     | MPref.MPrxF3
     | MPref.MPrxF2
     | _ (* MPrx66F2 *) -> raise ParsingFailureException
