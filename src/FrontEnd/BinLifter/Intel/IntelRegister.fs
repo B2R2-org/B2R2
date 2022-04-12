@@ -856,6 +856,11 @@ module Register = begin
     0xae + n
     |> LanguagePrimitives.EnumOfValue<int, Register>
 
+  /// Get the OpMask register of the given index.
+  let opmask n =
+    0x15A + n
+    |> LanguagePrimitives.EnumOfValue<int, Register>
+
   let inline ofRegID (n: RegisterID): Register =
     int n |> LanguagePrimitives.EnumOfValue
 

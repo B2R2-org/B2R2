@@ -142,6 +142,10 @@ type OprDesc =
   | VvRm = 108
   | GprRmImm8Imm8 = 109
   | RmImm8Imm8 = 110
+  | KnVvXm = 111
+  | GprKn = 112
+  | KnVvXmImm8 = 113
+  | KnGpr = 114
 
 module internal OperandParsingHelper =
   /// Find a specific reg. The bitmask will be used to extract a specific REX
@@ -414,6 +418,9 @@ module internal OperandParsingHelper =
 
   let parseDebugReg n =
     Register.debug n |> OprReg
+
+  let parseOpMaskReg n =
+    Register.opmask n |> OprReg
 
   let parseOprOnlyDisp span (rhlp: ReadHelper) =
     let dispSz = RegType.toByteWidth rhlp.MemEffAddrSize
@@ -1097,8 +1104,7 @@ type internal OpXmmVvXm () =
     let opr1 =
       findRegRBits rhlp.RegSize rhlp.REXPrefix (getReg modRM) |> OprReg
     let opr3 = parseMemOrReg modRM span rhlp
-    let oprs = ThreeOperands (opr1, parseVVVVReg rhlp, opr3)
-    oprs
+    ThreeOperands (opr1, parseVVVVReg rhlp, opr3)
 
 type internal OpGprVvRm () =
   inherit OperandParser ()
@@ -1282,3 +1288,37 @@ type internal OpRmImm8Imm8 () =
     let opr2 = parseOprImm span rhlp 8<rt>
     let opr3 = parseOprImm span rhlp 8<rt>
     ThreeOperands (opr1, opr2, opr3)
+
+type internal OpKnVvXm () =
+  inherit OperandParser ()
+  override __.Render (span, rhlp) =
+    let modRM = rhlp.ReadByte span
+    let opr1 = parseOpMaskReg (getReg modRM)
+    let opr3 = parseMemOrReg modRM span rhlp
+    ThreeOperands (opr1, parseVVVVReg rhlp, opr3)
+
+type internal OpGprKn () =
+  inherit OperandParser ()
+  override __.Render (span, rhlp) =
+    let modRM = rhlp.ReadByte span
+    let opr1 = findRegRBits rhlp.RegSize rhlp.REXPrefix (getReg modRM) |> OprReg
+    let opr2 = parseOpMaskReg (getRM modRM)
+    TwoOperands (opr1, opr2)
+
+type internal OpKnVvXmImm8 () =
+  inherit OperandParser ()
+  override __.Render (span, rhlp) =
+    let modRM = rhlp.ReadByte span
+    let opr1 = parseOpMaskReg (getReg modRM)
+    let opr2 = parseVVVVReg rhlp
+    let opr3 = parseMemOrReg modRM span rhlp
+    let opr4 = parseOprImm span rhlp 8<rt>
+    FourOperands (opr1, opr2, opr3, opr4)
+
+type internal OpKnGpr () =
+  inherit OperandParser ()
+  override __.Render (span, rhlp) =
+    let modRM = rhlp.ReadByte span
+    let opr1 = parseOpMaskReg (getReg modRM)
+    let opr2 = findRegRBits rhlp.RegSize rhlp.REXPrefix (getRM modRM) |> OprReg
+    TwoOperands (opr1, opr2)
