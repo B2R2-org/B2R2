@@ -85,7 +85,7 @@ module BinEssence =
   let private initialize hdl =
     { BinHandle = hdl
       CodeManager = CodeManager (hdl)
-      DataManager = DataManager () }
+      DataManager = DataManager (hdl) }
 
   let private initialBuild ess (builder: CFGBuilder) =
     let entries = getInitialEntryPoints ess
