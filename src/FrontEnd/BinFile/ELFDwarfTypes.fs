@@ -488,8 +488,12 @@ type Action =
   /// The previous value of this register is stored in another register numbered
   /// R.
   | Register of RegisterID
-  /// The previous value is represented as the expression.
+  /// The previous value is located at the address produced by evaluating the
+  /// expression.
   | ActionExpr of LowUIR.Expr
+  /// The previous value is represented as the value produced by evaluating the
+  /// expression.
+  | ActionValExpr of LowUIR.Expr
 
 module Action =
   let toString = function
@@ -499,6 +503,7 @@ module Action =
     | ValOffset o -> "v" + (o.ToString ("+0;-#"))
     | Register rid -> "r(" + rid.ToString () + ")"
     | ActionExpr e -> "exp:" + LowUIR.Pp.expToString e
+    | ActionValExpr e -> "val_exp:" + LowUIR.Pp.expToString e
 
 /// Either a return address or a normal register is stored on the stack.
 type Target =

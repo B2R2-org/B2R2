@@ -536,6 +536,17 @@ let rec getUnwind acc cfa irule rst rule isa rbay lr cf df rr span i loc =
       let action = parseExprs isa rbay [] span i nextIdx |> ActionExpr
       let rule = Map.add target action rule
       getUnwind acc cfa irule rst rule isa rbay reg cf df rr span nextIdx loc
+    | DWCFAInstruction.DW_CFA_val_expression ->
+      let reg, cnt = LEB128.DecodeUInt64 (span.Slice i)
+      let reg = byte reg
+      let i = i + cnt
+      let v, cnt = LEB128.DecodeUInt64 (span.Slice i)
+      let i = i + cnt
+      let nextIdx = int v + i
+      let target = Rule.getTarget isa rr reg
+      let action = parseExprs isa rbay [] span i nextIdx |> ActionValExpr
+      let rule = Map.add target action rule
+      getUnwind acc cfa irule rst rule isa rbay reg cf df rr span nextIdx loc
     | DWCFAInstruction.DW_CFA_advance_loc ->
       let loc' = loc + uint64 oparg * cf
       let ent = { Location = loc; CanonicalFrameAddress = cfa; Rule = rule }
