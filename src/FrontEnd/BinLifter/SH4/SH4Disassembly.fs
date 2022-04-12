@@ -45,7 +45,7 @@ let opCodeToString = function
   | Opcode.CLRS -> "clrs"
   | Opcode.CLRT -> "clrt"
   | Opcode.CMPEQ -> "cmpeq"
-  | Opcode.CMPGE  -> "cmpge"
+  | Opcode.CMPGE -> "cmpge"
   | Opcode.CMPGT -> "cmpgt"
   | Opcode.CMPHI -> "cmphi"
   | Opcode.CMPHS -> "cmphs"
@@ -91,7 +91,9 @@ let opCodeToString = function
   | Opcode.JMP -> "jmp"
   | Opcode.JSR -> "jsr"
   | Opcode.LDC -> "ldc"
+  | Opcode.LDCL -> "ldcl"
   | Opcode.LDS -> "lds"
+  | Opcode.LDSL -> "ldsl"
   | Opcode.LDTLB -> "ldtlb"
   | Opcode.MACL -> "macl"
   | Opcode.MACW -> "macw"
@@ -242,6 +244,7 @@ let memToStr addrMode (builder: DisasmBuilder<_>) =
   | PCr imm ->
     builder.Accumulate AsmWordKind.Value (string imm)
   | Imm imm ->
+    builder.Accumulate AsmWordKind.String "#"
     builder.Accumulate AsmWordKind.Value (string imm)
   | _ -> raise InvalidOperandException
 
@@ -268,15 +271,21 @@ let buildOp ins pc builder =
     opToStr ins pc opr (Some " ") builder
   | TwoOperands (opr1, opr2) ->
     opToStr ins pc opr1 (Some " ") builder
-    opToStr ins pc opr2 (Some ", ") builder
+    opToStr ins pc opr2 (Some ",") builder
   | ThreeOperands (opr1, opr2, opr3) ->
     opToStr ins pc opr1 (Some " ") builder
-    opToStr ins pc opr2 (Some ", ") builder
-    opToStr ins pc opr3 (Some ", ") builder
+    opToStr ins pc opr2 (Some ",") builder
+    opToStr ins pc opr3 (Some ",") builder
 
 let inline buildOpcode ins (builder: DisasmBuilder<_>) =
   let str = opCodeToString ins.Opcode
   builder.Accumulate AsmWordKind.Mnemonic str
+  if String.length str = 2 then builder.Accumulate AsmWordKind.String "      "
+  elif String.length str = 3 then builder.Accumulate AsmWordKind.String "     "
+  elif String.length str = 4 then builder.Accumulate AsmWordKind.String "    "
+  elif String.length str = 5 then builder.Accumulate AsmWordKind.String "   "
+  elif String.length str = 6 then builder.Accumulate AsmWordKind.String "  "
+  else builder.Accumulate AsmWordKind.String ""
 
 let disas insInfo (builder: DisasmBuilder<_>) =
   let pc = insInfo.Address

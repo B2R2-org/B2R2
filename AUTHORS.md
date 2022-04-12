@@ -30,5 +30,6 @@ a list of the contributors in alphabetic order.
 - Junoh Lee
 - Minsu Lee
 - DongYeop Oh
+- Ali Ahmed Sheikh
 - MyeongGeun Shin
 - Michael Tegegn

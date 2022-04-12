@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
     <PackageIcon>b2r2-240x240.png</PackageIcon>
@@ -13,10 +13,10 @@
     <Compile Include="SH4RegExprs.fs" />
     <Compile Include="SH4RegisterBay.fs" />
     <Compile Include="SH4Disassembly.fs" />
-    <Compile Include="SH4Instruction.fs" />
-    <Compile Include="SH4Parser.fs" />
     <Compile Include="SH4GeneralLifter.fs" />
     <Compile Include="SH4Lifter.fs" />
+    <Compile Include="SH4Instruction.fs" />
+    <Compile Include="SH4Parser.fs" />
     <Compile Include="SH4.fs" />
     <None Include="..\..\..\..\LICENSE.md" Pack="true" PackagePath="" />
     <None Include="..\..\..\..\assets\b2r2-240x240.png" Pack="true" PackagePath="" />

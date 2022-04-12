@@ -346,6 +346,14 @@ module Register =
     | R.R13 -> "r13"
     | R.R14 -> "r14"
     | R.R15 -> "r15"
+    | R.R0_BANK -> "r0_bank"
+    | R.R1_BANK -> "r1_bank"
+    | R.R2_BANK -> "r2_bank"
+    | R.R3_BANK -> "r3_bank"
+    | R.R4_BANK -> "r4_bank"
+    | R.R5_BANK -> "r5_bank"
+    | R.R6_BANK -> "r6_bank"
+    | R.R7_BANK -> "r7_bank"
     | R.SR -> "sr"
     | R.GBR -> "gbr"
     | R.SSR -> "ssr"
@@ -464,7 +472,9 @@ module Register =
     | R.FPSCR_RM | R.FPSCR_FLAG | R.FPSCR_ENABLE | R.FPSCR_CAUSE | R.FPSCR_DN
     | R.FPSCR_PR | R.FPSCR_SZ | R.FPSCR_FR -> 1<rt>
     | R.R0 | R.R1 | R.R2 | R.R3 | R.R4 | R.R5 | R.R6 | R.R7 | R.R8 | R.R9
-    | R.R10 | R.R11 | R.R12 | R.R13 | R.R14 | R.R15 | R.SR | R.GBR | R.SSR
+    | R.R10 | R.R11 | R.R12 | R.R13 | R.R14 | R.R15 | R.R0_BANK | R.R1_BANK
+    | R.R2_BANK | R.R3_BANK | R.R4_BANK | R.R5_BANK | R.R6_BANK | R.R7_BANK
+    | R.SR | R.GBR | R.SSR
     | R.SPC | R.SGR | R.DBR | R.VBR | R.MACH | R.MACL | R.PR | R.FPUL | R.PC
     | R.FPSCR | R.FPR0 | R.FPR1 | R.FPR2 | R.FPR3 | R.FPR4 | R.FPR5 | R.FPR6
     | R.FPR7 | R.FPR8 | R.FPR9 | R.FPR10 | R.FPR11 | R.FPR12 | R.FPR13
@@ -479,7 +489,7 @@ module Register =
     | R.XD14  -> 64<rt>
     | R.FV0 | R.FV4 | R.FV8 | R.FV12 -> 128<rt>
     | R.XMTRX -> 512<rt>
-    | _ -> Utils.impossible ()
+    | _ -> Utils.impossible()
 
 
 type Const = int32
