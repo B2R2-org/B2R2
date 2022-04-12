@@ -45,7 +45,7 @@ module private LibcAnalysisHelper =
         readMem st p6 Endian.Little 32<rt> ]
       |> List.choose id
       |> List.filter (fun addr ->
-        (codeMgr: CodeManager).HasInstruction addr |> not)
+        addr <> 0UL && ((codeMgr: CodeManager).HasInstruction addr |> not))
       |> function
         | [] -> false
         | addrs ->
@@ -64,7 +64,7 @@ module private LibcAnalysisHelper =
     |> List.choose id
     |> List.map BitVector.toUInt64
     |> List.filter (fun addr ->
-      (codeMgr: CodeManager).HasInstruction addr |> not)
+      addr <> 0UL && ((codeMgr: CodeManager).HasInstruction addr |> not))
     |> function
       | [] -> false
       | addrs ->
