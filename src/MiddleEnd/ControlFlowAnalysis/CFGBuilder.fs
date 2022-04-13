@@ -27,6 +27,7 @@ namespace B2R2.MiddleEnd.ControlFlowAnalysis
 open System.Collections.Generic
 open B2R2
 open B2R2.BinIR
+open B2R2.FrontEnd.BinFile.ELF
 open B2R2.FrontEnd.BinInterface
 open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.BinGraph
@@ -110,22 +111,43 @@ module private CFGBuilder =
     then myfn.NoReturnProperty <- NotNoRet
     else ()
 
-  let buildCall hdl (codeMgr: CodeManager) fn callSite callee isTailCall evts =
-    let callerBlk = Set.maxElement (codeMgr.GetBBL callSite).IRLeaders
-    (fn: RegularFunction).AddEdge (callerBlk, callSite, callee, isTailCall)
-    if callee = 0UL then Ok evts (* Ignore the callee for "call 0" cases. *)
-    else
+  let tryGetRelocatableFunction (codeMgr: CodeManager) dataMgr relocSite =
+    let sym = (dataMgr: DataManager).RelocatableFuncs[relocSite]
+    let funcName = sym.SymName
+    match codeMgr.FunctionMaintainer.TryFind funcName with
+    | Some calleeFn -> Some calleeFn.Entry
+    | _ -> None
+
+  let buildCall hdl codeMgr dataMgr fn callSite callee isTailCall evts =
+    let callerBBL = (codeMgr: CodeManager).GetBBL callSite
+    let callerPp = Set.maxElement callerBBL.IRLeaders
+    let relocFuncs = (dataMgr: DataManager).RelocatableFuncs
+    let relocSite = callSite + 1UL
+    let callee =
+      if relocFuncs.ContainsKey relocSite then
+        tryGetRelocatableFunction codeMgr dataMgr relocSite
+      else Some callee
+    match callee with
+    | Some callee ->
+      (fn: RegularFunction).AddEdge (callerPp, callSite, callee, isTailCall)
       let calleeFn, evts = getCallee hdl codeMgr callee evts
       markAsReturning fn isTailCall calleeFn
       Ok evts
+    | _ ->
+      let callerV = fn.FindVertex callerPp
+      let last = callerV.VData.LastInstruction
+      let ftAddr = last.Address + uint64 last.Length
+      evts
+      |> CFGEvents.addEdgeEvt fn callerPp ftAddr CallFallThroughEdge
+      |> Ok
 
   let buildIndCall (codeMgr: CodeManager) fn callSite evts =
-    let callerBlk = Set.maxElement (codeMgr.GetBBL callSite).IRLeaders
-    (fn: RegularFunction).AddEdge (callerBlk, callSite)
+    let callerPp = Set.maxElement (codeMgr.GetBBL callSite).IRLeaders
+    (fn: RegularFunction).AddEdge (callerPp, callSite)
     Ok evts
 
-  let buildTailCall hdl codeMgr fn caller callee evts =
-    buildCall hdl codeMgr fn caller callee true evts
+  let buildTailCall hdl codeMgr dataMgr fn caller callee evts =
+    buildCall hdl codeMgr dataMgr fn caller callee true evts
 
   let makeCalleeNoReturn (codeMgr: CodeManager) fn callee callSite =
     let callee = codeMgr.FunctionMaintainer.Find (addr=callee)
@@ -173,7 +195,7 @@ module private CFGBuilder =
         Ok evts (* Undetected no-return case, so we do not add fall-through. *)
       else (* Tail-call. *)
         buildFunction hdl codeMgr dataMgr dst mode evts
-        |> Result.bind (buildCall hdl codeMgr fn src.Address dst true)
+        |> Result.bind (buildCall hdl codeMgr dataMgr fn src.Address dst true)
     elif isIntrudingBlk codeMgr dst then
       splitAndConnectEdge hdl codeMgr fn src dst edge evts
     elif not (codeMgr.HasInstruction dst) (* Jump to the middle of an instr *)
@@ -447,7 +469,7 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
         fn.Entry (nameof CFGCall) callSite callee (countEvts evts)
 #endif
       let evts = { evts with BasicEvents = tl }
-      update (buildCall hdl codeMgr fn callSite callee false evts)
+      update (buildCall hdl codeMgr dataMgr fn callSite callee false evts)
     | Ok ({ BasicEvents = CFGIndCall (fn, callSite) :: tl } as evts) ->
 #if CFGDEBUG
       dbglog (nameof CFGBuilder) "@%x %s (%x) %s"
@@ -468,7 +490,7 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
         fn.Entry (nameof CFGTailCall) callSite callee (countEvts evts)
 #endif
       let evts = { evts with BasicEvents = tl }
-      update (buildTailCall hdl codeMgr fn callSite callee evts)
+      update (buildTailCall hdl codeMgr dataMgr fn callSite callee evts)
     | Ok ({ BasicEvents = []
             FunctionAnalysisAddrs = fnAddr :: tl } as evts) ->
 #if CFGDEBUG

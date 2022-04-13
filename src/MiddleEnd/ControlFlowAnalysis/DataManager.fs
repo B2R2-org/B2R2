@@ -24,8 +24,40 @@
 
 namespace B2R2.MiddleEnd.ControlFlowAnalysis
 
-type DataManager () =
+open System.Collections.Generic
+open B2R2.FrontEnd.BinFile
+open B2R2.FrontEnd.BinFile.ELF
+open B2R2.FrontEnd.BinInterface
+
+[<AutoOpen>]
+module private DataManager =
+  let parseRelocatableFunctionSymbols reloc =
+    let dict = Dictionary ()
+    let iter (KeyValue (addr, rel: RelocationEntry)) =
+      match rel.RelType with
+      | RelocationX86 RelocationX86.Reloc38632
+      | RelocationX86 RelocationX86.Reloc386PC32
+      | RelocationX64 RelocationX64.RelocX64PLT32 ->
+        match rel.RelSymbol with
+        | Some sym when sym.SymType = SymbolType.STTFunc ->
+          dict.Add (addr, sym)
+        | _ -> ()
+      | _ -> ()
+    reloc.RelocByAddr |> Seq.iter iter
+    dict
+
+  let parseRelocatableFuncs (hdl: BinHandle) =
+    match hdl.FileInfo with
+    | :? ELFFileInfo as efi -> parseRelocatableFunctionSymbols efi.ELF.RelocInfo
+    | _ -> Dictionary ()
+
+type DataManager (hdl) =
   let jmpTables = JumpTableMaintainer ()
+  let relocatableFuncs = parseRelocatableFuncs hdl
 
   /// Return the JumpTableMaintainer.
   member __.JumpTables with get() = jmpTables
+
+  /// Return a map from a relocatable offset to its corresponding symbol. This
+  /// map considers relocatable functions only.
+  member __.RelocatableFuncs with get() = relocatableFuncs
