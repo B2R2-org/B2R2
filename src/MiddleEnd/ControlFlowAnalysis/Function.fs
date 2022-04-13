@@ -412,16 +412,26 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
 
   /// Merge two vertices connected with an inlined assembly chunk, where there
   /// is a control-flow to the middle of an instruction.
-  member __.MergeVerticesWithInlinedAsmChunk (insAddrs, srcPp, dstPp, chunk) =
+  member __.MergeVerticesWithInlinedAsmChunk (insAddrs, srcPp, dstLeaders, chunk) =
+    let minPp = Set.minElement (dstLeaders: Set<ProgramPoint>)
+    let dstLeaders =
+      Set.filter (fun (leader: ProgramPoint) ->
+        leader.Address = minPp.Address) dstLeaders
     let src = regularVertices[srcPp]
-    let dst = regularVertices[dstPp]
-    regularVertices.Remove srcPp |> ignore
-    regularVertices.Remove dstPp |> ignore
     let ins, _, _ = categorizeNeighboringEdges __.IRCFG src
-    let _, outs, _ = categorizeNeighboringEdges __.IRCFG dst
+    (* Here, we have an assumption that the inlined asm chunk should fall
+       through to the next instruction. If we want to handle inlined asm chunks
+       without the assumption, then we should FIX the below logic. *)
+    let lastLeader = Set.maxElement dstLeaders
+    let lastV = regularVertices[lastLeader]
+    let _, outs, _ = categorizeNeighboringEdges __.IRCFG lastV
+    regularVertices.Remove srcPp |> ignore
+    Set.iter (fun pp ->
+      let v = regularVertices[pp]
+      __.RemoveVertex v
+      regularVertices.Remove pp |> ignore) dstLeaders
     __.RemoveVertex src
-    __.RemoveVertex dst
-    let v = __.GetMergedVertex src dst insAddrs chunk
+    let v = __.GetMergedVertex src lastV insAddrs chunk
     ins |> List.iter (fun (p, e) -> RegularFunction.AddEdgeByType __ p v e)
     outs |> List.iter (fun (s, e) -> RegularFunction.AddEdgeByType __ v s e)
     regularVertices[v.VData.PPoint] <- v
