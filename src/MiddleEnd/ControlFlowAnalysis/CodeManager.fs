@@ -204,7 +204,8 @@ type CodeManager (hdl) =
     let fn = fnMaintainer.FindRegular fstBBL.FunctionEntry
     let srcPoint = fstBBL.IRLeaders.MaximumElement
     let dstPoint = sndBBL.IRLeaders.MinimumElement
-    fn.MergeVerticesWithInlinedAsmChunk (insAddrs, srcPoint, dstPoint, chunk)
+    let dstLeaders = sndBBL.IRLeaders
+    fn.MergeVerticesWithInlinedAsmChunk (insAddrs, srcPoint, dstLeaders, chunk)
     CFGEvents.updateEvtsAfterBBLMerge srcPoint dstPoint evts
 
   /// Update function entry information for the basic block located at the given
