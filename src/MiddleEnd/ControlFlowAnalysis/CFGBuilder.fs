@@ -128,11 +128,12 @@ module private CFGBuilder =
         tryGetRelocatableFunction codeMgr dataMgr relocSite
       else Some callee
     match callee with
+    | Some 0UL -> Ok evts (* Ignore the callee for "call 0" cases. *)
     | Some callee ->
-      (fn: RegularFunction).AddEdge (callerPp, callSite, callee, isTailCall)
-      let calleeFn, evts = getCallee hdl codeMgr callee evts
-      markAsReturning fn isTailCall calleeFn
-      Ok evts
+        (fn: RegularFunction).AddEdge (callerPp, callSite, callee, isTailCall)
+        let calleeFn, evts = getCallee hdl codeMgr callee evts
+        markAsReturning fn isTailCall calleeFn
+        Ok evts
     | _ ->
       let callerV = fn.FindVertex callerPp
       let last = callerV.VData.LastInstruction
