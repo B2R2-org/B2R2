@@ -44,20 +44,26 @@ type InlinedAssemblyTypes =
 
 module InlinedAssemblyPattern =
 
-  let private jumpAfterLockPattern =
-    [| 0x64uy; 0x83uy; 0x3cuy; 0x25uy; 0x18uy; 0x00uy; 0x00uy; 0x00uy; 0x00uy;
-      0x74uy; 0x01uy; 0xf0uy |]
-
-  let private isJumpAfterLock hdl targetBlkAddr =
-    if targetBlkAddr < 12UL then false
-    else
-      BinHandle.ReadBytes (hdl, targetBlkAddr - 12UL, 12) = jumpAfterLockPattern
+  let private computeJumpAfterLockAddrs hdl targetBlkAddr =
+    [ ([| 0x64uy; 0x83uy; 0x3cuy; 0x25uy; 0x18uy;
+          0x00uy; 0x00uy; 0x00uy; 0x00uy; 0x74uy; 0x01uy; 0xf0uy |], 9UL, 2UL)
+      ([| 0x65uy; 0x83uy; 0x3Duy; 0x0Cuy;
+          0x00uy; 0x00uy; 0x00uy; 0x00uy; 0x74uy; 0x01uy; 0xf0uy |], 8UL, 2UL) ]
+    |> List.tryPick (fun (pattern, cmpLen, jeLen) ->
+      let len = uint64 pattern.Length
+      if targetBlkAddr >= len then
+        let ins1Addr = targetBlkAddr - len
+        let ins2Addr = ins1Addr + cmpLen
+        let ins3Addr = ins2Addr + jeLen
+        let bs = BinHandle.ReadBytes (hdl, targetBlkAddr - len, pattern.Length)
+        if bs = pattern then Some [ ins1Addr; ins2Addr; ins3Addr ]
+        else None
+      else None)
 
   let checkInlinedAssemblyPattern hdl targetBlkAddr =
-    if isJumpAfterLock hdl targetBlkAddr then
-      let patternStart = targetBlkAddr - 12UL
-      JumpAfterLock [patternStart; patternStart + 9UL; patternStart + 11UL]
-    else NotInlinedAssembly
+    match computeJumpAfterLockAddrs hdl targetBlkAddr with
+    | Some addrs -> JumpAfterLock addrs
+    | _ -> NotInlinedAssembly
 
 type InlinedAssembly (addr, len, wordSize, stmts) =
   inherit Instruction (addr, len, wordSize)
