@@ -29,6 +29,7 @@ a list of the contributors in alphabetic order.
 - Kangsu Kim
 - Junoh Lee
 - Minsu Lee
+- Sihoon Lee
 - DongYeop Oh
 - Ali Ahmed Sheikh
 - MyeongGeun Shin
