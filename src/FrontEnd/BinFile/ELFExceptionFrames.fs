@@ -637,13 +637,20 @@ let adjustAddr app myAddr addr =
   | ExceptionHeaderApplication.DW_EH_PE_pcrel -> addr + myAddr
   | _ -> addr
 
-let parsePCInfo cls span reader sAddr venc aenc offset =
+let parsePCInfo cls span reader sAddr (rel: RelocInfo option) venc aenc offset =
   let myAddr = sAddr + uint64 offset
   let struct (addr, offset) = computeValue cls span reader venc offset
   let struct (range, offset) = computeValue cls span reader venc offset
   let beginAddr = adjustAddr aenc myAddr addr
   let endAddr = beginAddr + range
-  beginAddr, endAddr, offset
+  match rel with
+  | Some relInfo ->
+    let found, rentry = relInfo.RelocByAddr.TryGetValue beginAddr
+    if found then
+      let beginAddr = addr + rentry.RelAddend
+      struct (beginAddr, beginAddr + range, offset)
+    else struct (beginAddr, endAddr, offset)
+  | None -> struct (beginAddr, endAddr, offset)
 
 let parseLSDA cls span reader sAddr aug offset =
   let _, offset = parseULEB128 span offset
@@ -666,7 +673,7 @@ let parseCallFrameInstrs cie isa regbay (span: ByteSpan) offset nextOffset loc =
     let info, _, _ = getUnwind [] cfa r [] r isa regbay ir cf df rr span 0 loc
     info
 
-let parseFDE cls isa regbay span reader sAddr offset nextOffset cie =
+let parseFDE cls isa regbay span reader sAddr offset nextOffset reloc cie =
   match cie with
   | Some cie ->
     let venc, aenc =
@@ -674,8 +681,8 @@ let parseFDE cls isa regbay span reader sAddr offset nextOffset cie =
       | Some aug -> aug.ValueEncoding, aug.ApplicationEncoding
       | None -> ExceptionHeaderValue.DW_EH_PE_absptr,
                 ExceptionHeaderApplication.DW_EH_PE_absptr
-    let b, e, offset =
-      parsePCInfo cls span reader sAddr venc aenc offset
+    let struct (b, e, offset) =
+      parsePCInfo cls span reader sAddr reloc venc aenc offset
     let lsdaPointer, offset =
       match tryFindAugmentation cie 'L' with
       | Some aug -> parseLSDA cls span reader sAddr aug offset
@@ -694,7 +701,7 @@ let accumulateCFIs cfis cie fdes =
       FDERecord = List.rev fdes |> List.toArray } :: cfis
   | None -> cfis
 
-let rec parseCFI cls isa regbay span reader sAddr cie cies fdes offset cfis =
+let rec parseCFI cls isa rb span reader sAddr cie cies fdes offset cfis reloc =
   if offset >= (span: ByteSpan).Length then
     accumulateCFIs cfis cie fdes
   else
@@ -702,30 +709,30 @@ let rec parseCFI cls isa regbay span reader sAddr cie cies fdes offset cfis =
     let struct (len, offset) = readInt span reader offset
     if len = 0 then accumulateCFIs cfis cie fdes
     else
-      let nextOffset, offset = computeNextOffset len span reader offset
+      let nextOfs, offset = computeNextOffset len span reader offset
       let mybase = offset
       let struct (id, offset) = readInt span reader offset
       if id = 0 then
         let cfis = accumulateCFIs cfis cie fdes
-        let cie = parseCIE cls isa regbay span offset nextOffset
+        let cie = parseCIE cls isa rb span offset nextOfs
         let cies = Map.add originalOffset cie cies
         let cie = Some cie
-        parseCFI cls isa regbay span reader sAddr cie cies [] nextOffset cfis
+        parseCFI cls isa rb span reader sAddr cie cies [] nextOfs cfis reloc
       else
         let cieOffset = mybase - id (* id = a CIE pointer, when id <> 0 *)
         let fde =
-          parseFDE cls isa regbay span reader sAddr offset nextOffset
+          parseFDE cls isa rb span reader sAddr offset nextOfs reloc
             (Map.tryFind cieOffset cies)
         let fdes = fde :: fdes
-        parseCFI cls isa regbay span reader sAddr cie cies fdes nextOffset cfis
+        parseCFI cls isa rb span reader sAddr cie cies fdes nextOfs cfis reloc
 
-let parse span (reader: IBinReader) cls (secs: SectionInfo) isa regbay =
+let parse span (reader: IBinReader) cls (secs: SectionInfo) isa regbay reloc =
   match Map.tryFind Ehframe secs.SecByName with
   | Some sec when Option.isSome regbay ->
     let size = Convert.ToInt32 sec.SecSize
     let offset = Convert.ToInt32 sec.SecOffset
     let span = (span: ByteSpan).Slice (offset, size)
     let regbay = Option.get regbay
-    parseCFI cls isa regbay span reader sec.SecAddr None Map.empty [] 0 []
+    parseCFI cls isa regbay span reader sec.SecAddr None Map.empty [] 0 [] reloc
     |> List.rev
   | _ -> []
