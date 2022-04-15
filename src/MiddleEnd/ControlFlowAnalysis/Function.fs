@@ -432,8 +432,15 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
       regularVertices.Remove pp |> ignore) dstLeaders
     __.RemoveVertex src
     let v = __.GetMergedVertex src lastV insAddrs chunk
-    ins |> List.iter (fun (p, e) -> RegularFunction.AddEdgeByType __ p v e)
-    outs |> List.iter (fun (s, e) -> RegularFunction.AddEdgeByType __ v s e)
+    ins |> List.iter (fun (p, e) ->
+      (* When the incoming edge is from the merged vertex. This logic also
+         assumes the assumption described in the above. *)
+      if p.VData.PPoint = lastLeader then RegularFunction.AddEdgeByType __ v v e
+      else RegularFunction.AddEdgeByType __ p v e)
+    outs |> List.iter (fun (s, e) ->
+      (* When the outgoing edge is to the merged vertex. *)
+      if s.VData.PPoint = srcPp then RegularFunction.AddEdgeByType __ v v e
+      else RegularFunction.AddEdgeByType __ v s e)
     regularVertices[v.VData.PPoint] <- v
 
   member private __.AddCallEdge callSite callee =
