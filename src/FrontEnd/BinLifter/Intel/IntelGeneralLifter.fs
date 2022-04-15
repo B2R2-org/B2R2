@@ -372,8 +372,7 @@ let private bndmov32Aux ins insLen ctxt ir =
   | OprMem _, OprReg _ ->
     let src1, src2 = transOprToExpr128 ins insLen ctxt src
     let dst = transOprToExpr ins insLen ctxt dst
-    !!ir (AST.xthi 32<rt> dst := AST.xtlo 32<rt> src1)
-    !!ir (AST.xtlo 32<rt> dst := AST.xtlo 32<rt> src2)
+    !!ir (dst := AST.concat (AST.xtlo 32<rt> src1) (AST.xtlo 32<rt> src2))
   | _ -> raise InvalidOperandException
 
 let bndmov32 ins insLen ctxt =
