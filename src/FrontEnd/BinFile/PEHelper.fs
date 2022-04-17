@@ -39,10 +39,16 @@ let getFileType pe =
   else FileType.ObjFile
 
 let getWordSize pe =
-  match pe.PEHeaders.PEHeader.Magic with
-  | PEMagic.PE32 -> WordSize.Bit32
-  | PEMagic.PE32Plus -> WordSize.Bit64
-  | _ -> raise InvalidWordSizeException
+  if isNull pe.PEHeaders.PEHeader then
+    match pe.PEHeaders.CoffHeader.Machine with
+    | Machine.I386 | Machine.Arm -> WordSize.Bit32
+    | Machine.Amd64 | Machine.IA64 | Machine.Arm64 -> WordSize.Bit64
+    | _ -> raise InvalidWordSizeException
+  else
+    match pe.PEHeaders.PEHeader.Magic with
+    | PEMagic.PE32 -> WordSize.Bit32
+    | PEMagic.PE32Plus -> WordSize.Bit64
+    | _ -> raise InvalidWordSizeException
 
 let isNXEnabled pe =
   let hdrs = pe.PEHeaders
