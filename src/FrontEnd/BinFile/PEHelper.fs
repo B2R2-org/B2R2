@@ -90,7 +90,7 @@ let secHdrToSection pe (sec: SectionHeader) =
   { Address = addrFromRVA pe.BaseAddr sec.VirtualAddress
     FileOffset = uint64 sec.PointerToRawData
     Kind = secFlagToSectionKind sec.SectionCharacteristics
-    Size = getVirtualSectionSize sec |> uint64
+    Size = uint64 sec.SizeOfRawData
     Name = sec.Name }
 
 let getSectionsByName pe name =
