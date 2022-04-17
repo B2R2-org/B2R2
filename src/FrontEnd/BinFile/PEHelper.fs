@@ -81,7 +81,7 @@ let secFlagToSectionKind (flags: SectionCharacteristics) =
 /// Some PE files have a section header indicating that the corresponding
 /// section's size is zero even if it contains actual data, i.e.,
 /// sHdr.VirtualSize = 0, but sHdr.SizeOfRawData <> 0. Thus, we should use this
-/// function to get the size of sections (segments).
+/// function to get the size of sections.
 let getVirtualSectionSize (sec: SectionHeader) =
   let virtualSize = sec.VirtualSize
   if virtualSize = 0 then sec.SizeOfRawData else virtualSize

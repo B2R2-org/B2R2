@@ -32,13 +32,18 @@ open B2R2.FrontEnd.BinFile.PE.Helper
 
 /// This is equivalent to GetContainingSectionIndex function except that we are
 /// using our own section header array here. This should be used instead of
-/// GetContainingSectionIndex as we sometimes consider only a subset of the
-/// sections in a file, e.g., when analyzing COFF binaries.
+/// GetContainingSectionIndex when analyzing binaries that contain sections
+/// whose file size is less than its memory size, e.g., COFF binaries.
 let findMappedSectionIndex (secs: SectionHeader []) rva =
   secs
   |> Array.tryFindIndex (fun s ->
     s.VirtualAddress <= rva && rva < s.VirtualAddress + s.SizeOfRawData)
   |> Option.defaultValue -1
+
+let findSectionIndex (hdrs: PEHeaders) secs rva =
+  let idx = hdrs.GetContainingSectionIndex rva
+  if idx < 0 then findMappedSectionIndex secs rva
+  else idx
 
 let getRawOffset secs rva =
   let idx = findMappedSectionIndex secs rva
@@ -315,7 +320,7 @@ let parseImage execpath rawpdb baseAddr bytes reader (hdrs: PEHeaders) =
     InvalidAddrRanges = computeInvalidAddrRanges wordSize baseAddr secs
     NotInFileRanges = computeNotInFileRanges wordSize baseAddr secs
     ExecutableRanges = execRanges baseAddr secs
-    FindSectionIdxFromRVA = findMappedSectionIndex secs
+    FindSectionIdxFromRVA = findSectionIndex hdrs secs
     BinReader = reader }
 
 let parseCoff baseAddr bytes reader (hdrs: PEHeaders) =
