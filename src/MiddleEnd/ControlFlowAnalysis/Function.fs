@@ -438,8 +438,10 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
       if p.VData.PPoint = lastLeader then RegularFunction.AddEdgeByType __ v v e
       else RegularFunction.AddEdgeByType __ p v e)
     outs |> List.iter (fun (s, e) ->
-      (* When the outgoing edge is to the merged vertex. *)
-      if s.VData.PPoint = srcPp then RegularFunction.AddEdgeByType __ v v e
+      (* When the outgoing edge is to the merged vertex. What we should be aware
+         of is when the successor is a fake-block. *)
+      if s.VData.PPoint = srcPp && not <| s.VData.IsFakeBlock () then
+        RegularFunction.AddEdgeByType __ v v e
       else RegularFunction.AddEdgeByType __ v s e)
     regularVertices[v.VData.PPoint] <- v
 
