@@ -28,6 +28,8 @@ namespace B2R2.BinIR
 type Symbol = string * int
 
 module Symbol =
-  let getName (s: Symbol) = fst s
+  let inline getName (s: Symbol) = fst s
+
+  let inline getNumber (s: Symbol) = snd s
 
   let toString (s: Symbol) = fst s + "_" + (snd s).ToString ()
