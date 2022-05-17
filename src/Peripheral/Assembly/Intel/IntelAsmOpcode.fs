@@ -611,7 +611,7 @@ let logAnd (ctxt: EncContext) ins =
     encRR ins ctxt.Arch
       ctxt.PrefNormal ctxt.RexW [| 0x23uy |] r1 r2
   (* Reg - Mem *)
-  | TwoOperands (Label _, OprReg r) ->
+  | TwoOperands (OprReg r, Label _) ->
     encRL ctxt ins r [| 0x22uy |] [| 0x23uy |]
   | TwoOperands (OprReg r, OprMem (b, s, d, 8<rt>)) when isReg8 r ->
     encRM ins ctxt.Arch
