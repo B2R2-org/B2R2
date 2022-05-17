@@ -6135,7 +6135,6 @@ module internal ParsingHelper = begin
     | 0xEDuy -> parseVEX span rhlp nor0FED vex0FED
     | 0xEEuy -> parseVEX span rhlp nor0FEE vex0FEE
     | 0xEFuy -> parseEVEX span rhlp nor0FEF vex0FEF evex0FEFW0 evex0FEFW1
-    | 0xEFuy -> parseVEX span rhlp nor0FEF vex0FEF
     | 0xF0uy -> parseVEX span rhlp nor0FF0 vex0FF0
     | 0xF1uy -> parseVEX span rhlp nor0FF1 vex0FF1
     | 0xF2uy -> parseVEX span rhlp nor0FF2 vex0FF2
