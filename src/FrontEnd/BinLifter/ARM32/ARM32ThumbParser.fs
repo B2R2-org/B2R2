@@ -1977,7 +1977,7 @@ let parseAdvSIMDThreeRegsOfSameLen phlp (itstate: byref<bl>) isInIT b =
     chkSzIT b itstate
 #endif
     render phlp &itstate 0 isInIT b Op.VPADD (oneDt SIMDTypF32) N OD.OprDdDnDm
-  | 0b101110110u ->
+  | 0b101110100u ->
 #if !EMULATION
     chkSzIT b itstate
 #endif
@@ -7111,7 +7111,7 @@ let parseDataProcessingShiftReg phlp (itstate: byref<bl>) isInIT bin =
       if inITBlock itstate then struct (W, OD.OprRdRnRmT32)
       else struct (N, OD.OprRdRnRmShfT)
     render phlp &itstate 0 isInIT bin Op.ADC None q oprs
-  | 0b10101u ->
+  | 0b10101u when i3i2st = 0b11u ->
 #if !EMULATION
     chkThumbPCRdRnRm bin
 #endif
@@ -7137,7 +7137,7 @@ let parseDataProcessingShiftReg phlp (itstate: byref<bl>) isInIT bin =
       if inITBlock itstate then struct (W, OD.OprRdRnRmT32)
       else struct (N, OD.OprRdRnRmShfT)
     render phlp &itstate 0 isInIT bin Op.SBC None q oprs
-  | 0b10111u ->
+  | 0b10111u when i3i2st = 0b11u ->
 #if !EMULATION
     chkThumbPCRdRnRm bin
 #endif
@@ -7147,7 +7147,7 @@ let parseDataProcessingShiftReg phlp (itstate: byref<bl>) isInIT bin =
     chkThumbPCRdRnRm bin
 #endif
     let struct (q, oprs) =
-      if inITBlock itstate then struct (W, OD.OprRdRnRmT32)
+      if inITBlock itstate |> not then struct (W, OD.OprRdRnRmT32)
       else struct (N, OD.OprRdRnRmShfT)
     render phlp &itstate 0 isInIT bin Op.SBCS None q oprs
   | 0b11000u | 0b11001u (* 1100x *) -> raise ParsingFailureException
