@@ -1302,15 +1302,16 @@ let translate insInfo (ctxt: TranslationContext) =
   | Op.B -> b insInfo ctxt
   | Op.BAL -> bal insInfo ctxt
   | Op.BC1F | Op.BC1T -> sideEffects insInfo UnsupportedFP
-  | Op.BEQ -> beq insInfo ctxt
+  | Op.BEQ | Op.BEQL -> beq insInfo ctxt
   | Op.BGEZ -> bgez insInfo ctxt
   | Op.BGTZ -> bgtz insInfo ctxt
   | Op.BLEZ -> blez insInfo ctxt
   | Op.BLTZ -> bltz insInfo ctxt
-  | Op.BNE -> bne insInfo ctxt
+  | Op.BNE | Op.BNEL -> bne insInfo ctxt
+  | Op.BREAK -> sideEffects insInfo Breakpoint
   | Op.C | Op.CFC1 | Op.CTC1 -> sideEffects insInfo UnsupportedFP
   | Op.CLZ -> clz insInfo ctxt
-  | Op.CVTD | Op.CVTS -> sideEffects insInfo UnsupportedFP
+  | Op.CVTD | Op.CVTS | Op.CVTW -> sideEffects insInfo UnsupportedFP
   | Op.DADDU -> addu insInfo ctxt
   | Op.DADDIU -> daddiu insInfo ctxt
   | Op.DCLZ -> dclz insInfo ctxt
@@ -1349,6 +1350,7 @@ let translate insInfo (ctxt: TranslationContext) =
   | Op.LDC1 | Op.LWC1 | Op.SDC1 | Op.SWC1 -> sideEffects insInfo UnsupportedFP
   | Op.LUI -> lui insInfo ctxt
   | Op.MADD when insInfo.Fmt.IsNone -> madd insInfo ctxt
+  | Op.MADD -> sideEffects insInfo UnsupportedFP
   | Op.MFHI -> mfhi insInfo ctxt
   | Op.MFLO -> mflo insInfo ctxt
   | Op.MFC1 -> sideEffects insInfo UnsupportedFP
