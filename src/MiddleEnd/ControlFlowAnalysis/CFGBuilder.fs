@@ -33,6 +33,14 @@ open B2R2.FrontEnd.BinLifter
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
+/// Information about a fall-through block to resolve next.
+type FallThroughInfo =
+  | FTCall of caller: ProgramPoint
+            * callSite: Addr
+            * callee: Addr
+            * ftAddr: Addr
+  | FTNonCall of srcPp: ProgramPoint * ftAddr: Addr
+
 [<AutoOpen>]
 module private CFGBuilder =
   /// In this function, we only consider a single instruction-level basic block.
@@ -230,57 +238,69 @@ module private CFGBuilder =
     | RegularSyscallTail -> true
     | _ -> false
 
-  /// Scan all exit nodes and obtain two things: (1) a list of vertices that
-  /// needs to be connected with fall-through edges; and (2) a set of function
-  /// addresses which need to perform the no-ret analysis. We assume that the
-  /// indirect call recovery is performed on the given function (fn).
+  /// Obtain fall-through information from a fake block and add it to the
+  /// accumulator. The information includes a 4-tuple: (caller program point,
+  /// call instruction address, callee's address, fall-through address).
+  let accFTInfoFromFake (codeMgr: CodeManager) fn (v: IRVertex) infos =
+    let callSite = v.VData.FakeBlockInfo.CallSite
+    let callerPp = Set.maxElement (codeMgr.GetBBL callSite).IRLeaders
+    let calleeAddr = v.VData.PPoint.Address
+    let callerV = (fn: RegularFunction).FindVertex callerPp
+    let last = callerV.VData.LastInstruction
+    let ftAddr = last.Address + uint64 last.Length
+    FTCall (callerPp, callSite, calleeAddr, ftAddr) :: infos
+
+  /// Scan all exit nodes and obtain two things: (1) a list of addresses that
+  /// are a target of fall-through edges; and (2) a set of function addresses
+  /// which need to perform the no-ret analysis. We assume that the indirect
+  /// call recovery is performed on the given function (fn).
   let scanCandidates hdl codeMgr noret fn exitNodes =
     exitNodes
-    |> List.fold (fun (vs, toAnalyze) (v: Vertex<IRBasicBlock>) ->
+    |> List.fold (fun (infos, toAnalyze) (v: Vertex<IRBasicBlock>) ->
       if not (v.VData.IsFakeBlock ()) then
-        if isReturningSyscall hdl noret v then v :: vs, toAnalyze
-        else vs, toAnalyze
+        if isReturningSyscall hdl noret v then
+          let last = v.VData.LastInstruction
+          let ftAddr = last.Address + uint64 last.Length
+          FTNonCall (v.VData.PPoint, ftAddr) :: infos, toAnalyze
+        else infos, toAnalyze
       else
         let callSite = v.VData.FakeBlockInfo.CallSite
         (fn: RegularFunction).CallTargets callSite
-        |> Set.fold (fun (vs, toAnalyze) calleeAddr ->
+        |> Set.fold (fun (infos, toAnalyze) calleeAddr ->
           let callee = (codeMgr: CodeManager).FunctionMaintainer.Find calleeAddr
           match callee.NoReturnProperty with
           | NotNoRetConfirmed | NotNoRet ->
-            if v.VData.FakeBlockInfo.IsTailCall then vs, toAnalyze
-            else v :: vs, toAnalyze
+            if v.VData.FakeBlockInfo.IsTailCall then infos, toAnalyze
+            else accFTInfoFromFake codeMgr fn v infos, toAnalyze
           | ConditionalNoRet arg ->
             let callerPp = Set.maxElement (codeMgr.GetBBL callSite).IRLeaders
             let callerV = fn.FindVertex callerPp
-            if noret.HasNonZeroArg hdl callerV arg then vs, toAnalyze
-            elif v.VData.FakeBlockInfo.IsTailCall then vs, toAnalyze
-            else v :: vs, toAnalyze
+            if noret.HasNonZeroArg hdl callerV arg then infos, toAnalyze
+            elif v.VData.FakeBlockInfo.IsTailCall then infos, toAnalyze
+            else accFTInfoFromFake codeMgr fn v infos, toAnalyze
           | UnknownNoRet ->
-            if callee.Entry = fn.Entry then (* Recursive call *) vs, toAnalyze
-            else vs, Set.add calleeAddr toAnalyze
-          | _ -> vs, toAnalyze) (vs, toAnalyze)
+            if callee.Entry = fn.Entry then (* Recursive *) infos, toAnalyze
+            else infos, Set.add calleeAddr toAnalyze
+          | _ -> infos, toAnalyze) (infos, toAnalyze)
     ) ([], Set.empty)
 
-  let addFallThroughEvts (codeMgr: CodeManager) fn verticesToAddFalls evts =
+  let addFallThroughEvts (hdl: BinHandle) codeMgr fn ftInfos evts =
     let evts =
       CFGEvents.addPerFuncAnalysisEvt (fn: RegularFunction).Entry evts
-    verticesToAddFalls
-    |> List.fold (fun evts (v: IRVertex) ->
-      if v.VData.IsFakeBlock () then
-        let callSite = v.VData.FakeBlockInfo.CallSite
-        let callerPp = Set.maxElement (codeMgr.GetBBL callSite).IRLeaders
-        let calleeAddr = v.VData.PPoint.Address
-        let callerV = fn.FindVertex callerPp
-        let last = callerV.VData.LastInstruction
-        let ftAddr = last.Address + uint64 last.Length
-        evts
-        |> CFGEvents.addRetEvt fn calleeAddr ftAddr callSite
-        |> CFGEvents.addEdgeEvt fn callerPp ftAddr CallFallThroughEdge
-      else
-        let pp = v.VData.PPoint
-        let last = v.VData.LastInstruction
-        let ftAddr = last.Address + uint64 last.Length
-        evts |> CFGEvents.addEdgeEvt fn pp ftAddr FallThroughEdge
+    ftInfos
+    |> List.fold (fun evts ftInfo ->
+      match ftInfo with
+      | FTCall (caller, callSite, callee, ftAddr) ->
+        if not (hdl.FileInfo.IsExecutableAddr ftAddr) then
+          let calleeFn = (codeMgr: CodeManager).FunctionMaintainer.Find callee
+          calleeFn.NoReturnProperty <- NoRet
+          evts
+        else
+          evts
+          |> CFGEvents.addRetEvt fn callee ftAddr callSite
+          |> CFGEvents.addEdgeEvt fn caller ftAddr CallFallThroughEdge
+      | FTNonCall (srcPp, ftAddr) ->
+        evts |> CFGEvents.addEdgeEvt fn srcPp ftAddr FallThroughEdge
       ) evts
 
   let updateCalleeInfo (codeMgr: CodeManager) (func: RegularFunction) =
@@ -408,9 +428,9 @@ module private CFGBuilder =
   let runPerFuncAnalysis hdl codeMgr dataMgr entry noret indcall indjmp evts =
     let fn = (codeMgr: CodeManager).FunctionMaintainer.FindRegular (addr=entry)
     let exits = DiGraph.getExits (fn: RegularFunction).IRCFG
-    let vsToAddFalls, toAnalyze = scanCandidates hdl codeMgr noret fn exits
-    if not (List.isEmpty vsToAddFalls) then
-      addFallThroughEvts codeMgr fn vsToAddFalls evts |> Ok
+    let ftInfos, toAnalyze = scanCandidates hdl codeMgr noret fn exits
+    if not (List.isEmpty ftInfos) then
+      addFallThroughEvts hdl codeMgr fn ftInfos evts |> Ok
     elif not (fn.YetAnalyzedIndirectJumpAddrs |> Seq.isEmpty) then
       runIndirectJmpRecovery hdl codeMgr dataMgr entry indjmp fn evts
     elif checkIfIndCallAnalysisRequired fn exits then

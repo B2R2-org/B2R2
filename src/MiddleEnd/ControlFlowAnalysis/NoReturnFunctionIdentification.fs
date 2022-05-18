@@ -95,7 +95,7 @@ module private NoReturnFunctionIdentificationHelper =
             (* Since we are analyzing exit nodes, the fall-through edge does
                not exist at this point. Thus, ConditionalNoRet here implies
                the call will not return. *)
-            | NoRet| ConditionalNoRet _ ->
+            | NoRet | ConditionalNoRet _ ->
               NoReturnDecision.meet cond IsNoReturning
             | _ ->
               if v.VData.FakeBlockInfo.IsTailCall then IsReturning
