@@ -28,6 +28,9 @@ open System
 open B2R2
 open B2R2.FrontEnd.BinFile.FileHelper
 
+let [<Literal>] SecText = ".text"
+let [<Literal>] SecROData = ".rodata"
+
 /// Return the raw memory contents that represent the section names separated by
 /// null character.
 let parseSectionNameContents eHdr span reader =

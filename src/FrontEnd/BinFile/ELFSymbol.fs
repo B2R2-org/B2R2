@@ -190,7 +190,7 @@ let nextSymOffset eHdr offset =
   offset + if eHdr.Class = WordSize.Bit32 then 16 else 24
 
 let getTextSectionOffset secs =
-  match Map.tryFind ".text" secs.SecByName with
+  match Map.tryFind Section.SecText secs.SecByName with
   | None -> 0UL
   | Some sec -> sec.SecOffset
 

@@ -29,8 +29,6 @@ open System.Collections.Generic
 open B2R2
 open B2R2.FrontEnd.BinFile
 
-let [<Literal>] SecText = ".text"
-
 let convFileType = function
   | ELFFileType.Executable -> FileType.ExecutableFile
   | ELFFileType.SharedObject -> FileType.LibFile
@@ -51,7 +49,7 @@ let isRelocatable span elf =
      |> List.exists pred
 
 let inline getTextStartAddr elf =
-  (Map.find SecText elf.SecInfo.SecByName).SecAddr
+  (Map.find Section.SecText elf.SecInfo.SecByName).SecAddr
 
 let inline private inMem seg addr =
   let vAddr = seg.PHAddr
@@ -153,7 +151,7 @@ let getTextSections elf =
   elf.SecInfo.SecByNum
   |> Array.filter (fun sec ->
     (SectionFlag.SHFExecInstr &&& sec.SecFlags = SectionFlag.SHFExecInstr)
-    && sec.SecName.StartsWith SecText)
+    && sec.SecName.StartsWith Section.SecText)
   |> Array.map elfSectionToSection
   |> Array.toSeq
 
