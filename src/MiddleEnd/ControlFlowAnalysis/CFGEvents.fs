@@ -138,7 +138,7 @@ module CFGEvents =
           when newFn.Entry < callSite && newFn.MaxAddr > callSite ->
           CFGCall (newFn, callSite, callee)
         | CFGRet (_, callee, ftAddr, callSite)
-          when newFn.Entry < ftAddr && newFn.MaxAddr > ftAddr ->
+          when newFn.Entry < ftAddr && (newFn.MaxAddr + 1UL) >= ftAddr ->
           CFGRet (newFn, callee, ftAddr, callSite)
         | CFGIndCall (_, callSite)
           when newFn.Entry < callSite && newFn.MaxAddr > callSite ->
