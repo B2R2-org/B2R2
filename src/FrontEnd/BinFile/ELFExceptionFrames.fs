@@ -571,7 +571,7 @@ let rec getUnwind acc cfa irule rst rule isa rbay lr cf df rr span i loc =
       let acc = ent :: acc
       getUnwind acc cfa irule rst rule isa rbay lr cf df rr span i' loc'
     | DWCFAInstruction.DW_CFA_remember_state ->
-      let rst = (cfa, rule) :: rst
+      let rst = (cfa, rule, lr) :: rst
       getUnwind acc cfa irule rst rule isa rbay lr cf df rr span i loc
     | DWCFAInstruction.DW_CFA_restore ->
       let target = Rule.getTarget isa rr oparg
@@ -583,7 +583,7 @@ let rec getUnwind acc cfa irule rst rule isa rbay lr cf df rr span i loc =
       let rule = restoreOne irule rule target
       getUnwind acc cfa irule rst rule isa rbay lr cf df rr span (i + cnt) loc
     | DWCFAInstruction.DW_CFA_restore_state ->
-      let cfa, rule = List.head rst
+      let cfa, rule, lr = List.head rst
       let rst = List.tail rst
       getUnwind acc cfa irule rst rule isa rbay lr cf df rr span i loc
     | DWCFAInstruction.DW_CFA_GNU_args_size ->
