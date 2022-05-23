@@ -169,7 +169,9 @@ module private CFGBuilder =
     let srcPp = ProgramPoint (callBlk.BlkRange.Min, 0)
     let src = (fn: RegularFunction).FindVertex srcPp
     DiGraph.getSuccs fn.IRCFG src
-    |> List.iter (fun dst -> fn.RemoveEdge (src, dst))
+    |> List.iter (fun dst ->
+      (* Do not remove fake block *)
+      if not <| dst.VData.IsFakeBlock () then fn.RemoveEdge (src, dst))
     callee.NoReturnProperty <- NoRet
 
   let buildRet codeMgr (fn: RegularFunction) callee ftAddr callSite evts =
