@@ -127,7 +127,7 @@ module private CFGBuilder =
     | Some calleeFn -> Some calleeFn.Entry
     | _ -> None
 
-  let buildCall hdl codeMgr dataMgr fn callSite callee isTailCall evts =
+  let buildCall hdl codeMgr dataMgr fn callSite callee isTailCall isFake evts =
     let callerBBL = (codeMgr: CodeManager).GetBBL callSite
     let callerPp = Set.maxElement callerBBL.IRLeaders
     let relocFuncs = (dataMgr: DataManager).RelocatableFuncs
@@ -139,10 +139,12 @@ module private CFGBuilder =
     match callee with
     | Some 0UL -> Ok evts (* Ignore the callee for "call 0" cases. *)
     | Some callee ->
-        (fn: RegularFunction).AddEdge (callerPp, callSite, callee, isTailCall)
-        let calleeFn, evts = getCallee hdl codeMgr callee evts
-        markAsReturning fn isTailCall calleeFn
-        Ok evts
+        (fn: RegularFunction).AddEdge (callerPp, callSite, callee, isTailCall, isFake)
+        if not isFake then
+          let calleeFn, evts = getCallee hdl codeMgr callee evts
+          markAsReturning fn isTailCall calleeFn
+          Ok evts
+        else Ok evts
     | _ ->
       let callerV = fn.FindVertex callerPp
       let last = callerV.VData.LastInstruction
@@ -157,7 +159,7 @@ module private CFGBuilder =
     Ok evts
 
   let buildTailCall hdl codeMgr dataMgr fn caller callee evts =
-    buildCall hdl codeMgr dataMgr fn caller callee true evts
+    buildCall hdl codeMgr dataMgr fn caller callee true false evts
 
   let makeCalleeNoReturn (codeMgr: CodeManager) fn callee callSite =
     let callee = codeMgr.FunctionMaintainer.Find (addr=callee)
@@ -207,7 +209,7 @@ module private CFGBuilder =
         Ok evts (* Undetected no-return case, so we do not add fall-through. *)
       else (* Tail-call. *)
         buildFunction hdl codeMgr dataMgr dst mode evts
-        |> Result.bind (buildCall hdl codeMgr dataMgr fn src.Address dst true)
+        |> Result.bind (buildCall hdl codeMgr dataMgr fn src.Address dst true false)
     elif isIntrudingBlk codeMgr dst then
       splitAndConnectEdge hdl codeMgr fn src dst edge evts
     elif not (codeMgr.HasInstruction dst) (* Jump to the middle of an instr *)
@@ -330,7 +332,7 @@ module private CFGBuilder =
 
   let updateCalleeInfo (codeMgr: CodeManager) (func: RegularFunction) =
     DiGraph.iterVertex func.IRCFG (fun v ->
-      if v.VData.IsFakeBlock () && v.VData.PPoint.Address <> 0UL then
+      if v.VData.IsFakeBlock () && v.VData.PPoint.Address <> 0UL && not v.VData.FakeBlockInfo.IsFakeCall then
         let calleeFunc = codeMgr.FunctionMaintainer.Find v.VData.PPoint.Address
         if calleeFunc.FunctionKind = FunctionKind.Regular then
           let calleeFunc = calleeFunc :?> RegularFunction
@@ -509,13 +511,13 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
 #endif
       let evts = { evts with BasicEvents = tl }
       update (buildRegularEdge hdl codeMgr dataMgr fn src dst edge evts)
-    | Ok ({ BasicEvents = CFGCall (fn, callSite, callee) :: tl } as evts) ->
+    | Ok ({ BasicEvents = CFGCall (fn, callSite, callee, isFake) :: tl } as evts) ->
 #if CFGDEBUG
       dbglog (nameof CFGBuilder) "@%x %s (%x -> %x) %s"
         fn.Entry (nameof CFGCall) callSite callee (countEvts evts)
 #endif
       let evts = { evts with BasicEvents = tl }
-      update (buildCall hdl codeMgr dataMgr fn callSite callee false evts)
+      update (buildCall hdl codeMgr dataMgr fn callSite callee false isFake evts)
     | Ok ({ BasicEvents = CFGIndCall (fn, callSite) :: tl } as evts) ->
 #if CFGDEBUG
       dbglog (nameof CFGBuilder) "@%x %s (%x) %s"

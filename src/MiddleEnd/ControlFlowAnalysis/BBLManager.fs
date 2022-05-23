@@ -212,11 +212,11 @@ module BBLInfo =
     if target = ftAddr then
       CFGEvents.addRetEvt fn target ftAddr callSite tmp.NextEvents
       |> CFGEvents.addEdgeEvt fn caller ftAddr CallFallThroughEdge
-      |> CFGEvents.addCallEvt fn callSite target
+      |> CFGEvents.addCallEvt fn callSite target true
       |> updateNextEvents tmp
     else
       addExceptionEdgeEvents callSite excTbl fn entry caller tmp
-      |> CFGEvents.addCallEvt fn callSite target
+      |> CFGEvents.addCallEvt fn callSite target false
       |> updateNextEvents tmp
 
   let private addIndirectCallEvents callSite excTbl fn caller tmp =
