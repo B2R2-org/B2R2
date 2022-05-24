@@ -139,7 +139,8 @@ type FakeIRBasicBlock (ppoint, callSiteAddr, ?isTailCall, ?isIndCall) =
       GetPCThunkInfo = NoGetPCThunk
       IsPLT = false
       IsTailCall = defaultArg isTailCall false
-      IsIndirectCall = defaultArg isIndCall false }
+      IsIndirectCall = defaultArg isIndCall false
+      IsNoFunction = false }
 
   override __.IsFakeBlock () = true
 

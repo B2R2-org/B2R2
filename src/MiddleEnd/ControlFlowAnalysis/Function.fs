@@ -282,12 +282,16 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
       __.AddFakeVertex edgeKey bbl
 
   /// Add/replace a direct call edge to this function.
-  member __.AddEdge (callerBlk, callSite, callee, isTailCall) =
+  member __.AddEdge (callerBlk, callSite, callee, isTailCall, isNoFn) =
     let src = regularVertices[callerBlk]
     let dst = __.GetOrAddFakeVertex (callSite, callee, isTailCall)
-    callEdges[callSite] <-
-      if callee = 0UL then NullCallee else RegularCallee callee
-    callEdgeChanged <- true
+    if not isNoFn then
+      callEdges[callSite] <-
+        if callee = 0UL then NullCallee else RegularCallee callee
+      callEdgeChanged <- true
+    else
+      dst.VData.FakeBlockInfo <-
+        { dst.VData.FakeBlockInfo with IsNoFunction = true }
     __.IRCFG <- DiGraph.addEdge __.IRCFG src dst CallEdge
 
   /// Add/replace an indirect call edge to this function.
@@ -349,7 +353,8 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
       let callSite = dst.VData.FakeBlockInfo.CallSite
       let callee = dst.VData.PPoint.Address
       let isTailCall = dst.VData.FakeBlockInfo.IsTailCall
-      fn.AddEdge (src.VData.PPoint, callSite, callee, isTailCall)
+      let isNoFunc = dst.VData.FakeBlockInfo.IsNoFunction
+      fn.AddEdge (src.VData.PPoint, callSite, callee, isTailCall, isNoFunc)
     | IndirectCallEdge ->
       fn.AddEdge (src.VData.PPoint, dst.VData.FakeBlockInfo.CallSite)
     | RetEdge ->
@@ -507,7 +512,7 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
     (* Replace newFn to FakeBlock *)
     let callerPoint = callerBlk.VData.PPoint
     let callSite = callerBlk.VData.LastInstruction.Address
-    __.AddEdge (callerPoint, callSite, newEntry, true)
+    __.AddEdge (callerPoint, callSite, newEntry, true, false)
     (* Move necessary information *)
     reachableNodes
     |> Set.iter (fun v ->

@@ -30,6 +30,7 @@ open B2R2.BinIR
 open B2R2.FrontEnd.BinFile.ELF
 open B2R2.FrontEnd.BinInterface
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinLifter.Intel
 open B2R2.MiddleEnd.BinGraph
 open B2R2.MiddleEnd.ControlFlowGraph
 
@@ -126,7 +127,7 @@ module private CFGBuilder =
     | Some calleeFn -> Some calleeFn.Entry
     | _ -> None
 
-  let buildCall hdl codeMgr dataMgr fn callSite callee isTailCall evts =
+  let buildCall hdl codeMgr dataMgr fn callSite callee isTailCall isNoFn evts =
     let callerBBL = (codeMgr: CodeManager).GetBBL callSite
     let callerPp = Set.maxElement callerBBL.IRLeaders
     let relocFuncs = (dataMgr: DataManager).RelocatableFuncs
@@ -138,10 +139,13 @@ module private CFGBuilder =
     match callee with
     | Some 0UL -> Ok evts (* Ignore the callee for "call 0" cases. *)
     | Some callee ->
-        (fn: RegularFunction).AddEdge (callerPp, callSite, callee, isTailCall)
-        let calleeFn, evts = getCallee hdl codeMgr callee evts
-        markAsReturning fn isTailCall calleeFn
-        Ok evts
+        (fn: RegularFunction).AddEdge (callerPp, callSite, callee,
+                                       isTailCall, isNoFn)
+        if not isNoFn then
+          let calleeFn, evts = getCallee hdl codeMgr callee evts
+          markAsReturning fn isTailCall calleeFn
+          Ok evts
+        else Ok evts
     | _ ->
       let callerV = fn.FindVertex callerPp
       let last = callerV.VData.LastInstruction
@@ -156,7 +160,7 @@ module private CFGBuilder =
     Ok evts
 
   let buildTailCall hdl codeMgr dataMgr fn caller callee evts =
-    buildCall hdl codeMgr dataMgr fn caller callee true evts
+    buildCall hdl codeMgr dataMgr fn caller callee true false evts
 
   let makeCalleeNoReturn (codeMgr: CodeManager) fn callee callSite =
     let callee = codeMgr.FunctionMaintainer.Find (addr=callee)
@@ -168,7 +172,9 @@ module private CFGBuilder =
     let srcPp = ProgramPoint (callBlk.BlkRange.Min, 0)
     let src = (fn: RegularFunction).FindVertex srcPp
     DiGraph.getSuccs fn.IRCFG src
-    |> List.iter (fun dst -> fn.RemoveEdge (src, dst))
+    |> List.iter (fun dst ->
+      (* Do not remove fake block *)
+      if not <| dst.VData.IsFakeBlock () then fn.RemoveEdge (src, dst))
     callee.NoReturnProperty <- NoRet
 
   let buildRet codeMgr (fn: RegularFunction) callee ftAddr callSite evts =
@@ -204,7 +210,7 @@ module private CFGBuilder =
         Ok evts (* Undetected no-return case, so we do not add fall-through. *)
       else (* Tail-call. *)
         buildFunction hdl codeMgr dataMgr dst mode evts
-        |> Result.bind (buildCall hdl codeMgr dataMgr fn src.Address dst true)
+        |> Result.bind (buildCall hdl codeMgr dataMgr fn src.Address dst true false)
     elif isIntrudingBlk codeMgr dst then
       splitAndConnectEdge hdl codeMgr fn src dst edge evts
     elif not (codeMgr.HasInstruction dst) (* Jump to the middle of an instr *)
@@ -250,6 +256,19 @@ module private CFGBuilder =
     let ftAddr = last.Address + uint64 last.Length
     FTCall (callerPp, callSite, calleeAddr, ftAddr) :: infos
 
+  /// Check if a call instruction is indeed a system call. In particular,
+  /// call dword ptr [gs:0x10] is a system call in x86/x64 Linux environment.
+  /// We pattern-match the instruction.
+  let isIndirectSyscall hdl (fn: RegularFunction) (v: Vertex<IRBasicBlock>) =
+    match hdl.FileInfo.FileFormat, hdl.FileInfo.ISA.Arch with
+    | FileFormat.ELFBinary, Architecture.IntelX86 ->
+      let caller = DiGraph.getPreds fn.IRCFG v |> List.head
+      let callIns = caller.VData.LastInstruction :?> IntelInstruction
+      match callIns.Prefixes, callIns.Operands with
+      | Prefix.PrxGS, OneOperand (OprMem (None, None, Some 16L, _)) -> true
+      | _ -> false
+    | _ -> false
+
   /// Scan all exit nodes and obtain two things: (1) a list of addresses that
   /// are a target of fall-through edges; and (2) a set of function addresses
   /// which need to perform the no-ret analysis. We assume that the indirect
@@ -263,6 +282,14 @@ module private CFGBuilder =
           let ftAddr = last.Address + uint64 last.Length
           FTNonCall (v.VData.PPoint, ftAddr) :: infos, toAnalyze
         else infos, toAnalyze
+      elif isIndirectSyscall hdl fn v then
+        (* First mark it as resolved indirect call so that indirect call
+           analyzer will not analyze this again. *)
+        let callsite = v.VData.FakeBlockInfo.CallSite
+        fn.UpdateCallEdgeInfo (callsite, IndirectCallees Set.empty)
+        let caller = DiGraph.getPreds fn.IRCFG v |> List.head
+        if noret.IsNoRetSyscallBlk hdl caller then infos, toAnalyze
+        else accFTInfoFromFake codeMgr fn v infos, toAnalyze
       else
         let callSite = v.VData.FakeBlockInfo.CallSite
         (fn: RegularFunction).CallTargets callSite
@@ -305,7 +332,8 @@ module private CFGBuilder =
 
   let updateCalleeInfo (codeMgr: CodeManager) (func: RegularFunction) =
     DiGraph.iterVertex func.IRCFG (fun v ->
-      if v.VData.IsFakeBlock () && v.VData.PPoint.Address <> 0UL then
+      if v.VData.IsFakeBlock () && v.VData.PPoint.Address <> 0UL
+        && not v.VData.FakeBlockInfo.IsNoFunction then
         let calleeFunc = codeMgr.FunctionMaintainer.Find v.VData.PPoint.Address
         if calleeFunc.FunctionKind = FunctionKind.Regular then
           let calleeFunc = calleeFunc :?> RegularFunction
@@ -484,13 +512,13 @@ type CFGBuilder (hdl, codeMgr: CodeManager, dataMgr: DataManager) as this =
 #endif
       let evts = { evts with BasicEvents = tl }
       update (buildRegularEdge hdl codeMgr dataMgr fn src dst edge evts)
-    | Ok ({ BasicEvents = CFGCall (fn, callSite, callee) :: tl } as evts) ->
+    | Ok ({ BasicEvents = CFGCall (fn, csite, callee, noFn) :: tl } as evts) ->
 #if CFGDEBUG
       dbglog (nameof CFGBuilder) "@%x %s (%x -> %x) %s"
-        fn.Entry (nameof CFGCall) callSite callee (countEvts evts)
+        fn.Entry (nameof CFGCall) csite callee (countEvts evts)
 #endif
       let evts = { evts with BasicEvents = tl }
-      update (buildCall hdl codeMgr dataMgr fn callSite callee false evts)
+      update (buildCall hdl codeMgr dataMgr fn csite callee false noFn evts)
     | Ok ({ BasicEvents = CFGIndCall (fn, callSite) :: tl } as evts) ->
 #if CFGDEBUG
       dbglog (nameof CFGBuilder) "@%x %s (%x) %s"

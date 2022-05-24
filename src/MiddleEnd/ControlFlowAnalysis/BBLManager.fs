@@ -208,15 +208,14 @@ module BBLInfo =
 
   let private addCallEdgeEvents callSite excTbl fn caller target ftAddr tmp =
     let entry = (fn: RegularFunction).Entry
-    (* Clang often produce type of code to achieve position-independence. *)
-    if target = ftAddr then
+    if target = ftAddr then (* Clang often produces PC-getter like this. *)
       CFGEvents.addRetEvt fn target ftAddr callSite tmp.NextEvents
       |> CFGEvents.addEdgeEvt fn caller ftAddr CallFallThroughEdge
-      |> CFGEvents.addCallEvt fn callSite target
+      |> CFGEvents.addCallEvt fn callSite target true
       |> updateNextEvents tmp
     else
       addExceptionEdgeEvents callSite excTbl fn entry caller tmp
-      |> CFGEvents.addCallEvt fn callSite target
+      |> CFGEvents.addCallEvt fn callSite target false
       |> updateNextEvents tmp
 
   let private addIndirectCallEvents callSite excTbl fn caller tmp =
