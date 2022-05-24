@@ -260,8 +260,7 @@ module private CFGBuilder =
   /// We pattern-match the instruction.
   let isIndirectSyscall hdl (fn: RegularFunction) (v: Vertex<IRBasicBlock>) =
     match hdl.FileInfo.FileFormat, hdl.FileInfo.ISA.Arch with
-    | FileFormat.ELFBinary, Architecture.IntelX86
-    | FileFormat.ELFBinary, Architecture.IntelX64 ->
+    | FileFormat.ELFBinary, Architecture.IntelX86 ->
       let caller = DiGraph.getPreds fn.IRCFG v |> List.head
       let callIns = caller.VData.LastInstruction :?> IntelInstruction
       match callIns.Prefixes, callIns.Operands with
