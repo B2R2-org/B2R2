@@ -282,15 +282,16 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
       __.AddFakeVertex edgeKey bbl
 
   /// Add/replace a direct call edge to this function.
-  member __.AddEdge (callerBlk, callSite, callee, isTailCall, isFake) =
+  member __.AddEdge (callerBlk, callSite, callee, isTailCall, isNoFn) =
     let src = regularVertices[callerBlk]
     let dst = __.GetOrAddFakeVertex (callSite, callee, isTailCall)
-    if not isFake then
+    if not isNoFn then
       callEdges[callSite] <-
         if callee = 0UL then NullCallee else RegularCallee callee
       callEdgeChanged <- true
     else
-      dst.VData.FakeBlockInfo <- { dst.VData.FakeBlockInfo with IsFakeCall = true }
+      dst.VData.FakeBlockInfo <-
+        { dst.VData.FakeBlockInfo with IsNoFunction = true }
     __.IRCFG <- DiGraph.addEdge __.IRCFG src dst CallEdge
 
   /// Add/replace an indirect call edge to this function.
@@ -352,8 +353,8 @@ type RegularFunction private (histMgr: HistoryManager, entry, name, thunkInfo) =
       let callSite = dst.VData.FakeBlockInfo.CallSite
       let callee = dst.VData.PPoint.Address
       let isTailCall = dst.VData.FakeBlockInfo.IsTailCall
-      let isFakeCall = dst.VData.FakeBlockInfo.IsFakeCall
-      fn.AddEdge (src.VData.PPoint, callSite, callee, isTailCall, isFakeCall)
+      let isNoFunc = dst.VData.FakeBlockInfo.IsNoFunction
+      fn.AddEdge (src.VData.PPoint, callSite, callee, isTailCall, isNoFunc)
     | IndirectCallEdge ->
       fn.AddEdge (src.VData.PPoint, dst.VData.FakeBlockInfo.CallSite)
     | RetEdge ->
