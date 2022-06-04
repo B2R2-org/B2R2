@@ -146,6 +146,7 @@ let cfgToJSON cfgType (ess: BinEssence) g root =
     Visualizer.getJSONFromGraph g [root]
   | SSACFG ->
     let struct (g, root) = SSACFG.ofIRCFG ess.BinHandle g root
+    let struct (g, root) = SSAPromotion.promote ess.BinHandle g root
     Visualizer.getJSONFromGraph g [root]
   | _ -> failwith "Invalid CFG type"
 
