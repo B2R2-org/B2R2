@@ -30,6 +30,7 @@ open B2R2.BinIR
 open B2R2.BinIR.LowUIR
 open B2R2.BinIR.LowUIR.AST.InfixOp
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinLifter.LiftingOperators
 open B2R2.FrontEnd.BinLifter.LiftingUtils
 open B2R2.FrontEnd.BinLifter.ARM32
 open B2R2.FrontEnd.BinLifter.ARM32.IRHelper
@@ -2241,6 +2242,19 @@ let ldr ins ctxt size ext =
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark ins builder
 
+let ldrbt ins insLen ctxt size =
+  let ir = IRBuilder (16)
+  let rt, addr, writeback = parseOprOfLDR ins ctxt
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  ir <! (rt := AST.loadLE size addr |> AST.zext 32<rt>)
+  match writeback with
+  | Some (basereg, newoffset) -> ir <! (basereg := newoffset)
+  | None -> ()
+  putEndLabel ctxt lblIgnore isUnconditional None ir
+  !>ir insLen
+
 let parseMemOfLDRD ins ctxt = function
   | OprMemory (OffsetMode (RegOffset (n, s, m, None))) ->
     getOffAddrWithExpr s (getRegVar ctxt n) (getRegVar ctxt m), None
@@ -4406,7 +4420,7 @@ let udf (ins: InsInfo) =
   | _ -> raise InvalidOperandException
 
 /// Translate IR.
-let translate (ins: InsInfo) ctxt =
+let translate (ins: InsInfo) insLen ctxt =
   match ins.Opcode with
   | Op.ADC -> adc false ins ctxt
   | Op.ADCS -> adcs true ins ctxt
@@ -4488,6 +4502,7 @@ let translate (ins: InsInfo) ctxt =
   | Op.LDMDB -> ldm Op.LDMDB ins ctxt (.-)
   | Op.LDR -> ldr ins ctxt 32<rt> AST.zext
   | Op.LDRB -> ldr ins ctxt 8<rt> AST.zext
+  | Op.LDRBT -> ldrbt ins insLen ctxt 8<rt>
   | Op.LDRSB -> ldr ins ctxt 8<rt> AST.sext
   | Op.LDRD -> ldrd ins ctxt
   | Op.LDRH -> ldr ins ctxt 16<rt> AST.zext
@@ -4499,8 +4514,11 @@ let translate (ins: InsInfo) ctxt =
   | Op.STR -> str ins ctxt 32<rt>
   | Op.STREX -> strex ins ctxt
   | Op.STRB -> str ins ctxt 8<rt>
+  | Op.STRBT -> str ins ctxt 8<rt>
   | Op.STRD -> strd ins ctxt
   | Op.STRH -> str ins ctxt 16<rt>
+  | Op.STRHT -> str ins ctxt 16<rt>
+  | Op.STRT -> str ins ctxt 32<rt>
   | Op.STM -> stm Op.STM ins ctxt (.+)
   | Op.STMIA -> stm Op.STMIA ins ctxt (.+)
   | Op.STMEA -> stm Op.STMIA ins ctxt (.+)
