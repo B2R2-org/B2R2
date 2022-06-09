@@ -4424,8 +4424,28 @@ let udf (ins: InsInfo) =
   | OneOperand (OprImm n) -> sideEffects ins (Interrupt (int n))
   | _ -> raise InvalidOperandException
 
+let vuzp (ins: InsInfo) insLen ctxt =
+  let ir = IRBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let dst, src = transTwoOprs ins ctxt
+  let esize = 8 * (getEBytes ins.SIMDTyp)
+  let oprSize = TypeCheck.typeOf dst
+  let zipped = !*ir (oprSize * 2)
+  if dst = src then
+    !!ir (dst := AST.undef oprSize "UNKNOWN")
+    !!ir (src := AST.undef oprSize "UNKNOWN")
+  else
+    !!ir (zipped := AST.concat src dst)
+    for e in 0 .. ((int oprSize) / esize) - 1 do
+      !!ir (elem dst e esize := elem zipped (e * 2) esize)
+      !!ir (elem src e esize := elem zipped (e * 2 + 1) esize)
+  putEndLabel ctxt lblIgnore isUnconditional None ir
+  !>ir insLen
+
 /// Translate IR.
-let translate (ins: InsInfo) insLen ctxt =
+let translate (ins: ARM32InternalInstruction) insLen ctxt =
   match ins.Opcode with
   | Op.ADC -> adc false ins ctxt
   | Op.ADCS -> adcs true ins ctxt
@@ -4623,6 +4643,7 @@ let translate (ins: InsInfo) insLen ctxt =
   | Op.VLD2 -> vld2 ins ctxt
   | Op.VLD3 -> vld3 ins ctxt
   | Op.VLD4 -> vld4 ins ctxt
+  | Op.VUZP -> vuzp ins insLen ctxt
   | Op.DMB | Op.DSB | Op.ISB | Op.PLD -> nop ins
   | Op.InvalidOP -> raise InvalidOpcodeException
   | o ->
