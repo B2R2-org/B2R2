@@ -2332,6 +2332,8 @@ let uadd8 ins ctxt =
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
   startMark ins builder
   let lblIgnore = checkCondition ins ctxt isUnconditional builder
+  let n0 = AST.num1 32<rt>
+  let n1 = AST.num1 32<rt>
   builder <! (sum1 := sel8Bits rn 0 .+ sel8Bits rm 0)
   builder <! (sum2 := sel8Bits rn 8 .+ sel8Bits rm 8)
   builder <! (sum3 := sel8Bits rn 16 .+ sel8Bits rm 16)
@@ -2999,12 +3001,13 @@ let vmrs ins ctxt =
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark ins builder
 
-type ParingInfo =
-  { EBytes: int
-    ESize: int
-    RtESize: int<rt>
-    Elements: int
-    RegIndex: bool option }
+type ParsingInfo = {
+  EBytes: int
+  ESize: int
+  RtESize: int<rt>
+  Elements: int
+  RegIndex: bool option
+}
 
 let getRegs = function
   | TwoOperands (OprSIMD (OneReg _), _) -> 1
@@ -3778,6 +3781,8 @@ let vtst (ins: InsInfo) ctxt =
   let rd, rn, rm = transThreeOprs ins ctxt
   let p = getParsingInfo ins
   let regs = if TypeCheck.typeOf rd = 64<rt> then 1 else 2
+  let n0 = AST.num0 p.RtESize
+  let n1 = AST.num1 p.RtESize
   for r in 0 .. regs - 1 do
     let rd = AST.extract rd 64<rt> (r * 64)
     let rn = AST.extract rn 64<rt> (r * 64)
