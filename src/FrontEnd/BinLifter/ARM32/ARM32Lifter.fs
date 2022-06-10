@@ -4424,6 +4424,44 @@ let udf (ins: InsInfo) =
   | OneOperand (OprImm n) -> sideEffects ins (Interrupt (int n))
   | _ -> raise InvalidOperandException
 
+let vrhadd (ins: InsInfo) insLen ctxt =
+  let ir = IRBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let dst, src1, src2 = transThreeOprs ins ctxt
+  let esize = 8 * (getEBytes ins.SIMDTyp)
+  let rtEsize = RegType.fromBitWidth esize
+  let oprSize = TypeCheck.typeOf dst
+  let elements = oprSize / esize |> int
+  let struct (op1, op2) = tmpVars2 ir rtEsize
+  for e in 0 .. elements - 1 do
+    !!ir (op1 := elem src1 e esize)
+    !!ir (op2 := elem src2 e esize)
+    let result = op1 .+ op2 .+ AST.num1 rtEsize
+    !!ir (elem dst e esize := AST.xtlo rtEsize (result >> (AST.num1 rtEsize)))
+  putEndLabel ctxt lblIgnore isUnconditional None ir
+  !>ir insLen
+
+let vsra (ins: InsInfo) insLen ctxt =
+  let ir = IRBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let dst, src, amt = transThreeOprs ins ctxt
+  let esize = 8 * (getEBytes ins.SIMDTyp)
+  let rtEsize = RegType.fromBitWidth esize
+  let oprSize = TypeCheck.typeOf dst
+  let elements = oprSize / esize |> int
+  let struct (result, shfAmt) = tmpVars2 ir rtEsize
+  !!ir (shfAmt :=
+    if rtEsize = 64<rt> then AST.zext rtEsize amt else AST.xtlo rtEsize amt)
+  for e in 0 .. elements - 1 do
+    !!ir (result := (elem src e esize) >> shfAmt)
+    !!ir (elem dst e esize := elem dst e esize .+ result)
+  putEndLabel ctxt lblIgnore isUnconditional None ir
+  !>ir insLen
+
 let vuzp (ins: InsInfo) insLen ctxt =
   let ir = IRBuilder (16)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -4643,6 +4681,9 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.VLD2 -> vld2 ins ctxt
   | Op.VLD3 -> vld3 ins ctxt
   | Op.VLD4 -> vld4 ins ctxt
+  | Op.VRHADD -> vrhadd ins insLen ctxt
+  | Op.VRINTP -> sideEffects ins UnsupportedFP
+  | Op.VSRA -> vsra ins insLen ctxt
   | Op.VUZP -> vuzp ins insLen ctxt
   | Op.DMB | Op.DSB | Op.ISB | Op.PLD -> nop ins
   | Op.InvalidOP -> raise InvalidOpcodeException

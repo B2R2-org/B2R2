@@ -501,7 +501,7 @@ module OperandParsingHelper =
     let isSign = pickBit bin 24 (* U *) = 0u
     match concat (pickBit bin 7) (extract bin 21 19) 3 (* L:imm6<5:3> *) with
     | 0b0000u -> raise ParsingFailureException
-    | 0b0001u -> if isSign then SIMDTypS8 else SIMDTypU16
+    | 0b0001u -> if isSign then SIMDTypS8 else SIMDTypU8
     | 0b0010u | 0b0011u -> if isSign then SIMDTypS16 else SIMDTypU16
     | 0b0100u | 0b0101u | 0b0110u | 0b0111u ->
       if isSign then SIMDTypS32 else SIMDTypU32
