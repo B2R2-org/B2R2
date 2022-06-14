@@ -4489,181 +4489,137 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.ADCS -> adcs true ins ctxt
   | Op.ADD | Op.ADDW -> add false ins ctxt
   | Op.ADDS -> adds true ins ctxt
-  | Op.BL -> bl ins ctxt
-  | Op.BLX -> branchWithLink ins ctxt
-  | Op.BKPT -> sideEffects ins Breakpoint
-  | Op.PUSH -> push ins ctxt
-  | Op.SUB | Op.SUBW -> sub false ins ctxt
-  | Op.SUBS -> subs true ins ctxt
+  | Op.ADR -> adr ins ctxt // for Thumb mode
   | Op.AND -> logicalAnd false ins ctxt
   | Op.ANDS -> ands true ins ctxt
-  | Op.MOV | Op.MOVW -> mov false ins ctxt
-  | Op.MOVS -> movs true ins ctxt
-  | Op.EOR -> eor false ins ctxt
-  | Op.EORS -> eors true ins ctxt
-  | Op.RSB -> rsb false ins ctxt
-  | Op.RSBS -> rsbs true ins ctxt
-  | Op.SBC -> sbc false ins ctxt
-  | Op.SBCS -> sbcs true ins ctxt
-  | Op.RSC -> rsc false ins ctxt
-  | Op.RSCS -> rscs true ins ctxt
-  | Op.ORR -> orr false ins ctxt
-  | Op.ORRS -> orrs true ins ctxt
-  | Op.ORN -> orn false ins ctxt
-  | Op.ORNS -> orns true ins ctxt
-  | Op.BIC -> bic false ins ctxt
-  | Op.BICS -> bics true ins ctxt
-  | Op.MVN -> mvn false ins ctxt
-  | Op.MVNS -> mvns true ins ctxt
   | Op.ASR -> shiftInstr false ins SRTypeASR ctxt
   | Op.ASRS -> asrs true ins ctxt
+  | Op.B -> b ins ctxt
+  | Op.BFC -> bfc ins ctxt
+  | Op.BFI -> bfi ins ctxt
+  | Op.BIC -> bic false ins ctxt
+  | Op.BICS -> bics true ins ctxt
+  | Op.BKPT -> sideEffects ins Breakpoint
+  | Op.BL -> bl ins ctxt
+  | Op.BLX -> branchWithLink ins ctxt
+  | Op.BX -> bx ins ctxt
+  | Op.CBNZ -> cbz true ins ctxt
+  | Op.CBZ -> cbz false ins ctxt
+  | Op.CDP | Op.CDP2 | Op.LDC | Op.LDC2 | Op.LDC2L | Op.LDCL | Op.MCR | Op.MCR2
+  | Op.MCRR | Op.MCRR2 | Op.MRC | Op.MRC2 | Op.MRRC | Op.MRRC2 | Op.STC
+  | Op.STC2 | Op.STC2L | Op.STCL ->
+    sideEffects ins UnsupportedExtension (* coprocessor instructions *)
+  | Op.CLZ -> clz ins ctxt
+  | Op.CMN -> cmn ins ctxt
+  | Op.CMP -> cmp ins ctxt
+  | Op.DMB | Op.DSB | Op.ISB | Op.PLD -> nop ins
+  | Op.EOR -> eor false ins ctxt
+  | Op.EORS -> eors true ins ctxt
+  | Op.IT | Op.ITT | Op.ITE | Op.ITTT | Op.ITET | Op.ITTE | Op.ITEE | Op.ITTTT
+  | Op.ITETT | Op.ITTET | Op.ITEET | Op.ITTTE | Op.ITETE | Op.ITTEE
+  | Op.ITEEE -> it ins ctxt
+  | Op.LDM -> ldm Op.LDM ins ctxt (.+)
+  | Op.LDMDA -> ldm Op.LDMDA ins ctxt (.-)
+  | Op.LDMDB -> ldm Op.LDMDB ins ctxt (.-)
+  | Op.LDMIA -> ldm Op.LDMIA ins ctxt (.+)
+  | Op.LDMIB -> ldm Op.LDMIB ins ctxt (.+)
+  | Op.LDR -> ldr ins ctxt 32<rt> AST.zext
+  | Op.LDRB -> ldr ins ctxt 8<rt> AST.zext
+  | Op.LDRBT -> ldrbt ins insLen ctxt 8<rt>
+  | Op.LDRD -> ldrd ins ctxt
+  | Op.LDREX -> ldr ins ctxt 32<rt> AST.zext
+  | Op.LDRH -> ldr ins ctxt 16<rt> AST.zext
+  | Op.LDRSB -> ldr ins ctxt 8<rt> AST.sext
+  | Op.LDRSH -> ldr ins ctxt 16<rt> AST.sext
   | Op.LSL -> shiftInstr false ins SRTypeLSL ctxt
   | Op.LSLS -> lsls true ins ctxt
   | Op.LSR -> shiftInstr false ins SRTypeLSR ctxt
   | Op.LSRS -> lsrs true ins ctxt
+  | Op.MLA -> mla false ins ctxt
+  | Op.MLAS -> mla true ins ctxt
+  | Op.MLS -> mls ins ctxt
+  | Op.MOV | Op.MOVW -> mov false ins ctxt
+  | Op.MOVS -> movs true ins ctxt
+  | Op.MOVT -> movt ins ctxt
+  | Op.MUL -> mul false ins ctxt
+  | Op.MULS -> mul true ins ctxt
+  | Op.MVN -> mvn false ins ctxt
+  | Op.MVNS -> mvns true ins ctxt
+  | Op.NOP -> nop ins
+  | Op.ORN -> orn false ins ctxt
+  | Op.ORNS -> orns true ins ctxt
+  | Op.ORR -> orr false ins ctxt
+  | Op.ORRS -> orrs true ins ctxt
+  | Op.POP -> pop ins ctxt
+  | Op.PUSH -> push ins ctxt
+  | Op.RBIT -> rbit ins ctxt
+  | Op.REV -> rev ins ctxt
   | Op.ROR -> shiftInstr false ins SRTypeROR ctxt
   | Op.RORS -> rors true ins ctxt
   | Op.RRX -> shiftInstr false ins SRTypeRRX ctxt
   | Op.RRXS -> rrxs true ins ctxt
-  | Op.CLZ -> clz ins ctxt
-  | Op.CMN -> cmn ins ctxt
-  | Op.MLA -> mla false ins ctxt
-  | Op.MLAS -> mla true ins ctxt
-  | Op.CMP -> cmp ins ctxt
+  | Op.RSB -> rsb false ins ctxt
+  | Op.RSBS -> rsbs true ins ctxt
+  | Op.RSC -> rsc false ins ctxt
+  | Op.RSCS -> rscs true ins ctxt
+  | Op.SBC -> sbc false ins ctxt
+  | Op.SBCS -> sbcs true ins ctxt
+  | Op.SBFX -> bfx ins ctxt true
+  | Op.SEL -> sel ins ctxt
+  | Op.SMLABB -> smulacchalf ins ctxt false false
+  | Op.SMLABT -> smulacchalf ins ctxt false true
+  | Op.SMLAL -> smulandacc false true ins ctxt
+  | Op.SMLALS -> smulandacc true true ins ctxt
+  | Op.SMLATB -> smulacchalf ins ctxt true false
+  | Op.SMLATT -> smulacchalf ins ctxt true true
+  | Op.SMULBB -> smulhalf ins ctxt false false
+  | Op.SMULBT -> smulhalf ins ctxt false true
+  | Op.SMULL -> smulandacc false false ins ctxt
+  | Op.SMULLS -> smulandacc true false ins ctxt
+  | Op.SMULTB -> smulhalf ins ctxt true false
+  | Op.SMULTT -> smulhalf ins ctxt true true
+  | Op.STM -> stm Op.STM ins ctxt (.+)
+  | Op.STMDA -> stm Op.STMDA ins ctxt (.-)
+  | Op.STMDB -> stm Op.STMDB ins ctxt (.-)
+  | Op.STMEA -> stm Op.STMIA ins ctxt (.+)
+  | Op.STMIA -> stm Op.STMIA ins ctxt (.+)
+  | Op.STMIB -> stm Op.STMIB ins ctxt (.+)
+  | Op.STR -> str ins ctxt 32<rt>
+  | Op.STRB -> str ins ctxt 8<rt>
+  | Op.STRBT -> str ins ctxt 8<rt>
+  | Op.STRD -> strd ins ctxt
+  | Op.STREX -> strex ins ctxt
+  | Op.STRH -> str ins ctxt 16<rt>
+  | Op.STRHT -> str ins ctxt 16<rt>
+  | Op.STRT -> str ins ctxt 32<rt>
+  | Op.SUB | Op.SUBW -> sub false ins ctxt
+  | Op.SUBS -> subs true ins ctxt
+  | Op.SVC -> svc ins ctxt
+  | Op.SXTB -> extend ins ctxt AST.sext 8<rt>
+  | Op.SXTH -> extend ins ctxt AST.sext 16<rt>
+  | Op.TBH | Op.TBB -> tableBranch ins ctxt
+  | Op.TEQ -> teq ins ctxt
+  | Op.TST -> tst ins ctxt
+  | Op.UADD8 -> uadd8 ins ctxt
+  | Op.UBFX -> bfx ins ctxt false
+  | Op.UDF -> udf ins
   | Op.UMLAL -> umlal false ins ctxt
   | Op.UMLALS -> umlal true ins ctxt
   | Op.UMULL -> umull false ins ctxt
   | Op.UMULLS -> umull true ins ctxt
-  | Op.TEQ -> teq ins ctxt
-  | Op.MUL -> mul false ins ctxt
-  | Op.MULS -> mul true ins ctxt
-  | Op.TST -> tst ins ctxt
-  | Op.SMULBB -> smulhalf ins ctxt false false
-  | Op.SMULBT -> smulhalf ins ctxt false true
-  | Op.SMULTB -> smulhalf ins ctxt true false
-  | Op.SMULTT -> smulhalf ins ctxt true true
-  | Op.SMULL -> smulandacc false false ins ctxt
-  | Op.SMULLS -> smulandacc true false ins ctxt
-  | Op.SMLAL -> smulandacc false true ins ctxt
-  | Op.SMLALS -> smulandacc true true ins ctxt
-  | Op.SMLABB -> smulacchalf ins ctxt false false
-  | Op.SMLABT -> smulacchalf ins ctxt false true
-  | Op.SMLATB -> smulacchalf ins ctxt true false
-  | Op.SMLATT -> smulacchalf ins ctxt true true
-  | Op.B -> b ins ctxt
-  | Op.BX -> bx ins ctxt
-  | Op.IT | Op.ITT | Op.ITE | Op.ITTT | Op.ITET | Op.ITTE
-  | Op.ITEE | Op.ITTTT | Op.ITETT | Op.ITTET | Op.ITEET
-  | Op.ITTTE | Op.ITETE | Op.ITTEE | Op.ITEEE -> it ins ctxt
-  | Op.NOP -> nop ins
-  | Op.MOVT -> movt ins ctxt
-  | Op.POP -> pop ins ctxt
-  | Op.LDM -> ldm Op.LDM ins ctxt (.+)
-  | Op.LDMIA -> ldm Op.LDMIA ins ctxt (.+)
-  | Op.LDMIB -> ldm Op.LDMIB ins ctxt (.+)
-  | Op.LDMDA -> ldm Op.LDMDA ins ctxt (.-)
-  | Op.LDMDB -> ldm Op.LDMDB ins ctxt (.-)
-  | Op.LDR -> ldr ins ctxt 32<rt> AST.zext
-  | Op.LDRB -> ldr ins ctxt 8<rt> AST.zext
-  | Op.LDRBT -> ldrbt ins insLen ctxt 8<rt>
-  | Op.LDRSB -> ldr ins ctxt 8<rt> AST.sext
-  | Op.LDRD -> ldrd ins ctxt
-  | Op.LDRH -> ldr ins ctxt 16<rt> AST.zext
-  | Op.LDRSH -> ldr ins ctxt 16<rt> AST.sext
-  | Op.LDREX -> ldr ins ctxt 32<rt> AST.zext
-  | Op.SEL -> sel ins ctxt
-  | Op.RBIT -> rbit ins ctxt
-  | Op.REV -> rev ins ctxt
-  | Op.STR -> str ins ctxt 32<rt>
-  | Op.STREX -> strex ins ctxt
-  | Op.STRB -> str ins ctxt 8<rt>
-  | Op.STRBT -> str ins ctxt 8<rt>
-  | Op.STRD -> strd ins ctxt
-  | Op.STRH -> str ins ctxt 16<rt>
-  | Op.STRHT -> str ins ctxt 16<rt>
-  | Op.STRT -> str ins ctxt 32<rt>
-  | Op.STM -> stm Op.STM ins ctxt (.+)
-  | Op.STMIA -> stm Op.STMIA ins ctxt (.+)
-  | Op.STMEA -> stm Op.STMIA ins ctxt (.+)
-  | Op.STMDA -> stm Op.STMDA ins ctxt (.-)
-  | Op.STMDB -> stm Op.STMDB ins ctxt (.-)
-  | Op.STMIB -> stm Op.STMIB ins ctxt (.+)
-  | Op.SVC -> svc ins ctxt
-  | Op.CDP | Op.CDP2 | Op.LDC | Op.LDC2 | Op.LDC2L | Op.LDCL | Op.MCR | Op.MCR2
-  | Op.MCRR | Op.MCRR2 | Op.MRC | Op.MRC2 | Op.MRRC | Op.MRRC2
-  | Op.STC | Op.STC2 | Op.STC2L | Op.STCL ->
-    sideEffects ins UnsupportedExtension (* coprocessor instructions *)
-  | Op.CBNZ -> cbz true ins ctxt
-  | Op.CBZ -> cbz false ins ctxt
-  | Op.TBH | Op.TBB -> tableBranch ins ctxt
-  | Op.BFC -> bfc ins ctxt
-  | Op.BFI -> bfi ins ctxt
-  | Op.UDF -> udf ins
-  | Op.UADD8 -> uadd8 ins ctxt
+  | Op.UQADD16 -> uqopr ins ctxt 16 (.+)
+  | Op.UQADD8 -> uqopr ins ctxt 8 (.+)
+  | Op.UQSUB16 -> uqopr ins ctxt 16 (.-)
+  | Op.UQSUB8 -> uqopr ins ctxt 8 (.-)
   | Op.UXTAB -> extendAndAdd ins ctxt 8<rt>
   | Op.UXTAH -> extendAndAdd ins ctxt 16<rt>
-  | Op.SBFX -> bfx ins ctxt true
-  | Op.UBFX -> bfx ins ctxt false
-  | Op.UQADD8 -> uqopr ins ctxt 8 (.+)
-  | Op.UQADD16 -> uqopr ins ctxt 16 (.+)
-  | Op.UQSUB8 -> uqopr ins ctxt 8 (.-)
-  | Op.UQSUB16 -> uqopr ins ctxt 16 (.-)
-  | Op.ADR -> adr ins ctxt // for Thumb mode
-  | Op.MLS -> mls ins ctxt
   | Op.UXTB -> extend ins ctxt AST.zext 8<rt>
-  | Op.SXTB -> extend ins ctxt AST.sext 8<rt>
   | Op.UXTH -> extend ins ctxt AST.zext 16<rt>
-  | Op.SXTH -> extend ins ctxt AST.sext 16<rt>
-  | Op.VLDR -> vldr ins ctxt
-  | Op.VSTR -> vstr ins ctxt
-  | Op.VPOP -> vpop ins ctxt
-  | Op.VPUSH -> vpush ins ctxt
-  | Op.VAND -> vand ins ctxt
-  | Op.VMRS -> vmrs ins ctxt
-  | Op.VMOV when Operators.not (isAdvancedSIMD ins) ->
-    sideEffects ins UnsupportedFP
-  | Op.VMOV -> vmov ins ctxt
-  | Op.VST1 -> vst1 ins ctxt
-  | Op.VLD1 -> vld1 ins ctxt
-  | Op.VABS when isF32orF64 ins.SIMDTyp -> sideEffects ins UnsupportedFP
   | Op.VABS -> vabs ins ctxt
-  | Op.VADD when isF32orF64 ins.SIMDTyp -> sideEffects ins UnsupportedFP
+  | Op.VABS when isF32orF64 ins.SIMDTyp -> sideEffects ins UnsupportedFP
   | Op.VADD -> vadd ins ctxt
-  | Op.VDUP -> vdup ins ctxt
-  | Op.VCLZ -> vclz ins ctxt
-  | Op.VMAX | Op.VMIN when isF32orF64 ins.SIMDTyp ->
-    sideEffects ins UnsupportedFP
-  | Op.VMAX -> vmaxmin ins ctxt true
-  | Op.VMIN -> vmaxmin ins ctxt false
-  | Op.VSUB when isF32orF64 ins.SIMDTyp -> sideEffects ins UnsupportedFP
-  | Op.VSUB -> vsub ins ctxt
-  | Op.VSTM | Op.VSTMIA | Op.VSTMDB -> vstm ins ctxt
-  | Op.VLDM | Op.VLDMIA | Op.VLDMDB -> vldm ins ctxt
-  | Op.VMLA | Op.VMLS when isF32orF64 ins.SIMDTyp ->
-    sideEffects ins UnsupportedFP
-  | Op.VMLA -> vmla ins ctxt
-  | Op.VMLAL -> vmlal ins ctxt
-  | Op.VMLS -> vmls ins ctxt
-  | Op.VMLSL -> vmlsl ins ctxt
-  | Op.VMUL | Op.VMULL when isF32orF64 ins.SIMDTyp ->
-    sideEffects ins UnsupportedFP
-  | Op.VMUL -> vmul ins ctxt
-  | Op.VMULL -> vmull ins ctxt
-  | Op.VMOVN -> vmovn ins ctxt
-  | Op.VNEG when isF32orF64 ins.SIMDTyp -> sideEffects ins UnsupportedFP
-  | Op.VNEG -> vneg ins ctxt
-  | Op.VPADD when isF32orF64 ins.SIMDTyp ->
-    sideEffects ins UnsupportedFP
-  | Op.VPADD -> vpadd ins ctxt
-  | Op.VRSHR -> vrshr ins ctxt
-  | Op.VSHL -> vshl ins ctxt
-  | Op.VSHR -> vshr ins ctxt
-  | Op.VTBL -> vecTbl ins ctxt true
-  | Op.VTBX -> vecTbl ins ctxt false
-  | Op.VCMP | Op.VCMPE | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVT
-  | Op.VCVTR | Op.VDIV | Op.VFMA | Op.VFMS | Op.VFNMA | Op.VFNMS | Op.VMSR
-  | Op.VNMLA | Op.VNMLS | Op.VNMUL | Op.VSQRT ->
-    sideEffects ins UnsupportedFP
+  | Op.VADD when isF32orF64 ins.SIMDTyp -> sideEffects ins UnsupportedFP
+  | Op.VAND -> vand ins ctxt
   | Op.VCEQ | Op.VCGE | Op.VCGT | Op.VCLE | Op.VCLT
     when isF32orF64 ins.SIMDTyp -> sideEffects ins UnsupportedFP
   | Op.VCEQ -> vceq ins ctxt
@@ -4671,21 +4627,65 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.VCGT -> vcgt ins ctxt
   | Op.VCLE -> vcle ins ctxt
   | Op.VCLT -> vclt ins ctxt
-  | Op.VTST -> vtst ins ctxt
-  | Op.VRSHRN -> vrshrn ins ctxt
-  | Op.VORR -> vorr ins ctxt
-  | Op.VORN -> vorn ins ctxt
-  | Op.VST2 -> vst2 ins ctxt
-  | Op.VST3 -> vst3 ins ctxt
-  | Op.VST4 -> vst4 ins ctxt
+  | Op.VCLZ -> vclz ins ctxt
+  | Op.VCMP | Op.VCMPE | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVT
+  | Op.VCVTR | Op.VDIV | Op.VFMA | Op.VFMS | Op.VFNMA | Op.VFNMS | Op.VMSR
+  | Op.VNMLA | Op.VNMLS | Op.VNMUL | Op.VSQRT -> sideEffects ins UnsupportedFP
+  | Op.VDUP -> vdup ins ctxt
+  | Op.VLD1 -> vld1 ins ctxt
   | Op.VLD2 -> vld2 ins ctxt
   | Op.VLD3 -> vld3 ins ctxt
   | Op.VLD4 -> vld4 ins ctxt
+  | Op.VLDM | Op.VLDMIA | Op.VLDMDB -> vldm ins ctxt
+  | Op.VLDR -> vldr ins ctxt
+  | Op.VMAX | Op.VMIN when isF32orF64 ins.SIMDTyp ->
+    sideEffects ins UnsupportedFP
+  | Op.VMAX -> vmaxmin ins ctxt true
+  | Op.VMIN -> vmaxmin ins ctxt false
+  | Op.VMLA | Op.VMLS when isF32orF64 ins.SIMDTyp ->
+    sideEffects ins UnsupportedFP
+  | Op.VMLA -> vmla ins ctxt
+  | Op.VMLAL -> vmlal ins ctxt
+  | Op.VMLS -> vmls ins ctxt
+  | Op.VMLSL -> vmlsl ins ctxt
+  | Op.VMOV -> vmov ins ctxt
+  | Op.VMOV when Operators.not (isAdvancedSIMD ins) ->
+    sideEffects ins UnsupportedFP
+  | Op.VMOVN -> vmovn ins ctxt
+  | Op.VMRS -> vmrs ins ctxt
+  | Op.VMUL | Op.VMULL when isF32orF64 ins.SIMDTyp ->
+    sideEffects ins UnsupportedFP
+  | Op.VMUL -> vmul ins ctxt
+  | Op.VMULL -> vmull ins ctxt
+  | Op.VNEG -> vneg ins ctxt
+  | Op.VNEG when isF32orF64 ins.SIMDTyp ->
+    sideEffects ins UnsupportedFP
+  | Op.VORN -> vorn ins ctxt
+  | Op.VORR -> vorr ins ctxt
+  | Op.VPADD -> vpadd ins ctxt
+  | Op.VPADD when isF32orF64 ins.SIMDTyp ->
+    sideEffects ins UnsupportedFP
+  | Op.VPOP -> vpop ins ctxt
+  | Op.VPUSH -> vpush ins ctxt
   | Op.VRHADD -> vrhadd ins insLen ctxt
   | Op.VRINTP -> sideEffects ins UnsupportedFP
+  | Op.VRSHR -> vrshr ins ctxt
+  | Op.VRSHRN -> vrshrn ins ctxt
+  | Op.VSHL -> vshl ins ctxt
+  | Op.VSHR -> vshr ins ctxt
   | Op.VSRA -> vsra ins insLen ctxt
+  | Op.VST1 -> vst1 ins ctxt
+  | Op.VST2 -> vst2 ins ctxt
+  | Op.VST3 -> vst3 ins ctxt
+  | Op.VST4 -> vst4 ins ctxt
+  | Op.VSTM | Op.VSTMIA | Op.VSTMDB -> vstm ins ctxt
+  | Op.VSTR -> vstr ins ctxt
+  | Op.VSUB -> vsub ins ctxt
+  | Op.VSUB when isF32orF64 ins.SIMDTyp -> sideEffects ins UnsupportedFP
+  | Op.VTBL -> vecTbl ins ctxt true
+  | Op.VTBX -> vecTbl ins ctxt false
+  | Op.VTST -> vtst ins ctxt
   | Op.VUZP -> vuzp ins insLen ctxt
-  | Op.DMB | Op.DSB | Op.ISB | Op.PLD -> nop ins
   | Op.InvalidOP -> raise InvalidOpcodeException
   | o ->
 #if DEBUG
