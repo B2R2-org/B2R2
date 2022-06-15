@@ -4424,6 +4424,57 @@ let udf (ins: InsInfo) =
   | OneOperand (OprImm n) -> sideEffects ins (Interrupt (int n))
   | _ -> raise InvalidOperandException
 
+let vext (ins: InsInfo) insLen ctxt =
+  let ir = IRBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let dst, src1, src2, imm = transFourOprs ins ctxt
+  let oprSize = TypeCheck.typeOf dst
+  let position = !*ir (oprSize * 2)
+  !!ir (position := imm .* (numI32 8 32<rt>) |> AST.zext (oprSize * 2))
+  !!ir (dst := AST.concat src2 src1 >> position |> AST.xtlo oprSize)
+  putEndLabel ctxt lblIgnore isUnconditional None ir
+  !>ir insLen
+
+let vhadd (ins: InsInfo) insLen ctxt =
+  let ir = IRBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let dst, src1, src2 = transThreeOprs ins ctxt
+  let esize = 8 * (getEBytes ins.SIMDTyp)
+  let rtEsize = RegType.fromBitWidth esize
+  let oprSize = TypeCheck.typeOf dst
+  let elements = oprSize / esize |> int
+  let struct (op1, op2, result) = tmpVars3 ir rtEsize
+  for e in 0 .. elements - 1 do
+    !!ir (op1 := elem src1 e esize)
+    !!ir (op2 := elem src2 e esize)
+    !!ir (result := op1 .+ op2)
+    !!ir (elem dst e esize := result >> (AST.num1 rtEsize))
+  putEndLabel ctxt lblIgnore isUnconditional None ir
+  !>ir insLen
+
+let vhsub (ins: InsInfo) insLen ctxt =
+  let ir = IRBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let dst, src1, src2 = transThreeOprs ins ctxt
+  let esize = 8 * (getEBytes ins.SIMDTyp)
+  let rtEsize = RegType.fromBitWidth esize
+  let oprSize = TypeCheck.typeOf dst
+  let elements = oprSize / esize |> int
+  let struct (op1, op2, result) = tmpVars3 ir rtEsize
+  for e in 0 .. elements - 1 do
+    !!ir (op1 := elem src1 e esize)
+    !!ir (op2 := elem src2 e esize)
+    !!ir (result := op1 .- op2)
+    !!ir (elem dst e esize := result >> (AST.num1 rtEsize))
+  putEndLabel ctxt lblIgnore isUnconditional None ir
+  !>ir insLen
+
 let vrhadd (ins: InsInfo) insLen ctxt =
   let ir = IRBuilder (16)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -4632,6 +4683,9 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.VCVTR | Op.VDIV | Op.VFMA | Op.VFMS | Op.VFNMA | Op.VFNMS | Op.VMSR
   | Op.VNMLA | Op.VNMLS | Op.VNMUL | Op.VSQRT -> sideEffects ins UnsupportedFP
   | Op.VDUP -> vdup ins ctxt
+  | Op.VEXT -> vext ins insLen ctxt
+  | Op.VHADD -> vhadd ins insLen ctxt
+  | Op.VHSUB -> vhsub ins insLen ctxt
   | Op.VLD1 -> vld1 ins ctxt
   | Op.VLD2 -> vld2 ins ctxt
   | Op.VLD3 -> vld3 ins ctxt
