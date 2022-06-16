@@ -3165,6 +3165,25 @@ let vadd (ins: InsInfo) ctxt =
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark ins builder
 
+let vaddl (ins: InsInfo) insLen ctxt =
+  let ir = IRBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let dst, src1, src2 = transThreeOprs ins ctxt
+  let esize = 8 * (getEBytes ins.SIMDTyp)
+  let rtEsize = RegType.fromBitWidth esize
+  let eSzDbl = rtEsize * 2
+  let elements = 64 / esize
+  let op1 = !*ir rtEsize
+  let result = !*ir eSzDbl
+  for e in 0 .. elements - 1 do
+    !!ir (op1 := elem src1 e esize)
+    !!ir (result := AST.zext eSzDbl op1 .+ AST.zext eSzDbl (elem src2 e esize))
+    !!ir (elem dst e (2 * esize) := result)
+  putEndLabel ctxt lblIgnore isUnconditional None ir
+  !>ir insLen
+
 let parseOprOfVDUP (ins: InsInfo) ctxt esize =
   match ins.Operands with
   | TwoOperands (OprSIMD (SFReg (Vector rd)),
@@ -4424,6 +4443,27 @@ let udf (ins: InsInfo) =
   | OneOperand (OprImm n) -> sideEffects ins (Interrupt (int n))
   | _ -> raise InvalidOperandException
 
+let usax (ins: InsInfo) insLen ctxt =
+  let ir = IRBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let dst, src1, src2 = transThreeOprs ins ctxt
+  let cpsr = getRegVar ctxt R.CPSR
+  let struct (sum, diff) = tmpVars2 ir 32<rt>
+  let xtlo src = AST.xtlo 16<rt> src |> AST.zext 32<rt>
+  let xthi src = AST.xthi 16<rt> src |> AST.zext 32<rt>
+  let struct (ge10, ge32) = tmpVars2 ir 32<rt>
+  let numI32 n = numI32 n 32<rt>
+  !!ir (sum := xtlo src1 .+ xthi src2)
+  !!ir (diff := xthi src1 .- xtlo src2)
+  !!ir (dst := AST.concat (AST.xtlo 16<rt> diff) (AST.xtlo 16<rt> sum))
+  !!ir (ge10 := AST.ite (sum .>= numI32 0x10000) (numI32 0x30000) (numI32 0))
+  !!ir (ge32 := AST.ite (diff .>= numI32 0) (numI32 0xC0000) (numI32 0))
+  !!ir (cpsr := (cpsr .& (numI32 0xFFF0FFFF)) .| (ge10 .| ge32))
+  putEndLabel ctxt lblIgnore isUnconditional None ir
+  !>ir insLen
+
 let vext (ins: InsInfo) insLen ctxt =
   let ir = IRBuilder (16)
   let isUnconditional = ParseUtils.isUnconditional ins.Condition
@@ -4662,14 +4702,16 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.UQADD8 -> uqopr ins ctxt 8 (.+)
   | Op.UQSUB16 -> uqopr ins ctxt 16 (.-)
   | Op.UQSUB8 -> uqopr ins ctxt 8 (.-)
+  | Op.USAX -> usax ins insLen ctxt
   | Op.UXTAB -> extendAndAdd ins ctxt 8<rt>
   | Op.UXTAH -> extendAndAdd ins ctxt 16<rt>
   | Op.UXTB -> extend ins ctxt AST.zext 8<rt>
   | Op.UXTH -> extend ins ctxt AST.zext 16<rt>
-  | Op.VABS -> vabs ins ctxt
   | Op.VABS when isF32orF64 ins.SIMDTyp -> sideEffects ins UnsupportedFP
-  | Op.VADD -> vadd ins ctxt
+  | Op.VABS -> vabs ins ctxt
   | Op.VADD when isF32orF64 ins.SIMDTyp -> sideEffects ins UnsupportedFP
+  | Op.VADD -> vadd ins ctxt
+  | Op.VADDL -> vaddl ins insLen ctxt
   | Op.VAND -> vand ins ctxt
   | Op.VCEQ | Op.VCGE | Op.VCGT | Op.VCLE | Op.VCLT
     when isF32orF64 ins.SIMDTyp -> sideEffects ins UnsupportedFP
@@ -4679,6 +4721,7 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.VCLE -> vcle ins ctxt
   | Op.VCLT -> vclt ins ctxt
   | Op.VCLZ -> vclz ins ctxt
+  | Op.VCMLA -> sideEffects ins UnsupportedFP
   | Op.VCMP | Op.VCMPE | Op.VACGE | Op.VACGT | Op.VACLE | Op.VACLT | Op.VCVT
   | Op.VCVTR | Op.VDIV | Op.VFMA | Op.VFMS | Op.VFNMA | Op.VFNMS | Op.VMSR
   | Op.VNMLA | Op.VNMLS | Op.VNMUL | Op.VSQRT -> sideEffects ins UnsupportedFP
@@ -4702,23 +4745,21 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.VMLAL -> vmlal ins ctxt
   | Op.VMLS -> vmls ins ctxt
   | Op.VMLSL -> vmlsl ins ctxt
-  | Op.VMOV -> vmov ins ctxt
   | Op.VMOV when Operators.not (isAdvancedSIMD ins) ->
     sideEffects ins UnsupportedFP
+  | Op.VMOV -> vmov ins ctxt
   | Op.VMOVN -> vmovn ins ctxt
   | Op.VMRS -> vmrs ins ctxt
   | Op.VMUL | Op.VMULL when isF32orF64 ins.SIMDTyp ->
     sideEffects ins UnsupportedFP
   | Op.VMUL -> vmul ins ctxt
   | Op.VMULL -> vmull ins ctxt
+  | Op.VNEG when isF32orF64 ins.SIMDTyp -> sideEffects ins UnsupportedFP
   | Op.VNEG -> vneg ins ctxt
-  | Op.VNEG when isF32orF64 ins.SIMDTyp ->
-    sideEffects ins UnsupportedFP
   | Op.VORN -> vorn ins ctxt
   | Op.VORR -> vorr ins ctxt
+  | Op.VPADD when isF32orF64 ins.SIMDTyp -> sideEffects ins UnsupportedFP
   | Op.VPADD -> vpadd ins ctxt
-  | Op.VPADD when isF32orF64 ins.SIMDTyp ->
-    sideEffects ins UnsupportedFP
   | Op.VPOP -> vpop ins ctxt
   | Op.VPUSH -> vpush ins ctxt
   | Op.VRHADD -> vrhadd ins insLen ctxt
@@ -4734,8 +4775,8 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.VST4 -> vst4 ins ctxt
   | Op.VSTM | Op.VSTMIA | Op.VSTMDB -> vstm ins ctxt
   | Op.VSTR -> vstr ins ctxt
-  | Op.VSUB -> vsub ins ctxt
   | Op.VSUB when isF32orF64 ins.SIMDTyp -> sideEffects ins UnsupportedFP
+  | Op.VSUB -> vsub ins ctxt
   | Op.VTBL -> vecTbl ins ctxt true
   | Op.VTBX -> vecTbl ins ctxt false
   | Op.VTST -> vtst ins ctxt
