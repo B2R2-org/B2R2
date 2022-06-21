@@ -4441,7 +4441,60 @@ let vld4 (ins: InsInfo) ctxt =
 let udf (ins: InsInfo) =
   match ins.Operands with
   | OneOperand (OprImm n) -> sideEffects ins (Interrupt (int n))
-  | _ -> raise InvalidOperandException
+  | _ ->  raise InvalidOperandException
+
+let uasx (ins: InsInfo) insLen ctxt =
+  let ir = IRBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let dst, src1, src2 = transThreeOprs ins ctxt
+  let cpsr = getRegVar ctxt R.CPSR
+  let struct (diff, sum) = tmpVars2 ir 32<rt>
+  let xtlo src = AST.xtlo 16<rt> src |> AST.zext 32<rt>
+  let xthi src = AST.xthi 16<rt> src |> AST.zext 32<rt>
+  let struct (ge10, ge32) = tmpVars2 ir 32<rt>
+  let numI32 n = numI32 n 32<rt>
+  !!ir (diff := xtlo src1 .- xthi src2)
+  !!ir (sum := xthi src1 .+ xtlo src2)
+  !!ir (dst := AST.concat (AST.xtlo 16<rt> sum) (AST.xtlo 16<rt> diff))
+  !!ir (ge10 := AST.ite (diff .>= numI32 0) (numI32 0xC0000) (numI32 0))
+  !!ir (ge32 := AST.ite (sum .>= numI32 0x10000) (numI32 0x30000) (numI32 0))
+  !!ir (cpsr := (cpsr .& (numI32 0xFFF0FFFF)) .| (ge32 .| ge10))
+  putEndLabel ctxt lblIgnore isUnconditional None ir
+  !>ir insLen
+
+let uhsub16 (ins: InsInfo) insLen ctxt =
+  let ir = IRBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let dst, src1, src2 = transThreeOprs ins ctxt
+  let struct (diff1, diff2) = tmpVars2 ir 32<rt>
+  let xtlo src = AST.xtlo 16<rt> src |> AST.zext 32<rt>
+  let xthi src = AST.xthi 16<rt> src |> AST.zext 32<rt>
+  let n1 = AST.num1 32<rt>
+  !!ir (diff1 := xtlo src1 .- xtlo src2)
+  !!ir (diff2 := xthi src1 .- xthi src2)
+  !!ir (dst :=
+    AST.concat (AST.xtlo 16<rt> (diff2 >> n1)) (AST.xtlo 16<rt> (diff1 >> n1)))
+  putEndLabel ctxt lblIgnore isUnconditional None ir
+  !>ir insLen
+
+let uqsax (ins: InsInfo) insLen ctxt =
+  let ir = IRBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let dst, src1, src2 = transThreeOprs ins ctxt
+  let struct (sum, diff) = tmpVars2 ir 32<rt>
+  let xtlo src = AST.xtlo 16<rt> src |> AST.zext 32<rt>
+  let xthi src = AST.xthi 16<rt> src |> AST.zext 32<rt>
+  !!ir (sum := xtlo src1 .+ xthi src2)
+  !!ir (diff := xthi src1 .- xtlo src2)
+  !!ir (dst := AST.concat (AST.xtlo 16<rt> diff) (AST.xtlo 16<rt> sum))
+  putEndLabel ctxt lblIgnore isUnconditional None ir
+  !>ir insLen
 
 let usax (ins: InsInfo) insLen ctxt =
   let ir = IRBuilder (16)
@@ -4692,14 +4745,17 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.TEQ -> teq ins ctxt
   | Op.TST -> tst ins ctxt
   | Op.UADD8 -> uadd8 ins ctxt
+  | Op.UASX -> uasx ins insLen ctxt
   | Op.UBFX -> bfx ins ctxt false
   | Op.UDF -> udf ins
+  | Op.UHSUB16 -> uhsub16 ins insLen ctxt
   | Op.UMLAL -> umlal false ins ctxt
   | Op.UMLALS -> umlal true ins ctxt
   | Op.UMULL -> umull false ins ctxt
   | Op.UMULLS -> umull true ins ctxt
   | Op.UQADD16 -> uqopr ins ctxt 16 (.+)
   | Op.UQADD8 -> uqopr ins ctxt 8 (.+)
+  | Op.UQSAX -> uqsax ins insLen ctxt
   | Op.UQSUB16 -> uqopr ins ctxt 16 (.-)
   | Op.UQSUB8 -> uqopr ins ctxt 8 (.-)
   | Op.USAX -> usax ins insLen ctxt
