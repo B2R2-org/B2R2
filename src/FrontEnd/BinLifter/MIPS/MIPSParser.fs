@@ -325,6 +325,8 @@ let parseCOP1WhenRsS arch binary =
     Op.MOVT, None, Some Fmt.S, getFdFsCc binary
   | 0b010010u when isRel2 arch -> Op.MOVZ, None, Some Fmt.S, getFdFsRt binary
   | 0b010011u when isRel2 arch -> Op.MOVN, None, Some Fmt.S, getFdFsRt binary
+  | 0b010101u -> Op.RECIP, None, Some Fmt.S, getFdFs binary
+  | 0b010110u -> Op.RSQRT, None, Some Fmt.S, getFdFs binary
   | 0b100001u when chk20to16 binary 0u ->
     Op.CVTD, None, Some Fmt.S, getFdFs binary
   | b when b &&& 0b110000u = 0b110000u && isRel2 arch ->
@@ -356,6 +358,8 @@ let parseCOP1WhenRsD arch binary =
     Op.MOVT, None, Some Fmt.D, getFdFsCc binary
   | 0b010010u when isRel2 arch -> Op.MOVZ, None, Some Fmt.D, getFdFsRt binary
   | 0b010011u when isRel2 arch -> Op.MOVN, None, Some Fmt.D, getFdFsRt binary
+  | 0b010101u -> Op.RECIP, None, Some Fmt.D, getFdFs binary
+  | 0b010110u -> Op.RSQRT, None, Some Fmt.D, getFdFs binary
   | 0b100000u when chk20to16 binary 0u ->
     Op.CVTS, None, Some Fmt.D, getFdFs binary
   | b when b &&& 0b110000u = 0b110000u && isRel2 arch ->
