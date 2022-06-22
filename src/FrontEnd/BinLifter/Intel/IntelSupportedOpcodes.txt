@@ -1504,6 +1504,8 @@ VCVTDQ2PS
 VCVTNE2PS2BF16
 /// Convert Packed Single Data to Packed BF16 Data.
 VCVTNEPS2BF16
+/// Convert Packed Double-Precision FP Values to Packed Doubleword Integers.
+VCVTPD2DQ
 /// Convert two packed double-precision floating-point values.
 VCVTPD2PS
 /// Convert Packed Double-Precision FP Values to Packed Quadword Integers.
