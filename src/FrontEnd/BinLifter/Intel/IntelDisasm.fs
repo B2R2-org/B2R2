@@ -770,6 +770,7 @@ let opCodeToString = function
   | Opcode.VCVTDQ2PS -> "vcvtdq2ps"
   | Opcode.VCVTNE2PS2BF16 -> "vcvtne2ps2bf16"
   | Opcode.VCVTNEPS2BF16 -> "vcvtneps2bf16"
+  | Opcode.VCVTPD2DQ -> "vcvtpd2dq"
   | Opcode.VCVTPD2PS -> "vcvtpd2ps"
   | Opcode.VCVTPD2QQ -> "vcvtpd2qq"
   | Opcode.VCVTPD2UDQ -> "vcvtpd2udq"
