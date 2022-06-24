@@ -1064,6 +1064,69 @@ let push ins ctxt =
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark ins builder
 
+/// shared/functions/vector/SignedSatQ, on page Armv8 Pseudocode-7927
+let sSatQ ir i n =
+  let n1 = AST.num1 n
+  let cond = n1 << (numI32 (RegType.toBitWidth n) n .- n1)
+  let struct (t1, t2) = tmpVars2 ir n
+  !!ir (t1 := i)
+  !!ir (t2 := cond)
+  let cond1 = t1 .> (t2 .- n1)
+  let cond2 = t1 .< AST.not t2
+  let r = (AST.ite cond1 (t2 .- n1) (AST.ite cond2 (AST.not t2) t1))
+  let r = AST.xtlo n r
+  let sat = AST.ite cond1 AST.b1 (AST.ite cond2 AST.b1 (AST.num0 1<rt>))
+  (r, sat)
+
+let qdadd (ins: InsInfo) insLen ctxt =
+  let ir = IRBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let dst, src1, src2 = transThreeOprs ins ctxt
+  let struct (sat1,sat2) = tmpVars2 ir 1<rt>
+  let (dou, sat) = sSatQ ir (numI32 2 32<rt> .* src2) (RegType.fromBitWidth 32)
+  !!ir (sat1 := sat)
+  let (r, sat) = sSatQ ir (src1 .+ dou) (RegType.fromBitWidth 32)
+  !!ir (dst := r)
+  !!ir (sat2 := sat)
+  let cpsr = getRegVar ctxt R.CPSR
+  !!ir (cpsr := AST.ite (sat1 .| sat2) (enablePSRBits ctxt R.CPSR PSR_Q) cpsr)
+  putEndLabel ctxt lblIgnore isUnconditional None ir
+  !>ir insLen
+
+let qdsub (ins: InsInfo) insLen ctxt =
+  let ir = IRBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let dst, src1, src2 = transThreeOprs ins ctxt
+  let struct (sat1,sat2) = tmpVars2 ir 1<rt>
+  let (dou, sat) = sSatQ ir (numI32 2 32<rt> .* src2) (RegType.fromBitWidth 32)
+  !!ir (sat1 := sat)
+  let (r, sat) = sSatQ ir (src1 .- dou) (RegType.fromBitWidth 32)
+  !!ir (dst := r)
+  !!ir (sat2 := sat)
+  let cpsr = getRegVar ctxt R.CPSR
+  !!ir (cpsr := AST.ite (sat1 .| sat2) (enablePSRBits ctxt R.CPSR PSR_Q) cpsr)
+  putEndLabel ctxt lblIgnore isUnconditional None ir
+  !>ir insLen
+
+let qsax (ins: InsInfo) insLen ctxt =
+  let ir = IRBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let dst, src1, src2 = transThreeOprs ins ctxt
+  let struct (sum, diff) = tmpVars2 ir 32<rt>
+  let xtlo src = AST.xtlo 16<rt> src |> AST.sext 32<rt>
+  let xthi src = AST.xthi 16<rt> src |> AST.sext 32<rt>
+  !!ir (sum := xtlo src1 .+ xthi src2)
+  !!ir (diff := xthi src1 .- xtlo src2)
+  !!ir (dst := AST.concat (AST.xtlo 16<rt> diff) (AST.xtlo 16<rt> sum))
+  putEndLabel ctxt lblIgnore isUnconditional None ir
+  !>ir insLen
+
 let sub isSetFlags ins ctxt =
   let builder = IRBuilder (32)
   let dst, src1, src2 = parseOprOfADD ins ctxt
@@ -1638,6 +1701,17 @@ let movs isSetFlags (ins: InsInfo) ctxt =
   match ins.Operands with
   | TwoOperands (OprReg R.PC, _) -> subsAndRelatedInstr ins ctxt
   | _ -> mov isSetFlags ins ctxt
+
+  (*
+let mrs (ins: InsInfo) insLen ctxt =
+  let ir = IRBuilder (16)
+  let isUnconditional = ParseUtils.isUnconditional ins.Condition
+  !<ir insLen
+  let lblIgnore = checkCondition ins ctxt isUnconditional ir
+  let rd, sreg = transTwoOprs ins ctxt
+  putEndLabel ctxt lblIgnore isUnconditional None ir
+  !>ir insLen
+  *)
 
 let eors isSetFlags (ins: InsInfo) ctxt =
   match ins.Operands with
@@ -2241,19 +2315,6 @@ let ldr ins ctxt size ext =
   else builder <! (rt := data)
   putEndLabel ctxt lblIgnore isUnconditional None builder
   endMark ins builder
-
-let ldrbt ins insLen ctxt size =
-  let ir = IRBuilder (16)
-  let rt, addr, writeback = parseOprOfLDR ins ctxt
-  let isUnconditional = ParseUtils.isUnconditional ins.Condition
-  !<ir insLen
-  let lblIgnore = checkCondition ins ctxt isUnconditional ir
-  ir <! (rt := AST.loadLE size addr |> AST.zext 32<rt>)
-  match writeback with
-  | Some (basereg, newoffset) -> ir <! (basereg := newoffset)
-  | None -> ()
-  putEndLabel ctxt lblIgnore isUnconditional None ir
-  !>ir insLen
 
 let parseMemOfLDRD ins ctxt = function
   | OprMemory (OffsetMode (RegOffset (n, s, m, None))) ->
@@ -4647,6 +4708,7 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.BL -> bl ins ctxt
   | Op.BLX -> branchWithLink ins ctxt
   | Op.BX -> bx ins ctxt
+  | Op.BXJ -> bx ins ctxt
   | Op.CBNZ -> cbz true ins ctxt
   | Op.CBZ -> cbz false ins ctxt
   | Op.CDP | Op.CDP2 | Op.LDC | Op.LDC2 | Op.LDC2L | Op.LDCL | Op.MCR | Op.MCR2
@@ -4659,6 +4721,7 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.DMB | Op.DSB | Op.ISB | Op.PLD -> nop ins
   | Op.EOR -> eor false ins ctxt
   | Op.EORS -> eors true ins ctxt
+  | Op.ERET -> sideEffects ins UnsupportedExtension
   | Op.IT | Op.ITT | Op.ITE | Op.ITTT | Op.ITET | Op.ITTE | Op.ITEE | Op.ITTTT
   | Op.ITETT | Op.ITTET | Op.ITEET | Op.ITTTE | Op.ITETE | Op.ITTEE
   | Op.ITEEE -> it ins ctxt
@@ -4669,12 +4732,16 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.LDMIB -> ldm Op.LDMIB ins ctxt (.+)
   | Op.LDR -> ldr ins ctxt 32<rt> AST.zext
   | Op.LDRB -> ldr ins ctxt 8<rt> AST.zext
-  | Op.LDRBT -> ldrbt ins insLen ctxt 8<rt>
+  | Op.LDRBT -> ldr ins ctxt 8<rt> AST.zext
   | Op.LDRD -> ldrd ins ctxt
   | Op.LDREX -> ldr ins ctxt 32<rt> AST.zext
   | Op.LDRH -> ldr ins ctxt 16<rt> AST.zext
+  | Op.LDRHT -> ldr ins ctxt 16<rt> AST.zext
   | Op.LDRSB -> ldr ins ctxt 8<rt> AST.sext
+  | Op.LDRSBT -> ldr ins ctxt 8<rt> AST.sext
   | Op.LDRSH -> ldr ins ctxt 16<rt> AST.sext
+  | Op.LDRSHT -> ldr ins ctxt 16<rt> AST.sext
+  | Op.LDRT -> ldr ins ctxt 32<rt> AST.zext
   | Op.LSL -> shiftInstr false ins SRTypeLSL ctxt
   | Op.LSLS -> lsls true ins ctxt
   | Op.LSR -> shiftInstr false ins SRTypeLSR ctxt
@@ -4696,6 +4763,9 @@ let translate (ins: ARM32InternalInstruction) insLen ctxt =
   | Op.ORRS -> orrs true ins ctxt
   | Op.POP -> pop ins ctxt
   | Op.PUSH -> push ins ctxt
+  | Op.QDADD -> qdadd ins insLen ctxt
+  | Op.QDSUB -> qdsub ins insLen ctxt
+  | Op.QSAX -> qsax ins insLen ctxt
   | Op.RBIT -> rbit ins ctxt
   | Op.REV -> rev ins ctxt
   | Op.ROR -> shiftInstr false ins SRTypeROR ctxt
