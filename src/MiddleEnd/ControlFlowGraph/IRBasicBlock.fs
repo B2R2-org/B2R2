@@ -107,10 +107,13 @@ type RegularIRBasicBlock (instrs, ppoint) =
 
   do assert (not (Array.isEmpty instrs))
      let stmts = instrs[instrs.Length - 1].Stmts
-     match Array.tryLast stmts with
-     | Some ({ S = LowUIR.SideEffect SysCall }) ->
-       syscallTail <- UnknownSyscallTail
-     | _ -> ()
+     let len = stmts.Length
+     if len >= 2 then
+       match stmts[len - 2] with
+       | { S = LowUIR.SideEffect SysCall } ->
+         syscallTail <- UnknownSyscallTail
+       | _ -> ()
+     else ()
 
   override __.IsFakeBlock () = false
 
