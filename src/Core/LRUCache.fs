@@ -74,7 +74,10 @@ type LRUCache<'K, 'V when 'K: equality and 'V: equality> (capacity: int) =
 
   member __.TryGet (key: 'K) =
     match dict.TryGetValue key with
-    | true, v -> Ok v.Value
+    | true, v ->
+      __.Remove v
+      __.InsertBack v
+      Ok v.Value
     | false, _ -> Error ErrorCase.ItemNotFound
 
   member __.Add (key: 'K, value: 'V) =
