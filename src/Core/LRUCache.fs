@@ -27,12 +27,14 @@ namespace B2R2
 open System
 open System.Collections.Generic
 open System.Threading
+open System.Runtime.InteropServices
 
 [<AllowNullLiteral>]
 type private DoublyLinkedListNode<'K, 'V when 'K: equality and 'V: equality>
   (prev, next, key, value) =
   let mutable prev = prev
   let mutable next = next
+  let mutable refCount = 0
 
   member __.Prev
     with get(): DoublyLinkedListNode<'K, 'V> = prev and set(n) = prev <- n
@@ -43,6 +45,8 @@ type private DoublyLinkedListNode<'K, 'V when 'K: equality and 'V: equality>
   member __.Key with get(): 'K = key
 
   member __.Value with get(): 'V = value
+
+  member __.RefCount with get() = refCount and set(n) = refCount <- n
 
   override __.GetHashCode () = value.GetHashCode ()
 
@@ -62,6 +66,7 @@ type LRUCache<'K, 'V when 'K: equality and 'V: equality> (capacity: int) =
     if head = null then head <- v else tail.Next <- v
     v.Prev <- tail
     v.Next <- null
+    v.RefCount <- v.RefCount + 1
     tail <- v
     size <- size + 1
 
@@ -77,6 +82,16 @@ type LRUCache<'K, 'V when 'K: equality and 'V: equality> (capacity: int) =
     | true, v ->
       __.Remove v
       __.InsertBack v
+      Ok v.Value
+    | false, _ -> Error ErrorCase.ItemNotFound
+
+  /// Try to retrieve a value as well as its ref count.
+  member __.TryGet (key: 'K, [<Out>] refCount: int byref) =
+    match dict.TryGetValue key with
+    | true, v ->
+      __.Remove v
+      __.InsertBack v
+      refCount <- v.RefCount
       Ok v.Value
     | false, _ -> Error ErrorCase.ItemNotFound
 
