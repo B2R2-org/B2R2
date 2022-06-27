@@ -1,4 +1,4 @@
-﻿(*
+(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -22,31 +22,31 @@
   SOFTWARE.
 *)
 
-[<RequireQualifiedAccess>]
-module B2R2.FrontEnd.BinInterface.Parser
+namespace B2R2.FrontEnd.BinLifter.RISCV
 
 open B2R2
-open B2R2.FrontEnd.BinLifter
 
-/// Initialize a `Parser` from a given ISA, ArchOperationMode, and (optional)
-/// entrypoint address.
-[<CompiledName ("Init")>]
-let init (isa: ISA) mode (entryPoint: Addr option) =
-  match isa.Arch with
-  | Arch.IntelX64
-  | Arch.IntelX86 -> Intel.IntelParser (isa.WordSize) :> Parser
-  | Arch.ARMv7 | Arch.AARCH32 ->
-    ARM32.ARM32Parser (isa, mode, entryPoint) :> Parser
-  | Arch.AARCH64 -> ARM64.ARM64Parser (isa) :> Parser
-  | Arch.MIPS1 | Arch.MIPS2 | Arch.MIPS3 | Arch.MIPS4 | Arch.MIPS5
-  | Arch.MIPS32 | Arch.MIPS32R2 | Arch.MIPS32R6
-  | Arch.MIPS64 | Arch.MIPS64R2 | Arch.MIPS64R6 ->
-    MIPS.MIPSParser (isa) :> Parser
-  | Arch.EVM -> EVM.EVMParser (isa) :> Parser
-  | Arch.TMS320C6000 -> TMS320C6000.TMS320C6000Parser () :> Parser
-  | Arch.CILOnly -> CIL.CILParser () :> Parser
-  | Arch.AVR -> AVR.AVRParser () :> Parser
-  | Arch.SH4 -> SH4.SH4Parser (isa) :> Parser
-  | Arch.PPC32 -> PPC32.PPC32Parser (isa) :> Parser
-  | Arch.RISCV64 -> RISCV.RISCV64Parser (isa) :> Parser
-  | _ -> Utils.futureFeature ()
+type Register =
+  | R0 = 0x0 (* FIXME *)
+
+/// Shortcut for Register type.
+type internal R = Register
+
+/// This module exposes several useful functions to handle RISCV64
+/// registers.
+[<RequireQualifiedAccess>]
+module Register =
+  let inline ofRegID (n: RegisterID): Register =
+    int n |> LanguagePrimitives.EnumOfValue
+
+  let inline toRegID (reg: Register) =
+    LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
+
+  let ofString (str: string) =
+    match str.ToLower () with
+    | "r0" -> R.R0 (* FIXME: Add Registers *)
+    | _ -> Utils.impossible ()
+
+  let toString = function
+    | R.R0 -> "r0" (* FIXME: Add Registers *)
+    | _ -> Utils.impossible ()
