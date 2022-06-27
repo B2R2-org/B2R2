@@ -90,6 +90,7 @@ let getInstructionAlignment hdl =
   | Arch.AVR -> 2
   | Arch.SH4 -> 2
   | Arch.PPC32 -> 4
+  | Arch.RISCV64 -> 4 (* FIXME *)
   | Arch.WASM -> 1
   | _ -> Utils.futureFeature ()
 

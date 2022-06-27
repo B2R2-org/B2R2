@@ -1,4 +1,4 @@
-﻿(*
+(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -22,31 +22,28 @@
   SOFTWARE.
 *)
 
-[<RequireQualifiedAccess>]
-module B2R2.FrontEnd.BinInterface.Parser
+module B2R2.FrontEnd.BinLifter.RISCV.Parser
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
+open B2R2.FrontEnd.BinLifter.BitData
 
-/// Initialize a `Parser` from a given ISA, ArchOperationMode, and (optional)
-/// entrypoint address.
-[<CompiledName ("Init")>]
-let init (isa: ISA) mode (entryPoint: Addr option) =
-  match isa.Arch with
-  | Arch.IntelX64
-  | Arch.IntelX86 -> Intel.IntelParser (isa.WordSize) :> Parser
-  | Arch.ARMv7 | Arch.AARCH32 ->
-    ARM32.ARM32Parser (isa, mode, entryPoint) :> Parser
-  | Arch.AARCH64 -> ARM64.ARM64Parser (isa) :> Parser
-  | Arch.MIPS1 | Arch.MIPS2 | Arch.MIPS3 | Arch.MIPS4 | Arch.MIPS5
-  | Arch.MIPS32 | Arch.MIPS32R2 | Arch.MIPS32R6
-  | Arch.MIPS64 | Arch.MIPS64R2 | Arch.MIPS64R6 ->
-    MIPS.MIPSParser (isa) :> Parser
-  | Arch.EVM -> EVM.EVMParser (isa) :> Parser
-  | Arch.TMS320C6000 -> TMS320C6000.TMS320C6000Parser () :> Parser
-  | Arch.CILOnly -> CIL.CILParser () :> Parser
-  | Arch.AVR -> AVR.AVRParser () :> Parser
-  | Arch.SH4 -> SH4.SH4Parser (isa) :> Parser
-  | Arch.PPC32 -> PPC32.PPC32Parser (isa) :> Parser
-  | Arch.RISCV64 -> RISCV.RISCV64Parser (isa) :> Parser
-  | _ -> Utils.futureFeature ()
+let getRegister = function
+  | _ -> raise ParsingFailureException
+
+let private parseInstruction bin =
+  match bin with
+  | _ -> raise ParsingFailureException
+
+let parse (span: ByteSpan) (reader: IBinReader) addr =
+  let bin = reader.ReadUInt32 (span, 0)
+  let struct (opcode, operands) = parseInstruction bin
+  let insInfo =
+    { Address = addr
+      NumBytes = 4u
+      Opcode = opcode
+      Operands = operands
+      OperationSize = 32<rt> }
+  RISCV64Instruction (addr, 4u, insInfo)
+
+// vim: set tw=80 sts=2 sw=2:

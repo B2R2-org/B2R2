@@ -42,6 +42,7 @@ type RegisterSetTag =
   | SH4 = 9
   | PPC32 = 10
   | Sparc64 = 11
+  | RISCV64 = 12
   | WASM = 20
 
 /// RegisterSet is an efficient set data structure using arrays for managing a

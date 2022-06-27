@@ -1,4 +1,4 @@
-﻿(*
+(*
   B2R2 - the Next-Generation Reversing Platform
 
   Copyright (c) SoftSec Lab. @ KAIST, since 2016
@@ -22,31 +22,35 @@
   SOFTWARE.
 *)
 
-[<RequireQualifiedAccess>]
-module B2R2.FrontEnd.BinInterface.Parser
+module B2R2.FrontEnd.BinLifter.RISCV.Disasm
 
 open B2R2
 open B2R2.FrontEnd.BinLifter
 
-/// Initialize a `Parser` from a given ISA, ArchOperationMode, and (optional)
-/// entrypoint address.
-[<CompiledName ("Init")>]
-let init (isa: ISA) mode (entryPoint: Addr option) =
-  match isa.Arch with
-  | Arch.IntelX64
-  | Arch.IntelX86 -> Intel.IntelParser (isa.WordSize) :> Parser
-  | Arch.ARMv7 | Arch.AARCH32 ->
-    ARM32.ARM32Parser (isa, mode, entryPoint) :> Parser
-  | Arch.AARCH64 -> ARM64.ARM64Parser (isa) :> Parser
-  | Arch.MIPS1 | Arch.MIPS2 | Arch.MIPS3 | Arch.MIPS4 | Arch.MIPS5
-  | Arch.MIPS32 | Arch.MIPS32R2 | Arch.MIPS32R6
-  | Arch.MIPS64 | Arch.MIPS64R2 | Arch.MIPS64R6 ->
-    MIPS.MIPSParser (isa) :> Parser
-  | Arch.EVM -> EVM.EVMParser (isa) :> Parser
-  | Arch.TMS320C6000 -> TMS320C6000.TMS320C6000Parser () :> Parser
-  | Arch.CILOnly -> CIL.CILParser () :> Parser
-  | Arch.AVR -> AVR.AVRParser () :> Parser
-  | Arch.SH4 -> SH4.SH4Parser (isa) :> Parser
-  | Arch.PPC32 -> PPC32.PPC32Parser (isa) :> Parser
-  | Arch.RISCV64 -> RISCV.RISCV64Parser (isa) :> Parser
-  | _ -> Utils.futureFeature ()
+let opCodeToString = function
+  | Op.ADD -> "add"
+  | _ -> Utils.impossible ()
+
+let inline buildOpcode ins (builder: DisasmBuilder<_>) =
+  let str = opCodeToString ins.Opcode
+  builder.Accumulate AsmWordKind.Mnemonic str
+
+let oprToString opr delim (builder: DisasmBuilder<_>) =
+  match opr with
+  | OpReg reg ->
+    builder.Accumulate AsmWordKind.String delim
+    builder.Accumulate AsmWordKind.Variable (Register.toString reg)
+
+let buildOprs insInfo builder =
+  match insInfo.Operands with
+  | NoOperand -> ()
+  | OneOperand opr ->
+    oprToString opr " " builder
+  | TwoOperands (opr1, opr2) ->
+    oprToString opr1 " " builder
+    oprToString opr2 ", " builder
+
+let disasm insInfo (builder: DisasmBuilder<_>) =
+  if builder.ShowAddr then builder.AccumulateAddr () else ()
+  buildOpcode insInfo builder
+  buildOprs insInfo builder
