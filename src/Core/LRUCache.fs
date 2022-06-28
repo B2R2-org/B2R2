@@ -29,37 +29,11 @@ open System.Collections.Generic
 open System.Threading
 open System.Runtime.InteropServices
 
-[<AllowNullLiteral>]
-type private DoublyLinkedListNode<'K, 'V when 'K: equality and 'V: equality>
-  (prev, next, key, value) =
-  let mutable prev = prev
-  let mutable next = next
-  let mutable refCount = 0
-
-  member __.Prev
-    with get(): DoublyLinkedListNode<'K, 'V> = prev and set(n) = prev <- n
-
-  member __.Next
-    with get(): DoublyLinkedListNode<'K, 'V> = next and set(n) = next <- n
-
-  member __.Key with get(): 'K = key
-
-  member __.Value with get(): 'V = value
-
-  member __.RefCount with get() = refCount and set(n) = refCount <- n
-
-  override __.GetHashCode () = value.GetHashCode ()
-
-  override __.Equals rhs =
-    match rhs with
-    | :? DoublyLinkedListNode<'K, 'V> as rhs -> __.Value = rhs.Value
-    | _ -> false
-
 /// Least Recently Used Cache that does not support concurrency.
 type LRUCache<'K, 'V when 'K: equality and 'V: equality> (capacity: int) =
-  let dict = Dictionary<'K, DoublyLinkedListNode<'K, 'V>> ()
-  let mutable head: DoublyLinkedListNode<'K, 'V> = null
-  let mutable tail: DoublyLinkedListNode<'K, 'V> = null
+  let dict = Dictionary<'K, DoublyLinkedKeyValue<'K, 'V>> ()
+  let mutable head: DoublyLinkedKeyValue<'K, 'V> = null
+  let mutable tail: DoublyLinkedKeyValue<'K, 'V> = null
   let mutable size = 0
 
   member inline private __.InsertBack v =
@@ -70,7 +44,7 @@ type LRUCache<'K, 'V when 'K: equality and 'V: equality> (capacity: int) =
     tail <- v
     size <- size + 1
 
-  member inline private __.Remove (v: DoublyLinkedListNode<'K, 'V>) =
+  member inline private __.Remove (v: DoublyLinkedKeyValue<'K, 'V>) =
     if v.Prev = null then head <- v.Next else v.Prev.Next <- v.Next
     if v.Next = null then tail <- v.Prev else v.Next.Prev <- v.Prev
     size <- size - 1
@@ -96,7 +70,7 @@ type LRUCache<'K, 'V when 'K: equality and 'V: equality> (capacity: int) =
     | false, _ -> Error ErrorCase.ItemNotFound
 
   member __.Add (key: 'K, value: 'V) =
-    let v = DoublyLinkedListNode (null, null, key, value)
+    let v = DoublyLinkedKeyValue (null, null, key, value)
     dict[key] <- v
     __.InsertBack v
     if size > capacity then
@@ -119,10 +93,10 @@ type ICacheableOperation<'Arg, 'V when 'V: equality> =
 /// many entries to store.
 type ConcurrentLRUCache<'K, 'V when 'K: equality and 'V: equality>
   (capacity: int) =
-  let dict = Dictionary<'K, DoublyLinkedListNode<'K, 'V>> ()
+  let dict = Dictionary<'K, DoublyLinkedKeyValue<'K, 'V>> ()
   let lock = Object ()
-  let mutable head: DoublyLinkedListNode<'K, 'V> = null
-  let mutable tail: DoublyLinkedListNode<'K, 'V> = null
+  let mutable head: DoublyLinkedKeyValue<'K, 'V> = null
+  let mutable tail: DoublyLinkedKeyValue<'K, 'V> = null
   let mutable size = 0
 
   member inline private __.AcquireLock () =
@@ -140,7 +114,7 @@ type ConcurrentLRUCache<'K, 'V when 'K: equality and 'V: equality>
     size <- size + 1
     v
 
-  member private __.Remove (v: DoublyLinkedListNode<'K, 'V>) =
+  member private __.Remove (v: DoublyLinkedKeyValue<'K, 'V>) =
     if v.Prev = null then head <- v.Next else v.Prev.Next <- v.Next
     if v.Next = null then tail <- v.Prev else v.Next.Prev <- v.Prev
     size <- size - 1
@@ -158,7 +132,7 @@ type ConcurrentLRUCache<'K, 'V when 'K: equality and 'V: equality>
         if size >= capacity then
           dict.Remove head.Key |> ignore
           __.Remove head
-        let v = DoublyLinkedListNode (null, null, key, op.Perform arg)
+        let v = DoublyLinkedKeyValue (null, null, key, op.Perform arg)
         dict.Add (key, v)
         __.InsertBack v
     __.ReleaseLock ()
