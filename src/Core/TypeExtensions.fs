@@ -142,8 +142,8 @@ module SortedList =
         binSearch value lo (mid - 1) keys comp
     else lo
 
-  /// Find the greatest key that is less than or equal to the given key from the
-  /// SortedList. If there's no such key, this function returns None.
+  /// Find the greatest key that is less than the given key from the SortedList.
+  /// If there's no such key, this function returns None.
   let findGreatestLowerBoundKey (key: 'T) (list: SortedList<'T, _>) =
     let comp = Comparer<'T>.Default
     let keys = list.Keys
@@ -153,8 +153,8 @@ module SortedList =
       if comp.Compare (keys[idx], key) < 0 then keys[idx] else keys[idx - 1]
       |> Some
 
-  /// Find the least key that is greater than or equal to the given key from the
-  /// SortedList. If there's no such key, this function returns None.
+  /// Find the least key that is greater than the given key from the SortedList.
+  /// If there's no such key, this function returns None.
   let findLeastUpperBoundKey (key: 'T) (list: SortedList<'T, _>) =
     let comp = Comparer<'T>.Default
     let keys = list.Keys
