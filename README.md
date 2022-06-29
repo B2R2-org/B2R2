@@ -59,17 +59,17 @@ progress, but we look forward to your contributions! Feel free to write a PR
 (Pull Request) while making sure that you have read our [contribution
 guideline](CONTRIBUTING.md).
 
-| Feature               | x86         | x86-64      | ARMv7                | ARMv8                | MIPS32               | MIPS64               | EVM         | TMS320C600  | AVR         | PPC         | SPARC64    |
-|-----------------------|:-----------:|:-----------:|:--------------------:|:--------------------:|:--------------------:|:--------------------:|:-----------:|:-----------:|:-----------:|:-----------:|:----------:|
-| Instruction Parsing   | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :full_moon: | :full_moon: | :new_moon: |
-| Disassembly           | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :full_moon: | :full_moon: | :new_moon: |
-| Lifting               | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :full_moon: | :new_moon:  | :new_moon: |
-| CFG Recovery          | :full_moon: | :full_moon: | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :full_moon: | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: |
-| Data-Flow             | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: |
-| Instruction Emulation | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: |
-| Assembly              | :full_moon: | :full_moon: | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: |
-| REPL                  | :full_moon: | :full_moon: | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: |
-| ROP Compilation       | :full_moon: | :new_moon:  | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: |
+| Feature               | x86         | x86-64      | ARMv7                | ARMv8                | MIPS32               | MIPS64               | EVM         | TMS320C600  | AVR         | PPC         | SPARC64    | SH4         | RISC-V     |
+|-----------------------|:-----------:|:-----------:|:--------------------:|:--------------------:|:--------------------:|:--------------------:|:-----------:|:-----------:|:-----------:|:-----------:|:----------:|:-----------:|:----------:|
+| Instruction Parsing   | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :full_moon: | :full_moon: | :new_moon: | :full_moon: | :new_moon: |
+| Disassembly           | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :full_moon: | :full_moon: | :full_moon: | :new_moon: | :full_moon: | :new_moon: |
+| Lifting               | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :full_moon: | :new_moon:  | :new_moon: | :new_moon:  | :new_moon: |
+| CFG Recovery          | :full_moon: | :full_moon: | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :first_quarter_moon: | :full_moon: | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: | :new_moon:  | :new_moon: |
+| Data-Flow             | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon: | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: | :new_moon:  | :new_moon: |
+| Instruction Emulation | :full_moon: | :full_moon: | :full_moon:          | :full_moon:          | :full_moon:          | :full_moon:          | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: | :new_moon:  | :new_moon: |
+| Assembly              | :full_moon: | :full_moon: | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: | :new_moon:  | :new_moon: |
+| REPL                  | :full_moon: | :full_moon: | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: | :new_moon:  | :new_moon: |
+| ROP Compilation       | :full_moon: | :new_moon:  | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:           | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon:  | :new_moon: | :new_moon:  | :new_moon: |
 
 Dependencies?
 -------------
@@ -168,3 +168,12 @@ If you plan to use B2R2 in your own research. Please consider citing our
   year = 2019
 }
 ```
+
+Publications
+------------
+
+Here are papers using our work. Please create a PR if you want to add yours.
+
+- How'd Security Benefit Reverse Engineers? The Implication of Intel CET on Function Identification, In Proceedings of the International Conference on Dependable Systems Networks, 2022 [(PDF)](https://softsec.kaist.ac.kr/~sangkilc/papers/kim-dsn2022.pdf)
+- Smartian: Enhancing Smart Contract Fuzzing with Static and Dynamic Data-Flow Analyses, In Proceedings of the IEEE/ACM International Conference on Automated Software Engineering, 2021 [(PDF)](https://softsec.kaist.ac.kr/~jschoi/data/ase2021.pdf)
+- NTFuzz: Enabling Type-Aware Kernel Fuzzing on Windows with Static Binary Analysis, In Proceedings of the IEEE Symposium on Security and Privacy, 2021 [(PDF)](https://softsec.kaist.ac.kr/~jschoi/data/oakland2021.pdf)
