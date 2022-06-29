@@ -15,7 +15,7 @@
 
   <ItemGroup>
     <PackageReference Include="B2R2.FsReadLine" Version="0.1.5" />
-    <PackageReference Include="B2R2.MiddleEnd.ConcEval" Version="0.6.0-rc2" />
+    <PackageReference Include="B2R2.MiddleEnd.ConcEval" Version="0.6.0" />
   </ItemGroup>
 
   <ItemGroup>
