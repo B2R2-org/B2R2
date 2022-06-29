@@ -55,7 +55,7 @@ module OS =
 
   /// Obtain an OS type from the given string.
   let ofString (s: string) =
-    match s.ToLower () with
+    match s.ToLowerInvariant () with
     | "windows" | "win" -> OS.Windows
     | "linux" -> OS.Linux
     | "macos" | "macosx" | "mac" | "osx" -> OS.MacOSX

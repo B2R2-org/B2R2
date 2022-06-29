@@ -110,7 +110,7 @@ type ArchOperationMode =
 [<RequireQualifiedAccess>]
 module ArchOperationMode =
   let ofString (s: string) =
-    match s.ToLower () with
+    match s.ToLowerInvariant () with
     | "arm" -> ArchOperationMode.ARMMode
     | "thumb" -> ArchOperationMode.ThumbMode
     | _ -> ArchOperationMode.NoMode
@@ -173,7 +173,7 @@ with
     | _ -> raise InvalidISAException
 
   static member OfString (s: string) =
-    match s.ToLower () with
+    match s.ToLowerInvariant () with
     | "x86" | "i386" -> ISA.Init Arch.IntelX86 Endian.Little
     | "x64" | "x86-64" | "amd64" -> ISA.DefaultISA
     | "armv7" | "armv7le"

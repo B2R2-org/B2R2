@@ -43,6 +43,6 @@ module Register =
     LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
 
   let ofString (str: string) =
-    match str.ToLower () with
+    match str.ToLowerInvariant () with
     | "G0" -> R.G0
     | _ -> Utils.impossible ()

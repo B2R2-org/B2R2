@@ -42,7 +42,7 @@ type LogLevel =
 module LogLevel =
   /// Get LogLevel from a given string.
   let ofString (str: string) =
-    match str.ToLower () with
+    match str.ToLowerInvariant () with
     | "1" | "l1" | "quiet" | "q" -> LogLevel.L1
     | "3" | "l3" | "verbose" | "v" -> LogLevel.L3
     | "4" | "l4" -> LogLevel.L4

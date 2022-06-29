@@ -92,7 +92,8 @@ type CmdShow () =
       if Char.IsDigit expr[0] then
         ess.CodeManager.FunctionMaintainer.TryFind (addr)
       else ess.CodeManager.FunctionMaintainer.TryFind (expr)
-      |> Option.map (fun callee -> (__.CalleeToString ess sb callee).ToString ())
+      |> Option.map (fun callee ->
+        (__.CalleeToString ess sb callee).ToString ())
       |> Option.defaultValue "[*] Not found."
       |> Array.singleton
     | _ -> [| __.CmdHelp |]
@@ -106,7 +107,7 @@ type CmdShow () =
   override __.CallBack _ ess args =
     match args with
     | [] -> [| __.CmdHelp |]
-    | c :: opts -> c.ToLower () |> __.CmdHandle ess opts
+    | c :: opts -> c.ToLowerInvariant () |> __.CmdHandle ess opts
     |> Array.map OutputNormal
 
 // vim: set tw=80 sts=2 sw=2:

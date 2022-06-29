@@ -40,7 +40,7 @@ type FileFormat =
 /// A helper module for FileFormat type.
 module FileFormat =
   let ofString (str: string) =
-    match str.ToLower () with
+    match str.ToLowerInvariant () with
     | "elf" -> FileFormat.ELFBinary
     | "pe" -> FileFormat.PEBinary
     | "mach" | "mach-o" -> FileFormat.MachBinary

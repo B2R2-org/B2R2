@@ -43,7 +43,7 @@ module Register =
     LanguagePrimitives.EnumToValue (reg) |> RegisterID.create
 
   let ofString (str: string) =
-    match str.ToLower () with
+    match str.ToLowerInvariant () with
     | "r0" -> R.R0 (* FIXME: Add Registers *)
     | _ -> Utils.impossible ()
 

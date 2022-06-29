@@ -99,7 +99,7 @@ let printMyVersion () =
   |> Printer.printToConsole
 
 let handleCommands (cmd: string) (rest: string []) =
-  match cmd.ToLower () with
+  match cmd.ToLowerInvariant () with
   | "help" | "--help" | "-h" -> showUsage (); 0
   | "fileviewer" | "file" | "fileview" | "peek" -> FileViewer.Program.main rest
   | "bindump" | "disasm" | "dump" | "disas" | "dis" -> BinDump.Program.main rest

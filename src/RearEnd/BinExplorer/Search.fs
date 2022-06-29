@@ -71,10 +71,10 @@ type CmdSearch () =
     | c -> [| "Unknown type " + c |]
 
   override __.CallBack _ ess args =
-    match args with
-    | []
-    | _ :: [] -> [| __.CmdHelp |]
-    | t :: pattern :: _ -> t.ToLower () |> __.CmdHandle ess.BinHandle pattern
-    |> Array.map OutputNormal
-
-// vim: set tw=80 sts=2 sw=2:
+    let res =
+      match args with
+      | []
+      | _ :: [] -> [| __.CmdHelp |]
+      | t :: pattern :: _ ->
+        t.ToLowerInvariant () |> __.CmdHandle ess.BinHandle pattern
+    Array.map OutputNormal res

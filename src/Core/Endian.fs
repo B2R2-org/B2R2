@@ -44,7 +44,7 @@ module Endian =
   ///   Endian.
   /// </returns>
   let ofString (str: string) =
-    match str.ToLower () with
+    match str.ToLowerInvariant () with
     | "l" | "le" | "little" -> Endian.Little
     | "b" | "be" | "big" -> Endian.Big
     | _     -> failwith "Wrong endian specified."
